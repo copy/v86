@@ -43,7 +43,7 @@ pub fn allocate_memory(size: u32) -> u32 {
     // RAM reads as zero at power-on. The pages the heap grows by are zero,
     // but below its current end the allocator may return chunks freed
     // before, their headers still in them: with the page tier's 32-bit code, the 16 chunks of
-    // 2 MiB of ir::runtime::schedule's reserve_compiler_heap
+    // 2 MiB of jit::reserve_compiler_heap
     // (0x0020000A00400010 at guest 0x3FFEA0, ...). Only that part is cleared
     // (alloc_zeroed would commit every page of the guest's RAM up front).
     let heap_end = heap_end();

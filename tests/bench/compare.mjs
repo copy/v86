@@ -7,7 +7,7 @@
 // --switches-a, which measures the noise a gate has to stay clear of.
 //
 // Usage: tests/bench/compare.mjs --switches-a "name=value,..." [--switches-b "..."]
-//        [--wasm build/v86-ir-runtime.wasm] [--sessions 3] [--level R|F|S|D]
+//        [--wasm build/v86.wasm] [--sessions 3] [--level R|F|S|D]
 //        [--target name,...] [--quick] [--filter re] [--runs n] [--aa]
 // The session files go to build/bench/compare-<time>-<n>.json.
 
@@ -32,7 +32,7 @@ const sessions = Number(value("--sessions") || 3);
 const level = value("--level") || "R";
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 
-const run_args = ["--wasm", value("--wasm") || "build/v86-ir-runtime.wasm", "--switches-a", switches_a, "--switches-b", switches_b];
+const run_args = ["--wasm", value("--wasm") || "build/v86.wasm", "--switches-a", switches_a, "--switches-b", switches_b];
 if(flag("--quick")) run_args.push("--quick");
 for(const name of ["--filter", "--runs"]) if(value(name) !== undefined) run_args.push(name, value(name));
 

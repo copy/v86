@@ -77,7 +77,7 @@ pub mod event {
     /// next block start
     pub const MISS_UNSERVED: u32 = 7;
     /// (not allowed, x64::pages::allowed: MISS_DISABLED is the tier or the
-    /// IR scheduler off, deterministic execution or no budget) an interrupt
+    /// JIT off, deterministic execution or no budget) an interrupt
     /// shadow; TF or RF; DR7 breakpoints; core events, an NMI or an SMI
     /// pending; HLT
     pub const MISS_SHADOW: u32 = 8;
@@ -138,8 +138,8 @@ pub mod event {
     /// what QueryPerformanceCounter reads)
     pub const HPET_READ: u32 = 10;
     pub const PM_TIMER_READ: u32 = 11;
-    /// A CPU frame began
-    pub const FRAME: u32 = 12;
+    // (12 was FRAME: a CPU frame began, begin_cpu_frame's, deleted with the
+    // region scheduler in M11)
     // (src/hpet.js and src/acpi.js pass these numbers)
     const _: () = assert!(HPET_READ == 10 && PM_TIMER_READ == 11);
 }

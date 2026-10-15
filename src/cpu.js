@@ -89,9 +89,6 @@ export function CPU(bus, wm, stop_idling)
     this.scheduler_seed = 0;
     this.scheduler_round = 0;
     this.jit_backend = "ir";
-    this.ir_region_budget = null;
-    this.ir_pass_names = ["prune", "merge", "phis", "copy", "fold", "flags", "helper_state", "gvn", "dce",
-        "licm", "mir_fold", "stack", "allocation", "state_elision", "ram_loop", "ram_forward", "ram_guard", "budget_batch", "sparse_polls"];
     this.wasm_patch();
     this.create_jit_imports();
 
@@ -497,7 +494,8 @@ CPU.prototype.clear_stats = function()
 
 // x64 page functions (src/rust/x64/pages.rs). Installed synchronously when
 // the host allows it: the core is at a scheduling point with no Rust lock
-// held, so the function is callable before the guest continues.
+// held, so the function is callable before the guest continues. Resolves to
+// whether the function was installed (the performance recorder times it).
 CPU.prototype.x64_page_publish = function(id, slot, pointer, length)
 {
     const wasm = this.wm, exports = wasm.exports, table = wasm.wasm_table;
@@ -505,22 +503,22 @@ CPU.prototype.x64_page_publish = function(id, slot, pointer, length)
     const code = new Uint8Array(exports["memory"].buffer, pointer >>> 0, length >>> 0).slice();
     const current = () => this.execution_epoch === epoch && this.wm === wasm;
     const install = instance => {
-        if(!current()) return;
+        if(!current()) return false;
         const f = instance.exports["f"];
         if(typeof f !== "function" || !exports["x64_page_install"](id, slot))
         {
             exports["x64_page_cancel"](id, slot);
-            return;
+            return false;
         }
         table.set(slot + WASM_TABLE_OFFSET, f);
         exports["x64_page_ready"](id, slot);
+        return true;
     };
     if(this.ir_sync_publication)
     {
         try
         {
-            install(new WebAssembly.Instance(new WebAssembly.Module(code), { "e": this.jit_imports }));
-            return;
+            return Promise.resolve(install(new WebAssembly.Instance(new WebAssembly.Module(code), { "e": this.jit_imports })));
         }
         catch(error)
         {
@@ -528,14 +526,15 @@ CPU.prototype.x64_page_publish = function(id, slot, pointer, length)
             {
                 dbg_log("x64 page function rejected: " + error, LOG_CPU);
                 if(current()) exports["x64_page_cancel"](id, slot);
-                return;
+                return Promise.resolve(false);
             }
             this.ir_sync_publication = false;
         }
     }
-    WebAssembly.instantiate(code, { "e": this.jit_imports }).then(result => install(result.instance), error => {
+    return WebAssembly.instantiate(code, { "e": this.jit_imports }).then(result => install(result.instance), error => {
         dbg_log("x64 page function rejected: " + error, LOG_CPU);
         if(current()) exports["x64_page_cancel"](id, slot);
+        return false;
     });
 };
 
@@ -1645,7 +1644,6 @@ CPU.prototype.run_cores = function()
     // Always service the shared devices, even if every core is in CLI/HLT.
     // AP execution never advances the machine's timers a second time.
     const now = this.clock.now();
-    this.wm.exports["begin_cpu_frame"](now);
     let next = this.run_hardware_timers(!!this.acpi_enabled[0], now);
     let ran = false;
     let start = this.scheduler_round++ % this.cores.length;
@@ -1804,7 +1802,6 @@ CPU.prototype.load_core_state = function(saved, preserve_tlb)
     const memory = new Uint8Array(this.wasm_memory.buffer);
     CORE_STATE_RANGES.forEach(([start], i) => memory.set(saved[i], this.state_base + start));
     if(!preserve_tlb) this.full_clear_tlb();
-    this.wm.exports["ir_admission_barrier"]();
     this.update_state_flags();
 };
 
@@ -2534,210 +2531,51 @@ CPU.prototype.configure_jit_backend = function(settings)
     if(settings["jit_backend"] !== undefined && settings["jit_backend"] !== "ir")
         throw new Error("jit_backend must be ir (the legacy backend was removed)");
     const exports = this.wm.exports;
-    if(!exports["ir_auto_config"])
-        throw new Error("This core has no IR compiler; rebuild build/v86.wasm");
-    const requested = settings["ir_region_budget"];
-    const opt_level = settings["ir_opt_level"] === undefined ? 2 : settings["ir_opt_level"];
-    const disabled = settings["ir_passes_disabled"] === undefined ? [] : settings["ir_passes_disabled"];
-    const stats = settings["ir_stats"] === undefined ? "off" : settings["ir_stats"];
-    const verify = settings["ir_verify"] === undefined ? "debug" : settings["ir_verify"];
-    const dump = settings["ir_dump"] === undefined ? "off" : settings["ir_dump"];
-    const verify_modes = ["off", "debug", "every_pass"], dump_modes = ["off", "hir", "mir", "wasm", "all"];
-    if(!["off", "sampled", "debug"].includes(stats)) throw new Error("ir_stats must be off, sampled or debug");
-    if(!verify_modes.includes(verify)) throw new Error("ir_verify must be off, debug or every_pass");
-    if(!dump_modes.includes(dump)) throw new Error("ir_dump must be off, hir, mir, wasm or all");
-    const pass_names = this.ir_pass_names;
-    if(!Number.isInteger(opt_level) || opt_level < 0 || opt_level > 2)
-        throw new Error("ir_opt_level must be 0, 1 or 2");
-    if(!Array.isArray(disabled) || disabled.some(name => typeof name !== "string" || !pass_names.includes(name))
-        || new Set(disabled).size !== disabled.length)
-        throw new Error("ir_passes_disabled must contain unique known pass names");
-    const disabled_mask = disabled.reduce((mask, name) => mask | 1 << pass_names.indexOf(name), 0);
-    if(requested !== undefined && (!requested || typeof requested !== "object" || Array.isArray(requested)))
-        throw new Error("ir_region_budget must be an object");
-    const limits = {
-        "hot_threshold": [32, 1, 1000000], "promotion_threshold": [65536, 1, 1000000],
-        "max_source_bytes": [192, 15, 960], "execution_budget": [256, 1, 4096],
-        "rep_iterations": [64, 1, 4096],
-    };
-    const budget = {};
-    for(const key of Object.keys(requested || {}))
-        if(!Object.prototype.hasOwnProperty.call(limits, key)) throw new Error("Unknown ir_region_budget option: " + key);
-    for(const key of Object.keys(limits))
-    {
-        const [fallback, min, max] = limits[key];
-        const value = requested?.[key] === undefined ? fallback : requested[key];
-        if(!Number.isInteger(value) || value < min || value > max)
-            throw new Error("Invalid ir_region_budget." + key + ": expected integer " + min + ".." + max);
-        budget[key] = value;
-    }
+    if(!exports["jit_set_enabled"])
+        throw new Error("This core has no JIT; rebuild build/v86.wasm");
+    // (the IR region tiers' settings, ir_region_budget, ir_opt_level,
+    // ir_passes_disabled, ir_verify, ir_dump, ir_stats and ir_page_mode, are
+    // deprecated and have no effect: docs/jit-unification-plan.md M11
+    // deleted the region tiers, and the x64 page tier compiles all code)
     const enabled = !settings.disable_jit;
-    if(settings["ir_stats"] !== undefined && !this.configure_ir_diagnostics(stats === "off" ? 0 : stats === "sampled" ? 128 : 1))
-        throw new Error("Cannot configure IR statistics on this core");
-    if(!exports["ir_auto_debug"] || !exports["ir_auto_debug"](verify_modes.indexOf(verify), dump_modes.indexOf(dump)))
-        throw new Error("IR debug policy requires a fresh compatible core");
-    if(!exports["ir_auto_optimizations"] || !exports["ir_auto_optimizations"](opt_level, disabled_mask))
-        throw new Error("IR optimization policy requires a fresh compatible core");
-    if(!exports["ir_auto_config"](enabled ? 1 : 0,
-        budget["hot_threshold"], budget["promotion_threshold"], budget["max_source_bytes"],
-        budget["execution_budget"], budget["rep_iterations"]))
-        throw new Error("Cannot configure IR while a CPU compilation or execution is active");
+    if(!exports["jit_set_enabled"](enabled ? 1 : 0))
+        throw new Error("Cannot configure the JIT");
     if(settings["ir_tier0"] !== undefined && typeof settings["ir_tier0"] !== "boolean")
         throw new Error("ir_tier0 must be a boolean");
-    // 32-bit protected-mode code in the x64 page tier, below the optimizing
-    // region tier (default on; the name is IR Tier-0's, which it replaced in
-    // docs/jit-unification-plan.md P7.5).
-    if(enabled && settings["ir_tier0"] !== false && !(exports["ir_auto_set_tier0"] && exports["ir_auto_set_tier0"](1)))
-        throw new Error("ir_tier0 requires a compatible fresh core");
-    // Testing: region-only compilation (no page-granular compilation)
-    if(settings["ir_page_mode"] !== undefined && !exports["ir_auto_set_page_mode"](settings["ir_page_mode"] ? 1 : 0))
-        throw new Error("ir_page_mode requires a fresh core");
+    // 32-bit and 16-bit code in the x64 page tier (default on; the name is
+    // IR Tier-0's, which it replaced in P7.5): without it that code runs in
+    // the interpreter
+    if(!exports["jit_set_page32"](enabled && settings["ir_tier0"] !== false ? 1 : 0))
+        throw new Error("Cannot configure ir_tier0");
     this.jit_backend = "ir";
     this.ir_sync_publication = settings["ir_sync_publication"] === true;
-    this.ir_region_budget = budget;
-};
-
-CPU.prototype.configure_ir_diagnostics = function(period)
-{
-    if(!Number.isInteger(period) || period < 0 || period > 65536 || period && (period & (period - 1)))
-        throw new RangeError("IR diagnostic sample period must be 0 or a power of two up to 65536");
-    const configure = this.wm.exports["ir_diagnostic_config"];
-    if(!configure) throw new Error("Core has no IR diagnostics");
-    return !!configure(period);
-};
-
-CPU.prototype.get_ir_diagnostics = function()
-{
-    const get = this.wm.exports["ir_diagnostic_get"];
-    if(!get) return null;
-    const period = get(0, 0, 0);
-    const stages = ["dispatch", "scheduler", "admission", "fetch", "generated", "state_write", "state_reload",
-        "memory_slow", "helper", "interpreter", "compile", "byte_validation", "source_capture"];
-    const exits = ["unclassified", "normal", "budget", "epoch", "fault", "scalar_store", "code_store",
-        "rmw_commit", "vector_memory", "helper_control_or_fault", "helper_yield", "helper_invalidated", "entry_guard", "interrupt_shadow"];
-    const names = ["batches", "sampled_batches", "cpu_batch_ms", "sampled_batch_ms", "interpreter_steps",
-        "ir_activations", "ir_steps", "instrumentation_errors", "sampled_activations"];
-    const totals = Object.fromEntries(names.map((name, i) => [name, get(4, i, 0)]));
-    const timings = Object.fromEntries(stages.map((name, i) => [name, {
-        "sampled_ms": get(1, i, 0), "sampled_calls": get(1, i, 1),
-        "estimated_ms": get(1, i, 0) * period,
-    }]));
-    const reasons = Object.fromEntries(exits.map((name, i) => [name, {"count":get(2, i, 0), "guest_steps":get(2, i, 1)}]));
-    const admission = Object.fromEntries(["attempt", "busy", "missing", "context", "stale_before", "capture",
-        "fetch_fault", "lost_owner", "unavailable_after", "stale_after", "accepted"].map((name,i)=>[name,get(3,i,0)]));
-    const compile_phases = ["pipeline", "capture", "lift", "passes", "lower", "machine", "emit",
-        "hir_allocation", "lower_states", "lower_proofs", "lower_verify", "machine_fold", "machine_stack",
-        "machine_allocation", "machine_state", "machine_helper", "machine_liveness", "machine_loop_ram", "machine_forward", "machine_guards"];
-    const compile_row = (group, index) => ({"ms":get(group,index,0),"calls":get(group,index,1),
-        "max_ms":get(group,index,2),"max_pc":get(group,index,3),"max_tier":get(group,index,4)});
-    const compiler = Object.fromEntries(compile_phases.map((name,i)=>[name,compile_row(5,i)]));
-    const compiler_breakdown = [];
-    if(period && get(0,6,0)) for(let tier=0;tier<3;tier++) for(let kind=0;kind<4;kind++) for(let shape=0;shape<3;shape++)
-    {
-        const bucket=(tier*4+kind)*3+shape;
-        const phases=Object.fromEntries(compile_phases.map((name,i)=>[name,compile_row(14,bucket*20+i)])
-            .filter(([,row])=>row["calls"]));
-        if(Object.keys(phases).length) compiler_breakdown.push({"tier":tier,
-            "kind":["unknown","ordinary","shared","fused"][kind],
-            "shape":["unknown","single","multi"][shape],"phases":phases});
-    }
-    const interpreter_hotspots = [];
-    for(let i=0;i<256;i++) if(get(9,i,3)) interpreter_hotspots.push({
-        "pc":get(9,i,0),"cr3":get(9,i,1),"physical":get(9,i,2),"samples":get(9,i,3),"guest_steps":get(9,i,4),"inclusive_ms":get(9,i,5)});
-    const helper_exits = Object.fromEntries(["other","segment","port_read","port_write","rep","far_control","flags","descriptor","cpu_control","fp","halt","invalid"].map((name,i)=>[name,{"count":get(10,i,0),"guest_steps":get(10,i,1)}]));
-    const hotspots = [];
-    if(period) for(let i=0;i<512;i++) {
-        if(!get(7,i,3)) continue;
-        hotspots.push({"pc":get(7,i,0),"cr3":get(7,i,1),"reason":exits[get(7,i,2)],
-            "samples":get(7,i,3),"guest_steps":get(7,i,4),"inclusive_ms":get(7,i,5),
-            "tier":get(7,i,6),"fused":!!get(7,i,7)});
-    }
-    return {"schema":1, "enabled":!!period, "sample_period":period, "session":get(0,1,0),
-        "empty_scope_sampled_ms":get(0,4,0),"empty_scope_wall_ms":get(0,5,0),
-        "totals":totals,"timings":timings,"exits":reasons,"admission":admission,"compiler":compiler,"compiler_breakdown":compiler_breakdown,
-        "publication":{"wall_ms":get(6,0,0),"calls":get(6,1,0),"succeeded":get(6,2,0)},
-        "discovery_latency":Object.fromEntries(["tier1","tier2"].map((name,i)=>[name,{"ms":get(11,i,0),"count":get(11,i,1),"max_ms":get(11,i,2)}])),
-        "missing_entries":Object.fromEntries(["unseen","heating","ready","pending","failed"].map((name,i)=>[name,get(12,i,0)])),
-        "chain_stops":Object.fromEntries(["no_request","cpu_budget","halt","control_flags","target_miss","chain_limit"].map((name,i)=>[name,get(8,i,0)])),
-        "interpreter_hotspots":interpreter_hotspots,"helper_exits":helper_exits,
-        "control_exits":Object.fromEntries(["rdtsc","cpuid","read_cr","write_cr","clts","sti_check"].map((name,i)=>[name,{"count":get(13,i,0),"guest_steps":get(13,i,1)}])),
-        "hotspot_replacements":get(0,2,0),"hotspots":hotspots};
 };
 
 CPU.prototype.get_jit_info = function()
 {
     const exports = this.wm.exports;
-    const available = !!exports["ir_auto_config"];
-    const ir = available ? {} : null;
-    if(ir)
-    {
-        const fields = ["visits", "linked_visits", "tier1_attempts", "tier2_attempts", "tier1_published",
-            "tier2_published", "compile_stops", "publication_failures", "suppressed", "hot_entries", "pending", "enabled"];
-        fields.forEach((name, index) => { ir[name] = exports["ir_auto_stat"](index) >>> 0; });
-        ["unsupported_stops", "budget_stops", "invalid_ir_stops", "budget_retries"].forEach((name, index) => {
-            ir[name] = exports["ir_auto_stat"](12 + index) >>> 0;
-        });
-        ir["batched_entries"] = exports["ir_auto_stat"](16) >>> 0;
-        ir["queued_entries"] = exports["ir_auto_stat"](17) >>> 0;
-        ir["hot_replacements"] = exports["ir_auto_stat"](22) >>> 0;
-        ir["probation_visits"] = exports["ir_auto_stat"](23) >>> 0;
-        ir["hot_filter"] = !!exports["ir_auto_stat"](24);
-        ["fusion_attempts", "fusion_budget_stops", "fusion_unsupported_stops", "fusion_invalid_stops"].forEach((name, index) => {
-            ir[name] = exports["ir_auto_stat"](18 + index) >>> 0;
-        });
-        ir["cache_entries"] = exports["ir_cache_stat"](0) >>> 0;
-        ir["cache_evictions"] = exports["ir_cache_stat"](27) >>> 0;
-        ir["cache_capacity"] = exports["ir_cache_capacity"] ? exports["ir_cache_capacity"]() >>> 0 : 32;
-        ir["cache_hits"] = exports["ir_cache_stat"](2) >>> 0;
-        ir["cache_cached_checks"] = exports["ir_cache_stat"](8) >>> 0;
-        ir["cache_capture_fallbacks"] = exports["ir_cache_stat"](9) >>> 0;
-        ir["cache_guest_steps"] = exports["ir_cache_stat"](10) >>> 0;
-        ir["cache_max_guest_steps"] = exports["ir_cache_stat"](11) >>> 0;
-        ir["cache_zero_step_exits"] = exports["ir_cache_stat"](12) >>> 0;
-        ir["structured_publications"] = exports["ir_cache_stat"](13) >>> 0;
-        ir["generic_publications"] = exports["ir_cache_stat"](14) >>> 0;
-        ir["structured_backedges"] = exports["ir_cache_stat"](15) >>> 0;
-        ir["generic_dispatch_edges"] = exports["ir_cache_stat"](16) >>> 0;
-        ir["structured_edges"] = exports["ir_cache_stat"](17) >>> 0;
-        ir["cache_fast_checks"] = exports["ir_cache_stat"](18) >>> 0;
-        ir["cache_full_checks"] = exports["ir_cache_stat"](19) >>> 0;
-        ir["cache_post_fetch_reuses"] = exports["ir_cache_stat"](20) >>> 0;
-        ir["cache_target_hits"] = exports["ir_cache_stat"](21) >>> 0;
-        ir["cache_negative_hits"] = exports["ir_cache_stat"](28) >>> 0;
-        ir["cache_successor_hits"] = exports["ir_cache_stat"](29) >>> 0;
-        ir["cache_fast_validation"] = !!exports["ir_cache_stat"](22);
-        ir["fused_publications"] = exports["ir_cache_stat"](23) >>> 0;
-        ir["fused_hits"] = exports["ir_cache_stat"](24) >>> 0;
-        ir["fused_guest_steps"] = exports["ir_cache_stat"](25) >>> 0;
-        ir["fusion_enabled"] = !!exports["ir_cache_stat"](26);
-        // (IR Tier-0 was deleted, docs/jit-unification-plan.md P7.5: its
-        // 32-bit code is the x64 page tier's, page_tier)
-        ir["tier0"] = null;
-        // (32-bit protected-mode code in the x64 page tier, x64_page_legacy32)
-        ir["page_tier"] = exports["x64_page_stat"] ? {
-            "legacy32": !!exports["x64_page_stat"](40),
-            "compat32": !!exports["x64_page_stat"](41),
-            // (16-bit protected-mode code, x64_page_prot16)
-            "prot16": !!exports["x64_page_stat"](42),
-            // (real-mode and virtual-8086 code, x64_page_v86)
-            "v86": !!exports["x64_page_stat"](44),
-            "functions": exports["x64_page_stat"](12) >>> 0,
-            "native_instructions": exports["x64_page_stat"](1) >>> 0,
-            "activations": exports["x64_page_stat"](13) >>> 0,
-        } : null;
-        ir["diagnostics"] = this.get_ir_diagnostics();
-    }
+    // (the IR region tiers' statistics and settings went with them,
+    // docs/jit-unification-plan.md M11; IR Tier-0's before, P7.5)
     return {
         "backend": this.jit_backend,
-        "ir_available": available,
-        "ir_region_budget": this.ir_region_budget && { ...this.ir_region_budget },
-        "ir_stats": exports["ir_diagnostic_get"](0, 0, 0) === 0 ? "off" :
-            exports["ir_diagnostic_get"](0, 0, 0) === 1 ? "debug" : "sampled",
-        "ir_verify": ["off", "debug", "every_pass"][exports["ir_auto_optimization_stat"](2)],
-        "ir_dump": ["off", "hir", "mir", "wasm", "all"][exports["ir_auto_optimization_stat"](3)],
-        "ir_opt_level": exports["ir_auto_optimization_stat"](0),
-        "ir_passes_disabled": this.ir_pass_names.filter((_, index) => exports["ir_auto_optimization_stat"](1) & 1 << index),
-        "ir": ir,
+        "ir_available": !!exports["jit_set_enabled"],
+        "ir": {
+            // (1 when the JIT compiles: configure_jit_backend, jit_set_enabled)
+            "enabled": exports["jit_is_enabled"] ? +exports["jit_is_enabled"]() : 0,
+            "tier0": null,
+            // (32-bit and 16-bit code in the x64 page tier)
+            "page_tier": exports["x64_page_stat"] ? {
+                "legacy32": !!exports["x64_page_stat"](40),
+                "compat32": !!exports["x64_page_stat"](41),
+                // (16-bit protected-mode code, x64_page_prot16)
+                "prot16": !!exports["x64_page_stat"](42),
+                // (real-mode and virtual-8086 code, x64_page_v86)
+                "v86": !!exports["x64_page_stat"](44),
+                "functions": exports["x64_page_stat"](12) >>> 0,
+                "native_instructions": exports["x64_page_stat"](1) >>> 0,
+                "activations": exports["x64_page_stat"](13) >>> 0,
+            } : null,
+        },
     };
 };
 
@@ -3704,102 +3542,6 @@ CPU.prototype.load_bios = function()
             addr &= 0xFFFFF;
             this.mem8[addr] = value;
         }.bind(this));
-};
-
-// Experimental explicit compilation policy. Successful entries are selected by
-// the normal CPU dispatcher; publication remains asynchronous and owner-checked.
-CPU.prototype.ir_compile_cached = function(length, tier, optimize, cfg, budget, rep_budget)
-{
-    const wasm = this.wm, exports = wasm.exports, table = wasm.wasm_table;
-    if(!exports["ir_compile_live"] || !exports["ir_cache_reserve"]) return Promise.resolve(false);
-    const id = exports["ir_compile_live"](length, tier, optimize, cfg, budget, rep_budget);
-    if(!id) return Promise.resolve(false);
-    const code = new Uint8Array(exports["memory"].buffer,
-        exports["ir_live_info"](id, 0) >>> 0, exports["ir_live_info"](id, 1) >>> 0).slice();
-    const slot = exports["ir_cache_reserve"](id);
-    if(!slot) { exports["ir_live_release"](id); return Promise.resolve(false); }
-    return this.ir_publish_cached({ wasm, exports, table }, id, slot, code, false);
-};
-
-// Every string and module is copied before returning to the event loop.
-CPU.prototype.get_ir_dumps = function(clear)
-{
-    const exports = this.wm.exports;
-    if(!exports["ir_dump_count"]) return [];
-    const records = [], decoder = new TextDecoder();
-    for(let index = 0; index < exports["ir_dump_count"](); index++)
-    {
-        const field = n => exports["ir_dump_info"](index, n) >>> 0;
-        const copy = n => new Uint8Array(exports["memory"].buffer, field(n), field(n + 1)).slice();
-        records.push({"pc": field(0), "tier": field(1), "hir": decoder.decode(copy(2)),
-            "mir": decoder.decode(copy(4)), "wasm": copy(6), "truncated": field(8)});
-    }
-    if(clear) exports["ir_dump_clear"]();
-    return records;
-};
-
-CPU.prototype.ir_auto_publish = function(id, slot, ptr, len)
-{
-    const wasm = this.wm, exports = wasm.exports, table = wasm.wasm_table;
-    const code = new Uint8Array(exports["memory"].buffer, ptr >>> 0, len >>> 0).slice();
-    return this.ir_publish_cached({ wasm, exports, table }, id, slot, code, true);
-};
-
-CPU.prototype.ir_publish_cached = function(owner, id, slot, code, automatic)
-{
-    const { wasm, exports, table } = owner;
-    const epoch = this.execution_epoch;
-    const current = () => this.execution_epoch === epoch && this.wm === wasm && this.wm.exports === exports && this.wm.wasm_table === table;
-    const failed = () => {
-        if(current()) { exports["ir_cache_cancel"](id, slot); exports["ir_cache_collect"](); }
-        return false;
-    };
-    const install = instance => {
-        if(!current()) return false;
-        const f = instance.exports["f"];
-        if(typeof f !== "function") return failed();
-        if(!exports["ir_cache_validate"](id, slot)) return failed();
-        table.set(slot + WASM_TABLE_OFFSET, f);
-        if(!exports["ir_cache_finish"](id, slot)) return failed();
-        exports["ir_cache_collect"]();
-        return true;
-    };
-    const diagnostic = exports["ir_diagnostic_get"];
-    const diagnostic_session = diagnostic && diagnostic(0,0,0) ? diagnostic(0,1,0) : 0;
-    const diagnostic_start = diagnostic_session ? performance.now() : 0;
-    // Automatic publication is synchronous where the host allows it: the core
-    // is at a cold scheduling point with no Rust lock held, so validation,
-    // table installation and completion run before the guest continues. V8
-    // compiles functions lazily on first call, so this costs validation only.
-    // A host that refuses synchronous compilation (for example a browser main
-    // thread limit) permanently falls back to the asynchronous bridge.
-    if(automatic && this.ir_sync_publication && !diagnostic_session)
-    {
-        let instance = null, rejected = false;
-        try
-        {
-            instance = new WebAssembly.Instance(new WebAssembly.Module(code), { "e": this.jit_imports });
-        }
-        catch(error)
-        {
-            if(error instanceof WebAssembly.CompileError || error instanceof WebAssembly.LinkError) rejected = true;
-            else this.ir_sync_publication = false;
-        }
-        if(instance || rejected)
-        {
-            const success = instance ? install(instance) : failed();
-            if(current()) exports["ir_auto_complete"](id, success ? 1 : 0);
-            return Promise.resolve(success);
-        }
-    }
-    let task;
-    try { task = WebAssembly.instantiate(code, { "e": this.jit_imports }); }
-    catch(error) { task = Promise.reject(error); }
-    return task.then(result => install(result.instance)).catch(failed).then(success => {
-        if(diagnostic_session && current()) exports["ir_diagnostic_publication"](diagnostic_session, performance.now() - diagnostic_start, success ? 1 : 0);
-        if(automatic && current()) exports["ir_auto_complete"](id, success ? 1 : 0);
-        return success;
-    });
 };
 
 CPU.prototype.run_hardware_timers = function(acpi_enabled, now)

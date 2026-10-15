@@ -23,6 +23,7 @@ export const EVENTS = {
     9: ["fxstate", ["FXSAVE", "FXRSTOR", "XSAVE", "XRSTOR"]],
     10: ["hpet-read", []],
     11: ["pm-timer-read", []],
+    // (CPU frames, until M11 deleted the region scheduler's begin_cpu_frame)
     12: ["frame", []],
 };
 const MAPS = ["", "0F", "0F38", "0F3A"];

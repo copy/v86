@@ -37,7 +37,6 @@ async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = 
         disable_jit: mode === "interpreter",
         experimental_smp_jit: true,
         ir_sync_publication: !asynchronous,
-        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 },
         autostart: false,
         log_level: 0,
     }, mode));
@@ -47,12 +46,6 @@ async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = 
         await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
         const cpu = emulator.v86.cpu;
         const e = cpu.wm.exports;
-        if(mode !== "interpreter")
-        {
-            assert.equal(e.ir_auto_set_idle_mode(0, 1), 1);
-            assert.equal(e.ir_auto_set_page_threshold(2), 1);
-            if(mode === "region") assert.equal(e.ir_auto_set_page_mode(0), 1);
-        }
         const memory = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
         const word = address => new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).getUint32(address, true);
         memory.setUint32(CONTROL, cores, true);
@@ -106,11 +99,9 @@ async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = 
                 // the interpreter only permits STI's one shadow instruction.
                 assert.ok(slice <= quantum + (mode === "interpreter" ? 1 : 256), `${label}: bounded core ${id} slice (${slice})`);
             }
-            const hot_published = published(e, 0x101000);
-            const function_hits = e.ir_cache_entry_stat(0x101000, 0, 1, 1) >>> 0;
             // (the page tier counts no calls per function: its native
             // instructions, once the page has one)
-            hot_hits = Math.max(hot_hits, function_hits, mode === "pages" && hot_published ? e.x64_page_stat(1) >>> 0 : 0);
+            if(published(e, 0x101000)) hot_hits = Math.max(hot_hits, e.x64_page_stat(1) >>> 0);
             if(hot_hits > 0) new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).setUint32(CONTROL + 52, 1, true);
             rounds++;
             if((rounds & (asynchronous ? 7 : 127)) === 0) await new Promise(resolve => set_immediate(resolve));

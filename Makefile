@@ -5,7 +5,7 @@ NASM_TEST_DIR=./tests/nasm
 INSTRUCTION_TABLES=src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs src/rust/gen/interpreter0f38.rs src/rust/gen/interpreter0f3a.rs
 
 # Only the dependencies common to the generators
-GEN_DEPENDENCIES=$(filter-out gen/generate_interpreter.js gen/generate_ir_decoder.js gen/ir_semantics.js gen/state_layout.js, $(wildcard gen/*.js))
+GEN_DEPENDENCIES=$(filter-out gen/generate_interpreter.js gen/generate_decoder.js gen/state_layout.js, $(wildcard gen/*.js))
 INTERPRETER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_interpreter.js
 
 STRIP_DEBUG_FLAG=
@@ -27,16 +27,16 @@ browser: build/cpu-worker.js build/v86_all.js
 bench-build:
 	node tools/bench/build.mjs
 
-bench: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
+bench: bench-build build/v86.wasm build/libv86.mjs
 	node tests/bench/run.mjs $(BENCH_ARGS)
 
-bench-quick: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
+bench-quick: bench-build build/v86.wasm build/libv86.mjs
 	node tests/bench/run.mjs --quick $(BENCH_ARGS)
 
 # The same C sources as i686 code on Tier-0 and as x86-64 code on the x64
 # page tier, alternating in one session, then the S gate
 # (docs/jit-unification-plan.md P0.4, cross-phase rule 2)
-bench-same-source: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
+bench-same-source: bench-build build/v86.wasm build/libv86.mjs
 	node tests/bench/run.mjs --same-source --quick --out build/bench/same-source.json $(BENCH_ARGS)
 	node tests/bench/gate.mjs --level S build/bench/same-source.json
 
@@ -138,7 +138,7 @@ RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   build/jit-defaults
 
 # Build-time defaults of the JIT switches (src/rust/jit_switches.rs), for A/B
-# builds: JIT_DEFAULTS="x64_outline=0,ir_fusion=1" make build/v86.wasm. The
+# builds: JIT_DEFAULTS="x64_outline=0,x64_block_count=0" make build/v86.wasm. The
 # stamp changes with the value, which rebuilds the Wasm modules.
 export JIT_DEFAULTS
 build/jit-defaults: FORCE
@@ -317,20 +317,6 @@ jit-arm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	@if [ "$(WASM_OPT)" != "false" ]; then $(WASM_OPT) && wasm-opt -O2 --strip-debug build/bench/arms/$(ARM).wasm -o build/bench/arms/$(ARM).wasm; fi
 	@echo "build/bench/arms/$(ARM).wasm: JIT_DEFAULTS=\"$(JIT_DEFAULTS)\""
 
-# The D gate's A/B builds of a mode migration (docs/jit-unification-plan.md
-# P7.0): A with 32-bit code in the region tiers (x64_page_compat32 and
-# x64_page_legacy32 off: IR Tier-0, M6-M8's A, was deleted in P7.5), B the
-# release core as it is (a build-time default, JIT_DEFAULTS, where the plan
-# named a cargo feature), for tools/owner_perf.mjs --arms and
-# tests/bench/run.mjs --wasm/--baseline
-.PHONY: ab-ptier
-ab-ptier:
-	mkdir -p build/ab
-	$(MAKE) jit-arm ARM=ab-A JIT_DEFAULTS="x64_page_compat32=0,x64_page_legacy32=0"
-	cp build/bench/arms/ab-A.wasm build/ab/A.wasm
-	$(MAKE) jit-arm ARM=ab-B JIT_DEFAULTS=""
-	cp build/bench/arms/ab-B.wasm build/ab/B.wasm
-
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	-BLOCK_SIZE=K ls -l build/v86-debug.wasm
@@ -492,10 +478,6 @@ kvm-unit-test-apic: build/v86-debug.wasm
 	tests/kvm-unit-tests/run.mjs --acpi --expect-pass 1 $(KVM_UNIT_TESTS)/smptest.flat
 	tests/kvm-unit-tests/run.mjs --acpi --expect-pass 11 $(KVM_UNIT_TESTS)/apic.flat
 
-expect-tests: build/v86-debug.wasm build/libwabt.cjs
-	make -C tests/expect/tests
-	./tests/expect/run.js
-
 acpi-device-tests: build/v86-debug.wasm
 	./tests/devices/acpi_device.js
 	./tests/devices/device_io_reset.mjs
@@ -599,12 +581,9 @@ cpu-optimization-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
 flags-provenance-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
 	node tests/rust/flags_provenance.mjs
 
-.PHONY: cpu-plan-tests jit-policy-benchmark
+.PHONY: cpu-plan-tests
 cpu-plan-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
 	node tests/rust/cpu_plan_sequences.mjs
-
-jit-policy-benchmark: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
-	node tests/rust/jit_policy_benchmark.mjs
 
 .PHONY: jit-tiers-tests
 jit-tiers-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
@@ -643,7 +622,7 @@ api-tests: build/v86-debug.wasm
 	#./tests/api/reboot-buildroot.js # https://github.com/copy/v86/issues/636
 	./tests/api/pic.js
 
-all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests expect-tests
+all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests
 	# Skipping:
 	# - devices-test (hangs)
 
@@ -656,14 +635,6 @@ rustfmt: $(RUST_FILES)
 build/capstone-x86.min.js:
 	mkdir -p build
 	wget -nv -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
-
-# Recent enough for the SIMD and multi-value code the IR compiler emits.
-build/libwabt.cjs:
-	mkdir -p build
-	wget -nv -O build/wabt-1.0.39.tgz https://registry.npmjs.org/wabt/-/wabt-1.0.39.tgz
-	tar -xzf build/wabt-1.0.39.tgz -C build package/index.js
-	mv build/package/index.js build/libwabt.cjs
-	rm -r build/wabt-1.0.39.tgz build/package
 
 # The page always loads the serial terminal; its CSS is included in v86.css.
 # Never leave an empty/partial target behind when a download fails.
@@ -763,13 +734,13 @@ build/v86_all.js build/v86_all_debug.js build/libv86.js build/libv86.mjs build/l
 # Keep the terminal available even when building the page bundle directly.
 build/v86_all.js build/v86_all_debug.js: | build/xterm.js
 
-# IR tests exercise the experimental compiler without changing the production backend.
-.PHONY: ir-generated ir-generated-check ir-decoder-tests ir-verifier-tests ir-backend-tests ir-semantics-tests ir-differential-tests ir-tests
-ir-generated:
-	node gen/generate_ir_decoder.js
+# The decoder catalogue's tables (src/rust/decode/encodings.rs)
+.PHONY: decoder-generated decoder-generated-check
+decoder-generated:
+	node gen/generate_decoder.js
 
-ir-generated-check:
-	node gen/generate_ir_decoder.js --check
+decoder-generated-check:
+	node gen/generate_decoder.js --check
 
 # CPU state layout: generated global_pointers.rs constants, src/state_layout.js,
 # and the owner of every Rust static (gen/state_layout.js)
@@ -819,7 +790,6 @@ multicore-coherence-tests: build/v86-debug.wasm state-layout-check
 	node tests/smp/coherence.mjs
 	node tests/smp/lifecycle.mjs
 	node tests/smp/exception_lifecycle.mjs
-	node tests/smp/publication.mjs
 	node tests/smp/state_stream.mjs
 
 multicore-clock-tests-release: build/libv86.mjs build/v86.wasm
@@ -830,7 +800,6 @@ multicore-coherence-tests-release: build/libv86.mjs build/v86.wasm state-layout-
 	TEST_RELEASE_BUILD=1 node tests/smp/coherence.mjs
 	TEST_RELEASE_BUILD=1 node tests/smp/lifecycle.mjs
 	TEST_RELEASE_BUILD=1 node tests/smp/exception_lifecycle.mjs
-	TEST_RELEASE_BUILD=1 node tests/smp/publication.mjs
 	TEST_RELEASE_BUILD=1 node tests/smp/state_stream.mjs
 
 multicore-atomic-tests: build/v86-debug.wasm state-layout-check
@@ -940,7 +909,7 @@ platform-release-gate:
 
 # The local gates of docs/jit-unification-plan.md (P0.9, tools/jit_gate.mjs):
 # jit-gate before each commit, jit-gate-full at a milestone's exit
-.PHONY: jit-gate jit-gate-full core-split-check ir-core-tests
+.PHONY: jit-gate jit-gate-full core-split-check jit-core-tests
 jit-gate:
 	node tools/jit_gate.mjs $(JIT_GATE_ARGS)
 
@@ -970,29 +939,13 @@ replay-record: build/v86-ir-test-release.wasm build/libv86.mjs bench-build
 core-split-check:
 	node tools/core_split_check.mjs $(CORE_SPLIT_ARGS)
 
-# The steps of .github/workflows/ir-core.yml, run here (the release gate's
-# R-IR level; the workflow itself stays as it is)
-ir-core-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	$(MAKE) ir-x87-tests ir-control-reference-tests ir-sse-fp-tests ir-mmx-tests ir-coverage-tests
-	$(MAKE) ir-sti-tests ir-helper-reload-tests ir-mir-owned-tests ir09-completion-tests
-	env RUSTFLAGS="-D warnings" cargo test ir::mir::forwarding -- --nocapture
+# The JIT's and the decoder's tests outside the x64 targets (the R-JIT level
+# of the release gate): the Rust unit tests, the Wasm builder's output, the
+# decoder, the interpreter's REP engine and VERR flags, the decode rules
+jit-core-tests: decoder-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
 	env RUSTFLAGS="-D warnings" cargo test
-	node tests/ir/wasm/run.mjs
 	node tests/rust/verify-wasmgen-dummy-output.js
-	node tests/ir/decode/oracle.mjs
-	tools/ir-licm-tests.sh
-	node tests/ir/differential/cfg.mjs
-	node tests/ir/differential/shifts.mjs
-	node tests/ir/differential/bits.mjs
-	node tests/ir/differential/multiply.mjs
-	node tests/ir/differential/ir10.mjs
-	tools/ir-forwarding-tests.sh
-	node tests/ir/differential/simd_integer.mjs
-	sh tools/ir-store-continuation-tests.sh
-	$(MAKE) ir-budget-batch-tests ir-entry-tests ir-live-tests ir-cache-tests ir-auto-tests ir-fusion-tests ir-diagnostic-tests
-	sh tools/ir13-smoke-tests.sh
-	$(MAKE) ir-decode-contract-tests ir-system-mode-tests ir-portable-tests
-	node tests/ir/differential/helper_audit.mjs
+	$(MAKE) decode-tests rep-engine-tests verr-flags-tests decode-rules-tests
 
 .PHONY: acpi-sleep-tests platform-contract-tests multicore-state-tests extended-memory-tests x64-extended-guest-tests platform-release-gate
 
@@ -1066,7 +1019,7 @@ x64-page-tier-tests: build/v86-debug.wasm
 # (tier0_fuzz.mjs, FUZZ_KIND), faults, interrupts, the step profile and the
 # mode ledger.
 .PHONY: x64-legacy32-tests
-x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build/jit-capacity.bin
+x64-legacy32-tests: bench-build build/v86.wasm build/libv86.mjs build/jit-capacity.bin
 	node tests/ir/differential/tier0_fuzz.mjs 60 1
 	for kind in i0 i10 i13 i19 i22 i26 s3 s7 s10 x; do FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 6 2 || exit 1; done
 	# (packed SSE arithmetic of random values: the page tier retries lanes
@@ -1076,7 +1029,7 @@ x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build
 	for kind in j g e d o a m v c p r b s11 s12 s13; do FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
 	FUZZ_KIND=r node tests/ir/differential/tier0_fuzz.mjs 20 3
 	FUZZ_STRADDLE=1 node tests/ir/differential/tier0_fuzz.mjs 20 2
-	node tests/ir/differential/sse_fp_tracking.mjs build/v86-ir-runtime.wasm
+	node tests/ir/differential/sse_fp_tracking.mjs build/v86.wasm
 	node tests/ir/differential/tier0_fetch_fault.mjs
 	node tests/ir/differential/tier0_rep_fault.mjs
 	node tests/ir/differential/tier0_irq_slow.mjs
@@ -1108,6 +1061,12 @@ x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build
 	FUZZ_MODE=prot16ss32 FUZZ_STRADDLE=1 node tests/ir/differential/prot16_fuzz.mjs 20 3
 	for mode in prot16 prot16ss32; do FUZZ_MODE=$$mode FUZZ_KIND=y node tests/ir/differential/prot16_fuzz.mjs 12 2 || exit 1; done
 	FUZZ_MODE=prot16ss32 FUZZ_KIND=f node tests/ir/differential/prot16_fuzz.mjs 12 2
+	# (far calls and returns between 16-bit code and flat 32-bit code, which
+	# chain across the page tier's modes, M11; with the mode ledger on they
+	# leave)
+	for mode in prot16 prot16ss32; do FUZZ_FAR32=1 FUZZ_MODE=$$mode FUZZ_KIND=f node tests/ir/differential/prot16_fuzz.mjs 12 2 || exit 1; done
+	FUZZ_FAR32=1 FUZZ_MODE=prot16 node tests/ir/differential/prot16_fuzz.mjs 20 4
+	JIT_SWITCHES=mode_ledger=1 FUZZ_FAR32=1 FUZZ_MODE=prot16ss32 FUZZ_KIND=f node tests/ir/differential/prot16_fuzz.mjs 8 5
 	FUZZ_SS16=1 node tests/ir/differential/tier0_fuzz.mjs 30 1
 	for kind in p j g m; do FUZZ_SS16=1 FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 20 3 || exit 1; done
 	FUZZ_SS16=1 FUZZ_STRADDLE=1 node tests/ir/differential/tier0_fuzz.mjs 20 4
@@ -1163,485 +1122,48 @@ x64-guest-interpreter-tests: build/v86-debug.wasm
 
 .PHONY: x64-decode-tests x64-system-tests x64-differential-tests x64-page-tier-tests x64-wow64-tests x64-opcode-matrix-tests highmem-tests x64-multicore-tests x64-guest-tests x64-multicore-guest-tests x64-guest-interpreter-tests
 
-ir-decoder-tests: ir-generated-check
+# The decoder catalogue (src/rust/decode, gen/generate_decoder.js): every
+# encoding/ModRM/SIB form, instruction boundaries against NDISASM, the staged
+# ModRM resolver of the interpreter and VEX by mode
+.PHONY: decode-tests
+decode-tests: decoder-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
 	cargo test decode::tests -- --nocapture
-	node tests/ir/decode/oracle.mjs
+	node tests/decode/oracle.mjs
+	node tests/decode/staged.mjs
+	node tests/decode/staged.mjs build/v86-ir-test-release.wasm
 
-ir-verifier-tests: ir-generated-check
-	cargo test ir::core_tests
-
-ir-backend-tests: ir-generated-check
-	cargo test
-	node tests/ir/wasm/run.mjs
-	node tests/rust/verify-wasmgen-dummy-output.js
-
-ir-semantics-tests: ir-generated-check
-	cargo test ir::core_tests::register_lowering_corpus
-
-ir-differential-tests: ir-semantics-tests build/v86.wasm build/libv86.mjs build/jit-capacity.bin
-	node tests/ir/differential/registers.mjs
-
-ir-tests: ir-generated-check build/v86.wasm build/libv86.mjs build/jit-capacity.bin
-	env RUSTFLAGS="-D warnings" cargo test
-	node tests/ir/decode/oracle.mjs
-	node tests/ir/wasm/run.mjs
-	node tests/rust/verify-wasmgen-dummy-output.js
-	node tests/ir/differential/registers.mjs
-
-.PHONY: ir-coverage ir-default-gate
-ir-coverage: ir-generated-check
-	node tests/ir/coverage.mjs
-
-# Every valid decoder form must have an attributed IR lowering path.
-ir-default-gate: ir-generated-check
-	node tests/ir/coverage.mjs --require-complete
-
+# Test cores: build/v86.wasm's code with the differential hooks (ir-test-hooks:
+# an interpreter step, the staged ModRM resolver, the REP engine's batches and
+# the page tier's recording and replay)
 build/v86-ir-test.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	cargo rustc --features ir-test-hooks $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/debug/v86.wasm $@
 
-.PHONY: ir-decode-snapshot-tests
-ir-decode-snapshot-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs
-	cargo test decode::tests::catalogue_lengths_and_all_modrm_sib_forms
-	node tests/ir/decode/snapshot.mjs
-
-.PHONY: ir-memory-tests
-ir-memory-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::memory_tests
-	node tests/ir/differential/memory.mjs
-
-.PHONY: ir-stack-tests
-ir-stack-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::stack_tests
-	node tests/ir/differential/stack.mjs
-
-.PHONY: ir-control-tests
-ir-control-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::control_tests
-	node tests/ir/differential/control.mjs
-
-.PHONY: ir-shift-tests
-ir-shift-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::shift_tests
-	node tests/ir/differential/shifts.mjs
-
-.PHONY: ir-multiply-tests
-ir-multiply-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::multiply_tests
-	node tests/ir/differential/multiply.mjs
-
-.PHONY: ir-bit-tests
-ir-bit-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::bit_tests
-	node tests/ir/differential/bits.mjs
-
-.PHONY: ir-exchange-tests
-ir-exchange-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::exchange_tests
-	node tests/ir/differential/exchange.mjs
-
-.PHONY: ir-enter-tests
-ir-enter-tests: ir-generated-check build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::enter_tests
-	node tests/ir/differential/enter.mjs
-
-# ENTER16's pinned debug-only value assertion rejects high ESP before truncation.
-# The release oracle matches production, including nested unwrap fault behavior.
 build/v86-ir-test-release.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	cargo rustc --release --features ir-test-hooks $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/release/v86.wasm $@
 
-.PHONY: ir-misc-tests
-ir-misc-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::misc_tests
-	node tests/ir/differential/misc.mjs
+# The pinned resolver is compiled into test cores via #[path].
+build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/v86-rep-reference.wasm: tests/decode/legacy_modrm.rs
 
-.PHONY: ir-loop-tests
-ir-loop-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::loop_tests
-	node tests/ir/differential/loops.mjs
-
-.PHONY: ir-cfg-tests
-ir-cfg-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::cfg_frontend_tests
-	node tests/ir/differential/cfg.mjs
-
-.PHONY: ir-fusion-tests
-ir-fusion-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	env RUSTFLAGS="-D warnings" cargo test ir::fusion_tests
-	node tests/ir/differential/fusion.mjs
-	node tests/ir/differential/fusion.mjs build/v86-ir-test-release.wasm
-
-.PHONY: ir-diagnostic-tests
-ir-diagnostic-tests: build/v86-ir-runtime.wasm build/v86-ir-cache-test.wasm build/v86-ir-cache-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	node tests/ir/differential/diagnostics.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/diagnostics.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/diagnostics.mjs build/v86-ir-runtime.wasm
-	IR_DIAGNOSTICS=16 node tests/ir/differential/auto.mjs build/v86-ir-runtime.wasm
-
-.PHONY: ir09-completion-tests
-ir09-completion-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	env RUSTFLAGS="-D warnings" cargo test ir::backend::structure::tests -- --nocapture
-	env RUSTFLAGS="-D warnings" cargo test ir::runtime::region::tests -- --nocapture
-	env RUSTFLAGS="-D warnings" cargo test ir::cfg_frontend_tests -- --nocapture
-	node tests/ir/differential/cfg.mjs
-
-.PHONY: ir-system-stack-tests
-ir-system-stack-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::system_stack_tests
-	node tests/ir/differential/system_stack.mjs
-
-.PHONY: ir-segment-tests
-ir-segment-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::segment_tests
-	node tests/ir/differential/segments.mjs
-
-.PHONY: ir-string-tests
-ir-string-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::string_tests
-	node tests/ir/differential/strings.mjs
-
-.PHONY: ir-io-tests
-ir-io-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::io_tests
-	node tests/ir/differential/io.mjs
-
-.PHONY: ir-rep-engine-tests
+# The interpreter's REP engine in bounded batches against the pinned
+# pre-refactor string body (tests/ir/differential/build_rep_reference.py)
+.PHONY: rep-engine-tests
 build/v86-rep-reference.wasm: $(RUST_FILES) Cargo.toml build/softfloat.o build/zstddeclib.o tests/ir/differential/build_rep_reference.py
 	python3 tests/ir/differential/build_rep_reference.py
 
-ir-rep-engine-tests: ir-generated-check build/v86-ir-test.wasm build/v86-rep-reference.wasm build/libv86.mjs build/jit-capacity.bin
+rep-engine-tests: build/v86-ir-test.wasm build/v86-rep-reference.wasm build/libv86.mjs build/jit-capacity.bin
 	node tests/ir/differential/rep_engine.mjs
 
-.PHONY: ir-rep-tests
-ir-rep-tests: ir-generated-check build/v86-ir-test.wasm build/v86-rep-reference.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::rep_tests
-	node tests/ir/differential/rep.mjs
-
-.PHONY: ir-cpu-info-tests
-ir-cpu-info-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::cpu_info_tests
-	node tests/ir/differential/cpu_info.mjs
-
-.PHONY: ir-cpu-system-tests
-ir-cpu-system-tests: ir-generated-check build/v86-ir-test.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::cpu_system_tests
-	node tests/ir/differential/cpu_system.mjs
-
-.PHONY: ir-control-regs-tests
-ir-control-regs-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::control_regs_tests
-	node tests/ir/differential/control_regs.mjs
-	node tests/ir/differential/system_read_continuation.mjs
-
-.PHONY: ir-descriptor-tests
-ir-descriptor-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::descriptor_tests
-	node tests/ir/differential/descriptor.mjs
-
-build/v86-task-reference.wasm: $(RUST_FILES) Cargo.toml build/softfloat.o build/zstddeclib.o tests/ir/differential/build_task_reference.py
-	python3 tests/ir/differential/build_task_reference.py
-
-build/v86-task-reference-release.wasm: build/v86-task-reference.wasm
-	test -f $@ || python3 tests/ir/differential/build_task_reference.py
-
-.PHONY: ir-task-regs-tests
-ir-task-regs-tests: ir-generated-check build/v86-task-reference.wasm build/v86-task-reference-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::task_regs_tests
-	node tests/ir/differential/task_regs.mjs
-
-.PHONY: ir-selector-query-tests
-ir-selector-query-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::selector_query_tests
-	node tests/ir/differential/selector_query.mjs
-
-.PHONY: ir-flags-observer-tests
-ir-flags-observer-tests: build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
+# VERR/VERW in the interpreter: the computed ZF against the raw flag
+.PHONY: verr-flags-tests
+verr-flags-tests: build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
 	node tests/ir/differential/verr_flags_baseline.mjs
-
-.PHONY: ir-verr-tests
-ir-verr-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::verr_tests
-	node tests/ir/differential/verr.mjs
-	node tests/ir/differential/raw_zero.mjs
-
-.PHONY: ir-cmpxchg8b-tests
-ir-cmpxchg8b-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::cmpxchg8b_tests
-	node tests/ir/differential/cmpxchg8b.mjs
-
-.PHONY: ir-x87-tests
-ir-x87-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::x87_tests
-	node tests/ir/differential/x87.mjs
-
-.PHONY: ir-far-control-tests ir-x87-memory-tests ir-fp-state-tests ir-control-reference-tests
-ir-far-control-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::far_control_tests
-	node tests/ir/differential/far_control.mjs
-	node tests/ir/differential/far_control.mjs build/v86-ir-test-release.wasm
-
-ir-x87-memory-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::x87_memory_tests
-	node tests/ir/differential/x87_memory.mjs
-
-ir-fp-state-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::fp_state_tests
-	node tests/ir/differential/fp_state.mjs
-
-build/v86-control-reference.wasm: $(RUST_FILES) Cargo.toml build/softfloat.o build/zstddeclib.o tests/ir/differential/build_control_reference.py
-	python3 tests/ir/differential/build_control_reference.py
-
-build/v86-control-reference-release.wasm: build/v86-control-reference.wasm
-	@test -f $@ || python3 tests/ir/differential/build_control_reference.py
-
-ir-control-reference-tests: ir-far-control-tests ir-x87-memory-tests ir-fp-state-tests ir-coverage-tests build/v86-control-reference.wasm build/v86-control-reference-release.wasm
-	node tests/ir/differential/far_control.mjs build/v86-control-reference.wasm
-	node tests/ir/differential/far_control.mjs build/v86-control-reference-release.wasm
-	node tests/ir/differential/x87_memory.mjs build/v86-control-reference
-	node tests/ir/differential/fp_state.mjs build/v86-control-reference
-	node tests/ir/differential/coverage.mjs build/v86-control-reference
-
-.PHONY: ir-simd-move-tests
-ir-simd-move-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::simd_move_tests
-	node tests/ir/differential/simd_moves.mjs
-
-.PHONY: ir-simd-integer-tests
-ir-simd-integer-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::simd_integer_tests
-	node tests/ir/differential/simd_integer.mjs
-
-.PHONY: ir-simd-immediate-tests
-ir-simd-immediate-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::simd_immediate_tests
-	node tests/ir/differential/simd_immediate.mjs
-
-.PHONY: ir-simd-shuffle-tests
-ir-simd-shuffle-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::simd_shuffle_tests
-	node tests/ir/differential/simd_shuffle.mjs
-
-.PHONY: ir-simd-transfer-tests
-ir-simd-transfer-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::simd_transfer_tests
-	node tests/ir/differential/simd_transfer.mjs
-
-.PHONY: ir-simd-lane-tests
-ir-simd-lane-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::simd_lane_tests
-	node tests/ir/differential/simd_lane.mjs
-
-.PHONY: ir-simd-masked-tests
-ir-simd-masked-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::simd_masked_tests
-	node tests/ir/differential/simd_masked.mjs
-
-.PHONY: ir-entry-tests
-ir-entry-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::entry_tests
-	node tests/ir/differential/entry.mjs
-	node tests/ir/differential/entry.mjs build/v86-ir-test-release.wasm
-	node tests/ir/differential/shared_entry.mjs
-	node tests/ir/differential/shared_entry.mjs build/v86-ir-test-release.wasm
-
-.PHONY: ir-live-tests
-ir-live-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/v86-ir-runtime.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::entry_tests
-	node tests/ir/differential/live.mjs
-	node tests/ir/differential/live.mjs build/v86-ir-test-release.wasm
-	node tests/ir/differential/live_runtime.mjs
-
-# The release core without differential test hooks: the same as build/v86.wasm,
-# under the path the IR tests use.
-build/v86-ir-runtime.wasm: build/v86.wasm
-	cp build/v86.wasm $@
-
-.PHONY: ir-cache-tests
-ir-cache-tests: ir-generated-check build/v86-ir-cache-test.wasm build/v86-ir-cache-test-release.wasm build/v86-ir-runtime.wasm build/libv86.mjs build/jit-capacity.bin
-	node tests/ir/differential/sse_task_faults.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/sse_task_faults.mjs build/v86-ir-cache-test-release.wasm --release
-	node tests/ir/differential/cache.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/cache.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/cache.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/io_permission_observer.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/io_permission_observer.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/io_permission_observer.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/warm_chain.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/warm_chain.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/warm_chain.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/polymorphic_chain.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/polymorphic_chain.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/polymorphic_chain.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/overlap_validation.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/overlap_validation.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/overlap_validation.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/missing_hint.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/missing_hint.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/missing_hint.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/poll_reuse.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/poll_reuse.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/poll_reuse.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/notified_validation.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/notified_validation.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/notified_validation.mjs build/v86-ir-runtime.wasm
-	node tests/ir/performance/timing_test.mjs
-
-.PHONY: ir-auto-tests
-ir-auto-tests: ir-generated-check build/v86-ir-cache-test.wasm build/v86-ir-cache-test-release.wasm build/v86-ir-runtime.wasm build/libv86.mjs build/jit-capacity.bin
-	node tests/ir/differential/auto.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/auto.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/auto.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/hot_working_set.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/hot_working_set.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/hot_working_set.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/publication_yield.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/publication_yield.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/publication_yield.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/scheduler_ready.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/scheduler_ready.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/scheduler_ready.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/observed_entries.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/observed_entries.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/observed_entries.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/resident_promotion.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/resident_promotion.mjs build/v86-ir-cache-test-release.wasm
-	node tests/ir/differential/resident_promotion.mjs build/v86-ir-runtime.wasm
-
-.PHONY: ir-backend-integration-tests ir-backend-browser-tests
-ir-backend-integration-tests: build/v86-ir-cache-test.wasm build/v86-ir-runtime.wasm build/v86.wasm build/libv86.mjs build/cpu-worker-test.bin
-	node tests/ir/differential/backend.mjs build/v86-ir-cache-test.wasm
-	node tests/ir/differential/backend.mjs build/v86-ir-runtime.wasm
-
-ir-backend-browser-tests: build/v86-ir-runtime.wasm build/v86.wasm build/libv86.mjs build/cpu-worker.js build/cpu-worker-test.bin
-	node tests/glbridge/gl_multipass_browser_runner.js ir_backend_browser_test.html
-
-# IR-13 host/device acceptance deliberately reuses the production Worker/browser
-# integration scenarios instead of a reduced IR-only fixture. The query string
-# selects the experimental core while preserving the exact graphics/audio/state
-# workload used by the legacy regression.
-.PHONY: ir13-host-tests ir13-browser-tests
-ir13-host-tests: ir-backend-integration-tests
-	@echo "PASS: IR-13 Node host/backend integration"
-
-ir13-browser-tests: build/v86-ir-runtime.wasm build/v86.wasm build/libv86.mjs build/cpu-worker.js build/cpu-worker-test.bin
-	node tests/glbridge/gl_multipass_browser_runner.js ir_backend_browser_test.html
-	node tests/glbridge/gl_multipass_browser_runner.js 'cpu_worker_browser_test.html?jit_backend=ir'
-	node tests/glbridge/gl_multipass_browser_runner.js 'cpu_worker_audio_browser_test.html?jit_backend=ir'
-
-.PHONY: ir13-budget-matrix
-ir13-budget-matrix: build/v86-ir-runtime.wasm build/libv86.mjs build/cpu-worker-test.bin
-	node tests/ir/performance/smoke.mjs > build/ir13-performance-smoke.json
-	cat build/ir13-performance-smoke.json
 
 .PHONY: jit-disabled-tests
 jit-disabled-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs build/cpu-worker-test.bin
 	node tests/rust/jit_disabled_promotion.mjs build/v86-debug.wasm
 	node tests/rust/jit_disabled_promotion.mjs build/v86.wasm
-
-.PHONY: ir-mir-owned-tests
-ir-mir-owned-tests:
-	cargo test mir::optimize::tests
-	node tests/ir/wasm/owned.mjs
-
-build/v86-ir-cache-test.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
-	cargo rustc --features ir-test-hooks $(CARGO_FLAGS)
-	cp build/wasm32-unknown-unknown/debug/v86.wasm $@
-
-build/v86-ir-cache-test-release.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
-	cargo rustc --release --features ir-test-hooks $(CARGO_FLAGS)
-	cp build/wasm32-unknown-unknown/release/v86.wasm $@
-
-.PHONY: ir-forwarding-tests
-ir-forwarding-tests:
-	tools/ir-forwarding-tests.sh
-
-.PHONY: ir-sse-fp-tests
-ir-sse-fp-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::sse_fp_tests
-	node tests/ir/differential/sse_fp.mjs
-
-.PHONY: ir-crc32-tests
-ir-crc32-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::crc32_tests
-	node tests/ir/differential/crc32.mjs
-
-.PHONY: ir-avx-tests
-ir-avx-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::avx_tests
-	node tests/ir/differential/avx.mjs
-
-.PHONY: ir-bmi-tests
-ir-bmi-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::bmi_tests
-	node tests/ir/differential/bmi.mjs
-
-.PHONY: ir-mmx-tests
-ir-mmx-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::mmx_tests
-	node tests/ir/differential/mmx.mjs
-
-.PHONY: ir-coverage-tests
-ir-coverage-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	node tests/ir/coverage.mjs --require-complete
-	cargo test ir::coverage_tests
-	node tests/ir/differential/coverage.mjs
-
-.PHONY: ir-sti-tests
-ir-sti-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::sti_tests
-	node tests/ir/differential/sti.mjs
-
-.PHONY: ir-helper-reload-tests
-ir-helper-reload-tests: ir-generated-check build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test ir::helper_tests::cpu_reload_contract_and_continuation_fixtures
-	node tests/ir/differential/reload.mjs
-
-# Portable IR core: scalar regions compile, vector regions explicitly fall back
-# to the interpreter and participate in normal failed-compilation suppression.
-build/v86-ir-runtime-fallback.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
-	cargo rustc --release $(CARGO_FLAGS_SAFE) -C target-feature=-simd128
-	cp build/wasm32-unknown-unknown/release/v86.wasm $@
-
-build/v86-ir-test-fallback.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
-	cargo rustc --features ir-test-hooks $(CARGO_FLAGS_SAFE) -C target-feature=-simd128
-	cp build/wasm32-unknown-unknown/debug/v86.wasm $@
-
-.PHONY: ir-decode-contract-tests ir-system-mode-tests ir-portable-tests ir-helper-audit
-ir-decode-contract-tests: ir-decode-snapshot-tests build/v86-ir-test-release.wasm build/jit-capacity.bin
-	cargo test invalid_form_fixtures
-	node tests/ir/decode/staged.mjs
-	node tests/ir/decode/staged.mjs build/v86-ir-test-release.wasm
-	node tests/ir/differential/invalid.mjs
-	node tests/ir/differential/invalid.mjs build/v86-ir-test-release.wasm
-	cargo test multiple_cpu_entries
-	node tests/ir/differential/multientry.mjs
-	node tests/ir/differential/multientry.mjs build/v86-ir-test-release.wasm
-
-ir-system-mode-tests: ir-far-control-tests build/v86-control-reference.wasm build/v86-control-reference-release.wasm
-	node tests/ir/differential/system_modes.mjs
-	node tests/ir/differential/system_modes.mjs build/v86-ir-test-release.wasm
-	node tests/ir/differential/system_modes.mjs build/v86-control-reference.wasm
-	node tests/ir/differential/system_modes.mjs build/v86-control-reference-release.wasm
-
-ir-portable-tests: build/v86-ir-test.wasm build/v86-ir-test-fallback.wasm build/v86-ir-runtime-fallback.wasm build/libv86.mjs build/jit-capacity.bin
-	cargo test portable_core
-	node tests/ir/differential/fallback.mjs
-	node tests/ir/differential/auto.mjs build/v86-ir-runtime-fallback.wasm
-
-# Full fixture set is also produced by cargo test --lib in CI.
-ir-helper-audit: ir-generated-check
-	cargo test ir::simd_
-	cargo test sse_fp_fixtures
-	cargo test mmx_fixtures
-	node tests/ir/differential/helper_audit.mjs
-
-# The pinned resolver is compiled into test cores via #[path].
-build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/v86-ir-test-fallback.wasm build/v86-control-reference.wasm build/v86-control-reference-release.wasm: tests/ir/decode/legacy_modrm.rs
-
-.PHONY: ir-budget-batch-tests
-ir-budget-batch-tests:
-	sh tools/ir-budget-batch-tests.sh
 
 # Topology: CPUID and firmware-input agreement, followed by real 32-bit Linux SMP.
 build/smp/affinity_probe: tests/smp/affinity_probe.asm
@@ -1663,11 +1185,9 @@ multicore-linux-tests-release: build/smp/affinity_probe build/libv86.mjs build/v
 .PHONY: multicore-topology-tests multicore-topology-tests-release multicore-linux-tests multicore-linux-tests-release
 
 multicore-linux-jit-tests: build/smp/affinity_probe build/v86-debug.wasm images/linux4.iso
-	SMP_JIT_MODE=region node tests/smp/linux_topology.mjs
 	SMP_JIT_MODE=pages node tests/smp/linux_topology.mjs
 
 multicore-linux-jit-tests-release: build/smp/affinity_probe build/libv86.mjs build/v86.wasm images/linux4.iso
-	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=region node tests/smp/linux_topology.mjs
 	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=pages node tests/smp/linux_topology.mjs
 
 .PHONY: multicore-linux-jit-tests multicore-linux-jit-tests-release
@@ -1689,13 +1209,13 @@ ISA_GLIBC ?= build/simd-xsave/p0-baseline/glibc/root/usr/lib/x86_64-linux-gnu
 isa-hot-forms:
 	CARGO_TARGET_DIR=build/isa-forms-target cargo run --release --manifest-path tools/isa_forms/Cargo.toml -- --hot gen/isa_hot_forms.json $(ISA_GLIBC)/libc.so.6 $(ISA_GLIBC)/libm.so.6 $(ISA_GLIBC)/ld-linux-x86-64.so.2
 
-# The decode rules of the plan (5.2) on the 32-bit interpreter and both IR
-# code generators: mandatory prefixes, F2/F3 order, #UD for unlisted prefixes
+# The decode rules of the plan (5.2) on the 32-bit interpreter and the page
+# tier: mandatory prefixes, F2/F3 order, #UD for unlisted prefixes
 decode-rules-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debug.wasm build/v86-ir-test.wasm build/v86-ir-test-release.wasm
 	node tests/rust/decode_rules.mjs
 	node tests/rust/decode_rules.mjs build/v86-debug.wasm
-	node tests/ir/decode/vex_modes.mjs
-	node tests/ir/decode/vex_modes.mjs build/v86-ir-test-release.wasm
+	node tests/decode/vex_modes.mjs
+	node tests/decode/vex_modes.mjs build/v86-ir-test-release.wasm
 
 # The XSAVE feature set (docs/simd-xsave-plan.md P2): the 32-bit engines,
 # the x64 engine and compatibility mode, snapshots, INIT and reset

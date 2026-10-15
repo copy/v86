@@ -2277,9 +2277,6 @@ async function start_emulation(profile, query_args)
     new_query_args.set("profile", profile?.id || "custom");
     if(!cpu_worker) new_query_args.set("cpu_worker", "0");
     if(graphics_proxy) new_query_args.set("graphics_proxy", "1");
-    for(const name of ["ir_opt_level", "ir_passes_disabled", "ir_verify", "ir_dump", "ir_stats"])
-        if(cpu_args.has(name)) new_query_args.set(name, cpu_args.get(name));
-
     // ir_tier0 (32-bit code in the x64 page tier) and the x87 fast paths are on unless the URL passes =0.
     const settings = {};
     for(const name of ["ir_tier0", "x87_fast_math", "x87_jit_cache"])
@@ -2700,13 +2697,6 @@ async function start_emulation(profile, query_args)
     const emulator = new V86({
         "cpu_worker": cpu_worker,
         "cpu_worker_url": "build/cpu-worker.js" + query_append(),
-        "ir_stats": cpu_args.has("ir_stats") ? cpu_args.get("ir_stats") : undefined,
-        "ir_verify": cpu_args.has("ir_verify") ? cpu_args.get("ir_verify") : undefined,
-        "ir_dump": cpu_args.has("ir_dump") ? cpu_args.get("ir_dump") : undefined,
-        "ir_opt_level": cpu_args.has("ir_opt_level") ?
-            (cpu_args.get("ir_opt_level").trim() ? Number(cpu_args.get("ir_opt_level")) : NaN) : undefined,
-        "ir_passes_disabled": cpu_args.has("ir_passes_disabled") ?
-            (cpu_args.get("ir_passes_disabled") ? cpu_args.get("ir_passes_disabled").split(",") : []) : undefined,
         "ir_tier0": settings["ir_tier0"],
         wasm_path: "build/" + (DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
         // more than one core: each in a host thread (v86-parallel.wasm) where the

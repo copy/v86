@@ -6,7 +6,7 @@
 // rules: #UD without SSSE3, with CR0.EM, LOCK or an F2/F3 prefix, #NM with
 // CR0.TS, #GP for a misaligned XMM memory operand (none for MMX) and #PF,
 // each without effect. Every case runs in the interpreter, then hot under
-// The page tier and the region tiers.
+// the page tier.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -235,7 +235,7 @@ try
             // XMM registers natively).
             const page_steps = machines[1].v86.cpu.wm.exports["x64_page_steps"];
             const steps = page_steps(xmm ? 0x0F66 : op === PALIGNR ? 0x3A0F : 0x380F);
-            const templates = machines[1].v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
+            const templates = machines[1].v86.cpu.wm.exports["jit_wasm_simd_supported"]() !== 0;
             if(templates && xmm && (op === 0x00 || op === PALIGNR)) assert.ok(steps < count / 2, `${name}: the page tier template (${steps} steps)`);
             else assert.ok(steps >= count, `${name}: the page tier steps (${steps})`);
             const results = runs.map(({ data }) => data);
@@ -257,7 +257,7 @@ try
         }
     }
     checks += cases;
-    console.log(`PASS: ${cases} SSSE3 cases (${OPS.length} MMX and XMM forms, register and memory sources, all PALIGNR shifts) match the SDM model on 3 arms; the page tier templates XMM PSHUFB and PALIGNR`);
+    console.log(`PASS: ${cases} SSSE3 cases (${OPS.length} MMX and XMM forms, register and memory sources, all PALIGNR shifts) match the SDM model in the interpreter and the page tier; the page tier templates XMM PSHUFB and PALIGNR`);
 
     // The MMX forms alias the x87 registers: the destination's exponent is all
     // ones, TOP is 0 and all tags are valid. A fault changes nothing.
@@ -326,7 +326,7 @@ try
         }
     }
     console.log(`PASS: #NM with CR0.TS; #UD with CR0.EM, LOCK, F2 and F3; #GP(0) for misaligned XMM operands only; #PF; destinations kept (${OPS.length * 2} forms)`);
-    console.log(`PASS: ${checks} SSSE3 checks on 3 arms`);
+    console.log(`PASS: ${checks} SSSE3 checks in the interpreter and the page tier`);
 }
 finally
 {

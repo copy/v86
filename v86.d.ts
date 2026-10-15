@@ -797,40 +797,39 @@ export interface V86Options {
     disable_jit?: boolean;
     /** Compiler selection. IR is the only backend (the legacy one was removed). */
     jit_backend?: "ir";
-    /** 0: no optional optimization; 1: Tier-1 canonicalization; 2: full Tier-2. Default 2. */
-    /** Optional MIR verification: debug builds by default; every_pass also checks release builds. */
-    /** Startup diagnostic sampling: off=0, sampled=128, debug=1. */
-    ir_stats?: "off" | "sampled" | "debug";
-    ir_verify?: "off" | "debug" | "every_pass";
-    /** Bounded compiler dump ring; off by default. */
-    ir_dump?: "off" | "hir" | "mir" | "wasm" | "all";
-    ir_opt_level?: 0 | 1 | 2;
-    /** Startup-only diagnostic controls. Verification and recovery cannot be disabled. */
-    ir_passes_disabled?: Array<"prune" | "merge" | "phis" | "copy" | "fold" | "flags" | "helper_state" |
-        "gvn" | "dce" | "licm" | "mir_fold" | "stack" | "allocation" | "state_elision" | "ram_loop" | "ram_forward" | "ram_guard">;
     /**
-     * Deprecated alias (IR Tier-0 was deleted): 32-bit protected-mode and
-     * compatibility-mode code in the x64 page tier (default true; JIT switches
-     * x64_page_legacy32 and x64_page_compat32). False leaves 32-bit code to the
-     * IR region tier and the interpreter.
+     * Deprecated and ignored: the IR region tiers' settings (docs/jit-unification-plan.md
+     * M11 deleted the region tiers; the x64 page tier compiles all code).
+     */
+    ir_stats?: "off" | "sampled" | "debug";
+    /** Deprecated and ignored (see ir_stats). */
+    ir_verify?: "off" | "debug" | "every_pass";
+    /** Deprecated and ignored (see ir_stats). */
+    ir_dump?: "off" | "hir" | "mir" | "wasm" | "all";
+    /** Deprecated and ignored (see ir_stats). */
+    ir_opt_level?: 0 | 1 | 2;
+    /** Deprecated and ignored (see ir_stats). */
+    ir_passes_disabled?: string[];
+    /** Deprecated and ignored (see ir_stats). */
+    ir_page_mode?: boolean;
+    /**
+     * 32-bit and 16-bit code in the x64 page tier (default true; JIT switches
+     * x64_page_legacy32, x64_page_compat32, x64_page_prot16 and x64_page_v86).
+     * False leaves that code to the interpreter. (The name is IR Tier-0's,
+     * which the page tier replaced.)
      */
     ir_tier0?: boolean;
-    /** Bounded automatic IR policy. */
+    /** Deprecated and ignored (see ir_stats). */
     ir_region_budget?: {
-        /** Entry visits before Tier 1; integer 1..1000000, default 16. */
         hot_threshold?: number;
-        /** Further visits before Tier 2; integer 1..1000000, default 64. */
         promotion_threshold?: number;
-        /** Tier 1 byte window; integer 15..960, default 192. Tier 2 doubles it, capped at 960. */
         max_source_bytes?: number;
-        /** Region execution budget; integer 1..4096, default 256. */
         execution_budget?: number;
-        /** REP helper iteration limit; integer 1..4096, default 64. */
         rep_iterations?: number;
     };
     /**
      * JIT switches by name (src/rust/jit_switches.rs; docs/jit-unification-plan.md), as
-     * { x64_outline: 0 } or "x64_outline=0,ir_fusion=1", applied after the other JIT settings.
+     * { x64_outline: 0 } or "x64_outline=0,x64_loops=1", applied after the other JIT settings.
      * An unknown name, or a value the JIT refuses, fails the construction.
      */
     jit_switches?: { [name: string]: number | boolean } | string;
@@ -1359,69 +1358,23 @@ export class V86 {
      */
     get_instruction_stats(): string | Promise<string>;
 
-    /** Runtime snapshot. Counters are per core lifetime; IR counters wrap at 2^32. */
-    /** Compiled artifacts, not proof of publication/execution. Truncation bits: HIR=1, MIR=2, Wasm=4. */
-    get_ir_dumps(clear?: boolean): Array<{pc: number; tier: number; hir: string; mir: string; wasm: Uint8Array; truncated: number}> | Promise<Array<{pc: number; tier: number; hir: string; mir: string; wasm: Uint8Array; truncated: number}>>;
+    /** Runtime snapshot of the JIT. */
     get_jit_info(): V86JitInfo | Promise<V86JitInfo>;
-    /** Clears compiled caches and starts a diagnostic session. 0 disables; otherwise a power of two, max 65536. */
-    configure_ir_diagnostics(sample_period: number): boolean | Promise<boolean>;
+    /** Deprecated: the IR region tiers' compiler dumps (deleted in M11); returns []. */
+    get_ir_dumps(clear?: boolean): unknown[];
+    /** Deprecated: the IR region tiers' diagnostics (deleted in M11); returns false. */
+    configure_ir_diagnostics(sample_period: number): boolean;
 }
 
 export interface V86JitInfo {
     backend: "ir";
     ir_available: boolean;
-    ir_region_budget: Required<NonNullable<V86Options["ir_region_budget"]>> | null;
-    ir_stats: NonNullable<V86Options["ir_stats"]> | null;
-    ir_verify: NonNullable<V86Options["ir_verify"]> | null;
-    ir_dump: NonNullable<V86Options["ir_dump"]> | null;
-    ir_opt_level: 0 | 1 | 2 | null;
-    ir_passes_disabled: NonNullable<V86Options["ir_passes_disabled"]> | null;
     ir: {
-        visits: number; linked_visits: number;
-        tier1_attempts: number; tier2_attempts: number;
-        tier1_published: number; tier2_published: number;
-        compile_stops: number; publication_failures: number; suppressed: number;
-        unsupported_stops: number; budget_stops: number; invalid_ir_stops: number;
-        budget_retries: number;
-        batched_entries: number;
-        queued_entries: number;
-        fusion_attempts: number; fusion_budget_stops: number;
-        fusion_unsupported_stops: number; fusion_invalid_stops: number;
-        hot_entries: number; pending: number; enabled: number;
-        hot_replacements: number;
-        probation_visits: number;
-        hot_filter: boolean;
-        cache_entries: number; cache_hits: number; cache_capacity: number; cache_evictions: number;
-        cache_fast_checks: number; cache_full_checks: number;
-        cache_post_fetch_reuses: number; cache_target_hits: number; cache_negative_hits: number;
-        cache_successor_hits: number;
-        cache_fast_validation: boolean;
-        fused_publications: number; fused_hits: number; fused_guest_steps: number;
-        fusion_enabled: boolean;
-        /** Deprecated: IR Tier-0 was deleted (its 32-bit code is the page tier's, page_tier); always null. */
-        tier0: { enabled: boolean; page_functions: number; instructions: number; wasm_bytes: number;
-            activations: number; chains: number } | null;
-        /** The x64 page tier (32-bit code with ir_tier0 and x64_page_legacy32); counters wrap at 2^32. */
+        /** 1 when the JIT compiles (disable_jit, or jit_set_enabled at run time), else 0. */
+        enabled: 0 | 1;
+        /** Deprecated: IR Tier-0 was deleted (its code is the page tier's, page_tier); always null. */
+        tier0: null;
+        /** The x64 page tier's 32-bit and 16-bit modes; counters wrap at 2^32. */
         page_tier: { legacy32: boolean; compat32: boolean; prot16: boolean; v86: boolean; functions: number; native_instructions: number; activations: number } | null;
-        diagnostics: V86IrDiagnostics | null;
-    } | null;
-}
-
-export interface V86IrDiagnostics {
-    schema: number; enabled: boolean; sample_period: number; session: number;
-    empty_scope_sampled_ms: number; empty_scope_wall_ms: number;
-    totals: Record<string, number>;
-    timings: Record<string, {sampled_ms: number; sampled_calls: number; estimated_ms: number}>;
-    exits: Record<string, {count: number; guest_steps: number}>;
-    admission: Record<string, number>;
-    chain_stops: Record<string, number>;
-    compiler: Record<string, {ms: number; calls: number; max_ms: number; max_pc: number; max_tier: number}>;
-    publication: {wall_ms: number; calls: number; succeeded: number};
-    discovery_latency: Record<string, {ms: number; count: number; max_ms: number}>;
-    missing_entries: Record<string, number>;
-    helper_exits: Record<string, {count: number; guest_steps: number}>;
-    control_exits: Record<string, {count: number; guest_steps: number}>;
-    interpreter_hotspots: Array<{pc: number; cr3: number; physical: number; samples: number; guest_steps: number; inclusive_ms: number}>;
-    hotspot_replacements: number;
-    hotspots: Array<{pc: number; cr3: number; reason: string; samples: number; guest_steps: number; inclusive_ms: number; tier: number; fused: boolean}>;
+    };
 }

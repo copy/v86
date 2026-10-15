@@ -5,7 +5,7 @@
 // switches) and what the JITs did, with the definitions of cross-phase rule 3:
 // retired instructions are core_statistics_get(core, 0) (a REP instruction
 // counts once, a faulting one not at all); the x64 page tier's counters
-// (x64_page_stat) and the regions' (CPU.get_jit_info); with the
+// (x64_page_stat, CPU.get_jit_info); with the
 // JIT switch step_profile on, the 40 most stepped instructions and events
 // (StepKey v1, tools/step_profile.mjs; JIT_STATS_STEPS=<n> keeps n); the host
 // milliseconds each core ran (runtime_ms); with mode_ledger on, the retired instructions by
@@ -22,7 +22,7 @@ const X64_EXTRA = { 21: "pages_compiled", 24: "bytes_compiled", 20: "ms_in_calls
     36: "compat_compiles", 37: "legacy_compiles", 38: "spans", 39: "span_pages" };
 
 // cpu/execution.rs: x64::state::ExecutionMode and Way (tier0_*: IR Tier-0's,
-// none since P7.5)
+// none since P7.5; region_native: the IR regions', none since M11)
 export const LEDGER_MODES = ["real", "vm86", "prot16", "prot32", "compat16", "compat32", "long64"];
 export const LEDGER_WAYS = ["interpreted", "tier0_native", "tier0_step", "region_native", "page_native", "page_step", "page_retry"];
 

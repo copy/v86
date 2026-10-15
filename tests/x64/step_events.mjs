@@ -57,8 +57,7 @@ at_least("port_in", "x64page E4", timed("port_in"));
 // misses before the compile, and HLT
 at_least("base", "event miss cold", 1);
 at_least("base", "event miss compile", 1);
-// (frames in any mode: the guest may finish in its first)
-assert.ok(profile.base.some(r => r.name.endsWith(" event frame")), "base: no frame event");
+// (no frame events since M11: the region scheduler's begin_cpu_frame noted them)
 exactly("base", "event step-exit halt", 1);
 console.log(`PASS: the step profile's events: FXSAVE/FXRSTOR, CLTS, CR0.TS, #NM, HPET and PM timer reads counted exactly; ` +
     `retries ${count("retry", "event exit retry")}, SYSCALL/SYSRETQ chainable step exits ${count("syscall", "event step-exit chainable")}, ` +

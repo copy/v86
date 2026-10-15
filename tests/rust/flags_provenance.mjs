@@ -1,6 +1,6 @@
 // Compare flag-neutral instruction chains against the interpreter. Each
 // consumer gets a fresh producer, so all 16 conditions exercise provenance.
-// Both IR code generators (the page tier and regions) run every program.
+// The page tier runs every program.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -178,5 +178,5 @@ try {
             programs++;
         }
     }
-    console.log(`PASS: ${cases} flag/condition cases in ${programs} programs (interpreter vs warmed page tier and regions)`);
+    console.log(`PASS: ${cases} flag/condition cases in ${programs} programs (interpreter vs warmed page tier)`);
 } finally { for(const vm of machines) await vm.destroy(); }

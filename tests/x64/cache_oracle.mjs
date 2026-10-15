@@ -28,11 +28,13 @@ ret
 const dir = assemble("cache", source);
 const config = {length: 40};
 const oracle = await reference(dir, config);
-for(const backend of ["pages", "region"])
+// (the second arm interprets the 32-bit setup code: ir_tier0 off; it ran it
+// in the region tiers until M11 of docs/jit-unification-plan.md)
+for(const [backend, ir_tier0] of [["pages", true], ["pages, 32-bit code interpreted", false]])
 {
     let retired = 0, rejected = 0;
     const result = await actual(dir, {...config, options: {disable_jit: false, experimental_smp_jit: true,
-        ir_tier0: backend === "pages", ir_sync_publication: true}, inspect: emulator => {
+        ir_tier0, ir_sync_publication: true}, inspect: emulator => {
         const ex = emulator.v86.cpu.wm.exports;
         retired = ex.x64_page_stat(1); rejected = ex.x64_page_stat(5);
         assert.ok(retired > 1000, "runtime executed actual native instructions");

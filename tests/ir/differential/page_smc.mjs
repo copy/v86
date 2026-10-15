@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
 import { jit_switches_from_env } from "../../lib/jit_switches.mjs";
 
-const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
+const wasm = process.argv[2] || "build/v86.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -107,7 +107,7 @@ async function machine(compiled) {
         await sleep(1);
     }
     await vm.stop();
-    if(compiled) assert(e.ir_auto_set_tier0(1));
+    if(compiled) assert(e.jit_set_page32(1));
     return { vm, cpu, e, compiled };
 }
 

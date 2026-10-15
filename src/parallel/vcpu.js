@@ -118,7 +118,6 @@ export async function run_vcpu(init, post, handle)
             console.error("[vCPU " + core + "] " + new TextDecoder().decode(bytes));
         },
         "dbg_trace_from_wasm": () => {},
-        "ir_codegen_finalize": (id, slot, pointer, length) => { cpu.ir_auto_publish(id, slot, pointer, length); },
         "jit_clear_func": index => cpu.jit_clear_func(index),
         "parallel_notify": address => { Atomics.notify(new Int32Array(memory.buffer), address >>> 2); },
         // the machine's extended RAM store (src/extended_memory.js)
@@ -277,16 +276,14 @@ export async function run_vcpu(init, post, handle)
         // compiled code: other cores' publications and code writes
         exports["parallel_poll"]();
         const now = cpu.clock.now();
-        // this core's compile budget (as the machine's loop does for its core)
-        exports["begin_cpu_frame"](now);
         const next_timer = exports["apic_timer"](now);
         const retired = cpu.run_cpu_slice(quantum);
         steps = steps + retired | 0;
         ctrl[word(C.STEPS)] = steps;
         ctrl[word(C.SLICES)]++;
-        // (cumulative: a reset or restore clears the caches' own counters;
-        // the IR cache and x64 page functions)
-        const entries = exports["ir_cache_stat"](2) + exports["x64_page_stat"](6) >>> 0;
+        // (cumulative: a reset or restore clears the page tier's own
+        // counters; its functions' entries)
+        const entries = exports["x64_page_stat"](6) >>> 0;
         jit_entries += entries >= last_entries ? entries - last_entries : entries;
         last_entries = entries;
         ctrl[word(C.JIT_ENTRIES)] = jit_entries;

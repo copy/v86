@@ -9,16 +9,15 @@
 // CR0.TS (after #UD); CR0.EM and CR4.OSFXSR do not matter; #PF has no
 // effect. Operands alias in every combination; VEX.W and VEX.L where they
 // are ignored, and both VEX prefixes. Every case runs in the interpreter,
-// then hot under the page tier (templates for the hot forms, steps for the others)
-// and the region tiers (natively on the legacy SSE lifters, or through the
-// AVX helpers, ir::runtime::avx).
+// then hot under the page tier (templates for the hot forms, steps for the
+// others). (The region tiers, a second compiled arm, were deleted in M11.)
 //
 // P5 part 1: the data movement and logic forms, VZEROUPPER, VLDMXCSR and
 // VSTMXCSR.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
-import { COMPILED_ARMS, compiled_activations, vex_settled } from "./compiled_arms.mjs";
+import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 import { FORMS, big, execute, le, mask, memory_bytes } from "./avx_model.mjs";
 
 const candidate = process.argv[2] || "build/v86.wasm";
@@ -236,16 +235,9 @@ const PAGE_HOT_256 = ["vmovdqu", "vmovdqa", "vmovntdq", "vzeroall", "vmovups", "
 // VCVTSI2SD, VCVTSS2SD and VCVTPD2PS; the page tier steps them)
 const PAGE_HOT_FP = ["vaddsd", "vmulsd", "vsubsd", "vdivsd", "vaddss", "vmulss", "vsubss", "vdivss", "vmulpd", "vcomisd",
     "vucomisd", "vcomiss", "vucomiss", "vcmpsd"];
-// The hot forms the region tiers run without the AVX helpers (P5 part 6):
-// PAGE_HOT's but VBLENDVPD (BLENDVPD's helper) and VPSHUFB (from memory:
-// PSHUFB's helper) and AVX2's broadcasts (the AVX helper)
-const REGIONS_NATIVE = PAGE_HOT.filter(name => !["vblendvpd", "vpshufb", "vpbroadcastb", "vpbroadcastd"].includes(name));
 /** The forms whose cases the page tier ran templates for (fewer steps than cases)
  * or stepped, by name (" ymm": a VEX.256 form's) */
 const page_forms = { templated: new Set(), stepped: new Set() };
-/** The forms the region tiers ran without the AVX helpers (no calls in the
- * hot run) or with them */
-const region_forms = { native: new Set(), helper: new Set() };
 /** VEX instructions stepped by the page tier (machine 1) since x64_page_steps_reset:
  * keyed by their first two bytes, C4 or C5 and the next, or an address-size
  * or segment prefix and C4 or C5 */
@@ -259,8 +251,8 @@ function page_vex_steps()
 }
 
 let checks = 0;
-/** The build has Wasm SIMD (the portable one has no vector IR) */
-const simd = vm => vm.v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
+/** The build has Wasm SIMD (the portable one has no page tier SIMD templates) */
+const simd = vm => vm.v86.cpu.wm.exports["jit_wasm_simd_supported"]() !== 0;
 /** Runs `cases` in one program: each loads its registers with XRSTOR, runs
  * its `code` between `pre` and `post` and stores its registers with XSAVE;
  * the registers, MXCSR, its destination memory and `out` must be as its
@@ -285,12 +277,7 @@ async function check_cases(name, cases, { before = () => {}, form } = {})
         }
         before(vm);
     };
-    for(const vm of machines)
-    {
-        vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
-        vm.v86.cpu.wm.exports["ir_avx_calls_reset"]();
-    }
-    const settled = vex_settled(0x600);
+    for(const vm of machines) vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
     const results = await run_all(program, write, machines, vm => ({
         fault: word(vm, FAULT),
         cases: cases.map(c => ({
@@ -299,12 +286,10 @@ async function check_cases(name, cases, { before = () => {}, form } = {})
             out: bytes(vm, OUT + c.n * 16, 16),
         })),
         page: vm === machines[1] ? page_vex_steps() : 0,
-        avx_calls: vm.v86.cpu.wm.exports["ir_avx_calls"](),
-    }), vm => vm === machines[1] ? page_rounds() >= cases.length :
-        vm === machines[2] && simd(vm) ? settled(vm) : true);
-    // (the hot runs ran the VEX forms compiled: the page tier a template or steps,
-    // the region tiers call the AVX helper, but in a build without Wasm
-    // SIMD, which has neither page tier SIMD templates nor regions with XMM state)
+    }), vm => vm !== machines[1] || page_rounds() >= cases.length);
+    // (the hot run ran the VEX forms compiled: the page tier a template or
+    // steps; steps in a build without Wasm SIMD, which has no page tier SIMD
+    // templates. results[2]: machine 1's hot run)
     const steps = results[2].data.page;
     if(form)
     {
@@ -316,7 +301,6 @@ async function check_cases(name, cases, { before = () => {}, form } = {})
             page_forms.stepped.add(form_key(form));
         }
     }
-    if(form && simd(machines[2])) region_forms[results[4].data.avx_calls ? "helper" : "native"].add(form_key(form));
     for(const { label, data } of results)
     {
         assert.equal(data.fault, 0, `${name} (${label}): no fault`);
@@ -613,13 +597,8 @@ try
             assert.ok(page_forms.templated.has(name) && !page_forms.stepped.has(name), `${name}: the page tier templates`);
         }
     }
-    if(simd(machines[2]))
-    {
-        for(const name of REGIONS_NATIVE.filter(name => !only || only.includes(name))) assert.ok(region_forms.native.has(name), `${name}: natively in the region tiers`);
-    }
-    if(process.env.AVX_REGION_FORMS) console.log("regions without the AVX helpers:", [...region_forms.native].join(","), "\nwith them:", [...region_forms.helper].join(","));
     console.log(`PASS: ${FORMS.filter(f => !f.long).length} forms against the model, from registers and memory: bits 255:128 of register destinations zeroed; ` +
-        `The page tier templates for ${page_forms.templated.size} of them, the region tiers without the AVX helpers for ${region_forms.native.size}`);
+        `the page tier templates for ${page_forms.templated.size} of them`);
 
     // The floating-point hot forms run page tier templates (or their exact path)
     // for ordinary operands: finite, normal and of moderate size
@@ -1056,7 +1035,7 @@ try
         checks++;
     }
     console.log("PASS: #GP(0) for misaligned aligned moves and VLDMXCSR's reserved bits, #UD for VEX.L1, VEX.W1, VEX.vvvv, memory operands where invalid and gathers' register overlaps and 16-bit addressing, #PF without effect; one exception context for a VEX.256 floating-point form's lanes");
-    console.log(`PASS: ${checks} AVX checks on 3 arms`);
+    console.log(`PASS: ${checks} AVX checks in the interpreter and the page tier`);
 }
 finally
 {

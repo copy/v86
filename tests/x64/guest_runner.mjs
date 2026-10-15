@@ -106,7 +106,6 @@ export async function actual(directory, {address = 0x300000, magic = 0xC064C064,
     {
         await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
         const cpu = emulator.v86.cpu;
-        if(process.env.X64_COMPAT_JIT) cpu.wm.exports.x64_set_compat_jit(process.env.X64_COMPAT_JIT !== "0");
         if(setup) await setup(emulator);
         const deadline = performance.now() + timeout;
         let rounds = 0;

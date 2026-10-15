@@ -260,7 +260,6 @@ export function V86(options)
             dbg_trace(LOG_CPU);
         },
 
-        "ir_codegen_finalize": (id, slot, ptr, len) => { cpu.ir_auto_publish(id, slot, ptr, len); },
         // v86-parallel.wasm: wake a vCPU waiting on a word of the shared memory
         "parallel_notify": address => { Atomics.notify(new Int32Array(wasm_memory.buffer), address >>> 2); },
         // extended RAM pages (src/extended_memory.js)
@@ -440,15 +439,11 @@ V86.prototype.continue_init = async function(emulator, options)
     settings["jit_switches"] = options["jit_switches"]; // (src/jit_switches.js)
     settings.disable_jit = options.disable_jit;
     settings["jit_backend"] = options["jit_backend"];
-    settings["ir_region_budget"] = options["ir_region_budget"];
-    settings["ir_stats"] = options["ir_stats"];
-    settings["ir_verify"] = options["ir_verify"];
-    settings["ir_dump"] = options["ir_dump"];
+    // (ir_region_budget, ir_stats, ir_verify, ir_dump, ir_opt_level,
+    // ir_passes_disabled and ir_page_mode are deprecated and ignored: the IR
+    // region tiers went in docs/jit-unification-plan.md M11)
     settings["ir_sync_publication"] = options["ir_sync_publication"];
-    settings["ir_opt_level"] = options["ir_opt_level"];
-    settings["ir_passes_disabled"] = options["ir_passes_disabled"];
     settings["ir_tier0"] = options["ir_tier0"];
-    settings["ir_page_mode"] = options["ir_page_mode"];
     settings["x87_fast_math"] = options["x87_fast_math"];
     settings["x87_jit_cache"] = options["x87_jit_cache"];
     settings.load_devices = true;
@@ -987,9 +982,8 @@ V86.prototype.continue_init = async function(emulator, options)
             // application processors in vCPU workers (src/parallel/machine.js)
             const bytes = parallel_bytes;
             const worker_settings = {};
-            for(const key of ["disable_jit", "jit_backend", "ir_region_budget", "ir_opt_level", "ir_passes_disabled",
-                "ir_tier0", "ir_page_mode", "ir_verify", "cpu_type", "x87_fast_math", "x87_jit_cache", "cpuid_level", "cpu_quantum",
-                "parallel_fault"])
+            for(const key of ["disable_jit", "jit_backend", "ir_tier0", "cpu_type", "x87_fast_math", "x87_jit_cache",
+                "cpuid_level", "cpu_quantum", "parallel_fault"])
             {
                 if(settings[key] !== undefined) worker_settings[key] = settings[key];
             }
@@ -1074,7 +1068,7 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                         "io_port_write8", "io_port_write16", "io_port_write32",
                         "mmap_read8", "mmap_read32",
                         "mmap_write8", "mmap_write16", "mmap_write32", "mmap_write64", "mmap_write128",
-                        "ir_codegen_finalize", "jit_clear_func",
+                        "jit_clear_func",
                         "x64_native_discard", "x64_page_publish",
                         "extended_load", "extended_store",
                     ].map(f => [f, () => console.error("zstd worker unexpectedly called " + f)]));
@@ -2309,20 +2303,18 @@ V86.prototype.get_instruction_stats = function()
     return print_stats.stats_to_string(this.v86.cpu);
 };
 
-/** Opt-in diagnostics; 0 disables, otherwise a power-of-two sampling period. Clears compiled caches. */
+/** Deprecated: the IR region tiers' diagnostics (docs/jit-unification-plan.md M11 deleted them). Returns false. */
 V86.prototype.configure_ir_diagnostics = function(period)
 {
-    if(this.worker_controller) return this.worker_controller.rpc("configure_ir_diagnostics", [period]);
-    return this.v86.cpu.configure_ir_diagnostics(period);
+    return false;
 };
 // eslint-disable-next-line no-self-assign -- Keep the public name through Closure compilation.
 V86.prototype["configure_ir_diagnostics"] = V86.prototype.configure_ir_diagnostics;
 
-/** Return the last 16 compiler dumps as independent copies; optionally clear the ring. */
+/** Deprecated: the IR region tiers' compiler dumps (docs/jit-unification-plan.md M11 deleted them). Returns an empty list. */
 V86.prototype.get_ir_dumps = function(clear = false)
 {
-    if(this.worker_controller) return this.worker_controller.rpc("get_ir_dumps", [!!clear]);
-    return this.v86.cpu.get_ir_dumps(!!clear);
+    return [];
 };
 // eslint-disable-next-line no-self-assign -- Keep the public name through Closure compilation.
 V86.prototype["get_ir_dumps"] = V86.prototype.get_ir_dumps;

@@ -5,8 +5,8 @@
 // SSE counterparts use those forms' models (packed_model.mjs,
 // shuffle_model.mjs, ssse3_model.mjs, sse4_model.mjs) with VEX's operands.
 import assert from "node:assert/strict";
-import { packed, packedImmediate as packed_immediate } from "../ir/differential/packed_model.mjs";
-import { shuffle } from "../ir/differential/shuffle_model.mjs";
+import { packed, packedImmediate as packed_immediate } from "./packed_model.mjs";
+import { shuffle } from "./shuffle_model.mjs";
 import { model as ssse3 } from "./ssse3_model.mjs";
 import { compare_strings, extract, insert, insertps, ptest, sse4_38, sse4_3a } from "./sse4_model.mjs";
 import { FORMS as SSE_FP, expect } from "./sse_fp_cases.mjs";

@@ -300,6 +300,10 @@ static mut TIME_FIRST_CALLS: f64 = 0.0;
 static mut BYTES_COMPILED: u64 = 0;
 /// A generated function is running.
 static mut ACTIVE: bool = false;
+/// An activation is under way, steps and helpers in it too (physical::
+/// set_window refuses to change the bus then; M11, as the IR cache's busy)
+static mut IN_ACTIVATION: bool = false;
+pub fn in_activation() -> bool { unsafe { IN_ACTIVATION } }
 /// It was compiled for segment bases (P7.2(3)), as all it chains to
 static mut SEGMENTED_ACTIVE: bool = false;
 /// Code-page invalidations; a step that changes it ends the activation.
@@ -354,7 +358,7 @@ pub unsafe fn allowed() -> bool {
     {
         return false;
     }
-    crate::ir::runtime::schedule::enabled()
+    crate::jit::enabled()
         && !apic::has_core_events()
         && !apic::nmi_pending()
         && !crate::cpu::smm::smi_deliverable()
@@ -771,10 +775,11 @@ pub unsafe fn compat_runnable() -> bool {
 /// x64_page_legacy32, P7.3), as 32-bit compatibility-mode code
 static mut LEGACY32: bool = true;
 /// ir_tier0 (set_page32_tier0): the page tier replaced IR Tier-0, the IR's
-/// page-granular compiler (deleted in P7.5), so configurations without it
-/// (region only) leave 32-bit code to the region tier (compatibility-mode
-/// code with x64_compat_jit), as they did
+/// page-granular compiler (deleted in P7.5); configurations without it
+/// interpret 32-bit and 16-bit code (they left it to the region tiers until
+/// M11 deleted them)
 static mut PAGE32_TIER0: bool = false;
+pub unsafe fn page32_tier0() -> bool { PAGE32_TIER0 }
 /// LEGACY32 && PAGE32_TIER0
 static mut LEGACY_ACTIVE: bool = false;
 #[no_mangle]
@@ -802,7 +807,7 @@ pub unsafe fn x64_page_set_v86(enabled: bool) {
     V86 = enabled;
     V86_ACTIVE = V86 && PAGE32_TIER0;
 }
-/// (crate::ir::runtime::schedule::ir_auto_set_tier0)
+/// (crate::jit::jit_set_page32, the JIT switch ir_tier0)
 pub unsafe fn set_page32_tier0(enabled: bool) {
     PAGE32_TIER0 = enabled;
     LEGACY_ACTIVE = LEGACY32 && PAGE32_TIER0;
@@ -1508,6 +1513,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     }
     let interrupts_before = *gp::flags & cpu::FLAG_INTERRUPT;
     ACTIVE = true;
+    IN_ACTIVATION = true;
     COUNTERS[COUNT_ACTIVATIONS] += 1;
     STEP_EXITED = false;
     let t_call = if TIMING { time::microtick() } else { 0.0 };
@@ -1523,6 +1529,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
         TIME_IN_CALLS += time::microtick() - t_call;
     }
     ACTIVE = false;
+    IN_ACTIVATION = false;
     // (functions this activation tail-called from)
     let native = native.wrapping_add(*gp::x64_page_chain);
     // (REP elements legacy-mode functions ran, pagegen Emitter::note_rep:
@@ -1602,6 +1609,9 @@ unsafe fn compile(page: u32) -> Attempt { compile_mode(page, false) }
 /// compile(page), or with `hot` its recompile with inline access lookups
 /// (P4.14), which is no compile of its own: no backoff
 unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
+    // (the performance recorder's synchronous code generation, up to the
+    // publication of a function: src/browser/performance_recorder.js)
+    let started = crate::profiler::performance_codegen_start();
     let r = rt();
     let state = r.pages.entry(page).or_default();
     if hot {
@@ -1884,6 +1894,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     unsafe { BYTES_COMPILED += code.bytes.len() as u64 };
     r.stats[INSTRUCTIONS] += code.instructions as u64;
     r.stats[TEMPLATED] += code.templated as u64;
+    crate::profiler::performance_codegen_finish(started);
     // The host installs it synchronously when it can (x64_page_install).
     js::x64_page_publish(
         id,
@@ -2016,7 +2027,7 @@ fn source_hash(bytes: &[u8]) -> u64 {
     hash
 }
 /// (tests) A ready function serves code of the physical page of `address`,
-/// in any code mode: the page tier's ir_cache_entry_stat(.., 0)
+/// in any code mode
 #[no_mangle]
 pub fn x64_page_published(address: u32) -> bool {
     let r = rt();
@@ -2723,10 +2734,12 @@ unsafe fn step_result(before: &Context, writes: u64) -> i32 {
         // P7.8: a far call or return to code of the same privilege continues
         // through the chaining table; M11: also to code of another such
         // mode, as Windows 98's thunks between 16-bit code and 32-bit code
-        // on a 16-bit stack, through that mode's table)
+        // on a 16-bit stack, through that mode's table, unless the mode
+        // ledger, which books an activation to the mode it started in, is on)
         if CHAINING
             && before.compat >= 2
             && after.compat >= 2
+            && (after.compat == before.compat || !execution::ledger_on())
             && after
                 == (Context {
                     cs: after.cs,

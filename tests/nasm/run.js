@@ -394,15 +394,13 @@ else {
         // the generated tests include the forms of docs/simd-xsave-plan.md
         // that are implemented so far
         cpu_features: ["SSSE3", "SSE4.1", "SSE4.2"],
-        ...FORCE_JIT ? { ir_region_budget: { hot_threshold: 1, promotion_threshold: 1 },
-            jit_switches: { x64_legacy_heat: 1, x64_legacy_recompile_misses: 1 } } : {},
+        ...FORCE_JIT ? { jit_switches: { x64_legacy_heat: 1, x64_legacy_recompile_misses: 1 } } : {},
         log_level: 0,
     });
 
     emulator.add_listener("emulator-loaded", function()
         {
             loaded = true;
-            if(FORCE_JIT) assert(emulator.v86.cpu.wm.exports.ir_auto_set_page_threshold(1));
 
             if(first_test)
             {

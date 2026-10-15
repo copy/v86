@@ -329,15 +329,6 @@ pub static mut tsc_offset: u64 = 0;
 /// spinning core waits for (see CPU.prototype.run_cores)
 pub static mut core_yield: bool = false;
 
-/// Compiled 32-bit code in IA-32e compatibility mode (tests may turn it off
-/// to compare with the interpreter). The IR's system-instruction helpers
-/// (SYSENTER/SYSEXIT, far transfers, IRET, LAR/LSL, segment loads) call the
-/// same CPU functions the interpreter uses in compatibility mode.
-static mut X64_COMPAT_JIT: bool = true;
-pub unsafe fn compat_jit() -> bool { X64_COMPAT_JIT }
-#[no_mangle]
-pub unsafe fn x64_set_compat_jit(enabled: bool) { X64_COMPAT_JIT = enabled; }
-
 #[no_mangle]
 pub unsafe fn request_core_yield() {
     core_yield = true;
@@ -365,7 +356,6 @@ pub unsafe fn yield_to_other_cores() {
 pub unsafe fn copy_machine_configuration() {
     use crate::parallel::machine;
     cpuid_level = *machine(&raw mut cpuid_level);
-    X64_COMPAT_JIT = *machine(&raw mut X64_COMPAT_JIT);
     crate::cpu::instructions_0f::copy_cpu_profile();
     crate::jit_switches::copy_from_machine();
 }
@@ -3517,7 +3507,7 @@ pub unsafe fn ir_interpreted_stat(field: u32, index: u32) -> u32 {
 
 pub unsafe fn cycle_internal() -> bool {
     if crate::x64::state::mode().is_long() {
-        if !crate::ir::runtime::schedule::enabled() {
+        if !crate::jit::enabled() {
             let span = crate::cpu::execution::ledger_begin();
             run_long_instruction();
             crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
@@ -3535,7 +3525,7 @@ pub unsafe fn cycle_internal() -> bool {
     // docs/jit-unification-plan.md P7.2) and legacy protected-mode code
     // (x64_page_legacy32, P7.3)
     if crate::x64::pages::page32()
-        && crate::ir::runtime::schedule::enabled()
+        && crate::jit::enabled()
         && !crate::cpu::execution::is_deterministic()
         && crate::x64::pages::runnable32()
     {
@@ -3551,41 +3541,7 @@ pub unsafe fn cycle_internal() -> bool {
         return attempt.submitted;
     }
     profiler::stat_increment(stat::CYCLE_INTERNAL);
-    // Compatibility mode compiles like legacy protected mode (see run_cpu_slice)
-    let wide = crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0 && !X64_COMPAT_JIT;
-    let submitted = if wide {
-        false
-    }
-    else {
-        if crate::ir::runtime::diagnostics::enabled() {
-            let _scope = crate::ir::runtime::diagnostics::Scope::new(
-                crate::ir::runtime::diagnostics::Stage::Scheduler,
-            );
-            crate::ir::runtime::schedule::visit()
-        }
-        else {
-            crate::ir::runtime::schedule::visit()
-        }
-    };
-    // Installation runs in a host Promise continuation, never on this CPU
-    // stack. Avoid interpreting a full batch before that continuation can
-    // run. This is an edge (new submission), not the level "pending != 0".
-    if submitted {
-        return true;
-    }
-    let native_before = *instruction_counter;
-    if !wide && crate::ir::runtime::cache::execute() {
-        crate::cpu::execution::note_native_retired(
-            (*instruction_counter).wrapping_sub(native_before),
-        );
-        return false;
-    }
-    // The interpreter can call devices and mutate raw RAM.
-    crate::ir::runtime::entry::ir_admission_barrier();
     let initial_eip = *instruction_pointer;
-    let ir_entry = crate::ir::runtime::live::entry();
-    let ir_heat = *prefixes == 0 && !*in_hlt;
-
     *previous_ip = initial_eip;
     let phys_addr = return_on_pagefault!(get_phys_eip(), false);
 
@@ -3593,19 +3549,8 @@ pub unsafe fn cycle_internal() -> bool {
     let performance_sample =
         profiler::performance_chunk_start(false, initial_eip as u32, *cr.offset(3) as u32, *cpl);
     let span = crate::cpu::execution::ledger_begin();
-    if crate::ir::runtime::diagnostics::enabled() {
-        jit_run_interpreted_diagnostic(phys_addr);
-    }
-    else {
-        jit_run_interpreted(phys_addr, u32::MAX);
-    }
+    jit_run_interpreted(phys_addr, u32::MAX);
     crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
-    if ir_heat {
-        crate::ir::runtime::schedule::note_interpreted(
-            ir_entry,
-            (*instruction_counter).wrapping_sub(initial_instruction_counter),
-        );
-    }
     note_interpreted_page(
         initial_eip as u32,
         (*instruction_counter).wrapping_sub(initial_instruction_counter),
@@ -3753,20 +3698,6 @@ pub unsafe fn get_phys_eip() -> OrPageFault<u32> {
     return Ok(phys_addr);
 }
 
-#[inline(never)]
-unsafe fn jit_run_interpreted_diagnostic(phys_addr: u32) {
-    let before = *instruction_counter;
-    let pc = *instruction_pointer as u32;
-    let cr3 = *cr.offset(3) as u32;
-    let scope = crate::ir::runtime::diagnostics::Scope::new(
-        crate::ir::runtime::diagnostics::Stage::Interpreter,
-    );
-    jit_run_interpreted(phys_addr, u32::MAX);
-    let count = (*instruction_counter).wrapping_sub(before);
-    crate::ir::runtime::diagnostics::interpreter_steps(count);
-    crate::ir::runtime::diagnostics::interpreter(pc, cr3, phys_addr, count, scope.finish());
-}
-
 /// Diagnostics (off by default): the last interpreted instructions as
 /// (EIP, ESP, CR3, EAX, EBX, EDX), for debugging guests that jump into
 /// garbage. Debug builds only; compiled code is not traced (use disable_jit).
@@ -3826,10 +3757,9 @@ unsafe fn jit_run_interpreted(mut phys_addr: u32, budget: u32) {
     profiler::stat_increment(stat::RUN_INTERPRETED);
 
     jit_block_boundary = false;
-    // IR hotness is collected at outer dispatch. A same-page interpreted loop
-    // must expose its backedge before the 100,001-instruction limit, or an
-    // already hot/published side entry can remain invisible to IR selection.
-    let ir_dispatch = crate::ir::runtime::schedule::enabled();
+    // (the page tier gathers heat at outer dispatch: a same-page interpreted
+    // loop returns at its back edge, or after 64 instructions)
+    let ir_dispatch = crate::jit::enabled();
     let before = *instruction_counter;
     let mut i = 0;
 
@@ -3974,10 +3904,6 @@ pub unsafe fn run_compat_instruction() {
     }
 }
 
-/// Shared compilation budget, replenished once per machine scheduling round.
-#[no_mangle]
-pub fn begin_cpu_frame(now: f64) { crate::ir::runtime::schedule::begin_frame(now); }
-
 /// The cooperative scheduler's interpreter slice. Device clocks are serviced once by
 /// the machine scheduler, outside this entry. Yield only after a complete
 /// instruction or the string engine's resumable REP element batch; a LOCK
@@ -3986,14 +3912,13 @@ pub fn begin_cpu_frame(now: f64) { crate::ir::runtime::schedule::begin_frame(now
 pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
     core_yield = false;
     crate::parallel::sync_worker_configuration();
-    crate::ir::runtime::entry::ir_admission_barrier();
     handle_irqs();
     let before = *instruction_counter;
     let mut remaining = budget;
     jit_link_batch_start = before;
     jit_link_batch_limit = budget;
     jit_link_batch = true;
-    let native = crate::ir::runtime::schedule::enabled();
+    let native = crate::jit::enabled();
     // (P7.2, P7.3: a switch hands 32-bit code to the page tier)
     let page32 = native && crate::x64::pages::page32();
     while remaining != 0 && !*in_hlt && !core_yield {
@@ -4042,34 +3967,10 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
             }
             continue;
         }
-        // Legacy modes and IA-32e compatibility mode (32-bit code under a
-        // 64-bit OS): the IR reads 4-level translations through the 32-bit
-        // TLB that fill_ia32e_tlb keeps (x64 memory::translate_user)
-        if !crate::cpu::execution::is_deterministic()
-            && (crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0 || X64_COMPAT_JIT)
-            && crate::ir::runtime::schedule::enabled()
-        {
-            if crate::ir::runtime::schedule::visit() {
-                break;
-            }
-            if crate::ir::runtime::cache::execute() {
-                crate::cpu::execution::note_native_retired(
-                    (*instruction_counter).wrapping_sub(count),
-                );
-                remaining =
-                    remaining.saturating_sub((*instruction_counter).wrapping_sub(count).max(1));
-                continue;
-            }
-        }
-        let entry = crate::ir::runtime::live::entry();
         if let Ok(phys_addr) = get_phys_eip() {
             let span = crate::cpu::execution::ledger_begin();
             jit_run_interpreted(phys_addr, remaining);
             crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
-            crate::ir::runtime::schedule::note_interpreted(
-                entry,
-                (*instruction_counter).wrapping_sub(count),
-            );
         }
         remaining = remaining.saturating_sub((*instruction_counter).wrapping_sub(count).max(1));
         if apic::has_core_events() {
@@ -4122,7 +4023,6 @@ pub unsafe fn main_loop() -> f64 {
     profiler::stat_increment(stat::MAIN_LOOP);
 
     let start = js::microtick();
-    crate::ir::runtime::schedule::begin_frame(start);
 
     if *in_hlt {
         profiler::performance_execution_add(4, 1.0);
@@ -4136,7 +4036,6 @@ pub unsafe fn main_loop() -> f64 {
             profiler::performance_timer_finish(performance_start, 1);
             if *in_hlt {
                 profiler::stat_increment(stat::MAIN_LOOP_IDLE);
-                let t = t - crate::ir::runtime::schedule::idle((t - 0.25).min(8.0));
                 return profiler::performance_main_loop_exit(t.max(0.0), true);
             }
         }
@@ -4159,7 +4058,6 @@ pub unsafe fn main_loop() -> f64 {
         handle_irqs();
         profiler::performance_timer_finish(performance_start, 1);
         if *in_hlt {
-            let t = t - crate::ir::runtime::schedule::idle((t - 0.25).min(8.0));
             return profiler::performance_main_loop_exit(t.max(0.0), true);
         }
         if core_yield {
@@ -4192,9 +4090,7 @@ pub unsafe fn ir_link_budget_available() -> bool {
 
 pub unsafe fn do_many_cycles_native() -> bool {
     let mut publication_yield = false;
-    let diagnostic_start = crate::ir::runtime::diagnostics::batch_start();
     profiler::stat_increment(stat::DO_MANY_CYCLES);
-    crate::ir::runtime::entry::ir_admission_barrier();
     let initial_instruction_counter = *instruction_counter;
     jit_link_batch_start = initial_instruction_counter;
     jit_link_batch_limit = LOOP_COUNTER as u32;
@@ -4216,7 +4112,6 @@ pub unsafe fn do_many_cycles_native() -> bool {
         }
     }
     jit_link_batch = false;
-    crate::ir::runtime::diagnostics::batch_end(diagnostic_start);
     publication_yield
 }
 

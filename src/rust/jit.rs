@@ -1,7 +1,9 @@
-//! Shared state for compiled code: the bounded Wasm table that IR modules are
-//! installed into, and the physical code pages they were compiled from. Writes
-//! to such a page (self-modifying code, DMA, host writes) invalidate the IR
-//! artifacts that depend on it.
+//! Shared state for compiled code: whether it runs (jit_set_enabled), the
+//! bounded Wasm table that the x64 page tier's functions are installed into,
+//! and the physical code pages they were compiled from. Writes to such a page
+//! (self-modifying code, DMA, host writes) retire the functions that depend
+//! on it. (The IR region tiers shared it until docs/jit-unification-plan.md
+//! M11 deleted them.)
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::mem::MaybeUninit;
@@ -36,6 +38,61 @@ pub fn jit_clear_func(wasm_table_index: WasmTableIndex) {
 // needs to be synced to const.js
 pub const WASM_TABLE_SIZE: u32 = 12000;
 
+/// Whether compiled code runs (CPU.configure_jit_backend: not disable_jit;
+/// the region tiers' scheduler held it until M11)
+static mut ENABLED: bool = false;
+#[no_mangle]
+pub unsafe fn jit_set_enabled(enabled: u32) -> bool {
+    if enabled > 1 {
+        return false;
+    }
+    ENABLED = enabled == 1;
+    true
+}
+#[inline(always)]
+pub fn enabled() -> bool { unsafe { ENABLED } }
+/// Whether the JIT compiles (get_jit_info's ir.enabled)
+#[no_mangle]
+pub fn jit_is_enabled() -> bool { enabled() }
+/// 32-bit and 16-bit code in the x64 page tier (the JIT switch ir_tier0,
+/// set by CPU.configure_jit_backend unless its setting ir_tier0 is false;
+/// the region tiers' scheduler set it until M11)
+#[no_mangle]
+pub unsafe fn jit_set_page32(enabled: u32) -> bool {
+    if enabled > 1 {
+        return false;
+    }
+    crate::x64::pages::set_page32_tier0(enabled == 1);
+    if enabled == 1 {
+        reserve_compiler_heap();
+    }
+    true
+}
+/// Grow the Wasm heap once for the compiler's working set: every later
+/// memory.grow of the (multi-GiB) guest memory makes the host re-account it as
+/// external memory and collect, so many small grows cost far more than one.
+/// (The region tiers' scheduler did this for the page tier's 32-bit code
+/// until M11; CPU.configure_jit_backend sets ir_tier0 before the guest's RAM
+/// is allocated, which takes the freed chunks' place: cpu::memory.)
+fn reserve_compiler_heap() {
+    static mut RESERVED: bool = false;
+    unsafe {
+        if RESERVED {
+            return;
+        }
+        RESERVED = true;
+    }
+    // Freed chunks stay in the allocator's free lists.
+    let chunks: Vec<Vec<u8>> = (0..16).map(|_| Vec::with_capacity(2 << 20)).collect();
+    drop(chunks);
+}
+
+/// Whether this build has Wasm SIMD: the portable one (build/v86-fallback.wasm)
+/// has none, and the page tier declines the forms whose templates need it
+/// (ir_wasm_simd_supported until M11 of docs/jit-unification-plan.md).
+#[no_mangle]
+pub extern "C" fn jit_wasm_simd_supported() -> u32 { u32::from(cfg!(target_feature = "simd128")) }
+
 static JIT_STATE: Mutex<MaybeUninit<JitState>> = Mutex::new(MaybeUninit::uninit());
 fn get_jit_state() -> JitStateRef { JitStateRef(JIT_STATE.try_lock().unwrap()) }
 
@@ -55,10 +112,6 @@ pub fn rust_init() {
     unsafe {
         *crate::cpu::global_pointers::ir_tlb_base = std::ptr::addr_of!(cpu::tlb_data) as u32;
     }
-    crate::ir::runtime::live::invalidate();
-    crate::ir::runtime::cache::invalidate();
-    crate::ir::runtime::schedule::invalidate();
-
     let _ = JIT_STATE
         .try_lock()
         .unwrap()
@@ -120,9 +173,6 @@ fn retire_page_ctx(ctx: &mut JitState, page: Page) { retire_bytes_ctx(ctx, page,
 /// retire_page_ctx for a write of `bytes` (offsets lo..hi) of the page: the
 /// x64 page tier keeps code the write misses (x64::pages::dirty_bytes)
 fn retire_bytes_ctx(ctx: &mut JitState, page: Page, bytes: Option<(u32, u32)>) {
-    crate::ir::runtime::live::dirty_page(page.to_address());
-    crate::ir::runtime::cache::dirty_page(page.to_address());
-    crate::ir::runtime::schedule::dirty_page(page.to_address());
     if !ir_page_watched(ctx, page) {
         profiler::stat_increment(stat::DIRTY_PAGE_DID_NOT_HAVE_CODE);
         return;
@@ -216,9 +266,6 @@ pub fn jit_clear_cache_js() { jit_clear_cache(&mut get_jit_state()) }
 
 fn jit_clear_cache(ctx: &mut JitState) {
     crate::x64::pages::reset();
-    crate::ir::runtime::live::invalidate();
-    crate::ir::runtime::cache::invalidate();
-    crate::ir::runtime::schedule::invalidate();
     let mut pages_with_code = HashSet::new();
     for (_, pages) in ctx.ir_slots.values_mut() {
         pages_with_code.extend(pages.drain());
@@ -305,8 +352,6 @@ pub fn page_watched(page: u32) -> bool {
 pub fn wait_pages_published(pages: impl Iterator<Item = Page> + Clone, ms: f64) -> bool {
     unsafe { crate::parallel::code::wait_published(pages.map(|page| page.to_u32()), ms) }
 }
-
-pub fn ir_cache_quiescent() -> bool { JIT_STATE.try_lock().is_ok() }
 
 /// The fewest free table slots since the last jit_wasm_table_free_low_reset
 /// (docs/jit-unification-plan.md P0.10): IR and the x64 page tier both take

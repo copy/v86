@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 
-// Compiled code against independent oracles, once per IR arm (the page tier and regions).
+// Compiled code against independent oracles, once per compiled arm (the page tier).
 const wasm = process.argv[2] || "build/v86.wasm";
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
 let vm;
@@ -276,8 +276,9 @@ try {
         p.push(0xE9,...u32(-p.length-5));
         vm.write_memory(Uint8Array.from(p),0x386000);
         await compile(0x386000); device_writes.length=0; await run(0x386000);
-        // The VM may stop between the two stores (regions exit after every
-        // MMIO store), so the last pair can be incomplete; the order cannot.
+        // The VM may stop between the two stores (compiled code can exit
+        // after an MMIO store), so the last pair can be incomplete; the order
+        // cannot.
         assert(device_writes.length >= 2);
         for(let i=0;i<device_writes.length;i++) assert.deepEqual(device_writes[i],
             [0xA0000+(i%2)*4,0x12345678]);

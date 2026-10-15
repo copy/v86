@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Compiled 32-bit code in IA-32e compatibility mode (x64_set_compat_jit):
+// Compiled 32-bit code in IA-32e compatibility mode (x64_page_compat32):
 // the same hot compatibility-mode routine runs twice under 4-level paging
 // with NX. Between the runs, 64-bit code remaps a data page (PTE write +
 // INVLPG), which the already compiled code must observe (the 32-bit TLB it
@@ -13,10 +13,9 @@
 // displacement page, then calls it: the write must not take the
 // translation the reads keep (x64_fast_lookup's kept translations, one
 // per kind), as the code page refuses writes to the inline lookups.
-// Results must equal the interpreter's, and compiled code must have run:
-// the region tiers' (x64_compat_jit; IR Tier-0's until P7.5), or with
-// x64_page_compat32 the x64 page tier's (docs/jit-unification-plan.md P7.2,
-// M6's acceptance).
+// Results must equal the interpreter's, and with x64_page_compat32 the x64
+// page tier's compiled code must have run (docs/jit-unification-plan.md
+// P7.2, M6's acceptance; the region tiers' arm went with them in M11).
 import assert from "node:assert/strict";
 import {assemble, actual} from "./guest_runner.mjs";
 import {long_mode_guest} from "./guest_builder.mjs";
@@ -163,26 +162,19 @@ jmp [0x301000]
 `;
 const directory = assemble("compat-jit", long_mode_guest(body, data));
 const results = {};
-for(const [name, jit, compat, page32] of [["interpreter", false, false, false], ["page tier, compat interpreted", true, false, false],
-    ["page tier + compat regions", true, true, false], ["page tier, compat32", true, false, true]])
+for(const [name, jit, page32] of [["interpreter", false, false], ["page tier, compat interpreted", true, false],
+    ["page tier, compat32", true, true]])
 {
-    let regions, page;
+    let page;
     const result = await actual(directory, {length: 88, timeout: 120000,
         options: jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
             jit_switches: {x64_page_compat32: page32 ? 1 : 0}} : {},
-        setup: emulator => {
-            const x = emulator.v86.cpu.wm.exports;
-            x.x64_set_compat_jit(compat);
-            if(jit) x.ir_auto_set_idle_mode(0, 1);
-        },
         inspect: emulator => {
             const x = emulator.v86.cpu.wm.exports;
-            regions = x.ir_cache_stat(2);
             page = {compat_compiles: x.x64_page_stat(36), native: x.x64_page_stat(1)};
         }});
     results[name] = result;
-    console.log(`${name}: ${result.subarray(16, 80).toString("hex")} region entries ${regions} page tier ${JSON.stringify(page)}`);
-    if(compat) assert.ok(regions > 0, "compiled compatibility-mode code ran");
+    console.log(`${name}: ${result.subarray(16, 80).toString("hex")} page tier ${JSON.stringify(page)}`);
     if(page32) assert.ok(page.compat_compiles > 0 && page.native > ITERATIONS * 10, "the page tier ran the compatibility-mode code");
 }
 const view = results.interpreter;

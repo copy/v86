@@ -3,7 +3,11 @@
 // test and an optional baseline core), checked results, SPEC-style ratio scores.
 //
 //   node tests/bench/run.mjs [--filter re] [--runs 5] [--cold 3] [--scale 1]
-//        [--wasm build/v86-ir-runtime.wasm] [--baseline other.wasm]
+//        [--wasm build/v86.wasm] [--baseline other.wasm]
+//        [--baseline-root dir]   (the baseline is another tree at another
+//            revision, built: its build/v86.wasm (unless --baseline) with its
+//            build/libv86.mjs and state layout, as a core and the JavaScript
+//            of another revision do not always agree)
 //        [--xp image.img] [--xp-runs 3] [--out file.json] [--quick]
 //        [--ir-setup "export=value,..."]   (calls on every arm after boot)
 //        [--switches-a "name=value,..."] [--switches-b "name=value,..."]
@@ -57,8 +61,13 @@ const runs = Number(option("runs", quick ? 3 : 5));
 const cold_runs = Number(option("cold", quick ? 1 : 3));
 const scale = Number(option("scale", quick ? 0.5 : 1));
 const filter = option("filter") ? new RegExp(option("filter")) : null;
-const wasm = option("wasm", "build/v86-ir-runtime.wasm");
-const baseline = option("baseline");
+const wasm = option("wasm", "build/v86.wasm");
+const baseline_root = option("baseline-root") && path.resolve(option("baseline-root"));
+const baseline = option("baseline") || (baseline_root && path.join(baseline_root, "build/v86.wasm"));
+const baseline_tree = baseline_root ? {
+    V86: (await import(path.join(baseline_root, "build/libv86.mjs"))).V86,
+    state_offsets: (await import(path.join(baseline_root, "src/state_layout.js"))).STATE_OFFSETS,
+} : {};
 const xp_image = option("xp");
 const xp_runs = Number(option("xp-runs", 3));
 const fallbacks = flag("fallbacks");
@@ -77,8 +86,8 @@ const create = (arm, bench, extra = {}) => create_machine(arm, bench, boots, { e
 const switches = name => ({ ...jit_switches_from_env(), ...parse_jit_switches(option(name)) });
 const arms = [
     { label: "ir", isa, wasm, switches: switches("switches-a") },
-    ...same_source ? [{ label: "baseline", isa: "i686", wasm: baseline || wasm, switches: switches("switches-b") }] :
-        baseline || option("switches-b") ? [{ label: "baseline", isa, wasm: baseline || wasm, switches: switches("switches-b") }] : [],
+    ...same_source ? [{ label: "baseline", isa: "i686", wasm: baseline || wasm, switches: switches("switches-b"), ...baseline_tree }] :
+        baseline || option("switches-b") ? [{ label: "baseline", isa, wasm: baseline || wasm, switches: switches("switches-b"), ...baseline_tree }] : [],
     ...flag("interpreter") ? [{ label: "interpreter", isa, wasm, switches: {}, interpreted: true }] : [],
 ];
 // The arm whose results another arm's must equal: the first one before it with its ISA

@@ -13,11 +13,10 @@ pub mod profiler;
 
 mod config;
 #[allow(dead_code)]
-#[path = "ir/frontend/decode.rs"]
+#[path = "decode/decode.rs"]
 pub(crate) mod decode;
 mod decode_rules;
 mod gen;
-mod ir;
 mod jit;
 mod jit_switches;
 mod leb;

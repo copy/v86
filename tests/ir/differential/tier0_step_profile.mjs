@@ -17,7 +17,7 @@ import { V86 } from "../../../build/libv86.mjs";
 import { get_jit_switches, set_jit_switches } from "../../../src/jit_switches.js";
 import { step_key, step_key_name, step_profile } from "../../../tools/step_profile.mjs";
 
-const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
+const wasm = process.argv[2] || "build/v86.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

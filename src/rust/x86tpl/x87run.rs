@@ -9,8 +9,8 @@
 //! caller checks CR0 (#NM) and gp::x87_native_policy first.
 use super::x87::X87Cache;
 use crate::cpu::{fpu, global_pointers as gp};
-use crate::ir::x87::{Arithmetic, Io, Native, Source};
 use crate::wasmgen::wasm_builder::{Label, WasmBuilder, WasmLocalF64};
+use crate::x86tpl::x87_forms::{Arithmetic, Io, Native, Source};
 
 const C1: i32 = 0x200;
 
@@ -88,14 +88,15 @@ impl X87Run {
         self.top = (self.top + 1) & 7;
     }
     /// Add the form `opcode` (0xD8..0xDF) `modrm`; false (run unchanged) if
-    /// it cannot join the run: only register forms (crate::ir::x87::io's
+    /// it cannot join the run: only register forms (crate::x86tpl::x87_forms::io's
     /// Stack) with a native form can.
     pub fn append(&mut self, opcode: u8, modrm: u8) -> bool {
-        if !(0xD8..=0xDF).contains(&opcode) || crate::ir::x87::io(opcode, modrm) != Some(Io::Stack)
+        if !(0xD8..=0xDF).contains(&opcode)
+            || crate::x86tpl::x87_forms::io(opcode, modrm) != Some(Io::Stack)
         {
             return false;
         }
-        let Some(native) = crate::ir::x87::native(opcode, modrm)
+        let Some(native) = crate::x86tpl::x87_forms::native(opcode, modrm)
         else {
             return false;
         };

@@ -42,20 +42,20 @@ process.on("unhandledRejection", exn => { throw exn; });
     assert.equal(exports["jit_set_switch"](table.length, 0), 0);
     assert.deepEqual(get_jit_switches(exports, memory, true), {});
 
-    set_jit_switches(exports, memory, { x64_outline: 0, ir_fusion: true, ir_page_threshold: 1000, ir_idle_sync_ms: 40 });
+    set_jit_switches(exports, memory, { x64_outline: 0, x64_block_count: false, x64_legacy_heat: 1000, x64_span_entries: 40 });
     const now = get_jit_switches(exports, memory);
     assert.equal(now.x64_outline, 0);
-    assert.equal(now.ir_fusion, 1);
-    assert.equal(now.ir_page_threshold, 1000);
-    assert.equal(now.ir_idle_sync_ms, 40);
-    assert.equal(now.ir_idle_mode, 0, "ir_idle_sync_ms keeps ir_idle_mode");
-    assert.deepEqual(get_jit_switches(exports, memory, true), { x64_outline: 0, ir_fusion: 1, ir_page_threshold: 1000, ir_idle_sync_ms: 40 });
+    assert.equal(now.x64_block_count, 0);
+    assert.equal(now.x64_legacy_heat, 1000);
+    assert.equal(now.x64_span_entries, 40);
+    assert.equal(now.x64_span_crossings, 4096, "x64_span_entries keeps x64_span_crossings");
+    assert.deepEqual(get_jit_switches(exports, memory, true), { x64_outline: 0, x64_block_count: 0, x64_legacy_heat: 1000, x64_span_entries: 40 });
     // (an old setter is an alias: jit_switch reads what it set)
     exports["x64_page_set_outline"](1);
     assert.equal(get_jit_switches(exports, memory).x64_outline, 1);
 
     assert.throws(() => set_jit_switches(exports, memory, { x64_outline: 2 }), /x64_outline cannot be 2/);
-    assert.throws(() => set_jit_switches(exports, memory, { ir_cache_capacity: 100 }), /ir_cache_capacity cannot be 100/);
+    assert.throws(() => set_jit_switches(exports, memory, { x64_legacy_heat: 0 }), /x64_legacy_heat cannot be 0/);
     assert.throws(() => set_jit_switches(exports, memory, { no_such_switch: 1 }), /no JIT switch no_such_switch/);
     // (chained page functions need tail calls, which src/cpu.js reports)
     assert.throws(() => set_jit_switches(exports, memory, { x64_chaining: 1 }), /x64_chaining cannot be 1/);
@@ -73,8 +73,8 @@ assert.deepEqual(parse_jit_switches(undefined), {});
 assert.throws(() => parse_jit_switches("a"), /expected name=value/);
 assert.throws(() => parse_jit_switches("a=-1"), /expected name=value/);
 assert.deepEqual(jit_switches_from_env({ JIT_SWITCHES: "x64_outline=0" }), { x64_outline: 0 });
-assert.deepEqual(with_jit_switches({ jit_switches: { ir_fusion: 1 } }, { JIT_SWITCHES: "x64_outline=0,ir_fusion=0" }).jit_switches,
-    { x64_outline: 0, ir_fusion: 1 }, "a test's own value wins over JIT_SWITCHES");
+assert.deepEqual(with_jit_switches({ jit_switches: { x64_loops: 1 } }, { JIT_SWITCHES: "x64_outline=0,x64_loops=0" }).jit_switches,
+    { x64_outline: 0, x64_loops: 1 }, "a test's own value wins over JIT_SWITCHES");
 assert.deepEqual(with_jit_switches({ memory_size: 1 }, {}), { memory_size: 1 });
 
 // The V86 option
@@ -97,15 +97,16 @@ function load(options)
 }
 
 {
-    const emulator = await load({ ...config, jit_switches: "x64_outline=0, ir_fusion=1" });
+    const emulator = await load({ ...config, jit_switches: "x64_outline=0, x64_legacy_heat=1000" });
     const values = jit_switches_of(emulator);
     assert.equal(values.x64_outline, 0);
-    assert.equal(values.ir_fusion, 1);
-    // (not named: as configure_jit_backend left them)
+    assert.equal(values.x64_legacy_heat, 1000);
+    // (not named: as configure_jit_backend left them; the region tiers'
+    // switches went with them in M11)
     assert.equal(values.ir_tier0, 1);
-    // (IR Tier-0 set the page mode and its threshold, 50000, until P7.5)
-    assert.equal(values.ir_page_mode, 0);
-    assert.equal(values.ir_page_threshold, 512);
+    assert.equal(values.x64_page_legacy32, 1);
+    assert.equal(values.x64_page_prot16, 1);
+    assert.equal(values.x64_page_v86, 1);
     set_emulator_jit_switches(emulator, { x64_outline: 1 });
     assert.equal(jit_switches_of(emulator).x64_outline, 1);
     await emulator.destroy();
@@ -113,6 +114,6 @@ function load(options)
 }
 
 await assert.rejects(load({ ...config, jit_switches: { no_such_switch: 1 } }), /no JIT switch no_such_switch/);
-await assert.rejects(load({ ...config, jit_switches: { ir_cache_capacity: 5 } }), /ir_cache_capacity cannot be 5/);
+await assert.rejects(load({ ...config, jit_switches: { x64_legacy_heat: 0 } }), /x64_legacy_heat cannot be 0/);
 console.log("unknown names and refused values fail the construction");
 console.log("Done");

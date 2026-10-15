@@ -1,6 +1,7 @@
 //! AVX: the VEX-encoded SIMD instructions (docs/simd-xsave-plan.md, P5-P6).
-//! One executor serves the 32-bit interpreter (crate::cpu::vex), the IR's
-//! helper (crate::ir::runtime::avx) and the x64 engine (crate::x64::vector).
+//! One executor serves the 32-bit interpreter (crate::cpu::vex) and the x64
+//! engine (crate::x64::vector); the IR region tiers' helper too until
+//! docs/jit-unification-plan.md M11 deleted them.
 //! An engine decodes the instruction (decode_rules::vex_row: the row exists,
 //! has its semantics and accepts the VEX fields), calls `check` once all of
 //! its bytes are fetched and before its operand's segment is checked, then
@@ -9,7 +10,7 @@
 //! upper halves of the YMM registers, MXCSR, CR0, CR4 and XCR0 are the same
 //! state in every engine.
 //!
-//! The semantics are the legacy forms' (crate::ir::simd, simd_int, simd_fp)
+//! The semantics are the legacy forms' (crate::cpu::simd_ops, simd_int, simd_fp)
 //! with VEX's operands: VEX.vvvv is the first source, a VEX.128 form zeroes
 //! bits 255:128 of its destination register (VMOVSS/VMOVSD between registers
 //! too), and every input is read before the destination is written, so any of
@@ -17,8 +18,8 @@
 //! them on each 128-bit half where it works lane by lane.
 use crate::cpu::cpu::{self, reg128, CR0_TS, CR4_OSXSAVE, MXCSR_MASK};
 use crate::cpu::global_pointers as gp;
+use crate::cpu::simd_ops::{PackedOp, ShuffleOp, TransferOp};
 use crate::cpu::{simd_fp, simd_int};
-use crate::ir::simd::{PackedOp, ShuffleOp, TransferOp};
 
 /// A decoded VEX instruction
 #[derive(Clone, Copy, Debug)]

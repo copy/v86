@@ -63,7 +63,6 @@ pub unsafe fn context_switch(old: u32, new: u32) {
     assert!(old < apic::core_count() as u32 && new < apic::core_count() as u32);
     capture(old as usize);
     install(new as usize);
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 #[no_mangle]
 pub unsafe fn context_reset(core: u32) {

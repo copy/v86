@@ -2,7 +2,7 @@
 
 状态：设计与实施计划，尚未实现或通过本文验收。P7 的方向已定：采用候选 (b)，32 位代码并入 page tier。
 Wasm 产物已定（2026-10-07）：按指令集家族出两个核心，同一套源码构建（跨阶段规则 12）。
-16 位代码的去向已定（2026-10-07）：也迁入 page tier，之后删除 region 管线与 ir/runtime（P7.7–P7.9，M10–M11）。
+16 位代码的去向已定（2026-10-07）：也迁入 page tier，之后删除 region 管线与 ir/runtime（P7.7–P7.9，M10–M11）。M11（2026-10-15）已删除它们，只剩一个 x86 编译器（x64 page tier，见 [ir-design.md](ir-design.md)）。
 
 本计划基于 2026 年 10 月 6 日审查的 `0aebe4f`，2026-10-09 按 `985f518d`（SIMD/XSAVE 计划全部完成后的 master）重新核对。目标客户机是 32 位 Windows XP、64 位 Windows 8.1
 （含 WOW64 32 位程序）、Windows 98（retro-gaming-site 上用得最多的客户机，约 42 个游戏条目，XP 约 20 个；
@@ -2404,3 +2404,105 @@ M7 的 Legacy32 未过 D 级门禁，按回退规则 M8 为第二次尝试，Tie
   开关关闭时 Long64、Compat32、Legacy32 的重放（合成语料 1818 条加 bench 录制 85 + 153 + 102 条）与 M9 逐字节相同。
   Win98 存档恢复后照常运行（D 级门禁的三个游戏都从存档开始）。标签 `vM10`。M11 之前要做的：把 region 仍在执行的代码
   （16 位代码配 32 位栈、32 位代码配 16 位栈或 CS 基址非 0）接进 page tier，再删除 region。
+
+### M11
+
+M10 出口列出的事先做：region 仍在执行 page tier 不接的代码（16 位代码配 32 位栈、32 位代码配 16 位栈或 CS 基址非 0），
+M10 的 F2 臂（关掉 region）因此比 B2 低约 2%。前两种接进 page tier；CS 基址非 0 的 32 位代码在负载里几乎没有（下面的账本），
+删除 region 之后由解释器执行。之后才删除 region（P7.9）。
+
+**栈宽度与代码宽度不同的两种模式，2026-10-15（`c22e1ee2`）。**
+
+- 新模式 `MODE_PROT16_SS32`（16 位代码配 32 位栈）与 `MODE_SEGMENTED_SS16`（按段基址编译的 32 位代码配 16 位栈），函数键
+  另加 `STACK_KEY`（1 << 25），链接表现在 9 组；`CompileEnv::stack16` 决定压栈、出栈、LEAVE/ENTER 与远转移用 SP 还是 ESP
+  （`stack_sized`、`adjust_sp` 按栈宽度而不是代码宽度）。`runnable_kind` 6 与 7。Windows 98 的 16/32 位转换桩（thunk）就是
+  这种代码：M10 的剖析里约占《暗黑破坏神》2.8%、《红色警戒 2》1.4% 的时间。
+- 一个由新模式暴露的问题：几处用 `mode >= MODE_PROT16` 判断“16 位代码”，加了 `MODE_SEGMENTED_SS16`（编号更大）之后 32 位
+  代码被当成 16 位、每次进入都重编译；改为 `code16(mode)`（模式 4、5、6、7）。
+- 差分：`tier0_fuzz.mjs` 加 `FUZZ_SS16`（SS 为 16 位段，SP 从 0xFFF0 或 8 开始，比较栈段两端），`prot16_fuzz.mjs` 加
+  `FUZZ_MODE=prot16ss32`（ESP 的高半在用例里有意义，EBP 的高半屏蔽掉，因为 16 位寻址只用 BP）。布局错误一次：16 位栈段与
+  数据段重叠，栈段挪到 0x640000。进 `x64-legacy32-tests`。
+
+**远 CALL 与 RETF 的模板，跨模式链接，2026-10-15（`208d7091`）。**
+
+- 按段基址编译的代码里（16 位的三种模式与 `segmented`）远 CALL ptr16:16/ptr16:32 与 RETF/RETF imm16 不再单步：
+  `Op::FarCall {selector, offset, width}` 与 `Op::FarRet {pop, width}` 写回状态、RIP 设为下一条、`previous_ip` 设为本条，
+  调用 `x64_page_far`（返回 0 接着走链接表，1 离开，2 已交付故障；故障时本条照解释器计为已退休）。《暗黑破坏神》的指令里
+  16 位代码的远调用与返回约占十分之一，以前每条一次单步。
+- 跨模式链接（P7.2c 的一部分，只在按段基址编译的模式之间）：单步或远转移只改了 CS 与可运行种类（都 ≥ 2）时，
+  `x64_page_step` 把 `x64_code_base` 与 `SEGMENTED_ACTIVE` 换成新模式的，经新模式的链接表继续，16 位代码与 32 位转换桩之间
+  不再离开激活。`step_code` 对所有 `env.segmented` 的函数处理 STEP_CHAIN。
+- `kind_of(mode)`：可运行种类每次进入只算一次（第一版每条远转移后重算 `mode()` 几次，《主题医院》慢 1.5%）。
+- 差分：`prot16_fuzz.mjs` 的 y 类（最后一轮远调用到越过 GDT 界限的选择子，或 RETF 弹出它：#GP，由远转移 helper 交付）；
+  `FUZZ_FAR32=1`（第二个代码段是平坦的 32 位代码，经 CALL FAR ptr16:32 进入、RETF 返回；page tier 不运行 CS 基址非 0 的
+  32 位代码）覆盖 16 位代码与 32 位代码之间的远转移与跨模式链接，f 类时要求每例的激活次数少于轮数的十分之一（实测约 500
+  次对 20000 轮；账本开着时每次远转移离开，约 44 万次）。这一项是写记录时补的：原来的 f、y 类的远程例程都是 16 位代码，
+  跨模式链接没有差分测试。
+- 所有者负载（两个会话，A 为 M10 的默认 `m10-B2`，C 为本提交、region 照旧，CF 为 C 关掉 region `ir_region_modes=0`）：
+  《暗黑破坏神》109.5 / 125.2 / 127.5 MIPS，《红色警戒 2》225.9 / 232.1 / 232.9，《主题医院》990.8 / 977.4 / 976.4，
+  Win98 冷启动 6.8 / 7.1 / 6.6 s；CF 不比 C 慢，删除 region 不再有 M10 记的 2% 代价。加上 `kind_of` 之后（D，3 个会话对 A）：
+  《主题医院》983.3 对 990.0（0.993），《暗黑破坏神》124.1 对 110.2（1.126）。
+- 账本（P0.6，`--ledger`，在 `c22e1ee2` 上）：XP、《暗黑破坏神》、《红色警戒 2》、《主题医院》、bench i686/compat32/x86_64 与
+  Win8.1 上 region 执行的指令为 0；Win98 冷启动 15.8 亿条里 20940 条（0.001%，非平坦段的 32 位保护模式代码），删除之后
+  由解释器执行。
+
+**P7.9 删除 region 管线与 ir/runtime，2026-10-15。**
+
+- 删除 `src/rust/ir`（47,515 行：`hir.rs`、`mir*`、`passes/`、`lowering.rs`、`backend/`、`frontend` 的提升代码、`runtime/`
+  的调度器、缓存、发布、诊断、代码快照与 live 编译），`gen/ir_semantics.js` 与覆盖目录 `ir-coverage.json`，导出 210 个
+  （`ir_auto_*`、`ir_cache_*`、region 的 helper 入口等）。移出 `ir/` 的共享件：解码目录 `src/rust/decode/{decode.rs,
+  encodings.rs}`（生成器改名 `gen/generate_decoder.js`，`make decoder-generated(-check)`），x87 形式表
+  `x86tpl/x87_forms.rs`，SIMD 的运算 `cpu/simd_ops.rs`，x87 helper `x64/helpers.rs` 的 `x64_x87`。`wasm_builder.rs` 删掉只有
+  region 用的函数。
+- 留下或改名的：`jit_set_enabled`/`jit_is_enabled`（JIT 开关，`disable_jit` 与运行时开关，以前在调度器里）、`jit_set_page32`
+  （`ir_tier0`）、`jit_wasm_simd_supported`（原 `ir_wasm_simd_supported`）；编译器堆的一次性预留 `reserve_compiler_heap`
+  移到 `jit.rs`（以前在调度器里，page tier 的 32 位代码也靠它：删掉之后页编译让 Wasm 内存小步增长，多 GiB 客户机的每次
+  增长都让宿主重新计账；两个持有 `DataView` 的测试因内存增长而失效，才发现它不在了）。`cycle_internal` 与
+  `run_cpu_slice` 在 JIT 开着时只走 page tier，否则解释执行。性能记录器（`performance_recorder.js`）改为给页函数的发布
+  （`x64_page_publish` 现在给出是否装入）与 page tier 的同步代码生成计时（以前只有调度器计）。
+- 账本：`Way::RegionNative`（3）与单步剖析的 `frame` 事件（12，`begin_cpu_frame` 记的）退役，编号保留。跨模式链接让一次
+  激活跨过模式，而账本按激活开始时的模式记账：账本开着时，转到另一模式的远转移改为离开激活（关着时照常链接）。
+- JS：`ir_region_budget`、`ir_opt_level`、`ir_passes_disabled`、`ir_verify`、`ir_dump`、`ir_stats`、`ir_page_mode` 已弃用、
+  无作用；`configure_ir_diagnostics` 返回 false，`get_ir_dumps` 返回 []；`get_jit_info()` 只剩 `backend`、`ir_available`、
+  `ir.enabled`、`ir.page_tier`。`v86.d.ts` 同步。
+- 测试：删除只为 region 写的（`tests/ir/differential` 90 个文件，`tests/ir/semantics`、`tests/ir/wasm`、`tests/expect`、
+  代码快照、覆盖与 backend 场景，`tests/ir/performance` 的 11 个工具，`tools/ir-*.sh`、`tools/check_region_freeze.mjs`，
+  `tests/smp/publication.mjs`，`jit_policy_benchmark.mjs`，`ab-ptier` 与 `ir-*` 目标）。page tier 的测试留在原路径
+  （`tests/ir/differential/tier0_*`、`page_*`、`prot16_fuzz.mjs`，`tests/ir/performance/{xp_boot,game_state}.mjs`），这样
+  `owner_perf` 对旧修订的工作树仍能用同样的路径。解码测试移到 `tests/decode`；REP 引擎与 VERR 标志的解释器测试保留
+  （`rep-engine-tests`、`verr-flags-tests`，单步 helper `ir_test_step` 移到 `cpu/string.rs`）。ISA、x64 与 SMP 测试去掉 region
+  臂（`COMPILED_ARMS` 只剩 page tier，`SMP_MODES` 只剩 interpreter 与 pages）。少掉的覆盖：`bmi.mjs` 的实模式用例（32 位栈）
+  page tier 不接，现在只在解释器里跑；跨核的 region 发布测试没有 page tier 的对应物。
+- 门禁：`ir-core-tests` 换成 `jit-core-tests`（Rust 单元测试、Wasm 构建器、`decode-tests`、`rep-engine-tests`、
+  `verr-flags-tests`、`decode-rules-tests`），发布门禁的 R-IR 级改为 R-JIT，其他级去掉 `ir-*` 目标；`jit-gate` 不再有 region
+  冻结检查（P7.6 随 region 结束）。GitHub 的工作流（`ci.yml` 的 `expect-tests`、`ir-core.yml`）仍引用删掉的目标，按所有者的
+  要求没有改。
+- 测量工具：`owner_perf.mjs` 的臂可以是一个工作树（目录：用它自己的脚本、`libv86.mjs` 与 `build/v86.wasm`），
+  `tests/bench/run.mjs` 加 `--baseline-root`：M11 的核心缺少 vM10 的 JS 要配置的导出，旧核心配新 JS 也不成立（M9 的 0.02×）。
+- 验收：`grep -rn 'ir::hir\|ir::mir\|ir::passes\|ir::runtime\|ir_auto_' src tests Makefile tools gen` 为空，`build/v86.wasm` 没有
+  `ir_auto_*` 导出；`v86.wasm` 从 4,606,098 字节降到 2,994,827 字节（−35%，`core-split-check`：241 个函数改变、1159 个删除）；
+  重放（合成语料 1818 条加 bench 录制 85 + 153 + 102 条）与删除前逐字节相同。jitrt 还不存在（J1a 才建），所以没有
+  `IrRuntime` 客户端可去：J1a 建 jitrt 时只有 `X86Page`。
+- 门禁：`make jit-gate-full`：重放、`x64-page-tier-tests`、`x64-legacy32-tests`、`jit-switch-tests`、`jit-core-tests` 通过，
+  发布门禁各级 `--quick` 53 项通过（M10 的 61 项去掉 8 个 `ir-*` 目标；`acpi-guest-tests` 第一次是 M10 记过的 PM 定时器偶发
+  失败，`--keep-going` 重跑时通过）。第一次全量门禁还找出两处：`step_events.mjs` 断言的 `frame` 事件（见上）与
+  `reserve_compiler_heap` 的静态量没有 `gen/state_layout.js` 的归属。没有门禁级别的套件单独跑过：`jit-tiers-tests`、
+  `cpu-plan-tests`、`flags-provenance-tests`、`mmx-fast-tests`、`cpu-optimization-tests`、`x87-jit-cache-tests`、
+  `highmem-tests`、`multicore-statistics-tests-release`、`jit-disabled-tests`（改写为 page tier：运行时关掉 JIT 后 128 帧
+  不编译、不进入页函数，再打开就编译）与性能记录器的单元测试（它的假 CPU 在 `f403ba9a` 之后就缺 `disk_devices`，
+  早已不能运行，补上了）。变异检查：关掉跨模式链接，`FUZZ_FAR32` 的 f 类 6 例全部失败（每例约 48 万次激活）。
+- R 级门禁（相对 `vM10`；两边各用自己修订的 JS：`owner_perf` 的工作树臂、bench 的 `--baseline-root`，vM10 的工作树在
+  `build/wt-vm10`）。所有者负载 3 个会话：《暗黑破坏神》105.9 → 122.7 MIPS（1.159），《红色警戒 2》216.0 → 229.9（1.064），
+  《主题医院》990.4 → 980.6（0.990），Win98 冷启动 6.9 → 6.7 s（1.030），XP 13.06 → 13.13 s（0.995），Win8.1 167 → 170 s
+  （0.982；单次启动差 5–10%，两边都在 161–177 s 之间）。《主题医院》与 Win8.1 加 2 个会话，合计 5 个会话的中位数：《主题
+  医院》990.4 对 981.0（0.991），Win8.1 167 对 170 s。bench 3 个会话：i686 几何平均 1.005、compat32 1.001、x86_64 0.999
+  （`gate.mjs --level R` 通过）；i686 的 718.avx.ymm（0.81）与 compat32 的 720.bmi.bits（0.79）按规则以 `--runs 7 --scale 4`
+  重测为 0.98 与 1.00。718 的 JIT 计数两边完全相同（1 次编译、原生指令数相同），单次运行约 6 ms，时间在 5.5 ms 与 6.8 ms
+  两档之间跳，中位数恰好落在慢档；720 在 M7 就记过双峰。生成代码相对 vM10 也逐字节相同（重放 2158 条）。
+- 《主题医院》慢的 1% 来自 16 位代码：vM10 的账本里 region 还执行它 456 万条（`region_native`），M11 里 page tier 把它们
+  几乎全部单步（`page_step` 456 万条）。单步剖析：是 Win98 回调表里的 `INT 30h`（`cd 30 cd 30 …`，40 s 里 310 万次），
+  region 经它的中断 helper 执行，page tier 按规则 8 单步，每次进入函数、单步、离开。《暗黑破坏神》的单步里没有它（前几名
+  是转换桩里的 MOV SS、LSS 与 GS 段的访存）。上面的账本（在 `c22e1ee2` 上测）里《主题医院》的 region 已经为 0：这段代码是
+  配 32 位栈的 16 位代码，`c22e1ee2` 起由 page tier 执行，代价从那时起就在（D 臂 0.993）。后续候选（不在本计划）：按段基址编译的代码里 INT n 用远转移那样的模板（helper 交付中断，省去
+  单步的解码与上下文比较），以及转换桩里的 MOV SS/LSS。
+- M11 出口：本节各项。jitrt 不存在（见上），M11 的“jitrt 只剩 `X86Page` 与 `A64Page`”由 J1a 直接满足。标签 `vM11`。

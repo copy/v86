@@ -173,7 +173,7 @@ function on_submit(event) {
 
 const vm = new V86({
     graphics_adapter: "bochs_vga",
-    wasm_path: option("wasm", "build/v86-ir-runtime.wasm"),
+    wasm_path: option("wasm", "build/v86.wasm"),
     ir_tier0: option("tier0", "1") === "1",
     memory_size, vram_size: vga_memory_size,
     bios: { url: "bios/seabios.bin" }, vga_bios: { url: "bios/vgabios.bin" },
@@ -278,6 +278,6 @@ console.log(JSON.stringify({ event: "summary", seconds, second_half: { mips: +me
     ...!raw ? { desktop_s } : {},
     ...with_ledger ? { ledger: mode_ledger(e) } : {} }));
 // (tools/bench/jit_stats.mjs, docs/jit-unification-plan.md P0.7)
-if(jit_stats_enabled()) print_jit_stats(vm, { script: "game_state", wasm: option("wasm", "build/v86-ir-runtime.wasm"), state: state_path || null, seconds });
+if(jit_stats_enabled()) print_jit_stats(vm, { script: "game_state", wasm: option("wasm", "build/v86.wasm"), state: state_path || null, seconds });
 await vm.destroy();
 process.exit(0);

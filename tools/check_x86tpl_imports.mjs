@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // The import rule of src/rust/x86tpl (docs/jit-unification-plan.md P2.10):
 // the x86 leaf templates are shared by every x86 engine, so they name none
-// of them: not the x64 page tier (crate::x64), the IR runtime (crate::ir::runtime), the JIT's composition root
-// (crate::jit) nor the region pipeline (crate::ir::{backend, mir, hir,
-// passes, lowering}). Checks every crate:: and super:: path in the module's
+// of them: not the x64 page tier (crate::x64) nor the JIT's composition
+// root (crate::jit); the region pipeline and its runtime (crate::ir) went
+// in M11, and no crate::ir path resolves. Checks every crate:: and super:: path in the module's
 // code (comments and strings stripped), and that a super:: path stays in
 // x86tpl.
 //
@@ -17,9 +17,7 @@ const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), ".."
 const DIR = path.join(ROOT, "src/rust/x86tpl");
 const FORBIDDEN = [
     /^crate::x64\b/,
-    /^crate::ir::runtime\b/,
     /^crate::jit\b/,
-    /^crate::ir::(backend|mir|hir|passes|lowering)\b/,
 ];
 
 /** The code of a Rust file without comments, strings and character literals */

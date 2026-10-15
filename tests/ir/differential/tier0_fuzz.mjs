@@ -26,7 +26,7 @@ import { jit_switches_from_env } from "../../lib/jit_switches.mjs";
 
 const cases = Number(process.argv[2] || 40);
 let seed = Number(process.argv[3] || 1) >>> 0;
-const wasm = process.argv[4] || "build/v86-ir-runtime.wasm";
+const wasm = process.argv[4] || "build/v86.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

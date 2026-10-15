@@ -13,7 +13,7 @@
 // the whole m128 read though a string ends early), CRC32 from 8-, 16- and
 // 32-bit registers (AH-BH too) and memory (flags kept, no XMM state checks),
 // and POPCNT, which has its own CPUID bit. Every case runs in the
-// interpreter, then hot under the page tier and the region tiers.
+// interpreter, then hot under the page tier.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -222,7 +222,7 @@ async function create_machines(options = {})
     return set;
 }
 /** The build has Wasm SIMD (the fallback build has no SIMD templates) */
-const simd = vm => vm.v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
+const simd = vm => vm.v86.cpu.wm.exports["jit_wasm_simd_supported"]() !== 0;
 /** The page tier (machine 1) ran a template for the form under test, whose
  * interpreter steps are keyed by its first two bytes, 66 0F; or stepped it
  * each round. A build without Wasm SIMD has no SIMD templates. Reset the
@@ -347,7 +347,7 @@ try
         }
         cases += CASES;
     }
-    console.log(`PASS: ${cases} cases of ${BINARY.length} forms of 66 0F 38 (PMOVSX/PMOVZX, BLENDV, PMULDQ/PMULLD, PCMPEQQ/PCMPGTQ, PACKUSDW, PMIN/PMAX, PHMINPOSUW) match the model on 3 arms; the page tier templates for ${TEMPLATED_38.length}`);
+    console.log(`PASS: ${cases} cases of ${BINARY.length} forms of 66 0F 38 (PMOVSX/PMOVZX, BLENDV, PMULDQ/PMULLD, PCMPEQQ/PCMPGTQ, PACKUSDW, PMIN/PMAX, PHMINPOSUW) match the model in the interpreter and the page tier; the page tier templates for ${TEMPLATED_38.length}`);
     checks += cases;
 
     // PTEST: ZF and CF from the model, AF, OF, PF and SF cleared (set before)
@@ -745,7 +745,7 @@ try
     for(const vm of machines) pages(vm, ABSENT, true);
     checks += 5;
     console.log("PASS: #GP(0) for misaligned m128 operands (none for narrow ones or PCMPxSTRx), #NM, #UD (EM, OSFXSR, LOCK, F2/F3, MOVNTDQA register) and #PF, without effect; CRC32 and POPCNT without XMM checks");
-    console.log(`PASS: ${checks} SSE4 checks on 3 arms`);
+    console.log(`PASS: ${checks} SSE4 checks in the interpreter and the page tier`);
 }
 finally
 {

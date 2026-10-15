@@ -5,7 +5,7 @@ import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 
 // cpu_plan_sequences.mjs [baseline.wasm] [candidate.wasm]: machine 0 is the
 // interpreter (or, with arguments, the baseline core); the candidate core runs
-// every sequence once per IR arm (the page tier and regions) and must match it.
+// every sequence once per compiled arm (the page tier) and must match it.
 const candidate = process.argv[3] || "build/v86.wasm";
 const baseline = process.argv[2] || candidate;
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
@@ -328,8 +328,8 @@ try {
     const selected = programs.filter(([name]) => !process.env.SEQUENCE_FILTER || (process.env.SEQUENCE_FILTER === "nonfloating" ? !name.startsWith("floating") : name.includes(process.env.SEQUENCE_FILTER)));
     for(const [name, body] of selected) {
         // Loop until 0x604 is set, then halt at the end of an iteration: a VM
-        // stopped at an arbitrary point (page tier and region boundaries differ
-        // from the loop head) can hold a partially rewritten OUT.
+        // stopped at an arbitrary point (the page tier's exits differ from the
+        // loop head) can hold a partially rewritten OUT.
         const p = [...body, 0xC7, 0x05, ...u32(0x600), ...u32(0xCAFE), 0x80, 0x3D, ...u32(0x604), 0, 0x75, 5];
         p.push(0xE9, ...u32(-p.length - 5), 0xF4);
         const results = [];
@@ -360,5 +360,5 @@ try {
         }
         for(let i = 1; i < machines.length; i++) assert.deepEqual(results[i], results[0], `${labels[i]}: ${name}`);
     }
-    console.log(`PASS: ${selected.length} actual sequences on the page tier and regions, aliases, MMX/x87 transitions and RAM boundaries`);
+    console.log(`PASS: ${selected.length} actual sequences on the page tier, aliases, MMX/x87 transitions and RAM boundaries`);
 } finally { for(const vm of machines) await vm.destroy(); }

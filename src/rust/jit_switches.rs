@@ -1,19 +1,16 @@
 //! One registry of the JIT switches (docs/jit-unification-plan.md, cross-phase
-//! rule 1). Each A/B switch of the IR runtime and the x64 page tier has a name
+//! rule 1). Each A/B switch of the x64 page tier has a name
 //! here, so that the V86 option `jit_switches`, the tests (JIT_SWITCHES, read
 //! by tests/lib/jit_switches.mjs) and build-time defaults (JIT_DEFAULTS) set
 //! them one way, vCPU workers copy them and measurements can record them
-//! (src/jit_switches.js). The older setters (x64_page_set_outline,
-//! ir_cache_set_fusion, ...) stay as aliases: jit_switch reads a value however
-//! it was set. The region tier's own settings (ir_auto_set_region_instructions,
-//! ir_auto_config) are frozen with it (P7.6) and not listed; the engine's tail
-//! calls (jit_set_tail_calls) are a host capability, not a switch.
+//! (src/jit_switches.js). The older setters (x64_page_set_outline, ...) stay
+//! as aliases: jit_switch reads a value however it was set. The engine's tail
+//! calls (jit_set_tail_calls) are a host capability, not a switch. (The IR
+//! region tiers' switches went with them in docs/jit-unification-plan.md M11.)
 //!
-//! Values apply in the order of SWITCHES (ir_tier0 reset ir_page_mode and
-//! ir_page_threshold until P7.5 deleted IR Tier-0; they still follow it).
+//! Values apply in the order of SWITCHES.
 
-use crate::cpu::{cpu, execution};
-use crate::ir::runtime::{cache, schedule};
+use crate::cpu::execution;
 use crate::step_profile;
 use crate::x64::{pagegen, pages};
 
@@ -158,8 +155,8 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
-    // (P7.7: 16-bit protected-mode code in the page tier instead of the
-    // region tiers; off until it passes its D gate)
+    // (P7.7: 16-bit protected-mode code in the page tier, on since M10;
+    // off, it runs in the interpreter)
     Switch {
         name: "x64_page_prot16",
         default: 1,
@@ -332,154 +329,22 @@ pub const SWITCHES: &[Switch] = &[
         set: |v| flag(v).map(pagegen::x64_page_set_sti_shadow).is_some(),
         get: pagegen::switch_value,
     },
-    // (compatibility-mode code in the IR's region tier, without
-    // x64_page_compat32)
-    Switch {
-        name: "x64_compat_jit",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { cpu::x64_set_compat_jit(on) })
-                .is_some()
-        },
-        get: |_| Some(unsafe { cpu::compat_jit() } as u32),
-    },
-    // the IR scheduler (crate::ir::runtime); ir_tier0 since P7.5 deleted
-    // Tier-0: the page tier compiles 32-bit code (x64_page_legacy32 and
-    // x64_page_compat32 take effect with it; region-only configurations
-    // turn it off)
+    // 32-bit and 16-bit code in the page tier (x64_page_legacy32,
+    // x64_page_compat32, x64_page_prot16 and x64_page_v86 take effect with
+    // it): CPU.configure_jit_backend sets it unless its setting ir_tier0 is
+    // false (IR Tier-0's name, which it replaced in P7.5; the region tiers
+    // took that code without it until M11 deleted them)
     Switch {
         name: "ir_tier0",
         default: 0,
-        set: |v| unsafe { schedule::ir_auto_set_tier0(v) },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_page_mode",
-        default: 0,
-        set: |v| unsafe { schedule::ir_auto_set_page_mode(v) },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_page_threshold",
-        default: 512,
-        set: |v| unsafe { schedule::ir_auto_set_page_threshold(v) },
-        get: schedule::switch_value,
+        set: |v| unsafe { crate::jit::jit_set_page32(v) },
+        get: |_| Some(unsafe { pages::page32_tier0() } as u32),
     },
     Switch {
         name: "ir_relaxed_fma",
         default: 0,
         set: |v| unsafe { crate::x64::helpers::ir_set_relaxed_fma(v) },
         get: |_| Some(unsafe { crate::x64::helpers::ir_relaxed_fma() }),
-    },
-    Switch {
-        name: "ir_hot_filter",
-        default: 0,
-        set: |v| unsafe { schedule::ir_auto_set_hot_filter(v) },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_hot_capacity",
-        default: 128,
-        set: |v| unsafe { schedule::ir_auto_set_hot_capacity(v) },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_heat_steps",
-        default: 4096,
-        set: |v| unsafe { schedule::ir_auto_set_heat_steps(v) },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_region_modes",
-        default: 0x7F,
-        set: |v| unsafe { schedule::set_region_modes(v) },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_direct_tier2",
-        default: 0,
-        set: |v| {
-            v <= 1 && {
-                unsafe { schedule::ir_auto_set_direct_tier2(v) };
-                true
-            }
-        },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_idle_mode",
-        default: 0,
-        set: |v| unsafe {
-            schedule::ir_auto_set_idle_mode(
-                v,
-                schedule::switch_value("ir_idle_sync_ms").unwrap_or(16),
-            )
-        },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_idle_sync_ms",
-        default: 16,
-        set: |v| unsafe {
-            schedule::ir_auto_set_idle_mode(schedule::switch_value("ir_idle_mode").unwrap_or(0), v)
-        },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_resident_promotion",
-        default: 0,
-        set: |v| unsafe { cache::ir_cache_set_resident_promotion(v) },
-        get: schedule::switch_value,
-    },
-    // the IR cache (crate::ir::runtime::cache)
-    Switch {
-        name: "ir_cache_capacity",
-        default: 768,
-        set: |v| unsafe { cache::ir_cache_set_capacity(v) },
-        get: cache::switch_value,
-    },
-    Switch {
-        name: "ir_fast_validation",
-        default: 1,
-        set: |v| unsafe { cache::ir_cache_set_fast_validation(v) },
-        get: cache::switch_value,
-    },
-    Switch {
-        name: "ir_warm_chaining",
-        default: 1,
-        set: |v| unsafe { cache::ir_cache_set_warm_chaining(v) },
-        get: cache::switch_value,
-    },
-    Switch {
-        name: "ir_fusion",
-        default: 0,
-        set: |v| unsafe { cache::ir_cache_set_fusion(v) },
-        get: cache::switch_value,
-    },
-    Switch {
-        name: "ir_merged_validation",
-        default: 1,
-        set: |v| unsafe { cache::ir_cache_set_merged_validation(v) },
-        get: cache::switch_value,
-    },
-    Switch {
-        name: "ir_missing_hint",
-        default: 1,
-        set: |v| unsafe { cache::ir_cache_set_missing_hint(v) },
-        get: cache::switch_value,
-    },
-    Switch {
-        name: "ir_poll_reuse",
-        default: 1,
-        set: |v| unsafe { cache::ir_cache_set_poll_reuse(v) },
-        get: cache::switch_value,
-    },
-    Switch {
-        name: "ir_strict_validation",
-        default: 0,
-        set: |v| unsafe { cache::ir_cache_set_strict_validation(v) },
-        get: cache::switch_value,
     },
     // measurement: the step profile of both tiers (crate::step_profile)
     Switch {

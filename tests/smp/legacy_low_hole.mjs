@@ -23,18 +23,11 @@ for(const mode of modes)
 {
     const emulator = new V86(with_smp_mode({ graphics_adapter: "bochs_vga", wasm_path: process.env.WASM_PATH, memory_size: 16 << 20,
         acpi: true, cpu_cores: 2, disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
-        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 },
         autostart: false, log_level: 0, net_device: { type: "none" } }, mode));
     await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
     try
     {
         const cpu = emulator.v86.cpu, e = cpu.wm.exports;
-        if(mode !== "interpreter")
-        {
-            assert.equal(e.ir_auto_set_idle_mode(0, 1), 1);
-            assert.equal(e.ir_auto_set_page_threshold(2), 1);
-            if(mode === "region") assert.equal(e.ir_auto_set_page_mode(0), 1);
-        }
         for(let core = 0; core < 2; core++)
         {
             cpu.switch_core(core);
@@ -67,7 +60,6 @@ for(const mode of modes)
                 while(!cpu.in_hlt[0])
                 {
                     assert.ok(performance.now() < deadline, `${mode}/${phase}/${core}: timeout`);
-                    e.begin_cpu_frame(cpu.clock.now());
                     cpu.run_cpu_slice(257);
                     if(++rounds % 16 === 0) await new Promise(resolve => set_immediate(resolve));
                 }

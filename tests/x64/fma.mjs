@@ -256,35 +256,20 @@ const check = (result, label) => {
 const expected_qemu = await reference(directory, {length});
 check(expected_qemu, "QEMU");
 const FEATURES = {cpu_type: "x86_64", cpu_features: ["SSSE3", "SSE4.1", "SSE4.2", "XSAVE", "AVX", "FMA", "F16C"], cpu_features_unreleased: true};
-for(const [label, options, compat] of [["interpreted", {}, false],
-    ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, false],
-    // (no compatibility-mode region arm: the region tiers end their regions
-    // at these forms, docs/jit-unification-plan.md P7.6; IR Tier-0's arm
-    // went with it in P7.5)
+for(const [label, options] of [["interpreted", {}],
+    ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}],
     // (compatibility-mode code in the page tier, docs/jit-unification-plan.md P7.2)
     ["x64 page tier, compat32", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
-        jit_switches: {x64_page_compat32: 1}}, false]])
+        jit_switches: {x64_page_compat32: 1}}]])
 {
-    let page = 0, page32 = 0, regions = 0;
+    let page = 0, page32 = 0;
     const result = await actual(directory, {length, timeout: 180000, options: {...FEATURES, ...options},
-        setup: emulator => {
-            const x = emulator.v86.cpu.wm.exports;
-            x.x64_set_compat_jit(compat);
-            if(options.disable_jit === false)
-            {
-                x.ir_auto_set_idle_mode(0, 1);
-                // (compile compatibility-mode pages at their first visit)
-                assert.ok(x.ir_auto_set_page_threshold(1));
-            }
-        },
         inspect: emulator => {
             page = emulator.v86.cpu.wm.exports.x64_page_stat(1);
             page32 = emulator.v86.cpu.wm.exports.x64_page_stat(36);
-            regions = emulator.v86.cpu.wm.exports.ir_cache_stat(2);
         }});
     check(result, label);
     if(options.disable_jit === false) assert.ok(page > 1000, `${label}: compiled 64-bit code ran (${page})`);
-    if(compat) assert.ok(regions > 0, `${label}: compiled compatibility-mode code ran (${regions} region entries)`);
     if(options.jit_switches?.x64_page_compat32) assert.ok(page32 > 0, `${label}: the page tier compiled compatibility-mode code (${page32})`);
     console.log(`PASS (${label}): ${cases.length} FMA and F16C cases in 64-bit and compatibility mode (XMM0-15, aliased and memory operands, faults), as the model and QEMU`);
 }

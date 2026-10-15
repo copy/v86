@@ -57,9 +57,7 @@ for(const mode of modes)
         cdrom: { url: path.join(root, "images/linux4.iso") }, hda: { buffer: disk.buffer },
         memory_size: 128 << 20, cpu_cores: cores, acpi: true, cpu_schedule_seed: seeds[0],
         disable_jit: mode === "interpreter", experimental_smp_jit: mode !== "interpreter",
-        ...(mode === "region" ? { ir_page_mode: false } : {}),
-        ir_sync_publication: true, ir_region_budget: { hot_threshold: 8, promotion_threshold: 128 },
-        filesystem: {}, net_device: { type: "ne2k" }, autostart: false, log_level: 0 }, mode, false));
+        ir_sync_publication: true, filesystem: {}, net_device: { type: "ne2k" }, autostart: false, log_level: 0 }, mode, false));
     let serial = "", phase = "load", cpu, packets = 0, received = 0, poweroffs = 0, disk_reads = 0, disk_writes = 0;
     const started_ms = performance.now();
     const results = [];
@@ -143,7 +141,6 @@ for(const mode of modes)
         const jit = per_core_jit.map((value, i) => value - jit_before[i]);
         if(mode === "interpreter") assert.ok(jit.every(value => value === 0));
         else assert.ok(jit.every(value => value > 0), "each core executes compiled code during workload");
-        if(mode === "region") assert.equal(cpu.wm.exports.x64_page_stat(1), 0, "region arm does not execute the page tier");
         const record = { seed, quantum, wall_ms: Math.round(performance.now() - round_started_ms), snapshot: !!saved, ...first, packets: packets - net_before, disk_read_bytes: disk_reads - reads_before, disk_write_bytes: disk_writes - writes_before, jit };
         results.push(record);
         console.log(`${mode}: OS stress passed ${JSON.stringify(record)}`);
@@ -158,7 +155,6 @@ for(const mode of modes)
         });
         cpu = emulator.v86.cpu;
         const e = cpu.wm.exports;
-        if(mode === "region") assert.equal(e.ir_auto_set_page_mode(0), 1);
         const run_slice = cpu.run_cpu_slice.bind(cpu);
         const jit_count = () => mode_hits(e, mode);
         cpu.run_cpu_slice = budget => { const id = cpu.active_core, before = jit_count(); const r = run_slice(budget); per_core_jit[id] += (jit_count() - before) >>> 0; return r; };
@@ -210,8 +206,9 @@ for(const mode of modes)
             if(+process.env.SMP_RECOVER_INTERPRETER)
             {
                 await emulator.restore_state(failure_state);
-                const budget = cpu.ir_region_budget;
-                assert.equal(cpu.wm.exports.ir_auto_config(0, budget.hot_threshold, budget.promotion_threshold, budget.max_source_bytes, budget.execution_budget, budget.rep_iterations), 1);
+                // (no compilation: the page tier neither compiles nor enters
+                // its functions with the JIT disabled)
+                assert.equal(cpu.wm.exports.jit_set_enabled(0), 1);
                 const recovery_begin = serial.length;
                 emulator.run();
                 const recovery_deadline = performance.now() + 30000;

@@ -34,7 +34,8 @@ reference = current[:start] + wrapper + current[end:] + "\n" + body
 with tempfile.TemporaryDirectory(prefix="rep-reference-", dir=ROOT / "build") as stage_name:
     stage = Path(stage_name)
     shutil.copytree(ROOT / "src/rust", stage / "src/rust")
-    shutil.copytree(ROOT / "tests/ir", stage / "tests/ir")
+    # (test cores include tests/decode/legacy_modrm.rs: cpu/modrm.rs)
+    shutil.copytree(ROOT / "tests/decode", stage / "tests/decode")
     for name in ["Cargo.toml", "Cargo.lock"]:
         if (ROOT / name).exists():
             shutil.copy2(ROOT / name, stage / name)

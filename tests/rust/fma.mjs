@@ -12,8 +12,9 @@
 // x, y, z wins); 0 × ∞ with a QNaN addend (no IE), an SNaN one or a number;
 // random ones; and products whose rounding error the addend exposes (one
 // rounding gives the error, a rounded product added gives 0). Every case
-// runs in the interpreter, then hot under the page tier and the region tiers (the
-// AVX helper). Without the features, CPUID reports neither and the forms #UD.
+// runs in the interpreter, then hot under the page tier (the region tiers, a
+// second compiled arm, were deleted in M11). Without the features, CPUID
+// reports neither and the forms #UD.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -96,7 +97,7 @@ function program(form, memory, list)
 }
 
 const machines = [];
-async function run(vm, code, warm, interpreter, until)
+async function run(vm, code, warm, interpreter)
 {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     if(warm) cpu.jit_clear_cache();
@@ -110,7 +111,7 @@ async function run(vm, code, warm, interpreter, until)
     const start = compiled_activations(e);
     vm.run();
     const deadline = performance.now() + 60000;
-    while(word(vm, 0x600) !== 0xCAFE || warm && !interpreter && (compiled_activations(e) === start || !until(vm)))
+    while(word(vm, 0x600) !== 0xCAFE || warm && !interpreter && compiled_activations(e) === start)
     {
         assert(performance.now() < deadline, "program/JIT timeout");
         await sleep(1);
@@ -145,7 +146,7 @@ function handler(vector, error_code)
 }
 const VECTORS = [[6, false], [7, false], [13, true], [14, true], [19, false]];
 /** The build has Wasm SIMD */
-const simd = vm => vm.v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
+const simd = vm => vm.v86.cpu.wm.exports["jit_wasm_simd_supported"]() !== 0;
 async function create_machines(cpu_features)
 {
     const set = [];
@@ -164,9 +165,8 @@ async function create_machines(cpu_features)
     return set;
 }
 /** Runs `code` with `data` hot then once more on every machine: per run the
- * results and the faults of `count` cases. The region tiers' hot run waits
- * for `settled` (by default the AVX helper's calls, one per case). */
-async function run_all(code, data, count, settled = e => e.ir_avx_calls() >= count)
+ * results and the faults of `count` cases. */
+async function run_all(code, data, count)
 {
     const runs = [];
     for(const [m, vm] of machines.entries())
@@ -177,17 +177,13 @@ async function run_all(code, data, count, settled = e => e.ir_avx_calls() >= cou
             vm.write_memory(Uint8Array.from([h & 255, h >>> 8 & 255, 8, 0, 0, 0x8E, h >>> 16 & 255, h >>> 24]), IDT + vector * 8);
             vm.write_memory(Uint8Array.from(handler(vector, error_code)), h);
         });
-        const e = vm.v86.cpu.wm.exports;
-        e.ir_avx_calls_reset();
         for(const warm of [true, false])
         {
             vm.write_memory(data, DATA);
             vm.write_memory(new Uint8Array(count * 64), OUT);
             vm.write_memory(new Uint8Array(count * 4), FAULTS);
             vm.write_memory(Uint8Array.of(warm ? 0 : 1), 0x604);
-            // (the region tiers ran the forms: wait for the AVX helper's calls,
-            // but in a build without Wasm SIMD, whose regions decline XMM state)
-            await run(vm, code, warm, vm === machines[0], vm => vm !== machines[2] || !simd(vm) || settled(e));
+            await run(vm, code, warm, vm === machines[0]);
             runs.push({ run: `machine ${m} ${warm ? "hot" : "one round"}`, out: Uint8Array.from(vm.read_memory(OUT, count * 64)),
                 faults: new DataView(Uint8Array.from(vm.read_memory(FAULTS, count * 4)).buffer) });
         }
@@ -206,7 +202,7 @@ try
         const forms = [vex(2, 0, 1, 0, 0x98, 2), vex(2, 1, 1, 1, 0xB8, 2), vex(2, 0, 1, 0, 0xB9, 2), vex(2, 0, 0, 0, 0x13, 2), vex(3, 0, 0, 1, 0x1D, 2, undefined, 4)];
         const p = [0xB8, ...u32(1), 0x0F, 0xA2, 0x89, 0x0D, ...u32(OUT + 0x100)];
         forms.forEach((f, n) => p.push(0xC7, 0x05, ...u32(CASE), ...u32(n), 0xC7, 0x05, ...u32(SKIP), ...u32(f.length), ...f));
-        const runs = await run_all(loop([...prologue, ...p]), new Uint8Array(0), forms.length, () => true);
+        const runs = await run_all(loop([...prologue, ...p]), new Uint8Array(0), forms.length);
         for(const { run, out, faults } of runs)
         {
             assert.equal(new DataView(out.buffer).getUint32(0x100, true) & (1 << 12 | 1 << 29), 0, `CPUID.1:ECX FMA, F16C (${run})`);
@@ -259,7 +255,7 @@ try
         }
         console.log(`PASS: ${xmm_exceptions ? "all forms, unmasked exceptions as #XM" : "unmasked exceptions as #UD without CR4.OSXMMEXCPT"}`);
     }
-    console.log(`PASS: ${total} exact FMA and F16C cases (${FMA_FORMS.length} FMA forms, ${F16C_FORMS.length} F16C forms, register and memory sources, ${MXCSRS.length} MXCSR settings) match the model on 3 arms`);
+    console.log(`PASS: ${total} exact FMA and F16C cases (${FMA_FORMS.length} FMA forms, ${F16C_FORMS.length} F16C forms, register and memory sources, ${MXCSRS.length} MXCSR settings) match the model in the interpreter and the page tier`);
 
     // The page tier's templates (P11 part 2): the VEX.128 and scalar FMA forms on
     // ordinary operands (no faults: a fault retries) run hot without steps

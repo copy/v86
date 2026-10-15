@@ -26,19 +26,13 @@ async function run(cores, seed, quantum, mode)
     const emulator = new V86(with_smp_mode({ graphics_adapter: "bochs_vga", multiboot: { url: kernel }, memory_size: 16 << 20,
         acpi: true, cpu_cores: cores, cpu_quantum: quantum, cpu_schedule_seed: seed,
         disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
-        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 }, autostart: false, log_level: 0 }, mode));
+        autostart: false, log_level: 0 }, mode));
     const label = `${mode} cores=${cores} seed=${seed} quantum=${quantum}`;
     try
     {
         await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
         const cpu = emulator.v86.cpu;
         const e = cpu.wm.exports;
-        if(mode !== "interpreter")
-        {
-            assert.equal(e.ir_auto_set_idle_mode(0, 1), 1);
-            assert.equal(e.ir_auto_set_page_threshold(2), 1);
-            if(mode === "region") assert.equal(e.ir_auto_set_page_mode(0), 1);
-        }
         const view = () => new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
         const word = address => view().getUint32(address, true);
         view().setUint32(CONTROL, count, true);

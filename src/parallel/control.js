@@ -44,7 +44,7 @@ export const SLICES = 15;
 export const STEPS = 16;            // retired instructions, low 32 bits
 export const WAITS = 17;            // halted waits
 export const IO_COUNT = 18;         // requests served by the machine
-export const JIT_ENTRIES = 19;      // entries into compiled code (the IR cache and the x64 page tier)
+export const JIT_ENTRIES = 19;      // entries into compiled code (the x64 page tier's functions)
 export const REFUSED = 20;          // code installations given up: the other cores had not acknowledged in time
 
 export const CONTROL_WORDS = CORE_BASE + CORE_STRIDE * MAX_CORES;

@@ -179,7 +179,6 @@ export const STATICS = {
         // active TSC offset lives in context.rs across switches; old interpolation slots remain for test hooks
         tsc_last_extra: "machine", tsc_last_value: "machine", tsc_number_of_same_readings: "machine",
         tsc_offset: "core", tsc_resolution: "machine", tsc_speed: "machine",
-        X64_COMPAT_JIT: "machine",
     },
     "cpu/exceptions.rs": { DELIVERING: "scratch", EXTERNAL: "scratch", SHUTDOWN: "core", BSP_RESET: "machine" },
     "cpu/context.rs": { CONTEXTS: "core" },
@@ -194,7 +193,7 @@ export const STATICS = {
     // TEST_FEATURES replaces them per thread under cargo test
     "cpu/features.rs": { FEATURES: "machine", TEST_FEATURES: "debug" },
     // cargo test only: decode rows whose semantics come later
-    "ir/frontend/decode.rs": { TEST_DECODE_UNIMPLEMENTED: "debug" },
+    "decode/decode.rs": { TEST_DECODE_UNIMPLEMENTED: "debug" },
     // the chipset's SMRAM control (Q35 MCH: G_SMRAME, D_OPEN) and TSEG; per
     // instance: the TSEG generation its fast RAM limit reflects
     "cpu/smm.rs": { SMRAM_CONTROL: "machine", TSEG: "machine", TSEG_SEEN: "cache" },
@@ -204,37 +203,9 @@ export const STATICS = {
     "cpu/pic.rs": { PIC: "machine", PORT_WRITTEN: "machine" },
     // SoftFloat's state around one SSE instruction (saved and restored)
     "cpu/simd_fp.rs": { softfloat_roundingMode: "scratch", softfloat_exceptionFlags: "scratch" },
-    "ir/debug.rs": { AUDIT: "debug", RECORDS: "debug" },
-    "ir/frontend/encodings.rs": { ENCODINGS: "machine", OPCODES: "machine", FORMS: "debug" },
-    "ir/runtime/cache.rs": {
-        // compiled code and lookup caches; hits re-check the live TLB and CPU context
-        CACHE: "machine", FAST: "machine", FAST_CHAINS: "machine", FAST_HITS: "debug",
-        FAST_STAMP: "machine", FUSION_PROFILE: "debug", MERGED_VALIDATION_ENABLED: "machine",
-        MISSING_ENTRIES: "machine", MISSING_HINT_ENABLED: "machine", MISSING_HINT_HITS: "debug", NEG_STAMP: "machine",
-        POLL_REUSE_ENABLED: "machine", STRICT_VALIDATION: "machine",
-        // the running activation; never across a host yield
-        ACTIVE: "scratch",
-    },
+    "decode/encodings.rs": { ENCODINGS: "machine", OPCODES: "machine", FORMS: "debug" },
     // (calls of the AVX helper, for tests)
-    "ir/runtime/avx.rs": { CALLS: "debug" },
-    "ir/runtime/diagnostics.rs": Object.fromEntries([
-        "ADMISSION", "CALIBRATION", "CALLS", "CELLS", "CHAIN", "CLOCK", "COMPILER", "COMPILER_BENCHMARK", "COMPILER_BUCKETS",
-        "COMPILE_CONTEXT", "CONTROL_EXITS", "CURRENT", "DEPTH", "DISCOVERY", "HELPER_EXITS", "HOT", "HOT_REPLACEMENTS",
-        "INTERPRETER_HOT", "IN_BATCH", "MISSING", "PERIOD", "PUBLICATION", "RANDOM", "REASONS", "SESSION", "STACK", "TIMES",
-        "TOTALS", "START",
-    ].map(name => [name, "debug"])),
-    "ir/runtime/entry.rs": { ADMISSION_EPOCH: "machine", CONTINUATION_EPOCH: "machine", EXIT_KIND: "scratch" },
-    "ir/runtime/live.rs": { LIVE: "machine" },
-    "ir/runtime/memory.rs": { RMW_VALUE: "scratch" },
-    "ir/runtime/region.rs": { TIER1_INSTRUCTIONS: "debug", TIER2_INSTRUCTIONS: "debug" },
-    "ir/runtime/rep.rs": { LAST_RESULT: "scratch" },
-    "ir/runtime/schedule.rs": {
-        DIRECT_T2: "machine", FORCED: "machine", HEAT: "machine", HEAT_STEPS: "machine", HEAT_STEPS_PER_VISIT: "machine",
-        SCHEDULER: "machine", TIER0: "machine", RESERVED: "machine", REGION_MODES: "machine",
-        // config.enabled's lock-free mirror (P4.5a)
-        ENABLED: "machine",
-    },
-    "jit.rs": { JIT_STATE: "machine", WATCHED: "machine", TABLE_FREE_LOW: "debug" },
+    "jit.rs": { JIT_STATE: "machine", WATCHED: "machine", TABLE_FREE_LOW: "debug", ENABLED: "machine", RESERVED: "machine" },
     // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
     "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },
     // the step profile (docs/jit-unification-plan.md P0.5)
@@ -278,7 +249,7 @@ export const STATICS = {
         SSE_FP_OPERANDS: "scratch", SSE_FP_CALLS: "debug", FMA_CALLS: "debug", TAIL_CALLS: "machine",
         RELAXED_FMA_FUSED: "machine", RELAXED_FMA: "machine",
     },
-    "x64/pages.rs": { RUNTIME: "machine", FAST: "machine", ACTIVE: "scratch", SEGMENTED_ACTIVE: "scratch", CODE_WRITES: "machine", STEPS: "debug", ACCESS_REFUSED: "debug",
+    "x64/pages.rs": { RUNTIME: "machine", FAST: "machine", ACTIVE: "scratch", IN_ACTIVATION: "scratch", SEGMENTED_ACTIVE: "scratch", CODE_WRITES: "machine", STEPS: "debug", ACCESS_REFUSED: "debug",
         // per core, tagged with that core's access cache epoch
         CODE_TLB: "cache", CHAIN: "cache",
         COUNTERS: "debug", CHAINING: "machine", LAST_UNSERVED: "cache", BOUNCE: "scratch", RECOMPILE_MISSES: "machine", TIMING: "debug", TIME_IN_CALLS: "debug", TIME_IN_EXECUTE: "debug", TIME_FIRST_CALLS: "debug", BYTES_COMPILED: "debug",

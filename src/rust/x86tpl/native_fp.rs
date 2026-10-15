@@ -1,7 +1,7 @@
 //! Native SSE floating point in compiled code (docs/simd-xsave-plan.md 7.4):
 //! Wasm's IEEE arithmetic, admitted only where it gives exactly the results
 //! and MXCSR effects of cpu::simd_fp (whose interpreter fast path applies the
-//! same rule). The page tier and the region backend emit these checks; a refused
+//! same rule). The page tier emits these checks (the region backend too until M11); a refused
 //! instruction runs in the exact interpreter or helper.
 //!
 //! MXCSR's flags are sticky. When every exception is masked, the rounding is

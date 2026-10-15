@@ -757,14 +757,14 @@ enum Op {
     },
     Rdtscp,
     /// Compatibility mode's x87 (docs/jit-unification-plan.md P7.2a): a
-    /// form crate::ir::x87 classifies, its memory operand at `address`,
+    /// form crate::x86tpl::x87_forms classifies, its memory operand at `address`,
     /// inlined in f64 against the shadow cache (x86tpl::x87) where it
     /// applies and the fast-math policy allows, else ir_t0_x87 on the CPU
     /// state, as Tier-0 runs it
     X87 {
         opcode: u8,
         modrm: u8,
-        io: crate::ir::x87::Io,
+        io: crate::x86tpl::x87_forms::Io,
         address: Option<AddressExpr>,
     },
     /// FNSTSW AX
@@ -1414,7 +1414,7 @@ fn classify(d: &Decoded) -> Op {
             // (compatibility mode's x87 as Tier-0's, P7.2a)
             0xD8..=0xDF if compat => {
                 let modrm = d.modrm?;
-                match crate::ir::x87::io(op as u8, modrm) {
+                match crate::x86tpl::x87_forms::io(op as u8, modrm) {
                     Some(io) => Op::X87 {
                         opcode: op as u8,
                         modrm,
@@ -2853,7 +2853,7 @@ fn x87_run_at(insts: &[Inst]) -> Option<X87Run> {
             Op::X87 {
                 opcode,
                 modrm,
-                io: crate::ir::x87::Io::Stack,
+                io: crate::x86tpl::x87_forms::Io::Stack,
                 ..
             } if inst.straddle.is_none() && !inst.span_straddle => run.append(opcode, modrm),
             _ => false,
@@ -10344,10 +10344,10 @@ impl Emitter {
         inst: &Inst,
         opcode: u8,
         modrm: u8,
-        io: crate::ir::x87::Io,
+        io: crate::x86tpl::x87_forms::Io,
         address: Option<AddressExpr>,
     ) {
-        use crate::ir::x87::Io;
+        use crate::x86tpl::x87_forms::Io;
         let (start, next) = (inst.d.start.0, inst.d.next.0);
         self.x87_check(start);
         if self.x87_words.is_none() {
@@ -10399,7 +10399,7 @@ impl Emitter {
             return;
         }
         let done = self.b.block_void();
-        if let Some(native) = crate::ir::x87::native(opcode, modrm) {
+        if let Some(native) = crate::x86tpl::x87_forms::native(opcode, modrm) {
             self.x87_cache_open();
             let slow = self.b.block_void();
             self.b.load_fixed_u8(gp::x87_native_policy as u32);

@@ -750,7 +750,6 @@ try
         if(!cpu.wm.exports.x64_page_record_start) throw new Error("WIN_RECORD: the core has no replay hooks (WASM_PATH=build/v86-ir-test-release.wasm)");
         cpu.wm.exports.x64_page_record_start();
     }
-    if(process.env.X64_COMPAT_JIT) cpu.wm.exports.x64_set_compat_jit(process.env.X64_COMPAT_JIT !== "0");
     // WIN_LPT_STATUS=<hex>: the status register of the unconnected LPT1
     if(process.env.WIN_LPT_STATUS) cpu.devices.parallel0.status = parseInt(process.env.WIN_LPT_STATUS, 16);
     // WIN_PORT_STATS=1: port accesses by port and size, printed each minute

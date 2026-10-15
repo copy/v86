@@ -81,12 +81,12 @@ detail, 25-27 the mode, the rest 0 (`step_profile::event` lists them,
 
 | Event | Detail | Counted |
 | --- | --- | --- |
-| `miss` | `disabled`, `no-code`, `cold`, `compiling`, `compile`, `recompile`, `unserved`, `shadow`, `trap-flags`, `breakpoints`, `events`, `halt` | each time the x64 page tier did not run a function at RIP (`compile`, `recompile`: it compiled instead; `unserved`: it ran one entered at an offset it does not serve; `shadow` ... `halt`: what it may not run code in: an interrupt shadow, TF or RF, DR7 breakpoints, core events or an NMI or SMI pending, HLT; `disabled`: the tier or the IR scheduler off) |
+| `miss` | `disabled`, `no-code`, `cold`, `compiling`, `compile`, `recompile`, `unserved`, `shadow`, `trap-flags`, `breakpoints`, `events`, `halt` | each time the x64 page tier did not run a function at RIP (`compile`, `recompile`: it compiled instead; `unserved`: it ran one entered at an offset it does not serve; `shadow` ... `halt`: what it may not run code in: an interrupt shadow, TF or RF, DR7 breakpoints, core events or an NMI or SMI pending, HLT; `disabled`: the tier or the JIT off) |
 | `exit` | `retry`, `unknown`, `step`, `budget`, `leave` | why a page function of the x64 page tier returned |
 | `step-exit` | `halt`, `yield`, `shadow`, `core-event`, `code-write`, `irq`, `nmi`, `barrier`, `chainable` | why a step ended its activation (`x64_page_step`); `chainable`: only the CPL, CS, CR3, the epoch, IF, IOPL or AC changed, after which P4.3's STEP_CHAIN may continue; `barrier`: the mode, CR0, CR4, EFER, DR7, TF, VM or RF changed |
 | `step-context` | `cpl` ... `epoch` | each part of the context such a step changed |
 | `starved` | | a long-mode frame while IR Tier-0 had pages ready to compile (WOW64's code waits for a compatibility-mode slice; P4.6) |
-| `frame` | | each CPU frame (`main_loop`), `starved`'s denominator |
+| `frame` | | each CPU frame (`main_loop`), `starved`'s denominator (none since M11, which deleted the region scheduler's `begin_cpu_frame`) |
 | `#NM`, `CLTS`, `CR0.TS` | | #NM delivered, CLTS, a MOV to CR0 (or LMSW) that changed TS: lazy FPU switching |
 | `fxstate` | `FXSAVE`, `FXRSTOR`, `XSAVE`, `XRSTOR` | the instructions (XSAVE: XSAVE, XSAVEOPT, XSAVEC, XSAVES; XRSTOR: XRSTOR, XRSTORS) |
 | `hpet-read` | | reads of the HPET's registers (one per 32-bit access, a byte read each byte) |
@@ -137,13 +137,15 @@ The JIT switch `mode_ledger` (off by default) counts retired instructions
 faulting one not at all) by mode (`x64::state::ExecutionMode`: real,
 virtual-8086, 16- and 32-bit protected, 16- and 32-bit compatibility,
 64-bit), by whether 32-bit code ran with flat segments, and by how they ran:
-`interpreted` (outside compiled code), `tier0_native`, `tier0_step`,
-`region_native`, `page_native`, `page_step` and `page_retry`. While it is on,
+`interpreted` (outside compiled code), `tier0_native` and `tier0_step` (IR
+Tier-0's, none since P7.5), `region_native` (the IR regions', none since M11),
+`page_native`, `page_step` and `page_retry`. While it is on,
 its sum grows exactly as the retired count does
 (`tests/ir/differential/tier0_mode_ledger.mjs`, `tests/x64/mode_ledger.mjs`).
 Each count goes to the mode its run started in: an interpreted run of
 instructions, an activation of compiled code (which leaves when the mode
-changes) or one step.
+changes: with the ledger on, a far transfer to code of another mode leaves
+instead of chaining to it, M11) or one step.
 
 `mode_ledger(exports)` in [`tools/bench/jit_stats.mjs`](../tools/bench/jit_stats.mjs)
 reads it as `{ mode: { way: retired } }`, flat 32-bit code under

@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../build/libv86.mjs";
-import { STATE_OFFSETS } from "../../src/state_layout.js";
+import { STATE_OFFSETS as OWN_STATE_OFFSETS } from "../../src/state_layout.js";
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -52,7 +52,9 @@ export async function create(arm, bench, boots, { extra = {}, ir_setup = [] } = 
     const jit_switches = { ...arm.switches, ...extra };
     const boot = boots[arm.isa];
     assert(boot, `no boot image for ${arm.isa}`);
-    const vm = new V86({
+    // (an arm of another tree brings its own V86 and state layout: run.mjs
+    // --baseline-root)
+    const vm = new (arm.V86 || V86)({
         graphics_adapter: "bochs_vga",
         wasm_path: arm.wasm, memory_size: 128 << 20,
         ...bench.cpu_features ? { cpu_features: bench.cpu_features, cpu_features_unreleased: !!bench.cpu_features_unreleased } : {},
@@ -80,6 +82,7 @@ export async function create(arm, bench, boots, { extra = {}, ir_setup = [] } = 
 /** One run of `image` with `iterations`: { ms, instructions (the budget counter), checksum } */
 export async function execute(machine, image, iterations) {
     const { vm, cpu, e, view } = machine;
+    const STATE_OFFSETS = machine.arm.state_offsets || OWN_STATE_OFFSETS;
     for(const part of image.parts) if(part.writable || !machine.loaded) cpu.mem8.set(part.bytes, part.address);
     machine.loaded = true;
     const v = view();

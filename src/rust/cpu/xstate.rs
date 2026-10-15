@@ -321,7 +321,6 @@ pub unsafe fn xsetbv(index: u32, value: u64) -> bool {
         return false;
     }
     *gp::xcr0 = value;
-    crate::ir::runtime::entry::ir_admission_barrier();
     true
 }
 

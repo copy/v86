@@ -52,8 +52,7 @@ const LEVELS = {
     // "x86-64-v2"): every engine against SDM models, QEMU and gdb references
     "R-SSE4": [
         ["platform-contract-tests"], ["ssse3-tests"], ["sse4-tests"], ["sse3-tests"], ["sse-fp-tests"], ["sse-fault-tests"],
-        ["packed-simd-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["ir-sse-fp-tests"], ["ir-crc32-tests"],
-        ["ir-simd-integer-tests"], ["ir-simd-shuffle-tests"], ["nasmtests", true], ["nasmtests-force-jit", true],
+        ["packed-simd-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["nasmtests", true], ["nasmtests-force-jit", true],
     ],
     // XSAVE with the x87 and SSE state (docs/simd-xsave-plan.md M2:
     // cpu_features "XSAVE"): the codec, XSETBV/XGETBV, the state's lifecycle
@@ -63,10 +62,10 @@ const LEVELS = {
     ],
     // AVX, VEX.128 and VEX.256 (docs/simd-xsave-plan.md M3: cpu_features
     // "XSAVE" and "AVX"): every engine against SDM models and QEMU, the
-    // region tiers against the interpreter, the YMM state
+    // YMM state
     "R-AVX": [
         ["platform-contract-tests"], ["xsave-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["isa-forms-check"],
-        ["ir-avx-tests"], ["x64-differential-tests"], ["x64-page-tier-tests"], ["avx-tests", true],
+        ["x64-differential-tests"], ["x64-page-tier-tests"], ["avx-tests", true],
     ],
     // x86-64-v3 (docs/simd-xsave-plan.md M4: cpu_features "x86-64-v3" with
     // cpu_type "x86_64"; the 32-bit profile has its features but LZCNT):
@@ -74,23 +73,25 @@ const LEVELS = {
     // every engine against SDM models and QEMU; glibc's x86-64-v3 code and
     // the YMM state in a real guest
     "R-x86-64-v3": [
-        ["platform-contract-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["isa-forms-check"], ["ir-avx-tests"],
-        ["ir-bmi-tests"], ["x64-differential-tests"], ["x64-page-tier-tests"], ["bmi-tests"], ["fma-tests"],
+        ["platform-contract-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["isa-forms-check"],
+        ["x64-differential-tests"], ["x64-page-tier-tests"], ["bmi-tests"], ["fma-tests"],
         ["avx-tests", true], ["x64-glibc-tests", true],
     ],
     // the XSAVE family (M5: XSAVEOPT, XGETBV(1), XSAVEC, XSAVES and
     // IA32_XSS): formats, the init and modified optimizations, the kernel's
     // compacted format in a real guest
     "R-XSAVE-ext": [
-        ["platform-contract-tests"], ["xsave-tests"], ["ir-fp-state-tests"], ["kvm-unit-test-xsave"], ["x64-glibc-tests", true],
+        ["platform-contract-tests"], ["xsave-tests"], ["kvm-unit-test-xsave"], ["x64-glibc-tests", true],
     ],
     // machine_type "q35": chipset, ACPI tables, AHCI (docs/q35.md, docs/ahci.md)
     "R-q35": [
         ["acpi-table-tests"], ["q35-device-tests"], ["q35-guest-tests", true], ["q35-hotplug-tests", true],
     ],
-    // the IR tests of .github/workflows/ir-core.yml, run here (docs/jit-unification-plan.md P0.9)
-    "R-IR": [
-        ["ir-core-tests"],
+    // the JIT's and the decoder's tests outside the x64 targets
+    // (docs/jit-unification-plan.md P0.9; R-IR until M11 deleted the region
+    // tiers, whose tests .github/workflows/ir-core.yml still names)
+    "R-JIT": [
+        ["jit-core-tests"],
     ],
 };
 

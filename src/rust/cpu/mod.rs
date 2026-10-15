@@ -22,6 +22,7 @@ pub mod modrm;
 pub mod pic;
 pub mod simd_fp;
 pub mod simd_int;
+pub mod simd_ops;
 pub mod smm;
 pub mod sse_instr;
 pub mod string;

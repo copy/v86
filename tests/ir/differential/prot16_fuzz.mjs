@@ -39,6 +39,12 @@
 // -3 after it: cold code, the page tier's interpreted blocks (a backward
 // jump ends one), the #GP in the second one's first instruction; the
 // handler's stack frame, the faulting IP, compared too).
+// FUZZ_FAR32=1 (protected mode): the second code segment is flat 32-bit
+// code (base 0: the page tier runs no 32-bit code with a CS base), called
+// with CALL FAR ptr16:32 (66 9A) and returning with RETF or RETF 2: far
+// calls and returns between 16-bit code and 32-bit code on the same stack,
+// which the page tier chains across its modes (M11; 32-bit code on a 16-bit
+// stack in prot16, on a 32-bit stack in prot16ss32).
 // FUZZ_DEBUG=1 prints each case. JIT_SWITCHES applies to the compiled machine.
 import fs from "node:fs";
 import assert from "node:assert/strict";
@@ -47,7 +53,7 @@ import { jit_switches_from_env } from "../../lib/jit_switches.mjs";
 
 const cases = Number(process.argv[2] || 40);
 let seed = Number(process.argv[3] || 1) >>> 0;
-const wasm = process.argv[4] || "build/v86-ir-runtime.wasm";
+const wasm = process.argv[4] || "build/v86.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -60,6 +66,9 @@ assert(!paragraphs || cases <= 24, "real and virtual-8086 mode: at most 24 cases
 assert(!paragraphs || only !== "z" && only !== "y", "kinds z and y need protected mode (no null selectors, no descriptors)");
 assert(!["i", "k"].includes(only) || MODE === "v86", "kinds i and k need virtual-8086 mode");
 const iopl0 = ["i", "k"].includes(only);
+const far32 = process.env.FUZZ_FAR32 === "1";
+const ledger = !!jit_switches_from_env().mode_ledger;
+assert(!far32 || !paragraphs, "FUZZ_FAR32 needs protected mode (a code segment's D bit)");
 
 // The prologue's page, the code pages (one per case), the segments
 const { PROLOGUE, CODE, DATA, STACK, COUNTER, FAR } = paragraphs ?
@@ -194,10 +203,17 @@ const lods = () => [pick([0xFC, 0xFD]), pick([0xAC, 0xAD]), 0xFC];
 // with `far_pop`, RETF 2 after the caller pushed a word)
 let far_pop = false;
 // (real and virtual-8086 mode: the paragraph is patched per case, run)
-const far = () => ({ bytes: [...far_pop ? [0x6A, random() & 127] : [], 0x9A, ...u16(FAR_IP), ...u16(SEL.far)], far_at: far_pop ? 5 : 3 });
+const far = () => far32 ?
+    // (the routine's linear address at `far_at`, set per case: run)
+    ({ bytes: [...far_pop ? [0x6A, random() & 127] : [], 0x66, 0x9A, ...u32(0), ...u16(SEL.far)], far_at: far_pop ? 4 : 2 }) :
+    ({ bytes: [...far_pop ? [0x6A, random() & 127] : [], 0x9A, ...u16(FAR_IP), ...u16(SEL.far)], far_at: far_pop ? 5 : 3 });
 /** The far routine: register operands, then RETF */
-const far_routine = () => [...pick([[0x40 | dst()], [0x05, ...u16(random())], [0x31, rr(any(), dst())]]),
-    ...far_pop ? [0xCA, 2, 0] : [0xCB]];
+const far_routine = () => far32 ?
+    // (32-bit code: INC r32, ADD EAX, imm32, XOR r32, r32)
+    [...pick([[0x40 | dst()], [0x05, ...u16(random()), ...u16(random())], [0x31, rr(any(), dst())]]),
+        ...far_pop ? [0xCA, 2, 0] : [0xCB]] :
+    [...pick([[0x40 | dst()], [0x05, ...u16(random())], [0x31, rr(any(), dst())]]),
+        ...far_pop ? [0xCA, 2, 0] : [0xCB]];
 // At the last round (ES:[0] 1): MOV ES, a null selector, then MOV AX,
 // ES:[BX], #GP(0) (CMP WORD ES:[0], 1; JNE over the rest)
 const fault = () => [0x26, 0x83, 0x3E, 0, 0, 1, 0x75, 7, 0x31, 0xC0, 0x8E, 0xC0, 0x26, 0x8B, 0x07];
@@ -271,7 +287,7 @@ async function machine(compiled) {
     const gdt = cpu.gdtr_offset[0] >>> 0;
     if(!paragraphs) {
         cpu.mem8.set(descriptor(DATA, 0x93), gdt + SEL.data);
-        cpu.mem8.set(descriptor(FAR - FAR_IP, 0x9B), gdt + SEL.far);
+        cpu.mem8.set(far32 ? descriptor(0, 0x9B, 0xCF) : descriptor(FAR - FAR_IP, 0x9B), gdt + SEL.far);
         // (prot16ss32: a 32-bit stack, SS.B set)
         cpu.mem8.set(descriptor(STACK, 0x93, MODE === "prot16ss32" ? 0x40 : 0), gdt + SEL.stack);
         cpu.mem8.set(descriptor(COUNTER, 0x93), gdt + SEL.counter);
@@ -297,7 +313,8 @@ async function machine(compiled) {
 
 async function run(m, code, init, c, split) {
     const { vm, cpu, e } = m;
-    const view = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
+    // (again after the run: the core's heap may grow, detaching the buffer)
+    let view = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
     // A fresh code page per case (mem8.set bypasses code-write detection),
     // the code segment based so that its first byte is at IP 0x840 less
     // `split` (then it straddles the page before)
@@ -307,14 +324,14 @@ async function run(m, code, init, c, split) {
     const far_page = FAR + c * 0x1000;
     if(!paragraphs) {
         cpu.mem8.set(descriptor(base, 0x9B), (cpu.gdtr_offset[0] >>> 0) + SEL.code);
-        cpu.mem8.set(descriptor(far_page - FAR_IP, 0x9B), (cpu.gdtr_offset[0] >>> 0) + SEL.far);
+        cpu.mem8.set(far32 ? descriptor(0, 0x9B, 0xCF) : descriptor(far_page - FAR_IP, 0x9B), (cpu.gdtr_offset[0] >>> 0) + SEL.far);
     }
     cpu.mem8.set(init.far, far_page);
     // (the self-modifying writes' linear addresses; in real and virtual-8086
     // mode the far routine's paragraph)
     const placed = Uint8Array.from(code);
     for(const { at, target, far } of code.fixups) {
-        if(far) { if(paragraphs) placed.set(u16(far_page - FAR_IP >> 4), at); }
+        if(far) { if(paragraphs) placed.set(u16(far_page - FAR_IP >> 4), at); else if(far32) placed.set(u32(far_page), at); }
         else placed.set(u32(start + target), at);
     }
     cpu.mem8.set(placed, start);
@@ -371,6 +388,7 @@ async function run(m, code, init, c, split) {
         await sleep(0);
     }
     await vm.stop();
+    view = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
     const count = new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0;
     m.entries = e.x64_page_stat(13) - activations;
     m.native = e.x64_page_stat(1) - native;
@@ -419,6 +437,12 @@ for(let c = 0; c < cases; c++) {
         `code ${Buffer.from(code).toString("hex")}`);
     retired += actual.count;
     native += compiled.native;
+    // (FUZZ_FAR32's far calls and returns chain across the two modes: far
+    // fewer activations than rounds; with the mode ledger on they leave)
+    if(far32 && only === "f" && !ledger && compiled.entries * 10 > ITERATIONS) {
+        failures++;
+        console.log(`case ${c}: ${compiled.entries} activations for ${ITERATIONS} rounds: the far transfers did not chain across modes`);
+    }
     if(!compiled.entries && only !== "k") {
         uncompiled++;
         console.log(`case ${c}: no page function ran (${actual.count} instructions, eip ${actual.eip.toString(16)}, status ${actual.status.toString(16)}, ` +
@@ -450,5 +474,5 @@ if(failures || uncompiled || only !== "k" && (compiles === 0 || native * 2 < ret
     console.log(`FAIL: ${failures}/${cases} cases differ, no page function ran in ${uncompiled}; ${coverage}`);
     process.exit(1);
 }
-console.log(`PASS: ${cases} random 16-bit programs (${MODE}) in the page tier match the interpreter; ${coverage}`);
+console.log(`PASS: ${cases} random 16-bit programs (${MODE}${far32 ? ", a 32-bit far routine" : ""}) in the page tier match the interpreter; ${coverage}`);
 process.exit(0);

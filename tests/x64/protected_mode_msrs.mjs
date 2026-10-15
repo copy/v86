@@ -7,7 +7,7 @@
 // RDMSR reads the value a 64-bit OS reads (tests/platform/cpu-contract.json),
 // WRMSR to it raises #GP (read-only), and KERNEL_GS_BASE and TSC_AUX keep what
 // is written and fault on what long mode refuses. Interpreted, then compiled:
-// the probe repeats until the IR compiles its page (ir_rdmsr/ir_wrmsr).
+// the probe repeats until the x64 page tier compiles its page.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {assemble, actual, root} from "./guest_runner.mjs";
@@ -136,7 +136,6 @@ for(const [name, jit] of [["interpreter", false], ["JIT", true]])
     let ir;
     const result = await actual(directory, {length: 16 + 12 * STEPS.length, timeout: 120000,
         options: {cpu_type: "x86_64", ...(jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {})},
-        setup: emulator => { if(jit) emulator.v86.cpu.wm.exports.ir_auto_set_idle_mode(0, 1); },
         inspect: emulator => { ir = emulator.v86.cpu.get_jit_info().ir; }});
     assert.equal(result.readUInt32LE(4), 0, `${name}: no exception other than #GP`);
     assert.ok(result.readUInt32LE(8) & 1 << 29, `${name}: CPUID.(EAX=7,ECX=0):EDX[29] advertises IA32_ARCH_CAPABILITIES`);

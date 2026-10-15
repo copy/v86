@@ -4,7 +4,7 @@ import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 // mmx_fast_path.mjs [baseline.wasm] [candidate.wasm]: machine 0 is the
 // interpreter (or, with arguments, the baseline core); the candidate core runs
-// every case once per IR arm (the page tier and regions) and must match it.
+// every case once per compiled arm (the page tier) and must match it.
 const paths = [process.argv[2] || "build/v86.wasm", process.argv[3] || "build/v86.wasm"];
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

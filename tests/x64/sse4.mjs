@@ -570,37 +570,21 @@ const comparable = buffer => {
 };
 const expected = await reference(directory, {length});
 check(expected, "QEMU");
-for(const [label, options, compat] of [["interpreted", {}, false],
-    ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, false],
-    // (compatibility-mode code in the region tiers, x64_compat_jit: IR
-    // Tier-0's until P7.5; the page tier's is the default since M9)
-    ["x64 page tier + compatibility-mode regions", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
-        jit_switches: {x64_page_compat32: 0}}, true],
+for(const [label, options] of [["interpreted", {}],
+    ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}],
     // (compatibility-mode code in the page tier, docs/jit-unification-plan.md P7.2)
     ["x64 page tier, compat32", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
-        jit_switches: {x64_page_compat32: 1}}, false]])
+        jit_switches: {x64_page_compat32: 1}}]])
 {
-    let page = 0, page32 = 0, regions = 0;
+    let page = 0, page32 = 0;
     const result = await actual(directory, {length, timeout: 180000, options: {cpu_features: ["SSSE3", "SSE4.1", "SSE4.2"], ...options},
-        setup: emulator => {
-            const x = emulator.v86.cpu.wm.exports;
-            x.x64_set_compat_jit(compat);
-            if(options.disable_jit === false)
-            {
-                x.ir_auto_set_idle_mode(0, 1);
-                // (compile compatibility-mode pages at their first visit)
-                assert.ok(x.ir_auto_set_page_threshold(1));
-            }
-        },
         inspect: emulator => {
             page = emulator.v86.cpu.wm.exports.x64_page_stat(1);
             page32 = emulator.v86.cpu.wm.exports.x64_page_stat(36);
-            regions = emulator.v86.cpu.wm.exports.ir_cache_stat(2);
         }});
     check(result, label);
     assert.ok(comparable(result).equals(comparable(expected)), `${label}: equal to QEMU (but for its documented deviations)`);
     if(options.disable_jit === false) assert.ok(page > 1000, `${label}: compiled 64-bit code ran (${page})`);
-    if(compat) assert.ok(regions > 0, `${label}: compiled compatibility-mode code ran (${regions} region entries)`);
     if(options.jit_switches?.x64_page_compat32) assert.ok(page32 > 0, `${label}: the page tier compiled compatibility-mode code (${page32})`);
     console.log(`PASS (${label}): ${cases.length} SSE4 cases in 64-bit and compatibility mode, ${FAULT_CASES.length} faults, as QEMU and the SDM model`);
 }
@@ -728,7 +712,6 @@ mxcsr_default: dd 0x1F80
     let retries;
     const result = await actual(refusals, {length: 48, timeout: 60000,
         options: {cpu_features: ["SSSE3", "SSE4.1", "SSE4.2"], disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true},
-        setup: emulator => assert.ok(emulator.v86.cpu.wm.exports.ir_auto_set_page_threshold(1)),
         inspect: emulator => { retries = emulator.v86.cpu.wm.exports.x64_page_stat(2); }});
     const view = new DataView(new ArrayBuffer(16));
     view.setFloat64(0, 1e-310, true);

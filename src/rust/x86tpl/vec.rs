@@ -5,9 +5,8 @@
 //! register facts behind native_fp's admission. The page tier uses them
 //! (P2.3 on; IR Tier-0 until P7.5); tests/x86tpl/pagegen_leaf_digests.rs
 //! pins their output.
-use crate::ir::helper::imports::signature;
 use crate::wasmgen::leaves::{self, Shift};
-use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocal, WasmLocalV128};
+use crate::wasmgen::wasm_builder::{Signature, WasmBuilder, WasmLocal, WasmLocalV128, WasmType};
 
 /// Register facts (the page tier's Emitter::xmm_clean): lanes known to be neither NaN
 /// nor denormal, as single precision (the low lane, all lanes) or double
@@ -540,7 +539,10 @@ pub fn sse_fp_call(
     }
     w.const_i32(key as i32);
     w.const_i32(imm8 as i32);
-    w.call_signature("x64_sse_fp", signature("x64_sse_fp"));
+    w.call_signature(
+        "x64_sse_fp",
+        Signature::new(&[WasmType::I32, WasmType::I32], &[WasmType::I32]),
+    );
 }
 /// Push the result of sse_fp_call
 pub fn sse_fp_result(w: &mut WasmBuilder, operands: u32) {

@@ -1,15 +1,15 @@
 //! Inlined fast-math x87 against the shared f64 shadow cache (moved from the
-//! region backend in docs/jit-unification-plan.md P2.2; Tier-0 and the
-//! region backend use it).
+//! region backend in docs/jit-unification-plan.md P2.2; the x64 page tier's
+//! templates use it since M11 deleted the region backend).
 //!
 //! Semantics match `cpu::fpu`'s cached paths: operands are read only from
 //! full, VALID cache slots, results are written as VALID|DIRTY f64 values
 //! (F80 materializes lazily), and TOP/tags/status change as the interpreter's
 //! helpers change them. Every check precedes the first CPU write; any failed
-//! check runs the canonical `ir_x87_op` instead, from unchanged state.
+//! check runs the canonical helper (`x64_x87`) instead, from unchanged state.
 use crate::cpu::{fpu, global_pointers as gp};
-use crate::ir::x87::{Arithmetic, Native, Operand, Source, Stored};
 use crate::wasmgen::wasm_builder::{Label, WasmBuilder, WasmLocal, WasmLocalF64};
+use crate::x86tpl::x87_forms::{Arithmetic, Native, Operand, Source, Stored};
 
 const C1: i32 = 0x200;
 const CONDITION_CODES: i32 = 0x4700;

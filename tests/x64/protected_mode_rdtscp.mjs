@@ -213,7 +213,6 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
         let ir;
         const result = await actual(directory, {length: RECORDS + 8 + 16 * STEPS.length + 8 - OUT, timeout: 120000,
             options: {...(cpu_type ? {cpu_type} : {}), ...(jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {})},
-            setup: emulator => { if(jit) emulator.v86.cpu.wm.exports.ir_auto_set_idle_mode(0, 1); },
             inspect: emulator => { ir = emulator.v86.cpu.get_jit_info().ir; }});
         const word = at => result.readUInt32LE(at - OUT);
         const tsc = at => BigInt(word(at + 4)) << 32n | BigInt(word(at));
@@ -295,11 +294,6 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
         let ir;
         const result = await actual(compat, {length: 40, timeout: 60000,
             options: {...(cpu_type ? {cpu_type} : {}), ...(jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {})},
-            setup: emulator => {
-                const exports = emulator.v86.cpu.wm.exports;
-                exports.x64_set_compat_jit(jit);
-                if(jit) exports.ir_auto_set_idle_mode(0, 1);
-            },
             inspect: emulator => { ir = emulator.v86.cpu.get_jit_info().ir; }});
         const tsc = at => BigInt(result.readUInt32LE(at + 4)) << 32n | BigInt(result.readUInt32LE(at));
         assert.equal(result.readUInt32LE(12), 0, `${run}: RDTSCPs whose ECX was not TSC_AUX`);

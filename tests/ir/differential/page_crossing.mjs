@@ -19,7 +19,7 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
 
-const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
+const wasm = process.argv[2] || "build/v86.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

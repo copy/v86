@@ -214,9 +214,8 @@ pub enum Way {
     /// by the interpreter, outside compiled code
     Interpreted = 0,
     // 1 and 2 were IR Tier-0's page functions and the instructions they
-    // stepped (deleted in P7.5); the numbering, which tools read, stays
-    /// IR regions (Tier-1 and Tier-2)
-    RegionNative = 3,
+    // stepped (deleted in P7.5), 3 the IR regions (deleted in M11); the
+    // numbering, which tools read, stays
     /// the x64 page tier, the instructions it stepped and the ones it
     /// retried in the interpreter after refusing an access
     PageNative = 4,

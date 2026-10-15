@@ -10,7 +10,7 @@
 // AVX state requirements); #PF without effect, MOVBE's store too. Without
 // the features: CPUID reports none, TZCNT and LZCNT are BSF and BSR, the VEX
 // forms and MOVBE #UD. Each case runs in the interpreter, then hot under
-// The page tier and the region tiers (LZCNT needs the x86-64 profile's machines).
+// the page tier (LZCNT needs the x86-64 profile's machines).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -381,12 +381,14 @@ try
 
     // Virtual-8086 mode and real mode with a 32-bit code segment, where C4
     // is LES (last: it rewrites the descriptor and page tables): a loop
-    // runs until the byte at 604h is set (on the compiled arms once compiled
-    // code ran it: the region tiers, whose helper checks the mode; the page
-    // tier compiles protected-mode code only), then falls through to ANDN, which raises #UD, or TZCNT, which
-    // runs, and the HLT after it halts (real mode) or raises #GP. The
-    // handlers halt: virtual-8086 mode's at ring 0 (a TSS gives the stack),
-    // real mode's through the vector table at 0.
+    // runs until the byte at 604h is set (on the compiled arms in
+    // virtual-8086 mode once compiled code ran it: the page tier compiles
+    // virtual-8086 code, x64_page_v86, but not real-mode code on a 32-bit
+    // stack, which the interpreter runs; the region tiers, which compiled
+    // both, were deleted in M11), then falls through to ANDN, which raises
+    // #UD, or TZCNT, which runs, and the HLT after it halts (real mode) or
+    // raises #GP. The handlers halt: virtual-8086 mode's at ring 0 (a TSS
+    // gives the stack), real mode's through the vector table at 0.
     const V86_CODE = 0x8000, GDT = 0x251100, TSS = 0x251200, RING0_STACK = 0x253000, UD_HALT = 0x281000, GP_HALT = 0x281010, REAL_UD = 0x70000;
     const descriptor = (base, limit, access, flags) => [...u32(limit & 0xFFFF | base << 16), ...u32(base & 0xFF000000 | base >>> 16 & 255 | access << 8 | limit & 0xF0000 | flags << 20)];
     // (virtual-8086 mode first: real mode leaves CR0.PE clear)
@@ -452,7 +454,7 @@ try
                 const start = compiled_activations(e);
                 vm.run();
                 const deadline = performance.now() + 20000;
-                while(i !== 0 && compiled_activations(e) === start)
+                while(i !== 0 && !real && compiled_activations(e) === start)
                 {
                     assert(performance.now() < deadline, `${label}: no compiled code ran`);
                     await sleep(1);

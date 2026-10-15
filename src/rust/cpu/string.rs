@@ -923,3 +923,18 @@ pub unsafe fn ir_test_rep_batch(
     };
     ((result.iterations as u64) << 32) | tag
 }
+
+/// One interpreted instruction: the oracle the REP and VERR tests step with.
+#[cfg(feature = "ir-test-hooks")]
+#[no_mangle]
+pub unsafe fn ir_test_step() {
+    use crate::cpu::{cpu, global_pointers as gp};
+    *gp::previous_ip = *gp::instruction_pointer;
+    *gp::prefixes = 0;
+    if let Ok(opcode) = cpu::read_imm8() {
+        cpu::run_instruction(opcode | (*gp::is_32 as i32) << 8);
+    }
+}
+#[cfg(feature = "ir-test-hooks")]
+#[no_mangle]
+pub unsafe fn ir_test_set_cr0(value: i32) { crate::cpu::cpu::set_cr0(value); }

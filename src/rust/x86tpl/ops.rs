@@ -16,8 +16,7 @@ use super::vec::{
     Packed,
 };
 use crate::cpu::global_pointers as gp;
-use crate::ir::helper::imports::signature;
-use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocalV128};
+use crate::wasmgen::wasm_builder::{Signature, WasmBuilder, WasmLocalV128, WasmType};
 
 /// An engine's register facts (the page tier's Emitter::xmm_clean: per register, the lanes known to be neither NaN nor
 /// denormal) and the instruction's registers
@@ -757,7 +756,10 @@ pub fn fused<T: VecOperands>(t: &mut T, op: u8, double: bool) {
     t.w().get_local_v128(&third);
     t.w().simd_memory(0x0B, 4);
     t.w().const_i32(op as i32 | (double as i32) << 8);
-    t.w().call_signature("x64_fma", signature("x64_fma"));
+    t.w().call_signature(
+        "x64_fma",
+        Signature::new(&[WasmType::I32], &[WasmType::I32]),
+    );
     t.retry_if();
     t.w().const_i32(operands as i32);
     t.w().simd_memory(0x00, 4); // v128.load

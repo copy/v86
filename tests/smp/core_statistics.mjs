@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Architectural counters across interpreter, region and page-tier execution.
+// Architectural counters across interpreter and page-tier execution.
 // Initial protected-mode contexts are injected only to isolate accounting.
 // All increments, REP progress, faults and halts come from guest instructions.
 import assert from "node:assert/strict";
@@ -123,7 +123,6 @@ for(const mode of modes)
         memory_size: 16 << 20, acpi: true, cpu_cores: specifications.length,
         cpu_quantum: 17, cpu_schedule_seed: 42,
         disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
-        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 },
         autostart: false, log_level: 0,
     }, mode));
     try
@@ -132,12 +131,6 @@ for(const mode of modes)
         const cpu = emulator.v86.cpu;
         const ex = cpu.wm.exports;
         assert.equal(typeof ex.core_statistics_get, "function", "rebuild Wasm with architectural statistics exports");
-        if(mode !== "interpreter")
-        {
-            assert.equal(ex.ir_auto_set_idle_mode(0, 1), 1);
-            assert.equal(ex.ir_auto_set_page_threshold(2), 1);
-            if(mode === "region") assert.equal(ex.ir_auto_set_page_mode(0), 1);
-        }
         initialize(cpu);
         const hits = () => mode_hits(ex, mode);
         const per_core_hits = specifications.map(() => 0);
@@ -181,12 +174,10 @@ for(const mode of modes)
         if(specifications.length > 2) assert.deepEqual(Array.from(cpu.mem8.slice(0x4FFB, 0x5001)), [0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0]);
         if(mode === "interpreter")
         {
-            assert.equal(ex.ir_cache_stat(2), 0);
             assert.equal(ex.x64_page_stat(1), 0);
             assert.ok(cpu.cores[0].steps > original[0].retired_instructions,
                 "REP continuation and fault dispatches must not inflate architectural retirement");
         }
-        if(mode === "region") assert.equal(ex.x64_page_stat(1), 0, "region arm never used the page tier");
         if(specifications.length === 1)
         {
             // (the snapshot checks below are about separate cores)

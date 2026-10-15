@@ -5,22 +5,20 @@
 // make jit-gate, before each commit:
 //   git diff --check, state-layout-check, warning-free `cargo check` of the
 //   plain and the parallel build, rustfmt, eslint (when installed: ESLINT,
-//   node_modules/.bin/eslint or npx's cache), the region freeze (P7.6), the
-//   import rule of src/rust/x86tpl (P2.10) and, when something
-//   that feeds build/v86.wasm changed, core-split-check (ARM64 plan P0.7);
-//   when IR, x64 or shared JIT code changed, replay-check (P2.0: the
-//   generated code byte for byte, tools/replay_check.mjs; REPLAY_ALLOW_CHANGES=x64
-//   for a change meant to alter the page tier's code) and the leaf
-//   digests (P2.1: jit-leaf-tests, tests/x86tpl); then
-//   x64-page-tier-tests when x64 or shared JIT code changed and
-//   x64-legacy32-tests (ir-tier0-tests until P7.5) when x64, IR or shared
-//   JIT code changed. The changes are
-//   the uncommitted ones, or without any the last commit's, or those since
-//   --base REV.
+//   node_modules/.bin/eslint or npx's cache), the import rule of
+//   src/rust/x86tpl (P2.10) and, when something that feeds build/v86.wasm
+//   changed, core-split-check (ARM64 plan P0.7); when x64 or shared JIT code
+//   changed, replay-check (P2.0: the generated code byte for byte,
+//   tools/replay_check.mjs; REPLAY_ALLOW_CHANGES=x64 for a change meant to
+//   alter the page tier's code), the leaf digests (P2.1: jit-leaf-tests,
+//   tests/x86tpl), x64-page-tier-tests and x64-legacy32-tests (the page
+//   tier's 32-bit and 16-bit code). The changes are the uncommitted ones, or
+//   without any the last commit's, or those since --base REV. (The region
+//   freeze of P7.6 went with the region tiers in M11.)
 // make jit-gate-full, at a milestone's exit and before a default flips:
-//   the same with both test targets, then ir-core-tests (the targets of
-//   .github/workflows/ir-core.yml) and every level of the release gate with
-//   --quick.
+//   the same with both test targets, then jit-core-tests (R-JIT: the Rust
+//   unit tests, the decoder, the interpreter's REP engine, the decode rules)
+//   and every level of the release gate with --quick.
 //
 // Performance is not gated automatically (open question 2): the R, F, S and D
 // conditions are measured with tests/bench/gate.mjs where a change needs them.
@@ -67,9 +65,8 @@ else
 const any = (...patterns) => changed.some(p => patterns.some(re => re.test(p)));
 
 // shared JIT code: both test targets
-const SHARED = [/^src\/rust\/(jit|jit_switches|lib|step_profile)\.rs$/, /^src\/rust\/(wasmgen|jitrt|x86tpl|cpu)\//, /^src\/cpu\.js$/, /^gen\//, /^Cargo\.(toml|lock)$/];
+const SHARED = [/^src\/rust\/(jit|jit_switches|lib|step_profile)\.rs$/, /^src\/rust\/(wasmgen|jitrt|x86tpl|cpu|decode)\//, /^src\/cpu\.js$/, /^gen\//, /^Cargo\.(toml|lock)$/];
 const feeds_core = any(/^src\/rust\//, /^Cargo\.(toml|lock)$/, /^\.cargo\//, /^gen\//, /^lib\//, /^Makefile$/);
-const ir_tests = full || any(/^src\/rust\/ir\//, ...SHARED);
 const x64_tests = full || any(/^src\/rust\/x64\//, ...SHARED);
 
 // eslint: ESLINT, the project's node_modules, or the copy npx cached most
@@ -98,7 +95,6 @@ const steps = [
     { name: "cargo check --features parallel (warning-free)", command: ["cargo", ...cargo_check, "--features", "parallel"], env: warning_free },
     { name: "rustfmt", command: ["make", "rustfmt"] },
     { name: "eslint", command: eslint_command, skip: eslint ? null : "eslint not installed (set ESLINT to its bin/eslint.js)" },
-    { name: "region freeze (P7.6)", command: ["node", "tools/check_region_freeze.mjs", ...(base ? ["--base", base] : [])] },
     { name: "x86tpl imports (P2.10)", command: ["node", "tools/check_x86tpl_imports.mjs"] },
     { name: "core-split-check (ARM64 plan P0.7)", command: ["node", "tools/core_split_check.mjs", ...(base ? ["--base", base] : [])],
         skip: feeds_core || full ? null : "nothing that feeds build/v86.wasm changed" },
@@ -106,17 +102,17 @@ const steps = [
     // byte, for the synthetic corpus and the recordings in build/replay)
     { name: "replay-check (P2.0)", command: ["node", "tools/replay_check.mjs", ...(base ? ["--base", base] : []), ...replay_records,
         ...(process.env.REPLAY_ALLOW_CHANGES ? ["--allow-changes", process.env.REPLAY_ALLOW_CHANGES] : [])],
-        skip: ir_tests || x64_tests ? null : "no IR, x64 or shared JIT change" },
+        skip: x64_tests ? null : "no x64 or shared JIT change" },
     { name: "leaf digests (P2.1)", command: ["make", "jit-leaf-tests"],
-        skip: ir_tests || x64_tests ? null : "no IR, x64 or shared JIT change" },
+        skip: x64_tests ? null : "no x64 or shared JIT change" },
     { name: "x64-page-tier-tests", command: ["make", "x64-page-tier-tests"], skip: x64_tests ? null : "no x64 or shared JIT change" },
-    { name: "x64-legacy32-tests", command: ["make", "x64-legacy32-tests"], skip: x64_tests || ir_tests ? null : "no x64, IR or shared JIT change" },
+    { name: "x64-legacy32-tests", command: ["make", "x64-legacy32-tests"], skip: x64_tests ? null : "no x64 or shared JIT change" },
     { name: "jit-switch-tests", command: ["make", "jit-switch-tests"],
         skip: full || any(/jit_switches\.(rs|js|mjs)$/, /^tests\/api\/jit-switches\.js$/) ? null : "the switch registry did not change" },
 ];
 if(full)
 {
-    steps.push({ name: "ir-core-tests", command: ["make", "ir-core-tests"] });
+    steps.push({ name: "jit-core-tests", command: ["make", "jit-core-tests"] });
     steps.push({ name: "release gate, every level --quick", command: ["make", "platform-release-gate", "GATE_ARGS=--quick"] });
 }
 

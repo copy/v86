@@ -15,7 +15,7 @@ const affinity_probe = fs.readFileSync(local("../../build/smp/affinity_probe"));
 const TIMEOUT_MS = 120000;
 // (tests/lib/smp_modes.mjs)
 const jit_mode = process.env.SMP_JIT_MODE || "interpreter";
-assert.ok(["interpreter", "region", "pages"].includes(jit_mode), "SMP_JIT_MODE must be interpreter, region or pages");
+assert.ok(["interpreter", "pages"].includes(jit_mode), "SMP_JIT_MODE must be interpreter or pages");
 const counts = process.env.CPU_COUNTS ? process.env.CPU_COUNTS.split(",").map(Number) : [1, 2, 3, 4, 8];
 assert.ok(counts.every(count => Number.isInteger(count) && count >= 1 && count <= 8));
 const transcript_directory = process.env.C2_LOG_DIR;
@@ -75,7 +75,6 @@ async function test(count)
         disable_jit: jit_mode === "interpreter",
         experimental_smp_jit: jit_mode !== "interpreter",
         ir_sync_publication: true,
-        ir_region_budget: { hot_threshold: 8, promotion_threshold: 128 },
         autostart: false,
         filesystem: {},
         log_level: 0,
@@ -86,9 +85,8 @@ async function test(count)
     let phase = "load";
     let rounds = 0;
     let summary;
-    const per_core_jit = Array.from({ length: count }, () => ({ region: 0, pages: 0 }));
+    const per_core_jit = Array.from({ length: count }, () => ({ pages: 0 }));
     const jit_counts = () => ({
-        region: cpu.wm.exports.ir_cache_stat(2) >>> 0,
         // (instructions the page tier ran natively)
         pages: cpu.wm.exports.x64_page_stat(1) >>> 0,
     });
@@ -123,7 +121,6 @@ async function test(count)
         cpu.run_cores = () => { rounds++; return run_cores(); };
         if(jit_mode !== "interpreter")
         {
-            if(jit_mode === "region") assert.equal(cpu.wm.exports.ir_auto_set_page_mode(0), 1);
             // Counter deltas are attributed at scheduler boundaries, without
             // changing dispatch, memory or CPU state. Single-core normal mode
             // uses main_loop; multicore uses run_cpu_slice.
@@ -134,7 +131,6 @@ async function test(count)
                 const before = jit_counts();
                 const result = execute(...args);
                 const after = jit_counts();
-                per_core_jit[core].region += (after.region - before.region) >>> 0;
                 per_core_jit[core].pages += (after.pages - before.pages) >>> 0;
                 return result;
             };
@@ -193,18 +189,16 @@ echo C2_DONE
         const smbios = check_smbios(cpu, count);
         const hits = jit_counts();
         const workload_jit = per_core_jit.map((counters, id) => ({
-            region: counters.region - boot_jit[id].region,
             pages: counters.pages - boot_jit[id].pages,
         }));
-        if(jit_mode === "interpreter") assert.deepEqual(hits, { region: 0, pages: 0 }, "interpreter reference executed no compiled code");
+        if(jit_mode === "interpreter") assert.deepEqual(hits, { pages: 0 }, "interpreter reference executed no compiled code");
         else
         {
-            assert.ok(hits[jit_mode] > 0, `${jit_mode} compiled code actually executed`);
-            if(jit_mode === "region") assert.equal(hits.pages, 0, "region arm did not execute the page tier");
+            assert.ok(hits.pages > 0, "pages compiled code actually executed");
             for(let id = 0; id < count; id++)
             {
-                assert.ok(per_core_jit[id][jit_mode] > 0, `CPU ${id}: ${jit_mode} activations`);
-                assert.ok(workload_jit[id][jit_mode] > 0, `CPU ${id}: ${jit_mode} ran after boot during the affinity workload`);
+                assert.ok(per_core_jit[id].pages > 0, `CPU ${id}: pages activations`);
+                assert.ok(workload_jit[id].pages > 0, `CPU ${id}: pages ran after boot during the affinity workload`);
             }
         }
         summary = { count, jit_mode, rounds, boot_wall_ms, total_wall_ms: Math.round(performance.now() - boot_started),

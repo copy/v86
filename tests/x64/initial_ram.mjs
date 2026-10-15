@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Guest RAM reads as zero until something writes it, whatever the wasm heap
 // it is allocated from held before (cpu/memory.rs allocate_memory). With
-// ir_tier0 on, ir::runtime::schedule's reserve_compiler_heap frees 16 chunks of
+// ir_tier0 on, jit::reserve_compiler_heap (the region scheduler's until M11
+// of docs/jit-unification-plan.md) frees 16 chunks of
 // 2 MiB just before RAM is allocated in their place, and their allocator
 // headers used to show up in guest RAM: 0x0020000A00400010 at 0x3FFEA0
 // (reported as an x64 page tier write: no guest touched it), a header every
@@ -60,7 +61,6 @@ for(const [label, options] of [
             const cpu = emulator.v86.cpu;
             assert.equal(cpu.mem8.length, size);
             before = differences(Buffer.from(cpu.mem8.buffer, cpu.mem8.byteOffset, size), loaded, 0);
-            if(options.disable_jit === false) cpu.wm.exports.ir_auto_set_idle_mode(0, 1);
         },
         inspect: emulator => { native = emulator.v86.cpu.wm.exports.x64_page_stat(1); }});
     assert.equal(before, "", `${label}: before the first instruction, RAM is zero but the multiboot image`);

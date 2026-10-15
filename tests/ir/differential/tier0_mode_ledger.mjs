@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
 import { mode_ledger, mode_ledger_total } from "../../../tools/bench/jit_stats.mjs";
 
-const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
+const wasm = process.argv[2] || "build/v86.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

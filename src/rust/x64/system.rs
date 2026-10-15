@@ -143,7 +143,6 @@ pub unsafe fn write_cr(index: usize, value: u64) -> Result<(), Fault> {
         cpu::full_clear_tlb();
         memory::invalidate_core(crate::cpu::apic::current_core());
     }
-    crate::ir::runtime::entry::ir_admission_barrier();
     Ok(())
 }
 pub unsafe fn write_msr(index: u32, value: u64) -> Result<bool, Fault> {
@@ -498,7 +497,6 @@ unsafe fn flat_segments(cs: u16, ss: u16, privilege: u8, long: bool) {
     *gp::cpl = privilege;
     cpu::update_state_flags();
     cpu::cpl_changed();
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 pub unsafe fn fast_call(op: u32, wide: bool, next: u64) -> Result<(), Fault> {
     match op {
@@ -1043,7 +1041,6 @@ unsafe fn install_cs(selector: u16, descriptor: &cpu::SegmentDescriptor, privile
     *gp::cpl = privilege;
     cpu::update_state_flags();
     *gp::last_virt_eip = -1;
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 pub unsafe fn interrupt(vector: u8, software: bool, code: Option<u32>) -> Result<(), Fault> {
     let offset = vector as u32 * 16;
