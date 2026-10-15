@@ -257,11 +257,31 @@ export const STATICS = {
     "aarch64/root.rs": { TEST_RETIRED: "debug" },
     // the interpreter's decode cache (keyed and checked by the instruction
     // word: valid in every instance), the decoder's mnemonic for the oracle
-    "aarch64/execute.rs": { DECODE_CACHE: "cache" },
+    // (and UNDEF telemetry; per core: the load-exclusive spin detection,
+    // P3.9, and the stepped instruction's EX bit, P3.8)
+    "aarch64/execute.rs": { DECODE_CACHE: "cache", UNDEF_COUNTS: "debug", UNDEF_LAST: "debug", UNDEF_NEXT: "debug", SPIN: "core",
+        STEPPED_EXCLUSIVE_LOADS: "core", STEPPED_EXCLUSIVE_LOAD: "scratch", STEPPED_CORE: "scratch" },
+    // the AES S-boxes (read-only); SoftFloat's globals around each FP operation
+    "aarch64/crypto.rs": { SBOX: "machine", INVERSE_SBOX: "machine" },
+    "aarch64/fp.rs": { softfloat_roundingMode: "scratch", softfloat_exceptionFlags: "scratch" },
+    // the debug fast paths, derived from the running core's registers
+    "aarch64/debug.rs": { ANY_BREAKPOINT: "cache", ANY_WATCHPOINT: "cache" },
+    // the GIC (P4.2): distributor, redistributors and CPU interfaces, each
+    // core's interrupt request lines
+    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine" },
+    // the granules of the test profile v1.1 (P3.4); per core TLBs and the
+    // generation the fetch fast path checks (P3.5)
+    "aarch64/mmu.rs": { GRANULES: "machine" },
+    "aarch64/tlb.rs": { TLBS: "core", GENERATION: "cache" },
+    // the cooperative cores (P3.9): the saved state of the cores not
+    // running, their pending events, the round robin, the global monitor
+    // (P3.7); each core's event stream (P4.3)
+    "aarch64/smp.rs": { SAVED: "core", EVENTS: "machine", ROUND: "machine", MONITORS: "machine", MONITOR_GRANULE: "machine" },
+    "aarch64/timer.rs": { EVENT_STREAM_LAST: "core" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request
-    "aarch64/psci.rs": { POWER: "machine", START: "machine", REQUEST: "machine" },
+    "aarch64/psci.rs": { POWER: "machine", START: "machine", REQUEST: "machine", SNAPSHOT: "scratch" },
     "aarch64/bus.rs": { BUS: "machine", MEM8: "machine", MEM8_SIZE: "machine", MAP_CHANGED: "machine", STATUS: "scratch", LAST_WRITE: "debug" },
     "cpu/apic.rs": { APICS: "core", APIC_AUX: "core", CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_EVENTS: "machine", NMI_PENDING: "machine", SMI_PENDING: "machine" },
     "cpu/cpu.rs": {
@@ -311,6 +331,9 @@ export const STATICS = {
     "jitrt/capacity.rs": { QUOTA: "machine", REQUESTS: "machine" },
     "jitrt/stat.rs": { STATS: "machine" },
     "jitrt/watch.rs": { WATCHED: "machine", LOG: "debug" },
+    // (unit tests')
+    "jitrt/step.rs": { STATE: "debug" },
+    "jitrt/access.rs": { CACHE: "debug" },
     // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
     "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },
     // the step profile (docs/jit-unification-plan.md P0.5)

@@ -77,22 +77,15 @@ pub fn x64_pagegen_size_dump() {
     }
 }
 
-/// Why a page function returned (gp::x64_page_exit).
-pub const EXIT_NORMAL: u32 = 0;
-/// Interpret the instruction at RIP: a template precondition failed before
-/// any of its effects.
-pub const EXIT_RETRY: u32 = 1;
-/// RIP is inside the page but not a compiled block start.
-pub const EXIT_UNKNOWN: u32 = 2;
-/// x64_page_step results.
-pub const STEP_CONTINUE: i32 = 0;
-/// The step changed CS but nothing else the function depends on (far calls
-/// and returns in code compiled for segment bases, P7.7; M11: or also the
-/// mode among those, pages::x64_page_step switching the chaining table): it
-/// leaves through the chaining table, to the function of the new RIP, whose
-/// prologue checks CS's base in 16-bit code
-pub const STEP_CHAIN: i32 = 1;
-pub const STEP_EXIT: i32 = 2;
+use crate::jitrt::step::StepAbi;
+/// Why a page function returned (CompileEnv::step's exit code word,
+/// gp::x64_page_exit), and x64_page_step's outcomes (jitrt::step, P5.6).
+/// STEP_CHAIN: the step changed CS but nothing else the function depends on
+/// (far calls and returns in code compiled for segment bases, P7.7; M11: or
+/// also the mode among those, pages::x64_page_step switching the chaining
+/// table): it leaves through the chaining table, to the function of the new
+/// RIP, whose prologue checks CS's base in 16-bit code
+pub use crate::jitrt::step::{EXIT_NORMAL, EXIT_RETRY, EXIT_UNKNOWN, STEP_CHAIN};
 
 const PAGE: usize = 4096;
 /// The consecutive linear pages a legacy-mode function may cover
@@ -3552,6 +3545,14 @@ pub struct CompileEnv {
     pub core_yield: u32,
     pub pending: [u32; 4],
     pub bounce: u32,
+    /// The step ABI's globals (jitrt::step, P5.6)
+    pub step: StepAbi,
+}
+/// x86's step ABI: the exit code in the state block
+fn step_abi() -> StepAbi {
+    StepAbi {
+        exit_code: gp::x64_page_exit as u32,
+    }
 }
 impl CompileEnv {
     /// The running instance's, chaining or not; `outline`: memory accesses
@@ -3611,6 +3612,7 @@ impl CompileEnv {
                     [0; 4]
                 },
                 bounce: super::pages::bounce_address(),
+                step: step_abi(),
             }
         }
     }
@@ -3674,6 +3676,7 @@ impl CompileEnv {
             core_yield: 0x0000_0D00,
             pending: [0x0000_0D10, 0x0000_0D14, 0x0000_0D18, 0x0000_0D1C],
             bounce: 0x0000_0C00,
+            step: step_abi(),
         }
     }
 }
@@ -4882,7 +4885,7 @@ impl Emitter {
     fn c32(&mut self, v: i32) { self.b.const_i32(v); }
 
     fn set_exit(&mut self, code: u32) {
-        self.c32(gp::x64_page_exit as i32);
+        self.c32(self.env.step.exit_code as i32);
         self.c32(code as i32);
         self.b.store_aligned_i32(0);
     }

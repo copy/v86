@@ -2,7 +2,8 @@
 //! P5, J1a): the Wasm table's slots and their owners (table), the guest
 //! pages compiled code was made from and the listeners that hear of writes
 //! to them (watch), publication (publish), the slot budget (capacity),
-//! execution heat (heat) and the clients' statistics (stat).
+//! execution heat (heat) and the clients' statistics (stat); J1b: single
+//! steps (step).
 //!
 //! Its clients are the ISAs' page tiers: `X86Page` (crate::x64::pages, the
 //! only x86 compiler since M11 deleted the IR region tiers) in the x86 core,
@@ -16,12 +17,15 @@
 //! differences come through host::Env or type parameters
 //! (tools/check_x86tpl_imports.mjs checks it, in make jit-gate).
 
+pub mod access;
 pub mod capacity;
+pub mod chain;
 pub mod heat;
 pub mod host;
 pub mod page;
 pub mod publish;
 pub mod stat;
+pub mod step;
 pub mod table;
 pub mod watch;
 

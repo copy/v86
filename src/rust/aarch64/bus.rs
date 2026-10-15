@@ -83,6 +83,22 @@ pub static mut MEM8_SIZE: u32 = 0;
 
 #[inline(always)]
 pub fn bus() -> &'static AddressSpace { unsafe { &*(&raw const BUS) } }
+
+/// The bus behind compiled code's access cache (jitrt::access::Bus,
+/// docs/jit-unification-plan.md P5.8; the A64 page tier is J2): writable
+/// RAM only, never ROM, a device or a hole
+impl crate::jitrt::access::Bus for AddressSpace {
+    fn ram_backing(&self, physical: u64) -> Option<u32> {
+        match self.lookup(physical & !4095) {
+            Lookup::Ram {
+                backing,
+                writable: true,
+                ..
+            } => Some(backing),
+            _ => None,
+        }
+    }
+}
 #[inline(always)]
 fn bus_mut() -> &'static mut AddressSpace { unsafe { &mut *(&raw mut BUS) } }
 

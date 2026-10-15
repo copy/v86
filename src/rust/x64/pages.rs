@@ -18,9 +18,11 @@
 use super::{extended, jac, memory, pagegen, paging, physical, state};
 use crate::cpu::{apic, cpu, execution, global_pointers as gp};
 use crate::jitrt::capacity;
+use crate::jitrt::chain::{self, ChainTable};
 use crate::jitrt::heat::{self, backoff, HeatBatch, HEAT_BATCH_LIMIT};
 use crate::jitrt::page::{self, PageFrontend};
 use crate::jitrt::publish::{self, Phase};
+use crate::jitrt::step::{self, StepFrontend, StepOutcome};
 use crate::jitrt::ClientId;
 use crate::page::Page;
 use crate::step_profile::{self, event};
@@ -327,30 +329,14 @@ static mut CODE_TLB: [CodeTlb; 8] = [[(0, 0, 0, false); CODE_TLB_SIZE]; 8];
 
 /// Chaining (pagegen::Emitter::chain): a page function leaving its page
 /// looks the new linear page up here and tail-calls the function serving it,
-/// without returning to the dispatch loop. Per core, code mode (P7.2, P7.3)
-/// and CPL, direct mapped by linear page:
-/// tag = page | access cache epoch (so every x64 TLB flush
-/// retires the entries; INVLPG retires its page's), and the Wasm table index
-/// of a published function whose backing page the linear page executed from
-/// when the entry was filled. Retiring a function clears its entries.
-pub const CHAIN_ENTRIES: usize = 1024;
-#[derive(Clone, Copy)]
-#[repr(C)]
-struct ChainEntry {
-    tag: u64,
-    table_index: u32,
-    /// the code page's translation is global (kept by MOV CR3)
-    global: u32,
-}
+/// without returning to the dispatch loop: jitrt::chain's tables (P5.8), per
+/// core, code mode (P7.2, P7.3) and CPL, tagged with the access cache epoch
+/// (so every x64 TLB flush retires the entries; INVLPG retires its page's).
+pub const CHAIN_ENTRIES: usize = chain::ENTRIES;
 #[repr(C, align(16))]
-struct ChainTables([[ChainEntry; CHAIN_ENTRIES]; 2 * MODE_KEYS.len()]);
-const NO_CHAIN: ChainEntry = ChainEntry {
-    tag: 0,
-    table_index: 0,
-    global: 0,
-};
+struct ChainTables([ChainTable; 2 * MODE_KEYS.len()]);
 static mut CHAIN: [ChainTables; 8] =
-    [const { ChainTables([[NO_CHAIN; CHAIN_ENTRIES]; 2 * MODE_KEYS.len()]) }; 8];
+    [const { ChainTables([const { ChainTable::EMPTY }; 2 * MODE_KEYS.len()]) }; 8];
 /// Whether generated code may tail-call through the host's function table
 /// (x64_page_set_chaining: the engine supports Wasm tail calls).
 static mut CHAINING: bool = false;
@@ -367,16 +353,15 @@ pub unsafe fn x64_page_set_chaining(enabled: bool) {
 /// invalidated code (pagegen::Emitter::chain).
 pub unsafe fn chaining() -> bool { CHAINING }
 unsafe fn chain_base(core: usize, user: bool, mode: usize) -> u32 {
-    std::ptr::addr_of!(CHAIN[core].0[mode * 2 + user as usize]) as u32
+    CHAIN[core].0[mode * 2 + user as usize].base()
 }
 unsafe fn chain_fill(core: usize, user: bool, mode: usize, rip: u64, slot: u32, global: bool) {
-    let page = rip >> 12;
-    let table = &mut CHAIN[core].0[mode * 2 + user as usize];
-    table[page as usize & (CHAIN_ENTRIES - 1)] = ChainEntry {
-        tag: page | jac::epoch_bits(core),
-        table_index: slot + cpu::WASM_TABLE_OFFSET,
-        global: global as u32,
-    };
+    CHAIN[core].0[mode * 2 + user as usize].fill(
+        rip >> 12,
+        jac::epoch_bits(core),
+        slot + cpu::WASM_TABLE_OFFSET,
+        global,
+    );
 }
 /// MOV CR3 (see memory::invalidate_core_nonglobal): code translations of
 /// non-global pages go.
@@ -387,20 +372,14 @@ pub unsafe fn forget_nonglobal_code(core: usize) {
         }
     }
     for table in CHAIN[core].0.iter_mut() {
-        for entry in table.iter_mut() {
-            if entry.global == 0 {
-                entry.tag = 0;
-            }
-        }
+        table.forget_nonglobal();
     }
 }
 fn clear_chains() {
     unsafe {
         for core in (*(&raw mut CHAIN)).iter_mut() {
             for table in core.0.iter_mut() {
-                for entry in table.iter_mut() {
-                    entry.tag = 0;
-                }
+                table.clear();
             }
         }
     }
@@ -410,11 +389,7 @@ unsafe fn unchain_slot(slot: u32) {
     let index = slot + cpu::WASM_TABLE_OFFSET;
     for core in 0..apic::core_count().clamp(1, 8) {
         for table in CHAIN[core].0.iter_mut() {
-            for entry in table.iter_mut() {
-                if entry.table_index == index {
-                    entry.tag = 0;
-                }
-            }
+            table.unchain(index);
         }
     }
 }
@@ -464,10 +439,7 @@ pub unsafe fn forget_code_page(core: usize, address: u64) {
         CODE_WRITES += 1;
     }
     for table in CHAIN[core].0.iter_mut() {
-        let entry = &mut table[page as usize & (CHAIN_ENTRIES - 1)];
-        if entry.tag & !(!0 << jac::EPOCH_SHIFT) == page {
-            entry.tag = 0;
-        }
+        table.forget_page(jac::LAYOUT, page);
     }
 }
 
@@ -477,9 +449,7 @@ pub unsafe fn forget_code_page(core: usize, address: u64) {
 pub unsafe fn forget_code(core: usize) {
     CODE_TLB[core] = [(0, 0, 0, false); CODE_TLB_SIZE];
     for table in CHAIN[core].0.iter_mut() {
-        for entry in table.iter_mut() {
-            entry.tag = 0;
-        }
+        table.clear();
     }
 }
 
@@ -2575,26 +2545,43 @@ unsafe fn profile_instruction(retry: bool) {
     step_profile::note_sampled(key, rip as u32, &bytes[..n]);
 }
 
+/// The x86 page tier's step frontend (jitrt::step, P5.6): the execution
+/// context and CODE_WRITES before the step; the wide interpreter, with the
+/// mode ledger's accounting; step_result's outcome
+struct X86Step;
+impl StepFrontend for X86Step {
+    type Context = (Context, u64);
+    #[inline(always)]
+    fn context() -> (Context, u64) { unsafe { (context(), CODE_WRITES) } }
+    #[inline(always)]
+    fn interpret_one() {
+        unsafe {
+            ACTIVE = false;
+            let span = execution::ledger_begin();
+            interpret_one();
+            execution::ledger_end(span, execution::Way::PageStep);
+            ACTIVE = true;
+            let flags = state::read_flags64();
+            state::write_flags64(flags);
+        }
+    }
+    #[inline(always)]
+    fn outcome(before: &(Context, u64)) -> StepOutcome {
+        unsafe { step_result(&before.0, before.1) }
+    }
+}
+
 #[no_mangle]
 pub unsafe fn x64_page_step() -> i32 {
     STEPS += 1;
     profile_step();
-    let before = context();
-    let writes = CODE_WRITES;
-    ACTIVE = false;
-    let span = execution::ledger_begin();
-    interpret_one();
-    execution::ledger_end(span, execution::Way::PageStep);
-    ACTIVE = true;
-    let flags = state::read_flags64();
-    state::write_flags64(flags);
-    step_result(&before, writes)
+    step::step::<X86Step>() as i32
 }
 
 /// After an instruction the interpreter (x64_page_step) or a helper
 /// (x64_page_far) ran for a page function, whose context was `before` and
-/// CODE_WRITES `writes`: STEP_CONTINUE, STEP_CHAIN or STEP_EXIT
-unsafe fn step_result(before: &Context, writes: u64) -> i32 {
+/// CODE_WRITES `writes`
+unsafe fn step_result(before: &Context, writes: u64) -> StepOutcome {
     let before = *before;
     let after = context();
     let exit = if *gp::in_hlt {
@@ -2636,7 +2623,7 @@ unsafe fn step_result(before: &Context, writes: u64) -> i32 {
                 SEGMENTED_ACTIVE = mode >= MODE_SEGMENTED;
             }
             step_profile::note_event(event::STEP_EXIT, event::STEP_EXIT_CHAINABLE);
-            return pagegen::STEP_CHAIN;
+            return StepOutcome::Chain;
         }
         if step_profile::enabled() {
             note_context_changes(&before, &after)
@@ -2654,11 +2641,11 @@ unsafe fn step_result(before: &Context, writes: u64) -> i32 {
         event::STEP_EXIT_NMI
     }
     else {
-        return pagegen::STEP_CONTINUE;
+        return StepOutcome::Continue;
     };
     STEP_EXITED = true;
     step_profile::note_event(event::STEP_EXIT, exit);
-    pagegen::STEP_EXIT
+    StepOutcome::Exit
 }
 
 /// Whether the last activation ended in a step that left (its exit's reason
@@ -2700,7 +2687,7 @@ pub unsafe fn x64_page_far(op: u32, offset: u32, selector: u32) -> i32 {
     let flags = state::read_flags64();
     state::write_flags64(flags);
     match step_result(&before, writes) {
-        pagegen::STEP_EXIT => 1,
+        StepOutcome::Exit => 1,
         _ => 0,
     }
 }
