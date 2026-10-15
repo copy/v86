@@ -119,7 +119,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js
+	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/loader.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js wasm_paths.js worker_bus.js state_stream_transport.js cpu_worker.js dummy_screen.js ansi_screen.js \
@@ -1004,12 +1004,14 @@ A64_PENDING = @echo "A64_PENDING $@: arrives with $(1) (docs/arm64-virt-android1
 	a64-lifecycle-guest-tests a64-multicore-guest-tests a64-page-tier-tests a64-jit-guest-tests a64-gpu-guest-tests \
 	a64-parallel-tests a64-parallel-guest-tests a64-browser-tests a64-extended-guest-tests a64-pagesize-guest-tests \
 	a64-android-prep-tests android-reference-tests android-guest-tests
-a64-decode-tests:
+a64-decode-tests: build/v86-arm64.wasm
 	node tests/a64/oracle/decode.mjs --self-test
 	RUST_TEST_THREADS=1 cargo test --features aarch64 aarch64::
-	$(call A64_PENDING,P2.1 (the v86 decoder against the oracle))
-a64-isa-tests:
-	$(call A64_PENDING,A1)
+	node tests/a64/decode_check.mjs
+	$(call A64_PENDING,P2.5-P2.8 (the FP and AdvSIMD groups against the oracle))
+a64-isa-tests: build/v86-arm64.wasm
+	node tests/a64/integer_oracle.mjs
+	$(call A64_PENDING,P2.5-P2.8 and P2.11 (FP, AdvSIMD, crypto))
 a64-trace-tests:
 	$(call A64_PENDING,A3)
 a64-portable-tests:

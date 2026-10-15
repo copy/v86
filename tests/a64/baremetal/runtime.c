@@ -194,6 +194,7 @@ static void integer(struct sink *s, int flags, int width, int precision, char co
     field(s, flags, width, prefix, zeros, digits, n);
 }
 
+#ifndef A64_GENERAL_REGS_ONLY
 // %a and %A of a double, as glibc: subnormals as 0x0.<digits>p-1022, "nan"
 // and "inf" with the sign bit's '-'
 static void hexfloat(struct sink *s, int flags, int width, int precision, char conversion, double value)
@@ -245,6 +246,8 @@ static void hexfloat(struct sink *s, int flags, int width, int precision, char c
     int zeros = flags & ZERO && !(flags & LEFT) ? width - p : 0;
     field(s, flags, width, prefix, zeros, buffer, n);
 }
+
+#endif
 
 static void format(struct sink *s, const char *f, va_list args)
 {
@@ -316,10 +319,12 @@ static void format(struct sink *s, const char *f, va_list args)
                 field(s, flags & ~ZERO, width, "", 0, text, n);
                 break;
             }
+#ifndef A64_GENERAL_REGS_ONLY
             case 'a':
             case 'A':
                 hexfloat(s, flags, width, precision, *f, va_arg(args, double));
                 break;
+#endif
             case '%':
                 put(s, '%');
                 break;
@@ -362,6 +367,7 @@ int asprintf(char **out, const char *f, ...) { return VARIADIC(vasprintf(out, f,
 int putchar(int c) { a64_putc(c); return c; }
 int puts(const char *s) { while(*s) a64_putc(*s++); a64_putc('\n'); return 0; }
 
+#ifndef A64_GENERAL_REGS_ONLY
 // -------- math (the instructions themselves)
 
 float fmaf(float a, float b, float c)
@@ -377,3 +383,4 @@ double fma(double a, double b, double c)
     __asm__ volatile("fmadd %d0, %d1, %d2, %d3" : "=w"(r) : "w"(a), "w"(b), "w"(c));
     return r;
 }
+#endif

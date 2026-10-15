@@ -7,7 +7,7 @@
 //
 //   build(name, sources, { cflags })  -> the directory of guest.bin
 //   reference(directory, { cores })   -> { status, text, ... } from QEMU
-//   actual(directory, { cores })      -> the same from v86 (A1)
+//   actual(directory, { cores })      -> the same from v86
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -50,7 +50,7 @@ function run(program, args)
  * Build a guest from `sources` (paths, .c or .S) and the runtime into
  * build/a64-<name>/guest.bin (and guest.elf for disassembly)
  */
-export function build(name, sources, { cflags = [], optimize = "-O2" } = {})
+export function build(name, sources, { cflags = [], optimize = "-O2", general_regs_only = false } = {})
 {
     const directory = `${root}build/a64-${name}/`;
     fs.mkdirSync(directory, { recursive: true });
@@ -64,9 +64,12 @@ export function build(name, sources, { cflags = [], optimize = "-O2" } = {})
         objects.push(object);
     };
     compile(runtime + "start.S", []);
-    compile(runtime + "runtime.c", ["-O2"]);
+    // (general_regs_only: no FP or SIMD register anywhere, for the integer
+    // core before P2.5; printf has no %a then)
+    const no_fp = general_regs_only ? ["-mgeneral-regs-only", "-DA64_GENERAL_REGS_ONLY"] : [];
+    compile(runtime + "runtime.c", ["-O2", ...no_fp]);
     compile(runtime + "exception.c", ["-O2", "-mgeneral-regs-only"]);
-    for(const source of sources) compile(source, [optimize, ...cflags]);
+    for(const source of sources) compile(source, [optimize, ...no_fp, ...cflags]);
     const link = ["-flavor", "gnu", "-m", "aarch64elf", "-static", "-T", runtime + "link.ld", ...objects];
     run(lld, [...link, "-o", directory + "guest.elf"]);
     run(lld, [...link, "--oformat=binary", "-o", directory + "guest.bin"]);
@@ -175,12 +178,49 @@ export async function reference(directory, { cores = 1, memory = 128, timeout = 
     return parse(fs.readFileSync(dump));
 }
 
-/** The same on v86: the ARM core and its loader arrive with A1 (P1.3) */
-export async function actual(directory, options = {})
+/**
+ * The same on v86: the arm64 CPU boots guest.bin as its kernel (an arm64
+ * Image at RAM + 0x80000, src/virt/loader.js); the slices run until the
+ * result block is done (or `timeout` ms). A64_WASM selects the core
+ * (default build/v86-arm64.wasm), TEST_RELEASE_BUILD=1 the compiled library.
+ */
+export async function actual(directory, { cores = 1, memory = 128, timeout = 60000, options = {} } = {})
 {
-    void directory;
-    void options;
-    throw new Error("tests/a64/guest_runner.mjs: v86 runs need the ARM core (docs/arm64-virt-android16-plan.md A1)");
+    const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+    const emulator = new V86({
+        cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory << 20, autostart: false, log_level: 0,
+        wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm",
+        kernel: { url: directory + "guest.bin" },
+        ...options,
+    });
+    try
+    {
+        await new Promise((resolve, reject) => {
+            emulator.add_listener("emulator-loaded", resolve);
+            emulator.add_listener("emulator-error", reject);
+        });
+        const cpu = emulator.v86.cpu;
+        const at = RESULT - 0x40000000;
+        const block = () => Buffer.from(cpu.mem8.buffer, cpu.mem8.byteOffset + at, TEXT - RESULT + TEXT_SIZE);
+        const deadline = performance.now() + timeout;
+        while(block().readUInt32LE(0) !== DONE)
+        {
+            if(performance.now() > deadline)
+            {
+                const result = parse(Buffer.from(block()));
+                throw new Error(`v86 guest timed out after ${timeout} ms at PC ${cpu.read_pc()}: ` +
+                    JSON.stringify(cpu.get_diagnostics()) + `\noutput so far:\n${result.text}`);
+            }
+            cpu.run_cores();
+        }
+        const result = parse(Buffer.from(block()));
+        fs.writeFileSync(directory + "v86.bin", Buffer.from(block()));
+        return result;
+    }
+    finally
+    {
+        await emulator.destroy();
+    }
 }
 
 /** reference() or actual(), by A64_TARGET=qemu|v86 (default qemu until A1) */

@@ -721,6 +721,13 @@ V86.prototype.continue_init = async function(emulator, options)
             case "initrd":
                 settings.initrd = buffer.buffer;
                 break;
+            // machine_type "virt" (src/virt/loader.js)
+            case "kernel":
+                settings.kernel = buffer.buffer;
+                break;
+            case "dtb":
+                settings.dtb = buffer.buffer;
+                break;
 
             case "bios":
                 settings.bios = buffer.buffer;
@@ -759,7 +766,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         if(name === "bios" || name === "vga_bios" ||
             name === "initial_state" || name === "multiboot" ||
-            name === "bzimage" || name === "initrd")
+            name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb")
         {
             // Ignore async for these because they must be available before boot.
             // This should make result.buffer available after the object is loaded
@@ -805,6 +812,8 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("multiboot", options.multiboot);
     add_file("bzimage", options.bzimage);
     add_file("initrd", options.initrd);
+    add_file("kernel", options.kernel);
+    add_file("dtb", options.dtb);
 
     if(options.filesystem && options.filesystem.handle9p)
     {

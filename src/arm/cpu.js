@@ -13,6 +13,8 @@ import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtIO } from "../virt/io.js";
 import { A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_RAM_BASE, virt_machine } from "../virt/platform.js";
+import { PL011 } from "../virt/pl011.js";
+import { load_kernel } from "../virt/loader.js";
 
 /** (src/state.js: one buffer holds at most 2 GiB) */
 const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
@@ -76,7 +78,29 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(settings.cpu_clock) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
     this.create_memory(memory_size);
     this.device_bus = device_bus;
-    this.devices = {};
+    this.devices = {
+        "pl011": new PL011(this, device_bus),
+    };
+    // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
+    this.booted = false;
+    if(settings.kernel)
+    {
+        const entry = load_kernel(this, settings.kernel);
+        this.boot(entry, 0);
+    }
+};
+
+/**
+ * Reset the cores; core 0 starts at `entry` with x0 = `x0`
+ * @param {number} entry
+ * @param {number} x0
+ */
+A64CPU.prototype.boot = function(entry, x0)
+{
+    this.wm.exports["a64_boot"](entry >>> 0, Math.floor(entry / 0x100000000), x0 >>> 0, Math.floor(x0 / 0x100000000));
+    this.boot_entry = entry;
+    this.boot_x0 = x0;
+    this.booted = true;
 };
 
 /**
@@ -100,7 +124,7 @@ A64CPU.prototype.create_memory = function(size)
 A64CPU.prototype.run_cores = function()
 {
     const run = this.wm.exports["a64_run_slice"];
-    if(!run) return 100; // (no interpreter in this core yet: P2)
+    if(!run || !this.booted) return 100;
     this.in_cpu = true;
     try
     {
@@ -133,8 +157,7 @@ A64CPU.prototype.snapshot_io_pending = function()
 /** @param {string=} reason */
 A64CPU.prototype.reboot_internal = function(reason)
 {
-    const reset = this.wm.exports["a64_reset"];
-    if(reset) reset();
+    if(this.booted) this.boot(this.boot_entry, this.boot_x0);
 };
 
 // ---- guest memory (P1.6: the machine's DMA facade)

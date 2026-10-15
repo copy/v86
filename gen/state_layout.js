@@ -255,6 +255,13 @@ export const STATICS = {
     // the address space (P1.5): RAM's size, the regions, the map's generation,
     // guest memory, the status of the last read or write from JavaScript
     "aarch64/root.rs": { TEST_RETIRED: "debug" },
+    // the interpreter's decode cache (keyed and checked by the instruction
+    // word: valid in every instance), the decoder's mnemonic for the oracle
+    "aarch64/execute.rs": { DECODE_CACHE: "cache" },
+    "aarch64/decode.rs": { BUFFER: "debug" },
+    // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
+    // or SYSTEM_RESET request
+    "aarch64/psci.rs": { POWER: "machine", START: "machine", REQUEST: "machine" },
     "aarch64/bus.rs": { BUS: "machine", MEM8: "machine", MEM8_SIZE: "machine", MAP_CHANGED: "machine", STATUS: "scratch", LAST_WRITE: "debug" },
     "cpu/apic.rs": { APICS: "core", APIC_AUX: "core", CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_EVENTS: "machine", NMI_PENDING: "machine", SMI_PENDING: "machine" },
     "cpu/cpu.rs": {

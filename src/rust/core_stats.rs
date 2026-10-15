@@ -37,6 +37,22 @@ pub unsafe fn flush_core_statistics() {
     }
 }
 
+// (the ARM core's counting; the x86 core updates the statics in cpu::execution)
+/// Instructions (and REP elements) the current core retired one by one
+#[allow(dead_code)]
+#[inline(always)]
+pub fn add_pending(retired: u32, rep_elements: u32) {
+    unsafe {
+        PENDING_RETIRED += retired as u64;
+        PENDING_REP_ELEMENTS += rep_elements as u64;
+    }
+}
+/// A synchronous fault of the current core
+#[allow(dead_code)]
+pub fn note_fault() {
+    unsafe { (*crate::parallel::machine(&raw mut CORE_STATISTICS))[current_core()].faults += 1 }
+}
+
 /// A HLT or WFI of the current core
 pub unsafe fn note_halt() {
     (*crate::parallel::machine(&raw mut CORE_STATISTICS))[current_core()].halts += 1;

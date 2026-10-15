@@ -73,7 +73,9 @@ pub fn page_watched(page: u32) -> bool {
 }
 
 /// A write of the bytes lo..hi of the page: retire the code compiled from it
-pub fn dirty_bytes(page: Page, lo: u32, hi: u32) { jitrt::state().watch.write(page, Some((lo, hi))); }
+pub fn dirty_bytes(page: Page, lo: u32, hi: u32) {
+    jitrt::state().watch.write(page, Some((lo, hi)));
+}
 
 /// Writes that retired a page a64_test_watch_page watched
 static mut TEST_RETIRED: u32 = 0;
@@ -91,7 +93,8 @@ pub fn a64_test_watch_page(page: u32) -> bool {
     else {
         return false;
     };
-    rt.watch.attach(slot, HashSet::from([Page::page_of(page << 12)]));
+    rt.watch
+        .attach(slot, HashSet::from([Page::page_of(page << 12)]));
     true
 }
 #[no_mangle]

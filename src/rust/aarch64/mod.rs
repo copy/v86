@@ -5,9 +5,21 @@
 //! state block) and names no x86 module (tools/check_a64_imports.mjs).
 
 pub mod bus;
+pub mod cpu;
+pub mod debug;
+pub mod decode;
+pub mod execute;
+pub mod fp;
+pub mod gic;
 pub mod isa_hooks;
+pub mod memory;
+pub mod mmu;
+pub mod psci;
 pub mod root;
+pub mod smp;
 pub mod state;
+pub mod sysregs;
+pub mod timer;
 
 /// The ISA marker the loader checks after instantiating a core (P1.3): the
 /// ARM core exports it, the x86 core does not
