@@ -94,7 +94,17 @@ pub fn translate(
     }
     let el0 = unprivileged || cpu::el() == 0;
     match mmu::translate(va, access, el0, size) {
-        Ok(translation) => Ok(translation.pa),
+        Ok(translation) => {
+            // (a watchpoint fires after translation, before the access)
+            if access != Access::Fetch && unsafe { crate::aarch64::debug::ANY_WATCHPOINT } {
+                if let Some(exception) =
+                    crate::aarch64::debug::check_watchpoint(va, size, access == Access::Write, el0)
+                {
+                    return Err(exception);
+                }
+            }
+            Ok(translation.pa)
+        },
         Err(fsc) => Err(abort(access, va, fsc, syndrome)),
     }
 }

@@ -24,6 +24,8 @@ await new Promise((resolve, reject) => {
     emulator.add_listener("emulator-error", reject);
 });
 const cpu = emulator.v86.cpu;
+// (the test takes the first three virtio-mmio slots, empty until P5.1: two devices and a hole)
+for(const owner of cpu.virtio_mmio_slots.slice(0, 3)) cpu.io.unregister_mmio(owner);
 const e = cpu.wm.exports;
 try
 {

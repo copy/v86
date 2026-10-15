@@ -1118,11 +1118,34 @@ fn fetch_at(address: u64) -> Result<u32, Exception> {
     memory::fetch(address)
 }
 
+/// The stepped instruction was a load-exclusive (ISS.EX of the step exception)
+static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
+
 /// Execute the instruction at the PC (P2.9): it retires, or takes its
-/// exception having written no state. What the core does next.
+/// exception having written no state. What the core does next. Software
+/// step (P3.8): in the active-pending state the step exception comes
+/// first; an instruction run in the active-not-pending state clears
+/// PSTATE.SS when it completes (an exception return sets it from SPSR_EL1,
+/// an exception the instruction generated saves it as 0, a fault as 1).
 pub fn interpret_one() -> Flow {
     let address = get_pc();
-    let result = fetch_at(address).and_then(|word| execute(&decode_cached(word), address));
+    let stepping = crate::aarch64::debug::stepping();
+    if stepping && get_pstate() & PSTATE_SS == 0 {
+        take_sync(Exception::SoftwareStep(unsafe { STEPPED_EXCLUSIVE_LOAD }));
+        return Flow::Set;
+    }
+    let result = fetch_at(address).and_then(|word| {
+        if unsafe { crate::aarch64::debug::ANY_BREAKPOINT } {
+            if let Some(exception) = crate::aarch64::debug::check_breakpoint(address) {
+                return Err(exception);
+            }
+        }
+        let inst = decode_cached(word);
+        if stepping {
+            unsafe { STEPPED_EXCLUSIVE_LOAD = inst.op == Op::Exclusive && inst.sub & 1 != 0 };
+        }
+        execute(&inst, address)
+    });
     match result {
         Ok(flow) => {
             crate::core_stats::add_pending(1, 0);
@@ -1132,11 +1155,18 @@ pub fn interpret_one() -> Flow {
                 Flow::Wait(_) | Flow::Off => set_pc(address.wrapping_add(4)),
                 Flow::Set => {},
             }
+            // (Flow::Set is an exception return or an exception: PSTATE.SS is already what it must be)
+            if stepping && !matches!(flow, Flow::Set) {
+                crate::aarch64::debug::step_done();
+            }
             flow
         },
         Err(exception @ (Exception::Svc(_) | Exception::Hvc(_) | Exception::Smc(_))) => {
             // (the instruction executed: the exception returns after it)
             crate::core_stats::add_pending(1, 0);
+            if stepping {
+                crate::aarch64::debug::step_done();
+            }
             take_sync(exception);
             Flow::Set
         },

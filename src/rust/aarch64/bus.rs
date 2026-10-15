@@ -265,6 +265,48 @@ pub fn written(backing: u32, len: u32) {
     }
 }
 
+/// The owners of the devices the ARM core decodes itself (the GIC's
+/// distributor and redistributors, P4.2); src/virt's owners count from 1
+pub const OWNER_GICD: u32 = 0xFFFF_0000;
+pub const OWNER_GICR: u32 = 0xFFFF_0001;
+
+#[inline(always)]
+unsafe fn mmio_read(owner: u32, offset: u64, size: u32) -> u64 {
+    match owner {
+        OWNER_GICD => crate::aarch64::gic::gicd_read(offset, size),
+        OWNER_GICR => crate::aarch64::gic::gicr_read(offset, size),
+        _ => js::a64_mmio_read(owner, offset, size),
+    }
+}
+
+#[inline(always)]
+unsafe fn mmio_write(owner: u32, offset: u64, size: u32, value: u64) {
+    match owner {
+        OWNER_GICD => crate::aarch64::gic::gicd_write(offset, size, value),
+        OWNER_GICR => crate::aarch64::gic::gicr_write(offset, size, value),
+        _ => js::a64_mmio_write(owner, offset, size, value),
+    }
+}
+
+/// Map the GIC's frames for `cores` cores (the machine's devices, P4.2)
+#[no_mangle]
+pub unsafe fn a64_set_cores(cores: u32) -> bool {
+    let cores = (cores as usize).clamp(1, crate::isa::MAX_CORES);
+    *crate::parallel::machine(&raw mut crate::aarch64::isa_hooks::CORE_COUNT) = cores;
+    let b = bus_mut();
+    b.unmap(crate::aarch64::gic::GICD_BASE);
+    b.unmap(crate::aarch64::gic::GICR_BASE);
+    b.map(
+        crate::aarch64::gic::GICD_BASE,
+        crate::aarch64::gic::GICD_SIZE,
+        Kind::Mmio { owner: OWNER_GICD },
+    ) && b.map(
+        crate::aarch64::gic::GICR_BASE,
+        crate::aarch64::gic::GICR_STRIDE * cores as u64,
+        Kind::Mmio { owner: OWNER_GICR },
+    )
+}
+
 /// Read `size` bytes (1, 2, 4, 8) at `pa`, little-endian
 pub unsafe fn read(pa: u64, size: u32) -> Result<u64, Fault> {
     debug_assert!(matches!(size, 1 | 2 | 4 | 8));
@@ -278,7 +320,7 @@ pub unsafe fn read(pa: u64, size: u32) -> Result<u64, Fault> {
                 _ => crate::parallel::load64(p),
             })
         },
-        Lookup::Mmio { owner, offset } => Ok(js::a64_mmio_read(owner, offset, size)),
+        Lookup::Mmio { owner, offset } => Ok(mmio_read(owner, offset, size)),
         Lookup::Hole => Err(Fault::External),
     }
 }
@@ -303,7 +345,7 @@ pub unsafe fn write(pa: u64, size: u32, value: u64) -> Result<(), Fault> {
             Ok(())
         },
         Lookup::Mmio { owner, offset } => {
-            js::a64_mmio_write(owner, offset, size, value);
+            mmio_write(owner, offset, size, value);
             Ok(())
         },
         Lookup::Hole => Err(Fault::External),
@@ -318,8 +360,8 @@ pub unsafe fn read128(pa: u64) -> Result<u128, Fault> {
             Ok(lo as u128 | (hi as u128) << 64)
         },
         Lookup::Mmio { owner, offset } => {
-            let lo = js::a64_mmio_read(owner, offset, 8);
-            let hi = js::a64_mmio_read(owner, offset + 8, 8);
+            let lo = mmio_read(owner, offset, 8);
+            let hi = mmio_read(owner, offset + 8, 8);
             Ok(lo as u128 | (hi as u128) << 64)
         },
         Lookup::Hole => Err(Fault::External),
@@ -339,8 +381,8 @@ pub unsafe fn write128(pa: u64, value: u128) -> Result<(), Fault> {
             Ok(())
         },
         Lookup::Mmio { owner, offset } => {
-            js::a64_mmio_write(owner, offset, 8, value as u64);
-            js::a64_mmio_write(owner, offset + 8, 8, (value >> 64) as u64);
+            mmio_write(owner, offset, 8, value as u64);
+            mmio_write(owner, offset + 8, 8, (value >> 64) as u64);
             Ok(())
         },
         Lookup::Hole => Err(Fault::External),

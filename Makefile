@@ -119,7 +119,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/loader.js
+	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/loader.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js wasm_paths.js worker_bus.js state_stream_transport.js cpu_worker.js dummy_screen.js ansi_screen.js \
@@ -1039,15 +1039,19 @@ a64-mmu-tests: build/v86-arm64.wasm
 	node tests/a64/mmu.mjs
 	node tests/a64/mmu.mjs --seed 2
 	node tests/a64/mmu_granule.mjs
-a64-kvm-unit-tests:
-	$(call A64_PENDING,A2)
+# (the single-core cases on the interpreter; the SMP ones with P3.9)
+a64-kvm-unit-tests: build/v86-arm64.wasm
+	node tests/kvm-unit-tests/arm64.mjs --single-core 4k
+	$(call A64_PENDING,A3 (selftest-setup, selftest-smp, psci, gicv3-ipi, gicv3-active, fpu-context, spinlock-test: P3.9))
 a64-litmus-tests:
 	$(call A64_PENDING,A3)
 a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/core_loader.mjs
 	node tests/a64/address_space.mjs
 	node tests/a64/pl011_hello.mjs
-	$(call A64_PENDING,A2 (DTB, PL011/PL031, timers) and A3 (device reset))
+	node tests/a64/dtb.mjs
+	node tests/a64/linux_loader.mjs
+	$(call A64_PENDING,A3 (device reset))
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm
 	node tests/api/arm64-options.js

@@ -84,9 +84,43 @@ if(!test_file || !fs.existsSync(test_file))
 process.on("uncaughtException", e => finish("crashed", -1, "emulator exception: " + (e && e.stack || e)));
 process.on("unhandledRejection", e => finish("crashed", -1, "emulator exception: " + (e && e.stack || e)));
 
+if(options.arm64 && !options.qemu)
+{
+    // the ARM core: the .flat file is the kernel, the arguments the device tree's bootargs
+    const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+    const { root } = await import("../a64/guest_runner.mjs");
+    const emulator = new V86({
+        cpu_type: "arm64", graphics_adapter: "none", cpu_cores: options.cores, memory_size: options.memory << 20,
+        wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm", kernel: { url: test_file }, cmdline: options.append,
+        autostart: true, log_level: 0,
+    });
+    emulator.add_listener("serial0-output-byte", byte => {
+        const c = String.fromCharCode(byte);
+        serial += c;
+        if(!options.quiet) process.stdout.write(c);
+        const status = serial.match(/^EXIT: STATUS=(\d+)/m);
+        if(status && serial.endsWith("\n"))
+        {
+            const code = +status[1] >> 1;
+            finish(code === 0 ? "passed" : "failed", code);
+        }
+    });
+    setTimeout(() => finish("timeout", -1, "no exit after " + options.timeout + " s; " +
+        JSON.stringify(emulator.v86?.cpu?.get_diagnostics?.())), options.timeout * 1000);
+    setInterval(() => {
+        if(emulator.v86?.cpu?.powered_off?.())
+        {
+            const status = serial.match(/^EXIT: STATUS=(\d+)/m);
+            if(!status) finish("crashed", -1, "the guest turned the machine off without EXIT: STATUS=");
+            const code = +status[1] >> 1;
+            finish(code === 0 ? "passed" : "failed", code);
+        }
+    }, 50);
+    await new Promise(() => {});
+}
+
 if(options.arm64)
 {
-    if(!options.qemu) finish("crashed", -1, "arm64 tests on v86 need the ARM core (docs/arm64-virt-android16-plan.md A1-A3); use --qemu");
     const { spawn } = await import("node:child_process");
     const { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } = await import("../a64/guest_runner.mjs");
     const child = spawn(qemu_binary(), ["-nodefaults", "-machine", QEMU_MACHINE, "-cpu", QEMU_CPU, "-m", (options.memory === 64 ? 128 : options.memory) + "M",

@@ -1,6 +1,8 @@
-//! The generic timer of the AArch64 core (P3.6): one system counter for the
-//! machine at CNTFRQ's 1 GHz, the EL1 virtual and physical timers of each
-//! core, and their registers; CNTVOFF is 0 (no EL2).
+//! The generic timer of the AArch64 core (docs/arm64-virt-android16-plan.md
+//! P4.3): one system counter for the machine at CNTFRQ's 1 GHz, the EL1
+//! virtual and physical timers of each core with their registers and their
+//! interrupt lines (PPIs 27 and 30, level-sensitive, in the GIC), the event
+//! stream of CNTKCTL_EL1; CNTVOFF is 0 (no EL2).
 
 use crate::aarch64::cpu::{self, Exception};
 use crate::aarch64::state::*;
@@ -15,6 +17,59 @@ pub fn counter() -> u64 {
 const CTL_ENABLE: u64 = 1;
 const CTL_IMASK: u64 = 2;
 const CTL_ISTATUS: u64 = 4;
+
+/// The timers' PPIs (the INTIDs the DTB lists: virtual 27, non-secure physical 30)
+pub const PPI_VIRTUAL: usize = 27;
+pub const PPI_PHYSICAL: usize = 30;
+
+/// The counter when the event stream last ticked (per core)
+static mut EVENT_STREAM_LAST: [u64; crate::isa::MAX_CORES] = [0; crate::isa::MAX_CORES];
+
+#[inline(always)]
+fn fires(control: u64, compare: u64, now: u64) -> bool {
+    control & CTL_ENABLE != 0 && now >= compare
+}
+
+/// Bring the current core's timer interrupt lines and event stream up to
+/// the counter: called on timer register writes and from the run loop
+pub fn tick() {
+    let now = counter();
+    let core = crate::isa::current_core();
+    unsafe {
+        let virtual_line = fires(*cntv_ctl, *cntv_cval, now) && *cntv_ctl & CTL_IMASK == 0;
+        let physical_line = fires(*cntp_ctl, *cntp_cval, now) && *cntp_ctl & CTL_IMASK == 0;
+        crate::aarch64::gic::set_ppi(core, PPI_VIRTUAL, virtual_line);
+        crate::aarch64::gic::set_ppi(core, PPI_PHYSICAL, physical_line);
+        // the event stream: an event whenever bit EVNTI of the counter has toggled
+        let kctl = *cntkctl_el1;
+        if kctl >> 2 & 1 != 0 {
+            let shift = (kctl >> 4 & 15) + 1;
+            if now >> shift != EVENT_STREAM_LAST[core] >> shift {
+                *event_register = 1;
+            }
+        }
+        EVENT_STREAM_LAST[core] = now;
+    }
+}
+
+/// Nanoseconds until the current core's timers or event stream next need
+/// it (u64::MAX: never), for a core that waits
+pub fn next_due() -> u64 {
+    let now = counter();
+    let mut due = u64::MAX;
+    unsafe {
+        for (control, compare) in [(*cntv_ctl, *cntv_cval), (*cntp_ctl, *cntp_cval)] {
+            if control & CTL_ENABLE != 0 && control & CTL_IMASK == 0 {
+                due = due.min(compare.saturating_sub(now));
+            }
+        }
+        let kctl = *cntkctl_el1;
+        if kctl >> 2 & 1 != 0 {
+            due = due.min(1u64 << ((kctl >> 4 & 15) + 1));
+        }
+    }
+    due
+}
 
 /// CNTx_CTL with ISTATUS: whether the timer's condition is met
 fn ctl(control: u64, compare: u64) -> u64 {
@@ -101,5 +156,6 @@ pub fn write(reg: u32, rt: u32, value: u64) -> Result<(), Exception> {
             _ => return Err(Exception::Undefined),
         }
     }
+    tick();
     Ok(())
 }

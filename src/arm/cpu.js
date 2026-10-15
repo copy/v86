@@ -12,10 +12,13 @@ import { MachineClock } from "../machine_clock.js";
 import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtIO } from "../virt/io.js";
-import { A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE,
-    VIRT_RAM_BASE, virt_machine } from "../virt/platform.js";
+import {
+    A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH,
+    VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
+} from "../virt/platform.js";
 import { PL011 } from "../virt/pl011.js";
-import { load_kernel } from "../virt/loader.js";
+import { PL031 } from "../virt/pl031.js";
+import { load_linux } from "../virt/loader.js";
 
 /** (src/state.js: one buffer holds at most 2 GiB) */
 const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
@@ -76,11 +79,14 @@ A64CPU.prototype.init = function(settings, device_bus)
     }
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
+    // (the GIC's distributor and redistributors: decoded in the core, P4.2)
+    if(!this.wm.exports["a64_set_cores"](cores)) throw new Error("the GIC's frames overlap a device");
     if(settings.cpu_clock) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
     this.create_memory(memory_size);
     this.device_bus = device_bus;
     this.devices = {
         "pl011": new PL011(this, device_bus),
+        "pl031": new PL031(this),
     };
     // (the PCIe host bridge comes with P5.10; until then its 32- and 64-bit
     // windows read as an empty bus does, all ones, as the reference's do)
@@ -91,12 +97,29 @@ A64CPU.prototype.init = function(settings, device_bus)
     };
     this.io.register_mmio(VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_SIZE, empty_bus);
     this.io.register_mmio(VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, empty_bus);
+    // (the virtio-mmio transports come with P5.1; until then each slot reads
+    // as the reference's empty one: "virt", version 2, device ID 0, "QEMU")
+    const empty_slot = {
+        name: "virtio-mmio",
+        read: offset => [0x74726976, 2, 0, 0x554D4551][offset >> 2] ?? 0,
+        write: () => {},
+    };
+    /** @type {!Array<number>} the slots' owners (src/virt/io.js) */
+    this.virtio_mmio_slots = [];
+    for(let n = 0; n < VIRT_MMIO_COUNT; n++)
+    {
+        this.virtio_mmio_slots.push(this.io.register_mmio(VIRT_MMIO + n * VIRT_MMIO_SIZE, VIRT_MMIO_SIZE, empty_slot));
+    }
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
+    /** @type {Object} what the machine boots, loaded again at a reset */
+    this.boot_files = null;
     if(settings.kernel)
     {
-        const entry = load_kernel(this, settings.kernel);
-        this.boot(entry, 0);
+        // (kept: a reset loads them again, P4.6)
+        this.boot_files = { kernel: settings.kernel, initrd: settings.initrd, cmdline: settings.cmdline, dtb: settings.dtb, cores };
+        const { entry, x0 } = load_linux(this, this.boot_files);
+        this.boot(entry, x0);
     }
 };
 
@@ -138,7 +161,8 @@ A64CPU.prototype.run_cores = function()
     this.in_cpu = true;
     try
     {
-        return run(this.clock.now());
+        const devices = this.run_hardware_timers(null, this.clock.now());
+        return Math.min(run(this.clock.now()), devices);
     }
     finally
     {
@@ -146,10 +170,20 @@ A64CPU.prototype.run_cores = function()
     }
 };
 
-/** (env.run_hardware_timers: the virt machine's timers are the core's own, P3.6) */
+/** (env.run_hardware_timers) the virt machine's device timers (the PL031's alarm); the cores' timers are their own */
 A64CPU.prototype.run_hardware_timers = function(acpi, now)
 {
-    return 100;
+    return Math.min(100, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);
+};
+
+/**
+ * A device's interrupt line, an SPI of the GIC (P4.2)
+ * @param {number} intid
+ * @param {boolean} level
+ */
+A64CPU.prototype.set_irq = function(intid, level)
+{
+    this.wm.exports["a64_gic_set_spi"](intid, level);
 };
 
 /** Whether the guest turned the machine off (PSCI SYSTEM_OFF, P4.4) */
@@ -167,7 +201,17 @@ A64CPU.prototype.snapshot_io_pending = function()
 /** @param {string=} reason */
 A64CPU.prototype.reboot_internal = function(reason)
 {
-    if(this.booted) this.boot(this.boot_entry, this.boot_x0);
+    if(!this.booted) return;
+    for(const device of Object.values(this.devices)) device.reset?.();
+    if(this.boot_files)
+    {
+        const { entry, x0 } = load_linux(this, this.boot_files);
+        this.boot(entry, x0);
+    }
+    else
+    {
+        this.boot(this.boot_entry, this.boot_x0);
+    }
 };
 
 // ---- guest memory (P1.6: the machine's DMA facade)

@@ -182,6 +182,15 @@ pub enum Exception {
     SpAlignment,
     /// BRK (EC 0x3C)
     Brk(u16),
+    /// a hardware breakpoint (EC 0x30/0x31; FAR 0)
+    Breakpoint,
+    /// a watchpoint (EC 0x34/0x35): whether the access writes, the first watched byte
+    Watchpoint {
+        write: bool,
+        far: u64,
+    },
+    /// software step (EC 0x32/0x33): whether the stepped instruction was a load-exclusive
+    SoftwareStep(bool),
 }
 
 pub const EC_UNKNOWN: u32 = 0x00;
@@ -199,6 +208,11 @@ pub const EC_DABT_LOWER: u32 = 0x24;
 pub const EC_DABT: u32 = 0x25;
 pub const EC_SP_ALIGN: u32 = 0x26;
 pub const EC_BRK: u32 = 0x3C;
+pub const EC_BREAKPOINT_LOWER: u32 = 0x30;
+pub const EC_STEP_LOWER: u32 = 0x32;
+pub const EC_WATCHPOINT_LOWER: u32 = 0x34;
+/// The fault status of a debug exception
+const FSC_DEBUG: u32 = 0x22;
 
 /// Fault status codes (DFSC/IFSC)
 pub const FSC_ADDRESS_SIZE_L0: u32 = 0x00;
@@ -231,6 +245,16 @@ impl Exception {
             },
             Exception::SpAlignment => (EC_SP_ALIGN, 0),
             Exception::Brk(imm) => (EC_BRK, imm as u32),
+            // (the same-EL classes are one more than the lower-EL ones)
+            Exception::Breakpoint => (EC_BREAKPOINT_LOWER + (from != 0) as u32, FSC_DEBUG),
+            Exception::Watchpoint { write, .. } => (
+                EC_WATCHPOINT_LOWER + (from != 0) as u32,
+                FSC_DEBUG | (write as u32) << 6,
+            ),
+            Exception::SoftwareStep(ex) => (
+                EC_STEP_LOWER + (from != 0) as u32,
+                1 << 24 | (ex as u32) << 6 | FSC_DEBUG,
+            ),
         };
         ec << 26 | IL | iss
     }
@@ -240,7 +264,10 @@ impl Exception {
         match self {
             Exception::InstructionAbort { far, .. }
             | Exception::DataAbort { far, .. }
-            | Exception::PcAlignment(far) => Some(far),
+            | Exception::PcAlignment(far)
+            | Exception::Watchpoint { far, .. } => Some(far),
+            // (FAR is UNKNOWN for a breakpoint: 0, as the reference writes it)
+            Exception::Breakpoint => Some(0),
             _ => None,
         }
     }

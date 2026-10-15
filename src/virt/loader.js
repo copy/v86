@@ -1,54 +1,104 @@
 // Loading Linux (or a bare-metal program) on the virt machine
 // (docs/arm64-virt-android16-plan.md P4.6): an arm64 Image (the boot
-// protocol of Documentation/arch/arm64/booting.rst) goes where QEMU puts it,
-// RAM + text_offset (0x80000 when image_size is 0, 2 MiB added below 4
-// KiB), and the core starts at its first byte with x0 the device tree's
-// address. EFI zboot images (gzip) are unpacked first (P4.6).
+// protocol of Documentation/arch/arm64/booting.rst), or an EFI zboot image
+// holding one gzipped (Alpine's vmlinuz-virt), goes where the reference
+// QEMU 9.2 puts it (hw/arm/boot.c): RAM + text_offset (0x80000 when
+// image_size is 0, 2 MiB more below 4 KiB); the initrd at RAM + min(RAM / 2,
+// 128 MiB), or above the kernel; the device tree after the initrd, 2 MiB
+// aligned (some kernels map its 2 MiB block early). The core starts at the
+// kernel's first byte with x0 the device tree's address.
 
 import { VIRT_RAM_BASE } from "./platform.js";
+import { gunzip } from "./inflate.js";
+import { flatten, virt_tree } from "./dtb.js";
 
 const IMAGE_MAGIC = 0x644D5241; // "ARM\x64" at 56
+const ZBOOT_MAGIC = 0x676D697A; // "zimg" at 4
 const DEFAULT_TEXT_OFFSET = 0x80000;
+const MiB = 1024 * 1024;
 
 /**
- * Where an arm64 Image goes in RAM (its offset from RAM's base)
- * @param {!Uint8Array} image
- * @return {number}
+ * The Image inside a kernel file: the file itself, or an EFI zboot image's gzipped payload
+ * @param {!Uint8Array} kernel
+ * @return {!Uint8Array}
  */
-export function image_load_offset(image)
+export function unpack_kernel(kernel)
+{
+    const view = new DataView(kernel.buffer, kernel.byteOffset, kernel.byteLength);
+    if(kernel.length >= 64 && kernel[0] === 0x4D && kernel[1] === 0x5A && view.getUint32(4, true) === ZBOOT_MAGIC)
+    {
+        const offset = view.getUint32(8, true), size = view.getUint32(12, true);
+        const type = new TextDecoder().decode(kernel.subarray(0x18, 0x38)).replace(/\0.*$/s, "");
+        if(type !== "gzip") throw new Error("kernel: EFI zboot with " + type + " compression; only gzip is supported");
+        return gunzip(kernel.subarray(offset, offset + size));
+    }
+    return kernel;
+}
+
+/**
+ * Where an arm64 Image goes in RAM (its offset from RAM's base), and how far it reaches
+ * @param {!Uint8Array} image
+ * @return {{offset: number, size: number}}
+ */
+export function image_placement(image)
 {
     const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
     if(image.length < 64 || view.getUint32(56, true) !== IMAGE_MAGIC)
     {
-        if(image.length >= 2 && image[0] === 0x4D && image[1] === 0x5A && view.getUint32(4, true) === 0x676D697A)
-        {
-            throw new Error("kernel: an EFI zboot image; unpack it to its Image first (docs/arm64-virt-android16-plan.md P4.6)");
-        }
         // (a raw binary: where QEMU loads one that is not an Image)
-        return DEFAULT_TEXT_OFFSET;
+        return { offset: DEFAULT_TEXT_OFFSET, size: image.length };
     }
     const text_offset = view.getUint32(8, true) + view.getUint32(12, true) * 0x100000000;
     const image_size = view.getUint32(16, true) + view.getUint32(20, true) * 0x100000000;
     let offset = image_size ? text_offset : DEFAULT_TEXT_OFFSET;
-    if(offset < 4096) offset += 2 * 1024 * 1024;
-    return offset;
+    if(offset < 4096) offset += 2 * MiB;
+    return { offset, size: Math.max(image.length, image_size) };
 }
 
 /**
- * Load `kernel` into the CPU's RAM; the core boots it
+ * Load a kernel, an initrd and the device tree into the CPU's RAM
  * @param {Object} cpu the arm64 CPU (src/arm/cpu.js)
- * @param {!ArrayBuffer} kernel
- * @return {number} the entry point (a physical address)
+ * @param {!Object} boot kernel (an ArrayBuffer), initrd and dtb (ArrayBuffers or undefined), cmdline, cores
+ * @return {{entry: number, x0: number}}
  */
-export function load_kernel(cpu, kernel)
+export function load_linux(cpu, boot)
 {
-    const image = new Uint8Array(kernel);
-    const offset = image_load_offset(image);
-    if(offset + image.length > cpu.memory_size[0])
+    const ram_size = cpu.memory_size[0];
+    const ram_end = VIRT_RAM_BASE + ram_size;
+    const image = unpack_kernel(new Uint8Array(boot.kernel));
+    const { offset, size } = image_placement(image);
+    if(offset + image.length > ram_size)
     {
         throw new Error("kernel: " + image.length + " bytes at RAM + 0x" + offset.toString(16) + " do not fit in RAM");
     }
     const entry = VIRT_RAM_BASE + offset;
     cpu.write_blob_physical(image, entry);
-    return entry;
+
+    const page_align = a => Math.ceil(a / 4096) * 4096;
+    const initrd_start = page_align(Math.max(VIRT_RAM_BASE + Math.min(ram_size / 2, 128 * MiB), entry + size));
+    let initrd;
+    if(boot.initrd)
+    {
+        const bytes = new Uint8Array(boot.initrd);
+        if(initrd_start + bytes.length > ram_end) throw new Error("initrd: " + bytes.length + " bytes do not fit in RAM after the kernel");
+        cpu.write_blob_physical(bytes, initrd_start);
+        initrd = { start: initrd_start, end: initrd_start + bytes.length };
+    }
+    const dtb_start = Math.ceil((initrd_start + (initrd ? initrd.end - initrd.start : 0)) / (2 * MiB)) * (2 * MiB);
+    let dtb;
+    if(boot.dtb)
+    {
+        dtb = new Uint8Array(boot.dtb);
+    }
+    else
+    {
+        const rng_seed = new Uint8Array(32);
+        globalThis.crypto?.getRandomValues?.(rng_seed);
+        dtb = flatten(virt_tree({
+            cores: boot.cores, memory_size: ram_size, bootargs: boot.cmdline || undefined, initrd, rng_seed,
+        }));
+    }
+    if(dtb_start + dtb.length > ram_end) throw new Error("dtb: not enough RAM after the kernel and initrd");
+    cpu.write_blob_physical(dtb, dtb_start);
+    return { entry, x0: dtb_start };
 }

@@ -772,6 +772,8 @@
   "behavior": [{"instruction": "DC ZVA on Device memory (the MMU off, or a Device mapping)", "why": "v86 takes the alignment fault the Arm ARM requires for Device memory (DDI 0487 L.b, DC ZVA); QEMU 9.2 zeroes the block (target/arm/tcg/helper-a64.c, HELPER(dc_zva))"},
     {"instruction": "an unaligned load or store to a Device mapping with the MMU on", "why": "v86 takes the Alignment fault the Arm ARM requires for any unaligned access to Device memory; the reference QEMU 9.2 (TCG on the owner's arm64 Mac) completes it (tests/a64/mmu.mjs keeps its misaligned probes on Normal memory)"},
     {"instruction": "PSTATE.NZCV on exception entry", "why": "AArch64.TakeException leaves NZCV as it was, as v86 does; QEMU 9.2 clears it (pstate_write in arm_cpu_do_interrupt_aarch64); tests/a64/lockstep.mjs adopts QEMU's flags at an exception entry"},
-    {"instruction": "reads of RAM below the kernel (0x4000_0000)", "why": "QEMU's boot stub lives at the start of RAM; v86 starts the kernel directly and leaves it zero"}]
+    {"instruction": "reads of RAM below the kernel (0x4000_0000)", "why": "QEMU's boot stub lives at the start of RAM; v86 starts the kernel directly and leaves it zero"},
+    {"instruction": "debug exceptions while OSLSR_EL1.OSLK is set (it is at reset)", "why": "the Arm ARM disables breakpoint, watchpoint and step exceptions under the OS Lock, as v86 does; QEMU 9.2 tests OSLSR bit 0 instead of OSLK (bit 1) and never blocks them (target/arm/debug_helper.c, arm_generate_debug_exceptions)"},
+    {"instruction": "unlinked context ID breakpoints (DBGBCR.BT 0b0010)", "why": "v86 implements them on its context-aware breakpoint; QEMU 9.2 does not (LOG_UNIMP)"}]
  }
 }

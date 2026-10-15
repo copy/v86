@@ -4,7 +4,8 @@
 // spinlock-test.flat run directly), built by build.sh for each translation
 // granule and run by run.mjs.
 //
-//   node tests/kvm-unit-tests/arm64.mjs [--qemu] [4k 16k 64k]
+//   node tests/kvm-unit-tests/arm64.mjs [--qemu] [--single-core] [4k 16k 64k]
+//   (without --qemu the cases run on v86's ARM core; --single-core only those of one core)
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -31,6 +32,7 @@ export const CASES = [
 
 const args = process.argv.slice(2);
 const qemu = args.includes("--qemu");
+const single_core = args.includes("--single-core");
 const granules = args.filter(a => /^\d+k$/.test(a));
 let failed = 0;
 for(const granule of granules.length ? granules : ["4k", "16k", "64k"])
@@ -39,6 +41,7 @@ for(const granule of granules.length ? granules : ["4k", "16k", "64k"])
     if(build.status !== 0) { console.log(`arm64-${granule}: build failed\n${build.stdout.slice(-3000)}${build.stderr}`); process.exit(1); }
     for(const [name, file, cores, test_args, memory] of CASES)
     {
+        if(single_core && cores > 1) continue;
         const once = () => spawnSync("node", [here + "run.mjs", "--arm64", ...(qemu ? ["--qemu"] : []), "--cores", String(cores),
             ...(memory ? ["--memory", String(memory)] : []), "--append", test_args, "--timeout", "60",
             `${here}../../build/kvm-unit-tests/arm64-${granule}/arm/${file}.flat`], { encoding: "utf8" });
