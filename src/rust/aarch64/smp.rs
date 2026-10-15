@@ -135,6 +135,36 @@ pub fn a64_boot(entry_low: u32, entry_high: u32, x0_low: u32, x0_high: u32) {
     }
 }
 
+// ---- snapshots (P3.10): the machine's state outside the cores' state blocks
+
+/// The bytes of the machine's own state `which` (0 the GIC, 1 PSCI's power
+/// states): its address in the Wasm memory and its size
+#[no_mangle]
+pub fn a64_machine_state(which: u32, size: bool) -> u32 {
+    let (pointer, length) = match which {
+        0 => crate::aarch64::gic::state_bytes(),
+        _ => crate::aarch64::psci::state_bytes(),
+    };
+    if size {
+        length
+    }
+    else {
+        pointer
+    }
+}
+
+/// After a state was restored: what derives from it is recomputed (interrupt
+/// lines, the debug fast paths), what may not survive is dropped (TLBs, the
+/// exclusive monitors)
+#[no_mangle]
+pub fn a64_restored() {
+    crate::aarch64::tlb::flush(true);
+    crate::aarch64::debug::refresh();
+    crate::aarch64::gic::restored();
+    unsafe { *excl_valid = 0 };
+    crate::aarch64::timer::tick();
+}
+
 /// The core's registers for JavaScript (tests, diagnostics): X0-X30, SP,
 /// PC, NZCV, PSTATE are in the state block (src/arm/state_layout.js)
 #[no_mangle]

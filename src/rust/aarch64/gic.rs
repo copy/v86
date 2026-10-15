@@ -139,6 +139,12 @@ fn gic() -> &'static mut Gic { unsafe { &mut *(&raw mut GIC) } }
 
 fn cores() -> usize { crate::isa::core_count() }
 
+/// (snapshots) the GIC's state as bytes: its address and size
+pub fn state_bytes() -> (u32, u32) { (&raw const GIC as u32, core::mem::size_of::<Gic>() as u32) }
+
+/// (snapshots) the state was replaced: the signals follow it
+pub fn restored() { update_all(); }
+
 /// Reset the distributor, the redistributors and the CPU interfaces
 pub fn reset() {
     let g = gic();

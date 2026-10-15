@@ -31,7 +31,7 @@ const MDSCR_MDE: u64 = 1 << 15;
 pub static mut ANY_BREAKPOINT: bool = false;
 pub static mut ANY_WATCHPOINT: bool = false;
 
-fn refresh() {
+pub fn refresh() {
     unsafe {
         ANY_BREAKPOINT = (0..BREAKPOINTS).any(|n| *dbgbcr.add(n) & 1 != 0);
         ANY_WATCHPOINT = (0..WATCHPOINTS).any(|n| *dbgwcr.add(n) & 1 != 0);

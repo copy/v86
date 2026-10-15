@@ -8,7 +8,15 @@
 //   initramfs-virt followed by a newc cpio with /a64-init and /a64-probe
 //   (Linux takes concatenated cpio archives), rdinit=/a64-init mounts proc,
 //   sys, devtmpfs and a tmpfs with Alpine's busybox, runs the probe with
-//   "nodisk" and powers off. No virtio.
+//   "nodisk", lists /proc/interrupts and powers off. No virtio.
+// - stage "single": initramfs-virt alone and Alpine's own init with
+//   "single" (and a root that does not exist): it says "Entering single
+//   mode" and opens a shell, which lists /proc/interrupts, echoes
+//   A64_SINGLE_OK and powers off.
+// - stage "lifecycle" (v86, P4.8): single mode to its shell, a snapshot
+//   saved there and restored into a new machine where the shell goes on,
+//   "reboot -f" (PSCI SYSTEM_RESET) back to single mode, "poweroff -f"
+//   (SYSTEM_OFF) stopping the emulator.
 // - stage "live": the ISO as a read-only virtio-blk disk, the probe in a
 //   ustar image on a second virtio-blk disk with serial a64probe; Alpine's
 //   initramfs finds the modloop and the packages on the ISO and boots to
@@ -36,7 +44,7 @@ import { prepare, unzboot, sha256, ROOT } from "../lib/alpine_image.mjs";
 import { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } from "./guest_runner.mjs";
 
 const stage = process.env.A64_STAGE || "initramfs";
-assert.ok(["initramfs", "live"].includes(stage), "A64_STAGE is initramfs or live");
+assert.ok(["initramfs", "single", "lifecycle", "live"].includes(stage), "A64_STAGE is initramfs, single, lifecycle or live");
 const cores = Number(process.env.A64_CORES || 1);
 assert.ok([1, 2, 4, 8].includes(cores), "A64_CORES is 1, 2, 4 or 8");
 const qemu_reference = !!+process.env.A64_LINUX_QEMU;
@@ -71,6 +79,7 @@ fs.writeFileSync(probe_directory + "root/a64-init", [
     "$B mount -t proc proc /proc; $B mount -t sysfs sys /sys; $B mount -t devtmpfs dev /dev",
     "$B mkdir -p /tmp; $B mount -t tmpfs tmp /tmp",
     "/a64-probe nodisk \"$@\"",
+    "$B cat /proc/interrupts",
     "$B echo A64_INIT_DONE",
     "$B poweroff -f",
     ""].join("\n"), { mode: 0o755 });
@@ -95,6 +104,9 @@ fs.writeFileSync(manifest_file, JSON.stringify(manifest, null, 2) + "\n");
 if(+process.env.A64_LINUX_PREPARE_ONLY) process.exit(0);
 
 const timeout = Number(process.env.A64_LINUX_TIMEOUT || 180000);
+// (a root that does not exist: init looks for it, then enters single mode before mounting it)
+const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
+const SINGLE_COMMANDS = "cat /proc/interrupts; echo A64_SINGLE_$((6*7)) && echo A64_SINGLE_OK; /bin/busybox poweroff -f\n";
 const tag = `${qemu_reference ? "qemu" : "v86"}-${stage}-${cores}c`;
 
 /** The probe's lines in `text`, judged against `cores` and the stage */
@@ -133,11 +145,11 @@ if(qemu_reference)
     run(qemu, ["-machine", machine + ",dumpdtb=" + dtb, ...base, "-kernel", prepared.kernel]);
     if(cores === 1) Object.assign(manifest, { qemu: version, dtb_sha256: sha256(fs.readFileSync(dtb)) });
     fs.writeFileSync(manifest_file, JSON.stringify(manifest, null, 2) + "\n");
-    const live = stage === "live";
+    const live = stage === "live", single = stage === "single";
     const args = ["-machine", machine, ...base, "-serial", "stdio", "-monitor", "none", "-kernel", prepared.kernel,
-        "-initrd", live ? prepared.initrd : initrd_probe,
+        "-initrd", live || single ? prepared.initrd : initrd_probe,
         "-append", live ? "console=ttyAMA0 earlycon nokaslr panic=-1 modules=loop,squashfs,sd-mod,usb-storage"
-            : "console=ttyAMA0 earlycon nokaslr panic=-1 rdinit=/a64-init -- ref=qemu",
+            : single ? SINGLE_CMDLINE : "console=ttyAMA0 earlycon nokaslr panic=-1 rdinit=/a64-init -- ref=qemu",
         ...(live ? ["-drive", `if=none,id=iso,file=${prepared.iso},format=raw,readonly=on`, "-device", "virtio-blk-device,drive=iso",
             "-drive", `if=none,id=probe,file=${probe_directory}probe.tar,format=raw,snapshot=on`, "-device", "virtio-blk-device,drive=probe,serial=a64probe"] : [])];
     const plugins = !!+process.env.A64_QEMU_PLUGINS;
@@ -161,9 +173,14 @@ if(qemu_reference)
         await new Promise((resolve, reject) => {
             timer = setTimeout(() => reject(new Error(`QEMU ${stage} deadline (${timeout} ms)`)), timeout);
             child.on("error", reject);
-            child.on("exit", code => (/A64_INIT_DONE|A64_LIVE_DONE/.test(transcript) ? resolve() : reject(new Error(`QEMU exited ${code}`))));
+            child.on("exit", code => (/A64_INIT_DONE|A64_LIVE_DONE|A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) ? resolve() : reject(new Error(`QEMU exited ${code}`))));
             const output = bytes => {
                 transcript += bytes;
+                if(single && /Entering single mode[^\n]*\n/.test(transcript) && !ran)
+                {
+                    ran = true;
+                    child.stdin.write(SINGLE_COMMANDS);
+                }
                 if(probe_ms === undefined && transcript.includes("A64_PROBE_XC")) probe_ms = Math.round(performance.now() - started);
                 if(live && !logged_in && /localhost login: ?$/.test(transcript))
                 {
@@ -188,7 +205,7 @@ if(qemu_reference)
         child.kill();
         fs.writeFileSync(directory + `${tag}.log`, transcript);
     }
-    const lines = check_probe(transcript, true);
+    const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, true);
     const result = { tag, ms: Math.round(performance.now() - started), boot_to_login_ms: login_ms, probe_done_ms: probe_ms, ...lines,
         login: live ? /localhost login:/.test(transcript) : undefined };
     if(plugins)
@@ -202,6 +219,129 @@ if(qemu_reference)
     console.log(`A64_LINUX_BOOT_OK ${tag}`);
     process.exit(0);
 }
-// (the v86 runs come with the ARM core: A2)
-console.log("tests/a64/linux_boot.mjs: v86 runs need the ARM core (docs/arm64-virt-android16-plan.md A2); use A64_LINUX_QEMU=1");
-process.exit(2);
+// ---- v86 (the ARM core; P4.7): the same kernel, initrd and command line
+assert.notEqual(stage, "live", "the live stage on v86 needs virtio-blk (P5.1, A3)");
+const v86_options = {
+    cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
+    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
+};
+if(stage === "lifecycle")
+{
+    const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+    const options = { ...v86_options, kernel: { url: prepared.kernel }, initrd: { url: prepared.initrd }, cmdline: SINGLE_CMDLINE };
+    let transcript = "";
+    const started = performance.now();
+    const attach = emulator => emulator.add_listener("serial0-output-byte", byte => { transcript += String.fromCharCode(byte); });
+    const wait_for = (pattern, what, ms = timeout) => new Promise((resolve, reject) => {
+        const t0 = transcript.length;
+        const timer = setTimeout(() => reject(new Error(`v86 lifecycle: no ${what} after ${ms} ms:\n${transcript.slice(-1500)}`)), ms);
+        const poll = setInterval(() => {
+            if(pattern.test(transcript.slice(t0)))
+            {
+                clearInterval(poll);
+                clearTimeout(timer);
+                resolve();
+            }
+        }, 20);
+    });
+    // (the prompt: "~ # ", then busybox asks the terminal where the cursor is)
+    const marks = {};
+    const first = new V86({ ...options, autostart: true });
+    attach(first);
+    await wait_for(/Entering single mode[^\n]*\n[\s\S]*# /, "single mode's prompt");
+    marks.single_ms = Math.round(performance.now() - started);
+    // (a snapshot at the prompt, restored into a new machine)
+    await first.stop();
+    const saved = await first.save_state();
+    await first.destroy();
+    marks.state_bytes = saved.byteLength;
+    const second = new V86({ ...options, autostart: false });
+    await new Promise(resolve => second.add_listener("emulator-loaded", resolve));
+    await second.restore_state(saved);
+    attach(second);
+    second.run();
+    second.serial0_send("echo A64_RESTORED_$((6*7))\n");
+    await wait_for(/A64_RESTORED_42/, "the restored shell's answer", 60000);
+    marks.restored = true;
+    // (PSCI SYSTEM_RESET: the kernel loads again and boots to single mode again)
+    second.serial0_send("/bin/busybox reboot -f\n");
+    await wait_for(/Entering single mode[^\n]*\n[\s\S]*# /, "single mode after the reboot");
+    marks.rebooted = true;
+    // (PSCI SYSTEM_OFF: the emulator stops)
+    const stopped = new Promise(resolve => second.add_listener("emulator-stopped", resolve));
+    second.serial0_send("/bin/busybox poweroff -f\n");
+    await Promise.race([stopped, new Promise((_, reject) => setTimeout(() => reject(new Error("no emulator-stopped after poweroff")), 60000))]);
+    marks.powered_off = second.v86.cpu.powered_off();
+    assert.ok(marks.powered_off, "the machine is off");
+    await second.destroy();
+    fs.writeFileSync(directory + `${tag}.log`, transcript);
+    const result = { tag, ms: Math.round(performance.now() - started), ...marks };
+    console.log(JSON.stringify(result));
+    console.log(`A64_LINUX_BOOT_OK ${tag}`);
+    process.exit(0);
+}
+const single = stage === "single";
+const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+const emulator = new V86({
+    cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, autostart: true, log_level: 0,
+    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
+    kernel: { url: prepared.kernel }, initrd: { url: single ? prepared.initrd : initrd_probe },
+    cmdline: single ? SINGLE_CMDLINE : "console=ttyAMA0 earlycon nokaslr panic=-1 rdinit=/a64-init -- ref=v86",
+});
+const verbose = !!+process.env.A64_VERBOSE;
+let transcript = "", probe_ms, typed = false;
+const started = performance.now();
+/** (A64 inspect: where the core is, for a run that does not finish) */
+function inspect()
+{
+    const cpu = emulator.v86?.cpu;
+    return JSON.stringify(cpu?.get_diagnostics?.() ?? {}) + "\n--- the serial console's last lines:\n" + transcript.split("\n").slice(-25).join("\n");
+}
+try
+{
+    await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`v86 ${stage} deadline (${timeout} ms): ${inspect()}`)), timeout);
+        emulator.add_listener("serial0-output-byte", byte => {
+            const c = String.fromCharCode(byte);
+            transcript += c;
+            if(verbose) process.stdout.write(c);
+            if(probe_ms === undefined && transcript.includes("A64_PROBE_XC")) probe_ms = Math.round(performance.now() - started);
+            if(single && !typed && /Entering single mode[^\n]*\n/.test(transcript))
+            {
+                typed = true;
+                emulator.serial0_send(SINGLE_COMMANDS);
+            }
+            const done = single ? /A64_SINGLE_42\r?\nA64_SINGLE_OK/ : /A64_INIT_DONE/;
+            if(done.test(transcript) || /Kernel panic/.test(transcript) && transcript.endsWith("\n"))
+            {
+                clearTimeout(timer);
+                setTimeout(() => (done.test(transcript) ? resolve() : reject(new Error("kernel panic: " + inspect()))), 200);
+            }
+        });
+    });
+}
+finally
+{
+    fs.writeFileSync(directory + `${tag}.log`, transcript);
+}
+// (no UNDEF in the kernel, P2.3; no trouble in its log; the timer's and the UART's interrupts counted)
+const undefined_instructions = emulator.v86.cpu.undefined_instructions();
+await emulator.destroy();
+assert.equal(undefined_instructions.el1, 0, "UNDEF at EL1: " + JSON.stringify(undefined_instructions));
+const trouble = transcript.match(/^.*(Oops|BUG:|WARNING:|SError|rcu_.*stall|Internal error|undefined instruction).*$/m);
+assert.ok(!trouble, "the kernel reports: " + trouble?.[0]);
+// (the UART's interrupts come with input: the single stage types its commands; the
+// initramfs stage writes the console by polling, on the reference too)
+{
+    for(const name of single ? ["arch_timer", "uart-pl011"] : ["arch_timer"])
+    {
+        const line = transcript.match(new RegExp("^\\s*\\d+:\\s+(\\d+)\\s.*" + name + ".*$", "m"));
+        assert.ok(line && +line[1] > 0, name + " interrupts in /proc/interrupts");
+    }
+}
+const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, false);
+const result = { tag, ms: Math.round(performance.now() - started), probe_done_ms: probe_ms, ...lines };
+fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");
+console.log(JSON.stringify(result));
+console.log(`A64_LINUX_BOOT_OK ${tag}`);
+process.exit(0);

@@ -34,6 +34,45 @@ pub static mut START: [(u64, u64); crate::isa::MAX_CORES] = [(0, 0); crate::isa:
 /// SYSTEM_OFF (1) or SYSTEM_RESET (2) was called
 pub static mut REQUEST: u32 = 0;
 
+#[repr(C)]
+struct PowerState {
+    power: [u8; crate::isa::MAX_CORES],
+    start: [(u64, u64); crate::isa::MAX_CORES],
+    request: u32,
+}
+
+/// (snapshots) the cores' power states as bytes: copied out of and into a scratch area
+static mut SNAPSHOT: PowerState = PowerState {
+    power: [0; crate::isa::MAX_CORES],
+    start: [(0, 0); crate::isa::MAX_CORES],
+    request: 0,
+};
+
+/// (snapshots) the power states: their bytes (an area filled now; read back by `restored`)
+pub fn state_bytes() -> (u32, u32) {
+    unsafe {
+        SNAPSHOT = PowerState {
+            power: POWER,
+            start: START,
+            request: REQUEST,
+        };
+        (
+            &raw const SNAPSHOT as u32,
+            core::mem::size_of::<PowerState>() as u32,
+        )
+    }
+}
+
+/// (snapshots) take the power states written into the scratch area
+#[no_mangle]
+pub fn a64_psci_restored() {
+    unsafe {
+        POWER = SNAPSHOT.power;
+        START = SNAPSHOT.start;
+        REQUEST = SNAPSHOT.request;
+    }
+}
+
 /// What the calling core does after the call
 pub enum After {
     Continue,

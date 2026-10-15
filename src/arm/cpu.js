@@ -20,6 +20,9 @@ import { PL011 } from "../virt/pl011.js";
 import { PL031 } from "../virt/pl031.js";
 import { load_linux } from "../virt/loader.js";
 
+/** The devices in a snapshot's state[4], in this order */
+const DEVICE_ORDER = ["pl011", "pl031"];
+
 /** (src/state.js: one buffer holds at most 2 GiB) */
 const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
 
@@ -58,6 +61,8 @@ export function A64CPU(bus, wm, stop_idling)
 
     /** @type {!Object} */
     this.devices = {};
+    /** (src/main.js: a snapshot waits while a core's device access is in flight; never, with the cores here) */
+    this.snapshot_io_pending = false;
     /** the device registers (src/virt/io.js) */
     this.io = new VirtIO(this.wm.exports);
 }
@@ -162,7 +167,10 @@ A64CPU.prototype.run_cores = function()
     try
     {
         const devices = this.run_hardware_timers(null, this.clock.now());
-        return Math.min(run(this.clock.now()), devices);
+        const next = Math.min(run(this.clock.now()), devices);
+        // (PSCI SYSTEM_RESET: the machine resets and boots again, P4.8)
+        if(this.wm.exports["a64_take_reset_request"]()) this.reboot_internal("restart");
+        return next;
     }
     finally
     {
@@ -186,16 +194,21 @@ A64CPU.prototype.set_irq = function(intid, level)
     this.wm.exports["a64_gic_set_spi"](intid, level);
 };
 
+/**
+ * (snapshots) a view of the machine state `which` the core keeps (0 the GIC, 1 PSCI)
+ * @param {number} which
+ * @return {!Uint8Array}
+ */
+A64CPU.prototype.machine_state_bytes = function(which)
+{
+    const exports = this.wm.exports;
+    return new Uint8Array(this.wasm_memory.buffer, exports["a64_machine_state"](which, false) >>> 0, exports["a64_machine_state"](which, true));
+};
+
 /** Whether the guest turned the machine off (PSCI SYSTEM_OFF, P4.4) */
 A64CPU.prototype.powered_off = function()
 {
     return !!this.wm.exports["a64_powered_off"]?.();
-};
-
-/** Whether the device state may be saved now (no access of a core is in flight) */
-A64CPU.prototype.snapshot_io_pending = function()
-{
-    return false;
 };
 
 /** @param {string=} reason */
@@ -327,6 +340,13 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[0] = this.memory_size[0];
     state[1] = this.cores;
     state[2] = [this.save_core_state()];
+    // the machine (P3.10): the devices, the GIC and the cores' power states (bytes of the core), the boot
+    state[4] = DEVICE_ORDER.map(name => this.devices[name] ? this.devices[name].get_state() : null);
+    state[5] = this.machine_state_bytes(0).slice();
+    state[6] = this.machine_state_bytes(1).slice();
+    state[7] = [this.booted, this.boot_entry || 0, this.boot_x0 || 0];
+    // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
+    state[95] = this.clock.get_state();
     if(skip_memory)
     {
         state[77] = null;
@@ -370,7 +390,13 @@ A64CPU.prototype.validate_state = function(state)
 A64CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
+    if(state[95]) this.clock.set_state(state[95]);
     this.load_core_state(state[2][0]);
+    (state[4] || []).forEach((device_state, i) => { if(device_state && this.devices[DEVICE_ORDER[i]]) this.devices[DEVICE_ORDER[i]].set_state(device_state); });
+    if(state[5]) this.machine_state_bytes(0).set(state[5]);
+    if(state[6]) { this.machine_state_bytes(1).set(state[6]); this.wm.exports["a64_psci_restored"](); }
+    if(state[7]) [this.booted, this.boot_entry, this.boot_x0] = state[7];
+    this.wm.exports["a64_restored"]();
     if(!skip_memory && state[77])
     {
         this.unpack_memory(new Bitmap(state[78].buffer), state[77]);
