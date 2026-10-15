@@ -1,18 +1,27 @@
 #!/usr/bin/env node
-// Build build/x64-linux/gpu-repo.tar: a local Alpine 3.24 x86_64 package
-// repository with Mesa and the GPU test programs, for the x86_64 Linux guest
-// tests of the display adapters (tests/x64/linux_gpu.mjs). The repository
-// keeps Alpine's own signed APKINDEX, so the guest installs from it with
+// Build a local Alpine 3.24 package repository, as a ustar image, for the
+// Linux guest tests: the dependency closure of a set of packages from
+// Alpine's mirror, with Alpine's own signed APKINDEX, so the guest installs
+// from it with
 //
 //     tar -xf /dev/sda -C /mnt/repo
 //     apk add --no-network --repository /mnt/repo/main --repository /mnt/repo/community <packages>
 //
-// Alpine 3.24's Mesa (26.1) has no virgl driver, so v3.23/ holds 3.23's Mesa
-// (25.2, which has it) and what it needs, for virtio_gpu's 3D:
+//     node tools/alpine_repo.mjs [--arch x86_64|aarch64] [--set gpu|jit]
+//
+// --set gpu (the default): Mesa and the GPU test programs, for the display
+// adapters' tests (tests/x64/linux_gpu.mjs). Alpine 3.24's Mesa (26.1) has
+// no virgl driver, so v3.23/ holds 3.23's Mesa (25.2, which has it) and what
+// it needs, for virtio_gpu's 3D:
 //
 //     apk add --no-network --repository /mnt/repo/v3.23/main --repository /mnt/repo/v3.23/community 'mesa-dri-gallium<26' ...
 //
-//     node tools/alpine_gpu_repo.mjs
+// --set jit: the guest JIT workloads of docs/arm64-virt-android16-plan.md
+// P6.7 (V8 in nodejs, HotSpot in openjdk21, luajit, pcre2's JIT).
+//
+// The image is build/x64-linux/<set>-repo.tar for x86_64 and
+// build/a64-linux/<set>-repo.tar for aarch64 (the unpacked repository next
+// to it). (Before P6.7 this was tools/alpine_gpu_repo.mjs, x86_64 and gpu only.)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +30,6 @@ import zlib from "node:zlib";
 import { spawnSync } from "node:child_process";
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "build/x64-linux/gpu-repo");
 const MIRROR = "https://dl-cdn.alpinelinux.org/alpine/";
 const REPOS = ["main", "community"];
 
@@ -35,6 +43,10 @@ export const PACKAGES = [
 ];
 /** The Mesa with virgl (Alpine 3.23's), under v3.23/ */
 export const VIRGL_PACKAGES = ["mesa-dri-gallium", "mesa-gbm", "mesa-egl", "mesa-gl", "mesa-gles"];
+/** The guest JIT workloads (P6.7): `node`, `java Hello.java`, `luajit -jon`/`-joff`, `pcre2test -jit` */
+export const JIT_PACKAGES = ["nodejs", "openjdk21-jdk", "luajit", "pcre2-tools"];
+/** Where a set's repository and image go */
+export const output_directory = arch => path.join(ROOT, arch === "aarch64" ? "build/a64-linux" : "build/x64-linux");
 
 /** Extract the APKINDEX member of a gzipped tar */
 export function apkindex(tar_gz)
@@ -143,14 +155,21 @@ async function build_repo(branch, out, names, arch = "x86_64")
 // (run as a script, not when imported for its APKINDEX helpers)
 if(process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import.meta.url))
 {
-    await build_repo("v3.24", OUT, PACKAGES);
-    await build_repo("v3.23", path.join(OUT, "v3.23"), VIRGL_PACKAGES);
+    const args = process.argv.slice(2);
+    const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
+    const arch = option("--arch", "x86_64");
+    const set = option("--set", "gpu");
+    if(!["x86_64", "aarch64"].includes(arch)) throw new Error("--arch: x86_64 or aarch64");
+    if(!["gpu", "jit"].includes(set)) throw new Error("--set: gpu or jit");
+    const out = path.join(output_directory(arch), set + "-repo");
+    await build_repo("v3.24", out, set === "gpu" ? PACKAGES : JIT_PACKAGES, arch);
+    if(set === "gpu") await build_repo("v3.23", path.join(out, "v3.23"), VIRGL_PACKAGES, arch);
 
-    // A ustar image on the IDE disk (as for tests/x64/linux_boot.mjs's probes):
+    // A ustar image on the disk (as for tests/x64/linux_boot.mjs's probes):
     // the guest unpacks it with `tar -xf /dev/sda`, names intact
-    const image = path.join(ROOT, "build/x64-linux/gpu-repo.tar");
+    const image = out + ".tar";
     const result = spawnSync("bsdtar", ["--format", "ustar", "--no-xattrs", "--no-mac-metadata", "--uid", "0", "--gid", "0",
-        "-cf", image, "-C", OUT, ...REPOS, "v3.23"], { encoding: "utf8" });
+        "-cf", image, "-C", out, ...REPOS, ...(set === "gpu" ? ["v3.23"] : [])], { encoding: "utf8" });
     if(result.status !== 0) throw new Error("bsdtar: " + result.stderr);
     console.log("Wrote " + path.relative(ROOT, image));
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // x86_64 Linux (Alpine 3.24, the official virt ISO) on a display adapter:
 // installs Mesa and the GPU test programs from build/x64-linux/gpu-repo.tar
-// (tools/alpine_gpu_repo.mjs), loads the adapter's DRM driver and runs the
+// (tools/alpine_repo.mjs), loads the adapter's DRM driver and runs the
 // steps of a scenario on the serial console, saving screenshots.
 //
 //     GPU_ADAPTER=bochs_vga node tests/x64/linux_gpu.mjs
@@ -40,7 +40,7 @@ for(const file of [iso, directory + "boot/vmlinuz-virt", directory + "boot/initr
 {
     assert.ok(fs.existsSync(file), file + " is missing: run tests/x64/linux_boot.mjs once (X64_LINUX_PREPARE_ONLY=1)");
 }
-assert.ok(fs.existsSync(repo), repo + " is missing: run tools/alpine_gpu_repo.mjs");
+assert.ok(fs.existsSync(repo), repo + " is missing: run tools/alpine_repo.mjs");
 
 const DRIVER = { bochs_vga: "bochs", vmware_svga: "vmwgfx", virtio_gpu: "virtio_gpu" }[adapter];
 // the levels with 3D (vmware_svga's vgpu9 and up)

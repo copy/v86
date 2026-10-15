@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { prepare, ROOT } from "../tests/lib/alpine_image.mjs";
-import { apkindex, parse_apkindex } from "./alpine_gpu_repo.mjs";
+import { apkindex, parse_apkindex } from "./alpine_repo.mjs";
 import { decode, llvm_mc } from "../tests/a64/oracle/decode.mjs";
 
 const args = process.argv.slice(2);
