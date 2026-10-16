@@ -1825,7 +1825,8 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
 - P8.4：`tests/a64/litmus.mjs` 加 `LITMUS_MODES`（cooperative、cooperative-jit、parallel、parallel-jit）；`make a64-parallel-tests`：
   四种模式 × 2/4/8 核 × 20000 轮全部通过（禁止的结果 0 次，独占计数精确，TLBI VAE1IS 后没有陈旧的翻译，SGI 环与 WFE/SEV 环
   走完）；并行构建上的 `page_fuzz.mjs` 3 个种子 0 差异。
-  60 分钟 soak 见后面的记录。
+  60 分钟 soak（`A64_WORKLOAD=soak60`：每轮四个工作负载同时运行，再跑一遍 probe，4 核并行、page tier）：1275 轮，共退役
+  3.5 万亿条指令（合计约 970 MIPS），没有 Oops、RCU stall 与 soft lockup，probe 每轮都通过（ABA 一行只报告）。
 - Alpine（`A64_PARALLEL=1`，`make a64-parallel-guest-tests`）全部通过：initramfs 阶解释器 2/4 核（到 probe 结束 29.8/29.0 s，
   ABA 一行在解释器下仍失败，因为写入走解释器）、page tier 2/4 核（7.3/9.5 s）；live 阶 page tier 4 核在 mmio 与 pci 上到 login
   50.1/51.6 s，三个标记处的 V7 与 V6 快照都恢复进新的并行机器；lifecycle 阶（单用户模式下快照恢复、reboot、poweroff）；
@@ -1835,3 +1836,6 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   访问都是 SeqCst 原子操作，以及 DSB 等待其他核心的确认。
 - x86 的回归：`make multicore-parallel-tests`（litmus 四种模式、lifecycle、Linux 启动、OS stress、ACPI）通过；`frame.rs`
   的改动只在并行构建里生成不同的代码（x86 不设 kind 第 10 位）。
+- P8.6（16 KiB 与 64 KiB 页的内核）未做：要下载 linux-6.18.35 的源码（约 150 MiB）与 Alpine 的构建包（约 100 MiB），
+  并在 HVF 下的 Alpine aarch64 虚拟机里构建（macOS 上缺 GNU make 4、gsed、lld 等）；下载要所有者同意，
+  2026-10-17 尚未得到，所以 A6 暂不打 `vA6` 标签，P8.6 留待所有者决定后再做。
