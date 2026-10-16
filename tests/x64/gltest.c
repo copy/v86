@@ -67,7 +67,12 @@ EGLint eglGetError(void);
 // the start: what musl's crt1 does
 int __libc_start_main(int (*)(int, char **, char **), int, char **, void (*)(void), void (*)(void), void (*)(void));
 int main(int, char **, char **);
+#if defined(__aarch64__)
+// (the arm64 guest's, tests/a64/linux_gpu.mjs: the stack is 16-byte aligned at entry)
+__asm__(".text\n.global _start\n_start:\n mov x29, #0\n mov x30, #0\n mov x0, sp\n bl start_c\n brk #0\n");
+#else
 __asm__(".text\n.global _start\n_start:\n xor %rbp, %rbp\n mov %rsp, %rdi\n andq $-16, %rsp\n call start_c\n hlt\n");
+#endif
 __attribute__((used)) void start_c(long *p)
 {
     __libc_start_main(main, (int)p[0], (char **)(p + 1), 0, 0, 0);

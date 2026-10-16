@@ -152,15 +152,31 @@ async function build_repo(branch, out, names, arch = "x86_64")
         if(!packages.has(name)) throw new Error("no package " + name + " in Alpine " + branch);
         want(name);
     }
-    // (install_if: what apk adds by itself once the packages it names are there)
-    const present = name => wanted.has(name) || [...wanted].some(w => packages.get(w).provides.includes(name));
+    // (install_if: what apk adds by itself once the packages it names are
+    // there, also those of the live system's base, alpine-base's closure,
+    // which is installed already: seatd-openrc for seatd and openrc)
+    const base = new Set();
+    const base_closure = dependency => {
+        if(dependency.startsWith("!")) return;
+        const name = dependency.replace(/[<>=~].*$/, "");
+        const package_name = packages.has(name) ? name : provider(name);
+        if(!package_name || base.has(package_name)) return;
+        base.add(package_name);
+        packages.get(package_name).deps.forEach(base_closure);
+    };
+    if(packages.has("alpine-base")) base_closure("alpine-base");
+    const installed = name => wanted.has(name) || base.has(name);
+    const present = name => installed(name) || [...wanted, ...base].some(w => packages.get(w).provides.includes(name));
     for(let added = true; added;)
     {
         added = false;
         for(const [name, entry] of packages)
         {
-            if(wanted.has(name) || !entry.install_if.length) continue;
-            if(entry.install_if.every(condition => condition.startsWith("!") ? !present(condition.slice(1)) : present(condition.replace(/[<>=~].*$/, ""))))
+            if(wanted.has(name) || base.has(name) || !entry.install_if.length) continue;
+            // (and one of the packages it names is one of the set's: the base alone has its own already)
+            const named = entry.install_if.filter(condition => !condition.startsWith("!")).map(condition => condition.replace(/[<>=~].*$/, ""));
+            if(entry.install_if.every(condition => condition.startsWith("!") ? !present(condition.slice(1)) : present(condition.replace(/[<>=~].*$/, ""))) &&
+                named.some(n => wanted.has(n) || [...wanted].some(w => packages.get(w).provides.includes(n))))
             {
                 want(name);
                 added = true;

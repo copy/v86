@@ -192,6 +192,9 @@ export function GraphicsMachine(handle)
     /** @const @type {boolean} */
     this.qemu_compatible = !!handle["qemu_compatible"];
 
+    /** @const @type {boolean} whether the machine has a VGA (not the virt machine: no legacy VGA, ROM or ports) */
+    this.has_vga = handle["has_vga"] !== false;
+
     /** @const */
     this.display = new GraphicsDisplay(handle["display"]);
 }

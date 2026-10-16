@@ -21,7 +21,7 @@ const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios
     "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features"];
 
 /** Options of the virt machine that the PC machines reject */
-const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng"];
+const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input"];
 
 /** The display adapters of the virt machine (no VGA) */
 const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
@@ -89,6 +89,16 @@ export function check_machine_options(options)
         if((given(options["hda"]) || given(options["hdb"])) && given(options["virtio_disks"]))
         {
             throw new Error("hda/hdb and virtio_disks both name the virt machine's first disks: give one of them");
+        }
+        const input = options["virtio_input"];
+        if(Array.isArray(input) && input.some(kind => !["keyboard", "tablet", "multitouch"].includes(kind)))
+        {
+            throw new Error("virtio_input is true or a list of \"keyboard\", \"tablet\" and \"multitouch\", got " + JSON.stringify(input));
+        }
+        const transport = options["virtio_transport"];
+        if(transport !== undefined && transport !== "mmio" && transport !== "pci")
+        {
+            throw new Error("virtio_transport is \"mmio\" (the default) or \"pci\", got " + JSON.stringify(transport));
         }
     }
     else

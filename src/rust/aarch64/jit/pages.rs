@@ -810,8 +810,10 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         return 0;
     };
     let page = backing & !0xFFF;
+    // (device memory: its writes go the interpreter's way, which marks them)
     if write
         && (!writable
+            || page >= unsafe { bus::DEVICE_START }
             || crate::aarch64::root::page_watched(page >> 12)
             || crate::aarch64::smp::reserved_page(page))
     {

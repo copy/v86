@@ -12,6 +12,12 @@
 // visible memory (BAR4) and snapshots. 3D contexts are virgl.js's (virgl)
 // and venus.js's (Venus). The screen shows the VGA core until the driver's
 // first control command, and again after a device reset.
+//
+// On a machine without VGA (the virt machine's, machine.has_vga false;
+// docs/arm64-virt-android16-plan.md P7.1) it is virtio-gpu-pci (class 0380)
+// or a virtio-mmio device: no VGA core, no frame buffer BAR or ROM; until the
+// driver's first command the screen is blank. The host visible memory is
+// then BAR 2, 64 bits wide (the capabilities are in BAR 4, as QEMU's).
 
 import { VGAScreen } from "../vga_core.js";
 import { SoftwareCursor } from "../vmware_svga/svga_cursor.js";
@@ -33,6 +39,8 @@ const MIN_VRAM_SIZE = 16 << 20;
 const VIRTIO_GPU_DEVICE_ID = 0x1050;
 const VIRTIO_GPU_SUBSYSTEM_ID = 0x1100;
 const VGA_CLASS = 0x030000;
+/** without VGA: a display controller of another kind, as QEMU's virtio-gpu-pci */
+const DISPLAY_OTHER_CLASS = 0x038000;
 
 // Feature bits
 const VIRTIO_GPU_F_VIRGL = 0;
@@ -259,6 +267,33 @@ Scanout.prototype.add_dirty = function(x0, y0, x1, y1)
 };
 
 /**
+ * In place of the VGA core on a machine without VGA: a blank text screen
+ * while the driver has not taken over, nothing else
+ * @constructor
+ * @param {GraphicsMachine} machine
+ */
+function NoVGA(machine)
+{
+    this.display = machine.display;
+    /** (no frame buffer: no address is in it) */
+    this.lfb_address = Infinity;
+    this.lfb_region = -1;
+    this.svga_memory = new Uint8Array(0);
+}
+NoVGA.prototype.redisplay = function()
+{
+    this.display.set_mode(false);
+    this.display.set_size_text(80, 25);
+    this.display.clear_screen();
+};
+NoVGA.prototype.vblank_period = function() { return 1000 / 60; };
+NoVGA.prototype.on_vblank = function() {};
+NoVGA.prototype.invalidate = function() {};
+NoVGA.prototype.render = function() {};
+NoVGA.prototype.get_state = function() { return null; };
+NoVGA.prototype.set_state = function(state) {};
+
+/**
  * @constructor
  * @implements {DisplaySource}
  * @param {GraphicsMachine} machine
@@ -272,8 +307,10 @@ export function VirtioGPU(machine, options)
     /** @const */
     this.display = machine.display;
 
+    /** @const the machine has VGA: the device is virtio-vga (else virtio-gpu, without VGA) */
+    this.has_vga = machine.has_vga;
     const vram_size = options.vram_size || DEFAULT_VRAM_SIZE;
-    if(vram_size < MIN_VRAM_SIZE || (vram_size & (vram_size - 1)))
+    if(this.has_vga && (vram_size < MIN_VRAM_SIZE || (vram_size & (vram_size - 1))))
     {
         throw new Error("virtio_gpu: vram_size must be a power of two of at least " + (MIN_VRAM_SIZE >> 20) + " MiB");
     }
@@ -294,7 +331,8 @@ export function VirtioGPU(machine, options)
     // The VGA core: legacy VGA, VBE and the frame buffer (BAR0); this device
     // is the PCI function and the display source
     /** @const */
-    this.vga = new VGAScreen(machine, vram_size, { pci: false, display_source: false });
+    this.vga = this.has_vga ? new VGAScreen(machine, vram_size, { pci: false, display_source: false }) :
+        /** @type {?} */ (new NoVGA(machine));
 
     /** @type {!Map<number, (!Resource|!Resource3D|!BlobResource|!VenusBlob)>} 2D, 3D and blob resources */
     this.resources = new Map();
@@ -341,13 +379,15 @@ export function VirtioGPU(machine, options)
     this.hostmem_pending = null;
     /** @type {!Map<number, (!Resource3D|!VenusBlob)>} the mapped blobs, by resource id */
     this.mapped = new Map();
-    const bars = [{
+    const bars = this.has_vga ? [{
         "bar": 0,
         "size": vram_size,
         "address": this.vga.lfb_address,
         "prefetchable": true,
         "on_move": base => this.vga.move_lfb(base),
-    }];
+    }] : [];
+    // (without VGA, as QEMU's virtio-gpu-pci: BAR 2, 64 bits wide on the PCIe host)
+    const hostmem_bar = this.has_vga ? 4 : 2;
     const shared_memory = [];
     if(LEVELS[this.level].hostmem)
     {
@@ -358,13 +398,13 @@ export function VirtioGPU(machine, options)
         // (a 32-bit BAR: the core decodes device memory below 4 GiB; the
         // firmware places it)
         bars.push({
-            "bar": 4,
+            "bar": hostmem_bar,
             "size": this.hostmem_size,
             "address": 0,
             "prefetchable": true,
             "on_move": base => machine.mmio_ram_map(this.hostmem_region, base),
         });
-        shared_memory.push({ "id": HOST_VISIBLE_SHMID, "bar": 4, "offset": 0, "length": this.hostmem_size });
+        shared_memory.push({ "id": HOST_VISIBLE_SHMID, "bar": hostmem_bar, "offset": 0, "length": this.hostmem_size });
     }
 
     const features = LEVELS[this.level].features;
@@ -372,16 +412,16 @@ export function VirtioGPU(machine, options)
         "name": "virtio-gpu",
         "device_id": VIRTIO_GPU_DEVICE_ID,
         "subsystem_device_id": VIRTIO_GPU_SUBSYSTEM_ID,
-        "class_code": VGA_CLASS,
+        "class_code": this.has_vga ? VGA_CLASS : DISPLAY_OTHER_CLASS,
         "revision": 1,
         "bars": bars,
         "shared_memory": shared_memory,
         // (as QEMU's virtio-vga; viogpudo maps only memory BARs)
         "capability_bar": 2,
-        "pci_rom_size": this.vga.pci_rom_size,
-        "pci_rom_address": this.vga.pci_rom_address,
+        "pci_rom_size": this.has_vga ? this.vga.pci_rom_size : 0,
+        "pci_rom_address": this.has_vga ? this.vga.pci_rom_address : 0,
         // (viogpudo needs QEMU's vector registers and ISR bits)
-        "qemu_compatible": true,
+        "qemu_compatible": this.has_vga,
         "features": features,
         "queues": [{ "size": 256 }, { "size": 16 }],
         "config": [

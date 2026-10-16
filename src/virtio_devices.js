@@ -142,9 +142,10 @@ export function create_virtio_devices(cpu, descriptors)
  * @param {CPU} cpu
  * @param {*} descriptor
  * @param {number} pci_id
+ * @param {?=} transport the virt machine's virtio-mmio slot instead of the PCI function
  * @return {!VirtioDevice}
  */
-export function create_adapter_virtio_device(cpu, descriptor, pci_id)
+export function create_adapter_virtio_device(cpu, descriptor, pci_id, transport)
 {
     check_descriptor(descriptor, new Set());
     const bars = descriptor["bars"] || [];
@@ -182,6 +183,7 @@ export function create_adapter_virtio_device(cpu, descriptor, pci_id)
         rom_size: descriptor["pci_rom_size"],
         rom_address: descriptor["pci_rom_address"],
         qemu_compatible: !!descriptor["qemu_compatible"],
+        transport,
     });
 }
 
@@ -407,8 +409,9 @@ function is_io_window_free(cpu, io_base)
  * @param {{class_code: (number|undefined), revision: (number|undefined), bars: !Array,
  *     capability_bar: (number|undefined), shared_memory: (!Array|undefined),
  *     rom_size: (number|undefined), rom_address: (number|undefined),
- *     qemu_compatible: (boolean|undefined)}=} transport
- *     a display adapter's layout (create_adapter_virtio_device)
+ *     qemu_compatible: (boolean|undefined), transport: (?|undefined)}=} transport
+ *     a display adapter's layout (create_adapter_virtio_device); its
+ *     transport: the virt machine's virtio-mmio instead of the PCI function
  */
 function VirtioDevice(cpu, descriptor, pci_id, io_base, transport)
 {
@@ -445,6 +448,7 @@ function VirtioDevice(cpu, descriptor, pci_id, io_base, transport)
         rom_size: transport && transport.rom_size,
         rom_address: transport && transport.rom_address,
         qemu_compatible: transport && transport.qemu_compatible,
+        transport: transport && transport.transport || undefined,
         on_reset: () =>
         {
             this.generation++;

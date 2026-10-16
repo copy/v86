@@ -1613,7 +1613,7 @@ flowchart TD
   win98-diablo1 1.013、win98-ra2 1.022、win98-themehospital 1.000、win98-boot 0.986（7.0 → 7.1 s）、xp 1.006、
   win81 1.000（174 s），都在噪声内（`build/bench/a3gate/owner.json`）。
 
-### A4 中 P6 的部分（2026-10-16；JIT 计划 J2，P6.7 未做）
+### A4 中 P6 的部分（2026-10-16；JIT 计划 J2；A4 完成）
 
 JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论。提交：`94e24279`（page tier 第一部分）、`e5860bf9`（标量 FP、
 指标工具与 make 目标）、`1c9bd445`（AdvSIMD 向量模板）、`9957441e`（`a64_asid_tag`、TBI 与回绕修正、P3.7 的保留修正）、
@@ -1649,4 +1649,79 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - P6.7：所有者 2026-10-16 同意下载；`A64_WORKLOAD=jit`（包解成 initramfs 里的又一个 cpio，1.5 GiB RAM）下 node、
     `java Hello.java`、luajit（`-jon` 与 `-joff`）与 `pcre2test -jit` 的输出在 QEMU、解释器（1 核 433 s）与 page tier（1/2/4 核
     75–82 s）上一致，page tier 中途快照恢复后结果不变。ARM 核心的客体内存必须小于 2 GiB（wasm32 一次分配的上限），更大的属于 P8。
-  - 还没做的：live 阶与 `boot_to_login_ms`、E 级初值的比较（等 P5）。JIT 计划的 `vJ2` 已打。
+  - E 级（A3 的 live 阶之后，2026-10-16，release 构建，安静的 10 核 Mac，3 次会话的中位数）：1 核 page tier 从 ISO 到 login
+    并跑完 probe 33.1 s（login 32.2 s）；同一宿主上重测的 x86_64 page tier 到 login 并跑完全部 probe 24.1 s（login 23.6 s，
+    `tests/x64/linux_boot.mjs` 新打印的 `X64_LINUX_PROBES_MS`），比值 1.37，在初值 3 倍之内。按计划 A4 实测后冻结：E 级的
+    上限定为 3 倍不变。P9.3 的 X 要等 P9 有了 androidish 内核才能测，仍是初值 20%。JIT 计划的 `vJ2` 已打；A4 由此完成
+    （`vA4` 打在记下这次测量的提交上）。
+
+### A5（2026-10-16；P5.6–P5.8、P5.10 与 P7，P7.5 未做）
+
+提交：与本节同一个提交（`vA5`；`vA4` 也打在它上面，A4 的 E 级测量记在上面一节）。
+
+- P5.6：`src/pci.js` 的 PCI 加 `generic` 选项，作 virt 的通用 PCIe 主桥：不注册 0xCF8/0xCFC/0xCF9，不建 i440FX；配置空间只经
+  高位 ECAM（`ecam_handler`，`0x40_1000_0000`，256 MiB，总线 0–255，8 字节访问拆成两次 4 字节）；00:00.0 是 QEMU 的
+  gpex-root（1B36:0008，class 0600，子系统 1AF4:1100）；INTx 按参考的 interrupt-map 路由：槽 s 的引脚 p（0–3）接 SPI
+  3 + (p + s) % 4，电平触发，多个功能共用时取或（`A64CPU.set_shared_gsi_level`，快照记录各 SPI 的来源）；没有 MSI（GIC
+  没有 ITS）；机器复位时每个功能回到上电配置（BAR 未分配、命令寄存器为 0）。DTB 加上与参考相同的 `pcie@10000000` 节点，
+  `tests/a64/dtb.mjs` 不再把它列为允许的差异；布局版本升为 2（旧快照被拒绝）。
+- P5.10：64 位 BAR（`bits64`：下一个 BAR 寄存器是高半部，探测时两半都读出大小掩码）与 4 GiB 以上的地址。实现与计划的
+  写法不同：两个 PCIe 窗口（32 位与 64 位）是 AddressSpace 里固定的 MMIO 区间，由主桥按地址分派到解码它的 BAR
+  （`window_handler`，没有 BAR 处读全 1，同参考），所以普通 BAR 移动不改变映射、不递增 generation；只有设备内存（下面的
+  P7.1）映射进窗口时，窗口被切开、generation 递增。BAR 只在功能的内存空间使能时解码。`tests/a64/address_space.mjs` 加了
+  ECAM、64 位 BAR 的探测、在 4 GiB 以上与以下之间移动、使能与复位的用例。x86 的 32 位 BAR 与 ECAM 路径不变。
+- P5.7：`virtio_transport: "pci"` 时 virtio 设备是 PCIe 主桥上的功能，从 00:01.0 起按 virtio-mmio 槽位的次序排列，布局同
+  QEMU v9.2.0 的非过渡型 `virtio-*-pci`：capability 全在 BAR 4（64 位可预取，16 KiB：common、ISR、device、notify 各 4 KiB），
+  QEMU 的 class code 与子系统 1AF4:1100，上电时命令寄存器为 0。Linux 把 BAR 4 放在 64 位窗口（`0x80_0000_0000` 起）。
+  live 阶的 `A64_TRANSPORT=pci` 让两台机器都列出 `/sys/bus/pci/devices` 的 ID、class、子系统、版本、引脚与每个 BAR 的起止
+  和标志，v86 的必须与参考的逐行相同（mmio 下也比较，只有主桥）；参考用 `vectors=0`（没有 MSI-X，因此也没有 BAR 1）与
+  virtio-net 的 `romfile=`（没有扩展 ROM）。偏差：比较用 `/sys` 而不是 `lspci -vv`（pciutils 不在软件源里，要另行下载；
+  `/sys` 给出的 BAR 位置、类型与大小与它相同）。
+- P5.8：`src/virtio_input.js`：键盘（总线的 PS/2 set-1 扫描码转 evdev KEY_*，含 0xE0 扩展键与 Pause）、tablet
+  （`mouse-absolute` 转 0–0x7FFF 的 EV_ABS、按键与滚轮）；select/subsel 配置窗口的内容（名字、ID、事件位、轴的范围）
+  同 QEMU 的 virtio-keyboard 与 virtio-tablet（wheel-axis 开）。选项 `virtio_input: true`。live 阶在 v86 上注入两个键
+  （一个扩展键）的按下与抬起、一个位置与一次左键，客体用 `dd` 与 `hexdump` 读 `/dev/input/event*`（`struct input_event`），
+  事件序列必须与注入的完全相同。偏差：用 `dd`/`hexdump` 代替 evtest（evtest 不在软件源里）。
+- P7.1：virt 上的 virtio-gpu（`graphics_adapter: "virtio_gpu"`，与 PC 的 virtio-vga 同一个插件）：机器句柄的 `has_vga`
+  为假时没有 VGA 核心、BAR0、ROM 与端口，class 0380，驱动的第一个命令之前屏幕为空白文本屏；排在 virtio 设备之后的
+  下一个 PCI 槽（或 virtio-mmio 槽）。host visible memory 是 ARM 核心新的设备内存：显示适配器存在时，客体内存在 RAM 之后
+  多出 128 MiB（`a64_device_memory`），区域按 BAR 映射成 `Kind::Device`，核心按 RAM 读写，但写过的页被标记
+  （`a64_device_take_dirty`，同 x86 的 mmio_ram），page tier 的访问缓存不为它的写入填条目（写入走解释器的路径，由它标记）；
+  映射进 PCIe 窗口时窗口被切开（`A64CPU.update_windows`）。PCI 上它是 BAR 2（64 位可预取，同 QEMU 的 virtio-gpu-pci），
+  capability 在 BAR 4；virtio-mmio 上没有 BAR，放在 64 位窗口的顶端，SHM 寄存器给出地址。DisplayHub 的计时器挂在
+  `run_hardware_timers`；快照记录适配器（state[12]）。
+- P7.2：所有者 2026-10-16 同意下载 aarch64 的 GPU 软件源（`tools/alpine_repo.mjs --arch aarch64 --set gpu`：3.24 的 130 个包
+  117 MiB，3.23 的 Mesa 25.2 31 个包 76 MiB）；解析器改为把 live 系统的基础（alpine-base 的闭包）算作已装，install_if 才会
+  带上 seatd-openrc（因此比第一次多下了约 2.6 MiB）。harness 没有另写一份：`tests/x64/linux_gpu.mjs` 加 `GPU_ARCH=aarch64`，
+  `tests/a64/linux_gpu.mjs` 设好它再导入；ISO、软件源与测试程序在按序列号找到的 virtio-blk 盘上（步骤里写成 `$REPO`、
+  `$TESTS`），ICD 换成 `*.aarch64.json`，gltest 与 vktest 用 clang 编成 aarch64 musl 程序（各加了 aarch64 的 `_start`），
+  客体 RAM 1.5 GiB（根文件系统是 RAM 的一半，aarch64 的包放不进 512 MiB），page tier；客体程序的启动约慢 3 倍，所以步骤里的
+  sleep、timeout 与截图延迟都乘 3。`make a64-gpu-guest-tests`（R-a64-gpu）：drm、gl、resize、input、gltest、virgl、kms、
+  venus、vkcube，另有 virtio-mmio 上的 drm。
+- P7.3：新场景 `kms`（`virgl43-hostmem`）：两个 plane（primary 与 cursor）、`modetest -a` 对模式与 primary plane 的原子提交
+  （测试图案上屏）、光标、`EGL_ANDROID_native_fence_sync` 与 dma-buf 的导入导出、weston-simple-dmabuf-egl 经 linux-dmabuf
+  显示（显式同步关与开，weston 报告 explicit sync: yes）。
+- P7.4：virtio-input 多点触控（QEMU 的 virtio-multitouch：11 个槽、tracking ID 取槽号、INPUT_PROP_DIRECT、BTN_TOUCH，MT
+  协议 B），总线事件 `touch`（`src/browser/mouse.js` 发出页面上的全部触点）；`virtio_input` 也可以是种类的列表。新场景
+  `input`：weston 带输入设备启动（不用 `--continue-without-input`），在 weston-terminal 里输入的命令被执行，指针移到屏幕
+  中央并点击，多点触控的两个触点按下与抬起从 evdev 读出，序列正确。live 系统有 eudev 的 libudev 而没有 udevd，libinput
+  只接受 udev 属性标明为输入设备的节点，所以场景写入 udevd 的 input_id 会写的数据库条目；按键间隔 400 ms：更快时 weston
+  软件渲染期间来不及读，evdev 的 64 个事件溢出（SYN_DROPPED），libinput 丢弃按键。
+- P7.5（可选）：没有做，留给 Android 的音频（P12）。
+- 结果（arm64，page tier，单核）：drm 的 kmscube（llvmpipe）、gl 的 weston 与 simple-egl/shm、resize、input、mmio 上的 drm
+  都通过；gltest 在 virgl（GL 4.3，Chrome 的 WebGPU）上 35 个用例 0 失败（含两个经 host visible memory 的 buffer storage
+  用例）；virgl 场景含 kmscube 绘制中保存并恢复的 892 MiB 快照、之后 gltest 仍 0 失败、weston 上的 es2gears；venus 的
+  vktest 27 个用例全部通过，vkcube 在 weston 上绘制，中途快照恢复后继续绘制。lavapipe 在 aarch64 上的 12 个要建图形管线的
+  用例里崩溃（SIGSEGV），QEMU 的客体里也一样，与 v86 无关：aarch64 上 lavapipe 一个用例一个进程地跑，并要求 Venus 全部
+  通过（vktest 自己检查结果，其期望值是 x86_64 上 lavapipe 的）。
+- live 阶与安装在 pci 下：解释器 1/2/4 核、page tier 1 核、page tier 2 核加快照、page tier 安装都通过，PCI 功能与参考的一致。
+  到 login 的时间（release 构建，安静的机器）：page tier 33.6 s（跑完 probe 34.9 s），解释器 232 s（与 mmio 相同）。4 核解释器在宿主有负载时会在 jitterentropy 的初始化里触发
+  soft lockup（客体时间跟随宿主的墙钟，循环在客体时间里变长，超过 20 s 的阈值）；安静时 jitterentropy 在客体 25.8 s 时
+  完成，通过。
+- 记下的坑：macOS 的 Unix socket 路径不能超过 104 字节（QEMU 的 monitor 放在 scratchpad 里要用相对路径）；kmscube 在
+  aarch64 的 page tier 上启动约 30 s（截图早了只见清屏的灰色）；`ls` 带颜色的输出会让行首匹配落空。
+- x86：`devices-test`、`api-tests`、`highmem-tests`、`acpi-device-tests`、完整的 R-q35、x86 的 virtio_gpu drm 场景通过；R 级
+  性能门禁通过：`tools/owner_perf.mjs`，6 个负载各 3 次会话，基线 vA3（`4b57e437`），本支相对基线 win98-diablo1 1.004、
+  win98-ra2 0.997、win98-themehospital 1.001、win98-boot 1.015、xp 1.000、win81 0.978（178 → 182 s；两边各自的 3 次会话
+  在 173–184 s 之间，A3 门禁时为 167–183 s，在噪声内；`build/bench/a5gate/owner.log`）。随后单独重测 win81 时宿主上有别的
+  负载（两边都慢到 207–232 s），结果作废。

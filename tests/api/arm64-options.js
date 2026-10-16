@@ -6,8 +6,8 @@
 //   q35, cpu_type arm64 on virt (its default); every other combination fails
 //   in the constructor, and the x86 CPU's init refuses virt again;
 // - an option of the other family is an error, never ignored: the PC
-//   machines' firmware, disks and chipset options on virt, kernel, dtb and
-//   virtio_disks on the PC machines;
+//   machines' firmware, disks and chipset options on virt, kernel, dtb,
+//   virtio_disks, virtio_rng, virtio_transport and virtio_input on the PC machines;
 // - virt has no VGA (graphics_adapter "none" or "virtio_gpu"), virtio-net
 //   only, and no ACPI.
 
@@ -76,7 +76,8 @@ assert.throws(() => check_machine_options({ cpu_type: "arm64", extended_memory_s
 console.log(`PASS ${Object.keys(pc_options).length + 2} PC options refused on virt`);
 
 // virt options on the PC machines
-for(const [name, value] of Object.entries({ kernel: { url: "Image" }, dtb: { url: "virt.dtb" }, virtio_disks: [{ url: "disk.img" }] }))
+for(const [name, value] of Object.entries({ kernel: { url: "Image" }, dtb: { url: "virt.dtb" }, virtio_disks: [{ url: "disk.img" }],
+    virtio_rng: true, virtio_transport: "pci", virtio_input: true }))
 {
     for(const cpu_type of ["x86", "x86_64"])
     {
@@ -84,7 +85,7 @@ for(const [name, value] of Object.entries({ kernel: { url: "Image" }, dtb: { url
     }
     assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", [name]: value }));
 }
-console.log("PASS kernel, dtb and virtio_disks refused on the PC machines");
+console.log("PASS kernel, dtb, virtio_disks, virtio_rng, virtio_transport and virtio_input refused on the PC machines");
 
 // virt's devices
 for(const adapter of ["none", "virtio_gpu"])
@@ -100,7 +101,12 @@ assert.throws(() => check_machine_options({ cpu_type: "arm64", net_device: { typ
 assert.throws(() => check_machine_options({ cpu_type: "arm64", hda: { url: "a" }, virtio_disks: [{ url: "b" }] }), /give one of them/);
 assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", hda: { url: "a" }, hdb: { url: "b" } }));
 assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", cpu_cores: 4 }));
-console.log("PASS virt's display, network, disks and cores");
+// (the virtio devices' transport, P5.7; the input devices, P5.8, P7.4)
+for(const transport of ["mmio", "pci"]) assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", virtio_transport: transport }));
+assert.throws(() => check_machine_options({ cpu_type: "arm64", virtio_transport: "isa" }), /virtio_transport is "mmio" \(the default\) or "pci"/);
+assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", virtio_input: ["keyboard", "tablet", "multitouch"] }));
+assert.throws(() => check_machine_options({ cpu_type: "arm64", virtio_input: ["joystick"] }), /virtio_input is true or a list/);
+console.log("PASS virt's display, network, disks, cores, virtio transport and input devices");
 
 // the constructor checks, before it loads anything
 assert.throws(() => new V86({ graphics_adapter: "bochs_vga", cpu_type: "arm64", autostart: false }), /"bochs_vga" is not on machine_type "virt"/);

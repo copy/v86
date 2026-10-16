@@ -12,6 +12,13 @@
 //! workers crate::parallel::code). A change of the map bumps the generation
 //! and drops all compiled code and cached translations.
 //!
+//! Device memory (P7.1: virtio-gpu's host visible memory) is guest memory
+//! a device owns, from DEVICE_START in the backing (after RAM and the ROMs),
+//! mapped where its BAR is: the cores read and write it as RAM, but their
+//! writes mark its pages (the device takes them, a64_device_take_dirty), and
+//! compiled code writes it through the interpreter's path (the access cache
+//! is not filled for it).
+//!
 //! JavaScript passes 64-bit addresses as two 32-bit halves (low, high).
 
 use crate::page::Page;
@@ -31,6 +38,8 @@ pub enum Kind {
     Rom { backing: u32 },
     /// a device: its accesses go to the owner (src/virt), offset from the region's base
     Mmio { owner: u32 },
+    /// device memory at `backing` (at or above DEVICE_START): guest memory whose written pages are marked
+    Device { backing: u32 },
 }
 
 /// What a physical address is
@@ -80,6 +89,12 @@ static mut BUS: AddressSpace = AddressSpace {
 pub static mut MEM8: *mut u8 = std::ptr::null_mut();
 /// The bytes of guest memory (RAM and the ROMs after it)
 pub static mut MEM8_SIZE: u32 = 0;
+/// Where device memory starts in guest memory (u32::MAX: there is none)
+pub static mut DEVICE_START: u32 = u32::MAX;
+/// One bit per 4 KiB page of device memory, from DEVICE_START: written by a core since its device took it
+static mut DEVICE_DIRTY: Vec<u64> = Vec::new();
+/// The words a64_device_take_dirty hands out
+static mut DEVICE_TAKEN: Vec<u64> = Vec::new();
 
 #[inline(always)]
 pub fn bus() -> &'static AddressSpace { unsafe { &*(&raw const BUS) } }
@@ -132,6 +147,14 @@ impl AddressSpace {
                 Kind::Mmio { owner } => Lookup::Mmio {
                     owner,
                     offset: pa - r.base,
+                },
+                Kind::Device { backing } => {
+                    let at = backing + (pa - r.base) as u32;
+                    Lookup::Ram {
+                        backing: at,
+                        code_key: at >> 12,
+                        writable: true,
+                    }
                 },
             },
             None => Lookup::Hole,
@@ -212,6 +235,14 @@ impl AddressSpace {
                 return false;
             }
         }
+        if let Kind::Device { backing } = kind {
+            if backing < unsafe { DEVICE_START }
+                || backing as u64 + size > unsafe { MEM8_SIZE } as u64
+                || (backing | size as u32) & 0xFFF != 0
+            {
+                return false;
+            }
+        }
         self.regions.insert(i, Region { base, size, kind });
         self.changed();
         true
@@ -271,8 +302,23 @@ pub fn written(backing: u32, len: u32) {
     if len == 0 {
         return;
     }
+    if backing >= unsafe { DEVICE_START } {
+        device_written(backing, len);
+    }
     crate::aarch64::smp::monitors_written(backing, len, false);
     retire_code(backing, len);
+}
+
+/// A core wrote device memory: its pages are marked
+#[cold]
+fn device_written(backing: u32, len: u32) {
+    let dirty = unsafe { &mut *(&raw mut DEVICE_DIRTY) };
+    let start = unsafe { DEVICE_START };
+    for page in (backing - start) >> 12..=(backing - start + (len - 1)) >> 12 {
+        if let Some(word) = dirty.get_mut(page as usize / 64) {
+            *word |= 1 << (page % 64);
+        }
+    }
 }
 
 /// Retire code compiled from the pages of [backing, backing + len)
@@ -489,6 +535,63 @@ pub unsafe fn a64_bus_map_rom(
         Kind::Rom { backing },
     )
 }
+/// Device memory from `start` to the end of guest memory (once, after
+/// a64_allocate_memory; `start` page aligned, at or after the RAM's end)
+#[no_mangle]
+pub unsafe fn a64_device_memory(start: u32) -> bool {
+    if start & 0xFFF != 0 || start > MEM8_SIZE || (start as u64) < bus().ram_size {
+        return false;
+    }
+    DEVICE_START = start;
+    let pages = (MEM8_SIZE - start).div_ceil(4096) as usize;
+    *(&raw mut DEVICE_DIRTY) = vec![0; pages.div_ceil(64)];
+    true
+}
+/// Map device memory at [base, base + size), from `backing` (page aligned, device memory)
+#[no_mangle]
+pub unsafe fn a64_bus_map_device(
+    base_low: u32,
+    base_high: u32,
+    size_low: u32,
+    size_high: u32,
+    backing: u32,
+) -> bool {
+    bus_mut().map(
+        pa(base_low, base_high),
+        pa(size_low, size_high),
+        Kind::Device { backing },
+    )
+}
+/// Take the marks of the pages of [backing, backing + size) of device
+/// memory (backing 256 KiB aligned from DEVICE_START): the address of words
+/// with a bit a page, the first page bit 0 of the first word, 64 a word;
+/// 0 when none was written. The marks clear.
+#[no_mangle]
+pub unsafe fn a64_device_take_dirty(backing: u32, size: u32) -> u32 {
+    take_device_dirty(backing, size).map_or(0, |words| words.as_ptr() as u32)
+}
+unsafe fn take_device_dirty(backing: u32, size: u32) -> Option<&'static [u64]> {
+    let dirty = &mut *(&raw mut DEVICE_DIRTY);
+    let taken = &mut *(&raw mut DEVICE_TAKEN);
+    let offset = backing.checked_sub(DEVICE_START)?;
+    debug_assert!(offset % (64 * 4096) == 0);
+    let first = (offset >> 18) as usize;
+    let count = (size.div_ceil(4096) as usize).div_ceil(64);
+    taken.clear();
+    let mut any = false;
+    for i in first..(first + count).min(dirty.len()) {
+        any |= dirty[i] != 0;
+        taken.push(std::mem::take(&mut dirty[i]));
+    }
+    any.then_some(&taken[..])
+}
+/// Mark every page of [backing, backing + size) of device memory written
+#[no_mangle]
+pub unsafe fn a64_device_mark_dirty(backing: u32, size: u32) {
+    if backing >= DEVICE_START && size != 0 {
+        device_written(backing, size);
+    }
+}
 /// Unmap the region at `base`
 #[no_mangle]
 pub unsafe fn a64_bus_unmap(base_low: u32, base_high: u32) -> bool {
@@ -569,8 +672,52 @@ mod tests {
         b.regions.clear();
         b.ram_size = 0;
         MEM8 = std::ptr::null_mut();
+        DEVICE_START = u32::MAX;
         a64_allocate_memory(ram + extra);
         assert!(a64_bus_set_ram(ram));
+    }
+
+    /// Device memory (P7.1): read and written as RAM where it is mapped,
+    /// the pages the cores write marked, a device's own writes not
+    #[test]
+    fn device_memory() {
+        unsafe {
+            setup(1 << 20, 1 << 20);
+            let start = 1 << 20;
+            assert!(
+                !a64_bus_map_device(0, 0x80, 0x40000, 0, start),
+                "no device memory yet"
+            );
+            assert!(a64_device_memory(start));
+            assert!(
+                !a64_bus_map_device(0, 0x80, 0x40000, 0, 0x1000),
+                "RAM is no device memory"
+            );
+            assert!(a64_bus_map_device(0, 0x80, 0x80000, 0, start + 0x40000));
+            let take = || take_device_dirty(start + 0x40000, 0x80000).map(|words| words.to_vec());
+            assert_eq!(take(), None, "nothing written yet");
+            assert_eq!(write(0x80_0000_1008, 8, 0x1122_3344_5566_7788), Ok(()));
+            assert_eq!(
+                write(0x80_0004_5ffe, 4, 0xAABB_CCDD),
+                Ok(()),
+                "across two pages"
+            );
+            assert_eq!(read(0x80_0000_1008, 8), Ok(0x1122_3344_5566_7788));
+            assert_eq!(*host(start + 0x40000 + 0x100c), 0x44, "at its backing");
+            assert_eq!(
+                take(),
+                Some(vec![1 << 1, 1 << 5 | 1 << 6]),
+                "pages 1, 0x45 and 0x46"
+            );
+            assert_eq!(take(), None, "taken: clear");
+            // (a device's own writes, through JavaScript, are not marked)
+            a64_bus_written(start + 0x40000, 4096);
+            assert_eq!(take(), None);
+            a64_device_mark_dirty(start + 0x40000 + 0x2000, 1);
+            assert_eq!(take(), Some(vec![1 << 2, 0]));
+            assert!(a64_bus_unmap(0, 0x80));
+            assert_eq!(bus().lookup(0x80_0000_1008), Lookup::Hole);
+        }
     }
 
     #[test]

@@ -515,6 +515,10 @@ V86.prototype.continue_init = async function(emulator, options)
     // (src/machine_options.js refuses them on the PC machines)
     if(options.virtio_disks) settings.virtio_disks = [];
     if(options.virtio_rng) settings.virtio_rng = true;
+    // (their transport: virtio-mmio or the PCIe host, P5.7)
+    if(options.virtio_transport) settings.virtio_transport = options.virtio_transport;
+    // (virtio-input: a keyboard and a tablet, or the kinds listed, P5.8, P7.4)
+    if(options.virtio_input) settings.virtio_input = Array.isArray(options.virtio_input) ? options.virtio_input.slice() : true;
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot

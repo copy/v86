@@ -12,11 +12,12 @@ const ENTROPY_CHUNK = 65536;
 /**
  * @constructor
  * @param {?} cpu
- * @param {?} transport the device's transport (src/virtio_mmio.js)
+ * @param {?} transport the device's transport (src/virtio_mmio.js), or null: on the PCIe host at `pci_id`
+ * @param {number=} pci_id
  */
-export function VirtioRng(cpu, transport)
+export function VirtioRng(cpu, transport, pci_id)
 {
-    dbg_assert(transport, "virtio-rng: on the virt machine's transports only");
+    dbg_assert(transport || pci_id !== undefined && cpu.devices.pci.generic, "virtio-rng: on the virt machine's transports only");
     /** @type {VirtIO} */
     this.virtio = new VirtIO(cpu,
     {
@@ -35,7 +36,8 @@ export function VirtioRng(cpu, transport)
             handlers: [queue_id => this.fill(this.virtio.queues[queue_id])],
         },
         isr_status: {},
-        transport,
+        transport: transport || undefined,
+        pci_id,
     });
 }
 

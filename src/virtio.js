@@ -23,6 +23,23 @@ const VIRTIO_PCI_CAP_DEVICE_CFG = 4;
 const VIRTIO_PCI_CAP_PCI_CFG = 5;
 const VIRTIO_PCI_CAP_SHARED_MEMORY_CFG = 8;
 
+// On the virt machine's generic PCIe host (docs/arm64-virt-android16-plan.md
+// P5.7) the capabilities are where QEMU v9.2.0's virtio-pci puts them: in
+// BAR 4, a 64-bit prefetchable memory BAR, the common, ISR, device and
+// notification configuration at 4 KiB steps; and the functions have QEMU's
+// class codes and subsystem
+const GENERIC_CAPABILITY_BAR = 4;
+const GENERIC_CAPABILITY_WINDOW = 0x1000;
+const GENERIC_CAPABILITY_OFFSETS = {
+    [VIRTIO_PCI_CAP_COMMON_CFG]: 0,
+    [VIRTIO_PCI_CAP_ISR_CFG]: 0x1000,
+    [VIRTIO_PCI_CAP_DEVICE_CFG]: 0x2000,
+    [VIRTIO_PCI_CAP_NOTIFY_CFG]: 0x3000,
+};
+/** by PCI device ID: network, mass storage (SCSI), communication (other), other, input (other), display (other) */
+const GENERIC_CLASS_CODES = { 0x1041: 0x020000, 0x1042: 0x010000, 0x1043: 0x078000, 0x1044: 0x00FF00, 0x1052: 0x098000, 0x1050: 0x038000 };
+const GENERIC_SUBSYSTEM_ID = 0x1100;
+
 // Status bits (device_status values).
 
 const VIRTIO_STATUS_ACKNOWLEDGE = 1;
@@ -207,6 +224,9 @@ export function VirtIO(cpu, options)
 
     /** @const @type {PCI} */
     this.pci = this.transport ? null : cpu.devices.pci;
+    /** on the virt machine's generic PCIe host (P5.7) */
+    this.generic = !!(this.pci && this.pci.generic);
+    const class_code = options.class_code === undefined && this.generic ? GENERIC_CLASS_CODES[options.device_id] : options.class_code;
 
     this.device_id = options.device_id;
     this.on_reset = options.on_reset;
@@ -225,8 +245,8 @@ export function VirtIO(cpu, options)
         options.revision === undefined ? 0x01 : options.revision,
         // Prof IF, Subclass, Class code (by default 0x000200, as v86's
         // virtio devices always had; virtio-vga is a VGA controller, 0x030000)
-        ...(options.class_code === undefined ? [0x00, 0x02, 0x00] :
-            [options.class_code & 0xFF, options.class_code >> 8 & 0xFF, options.class_code >> 16 & 0xFF]),
+        ...(class_code === undefined ? [0x00, 0x02, 0x00] :
+            [class_code & 0xFF, class_code >> 8 & 0xFF, class_code >> 16 & 0xFF]),
         // Cache line size
         0x00,
         // Latency Timer
@@ -252,7 +272,8 @@ export function VirtIO(cpu, options)
         // Subsystem vendor ID
         VIRTIO_PCI_VENDOR_ID & 0xFF, VIRTIO_PCI_VENDOR_ID >> 8,
         // Subsystem ID
-        options.subsystem_device_id & 0xFF, options.subsystem_device_id >> 8,
+        ...(this.generic ? [GENERIC_SUBSYSTEM_ID & 0xFF, GENERIC_SUBSYSTEM_ID >> 8] :
+            [options.subsystem_device_id & 0xFF, options.subsystem_device_id >> 8]),
         // Expansion ROM base address
         0x00, 0x00, 0x00, 0x00,
         // Capabilities pointer
@@ -289,9 +310,10 @@ export function VirtIO(cpu, options)
     this.pci_bars = [];
     for(const bar of options.bars || [])
     {
-        this.pci_bars[bar.bar] = { size: bar.size, on_move: bar.on_move };
+        // (on the generic host: 64 bits wide, the next register its upper half)
+        this.pci_bars[bar.bar] = { size: bar.size, on_move: bar.on_move, bits64: this.generic };
         const at = 0x10 + 4 * bar.bar;
-        const value = (bar.address & ~0xF | (bar.prefetchable ? 8 : 0)) >>> 0;
+        const value = (bar.address & ~0xF | (bar.prefetchable ? 8 : 0) | (this.generic ? 4 : 0)) >>> 0;
         this.pci_space[at] = value & 0xFF;
         this.pci_space[at + 1] = value >>> 8 & 0xFF;
         this.pci_space[at + 2] = value >>> 16 & 0xFF;
@@ -398,7 +420,20 @@ export function VirtIO(cpu, options)
     /** Where the guest put the capabilities' memory BAR (decoded at mmio_base, or not: 0) */
     this.mmio_assigned = 0;
     this.on_upstream_change = () => this.update_mmio();
-    if(options.capability_bar !== undefined)
+    if(this.generic)
+    {
+        // (decoded while its memory space is enabled: update_mmio)
+        this.on_command_change = () => this.update_mmio();
+        this.on_config_restore = () => this.update_mmio();
+        for(const cap of capabilities)
+        {
+            cap.offset = GENERIC_CAPABILITY_OFFSETS[cap.type];
+            cap.port = 0;
+            cap.bar = GENERIC_CAPABILITY_BAR;
+            cap.use_mmio = true;
+        }
+    }
+    else if(options.capability_bar !== undefined)
     {
         const base = options.common.initial_port;
         for(const cap of capabilities)
@@ -421,6 +456,11 @@ export function VirtIO(cpu, options)
         for(let bar = 0; bar < 6; bar++)
         {
             if(!this.pci_bars[bar]) this.pci_space.fill(0, 0x10 + 4 * bar, 0x14 + 4 * bar);
+        }
+        if(this.generic)
+        {
+            // (at power-on: no decode, no bus mastering, INTx enabled)
+            this.pci_space[4] = this.pci_space[5] = 0;
         }
 
         cpu.devices.pci.register_device(this);
@@ -889,8 +929,9 @@ VirtIO.prototype.init_capabilities = function(capabilities, shared_memory)
         // Round up to next power of 2,
         // Minimum 16 bytes for its size to be detectable in general (esp. mmio).
         bar_size = bar_size < 16 ? 16 : 1 << (int_log2(bar_size - 1) + 1);
-        // (memory is decoded in blocks: the BAR has whole ones to itself)
-        if(cap.use_mmio) bar_size = Math.max(bar_size, MMAP_BLOCK_SIZE);
+        // (memory is decoded in blocks: the BAR has whole ones to itself;
+        // not on the generic host, whose BARs are decoded exactly)
+        if(cap.use_mmio && !this.generic) bar_size = Math.max(bar_size, MMAP_BLOCK_SIZE);
         // (this capability's own length: its struct)
         const cap_size = cap.struct.reduce((bytes, field) => bytes + field.bytes, 0);
 
@@ -898,7 +939,7 @@ VirtIO.prototype.init_capabilities = function(capabilities, shared_memory)
             "VirtIO device<" + this.name + "> capability port should be aligned to pci bar size");
 
         this.pci_bars[cap.bar] = cap.use_mmio ?
-            { size: bar_size, on_move: base => this.move_mmio(base) } :
+            { size: bar_size, on_move: base => this.move_mmio(base), bits64: this.generic } :
             { size: bar_size };
         if(cap.use_mmio) this.mmio_size = bar_size;
 
@@ -920,7 +961,7 @@ VirtIO.prototype.init_capabilities = function(capabilities, shared_memory)
         // (the length of the capability's window: the whole BAR when it has
         // it alone, as before; its struct when it shares)
         const shared = capabilities.filter(other => other.bar === cap.bar).length > 1;
-        const cap_window = shared ? Math.max(cap_size, 4) : bar_size;
+        const cap_window = this.generic ? GENERIC_CAPABILITY_WINDOW : shared ? Math.max(cap_size, 4) : bar_size;
         this.pci_space[cap_ptr + 12] = cap_window & 0xFF;
         this.pci_space[cap_ptr + 13] = (cap_window >>> 8) & 0xFF;
         this.pci_space[cap_ptr + 14] = (cap_window >>> 16) & 0xFF;
@@ -932,7 +973,8 @@ VirtIO.prototype.init_capabilities = function(capabilities, shared_memory)
         }
 
         const bar_offset = 0x10 + 4 * cap.bar;
-        this.pci_space[bar_offset] = (cap.port & 0xFE) | !cap.use_mmio;
+        // (the generic host's: 64-bit, prefetchable)
+        this.pci_space[bar_offset] = this.generic ? 0x0C : (cap.port & 0xFE) | !cap.use_mmio;
         this.pci_space[bar_offset + 1] = (cap.port >>> 8) & 0xFF;
         this.pci_space[bar_offset + 2] = (cap.port >>> 16) & 0xFF;
         this.pci_space[bar_offset + 3] = (cap.port >>> 24) & 0xFF;
@@ -1128,6 +1170,11 @@ VirtIO.prototype.move_mmio = function(base)
  */
 VirtIO.prototype.update_mmio = function()
 {
+    if(this.generic)
+    {
+        this.update_generic_decode();
+        return;
+    }
     const assigned = this.mmio_assigned;
     const base = assigned && this.cpu.devices.pci.upstream_forwards_memory(this.pci_id, assigned >>> 0, this.mmio_size) ? assigned : 0;
     if(base === this.mmio_base)
@@ -1142,6 +1189,44 @@ VirtIO.prototype.update_mmio = function()
             addr => this.mmio_read8(addr), (addr, value) => this.mmio_write8(addr, value),
             addr => this.mmio_read32(addr), (addr, value) => this.mmio_write32(addr, value));
     }
+};
+
+/**
+ * The generic host (P5.7): the capabilities' BAR decoded where it is
+ * assigned while the function's memory space is enabled, by offset and
+ * width (an 8-byte access is two 4-byte ones, a 2-byte one two bytes)
+ */
+VirtIO.prototype.update_generic_decode = function()
+{
+    const assigned = this.mmio_assigned;
+    const base = assigned && this.pci.is_memory_enabled(/** @type {number} */ (this.pci_id)) ? assigned : 0;
+    if(base === this.mmio_base)
+    {
+        return;
+    }
+    this.mmio_base = base;
+    const at = offset => this.mmio_base + offset;
+    this.pci.set_memory_decoder(this, base || -1, this.mmio_size, {
+        read: (offset, width) => {
+            if(width === 1) return this.mmio_read8(at(offset));
+            if(width === 2) return this.mmio_read8(at(offset)) | this.mmio_read8(at(offset + 1)) << 8;
+            if(width === 4) return this.mmio_read32(at(offset)) >>> 0;
+            return BigInt(this.mmio_read32(at(offset)) >>> 0) | BigInt(this.mmio_read32(at(offset + 4)) >>> 0) << 32n;
+        },
+        write: (offset, width, value) => {
+            if(width === 8)
+            {
+                const wide = /** @type {bigint} */ (value);
+                this.mmio_write32(at(offset), Number(BigInt.asUintN(32, wide)) | 0);
+                this.mmio_write32(at(offset + 4), Number(wide >> 32n) | 0);
+            }
+            else if(width === 4) this.mmio_write32(at(offset), value | 0);
+            else
+            {
+                for(let i = 0; i < width; i++) this.mmio_write8(at(offset + i), value >>> 8 * i & 0xFF);
+            }
+        },
+    });
 };
 
 /**

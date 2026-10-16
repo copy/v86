@@ -12,9 +12,10 @@
 //    files' MD5s; a clean reboot;
 // 3. back into the ISO: the root file system is clean (fsck -n).
 // Writes stay in the disks' in-memory overlays for the session. The disks
-// are found by their virtio-blk serials.
+// are found by their virtio-blk serials. A64_TRANSPORT=pci: the disks are
+// virtio-pci functions on the PCIe host (P5.7) instead of virtio-mmio.
 //
-//     [A64_JIT=1] [A64_CORES=N] node tests/a64/linux_install.mjs
+//     [A64_JIT=1] [A64_CORES=N] [A64_TRANSPORT=pci] node tests/a64/linux_install.mjs
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,6 +24,8 @@ import { output_directory } from "../../tools/alpine_repo.mjs";
 
 const cores = Number(process.env.A64_CORES || 1);
 const jit = !!+process.env.A64_JIT;
+const transport = process.env.A64_TRANSPORT || "mmio";
+assert.ok(["mmio", "pci"].includes(transport), "A64_TRANSPORT is mmio or pci");
 const timeout = Number(process.env.A64_LINUX_TIMEOUT || 1800000);
 const prepared = await prepare("aarch64-virt", ["boot/vmlinuz-virt", "boot/initramfs-virt", "boot/modloop-virt"]);
 const repo_image = path.join(output_directory("aarch64"), "sys-repo.tar");
@@ -53,7 +56,7 @@ const emulator = new V86({
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     kernel: { buffer: iso_boot.kernel }, initrd: { buffer: iso_boot.initrd }, cmdline: LIVE_CMDLINE,
-    virtio_disks: disks, autostart: true, ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
+    virtio_disks: disks, virtio_transport: transport, autostart: true, ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
 });
 let transcript = "";
 emulator.add_listener("serial0-output-byte", byte => {
@@ -142,7 +145,7 @@ try
 }
 finally
 {
-    fs.writeFileSync(prepared.directory + `v86${jit ? "-jit" : ""}-install-${cores}c.log`, transcript);
+    fs.writeFileSync(prepared.directory + `v86${jit ? "-jit" : ""}-install${transport === "pci" ? "-pci" : ""}-${cores}c.log`, transcript);
     await emulator.destroy();
 }
 process.exit(0);

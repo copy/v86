@@ -72,7 +72,7 @@ export function VirtioMmio(cpu, slot, intid)
     this.config_size = 0;
     /** @type {!Array<function(number)>} queue notification handlers by queue */
     this.notify = [];
-    /** @type {!Array<{id: number, length: number, base: number}>} shared memory regions */
+    /** @type {!Array<{id: number, bar: number, offset: number, length: number, base: number}>} shared memory regions */
     this.shared_memory = [];
     this.shm_select = 0;
     this.level = false;
@@ -117,7 +117,17 @@ VirtioMmio.prototype.attach = function(virtio, capabilities, shared_memory)
             this.config_size = offset;
         }
     }
-    this.shared_memory = shared_memory.map(region => ({ id: region.id, length: region.length, base: -1 }));
+    this.shared_memory = shared_memory.map(region => ({ id: region.id, bar: region.bar, offset: region.offset, length: region.length, base: -1 }));
+};
+
+/**
+ * The device's shared memory regions: id, the device's memory (as a BAR
+ * number) and the offset in it, length
+ * @return {!Array<{id: number, bar: number, offset: number, length: number}>}
+ */
+VirtioMmio.prototype.shared_memory_regions = function()
+{
+    return this.shared_memory.map(({ id, bar, offset, length }) => ({ id, bar, offset, length }));
 };
 
 /** Where a shared memory region (by id) is in the physical address space */

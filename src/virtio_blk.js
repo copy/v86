@@ -35,11 +35,12 @@ const ID_BYTES = 20;
  * @param {?} cpu
  * @param {?} buffer the image (src/buffer.js)
  * @param {{id: (string|undefined), readonly: (boolean|undefined)}} options
- * @param {?} transport the device's transport (src/virtio_mmio.js)
+ * @param {?} transport the device's transport (src/virtio_mmio.js), or null: on the PCIe host at `pci_id`
+ * @param {number=} pci_id
  */
-export function VirtioBlk(cpu, buffer, options, transport)
+export function VirtioBlk(cpu, buffer, options, transport, pci_id)
 {
-    dbg_assert(transport, "virtio-blk: on the virt machine's transports only");
+    dbg_assert(transport || pci_id !== undefined && cpu.devices.pci.generic, "virtio-blk: on the virt machine's transports only");
     this.cpu = cpu;
     this.backend = new BlockBackend(cpu, buffer);
     this.readonly = !!options.readonly;
@@ -99,7 +100,8 @@ export function VirtioBlk(cpu, buffer, options, transport)
             ],
         },
         on_reset: () => this.backend.reset(),
-        transport,
+        transport: transport || undefined,
+        pci_id,
     });
 }
 

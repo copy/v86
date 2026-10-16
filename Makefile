@@ -115,7 +115,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
 	   state.js state_io.js block_backend.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
-	   virtio_mmio.js virtio_blk.js virtio_rng.js \
+	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
@@ -1082,6 +1082,9 @@ a64-guest-tests: build/v86-arm64.wasm
 	A64_LINUX_QEMU=1 A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 node tests/a64/linux_install.mjs
+	A64_LINUX_QEMU=1 A64_STAGE=live A64_TRANSPORT=pci A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=live A64_TRANSPORT=pci A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_JIT=1 A64_TRANSPORT=pci node tests/a64/linux_install.mjs
 a64-lifecycle-guest-tests:
 	$(call A64_PENDING,A6)
 # (L: the initramfs stage on 2 and 4 cooperative cores, its kpti=1 variant
@@ -1094,6 +1097,8 @@ a64-multicore-guest-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=4 node tests/a64/linux_boot.mjs
 	for cores in 2 4; do A64_LINUX_QEMU=1 A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
 	for cores in 2 4; do A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	for cores in 2 4; do A64_LINUX_QEMU=1 A64_STAGE=live A64_TRANSPORT=pci A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	for cores in 2 4; do A64_STAGE=live A64_TRANSPORT=pci A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
 # (A4, JIT plan P6.5: random programs on the page tier against the
 # interpreter; the FP fast path's hot multiply-add loop; the ISA, exceptions
 # and MMU oracles with every instruction compiled (A64_JIT=1, threshold 1;
@@ -1126,11 +1131,19 @@ a64-jit-guest-tests: build/v86-arm64.wasm
 	A64_JIT=1 node tests/kvm-unit-tests/arm64.mjs
 	for cores in 1 2 4; do A64_JIT=1 A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
 	A64_JIT=1 A64_STAGE=live A64_LINUX_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
+	for cores in 1 2 4; do A64_JIT=1 A64_STAGE=live A64_TRANSPORT=pci A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	A64_JIT=1 A64_STAGE=live A64_TRANSPORT=pci A64_LINUX_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_MIDWAY_SNAPSHOT=1 A64_CORES=1 node tests/a64/linux_boot.mjs
-a64-gpu-guest-tests:
-	$(call A64_PENDING,A5)
+# (L, A5: Alpine on virtio-gpu without VGA, P7; the packages from
+# `node tools/alpine_repo.mjs --arch aarch64`; the 3D levels on the GPU of a
+# headless Chrome)
+a64-gpu-guest-tests: build/v86-arm64.wasm glbridge
+	for scenario in drm gl resize input; do GPU_SCENARIO=$$scenario node tests/a64/linux_gpu.mjs || exit 1; done
+	for scenario in gltest virgl kms; do GPU_SCENARIO=$$scenario GPU_LEVEL=virgl43-hostmem GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
+	for scenario in venus vkcube; do GPU_SCENARIO=$$scenario GPU_LEVEL=venus GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
+	GPU_SCENARIO=drm GPU_TRANSPORT=mmio node tests/a64/linux_gpu.mjs
 a64-parallel-tests:
 	$(call A64_PENDING,A6)
 a64-parallel-guest-tests:

@@ -21,6 +21,14 @@
 //   ustar image on a second virtio-blk disk with serial a64probe; Alpine's
 //   initramfs finds the modloop and the packages on the ISO and boots to
 //   "localhost login:", where the probe runs from the disk it reads.
+//   A64_TRANSPORT=pci: the same devices as virtio-pci functions on the PCIe
+//   host instead of virtio-mmio (P5.7; the reference's are non-transitional,
+//   without MSI-X or an option ROM); both machines list their PCI functions
+//   (A64_PCI: IDs, class, subsystem, pin and each BAR's place, size and
+//   flags from /sys), which must be the reference's, for either transport.
+//   The live stage has a virtio keyboard and tablet too (P5.8): on v86 the
+//   test injects keys, a pointer position and a click, which the guest reads
+//   from /dev/input/event* (dd and hexdump: struct input_event).
 //
 // A64_LINUX_QEMU=1 runs the fixed reference (QEMU 9.2.0 built from source,
 // build/a64-ref or A64_QEMU, virt-9.2 with cortex-a35 and every default the
@@ -45,6 +53,9 @@ import { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } from "./guest_runner.mjs";
 
 const stage = process.env.A64_STAGE || "initramfs";
 assert.ok(["initramfs", "single", "lifecycle", "live"].includes(stage), "A64_STAGE is initramfs, single, lifecycle or live");
+const transport = process.env.A64_TRANSPORT || "mmio";
+assert.ok(["mmio", "pci"].includes(transport), "A64_TRANSPORT is mmio or pci");
+assert.ok(transport === "mmio" || stage === "live", "A64_TRANSPORT=pci is a variant of the live stage");
 const cores = Number(process.env.A64_CORES || 1);
 assert.ok([1, 2, 4, 8].includes(cores), "A64_CORES is 1, 2, 4 or 8");
 const qemu_reference = !!+process.env.A64_LINUX_QEMU;
@@ -182,13 +193,29 @@ const LIVE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 modules=loop,squ
 // order: virtio-net, virtio-rng, virtio-console; v86 echoes the probe's raw
 // frames and lets the test log in on hvc0, then A64_LIVE_PROBED ends the
 // first part; QEMU, without a host side for either, goes straight on)
-const LIVE_COMMANDS = ref => "modprobe virtio_net 2>/dev/null; modprobe virtio-rng 2>/dev/null; ifconfig eth0 up; " +
+// (the PCI functions, from /sys: vendor, device, class, subsystem, revision, interrupt pin, each BAR's start, end and flags)
+const PCI_LIST = "for d in /sys/bus/pci/devices/*; do echo A64_PCI ${d##*/} $(cat $d/vendor $d/device $d/class $d/subsystem_vendor " +
+    "$d/subsystem_device $d/revision) pin=$(od -An -tu1 -j61 -N1 $d/config | tr -d ' ') $(awk 'NR <= 7 && $1 != \"0x0000000000000000\" " +
+    "{ printf \"bar%d=%s-%s/%s \", NR - 1, $1, $2, $3 }' $d/resource); done; ";
+const pci_functions = text => [...text.matchAll(/^A64_PCI ([0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.\d [^\r\n]*)/gm)].map(m => m[1].trim());
+const LIVE_COMMANDS = ref => PCI_LIST + "modprobe virtio_net 2>/dev/null; modprobe virtio-rng 2>/dev/null; ifconfig eth0 up; " +
     "for d in /sys/block/vd*; do [ \"$(cat $d/serial 2>/dev/null)\" = a64probe ] && tar -xf /dev/${d##*/} -C /tmp; done; " +
     `/tmp/a64-probe ${ref === "v86" ? "net " : ""}ref=${ref}; echo A64_HWRNG=$(head -c 64 /dev/hwrng | wc -c); ` +
     "cat /proc/cpuinfo | head -12; cat /proc/interrupts; " +
     "for f in /sys/devices/system/cpu/vulnerabilities/*; do echo \"A64_VULN ${f##*/}: $(cat $f)\"; done; " +
-    (ref === "v86" ? "(/sbin/getty -L hvc0 115200 vt100 &); echo A64_LIVE_PROBED\n" : "echo A64_LIVE_DONE; poweroff -f\n");
+    (ref === "v86" ? INPUT_COMMANDS + "(/sbin/getty -L hvc0 115200 vt100 &); echo A64_LIVE_PROBED\n" : "echo A64_LIVE_DONE; poweroff -f\n");
 const LIVE_FINISH = "echo A64_LIVE_DONE; poweroff -f\n";
+// (virtio-input, P5.8: each device's events as hex, 24 bytes each, while the test injects them after A64_INPUT_READY)
+const input_reader = (name, count, tag) => `(dd if=/dev/input/$${name} bs=24 count=${count} 2>/dev/null | ` +
+    `hexdump -v -e '24/1 "%02x" "\\n"' | sed 's/^/${tag} /') & `;
+const INPUT_COMMANDS = "modprobe evdev 2>/dev/null; modprobe virtio_input 2>/dev/null; sleep 1; K=; T=; " +
+    "for e in /sys/class/input/event*; do case \"$(cat $e/device/name)\" in *Keyboard) K=${e##*/};; *Tablet) T=${e##*/};; esac; done; " +
+    input_reader("K", 8, "A64_EVK") + input_reader("T", 7, "A64_EVT") + "sleep 1; echo A64_INPUT_READY; wait; ";
+/** The events (type, code, value) of `tag`'s lines */
+const input_events = (text, tag) => [...text.matchAll(new RegExp(`^${tag} ([0-9a-f]{48})`, "gm"))].map(m => {
+    const b = Buffer.from(m[1], "hex");
+    return [b.readUInt16LE(16), b.readUInt16LE(18), b.readInt32LE(20)];
+});
 // (A64_KPTI=1: the initramfs stage with kpti=1, KPTI forced on although CSV3 says it is not needed, P3.9)
 const kpti = !!+process.env.A64_KPTI;
 assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramfs stage");
@@ -203,7 +230,8 @@ const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpt
 const jit = !!+process.env.A64_JIT;
 const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
     ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};
-const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}-${cores}c`;
+const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
+    `${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}-${cores}c`;
 // (without the kernel's messages, which may land between the workload's lines)
 const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "")
     .split("\n").filter(line => !/^\[\s*\d+\.\d+\] /.test(line)).join("\n");
@@ -247,6 +275,10 @@ if(qemu_reference)
     const version = run(qemu, ["--version"]).split("\n")[0];
     assert.match(version, /QEMU emulator version 9\.2\./, "the fixed reference is QEMU 9.2.x");
     const machine = QEMU_MACHINE;
+    // (virtio-mmio, or non-transitional virtio-pci functions without MSI-X)
+    // (virtio-input is non-transitional anyway: virtio-*-pci)
+    const device = (name, options) => (transport === "pci" ? name + (/keyboard|tablet/.test(name) ? "-pci" : "-pci-non-transitional") +
+        ",vectors=0" : name + "-device") + (options ? "," + options : "");
     const base = ["-cpu", QEMU_CPU, "-m", memory_mb + "M", "-smp", smp(cores),
         "-global", "virtio-mmio.force-legacy=false", "-display", "none", "-no-reboot"];
     // the DTB QEMU gives this machine (dumpdtb), once
@@ -259,11 +291,12 @@ if(qemu_reference)
         "-initrd", live || single ? prepared.initrd : initrd,
         "-append", live ? LIVE_CMDLINE
             : single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("qemu"),
-        ...(live ? ["-drive", `if=none,id=iso,file=${prepared.iso},format=raw,readonly=on`, "-device", "virtio-blk-device,drive=iso",
-            "-drive", `if=none,id=probe,file=${probe_directory}probe.tar,format=raw,snapshot=on`, "-device", "virtio-blk-device,drive=probe,serial=a64probe",
+        ...(live ? ["-drive", `if=none,id=iso,file=${prepared.iso},format=raw,readonly=on`, "-device", device("virtio-blk", "drive=iso"),
+            "-drive", `if=none,id=probe,file=${probe_directory}probe.tar,format=raw,snapshot=on`, "-device", device("virtio-blk", "drive=probe,serial=a64probe"),
             // (the same devices as v86's, in its order; their host sides are empty)
-            "-netdev", "hubport,id=net0,hubid=0", "-device", "virtio-net-device,netdev=net0", "-device", "virtio-rng-device",
-            "-chardev", "null,id=hvc", "-device", "virtio-serial-device", "-device", "virtconsole,chardev=hvc"] : [])];
+            "-netdev", "hubport,id=net0,hubid=0", "-device", device("virtio-net", "netdev=net0" + (transport === "pci" ? ",romfile=" : "")),
+            "-device", device("virtio-rng"), "-chardev", "null,id=hvc", "-device", device("virtio-serial"), "-device", "virtconsole,chardev=hvc",
+            "-device", device("virtio-keyboard"), "-device", device("virtio-tablet")] : [])];
     const plugins = !!+process.env.A64_QEMU_PLUGINS;
     const plugin_log = directory + `${tag}-plugins.log`;
     if(plugins)
@@ -318,6 +351,7 @@ if(qemu_reference)
     }
     const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, true);
     if(live) assert.match(transcript, /\nA64_HWRNG=64\r?\n/, "64 bytes from /dev/hwrng (virtio-rng)");
+    if(live) lines.pci = pci_functions(transcript);
     const result = { tag, ms: Math.round(performance.now() - started), boot_to_login_ms: login_ms, probe_done_ms: probe_ms, ...lines,
         login: live ? /localhost login:/.test(transcript) : undefined };
     if(plugins)
@@ -402,7 +436,7 @@ const machine_options = {
     // (the live stage's disks and devices, in the reference's -device order: P5.3)
     ...(live ? { virtio_disks: [{ buffer: array_buffer(prepared.iso), readonly: true },
         { buffer: array_buffer(probe_directory + "probe.tar"), id: "a64probe" }],
-        net_device: { type: "virtio" }, virtio_rng: true, virtio_console: true } : {}),
+        net_device: { type: "virtio" }, virtio_rng: true, virtio_console: true, virtio_input: true, virtio_transport: transport } : {}),
 };
 let emulator = new V86({ ...machine_options, autostart: true });
 // (A64_MIDWAY_SNAPSHOT=1 with A64_WORKLOAD: a snapshot 1.5 s into the
@@ -414,7 +448,17 @@ let snapped = false, snapshot_bytes;
 const verbose = !!+process.env.A64_VERBOSE;
 let transcript = "", probe_ms, typed = false, logged_in = false, login_ms;
 // (the live stage: raw frames of EtherType 88B5 come back with source 02:00:00:00:00:02; hvc0's transcript)
-let echoed = 0, hvc = "", hvc_state = 0;
+let echoed = 0, hvc = "", hvc_state = 0, injected = false;
+// (P5.8: two keys, one of them extended, down and up; a position and a left click)
+const INJECTED_KEYS = [[1, 30, 1], [0, 0, 0], [1, 30, 0], [0, 0, 0], [1, 103, 1], [0, 0, 0], [1, 103, 0], [0, 0, 0]];
+const INJECTED_TABLET = [[3, 0, 16384], [3, 1, 8192], [0, 0, 0], [1, 272, 1], [0, 0, 0], [1, 272, 0], [0, 0, 0]];
+const inject_input = emulator =>
+{
+    for(const code of [0x1E, 0x9E, 0xE0, 0x48, 0xE0, 0xC8]) emulator.bus.send("keyboard-code", code);
+    emulator.bus.send("mouse-absolute", [400, 150, 800, 600]);
+    emulator.bus.send("mouse-click", [true, false, false]);
+    emulator.bus.send("mouse-click", [false, false, false]);
+};
 const attach_live = emulator =>
 {
     emulator.bus.register("net0-send", packet => {
@@ -532,6 +576,11 @@ try
                 typed = true;
                 emulator.serial0_send(LIVE_COMMANDS("v86"));
             }
+            if(live && !injected && /\nA64_INPUT_READY\r?\n/.test(transcript))
+            {
+                injected = true;
+                inject_input(emulator);
+            }
             // (a line of its own: the shell echoes the command, which names it too)
             const done = single ? /A64_SINGLE_42\r?\nA64_SINGLE_OK/ : live ? /\nA64_LIVE_DONE\r?\n/ : /A64_INIT_DONE/;
             if(done.test(transcript) || /Kernel panic/.test(transcript) && transcript.endsWith("\n"))
@@ -575,7 +624,19 @@ if(live)
     assert.equal(echoed, 16, "the host echoed every probe frame");
     assert.match(transcript, /\nA64_HWRNG=64\r?\n/, "64 bytes from /dev/hwrng (virtio-rng)");
     assert.equal(hvc_state, 3, "a login on hvc0 (virtio-console): " + JSON.stringify(hvc.slice(-300)));
-    Object.assign(lines, { net_frames: echoed, hvc0: true });
+    // (P5.8: the injected events, as the guest's evdev read them)
+    assert.deepEqual(input_events(transcript, "A64_EVK"), INJECTED_KEYS, "the keyboard's events (virtio-input)");
+    assert.deepEqual(input_events(transcript, "A64_EVT"), INJECTED_TABLET, "the tablet's events (virtio-input)");
+    Object.assign(lines, { net_frames: echoed, hvc0: true, input_events: INJECTED_KEYS.length + INJECTED_TABLET.length, pci: pci_functions(transcript) });
+    // (the PCI functions, against the reference's: needed for the pci variant)
+    const reference_log = directory + tag_of("qemu") + ".log";
+    assert.ok(transport === "mmio" || fs.existsSync(reference_log), "the pci variant compares with the reference's run: " + reference_log);
+    if(fs.existsSync(reference_log))
+    {
+        assert.deepEqual(lines.pci, pci_functions(fs.readFileSync(reference_log, "latin1")), "the PCI functions, against the reference's");
+        lines.pci_compared = true;
+    }
+    assert.equal(lines.pci.length, transport === "pci" ? 8 : 1, "the PCI functions: the host bridge and the devices on pci");
 }
 if(snapshots)
 {

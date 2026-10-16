@@ -568,6 +568,27 @@ export interface V86Options {
     virtio_disks?: Array<V86Image & { readonly?: boolean; id?: string }>;
 
     /**
+     * machine_type "virt" only: virtio-rng, its entropy from
+     * crypto.getRandomValues (the guest's /dev/hwrng)
+     */
+    virtio_rng?: boolean;
+
+    /**
+     * machine_type "virt" only: virtio-input devices, true for a keyboard and
+     * a tablet, or a list of "keyboard", "tablet" (the pointer's absolute
+     * position) and "multitouch" (the page's touches), as QEMU's
+     * virtio-keyboard, virtio-tablet and virtio-multitouch
+     */
+    virtio_input?: boolean | Array<"keyboard" | "tablet" | "multitouch">;
+
+    /**
+     * machine_type "virt" only: the virtio devices' transport, virtio-mmio
+     * slots or functions on the PCIe host (see docs/virt.md)
+     * @default "mmio"
+     */
+    virtio_transport?: "mmio" | "pci";
+
+    /**
      * Automatically fetch bzimage and initrd from the 9p filesystem
      */
     bzimage_initrd_from_filesystem?: boolean;
@@ -696,7 +717,8 @@ export interface V86Options {
      * (bios, vga_bios, fda, fdb, cdrom, bzimage, multiboot, acpi: true, hpet,
      * smbus, pcie_root_ports, qemu_compatible, uart1-3, parallel1, modem,
      * cpuid_level, cpu_features, x87_*, high_memory_size) are errors there,
-     * as are kernel, dtb and virtio_disks on the PC machines, and every
+     * as are kernel, dtb, virtio_disks, virtio_rng, virtio_input and
+     * virtio_transport on the PC machines, and every
      * other combination of cpu_type and machine_type.
      * @default "i440fx" ("virt" with cpu_type "arm64")
      */

@@ -2,8 +2,8 @@
 // docs/arm64-virt-android16-plan.md): its physical address map, which copies
 // QEMU's virt-9.2 (the fixed reference), and the identity snapshots record.
 
-/** Version of the virt machine's device layout, recorded in snapshots */
-export const VIRT_LAYOUT_VERSION = 1;
+/** Version of the virt machine's device layout, recorded in snapshots (2: the PCIe host, P5.6) */
+export const VIRT_LAYOUT_VERSION = 2;
 
 /** The CPU profile (tests/platform/a64-profile.json) */
 export const A64_PROFILE = "v86-aarch64-v1";
@@ -30,6 +30,8 @@ export const VIRT_PCIE_PIO = 0x3EFF0000;
 export const VIRT_PCIE_PIO_SIZE = 0x10000;
 /** above 4 GiB: as [low, high] 32-bit halves */
 export const VIRT_PCIE_ECAM_HIGH = [0x10000000, 0x40];
+/** 256 buses */
+export const VIRT_PCIE_ECAM_SIZE = 0x10000000;
 export const VIRT_PCIE_MMIO_HIGH = [0x00000000, 0x80];
 export const VIRT_PCIE_MMIO_HIGH_SIZE = 0x8000000000;
 
