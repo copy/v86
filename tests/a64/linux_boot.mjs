@@ -171,10 +171,24 @@ if(jit_workload)
     fs.writeFileSync(initrd, Buffer.concat([fs.readFileSync(initrd_probe), fs.readFileSync(directory + "jit.cpio")]));
 }
 const memory_mb = jit_workload ? 1536 : 512;
-const timeout = Number(process.env.A64_LINUX_TIMEOUT || (jit_workload ? 3600000 : 180000));
+const timeout = Number(process.env.A64_LINUX_TIMEOUT || (jit_workload ? 3600000 : stage === "live" ? 1800000 : 180000));
 // (a root that does not exist: init looks for it, then enters single mode before mounting it)
 const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
 const SINGLE_COMMANDS = "cat /proc/interrupts; echo A64_SINGLE_$((6*7)) && echo A64_SINGLE_OK; /bin/busybox poweroff -f\n";
+// (the live stage: from the ISO on virtio-blk, modloop's modules; logged in
+// as root, the probe from the disk whose serial is a64probe)
+const LIVE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 modules=loop,squashfs,sd-mod,usb-storage";
+// (the live stage's devices besides the disks, on both machines in this
+// order: virtio-net, virtio-rng, virtio-console; v86 echoes the probe's raw
+// frames and lets the test log in on hvc0, then A64_LIVE_PROBED ends the
+// first part; QEMU, without a host side for either, goes straight on)
+const LIVE_COMMANDS = ref => "modprobe virtio_net 2>/dev/null; modprobe virtio-rng 2>/dev/null; ifconfig eth0 up; " +
+    "for d in /sys/block/vd*; do [ \"$(cat $d/serial 2>/dev/null)\" = a64probe ] && tar -xf /dev/${d##*/} -C /tmp; done; " +
+    `/tmp/a64-probe ${ref === "v86" ? "net " : ""}ref=${ref}; echo A64_HWRNG=$(head -c 64 /dev/hwrng | wc -c); ` +
+    "cat /proc/cpuinfo | head -12; cat /proc/interrupts; " +
+    "for f in /sys/devices/system/cpu/vulnerabilities/*; do echo \"A64_VULN ${f##*/}: $(cat $f)\"; done; " +
+    (ref === "v86" ? "(/sbin/getty -L hvc0 115200 vt100 &); echo A64_LIVE_PROBED\n" : "echo A64_LIVE_DONE; poweroff -f\n");
+const LIVE_FINISH = "echo A64_LIVE_DONE; poweroff -f\n";
 // (A64_KPTI=1: the initramfs stage with kpti=1, KPTI forced on although CSV3 says it is not needed, P3.9)
 const kpti = !!+process.env.A64_KPTI;
 assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramfs stage");
@@ -243,10 +257,13 @@ if(qemu_reference)
     const live = stage === "live", single = stage === "single";
     const args = ["-machine", machine, ...base, "-serial", "stdio", "-monitor", "none", "-kernel", prepared.kernel,
         "-initrd", live || single ? prepared.initrd : initrd,
-        "-append", live ? "console=ttyAMA0 earlycon nokaslr panic=-1 modules=loop,squashfs,sd-mod,usb-storage"
+        "-append", live ? LIVE_CMDLINE
             : single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("qemu"),
         ...(live ? ["-drive", `if=none,id=iso,file=${prepared.iso},format=raw,readonly=on`, "-device", "virtio-blk-device,drive=iso",
-            "-drive", `if=none,id=probe,file=${probe_directory}probe.tar,format=raw,snapshot=on`, "-device", "virtio-blk-device,drive=probe,serial=a64probe"] : [])];
+            "-drive", `if=none,id=probe,file=${probe_directory}probe.tar,format=raw,snapshot=on`, "-device", "virtio-blk-device,drive=probe,serial=a64probe",
+            // (the same devices as v86's, in its order; their host sides are empty)
+            "-netdev", "hubport,id=net0,hubid=0", "-device", "virtio-net-device,netdev=net0", "-device", "virtio-rng-device",
+            "-chardev", "null,id=hvc", "-device", "virtio-serial-device", "-device", "virtconsole,chardev=hvc"] : [])];
     const plugins = !!+process.env.A64_QEMU_PLUGINS;
     const plugin_log = directory + `${tag}-plugins.log`;
     if(plugins)
@@ -286,8 +303,7 @@ if(qemu_reference)
                 if(live && logged_in && !ran && /localhost:~# ?$/.test(transcript))
                 {
                     ran = true;
-                    child.stdin.write("for d in /sys/block/vd*; do [ \"$(cat $d/serial 2>/dev/null)\" = a64probe ] && tar -xf /dev/${d##*/} -C /tmp; done; " +
-                        "/tmp/a64-probe ref=qemu; cat /proc/cpuinfo | head -12; echo A64_LIVE_DONE; poweroff -f\n");
+                    child.stdin.write(LIVE_COMMANDS("qemu"));
                 }
             };
             child.stdout.on("data", output);
@@ -301,6 +317,7 @@ if(qemu_reference)
         fs.writeFileSync(directory + `${tag}.log`, transcript);
     }
     const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, true);
+    if(live) assert.match(transcript, /\nA64_HWRNG=64\r?\n/, "64 bytes from /dev/hwrng (virtio-rng)");
     const result = { tag, ms: Math.round(performance.now() - started), boot_to_login_ms: login_ms, probe_done_ms: probe_ms, ...lines,
         login: live ? /localhost login:/.test(transcript) : undefined };
     if(plugins)
@@ -315,7 +332,6 @@ if(qemu_reference)
     process.exit(0);
 }
 // ---- v86 (the ARM core; P4.7): the same kernel, initrd and command line
-assert.notEqual(stage, "live", "the live stage on v86 needs virtio-blk (P5.1, A3)");
 const v86_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm", ...JIT_OPTIONS,
@@ -375,13 +391,18 @@ if(stage === "lifecycle")
     console.log(`A64_LINUX_BOOT_OK ${tag}`);
     process.exit(0);
 }
-const single = stage === "single";
+const single = stage === "single", live = stage === "live";
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+const array_buffer = file => { const b = fs.readFileSync(file); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
 const machine_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory_mb * 1048576, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
-    kernel: { url: prepared.kernel }, initrd: { url: single ? prepared.initrd : initrd },
-    cmdline: single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS,
+    kernel: { url: prepared.kernel }, initrd: { url: single || live ? prepared.initrd : initrd },
+    cmdline: single ? SINGLE_CMDLINE : live ? LIVE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS,
+    // (the live stage's disks and devices, in the reference's -device order: P5.3)
+    ...(live ? { virtio_disks: [{ buffer: array_buffer(prepared.iso), readonly: true },
+        { buffer: array_buffer(probe_directory + "probe.tar"), id: "a64probe" }],
+        net_device: { type: "virtio" }, virtio_rng: true, virtio_console: true } : {}),
 };
 let emulator = new V86({ ...machine_options, autostart: true });
 // (A64_MIDWAY_SNAPSHOT=1 with A64_WORKLOAD: a snapshot 1.5 s into the
@@ -391,7 +412,70 @@ const midway = !!+process.env.A64_MIDWAY_SNAPSHOT;
 assert.ok(!midway || workload, "A64_MIDWAY_SNAPSHOT needs A64_WORKLOAD");
 let snapped = false, snapshot_bytes;
 const verbose = !!+process.env.A64_VERBOSE;
-let transcript = "", probe_ms, typed = false;
+let transcript = "", probe_ms, typed = false, logged_in = false, login_ms;
+// (the live stage: raw frames of EtherType 88B5 come back with source 02:00:00:00:00:02; hvc0's transcript)
+let echoed = 0, hvc = "", hvc_state = 0;
+const attach_live = emulator =>
+{
+    emulator.bus.register("net0-send", packet => {
+        if(packet.length < 14 || packet[12] !== 0x88 || packet[13] !== 0xB5 || packet[11] !== 1) return;
+        const reply = Uint8Array.from(packet);
+        reply.set([2, 0, 0, 0, 0, 2], 6);
+        echoed++;
+        setTimeout(() => emulator.bus.send("net0-receive", reply), 0);
+    });
+    emulator.add_listener("virtio-console0-output-bytes", bytes => {
+        hvc += String.fromCharCode(...bytes);
+        const send = text => emulator.bus.send("virtio-console0-input-bytes", Uint8Array.from(Buffer.from(text)));
+        if(hvc_state === 0 && /login: ?$/.test(hvc)) { hvc_state = 1; send("root\n"); }
+        else if(hvc_state === 1 && /# ?$/.test(hvc)) { hvc_state = 2; send("echo A64_HVC_$((6*7)); exit\n"); }
+        else if(hvc_state === 2 && /\nA64_HVC_42\r?\n/.test(hvc)) { hvc_state = 3; emulator.serial0_send(LIVE_FINISH); }
+    });
+};
+if(live) attach_live(emulator);
+// (A64_LINUX_SNAPSHOT=1: the whole machine saved and restored at three of the
+// probe's markers, while its threads, signals and the virtio devices' I/O
+// are under way: rounds alternate between the chunked V7 stream, written to
+// and read back from a file, and the single-buffer V6 format; as
+// tests/x64/linux_boot.mjs's X64_LINUX_SNAPSHOT, P5.9)
+const SNAPSHOT_MARKERS = ["A64_PROBE_START", "A64_PROBE_OK", "A64_PROBE_XC"];
+const snapshots = !!+process.env.A64_LINUX_SNAPSHOT;
+const snapshots_taken = [], snapshot_rounds = [];
+let snapshot_busy = false;
+async function snapshot_round(marker)
+{
+    snapshot_busy = true;
+    await emulator.stop();
+    if(snapshots_taken.length % 2)
+    {
+        const file_name = directory + `snapshot-${tag}.v7`;
+        const file = await fs.promises.open(file_name, "w+");
+        let bytes = 0, largest = 0, chunks = 0;
+        try
+        {
+            await emulator.save_state_stream(async chunk => {
+                await file.write(chunk, 0, chunk.length, bytes);
+                bytes += chunk.length; chunks++; largest = Math.max(largest, chunk.length);
+            });
+            await emulator.restore_state_stream({ size: bytes, read: async (offset, length) => {
+                const data = new Uint8Array(length);
+                const read = (await file.read(data, 0, length, offset))["bytesRead"];
+                return read === length ? data : data.subarray(0, read);
+            } });
+        }
+        finally { await file.close(); fs.rmSync(file_name, { force: true }); }
+        assert.ok(largest <= 1 << 20, "V7 chunks are at most 1 MiB");
+        snapshot_rounds.push({ marker, format: "V7 stream", bytes, chunks, largest_chunk: largest });
+    }
+    else
+    {
+        const state = await emulator.save_state();
+        await emulator.restore_state(state);
+        snapshot_rounds.push({ marker, format: "V6 buffer", bytes: state.byteLength });
+    }
+    snapshot_busy = false;
+    emulator.run();
+}
 const started = performance.now();
 /** (A64 inspect: where the core is, for a run that does not finish) */
 function inspect()
@@ -423,12 +507,33 @@ try
                 }, 1500);
             }
             if(probe_ms === undefined && transcript.includes("A64_PROBE_XC")) probe_ms = Math.round(performance.now() - started);
+            for(const marker of SNAPSHOT_MARKERS)
+            {
+                // (the probe's line, not the shell echoing the command)
+                if(snapshots && !snapshot_busy && !snapshots_taken.includes(marker) && transcript.includes("\n" + marker))
+                {
+                    snapshots_taken.push(marker);
+                    snapshot_round(marker).catch(reject);
+                }
+            }
             if(single && !typed && /Entering single mode[^\n]*\n/.test(transcript))
             {
                 typed = true;
                 emulator.serial0_send(SINGLE_COMMANDS);
             }
-            const done = single ? /A64_SINGLE_42\r?\nA64_SINGLE_OK/ : /A64_INIT_DONE/;
+            if(live && !logged_in && /localhost login: ?$/.test(transcript))
+            {
+                login_ms = Math.round(performance.now() - started);
+                logged_in = true;
+                emulator.serial0_send("root\n");
+            }
+            if(live && logged_in && !typed && /localhost:~# ?$/.test(transcript))
+            {
+                typed = true;
+                emulator.serial0_send(LIVE_COMMANDS("v86"));
+            }
+            // (a line of its own: the shell echoes the command, which names it too)
+            const done = single ? /A64_SINGLE_42\r?\nA64_SINGLE_OK/ : live ? /\nA64_LIVE_DONE\r?\n/ : /A64_INIT_DONE/;
             if(done.test(transcript) || /Kernel panic/.test(transcript) && transcript.endsWith("\n"))
             {
                 clearTimeout(timer);
@@ -436,6 +541,7 @@ try
             }
         };
         emulator.add_listener("serial0-output-byte", on_byte);
+        emulator.add_listener("emulator-error", error => reject(error));
     });
 }
 finally
@@ -462,6 +568,20 @@ assert.ok(!trouble, "the kernel reports: " + trouble?.[0]);
     }
 }
 const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, false);
+if(live)
+{
+    // (P5.4, P5.5: the frames through virtio-net, /dev/hwrng, a login on hvc0)
+    assert.match(transcript, /A64_PROBE_NET arch=aarch64 frames=16/, "raw frames through eth0 (virtio-net) and back");
+    assert.equal(echoed, 16, "the host echoed every probe frame");
+    assert.match(transcript, /\nA64_HWRNG=64\r?\n/, "64 bytes from /dev/hwrng (virtio-rng)");
+    assert.equal(hvc_state, 3, "a login on hvc0 (virtio-console): " + JSON.stringify(hvc.slice(-300)));
+    Object.assign(lines, { net_frames: echoed, hvc0: true });
+}
+if(snapshots)
+{
+    assert.deepEqual(snapshots_taken, SNAPSHOT_MARKERS, "a snapshot at each marker");
+    lines.snapshots = snapshot_rounds;
+}
 const features = detected(transcript);
 let reference_features;
 if(!single)
@@ -489,7 +609,8 @@ if(!single)
 const vulnerabilities = Object.fromEntries([...transcript.matchAll(/A64_VULN (\S+): ([^\r\n]*)/g)].map(m => [m[1], m[2]]));
 if(midway) assert.ok(snapped && snapshot_bytes, "the snapshot in the workload's middle was taken and restored");
 const ms = Math.round(performance.now() - started);
-const result = { tag, ms, probe_done_ms: probe_ms, retired_instructions, mips: Math.round(retired_instructions / ms / 100) / 10, page_tier,
+const result = { tag, ms, ...(live ? { boot_to_login_ms: login_ms } : {}), probe_done_ms: probe_ms, retired_instructions,
+    mips: Math.round(retired_instructions / ms / 100) / 10, page_tier,
     ...(midway ? { midway_snapshot_bytes: snapshot_bytes } : {}), ...lines, features,
     reference_features: reference_features ? "compared" : "no reference log", vulnerabilities };
 fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");

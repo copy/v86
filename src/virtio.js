@@ -105,7 +105,7 @@ var VirtQueue_Options;
 /**
  * @typedef {
  * {
- *     initial_port: number,
+ *     initial_port: (undefined | number),
  *     queues: !Array<VirtQueue_Options>,
  *     features: !Array<number>,
  *     on_driver_ok: function(),
@@ -116,7 +116,7 @@ var VirtIO_CommonCapabilityOptions;
 /**
  * @typedef {
  * {
- *     initial_port: number,
+ *     initial_port: (undefined | number),
  *     single_handler: boolean,
  *     handlers: !Array<function()>,
  * }}
@@ -126,7 +126,7 @@ var VirtIO_NotificationCapabilityOptions;
 /**
  * @typedef {
  * {
- *     initial_port: number,
+ *     initial_port: (undefined | number),
  * }}
  */
 var VirtIO_ISRCapabilityOptions;
@@ -134,7 +134,7 @@ var VirtIO_ISRCapabilityOptions;
 /**
  * @typedef {
  * {
- *     initial_port: number,
+ *     initial_port: (undefined | number),
  *     struct: VirtIO_CapabilityStruct,
  * }}
  */
@@ -144,7 +144,7 @@ var VirtIO_DeviceSpecificCapabilityOptions;
  * @typedef {
  * {
  *     name: string,
- *     pci_id: number,
+ *     pci_id: (undefined | number),
  *     device_id: number,
  *     subsystem_device_id: number,
  *     on_reset: (undefined | function()),
@@ -161,9 +161,27 @@ var VirtIO_DeviceSpecificCapabilityOptions;
  *     rom_address: (undefined | number),
  *     qemu_compatible: (undefined | boolean),
  *     irq_line: (undefined | {raise: function(), lower: function()}),
+ *     transport: (undefined | VirtIO_Transport),
  * }}
  */
 var VirtIO_Options;
+
+/**
+ * A transport other than virtio-pci (P5.1): attach() maps the device's
+ * registers (the capabilities' fields, by name) and shared memory regions;
+ * irq_line is the device's interrupt; present() whether it is on its bus;
+ * kind() names it in snapshots, which a device restores only on the same
+ * transport; get_state/set_state are the transport's own registers.
+ * @typedef {{
+ *     attach: function(!VirtIO, !Array<VirtIO_CapabilityInfo>, !Array<{id: number, bar: number, offset: number, length: number}>),
+ *     irq_line: {raise: function(), lower: function()},
+ *     present: function(): boolean,
+ *     kind: function(): string,
+ *     get_state: function(): !Array,
+ *     set_state: function(!Array),
+ * }}
+ */
+var VirtIO_Transport;
 
 /**
  * @constructor
@@ -177,8 +195,18 @@ export function VirtIO(cpu, options)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
+    /**
+     * The transport (docs/arm64-virt-android16-plan.md P5.1): null for
+     * virtio-pci, the default, on the machine's PCI bus; or one that brings
+     * its own registers and interrupt line (src/virtio_mmio.js). This object
+     * is the device's core either way: features, status, the configuration
+     * generation, the queues and their requests.
+     * @const @type {?VirtIO_Transport}
+     */
+    this.transport = options.transport || null;
+
     /** @const @type {PCI} */
-    this.pci = cpu.devices.pci;
+    this.pci = this.transport ? null : cpu.devices.pci;
 
     this.device_id = options.device_id;
     this.on_reset = options.on_reset;
@@ -251,10 +279,10 @@ export function VirtIO(cpu, options)
     // How the device signals its interrupt: the PCI function's INTx (the
     // virtio-mmio transport of the virt machine brings its own line,
     // docs/arm64-virt-android16-plan.md P1.8)
-    this.irq_line = options.irq_line || {
+    this.irq_line = options.irq_line || (this.transport ? this.transport.irq_line : {
         raise: () => this.pci.raise_irq(this.pci_id),
         lower: () => this.pci.lower_irq(this.pci_id),
-    };
+    });
 
     // PCI bars gets filled in by capabilities further below, and by the
     // device's own memory BARs (virtio-vga's frame buffer)
@@ -381,16 +409,35 @@ export function VirtIO(cpu, options)
             cap.use_mmio = true;
         }
     }
-    this.init_capabilities(capabilities, options.shared_memory || []);
-    // (the template's BARs that nothing took read as none)
-    for(let bar = 0; bar < 6; bar++)
+    if(this.transport)
     {
-        if(!this.pci_bars[bar]) this.pci_space.fill(0, 0x10 + 4 * bar, 0x14 + 4 * bar);
+        // (another transport maps the same registers its own way)
+        this.transport.attach(this, capabilities, options.shared_memory || []);
     }
+    else
+    {
+        this.init_capabilities(capabilities, options.shared_memory || []);
+        // (the template's BARs that nothing took read as none)
+        for(let bar = 0; bar < 6; bar++)
+        {
+            if(!this.pci_bars[bar]) this.pci_space.fill(0, 0x10 + 4 * bar, 0x14 + 4 * bar);
+        }
 
-    cpu.devices.pci.register_device(this);
+        cpu.devices.pci.register_device(this);
+    }
     this.reset();
 }
+
+/**
+ * Whether the device is on its bus (a PCI function can be unplugged; a
+ * virtio-mmio slot always holds its device): requests are not completed
+ * while it is not
+ * @return {boolean}
+ */
+VirtIO.prototype.present = function()
+{
+    return this.transport ? this.transport.present() : !this.pci.absent[/** @type {number} */ (this.pci_id)];
+};
 
 /**
  * @param {VirtIO_CommonCapabilityOptions} options
@@ -401,7 +448,8 @@ VirtIO.prototype.create_common_capability = function(options)
     return {
         type: VIRTIO_PCI_CAP_COMMON_CFG,
         bar: 0,
-        port: options.initial_port,
+        // (another transport has no ports)
+        port: options.initial_port || 0,
         use_mmio: false,
         offset: 0,
         extra: new Uint8Array(0),
@@ -515,9 +563,11 @@ VirtIO.prototype.create_common_capability = function(options)
                         data &= ~VIRTIO_STATUS_FEATURES_OK;
                     }
 
+                    // (DRIVER_OK newly set: compared with the status before the write)
+                    const before = this.device_status;
                     this.device_status = data;
 
-                    if(data & ~this.device_status & VIRTIO_STATUS_DRIVER_OK)
+                    if(data & ~before & VIRTIO_STATUS_DRIVER_OK)
                     {
                         options.on_driver_ok();
                     }
@@ -731,7 +781,8 @@ VirtIO.prototype.create_notification_capability = function(options)
     return {
         type: VIRTIO_PCI_CAP_NOTIFY_CFG,
         bar: 1,
-        port: options.initial_port,
+        // (another transport has no ports)
+        port: options.initial_port || 0,
         use_mmio: false,
         offset: 0,
         extra: new Uint8Array(
@@ -754,7 +805,8 @@ VirtIO.prototype.create_isr_capability = function(options)
     return {
         type: VIRTIO_PCI_CAP_ISR_CFG,
         bar: 2,
-        port: options.initial_port,
+        // (another transport has no ports)
+        port: options.initial_port || 0,
         use_mmio: false,
         offset: 0,
         extra: new Uint8Array(0),
@@ -787,7 +839,8 @@ VirtIO.prototype.create_device_specific_capability = function(options)
     return {
         type: VIRTIO_PCI_CAP_DEVICE_CFG,
         bar: 3,
-        port: options.initial_port,
+        // (another transport has no ports)
+        port: options.initial_port || 0,
         use_mmio: false,
         offset: 0,
         extra: new Uint8Array(0),
@@ -1154,6 +1207,8 @@ VirtIO.prototype.get_state = function()
     state[7] = this.config_generation;
     state[8] = this.isr_status;
     state[9] = this.queue_select;
+    // (P5.9: the transport, and its own registers)
+    state[10] = this.transport ? [this.transport.kind(), this.transport.get_state()] : ["pci"];
     state = state.concat(this.queues);
 
     return state;
@@ -1171,8 +1226,17 @@ VirtIO.prototype.set_state = function(state)
     this.config_generation = state[7];
     this.isr_status = state[8];
     this.queue_select = state[9];
+    // (snapshots before P5.9: no transport, the queues from 10; virtio-pci)
+    const tagged = Array.isArray(state[10]) && typeof state[10][0] === "string";
+    const kind = tagged ? state[10][0] : "pci";
+    const own = this.transport ? this.transport.kind() : "pci";
+    if(kind !== own)
+    {
+        throw new Error("The snapshot has " + this.name + " on " + kind + ", this machine on " + own);
+    }
+    if(this.transport && tagged) this.transport.set_state(state[10][1]);
     let i = 0;
-    for(const queue of state.slice(10))
+    for(const queue of state.slice(tagged ? 11 : 10))
     {
         this.queues[i].set_state(queue);
         i++;
@@ -1423,7 +1487,7 @@ VirtQueue.prototype.has_request = function()
 {
     if(!this.enabled || this.virtio.device_status & VIRTIO_STATUS_DEVICE_NEEDS_RESET) return false;
     // (off the bus: a hot plug slot that is empty or switched off)
-    if(this.virtio.pci.absent[this.virtio.pci_id]) return false;
+    if(!this.virtio.present()) return false;
     try
     {
         return this.count_requests() !== 0;
@@ -1481,7 +1545,7 @@ VirtQueue.prototype.push_reply = function(bufchain)
  */
 VirtQueue.prototype.flush_replies = function()
 {
-    if(this.virtio.pci.absent[this.virtio.pci_id])
+    if(!this.virtio.present())
     {
         // (off the bus: nothing reaches the driver's rings)
         this.num_staged_replies = 0;

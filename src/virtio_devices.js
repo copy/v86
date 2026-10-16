@@ -672,7 +672,7 @@ VirtioDevice.prototype.read_memory = function(address, length)
 VirtioDevice.prototype.write_memory = function(bytes, address)
 {
     // (off the bus: a hot plug slot that is empty or switched off)
-    if(!bytes.length || this.virtio.pci.absent[this.virtio.pci_id]) return;
+    if(!bytes.length || !this.virtio.present()) return;
     if(!this.is_ram(address, bytes.length))
     {
         throw new RangeError("virtio device " + this.name + ": 0x" + address.toString(16) +

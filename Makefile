@@ -114,7 +114,8 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   virtio_mmio.js virtio_blk.js virtio_rng.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
@@ -1061,30 +1062,35 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/pl011_hello.mjs
 	node tests/a64/dtb.mjs
 	node tests/a64/linux_loader.mjs
-	$(call A64_PENDING,A3 (device reset))
+	node tests/a64/device_io_reset.mjs
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm
 	node tests/api/arm64-options.js
 # (Alpine on the 1-core interpreter: the initramfs stage with the probe, about 40 s)
 a64-guest-quick-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
-# (L: the QEMU reference, then the interpreter's initramfs, single and lifecycle stages)
+# (L: the QEMU reference, then the interpreter's initramfs, single,
+# lifecycle and live stages: the live one from the ISO on virtio-blk to a
+# login, the probe from its disk, virtio-net, -rng and -console, P5)
 a64-guest-tests: build/v86-arm64.wasm
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=single A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=lifecycle A64_CORES=1 node tests/a64/linux_boot.mjs
-	$(call A64_PENDING,A3 (the live stage: virtio, P5))
+	A64_LINUX_QEMU=1 A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
 a64-lifecycle-guest-tests:
 	$(call A64_PENDING,A6)
-# (L: the initramfs stage on 2 and 4 cooperative cores, and its kpti=1 variant on 1, 2 and 4)
+# (L: the initramfs stage on 2 and 4 cooperative cores, its kpti=1 variant
+# on 1, 2 and 4, and the live stage on 2 and 4 against QEMU's)
 a64-multicore-guest-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_CORES=4 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=4 node tests/a64/linux_boot.mjs
-	$(call A64_PENDING,A3 (the live stage on 1, 2 and 4 cores: virtio, P5))
+	for cores in 2 4; do A64_LINUX_QEMU=1 A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	for cores in 2 4; do A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
 # (A4, JIT plan P6.5: random programs on the page tier against the
 # interpreter; the FP fast path's hot multiply-add loop; the ISA, exceptions
 # and MMU oracles with every instruction compiled (A64_JIT=1, threshold 1;
@@ -1103,7 +1109,8 @@ a64-page-tier-tests: build/v86-arm64.wasm
 	A64_JIT=1 node tests/a64/litmus.mjs
 # (L, A4: A2's and A3's Alpine stages with the page tier on 1, 2 and 4
 # cores, kpti=1, the workload with a snapshot in its middle against QEMU's
-# output, kvm-unit-tests at 4k, 16k and 64k, and P6.7's guest JIT workloads
+# output, kvm-unit-tests at 4k, 16k and 64k, the live stage on 1, 2 and 4
+# cores and with snapshots at three of the probe's markers, and P6.7's guest JIT workloads
 # (V8, HotSpot, LuaJIT, PCRE2; their packages: tools/alpine_repo.mjs --arch
 # aarch64 --set jit) against QEMU's output, also with a snapshot in their middle)
 a64-jit-guest-tests: build/v86-arm64.wasm
@@ -1114,6 +1121,8 @@ a64-jit-guest-tests: build/v86-arm64.wasm
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_WORKLOAD=3 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=3 A64_MIDWAY_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_JIT=1 node tests/kvm-unit-tests/arm64.mjs
+	for cores in 1 2 4; do A64_JIT=1 A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	A64_JIT=1 A64_STAGE=live A64_LINUX_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_MIDWAY_SNAPSHOT=1 A64_CORES=1 node tests/a64/linux_boot.mjs

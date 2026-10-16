@@ -21,7 +21,7 @@ const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios
     "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features"];
 
 /** Options of the virt machine that the PC machines reject */
-const VIRT_ONLY = ["kernel", "dtb", "virtio_disks"];
+const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng"];
 
 /** The display adapters of the virt machine (no VGA) */
 const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
@@ -82,7 +82,7 @@ export function check_machine_options(options)
                 VIRT_GRAPHICS_ADAPTERS.map(name => "\"" + name + "\"").join(", "));
         }
         const net = options["net_device"];
-        if(net && net["type"] !== undefined && net["type"] !== "virtio")
+        if(net && net["type"] !== undefined && net["type"] !== "virtio" && net["type"] !== "none")
         {
             throw new Error("net_device type " + JSON.stringify(net["type"]) + " is not on machine_type \"virt\"; it has virtio-net");
         }

@@ -19,6 +19,12 @@
 // --set jit: the guest JIT workloads of docs/arm64-virt-android16-plan.md
 // P6.7 (V8 in nodejs, HotSpot in openjdk21, luajit, pcre2's JIT).
 //
+// --set sys: what `setup-disk -m sys` installs, from the mirror's index
+// alone (mixed with the ISO's older one, apk would pick the mirror's
+// versions, which are not here): alpine-base, the kernel package (the virt
+// ISO has none), the empty firmware set, and setup-disk's own tools
+// (tests/a64/linux_install.mjs, P5.4).
+//
 // The image is build/x64-linux/<set>-repo.tar for x86_64 and
 // build/a64-linux/<set>-repo.tar for aarch64 (the unpacked repository next
 // to it). (Before P6.7 this was tools/alpine_gpu_repo.mjs, x86_64 and gpu only.)
@@ -45,6 +51,8 @@ export const PACKAGES = [
 export const VIRGL_PACKAGES = ["mesa-dri-gallium", "mesa-gbm", "mesa-egl", "mesa-gl", "mesa-gles"];
 /** The guest JIT workloads (P6.7): `node`, `java Hello.java`, `luajit -jon`/`-joff`, `pcre2test -jit` */
 export const JIT_PACKAGES = ["nodejs", "openjdk21-jdk", "luajit", "pcre2-tools"];
+/** setup-disk -m sys from the virt ISO: its kernel and firmware packages */
+export const SYS_PACKAGES = ["alpine-base", "linux-virt", "linux-firmware-none", "e2fsprogs", "sfdisk"];
 /** Where a set's repository and image go */
 export const output_directory = arch => path.join(ROOT, arch === "aarch64" ? "build/a64-linux" : "build/x64-linux");
 
@@ -160,9 +168,9 @@ if(process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import
     const arch = option("--arch", "x86_64");
     const set = option("--set", "gpu");
     if(!["x86_64", "aarch64"].includes(arch)) throw new Error("--arch: x86_64 or aarch64");
-    if(!["gpu", "jit"].includes(set)) throw new Error("--set: gpu or jit");
+    if(!["gpu", "jit", "sys"].includes(set)) throw new Error("--set: gpu, jit or sys");
     const out = path.join(output_directory(arch), set + "-repo");
-    await build_repo("v3.24", out, set === "gpu" ? PACKAGES : JIT_PACKAGES, arch);
+    await build_repo("v3.24", out, { gpu: PACKAGES, jit: JIT_PACKAGES, sys: SYS_PACKAGES }[set], arch);
     if(set === "gpu") await build_repo("v3.23", path.join(out, "v3.23"), VIRGL_PACKAGES, arch);
 
     // A ustar image on the disk (as for tests/x64/linux_boot.mjs's probes):

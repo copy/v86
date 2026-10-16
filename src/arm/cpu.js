@@ -14,7 +14,7 @@ import { v86 } from "../main.js";
 import { MachineClock } from "../machine_clock.js";
 import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
-import { VirtIO } from "../virt/io.js";
+import { VirtDeviceSpace } from "../virt/io.js";
 import {
     A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH,
     VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
@@ -22,6 +22,11 @@ import {
 import { PL011 } from "../virt/pl011.js";
 import { PL031 } from "../virt/pl031.js";
 import { load_linux } from "../virt/loader.js";
+import { VirtioMmio } from "../virtio_mmio.js";
+import { VirtioBlk } from "../virtio_blk.js";
+import { VirtioRng } from "../virtio_rng.js";
+import { VirtioNet } from "../virtio_net.js";
+import { VirtioConsole } from "../virtio_console.js";
 
 /** The devices in a snapshot's state[4], in this order */
 const DEVICE_ORDER = ["pl011", "pl031"];
@@ -64,10 +69,11 @@ export function A64CPU(bus, wm, stop_idling)
 
     /** @type {!Object} */
     this.devices = {};
-    /** (src/main.js: a snapshot waits while a core's device access is in flight; never, with the cores here) */
-    this.snapshot_io_pending = false;
+    // (src/main.js: a snapshot waits while host I/O a device started is in
+    // flight, the virtio disks' reads and writes; src/state_io.js counts it)
+    this["snapshot_io_pending"] = 0;
     /** the device registers (src/virt/io.js) */
-    this.io = new VirtIO(this.wm.exports);
+    this.io = new VirtDeviceSpace(this.wm.exports);
     /** (the A64 page tier, docs/jit-unification-plan.md J2) publications of an older machine are dropped */
     this.execution_epoch = 0;
     this.ir_sync_publication = false;
@@ -189,19 +195,52 @@ A64CPU.prototype.init = function(settings, device_bus)
     };
     this.io.register_mmio(VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_SIZE, empty_bus);
     this.io.register_mmio(VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, empty_bus);
-    // (the virtio-mmio transports come with P5.1; until then each slot reads
-    // as the reference's empty one: "virt", version 2, device ID 0, "QEMU")
-    const empty_slot = {
-        name: "virtio-mmio",
-        read: offset => [0x74726976, 2, 0, 0x554D4551][offset >> 2] ?? 0,
-        write: () => {},
-    };
+    // The virtio-mmio slots (P5.3): a slot without a device reads as the
+    // reference's empty one ("virt", version 2, device ID 0, "QEMU"), which
+    // Linux skips; devices take the slots from the last one down, in the
+    // order of the reference's -device options: the disks, then net, rng,
+    // console (tests/a64/linux_boot.mjs)
+    /** @type {!Array<VirtioMmio>} by slot */
+    this.virtio_mmio = new Array(VIRT_MMIO_COUNT).fill(null);
     /** @type {!Array<number>} the slots' owners (src/virt/io.js) */
     this.virtio_mmio_slots = [];
     for(let n = 0; n < VIRT_MMIO_COUNT; n++)
     {
-        this.virtio_mmio_slots.push(this.io.register_mmio(VIRT_MMIO + n * VIRT_MMIO_SIZE, VIRT_MMIO_SIZE, empty_slot));
+        const slot = n;
+        this.virtio_mmio_slots.push(this.io.register_mmio(VIRT_MMIO + n * VIRT_MMIO_SIZE, VIRT_MMIO_SIZE, {
+            name: "virtio-mmio",
+            read: (offset, width) => this.virtio_mmio[slot] ? this.virtio_mmio[slot].read(offset, width) :
+                width === 4 ? [0x74726976, 2, 0, 0x554D4551][offset >> 2] ?? 0 : 0,
+            write: (offset, width, value) => { this.virtio_mmio[slot]?.write(offset, width, value); },
+        }));
     }
+    /** @type {!Array<{slot: number, name: string, device: !Object}>} in slot order, from the last slot */
+    this.virtio_devices = [];
+    const add = (name, create) =>
+    {
+        const slot = VIRT_MMIO_COUNT - 1 - this.virtio_devices.length;
+        // (SPI 16 + slot, as the reference's)
+        const transport = new VirtioMmio(this, slot, 32 + 16 + slot);
+        this.virtio_mmio[slot] = transport;
+        const device = create(transport);
+        this.virtio_devices.push({ slot, name, device });
+        return device;
+    };
+    // (hda and hdb, given instead, are the first two)
+    const disks = settings.virtio_disks && settings.virtio_disks.length ? settings.virtio_disks :
+        [settings.hda, settings.hdb].filter(Boolean).map(buffer => ({ buffer, id: undefined, readonly: false }));
+    for(const disk of disks)
+    {
+        add("virtio-blk", transport => new VirtioBlk(this, disk.buffer, disk, transport));
+    }
+    if(settings.net_device && settings.net_device.type === "virtio")
+    {
+        // (the PC's devices take a CPU: what they use of it, the ARM CPU has)
+        add("virtio-net", transport => new VirtioNet(/** @type {?} */ (this), device_bus, settings.preserve_mac_from_state_image, settings.net_device.mtu,
+            undefined, transport));
+    }
+    if(settings.virtio_rng) add("virtio-rng", transport => new VirtioRng(this, transport));
+    if(settings.virtio_console) add("virtio-console", transport => new VirtioConsole(/** @type {?} */ (this), device_bus, undefined, transport));
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
     /** @type {Object} what the machine boots, loaded again at a reset */
@@ -306,6 +345,7 @@ A64CPU.prototype.reboot_internal = function(reason)
 {
     if(!this.booted) return;
     for(const device of Object.values(this.devices)) device.reset?.();
+    for(const { device } of this.virtio_devices) device.reset();
     if(this.boot_files)
     {
         const { entry, x0 } = load_linux(this, this.boot_files);
@@ -393,6 +433,44 @@ A64CPU.prototype.write_blob_physical = function(blob, address)
     this.wm.exports["a64_bus_written"](offset, blob.length);
 };
 
+/** @throws {RangeError} unless [address, address + length) is all RAM (VirtQueue) */
+A64CPU.prototype.validate_physical_range = function(address, length)
+{
+    if(length && this.dma_classify(address, length) < 0)
+    {
+        throw new RangeError("[0x" + address.toString(16) + ", +" + length + ") is not RAM");
+    }
+};
+
+/** The guest-memory offset of a scalar's RAM, or a RangeError (devices' DMA) */
+A64CPU.prototype.scalar_offset = function(address, bytes)
+{
+    const offset = this.dma_classify(address, bytes);
+    if(offset < 0) throw new RangeError("0x" + address.toString(16) + " is not RAM");
+    return offset;
+};
+A64CPU.prototype.read8_physical = function(address) { return this.mem8[this.scalar_offset(address, 1)]; };
+A64CPU.prototype.read16_physical = function(address)
+{
+    const o = this.scalar_offset(address, 2);
+    return this.mem8[o] | this.mem8[o + 1] << 8;
+};
+A64CPU.prototype.read32_physical = function(address)
+{
+    const o = this.scalar_offset(address, 4);
+    return (this.mem8[o] | this.mem8[o + 1] << 8 | this.mem8[o + 2] << 16 | this.mem8[o + 3] << 24) >>> 0;
+};
+/** A scalar's bytes at `address`: code compiled from them retires, other cores' reservations clear */
+A64CPU.prototype.write_scalar_physical = function(address, value, bytes)
+{
+    const o = this.scalar_offset(address, bytes);
+    for(let i = 0; i < bytes; i++) this.mem8[o + i] = value >>> 8 * i & 0xFF;
+    this.wm.exports["a64_bus_written"](o, bytes);
+};
+A64CPU.prototype.write8_physical = function(address, value) { this.write_scalar_physical(address, value, 1); };
+A64CPU.prototype.write16_physical = function(address, value) { this.write_scalar_physical(address, value, 2); };
+A64CPU.prototype.write32_physical = function(address, value) { this.write_scalar_physical(address, value, 4); };
+
 A64CPU.prototype.clear_extended_memory = function()
 {
 };
@@ -459,6 +537,8 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[5] = this.machine_state_bytes(0).slice();
     state[6] = this.machine_state_bytes(1).slice();
     state[7] = [this.booted, this.boot_entry || 0, this.boot_x0 || 0];
+    // the virtio devices (P5.9): slot, kind, state
+    state[8] = this.virtio_devices.map(({ slot, name, device }) => [slot, name, device]);
     // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
     state[95] = this.clock.get_state();
     if(skip_memory)
@@ -511,6 +591,15 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
     if(state[5]) this.machine_state_bytes(0).set(state[5]);
     if(state[6]) { this.machine_state_bytes(1).set(state[6]); this.wm.exports["a64_psci_restored"](); }
     if(state[7]) [this.booted, this.boot_entry, this.boot_x0] = state[7];
+    // (the same devices in the same slots, or the snapshot is refused)
+    const devices = state[8] || [];
+    const layout = list => list.map(([slot, name]) => slot + ":" + name).join(",");
+    const own = layout(this.virtio_devices.map(({ slot, name }) => [slot, name]));
+    if(layout(devices) !== own)
+    {
+        throw new Error("The snapshot has the virtio devices [" + layout(devices) + "], this machine [" + own + "]");
+    }
+    devices.forEach(([, , device_state], i) => this.virtio_devices[i].device.set_state(device_state));
     this.wm.exports["a64_restored"]();
     if(!skip_memory && state[77])
     {

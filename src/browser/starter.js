@@ -508,7 +508,13 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "virtio" : "ne2k" };
+    // (the virt machine: only when asked for, since its virtio devices take
+    // the virtio-mmio slots in order, as the reference's -device options do)
+    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "none" : "ne2k" };
+    // the virt machine's virtio-blk disks (P5.4) and virtio-rng (P5.5)
+    // (src/machine_options.js refuses them on the PC machines)
+    if(options.virtio_disks) settings.virtio_disks = [];
+    if(options.virtio_rng) settings.virtio_rng = true;
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -693,6 +699,14 @@ V86.prototype.continue_init = async function(emulator, options)
     // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
     {
+        // (virtio_disks[i]: "virtio_disk" + i)
+        if(name.startsWith("virtio_disk"))
+        {
+            const i = +name.slice("virtio_disk".length);
+            const disk = options.virtio_disks[i];
+            settings.virtio_disks[i] = { buffer, id: disk.id, readonly: !!disk.readonly };
+            return;
+        }
         switch(name)
         {
             case "hda":
@@ -813,6 +827,14 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("initrd", options.initrd);
     add_file("kernel", options.kernel);
     add_file("dtb", options.dtb);
+    // the virt machine's virtio-blk disks: {url or buffer, async, size, id,
+    // readonly}; the buffer an ArrayBuffer, a File, or a buffer object of
+    // its own (get, set, load), as hda may be
+    (options.virtio_disks || []).forEach((disk, i) =>
+    {
+        const own = disk.buffer && disk.buffer.get && disk.buffer.set && disk.buffer.load;
+        add_file("virtio_disk" + i, own ? disk.buffer : disk);
+    });
 
     if(options.filesystem && options.filesystem.handle9p)
     {
