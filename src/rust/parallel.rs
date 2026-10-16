@@ -612,6 +612,51 @@ pub unsafe fn or64(p: *mut u8, bits: u64) {
     store64(p, load64(p) | bits)
 }
 
+/// Add to a machine-shared word: its previous value (a ring's next
+/// sequence number, the ARM core's TLB maintenance, P8.3)
+#[inline(always)]
+pub unsafe fn fetch_add32(p: *mut u32, value: u32) -> u32 {
+    #[cfg(feature = "parallel")]
+    {
+        (*(p as *const AtomicU32)).fetch_add(value, SeqCst)
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        let previous = *p;
+        *p = previous.wrapping_add(value);
+        previous
+    }
+}
+
+/// The larger of a machine-shared doubleword and `value`, which it becomes
+/// (the ARM core's system counter, P8.2)
+#[inline(always)]
+pub unsafe fn max64(p: *mut u64, value: u64) -> u64 {
+    #[cfg(feature = "parallel")]
+    {
+        let previous = (*(p as *const AtomicU64)).fetch_max(value, SeqCst);
+        previous.max(value)
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        *p = (*p).max(value);
+        *p
+    }
+}
+
+/// Swap a machine-shared doubleword (device memory's marks, P8.2)
+#[inline(always)]
+pub unsafe fn swap64(p: *mut u64, value: u64) -> u64 {
+    #[cfg(feature = "parallel")]
+    {
+        (*(p as *const AtomicU64)).swap(value, SeqCst)
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        std::mem::replace(&mut *p, value)
+    }
+}
+
 /// Atomic bit operations on machine-shared words (APIC registers)
 #[inline(always)]
 pub unsafe fn word_or(p: *mut u32, bits: u32) {
@@ -942,6 +987,10 @@ pub mod code {
     }
     pub unsafe fn set_idle(core: usize, idle: bool) {
         word_store(machine(&raw mut IDLE).cast::<u32>().add(core), idle as u32);
+    }
+    /// Whether `core` waits (halted, parked, not started): it polls before it runs again
+    pub unsafe fn is_idle(core: usize) -> bool {
+        word_load(machine(&raw mut IDLE).cast::<u32>().add(core)) != 0
     }
 
     /// Take other cores' publications and invalidations: at safe points

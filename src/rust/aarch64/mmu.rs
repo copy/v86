@@ -30,13 +30,13 @@ static mut GRANULES: u32 = 1;
 /// (the test profile v1.1: 16 and 64 KiB granules too, P3.4)
 #[no_mangle]
 pub fn a64_set_granules(mask: u32) {
-    unsafe { GRANULES = mask & 7 | 1 };
+    unsafe { *crate::parallel::machine(&raw mut GRANULES) = mask & 7 | 1 };
     tlb::flush(true);
 }
 
 /// ID_AA64MMFR0_EL1's TGran16 and TGran64 fields for the profile
 pub fn mmfr0_granules() -> u64 {
-    let g = unsafe { GRANULES };
+    let g = unsafe { *crate::parallel::machine(&raw mut GRANULES) };
     let tgran16 = if g & 2 != 0 { 1 } else { 0 };
     let tgran64 = if g & 4 != 0 { 0 } else { 0xF };
     tgran16 << 20 | tgran64 << 24
@@ -60,7 +60,7 @@ fn granule_of(select: u64) -> u32 {
             _ => 12,
         }
     };
-    let supported = unsafe { GRANULES }
+    let supported = unsafe { *crate::parallel::machine(&raw mut GRANULES) }
         & match log {
             12 => 1,
             14 => 2,

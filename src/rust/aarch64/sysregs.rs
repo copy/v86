@@ -310,15 +310,21 @@ pub fn sys(op: u32, rt: u32) -> Result<(), Exception> {
     };
     let value = cpu::xr(rt);
     match (op1, crn, crm, op2) {
-        // instruction cache: v86 needs none of it (code retires on writes)
+        // instruction cache: v86 needs none of it (code retires on writes);
+        // with cores in workers the inner shareable ones make the next DSB
+        // wait until the others took the code invalidations (P8.3)
         (0, 7, 1, 0) | (0, 7, 5, 0) => {
             if el == 0 {
                 return Err(Exception::Undefined);
+            }
+            if crm == 1 {
+                crate::aarch64::tlb::post_code();
             }
         },
         (3, 7, 5, 1) => {
             trap(cpu::sctlr() & SCTLR_UCI != 0)?;
             crate::aarch64::mmu::check_cache_maintenance(value)?;
+            crate::aarch64::tlb::post_code();
         },
         // data cache by VA: checked as a read (a translation or permission fault), no effect
         (0, 7, 6, 1) => {

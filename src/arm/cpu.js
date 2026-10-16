@@ -33,6 +33,8 @@ import { VirtioConsole } from "../virtio_console.js";
 import { VirtioInput } from "../virtio_input.js";
 import { DisplayHub } from "../display.js";
 import { GraphicsAdapter, graphics_adapter_of_state } from "../graphics_adapter.js";
+import { ParallelMachine } from "../parallel/machine.js";
+import { COMMAND_RELOAD, COMMAND_RESET } from "../parallel/control.js";
 
 /** The devices in a snapshot's state[4], in this order */
 const DEVICE_ORDER = ["pl011", "pl031"];
@@ -485,6 +487,13 @@ A64CPU.prototype.update_windows = function()
  */
 A64CPU.prototype.run_cores = function()
 {
+    if(this.parallel) return this.run_parallel();
+    return this.run_machine_core();
+};
+
+/** One slice of the cores this instance runs (all, or with cores in workers core 0): milliseconds until it needs to run again */
+A64CPU.prototype.run_machine_core = function()
+{
     const run = this.wm.exports["a64_run_slice"];
     if(!run || !this.booted) return 100;
     this.in_cpu = true;
@@ -500,6 +509,67 @@ A64CPU.prototype.run_cores = function()
     {
         this.in_cpu = false;
     }
+};
+
+// ---- cores in vCPU workers (P8.2: src/parallel/machine.js, src/parallel/vcpu_arm.js)
+
+/**
+ * Cores 1 and up run in vCPU workers; this thread runs core 0 and the
+ * devices, serves the workers' device accesses and stops them at safe
+ * points for snapshots, resets and pauses
+ * @param {{bytes: Uint8Array, settings: Object, worker_url: (string|URL)}} options
+ */
+A64CPU.prototype.start_parallel = async function(options)
+{
+    dbg_assert(this.cores > 1);
+    this.parallel = new ParallelMachine(this, options);
+    await this.parallel.start();
+};
+
+/** @return {number} milliseconds until the machine needs to run again */
+A64CPU.prototype.run_parallel = function()
+{
+    const machine = this.parallel, exports = this.wm.exports;
+    // (a failed vCPU stops the machine: v86.prototype.do_tick)
+    if(machine.check_failure()) return 0;
+    machine.service();
+    if(machine.pending_reset)
+    {
+        machine.request_stop();
+        if(!machine.all_parked()) return 0;
+        const { reason } = machine.pending_reset;
+        machine.pending_reset = null;
+        this.reboot_internal(reason);
+        return 0;
+    }
+    if(machine.stopping()) machine.resume();
+    // (core 0 takes the other cores' code writes and TLB maintenance; while it
+    // waits it counts as idle, crate::parallel::code, crate::aarch64::tlb)
+    exports["parallel_idle"](false);
+    const t = this.run_machine_core();
+    machine.service();
+    if(t > 0) exports["parallel_idle"](true);
+    return t;
+};
+
+/** (src/main.js) the parked workers' cores are read where they are (save_core_state) */
+A64CPU.prototype.parallel_capture = function()
+{
+    dbg_assert(this.parallel.all_parked());
+};
+
+/** (src/main.js) after a restore into the workers' state blocks: they drop what derived from the old state */
+A64CPU.prototype.parallel_install = function()
+{
+    dbg_assert(this.parallel.all_parked());
+    this.parallel.schedule(COMMAND_RELOAD);
+};
+
+/** The state block of core `core`: the running core's, or with cores in workers a worker's (parked) */
+A64CPU.prototype.state_block_of = function(core)
+{
+    const base = this.parallel && core !== 0 ? this.parallel.state_base(core) : this.state_base;
+    return new Uint8Array(this.wasm_memory.buffer, base, 4096);
 };
 
 /** (env.run_hardware_timers) the virt machine's device timers (the PL031's alarm, the display's); the cores' timers are their own */
@@ -564,6 +634,14 @@ A64CPU.prototype.powered_off = function()
 A64CPU.prototype.reboot_internal = function(reason)
 {
     if(!this.booted) return;
+    // (cores in workers: they stop first, run_parallel resets then, and they wait for CPU_ON again)
+    if(this.parallel && !this.parallel.all_parked())
+    {
+        this.parallel.pending_reset = { reason };
+        this.parallel.request_stop();
+        return;
+    }
+    if(this.parallel) this.parallel.schedule(COMMAND_RESET);
     if(reason === "power-on")
     {
         // (after PSCI SYSTEM_OFF, P8.1: RAM and device memory do not keep their contents)
@@ -833,9 +911,10 @@ A64CPU.prototype.flush_extended_memory = function()
 // ---- snapshots (P1.9): ["virt", VIRT_LAYOUT_VERSION, profile] in state[103]
 
 /** The ARM core's state block of the current core, its per-core ranges */
-A64CPU.prototype.save_core_state = function()
+/** @param {number=} core with cores in workers, a parked worker's core */
+A64CPU.prototype.save_core_state = function(core = 0)
 {
-    const block = new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
+    const block = this.parallel ? this.state_block_of(core) : new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
     const saved = new Uint8Array(CORE_STATE_RANGES.reduce((n, [a, b]) => n + b - a, 0));
     let at = 0;
     for(const [a, b] of CORE_STATE_RANGES)
@@ -846,9 +925,10 @@ A64CPU.prototype.save_core_state = function()
     return saved;
 };
 
-A64CPU.prototype.load_core_state = function(saved)
+/** @param {!Uint8Array} saved @param {number=} core with cores in workers, a parked worker's core */
+A64CPU.prototype.load_core_state = function(saved, core = 0)
 {
-    const block = new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
+    const block = this.parallel ? this.state_block_of(core) : new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
     let at = 0;
     for(const [a, b] of CORE_STATE_RANGES)
     {
@@ -867,6 +947,16 @@ A64CPU.prototype.load_core_state = function(saved)
 A64CPU.prototype.each_core = function(f, only)
 {
     const exports = this.wm.exports;
+    // (cores in workers: each core's state is in its own block, state_block_of)
+    if(this.parallel)
+    {
+        const results = [];
+        for(let core = 0; core < this.cores; core++)
+        {
+            if(only === undefined || core === only) results.push(f(core));
+        }
+        return results;
+    }
     const running = exports["a64_current_core"]();
     const results = [];
     for(let core = 0; core < this.cores; core++)
@@ -885,7 +975,7 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[0] = this.memory_size[0];
     state[1] = this.cores;
     // (every core's state block, P3.9: each switched in for a moment; then the running one again)
-    state[2] = this.each_core(() => this.save_core_state());
+    state[2] = this.each_core(core => this.save_core_state(core));
     state[3] = this.wm.exports["a64_current_core"]();
     // the machine (P3.10): the devices, the GIC and the cores' power states (bytes of the core), the boot
     state[4] = DEVICE_ORDER.map(name => this.devices[name] ? this.devices[name].get_state() : null);
@@ -969,8 +1059,8 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
     if(state[95]) this.clock.set_state(state[95]);
-    state[2].forEach((saved, core) => this.each_core(() => this.load_core_state(saved), core));
-    this.wm.exports["a64_switch_core"](state[3] || 0);
+    state[2].forEach((saved, core) => this.each_core(() => this.load_core_state(saved, core), core));
+    if(!this.parallel) this.wm.exports["a64_switch_core"](state[3] || 0);
     (state[4] || []).forEach((device_state, i) => { if(device_state && this.devices[DEVICE_ORDER[i]]) this.devices[DEVICE_ORDER[i]].set_state(device_state); });
     if(state[5]) this.machine_state_bytes(0).set(state[5]);
     if(state[6]) { this.machine_state_bytes(1).set(state[6]); this.wm.exports["a64_psci_restored"](); }
@@ -1049,26 +1139,41 @@ A64CPU.prototype.get_diagnostics = function()
     const power = ["on", "off", "on-pending"];
     const psci = this.machine_state_bytes(1);
     const cores = this.each_core(core => {
-        const word = offset => new Int32Array(this.wasm_memory.buffer, this.state_base + offset, 1)[0];
+        const block = this.parallel ? this.state_block_of(core) : new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
+        const word = offset => new Int32Array(block.buffer, block.byteOffset + offset, 1)[0];
         const waiting = word(STATE_OFFSETS.waiting);
+        const worker = this.parallel && core !== 0;
         return {
-            "pc": this.read_pc(),
+            "pc": worker ? "0x" + (new BigUint64Array(block.buffer, block.byteOffset + STATE_OFFSETS.pc, 1)[0]).toString(16) : this.read_pc(),
             "state": power[psci[core]] === "on" ? ["runnable", "wfi", "wfe", "off"][waiting] : power[psci[core]],
             "el": word(STATE_OFFSETS.pstate) >> 2 & 3,
-            "retired_instructions": exports["core_statistics_get"] ? exports["core_statistics_get"](core, 0) : 0,
-            "halt_count": exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
+            "retired_instructions": this.retired_instructions(core),
+            "halt_count": worker ? this.parallel.core_counters(core).waits :
+                exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
         };
     });
     return {
         "cpu_type": "arm64",
         "machine_type": "virt",
         "active_core": exports["a64_current_core"](),
+        "parallel": this.parallel ? Object.assign(this.parallel.status(), { "machine_core": {
+            "tlbi_posted": exports["a64_tlb_ring_stat"](0), "dsb_waits": exports["a64_tlb_ring_stat"](1),
+            "tlbi_taken": exports["a64_tlb_ring_stat"](2), "kicked": exports["a64_kicked"]() } }) : null,
+        "execution": { "mode": this.parallel ? "parallel" : "cooperative", "fallback": this.parallel_fallback || null },
         "cores": cores,
         "pc": this.read_pc(),
         "retired": exports["core_statistics_get"] ? exports["core_statistics_get"](0, 0) : 0,
         "undefined": this.undefined_instructions(),
         "page_tier": this.page_tier_stats(),
     };
+};
+
+/** The instructions core `core` retired (with cores in workers, as its worker counts them) */
+A64CPU.prototype.retired_instructions = function(core)
+{
+    if(this.parallel && core !== 0) return this.parallel.core_retired(core);
+    const get = this.wm.exports["core_statistics_get"];
+    return get ? get(core, 0) : 0;
 };
 
 /** The A64 page tier's counters (src/rust/aarch64/jit/pages.rs), or null without it */

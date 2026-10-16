@@ -159,9 +159,11 @@ pub struct AccessAbi {
     pub entries: u32,
     /// The runtime's lookup on a miss: (address: i64, kind: i32) -> host
     /// (i32), 0 when refused; kind: the size, bit 8 a write, bit 9 a write
-    /// whose code takes an unaligned host
+    /// whose code takes an unaligned host, bit 10 the second bounce slot
     pub slow: &'static str,
-    /// (cores in workers) the buffer unaligned reads are copied to
+    /// (cores in workers) the buffer unaligned reads are copied to: 32
+    /// bytes, or with kind bit 10 the next 32 (an access whose first
+    /// lookup's copy must survive a second, the ARM core's pairs)
     pub bounce: u32,
 }
 
@@ -191,8 +193,8 @@ pub fn lookup_function(b: &mut WasmBuilder, abi: &AccessAbi) -> u32 {
         abi.slow,
         Signature::new(&[WasmType::I64, WasmType::I32], &[WasmType::I32]),
     );
-    // locals: tag (i64), entry, offset, host (i32)
-    let mut c: Vec<u8> = vec![2, 1, op::TYPE_I64, 3, op::TYPE_I32];
+    // locals: tag (i64), entry, offset, host, the bounce slot (i32)
+    let mut c: Vec<u8> = vec![2, 1, op::TYPE_I64, 4, op::TYPE_I32];
     let i32c = |c: &mut Vec<u8>, v: i32| {
         c.push(op::OP_I32CONST);
         write_leb_i32(c, v);
@@ -283,11 +285,18 @@ pub fn lookup_function(b: &mut WasmBuilder, abi: &AccessAbi) -> u32 {
         write_leb_u32(&mut c, slow);
         c.push(op::OP_END);
         c.push(op::OP_ELSE);
-        let bounce = abi.bounce as i32;
+        // (the slot: bounce, or with kind bit 10 bounce + 32; local 6)
+        i32c(&mut c, abi.bounce as i32);
+        c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
+        i32c(&mut c, 5);
+        c.push(op::OP_I32SHRU);
+        i32c(&mut c, 32);
+        c.push(op::OP_I32AND);
+        c.extend_from_slice(&[op::OP_I32ADD, op::OP_SETLOCAL, 6]);
         // (sizes 2, 4, 8, 16, 32: the first 8 bytes or fewer, then the
         // rest; 32: a VEX.256 load's)
         let copy = |c: &mut Vec<u8>, load: u8, store: u8, align: u8, offset: u32| {
-            i32c(c, bounce);
+            c.extend_from_slice(&[op::OP_GETLOCAL, 6]);
             c.extend_from_slice(&[op::OP_GETLOCAL, 5, load, 0]);
             write_leb_u32(c, offset);
             c.extend_from_slice(&[store, align]);
@@ -324,7 +333,7 @@ pub fn lookup_function(b: &mut WasmBuilder, abi: &AccessAbi) -> u32 {
         copy(&mut c, op::OP_I64LOAD, op::OP_I64STORE, 3, 24);
         c.extend_from_slice(&[op::OP_END, op::OP_END, op::OP_END]);
         c.extend_from_slice(&[0xFE, 0x03, 0x00]); // atomic.fence
-        i32c(&mut c, bounce);
+        c.extend_from_slice(&[op::OP_GETLOCAL, 6]);
         c.extend_from_slice(&[op::OP_END, op::OP_ELSE, op::OP_GETLOCAL, 5, op::OP_END]);
     }
     c.extend_from_slice(&[

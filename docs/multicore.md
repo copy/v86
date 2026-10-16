@@ -9,6 +9,10 @@ cores share memory coherently. The emulator can run the cores in two ways:
 - **parallel**: the application processors (APs) run at the same time, each in
   its own vCPU Worker.
 
+This document is about the x86 cores. The arm64 core (`cpu_type: "arm64"`)
+runs its cores the same two ways, with `build/v86-arm64-parallel.wasm` and
+PSCI's CPU_ON instead of INIT/SIPI: see [aarch64.md](aarch64.md#cores-in-workers).
+
 | | |
 | --- | --- |
 | Options | `cpu_cores: N` together with `acpi: true`; `experimental_smp_jit: true` to compile code on more than one core; internal option `parallel: "auto"` |

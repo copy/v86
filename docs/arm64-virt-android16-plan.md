@@ -1788,3 +1788,50 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   所有者在桌面 Chrome 上的手动运行留到 A6 结束。
 - 新的 make 目标：`a64-lifecycle-guest-tests`、`a64-extended-guest-tests`、`a64-browser-tests`；`a64-virt-device-tests`
   加上 `tests/a64/extended_memory.mjs`。
+
+### A6 中 P8.2–P8.4 的部分（2026-10-16；并行 Worker）
+
+提交：与本节同一个提交。
+
+- P8.2：`build/v86-arm64-parallel.wasm`（`--features "aarch64 parallel"`、`+atomics`，`CARGO_TARGET_DIR=build/arm64-parallel`，
+  `tools/parallel_wasm.mjs` 不用改）；`parallel: true`（或 `"auto"`）时核心 1 起在 vCPU Worker 里（`src/parallel/vcpu_arm.js`，
+  由 `vcpu.js` 的入口按 `cpu_type` 分派，打进 `build/vcpu-worker.js`），核心 0 与设备在机器线程上。实现与计划的写法不同：
+  - 机器状态经 `parallel::machine()`：GIC（一把可重入锁，`SIGNAL` 改为访问函数，其他核心的信号变化时 kick 它）、PSCI 的电源
+    状态与 CPU_ON 的入口（CPU_ON 先写入口再置 ON_PENDING，然后 kick 目标核心；SYSTEM_OFF/RESET 的请求 kick 核心 0）、事件与
+    全局监视器（机器字上的原子操作）、地址空间（Worker 持有副本，机器改映射时在 MAP_SEQ 下进行，Worker 发现序号变了就重新
+    复制；设备内存的脏页位是机器的字）、extended RAM（本来就是）。计划写的"STATUS_WAIT_SIPI 改为断电状态"用 PSCI 的电源
+    状态本身表达：Worker 在核心 OFF 时等待，ON_PENDING 时从 START 复位并运行（`a64_worker_slice`）。
+  - Worker 访问设备寄存器经控制块的请求 `OP_A64_MMIO_READ`/`OP_A64_MMIO_WRITE`（IO_ADDR 为 owner 加宽度，偏移与值各 64 位，
+    结果高半在 `IO_RESULT_HI`）；计划写的 MMIO_READ16/READ64 不需要。被 kick 的机器核心立即回到 JS 的循环去服务请求
+    （否则每个 UART 字节要等到它的时间片结束，次核心启动时每个约 70 ms）。
+  - 快照：机器把 Worker 停在安全点后直接读写各 Worker 的状态块（`A64CPU.state_block_of`），恢复后下发 COMMAND_RELOAD；复位
+    （SYSTEM_RESET、上电）先停住所有 Worker，再复位，下发 COMMAND_RESET。
+  - page tier：每个实例各自编译；安装前等其他核心确认发布（`parallel::code`，与 x86 相同），并再比较源页的哈希。
+- P8.3：
+  - TLBI 的 IS 形式与 IC IVAU、IC IALLUIS：在本核心立即生效，并写进机器内存里的环（`tlb::post`）；本核心下一个 DSB 要等到
+    其他每个核心都取走了环（`tlb::synced`；空闲的核心算作已确认，它恢复运行前会先取），等待时 DSB 不退役（`Flow::Retry`），
+    Worker 在原地等待并同时处理别人的环，机器核心回到 JS 服务请求后重试。一批里 IC 只写一次，页条目超过 32 个后用一次全刷新
+    代替其余；DSB 只 kick 落后的核心一次。
+  - 内存模型：并行构建里解释器与 page tier 的客体访问都是顺序一致的 Wasm 原子操作（page tier 的不对齐访问由框架退回解释器；
+    不对齐的读经 bounce 缓冲区复制，ARM 的 pair 两个元素用两个槽：`frame.rs` 的 kind 第 10 位，x86 不用），DMB、ISB 是 fence，
+    并行时 DSB 是单步。修好的一个错误：pair 的两个元素都不对齐时原来共用同一个 bounce 缓冲区，第二个元素的复制覆盖了第一个
+    （`page_fuzz.mjs` 在并行构建上 15/40 个程序不同，修后 0/120）。
+  - 独占监视器：保留全局监视器（解释器的写入清除别的核心的保留并发事件），STXR 另外比较 LDXR 读到的值（同 QEMU）：在 RAM
+    与设备内存上用原子比较交换，extended RAM 上在引擎的锁内比较；另一个 Worker 里编译的存储不清除保留，写回相同值时 STXR
+    成功——作为声明的偏差写进 docs/aarch64.md，probe 的 `parallel` 参数与 litmus 的并行模式只报告 ABA 那一行。
+  - WFE/SEV：事件是机器字，SEV 与清除保留 kick 目标核心，Worker 等待用 Atomics.wait；并行时一个 WFE 最多等 20 µs（编译的
+    存储不发事件，Linux 的锁等待在 secondary 启动早期还没有事件流时会一直等）。
+  - CNTVCT：各 Worker 读自己的宿主时钟，机器内存里的最大值保证计数器跨核心不回退（恢复快照与启动时清零）。
+- P8.4：`tests/a64/litmus.mjs` 加 `LITMUS_MODES`（cooperative、cooperative-jit、parallel、parallel-jit）；`make a64-parallel-tests`：
+  四种模式 × 2/4/8 核 × 20000 轮全部通过（禁止的结果 0 次，独占计数精确，TLBI VAE1IS 后没有陈旧的翻译，SGI 环与 WFE/SEV 环
+  走完）；并行构建上的 `page_fuzz.mjs` 3 个种子 0 差异。
+  60 分钟 soak 见后面的记录。
+- Alpine（`A64_PARALLEL=1`，`make a64-parallel-guest-tests`）全部通过：initramfs 阶解释器 2/4 核（到 probe 结束 29.8/29.0 s，
+  ABA 一行在解释器下仍失败，因为写入走解释器）、page tier 2/4 核（7.3/9.5 s）；live 阶 page tier 4 核在 mmio 与 pci 上到 login
+  50.1/51.6 s，三个标记处的 V7 与 V6 快照都恢复进新的并行机器；lifecycle 阶（单用户模式下快照恢复、reboot、poweroff）；
+  s2idle 与 hibernate（关机 4.7 s、恢复后 MD5 与在线 CPU 正确）；四个工作负载同时运行 14.8 s。
+- 速度（release，page tier，4 核）：initramfs 阶到 probe 结束 9.3 s（协作式 6.4 s：启动主要是核心 0 的工作，并行构建本身在
+  单核上约慢 15%）；四个工作负载同时运行（`A64_WORKLOAD=smp4`）14.5 s（协作式 23.0 s，1.59 倍）。主要的剩余开销是每个客体
+  访问都是 SeqCst 原子操作，以及 DSB 等待其他核心的确认。
+- x86 的回归：`make multicore-parallel-tests`（litmus 四种模式、lifecycle、Linux 启动、OS stress、ACPI）通过；`frame.rs`
+  的改动只在并行构建里生成不同的代码（x86 不设 kind 第 10 位）。

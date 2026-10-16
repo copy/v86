@@ -33,7 +33,9 @@
  * DC ZVA. Then the probe goes on.
  *
  * "ref=qemu": the reference run on QEMU's cortex-a35 (which has AArch32 and
- * whose STXR compares values): excl_aba and aarch32 are only reported. */
+ * whose STXR compares values): excl_aba and aarch32 are only reported.
+ * "parallel": v86 with its cores in workers, whose STXR compares values too
+ * (the deviation docs/aarch64.md declares): excl_aba is only reported. */
 typedef long word;
 typedef unsigned long uword;
 enum { SYS_getcwd = 17, SYS_ioctl = 29, SYS_unlinkat = 35, SYS_ftruncate = 46, SYS_openat = 56, SYS_close = 57,
@@ -189,7 +191,7 @@ static const char *argument(const char *prefix)
         if(starts((const char *)initial_stack[1 + i], prefix)) return (const char *)initial_stack[1 + i] + length(prefix);
     return 0;
 }
-static int reference;
+static int reference, value_compare;
 
 /* --- the multicore matrix (A64_PROBE_XC) --- */
 #define MIGRATIONS 24
@@ -679,7 +681,8 @@ static void matrix(int disk)
     if(dual != SMC_ROUNDS) die("dual-mapped code");
 
     exclusive_aba();
-    if(!reference && aba_failures != ABA_ROUNDS) die("exclusive ABA: a store-exclusive succeeded after another CPU's write");
+    if(!reference && !value_compare && aba_failures != ABA_ROUNDS)
+        die("exclusive ABA: a store-exclusive succeeded after another CPU's write");
     futex_pingpong();
     find_vdso();
     if(!clocks_monotonic()) die("clock went back across CPUs");
@@ -745,6 +748,7 @@ void entry(word *stack)
 {
     initial_stack = stack;
     reference = argument("ref=qemu") != 0;
+    value_compare = argument("parallel") != 0;
     int disk = !argument("nodisk");
     out("A64_PROBE_START arch=aarch64\n");
     page_size = auxv(6 /* AT_PAGESZ */);

@@ -207,14 +207,9 @@ export function V86(options)
     this.parallel_forced = parallel_option === true;
     this.parallel_requested = false;
     this.parallel_fallback = "not requested";
-    if(this.cpu_type === "arm64" && parallel_option === true)
-    {
-        throw new Error("parallel: true is not supported with cpu_type \"arm64\" yet (docs/arm64-virt-android16-plan.md P8.2)");
-    }
     if(parallel_option === true || parallel_option === "auto")
     {
-        const reason = this.cpu_type === "arm64" ? "arm64: cores in workers come with P8.2" :
-            (options.cpu_cores || 1) <= 1 ? "one core" :
+        const reason = (options.cpu_cores || 1) <= 1 ? "one core" :
             options.cpu_clock && options.cpu_clock["mode"] === "deterministic" ? "deterministic clock" :
             parallel_unsupported_reason(options.cpu_cores);
         if(!reason || this.parallel_forced) this.parallel_requested = true;
@@ -298,7 +293,7 @@ export function V86(options)
                 if(this.parallel_requested)
                 {
                     if(!this.parallel_forced) v86_bin_fallback = v86_bin;
-                    v86_bin = "v86-parallel.wasm";
+                    v86_bin = arm ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm";
                 }
 
                 // (tests: V86_WASM selects another build, e.g. build/v86-parallel.wasm)

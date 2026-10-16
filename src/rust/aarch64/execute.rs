@@ -50,6 +50,9 @@ pub enum Flow {
     Off,
     /// YIELD: the next instruction, and the other cores may run first
     Yield,
+    /// The instruction waits for other cores (a DSB for their TLB maintenance,
+    /// P8.3): the PC stays, the core gives up its turn
+    Retry,
 }
 
 #[inline(always)]
@@ -467,6 +470,11 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
         },
         Op::Barrier => {
             crate::parallel::full_fence();
+            // (DSB: with cores in workers, the TLB maintenance and IC this
+            // core posted are done on the others first, P8.3)
+            if i.sub == 0 && !crate::aarch64::tlb::synced() {
+                return Ok(Flow::Retry);
+            }
             Ok(Flow::Next)
         },
         Op::MsrImm => {
@@ -1076,9 +1084,34 @@ fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
     // a device's write to the granule cleared it)
     let success = unsafe { *excl_valid != 0 && *excl_addr == pa & GRANULE }
         && monitor_key(pa).map_or(true, crate::aarch64::smp::reserved);
+    let loaded = unsafe { *excl_value };
     unsafe { *excl_valid = 0 };
     crate::aarch64::smp::release();
     unsafe { SPIN[crate::isa::current_core()].0 = 0 };
+    if success && crate::parallel::active() {
+        // (cores in workers, P8.3: the store commits only if memory still
+        // holds what the load-exclusive read, as QEMU does: another core's
+        // compiled store does not clear the reservation, and a value written
+        // back passes, the deviation docs/aarch64.md declares)
+        if i.sub & 4 != 0 {
+            crate::parallel::full_fence();
+        }
+        let (expected, value) = if total <= 8 {
+            let low = loaded as u64;
+            let high = (loaded >> 64) as u64;
+            let expected =
+                if pair && element_log == 2 { low & 0xFFFF_FFFF | high << 32 } else { low };
+            (expected as u128, stores.2 as u128)
+        }
+        else {
+            (loaded, stores.2 as u128 | (stores.3 as u128) << 64)
+        };
+        let stored = store_compared(
+            pa, total, expected, value, stores.0, stores.1, stores.2, stores.3,
+        )?;
+        set_w(rs, if stored { 0 } else { 1 });
+        return Ok(Flow::Next);
+    }
     if success {
         if i.sub & 4 != 0 {
             crate::parallel::full_fence();
@@ -1090,6 +1123,72 @@ fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
     }
     set_w(rs, if success { 0 } else { 1 });
     Ok(Flow::Next)
+}
+
+/// (cores in workers) a store-exclusive's `total` bytes at `pa`: `value`
+/// if they still hold `expected`, whether they did. RAM and device memory
+/// compare and exchange atomically; extended RAM under its lock; anything
+/// else (ROM, a device) is written as before
+#[allow(clippy::too_many_arguments)]
+fn store_compared(
+    pa: u64,
+    total: u32,
+    expected: u128,
+    value: u128,
+    low: memory::Store,
+    high: Option<memory::Store>,
+    low_value: u64,
+    high_value: u64,
+) -> Result<bool, Exception> {
+    use crate::aarch64::bus::{self, Lookup};
+    match bus::bus().lookup(pa) {
+        Lookup::Ram {
+            backing,
+            writable: true,
+            ..
+        } => {
+            let p = unsafe { bus::MEM8.add(backing as usize) };
+            let stored = unsafe {
+                if total == 16 {
+                    crate::parallel::compare_exchange128(p, expected, value)
+                }
+                else {
+                    crate::parallel::compare_exchange(p, total, expected as u64, value as u64)
+                }
+            };
+            if stored {
+                bus::written(backing, total);
+            }
+            Ok(stored)
+        },
+        Lookup::Extended { .. } => {
+            let _guard = unsafe { crate::extended::Guard::new() };
+            let current = if total == 16 {
+                unsafe {
+                    crate::aarch64::extended::read(pa, 8) as u128
+                        | (crate::aarch64::extended::read(pa + 8, 8) as u128) << 64
+                }
+            }
+            else {
+                unsafe { crate::aarch64::extended::read(pa, total) as u128 }
+            };
+            if current != expected {
+                return Ok(false);
+            }
+            low.commit(low_value)?;
+            if let Some(high) = high {
+                high.commit(high_value)?;
+            }
+            Ok(true)
+        },
+        _ => {
+            low.commit(low_value)?;
+            if let Some(high) = high {
+                high.commit(high_value)?;
+            }
+            Ok(true)
+        },
+    }
 }
 
 /// The global monitor's key of physical address `pa`, if it is RAM: the
@@ -1213,10 +1312,10 @@ pub fn interpret_one() -> Flow {
                 Flow::Next | Flow::Yield => set_pc(address.wrapping_add(4)),
                 Flow::Jump(target) => set_pc(target),
                 Flow::Wait(_) | Flow::Off => set_pc(address.wrapping_add(4)),
-                Flow::Set => {},
+                Flow::Set | Flow::Retry => {},
             }
             // (Flow::Set is an exception return or an exception: PSTATE.SS is already what it must be)
-            if stepping && !matches!(flow, Flow::Set) {
+            if stepping && !matches!(flow, Flow::Set | Flow::Retry) {
                 crate::aarch64::debug::step_done();
             }
             flow

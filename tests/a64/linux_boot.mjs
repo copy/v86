@@ -99,7 +99,15 @@ fs.writeFileSync(probe_directory + "root/a64-init", [
     "$B mount -t proc proc /proc; $B mount -t sysfs sys /sys; $B mount -t devtmpfs dev /dev",
     "$B mkdir -p /tmp; $B mount -t tmpfs tmp /tmp",
     "/a64-probe nodisk \"$@\"",
-    "case \"$A64_WORKLOAD\" in '') ;; jit) /a64-jit-workload ;; *) /a64-workload \"$A64_WORKLOAD\" ;; esac",
+    // (smpN: N copies of the workload at once, between two readings of the uptime: P8.2's speed-up)
+    "case \"$A64_WORKLOAD\" in '') ;; jit) /a64-jit-workload ;; " +
+        "smp*) $B echo A64_SMP_START $($B cat /proc/uptime); for i in $($B seq 1 ${A64_WORKLOAD#smp}); do /a64-workload 3 > /dev/null & done; wait; " +
+        "$B echo A64_SMP_END $($B cat /proc/uptime) ;; " +
+        // (soakN, P8.4: N minutes of rounds of four workloads at once and the probe; a failing probe's output shows)
+        "soak*) E=$(( $($B cut -d. -f1 /proc/uptime) + ${A64_WORKLOAD#soak} * 60 )); R=0; " +
+        "while [ $($B cut -d. -f1 /proc/uptime) -lt $E ]; do for i in 1 2 3 4; do /a64-workload 1 > /dev/null & done; " +
+        "/a64-probe nodisk \"$@\" > /tmp/soak.out 2>&1 || $B cat /tmp/soak.out; wait; R=$((R+1)); done; " +
+        "$B echo A64_SOAK_DONE rounds=$R ;; *) /a64-workload \"$A64_WORKLOAD\" ;; esac",
     "$B cat /proc/interrupts",
     "for f in /sys/devices/system/cpu/vulnerabilities/*; do $B echo \"A64_VULN ${f##*/}: $($B cat $f)\"; done",
     "$B echo A64_INIT_DONE",
@@ -195,11 +203,18 @@ const memory_mb = +process.env.A64_MEMORY_MB || (jit_workload ? 1536 : 512);
 // RAM below it A64_MEMORY_MB; A64_LINUX_MEMTEST=<MiB>: the initramfs stage's
 // probe maps, writes and checks that much first, A64_MEMTEST)
 const extended_memory = Number(process.env.A64_EXTENDED_MEMORY || 0);
+// (A64_PARALLEL=1: v86's cores 1 and up in vCPU workers, P8.2; the probe's
+// exclusive ABA is then only reported, the deviation docs/aarch64.md declares)
+const parallel = !!+process.env.A64_PARALLEL;
+assert.ok(!parallel || !+process.env.A64_LINUX_QEMU && cores > 1, "A64_PARALLEL is a variant of v86 on more than one core");
+const PARALLEL_OPTIONS = parallel ? { parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm" } : {};
 const memtest_mib = Number(process.env.A64_LINUX_MEMTEST || 0);
 const EXTENDED_BASE = 0x100000000;
 assert.ok(!(extended_memory || memtest_mib) || stage === "initramfs" && !+process.env.A64_LINUX_QEMU,
     "A64_EXTENDED_MEMORY and A64_LINUX_MEMTEST are variants of v86's initramfs stage");
-const timeout = Number(process.env.A64_LINUX_TIMEOUT || (jit_workload ? 3600000 : stage === "live" ? 1800000 : 180000));
+const soak_minutes = /^soak\d+$/.test(process.env.A64_WORKLOAD || "") ? +process.env.A64_WORKLOAD.slice(4) : 0;
+const timeout = Number(process.env.A64_LINUX_TIMEOUT || (soak_minutes ? (soak_minutes + 10) * 60000 :
+    jit_workload ? 3600000 : stage === "live" ? 1800000 : 180000));
 // (a root that does not exist: init looks for it, then enters single mode before mounting it)
 const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
 const SINGLE_COMMANDS = "cat /proc/interrupts; echo A64_SINGLE_$((6*7)) && echo A64_SINGLE_OK; /bin/busybox poweroff -f\n";
@@ -217,7 +232,7 @@ const PCI_LIST = "for d in /sys/bus/pci/devices/*; do echo A64_PCI ${d##*/} $(ca
 const pci_functions = text => [...text.matchAll(/^A64_PCI ([0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.\d [^\r\n]*)/gm)].map(m => m[1].trim());
 const LIVE_COMMANDS = ref => PCI_LIST + "modprobe virtio_net 2>/dev/null; modprobe virtio-rng 2>/dev/null; ifconfig eth0 up; " +
     "for d in /sys/block/vd*; do [ \"$(cat $d/serial 2>/dev/null)\" = a64probe ] && tar -xf /dev/${d##*/} -C /tmp; done; " +
-    `/tmp/a64-probe ${ref === "v86" ? "net " : ""}ref=${ref}; echo A64_HWRNG=$(head -c 64 /dev/hwrng | wc -c); ` +
+    `/tmp/a64-probe ${ref === "v86" ? "net " : ""}${ref === "v86" && parallel ? "parallel " : ""}ref=${ref}; echo A64_HWRNG=$(head -c 64 /dev/hwrng | wc -c); ` +
     "cat /proc/cpuinfo | head -12; cat /proc/interrupts; " +
     "for f in /sys/devices/system/cpu/vulnerabilities/*; do echo \"A64_VULN ${f##*/}: $(cat $f)\"; done; " +
     (ref === "v86" ? INPUT_COMMANDS + "(/sbin/getty -L hvc0 115200 vt100 &); echo A64_LIVE_PROBED\n" : "echo A64_LIVE_DONE; poweroff -f\n");
@@ -238,10 +253,11 @@ const kpti = !!+process.env.A64_KPTI;
 assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramfs stage");
 // (A64_WORKLOAD=N: the initramfs stage runs /a64-workload N after the probe;
 // A64_WORKLOAD=jit: the guest JIT workloads, below)
-const workload = process.env.A64_WORKLOAD === "jit" ? "jit" : +process.env.A64_WORKLOAD || 0;
+const workload = process.env.A64_WORKLOAD === "jit" ? "jit" : /^(smp|soak)\d+$/.test(process.env.A64_WORKLOAD || "") ?
+    process.env.A64_WORKLOAD : +process.env.A64_WORKLOAD || 0;
 assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the initramfs stage");
 const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
-    `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}` +
+    `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}${ref === "v86" && parallel ? " parallel" : ""}` +
     `${memtest_mib ? " memtest=" + memtest_mib : ""}${extended_memory ? " high=" + EXTENDED_BASE / 4096 : ""}`;
 // (A64_JIT=1: the v86 runs with the A64 page tier, docs/jit-unification-plan.md J2;
 // A64_JIT_HOT its compile threshold)
@@ -250,7 +266,8 @@ const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT
     ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};
 const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
     `${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}${target === "v86" && sleep_cycles ? "-sleep" : ""}` +
-    `${extended_memory ? "-ext" + Math.round((memory_mb * 1048576 + extended_memory) / 1048576) + "m" : ""}-${cores}c`;
+    `${extended_memory ? "-ext" + Math.round((memory_mb * 1048576 + extended_memory) / 1048576) + "m" : ""}` +
+    `${target === "v86" && parallel ? "-par" : ""}-${cores}c`;
 // (without the kernel's messages, which may land between the workload's lines)
 const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "")
     .split("\n").filter(line => !/^\[\s*\d+\.\d+\] /.test(line)).join("\n");
@@ -280,7 +297,7 @@ function check_probe(text, reference)
     assert.deepEqual([xc[1], xc[2], xc[3], xc[4], xc[5]].map(Number), [cores, cores * 24, cores * 16, 64, 64], "topology, migrations, signals, cross-modified and dual-mapped code");
     assert.deepEqual([+xc[8], +xc[9], +xc[10]], [2 * cores, 2 * cores * 20, 0], "FPCR, FPSR and V0-V31 across context switches");
     assert.equal(+xc[12], stage === "initramfs" ? 0 : 1, "O_DIRECT read of the probe disk");
-    if(!reference)
+    if(!reference && !parallel)
     {
         assert.equal(xc[6], "1", "exclusive ABA: the store-exclusive fails");
         assert.equal(xc[11], "enoexec", "no AArch32");
@@ -387,7 +404,7 @@ if(qemu_reference)
 // ---- v86 (the ARM core; P4.7): the same kernel, initrd and command line
 const v86_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
-    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm", ...JIT_OPTIONS,
+    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm", ...JIT_OPTIONS, ...PARALLEL_OPTIONS,
 };
 if(stage === "lifecycle")
 {
@@ -451,7 +468,7 @@ const machine_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory_mb * 1048576, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     kernel: { url: prepared.kernel }, initrd: { url: single || live ? prepared.initrd : initrd },
-    cmdline: single ? SINGLE_CMDLINE : live ? LIVE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS,
+    cmdline: single ? SINGLE_CMDLINE : live ? LIVE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS, ...PARALLEL_OPTIONS,
     ...(extended_memory ? { extended_memory_size: extended_memory } : {}),
     ...(process.env.A64_EXTENDED_CACHE ? { extended_memory_cache: +process.env.A64_EXTENDED_CACHE } : {}),
     // (the live stage's disks and devices, in the reference's -device order: P5.3)
@@ -710,8 +727,10 @@ finally
 const undefined_instructions = emulator.v86.cpu.undefined_instructions();
 const page_tier = jit ? emulator.v86.cpu.page_tier_stats() : undefined;
 // (every core's; MIPS over the whole run, P0.9)
-const retired_instructions = Array.from({ length: cores }, (_, core) => emulator.v86.cpu.wm.exports["core_statistics_get"](core, 0))
+const retired_instructions = Array.from({ length: cores }, (_, core) => emulator.v86.cpu.retired_instructions(core))
     .reduce((sum, n) => sum + n, 0);
+// (cores in workers: what each did, src/parallel/machine.js)
+const parallel_status = parallel ? emulator.v86.cpu.get_diagnostics().parallel : undefined;
 // (extended RAM: its frames' traffic, and the instructions from it, interpreted and compiled)
 const ext_stat = field => emulator.v86.cpu.wm.exports["a64_ext_stat"](field);
 const extended_stats = extended_memory ? { hits: ext_stat(0), loads: ext_stat(1), write_backs: ext_stat(2), evictions: ext_stat(3),
@@ -737,6 +756,19 @@ if(extended_memory)
     assert.match(transcript, new RegExp(`node\\s+0: \\[mem 0x0000000100000000-0x${end}\\]`), "extended RAM in the kernel's memory map");
     extended_stats.share = Math.round((extended_stats.interpreted + extended_stats.compiled) / retired_instructions * 1e4) / 1e4;
     lines.extended = extended_stats;
+}
+if(/^soak/.test(workload))
+{
+    const done = transcript.match(/A64_SOAK_DONE rounds=(\d+)/);
+    assert.ok(done && +done[1] > 0, "the soak's rounds");
+    assert.ok(!/A64_PROBE_FAIL/.test(transcript.slice(transcript.indexOf("A64_PROBE_XC"))), "no probe failed during the soak");
+    lines.soak = { minutes: soak_minutes, rounds: +done[1] };
+}
+if(/^smp/.test(workload))
+{
+    const start = transcript.match(/A64_SMP_START ([\d.]+)/), end = transcript.match(/A64_SMP_END ([\d.]+)/);
+    assert.ok(start && end, "the smp workload's start and end");
+    lines.smp = { copies: +workload.slice(3), seconds: Math.round((end[1] - start[1]) * 100) / 100 };
 }
 if(memtest_mib)
 {
@@ -811,7 +843,7 @@ const vulnerabilities = Object.fromEntries([...transcript.matchAll(/A64_VULN (\S
 if(midway) assert.ok(snapped && snapshot_bytes, "the snapshot in the workload's middle was taken and restored");
 const ms = Math.round(performance.now() - started);
 const result = { tag, ms, ...(live ? { boot_to_login_ms: login_ms } : {}), probe_done_ms: probe_ms, retired_instructions,
-    mips: Math.round(retired_instructions / ms / 100) / 10, page_tier,
+    mips: Math.round(retired_instructions / ms / 100) / 10, page_tier, ...(parallel ? { parallel: parallel_status } : {}),
     ...(midway ? { midway_snapshot_bytes: snapshot_bytes } : {}), ...lines, features,
     reference_features: reference_features ? "compared" : "no reference log", vulnerabilities };
 fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");

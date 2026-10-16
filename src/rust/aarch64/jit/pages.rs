@@ -39,6 +39,7 @@ use crate::jitrt::step::{self, StepFrontend, StepOutcome, EXIT_RETRY, EXIT_UNKNO
 use crate::jitrt::table::{Owner, Signature};
 use crate::jitrt::{self, ClientId};
 use crate::page::Page;
+use crate::wasmgen::wasm_builder::WasmBuilder;
 use std::collections::HashSet;
 
 extern "C" {
@@ -324,8 +325,12 @@ pub fn set_asid_tag(on: bool) {
 // ---- the runtime
 
 pub struct A64;
+/// A function's own data: its source page's hash when it was compiled
+/// (with cores in workers, checked again when it is installed, P8.2)
 #[derive(Default)]
-pub struct A64Code;
+pub struct A64Code {
+    source: u64,
+}
 #[derive(Default)]
 pub struct A64Page;
 pub struct A64Extra {
@@ -591,6 +596,13 @@ fn note_entry_bits(entries: &mut [u64; 64], offset: u16) {
     entries[offset as usize / 64] |= 1 << (offset % 64);
 }
 
+/// (the parallel build) where page functions copy unaligned reads to,
+/// pagegen::frame: two slots of 32 bytes (a pair's elements)
+#[repr(C, align(16))]
+struct Bounce([u8; 64]);
+static mut BOUNCE: Bounce = Bounce([0; 64]);
+pub fn bounce_address() -> u32 { &raw mut BOUNCE as u32 }
+
 /// The flow a step asked for (a wait, a stop, a yield) while compiled code ran
 static mut STEP_FLOW: Option<Flow> = None;
 
@@ -638,10 +650,10 @@ fn execute(slot: u32, budget: u32, pc: u64) -> Ran {
             // (the instruction at the PC: a template refused it before any of its effects)
             r.stats[RETRIES] += 1;
             let f = execute::interpret_one();
-            if !matches!(f, Flow::Set) {
+            if !matches!(f, Flow::Set | Flow::Retry) {
                 retired += 1;
             }
-            if matches!(f, Flow::Wait(_) | Flow::Off | Flow::Yield) {
+            if matches!(f, Flow::Wait(_) | Flow::Off | Flow::Yield | Flow::Retry) {
                 flow = f;
             }
         },
@@ -751,7 +763,7 @@ fn compile(key: u32, pc: u64) {
                 served: Vec::new(),
                 members: Vec::new(),
                 last_used: 0,
-                x: A64Code,
+                x: A64Code::default(),
             });
             r.functions.len() - 1
         },
@@ -765,7 +777,9 @@ fn compile(key: u32, pc: u64) {
         served: code.served,
         members: vec![key],
         last_used: r.clock,
-        x: A64Code,
+        x: A64Code {
+            source: source_hash(&bytes),
+        },
     };
     r.by_page.insert(key, index);
     r.generation = r.generation.wrapping_add(1);
@@ -775,8 +789,37 @@ fn compile(key: u32, pc: u64) {
     publish::publish(ClientId::A64Page, id, slot, &code.bytes);
 }
 
+/// FNV-1a over a code page
+fn source_hash(bytes: &[u8]) -> u64 {
+    let mut hash = 0xCBF29CE484222325u64;
+    for &byte in bytes {
+        hash = (hash ^ byte as u64).wrapping_mul(0x100000001B3);
+    }
+    hash
+}
+
 // publication's answers (jitrt::publish)
-fn install(id: u64, slot: u32) -> bool { rt().pending(id, slot).is_some() }
+fn install(id: u64, slot: u32) -> bool {
+    let r = rt();
+    let Some(f) = r.pending(id, slot).map(|i| &r.functions[i])
+    else {
+        return false;
+    };
+    if !crate::parallel::active() {
+        return true;
+    }
+    // (cores in workers, P8.2: the other cores mark the page first, so that
+    // their stores to it retire this code; then its bytes are checked once
+    // more, which sees any store before the marks)
+    let (key, source) = (f.page & ((1 << MODE_SHIFT) - 1), f.x.source);
+    if key >= bus::EXTENDED_CODE_KEY
+        || !unsafe { crate::parallel::code::wait_published(std::iter::once(key), 0.5) }
+    {
+        return false;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(bus::MEM8.add((key << 12) as usize), 4096) };
+    source_hash(bytes) == source
+}
 fn ready(id: u64, slot: u32) -> bool { rt().ready(id, slot).is_some() }
 fn cancel(id: u64, slot: u32) {
     let r = rt();
@@ -807,7 +850,14 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
     let size = kind & 255;
     let write = kind & 0x100 != 0;
     let r = rt();
-    if (address & 0xFFF) + size as u64 > 0x1000 {
+    // (the parallel build's atomics need natural alignment: an unaligned
+    // access retries in the interpreter, pagegen::frame)
+    if (address & 0xFFF) + size as u64 > 0x1000
+        || WasmBuilder::ATOMIC_GUEST_MEMORY
+            && size > 1
+            && address & (size.min(8) as u64 - 1) != 0
+            && kind & 0x200 == 0
+    {
         r.stats[ACCESS_REFUSED] += 1;
         return 0;
     }
@@ -914,7 +964,7 @@ impl StepFrontend for A64Step {
     fn context() -> Context { context() }
     fn interpret_one() {
         let flow = execute::interpret_one();
-        if matches!(flow, Flow::Wait(_) | Flow::Off | Flow::Yield) {
+        if matches!(flow, Flow::Wait(_) | Flow::Off | Flow::Yield | Flow::Retry) {
             unsafe { STEP_FLOW = Some(flow) };
         }
     }
@@ -932,7 +982,7 @@ impl StepFrontend for A64Step {
 }
 /// An interrupt the PE would take now
 fn interrupt_pending() -> bool {
-    let signal = unsafe { crate::aarch64::gic::SIGNAL[current_core()] };
+    let signal = crate::aarch64::gic::signal(current_core());
     let state = cpu::get_pstate();
     signal & crate::aarch64::gic::SIGNAL_IRQ != 0 && state & cpu::PSTATE_I == 0
         || signal & crate::aarch64::gic::SIGNAL_FIQ != 0 && state & cpu::PSTATE_F == 0

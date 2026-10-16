@@ -9,6 +9,10 @@
 //! priorities go to the lowest INTID, the distributor keeps all 8 priority
 //! bits, IROUTER's IRM is ignored (No1N), an SPI routed to no core stays
 //! pending.
+//!
+//! With cores in workers (P8.2) the GIC is the machine instance's: every
+//! entry point holds its lock (re-entrant), the signals are its bytes, and a
+//! changed signal of another core kicks that core.
 
 use crate::aarch64::cpu::{self, Exception};
 use crate::isa::MAX_CORES;
@@ -135,7 +139,72 @@ pub const SIGNAL_IRQ: u8 = 1;
 pub const SIGNAL_FIQ: u8 = 2;
 
 #[inline(always)]
-fn gic() -> &'static mut Gic { unsafe { &mut *(&raw mut GIC) } }
+fn gic() -> &'static mut Gic { unsafe { &mut *crate::parallel::machine(&raw mut GIC) } }
+
+/// Core `core`'s interrupt request to the PE (SIGNAL_IRQ, SIGNAL_FIQ)
+#[inline(always)]
+pub fn signal(core: usize) -> u8 {
+    unsafe {
+        crate::parallel::load8(
+            crate::parallel::machine(&raw mut SIGNAL)
+                .cast::<u8>()
+                .add(core),
+        )
+    }
+}
+fn set_signal(core: usize, value: u8) {
+    unsafe {
+        let at = crate::parallel::machine(&raw mut SIGNAL)
+            .cast::<u8>()
+            .add(core);
+        if crate::parallel::load8(at) != value {
+            crate::parallel::store8(at, value);
+            // (a core in a worker leaves its slice or its wait)
+            if value != 0 && core != crate::isa::current_core() {
+                crate::parallel::kick(core);
+            }
+        }
+    }
+}
+
+/// (cores in workers) the machine's GIC lock, held through each entry point
+static mut LOCK: crate::parallel::SpinLock = crate::parallel::SpinLock::new();
+/// How deep this instance's core holds it
+static mut DEPTH: u32 = 0;
+struct Guard;
+impl Guard {
+    #[inline(always)]
+    fn new() -> Guard {
+        unsafe {
+            if crate::parallel::active() {
+                if DEPTH == 0 {
+                    (*crate::parallel::machine(&raw mut LOCK)).lock();
+                }
+                DEPTH += 1;
+            }
+        }
+        Guard
+    }
+}
+impl Drop for Guard {
+    #[inline(always)]
+    fn drop(&mut self) {
+        unsafe {
+            if crate::parallel::active() {
+                DEPTH -= 1;
+                if DEPTH == 0 {
+                    (*crate::parallel::machine(&raw mut LOCK)).unlock();
+                }
+            }
+        }
+    }
+}
+/// A failed core's worker holds the lock no more (crate::parallel::parallel_fail)
+pub fn release_held_by(core: usize) {
+    unsafe { (*crate::parallel::machine(&raw mut LOCK)).release_held_by(core) }
+}
+/// (tests/parallel/lifecycle.mjs) a failing core traps inside the critical section
+pub fn lock_for_test_fault() { unsafe { (*crate::parallel::machine(&raw mut LOCK)).lock() } }
 
 fn cores() -> usize { crate::isa::core_count() }
 
@@ -143,10 +212,14 @@ fn cores() -> usize { crate::isa::core_count() }
 pub fn state_bytes() -> (u32, u32) { (&raw const GIC as u32, core::mem::size_of::<Gic>() as u32) }
 
 /// (snapshots) the state was replaced: the signals follow it
-pub fn restored() { update_all(); }
+pub fn restored() {
+    let _guard = Guard::new();
+    update_all();
+}
 
 /// Reset the distributor, the redistributors and the CPU interfaces
 pub fn reset() {
+    let _guard = Guard::new();
     let g = gic();
     g.dist = Distributor {
         ctlr: CTLR_DS | CTLR_ARE,
@@ -162,7 +235,9 @@ pub fn reset() {
     g.redist = [REDIST_RESET; MAX_CORES];
     g.cpuif = [CPUIF_RESET; MAX_CORES];
     g.hppi = [HPPI_NONE; MAX_CORES];
-    unsafe { SIGNAL = [0; MAX_CORES] };
+    for core in 0..MAX_CORES {
+        set_signal(core, 0);
+    }
 }
 
 #[inline(always)]
@@ -247,7 +322,7 @@ fn update(core: usize) {
     else {
         0
     };
-    unsafe { SIGNAL[core] = signal };
+    set_signal(core, signal);
 }
 
 fn update_all() {
@@ -361,6 +436,7 @@ pub fn set_spi(irq: usize, level: bool) {
     if !(32..NUM_IRQ).contains(&irq) {
         return;
     }
+    let _guard = Guard::new();
     let d = &mut gic().dist;
     if bit(&d.level, irq) == level {
         return;
@@ -374,6 +450,7 @@ pub fn set_spi(irq: usize, level: bool) {
 
 /// A PPI line (INTID 16-31) of `core` went to `level` (the timers)
 pub fn set_ppi(core: usize, irq: usize, level: bool) {
+    let _guard = Guard::new();
     let r = &mut gic().redist[core];
     if r.level >> irq & 1 == level as u32 {
         return;
@@ -392,7 +469,7 @@ pub fn a64_gic_set_spi(irq: u32, level: bool) { set_spi(irq as usize, level) }
 /// ISR_EL1: the pending IRQ (bit 7) and FIQ (bit 6) of the current core
 pub fn isr_el1() -> u64 {
     crate::aarch64::timer::tick();
-    let s = unsafe { SIGNAL[crate::isa::current_core()] };
+    let s = signal(crate::isa::current_core());
     ((s & SIGNAL_IRQ != 0) as u64) << 7 | ((s & SIGNAL_FIQ != 0) as u64) << 6
 }
 
@@ -429,6 +506,7 @@ pub fn icc_read(reg: u32) -> Result<u64, Exception> {
         return Err(Exception::Undefined);
     }
     crate::aarch64::timer::tick();
+    let _guard = Guard::new();
     let core = crate::isa::current_core();
     let crm = reg >> 3 & 15;
     let op2 = reg & 7;
@@ -489,6 +567,7 @@ pub fn icc_write(reg: u32, value: u64) -> Result<(), Exception> {
     if cpu::el() == 0 {
         return Err(Exception::Undefined);
     }
+    let _guard = Guard::new();
     let core = crate::isa::current_core();
     let crm = reg >> 3 & 15;
     let op2 = reg & 7;
@@ -636,6 +715,7 @@ fn bytes_read(bytes: &[u8], irq: usize, size: u32) -> u64 {
 
 pub fn gicd_read(offset: u64, size: u32) -> u64 {
     crate::aarch64::timer::tick_all();
+    let _guard = Guard::new();
     let d = &gic().dist;
     let word = ((offset & 0x7F) / 4) as usize;
     let value = match offset {
@@ -715,6 +795,7 @@ pub fn gicd_read(offset: u64, size: u32) -> u64 {
 }
 
 pub fn gicd_write(offset: u64, size: u32, value: u64) {
+    let _guard = Guard::new();
     let g = gic();
     let word = ((offset & 0x7F) / 4) as usize;
     let v = value as u32;
@@ -789,6 +870,7 @@ pub fn gicd_write(offset: u64, size: u32, value: u64) {
 pub fn gicr_read(offset: u64, size: u32) -> u64 {
     // (every core's timer lines as of now: they follow the counter)
     crate::aarch64::timer::tick_all();
+    let _guard = Guard::new();
     let core = (offset / GICR_STRIDE) as usize;
     if core >= cores() {
         return 0;
@@ -825,6 +907,7 @@ pub fn gicr_read(offset: u64, size: u32) -> u64 {
 }
 
 pub fn gicr_write(offset: u64, size: u32, value: u64) {
+    let _guard = Guard::new();
     let core = (offset / GICR_STRIDE) as usize;
     if core >= cores() {
         return;

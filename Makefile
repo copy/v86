@@ -362,6 +362,16 @@ build/v86-arm64.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Car
 	cp build/arm64/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64.wasm
 	BLOCK_SIZE=K ls -l build/v86-arm64.wasm
 
+# The ARM core with its cores in vCPU workers (P8.2): built as
+# v86-parallel.wasm is (atomics, the memory imported, relocations kept)
+CARGO_FLAGS_ARM64_PARALLEL=$(CARGO_FLAGS_ARM64) -C target-feature=+atomics \
+		-C link-args="--import-memory --export-memory --emit-relocs --no-check-features --max-memory=4294967296 --global-base=32768 --export=__heap_base --export=__data_end"
+
+build/v86-arm64-parallel.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Cargo.toml tools/parallel_wasm.mjs
+	mkdir -p build/
+	CARGO_TARGET_DIR=build/arm64-parallel cargo rustc --release --features parallel $(CARGO_FLAGS_ARM64_PARALLEL)
+	./tools/parallel_wasm.mjs build/arm64-parallel/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64-parallel.wasm
+
 build/v86-arm64-debug.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	CARGO_TARGET_DIR=build/arm64 cargo rustc $(CARGO_FLAGS_ARM64)
@@ -732,7 +742,7 @@ build/vcpu-worker.js: $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/vir
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--js $(CORE_FILES) --js $(LIB_FILES) --js $(BROWSER_FILES) \
-		--js src/parallel/vcpu.js --js src/parallel/vcpu_worker_entry.js
+		--js src/parallel/vcpu_arm.js --js src/parallel/vcpu.js --js src/parallel/vcpu_worker_entry.js
 
 .PHONY: parallel
 parallel: build/v86-parallel.wasm build/vcpu-worker.js
@@ -1155,10 +1165,24 @@ a64-gpu-guest-tests: build/v86-arm64.wasm glbridge
 	for scenario in gltest virgl kms; do GPU_SCENARIO=$$scenario GPU_LEVEL=virgl43-hostmem GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
 	for scenario in venus vkcube; do GPU_SCENARIO=$$scenario GPU_LEVEL=venus GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
 	GPU_SCENARIO=drm GPU_TRANSPORT=mmio node tests/a64/linux_gpu.mjs
-a64-parallel-tests:
-	$(call A64_PENDING,A6)
-a64-parallel-guest-tests:
-	$(call A64_PENDING,A6)
+# (P8.2-P8.4: cores in vCPU workers) the litmus tests in all four modes on
+# 2, 4 and 8 cores; the parallel build's page tier against the interpreter
+a64-parallel-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+	LITMUS_MODES=cooperative,cooperative-jit,parallel,parallel-jit node tests/a64/litmus.mjs --cores 2,4,8 --rounds 20000
+	for seed in 1 2 3; do A64_WASM=build/v86-arm64-parallel.wasm node tests/a64/page_fuzz.mjs --seed $$seed || exit 1; done
+# Alpine with cores in workers: the initramfs stage interpreted and with the
+# page tier on 2 and 4 cores, the live stage with snapshots on mmio and pci,
+# reboot and poweroff, s2idle and hibernation, four workloads at once
+a64-parallel-guest-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+	for jit in 0 1; do for cores in 2 4; do \
+		A64_PARALLEL=1 A64_JIT=$$jit A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; \
+	done; done
+	for transport in mmio pci; do \
+		A64_PARALLEL=1 A64_JIT=1 A64_STAGE=live A64_LINUX_SNAPSHOT=1 A64_CORES=4 A64_TRANSPORT=$$transport node tests/a64/linux_boot.mjs || exit 1; \
+	done
+	A64_PARALLEL=1 A64_JIT=1 A64_STAGE=lifecycle A64_CORES=4 node tests/a64/linux_boot.mjs
+	A64_PARALLEL=1 A64_JIT=1 A64_STAGE=live A64_LINUX_SLEEP=1 A64_CORES=4 node tests/a64/linux_boot.mjs
+	A64_PARALLEL=1 A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=smp4 A64_CORES=4 node tests/a64/linux_boot.mjs
 # (P8.7: Alpine aarch64 from its ISO in a headless Chrome: the source tree,
 # the bundle, the CPU worker, virtio-pci; the files from linux_boot.mjs)
 a64-browser-tests: build/v86-arm64.wasm build/libv86.mjs build/cpu-worker.js

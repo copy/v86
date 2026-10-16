@@ -3,8 +3,8 @@
 > Status: A3, A4 and A5 of [arm64-virt-android16-plan.md](arm64-virt-android16-plan.md)
 > (virtio-mmio devices; the page tier, J2 of
 > [jit-unification-plan.md](jit-unification-plan.md); the PCIe host,
-> virtio-pci, input and virtio-gpu), and of A6 the lifecycle (P8.1), extended
-> RAM (P8.5) and the browser (P8.7). Sections marked *(pending)* are filled in
+> virtio-pci, input and virtio-gpu), and of A6 the lifecycle (P8.1), cores in
+> vCPU workers (P8.2–P8.4), extended RAM (P8.5) and the browser (P8.7). Sections marked *(pending)* are filled in
 > as the milestones land.
 
 With `cpu_type: "arm64"` (from A1), v86 runs a separate core,
@@ -16,9 +16,9 @@ does not contain the ARM code (the plan's "Wasm core" section).
 | --- | --- |
 | Option | `cpu_type: "arm64"` (machine_type "virt", its default) |
 | Profile | `v86-aarch64-v1`, [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) |
-| Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng, hvc0 and -input, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system, all on virtio-mmio and on virtio-pci (the PCI functions as the reference's); s2idle woken by the PL031's alarm and hibernation to a swap disk with the resume after power-on; 3 and 4 GiB of RAM with extended RAM from 4 GiB (a memtest over most of it); in headless Chrome from the source tree, the bundle and the CPU worker; virtio-gpu: KMS (atomic, planes, cursor, PRIME, explicit sync), kmscube and weston with llvmpipe, virgl (GL 4.3, gltest 0 failures), Venus (vktest, vkcube) on a real GPU through WebGPU, input on weston; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
+| Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng, hvc0 and -input, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system, all on virtio-mmio and on virtio-pci (the PCI functions as the reference's); s2idle woken by the PL031's alarm and hibernation to a swap disk with the resume after power-on; 3 and 4 GiB of RAM with extended RAM from 4 GiB (a memtest over most of it); in headless Chrome from the source tree, the bundle and the CPU worker; on 2 and 4 cores in vCPU workers (`parallel: true`: the probe, the live stage with snapshots, reboot, poweroff, s2idle, hibernation); virtio-gpu: KMS (atomic, planes, cursor, PRIME, explicit sync), kmscube and weston with llvmpipe, virgl (GL 4.3, gltest 0 failures), Venus (vktest, vkcube) on a real GPU through WebGPU, input on weston; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
 | Boot time | Alpine from the ISO to `localhost login:`: 30 / 39 / 34 s on 1/2/4 cores with the page tier, 232 / 267 / 341 s interpreted (QEMU TCG: 11 s on 1 core), the same with the devices on virtio-pci; to login and through the probe on 1 core with the page tier 33.1 s, 1.37 times the x86_64 page tier's 24.1 s on the same host (the E level's budget: 3 times); the initramfs stage through the probe: 5.7 / 6.1 / 6.8 s with the page tier, 34.6 / 40.1 / 49.9 s interpreted (release build, Apple M-series Mac) |
-| Not done | virtio-snd (P7.5, optional; deferred to Android's audio); cores in workers (P8.2–P8.4: the cores take turns on one thread); 16 and 64 KiB kernels (P8.6) |
+| Not done | virtio-snd (P7.5, optional; deferred to Android's audio); 16 and 64 KiB kernels (P8.6) |
 
 ## CPU profile
 
@@ -67,6 +67,7 @@ macOS.
 | Snapshots at the probe's three markers (V7 stream, V6 buffer), interpreter and page tier, 1/2/4 cores, mmio and pci; s2idle and hibernation (`A64_LINUX_SLEEP=N`: N rounds each, a tmpfs file's MD5 and the online CPUs checked after each) | `make a64-lifecycle-guest-tests` | v86 |
 | Extended RAM: the bus, eviction, DMA, code there, snapshots (`tests/a64/extended_memory.mjs`); 3 and 4 GiB of RAM, the probe's memtest (`A64_MEMORY_MB`, `A64_EXTENDED_MEMORY`, `A64_LINUX_MEMTEST=<MiB>`) | `make a64-extended-guest-tests` | v86 |
 | Alpine from its ISO in headless Chrome: the source tree, the bundle, the CPU worker, virtio-pci (`BROWSER_CHROME`, `A64_BROWSER_QUERIES`) | `make a64-browser-tests` | Chrome |
+| Cores in workers: Alpine's stages (`A64_PARALLEL=1`), litmus in four modes (`LITMUS_MODES=cooperative,cooperative-jit,parallel,parallel-jit`) | `make a64-parallel-tests`, `make a64-parallel-guest-tests` | v86 |
 | virtio-gpu: drm, gl, resize, input; gltest, virgl, kms (`GPU_LEVEL=virgl43-hostmem GPU_RENDERER=chrome`); venus, vkcube (`GPU_LEVEL=venus`); packages from `node tools/alpine_repo.mjs --arch aarch64` | `GPU_SCENARIO=drm node tests/a64/linux_gpu.mjs` (`make a64-gpu-guest-tests`) | v86 |
 | The guest JIT workloads after the probe (node, `java Hello.java`, luajit `-jon`/`-joff`, `pcre2test -jit`; packages from `node tools/alpine_repo.mjs --arch aarch64 --set jit`, 1.5 GiB of RAM) | `A64_WORKLOAD=jit A64_STAGE=initramfs node tests/a64/linux_boot.mjs` (with `A64_LINUX_QEMU=1` first for the reference) | both |
 | Bare-metal guests (`tests/a64/guest_runner.mjs`, runtime in `tests/a64/baremetal/`) | `node tests/a64/float_ref.mjs`, `node tests/a64/platform_probe.mjs` | `A64_TARGET=qemu` (v86: A1) |
@@ -79,6 +80,49 @@ macOS.
 `make a64-gate` runs before each commit and `make a64-gate-full` at a
 milestone's exit (`tools/a64_gate.mjs`). The release levels `R-a64-*` are in
 `tools/release_gate.mjs`. Their targets without tests yet print `A64_PENDING`.
+
+## Cores in workers
+
+With `parallel: true` (or `"auto"`, which falls back to cooperative cores
+where the host cannot), cores 1 and up run in vCPU workers
+([`src/parallel/vcpu_arm.js`](../src/parallel/vcpu_arm.js)), each with its own
+relocated instance of `build/v86-arm64-parallel.wasm` in one shared memory, as
+the x86 core's (see [multicore.md](multicore.md)). Core 0 and the devices stay
+on the machine's thread, which serves the workers' device register accesses
+(`OP_A64_MMIO_READ`, `OP_A64_MMIO_WRITE`: 64-bit offsets and values) and
+stops them at safe points for snapshots, resets and pauses.
+
+- Machine state: guest memory and the address space (a worker copies the
+  map, again when its generation changes), the GIC (one lock), PSCI's power
+  states, the events, the global monitor and extended RAM. A core in a worker
+  is off until another core's PSCI CPU_ON, which kicks its worker.
+- TLB maintenance: an inner shareable TLBI (and IC IVAU, IC IALLUIS) acts at
+  once on the issuing core and goes to the others through a ring in machine
+  memory; the issuing core's next DSB completes only when every other core
+  has taken the ring (it is kicked) or waits idle. After 32 page entries in
+  one batch, one full flush stands for the rest.
+- Code: the cores track which pages others compiled from
+  (`crate::parallel::code`): a store to such a page retires their code, and
+  an installation waits until the others have marked the page.
+- Memory model: guest accesses are sequentially consistent Wasm atomics in
+  the parallel build (interpreter and page tier; an unaligned access retries
+  in the interpreter), DMB and ISB a fence, DSB a single step while cores run
+  in workers.
+
+Deviations, all allowed by the architecture or by the plan:
+
+- A store-exclusive also compares the value its load-exclusive read, as
+  QEMU's does: a store compiled in another worker does not clear the
+  reservation, so a value written back meanwhile does not make it fail (the
+  probe's and the litmus test's ABA lines are only reported in this mode).
+- WFE ends after at most 20 µs without an event, for the same reason (a
+  waiter on a lock released by a compiled store would otherwise wait for the
+  event stream).
+
+Speed (release build, Apple M-series Mac, page tier, 4 cores): Alpine's
+initramfs stage through the probe 9.3 s (cooperative 6.4 s: the boot is
+mostly core 0's); four copies of the busybox workload at once 14.5 s
+(cooperative 23.0 s). The parallel build alone costs about 15% on one core.
 
 ## The page tier
 

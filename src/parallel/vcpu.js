@@ -20,6 +20,7 @@ import { PM_TIMER_TICKS_PER_MS, pm_timer_shared_max } from "../acpi.js";
 import { ExtendedStore } from "../extended_memory.js";
 import * as C from "./control.js";
 import { set_jit_switches } from "../jit_switches.js";
+import { run_vcpu_arm } from "./vcpu_arm.js";
 
 const CORE_EVENT_INIT = 1;
 const CORE_EVENT_SIPI = 2;
@@ -320,7 +321,8 @@ export function start_vcpu_worker()
         const handle = { exports: null };
         try
         {
-            await run_vcpu(init, post, handle);
+            // (the ARM core's workers: P8.2)
+            await (init["cpu_type"] === "arm64" ? run_vcpu_arm : run_vcpu)(init, post, handle);
         }
         catch(error)
         {
