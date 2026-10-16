@@ -1563,6 +1563,56 @@ flowchart TD
 - 至此 P1–P3 的验收完成（P2a、P2b、P3 全部），JIT 计划 J2 的开工条件中属于本计划的部分已满足；A3 余下的是
   P5（virtio 与 live 阶）。
 
+### A3 中 P5 的部分（2026-10-16；A3 完成）
+
+提交：`592633ae`（P5.1–P5.5、P5.9 与 live 阶）、`7dfe115c`（安装到 virtio-blk 盘）。A3 的余下部分（P2b、P3）记在上面一节。
+
+- P5.1：`src/virtio.js` 的 VirtIO 本身就是核心（特性、状态、config generation、队列与请求），transport 是选项：不给即
+  virtio-pci（x86 的路径，行为不变）；给了就由 transport 按名字取 capability 的字段（attach、irq_line、present、kind、自己的
+  状态）。没有另起一个 VirtioCore 类：核心的字段与方法原样留在 VirtIO 上，x86 的设备一行不用改。`present()` 取代
+  `pci.absent`；快照标记 transport，恢复时 transport 不同则拒绝。修正 `on_driver_ok` 永不触发（状态先写入、后比较）。
+- P5.2：ARM CPU 的 DMA 门面加上 `read/write8/16/32_physical` 与 `validate_physical_range`，VirtQueue 原样可用；设备的写入经
+  `a64_bus_written` 让编译代码失效、清除其他核的独占保留。virtio-gpu 的内存访问留给 P7.1。
+- P5.3：`src/virtio_mmio.js`（version 2）。DeviceID、队列寄存器（QueueReady=0 收回队列）、InterruptStatus 与 InterruptACK
+  （不是读清零）、QueueNotify 带队列号、ConfigGeneration、SHM 寄存器（没有区域时读全 1）；0x100 起的设备配置可按整个字段或
+  其中的字节访问（Linux 读 u64 时分两次 32 位）。32 个槽位，SPI 16 + n、边沿触发；设备从槽 31 往下放，次序是磁盘、net、rng、
+  console，与参考按 `-device` 次序分配的结果相同（QEMU 的 `/proc/interrupts` 里 virtio0–4 正是 GICv3 75–79）。空槽读出参考的
+  值，Linux 跳过。`src/virt/io.js` 的类改名为 `VirtDeviceSpace`（原来也叫 VirtIO）。
+- P5.4：`src/virtio_blk.js`（IN、OUT、FLUSH、GET_ID、只读、SEG_MAX、BLK_SIZE）。块后端抽成 `src/block_backend.js` 的一组函数
+  （读取的取消、写入的 reset_epoch、FLUSH 等待在途写入，都计入快照等待的在途 I/O），IDEInterface（AHCI 的驱动器也是）改用
+  同一组函数。选项：`virtio_disks: [{url 或 buffer, id, readonly}]`（或 `hda`、`hdb`）、`virtio_rng`、`net_device: {type:
+  "virtio"}`、`virtio_console`；arm64 上网络改为按需开启（槽位要与参考的设备对应），`net_device: {type: "none"}` 合法。
+- P5.5：`src/virtio_rng.js`（`crypto.getRandomValues`）；virtio-net、virtio-console 接受 transport。virtio-console 的附加端口
+  照旧共 4 个。
+- P5.9：virt 的快照按槽位与种类记下每个 virtio 设备，布局不同则拒绝；可写盘的内容照 IDE 的做法存入，只读盘只存大小与
+  SHA-256（加载时用 `crypto.subtle` 计算），恢复时核对。`tests/a64/device_io_reset.mjs`（`a64-virt-device-tests`）：复位时在途的
+  读被丢弃、在途的写落盘但不应答、快照等待在途的读、其他布局的快照被拒绝；去掉复位对后端的复位时它失败。
+- live 阶（`tests/a64/linux_boot.mjs` `A64_STAGE=live`）：ISO 在 virtio-blk 上经 modloop 启动到 login；probe 从 `a64probe` 盘运行
+  （O_DIRECT，`direct_io=1`）；virtio-net 回显 16 帧；`/dev/hwrng` 读到 64 字节；hvc0 上登录。QEMU 参考加了同样的设备、同样的
+  次序（net 用 hubport，console 用 null chardev），CPU 特性比对照旧。到 login 的时间：
+
+  | | 1 核 | 2 核 | 4 核 |
+  | --- | --- | --- | --- |
+  | 解释器 | 232 s | 267 s | 341 s |
+  | page tier | 30 s | 39 s | 34 s |
+  | QEMU | 11 s | — | — |
+
+  `A64_LINUX_SNAPSHOT=1`：在 probe 的 `A64_PROBE_START`、`A64_PROBE_OK`、`A64_PROBE_XC` 处交替做 V7 流式（经文件写出读回）与 V6
+  单缓冲快照并恢复（107–116 MB，只读的 ISO 不在其中），结果不变。
+- 安装（`tests/a64/linux_install.mjs`）：同一次机器会话里，从 ISO 用 `setup-disk -m sys -s 0 -B none`（没有引导程序，机器直接
+  加载内核，同参考）离线装到空盘，记下文件的 md5，fsck 干净，把装好的 `/boot` 的内核与 initramfs 写到导出盘；机器重启进装好
+  的系统（它自己的内核 6.18.56 与 initramfs，按 UUID 挂根），文件 md5 一致；正常重启回 ISO，根文件系统 fsck 仍然干净。page tier
+  下三段 91、42、47 s。偏差：virt 版 ISO 没有内核包，离线安装需要 `tools/alpine_repo.mjs --arch aarch64 --set sys` 取得的本地
+  软件源盘（live 系统的 world、linux-virt、linux-firmware-none 与 setup-disk 的工具，50 个包 46 MiB，所有者 2026-10-16 同意
+  下载）；它要单独使用，因为镜像的索引与 ISO 的并存时 apk 会选镜像的新版本，而那些文件不在。`setup-disk` 会停掉 modloop
+  服务，连带卸下启动介质，所以软件源不能指向 ISO。工具的依赖解析补上了按 provider_priority 选虚拟名的提供者与 install_if。
+- 记下的坑：busybox ash 在提示符后发 `ESC [ 6 n`（查询光标位置），按整段文本轮询时提示符的模式要容许它；shell 会回显输入的
+  命令，结束标记要单独成行才算；macOS 的 `sed` 不认 `\b`。
+- x86：`devices-test`、`api-tests`、`highmem-tests`、`acpi-device-tests`（含 IDE 在途 I/O）与完整的 R-q35 通过；R 级性能门禁
+  （改了 `src/ide.js` 与 virtio 核心）通过：`tools/owner_perf.mjs`，6 个负载各 3 次会话，基线 `79c37884`，本支相对基线
+  win98-diablo1 1.013、win98-ra2 1.022、win98-themehospital 1.000、win98-boot 0.986（7.0 → 7.1 s）、xp 1.006、
+  win81 1.000（174 s），都在噪声内（`build/bench/a3gate/owner.json`）。
+
 ### A4 中 P6 的部分（2026-10-16；JIT 计划 J2，P6.7 未做）
 
 JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论。提交：`94e24279`（page tier 第一部分）、`e5860bf9`（标量 FP、

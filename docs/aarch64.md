@@ -1,10 +1,9 @@
 # AArch64
 
-> Status: A4 of [arm64-virt-android16-plan.md](arm64-virt-android16-plan.md)
-> (the page tier, J2 of [jit-unification-plan.md](jit-unification-plan.md)),
-> without the plan's P5: no virtio devices on the virt board yet, so Alpine
-> runs its initramfs, single-user and lifecycle stages, not the live stage
-> to a login. Sections marked *(pending)* are filled in as the milestones land.
+> Status: A3 and A4 of [arm64-virt-android16-plan.md](arm64-virt-android16-plan.md)
+> (virtio-mmio devices; the page tier, J2 of
+> [jit-unification-plan.md](jit-unification-plan.md)). Sections marked
+> *(pending)* are filled in as the milestones land.
 
 With `cpu_type: "arm64"` (from A1), v86 runs a separate core,
 `build/v86-arm64.wasm`: an Armv8.0-A CPU at EL0 and EL1 only, on the `virt`
@@ -15,9 +14,9 @@ does not contain the ARM code (the plan's "Wasm core" section).
 | --- | --- |
 | Option | `cpu_type: "arm64"` (machine_type "virt", its default) |
 | Profile | `v86-aarch64-v1`, [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) |
-| Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives), kpti=1, single-user mode, snapshot, reboot and poweroff; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
-| Boot time | Alpine's initramfs stage through the probe: 5.7 / 6.1 / 6.8 s on 1/2/4 cores with the page tier, 34.6 / 40.1 / 49.9 s interpreted (release build, Apple M-series Mac; QEMU TCG: 1.7 s on 1 core) |
-| Not done | virtio devices and the live stage (P5); cores in workers and 2 GiB of RAM or more (P8: the core holds guest memory in one allocation of the 32-bit Wasm memory) |
+| Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng and hvc0, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
+| Boot time | Alpine from the ISO to `localhost login:`: 30 / 39 / 34 s on 1/2/4 cores with the page tier, 232 / 267 / 341 s interpreted (QEMU TCG: 11 s on 1 core); the initramfs stage through the probe: 5.7 / 6.1 / 6.8 s with the page tier, 34.6 / 40.1 / 49.9 s interpreted (release build, Apple M-series Mac) |
+| Not done | PCIe and virtio-pci, graphics, input (A5); cores in workers and 2 GiB of RAM or more (P8: the core holds guest memory in one allocation of the 32-bit Wasm memory) |
 
 ## CPU profile
 
@@ -61,6 +60,7 @@ macOS.
 | --- | --- | --- |
 | Alpine 3.24 aarch64 initramfs and live stages, the probe (`tests/a64/linux_probe.c`), 1/2/4 cores | `A64_LINUX_QEMU=1 A64_STAGE=initramfs\|live A64_CORES=N node tests/a64/linux_boot.mjs` | QEMU |
 | The same on v86 (initramfs, single, lifecycle; `A64_JIT=1`: the page tier; `A64_KPTI=1`, `A64_WORKLOAD=N`, `A64_MIDWAY_SNAPSHOT=1`) | `A64_STAGE=initramfs A64_CORES=N node tests/a64/linux_boot.mjs` | v86 |
+| `setup-disk -m sys` onto a virtio-blk disk, the installed system booted from it, fsck (packages from `node tools/alpine_repo.mjs --arch aarch64 --set sys`) | `A64_JIT=1 node tests/a64/linux_install.mjs` | v86 |
 | The guest JIT workloads after the probe (node, `java Hello.java`, luajit `-jon`/`-joff`, `pcre2test -jit`; packages from `node tools/alpine_repo.mjs --arch aarch64 --set jit`, 1.5 GiB of RAM) | `A64_WORKLOAD=jit A64_STAGE=initramfs node tests/a64/linux_boot.mjs` (with `A64_LINUX_QEMU=1` first for the reference) | both |
 | Bare-metal guests (`tests/a64/guest_runner.mjs`, runtime in `tests/a64/baremetal/`) | `node tests/a64/float_ref.mjs`, `node tests/a64/platform_probe.mjs` | `A64_TARGET=qemu` (v86: A1) |
 | Decode oracle (llvm-mc with the profile's `-mattr`) | `node tests/a64/oracle/decode.mjs --self-test` | — |
