@@ -21,7 +21,8 @@
 //
 // --set sys: what `setup-disk -m sys` installs, from the mirror's index
 // alone (mixed with the ISO's older one, apk would pick the mirror's
-// versions, which are not here): alpine-base, the kernel package (the virt
+// versions, which are not here): the live system's world (alpine-base,
+// openssl, ssl_client), the kernel package (the virt
 // ISO has none), the empty firmware set, and setup-disk's own tools
 // (tests/a64/linux_install.mjs, P5.4).
 //
@@ -52,7 +53,7 @@ export const VIRGL_PACKAGES = ["mesa-dri-gallium", "mesa-gbm", "mesa-egl", "mesa
 /** The guest JIT workloads (P6.7): `node`, `java Hello.java`, `luajit -jon`/`-joff`, `pcre2test -jit` */
 export const JIT_PACKAGES = ["nodejs", "openjdk21-jdk", "luajit", "pcre2-tools"];
 /** setup-disk -m sys from the virt ISO: its kernel and firmware packages */
-export const SYS_PACKAGES = ["alpine-base", "linux-virt", "linux-firmware-none", "e2fsprogs", "sfdisk"];
+export const SYS_PACKAGES = ["alpine-base", "openssl", "ssl_client", "linux-virt", "linux-firmware-none", "e2fsprogs", "sfdisk"];
 /** Where a set's repository and image go */
 export const output_directory = arch => path.join(ROOT, arch === "aarch64" ? "build/a64-linux" : "build/x64-linux");
 
@@ -108,8 +109,8 @@ async function fetch_bytes(location)
  */
 async function build_repo(branch, out, names, arch = "x86_64")
 {
-    const packages = new Map();     // name -> { repo, version, deps, provides }
-    const providers = new Map();    // provided name -> package name
+    const packages = new Map();     // name -> { repo, version, deps, provides, install_if }
+    const providers = new Map();    // provided name -> [{ name, priority }]
 
     for(const repo of REPOS)
     {
@@ -120,23 +121,27 @@ async function build_repo(branch, out, names, arch = "x86_64")
         for(const fields of parse_apkindex(apkindex(fs.readFileSync(index_path))).values())
         {
             if(packages.has(fields.P)) continue;
-            const entry = { repo, version: fields.V, deps: (fields.D || "").split(" ").filter(Boolean), provides: [] };
+            const provides = (fields.p || "").split(" ").filter(Boolean).map(provided => provided.replace(/[<>=~].*$/, ""));
+            const entry = { repo, version: fields.V, deps: (fields.D || "").split(" ").filter(Boolean), provides,
+                install_if: (fields.i || "").split(" ").filter(Boolean) };
             packages.set(fields.P, entry);
-            for(const provided of (fields.p || "").split(" ").filter(Boolean))
+            for(const name of provides)
             {
-                const name = provided.replace(/[<>=~].*$/, "");
-                if(!providers.has(name)) providers.set(name, fields.P);
+                if(!providers.has(name)) providers.set(name, []);
+                providers.get(name).push({ name: fields.P, priority: Number(fields.k || 0) });
             }
         }
     }
 
     const wanted = new Set();
     const missing = [];
+    // (a virtual name: the provider apk picks, the highest provider_priority)
+    const provider = name => (providers.get(name) || []).reduce((best, p) => !best || p.priority > best.priority ? p : best, null)?.name;
     function want(dependency)
     {
         if(dependency.startsWith("!")) return;
         const name = dependency.replace(/[<>=~].*$/, "");
-        const package_name = packages.has(name) ? name : providers.get(name);
+        const package_name = packages.has(name) ? name : provider(name);
         if(!package_name) { missing.push(dependency); return; }
         if(wanted.has(package_name)) return;
         wanted.add(package_name);
@@ -146,6 +151,21 @@ async function build_repo(branch, out, names, arch = "x86_64")
     {
         if(!packages.has(name)) throw new Error("no package " + name + " in Alpine " + branch);
         want(name);
+    }
+    // (install_if: what apk adds by itself once the packages it names are there)
+    const present = name => wanted.has(name) || [...wanted].some(w => packages.get(w).provides.includes(name));
+    for(let added = true; added;)
+    {
+        added = false;
+        for(const [name, entry] of packages)
+        {
+            if(wanted.has(name) || !entry.install_if.length) continue;
+            if(entry.install_if.every(condition => condition.startsWith("!") ? !present(condition.slice(1)) : present(condition.replace(/[<>=~].*$/, ""))))
+            {
+                want(name);
+                added = true;
+            }
+        }
     }
 
     let bytes = 0;

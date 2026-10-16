@@ -1071,7 +1071,9 @@ a64-guest-quick-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 # (L: the QEMU reference, then the interpreter's initramfs, single,
 # lifecycle and live stages: the live one from the ISO on virtio-blk to a
-# login, the probe from its disk, virtio-net, -rng and -console, P5)
+# login, the probe from its disk, virtio-net, -rng and -console, P5; then
+# setup-disk -m sys and the installed system, with the page tier: its
+# packages from tools/alpine_repo.mjs --arch aarch64 --set sys)
 a64-guest-tests: build/v86-arm64.wasm
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
@@ -1079,6 +1081,7 @@ a64-guest-tests: build/v86-arm64.wasm
 	A64_STAGE=lifecycle A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_LINUX_QEMU=1 A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_JIT=1 node tests/a64/linux_install.mjs
 a64-lifecycle-guest-tests:
 	$(call A64_PENDING,A6)
 # (L: the initramfs stage on 2 and 4 cooperative cores, its kpti=1 variant

@@ -78,9 +78,10 @@ async function session(name, commands, done)
 {
     const from = text().length;
     const started = performance.now();
-    await wait_for(/login: ?$/, name + " login prompt", from);
+    await wait_for(/login: ?(\x1b\[[0-9;]*[A-Za-z])*$/, name + " login prompt", from);
     emulator.serial0_send("root\n");
-    await wait_for(/:~# ?$/, name + " shell", from);
+    // (busybox's ash asks the terminal for the cursor position after its prompt: ESC [ 6 n)
+    await wait_for(/:~# ?(\x1b\[[0-9;]*[A-Za-z])*$/, name + " shell", from);
     const at = text().length;
     emulator.serial0_send(commands);
     await wait_for(done, name + " end", at);
@@ -110,7 +111,7 @@ try
     // 1. from the ISO: setup-disk, the installed files' MD5s, fsck, /boot exported
     const setup = await session("setup", DISKS + REPOSITORY +
         "ERASE_DISKS=$T setup-disk -m sys -s 0 -B none $T > /tmp/setup.log 2>&1; echo A64_SETUP=$?; tail -3 /tmp/setup.log; " +
-        "echo A64_UUID=$(blkid -s UUID -o value ${T}2); mount ${T}2 /mnt && " + MD5("/mnt") + "umount /mnt; " +
+        "echo A64_UUID=$(blkid ${T}2 | grep -o ' UUID=\"[^\"]*\"' | cut -d'\"' -f2); mount ${T}2 /mnt && " + MD5("/mnt") + "umount /mnt; " +
         "fsck.ext4 -fn ${T}2; echo A64_FSCK=$?; mount ${T}1 /mnt && tar -cf $E -C /mnt vmlinuz-virt initramfs-virt && umount /mnt; " +
         "sync; echo A64_EXPORTED\n", /\nA64_EXPORTED\n/);
     assert.equal(value(setup, "A64_SETUP"), "0", "setup-disk -m sys:\n" + setup.slice(-1500));
