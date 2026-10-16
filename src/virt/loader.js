@@ -103,6 +103,7 @@ export function load_linux(cpu, boot)
         globalThis.crypto?.getRandomValues?.(rng_seed);
         dtb = flatten(virt_tree({
             cores: boot.cores, memory_size: ram_size, bootargs: boot.cmdline || undefined, initrd, rng_seed,
+            extended: cpu.extended_pages ? { base: cpu.extended_base, size: cpu.extended_pages * 4096 } : undefined,
         }));
     }
     if(dtb_start + dtb.length > ram_end) throw new Error("dtb: not enough RAM after the kernel and initrd");

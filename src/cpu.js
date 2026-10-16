@@ -905,10 +905,15 @@ CPU.prototype.get_state = function(skip_memory = false)
     if(skip_memory) { state[77] = null; state[78] = null; }
     else
     {
-        // (a single-buffer snapshot does not hold extended RAM: the stream does)
-        if(this.extended_store && this.extended_store.touched.some(byte => byte !== 0))
+        // (a single-buffer snapshot does not hold extended RAM: the stream
+        // does; pages written only in their frames count too)
+        if(this.extended_store)
         {
-            throw new Error("A snapshot of extended RAM needs save_state_stream");
+            this.flush_extended_memory();
+            if(this.extended_store.touched.some(byte => byte !== 0))
+            {
+                throw new Error("A snapshot of extended RAM needs save_state_stream");
+            }
         }
         const { packed_memory, bitmap } = this.pack_memory();
         state[77] = packed_memory;
@@ -2544,6 +2549,12 @@ CPU.prototype.configure_extended_memory = function(size, cache_size)
     this.extended_store = store;
     this.extended_pages = size / 4096;
     this.extended_base = base;
+};
+
+/** Every dirty frame back into the store (src/state.js: a snapshot stream) */
+CPU.prototype.flush_extended_memory = function()
+{
+    this.wm.exports["x64_ext_flush"]();
 };
 
 /** Extended RAM reads as zero again (power-on); every core is stopped */

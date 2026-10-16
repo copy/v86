@@ -18,8 +18,10 @@ import { VirtDeviceSpace } from "../virt/io.js";
 import {
     A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
     VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
+    VIRT_EXTENDED_RAM_BASE, VIRT_EXTENDED_RAM_END,
 } from "../virt/platform.js";
 import { PCI } from "../pci.js";
+import { ExtendedStore } from "../extended_memory.js";
 import { PL011 } from "../virt/pl011.js";
 import { PL031 } from "../virt/pl031.js";
 import { load_linux } from "../virt/loader.js";
@@ -71,7 +73,10 @@ export function A64CPU(bus, wm, stop_idling)
     /** cores in vCPU workers: P8.2 */
     this.parallel = null;
     this.parallel_fallback = "";
+    // extended RAM (configure_extended_memory)
     this.extended_pages = 0;
+    this.extended_base = 0;
+    /** @type {ExtendedStore} */
     this.extended_store = null;
 
     // (src/state.js reads memory_size[0])
@@ -195,6 +200,7 @@ A64CPU.prototype.init = function(settings, device_bus)
     // The display adapter's plugin descriptor (P7.1: virtio-gpu without VGA); none with graphics_adapter: "none"
     this.graphics_adapter_descriptor = settings.graphics_adapter;
     this.create_memory(memory_size, this.graphics_adapter_descriptor ? DEVICE_MEMORY_SIZE : 0);
+    this.configure_extended_memory(settings.extended_memory_size || 0, settings.extended_memory_cache);
     this.device_bus = device_bus;
     this.devices = {
         "pl011": new PL011(this, device_bus),
@@ -550,10 +556,23 @@ A64CPU.prototype.powered_off = function()
     return !!this.wm.exports["a64_powered_off"]?.();
 };
 
-/** @param {string=} reason */
+/**
+ * A reset (PSCI SYSTEM_RESET, V86.restart), or with reason "power-on" the
+ * machine powered on again after SYSTEM_OFF (V86.power_button)
+ * @param {string=} reason
+ */
 A64CPU.prototype.reboot_internal = function(reason)
 {
     if(!this.booted) return;
+    if(reason === "power-on")
+    {
+        // (after PSCI SYSTEM_OFF, P8.1: RAM and device memory do not keep their contents)
+        this.mem8.fill(0);
+        this.wm.exports["a64_bus_written"](0, this.memory_size[0]);
+        new Uint8Array(this.wasm_memory.buffer, this.mem8.byteOffset + this.device_memory.start,
+            this.device_memory.end - this.device_memory.start).fill(0);
+        this.clear_extended_memory();
+    }
     for(const device of Object.values(this.devices)) device.reset?.();
     for(const { device } of this.virtio_devices) device.reset();
     if(this.boot_files)
@@ -602,18 +621,26 @@ A64CPU.prototype.ram_offset = function(address, length)
 /** The end of the physical address space: profile v1's 40 bits */
 A64CPU.prototype.physical_limit = 0x10000000000;
 
+/** Whether the physical range [address, address + length) is all extended RAM (P8.5) */
+A64CPU.prototype.is_extended = function(address, length)
+{
+    const offset = address - this.extended_base;
+    return this.extended_pages !== 0 && offset >= 0 && offset + length <= this.extended_pages * 4096;
+};
+
 /**
  * Where a device's DMA to [address, address + length) goes (the machine's
- * DMA facade, P1.6): RAM is one contiguous backing
+ * DMA facade, P1.6): RAM is one contiguous backing, extended RAM is copied
+ * a page at a time
  * @param {number} address
  * @param {number} length
- * @return {number} the offset in guest memory, or -2 when it is not all RAM
+ * @return {number} the offset in guest memory, -1 for extended RAM, or -2 when it is not all RAM
  */
 A64CPU.prototype.dma_classify = function(address, length)
 {
     if(!Number.isSafeInteger(address) || !Number.isSafeInteger(length) || length <= 0) return -2;
     const offset = this.ram_offset(address, length);
-    return offset < 0 ? -2 : offset;
+    return offset >= 0 ? offset : this.is_extended(address, length) ? -1 : -2;
 };
 
 /**
@@ -625,8 +652,19 @@ A64CPU.prototype.dma_classify = function(address, length)
 A64CPU.prototype.read_blob_physical = function(address, length)
 {
     const offset = this.ram_offset(address, length);
-    if(offset < 0) throw new RangeError("read_blob_physical: [0x" + address.toString(16) + ", +" + length + ") is not RAM");
-    return this.mem8.slice(offset, offset + length);
+    if(offset >= 0) return this.mem8.slice(offset, offset + length);
+    if(!this.is_extended(address, length))
+    {
+        throw new RangeError("read_blob_physical: [0x" + address.toString(16) + ", +" + length + ") is not RAM");
+    }
+    const result = new Uint8Array(length);
+    for(let done = 0; done < length;)
+    {
+        const count = Math.min(length - done, 4096 - (address + done) % 4096);
+        result.set(this.extended_page_bytes(address + done, count, false), done);
+        done += count;
+    }
+    return result;
 };
 
 /**
@@ -638,9 +676,46 @@ A64CPU.prototype.read_blob_physical = function(address, length)
 A64CPU.prototype.write_blob_physical = function(blob, address)
 {
     const offset = this.ram_offset(address, blob.length);
-    if(offset < 0) throw new RangeError("write_blob_physical: [0x" + address.toString(16) + ", +" + blob.length + ") is not RAM");
-    this.mem8.set(blob, offset);
-    this.wm.exports["a64_bus_written"](offset, blob.length);
+    if(offset >= 0)
+    {
+        this.mem8.set(blob, offset);
+        this.wm.exports["a64_bus_written"](offset, blob.length);
+        return;
+    }
+    if(!this.is_extended(address, blob.length))
+    {
+        throw new RangeError("write_blob_physical: [0x" + address.toString(16) + ", +" + blob.length + ") is not RAM");
+    }
+    const bytes = blob instanceof Uint8Array ? blob : new Uint8Array(blob);
+    for(let done = 0; done < bytes.length;)
+    {
+        const count = Math.min(bytes.length - done, 4096 - (address + done) % 4096);
+        this.extended_page_bytes(address + done, count, bytes.subarray(done, done + count));
+        done += count;
+    }
+};
+
+/**
+ * Copy bytes of one page of extended RAM (DMA, debugging): its frame is
+ * pinned meanwhile; a write retires code compiled from the page and clears
+ * every core's reservations in it (src/rust/aarch64/extended.rs)
+ * @param {number} address guest physical, in extended RAM
+ * @param {number} count bytes within the page
+ * @param {Uint8Array|boolean} write the bytes to write, or false to read
+ * @return {!Uint8Array} the bytes read
+ */
+A64CPU.prototype.extended_page_bytes = function(address, count, write)
+{
+    const page = Math.floor((address - this.extended_base) / 4096);
+    // (an i32: the frame pool may lie above 2 GiB)
+    const frame = this.wm.exports["a64_ext_pin"](page, !!write) >>> 0;
+    dbg_assert(frame !== 0 && address % 4096 + count <= 4096);
+    const bytes = new Uint8Array(this.wasm_memory.buffer, frame + address % 4096, count);
+    let result = bytes;
+    if(write) bytes.set(/** @type {!Uint8Array} */ (write));
+    else result = bytes.slice();
+    this.wm.exports["a64_ext_unpin"](page);
+    return result;
 };
 
 /** @throws {RangeError} unless [address, address + length) is all RAM (VirtQueue) */
@@ -652,37 +727,107 @@ A64CPU.prototype.validate_physical_range = function(address, length)
     }
 };
 
-/** The guest-memory offset of a scalar's RAM, or a RangeError (devices' DMA) */
+/** The guest-memory offset of a scalar's RAM, -1 in extended RAM, or a RangeError (devices' DMA) */
 A64CPU.prototype.scalar_offset = function(address, bytes)
 {
     const offset = this.dma_classify(address, bytes);
-    if(offset < 0) throw new RangeError("0x" + address.toString(16) + " is not RAM");
+    if(offset === -2) throw new RangeError("0x" + address.toString(16) + " is not RAM");
     return offset;
 };
-A64CPU.prototype.read8_physical = function(address) { return this.mem8[this.scalar_offset(address, 1)]; };
-A64CPU.prototype.read16_physical = function(address)
+/** A scalar of `bytes` bytes at `address` (devices' DMA) */
+A64CPU.prototype.read_scalar_physical = function(address, bytes)
 {
-    const o = this.scalar_offset(address, 2);
-    return this.mem8[o] | this.mem8[o + 1] << 8;
+    const o = this.scalar_offset(address, bytes);
+    const b = o >= 0 ? this.mem8.subarray(o, o + bytes) : this.read_blob_physical(address, bytes);
+    let value = 0;
+    for(let i = 0; i < bytes; i++) value |= b[i] << 8 * i;
+    return value >>> 0;
 };
-A64CPU.prototype.read32_physical = function(address)
-{
-    const o = this.scalar_offset(address, 4);
-    return (this.mem8[o] | this.mem8[o + 1] << 8 | this.mem8[o + 2] << 16 | this.mem8[o + 3] << 24) >>> 0;
-};
+A64CPU.prototype.read8_physical = function(address) { return this.read_scalar_physical(address, 1); };
+A64CPU.prototype.read16_physical = function(address) { return this.read_scalar_physical(address, 2); };
+A64CPU.prototype.read32_physical = function(address) { return this.read_scalar_physical(address, 4); };
 /** A scalar's bytes at `address`: code compiled from them retires, other cores' reservations clear */
 A64CPU.prototype.write_scalar_physical = function(address, value, bytes)
 {
     const o = this.scalar_offset(address, bytes);
-    for(let i = 0; i < bytes; i++) this.mem8[o + i] = value >>> 8 * i & 0xFF;
+    const b = new Uint8Array(bytes);
+    for(let i = 0; i < bytes; i++) b[i] = value >>> 8 * i & 0xFF;
+    if(o < 0)
+    {
+        this.write_blob_physical(b, address);
+        return;
+    }
+    this.mem8.set(b, o);
     this.wm.exports["a64_bus_written"](o, bytes);
 };
 A64CPU.prototype.write8_physical = function(address, value) { this.write_scalar_physical(address, value, 1); };
 A64CPU.prototype.write16_physical = function(address, value) { this.write_scalar_physical(address, value, 2); };
 A64CPU.prototype.write32_physical = function(address, value) { this.write_scalar_physical(address, value, 4); };
 
+// ---- extended RAM (P8.5)
+
+/**
+ * RAM beyond guest memory (extended RAM): `size` bytes at guest physical
+ * 4 GiB (the device tree's second memory range), kept in an ExtendedStore
+ * (src/extended_memory.js) and cached in `cache_size` bytes of frames
+ * (src/rust/aarch64/extended.rs)
+ * @param {number} size
+ * @param {number=} cache_size
+ */
+A64CPU.prototype.configure_extended_memory = function(size, cache_size)
+{
+    this.extended_pages = 0;
+    this.extended_base = 0;
+    this.extended_store = null;
+    if(!size) return;
+    if(!Number.isSafeInteger(size) || size < 0 || size % (2 << 20))
+    {
+        throw new Error("extended_memory_size must be a multiple of 2 MiB");
+    }
+    const base = VIRT_EXTENDED_RAM_BASE;
+    if(base + size > VIRT_EXTENDED_RAM_END)
+    {
+        throw new Error("extended_memory_size: the virt machine's RAM ends at 256 GiB (at most " + (VIRT_EXTENDED_RAM_END - base) + " bytes)");
+    }
+    const cache = Math.min(size, cache_size || 512 << 20);
+    if(!Number.isSafeInteger(cache) || cache < 1 << 20 || cache % 4096)
+    {
+        throw new Error("extended_memory_cache must be a multiple of 4 KiB and at least 1 MiB");
+    }
+    let store;
+    try
+    {
+        store = new ExtendedStore(size / 4096);
+    }
+    catch(e)
+    {
+        throw new Error("extended_memory_size: the host cannot allocate " + size + " bytes (" + e.message + ")");
+    }
+    // (before the first access: extended_load reads the store)
+    this.extended_store = store;
+    if(!this.wm.exports["a64_ext_configure"](base >>> 0, Math.floor(base / 0x100000000), size / 4096, cache / 4096))
+    {
+        this.extended_store = null;
+        throw new Error("extended_memory_size: cannot allocate the frame cache");
+    }
+    this.extended_pages = size / 4096;
+    this.extended_base = base;
+};
+
+/** Extended RAM reads as zero again (power-on, a restore); every core is stopped */
 A64CPU.prototype.clear_extended_memory = function()
 {
+    if(!this.extended_store) return;
+    this.wm.exports["a64_ext_discard"]();
+    this.extended_store.clear();
+    // (code compiled from it)
+    this.wm.exports["jit_clear_cache_js"]();
+};
+
+/** Every dirty frame back into the store (src/state.js: a snapshot stream) */
+A64CPU.prototype.flush_extended_memory = function()
+{
+    this.wm.exports["a64_ext_flush"]();
 };
 
 // ---- snapshots (P1.9): ["virt", VIRT_LAYOUT_VERSION, profile] in state[103]
@@ -757,6 +902,8 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[12] = this.devices.graphics_adapter;
     // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
     state[95] = this.clock.get_state();
+    // extended RAM's pages (P8.5: its contents are records of the snapshot stream)
+    state[98] = this.extended_pages;
     if(skip_memory)
     {
         state[77] = null;
@@ -764,6 +911,15 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     }
     else
     {
+        // (a single-buffer snapshot does not hold extended RAM: the stream does)
+        if(this.extended_store)
+        {
+            this.flush_extended_memory();
+            if(this.extended_store.touched.some(byte => byte !== 0))
+            {
+                throw new Error("A snapshot of extended RAM needs save_state_stream");
+            }
+        }
         const { packed_memory, bitmap } = this.pack_memory();
         state[77] = packed_memory;
         state[78] = new Uint8Array(bitmap.get_buffer());
@@ -794,6 +950,10 @@ A64CPU.prototype.validate_state = function(state)
     if(state[1] !== this.cores)
     {
         throw new Error("The snapshot has " + state[1] + " cores, this machine " + this.cores);
+    }
+    if((state[98] || 0) !== this.extended_pages)
+    {
+        throw new Error("The snapshot has " + (state[98] || 0) * 4096 + " bytes of extended RAM, this machine " + this.extended_pages * 4096);
     }
     if(this.devices.graphics_adapter)
     {

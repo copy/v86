@@ -1063,6 +1063,7 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/dtb.mjs
 	node tests/a64/linux_loader.mjs
 	node tests/a64/device_io_reset.mjs
+	node tests/a64/extended_memory.mjs
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm
 	node tests/api/arm64-options.js
@@ -1085,8 +1086,18 @@ a64-guest-tests: build/v86-arm64.wasm
 	A64_LINUX_QEMU=1 A64_STAGE=live A64_TRANSPORT=pci A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=live A64_TRANSPORT=pci A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_TRANSPORT=pci node tests/a64/linux_install.mjs
-a64-lifecycle-guest-tests:
-	$(call A64_PENDING,A6)
+# (L, P8.1: snapshots at the probe's three markers, V7 and V6 in turn, for
+# the interpreter and the page tier on 1, 2 and 4 cores, on virtio-mmio and
+# virtio-pci; s2idle woken by the PL031's alarm and hibernation onto a swap
+# disk with a power-on and resume, twice each)
+a64-lifecycle-guest-tests: build/v86-arm64.wasm
+	for jit in 0 1; do for cores in 1 2 4; do for transport in mmio pci; do \
+		A64_JIT=$$jit A64_STAGE=live A64_LINUX_SNAPSHOT=1 A64_CORES=$$cores A64_TRANSPORT=$$transport node tests/a64/linux_boot.mjs || exit 1; \
+	done; done; done
+	for cores in 1 4; do for transport in mmio pci; do \
+		A64_JIT=1 A64_STAGE=live A64_LINUX_SLEEP=2 A64_CORES=$$cores A64_TRANSPORT=$$transport node tests/a64/linux_boot.mjs || exit 1; \
+	done; done
+	A64_STAGE=live A64_LINUX_SLEEP=1 A64_CORES=1 node tests/a64/linux_boot.mjs
 # (L: the initramfs stage on 2 and 4 cooperative cores, its kpti=1 variant
 # on 1, 2 and 4, and the live stage on 2 and 4 against QEMU's)
 a64-multicore-guest-tests: build/v86-arm64.wasm
@@ -1148,10 +1159,18 @@ a64-parallel-tests:
 	$(call A64_PENDING,A6)
 a64-parallel-guest-tests:
 	$(call A64_PENDING,A6)
-a64-browser-tests:
-	$(call A64_PENDING,A6)
-a64-extended-guest-tests:
-	$(call A64_PENDING,A6)
+# (P8.7: Alpine aarch64 from its ISO in a headless Chrome: the source tree,
+# the bundle, the CPU worker, virtio-pci; the files from linux_boot.mjs)
+a64-browser-tests: build/v86-arm64.wasm build/libv86.mjs build/cpu-worker.js
+	A64_LINUX_PREPARE_ONLY=1 A64_STAGE=live node tests/a64/linux_boot.mjs
+	node tests/a64/browser.mjs
+# (P8.5: guest RAM of 3 GiB and 4 GiB, extended RAM from 4 GiB: the probe's
+# memtest over most of it, code, an exclusive counter and DC ZVA there)
+a64-extended-guest-tests: build/v86-arm64.wasm
+	node tests/a64/extended_memory.mjs
+	A64_JIT=1 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=2147483648 A64_LINUX_MEMTEST=2304 node tests/a64/linux_boot.mjs
+	A64_JIT=0 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=2147483648 A64_LINUX_MEMTEST=2304 node tests/a64/linux_boot.mjs
+	A64_JIT=1 A64_CORES=2 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=3221225472 A64_LINUX_MEMTEST=3328 node tests/a64/linux_boot.mjs
 a64-pagesize-guest-tests:
 	$(call A64_PENDING,A6)
 a64-android-prep-tests:

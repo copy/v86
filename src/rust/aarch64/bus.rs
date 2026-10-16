@@ -19,6 +19,12 @@
 //! compiled code writes it through the interpreter's path (the access cache
 //! is not filled for it).
 //!
+//! Extended RAM (P8.5: RAM beyond the one allocation of guest memory) is a
+//! region at or above 4 GiB that crate::aarch64::extended keeps (a host store
+//! cached in frames): the cores read and write it a page at a time, code is
+//! compiled from it under its own code keys (from EXTENDED_CODE_KEY on), the
+//! access cache is not filled for it.
+//!
 //! JavaScript passes 64-bit addresses as two 32-bit halves (low, high).
 
 use crate::page::Page;
@@ -40,7 +46,13 @@ pub enum Kind {
     Mmio { owner: u32 },
     /// device memory at `backing` (at or above DEVICE_START): guest memory whose written pages are marked
     Device { backing: u32 },
+    /// extended RAM (crate::aarch64::extended)
+    Extended,
 }
+
+/// The code key of extended RAM's first page (the keys of guest memory are
+/// its pages, below 2 GiB)
+pub const EXTENDED_CODE_KEY: u32 = 1 << 20;
 
 /// What a physical address is
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -55,6 +67,10 @@ pub enum Lookup {
     Mmio {
         owner: u32,
         offset: u64,
+    },
+    /// extended RAM: `page` from its start
+    Extended {
+        page: u32,
     },
     Hole,
 }
@@ -156,6 +172,9 @@ impl AddressSpace {
                         writable: true,
                     }
                 },
+                Kind::Extended => Lookup::Extended {
+                    page: ((pa - r.base) >> 12) as u32,
+                },
             },
             None => Lookup::Hole,
         }
@@ -200,6 +219,7 @@ impl AddressSpace {
                     offset: p,
                 },
             ) if a == b && p - o == len - 1 => Ok(first),
+            (Lookup::Extended { .. }, Lookup::Extended { .. }) => Ok(first),
             _ => Err(Fault::External),
         }
     }
@@ -208,6 +228,7 @@ impl AddressSpace {
     pub fn code_key(&self, pa: u64) -> Option<u32> {
         match self.lookup(pa) {
             Lookup::Ram { code_key, .. } => Some(code_key),
+            Lookup::Extended { page } => Some(EXTENDED_CODE_KEY + page),
             _ => None,
         }
     }
@@ -234,6 +255,9 @@ impl AddressSpace {
             if backing as u64 + size > unsafe { MEM8_SIZE } as u64 {
                 return false;
             }
+        }
+        if kind == Kind::Extended && (base | size) & 0xFFF != 0 {
+            return false;
         }
         if let Kind::Device { backing } = kind {
             if backing < unsafe { DEVICE_START }
@@ -391,6 +415,7 @@ pub unsafe fn read(pa: u64, size: u32) -> Result<u64, Fault> {
             })
         },
         Lookup::Mmio { owner, offset } => Ok(mmio_read(owner, offset, size)),
+        Lookup::Extended { .. } => Ok(crate::aarch64::extended::read(pa, size)),
         Lookup::Hole => Err(Fault::External),
     }
 }
@@ -418,6 +443,10 @@ pub unsafe fn write(pa: u64, size: u32, value: u64) -> Result<(), Fault> {
             mmio_write(owner, offset, size, value);
             Ok(())
         },
+        Lookup::Extended { .. } => {
+            crate::aarch64::extended::write(pa, size, value);
+            Ok(())
+        },
         Lookup::Hole => Err(Fault::External),
     }
 }
@@ -432,6 +461,11 @@ pub unsafe fn read128(pa: u64) -> Result<u128, Fault> {
         Lookup::Mmio { owner, offset } => {
             let lo = mmio_read(owner, offset, 8);
             let hi = mmio_read(owner, offset + 8, 8);
+            Ok(lo as u128 | (hi as u128) << 64)
+        },
+        Lookup::Extended { .. } => {
+            let lo = crate::aarch64::extended::read(pa, 8);
+            let hi = crate::aarch64::extended::read(pa + 8, 8);
             Ok(lo as u128 | (hi as u128) << 64)
         },
         Lookup::Hole => Err(Fault::External),
@@ -453,6 +487,12 @@ pub unsafe fn write128(pa: u64, value: u128) -> Result<(), Fault> {
         Lookup::Mmio { owner, offset } => {
             mmio_write(owner, offset, 8, value as u64);
             mmio_write(owner, offset + 8, 8, (value >> 64) as u64);
+            Ok(())
+        },
+        Lookup::Extended { .. } => {
+            let _guard = crate::extended::Guard::new();
+            crate::aarch64::extended::write(pa, 8, value as u64);
+            crate::aarch64::extended::write(pa + 8, 8, (value >> 64) as u64);
             Ok(())
         },
         Lookup::Hole => Err(Fault::External),
@@ -592,6 +632,9 @@ pub unsafe fn a64_device_mark_dirty(backing: u32, size: u32) {
         device_written(backing, size);
     }
 }
+/// Map extended RAM at [base, base + size) (crate::aarch64::extended)
+pub fn map_extended(base: u64, size: u64) -> bool { bus_mut().map(base, size, Kind::Extended) }
+
 /// Unmap the region at `base`
 #[no_mangle]
 pub unsafe fn a64_bus_unmap(base_low: u32, base_high: u32) -> bool {
@@ -600,8 +643,8 @@ pub unsafe fn a64_bus_unmap(base_low: u32, base_high: u32) -> bool {
 #[no_mangle]
 pub fn a64_bus_generation() -> u32 { bus().generation() }
 
-/// What `pa` is: 0 a hole, 1 RAM, 2 ROM, 3 MMIO (a64_bus_lookup_detail: the
-/// backing or the owner)
+/// What `pa` is: 0 a hole, 1 RAM, 2 ROM, 3 MMIO, 4 extended RAM
+/// (a64_bus_lookup_detail: the backing, the owner or the extended page)
 #[no_mangle]
 pub fn a64_bus_lookup(pa_low: u32, pa_high: u32) -> u32 {
     match bus().lookup(pa(pa_low, pa_high)) {
@@ -609,6 +652,7 @@ pub fn a64_bus_lookup(pa_low: u32, pa_high: u32) -> u32 {
         Lookup::Ram { writable: true, .. } => 1,
         Lookup::Ram { .. } => 2,
         Lookup::Mmio { .. } => 3,
+        Lookup::Extended { .. } => 4,
     }
 }
 #[no_mangle]
@@ -617,6 +661,7 @@ pub fn a64_bus_lookup_detail(pa_low: u32, pa_high: u32) -> f64 {
         Lookup::Hole => -1.0,
         Lookup::Ram { backing, .. } => backing as f64,
         Lookup::Mmio { owner, .. } => owner as f64,
+        Lookup::Extended { page } => page as f64,
     }
 }
 /// The code key of `pa`'s page, -1 when it is not guest memory

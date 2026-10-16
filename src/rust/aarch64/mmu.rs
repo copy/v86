@@ -121,6 +121,9 @@ fn descriptor(pa: u64) -> Option<u64> {
         crate::aarch64::bus::Lookup::Ram { backing, .. } => Some(unsafe {
             crate::parallel::load64(crate::aarch64::bus::MEM8.add(backing as usize))
         }),
+        crate::aarch64::bus::Lookup::Extended { .. } => {
+            Some(unsafe { crate::aarch64::extended::read(pa, 8) })
+        },
         _ => None,
     }
 }

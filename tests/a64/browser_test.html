@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>v86 arm64 in a browser</title>
+<!-- The arm64 virt machine in a browser (docs/arm64-virt-android16-plan.md
+     P8.7): Alpine 3.24 aarch64 from its ISO on virtio-blk (the kernel and
+     initramfs unpacked from it, build/a64-linux/) to a login on the serial
+     console, a command, then the probe from its disk. ?build=bundle loads
+     build/libv86.mjs; ?cpu_worker=1 runs the machine in the CPU worker;
+     ?jit=0 the interpreter; ?transport=pci the devices on the PCIe host. -->
+<pre id="log"></pre>
+<div id="result"></div>
+<script type="module">
+const params = new URLSearchParams(location.search);
+const log = text => { document.getElementById("log").textContent += text + "\n"; };
+const done = text => { document.getElementById("result").textContent = text; };
+const bundle = params.get("build") === "bundle", cpu_worker = params.get("cpu_worker") === "1", jit = params.get("jit") !== "0";
+try
+{
+    const { V86 } = await import(bundle ? "../../build/libv86.mjs" : "../../src/main.js");
+    const files = "../../build/a64-linux/";
+    const emulator = new V86({
+        cpu_type: "arm64", graphics_adapter: "none", memory_size: 512 << 20, log_level: 0, autostart: true,
+        wasm_path: "../../build/v86-arm64.wasm",
+        kernel: { url: files + "boot/vmlinuz-virt" }, initrd: { url: files + "boot/initramfs-virt" },
+        cmdline: "console=ttyAMA0 modules=loop,squashfs,sd-mod,usb-storage",
+        virtio_disks: [{ url: files + "alpine-virt-3.24.0-aarch64.iso", async: true, readonly: true },
+            { url: files + "probe/probe.tar", id: "a64probe" }],
+        virtio_rng: true, virtio_transport: params.get("transport") || "mmio",
+        ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
+        cpu_worker, ...(cpu_worker && bundle ? { cpu_worker_url: "../../build/cpu-worker.js" } : {}),
+    });
+    let serial = "";
+    emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+    const t0 = performance.now();
+    const wait = async (pattern, what, from = 0) => {
+        while(!pattern.test(serial.slice(from)))
+        {
+            if(performance.now() - t0 > 600000) throw new Error("no " + what + ": " + serial.slice(-800));
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+    };
+    await wait(/localhost login: ?$/, "login prompt");
+    const login_ms = Math.round(performance.now() - t0);
+    emulator.serial0_send("root\n");
+    await wait(/localhost:~# ?(\x1b\[[0-9;]*[A-Za-z])*$/, "shell");
+    const from = serial.length;
+    emulator.serial0_send("uname -m; for d in /sys/block/vd*; do [ \"$(cat $d/serial 2>/dev/null)\" = a64probe ] && " +
+        "tar -xf /dev/${d##*/} -C /tmp; done; /tmp/a64-probe ref=browser 2>&1 | grep -E 'A64_PROBE_(OK|XC|FAIL)'; echo BROWSER_$((6*7))\n");
+    await wait(/\nBROWSER_42\r?\n/, "the commands' end", from);
+    const output = serial.slice(from);
+    if(!/\naarch64\r?\n/.test(output)) throw new Error("uname -m: " + output.slice(0, 300));
+    if(!/A64_PROBE_XC arch=aarch64/.test(output) || /A64_PROBE_FAIL/.test(output)) throw new Error("the probe: " + output.slice(-600));
+    log(output.replace(/\r/g, "").split("\n").filter(line => /^A64_PROBE/.test(line)).join("\n"));
+    await emulator.destroy();
+    done(`PASS ${bundle ? "bundle" : "source"}${cpu_worker ? " cpu_worker" : ""}${jit ? " page tier" : " interpreter"}: ` +
+        `login after ${(login_ms / 1000).toFixed(1)} s, the probe after ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+}
+catch(error)
+{
+    log(String(error && error.stack || error));
+    done("FAIL " + error);
+}
+</script>

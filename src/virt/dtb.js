@@ -127,7 +127,8 @@ export function flatten(root, boot_cpu = 0)
 /**
  * The virt machine's tree
  * @param {{cores: number, memory_size: number, bootargs: (string|undefined),
- *          initrd: ({start: number, end: number}|undefined), rng_seed: (Uint8Array|undefined)}} m
+ *          initrd: ({start: number, end: number}|undefined), rng_seed: (Uint8Array|undefined),
+ *          extended: ({base: number, size: number}|undefined)}} m
  * @return {DtNode}
  */
 export function virt_tree(m)
@@ -144,6 +145,13 @@ export function virt_tree(m)
     children.push(node("memory@" + VIRT_RAM_BASE.toString(16), [
         ["reg", [...u64(VIRT_RAM_BASE), ...u64(m.memory_size)]], ["device_type", "memory"],
     ]));
+    // (extended RAM, P8.5: a second range from 4 GiB; the reference has one)
+    if(m.extended)
+    {
+        children.push(node("memory@" + m.extended.base.toString(16), [
+            ["reg", [...u64(m.extended.base), ...u64(m.extended.size)]], ["device_type", "memory"],
+        ]));
+    }
     for(let n = 0; n < VIRT_MMIO_COUNT; n++)
     {
         const base = VIRT_MMIO + n * VIRT_MMIO_SIZE;

@@ -26,6 +26,12 @@
  * come back unchanged from the host's echo, the socket with a cBPF filter
  * (the kernel's BPF JIT makes A64 code for it).
  *
+ * A64_MEMTEST (arguments "memtest=<MiB>" and "high=<pfn>", P8.5): first,
+ * that much memory mapped, written and checked in 64 MiB pieces, its frames
+ * counted at or above the PFN (extended RAM); in a page there, code run
+ * until it is compiled, rewritten and run again, an exclusive counter and
+ * DC ZVA. Then the probe goes on.
+ *
  * "ref=qemu": the reference run on QEMU's cortex-a35 (which has AArch32 and
  * whose STXR compares values): excl_aba and aarch32 are only reported. */
 typedef long word;
@@ -223,6 +229,94 @@ static void write_function(unsigned *at, unsigned value)
     at[4] = 0xD65F03C0u;
 }
 static unsigned call(void *code) { __asm__ volatile("isb" ::: "memory"); return ((unsigned (*)(void))code)(); }
+
+/* --- A64_MEMTEST: extended RAM (P8.5) --- */
+#define MEMTEST_PIECE (64ul << 20)
+static unsigned long long memtest_frames[512];
+/* The frames of `pages` pages from `at` (pagemap), each present */
+static void frames_of(word map, unsigned char *at, uword pages)
+{
+    check(S(SYS_lseek, map, (uword)at / page_size * 8, 0), "pagemap seek");
+    for(word done = 0, n; done < (word)(pages * 8); done += n)
+        if((n = check(S(SYS_read, map, (char *)memtest_frames + done, pages * 8 - done), "pagemap read")) == 0) die("pagemap eof");
+    for(uword i = 0; i < pages; i++) if(!(memtest_frames[i] >> 63)) die("memtest page not present");
+}
+static void memtest(uword mib, uword threshold)
+{
+    static unsigned char *pieces[1024];
+    uword count = mib / 64, errors = 0, above = 0, pages = 0, last = page_size / 8 - 1;
+    if(count == 0 || count > 1024) die("memtest size");
+    for(uword p = 0; p < count; p++)
+    {
+        pieces[p] = (unsigned char *)mapping(MEMTEST_PIECE, 3);
+        if(failed_mapping(pieces[p])) die("memtest mmap");
+        for(uword offset = 0; offset < MEMTEST_PIECE; offset += page_size)
+        {
+            uword *w = (uword *)(pieces[p] + offset);
+            w[0] = (uword)(pieces[p] + offset) ^ 0x5A5A5A5A5A5A5A5Aul;
+            w[last] = p * MEMTEST_PIECE + offset;
+        }
+    }
+    word map = check(sc(SYS_openat, AT_FDCWD, (word)"/proc/self/pagemap", 0, 0, 0, 0), "open pagemap");
+    unsigned char *high = 0;
+    for(uword p = 0; p < count; p++)
+    {
+        for(uword offset = 0; offset < MEMTEST_PIECE; offset += page_size)
+        {
+            uword *w = (uword *)(pieces[p] + offset);
+            if(w[0] != ((uword)(pieces[p] + offset) ^ 0x5A5A5A5A5A5A5A5Aul) || w[last] != p * MEMTEST_PIECE + offset) errors++;
+        }
+        for(uword first = 0; first < MEMTEST_PIECE / page_size; first += 512)
+        {
+            uword n = MEMTEST_PIECE / page_size - first < 512 ? MEMTEST_PIECE / page_size - first : 512;
+            frames_of(map, pieces[p] + first * page_size, n);
+            for(uword i = 0; i < n; i++)
+            {
+                if((memtest_frames[i] & ((1ull << 55) - 1)) >= threshold)
+                {
+                    above++;
+                    if(!high) high = pieces[p] + (first + i) * page_size;
+                }
+                pages++;
+            }
+        }
+    }
+    /* code, an exclusive counter and DC ZVA in a page of extended RAM: the
+     * function runs until the page tier has compiled it (its 2000th call),
+     * then each rewrite (the store retires the compiled code) must show */
+    unsigned code = 0, exclusive = 0, zva = 0;
+    if(high)
+    {
+        __asm__ volatile("mrs %0, ctr_el0" : "=r"(ctr));
+        check(S(SYS_mprotect, high, page_size, 7), "mprotect exec");
+        unsigned *function = (unsigned *)(high + 1024);
+        code = 1;
+        for(unsigned round = 1; round <= 16; round++)
+        {
+            write_function(function, round * 7 + 1);
+            sync_code(function, function, 5);
+            for(unsigned n = 0; n < 2000; n++) if(call(function) != round * 7 + 1) { code = 0; break; }
+        }
+        volatile unsigned *counter_there = (volatile unsigned *)(high + 64);
+        *counter_there = 0;
+        for(unsigned n = 0; n < 10000; n++) add(counter_there, 1);
+        exclusive = *counter_there == 10000;
+        memset(high + 2048, 0xFF, 256);
+        __asm__ volatile("dc zva, %0" :: "r"(high + 2048 + 64) : "memory");
+        zva = 1;
+        for(int i = 0; i < 256; i++) if(high[2048 + i] != (i >= 64 && i < 128 ? 0 : 0xFF)) zva = 0;
+        /* (still in extended RAM after all that) */
+        frames_of(map, high, 1);
+        if((memtest_frames[0] & ((1ull << 55) - 1)) < threshold) die("memtest page moved");
+    }
+    S(SYS_close, map, 0, 0);
+    for(uword p = 0; p < count; p++) check(S(SYS_munmap, pieces[p], MEMTEST_PIECE, 0), "memtest munmap");
+    out("A64_MEMTEST mib="); number(mib); out(" pages="); number(pages); out(" errors="); number(errors);
+    out(" extended_pages="); number(above); out(" code="); number(code); out(" exclusive="); number(exclusive);
+    out(" zva="); number(zva); out("\n");
+    if(errors) die("memtest contents");
+}
+
 static void xc_worker(word id)
 {
     tids[id] = S(SYS_gettid, 0, 0, 0);
@@ -694,6 +788,9 @@ void entry(word *stack)
         for(int i = 0; i < 256; i++) if(zva[i] != (i >= 64 && i < 128 ? 0 : 0xFF)) dczva = 0;
     }
     if(!reference && !dczva) die("DC ZVA");
+
+    const char *memtest_size = argument("memtest=");
+    if(memtest_size) memtest(parse(memtest_size), argument("high=") ? parse(argument("high=")) : ~0ul);
 
     /* mmap, then write to a read-only page: the handler sees the exact
      * address (siginfo, sigcontext's FAR) and the ESR (a data abort from

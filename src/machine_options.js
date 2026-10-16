@@ -71,10 +71,6 @@ export function check_machine_options(options)
         {
             throw new Error("acpi: true is an option of the PC machines; the virt machine describes itself with a device tree");
         }
-        if(given(options["extended_memory_size"]))
-        {
-            throw new Error("extended_memory_size is not supported on machine_type \"virt\" yet (docs/arm64-virt-android16-plan.md P8.5)");
-        }
         const adapter = options["graphics_adapter"];
         if(adapter !== undefined && typeof adapter === "string" && !VIRT_GRAPHICS_ADAPTERS.includes(adapter))
         {

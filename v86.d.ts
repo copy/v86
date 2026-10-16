@@ -451,12 +451,13 @@ export interface V86Options {
 
     /**
      * Experimental: guest RAM beyond memory_size (a multiple of 2 MiB), at
-     * guest physical 4 GiB + high_memory_size, so that the total can exceed
-     * what fits in the emulator's 32-bit WebAssembly memory. Its pages are
-     * kept in host ArrayBuffers and cached in extended_memory_cache bytes of
-     * the WebAssembly heap: slower than memory_size, and code in it is
-     * interpreted. Only a 64-bit guest (cpu_type: "x86_64") can address
-     * it.
+     * guest physical 4 GiB + high_memory_size (cpu_type: "arm64": at 4 GiB,
+     * a second memory range of the device tree), so that the total can
+     * exceed what fits in the emulator's 32-bit WebAssembly memory. Its
+     * pages are kept in host ArrayBuffers and cached in
+     * extended_memory_cache bytes of the WebAssembly heap: slower than
+     * memory_size. Only a 64-bit guest (cpu_type: "x86_64" or "arm64") can
+     * address it.
      * Snapshots of it need save_state_stream. Fails at startup when the host
      * cannot allocate it.
      * @default 0

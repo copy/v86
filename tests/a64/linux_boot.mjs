@@ -29,6 +29,13 @@
 //   The live stage has a virtio keyboard and tablet too (P5.8): on v86 the
 //   test injects keys, a pointer position and a click, which the guest reads
 //   from /dev/input/event* (dd and hexdump: struct input_event).
+//   A64_LINUX_SLEEP=N (v86, the live stage; P8.1): after the probe, N
+//   cycles of suspend to idle (s2idle) woken by the PL031's alarm, then N of
+//   hibernation onto a swap disk (serial a64swap): the kernel powers off
+//   (PSCI SYSTEM_OFF), the machine is powered on (V86.power_button: RAM
+//   cleared) with resume=UUID=<the swap's> and the shell goes on in the
+//   restored kernel; a tmpfs file's MD5 and the online CPUs are checked
+//   after every cycle.
 //
 // A64_LINUX_QEMU=1 runs the fixed reference (QEMU 9.2.0 built from source,
 // build/a64-ref or A64_QEMU, virt-9.2 with cortex-a35 and every default the
@@ -53,6 +60,8 @@ import { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } from "./guest_runner.mjs";
 
 const stage = process.env.A64_STAGE || "initramfs";
 assert.ok(["initramfs", "single", "lifecycle", "live"].includes(stage), "A64_STAGE is initramfs, single, lifecycle or live");
+const sleep_cycles = Number(process.env.A64_LINUX_SLEEP || 0);
+assert.ok(!sleep_cycles || (process.env.A64_STAGE === "live" && !+process.env.A64_LINUX_QEMU), "A64_LINUX_SLEEP is a variant of v86's live stage");
 const transport = process.env.A64_TRANSPORT || "mmio";
 assert.ok(["mmio", "pci"].includes(transport), "A64_TRANSPORT is mmio or pci");
 assert.ok(transport === "mmio" || stage === "live", "A64_TRANSPORT=pci is a variant of the live stage");
@@ -181,7 +190,15 @@ if(jit_workload)
     initrd = directory + "initramfs-virt+probe+jit.cpio";
     fs.writeFileSync(initrd, Buffer.concat([fs.readFileSync(initrd_probe), fs.readFileSync(directory + "jit.cpio")]));
 }
-const memory_mb = jit_workload ? 1536 : 512;
+const memory_mb = +process.env.A64_MEMORY_MB || (jit_workload ? 1536 : 512);
+// (A64_EXTENDED_MEMORY=<bytes>: v86's extended RAM from 4 GiB, P8.5, the
+// RAM below it A64_MEMORY_MB; A64_LINUX_MEMTEST=<MiB>: the initramfs stage's
+// probe maps, writes and checks that much first, A64_MEMTEST)
+const extended_memory = Number(process.env.A64_EXTENDED_MEMORY || 0);
+const memtest_mib = Number(process.env.A64_LINUX_MEMTEST || 0);
+const EXTENDED_BASE = 0x100000000;
+assert.ok(!(extended_memory || memtest_mib) || stage === "initramfs" && !+process.env.A64_LINUX_QEMU,
+    "A64_EXTENDED_MEMORY and A64_LINUX_MEMTEST are variants of v86's initramfs stage");
 const timeout = Number(process.env.A64_LINUX_TIMEOUT || (jit_workload ? 3600000 : stage === "live" ? 1800000 : 180000));
 // (a root that does not exist: init looks for it, then enters single mode before mounting it)
 const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
@@ -224,14 +241,16 @@ assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramf
 const workload = process.env.A64_WORKLOAD === "jit" ? "jit" : +process.env.A64_WORKLOAD || 0;
 assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the initramfs stage");
 const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
-    `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}`;
+    `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}` +
+    `${memtest_mib ? " memtest=" + memtest_mib : ""}${extended_memory ? " high=" + EXTENDED_BASE / 4096 : ""}`;
 // (A64_JIT=1: the v86 runs with the A64 page tier, docs/jit-unification-plan.md J2;
 // A64_JIT_HOT its compile threshold)
 const jit = !!+process.env.A64_JIT;
 const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
     ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};
 const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
-    `${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}-${cores}c`;
+    `${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}${target === "v86" && sleep_cycles ? "-sleep" : ""}` +
+    `${extended_memory ? "-ext" + Math.round((memory_mb * 1048576 + extended_memory) / 1048576) + "m" : ""}-${cores}c`;
 // (without the kernel's messages, which may land between the workload's lines)
 const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "")
     .split("\n").filter(line => !/^\[\s*\d+\.\d+\] /.test(line)).join("\n");
@@ -433,9 +452,13 @@ const machine_options = {
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     kernel: { url: prepared.kernel }, initrd: { url: single || live ? prepared.initrd : initrd },
     cmdline: single ? SINGLE_CMDLINE : live ? LIVE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS,
+    ...(extended_memory ? { extended_memory_size: extended_memory } : {}),
+    ...(process.env.A64_EXTENDED_CACHE ? { extended_memory_cache: +process.env.A64_EXTENDED_CACHE } : {}),
     // (the live stage's disks and devices, in the reference's -device order: P5.3)
     ...(live ? { virtio_disks: [{ buffer: array_buffer(prepared.iso), readonly: true },
-        { buffer: array_buffer(probe_directory + "probe.tar"), id: "a64probe" }],
+        { buffer: array_buffer(probe_directory + "probe.tar"), id: "a64probe" },
+        // (A64_LINUX_SLEEP: hibernation's swap, after the reference's disks)
+        ...(sleep_cycles ? [{ buffer: new ArrayBuffer(512 << 20), id: "a64swap" }] : [])],
         net_device: { type: "virtio" }, virtio_rng: true, virtio_console: true, virtio_input: true, virtio_transport: transport } : {}),
 };
 let emulator = new V86({ ...machine_options, autostart: true });
@@ -473,10 +496,94 @@ const attach_live = emulator =>
         const send = text => emulator.bus.send("virtio-console0-input-bytes", Uint8Array.from(Buffer.from(text)));
         if(hvc_state === 0 && /login: ?$/.test(hvc)) { hvc_state = 1; send("root\n"); }
         else if(hvc_state === 1 && /# ?$/.test(hvc)) { hvc_state = 2; send("echo A64_HVC_$((6*7)); exit\n"); }
-        else if(hvc_state === 2 && /\nA64_HVC_42\r?\n/.test(hvc)) { hvc_state = 3; emulator.serial0_send(LIVE_FINISH); }
+        else if(hvc_state === 2 && /\nA64_HVC_42\r?\n/.test(hvc))
+        {
+            hvc_state = 3;
+            if(sleep_cycles) sleep_and_hibernate(emulator).then(() => emulator.serial0_send(LIVE_FINISH), error => { sleep_error = error; fail_run?.(error); });
+            else emulator.serial0_send(LIVE_FINISH);
+        }
     });
 };
 if(live) attach_live(emulator);
+// (A64_LINUX_SLEEP: what the cycles found, and a failure of theirs)
+const sleep_results = [];
+let sleep_error = null;
+/** @type {?function(*)} the run's reject, for a failure outside the serial console's bytes */
+let fail_run = null;
+/** Wait until `pattern` matches the transcript after `from` (the serial console's) */
+function serial_wait(pattern, from, what, limit_ms = timeout)
+{
+    return new Promise((resolve, reject) => {
+        const limit = performance.now() + limit_ms;
+        const poll = setInterval(() => {
+            if(pattern.test(transcript.slice(from))) { clearInterval(poll); resolve(transcript.slice(from)); }
+            else if(performance.now() > limit) { clearInterval(poll); reject(new Error("sleep: " + what + "\n" + transcript.slice(-2000))); }
+        }, 20);
+    });
+}
+/**
+ * P8.1: s2idle woken by the PL031's alarm, then hibernation onto the swap
+ * disk, powered on again and resumed, each `sleep_cycles` times
+ * @param {!Object} emulator
+ */
+async function sleep_and_hibernate(emulator)
+{
+    const run = async (command, marker) => {
+        const from = transcript.length;
+        emulator.serial0_send(command + "; echo " + marker + "_$((6*7))\n");
+        return serial_wait(new RegExp("\n" + marker + "_42\r?\n"), from, command);
+    };
+    const value = (text, key) => text.match(new RegExp("\n" + key + "=([^\r\n]*)"))?.[1];
+    const online = cores === 1 ? "0" : "0-" + (cores - 1);
+    const states = await run("echo STATE=$(cat /sys/power/state); echo MEM_SLEEP=$(cat /sys/power/mem_sleep); echo DISK=$(cat /sys/power/disk)", "STATES");
+    sleep_results.push({ states: value(states, "STATE"), mem_sleep: value(states, "MEM_SLEEP"), disk: value(states, "DISK") });
+    assert.match(value(states, "STATE"), /\bfreeze\b[\s\S]*\bdisk\b/, "s2idle and hibernation: " + value(states, "STATE"));
+    await run("dd if=/dev/urandom of=/tmp/sleep.bin bs=1024 count=4096 2>/dev/null; md5sum /tmp/sleep.bin > /tmp/sleep.md5", "PATTERN");
+    const check = async what => {
+        const text = await run("md5sum -c /tmp/sleep.md5 >/dev/null && echo INTACT=1; echo ONLINE=$(cat /sys/devices/system/cpu/online)", "CHECK");
+        assert.equal(value(text, "INTACT"), "1", what + ": the tmpfs file is intact");
+        assert.equal(value(text, "ONLINE"), online, what + ": every CPU is online");
+    };
+    for(let cycle = 1; cycle <= sleep_cycles; cycle++)
+    {
+        // (the alarm 3 s on: the PL031's interrupt wakes the cores from their WFI)
+        const from = transcript.length, started = performance.now();
+        emulator.serial0_send("echo 0 > /sys/class/rtc/rtc0/wakealarm; echo +3 > /sys/class/rtc/rtc0/wakealarm; " +
+            "echo freeze > /sys/power/state; echo RESUMED_$((" + cycle + "*7))\n");
+        await serial_wait(new RegExp("\nRESUMED_" + cycle * 7 + "\r?\n"), from, "s2idle " + cycle);
+        await check("s2idle " + cycle);
+        sleep_results.push({ s2idle: cycle, ms: Math.round(performance.now() - started) });
+    }
+    const swap = await run("S=; for d in /sys/block/vd*; do [ \"$(cat $d/serial 2>/dev/null)\" = a64swap ] && S=/dev/${d##*/}; done; " +
+        "mkswap $S >/dev/null && swapon $S && echo SWAP_UUID=$(blkid $S | grep -o ' UUID=\"[^\"]*\"' | cut -d'\"' -f2)", "SWAP");
+    const uuid = value(swap, "SWAP_UUID");
+    assert.ok(uuid && uuid.length >= 32, "the swap's UUID");
+    // (the live ISO's init resumes before it looks for the boot media, which
+    // loads the disk's driver: the swap's driver loaded first)
+    emulator.v86.cpu.boot_files = { ...emulator.v86.cpu.boot_files,
+        cmdline: LIVE_CMDLINE.replace("modules=loop,", "modules=virtio_mmio,virtio_blk,loop,") + " resume=UUID=" + uuid };
+    for(let cycle = 1; cycle <= sleep_cycles; cycle++)
+    {
+        const marker = 5000 + cycle;
+        await run(`echo ${marker} > /tmp/s4-marker`, "MARK");
+        const from = transcript.length, started = performance.now();
+        emulator.serial0_send("echo disk > /sys/power/state; echo THAWED=$(cat /tmp/s4-marker)\n");
+        // (the image written, the kernel powers off: PSCI SYSTEM_OFF)
+        await new Promise((resolve, reject) => {
+            const limit = performance.now() + timeout;
+            const poll = setInterval(() => {
+                if(emulator.v86.cpu.powered_off()) { clearInterval(poll); resolve(); }
+                else if(performance.now() > limit) { clearInterval(poll); reject(new Error("hibernation: no SYSTEM_OFF\n" + transcript.slice(-2000))); }
+            }, 50);
+        });
+        const off_ms = Math.round(performance.now() - started);
+        assert.ok(await emulator.power_button(), "the machine powers on");
+        const thawed = await serial_wait(/\nTHAWED=\d+\r?\n/, from, "restore " + cycle);
+        assert.equal(value(thawed, "THAWED"), String(marker), "the shell goes on in the restored kernel");
+        await check("hibernation " + cycle);
+        sleep_results.push({ hibernate: cycle, off_ms, ms: Math.round(performance.now() - started) });
+    }
+}
 // (A64_LINUX_SNAPSHOT=1: the whole machine saved and restored at three of the
 // probe's markers, while its threads, signals and the virtio devices' I/O
 // are under way: rounds alternate between the chunked V7 stream, written to
@@ -530,6 +637,7 @@ function inspect()
 try
 {
     await new Promise((resolve, reject) => {
+        fail_run = reject;
         const timer = setTimeout(() => reject(new Error(`v86 ${stage} deadline (${timeout} ms): ${inspect()}`)), timeout);
         const on_byte = byte => {
             const c = String.fromCharCode(byte);
@@ -582,6 +690,7 @@ try
                 inject_input(emulator);
             }
             // (a line of its own: the shell echoes the command, which names it too)
+            if(sleep_error) { clearTimeout(timer); reject(sleep_error); return; }
             const done = single ? /A64_SINGLE_42\r?\nA64_SINGLE_OK/ : live ? /\nA64_LIVE_DONE\r?\n/ : /A64_INIT_DONE/;
             if(done.test(transcript) || /Kernel panic/.test(transcript) && transcript.endsWith("\n"))
             {
@@ -603,6 +712,10 @@ const page_tier = jit ? emulator.v86.cpu.page_tier_stats() : undefined;
 // (every core's; MIPS over the whole run, P0.9)
 const retired_instructions = Array.from({ length: cores }, (_, core) => emulator.v86.cpu.wm.exports["core_statistics_get"](core, 0))
     .reduce((sum, n) => sum + n, 0);
+// (extended RAM: its frames' traffic, and the instructions from it, interpreted and compiled)
+const ext_stat = field => emulator.v86.cpu.wm.exports["a64_ext_stat"](field);
+const extended_stats = extended_memory ? { hits: ext_stat(0), loads: ext_stat(1), write_backs: ext_stat(2), evictions: ext_stat(3),
+    code_pages: ext_stat(14), code_writes: ext_stat(15), interpreted: ext_stat(16), compiled: ext_stat(17) } : undefined;
 await emulator.destroy();
 assert.equal(undefined_instructions.el1, 0, "UNDEF at EL1: " + JSON.stringify(undefined_instructions));
 const trouble = transcript.match(/^.*(Oops|BUG:|WARNING:|SError|rcu_.*stall|Internal error|undefined instruction).*$/m);
@@ -617,6 +730,26 @@ assert.ok(!trouble, "the kernel reports: " + trouble?.[0]);
     }
 }
 const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, false);
+if(extended_memory)
+{
+    // (the device tree's second memory range, as the kernel took it)
+    const end = (EXTENDED_BASE + extended_memory - 1).toString(16).padStart(16, "0");
+    assert.match(transcript, new RegExp(`node\\s+0: \\[mem 0x0000000100000000-0x${end}\\]`), "extended RAM in the kernel's memory map");
+    extended_stats.share = Math.round((extended_stats.interpreted + extended_stats.compiled) / retired_instructions * 1e4) / 1e4;
+    lines.extended = extended_stats;
+}
+if(memtest_mib)
+{
+    const line = transcript.match(/A64_MEMTEST mib=(\d+) pages=(\d+) errors=(\d+) extended_pages=(\d+) code=(\d) exclusive=(\d) zva=(\d)/);
+    assert.ok(line, "the memtest's line");
+    assert.equal(+line[3], 0, "memtest contents");
+    if(extended_memory)
+    {
+        assert.ok(+line[4] > +line[2] / 4, "memtest pages in extended RAM: " + line[0]);
+        assert.deepEqual(line.slice(5, 8).map(Number), [1, 1, 1], "code, an exclusive counter and DC ZVA in extended RAM: " + line[0]);
+    }
+    lines.memtest = line[0];
+}
 if(live)
 {
     // (P5.4, P5.5: the frames through virtio-net, /dev/hwrng, a login on hvc0)
@@ -628,15 +761,22 @@ if(live)
     assert.deepEqual(input_events(transcript, "A64_EVK"), INJECTED_KEYS, "the keyboard's events (virtio-input)");
     assert.deepEqual(input_events(transcript, "A64_EVT"), INJECTED_TABLET, "the tablet's events (virtio-input)");
     Object.assign(lines, { net_frames: echoed, hvc0: true, input_events: INJECTED_KEYS.length + INJECTED_TABLET.length, pci: pci_functions(transcript) });
-    // (the PCI functions, against the reference's: needed for the pci variant)
+    // (the PCI functions, against the reference's: needed for the pci variant;
+    // not with A64_LINUX_SLEEP's swap disk, which the reference does not have)
     const reference_log = directory + tag_of("qemu") + ".log";
-    assert.ok(transport === "mmio" || fs.existsSync(reference_log), "the pci variant compares with the reference's run: " + reference_log);
-    if(fs.existsSync(reference_log))
+    assert.ok(transport === "mmio" || sleep_cycles || fs.existsSync(reference_log), "the pci variant compares with the reference's run: " + reference_log);
+    if(!sleep_cycles && fs.existsSync(reference_log))
     {
         assert.deepEqual(lines.pci, pci_functions(fs.readFileSync(reference_log, "latin1")), "the PCI functions, against the reference's");
         lines.pci_compared = true;
     }
-    assert.equal(lines.pci.length, transport === "pci" ? 8 : 1, "the PCI functions: the host bridge and the devices on pci");
+    assert.equal(lines.pci.length, transport === "pci" ? 1 + machine_options.virtio_disks.length + 5 : 1,
+        "the PCI functions: the host bridge and the devices on pci");
+    if(sleep_cycles)
+    {
+        assert.equal(sleep_results.filter(r => r.s2idle).length + sleep_results.filter(r => r.hibernate).length, 2 * sleep_cycles, "every sleep cycle");
+        lines.sleep = sleep_results;
+    }
 }
 if(snapshots)
 {

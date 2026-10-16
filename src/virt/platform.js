@@ -13,6 +13,9 @@ export const VIRT_MAX_CORES = 8;
 
 /** Guest RAM's base (src/rust/aarch64/bus.rs RAM_BASE) */
 export const VIRT_RAM_BASE = 0x40000000;
+/** extended RAM (P8.5): from 4 GiB, to where the reference's RAM ends (256 GiB, before the high ECAM) */
+export const VIRT_EXTENDED_RAM_BASE = 0x100000000;
+export const VIRT_EXTENDED_RAM_END = 0x4000000000;
 
 // QEMU virt-9.2 with highmem-ecam/-mmio/-redists on (docs/virt.md)
 export const VIRT_GIC_DIST = 0x08000000;

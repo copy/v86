@@ -1017,7 +1017,7 @@ fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
             *excl_value = first as u128 | (second as u128) << 64;
         }
         // (guest RAM: the global monitor marks the granule too, P3.7)
-        match ram_backing(pa) {
+        match monitor_key(pa) {
             Some(backing) => crate::aarch64::smp::reserve(backing),
             None => crate::aarch64::smp::release(),
         }
@@ -1075,7 +1075,7 @@ fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
     // (the local monitor, and for guest RAM the global one: another core's or
     // a device's write to the granule cleared it)
     let success = unsafe { *excl_valid != 0 && *excl_addr == pa & GRANULE }
-        && ram_backing(pa).map_or(true, crate::aarch64::smp::reserved);
+        && monitor_key(pa).map_or(true, crate::aarch64::smp::reserved);
     unsafe { *excl_valid = 0 };
     crate::aarch64::smp::release();
     unsafe { SPIN[crate::isa::current_core()].0 = 0 };
@@ -1092,10 +1092,14 @@ fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
     Ok(Flow::Next)
 }
 
-/// The offset in guest RAM's backing of physical address `pa`, if it is RAM
-fn ram_backing(pa: u64) -> Option<u32> {
+/// The global monitor's key of physical address `pa`, if it is RAM: the
+/// offset in guest memory's backing, or extended RAM's key
+fn monitor_key(pa: u64) -> Option<u32> {
     match crate::aarch64::bus::bus().lookup(pa) {
         crate::aarch64::bus::Lookup::Ram { backing, .. } => Some(backing),
+        crate::aarch64::bus::Lookup::Extended { .. } => {
+            Some(crate::aarch64::extended::monitor_key(pa))
+        },
         _ => None,
     }
 }

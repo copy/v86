@@ -72,8 +72,9 @@ for(const [name, value] of Object.entries(pc_options))
 // (false and undefined are no options)
 assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", hpet: false, uart1: false, acpi: false, bios: undefined }));
 assert.throws(() => check_machine_options({ cpu_type: "arm64", acpi: true }), /acpi: true is an option of the PC machines/);
-assert.throws(() => check_machine_options({ cpu_type: "arm64", extended_memory_size: 1 << 30 }), /extended_memory_size is not supported on machine_type "virt" yet/);
-console.log(`PASS ${Object.keys(pc_options).length + 2} PC options refused on virt`);
+// (extended RAM is the 64-bit CPUs': at 4 GiB on virt, P8.5)
+assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", extended_memory_size: 1 << 30 }));
+console.log(`PASS ${Object.keys(pc_options).length + 1} PC options refused on virt`);
 
 // virt options on the PC machines
 for(const [name, value] of Object.entries({ kernel: { url: "Image" }, dtb: { url: "virt.dtb" }, virtio_disks: [{ url: "disk.img" }],

@@ -28,6 +28,7 @@ The same as QEMU `virt-9.2` with `highmem-ecam`, `highmem-mmio` and
 | `0x1000_0000` | 751 MiB | PCIe MMIO, 32-bit window |
 | `0x3eff_0000` | 64 KiB | PCIe I/O window |
 | `0x4000_0000` | RAM size | RAM |
+| `0x1_0000_0000` | `extended_memory_size` | extended RAM (v86 only, see below) |
 | `0x40_1000_0000` | 256 MiB | PCIe ECAM (high) |
 | `0x80_0000_0000` | 512 GiB | PCIe MMIO, 64-bit window |
 
@@ -108,6 +109,36 @@ are marked for the device (`a64_device_take_dirty`), and compiled code
 writes it through the interpreter's path, which marks them. The PCIe
 windows are split around it (`A64CPU.update_windows`): moving such a BAR
 changes the map.
+
+## Extended RAM
+
+RAM beyond what fits in the 32-bit Wasm memory (`extended_memory_size`, a
+multiple of 2 MiB) starts at 4 GiB, as a second memory range of the device
+tree, and can reach 256 GiB, where the reference's RAM ends. Its pages are
+kept in host ArrayBuffers ([`src/extended_memory.js`](../src/extended_memory.js))
+and cached in `extended_memory_cache` bytes of frames in the Wasm heap (512 MiB
+by default), with the engine the x86 core uses
+([`src/rust/extended.rs`](../src/rust/extended.rs); the ARM core's part is
+[`src/rust/aarch64/extended.rs`](../src/rust/aarch64/extended.rs)):
+
+- The range is a region of the core's address space (`Kind::Extended`). The
+  interpreter's accesses, the table walks and instruction fetches go through
+  the frames a page at a time. The page tier's access cache is not filled for
+  extended RAM, so compiled code reaches it through the same path.
+- The page tier compiles code in extended RAM under the extended page's own
+  code key. The function outlives its frame's eviction. The page's next write
+  (a core's, DMA's) retires it. With cores in workers (P8.2), code in
+  extended RAM is interpreted.
+- The exclusive monitors track its granules by keys above every guest-memory
+  offset. A core's or a device's write clears the other observers' reservations.
+- Devices reach it through the DMA facade a page at a time (`dma_classify`
+  gives -1: RAM, but not one backing). A pinned frame stays resident for the copy.
+- Power-on clears it. `save_state()` refuses when it holds data; a
+  `save_state_stream` snapshot holds it.
+
+`index.html` puts up to 1792 MB of the Memory size in `memory_size` and the
+rest in `extended_memory_size`. Linux takes the second range as normal memory
+(`node 0: [mem 0x0000000100000000-...]`).
 
 ## Platform behaviour fixed by the reference
 

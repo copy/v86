@@ -507,11 +507,12 @@ fn code_page(pc: u64, mode: u32) -> Option<u32> {
     )
     .ok()?
     .pa;
-    let Lookup::Ram { code_key, .. } = bus::bus().lookup(pa)
-    else {
-        return None;
-    };
-    if code_key >= 1 << MODE_SHIFT {
+    let code_key = bus::bus().code_key(pa)?;
+    // (code in extended RAM: compiled with the cores in one instance; in
+    // workers it is interpreted, P8.5)
+    if code_key >= 1 << MODE_SHIFT
+        || code_key >= bus::EXTENDED_CODE_KEY && crate::parallel::active()
+    {
         return None;
     }
     let key = code_key | mode << MODE_SHIFT;
@@ -553,7 +554,13 @@ pub fn run(budget: u32) -> Ran {
                 let slot = f.slot;
                 r.clock += 1;
                 r.functions[index].last_used = r.clock;
-                return execute(slot, budget, pc);
+                let ran = execute(slot, budget, pc);
+                if key & ((1 << MODE_SHIFT) - 1) >= bus::EXTENDED_CODE_KEY {
+                    if let Ran::Native { retired, .. } = ran {
+                        unsafe { crate::aarch64::extended::RETIRED[1] += retired as u64 };
+                    }
+                }
+                return ran;
             }
             // (an entry it does not serve: noted, recompiled after enough of them)
             let state = r.pages.entry(key).or_default();
@@ -656,9 +663,13 @@ fn compile(key: u32, pc: u64) {
         .collect();
     let code_key = key & ((1 << MODE_SHIFT) - 1);
     let mode = key >> MODE_SHIFT;
-    let bytes =
+    let bytes = if code_key >= bus::EXTENDED_CODE_KEY {
+        unsafe { crate::extended::copy_page(code_key - bus::EXTENDED_CODE_KEY) }
+    }
+    else {
         unsafe { std::slice::from_raw_parts(bus::MEM8.add((code_key << 12) as usize), 4096) }
-            .to_vec();
+            .to_vec()
+    };
     let name = format!(
         "a64_page{}_{:x}",
         if mode & 1 != 0 { "_el1" } else { "_el0" },
@@ -716,9 +727,13 @@ fn compile(key: u32, pc: u64) {
             return;
         };
         rt.watch
-            .attach(slot, HashSet::from([Page::page_of(code_key << 12)]));
+            .attach(slot, HashSet::from([Page::of_u32(code_key)]));
         slot
     };
+    // (its next write retires it: crate::aarch64::isa_hooks::extended_code_written)
+    if code_key >= bus::EXTENDED_CODE_KEY {
+        unsafe { crate::extended::watch_code(code_key - bus::EXTENDED_CODE_KEY) };
+    }
     let r = rt();
     if let Some(&old) = r.by_page.get(&key) {
         retire(r, old);

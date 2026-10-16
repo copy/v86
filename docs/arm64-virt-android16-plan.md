@@ -1725,3 +1725,66 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   win98-ra2 0.997、win98-themehospital 1.001、win98-boot 1.015、xp 1.000、win81 0.978（178 → 182 s；两边各自的 3 次会话
   在 173–184 s 之间，A3 门禁时为 167–183 s，在噪声内；`build/bench/a5gate/owner.log`）。随后单独重测 win81 时宿主上有别的
   负载（两边都慢到 207–232 s），结果作废。
+
+### A6 中 P8.1、P8.5 与 P8.7 的部分（2026-10-16；P8.2–P8.4、P8.6 未做）
+
+提交：与本节同一个提交（不打标签，`vA6` 等 A6 完成）。
+
+- P8.1：生命周期。
+  - PSCI SYSTEM_OFF 之后重新上电：`V86.power_button` 在 virt 上调 `restart("power-on")`；`reboot_internal("power-on")`
+    清掉 RAM、设备内存与 extended RAM（真实机器断电后内容不保留），再按启动文件重新加载内核。
+  - s2idle：`echo freeze > /sys/power/state`，由 PL031 的闹钟（`/sys/class/rtc/rtc0/wakealarm`，3 s 后）唤醒；hibernate：
+    `echo disk > /sys/power/state` 写到第三块 virtio-blk 盘（512 MiB 的 swap，序列号 `a64swap`），机器经 SYSTEM_OFF 关机，
+    测试按电源键开机，命令行加 `resume=UUID=<swap 的 UUID>`，并把 `virtio_mmio,virtio_blk` 放进 `modules=`（Alpine 的
+    initramfs 要先装好盘的驱动才能找到 swap）；恢复后检查 tmpfs 中 4 MiB 随机文件的 MD5 不变、`/sys/devices/system/cpu/online`
+    是全部 CPU。`A64_LINUX_SLEEP=N` 跑 N 轮 s2idle 与 N 轮 hibernate；这个变体不与参考比较 PCI 功能（参考没有 swap 盘）。
+  - `make a64-lifecycle-guest-tests`：解释器与 page tier × 1/2/4 核 × mmio/pci 的 live 阶，每个组合在 probe 的三个标记处
+    交替做 V7 流式与 V6 快照（约 107–120 MiB）并恢复；page tier 下 1/4 核 × mmio/pci 各两轮 s2idle 与两轮 hibernate；
+    解释器 1 核各一轮。17 个组合全部通过（release 构建）。page tier 1 核：到 login 38.6 s，全程 45.2 s；s2idle 一轮约
+    2.7–3.0 s，hibernate 一轮 14–16.6 s（其中关机前 3.9–4.6 s）；解释器 1 核 hibernate 一轮 116 s。
+- P8.5：A64 的大内存。
+  - 中立引擎 `src/rust/extended.rs`（两个核心共用）：帧池、FIFO 加二次机会的替换、载入与写回、钉住、flush/discard、
+    代码页位图、可重入锁、统计；核心各自的部分经 `crate::isa` 的钩子接入：`extended_release_caches`、
+    `extended_retire_cached_writes`、`extended_code_written`、`extended_discarded`。x86 留在 `src/rust/x64/extended.rs`：
+    aperture、访问缓存的帧（`cache_frame`、CACHED）、32 位 TLB、代码键、LOCK 操作数、`x64_ext_*` 导出（`x64_ext_configure`
+    仍要求 ≥ 4 GiB）。
+  - ARM（`src/rust/aarch64/extended.rs`）：extended RAM 是地址空间里的 `Kind::Extended` 区间（`Lookup::Extended`），从 4 GiB
+    起，到参考 RAM 的上限 256 GiB 为止；解释器、页表遍历与取指按页经帧访问，访问缓存不为它填条目，编译代码也走这条路。
+    page tier 从 extended 页编译代码，代码键从 `EXTENDED_CODE_KEY`（1 << 20）起，函数比帧活得久；页的下一次写入（核心、
+    DMA）经 `extended_code_written` 让它退役。cores 在 Worker 中时（P8.2）那里的代码一律解释执行。独占监视器用 2 GiB 以上的键
+    （按 2 GiB − 64 KiB 取模，别名只会让保留失效、客体重试）；写入清除其他观察者的保留。DMA facade：`dma_classify` 给 −1，
+    blob 与标量按页经钉住的帧复制。DTB 多一个 `memory@100000000` 节点，Linux 认作普通内存。上电时清零（`clear_extended_memory`
+    同时丢掉编译代码）；单缓冲 `save_state()` 先写回再拒绝，V7 流式快照带上它。`machine_options` 不再拒绝 virt 上的
+    `extended_memory_size`；index.html 把超过 1792 MB 的部分放进 extended RAM，不再改选 x86_64。
+  - x86 的一个修正：单缓冲 `save_state()` 原先只看 `touched`，只在帧里写过、还没写回的页不算，快照会静默丢掉它们；现在先
+    `flush_extended_memory()` 再判断（ARM 同样）。`src/state.js` 改调 `cpu.flush_extended_memory()`。
+  - 测试：`tests/a64/extended_memory.mjs`（64 MiB RAM 加 8 MiB extended、1 MiB 帧）：总线查找与各宽度、跨页访问、覆盖全部
+    的图案（驱逐 4359 次）、DMA 的 blob 与标量、4 GiB 处经恒等映射运行的代码在帧被驱逐后由 DMA 改写再运行（解释器取指
+    20 万条；page tier 从 extended RAM 执行 19.6 万条，DMA 写入让它退役 1 次）、单缓冲快照被拒、V7 流式快照恢复到另一台
+    机器、上电清零、DTB 节点。probe 新增 `memtest=<MiB>`（配合 `high=<pfn>`）：按 64 MiB 一块映射、写入、校验，经 pagemap
+    统计落在 extended 区的页，并在其中一页里运行编译后改写的代码、做独占计数与 DC ZVA。`make a64-extended-guest-tests`：
+    3 GiB（1 GiB RAM 加 2 GiB extended）上 memtest 2304 MiB，page tier 1 核 95.5 s、解释器 1 核 88.5 s（memtest 的时间花在缺页、
+    清零与帧的换入换出上，编译代码帮不上），0 错误，589824 页中 482816 页（82%）在 extended 区；4 GiB（1 GiB 加 3 GiB）上
+    page tier 2 核 memtest 3328 MiB，159 s，0 错误，851968 页中 736256 页（86%）在 extended 区；Linux 报
+    `Memory: 3995676K/4194304K available`。三个运行里 extended 页中的代码、独占计数与 DC ZVA 都正确（帧池 512 MiB：4 GiB 时
+    换入 154 万次、写回 78 万次）；probe 之后的 16 MiB 块全部落在 extended 区（`high_pages=4096`）。
+  - 待决问题 8 的实测：来自 extended RAM 的退役指令占比（解释器取指加编译代码退役，除以全部退役指令）在 3 GiB 的 memtest
+    运行中为 3.0%（page tier）与 2.9%（解释器），4 GiB 2 核为 2.9%，1.5 GiB（512 MiB 加 1 GiB）为 2.5%：在 Alpine 的 initramfs
+    阶，内核与 probe 的代码几乎都在 RAM 里（extended 区是后分配的页）。阈值仍由 P8.2 之后、在并行模式下实测再定。
+  - x86 的回归：`make extended-memory-tests`（1 核与 2 核）、`make x64-extended-guest-tests`（Alpine x86_64，6 GiB extended，
+    memtest 5120 MiB，0 错误，全部页在 extended 区）通过。`make core-split-check`：20 个函数变化、4 个增加、4 个删除——增删
+    的是挪进 `crate::extended` 的引擎函数（`resident`、`read`、`write`、`release_cached`），热路径上变化的函数（`main_loop`、
+    `run_cpu_slice`、`read8_mapped`、`mmap_write32`、`string` 等）逐条比较只有调用目标的路径不同；真正改动的只有
+    `cache_frame`、`release_cached` 与 `x64_ext_*`，都只在有 extended RAM 时执行。所有者的性能负载（Win98、XP、Win 8.1）
+    不用 extended RAM，执行的代码相同，所以不跑 R 级的性能部分。
+- P8.7：浏览器。`tests/a64/browser.mjs` 用本地服务器（ISO 按 Range 读取）在 headless Chrome 里打开
+  `tests/a64/browser_test.html`：Alpine aarch64 从 ISO 启动到串口上的 shell，执行 `uname -m` 与 probe。
+  四种组合都通过（page tier，release 的 bundle）：源码树 40.4 s 到 login，bundle 37.0 s，bundle 加 CPU worker 33.4 s，
+  bundle 加 virtio-pci 37.3 s。第一次运行时 CPU worker 用了 224.8 s：`src/browser/cpu_worker.js` 没有把 `jit_switches`
+  传给 worker，arm64 核心在 worker 里是解释执行的，已改。
+  demo 页：arm64 的内核、initrd、命令行可由查询参数给出（`kernel.url`、`initrd.url`、`cmdline`），CD-ROM 与硬盘映射成
+  virtio-blk 盘（光盘只读），加 virtio-rng 与 virtio-input，并打开 page tier（`jit_switches: {a64_page: 1}`，`disable_jit`
+  时不开；库的默认值仍是关，翻转要走 F 级）；CPU worker 传递 virtio_rng、virtio_input、virtio_transport 与 jit_switches。
+  所有者在桌面 Chrome 上的手动运行留到 A6 结束。
+- 新的 make 目标：`a64-lifecycle-guest-tests`、`a64-extended-guest-tests`、`a64-browser-tests`；`a64-virt-device-tests`
+  加上 `tests/a64/extended_memory.mjs`。

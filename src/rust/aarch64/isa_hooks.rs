@@ -49,6 +49,23 @@ pub unsafe fn release_locks_held_by(_core: usize) {}
 #[inline(always)]
 pub unsafe fn lock_for_test_fault() {}
 
+// ---- crate::extended (extended RAM, P8.5): the ARM core's access cache
+// holds no frame of it; code compiled from a page retires at its write
+
+#[inline(always)]
+pub unsafe fn extended_release_caches() {}
+#[inline(always)]
+pub unsafe fn extended_retire_cached_writes(_host: u32) {}
+pub unsafe fn extended_code_written(page: u32) {
+    crate::aarch64::root::dirty_bytes(
+        crate::page::Page::of_u32(crate::aarch64::bus::EXTENDED_CODE_KEY + page),
+        0,
+        4096,
+    );
+}
+#[inline(always)]
+pub unsafe fn extended_discarded() {}
+
 /// Other cores published code from `pages`: (the ARM core's TLB keeps no
 /// write translations yet)
 #[inline(always)]

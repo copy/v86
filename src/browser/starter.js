@@ -1343,8 +1343,9 @@ V86.prototype.get_diagnostics = async function()
 /**
  * Press the ACPI power button. A running ACPI guest gets a power button event
  * (usually starting an orderly shutdown). A machine that the guest has turned
- * off (event "acpi-power-off") is powered on and started again.
- * Resolves to false if the machine has no ACPI (option acpi).
+ * off (event "acpi-power-off"; the virt machine: PSCI SYSTEM_OFF) is powered
+ * on and started again. Resolves to false if the machine has no ACPI (option
+ * acpi) and is not off.
  */
 /**
  * The ACPI power state: "S0", "S3" (suspended to RAM), "S4" (hibernated and
@@ -1366,6 +1367,14 @@ V86.prototype.power_button = async function()
     const acpi = this.v86.cpu.devices.acpi;
     if(!acpi)
     {
+        // (the virt machine has no power button; one the guest turned off
+        // with PSCI SYSTEM_OFF is powered on and started again)
+        if(this.v86.cpu.powered_off && this.v86.cpu.powered_off())
+        {
+            await this.restart("power-on");
+            await this.run();
+            return true;
+        }
         return false;
     }
     if(acpi.soft_off)
