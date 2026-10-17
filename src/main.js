@@ -3,6 +3,7 @@ import { A64CPU } from "./arm/cpu.js";
 import { save_state, restore_state, save_state_stream, restore_state_stream } from "./state.js";
 import { export_raw } from "./image/export.js";
 import { export_qcow2 } from "./image/qcow2_export.js";
+import { release_disk_holds, drop_disk_holds } from "./block_backend.js";
 export { V86 } from "./browser/starter.js";
 
 /**
@@ -28,6 +29,8 @@ export function v86(bus, wasm)
     const stop_idling = () => { this.running && this.idle && this.next_tick(0); };
     /** @type {CPU} */
     this.cpu = wasm.exports["isa_aarch64"] ? /** @type {?} */ (new A64CPU(bus, wasm, stop_idling)) : new CPU(bus, wasm, stop_idling);
+    // (a disk request failed with disk_error "stop": src/block_backend.js)
+    this.cpu.stop_machine = () => this.stop();
 
     this.bus = bus;
 
@@ -52,6 +55,10 @@ v86.prototype.run = function()
         this.running = true;
         this.bus.send("emulator-started");
     }
+
+    // the disk requests held after an I/O error (disk_error "stop") are
+    // retried, in their order (src/block_backend.js)
+    release_disk_holds(this.cpu);
 
     this.next_tick(0);
 };
@@ -119,6 +126,8 @@ v86.prototype.stop = function()
 
 v86.prototype.destroy = function()
 {
+    // (the disk requests held after an I/O error are dropped, as by a power loss)
+    drop_disk_holds(this.cpu);
     this.cpu.parallel?.destroy();
     this.cpu.clock.pause();
     this.unregister_yield();

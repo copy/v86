@@ -647,7 +647,7 @@ test("hot plug and snapshots: a drive on one side only is a hot plug event for t
 // a disk image (docs/disk-image-formats-plan.md P0): a QCOW2 disk of 1 MiB,
 // its second cluster damaged
 const { build_qcow2 } = await import("../image/tiny_qcow2.mjs");
-await emulator.attach_sata_drive(3, { buffer: build_qcow2({ size: 1 << 20, data: [[0, extra.subarray(0, 65536)]], damaged: [65536] }).buffer, format: "qcow2" });
+await emulator.attach_sata_drive(3, { buffer: build_qcow2({ size: 1 << 20, data: [[0, extra.subarray(0, 65536)]], damaged: [65536] }).buffer, format: "qcow2", disk_error: "report" });
 pw(3, PX.SERR, -1);
 test("a QCOW2 disk: reads; a failed read or write ends a queued or DMA command with ABRT (TFES), the port goes on", () => {
     start_port(3);
@@ -679,6 +679,72 @@ test("a QCOW2 disk: reads; a failed read or write ends a queued or DMA command w
 });
 emulator.detach_sata_drive(3);
 pw(3, PX.SERR, -1);
+
+// the drive's disk_error policy (docs/disk-persistence-plan.md D0): sata3
+// with the default ("stop"), sata4 with "report"; their reads and writes
+// fail on request
+class FlakyDrive
+{
+    constructor(policy)
+    {
+        this.byteLength = 1 << 20;
+        this.data = new Uint8Array(this.byteLength).map((_, i) => i * 3 + (i >> 9) & 0xFF);
+        this.fail_reads = 0;
+        this.fail_writes = 0;
+        if(policy) this.disk_error = policy;
+    }
+    load() { this.onload?.({}); }
+    get(start, length, done)
+    {
+        if(this.fail_reads) { this.fail_reads--; done(undefined, new Error("the test's drive failed the read")); return; }
+        done(this.data.slice(start, start + length));
+    }
+    get_and_cache(start, length, done) { this.get(start, length, done); }
+    get_from_cache() { return undefined; }
+    set(start, data, done)
+    {
+        if(this.fail_writes) { this.fail_writes--; done(new Error("the test's drive failed the write")); return; }
+        this.data.set(data, start);
+        done();
+    }
+    get_buffer(done) { done(undefined); }
+    get_state() { return []; }
+    set_state() {}
+}
+const stopping = new FlakyDrive(), reporting = new FlakyDrive("report");
+await emulator.attach_sata_drive(3, stopping);
+await emulator.attach_sata_drive(4, reporting);
+const disk_errors = [];
+emulator.add_listener("disk-error", event => disk_errors.push(event));
+pw(3, PX.SERR, -1);
+pw(4, PX.SERR, -1);
+test("disk_error: stop holds a failed queued read until run() retries it; report ends a queued write with ABRT (TFES)", () => {
+    start_port(3);
+    stopping.fail_reads = 1;
+    ncq(3, 1, false, 10, 2, [[DATA, 1024]]);
+    assert.equal(pr(3, PX.SACT), 1 << 1, "tag 1 is still in flight");
+    assert.equal(cpu.disk_holds.length, 1, "held");
+    assert.deepEqual(disk_errors[0], { disk: "sata3", operation: "read", offset: 10 * 512, length: 1024,
+        reason: "the test's drive failed the read", retryable: true, policy: "stop" });
+    // (run() retries it; the machine is stopped again before it runs)
+    emulator.v86.run();
+    emulator.v86.stop();
+    assert.equal(cpu.disk_holds.length, 0);
+    assert.equal(pr(3, PX.SACT) | pr(3, PX.IS) & TFES, 0, "the read completed");
+    assert.deepEqual(mem.subarray(DATA, DATA + 1024), stopping.data.subarray(10 * 512, 12 * 512));
+    start_port(4);
+    reporting.fail_writes = 1;
+    ncq(4, 2, true, 7, 1, [[DATA, 512]]);
+    assert.ok(pr(4, PX.IS) & TFES, "TFES at once");
+    assert.equal(pr(4, PX.TFD), 0x0441, "ABRT, DRDY|ERR");
+    assert.equal(disk_errors[1].policy, "report");
+    assert.equal(disk_errors[1].operation, "write");
+    assert.equal(cpu.disk_holds.length, 0, "nothing held");
+});
+emulator.detach_sata_drive(3);
+emulator.detach_sata_drive(4);
+pw(3, PX.SERR, -1);
+pw(4, PX.SERR, -1);
 
 test("link power management: CAP, ICC requests, PxSCTL.IPM, commands wake the link, ALPE/ASP when idle", () => {
     const cap = r32(0x00);

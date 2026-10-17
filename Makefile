@@ -114,7 +114,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js block_backend.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js disk_options.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
@@ -597,6 +597,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/virtio_rng.js
 	./tests/devices/ide_large_disk.js
 	./tests/devices/ide_disk_image.js
+	./tests/devices/disk_error.mjs
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
@@ -673,6 +674,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/parallel.js
 	./tests/api/cdrom-insert-eject.js
 	./tests/api/disk-image.js
+	./tests/api/disk-options.js
 	./tests/api/iso9660.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
@@ -699,6 +701,20 @@ disk-image-tests: build/v86-debug.wasm
 disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
 	./tests/image/browser_runner.mjs worker=0
 	./tests/image/browser_runner.mjs worker=1
+
+# Disk persistence (docs/disk-persistence-plan.md): disk_option, disk_error,
+# FLUSH, the consistent reads of a read_only disk; the browser tests in
+# headless Chrome (CHROME), on the page and in the CPU Worker
+.PHONY: disk-persistence-tests disk-persistence-browser-tests
+disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
+	./tests/api/disk-options.js
+	./tests/persistence/response_version.mjs
+	./tests/devices/disk_error.mjs
+	node tests/a64/virtio_blk_disk_error.mjs
+
+disk-persistence-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+	./tests/persistence/browser_runner.mjs worker=0
+	./tests/persistence/browser_runner.mjs worker=1
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests
 	# Skipping:
@@ -1098,6 +1114,7 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/linux_loader.mjs
 	node tests/a64/device_io_reset.mjs
 	node tests/a64/virtio_blk_disk_image.mjs
+	node tests/a64/virtio_blk_disk_error.mjs
 	node tests/a64/extended_memory.mjs
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm

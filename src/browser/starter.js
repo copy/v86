@@ -30,6 +30,7 @@ import { Modem } from "./modem.js";
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
 import { check_image_options, create_disk_image, import_ova } from "../image/factory.js";
+import { check_disk_options, check_disk_policy, check_disk_bindings, set_disk_policy, disk_kind } from "../disk_options.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -176,6 +177,10 @@ export function V86(options)
     const machine = check_machine_options(options);
     this.cpu_type = machine.cpu_type;
     this.machine_type = machine.machine_type;
+    // each disk's disk_option and disk_error (docs/disk-persistence-plan.md
+    // "启动校验"); the disks, to find an image bound twice (attach_sata_drive)
+    /** @type {!Array<!Array<*>>} [name, descriptor] */
+    this.disk_descriptors = check_disk_options(options).map(([name, file]) => [name, file]);
 
     const bus = Bus.create();
     this.bus = bus[0];
@@ -697,9 +702,14 @@ V86.prototype.continue_init = async function(emulator, options)
     graphics_adapter.catch(() => {});
     const adapter_renderer = this.create_adapter_renderer(options);
 
+    // the disks' policies (src/disk_options.js), put on their buffers
+    const disk_policies = new Map();
+
     // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
     {
+        if(disk_policies.has(name)) set_disk_policy(buffer, name, disk_policies.get(name));
+
         // (virtio_disks[i]: "virtio_disk" + i)
         if(name.startsWith("virtio_disk"))
         {
@@ -768,6 +778,9 @@ V86.prototype.continue_init = async function(emulator, options)
         {
             return;
         }
+
+        // (virtio_disks[i]: "virtio_disk" + i)
+        if(disk_kind(name) !== "other") disk_policies.set(name, check_disk_policy(name, file));
 
         // hard disks in a container format (docs/disk-image-formats-plan.md);
         // without a format, RAW in the buffers of src/buffer.js
@@ -1903,6 +1916,10 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     const ahci = this.v86.cpu.devices.ahci;
     if(!ahci) throw new Error("attach_sata_drive: no AHCI controller (machine_type: \"q35\")");
     if(!file && !cdrom) throw new Error("attach_sata_drive: a disk needs an image");
+    // (its policy, docs/disk-persistence-plan.md: checked with the disks the machine has)
+    const name = cdrom ? "cdrom" : "sata" + port;
+    const policy = check_disk_policy(name, file);
+    if(file) check_disk_bindings([[name, file, policy]], this.disk_descriptors);
     let image;
     if(check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom))
     {
@@ -1929,7 +1946,9 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
         // (the disk's CHS geometry comes from its partition table)
         await new Promise(resolve => image.get_and_cache(0, 512, resolve));
     }
+    set_disk_policy(image, name, policy);
     ahci.attach(port, { buffer: image, is_cdrom: cdrom });
+    if(file) this.disk_descriptors.push([name, file]);
 };
 
 /**
@@ -1946,6 +1965,8 @@ V86.prototype.detach_sata_drive = function(port)
     const ahci = this.v86.cpu.devices.ahci;
     if(!ahci) throw new Error("detach_sata_drive: no AHCI controller (machine_type: \"q35\")");
     ahci.detach(port);
+    const names = ["sata" + port, ["hda", "hdb", "cdrom"][port]];
+    this.disk_descriptors = this.disk_descriptors.filter(([name]) => !names.includes(name));
 };
 
 /**

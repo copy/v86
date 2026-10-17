@@ -27,6 +27,7 @@ import { PL031 } from "../virt/pl031.js";
 import { load_linux } from "../virt/loader.js";
 import { VirtioMmio } from "../virtio_mmio.js";
 import { VirtioBlk } from "../virtio_blk.js";
+import { drop_disk_holds } from "../block_backend.js";
 import { VirtioRng } from "../virtio_rng.js";
 import { VirtioNet } from "../virtio_net.js";
 import { VirtioConsole } from "../virtio_console.js";
@@ -1077,6 +1078,8 @@ A64CPU.prototype.validate_state = function(state)
 A64CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
+    // (disk requests held after an I/O error belong to the machine left behind)
+    drop_disk_holds(this);
     if(state[95]) this.clock.set_state(state[95]);
     state[2].forEach((saved, core) => this.each_core(() => this.load_core_state(saved, core), core));
     if(!this.parallel) this.wm.exports["a64_switch_core"](state[3] || 0);

@@ -1,7 +1,8 @@
 # 磁盘持久化计划：`disk_option`
 
-状态：设计与实施计划，尚未实现。本文是 2026 年 10 月 17 日对“`disk_option` 写回源盘”
-方案的评审修订版，依据 `arm64` 分支 a6674aa4 的代码。拟议接口当前均不能使用。
+状态：D0 已实现（2026-10-17，`disk-formats` 分支），D1 起进行中；实施记录见[附录](#附录实施记录)。
+本文是 2026 年 10 月 17 日对“`disk_option` 写回源盘”方案的评审修订版，依据 `arm64` 分支
+a6674aa4 的代码。
 
 `disk_option` 决定客户机写入是否写回源镜像：`read_only` 时修改留在内存，`read_write`
 时修改持续写回绑定的源镜像。本地和服务器使用同一套语义；配置了 `read_write` 而来源
@@ -252,7 +253,7 @@ v86 只在 `read_write` 时向网址发出“打开写会话”请求，只有�
 | 操作 | 要求 |
 | --- | --- |
 | `load()`、`byteLength` | 打开来源，取得容量、身份、generation，必要时取得写者租约 |
-| `get(offset, length, fn(error, data), { signal })` | 读取；可同步回调 |
+| `get(offset, length, fn(data) / fn(undefined, error), { signal })` | 读取；可同步回调（错误后置，见附录 D0 决定 1） |
 | `set(offset, data, fn(error))` | 写入；`fn` 表示已完成 |
 | `flush(fn(error))` | 此前已完成的写入全部持久 |
 | `mark()`、`generation()` | 快照用，见上文 |
@@ -413,3 +414,83 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 [webdev-open]: https://web.dev/articles/files/open-one-or-multiple-files
 [rfc9110-put]: https://www.rfc-editor.org/rfc/rfc9110#section-14.5
 [chrome-lna]: https://developer.chrome.com/blog/local-network-access
+
+## 附录：实施记录
+
+实施在 `disk-formats` 分支：先合并 `arm64`（a22bd3a5，合并提交 9f2c96e8，见[格式计划](disk-image-formats-plan.md)
+附录末节），格式计划 P0 的错误通道因此已在 `block_backend.js` 中、IDE/AHCI/virtio-blk 共用；本文
+原样提交于 ac43a1e2。测试入口：`make disk-persistence-tests`（Node），`make disk-persistence-browser-tests`
+（无头 Chrome，页面与 CPU Worker）；设备与 API 测试也加入了 `devices-test`、`api-tests` 与
+`a64-virt-device-tests`。同机有长时间门禁运行，只做定向测试，未做计时测量。
+
+### D0 选项、错误策略、FLUSH 顺序、一致读取
+
+**实现。**
+
+- 选项：新模块 [`src/disk_options.js`](../src/disk_options.js)。`check_disk_options` 在 V86 构造函数中、
+  加载任何文件之前同步检查（CPU Worker 中再查一次），`attach_sata_drive` 在挂接前检查（并与机器已有
+  的盘比较）。规则：`disk_option`、`disk_error`、`token` 写在 V86 选项顶层报错；取值不对报错；
+  `disk_option` 只用于硬盘（`hda`、`hdb`、SATA 盘、`virtio_disks`），`disk_error` 用于硬盘与光驱，
+  `token` 只能是字符串、只用于盘；`bios`、`initial_state`、`bzimage` 等一律报错；软盘上
+  `read_only` 等同省略，`read_write` 与 `disk_error` 报“D3”；`read_write` 与 `readonly: true`、与非
+  RAW 的 `format` 同时出现报错；同一来源（同一网址、同一 buffer 对象）被两块盘绑定且其一为
+  `read_write` 报错；`read_write` 的来源在 D0 一律报错，错误信息按来源说明原因与办法
+  （ArrayBuffer：内存镜像，没有持久来源；File：浏览器不能原地写回用户选取的文件，用本机磁盘服务；
+  分片与 `.zst`：只能读；自带对象：需实现后端契约；Node 本地文件：D1；网址：D2）。格式计划的
+  `check_image_options` 改为调用同一检查。`encode_worker_file` 转发 `disk_error`、`token`。检查通过的
+  策略放在盘的 buffer 上（`disk_name`、`disk_error`），设备层从那里读取。
+- 错误策略（[`src/block_backend.js`](../src/block_backend.js)）：读写与 flush 失败时先触发 `disk-error`
+  事件（`disk`、`operation`、`offset`、`length`、`reason`、`retryable`、`policy`），再按策略：
+  `report` 立即交给设备的错误编码；`stop`（默认）把请求挂在 CPU 上（`cpu.disk_holds`），经
+  `v86.stop()` 暂停机器。`v86.run()` 按原顺序重试挂起的请求，不可重试的则在此时报告给客户机；
+  `destroy()` 与恢复快照（`CPU.set_state`、`A64CPU.set_state`，校验通过之后）丢弃它们，等同掉电；
+  设备复位丢弃挂起的读与 flush（挂起的写仍在 `run()` 时落盘，完成不再通知，与复位时在途写入的规则
+  一致）；SATA 拔盘丢弃该盘挂起的请求。有挂起请求时 `save_state` 与流式保存拒绝并说明原因。
+  是否可重试：错误自带 `retryable` 时按它，格式层的错误按 `kind`（只有 `io` 可重试），其他错误可重试；
+  修改层预算不足、来源在读取中改变均不可重试。
+- FLUSH 按序号等待：每个写入取递增序号，FLUSH 记下发出时的最大序号，等序号不大于它的写入都结束
+  （完成或报告失败）后再调用 buffer 的 `flush`；之后发出的写入不再拖住它。挂起（`stop`）的写入
+  仍算未结束，排在它后面的 FLUSH 一直等到它被重试成功。
+- 一致读取（[`src/buffer.js`](../src/buffer.js) 的 `check_response_version`）：`AsyncXHRBuffer` 与
+  `AsyncXHRPartfileBuffer`（每个分片文件各记各的）记下第一个带 ETag（没有时用 Last-Modified）的
+  响应，之后每个 Range 响应核对；不一致时该次读取以 `changed`（不可重试）失败。请求不变，不加
+  `If-Match`。同时补上原来没有通道的读取失败：4xx 状态（原来请求永远不结束）、对 Range 请求回
+  200（`load_file` 原来中止后不再回调，现在调用 `options.error`）、响应短于请求、`File` 读取失败
+  （`FileReader.onerror`、`FileReaderSync` 抛出）、Node 中本地文件分段读取失败。`get_and_cache` 转发
+  错误。
+- 文档与类型：`v86.d.ts` 增加 `disk_error`、`token`、`disk-error` 事件，`disk_option` 的说明改为“源镜像
+  策略”，与 `readonly` 区分。
+
+**决定与偏差。**
+
+1. **读取回调保持错误后置**：成功 `fn(data)`，失败 `fn(undefined, error)`；写入与 flush 为 `fn(error)`。
+   这是格式计划 P0 已采用、并在合并时进入 `block_backend.js` 的约定（理由见格式计划附录 P0 偏差 1：
+   旧 buffer 以 `fn(data)` 回调，错误前置会让未改动的消费者把 Error 当数据静默写入）。后端契约表
+   相应改为 `fn(data) / fn(undefined, error)`，全部代码一种约定。
+2. **`disk_error` 也用于光驱**：计划的适用范围表是针对 `disk_option` 的；光驱的读取同样经
+   `block_backend.js`，网络抖动的理由同样成立，所以接受 `cdrom` 上的 `disk_error`（默认 `stop`）。软盘
+   不经 `block_backend.js`（ISA DMA 路径），`disk_error` 留到 D3。
+3. **不可重试的错误在 `stop` 下**：计划说这类错误“只能 `report` 或 `destroy()`”。实现为：同样暂停并
+   触发事件（`retryable: false`），之后的 `run()` 不重试而是把它报告给客户机。客户机（BIOS、DOS）
+   往往自己重试，每次重试又失败并再次暂停：浏览器测试中 MS-DOS 的一次读错误需要 4 次 `run()` 才
+   显示“General failure reading drive C”。
+4. **默认 `stop` 改变了格式计划已有的错误行为**：损坏簇、修改层预算不足原来立即报告给客户机，现在
+   默认暂停机器。格式计划中验证客户机看到 ERR/ABRT、TFES、IOERR 的测试（`ide_disk_image.js`、
+   `ahci.js`、`virtio_blk_disk_image.mjs`）改为显式 `disk_error: "report"`。
+5. **挂起的请求不计入快照等待的在途 I/O**：否则 `state_transaction` 会等 30 秒后超时；按计划改为
+   明确拒绝保存。
+6. **浏览器 HTTP 缓存**：对没有 `Cache-Control` 的静态响应，Chrome 会自行加 `If-None-Match`、
+   `If-Range` 重新验证；这些不是 v86 加的，旧版同样如此，测试把它们与浏览器的固定请求头一起排除。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/api/disk-options.js`（新） | 顶层三个字段、错误取值、`token` 类型、适用范围（光驱、`bios`、`initial_state`、`bzimage`、软盘）、`read_write` 的六类来源（ArrayBuffer、File、分片、QCOW2、`readonly` 的 virtio 盘、无后端契约的自带对象）各报出盘符与原因；重复绑定（含与已挂接的盘）报错、两个 `read_only` 不报错；Worker 描述带 `disk_option`、`disk_error`、`token`；策略到达 IDE 的 buffer（硬盘 `report`、光驱默认 `stop`） |
+| `tests/devices/disk_error.mjs`（新） | IDE，客户机（`jmp $` 引导扇区）运行中经端口发命令：`stop` 下读失败→`emulator-stopped`、事件字段完整、命令 BSY、`save_state` 被拒，`run()` 重试后 DRQ 且数据正确；写失败挂起、`run()` 后落盘；不可重试的读由 `run()` 报告为 ERR/ABRT 且未重读；SRST 丢弃挂起的读；恢复快照丢弃挂起的写；`destroy()` 丢弃挂起的读；`report` 下读写立即 ERR/ABRT、机器继续运行。7/7 |
+| `tests/devices/ahci.js`（新增一项） | `stop` 下失败的 NCQ 读挂起（SACT 保留该 tag），`run()` 后完成、数据正确；`report` 下失败的 NCQ 写立即 TFES、TFD 0x0441。32/32 |
+| `tests/a64/virtio_blk_disk_error.mjs`（新） | 写 A（50 ms）、FLUSH、写 B（400 ms）同批提交：完成顺序 A、FLUSH、B（旧实现为 A、B、FLUSH）；`stop` 下失败的写挂起、其后的 FLUSH 等待，`run()` 后两者依次完成；失败的读挂起后重试；`report` 下读写均 `VIRTIO_BLK_S_IOERR` |
+| `tests/persistence/response_version.mjs`（新） | ETag 优先、无 ETag 时用 Last-Modified、没有版本的响应不核对、各文件分开、错误为 `changed` 且不可重试 |
+| 浏览器（`tests/persistence/browser_runner.mjs`，页面与 CPU Worker） | MS-DOS 从 HTTP Range 读取的 RAW 盘启动；服务器改变 ETag 后 `copy C:\DOS\*.* NUL`：`disk-error`（`changed`，不可重试）、机器暂停、`save_state` 被拒，`run()` 4 次后客户机显示 “General failure reading drive C”；`disk_error: "report"` 时客户机立即看到错误、机器继续运行；另一来源（CORS，不公开 ETag）照常读取且不核对；两种模式各 1016 个镜像请求，v86 发出的请求头只有 `Range`、`X-Accept-Encoding` |
+| 回归 | `make disk-image-tests`（全部格式、设备与客体测试）与 `make disk-image-browser-tests`（页面与 CPU Worker）通过；`ide_disk_image`、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`ide_large_disk`、`virtio_blk_disk_image`、`api/state`、`floppy`、`cdrom-insert-eject`、`clean-shutdown`、`destroy-during-init`、`reset`、`arm64-options` 通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
+

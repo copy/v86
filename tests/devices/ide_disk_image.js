@@ -61,7 +61,7 @@ function config(hda)
     };
 }
 
-const emulator = new V86(config({ buffer: image.buffer, format: "qcow2", overlay_limit: 64 * 1024 * 1024 }));
+const emulator = new V86(config({ buffer: image.buffer, format: "qcow2", overlay_limit: 64 * 1024 * 1024, disk_error: "report" }));
 await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
 const io = emulator.v86.cpu.io;
 

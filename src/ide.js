@@ -1,4 +1,4 @@
-import { init_block_io, block_read, block_write, block_when_writes_done, block_cancel_reads } from "./block_backend.js";
+import { init_block_io, block_read, block_write, block_when_writes_done, block_cancel_reads, block_drop_holds } from "./block_backend.js";
 import { LOG_DISK } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
@@ -2946,6 +2946,12 @@ IDEInterface.prototype.io_error = function(error)
 IDEInterface.prototype.cancel_io_operations = function()
 {
     block_cancel_reads(this);
+};
+
+/** The drive is gone (AHCI hot unplug): its requests held after an I/O error are dropped */
+IDEInterface.prototype.drop_held_requests = function()
+{
+    block_drop_holds(this);
 };
 
 IDEInterface.prototype.get_state = function()

@@ -73,8 +73,11 @@ WriteOverlay.prototype.write = function(offset, data)
     }
     if((this.blocks.size + added) * OVERLAY_BLOCK_SIZE > this.limit)
     {
-        return new DiskImageError(this.name + ": the guest's changes would exceed their memory budget (" +
+        const error = new DiskImageError(this.name + ": the guest's changes would exceed their memory budget (" +
             this.limit + " bytes): the write of " + length + " bytes at " + offset + " fails", "io");
+        // (trying again does not help: src/block_backend.js)
+        /** @type {?} */ (error)["retryable"] = false;
+        return error;
     }
     // (the chunks the write needs first: a write that does not fit in
     // memory fails as a whole)

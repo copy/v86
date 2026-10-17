@@ -40,7 +40,7 @@ async function machine(options)
     });
     return emulator;
 }
-const qcow2_disk = (bytes, id) => ({ buffer: bytes.slice().buffer, format: "qcow2", overlay_limit: BUDGET, id });
+const qcow2_disk = (bytes, id) => ({ buffer: bytes.slice().buffer, format: "qcow2", overlay_limit: BUDGET, id, disk_error: "report" });
 
 const emulator = await machine({ virtio_disks: [qcow2_disk(image, "qcow2disk")] });
 const cpu = emulator.v86.cpu;

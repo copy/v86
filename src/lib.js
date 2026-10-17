@@ -554,25 +554,37 @@ if(typeof XMLHttpRequest === "undefined" ||
         {
             dbg_assert(!options.as_json);
 
-            const fd = await fs["open"](filename, "r");
-
             const length = options.range.length;
             const buffer = Buffer.allocUnsafe(length);
+            let bytes_read;
 
             try
             {
-                /** @type {{ bytesRead: Number }} */
-                const result = await fd["read"]({
-                    buffer,
-                    position: options.range.start
-                });
-                dbg_assert(result.bytesRead === length);
+                const fd = await fs["open"](filename, "r");
+                try
+                {
+                    /** @type {{ bytesRead: Number }} */
+                    const result = await fd["read"]({
+                        buffer,
+                        position: options.range.start
+                    });
+                    bytes_read = result.bytesRead;
+                }
+                finally
+                {
+                    await fd["close"]();
+                }
             }
-            finally
+            catch(e)
             {
-                await fd["close"]();
+                // (options.error: the caller handles a failed read, src/buffer.js)
+                if(!options.error) throw e;
+                options.error(e.message);
+                return;
             }
 
+            // (past the end of the file: zeroes)
+            if(bytes_read < length) buffer.fill(0, bytes_read);
             options.done && options.done(new Uint8Array(buffer));
         }
         else
@@ -664,7 +676,11 @@ else
                 if(http.status === 200)
                 {
                     console.error("Server sent full file in response to ranged request, aborting", { filename });
+                    http.onreadystatechange = null;
                     http.abort();
+                    if(options.signal) options.signal.removeEventListener("abort", abort);
+                    // (a disk read fails: src/buffer.js)
+                    options.error && options.error("the server ignored the Range header (status 200)");
                 }
             };
         }

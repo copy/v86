@@ -702,8 +702,10 @@ AHCIPort.prototype.detach = function()
 {
     dbg_log("AHCI port " + this.number + ": drive detached", LOG_DISK);
     const device = this.device;
-    // its disk I/O in flight is dropped
+    // its disk I/O in flight is dropped (and the requests held after an
+    // I/O error: src/block_backend.js)
     device.cancel_io_operations();
+    device.drop_held_requests();
     device.reset_epoch++;
     this.device = this.master = null;
     // PhyRdy lost; no device: no link, PxTFD 7Fh, no signature

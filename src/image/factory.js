@@ -12,18 +12,13 @@ import { VMDKReader } from "./vmdk.js";
 import { VHDXReader } from "./vhdx.js";
 import { SliceSource, read_tar, read_ova } from "./ova.js";
 import { load_file } from "../lib.js";
+import { check_disk_policy } from "../disk_options.js";
 
 /** the formats a hard disk's `format` may name */
 export const DISK_IMAGE_FORMATS = ["raw", "qcow2", "vhd", "vpc", "vdi", "vmdk", "vhdx", "auto"];
 
 /** formats recognised but not (yet) read, and where they are planned */
 const FORMATS_LATER = {};
-
-/** what disk_option may be (docs/disk-persistence-plan.md) */
-const DISK_OPTIONS = ["read_only", "read_write"];
-
-/** the descriptors that are not disks */
-const NOT_DISKS = ["bios", "vga_bios", "initial_state", "multiboot", "bzimage", "initrd", "kernel", "dtb", "cdrom"];
 
 // how many parents a disk may have
 export const MAX_CHAIN_DEPTH = 16;
@@ -39,23 +34,8 @@ export function check_image_options(name, file, hard_disk)
 {
     if(!file || typeof file !== "object") return undefined;
     const format = file.format;
-    const option = file.disk_option;
-    if(option !== undefined)
-    {
-        if(NOT_DISKS.includes(name))
-        {
-            throw new DiskImageError(name + ": disk_option is for disks (hda, hdb, SATA drives, virtio_disks), not " + name, "config");
-        }
-        if(!DISK_OPTIONS.includes(option))
-        {
-            throw new DiskImageError(name + ": disk_option " + JSON.stringify(option) + " is not one of " + DISK_OPTIONS.join(", "), "config");
-        }
-        if(option === "read_write")
-        {
-            throw new DiskImageError(name + ": disk_option \"read_write\" (writing the changes back to the image) is not " +
-                "supported yet (docs/disk-persistence-plan.md); without it, the changes stay in memory", "config");
-        }
-    }
+    // (disk_option, disk_error, token: src/disk_options.js)
+    check_disk_policy(name, file);
     if(format === undefined || format === "raw") return undefined;
     if(typeof format !== "string")
     {

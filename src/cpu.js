@@ -1,4 +1,5 @@
 import { is_disk_image_state } from "./image/disk_image.js";
+import { drop_disk_holds } from "./block_backend.js";
 import {
     LOG_CPU, LOG_BIOS,
     FW_CFG_SIGNATURE, FW_CFG_SIGNATURE_QEMU,
@@ -1312,6 +1313,8 @@ CPU.prototype.validate_disk_states = function(state)
 CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
+    // (disk requests held after an I/O error belong to the machine left behind)
+    drop_disk_holds(this);
     if(state[95]) this.clock.set_state(state[95]);
     this.wm.exports["take_clock_progress"]();
     this.wm.exports["set_deterministic_execution"](this.clock.mode === "deterministic");

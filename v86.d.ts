@@ -100,12 +100,32 @@ export type V86DiskImageOptions =
         format?: V86DiskFormat;
 
         /**
-         * Where the guest's writes go (docs/disk-persistence-plan.md):
-         * "read_only" (the default) keeps them in memory, the image stays
-         * as it is. "read_write" (writing them back to the image) is not
-         * supported yet and fails at start.
+         * The source image's policy (docs/disk-persistence-plan.md), not
+         * whether the guest may write (that is virtio_disks' readonly):
+         * "read_only" (the default) keeps the guest's writes in memory, the
+         * image stays as it is. "read_write" writes them back to the image
+         * the url names (a disk service's URL, or in Node a local file: not
+         * supported yet, docs/disk-persistence-plan.md D1, D2); it fails at
+         * start for any other source (an ArrayBuffer, a File, a plain URL,
+         * an image in parts), for an image in a container format, with
+         * readonly, and for an image bound to two disks. An option of each
+         * disk, never of the V86 options.
          */
         disk_option?: "read_only" | "read_write";
+
+        /**
+         * What a failed read or write of this disk does (the "disk-error"
+         * event): "stop" (the default) stops the machine until run()
+         * retries the request; "report" ends the guest's command with an
+         * I/O error at once
+         */
+        disk_error?: "stop" | "report";
+
+        /**
+         * The credentials of a disk service that wants them (sent as
+         * Authorization: Bearer, never in the URL)
+         */
+        token?: string;
 
         /**
          * An identifier of the image's version, published with it (an
@@ -280,6 +300,25 @@ export interface Event {
         lengthComputable: boolean,
         total: number,
         loaded: number,
+    };
+    /**
+     * A disk's read, write or flush failed (docs/disk-persistence-plan.md
+     * "错误处理"). With the disk's disk_error "stop" (the default) the
+     * request stays unfinished and the machine stops: run() retries the
+     * held requests in their order (those that cannot be retried, such as
+     * an image that changed while it was read, are then reported to the
+     * guest), destroy() drops them; save_state is refused meanwhile. With
+     * "report" the guest's command ends with the device's error status.
+     */
+    "disk-error": {
+        /** hda, hdb, cdrom, sata<port>, virtio_disk<n> */
+        disk: string,
+        operation: "read" | "write" | "flush",
+        offset: number,
+        length: number,
+        reason: string,
+        retryable: boolean,
+        policy: "stop" | "report",
     };
     "emulator-loaded": void;
     "emulator-ready": void;
