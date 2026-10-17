@@ -104,11 +104,12 @@ export type V86DiskImageOptions =
          * whether the guest may write (that is virtio_disks' readonly):
          * "read_only" (the default) keeps the guest's writes in memory, the
          * image stays as it is. "read_write" writes them back to the image
-         * the url names: in Node a local file (written in place, async is
-         * ignored; a disk service's URL: not supported yet,
-         * docs/disk-persistence-plan.md D2), or a buffer object of one's own
-         * with the backend contract (flush, close, mark, generation,
-         * get_state, set_state, check_state). A completed write is in the
+         * the url names: a disk service's URL (a server, or the local disk
+         * service on 127.0.0.1: tools/disk-service.mjs; a URL that is not
+         * one fails at start), in Node a local file path (written in place,
+         * async is ignored), or a buffer object of one's own with the
+         * backend contract (flush, close, mark, generation, get_state,
+         * set_state, check_state). A completed write is in the
          * image; it is durable after a flush (the guest's, or one by itself
          * 1 s after the last write, 5 s at most; stop() and destroy() flush
          * too). The guest sees a write cache it may turn off (IDE/AHCI). A

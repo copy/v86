@@ -9,8 +9,15 @@
 // disk read fails rather than mixing versions. A second server on another
 // origin answers with CORS headers but does not expose the ETag: a
 // cross-origin read_only disk works as before, unchecked.
+// D2: a disk service (tools/disk-service.mjs, in this process, on another
+// port, accepting this page's origin) serves service/*.img: the page writes
+// back to it (part=d2), and the runner checks the service's files
+// (/__service_file); part=close: the page writes, the runner kills the
+// browser (SIGKILL) and finds the write in the service's file; part=pagehide:
+// the page writes and navigates away, the runner checks that the session
+// was closed (or, when the browser did not send it, that the lease ends).
 // Needs build/libv86.mjs, build/cpu-worker.js, build/v86.wasm and Chrome (CHROME).
-//   node tests/persistence/browser_runner.mjs [worker=0|1]
+//   node tests/persistence/browser_runner.mjs [worker=0|1] [part=d0|d2|close|pagehide]
 
 import http from "node:http";
 import fs from "node:fs";
@@ -18,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { create_disk_service } from "../../tools/disk-service.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = path.join(root, "build/persistence-browser");
@@ -27,6 +35,15 @@ for(const name of ["stop.img", "report.img", "cross.img"])
 {
     fs.copyFileSync(path.join(root, "images/msdos622.img"), path.join(out, name));
 }
+const service_dir = path.join(out, "service");
+fs.rmSync(service_dir, { recursive: true, force: true });
+fs.mkdirSync(service_dir);
+for(const name of ["dos.img", "shared.img", "close.img", "pagehide.img"])
+{
+    fs.copyFileSync(path.join(root, "images/msdos622.img"), path.join(service_dir, name));
+}
+const part = (process.argv.find(a => a.startsWith("part=")) || "part=d0").slice(5);
+let service;
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "v86-persistence-browser-"));
 let browser, timeout;
@@ -50,6 +67,36 @@ function serve(req, res, cross_origin)
         const name = address.searchParams.get("name");
         versions.set(name, (versions.get(name) || 0) + 1);
         res.end("OK");
+        return;
+    }
+    else if(req.method === "GET" && address.pathname === "/__service_file")
+    {
+        // (the service's image: has it the text, has it a writer)
+        const name = path.basename(address.searchParams.get("name"));
+        const text = address.searchParams.get("contains") || "";
+        const image = service.images.get(name);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ contains: !!text && fs.readFileSync(path.join(service_dir, name)).includes(text),
+            writer: !!(image && image.writer && image.writer.expires > Date.now()), session_open: !!(image && image.writer) }));
+        return;
+    }
+    else if(req.method === "POST" && address.pathname === "/__kill")
+    {
+        // part=close: the browser is killed, then the service's file is checked
+        const name = path.basename(address.searchParams.get("name"));
+        const text = address.searchParams.get("contains");
+        res.end("OK");
+        setTimeout(() =>
+        {
+            browser.kill("SIGKILL");
+            browser.on("exit", () =>
+            {
+                const found = fs.readFileSync(path.join(service_dir, name)).includes(text);
+                console.log((found ? "PASS" : "FAIL") + "\nthe browser killed (SIGKILL) after the guest wrote: the service's " + name +
+                    (found ? " has" : " lacks") + " \"" + text + "\"");
+                finish(found ? 0 : 1);
+            });
+        }, 100);
         return;
     }
     else if(req.method === "GET" && address.pathname === "/__requests")
@@ -131,7 +178,8 @@ function finish(code)
     cross.close();
     process.exitCode = code;
     const remove = () => { try { fs.rmSync(profile, { recursive: true, force: true }); } catch(e) {} };
-    if(browser && browser.exitCode === null)
+    if(service) service.close();
+    if(browser && browser.exitCode === null && browser.signalCode === null)
     {
         browser.on("exit", remove);
         browser.kill();
@@ -140,10 +188,14 @@ function finish(code)
 }
 
 await new Promise(resolve => cross.listen(0, "127.0.0.1", resolve));
-server.listen(0, "127.0.0.1", () =>
+server.listen(0, "127.0.0.1", async () =>
 {
+    const page_origin = "http://127.0.0.1:" + server.address().port;
+    service = create_disk_service({ dir: service_dir, origins: [page_origin], lease_ms: 3000 });
+    await new Promise(resolve => service.server.listen(0, "127.0.0.1", resolve));
     // (the other origin: another port)
-    const query = process.argv.slice(2).concat(["cross=" + encodeURIComponent("http://127.0.0.1:" + cross.address().port)]).join("&");
+    const query = process.argv.slice(2).filter(a => !a.startsWith("part=")).concat(["cross=" + encodeURIComponent("http://127.0.0.1:" + cross.address().port),
+        "service=" + encodeURIComponent("http://127.0.0.1:" + service.server.address().port), "part=" + part]).join("&");
     const url = "http://127.0.0.1:" + server.address().port + "/tests/persistence/browser_test.html?" + query;
     console.log(url);
     browser = spawn(process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", [

@@ -1,6 +1,7 @@
 # 磁盘持久化计划：`disk_option`
 
-状态：D0、D1 已实现（2026-10-17，`disk-formats` 分支），D2 起进行中；实施记录见[附录](#附录实施记录)。
+状态：D0、D1、D2 已实现（2026-10-17，`disk-formats` 分支；D2 中同步 XHR 的测量与 Chrome 本地网络访问
+授权未做，见附录），D3 起进行中；实施记录见[附录](#附录实施记录)。
 本文是 2026 年 10 月 17 日对“`disk_option` 写回源盘”方案的评审修订版，依据 `arm64` 分支
 a6674aa4 的代码。
 
@@ -494,7 +495,7 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 | 浏览器（`tests/persistence/browser_runner.mjs`，页面与 CPU Worker） | MS-DOS 从 HTTP Range 读取的 RAW 盘启动；服务器改变 ETag 后 `copy C:\DOS\*.* NUL`：`disk-error`（`changed`，不可重试）、机器暂停、`save_state` 被拒，`run()` 4 次后客户机显示 “General failure reading drive C”；`disk_error: "report"` 时客户机立即看到错误、机器继续运行；另一来源（CORS，不公开 ETag）照常读取且不核对；两种模式各 1016 个镜像请求，v86 发出的请求头只有 `Range`、`X-Accept-Encoding` |
 | 回归 | `make disk-image-tests`（全部格式、设备与客体测试）与 `make disk-image-browser-tests`（页面与 CPU Worker）通过；`ide_disk_image`、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`ide_large_disk`、`virtio_blk_disk_image`、`api/state`、`floppy`、`cdrom-insert-eject`、`clean-shutdown`、`destroy-during-init`、`reset`、`arm64-options` 通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
 
-### D1 Node 本地文件的写回后端、写缓存、快照规则
+### D1 Node 本地文件的写回后端、写缓存、快照规则（42ddaf44）
 
 **实现。**
 
@@ -558,4 +559,66 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 | `tests/devices/ahci.js`（新增一项） | 带契约的记录后端：IDENTIFY 报告写缓存；无 FUA 的 NCQ 写不 flush，带 FUA 的先写后 flush 再完成；SET FEATURES 82h 后每个 NCQ 写都 flush。33/33 |
 | `tests/persistence/guest.mjs`（新） | Linux 4.16（Q35/AHCI 与 i440FX/IDE 各一遍）：`/sys/block/sda/queue/write_cache` 为 write back、sdb 为 write through，dmesg 报 sda 写缓存 enabled；`conv=fsync` 的 FLUSH 到达后端；块设备 `sync` 写出（无 FLUSH CACHE）后直接读文件得到数据；`hdparm -W0` 后每个写入都 `fdatasync`、`-W1` 后不再；hdb 文件不变；保存状态、`destroy()`（文件已关闭、含已同步数据）、新机器恢复后继续读写。掉电：2 个 FLUSH 命令逐个核对、丢弃 2070 个未持久扇区、重新启动后 ext2 可挂载、同步过的文件 MD5 一致。MS-DOS：没有 FLUSH CACHE，写入后定时 flush 落盘，文件含写入的文本 |
 | 回归 | `make disk-persistence-tests`（含 D0 各项）；`ide_disk_image`、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`ide_large_disk`、`virtio_blk_disk_image`、`api/state`、`floppy`、`cdrom-insert-eject`、`api/disk-image`、`tests/image/guest.mjs`（8 种格式）通过；`TEST_RELEASE_BUILD=1` 下 `disk_writeback` 与 `guest.mjs`（Q35、掉电）通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
+
+### D2 磁盘协议、参考服务与浏览器端后端
+
+**实现。**
+
+- 协议（所有请求发往镜像自己的网址）：读取是带 `Range` 的 GET（206、`Content-Range`、`ETag` 为
+  `"<镜像 UUID>:<generation>"`、`Cache-Control: no-store`），写会话中的读取另带 `X-V86-Disk-Session`；其余
+  操作为 POST，以 `X-V86-Disk-Op` 区分：`open`（返回容量、扇区大小、身份、generation、会话、epoch、租约
+  时长，响应带 `X-V86-Disk-Protocol: 1`；有效写者存在时 409）、`renew`、`write`（`X-V86-Disk-Session`、
+  `-Epoch`、`-Sequence`、`-Offset`，请求体为数据，写入源文件后才回答）、`flush`（`fdatasync`）、`mark`
+  （flush 后记下 generation，快照用）、`close`（flush 后释放租约）。错误以 JSON `{code, error}` 回答：
+  `writer`、`epoch`、`lease`（409）、`no_space`（507）、`token`（401）、`origin`（403）、`request`（400）。
+- 参考服务 [`tools/disk-service.mjs`](../tools/disk-service.mjs)（无依赖，可作为模块 `create_disk_service`
+  在测试中使用）：服务一个目录下的镜像；每个镜像有 UUID、generation、epoch，保存在
+  `<目录>/.v86-disk-service.json`（写入临时文件、fsync、改名）；每次写入使 generation 递增，`mark` 之后的
+  第一次写入在写数据之前先递增并落盘状态文件；源文件被外部改动（大小或纳秒 mtime 与服务记录的不同）
+  时 generation 递增，服务重启时亦然。单写者：租约到期未续则下一个 `open` 接管，epoch 递增，旧会话的
+  写入与重试一律 409；租约到期时服务自行 flush。同一会话中：已应用的序号再来时直接回答成功；比它
+  晚到、但序号小于一个与之重叠的已应用写入的写入不再应用（迟到的旧写入不能覆盖新数据）。来源核对：
+  POST 带 `Origin` 时必须是 `--origin` 给出的来源或服务自身；`--token` 时会话操作需要
+  `Authorization: Bearer`。
+- 客户端 [`src/disk_service.js`](../src/disk_service.js)（`DiskServiceDisk`，`fetch`，页面、CPU Worker 与 Node
+  通用）：`load` 发 `open`，回答没有协议响应头（静态服务器）时报“只能读取，不能写回”及办法，`fetch`
+  失败（不可达或跨站 CORS 不放行）时报原因并提示 `--origin`；容量非整扇区、与 `size` 不符报错。写入：
+  范围重叠的写入串行；网络错误与 5xx（507 除外）重试 4 次、每次最长 30 秒，沿用会话、epoch 与序号；
+  `disk_error: "stop"` 挂起后由 `run()` 重试时同一数据沿用原序号；409 与 507 不可重试（租约丢失后
+  其后的请求也立即失败）。读缓存：4 KiB 块、最多 16 MiB、最久未用的先淘汰；写入完成前更新已缓存的
+  块，读取只在发起之后没有写入完成于这些块时才缓存。定时 flush 同本地文件（1 秒/5 秒）。租约每三分之
+  一时长续一次。快照：`prepare_snapshot`（`mark`）在 `save_state`、`save_state_stream` 的事务中、机器
+  暂停且在途 I/O 完成之后进行，之后 `get_state` 给出引用（身份为网址加服务的 UUID）。`close` 等在途写入
+  结束后发 `close`。
+- 接入：浏览器中（及 Node 中 `http(s)://` 开头的网址）`read_write` 的 `url` 用 `DiskServiceDisk`，Node 的本地
+  路径仍用 `NodeFileDisk`；CPU Worker 中在 Worker 内构建（`token` 随描述转发）。`pagehide`：页面上对每个
+  磁盘服务会话发 `keepalive` 的 `close`，CPU Worker 模式下经 RPC 让 Worker 去发（尽力而为：已完成的写入
+  本来就在源镜像中，服务在租约到期时也会 flush）。
+- 部署说明（本机磁盘服务）：`node tools/disk-service.mjs --dir <镜像目录> --origin <页面来源>`，默认监听
+  `127.0.0.1:8471`；页面用 `hda: { url: "http://127.0.0.1:8471/<镜像名>", disk_option: "read_write" }`。
+  不给 `--origin` 时只接受服务自身来源的页面；需要更严时加 `--token`（页面在盘描述中给 `token`，放在
+  `Authorization` 请求头里，不进网址）。服务器部署同一个脚本，放在 HTTPS 反向代理之后。
+
+**决定与偏差。**
+
+1. **同步 XHR 未测量**：计划要求在 D2 中测量 CPU Worker 对 `127.0.0.1` 用同步 XHR 的效果后再决定。本机
+   在同一时间运行着长时间的 ARM 发布门禁，按协调要求不做性能测量；首版客户端全部异步（`fetch`）。
+   这一项待测量后决定（需要空闲的机器）。
+2. **Chrome 本地网络访问授权未走通**：需要一个公网 HTTPS 页面访问回环地址，并在有界面的 Chrome 中
+   人工点授权；本环境只有无头 Chrome、没有公网页面，未做。需要负责人在真实部署上手动验证。
+3. **协议细节**（计划说“具体名字在实施时确定”）：请求头名 `X-V86-Disk-*`；generation 用服务内的计数器，
+   ETag 带镜像 UUID；身份为网址加 UUID。
+4. **超时**：单次请求 30 秒超时的路径没有专门测试（需要 30 秒以上的等待）；网络中断、连接被拒、回答
+   丢失、5xx、507、租约丢失都有测试。
+5. **读取的一致性在写会话自身中不核对 ETag**：自己的写入会改变 ETag；跨会话的一致性由 `read_only` 端的
+   D0 核对负责（浏览器测试覆盖）。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/persistence/disk_service.mjs`（新） | 服务：Range 读取（206、`Content-Range`、ETag、`no-store`）、416、404、状态文件不对外；`open` 带协议头、第二个写者 409；写入在回答前已在文件中、ETag 随之改变；flush 计 `fdatasync`；迟到的旧写入不覆盖较新的重叠写入、重复序号只应用一次；`mark` 记入状态文件，之后第一次写入的 generation 在写数据前落盘；400（未对齐、越界）；续租；租约到期后被接管，旧 epoch 的写入 409 且未落盘；关闭后可立即再打开；文件被外部改动后 generation 改变；`Origin` 不在列表 403，CORS 预检回答允许的来源与请求头；`--token`：无 401、有 200。客户端：静态服务器的网址、不可达的服务、非整扇区与 `size` 不符均在启动时报出原因；读取与缓存命中；写入完成即在文件与缓存中；flush；快照引用（未 `prepare` 时拒绝给出）；写入后旧引用不再相符；回答丢失的写入重试一次且只应用一次；两次 503 后成功；507 不重试；租约丢失后写入失败且不可重试 |
+| `tests/persistence/service_machine.mjs`（新） | IDE：写入完成即在服务的文件中、FLUSH CACHE 为服务端 `fdatasync`、IDENTIFY 报告写缓存；`save_state` 后 `destroy()` 关闭会话、新机器恢复、写入后再恢复被拒；服务关闭：写入在重试后挂起（`stop`）、`save_state` 被拒，服务重启后会话已不存在：`run()` 的重试被拒（不可重试），下一次 `run()` 报告给客户机；网络中断（连接被断开）后恢复：`run()` 重试成功、数据落盘；`report`：租约被接管后写入立即 ERR/ABRT 且不可重试；Q35 拔出写回盘时会话关闭；virtio-blk：写入在文件中、FLUSH 为服务端 `fdatasync` |
+| 浏览器（`tests/persistence/browser_runner.mjs part=d2/close/pagehide`，页面与 CPU Worker） | 静态网址配 `read_write`：`emulator-error`“只能读取，不能写回……”；跨站且 CORS 不放行协议请求头：`emulator-error`“不可达或不允许此页面（CORS……）”；MS-DOS 从磁盘服务（`read_write`）启动、写文件，命令完成时服务端镜像已含该文本，`save_state` 后 `destroy()` 关闭会话；另一台 `read_only` 机器读同一镜像时报“changed while it was read”而不混读；写入后 SIGKILL 浏览器，服务端镜像含写入的文本；写入后页面跳转，`pagehide` 关闭了会话（页面与 CPU Worker 两种模式都关闭了） |
+| 回归 | `make disk-persistence-tests`（D0–D2 的 Node 测试）、`make disk-persistence-browser-tests`（D0、D2、close、pagehide 各在页面与 CPU Worker 中，8 次）、`make disk-image-browser-tests` 通过；`TEST_RELEASE_BUILD=1` 下 `disk_service` 与 `service_machine` 通过；`ide_disk_image`、`ahci`（33/33）、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`api/state`、`floppy`、`cdrom-insert-eject`、`api/disk-image`、`arm64-options`、`virtio_blk_disk_image` 通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
 

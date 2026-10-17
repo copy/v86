@@ -91,13 +91,20 @@ export function writeback_problem(name, file)
     {
         return name + ": an image in parts (use_parts, .zst) can only be read, not written back." + keep;
     }
-    if(in_node())
-    {
-        // (the url is a local file: src/disk_writeback.js)
-        return "";
-    }
-    return name + "'s URL can only be read, not written back: writing back to a disk service is not supported yet " +
-        "(docs/disk-persistence-plan.md D2)." + keep;
+    // (in Node a local file, src/disk_writeback.js; a URL: a disk service,
+    // src/disk_service.js, which tells at the start whether it is one)
+    return "";
+}
+
+/**
+ * Whether a disk written back is a disk service's (a URL), not a local
+ * file (in Node, a path)
+ * @param {string} url
+ * @return {boolean}
+ */
+export function is_service_url(url)
+{
+    return !in_node() || /^https?:\/\//i.test(url);
 }
 
 /**

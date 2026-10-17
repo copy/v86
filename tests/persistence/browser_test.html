@@ -1,5 +1,6 @@
 <!doctype html><meta charset="utf-8"><title>Disk persistence in the browser</title>
 <div id="screen"><div style="white-space: pre; font: 14px monospace; line-height: 14px"></div><canvas style="display: none"></canvas></div>
+<div id="screen2"><div style="white-space: pre; font: 14px monospace; line-height: 14px"></div><canvas style="display: none"></canvas></div>
 <pre id="result">RUNNING</pre>
 <script type="module">
 // docs/disk-persistence-plan.md, on the page (worker=0) or in the CPU Worker
@@ -10,18 +11,27 @@
 // fails, "disk-error" says so and the machine stops, run() reports it to the
 // guest (it cannot be retried); with "report" the guest sees the error at
 // once; from another origin (the ETag not exposed) the disk works unchecked.
+// D2 (part=d2): a static URL with disk_option "read_write" fails the start
+// saying why; MS-DOS on a disk written back to the disk service: a file
+// written is in the service's image when the command completes; a
+// snapshot, destroy() closes the session; another machine reading the same
+// image read_only while the first writes it gets "changed", not mixed
+// sectors. part=close: the guest writes, the runner kills the browser;
+// part=pagehide: the guest writes, the page goes away.
 import { V86 } from "../../build/libv86.mjs";
 const params = new URLSearchParams(location.search);
 const worker = params.get("worker") === "1";
+const part = params.get("part") || "d0";
+const service = params.get("service");
 const log = [];
 const result = document.getElementById("result");
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const config = hda => ({
+const config = (hda, container = "screen") => ({
     wasm_path: "../../build/v86.wasm", cpu_worker: worker, cpu_worker_url: "../../build/cpu-worker.js",
     bios: { url: "../../bios/seabios.bin" }, vga_bios: { url: "../../bios/vgabios.bin" },
     graphics_adapter: "bochs_vga", graphics_adapter_path: "../../build/v86-bochs-vga.js",
     hda, memory_size: 32 << 20, autostart: true, disable_speaker: true,
-    screen: { container: document.getElementById("screen") },
+    screen: { container: document.getElementById(container) },
 });
 const screen = vm => (vm.screen_adapter ? vm.screen_adapter.get_text_screen() : []).map(l => l.replace(/\x00/g, " "));
 let vm_current;
@@ -34,9 +44,9 @@ async function until(condition, what, timeout = 120000)
         await sleep(100);
     }
 }
-async function boot(hda)
+async function boot(hda, container)
 {
-    const vm = vm_current = new V86(config(hda));
+    const vm = vm_current = new V86(config(hda, container));
     const events = [];
     vm.add_listener("disk-error", event => events.push(event));
     await new Promise((resolve, reject) => { vm.add_listener("emulator-loaded", resolve); vm.add_listener("emulator-error", reject); });
@@ -47,7 +57,129 @@ async function boot(hda)
 }
 const bump = name => fetch("/__bump?name=" + name, { method: "POST" });
 const images = "../../build/persistence-browser/";
+const service_file = async (name, contains) => (await fetch("/__service_file?name=" + name + "&contains=" + encodeURIComponent(contains || ""))).json();
+async function dos(vm, command)
+{
+    await vm.keyboard_send_text("cls\n", 20);
+    await until(() => { const l = screen(vm).filter(x => x.trim()); return l.length === 1 && l[0].startsWith("C:\\>"); }, "cls");
+    await vm.keyboard_send_text(command + "\n", 20);
+    await until(() => screen(vm).filter(x => x.startsWith("C:\\>")).length >= 2, command);
+    return screen(vm).join("\n");
+}
+async function d2()
+{
+    // a static URL: the start fails, saying why
+    {
+        const vm = vm_current = new V86(config({ url: images + "stop.img", disk_option: "read_write" }));
+        const error = await Promise.race([new Promise(resolve => vm.add_listener("emulator-error", resolve)),
+            new Promise(resolve => vm.add_listener("emulator-loaded", () => resolve(null))), sleep(30000).then(() => "timeout")]);
+        if(!error || error === "timeout" || !/can only be read, not written back .*disk service that supports writing/.test(error.message))
+        {
+            throw new Error("a static URL with read_write: " + (error && error.message || error));
+        }
+        log.push("a static URL with read_write: emulator-error \"" + error.message.slice(0, 100) + "...\"");
+        try { await vm.destroy(); } catch(e) {}
+    }
+    // another origin whose CORS does not allow the protocol's requests
+    {
+        const vm = vm_current = new V86(config({ url: params.get("cross") + "/build/persistence-browser/cross.img", disk_option: "read_write" }));
+        const error = await Promise.race([new Promise(resolve => vm.add_listener("emulator-error", resolve)),
+            new Promise(resolve => vm.add_listener("emulator-loaded", () => resolve(null))), sleep(30000).then(() => "timeout")]);
+        if(!error || error === "timeout" || !/cannot be reached, or does not let this page use it \(CORS/.test(error.message))
+        {
+            throw new Error("a cross-origin URL without CORS for the protocol: " + (error && error.message || error));
+        }
+        log.push("another origin, its CORS without the protocol's headers: emulator-error \"" + error.message.slice(0, 120) + "...\"");
+        try { await vm.destroy(); } catch(e) {}
+    }
+    // written back to the disk service
+    {
+        const text = "WRITTEN IN THE BROWSER " + (worker ? "WORKER" : "PAGE");
+        const { vm, events } = await boot({ url: service + "/dos.img", disk_option: "read_write" });
+        log.push("C:\\> from the disk service, read_write (" + (worker ? "CPU Worker" : "page") + ")");
+        if(!(await service_file("dos.img")).writer) throw new Error("no write session");
+        await dos(vm, "echo " + text + " > C:\\BROWSER.TXT");
+        if(!(await service_file("dos.img", text)).contains) throw new Error("the write is not in the service's image");
+        log.push("the guest wrote a file: it is in the service's image when the command completes");
+        const state = await vm.save_state();
+        await vm.destroy();
+        if((await service_file("dos.img")).session_open) throw new Error("destroy() did not close the session");
+        log.push("save_state (" + state.byteLength + " bytes), destroy(): the session closed");
+        if(events.length) throw new Error("disk-error: " + JSON.stringify(events));
+    }
+    // a read_only machine of the image another one writes: "changed"
+    {
+        const writer = await boot({ url: service + "/shared.img", disk_option: "read_write" }, "screen");
+        const reader = await boot({ url: service + "/shared.img", async: true }, "screen2");
+        await dos(writer.vm, "echo CHANGED > C:\\CHANGED.TXT");
+        const stopped = new Promise(resolve => reader.vm.add_listener("emulator-stopped", resolve));
+        await reader.vm.keyboard_send_text("copy C:\\DOS\\*.* NUL\n", 20);
+        await Promise.race([stopped, sleep(30000).then(() => { throw new Error("the reader did not stop: " + JSON.stringify(reader.events)); })]);
+        if(!reader.events.length || !/changed while it was read/.test(reader.events[0].reason)) throw new Error("reader: " + JSON.stringify(reader.events));
+        log.push("a read_only machine of the image the other writes: \"" + reader.events[0].reason.slice(0, 90) + "...\"");
+        await reader.vm.destroy();
+        await writer.vm.destroy();
+    }
+}
+async function write_and(what)
+{
+    const name = what + ".img";
+    const text = "BEFORE THE " + what.toUpperCase() + " " + (worker ? "WORKER" : "PAGE");
+    const { vm } = await boot({ url: service + "/" + name, disk_option: "read_write" });
+    await dos(vm, "echo " + text + " > C:\\" + what.toUpperCase() + ".TXT");
+    return { vm, name, text };
+}
 try
+{
+    if(part === "d2")
+    {
+        await d2();
+        result.textContent = "PASS\n" + log.join("\n");
+    }
+    else if(part === "close")
+    {
+        // (the runner kills the browser and reads the service's image)
+        const { name, text } = await write_and("close");
+        await fetch("/__kill?name=" + name + "&contains=" + encodeURIComponent(text), { method: "POST" });
+    }
+    else if(part === "pagehide")
+    {
+        const { name, text } = await write_and("pagehide");
+        sessionStorage.setItem("pagehide", JSON.stringify({ name, text, at: Date.now() }));
+        location.href = location.pathname + "?part=after-pagehide&service=" + encodeURIComponent(service) + "&worker=" + (worker ? 1 : 0);
+    }
+    else if(part === "after-pagehide")
+    {
+        const { name, text, at } = JSON.parse(sessionStorage.getItem("pagehide"));
+        await sleep(300);
+        const file = await service_file(name, text);
+        if(!file.contains) throw new Error("the write is not in the service's image");
+        if(file.session_open)
+        {
+            // (the browser did not send the close: the lease ends)
+            await until(() => Date.now() - at > 3500, "the lease", 10000);
+            const later = await service_file(name);
+            if(later.writer) throw new Error("the lease did not end");
+            result.textContent = "PASS\nthe page went away: the write is in the service's image; the session was not closed by the page (" +
+                (worker ? "CPU Worker" : "page") + "), its lease ended";
+        }
+        else
+        {
+            result.textContent = "PASS\nthe page went away: the write is in the service's image; pagehide closed the session (" +
+                (worker ? "CPU Worker" : "page") + ")";
+        }
+    }
+    else
+    {
+        await d0();
+        result.textContent = "PASS\n" + log.join("\n");
+    }
+}
+catch(error)
+{
+    result.textContent = "FAIL " + (error && error.stack || error) + "\n" + log.join("\n");
+}
+async function d0()
 {
     // read_only from this origin, disk_error "stop" (the default)
     {
@@ -106,10 +238,5 @@ try
         if(!/^(GET range,x-accept-encoding|OPTIONS access-control-request-headers,access-control-request-method)$/.test(kind)) throw new Error("a request: " + kind);
     }
     log.push(requests.length + " image requests, only: " + [...kinds].join("; "));
-    result.textContent = "PASS\n" + log.join("\n");
-}
-catch(error)
-{
-    result.textContent = "FAIL " + (error && error.stack || error) + "\n" + log.join("\n");
 }
 </script>

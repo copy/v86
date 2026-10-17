@@ -3,7 +3,8 @@ import { A64CPU } from "./arm/cpu.js";
 import { save_state, restore_state, save_state_stream, restore_state_stream } from "./state.js";
 import { export_raw } from "./image/export.js";
 import { export_qcow2 } from "./image/qcow2_export.js";
-import { release_disk_holds, drop_disk_holds } from "./block_backend.js";
+import { release_disk_holds, drop_disk_holds, check_no_disk_holds } from "./block_backend.js";
+import { disks_to_prepare, prepare_disks } from "./disk_writeback.js";
 export { V86 } from "./browser/starter.js";
 
 /**
@@ -343,8 +344,15 @@ v86.prototype.parallel_restore = async function(restore)
 
 v86.prototype.save_state_stream = function(write)
 {
-    if(this.cpu.parallel) return this.state_transaction(() => this.parallel_save(() => save_state_stream(this.cpu, write)), true);
-    return this.state_transaction(() => save_state_stream(this.cpu, write), true);
+    // (the disks written back to a disk service: flushed, their generation
+    // recorded, with the machine stopped: src/disk_writeback.js)
+    const prepare = disks_to_prepare(this.cpu);
+    const save = async () =>
+    {
+        if(prepare.length) { check_no_disk_holds(this.cpu); await prepare_disks(prepare); }
+        return this.cpu.parallel ? this.parallel_save(() => save_state_stream(this.cpu, write)) : save_state_stream(this.cpu, write);
+    };
+    return this.state_transaction(save, true);
 };
 
 v86.prototype.restore_state_stream = function(source)
@@ -374,6 +382,18 @@ v86.prototype.export_disk = function(buffer, write, options)
 
 v86.prototype.save_state = function()
 {
+    // (the disks written back to a disk service: flushed, their generation
+    // recorded, with the machine stopped: src/disk_writeback.js)
+    const prepare = disks_to_prepare(this.cpu);
+    if(prepare.length)
+    {
+        return this.state_transaction(async () =>
+        {
+            check_no_disk_holds(this.cpu);
+            await prepare_disks(prepare);
+            return this.cpu.parallel ? this.parallel_save(() => save_state(this.cpu)) : save_state(this.cpu);
+        }, true);
+    }
     if(this.cpu.parallel) return this.state_transaction(() => this.parallel_save(() => save_state(this.cpu)), true);
     // (disk I/O in flight: the commands complete first, their devices are
     // then in a state a snapshot can hold)

@@ -550,3 +550,32 @@ NodeFileDisk.prototype.set_state = function(state)
 {
     this.check_state(state);
 };
+
+/**
+ * The disks written back whose backend prepares a snapshot asynchronously
+ * (a disk service: flush, then the generation recorded)
+ * @param {?} cpu
+ * @return {!Array<?>}
+ */
+export function disks_to_prepare(cpu)
+{
+    const disks = new Set();
+    for(const [, device] of typeof cpu.disk_devices === "function" ? cpu.disk_devices() : [])
+    {
+        const buffer = device && device.buffer;
+        if(buffer && buffer.writeback && typeof buffer.prepare_snapshot === "function") disks.add(buffer);
+    }
+    return Array.from(disks);
+}
+
+/**
+ * @param {!Array<?>} disks
+ * @return {!Promise<undefined>}
+ */
+export async function prepare_disks(disks)
+{
+    for(const disk of disks)
+    {
+        await new Promise((resolve, reject) => disk.prepare_snapshot(error => error ? reject(error) : resolve()));
+    }
+}

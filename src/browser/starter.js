@@ -30,8 +30,9 @@ import { Modem } from "./modem.js";
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
 import { check_image_options, create_disk_image, import_ova } from "../image/factory.js";
-import { check_disk_options, check_disk_policy, check_disk_bindings, set_disk_policy, disk_kind } from "../disk_options.js";
+import { check_disk_options, check_disk_policy, check_disk_bindings, set_disk_policy, disk_kind, is_service_url } from "../disk_options.js";
 import { NodeFileDisk, check_loaded_disks } from "../disk_writeback.js";
+import { DiskServiceDisk } from "../disk_service.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -195,6 +196,15 @@ export function V86(options)
     /** the display adapter's 3D renderer on this page (create_adapter_renderer) */
     this.adapter_renderer = null;
     this.plugins_ready = [];
+
+    // the page goes away: the sessions of the disks written back to a disk
+    // service are closed as far as the browser still sends it (completed
+    // writes are in the image anyway; the service flushes when the lease ends)
+    if(typeof window !== "undefined" && typeof window.addEventListener === "function")
+    {
+        this.pagehide_listener = () => this.pagehide_disks();
+        window.addEventListener("pagehide", this.pagehide_listener);
+    }
 
     if(options["cpu_worker"] && typeof Worker !== "undefined")
     {
@@ -393,6 +403,23 @@ export function V86(options)
 
     this.zstd_worker = null;
     this.zstd_worker_request_id = 0;
+}
+
+/**
+ * The backend of a disk written back (docs/disk-persistence-plan.md): a
+ * disk service's URL, or in Node a local file
+ * @param {string} name
+ * @param {!Object} file
+ * @return {!Object}
+ */
+function writeback_backend(name, file)
+{
+    if(is_service_url(file.url))
+    {
+        const base = typeof location !== "undefined" ? location.href : undefined;
+        return new DiskServiceDisk(new URL(file.url, base).href, { name, token: file.token, size: file.size });
+    }
+    return new NodeFileDisk(file.url, { name, size: file.size });
 }
 
 V86.prototype.continue_init = async function(emulator, options)
@@ -797,7 +824,7 @@ V86.prototype.continue_init = async function(emulator, options)
             // one's own is its own backend
             if(disk_policies.get(name).disk_option === "read_write" && !(file.get && file.set && file.load))
             {
-                files_to_load.push({ name, loadable: new NodeFileDisk(file.url, { name, size: file.size }) });
+                files_to_load.push({ name, loadable: writeback_backend(name, file) });
                 return;
             }
         }
@@ -1422,9 +1449,24 @@ V86.prototype.flush_writeback_disks = async function(close)
 /**
  * Free resources associated with this instance
  */
+/** (pagehide: src/disk_service.js) */
+V86.prototype.pagehide_disks = function()
+{
+    if(this.worker_controller)
+    {
+        this.worker_controller.rpc("pagehide").catch(() => {});
+        return;
+    }
+    for(const [, buffer] of this.disk_buffers())
+    {
+        if(buffer.writeback && typeof buffer.close_keepalive === "function") buffer.close_keepalive();
+    }
+};
+
 V86.prototype.destroy = async function()
 {
     this.destroyed = true;
+    if(this.pagehide_listener) window.removeEventListener("pagehide", this.pagehide_listener);
     if(this.worker_controller) await this.worker_controller.destroy();
     else await this.stop();
     if(this.device_state_operation) await this.device_state_operation;
@@ -1993,8 +2035,8 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     let image;
     if(policy.disk_option === "read_write" && !(file.get && file.set && file.load))
     {
-        // (written back: src/disk_writeback.js)
-        image = new NodeFileDisk(file.url, { name, size: file.size });
+        // (written back: src/disk_writeback.js, src/disk_service.js)
+        image = writeback_backend(name, file);
         await image.load();
         try { await check_loaded_disks([[name, image, file]].concat(this.disk_buffers())); }
         catch(error) { image.close_now(); throw error; }

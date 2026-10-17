@@ -205,6 +205,8 @@ export function start_cpu_worker()
             audio_send("enabled", audio_enabled && emulator.is_running());
         },
         "run": () => emulator.run(),
+        // (the page goes away: src/disk_service.js)
+        "pagehide": () => emulator.pagehide_disks(),
         "stop": async () => { await emulator.stop(); flush_screen(); stats(); },
         "barrier": () => busy(),
         "save": async host_states => {
