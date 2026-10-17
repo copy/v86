@@ -29,7 +29,7 @@ import { Modem } from "./modem.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
-import { check_image_options, create_disk_image, import_ova } from "../image/factory.js";
+import { check_image_options, create_disk_image, import_ova, set_buffer_sector_size } from "../image/factory.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -780,11 +780,15 @@ V86.prototype.continue_init = async function(emulator, options)
             return;
         }
 
+        // (a RAW disk's logical sectors: set on its buffer once loaded)
+        const sector_size = file["logical_sector_size"];
+
         if(file.get && file.set && file.load)
         {
             files_to_load.push({
                 name: name,
                 loadable: file,
+                sector_size,
             });
             return;
         }
@@ -810,6 +814,7 @@ V86.prototype.continue_init = async function(emulator, options)
                 name: name,
                 url: file.url,
                 size: file.size,
+                sector_size,
             });
         }
         else
@@ -817,6 +822,7 @@ V86.prototype.continue_init = async function(emulator, options)
             files_to_load.push({
                 name,
                 loadable: buffer_from_object(file, this.zstd_decompress_worker.bind(this)),
+                sector_size,
             });
         }
     };
@@ -909,12 +915,27 @@ V86.prototype.continue_init = async function(emulator, options)
 
         var f = files_to_load[index];
 
+        // (a disk whose size is not a multiple of its sectors fails the start)
+        const put = buffer =>
+        {
+            try
+            {
+                set_buffer_sector_size(f.name, buffer, f.sector_size);
+            }
+            catch(error)
+            {
+                reject_initialized(error);
+                return;
+            }
+            put_on_settings.call(this, f.name, buffer);
+            cont(index + 1);
+        };
+
         if(f.loadable)
         {
             f.loadable.onload = function(e)
             {
-                put_on_settings.call(this, f.name, f.loadable);
-                cont(index + 1);
+                put(f.loadable);
             }.bind(this);
             // (a disk that cannot be opened fails the start: emulator-error)
             const loading = f.loadable.load();
@@ -934,8 +955,7 @@ V86.prototype.continue_init = async function(emulator, options)
                         result = this.zstd_decompress(f.size, new Uint8Array(result));
                     }
 
-                    put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
-                    cont(index + 1);
+                    put(f.as_json ? result : new SyncBuffer(result));
                 }.bind(this),
                 progress: function progress(e)
                 {
@@ -1904,7 +1924,8 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     if(!ahci) throw new Error("attach_sata_drive: no AHCI controller (machine_type: \"q35\")");
     if(!file && !cdrom) throw new Error("attach_sata_drive: a disk needs an image");
     let image;
-    if(check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom))
+    const disk_image = !!check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom);
+    if(disk_image)
     {
         // a hard disk in a container format (docs/disk-image-formats-plan.md)
         image = create_disk_image("sata" + port, /** @type {!Object} */ (file), this.disk_image_settings());
@@ -1926,6 +1947,8 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     }
     if(image && !cdrom)
     {
+        // (a RAW disk's logical sectors; a disk image has its own)
+        if(!disk_image) set_buffer_sector_size("sata" + port, image, file["logical_sector_size"]);
         // (the disk's CHS geometry comes from its partition table)
         await new Promise(resolve => image.get_and_cache(0, 512, resolve));
     }

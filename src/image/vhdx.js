@@ -1,10 +1,11 @@
 // VHDX images (docs/disk-image-formats-plan.md P5; the format: [MS-VHDX]):
 // the two headers (the current one: valid, the higher sequence number), the
 // region tables, the metadata (block size, virtual size, sector sizes) and
-// the BAT, every structure with its CRC-32C. Refused: a log to replay (its
-// replay changes what the file holds, [MS-VHDX] 2.3.3: an image with a log is
-// not read without it), a parent (differencing disks), logical sectors of
-// 4096 bytes (the devices have 512), unknown required regions or metadata.
+// the BAT, every structure with its CRC-32C. Logical sectors of 512 or 4096
+// bytes: the disk's own (the devices present them, the chunk ratio of the
+// BAT depends on them). Refused: a log to replay (its replay changes what
+// the file holds, [MS-VHDX] 2.3.3: an image with a log is not read without
+// it), a parent (differencing disks), unknown required regions or metadata.
 
 import { DiskImageError } from "./source.js";
 import { ImageReader, EXTENT_DATA, EXTENT_ZERO, push_extent, read_u64, to_number, big } from "./disk_image.js";
@@ -99,7 +100,8 @@ export class VHDXReader extends ImageReader
         this.format = "vhdx";
         this.block_size = 0;
         this.chunk_ratio = 0;
-        this.logical_sector_size = 0;
+        /** (the device's sectors are the disk's: the physical size is not presented) */
+        this.physical_sector_size = 0;
         /** @type {!Uint8Array} */
         this.bat = new Uint8Array(0);
         this.bat_entries = 0;
@@ -235,22 +237,20 @@ export class VHDXReader extends ImageReader
             throw this.error("a differencing disk (with a parent): not supported", "unsupported");
         }
         const size = to_number(read_u64(item(GUID_VIRTUAL_DISK_SIZE, 8), 0, true), this.name + ": vhdx: the virtual size");
-        this.logical_sector_size = u32le(item(GUID_LOGICAL_SECTOR_SIZE, 4), 0);
-        const physical_sector_size = u32le(item(GUID_PHYSICAL_SECTOR_SIZE, 4), 0);
-        if(this.logical_sector_size !== 512 && this.logical_sector_size !== 4096 ||
-            physical_sector_size !== 512 && physical_sector_size !== 4096)
+        const logical_sector_size = u32le(item(GUID_LOGICAL_SECTOR_SIZE, 4), 0);
+        this.physical_sector_size = u32le(item(GUID_PHYSICAL_SECTOR_SIZE, 4), 0);
+        if(logical_sector_size !== 512 && logical_sector_size !== 4096 ||
+            this.physical_sector_size !== 512 && this.physical_sector_size !== 4096)
         {
-            throw this.error("sector sizes " + this.logical_sector_size + "/" + physical_sector_size + " are invalid");
+            throw this.error("sector sizes " + logical_sector_size + "/" + this.physical_sector_size + " are invalid");
         }
-        if(this.logical_sector_size !== 512)
-        {
-            throw this.error("logical sectors of " + this.logical_sector_size + " bytes: the disk devices have 512-byte sectors", "unsupported");
-        }
+        // (the disk's: open_image checks the descriptor's against it)
+        this.logical_sector_size = this.own_sector_size = logical_sector_size;
         if(size % this.logical_sector_size) throw this.error("the virtual size " + size + " is not a multiple of the sector size");
         this.virtual_size = size;
 
         // the BAT: a sector bitmap entry after each chunk of payload blocks
-        this.chunk_ratio = 2 ** 23 * this.logical_sector_size / this.block_size;
+        this.chunk_ratio = 2 ** 23 * logical_sector_size / this.block_size;
         const payload_blocks = Math.ceil(size / this.block_size);
         this.bat_entries = payload_blocks + Math.floor((payload_blocks - 1) / this.chunk_ratio);
         if(this.bat_entries * 8 > bat_region.length) throw this.error("the BAT region is too small for the disk");

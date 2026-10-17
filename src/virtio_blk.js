@@ -6,7 +6,11 @@
 // stay in its in-memory overlay for the session. The image may be in a
 // container format (src/image/, docs/disk-image-formats-plan.md): a read or
 // write the image fails ends with VIRTIO_BLK_S_IOERR, and a snapshot's
-// changes are restored only onto the same image.
+// changes are restored only onto the same image. BLK_SIZE is the image's
+// logical sector size (512, or 4096: logical_sector_size); the requests and
+// the capacity still count 512-byte sectors, as the specification has them,
+// and, as in QEMU, a read or write must cover whole logical sectors (IOERR
+// otherwise).
 
 import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
 import { BlockBackend } from "./block_backend.js";
@@ -53,6 +57,8 @@ export function VirtioBlk(cpu, buffer, options, transport, pci_id)
     this.id = new Uint8Array(ID_BYTES);
     this.id.set(new TextEncoder().encode(options.id || "").subarray(0, ID_BYTES));
     this.sectors = Math.floor(buffer.byteLength / SECTOR);
+    /** the disk's logical sectors, in bytes (blk_size) */
+    this.block_size = buffer.logical_sector_size || SECTOR;
     /**
      * The image's SHA-256 as it was loaded (P5.9: a snapshot records it, a
      * restore checks it), once computed; images held in memory only
@@ -102,7 +108,7 @@ export function VirtioBlk(cpu, buffer, options, transport, pci_id)
                 constant(2, "cylinders", 0),
                 constant(1, "heads", 0),
                 constant(1, "sectors", 0),
-                constant(4, "blk_size", SECTOR),
+                constant(4, "blk_size", this.block_size),
             ],
         },
         on_reset: () => this.backend.reset(),
@@ -137,7 +143,9 @@ VirtioBlk.prototype.process = function(queue)
             queue.push_reply(chain);
             queue.flush_replies();
         };
-        const in_range = length => sector * SECTOR + length <= this.sectors * SECTOR;
+        // (QEMU's virtio_blk_sect_range_ok: whole logical sectors, within the disk)
+        const in_range = length => sector * SECTOR + length <= this.sectors * SECTOR &&
+            sector * SECTOR % this.block_size === 0 && length % this.block_size === 0;
         switch(type)
         {
             case VIRTIO_BLK_T_IN:
@@ -182,7 +190,7 @@ VirtioBlk.prototype.reset = function()
  */
 VirtioBlk.prototype.get_state = function()
 {
-    return [this.virtio, this.readonly ? null : this.backend.buffer, this.backend.byte_length, this.image_sha256];
+    return [this.virtio, this.readonly ? null : this.backend.buffer, this.backend.byte_length, this.image_sha256, this.block_size];
 };
 
 /**
@@ -197,6 +205,10 @@ VirtioBlk.prototype.check_state = function(state)
     if(state[2] !== undefined && state[2] !== this.backend.byte_length)
     {
         throw new Error("The snapshot's virtio-blk disk has " + state[2] + " bytes, this one " + this.backend.byte_length);
+    }
+    if((state[4] || SECTOR) !== this.block_size)
+    {
+        throw new Error("The snapshot's virtio-blk disk has " + (state[4] || SECTOR) + "-byte sectors, this one " + this.block_size);
     }
     if(state[3] && this.image_sha256 && state[3] !== this.image_sha256)
     {

@@ -3,8 +3,9 @@
 // fixed images, block sizes of 1, 32 and 256 MiB, ZERO and NOT_PRESENT
 // blocks, 3 TiB across 2^32 sectors; the headers (the current one: valid,
 // the higher sequence number), region tables and metadata with their
-// CRC-32C; refused: a log to replay, a parent, 4096-byte logical sectors,
-// unknown required regions and metadata, block states of differencing disks.
+// CRC-32C; 4096-byte logical sectors (more in tests/image/sector_size.mjs);
+// refused: a log to replay, a parent, unknown required regions and metadata,
+// block states of differencing disks.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -98,7 +99,9 @@ const other_header = () => current_header() === 64 * KiB ? 128 * KiB : 64 * KiB;
         }
         throw new Error("no metadata item " + guid_first.toString(16));
     };
-    await rejects(open_bytes(patched((b, v) => v.setUint32(item(b, 0x8141BF1D).data, 4096, true)), "vhdx"), /logical sectors of 4096 bytes/, "unsupported");
+    const sectors_4k = await open_bytes(patched((b, v) => v.setUint32(item(b, 0x8141BF1D).data, 4096, true)), "vhdx");
+    assert.equal(sectors_4k.logical_sector_size, 4096, "4096-byte logical sectors: the disk's");
+    compare(await read(sectors_4k, 0, 1 << 20), fs.readFileSync(sample_file("base.raw")).subarray(0, 1 << 20), "4096-byte logical sectors");
     await rejects(open_bytes(patched((b, v) => v.setUint32(item(b, 0x8141BF1D).data, 1000, true)), "vhdx"), /sector sizes 1000\/\d+ are invalid/, "corrupt");
     await rejects(open_bytes(patched((b, v) => v.setUint32(item(b, 0xCAA16737).data + 4, 2, true)), "vhdx"), /differencing disk/, "unsupported");
     await rejects(open_bytes(patched((b, v) => v.setUint32(item(b, 0xCAA16737).data, 3 << 20, true)), "vhdx"), /block size 3145728 is invalid/, "corrupt");
@@ -128,6 +131,6 @@ const other_header = () => current_header() === 64 * KiB ? 128 * KiB : 64 * KiB;
     await rejects(open_bytes(image.subarray(0, bat_offset + 4), "vhdx"), /past the end of the file/, "corrupt");
     void other_header;
     console.log("ok - VHDX: headers (the current one, CRC-32C), region tables, metadata, BAT states: refused with what is wrong; " +
-        "a log to replay, a parent and 4096-byte sectors refused");
+        "a log to replay and a parent refused, 4096-byte sectors read");
 }
 console.log("VHDX tests passed (" + (compared >> 20) + " MiB compared)");

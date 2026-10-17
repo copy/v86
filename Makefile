@@ -597,6 +597,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/virtio_rng.js
 	./tests/devices/ide_large_disk.js
 	./tests/devices/ide_disk_image.js
+	./tests/devices/disk_sector_size.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
@@ -691,8 +692,10 @@ disk-image-tests: build/v86-debug.wasm
 	./tests/image/vhd_vdi.mjs
 	./tests/image/vmdk.mjs
 	./tests/image/vhdx.mjs
+	./tests/image/sector_size.mjs
 	./tests/image/qcow2_export.mjs
 	./tests/devices/ide_disk_image.js
+	./tests/devices/disk_sector_size.js
 	./tests/api/disk-image.js
 	./tests/image/guest.mjs
 
@@ -1098,6 +1101,7 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/linux_loader.mjs
 	node tests/a64/device_io_reset.mjs
 	node tests/a64/virtio_blk_disk_image.mjs
+	node tests/a64/virtio_blk_sector_size.mjs
 	node tests/a64/extended_memory.mjs
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm

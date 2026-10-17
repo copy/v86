@@ -22,6 +22,9 @@ const FORMATS_LATER = {};
 /** what disk_option may be (docs/disk-persistence-plan.md) */
 const DISK_OPTIONS = ["read_only", "read_write"];
 
+/** the logical sector sizes a hard disk may have (logical_sector_size) */
+export const LOGICAL_SECTOR_SIZES = [512, 4096];
+
 /** the descriptors that are not disks */
 const NOT_DISKS = ["bios", "vga_bios", "initial_state", "multiboot", "bzimage", "initrd", "kernel", "dtb", "cdrom"];
 
@@ -54,6 +57,20 @@ export function check_image_options(name, file, hard_disk)
         {
             throw new DiskImageError(name + ": disk_option \"read_write\" (writing the changes back to the image) is not " +
                 "supported yet (docs/disk-persistence-plan.md); without it, the changes stay in memory", "config");
+        }
+    }
+    // (logical sectors of 4096 bytes, for RAW disks too: the plan's appendix)
+    const sector_size = file["logical_sector_size"];
+    if(sector_size !== undefined)
+    {
+        if(!hard_disk)
+        {
+            throw new DiskImageError(name + ": logical_sector_size is for hard disks (hda, hdb, SATA drives, virtio_disks), not " + name, "config");
+        }
+        if(!LOGICAL_SECTOR_SIZES.includes(sector_size))
+        {
+            throw new DiskImageError(name + ": logical_sector_size " + JSON.stringify(sector_size) + " is not one of " +
+                LOGICAL_SECTOR_SIZES.join(", "), "config");
         }
     }
     if(format === undefined || format === "raw") return undefined;
@@ -401,7 +418,70 @@ export async function open_image(name, file, settings, depth = 0, chain = [])
         reader.check_parent(parent);
         reader.parent = parent;
     }
+    set_reader_sector_size(label, reader, file);
     return reader;
+}
+
+/**
+ * The logical sector size of an opened image: the descriptor's
+ * (logical_sector_size), the image's own (VHDX) or its parent's, which must
+ * agree where several give one; 512 bytes where none does. The disk's size
+ * must be a multiple of a size given.
+ * @param {string} label
+ * @param {!ImageReader} reader
+ * @param {!Object} file
+ */
+function set_reader_sector_size(label, reader, file)
+{
+    const sizes = [];
+    const given = file["logical_sector_size"];
+    if(given !== undefined)
+    {
+        // (a parent's descriptor, backing, is not checked by check_image_options)
+        if(!LOGICAL_SECTOR_SIZES.includes(given))
+        {
+            throw new DiskImageError(label + ": logical_sector_size " + JSON.stringify(given) + " is not one of " +
+                LOGICAL_SECTOR_SIZES.join(", "), "config");
+        }
+        sizes.push([given, "logical_sector_size"]);
+    }
+    if(reader.own_sector_size) sizes.push([reader.own_sector_size, "the image's"]);
+    if(reader.parent && reader.parent.sector_size_given) sizes.push([reader.parent.logical_sector_size, "the parent image's"]);
+    for(const [size, what] of sizes)
+    {
+        if(size !== sizes[0][0])
+        {
+            throw new DiskImageError(label + ": logical sectors of " + sizes[0][0] + " bytes (" + sizes[0][1] + "), but " + what +
+                " are " + size + " bytes", "config");
+        }
+    }
+    if(!sizes.length) return;
+    reader.logical_sector_size = sizes[0][0];
+    reader.sector_size_given = true;
+    if(reader.virtual_size % reader.logical_sector_size)
+    {
+        throw new DiskImageError(label + ": the disk's size " + reader.virtual_size + " is not a multiple of its " +
+            reader.logical_sector_size + "-byte sectors", "config");
+    }
+}
+
+/**
+ * A RAW disk's buffer (src/buffer.js, or a buffer object of one's own) with
+ * the descriptor's logical_sector_size, which the controllers read from it:
+ * its size must be a multiple
+ * @param {string} name
+ * @param {?} buffer loaded (its byteLength known)
+ * @param {number|undefined} sector_size checked by check_image_options
+ */
+export function set_buffer_sector_size(name, buffer, sector_size)
+{
+    if(sector_size === undefined || !buffer) return;
+    if(buffer.byteLength % sector_size)
+    {
+        throw new DiskImageError(name + ": the disk's size " + buffer.byteLength + " is not a multiple of its " +
+            sector_size + "-byte sectors (logical_sector_size)", "config");
+    }
+    buffer.logical_sector_size = sector_size;
 }
 
 /**

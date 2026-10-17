@@ -21,7 +21,7 @@ export function encode_worker_file(f, depth = 0)
         // disk images (docs/disk-image-formats-plan.md): the worker opens them
         "format": f.format, "disk_option": f.disk_option, "image_id": f.image_id,
         "overlay_limit": f.overlay_limit, "backing": f.backing ? encode_worker_file(f.backing, depth + 1) : undefined,
-        "archive_member": f.archive_member,
+        "archive_member": f.archive_member, "logical_sector_size": f["logical_sector_size"],
         "files": f.files ? Object.fromEntries(Object.entries(f.files).map(([name, file]) => [name, encode_worker_file(file, depth + 1)])) : undefined };
 }
 

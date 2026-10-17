@@ -83,8 +83,8 @@ export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
  * dynamic images (not differencing ones). VMDK: monolithicSparse,
  * streamOptimized, monolithicFlat, vmfs, twoGbMaxExtentSparse,
  * twoGbMaxExtentFlat (other createTypes fail at start). VHDX: fixed and
- * dynamic images with 512-byte logical sectors and no log to replay (not
- * differencing ones).
+ * dynamic images with 512- or 4096-byte logical sectors (the disk's sectors
+ * are the image's) and no log to replay (not differencing ones).
  */
 export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "vmdk" | "vhdx" | "auto";
 
@@ -142,6 +142,18 @@ export type V86DiskImageOptions =
          * OVA): read there, not extracted (see V86.import_ova)
          */
         archive_member?: string;
+
+        /**
+         * The disk's logical sectors as the guest sees them: 512 bytes (the
+         * default) or 4096. IDE and AHCI report them in IDENTIFY (words 106,
+         * 117-118) and count LBAs, the capacity and PIO blocks in them;
+         * virtio-blk reports them as blk_size. For RAW and the formats that
+         * do not record a sector size (QCOW2, VHD, VDI, VMDK); a VHDX image
+         * has its own, which this must equal, and a child takes its parent's.
+         * The disk's size must be a multiple. The BIOS (SeaBIOS) does not
+         * boot from a disk of 4096-byte sectors, and DOS cannot use one.
+         */
+        logical_sector_size?: 512 | 4096;
     };
 
 /**
