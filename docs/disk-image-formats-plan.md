@@ -529,7 +529,7 @@ v86 没有的硬件说明：SCSI 控制器（其盘改挂 IDE/AHCI）、网卡�
 样本增加 `sparse.vmdk`、`stream.vmdk`、`flat.vmdk`、`2gbsparse.vmdk`、`2gbflat.vmdk`、`zeroed.vmdk`、`child.vmdk`、
 `100g.vmdk`、`5g-sparse.vmdk`、`5g-flat.vmdk` 及其 extent 文件（样本版本 6；flat extent 为稀疏文件）。
 
-### P5 VHDX 与原格式导出
+### P5 VHDX 与原格式导出（ba592107）
 
 **实现。** [`src/image/vhdx.js`](../src/image/vhdx.js)：文件类型标识；两个头部取 CRC-32C 正确且序号较大的一个；
 两个区域表取第一个 CRC-32C 正确的，未知的必需区域拒绝；元数据表（文件参数、虚拟容量、逻辑与物理扇区
