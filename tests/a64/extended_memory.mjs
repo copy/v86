@@ -216,6 +216,8 @@ for(const jit of [false, true])
         {
             assert.ok(e.a64_ext_stat(8) > releases, "the access caches' frames were released: " + (e.a64_ext_stat(8) - releases));
         }
+        // (V86.get_instruction_counter, the demo page's speed: the instructions the ARM core retired)
+        assert.ok(emulator.get_instruction_counter() > 100000, "get_instruction_counter: " + emulator.get_instruction_counter());
         // (the program again, for the snapshot below)
         cpu.write_blob_physical(code_bytes(0x777), EXT + CODE);
 

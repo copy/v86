@@ -70,7 +70,7 @@ export function VirtioMmio(cpu, slot, intid)
     /** @type {!Array<{offset: number, bytes: number, read: function():number, write: function(number)}>} */
     this.config = [];
     this.config_size = 0;
-    /** @type {!Array<function(number)>} queue notification handlers by queue */
+    /** @type {!Array<{write: function(number)}>} queue notification fields by queue (common config's, written with the queue's index) */
     this.notify = [];
     /** @type {!Array<{id: number, bar: number, offset: number, length: number, base: number}>} shared memory regions */
     this.shared_memory = [];

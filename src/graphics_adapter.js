@@ -289,7 +289,7 @@ export function GraphicsAdapter(cpu, descriptor, options)
     this.name = descriptor["name"];
 
     /** the virt machine's: no VGA */
-    this.virt = cpu.cpu_type === "arm64";
+    this.virt = /** @type {?} */ (cpu).cpu_type === "arm64";
     /** The VGA slot: other devices keep their addresses whichever adapter is used (virt: given) */
     this.pci_id = options.pci_id !== undefined ? options.pci_id : pci_functions(cpu.platform).vga;
     /** the virt machine's virtio-mmio slot, if the device is there */

@@ -24,6 +24,8 @@ const MAX_HEAP_MEMORY_SIZE = 2048;
 const ARM64_MAX_MEMORY_SIZE = 1792;
 /** The arm64 virt machine's command line when none is given: Alpine's ISO (its initramfs finds the ISO on virtio-blk) */
 const ARM64_DEFAULT_CMDLINE = "console=ttyAMA0 console=tty0 modules=loop,squashfs,sd-mod,usb-storage";
+/** The same without a display: the last console, where init writes and the login comes, is the serial one */
+const ARM64_SERIAL_CMDLINE = "console=ttyAMA0 modules=loop,squashfs,sd-mod,usb-storage";
 const MAX_MEMORY_SIZE = MAX_HEAP_MEMORY_SIZE + 60 * 1024;
 const DEFAULT_CPU_CORES = 1;
 const DEFAULT_CPU_TYPE = CPU_TYPES[0];
@@ -2738,12 +2740,14 @@ async function start_emulation(profile, query_args)
         "cpu_worker": cpu_worker,
         "cpu_worker_url": "build/cpu-worker.js" + query_append(),
         "ir_tier0": settings["ir_tier0"],
-        wasm_path: "build/" + (DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
+        // (the core of the CPU type: arm64's is a separate build, docs/aarch64.md)
+        wasm_path: "build/" + (settings.cpu_type === "arm64" ? (DEBUG ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") :
+            DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
         // more than one core: each in a host thread (v86-parallel.wasm) where the
         // page is cross-origin isolated and the host has the threads; otherwise
         // the build above with the cores taking turns (see the runtime infos)
         "parallel": settings.cpu_cores > 1 && settings.parallel ? "auto" : false,
-        "parallel_wasm_path": "build/v86-parallel.wasm" + query_append(),
+        "parallel_wasm_path": "build/" + (settings.cpu_type === "arm64" ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm") + query_append(),
         // (the source tree's module entry, unless the bundled CPU worker starts them)
         "vcpu_worker_url": DEBUG && !cpu_worker ? undefined : "build/vcpu-worker.js" + query_append(),
         "graphics_proxy": graphics_proxy && {
@@ -2781,9 +2785,10 @@ async function start_emulation(profile, query_args)
             virtio_disks: [settings.cdrom && Object.assign({}, settings.cdrom, { readonly: true }), settings.hda, settings.hdb].filter(Boolean),
             virtio_rng: true,
             virtio_input: settings.graphics_adapter === "virtio_gpu" ? ["keyboard", "tablet", "multitouch"] : undefined,
-            cmdline: settings.cmdline || ARM64_DEFAULT_CMDLINE,
-            // (the A64 page tier: the library's default is off until its F gate)
-            jit_switches: settings.disable_jit ? undefined : { "a64_page": 1 },
+            cmdline: settings.cmdline || (settings.graphics_adapter === "virtio_gpu" ? ARM64_DEFAULT_CMDLINE : ARM64_SERIAL_CMDLINE),
+            // (the A64 page tier: the library's default is off until its F gate;
+            // quoted, as the library reads it, or Closure renames it)
+            "jit_switches": settings.disable_jit ? undefined : { "a64_page": 1 },
         } : {
             bios: settings.bios,
             vga_bios: settings.vga_bios,

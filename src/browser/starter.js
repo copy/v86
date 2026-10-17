@@ -1587,7 +1587,15 @@ V86.prototype.get_instruction_counter = function()
     if(this.worker_controller) return this.worker_controller.instructions;
     if(this.v86)
     {
-        return this.v86.cpu.instruction_counter[0] >>> 0;
+        const cpu = this.v86.cpu;
+        // (the ARM core counts the instructions each core retired, P0.9)
+        if(cpu.cpu_type === "arm64")
+        {
+            let retired = 0;
+            for(let core = 0; core < cpu.cores; core++) retired += cpu.retired_instructions(core);
+            return retired >>> 0;
+        }
+        return cpu.instruction_counter[0] >>> 0;
     }
     else
     {
