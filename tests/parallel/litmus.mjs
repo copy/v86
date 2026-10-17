@@ -7,7 +7,9 @@
 // accessed/dirty updates; then (LITMUS_LONG_MODE, default 1) every core
 // enters 64-bit mode for LOCK CMPXCHG16B against LOCK ADD on the same qword,
 // and 32-bit compatibility mode (WOW64's) for locked dword counters, which
-// the JIT modes compile in the page tier (x64_page_compat32, P7.2).
+// the JIT modes compile in the page tier (x64_page_compat32, P7.2), and
+// there waits for IPIs with interrupts enabled, which its 64-bit IDT sends
+// to handlers above 4 GiB (no 32-bit code may run on at their RIP).
 //
 // LITMUS_MODES: comma-separated from cooperative, cooperative-jit, parallel,
 // parallel-jit (default: all but parallel-jit), and a64-cooperative (the
@@ -29,8 +31,9 @@ const modes = (process.env.LITMUS_MODES || "cooperative,cooperative-jit,parallel
 const core_counts = (process.env.LITMUS_CORES || "2,4").split(",").map(Number);
 const rounds = +process.env.LITMUS_ROUNDS || 2000;
 const long_mode = process.env.LITMUS_LONG_MODE !== "0";
-const PHASES = ["", "message passing", "store buffering", "cross-modifying code", "accessed/dirty bits"];
-const IPI_COUNT = 0x180;
+const PHASES = ["", "message passing", "store buffering", "cross-modifying code", "accessed/dirty bits",
+    "interrupts from compatibility mode"];
+const IPI_COUNT = 0x180, IPI_COUNT64 = 0x1C0;
 
 async function run(mode, cores)
 {
@@ -53,7 +56,8 @@ async function run(mode, cores)
     const t0 = performance.now();
     emulator.run();
     const deadline = t0 + 300000;
-    while(view().getUint32(CONTROL + 128, true) !== cores)
+    // (a fault in phase 8 stops its core, and so the ring of IPIs)
+    while(view().getUint32(CONTROL + 128, true) !== cores && !view().getUint32(CONTROL + 64 + 20, true))
     {
         if(performance.now() > deadline)
         {
@@ -79,6 +83,7 @@ async function run(mode, cores)
             compat_xadd: u32(0x350), compat_cmpxchg: u32(0x354), compat_inc: u32(0x358) } : {}) };
     const errors = PHASES.map((_, i) => u32(64 + 4 * i));
     const ipis = Array.from({ length: cores }, (_, core) => u32(IPI_COUNT + 4 * core));
+    const ipis64 = Array.from({ length: cores }, (_, core) => u32(IPI_COUNT64 + 4 * core));
     const steps = cpu.get_diagnostics().parallel?.cores.map(c => c.steps + (jit ? " (" + c.jit + " compiled entries)" : ""));
     // (cores on this thread: their compatibility-mode functions)
     const compat_compiles = jit && !parallel ? cpu.wm.exports.x64_page_stat(36) : null;
@@ -92,6 +97,7 @@ async function run(mode, cores)
         `${mode} ${cores} cores: mixed widths: ${mixed_carries} carries into the upper word, but the low word wrapped ${mixed_wraps} times`);
     errors.forEach((count, i) => i && assert.equal(count, 0, `${mode} ${cores} cores: ${PHASES[i]}: ${count} violations`));
     assert.deepEqual(ipis, Array(cores).fill(rounds), `${mode} ${cores} cores: IPIs received per core`);
+    if(long_mode) assert.deepEqual(ipis64, Array(cores).fill(rounds), `${mode} ${cores} cores: IPIs received per core in compatibility mode`);
     console.log(`${mode} ${cores} cores: ${rounds} rounds passed in ${(ms / 1000).toFixed(1)}s` +
         (steps ? `, worker steps ${steps.join("/")}` : "") + (compat_compiles ? `, ${compat_compiles} compatibility-mode compiles` : ""));
 }
