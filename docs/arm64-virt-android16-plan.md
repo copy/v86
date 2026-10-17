@@ -1958,3 +1958,42 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   加了编译代码经 256 个帧遍历 512 页的读写（检查和、内容与帧的释放）。结果：androidish 4 GiB 全程 369 → 51 s（MIPS 19.8 →
   80.6），原版 4 GiB memtest 159 → 44 s。
 - 门禁：`make a64-gate`、`a64-page-tier-tests`、`a64-extended-guest-tests`、`a64-android-prep-tests` 与并行的 litmus 通过。默认 auto 之下 androidish 的 initramfs 阶（page tier）：2/4 核全程 38.7/41.1 → 28.8/31.6 s，4 GiB 369 → 35.2 s，并行 Worker 4 核 60.1 → 48.7 s；auto 在每次运行里都打开了标签。
+
+### A7 中 P9.4 的部分（2026-10-17/18；A7 完成，G-Alpine）
+
+提交：与本节同一个提交（`vA7`）。
+
+- G-Alpine：`make a64-gate-full` 在 `vA7`（本提交的代码，`arm64` 之上只多本节的记录与文档）上一次通过：前置步骤（边界与 state layout 检查、解码 oracle、QEMU 参考、各单元目标、core-split-check、原生 oracle、kvm-unit-tests 与 Alpine 的长测）之后，R-a64-isa、R-a64-sys、R-a64-virt、R-a64-UP（lifecycle 2837 s）、R-a64-SMP（1727 s）、R-a64-jit、R-a64-gpu（2390 s）、R-a64-parallel（含 headless Chrome 的 `a64-browser-tests`）、R-a64-memory、R-a64-granule（788 s）、R-a64-android-prep（864 s）全部通过，2026-10-17 21:23 到 10-18 02:12（`build/release-gate/2026-10-17T14-45-45-835Z/`）。Node 与 headless Chrome 都在所有者的机器（这台 Mac）上。
+- 第一次 `make a64-gate-full`（P9.3 之后的构建）在 R-a64-UP 的 lifecycle 中失败：解释器 4 核的 live 阶在引导时报
+  soft lockup（CPU1 在 `jent_entropy_init` 中 26 s）。原因：解释执行多核时客体时钟就是宿主时钟，每个核心在整个很慢的
+  启动期间都按 HZ=1000 处理时钟中断（QEMU 的每个 CPU 整个启动约 450 次，v86 解释器 17,000–34,000 次），4 核比 1 核多
+  退役约 50% 的指令，jitterentropy 的自检在 1/2/4 核上 3.6/8.3/18.3 s，接近 20 s 的阈值，宿主忙时（同时有磁盘计划的
+  agent 在构建与测试）越过。之后两次门禁在同样的情形下失败一次（multicore 级）。`tests/a64/linux_boot.mjs` 对解释器
+  多核的 v86 运行加 `watchdog_thresh=30`（软锁阈值 60 s，放在内核那一段命令行里），page tier 与 QEMU 参考不变；真正的
+  挂起仍会被报告或超过运行的期限。记入已知缺陷。另一次门禁在 QEMU 参考的 kvm-unit-tests（timer.flat 的
+  vtimer-busy-loop 延迟 10 ms）上失败，是宿主忙时的时间检查，与 v86 无关；之后在宿主不忙时重跑整个门禁。
+- profile 完整性报告（`tools/a64_profile_report.mjs --reference --kvm`）：编码：Arm ARM 编码索引的 49 类全部有状态（37 已实现、11 UNDEFINED、1 ID 空间）与测试；ID 寄存器：v86 在 1 核与 4 核上与 profile 完全相同，QEMU 参考只有允许的差异；HWCAP：stock、androidish、16k、64k 内核上都是 0x8ff、HWCAP2 0；granule：Linux 的页大小 4096/16384/65536，kvm-unit-tests arm64 在 4k/16k/64k 都通过。结果写在 `build/a64-linux/profile-report.json`，`docs/aarch64.md` 的 CPU profile 一节记录。
+- 性能基线（`tests/a64/perf-baseline.json`，`vA6-2-gd4f03ada` 的 release 构建，3 次会话的中位数；测量时机器不安静：
+  NotificationCenter 一直占满一个核，负载约 7）：live 阶到 login page tier 1/2/4 核 34.7/39.5/40.6 s，解释器
+  238/281/362 s；initramfs 阶到 probe 结束 page tier 6.3/6.9/7.0 s，解释器 35.6/41.8/57.4 s；`docs/aarch64.md` 的
+  Boot time 与 page tier 一节的表随之更新。工具：`TEST_RELEASE_BUILD=1 node tools/a64_jit_metrics.mjs --stages
+  initramfs,live --baseline tests/a64/perf-baseline.json`。
+- 已知缺陷清单（`docs/aarch64.md` 的 Known defects）：没有 major。minor：并行 Worker 时独占存储比较值（ABA，声明的
+  偏差）、WFE 最长 20 µs、DSB 单步与 extended RAM 走解释器；解释器访问 extended RAM 每次查帧；SW_TTBR0_PAN 的内核
+  （androidish、GKI）在 auto 下仍比原版慢 17%（FEAT_PAN 是 v2 候选）；单缓冲快照不含 extended RAM；解释器多核的时钟
+  中断开销（上一条）。virtio-snd 未做（P7.5，可选）。
+- 浏览器：Node 与 headless Chrome（R-a64-parallel 的 `a64-browser-tests`）都在所有者的机器上通过。P8.7 留给所有者
+  的桌面浏览器手动运行由应用内浏览器代做：demo 页（`index.html` 与 `build/v86_all.js`）的 arm64 第一次在桌面浏览器里
+  运行就暴露了四个问题并已修正（`45c9e311`）：页面对 arm64 也给 x86 的核心（CPU worker 拒绝）；arm64 选项
+  `jit_switches` 没有加引号，Closure 改了名，page tier 从未打开；没有显示时默认命令行最后是 `console=tty0`，init 与
+  login 去了看不见的屏幕；`get_instruction_counter` 读 ARM 核心不写的字段（速度显示 0）。另外 `build/v86_all.js`
+  因 A5 的两处类型注释无法编译（门禁只构建 libv86）。修正后 Alpine aarch64 从 ISO 在约 34 s 到 root shell，
+  `uname -m` 为 aarch64，HWCAP 与 profile 相同。
+- 同期并入 `arm64` 的其他工作（各自的计划里有记录）：磁盘镜像格式计划 P0–P5 与 4K 逻辑扇区、磁盘持久化计划 D0–D3
+  （`9551a7a2`，合并时修正了 arm64 的 virtio-blk 读失败时状态字节写进数据的问题）；x86_64 默认打开全部 CPU 能力
+  （所有者 2026-10-17 的决定，`ecf0490e`）。Windows 8.1 在并行 Worker 下崩溃（与能力无关，`docs/multicore.md`
+  已列为已知限制）已找到并修正（`c213ef1f`）：并行时另一核心的 kick 可以在 32 位页函数的第一个入口就结束激活，
+  之后送达的中断进入 64 位代码，而"退役 0 条指令时补跑一条 32 位指令"的回退把中断处理程序当作 32 位代码执行，
+  内核于是在用户的 GS 上缺页并循环（桌面不响应）或蓝屏；修正后 Windows 8.1 在 2/4 核、i440FX 与 Q35 加 VMware SVGA
+  上 8 次全部通过两个探针，litmus 加了第 8 阶段复现这一情形。`make state-layout-check`（x86 多核目标依赖它）自
+  extended RAM 引擎移动后失败：ARM 核心 34 个静态变量补上归属，`make a64-gate` 加了这一检查。

@@ -899,8 +899,8 @@ finally
 const undefined_instructions = emulator.v86.cpu.undefined_instructions();
 const page_tier = jit ? emulator.v86.cpu.page_tier_stats() : undefined;
 // (every core's; MIPS over the whole run, P0.9)
-const retired_instructions = Array.from({ length: cores }, (_, core) => emulator.v86.cpu.retired_instructions(core))
-    .reduce((sum, n) => sum + n, 0);
+const retired_per_core = Array.from({ length: cores }, (_, core) => emulator.v86.cpu.retired_instructions(core));
+const retired_instructions = retired_per_core.reduce((sum, n) => sum + n, 0);
 // (cores in workers: what each did, src/parallel/machine.js)
 const parallel_status = parallel ? emulator.v86.cpu.get_diagnostics().parallel : undefined;
 // (extended RAM: its frames' traffic, and the instructions from it, interpreted and compiled)
@@ -1072,7 +1072,7 @@ const vulnerabilities = Object.fromEntries([...transcript.matchAll(/A64_VULN (\S
 if(midway) assert.ok(snapped && snapshot_bytes, "the snapshot in the workload's middle was taken and restored");
 const ms = Math.round(performance.now() - started);
 const result = { tag, ms, ...(live ? { boot_to_login_ms: login_ms } : {}), probe_done_ms: probe_ms, retired_instructions,
-    mips: Math.round(retired_instructions / ms / 100) / 10, page_tier, mmu, ...(parallel ? { parallel: parallel_status } : {}),
+    retired_per_core, mips: Math.round(retired_instructions / ms / 100) / 10, page_tier, mmu, ...(parallel ? { parallel: parallel_status } : {}),
     ...(midway ? { midway_snapshot_bytes: snapshot_bytes } : {}), ...lines, features,
     reference_features: reference_features ? "compared" : "no reference log", vulnerabilities };
 fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");

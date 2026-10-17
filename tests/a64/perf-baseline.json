@@ -1,0 +1,117 @@
+{
+  "about": "The frozen Alpine performance baseline (docs/arm64-virt-android16-plan.md P9.4): tools/a64_jit_metrics.mjs's medians",
+  "build": "vA6-2-gd4f03ada",
+  "release_build": true,
+  "date": "2026-10-17",
+  "sessions": 3,
+  "results": {
+    "interpreter-1c": {
+      "probe_done_ms": 35571,
+      "ms": 38688,
+      "mips": 26.2
+    },
+    "jit-1c": {
+      "probe_done_ms": 6314,
+      "ms": 7256,
+      "mips": 122.8,
+      "compiles": 1797,
+      "compile_ms": 451,
+      "evictions": 0,
+      "table_free_low": 11106,
+      "native_share": 0.9718160134485438,
+      "steps_per_instruction": 0.003112810431490725,
+      "chained_share": 0.4443245769546356
+    },
+    "interpreter-2c": {
+      "probe_done_ms": 41827,
+      "ms": 45451,
+      "mips": 25.4
+    },
+    "jit-2c": {
+      "probe_done_ms": 6860,
+      "ms": 7972,
+      "mips": 116.2,
+      "compiles": 1949,
+      "compile_ms": 511,
+      "evictions": 0,
+      "table_free_low": 11071,
+      "native_share": 0.9737345370487824,
+      "steps_per_instruction": 0.002902903153622607,
+      "chained_share": 0.6168893357586831
+    },
+    "interpreter-4c": {
+      "probe_done_ms": 57407,
+      "ms": 61667,
+      "mips": 24.2
+    },
+    "jit-4c": {
+      "probe_done_ms": 7038,
+      "ms": 8068,
+      "mips": 120.3,
+      "compiles": 2010,
+      "compile_ms": 496,
+      "evictions": 0,
+      "table_free_low": 11058,
+      "native_share": 0.9732387749058619,
+      "steps_per_instruction": 0.003031604314402525,
+      "chained_share": 0.6128027771143628
+    },
+    "live-interpreter-1c": {
+      "boot_to_login_ms": 238327,
+      "probe_done_ms": 246544,
+      "ms": 253012,
+      "mips": 22.9
+    },
+    "live-jit-1c": {
+      "boot_to_login_ms": 34687,
+      "probe_done_ms": 35654,
+      "ms": 38690,
+      "mips": 122.2,
+      "compiles": 4126,
+      "compile_ms": 1151,
+      "evictions": 0,
+      "table_free_low": 10603,
+      "native_share": 0.9665831215676226,
+      "steps_per_instruction": 0.004531118960712459,
+      "chained_share": 0.6602280286413204
+    },
+    "live-interpreter-2c": {
+      "boot_to_login_ms": 280983,
+      "probe_done_ms": 291832,
+      "ms": 299342,
+      "mips": 22.8
+    },
+    "live-jit-2c": {
+      "boot_to_login_ms": 39549,
+      "probe_done_ms": 40618,
+      "ms": 43769,
+      "mips": 112.2,
+      "compiles": 4272,
+      "compile_ms": 1255,
+      "evictions": 0,
+      "table_free_low": 10509,
+      "native_share": 0.966531487133411,
+      "steps_per_instruction": 0.004510157162998465,
+      "chained_share": 0.7002856514063931
+    },
+    "live-interpreter-4c": {
+      "boot_to_login_ms": 362226,
+      "probe_done_ms": 375837,
+      "ms": 385054,
+      "mips": 22.7
+    },
+    "live-jit-4c": {
+      "boot_to_login_ms": 40629,
+      "probe_done_ms": 41955,
+      "ms": 45160,
+      "mips": 114.3,
+      "compiles": 4341,
+      "compile_ms": 1224,
+      "evictions": 0,
+      "table_free_low": 10469,
+      "native_share": 0.9664380212740012,
+      "steps_per_instruction": 0.004568992396272941,
+      "chained_share": 0.6946122914009033
+    }
+  }
+}

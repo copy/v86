@@ -4,9 +4,11 @@
 > (virtio-mmio devices; the page tier, J2 of
 > [jit-unification-plan.md](jit-unification-plan.md); the PCIe host,
 > virtio-pci, input and virtio-gpu), A6 (the lifecycle, cores in vCPU
-> workers, extended RAM, 16 and 64 KiB page kernels, the browser), and of A7
-> the rehearsals for Android (P9.1, P9.2). Sections marked *(pending)* are filled in
-> as the milestones land.
+> workers, extended RAM, 16 and 64 KiB page kernels, the browser) and A7
+> (the rehearsals for Android, P9.1-P9.3, and G-Alpine: every release level
+> R-a64-isa through R-a64-android-prep on one tagged build, `vA7`). Android
+> 16 (A8-A10) comes next. Sections marked *(pending)* are filled in as the
+> milestones land.
 
 With `cpu_type: "arm64"` (from A1), v86 runs a separate core,
 `build/v86-arm64.wasm`: an Armv8.0-A CPU at EL0 and EL1 only, on the `virt`
@@ -18,7 +20,7 @@ does not contain the ARM code (the plan's "Wasm core" section).
 | Option | `cpu_type: "arm64"` (machine_type "virt", its default) |
 | Profile | `v86-aarch64-v1.1`, [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) (`a64_profile: "v1"`: the 4 KiB granule only) |
 | Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng, hvc0 and -input, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system, all on virtio-mmio and on virtio-pci (the PCI functions as the reference's); s2idle woken by the PL031's alarm and hibernation to a swap disk with the resume after power-on; 3 and 4 GiB of RAM with extended RAM from 4 GiB (a memtest over most of it); in headless Chrome from the source tree, the bundle and the CPU worker; on 2 and 4 cores in vCPU workers (`parallel: true`: the probe, the live stage with snapshots, reboot, poweroff, s2idle, hibernation); Linux 6.18.35 built for 16 and 64 KiB pages (`tools/a64_kernel.mjs`) to a login and through the probe, interpreted and with the page tier, and the guest JITs on them; the androidish kernel (Linux 6.18.35 in GKI's shape: a 39-bit VA, SW_TTBR0_PAN, pseudo-NMIs, KASLR) on 2 and 4 cores, interpreted, with the page tier and in workers, and with 4 GiB of RAM: binderfs's selftest and binder between two cores, userfaultfd, a minimal SELinux policy enforcing (the probe after it), bootconfig, erofs on dm-verity, f2fs with fscrypt across a reboot, zram as swap and PSI's trigger; virtio-console's ports 1-3 (`org.v86.port<N>`, echoed by the host) in every live stage; virtio-gpu: KMS (atomic, planes, cursor, PRIME, explicit sync), kmscube and weston with llvmpipe, virgl (GL 4.3, gltest 0 failures), Venus (vktest, vkcube) on a real GPU through WebGPU, input on weston; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
-| Boot time | Alpine from the ISO to `localhost login:`: 30 / 39 / 34 s on 1/2/4 cores with the page tier, 232 / 267 / 341 s interpreted (QEMU TCG: 11 s on 1 core), the same with the devices on virtio-pci; to login and through the probe on 1 core with the page tier 33.1 s, 1.37 times the x86_64 page tier's 24.1 s on the same host (the E level's budget: 3 times); the initramfs stage through the probe: 5.7 / 6.1 / 6.8 s with the page tier, 34.6 / 40.1 / 49.9 s interpreted (release build, Apple M-series Mac) |
+| Boot time | The frozen baseline (P9.4, [tests/a64/perf-baseline.json](../tests/a64/perf-baseline.json), release build, medians of 3 sessions on an Apple M-series Mac): Alpine from the ISO to `localhost login:` 34.7 / 39.5 / 40.6 s on 1/2/4 cores with the page tier, 238 / 281 / 362 s interpreted (QEMU TCG: 11 s on 1 core); the initramfs stage through the probe 6.3 / 6.9 / 7.0 s with the page tier, 35.6 / 41.8 / 57.4 s interpreted. On a quiet machine at A4: to login 30 / 39 / 34 s, and on 1 core to login and through the probe 33.1 s, 1.37 times the x86_64 page tier's 24.1 s on the same host (the E level's budget: 3 times) |
 | Not done | virtio-snd (P7.5, optional; deferred to Android's audio) |
 
 ## CPU profile
@@ -33,6 +35,14 @@ Reference Manual, DDI 0487 issue L.b.
 | AArch64 at EL0 and EL1; FP and Advanced SIMD (no FP16); AES with 64-bit PMULL, SHA1, SHA-256, CRC32; GICv3 system registers; 2 breakpoints, 2 watchpoints; CSV2 and CSV3; 40-bit physical addresses, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1 has 4 KiB only) | EL2, EL3, AArch32; LSE, RDM, SHA512, SHA3, SM3/SM4, DotProd, FP16; PAuth, BTI, MTE, SVE, SME; PMU; hardware AF/DBM, PAN, VHE |
 
 HWCAP is `0x8ff`: `fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid`.
+
+The profile's completeness (`node tools/a64_profile_report.mjs --reference --kvm`,
+at `vA7`): all 49 classes of the Arm ARM's encoding index have a status (37
+implemented, 11 UNDEFINED, 1 ID space) and tests; the ID registers read on v86
+equal the profile's on 1 and 4 cores, the reference's differ only as allowed;
+Linux reports HWCAP 0x8ff and HWCAP2 0 on the stock, androidish, 16 KiB and
+64 KiB kernels; Linux runs with 4, 16 and 64 KiB pages and kvm-unit-tests pass
+at all three granules.
 
 The differences allowed against the QEMU `cortex-a35` reference are listed in
 the profile JSON (`allowed_differences`). `node tools/cpu_contract.mjs
@@ -69,6 +79,7 @@ declared deviation, a slower path or a documented limit. None is major.
 | Cores in workers: WFE ends after at most 20 µs without an event | minor | a spurious wake-up, which the architecture allows |
 | Cores in workers: DSB is a single step, and compiled code leaves accesses to extended RAM, and code there, to the interpreter | minor | slower; cooperative cores cache extended RAM's frames and compile from it |
 | The interpreter's accesses to extended RAM look up the frame each time | minor | interpreted Alpine with 3 GiB: 18 MIPS against 26 |
+| Interpreted on several cores, the guest's clock is the host's: every core takes its timer ticks (HZ=1000) for the whole slow boot, so Alpine retires about 50% more instructions on 4 cores than on 1, and the jitter entropy self-test at boot takes 17-18 s on 4 cores | minor | close to the soft lockup threshold (20 s) when the host is busy: `tests/a64/linux_boot.mjs` gives such runs `watchdog_thresh=30`; the page tier takes under a second there |
 | Kernels with SW_TTBR0_PAN (the androidish one, GKI) boot 17% slower to a login than the stock kernel with `a64_asid_tag` auto, 70% slower without it | minor | the profile has no PAN; FEAT_PAN is a v2 candidate (P10.4) |
 | A single-buffer snapshot (`save_state`) refuses extended RAM | minor | `save_state_stream` holds it |
 | virtio-snd | — | not done (P7.5, optional) |
@@ -176,19 +187,25 @@ counters. Tests: `make a64-page-tier-tests` (random programs against the
 interpreter, the FP loop, the ISA and system oracles compiled, litmus) and
 `make a64-jit-guest-tests` (Alpine and kvm-unit-tests with the page tier).
 
-Alpine's initramfs stage through the probe (`tools/a64_jit_metrics.mjs`,
-release build, medians of 3 sessions; "native" is the share of retired
+Alpine through the probe (`tools/a64_jit_metrics.mjs --stages initramfs,live`, the frozen baseline of
+P9.4: release build, medians of 3 sessions; "native" is the share of retired
 instructions the page tier ran, "chained" the share of activations that
 tail-called another page's function; the table has 12000 slots):
 
-| Configuration | probe_done_ms | run ms | MIPS | compiles | compile ms | evictions | fewest free slots | native | steps per instruction | chained |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| interpreter, 1 core | 34560 | 37519 | 26.8 | – | – | – | – | – | – | – |
-| page tier, 1 core | 5711 | 6566 | 134.9 | 1770 | 414 | 0 | 11117 | 97.3% | 3.1e-3 | 44.2% |
-| interpreter, 2 cores | 40126 | 43677 | 26.2 | – | – | – | – | – | – | – |
-| page tier, 2 cores | 6137 | 7088 | 128.7 | 1924 | 473 | 0 | 11081 | 97.4% | 2.9e-3 | 61.8% |
-| interpreter, 4 cores | 49930 | 53912 | 25.5 | – | – | – | – | – | – | – |
-| page tier, 4 cores | 6826 | 7800 | 123.4 | 1989 | 481 | 0 | 11069 | 97.3% | 3.0e-3 | 62.3% |
+| Configuration | boot_to_login_ms | probe_done_ms | run ms | MIPS | compiles | compile ms | evictions | fewest free slots | native | steps per instruction | chained |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| initramfs stage, interpreter, 1 core | – | 35571 | 38688 | 26.2 | – | – | – | – | – | – | – |
+| initramfs stage, page tier, 1 core | – | 6314 | 7256 | 122.8 | 1797 | 451 | 0 | 11106 | 97.2% | 3.1e-03 | 44.4% |
+| initramfs stage, interpreter, 2 cores | – | 41827 | 45451 | 25.4 | – | – | – | – | – | – | – |
+| initramfs stage, page tier, 2 cores | – | 6860 | 7972 | 116.2 | 1949 | 511 | 0 | 11071 | 97.4% | 2.9e-03 | 61.7% |
+| initramfs stage, interpreter, 4 cores | – | 57407 | 61667 | 24.2 | – | – | – | – | – | – | – |
+| initramfs stage, page tier, 4 cores | – | 7038 | 8068 | 120.3 | 2010 | 496 | 0 | 11058 | 97.3% | 3.0e-03 | 61.3% |
+| live stage, interpreter, 1 core | 238327 | 246544 | 253012 | 22.9 | – | – | – | – | – | – | – |
+| live stage, page tier, 1 core | 34687 | 35654 | 38690 | 122.2 | 4126 | 1151 | 0 | 10603 | 96.7% | 4.5e-03 | 66.0% |
+| live stage, interpreter, 2 cores | 280983 | 291832 | 299342 | 22.8 | – | – | – | – | – | – | – |
+| live stage, page tier, 2 cores | 39549 | 40618 | 43769 | 112.2 | 4272 | 1255 | 0 | 10509 | 96.7% | 4.5e-03 | 70.0% |
+| live stage, interpreter, 4 cores | 362226 | 375837 | 385054 | 22.7 | – | – | – | – | – | – | – |
+| live stage, page tier, 4 cores | 40629 | 41955 | 45160 | 114.3 | 4341 | 1224 | 0 | 10469 | 96.6% | 4.6e-03 | 69.5% |
 
 ### Measurements
 
