@@ -1,6 +1,6 @@
 # 虚拟磁盘镜像格式支持计划
 
-状态：P0–P5 已实现并通过验收（2026-10-17）。未开放：VHD、VDI、VHDX 的差分镜像，VHDX 的日志重放与 4K 逻辑扇区，已有镜像的就地写回；原因与所需条件见[附录](#附录实施记录)末尾。
+状态：P0–P5 已实现并通过验收（2026-10-17）；4K 逻辑扇区已开放（IDE、AHCI、virtio-blk，VHDX 自带的与描述给出的，见[附录](#4k-逻辑扇区70669537)）。未开放：VHD、VDI、VHDX 的差分镜像，VHDX 的日志重放，已有镜像的就地写回；原因与所需条件见[附录](#附录实施记录)末尾。
 
 本计划基于 2026 年 10 月 3 日审查的当前 v86 分支。目标是在现有 RAW 镜像能力上，
 增加 QCOW2、VHD、VDI、VMDK 和 VHDX 的原生读取，并通过公共修改层支持客户机写入、
@@ -582,7 +582,7 @@ ZERO、UNMAPPED（及 QEMU 的旧值 5）读为零，非差分盘中出现 PARTI
    这类样本或允许下载。
 2. **VHDX 日志重放**：现为拒绝打开。若要支持，需要带真实日志的样本（例如 Hyper-V 中断写入后的镜像）
    以及“在独立视图中重放、不改源文件”的设计确认。
-3. **4K 逻辑扇区**：需先让 IDE/AHCI（及 arm64 分支的 virtio-blk）报告并处理大扇区，属于设备层的工作。
+3. **4K 逻辑扇区**：已开放，见[下文](#4k-逻辑扇区70669537)。
 4. **就地写回已有镜像**：属于[磁盘持久化计划](disk-persistence-plan.md)的 `read_write`（D0–D2）与 P5 的
    原格式写入，首版只做了新 QCOW2 的导出。
 5. **与 `arm64` 分支的合并**：已完成，见下节。
@@ -622,3 +622,70 @@ ZERO、UNMAPPED（及 QEMU 的旧值 5）读为零，非差分盘中出现 PARTI
 Alpine live 阶段（`A64_JIT=1 A64_STAGE=live A64_CORES=1`）RAW ISO 93941 ms 到登录、探针通过，
 `A64_LIVE_QCOW2=1` 93184 ms 到登录、探针通过。
 
+### 4K 逻辑扇区（70669537）
+
+在 `disk-formats-4k` 分支（自合并提交 9f2c96e8）实现，提交 70669537（设备与镜像层）、00a7c1ba（客体与浏览器
+测试）、717477bb（SeaBIOS 检查）。
+
+**实现。**
+
+- 配置：硬盘描述（`hda`、`hdb`、`attach_sata_drive`、virt 机器的 `virtio_disks`）新增
+  `logical_sector_size`：512（默认）或 4096，其他值以及用在光驱、软驱、BIOS 等描述上报 `config` 错误。
+  RAW 盘（省略 `format` 或 `"raw"`，仍用 `src/buffer.js` 的后端）在其 buffer 加载后设置
+  `buffer.logical_sector_size`，容量不是扇区整数倍时启动失败（`emulator-error`）。容器格式在 `open_image`
+  中确定扇区大小：描述给出的、镜像自带的（VHDX 元数据的 LogicalSectorSize）、父盘的（父盘有给定的扇区
+  大小时），给出的几项必须一致，否则报 `config` 错误；都没有时为 512，虚拟容量须是给定扇区大小的整数倍。
+  QCOW2、VHD、VDI、VMDK 文件不记录客体的扇区大小（VHD、VDI 的 512 字节扇区是容器内部的寻址单位），
+  因此可以用描述把它们作为 4K 盘呈现，作用与 QEMU 设备属性 `logical_block_size` 相同。
+  `DiskImage.logical_sector_size` 取自读取器；CPU Worker 转发该选项；`disk_image_info` 返回
+  `logical_sector_size`（光驱为 2048）。
+- VHDX：不再拒绝 4096 字节逻辑扇区，chunk ratio 按镜像自己的逻辑扇区大小计算
+  （2^23 × 4096 / 块大小，1 MiB 块时 32768 块一个扇区位图项）；物理扇区大小只校验，不呈现。
+- IDE（AHCI 的设备也是它）：`set_disk_buffer` 取 `buffer.logical_sector_size`。LBA、扇区计数、容量
+  （IDENTIFY 字 60–61、100–103）、PIO 的 DRQ 数据块（READ/WRITE SECTORS 每块一个逻辑扇区，READ/WRITE
+  MULTIPLE 每块 multiple 个）与 DMA 长度均以逻辑扇区计；IDENTIFY 字 106 为 0x5000（有效、逻辑扇区长于
+  256 字、每个物理扇区一个逻辑扇区），字 117–118 为每逻辑扇区的字数（2048）。IDENTIFY 本身与 READ LOG
+  EXT 的日志页仍为 512 字节。512 字节盘的 IDENTIFY 与行为不变（字 106 仍为 0）。
+- AHCI NCQ：起点与长度按设备的扇区大小。
+- virtio-blk：`blk_size` 为盘的逻辑扇区大小（`VIRTIO_BLK_F_BLK_SIZE` 原已提供）；容量与请求中的扇区号按
+  virtio 规范仍以 512 字节计；读写的起点或长度不是整逻辑扇区时以 `VIRTIO_BLK_S_IOERR` 结束、不写入任何
+  数据，与 QEMU 的 `virtio_blk_sect_range_ok` 相同。
+- 快照：IDE/AHCI 设备状态本就记录扇区大小（`IDEInterface` 的 `state[20]`），`validate_disk_states` 在恢复
+  任何状态之前拒绝扇区大小不同的硬盘；virtio-blk 状态增加 `state[4]`（扇区大小，旧快照按 512），
+  `check_state` 同样在恢复前核对。镜像身份不变：扇区大小不改变修改层的字节偏移，VHDX 的扇区大小已包含在元数据
+  SHA-256 中。
+
+**偏差。**
+
+1. qemu-img 10.2 既不生成 4K VHDX（vhdx 的创建选项没有逻辑扇区大小），也不打开它（`Operation not
+   supported`），没有独立工具生成的 4K 样本。基准因此是：(a) qemu-img 的 `dynamic.vhdx` 改写逻辑与物理扇区
+   大小，盘的块数少于一个 chunk，BAT 布局不变，基准为原镜像（qemu-img 转出的 RAW，即 `base.raw`）；
+   (b) 测试中按 [MS-VHDX][vhdx-spec] 构造的镜像（[`tests/image/tiny_vhdx.mjs`](../tests/image/tiny_vhdx.mjs)），
+   其 512 字节版本通过 `qemu-img check`，qemu-img 与 v86 读出的都与写入的数据一致（5 GiB、越过扇区位图项），
+   同一构造器的 4K 版本（100 GiB、1 MiB 块）跨扇区位图项读取，与写入的数据一致。
+2. QEMU 的 IDE/AHCI 只有 512 字节逻辑扇区（`ide-hd` 的 `logical_block_size` 必须为 512），4K ATA 没有参考
+   实现；v86 按 ATA8-ACS 实现，每个 PIO DRQ 数据块一个逻辑扇区。Linux 4.16（`linux4.iso`）的 libata 对读写
+   命令的 PIO 按 512 字节一块并在每块后等中断，在 4K 盘上丢中断（`lost interrupt`，每次 30 秒超时后由错误
+   处理读完）；DMA（ata_piix 的总线主控、AHCI 与 NCQ）正常。客体测试因此不跑 PIO，PIO 协议由端口级设备
+   测试覆盖。
+3. 物理扇区大小不呈现：IDENTIFY 字 106 的“每物理扇区多个逻辑扇区”与 virtio-blk 的 topology 都不提供，
+   物理扇区等于逻辑扇区。Hyper-V 默认的 512 逻辑/4096 物理（512e）VHDX 仍呈现为 512/512，与此前相同。
+4. SeaBIOS 以 512 字节扇区读 ATA/AHCI 盘，不能从 4K 盘启动：它报 “could not read the boot disk” 后尝试
+   下一个启动设备（已测试），MS-DOS 等经 BIOS 读盘的客体不能使用 4K 盘；4K 盘适合作数据盘或直接引导内核时
+   的盘。
+5. 只开放 512 与 4096（VHDX 只允许这两种）。原有行为未改：WRITE MULTIPLE 在第一个 DRQ 块之后每块只收
+   一个扇区（`write_end`），512 与 4K 相同。virtio-blk 对 512 字节盘也拒绝长度不是 512 倍数的读写（此前
+   接受），与 QEMU 相同；Linux 不发这类请求。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| [`tests/image/sector_size.mjs`](../tests/image/sector_size.mjs)（新，加入 `disk-image-tests`） | VHDX 构造器的 512 字节镜像通过 `qemu-img check`，qemu-img 与 v86 在首块、4 GiB 扇区位图项两侧、末尾、ZERO 块处读出一致；改写扇区大小的 `dynamic.vhdx` 经内存与本地文件分段读两条路径整盘逐 MiB 与 `base.raw` 一致，`DiskImage.logical_sector_size` 为 4096，qemu-img 不打开它；构造的 100 GiB 4K VHDX 跨 32 GiB 处的扇区位图项、64 GiB 与末尾、ZERO 与 NOT_PRESENT 块与写入一致；QCOW2、VHD、VDI、VMDK 加描述的 4096 数据不变；RAW 经工厂 4096，容量不是 4096 倍数时报错（512 时照旧）；4K VHDX 加 512、512 VHDX 加 4096 报错；QCOW2 子盘继承 4K VHDX 父盘的 4096，子盘描述给 512 时报错；1024、0、`"4096"`、520、8192 及光驱、软驱上的该选项报错 |
+| `tests/image/vhdx.mjs` | 4096 字节逻辑扇区由拒绝改为读取，与 `base.raw` 一致；其余照旧 |
+| [`tests/devices/disk_sector_size.js`](../tests/devices/disk_sector_size.js)（新，加入 `devices-test` 与 `disk-image-tests`） | i440FX：RAW 4K 盘与 512 字节盘同在主通道；IDENTIFY 字 106、117–118 与容量（4K 盘）、512 字节盘不变；READ SECTORS（EXT）每 4096 字节一个 DRQ 块与一次中断，块内无中断；SET MULTIPLE 4 后 READ MULTIPLE 每块 4 个扇区；WRITE SECTORS、WRITE MULTIPLE 写入镜像的 LBA × 4096 处并读回；READ DMA、WRITE DMA 经总线主控（两项 PRD）；越过末尾 IDNF；快照恢复到同样的盘，恢复到 512 字节盘的机器时在恢复任何状态之前被拒；Q35：4K VHDX 镜像经 AHCI 的 IDENTIFY、READ DMA EXT、PIO READ SECTORS（PIO setup FIS 的计数为 4096）、WRITE DMA EXT、NCQ 读写；`disk_image_info` 的扇区大小；容量不是 4096 倍数与 2048 的选项触发 `emulator-error`；SeaBIOS 不从 4K 的 MS-DOS 盘启动，报错后继续 |
+| [`tests/a64/virtio_blk_sector_size.mjs`](../tests/a64/virtio_blk_sector_size.mjs)（新，加入 `a64-virt-device-tests`） | RAW 4K 盘与 4K VHDX：提供 BLK_SIZE，`blk_size` 4096，容量以 512 字节计；扇区 8（512 字节单位）读到第二个 4K 扇区；起点或长度不是整扇区的读写为 `VIRTIO_BLK_S_IOERR` 且不写入；写入读回、在镜像中；512 字节盘 `blk_size` 512；快照恢复到同样的盘，恢复到 512 字节盘在恢复任何状态之前被拒 |
+| [`tests/image/sector_size_guest.mjs`](../tests/image/sector_size_guest.mjs)（新，加入 `disk-image-tests`） | `linux4.iso` 的内核直接引导（根为光盘），RAW 4K 盘（32 MiB）与 4K VHDX（48 MiB）：i440FX（ata_piix，MWDMA2）与 Q35（AHCI，NCQ）上 sd 报告 4096 字节逻辑与物理块与容量，读出主机放入的数据，写入 2 MiB 后清缓存读回（含 512 字节一次的读取），RAW 镜像与 VHDX 的修改层中是同样的数据，无 libata 错误；两台机器约 18 秒 |
+| [`tests/a64/linux_sector_size.mjs`](../tests/a64/linux_sector_size.mjs)（新，加入 `a64-guest-quick-tests`） | Alpine 3.24 aarch64（测试自己的 rdinit 加载 virtio_mmio、virtio_blk），RAW 4K、4K VHDX 与 512 字节盘：客体的逻辑与物理块大小为 4096、4096、512，容量、前 4 MiB 与主机一致，写入 2 MiB 清缓存后读回，并在镜像中；约 70 秒 |
+| 浏览器（`tests/image/browser_runner.mjs`，页面与 CPU Worker） | RAW 盘的 `logical_sector_size` 与 VHDX 自带的 4096 都到达设备（`disk_image_info`），原有各项照旧通过 |
+| 回归 | `make disk-image-tests`（含新测试）全部通过；`make a64-virt-device-tests`（`A64_QEMU` 指向已构建的 QEMU 9.2.0）通过；`tests/devices/` 的 ahci（31/31）、ide_large_disk、device_io_reset、disk_write_cache（10/10）、ahci_lifecycle，`tests/api/` 的 state、cdrom-insert-eject、floppy、destroy-during-init、clean-shutdown、reset、arm64-options 通过；Alpine live 阶段（`A64_JIT=1 A64_STAGE=live A64_CORES=1`，ISO 与探针盘为 512 字节的 virtio-blk）到登录、探针通过；`TEST_RELEASE_BUILD=1` 下 disk_sector_size、virtio_blk_sector_size、sector_size_guest 通过；`build/libv86.js`、`build/libv86.mjs`、`build/cpu-worker.js`、`build/v86_all.js` 的 Closure 检查 0 错误；eslint 无输出 |
