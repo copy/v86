@@ -190,7 +190,8 @@ const emulator = new V86({
     disable_jit: !jit, experimental_smp_jit: jit, ir_sync_publication: true, log_level: 0, net_device: {type: "virtio"},
     // (the x64 profile, as set_x64_test_capabilities below; LZCNT needs it)
     cpu_type: "x86_64",
-    ...(features.length ? {cpu_features: features, cpu_features_unreleased: true} : {}),
+    // (exactly X64_CPU_FEATURES, none without it: x86_64's default has every feature, the reference's qemu64 none)
+    cpu_features: features, ...(features.length ? {cpu_features_unreleased: true} : {}),
     ...(process.env.X64_IR_TIER0 === "0" ? {ir_tier0: false} : {}),
     // X64_PARALLEL=1: the application processors run in vCPU workers
     ...(+process.env.X64_PARALLEL ? {parallel: true, wasm_path: root + "build/v86-parallel.wasm"} : {}),

@@ -44,7 +44,8 @@
 // (WIN_LAUNCHER_ADMIN=1: elevated, through UAC once, so they are too).
 // WIN_NO_PROBE=1: no qualification probe (its Run dialog takes the focus from
 // full-screen programs), and no signing in again unless a password box shows.
-// WIN_CPU_FEATURES=<features>: cpu_features (cpu_type x86_64), e.g. the
+// WIN_CPU_FEATURES=<features>: cpu_features (cpu_type x86_64; "default": its
+// default, every feature; "none": none), e.g. the
 // x86-64-v3 set; the probes then check the YMM state (X64_WIN_AVX, see
 // windows_probe.c); WIN_PROBE_SNAPSHOT=1: the machine saved and restored in
 // place once each probe's AVX part has started.
@@ -78,11 +79,16 @@ import {fileURLToPath} from "node:url";
 import {MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16} from "../smp/disk_fixture.mjs";
 import {jit_switches_from_env} from "../lib/jit_switches.mjs";
 import {jit_stats_enabled, print_jit_stats} from "../../tools/bench/jit_stats.mjs";
-import {CPU_FEATURE_PRESETS} from "../../src/cpu_features.js";
+import {CPU_FEATURES, CPU_FEATURE_PRESETS} from "../../src/cpu_features.js";
 import {site_directory} from "../lib/site.mjs";
 // WIN_CPU_FEATURES: feature names, comma separated, or a preset ("x86-64-v3")
-const win_cpu_features = process.env.WIN_CPU_FEATURES ?
-    CPU_FEATURE_PRESETS[process.env.WIN_CPU_FEATURES] || process.env.WIN_CPU_FEATURES.split(",") : null;
+// (default: cpu_type x86_64 without cpu_features, every released feature;
+// none: x86_64 with none)
+const win_cpu_features_default = process.env.WIN_CPU_FEATURES === "default";
+const win_cpu_features = win_cpu_features_default ?
+    Object.keys(CPU_FEATURES).filter(name => CPU_FEATURES[name]["released"] && CPU_FEATURES[name]["profiles"].includes("x86_64")) :
+    process.env.WIN_CPU_FEATURES === "none" ? [] : process.env.WIN_CPU_FEATURES ?
+        CPU_FEATURE_PRESETS[process.env.WIN_CPU_FEATURES] || process.env.WIN_CPU_FEATURES.split(",") : null;
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 // (the default: retro-gaming-site next to the main checkout, also from a worktree)
@@ -177,7 +183,7 @@ const vm = new V86({
     // the browser does by default
     disable_jit: !jit, experimental_smp_jit: jit, ir_sync_publication: !+process.env.WIN_ASYNC_PUBLICATION,
     ...(process.env.X64_IR_TIER0 === "0" ? {ir_tier0: false} : {}),
-    ...(win_cpu_features ? {cpu_type: "x86_64", cpu_features: win_cpu_features} : {}),
+    ...(win_cpu_features ? {cpu_type: "x86_64", ...(win_cpu_features_default ? {} : {cpu_features: win_cpu_features})} : {}),
     // WIN_PARALLEL=1: the application processors run in vCPU workers
     // (WIN_PARALLEL_WASM: another build of it)
     ...(+process.env.WIN_PARALLEL ? {parallel: true, wasm_path: process.env.WIN_PARALLEL_WASM || root + "build/v86-parallel.wasm"} : {}),
@@ -779,7 +785,12 @@ try
             const at = physical(cr3, BigInt(address));
             return at === null ? null : Buffer.from(cpu.mem8.subarray(at, at + length)).toString("hex");
         };
-        for(const fault of info.x64_faults || []) fault.bytes = bytes(fault.rip, 24);
+        for(const fault of info.x64_faults || [])
+        {
+            fault.bytes = bytes(fault.rip, 24);
+            // (a kernel fault: the code before it too, to disassemble what led there)
+            if(fault.cs === "0x10") fault.before = bytes(BigInt(fault.rip) - 512n, 512);
+        }
         // The image containing the first faulting RIP (scan down for its MZ
         // header), plus the stack, for offline symbolization
         const first = info.x64_faults?.[info.x64_faults.length - 1];

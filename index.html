@@ -279,6 +279,21 @@
             </tr>
 
             <tr>
+                <td><label for="cpu_features">CPU features</label></td>
+                <td>
+                    <select id="cpu_features">
+                        <option value="" selected>default: x86_64 all of them, x86 up to SSE3</option>
+                        <option value="baseline">baseline: up to SSE3</option>
+                        <option value="x86-64-v2">x86-64-v2: SSSE3, SSE4.1, SSE4.2</option>
+                        <option value="x86-64-v3">x86-64-v3: also XSAVE, AVX, AVX2, FMA, F16C, BMI1, BMI2, LZCNT, MOVBE (x86_64)</option>
+                    </select><br>
+                    <small>The instruction sets the x86 CPUs report beyond SSE3 (CPUID). x86_64 has all of them by default (the above and
+                    XSAVEOPT, XSAVEC, XGETBV1, XSAVES); a saved state keeps the CPU it was saved with. x86-64-v3 needs the x86_64 CPU type
+                    (a 32-bit CPU gets x86-64-v2); arm64 has its own</small>
+                </td>
+            </tr>
+
+            <tr>
                 <td><label for="machine_type">Machine type</label></td>
                 <td>
                     <select id="machine_type">

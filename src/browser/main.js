@@ -1944,6 +1944,7 @@ function onload()
     if(query_args.has("cores")) $("cpu_cores").value = query_args.get("cores");
     if(query_args.has("parallel")) $("parallel").checked = bool_arg(query_args.get("parallel"));
     $("cpu_type").value = cpu_type_arg(query_args) || $("cpu_type").value;
+    if(query_args.has("cpu_features")) $("cpu_features").value = query_args.get("cpu_features");
     $("machine_type").value = machine_type_arg(query_args) || $("machine_type").value;
     if(query_args.has("vram")) $("vga_memory_size").value = query_args.get("vram");
     if(query_args.has("graphics_adapter")) $("graphics_adapter").value = query_args.get("graphics_adapter");
@@ -2448,6 +2449,7 @@ async function start_emulation(profile, query_args)
                 settings.parallel = bool_arg(query_args.get("parallel"));
             }
             settings.cpu_type = cpu_type_arg(query_args);
+            if(query_args.has("cpu_features")) settings.cpu_features = query_args.get("cpu_features") || undefined;
             settings.machine_type = machine_type_arg(query_args);
             if(query_args.has("hpet")) settings.hpet = bool_arg(query_args.get("hpet"));
             if(query_args.has("smbus")) settings.smbus = bool_arg(query_args.get("smbus"));
@@ -2666,6 +2668,19 @@ async function start_emulation(profile, query_args)
         }
         if(settings.cpu_type !== DEFAULT_CPU_TYPE) new_query_args.set("cpu_type", settings.cpu_type);
 
+        // the x86 CPUs' instruction sets beyond SSE3 (docs/x86-64.md): a
+        // preset of cpu_features, or "baseline" for none; not given, x86_64
+        // has all of them and x86 none; x86-64-v3's LZCNT needs the 64-bit
+        // CPU, arm64 has none of these
+        if(settings.cpu_features === undefined) settings.cpu_features = $("cpu_features").value || undefined;
+        if(settings.cpu_type === "arm64") settings.cpu_features = undefined;
+        if(settings.cpu_features === "x86-64-v3" && settings.cpu_type !== "x86_64")
+        {
+            console.log("cpu_features x86-64-v3 needs the x86_64 CPU: x86-64-v2 instead");
+            settings.cpu_features = "x86-64-v2";
+        }
+        if(settings.cpu_features) new_query_args.set("cpu_features", settings.cpu_features);
+
         if(settings.machine_type === undefined)
         {
             settings.machine_type = $("machine_type").value || DEFAULT_MACHINE_TYPE;
@@ -2810,6 +2825,7 @@ async function start_emulation(profile, query_args)
             // quoted, as the library reads it, or Closure renames it)
             "jit_switches": settings.disable_jit ? undefined : { "a64_page": 1 },
         } : {
+            "cpu_features": settings.cpu_features === "baseline" ? [] : settings.cpu_features,
             bios: settings.bios,
             vga_bios: settings.vga_bios,
             fda: settings.fda,

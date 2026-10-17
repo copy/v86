@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The CPU features of docs/simd-xsave-plan.md (src/cpu_features.js, setting
-// cpu_features): CPUID reports exactly the requested features, a preset names
-// a set, cpuid_level leaves out what it cannot report together with what
+// cpu_features): CPUID reports exactly the requested features (not given:
+// every released one for x86_64, the owner's decision of 2026-10-17, none for
+// x86; [] none), a preset names a set, cpuid_level leaves out what it cannot report together with what
 // requires it, and an unknown feature, one the profile cannot have or one
 // without its requirements fails. Every milestone is released (M1
 // x86-64-v2, M2 XSAVE, M3 AVX, M4 x86-64-v3, M5 the XSAVE family): no feature
@@ -59,7 +60,8 @@ const XSAVE_FAMILY = ["XSAVE", "XSAVEOPT", "XSAVEC", "XGETBV1", "XSAVES"];
 
 for(const [options, expected, level] of [
     [{}, []],
-    [{cpu_type: "x86_64"}, []],
+    [{cpu_type: "x86_64"}, [...V3, ...XSAVE_FAMILY.slice(1)]],
+    [{cpu_type: "x86_64", cpu_features: []}, []],
     [{cpu_features: [...V2, "BMI1", "BMI2", "MOVBE"], cpu_features_unreleased: true}, [...V2, "BMI1", "BMI2", "MOVBE"]],
     [{cpu_features: "x86-64-v2"}, V2],
     [{cpu_features: ["XSAVE"]}, ["XSAVE"]],
@@ -106,6 +108,33 @@ for(const [options, message] of [
     assert.match(String(error), message, JSON.stringify(options));
     await emulator.destroy();
     console.log(`PASS ${JSON.stringify(options)} is refused`);
+}
+
+// a snapshot keeps the CPU its guest saw: a machine whose features were not
+// chosen takes the snapshot's, one given cpu_features refuses other ones
+{
+    const machine = async options => {
+        const emulator = new V86({graphics_adapter: "bochs_vga", bios: {url: root + "bios/seabios.bin"}, vga_bios: {url: root + "bios/vgabios.bin"},
+            autostart: false, log_level: 0, cpu_type: "x86_64", ...options});
+        await new Promise((resolve, reject) => {
+            emulator.add_listener("emulator-loaded", resolve);
+            emulator.add_listener("emulator-error", reject);
+        });
+        return emulator;
+    };
+    const baseline = await machine({cpu_features: []});
+    const state = await baseline.save_state();
+    await baseline.destroy();
+    const defaulted = await machine({});
+    assert.notEqual(defaulted.v86.cpu.cpu_features, 0, "x86_64's default features");
+    await defaulted.restore_state(state);
+    assert.equal(defaulted.v86.cpu.cpu_features, 0, "the restored machine has the snapshot's features");
+    assert.equal(defaulted.v86.cpu.wm.exports["get_cpu_features"](), 0, "and so has the core");
+    await defaulted.destroy();
+    const chosen = await machine({cpu_features: "x86-64-v3"});
+    await assert.rejects(chosen.restore_state(state), /The snapshot is from a machine with the CPU features none/);
+    await chosen.destroy();
+    console.log("PASS a snapshot's CPU features: taken by a machine with the default, refused by one with cpu_features");
 }
 
 for(const requested of [undefined, "x86-64-v2", "x86-64-v3", ["SSSE3", "XSAVE"], LEGACY_V3, [...V3, ...XSAVE_FAMILY]])
