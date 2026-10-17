@@ -55,6 +55,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash as create_hash } from "node:crypto";
+import { gunzipSync as gunzip } from "node:zlib";
 import { prepare, unzboot, sha256, ROOT } from "../lib/alpine_image.mjs";
 import { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } from "./guest_runner.mjs";
 
@@ -98,7 +100,10 @@ fs.writeFileSync(probe_directory + "root/a64-init", [
     "B=/bin/busybox",
     "$B mount -t proc proc /proc; $B mount -t sysfs sys /sys; $B mount -t devtmpfs dev /dev",
     "$B mkdir -p /tmp; $B mount -t tmpfs tmp /tmp",
+    // (the androidish kernel's cpio, P9.1, P9.2: its tests before and after the probe)
+    "[ -x /a64-android/pre ] && /a64-android/pre",
     "/a64-probe nodisk \"$@\"",
+    "[ -x /a64-android/post ] && /a64-android/post",
     // (smpN: N copies of the workload at once, between two readings of the uptime: P8.2's speed-up)
     "case \"$A64_WORKLOAD\" in '') ;; jit) /a64-jit-workload ;; " +
         "smp*) $B echo A64_SMP_START $($B cat /proc/uptime); for i in $($B seq 1 ${A64_WORKLOAD#smp}); do /a64-workload 3 > /dev/null & done; wait; " +
@@ -207,6 +212,139 @@ const extended_memory = Number(process.env.A64_EXTENDED_MEMORY || 0);
 // exclusive ABA is then only reported, the deviation docs/aarch64.md declares)
 const parallel = !!+process.env.A64_PARALLEL;
 assert.ok(!parallel || !+process.env.A64_LINUX_QEMU && cores > 1, "A64_PARALLEL is a variant of v86 on more than one core");
+// (A64_KERNEL=16k|64k: v86 boots tools/a64_kernel.mjs's kernel of that page
+// size, P8.6, the drivers the stages need built in; A64_KERNEL_FILE another
+// Image. The probe must report the page size)
+const kernel_variant = process.env.A64_KERNEL || "stock";
+const PAGE_SIZES = { stock: 4096, "16k": 16384, "64k": 65536, androidish: 4096 };
+assert.ok(PAGE_SIZES[kernel_variant], "A64_KERNEL: stock, 16k, 64k or androidish");
+assert.ok(kernel_variant === "stock" || !+process.env.A64_LINUX_QEMU, "A64_KERNEL is a variant of v86's runs");
+const v86_kernel = process.env.A64_KERNEL_FILE ||
+    (kernel_variant === "stock" ? prepared.kernel : ROOT + `build/a64-kernel/${kernel_variant}/Image`);
+assert.ok(fs.existsSync(v86_kernel), v86_kernel + " is missing: node tools/a64_kernel.mjs");
+// (A64_KERNEL=androidish, the initramfs stage, P9.1, P9.2: the programs and
+// images built with it in one more cpio, under /a64-android with the
+// scripts a64-init runs before and after the probe, a bootconfig after the
+// initrd, an f2fs disk. Before the probe: f2fs with fscrypt (the first boot
+// writes and reboots, the second reads, without the key and with it),
+// /proc/bootconfig, the minimal SELinux policy, enforcing from then on.
+// After it: binderfs's selftest, binder between the first and the last CPU,
+// userfaultfd, erofs on dm-verity (and the same tree over an image with one
+// byte changed: reads fail), zram as swap under a 16 MiB memory cgroup with
+// PSI's trigger)
+const android = kernel_variant === "androidish" && stage === "initramfs";
+const ANDROID_FILES = ROOT + "build/a64-kernel/androidish/";
+const ANDROID_PROGRAMS = ["binder_pingpong", "binderfs_test", "uffd_test", "selinux_load", "dm_verity", "fscrypt_test", "psi_test"];
+const BOOTCONFIG = { "androidboot.hardware": "v86", "androidboot.serialno": "a64-p9", "kernel.printk.devkmsg": "on" };
+const VERITY_SALT = Buffer.alloc(32, 0xa6);
+let android_expect, f2fs_disk;
+/**
+ * dm-verity's hash tree, format 1 (the salt before each block), SHA-256,
+ * 4 KiB blocks, the top level first (hash_start 0), as veritysetup lays it out
+ * @param {!Buffer} data more than one block
+ * @return {{tree: !Buffer, root: !Buffer}}
+ */
+function verity_tree(data)
+{
+    const BLOCK = 4096, PER_BLOCK = BLOCK / 32;
+    assert.ok(data.length > BLOCK && data.length % BLOCK === 0, "verity: whole blocks, more than one");
+    const digest = block => create_hash("sha256").update(VERITY_SALT).update(block).digest();
+    let digests = [];
+    for(let at = 0; at < data.length; at += BLOCK) digests.push(digest(data.subarray(at, at + BLOCK)));
+    const levels = [];
+    while(digests.length > 1)
+    {
+        const blocks = [];
+        for(let i = 0; i < digests.length; i += PER_BLOCK) blocks.push(Buffer.concat(digests.slice(i, i + PER_BLOCK), BLOCK));
+        levels.push(Buffer.concat(blocks));
+        digests = blocks.map(digest);
+    }
+    return { tree: Buffer.concat(levels.reverse()), root: digests[0] };
+}
+/** The initrd with a bootconfig after it: the text, its NUL, padding to 4 bytes, size, checksum, magic (tools/bootconfig) */
+function with_bootconfig(initrd_bytes, keys)
+{
+    const text = Buffer.from(Object.entries(keys).map(([key, value]) => `${key} = "${value}"\n`).join("") + "\0");
+    const pad = (4 - (initrd_bytes.length + text.length + 8 + 12) % 4) % 4;
+    const data = Buffer.concat([text, Buffer.alloc(pad)]);
+    const footer = Buffer.alloc(8);
+    footer.writeUInt32LE(data.length, 0);
+    footer.writeUInt32LE(data.reduce((sum, byte) => sum + byte, 0) >>> 0, 4);
+    return Buffer.concat([initrd_bytes, data, footer, Buffer.from("#BOOTCONFIG\n")]);
+}
+if(android)
+{
+    const staging = directory + "android-root/";
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.mkdirSync(staging + "a64-android", { recursive: true });
+    const put = (name, bytes, mode = 0o644) => fs.writeFileSync(staging + "a64-android/" + name, bytes, { mode });
+    for(const name of [...ANDROID_PROGRAMS, "policy.33", "erofs.img", "f2fs.img.gz"])
+    {
+        assert.ok(fs.existsSync(ANDROID_FILES + name), ANDROID_FILES + name + " is missing: node tools/a64_kernel.mjs --variants androidish");
+    }
+    for(const program of ANDROID_PROGRAMS) put(program, fs.readFileSync(ANDROID_FILES + program), 0o755);
+    put("policy.33", fs.readFileSync(ANDROID_FILES + "policy.33"));
+    // (erofs, its tree, and a copy with one byte of the payload changed in the middle)
+    const erofs = fs.readFileSync(ANDROID_FILES + "erofs.img");
+    const { tree, root } = verity_tree(erofs);
+    const bad = Buffer.from(erofs);
+    const middle = bad.indexOf("\n20000\n");
+    assert.ok(middle > 0, "the payload's middle in erofs.img");
+    bad[middle + 1] ^= 1;
+    put("erofs.img", erofs);
+    put("erofs-bad.img", bad);
+    put("erofs.hash", tree);
+    const table = (data, hash) => `${erofs.length / 512} 1 ${data} ${hash} 4096 4096 ${erofs.length / 4096} 0 sha256 ` +
+        `${root.toString("hex")} ${VERITY_SALT.toString("hex")}\n`;
+    put("verity-good", table("/dev/loop0", "/dev/loop1"));
+    put("verity-bad", table("/dev/loop2", "/dev/loop3"));
+    const payload = Array.from({ length: 40000 }, (_, i) => i + 1).join("\n") + "\n";
+    android_expect = { payload_sha256: sha256(payload), erofs_sha256: sha256(erofs), bad_block: Math.floor((middle + 1) / 4096) };
+    put("pre", [
+        "#!/bin/busybox sh",
+        "B=/bin/busybox",
+        "A=/a64-android",
+        "F=; for d in /sys/block/vd*; do [ \"$($B cat $d/serial 2>/dev/null)\" = a64f2fs ] && F=/dev/${d##*/}; done",
+        "$B mkdir -p /mnt/f2fs",
+        "if $B mount -t f2fs $F /mnt/f2fs; then",
+        "    if [ ! -e /mnt/f2fs/enc ] && $A/fscrypt_test setup /mnt/f2fs; then",
+        "        $B umount /mnt/f2fs; $B sync; $B echo A64_REBOOTING; $B reboot -f; $B sleep 600",
+        "    fi",
+        "    $A/fscrypt_test verify /mnt/f2fs; $B umount /mnt/f2fs",
+        "else $B echo A64_FSCRYPT_FAIL mount; fi",
+        "$B sed 's/^/A64_BOOTCONFIG /' /proc/bootconfig",
+        "$B echo \"A64_CMDLINE $($B cat /proc/cmdline)\"",
+        "$A/selinux_load $A/policy.33",
+        ""].join("\n"), 0o755);
+    put("post", [
+        "#!/bin/busybox sh",
+        "B=/bin/busybox",
+        "A=/a64-android",
+        "$B mkdir -p /dev/binderfs && $B mount -t binder binder /dev/binderfs && " +
+            "$A/binderfs_test 2>&1 | $B grep -E '^(ok|not ok|# Totals|# FAILED|# [a-z_]+: Test|# binderfs_test\\.c:)'",
+        "$A/binder_pingpong /dev/binderfs 10000 0 $(( $($B nproc) - 1 ))",
+        "$A/uffd_test 64",
+        "$B losetup -r /dev/loop0 $A/erofs.img && $B losetup -r /dev/loop1 $A/erofs.hash && " +
+            "$B losetup -r /dev/loop2 $A/erofs-bad.img && $B losetup -r /dev/loop3 $A/erofs.hash",
+        "G=$($A/dm_verity a64verity $($B cat $A/verity-good)) && $B mkdir -p /mnt/erofs && $B mount -t erofs -o ro $G /mnt/erofs && " +
+            "$B echo \"A64_EROFS $G $($B sha256sum < /mnt/erofs/payload.txt | $B cut -d' ' -f1) $($B cat /mnt/erofs/hello.txt) " +
+            "$($B dd if=$G bs=4096 2>/dev/null | $B sha256sum | $B cut -d' ' -f1)\"",
+        "X=$($A/dm_verity a64verity_bad $($B cat $A/verity-bad)) && " +
+            "if $B dd if=$X of=/dev/null bs=4096 2>/dev/null; then $B echo \"A64_VERITY_BAD $X read\"; else $B echo \"A64_VERITY_BAD $X eio\"; fi",
+        "$B mount -t cgroup2 cgroup2 /sys/fs/cgroup && $B echo +memory > /sys/fs/cgroup/cgroup.subtree_control && " +
+            "$B mkdir /sys/fs/cgroup/a64 && $B echo 16M > /sys/fs/cgroup/a64/memory.max",
+        "$B echo 256M > /sys/block/zram0/disksize && $B mkswap /dev/zram0 > /dev/null && $B swapon /dev/zram0",
+        "$A/psi_test /sys/fs/cgroup/a64 40",
+        "$B echo \"A64_MEMINFO $($B grep MemTotal /proc/meminfo)\"",
+        ""].join("\n"), 0o755);
+    run("bsdtar", ["--format", "newc", ...tar_args, "-cf", directory + "android.cpio", "-C", staging, "."]);
+    const combined = directory + "initramfs-virt+probe+android.cpio";
+    fs.writeFileSync(combined, with_bootconfig(Buffer.concat([fs.readFileSync(initrd), fs.readFileSync(directory + "android.cpio")]), BOOTCONFIG));
+    initrd = combined;
+    // (a fresh copy of the 64 MiB f2fs, made with the encrypt feature, for each run)
+    const f2fs = gunzip(fs.readFileSync(ANDROID_FILES + "f2fs.img.gz"));
+    f2fs_disk = f2fs.buffer.slice(f2fs.byteOffset, f2fs.byteOffset + f2fs.byteLength);
+}
 const PARALLEL_OPTIONS = parallel ? { parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm" } : {};
 const memtest_mib = Number(process.env.A64_LINUX_MEMTEST || 0);
 const EXTENDED_BASE = 0x100000000;
@@ -214,7 +352,7 @@ assert.ok(!(extended_memory || memtest_mib) || stage === "initramfs" && !+proces
     "A64_EXTENDED_MEMORY and A64_LINUX_MEMTEST are variants of v86's initramfs stage");
 const soak_minutes = /^soak\d+$/.test(process.env.A64_WORKLOAD || "") ? +process.env.A64_WORKLOAD.slice(4) : 0;
 const timeout = Number(process.env.A64_LINUX_TIMEOUT || (soak_minutes ? (soak_minutes + 10) * 60000 :
-    jit_workload ? 3600000 : stage === "live" ? 1800000 : 180000));
+    jit_workload ? 3600000 : stage === "live" ? 1800000 : android ? 900000 : 180000));
 // (a root that does not exist: init looks for it, then enters single mode before mounting it)
 const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
 const SINGLE_COMMANDS = "cat /proc/interrupts; echo A64_SINGLE_$((6*7)) && echo A64_SINGLE_OK; /bin/busybox poweroff -f\n";
@@ -235,7 +373,12 @@ const LIVE_COMMANDS = ref => PCI_LIST + "modprobe virtio_net 2>/dev/null; modpro
     `/tmp/a64-probe ${ref === "v86" ? "net " : ""}${ref === "v86" && parallel ? "parallel " : ""}ref=${ref}; echo A64_HWRNG=$(head -c 64 /dev/hwrng | wc -c); ` +
     "cat /proc/cpuinfo | head -12; cat /proc/interrupts; " +
     "for f in /sys/devices/system/cpu/vulnerabilities/*; do echo \"A64_VULN ${f##*/}: $(cat $f)\"; done; " +
-    (ref === "v86" ? INPUT_COMMANDS + "(/sbin/getty -L hvc0 115200 vt100 &); echo A64_LIVE_PROBED\n" : "echo A64_LIVE_DONE; poweroff -f\n");
+    (ref === "v86" ? INPUT_COMMANDS + VPORT_COMMANDS + "(/sbin/getty -L hvc0 115200 vt100 &); echo A64_LIVE_PROBED\n" : "echo A64_LIVE_DONE; poweroff -f\n");
+// (P9.1: virtio-console's ports 1-3, generic ports named org.v86.port<N>,
+// found under /sys/class/virtio-ports, whose device numbers follow the
+// enumeration: a line to each, which the host echoes)
+const VPORT_COMMANDS = "for d in /sys/class/virtio-ports/vport*; do n=$(cat $d/name 2>/dev/null); case \"$n\" in org.v86.port*) " +
+    "exec 3<>/dev/${d##*/}; echo \"VPING_${n#org.v86.port}\" >&3; read -t 5 r <&3; echo \"A64_VPORT $n ${d##*/} $r\"; exec 3<&-;; esac; done; ";
 const LIVE_FINISH = "echo A64_LIVE_DONE; poweroff -f\n";
 // (virtio-input, P5.8: each device's events as hex, 24 bytes each, while the test injects them after A64_INPUT_READY)
 const input_reader = (name, count, tag) => `(dd if=/dev/input/$${name} bs=24 count=${count} 2>/dev/null | ` +
@@ -256,7 +399,9 @@ assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramf
 const workload = process.env.A64_WORKLOAD === "jit" ? "jit" : /^(smp|soak)\d+$/.test(process.env.A64_WORKLOAD || "") ?
     process.env.A64_WORKLOAD : +process.env.A64_WORKLOAD || 0;
 assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the initramfs stage");
+// (androidish: bootconfig, and pseudo-NMIs, GKI's: interrupts masked by the GIC's priority mask, not PSTATE.I)
 const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
+    `${android ? " bootconfig irqchip.gicv3_pseudo_nmi=1" : ""}` +
     `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}${ref === "v86" && parallel ? " parallel" : ""}` +
     `${memtest_mib ? " memtest=" + memtest_mib : ""}${extended_memory ? " high=" + EXTENDED_BASE / 4096 : ""}`;
 // (A64_JIT=1: the v86 runs with the A64 page tier, docs/jit-unification-plan.md J2;
@@ -267,7 +412,7 @@ const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT
 const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
     `${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}${target === "v86" && sleep_cycles ? "-sleep" : ""}` +
     `${extended_memory ? "-ext" + Math.round((memory_mb * 1048576 + extended_memory) / 1048576) + "m" : ""}` +
-    `${target === "v86" && parallel ? "-par" : ""}-${cores}c`;
+    `${target === "v86" && parallel ? "-par" : ""}${target === "v86" && kernel_variant !== "stock" ? "-" + kernel_variant : ""}-${cores}c`;
 // (without the kernel's messages, which may land between the workload's lines)
 const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "")
     .split("\n").filter(line => !/^\[\s*\d+\.\d+\] /.test(line)).join("\n");
@@ -290,6 +435,7 @@ function check_probe(text, reference)
     const ok = text.match(/A64_PROBE_OK arch=aarch64 cpus=(\d+) threads=(\d+) counter=(\d+) cpu_checks=([\d,]+) fault=page esr=(\w+) child=7 tlb_stale=(\d+) page_size=(\d+)[^\r\n]* high_pages=(\d+)/);
     assert.ok(ok, "no A64_PROBE_OK line");
     assert.deepEqual(ok.slice(1, 4).map(Number), [cores, cores, cores * 20000], "CPUs, threads and the exclusive counter");
+    if(!reference) assert.equal(+ok[7], PAGE_SIZES[kernel_variant], "the kernel's page size (AT_PAGESZ)");
     assert.equal(ok[4], Array.from({ length: cores }, (_, i) => i).join(","), "each thread on its CPU");
     assert.equal(+ok[6], 0, "no stale TLB entry after the remap");
     const xc = text.match(/A64_PROBE_XC arch=aarch64 packages=1 cores=(\d+) threads_per_core=1 migrations=(\d+) signals=(\d+) smc_rounds=(\d+) dual_map=(\d+) excl_aba=(\d) futex=(\d+) clocks=1 fp_threads=(\d+) fp_steps=(\d+) fp_bad=(\d+) aarch32=(\w+) direct_io=(\d)/);
@@ -409,7 +555,7 @@ const v86_options = {
 if(stage === "lifecycle")
 {
     const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
-    const options = { ...v86_options, kernel: { url: prepared.kernel }, initrd: { url: prepared.initrd }, cmdline: SINGLE_CMDLINE };
+    const options = { ...v86_options, kernel: { url: v86_kernel }, initrd: { url: prepared.initrd }, cmdline: SINGLE_CMDLINE };
     let transcript = "";
     const started = performance.now();
     const attach = emulator => emulator.add_listener("serial0-output-byte", byte => { transcript += String.fromCharCode(byte); });
@@ -467,10 +613,11 @@ const array_buffer = file => { const b = fs.readFileSync(file); return b.buffer.
 const machine_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory_mb * 1048576, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
-    kernel: { url: prepared.kernel }, initrd: { url: single || live ? prepared.initrd : initrd },
+    kernel: { url: v86_kernel }, initrd: { url: single || live ? prepared.initrd : initrd },
     cmdline: single ? SINGLE_CMDLINE : live ? LIVE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS, ...PARALLEL_OPTIONS,
     ...(extended_memory ? { extended_memory_size: extended_memory } : {}),
     ...(process.env.A64_EXTENDED_CACHE ? { extended_memory_cache: +process.env.A64_EXTENDED_CACHE } : {}),
+    ...(android ? { virtio_disks: [{ buffer: f2fs_disk, id: "a64f2fs" }] } : {}),
     // (the live stage's disks and devices, in the reference's -device order: P5.3)
     ...(live ? { virtio_disks: [{ buffer: array_buffer(prepared.iso), readonly: true },
         { buffer: array_buffer(probe_directory + "probe.tar"), id: "a64probe" },
@@ -508,6 +655,14 @@ const attach_live = emulator =>
         echoed++;
         setTimeout(() => emulator.bus.send("net0-receive", reply), 0);
     });
+    // (virtio-console's ports 1-3: the host echoes what the guest writes)
+    for(const port of [1, 2, 3])
+    {
+        emulator.add_listener(`virtio-console${port}-output-bytes`, bytes => {
+            const copy = Uint8Array.from(bytes);
+            setTimeout(() => emulator.bus.send(`virtio-console${port}-input-bytes`, copy), 0);
+        });
+    }
     emulator.add_listener("virtio-console0-output-bytes", bytes => {
         hvc += String.fromCharCode(...bytes);
         const send = text => emulator.bus.send("virtio-console0-input-bytes", Uint8Array.from(Buffer.from(text)));
@@ -757,6 +912,55 @@ if(extended_memory)
     extended_stats.share = Math.round((extended_stats.interpreted + extended_stats.compiled) / retired_instructions * 1e4) / 1e4;
     lines.extended = extended_stats;
 }
+if(android)
+{
+    // (P9.1: binderfs's selftest and the cross-core binder ping-pong)
+    const totals = transcript.match(/# Totals: pass:(\d+) fail:(\d+)/);
+    assert.ok(totals && +totals[1] > 0 && +totals[2] === 0, "binderfs's selftest: " + (totals?.[0] || "no totals"));
+    const pingpong = transcript.match(/A64_BINDER_OK rounds=(\d+) cpus=(\d+),(\d+)/);
+    assert.ok(pingpong && +pingpong[1] === 10000, "binder ping-pong: " + (transcript.match(/A64_BINDER_FAIL[^\r\n]*/)?.[0] || "no result"));
+    // (P9.2: userfaultfd)
+    const uffd = transcript.match(/A64_UFFD_OK faults=(\d+)/);
+    assert.ok(uffd && +uffd[1] === 64, "userfaultfd: " + (transcript.match(/A64_UFFD_FAIL[^\r\n]*/)?.[0] || "no result"));
+    lines.binder = { selftest: totals[0], pingpong: pingpong[0] };
+    lines.uffd = uffd[0];
+    const failure = what => transcript.match(new RegExp(`A64_${what}_FAIL[^\\r\\n]*`))?.[0] || "no result";
+    // (P9.2: f2fs with fscrypt, written, one reboot, read without the key and with it)
+    const setup = transcript.match(/A64_FSCRYPT_SETUP id=([0-9a-f]{32})/);
+    const fscrypt = transcript.match(/A64_FSCRYPT_OK id=([0-9a-f]{32})[^\r\n]*/);
+    assert.ok(setup && fscrypt && setup[1] === fscrypt[1], "fscrypt across the reboot: " + failure("FSCRYPT"));
+    assert.equal(transcript.split("\nA64_REBOOTING").length - 1, 1, "one reboot (PSCI SYSTEM_RESET) after writing");
+    assert.equal(transcript.match(/Booting Linux on physical CPU 0x0+ /g)?.length, 2, "two boots");
+    assert.ok(transcript.indexOf("A64_FSCRYPT_OK") > transcript.indexOf("A64_REBOOTING"), "read after the reboot");
+    // (bootconfig: /proc/bootconfig, and kernel.* on the command line)
+    // (after the keys, as comments, the command line the bootloader gave)
+    const bootconfig = [...transcript.matchAll(/^A64_BOOTCONFIG ([^#\r\n][^\r\n]*)/gm)].map(m => m[1]);
+    assert.deepEqual(bootconfig, Object.entries(BOOTCONFIG).map(([key, value]) => `${key} = "${value}"`), "/proc/bootconfig");
+    assert.match(transcript, /^A64_BOOTCONFIG # [^\r\n]*\bbootconfig\b/m, "/proc/bootconfig's parameters from the bootloader");
+    assert.match(transcript, /^A64_CMDLINE printk\.devkmsg=on [^\r\n]*\bbootconfig\b/m, "bootconfig's kernel.* keys first on the command line");
+    // (pseudo-NMIs: the GIC's priority masking in use)
+    assert.ok(detected(transcript).includes("IRQ priority masking"), "pseudo-NMIs (CPU features: detected: IRQ priority masking)");
+    // (SELinux enforcing before the probe)
+    const selinux = transcript.match(/A64_SELINUX_OK enforce=1 context=(\S+)[^\r\n]*/);
+    assert.ok(selinux, "SELinux: " + failure("SELINUX"));
+    assert.equal(selinux[1], "u:r:t", "the processes' context, from the policy's initial SIDs");
+    assert.ok(selinux.index < transcript.lastIndexOf("A64_PROBE_OK"), "the probe passed under enforcing");
+    // (erofs on dm-verity: the file and the whole device as built; the changed byte's block fails)
+    const erofs = transcript.match(/^A64_EROFS (\S+) ([0-9a-f]{64}) A64_EROFS_HELLO ([0-9a-f]{64})/m);
+    assert.ok(erofs, "erofs on dm-verity: " + failure("VERITY"));
+    assert.deepEqual([erofs[2], erofs[3]], [android_expect.payload_sha256, android_expect.erofs_sha256], "erofs's file and the verity device's bytes");
+    const bad = transcript.match(/^A64_VERITY_BAD (\S+) (\w+)/m);
+    assert.equal(bad?.[2], "eio", "dm-verity over the changed image: reads fail");
+    assert.match(transcript, new RegExp(`data block ${android_expect.bad_block} is corrupted`), "dm-verity names the changed block");
+    // (zram and PSI)
+    const psi = transcript.match(/A64_PSI_OK events=(\d+)[^\r\n]*/);
+    assert.ok(psi && +psi[1] > 0, "PSI's trigger: " + failure("PSI"));
+    const swapped = transcript.match(/A64_PSI_CHILD swap=(\d+) zram=(\d+)\s+(\d+)/);
+    assert.ok(swapped && +swapped[1] > 0 && +swapped[2] > +swapped[3], "pages in zram, compressed: " + swapped?.[0]);
+    const memory_kib = +transcript.match(/A64_MEMINFO MemTotal:\s+(\d+) kB/)?.[1];
+    Object.assign(lines, { fscrypt: fscrypt[0], bootconfig: bootconfig.length, selinux: selinux[0], erofs_verity: true, psi: psi[0],
+        zram: swapped[0], mem_total_kib: memory_kib });
+}
 if(/^soak/.test(workload))
 {
     const done = transcript.match(/A64_SOAK_DONE rounds=(\d+)/);
@@ -789,6 +993,9 @@ if(live)
     assert.equal(echoed, 16, "the host echoed every probe frame");
     assert.match(transcript, /\nA64_HWRNG=64\r?\n/, "64 bytes from /dev/hwrng (virtio-rng)");
     assert.equal(hvc_state, 3, "a login on hvc0 (virtio-console): " + JSON.stringify(hvc.slice(-300)));
+    // (P9.1: each of the ports 1-3 echoed its line)
+    const vports = [...transcript.matchAll(/^A64_VPORT org\.v86\.port(\d) vport\d+p(\d) VPING_(\d)\r?$/gm)].map(m => m.slice(1).join(""));
+    assert.deepEqual(vports.sort(), ["111", "222", "333"], "virtio-console's ports 1-3 echo (/dev/vport<N>p1-p3)");
     // (P5.8: the injected events, as the guest's evdev read them)
     assert.deepEqual(input_events(transcript, "A64_EVK"), INJECTED_KEYS, "the keyboard's events (virtio-input)");
     assert.deepEqual(input_events(transcript, "A64_EVT"), INJECTED_TABLET, "the tablet's events (virtio-input)");
@@ -834,7 +1041,9 @@ if(!single)
             assert.ok(workload_output(transcript), "the workload's output");
             assert.equal(workload_output(transcript), workload_output(reference_text), "the workload's output, against the reference's");
         }
-        const only_v86 = features.filter(f => !reference_features.includes(f) && !FEATURES_ONLY_ON_V86.includes(f));
+        // (and the androidish runs' pseudo-NMIs, their command line's, not the reference's)
+        const only_v86 = features.filter(f => !reference_features.includes(f) && !FEATURES_ONLY_ON_V86.includes(f) &&
+            !(android && f === "IRQ priority masking"));
         const only_reference = reference_features.filter(f => !features.includes(f) && !FEATURES_ONLY_ON_REFERENCE.includes(f));
         assert.deepEqual([only_v86, only_reference], [[], []], "CPU features: detected, beyond the allowed differences (v86, reference)");
     }

@@ -1,6 +1,6 @@
 {
- "about": "The v86-aarch64-v1 CPU profile (docs/arm64-virt-android16-plan.md, 'CPU profile' and P0.3): every ID register, the IMPLEMENTATION DEFINED choices and the differences allowed against the QEMU cortex-a35 reference. tools/cpu_contract.mjs takes the a64 profiles' expected values from this file and compares the reference's registers with it; fields are [name, high bit, low bit, value].",
- "profile": "v86-aarch64-v1",
+ "about": "The v86-aarch64-v1.1 CPU profile (docs/arm64-virt-android16-plan.md, 'CPU profile' and P0.3): every ID register, the IMPLEMENTATION DEFINED choices and the differences allowed against the QEMU cortex-a35 reference. tools/cpu_contract.mjs takes the a64 profiles' expected values from this file and compares the reference's registers with it; fields are [name, high bit, low bit, value].",
+ "profile": "v86-aarch64-v1.1",
  "revision": 1,
  "architecture": "Armv8.0-A",
  "arm_arm": "Arm Architecture Reference Manual for A-profile architecture, DDI 0487 issue L.b (the latest issue found on 2026-10-15)",
@@ -478,15 +478,15 @@
   {
    "name": "ID_AA64MMFR0_EL1",
    "encoding": "S3_0_C0_C7_0",
-   "value": "0x000000000f000022",
+   "value": "0x0000000000100022",
    "fields": [
     ["PARange", 3, 0, 2],
     ["ASIDBits", 7, 4, 2],
     ["BigEnd", 11, 8, 0],
     ["SNSMem", 15, 12, 0],
     ["BigEndEL0", 19, 16, 0],
-    ["TGran16", 23, 20, 0],
-    ["TGran64", 27, 24, 15],
+    ["TGran16", 23, 20, 1],
+    ["TGran64", 27, 24, 0],
     ["TGran4", 31, 28, 0],
     ["TGran16_2", 35, 32, 0],
     ["TGran64_2", 39, 36, 0],
@@ -497,7 +497,7 @@
     ["FGT", 59, 56, 0],
     ["ECV", 63, 60, 0]
    ],
-   "note": "40-bit PA, 16-bit ASIDs, 4 KiB granule only (TGran16 = 0 and TGran64 = 0xF mean unsupported), no mixed endianness"
+   "note": "40-bit PA, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1.1; v1, a64_profile: \"v1\", has 4 KiB only: TGran16 = 0, TGran64 = 0xF), no mixed endianness"
   },
   {
    "name": "ID_AA64MMFR1_EL1",
@@ -733,10 +733,6 @@
    {
     "registers": ["CTR_EL0.L1Ip"],
     "why": "PIPT (reference VIPT, 0x84448004)"
-   },
-   {
-    "registers": ["ID_AA64MMFR0_EL1.TGran16", "ID_AA64MMFR0_EL1.TGran64"],
-    "why": "v1 declares the 4 KiB granule only (v1.1 adds 16 and 64 KiB)"
    },
    {
     "registers": ["ID_AA64MMFR0_EL1.BigEnd", "ID_AA64MMFR0_EL1.SNSMem"],

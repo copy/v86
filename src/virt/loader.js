@@ -7,7 +7,8 @@
 // 128 MiB), or above the kernel; the device tree after the initrd, 2 MiB
 // aligned (some kernels map its 2 MiB block early). The core starts at the
 // kernel's first byte with x0 the device tree's address. A kernel built for
-// 16 or 64 KiB pages is refused (profile v1 declares the 4 KiB granule only).
+// 16 or 64 KiB pages needs those granules (profile v1.1, the default; v1
+// declares the 4 KiB granule only).
 
 import { VIRT_RAM_BASE } from "./platform.js";
 import { gunzip } from "./inflate.js";
@@ -41,7 +42,7 @@ export function unpack_kernel(kernel)
  * @param {!Uint8Array} image
  * @return {{offset: number, size: number}}
  */
-export function image_placement(image)
+export function image_placement(image, granules = 1)
 {
     const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
     if(image.length < 64 || view.getUint32(56, true) !== IMAGE_MAGIC)
@@ -49,11 +50,13 @@ export function image_placement(image)
         // (a raw binary: where QEMU loads one that is not an Image)
         return { offset: DEFAULT_TEXT_OFFSET, size: image.length };
     }
-    // (flags bits 2:1, the kernel's page size: unspecified, 4, 16 or 64 KiB; profile v1 has the 4 KiB granule only)
+    // (flags bits 2:1, the kernel's page size: unspecified, 4, 16 or 64 KiB:
+    // the profile's granules, `granules` bit 1 16 KiB, bit 2 64 KiB; v1 has the 4 KiB one only)
     const page_size = view.getUint32(24, true) >> 1 & 3;
-    if(page_size > 1)
+    if(page_size > 1 && !(granules & (page_size === 2 ? 2 : 4)))
     {
-        throw new Error("kernel: built for " + (page_size === 2 ? 16 : 64) + " KiB pages; the CPU profile supports 4 KiB pages only");
+        throw new Error("kernel: built for " + (page_size === 2 ? 16 : 64) + " KiB pages; the CPU profile does not have that granule " +
+            "(a64_profile: \"v1.1\" has 16 and 64 KiB)");
     }
     const text_offset = view.getUint32(8, true) + view.getUint32(12, true) * 0x100000000;
     const image_size = view.getUint32(16, true) + view.getUint32(20, true) * 0x100000000;
@@ -73,7 +76,7 @@ export function load_linux(cpu, boot)
     const ram_size = cpu.memory_size[0];
     const ram_end = VIRT_RAM_BASE + ram_size;
     const image = unpack_kernel(new Uint8Array(boot.kernel));
-    const { offset, size } = image_placement(image);
+    const { offset, size } = image_placement(image, cpu.wm.exports["a64_granules"] ? cpu.wm.exports["a64_granules"]() : 1);
     if(offset + image.length > ram_size)
     {
         throw new Error("kernel: " + image.length + " bytes at RAM + 0x" + offset.toString(16) + " do not fit in RAM");

@@ -6,6 +6,7 @@
 export const VIRT_LAYOUT_VERSION = 2;
 
 /** The CPU profile (tests/platform/a64-profile.json) */
+/** The CPU profiles' base name: v1; v1.1, the default, adds ".1" (src/arm/cpu.js) */
 export const A64_PROFILE = "v86-aarch64-v1";
 
 /** Must match MAX_CORES in src/rust/aarch64/isa_hooks.rs */

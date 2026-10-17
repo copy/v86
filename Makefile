@@ -1195,10 +1195,38 @@ a64-extended-guest-tests: build/v86-arm64.wasm
 	A64_JIT=1 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=2147483648 A64_LINUX_MEMTEST=2304 node tests/a64/linux_boot.mjs
 	A64_JIT=0 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=2147483648 A64_LINUX_MEMTEST=2304 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_CORES=2 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=3221225472 A64_LINUX_MEMTEST=3328 node tests/a64/linux_boot.mjs
-a64-pagesize-guest-tests:
-	$(call A64_PENDING,A6)
-a64-android-prep-tests:
-	$(call A64_PENDING,A7)
+# (P8.6, P9.1, P9.2) the 16 and 64 KiB page kernels and the androidish one, built in an Alpine aarch64 VM under
+# Homebrew QEMU with HVF (tools/a64_kernel.mjs: the source in build/a64-kernel/dl/,
+# the toolchain from tools/alpine_repo.mjs --arch aarch64 --set kbuild)
+.PHONY: a64-kernels
+a64-kernels:
+	node tools/a64_kernel.mjs --variants 16k,64k,androidish
+# Each on 2 cores (TLBI broadcasts): the live stage to a login, interpreted
+# and with the page tier, the probe reporting the page size; the guest JIT
+# workloads, their output against the reference's (P6.7)
+a64-pagesize-guest-tests: build/v86-arm64.wasm
+	for kernel in 16k 64k; do \
+		A64_KERNEL=$$kernel A64_JIT=1 A64_STAGE=live A64_CORES=2 node tests/a64/linux_boot.mjs || exit 1; \
+		A64_KERNEL=$$kernel A64_STAGE=live A64_CORES=2 node tests/a64/linux_boot.mjs || exit 1; \
+		A64_KERNEL=$$kernel A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit node tests/a64/linux_boot.mjs || exit 1; \
+	done
+# (P9.1, P9.2: Android's kernel needs on Alpine) the androidish kernel
+# (tools/a64_kernel.mjs --variants androidish) and its images: f2fs with
+# fscrypt across a reboot, bootconfig, the minimal SELinux policy enforcing
+# (the probe after it), binderfs's selftest, binder between two cores,
+# userfaultfd, erofs on dm-verity, zram and PSI's trigger; interpreted and
+# with the page tier, on 2 and 4 cores, with the cores in workers, and with
+# 4 GiB of RAM (3 GiB of it extended); virtio-console's ports 1-3 are in
+# every live stage
+a64-android-prep-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+	for jit in 0 1; do for cores in 2 4; do \
+		A64_KERNEL=androidish A64_JIT=$$jit A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; \
+	done; done
+	for jit in 0 1; do \
+		A64_KERNEL=androidish A64_PARALLEL=1 A64_JIT=$$jit A64_STAGE=initramfs A64_CORES=4 node tests/a64/linux_boot.mjs || exit 1; \
+	done
+	A64_KERNEL=androidish A64_JIT=1 A64_STAGE=initramfs A64_CORES=2 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=3221225472 \
+		node tests/a64/linux_boot.mjs
 android-reference-tests:
 	$(call A64_PENDING,A8)
 android-guest-tests:

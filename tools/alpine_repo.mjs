@@ -7,7 +7,7 @@
 //     tar -xf /dev/sda -C /mnt/repo
 //     apk add --no-network --repository /mnt/repo/main --repository /mnt/repo/community <packages>
 //
-//     node tools/alpine_repo.mjs [--arch x86_64|aarch64] [--set gpu|jit]
+//     node tools/alpine_repo.mjs [--arch x86_64|aarch64] [--set gpu|jit|sys|kbuild]
 //
 // --set gpu (the default): Mesa and the GPU test programs, for the display
 // adapters' tests (tests/x64/linux_gpu.mjs). Alpine 3.24's Mesa (26.1) has
@@ -25,6 +25,10 @@
 // openssl, ssl_client), the kernel package (the virt
 // ISO has none), the empty firmware set, and setup-disk's own tools
 // (tests/a64/linux_install.mjs, P5.4).
+//
+// --set kbuild: what building Linux needs (tools/a64_kernel.mjs, P8.6: the
+// 16 and 64 KiB kernels, built natively in an Alpine aarch64 VM), and what
+// makes P9.2's test images there (libsepol, erofs-utils, f2fs-tools).
 //
 // The image is build/x64-linux/<set>-repo.tar for x86_64 and
 // build/a64-linux/<set>-repo.tar for aarch64 (the unpacked repository next
@@ -54,6 +58,13 @@ export const VIRGL_PACKAGES = ["mesa-dri-gallium", "mesa-gbm", "mesa-egl", "mesa
 export const JIT_PACKAGES = ["nodejs", "openjdk21-jdk", "luajit", "pcre2-tools"];
 /** setup-disk -m sys from the virt ISO: its kernel and firmware packages */
 export const SYS_PACKAGES = ["alpine-base", "openssl", "ssl_client", "linux-virt", "linux-firmware-none", "e2fsprogs", "sfdisk"];
+/** Building Linux in Alpine (tools/a64_kernel.mjs): the toolchain and the kernel build's own needs */
+export const KBUILD_PACKAGES = ["build-base", "bash", "bison", "flex", "gawk", "perl", "bc", "openssl-dev", "elfutils-dev",
+    "linux-headers", "findutils", "diffutils", "sed", "xz", "tar", "gmp-dev", "mpc1-dev", "mpfr-dev", "e2fsprogs",
+    // (P9.2: the test images the VM makes: a minimal SELinux policy with libsepol's CIL compiler, erofs, f2fs)
+    "libsepol-dev", "erofs-utils", "f2fs-tools"];
+/** The virt ISO's live system: its world besides alpine-base */
+const LIVE_WORLD = ["openssl", "ssl_client"];
 /** Where a set's repository and image go */
 export const output_directory = arch => path.join(ROOT, arch === "aarch64" ? "build/a64-linux" : "build/x64-linux");
 
@@ -121,14 +132,17 @@ async function build_repo(branch, out, names, arch = "x86_64")
         for(const fields of parse_apkindex(apkindex(fs.readFileSync(index_path))).values())
         {
             if(packages.has(fields.P)) continue;
-            const provides = (fields.p || "").split(" ").filter(Boolean).map(provided => provided.replace(/[<>=~].*$/, ""));
+            const provided = (fields.p || "").split(" ").filter(Boolean);
+            const provides = provided.map(name => name.replace(/[<>=~].*$/, ""));
             const entry = { repo, version: fields.V, deps: (fields.D || "").split(" ").filter(Boolean), provides,
                 install_if: (fields.i || "").split(" ").filter(Boolean) };
             packages.set(fields.P, entry);
             for(const name of provides)
             {
                 if(!providers.has(name)) providers.set(name, []);
-                providers.get(name).push({ name: fields.P, priority: Number(fields.k || 0) });
+                // (and the version it provides: apk takes the highest among equal priorities)
+                const version = (provided.find(p => p.replace(/[<>=~].*$/, "") === name) || "").split("=")[1] || "";
+                providers.get(name).push({ name: fields.P, priority: Number(fields.k || 0), version });
             }
         }
     }
@@ -136,7 +150,13 @@ async function build_repo(branch, out, names, arch = "x86_64")
     const wanted = new Set();
     const missing = [];
     // (a virtual name: the provider apk picks, the highest provider_priority)
-    const provider = name => (providers.get(name) || []).reduce((best, p) => !best || p.priority > best.priority ? p : best, null)?.name;
+    const newer = (a, b) => {
+        const x = a.split(/[.-]/).map(Number), y = b.split(/[.-]/).map(Number);
+        for(let i = 0; i < Math.max(x.length, y.length); i++) if((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+        return false;
+    };
+    const provider = name => (providers.get(name) || []).reduce((best, p) => !best || p.priority > best.priority ||
+        p.priority === best.priority && newer(p.version, best.version) ? p : best, null)?.name;
     function want(dependency)
     {
         if(dependency.startsWith("!")) return;
@@ -165,6 +185,23 @@ async function build_repo(branch, out, names, arch = "x86_64")
         packages.get(package_name).deps.forEach(base_closure);
     };
     if(packages.has("alpine-base")) base_closure("alpine-base");
+    // (the live system's packages that pin an exact version of one the set
+    // upgrades must be upgraded with it: apk does, so they must be here,
+    // e.g. openssl with openssl-dev's libssl3)
+    for(const name of LIVE_WORLD) if(packages.has(name)) base_closure(name);
+    for(let added = true; added;)
+    {
+        added = false;
+        for(const name of base)
+        {
+            if(wanted.has(name)) continue;
+            if(packages.get(name).deps.some(d => /=/.test(d) && wanted.has(d.replace(/[<>=~].*$/, ""))))
+            {
+                want(name);
+                added = true;
+            }
+        }
+    }
     const installed = name => wanted.has(name) || base.has(name);
     const present = name => installed(name) || [...wanted, ...base].some(w => packages.get(w).provides.includes(name));
     for(let added = true; added;)
@@ -204,9 +241,9 @@ if(process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import
     const arch = option("--arch", "x86_64");
     const set = option("--set", "gpu");
     if(!["x86_64", "aarch64"].includes(arch)) throw new Error("--arch: x86_64 or aarch64");
-    if(!["gpu", "jit", "sys"].includes(set)) throw new Error("--set: gpu, jit or sys");
+    if(!["gpu", "jit", "sys", "kbuild"].includes(set)) throw new Error("--set: gpu, jit, sys or kbuild");
     const out = path.join(output_directory(arch), set + "-repo");
-    await build_repo("v3.24", out, { gpu: PACKAGES, jit: JIT_PACKAGES, sys: SYS_PACKAGES }[set], arch);
+    await build_repo("v3.24", out, { gpu: PACKAGES, jit: JIT_PACKAGES, sys: SYS_PACKAGES, kbuild: KBUILD_PACKAGES }[set], arch);
     if(set === "gpu") await build_repo("v3.23", path.join(out, "v3.23"), VIRGL_PACKAGES, arch);
 
     // A ustar image on the disk (as for tests/x64/linux_boot.mjs's probes):

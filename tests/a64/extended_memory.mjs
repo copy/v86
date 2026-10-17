@@ -115,6 +115,9 @@ for(const jit of [false, true])
         assert.equal(kind(EXT - 1), 0, "a hole before it");
         assert.equal(cpu.dma_classify(EXT + 4000, 200), -1, "the DMA facade: extended RAM, not one backing");
         assert.equal(cpu.dma_classify(EXT + EXTENDED - 8, 16), -2, "past its end");
+        // (what virtio checks of a virtqueue or a buffer before its DMA)
+        cpu.validate_physical_range(EXT + 4000, 200);
+        assert.throws(() => cpu.validate_physical_range(EXT + EXTENDED - 8, 16), RangeError, "validated: past its end");
 
         // each width; an 8-byte access across a page
         write(EXT + 0x1001, 1, 0xAB);

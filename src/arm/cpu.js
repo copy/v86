@@ -193,6 +193,12 @@ A64CPU.prototype.init = function(settings, device_bus)
     }
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
+    // the CPU profile (docs/arm64-virt-android16-plan.md, "CPU profile"):
+    // v1.1 (the 4, 16 and 64 KiB granules, since P8.6), or v1 (4 KiB only)
+    const profile = settings["a64_profile"] || "v1.1";
+    if(profile !== "v1" && profile !== "v1.1") throw new Error("a64_profile: \"v1\" or \"v1.1\", got " + JSON.stringify(profile));
+    this.profile = A64_PROFILE + (profile === "v1.1" ? ".1" : "");
+    this.wm.exports["a64_set_granules"](profile === "v1.1" ? 7 : 1);
     // the A64 page tier (J2): synchronous publication (tests), the JIT switches by name
     this.ir_sync_publication = settings["ir_sync_publication"] === true;
     set_jit_switches(this.wm.exports, this.wasm_memory, settings["jit_switches"]);
@@ -285,7 +291,8 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(settings.virtio_rng) add("virtio-rng", (transport, pci_id) => new VirtioRng(this, transport, pci_id));
     if(settings.virtio_console)
     {
-        add("virtio-console", (transport, pci_id) => new VirtioConsole(/** @type {?} */ (this), device_bus, pci_id, transport || undefined));
+        // (ports 1-3 generic: the host service channels, P9.1)
+        add("virtio-console", (transport, pci_id) => new VirtioConsole(/** @type {?} */ (this), device_bus, pci_id, transport || undefined, true));
     }
     // (P5.8, P7.4: a keyboard and a tablet, or the kinds listed, as the
     // reference's virtio-keyboard, virtio-tablet and virtio-multitouch)
@@ -799,7 +806,9 @@ A64CPU.prototype.extended_page_bytes = function(address, count, write)
 /** @throws {RangeError} unless [address, address + length) is all RAM (VirtQueue) */
 A64CPU.prototype.validate_physical_range = function(address, length)
 {
-    if(length && this.dma_classify(address, length) < 0)
+    // (RAM or extended RAM, which the facade copies a page at a time: a
+    // virtqueue or a buffer above 4 GiB with 4 GiB of RAM)
+    if(length && this.dma_classify(address, length) === -2)
     {
         throw new RangeError("[0x" + address.toString(16) + ", +" + length + ") is not RAM");
     }
@@ -1015,7 +1024,7 @@ A64CPU.prototype.get_state = function(skip_memory = false)
         state[78] = new Uint8Array(bitmap.get_buffer());
     }
     state[99] = null;
-    state[103] = ["virt", VIRT_LAYOUT_VERSION, A64_PROFILE];
+    state[103] = ["virt", VIRT_LAYOUT_VERSION, this.profile];
     return state;
 };
 
@@ -1028,10 +1037,10 @@ A64CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from a machine with machine_type: \"" + machine + "\", this one has \"virt\"");
     }
-    if(identity[1] !== VIRT_LAYOUT_VERSION || identity[2] !== A64_PROFILE)
+    if(identity[1] !== VIRT_LAYOUT_VERSION || identity[2] !== this.profile)
     {
         throw new Error("The snapshot is from virt layout " + identity[1] + " with CPU profile " + identity[2] +
-            "; this machine is layout " + VIRT_LAYOUT_VERSION + ", " + A64_PROFILE);
+            "; this machine is layout " + VIRT_LAYOUT_VERSION + ", " + this.profile);
     }
     if(state[0] !== this.memory_size[0])
     {

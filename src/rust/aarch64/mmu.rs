@@ -34,6 +34,10 @@ pub fn a64_set_granules(mask: u32) {
     tlb::flush(true);
 }
 
+/// The profile's granules (a64_set_granules): bit 0 4 KiB, 1 16 KiB, 2 64 KiB
+#[no_mangle]
+pub fn a64_granules() -> u32 { unsafe { *crate::parallel::machine(&raw mut GRANULES) } }
+
 /// ID_AA64MMFR0_EL1's TGran16 and TGran64 fields for the profile
 pub fn mmfr0_granules() -> u64 {
     let g = unsafe { *crate::parallel::machine(&raw mut GRANULES) };

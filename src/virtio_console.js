@@ -30,11 +30,16 @@ const VIRTIO_CONSOLE_F_EMERG_WRITE    = 2;
  *     its usual slot
  * @param {?=} transport another transport than virtio-pci (the virt
  *     machine's virtio-mmio, src/virtio_mmio.js)
+ * @param {boolean=} generic_ports ports 1-3 as generic ports (the virt machine)
  */
-export function VirtioConsole(cpu, bus, pci_id, transport)
+export function VirtioConsole(cpu, bus, pci_id, transport, generic_ports)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;
+    /** Ports 1-3 as generic ports named org.v86.port<N> (/dev/vport<D>p<N>,
+     * QEMU's virtserialport: the virt machine's host service channels), else
+     * consoles (hvc1-hvc3) */
+    this.generic_ports = !!generic_ports;
     this.rows = 25;
     this.cols = 80;
     this.ports = 4;
@@ -149,14 +154,14 @@ export function VirtioConsole(cpu, bus, pci_id, transport)
                                 }
                                 break;
                             case VIRTIO_CONSOLE_PORT_READY:
-                                this.Ack(queue_id, bufchain);
-                                this.SendEvent(port, VIRTIO_CONSOLE_CONSOLE_PORT, 1);
-                                this.SendName(port, "virtio-" + port);
+                                // (the request was acknowledged above: a second
+                                // acknowledgement of it breaks the guest's queue)
+                                if(port === 0 || !this.generic_ports) this.SendEvent(port, VIRTIO_CONSOLE_CONSOLE_PORT, 1);
+                                this.SendName(port, port !== 0 && this.generic_ports ? "org.v86.port" + port : "virtio-" + port);
                                 this.SendEvent(port, VIRTIO_CONSOLE_PORT_OPEN, 1);
 
                                 break;
                             case VIRTIO_CONSOLE_PORT_OPEN:
-                                this.Ack(queue_id, bufchain);
                                 if(port === 0) {
                                     this.SendWindowSize(port);
                                 }

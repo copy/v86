@@ -445,6 +445,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings["cpu_features"] = options["cpu_features"];
     settings["cpu_features_unreleased"] = options["cpu_features_unreleased"]; // (tests and development)
     settings["jit_switches"] = options["jit_switches"]; // (src/jit_switches.js)
+    settings["a64_profile"] = options["a64_profile"]; // (the arm64 CPU's profile: src/arm/cpu.js)
     settings.disable_jit = options.disable_jit;
     settings["jit_backend"] = options["jit_backend"];
     // (ir_region_budget, ir_stats, ir_verify, ir_dump, ir_opt_level,

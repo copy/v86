@@ -1839,3 +1839,89 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
 - P8.6（16 KiB 与 64 KiB 页的内核）未做：要下载 linux-6.18.35 的源码（约 150 MiB）与 Alpine 的构建包（约 100 MiB），
   并在 HVF 下的 Alpine aarch64 虚拟机里构建（macOS 上缺 GNU make 4、gsed、lld 等）；下载要所有者同意，
   2026-10-17 尚未得到，所以 A6 暂不打 `vA6` 标签，P8.6 留待所有者决定后再做。
+
+### A6 中 P8.6 的部分（2026-10-17；A6 完成）
+
+提交：与本节同一个提交（`vA6`）。
+
+- 所有者 2026-10-17 同意下载：cdn.kernel.org 的 `linux-6.18.35.tar.xz`（147 MiB，sha256 与 kernel.org 的 `sha256sums.asc`
+  一致并固定在工具里）与 Alpine 3.24 aarch64 的构建包（`tools/alpine_repo.mjs --arch aarch64 --set kbuild`：91 个包，
+  104.6 MiB）。解析器修了两处：同优先级的提供者按提供的版本取高者（`so:libisl.so.23` 原来取了 isl25，apk 要的是
+  isl26）；live 系统里钉死了被升级包版本的包一并下载（openssl-dev 升级 libssl3 时 openssl 也要升级）。
+- `tools/a64_kernel.mjs`：
+  - 源码取 6.18.35（即 Alpine 3.24 的库存内核的版本），底配置取 ISO 里的 `config-6.18.35-0-virt`（库存内核实际用的
+    配置；计划写的 aports `virt.aarch64.config` 要另外下载，没有用），加公共片段（Alpine 各阶段要的驱动内建：virtio-mmio、
+    virtio-blk、virtio-net、virtio-input、hwrng 与 virtio-rng、loop、squashfs、iso9660、ext4、evdev、packet；无调试信息；
+    模块签名的密钥改为内核自己生成的一次性密钥，因为库存配置写的是 Alpine 构建机上的路径；不构建模块）与页大小片段，
+    片段直接接在底配置后面再 `olddefconfig`（`merge_config.sh` 要 GNU 的 `readlink -m`）。
+  - 偏差：计划写的是 macOS 上 `LLVM=1` 交叉编译；macOS 缺内核的宿主工具（GNU make 4、gsed、lld、Linux 头文件），
+    所以改为在 Homebrew QEMU 10.2 的 HVF 下启动 Alpine aarch64 live 系统（8 核、6 GiB），装上本地仓库里的 GCC 15.2，
+    在 ext4 暂存盘上原生编译，两个内核共 783 s；结果是 `build/a64-kernel/{16k,64k}/Image` 与 `config`，
+    `build/a64-kernel/manifest.json` 记录源码、底配置、片段、结果的 hash 与工具链。`make a64-kernels`。
+- profile v1.1：新的内部选项 `a64_profile: "v1" | "v1.1"`（`src/arm/cpu.js`，init 时调 `a64_set_granules`，快照标识随之为
+  `v86-aarch64-v1.1`）；加载器按核心实际的 granule 检查 Image 头里的页大小（`a64_granules`）。
+  自建内核验收之后按计划把默认值升为 v1.1：ID_AA64MMFR0_EL1 的 TGran16 = 1、TGran64 = 0（与参考 cortex-a35 相同，于是从
+  允许的差异里删掉这一条），`tests/platform/a64-profile.json` 与 `cpu-contract.json` 随之更新（`cpu_contract.mjs --check` 与
+  `--a64-reference` 通过）；`a64_profile: "v1"` 仍可选。旧快照的标识是 `v86-aarch64-v1`，恢复进 v1.1 的机器时被拒绝。
+- `make a64-pagesize-guest-tests`（`A64_KERNEL=16k|64k`，probe 检查 AT_PAGESZ）：
+  16K 与 64K 各在 2 核上：page tier 的 live 阶到 login 33.1/46.7 s，解释器 226/245 s，probe 全部通过并报告
+  `page_size=16384`/`65536`（`CPU features: detected` 与参考比较过）；JIT 工作负载（node、java、luajit、pcre2）的输出与参考的相同。
+  live 阶的模块来自库存内核，加载不了，所需驱动都已内建，所以不受影响。
+- 门禁：`make a64-gate-full` 的前置步骤（边界检查、解码 oracle、QEMU 参考、各单元目标、core-split-check、原生 oracle、
+  kvm-unit-tests 与 Alpine 的长测）与 R-a64-isa、R-a64-sys、R-a64-virt、R-a64-UP、R-a64-SMP 在一次运行中通过；这次运行到了
+  4 小时的上限（lifecycle 3101 s、SMP 1705 s），其余级别用 `tools/release_gate.mjs --levels R-a64-jit,R-a64-gpu,R-a64-parallel,
+  R-a64-memory,R-a64-granule,R-a64-android-prep` 接着跑，全部通过（GPU 2412 s、granule 792 s、android-prep 1255 s）。x86：
+  `tests/devices/virtio_console.js`、`tests/api/reboot.js` 通过（virtio-console 的修改，下一节）；fmt、eslint 干净。
+
+### A7 中 P9.1 与 P9.2 的部分（2026-10-17）
+
+提交：与上一节同一个提交（`vA6`）。
+
+- 内核：计划写的是 Alpine 的 lts 内核（`A64_LINUX_FLAVOR=lts`）；改为 `tools/a64_kernel.mjs` 自建的 androidish 内核（P9.2 本来
+  就要它，binder 与 binderfs 在其中内建），不再另外下载 lts 包。androidish 片段：binder、binderfs（`ANDROID_BINDER_DEVICES=""`）、
+  SELinux（加进 LSM 列表）、USERFAULTFD、BOOT_CONFIG、DM 与 DM_VERITY、EROFS、F2FS、FS_ENCRYPTION、ZRAM、PSI（同 GKI，
+  不默认关闭），GKI 的形态：ARM64_VA_BITS_39、ARM64_SW_TTBR0_PAN、ARM64_PSEUDO_NMI、RANDOMIZE_BASE（DTB 不写 kaslr-seed）。
+  测试程序与内核一同在 HVF 虚拟机里用 Alpine 的 GCC 与 musl 静态编译，头文件取这个内核的 UAPI；P9.2 的镜像也在那里做：
+  `minimal.cil` 用 libsepol 的 CIL 编译器（Alpine 没有 checkpolicy 与 secilc，`tests/a64/cil2bin.c`）编译为版本 33 的策略，
+  `mkfs.erofs`（时间与 UUID 固定）、`mkfs.f2fs -O encrypt`（64 MiB，压缩保存）。为此 kbuild 包集加了 libsepol-dev、erofs-utils、
+  f2fs-tools（所有者 2026-10-17 同意下载，约 1.4 MiB）。`--programs-only` 只重做配置、程序与镜像（约 20 s），Image 不动。
+- P9.1：
+  - binderfs 的 selftest（内核源码里的 `binderfs_test.c`）3/3 通过；kselftest harness 每个用例 30 s 的超时对 4 GiB 内存下的
+    `binderfs_stress`（1000 个设备、每个设备上每个 CPU 一个线程）不够，编译时把源码副本里的 `TEST_TIMEOUT_DEFAULT` 改为 300。
+  - `tests/a64/binder_pingpong.c`：context manager 与客户端各绑一个 CPU（0 与最后一个），经 binderfs 新建的设备用
+    `BINDER_WRITE_READ` 往返 10,000 轮，内容逐轮校验，缓冲区都释放。
+  - virtio-console 的端口 1–3 在 virt 机器上是通用端口（`org.v86.port<N>`，同 QEMU 的 virtserialport；PC 上仍是 hvc1–hvc3），
+    宿主经总线事件 `virtio-console<N>-output-bytes` / `-input-bytes` 收发。live 阶从 `/sys/class/virtio-ports/` 按名字找到
+    端口，每个写一行由测试回显：mmio 上是 `vport2p1`–`p3`，pci 上是 `vport4p1`–`p3`（设备序号随枚举变化，所以不写死）。
+    修好的一个错误：PORT_READY 与 PORT_OPEN 的控制消息被确认了两次（入口处一次、分支里一次），第二次确认让客体的控制队列
+    错乱（端口打不开）；x86 也受影响，`tests/devices/virtio_console.js` 与 `tests/api/reboot.js` 通过。
+- P9.2（`A64_KERNEL=androidish` 的 initramfs 阶；程序与镜像在 `/a64-android/` 下，a64-init 在 probe 之前与之后各跑一段）：
+  - f2fs 加 fscrypt：第一次启动在 virtio-blk 盘（serial a64f2fs）上加 64 字节的密钥，在空目录上设 v2 策略（AES-256-XTS 内容、
+    AES-256-CTS 文件名），写两个文件后卸载并 `reboot -f`（PSCI SYSTEM_RESET）；第二次启动没有密钥时策略在、密钥不在、文件名
+    是密文、打开文件得 ENOKEY，再加同一密钥后标识与策略的相同，文件名与内容（含 64 KiB 的文件）都回来。
+  - bootconfig：测试按 `tools/bootconfig` 的格式（数据、NUL、补齐到 4 字节、大小、校验和、`#BOOTCONFIG\n`）把三个键接在
+    initrd 之后，命令行加 `bootconfig`；`/proc/bootconfig` 列出这三个键（之后是 bootloader 命令行的注释行），`kernel.*` 的键
+    出现在 `/proc/cmdline` 的最前面。
+  - SELinux：`tests/a64/selinux_load.c` 把策略一次写进 selinuxfs 的 load，再写 enforce；策略只有一个用户、角色与类型，27 个
+    初始 SID 按内核的编号，`handleunknown allow`。enforcing 是真的：策略声明了 process 的 setrlimit 而没有允许，改硬限制得到
+    EACCES，内核记 `avc: denied { setrlimit } … permissive=0`；内核要求策略声明 process 的 transition 与 dyntransition。之后
+    probe、binder、uffd 等都在 enforcing 下运行并通过。
+  - userfaultfd：`tests/a64/uffd_test.c`，另一个 CPU 上的线程触发 64 个缺页，由 UFFDIO_COPY 填入，再加一页 UFFDIO_ZEROPAGE。
+  - erofs 加 dm-verity：测试在 JS 里为 erofs 镜像算出 format 1 的哈希树（SHA-256、4 KiB 块、salt 在块前、顶层在前，按内核
+    `dm-verity-target.c` 的查找方式对 2–16500 块的随机数据核对过），`tests/a64/dm_verity.c` 经 `/dev/mapper/control` 的 ioctl
+    （DM_DEV_CREATE、只读的 DM_TABLE_LOAD、DM_DEV_SUSPEND 恢复）在 loop 设备上建出设备；挂载后文件与整个设备的 SHA-256 等于
+    宿主算的，同一棵树配上改了一个字节的镜像时读取得 EIO，内核报告被改的那一块。
+  - zram 与 PSI：zram0 作 256 MiB 的交换，16 MiB 的 memory cgroup 里写 40 MiB 可压缩的页再读两遍（`tests/a64/psi_test.c`），
+    `/proc/pressure/memory` 上的触发器（1 s 内 100 ms）期间触发，页内容不变，约 25 MiB 进了 zram，压缩到约 0.54 MiB。
+  - pseudo-NMI：命令行加 `irqchip.gicv3_pseudo_nmi=1`，内核报告 `Pseudo-NMIs enabled using relaxed ICC_PMR_EL1 synchronisation`
+    与 `IRQ priority masking`：中断由 GIC 的优先级屏蔽而不是 PSTATE.I 关闭，v86 的 GICv3 不用改。
+  - 修好的一个错误：ARM 核心的 `validate_physical_range` 把 extended RAM 当作不是 RAM，所以 4 GiB 内存时内核放在 4 GiB 以上的
+    virtqueue 与缓冲区让 virtio 设备进入 NEEDS_RESET（P8.5 的 4 GiB 测试没有磁盘，没有发现）；现在只拒绝既不是 RAM 也不是
+    extended RAM 的范围（DMA 本来就按页复制 extended RAM），`tests/a64/extended_memory.mjs` 加了这一条。
+  - `make a64-android-prep-tests`：解释器与 page tier 各 2/4 核、并行 Worker 解释器与 page tier 4 核、page tier 2 核 4 GiB
+    （1 GiB 加 3 GiB extended）全部通过。时间：解释器 2/4 核全程 235/326 s（到 probe 结束 96/122 s，两次启动之间是
+    f2fs 的写入与重启）、page tier 2/4 核 39/41 s（15/15 s）、并行 Worker 解释器与 page tier 4 核 178/60 s、4 GiB 369 s；
+    PSI 的触发器在 page tier 下约 8 s 内触发 7 次，解释器下约 58 s 内 54 次。
+  - 4 GiB 时明显更慢（page tier 2 核全程 343–369 s，512 MiB 时约 40 s）：extended RAM 的帧缓存没有换出（512 MiB 的缓存够用），
+    慢在每次访问 extended RAM 都走帧查找，而内核的数据大多分配在 4 GiB 以上；原版内核的 4 GiB memtest 也是这样（到 init 79 s）。
+    记入 P9.4 的已知缺陷清单。
