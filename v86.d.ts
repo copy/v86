@@ -800,7 +800,9 @@ export interface V86Options {
      * A feature needs those it builds on (SSE4.1 needs SSSE3; SSE4.2 needs
      * SSE4.1; AVX needs XSAVE and SSE4.2; AVX2, FMA and F16C need AVX; the
      * XSAVE family needs XSAVE, XSAVES needs XSAVEC); other combinations fail
-     * at startup. Not set: the CPU v86 always had. See [docs/x86-64.md](https://github.com/copy/v86/blob/master/docs/x86-64.md).
+     * at startup. Not set: all of them with cpu_type "x86_64", none with
+     * "x86" ([] gives none); a restored snapshot's features then replace them.
+     * See [docs/x86-64.md](https://github.com/copy/v86/blob/master/docs/x86-64.md).
      */
     cpu_features?: Array<"SSSE3" | "SSE4.1" | "SSE4.2" | "XSAVE" | "AVX" | "AVX2" | "FMA" | "F16C" | "BMI1" | "BMI2" |
         "LZCNT" | "MOVBE" | "XSAVEOPT" | "XSAVEC" | "XGETBV1" | "XSAVES"> | "x86-64-v2" | "x86-64-v3";
