@@ -30,6 +30,13 @@ class Server(http.server.ThreadingHTTPServer):
 
 
 port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-with Server(("::", port), Handler) as server:
+try:
+    server = Server(("::", port), Handler)
+except OSError as error:
+    # (on stdout: `make run` discards stderr, the request log)
+    print(f"Port {port}: {error.strerror}. Another dev server (an earlier `make run`?) may serve this directory "
+          f"already: open http://localhost:{port}/, or run python3 tools/dev-server.py <port>.", flush=True)
+    sys.exit(1)
+with server:
     print(f"Serving on http://localhost:{port}/", flush=True)
     server.serve_forever()
