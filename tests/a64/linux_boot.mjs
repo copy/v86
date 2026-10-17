@@ -405,11 +405,17 @@ assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the 
 // (androidish: bootconfig, and pseudo-NMIs, GKI's: interrupts masked by the GIC's priority mask, not PSTATE.I)
 const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
     `${android ? " bootconfig irqchip.gicv3_pseudo_nmi=1" : ""}` +
-    `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}${ref === "v86" && parallel ? " parallel" : ""}` +
+    `${workload ? " A64_WORKLOAD=" + workload : ""}${ref === "v86" ? V86_WATCHDOG : ""} rdinit=/a64-init -- ref=${ref}${ref === "v86" && parallel ? " parallel" : ""}` +
     `${memtest_mib ? " memtest=" + memtest_mib : ""}${extended_memory ? " high=" + EXTENDED_BASE / 4096 : ""}`;
 // (A64_JIT=1: the v86 runs with the A64 page tier, docs/jit-unification-plan.md J2;
 // A64_JIT_HOT its compile threshold)
 const jit = !!+process.env.A64_JIT;
+// (v86 interpreted on more than one core: the guest's clock is the host's,
+// so every core's timer ticks share the one host thread for the whole slow
+// boot; the jitter entropy self-test then takes 17-18 s on 4 cores, beyond
+// the soft lockup threshold's 20 s whenever the host is busy. 60 s here; a
+// core that hangs is still reported, or misses the run's deadline)
+const V86_WATCHDOG = !jit && cores > 1 ? " watchdog_thresh=30" : "";
 const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
     ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};
 const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
@@ -558,7 +564,7 @@ const v86_options = {
 if(stage === "lifecycle")
 {
     const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
-    const options = { ...v86_options, kernel: { url: v86_kernel }, initrd: { url: prepared.initrd }, cmdline: SINGLE_CMDLINE };
+    const options = { ...v86_options, kernel: { url: v86_kernel }, initrd: { url: prepared.initrd }, cmdline: SINGLE_CMDLINE + V86_WATCHDOG };
     let transcript = "";
     const started = performance.now();
     const attach = emulator => emulator.add_listener("serial0-output-byte", byte => { transcript += String.fromCharCode(byte); });
@@ -624,7 +630,7 @@ const machine_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory_mb * 1048576, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     kernel: { url: v86_kernel }, initrd: { url: single || live ? prepared.initrd : initrd },
-    cmdline: single ? SINGLE_CMDLINE : live ? LIVE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS, ...PARALLEL_OPTIONS,
+    cmdline: single ? SINGLE_CMDLINE + V86_WATCHDOG : live ? LIVE_CMDLINE + V86_WATCHDOG : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS, ...PARALLEL_OPTIONS,
     ...(extended_memory ? { extended_memory_size: extended_memory } : {}),
     ...(process.env.A64_EXTENDED_CACHE ? { extended_memory_cache: +process.env.A64_EXTENDED_CACHE } : {}),
     ...(android ? { virtio_disks: [{ buffer: f2fs_disk, id: "a64f2fs" }] } : {}),
@@ -744,7 +750,7 @@ async function sleep_and_hibernate(emulator)
     // (the live ISO's init resumes before it looks for the boot media, which
     // loads the disk's driver: the swap's driver loaded first)
     emulator.v86.cpu.boot_files = { ...emulator.v86.cpu.boot_files,
-        cmdline: LIVE_CMDLINE.replace("modules=loop,", "modules=virtio_mmio,virtio_blk,loop,") + " resume=UUID=" + uuid };
+        cmdline: LIVE_CMDLINE.replace("modules=loop,", "modules=virtio_mmio,virtio_blk,loop,") + V86_WATCHDOG + " resume=UUID=" + uuid };
     for(let cycle = 1; cycle <= sleep_cycles; cycle++)
     {
         const marker = 5000 + cycle;
