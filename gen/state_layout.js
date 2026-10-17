@@ -277,27 +277,46 @@ export const STATICS = {
     "aarch64/debug.rs": { ANY_BREAKPOINT: "cache", ANY_WATCHPOINT: "cache" },
     // the GIC (P4.2): distributor, redistributors and CPU interfaces, each
     // core's interrupt request lines
-    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine" },
-    // the granules of the test profile v1.1 (P3.4); per core TLBs and the
-    // generation the fetch fast path checks (P3.5)
-    "aarch64/mmu.rs": { GRANULES: "machine" },
-    "aarch64/tlb.rs": { TLBS: "core", GENERATION: "cache" },
+    // (cores in workers: the GIC's lock, how deep this instance holds it)
+    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine", LOCK: "machine", DEPTH: "scratch" },
+    // the granules of profile v1.1 (P3.4); the TTBR writes and ASID
+    // changes (P9.3: counted, a64_asid_tag's auto mode reads their deltas)
+    // and each core's last ASID; per core TLBs and the generation the fetch
+    // fast path checks (P3.5)
+    "aarch64/mmu.rs": { GRANULES: "machine", TTBR_WRITES: "debug", ASID_CHANGES: "cache", LAST_ASID: "cache" },
+    // (cores in workers, P8.3: the TLB maintenance ring, the machine's; this
+    // instance's progress through it and the entry its DSB waits for, its
+    // batch since the last DSB, the kicks it sent; its counters)
+    "aarch64/tlb.rs": { TLBS: "core", GENERATION: "cache", RING_NEXT: "machine", RING_ENTRIES: "machine", RING_ACKED: "machine",
+        RING_SEEN: "core", PENDING: "core", BATCH: "core", BATCH_CODE: "core", BATCH_ALL: "core", KICKED_FOR: "cache", RING_STATS: "debug" },
     // the cooperative cores (P3.9): the saved state of the cores not
     // running, their pending events, the round robin, the global monitor
     // (P3.7); each core's event stream (P4.3)
-    "aarch64/smp.rs": { SAVED: "core", EVENTS: "machine", ROUND: "machine", MONITORS: "machine", MONITOR_GRANULE: "machine" },
-    "aarch64/timer.rs": { EVENT_STREAM_LAST: "core" },
+    // (cores in workers: a kick ended the run, their count; a WFE's deadline;
+    // the highest counter value any core read)
+    "aarch64/smp.rs": { SAVED: "core", EVENTS: "machine", ROUND: "machine", MONITORS: "machine", MONITOR_GRANULE: "machine",
+        KICKED: "debug", KICKED_NOW: "scratch", WFE_UNTIL: "core" },
+    "aarch64/timer.rs": { EVENT_STREAM_LAST: "core", COUNTER_LAST: "machine" },
     // the A64 page tier (J2): its switches, functions and code pages, the
     // access caches and chaining tables per core (derived from the TLBs),
     // the code pages' translations, the flow a step asked for
-    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine", EXPLICIT: "machine", NAMES: "machine" },
+    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine",
+        ASID_TAG_MODE: "machine", EXPLICIT: "machine", NAMES: "machine" },
     "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
-        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug", ASIDS: "cache" },
+        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug", ASIDS: "cache",
+        // (a64_asid_tag's auto window, P9.3; the parallel build's bounce slots for unaligned reads, P8.3)
+        AUTO_TICKS: "cache", AUTO_LAST: "cache", AUTO_SWITCHES: "debug", BOUNCE: "scratch" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request
     "aarch64/psci.rs": { POWER: "machine", START: "machine", REQUEST: "machine", SNAPSHOT: "scratch" },
-    "aarch64/bus.rs": { BUS: "machine", MEM8: "machine", MEM8_SIZE: "machine", MAP_CHANGED: "machine", STATUS: "scratch", LAST_WRITE: "debug" },
+    // (device memory, P7.1: where it starts, its pages written since their
+    // device took them, the words handed out; cores in workers: the map's
+    // sequence, odd while it changes, and the one this instance copied)
+    "aarch64/bus.rs": { BUS: "machine", MEM8: "machine", MEM8_SIZE: "machine", MAP_CHANGED: "machine", STATUS: "scratch", LAST_WRITE: "debug",
+        DEVICE_START: "machine", DEVICE_DIRTY: "machine", DEVICE_TAKEN: "scratch", MAP_SEQ: "machine", WORKER_SEQ: "cache" },
+    // (extended RAM, P8.5: the instructions run from it)
+    "aarch64/extended.rs": { RETIRED: "debug" },
     "cpu/apic.rs": { APICS: "core", APIC_AUX: "core", CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_EVENTS: "machine", NMI_PENDING: "machine", SMI_PENDING: "machine" },
     "cpu/cpu.rs": {
         INTERPRETED: "debug", INTERPRETED_OFFSETS: "debug", INTERPRETED_PAGES: "debug", INTERPRETED_VEX: "debug", INTERPRETED_WATCH: "debug",
@@ -382,8 +401,9 @@ export const STATICS = {
     "x64/memory.rs": { X64_TLBS: "core", LOCKED: "scratch" },
     // extended RAM: the frame pool and its lock; access caches holding frames
     // are released at the next safe point; aperture slots are remapped on demand
-    "x64/extended.rs": { EXTENDED: "machine", LOCK: "machine", DEPTH: "scratch", RELEASE_PENDING: "cache",
-        LEGACY_TLB_CACHED: "cache", SLOT_PAGE: "cache", NEXT: "cache" },
+    "x64/extended.rs": { LEGACY_TLB_CACHED: "cache", SLOT_PAGE: "cache", NEXT: "cache" },
+    // the engine both cores share (P8.5 moved it here from x64/extended.rs)
+    "extended.rs": { EXTENDED: "machine", LOCK: "machine", DEPTH: "scratch", RELEASE_PENDING: "cache" },
     // page functions and their bookkeeping; entries re-check the live translation
     // the page tier's exact SSE/FMA paths (their operand block and call
     // counts), the host's tail calls and relaxed multiply-adds (P7.5: from
