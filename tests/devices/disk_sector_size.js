@@ -14,9 +14,12 @@
 // - snapshots: restored onto the same disks; refused before anything is
 //   restored where a disk's sector size is another;
 // - options: a size that is not a multiple of the sector size, a value
-//   other than 512 or 4096: emulator-error.
+//   other than 512 or 4096: emulator-error;
+// - SeaBIOS does not boot from such a disk (images/msdos622.img's data):
+//   it reports that it cannot read it and goes on.
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import url from "node:url";
 import { build_vhdx } from "../image/tiny_vhdx.mjs";
 
@@ -370,4 +373,21 @@ for(const [hda, pattern_message] of [
     await assert.rejects(start({ hda }), error => pattern_message.test(String(error && error.message || error)));
 }
 console.log("ok - a size that is not a multiple of 4096, a sector size other than 512 or 4096: emulator-error");
+
+// SeaBIOS reads disks in 512-byte sectors: it does not boot MS-DOS's disk
+// as one of 4096-byte sectors, says so and goes on with the next device
+{
+    const image = fs.readFileSync(__dirname + "/../../images/msdos622.img");
+    const machine = new V86({ ...config({ hda: { buffer: new Uint8Array(image).buffer, logical_sector_size: 4096 } }), autostart: true });
+    const text = () => machine.screen_adapter ? machine.screen_adapter.get_text_screen().join("\n") : "";
+    const start = Date.now();
+    while(!/No bootable device/.test(text()))
+    {
+        assert.ok(Date.now() - start < 60000, "SeaBIOS goes on: " + text());
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.match(text(), /Booting from Hard Disk\.\.\.\s+Boot failed: could not read the boot disk/);
+    await machine.destroy();
+    console.log("ok - SeaBIOS does not boot a disk of 4096-byte sectors: it says so and tries the next device");
+}
 console.log("disk sector size tests passed");
