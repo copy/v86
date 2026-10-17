@@ -47,7 +47,9 @@ try
     const vm = vm_current = new V86(config({ url: "../../build/disk-image-browser/msdos622.qcow2", async: true, format: "qcow2" }, hdb));
     await new Promise((resolve, reject) => { vm.add_listener("emulator-loaded", resolve); vm.add_listener("emulator-error", reject); });
     if(worker && vm.v86) throw new Error("the machine is on the page, not in the Worker");
-    await until(() => screen(vm).some(l => l.startsWith("C:\\>")), "C:\\>");
+    // (the prompt alone on its line for a second: AUTOEXEC.BAT is done)
+    let stable = 0;
+    await until(() => { const l = screen(vm).filter(x => x.trim()); stable = l.length && l[l.length - 1].trim() === "C:\\>" ? stable + 1 : 0; return stable >= 10; }, "C:\\>");
     log.push("C:\\> from the QCOW2 disk over HTTP Range (" + (worker ? "CPU Worker" : "page") + ")");
     // export (P2): before the guest writes, MS-DOS's disk as it is
     const exported = async () =>

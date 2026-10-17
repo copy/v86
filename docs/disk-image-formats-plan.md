@@ -1,6 +1,6 @@
 # 虚拟磁盘镜像格式支持计划
 
-状态：P0、P1（第一轮完整交付）与 P2 已实现并通过验收；P3–P5 未实现。实施记录见[附录](#附录实施记录)。
+状态：P0、P1（第一轮完整交付）、P2、P3 已实现并通过验收（P3 的差分镜像未开放）；P4、P5 未实现。实施记录见[附录](#附录实施记录)。
 
 本计划基于 2026 年 10 月 3 日审查的当前 v86 分支。目标是在现有 RAW 镜像能力上，
 增加 QCOW2、VHD、VDI、VMDK 和 VHDX 的原生读取，并通过公共修改层支持客户机写入、
@@ -380,7 +380,7 @@ dirty 与 corrupt 位、父盘（P1 中；P2 由调用方提供）、L1 不足�
 
 性能：只记录了计数（请求数、字节数），未做计时测量（同机有长时间门禁运行）。
 
-### P2 压缩、父盘与导出
+### P2 压缩、父盘与导出（447ff6bc）
 
 **实现。**
 
@@ -431,4 +431,44 @@ dirty 与 corrupt 位、父盘（P1 中；P2 由调用方提供）、L1 不足�
 | 回归 | `ide_large_disk`、`device_io_reset`、`ahci`（31/31）、`disk_write_cache`（10/10）通过；Closure 检查（`libv86.js`、`libv86.mjs`、`cpu-worker.js`）0 错误；eslint 无输出 |
 
 样本增加 `child-of-zlib.qcow2`、`child-zlib.qcow2`（样本版本 3）。
+
+### P3 VHD 与 VDI
+
+**实现。** [`src/image/vhd.js`](../src/image/vhd.js)：footer（动态盘用文件开头的副本，与 QEMU 相同；固定盘
+用文件末尾的，兼容旧工具的 511 字节 footer）与动态盘头部的校验和都必须正确；虚拟容量按 QEMU vpc
+驱动的规则：创建者为 `vpc `、`qemu` 时取 CHS 几何（几何为最大值 65535/16/255 时除外），其余（Hyper-V
+的 `win `、`qem2`、Disk2vhd 等）取 footer 的当前大小，上限 2040 GiB；BAT 表项为 `0xFFFFFFFF` 的块读为零，
+已分配块读块内数据（扇区位图之后）。固定盘的数据必须完整位于 footer 之前。
+[`src/image/vdi.js`](../src/image/vdi.js)：1.1 版头部（预头部 0x48 字节之后 0x180 字节）、块映射，未分配
+（`0xFFFFFFFF`）与已丢弃（`0xFFFFFFFE`）块读为零，数据块在 `offset_data + 序号 × 1 MiB`；与 QEMU 一样
+只接受 512 字节扇区、1 MiB 块、无块附加数据，块号不得超出镜像块数。`format` 接受 `"vhd"`、
+`"vpc"`（QEMU 的名称）、`"vdi"`；`auto` 由文件头或文件尾（固定 VHD）的签名识别。身份：VHD 为 footer、
+动态头部与 BAT，VDI 为头部与块映射。两个解析器只给出 `map()`，修改层、状态、导出复用 P0–P2。
+
+拒绝：VHD 差分盘（类型 4）与其他类型、footer 或头部版本不是 1.x、块大小不是 2 的幂、BAT 不足以
+覆盖容量或越界；VDI 非 1.1 版、undo/差分类型（3、4）、带父或链接 UUID 的镜像、块大小或扇区大小
+不符、块附加数据、容量超出块数、映射表或数据偏移未按扇区对齐、映射表越界。
+
+**偏差。**
+
+1. 差分 VHD 与差分 VDI 未开放（计划：“差分类型在各自身份与父盘继承规则完成后单独开放”）。本机的
+   qemu-img 不能生成这两种镜像（QEMU 的 vpc、vdi 驱动都不支持差分），没有独立工具生成的样本，
+   无法按验收矩阵验证父盘 UUID、时间戳与扇区位图的继承规则；需要 Hyper-V/Virtual PC 与
+   VirtualBox 生成的样本（见报告）。打开这类镜像时报 `unsupported`。
+2. 动态 VHD 的已分配块按 QEMU 的做法读取块内数据，不按扇区位图把未标记扇区读为零：规范要求新分配
+   块的数据区为零，两种读法对符合规范的镜像结果相同；以 QEMU 为准使 qemu-img 转出的 RAW 可以作为
+   基准。扇区位图将用于差分盘。
+3. VHD 没有超过 2^32 扇区的容量（上限 2040 GiB），大偏移用 100 GiB 动态盘验证；VDI 用 3 TiB 动态盘
+   验证 2^32 扇区边界。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/image/vhd_vdi.mjs` | qemu-img 生成的动态 VHD（CHS 容量 67125248 字节与 `force_size` 的精确容量）、固定 VHD（两种容量）、动态与固定 VDI，各经本地文件分段读和内存两条路径，整盘与 203 个随机区间与 qemu-img（`-f vpc`/`vdi`）转出的 RAW 一致，共比对 768 MiB；`auto` 识别、`vpc` 别名；100 GiB 动态 VHD 在 5 GiB 与末尾、3 TiB 动态 VDI 在 4 GiB 以上与 2^32 扇区边界处与写入内容一致；VHD 的 footer/头部校验和错误、头部签名、差分盘、类型 5、版本、块大小、BAT 过小或越界、截断的固定盘，VDI 的签名、版本、类型 3/4、块大小、块附加数据、父 UUID、容量超出、偏移未对齐、映射表越界、块号越界，均报出具体原因；未分配与已丢弃块读为零 |
+| `tests/image/guest.mjs`（新） | qemu-img 把 `msdos622.img` 转为压缩 QCOW2、动态 VHD、固定 VHD、VDI，MS-DOS 均从分段读取的文件启动，写文件，重启后与快照恢复后文件都在，镜像文件不变 |
+| 回归 | `tests/image/disk_image.mjs`、`tests/api/disk-image.js`、浏览器测试（CPU Worker）通过；Closure 检查 0 错误；eslint 无输出 |
+
+样本增加 `dynamic.vhd`、`dynamic-force.vhd`、`fixed.vhd`、`fixed-force.vhd`、`100g.vhd`、`dynamic.vdi`、
+`static.vdi`、`3t.vdi`（样本版本 5；VHD footer 含时间戳，每次生成的 SHA-256 不同）。
 

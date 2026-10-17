@@ -6,14 +6,16 @@
 import { DiskImageError, MemorySource, BlobSource, URLSource, PartsSource, CachedSource } from "./source.js";
 import { DiskImage, ImageReader, EXTENT_DATA } from "./disk_image.js";
 import { QCOW2Reader, QCOW2_MAGIC } from "./qcow2.js";
+import { VHDReader } from "./vhd.js";
+import { VDIReader } from "./vdi.js";
 import { load_file } from "../lib.js";
 
 /** the formats a hard disk's `format` may name */
-export const DISK_IMAGE_FORMATS = ["raw", "qcow2", "auto"];
+export const DISK_IMAGE_FORMATS = ["raw", "qcow2", "vhd", "vpc", "vdi", "auto"];
 
 /** formats recognised but not (yet) read, and where they are planned */
 const FORMATS_LATER = {
-    "vhd": "P3", "vpc": "P3", "vdi": "P3", "vmdk": "P4", "vhdx": "P5",
+    "vmdk": "P4", "vhdx": "P5",
 };
 
 /** what disk_option may be (docs/disk-persistence-plan.md) */
@@ -247,6 +249,8 @@ function read_ends(source)
 /** the readers by format */
 const READERS = {
     "qcow2": QCOW2Reader,
+    "vhd": VHDReader,
+    "vdi": VDIReader,
 };
 
 /**
@@ -296,7 +300,8 @@ export async function open_image(name, file, settings, depth = 0, chain = [])
     const source = await open_source(label, file, settings);
     const [head, tail] = await read_ends(source);
     const detected = detect_format(head, tail);
-    let format = file.format || "auto";
+    // ("vpc": QEMU's name of VHD)
+    let format = format_name(file.format || "auto");
     if(format === "auto")
     {
         if(!detected)

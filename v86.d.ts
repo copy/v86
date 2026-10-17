@@ -79,10 +79,11 @@ export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
  * The container format of a hard disk image (docs/disk-image-formats-plan.md).
  * "raw" (or no format): the sectors as they are, as before. "auto": the
  * format from the image's signature and structure; a RAW image has none, so
- * "auto" fails for it. Formats planned but not supported yet ("vhd", "vdi",
- * "vmdk", "vhdx") fail at start.
+ * "auto" fails for it. "vpc" is QEMU's name of VHD. VHD and VDI: fixed and
+ * dynamic images (not differencing ones). Formats planned but not supported
+ * yet ("vmdk", "vhdx") fail at start.
  */
-export type V86DiskFormat = "raw" | "qcow2" | "auto";
+export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "auto";
 
 /**
  * The options of a hard disk image (hda, hdb, attach_sata_drive). With a

@@ -363,7 +363,8 @@ function server(bytes, behave = {})
     assert.equal(check_image_options("hda", { url: "x", format: "qcow2" }, true), "qcow2");
     assert.equal(check_image_options("hda", { url: "x", format: "auto", disk_option: "read_only" }, true), "auto");
     assert.throws(() => check_image_options("hda", { url: "x", format: "qcow3" }, true), /unknown format "qcow3"/);
-    assert.throws(() => check_image_options("hda", { url: "x", format: "vhd" }, true), /not supported yet/);
+    assert.equal(check_image_options("hda", { url: "x", format: "vhd" }, true), "vhd");
+    assert.throws(() => check_image_options("hda", { url: "x", format: "vmdk" }, true), /not supported yet/);
     assert.throws(() => check_image_options("cdrom", { url: "x", format: "qcow2" }, false), /for hard disks/);
     assert.throws(() => check_image_options("hda", { url: "x", disk_option: "read_write" }, true), /not supported yet/);
     assert.throws(() => check_image_options("hda", { url: "x", disk_option: "rw" }, true), /not one of/);

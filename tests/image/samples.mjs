@@ -20,7 +20,7 @@ const QEMU_IMG = process.env.QEMU_IMG || (fs.existsSync("/opt/homebrew/bin/qemu-
 const QEMU_IO = process.env.QEMU_IO || (fs.existsSync("/opt/homebrew/bin/qemu-io") ? "/opt/homebrew/bin/qemu-io" : "qemu-io");
 
 // changing a sample: change this, and the samples are made again
-const SAMPLES_VERSION = 3;
+const SAMPLES_VERSION = 5;
 
 export const BASE_SIZE = 64 * 1024 * 1024;
 export const TB3 = 3 * 1024 ** 4;
@@ -213,6 +213,41 @@ export function make_samples()
         ["-c", "write -q -s " + pattern + " " + offset + " " + length]), file("3t.qcow2")], log);
     add("3t.qcow2", "qcow2", null, { size: TB3, writes: big_writes, pattern: "pattern.bin" });
 
+    // VHD (qemu-img's "vpc"; P3): dynamic and fixed, the size from the CHS
+    // geometry (creator "qemu") or exact (force_size: "qem2"); the
+    // references converted back with -f vpc (qemu-img does not probe a fixed
+    // VHD: its footer is at the end)
+    const vhd = (name, options) =>
+    {
+        run(QEMU_IMG, ["convert", "-f", "raw", "-O", "vpc", ...options, file("base.raw"), file(name)], log);
+        run(QEMU_IMG, ["convert", "-f", "vpc", "-O", "raw", file(name), file(name + ".raw")], log);
+        add(name, "vhd", name + ".raw");
+    };
+    vhd("dynamic.vhd", []);
+    vhd("dynamic-force.vhd", ["-o", "force_size=on"]);
+    vhd("fixed.vhd", ["-o", "subformat=fixed"]);
+    vhd("fixed-force.vhd", ["-o", "subformat=fixed,force_size=on"]);
+    // a sparse dynamic VHD of 100 GiB, written beyond 4 GiB and at its end
+    const vhd_writes = [[5 * 1024 ** 3 - 4096, 8192], [100 * 1024 ** 3 - 65536, 65536]];
+    run(QEMU_IMG, ["create", "-q", "-f", "vpc", "-o", "force_size=on", file("100g.vhd"), "100G"], log);
+    run(QEMU_IO, ["-f", "vpc", ...vhd_writes.flatMap(([offset, length]) => ["-c", "write -q -s " + pattern + " " + offset + " " + length]),
+        file("100g.vhd")], log);
+    add("100g.vhd", "vhd", null, { size: 100 * 1024 ** 3, writes: vhd_writes, pattern: "pattern.bin" });
+
+    // VDI (P3): dynamic and fixed ("static"), and 3 TiB dynamic written
+    // across 2^32 sectors
+    const vdi = (name, options) =>
+    {
+        run(QEMU_IMG, ["convert", "-f", "raw", "-O", "vdi", ...options, file("base.raw"), file(name)], log);
+        add(name, "vdi", "base.raw");
+    };
+    vdi("dynamic.vdi", []);
+    vdi("static.vdi", ["-o", "static=on"]);
+    run(QEMU_IMG, ["create", "-q", "-f", "vdi", file("3t.vdi"), String(TB3)], log);
+    run(QEMU_IO, ["-f", "vdi", ...big_writes.flatMap(([offset, length]) => ["-c", "write -q -s " + pattern + " " + offset + " " + length]),
+        file("3t.vdi")], log);
+    add("3t.vdi", "vdi", null, { size: TB3, writes: big_writes, pattern: "pattern.bin" });
+
     // features that are refused
     run(QEMU_IMG, ["create", "-q", "-f", "qcow2", "-o", "compat=1.1,extended_l2=on", file("extl2.qcow2"), "16M"], log);
     // (the data file's name relative to the working directory: the image
@@ -225,15 +260,22 @@ export function make_samples()
     add("data-file.qcow2", "qcow2", null, { refused: "external data file" });
     add("luks.qcow2", "qcow2", null, { refused: "encrypted" });
 
+    // (QEMU's names of the formats: a fixed VHD is not probed)
+    const qemu_format = format => format === "vhd" ? "vpc" : format;
     for(const sample of Object.values(samples))
     {
         sample.sha256 = sha256_file(file(sample.file));
         sample.length = fs.statSync(file(sample.file)).size;
-        if(!sample.size) sample.size = Number(JSON.parse(run(QEMU_IMG, ["info", "--output=json", "-U", file(sample.file)], []))["virtual-size"]);
+        if(!sample.size)
+        {
+            sample.size = Number(JSON.parse(run(QEMU_IMG, ["info", "--output=json", "-U", "-f", qemu_format(sample.format),
+                file(sample.file)], []))["virtual-size"]);
+        }
     }
     for(const sample of Object.values(samples))
     {
-        if(!sample.refused) run(QEMU_IMG, ["check", "-q", "-U", file(sample.file)], log);
+        // (qemu-img has no check of VHD)
+        if(!sample.refused && sample.format !== "vhd") run(QEMU_IMG, ["check", "-q", "-U", "-f", qemu_format(sample.format), file(sample.file)], log);
     }
     const manifest = { samples_version: SAMPLES_VERSION, tool: version, dir: SAMPLES_DIR, commands: log, samples };
     fs.writeFileSync(manifest_path, JSON.stringify(manifest, null, 2));

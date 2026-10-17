@@ -55,6 +55,18 @@ async function wait_until(emulator, condition, what, timeout = 120000)
 
 const wait_for = (emulator, pattern, what) => wait_until(emulator, () => pattern.test(screen(emulator)), what);
 
+/** the prompt, alone on its line, for a second: AUTOEXEC.BAT is done */
+async function prompt(emulator, what)
+{
+    let stable = 0;
+    await wait_until(emulator, () =>
+    {
+        const l = lines(emulator).filter(x => x.trim());
+        stable = l.length && l[l.length - 1].trim() === "C:\\>" ? stable + 1 : 0;
+        return stable >= 10;
+    }, what);
+}
+
 /** a command at the DOS prompt on a clear screen: its output, once the prompt is back */
 async function dos(emulator, command)
 {
@@ -82,7 +94,7 @@ async function run(machine_type)
         disable_jit: +process.env.DISABLE_JIT,
     });
     emulator.add_listener("emulator-error", error => { throw error; });
-    await wait_for(emulator, /C:\\>/, "C:\\> (" + machine_type + ")");
+    await prompt(emulator, "C:\\> (" + machine_type + ")");
     console.log(machine_type + ": C:\\> from the QCOW2 disk");
 
     const word = "QCOW" + machine_type.toUpperCase();
@@ -102,7 +114,7 @@ async function run(machine_type)
 
     await emulator.restart();
     await new Promise(resolve => setTimeout(resolve, 2000));
-    await wait_for(emulator, /C:\\>/, "C:\\> after the restart");
+    await prompt(emulator, "C:\\> after the restart");
     assert.match(await dos(emulator, "type C:\\V86TEST.TXT"), new RegExp("^" + word + "\\s*$", "m"));
     console.log(machine_type + ": the file is there after a restart");
 
