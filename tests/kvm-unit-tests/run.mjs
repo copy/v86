@@ -20,8 +20,8 @@
 //   --qemu            run arm64 tests on the fixed QEMU reference
 //                     (docs/arm64-virt-android16-plan.md P0.6); v86 runs need
 //                     the ARM core
-//   --granules-all    (v86, arm64) the test profile v1.1 with the 16 and 64 KiB
-//                     granules (P3.4), for the 16k and 64k builds
+//   --granules-all    (v86, arm64) the 16 and 64 KiB granules set explicitly
+//                     (P3.4; profile v1.1, the default, has them), for the 16k and 64k builds
 // Environment: TEST_RELEASE_BUILD=1 uses build/libv86.mjs, DISABLE_JIT=1 the interpreter,
 // JIT_SWITCHES the JIT switches (tests/lib/jit_switches.mjs).
 //
@@ -99,7 +99,7 @@ if(options.arm64 && !options.qemu)
     });
     if(options.granules_all)
     {
-        // (the test profile v1.1: the 16 and 64 KiB granules too, before the guest runs)
+        // (the 16 and 64 KiB granules, before the guest runs: v1.1's, the default profile's)
         emulator.add_listener("emulator-loaded", () => {
             emulator.v86.cpu.wm.exports["a64_set_granules"](7);
             emulator.run();

@@ -6,8 +6,11 @@
 //!
 //! The bus maps the range as `Kind::Extended` (crate::aarch64::bus): the
 //! interpreter's accesses, the table walks and instruction fetches come
-//! here a page at a time, and so do compiled code's (the access cache is
-//! not filled for it). The page tier compiles code from it under the code
+//! here a page at a time. The page tier's access cache maps a page to its
+//! frame (`cache_frame`, with the cores in one instance, as x86's), which is
+//! then CACHED and not reused before the run loop's next safe point
+//! (crate::extended::safe_point in crate::aarch64::smp::run_core) retires
+//! every access cache entry. The page tier compiles code from it under the code
 //! keys from bus::EXTENDED_CODE_KEY on, which its next write retires
 //! (crate::extended's code watch); with the cores in workers that code is
 //! interpreted. The exclusive monitors know its granules by keys above
@@ -26,6 +29,34 @@ const KEY_SPAN: u64 = 0x7FFF_0000;
 pub fn monitor_key(address: u64) -> u32 {
     let base = extended::ext().base;
     KEY_BASE + (address.wrapping_sub(base) % KEY_SPAN) as u32
+}
+
+/// The host address of the frame of the extended page at `address` for the
+/// page tier's access cache (crate::aarch64::jit::pages::a64_page_access),
+/// or None: with the cores in workers (their access caches cannot be retired
+/// at one safe point), when no frame is reusable before the next safe point,
+/// or for a write to a page with compiled code (the interpreter's write
+/// retires that code). A write entry's frame is dirty from here on: stores
+/// through it do not come here.
+pub unsafe fn cache_frame(address: u64, write: bool) -> Option<u32> {
+    if crate::parallel::active() || !extended::contains(address) {
+        return None;
+    }
+    let e = extended::ext();
+    let page = ((address - e.base) / PAGE) as u32;
+    if write && extended::has_code(e, page) {
+        return None;
+    }
+    let frame = extended::resident(e, page, write)?;
+    extended::mark_cached(e, frame);
+    Some(e.pool.add(frame as usize * PAGE as usize) as u32)
+}
+
+/// The frames' host addresses, [start, end)
+pub unsafe fn frame_range() -> (u32, u32) {
+    let e = extended::ext();
+    let start = e.pool as u32;
+    (start, start.wrapping_add(e.frames * PAGE as u32))
 }
 
 /// Instructions from extended RAM: [0] interpreted (fetched), [1] retired by compiled code

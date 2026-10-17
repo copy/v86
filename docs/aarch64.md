@@ -138,7 +138,11 @@ a fast path (round to nearest, no flush to zero, FPSR.IXC already set,
 ordinary operands and results), everything else calls the interpreter's
 execute for that one instruction (a helper) or single-steps. Code is keyed
 by its physical page and the mode (EL, SP alignment checks); the access
-cache is per core and EL, filled from the TLB and flushed with it.
+cache is per core and EL, filled from the TLB and flushed with it. A page
+of extended RAM is cached as its frame, which then stays resident until
+the run loop's next safe point retires the access caches (when half the
+frames are held, or none is free), as on x86; with the cores in workers
+extended RAM goes through the interpreter's path.
 
 | Switch | Default | |
 | --- | --- | --- |
@@ -147,7 +151,7 @@ cache is per core and EL, filled from the TLB and flushed with it.
 | `a64_neon` | 1 | the FP and AdvSIMD templates |
 | `a64_helpers` | 1 | helper calls (0: single steps) |
 | `a64_relaxed_fma` | the host's probe | FMADD and FMLA through relaxed SIMD's fused multiply-add |
-| `a64_asid_tag` | 0 | an access-cache epoch per ASID, so ASID switches keep entries |
+| `a64_asid_tag` | 2 | an access-cache epoch per ASID, so ASID switches keep entries: 1 always, 2 (auto) while the ASIDs change at least 256 times in about 4 million instructions (SW_TTBR0_PAN changes them at every entry from EL0 and around every uaccess), 0 never |
 
 `page_tier_stats()` on the ARM CPU (and `jit_stat(1, field)`) gives the
 counters. Tests: `make a64-page-tier-tests` (random programs against the

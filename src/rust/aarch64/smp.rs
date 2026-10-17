@@ -373,6 +373,10 @@ fn run_core(budget: u32) -> u32 {
         if i >= next_tick {
             crate::aarch64::timer::tick();
             next_tick = i + 1024;
+            // (no compiled code is active: frames of extended RAM the access
+            // caches hold are released if due; a64_asid_tag's auto mode)
+            unsafe { crate::extended::safe_point() };
+            pages::asid_tag_tick();
         }
         if crate::aarch64::gic::signal(current_core()) != 0 && take_interrupt() {
             i += 1;

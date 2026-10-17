@@ -1196,6 +1196,7 @@ A64CPU.prototype.page_tier_stats = function()
         "access_fills", "access_refused", "failed", "chained", "instructions", "templated"];
     const result = { "live": stat(100), "code_page_writes": stat(101), "resets": stat(102), "pages_compiled": stat(103),
         "most_compiles": stat(104), "helpers": stat(106), "evictions": stat(107), "compile_ms": stat(108),
+        "asid_tag_switches": stat(109), "asid_tag": stat(110),
         "table_free_low": this.wm.exports["jit_wasm_table_free_low"]() };
     names.forEach((name, i) => { result[name] = stat(i); });
     return result;

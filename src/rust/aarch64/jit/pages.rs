@@ -306,6 +306,39 @@ fn bind_asid(core: usize) {
     };
     a.current = Some(i);
 }
+/// a64_asid_tag 2 (auto): every AUTO_WINDOW ticks of the run loop (about 4
+/// million instructions) the tags go on when the ASIDs changed AUTO_ON times
+/// or more in the window, off when fewer than AUTO_OFF (P9.3: about 1300 per
+/// window while the androidish kernel, with SW_TTBR0_PAN, boots Alpine to a
+/// login; about 7 for the stock kernel)
+const AUTO_WINDOW: u32 = 4096;
+const AUTO_ON: u64 = 256;
+const AUTO_OFF: u64 = 16;
+static mut AUTO_TICKS: u32 = 0;
+static mut AUTO_LAST: u64 = 0;
+/// the tags turned on or off by auto
+static mut AUTO_SWITCHES: u64 = 0;
+/// (crate::aarch64::smp::run_core, about every 1024 instructions: no compiled code is active)
+pub fn asid_tag_tick() {
+    unsafe {
+        if super::ASID_TAG_MODE != 2 {
+            return;
+        }
+        AUTO_TICKS += 1;
+        if AUTO_TICKS < AUTO_WINDOW {
+            return;
+        }
+        AUTO_TICKS = 0;
+        let changes = crate::aarch64::mmu::asid_changes();
+        let window = changes.wrapping_sub(AUTO_LAST);
+        AUTO_LAST = changes;
+        if !super::ASID_TAG && window >= AUTO_ON || super::ASID_TAG && window < AUTO_OFF {
+            set_asid_tag(!super::ASID_TAG);
+            AUTO_SWITCHES += 1;
+        }
+    }
+}
+
 /// a64_asid_tag changed: every core's cache starts over, empty (an epoch
 /// number either way may have been given out by the other)
 pub fn set_asid_tag(on: bool) {
@@ -448,13 +481,29 @@ pub fn retire_reserved_writes(core: usize, monitors: u32) {
     let mem8 = unsafe { bus::MEM8 } as u32;
     let mut hosts = [u32::MAX; MAX_CORES];
     let mut count = 0;
+    let mut extended = false;
     for c in 0..MAX_CORES {
         if monitors & 1 << c != 0 {
-            hosts[count] = mem8.wrapping_add(crate::aarch64::smp::reserved_backing(c) & !0xFFF);
+            let backing = crate::aarch64::smp::reserved_backing(c);
+            extended |= backing >= crate::aarch64::extended::KEY_BASE;
+            hosts[count] = mem8.wrapping_add(backing & !0xFFF);
             count += 1;
         }
     }
-    access(core).retire_writes(ENTRIES, |entry| hosts[..count].contains(&entry.host));
+    // (a reservation in extended RAM: its key names no frame, so the write
+    // entries to every frame retire)
+    let (start, end) =
+        if extended { unsafe { crate::aarch64::extended::frame_range() } } else { (0, 0) };
+    access(core).retire_writes(ENTRIES, |entry| {
+        hosts[..count].contains(&entry.host) || entry.host >= start && entry.host < end
+    });
+}
+
+/// The frame of extended RAM at `host` gained code: write entries to it retire
+pub fn retire_writes_to(host: u32) {
+    for core in 0..MAX_CORES {
+        access(core).retire_writes(ENTRIES, |entry| entry.host == host);
+    }
 }
 
 /// Pages that gained code: write entries to them retire (stores must notify)
@@ -867,25 +916,48 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         r.stats[ACCESS_REFUSED] += 1;
         return 0;
     };
-    let Lookup::Ram {
-        backing, writable, ..
-    } = bus::bus().lookup(pa)
-    else {
-        r.stats[ACCESS_REFUSED] += 1;
-        return 0;
+    let host = match bus::bus().lookup(pa) {
+        Lookup::Ram {
+            backing, writable, ..
+        } => {
+            let page = backing & !0xFFF;
+            // (device memory: its writes go the interpreter's way, which marks them)
+            if write
+                && (!writable
+                    || page >= unsafe { bus::DEVICE_START }
+                    || crate::aarch64::root::page_watched(page >> 12)
+                    || crate::aarch64::smp::reserved_page(page))
+            {
+                r.stats[ACCESS_REFUSED] += 1;
+                return 0;
+            }
+            (unsafe { bus::MEM8 } as u32).wrapping_add(page)
+        },
+        // (extended RAM: its frame, held until the run loop's next safe
+        // point; no write entry while a core holds a reservation in the page)
+        Lookup::Extended { .. } => {
+            let frame = if write
+                && crate::aarch64::smp::reserved_page(crate::aarch64::extended::monitor_key(
+                    pa & !0xFFF,
+                )) {
+                None
+            }
+            else {
+                unsafe { crate::aarch64::extended::cache_frame(pa & !0xFFF, write) }
+            };
+            match frame {
+                Some(frame) => frame,
+                None => {
+                    r.stats[ACCESS_REFUSED] += 1;
+                    return 0;
+                },
+            }
+        },
+        _ => {
+            r.stats[ACCESS_REFUSED] += 1;
+            return 0;
+        },
     };
-    let page = backing & !0xFFF;
-    // (device memory: its writes go the interpreter's way, which marks them)
-    if write
-        && (!writable
-            || page >= unsafe { bus::DEVICE_START }
-            || crate::aarch64::root::page_watched(page >> 12)
-            || crate::aarch64::smp::reserved_page(page))
-    {
-        r.stats[ACCESS_REFUSED] += 1;
-        return 0;
-    }
-    let host = (unsafe { bus::MEM8 } as u32).wrapping_add(page);
     // (a tagged pointer, TBI: no entry, since a TLBI names the page untagged)
     if ((address << 8) as i64 >> 8) as u64 != address {
         return host + (address & 0xFFF) as u32;
@@ -1028,6 +1100,8 @@ pub fn a64_page_stat(n: u32) -> f64 {
         106 => (unsafe { HELPERS }) as f64,
         107 => (unsafe { EVICTIONS }) as f64,
         108 => unsafe { COMPILE_MS },
+        109 => (unsafe { AUTO_SWITCHES }) as f64,
+        110 => (unsafe { super::ASID_TAG }) as u32 as f64,
         _ => r.stats.get(n as usize).copied().unwrap_or(0) as f64,
     }
 }

@@ -887,6 +887,9 @@ const retired_instructions = Array.from({ length: cores }, (_, core) => emulator
 // (cores in workers: what each did, src/parallel/machine.js)
 const parallel_status = parallel ? emulator.v86.cpu.get_diagnostics().parallel : undefined;
 // (extended RAM: its frames' traffic, and the instructions from it, interpreted and compiled)
+// (P9.3: TTBR writes and ASID changes, the machine thread's instance's cores)
+const mmu_stat = emulator.v86.cpu.wm.exports["a64_mmu_stat"];
+const mmu = mmu_stat ? { ttbr_writes: mmu_stat(0), asid_changes: mmu_stat(1) } : undefined;
 const ext_stat = field => emulator.v86.cpu.wm.exports["a64_ext_stat"](field);
 const extended_stats = extended_memory ? { hits: ext_stat(0), loads: ext_stat(1), write_backs: ext_stat(2), evictions: ext_stat(3),
     code_pages: ext_stat(14), code_writes: ext_stat(15), interpreted: ext_stat(16), compiled: ext_stat(17) } : undefined;
@@ -1052,7 +1055,7 @@ const vulnerabilities = Object.fromEntries([...transcript.matchAll(/A64_VULN (\S
 if(midway) assert.ok(snapped && snapshot_bytes, "the snapshot in the workload's middle was taken and restored");
 const ms = Math.round(performance.now() - started);
 const result = { tag, ms, ...(live ? { boot_to_login_ms: login_ms } : {}), probe_done_ms: probe_ms, retired_instructions,
-    mips: Math.round(retired_instructions / ms / 100) / 10, page_tier, ...(parallel ? { parallel: parallel_status } : {}),
+    mips: Math.round(retired_instructions / ms / 100) / 10, page_tier, mmu, ...(parallel ? { parallel: parallel_status } : {}),
     ...(midway ? { midway_snapshot_bytes: snapshot_bytes } : {}), ...lines, features,
     reference_features: reference_features ? "compared" : "no reference log", vulnerabilities };
 fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");

@@ -6,8 +6,8 @@
 //
 //   node tests/kvm-unit-tests/arm64.mjs [--qemu] [--single-core] [4k 16k 64k]
 //   (without --qemu the cases run on v86's ARM core, its cooperative cores for
-//   the SMP ones (P3.9), and the 16k and 64k builds with the test profile
-//   v1.1; --single-core only the cases of one core)
+//   the SMP ones (P3.9), and the 16k and 64k builds with profile v1.1's
+//   granules; --single-core only the cases of one core)
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 

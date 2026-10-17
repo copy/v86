@@ -8,7 +8,9 @@
 // code at 4 GiB (through an identity map: the page tier needs the MMU on),
 // rewritten by DMA after its frame was evicted, run again (interpreter and
 // page tier: the page tier compiles it from extended RAM, the DMA write
-// retires it), a single-buffer snapshot
+// retires it), a walk storing to and loading from 512 pages of it through
+// the 256 frames (the page tier's access cache holds frames, released at
+// the run loop's safe points, P9.2), a single-buffer snapshot
 // refused, a snapshot stream restored into another machine, power-on
 // clearing it.
 //
@@ -64,15 +66,55 @@ start:
     br x0
 .ltorg
 `);
+// the walk at 4 GiB + CODE: three rounds of a store of page + round to a
+// word of each of the 512 pages from 4 GiB + 1 MiB, then their loads, summed
+// into RAM's first word, then 0xD0E after it, then a loop on itself
+fs.writeFileSync(directory + "walk.S", `.global walk
+walk:
+    mov x2, #0
+    mov x7, #0
+    ldr x0, =${EXT + MiB}
+1:  mov x3, #0
+2:  add x4, x3, x2
+    and x6, x3, #511
+    lsl x5, x3, #12
+    add x5, x5, x6, lsl #3
+    str x4, [x0, x5]
+    add x3, x3, #1
+    cmp x3, #512
+    b.ne 2b
+    mov x3, #0
+3:  and x6, x3, #511
+    lsl x5, x3, #12
+    add x5, x5, x6, lsl #3
+    ldr x4, [x0, x5]
+    add x7, x7, x4
+    add x3, x3, #1
+    cmp x3, #512
+    b.ne 3b
+    add x2, x2, #1
+    cmp x2, #3
+    b.ne 1b
+    ldr x8, =${RAM}
+    str w7, [x8]
+    mov w9, #0xD0E
+    str w9, [x8, #4]
+4:  b 4b
+.ltorg
+`);
+const WALK_SUM = 3 * (511 * 512 / 2) + 512 * (0 + 1 + 2);
 const host = spawnSync("rustc", ["-vV"], { encoding: "utf8" }).stdout.match(/^host: (.*)$/m)[1];
 const lld = process.env.LD_LLD || `${spawnSync("rustc", ["--print", "sysroot"], { encoding: "utf8" }).stdout.trim()}/lib/rustlib/${host}/bin/rust-lld`;
 for(const [program, args] of [[process.env.CLANG || "clang", ["--target=aarch64-none-elf", "-c", "-o", directory + "boot.o", directory + "boot.S"]],
-    [lld, ["-flavor", "gnu", "-m", "aarch64elf", "-static", "-e", "start", "-Ttext=" + BOOT.toString(16), "--oformat=binary", "-o", directory + "boot.bin", directory + "boot.o"]]])
+    [lld, ["-flavor", "gnu", "-m", "aarch64elf", "-static", "-e", "start", "-Ttext=" + BOOT.toString(16), "--oformat=binary", "-o", directory + "boot.bin", directory + "boot.o"]],
+    [process.env.CLANG || "clang", ["--target=aarch64-none-elf", "-c", "-o", directory + "walk.o", directory + "walk.S"]],
+    [lld, ["-flavor", "gnu", "-m", "aarch64elf", "-static", "-e", "walk", "-Ttext=" + (EXT + 0x10000).toString(16), "--oformat=binary", "-o", directory + "walk.bin", directory + "walk.o"]]])
 {
     const result = spawnSync(program, args, { encoding: "utf8" });
     assert.equal(result.status, 0, program + ": " + result.stderr);
 }
 const boot_code = fs.readFileSync(directory + "boot.bin");
+const walk_code = fs.readFileSync(directory + "walk.bin");
 const table = new Uint8Array(4096);
 for(const block of [RAM, EXT]) new DataView(table.buffer).setBigUint64(8 * (block / 2 ** 30), BigInt(block) | 0x701n, true);
 
@@ -161,6 +203,21 @@ for(const jit of [false, true])
             assert.ok(fetched > 100000 && compiled === 0, "interpreted from extended RAM: " + [fetched, compiled]);
         }
         stats.push(Array.from({ length: 18 }, (_, i) => e.a64_ext_stat(i)));
+
+        // the walk: compiled loads and stores to 512 pages through 256 frames
+        const releases = e.a64_ext_stat(8);
+        cpu.write_blob_physical(walk_code, EXT + CODE);
+        assert.equal(run_program(cpu, mode + " walk"), WALK_SUM, mode + ": the walk's sum");
+        for(let page = 0; page < 512; page += 37)
+        {
+            assert.equal(read(EXT + MiB + page * 4096 + page * 8, 8), BigInt(page + 2), "the walk's last store to page " + page);
+        }
+        if(jit)
+        {
+            assert.ok(e.a64_ext_stat(8) > releases, "the access caches' frames were released: " + (e.a64_ext_stat(8) - releases));
+        }
+        // (the program again, for the snapshot below)
+        cpu.write_blob_physical(code_bytes(0x777), EXT + CODE);
 
         if(jit)
         {

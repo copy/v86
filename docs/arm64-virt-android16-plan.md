@@ -1925,3 +1925,36 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - 4 GiB 时明显更慢（page tier 2 核全程 343–369 s，512 MiB 时约 40 s）：extended RAM 的帧缓存没有换出（512 MiB 的缓存够用），
     慢在每次访问 extended RAM 都走帧查找，而内核的数据大多分配在 4 GiB 以上；原版内核的 4 GiB memtest 也是这样（到 init 79 s）。
     记入 P9.4 的已知缺陷清单。
+
+### A7 中 P9.3 的部分（2026-10-17；`a64_asid_tag` 默认改为 auto）
+
+提交：与本节同一个提交。
+
+- 计数：`src/rust/aarch64/mmu.rs` 统计 TTBR0/TTBR1 的写入与改变了本核心当前 ASID 的写入（`a64_mmu_stat`，
+  `tests/a64/linux_boot.mjs` 的结果里的 `mmu`，机器线程实例的核心）。
+- 测量（release 构建，page tier，1 核 live 阶到 login，3 次交替会话的中位数；机器不安静：NotificationCenter 一直占满一个
+  核，负载约 7，所以只看同一轮里交替的比较；A/A 先跑过）：
+  - 一次启动里原版内核改变 ASID 约 8,300 次（TTBR 写约 25,000 次），androidish 约 160 万次（约 320 万次）：SW_TTBR0_PAN
+    在每次从 EL0 进入和每个 uaccess 窗口前后把 TTBR1 的 ASID 在保留的 0 与进程的之间切换。
+  - `boot_to_login_ms`：`a64_asid_tag=0` 时原版 33.6 s、androidish 57.0 s（慢 70%）；`=1` 时 35.0 s 与 37.8 s。
+- F 级：`=1` 不通过：androidish 快 34%，但原版内核慢 4.2%（低于 0.99）——每个新进程的 ASID 有自己的 epoch，内核的全局
+  条目要在每个 epoch 里重新填（访问缓存的填充从 240 万次升到 390 万次）。于是加了 `=2`（auto，`pages::asid_tag_tick`）：
+  run 循环大约每 1024 条指令一次 tick，每 4096 次 tick（约 400 万条指令）看一次这段时间的 ASID 变化次数，不少于 256 次
+  打开标签，少于 16 次关闭（androidish 启动时每段约 1300 次，原版约 7 次；切换时各核心的缓存清空，同 `set_asid_tag`）。
+  auto 对 0（3 次交替会话的中位数）：
+  - live 阶到 login：原版 34.8 → 34.6 s（不变），androidish 58.0 → 40.5 s（快 30%，目标指标）；
+  - initramfs 阶到 probe 结束：1/2/4 核 6.39/6.93/7.09 → 6.25/6.76/7.50 s。4 核的 A/A（5 次）：0 与 0 为 7.20/7.17 s，
+    auto 排在每轮最后时 7.49 s；把 auto 排在每轮最前再跑 5 次：7.89 s 对 7.88/7.72 s——差别来自顺序与噪声；
+  - JIT 代理负载（P6.7）：76.1 → 77.3 s；A/A 一轮：80.5/80.8 s 对 auto 78.9 s。
+  原版内核上 auto 从来不打开（`asid_tag_switches` 为 0），执行的与 0 相同，只多每 1024 条指令一次计数。按 F 级把默认值
+  改为 2；`tests/a64/asid.mjs` 加了 2。
+- X：默认 auto 之下 androidish 到 login 比原版慢 16.8%（40.5 对 34.6 s），在初值 20% 之内，所以 FEAT_PAN 不提前放进 v2，
+  仍由 P10.4 的审计决定；没有标签时慢 70%，FEAT_PAN 仍是 v2 的首选候选（硬件 PAN 存在时 Linux 不用 SW_TTBR0_PAN）。
+- extended RAM（P8.5 的后续，A7 发现的性能缺陷）：ARM 的 page tier 原来不为 extended RAM 填访问缓存，每次访问都走帧
+  查找，4 GiB（3 GiB extended）时 Linux 约慢 10 倍。现在与 x86 相同：访问缓存可以映射常驻的帧（`cache_frame`，标为
+  CACHED，不被换出），run 循环的 safe point（`crate::extended::safe_point`，在上面的 tick 处）在一半的帧被占用或没有空帧
+  时清掉所有核心的访问缓存并释放它们；写条目先把帧标脏；带代码的页不给写条目（编译时退掉已有的写条目），有独占保留的页
+  也不给（extended RAM 里有保留时退掉所有指向帧的写条目，因为保留的键对不回帧）；并行 Worker 时不缓存。`extended_memory.mjs`
+  加了编译代码经 256 个帧遍历 512 页的读写（检查和、内容与帧的释放）。结果：androidish 4 GiB 全程 369 → 51 s（MIPS 19.8 →
+  80.6），原版 4 GiB memtest 159 → 44 s。
+- 门禁：`make a64-gate`、`a64-page-tier-tests`、`a64-extended-guest-tests`、`a64-android-prep-tests` 与并行的 litmus 通过。默认 auto 之下 androidish 的 initramfs 阶（page tier）：2/4 核全程 38.7/41.1 → 28.8/31.6 s，4 GiB 369 → 35.2 s，并行 Worker 4 核 60.1 → 48.7 s；auto 在每次运行里都打开了标签。

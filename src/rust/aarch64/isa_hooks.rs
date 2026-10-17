@@ -75,13 +75,19 @@ pub fn poll() {
     }
 }
 
-// ---- crate::extended (extended RAM, P8.5): the ARM core's access cache
-// holds no frame of it; code compiled from a page retires at its write
+// ---- crate::extended (extended RAM, P8.5): the page tier's access cache
+// may hold its frames (crate::aarch64::extended::cache_frame); code compiled
+// from a page retires at its write
 
-#[inline(always)]
-pub unsafe fn extended_release_caches() {}
-#[inline(always)]
-pub unsafe fn extended_retire_cached_writes(_host: u32) {}
+/// Every core's access cache entries retire (no compiled code is active)
+pub unsafe fn extended_release_caches() {
+    for core in 0..MAX_CORES {
+        crate::aarch64::jit::pages::tlb_flushed(core);
+    }
+}
+pub unsafe fn extended_retire_cached_writes(host: u32) {
+    crate::aarch64::jit::pages::retire_writes_to(host)
+}
 pub unsafe fn extended_code_written(page: u32) {
     crate::aarch64::root::dirty_bytes(
         crate::page::Page::of_u32(crate::aarch64::bus::EXTENDED_CODE_KEY + page),
