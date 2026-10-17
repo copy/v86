@@ -151,7 +151,10 @@ export type V86DiskImageOptions =
          * do not record a sector size (QCOW2, VHD, VDI, VMDK); a VHDX image
          * has its own, which this must equal, and a child takes its parent's.
          * The disk's size must be a multiple. The BIOS (SeaBIOS) does not
-         * boot from a disk of 4096-byte sectors, and DOS cannot use one.
+         * boot from a disk of 4096-byte sectors, and DOS cannot use one; on
+         * IDE the guest must move data by DMA (Linux's libata in PIO mode
+         * times out), AHCI and virtio-blk have no such limit. The physical
+         * sector size reported equals the logical one (as QEMU's default).
          */
         logical_sector_size?: 512 | 4096;
     };

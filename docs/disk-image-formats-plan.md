@@ -667,9 +667,12 @@ Alpine live 阶段（`A64_JIT=1 A64_STAGE=live A64_CORES=1`）RAW ISO 93941 ms �
    实现；v86 按 ATA8-ACS 实现，每个 PIO DRQ 数据块一个逻辑扇区。Linux 4.16（`linux4.iso`）的 libata 对读写
    命令的 PIO 按 512 字节一块并在每块后等中断，在 4K 盘上丢中断（`lost interrupt`，每次 30 秒超时后由错误
    处理读完）；DMA（ata_piix 的总线主控、AHCI 与 NCQ）正常。客体测试因此不跑 PIO，PIO 协议由端口级设备
-   测试覆盖。
+   测试覆盖。2026-10-17 定（所有者未表态，按建议）：4K 盘是显式选项，接受这一限制，在 `v86.d.ts` 的选项
+   说明中写明客体须以 DMA（IDE）、AHCI 或 virtio-blk 读写，不另改代码。
 3. 物理扇区大小不呈现：IDENTIFY 字 106 的“每物理扇区多个逻辑扇区”与 virtio-blk 的 topology 都不提供，
    物理扇区等于逻辑扇区。Hyper-V 默认的 512 逻辑/4096 物理（512e）VHDX 仍呈现为 512/512，与此前相同。
+   2026-10-17 定（所有者未表态，按建议）：保持不呈现，与 QEMU 的默认（物理扇区大小只在显式配置时报告）
+   相同；v86 的修改层没有物理扇区的读改写代价，呈现只是对齐提示。以后有客体需要时再加显式选项。
 4. SeaBIOS 以 512 字节扇区读 ATA/AHCI 盘，不能从 4K 盘启动：它报 “could not read the boot disk” 后尝试
    下一个启动设备（已测试），MS-DOS 等经 BIOS 读盘的客体不能使用 4K 盘；4K 盘适合作数据盘或直接引导内核时
    的盘。
