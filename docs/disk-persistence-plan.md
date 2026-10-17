@@ -1,6 +1,6 @@
 # 磁盘持久化计划：`disk_option`
 
-状态：D0 已实现（2026-10-17，`disk-formats` 分支），D1 起进行中；实施记录见[附录](#附录实施记录)。
+状态：D0、D1 已实现（2026-10-17，`disk-formats` 分支），D2 起进行中；实施记录见[附录](#附录实施记录)。
 本文是 2026 年 10 月 17 日对“`disk_option` 写回源盘”方案的评审修订版，依据 `arm64` 分支
 a6674aa4 的代码。
 
@@ -423,7 +423,7 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 （无头 Chrome，页面与 CPU Worker）；设备与 API 测试也加入了 `devices-test`、`api-tests` 与
 `a64-virt-device-tests`。同机有长时间门禁运行，只做定向测试，未做计时测量。
 
-### D0 选项、错误策略、FLUSH 顺序、一致读取
+### D0 选项、错误策略、FLUSH 顺序、一致读取（81b63b0d）
 
 **实现。**
 
@@ -493,4 +493,69 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 | `tests/persistence/response_version.mjs`（新） | ETag 优先、无 ETag 时用 Last-Modified、没有版本的响应不核对、各文件分开、错误为 `changed` 且不可重试 |
 | 浏览器（`tests/persistence/browser_runner.mjs`，页面与 CPU Worker） | MS-DOS 从 HTTP Range 读取的 RAW 盘启动；服务器改变 ETag 后 `copy C:\DOS\*.* NUL`：`disk-error`（`changed`，不可重试）、机器暂停、`save_state` 被拒，`run()` 4 次后客户机显示 “General failure reading drive C”；`disk_error: "report"` 时客户机立即看到错误、机器继续运行；另一来源（CORS，不公开 ETag）照常读取且不核对；两种模式各 1016 个镜像请求，v86 发出的请求头只有 `Range`、`X-Accept-Encoding` |
 | 回归 | `make disk-image-tests`（全部格式、设备与客体测试）与 `make disk-image-browser-tests`（页面与 CPU Worker）通过；`ide_disk_image`、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`ide_large_disk`、`virtio_blk_disk_image`、`api/state`、`floppy`、`cdrom-insert-eject`、`clean-shutdown`、`destroy-during-init`、`reset`、`arm64-options` 通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
+
+### D1 Node 本地文件的写回后端、写缓存、快照规则
+
+**实现。**
+
+- 新模块 [`src/disk_writeback.js`](../src/disk_writeback.js)：
+  - `NodeFileDisk`：Node 中 `url` 的本地文件，`fs.openSync(url, "r+")`，带位置参数的 `readSync`/`writeSync`、
+    `fdatasyncSync`，同步完成（`async` 忽略，从不整份读入）。打开时检查：不能以写方式打开、大小不是
+    512 的整数倍、与描述的 `size` 不符、本进程中已有一块盘在写回同一文件（设备号加 inode，跨机器）均
+    报错。写入返回即“完成”；`flush` 为 `fdatasync`；定时 flush：最后一次写入后 1 秒，持续写入时自第一个
+    未持久的写入起最多 5 秒（Node 中定时器 `unref`，不阻止进程退出）；`close` 先 flush 再关闭。
+  - 身份 = 真实路径、设备号、inode；generation = (inode, 大小, 纳秒级 mtime)，取自 `fstat` 的 bigint 结果。
+    快照：`get_state` 先 flush 再记下 generation（`mark`），返回引用 `["v86-writeback", 1, 身份, generation,
+    容量]`，不含数据；其后第一次写入在写数据之前用 `futimes` 把 mtime 设为标记时刻加 1 ms（或当前时间，
+    取较晚者），写后若时间戳因文件系统时间粒度恰好回到标记值再设一次。
+  - `check_disk_state`、`restore_disk_state`：x86 的 `validate_disk_states`、IDE 的 `set_state`、virtio-blk 的
+    `check_state`/`set_state` 都经它们，按快照表：写回盘只接受同一身份、同一 generation、同一容量的
+    引用；`read_only` 盘接受写回盘的引用的条件是它能给出自己镜像的身份与 generation（Node 中分段读取
+    的本地文件，`AsyncXHRBuffer`），此时清空修改层与读缓存；整份读入内存的盘（`url` 不带 `async`）、
+    浏览器中的盘无从核对，拒绝；带修改层的快照恢复到写回盘拒绝。
+  - `check_loaded_disks`：所有盘加载后按设备号与 inode 再查一次同一文件被两块盘绑定（符号链接、
+    相对路径等字符串不同的情况）；Node 中有本地文件的盘时预先加载 `node:fs`，供恢复时同步取引用。
+- 选项（[`src/disk_options.js`](../src/disk_options.js)）：Node 中字符串 `url` 可以 `read_write`；自带对象实现
+  后端契约（`flush`、`close`、`mark`、`generation`、`get_state`、`set_state`、`check_state`）即可 `read_write`，
+  缺哪些方法在错误信息中列出；`read_write` 盘的 buffer 带 `writeback` 标志。
+- 设备层：`read_write` 盘（`writeback`）的 IDENTIFY 第 82 字第 5 位报告写缓存、第 85 字第 5 位报告已启用；
+  SET FEATURES 02h/82h 开关它（其他盘与其他子命令照旧只接受），开关保存在 IDE 状态第 29 项（旧状态
+  缺省为开）；关闭时每个写入在 buffer 的 `flush` 完成之后才完成（`block_write` 的 `durable`）；AHCI NCQ
+  写入的 FUA（FIS 设备寄存器第 7 位）同样。`read_only` 盘的 IDENTIFY 不变。
+- 生命周期（[`starter.js`](../src/browser/starter.js)）：`stop()` 之后 flush 写回盘（机器已停时也 flush），
+  `destroy()` flush 并关闭，`detach_sata_drive` 关闭该盘，`export_disk_image` 先 flush 再从文件读出；启动
+  失败时关闭已打开的写回文件。
+- `v86.d.ts`：`disk_option` 的说明改为现状（Node 本地文件与带契约的自带对象可写回，磁盘服务为 D2）。
+
+**决定与偏差。**
+
+1. **generation 的递增方式**：Node 的 generation 按计划用 (inode, 大小, mtime)；“第一次写入先使
+   generation 递增”通过写前 `futimes` 实现。粗粒度时间戳的文件系统上，写入本身可能把 mtime 设回标记值，
+   写后再设一次；两次之间若进程崩溃，generation 可能等于标记值而数据已变，这个窗口无法在不额外写
+   元数据的前提下消除，记录在此。
+2. **单写者**：按计划首版不做跨进程锁；同一进程内同一文件（设备号加 inode）只允许一块盘写回。
+3. **写缓存开关在机器复位后保留**（客户机最后一次 SET FEATURES 的值），SRST 也保留；Linux、Windows
+   在复位后会重新设置。保存在快照中。
+4. **验收中的客户机工具**：本机的 Linux 镜像（`linux4.iso`，Linux 4.16，busybox 1.28）的 `dd` 没有
+   `oflag=direct`，也没有 `e2fsck`；宿主机没有 e2fsprogs，且不能下载。因此：
+   - “完成即保留”用块设备的 `sync` 验证：Linux 4.16 对块设备的 `sync` 只写出、不发 FLUSH（测试同时核对
+     这一步没有 FLUSH CACHE 命令），命令返回后直接读文件得到数据；浏览器中“关闭页面”属于 D2。
+   - “持久”用带记录的后端（实现后端契约的自带对象）验证：客户机的每个 FLUSH 完成时，在它发出之前完成的
+     写入都已 flush；模拟掉电丢弃 2070 个已完成未持久的扇区后，ext2 文件系统可以挂载，掉电前 `sync`
+     的文件 MD5 不变。没有做 fsck（客户机与宿主机都没有该工具）。
+   - Windows 98 镜像本机没有；用同样从不发 FLUSH CACHE 的 MS-DOS 6.22 验证定时 flush。
+5. **`hdparm -W0`**：busybox 的 `hdparm` 可用，经 ATA 直通发 SET FEATURES 82h；关闭后每个写入都 flush，
+   `-W1` 后不再逐个 flush。
+6. **读缓存**：Node 后端不设读缓存，直接读文件，计划“写入在完成回调之前更新缓存”的要求自然满足；带
+   序号的读缓存在 D2 的磁盘服务客户端实现。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/persistence/node_file.mjs`（新） | 不可写、不存在、非整扇区、与 `size` 不符、本进程已写回（经符号链接）均拒绝；读写同步；写入完成即在文件中；flush 计 `fdatasync`，无脏数据时不调用；定时 flush：最后写入后 1 秒、每 200 ms 持续写入时 5027 ms；快照引用（真实路径、inode、容量），保存后第一次写入（含写同样数据）使 generation 改变、旧引用被拒；关闭后写入报不可重试的错误；重新打开同一 generation 可恢复，复制的文件被拒 |
+| `tests/devices/disk_writeback.mjs`（新） | IDE：写入完成即在 hda 文件中、FLUSH CACHE 为 `fdatasync`、hdb（`read_only`）文件不变；IDENTIFY 第 82/85 字第 5 位只对 hda；SET FEATURES 82h 后每个写入一次 `fdatasync`、02h 后不再；快照表逐行：写回→写回同一 generation 恢复（写缓存开关随之恢复）、保存后再写入被拒（机器内存不变）、写回→分段读取的 `read_only` 恢复且修改层清空、→整份读入的 `read_only` 拒绝、→复制的文件拒绝、带修改层→写回拒绝；同一文件两块盘（同名或经符号链接）拒绝；Q35 `attach_sata_drive` 写回盘、同文件第二块拒绝、`detach_sata_drive` flush 并关闭；virtio-blk：写入在文件中、FLUSH 为 `fdatasync`、快照不含磁盘数据、恢复成功、写入后再恢复被拒；`stop()` 在已停的机器上也 flush |
+| `tests/devices/ahci.js`（新增一项） | 带契约的记录后端：IDENTIFY 报告写缓存；无 FUA 的 NCQ 写不 flush，带 FUA 的先写后 flush 再完成；SET FEATURES 82h 后每个 NCQ 写都 flush。33/33 |
+| `tests/persistence/guest.mjs`（新） | Linux 4.16（Q35/AHCI 与 i440FX/IDE 各一遍）：`/sys/block/sda/queue/write_cache` 为 write back、sdb 为 write through，dmesg 报 sda 写缓存 enabled；`conv=fsync` 的 FLUSH 到达后端；块设备 `sync` 写出（无 FLUSH CACHE）后直接读文件得到数据；`hdparm -W0` 后每个写入都 `fdatasync`、`-W1` 后不再；hdb 文件不变；保存状态、`destroy()`（文件已关闭、含已同步数据）、新机器恢复后继续读写。掉电：2 个 FLUSH 命令逐个核对、丢弃 2070 个未持久扇区、重新启动后 ext2 可挂载、同步过的文件 MD5 一致。MS-DOS：没有 FLUSH CACHE，写入后定时 flush 落盘，文件含写入的文本 |
+| 回归 | `make disk-persistence-tests`（含 D0 各项）；`ide_disk_image`、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`ide_large_disk`、`virtio_blk_disk_image`、`api/state`、`floppy`、`cdrom-insert-eject`、`api/disk-image`、`tests/image/guest.mjs`（8 种格式）通过；`TEST_RELEASE_BUILD=1` 下 `disk_writeback` 与 `guest.mjs`（Q35、掉电）通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
 

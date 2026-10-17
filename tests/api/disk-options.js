@@ -63,7 +63,7 @@ class OwnBuffer
     get() {}
     set() {}
 }
-refused({ hda: new OwnBuffer() }, /hda: a buffer object of one's own is written back only once it implements the backend contract/);
+refused({ hda: new OwnBuffer() }, /hda: a buffer object of one's own is written back only when it implements the backend contract .*; it has no flush, close, mark, generation, get_state, set_state, check_state/);
 console.log("ok - read_write: an ArrayBuffer, a File, an image in parts, a container format, a write-protected disk, a buffer object without the backend contract are refused");
 
 // an image bound twice, one of them read_write

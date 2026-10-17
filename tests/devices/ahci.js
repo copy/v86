@@ -746,6 +746,49 @@ emulator.detach_sata_drive(4);
 pw(3, PX.SERR, -1);
 pw(4, PX.SERR, -1);
 
+// a drive written back (docs/disk-persistence-plan.md D1): a buffer object
+// of one's own with the backend contract, recording what the controller
+// asks of it
+class RecordingDrive extends FlakyDrive
+{
+    constructor()
+    {
+        super();
+        this.disk_option = "read_write";
+        this.log = [];
+    }
+    set(start, data, done) { this.log.push("write " + start / 512); super.set(start, data, done); }
+    flush(done) { this.log.push("flush"); done(); }
+    close(done) { this.log.push("close"); done(); }
+    mark() { return "1"; }
+    generation() { return "1"; }
+    check_state() {}
+}
+const recording = new RecordingDrive();
+await emulator.attach_sata_drive(3, recording);
+pw(3, PX.SERR, -1);
+test("a drive written back: IDENTIFY reports its write cache; an NCQ write with FUA is flushed before it completes", () => {
+    start_port(3);
+    issue(3, 0, { command: 0xEC, prdt: [[DATA, 512]] });
+    const id = words(DATA, 256);
+    assert.equal(id[82] & 1 << 5, 1 << 5, "word 82: write cache");
+    assert.equal(id[85] & 1 << 5, 1 << 5, "word 85: enabled");
+    ncq(3, 1, true, 8, 1, [[DATA, 512]]);
+    assert.equal(pr(3, PX.SACT), 0);
+    assert.deepEqual(recording.log, ["write 8"], "no FUA: no flush");
+    issue(3, 2, { command: 0x61, features: 1, lba: 9, count: 2 << 3, device: 0xC0, prdt: [[DATA, 512]], write: true, queued: true });
+    assert.equal(pr(3, PX.SACT) | pr(3, PX.IS) & TFES, 0, "completed");
+    assert.deepEqual(recording.log, ["write 8", "write 9", "flush"], "FUA: the write, then the flush, then the completion");
+    issue(3, 3, { command: 0xEF, features: 0x82 });
+    issue(3, 4, { command: 0xEC, prdt: [[DATA, 512]] });
+    assert.equal(words(DATA, 256)[85] & 1 << 5, 0, "SET FEATURES 82h: off");
+    ncq(3, 5, true, 10, 1, [[DATA, 512]]);
+    assert.deepEqual(recording.log.slice(3), ["write 10", "flush"], "write cache off: each write flushed");
+    issue(3, 6, { command: 0xEF, features: 0x02 });
+});
+emulator.detach_sata_drive(3);
+pw(3, PX.SERR, -1);
+
 test("link power management: CAP, ICC requests, PxSCTL.IPM, commands wake the link, ALPE/ASP when idle", () => {
     const cap = r32(0x00);
     assert.ok(cap & 1 << 26 && cap & 1 << 14 && cap & 1 << 13, "SALP, SSC, PSC");

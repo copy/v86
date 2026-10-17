@@ -114,7 +114,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js block_backend.js disk_options.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
@@ -598,6 +598,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/ide_large_disk.js
 	./tests/devices/ide_disk_image.js
 	./tests/devices/disk_error.mjs
+	./tests/devices/disk_writeback.mjs
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
@@ -711,6 +712,9 @@ disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
 	./tests/persistence/response_version.mjs
 	./tests/devices/disk_error.mjs
 	node tests/a64/virtio_blk_disk_error.mjs
+	./tests/persistence/node_file.mjs
+	./tests/devices/disk_writeback.mjs
+	./tests/persistence/guest.mjs
 
 disk-persistence-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
 	./tests/persistence/browser_runner.mjs worker=0

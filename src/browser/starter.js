@@ -31,6 +31,7 @@ import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
 import { check_image_options, create_disk_image, import_ova } from "../image/factory.js";
 import { check_disk_options, check_disk_policy, check_disk_bindings, set_disk_policy, disk_kind } from "../disk_options.js";
+import { NodeFileDisk, check_loaded_disks } from "../disk_writeback.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -704,11 +705,18 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // the disks' policies (src/disk_options.js), put on their buffers
     const disk_policies = new Map();
+    /** @type {!Array<!Array<*>>} [name, buffer, descriptor] of the disks loaded */
+    const loaded_disks = [];
+    const disk_descriptors = new Map();
 
     // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
     {
-        if(disk_policies.has(name)) set_disk_policy(buffer, name, disk_policies.get(name));
+        if(disk_policies.has(name))
+        {
+            set_disk_policy(buffer, name, disk_policies.get(name));
+            loaded_disks.push([name, buffer, disk_descriptors.get(name)]);
+        }
 
         // (virtio_disks[i]: "virtio_disk" + i)
         if(name.startsWith("virtio_disk"))
@@ -780,7 +788,19 @@ V86.prototype.continue_init = async function(emulator, options)
         }
 
         // (virtio_disks[i]: "virtio_disk" + i)
-        if(disk_kind(name) !== "other") disk_policies.set(name, check_disk_policy(name, file));
+        if(disk_kind(name) !== "other")
+        {
+            disk_policies.set(name, check_disk_policy(name, file));
+            disk_descriptors.set(name, file);
+            // written back (docs/disk-persistence-plan.md): in Node, the
+            // url's local file (src/disk_writeback.js); a buffer object of
+            // one's own is its own backend
+            if(disk_policies.get(name).disk_option === "read_write" && !(file.get && file.set && file.load))
+            {
+                files_to_load.push({ name, loadable: new NodeFileDisk(file.url, { name, size: file.size }) });
+                return;
+            }
+        }
 
         // hard disks in a container format (docs/disk-image-formats-plan.md);
         // without a format, RAW in the buffers of src/buffer.js
@@ -978,11 +998,22 @@ V86.prototype.continue_init = async function(emulator, options)
             });
         }
     }.bind(this);
+    // (a start that fails: the files written back opened so far are closed)
+    initialized.catch(() =>
+    {
+        for(const f of files_to_load)
+        {
+            if(f.loadable && f.loadable.writeback && typeof f.loadable.close_now === "function") f.loadable.close_now();
+        }
+    });
     cont(0);
     return initialized;
 
     async function done()
     {
+        // (a disk written back and another disk of the same file, by
+        // another name: src/disk_writeback.js)
+        await check_loaded_disks(loaded_disks);
         //if(settings.initial_state)
         //{
         //    // avoid large allocation now, memory will be restored later anyway
@@ -1332,6 +1363,8 @@ V86.prototype.stop = async function()
     if(this.worker_controller) return this.worker_controller.serialize(() => this.worker_controller.stop());
     if(!this.cpu_is_running)
     {
+        // (stopped already: the disks written back are made durable all the same)
+        await this.flush_writeback_disks();
         return;
     }
 
@@ -1352,6 +1385,38 @@ V86.prototype.stop = async function()
         await cpu.parallel.park();
         if(!this.v86.running) cpu.parallel_capture();
     }
+    // the disks written back: their writes durable (docs/disk-persistence-plan.md)
+    await this.flush_writeback_disks();
+};
+
+/**
+ * [name, buffer] of the machine's disks
+ * @return {!Array<!Array<*>>}
+ */
+V86.prototype.disk_buffers = function()
+{
+    if(!this.v86) return [];
+    return this.v86.cpu.disk_devices().filter(([, device]) => device && device.buffer).map(([name, device]) => [name, device.buffer, undefined]);
+};
+
+/**
+ * Flush (or, closing, flush and close) the disks written back
+ * @param {boolean=} close
+ * @return {!Promise<undefined>}
+ */
+V86.prototype.flush_writeback_disks = async function(close)
+{
+    const buffers = new Set(this.disk_buffers().map(([, buffer]) => buffer).filter(buffer => buffer.writeback));
+    for(const buffer of buffers)
+    {
+        const operation = close ? buffer.close : buffer.flush;
+        if(typeof operation !== "function") continue;
+        await new Promise(resolve => operation.call(buffer, error =>
+        {
+            if(error) console.error((close ? "Closing " : "Flushing ") + (buffer.disk_name || "a disk") + ": " + error.message);
+            resolve();
+        }));
+    }
 };
 
 /**
@@ -1363,6 +1428,8 @@ V86.prototype.destroy = async function()
     if(this.worker_controller) await this.worker_controller.destroy();
     else await this.stop();
     if(this.device_state_operation) await this.device_state_operation;
+    // (the disks written back: flushed, their files closed)
+    if(!this.worker_controller) await this.flush_writeback_disks(true);
 
     for(const plugin of this.device_plugins)
     {
@@ -1833,7 +1900,10 @@ V86.prototype.export_disk_image = async function(name, options)
 {
     if(!options || typeof options.write !== "function") throw new TypeError("export_disk_image: options.write must be a function");
     if(this.worker_controller) return this.worker_controller.export_disk(name, options);
-    return this.v86.export_disk(this.disk_buffer(name), options.write, options);
+    const buffer = this.disk_buffer(name);
+    // (a disk written back: flushed, then read from its image)
+    if(buffer.writeback && typeof buffer.flush === "function") await new Promise(resolve => buffer.flush(resolve));
+    return this.v86.export_disk(buffer, options.write, options);
 };
 
 /**
@@ -1921,7 +1991,15 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     const policy = check_disk_policy(name, file);
     if(file) check_disk_bindings([[name, file, policy]], this.disk_descriptors);
     let image;
-    if(check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom))
+    if(policy.disk_option === "read_write" && !(file.get && file.set && file.load))
+    {
+        // (written back: src/disk_writeback.js)
+        image = new NodeFileDisk(file.url, { name, size: file.size });
+        await image.load();
+        try { await check_loaded_disks([[name, image, file]].concat(this.disk_buffers())); }
+        catch(error) { image.close_now(); throw error; }
+    }
+    else if(check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom))
     {
         // a hard disk in a container format (docs/disk-image-formats-plan.md)
         image = create_disk_image("sata" + port, /** @type {!Object} */ (file), this.disk_image_settings());
@@ -1964,7 +2042,13 @@ V86.prototype.detach_sata_drive = function(port)
     if(this.worker_controller) return this.worker_controller.rpc("detach_sata_drive", [port]);
     const ahci = this.v86.cpu.devices.ahci;
     if(!ahci) throw new Error("detach_sata_drive: no AHCI controller (machine_type: \"q35\")");
+    const device = ahci.ports[port] && ahci.ports[port].device;
     ahci.detach(port);
+    // (a disk written back: its writes flushed, the file closed)
+    if(device && device.buffer && device.buffer.writeback && typeof device.buffer.close === "function")
+    {
+        device.buffer.close(error => { if(error) console.error(error.message); });
+    }
     const names = ["sata" + port, ["hda", "hdb", "cdrom"][port]];
     this.disk_descriptors = this.disk_descriptors.filter(([name]) => !names.includes(name));
 };

@@ -1099,7 +1099,8 @@ AHCIPort.prototype.start_queued = function(slot, header, table, prdtl, fis)
             this.ncq_failed(job, ATA_ER_ABRT);
             return;
         }
-        device.write_to_backend(start, data, () => this.queued_done(job), () => this.queued_failed(job));
+        // (FUA, the device register's bit 7: durable before it completes)
+        device.write_to_backend(start, data, () => this.queued_done(job), () => this.queued_failed(job), !!(fis[7] & 0x80));
         device.report_write(length);
     }
     else

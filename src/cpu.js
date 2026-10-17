@@ -1,4 +1,4 @@
-import { is_disk_image_state } from "./image/disk_image.js";
+import { check_disk_state } from "./disk_writeback.js";
 import { drop_disk_holds } from "./block_backend.js";
 import {
     LOG_CPU, LOG_BIOS,
@@ -1278,19 +1278,12 @@ CPU.prototype.validate_state = function(state)
  */
 CPU.prototype.validate_disk_states = function(state)
 {
+    // (and a disk written back takes only a reference of its image in the
+    // same generation: src/disk_writeback.js)
     const check = (device, saved) =>
     {
         if(!device || !device.buffer || !saved) return;
-        const buffer = device.buffer;
-        if(typeof buffer.check_state === "function")
-        {
-            buffer.check_state(saved[28]);
-        }
-        else if(is_disk_image_state(saved[28]))
-        {
-            throw new Error("The snapshot's disk " + device.name + " is a disk image in a container format, " +
-                "this machine's is RAW: its changes cannot be applied to it");
-        }
+        check_disk_state(device.buffer.disk_name || device.name, device.buffer, saved[28]);
     };
     const ide = this.devices.ide;
     if(ide)

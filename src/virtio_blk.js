@@ -10,7 +10,7 @@
 
 import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
 import { BlockBackend } from "./block_backend.js";
-import { is_disk_image_state } from "./image/disk_image.js";
+import { check_disk_state, restore_disk_state } from "./disk_writeback.js";
 import { dbg_assert } from "./log.js";
 
 // feature bits
@@ -203,16 +203,8 @@ VirtioBlk.prototype.check_state = function(state)
         throw new Error("The snapshot's virtio-blk disk is another image (SHA-256 " + state[3] + ", this one " + this.image_sha256 + ")");
     }
     if(this.readonly) return;
-    const buffer = this.backend.buffer;
-    if(typeof buffer.check_state === "function")
-    {
-        buffer.check_state(state[1]);
-    }
-    else if(is_disk_image_state(state[1]))
-    {
-        throw new Error("The snapshot's disk " + this.name + " is a disk image in a container format, " +
-            "this machine's is RAW: its changes cannot be applied to it");
-    }
+    // (and a disk written back: src/disk_writeback.js)
+    check_disk_state(this.name, this.backend.buffer, state[1]);
 };
 
 VirtioBlk.prototype.set_state = function(state)
@@ -221,5 +213,5 @@ VirtioBlk.prototype.set_state = function(state)
     // (requests in flight belong to the state left behind)
     this.backend.reset();
     this.virtio.set_state(state[0]);
-    if(state[1] && !this.readonly) this.backend.buffer.set_state(state[1]);
+    if(state[1] && !this.readonly) restore_disk_state(this.backend.buffer, state[1]);
 };

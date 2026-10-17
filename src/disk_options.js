@@ -16,6 +16,9 @@ export const DISK_OPTIONS = ["read_only", "read_write"];
 /** what disk_error may be */
 export const DISK_ERRORS = ["stop", "report"];
 
+/** what a buffer object of one's own needs for disk_option "read_write" (besides load, get, set) */
+export const BACKEND_CONTRACT = ["flush", "close", "mark", "generation", "get_state", "set_state", "check_state"];
+
 /** the descriptors that are not disks: neither option applies */
 const NOT_DISKS = ["bios", "vga_bios", "initial_state", "multiboot", "bzimage", "initrd", "kernel", "dtb"];
 
@@ -66,8 +69,9 @@ export function writeback_problem(name, file)
     const keep = " Without disk_option (or with \"read_only\"), the guest's changes stay in memory.";
     if(file.get && file.set && file.load)
     {
-        return name + ": a buffer object of one's own is written back only once it implements the backend contract " +
-            "(flush, close, generation, mark: docs/disk-persistence-plan.md, \"后端契约\"); not supported yet (D1)." + keep;
+        const missing = BACKEND_CONTRACT.filter(method => typeof file[method] !== "function");
+        return missing.length ? name + ": a buffer object of one's own is written back only when it implements the backend contract " +
+            "(docs/disk-persistence-plan.md, \"后端契约\"); it has no " + missing.join(", ") + "." + keep : "";
     }
     if(file.buffer instanceof ArrayBuffer)
     {
@@ -89,7 +93,8 @@ export function writeback_problem(name, file)
     }
     if(in_node())
     {
-        return name + ": writing back to a local file is not supported yet (docs/disk-persistence-plan.md D1)." + keep;
+        // (the url is a local file: src/disk_writeback.js)
+        return "";
     }
     return name + "'s URL can only be read, not written back: writing back to a disk service is not supported yet " +
         "(docs/disk-persistence-plan.md D2)." + keep;
@@ -253,4 +258,6 @@ export function set_disk_policy(buffer, name, policy)
     if(!buffer || typeof buffer !== "object") return;
     buffer.disk_name = name;
     buffer.disk_error = policy.disk_error;
+    // (a write-back backend: the device reports a write cache, src/ide.js)
+    if(policy.disk_option === "read_write") buffer.writeback = true;
 }

@@ -1,4 +1,5 @@
 import { init_block_io, block_read, block_write, block_when_writes_done, block_cancel_reads, block_drop_holds } from "./block_backend.js";
+import { restore_disk_state } from "./disk_writeback.js";
 import { LOG_DISK } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
@@ -966,6 +967,8 @@ export function IDEInterface(channel, interface_nr, buffer, is_cd)
     // every disk controller shares (src/block_backend.js): reset_epoch counts
     // the device's resets, a write completing after one is dropped
     init_block_io(this);
+    /** a write-back disk's write cache (has_write_cache): SET FEATURES 02h/82h */
+    this.write_cache_enabled = true;
 
     // ATAPI-only
     /** @type {number} */
@@ -1507,6 +1510,14 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case ATA_CMD_SET_FEATURES:
+            // 02h, 82h: a write-back disk's write cache on, off (the other
+            // subcommands, and these for the other disks, are taken as
+            // before)
+            if(this.has_write_cache() && ((this.features_reg & 0xFF) === 0x02 || (this.features_reg & 0xFF) === 0x82))
+            {
+                this.write_cache_enabled = (this.features_reg & 0xFF) === 0x02;
+                dbg_log(this.name + ": write cache " + (this.write_cache_enabled ? "on" : "off"), LOG_DISK);
+            }
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
@@ -1918,10 +1929,26 @@ IDEInterface.prototype.do_write = function()
  * @param {!Uint8Array} data
  * @param {function()} callback
  * @param {function(!Error)=} on_error
+ * @param {boolean=} fua the write is durable before it completes (NCQ's FUA)
  */
-IDEInterface.prototype.write_to_backend = function(start, data, callback, on_error)
+IDEInterface.prototype.write_to_backend = function(start, data, callback, on_error, fua)
 {
-    block_write(this, start, data, callback, on_error || (error => this.io_error(error)));
+    // (the guest turned a write-back disk's write cache off: each write is
+    // durable before it completes; FUA, the same for one write)
+    const durable = !!fua || this.has_write_cache() && !this.write_cache_enabled;
+    block_write(this, start, data, callback, on_error || (error => this.io_error(error)), durable);
+};
+
+/**
+ * Whether the disk reports a volatile write cache: one written back
+ * (disk_option "read_write", docs/disk-persistence-plan.md "向客户机报告写缓存"),
+ * where a completed write is in the host's page cache, durable only after
+ * a flush; the other disks' IDENTIFY is as it was
+ * @return {boolean}
+ */
+IDEInterface.prototype.has_write_cache = function()
+{
+    return !this.is_atapi && !!this.buffer && !!this.buffer.writeback;
 };
 
 /**
@@ -2687,7 +2714,11 @@ IDEInterface.prototype.create_identify_packet = function()
     const sector_count_high = Math.floor(this.sector_count / 0x100000000);
     // supported ATA:   NOP, FLUSH CACHE, FLUSH CACHE EXT, 48-bit addr
     // supported ATAPI: NOP, DEVICE RESET, PACKET and FLUSH CACHE
-    const feat_82 = this.is_atapi ? 1 << 14 | 1 << 9 | 1 << 5 : 1 << 14;
+    // (a write-back disk: a volatile write cache, word 82 bit 5; enabled in
+    // word 85 bit 5 unless SET FEATURES 82h turned it off)
+    const write_cache = this.has_write_cache();
+    const feat_82 = this.is_atapi ? 1 << 14 | 1 << 9 | 1 << 5 : 1 << 14 | (write_cache ? 1 << 5 : 0);
+    const feat_85 = this.is_atapi ? feat_82 : 1 << 14 | (write_cache && this.write_cache_enabled ? 1 << 5 : 0);
     const feat_83 = this.is_atapi ? 1 << 14 | 1 << 12 : 1 << 14 | 1 << 13 | 1 << 12 | 1 << 10;
     const feat_84 = this.is_atapi ? 1 << 14 : 1 << 14;
 
@@ -2782,8 +2813,8 @@ IDEInterface.prototype.create_identify_packet = function()
         feat_83 & 0xFF, feat_83 >> 8 & 0xFF,
         // 84: Command set/feature supported extension
         feat_84 & 0xFF, feat_84 >> 8 & 0xFF,
-        // 85: Command set/feature enabled (copy of 82)
-        feat_82 & 0xFF, feat_82 >> 8 & 0xFF,
+        // 85: Command set/feature enabled (of 82)
+        feat_85 & 0xFF, feat_85 >> 8 & 0xFF,
         // 86: Command set/feature enabled (copy of 83)
         feat_83 & 0xFF, feat_83 >> 8 & 0xFF,
         // 87: Command set/feature default (copy of 84)
@@ -2986,6 +3017,7 @@ IDEInterface.prototype.get_state = function()
     state[26] = this.data_end;
     state[27] = this.current_atapi_command;
     state[28] = this.buffer;
+    state[29] = this.write_cache_enabled;
     return state;
 };
 
@@ -3025,7 +3057,10 @@ IDEInterface.prototype.set_state = function(state)
     this.data16 = new Uint16Array(this.data.buffer);
     this.data32 = new Int32Array(this.data.buffer);
 
-    this.buffer && this.buffer.set_state(state[28]);
+    // (a snapshot's reference of a disk written back, or its changes in
+    // memory: src/disk_writeback.js)
+    this.buffer && restore_disk_state(this.buffer, state[28]);
+    this.write_cache_enabled = state[29] !== false;
 
     this.drive_connected = this.is_atapi || this.buffer;
     this.medium_changed = MEDIUM_CHANGED_NONE;

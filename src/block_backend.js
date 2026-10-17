@@ -162,14 +162,17 @@ export function block_read(owner, start, length, callback, on_error)
 /**
  * Write `data` at `start`: `callback` when it is in the buffer, or
  * `on_error` when the backend failed it, unless a reset came first (the
- * write itself still lands)
+ * write itself still lands). A durable write (the guest turned the write
+ * cache off, or FUA: docs/disk-persistence-plan.md "向客户机报告写缓存")
+ * completes once the buffer's flush after it is done.
  * @param {?} owner
  * @param {number} start
  * @param {!Uint8Array} data
  * @param {function()} callback
  * @param {function(!Error)} on_error
+ * @param {boolean=} durable
  */
-export function block_write(owner, start, data, callback, on_error)
+export function block_write(owner, start, data, callback, on_error, durable)
 {
     const epoch = owner.reset_epoch;
     const seq = ++owner.write_seq;
@@ -181,9 +184,15 @@ export function block_write(owner, start, data, callback, on_error)
         owner.writes_pending.delete(seq);
         run_flush_waiters(owner);
     };
+    const buffer = owner.buffer;
+    const flush = durable && buffer && typeof buffer.flush === "function";
     const attempt = () =>
     {
-        track_state_io(owner.cpu, done => owner.buffer.set(start, data, done), error =>
+        track_state_io(owner.cpu, done => buffer.set(start, data, error =>
+        {
+            if(error || !flush) done(error);
+            else track_state_io(owner.cpu, flushed => buffer.flush(flushed), done);
+        }), error =>
         {
             if(error)
             {
@@ -373,7 +382,14 @@ export function BlockBackend(cpu, buffer)
 }
 
 BlockBackend.prototype.read = function(start, length, callback, on_error) { block_read(this, start, length, callback, on_error); };
-BlockBackend.prototype.write = function(start, data, callback, on_error) { block_write(this, start, data, callback, on_error); };
+/**
+ * @param {number} start
+ * @param {!Uint8Array} data
+ * @param {function()} callback
+ * @param {function(!Error)} on_error
+ * @param {boolean=} durable
+ */
+BlockBackend.prototype.write = function(start, data, callback, on_error, durable) { block_write(this, start, data, callback, on_error, durable); };
 BlockBackend.prototype.when_writes_done = function(callback, on_error) { block_when_writes_done(this, callback, on_error); };
 BlockBackend.prototype.cancel_reads = function() { block_cancel_reads(this); };
 
