@@ -3326,13 +3326,31 @@ function init_ui(profile, settings, emulator)
     {
         var elem = $("get_" + type + "_image");
 
-        if(!obj || obj.async)
+        // (a disk image in a container format: exported RAW, in parts;
+        // docs/disk-image-formats-plan.md P2)
+        const exported = obj && obj.format && obj.format !== "raw";
+        if(!obj || obj.async && !exported)
         {
             elem.style.display = "none";
         }
 
         elem.onclick = async function(e)
         {
+            if(exported)
+            {
+                const parts = [];
+                try
+                {
+                    await emulator.export_disk_image(type, { write: chunk => { parts.push(chunk); } });
+                    download(new Blob(parts), (profile?.id || "v86") + "-" + type + ".img");
+                }
+                catch(error)
+                {
+                    alert("The disk could not be exported: " + error.message);
+                }
+                elem.blur();
+                return;
+            }
             if(emulator.worker_controller)
             {
                 const name = (profile?.id || "v86") + "-" + type + (type === "cdrom" ? ".iso" : ".img");

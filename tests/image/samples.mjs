@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash as create_hash } from "node:crypto";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -19,7 +20,7 @@ const QEMU_IMG = process.env.QEMU_IMG || (fs.existsSync("/opt/homebrew/bin/qemu-
 const QEMU_IO = process.env.QEMU_IO || (fs.existsSync("/opt/homebrew/bin/qemu-io") ? "/opt/homebrew/bin/qemu-io" : "qemu-io");
 
 // changing a sample: change this, and the samples are made again
-const SAMPLES_VERSION = 2;
+const SAMPLES_VERSION = 3;
 
 export const BASE_SIZE = 64 * 1024 * 1024;
 export const TB3 = 3 * 1024 ** 4;
@@ -184,6 +185,16 @@ export function make_samples()
         file("child.qcow2")], log);
     run(QEMU_IMG, ["convert", "-O", "raw", file("child.qcow2"), file("child.raw")], log);
     add("child.qcow2", "qcow2", "child.raw", { backing: "parent.qcow2" });
+    // compression and parents: a child of a compressed parent, a compressed
+    // child (convert -c -B: only what differs from the parent)
+    run(QEMU_IMG, ["create", "-q", "-f", "qcow2", "-o", "compat=1.1", "-b", "v3-zlib.qcow2", "-F", "qcow2", file("child-of-zlib.qcow2")], log);
+    run(QEMU_IO, ["-f", "qcow2", "-c", "write -q -z 65536 65536", "-c", "write -q -s " + pattern + " 2097152 131072",
+        file("child-of-zlib.qcow2")], log);
+    run(QEMU_IMG, ["convert", "-O", "raw", file("child-of-zlib.qcow2"), file("child-of-zlib.raw")], log);
+    add("child-of-zlib.qcow2", "qcow2", "child-of-zlib.raw", { backing: "v3-zlib.qcow2" });
+    run(QEMU_IMG, ["convert", "-c", "-O", "qcow2", "-o", "compat=1.1", "-B", "parent.qcow2", "-F", "qcow2",
+        file("child.qcow2"), file("child-zlib.qcow2")], log);
+    add("child-zlib.qcow2", "qcow2", "child.raw", { backing: "parent.qcow2" });
     // a child of a RAW parent, smaller than the child
     run(QEMU_IMG, ["create", "-q", "-f", "qcow2", "-o", "compat=1.1", "-b", "base.raw", "-F", "raw", file("child-raw.qcow2"), "80M"], log);
     run(QEMU_IO, ["-f", "qcow2", "-c", "write -q -P 0x77 66060288 1048576", "-c", "write -q -P 0x11 4096 4096",
@@ -227,6 +238,33 @@ export function make_samples()
     const manifest = { samples_version: SAMPLES_VERSION, tool: version, dir: SAMPLES_DIR, commands: log, samples };
     fs.writeFileSync(manifest_path, JSON.stringify(manifest, null, 2));
     return manifest;
+}
+
+/**
+ * Zstandard for the readers in Node (v86 itself uses its core's decoder):
+ * the first frame of the data (a QCOW2 cluster's bytes end in a sector, the
+ * rest is not the frame's), found by walking its blocks, decoded by zlib
+ * @param {number} size
+ * @param {Uint8Array} bytes
+ */
+export function zstd_decompress(size, bytes)
+{
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if(view.getUint32(0, true) !== 0xFD2FB528) throw new Error("not a Zstandard frame");
+    const descriptor = bytes[4];
+    const single_segment = descriptor >> 5 & 1;
+    const fcs = [single_segment ? 1 : 0, 2, 4, 8][descriptor >> 6];
+    let position = 5 + (single_segment ? 0 : 1) + [0, 1, 2, 4][descriptor & 3] + fcs;
+    for(;;)
+    {
+        const header = bytes[position] | bytes[position + 1] << 8 | bytes[position + 2] << 16;
+        const type = header >> 1 & 3, block_size = header >> 3;
+        position += 3 + (type === 1 ? 1 : block_size);
+        if(header & 1) break;
+    }
+    if(descriptor & 4) position += 4;
+    const output = zlib.zstdDecompressSync(bytes.subarray(0, position));
+    return new Uint8Array(output.buffer, output.byteOffset, Math.min(size, output.length));
 }
 
 /**

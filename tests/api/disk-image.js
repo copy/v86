@@ -90,6 +90,16 @@ async function run(machine_type)
     assert.match(await dos(emulator, "type C:\\V86TEST.TXT"), new RegExp("^" + word + "\\s*$", "m"));
     console.log(machine_type + ": the guest wrote a file");
 
+    // export (P2): the disk as RAW, with the file
+    const chunks = [];
+    assert.equal(await emulator.export_disk_image("hda", { write: chunk => { chunks.push(chunk); } }), raw.length);
+    const exported = Buffer.concat(chunks);
+    // (echo writes the space before the redirection)
+    assert.ok(exported.includes(word + " \r\n"), "the export has the file's data");
+    let changed = 0;
+    for(let i = 0; i < raw.length; i += 512) if(Buffer.compare(exported.subarray(i, i + 512), raw.subarray(i, i + 512))) changed++;
+    console.log(machine_type + ": exported RAW (" + exported.length + " bytes, " + changed + " sectors differ from msdos622.img)");
+
     await emulator.restart();
     await new Promise(resolve => setTimeout(resolve, 2000));
     await wait_for(emulator, /C:\\>/, "C:\\> after the restart");

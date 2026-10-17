@@ -13,11 +13,11 @@ const worker = params.get("worker") === "1";
 const log = [];
 const result = document.getElementById("result");
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const config = hda => ({
+const config = (hda, hdb) => ({
     wasm_path: "../../build/v86.wasm", cpu_worker: worker, cpu_worker_url: "../../build/cpu-worker.js",
     bios: { url: "../../bios/seabios.bin" }, vga_bios: { url: "../../bios/vgabios.bin" },
     graphics_adapter: "bochs_vga", graphics_adapter_path: "../../build/v86-bochs-vga.js",
-    hda, memory_size: 32 << 20, autostart: true, disable_speaker: true,
+    hda, hdb, memory_size: 32 << 20, autostart: true, disable_speaker: true,
     screen: { container: document.getElementById("screen") },
 });
 const screen = vm => (vm.screen_adapter ? vm.screen_adapter.get_text_screen() : []).map(l => l.replace(/\x00/g, " "));
@@ -41,14 +41,44 @@ async function dos(vm, command)
 }
 try
 {
-    const vm = vm_current = new V86(config({ url: "../../build/disk-image-browser/msdos622.qcow2", async: true, format: "qcow2" }));
+    // hdb (with the samples): a compressed child, its parent given as backing
+    const hdb = params.get("child_sha256") ? { url: "../../build/disk-image-browser/child-zlib.qcow2", async: true, format: "qcow2",
+        backing: { url: "../../build/disk-image-browser/v3-zstd.qcow2", async: true } } : undefined;
+    const vm = vm_current = new V86(config({ url: "../../build/disk-image-browser/msdos622.qcow2", async: true, format: "qcow2" }, hdb));
     await new Promise((resolve, reject) => { vm.add_listener("emulator-loaded", resolve); vm.add_listener("emulator-error", reject); });
     if(worker && vm.v86) throw new Error("the machine is on the page, not in the Worker");
     await until(() => screen(vm).some(l => l.startsWith("C:\\>")), "C:\\>");
     log.push("C:\\> from the QCOW2 disk over HTTP Range (" + (worker ? "CPU Worker" : "page") + ")");
+    // export (P2): before the guest writes, MS-DOS's disk as it is
+    const exported = async () =>
+    {
+        const parts = [];
+        let progress = 0;
+        const size = await vm.export_disk_image("hda", { write: async chunk => { parts.push(chunk); await sleep(0); },
+            progress: p => { progress = p.loaded / p.total; } });
+        const blob = new Blob(parts);
+        if(blob.size !== size || progress !== 1) throw new Error("export: " + blob.size + " bytes, " + size + " reported, progress " + progress);
+        return new Uint8Array(await blob.arrayBuffer());
+    };
+    const hex = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), b => b.toString(16).padStart(2, "0")).join("");
+    const info = await vm.disk_image_info("hda");
+    const first = await exported();
+    if(await hex(first) !== params.get("raw_sha256") && info.written === 0) throw new Error("the export is not msdos622.img");
+    log.push("export_disk_image: " + first.length + " bytes (" + info.format + ", " + info.written + " bytes written before)");
+    if(hdb)
+    {
+        const parts = [];
+        await vm.export_disk_image("hdb", { write: chunk => { parts.push(chunk); } });
+        if(await hex(await new Blob(parts).arrayBuffer()) !== params.get("child_sha256")) throw new Error("hdb: not the RAW of qemu-img");
+        log.push("hdb: a compressed QCOW2 child on a parent with Zstandard clusters, as qemu-img reads it");
+    }
     await dos(vm, "echo BROWSER > C:\\BROWSER.TXT");
     if(!/^BROWSER\s*$/m.test(await dos(vm, "type C:\\BROWSER.TXT"))) throw new Error("the file written is not there");
     log.push("the guest wrote a file");
+    const second = await exported();
+    const text = new TextDecoder("latin1").decode(second);
+    if(!text.includes("BROWSER \r\n")) throw new Error("the export has not the file's data");
+    log.push("the export after the write has the file");
     const state = await vm.save_state();
     await dos(vm, "del C:\\BROWSER.TXT");
     await vm.restore_state(state);

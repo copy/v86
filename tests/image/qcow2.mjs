@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { make_samples, SAMPLES_DIR, random_generator, expected_from_writes, TB3 } from "./samples.mjs";
+import { make_samples, SAMPLES_DIR, random_generator, expected_from_writes, TB3, zstd_decompress } from "./samples.mjs";
 import { open_image, detect_format } from "../../src/image/factory.js";
 
 process.on("unhandledRejection", exn => { throw exn; });
@@ -22,19 +22,21 @@ function read(reader, offset, length)
     return new Promise((resolve, reject) => reader.read(offset, length, (data, error) => error ? reject(error) : resolve(data)));
 }
 
+const settings = { zstd_decompress };
+
 /** open a sample as a local file read in ranges (async: true) or from memory */
 async function open(name, how, extra = {})
 {
     const descriptor = how === "memory" ?
         { buffer: new Uint8Array(fs.readFileSync(file(name))).buffer, format: "qcow2", ...extra } :
         { url: file(name), async: true, format: "qcow2", ...extra };
-    return open_image("hda", descriptor, {});
+    return open_image("hda", descriptor, settings);
 }
 
 /** open bytes from memory (a damaged copy) */
 function open_bytes(bytes, format = "qcow2")
 {
-    return open_image("hda", { buffer: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length), format }, {});
+    return open_image("hda", { buffer: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length), format }, settings);
 }
 
 async function rejects(promise, pattern, kind)
@@ -62,10 +64,6 @@ function compare(actual, expected, what)
     }
 }
 
-// the compressed clusters (P2): until they are read, a read of one fails
-const COMPRESSED_SUPPORTED = !!process.env.QCOW2_COMPRESSED;
-const compressed_samples = new Set(["v3-zlib.qcow2", "v3-zstd.qcow2", "v2-zlib.qcow2"]);
-
 let checked_bytes = 0;
 
 async function check_against_reference(name, how)
@@ -75,27 +73,14 @@ async function check_against_reference(name, how)
     const reader = await open(name, how);
     assert.equal(reader.virtual_size, reference.length, name + ": the virtual size");
     assert.equal(reader.format, "qcow2");
-    const compressed = compressed_samples.has(name) && !COMPRESSED_SUPPORTED;
 
     // whole, 1 MiB at a time
     const step = 1 << 20;
-    let failures = 0;
     for(let offset = 0; offset < reference.length; offset += step)
     {
-        try
-        {
-            compare(await read(reader, offset, step), reference.subarray(offset, offset + step), name + " at " + offset);
-            checked_bytes += step;
-        }
-        catch(error)
-        {
-            if(!compressed) throw error;
-            assert.equal(error.kind, "unsupported", error.message);
-            assert.match(error.message, /compressed/);
-            failures++;
-        }
+        compare(await read(reader, offset, step), reference.subarray(offset, offset + step), name + " at " + offset);
+        checked_bytes += step;
     }
-    if(compressed) assert.ok(failures > 0, name + ": compressed clusters fail");
 
     // random ranges: first and last sectors, across clusters
     const next = random_generator(name.length * 77 + (how === "memory" ? 1 : 2));
@@ -108,15 +93,7 @@ async function check_against_reference(name, how)
     }
     for(const [offset, length] of ranges)
     {
-        try
-        {
-            compare(await read(reader, offset, length), reference.subarray(offset, offset + length), name + " range " + offset + "+" + length);
-        }
-        catch(error)
-        {
-            if(!compressed) throw error;
-            assert.equal(error.kind, "unsupported", error.message);
-        }
+        compare(await read(reader, offset, length), reference.subarray(offset, offset + length), name + " range " + offset + "+" + length);
     }
     if(how === "memory")
     {
@@ -144,22 +121,18 @@ for(const name of ["v3.qcow2", "v2.qcow2", "v3-512.qcow2", "v3-2m.qcow2", "v2-4k
     const reference = fs.readFileSync(file("io.raw"));
     const reader = await open(name, "url");
     assert.equal(reader.snapshots, 1, "the internal snapshot is there");
-    const compressed_at = 16842752;
     for(let offset = 0; offset < reference.length; offset += 65536)
     {
-        if(offset === compressed_at && !COMPRESSED_SUPPORTED)
-        {
-            await rejects(read(reader, offset, 65536), /compressed/, "unsupported");
-            continue;
-        }
         compare(await read(reader, offset, 65536), reference.subarray(offset, offset + 65536), name + " at " + offset);
     }
+    const compressed = await new Promise(resolve => reader.map(16842752, 65536, resolve));
+    assert.equal(compressed[0].type, 3, "the cluster qemu-io wrote compressed is a compressed cluster");
     for(const [offset, length] of [[0, 65536], [131072, 131072]])
     {
         const extents = await new Promise(resolve => reader.map(offset, length, resolve));
         assert.deepEqual(extents.map(e => [e.type, e.length]), [[1, length]], "zero clusters (allocated and unmapped) at " + offset);
     }
-    console.log("ok - io.qcow2: zero clusters, discard, partial clusters, an internal snapshot");
+    console.log("ok - io.qcow2: zero clusters, discard, partial clusters, a compressed write, an internal snapshot");
 }
 
 // 3 TiB: offsets beyond 4 GiB and 2^32 sectors
@@ -183,9 +156,45 @@ for(const name of ["v3.qcow2", "v2.qcow2", "v3-512.qcow2", "v3-2m.qcow2", "v2-4k
     console.log("ok - 3 TiB qcow2: reads beyond 4 GiB and across 2^32 sectors");
 }
 
-// a parent is needed (P2: given as backing)
-await rejects(open("child.qcow2", "url"), /parent/);
-console.log("ok - an image with a parent is refused without it");
+// parents (P2): given as backing; the child's zero clusters hide the
+// parent's data; a parent smaller than the child (RAW)
+for(const [name, backing] of [["child.qcow2", { url: file("parent.qcow2"), async: true }],
+    ["child-raw.qcow2", { url: file("base.raw"), async: true }], ["child.qcow2", { url: file("parent.qcow2"), async: true, format: "qcow2" }],
+    ["child-of-zlib.qcow2", { url: file("v3-zlib.qcow2"), async: true }], ["child-zlib.qcow2", { url: file("parent.qcow2") }]])
+{
+    const reference = fs.readFileSync(file(manifest.samples[name].reference));
+    const reader = await open(name, "url", { backing });
+    assert.equal(reader.virtual_size, reference.length);
+    assert.equal(reader.parent.format, name === "child-raw.qcow2" ? "raw" : "qcow2");
+    for(let offset = 0; offset < reference.length; offset += 1 << 20)
+    {
+        compare(await read(reader, offset, 1 << 20), reference.subarray(offset, offset + (1 << 20)), name + " at " + offset);
+    }
+}
+{
+    const base = fs.readFileSync(file("base.raw"));
+    assert.ok(base.subarray(0, 512).some(b => b), "the parent has data where the child has zero clusters");
+}
+await rejects(open("child.qcow2", "url"), /continues in a parent image.*give it as backing/, "config");
+await rejects(open("v3.qcow2", "url", { backing: { url: file("base.raw") } }), /backing is given, but the image has no parent/, "config");
+await rejects(open("child.qcow2", "url", { backing: { url: file("base.raw"), format: "raw" } }),
+    /names its parent's format qcow2, backing is given as raw/, "config");
+await rejects(open("child.qcow2", "url", { backing: { url: file("v3.qcow2"), format: "vhd" } }), /names its parent's format qcow2/, "config");
+const circular = { url: file("child.qcow2"), async: true, format: "qcow2" };
+circular.backing = circular;
+await rejects(open_image("hda", circular, settings), /circular/, "config");
+const child_bytes = fs.readFileSync(file("child.qcow2"));
+let deep = { buffer: new Uint8Array(fs.readFileSync(file("parent.qcow2"))).buffer, format: "qcow2" };
+for(let i = 0; i < 17; i++) deep = { buffer: new Uint8Array(child_bytes).buffer, format: "qcow2", backing: deep };
+await rejects(open_image("hda", deep, settings), /more than 16 parent images/, "config");
+{
+    const a = await open("child.qcow2", "url", { backing: { url: file("parent.qcow2") } });
+    const b = await open("child.qcow2", "url", { backing: { url: file("v3.qcow2") } });
+    const c = await open("child.qcow2", "url", { backing: { url: file("v3-512.qcow2") } });
+    assert.deepEqual(a.identity(), b.identity(), "the same parent (the same bytes) under another name");
+    assert.notDeepEqual(a.identity()["parent"], c.identity()["parent"], "another parent of the same data");
+}
+console.log("ok - parents: QCOW2 and RAW, compressed parents and children; explicit only; missing, unexpected, of another format, circular, too deep: refused");
 
 // features that are refused
 await rejects(open("extl2.qcow2", "url"), /extended L2/, "unsupported");
@@ -261,6 +270,71 @@ const reference = fs.readFileSync(file("base.raw"));
     const past = await open_bytes(patched((b, v) => v.setBigUint64(entry(b, 1), BigInt(past_end) | 1n << 63n)));
     compare(await read(past, 65536, 65536), Buffer.alloc(65536), "a cluster past the end of the file");
     console.log("ok - damaged tables: the read fails with what is wrong; past the end of the file: zeros");
+}
+
+// damaged compressed clusters: the stream cut short, past the end of the
+// file, the copied flag
+{
+    const zlib_image = fs.readFileSync(file("v3-zlib.qcow2"));
+    const zv = view(zlib_image);
+    const l1 = Number(zv.getBigUint64(40));
+    const l2 = Number(zv.getBigUint64(l1) & 0x00FFFFFFFFFFFE00n);
+    // the first compressed cluster (bit 62) of more than one sector
+    const x = 62n - (16n - 8n);
+    const sectors_mask = ((1n << (62n - x)) - 1n) << x;
+    let index = 0;
+    while(!(zv.getBigUint64(l2 + index * 8) & 1n << 62n) || !(zv.getBigUint64(l2 + index * 8) & sectors_mask)) index++;
+    const at = l2 + index * 8;
+    const entry = zv.getBigUint64(at);
+    const offset = entry & ((1n << x) - 1n);
+    const patch = value => { const b = new Uint8Array(zlib_image); view(b).setBigUint64(at, value); return b; };
+    const guest = index * 65536;
+    await rejects(read(await open_bytes(patch(entry & ~sectors_mask)), guest, 512), /compressed cluster at \d+ is invalid: inflate|has \d+ bytes, not a cluster/, "corrupt");
+    await rejects(read(await open_bytes(patch(1n << 62n | BigInt(zlib_image.length + 4096))), guest, 512), /past the end of the file/, "corrupt");
+    await rejects(read(await open_bytes(patch(entry | 1n << 63n)), guest, 512), /compressed cluster with the copied flag/, "corrupt");
+    void offset;
+    console.log("ok - damaged compressed clusters: cut short, past the end of the file, the copied flag");
+}
+
+// through the emulator: zstd clusters decoded by the core's Zstandard
+// decoder (src/browser/starter.js), a damaged one an error, not a crash
+{
+    const { V86 } = await import("../../src/main.js");
+    const root = path.join(path.dirname(new URL(import.meta.url).pathname), "../../");
+    const zstd_image = new Uint8Array(fs.readFileSync(file("v3-zstd.qcow2")));
+    const zv = view(zstd_image);
+    const l2 = Number(zv.getBigUint64(Number(zv.getBigUint64(40))) & 0x00FFFFFFFFFFFE00n);
+    // a compressed cluster of more than one sector, its frame's magic
+    // damaged (damage inside the data is not seen: QEMU's frames have no
+    // checksum)
+    let index = 0;
+    while(!(zv.getBigUint64(l2 + index * 8) & 1n << 62n) || !(zv.getBigUint64(l2 + index * 8) >> 54n & 0xFFn)) index++;
+    const host = Number(zv.getBigUint64(l2 + index * 8) & ((1n << 54n) - 1n));
+    zstd_image.fill(0x55, host, host + 4);
+    const emulator = new V86({
+        bios: { url: root + "bios/seabios.bin" }, vga_bios: { url: root + "bios/vgabios.bin" }, graphics_adapter: "bochs_vga",
+        hda: { buffer: zstd_image.buffer, format: "auto" }, autostart: false, memory_size: 32 << 20, log_level: 0,
+    });
+    await new Promise((resolve, reject) => { emulator.add_listener("emulator-loaded", resolve); emulator.add_listener("emulator-error", reject); });
+    const disk = emulator.v86.cpu.devices.ide.primary.master.buffer;
+    const get = (offset, length) => new Promise((resolve, reject) => disk.get(offset, length, (data, error) => error ? reject(error) : resolve(data)));
+    const base = fs.readFileSync(file("base.raw"));
+    let compared = 0;
+    for(let offset = 0; offset < base.length; offset += 1 << 20)
+    {
+        if(offset <= index * 65536 && index * 65536 < offset + (1 << 20)) continue;
+        compare(await get(offset, 1 << 20), base.subarray(offset, offset + (1 << 20)), "zstd through the core at " + offset);
+        compared++;
+    }
+    const errors = console.error, traces = console.trace;
+    console.error = console.trace = () => {};
+    await rejects(get(index * 65536, 512), /compressed cluster at \d+ is invalid|not a Zstandard frame/, "corrupt");
+    console.error = errors;
+    console.trace = traces;
+    const after = (Math.floor(index * 65536 / (1 << 20)) + 1) * (1 << 20);
+    compare(await get(after, 1 << 20), base.subarray(after, after + (1 << 20)), "the disk after the damaged cluster");
+    emulator.destroy();
+    console.log("ok - zstd clusters through the core's decoder (" + compared + " MiB); a damaged cluster: an I/O error");
 }
 
 // the format from the signature (auto) and the ones not read

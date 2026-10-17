@@ -99,6 +99,8 @@ export class ImageReader
         this.metadata_sha256 = "";
         /** what the image says about its parent (format specific), or null */
         this.parent_link = null;
+        /** the descriptor's image_id: a version of the image its publisher gives */
+        this.image_id = "";
         /** @type {!Map<number, !Uint8Array>} host offset -> decompressed cluster, the most recently used last */
         this.decompressed = new Map();
         this.decompressed_bytes = 0;
@@ -129,6 +131,16 @@ export class ImageReader
     }
 
     /**
+     * Check a parent against what this image says about it (parent_link):
+     * format-specific identity rules, errors for a parent that is not this
+     * image's
+     * @param {!ImageReader} parent
+     */
+    check_parent(parent)
+    {
+    }
+
+    /**
      * Decompress a compressed cluster (formats with compression)
      * @param {!Uint8Array} bytes
      * @param {!Object} extent
@@ -150,6 +162,7 @@ export class ImageReader
             "size": this.virtual_size,
             "file_size": this.source.byteLength,
             "metadata_sha256": this.metadata_sha256,
+            "image_id": this.image_id,
             "parent": this.parent ? this.parent.identity() : null,
         };
     }
@@ -348,13 +361,12 @@ export function push_extent(extents, type, length, host_offset)
  * @constructor
  * @param {string} name hda, hdb, ...
  * @param {function():!Promise<!ImageReader>} open opens the image (src/image/factory.js)
- * @param {{overlay_limit: (number|undefined), image_id: (string|undefined)}=} options
+ * @param {{overlay_limit: (number|undefined)}=} options
  */
 export function DiskImage(name, open, options)
 {
     this.name = name;
     this.open_reader = open;
-    this.image_id = options && options.image_id || "";
     this.overlay_limit = options && options.overlay_limit;
     /** @type {ImageReader} */
     this.reader = null;
@@ -515,9 +527,7 @@ DiskImage.prototype.get_buffer = function(fn)
  */
 DiskImage.prototype.identity = function()
 {
-    const identity = this.reader.identity();
-    identity["image_id"] = this.image_id;
-    return identity;
+    return this.reader.identity();
 };
 
 DiskImage.prototype.get_state = function()

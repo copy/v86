@@ -250,16 +250,49 @@ const READERS = {
 };
 
 /**
- * Open an image file and its parents
+ * Whether a descriptor is one of `chain` (the same object, URL or buffer)
+ * @param {!Object} file
+ * @param {!Array<!Object>} chain
+ * @return {boolean}
+ */
+function in_chain(file, chain)
+{
+    return chain.some(other => other === file || file.url && other.url === file.url ||
+        file.buffer && other.buffer === file.buffer);
+}
+
+/**
+ * The formats QEMU names in a QCOW2 image's backing format, as v86's
+ * @param {string} name
+ * @return {string}
+ */
+function format_name(name)
+{
+    return name === "vpc" ? "vhd" : name === "file" ? "raw" : name;
+}
+
+/**
+ * Open an image file and its parents: a parent is given by the caller
+ * (backing), never loaded by the name an image has for it; a missing parent
+ * is an error, not zeros (docs/disk-image-formats-plan.md P2)
  * @param {string} name
  * @param {!Object} file
  * @param {!Object} settings
  * @param {number=} depth
+ * @param {!Array<!Object>=} chain the descriptors of the children
  * @return {!Promise<!ImageReader>}
  */
-export async function open_image(name, file, settings, depth = 0)
+export async function open_image(name, file, settings, depth = 0, chain = [])
 {
     const label = display_name(name, file);
+    if(depth > MAX_CHAIN_DEPTH)
+    {
+        throw new DiskImageError(label + ": more than " + MAX_CHAIN_DEPTH + " parent images", "config");
+    }
+    if(in_chain(file, chain))
+    {
+        throw new DiskImageError(label + ": the chain of parents is circular (an image is its own parent)", "config");
+    }
     const source = await open_source(label, file, settings);
     const [head, tail] = await read_ends(source);
     const detected = detect_format(head, tail);
@@ -289,15 +322,33 @@ export async function open_image(name, file, settings, depth = 0)
     }
     const reader = new Reader(source, label, settings);
     await new Promise((resolve, reject) => reader.open(error => error ? reject(error) : resolve()));
+    reader.image_id = file.image_id || "";
 
-    if(reader.parent_link)
+    const link = reader.parent_link;
+    const backing = file.backing;
+    if(link && !backing)
     {
-        throw new DiskImageError(label + ": the image has a parent (" + JSON.stringify(reader.parent_link) +
-            "): parent images are not supported yet", "unsupported");
+        throw new DiskImageError(label + ": the image's data continues in a parent image (" + JSON.stringify(link) +
+            "): give it as backing (a missing parent is not read as zeros)", "config");
     }
-    if(file.backing)
+    if(!link && backing)
     {
         throw new DiskImageError(label + ": backing is given, but the image has no parent", "config");
+    }
+    if(link)
+    {
+        if(typeof backing !== "object") throw new DiskImageError(label + ": backing must be a descriptor (url, buffer)", "config");
+        // the parent's format: the one given, or the one the image names
+        const named = format_name(link["backing_format"] || "");
+        const given = backing.format && backing.format !== "auto" ? backing.format : "";
+        if(named && given && named !== given)
+        {
+            throw new DiskImageError(label + ": the image names its parent's format " + named + ", backing is given as " + given, "config");
+        }
+        const parent_file = Object.assign({}, backing, { format: given || named || "auto" });
+        const parent = await open_image(name + " parent", parent_file, settings, depth + 1, chain.concat([file]));
+        reader.check_parent(parent);
+        reader.parent = parent;
     }
     return reader;
 }
@@ -312,7 +363,6 @@ export async function open_image(name, file, settings, depth = 0)
 export function create_disk_image(name, file, settings)
 {
     return new DiskImage(name, () => open_image(name, file, settings), {
-        image_id: file.image_id,
         overlay_limit: file.overlay_limit,
     });
 }

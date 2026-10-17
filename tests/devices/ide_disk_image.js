@@ -208,6 +208,33 @@ lazy.destroy();
 fs.rmSync(temp, { recursive: true });
 console.log("ok - from a file: a snapshot waits for the read in flight, a reset drops it");
 
+// export (P2): the disk as the guest sees it, after the disk I/O in flight
+{
+    const small = build_qcow2({ size: 1 << 20, data: [[0, first]] });
+    const small_file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "v86-disk-image-")), "small.qcow2");
+    fs.writeFileSync(small_file, small);
+    const machine = new V86(config({ url: small_file, async: true, format: "qcow2" }));
+    await new Promise(resolve => machine.add_listener("emulator-loaded", resolve));
+    const disk = machine.v86.cpu.devices.ide.primary.master;
+    const written = new Uint8Array(1024).fill(0xEE);
+    await new Promise(resolve => disk.write_to_backend(131072, written, resolve));
+    let read_done = false;
+    disk.read_buffer(65536 * 8, 4096, () => { read_done = true; });
+    const chunks = [];
+    const info = await machine.disk_image_info("hda");
+    assert.deepEqual([info.format, info.size, info.file_size, info.written], ["qcow2", 1 << 20, small.length, 1024]);
+    const size = await machine.export_disk_image("hda", { write: chunk => { assert.ok(read_done, "after the read in flight"); chunks.push(chunk); } });
+    assert.equal(size, 1 << 20);
+    const expected_disk = new Uint8Array(1 << 20);
+    expected_disk.set(first);
+    expected_disk.set(written, 131072);
+    assert.deepEqual(new Uint8Array(Buffer.concat(chunks)), expected_disk);
+    await assert.rejects(machine.export_disk_image("hdb", { write() {} }), /No disk hdb/);
+    machine.destroy();
+    fs.rmSync(path.dirname(small_file), { recursive: true });
+    console.log("ok - export_disk_image: RAW with the guest's writes, after the read in flight; disk_image_info");
+}
+
 // a disk that cannot be opened: emulator-error
 const broken = new V86(config({ buffer: new Uint8Array(65536).buffer, format: "qcow2" }));
 const failure = await new Promise(resolve => broken.add_listener("emulator-error", resolve));

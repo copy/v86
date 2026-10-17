@@ -1,6 +1,6 @@
 # 虚拟磁盘镜像格式支持计划
 
-状态：P0、P1 已实现并通过验收（第一轮完整交付）；P2–P5 未实现。实施记录见[附录](#附录实施记录)。
+状态：P0、P1（第一轮完整交付）与 P2 已实现并通过验收；P3–P5 未实现。实施记录见[附录](#附录实施记录)。
 
 本计划基于 2026 年 10 月 3 日审查的当前 v86 分支。目标是在现有 RAW 镜像能力上，
 增加 QCOW2、VHD、VDI、VMDK 和 VHDX 的原生读取，并通过公共修改层支持客户机写入、
@@ -298,7 +298,7 @@ VHDX 需要处理双 header、校验和、region/metadata、BAT 状态和逻辑�
 `make disk-image-browser-tests`（无头 Chrome）；设备与客体测试也加入了 `devices-test` 与
 `api-tests`。
 
-### P0 统一接口与 P1 QCOW2 基础支持
+### P0 统一接口与 P1 QCOW2 基础支持（f9b4460b）
 
 **实现。** 新目录 `src/image/`：
 
@@ -379,4 +379,56 @@ dirty 与 corrupt 位、父盘（P1 中；P2 由调用方提供）、L1 不足�
 | `3t.qcow2` | 983040 | `ab9d3e313f55ca32…` |
 
 性能：只记录了计数（请求数、字节数），未做计时测量（同机有长时间门禁运行）。
+
+### P2 压缩、父盘与导出
+
+**实现。**
+
+- 压缩簇：raw deflate 用 [`src/virt/inflate.js`](../src/virt/inflate.js) 解压，`inflate` 增加输出上限参数
+  （到一个簇即停，压缩数据所在最后一个扇区的其余字节不读入，与 QEMU `qcow2_zlib_decompress`
+  相同），并补了损坏输入的检查（stored 块 NLEN、输入不足、距离超出已输出数据、非法长度/距离码、
+  码长重复越界），原先这些情况会静默输出错误数据。zstd 用 CPU 核心中已有的解码器
+  （`zstd_read`）：`disk_image_settings` 中的包装检查空指针、指针按无符号处理并总是释放上下文；
+  调试版核心对坏数据 panic，也转成 I/O 错误。解压结果必须正好一个簇，否则报错；解压结果按 8 MiB
+  上限缓存，同一簇的并发读取共享一次解压。
+- 父盘链：由描述的 `backing` 显式给出（可嵌套，最多 16 层），不按镜像内的路径加载任何文件或网址；
+  镜像需要父盘而未给出、给了父盘而镜像没有、`backing` 的格式与镜像记录的父盘格式（`vpc` 视为 `vhd`）
+  不符、链中重复（同一对象、URL 或 buffer）均报错。父盘可以是 RAW（`RawReader`）。父盘比子盘小时
+  超出部分读为零，显式零簇不回落父盘。身份逐层包含父盘的身份；`image_id` 改为每层各自记录。
+  Worker 递归转发 `backing`。
+- 流式 RAW 导出：[`src/image/export.js`](../src/image/export.js) 按不超过 1 MiB 的块顺序读取（格式解码
+  加修改层），等待写入回调返回的 Promise（背压），报告进度，可用 `AbortSignal` 取消。
+  `V86.export_disk_image(name, { write, progress, signal })` 经 `v86.export_disk` 在
+  `state_transaction` 内执行：先暂停 CPU 并等待在途磁盘 I/O，导出的是同一时刻的磁盘视图，之后恢复
+  运行。`disk_image_info(name)` 在开始前给出目标大小（虚拟容量）、格式、文件长度与修改层字节数。
+  CPU Worker 中块经 MessagePort 逐块传给页面并等待页面写完；取消时下一块的写入失败，导出结束。
+  页面的 “Get hard disk image” 对容器格式的硬盘改用导出（各块组成 Blob 下载）。
+
+**偏差。**
+
+1. “解压放在不会阻塞页面的执行路径”：CPU Worker 中解压在 Worker 内进行；`cpu_worker=0` 时模拟器
+   本身就在页面线程运行，解压同样在页面线程（一个 64 KiB 簇约在毫秒以内），没有另设解压 Worker：
+   异步解压会让本可同步完成的读取推迟到下一个时间片（对 SeaBIOS 轮询的 AHCI 影响见
+   [sata.md](sata.md#disk-backends)）。
+2. QEMU 的 deflate 与 zstd 簇都没有校验和：簇内数据的位错误大多解出另一份同长度数据而不报错
+   （`tests/image/inflate.mjs` 中 300 次单比特翻转里 297 次如此），与 QEMU 相同，无法在格式层面
+   发现；结构性损坏（截断、越界、帧头错误、copied 标志）均报错。
+3. QCOW2 没有父盘身份字段（只有父盘文件名与格式）。父盘的匹配只检查格式；文件名不比较（同一镜像
+   可能换名或换网址提供），仅出现在错误信息中。快照恢复时父盘的元数据身份必须一致。
+4. 导出没有使用写时复制的稳定视图，而是计划给出的另一做法：导出期间暂停客户机。大盘导出期间客户机
+   不运行。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/image/inflate.mjs` | 与 zlib 的 raw deflate 在 0/1/6/9 级、5 类数据上逐字节一致，含上限截断与流后附加字节；gunzip；截断、NLEN、保留块类型、越界距离报错 |
+| `tests/image/qcow2.mjs` | 压缩样本（v3 zlib、v3 zstd、v2 zlib）与其余样本一样整盘与随机区间比对通过，共比对 1024 MiB（Node 中 zstd 用 zlib 的解码器按帧解码）；`io.qcow2` 中 qemu-io 压缩写入的簇；父盘：QCOW2 子盘（零簇遮住父盘数据）、比子盘小的 RAW 父盘、压缩父盘之上的子盘、`convert -c -B` 生成的压缩子盘，均与 qemu-img 转出的 RAW 一致；缺父盘、多余的父盘、父盘格式不符、自身为父盘、17 层，均报错；同内容同字节的父盘身份相同，同数据不同簇大小的父盘身份不同；压缩簇截断、越界、带 copied 标志报错；经模拟器核心的 zstd 解码器读出 63 MiB 与基准一致，帧头损坏的簇为 I/O 错误且之后读取正常 |
+| `tests/image/disk_image.mjs` | 导出：写入后的整盘 RAW 与预期一致，一次一块（背压）、块不超过 1 MiB、进度从 0 到总长、第 3 块后取消；带父盘的快照只恢复到同一父盘，换成同数据的另一父盘被拒 |
+| `tests/devices/ide_disk_image.js` | `export_disk_image` 在在途读取完成后才开始，内容含客户机写入；`disk_image_info` 报格式、容量、文件长度、写入字节数；无此盘报错 |
+| `tests/api/disk-image.js` | i440FX 与 Q35 上 MS-DOS 写文件后导出 67108864 字节，含文件内容，与 `msdos622.img` 相差 4 个扇区 |
+| 浏览器（页面与 CPU Worker） | 写入前导出的 SHA-256 等于 `msdos622.img`；写入后的导出含文件内容；hdb 为压缩（deflate）子盘、父盘为 zstd 压缩镜像，经 HTTP Range 读取并导出，SHA-256 等于 qemu-img 转出的 RAW；两次导出与 hdb 导出共读取 msdos622.qcow2 181 次请求 132317186 字节、v3-zstd.qcow2 244 次请求 23527426 字节 |
+| 回归 | `ide_large_disk`、`device_io_reset`、`ahci`（31/31）、`disk_write_cache`（10/10）通过；Closure 检查（`libv86.js`、`libv86.mjs`、`cpu-worker.js`）0 错误；eslint 无输出 |
+
+样本增加 `child-of-zlib.qcow2`、`child-zlib.qcow2`（样本版本 3）。
 

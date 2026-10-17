@@ -1,14 +1,16 @@
 // QCOW2 images, versions 2 and 3 (docs/disk-image-formats-plan.md P1, P2;
 // the format: https://www.qemu.org/docs/master/interop/qcow2.html): the
-// active disk through the L1 and L2 tables, with data, unallocated and zero
-// clusters. Internal snapshots may be there; only the active disk is read.
-// Refused: encryption, external data files, extended L2 entries, unknown
-// incompatible features, dirty or corrupt images.
+// active disk through the L1 and L2 tables, with data, unallocated, zero and
+// compressed (deflate, zstd) clusters, and a parent (backing file) the
+// caller gives. Internal snapshots may be there; only the active disk is
+// read. Refused: encryption, external data files, extended L2 entries,
+// unknown incompatible features, dirty or corrupt images.
 
 import { DiskImageError } from "./source.js";
 import { ImageReader, EXTENT_DATA, EXTENT_ZERO, EXTENT_PARENT, EXTENT_COMPRESSED, push_extent,
     to_number, big } from "./disk_image.js";
 import { sha256_hex } from "./sha256.js";
+import { inflate } from "../virt/inflate.js";
 
 export const QCOW2_MAGIC = 0x514649FB; // "QFI\xfb"
 
@@ -511,13 +513,35 @@ export class QCOW2Reader extends ImageReader
     }
 
     /**
+     * A compressed cluster: raw deflate (RFC 1951, no zlib header) or a
+     * Zstandard frame, the data a whole cluster; the compressed bytes end in
+     * a 512-byte sector, the rest of which is not the stream's (as QEMU's
+     * qcow2_zlib_decompress and qcow2_zstd_decompress read them)
      * @param {!Uint8Array} bytes
      * @param {!Object} extent
      * @return {!Uint8Array}
      */
     decompress(bytes, extent)
     {
-        throw this.error("the cluster at guest offset of host offset " + extent.host_offset +
-            " is compressed: compressed clusters are not supported yet", "unsupported");
+        const size = this.cluster_size;
+        let output;
+        if(this.compression_type === COMPRESSION_DEFLATE)
+        {
+            output = inflate(bytes, 0, size, size).output;
+        }
+        else
+        {
+            if(!this.zstd_decompress)
+            {
+                throw this.error("no Zstandard decompressor for the compressed clusters", "unsupported");
+            }
+            output = this.zstd_decompress(size, bytes);
+        }
+        if(output.length !== size)
+        {
+            throw this.error("the compressed cluster at " + extent.host_offset + " has " + output.length +
+                " bytes, not a cluster (" + size + ")");
+        }
+        return output.buffer.byteLength === size ? output : output.slice();
     }
 }

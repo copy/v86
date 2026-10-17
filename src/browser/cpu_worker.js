@@ -456,6 +456,52 @@ export class CPUWorkerController
         });
     }
 
+    /**
+     * V86.export_disk_image: the worker writes the chunks to a port, one at a
+     * time, and each waits for the page's write to finish (backpressure);
+     * after the signal aborts, the next chunk's write fails the export
+     * @param {string} name
+     * @param {!Object} options write, progress, signal
+     * @return {!Promise<number>}
+     */
+    export_disk(name, options)
+    {
+        return this.serialize(async () => {
+            const info = await this.rpc("disk-info", [name]);
+            const total = info["size"];
+            const channel = new globalThis.MessageChannel();
+            let loaded = 0;
+            const port = channel.port1;
+            const receive = async event => {
+                const message = event.data, id = message["id"];
+                try
+                {
+                    if(options.signal && options.signal.aborted) throw new Error("The export was cancelled at " + loaded + " of " + total + " bytes");
+                    const bytes = message["bytes"];
+                    if(message["kind"] !== "write" || !(bytes instanceof Uint8Array)) throw new Error("Invalid export chunk");
+                    await options.write(bytes);
+                    loaded += bytes.length;
+                    options.progress && options.progress({ loaded, total });
+                    port.postMessage({ "id": id });
+                }
+                catch(error)
+                {
+                    port.postMessage({ "id": id, "error": String(error && error.message || error) });
+                }
+            };
+            port.onmessage = event => { receive(event); };
+            options.progress && options.progress({ loaded: 0, total });
+            try
+            {
+                return await this.rpc("export-disk", [name, channel.port2], [channel.port2]);
+            }
+            finally
+            {
+                port.close();
+            }
+        });
+    }
+
     async destroy()
     {
         if(this.closed) return;

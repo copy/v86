@@ -29,9 +29,9 @@ const set = (disk, offset, data) => new Promise((resolve, reject) =>
     disk.set(offset, data, error => error ? reject(error) : resolve()));
 const equal_bytes = (actual, expected, what) => assert.ok(Buffer.compare(Buffer.from(actual), Buffer.from(expected)) === 0, what);
 
-async function open_disk(name, extra = {})
+async function open_disk(name, extra = {}, settings = {})
 {
-    const disk = create_disk_image("hda", { url: file(name), async: true, format: "qcow2", ...extra }, {});
+    const disk = create_disk_image("hda", { url: file(name), async: true, format: "qcow2", ...extra }, settings);
     await disk.load();
     return disk;
 }
@@ -146,7 +146,14 @@ async function open_disk(name, extra = {})
     bad[3] = new Float64Array([1e15]);
     bad[4] = [new Uint8Array(256)];
     assert.throws(() => again.check_state(bad), /block numbers/);
-    console.log("ok - snapshots: restored onto the same image only (file or memory), refused for another");
+    // a child with its parent: the parent is part of the identity
+    const child = await open_disk("child.qcow2", { backing: { url: file("parent.qcow2") } });
+    await set(child, 0, new Uint8Array(512).fill(9));
+    const child_state = child.get_state();
+    (await open_disk("child.qcow2", { backing: { url: file("v3.qcow2") } })).check_state(child_state);
+    const other_parent = await open_disk("child.qcow2", { backing: { url: file("v3-512.qcow2") } });
+    assert.throws(() => other_parent.check_state(child_state), /another image \(parent: /);
+    console.log("ok - snapshots: restored onto the same image only (file or memory), refused for another; the parent too");
 }
 
 // cancellation: a cancelled read never calls back; one shared with another
@@ -313,6 +320,40 @@ function server(bytes, behave = {})
     await assert.rejects(broken.load(), /cannot open/);
     assert.match(told.message, /cannot open/);
     console.log("ok - errors: a read fails with the source's error, a disk that cannot be opened fails load");
+}
+
+// export (P2): RAW of the whole disk, the image's data with the guest's
+// writes; progress, backpressure, cancellation
+{
+    const { export_raw } = await import("../../src/image/export.js");
+    const disk = await open_disk("v3-zlib.qcow2", {}, { zstd_decompress: undefined });
+    const writes = [[0, 4096], [10 * 65536 + 512, 70000 * 256], [base.length - 1024, 1024]];
+    const expected = new Uint8Array(base);
+    for(const [offset, length] of writes)
+    {
+        const data = new Uint8Array(length).map((_, i) => i * 3 + offset);
+        await set(disk, offset, data);
+        expected.set(data, offset);
+    }
+    const chunks = [], progress = [];
+    let writing = 0;
+    const total = await export_raw(disk, async chunk =>
+    {
+        assert.equal(writing, 0, "one chunk at a time");
+        writing++;
+        await new Promise(resolve => setTimeout(resolve, 1));
+        chunks.push(chunk);
+        writing--;
+    }, { progress: p => progress.push(p.loaded) });
+    assert.equal(total, base.length);
+    equal_bytes(Buffer.concat(chunks), expected, "the export: the image with the writes");
+    assert.equal(progress[0], 0);
+    assert.equal(progress[progress.length - 1], base.length);
+    assert.ok(chunks.every(c => c.length <= 1024 * 1024), "chunks of at most 1 MiB");
+    const controller = new AbortController();
+    let count = 0;
+    await assert.rejects(export_raw(disk, () => { if(++count === 3) controller.abort(); }, { signal: controller.signal }), /cancelled at 3145728/);
+    console.log("ok - export: RAW of the disk with the guest's writes, in order, backpressure, progress, cancellation");
 }
 
 // the options of a descriptor

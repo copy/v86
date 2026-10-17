@@ -1066,7 +1066,26 @@ V86.prototype.continue_init = async function(emulator, options)
 V86.prototype.disk_image_settings = function()
 {
     return {
-        zstd_decompress: (size, bytes) => this.zstd_decompress(size, bytes),
+        // a QCOW2 cluster or a downloaded image: an error for data that is
+        // not a Zstandard frame of that size (the core returns no data)
+        zstd_decompress: (size, bytes) =>
+        {
+            const cpu = this.v86.cpu;
+            const context = cpu.zstd_create_ctx(bytes.length);
+            try
+            {
+                new Uint8Array(cpu.wasm_memory.buffer).set(bytes, cpu.zstd_get_src_ptr(context) >>> 0);
+                const pointer = cpu.zstd_read(context, size) >>> 0;
+                if(!pointer) throw new Error("not a Zstandard frame of " + size + " bytes");
+                const result = new Uint8Array(cpu.wasm_memory.buffer.slice(pointer, pointer + size));
+                cpu.zstd_read_free(pointer, size);
+                return result;
+            }
+            finally
+            {
+                cpu.zstd_free_ctx(context);
+            }
+        },
         zstd_decompress_worker: this.zstd_decompress_worker.bind(this),
         progress: (file_name, e) =>
         {
@@ -1692,6 +1711,60 @@ V86.prototype.eject_fdb = function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("eject_fdb");
     this.v86.cpu.devices.fdc.drives[1].eject_disk();
+};
+
+/**
+ * The buffer of a hard disk or CD drive by its name (hda, hdb, cdrom,
+ * sata<port>)
+ * @param {string} name
+ * @return {?}
+ */
+V86.prototype.disk_buffer = function(name)
+{
+    const entry = this.v86.cpu.disk_devices().find(([device_name]) => device_name === name);
+    const buffer = entry && entry[1].buffer;
+    if(!buffer) throw new Error("No disk " + name);
+    return buffer;
+};
+
+/**
+ * What an export of a disk writes (export_disk_image): its size as the guest
+ * sees it, and its image's format, file size and the bytes the guest wrote
+ * @param {string} name hda, hdb, cdrom, sata<port>
+ * @return {!Promise<!Object>}
+ */
+V86.prototype.disk_image_info = async function(name)
+{
+    if(this.worker_controller) return this.worker_controller.rpc("disk-info", [name]);
+    const buffer = this.disk_buffer(name);
+    const reader = buffer.reader;
+    return {
+        "name": name,
+        "format": reader ? reader.format : "raw",
+        "size": buffer.byteLength,
+        "file_size": reader ? reader.source.byteLength : buffer.byteLength,
+        "written": buffer.overlay ? buffer.overlay.size() : buffer.written_blocks ? buffer.written_blocks.size * 256 : undefined,
+    };
+};
+
+/**
+ * Export a disk as the guest sees it, as a RAW image of its whole size
+ * (docs/disk-image-formats-plan.md P2): the image's data with the guest's
+ * writes, in order. The machine stops and its disk I/O finishes first, so
+ * the stream is one view of the disk; it goes on afterwards. `write` gets
+ * each chunk (at most 1 MiB) and may return a promise: the next chunk waits
+ * for it.
+ * @param {string} name hda, hdb, cdrom, sata<port>
+ * @param {{write: function(!Uint8Array):(Promise<*>|undefined),
+ *          progress: (function({loaded: number, total: number})|undefined),
+ *          signal: (AbortSignal|undefined)}} options
+ * @return {!Promise<number>} the size written
+ */
+V86.prototype.export_disk_image = async function(name, options)
+{
+    if(!options || typeof options.write !== "function") throw new TypeError("export_disk_image: options.write must be a function");
+    if(this.worker_controller) return this.worker_controller.export_disk(name, options);
+    return this.v86.export_disk(this.disk_buffer(name), options.write, options);
 };
 
 /**
@@ -2477,6 +2550,8 @@ V86.prototype["remove_listener"] = V86.prototype.remove_listener;
 V86.prototype["write_memory"] = V86.prototype.write_memory;
 V86.prototype["read_memory_chunks"] = V86.prototype.read_memory_chunks;
 V86.prototype["save_state_stream"] = V86.prototype.save_state_stream;
+V86.prototype["export_disk_image"] = V86.prototype.export_disk_image;
+V86.prototype["disk_image_info"] = V86.prototype.disk_image_info;
 V86.prototype["restore_state_stream"] = V86.prototype.restore_state_stream;
 /* eslint-enable no-self-assign */
 

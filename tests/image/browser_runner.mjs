@@ -12,6 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { createHash as create_hash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { build_qcow2 } from "./tiny_qcow2.mjs";
 
@@ -30,9 +31,18 @@ for(let offset = 0; offset < raw.length; offset += 65536)
 }
 fs.writeFileSync(path.join(out, "msdos622.qcow2"), build_qcow2({ size: raw.length, data }));
 fs.writeFileSync(path.join(out, "not-qcow2.qcow2"), new Uint8Array(65536));
-for(const extra of process.env.DISK_IMAGE_BROWSER_FILES ? process.env.DISK_IMAGE_BROWSER_FILES.split(",") : [])
+// with the samples of tests/image/samples.mjs (qemu-img): hdb, a compressed
+// child (deflate) on a parent with Zstandard clusters
+const samples = path.join(root, "build/disk-image-samples");
+const params = [];
+if(fs.existsSync(path.join(samples, "child-zlib.qcow2")))
 {
-    fs.copyFileSync(extra, path.join(out, path.basename(extra)));
+    for(const name of ["child-zlib.qcow2", "v3-zstd.qcow2"]) fs.copyFileSync(path.join(samples, name), path.join(out, name));
+    params.push("child_sha256=" + create_hash("sha256").update(fs.readFileSync(path.join(samples, "child.raw"))).digest("hex"));
+}
+else
+{
+    console.log("(no samples in build/disk-image-samples: run tests/image/samples.mjs for the hdb test)");
 }
 
 const stats = new Map();
@@ -115,7 +125,7 @@ function finish(code)
 
 server.listen(0, "127.0.0.1", () =>
 {
-    const query = process.argv.slice(2).join("&");
+    const query = process.argv.slice(2).concat(params, ["raw_sha256=" + create_hash("sha256").update(raw).digest("hex")]).join("&");
     const url = "http://127.0.0.1:" + server.address().port + "/tests/image/disk_image_browser_test.html" + (query ? "?" + query : "");
     console.log(url);
     browser = spawn(process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", [

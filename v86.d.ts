@@ -117,6 +117,14 @@ export type V86DiskImageOptions =
          * Default: no limit
          */
         overlay_limit?: number;
+
+        /**
+         * The parent image of an image that has one (a QCOW2 image with a
+         * backing file): given here, never loaded by the name the image has
+         * for it. Its format is the one the image names, or `format` here.
+         * A snapshot records the parents' identities too.
+         */
+        backing?: V86Image & V86DiskImageOptions;
     };
 
 /**
@@ -1199,6 +1207,31 @@ export class V86 {
      * @param options cdrom: attach an ATAPI CD drive instead of a hard disk
      */
     attach_sata_drive(port: number, image: V86HardDiskImage | null, options?: { cdrom?: boolean }): Promise<void>;
+
+    /**
+     * What an export of a disk writes: its size as the guest sees it, the
+     * format and size of its image file, the bytes the guest wrote (kept in
+     * memory)
+     *
+     * @param name "hda", "hdb", "cdrom" or "sata<port>"
+     */
+    disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number }>;
+
+    /**
+     * Export a disk as the guest sees it, as a RAW image of its whole size:
+     * the image's data with the guest's writes, in order. The machine stops
+     * and its disk I/O finishes first (the stream is one view of the disk),
+     * and goes on afterwards. Each chunk (at most 1 MiB) goes to `write`;
+     * the next one waits for the promise it returns. Resolves to the size
+     * written.
+     *
+     * @param name "hda", "hdb", "cdrom" or "sata<port>"
+     */
+    export_disk_image(name: string, options: {
+        write: (chunk: Uint8Array) => void | Promise<void>;
+        progress?: (progress: { loaded: number; total: number }) => void;
+        signal?: AbortSignal;
+    }): Promise<number>;
 
     /**
      * Remove the drive of a SATA port of the Q35 machine (a surprise
