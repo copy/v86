@@ -1,4 +1,4 @@
-import { check_disk_state } from "./disk_writeback.js";
+import { check_disk_state, is_writeback_state } from "./disk_writeback.js";
 import { drop_disk_holds } from "./block_backend.js";
 import {
     LOG_CPU, LOG_BIOS,
@@ -1300,6 +1300,18 @@ CPU.prototype.validate_disk_states = function(state)
     if(ahci && state[101])
     {
         ahci.ports.forEach((port, i) => check(port.device, state[101][3][i] && state[101][3][i][17]));
+    }
+    // (the floppy drives' disks: written back, a reference)
+    const fdc = this.devices.fdc;
+    if(fdc && state[55])
+    {
+        fdc.drives.forEach((drive, i) =>
+        {
+            const saved = state[55][44 + i];
+            if(!saved) return;
+            if(drive.buffer) check_disk_state(drive.buffer.disk_name || (i ? "fdb" : "fda"), drive.buffer, saved[10]);
+            else if(is_writeback_state(saved[10])) throw new Error("The snapshot's floppy " + (i ? "fdb" : "fda") + " was written back; this machine has no disk in that drive");
+        });
     }
 };
 

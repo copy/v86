@@ -717,9 +717,10 @@ disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
 	./tests/persistence/guest.mjs
 	./tests/persistence/disk_service.mjs
 	./tests/persistence/service_machine.mjs
+	./tests/persistence/floppy.mjs
 
 disk-persistence-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
-	for worker in 0 1; do for part in d0 d2 close pagehide; do \
+	for worker in 0 1; do for part in d0 d2 close pagehide page; do \
 		./tests/persistence/browser_runner.mjs worker=$$worker part=$$part || exit 1; done; done
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests

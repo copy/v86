@@ -1,7 +1,7 @@
 # 磁盘持久化计划：`disk_option`
 
-状态：D0、D1、D2 已实现（2026-10-17，`disk-formats` 分支；D2 中同步 XHR 的测量与 Chrome 本地网络访问
-授权未做，见附录），D3 起进行中；实施记录见[附录](#附录实施记录)。
+状态：D0–D3 已实现（2026-10-17，`disk-formats` 分支）。未做：D2 中同步 XHR 的测量与 Chrome 本地网络访问
+授权的人工验证，D4（需要测量，并由负责人决定），见[附录](#附录实施记录)末节。
 本文是 2026 年 10 月 17 日对“`disk_option` 写回源盘”方案的评审修订版，依据 `arm64` 分支
 a6674aa4 的代码。
 
@@ -513,7 +513,8 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
     `check_state`/`set_state` 都经它们，按快照表：写回盘只接受同一身份、同一 generation、同一容量的
     引用；`read_only` 盘接受写回盘的引用的条件是它能给出自己镜像的身份与 generation（Node 中分段读取
     的本地文件，`AsyncXHRBuffer`），此时清空修改层与读缓存；整份读入内存的盘（`url` 不带 `async`）、
-    浏览器中的盘无从核对，拒绝；带修改层的快照恢复到写回盘拒绝。
+    浏览器中的盘无从核对，拒绝（D3 起，分段读取磁盘服务的盘可以凭服务的 ETag 核对）；带修改层的快照
+    恢复到写回盘拒绝。
   - `check_loaded_disks`：所有盘加载后按设备号与 inode 再查一次同一文件被两块盘绑定（符号链接、
     相对路径等字符串不同的情况）；Node 中有本地文件的盘时预先加载 `node:fs`，供恢复时同步取引用。
 - 选项（[`src/disk_options.js`](../src/disk_options.js)）：Node 中字符串 `url` 可以 `read_write`；自带对象实现
@@ -560,7 +561,7 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 | `tests/persistence/guest.mjs`（新） | Linux 4.16（Q35/AHCI 与 i440FX/IDE 各一遍）：`/sys/block/sda/queue/write_cache` 为 write back、sdb 为 write through，dmesg 报 sda 写缓存 enabled；`conv=fsync` 的 FLUSH 到达后端；块设备 `sync` 写出（无 FLUSH CACHE）后直接读文件得到数据；`hdparm -W0` 后每个写入都 `fdatasync`、`-W1` 后不再；hdb 文件不变；保存状态、`destroy()`（文件已关闭、含已同步数据）、新机器恢复后继续读写。掉电：2 个 FLUSH 命令逐个核对、丢弃 2070 个未持久扇区、重新启动后 ext2 可挂载、同步过的文件 MD5 一致。MS-DOS：没有 FLUSH CACHE，写入后定时 flush 落盘，文件含写入的文本 |
 | 回归 | `make disk-persistence-tests`（含 D0 各项）；`ide_disk_image`、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`ide_large_disk`、`virtio_blk_disk_image`、`api/state`、`floppy`、`cdrom-insert-eject`、`api/disk-image`、`tests/image/guest.mjs`（8 种格式）通过；`TEST_RELEASE_BUILD=1` 下 `disk_writeback` 与 `guest.mjs`（Q35、掉电）通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
 
-### D2 磁盘协议、参考服务与浏览器端后端
+### D2 磁盘协议、参考服务与浏览器端后端（517ea64c）
 
 **实现。**
 
@@ -621,4 +622,62 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 | `tests/persistence/service_machine.mjs`（新） | IDE：写入完成即在服务的文件中、FLUSH CACHE 为服务端 `fdatasync`、IDENTIFY 报告写缓存；`save_state` 后 `destroy()` 关闭会话、新机器恢复、写入后再恢复被拒；服务关闭：写入在重试后挂起（`stop`）、`save_state` 被拒，服务重启后会话已不存在：`run()` 的重试被拒（不可重试），下一次 `run()` 报告给客户机；网络中断（连接被断开）后恢复：`run()` 重试成功、数据落盘；`report`：租约被接管后写入立即 ERR/ABRT 且不可重试；Q35 拔出写回盘时会话关闭；virtio-blk：写入在文件中、FLUSH 为服务端 `fdatasync` |
 | 浏览器（`tests/persistence/browser_runner.mjs part=d2/close/pagehide`，页面与 CPU Worker） | 静态网址配 `read_write`：`emulator-error`“只能读取，不能写回……”；跨站且 CORS 不放行协议请求头：`emulator-error`“不可达或不允许此页面（CORS……）”；MS-DOS 从磁盘服务（`read_write`）启动、写文件，命令完成时服务端镜像已含该文本，`save_state` 后 `destroy()` 关闭会话；另一台 `read_only` 机器读同一镜像时报“changed while it was read”而不混读；写入后 SIGKILL 浏览器，服务端镜像含写入的文本；写入后页面跳转，`pagehide` 关闭了会话（页面与 CPU Worker 两种模式都关闭了） |
 | 回归 | `make disk-persistence-tests`（D0–D2 的 Node 测试）、`make disk-persistence-browser-tests`（D0、D2、close、pagehide 各在页面与 CPU Worker 中，8 次）、`make disk-image-browser-tests` 通过；`TEST_RELEASE_BUILD=1` 下 `disk_service` 与 `service_machine` 通过；`ide_disk_image`、`ahci`（33/33）、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`api/state`、`floppy`、`cdrom-insert-eject`、`api/disk-image`、`arm64-options`、`virtio_blk_disk_image` 通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
+
+### D3 软盘与页面入口
+
+**实现。**
+
+- 软盘的 `disk_option`：`fda`、`fdb`（启动时与 `set_fda`/`set_fdb` 运行时插入）可以 `read_write`，后端与硬盘
+  相同（Node 本地文件、磁盘服务、带契约的自带对象）。写回的镜像按原样使用，必须是某种软盘格式的大小
+  （原先不足的镜像会被复制进更大的缓冲区，写回时不允许，启动或插入时报错）。插入另一张盘或
+  `eject_fda`/`eject_fdb` 时，取出的写回盘先 flush 再关闭；`stop()`、`destroy()`、快照准备也覆盖软盘
+  （`disk_buffers` 包括软驱）。快照中软盘的状态是引用；`validate_disk_states` 在恢复之前核对软驱的盘，
+  `FloppyDrive.set_state` 经 `restore_disk_state`。
+- 软盘的错误：ISA DMA（[`src/dma.js`](../src/dma.js)）把镜像的读写错误交给软驱控制器（原来读取失败时会把
+  `undefined` 当数据写进内存），控制器以异常结束（ST0 ABNTERM）报告给客户机，并触发 `disk-error`
+  （`policy: "report"`）。
+- 页面入口（[`src/browser/main.js`](../src/browser/main.js)、`index.html`、`debug.html`）：自定义启动的查询参数
+  `hda.disk_option`、`hdb.disk_option`、`fda.disk_option`（及 `*.disk_error`；`token` 不放进网址）；有写回盘时
+  显示“Save and power off”：保存状态（下载 `v86state.bin`）后 `destroy()`（写回盘 flush 并关闭），状态栏说明
+  用同样的盘加载该状态即可继续；`disk-error` 事件弹出提示：盘符、操作、偏移、长度、原因，`stop` 下给出
+  “Retry”（不可重试时为“Continue”，即报告给客户机）与“Power off”，`report` 下只说明客户机已被告知。
+
+**决定与偏差。**
+
+1. **软盘只有 `report`**：软驱不经 `block_backend.js`，DMA 传输的计数在失败时已经推进，挂起后重试需要回退
+   DMA 状态，首版没有做；软盘的 `disk_error` 只接受 `"report"`（也是软盘的默认值），`"stop"` 启动报错并
+   说明原因。软盘镜像通常很小、在内存或本机。
+2. **软驱写保护**：计划提到的“软驱写保护与 `read_write` 冲突”：软驱的 `read_only` 目前没有经 V86 选项
+   暴露，没有可检查的配置。
+3. **“页面流程手动走通”改为无头 Chrome 的脚本**：在框架中打开 `debug.html` 与 `index.html`（后者为
+   ADVANCED 编译的 `v86_all.js`），点击按钮、读页面文字，覆盖了同一流程；这一步还发现了只在 ADVANCED
+   编译下出现的问题（`settings[name]` 与 V86 选项按字符串下标读取，被 Closure 改名的属性读不到，写回盘
+   在 `index.html` 中不生效），已改为按属性读取（`main.js` 与 `check_disk_options`）。
+4. **令牌不经查询参数**：页面入口不接受 `hda.token`（网址里不放凭据）；同站的磁盘服务用 cookie。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/persistence/floppy.mjs`（新） | 非软盘格式大小的写回镜像启动报错；MS-DOS（从 hda 启动）写 A:（本地文件）与 B:（磁盘服务）上的文件，命令完成时镜像中已有；`set_fda` 换入另一张写回盘，取出的已关闭，新盘得到之后的文件；快照（软盘为引用）恢复到新机器后读到文件，`eject_fda` 关闭该盘；服务不可达时客户机看到“Abort, Retry, Fail”，`disk-error`（fdb，`report`） |
+| 浏览器 `part=page`（页面与 CPU Worker） | `debug.html?profile=custom&hda.url=<磁盘服务>&hda.disk_option=read_write`：MS-DOS 启动，显示“Save and power off”，写入在服务端镜像中；服务不可达时出现提示“Disk hda: the write of 512 bytes at 296448 failed: …retry once the disk can be reached again, or power off.”，服务恢复后点“Retry”，写入落盘、命令完成；点“Save and power off”：状态 10242692 字节，状态栏说明，会话已关闭。`index.html`（`v86_all.js`）同样的参数：按钮出现，保存并关机后会话关闭 |
+| `tests/api/disk-options.js`（更新） | 软盘：`disk_error: "stop"` 报错、`read_write` 的 ArrayBuffer 来源报错、`read_only` 与省略相同（错误策略为 `report`）、本地文件可以写回 |
+| 浏览器 `part=d2`（补充） | 快照表“`read_write` → `read_only`，同一身份与 generation”在浏览器中：写回磁盘服务的机器保存状态后关机，另一台以 `read_only`（分段读取同一网址）启动并恢复该状态，文件仍在。`read_only` 端以服务响应的 ETag（`"<UUID>:<generation>"`）给出镜像的身份与 generation（`check_disk_state`）；D1 中只有 Node 本地文件可以这样核对 |
+| 回归 | `make disk-persistence-tests`（D0–D3 的 Node 测试）、`make disk-persistence-browser-tests`（d0、d2、close、pagehide、page 各在页面与 CPU Worker 中，10 次）、`make disk-image-browser-tests` 通过；`TEST_RELEASE_BUILD=1` 下 `floppy.mjs` 通过；`api/floppy`、`ide_disk_image`、`ahci`（33/33）、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`api/state`、`cdrom-insert-eject`、`api/disk-image`、`arm64-options`、`virtio_blk_disk_image`、`tests/image/guest.mjs` 通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
+
+### 总结与需要负责人决定的事项
+
+D0–D3 按“实施阶段”完成。以下未做，或与计划不同，需要负责人决定或在别的条件下完成：
+
+1. **D4（`createWritable` 的提交成本）**：计划要求先测量再决定是否为小镜像提供文件句柄来源。本机同时在跑
+   长时间的发布门禁，按协调要求不做性能测量；测量与随后的决定都留给负责人（需要空闲的机器，Chromium）。
+2. **D2 的同步 XHR**：CPU Worker 对 `127.0.0.1` 的本机磁盘服务用同步 XHR 可以让 BIOS 阶段的读取同步完成
+   （见[后端契约](#后端契约)），代价是请求期间 CPU 线程阻塞；同样因不能测量而未做，首版全部异步。
+3. **Chrome 本地网络访问授权**：需要公网 HTTPS 页面访问回环地址并在有界面的 Chrome 中人工授权，本环境
+   做不到；需要在真实部署上人工验证一次。
+4. **软盘的 `disk_error: "stop"`**：未实现（见 D3 偏差 1），软盘失败一律报告给客户机。若需要，要让 ISA DMA
+   的传输可以回退后重试。
+5. **Node 跨进程锁**：按计划首版不做；同一进程内已保证单写者。
+6. **持久性验收的工具**：本机的 Linux 客户机与宿主机都没有 `e2fsck`，掉电验收以“挂载与同步过的文件
+   完整”代替文件系统检查（D1 偏差 4）；若要按原文做 fsck，需要带 e2fsprogs 的客户机镜像（需下载）。
 

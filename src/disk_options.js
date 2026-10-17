@@ -19,9 +19,6 @@ export const DISK_ERRORS = ["stop", "report"];
 /** what a buffer object of one's own needs for disk_option "read_write" (besides load, get, set) */
 export const BACKEND_CONTRACT = ["flush", "close", "mark", "generation", "get_state", "set_state", "check_state"];
 
-/** the descriptors that are not disks: neither option applies */
-const NOT_DISKS = ["bios", "vga_bios", "initial_state", "multiboot", "bzimage", "initrd", "kernel", "dtb"];
-
 /**
  * What kind of descriptor a name is
  * @param {string} name
@@ -123,7 +120,7 @@ export function check_disk_policy(name, file)
     {
         if(kind === "other" || kind === "cdrom")
         {
-            throw config_error(name + ": disk_option is for disks (hda, hdb, SATA drives, virtio_disks), not " + name);
+            throw config_error(name + ": disk_option is for disks (hda, hdb, fda, fdb, SATA drives, virtio_disks), not " + name);
         }
         if(!DISK_OPTIONS.includes(option))
         {
@@ -137,13 +134,15 @@ export function check_disk_policy(name, file)
         {
             throw config_error(name + ": disk_error is for disks and CD drives, not " + name);
         }
-        if(kind === "floppy")
-        {
-            throw config_error(name + ": disk_error on floppy drives is not supported yet (docs/disk-persistence-plan.md D3)");
-        }
         if(!DISK_ERRORS.includes(on_error))
         {
             throw config_error(name + ": disk_error " + JSON.stringify(on_error) + " is not one of " + DISK_ERRORS.join(", "));
+        }
+        if(kind === "floppy" && on_error !== "report")
+        {
+            // (the floppy controller reports a failed transfer to the guest: src/floppy.js)
+            throw config_error(name + ": floppy drives report a failed read or write to the guest (disk_error \"report\"); " +
+                "\"stop\" is for hard disks and CD drives");
         }
         policy.disk_error = on_error;
     }
@@ -158,12 +157,9 @@ export function check_disk_policy(name, file)
             throw config_error(name + ": token must be a string");
         }
     }
+    if(kind === "floppy") policy.disk_error = "report";
     if(policy.disk_option === "read_write")
     {
-        if(kind === "floppy")
-        {
-            throw config_error(name + ": disk_option \"read_write\" on floppy drives is not supported yet (docs/disk-persistence-plan.md D3)");
-        }
         if(file.readonly)
         {
             throw config_error(name + ": disk_option \"read_write\" and readonly: the guest cannot write the disk, " +
@@ -209,22 +205,22 @@ function source_of(file)
  */
 export function check_disk_options(options, also)
 {
-    for(const key of ["disk_option", "disk_error", "token"])
+    // (the options by property, as the rest of v86 reads them: Closure
+    // renames them alike in v86_all.js)
+    for(const [key, value] of [["disk_option", options.disk_option], ["disk_error", options.disk_error], ["token", options.token]])
     {
-        if(options[key] !== undefined)
+        if(value !== undefined)
         {
             throw config_error(key + " is an option of each disk (hda: { url, " + key + " }), not of the machine");
         }
     }
-    const disks = [];
-    for(const name of ["hda", "hdb", "cdrom", "fda", "fdb"])
-    {
-        if(options[name]) disks.push([name, options[name]]);
-    }
+    const disks = [["hda", options.hda], ["hdb", options.hdb], ["cdrom", options.cdrom], ["fda", options.fda], ["fdb", options.fdb]]
+        .filter(([, file]) => file);
     (options.virtio_disks || []).forEach((disk, i) => { if(disk) disks.push(["virtio_disk" + i, disk]); });
-    for(const name of NOT_DISKS)
+    for(const [name, file] of [["bios", options.bios], ["vga_bios", options.vga_bios], ["initial_state", options.initial_state],
+        ["multiboot", options.multiboot], ["bzimage", options.bzimage], ["initrd", options.initrd], ["kernel", options.kernel], ["dtb", options.dtb]])
     {
-        check_disk_policy(name, options[name]);
+        check_disk_policy(name, file);
     }
     return check_disk_bindings(disks.map(([name, file]) => [name, file, check_disk_policy(name, file)]), also);
 }

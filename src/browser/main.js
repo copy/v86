@@ -182,6 +182,16 @@ function $(id)
 const STREAMED_STATE_MEMORY = 1024 * 1024 * 1024;
 
 /**
+ * (docs/disk-persistence-plan.md D3: the page's notes about its disks)
+ * @param {string} text
+ */
+function show_disk_status(text)
+{
+    $("disk_status").textContent = text;
+    $("disk_status").style.display = "";
+}
+
+/**
  * Save a V7 snapshot, which never exists in one buffer: straight into a file
  * where the browser lets the page write one, else collected into a Blob
  * @param {V86} emulator
@@ -2407,6 +2417,16 @@ async function start_emulation(profile, query_args)
                 };
             }
 
+            // the disks' policies (docs/disk-persistence-plan.md): hda.disk_option=read_write
+            // with a disk service's URL writes the guest's changes back; hda.disk_error=report
+            // (the settings' names as properties: Closure renames them in v86_all.js)
+            for(const [name, disk] of [["hda", settings.hda], ["hdb", settings.hdb], ["fda", settings.fda]])
+            {
+                if(!disk) continue;
+                if(query_args.has(name + ".disk_option")) disk.disk_option = query_args.get(name + ".disk_option");
+                if(query_args.has(name + ".disk_error")) disk.disk_error = query_args.get(name + ".disk_error");
+            }
+
             // (a kernel and an initrd: the PC's bzImage, or the arm64 virt machine's Image)
             if(query_args.has("kernel.url")) settings.bzimage = { url: query_args.get("kernel.url"), async: false };
             if(query_args.has("initrd.url")) settings.initrd = { url: query_args.get("initrd.url"), async: false };
@@ -3706,6 +3726,60 @@ function init_ui(profile, settings, emulator)
             button.textContent = label;
             button.blur();
         }
+    };
+
+    // Disks written back (docs/disk-persistence-plan.md D3): their changes
+    // are in their images, a snapshot holds only a reference of each, valid
+    // until the image is written again. So the page offers "save and power
+    // off": the state saved, the machine destroyed (the disks flushed and
+    // closed); restored later with the same disks, the machine goes on.
+    const written_back = [settings.hda, settings.hdb, settings.fda, settings.fdb].some(disk => disk && disk.disk_option === "read_write");
+    $("save_and_power_off").style.display = written_back ? "" : "none";
+    $("save_and_power_off").onclick = async function()
+    {
+        const button = $("save_and_power_off");
+        button.disabled = true;
+        try
+        {
+            const parts = [];
+            await emulator.save_state_stream(chunk => { parts.push(chunk.slice()); });
+            dump_file(parts, "v86state.bin");
+            await emulator.destroy();
+            show_disk_status("Saved the state (v86state.bin, " + parts.reduce((n, p) => n + p.length, 0) + " bytes) and powered off: " +
+                "the disks written back are flushed and closed. Load the state with the same disks to go on.");
+        }
+        catch(error)
+        {
+            console.error("Could not save and power off", error);
+            alert("Could not save the state:\n" + error.message);
+            button.disabled = false;
+        }
+    };
+    // a disk's read or write failed: with disk_error "stop" the machine
+    // waits for the user: retry (or, when it cannot be retried, continue:
+    // the guest sees the error), or power off
+    emulator.add_listener("disk-error", event =>
+    {
+        const stop = event["policy"] === "stop";
+        $("disk_error_text").textContent = "Disk " + event["disk"] + ": the " + event["operation"] + " of " + event["length"] +
+            " bytes at " + event["offset"] + " failed: " + event["reason"] + ". " +
+            (!stop ? "The guest was told." : event["retryable"] ? "The machine is stopped: retry once the disk can be reached again, or power off." :
+                "The machine is stopped: this cannot be retried; continue (the guest is told), or power off.");
+        $("disk_error_retry").textContent = event["retryable"] ? "Retry" : "Continue";
+        $("disk_error_retry").style.display = stop ? "" : "none";
+        $("disk_error_power_off").style.display = stop ? "" : "none";
+        $("disk_error_box").style.display = "";
+    });
+    $("disk_error_retry").onclick = function()
+    {
+        $("disk_error_box").style.display = "none";
+        emulator.run();
+    };
+    $("disk_error_power_off").onclick = async function()
+    {
+        $("disk_error_box").style.display = "none";
+        await emulator.destroy();
+        show_disk_status("Powered off: the requests still waiting for the disk are dropped, as by a power loss.");
     };
 
     $("load_state").onclick = async function()

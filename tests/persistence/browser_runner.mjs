@@ -15,9 +15,13 @@
 // (/__service_file); part=close: the page writes, the runner kills the
 // browser (SIGKILL) and finds the write in the service's file; part=pagehide:
 // the page writes and navigates away, the runner checks that the session
-// was closed (or, when the browser did not send it, that the lease ends).
+// was closed (or, when the browser did not send it, that the lease ends);
+// part=page: debug.html in a frame, MS-DOS on a disk written back to the
+// service (the page's query arguments hda.url, hda.disk_option): the "Save
+// and power off" button, the disk error prompt and its Retry
+// (/__service_down, /__service_up), the session closed after powering off.
 // Needs build/libv86.mjs, build/cpu-worker.js, build/v86.wasm and Chrome (CHROME).
-//   node tests/persistence/browser_runner.mjs [worker=0|1] [part=d0|d2|close|pagehide]
+//   node tests/persistence/browser_runner.mjs [worker=0|1] [part=d0|d2|close|pagehide|page]
 
 import http from "node:http";
 import fs from "node:fs";
@@ -43,7 +47,9 @@ for(const name of ["dos.img", "shared.img", "close.img", "pagehide.img"])
     fs.copyFileSync(path.join(root, "images/msdos622.img"), path.join(service_dir, name));
 }
 const part = (process.argv.find(a => a.startsWith("part=")) || "part=d0").slice(5);
-let service;
+let service, service_listeners = null;
+fs.copyFileSync(path.join(root, "images/msdos622.img"), path.join(service_dir, "page.img"));
+fs.copyFileSync(path.join(root, "images/msdos622.img"), path.join(service_dir, "site.img"));
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "v86-persistence-browser-"));
 let browser, timeout;
@@ -78,6 +84,24 @@ function serve(req, res, cross_origin)
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ contains: !!text && fs.readFileSync(path.join(service_dir, name)).includes(text),
             writer: !!(image && image.writer && image.writer.expires > Date.now()), session_open: !!(image && image.writer) }));
+        return;
+    }
+    else if(req.method === "POST" && (address.pathname === "/__service_down" || address.pathname === "/__service_up"))
+    {
+        // (part=page: the disk service unreachable, and back)
+        if(address.pathname === "/__service_down")
+        {
+            service_listeners = service.server.listeners("request");
+            service.server.removeAllListeners("request");
+            service.server.on("request", request => request.socket.destroy());
+        }
+        else if(service_listeners)
+        {
+            service.server.removeAllListeners("request");
+            for(const listener of service_listeners) service.server.on("request", listener);
+            service_listeners = null;
+        }
+        res.end("OK");
         return;
     }
     else if(req.method === "POST" && address.pathname === "/__kill")

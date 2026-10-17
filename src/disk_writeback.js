@@ -12,8 +12,9 @@
 // - restoring: a read_write disk takes only a reference of the same
 //   identity and generation; a read_only disk takes such a reference too
 //   (its changes in memory are then dropped) when it can tell its image's
-//   identity and generation (a local file in Node read in ranges); a
-//   snapshot with changes in memory never goes into an image written back.
+//   identity and generation (a local file in Node read in ranges, or a
+//   disk service's image read in ranges: its ETag); a snapshot with
+//   changes in memory never goes into an image written back.
 // The reference backend: NodeFileDisk, a local file in Node (the descriptor's
 // url), read and written synchronously (fs.readSync, fs.writeSync,
 // fs.fdatasyncSync). Completion means the write is in the file (the host's
@@ -116,12 +117,20 @@ function same_identity(a, b)
 function reference_of(buffer)
 {
     if(buffer.writeback) return null;
-    if(node_fs && typeof buffer.filename === "string" && buffer.written_blocks instanceof Map && !buffer.basename)
+    if(typeof buffer.filename !== "string" || !(buffer.written_blocks instanceof Map) || buffer.basename) return null;
+    if(node_fs)
     {
         try { return node_file_reference(buffer.filename); }
         catch(e) { return null; }
     }
-    return null;
+    // (read over HTTP from a disk service: the ETag of its responses,
+    // "<the image's UUID>:<generation>", tools/disk-service.mjs)
+    const version = buffer.versions instanceof Map ? buffer.versions.get(buffer.filename) : undefined;
+    const match = version && version.etag && /^"([0-9a-f-]{36}):(\d+)"$/.exec(version.etag);
+    if(!match) return null;
+    let url = buffer.filename;
+    try { url = new URL(buffer.filename, globalThis.location ? globalThis.location.href : undefined).href; } catch(e) {}
+    return { identity: { "url": url, "uuid": match[1] }, generation: match[2] };
 }
 
 /**
@@ -559,13 +568,23 @@ NodeFileDisk.prototype.set_state = function(state)
  */
 export function disks_to_prepare(cpu)
 {
-    const disks = new Set();
-    for(const [, device] of typeof cpu.disk_devices === "function" ? cpu.disk_devices() : [])
-    {
-        const buffer = device && device.buffer;
-        if(buffer && buffer.writeback && typeof buffer.prepare_snapshot === "function") disks.add(buffer);
-    }
-    return Array.from(disks);
+    return disk_buffers(cpu).map(([, buffer]) => buffer).filter(buffer => buffer.writeback && typeof buffer.prepare_snapshot === "function");
+}
+
+/**
+ * [name, buffer] of a machine's disks: its hard disks and CD drives
+ * (cpu.disk_devices), its floppy drives' disks; each buffer once
+ * @param {?} cpu
+ * @return {!Array<!Array<*>>}
+ */
+export function disk_buffers(cpu)
+{
+    const seen = new Set(), disks = [];
+    const add = (name, buffer) => { if(buffer && !seen.has(buffer)) { seen.add(buffer); disks.push([name, buffer]); } };
+    for(const [name, device] of typeof cpu.disk_devices === "function" ? cpu.disk_devices() : []) add(name, device && device.buffer);
+    const fdc = cpu.devices && cpu.devices.fdc;
+    if(fdc && fdc.drives) fdc.drives.forEach((drive, i) => add(i ? "fdb" : "fda", drive.buffer));
+    return disks;
 }
 
 /**

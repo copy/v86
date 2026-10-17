@@ -38,13 +38,15 @@ refused({ cdrom: { buffer: image(), disk_option: "read_only" } }, /cdrom: disk_o
 refused({ hda: { buffer: image() }, bios: { ...bios, disk_option: "read_only" } }, /bios: disk_option is for disks/);
 refused({ hda: { buffer: image() }, initial_state: { url: "x", disk_error: "stop" } }, /initial_state: disk_error is for disks and CD drives/);
 refused({ hda: { buffer: image() }, bzimage: { url: "x", token: "t" } }, /bzimage: token is for disks/);
-refused({ fda: { buffer: image(), disk_error: "report" } }, /fda: disk_error on floppy drives is not supported yet/);
-refused({ fda: { buffer: image(), disk_option: "read_write" } }, /fda: disk_option "read_write" on floppy drives is not supported yet/);
-assert.deepEqual(check_disk_policy("fda", { buffer: image(), disk_option: "read_only" }), { disk_option: "read_only", disk_error: "stop" },
-    "read_only on a floppy: as without it");
+refused({ fda: { buffer: image(), disk_error: "stop" } }, /fda: floppy drives report a failed read or write to the guest/);
+refused({ fda: { buffer: image(), disk_option: "read_write" } }, /fda: an ArrayBuffer is an image in memory/, "read_write on a floppy: as for disks");
+assert.deepEqual(check_disk_policy("fda", { buffer: image(), disk_option: "read_only" }), { disk_option: "read_only", disk_error: "report" },
+    "read_only on a floppy: as without it; floppies report errors");
+assert.deepEqual(check_disk_policy("fdb", { url: "/images/a.img", disk_option: "read_write", disk_error: "report" }), { disk_option: "read_write", disk_error: "report" },
+    "a floppy written back (D3)");
 assert.deepEqual(check_disk_policy("cdrom", { buffer: image(), disk_error: "report" }), { disk_option: "read_only", disk_error: "report" },
     "disk_error on a CD drive");
-console.log("ok - disk_option is for hard disks, disk_error for hard disks and CD drives (floppies: D3), neither for the other files");
+console.log("ok - disk_option is for hard disks and floppies, disk_error for hard disks and CD drives (floppies report), neither for the other files");
 
 // read_write: the sources that cannot be written back
 refused({ hda: { buffer: image(), disk_option: "read_write" } }, /hda: an ArrayBuffer is an image in memory, with no persistent source/);

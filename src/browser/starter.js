@@ -31,7 +31,8 @@ import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
 import { check_image_options, create_disk_image, import_ova } from "../image/factory.js";
 import { check_disk_options, check_disk_policy, check_disk_bindings, set_disk_policy, disk_kind, is_service_url } from "../disk_options.js";
-import { NodeFileDisk, check_loaded_disks } from "../disk_writeback.js";
+import { NodeFileDisk, check_loaded_disks, disk_buffers } from "../disk_writeback.js";
+import { floppy_format_size } from "../floppy.js";
 import { DiskServiceDisk } from "../disk_service.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
@@ -1041,6 +1042,15 @@ V86.prototype.continue_init = async function(emulator, options)
         // (a disk written back and another disk of the same file, by
         // another name: src/disk_writeback.js)
         await check_loaded_disks(loaded_disks);
+        // (a floppy written back is used as it is: a floppy format's size)
+        for(const [name, buffer] of loaded_disks)
+        {
+            if(disk_kind(String(name)) === "floppy" && buffer.writeback && !floppy_format_size(buffer.byteLength))
+            {
+                throw new Error(name + ": a floppy image written back must have the size of a floppy format (such as 1474560 bytes), not " +
+                    buffer.byteLength);
+            }
+        }
         //if(settings.initial_state)
         //{
         //    // avoid large allocation now, memory will be restored later anyway
@@ -1423,7 +1433,7 @@ V86.prototype.stop = async function()
 V86.prototype.disk_buffers = function()
 {
     if(!this.v86) return [];
-    return this.v86.cpu.disk_devices().filter(([, device]) => device && device.buffer).map(([name, device]) => [name, device.buffer, undefined]);
+    return disk_buffers(this.v86.cpu).map(([name, buffer]) => [name, buffer, undefined]);
 };
 
 /**
@@ -1795,34 +1805,14 @@ V86.prototype.is_running = function()
 
 /**
  * Set the image inserted in the floppy drive. Can be changed at runtime, as
- * when physically changing the floppy disk.
+ * when physically changing the floppy disk. With disk_option "read_write"
+ * (docs/disk-persistence-plan.md) the guest's writes go back to the image;
+ * the disk taken out (another inserted, or ejected) is flushed and closed.
  */
 V86.prototype.set_fda = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_fda", [encode_worker_file(file)]);
-    check_image_options("fda", file, false);
-    const fda = this.v86.cpu.devices.fdc.drives[0];
-    if(file.url && !file.async)
-    {
-        await new Promise(resolve => {
-            load_file(file.url, {
-                done: result =>
-                {
-                    fda.insert_disk(new SyncBuffer(result));
-                    resolve();
-                }
-            });
-        });
-    }
-    else
-    {
-        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
-        image.onload = () =>
-        {
-            fda.insert_disk(image);
-        };
-        await image.load();
-    }
+    await this.insert_floppy(0, file);
 };
 
 /**
@@ -1831,28 +1821,57 @@ V86.prototype.set_fda = async function(file)
 V86.prototype.set_fdb = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_fdb", [encode_worker_file(file)]);
-    check_image_options("fdb", file, false);
-    const fdb = this.v86.cpu.devices.fdc.drives[1];
-    if(file.url && !file.async)
+    await this.insert_floppy(1, file);
+};
+
+/**
+ * @param {number} index
+ * @param {!Object} file
+ */
+V86.prototype.insert_floppy = async function(index, file)
+{
+    const name = index ? "fdb" : "fda";
+    check_image_options(name, file, false);
+    const policy = check_disk_policy(name, file);
+    const others = this.disk_descriptors.filter(([n]) => n !== name);
+    check_disk_bindings([[name, file, policy]], others);
+    const drive = this.v86.cpu.devices.fdc.drives[index];
+    let image;
+    if(policy.disk_option === "read_write" && !(file.get && file.set && file.load))
     {
-        await new Promise(resolve => {
-            load_file(file.url, {
-                done: result =>
-                {
-                    fdb.insert_disk(new SyncBuffer(result));
-                    resolve();
-                }
-            });
-        });
+        image = writeback_backend(name, file);
+        await image.load();
+        if(!floppy_format_size(image.byteLength))
+        {
+            image.close_now();
+            throw new Error(name + ": a floppy image written back must have the size of a floppy format (such as 1474560 bytes), not " + image.byteLength);
+        }
+    }
+    else if(file.url && !file.async)
+    {
+        image = await new Promise(resolve => load_file(file.url, { done: result => resolve(new SyncBuffer(result)) }));
     }
     else
     {
-        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
-        image.onload = () =>
-        {
-            fdb.insert_disk(image);
-        };
-        await image.load();
+        image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        await new Promise((resolve, reject) => { image.onload = resolve; Promise.resolve(image.load()).catch(reject); });
+    }
+    set_disk_policy(image, name, policy);
+    this.close_floppy(drive);
+    drive.insert_disk(image);
+    this.disk_descriptors = others.concat([[name, file]]);
+};
+
+/**
+ * The disk taken out of a floppy drive: written back, it is flushed and closed
+ * @param {?} drive
+ */
+V86.prototype.close_floppy = function(drive)
+{
+    const buffer = drive.buffer;
+    if(buffer && buffer.writeback && typeof buffer.close === "function")
+    {
+        buffer.close(error => { if(error) console.error(error.message); });
     }
 };
 
@@ -1862,7 +1881,10 @@ V86.prototype.set_fdb = async function(file)
 V86.prototype.eject_fda = function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("eject_fda");
-    this.v86.cpu.devices.fdc.drives[0].eject_disk();
+    const drive = this.v86.cpu.devices.fdc.drives[0];
+    this.close_floppy(drive);
+    drive.eject_disk();
+    this.disk_descriptors = this.disk_descriptors.filter(([n]) => n !== "fda");
 };
 
 /**
@@ -1871,7 +1893,10 @@ V86.prototype.eject_fda = function()
 V86.prototype.eject_fdb = function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("eject_fdb");
-    this.v86.cpu.devices.fdc.drives[1].eject_disk();
+    const drive = this.v86.cpu.devices.fdc.drives[1];
+    this.close_floppy(drive);
+    drive.eject_disk();
+    this.disk_descriptors = this.disk_descriptors.filter(([n]) => n !== "fdb");
 };
 
 /**

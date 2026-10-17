@@ -308,10 +308,16 @@ DMA.prototype.do_read = function(buffer, start, len, channel, fn)
         this.channel_addr[channel] += read_count;
 
         const epoch = this.epoch;
-        track_state_io(cpu, done => buffer.get(start, read_count, done), data =>
+        track_state_io(cpu, done => buffer.get(start, read_count, done), (data, error) =>
         {
             // (a machine reset in between: the transfer belongs to the machine before it)
             if(epoch !== this.epoch) return;
+            // (the image failed the read: docs/disk-persistence-plan.md D3)
+            if(error || !data)
+            {
+                fn(true, error || new Error("the disk image returned no data"));
+                return;
+            }
             try
             {
                 cpu.write_blob_physical(data, addr);
@@ -387,9 +393,14 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
 
         const epoch = this.epoch;
         track_state_io(this.cpu, done => buffer.set(start, data, done),
-                () =>
+                error =>
                 {
                     if(epoch !== this.epoch) return;
+                    if(error)
+                    {
+                        fn(true, error);
+                        return;
+                    }
                     if(want_more && autoinit)
                     {
                         dbg_log("DMA continuing from start", LOG_DMA);
