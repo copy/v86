@@ -20,6 +20,8 @@
 // each round's time; docs/jit-unification-plan.md P0.12). While it runs, a line written to
 // <out>/command.txt is executed: "key <scancodes hex>", "type <text>",
 // "run <command line>", "enter", "space", "password", "shot", "rips",
+// "diag" (each core's registers and last faults), "mem <core> <linear
+// address, hex> <bytes>" (guest memory through that core's CR3),
 // "trace on|off" (WIN_USER_TRACE=1 enables it from the start), "jitstats
 // <phase>" (a JIT_STATS record, tools/bench/jit_stats.mjs, named <phase>;
 // with JIT_STATS=1 the harness also writes one at the desktop and one at
@@ -81,6 +83,7 @@ import {jit_switches_from_env} from "../lib/jit_switches.mjs";
 import {jit_stats_enabled, print_jit_stats} from "../../tools/bench/jit_stats.mjs";
 import {CPU_FEATURES, CPU_FEATURE_PRESETS} from "../../src/cpu_features.js";
 import {site_directory} from "../lib/site.mjs";
+import {STATE_OFFSETS} from "../../src/state_layout.js";
 // WIN_CPU_FEATURES: feature names, comma separated, or a preset ("x86-64-v3")
 // (default: cpu_type x86_64 without cpu_features, every released feature;
 // none: x86_64 with none)
@@ -586,6 +589,66 @@ function physical(cr3, address)
     }
     return null;
 }
+// "diag": each core's registers, its last faults (core 0's from this
+// instance, a vCPU worker's from its instance's copy in the shared memory),
+// the paging entries of the last fault address and the code at its RIP
+// (cores taking turns: the running one only, whose fault log they share)
+function diagnose()
+{
+    const memory = cpu.wasm_memory.buffer, e = cpu.wm.exports, O = STATE_OFFSETS;
+    const hex = v => "0x" + BigInt.asUintN(64, BigInt(v)).toString(16);
+    const result = [];
+    for(let core = 0; core < (cpu.parallel ? cores : 1); core++)
+    {
+        const base = core === 0 ? cpu.state_base : cpu.parallel.state_base(core);
+        const view = new DataView(memory, base);
+        const u32 = offset => view.getUint32(offset, true);
+        const pair = (low, high) => BigInt(u32(high)) << 32n | BigInt(u32(low));
+        const gpr = i => pair(i < 8 ? O.reg32 + 4 * i : O.x64_gpr_ext_lo + 4 * (i - 8), O.x64_gpr_hi + 4 * i);
+        const names = ["rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"];
+        const regs = Object.fromEntries(names.map((name, i) => [name, hex(gpr(i))]));
+        const cr = i => pair(O.cr + 4 * i, O.x64_cr_hi + 4 * i);
+        const cr3 = cr(3) & ~0xFFFn, rip = pair(O.instruction_pointer, O.x64_rip_hi);
+        Object.assign(regs, {rip: hex(rip), flags: hex(u32(O.flags)), cpl: view.getUint8(O.cpl), cs: hex(view.getUint16(O.sreg + 2, true)),
+            cr0: hex(cr(0)), cr2: hex(cr(2)), cr3: hex(cr3), cr4: hex(cr(4)), cr8: hex(view.getBigUint64(O.x64_cr8, true)),
+            gs_base: hex(pair(O.segment_offsets + 20, O.x64_segment_base_hi + 20)),
+            kernel_gs_base: hex(view.getBigUint64(O.x64_kernel_gs_base, true)), in_hlt: view.getUint8(O.in_hlt)});
+        // the fault log: [vector, error, rip, address, rsp, cs] x 16, most recent at next - 1
+        const instance = cpu.parallel ? cpu.parallel.instance_bases[core] : 0;
+        const log_at = instance + e.x64_fault_log_location(0), next = new Uint32Array(memory, instance + e.x64_fault_log_location(1), 1)[0];
+        const faults = [];
+        for(let i = 0; i < Math.min(16, next); i++)
+        {
+            const entry = new BigUint64Array(memory, log_at + ((next - 1 - i) % 16) * 48, 6);
+            faults.push({vector: Number(entry[0]), error: hex(entry[1]), rip: hex(entry[2]), address: hex(entry[3]), rsp: hex(entry[4]), cs: hex(entry[5])});
+        }
+        const walk = address => {
+            const ram = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset, cpu.mem8.length);
+            const entries = [];
+            let table = cr3;
+            for(const shift of [39n, 30n, 21n, 12n])
+            {
+                const at = Number(table & 0xFFFFFF000n) + Number(address >> shift & 511n) * 8;
+                if(at + 8 > ram.byteLength) { entries.push("beyond RAM " + hex(at)); break; }
+                const entry = ram.getBigUint64(at, true);
+                entries.push(hex(at) + ":" + hex(entry));
+                if(!(entry & 1n) || shift === 12n || shift < 39n && entry & 128n) break;
+                table = entry;
+            }
+            return entries;
+        };
+        const code = address => {
+            const at = physical(cr3, address);
+            return at === null ? null : Buffer.from(cpu.mem8.subarray(at, at + 24)).toString("hex");
+        };
+        const last = faults[0];
+        result.push({core, regs, faults_taken: next, faults: faults.slice(0, 8),
+            last_walk: last && last.address !== hex(-1) ? walk(BigInt(last.address)) : null,
+            last_code: last ? code(BigInt(last.rip)) : null, rip_code: code(rip),
+            kernel_offset: kernel_base !== null ? hex(rip - kernel_base) : null});
+    }
+    return result;
+}
 // RIP sampling between slices: which kernel code is hot (offline
 // symbolization against ntoskrnl.exe; the base is found from LSTAR, which
 // points into ntoskrnl)
@@ -894,6 +957,22 @@ try
             event("snapshot", {bytes: state.byteLength});
         }
         else if(verb === "rips") next_samples = 0;
+        // each core's registers, last faults and the paging entries of the last fault address
+        else if(verb === "diag") console.log("X64_WIN_DIAG " + JSON.stringify(diagnose()));
+        // "mem <core> <linear address, hex> <bytes>": guest memory through that core's CR3
+        else if(verb === "mem")
+        {
+            const [core, address, length] = argument.split(/\s+/);
+            const cr3 = BigInt(diagnose()[+core].regs.cr3), start = BigInt("0x" + address.replace(/^0x/, ""));
+            let text = "";
+            for(let at = start; at < start + BigInt(+length); at += 8n)
+            {
+                const where = physical(cr3, at);
+                text += where === null ? "????????????????" : new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset + where, 8).getBigUint64(0, true).toString(16).padStart(16, "0");
+                text += (at - start) % 32n === 24n ? "\n" : " ";
+            }
+            console.log(`X64_WIN_MEM ${core} 0x${start.toString(16)}\n${text}`);
+        }
         else if(verb === "jitstats") print_jit_stats(vm, {script: "windows_boot", phase: argument || "command", s: elapsed(), wasm: process.env.WASM_PATH || null, cores});
         // PCI Express hot plug (WIN_PCIE_DEVICE)
         else if(verb === "pcieattach") await vm.attach_pcie_device(+argument);
