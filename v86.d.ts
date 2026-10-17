@@ -76,6 +76,55 @@ type V86BufferImage =
 export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
 
 /**
+ * The container format of a hard disk image (docs/disk-image-formats-plan.md).
+ * "raw" (or no format): the sectors as they are, as before. "auto": the
+ * format from the image's signature and structure; a RAW image has none, so
+ * "auto" fails for it. Formats planned but not supported yet ("vhd", "vdi",
+ * "vmdk", "vhdx") fail at start.
+ */
+export type V86DiskFormat = "raw" | "qcow2" | "auto";
+
+/**
+ * The options of a hard disk image (hda, hdb, attach_sata_drive). With a
+ * container format, `size` is the length of the file (as for async images),
+ * and the guest sees the disk's virtual size; the guest's writes stay in
+ * memory, the file is never written.
+ */
+export type V86DiskImageOptions =
+    {
+        /** The container format; omitted: RAW, as before */
+        format?: V86DiskFormat;
+
+        /**
+         * Where the guest's writes go (docs/disk-persistence-plan.md):
+         * "read_only" (the default) keeps them in memory, the image stays
+         * as it is. "read_write" (writing them back to the image) is not
+         * supported yet and fails at start.
+         */
+        disk_option?: "read_only" | "read_write";
+
+        /**
+         * An identifier of the image's version, published with it (an
+         * image of a container format): a snapshot records it with the
+         * image's metadata, size and format, and restores only onto the
+         * same image
+         */
+        image_id?: string;
+
+        /**
+         * The most bytes of guest writes kept in memory (an image of a
+         * container format); beyond it, writes fail with an I/O error.
+         * Default: no limit
+         */
+        overlay_limit?: number;
+    };
+
+/**
+ * A hard disk image
+ */
+export type V86HardDiskImage = V86Image & V86DiskImageOptions;
+
+/**
  * Config for virtio/serial console.
  */
 export type ConsoleConfig =
@@ -511,12 +560,12 @@ export interface V86Options {
     /**
      * First hard disk
      */
-    hda?: V86Image;
+    hda?: V86HardDiskImage;
 
     /**
      * Second hard disk
      */
-    hdb?: V86Image;
+    hdb?: V86HardDiskImage;
 
     /**
      * First floppy disk
@@ -1149,7 +1198,7 @@ export class V86 {
      * @param image the disk image, or for a CD drive the disc (null: empty)
      * @param options cdrom: attach an ATAPI CD drive instead of a hard disk
      */
-    attach_sata_drive(port: number, image: V86Image | null, options?: { cdrom?: boolean }): Promise<void>;
+    attach_sata_drive(port: number, image: V86HardDiskImage | null, options?: { cdrom?: boolean }): Promise<void>;
 
     /**
      * Remove the drive of a SATA port of the Q35 machine (a surprise

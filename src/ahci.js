@@ -1097,7 +1097,7 @@ AHCIPort.prototype.start_queued = function(slot, header, table, prdtl, fis)
             this.ncq_failed(job, ATA_ER_ABRT);
             return;
         }
-        device.write_to_backend(start, data, () => this.queued_done(job));
+        device.write_to_backend(start, data, () => this.queued_done(job), () => this.queued_failed(job));
         device.report_write(length);
     }
     else
@@ -1126,6 +1126,10 @@ AHCIPort.prototype.start_queued = function(slot, header, table, prdtl, fis)
                 return;
             }
             this.queued_done(job);
+        }, () =>
+        {
+            device.report_read_end(0);
+            this.queued_failed(job);
         });
     }
 };
@@ -1145,6 +1149,22 @@ AHCIPort.prototype.queued_done = function(job)
     this.post_sdb(ATA_SR_DRDY | ATA_SR_DSC, 0, 1 << job.tag);
     this.controller.update_irq();
     this.check_commands();
+};
+
+/**
+ * The disk image failed a queued command's read or write
+ * (docs/disk-image-formats-plan.md P0): it ends with ABRT, as QEMU's
+ * ncq_err
+ * @param {!Object} job
+ */
+AHCIPort.prototype.queued_failed = function(job)
+{
+    if(job.epoch !== this.ncq_epoch || !(this.ncq_active & 1 << job.tag))
+    {
+        return;
+    }
+    this.ncq_active &= ~(1 << job.tag);
+    this.ncq_failed(job, ATA_ER_ABRT);
 };
 
 /**

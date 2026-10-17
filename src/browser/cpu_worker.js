@@ -5,13 +5,22 @@ import { GraphicsPerformance } from "./graphics_performance.js";
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
 
-export function encode_worker_file(f)
+/**
+ * @param {*} f
+ * @param {number=} depth (a disk image's parents, backing)
+ */
+export function encode_worker_file(f, depth = 0)
 {
     if(!f) return undefined;
     if(f.get || f.set || f.load) throw new Error("CPU Worker requires a URL, File or buffer disk descriptor");
+    // (MAX_CHAIN_DEPTH of src/image/factory.js)
+    if(depth > 16) throw new Error("CPU Worker: the backing images of a disk are nested too deeply (or circular)");
     return { "url": f.url && new URL(f.url, location.href).href,
         "buffer": f.buffer, "async": f.async, "size": f.size,
-        "fixed_chunk_size": f.fixed_chunk_size, "use_parts": f.use_parts };
+        "fixed_chunk_size": f.fixed_chunk_size, "use_parts": f.use_parts,
+        // disk images (docs/disk-image-formats-plan.md): the worker opens them
+        "format": f.format, "disk_option": f.disk_option, "image_id": f.image_id,
+        "overlay_limit": f.overlay_limit, "backing": f.backing ? encode_worker_file(f.backing, depth + 1) : undefined };
 }
 
 /**

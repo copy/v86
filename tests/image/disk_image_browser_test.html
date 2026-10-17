@@ -1,0 +1,71 @@
+<!doctype html><meta charset="utf-8"><title>Disk images in the browser</title>
+<div id="screen"><div style="white-space: pre; font: 14px monospace; line-height: 14px"></div><canvas style="display: none"></canvas></div>
+<pre id="result">RUNNING</pre>
+<script type="module">
+// docs/disk-image-formats-plan.md ("运行入口"): a QCOW2 disk read with HTTP
+// Range requests, on the page (worker=0) or in the CPU Worker (worker=1):
+// MS-DOS boots from it, writes a file, the file is there after a snapshot
+// restored; an image that is not of its format fails the start
+// (emulator-error), in the Worker too. Run by tests/image/browser_runner.mjs.
+import { V86 } from "../../build/libv86.mjs";
+const params = new URLSearchParams(location.search);
+const worker = params.get("worker") === "1";
+const log = [];
+const result = document.getElementById("result");
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const config = hda => ({
+    wasm_path: "../../build/v86.wasm", cpu_worker: worker, cpu_worker_url: "../../build/cpu-worker.js",
+    bios: { url: "../../bios/seabios.bin" }, vga_bios: { url: "../../bios/vgabios.bin" },
+    graphics_adapter: "bochs_vga", graphics_adapter_path: "../../build/v86-bochs-vga.js",
+    hda, memory_size: 32 << 20, autostart: true, disable_speaker: true,
+    screen: { container: document.getElementById("screen") },
+});
+const screen = vm => (vm.screen_adapter ? vm.screen_adapter.get_text_screen() : []).map(l => l.replace(/\x00/g, " "));
+async function until(condition, what, timeout = 120000)
+{
+    const end = performance.now() + timeout;
+    while(!condition())
+    {
+        if(performance.now() > end) throw new Error("timeout: " + what + "\n" + screen(vm_current).join("\n"));
+        await sleep(100);
+    }
+}
+let vm_current;
+async function dos(vm, command)
+{
+    await vm.keyboard_send_text("cls\n", 20);
+    await until(() => { const l = screen(vm).filter(x => x.trim()); return l.length === 1 && l[0].startsWith("C:\\>"); }, "cls");
+    await vm.keyboard_send_text(command + "\n", 20);
+    await until(() => screen(vm).filter(x => x.startsWith("C:\\>")).length >= 2, command);
+    return screen(vm).join("\n");
+}
+try
+{
+    const vm = vm_current = new V86(config({ url: "../../build/disk-image-browser/msdos622.qcow2", async: true, format: "qcow2" }));
+    await new Promise((resolve, reject) => { vm.add_listener("emulator-loaded", resolve); vm.add_listener("emulator-error", reject); });
+    if(worker && vm.v86) throw new Error("the machine is on the page, not in the Worker");
+    await until(() => screen(vm).some(l => l.startsWith("C:\\>")), "C:\\>");
+    log.push("C:\\> from the QCOW2 disk over HTTP Range (" + (worker ? "CPU Worker" : "page") + ")");
+    await dos(vm, "echo BROWSER > C:\\BROWSER.TXT");
+    if(!/^BROWSER\s*$/m.test(await dos(vm, "type C:\\BROWSER.TXT"))) throw new Error("the file written is not there");
+    log.push("the guest wrote a file");
+    const state = await vm.save_state();
+    await dos(vm, "del C:\\BROWSER.TXT");
+    await vm.restore_state(state);
+    if(!/^BROWSER\s*$/m.test(await dos(vm, "type C:\\BROWSER.TXT"))) throw new Error("the file is not there after the restore");
+    log.push("a snapshot restored has the file");
+    await vm.destroy();
+
+    const bad = vm_current = new V86(config({ url: "../../build/disk-image-browser/not-qcow2.qcow2", async: true, format: "qcow2" }));
+    const error = await Promise.race([new Promise(resolve => bad.add_listener("emulator-error", resolve)),
+        new Promise(resolve => bad.add_listener("emulator-loaded", () => resolve(null))), sleep(30000).then(() => "timeout")]);
+    if(!error || error === "timeout" || !/not a qcow2 image/.test(error.message)) throw new Error("no emulator-error for a bad image: " + (error && error.message || error));
+    log.push("an image that is not of its format: emulator-error \"" + error.message + "\"");
+    try { await bad.destroy(); } catch(e) {}
+    result.textContent = "PASS\n" + log.join("\n");
+}
+catch(error)
+{
+    result.textContent = "FAIL " + (error && error.stack || error) + "\n" + log.join("\n");
+}
+</script>

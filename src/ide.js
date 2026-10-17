@@ -247,6 +247,7 @@ const ATAPI_SK_ABORTED_COMMAND = 11;
 
 // ATAPI 8-bit Additional Sense Codes, see [MMC-2] 9.1.18.3, Table 124
 // https://github.com/qemu/qemu/blob/3c5a5e213e5f08fbfe70728237f7799ac70f5b99/hw/ide/ide-internal.h#L288
+const ATAPI_ASC_UNRECOVERED_READ_ERROR = 0x11;
 const ATAPI_ASC_LBA_OUT_OF_RANGE = 0x21;
 const ATAPI_ASC_INV_FIELD_IN_CMD_PACKET = 0x24;
 const ATAPI_ASC_MEDIUM_MAY_HAVE_CHANGED = 0x28;
@@ -1916,21 +1917,25 @@ IDEInterface.prototype.do_write = function()
 /**
  * Write to the disk image. The callback runs once the backend has taken the
  * data, unless a device reset happened in between; FLUSH CACHE waits for
- * every write in flight (when_writes_done).
+ * every write in flight (when_writes_done). A backend that fails the write
+ * (its callback's argument: docs/disk-image-formats-plan.md P0) ends the
+ * command with an error instead (on_error, or io_error).
  * @param {number} start
  * @param {!Uint8Array} data
  * @param {function()} callback
+ * @param {function(!Error)=} on_error
  */
-IDEInterface.prototype.write_to_backend = function(start, data, callback)
+IDEInterface.prototype.write_to_backend = function(start, data, callback, on_error)
 {
     const epoch = this.reset_epoch;
     this.writes_in_flight++;
-    track_state_io(this.cpu, done => this.buffer.set(start, data, done), () =>
+    track_state_io(this.cpu, done => this.buffer.set(start, data, done), error =>
     {
         this.writes_in_flight--;
         if(epoch === this.reset_epoch)
         {
-            callback();
+            if(error) (on_error || (e => this.io_error(e)))(error);
+            else callback();
         }
         if(this.writes_in_flight === 0)
         {
@@ -1951,14 +1956,19 @@ IDEInterface.prototype.when_writes_done = function(callback)
     const epoch = this.reset_epoch;
     const flush = () =>
     {
-        const finish = () => { if(epoch === this.reset_epoch) callback(); };
+        const finish = error =>
+        {
+            if(epoch !== this.reset_epoch) return;
+            if(error) this.io_error(error);
+            else callback();
+        };
         if(this.buffer && typeof this.buffer.flush === "function")
         {
             track_state_io(this.cpu, done => this.buffer.flush(done), finish);
         }
         else
         {
-            finish();
+            finish(undefined);
         }
     };
     if(this.writes_in_flight === 0)
@@ -2934,7 +2944,16 @@ IDEInterface.prototype.report_write = function(byte_count)
     this.bus.send("ide-write-end", [this.channel_nr, byte_count, sector_count]);
 };
 
-IDEInterface.prototype.read_buffer = function(start, length, callback)
+/**
+ * Read from the disk image: callback(data), or, when the backend fails the
+ * read (a second argument: docs/disk-image-formats-plan.md P0), on_error
+ * (io_error without one). Neither runs for a read cancelled before.
+ * @param {number} start
+ * @param {number} length
+ * @param {function(!Uint8Array)} callback
+ * @param {function(!Error)=} on_error
+ */
+IDEInterface.prototype.read_buffer = function(start, length, callback, on_error)
 {
     const id = this.last_io_id++;
     const abort = new AbortController();
@@ -2942,7 +2961,7 @@ IDEInterface.prototype.read_buffer = function(start, length, callback)
     abort["snapshot_done"] = complete;
     this.in_progress_io_ids.set(id, abort);
 
-    try { this.buffer.get(start, length, data =>
+    try { this.buffer.get(start, length, (data, error) =>
     {
         complete();
         if(this.cancelled_io_ids.delete(id))
@@ -2954,6 +2973,20 @@ IDEInterface.prototype.read_buffer = function(start, length, callback)
         const removed = this.in_progress_io_ids.delete(id);
         dbg_assert(removed);
 
+        if(error || !data)
+        {
+            error = error || new Error("the disk image returned no data");
+            if(on_error)
+            {
+                on_error(error);
+            }
+            else
+            {
+                this.report_read_end(0);
+                this.io_error(error);
+            }
+            return;
+        }
         callback(data);
     }, { signal: abort.signal }); }
     catch(error)
@@ -2961,6 +2994,33 @@ IDEInterface.prototype.read_buffer = function(start, length, callback)
         complete();
         this.in_progress_io_ids.delete(id);
         throw error;
+    }
+};
+
+/**
+ * The disk image failed a read or write: the command ends with an error, as
+ * QEMU's ide_rw_error (ABRT); a DMA transfer also sets the bus master's error
+ * bit, an ATAPI command reports a medium error
+ * @param {!Error} error
+ */
+IDEInterface.prototype.io_error = function(error)
+{
+    dbg_log(this.name + ": I/O error: " + error.message, LOG_DISK);
+    if(this.is_atapi)
+    {
+        this.channel.dma_status &= ~1;
+        this.atapi_check_condition_response(ATAPI_SK_MEDIUM_ERROR, ATAPI_ASC_UNRECOVERED_READ_ERROR);
+        this.push_irq();
+        return;
+    }
+    const cmd = this.current_command;
+    if(cmd === ATA_CMD_READ_DMA || cmd === ATA_CMD_READ_DMA_EXT || cmd === ATA_CMD_WRITE_DMA || cmd === ATA_CMD_WRITE_DMA_EXT)
+    {
+        this.dma_abort();
+    }
+    else
+    {
+        this.ata_abort_command();
     }
 };
 

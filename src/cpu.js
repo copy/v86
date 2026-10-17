@@ -1,3 +1,4 @@
+import { is_disk_image_state } from "./image/disk_image.js";
 import {
     LOG_CPU, LOG_BIOS,
     FW_CFG_SIGNATURE, FW_CFG_SIGNATURE_QEMU,
@@ -1232,6 +1233,7 @@ CPU.prototype.validate_state = function(state)
     }
     this.validate_machine_core_state(state[96]);
     this.validate_physical_state(state[97]);
+    this.validate_disk_states(state);
     resolve_virtio_devices_state(this.devices.virtio_devices, state[92]);
     if(this.devices.graphics_adapter)
     {
@@ -1259,6 +1261,46 @@ CPU.prototype.validate_state = function(state)
         const names = mask => Object.keys(CPU_FEATURES).filter(name => mask & 1 << CPU_FEATURES[name].bit).join(" ") || "none";
         throw new Error("The snapshot is from a machine with the CPU features " + names(features) +
             " (cpu_features), this one has " + names(this.cpu_features));
+    }
+};
+
+/**
+ * A snapshot's hard disks must be the images this machine has: the changes
+ * of a disk image in a container format are not applied to another image
+ * (docs/disk-image-formats-plan.md P1). Checked before anything is restored.
+ * @param {!Array<*>} state
+ */
+CPU.prototype.validate_disk_states = function(state)
+{
+    const check = (device, saved) =>
+    {
+        if(!device || !device.buffer || !saved) return;
+        const buffer = device.buffer;
+        if(typeof buffer.check_state === "function")
+        {
+            buffer.check_state(saved[28]);
+        }
+        else if(is_disk_image_state(saved[28]))
+        {
+            throw new Error("The snapshot's disk " + device.name + " is a disk image in a container format, " +
+                "this machine's is RAW: its changes cannot be applied to it");
+        }
+    };
+    const ide = this.devices.ide;
+    if(ide)
+    {
+        const saved = state[85] || [state[56] || state[57]];
+        [ide.primary, ide.secondary].forEach((channel, i) =>
+        {
+            if(!channel || !saved[i]) return;
+            check(channel.master, saved[i][0]);
+            check(channel.slave, saved[i][1]);
+        });
+    }
+    const ahci = this.devices.ahci;
+    if(ahci && state[101])
+    {
+        ahci.ports.forEach((port, i) => check(port.device, state[101][3][i] && state[101][3][i][17]));
     }
 };
 

@@ -644,6 +644,42 @@ test("hot plug and snapshots: a drive on one side only is a hot plug event for t
     for(const port of [3, 4, 5]) pw(port, PX.SERR, -1);
 });
 
+// a disk image (docs/disk-image-formats-plan.md P0): a QCOW2 disk of 1 MiB,
+// its second cluster damaged
+const { build_qcow2 } = await import("../image/tiny_qcow2.mjs");
+await emulator.attach_sata_drive(3, { buffer: build_qcow2({ size: 1 << 20, data: [[0, extra.subarray(0, 65536)]], damaged: [65536] }).buffer, format: "qcow2" });
+pw(3, PX.SERR, -1);
+test("a QCOW2 disk: reads; a failed read or write ends a queued or DMA command with ABRT (TFES), the port goes on", () => {
+    start_port(3);
+    const read_log = slot => issue(3, slot, { command: 0x2F, lba: 0x10, count: 1, prdt: [[DATA + 0x8000, 512]] });
+    const restart = () => { pw(3, PX.CMD, FRE); pw(3, PX.CMD, FRE | ST); };
+    issue(3, 0, { command: 0x25, lba: 5, count: 2, prdt: [[DATA, 1024]] });
+    assert.deepEqual(mem.subarray(DATA, DATA + 1024), extra.subarray(5 * 512, 7 * 512), "DMA read");
+    ncq(3, 1, false, 128, 1, [[DATA, 512]]);
+    assert.ok(pr(3, PX.IS) & TFES, "queued read of the damaged cluster: TFES");
+    assert.equal(pr(3, PX.TFD), 0x0441, "ABRT, DRDY|ERR");
+    restart();
+    read_log(2);
+    assert.equal(mem[DATA + 0x8000], 1, "tag 1 in the NCQ error log");
+    issue(3, 3, { command: 0x25, lba: 129, count: 1, prdt: [[DATA, 512]] });
+    assert.ok(pr(3, PX.IS) & TFES, "DMA read of the damaged cluster: TFES");
+    assert.equal(pr(3, PX.TFD) >> 8, 0x04, "ABRT");
+    restart();
+    const disk = cpu.devices.ahci.ports[3].device.buffer;
+    disk.overlay.limit = disk.overlay.size();
+    ncq(3, 4, true, 7, 1, [[DATA, 512]]);
+    assert.ok(pr(3, PX.IS) & TFES, "queued write past the memory budget: TFES");
+    assert.equal(pr(3, PX.TFD), 0x0441);
+    disk.overlay.limit = Infinity;
+    restart();
+    read_log(5);
+    ncq(3, 6, false, 1, 1, [[DATA, 512]]);
+    assert.equal(pr(3, PX.SACT) | pr(3, PX.IS) & TFES, 0, "queued commands work again");
+    assert.deepEqual(mem.subarray(DATA, DATA + 512), extra.subarray(512, 1024));
+});
+emulator.detach_sata_drive(3);
+pw(3, PX.SERR, -1);
+
 test("link power management: CAP, ICC requests, PxSCTL.IPM, commands wake the link, ALPE/ASP when idle", () => {
     const cap = r32(0x00);
     assert.ok(cap & 1 << 26 && cap & 1 << 14 && cap & 1 << 13, "SALP, SSC, PSC");

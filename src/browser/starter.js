@@ -29,6 +29,7 @@ import { Modem } from "./modem.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
+import { check_image_options, create_disk_image } from "../image/factory.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -754,6 +755,17 @@ V86.prototype.continue_init = async function(emulator, options)
             return;
         }
 
+        // hard disks in a container format (docs/disk-image-formats-plan.md);
+        // without a format, RAW in the buffers of src/buffer.js
+        if(check_image_options(name, file, name === "hda" || name === "hdb"))
+        {
+            files_to_load.push({
+                name,
+                loadable: create_disk_image(name, file, this.disk_image_settings()),
+            });
+            return;
+        }
+
         if(file.get && file.set && file.load)
         {
             files_to_load.push({
@@ -882,7 +894,12 @@ V86.prototype.continue_init = async function(emulator, options)
                 put_on_settings.call(this, f.name, f.loadable);
                 cont(index + 1);
             }.bind(this);
-            f.loadable.load();
+            // (a disk that cannot be opened fails the start: emulator-error)
+            const loading = f.loadable.load();
+            if(loading && typeof loading.catch === "function")
+            {
+                loading.catch(reject_initialized);
+            }
         }
         else
         {
@@ -1040,6 +1057,29 @@ V86.prototype.continue_init = async function(emulator, options)
 
         this.emulator_bus.send("emulator-loaded");
     }
+};
+
+/**
+ * What the disk images (src/image/factory.js) need from the emulator
+ * @return {!Object}
+ */
+V86.prototype.disk_image_settings = function()
+{
+    return {
+        zstd_decompress: (size, bytes) => this.zstd_decompress(size, bytes),
+        zstd_decompress_worker: this.zstd_decompress_worker.bind(this),
+        progress: (file_name, e) =>
+        {
+            this.emulator_bus.send("download-progress", {
+                file_index: 0,
+                file_count: 1,
+                file_name,
+                lengthComputable: e.lengthComputable,
+                total: e.total,
+                loaded: e.loaded,
+            });
+        },
+    };
 };
 
 /**
@@ -1580,6 +1620,7 @@ V86.prototype.is_running = function()
 V86.prototype.set_fda = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_fda", [encode_worker_file(file)]);
+    check_image_options("fda", file, false);
     const fda = this.v86.cpu.devices.fdc.drives[0];
     if(file.url && !file.async)
     {
@@ -1610,6 +1651,7 @@ V86.prototype.set_fda = async function(file)
 V86.prototype.set_fdb = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_fdb", [encode_worker_file(file)]);
+    check_image_options("fdb", file, false);
     const fdb = this.v86.cpu.devices.fdc.drives[1];
     if(file.url && !file.async)
     {
@@ -1679,6 +1721,7 @@ V86.prototype.get_disk_fdb = function()
 V86.prototype.set_cdrom = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_cdrom", [encode_worker_file(file)]);
+    check_image_options("cdrom", file, false);
     if(file.url && !file.async)
     {
         await new Promise(resolve => load_file(file.url, {
@@ -1732,7 +1775,13 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     if(!ahci) throw new Error("attach_sata_drive: no AHCI controller (machine_type: \"q35\")");
     if(!file && !cdrom) throw new Error("attach_sata_drive: a disk needs an image");
     let image;
-    if(file && file.url && !file.async)
+    if(check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom))
+    {
+        // a hard disk in a container format (docs/disk-image-formats-plan.md)
+        image = create_disk_image("sata" + port, /** @type {!Object} */ (file), this.disk_image_settings());
+        await image.load();
+    }
+    else if(file && file.url && !file.async)
     {
         image = await new Promise(resolve => load_file(file.url, { done: result => resolve(new SyncBuffer(result)) }));
     }

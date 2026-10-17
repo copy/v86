@@ -1,6 +1,6 @@
 # 虚拟磁盘镜像格式支持计划
 
-状态：设计与实施计划，尚未实现或通过本计划中的验收。
+状态：P0、P1 已实现并通过验收（第一轮完整交付）；P2–P5 未实现。实施记录见[附录](#附录实施记录)。
 
 本计划基于 2026 年 10 月 3 日审查的当前 v86 分支。目标是在现有 RAW 镜像能力上，
 增加 QCOW2、VHD、VDI、VMDK 和 VHDX 的原生读取，并通过公共修改层支持客户机写入、
@@ -287,3 +287,96 @@ VHDX 需要处理双 header、校验和、region/metadata、BAT 状态和逻辑�
 [vhd-spec]: https://www.microsoft.com/en-us/download/details.aspx?id=23850
 [vhdx-spec]: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-vhdx/83e061f8-f6e2-4de1-91bd-5d518a43d477
 [vhdx-log]: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-vhdx/0d588e33-23a6-4c71-b27f-87d97ac3e914
+
+## 附录：实施记录
+
+实施在 `disk-formats` 分支（自 `master` 79c37884），按“实施顺序”逐阶段提交。测试样本由
+[`tests/image/samples.mjs`](../tests/image/samples.mjs) 用 Homebrew 的 qemu-img/qemu-io 10.2.0
+生成到 `build/disk-image-samples/`，每次生成的命令、工具版本和 SHA-256 写在其中的
+`manifest.json`；设备与客体测试用 [`tests/image/tiny_qcow2.mjs`](../tests/image/tiny_qcow2.mjs)
+在内存中构造 QCOW2，不依赖 qemu-img。测试入口：`make disk-image-tests`（需 qemu-img）、
+`make disk-image-browser-tests`（无头 Chrome）；设备与客体测试也加入了 `devices-test` 与
+`api-tests`。
+
+### P0 统一接口与 P1 QCOW2 基础支持
+
+**实现。** 新目录 `src/image/`：
+
+| 文件 | 内容 |
+| --- | --- |
+| `source.js` | 字节来源：`MemorySource`（ArrayBuffer、完整下载）、`BlobSource`（File；CPU Worker 中用 `FileReaderSync` 同步读）、`URLSource`（浏览器 HTTP Range，Node 本地路径）、`PartsSource`（`use_parts` + `fixed_chunk_size`，含 `.zst` 分片）、`CachedSource`（64 KiB 窗口读缓存，默认 32 MiB，相邻缺失窗口合并为一个请求，在途窗口共享，按调用方引用计数取消）；错误类型 `DiskImageError`（`kind`：io、corrupt、unsupported、changed、config） |
+| `overlay.js` | 公共修改层 `WriteOverlay`：以客户机偏移为索引，256 字节块装入 16 MiB 分块，与 `AsyncXHRBuffer` 布局相同；可设预算，写入先检查预算并分配所需分块，失败时整块写入不生效 |
+| `disk_image.js` | `ImageReader`：格式只需给出 `map()`（区间映射为数据、零、父盘、压缩簇四类 extent），读取、越界补零、父盘回落、压缩簇解压缓存由公共代码完成；`DiskImage`：设备侧适配，满足 `load/byteLength/get/set/get_and_cache/get_from_cache/get_state/set_state`，并有 `check_state` |
+| `qcow2.js` | v2/v3 头部与扩展、L1/L2 映射、数据/未分配/零簇；按计划拒绝的特性见下 |
+| `factory.js` | 描述校验（`format`、`disk_option`）、签名与结构探测（`auto`，含文件尾的 VHD footer）、来源构建、打开 |
+| `sha256.js` | 同步 SHA-256，用于镜像元数据身份 |
+
+接入：[`starter.js`](../src/browser/starter.js) 中 `hda/hdb/attach_sata_drive` 带 `format`（非 `raw`）时经
+`create_disk_image` 构建，其余仍走 `buffer_from_object`；软驱、光驱、BIOS 等设置 `format` 报错。
+打开失败经 `emulator-error` 结束启动（旧 RAW 后端 `load()` 返回的拒绝也一并收敛，此前是未处理的
+Promise 拒绝）。[`cpu_worker.js`](../src/browser/cpu_worker.js) 转发 `format/disk_option/image_id/overlay_limit/backing`，
+在 Worker 内构建解析器。[`ide.js`](../src/ide.js) 的 `read_buffer`、`write_to_backend` 和 FLUSH 增加错误
+通道：读写失败按 QEMU `ide_rw_error` 置 ERR 并在错误寄存器置 ABRT，DMA 命令同时置总线主控错误位，
+ATAPI 报 MEDIUM ERROR（ASC 11h）；[`ahci.js`](../src/ahci.js) 的 NCQ 读写失败经 `ncq_failed`（ABRT）。
+[`cpu.js`](../src/cpu.js) 的 `validate_state` 在恢复任何状态之前核对每块硬盘的状态与本机镜像
+（`validate_disk_states`）。`disk_option`：`read_only` 接受；`read_write` 尚未实现，启动报错；写在非盘项上报错。
+
+QCOW2 拒绝的情况：版本 2/3 以外、`cluster_bits` 不在 9–21、虚拟容量非 512 的倍数或超出安全整数、
+加密（`crypt_method` 或加密头扩展）、外部数据文件（特性位或扩展）、extended L2、未知不兼容位、
+dirty 与 corrupt 位、父盘（P1 中；P2 由调用方提供）、L1 不足或越界或未对齐、L1 项保留位；读到时
+报错的：L2 表越界、L2 项保留位、数据簇未对齐、v2 镜像的零标志、压缩簇（P2 实现）。未知 compatible
+与 autoclear 位、未知头部扩展、内部快照不影响读取当前活动磁盘。
+
+**偏差。**
+
+1. 读取回调的错误放在第二个参数：成功 `fn(data)`，失败 `fn(undefined, error)`；写入和 flush 为
+   `fn(error)`，与[磁盘持久化计划](disk-persistence-plan.md)的后端契约一致，但读取与其表中的
+   `fn(error, data)` 不同。原因：旧 buffer 以 `fn(data)` 回调，错误后置时所有现有消费者（包括 `arm64`
+   分支的 `block_backend.js`、`virtio_blk.js`）成功路径不变；错误前置时，未改动的消费者会把 Error
+   当作数据，而 `TypedArray.prototype.set` 对没有 `length` 的对象静默不写，会产生静默错误数据。
+   D0 实施时沿用此约定即可。
+2. 64 位字段按计划用 `BigInt` 解析和掩码，但构建使用的 Closure Compiler v20210601 不接受 bigint 的
+   按位运算类型，故运算经 `big()` 辅助函数（类型标为 `?`）进行，语义不变。
+3. 计划允许“对齐读取后切片的适配”或“提取底层传输能力”，实现选了后者：新来源支持任意区间，读取
+   尾部不越过文件长度。省略 `format` 或 `"raw"` 时仍用 `src/buffer.js` 原有后端，读写、请求与快照
+   格式不变。
+4. 数据簇落在文件末尾之外的部分读为零，与 QEMU 一致（簇尾可能从未写入，QEMU 会跳过全零的 COW
+   区域）；元数据（头部、L1/L2 表、父盘名）越界则报错，这一点比 QEMU（越界的 L2 表读零）严格。
+5. 镜像身份 = 格式、虚拟容量、文件长度、元数据 SHA-256（QCOW2：头部、扩展区与父盘名，L1 表）、
+   可选的 `image_id`（发布者给出的版本标识），父盘链逐层包含。URL、文件名和 ETag 不计入身份，
+   以免同一镜像换服务器或 CDN 后快照失效；ETag/Last-Modified 只用于会话内的来源变化检测。已分配簇
+   被就地改写而元数据不变的情况需要 `image_id` 才能发现，已写入类型声明。
+6. `overlay_limit`（修改层内存预算）默认不设上限，与现有 RAW 相同；内存分配失败也作为写错误返回，
+   不再让分配异常穿过设备代码。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/image/qcow2.mjs` | 8 个 qemu-img 样本（v2/v3、512 B/4 KiB/64 KiB/2 MiB 簇、zlib/zstd 压缩）各经本地文件分段读和内存两条路径，整盘逐 MiB 与 qemu-img 转出的 RAW 比对并加 303 个随机区间，共比对 640 MiB；内存路径同步完成；`io.qcow2`（保留分配与取消分配的零簇、discard、部分簇写入、内部快照，读当前活动磁盘）；3 TiB 镜像在 4 GiB 以上与 2^32 扇区边界处比对；extended L2、外部数据文件、LUKS 加密被拒绝；16 种损坏头部各报出具体原因；未知 compatible/autoclear 位与未知扩展被忽略；L2 越界、保留位、未对齐、v2 零标志在读取时报错；`auto` 探测与 RAW 必须显式指定。压缩样本中压缩簇在 P1 报 `unsupported` |
+| `tests/image/disk_image.mjs` | 跨簇与部分簇写入、写后读、覆盖层同步读、`get_from_cache`；先开始的读取在后来的写入之后完成时返回新数据，下次读取亦然；预算外写入整体失败；快照只恢复到同一镜像（文件与内存来源身份相同），另一镜像（v2 同内容）、`image_id` 不同、RAW 状态、快照无此盘、非法块号均拒绝；读缓存取消、共享、相邻合并与错误；HTTP：非 206、Content-Range 不符、长度不足、Content-Encoding、ETag 变化后不再发请求、网络错误重试 3 次后失败；分片跨块读；来源错误与打开失败均结束请求；选项校验 |
+| `tests/devices/ide_disk_image.js` | 3 TiB QCOW2（文件 720896 字节）IDENTIFY 报虚拟容量；READ/WRITE SECTORS EXT 跨 2^32 扇区，镜像不变；损坏簇 ERR/ABRT 后下一命令正常；预算外写入 ERR/ABRT；快照恢复；另一镜像、RAW 机器在恢复任何状态前拒绝（内存不变）；本地文件分段读时快照等待在途读取，复位丢弃在途读取；非本格式镜像触发 `emulator-error` |
+| `tests/devices/ahci.js`（新增一项） | QCOW2 盘的 DMA 读；NCQ 读与 DMA 读损坏簇、预算外 NCQ 写均 TFES + ABRT，读 NCQ 错误日志后恢复；31/31 通过 |
+| `tests/api/disk-image.js` | MS-DOS 6.22（`msdos622.img` 的非零簇构成的 QCOW2，66322432 字节）从分段读取的文件启动，i440FX（IDE）与 Q35（AHCI）上各写文件、重启后文件仍在、恢复快照后其后写的文件消失、之前写的仍在；镜像文件 SHA-256 不变 |
+| 浏览器（`tests/image/browser_runner.mjs`，无头 Chrome） | 页面与 CPU Worker 中 QCOW2 经 HTTP Range 启动 MS-DOS、写文件、快照恢复；非本格式镜像在两种模式下都触发 `emulator-error`。冷启动到 `C:\>`：30 个请求、1900546 字节，镜像 66322432 字节（约 2.9%） |
+| 回归 | `ide_large_disk`、`device_io_reset`、`ahci`、`ahci_lifecycle`、`disk_write_cache`（10/10）、`api/state`、`cdrom-insert-eject`、`floppy`、`destroy-during-init`、`clean-shutdown` 通过；`build/libv86.js`、`build/libv86.mjs`、`build/cpu-worker.js` 的 Closure 检查 0 错误；eslint 无输出 |
+
+样本（qemu-img 10.2.0；LUKS 样本含随机盐，每次不同）：
+
+| 样本 | 字节 | SHA-256 |
+| --- | --- | --- |
+| `v3.qcow2` | 39911424 | `73be618768a02cb4…` |
+| `v2.qcow2` | 39911424 | `a3b0b16b198f95e4…` |
+| `v3-512.qcow2` | 34641920 | `07070f977e59c4b0…` |
+| `v3-2m.qcow2` | 77594624 | `fa7cce44de9ceb90…` |
+| `v2-4k.qcow2` | 33980416 | `822924d9a449c4ed…` |
+| `v3-zlib.qcow2` | 23986176 | `78425dd426636a5a…` |
+| `v3-zstd.qcow2` | 23920640 | `113019047b62185b…` |
+| `v2-zlib.qcow2` | 23986176 | `ae560f25e72ecbb0…` |
+| `io.qcow2` | 40435791 | `013f827b7bfe43f1…` |
+| `child.qcow2` | 655360 | `ec195f96a36be658…` |
+| `child-raw.qcow2` | 1441792 | `05b0135b40627f9b…` |
+| `3t.qcow2` | 983040 | `ab9d3e313f55ca32…` |
+
+性能：只记录了计数（请求数、字节数），未做计时测量（同机有长时间门禁运行）。
+
