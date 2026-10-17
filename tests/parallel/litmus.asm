@@ -24,10 +24,17 @@
 ;    and its low qword with LOCK ADD: low = 2 * total, high = total; then
 ;    in 32-bit compatibility mode (WOW64's) LOCK XADD, a LOCK CMPXCHG loop
 ;    and LOCK INC on dwords: total, 3 * total, total
+; 8. interrupts into 64-bit code from compatibility mode (with phase 7): a
+;    fixed IPI travels around the ring of cores ROUNDS times, as in phase 5,
+;    but each core waits for it in compatibility-mode code with interrupts
+;    enabled, and the 64-bit IDT's gates point above 4 GiB, at an alias of
+;    the handlers whose low 32 bits are not mapped. Code that went on as
+;    32-bit code after such an interrupt would fetch there (Windows 8.1
+;    x64 in parallel mode, WOW64 processes): the fault counts as an error.
 ;
 ; Results (host reads them): CONTROL + 0 cores (input), +4 rounds (input),
 ; +16.. counters, +64.. errors per phase, +128 finished cores, +0x180..
-; IPIs received per core.
+; IPIs received per core, +0x1C0.. phase 8's.
 
 bits 32
 org 0x100000
@@ -56,6 +63,10 @@ LONG_MODE equ CONTROL + 0x340   ; input: run phase 7
 LONG_TABLES equ CONTROL + 0x344 ; core 0 built the 4-level tables
 C_COMPAT equ CONTROL + 0x350    ; 3 dwords: compatibility mode's counters
 LM_PML4 equ 0x3A8000            ; then PDPT, PD: 32 MiB identity mapped
+LM_PDPT_HIGH equ LM_PML4 + 0x3000 ; phase 8: HIGH_ALIAS + p -> p (the same PD)
+LM_PD_LAPIC equ LM_PML4 + 0x4000 ; phase 8: the local APIC's 2 MiB
+HIGH_ALIAS equ 0xFFFF800080000000 ; PML4 entry 256, PDPT entry 2
+IDT64 equ 0x3B8000              ; phase 8: 256 16-byte gates
 RECORDS equ CONTROL + 0x400     ; 64 bytes per core: +0 barrier sense
 MP_DATA equ CONTROL + 0x1000    ; per core: data, flag, ack on separate lines
 SB_X equ CONTROL + 0x2000       ; per pair, separate lines
@@ -65,6 +76,7 @@ SMC_FLAG equ CONTROL + 0x100
 SMC_ACK equ CONTROL + 0x140
 SMC_CODE equ 0x3B0000
 IPI_COUNT equ CONTROL + 0x180   ; per core
+IPI_COUNT64 equ CONTROL + 0x1C0 ; per core, phase 8
 IPI_VECTOR equ 0x40
 IDT equ 0x390000
 PAGE_DIRECTORY equ 0x3A0000
@@ -589,7 +601,7 @@ phase_long_mode:
     jnz .wait_tables
     mov edi, LM_PML4
     xor eax, eax
-    mov ecx, 3 * 1024
+    mov ecx, 5 * 1024
     rep stosd
     mov dword [LM_PML4], LM_PML4 + 0x1000 + 3
     mov dword [LM_PML4 + 0x1000], LM_PML4 + 0x2000 + 3
@@ -601,6 +613,34 @@ phase_long_mode:
     add eax, 0x200000
     add edi, 8
     loop .pde
+    ; phase 8: the high alias of the first 32 MiB, and the local APIC
+    mov dword [LM_PML4 + 256 * 8], LM_PDPT_HIGH + 3
+    mov dword [LM_PDPT_HIGH + 2 * 8], LM_PML4 + 0x2000 + 3
+    mov dword [LM_PML4 + 0x1000 + 3 * 8], LM_PD_LAPIC + 3
+    mov dword [LM_PD_LAPIC + (LAPIC >> 21 & 511) * 8], LAPIC | 0x93 ; (PCD)
+    ; and the 64-bit IDT: the IPI at handler_ipi64, every other vector at
+    ; handler_fault64, both through the high alias
+    mov edi, IDT64
+    xor ecx, ecx
+.gate64:
+    mov eax, handler_fault64 + (HIGH_ALIAS & 0xFFFFFFFF)
+    cmp ecx, IPI_VECTOR
+    jne .write_gate64
+    mov eax, handler_ipi64 + (HIGH_ALIAS & 0xFFFFFFFF)
+.write_gate64:
+    mov edx, eax
+    and eax, 0xFFFF
+    or eax, 24 << 16                ; the 64-bit code segment
+    and edx, 0xFFFF0000
+    or edx, 0x8E00                  ; present 64-bit interrupt gate
+    mov [edi], eax
+    mov [edi + 4], edx
+    mov dword [edi + 8], HIGH_ALIAS >> 32
+    mov dword [edi + 12], 0
+    add edi, 16
+    inc ecx
+    cmp ecx, 256
+    jb .gate64
     mov dword [LONG_TABLES], 1
 .wait_tables:
     pause
@@ -622,6 +662,7 @@ phase_long_mode:
 
 bits 64
 long_mode_entry:
+    lidt [idtr64]
     mov r8d, [ROUNDS]
 .loop:
     mov rax, [C_WIDE]
@@ -653,11 +694,65 @@ compat_entry:
     lock inc dword [C_COMPAT + 8]
     dec ecx
     jnz .round
+    ; phase 8: core k waits in this mode, with interrupts enabled, for its
+    ; r-th IPI, then sends one to core (k + 1) % cores (send_ipi); core 0
+    ; starts each round
+    mov ebx, [LAPIC + 0x20]
+    shr ebx, 24
+    call barrier                    ; (every core's IDTR holds IDT64)
+    sti
+    mov ecx, 1
+.ipi_round:
+    test ebx, ebx
+    jnz .ipi_wait
+    call send_ipi
+.ipi_wait:
+    ; (a read across a page boundary: the page tier's parallel build
+    ; leaves its function for the interpreter at each one, so that IPIs
+    ; also arrive between two of its activations)
+    mov eax, [CONTROL + 0xFFE]
+    mov eax, [IPI_COUNT64 + ebx * 4]
+    cmp eax, ecx
+    jae .ipi_received
+    pause                           ; (cores taking turns: the next one)
+    jmp .ipi_wait
+.ipi_received:
+    test ebx, ebx
+    jz .ipi_next                    ; back at core 0: the round is complete
+    call send_ipi
+.ipi_next:
+    inc ecx
+    cmp ecx, [ROUNDS]
+    jbe .ipi_round
+    cli
     lock inc dword [FINISHED]
 .halt:
     cli
     hlt
     jmp .halt
+
+; Phase 8's handlers, entered through HIGH_ALIAS (64-bit code: CONTROL and
+; its counters are below 2 GiB, the local APIC is not)
+bits 64
+handler_ipi64:
+    push rax
+    push rdx
+    mov edx, LAPIC
+    mov eax, [rdx + 0x20]
+    shr eax, 24
+    lock inc dword [IPI_COUNT64 + rax * 4]
+    mov dword [rdx + 0xB0], 0       ; EOI
+    pop rdx
+    pop rax
+    iretq
+handler_fault64:
+    lock inc dword [ERRORS + 20]
+    lock inc dword [FINISHED]
+.halt:
+    cli
+    hlt
+    jmp .halt
+bits 32
 
 align 8
 gdt:
@@ -672,4 +767,7 @@ gdtr:
 idtr:
     dw 256 * 8 - 1
     dd IDT
+idtr64:
+    dw 256 * 16 - 1
+    dq IDT64
 end:
