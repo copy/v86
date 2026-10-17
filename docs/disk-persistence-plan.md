@@ -623,7 +623,7 @@ D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是�
 | 浏览器（`tests/persistence/browser_runner.mjs part=d2/close/pagehide`，页面与 CPU Worker） | 静态网址配 `read_write`：`emulator-error`“只能读取，不能写回……”；跨站且 CORS 不放行协议请求头：`emulator-error`“不可达或不允许此页面（CORS……）”；MS-DOS 从磁盘服务（`read_write`）启动、写文件，命令完成时服务端镜像已含该文本，`save_state` 后 `destroy()` 关闭会话；另一台 `read_only` 机器读同一镜像时报“changed while it was read”而不混读；写入后 SIGKILL 浏览器，服务端镜像含写入的文本；写入后页面跳转，`pagehide` 关闭了会话（页面与 CPU Worker 两种模式都关闭了） |
 | 回归 | `make disk-persistence-tests`（D0–D2 的 Node 测试）、`make disk-persistence-browser-tests`（D0、D2、close、pagehide 各在页面与 CPU Worker 中，8 次）、`make disk-image-browser-tests` 通过；`TEST_RELEASE_BUILD=1` 下 `disk_service` 与 `service_machine` 通过；`ide_disk_image`、`ahci`（33/33）、`ahci_lifecycle`、`device_io_reset`（x86 与 virt）、`disk_write_cache`（10/10）、`api/state`、`floppy`、`cdrom-insert-eject`、`api/disk-image`、`arm64-options`、`virtio_blk_disk_image` 通过；Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
 
-### D3 软盘与页面入口
+### D3 软盘与页面入口（6699cdc6）
 
 **实现。**
 
