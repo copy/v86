@@ -8,6 +8,9 @@ import path from "node:path";
 import { SAMPLES_DIR, random_generator, expected_from_writes, zstd_decompress } from "./samples.mjs";
 import { open_image } from "../../src/image/factory.js";
 
+/** the files of a sample in several files, as a descriptor's files */
+export const sample_files = sample => Object.fromEntries((sample.files || []).map(name => [name, { url: sample_file(name), async: true }]));
+
 export const settings = { zstd_decompress };
 export const sample_file = name => path.join(SAMPLES_DIR, name);
 
@@ -101,10 +104,10 @@ export async function check_against_reference(manifest, name, format, extra = {}
 }
 
 /** a large sparse sample: at and around its writes, and zeros elsewhere */
-export async function check_writes(manifest, name, format)
+export async function check_writes(manifest, name, format, extra = {})
 {
     const sample = manifest.samples[name];
-    const reader = await open_sample(name, format, "url");
+    const reader = await open_sample(name, format, "url", extra);
     assert.equal(reader.virtual_size, sample.size, name + ": the virtual size");
     for(const [offset, length] of sample.writes)
     {

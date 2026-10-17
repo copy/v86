@@ -20,7 +20,9 @@ export function encode_worker_file(f, depth = 0)
         "fixed_chunk_size": f.fixed_chunk_size, "use_parts": f.use_parts,
         // disk images (docs/disk-image-formats-plan.md): the worker opens them
         "format": f.format, "disk_option": f.disk_option, "image_id": f.image_id,
-        "overlay_limit": f.overlay_limit, "backing": f.backing ? encode_worker_file(f.backing, depth + 1) : undefined };
+        "overlay_limit": f.overlay_limit, "backing": f.backing ? encode_worker_file(f.backing, depth + 1) : undefined,
+        "archive_member": f.archive_member,
+        "files": f.files ? Object.fromEntries(Object.entries(f.files).map(([name, file]) => [name, encode_worker_file(file, depth + 1)])) : undefined };
 }
 
 /**

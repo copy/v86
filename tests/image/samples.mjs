@@ -20,7 +20,7 @@ const QEMU_IMG = process.env.QEMU_IMG || (fs.existsSync("/opt/homebrew/bin/qemu-
 const QEMU_IO = process.env.QEMU_IO || (fs.existsSync("/opt/homebrew/bin/qemu-io") ? "/opt/homebrew/bin/qemu-io" : "qemu-io");
 
 // changing a sample: change this, and the samples are made again
-const SAMPLES_VERSION = 5;
+const SAMPLES_VERSION = 6;
 
 export const BASE_SIZE = 64 * 1024 * 1024;
 export const TB3 = 3 * 1024 ** 4;
@@ -247,6 +247,45 @@ export function make_samples()
     run(QEMU_IO, ["-f", "vdi", ...big_writes.flatMap(([offset, length]) => ["-c", "write -q -s " + pattern + " " + offset + " " + length]),
         file("3t.vdi")], log);
     add("3t.vdi", "vdi", null, { size: TB3, writes: big_writes, pattern: "pattern.bin" });
+
+    // VMDK (P4): the subformats qemu-img makes; zeroed grains; a child with
+    // its parent (parentCID); 100 GiB sparse, 5 GiB in 2 GiB extents (sparse
+    // and flat) written across an extent's end
+    const vmdk = (name, options, extra = {}) =>
+    {
+        run(QEMU_IMG, ["convert", "-f", "raw", "-O", "vmdk", ...options, file("base.raw"), file(name)], log);
+        add(name, "vmdk", "base.raw", extra);
+    };
+    vmdk("sparse.vmdk", []);
+    vmdk("stream.vmdk", ["-o", "subformat=streamOptimized"]);
+    vmdk("flat.vmdk", ["-o", "subformat=monolithicFlat"], { files: ["flat-flat.vmdk"] });
+    vmdk("2gbsparse.vmdk", ["-o", "subformat=twoGbMaxExtentSparse"], { files: ["2gbsparse-s001.vmdk"] });
+    vmdk("2gbflat.vmdk", ["-o", "subformat=twoGbMaxExtentFlat"], { files: ["2gbflat-f001.vmdk"] });
+    run(QEMU_IMG, ["convert", "-f", "raw", "-O", "vmdk", "-o", "zeroed_grain=on", file("base.raw"), file("zeroed.vmdk")], log);
+    run(QEMU_IO, ["-f", "vmdk", "-c", "write -q -z 0 131072", "-c", "write -q -z 1048576 65536", file("zeroed.vmdk")], log);
+    run(QEMU_IMG, ["convert", "-f", "vmdk", "-O", "raw", file("zeroed.vmdk"), file("zeroed.vmdk.raw")], log);
+    add("zeroed.vmdk", "vmdk", "zeroed.vmdk.raw");
+    run(QEMU_IMG, ["create", "-q", "-f", "vmdk", "-b", "sparse.vmdk", "-F", "vmdk", file("child.vmdk")], log);
+    run(QEMU_IO, ["-f", "vmdk", "-c", "write -q -s " + pattern + " 524288 262144", "-c", "write -q -P 0xc3 3145728 4096",
+        file("child.vmdk")], log);
+    run(QEMU_IMG, ["convert", "-f", "vmdk", "-O", "raw", file("child.vmdk"), file("child.vmdk.raw")], log);
+    add("child.vmdk", "vmdk", "child.vmdk.raw", { backing: "sparse.vmdk" });
+    const vmdk_writes = [[5 * 1024 ** 3 - 4096, 8192], [100 * 1024 ** 3 - 65536, 65536]];
+    run(QEMU_IMG, ["create", "-q", "-f", "vmdk", file("100g.vmdk"), "100G"], log);
+    run(QEMU_IO, ["-f", "vmdk", ...vmdk_writes.flatMap(([offset, length]) => ["-c", "write -q -s " + pattern + " " + offset + " " + length]),
+        file("100g.vmdk")], log);
+    add("100g.vmdk", "vmdk", null, { size: 100 * 1024 ** 3, writes: vmdk_writes, pattern: "pattern.bin" });
+    const extent_writes = [[2 * 1024 ** 3 - 65536 - 512, 131072], [5 * 1024 ** 3 - 4096, 4096]];
+    for(const [name, subformat] of [["5g-sparse.vmdk", "twoGbMaxExtentSparse"], ["5g-flat.vmdk", "twoGbMaxExtentFlat"]])
+    {
+        run(QEMU_IMG, ["create", "-q", "-f", "vmdk", "-o", "subformat=" + subformat, file(name), "5G"], log);
+        run(QEMU_IO, ["-f", "vmdk", ...extent_writes.flatMap(([offset, length]) => ["-c", "write -q -s " + pattern + " " + offset + " " + length]),
+            file(name)], log);
+        const stem = name.replace(/\.vmdk$/, "");
+        const letter = subformat.endsWith("Sparse") ? "s" : "f";
+        add(name, "vmdk", null, { size: 5 * 1024 ** 3, writes: extent_writes, pattern: "pattern.bin",
+            files: [1, 2, 3].map(i => stem + "-" + letter + String(i).padStart(3, "0") + ".vmdk") });
+    }
 
     // features that are refused
     run(QEMU_IMG, ["create", "-q", "-f", "qcow2", "-o", "compat=1.1,extended_l2=on", file("extl2.qcow2"), "16M"], log);

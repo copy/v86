@@ -94,6 +94,21 @@ try
     if(!error || error === "timeout" || !/not a qcow2 image/.test(error.message)) throw new Error("no emulator-error for a bad image: " + (error && error.message || error));
     log.push("an image that is not of its format: emulator-error \"" + error.message + "\"");
     try { await bad.destroy(); } catch(e) {}
+
+    // an OVA (with the samples): V86.import_ova on the page, the disk read in
+    // the archive (in the Worker: archive_member crosses with the descriptor)
+    if(params.get("base_sha256"))
+    {
+        const imported = await V86.import_ova({ url: "../../build/disk-image-browser/dos.ova", async: true });
+        if(imported.options.memory_size !== 32 << 20 || imported.disks.length !== 2) throw new Error("import_ova: " + JSON.stringify(imported.options));
+        const ova_vm = vm_current = new V86({ ...config(imported.options.hda), autostart: false });
+        await new Promise((resolve, reject) => { ova_vm.add_listener("emulator-loaded", resolve); ova_vm.add_listener("emulator-error", reject); });
+        const parts = [];
+        await ova_vm.export_disk_image("hda", { write: chunk => { parts.push(chunk); } });
+        if(await hex(await new Blob(parts).arrayBuffer()) !== params.get("base_sha256")) throw new Error("the OVA's disk is not the VMDK's data");
+        log.push("V86.import_ova: the disk in the archive (" + imported.files.join(", ") + "), as qemu-img reads it; " + imported.notes.length + " notes");
+        await ova_vm.destroy();
+    }
     result.textContent = "PASS\n" + log.join("\n");
 }
 catch(error)

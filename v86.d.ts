@@ -80,10 +80,12 @@ export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
  * "raw" (or no format): the sectors as they are, as before. "auto": the
  * format from the image's signature and structure; a RAW image has none, so
  * "auto" fails for it. "vpc" is QEMU's name of VHD. VHD and VDI: fixed and
- * dynamic images (not differencing ones). Formats planned but not supported
- * yet ("vmdk", "vhdx") fail at start.
+ * dynamic images (not differencing ones). VMDK: monolithicSparse,
+ * streamOptimized, monolithicFlat, vmfs, twoGbMaxExtentSparse,
+ * twoGbMaxExtentFlat (other createTypes fail at start). Formats planned but
+ * not supported yet ("vhdx") fail at start.
  */
-export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "auto";
+export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "vmdk" | "auto";
 
 /**
  * The options of a hard disk image (hda, hdb, attach_sata_drive). With a
@@ -126,6 +128,19 @@ export type V86DiskImageOptions =
          * A snapshot records the parents' identities too.
          */
         backing?: V86Image & V86DiskImageOptions;
+
+        /**
+         * The other files of an image in several files (a VMDK descriptor's
+         * extents), by the name the image has for them: none is loaded by
+         * that name alone
+         */
+        files?: { [name: string]: V86Image };
+
+        /**
+         * The image is this file in the TAR archive `url` or `buffer` is (an
+         * OVA): read there, not extracted (see V86.import_ova)
+         */
+        archive_member?: string;
     };
 
 /**
@@ -1061,6 +1076,21 @@ export interface V86GraphicsProxyOptions {
 }
 
 export class V86 {
+    /**
+     * Read an OVF package, an OVA archive, before a machine is made: its
+     * disks as descriptors (the archive with archive_member: read in it),
+     * the hardware it describes as V86 options (memory_size, cpu_cores,
+     * machine_type, hda, hdb), notes for what v86 does not have
+     * (architecture, firmware, controllers, devices)
+     */
+    static import_ova(file: V86Image): Promise<{
+        ovf: string;
+        files: string[];
+        disks: Array<{ id: string; file: string; format: string; capacity: number; controller: string; descriptor: V86HardDiskImage | null }>;
+        options: Partial<V86Options>;
+        notes: string[];
+    }>;
+
     constructor(options: V86Options);
     /** The graphics proxy's plugin, when graphics_proxy is set (for diagnostics). */
     graphics_proxy?: object | null;

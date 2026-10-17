@@ -25,6 +25,10 @@ const FORMATS = [
     ["vhd-dynamic", "vhd", "vpc", []],
     ["vhd-fixed", "vhd", "vpc", ["-o", "subformat=fixed"]],
     ["vdi", "vdi", "vdi", []],
+    ["vmdk-sparse", "vmdk", "vmdk", []],
+    ["vmdk-stream", "vmdk", "vmdk", ["-o", "subformat=streamOptimized"]],
+    // (the streamOptimized VMDK in an OVA, through V86.import_ova)
+    ["ova", "vmdk", "vmdk", ["-o", "subformat=streamOptimized"]],
 ];
 const selected = process.env.DISK_IMAGE_GUEST ? process.env.DISK_IMAGE_GUEST.split(",") : FORMATS.map(f => f[0]);
 
@@ -68,14 +72,39 @@ async function dos(emulator, command)
 
 for(const [name, format, qemu_format, options] of FORMATS.filter(f => selected.includes(f[0])))
 {
-    const image = path.join(dir, "msdos622-" + name + "." + qemu_format);
+    let image = path.join(dir, "msdos622-" + name + "." + qemu_format);
     if(!fs.existsSync(image)) execFileSync(QEMU_IMG, ["convert", "-f", "raw", "-O", qemu_format, ...options, raw, image]);
+    let hda = { url: image, async: true, format };
+    let machine = { memory_size: 32 << 20 };
+    if(name === "ova")
+    {
+        // an OVF descriptor (64 MiB of memory, one CPU) and the disk in a TAR archive
+        fs.writeFileSync(path.join(dir, "dos.ovf"), `<?xml version="1.0"?>
+<Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1"
+    xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData">
+  <References><File ovf:href="msdos622-ova.vmdk" ovf:id="file1"/></References>
+  <DiskSection><Disk ovf:capacity="67108864" ovf:diskId="vmdisk1" ovf:fileRef="file1"
+      ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized"/></DiskSection>
+  <VirtualSystem ovf:id="dos"><VirtualHardwareSection>
+    <Item><rasd:InstanceID>1</rasd:InstanceID><rasd:ResourceType>3</rasd:ResourceType><rasd:VirtualQuantity>1</rasd:VirtualQuantity></Item>
+    <Item><rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits><rasd:InstanceID>2</rasd:InstanceID><rasd:ResourceType>4</rasd:ResourceType><rasd:VirtualQuantity>64</rasd:VirtualQuantity></Item>
+  </VirtualHardwareSection></VirtualSystem>
+</Envelope>
+`);
+        const ova = path.join(dir, "msdos622.ova");
+        execFileSync("tar", ["-cf", ova, "--format", "ustar", "-C", dir, "dos.ovf", path.basename(image)]);
+        image = ova;
+        const imported = await V86.import_ova({ url: ova, async: true });
+        assert.equal(imported.options.memory_size, 64 << 20);
+        hda = imported.options.hda;
+        machine = { memory_size: imported.options.memory_size, cpu_cores: imported.options.cpu_cores };
+    }
     const sha256 = create_hash("sha256").update(fs.readFileSync(image)).digest("hex");
     const emulator = new V86({
         graphics_adapter: "bochs_vga",
         bios: { url: root + "bios/seabios.bin" }, vga_bios: { url: root + "bios/vgabios.bin" },
-        hda: { url: image, async: true, format },
-        autostart: true, memory_size: 32 << 20, log_level: 0,
+        hda, ...machine,
+        autostart: true, log_level: 0,
     });
     emulator.add_listener("emulator-error", error => { throw error; });
     await prompt(emulator, "C:\\>");

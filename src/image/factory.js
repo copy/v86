@@ -8,14 +8,16 @@ import { DiskImage, ImageReader, EXTENT_DATA } from "./disk_image.js";
 import { QCOW2Reader, QCOW2_MAGIC } from "./qcow2.js";
 import { VHDReader } from "./vhd.js";
 import { VDIReader } from "./vdi.js";
+import { VMDKReader } from "./vmdk.js";
+import { SliceSource, read_tar, read_ova } from "./ova.js";
 import { load_file } from "../lib.js";
 
 /** the formats a hard disk's `format` may name */
-export const DISK_IMAGE_FORMATS = ["raw", "qcow2", "vhd", "vpc", "vdi", "auto"];
+export const DISK_IMAGE_FORMATS = ["raw", "qcow2", "vhd", "vpc", "vdi", "vmdk", "auto"];
 
 /** formats recognised but not (yet) read, and where they are planned */
 const FORMATS_LATER = {
-    "vmdk": "P4", "vhdx": "P5",
+    "vhdx": "P5",
 };
 
 /** what disk_option may be (docs/disk-persistence-plan.md) */
@@ -81,6 +83,15 @@ export function check_image_options(name, file, hard_disk)
     if(!file.url && !(file.buffer instanceof ArrayBuffer) && !(typeof Blob !== "undefined" && file.buffer instanceof Blob))
     {
         throw new DiskImageError(name + ": a disk image needs a url or a buffer (ArrayBuffer, File)", "config");
+    }
+    if(file.files !== undefined && (typeof file.files !== "object" || !file.files ||
+        Object.values(file.files).some(f => !f || typeof f !== "object")))
+    {
+        throw new DiskImageError(name + ": files must map file names to descriptors (url, buffer)", "config");
+    }
+    if(file.archive_member !== undefined && typeof file.archive_member !== "string")
+    {
+        throw new DiskImageError(name + ": archive_member must be the name of a file in the archive", "config");
     }
     return format;
 }
@@ -229,6 +240,13 @@ export async function open_source(name, file, settings)
         throw new DiskImageError(name + ": no url or buffer", "config");
     }
     await new Promise((resolve, reject) => source.open(error => error ? reject(error) : resolve()));
+    if(file.archive_member)
+    {
+        // a file in a TAR archive (an OVA)
+        const member = (await read_tar(source)).find(m => m.name === file.archive_member);
+        if(!member) throw new DiskImageError(name + ": the archive has no file " + JSON.stringify(file.archive_member), "config");
+        return new SliceSource(source, member.offset, member.size, name + " " + file.archive_member);
+    }
     return source;
 }
 
@@ -251,7 +269,34 @@ const READERS = {
     "qcow2": QCOW2Reader,
     "vhd": VHDReader,
     "vdi": VDIReader,
+    "vmdk": VMDKReader,
 };
+
+/**
+ * The source of a file an image's descriptor names (VMDK extents): from the
+ * descriptor's files (by the name, or the name without a directory), or,
+ * for an image in an archive, the archive's file of that name
+ * @param {string} label
+ * @param {!Object} file the image's descriptor
+ * @param {string} extent the name in the image's descriptor
+ * @param {!Object} settings
+ * @return {!Promise<?>}
+ */
+async function extent_source(label, file, extent, settings)
+{
+    const base = name => name.replace(/^.*[\\/]/, "");
+    const files = file.files || {};
+    const given = files[extent] || Object.keys(files).filter(name => base(name) === base(extent)).map(name => files[name])[0];
+    if(given) return open_source(label + " " + base(extent), given, settings);
+    if(file.archive_member)
+    {
+        const directory = file.archive_member.replace(/[^\/]*$/, "");
+        return open_source(label + " " + base(extent), { url: file.url, buffer: file.buffer, async: file.async, size: file.size,
+            archive_member: directory + extent }, settings);
+    }
+    throw new DiskImageError(label + ": the image is in several files, and " + JSON.stringify(extent) +
+        " is not given: name it in files", "config");
+}
 
 /**
  * Whether a descriptor is one of `chain` (the same object, URL or buffer)
@@ -325,7 +370,8 @@ export async function open_image(name, file, settings, depth = 0, chain = [])
         throw new DiskImageError(label + ": the format " + format + " is not supported" +
             (FORMATS_LATER[format] ? " yet (docs/disk-image-formats-plan.md " + FORMATS_LATER[format] + ")" : ""), "unsupported");
     }
-    const reader = new Reader(source, label, settings);
+    const reader = new Reader(source, label, Object.assign({}, settings,
+        { open_extent_source: extent => extent_source(label, file, extent, settings) }));
     await new Promise((resolve, reject) => reader.open(error => error ? reject(error) : resolve()));
     reader.image_id = file.image_id || "";
 
@@ -356,6 +402,38 @@ export async function open_image(name, file, settings, depth = 0, chain = [])
         reader.parent = parent;
     }
     return reader;
+}
+
+/**
+ * An OVF package (an OVA archive): its disks as descriptors (the archive's,
+ * with archive_member), the hardware as v86 options, notes for what v86
+ * does not have (docs/disk-image-formats-plan.md P4)
+ * @param {!Object} file the archive's descriptor (url, buffer)
+ * @param {!Object} settings
+ * @return {!Promise<!Object>}
+ */
+export async function import_ova(file, settings)
+{
+    const label = display_name("ova", file);
+    const source = await open_source(label, Object.assign({}, file, { archive_member: undefined }), settings);
+    const ova = await read_ova(source);
+    const archive = { url: file.url, buffer: file.buffer, async: file.async === undefined ? true : file.async, size: file.size };
+    const disks = ova.disks.map(disk => Object.assign({}, disk, {
+        descriptor: disk.member && !disk.missing ? Object.assign({}, archive, { archive_member: disk.member, format: disk.format }) : null,
+    }));
+    const options = Object.assign({}, ova.options);
+    const usable = disks.filter(d => d.descriptor);
+    if(options["machine_type"] === "q35" || usable.length > 2)
+    {
+        options["machine_type"] = "q35";
+    }
+    if(usable[0]) options["hda"] = usable[0].descriptor;
+    if(usable[1]) options["hdb"] = usable[1].descriptor;
+    if(usable.length > 2)
+    {
+        ova.notes.push("disks after the second: attach them with attach_sata_drive (ports 3-5) after the start");
+    }
+    return { "ovf": ova.ovf, "files": ova.members.map(m => m.name), "disks": disks, "options": options, "notes": ova.notes };
 }
 
 /**

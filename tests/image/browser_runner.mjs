@@ -40,6 +40,13 @@ if(fs.existsSync(path.join(samples, "child-zlib.qcow2")))
     for(const name of ["child-zlib.qcow2", "v3-zstd.qcow2"]) fs.copyFileSync(path.join(samples, name), path.join(out, name));
     params.push("child_sha256=" + create_hash("sha256").update(fs.readFileSync(path.join(samples, "child.raw"))).digest("hex"));
 }
+// an OVA of tests/image/vmdk.mjs: its disk, a streamOptimized VMDK of the
+// samples' base
+if(fs.existsSync(path.join(samples, "dos-ustar.ova")))
+{
+    fs.copyFileSync(path.join(samples, "dos-ustar.ova"), path.join(out, "dos.ova"));
+    params.push("base_sha256=" + create_hash("sha256").update(fs.readFileSync(path.join(samples, "base.raw"))).digest("hex"));
+}
 else
 {
     console.log("(no samples in build/disk-image-samples: run tests/image/samples.mjs for the hdb test)");

@@ -14,7 +14,8 @@ import { LOG_DISK } from "../const.js";
 import { DiskImageError } from "./source.js";
 import { WriteOverlay, OVERLAY_BLOCK_SIZE } from "./overlay.js";
 
-/** the data is in the file at host_offset */
+/** the data is in the file at host_offset (in extent.source, if it has one: a
+ * file of several, VMDK) */
 export const EXTENT_DATA = 0;
 /** reads as zeros */
 export const EXTENT_ZERO = 1;
@@ -209,10 +210,11 @@ export class ImageReader
                     {
                         // (past the end of the file reads as zeros, as in QEMU:
                         // a cluster's last part may never have been written)
-                        const available = Math.min(extent.length, this.source.byteLength - extent.host_offset);
+                        const source = extent.source || this.source;
+                        const available = Math.min(extent.length, source.byteLength - extent.host_offset);
                         if(available <= 0) break;
                         pending++;
-                        this.source.read(extent.host_offset, available, (data, error) =>
+                        source.read(extent.host_offset, available, (data, error) =>
                         {
                             if(error) fail(error);
                             else
@@ -272,7 +274,9 @@ export class ImageReader
      */
     read_compressed(extent, callback, signal)
     {
-        const key = extent.host_offset;
+        // (formats of several files key their clusters themselves)
+        const key = extent.key === undefined ? extent.host_offset : extent.key;
+        const source = extent.source || this.source;
         const cached = this.decompressed.get(key);
         if(cached)
         {
@@ -290,7 +294,7 @@ export class ImageReader
         }
         const callbacks = [callback];
         this.decompressing.set(key, callbacks);
-        const length = Math.min(extent.host_length, this.source.byteLength - extent.host_offset);
+        const length = Math.min(extent.host_length, source.byteLength - extent.host_offset);
         const finish = (cluster, error) =>
         {
             this.decompressing.delete(key);
@@ -299,11 +303,11 @@ export class ImageReader
         if(length <= 0)
         {
             finish(undefined, new DiskImageError(this.name + ": a compressed cluster at " + extent.host_offset +
-                " is past the end of the file (" + this.source.byteLength + " bytes)", "corrupt"));
+                " is past the end of the file (" + source.byteLength + " bytes)", "corrupt"));
             return;
         }
         // (not cancelled with one reader's signal: others may wait for it)
-        this.source.read(extent.host_offset, length, (bytes, error) =>
+        source.read(extent.host_offset, length, (bytes, error) =>
         {
             if(error)
             {
@@ -342,17 +346,18 @@ export class ImageReader
  * @param {number} type
  * @param {number} length
  * @param {number=} host_offset
+ * @param {?=} source the file, if not the reader's
  */
-export function push_extent(extents, type, length, host_offset)
+export function push_extent(extents, type, length, host_offset, source)
 {
     const last = extents[extents.length - 1];
     if(last && last.type === type && (type === EXTENT_ZERO || type === EXTENT_PARENT ||
-        type === EXTENT_DATA && last.host_offset + last.length === host_offset))
+        type === EXTENT_DATA && last.host_offset + last.length === host_offset && last.source === source))
     {
         last.length += length;
         return;
     }
-    extents.push({ type, length, host_offset: host_offset || 0 });
+    extents.push({ type, length, host_offset: host_offset || 0, source });
 }
 
 /**

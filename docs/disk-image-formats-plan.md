@@ -1,6 +1,6 @@
 # 虚拟磁盘镜像格式支持计划
 
-状态：P0、P1（第一轮完整交付）、P2、P3 已实现并通过验收（P3 的差分镜像未开放）；P4、P5 未实现。实施记录见[附录](#附录实施记录)。
+状态：P0、P1（第一轮完整交付）、P2、P3、P4 已实现并通过验收（P3 的差分镜像未开放）；P5 未实现。实施记录见[附录](#附录实施记录)。
 
 本计划基于 2026 年 10 月 3 日审查的当前 v86 分支。目标是在现有 RAW 镜像能力上，
 增加 QCOW2、VHD、VDI、VMDK 和 VHDX 的原生读取，并通过公共修改层支持客户机写入、
@@ -432,7 +432,7 @@ dirty 与 corrupt 位、父盘（P1 中；P2 由调用方提供）、L1 不足�
 
 样本增加 `child-of-zlib.qcow2`、`child-zlib.qcow2`（样本版本 3）。
 
-### P3 VHD 与 VDI
+### P3 VHD 与 VDI（a2015551）
 
 **实现。** [`src/image/vhd.js`](../src/image/vhd.js)：footer（动态盘用文件开头的副本，与 QEMU 相同；固定盘
 用文件末尾的，兼容旧工具的 511 字节 footer）与动态盘头部的校验和都必须正确；虚拟容量按 QEMU vpc
@@ -471,4 +471,61 @@ dirty 与 corrupt 位、父盘（P1 中；P2 由调用方提供）、L1 不足�
 
 样本增加 `dynamic.vhd`、`dynamic-force.vhd`、`fixed.vhd`、`fixed-force.vhd`、`100g.vhd`、`dynamic.vdi`、
 `static.vdi`、`3t.vdi`（样本版本 5；VHD footer 含时间戳，每次生成的 SHA-256 不同）。
+
+### P4 VMDK 与整机包导入
+
+**实现。** [`src/image/vmdk.js`](../src/image/vmdk.js)。各 createType 与 extent 类型的支持状态：
+
+| createType | 文件 | 状态 |
+| --- | --- | --- |
+| `monolithicSparse` | 一个 hosted sparse 文件（`KDMV`），描述符在文件内 | 支持 |
+| `streamOptimized` | 同上，grain 经 zlib 压缩并带 marker；grain 目录位置在头部（qemu-img）或文件尾的 footer（`GD_AT_END`，VMware） | 支持 |
+| `monolithicFlat`、`vmfs` | 描述符文件与一个 FLAT/VMFS extent | 支持（`files`） |
+| `twoGbMaxExtentSparse`、`twoGbMaxExtentFlat` | 描述符文件与多个 2 GiB extent | 支持（`files`） |
+| 无描述符的单个 sparse extent | 其容量 | 支持 |
+| `vmfsSparse`、`vmfsThin`、`seSparse`、`vmfsRaw`、`vmfsRDM`、`fullDevice`、`partitionedDevice`、`custom` 等，ESX 的 `COWD` | | 拒绝（`unsupported`） |
+
+extent 类型 FLAT、VMFS、SPARSE、ZERO，访问 RW、RDONLY；NOACCESS、VMFSSPARSE、VMFSRDM、VMFSRAW 与
+无法解析的 extent 行拒绝。sparse extent：版本 1–3、grain 大小（2 的幂，8 扇区以上）、每表项数（不超过
+512）、grain 目录与表在文件内；表项 0 为未分配（父盘或零），zeroed-grain 特性下表项 1 为零 grain；压缩
+grain 读 marker 中的长度，校验 zlib 头和 Adler-32（与 QEMU 所用 zlib `uncompress` 相同）。FLAT extent
+必须完整位于其文件内，各 extent 长度之和为虚拟容量。多文件镜像的其余文件由描述的 `files` 按名称（或
+去掉目录后的名称）显式给出，不按描述符中的名字自行加载；镜像在 TAR 归档中时，按名称取同一归档中的
+文件。子盘（`parentCID` 不为 `ffffffff`）需由 `backing` 给出父盘，父盘必须是 VMDK 且其 `CID` 等于子盘的
+`parentCID`（QEMU 同样只接受 VMDK 父盘）。
+
+[`src/image/ova.js`](../src/image/ova.js)：TAR 读取（ustar 前缀、GNU 长文件名、PAX 扩展头，头部校验和）；
+不依赖 DOMParser 的小型 XML 解析器（Worker 与 Node 中没有 DOMParser）；OVF：References、DiskSection
+（容量单位 `byte * 2^n` 及常见名称）、VirtualHardwareSection 的处理器、内存、IDE/SATA/SCSI 控制器与
+硬盘挂接、网卡、声卡、USB，VMware 的 `firmware` 配置与 VirtualBox 的 `Firmware` 元素，操作系统说明。
+`V86.import_ova(file)` 在创建机器之前读取归档，返回 OVF 文本、归档文件列表、磁盘（每块带一个
+`{ url | buffer, archive_member, format }` 描述，直接在归档中读取，不解包）、建议的 V86 选项
+（`memory_size`、`cpu_cores`、有 SATA 盘或多于两块盘时 `machine_type: "q35"`、`hda`、`hdb`），以及
+v86 没有的硬件说明：SCSI 控制器（其盘改挂 IDE/AHCI）、网卡型号（v86 只有 NE2000 与 virtio-net）、
+声卡、USB、EFI 固件（v86 为 SeaBIOS）、ARM 客体、多于两块盘、文件不在归档中或被压缩的磁盘。
+描述的 `archive_member`、`files` 经 Worker 递归转发。
+
+**偏差。**
+
+1. qemu-img 生成的 streamOptimized 把 grain 目录位置写在头部，不写 footer；`GD_AT_END` 与 footer
+   （VMware ovftool 的写法）的读取用由 qemu-img 样本改写出的镜像验证（加 footer marker、footer 与流结束
+   marker），没有 VMware 工具生成的样本。
+2. 超过 2^32 扇区的 VMDK 未验证：qemu-img 生成 3 TiB 的 sparse VMDK 时预先写入全部 grain 表（约
+   400 MB），超出本机样本的空间约束；大偏移以 100 GiB sparse 与 5 GiB 分片（跨 2 GiB extent 边界）验证。
+3. `vmfs` createType 只用手写描述符（VMFS、ZERO 与带偏移的 FLAT extent）验证，qemu-img 不生成它。
+4. OVF 的清单文件（`.mf`）中的校验和未核对；OVF 中压缩（`ovf:compression`）的磁盘文件不读取，以说明
+   列出。自动配置只给出建议选项，不直接启动机器。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/image/vmdk.mjs` | qemu-img 的 monolithicSparse、streamOptimized、monolithicFlat、twoGbMaxExtentSparse、twoGbMaxExtentFlat 与 zeroed-grain 镜像，各经本地文件与内存两条路径整盘及随机区间与基准一致，共比对 896 MiB；`auto` 识别描述符文本与 `KDMV`；零 grain 为零 extent；5 GiB 的 2 GiB sparse/flat extent 在 extent 边界与末尾、100 GiB sparse 在 5 GiB 处与写入内容一致；子盘与父盘的读取与 qemu-img 一致，缺父盘、CID 不符、父盘为 QCOW2 均拒绝；`vmfs` 描述符跨 VMFS/ZERO/FLAT 三个 extent 的读取；不支持的 createType、NOACCESS、VMFSRDM、无法解析的 extent 行、未给出的 extent 文件、过短的 flat 文件、sparse 版本 4、grain 大小、表项数、grain 目录或表越界、footer 或流结束 marker 损坏、Adler-32 不符、marker 长度越界均报错，其余 grain 仍可读；按名称（不含目录）找到 extent 文件 |
+| OVA（同一测试） | bsdtar 生成的 ustar 与 pax 归档（OVF + streamOptimized 磁盘）：文件列表、两块盘（其一文件不在归档中）、控制器、容量、内存与 CPU 数、5 类说明；归档中的磁盘（文件与内存来源）与基准一致；归档中没有的文件报错；OVF 单位换算、VirtualBox 固件、XML 错误 |
+| `tests/image/guest.mjs` | 增加 qemu-img 的 monolithicSparse 与 streamOptimized VMDK，以及把 streamOptimized 磁盘与 OVF 装入 OVA 后经 `V86.import_ova` 得到的 `hda` 与内存选项：MS-DOS 启动、写文件、重启与快照恢复后文件都在 |
+| 浏览器（页面与 CPU Worker） | 页面上 `V86.import_ova` 读取 HTTP 上的 OVA，其磁盘描述（`archive_member`）交给机器（Worker 中在 Worker 内打开），导出的 SHA-256 等于基准；OVA 共 367 次请求、24032260 字节（归档 23943680 字节） |
+| 回归 | Closure 检查 0 错误；eslint 无输出 |
+
+样本增加 `sparse.vmdk`、`stream.vmdk`、`flat.vmdk`、`2gbsparse.vmdk`、`2gbflat.vmdk`、`zeroed.vmdk`、`child.vmdk`、
+`100g.vmdk`、`5g-sparse.vmdk`、`5g-flat.vmdk` 及其 extent 文件（样本版本 6；flat extent 为稀疏文件）。
 

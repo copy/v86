@@ -29,7 +29,7 @@ import { Modem } from "./modem.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
-import { check_image_options, create_disk_image } from "../image/factory.js";
+import { check_image_options, create_disk_image, import_ova } from "../image/factory.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -1714,6 +1714,21 @@ V86.prototype.eject_fdb = function()
 };
 
 /**
+ * Read an OVF package, an OVA archive (docs/disk-image-formats-plan.md P4),
+ * before a machine is made: its disks as descriptors for hda, hdb or
+ * attach_sata_drive (the archive with archive_member: read in it, not
+ * extracted), the hardware it describes as v86 options (memory_size,
+ * cpu_cores, machine_type, hda, hdb), and notes for what v86 does not have
+ * (architecture, firmware, controllers, devices).
+ * @param {!Object} file the archive, as for hda (url, buffer)
+ * @return {!Promise<!Object>} {ovf, files, disks, options, notes}
+ */
+V86.import_ova = function(file)
+{
+    return import_ova(file, {});
+};
+
+/**
  * The buffer of a hard disk or CD drive by its name (hda, hdb, cdrom,
  * sata<port>)
  * @param {string} name
@@ -2552,6 +2567,7 @@ V86.prototype["read_memory_chunks"] = V86.prototype.read_memory_chunks;
 V86.prototype["save_state_stream"] = V86.prototype.save_state_stream;
 V86.prototype["export_disk_image"] = V86.prototype.export_disk_image;
 V86.prototype["disk_image_info"] = V86.prototype.disk_image_info;
+V86["import_ova"] = V86.import_ova;
 V86.prototype["restore_state_stream"] = V86.prototype.restore_state_stream;
 /* eslint-enable no-self-assign */
 
