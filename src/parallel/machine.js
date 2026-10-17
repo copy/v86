@@ -44,6 +44,8 @@ export class ParallelMachine
             new Float64Array(this.control, C.CONTROL_WORDS * 4 + 8 * C.SLOT_PM_TIMER_OFFSET, 1),
             new BigInt64Array(this.control, C.CONTROL_WORDS * 4 + 8 * C.SLOT_PM_TIMER_LAST, 1));
         this.workers = [];
+        /** each vCPU worker instance's base in the shared memory (its statics are there + their address in this instance) */
+        this.instance_bases = [0];
         this.epoch = 0;
         this.stopping_epoch = 0;
         this.command = C.COMMAND_NONE;
@@ -72,6 +74,7 @@ export class ParallelMachine
         {
             // fresh (so zeroed) pages for the worker's static data and stack
             const base = memory.grow(pages) * PAGE_SIZE;
+            this.instance_bases[core] = base;
             const worker = await create_worker(this.worker_url, "v86 vCPU " + core);
             this.workers[core] = worker;
             ready.push(new Promise((resolve, reject) => {
