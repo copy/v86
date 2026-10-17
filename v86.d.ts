@@ -1281,11 +1281,12 @@ export class V86 {
     /**
      * What an export of a disk writes: its size as the guest sees it, the
      * format and size of its image file, the bytes the guest wrote (kept in
-     * memory)
+     * memory), and the size of the sectors the guest sees (512 or 4096; a
+     * CD drive's 2048)
      *
      * @param name "hda", "hdb", "cdrom", "sata<port>" or (virt) "virtio_disk<n>"
      */
-    disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number }>;
+    disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number; logical_sector_size: number }>;
 
     /**
      * Export a disk as the guest sees it, as a RAW image of its whole size

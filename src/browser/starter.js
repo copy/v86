@@ -1803,7 +1803,8 @@ V86.prototype.disk_buffer = function(name)
 
 /**
  * What an export of a disk writes (export_disk_image): its size as the guest
- * sees it, and its image's format, file size and the bytes the guest wrote
+ * sees it, and its image's format, file size and the bytes the guest wrote;
+ * the guest's sector size
  * @param {string} name hda, hdb, cdrom, sata<port>, (virt) virtio_disk<n>
  * @return {!Promise<!Object>}
  */
@@ -1812,12 +1813,15 @@ V86.prototype.disk_image_info = async function(name)
     if(this.worker_controller) return this.worker_controller.rpc("disk-info", [name]);
     const buffer = this.disk_buffer(name);
     const reader = buffer.reader;
+    const device = this.v86.cpu.disk_devices().find(([device_name]) => device_name === name)[1];
     return {
         "name": name,
         "format": reader ? reader.format : "raw",
         "size": buffer.byteLength,
         "file_size": reader ? reader.source.byteLength : buffer.byteLength,
         "written": buffer.overlay ? buffer.overlay.size() : buffer.written_blocks ? buffer.written_blocks.size * 256 : undefined,
+        // (an IDE or AHCI drive's, a CD's 2048; a virtio disk's image's)
+        "logical_sector_size": device.sector_size || buffer.logical_sector_size || 512,
     };
 };
 

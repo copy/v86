@@ -193,7 +193,9 @@ async function dma(command, lba, count, out)
     assert.equal(words_512[106], 0, "the 512-byte disk: no word 106");
     assert.deepEqual(words_512.slice(117, 119), [0, 0]);
     assert.equal(words_512[60] | words_512[61] << 16, hdb_bytes.length / 512);
-    console.log("ok - IDENTIFY: words 106 and 117-118, the capacity in 4096-byte sectors; the 512-byte disk unchanged");
+    assert.equal((await emulator.disk_image_info("hda")).logical_sector_size, 4096, "disk_image_info");
+    assert.equal((await emulator.disk_image_info("hdb")).logical_sector_size, 512);
+    console.log("ok - IDENTIFY: words 106 and 117-118, the capacity in 4096-byte sectors; the 512-byte disk unchanged; disk_image_info");
 }
 
 {
@@ -325,6 +327,7 @@ async function ahci(c)
 
 const disk = cpu.devices.ahci.ports[0].device;
 assert.equal(disk.sector_size, 4096, "the VHDX disk's sectors");
+assert.equal((await emulator.disk_image_info("hda")).logical_sector_size, 4096, "disk_image_info");
 {
     const words = Array.from({ length: 256 }, (_, i) => 0);
     const { data } = await ahci({ command: 0xEC, length: 512 });
