@@ -20,6 +20,25 @@ pub fn core_count() -> usize { apic::core_count() }
 #[inline(always)]
 pub unsafe fn microtick() -> f64 { cpu::js::microtick() }
 
+// ---- crate::extended (extended RAM, the engine both cores share)
+
+/// Every access cache entry, so that no frame of extended RAM is cached any more
+#[inline(always)]
+pub unsafe fn extended_release_caches() { crate::x64::extended::release_caches() }
+/// The write entries to a frame of extended RAM whose page now has code
+#[inline(always)]
+pub unsafe fn extended_retire_cached_writes(host: u32) {
+    crate::x64::extended::retire_cached_writes(host)
+}
+/// An extended page with page-tier code was written: retire its function
+#[inline(always)]
+pub unsafe fn extended_code_written(page: u32) {
+    crate::x64::pages::dirty_page(crate::x64::extended::CODE_KEY_BASE + page)
+}
+/// The frames of extended RAM were discarded: the aperture's slots go too
+#[inline(always)]
+pub unsafe fn extended_discarded() { crate::x64::extended::aperture::clear() }
+
 /// The address of this instance's yield flag (parallel::kick sets it)
 #[inline(always)]
 pub unsafe fn core_yield_address() -> u32 { &raw mut cpu::core_yield as u32 }

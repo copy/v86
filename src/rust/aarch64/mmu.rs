@@ -1,6 +1,6 @@
 //! The stage 1 MMU of the AArch64 core (docs/arm64-virt-android16-plan.md
 //! P3.3-P3.5): VMSAv8-64 translation of the EL1&0 regime with the 4 KiB
-//! granule (16 and 64 KiB with the test profile v1.1), TBI, ASIDs, the TLB
+//! granule (16 and 64 KiB too with profile v1.1, the default), TBI, ASIDs, the TLB
 //! (tlb.rs), AT and TLBI. Where the Arm ARM leaves a choice this follows
 //! QEMU 9.2 (target/arm/ptw.c), the reference: a TnSZ out of range is a
 //! level 0 translation fault; a granule the profile does not have is the
@@ -27,16 +27,20 @@ const FSC_EXTERNAL_WALK: u32 = 0x14;
 /// The granules the profile has: bit 0 4 KiB, 1 16 KiB, 2 64 KiB (v1: 4 KiB only)
 static mut GRANULES: u32 = 1;
 
-/// (the test profile v1.1: 16 and 64 KiB granules too, P3.4)
+/// (profile v1.1, the default since P8.6: 16 and 64 KiB granules too, P3.4)
 #[no_mangle]
 pub fn a64_set_granules(mask: u32) {
-    unsafe { GRANULES = mask & 7 | 1 };
+    unsafe { *crate::parallel::machine(&raw mut GRANULES) = mask & 7 | 1 };
     tlb::flush(true);
 }
 
+/// The profile's granules (a64_set_granules): bit 0 4 KiB, 1 16 KiB, 2 64 KiB
+#[no_mangle]
+pub fn a64_granules() -> u32 { unsafe { *crate::parallel::machine(&raw mut GRANULES) } }
+
 /// ID_AA64MMFR0_EL1's TGran16 and TGran64 fields for the profile
 pub fn mmfr0_granules() -> u64 {
-    let g = unsafe { GRANULES };
+    let g = unsafe { *crate::parallel::machine(&raw mut GRANULES) };
     let tgran16 = if g & 2 != 0 { 1 } else { 0 };
     let tgran64 = if g & 4 != 0 { 0 } else { 0xF };
     tgran16 << 20 | tgran64 << 24
@@ -60,7 +64,7 @@ fn granule_of(select: u64) -> u32 {
             _ => 12,
         }
     };
-    let supported = unsafe { GRANULES }
+    let supported = unsafe { *crate::parallel::machine(&raw mut GRANULES) }
         & match log {
             12 => 1,
             14 => 2,
@@ -121,6 +125,9 @@ fn descriptor(pa: u64) -> Option<u64> {
         crate::aarch64::bus::Lookup::Ram { backing, .. } => Some(unsafe {
             crate::parallel::load64(crate::aarch64::bus::MEM8.add(backing as usize))
         }),
+        crate::aarch64::bus::Lookup::Extended { .. } => {
+            Some(unsafe { crate::aarch64::extended::read(pa, 8) })
+        },
         _ => None,
     }
 }
@@ -340,15 +347,47 @@ pub fn translate_for_cache(va: u64, write: bool, el0: bool) -> Option<(u64, bool
 /// SCTLR_EL1, TCR_EL1 or MAIR_EL1 changed: what the TLB derived from them is stale
 pub fn regime_changed() { tlb::flush(false); }
 
+/// TTBR0_EL1 and TTBR1_EL1 writes, and those that changed their core's
+/// current ASID (P9.3: what SW_TTBR0_PAN costs, two of each per entry from
+/// EL0 and per uaccess window); each core's last ASID
+static mut TTBR_WRITES: u64 = 0;
+static mut ASID_CHANGES: u64 = 0;
+static mut LAST_ASID: [u16; crate::aarch64::isa_hooks::MAX_CORES] =
+    [0; crate::aarch64::isa_hooks::MAX_CORES];
+
 /// TTBR0_EL1 or TTBR1_EL1 changed: entries are tagged with their ASID, so
 /// nothing is flushed (software changing a table under an ASID must TLBI)
 pub fn ttbr_changed() {
-    unsafe { tlb::GENERATION = tlb::GENERATION.wrapping_add(1).max(1) };
+    unsafe {
+        tlb::GENERATION = tlb::GENERATION.wrapping_add(1).max(1);
+        TTBR_WRITES += 1;
+        let asid = current_asid();
+        let core = crate::isa::current_core() as usize % crate::aarch64::isa_hooks::MAX_CORES;
+        if LAST_ASID[core] != asid {
+            LAST_ASID[core] = asid;
+            ASID_CHANGES += 1;
+        }
+    }
     // (without a64_asid_tag, the page tier's access cache is not tagged with
     // the ASID: its non-global entries go; with it, the next activation
     // takes the running ASID's epoch, P6.4)
     if !unsafe { crate::aarch64::jit::ASID_TAG } {
         crate::aarch64::jit::pages::tlb_flushed_nonglobal(crate::isa::current_core());
+    }
+}
+
+/// The ASID changes so far (crate::aarch64::jit::pages::asid_tag_tick)
+pub fn asid_changes() -> u64 { unsafe { ASID_CHANGES } }
+
+/// The TTBR writes (0) and ASID changes (1) since the module started (tests)
+#[no_mangle]
+pub fn a64_mmu_stat(n: u32) -> f64 {
+    unsafe {
+        match n {
+            0 => TTBR_WRITES as f64,
+            1 => ASID_CHANGES as f64,
+            _ => 0.0,
+        }
     }
 }
 

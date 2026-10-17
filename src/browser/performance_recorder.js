@@ -193,7 +193,14 @@ export class PerformanceRecorder
                     if(signal.aborted) abort();
                 }
                 try {
-                    return original.call(buffer, offset, length, data => {
+                    return original.call(buffer, offset, length, (data, error) => {
+                        // (a disk image's failed read: docs/disk-image-formats-plan.md P0)
+                        if(error || !data)
+                        {
+                            finish("errors");
+                            callback(data, error);
+                            return;
+                        }
                         if(live() && !ended)
                         {
                             const ms = this.now() - start;

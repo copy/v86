@@ -7,7 +7,8 @@
 //! - a64_page_hot: interpreted instructions on a page before it is compiled
 //! - a64_neon: the AdvSIMD templates (P6.3b)
 //! - a64_asid_tag: the ASID in the access cache's tags (P6.4: an epoch per
-//!   ASID; off, the default: an ASID switch flushes the non-global entries)
+//!   ASID; 0, off: an ASID switch flushes the non-global entries; 2, auto,
+//!   the default since the ARM plan's P9.3: on while the ASIDs change often)
 //! - a64_helpers: helper calls for the forms pagegen::helper takes (off:
 //!   single steps)
 //! - a64_relaxed_fma: the multiply-adds through relaxed SIMD (only where the
@@ -35,9 +36,15 @@ pub fn a64_page_set_relaxed_fma_fused(fused: bool) {
     }
 }
 /// The ASID in the access cache's tags (P6.4: an epoch per ASID,
-/// pages::bind_asid; off, an ASID switch drops the non-global entries;
-/// default off until the ARM plan's P9.3 measures it)
+/// pages::bind_asid; off, an ASID switch drops the non-global entries)
 pub static mut ASID_TAG: bool = false;
+/// a64_asid_tag: 0 off, 1 on, 2 auto (pages::asid_tag_tick: on while the
+/// ASIDs change often, as with SW_TTBR0_PAN, which changes them at every
+/// entry from EL0 and around every uaccess; the epochs cost a stock kernel,
+/// whose ASIDs change seldom, refills of its global entries in each; auto
+/// passed P9.3's F gate: the androidish kernel's boot to a login 30% faster,
+/// the stock kernel's runs as with 0)
+pub static mut ASID_TAG_MODE: u32 = 2;
 
 // ---- the switch registry: the x86 core's interface (src/rust/jit_switches.rs,
 // src/jit_switches.js), so the V86 option jit_switches and tests' JIT_SWITCHES
@@ -87,9 +94,9 @@ const SWITCHES: [Switch; 6] = [
     },
     Switch {
         name: "a64_asid_tag",
-        default: 0,
-        get: || unsafe { ASID_TAG as u32 },
-        set: |v| v <= 1 && pages::set_asid_tag(v != 0) == (),
+        default: 2,
+        get: || unsafe { ASID_TAG_MODE },
+        set: |v| v <= 2 && unsafe { ASID_TAG_MODE = v } == () && pages::set_asid_tag(v == 1) == (),
     },
 ];
 static mut EXPLICIT: [u32; SWITCHES.len()] = [UNSET; SWITCHES.len()];

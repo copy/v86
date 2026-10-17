@@ -351,6 +351,9 @@ try
     }
     snapshot = inspect();
     assert.ok(booted && /\r?\nX64_LINUX_BOOT_OK\r?\n/.test(serial), "real x64 Linux login shell and command deadline");
+    // (to login and through the probes: docs/x86-64.md's boot time, the
+    // arm64 plan's E level compares its own with it)
+    console.log("X64_LINUX_PROBES_MS " + Math.round(performance.now() - started));
     assert.match(serial, /\r?\nx86_64\r?\n/, "uname confirms actual x86_64 userspace");
     check_probes(serial, true);
     assert.equal(echoed, 32, "the host echoed every probe frame");

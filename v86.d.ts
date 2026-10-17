@@ -525,12 +525,13 @@ export interface V86Options {
 
     /**
      * Experimental: guest RAM beyond memory_size (a multiple of 2 MiB), at
-     * guest physical 4 GiB + high_memory_size, so that the total can exceed
-     * what fits in the emulator's 32-bit WebAssembly memory. Its pages are
-     * kept in host ArrayBuffers and cached in extended_memory_cache bytes of
-     * the WebAssembly heap: slower than memory_size, and code in it is
-     * interpreted. Only a 64-bit guest (cpu_type: "x86_64") can address
-     * it.
+     * guest physical 4 GiB + high_memory_size (cpu_type: "arm64": at 4 GiB,
+     * a second memory range of the device tree), so that the total can
+     * exceed what fits in the emulator's 32-bit WebAssembly memory. Its
+     * pages are kept in host ArrayBuffers and cached in
+     * extended_memory_cache bytes of the WebAssembly heap: slower than
+     * memory_size. Only a 64-bit guest (cpu_type: "x86_64" or "arm64") can
+     * address it.
      * Snapshots of it need save_state_stream. Fails at startup when the host
      * cannot allocate it.
      * @default 0
@@ -637,9 +638,33 @@ export interface V86Options {
 
     /**
      * machine_type "virt" only: virtio-blk disks in order (not together
-     * with hda and hdb, which are the first two on virt)
+     * with hda and hdb, which are the first two on virt). Each may be in a
+     * container format as hda (export_disk_image names it virtio_disk<n>);
+     * a read or write its image fails ends with an I/O error
+     * (VIRTIO_BLK_S_IOERR).
      */
-    virtio_disks?: Array<V86Image & { readonly?: boolean; id?: string }>;
+    virtio_disks?: Array<V86HardDiskImage & { readonly?: boolean; id?: string }>;
+
+    /**
+     * machine_type "virt" only: virtio-rng, its entropy from
+     * crypto.getRandomValues (the guest's /dev/hwrng)
+     */
+    virtio_rng?: boolean;
+
+    /**
+     * machine_type "virt" only: virtio-input devices, true for a keyboard and
+     * a tablet, or a list of "keyboard", "tablet" (the pointer's absolute
+     * position) and "multitouch" (the page's touches), as QEMU's
+     * virtio-keyboard, virtio-tablet and virtio-multitouch
+     */
+    virtio_input?: boolean | Array<"keyboard" | "tablet" | "multitouch">;
+
+    /**
+     * machine_type "virt" only: the virtio devices' transport, virtio-mmio
+     * slots or functions on the PCIe host (see docs/virt.md)
+     * @default "mmio"
+     */
+    virtio_transport?: "mmio" | "pci";
 
     /**
      * Automatically fetch bzimage and initrd from the 9p filesystem
@@ -770,7 +795,8 @@ export interface V86Options {
      * (bios, vga_bios, fda, fdb, cdrom, bzimage, multiboot, acpi: true, hpet,
      * smbus, pcie_root_ports, qemu_compatible, uart1-3, parallel1, modem,
      * cpuid_level, cpu_features, x87_*, high_memory_size) are errors there,
-     * as are kernel, dtb and virtio_disks on the PC machines, and every
+     * as are kernel, dtb, virtio_disks, virtio_rng, virtio_input and
+     * virtio_transport on the PC machines, and every
      * other combination of cpu_type and machine_type.
      * @default "i440fx" ("virt" with cpu_type "arm64")
      */
@@ -1245,7 +1271,7 @@ export class V86 {
      * format and size of its image file, the bytes the guest wrote (kept in
      * memory)
      *
-     * @param name "hda", "hdb", "cdrom" or "sata<port>"
+     * @param name "hda", "hdb", "cdrom", "sata<port>" or (virt) "virtio_disk<n>"
      */
     disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number }>;
 
@@ -1257,7 +1283,7 @@ export class V86 {
      * the next one waits for the promise it returns. Resolves to the size
      * written.
      *
-     * @param name "hda", "hdb", "cdrom" or "sata<port>"
+     * @param name "hda", "hdb", "cdrom", "sata<port>" or (virt) "virtio_disk<n>"
      */
     export_disk_image(name: string, options: {
         write: (chunk: Uint8Array) => void | Promise<void>;

@@ -8,11 +8,24 @@ use crate::aarch64::cpu::{self, Exception};
 use crate::aarch64::state::*;
 use crate::aarch64::sysregs::key;
 
-/// The system counter: nanoseconds of the machine's clock
+/// The system counter: nanoseconds of the machine's clock. With cores in
+/// workers (P8.2) each reads its own host clock: the machine's last value
+/// keeps the counter from going back from one core to the next.
 pub fn counter() -> u64 {
     let now = unsafe { crate::isa::microtick() };
-    (now * 1_000_000.0) as u64
+    let value = (now * 1_000_000.0) as u64;
+    if crate::parallel::active() {
+        unsafe { crate::parallel::max64(crate::parallel::machine(&raw mut COUNTER_LAST), value) }
+    }
+    else {
+        value
+    }
 }
+/// (cores in workers) the highest counter value read on any core
+static mut COUNTER_LAST: u64 = 0;
+/// The machine's clock was set back (a snapshot restored, a boot): the
+/// counter follows it (every core is stopped)
+pub fn reset_counter() { unsafe { *crate::parallel::machine(&raw mut COUNTER_LAST) = 0 } }
 
 const CTL_ENABLE: u64 = 1;
 const CTL_IMASK: u64 = 2;
@@ -35,10 +48,11 @@ fn fires(control: u64, compare: u64, now: u64) -> bool {
 pub fn tick() { tick_core(crate::isa::current_core(), counter()) }
 
 /// Every core's timers (the cores that are not running too: their registers
-/// are in their saved state, crate::aarch64::smp::field)
+/// are in their saved state, crate::aarch64::smp::field); with cores in
+/// workers, this instance's core's
 pub fn tick_all() {
     let now = counter();
-    for core in 0..crate::isa::core_count() {
+    for core in crate::aarch64::smp::local() {
         tick_core(core, now);
     }
 }

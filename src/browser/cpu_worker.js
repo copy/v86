@@ -64,7 +64,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "cpu_clock": o.cpu_clock, "cpu_quantum": o.cpu_quantum, "cpu_schedule_seed": o.cpu_schedule_seed,
         "experimental_smp_jit": o.experimental_smp_jit, "disable_jit": o.disable_jit,
         "cpu_type": o["cpu_type"], "cpu_features": o["cpu_features"], "cpu_features_unreleased": o["cpu_features_unreleased"],
-        "jit_backend": o["jit_backend"], "ir_tier0": o["ir_tier0"],
+        "jit_backend": o["jit_backend"], "ir_tier0": o["ir_tier0"], "jit_switches": o["jit_switches"], "a64_profile": o["a64_profile"],
         "x87_fast_math": o["x87_fast_math"],
         "x87_jit_cache": o["x87_jit_cache"],
         "fastboot": o.fastboot, "bootmenu": o.bootmenu, "cmdline": o.cmdline,
@@ -82,6 +82,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)
         "kernel": file(o.kernel), "dtb": file(o.dtb),
         "virtio_disks": o.virtio_disks && o.virtio_disks.map(disk => Object.assign({}, file(disk), { "readonly": disk.readonly, "id": disk.id })),
+        "virtio_rng": o.virtio_rng, "virtio_input": o.virtio_input, "virtio_transport": o.virtio_transport,
         "initial_state": file(o.initial_state),
         "filesystem": fs && { "baseurl": fs.baseurl && new URL(fs.baseurl, location.href).href,
             "basefs": typeof fs.basefs === "string" ? new URL(fs.basefs, location.href).href : file(fs.basefs),

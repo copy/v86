@@ -430,7 +430,7 @@ export function create_state_stream(cpu)
     let extended_bitmap = null, extended_packed = 0;
     if(extended)
     {
-        cpu.wm.exports["x64_ext_flush"]();
+        cpu.flush_extended_memory();
         extended_bitmap = new Uint8Array(Math.ceil(extended.pages / 8));
         for(let page = 0; page < extended.pages; page++)
         {

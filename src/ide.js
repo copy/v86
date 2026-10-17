@@ -1,4 +1,4 @@
-import { begin_state_io, track_state_io } from "./state_io.js";
+import { init_block_io, block_read, block_write, block_when_writes_done, block_cancel_reads } from "./block_backend.js";
 import { LOG_DISK } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
@@ -962,16 +962,10 @@ export function IDEInterface(channel, interface_nr, buffer, is_cd)
     /** @type {number} */
     this.write_dest = 0;
 
-    // cancellation support
-    this.last_io_id = 0;
-    this.in_progress_io_ids = new Map();
-    this.cancelled_io_ids = new Set();
-    /** @type {number} device resets so far: a write completing after one is dropped */
-    this.reset_epoch = 0;
-    /** @type {number} writes the backend hasn't confirmed yet */
-    this.writes_in_flight = 0;
-    /** @type {!Array<function()>} FLUSH CACHE commands waiting for them */
-    this.write_waiters = [];
+    // cancellation support, writes in flight and FLUSH CACHE: the block I/O
+    // every disk controller shares (src/block_backend.js): reset_epoch counts
+    // the device's resets, a write completing after one is dropped
+    init_block_io(this);
 
     // ATAPI-only
     /** @type {number} */
@@ -1927,58 +1921,18 @@ IDEInterface.prototype.do_write = function()
  */
 IDEInterface.prototype.write_to_backend = function(start, data, callback, on_error)
 {
-    const epoch = this.reset_epoch;
-    this.writes_in_flight++;
-    track_state_io(this.cpu, done => this.buffer.set(start, data, done), error =>
-    {
-        this.writes_in_flight--;
-        if(epoch === this.reset_epoch)
-        {
-            if(error) (on_error || (e => this.io_error(e)))(error);
-            else callback();
-        }
-        if(this.writes_in_flight === 0)
-        {
-            const waiting = this.write_waiters;
-            this.write_waiters = [];
-            waiting.forEach(f => f());
-        }
-    });
+    block_write(this, start, data, callback, on_error || (error => this.io_error(error)));
 };
 
 /**
  * Call back when no write is in flight any more, and the backend's own
- * flush (if it has one) is done: FLUSH CACHE
+ * flush (if it has one) is done: FLUSH CACHE; a failed flush ends the
+ * command with an error (io_error)
  * @param {function()} callback
  */
 IDEInterface.prototype.when_writes_done = function(callback)
 {
-    const epoch = this.reset_epoch;
-    const flush = () =>
-    {
-        const finish = error =>
-        {
-            if(epoch !== this.reset_epoch) return;
-            if(error) this.io_error(error);
-            else callback();
-        };
-        if(this.buffer && typeof this.buffer.flush === "function")
-        {
-            track_state_io(this.cpu, done => this.buffer.flush(done), finish);
-        }
-        else
-        {
-            finish(undefined);
-        }
-    };
-    if(this.writes_in_flight === 0)
-    {
-        flush();
-    }
-    else
-    {
-        this.write_waiters.push(flush);
-    }
+    block_when_writes_done(this, callback, error => this.io_error(error));
 };
 
 IDEInterface.prototype.atapi_read = function(cmd)
@@ -2955,46 +2909,11 @@ IDEInterface.prototype.report_write = function(byte_count)
  */
 IDEInterface.prototype.read_buffer = function(start, length, callback, on_error)
 {
-    const id = this.last_io_id++;
-    const abort = new AbortController();
-    const complete = begin_state_io(this.cpu);
-    abort["snapshot_done"] = complete;
-    this.in_progress_io_ids.set(id, abort);
-
-    try { this.buffer.get(start, length, (data, error) =>
+    block_read(this, start, length, callback, on_error || (error =>
     {
-        complete();
-        if(this.cancelled_io_ids.delete(id))
-        {
-            dbg_assert(!this.in_progress_io_ids.has(id));
-            return;
-        }
-
-        const removed = this.in_progress_io_ids.delete(id);
-        dbg_assert(removed);
-
-        if(error || !data)
-        {
-            error = error || new Error("the disk image returned no data");
-            if(on_error)
-            {
-                on_error(error);
-            }
-            else
-            {
-                this.report_read_end(0);
-                this.io_error(error);
-            }
-            return;
-        }
-        callback(data);
-    }, { signal: abort.signal }); }
-    catch(error)
-    {
-        complete();
-        this.in_progress_io_ids.delete(id);
-        throw error;
-    }
+        this.report_read_end(0);
+        this.io_error(error);
+    }));
 };
 
 /**
@@ -3026,13 +2945,7 @@ IDEInterface.prototype.io_error = function(error)
 
 IDEInterface.prototype.cancel_io_operations = function()
 {
-    for(const [id, abort] of this.in_progress_io_ids)
-    {
-        this.cancelled_io_ids.add(id);
-        abort.abort();
-        abort["snapshot_done"]?.();
-    }
-    this.in_progress_io_ids.clear();
+    block_cancel_reads(this);
 };
 
 IDEInterface.prototype.get_state = function()

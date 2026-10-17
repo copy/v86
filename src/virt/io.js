@@ -21,7 +21,7 @@ export var MmioHandler;
  * @constructor
  * @param {!Object} exports the ARM core's exports
  */
-export function VirtIO(exports)
+export function VirtDeviceSpace(exports)
 {
     this.exports = exports;
     /** @type {!Array<{base: number, base_high: number, size: number, handler: MmioHandler}|null>} by owner */
@@ -35,7 +35,7 @@ export function VirtIO(exports)
  * @param {MmioHandler} handler
  * @return {number} the owner id
  */
-VirtIO.prototype.register_mmio = function(base, size, handler)
+VirtDeviceSpace.prototype.register_mmio = function(base, size, handler)
 {
     const low = typeof base === "number" ? base >>> 0 : base[0];
     const high = typeof base === "number" ? Math.floor(base / 0x100000000) : base[1];
@@ -53,7 +53,7 @@ VirtIO.prototype.register_mmio = function(base, size, handler)
  * Unmap the range that `owner` names
  * @param {number} owner
  */
-VirtIO.prototype.unregister_mmio = function(owner)
+VirtDeviceSpace.prototype.unregister_mmio = function(owner)
 {
     const range = this.ranges[owner];
     if(!range) throw new Error("unregister_mmio: no range " + owner);
@@ -62,7 +62,7 @@ VirtIO.prototype.unregister_mmio = function(owner)
 };
 
 /** (env.a64_mmio_read) */
-VirtIO.prototype.mmio_read = function(owner, offset, width)
+VirtDeviceSpace.prototype.mmio_read = function(owner, offset, width)
 {
     const range = this.ranges[owner];
     const value = range ? range.handler.read(Number(offset), width) : 0;
@@ -70,7 +70,7 @@ VirtIO.prototype.mmio_read = function(owner, offset, width)
 };
 
 /** (env.a64_mmio_write) */
-VirtIO.prototype.mmio_write = function(owner, offset, width, value)
+VirtDeviceSpace.prototype.mmio_write = function(owner, offset, width, value)
 {
     const range = this.ranges[owner];
     if(!range) return;

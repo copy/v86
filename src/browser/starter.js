@@ -208,14 +208,9 @@ export function V86(options)
     this.parallel_forced = parallel_option === true;
     this.parallel_requested = false;
     this.parallel_fallback = "not requested";
-    if(this.cpu_type === "arm64" && parallel_option === true)
-    {
-        throw new Error("parallel: true is not supported with cpu_type \"arm64\" yet (docs/arm64-virt-android16-plan.md P8.2)");
-    }
     if(parallel_option === true || parallel_option === "auto")
     {
-        const reason = this.cpu_type === "arm64" ? "arm64: cores in workers come with P8.2" :
-            (options.cpu_cores || 1) <= 1 ? "one core" :
+        const reason = (options.cpu_cores || 1) <= 1 ? "one core" :
             options.cpu_clock && options.cpu_clock["mode"] === "deterministic" ? "deterministic clock" :
             parallel_unsupported_reason(options.cpu_cores);
         if(!reason || this.parallel_forced) this.parallel_requested = true;
@@ -299,7 +294,7 @@ export function V86(options)
                 if(this.parallel_requested)
                 {
                     if(!this.parallel_forced) v86_bin_fallback = v86_bin;
-                    v86_bin = "v86-parallel.wasm";
+                    v86_bin = arm ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm";
                 }
 
                 // (tests: V86_WASM selects another build, e.g. build/v86-parallel.wasm)
@@ -451,6 +446,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings["cpu_features"] = options["cpu_features"];
     settings["cpu_features_unreleased"] = options["cpu_features_unreleased"]; // (tests and development)
     settings["jit_switches"] = options["jit_switches"]; // (src/jit_switches.js)
+    settings["a64_profile"] = options["a64_profile"]; // (the arm64 CPU's profile: src/arm/cpu.js)
     settings.disable_jit = options.disable_jit;
     settings["jit_backend"] = options["jit_backend"];
     // (ir_region_budget, ir_stats, ir_verify, ir_dump, ir_opt_level,
@@ -509,7 +505,17 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "virtio" : "ne2k" };
+    // (the virt machine: only when asked for, since its virtio devices take
+    // the virtio-mmio slots in order, as the reference's -device options do)
+    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "none" : "ne2k" };
+    // the virt machine's virtio-blk disks (P5.4) and virtio-rng (P5.5)
+    // (src/machine_options.js refuses them on the PC machines)
+    if(options.virtio_disks) settings.virtio_disks = [];
+    if(options.virtio_rng) settings.virtio_rng = true;
+    // (their transport: virtio-mmio or the PCIe host, P5.7)
+    if(options.virtio_transport) settings.virtio_transport = options.virtio_transport;
+    // (virtio-input: a keyboard and a tablet, or the kinds listed, P5.8, P7.4)
+    if(options.virtio_input) settings.virtio_input = Array.isArray(options.virtio_input) ? options.virtio_input.slice() : true;
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -694,6 +700,14 @@ V86.prototype.continue_init = async function(emulator, options)
     // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
     {
+        // (virtio_disks[i]: "virtio_disk" + i)
+        if(name.startsWith("virtio_disk"))
+        {
+            const i = +name.slice("virtio_disk".length);
+            const disk = options.virtio_disks[i];
+            settings.virtio_disks[i] = { buffer, id: disk.id, readonly: !!disk.readonly };
+            return;
+        }
         switch(name)
         {
             case "hda":
@@ -757,7 +771,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         // hard disks in a container format (docs/disk-image-formats-plan.md);
         // without a format, RAW in the buffers of src/buffer.js
-        if(check_image_options(name, file, name === "hda" || name === "hdb"))
+        if(check_image_options(name, file, name === "hda" || name === "hdb" || name.startsWith("virtio_disk")))
         {
             files_to_load.push({
                 name,
@@ -825,6 +839,14 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("initrd", options.initrd);
     add_file("kernel", options.kernel);
     add_file("dtb", options.dtb);
+    // the virt machine's virtio-blk disks: {url or buffer, async, size, id,
+    // readonly}; the buffer an ArrayBuffer, a File, or a buffer object of
+    // its own (get, set, load), as hda may be
+    (options.virtio_disks || []).forEach((disk, i) =>
+    {
+        const own = disk.buffer && disk.buffer.get && disk.buffer.set && disk.buffer.load;
+        add_file("virtio_disk" + i, own ? disk.buffer : disk);
+    });
 
     if(options.filesystem && options.filesystem.handle9p)
     {
@@ -1376,8 +1398,9 @@ V86.prototype.get_diagnostics = async function()
 /**
  * Press the ACPI power button. A running ACPI guest gets a power button event
  * (usually starting an orderly shutdown). A machine that the guest has turned
- * off (event "acpi-power-off") is powered on and started again.
- * Resolves to false if the machine has no ACPI (option acpi).
+ * off (event "acpi-power-off"; the virt machine: PSCI SYSTEM_OFF) is powered
+ * on and started again. Resolves to false if the machine has no ACPI (option
+ * acpi) and is not off.
  */
 /**
  * The ACPI power state: "S0", "S3" (suspended to RAM), "S4" (hibernated and
@@ -1399,6 +1422,14 @@ V86.prototype.power_button = async function()
     const acpi = this.v86.cpu.devices.acpi;
     if(!acpi)
     {
+        // (the virt machine has no power button; one the guest turned off
+        // with PSCI SYSTEM_OFF is powered on and started again)
+        if(this.v86.cpu.powered_off && this.v86.cpu.powered_off())
+        {
+            await this.restart("power-on");
+            await this.run();
+            return true;
+        }
         return false;
     }
     if(acpi.soft_off)
@@ -1615,7 +1646,15 @@ V86.prototype.get_instruction_counter = function()
     if(this.worker_controller) return this.worker_controller.instructions;
     if(this.v86)
     {
-        return this.v86.cpu.instruction_counter[0] >>> 0;
+        const cpu = this.v86.cpu;
+        // (the ARM core counts the instructions each core retired, P0.9)
+        if(cpu.cpu_type === "arm64")
+        {
+            let retired = 0;
+            for(let core = 0; core < cpu.cores; core++) retired += cpu.retired_instructions(core);
+            return retired >>> 0;
+        }
+        return cpu.instruction_counter[0] >>> 0;
     }
     else
     {
@@ -1745,7 +1784,7 @@ V86.prototype.disk_buffer = function(name)
 /**
  * What an export of a disk writes (export_disk_image): its size as the guest
  * sees it, and its image's format, file size and the bytes the guest wrote
- * @param {string} name hda, hdb, cdrom, sata<port>
+ * @param {string} name hda, hdb, cdrom, sata<port>, (virt) virtio_disk<n>
  * @return {!Promise<!Object>}
  */
 V86.prototype.disk_image_info = async function(name)
@@ -1770,7 +1809,7 @@ V86.prototype.disk_image_info = async function(name)
  * I/O finishes first, so the stream is one view of the disk; it goes on
  * afterwards. `write` gets each chunk (at most 1 MiB) and may return a
  * promise: the next chunk waits for it.
- * @param {string} name hda, hdb, cdrom, sata<port>
+ * @param {string} name hda, hdb, cdrom, sata<port>, (virt) virtio_disk<n>
  * @param {{write: function(!Uint8Array):(Promise<*>|undefined),
  *          format: (string|undefined),
  *          progress: (function({loaded: number, total: number})|undefined),

@@ -21,7 +21,7 @@ const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios
     "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features"];
 
 /** Options of the virt machine that the PC machines reject */
-const VIRT_ONLY = ["kernel", "dtb", "virtio_disks"];
+const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input"];
 
 /** The display adapters of the virt machine (no VGA) */
 const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
@@ -71,10 +71,6 @@ export function check_machine_options(options)
         {
             throw new Error("acpi: true is an option of the PC machines; the virt machine describes itself with a device tree");
         }
-        if(given(options["extended_memory_size"]))
-        {
-            throw new Error("extended_memory_size is not supported on machine_type \"virt\" yet (docs/arm64-virt-android16-plan.md P8.5)");
-        }
         const adapter = options["graphics_adapter"];
         if(adapter !== undefined && typeof adapter === "string" && !VIRT_GRAPHICS_ADAPTERS.includes(adapter))
         {
@@ -82,13 +78,23 @@ export function check_machine_options(options)
                 VIRT_GRAPHICS_ADAPTERS.map(name => "\"" + name + "\"").join(", "));
         }
         const net = options["net_device"];
-        if(net && net["type"] !== undefined && net["type"] !== "virtio")
+        if(net && net["type"] !== undefined && net["type"] !== "virtio" && net["type"] !== "none")
         {
             throw new Error("net_device type " + JSON.stringify(net["type"]) + " is not on machine_type \"virt\"; it has virtio-net");
         }
         if((given(options["hda"]) || given(options["hdb"])) && given(options["virtio_disks"]))
         {
             throw new Error("hda/hdb and virtio_disks both name the virt machine's first disks: give one of them");
+        }
+        const input = options["virtio_input"];
+        if(Array.isArray(input) && input.some(kind => !["keyboard", "tablet", "multitouch"].includes(kind)))
+        {
+            throw new Error("virtio_input is true or a list of \"keyboard\", \"tablet\" and \"multitouch\", got " + JSON.stringify(input));
+        }
+        const transport = options["virtio_transport"];
+        if(transport !== undefined && transport !== "mmio" && transport !== "pci")
+        {
+            throw new Error("virtio_transport is \"mmio\" (the default) or \"pci\", got " + JSON.stringify(transport));
         }
     }
     else

@@ -238,7 +238,7 @@
                 <td><label for="memory_size">Memory size</label></td>
                 <td>
                     <input id="memory_size" type="number" value="128" min="16" max="63488" step="16"> MB<br>
-                    <small>Above 2048 MB, the rest is extended RAM: only 64-bit guests can use it, and it is much slower (code there is not compiled). This selects the x86_64 CPU type</small>
+                    <small>Above 2048 MB (arm64: 1792 MB), the rest is extended RAM: only 64-bit guests can use it, and it is slower. With an x86 CPU type this selects x86_64</small>
                 </td>
             </tr>
 
@@ -272,9 +272,9 @@
                     <select id="cpu_type">
                         <option value="x86" selected>x86</option>
                         <option value="x86_64">x86_64</option>
-                        <option value="arm64">arm64 (in development)</option>
+                        <option value="arm64">arm64 (experimental)</option>
                     </select><br>
-                    <small>x86_64 (experimental) is needed for 64-bit operating systems (e.g. Windows 8.1 x64); arm64 runs on the virt machine and does not boot anything yet</small>
+                    <small>x86_64 (experimental) is needed for 64-bit operating systems (e.g. Windows 8.1 x64); arm64 runs on the virt machine: give it a Linux kernel and initrd (and, as the CD image, e.g. Alpine's aarch64 ISO), or ?kernel.url=&amp;initrd.url=&amp;cdrom.url=</small>
                 </td>
             </tr>
 

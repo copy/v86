@@ -1563,7 +1563,57 @@ flowchart TD
 - 至此 P1–P3 的验收完成（P2a、P2b、P3 全部），JIT 计划 J2 的开工条件中属于本计划的部分已满足；A3 余下的是
   P5（virtio 与 live 阶）。
 
-### A4 中 P6 的部分（2026-10-16；JIT 计划 J2，P6.7 未做）
+### A3 中 P5 的部分（2026-10-16；A3 完成）
+
+提交：`592633ae`（P5.1–P5.5、P5.9 与 live 阶）、`7dfe115c`（安装到 virtio-blk 盘）。A3 的余下部分（P2b、P3）记在上面一节。
+
+- P5.1：`src/virtio.js` 的 VirtIO 本身就是核心（特性、状态、config generation、队列与请求），transport 是选项：不给即
+  virtio-pci（x86 的路径，行为不变）；给了就由 transport 按名字取 capability 的字段（attach、irq_line、present、kind、自己的
+  状态）。没有另起一个 VirtioCore 类：核心的字段与方法原样留在 VirtIO 上，x86 的设备一行不用改。`present()` 取代
+  `pci.absent`；快照标记 transport，恢复时 transport 不同则拒绝。修正 `on_driver_ok` 永不触发（状态先写入、后比较）。
+- P5.2：ARM CPU 的 DMA 门面加上 `read/write8/16/32_physical` 与 `validate_physical_range`，VirtQueue 原样可用；设备的写入经
+  `a64_bus_written` 让编译代码失效、清除其他核的独占保留。virtio-gpu 的内存访问留给 P7.1。
+- P5.3：`src/virtio_mmio.js`（version 2）。DeviceID、队列寄存器（QueueReady=0 收回队列）、InterruptStatus 与 InterruptACK
+  （不是读清零）、QueueNotify 带队列号、ConfigGeneration、SHM 寄存器（没有区域时读全 1）；0x100 起的设备配置可按整个字段或
+  其中的字节访问（Linux 读 u64 时分两次 32 位）。32 个槽位，SPI 16 + n、边沿触发；设备从槽 31 往下放，次序是磁盘、net、rng、
+  console，与参考按 `-device` 次序分配的结果相同（QEMU 的 `/proc/interrupts` 里 virtio0–4 正是 GICv3 75–79）。空槽读出参考的
+  值，Linux 跳过。`src/virt/io.js` 的类改名为 `VirtDeviceSpace`（原来也叫 VirtIO）。
+- P5.4：`src/virtio_blk.js`（IN、OUT、FLUSH、GET_ID、只读、SEG_MAX、BLK_SIZE）。块后端抽成 `src/block_backend.js` 的一组函数
+  （读取的取消、写入的 reset_epoch、FLUSH 等待在途写入，都计入快照等待的在途 I/O），IDEInterface（AHCI 的驱动器也是）改用
+  同一组函数。选项：`virtio_disks: [{url 或 buffer, id, readonly}]`（或 `hda`、`hdb`）、`virtio_rng`、`net_device: {type:
+  "virtio"}`、`virtio_console`；arm64 上网络改为按需开启（槽位要与参考的设备对应），`net_device: {type: "none"}` 合法。
+- P5.5：`src/virtio_rng.js`（`crypto.getRandomValues`）；virtio-net、virtio-console 接受 transport。virtio-console 的附加端口
+  照旧共 4 个。
+- P5.9：virt 的快照按槽位与种类记下每个 virtio 设备，布局不同则拒绝；可写盘的内容照 IDE 的做法存入，只读盘只存大小与
+  SHA-256（加载时用 `crypto.subtle` 计算），恢复时核对。`tests/a64/device_io_reset.mjs`（`a64-virt-device-tests`）：复位时在途的
+  读被丢弃、在途的写落盘但不应答、快照等待在途的读、其他布局的快照被拒绝；去掉复位对后端的复位时它失败。
+- live 阶（`tests/a64/linux_boot.mjs` `A64_STAGE=live`）：ISO 在 virtio-blk 上经 modloop 启动到 login；probe 从 `a64probe` 盘运行
+  （O_DIRECT，`direct_io=1`）；virtio-net 回显 16 帧；`/dev/hwrng` 读到 64 字节；hvc0 上登录。QEMU 参考加了同样的设备、同样的
+  次序（net 用 hubport，console 用 null chardev），CPU 特性比对照旧。到 login 的时间：
+
+  | | 1 核 | 2 核 | 4 核 |
+  | --- | --- | --- | --- |
+  | 解释器 | 232 s | 267 s | 341 s |
+  | page tier | 30 s | 39 s | 34 s |
+  | QEMU | 11 s | — | — |
+
+  `A64_LINUX_SNAPSHOT=1`：在 probe 的 `A64_PROBE_START`、`A64_PROBE_OK`、`A64_PROBE_XC` 处交替做 V7 流式（经文件写出读回）与 V6
+  单缓冲快照并恢复（107–116 MB，只读的 ISO 不在其中），结果不变。
+- 安装（`tests/a64/linux_install.mjs`）：同一次机器会话里，从 ISO 用 `setup-disk -m sys -s 0 -B none`（没有引导程序，机器直接
+  加载内核，同参考）离线装到空盘，记下文件的 md5，fsck 干净，把装好的 `/boot` 的内核与 initramfs 写到导出盘；机器重启进装好
+  的系统（它自己的内核 6.18.56 与 initramfs，按 UUID 挂根），文件 md5 一致；正常重启回 ISO，根文件系统 fsck 仍然干净。page tier
+  下三段 91、42、47 s。偏差：virt 版 ISO 没有内核包，离线安装需要 `tools/alpine_repo.mjs --arch aarch64 --set sys` 取得的本地
+  软件源盘（live 系统的 world、linux-virt、linux-firmware-none 与 setup-disk 的工具，50 个包 46 MiB，所有者 2026-10-16 同意
+  下载）；它要单独使用，因为镜像的索引与 ISO 的并存时 apk 会选镜像的新版本，而那些文件不在。`setup-disk` 会停掉 modloop
+  服务，连带卸下启动介质，所以软件源不能指向 ISO。工具的依赖解析补上了按 provider_priority 选虚拟名的提供者与 install_if。
+- 记下的坑：busybox ash 在提示符后发 `ESC [ 6 n`（查询光标位置），按整段文本轮询时提示符的模式要容许它；shell 会回显输入的
+  命令，结束标记要单独成行才算；macOS 的 `sed` 不认 `\b`。
+- x86：`devices-test`、`api-tests`、`highmem-tests`、`acpi-device-tests`（含 IDE 在途 I/O）与完整的 R-q35 通过；R 级性能门禁
+  （改了 `src/ide.js` 与 virtio 核心）通过：`tools/owner_perf.mjs`，6 个负载各 3 次会话，基线 `79c37884`，本支相对基线
+  win98-diablo1 1.013、win98-ra2 1.022、win98-themehospital 1.000、win98-boot 0.986（7.0 → 7.1 s）、xp 1.006、
+  win81 1.000（174 s），都在噪声内（`build/bench/a3gate/owner.json`）。
+
+### A4 中 P6 的部分（2026-10-16；JIT 计划 J2；A4 完成）
 
 JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论。提交：`94e24279`（page tier 第一部分）、`e5860bf9`（标量 FP、
 指标工具与 make 目标）、`1c9bd445`（AdvSIMD 向量模板）、`9957441e`（`a64_asid_tag`、TBI 与回绕修正、P3.7 的保留修正）、
@@ -1599,4 +1649,312 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - P6.7：所有者 2026-10-16 同意下载；`A64_WORKLOAD=jit`（包解成 initramfs 里的又一个 cpio，1.5 GiB RAM）下 node、
     `java Hello.java`、luajit（`-jon` 与 `-joff`）与 `pcre2test -jit` 的输出在 QEMU、解释器（1 核 433 s）与 page tier（1/2/4 核
     75–82 s）上一致，page tier 中途快照恢复后结果不变。ARM 核心的客体内存必须小于 2 GiB（wasm32 一次分配的上限），更大的属于 P8。
-  - 还没做的：live 阶与 `boot_to_login_ms`、E 级初值的比较（等 P5）。JIT 计划的 `vJ2` 已打。
+  - E 级（A3 的 live 阶之后，2026-10-16，release 构建，安静的 10 核 Mac，3 次会话的中位数）：1 核 page tier 从 ISO 到 login
+    并跑完 probe 33.1 s（login 32.2 s）；同一宿主上重测的 x86_64 page tier 到 login 并跑完全部 probe 24.1 s（login 23.6 s，
+    `tests/x64/linux_boot.mjs` 新打印的 `X64_LINUX_PROBES_MS`），比值 1.37，在初值 3 倍之内。按计划 A4 实测后冻结：E 级的
+    上限定为 3 倍不变。P9.3 的 X 要等 P9 有了 androidish 内核才能测，仍是初值 20%。JIT 计划的 `vJ2` 已打；A4 由此完成
+    （`vA4` 打在记下这次测量的提交上）。
+
+### A5（2026-10-16；P5.6–P5.8、P5.10 与 P7，P7.5 未做）
+
+提交：与本节同一个提交（`vA5`；`vA4` 也打在它上面，A4 的 E 级测量记在上面一节）。
+
+- P5.6：`src/pci.js` 的 PCI 加 `generic` 选项，作 virt 的通用 PCIe 主桥：不注册 0xCF8/0xCFC/0xCF9，不建 i440FX；配置空间只经
+  高位 ECAM（`ecam_handler`，`0x40_1000_0000`，256 MiB，总线 0–255，8 字节访问拆成两次 4 字节）；00:00.0 是 QEMU 的
+  gpex-root（1B36:0008，class 0600，子系统 1AF4:1100）；INTx 按参考的 interrupt-map 路由：槽 s 的引脚 p（0–3）接 SPI
+  3 + (p + s) % 4，电平触发，多个功能共用时取或（`A64CPU.set_shared_gsi_level`，快照记录各 SPI 的来源）；没有 MSI（GIC
+  没有 ITS）；机器复位时每个功能回到上电配置（BAR 未分配、命令寄存器为 0）。DTB 加上与参考相同的 `pcie@10000000` 节点，
+  `tests/a64/dtb.mjs` 不再把它列为允许的差异；布局版本升为 2（旧快照被拒绝）。
+- P5.10：64 位 BAR（`bits64`：下一个 BAR 寄存器是高半部，探测时两半都读出大小掩码）与 4 GiB 以上的地址。实现与计划的
+  写法不同：两个 PCIe 窗口（32 位与 64 位）是 AddressSpace 里固定的 MMIO 区间，由主桥按地址分派到解码它的 BAR
+  （`window_handler`，没有 BAR 处读全 1，同参考），所以普通 BAR 移动不改变映射、不递增 generation；只有设备内存（下面的
+  P7.1）映射进窗口时，窗口被切开、generation 递增。BAR 只在功能的内存空间使能时解码。`tests/a64/address_space.mjs` 加了
+  ECAM、64 位 BAR 的探测、在 4 GiB 以上与以下之间移动、使能与复位的用例。x86 的 32 位 BAR 与 ECAM 路径不变。
+- P5.7：`virtio_transport: "pci"` 时 virtio 设备是 PCIe 主桥上的功能，从 00:01.0 起按 virtio-mmio 槽位的次序排列，布局同
+  QEMU v9.2.0 的非过渡型 `virtio-*-pci`：capability 全在 BAR 4（64 位可预取，16 KiB：common、ISR、device、notify 各 4 KiB），
+  QEMU 的 class code 与子系统 1AF4:1100，上电时命令寄存器为 0。Linux 把 BAR 4 放在 64 位窗口（`0x80_0000_0000` 起）。
+  live 阶的 `A64_TRANSPORT=pci` 让两台机器都列出 `/sys/bus/pci/devices` 的 ID、class、子系统、版本、引脚与每个 BAR 的起止
+  和标志，v86 的必须与参考的逐行相同（mmio 下也比较，只有主桥）；参考用 `vectors=0`（没有 MSI-X，因此也没有 BAR 1）与
+  virtio-net 的 `romfile=`（没有扩展 ROM）。偏差：比较用 `/sys` 而不是 `lspci -vv`（pciutils 不在软件源里，要另行下载；
+  `/sys` 给出的 BAR 位置、类型与大小与它相同）。
+- P5.8：`src/virtio_input.js`：键盘（总线的 PS/2 set-1 扫描码转 evdev KEY_*，含 0xE0 扩展键与 Pause）、tablet
+  （`mouse-absolute` 转 0–0x7FFF 的 EV_ABS、按键与滚轮）；select/subsel 配置窗口的内容（名字、ID、事件位、轴的范围）
+  同 QEMU 的 virtio-keyboard 与 virtio-tablet（wheel-axis 开）。选项 `virtio_input: true`。live 阶在 v86 上注入两个键
+  （一个扩展键）的按下与抬起、一个位置与一次左键，客体用 `dd` 与 `hexdump` 读 `/dev/input/event*`（`struct input_event`），
+  事件序列必须与注入的完全相同。偏差：用 `dd`/`hexdump` 代替 evtest（evtest 不在软件源里）。
+- P7.1：virt 上的 virtio-gpu（`graphics_adapter: "virtio_gpu"`，与 PC 的 virtio-vga 同一个插件）：机器句柄的 `has_vga`
+  为假时没有 VGA 核心、BAR0、ROM 与端口，class 0380，驱动的第一个命令之前屏幕为空白文本屏；排在 virtio 设备之后的
+  下一个 PCI 槽（或 virtio-mmio 槽）。host visible memory 是 ARM 核心新的设备内存：显示适配器存在时，客体内存在 RAM 之后
+  多出 128 MiB（`a64_device_memory`），区域按 BAR 映射成 `Kind::Device`，核心按 RAM 读写，但写过的页被标记
+  （`a64_device_take_dirty`，同 x86 的 mmio_ram），page tier 的访问缓存不为它的写入填条目（写入走解释器的路径，由它标记）；
+  映射进 PCIe 窗口时窗口被切开（`A64CPU.update_windows`）。PCI 上它是 BAR 2（64 位可预取，同 QEMU 的 virtio-gpu-pci），
+  capability 在 BAR 4；virtio-mmio 上没有 BAR，放在 64 位窗口的顶端，SHM 寄存器给出地址。DisplayHub 的计时器挂在
+  `run_hardware_timers`；快照记录适配器（state[12]）。
+- P7.2：所有者 2026-10-16 同意下载 aarch64 的 GPU 软件源（`tools/alpine_repo.mjs --arch aarch64 --set gpu`：3.24 的 130 个包
+  117 MiB，3.23 的 Mesa 25.2 31 个包 76 MiB）；解析器改为把 live 系统的基础（alpine-base 的闭包）算作已装，install_if 才会
+  带上 seatd-openrc（因此比第一次多下了约 2.6 MiB）。harness 没有另写一份：`tests/x64/linux_gpu.mjs` 加 `GPU_ARCH=aarch64`，
+  `tests/a64/linux_gpu.mjs` 设好它再导入；ISO、软件源与测试程序在按序列号找到的 virtio-blk 盘上（步骤里写成 `$REPO`、
+  `$TESTS`），ICD 换成 `*.aarch64.json`，gltest 与 vktest 用 clang 编成 aarch64 musl 程序（各加了 aarch64 的 `_start`），
+  客体 RAM 1.5 GiB（根文件系统是 RAM 的一半，aarch64 的包放不进 512 MiB），page tier；客体程序的启动约慢 3 倍，所以步骤里的
+  sleep、timeout 与截图延迟都乘 3。`make a64-gpu-guest-tests`（R-a64-gpu）：drm、gl、resize、input、gltest、virgl、kms、
+  venus、vkcube，另有 virtio-mmio 上的 drm。
+- P7.3：新场景 `kms`（`virgl43-hostmem`）：两个 plane（primary 与 cursor）、`modetest -a` 对模式与 primary plane 的原子提交
+  （测试图案上屏）、光标、`EGL_ANDROID_native_fence_sync` 与 dma-buf 的导入导出、weston-simple-dmabuf-egl 经 linux-dmabuf
+  显示（显式同步关与开，weston 报告 explicit sync: yes）。
+- P7.4：virtio-input 多点触控（QEMU 的 virtio-multitouch：11 个槽、tracking ID 取槽号、INPUT_PROP_DIRECT、BTN_TOUCH，MT
+  协议 B），总线事件 `touch`（`src/browser/mouse.js` 发出页面上的全部触点）；`virtio_input` 也可以是种类的列表。新场景
+  `input`：weston 带输入设备启动（不用 `--continue-without-input`），在 weston-terminal 里输入的命令被执行，指针移到屏幕
+  中央并点击，多点触控的两个触点按下与抬起从 evdev 读出，序列正确。live 系统有 eudev 的 libudev 而没有 udevd，libinput
+  只接受 udev 属性标明为输入设备的节点，所以场景写入 udevd 的 input_id 会写的数据库条目；按键间隔 400 ms：更快时 weston
+  软件渲染期间来不及读，evdev 的 64 个事件溢出（SYN_DROPPED），libinput 丢弃按键。
+- P7.5（可选）：没有做，留给 Android 的音频（P12）。
+- 结果（arm64，page tier，单核）：drm 的 kmscube（llvmpipe）、gl 的 weston 与 simple-egl/shm、resize、input、mmio 上的 drm
+  都通过；gltest 在 virgl（GL 4.3，Chrome 的 WebGPU）上 35 个用例 0 失败（含两个经 host visible memory 的 buffer storage
+  用例）；virgl 场景含 kmscube 绘制中保存并恢复的 892 MiB 快照、之后 gltest 仍 0 失败、weston 上的 es2gears；venus 的
+  vktest 27 个用例全部通过，vkcube 在 weston 上绘制，中途快照恢复后继续绘制。lavapipe 在 aarch64 上的 12 个要建图形管线的
+  用例里崩溃（SIGSEGV），QEMU 的客体里也一样，与 v86 无关：aarch64 上 lavapipe 一个用例一个进程地跑，并要求 Venus 全部
+  通过（vktest 自己检查结果，其期望值是 x86_64 上 lavapipe 的）。
+- live 阶与安装在 pci 下：解释器 1/2/4 核、page tier 1 核、page tier 2 核加快照、page tier 安装都通过，PCI 功能与参考的一致。
+  到 login 的时间（release 构建，安静的机器）：page tier 33.6 s（跑完 probe 34.9 s），解释器 232 s（与 mmio 相同）。4 核解释器在宿主有负载时会在 jitterentropy 的初始化里触发
+  soft lockup（客体时间跟随宿主的墙钟，循环在客体时间里变长，超过 20 s 的阈值）；安静时 jitterentropy 在客体 25.8 s 时
+  完成，通过。
+- 记下的坑：macOS 的 Unix socket 路径不能超过 104 字节（QEMU 的 monitor 放在 scratchpad 里要用相对路径）；kmscube 在
+  aarch64 的 page tier 上启动约 30 s（截图早了只见清屏的灰色）；`ls` 带颜色的输出会让行首匹配落空。
+- x86：`devices-test`、`api-tests`、`highmem-tests`、`acpi-device-tests`、完整的 R-q35、x86 的 virtio_gpu drm 场景通过；R 级
+  性能门禁通过：`tools/owner_perf.mjs`，6 个负载各 3 次会话，基线 vA3（`4b57e437`），本支相对基线 win98-diablo1 1.004、
+  win98-ra2 0.997、win98-themehospital 1.001、win98-boot 1.015、xp 1.000、win81 0.978（178 → 182 s；两边各自的 3 次会话
+  在 173–184 s 之间，A3 门禁时为 167–183 s，在噪声内；`build/bench/a5gate/owner.log`）。随后单独重测 win81 时宿主上有别的
+  负载（两边都慢到 207–232 s），结果作废。
+
+### A6 中 P8.1、P8.5 与 P8.7 的部分（2026-10-16；P8.2–P8.4、P8.6 未做）
+
+提交：与本节同一个提交（不打标签，`vA6` 等 A6 完成）。
+
+- P8.1：生命周期。
+  - PSCI SYSTEM_OFF 之后重新上电：`V86.power_button` 在 virt 上调 `restart("power-on")`；`reboot_internal("power-on")`
+    清掉 RAM、设备内存与 extended RAM（真实机器断电后内容不保留），再按启动文件重新加载内核。
+  - s2idle：`echo freeze > /sys/power/state`，由 PL031 的闹钟（`/sys/class/rtc/rtc0/wakealarm`，3 s 后）唤醒；hibernate：
+    `echo disk > /sys/power/state` 写到第三块 virtio-blk 盘（512 MiB 的 swap，序列号 `a64swap`），机器经 SYSTEM_OFF 关机，
+    测试按电源键开机，命令行加 `resume=UUID=<swap 的 UUID>`，并把 `virtio_mmio,virtio_blk` 放进 `modules=`（Alpine 的
+    initramfs 要先装好盘的驱动才能找到 swap）；恢复后检查 tmpfs 中 4 MiB 随机文件的 MD5 不变、`/sys/devices/system/cpu/online`
+    是全部 CPU。`A64_LINUX_SLEEP=N` 跑 N 轮 s2idle 与 N 轮 hibernate；这个变体不与参考比较 PCI 功能（参考没有 swap 盘）。
+  - `make a64-lifecycle-guest-tests`：解释器与 page tier × 1/2/4 核 × mmio/pci 的 live 阶，每个组合在 probe 的三个标记处
+    交替做 V7 流式与 V6 快照（约 107–120 MiB）并恢复；page tier 下 1/4 核 × mmio/pci 各两轮 s2idle 与两轮 hibernate；
+    解释器 1 核各一轮。17 个组合全部通过（release 构建）。page tier 1 核：到 login 38.6 s，全程 45.2 s；s2idle 一轮约
+    2.7–3.0 s，hibernate 一轮 14–16.6 s（其中关机前 3.9–4.6 s）；解释器 1 核 hibernate 一轮 116 s。
+- P8.5：A64 的大内存。
+  - 中立引擎 `src/rust/extended.rs`（两个核心共用）：帧池、FIFO 加二次机会的替换、载入与写回、钉住、flush/discard、
+    代码页位图、可重入锁、统计；核心各自的部分经 `crate::isa` 的钩子接入：`extended_release_caches`、
+    `extended_retire_cached_writes`、`extended_code_written`、`extended_discarded`。x86 留在 `src/rust/x64/extended.rs`：
+    aperture、访问缓存的帧（`cache_frame`、CACHED）、32 位 TLB、代码键、LOCK 操作数、`x64_ext_*` 导出（`x64_ext_configure`
+    仍要求 ≥ 4 GiB）。
+  - ARM（`src/rust/aarch64/extended.rs`）：extended RAM 是地址空间里的 `Kind::Extended` 区间（`Lookup::Extended`），从 4 GiB
+    起，到参考 RAM 的上限 256 GiB 为止；解释器、页表遍历与取指按页经帧访问，访问缓存不为它填条目，编译代码也走这条路。
+    page tier 从 extended 页编译代码，代码键从 `EXTENDED_CODE_KEY`（1 << 20）起，函数比帧活得久；页的下一次写入（核心、
+    DMA）经 `extended_code_written` 让它退役。cores 在 Worker 中时（P8.2）那里的代码一律解释执行。独占监视器用 2 GiB 以上的键
+    （按 2 GiB − 64 KiB 取模，别名只会让保留失效、客体重试）；写入清除其他观察者的保留。DMA facade：`dma_classify` 给 −1，
+    blob 与标量按页经钉住的帧复制。DTB 多一个 `memory@100000000` 节点，Linux 认作普通内存。上电时清零（`clear_extended_memory`
+    同时丢掉编译代码）；单缓冲 `save_state()` 先写回再拒绝，V7 流式快照带上它。`machine_options` 不再拒绝 virt 上的
+    `extended_memory_size`；index.html 把超过 1792 MB 的部分放进 extended RAM，不再改选 x86_64。
+  - x86 的一个修正：单缓冲 `save_state()` 原先只看 `touched`，只在帧里写过、还没写回的页不算，快照会静默丢掉它们；现在先
+    `flush_extended_memory()` 再判断（ARM 同样）。`src/state.js` 改调 `cpu.flush_extended_memory()`。
+  - 测试：`tests/a64/extended_memory.mjs`（64 MiB RAM 加 8 MiB extended、1 MiB 帧）：总线查找与各宽度、跨页访问、覆盖全部
+    的图案（驱逐 4359 次）、DMA 的 blob 与标量、4 GiB 处经恒等映射运行的代码在帧被驱逐后由 DMA 改写再运行（解释器取指
+    20 万条；page tier 从 extended RAM 执行 19.6 万条，DMA 写入让它退役 1 次）、单缓冲快照被拒、V7 流式快照恢复到另一台
+    机器、上电清零、DTB 节点。probe 新增 `memtest=<MiB>`（配合 `high=<pfn>`）：按 64 MiB 一块映射、写入、校验，经 pagemap
+    统计落在 extended 区的页，并在其中一页里运行编译后改写的代码、做独占计数与 DC ZVA。`make a64-extended-guest-tests`：
+    3 GiB（1 GiB RAM 加 2 GiB extended）上 memtest 2304 MiB，page tier 1 核 95.5 s、解释器 1 核 88.5 s（memtest 的时间花在缺页、
+    清零与帧的换入换出上，编译代码帮不上），0 错误，589824 页中 482816 页（82%）在 extended 区；4 GiB（1 GiB 加 3 GiB）上
+    page tier 2 核 memtest 3328 MiB，159 s，0 错误，851968 页中 736256 页（86%）在 extended 区；Linux 报
+    `Memory: 3995676K/4194304K available`。三个运行里 extended 页中的代码、独占计数与 DC ZVA 都正确（帧池 512 MiB：4 GiB 时
+    换入 154 万次、写回 78 万次）；probe 之后的 16 MiB 块全部落在 extended 区（`high_pages=4096`）。
+  - 待决问题 8 的实测：来自 extended RAM 的退役指令占比（解释器取指加编译代码退役，除以全部退役指令）在 3 GiB 的 memtest
+    运行中为 3.0%（page tier）与 2.9%（解释器），4 GiB 2 核为 2.9%，1.5 GiB（512 MiB 加 1 GiB）为 2.5%：在 Alpine 的 initramfs
+    阶，内核与 probe 的代码几乎都在 RAM 里（extended 区是后分配的页）。阈值仍由 P8.2 之后、在并行模式下实测再定。
+  - x86 的回归：`make extended-memory-tests`（1 核与 2 核）、`make x64-extended-guest-tests`（Alpine x86_64，6 GiB extended，
+    memtest 5120 MiB，0 错误，全部页在 extended 区）通过。`make core-split-check`：20 个函数变化、4 个增加、4 个删除——增删
+    的是挪进 `crate::extended` 的引擎函数（`resident`、`read`、`write`、`release_cached`），热路径上变化的函数（`main_loop`、
+    `run_cpu_slice`、`read8_mapped`、`mmap_write32`、`string` 等）逐条比较只有调用目标的路径不同；真正改动的只有
+    `cache_frame`、`release_cached` 与 `x64_ext_*`，都只在有 extended RAM 时执行。所有者的性能负载（Win98、XP、Win 8.1）
+    不用 extended RAM，执行的代码相同，所以不跑 R 级的性能部分。
+- P8.7：浏览器。`tests/a64/browser.mjs` 用本地服务器（ISO 按 Range 读取）在 headless Chrome 里打开
+  `tests/a64/browser_test.html`：Alpine aarch64 从 ISO 启动到串口上的 shell，执行 `uname -m` 与 probe。
+  四种组合都通过（page tier，release 的 bundle）：源码树 40.4 s 到 login，bundle 37.0 s，bundle 加 CPU worker 33.4 s，
+  bundle 加 virtio-pci 37.3 s。第一次运行时 CPU worker 用了 224.8 s：`src/browser/cpu_worker.js` 没有把 `jit_switches`
+  传给 worker，arm64 核心在 worker 里是解释执行的，已改。
+  demo 页：arm64 的内核、initrd、命令行可由查询参数给出（`kernel.url`、`initrd.url`、`cmdline`），CD-ROM 与硬盘映射成
+  virtio-blk 盘（光盘只读），加 virtio-rng 与 virtio-input，并打开 page tier（`jit_switches: {a64_page: 1}`，`disable_jit`
+  时不开；库的默认值仍是关，翻转要走 F 级）；CPU worker 传递 virtio_rng、virtio_input、virtio_transport 与 jit_switches。
+  所有者在桌面 Chrome 上的手动运行留到 A6 结束。
+- 新的 make 目标：`a64-lifecycle-guest-tests`、`a64-extended-guest-tests`、`a64-browser-tests`；`a64-virt-device-tests`
+  加上 `tests/a64/extended_memory.mjs`。
+
+### A6 中 P8.2–P8.4 的部分（2026-10-16；并行 Worker）
+
+提交：与本节同一个提交。
+
+- P8.2：`build/v86-arm64-parallel.wasm`（`--features "aarch64 parallel"`、`+atomics`，`CARGO_TARGET_DIR=build/arm64-parallel`，
+  `tools/parallel_wasm.mjs` 不用改）；`parallel: true`（或 `"auto"`）时核心 1 起在 vCPU Worker 里（`src/parallel/vcpu_arm.js`，
+  由 `vcpu.js` 的入口按 `cpu_type` 分派，打进 `build/vcpu-worker.js`），核心 0 与设备在机器线程上。实现与计划的写法不同：
+  - 机器状态经 `parallel::machine()`：GIC（一把可重入锁，`SIGNAL` 改为访问函数，其他核心的信号变化时 kick 它）、PSCI 的电源
+    状态与 CPU_ON 的入口（CPU_ON 先写入口再置 ON_PENDING，然后 kick 目标核心；SYSTEM_OFF/RESET 的请求 kick 核心 0）、事件与
+    全局监视器（机器字上的原子操作）、地址空间（Worker 持有副本，机器改映射时在 MAP_SEQ 下进行，Worker 发现序号变了就重新
+    复制；设备内存的脏页位是机器的字）、extended RAM（本来就是）。计划写的"STATUS_WAIT_SIPI 改为断电状态"用 PSCI 的电源
+    状态本身表达：Worker 在核心 OFF 时等待，ON_PENDING 时从 START 复位并运行（`a64_worker_slice`）。
+  - Worker 访问设备寄存器经控制块的请求 `OP_A64_MMIO_READ`/`OP_A64_MMIO_WRITE`（IO_ADDR 为 owner 加宽度，偏移与值各 64 位，
+    结果高半在 `IO_RESULT_HI`）；计划写的 MMIO_READ16/READ64 不需要。被 kick 的机器核心立即回到 JS 的循环去服务请求
+    （否则每个 UART 字节要等到它的时间片结束，次核心启动时每个约 70 ms）。
+  - 快照：机器把 Worker 停在安全点后直接读写各 Worker 的状态块（`A64CPU.state_block_of`），恢复后下发 COMMAND_RELOAD；复位
+    （SYSTEM_RESET、上电）先停住所有 Worker，再复位，下发 COMMAND_RESET。
+  - page tier：每个实例各自编译；安装前等其他核心确认发布（`parallel::code`，与 x86 相同），并再比较源页的哈希。
+- P8.3：
+  - TLBI 的 IS 形式与 IC IVAU、IC IALLUIS：在本核心立即生效，并写进机器内存里的环（`tlb::post`）；本核心下一个 DSB 要等到
+    其他每个核心都取走了环（`tlb::synced`；空闲的核心算作已确认，它恢复运行前会先取），等待时 DSB 不退役（`Flow::Retry`），
+    Worker 在原地等待并同时处理别人的环，机器核心回到 JS 服务请求后重试。一批里 IC 只写一次，页条目超过 32 个后用一次全刷新
+    代替其余；DSB 只 kick 落后的核心一次。
+  - 内存模型：并行构建里解释器与 page tier 的客体访问都是顺序一致的 Wasm 原子操作（page tier 的不对齐访问由框架退回解释器；
+    不对齐的读经 bounce 缓冲区复制，ARM 的 pair 两个元素用两个槽：`frame.rs` 的 kind 第 10 位，x86 不用），DMB、ISB 是 fence，
+    并行时 DSB 是单步。修好的一个错误：pair 的两个元素都不对齐时原来共用同一个 bounce 缓冲区，第二个元素的复制覆盖了第一个
+    （`page_fuzz.mjs` 在并行构建上 15/40 个程序不同，修后 0/120）。
+  - 独占监视器：保留全局监视器（解释器的写入清除别的核心的保留并发事件），STXR 另外比较 LDXR 读到的值（同 QEMU）：在 RAM
+    与设备内存上用原子比较交换，extended RAM 上在引擎的锁内比较；另一个 Worker 里编译的存储不清除保留，写回相同值时 STXR
+    成功——作为声明的偏差写进 docs/aarch64.md，probe 的 `parallel` 参数与 litmus 的并行模式只报告 ABA 那一行。
+  - WFE/SEV：事件是机器字，SEV 与清除保留 kick 目标核心，Worker 等待用 Atomics.wait；并行时一个 WFE 最多等 20 µs（编译的
+    存储不发事件，Linux 的锁等待在 secondary 启动早期还没有事件流时会一直等）。
+  - CNTVCT：各 Worker 读自己的宿主时钟，机器内存里的最大值保证计数器跨核心不回退（恢复快照与启动时清零）。
+- P8.4：`tests/a64/litmus.mjs` 加 `LITMUS_MODES`（cooperative、cooperative-jit、parallel、parallel-jit）；`make a64-parallel-tests`：
+  四种模式 × 2/4/8 核 × 20000 轮全部通过（禁止的结果 0 次，独占计数精确，TLBI VAE1IS 后没有陈旧的翻译，SGI 环与 WFE/SEV 环
+  走完）；并行构建上的 `page_fuzz.mjs` 3 个种子 0 差异。
+  60 分钟 soak（`A64_WORKLOAD=soak60`：每轮四个工作负载同时运行，再跑一遍 probe，4 核并行、page tier）：1275 轮，共退役
+  3.5 万亿条指令（合计约 970 MIPS），没有 Oops、RCU stall 与 soft lockup，probe 每轮都通过（ABA 一行只报告）。
+- Alpine（`A64_PARALLEL=1`，`make a64-parallel-guest-tests`）全部通过：initramfs 阶解释器 2/4 核（到 probe 结束 29.8/29.0 s，
+  ABA 一行在解释器下仍失败，因为写入走解释器）、page tier 2/4 核（7.3/9.5 s）；live 阶 page tier 4 核在 mmio 与 pci 上到 login
+  50.1/51.6 s，三个标记处的 V7 与 V6 快照都恢复进新的并行机器；lifecycle 阶（单用户模式下快照恢复、reboot、poweroff）；
+  s2idle 与 hibernate（关机 4.7 s、恢复后 MD5 与在线 CPU 正确）；四个工作负载同时运行 14.8 s。
+- 速度（release，page tier，4 核）：initramfs 阶到 probe 结束 9.3 s（协作式 6.4 s：启动主要是核心 0 的工作，并行构建本身在
+  单核上约慢 15%）；四个工作负载同时运行（`A64_WORKLOAD=smp4`）14.5 s（协作式 23.0 s，1.59 倍）。主要的剩余开销是每个客体
+  访问都是 SeqCst 原子操作，以及 DSB 等待其他核心的确认。
+- x86 的回归：`make multicore-parallel-tests`（litmus 四种模式、lifecycle、Linux 启动、OS stress、ACPI）通过；`frame.rs`
+  的改动只在并行构建里生成不同的代码（x86 不设 kind 第 10 位）。
+- P8.6（16 KiB 与 64 KiB 页的内核）未做：要下载 linux-6.18.35 的源码（约 150 MiB）与 Alpine 的构建包（约 100 MiB），
+  并在 HVF 下的 Alpine aarch64 虚拟机里构建（macOS 上缺 GNU make 4、gsed、lld 等）；下载要所有者同意，
+  2026-10-17 尚未得到，所以 A6 暂不打 `vA6` 标签，P8.6 留待所有者决定后再做。
+
+### A6 中 P8.6 的部分（2026-10-17；A6 完成）
+
+提交：与本节同一个提交（`vA6`）。
+
+- 所有者 2026-10-17 同意下载：cdn.kernel.org 的 `linux-6.18.35.tar.xz`（147 MiB，sha256 与 kernel.org 的 `sha256sums.asc`
+  一致并固定在工具里）与 Alpine 3.24 aarch64 的构建包（`tools/alpine_repo.mjs --arch aarch64 --set kbuild`：91 个包，
+  104.6 MiB）。解析器修了两处：同优先级的提供者按提供的版本取高者（`so:libisl.so.23` 原来取了 isl25，apk 要的是
+  isl26）；live 系统里钉死了被升级包版本的包一并下载（openssl-dev 升级 libssl3 时 openssl 也要升级）。
+- `tools/a64_kernel.mjs`：
+  - 源码取 6.18.35（即 Alpine 3.24 的库存内核的版本），底配置取 ISO 里的 `config-6.18.35-0-virt`（库存内核实际用的
+    配置；计划写的 aports `virt.aarch64.config` 要另外下载，没有用），加公共片段（Alpine 各阶段要的驱动内建：virtio-mmio、
+    virtio-blk、virtio-net、virtio-input、hwrng 与 virtio-rng、loop、squashfs、iso9660、ext4、evdev、packet；无调试信息；
+    模块签名的密钥改为内核自己生成的一次性密钥，因为库存配置写的是 Alpine 构建机上的路径；不构建模块）与页大小片段，
+    片段直接接在底配置后面再 `olddefconfig`（`merge_config.sh` 要 GNU 的 `readlink -m`）。
+  - 偏差：计划写的是 macOS 上 `LLVM=1` 交叉编译；macOS 缺内核的宿主工具（GNU make 4、gsed、lld、Linux 头文件），
+    所以改为在 Homebrew QEMU 10.2 的 HVF 下启动 Alpine aarch64 live 系统（8 核、6 GiB），装上本地仓库里的 GCC 15.2，
+    在 ext4 暂存盘上原生编译，两个内核共 783 s；结果是 `build/a64-kernel/{16k,64k}/Image` 与 `config`，
+    `build/a64-kernel/manifest.json` 记录源码、底配置、片段、结果的 hash 与工具链。`make a64-kernels`。
+- profile v1.1：新的内部选项 `a64_profile: "v1" | "v1.1"`（`src/arm/cpu.js`，init 时调 `a64_set_granules`，快照标识随之为
+  `v86-aarch64-v1.1`）；加载器按核心实际的 granule 检查 Image 头里的页大小（`a64_granules`）。
+  自建内核验收之后按计划把默认值升为 v1.1：ID_AA64MMFR0_EL1 的 TGran16 = 1、TGran64 = 0（与参考 cortex-a35 相同，于是从
+  允许的差异里删掉这一条），`tests/platform/a64-profile.json` 与 `cpu-contract.json` 随之更新（`cpu_contract.mjs --check` 与
+  `--a64-reference` 通过）；`a64_profile: "v1"` 仍可选。旧快照的标识是 `v86-aarch64-v1`，恢复进 v1.1 的机器时被拒绝。
+- `make a64-pagesize-guest-tests`（`A64_KERNEL=16k|64k`，probe 检查 AT_PAGESZ）：
+  16K 与 64K 各在 2 核上：page tier 的 live 阶到 login 33.1/46.7 s，解释器 226/245 s，probe 全部通过并报告
+  `page_size=16384`/`65536`（`CPU features: detected` 与参考比较过）；JIT 工作负载（node、java、luajit、pcre2）的输出与参考的相同。
+  live 阶的模块来自库存内核，加载不了，所需驱动都已内建，所以不受影响。
+- 门禁：`make a64-gate-full` 的前置步骤（边界检查、解码 oracle、QEMU 参考、各单元目标、core-split-check、原生 oracle、
+  kvm-unit-tests 与 Alpine 的长测）与 R-a64-isa、R-a64-sys、R-a64-virt、R-a64-UP、R-a64-SMP 在一次运行中通过；这次运行到了
+  4 小时的上限（lifecycle 3101 s、SMP 1705 s），其余级别用 `tools/release_gate.mjs --levels R-a64-jit,R-a64-gpu,R-a64-parallel,
+  R-a64-memory,R-a64-granule,R-a64-android-prep` 接着跑，全部通过（GPU 2412 s、granule 792 s、android-prep 1255 s）。x86：
+  `tests/devices/virtio_console.js`、`tests/api/reboot.js` 通过（virtio-console 的修改，下一节）；fmt、eslint 干净。
+
+### A7 中 P9.1 与 P9.2 的部分（2026-10-17）
+
+提交：与上一节同一个提交（`vA6`）。
+
+- 内核：计划写的是 Alpine 的 lts 内核（`A64_LINUX_FLAVOR=lts`）；改为 `tools/a64_kernel.mjs` 自建的 androidish 内核（P9.2 本来
+  就要它，binder 与 binderfs 在其中内建），不再另外下载 lts 包。androidish 片段：binder、binderfs（`ANDROID_BINDER_DEVICES=""`）、
+  SELinux（加进 LSM 列表）、USERFAULTFD、BOOT_CONFIG、DM 与 DM_VERITY、EROFS、F2FS、FS_ENCRYPTION、ZRAM、PSI（同 GKI，
+  不默认关闭），GKI 的形态：ARM64_VA_BITS_39、ARM64_SW_TTBR0_PAN、ARM64_PSEUDO_NMI、RANDOMIZE_BASE（DTB 不写 kaslr-seed）。
+  测试程序与内核一同在 HVF 虚拟机里用 Alpine 的 GCC 与 musl 静态编译，头文件取这个内核的 UAPI；P9.2 的镜像也在那里做：
+  `minimal.cil` 用 libsepol 的 CIL 编译器（Alpine 没有 checkpolicy 与 secilc，`tests/a64/cil2bin.c`）编译为版本 33 的策略，
+  `mkfs.erofs`（时间与 UUID 固定）、`mkfs.f2fs -O encrypt`（64 MiB，压缩保存）。为此 kbuild 包集加了 libsepol-dev、erofs-utils、
+  f2fs-tools（所有者 2026-10-17 同意下载，约 1.4 MiB）。`--programs-only` 只重做配置、程序与镜像（约 20 s），Image 不动。
+- P9.1：
+  - binderfs 的 selftest（内核源码里的 `binderfs_test.c`）3/3 通过；kselftest harness 每个用例 30 s 的超时对 4 GiB 内存下的
+    `binderfs_stress`（1000 个设备、每个设备上每个 CPU 一个线程）不够，编译时把源码副本里的 `TEST_TIMEOUT_DEFAULT` 改为 300。
+  - `tests/a64/binder_pingpong.c`：context manager 与客户端各绑一个 CPU（0 与最后一个），经 binderfs 新建的设备用
+    `BINDER_WRITE_READ` 往返 10,000 轮，内容逐轮校验，缓冲区都释放。
+  - virtio-console 的端口 1–3 在 virt 机器上是通用端口（`org.v86.port<N>`，同 QEMU 的 virtserialport；PC 上仍是 hvc1–hvc3），
+    宿主经总线事件 `virtio-console<N>-output-bytes` / `-input-bytes` 收发。live 阶从 `/sys/class/virtio-ports/` 按名字找到
+    端口，每个写一行由测试回显：mmio 上是 `vport2p1`–`p3`，pci 上是 `vport4p1`–`p3`（设备序号随枚举变化，所以不写死）。
+    修好的一个错误：PORT_READY 与 PORT_OPEN 的控制消息被确认了两次（入口处一次、分支里一次），第二次确认让客体的控制队列
+    错乱（端口打不开）；x86 也受影响，`tests/devices/virtio_console.js` 与 `tests/api/reboot.js` 通过。
+- P9.2（`A64_KERNEL=androidish` 的 initramfs 阶；程序与镜像在 `/a64-android/` 下，a64-init 在 probe 之前与之后各跑一段）：
+  - f2fs 加 fscrypt：第一次启动在 virtio-blk 盘（serial a64f2fs）上加 64 字节的密钥，在空目录上设 v2 策略（AES-256-XTS 内容、
+    AES-256-CTS 文件名），写两个文件后卸载并 `reboot -f`（PSCI SYSTEM_RESET）；第二次启动没有密钥时策略在、密钥不在、文件名
+    是密文、打开文件得 ENOKEY，再加同一密钥后标识与策略的相同，文件名与内容（含 64 KiB 的文件）都回来。
+  - bootconfig：测试按 `tools/bootconfig` 的格式（数据、NUL、补齐到 4 字节、大小、校验和、`#BOOTCONFIG\n`）把三个键接在
+    initrd 之后，命令行加 `bootconfig`；`/proc/bootconfig` 列出这三个键（之后是 bootloader 命令行的注释行），`kernel.*` 的键
+    出现在 `/proc/cmdline` 的最前面。
+  - SELinux：`tests/a64/selinux_load.c` 把策略一次写进 selinuxfs 的 load，再写 enforce；策略只有一个用户、角色与类型，27 个
+    初始 SID 按内核的编号，`handleunknown allow`。enforcing 是真的：策略声明了 process 的 setrlimit 而没有允许，改硬限制得到
+    EACCES，内核记 `avc: denied { setrlimit } … permissive=0`；内核要求策略声明 process 的 transition 与 dyntransition。之后
+    probe、binder、uffd 等都在 enforcing 下运行并通过。
+  - userfaultfd：`tests/a64/uffd_test.c`，另一个 CPU 上的线程触发 64 个缺页，由 UFFDIO_COPY 填入，再加一页 UFFDIO_ZEROPAGE。
+  - erofs 加 dm-verity：测试在 JS 里为 erofs 镜像算出 format 1 的哈希树（SHA-256、4 KiB 块、salt 在块前、顶层在前，按内核
+    `dm-verity-target.c` 的查找方式对 2–16500 块的随机数据核对过），`tests/a64/dm_verity.c` 经 `/dev/mapper/control` 的 ioctl
+    （DM_DEV_CREATE、只读的 DM_TABLE_LOAD、DM_DEV_SUSPEND 恢复）在 loop 设备上建出设备；挂载后文件与整个设备的 SHA-256 等于
+    宿主算的，同一棵树配上改了一个字节的镜像时读取得 EIO，内核报告被改的那一块。
+  - zram 与 PSI：zram0 作 256 MiB 的交换，16 MiB 的 memory cgroup 里写 40 MiB 可压缩的页再读两遍（`tests/a64/psi_test.c`），
+    `/proc/pressure/memory` 上的触发器（1 s 内 100 ms）期间触发，页内容不变，约 25 MiB 进了 zram，压缩到约 0.54 MiB。
+  - pseudo-NMI：命令行加 `irqchip.gicv3_pseudo_nmi=1`，内核报告 `Pseudo-NMIs enabled using relaxed ICC_PMR_EL1 synchronisation`
+    与 `IRQ priority masking`：中断由 GIC 的优先级屏蔽而不是 PSTATE.I 关闭，v86 的 GICv3 不用改。
+  - 修好的一个错误：ARM 核心的 `validate_physical_range` 把 extended RAM 当作不是 RAM，所以 4 GiB 内存时内核放在 4 GiB 以上的
+    virtqueue 与缓冲区让 virtio 设备进入 NEEDS_RESET（P8.5 的 4 GiB 测试没有磁盘，没有发现）；现在只拒绝既不是 RAM 也不是
+    extended RAM 的范围（DMA 本来就按页复制 extended RAM），`tests/a64/extended_memory.mjs` 加了这一条。
+  - `make a64-android-prep-tests`：解释器与 page tier 各 2/4 核、并行 Worker 解释器与 page tier 4 核、page tier 2 核 4 GiB
+    （1 GiB 加 3 GiB extended）全部通过。时间：解释器 2/4 核全程 235/326 s（到 probe 结束 96/122 s，两次启动之间是
+    f2fs 的写入与重启）、page tier 2/4 核 39/41 s（15/15 s）、并行 Worker 解释器与 page tier 4 核 178/60 s、4 GiB 369 s；
+    PSI 的触发器在 page tier 下约 8 s 内触发 7 次，解释器下约 58 s 内 54 次。
+  - 4 GiB 时明显更慢（page tier 2 核全程 343–369 s，512 MiB 时约 40 s）：extended RAM 的帧缓存没有换出（512 MiB 的缓存够用），
+    慢在每次访问 extended RAM 都走帧查找，而内核的数据大多分配在 4 GiB 以上；原版内核的 4 GiB memtest 也是这样（到 init 79 s）。
+    记入 P9.4 的已知缺陷清单。
+
+### A7 中 P9.3 的部分（2026-10-17；`a64_asid_tag` 默认改为 auto）
+
+提交：与本节同一个提交。
+
+- 计数：`src/rust/aarch64/mmu.rs` 统计 TTBR0/TTBR1 的写入与改变了本核心当前 ASID 的写入（`a64_mmu_stat`，
+  `tests/a64/linux_boot.mjs` 的结果里的 `mmu`，机器线程实例的核心）。
+- 测量（release 构建，page tier，1 核 live 阶到 login，3 次交替会话的中位数；机器不安静：NotificationCenter 一直占满一个
+  核，负载约 7，所以只看同一轮里交替的比较；A/A 先跑过）：
+  - 一次启动里原版内核改变 ASID 约 8,300 次（TTBR 写约 25,000 次），androidish 约 160 万次（约 320 万次）：SW_TTBR0_PAN
+    在每次从 EL0 进入和每个 uaccess 窗口前后把 TTBR1 的 ASID 在保留的 0 与进程的之间切换。
+  - `boot_to_login_ms`：`a64_asid_tag=0` 时原版 33.6 s、androidish 57.0 s（慢 70%）；`=1` 时 35.0 s 与 37.8 s。
+- F 级：`=1` 不通过：androidish 快 34%，但原版内核慢 4.2%（低于 0.99）——每个新进程的 ASID 有自己的 epoch，内核的全局
+  条目要在每个 epoch 里重新填（访问缓存的填充从 240 万次升到 390 万次）。于是加了 `=2`（auto，`pages::asid_tag_tick`）：
+  run 循环大约每 1024 条指令一次 tick，每 4096 次 tick（约 400 万条指令）看一次这段时间的 ASID 变化次数，不少于 256 次
+  打开标签，少于 16 次关闭（androidish 启动时每段约 1300 次，原版约 7 次；切换时各核心的缓存清空，同 `set_asid_tag`）。
+  auto 对 0（3 次交替会话的中位数）：
+  - live 阶到 login：原版 34.8 → 34.6 s（不变），androidish 58.0 → 40.5 s（快 30%，目标指标）；
+  - initramfs 阶到 probe 结束：1/2/4 核 6.39/6.93/7.09 → 6.25/6.76/7.50 s。4 核的 A/A（5 次）：0 与 0 为 7.20/7.17 s，
+    auto 排在每轮最后时 7.49 s；把 auto 排在每轮最前再跑 5 次：7.89 s 对 7.88/7.72 s——差别来自顺序与噪声；
+  - JIT 代理负载（P6.7）：76.1 → 77.3 s；A/A 一轮：80.5/80.8 s 对 auto 78.9 s。
+  原版内核上 auto 从来不打开（`asid_tag_switches` 为 0），执行的与 0 相同，只多每 1024 条指令一次计数。按 F 级把默认值
+  改为 2；`tests/a64/asid.mjs` 加了 2。
+- X：默认 auto 之下 androidish 到 login 比原版慢 16.8%（40.5 对 34.6 s），在初值 20% 之内，所以 FEAT_PAN 不提前放进 v2，
+  仍由 P10.4 的审计决定；没有标签时慢 70%，FEAT_PAN 仍是 v2 的首选候选（硬件 PAN 存在时 Linux 不用 SW_TTBR0_PAN）。
+- extended RAM（P8.5 的后续，A7 发现的性能缺陷）：ARM 的 page tier 原来不为 extended RAM 填访问缓存，每次访问都走帧
+  查找，4 GiB（3 GiB extended）时 Linux 约慢 10 倍。现在与 x86 相同：访问缓存可以映射常驻的帧（`cache_frame`，标为
+  CACHED，不被换出），run 循环的 safe point（`crate::extended::safe_point`，在上面的 tick 处）在一半的帧被占用或没有空帧
+  时清掉所有核心的访问缓存并释放它们；写条目先把帧标脏；带代码的页不给写条目（编译时退掉已有的写条目），有独占保留的页
+  也不给（extended RAM 里有保留时退掉所有指向帧的写条目，因为保留的键对不回帧）；并行 Worker 时不缓存。`extended_memory.mjs`
+  加了编译代码经 256 个帧遍历 512 页的读写（检查和、内容与帧的释放）。结果：androidish 4 GiB 全程 369 → 51 s（MIPS 19.8 →
+  80.6），原版 4 GiB memtest 159 → 44 s。
+- 门禁：`make a64-gate`、`a64-page-tier-tests`、`a64-extended-guest-tests`、`a64-android-prep-tests` 与并行的 litmus 通过。默认 auto 之下 androidish 的 initramfs 阶（page tier）：2/4 核全程 38.7/41.1 → 28.8/31.6 s，4 GiB 369 → 35.2 s，并行 Worker 4 核 60.1 → 48.7 s；auto 在每次运行里都打开了标签。

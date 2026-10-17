@@ -28,7 +28,10 @@ export class ParallelMachine
     {
         this.cpu = cpu;
         this.exports = cpu.wm.exports;
-        this.cores = cpu.cores.length;
+        // (the x86 CPU keeps an array of its cores, the ARM CPU their number)
+        this.cores = typeof cpu.cores === "number" ? cpu.cores : cpu.cores.length;
+        /** the ranges of a core's state block that save_core_state copies */
+        this.state_ranges = cpu.core_state_ranges || CORE_STATE_RANGES;
         this.bytes = options.bytes;
         this.settings = options.settings;
         this.worker_url = options.worker_url;
@@ -93,7 +96,7 @@ export class ParallelMachine
                 "bytes": this.bytes, "memory": memory, "control": this.control,
                 "base": base, "core": core, "cores": this.cores,
                 "mem8": this.cpu.mem8.byteOffset, "memory_size": this.cpu.memory_size[0],
-                "settings": this.settings, "log": false,
+                "settings": this.settings, "log": false, "cpu_type": this.cpu.cpu_type || "x86",
                 "extended": this.cpu.extended_store ? this.cpu.extended_store.transfer() : null,
             });
         }
@@ -147,6 +150,17 @@ export class ParallelMachine
                 case C.OP_MMIO_WRITE32: cpu.mmap_write32(addr >>> 0, v0); break;
                 case C.OP_MMIO_WRITE64: cpu.mmap_write64(addr >>> 0, v0, v1); break;
                 case C.OP_MMIO_WRITE128: cpu.mmap_write128(addr >>> 0, v0, v1, v2, v3); break;
+                case C.OP_A64_MMIO_READ:
+                {
+                    const value = /** @type {bigint} */ (cpu.io.mmio_read(addr & 0xFFFFFF, BigInt(v1 >>> 0) << 32n | BigInt(v0 >>> 0), addr >>> 24));
+                    result = Number(value & 0xFFFFFFFFn) | 0;
+                    ctrl[at(C.IO_RESULT_HI)] = Number(value >> 32n) | 0;
+                    break;
+                }
+                case C.OP_A64_MMIO_WRITE:
+                    cpu.io.mmio_write(addr & 0xFFFFFF, BigInt(v1 >>> 0) << 32n | BigInt(v0 >>> 0), addr >>> 24,
+                        BigInt(v3 >>> 0) << 32n | BigInt(v2 >>> 0));
+                    break;
                 default: dbg_log("vCPU " + core + ": unknown request " + op, LOG_CPU);
             }
             cpu.io_core = -1;
@@ -259,14 +273,14 @@ export class ParallelMachine
     {
         const base = this.ctrl[C.core_word(core, C.STATE_BASE)] >>> 0;
         const memory = new Uint8Array(this.cpu.wasm_memory.buffer);
-        return CORE_STATE_RANGES.map(([start, end]) => memory.slice(base + start, base + end));
+        return this.state_ranges.map(([start, end]) => memory.slice(base + start, base + end));
     }
 
     write_core(core, saved)
     {
         const base = this.ctrl[C.core_word(core, C.STATE_BASE)] >>> 0;
         const memory = new Uint8Array(this.cpu.wasm_memory.buffer);
-        CORE_STATE_RANGES.forEach(([start], i) => memory.set(saved[i], base + start));
+        this.state_ranges.forEach(([start], i) => memory.set(saved[i], base + start));
     }
 
     /** Address of offset 0 of a worker core's state block (live, racy while it runs) */
@@ -282,11 +296,17 @@ export class ParallelMachine
         this.ctrl[C.core_word(core, C.TSC_OFFSET_LO)] = tsc[0];
         this.ctrl[C.core_word(core, C.TSC_OFFSET_HI)] = tsc[1];
     }
+    /** The instructions core `core` retired, as its worker last published (the ARM core's workers) */
+    core_retired(core)
+    {
+        return (this.ctrl[C.core_word(core, C.STEPS)] >>> 0) + (this.ctrl[C.core_word(core, C.STEPS_HI)] >>> 0) * 0x100000000;
+    }
     core_counters(core)
     {
         const at = w => this.ctrl[C.core_word(core, w)] >>> 0;
         return { slices: at(C.SLICES), steps: at(C.STEPS), waits: at(C.WAITS), io: at(C.IO_COUNT), jit: at(C.JIT_ENTRIES),
-            refused: at(C.REFUSED) };
+            refused: at(C.REFUSED), tlbi_posted: at(C.RING_STATS), dsb_waits: at(C.RING_STATS + 1), tlbi_taken: at(C.RING_STATS + 2),
+            kicked: at(C.KICKED) };
     }
 
     status()

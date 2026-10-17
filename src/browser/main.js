@@ -20,6 +20,12 @@ const DEFAULT_MEMORY_SIZE = 128;
 // by 64-bit guests only (docs/x86-64.md); the 36-bit physical address space
 // ends at 64 GiB.
 const MAX_HEAP_MEMORY_SIZE = 2048;
+/** The arm64 core's RAM in MB: below 2 GiB with the display adapter's 128 MiB of device memory */
+const ARM64_MAX_MEMORY_SIZE = 1792;
+/** The arm64 virt machine's command line when none is given: Alpine's ISO (its initramfs finds the ISO on virtio-blk) */
+const ARM64_DEFAULT_CMDLINE = "console=ttyAMA0 console=tty0 modules=loop,squashfs,sd-mod,usb-storage";
+/** The same without a display: the last console, where init writes and the login comes, is the serial one */
+const ARM64_SERIAL_CMDLINE = "console=ttyAMA0 modules=loop,squashfs,sd-mod,usb-storage";
 const MAX_MEMORY_SIZE = MAX_HEAP_MEMORY_SIZE + 60 * 1024;
 const DEFAULT_CPU_CORES = 1;
 const DEFAULT_CPU_TYPE = CPU_TYPES[0];
@@ -2401,6 +2407,11 @@ async function start_emulation(profile, query_args)
                 };
             }
 
+            // (a kernel and an initrd: the PC's bzImage, or the arm64 virt machine's Image)
+            if(query_args.has("kernel.url")) settings.bzimage = { url: query_args.get("kernel.url"), async: false };
+            if(query_args.has("initrd.url")) settings.initrd = { url: query_args.get("initrd.url"), async: false };
+            if(query_args.has("cmdline")) settings.cmdline = query_args.get("cmdline");
+
             const m = parseInt(query_args.get("m"), 10);
             if(m > 0)
             {
@@ -2613,8 +2624,21 @@ async function start_emulation(profile, query_args)
         {
             settings.cpu_type = $("cpu_type").value || DEFAULT_CPU_TYPE;
         }
-        // only a 64-bit CPU reaches extended RAM
-        if(settings.extended_memory_size && settings.cpu_type !== "x86_64")
+        // the 64-bit CPUs reach extended RAM: x86_64 above the Wasm heap's
+        // RAM, arm64 above ARM64_MAX_MEMORY_SIZE MB (its RAM and a display
+        // adapter's device memory are less than 2 GiB of the heap), at 4 GiB
+        // (docs/aarch64.md)
+        if(settings.cpu_type === "arm64")
+        {
+            const MB = 1024 * 1024;
+            const total = (settings.memory_size + (settings.extended_memory_size || 0)) / MB;
+            if(total > ARM64_MAX_MEMORY_SIZE)
+            {
+                settings.memory_size = ARM64_MAX_MEMORY_SIZE * MB;
+                settings.extended_memory_size = Math.ceil((total - ARM64_MAX_MEMORY_SIZE) / 2) * 2 * MB;
+            }
+        }
+        else if(settings.extended_memory_size && settings.cpu_type !== "x86_64")
         {
             console.log("More than " + MAX_HEAP_MEMORY_SIZE + " MB of memory: selecting the x86_64 CPU");
             settings.cpu_type = "x86_64";
@@ -2716,12 +2740,14 @@ async function start_emulation(profile, query_args)
         "cpu_worker": cpu_worker,
         "cpu_worker_url": "build/cpu-worker.js" + query_append(),
         "ir_tier0": settings["ir_tier0"],
-        wasm_path: "build/" + (DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
+        // (the core of the CPU type: arm64's is a separate build, docs/aarch64.md)
+        wasm_path: "build/" + (settings.cpu_type === "arm64" ? (DEBUG ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") :
+            DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
         // more than one core: each in a host thread (v86-parallel.wasm) where the
         // page is cross-origin isolated and the host has the threads; otherwise
         // the build above with the cores taking turns (see the runtime infos)
         "parallel": settings.cpu_cores > 1 && settings.parallel ? "auto" : false,
-        "parallel_wasm_path": "build/v86-parallel.wasm" + query_append(),
+        "parallel_wasm_path": "build/" + (settings.cpu_type === "arm64" ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm") + query_append(),
         // (the source tree's module entry, unless the bundled CPU worker starts them)
         "vcpu_worker_url": DEBUG && !cpu_worker ? undefined : "build/vcpu-worker.js" + query_append(),
         "graphics_proxy": graphics_proxy && {
@@ -2749,19 +2775,34 @@ async function start_emulation(profile, query_args)
         "graphics_adapter_test": settings.displays > 1 && settings.graphics_adapter === "virtio_gpu" ? { "scanouts": settings.displays } : undefined,
         boot_order: settings.boot_order,
 
-        bios: settings.bios,
-        vga_bios: settings.vga_bios,
-        fda: settings.fda,
-        fdb: settings.fdb,
-        hda: settings.hda,
-        hdb: settings.hdb,
-        cdrom: settings.cdrom,
-        multiboot: settings.multiboot,
-        bzimage: settings.bzimage,
-        initrd: settings.initrd,
-
-        cmdline: settings.cmdline,
-        bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
+        // the arm64 virt machine (docs/virt.md): the page's kernel and
+        // initrd, the CD-ROM image and the disks as virtio-blk disks (the
+        // image read-only), virtio-rng, the keyboard, tablet and touch screen
+        // with a display; the PC's firmware, floppies and IDE otherwise
+        ...(settings.cpu_type === "arm64" ? {
+            kernel: settings.bzimage,
+            initrd: settings.initrd,
+            virtio_disks: [settings.cdrom && Object.assign({}, settings.cdrom, { readonly: true }), settings.hda, settings.hdb].filter(Boolean),
+            virtio_rng: true,
+            virtio_input: settings.graphics_adapter === "virtio_gpu" ? ["keyboard", "tablet", "multitouch"] : undefined,
+            cmdline: settings.cmdline || (settings.graphics_adapter === "virtio_gpu" ? ARM64_DEFAULT_CMDLINE : ARM64_SERIAL_CMDLINE),
+            // (the A64 page tier: the library's default is off until its F gate;
+            // quoted, as the library reads it, or Closure renames it)
+            "jit_switches": settings.disable_jit ? undefined : { "a64_page": 1 },
+        } : {
+            bios: settings.bios,
+            vga_bios: settings.vga_bios,
+            fda: settings.fda,
+            fdb: settings.fdb,
+            hda: settings.hda,
+            hdb: settings.hdb,
+            cdrom: settings.cdrom,
+            multiboot: settings.multiboot,
+            bzimage: settings.bzimage,
+            initrd: settings.initrd,
+            cmdline: settings.cmdline,
+            bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
+        }),
         acpi: settings.cpu_type !== "arm64" && (settings.acpi || settings.cpu_cores > 1 || settings.machine_type === "q35"),
         cpu_cores: settings.cpu_cores,
         "cpu_type": settings.cpu_type,

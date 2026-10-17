@@ -14,20 +14,41 @@ import { v86 } from "../main.js";
 import { MachineClock } from "../machine_clock.js";
 import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
-import { VirtIO } from "../virt/io.js";
+import { VirtDeviceSpace } from "../virt/io.js";
 import {
-    A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH,
-    VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
+    A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
+    VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
+    VIRT_EXTENDED_RAM_BASE, VIRT_EXTENDED_RAM_END,
 } from "../virt/platform.js";
+import { PCI } from "../pci.js";
+import { ExtendedStore } from "../extended_memory.js";
 import { PL011 } from "../virt/pl011.js";
 import { PL031 } from "../virt/pl031.js";
 import { load_linux } from "../virt/loader.js";
+import { VirtioMmio } from "../virtio_mmio.js";
+import { VirtioBlk } from "../virtio_blk.js";
+import { VirtioRng } from "../virtio_rng.js";
+import { VirtioNet } from "../virtio_net.js";
+import { VirtioConsole } from "../virtio_console.js";
+import { VirtioInput } from "../virtio_input.js";
+import { DisplayHub } from "../display.js";
+import { GraphicsAdapter, graphics_adapter_of_state } from "../graphics_adapter.js";
+import { ParallelMachine } from "../parallel/machine.js";
+import { COMMAND_RELOAD, COMMAND_RESET } from "../parallel/control.js";
 
 /** The devices in a snapshot's state[4], in this order */
 const DEVICE_ORDER = ["pl011", "pl031"];
 
 /** (src/state.js: one buffer holds at most 2 GiB) */
 const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
+
+/**
+ * Device memory after RAM, with a display adapter (virtio-gpu's host
+ * visible memory, P7.1: at most 128 MiB, Venus's)
+ */
+const DEVICE_MEMORY_SIZE = 128 << 20;
+/** Device memory regions start at multiples of this (src/rust/aarch64/bus.rs, a64_device_take_dirty) */
+const DEVICE_MEMORY_ALIGN = 256 << 10;
 
 /**
  * @constructor
@@ -54,7 +75,10 @@ export function A64CPU(bus, wm, stop_idling)
     /** cores in vCPU workers: P8.2 */
     this.parallel = null;
     this.parallel_fallback = "";
+    // extended RAM (configure_extended_memory)
     this.extended_pages = 0;
+    this.extended_base = 0;
+    /** @type {ExtendedStore} */
     this.extended_store = null;
 
     // (src/state.js reads memory_size[0])
@@ -64,10 +88,11 @@ export function A64CPU(bus, wm, stop_idling)
 
     /** @type {!Object} */
     this.devices = {};
-    /** (src/main.js: a snapshot waits while a core's device access is in flight; never, with the cores here) */
-    this.snapshot_io_pending = false;
+    // (src/main.js: a snapshot waits while host I/O a device started is in
+    // flight, the virtio disks' reads and writes; src/state_io.js counts it)
+    this["snapshot_io_pending"] = 0;
     /** the device registers (src/virt/io.js) */
-    this.io = new VirtIO(this.wm.exports);
+    this.io = new VirtDeviceSpace(this.wm.exports);
     /** (the A64 page tier, docs/jit-unification-plan.md J2) publications of an older machine are dropped */
     this.execution_epoch = 0;
     this.ir_sync_publication = false;
@@ -168,39 +193,152 @@ A64CPU.prototype.init = function(settings, device_bus)
     }
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
+    // the CPU profile (docs/arm64-virt-android16-plan.md, "CPU profile"):
+    // v1.1 (the 4, 16 and 64 KiB granules, since P8.6), or v1 (4 KiB only)
+    const profile = settings["a64_profile"] || "v1.1";
+    if(profile !== "v1" && profile !== "v1.1") throw new Error("a64_profile: \"v1\" or \"v1.1\", got " + JSON.stringify(profile));
+    this.profile = A64_PROFILE + (profile === "v1.1" ? ".1" : "");
+    this.wm.exports["a64_set_granules"](profile === "v1.1" ? 7 : 1);
     // the A64 page tier (J2): synchronous publication (tests), the JIT switches by name
     this.ir_sync_publication = settings["ir_sync_publication"] === true;
     set_jit_switches(this.wm.exports, this.wasm_memory, settings["jit_switches"]);
     // (the GIC's distributor and redistributors: decoded in the core, P4.2)
     if(!this.wm.exports["a64_set_cores"](cores)) throw new Error("the GIC's frames overlap a device");
     if(settings.cpu_clock) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
-    this.create_memory(memory_size);
+    // The display adapter's plugin descriptor (P7.1: virtio-gpu without VGA); none with graphics_adapter: "none"
+    this.graphics_adapter_descriptor = settings.graphics_adapter;
+    this.create_memory(memory_size, this.graphics_adapter_descriptor ? DEVICE_MEMORY_SIZE : 0);
+    this.configure_extended_memory(settings.extended_memory_size || 0, settings.extended_memory_cache);
     this.device_bus = device_bus;
     this.devices = {
         "pl011": new PL011(this, device_bus),
         "pl031": new PL031(this),
     };
-    // (the PCIe host bridge comes with P5.10; until then its 32- and 64-bit
-    // windows read as an empty bus does, all ones, as the reference's do)
-    const empty_bus = {
-        name: "pcie-window",
-        read: (offset, width) => width === 8 ? 0xFFFFFFFFFFFFFFFFn : 2 ** (8 * width) - 1,
-        write: () => {},
-    };
-    this.io.register_mmio(VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_SIZE, empty_bus);
-    this.io.register_mmio(VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, empty_bus);
-    // (the virtio-mmio transports come with P5.1; until then each slot reads
-    // as the reference's empty one: "virt", version 2, device ID 0, "QEMU")
-    const empty_slot = {
-        name: "virtio-mmio",
-        read: offset => [0x74726976, 2, 0, 0x554D4551][offset >> 2] ?? 0,
-        write: () => {},
-    };
+    // The generic PCIe host bridge (P5.6, P5.10): its configuration through
+    // the high ECAM, the BARs in its 32- and 64-bit windows (where no BAR
+    // is, reads are all ones, as on the reference); INTx are SPIs that the
+    // functions share (set_shared_gsi_level)
+    /** @type {!Map<number, !Set<number>>} the functions asserting each shared SPI, by INTID */
+    this.shared_spi_sources = new Map();
+    const pci = new PCI(/** @type {?} */ (this), { generic: true });
+    this.devices["pci"] = pci;
+    this.io.register_mmio(VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE, pci.ecam_handler());
+    // (the windows: around device memory mapped into them, update_windows)
+    /** @type {!Array<{base: number, size: number, owners: !Array<number>}>} */
+    this.pcie_windows = [
+        { base: VIRT_PCIE_MMIO, size: VIRT_PCIE_MMIO_SIZE, owners: [] },
+        { base: VIRT_PCIE_MMIO_HIGH[1] * 0x100000000 + VIRT_PCIE_MMIO_HIGH[0], size: VIRT_PCIE_MMIO_HIGH_SIZE, owners: [] },
+    ];
+    this.update_windows();
+    // The virtio-mmio slots (P5.3): a slot without a device reads as the
+    // reference's empty one ("virt", version 2, device ID 0, "QEMU"), which
+    // Linux skips; devices take the slots from the last one down, in the
+    // order of the reference's -device options: the disks, then net, rng,
+    // console (tests/a64/linux_boot.mjs)
+    /** @type {!Array<VirtioMmio>} by slot */
+    this.virtio_mmio = new Array(VIRT_MMIO_COUNT).fill(null);
     /** @type {!Array<number>} the slots' owners (src/virt/io.js) */
     this.virtio_mmio_slots = [];
     for(let n = 0; n < VIRT_MMIO_COUNT; n++)
     {
-        this.virtio_mmio_slots.push(this.io.register_mmio(VIRT_MMIO + n * VIRT_MMIO_SIZE, VIRT_MMIO_SIZE, empty_slot));
+        const slot = n;
+        this.virtio_mmio_slots.push(this.io.register_mmio(VIRT_MMIO + n * VIRT_MMIO_SIZE, VIRT_MMIO_SIZE, {
+            name: "virtio-mmio",
+            read: (offset, width) => this.virtio_mmio[slot] ? this.virtio_mmio[slot].read(offset, width) :
+                width === 4 ? [0x74726976, 2, 0, 0x554D4551][offset >> 2] ?? 0 : 0,
+            write: (offset, width, value) => { this.virtio_mmio[slot]?.write(offset, width, value); },
+        }));
+    }
+    // The virtio devices' transport (P5.7): virtio-mmio, or virtio-pci on the
+    // PCIe host, where they take slot 1 on (00:01.0, 00:02.0, ...) in the same
+    // order, as the reference's -device virtio-*-pci options do
+    /** @type {string} */
+    this.virtio_transport = settings.virtio_transport || "mmio";
+    /** @type {!Array<{slot: number, name: string, device: !Object}>} in order: from the last virtio-mmio slot, or from PCI slot 1 */
+    this.virtio_devices = [];
+    const add = (name, create) =>
+    {
+        let device, slot;
+        if(this.virtio_transport === "pci")
+        {
+            slot = 1 + this.virtio_devices.length;
+            device = create(null, slot << 3);
+        }
+        else
+        {
+            slot = VIRT_MMIO_COUNT - 1 - this.virtio_devices.length;
+            // (SPI 16 + slot, as the reference's)
+            const transport = new VirtioMmio(this, slot, 32 + 16 + slot);
+            this.virtio_mmio[slot] = transport;
+            device = create(transport, undefined);
+        }
+        this.virtio_devices.push({ slot, name, device });
+        return device;
+    };
+    // (hda and hdb, given instead, are the first two; the disks' names, as
+    // export_disk_image takes them: virtio_disk<n>, or hda and hdb)
+    const disks = settings.virtio_disks && settings.virtio_disks.length ?
+        settings.virtio_disks.map((disk, i) => ({ buffer: disk.buffer, id: disk.id, readonly: disk.readonly, name: "virtio_disk" + i })) :
+        [["hda", settings.hda], ["hdb", settings.hdb]].filter(([, buffer]) => buffer)
+            .map(([name, buffer]) => ({ buffer, id: undefined, readonly: false, name }));
+    for(const disk of disks)
+    {
+        add("virtio-blk", (transport, pci_id) => new VirtioBlk(this, disk.buffer, disk, transport, pci_id));
+    }
+    if(settings.net_device && settings.net_device.type === "virtio")
+    {
+        // (the PC's devices take a CPU: what they use of it, the ARM CPU has)
+        add("virtio-net", (transport, pci_id) => new VirtioNet(/** @type {?} */ (this), device_bus, settings.preserve_mac_from_state_image,
+            settings.net_device.mtu, pci_id, transport || undefined));
+    }
+    if(settings.virtio_rng) add("virtio-rng", (transport, pci_id) => new VirtioRng(this, transport, pci_id));
+    if(settings.virtio_console)
+    {
+        // (ports 1-3 generic: the host service channels, P9.1)
+        add("virtio-console", (transport, pci_id) => new VirtioConsole(/** @type {?} */ (this), device_bus, pci_id, transport || undefined, true));
+    }
+    // (P5.8, P7.4: a keyboard and a tablet, or the kinds listed, as the
+    // reference's virtio-keyboard, virtio-tablet and virtio-multitouch)
+    if(settings.virtio_input)
+    {
+        const kinds = Array.isArray(settings.virtio_input) ? settings.virtio_input : ["keyboard", "tablet"];
+        for(const kind of kinds)
+        {
+            add("virtio-" + kind, (transport, pci_id) => new VirtioInput(this, device_bus, kind, transport, pci_id));
+        }
+    }
+    // The display adapter (P7.1): virtio-gpu without VGA, after the virtio
+    // devices (the next PCI slot, or virtio-mmio slot), on the display hub
+    if(this.graphics_adapter_descriptor)
+    {
+        this.devices.display = new DisplayHub(device_bus, settings.screen);
+        const slot = this.virtio_transport === "pci" ? 1 + this.virtio_devices.length : VIRT_MMIO_COUNT - 1 - this.virtio_devices.length;
+        const transport = this.virtio_transport === "pci" ? null : new VirtioMmio(this, slot, 32 + 16 + slot);
+        if(transport) this.virtio_mmio[slot] = transport;
+        this.graphics_adapter_slot = slot;
+        this.devices.graphics_adapter = new GraphicsAdapter(/** @type {?} */ (this), this.graphics_adapter_descriptor, {
+            vram_size: settings.vram_size, test: settings.graphics_adapter_test, renderer: settings.graphics_adapter_renderer,
+            pci_id: transport ? undefined : slot << 3, transport,
+        });
+        if(transport)
+        {
+            // (on virtio-mmio its memory has no BAR: at the top of the 64-bit
+            // window, which nothing else uses then; the SHM registers say where)
+            const virtio = this.devices.graphics_adapter.pci_device;
+            const window = this.pcie_windows[1];
+            let top = window.base + window.size;
+            const bases = [];
+            virtio.pci_bars.forEach((bar, i) => {
+                if(!bar || !bar.on_move) return;
+                top = Math.floor((top - bar.size) / bar.size) * bar.size;
+                bases[i] = top;
+                bar.on_move(top);
+            });
+            for(const region of transport.shared_memory_regions())
+            {
+                transport.set_shared_memory_base(region.id, bases[region.bar] + region.offset);
+            }
+        }
     }
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
@@ -229,19 +367,127 @@ A64CPU.prototype.boot = function(entry, x0)
 };
 
 /**
- * Guest RAM of `size` bytes at 0x4000_0000
+ * Guest RAM of `size` bytes at 0x4000_0000, and after it in guest memory
+ * `device_size` bytes of device memory (mmio_ram_allocate)
  * @param {number} size
+ * @param {number=} device_size
  */
-A64CPU.prototype.create_memory = function(size)
+A64CPU.prototype.create_memory = function(size, device_size = 0)
 {
     const exports = this.wm.exports;
     // (one allocation in the 32-bit Wasm memory: below 2 GiB; more RAM is
     // docs/arm64-virt-android16-plan.md P8)
-    if(size >= 0x80000000) throw new Error("memory_size: the arm64 core takes less than 2 GiB of RAM (" + size + " bytes)");
-    const pointer = exports["a64_allocate_memory"](size) >>> 0;
+    if(size + device_size >= 0x80000000)
+    {
+        throw new Error("memory_size: the arm64 core takes less than 2 GiB of RAM (" + size + " bytes" +
+            (device_size ? ", and " + device_size + " bytes of the display adapter's device memory" : "") + ")");
+    }
+    const pointer = exports["a64_allocate_memory"](size + device_size) >>> 0;
     if(!exports["a64_bus_set_ram"](size)) throw new Error("create_memory: RAM of " + size + " bytes does not fit");
     this.mem8 = view(Uint8Array, this.wasm_memory, pointer, size);
     this.memory_size[0] = size;
+    /** device memory: [start, end) in guest memory's backing, and its regions */
+    this.device_memory = { start: size, end: size + device_size, next: size };
+    /** @type {!Array<{backing: number, size: number, base: number}>} */
+    this.device_regions = [];
+    if(device_size && !exports["a64_device_memory"](size)) throw new Error("create_memory: no device memory");
+};
+
+// ---- device memory (P7.1): the interface of the x86 core's mmio_ram (src/rust/cpu/mmio_ram.rs)
+
+/**
+ * A region of device memory (virtio-gpu's host visible memory)
+ * @param {number} size
+ * @return {number} the region, or -1
+ */
+A64CPU.prototype.mmio_ram_allocate = function(size)
+{
+    const memory = this.device_memory;
+    const at = Math.ceil(memory.next / DEVICE_MEMORY_ALIGN) * DEVICE_MEMORY_ALIGN;
+    size = Math.ceil(size / 4096) * 4096;
+    if(!size || at + size > memory.end) return -1;
+    memory.next = at + size;
+    this.device_regions.push({ backing: at, size, base: -1 });
+    return this.device_regions.length - 1;
+};
+
+/** @return {number} the address of the region's memory in the Wasm memory */
+A64CPU.prototype.mmio_ram_backing = function(region)
+{
+    return this.mem8.byteOffset + this.device_regions[region].backing;
+};
+
+/**
+ * Decode the region at `address` (a BAR's), when all of it is in one of the
+ * PCIe host's windows; elsewhere (an unassigned BAR) nowhere
+ * @param {number} region
+ * @param {number} address
+ */
+A64CPU.prototype.mmio_ram_map = function(region, address)
+{
+    const r = this.device_regions[region];
+    const inside = this.pcie_windows.some(w => address >= w.base && address + r.size <= w.base + w.size);
+    const base = inside ? address : -1;
+    if(base === r.base) return;
+    if(r.base !== -1) this.wm.exports["a64_bus_unmap"](r.base >>> 0, Math.floor(r.base / 0x100000000));
+    r.base = base;
+    this.update_windows();
+    if(base !== -1 && !this.wm.exports["a64_bus_map_device"](base >>> 0, Math.floor(base / 0x100000000), r.size >>> 0, 0, r.backing))
+    {
+        dbg_log("device memory at 0x" + base.toString(16) + " overlaps a region", LOG_CPU);
+        r.base = -1;
+        this.update_windows();
+    }
+};
+
+A64CPU.prototype.mmio_ram_unmap = function(region)
+{
+    this.mmio_ram_map(region, -1);
+};
+
+/** @return {number} the address of the words marking the pages the cores wrote (0: none) */
+A64CPU.prototype.mmio_ram_take_dirty = function(region)
+{
+    const r = this.device_regions[region];
+    return this.wm.exports["a64_device_take_dirty"](r.backing, r.size);
+};
+
+A64CPU.prototype.mmio_ram_mark_dirty = function(region)
+{
+    const r = this.device_regions[region];
+    this.wm.exports["a64_device_mark_dirty"](r.backing, r.size);
+};
+
+A64CPU.prototype.mmio_ram_read8 = function(region, offset)
+{
+    return new Uint8Array(this.wasm_memory.buffer)[this.mmio_ram_backing(region) + offset];
+};
+
+A64CPU.prototype.mmio_ram_write8 = function(region, offset, value)
+{
+    new Uint8Array(this.wasm_memory.buffer)[this.mmio_ram_backing(region) + offset] = value;
+};
+
+/**
+ * The PCIe host's windows as ranges of the core's address space: each one
+ * around the device memory mapped into it (window_handler, src/pci.js)
+ */
+A64CPU.prototype.update_windows = function()
+{
+    const pci = this.devices["pci"];
+    for(const window of this.pcie_windows)
+    {
+        for(const owner of window.owners) this.io.unregister_mmio(owner);
+        window.owners = [];
+        const holes = this.device_regions.filter(r => r.base !== -1 && r.base >= window.base && r.base < window.base + window.size)
+            .sort((a, b) => a.base - b.base);
+        let at = window.base;
+        for(const hole of [...holes, { base: window.base + window.size, size: 0 }])
+        {
+            if(hole.base > at) window.owners.push(this.io.register_mmio(at, hole.base - at, pci.window_handler(at)));
+            at = hole.base + hole.size;
+        }
+    }
 };
 
 /**
@@ -250,6 +496,13 @@ A64CPU.prototype.create_memory = function(size)
  * @return {number}
  */
 A64CPU.prototype.run_cores = function()
+{
+    if(this.parallel) return this.run_parallel();
+    return this.run_machine_core();
+};
+
+/** One slice of the cores this instance runs (all, or with cores in workers core 0): milliseconds until it needs to run again */
+A64CPU.prototype.run_machine_core = function()
 {
     const run = this.wm.exports["a64_run_slice"];
     if(!run || !this.booted) return 100;
@@ -268,10 +521,72 @@ A64CPU.prototype.run_cores = function()
     }
 };
 
-/** (env.run_hardware_timers) the virt machine's device timers (the PL031's alarm); the cores' timers are their own */
+// ---- cores in vCPU workers (P8.2: src/parallel/machine.js, src/parallel/vcpu_arm.js)
+
+/**
+ * Cores 1 and up run in vCPU workers; this thread runs core 0 and the
+ * devices, serves the workers' device accesses and stops them at safe
+ * points for snapshots, resets and pauses
+ * @param {{bytes: Uint8Array, settings: Object, worker_url: (string|URL)}} options
+ */
+A64CPU.prototype.start_parallel = async function(options)
+{
+    dbg_assert(this.cores > 1);
+    this.parallel = new ParallelMachine(this, options);
+    await this.parallel.start();
+};
+
+/** @return {number} milliseconds until the machine needs to run again */
+A64CPU.prototype.run_parallel = function()
+{
+    const machine = this.parallel, exports = this.wm.exports;
+    // (a failed vCPU stops the machine: v86.prototype.do_tick)
+    if(machine.check_failure()) return 0;
+    machine.service();
+    if(machine.pending_reset)
+    {
+        machine.request_stop();
+        if(!machine.all_parked()) return 0;
+        const { reason } = machine.pending_reset;
+        machine.pending_reset = null;
+        this.reboot_internal(reason);
+        return 0;
+    }
+    if(machine.stopping()) machine.resume();
+    // (core 0 takes the other cores' code writes and TLB maintenance; while it
+    // waits it counts as idle, crate::parallel::code, crate::aarch64::tlb)
+    exports["parallel_idle"](false);
+    const t = this.run_machine_core();
+    machine.service();
+    if(t > 0) exports["parallel_idle"](true);
+    return t;
+};
+
+/** (src/main.js) the parked workers' cores are read where they are (save_core_state) */
+A64CPU.prototype.parallel_capture = function()
+{
+    dbg_assert(this.parallel.all_parked());
+};
+
+/** (src/main.js) after a restore into the workers' state blocks: they drop what derived from the old state */
+A64CPU.prototype.parallel_install = function()
+{
+    dbg_assert(this.parallel.all_parked());
+    this.parallel.schedule(COMMAND_RELOAD);
+};
+
+/** The state block of core `core`: the running core's, or with cores in workers a worker's (parked) */
+A64CPU.prototype.state_block_of = function(core)
+{
+    const base = this.parallel && core !== 0 ? this.parallel.state_base(core) : this.state_base;
+    return new Uint8Array(this.wasm_memory.buffer, base, 4096);
+};
+
+/** (env.run_hardware_timers) the virt machine's device timers (the PL031's alarm, the display's); the cores' timers are their own */
 A64CPU.prototype.run_hardware_timers = function(acpi, now)
 {
-    return Math.min(100, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);
+    const display = this.devices.display ? this.devices.display.timer(now) : 100;
+    return Math.min(100, display, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);
 };
 
 /**
@@ -282,6 +597,26 @@ A64CPU.prototype.run_hardware_timers = function(acpi, now)
 A64CPU.prototype.set_irq = function(intid, level)
 {
     this.wm.exports["a64_gic_set_spi"](intid, level);
+};
+
+/**
+ * A function on the PCIe host drives the SPI its INTx pin is routed to
+ * (src/pci.js): the line is high while any function asserts it
+ * @param {number} intid
+ * @param {number} source the function's pci_id
+ * @param {boolean} level
+ */
+A64CPU.prototype.set_shared_gsi_level = function(intid, source, level)
+{
+    let sources = this.shared_spi_sources.get(intid);
+    if(!sources)
+    {
+        sources = new Set();
+        this.shared_spi_sources.set(intid, sources);
+    }
+    if(level) sources.add(source);
+    else sources.delete(source);
+    this.set_irq(intid, sources.size > 0);
 };
 
 /**
@@ -301,11 +636,33 @@ A64CPU.prototype.powered_off = function()
     return !!this.wm.exports["a64_powered_off"]?.();
 };
 
-/** @param {string=} reason */
+/**
+ * A reset (PSCI SYSTEM_RESET, V86.restart), or with reason "power-on" the
+ * machine powered on again after SYSTEM_OFF (V86.power_button)
+ * @param {string=} reason
+ */
 A64CPU.prototype.reboot_internal = function(reason)
 {
     if(!this.booted) return;
+    // (cores in workers: they stop first, run_parallel resets then, and they wait for CPU_ON again)
+    if(this.parallel && !this.parallel.all_parked())
+    {
+        this.parallel.pending_reset = { reason };
+        this.parallel.request_stop();
+        return;
+    }
+    if(this.parallel) this.parallel.schedule(COMMAND_RESET);
+    if(reason === "power-on")
+    {
+        // (after PSCI SYSTEM_OFF, P8.1: RAM and device memory do not keep their contents)
+        this.mem8.fill(0);
+        this.wm.exports["a64_bus_written"](0, this.memory_size[0]);
+        new Uint8Array(this.wasm_memory.buffer, this.mem8.byteOffset + this.device_memory.start,
+            this.device_memory.end - this.device_memory.start).fill(0);
+        this.clear_extended_memory();
+    }
     for(const device of Object.values(this.devices)) device.reset?.();
+    for(const { device } of this.virtio_devices) device.reset();
     if(this.boot_files)
     {
         const { entry, x0 } = load_linux(this, this.boot_files);
@@ -352,18 +709,26 @@ A64CPU.prototype.ram_offset = function(address, length)
 /** The end of the physical address space: profile v1's 40 bits */
 A64CPU.prototype.physical_limit = 0x10000000000;
 
+/** Whether the physical range [address, address + length) is all extended RAM (P8.5) */
+A64CPU.prototype.is_extended = function(address, length)
+{
+    const offset = address - this.extended_base;
+    return this.extended_pages !== 0 && offset >= 0 && offset + length <= this.extended_pages * 4096;
+};
+
 /**
  * Where a device's DMA to [address, address + length) goes (the machine's
- * DMA facade, P1.6): RAM is one contiguous backing
+ * DMA facade, P1.6): RAM is one contiguous backing, extended RAM is copied
+ * a page at a time
  * @param {number} address
  * @param {number} length
- * @return {number} the offset in guest memory, or -2 when it is not all RAM
+ * @return {number} the offset in guest memory, -1 for extended RAM, or -2 when it is not all RAM
  */
 A64CPU.prototype.dma_classify = function(address, length)
 {
     if(!Number.isSafeInteger(address) || !Number.isSafeInteger(length) || length <= 0) return -2;
     const offset = this.ram_offset(address, length);
-    return offset < 0 ? -2 : offset;
+    return offset >= 0 ? offset : this.is_extended(address, length) ? -1 : -2;
 };
 
 /**
@@ -375,8 +740,19 @@ A64CPU.prototype.dma_classify = function(address, length)
 A64CPU.prototype.read_blob_physical = function(address, length)
 {
     const offset = this.ram_offset(address, length);
-    if(offset < 0) throw new RangeError("read_blob_physical: [0x" + address.toString(16) + ", +" + length + ") is not RAM");
-    return this.mem8.slice(offset, offset + length);
+    if(offset >= 0) return this.mem8.slice(offset, offset + length);
+    if(!this.is_extended(address, length))
+    {
+        throw new RangeError("read_blob_physical: [0x" + address.toString(16) + ", +" + length + ") is not RAM");
+    }
+    const result = new Uint8Array(length);
+    for(let done = 0; done < length;)
+    {
+        const count = Math.min(length - done, 4096 - (address + done) % 4096);
+        result.set(this.extended_page_bytes(address + done, count, false), done);
+        done += count;
+    }
+    return result;
 };
 
 /**
@@ -388,21 +764,169 @@ A64CPU.prototype.read_blob_physical = function(address, length)
 A64CPU.prototype.write_blob_physical = function(blob, address)
 {
     const offset = this.ram_offset(address, blob.length);
-    if(offset < 0) throw new RangeError("write_blob_physical: [0x" + address.toString(16) + ", +" + blob.length + ") is not RAM");
-    this.mem8.set(blob, offset);
-    this.wm.exports["a64_bus_written"](offset, blob.length);
+    if(offset >= 0)
+    {
+        this.mem8.set(blob, offset);
+        this.wm.exports["a64_bus_written"](offset, blob.length);
+        return;
+    }
+    if(!this.is_extended(address, blob.length))
+    {
+        throw new RangeError("write_blob_physical: [0x" + address.toString(16) + ", +" + blob.length + ") is not RAM");
+    }
+    const bytes = blob instanceof Uint8Array ? blob : new Uint8Array(blob);
+    for(let done = 0; done < bytes.length;)
+    {
+        const count = Math.min(bytes.length - done, 4096 - (address + done) % 4096);
+        this.extended_page_bytes(address + done, count, bytes.subarray(done, done + count));
+        done += count;
+    }
 };
 
+/**
+ * Copy bytes of one page of extended RAM (DMA, debugging): its frame is
+ * pinned meanwhile; a write retires code compiled from the page and clears
+ * every core's reservations in it (src/rust/aarch64/extended.rs)
+ * @param {number} address guest physical, in extended RAM
+ * @param {number} count bytes within the page
+ * @param {Uint8Array|boolean} write the bytes to write, or false to read
+ * @return {!Uint8Array} the bytes read
+ */
+A64CPU.prototype.extended_page_bytes = function(address, count, write)
+{
+    const page = Math.floor((address - this.extended_base) / 4096);
+    // (an i32: the frame pool may lie above 2 GiB)
+    const frame = this.wm.exports["a64_ext_pin"](page, !!write) >>> 0;
+    dbg_assert(frame !== 0 && address % 4096 + count <= 4096);
+    const bytes = new Uint8Array(this.wasm_memory.buffer, frame + address % 4096, count);
+    let result = bytes;
+    if(write) bytes.set(/** @type {!Uint8Array} */ (write));
+    else result = bytes.slice();
+    this.wm.exports["a64_ext_unpin"](page);
+    return result;
+};
+
+/** @throws {RangeError} unless [address, address + length) is all RAM (VirtQueue) */
+A64CPU.prototype.validate_physical_range = function(address, length)
+{
+    // (RAM or extended RAM, which the facade copies a page at a time: a
+    // virtqueue or a buffer above 4 GiB with 4 GiB of RAM)
+    if(length && this.dma_classify(address, length) === -2)
+    {
+        throw new RangeError("[0x" + address.toString(16) + ", +" + length + ") is not RAM");
+    }
+};
+
+/** The guest-memory offset of a scalar's RAM, -1 in extended RAM, or a RangeError (devices' DMA) */
+A64CPU.prototype.scalar_offset = function(address, bytes)
+{
+    const offset = this.dma_classify(address, bytes);
+    if(offset === -2) throw new RangeError("0x" + address.toString(16) + " is not RAM");
+    return offset;
+};
+/** A scalar of `bytes` bytes at `address` (devices' DMA) */
+A64CPU.prototype.read_scalar_physical = function(address, bytes)
+{
+    const o = this.scalar_offset(address, bytes);
+    const b = o >= 0 ? this.mem8.subarray(o, o + bytes) : this.read_blob_physical(address, bytes);
+    let value = 0;
+    for(let i = 0; i < bytes; i++) value |= b[i] << 8 * i;
+    return value >>> 0;
+};
+A64CPU.prototype.read8_physical = function(address) { return this.read_scalar_physical(address, 1); };
+A64CPU.prototype.read16_physical = function(address) { return this.read_scalar_physical(address, 2); };
+A64CPU.prototype.read32_physical = function(address) { return this.read_scalar_physical(address, 4); };
+/** A scalar's bytes at `address`: code compiled from them retires, other cores' reservations clear */
+A64CPU.prototype.write_scalar_physical = function(address, value, bytes)
+{
+    const o = this.scalar_offset(address, bytes);
+    const b = new Uint8Array(bytes);
+    for(let i = 0; i < bytes; i++) b[i] = value >>> 8 * i & 0xFF;
+    if(o < 0)
+    {
+        this.write_blob_physical(b, address);
+        return;
+    }
+    this.mem8.set(b, o);
+    this.wm.exports["a64_bus_written"](o, bytes);
+};
+A64CPU.prototype.write8_physical = function(address, value) { this.write_scalar_physical(address, value, 1); };
+A64CPU.prototype.write16_physical = function(address, value) { this.write_scalar_physical(address, value, 2); };
+A64CPU.prototype.write32_physical = function(address, value) { this.write_scalar_physical(address, value, 4); };
+
+// ---- extended RAM (P8.5)
+
+/**
+ * RAM beyond guest memory (extended RAM): `size` bytes at guest physical
+ * 4 GiB (the device tree's second memory range), kept in an ExtendedStore
+ * (src/extended_memory.js) and cached in `cache_size` bytes of frames
+ * (src/rust/aarch64/extended.rs)
+ * @param {number} size
+ * @param {number=} cache_size
+ */
+A64CPU.prototype.configure_extended_memory = function(size, cache_size)
+{
+    this.extended_pages = 0;
+    this.extended_base = 0;
+    this.extended_store = null;
+    if(!size) return;
+    if(!Number.isSafeInteger(size) || size < 0 || size % (2 << 20))
+    {
+        throw new Error("extended_memory_size must be a multiple of 2 MiB");
+    }
+    const base = VIRT_EXTENDED_RAM_BASE;
+    if(base + size > VIRT_EXTENDED_RAM_END)
+    {
+        throw new Error("extended_memory_size: the virt machine's RAM ends at 256 GiB (at most " + (VIRT_EXTENDED_RAM_END - base) + " bytes)");
+    }
+    const cache = Math.min(size, cache_size || 512 << 20);
+    if(!Number.isSafeInteger(cache) || cache < 1 << 20 || cache % 4096)
+    {
+        throw new Error("extended_memory_cache must be a multiple of 4 KiB and at least 1 MiB");
+    }
+    let store;
+    try
+    {
+        store = new ExtendedStore(size / 4096);
+    }
+    catch(e)
+    {
+        throw new Error("extended_memory_size: the host cannot allocate " + size + " bytes (" + e.message + ")");
+    }
+    // (before the first access: extended_load reads the store)
+    this.extended_store = store;
+    if(!this.wm.exports["a64_ext_configure"](base >>> 0, Math.floor(base / 0x100000000), size / 4096, cache / 4096))
+    {
+        this.extended_store = null;
+        throw new Error("extended_memory_size: cannot allocate the frame cache");
+    }
+    this.extended_pages = size / 4096;
+    this.extended_base = base;
+};
+
+/** Extended RAM reads as zero again (power-on, a restore); every core is stopped */
 A64CPU.prototype.clear_extended_memory = function()
 {
+    if(!this.extended_store) return;
+    this.wm.exports["a64_ext_discard"]();
+    this.extended_store.clear();
+    // (code compiled from it)
+    this.wm.exports["jit_clear_cache_js"]();
+};
+
+/** Every dirty frame back into the store (src/state.js: a snapshot stream) */
+A64CPU.prototype.flush_extended_memory = function()
+{
+    this.wm.exports["a64_ext_flush"]();
 };
 
 // ---- snapshots (P1.9): ["virt", VIRT_LAYOUT_VERSION, profile] in state[103]
 
 /** The ARM core's state block of the current core, its per-core ranges */
-A64CPU.prototype.save_core_state = function()
+/** @param {number=} core with cores in workers, a parked worker's core */
+A64CPU.prototype.save_core_state = function(core = 0)
 {
-    const block = new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
+    const block = this.parallel ? this.state_block_of(core) : new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
     const saved = new Uint8Array(CORE_STATE_RANGES.reduce((n, [a, b]) => n + b - a, 0));
     let at = 0;
     for(const [a, b] of CORE_STATE_RANGES)
@@ -413,9 +937,10 @@ A64CPU.prototype.save_core_state = function()
     return saved;
 };
 
-A64CPU.prototype.load_core_state = function(saved)
+/** @param {!Uint8Array} saved @param {number=} core with cores in workers, a parked worker's core */
+A64CPU.prototype.load_core_state = function(saved, core = 0)
 {
-    const block = new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
+    const block = this.parallel ? this.state_block_of(core) : new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
     let at = 0;
     for(const [a, b] of CORE_STATE_RANGES)
     {
@@ -434,6 +959,16 @@ A64CPU.prototype.load_core_state = function(saved)
 A64CPU.prototype.each_core = function(f, only)
 {
     const exports = this.wm.exports;
+    // (cores in workers: each core's state is in its own block, state_block_of)
+    if(this.parallel)
+    {
+        const results = [];
+        for(let core = 0; core < this.cores; core++)
+        {
+            if(only === undefined || core === only) results.push(f(core));
+        }
+        return results;
+    }
     const running = exports["a64_current_core"]();
     const results = [];
     for(let core = 0; core < this.cores; core++)
@@ -452,15 +987,25 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[0] = this.memory_size[0];
     state[1] = this.cores;
     // (every core's state block, P3.9: each switched in for a moment; then the running one again)
-    state[2] = this.each_core(() => this.save_core_state());
+    state[2] = this.each_core(core => this.save_core_state(core));
     state[3] = this.wm.exports["a64_current_core"]();
     // the machine (P3.10): the devices, the GIC and the cores' power states (bytes of the core), the boot
     state[4] = DEVICE_ORDER.map(name => this.devices[name] ? this.devices[name].get_state() : null);
     state[5] = this.machine_state_bytes(0).slice();
     state[6] = this.machine_state_bytes(1).slice();
     state[7] = [this.booted, this.boot_entry || 0, this.boot_x0 || 0];
+    // the virtio devices (P5.9): slot, kind, state; their transport
+    state[8] = this.virtio_devices.map(({ slot, name, device }) => [slot, name, device]);
+    state[9] = this.virtio_transport;
+    // the PCIe host (P5.6): its functions' configuration, the shared SPIs' sources
+    state[10] = this.devices["pci"].get_state();
+    state[11] = Array.from(this.shared_spi_sources, ([intid, sources]) => [intid, Array.from(sources)]);
+    // the display adapter (P7.1; nothing with graphics_adapter: "none")
+    state[12] = this.devices.graphics_adapter;
     // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
     state[95] = this.clock.get_state();
+    // extended RAM's pages (P8.5: its contents are records of the snapshot stream)
+    state[98] = this.extended_pages;
     if(skip_memory)
     {
         state[77] = null;
@@ -468,12 +1013,21 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     }
     else
     {
+        // (a single-buffer snapshot does not hold extended RAM: the stream does)
+        if(this.extended_store)
+        {
+            this.flush_extended_memory();
+            if(this.extended_store.touched.some(byte => byte !== 0))
+            {
+                throw new Error("A snapshot of extended RAM needs save_state_stream");
+            }
+        }
         const { packed_memory, bitmap } = this.pack_memory();
         state[77] = packed_memory;
         state[78] = new Uint8Array(bitmap.get_buffer());
     }
     state[99] = null;
-    state[103] = ["virt", VIRT_LAYOUT_VERSION, A64_PROFILE];
+    state[103] = ["virt", VIRT_LAYOUT_VERSION, this.profile];
     return state;
 };
 
@@ -486,10 +1040,10 @@ A64CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from a machine with machine_type: \"" + machine + "\", this one has \"virt\"");
     }
-    if(identity[1] !== VIRT_LAYOUT_VERSION || identity[2] !== A64_PROFILE)
+    if(identity[1] !== VIRT_LAYOUT_VERSION || identity[2] !== this.profile)
     {
         throw new Error("The snapshot is from virt layout " + identity[1] + " with CPU profile " + identity[2] +
-            "; this machine is layout " + VIRT_LAYOUT_VERSION + ", " + A64_PROFILE);
+            "; this machine is layout " + VIRT_LAYOUT_VERSION + ", " + this.profile);
     }
     if(state[0] !== this.memory_size[0])
     {
@@ -499,18 +1053,50 @@ A64CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot has " + state[1] + " cores, this machine " + this.cores);
     }
+    if((state[98] || 0) !== this.extended_pages)
+    {
+        throw new Error("The snapshot has " + (state[98] || 0) * 4096 + " bytes of extended RAM, this machine " + this.extended_pages * 4096);
+    }
+    // (a disk's changes only onto the same image: docs/disk-image-formats-plan.md
+    // P1; a different layout of the devices is refused in set_state)
+    (state[8] || []).forEach(([, name, device_state], i) =>
+    {
+        const own = this.virtio_devices[i];
+        if(own && name === "virtio-blk" && own.name === name && device_state) own.device.check_state(device_state);
+    });
+    if(this.devices.graphics_adapter)
+    {
+        this.devices.graphics_adapter.check_state(state[12]);
+    }
+    else if(graphics_adapter_of_state(state[12]) !== "none")
+    {
+        throw new Error("The snapshot is from a machine with graphics_adapter: \"" + graphics_adapter_of_state(state[12]) + "\", this one has \"none\"");
+    }
 };
 
 A64CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
     if(state[95]) this.clock.set_state(state[95]);
-    state[2].forEach((saved, core) => this.each_core(() => this.load_core_state(saved), core));
-    this.wm.exports["a64_switch_core"](state[3] || 0);
+    state[2].forEach((saved, core) => this.each_core(() => this.load_core_state(saved, core), core));
+    if(!this.parallel) this.wm.exports["a64_switch_core"](state[3] || 0);
     (state[4] || []).forEach((device_state, i) => { if(device_state && this.devices[DEVICE_ORDER[i]]) this.devices[DEVICE_ORDER[i]].set_state(device_state); });
     if(state[5]) this.machine_state_bytes(0).set(state[5]);
     if(state[6]) { this.machine_state_bytes(1).set(state[6]); this.wm.exports["a64_psci_restored"](); }
     if(state[7]) [this.booted, this.boot_entry, this.boot_x0] = state[7];
+    // (the same devices in the same slots, or the snapshot is refused)
+    const devices = state[8] || [];
+    const layout = list => list.map(([slot, name]) => slot + ":" + name).join(",");
+    const own = layout(this.virtio_devices.map(({ slot, name }) => [slot, name]));
+    if(layout(devices) !== own || state[9] !== this.virtio_transport)
+    {
+        throw new Error("The snapshot has the virtio devices [" + layout(devices) + "] on " + state[9] +
+            ", this machine [" + own + "] on " + this.virtio_transport);
+    }
+    devices.forEach(([, , device_state], i) => this.virtio_devices[i].device.set_state(device_state));
+    this.devices["pci"].set_state(state[10]);
+    this.shared_spi_sources = new Map((state[11] || []).map(([intid, sources]) => [intid, new Set(sources)]));
+    this.devices.graphics_adapter && this.devices.graphics_adapter.set_state(state[12]);
     this.wm.exports["a64_restored"]();
     if(!skip_memory && state[77])
     {
@@ -518,6 +1104,17 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
     }
     // (cached translations and compiled code knew the old memory)
     this.wm.exports["jit_clear_cache_js"]?.();
+};
+
+/**
+ * The disks by name, as CPU.prototype.disk_devices (export_disk_image,
+ * disk_image_info): the virtio-blk disks, each with its image as `buffer`
+ * @return {!Array<!Array<?>>}
+ */
+A64CPU.prototype.disk_devices = function()
+{
+    return this.virtio_devices.filter(({ name }) => name === "virtio-blk")
+        .map(({ device }) => [device.name, { buffer: device.backend.buffer }]);
 };
 
 A64CPU.prototype.pack_memory = function()
@@ -572,26 +1169,41 @@ A64CPU.prototype.get_diagnostics = function()
     const power = ["on", "off", "on-pending"];
     const psci = this.machine_state_bytes(1);
     const cores = this.each_core(core => {
-        const word = offset => new Int32Array(this.wasm_memory.buffer, this.state_base + offset, 1)[0];
+        const block = this.parallel ? this.state_block_of(core) : new Uint8Array(this.wasm_memory.buffer, this.state_base, 4096);
+        const word = offset => new Int32Array(block.buffer, block.byteOffset + offset, 1)[0];
         const waiting = word(STATE_OFFSETS.waiting);
+        const worker = this.parallel && core !== 0;
         return {
-            "pc": this.read_pc(),
+            "pc": worker ? "0x" + (new BigUint64Array(block.buffer, block.byteOffset + STATE_OFFSETS.pc, 1)[0]).toString(16) : this.read_pc(),
             "state": power[psci[core]] === "on" ? ["runnable", "wfi", "wfe", "off"][waiting] : power[psci[core]],
             "el": word(STATE_OFFSETS.pstate) >> 2 & 3,
-            "retired_instructions": exports["core_statistics_get"] ? exports["core_statistics_get"](core, 0) : 0,
-            "halt_count": exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
+            "retired_instructions": this.retired_instructions(core),
+            "halt_count": worker ? this.parallel.core_counters(core).waits :
+                exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
         };
     });
     return {
         "cpu_type": "arm64",
         "machine_type": "virt",
         "active_core": exports["a64_current_core"](),
+        "parallel": this.parallel ? Object.assign(this.parallel.status(), { "machine_core": {
+            "tlbi_posted": exports["a64_tlb_ring_stat"](0), "dsb_waits": exports["a64_tlb_ring_stat"](1),
+            "tlbi_taken": exports["a64_tlb_ring_stat"](2), "kicked": exports["a64_kicked"]() } }) : null,
+        "execution": { "mode": this.parallel ? "parallel" : "cooperative", "fallback": this.parallel_fallback || null },
         "cores": cores,
         "pc": this.read_pc(),
         "retired": exports["core_statistics_get"] ? exports["core_statistics_get"](0, 0) : 0,
         "undefined": this.undefined_instructions(),
         "page_tier": this.page_tier_stats(),
     };
+};
+
+/** The instructions core `core` retired (with cores in workers, as its worker counts them) */
+A64CPU.prototype.retired_instructions = function(core)
+{
+    if(this.parallel && core !== 0) return this.parallel.core_retired(core);
+    const get = this.wm.exports["core_statistics_get"];
+    return get ? get(core, 0) : 0;
 };
 
 /** The A64 page tier's counters (src/rust/aarch64/jit/pages.rs), or null without it */
@@ -605,6 +1217,7 @@ A64CPU.prototype.page_tier_stats = function()
         "access_fills", "access_refused", "failed", "chained", "instructions", "templated"];
     const result = { "live": stat(100), "code_page_writes": stat(101), "resets": stat(102), "pages_compiled": stat(103),
         "most_compiles": stat(104), "helpers": stat(106), "evictions": stat(107), "compile_ms": stat(108),
+        "asid_tag_switches": stat(109), "asid_tag": stat(110),
         "table_free_low": this.wm.exports["jit_wasm_table_free_low"]() };
     names.forEach((name, i) => { result[name] = stat(i); });
     return result;

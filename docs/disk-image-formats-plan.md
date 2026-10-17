@@ -585,8 +585,40 @@ ZERO、UNMAPPED（及 QEMU 的旧值 5）读为零，非差分盘中出现 PARTI
 3. **4K 逻辑扇区**：需先让 IDE/AHCI（及 arm64 分支的 virtio-blk）报告并处理大扇区，属于设备层的工作。
 4. **就地写回已有镜像**：属于[磁盘持久化计划](disk-persistence-plan.md)的 `read_write`（D0–D2）与 P5 的
    原格式写入，首版只做了新 QCOW2 的导出。
-5. **与 `arm64` 分支的合并**：本分支基于 `master`；`arm64` 分支把 IDE 的读写提取到了 `block_backend.js`
-   并新增 `virtio_blk.js`。合并时需把 `read_buffer`/`write_to_backend` 的错误通道（`fn(data, error)`、
-   `fn(error)`，见 P0 偏差 1）移到 `block_backend.js`，并让 virtio-blk 在读写失败时返回
-   `VIRTIO_BLK_S_IOERR`；`DiskImage` 本身不需要改。
+5. **与 `arm64` 分支的合并**：已完成，见下节。
+
+### 与 `arm64` 分支合并（2026-10-17）
+
+`arm64`（a22bd3a5）合并进本分支，冲突只在 `src/ide.js`：`arm64` 把 IDE 的读写、取消与 FLUSH 提取到了
+[`src/block_backend.js`](../src/block_backend.js)，本分支在同一处加了错误通道。合并后错误通道在
+`block_backend.js` 中实现一次，IDE、AHCI、virtio-blk 共用：
+
+- `block_read(owner, start, length, callback, on_error)`：后端以 `fn(undefined, error)`（或不给数据）回调时
+  调用 `on_error`；`block_write`、`block_when_writes_done` 同样增加 `on_error`（后端 `fn(error)`）。已取消的
+  读取、被复位越过的请求两者都不调用，规则与成功路径相同。IDE 的 `read_buffer`、`write_to_backend`、
+  `when_writes_done` 成为薄包装，默认错误处理仍为 `io_error`（ERR/ABRT，DMA 置总线主控错误位，ATAPI
+  报 MEDIUM ERROR）；AHCI NCQ 仍经 `queued_failed` → `ncq_failed`。
+- virtio-blk：读、写、FLUSH 失败均以 `VIRTIO_BLK_S_IOERR` 完成。顺带修正 `arm64` 上原有的一个问题：
+  读请求以错误结束时（包括原有的越界读取），状态字节被写进了数据区的第一个字节而不是最后一个可写字节，
+  客户机读到的状态是旧值；现在先把数据区补零再写状态（GET_ID 的缓冲区大于 20 字节时同理）。
+- virt 机器的盘（`virtio_disks[]`，以及作为前两块盘的 `hda`、`hdb`）接受 `format` 等镜像选项，经同一个
+  `create_disk_image` 构建（Worker 中亦然）；`VirtioBlk.check_state` 在 `A64CPU.validate_state` 中、恢复任何
+  状态之前核对镜像身份（另一镜像、RAW 盘均拒绝），与 x86 的 `validate_disk_states` 相同；
+  `A64CPU.disk_devices` 让 `export_disk_image`、`disk_image_info` 按名称（`virtio_disk<n>`，或 `hda`、`hdb`）
+  找到 virt 机器的盘。`performance_recorder.js` 的读取计时包装转发读取错误（原先会在 `data.byteLength`
+  处抛出）。
+- 新测试 [`tests/a64/virtio_blk_disk_image.mjs`](../tests/a64/virtio_blk_disk_image.mjs)（加入
+  `a64-virt-device-tests`）：内存中构造的 QCOW2 经 virtio-blk 读数据簇与未分配簇；损坏簇的读取（含跨入
+  损坏簇的读取）得到 `VIRTIO_BLK_S_IOERR`，下一次读取正常；超出修改层预算的写入得到 `VIRTIO_BLK_S_IOERR`
+  且不改变磁盘；FLUSH 正常；快照恢复客户机写入，恢复到另一镜像或 RAW 盘在恢复任何状态之前被拒；
+  按名称导出与查询；损坏镜像的导出以错误结束。
+- [`tests/a64/linux_boot.mjs`](../tests/a64/linux_boot.mjs) 增加 `A64_LIVE_QCOW2=1`：live 阶段的 ISO 盘换成
+  `qemu-img convert -c` 得到的压缩 QCOW2（61059584 字节，ISO 92762112 字节）。
+
+合并后的检查：Closure（`libv86.js`、`libv86.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出；
+`make disk-image-tests` 全部通过；`ahci`（31/31）、`device_io_reset`、`disk_write_cache`（10/10）、
+`ahci_lifecycle`、`ide_large_disk`、`api/state`、`clean-shutdown`、`cdrom-insert-eject` 通过；`arm64` 一侧
+`a64-api-tests`、`a64-virt-device-tests`（含新测试；参考 QEMU 用 `A64_QEMU` 指向已构建的 9.2.0）通过；
+Alpine live 阶段（`A64_JIT=1 A64_STAGE=live A64_CORES=1`）RAW ISO 93941 ms 到登录、探针通过，
+`A64_LIVE_QCOW2=1` 93184 ms 到登录、探针通过。
 

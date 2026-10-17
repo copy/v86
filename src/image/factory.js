@@ -44,7 +44,7 @@ export function check_image_options(name, file, hard_disk)
     {
         if(NOT_DISKS.includes(name))
         {
-            throw new DiskImageError(name + ": disk_option is for disks (hda, hdb, SATA drives), not " + name, "config");
+            throw new DiskImageError(name + ": disk_option is for disks (hda, hdb, SATA drives, virtio_disks), not " + name, "config");
         }
         if(!DISK_OPTIONS.includes(option))
         {
@@ -63,7 +63,7 @@ export function check_image_options(name, file, hard_disk)
     }
     if(!hard_disk)
     {
-        throw new DiskImageError(name + ": format " + JSON.stringify(format) + " is for hard disks (hda, hdb, SATA drives); " +
+        throw new DiskImageError(name + ": format " + JSON.stringify(format) + " is for hard disks (hda, hdb, SATA drives, virtio_disks); " +
             name + " is read as it is", "config");
     }
     if(FORMATS_LATER[format])
