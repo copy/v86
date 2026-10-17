@@ -9,16 +9,15 @@ import { QCOW2Reader, QCOW2_MAGIC } from "./qcow2.js";
 import { VHDReader } from "./vhd.js";
 import { VDIReader } from "./vdi.js";
 import { VMDKReader } from "./vmdk.js";
+import { VHDXReader } from "./vhdx.js";
 import { SliceSource, read_tar, read_ova } from "./ova.js";
 import { load_file } from "../lib.js";
 
 /** the formats a hard disk's `format` may name */
-export const DISK_IMAGE_FORMATS = ["raw", "qcow2", "vhd", "vpc", "vdi", "vmdk", "auto"];
+export const DISK_IMAGE_FORMATS = ["raw", "qcow2", "vhd", "vpc", "vdi", "vmdk", "vhdx", "auto"];
 
 /** formats recognised but not (yet) read, and where they are planned */
-const FORMATS_LATER = {
-    "vhdx": "P5",
-};
+const FORMATS_LATER = {};
 
 /** what disk_option may be (docs/disk-persistence-plan.md) */
 const DISK_OPTIONS = ["read_only", "read_write"];
@@ -270,6 +269,7 @@ const READERS = {
     "vhd": VHDReader,
     "vdi": VDIReader,
     "vmdk": VMDKReader,
+    "vhdx": VHDXReader,
 };
 
 /**

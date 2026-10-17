@@ -1,6 +1,6 @@
 # 虚拟磁盘镜像格式支持计划
 
-状态：P0、P1（第一轮完整交付）、P2、P3、P4 已实现并通过验收（P3 的差分镜像未开放）；P5 未实现。实施记录见[附录](#附录实施记录)。
+状态：P0–P5 已实现并通过验收（2026-10-17）。未开放：VHD、VDI、VHDX 的差分镜像，VHDX 的日志重放与 4K 逻辑扇区，已有镜像的就地写回；原因与所需条件见[附录](#附录实施记录)末尾。
 
 本计划基于 2026 年 10 月 3 日审查的当前 v86 分支。目标是在现有 RAW 镜像能力上，
 增加 QCOW2、VHD、VDI、VMDK 和 VHDX 的原生读取，并通过公共修改层支持客户机写入、
@@ -472,7 +472,7 @@ dirty 与 corrupt 位、父盘（P1 中；P2 由调用方提供）、L1 不足�
 样本增加 `dynamic.vhd`、`dynamic-force.vhd`、`fixed.vhd`、`fixed-force.vhd`、`100g.vhd`、`dynamic.vdi`、
 `static.vdi`、`3t.vdi`（样本版本 5；VHD footer 含时间戳，每次生成的 SHA-256 不同）。
 
-### P4 VMDK 与整机包导入
+### P4 VMDK 与整机包导入（2f3d2381）
 
 **实现。** [`src/image/vmdk.js`](../src/image/vmdk.js)。各 createType 与 extent 类型的支持状态：
 
@@ -528,4 +528,65 @@ v86 没有的硬件说明：SCSI 控制器（其盘改挂 IDE/AHCI）、网卡�
 
 样本增加 `sparse.vmdk`、`stream.vmdk`、`flat.vmdk`、`2gbsparse.vmdk`、`2gbflat.vmdk`、`zeroed.vmdk`、`child.vmdk`、
 `100g.vmdk`、`5g-sparse.vmdk`、`5g-flat.vmdk` 及其 extent 文件（样本版本 6；flat extent 为稀疏文件）。
+
+### P5 VHDX 与原格式导出
+
+**实现。** [`src/image/vhdx.js`](../src/image/vhdx.js)：文件类型标识；两个头部取 CRC-32C 正确且序号较大的一个；
+两个区域表取第一个 CRC-32C 正确的，未知的必需区域拒绝；元数据表（文件参数、虚拟容量、逻辑与物理扇区
+大小、父盘定位器），未知的必需元数据项拒绝；BAT：每 `chunk_ratio = 2^23 × 逻辑扇区 / 块大小` 个负载块后
+跟一个扇区位图项，状态 FULLY_PRESENT 读 `FileOffsetMB × 1 MiB` 处的数据，NOT_PRESENT、UNDEFINED、
+ZERO、UNMAPPED（及 QEMU 的旧值 5）读为零，非差分盘中出现 PARTIALLY_PRESENT 或状态 4 时打开即报错。
+块大小 1–256 MiB 且为 2 的幂。身份为当前头部、区域表、元数据区与 BAT。
+
+拒绝：日志 GUID 非零（有待重放的日志：即使只读也不跳过，按[规范][vhdx-log]；错误信息提示用会重放
+日志的工具打开一次）、差分盘（文件参数的 HasParent 或父盘定位器）、4096 字节逻辑扇区（设备路径只有
+512 字节扇区：IDE/AHCI 的 IDENTIFY 不报告大扇区，不能在解析器里重新切片）、版本不是 1、扇区大小非法。
+
+原格式导出：[`src/image/qcow2_export.js`](../src/image/qcow2_export.js) 导出新的、受限特性的 QCOW2：版本 3、
+64 KiB 簇、16 位引用计数、无压缩、无父盘，全零的簇不写入；布局为头部、L1、引用计数表与块、L2 表、
+数据，引用计数全为 1、L1/L2 项带 copied 标志。因为要顺序写出，先扫描一遍磁盘确定哪些簇有数据再写；
+扫描时对格式元数据表明为零（零簇、未分配且父盘也为零）且没有客户机写入的区间（先按 256 MiB，再按
+1 MiB）不读取，因此大的稀疏盘只读其元数据和数据。`export_disk_image(name, { format: "qcow2" })`，
+在页面与 CPU Worker 中都可用，和 RAW 一样先暂停机器并等待在途 I/O。不实现就地更新已有镜像
+（计划：需正确维护分配表、引用计数、写入顺序与崩溃一致性，且属于[磁盘持久化计划](disk-persistence-plan.md)的
+`read_write`）；其他格式不提供导出。
+
+**偏差。**
+
+1. VHDX 日志选择了“拒绝”而不是“在独立视图中重放”（计划允许，后者列为后续研究）；qemu-img 正常关闭的
+   镜像日志为空，有日志的样本是改写头部得到的（不是真实中断留下的日志）。
+2. VHDX 差分盘与 4K 逻辑扇区未开放（QEMU 不生成差分 VHDX；4K 需要设备路径先支持，见上）。
+3. QCOW2 导出扫描阶段的进度以磁盘偏移计，写出阶段以输出字节计（`phase` 字段区分）；CPU Worker 中
+   页面一侧的进度没有总长（扫描完成前不知道镜像大小）。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/image/vhdx.mjs` | qemu-img 的动态、固定 VHDX，块大小 1、8（默认）、256 MiB，`block_state_zero=off` 加 qemu-io 写入与零写入的镜像，各经两条路径整盘与随机区间与基准一致，共比对 640 MiB；`auto` 识别；3 TiB 动态盘在 4 GiB 以上与 2^32 扇区边界处一致；CRC-32C 的标准校验值；当前头部损坏时用另一个，两个都坏拒绝；有日志、版本 2、两个区域表都坏、未知必需区域、4096 字节逻辑扇区、非法扇区大小、差分盘、非法块大小、容量非扇区倍数、未知必需元数据、BAT 状态 7 与 4、BAT 越界均报出具体原因；第一个区域表损坏时用第二个；NOT_PRESENT 块读为零 |
+| `tests/image/qcow2_export.mjs` | 压缩 QCOW2 子盘加父盘、容量不是簇整数倍的 VHD（67125248 字节）、内存中的 RAW，各带客户机写入（首簇、跨簇、末尾、全零写入）：QCOW2 导出通过 `qemu-img check`，与同一视图的 RAW 导出 `qemu-img compare` 相同，虚拟容量相同，v86 读回一致；3 TiB QCOW2、3 TiB VDI、100 GiB VHD 导出为 QCOW2（分别读取镜像 655360、5177344、6225920 字节），通过 `qemu-img check` 且与源镜像 `qemu-img compare` 相同；未知导出格式拒绝，扫描或写出阶段取消均失败 |
+| `tests/image/guest.mjs` | 增加 qemu-img 转出的 VHDX：MS-DOS 启动、写文件、重启与快照恢复后文件都在 |
+| 浏览器（页面与 CPU Worker） | 写入前把 hda 导出为 QCOW2（66387968 字节）交给测试服务器，`qemu-img check` 无错误，与 `msdos622.img` `qemu-img compare` 相同；同一镜像作为 File（`format: "auto"`；Worker 中 `FileReaderSync`，页面上 `FileReader`）挂载，导出与 `msdos622.img` 相同 |
+| `tests/image/disk_image.mjs`（补充） | 来源：完整下载（`url` 不带 `async`，读入内存）、给出 `size` 的分段读取、`size` 与文件不符时报错 |
+| 回归（整套） | `tests/image/` 的 inflate、disk_image、qcow2、vhd_vdi、vmdk、vhdx、qcow2_export、guest（8 种格式各启动 MS-DOS），`tests/devices/` 的 ide_disk_image、ahci（31/31）、ide_large_disk、device_io_reset、disk_write_cache（10/10）、ahci_lifecycle，`tests/api/` 的 disk-image、state、cdrom-insert-eject、floppy、destroy-during-init、clean-shutdown、reset 全部通过；`TEST_RELEASE_BUILD=1`（`build/libv86.mjs` 与发布版核心）下 ide_disk_image、guest（压缩 QCOW2、VHDX、OVA）与 qcow2_export 通过；`build/libv86.js`、`build/libv86.mjs`、`build/cpu-worker.js` 的 Closure 检查 0 错误；eslint 无输出 |
+
+样本增加 `dynamic.vhdx`、`fixed.vhdx`、`1m.vhdx`、`256m.vhdx`、`io.vhdx`、`3t.vhdx`（样本版本 7）。整套样本约 2 GiB
+（`build/disk-image-samples/`，大部分为 64 MiB 镜像及其 RAW 基准）。
+
+### 总结与需要负责人决定的事项
+
+计划 P0–P5 全部按“实施顺序”完成，以下为未开放的部分及开放它们所需的条件：
+
+1. **差分 VHD、VDI、VHDX**：需要 Hyper-V/Virtual PC、VirtualBox 生成的差分样本（本机 qemu-img 不能生成，
+   QEMU 也不读这些差分格式），用来验证父盘 UUID/时间戳与扇区位图的继承规则。需要负责人决定是否提供
+   这类样本或允许下载。
+2. **VHDX 日志重放**：现为拒绝打开。若要支持，需要带真实日志的样本（例如 Hyper-V 中断写入后的镜像）
+   以及“在独立视图中重放、不改源文件”的设计确认。
+3. **4K 逻辑扇区**：需先让 IDE/AHCI（及 arm64 分支的 virtio-blk）报告并处理大扇区，属于设备层的工作。
+4. **就地写回已有镜像**：属于[磁盘持久化计划](disk-persistence-plan.md)的 `read_write`（D0–D2）与 P5 的
+   原格式写入，首版只做了新 QCOW2 的导出。
+5. **与 `arm64` 分支的合并**：本分支基于 `master`；`arm64` 分支把 IDE 的读写提取到了 `block_backend.js`
+   并新增 `virtio_blk.js`。合并时需把 `read_buffer`/`write_to_backend` 的错误通道（`fn(data, error)`、
+   `fn(error)`，见 P0 偏差 1）移到 `block_backend.js`，并让 virtio-blk 在读写失败时返回
+   `VIRTIO_BLK_S_IOERR`；`DiskImage` 本身不需要改。
 

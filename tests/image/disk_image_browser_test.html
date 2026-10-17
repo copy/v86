@@ -67,6 +67,27 @@ try
     const first = await exported();
     if(await hex(first) !== params.get("raw_sha256") && info.written === 0) throw new Error("the export is not msdos622.img");
     log.push("export_disk_image: " + first.length + " bytes (" + info.format + ", " + info.written + " bytes written before)");
+    // the same image as a File (a disk the user picks): read with
+    // FileReaderSync in the Worker, FileReader on the page
+    {
+        const blob = await (await fetch("../../build/disk-image-browser/msdos622.qcow2")).blob();
+        const file_vm = vm_current = new V86({ ...config({ buffer: new File([blob], "msdos622.qcow2"), format: "auto" }), autostart: false });
+        await new Promise((resolve, reject) => { file_vm.add_listener("emulator-loaded", resolve); file_vm.add_listener("emulator-error", reject); });
+        const parts = [];
+        await file_vm.export_disk_image("hda", { write: chunk => { parts.push(chunk); } });
+        if(await hex(await new Blob(parts).arrayBuffer()) !== params.get("raw_sha256")) throw new Error("the File's disk is not msdos622.img");
+        await file_vm.destroy();
+        vm_current = vm;
+        log.push("a File (format auto): the disk is msdos622.img");
+    }
+    // a new QCOW2 image of it: checked and compared by the runner (qemu-img)
+    {
+        const parts = [];
+        const size = await vm.export_disk_image("hda", { format: "qcow2", write: chunk => { parts.push(chunk); } });
+        const response = await fetch("/__test_file?name=hda-" + (worker ? "worker" : "page") + ".qcow2", { method: "POST", body: new Blob(parts) });
+        if(!response.ok) throw new Error("the runner did not take the QCOW2 export");
+        log.push("export_disk_image (qcow2): " + size + " bytes, sent to the runner");
+    }
     if(hdb)
     {
         const parts = [];

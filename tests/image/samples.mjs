@@ -20,7 +20,7 @@ const QEMU_IMG = process.env.QEMU_IMG || (fs.existsSync("/opt/homebrew/bin/qemu-
 const QEMU_IO = process.env.QEMU_IO || (fs.existsSync("/opt/homebrew/bin/qemu-io") ? "/opt/homebrew/bin/qemu-io" : "qemu-io");
 
 // changing a sample: change this, and the samples are made again
-const SAMPLES_VERSION = 6;
+const SAMPLES_VERSION = 7;
 
 export const BASE_SIZE = 64 * 1024 * 1024;
 export const TB3 = 3 * 1024 ** 4;
@@ -286,6 +286,27 @@ export function make_samples()
         add(name, "vmdk", null, { size: 5 * 1024 ** 3, writes: extent_writes, pattern: "pattern.bin",
             files: [1, 2, 3].map(i => stem + "-" + letter + String(i).padStart(3, "0") + ".vmdk") });
     }
+
+    // VHDX (P5): dynamic and fixed, block sizes, ZERO blocks off; 3 TiB
+    // dynamic written across 2^32 sectors
+    const vhdx = (name, options) =>
+    {
+        run(QEMU_IMG, ["convert", "-f", "raw", "-O", "vhdx", ...options, file("base.raw"), file(name)], log);
+        add(name, "vhdx", "base.raw");
+    };
+    vhdx("dynamic.vhdx", []);
+    vhdx("fixed.vhdx", ["-o", "subformat=fixed"]);
+    vhdx("1m.vhdx", ["-o", "block_size=1M"]);
+    vhdx("256m.vhdx", ["-o", "block_size=256M"]);
+    run(QEMU_IMG, ["create", "-q", "-f", "vhdx", "-o", "block_state_zero=off", file("io.vhdx"), "64M"], log);
+    run(QEMU_IO, ["-f", "vhdx", "-c", "write -q -s " + pattern + " 1048576 2097152", "-c", "write -q -z 1048576 1048576",
+        "-c", "write -q -P 0x42 40000000 4096", file("io.vhdx")], log);
+    run(QEMU_IMG, ["convert", "-f", "vhdx", "-O", "raw", file("io.vhdx"), file("io.vhdx.raw")], log);
+    add("io.vhdx", "vhdx", "io.vhdx.raw");
+    run(QEMU_IMG, ["create", "-q", "-f", "vhdx", file("3t.vhdx"), String(TB3)], log);
+    run(QEMU_IO, ["-f", "vhdx", ...big_writes.flatMap(([offset, length]) => ["-c", "write -q -s " + pattern + " " + offset + " " + length]),
+        file("3t.vhdx")], log);
+    add("3t.vhdx", "vhdx", null, { size: TB3, writes: big_writes, pattern: "pattern.bin" });
 
     // features that are refused
     run(QEMU_IMG, ["create", "-q", "-f", "qcow2", "-o", "compat=1.1,extended_l2=on", file("extl2.qcow2"), "16M"], log);

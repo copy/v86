@@ -11,7 +11,7 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { createHash as create_hash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { build_qcow2 } from "./tiny_qcow2.mjs";
@@ -40,6 +40,10 @@ if(fs.existsSync(path.join(samples, "child-zlib.qcow2")))
     for(const name of ["child-zlib.qcow2", "v3-zstd.qcow2"]) fs.copyFileSync(path.join(samples, name), path.join(out, name));
     params.push("child_sha256=" + create_hash("sha256").update(fs.readFileSync(path.join(samples, "child.raw"))).digest("hex"));
 }
+else
+{
+    console.log("(no samples in build/disk-image-samples: run tests/image/samples.mjs for the hdb test)");
+}
 // an OVA of tests/image/vmdk.mjs: its disk, a streamOptimized VMDK of the
 // samples' base
 if(fs.existsSync(path.join(samples, "dos-ustar.ova")))
@@ -49,15 +53,32 @@ if(fs.existsSync(path.join(samples, "dos-ustar.ova")))
 }
 else
 {
-    console.log("(no samples in build/disk-image-samples: run tests/image/samples.mjs for the hdb test)");
+    console.log("(no OVA in build/disk-image-samples: run tests/image/vmdk.mjs for the OVA test)");
 }
 
 const stats = new Map();
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "v86-disk-image-browser-"));
 let browser, timeout;
 
+const QEMU_IMG = process.env.QEMU_IMG || (fs.existsSync("/opt/homebrew/bin/qemu-img") ? "/opt/homebrew/bin/qemu-img" : "qemu-img");
+const received = [];
+
 const server = http.createServer((req, res) =>
 {
+    if(req.method === "POST" && req.url.startsWith("/__test_file?"))
+    {
+        // a file the page made (an exported image)
+        const name = path.basename(new URL(req.url, "http://localhost").searchParams.get("name") || "file");
+        const chunks = [];
+        req.on("data", d => chunks.push(d));
+        req.on("end", () =>
+        {
+            fs.writeFileSync(path.join(out, name), Buffer.concat(chunks));
+            received.push(name);
+            res.end("OK");
+        });
+        return;
+    }
     if(req.method === "POST" && req.url === "/__test_result")
     {
         let body = "";
@@ -67,6 +88,21 @@ const server = http.createServer((req, res) =>
             res.end("OK");
             const result = JSON.parse(body);
             console.log(result.details);
+            // the QCOW2 export of MS-DOS's disk: qemu-img check, and compare with msdos622.img
+            for(const name of received.filter(n => n.endsWith(".qcow2")))
+            {
+                try
+                {
+                    execFileSync(QEMU_IMG, ["check", "-q", "-f", "qcow2", path.join(out, name)]);
+                    execFileSync(QEMU_IMG, ["compare", "-q", "-f", "qcow2", "-F", "raw", path.join(out, name), path.join(root, "images/msdos622.img")]);
+                    console.log(name + ": qemu-img check: no errors; qemu-img compare: equal to msdos622.img");
+                }
+                catch(error)
+                {
+                    console.log(name + ": FAIL " + error.message);
+                    result.status = "FAIL";
+                }
+            }
             for(const [name, s] of stats) console.log("served " + name + ": " + s.requests + " requests, " + s.bytes + " bytes of " + s.size);
             finish(result.status === "PASS" ? 0 : 1);
         });

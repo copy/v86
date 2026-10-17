@@ -120,7 +120,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
 	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/loader.js \
-	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/ova.js image/factory.js image/export.js
+	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js wasm_paths.js worker_bus.js state_stream_transport.js cpu_worker.js dummy_screen.js ansi_screen.js \
@@ -679,6 +679,8 @@ disk-image-tests: build/v86-debug.wasm
 	./tests/image/qcow2.mjs
 	./tests/image/vhd_vdi.mjs
 	./tests/image/vmdk.mjs
+	./tests/image/vhdx.mjs
+	./tests/image/qcow2_export.mjs
 	./tests/devices/ide_disk_image.js
 	./tests/api/disk-image.js
 	./tests/image/guest.mjs

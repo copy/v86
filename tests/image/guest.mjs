@@ -26,6 +26,7 @@ const FORMATS = [
     ["vhd-fixed", "vhd", "vpc", ["-o", "subformat=fixed"]],
     ["vdi", "vdi", "vdi", []],
     ["vmdk-sparse", "vmdk", "vmdk", []],
+    ["vhdx", "vhdx", "vhdx", []],
     ["vmdk-stream", "vmdk", "vmdk", ["-o", "subformat=streamOptimized"]],
     // (the streamOptimized VMDK in an OVA, through V86.import_ova)
     ["ova", "vmdk", "vmdk", ["-o", "subformat=streamOptimized"]],

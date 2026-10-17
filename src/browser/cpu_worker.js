@@ -470,7 +470,8 @@ export class CPUWorkerController
     {
         return this.serialize(async () => {
             const info = await this.rpc("disk-info", [name]);
-            const total = info["size"];
+            // (a QCOW2 image's size is known once the disk was read)
+            const total = options.format === "qcow2" ? undefined : info["size"];
             const channel = new globalThis.MessageChannel();
             let loaded = 0;
             const port = channel.port1;
@@ -495,7 +496,7 @@ export class CPUWorkerController
             options.progress && options.progress({ loaded: 0, total });
             try
             {
-                return await this.rpc("export-disk", [name, channel.port2], [channel.port2]);
+                return await this.rpc("export-disk", [name, channel.port2, { "format": options.format }], [channel.port2]);
             }
             finally
             {

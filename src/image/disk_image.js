@@ -267,6 +267,55 @@ export class ImageReader
     }
 
     /**
+     * Whether [offset, offset + length) reads as zeros by the image's
+     * metadata alone (zero and unallocated extents, a parent's likewise):
+     * false where it may have data. An export skips such parts without
+     * reading them.
+     * @param {number} offset
+     * @param {number} length
+     * @param {function(boolean, (Error|undefined)=)} callback
+     */
+    is_zero(offset, length, callback)
+    {
+        this.map(offset, length, (extents, error) =>
+        {
+            if(error)
+            {
+                callback(false, error);
+                return;
+            }
+            let pending = 1, zero = true;
+            const done = () =>
+            {
+                if(--pending === 0) callback(zero);
+            };
+            let position = 0;
+            for(const extent of /** @type {!Array<!Object>} */ (extents))
+            {
+                const at = position;
+                position += extent.length;
+                if(extent.type === EXTENT_ZERO) continue;
+                if(extent.type === EXTENT_PARENT)
+                {
+                    const parent = this.parent;
+                    const available = parent ? Math.min(extent.length, parent.virtual_size - (offset + at)) : 0;
+                    if(available <= 0) continue;
+                    pending++;
+                    parent.is_zero(offset + at, available, parent_zero =>
+                    {
+                        zero = zero && parent_zero;
+                        done();
+                    });
+                    continue;
+                }
+                zero = false;
+                break;
+            }
+            done();
+        });
+    }
+
+    /**
      * A compressed cluster, decompressed (kept for the next reads of it)
      * @param {!Object} extent
      * @param {function((!Uint8Array|undefined), (Error|undefined)=)} callback

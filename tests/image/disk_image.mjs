@@ -64,6 +64,18 @@ async function open_disk(name, extra = {}, settings = {})
     console.log("ok - writes over the image: across clusters, part of a cluster, from the overlay, get_from_cache");
 }
 
+// the other sources: a whole download (url without async), a file read in
+// ranges given its size, the length checked against it
+{
+    const whole = await open_disk("v3.qcow2", { async: false });
+    assert.equal(whole.reader.source.constructor.name, "MemorySource", "downloaded whole");
+    equal_bytes(await get(whole, 20 << 20, 1 << 20), base.subarray(20 << 20, 21 << 20), "a whole download");
+    const sized = await open_disk("v3.qcow2", { size: manifest.samples["v3.qcow2"].length });
+    equal_bytes(await get(sized, 0, 65536), base.subarray(0, 65536), "the size given");
+    await assert.rejects(open_disk("v3.qcow2", { size: 12345 }), /the file has \d+ bytes, its size is given as 12345/);
+    console.log("ok - sources: a whole download, a file read in ranges with its size; a wrong size refused");
+}
+
 // a read that began before a write returns the write's data, and the read
 // cache does not keep data older than the write
 {
@@ -364,7 +376,10 @@ function server(bytes, behave = {})
     assert.equal(check_image_options("hda", { url: "x", format: "auto", disk_option: "read_only" }, true), "auto");
     assert.throws(() => check_image_options("hda", { url: "x", format: "qcow3" }, true), /unknown format "qcow3"/);
     assert.equal(check_image_options("hda", { url: "x", format: "vhd" }, true), "vhd");
-    assert.throws(() => check_image_options("hda", { url: "x", format: "vmdk" }, true), /not supported yet/);
+    for(const format of ["vdi", "vmdk", "vhdx", "vpc"]) assert.equal(check_image_options("hda", { url: "x", format }, true), format);
+    assert.throws(() => check_image_options("hda", { url: "x", format: "qed" }, true), /unknown format "qed"/);
+    assert.throws(() => check_image_options("hda", { url: "x", format: "vmdk", files: { "a.vmdk": "a.vmdk" } }, true), /files must map/);
+    assert.throws(() => check_image_options("hda", { url: "x", format: "vmdk", archive_member: 7 }, true), /archive_member/);
     assert.throws(() => check_image_options("cdrom", { url: "x", format: "qcow2" }, false), /for hard disks/);
     assert.throws(() => check_image_options("hda", { url: "x", disk_option: "read_write" }, true), /not supported yet/);
     assert.throws(() => check_image_options("hda", { url: "x", disk_option: "rw" }, true), /not one of/);

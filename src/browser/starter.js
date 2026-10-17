@@ -1764,13 +1764,15 @@ V86.prototype.disk_image_info = async function(name)
 
 /**
  * Export a disk as the guest sees it, as a RAW image of its whole size
- * (docs/disk-image-formats-plan.md P2): the image's data with the guest's
- * writes, in order. The machine stops and its disk I/O finishes first, so
- * the stream is one view of the disk; it goes on afterwards. `write` gets
- * each chunk (at most 1 MiB) and may return a promise: the next chunk waits
- * for it.
+ * (docs/disk-image-formats-plan.md P2) or as a new QCOW2 image (format:
+ * "qcow2", P5: version 3, 64 KiB clusters, the clusters of zeros left out):
+ * the image's data with the guest's writes. The machine stops and its disk
+ * I/O finishes first, so the stream is one view of the disk; it goes on
+ * afterwards. `write` gets each chunk (at most 1 MiB) and may return a
+ * promise: the next chunk waits for it.
  * @param {string} name hda, hdb, cdrom, sata<port>
  * @param {{write: function(!Uint8Array):(Promise<*>|undefined),
+ *          format: (string|undefined),
  *          progress: (function({loaded: number, total: number})|undefined),
  *          signal: (AbortSignal|undefined)}} options
  * @return {!Promise<number>} the size written

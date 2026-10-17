@@ -250,9 +250,9 @@ export function start_cpu_worker()
         "write_memory": (bytes, offset) => emulator.write_memory(bytes, offset),
         "memory_dump": () => emulator.v86.cpu.mem8.slice(),
         "disk-info": name => emulator.disk_image_info(name),
-        "export-disk": async (name, port) => {
+        "export-disk": async (name, port, options) => {
             const stream = state_stream_client(port);
-            try { return await emulator.export_disk_image(name, { write: stream["write"] }); }
+            try { return await emulator.export_disk_image(name, { write: stream["write"], format: options && options["format"] }); }
             finally { stream["close"](); }
         },
         "disk": name => {

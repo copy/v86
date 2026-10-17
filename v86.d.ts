@@ -82,10 +82,11 @@ export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
  * "auto" fails for it. "vpc" is QEMU's name of VHD. VHD and VDI: fixed and
  * dynamic images (not differencing ones). VMDK: monolithicSparse,
  * streamOptimized, monolithicFlat, vmfs, twoGbMaxExtentSparse,
- * twoGbMaxExtentFlat (other createTypes fail at start). Formats planned but
- * not supported yet ("vhdx") fail at start.
+ * twoGbMaxExtentFlat (other createTypes fail at start). VHDX: fixed and
+ * dynamic images with 512-byte logical sectors and no log to replay (not
+ * differencing ones).
  */
-export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "vmdk" | "auto";
+export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "vmdk" | "vhdx" | "auto";
 
 /**
  * The options of a hard disk image (hda, hdb, attach_sata_drive). With a
@@ -1249,10 +1250,10 @@ export class V86 {
     disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number }>;
 
     /**
-     * Export a disk as the guest sees it, as a RAW image of its whole size:
-     * the image's data with the guest's writes, in order. The machine stops
-     * and its disk I/O finishes first (the stream is one view of the disk),
-     * and goes on afterwards. Each chunk (at most 1 MiB) goes to `write`;
+     * Export a disk as the guest sees it, as a RAW image of its whole size
+     * or a new QCOW2 image: the image's data with the guest's writes. The
+     * machine stops and its disk I/O finishes first (the stream is one view
+     * of the disk), and goes on afterwards. Each chunk (at most 1 MiB) goes to `write`;
      * the next one waits for the promise it returns. Resolves to the size
      * written.
      *
@@ -1260,6 +1261,12 @@ export class V86 {
      */
     export_disk_image(name: string, options: {
         write: (chunk: Uint8Array) => void | Promise<void>;
+        /**
+         * "raw" (the default): the disk's whole size. "qcow2": a new QCOW2
+         * image (version 3, 64 KiB clusters, clusters of zeros left out),
+         * which needs a pass over the disk first: its size is then known
+         */
+        format?: "raw" | "qcow2";
         progress?: (progress: { loaded: number; total: number }) => void;
         signal?: AbortSignal;
     }): Promise<number>;

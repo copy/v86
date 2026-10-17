@@ -2,6 +2,7 @@ import { CPU } from "./cpu.js";
 import { A64CPU } from "./arm/cpu.js";
 import { save_state, restore_state, save_state_stream, restore_state_stream } from "./state.js";
 import { export_raw } from "./image/export.js";
+import { export_qcow2 } from "./image/qcow2_export.js";
 export { V86 } from "./browser/starter.js";
 
 /**
@@ -344,17 +345,20 @@ v86.prototype.restore_state_stream = function(source)
 };
 
 /**
- * Export a disk as the guest sees it, RAW (src/image/export.js): the machine
- * stops and its disk I/O finishes first, so the stream is one view of the
- * disk; it goes on afterwards
+ * Export a disk as the guest sees it, RAW (src/image/export.js) or a new
+ * QCOW2 image (src/image/qcow2_export.js): the machine stops and its disk
+ * I/O finishes first, so the stream is one view of the disk; it goes on
+ * afterwards
  * @param {?} buffer the disk's buffer
  * @param {function(!Uint8Array):(Promise<*>|undefined)} write
- * @param {?=} options progress, signal
+ * @param {?=} options format ("raw", "qcow2"), progress, signal
  * @return {!Promise<number>}
  */
 v86.prototype.export_disk = function(buffer, write, options)
 {
-    const run = () => export_raw(buffer, write, options);
+    const format = options && options.format || "raw";
+    if(format !== "raw" && format !== "qcow2") return Promise.reject(new Error("Export: unknown format " + JSON.stringify(format) + " (raw, qcow2)"));
+    const run = () => format === "qcow2" ? export_qcow2(buffer, write, options) : export_raw(buffer, write, options);
     if(this.cpu.parallel) return this.state_transaction(() => this.parallel_save(run), true);
     return this.state_transaction(run, true);
 };
