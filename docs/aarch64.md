@@ -57,6 +57,22 @@ region is write-protected, so `qemu_spin_lock()` on the TB never succeeds.
 Only `aarch64-softmmu` is built. QEMU's linux-user targets do not build on
 macOS.
 
+## Known defects
+
+The G-Alpine list (docs/arm64-virt-android16-plan.md P9.4). Major: a
+verified guest's function fails, or a release level does; minor: a
+declared deviation, a slower path or a documented limit. None is major.
+
+| Defect | Severity | |
+| --- | --- | --- |
+| Cores in workers: a store-exclusive also compares the value its load-exclusive read, so a value written back by a store compiled in another worker does not make it fail (ABA) | minor | declared deviation, as QEMU's; the probe and litmus only report the ABA line in this mode |
+| Cores in workers: WFE ends after at most 20 µs without an event | minor | a spurious wake-up, which the architecture allows |
+| Cores in workers: DSB is a single step, and compiled code leaves accesses to extended RAM, and code there, to the interpreter | minor | slower; cooperative cores cache extended RAM's frames and compile from it |
+| The interpreter's accesses to extended RAM look up the frame each time | minor | interpreted Alpine with 3 GiB: 18 MIPS against 26 |
+| Kernels with SW_TTBR0_PAN (the androidish one, GKI) boot 17% slower to a login than the stock kernel with `a64_asid_tag` auto, 70% slower without it | minor | the profile has no PAN; FEAT_PAN is a v2 candidate (P10.4) |
+| A single-buffer snapshot (`save_state`) refuses extended RAM | minor | `save_state_stream` holds it |
+| virtio-snd | — | not done (P7.5, optional) |
+
 ## Testing
 
 | What | Command | Machine |
@@ -69,6 +85,8 @@ macOS.
 | Extended RAM: the bus, eviction, DMA, code there, snapshots (`tests/a64/extended_memory.mjs`); 3 and 4 GiB of RAM, the probe's memtest (`A64_MEMORY_MB`, `A64_EXTENDED_MEMORY`, `A64_LINUX_MEMTEST=<MiB>`) | `make a64-extended-guest-tests` | v86 |
 | Alpine from its ISO in headless Chrome: the source tree, the bundle, the CPU worker, virtio-pci (`BROWSER_CHROME`, `A64_BROWSER_QUERIES`) | `make a64-browser-tests` | Chrome |
 | Linux built for 16 and 64 KiB pages (`tools/a64_kernel.mjs`, in an Alpine aarch64 VM under QEMU with HVF; `A64_KERNEL=16k\|64k`): the live stage to a login, the probe's page size, the guest JITs | `make a64-kernels`, `make a64-pagesize-guest-tests` | v86 |
+| The profile's completeness (P9.4): every encoding class with a status and tests, the ID registers as the profile's on 1 and 4 cores, HWCAP on every kernel, the page sizes; `--reference` the QEMU reference's registers, `--kvm` kvm-unit-tests at 4k/16k/64k (`build/a64-linux/profile-report.json`) | `node tools/a64_profile_report.mjs --reference --kvm` | both |
+| The frozen Alpine baseline (P9.4, `tests/a64/perf-baseline.json`): the initramfs and live stages, interpreted and with the page tier, 1/2/4 cores, medians of 3 | `TEST_RELEASE_BUILD=1 node tools/a64_jit_metrics.mjs --stages initramfs,live --baseline tests/a64/perf-baseline.json` | v86 |
 | The androidish kernel and its images (`tools/a64_kernel.mjs --variants androidish`; `--programs-only` rebuilds the programs and images alone; `A64_KERNEL=androidish`, the initramfs stage): f2fs and fscrypt across a reboot, bootconfig, SELinux enforcing, binder, userfaultfd, erofs on dm-verity, zram and PSI (`tests/a64/*.c`, `tests/a64/minimal.cil`) | `make a64-android-prep-tests` | v86 |
 | Cores in workers: Alpine's stages (`A64_PARALLEL=1`), litmus in four modes (`LITMUS_MODES=cooperative,cooperative-jit,parallel,parallel-jit`) | `make a64-parallel-tests`, `make a64-parallel-guest-tests` | v86 |
 | virtio-gpu: drm, gl, resize, input; gltest, virgl, kms (`GPU_LEVEL=virgl43-hostmem GPU_RENDERER=chrome`); venus, vkcube (`GPU_LEVEL=venus`); packages from `node tools/alpine_repo.mjs --arch aarch64` | `GPU_SCENARIO=drm node tests/a64/linux_gpu.mjs` (`make a64-gpu-guest-tests`) | v86 |
