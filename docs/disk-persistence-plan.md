@@ -1,0 +1,415 @@
+# 磁盘持久化计划：`disk_option`
+
+状态：设计与实施计划，尚未实现。本文是 2026 年 10 月 17 日对“`disk_option` 写回源盘”
+方案的评审修订版，依据 `arm64` 分支 a6674aa4 的代码。拟议接口当前均不能使用。
+
+`disk_option` 决定客户机写入是否写回源镜像：`read_only` 时修改留在内存，`read_write`
+时修改持续写回绑定的源镜像。本地和服务器使用同一套语义；配置了 `read_write` 而来源
+无法写回时启动报错，绝不悄悄退回内存模式。这些定义保持不变，本文补齐原方案缺少的
+写缓存语义、快照规则、错误策略、一致读取与写者隔离，并把后端和实施步骤具体化。
+
+配置上用户只需要认识两个字段：已有的 `url`，和每块盘新加的 `disk_option`。
+
+## 评审结论
+
+原方案的方向、`read_only` 为默认和“不支持就报错”的原则保留。需要修改或补充的是：
+
+1. **命名与已有字段冲突。** 软驱控制器的 `read_only`（[`src/floppy.js:191`](../src/floppy.js)，
+   在 952 行拒绝写入）和 `virtio_disks[].readonly`（[`src/virtio_blk.js:65`](../src/virtio_blk.js)，
+   报告 `VIRTIO_BLK_F_RO`）都表示客户机不能写，与 `disk_option: "read_only"`（客户机可写、
+   源不变）相反。本文保留已定的名字，但文档与类型声明称其为“源镜像策略”，并把两者组合
+   的矛盾配置列为启动错误。见[语义](#语义)。
+2. **“提交成功”没有定义。** 原方案没有区分“已到达后端”和“已落到稳定存储”。本文定义
+   “完成”与“持久”两级，并把关闭标签页的保证落在“完成”上。见
+   [写入完成、FLUSH 与写缓存](#写入完成flush-与写缓存)。
+3. **现代客户机在 IDE/AHCI 盘上不会发 FLUSH。** IDENTIFY 第 82、85 字未报告写缓存
+   （[`src/ide.js:2685`](../src/ide.js) 的 `feat_82` 只有第 14 位），SET FEATURES 什么都接受
+   （1508 行），NCQ 的 FUA 位被忽略。原方案的“flush 等待此前所有写入”在这些盘上几乎
+   不会被触发；DOS、Windows 9x 等旧系统本来就不发 FLUSH。需要按模式报告写缓存，并由
+   后端自行定时 flush。
+4. **快照完全没有覆盖。** 现在 IDE 把 buffer 整个放进状态（[`src/ide.js:2937`](../src/ide.js)）：
+   同步 buffer 保存整盘，异步 buffer 保存写过的块（[`src/buffer.js:405`](../src/buffer.js)）；
+   站点的 Windows 98 状态就带着 C 盘的修改层。`read_write` 下内存状态只与源镜像的某一个
+   版本匹配，必须定义保存与恢复规则。见[快照](#快照save_state-与-initial_state)。
+5. **只读读者也会读到混合数据。** 一个 `read_only` 会话读取的源若被另一个 `read_write`
+   会话修改，或网站更新了镜像，读到的是不同时刻的扇区。需要固定读取版本。见
+   [单写者与一致读取](#单写者与一致读取)。
+6. **单写者和重试需要具体机制。** 块写入本身是幂等的，真正的危险是旧会话迟到的写入落在
+   新会话之后。用租约加递增的 epoch 隔离旧写者，而不是只靠请求去重。
+7. **错误没有通道。** `block_write` 的回调没有错误参数（[`src/block_backend.js:79`](../src/block_backend.js)），
+   设备层虽有 ATA ERR、AHCI TFES、`VIRTIO_BLK_S_IOERR` 编码，后端失败却无法上报。原方案
+   的“失败必须明确上报”要落到一个策略：默认暂停虚拟机并通知宿主，可选报告给客户机。
+   见[错误处理](#错误处理)。
+8. **ArrayBuffer 来源与表格不符。** `SyncBuffer` 直接写入调用方传入的 ArrayBuffer
+   （[`src/buffer.js:78`](../src/buffer.js)，858 行不复制），所以“原镜像不变”对它现在并不成立。
+   本文把 ArrayBuffer 定义为没有持久来源的内存镜像。
+9. **浏览器不能原地改写用户电脑上的文件。** 用户选取的文件只能经 `createWritable` 在关闭时
+   整体替换，同步原地读写只对浏览器私有存储（OPFS）开放。所以浏览器里写回本机镜像经
+   本机磁盘服务实现；Node 可以直接写文件，作为参考实现和测试载体。服务器和本机磁盘服务
+   用同一个协议、同一份参考实现。见[后端](#后端)。
+10. **与格式计划的重叠。** [格式计划](disk-image-formats-plan.md) 拟议的 `overlay: "memory"`
+    与本文是同一维度，统一为 `disk_option`；它 P2 中“修改层持久化”的做法不能作为
+    `read_write` 的实现。`read_write` 首版只接受 RAW。
+11. **不设顶层默认值。** 原方案允许在 V86 选项顶层给一个默认值，由每盘覆盖。顶层写
+    `read_only` 与省略相同；写 `read_write` 会让每块没有可写来源的盘启动报错。它还要求定义
+    覆盖顺序、对软盘和热插入的盘是否生效，并多一个跨 Worker 转发的字段。写回会改动用户的
+    镜像，应在每块盘上显式写出。因此只按盘配置，省略即 `read_only`。
+
+## 语义
+
+### 三个独立的维度
+
+| 维度 | 选项 | 本计划 |
+| --- | --- | --- |
+| 客户机能否写盘 | 软驱 `read_only`（目前未经 V86 选项暴露）、`virtio_disks[].readonly` | 不变 |
+| 客户机的修改写到哪里 | `disk_option` | 本文 |
+| 源镜像的格式 | `format` | [格式计划](disk-image-formats-plan.md) |
+
+### 取值
+
+| 取值 | 客户机能否写盘 | 写入完成时数据在哪里 | 关闭标签页或浏览器崩溃后 | 宿主或服务器掉电后 |
+| --- | --- | --- | --- | --- |
+| `read_only`（默认） | 可以 | v86 的内存修改层 | 修改丢失，源镜像不变 | 同左 |
+| `read_write` | 可以 | 源镜像所在的后端，已被后端确认 | 已完成的写入保留；未完成的可能落盘，也可能没有 | 只保证最后一次 flush 完成前已完成的写入 |
+
+- `read_only` 与当前 v86 的行为一致，包括写入块的 16 MiB 分块和快照格式。
+- ArrayBuffer 来源是内存镜像，没有可写回的持久来源：`read_only` 保持现状，客户机写入
+  直接改动这块内存（需要保留原数据的调用方自行传入副本），`read_write` 报错。
+- 未完成的写入指客户机尚未收到完成的写入，等同于真实硬盘掉电时队列中的命令。
+
+### 适用范围
+
+- 适用：`hda`、`hdb`、`attach_sata_drive` 接入的硬盘、`virtio_disks[]`。`disk_option` 写在各自的
+  盘描述里，省略时为 `read_only`；没有顶层默认值。
+- 后续（D3）：`fda`、`fdb`，同样逐盘设置。
+- 不适用：`bios`、`vga_bios`、`cdrom`、`initial_state`、`multiboot`、`bzimage`、`initrd`、
+  `kernel`、`dtb`。在这些项上设置 `disk_option` 报错，而不是忽略。
+
+### 配置
+
+镜像仍然用 `url` 指定，和现在一样；每块盘多一个可选的 `disk_option`。能不能
+`read_write`，取决于 `url` 指向的镜像能不能被改写：
+
+- **普通网址**（静态托管、CDN 等）：只能 `read_only`。静态服务器没有可靠的方法改写文件的
+  某一段，`read_write` 启动报错。
+- **支持写盘的磁盘服务**：服务器上的，或运行在用户自己电脑上的本机磁盘服务
+  （`127.0.0.1`），两者实现同一个[磁盘协议](#磁盘协议服务器与本机磁盘服务)。可以 `read_write`。
+  磁盘服务的网址同时也是普通的可读网址，`read_only` 或旧版 v86 照常按 Range 读取。
+- **Node 中的本地路径**：Node 中 `url` 本来就是本地文件路径（[`src/lib.js`](../src/lib.js) 用
+  `fs` 读取），可以 `read_write`，直接写回这个文件。
+
+```js
+// 以下 hda 任选其一
+
+// 网站上的镜像：和现在一样，修改留在内存
+hda: { url: "images/win98.img" }
+
+// 支持写盘的服务器：修改写回服务器上的镜像
+hda: { url: "https://disks.example.org/win98.img", disk_option: "read_write" }
+
+// 本机磁盘服务：修改写回自己电脑上的镜像文件
+hda: { url: "http://127.0.0.1:8471/win98.img", disk_option: "read_write" }
+
+// Node：url 是本地路径，修改直接写回这个文件
+hda: { url: "/images/win98.img", disk_option: "read_write" }
+```
+
+v86 只在 `read_write` 时向网址发出“打开写会话”请求，只有带协议响应头的成功响应才算支持
+写盘；`read_only` 不发这个请求，现有配置的行为和请求都不变。普通网址配了 `read_write`
+时，错误信息说明原因和办法，例如：“hda 的网址只能读取，不能写回。要保存修改，请使用支持
+写盘的磁盘服务，或去掉 `disk_option`，让修改只留在内存。”
+
+可选的 `token` 用于需要鉴权的磁盘服务，放进 `Authorization` 请求头，不进网址；同站的磁盘
+服务用 cookie 即可，不需要它。
+
+| 来源 | `read_only` | `read_write` |
+| --- | --- | --- |
+| `buffer`：ArrayBuffer | 可以（直接改这块内存） | 报错 |
+| `buffer`：File（`<input type=file>`） | 可以 | 报错：File 不能写回原文件 |
+| `url`（浏览器）：普通网址，含 `use_parts`、`fixed_chunk_size`、`.zst` | 可以 | 报错：只能读取 |
+| `url`（浏览器）：磁盘服务，服务器或 `127.0.0.1` | 可以 | 可以 |
+| `url`（Node）：本地文件路径 | 可以 | 可以，忽略 `async`，按需读写这个文件而不整份读入内存 |
+| 自带 `get/set/load` 的对象 | 现状 | 实现[后端契约](#后端契约)后可以，不能跨入 CPU Worker |
+
+### 启动校验
+
+以下情况在启动（或 `attach_sata_drive`、插入软盘）时直接报错，错误信息指明盘符和原因：
+
+- `disk_option` 不是 `read_only` 或 `read_write`，或写在 V86 选项顶层，或出现在不适用的项上。
+- `read_write` 的来源不在上表的可写列，包括打开写会话被拒绝、跨站时 CORS 预检不通过。
+- `read_write` 与客户机写保护同时设置（`readonly: true` 或软驱写保护）：没有可写回的内容。
+- `read_write` 的 `format` 不是 RAW（原格式写入属于格式计划 P5）。
+- 同一源镜像在一份配置里被两个盘以 `read_write` 绑定，或一个 `read_write`、一个 `read_only`。
+- 拿不到写者租约（另有写者），或报告的容量不是扇区的整数倍。
+
+## 写入完成、FLUSH 与写缓存
+
+### 两级保证
+
+| 级别 | 含义 | `read_write` 后端的实现 |
+| --- | --- | --- |
+| 完成 | 后端已接受写入；此后任何经该后端的读取都返回新数据；关闭标签页、浏览器崩溃不丢 | Node：`fs.writeSync` 返回；磁盘服务：已写入服务器上的源文件 |
+| 持久 | 宿主或服务器掉电也不丢 | Node：`fs.fdatasyncSync` 返回；磁盘服务：服务器端 `fdatasync` 已返回 |
+
+- 设备只在“完成”后向客户机报告写入完成。首版不设本地日志：写进浏览器内的日志再异步
+  上传，会让其他读者看到旧数据，也会让关闭标签页的保证依赖同一浏览器下次打开。
+- 服务器端可以用日志做自身的崩溃恢复，但写入只有在后端保证任何读者都能读到时才算完成；
+  只保存一份独立修改层不能算作写回源镜像。
+- FLUSH 只需等待在它之前已发出的写入，然后让后端 flush。现在的
+  [`block_when_writes_done`](../src/block_backend.js) 等到在途写入归零，持续写入时可能一直
+  等不到；改为按序号等待更早的写入。
+
+### 向客户机报告写缓存
+
+“完成”相当于数据进入了宿主的页缓存，也就是一块易失的写缓存。按实情报告它，客户机才会
+在需要时发 FLUSH：
+
+- **IDE 与 AHCI（共用 [`IDEInterface`](../src/ide.js)）。** `read_write` 盘在 IDENTIFY 第 82 字
+  第 5 位报告支持写缓存，第 85 字第 5 位报告已启用；SET FEATURES 02h/82h 开关写缓存，并在
+  快照中保存这个状态。客户机关闭写缓存后，每个写入在持久之后才完成。AHCI NCQ 写入
+  （WRITE FPDMA QUEUED）带 FUA 位时，该写入持久之后才完成。首版不报告 WRITE DMA FUA EXT
+  （第 84 字第 6 位）。`read_only` 盘的 IDENTIFY 不变，已有安装和快照看到的硬件不变。
+  Linux 的 libata 把未报告的写缓存经 SCSI 缓存模式页报成 WCE=0，块层随即丢弃 flush，所以
+  现在 Linux 在这些盘上不发 FLUSH；Windows 同样按缓存模式页决定，实施时用 trace 确认。
+- **virtio-blk。** 已协商 `VIRTIO_BLK_F_FLUSH`（[`src/virtio_blk.js:64`](../src/virtio_blk.js)），
+  Linux 驱动按回写缓存处理并发送 flush，不需要改动。
+- **后端定时 flush。** 旧系统可能从不发 FLUSH。`read_write` 后端在最后一次未持久的写入之后
+  的一个时限内自行 flush（空闲 1 秒，持续写入时最长 5 秒），并在 `stop()`、`destroy()`、
+  `detach_sata_drive`、弹出软盘和页面 `pagehide` 时 flush。服务器在租约到期或连接断开时也自行
+  flush。
+
+## 快照：`save_state` 与 `initial_state`
+
+`read_write` 盘的内容在源镜像里，快照不再携带磁盘数据，只携带对源镜像的引用：
+
+- 每个后端提供稳定身份和 generation。磁盘服务的身份是网址加服务器生成的 UUID，generation
+  就是它返回的 ETag；Node 的身份是真实路径加设备号与 inode，generation 可用
+  (inode, 大小, 纳秒级 mtime)。任何写入之后 generation 必然变化，包括 v86 之外的写入：磁盘
+  服务用计数器，并在发现源文件被外部改动时递增。
+- 保存：先 flush，再取 generation 并记下；之后的第一次写入先使 generation 递增，再写数据。
+  状态中记录身份、generation、容量和写缓存开关，不含数据。保存与恢复的流式版本
+  （`save_state_stream`、`restore_state_stream`）同样处理。
+- 恢复按下表判断，拒绝时报出盘符、身份和两个 generation：
+
+| 保存时 | 恢复时的配置 | 结果 |
+| --- | --- | --- |
+| `read_only`，状态中带修改层 | `read_only` | 现状：恢复修改层 |
+| `read_only`，状态中带修改层 | `read_write` | 拒绝：修改层不会被写进源镜像。需要的话另设显式的“提交修改层”操作，不在本计划 |
+| `read_write` | `read_write`，同一身份，generation 相同 | 恢复 |
+| `read_write` | `read_only`，同一身份，generation 相同 | 恢复，修改层为空 |
+| `read_write` | 身份不同或 generation 不同 | 拒绝 |
+
+- 机器在保存后继续运行并写盘，generation 就变了，那份快照随之作废。因此 `read_write` 的
+  快照实际只用于“保存后关机”（休眠）；页面对 `read_write` 盘提供“保存并关机”，而不是
+  可反复回滚的快照。
+- 现在 IDE 恢复时不检查镜像身份（[`src/ide.js:2977`](../src/ide.js)），virtio-blk 只对内存中的镜像
+  检查 SHA-256（[`src/virtio_blk.js:179`](../src/virtio_blk.js)）。本计划只对 `read_write` 强制身份
+  检查；`read_only` 的身份检查属于格式计划 P1，不改变站点现有状态的恢复行为。
+- 有写入因故障挂起（见[错误处理](#错误处理)）时拒绝保存，避免状态等待一个不会结束的 I/O。
+
+## 单写者与一致读取
+
+- **写者租约。** 打开写会话时磁盘服务发放租约和递增的 epoch，客户端定期续租。每个写入
+  携带 epoch 和会话内序号；服务器拒绝旧 epoch 的写入。被接管的旧标签页，其迟到的写入或
+  重试因此不能落在新会话之后。租约丢失不可重试，按错误处理暂停或报告。
+- **重试。** 块写入是幂等的，重试沿用原 epoch 和序号，服务器对已应用的序号直接返回成功。
+  客户端不同时发出两个范围重叠的写入：后来的写入等待先前的完成，重试就不会越过较新的
+  写入。超过重试次数或超时（建议单请求 30 秒）即视为失败。
+- **Node。** 首版不做跨进程锁，文档说明；本机磁盘服务用与服务器相同的租约。
+- **一致读取。** `read_only` 记下第一次响应的 ETag（读不到时用 Last-Modified），之后每个
+  Range 响应都核对；不一致说明源在会话中被改动（另一会话写入，或网站更新了镜像），该盘
+  按读取失败处理，绝不拼出不同时刻的数据。核对响应而不是在请求里加 `If-Match`：
+  [`load_file`](../src/lib.js) 已带自定义请求头 `X-Accept-Encoding`，跨站时本来就要 CORS 预检，
+  不少静态托管只放行列出的请求头，加一个新请求头可能让现在能用的读取失败。跨站时 ETag
+  须经 `Access-Control-Expose-Headers` 公开才读得到，Last-Modified 不需要；两者都读不到时
+  与现在一样不核对。
+- **HTTP 缓存。** `read_write` 会话的读取带会话标识，磁盘服务对可写盘的数据响应一律
+  `Cache-Control: no-store`，因为 `load_file` 用的是会经过浏览器 HTTP 缓存的 XHR。v86 之外的
+  持久块缓存（例如站点的）必须以（身份, generation）为键。
+
+## 错误处理
+
+- 后端回调改为错误优先：`set(start, data, fn(error))`、`flush(fn(error))`、读取同理。旧的
+  buffer 从不传错误，保持兼容。读取错误的通道与格式计划 P0 的错误契约是同一件事，一次做完。
+- 设备编码：IDE 置 ERR 并在错误寄存器置 ABRT（与 QEMU 的 `ide_rw_error` 相同）；AHCI 置
+  TFES，NCQ 命令经现有的 `ncq_failed`（[`src/ahci.js:1158`](../src/ahci.js)）进入错误日志；
+  virtio-blk 返回 `VIRTIO_BLK_S_IOERR`。
+- 逐盘选项 `disk_error: "stop" | "report"`，默认 `stop`（已决定）。网络抖动在浏览器里很常见，直接把
+  I/O 错误交给客户机，Linux 可能把文件系统改为只读，Windows 在分页 I/O 失败时可能蓝屏：
+  - `stop`：失败的请求保持未完成，虚拟机经 `stop()` 的路径暂停，触发 `disk-error` 事件
+    （盘符、操作、偏移、长度、原因、能否重试）；`run()` 按原顺序重试挂起的请求；`destroy()`
+    放弃它们，等同于掉电。不可重试的错误（租约丢失、服务器空间不足）只能 `report` 或
+    `destroy()`。
+  - `report`：立即以上述设备编码报告给客户机，同样触发事件。
+
+## 后端
+
+### 后端契约
+
+写回后端放进设备现在使用的 buffer 位置，[`block_backend.js`](../src/block_backend.js) 已在 111
+行调用 buffer 自带的 `flush`，设备层只需加入错误和写缓存的改动。
+
+| 操作 | 要求 |
+| --- | --- |
+| `load()`、`byteLength` | 打开来源，取得容量、身份、generation，必要时取得写者租约 |
+| `get(offset, length, fn(error, data), { signal })` | 读取；可同步回调 |
+| `set(offset, data, fn(error))` | 写入；`fn` 表示已完成 |
+| `flush(fn(error))` | 此前已完成的写入全部持久 |
+| `mark()`、`generation()` | 快照用，见上文 |
+| `get_state()`、`set_state()` | 返回、核对引用记录（身份、generation、容量），不含数据 |
+| `close(fn(error))` | flush 并释放写者锁；`destroy()`、拔出与弹出时调用 |
+
+- 偏移和长度按设备扇区对齐（硬盘 512 字节），不是内存修改层的 256 字节块。
+- **最好能同步完成。** Promise 的回调要等当前 CPU 时间片结束才运行；SeaBIOS 的 AHCI 驱动
+  逐条轮询，Windows 8.1 在 Q35 上的 BIOS 磁盘阶段异步读取时约 180 秒，在 CPU Worker 中改用
+  `FileReaderSync` 同步读取后约 20 秒（[sata.md](sata.md#disk-backends)）。Node 后端同步完成。
+  浏览器里的写回都经磁盘服务，是网络请求：CPU Worker 允许同步 XHR，对 `127.0.0.1` 的本机
+  磁盘服务可用它同步完成，代价是请求期间 CPU 线程阻塞，D2 中测量后决定；远程服务器只用
+  异步请求，在 Q35 上 BIOS 阶段会像现在的网址磁盘一样慢。
+- CPU Worker 只能接收数据描述（[`encode_worker_file`](../src/browser/cpu_worker.js) 按固定字段
+  转发并拒绝带方法的对象）：新增 `disk_option`、`disk_error`、`token` 三个字段，后端在 Worker
+  内构建。
+
+### Node 本地文件（参考实现）
+
+盘描述里的 `url` 就是这个文件。用同步接口 `fs.openSync(url, "r+")`、带位置参数的
+`fs.readSync`/`fs.writeSync` 和 `fs.fdatasyncSync`，同步完成；现有的 Node 读取路径用的是
+`fs` 的异步接口，写回后端不沿用它。它最容易测试，用来验证设备层、写缓存、快照和错误策略，
+再接入磁盘服务。
+
+### 磁盘协议：服务器与本机磁盘服务
+
+服务器和本机磁盘服务实现同一个 HTTP 协议，仓库在 `tools/` 下提供一份无依赖的 Node 参考
+实现，两种部署共用。所有操作都发往镜像自己的网址：读取就是普通的 Range GET，所以磁盘服务
+的网址也能当普通网址用；其余操作用 POST，以请求头区分，具体名字在实施时确定。
+
+| 操作 | 语义 |
+| --- | --- |
+| 读取 | Range GET，响应带 ETag（即 generation）；写会话的读取带会话标识；校验状态码、`Content-Range` 和实际长度 |
+| 打开写会话 | 返回容量、扇区大小、身份、generation、会话、epoch、租约时长，并带协议响应头；已有有效写者时拒绝 |
+| 续租、关闭会话 | 关闭时先 flush 再释放 |
+| 写入 | 携带偏移、会话、epoch、序号；写入服务器上的源文件后才返回成功 |
+| flush | 服务器端 `fdatasync` 之后返回 |
+
+- 写入不用带 `Content-Range` 的 PUT：各服务器对部分 PUT 的支持不一致，不支持的服务器可能
+  把请求体当作整份替换（RFC 9110 §14.5），一次 512 字节的写入就会抹掉整个镜像。
+- 自定义请求头需要 CORS 预检；ETag 等响应头需列入 `Access-Control-Expose-Headers`。
+- 服务器存的可以不是 RAW（例如由 qemu-nbd 一类工具转换），那是服务器自己的事；对 v86 协议
+  只有虚拟扇区。
+- 本机磁盘服务即参考实现监听 `127.0.0.1`，提供启动时指定目录下的镜像，用来写回用户自己的
+  镜像文件。它默认只接受启动时指定的来源页面（核对 `Origin`），需要更严时再加 `token`。
+  公网 HTTPS 页面访问回环地址时，Chrome 142 起会弹出“本地网络访问”授权；从 localhost
+  提供页面则不会。其他浏览器的行为在 D2 验收中实测。
+- 远程 `read_write` 的每个写入至少等一个往返：IDE 一次一个命令，AHCI NCQ 最多 32 个，
+  virtio 按队列深度。合并相邻写入属于后续优化；性能指标在取得基线后再定。
+- NBD over WebSocket（qemu-nbd、nbdkit 加 websockify）可作为后续的另一种传输，它没有租约和
+  鉴权，需要网关补上；首版用 HTTP，读取与现有 Range 路径一致。
+
+### 为什么不直接写用户选取的文件（D4，视测量决定）
+
+`showOpenFilePicker` 只有 Chromium 提供。`createWritable` 把写入放进临时文件，关闭时才替换
+原文件；`keepExistingData` 先把整个原文件复制过去；Chromium 对用户文件没有原地写入模式，
+同步句柄只对 OPFS 有效（[File System 规范][fs-spec]）。要满足“完成即在源镜像”，每个写入都得
+关闭一次，即整文件复制一次，只可能适用于软盘大小的镜像。把写入攒到 FLUSH 再提交不满足
+`read_write` 的定义，不能以这个名字提供。将来如果为小镜像提供，文件句柄与 File 一样放在
+`buffer` 里，不新增字段；大镜像用本机磁盘服务。
+
+## 缓存
+
+- `read_only`：内存修改层不变，写过的块不会被淘汰。
+- `read_write`：没有修改层，读缓存有上限并可淘汰。写入在完成回调之前更新缓存；每个块记录
+  最近一次写入的序号，读取结果只在发起读取之后没有对该块的写入时才放进缓存，较早开始的读取
+  因此不能覆盖较新的写入。这取代 [`handle_read`](../src/buffer.js) 在修改层模式下用写过的块
+  覆盖读取结果的做法。
+- **Get hard disk image** 对 `read_write` 盘先 flush，再从源导出（磁盘服务的网址、Node 的本地
+  文件），不再拼接修改层。
+
+## 架构
+
+```mermaid
+flowchart LR
+    D["IDE / AHCI / virtio-blk"] --> B["block_backend.js：在途计数、取消、FLUSH"]
+    B --> P{"disk_option"}
+    P -->|read_only| O["内存修改层（现有 buffer.js）"]
+    O --> R["任何来源：ArrayBuffer、File、普通网址、磁盘服务、Node 本地文件"]
+    P -->|read_write| W["写回后端：get / set / flush / close"]
+    W --> N["Node 本地文件"]
+    W --> H["磁盘协议（HTTP）"]
+    H --> S["服务器上的磁盘服务"]
+    H --> L["本机磁盘服务 127.0.0.1"]
+```
+
+策略在磁盘初始化时解析，入口是 [`add_file`](../src/browser/starter.js)（764 行）、
+`attach_sata_drive`（1758 行）和 `virtio_disks`（833 行）；`read_only` 走现有 `buffer_from_object`，
+`read_write` 构建写回后端。具体模块文件名在实施时确定。
+
+## 实施阶段
+
+| 阶段 | 工作内容 | 验收 |
+| --- | --- | --- |
+| D0 | 选项解析与启动校验，经 Worker 传递；错误优先回调贯通 `block_backend`、IDE、AHCI、virtio-blk；`disk_error` 策略与 `disk-error` 事件；FLUSH 按序号等待；`read_only` 网址的 ETag/Last-Modified 核对 | `read_only` 读到的数据和发出的请求不变；每条校验规则有测试；注入的错误在 `stop` 下暂停并可恢复，在 `report` 下客户机看到 I/O 错误 |
+| D1 | Node 本地文件（`url`）的写回后端；写缓存报告、SET FEATURES 02h/82h、NCQ FUA、定时 flush；身份、generation 与快照规则；`destroy` 与拔出时 `close` | Linux 客户机写入、`sync` 后销毁实例，直接读源文件得到数据；快照矩阵逐项通过 |
+| D2 | 磁盘协议、`tools/` 参考服务与浏览器端后端；租约、epoch、`no-store`；本机磁盘服务的来源核对与部署说明；测量对 `127.0.0.1` 用同步 XHR 的效果 | 无头 Chrome 中写入后关闭页面，直接读服务端的源文件得到数据；普通网址配 `read_write` 给出说明性错误；旧 epoch 被拒；Chrome 本地网络访问授权流程走通 |
+| D3 | 软盘的 `disk_option`；页面入口（`read_write` 盘的“保存并关机”、错误提示） | 软盘写回磁盘服务与 Node 文件；页面流程手动走通 |
+| D4 | 测量 `createWritable` 的提交成本，决定是否为小镜像提供文件句柄来源 | 有测量数据再定，不预先承诺 |
+
+D0 与格式计划 P0 的错误契约合并实施。D1 先于浏览器端，是因为设备层的改动（写缓存、错误、
+快照）在 Node 中最容易验证。
+
+## 验收矩阵
+
+| 范围 | 必测内容 |
+| --- | --- |
+| 源镜像不变 | `read_only` 下 Node 本地文件与磁盘服务：客户机写入、复位、保存恢复前后，源的 SHA-256 不变 |
+| 写回 | Linux 客户机写文件并 `sync`，销毁实例或关闭页面，直接打开源镜像核对；不发 FLUSH 的客户机（Windows 98）靠定时 flush 写回 |
+| 完成即保留 | Linux `dd oflag=direct` 写入后不 `sync` 直接关闭页面，数据在源中 |
+| 持久 | 带记录的后端核对：每个 FLUSH 完成前，此前已完成的写入都已 flush；模拟掉电（丢弃未 flush 的写入）后客户机文件系统检查通过 |
+| 写缓存 | Linux 对 `read_write` 的 IDE/AHCI 盘报告写缓存已启用、对 `read_only` 盘不变；`hdparm -W0` 后每个写入持久后才完成；NCQ FUA |
+| 快照 | 快照表格的每一行；保存后继续写入再恢复被拒；带修改层的站点状态加 `read_write` 被拒 |
+| 写者 | 第二个写者被拒；租约接管后旧 epoch 的写入被拒；同一配置中重复绑定被拒 |
+| 一致读取 | 只读会话期间源被改动，读取报错而不混读；跨站静态托管只读照常工作；可写盘响应不被 HTTP 缓存 |
+| 错误 | 超时、5xx、断网、服务器空间不足、租约丢失在两种策略下的表现；挂起时拒绝保存状态；普通网址与跨站 CORS 失败时的错误信息 |
+| 入口 | Node、浏览器 CPU Worker、`cpu_worker=0`；IDE、AHCI（含 NCQ）、virtio-blk；SATA 热插拔拔出时释放租约 |
+| 回归 | 现有测试全部通过 |
+
+复用 [`tests/devices/ahci_lifecycle.mjs`](../tests/devices/ahci_lifecycle.mjs)（异步后端、FLUSH
+顺序、带在途 I/O 拔盘）、[`tests/devices/device_io_reset.mjs`](../tests/devices/device_io_reset.mjs)、
+[`tests/devices/disk_write_cache.js`](../tests/devices/disk_write_cache.js)、
+[`tests/devices/q35_guest.js`](../tests/devices/q35_guest.js)、[`tests/api/state.js`](../tests/api/state.js)
+和 [`tests/smp/disk_fixture.mjs`](../tests/smp/disk_fixture.mjs)，新增后端与协议的独立测试。
+重的浏览器会话用无头 Chrome，不在 Claude 应用的内置浏览器里跑。
+
+## 后续单独考虑：在浏览器里保留修改
+
+静态托管的网站可能希望访问者的修改在他自己的浏览器里跨会话保留，例如把镜像整份复制进
+浏览器私有存储（OPFS），之后在副本上读写。这样网站上的镜像始终不变，相当于“源镜像只读，
+修改另存一份并长期保留”，不是写回源盘，所以不属于 `read_write`，也不在本计划内。站点目前
+靠保存状态（状态中带修改层）保留进度。如果以后要做，作为另一个有独立名字的功能设计，并与
+本文的快照规则衔接；格式计划 P2 原先的 OPFS 修改层设想也归到这里。
+
+## 已决定
+
+以下七项于 2026 年 10 月 17 日由项目负责人确定：
+
+1. `disk_error` 默认 `stop`，`report` 为可选项。
+2. `read_write` 的 IDE/AHCI 盘报告易失写缓存，客户机可用 SET FEATURES 关闭；不采用写穿
+   （每个写入都持久后才完成，远程时会非常慢）。
+3. 定时 flush：最后一次未持久的写入之后空闲 1 秒即 flush，持续写入时最长 5 秒 flush 一次。
+4. 取值保留 `read_only`/`read_write`；与客户机写保护的区别靠文档、类型声明和启动校验说明。
+5. 镜像只用 `url` 指定，不新增来源字段：`url` 指向磁盘服务（服务器或 `127.0.0.1`）或 Node 本地
+   文件时可以 `read_write`，普通网址只能 `read_only`。`token` 是磁盘服务鉴权的可选字段。
+6. `disk_option` 只按盘配置，省略即 `read_only`，不设顶层默认值（理由见评审结论第 11 条）。
+7. 在浏览器里保留修改（OPFS 副本）不属于 `read_write`，记为后续单独考虑的功能。
+
+## 参考资料
+
+- [File System 规范][fs-spec]：`createSyncAccessHandle` 仅限 OPFS，`createWritable` 的临时文件与
+  `keepExistingData`
+- [web.dev：打开文件][webdev-open]：`showOpenFilePicker` 的浏览器支持
+- [RFC 9110 §14.5 Partial PUT][rfc9110-put]
+- [Chrome 本地网络访问][chrome-lna]
+
+[fs-spec]: https://fs.spec.whatwg.org/
+[webdev-open]: https://web.dev/articles/files/open-one-or-multiple-files
+[rfc9110-put]: https://www.rfc-editor.org/rfc/rfc9110#section-14.5
+[chrome-lna]: https://developer.chrome.com/blog/local-network-access
