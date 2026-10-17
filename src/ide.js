@@ -1118,6 +1118,13 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
         this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
         this.error_reg = ATAPI_SK_UNIT_ATTENTION << 4;
     }
+    else
+    {
+        // the disk's logical sectors: 512 bytes, or 4096 where its image
+        // says so (logical_sector_size, docs/disk-image-formats-plan.md);
+        // LBAs, counts, the capacity and each PIO data block are in them
+        this.sector_size = buffer.logical_sector_size || HD_SECTOR_SIZE;
+    }
     this.sector_count = this.buffer.byteLength / this.sector_size;
 
     if(!Number.isInteger(this.sector_count))
@@ -1904,8 +1911,8 @@ IDEInterface.prototype.do_write = function()
     var data = this.data.slice(0, this.data_length);
 
     //dbg_log(hex_dump(data), LOG_DISK);
-    dbg_assert(this.data_length % 512 === 0);
-    const sectors = this.data_length / 512;
+    dbg_assert(this.data_length % this.sector_size === 0);
+    const sectors = this.data_length / this.sector_size;
 
     // Busy until the backend has the data: completion is reported after it
     this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_BSY;
@@ -2230,7 +2237,7 @@ IDEInterface.prototype.read_end = function()
             if(this.current_command === ATA_CMD_READ_MULTIPLE || this.current_command === ATA_CMD_READ_MULTIPLE_EXT)
             {
                 var sector_count = Math.min(this.sectors_per_drq,
-                    (this.data_length - this.data_end) / 512);
+                    (this.data_length - this.data_end) / this.sector_size);
                 dbg_assert(sector_count % 1 === 0);
             }
             else
@@ -2239,7 +2246,7 @@ IDEInterface.prototype.read_end = function()
                 var sector_count = 1;
             }
             this.ata_advance(this.current_command, sector_count);
-            this.data_end += 512 * sector_count;
+            this.data_end += this.sector_size * sector_count;
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.push_irq();
         }
@@ -2333,7 +2340,7 @@ IDEInterface.prototype.write_end = function()
             // XXX: Should advance here, but do_write does all the advancing
             //this.ata_advance(this.current_command, 1);
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
-            this.data_end += 512;
+            this.data_end += this.sector_size;
             this.push_irq();
         }
     }
@@ -2420,7 +2427,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
 
             this.data_set(data);
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
-            this.data_end = is_single ? 512 : Math.min(byte_count, this.sectors_per_drq * 512);
+            this.data_end = is_single ? this.sector_size : Math.min(byte_count, this.sectors_per_drq * this.sector_size);
             this.ata_advance(cmd, is_single ? 1 : Math.min(count, this.sectors_per_track));
 
             this.push_irq();
@@ -2534,7 +2541,7 @@ IDEInterface.prototype.ata_write_sectors = function(cmd)
     {
         this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
         this.data_allocate_noclear(byte_count);
-        this.data_end = is_single ? 512 : Math.min(byte_count, this.sectors_per_drq * 512);
+        this.data_end = is_single ? this.sector_size : Math.min(byte_count, this.sectors_per_drq * this.sector_size);
         this.write_dest = start;
     }
 };
@@ -2881,6 +2888,21 @@ IDEInterface.prototype.create_identify_packet = function()
         word(79, 0);
         word(80, 0x0070); // ATA/ATAPI-4, -5 and -6
         word(93, 0);
+    }
+
+    if(!this.is_atapi && this.sector_size !== HD_SECTOR_SIZE)
+    {
+        // Logical sectors longer than 256 words ([ATA8-ACS] 7.12, words
+        // 106 and 117-118): word 106 valid (bit 14) with bit 12, one
+        // logical sector per physical one; words 117-118 the size in words.
+        // The capacity (words 60-61, 100-103) counts these sectors.
+        const words = this.sector_size >> 1;
+        this.data[106 << 1] = 0;
+        this.data[(106 << 1) + 1] = (1 << 14 | 1 << 12) >> 8;
+        this.data[117 << 1] = words & 0xFF;
+        this.data[(117 << 1) + 1] = words >> 8 & 0xFF;
+        this.data[118 << 1] = words >> 16 & 0xFF;
+        this.data[(118 << 1) + 1] = words >> 24 & 0xFF;
     }
 
     this.data_length = 512;

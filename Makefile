@@ -599,6 +599,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/ide_disk_image.js
 	./tests/devices/disk_error.mjs
 	./tests/devices/disk_writeback.mjs
+	./tests/devices/disk_sector_size.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
@@ -684,7 +685,7 @@ api-tests: build/v86-debug.wasm
 
 # Disk images in container formats (docs/disk-image-formats-plan.md): the
 # readers against images of qemu-img and qemu-io (QEMU_IMG, QEMU_IO; the
-# samples are made in build/disk-image-samples), the devices and a guest;
+# samples are made in build/disk-image-samples), the devices and guests;
 # the browser tests in headless Chrome (CHROME), on the page and in the CPU Worker
 .PHONY: disk-image-tests disk-image-browser-tests
 disk-image-tests: build/v86-debug.wasm
@@ -694,10 +695,13 @@ disk-image-tests: build/v86-debug.wasm
 	./tests/image/vhd_vdi.mjs
 	./tests/image/vmdk.mjs
 	./tests/image/vhdx.mjs
+	./tests/image/sector_size.mjs
 	./tests/image/qcow2_export.mjs
 	./tests/devices/ide_disk_image.js
+	./tests/devices/disk_sector_size.js
 	./tests/api/disk-image.js
 	./tests/image/guest.mjs
+	./tests/image/sector_size_guest.mjs
 
 disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
 	./tests/image/browser_runner.mjs worker=0
@@ -1122,6 +1126,7 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/device_io_reset.mjs
 	node tests/a64/virtio_blk_disk_image.mjs
 	node tests/a64/virtio_blk_disk_error.mjs
+	node tests/a64/virtio_blk_sector_size.mjs
 	node tests/a64/extended_memory.mjs
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm
@@ -1129,6 +1134,7 @@ a64-api-tests: build/libv86.js build/v86-arm64.wasm
 # (Alpine on the 1-core interpreter: the initramfs stage with the probe, about 40 s)
 a64-guest-quick-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
+	node tests/a64/linux_sector_size.mjs
 # (L: the QEMU reference, then the interpreter's initramfs, single,
 # lifecycle and live stages: the live one from the ISO on virtio-blk to a
 # login, the probe from its disk, virtio-net, -rng and -console, P5; then

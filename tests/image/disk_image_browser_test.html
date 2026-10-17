@@ -6,7 +6,8 @@
 // Range requests, on the page (worker=0) or in the CPU Worker (worker=1):
 // MS-DOS boots from it, writes a file, the file is there after a snapshot
 // restored; an image that is not of its format fails the start
-// (emulator-error), in the Worker too. Run by tests/image/browser_runner.mjs.
+// (emulator-error), in the Worker too; disks of 4096-byte sectors. Run by
+// tests/image/browser_runner.mjs.
 import { V86 } from "../../build/libv86.mjs";
 const params = new URLSearchParams(location.search);
 const worker = params.get("worker") === "1";
@@ -115,6 +116,21 @@ try
     if(!error || error === "timeout" || !/not a qcow2 image/.test(error.message)) throw new Error("no emulator-error for a bad image: " + (error && error.message || error));
     log.push("an image that is not of its format: emulator-error \"" + error.message + "\"");
     try { await bad.destroy(); } catch(e) {}
+
+    // 4096-byte logical sectors (the plan's appendix): a RAW disk's
+    // logical_sector_size and a VHDX image's own reach the drives (in the
+    // Worker: the option crosses with the descriptor)
+    {
+        const { build_vhdx } = await import("./tiny_vhdx.mjs");
+        const vhdx = build_vhdx({ size: 8 << 20, logical_sector_size: 4096, data: [[0, new Uint8Array(4096).fill(0x4B)]] });
+        const sector_vm = vm_current = new V86({ ...config({ buffer: new ArrayBuffer(8 << 20), logical_sector_size: 4096 },
+            { buffer: vhdx.image.buffer, format: "vhdx" }), autostart: false });
+        await new Promise((resolve, reject) => { sector_vm.add_listener("emulator-loaded", resolve); sector_vm.add_listener("emulator-error", reject); });
+        const sizes = [(await sector_vm.disk_image_info("hda")).logical_sector_size, (await sector_vm.disk_image_info("hdb")).logical_sector_size];
+        if(sizes[0] !== 4096 || sizes[1] !== 4096) throw new Error("logical sectors: " + sizes.join(", "));
+        await sector_vm.destroy();
+        log.push("4096-byte logical sectors: a RAW disk's logical_sector_size and a VHDX image's own");
+    }
 
     // an OVA (with the samples): V86.import_ova on the page, the disk read in
     // the archive (in the Worker: archive_member crosses with the descriptor)

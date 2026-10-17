@@ -83,8 +83,8 @@ export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
  * dynamic images (not differencing ones). VMDK: monolithicSparse,
  * streamOptimized, monolithicFlat, vmfs, twoGbMaxExtentSparse,
  * twoGbMaxExtentFlat (other createTypes fail at start). VHDX: fixed and
- * dynamic images with 512-byte logical sectors and no log to replay (not
- * differencing ones).
+ * dynamic images with 512- or 4096-byte logical sectors (the disk's sectors
+ * are the image's) and no log to replay (not differencing ones).
  */
 export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "vmdk" | "vhdx" | "auto";
 
@@ -171,6 +171,21 @@ export type V86DiskImageOptions =
          * OVA): read there, not extracted (see V86.import_ova)
          */
         archive_member?: string;
+
+        /**
+         * The disk's logical sectors as the guest sees them: 512 bytes (the
+         * default) or 4096. IDE and AHCI report them in IDENTIFY (words 106,
+         * 117-118) and count LBAs, the capacity and PIO blocks in them;
+         * virtio-blk reports them as blk_size. For RAW and the formats that
+         * do not record a sector size (QCOW2, VHD, VDI, VMDK); a VHDX image
+         * has its own, which this must equal, and a child takes its parent's.
+         * The disk's size must be a multiple. The BIOS (SeaBIOS) does not
+         * boot from a disk of 4096-byte sectors, and DOS cannot use one; on
+         * IDE the guest must move data by DMA (Linux's libata in PIO mode
+         * times out), AHCI and virtio-blk have no such limit. The physical
+         * sector size reported equals the logical one (as QEMU's default).
+         */
+        logical_sector_size?: 512 | 4096;
     };
 
 /**
@@ -1323,11 +1338,12 @@ export class V86 {
     /**
      * What an export of a disk writes: its size as the guest sees it, the
      * format and size of its image file, the bytes the guest wrote (kept in
-     * memory)
+     * memory), and the size of the sectors the guest sees (512 or 4096; a
+     * CD drive's 2048)
      *
      * @param name "hda", "hdb", "cdrom", "sata<port>" or (virt) "virtio_disk<n>"
      */
-    disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number }>;
+    disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number; logical_sector_size: number }>;
 
     /**
      * Export a disk as the guest sees it, as a RAW image of its whole size

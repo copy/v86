@@ -381,7 +381,8 @@ function server(bytes, behave = {})
     assert.throws(() => check_image_options("hda", { url: "x", format: "vmdk", files: { "a.vmdk": "a.vmdk" } }, true), /files must map/);
     assert.throws(() => check_image_options("hda", { url: "x", format: "vmdk", archive_member: 7 }, true), /archive_member/);
     assert.throws(() => check_image_options("cdrom", { url: "x", format: "qcow2" }, false), /for hard disks/);
-    assert.throws(() => check_image_options("hda", { url: "x", disk_option: "read_write" }, true), /not supported yet/);
+    // (read_write: written back, docs/disk-persistence-plan.md; whether the source can be is checked when the machine starts)
+    assert.equal(check_image_options("hda", { url: "x", disk_option: "read_write" }, true), undefined);
     assert.throws(() => check_image_options("hda", { url: "x", disk_option: "rw" }, true), /not one of/);
     assert.throws(() => check_image_options("bios", { url: "x", disk_option: "read_only" }, false), /for disks/);
     assert.throws(() => check_image_options("hda", { get() {}, set() {}, load() {}, format: "qcow2" }, true), /descriptors/);

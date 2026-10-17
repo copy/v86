@@ -1283,6 +1283,13 @@ CPU.prototype.validate_disk_states = function(state)
     const check = (device, saved) =>
     {
         if(!device || !device.buffer || !saved) return;
+        // (a hard disk's logical sectors, IDEInterface state 20: its LBAs
+        // and the guest's view of it are in them)
+        if(!device.is_atapi && !saved[13] && saved[20] !== undefined && saved[20] !== device.sector_size)
+        {
+            throw new Error("The snapshot's disk " + device.name + " has " + saved[20] + "-byte sectors, this machine's " +
+                device.sector_size + "-byte ones: its state cannot be restored onto it");
+        }
         check_disk_state(device.buffer.disk_name || device.name, device.buffer, saved[28]);
     };
     const ide = this.devices.ide;

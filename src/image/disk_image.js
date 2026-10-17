@@ -4,7 +4,9 @@
 // in memory (src/image/overlay.js), and the device sees the interface of the
 // buffers of src/buffer.js (load, byteLength, get, set, get_and_cache,
 // get_from_cache, get_state, set_state). byteLength is the disk's size as
-// the guest sees it, not the file's.
+// the guest sees it, not the file's; logical_sector_size the size of its
+// sectors, 512 or 4096 bytes, which the controllers report and count in
+// (the plan's appendix, 4K logical sectors).
 //
 // Callbacks: get's is fn(data) when it worked and fn(undefined, error) when
 // not (the second argument: old buffers never pass one), set's is fn(error).
@@ -102,6 +104,16 @@ export class ImageReader
         this.parent_link = null;
         /** the descriptor's image_id: a version of the image its publisher gives */
         this.image_id = "";
+        /**
+         * The disk's logical sectors as the guest sees them: 512 bytes, or
+         * the descriptor's logical_sector_size, the image's own or its
+         * parent's (src/image/factory.js open_image)
+         */
+        this.logical_sector_size = 512;
+        /** the logical sector size the format records (VHDX), 0 for formats without one */
+        this.own_sector_size = 0;
+        /** whether logical_sector_size was given (descriptor, image, parent), not the default */
+        this.sector_size_given = false;
         /** @type {!Map<number, !Uint8Array>} host offset -> decompressed cluster, the most recently used last */
         this.decompressed = new Map();
         this.decompressed_bytes = 0;
@@ -428,6 +440,8 @@ export function DiskImage(name, open, options)
     this.overlay = null;
     /** the guest's size of the disk, known once loaded */
     this.byteLength = 0;
+    /** the guest's logical sectors (the controllers read it), known once loaded */
+    this.logical_sector_size = 512;
     /** @type {Promise<void>} */
     this.loading = null;
     /** blocks of the image read with get_and_cache (the first sector, for the geometry) */
@@ -451,8 +465,10 @@ DiskImage.prototype.load = function()
         {
             this.reader = reader;
             this.byteLength = reader.virtual_size;
+            this.logical_sector_size = reader.logical_sector_size;
             this.overlay = new WriteOverlay(reader.virtual_size, this.overlay_limit, this.name);
             dbg_log(this.name + ": " + reader.format + " image, " + reader.virtual_size + " bytes" +
+                (reader.logical_sector_size !== 512 ? ", " + reader.logical_sector_size + "-byte sectors" : "") +
                 (reader.parent ? ", with a parent" : ""), LOG_DISK);
             this.onload && this.onload(Object.create(null));
         }, error =>

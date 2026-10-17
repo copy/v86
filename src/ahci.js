@@ -1072,7 +1072,8 @@ AHCIPort.prototype.start_queued = function(slot, header, table, prdtl, fis)
         this.ncq_failed(job, ATA_ER_ABRT);
         return;
     }
-    const start = lba * 512, length = count * 512;
+    // (in the disk's logical sectors: 512 or 4096 bytes)
+    const start = lba * device.sector_size, length = count * device.sector_size;
     if(start + length > device.buffer.byteLength)
     {
         this.ncq_failed(job, ATA_ER_IDNF);
