@@ -11,7 +11,7 @@
 | --- | --- |
 | Option | the board of `cpu_type: "arm64"` (`machine_type: "virt"`, its default) |
 | Devices | GICv3 (no ITS), PL011, PL031, the architected timer, PSCI over HVC, the generic PCIe host bridge (high ECAM, INTx), virtio-blk, -net, -rng, -console, -input (keyboard, tablet, multi-touch) and -gpu (no VGA) on virtio-mmio or virtio-pci |
-| Options | `virtio_disks: [{url or buffer, async, size, id, readonly}]` (or `hda`, `hdb`), `net_device: {type: "virtio"}`, `virtio_rng: true`, `virtio_console: true`, `virtio_input: true` (a keyboard and a tablet) or a list of `"keyboard"`, `"tablet"`, `"multitouch"`, `graphics_adapter: "virtio_gpu"`, `virtio_transport: "mmio"` (the default) or `"pci"` |
+| Options | `virtio_disks: [{url or buffer, async, size, id, readonly}]` (or `hda`, `hdb`), `net_device: {type: "virtio"}`, `virtio_rng: true`, `virtio_console: true` (`virtio_console_ports: N`: N console ports), `virtio_input: true` (a keyboard and a tablet) or a list of `"keyboard"`, `"tablet"`, `"multitouch"`, `virtio_vsock: true`, `graphics_adapter: "virtio_gpu"` (`virtio_gpu_pci_slot: n`), `virtio_transport: "mmio"` (the default) or `"pci"` |
 
 ## Physical address map
 
@@ -39,7 +39,8 @@ The same as QEMU `virt-9.2` with `highmem-ecam`, `highmem-mmio` and
 32 transports of version 2 (`src/virtio_mmio.js`) at `0x0a00_0000 + 0x200 n`,
 each with an edge-triggered SPI 16 + n (INTID 48 + n). The devices take the
 slots from the last one down, in this order: the `virtio_disks` (or `hda`,
-`hdb`), then virtio-net, virtio-rng and virtio-console. QEMU fills the slots
+`hdb`), then virtio-net, virtio-rng, virtio-console, virtio-input and
+virtio-vsock. QEMU fills the slots
 in the order of its `-device` options the same way, so a reference run with
 the devices in that order has the same slots, interrupts and `/sys` paths
 (`tests/a64/linux_boot.mjs`'s live stage). An empty slot reads as the
@@ -53,7 +54,16 @@ host, below):
   SEG_MAX, BLK_SIZE, GET_ID (a disk's `id`: `/dev/disk/by-id/virtio-<id>`).
   Writes stay in the image buffer, an in-memory overlay, for the session.
   The disk I/O is `src/block_backend.js`, shared with the PC's IDE and AHCI.
-- virtio-net, virtio-console (hvc0, four ports): the PC's devices.
+- virtio-net, virtio-console: the PC's devices. The console has four ports,
+  hvc0 and the generic ports 1-3 named `org.v86.port<N>`; with
+  `virtio_console_ports: N`, N console ports (hvc0, hvc1, ...: Android's 18,
+  as Cuttlefish's). Control messages wait for the driver's buffers.
+- virtio-vsock (`src/virtio_vsock.js`, `virtio_vsock`): stream sockets, the
+  guest CID 3. The host side (CID 2) connects to the guest's ports with
+  `emulator.vsock_connect(port)` (Android's adbd listens on 5555); the
+  guest's own connections to the host are refused. Flow control is the
+  protocol's credit. Connections do not survive a snapshot: after a restore
+  the guest gets TRANSPORT_RESET.
 - virtio-rng (`src/virtio_rng.js`): `crypto.getRandomValues`.
 - virtio-input (`src/virtio_input.js`, `virtio_input`): a keyboard (the
   bus's PS/2 set-1 scancodes as evdev keys), a tablet (the pointer's
@@ -69,7 +79,9 @@ host, below):
   after the virtio devices. Its host visible memory (the levels with
   `hostmem`) is device memory of the core (below): BAR 2, 64 bits wide, on
   the PCIe host; on virtio-mmio, at the top of the 64-bit window, where the
-  SHM registers say.
+  SHM registers say. On the PCIe host, `virtio_gpu_pci_slot` puts it in that
+  slot instead and the other devices skip it (Android: 2, where Cuttlefish's
+  sepolicy expects its GPU).
 
 Snapshots record each device with its slot and kind, and a machine with
 other devices refuses them. A writable disk's contents are in the snapshot,

@@ -727,6 +727,27 @@ export interface V86Options {
     virtio_input?: boolean | Array<"keyboard" | "tablet" | "multitouch">;
 
     /**
+     * machine_type "virt" only: virtio-vsock, the guest CID 3 (the host
+     * side, CID 2, connects with vsock_connect; the guest's own connections
+     * to the host are refused). Android's adbd listens on its port 5555.
+     */
+    virtio_vsock?: boolean;
+
+    /**
+     * machine_type "virt" only: virtio-console with this many ports, all
+     * consoles (hvc0, hvc1, ...); without it 4 ports, 1-3 generic ones named
+     * org.v86.port<N>
+     */
+    virtio_console_ports?: number;
+
+    /**
+     * machine_type "virt" with virtio_transport "pci" only: the PCI slot of
+     * the display adapter (the other devices skip it), as Cuttlefish puts its
+     * GPU at 00:02.0
+     */
+    virtio_gpu_pci_slot?: number;
+
+    /**
      * machine_type "virt" only: the virtio devices' transport, virtio-mmio
      * slots or functions on the PCIe host (see docs/virt.md)
      * @default "mmio"
@@ -1548,6 +1569,18 @@ export class V86 {
      */
     /** CPU Worker mode returns a Promise with a copied buffer. */
     read_memory(offset: number, length: number): Uint8Array | Promise<Uint8Array>;
+
+    /**
+     * A stream socket to a port of the guest's vsock (virtio_vsock):
+     * resolves when the guest accepts, rejects when it refuses
+     */
+    vsock_connect(port: number): Promise<{
+        write(bytes: Uint8Array): void;
+        close(): void;
+        on_data: ((bytes: Uint8Array) => void) | null;
+        on_close: (() => void) | null;
+        readonly closed: boolean;
+    }>;
 
     /** Read a 36-bit physical range in bounded chunks (default 1 MiB). */
     read_memory_chunks(offset: number, length: number, chunk_size?: number): AsyncGenerator<Uint8Array, void, unknown>;

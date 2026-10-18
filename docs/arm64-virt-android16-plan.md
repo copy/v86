@@ -854,7 +854,7 @@ A64 JIT 的语义红线（叠加在 JIT 计划规则 8 之上）：
 
 | ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
 | --- | --- | --- | --- | --- |
-| P10.1 | 固定源码与内核：AOSP Android 16 系列取 `android-16.0.0_r4`（QPR2，build BP4A.251205.006），或其后已推送到 AOSP 的 16 系列安全标签。QPR1、QPR3 没有推送到 AOSP；`android-latest-release` 已指向 Android 17，禁止使用（待核对）。GKI 取 `android16-6.12-YYYY-MM` 月度分支。导出 manifest、kernel commit、工具链与镜像 hash | — | — | M |
+| P10.1 | 固定源码与内核：AOSP Android 16 系列取 `android-16.0.0_r4`（QPR2，build BP4A.251205.006），或其后已推送到 AOSP 的 16 系列安全标签。QPR1、QPR3 没有推送到 AOSP；`android-latest-release` 已指向 Android 17，禁止使用（A8 已核对：ci.android.com 该分支 15660610 之后的 build 都是 Android 17；A8 用的是同一分支上 BP4A.251205.006 的 build 15581820，见附录 E）。GKI 取 `android16-6.12-YYYY-MM` 月度分支。导出 manifest、kernel commit、工具链与镜像 hash | — | — | M |
 | P10.2 | 产品：自有 `device/<project>/virt_arm64`，以 Cuttlefish 的 arm64-only 手机产品为底。Cuttlefish 已有 QEMU `virt` 后端（virtio-*-pci-non-transitional、U-Boot `-bios`、高位 ECAM，对应 `androidboot.boot_devices=4010000000.pcie`）；本计划的 virt 同样用高位 ECAM，`boot_devices` 不用改，只把 U-Boot 换成直接内核引导；Cuttlefish 经 virtio-console 端口与 vsock 提供的宿主服务（keymint、gatekeeper、oemlock 等）改为客体内的软件实现或 JS 后端；`TARGET_ARCH_VARIANT := armv8-a`、`TARGET_CPU_VARIANT := generic`，dalvik 的 ISA 属性与 profile 一致；图形先用 guest_swiftshader | — | — | XL |
 | P10.3 | QEMU 参考：与 A0 相同的 QEMU 版本与 virt 布局（改用 virtio-pci），启动到 `sys.boot_completed=1`；实测能启动的最小 `-m`；用 libinsn 与 howvec 统计 Android 启动的指令数与类别，按 A4 实测的 MIPS 推算在 v86 上的启动时间，并据此冻结 Android 的 E 级预算（冷启动、应用启动、输入延迟、持续帧率） | P0.9 的工具 | — | L |
 | P10.4 | ISA 与需求扫描：arm64-v8a 的 ABI 基线不能证明 vendor 库、APEX 或预装 APK 只用 v8.0 指令，所以扫描实际产物：`tools/a64_isa_scan.mjs` 扫描 system、vendor、apex 中的 ELF 与 OAT，超出 v1 的特性定为 v2（候选见 profile 一节）；v2 特性先实现，并在 Alpine 上通过 R-a64-isa、R-a64-sys、kselftest hwcap 与 litmus，才能进入 P10.6。若 P10.3 测得的最小内存超过 2 GiB − 128 KiB，确认 P8.5 的结论（并行模式下 extended RAM 中的代码是否可编译）满足 Android | — | — | M（v2 的实现另计） |
@@ -1997,3 +1997,96 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   内核于是在用户的 GS 上缺页并循环（桌面不响应）或蓝屏；修正后 Windows 8.1 在 2/4 核、i440FX 与 Q35 加 VMware SVGA
   上 8 次全部通过两个探针，litmus 加了第 8 阶段复现这一情形。`make state-layout-check`（x86 多核目标依赖它）自
   extended RAM 引擎移动后失败：ARM 核心 34 个静态变量补上归属，`make a64-gate` 加了这一检查。
+
+### A8（2026-10-18；P10，Android 16 在 QEMU 参考上到 boot_completed，v86 上到 system_server 与 adbd）
+
+提交：与本节同一个提交（`vA8`）。
+
+- 偏差（P10.1、P10.2，所有者有 x86_64 Linux 宿主时可以回到原计划）：本机是 arm64 的 macOS，可用磁盘约 45 GiB，AOSP 只能在
+  x86_64 Linux 宿主上同步与构建（数百 GB），所以不自建产品与内核，改用固定的预构建产物：ci.android.com 的
+  `aosp-android-latest-release` 分支上 `aosp_cf_arm64_only_phone-userdebug` 的 build 15581820。它的 fingerprint 是
+  `generic/aosp_cf_arm64_only_phone/vsoc_arm64_only:16/BP4A.251205.006/15581820:userdebug/test-keys`：build ID 正是 P10.1
+  固定的 `android-16.0.0_r4`（QPR2，BP4A.251205.006），源码 `android16-qpr2-release`，SDK 36，安全补丁 2025-12-05。核对
+  （P10.1 的待核对一项）：该分支之后的 build 15660610、15885347、16102939、16373615 都是 Android 17（CP2A.260605.016，
+  SDK 37），只取 15581820。GKI 不另取月度分支，用这一 build 的 boot.img 里的
+  `6.12.38-android16-5-g501f58f107ab-ab13974591-4k`（manifest 中 kernel/prebuilts/6.12/arm64 为 `53f5d249`），
+  virtual-device 模块来自它的 vendor_boot。产品不自建 `device/<project>/virt_arm64`，Cuttlefish 的产品原样使用，P10.2 要改的
+  部分放进启动材料与 bootconfig（下一条）；ISA 为 `dalvik.vm.isa.arm64.variant=cortex-a53`、`features=default`（v8.0 加
+  CRC32，v1 都有），只有 64 位（vsoc_arm64_only），与 P0.12 的结论相同。
+- P10.1 的固定（`tools/a64_android.mjs`，`--download` 时从 ci.android.com 取，所有者 2026-10-17 已同意 Android 的下载）：
+  `aosp_cf_arm64_only_phone-img-15581820.zip`（1,046,288,463 字节，sha256 `d56b75f0…`，下载时另核对服务器的 MD5）、
+  `vendor_ramdisk-debug.img`（18,797,343 字节，`b9a00cd7…`）与 `manifest_15581820.xml`（`d36c615a…`，1013 个项目）。
+  `device/google/cuttlefish` 在 manifest 中的 revision `4d368849` 的源码（gitiles 归档 2.9 MB）只用来核对启动器的行为。
+- P10.5（`node tools/a64_android.mjs`）：按 header v4 解开 boot.img（原始 arm64 Image，加载器不必支持 Image.gz/lz4）、
+  init_boot.img 与 vendor_boot.img；initrd 是 vendor ramdisk、generic ramdisk（都是 lz4 legacy，内核接受拼接）再接
+  bootconfig（vendor_boot 自己的一段与启动器、U-Boot 会给的项，带长度、校验和与 trailer）；GPT 磁盘（稀疏文件 17.5 GB，
+  实占约 1.8 GB）按 Cuttlefish 的顺序放 misc、boot/init_boot/vendor_boot 与四个 vbmeta 的 _a/_b、super 与 userdata
+  （sparse 转 raw）、metadata（64 MiB 空白，首次启动时格式化）与 frp；manifest.json 记录 hash、分区、命令行与
+  bootconfig；modules/ 是 vendor ramdisk 里的 19 个模块（P10.6 用）。U-Boot 与启动器的项：slot `_a`、
+  `force_normal_boot=1`、解锁（`verifiedbootstate=orange`、`vbmeta.device_state=unlocked`）与按 libavb 的加载顺序算出的
+  `vbmeta.digest`（vbmeta 与它链到的 boot、init_boot、vbmeta_system、vbmeta_system_dlkm、vbmeta_vendor_dlkm，共 22,912
+  字节）、`boot_devices=4010000000.pcie`、`fstab_suffix=cf.f2fs.hctr2`、guest_swiftshader 的图形项（`assemble_cvd` 的
+  `bootconfig_args.cpp` 与 `qemu_manager.cpp`）。内核控制台是 hvc0（之前 earlycon 在 PL011），Android 的控制台 shell 在
+  PL011，logcat 在 hvc2，如 Cuttlefish。P10.2 中 Cuttlefish 经 virtio-console 与 vsock 由宿主提供的服务改为客体自己的：
+  KeyMint 与 Gatekeeper 用 vendor 中的 nonsecure APEX（bootconfig 的多安装 APEX 选择）。默认用该 build 的 debug vendor
+  ramdisk（`/force_debuggable` 与 `adb_debug.prop`，init 只在解锁时采用）：`ro.adb.secure=0`，adbd 不要密钥。
+  SELinux 先 permissive（`--selinux`，enforcing 是 P11.3）。
+- 启动时发现并补上的：没有 `androidboot.vsock_lights_port` 时灯的 HAL 绑定特权端口 0（EACCES）崩溃，system_server 在
+  StartLightsService 永远等它；Thread HAL 要 `androidboot.openthread_node_id` 大于 0；没有 frp 分区（Cuttlefish 第二块
+  磁盘上的）时 PersistentDataBlockService 在 boot phase 500 超时，system_server 反复重启。
+- P10.3（`tests/a64/android_qemu.mjs`、`tests/a64/android_boot.mjs`）：A0 的 QEMU 9.2.0 与 virt 布局，cortex-a35 TCG，设备照
+  Cuttlefish 的 QEMU 启动器（virtio-pci，blk 00:01.0、GPU 00:02.0（Cuttlefish 的 sepolicy 期望的位置）、18 个 virtconsole、
+  rng、键盘、tablet、三张网卡），直接引导上面的材料。首次启动到 `sys.boot_completed=1`（控制台 `getprop` 证实，
+  fingerprint 相同）：4 核 4 GiB 304 s；最终的布局（内核控制台在 hvc0）与 1536 MiB 时 341 s（system_server 143 s）。最小内存（HVF 快速运行，4 核）：1024 MiB 22 s 到 boot_completed，
+  768 与 512 MiB 到 system_server 但 4 分钟内不到 boot_completed，所以最小约 1 GiB，低于 2 GiB − 128 KiB：P8.5 的 extended
+  RAM 结论不影响 Android；v86 取 1536 MiB，全部在低端 RAM。指令数（libinsn inline 与 howvec；没有 `-icount`：它把 4 个 vCPU
+  串到一个线程上，插件下要数小时，时间驱动的等待因而变长，所以是上限）：首次启动到 boot_completed 共 1743 亿条，4 个核心各
+  约 430–460 亿；类别：成对加载存储 20.4%、立即数偏移的加载存储 15.1%、标量浮点与 SIMD 11.2%、加减立即数 10.0%、寄存器
+  数据处理 8.2%、条件分支 7.4%、字面量加载 5.2%（ART 的常量池）。按 A4 实测的 page tier MIPS（1 核约 130）推算 v86 约
+  1340 s，与 P10.7 的实测 1396 s 相近。
+- P10.3 冻结的 Android E 级预算（同一宿主、同一材料、4 核、1536 MiB；v86 为 release 构建、page tier、并行 Worker，参考为
+  QEMU TCG cortex-a35）：首次冷启动到 `sys.boot_completed=1` 不超过参考的 5 倍（实测 4.1 倍：1396 对 341 s；到
+  system_server 3.1 倍：443 对 143 s）；第二次启动、应用启动（`am start -W` 的 TotalTime）与输入延迟同样不超过参考的 5 倍，
+  持续帧率不低于参考的 1/5（P12.3 测量对照）；A10 的长时间运行用例是 30 分钟固定种子的 monkey，内存压力用例是依次启动应用
+  直到 lmkd 至少杀一次进程，两者中 system_server、surfaceflinger 与 zygote 都不得重启。超过预算的 2 倍按停止条件处理。
+- P10.4（`node tools/a64_android.mjs --extract`，`node tools/a64_isa_scan.mjs --android build/a64-android/rootfs.tar`）：在
+  QEMU（HVF）上启动后，以 root 在 system_server 的挂载命名空间里把 system、system_ext、product、vendor、odm、三个 dlkm
+  与 87 个活动 APEX 打包（2.19 GB），经 virtserialport 传回；扫描其中及 APK/JAR 内的 2601 个 AArch64 ELF（含 ART 的
+  .oat/.odex）：1.70 亿个代码字，只在 v1 之外有效的 17.1 万（0.1%）。逐项结论：SVE/SVE2/SME/SHA3/SM4/DotProd/i8mm/FP16/
+  MTE/MOPS/LSE 等都在按 HWCAP 运行时选择的路径里（BoringSSL、libjxl、libdng_sdk、libyuv、dav1d、libvpx、WebView；
+  bionic 的 MTE、MOPS 与 SME 路径；outline atomics 与内核模块的 alternatives 选 LSE），或者是 OAT `.text` 中方法头一类
+  的数据，或者在不运行的镜像里（`trusty_security_vm.elf` 是 pKVM 的 VM，没有 EL2 时不启动）。没有必须实现的特性：
+  v2 为空，P10.6 不必等待。执行上的证据是 cortex-a35（v8.0）参考到 boot_completed 与 v86 上的启动。FEAT_PAN 仍是性能
+  选项（P9.3：SW_TTBR0_PAN 的内核在 auto 下慢 17%），P12.3 的指标达不到预算时再做。LOAD 段 p_align：4 KiB 1624 个、
+  16 KiB 7005 个、64 KiB 455 个，16 KiB 的兼容留给 P12.1。
+- P10.6（`A64_KERNEL=gki`，`tests/a64/linux_boot.mjs` 的 initramfs 阶，QEMU 参考也跑）：GKI 内核配 Alpine 的 initramfs
+  与 probe，probe 之前按 modprobe 的顺序（modules.dep 的依赖在前）insmod vendor ramdisk 的 19 个模块。QEMU 1/4 核与 v86
+  page tier 1/4 核、解释器 1 核都通过：19 个模块全部加载，注册的 virtio 驱动与参考相同，probe 通过（HWCAP 0x8ff）；
+  v86 page tier 1 核 19.4 s（64.5 MIPS），解释器 101 s（12.9 MIPS）。
+- P10.7（`A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 node tests/a64/android_boot.mjs`）：同样的材料，设备的 PCI
+  顺序同参考（GPU 用新选项 `virtio_gpu_pci_slot: 2` 留在 00:02.0），`virtio_console_ports: 18`，没有网卡而用新的
+  virtio-vsock（`src/virtio_vsock.js`：客体 CID 3，宿主端经 `emulator.vsock_connect(port)` 连客体的端口，信用流控；
+  Cuttlefish 的 adb 走的就是 vsock，adbd 同时在 vsock:5555 监听）。page tier、4 核并行 Worker、1536 MiB，首次启动：
+  second stage init 44 s，zygote 365 s，adbd 413 s，开机动画（SurfaceFlinger）452 s，system_server 610 s，
+  `tests/a64/adb.mjs`（不带认证的 ADB 协议）经 vsock:5555 在 617 s 得到 adbd 的 banner、system_server 的 pid 与相同的
+  fingerprint。first stage 里 super 上的 dm-linear 逻辑分区、AVB 的 dm-verity（`sha256-ce`，用 v1 的 SHA2 扩展）、
+  47 个模块的加载与两次切换根目录都在 v86 上完成。以上时间是源码构建、与 QEMU 的插件运行同时跑的第一次；等到
+  `sys.boot_completed=1`（`A64_ANDROID_WAIT=boot_completed`，adb 每 30 s 查一次）：release 构建、机器较安静（NotificationCenter
+  照旧占一个核）时 1396 s（second stage 35 s、zygote 301 s、adbd 318 s、开机动画 334 s、system_server 443 s、adb 447 s），
+  与门禁同时跑时 2087 s。首次启动的时间主要花在 apexd 解压 system 中的压缩 APEX 与包的 dex2oat 上。v86 的运行没有网卡，
+  Thread 网络 HAL 的模拟射频（ot-rcp）打不开它的套接字而反复重启（QEMU 有网卡时不会），不影响启动，留给 P11.2。
+- v86 上的修正：virtio-console 有 18 个端口时，驱动就绪后一次发出的控制消息比控制接收队列的缓冲多，原来断言失败；
+  现在控制消息排队，等驱动给出缓冲（x86 的 4 个端口行为不变，`tests/devices/virtio_console.js` 通过）。
+  `src/virtio_vsock.js` 进入 Closure 的文件列表，`build/libv86.mjs` 与 `build/v86_all.js` 无错误。
+- QEMU 侧的陷阱（只影响参考与提取）：file 后端的 virtserialport 从不为客体打开（客体写入一直阻塞），改用 socket 后端，
+  而且要在客体驱动起来之后再连接（之前的打开事件被丢弃）；控制台 shell 在 init 的 bootstrap 挂载命名空间里，只看得到
+  10 个 bootstrap APEX，要 `nsenter -t $(pidof system_server) -m`。Wi-Fi 的网络 offer（IS_INVINCIBLE）分数高于以太网，
+  默认请求都给了没有连上的 Wi-Fi，eth1 从不 DHCP，QEMU 的 hostfwd 到不了 adbd：留给 P11.2（网络）。
+- 门禁：`make a64-gate-full` 在本提交的代码上一次通过（2026-10-18 04:47 到 09:37，`build/release-gate/2026-10-17T22-08-50-866Z/`）：
+  前置步骤之后 R-a64-isa、R-a64-sys、R-a64-virt、R-a64-UP（lifecycle 2923 s）、R-a64-SMP（1705 s）、R-a64-jit、R-a64-gpu（2392 s）、
+  R-a64-parallel（含 headless Chrome）、R-a64-memory、R-a64-granule、R-a64-android-prep 全部通过，各项用时与 A7 相当：R-a64-* 不
+  退化。core-split-check：`v86.wasm` 与 `vA7` 逐字节一致（本里程碑没有 Rust 改动）。共享 JS（virtio-console、starter、
+  cpu_worker、machine_options）按跨阶段规则 1 跑了 `make platform-release-gate GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`
+  （8 项全部通过）与 `make nasmtests-force-jit`（16499/16499），`tests/devices/virtio_console.js` 通过。GKI 桥接与 Android 的
+  测试进了 `make android-reference-tests` 与 `android-guest-tests`（R-android 级，A8–A10）；A8 的验收项都已达到：QEMU 参考到
+  `sys.boot_completed=1`，v86 上 GKI 桥接的 probe 通过，Android 启动到 system_server 并且 adbd 可用（还到了 boot_completed）。

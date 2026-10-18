@@ -6,9 +6,10 @@
 > virtio-pci, input and virtio-gpu), A6 (the lifecycle, cores in vCPU
 > workers, extended RAM, 16 and 64 KiB page kernels, the browser) and A7
 > (the rehearsals for Android, P9.1-P9.3, and G-Alpine: every release level
-> R-a64-isa through R-a64-android-prep on one tagged build, `vA7`). Android
-> 16 (A8-A10) comes next. Sections marked *(pending)* are filled in as the
-> milestones land.
+> R-a64-isa through R-a64-android-prep on one tagged build, `vA7`), and A8
+> (Android 16 on the QEMU reference to boot_completed, the GKI bridge, and
+> on v86 to system_server and adbd: the section below). The Android
+> graphics, interaction and release milestones (A9, A10) come next.
 
 With `cpu_type: "arm64"` (from A1), v86 runs a separate core,
 `build/v86-arm64.wasm`: an Armv8.0-A CPU at EL0 and EL1 only, on the `virt`
@@ -19,7 +20,7 @@ does not contain the ARM code (the plan's "Wasm core" section).
 | --- | --- |
 | Option | `cpu_type: "arm64"` (machine_type "virt", its default) |
 | Profile | `v86-aarch64-v1.1`, [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) (`a64_profile: "v1"`: the 4 KiB granule only) |
-| Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng, hvc0 and -input, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system, all on virtio-mmio and on virtio-pci (the PCI functions as the reference's); s2idle woken by the PL031's alarm and hibernation to a swap disk with the resume after power-on; 3 and 4 GiB of RAM with extended RAM from 4 GiB (a memtest over most of it); in headless Chrome from the source tree, the bundle and the CPU worker; on 2 and 4 cores in vCPU workers (`parallel: true`: the probe, the live stage with snapshots, reboot, poweroff, s2idle, hibernation); Linux 6.18.35 built for 16 and 64 KiB pages (`tools/a64_kernel.mjs`) to a login and through the probe, interpreted and with the page tier, and the guest JITs on them; the androidish kernel (Linux 6.18.35 in GKI's shape: a 39-bit VA, SW_TTBR0_PAN, pseudo-NMIs, KASLR) on 2 and 4 cores, interpreted, with the page tier and in workers, and with 4 GiB of RAM: binderfs's selftest and binder between two cores, userfaultfd, a minimal SELinux policy enforcing (the probe after it), bootconfig, erofs on dm-verity, f2fs with fscrypt across a reboot, zram as swap and PSI's trigger; virtio-console's ports 1-3 (`org.v86.port<N>`, echoed by the host) in every live stage; virtio-gpu: KMS (atomic, planes, cursor, PRIME, explicit sync), kmscube and weston with llvmpipe, virgl (GL 4.3, gltest 0 failures), Venus (vktest, vkcube) on a real GPU through WebGPU, input on weston; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
+| Verified guests | Android 16 (BP4A.251205.006, Cuttlefish's arm64-only phone, GKI 6.12): on 4 cores in workers with the page tier to system_server, adbd over vsock and `sys.boot_completed=1`; its GKI kernel with Alpine's initramfs, the virtual-device modules and the probe (P10.6). Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng, hvc0 and -input, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system, all on virtio-mmio and on virtio-pci (the PCI functions as the reference's); s2idle woken by the PL031's alarm and hibernation to a swap disk with the resume after power-on; 3 and 4 GiB of RAM with extended RAM from 4 GiB (a memtest over most of it); in headless Chrome from the source tree, the bundle and the CPU worker; on 2 and 4 cores in vCPU workers (`parallel: true`: the probe, the live stage with snapshots, reboot, poweroff, s2idle, hibernation); Linux 6.18.35 built for 16 and 64 KiB pages (`tools/a64_kernel.mjs`) to a login and through the probe, interpreted and with the page tier, and the guest JITs on them; the androidish kernel (Linux 6.18.35 in GKI's shape: a 39-bit VA, SW_TTBR0_PAN, pseudo-NMIs, KASLR) on 2 and 4 cores, interpreted, with the page tier and in workers, and with 4 GiB of RAM: binderfs's selftest and binder between two cores, userfaultfd, a minimal SELinux policy enforcing (the probe after it), bootconfig, erofs on dm-verity, f2fs with fscrypt across a reboot, zram as swap and PSI's trigger; virtio-console's ports 1-3 (`org.v86.port<N>`, echoed by the host) in every live stage; virtio-gpu: KMS (atomic, planes, cursor, PRIME, explicit sync), kmscube and weston with llvmpipe, virgl (GL 4.3, gltest 0 failures), Venus (vktest, vkcube) on a real GPU through WebGPU, input on weston; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
 | Boot time | The frozen baseline (P9.4, [tests/a64/perf-baseline.json](../tests/a64/perf-baseline.json), release build, medians of 3 sessions on an Apple M-series Mac): Alpine from the ISO to `localhost login:` 34.7 / 39.5 / 40.6 s on 1/2/4 cores with the page tier, 238 / 281 / 362 s interpreted (QEMU TCG: 11 s on 1 core); the initramfs stage through the probe 6.3 / 6.9 / 7.0 s with the page tier, 35.6 / 41.8 / 57.4 s interpreted. On a quiet machine at A4: to login 30 / 39 / 34 s, and on 1 core to login and through the probe 33.1 s, 1.37 times the x86_64 page tier's 24.1 s on the same host (the E level's budget: 3 times) |
 | Not done | virtio-snd (P7.5, optional; deferred to Android's audio) |
 
@@ -67,6 +68,74 @@ region is write-protected, so `qemu_spin_lock()` on the TB never succeeds.
 Only `aarch64-softmmu` is built. QEMU's linux-user targets do not build on
 macOS.
 
+## Android 16
+
+A8 of the plan (P10). The product is not built here: AOSP builds need an
+x86_64 Linux host. The pinned prebuilt is Cuttlefish's arm64-only phone,
+`aosp_cf_arm64_only_phone-userdebug` build 15581820 from ci.android.com,
+which is BP4A.251205.006, the build of `android-16.0.0_r4` (QPR2). Its GKI
+kernel is `6.12.38-android16-5`, and the virtual-device modules come from its
+vendor_boot. ART targets cortex-a53 with default features (v8.0 and CRC32),
+and the image is 64-bit only.
+
+`node tools/a64_android.mjs [--download]` makes the direct-boot materials in
+`build/a64-android/out/`:
+
+- `Image`, the kernel from boot.img.
+- `initrd.img`: the vendor ramdisk, the generic ramdisk of init_boot, and
+  bootconfig. It carries the vendor's own section plus what Cuttlefish's
+  launcher and U-Boot would add: slot `_a`, normal boot, an unlocked device
+  with the vbmeta digest computed as libavb does, the boot device
+  `4010000000.pcie`, the f2fs fstab, and the graphics keys.
+- `disk.img`: one GPT disk with Cuttlefish's partitions, written as a
+  sparse file.
+- `manifest.json`: the hashes, partitions, command line and bootconfig.
+
+Cuttlefish's host services (keymint, gatekeeper, ...) are replaced by the
+guest's nonsecure APEXes, which bootconfig selects. The default vendor
+ramdisk is the build's debug one, so an unlocked device runs adbd without a
+key. SELinux starts permissive.
+
+The kernel's console is hvc0, logcat goes to hvc2, and an Android shell
+runs on the PL011.
+
+| | QEMU reference (TCG cortex-a35, `tests/a64/android_boot.mjs`) | v86 (`A64_ANDROID_TARGET=v86`) |
+| --- | --- | --- |
+| Boot (first boot, 4 cores, 1536 MiB) | `sys.boot_completed=1` in 341 s (system_server at 143 s); 174 billion instructions to it (libinsn, an upper bound); about 1 GiB is the least RAM that boots | release build, page tier, cores in workers: system_server at 443 s, adbd over vsock at 447 s, `sys.boot_completed=1` (polled over adb) at 1396 s, 4.1 times the reference |
+| Devices | virtio-pci: blk 00:01.0, gpu 00:02.0, 18 virtconsoles, rng, keyboard, tablet, three NICs | the same order, `virtio_vsock` instead of the NICs (adb) |
+
+P10.3 freezes Android's E level against the QEMU TCG reference on the same
+host, with the same materials, on 4 cores with 1536 MiB, and v86 as above. A
+measurement beyond twice its budget is the plan's stop condition.
+
+- The first cold boot to `sys.boot_completed=1` takes at most 5 times the
+  reference's (4.1 measured).
+- The second boot, an app's start (`am start -W`) and input latency also take
+  at most 5 times the reference's.
+- The sustained frame rate is at least a fifth of the reference's.
+- A10's long run is 30 minutes of a fixed-seed monkey. Its memory-pressure
+  case starts apps until lmkd kills one. In both, system_server, surfaceflinger
+  and zygote must not restart.
+
+The GKI bridge (P10.6, `A64_KERNEL=gki` in `tests/a64/linux_boot.mjs`) runs
+the GKI kernel with Alpine's initramfs and the probe, on QEMU and on v86. It
+loads the 19 virtual-device modules in modprobe's order first; the virtio
+drivers they register must match the reference's.
+
+The ISA scan (P10.4, `node tools/a64_android.mjs --extract` then
+`node tools/a64_isa_scan.mjs --android build/a64-android/rootfs.tar`) reads
+what the booted guest mounts: the read-only partitions and 87 APEXes, 2601
+AArch64 ELFs including ART's OAT files and the libraries in APKs. Of 170
+million code words, 0.1% are valid only beyond v1. Each of those is one of:
+
+- code selected at runtime by HWCAP: BoringSSL, image and video codecs,
+  WebView, bionic's MTE/MOPS/SME paths, LSE through outline atomics or kernel
+  alternatives;
+- data in OAT `.text`;
+- code that never runs here: the pKVM Trusty VM.
+
+No v2 feature is needed.
+
 ## Known defects
 
 The G-Alpine list (docs/arm64-virt-android16-plan.md P9.4). Major: a
@@ -82,6 +151,8 @@ declared deviation, a slower path or a documented limit. None is major.
 | Interpreted on several cores, the guest's clock is the host's: every core takes its timer ticks (HZ=1000) for the whole slow boot, so Alpine retires about 50% more instructions on 4 cores than on 1, and the jitter entropy self-test at boot takes 17-18 s on 4 cores | minor | close to the soft lockup threshold (20 s) when the host is busy: `tests/a64/linux_boot.mjs` gives such runs `watchdog_thresh=30`; the page tier takes under a second there |
 | Kernels with SW_TTBR0_PAN (the androidish one, GKI) boot 17% slower to a login than the stock kernel with `a64_asid_tag` auto, 70% slower without it | minor | the profile has no PAN; FEAT_PAN is a v2 candidate (P10.4) |
 | A single-buffer snapshot (`save_state`) refuses extended RAM | minor | `save_state_stream` holds it |
+| Android 16's first boot takes 23 minutes on 4 cores in workers (4.1 times QEMU TCG's; mostly APEX decompression and dex2oat, about 125 MIPS overall) | minor | performance (A10, P12.3's metrics against P10.3's budget); FEAT_PAN is the first candidate |
+| Android without a NIC (the v86 runs so far): the Thread network HAL's simulated radio (ot-rcp) cannot open its sockets and restarts | minor | networking is P11.2 (A9): v86 needs Cuttlefish's second and third NIC, and Wi-Fi's offers outrank ethernet's, so eth1 gets no DHCP even on QEMU |
 | virtio-snd | — | not done (P7.5, optional) |
 
 ## Testing
@@ -108,6 +179,11 @@ declared deviation, a slower path or a documented limit. None is major.
 | ID registers | `node tools/cpu_contract.mjs --a64-reference` | QEMU (v86: P3.1) |
 | Host capabilities | `tests/a64/browser_caps.html`, `node tests/a64/browser_caps.mjs` | browsers, Node |
 | ISA corpus (Alpine's ELFs against v1) | `node tools/a64_isa_scan.mjs` | — |
+| Android 16's materials (P10.1, P10.5: the pinned Cuttlefish build, `--download` fetches it) | `node tools/a64_android.mjs` (`make android-materials`) | — |
+| Android 16 to `sys.boot_completed=1` (P10.3; `A64_ANDROID_ACCEL=hvf`: the host's CPU; `A64_QEMU_PLUGINS=1`: instruction counts; `A64_MEMORY_MB`) | `node tests/a64/android_boot.mjs` (`make android-reference-tests`) | QEMU |
+| The GKI bridge (P10.6): the GKI kernel, Alpine's initramfs, the 19 virtual-device modules, the probe | `A64_KERNEL=gki [A64_LINUX_QEMU=1] A64_STAGE=initramfs node tests/a64/linux_boot.mjs` | both |
+| Android 16 to system_server and adbd over vsock (P10.7; `A64_ANDROID_WAIT=boot_completed`) | `A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 node tests/a64/android_boot.mjs` (`make android-guest-tests`) | v86 |
+| Android's ISA (P10.4): the booted guest's partitions and APEXes (`build/a64-android/rootfs.tar`, on QEMU with HVF) against v1 | `node tools/a64_android.mjs --extract`, `node tools/a64_isa_scan.mjs --android build/a64-android/rootfs.tar` | QEMU |
 
 `make a64-gate` runs before each commit and `make a64-gate-full` at a
 milestone's exit (`tools/a64_gate.mjs`). The release levels `R-a64-*` are in

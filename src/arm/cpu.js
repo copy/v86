@@ -32,6 +32,7 @@ import { VirtioRng } from "../virtio_rng.js";
 import { VirtioNet } from "../virtio_net.js";
 import { VirtioConsole } from "../virtio_console.js";
 import { VirtioInput } from "../virtio_input.js";
+import { VirtioVsock } from "../virtio_vsock.js";
 import { DisplayHub } from "../display.js";
 import { GraphicsAdapter, graphics_adapter_of_state } from "../graphics_adapter.js";
 import { ParallelMachine } from "../parallel/machine.js";
@@ -257,12 +258,16 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.virtio_transport = settings.virtio_transport || "mmio";
     /** @type {!Array<{slot: number, name: string, device: !Object}>} in order: from the last virtio-mmio slot, or from PCI slot 1 */
     this.virtio_devices = [];
+    // (on the PCIe host the display adapter may take a slot of its own, which
+    // the others skip: Cuttlefish's sepolicy expects its GPU at 00:02.0, P10.7)
+    const gpu_slot = this.virtio_transport === "pci" && this.graphics_adapter_descriptor && settings.virtio_gpu_pci_slot || 0;
+    const pci_slot = n => 1 + n + (gpu_slot && 1 + n >= gpu_slot ? 1 : 0);
     const add = (name, create) =>
     {
         let device, slot;
         if(this.virtio_transport === "pci")
         {
-            slot = 1 + this.virtio_devices.length;
+            slot = pci_slot(this.virtio_devices.length);
             device = create(null, slot << 3);
         }
         else
@@ -295,8 +300,11 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(settings.virtio_rng) add("virtio-rng", (transport, pci_id) => new VirtioRng(this, transport, pci_id));
     if(settings.virtio_console)
     {
-        // (ports 1-3 generic: the host service channels, P9.1)
-        add("virtio-console", (transport, pci_id) => new VirtioConsole(/** @type {?} */ (this), device_bus, pci_id, transport || undefined, true));
+        // (ports 1-3 generic: the host service channels, P9.1; or
+        // virtio_console_ports consoles, P10.7)
+        const ports = settings.virtio_console_ports;
+        add("virtio-console", (transport, pci_id) => new VirtioConsole(/** @type {?} */ (this), device_bus, pci_id, transport || undefined,
+            !ports, ports || undefined));
     }
     // (P5.8, P7.4: a keyboard and a tablet, or the kinds listed, as the
     // reference's virtio-keyboard, virtio-tablet and virtio-multitouch)
@@ -308,12 +316,15 @@ A64CPU.prototype.init = function(settings, device_bus)
             add("virtio-" + kind, (transport, pci_id) => new VirtioInput(this, device_bus, kind, transport, pci_id));
         }
     }
+    // (P10.7: stream sockets to the guest, its adbd's vsock:5555)
+    if(settings.virtio_vsock) add("virtio-vsock", (transport, pci_id) => new VirtioVsock(this, device_bus, transport, pci_id));
     // The display adapter (P7.1): virtio-gpu without VGA, after the virtio
     // devices (the next PCI slot, or virtio-mmio slot), on the display hub
     if(this.graphics_adapter_descriptor)
     {
         this.devices.display = new DisplayHub(device_bus, settings.screen);
-        const slot = this.virtio_transport === "pci" ? 1 + this.virtio_devices.length : VIRT_MMIO_COUNT - 1 - this.virtio_devices.length;
+        const slot = this.virtio_transport === "pci" ? gpu_slot || pci_slot(this.virtio_devices.length) :
+            VIRT_MMIO_COUNT - 1 - this.virtio_devices.length;
         const transport = this.virtio_transport === "pci" ? null : new VirtioMmio(this, slot, 32 + 16 + slot);
         if(transport) this.virtio_mmio[slot] = transport;
         this.graphics_adapter_slot = slot;

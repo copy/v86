@@ -550,6 +550,10 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.virtio_transport) settings.virtio_transport = options.virtio_transport;
     // (virtio-input: a keyboard and a tablet, or the kinds listed, P5.8, P7.4)
     if(options.virtio_input) settings.virtio_input = Array.isArray(options.virtio_input) ? options.virtio_input.slice() : true;
+    // (Android, P10.7: virtio-vsock, that many console ports, the GPU's PCI slot)
+    if(options.virtio_vsock) settings.virtio_vsock = true;
+    if(options.virtio_console_ports) settings.virtio_console_ports = options.virtio_console_ports;
+    if(options.virtio_gpu_pci_slot) settings.virtio_gpu_pci_slot = options.virtio_gpu_pci_slot;
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -2402,6 +2406,45 @@ V86.prototype.serial0_send = function(data)
 };
 
 /**
+ * A stream socket to a port of the guest's vsock (machine_type "virt" with
+ * virtio_vsock; src/virtio_vsock.js): resolves when the guest accepts,
+ * rejects when it refuses. The stream has write(bytes), close(), and the
+ * callbacks on_data(bytes) and on_close() to be set.
+ *
+ * @param {number} port
+ * @return {!Promise<!Object>}
+ */
+V86.prototype.vsock_connect = function(port)
+{
+    const id = this.vsock_next_id = (this.vsock_next_id || 0) + 1;
+    const stream = {
+        "closed": false,
+        "on_data": null,
+        "on_close": null,
+        "write": bytes => { if(!stream["closed"]) this.bus.send("virtio-vsock-send", [id, bytes]); },
+        "close": () => { if(!stream["closed"]) this.bus.send("virtio-vsock-close", [id]); },
+    };
+    return new Promise((resolve, reject) => {
+        let connected = false;
+        const on_connected = ([i]) => { if(i === id) { connected = true; resolve(stream); } };
+        const on_data = ([i, bytes]) => { if(i === id && stream["on_data"]) stream["on_data"](bytes); };
+        const on_closed = ([i]) => {
+            if(i !== id) return;
+            stream["closed"] = true;
+            this.bus.unregister("virtio-vsock-connected", on_connected);
+            this.bus.unregister("virtio-vsock-data", on_data);
+            this.bus.unregister("virtio-vsock-closed", on_closed);
+            if(!connected) reject(new Error("vsock: the guest refused port " + port));
+            else if(stream["on_close"]) stream["on_close"]();
+        };
+        this.bus.register("virtio-vsock-connected", on_connected, this);
+        this.bus.register("virtio-vsock-data", on_data, this);
+        this.bus.register("virtio-vsock-closed", on_closed, this);
+        this.bus.send("virtio-vsock-connect", [id, port]);
+    });
+};
+
+/**
  * Send bytes to a serial port (to be received by the emulated PC).
  *
  * @param {Uint8Array} data
@@ -2810,6 +2853,7 @@ V86.prototype["export_disk_image"] = V86.prototype.export_disk_image;
 V86.prototype["disk_image_info"] = V86.prototype.disk_image_info;
 V86["import_ova"] = V86.import_ova;
 V86.prototype["restore_state_stream"] = V86.prototype.restore_state_stream;
+V86.prototype["vsock_connect"] = V86.prototype.vsock_connect;
 /* eslint-enable no-self-assign */
 
 if(typeof module !== "undefined" && typeof module.exports !== "undefined")

@@ -21,7 +21,8 @@ const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios
     "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features"];
 
 /** Options of the virt machine that the PC machines reject */
-const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input"];
+const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
+    "virtio_console_ports", "virtio_gpu_pci_slot"];
 
 /** The display adapters of the virt machine (no VGA) */
 const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];

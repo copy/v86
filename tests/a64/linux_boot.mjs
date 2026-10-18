@@ -40,6 +40,13 @@
 //   QCOW2 image of it (qemu-img convert -c, build/a64-linux/live-iso.qcow2),
 //   read by the disk image layer (docs/disk-image-formats-plan.md).
 //
+// A64_KERNEL selects v86's kernel: 16k, 64k and androidish are
+// tools/a64_kernel.mjs's (P8.6, P9.1, P9.2); gki is Android 16's GKI kernel
+// from tools/a64_android.mjs (P10.6's bridge, on the reference too): the
+// initramfs stage with the vendor ramdisk's virtual-device modules loaded
+// before the probe, the virtio drivers they register checked against the
+// reference's.
+//
 // A64_LINUX_QEMU=1 runs the fixed reference (QEMU 9.2.0 built from source,
 // build/a64-ref or A64_QEMU, virt-9.2 with cortex-a35 and every default the
 // plan names spelled out) and passes ref=qemu to the probe; A64_CORES (1, 2,
@@ -218,13 +225,19 @@ assert.ok(!parallel || !+process.env.A64_LINUX_QEMU && cores > 1, "A64_PARALLEL 
 // (A64_KERNEL=16k|64k: v86 boots tools/a64_kernel.mjs's kernel of that page
 // size, P8.6, the drivers the stages need built in; A64_KERNEL_FILE another
 // Image. The probe must report the page size)
+// (A64_KERNEL=gki, P10.6's bridge: Android's GKI kernel, tools/a64_android.mjs's,
+// on the reference too, in the initramfs stage with the virtual-device modules
+// of its vendor ramdisk loaded before the probe)
 const kernel_variant = process.env.A64_KERNEL || "stock";
-const PAGE_SIZES = { stock: 4096, "16k": 16384, "64k": 65536, androidish: 4096 };
-assert.ok(PAGE_SIZES[kernel_variant], "A64_KERNEL: stock, 16k, 64k or androidish");
-assert.ok(kernel_variant === "stock" || !+process.env.A64_LINUX_QEMU, "A64_KERNEL is a variant of v86's runs");
+const PAGE_SIZES = { stock: 4096, "16k": 16384, "64k": 65536, androidish: 4096, gki: 4096 };
+assert.ok(PAGE_SIZES[kernel_variant], "A64_KERNEL: stock, 16k, 64k, androidish or gki");
+const gki = kernel_variant === "gki";
+assert.ok(kernel_variant === "stock" || gki || !+process.env.A64_LINUX_QEMU, "A64_KERNEL is a variant of v86's runs (gki: of both)");
+assert.ok(!gki || stage === "initramfs", "A64_KERNEL=gki: the initramfs stage");
+const GKI_FILES = ROOT + "build/a64-android/out/";
 const v86_kernel = process.env.A64_KERNEL_FILE ||
-    (kernel_variant === "stock" ? prepared.kernel : ROOT + `build/a64-kernel/${kernel_variant}/Image`);
-assert.ok(fs.existsSync(v86_kernel), v86_kernel + " is missing: node tools/a64_kernel.mjs");
+    (kernel_variant === "stock" ? prepared.kernel : gki ? GKI_FILES + "Image" : ROOT + `build/a64-kernel/${kernel_variant}/Image`);
+assert.ok(fs.existsSync(v86_kernel), v86_kernel + " is missing: node tools/" + (gki ? "a64_android.mjs" : "a64_kernel.mjs"));
 // (A64_KERNEL=androidish, the initramfs stage, P9.1, P9.2: the programs and
 // images built with it in one more cpio, under /a64-android with the
 // scripts a64-init runs before and after the probe, a bootconfig after the
@@ -348,6 +361,42 @@ if(android)
     const f2fs = gunzip(fs.readFileSync(ANDROID_FILES + "f2fs.img.gz"));
     f2fs_disk = f2fs.buffer.slice(f2fs.byteOffset, f2fs.byteOffset + f2fs.byteLength);
 }
+// (A64_KERNEL=gki: the modules in one more cpio, loaded before the probe as
+// modprobe would load modules.load's: each one's modules.dep first, with
+// their modules.options)
+let gki_modules = 0;
+if(gki)
+{
+    const staging = directory + "gki-root/";
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.mkdirSync(staging + "a64-gki", { recursive: true });
+    fs.mkdirSync(staging + "a64-android");
+    const load = fs.readFileSync(GKI_FILES + "modules/modules.load", "utf8").trim().split("\n");
+    const deps = new Map(fs.readFileSync(GKI_FILES + "modules/modules.dep", "utf8").trim().split("\n").map(line => {
+        const [name, list] = line.split(":");
+        return [path.basename(name), list.trim().split(/\s+/).filter(Boolean).map(d => path.basename(d))];
+    }));
+    const order = [];
+    const visit = name => { if(order.includes(name)) return; for(const d of [...(deps.get(name) || [])].reverse()) visit(d); order.push(name); };
+    load.forEach(visit);
+    gki_modules = order.length;
+    for(const name of [...order, "modules.options"]) fs.copyFileSync(GKI_FILES + "modules/" + name, staging + "a64-gki/" + name);
+    fs.writeFileSync(staging + "a64-gki/order", order.join("\n") + "\n");
+    fs.writeFileSync(staging + "a64-android/pre", [
+        "#!/bin/busybox sh",
+        "B=/bin/busybox",
+        "N=0",
+        "for m in $($B cat /a64-gki/order); do",
+        "    O=$($B grep \"^options ${m%.ko} \" /a64-gki/modules.options | $B cut -d' ' -f3-)",
+        "    if $B insmod /a64-gki/$m $O; then N=$((N+1)); else $B echo \"A64_GKI_FAIL $m\"; fi",
+        "done",
+        "$B echo \"A64_GKI_MODULES loaded=$N virtio=$($B ls /sys/bus/virtio/drivers | $B tr '\\n' ,) $($B uname -r)\"",
+        ""].join("\n"), { mode: 0o755 });
+    run("bsdtar", ["--format", "newc", ...tar_args, "-cf", directory + "gki.cpio", "-C", staging, "."]);
+    const combined = directory + "initramfs-virt+probe+gki.cpio";
+    fs.writeFileSync(combined, Buffer.concat([fs.readFileSync(initrd), fs.readFileSync(directory + "gki.cpio")]));
+    initrd = combined;
+}
 const PARALLEL_OPTIONS = parallel ? { parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm" } : {};
 const memtest_mib = Number(process.env.A64_LINUX_MEMTEST || 0);
 const EXTENDED_BASE = 0x100000000;
@@ -421,7 +470,7 @@ const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT
 const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
     `${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}${target === "v86" && sleep_cycles ? "-sleep" : ""}` +
     `${extended_memory ? "-ext" + Math.round((memory_mb * 1048576 + extended_memory) / 1048576) + "m" : ""}` +
-    `${target === "v86" && parallel ? "-par" : ""}${target === "v86" && kernel_variant !== "stock" ? "-" + kernel_variant : ""}-${cores}c`;
+    `${target === "v86" && parallel ? "-par" : ""}${(target === "v86" || gki) && kernel_variant !== "stock" ? "-" + kernel_variant : ""}-${cores}c`;
 // (without the kernel's messages, which may land between the workload's lines)
 const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "")
     .split("\n").filter(line => !/^\[\s*\d+\.\d+\] /.test(line)).join("\n");
@@ -460,6 +509,15 @@ function check_probe(text, reference)
     return { ok: ok[0], xc: xc[0] };
 }
 
+/** P10.6: every module of modules.load loaded; the virtio drivers they register */
+function check_gki(text)
+{
+    const m = text.match(/A64_GKI_MODULES loaded=(\d+) virtio=(\S*) (\S+)/);
+    assert.ok(m, "no A64_GKI_MODULES line");
+    assert.equal(+m[1], gki_modules, "the GKI modules loaded: " + ([...text.matchAll(/A64_GKI_FAIL[^\r\n]*/g)].map(f => f[0]).join(", ") || "-"));
+    return { gki_modules: +m[1], virtio_drivers: m[2], kernel_release: m[3] };
+}
+
 if(qemu_reference)
 {
     const qemu = qemu_binary();
@@ -478,7 +536,7 @@ if(qemu_reference)
     if(cores === 1) Object.assign(manifest, { qemu: version, dtb_sha256: sha256(fs.readFileSync(dtb)) });
     fs.writeFileSync(manifest_file, JSON.stringify(manifest, null, 2) + "\n");
     const live = stage === "live", single = stage === "single";
-    const args = ["-machine", machine, ...base, "-serial", "stdio", "-monitor", "none", "-kernel", prepared.kernel,
+    const args = ["-machine", machine, ...base, "-serial", "stdio", "-monitor", "none", "-kernel", gki ? v86_kernel : prepared.kernel,
         "-initrd", live || single ? prepared.initrd : initrd,
         "-append", live ? LIVE_CMDLINE
             : single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("qemu"),
@@ -541,6 +599,7 @@ if(qemu_reference)
         fs.writeFileSync(directory + `${tag}.log`, transcript);
     }
     const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, true);
+    if(gki) Object.assign(lines, check_gki(transcript));
     if(live) assert.match(transcript, /\nA64_HWRNG=64\r?\n/, "64 bytes from /dev/hwrng (virtio-rng)");
     if(live) lines.pci = pci_functions(transcript);
     const result = { tag, ms: Math.round(performance.now() - started), boot_to_login_ms: login_ms, probe_done_ms: probe_ms, ...lines,
@@ -980,6 +1039,14 @@ if(android)
     const memory_kib = +transcript.match(/A64_MEMINFO MemTotal:\s+(\d+) kB/)?.[1];
     Object.assign(lines, { fscrypt: fscrypt[0], bootconfig: bootconfig.length, selinux: selinux[0], erofs_verity: true, psi: psi[0],
         zram: swapped[0], mem_total_kib: memory_kib });
+}
+if(gki)
+{
+    // (the reference's run, A64_LINUX_QEMU=1 A64_KERNEL=gki, gives the expected drivers)
+    Object.assign(lines, check_gki(transcript));
+    const reference_log = directory + tag_of("qemu") + ".log";
+    assert.ok(fs.existsSync(reference_log), "the GKI bridge compares with the reference's run: " + reference_log);
+    assert.equal(lines.virtio_drivers, check_gki(fs.readFileSync(reference_log, "latin1")).virtio_drivers, "the virtio drivers, against the reference's");
 }
 if(/^soak/.test(workload))
 {

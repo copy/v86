@@ -115,7 +115,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
 	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
-	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js \
+	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
@@ -1077,7 +1077,7 @@ A64_PENDING = @echo "A64_PENDING $@: arrives with $(1) (docs/arm64-virt-android1
 	a64-kvm-unit-tests a64-litmus-tests a64-virt-device-tests a64-api-tests a64-guest-quick-tests a64-guest-tests \
 	a64-lifecycle-guest-tests a64-multicore-guest-tests a64-page-tier-tests a64-jit-guest-tests a64-gpu-guest-tests \
 	a64-parallel-tests a64-parallel-guest-tests a64-browser-tests a64-extended-guest-tests a64-pagesize-guest-tests \
-	a64-android-prep-tests android-reference-tests android-guest-tests
+	a64-android-prep-tests android-materials android-reference-tests android-guest-tests
 a64-decode-tests: build/v86-arm64.wasm
 	node tests/a64/oracle/decode.mjs --self-test
 	RUST_TEST_THREADS=1 cargo test --features aarch64 aarch64::
@@ -1282,10 +1282,20 @@ a64-android-prep-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
 	done
 	A64_KERNEL=androidish A64_JIT=1 A64_STAGE=initramfs A64_CORES=2 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=3221225472 \
 		node tests/a64/linux_boot.mjs
-android-reference-tests:
-	$(call A64_PENDING,A8)
-android-guest-tests:
-	$(call A64_PENDING,A8)
+# Android 16 (docs/arm64-virt-android16-plan.md P10): the pinned Cuttlefish
+# build's materials (tools/a64_android.mjs: its downloads, about 1 GiB, with
+# --download), on the QEMU reference to sys.boot_completed=1 (P10.3) and the
+# GKI bridge's expected output (P10.6); then on v86 the bridge and Android to
+# system_server and adbd over vsock (P10.7)
+android-materials:
+	node tools/a64_android.mjs
+android-reference-tests: android-materials
+	A64_ANDROID_TARGET=qemu node tests/a64/android_boot.mjs
+	for cores in 1 4; do A64_KERNEL=gki A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+android-guest-tests: android-materials build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+	for cores in 1 4; do A64_KERNEL=gki A64_JIT=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	A64_KERNEL=gki A64_JIT=0 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
 
 # The JIT's and the decoder's tests outside the x64 targets (the R-JIT level
 # of the release gate): the Rust unit tests, the Wasm builder's output, the
