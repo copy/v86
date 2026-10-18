@@ -681,3 +681,19 @@ D0–D3 按“实施阶段”完成。以下未做，或与计划不同，需要
 6. **持久性验收的工具**：本机的 Linux 客户机与宿主机都没有 `e2fsck`，掉电验收以“挂载与同步过的文件
    完整”代替文件系统检查（D1 偏差 4）；若要按原文做 fsck，需要带 e2fsprogs 的客户机镜像（需下载）。
 
+
+### 页面的读写选项（2026-10-18，所有者的决定）
+
+所有者要求在 `index.html` 的 Hard disk image 与 Second hard disk image 旁加 read only / read write 选项，并选定用
+本机磁盘服务实现（不做 OPFS 副本，也不做 D4 的直接写所选文件）：
+
+- 两块硬盘各多一个镜像网址栏和 read only / read write 选择。填了网址时盘来自这个网址（`async`），read write
+  时设 `disk_option: "read_write"`，并写进地址栏（`hda.url`、`hda.disk_option`），与已有的查询参数入口相同。
+- 选了 read write 却没有网址（选的是本机文件，或什么都没选）时页面直接说明原因并回到选项，不启动：浏览器
+  只允许页面读取所选文件，写不回去。read only 与现在相同。
+- `make run`（`tools/dev-server.py`）同时启动本机磁盘服务：127.0.0.1:8471，服务 `images/`
+  （`V86_DISK_DIR` 换目录，`V86_DISK_SERVICE=0` 不启动），只接受开发页面自己的 origin；dev server 退出时一并
+  结束。于是 `http://127.0.0.1:8471/<名字>.img` 就是 `images/<名字>.img`。
+- 验证：应用内浏览器中用表单填网址并选 read write、启动 FreeDOS（硬盘为单独目录里的空白镜像），磁盘服务记录
+  到写会话（`opened by epoch 1`），页面出现 “Save and power off”；`part=d2` 与 `part=page` 的无头 Chrome
+  测试（页面以同样的查询参数写回、保存并关机、服务中断后 Retry）通过。

@@ -196,12 +196,28 @@
 
             <tr>
                 <td><label for="hda_image">Hard disk image</label></td>
-                <td><input type="file" id="hda_image"> or <a id="hda_toggle_empty_disk">create empty hard disk</a><br></td>
+                <td><input type="file" id="hda_image"> or <a id="hda_toggle_empty_disk">create empty hard disk</a><br>
+                    or URL <input type="text" id="hda_url" size="34" placeholder="http://127.0.0.1:8471/disk.img">
+                    <select id="hda_disk_option">
+                        <option value="read_only" selected>read only</option>
+                        <option value="read_write">read write</option>
+                    </select></td>
             </tr>
 
             <tr>
                 <td><label for="hdb_image">Second hard disk image</label></td>
-                <td><input type="file" id="hdb_image"> or <a id="hdb_toggle_empty_disk">create empty hard disk</a><br></td>
+                <td><input type="file" id="hdb_image"> or <a id="hdb_toggle_empty_disk">create empty hard disk</a><br>
+                    or URL <input type="text" id="hdb_url" size="34" placeholder="http://127.0.0.1:8471/disk2.img">
+                    <select id="hdb_disk_option">
+                        <option value="read_only" selected>read only</option>
+                        <option value="read_write">read write</option>
+                    </select><br>
+                    <small>read only: the guest's changes stay in memory for the session. read write: they are written back
+                    to the image itself, which must come from a disk service: <code>make run</code> starts the local one on
+                    port 8471 for <code>images/</code> (or run <code>node tools/disk-service.mjs --dir &lt;directory&gt;
+                    --origin http://localhost:8000</code>), so <code>http://127.0.0.1:8471/&lt;name&gt;.img</code> is
+                    <code>&lt;directory&gt;/&lt;name&gt;.img</code> on this computer. A file chosen above cannot be written
+                    back (the browser only lets the page read it). Raw images only; see docs/disk-persistence-plan.md</small></td>
             </tr>
 
             <!--

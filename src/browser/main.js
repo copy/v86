@@ -2564,6 +2564,37 @@ async function start_emulation(profile, query_args)
             settings.hdb = { buffer: new ArrayBuffer(size) };
             new_query_args.set("hdb.empty", String(size));
         }
+        // (or an image's URL; read write: the guest's changes written back to
+        // it, which needs a disk service's URL, docs/disk-persistence-plan.md:
+        // a file chosen above can only be read)
+        const disk_from_url = name =>
+        {
+            const url = $(name + "_url")?.value.trim();
+            if(!url) return undefined;
+            const disk = { url, async: true };
+            new_query_args.set(name + ".url", url);
+            if($(name + "_disk_option")?.value === "read_write")
+            {
+                disk.disk_option = "read_write";
+                new_query_args.set(name + ".disk_option", "read_write");
+            }
+            return disk;
+        };
+        const hda_url = disk_from_url("hda");
+        if(hda_url) settings.hda = hda_url;
+        const hdb_url = disk_from_url("hdb");
+        if(hdb_url) settings.hdb = hdb_url;
+        for(const [name, label, disk] of [["hda", "Hard disk image", settings.hda], ["hdb", "Second hard disk image", settings.hdb]])
+        {
+            if($(name + "_disk_option")?.value === "read_write" && !(disk && disk.url))
+            {
+                alert(label + ": read write needs the image's URL from a disk service (e.g. http://127.0.0.1:8471/disk.img, " +
+                    "started by make run for images/, or node tools/disk-service.mjs --dir <directory> --origin " + location.origin +
+                    "). A file chosen on this computer can only be read, so its changes stay in memory: choose read only for it.");
+                $("boot_options").style.display = "block";
+                return;
+            }
+        }
         const multiboot = $("multiboot_image")?.files[0];
         if(multiboot)
         {
