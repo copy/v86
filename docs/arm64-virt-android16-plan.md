@@ -77,7 +77,7 @@ i440FX 与 Q35 保持不变。
   4/16/64 KiB granule），而不只是 Alpine 碰到的那部分。
 - A64 JIT 作为 jitrt 的第二个客户端接入，首次 ARM64 提速在 A4。
 - Android 16 ARM64（自有 virt product）在 v86 中启动到桌面、可交互、数据在同一会话内的重启后保持，并在 SELinux enforcing 下稳定
-  运行（A9）；再完成 GPU 加速、16 KiB、音频、快照与长时间运行（A10）。
+  运行，图形走 virtio-gpu 的 Venus（A9）；再完成 16 KiB、音频、快照与长时间运行（A10）。
 
 非目标：
 
@@ -869,11 +869,12 @@ adbd 可用；R-a64-* 不退化。
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| P11.1 | 软件渲染桌面：guest_swiftshader 路径（minigbm、ANGLE、HWC/composer），SurfaceFlinger 与 Launcher；这是图形的第一步，在 v86 上显示出界面之后才开始 P12.4 的 Venus | XL |
+| P11.1 | 软件渲染桌面：guest_swiftshader 路径（minigbm、ANGLE、HWC/composer），SurfaceFlinger 与 Launcher；这是图形的第一步，在 v86 上显示出界面之后开始 P11.4 的 Venus。2026-10-18：v86 上已显示出界面（FallbackHome、Launcher3），但 SwiftShader 太慢（Launcher3 首帧要几分钟，ART 的 finalizer 看门狗因此杀掉它），A9 的图形改在 Venus 上验收（所有者决定，见待决问题 11） | XL |
 | P11.2 | 输入与网络：virtio-input 触摸、旋转后的坐标映射；DNS、连接与恢复；ADB | M |
 | P11.3 | 产品稳定性：SELinux enforcing；VINTF 匹配；必要的 HAL；userdata 与 metadata 在同一会话内的重启后保持，不在每次启动时重新初始化（跨会话持久化不做，见非目标）；lmkd | XL |
+| P11.4 | GPU 加速走 virtio-gpu 的 Venus（原 P12.4，所有者 2026-10-18 提前到 A9）。预编译的 Cuttlefish 镜像没有 Mesa，也没有 venus 驱动（只有 SwiftShader 的 `vulkan.pastel.so` 与 gfxstream 的 `vulkan.ranchu.so`），所以客体驱动自己编：Mesa 26.1.6（与 `venus_protocol.js` 同一版本）的 venus Vulkan 驱动，用 NDK 交叉编译成 `vulkan.virtio.so`；Android 16 的 GLES 是 ANGLE over Vulkan，一个 Vulkan 驱动同时承担 GL 与 Vulkan。分步：V0 编译并在 Android 中加载（QEMU 参考上验证链接与 SELinux）；V1 v86 的 venus 级别加无头 Chrome 的渲染器，`cmd gpu vkjson` 列出 Venus 设备；V2 宿主侧导入 virtio-gpu 资源（`VkImportMemoryResourceInfoMESA`，现在拒绝），gralloc（minigbm）分配的缓冲区才能给 ANGLE 渲染、给 SurfaceFlinger 合成、给 HWC 扫描输出；V3 镜像集成：开机时装入驱动（`ro.vulkan.apex` 与 `ro.hardware.vulkan`、SELinux 标签），SurfaceFlinger、HWUI 与 ANGLE 走 Venus；V4 A9 场景在 Venus 上通过，帧时间与 SwiftShader 对照。drm_virgl 与 gfxstream 不做 | XL |
 
-验收（A9）：`sys.boot_completed=1`；SurfaceFlinger 与 Launcher、输入、应用安装与启动、网络都可用；SELinux enforcing
+验收（A9）：`sys.boot_completed=1`；SurfaceFlinger 与 Launcher 在 Venus 上合成正确，输入、应用安装与启动、网络都可用；SELinux enforcing
 下必要服务不反复重启；反复冷启动（同一会话内 SYSTEM_RESET 后重新加载）后 userdata 保持；R-a64-* 不退化。跨浏览器
 会话的持久化不在本计划内（待决问题 7 已定）。
 
@@ -884,13 +885,13 @@ adbd 可用；R-a64-* 不退化。
 | P12.1 | 16 KiB Android：16K 的 GKI 与 pgagnostic（页大小无关，同一镜像可在 4K 与 16K 内核上启动）产品（AOSP 文档要求用 arm64 Linux 宿主做参考，待核对）；native APK 的 4K/16K 对齐兼容性单独记录。16 KiB 需要 MMU、内核、bionic、库与 native APK 共同支持，不能只改 DTB 或内核配置 | L |
 | P12.2 | 快照、并行 Worker、长时间运行与内存压力 | L |
 | P12.3 | 选定的 CTS/VTS 子集；Android 指标（JIT 计划新增的 P6.6c）：冷启动与第二次启动、应用启动、输入延迟、持续帧率、JIT 时间、内存峰值，与 P10.3 冻结的预算对照 | M |
-| P12.4 | GPU 加速走 virtio-gpu 的 Venus（所有者 2026-10-07 决定）：P11.1 的 SwiftShader 桌面在 v86 上显示出界面之后开始；用 Cuttlefish 的 venus 模式（ANGLE over Vulkan，客体 Mesa 的 venus 驱动），对应 v86 已有的 Venus 后端，Alpine 上的同一路径已在 A5 验过（P7.2）；需要 virtio-gpu 的 blob 资源与 64 位窗口里的 hostmem（P7.1、P5.10）。drm_virgl 与 gfxstream 不做 | XL |
+| P12.4 | （2026-10-18 移到 P11.4，A9。原文说用“Cuttlefish 的 venus 模式”，核实后预编译镜像里没有这个模式，也没有 Mesa；改为自己编 Mesa 的 venus 驱动，见 P11.4） | — |
 | P12.5 | 音频：virtio-snd 与 audio HAL；浏览器的音频权限与缓冲 | M |
 
 验收（A10）：发布级别 R-android 全部通过；16K 的 GKI 与 pgagnostic 产品在 v86 上到 `sys.boot_completed=1`，native APK
 的 4K/16K 对齐兼容性记录在案；并行 Worker 下 Android 到桌面，桌面状态的快照恢复后继续交互，长时间运行与内存压力
 用例（时长与阈值与 P10.3 的预算一起冻结）中必要服务不反复重启；选定的 CTS/VTS 子集通过，P12.3 的指标满足 P10.3
-冻结的预算；Venus 模式下 SurfaceFlinger 合成正确；virtio-snd 播放的 PCM 在宿主端校验和一致；R-a64-* 不退化。完整 CTS/VTS、GMS 与兼容性认证不在范围内。
+冻结的预算；virtio-snd 播放的 PCM 在宿主端校验和一致；R-a64-* 不退化。完整 CTS/VTS、GMS 与兼容性认证不在范围内。
 
 ## 发布门禁级别
 
@@ -924,8 +925,8 @@ G-Alpine 等于 R-a64-android-prep 及其之前的全部级别，在同一个打
 | **A6** | P8 | 并行 Worker、3/4 GiB、16K/64K Linux、浏览器、hibernate | R-parallel、R-extended-memory 不变 | 并行与 16K/64K 下的 JIT 用例需要 A4 |
 | **A7** | P9 | **G-Alpine**：R-a64-* 全部通过，profile 完整性报告 | 不变 | — |
 | **A8** | P10 | Android 16 在 QEMU 参考上通过；v86 上启动到 system_server 与 adbd | 不变 | — |
-| **A9** | P11 | Android 桌面、输入、网络、会话内的数据保持、SELinux enforcing | 不变 | — |
-| **A10** | P12 | 16 KiB Android、GPU 加速、音频、快照与并行 Worker、长时间运行与内存压力、CTS/VTS 子集 | 不变 | JIT 计划 P6.6c 的 Android 指标 |
+| **A9** | P11 | Android 桌面（Venus）、输入、网络、会话内的数据保持、SELinux enforcing | 不变 | — |
+| **A10** | P12 | 16 KiB Android、音频、快照与并行 Worker、长时间运行与内存压力、CTS/VTS 子集 | 不变 | JIT 计划 P6.6c 的 Android 指标 |
 
 依赖关系：
 
@@ -1055,7 +1056,9 @@ flowchart TD
 10. （已定）FP、AdvSIMD 与 crypto 的真机对照在所有者的 Mac（Apple M1 Pro）上原生执行（P2.12）。所有者 2026-10-07 同意用
     GitHub 托管的 arm64 runner，2026-10-09 决定 GitHub CI 以后再做。
 11. （已定）Android 产品基于 Cuttlefish；图形先用 SwiftShader（P11.1），在 v86 上显示出界面之后再换成 virtio-gpu 的
-    Venus（P12.4），不做 drm_virgl 与 gfxstream。
+    Venus，不做 drm_virgl 与 gfxstream。（2026-10-18，所有者）SwiftShader 在 v86 上太慢，Venus 提前到 A9（P11.4）；
+    预编译镜像没有 venus 驱动，用 NDK 自己编 Mesa 26.1.6 的 venus 驱动装进镜像（所有者在“自己编 Mesa venus”、
+    “改用 gfxstream”、“A9 先用 SwiftShader 收尾”三者中选了第一种）。
 12. （已定，2026-10-09）A64 的 FMADD 族与 FMLA/FMLS 像 x86 一样用 relaxed SIMD 的乘加。x86 在 SIMD/XSAVE 计划 P12 第三
     部分的做法：CPU 创建时探测宿主的 `relaxed_madd` 是否融合（`src/cpu.js` 的 `relaxed_fma_fused`），融合时对操作数不是非规格化
     数、结果有限且不微小的通道用它，结果逐位精确，其余通道走 SoftFloat；x86-64-v3 下 glibc libm 的 FMA 版本因此从 v2 的
@@ -2090,3 +2093,70 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   （8 项全部通过）与 `make nasmtests-force-jit`（16499/16499），`tests/devices/virtio_console.js` 通过。GKI 桥接与 Android 的
   测试进了 `make android-reference-tests` 与 `android-guest-tests`（R-android 级，A8–A10）；A8 的验收项都已达到：QEMU 参考到
   `sys.boot_completed=1`，v86 上 GKI 桥接的 probe 通过，Android 启动到 system_server 并且 adbd 可用（还到了 boot_completed）。
+
+### A9 进行中（2026-10-18；P11 的场景在 v86 上用 SwiftShader 通过，图形改走 Venus）
+
+提交：与本节同一个提交（不打 tag：A9 的图形验收改在 Venus 上，P11.4 未完成）。
+
+- 场景（`tests/a64/android_scenario.mjs`，`A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs`，两个目标都跑）：
+  `sys.boot_completed=1` 之后经 adb：SELinux enforcing（`tools/a64_android.mjs` 默认改为 enforcing，`--selinux permissive`
+  留作调试）；测试用的设备设置（`prepare_device`：关锁屏、关窗口/过渡/动画三项动画，v86 上 adb 一应答就设）；等用户 0
+  解锁（`am get-started-user-state 0` 为 `RUNNING_UNLOCKED`），Launcher3 成为 top resumed activity；Wi-Fi 连上 Cuttlefish
+  的 VirtWifi 并由 DHCP 得到地址；v86 上再经 fetch 适配器向测试自己的 HTTP 服务器（`http://<port>.external/`）取一页，
+  关开 Wi-Fi 后再取一次；v86 上用 uiautomator 找到 Gallery 图标的边界，在多点触摸屏上点它的中心，Gallery 被打开；
+  推送、安装并 `am start -W` 一个 APK（`tests/a64/apk.mjs`：二进制 XML 的 manifest，`hasCode=false`，v1 JAR 签名）；
+  写 /data 中的一个文件后 `reboot`（PSCI SYSTEM_RESET），再到 boot_completed，APK 与文件都在，仍是 enforcing；没有反复
+  重启的服务（init 的 “exited 4 times”），并记录重启后的应用崩溃与 ANR、DHCP 失败次数。
+- 结果（4 核 1536 MiB；v86 为 release 构建、page tier、并行 Worker；同一宿主）：
+
+  | 项 | QEMU HVF | QEMU TCG（P10.3 的参考） | v86（第 7 次，SwiftShader） |
+  | --- | --- | --- | --- |
+  | boot_completed | 20 s | 341 s | 1550 s（与构建、QEMU 同时跑；之前安静时 1113–1412 s） |
+  | 解锁晚于 boot_completed | 12 ms | 1.9 s | 4.5 s（之前的运行约 10 分钟，见下） |
+  | Wi-Fi 地址 | 10.0.3.15 | 10.0.3.15 | 192.168.86.100，DHCP 失败 0 次 |
+  | HTTP（经 fetch 适配器，含关开 Wi-Fi 之后） | — | — | 通过 |
+  | 触摸打开 Gallery | — | — | 通过（图标 [188,775]–[360,1010]） |
+  | 应用启动（TotalTime） | 340 ms | 27.8 s | 81.9 s（参考的 2.9 倍，预算 5 倍） |
+  | 重启后再到 boot_completed | 60 s | 208 s | 872 s（4.2 倍） |
+  | 反复重启的服务、重启后的崩溃与 ANR | 无 | 无 | 无 |
+
+- v86 的改动：多张 virtio 网卡（`net_device.count`，网卡的 `id` 由构造参数给出，x86 一张网卡时不变）；第三张接 fetch
+  适配器（`net_device: { type: "virtio", count: 3, relay_url: "fetch", id: 2 }`），在 Cuttlefish 的 Wi-Fi（VirtWifi 建在
+  第三张网卡上）之下。page tier 的代码预算：第一次 v86 场景运行在 boot_completed 前因 “Exceeding maximum wasm committed
+  code space”（V8 每个进程 4 GiB）而崩溃；排查确认不是泄漏（V8 能回收丢弃的模块，Worker 之间也一样），而是每个核心长期
+  保留的页函数太多（每页约 36 KB 的原生代码，约为 Wasm 的 1.3 倍）。改为每个核心的预算（开关 `a64_page_code_mb`，默认
+  160 MiB，最少 8 MiB），超出时按最近最少使用淘汰；统计项 `live_code_bytes`。8 MiB 的压力运行淘汰 3668 次，仍正确。
+- 发现并在测试中处理的（都写进 docs/aarch64.md 的已知缺陷）：
+  - v86 首次启动时 `sys.boot_completed=1` 比用户 0 解锁早约 10 分钟（PRE_BOOT_COMPLETED 与 BOOT_COMPLETED 的接收者）。
+  - 锁屏的竞态：SystemUI 的 SYSTEM_READY 在 provisioning 结束前到来时不显示 keyguard（没有 SHOW），窗口管理器却保留
+    keyguard 的 sleep token，之后的 dismiss 都被忽略，Launcher3 一直处于 paused。在 SystemUI 建立 keyguard 之前
+    （v86 上约 1090 s）关掉锁屏即可避免；QEMU 启动快，keyguard 照常出现并能 dismiss。
+  - `dumpsys` 默认对每个服务只等 10 s（超时信息在 stderr），v86 上 activities 的 dump 更慢：用 `dumpsys -t 300 ... 2>&1`。
+  - `wm disable-blur true` 在这个 build 上不生效（仍报告 “Blur enabled: true”），不等待它。
+  - SwiftShader：Launcher3 的首帧要几分钟；开着动画时 ART 的 finalizer 看门狗（`ReferenceQueueDaemon` 在
+    `HardwareRenderer$DestroyContextRunnable` 上超时）杀掉了 Launcher3，尽管 `ro.hw_timeout_multiplier` 已是 50
+    （Cuttlefish 的 `init.cutf_cvm.rc` 由 `androidboot.hw_timeout_multiplier` 设置，libart 用它放大 finalizer 的超时）；
+    截图比窗口管理器的状态晚数秒（Gallery 与应用已是 top resumed，屏幕上仍是桌面）。所有者据此决定把 Venus 提前到 A9。
+  - 有一次运行里 wlan0 的 DHCP 连续失败两次，网络随后被禁用 5 分钟；场景改为每两分钟手动重连一次，`dhcp.log` 记录
+    客体与 fetch 适配器之间的 DHCP 报文。原因尚未查明。
+  - Bluetooth 的原生栈在首次启动时因 FinalizerWatchdogDaemon 中止，QEMU TCG 上也一样，与 v86 无关。
+- 调试手段（`tests/a64/android_boot.mjs`）：`A64_ANDROID_PROBE=<file>` 在 boot_completed 之后逐行经 adb 运行 shell 命令并
+  打印用时与输出，`A64_ANDROID_PUSH=<本地>=<远端>,...` 先推送文件，两个目标都可用；`A64_ANDROID_GPU=venus`（v86）用
+  virtio-gpu 的 venus 级别，渲染器在无头 Chrome 中（`tests/x64/gpu_remote_renderer.mjs`）。`tests/a64/adb.mjs` 增加
+  sync 服务的 push；截图的 PictureSink 移到 `tests/lib/picture_sink.mjs`，供 x64 与 a64 的测试共用。
+- P11.4 V0（Venus 的客体驱动）：预编译镜像只有 `vulkan.pastel.so`（SwiftShader）与 `vulkan.ranchu.so`（gfxstream），
+  没有 Mesa。用已装的 NDK r26b（clang 17，通用二进制）交叉编译 Mesa 26.1.6（与 `venus_protocol.js` 同一版本，源码
+  sha256 与发布说明一致）的 venus 驱动：meson 的 Android 交叉配置（API 34，`platforms=android`、`android-stub=true`、
+  `vulkan-drivers=virtio`，其余全关），libdrm 2.4.125 作为子项目静态链接，得到 `libvulkan_virtio.so`（1.8 MB，导出
+  `HMI`，依赖 libcutils、libhardware、liblog、libnativewindow、libsync，镜像中都有）。在 QEMU 参考（HVF，enforcing）上
+  把它以 `same_process_hal_file` 标签 bind mount 到 `/apex/com.google.cf.vulkan/lib64/hw/vulkan.pastel.so`，重启
+  gpuservice 后 `cmd gpu vkjson` 正常返回（Vulkan 1.4 的实例扩展），驱动读取它的 `vendor.mesa.vn.*` 属性（SELinux 拒绝
+  读取这些调试属性，无害），没有链接错误；QEMU 没有 venus 设备，所以没有物理设备。下一步 V1：v86 的 venus 级别加
+  无头 Chrome 的渲染器，看到 Venus 设备。V2 的缺口：v86 的 Venus 宿主侧拒绝 `VkImportMemoryResourceInfoMESA`
+  （`venus_vk_resources.js` 的 vkAllocateMemory），而 ANGLE 渲染、SurfaceFlinger 合成与 HWC 扫描输出都要导入 gralloc
+  （minigbm）分配的 virtio-gpu 资源。构建的步骤之后做成工具。
+- 门禁：`make a64-gate` 通过（16 项，2 分 14 秒），core-split-check：`v86.wasm` 与 03a7249f 逐字节一致（Rust 改动只在
+  `src/rust/aarch64/`）；`make state-layout-check`、eslint、`cargo +nightly fmt --check`（计划规定的配置）与 `make all`
+  （Closure 0 错误）通过。共享 JS（`src/virtio_net.js`、`src/browser/cpu_worker.js`）按跨阶段规则 1 跑了
+  `make platform-release-gate GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项全部通过）与用 virtio 网卡或
+  fetch 适配器的 x86 测试（`tests/devices/pcie_root_port.js`、`virtio_balloon.js`、`fetch_network.js`、`tests/api/reboot.js`）。

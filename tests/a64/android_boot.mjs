@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Android 16 on the virt machine (docs/arm64-virt-android16-plan.md P10.3,
-// P10.7): tools/a64_android.mjs's Image, initrd.img and disk.img (the pinned
-// Cuttlefish arm64-only phone, direct kernel boot, unlocked, permissive)
-// booted on the QEMU reference or on v86. The first boot each time: the
-// disk's writes stay in memory (QEMU's snapshot=on, v86's buffer).
+// P10.7, P11): tools/a64_android.mjs's Image, initrd.img and disk.img (the
+// pinned Cuttlefish arm64-only phone, direct kernel boot, unlocked, SELinux
+// enforcing) booted on the QEMU reference or on v86. The first boot each
+// time: the disk's writes stay in memory (QEMU's snapshot=on, v86's buffer)
+// for as long as the machine runs, across its reboots.
 //
 // QEMU (A64_ANDROID_TARGET=qemu, the default): tests/a64/android_qemu.mjs's
 // machine, cortex-a35 under TCG (A64_ANDROID_ACCEL=hvf: the host's CPU, for
@@ -13,25 +14,42 @@
 // P10.3's budget.
 //
 // v86 (A64_ANDROID_TARGET=v86): the same materials and the devices in the
-// same PCI order (virtio-blk 00:01.0, virtio-gpu 00:02.0, then 18 console
-// ports with the kernel's console on hvc0 and logcat on hvc2, rng, input,
-// vsock), RAM above 2 GiB as extended RAM. Passes when system_server has
-// started and adbd answers over vsock:5555 (tests/a64/adb.mjs; A8's
-// acceptance), and reports how far the boot got by the deadline
-// (A64_ANDROID_WAIT=boot_completed: until sys.boot_completed=1).
+// same PCI order (virtio-blk 00:01.0, virtio-gpu 00:02.0 at 720x1280, three
+// virtio-net (the third, under Cuttlefish's Wi-Fi, on the fetch adapter), 18
+// console ports with the kernel's console on hvc0 and logcat on hvc2, rng,
+// a keyboard and a multitouch screen, vsock), RAM above 1536 MiB as extended
+// RAM. Passes when system_server has started and adbd answers over
+// vsock:5555 (tests/a64/adb.mjs; A8's acceptance), and reports how far the
+// boot got by the deadline (A64_ANDROID_WAIT=boot_completed: until
+// sys.boot_completed=1). The fetch adapter only reaches the test's own
+// server: every other URL is refused, nothing leaves the host.
+//
+// A64_ANDROID_SCENARIO=a9 (either target): after boot_completed, A9's
+// acceptance (tests/a64/android_scenario.mjs): the desktop, the network,
+// touch (v86), an app installed and started, a reboot with /data kept. On
+// QEMU adb goes to tcp:5555 on Wi-Fi through a forwarded port once the
+// console has turned Wi-Fi on; screenshots come from the monitor's screendump
+// (QEMU) or the display (v86), into the run's directory.
 //
 //   A64_CORES (4), A64_MEMORY_MB (1536: about 1 GiB is the least that boots, P10.3), A64_JIT=1 (the page tier),
-//   A64_PARALLEL=1 (vCPU workers), A64_ANDROID_TIMEOUT (ms),
+//   A64_PARALLEL=1 (vCPU workers), A64_ANDROID_GPU=venus (v86: virtio-gpu with Venus, the renderer in a headless
+//   Chrome), A64_ANDROID_TIMEOUT (ms), A64_ANDROID_PROBE=<file> (shell commands to run
+//   over adb after boot_completed, one per line, with their output; A64_ANDROID_PUSH=<local>=<remote>,... first),
 //   TEST_RELEASE_BUILD=1 (build/libv86.mjs)
-// Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log)
+// Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log, *.png, result.json)
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
+import net from "node:net";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { android_qemu_args, AndroidConsole } from "./android_qemu.mjs";
+import { android_qemu_args, AndroidConsole, qemu_screendump } from "./android_qemu.mjs";
 import { qemu_binary } from "./guest_runner.mjs";
 import { AdbClient } from "./adb.mjs";
+import { a9_scenario, prepare_device } from "./android_scenario.mjs";
+import { PictureSink, save_png } from "../lib/picture_sink.mjs";
+import { create_remote_renderer } from "../x64/gpu_remote_renderer.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
 const OUT = ROOT + "build/a64-android/out/";
@@ -47,14 +65,18 @@ const memory_mb = +process.env.A64_MEMORY_MB || 1536;
 const plugins = !!+process.env.A64_QEMU_PLUGINS;
 const jit = !!+process.env.A64_JIT;
 const parallel = !!+process.env.A64_PARALLEL;
-const wait_for_boot_completed = target === "qemu" || process.env.A64_ANDROID_WAIT === "boot_completed";
-const tag = target === "qemu" ? `qemu-${accel}${plugins ? "-plugins" : ""}-${memory_mb}m-${cores}c` :
-    `v86${jit ? "-jit" : ""}${parallel ? "-par" : ""}-${memory_mb}m-${cores}c`;
-const timeout = +process.env.A64_ANDROID_TIMEOUT || (target === "qemu" ? (accel === "hvf" ? 600000 : plugins ? 14400000 : 3600000) : 14400000);
+const scenario = process.env.A64_ANDROID_SCENARIO || "";
+assert.ok(!scenario || scenario === "a9", "A64_ANDROID_SCENARIO: a9");
+assert.ok(!scenario || !plugins, "A64_ANDROID_SCENARIO and A64_QEMU_PLUGINS do not go together");
+const wait_for_boot_completed = target === "qemu" || !!scenario || process.env.A64_ANDROID_WAIT === "boot_completed";
+const tag = (target === "qemu" ? `qemu-${accel}${plugins ? "-plugins" : ""}` : `v86${jit ? "-jit" : ""}${parallel ? "-par" : ""}`) +
+    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}-${memory_mb}m-${cores}c`;
+const timeout = +process.env.A64_ANDROID_TIMEOUT || (target === "qemu" && !scenario ? (accel === "hvf" ? 600000 : plugins ? 14400000 : 3600000) : 14400000);
 const directory = ROOT + `build/a64-android/runs/${tag}/`;
 fs.mkdirSync(directory, { recursive: true });
 const started = performance.now();
 const elapsed = () => Math.round(performance.now() - started);
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const marks = {};
 const mark = (name, text) =>
 {
@@ -93,12 +115,97 @@ let fail;
 const failed = new Promise((_, reject) => { fail = reject; });
 failed.catch(() => {});
 
+/**
+ * adb over a byte stream that open() makes: a shell command's output, and
+ * push; each a new connection, retried (adbd is away while the guest boots
+ * or reboots) for up to retry_ms
+ */
+function adb_over(open, retry_ms = 600000)
+{
+    const session = async (fn, ms) => {
+        const deadline = Date.now() + retry_ms;
+        for(;;)
+        {
+            let stream;
+            try
+            {
+                stream = await open();
+                const client = new AdbClient(stream.adapter);
+                await client.connect(60000);
+                return await fn(client, ms);
+            }
+            catch(e)
+            {
+                if(Date.now() > deadline || /deadline|panic/.test(e.message)) throw e;
+                await sleep(5000);
+            }
+            finally
+            {
+                stream?.close();
+            }
+        }
+    };
+    return {
+        shell: (command, ms = 120000) => session((client, ms) => client.shell(command, ms), ms),
+        push: (remote, bytes) => session(client => client.push(remote, bytes)),
+        banner: () => session(client => client.banner),
+        // (once: "reboot" must not run again on the rebooted guest)
+        reboot: async () => {
+            const stream = await open();
+            try
+            {
+                const client = new AdbClient(stream.adapter);
+                await client.connect(60000);
+                await client.shell("reboot", 30000).catch(() => {});
+            }
+            finally
+            {
+                stream.close();
+            }
+        },
+    };
+}
+
+/** the scenario's result, with its screenshots, into the result */
+// A64_ANDROID_PROBE=<file>: after boot_completed, each line of the file a
+// shell command over adb, with its time, length and output (debugging);
+// A64_ANDROID_PUSH=<local>=<remote>,...: files pushed first
+const probe_file = process.env.A64_ANDROID_PROBE || "";
+async function run_probes(shell, push)
+{
+    if(!probe_file) return;
+    for(const pair of (process.env.A64_ANDROID_PUSH || "").split(",").filter(Boolean))
+    {
+        const [local, remote] = pair.split("=");
+        await push(remote, fs.readFileSync(local));
+        console.log(`push: ${local} -> ${remote}`);
+    }
+    for(const command of fs.readFileSync(probe_file, "utf8").split("\n").filter(line => line.trim() && !line.startsWith("#")))
+    {
+        const start = Date.now();
+        let output;
+        try { output = await shell(command, 900000); }
+        catch(e) { output = "(error: " + e.message + ")"; }
+        console.log(`probe: ${command}\n  ${Date.now() - start} ms, ${output.length} chars: ${JSON.stringify(output.slice(0, 4000))}`);
+    }
+}
+
+async function run_scenario(env, result)
+{
+    console.log("scenario a9");
+    const found = await a9_scenario({ ...env, log: text => console.log(`${(elapsed() / 1000).toFixed(0)} s: a9: ${text}`) });
+    result.a9 = found;
+    mark("a9_done");
+}
+
 if(target === "qemu")
 {
     const qemu = qemu_binary();
-    const socket = `/tmp/v86-a64-android-${process.pid}.sock`;
+    const socket = `/tmp/v86-a64-android-${process.pid}.sock`, monitor = `/tmp/v86-a64-android-${process.pid}-m.sock`;
+    const adb_port = 15600 + process.pid % 1000;
     const args = android_qemu_args(OUT, { accel, memory_mb, cores, console_socket: socket,
-        kernel_log: directory + "kernel.log", logcat: directory + "logcat.log" });
+        kernel_log: directory + "kernel.log", logcat: directory + "logcat.log",
+        ...(scenario || probe_file ? { monitor_socket: monitor, adb_port } : {}) });
     const plugin_log = directory + "plugins.log";
     if(plugins)
     {
@@ -136,29 +243,54 @@ if(target === "qemu")
     try
     {
         await terminal.open();
-        const poll = async () =>
+        const until_booted = async () =>
         {
             for(;;)
             {
                 const r = await terminal.run("getprop sys.boot_completed", 30000);
                 if(r && r.output.trim() === "1") return;
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                await sleep(5000);
             }
         };
-        await Promise.race([poll(), failed, exited.then(code => { throw new Error("QEMU exited " + code); }),
+        const qemu_failed = exited.then(code => { throw new Error("QEMU exited " + code); });
+        qemu_failed.catch(() => {});
+        await Promise.race([until_booted(), failed, qemu_failed,
             new Promise((_, reject) => setTimeout(() => reject(new Error(`no sys.boot_completed=1 in ${timeout} ms`)), timeout))]);
         mark("boot_completed_getprop");
         const fingerprint = (await terminal.run("getprop ro.build.fingerprint")).output.trim();
+        const result = { tag, fingerprint, marks };
+        if(scenario || probe_file)
+        {
+            // (Wi-Fi first, from the console: adb reaches the guest through it)
+            await terminal.run("su 0 cmd wifi set-wifi-enabled enabled; sleep 10; su 0 cmd wifi connect-network VirtWifi open", 120000);
+            const tcp = () => new Promise((resolve, reject) => {
+                const s = net.connect(adb_port, "127.0.0.1");
+                s.once("connect", () => {
+                    const adapter = { write: bytes => s.write(bytes), on_data: null };
+                    s.on("data", bytes => adapter.on_data?.(bytes));
+                    s.on("error", () => {});
+                    resolve({ adapter, close: () => s.destroy() });
+                });
+                s.once("error", reject);
+            });
+            const adb = adb_over(tcp);
+            await run_probes(adb.shell, adb.push);
+            if(scenario)
+            {
+                await run_scenario({ target, adb: adb.shell, push: adb.push, reboot: adb.reboot,
+                    screenshot: name => qemu_screendump(monitor, directory, name), touch: null, http: null, wait_reboot: () => sleep(30000) }, result);
+            }
+        }
         fs.writeFileSync(directory + "console.log", terminal.text);
         terminal.close();
         child.kill(plugins ? "SIGINT" : "SIGKILL");
         await exited;
-        const result = { tag, fingerprint, ms: elapsed(), marks };
+        result.ms = elapsed();
         if(plugins)
         {
             // (libinsn: "total insns: N"; libhowvec: the classes and their
             // counts, which QEMU may still be writing as it exits)
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await sleep(2000);
             const log = fs.readFileSync(plugin_log, "utf8");
             result.instructions = Number(/total insns: (\d+)/.exec(log)?.[1]);
             result.classes = Object.fromEntries([...log.matchAll(/^Class: (.+?)\s+\((\d+) hits\)/gm)].map(m => [m[1].trim(), +m[2]]));
@@ -173,6 +305,7 @@ if(target === "qemu")
         fs.writeFileSync(directory + "console.log", terminal.text);
         child.kill("SIGKILL");
         console.error(e);
+        console.error("marks: " + JSON.stringify(marks));
         process.exit(1);
     }
     finally
@@ -183,14 +316,33 @@ if(target === "qemu")
 
 // v86
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+// (the fetch adapter's requests: the test's own server only)
+const local_fetch = globalThis.fetch;
+globalThis.fetch = (url, options) => {
+    const target_url = new URL(typeof url === "string" ? url : url.url);
+    if(target_url.hostname !== "localhost" && target_url.hostname !== "127.0.0.1")
+    {
+        return Promise.resolve(new Response("not from this test", { status: 403 }));
+    }
+    return local_fetch(url, options);
+};
+const http_token = "v86-a9-" + Math.random().toString(36).slice(2);
+const server = http.createServer((request, response) => {
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end(`${http_token} ${request.url}\n`);
+});
+await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+const http_port = server.address().port;
+
 // (RAM: below 2 GiB with the display adapter's device memory, the rest extended RAM from 4 GiB)
 const LOW_LIMIT_MB = 1536;
 const low_mb = Math.min(memory_mb, LOW_LIMIT_MB);
-const sink = {
-    set_mode() {}, set_size_text() {}, set_size_graphical() {}, put_char() {}, update_cursor() {}, update_cursor_scanline() {},
-    set_font_bitmap() {}, set_font_page() {}, clear_screen() {}, clear_text_state() {}, update_buffer() {},
-    pause() {}, continue() {}, destroy() {}, set_scale() {}, get_text_screen: () => [], get_text_row: () => "",
-};
+const sink = new PictureSink();
+// A64_ANDROID_GPU=venus (v86): virtio-gpu's level with Venus, drawn by the
+// renderer in a headless Chrome (tests/x64/gpu_remote_renderer.mjs, GL_CHROME)
+const gpu_level = process.env.A64_ANDROID_GPU || "";
+assert.ok(!gpu_level || gpu_level === "venus", "A64_ANDROID_GPU: venus");
+const remote = gpu_level ? await create_remote_renderer() : null;
 const emulator = new V86({
     cpu_type: "arm64", cpu_cores: cores, memory_size: low_mb * 1048576, log_level: 0, autostart: true,
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
@@ -199,87 +351,112 @@ const emulator = new V86({
     cmdline: fs.readFileSync(OUT + "cmdline.txt", "utf8").trim(),
     virtio_transport: "pci", virtio_disks: [{ url: OUT + "disk.img", async: true, size: fs.statSync(OUT + "disk.img").size }],
     graphics_adapter: "virtio_gpu", virtio_gpu_pci_slot: 2, screen_adapter: sink,
-    virtio_console: true, virtio_console_ports: 18, virtio_rng: true, virtio_input: ["keyboard", "tablet"], virtio_vsock: true,
-    net_device: { type: "none" },
+    ...(remote ? { graphics_adapter_test: { level: gpu_level, renderer: remote.renderer } } : {}),
+    net_device: { type: "virtio", count: 3, relay_url: "fetch", id: 2 },
+    virtio_console: true, virtio_console_ports: 18, virtio_rng: true, virtio_input: ["keyboard", "multitouch"], virtio_vsock: true,
     ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
     ...(parallel ? { parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm" } : {}),
 });
+// (Cuttlefish's phone display: 720x1280, lcd_density 320)
+emulator.add_listener("emulator-ready", () => emulator.set_display_size(720, 1280));
+// (Node has no animation frames: the display draws into the sink when asked, as tests/x64/linux_gpu.mjs's)
+const screenshot = name => { emulator.v86?.cpu?.devices?.display?.request_frame(true); return save_png(sink, directory, name); };
 const kernel_watch = watch("kernel", "kernel.log"), logcat_watch = watch("logcat", "logcat.log");
-let serial = "";
 const serial_out = fs.openSync(directory + "console.log", "w");
-emulator.add_listener("serial0-output-byte", byte => { serial = (serial + String.fromCharCode(byte)).slice(-65536); fs.writeSync(serial_out, Buffer.from([byte])); });
+emulator.add_listener("serial0-output-byte", byte => { fs.writeSync(serial_out, Buffer.from([byte])); });
 emulator.add_listener("virtio-console0-output-bytes", kernel_watch);
 emulator.add_listener("virtio-console2-output-bytes", logcat_watch);
-const deadline = new Promise((_, reject) => setTimeout(() => reject(new Error(`deadline (${timeout} ms)`)), timeout));
-const progress = setInterval(() => {
-    const retired = emulator.get_instruction_counter?.();
-    console.log(`${(elapsed() / 1000).toFixed(0)} s: ${Object.keys(marks).join(", ") || "booting"}${retired ? ", " + Math.round(retired / 1e9) + "G instructions" : ""}`);
-}, 60000);
-
-/** adbd over vsock:5555: its banner and a shell command's answer */
-async function adb(command)
+// (the DHCP messages between the guest and the fetch adapter on the third
+// NIC, net2: dhcp.log, for A9's network step)
+const dhcp_log = fs.openSync(directory + "dhcp.log", "w");
+const DHCP_TYPES = ["", "DISCOVER", "OFFER", "REQUEST", "DECLINE", "ACK", "NAK", "RELEASE", "INFORM"];
+const log_dhcp = direction => frame => {
+    if(frame.length < 14 + 20 + 8 + 240 || frame[12] !== 0x08 || frame[13] !== 0x00 || frame[14 + 9] !== 17) return;
+    const udp = 14 + (frame[14] & 15) * 4;
+    const ports = [frame[udp] << 8 | frame[udp + 1], frame[udp + 2] << 8 | frame[udp + 3]];
+    if(!ports.includes(67)) return;
+    const dhcp = udp + 8;
+    let type = 0;
+    for(let i = dhcp + 240; i < frame.length && frame[i] !== 255; i += frame[i] === 0 ? 1 : 2 + frame[i + 1])
+    {
+        if(frame[i] === 53) type = frame[i + 2];
+    }
+    const xid = (frame[dhcp + 4] << 24 | frame[dhcp + 5] << 16 | frame[dhcp + 6] << 8 | frame[dhcp + 7]) >>> 0;
+    fs.writeSync(dhcp_log, `${(elapsed() / 1000).toFixed(1)} s ${direction} ${DHCP_TYPES[type] || type} xid=${xid.toString(16)}\n`);
+};
+emulator.add_listener("net2-send", log_dhcp("guest->host"));
 {
-    const stream = await emulator.vsock_connect(5555);
-    const client = new AdbClient({ write: bytes => stream.write(Uint8Array.from(bytes)), set on_data(fn) { stream.on_data = bytes => fn(Buffer.from(bytes)); } });
-    try
-    {
-        const banner = await client.connect(60000);
-        const output = await client.shell(command, 120000);
-        return { banner, output };
-    }
-    finally
-    {
-        stream.close();
-    }
+    // (the fetch adapter sends its frames from this end of the bus, where
+    // listeners do not see them)
+    const send = emulator.bus.send.bind(emulator.bus), to_guest = log_dhcp("host->guest");
+    emulator.bus.send = (name, value, ...rest) => { if(name === "net2-receive") to_guest(value); return send(name, value, ...rest); };
 }
+const deadline = new Promise((_, reject) => setTimeout(() => reject(new Error(`deadline (${timeout} ms)`)), timeout));
+deadline.catch(() => {});
+const progress = setInterval(() => {
+    console.log(`${(elapsed() / 1000).toFixed(0)} s: ${Object.keys(marks).join(", ") || "booting"}`);
+}, 60000);
+const vsock = async () => {
+    const s = await emulator.vsock_connect(5555);
+    return { adapter: { write: bytes => s.write(Uint8Array.from(bytes)), set on_data(fn) { s.on_data = bytes => fn(Buffer.from(bytes)); } },
+        close: () => s.close() };
+};
+const adb = adb_over(vsock);
+const with_deadline = p => Promise.race([p, failed, deadline]);
 
 try
 {
     // system_server, then adbd's answer (retried: adbd starts before its vsock listener is ready)
-    await Promise.race([new Promise(resolve => { const t = setInterval(() => { if(marks.system_server !== undefined && marks.adbd !== undefined) { clearInterval(t); resolve(); } }, 1000); }),
-        failed, deadline]);
-    let answer;
-    for(let attempt = 0; !answer; attempt++)
-    {
-        try
-        {
-            answer = await Promise.race([adb("echo B=$(getprop sys.boot_completed) P=$(pidof system_server) F=$(getprop ro.build.fingerprint)"),
-                failed, deadline]);
-        }
-        catch(e)
-        {
-            if(attempt > 30 || /deadline|panic/.test(e.message)) throw e;
-            await new Promise(resolve => setTimeout(resolve, 10000));
-        }
-    }
+    await with_deadline(new Promise(resolve => { const t = setInterval(() => { if(marks.system_server !== undefined && marks.adbd !== undefined) { clearInterval(t); resolve(); } }, 1000); }));
+    const banner = await with_deadline(adb.banner());
+    const answer = await with_deadline(adb.shell("echo B=$(getprop sys.boot_completed) P=$(pidof system_server) F=$(getprop ro.build.fingerprint)"));
     mark("adb");
-    console.log("adb banner: " + answer.banner.slice(0, 120));
-    console.log("adb: " + JSON.stringify(answer.output));
-    const fields = /B=(\S*) P=(\d*) F=(\S*)/.exec(answer.output);
-    assert.ok(fields && fields[2], "system_server's pid over adb: " + JSON.stringify(answer.output));
+    console.log("adb banner: " + banner.slice(0, 120));
+    console.log("adb: " + JSON.stringify(answer));
+    const fields = /B=(\S*) P=(\d*) F=(\S*)/.exec(answer);
+    assert.ok(fields && fields[2], "system_server's pid over adb: " + JSON.stringify(answer));
     assert.ok(/:16\/BP4A\.251205\.006\//.test(fields[3]), "the build's fingerprint over adb");
+    const result = { tag, marks, system_server_pid: +fields[2], fingerprint: fields[3] };
+    // (the scenario's device settings, from now on: see prepare_device)
+    const prepared = scenario ? prepare_device(adb.shell).then(() => mark("device_prepared")) : null;
+    prepared?.catch(() => {});
     if(wait_for_boot_completed)
     {
-        for(;;)
-        {
-            const r = await Promise.race([adb("getprop sys.boot_completed"), failed, deadline]);
-            if(r.output.trim() === "1") break;
-            await new Promise(resolve => setTimeout(resolve, 30000));
-        }
+        while((await with_deadline(adb.shell("getprop sys.boot_completed"))).trim() !== "1") await sleep(30000);
         mark("boot_completed_adb");
+        screenshot("boot-completed");
+    }
+    await with_deadline(run_probes(adb.shell, adb.push));
+    if(scenario)
+    {
+        await with_deadline(prepared);
+        const touch = async (x, y) => {
+            emulator.bus.send("touch", { "touches": [[1, x, y]], "width": 720, "height": 1280 });
+            await sleep(300);
+            emulator.bus.send("touch", { "touches": [], "width": 720, "height": 1280 });
+        };
+        // (after "reboot" adbd goes away, the machine resets and boots again: wait for adb, up to 2 hours)
+        const wait_reboot = async () => { await sleep(60000); await adb_over(vsock, 7200000).shell("echo up"); };
+        await with_deadline(run_scenario({ target, adb: adb.shell, push: adb.push, reboot: adb.reboot,
+            screenshot: async name => screenshot(name),
+            touch, http: { port: http_port, token: http_token }, wait_reboot }, result));
     }
     clearInterval(progress);
-    const result = { tag, ms: elapsed(), marks, system_server_pid: +fields[2], fingerprint: fields[3] };
+    result.ms = elapsed();
+    if(remote) result.renderer = remote.stats;
     fs.writeFileSync(directory + "result.json", JSON.stringify(result, null, 2) + "\n");
     console.log(JSON.stringify(result));
     console.log(`A64_ANDROID_BOOT_OK ${tag}`);
     await emulator.destroy();
+    remote?.close();
     process.exit(0);
 }
 catch(e)
 {
     clearInterval(progress);
+    screenshot("failure");
     console.error(e);
     console.error("marks: " + JSON.stringify(marks));
+    remote?.close();
     process.exit(1);
 }

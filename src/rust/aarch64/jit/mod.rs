@@ -58,7 +58,7 @@ struct Switch {
     set: fn(u32) -> bool,
 }
 const UNSET: u32 = u32::MAX;
-const SWITCHES: [Switch; 6] = [
+const SWITCHES: [Switch; 7] = [
     Switch {
         name: "a64_page",
         default: 0,
@@ -91,6 +91,12 @@ const SWITCHES: [Switch; 6] = [
         set: |v| {
             v <= 1 && (v == 0 || unsafe { FMA_FUSED }) && unsafe { RELAXED_FMA = v != 0 } == ()
         },
+    },
+    Switch {
+        name: "a64_page_code_mb",
+        default: 160,
+        get: || unsafe { pages::CODE_BUDGET_MB },
+        set: |v| v >= 8 && unsafe { pages::CODE_BUDGET_MB = v } == (),
     },
     Switch {
         name: "a64_asid_tag",

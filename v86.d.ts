@@ -424,10 +424,18 @@ type V86NetworkDevice =
 
         /**
          * Network id, all v86 network instances with the same id share the same network namespace.
+         * On machine_type "virt" with `count`, the NIC the backend serves (net<id>).
          * @todo class NetworkAdapter should also get options.net_device as an argument, at least options.net_device.id.
          * @default 0
          */
         id?: number;
+
+        /**
+         * machine_type "virt" with type "virtio" only: this many virtio-net functions, NICs net0, net1, ...
+         * (Android's three, as Cuttlefish's: its Wi-Fi is on the third); the backend serves `id`'s
+         * @default 1
+         */
+        count?: number;
 
         /**
          * MAC address of virtual network peers (ARP, PING, DHCP, DNS, NTP, UDP echo and TCP peers) in common MAC

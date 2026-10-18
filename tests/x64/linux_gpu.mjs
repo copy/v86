@@ -28,13 +28,13 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { deflateSync as deflate_sync } from "node:zlib";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { create_trace_renderer } from "./gpu_trace.mjs";
 import { create_remote_renderer } from "./gpu_remote_renderer.mjs";
 import { IMAGES, directory_of } from "../lib/alpine_image.mjs";
+import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const arch = process.env.GPU_ARCH || "x86_64";
@@ -410,65 +410,6 @@ const DISKS = arm ? "REPO=; TESTS=; for d in /sys/block/vd*; do case \"$(cat $d/
     "a64gpurepo) REPO=/dev/${d##*/};; a64gputests) TESTS=/dev/${d##*/};; esac; done; echo STEP_DISKS $REPO $TESTS" :
     "REPO=/dev/sda; TESTS=/dev/sdb; echo STEP_DISKS $REPO $TESTS";
 
-/**
- * A presenter that keeps the guest's picture, for screenshots in node
- */
-class PictureSink
-{
-    constructor() { this.width = 0; this.height = 0; this.rgba = new Uint8Array(0); this.graphical = false; this.text = []; }
-    set_mode(graphical) { this.graphical = graphical; }
-    set_size_text(cols, rows) { this.text = Array.from({ length: rows }, () => " ".repeat(cols)); }
-    set_size_graphical(width, height) { this.width = width; this.height = height; this.rgba = new Uint8Array(width * height * 4); }
-    put_char(row, col, chr) { const line = this.text[row]; if(line !== undefined) this.text[row] = line.slice(0, col) + String.fromCharCode(chr) + line.slice(col + 1); }
-    update_cursor() {}
-    update_cursor_scanline() {}
-    set_font_bitmap() {}
-    set_font_page() {}
-    clear_screen() {}
-    clear_text_state() {}
-    update_buffer(layers)
-    {
-        for(const layer of layers)
-        {
-            const { pixels } = layer;
-            for(let y = 0; y < layer.buffer_height; y++)
-            {
-                const sy = layer.buffer_y + y, dy = layer.screen_y + y;
-                if(dy >= this.height) break;
-                const from = (sy * pixels.width + layer.buffer_x) * 4;
-                const count = Math.min(layer.buffer_width, this.width - layer.screen_x) * 4;
-                this.rgba.set(pixels.data.subarray(from, from + count), (dy * this.width + layer.screen_x) * 4);
-            }
-        }
-    }
-    pause() {}
-    continue() {}
-    destroy() {}
-    set_scale() {}
-    get_text_screen() { return this.text; }
-    get_text_row(y) { return this.text[y] || ""; }
-}
-
-function save_png(sink, name)
-{
-    const { width, height, rgba } = sink;
-    if(!width) return null;
-    const raw = Buffer.alloc((width * 3 + 1) * height);
-    for(let y = 0; y < height; y++)
-    {
-        for(let x = 0; x < width; x++)
-        {
-            const s = (y * width + x) * 4, d = y * (width * 3 + 1) + 1 + x * 3;
-            raw[d] = rgba[s]; raw[d + 1] = rgba[s + 1]; raw[d + 2] = rgba[s + 2];
-        }
-    }
-    const crc = data => { let c = 0xFFFFFFFF; for(const byte of data) { c ^= byte; for(let i = 0; i < 8; i++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; } return (c ^ 0xFFFFFFFF) >>> 0; };
-    const chunk = (tag, data) => { const body = Buffer.concat([Buffer.from(tag), data]), b = Buffer.alloc(data.length + 12); b.writeUInt32BE(data.length); body.copy(b, 4); b.writeUInt32BE(crc(body), b.length - 4); return b; };
-    const header = Buffer.alloc(13); header.writeUInt32BE(width); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 2;
-    const file = path.join(out, name + ".png");
-    fs.writeFileSync(file, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", header), chunk("IDAT", deflate_sync(raw)), chunk("IEND", Buffer.alloc(0))]));
-    return file;
-}
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const sink = new PictureSink();
@@ -765,7 +706,7 @@ try
         {
             // nothing presents in node: ask for a whole frame first
             cpu.devices.display.request_frame(true);
-            const file = save_png(sink, command.slice(11));
+            const file = save_png(sink, out, command.slice(11));
             console.log(`[${elapsed()}] screenshot ${file || "(text mode)"}`);
             continue;
         }
@@ -778,7 +719,7 @@ try
             // own; the arm64 guest's llvmpipe takes three times as long to start)
             await delay(Number(process.env.GPU_SCREENSHOT_AFTER || options.after * (arm && !LEVEL_3D ? 3 : 1)));
             cpu.devices.display.request_frame(true);
-            console.log(`[${elapsed()}] screenshot ${save_png(sink, options.screenshot)}`);
+            console.log(`[${elapsed()}] screenshot ${save_png(sink, out, options.screenshot)}`);
         }
         // the command is done when the prompt comes back after its output
         const tail = await wait_for(/\n[^\n]*localhost:~# /, from + command.length);
@@ -792,7 +733,7 @@ catch(error)
     failed = true;
     console.error("LINUX_GPU_FAIL " + adapter + ": " + error.message + "\n" + error.stack);
     emulator.v86 && emulator.v86.cpu.devices.display && emulator.v86.cpu.devices.display.request_frame(true);
-    save_png(sink, "failure");
+    save_png(sink, out, "failure");
 }
 finally
 {
@@ -812,7 +753,7 @@ finally
         const width = +header[1], height = +header[2], rgb = ppm.subarray(header[0].length);
         const rgba = new Uint8Array(width * height * 4);
         for(let i = 0; i < width * height; i++) rgba.set([rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2], 255], 4 * i);
-        console.log("gltest picture " + save_png({ width, height, rgba }, "gltest-" + key));
+        console.log("gltest picture " + save_png({ width, height, rgba }, out, "gltest-" + key));
     }
     const svga3d = emulator.v86 && emulator.v86.cpu.devices.graphics_adapter && emulator.v86.cpu.devices.graphics_adapter.device["svga"]?.svga3d;
     if(svga3d) console.log("svga3d commands: " + JSON.stringify(svga3d.counts) + " warnings: " + JSON.stringify(svga3d.warnings));

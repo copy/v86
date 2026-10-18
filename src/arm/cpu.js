@@ -294,8 +294,13 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(settings.net_device && settings.net_device.type === "virtio")
     {
         // (the PC's devices take a CPU: what they use of it, the ARM CPU has)
-        add("virtio-net", (transport, pci_id) => new VirtioNet(/** @type {?} */ (this), device_bus, settings.preserve_mac_from_state_image,
-            settings.net_device.mtu, pci_id, transport || undefined));
+        // (net_device.count: that many functions, net0, net1, ... on the bus:
+        // Android's three, as Cuttlefish's, P11.2; the relay takes net_device.id's)
+        for(let id = 0; id < (settings.net_device.count || 1); id++)
+        {
+            add("virtio-net", (transport, pci_id) => new VirtioNet(/** @type {?} */ (this), device_bus, settings.preserve_mac_from_state_image,
+                settings.net_device.mtu, pci_id, transport || undefined, id));
+        }
     }
     if(settings.virtio_rng) add("virtio-rng", (transport, pci_id) => new VirtioRng(this, transport, pci_id));
     if(settings.virtio_console)
@@ -1231,7 +1236,7 @@ A64CPU.prototype.page_tier_stats = function()
         "access_fills", "access_refused", "failed", "chained", "instructions", "templated"];
     const result = { "live": stat(100), "code_page_writes": stat(101), "resets": stat(102), "pages_compiled": stat(103),
         "most_compiles": stat(104), "helpers": stat(106), "evictions": stat(107), "compile_ms": stat(108),
-        "asid_tag_switches": stat(109), "asid_tag": stat(110),
+        "asid_tag_switches": stat(109), "asid_tag": stat(110), "live_code_bytes": stat(111),
         "table_free_low": this.wm.exports["jit_wasm_table_free_low"]() };
     names.forEach((name, i) => { result[name] = stat(i); });
     return result;

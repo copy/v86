@@ -56,6 +56,14 @@ pub static mut HOT: u32 = 2000;
 const RECOMPILE_MISSES: u32 = 64;
 /// The most functions (this client's quota of the core's table)
 pub const MAX_FUNCTIONS: u32 = 9000;
+/// The most Wasm bytes of live functions, MiB (a64_page_code_mb): the host
+/// commits about 1.3 times as much machine code for them, and every core
+/// of a process (cores in workers) draws on one limit, V8's 4 GiB of
+/// committed Wasm code; Android's boot on four cores exceeded it with the
+/// table full of functions. Past it the least recently used ones go
+pub static mut CODE_BUDGET_MB: u32 = 160;
+/// The Wasm bytes of the live (and pending) functions
+static mut LIVE_BYTES: u64 = 0;
 /// Instructions an activation may retire: the run loop ticks the timers
 /// and takes interrupts between activations (a step ticks them too)
 const MAX_BUDGET: u32 = 1 << 14;
@@ -363,6 +371,8 @@ pub struct A64;
 #[derive(Default)]
 pub struct A64Code {
     source: u64,
+    /// its module's Wasm bytes, against CODE_BUDGET_MB
+    bytes: u32,
 }
 #[derive(Default)]
 pub struct A64Page;
@@ -421,6 +431,7 @@ fn retire(r: &mut Runtime, index: usize) {
         return;
     }
     let f = &r.functions[index];
+    unsafe { LIVE_BYTES = LIVE_BYTES.saturating_sub(f.x.bytes as u64) };
     for &key in &f.members {
         if r.by_page.get(&key) == Some(&index) {
             r.by_page.remove(&key);
@@ -772,6 +783,16 @@ fn compile(key: u32, pc: u64) {
             unsafe { EVICTIONS += 1 };
         }
     }
+    // room in the code budget: the least recently used go until it fits
+    let budget = unsafe { CODE_BUDGET_MB } as u64 * 1048576;
+    while unsafe { LIVE_BYTES } + code.bytes.len() as u64 > budget {
+        let Some(i) = r.victim(|_| true, usize::MAX)
+        else {
+            break;
+        };
+        retire(r, i);
+        unsafe { EVICTIONS += 1 };
+    }
     release_dead(r);
     let id = r.next_id;
     r.next_id += 1;
@@ -828,8 +849,10 @@ fn compile(key: u32, pc: u64) {
         last_used: r.clock,
         x: A64Code {
             source: source_hash(&bytes),
+            bytes: code.bytes.len() as u32,
         },
     };
+    unsafe { LIVE_BYTES += code.bytes.len() as u64 };
     r.by_page.insert(key, index);
     r.generation = r.generation.wrapping_add(1);
     r.stats[COMPILED] += 1;
@@ -1102,6 +1125,7 @@ pub fn a64_page_stat(n: u32) -> f64 {
         108 => unsafe { COMPILE_MS },
         109 => (unsafe { AUTO_SWITCHES }) as f64,
         110 => (unsafe { super::ASID_TAG }) as u32 as f64,
+        111 => (unsafe { LIVE_BYTES }) as f64,
         _ => r.stats.get(n as usize).copied().unwrap_or(0) as f64,
     }
 }

@@ -8,6 +8,7 @@
 //
 //   const adb = new AdbClient(stream); await adb.connect();
 //   const output = await adb.shell("getprop sys.boot_completed");
+//   await adb.push("/data/local/tmp/app.apk", bytes);   (the sync service's SEND)
 
 const A_CNXN = 0x4e584e43, A_OPEN = 0x4e45504f, A_OKAY = 0x59414b4f, A_CLSE = 0x45534c43, A_WRTE = 0x45545257, A_AUTH = 0x48545541;
 const VERSION = 0x01000001;
@@ -106,5 +107,59 @@ export class AdbClient
     shell(command, timeout_ms)
     {
         return this.run("shell:" + command, timeout_ms);
+    }
+
+    /** a file onto the device (sync: SEND path,mode; DATA chunks; DONE mtime), each write after the device's OKAY */
+    push(remote_path, bytes, mode = 0o100644, timeout_ms = 120000)
+    {
+        const id = this.next_id++;
+        let remote = 0, acked = null, closed = false, reply = Buffer.alloc(0);
+        const ack = () => new Promise(resolve => { acked = resolve; });
+        let replied = null;
+        this.streams.set(id, { on_message: (command, from, data) => {
+            if(command === A_OKAY) { remote = from; acked?.(); acked = null; }
+            else if(command === A_WRTE)
+            {
+                reply = Buffer.concat([reply, data]);
+                this.stream.write(message(A_OKAY, id, from));
+                if(reply.length >= 8) replied?.();
+            }
+            else if(command === A_CLSE) { closed = true; acked?.(); replied?.(); }
+        } });
+        const request = (tag, length, payload = Buffer.alloc(0)) => {
+            const header = Buffer.alloc(8);
+            header.write(tag, 0, "latin1");
+            header.writeUInt32LE(length, 4);
+            return Buffer.concat([header, payload]);
+        };
+        const write = async bytes => {
+            const done = ack();
+            this.stream.write(message(A_WRTE, id, remote, bytes));
+            await done;
+            if(closed) throw new Error("adb push: the device closed the stream");
+        };
+        const work = (async () => {
+            const opened = ack();
+            this.stream.write(message(A_OPEN, id, 0, Buffer.from("sync:\0")));
+            await opened;
+            if(closed) throw new Error("adb push: no sync service");
+            const target = Buffer.from(`${remote_path},${mode}`);
+            await write(request("SEND", target.length, target));
+            for(let at = 0; at < bytes.length; at += 65536)
+            {
+                const chunk = Buffer.from(bytes.subarray(at, at + 65536));
+                await write(request("DATA", chunk.length, chunk));
+            }
+            const answer = new Promise(resolve => { replied = resolve; });
+            await write(request("DONE", Math.floor(Date.now() / 1000)));
+            if(reply.length < 8) await answer;
+            const tag = reply.toString("latin1", 0, 4);
+            if(tag !== "OKAY") throw new Error("adb push: " + tag + " " + reply.toString("utf8", 8, 8 + reply.readUInt32LE(4)));
+            // (QUIT: the device closes the stream, perhaps before it acknowledges)
+            if(!closed) this.stream.write(message(A_WRTE, id, remote, request("QUIT", 0)));
+            this.stream.write(message(A_CLSE, id, remote));
+            this.streams.delete(id);
+        })();
+        return Promise.race([work, new Promise((_, reject) => setTimeout(() => reject(new Error("adb push: timed out")), timeout_ms))]);
     }
 }

@@ -94,7 +94,7 @@ and the image is 64-bit only.
 Cuttlefish's host services (keymint, gatekeeper, ...) are replaced by the
 guest's nonsecure APEXes, which bootconfig selects. The default vendor
 ramdisk is the build's debug one, so an unlocked device runs adbd without a
-key. SELinux starts permissive.
+key. SELinux is enforcing (`--selinux permissive` for debugging).
 
 The kernel's console is hvc0, logcat goes to hvc2, and an Android shell
 runs on the PL011.
@@ -102,7 +102,8 @@ runs on the PL011.
 | | QEMU reference (TCG cortex-a35, `tests/a64/android_boot.mjs`) | v86 (`A64_ANDROID_TARGET=v86`) |
 | --- | --- | --- |
 | Boot (first boot, 4 cores, 1536 MiB) | `sys.boot_completed=1` in 341 s (system_server at 143 s); 174 billion instructions to it (libinsn, an upper bound); about 1 GiB is the least RAM that boots | release build, page tier, cores in workers: system_server at 443 s, adbd over vsock at 447 s, `sys.boot_completed=1` (polled over adb) at 1396 s, 4.1 times the reference |
-| Devices | virtio-pci: blk 00:01.0, gpu 00:02.0, 18 virtconsoles, rng, keyboard, tablet, three NICs | the same order, `virtio_vsock` instead of the NICs (adb) |
+| Devices | virtio-pci: blk 00:01.0, gpu 00:02.0, 18 virtconsoles, rng, keyboard, tablet, three NICs | the same order, `virtio_vsock` (adb), a multitouch screen, three virtio NICs (`net_device.count: 3`), the third on the fetch adapter under Cuttlefish's Wi-Fi |
+| A9's scenario (`A64_ANDROID_SCENARIO=a9`) | boot_completed 341 s, app start 27.8 s, second boot 208 s | SwiftShader: boot_completed 1550 s, app start 81.9 s (2.9 times), second boot 872 s (4.2 times); Wi-Fi, HTTP through the fetch adapter, a tap that opens Gallery |
 
 P10.3 freezes Android's E level against the QEMU TCG reference on the same
 host, with the same materials, on 4 cores with 1536 MiB, and v86 as above. A
@@ -136,6 +137,28 @@ million code words, 0.1% are valid only beyond v1. Each of those is one of:
 
 No v2 feature is needed.
 
+A9's scenario (P11, `tests/a64/android_scenario.mjs`) runs over adb after
+`sys.boot_completed=1`, on both targets:
+
+- SELinux enforcing; the device's test settings (`prepare_device`: no lock
+  screen, no animations), set on v86 as soon as adb answers;
+- user 0 unlocked, Launcher3 the top resumed activity;
+- Wi-Fi on Cuttlefish's VirtWifi with an address by DHCP; on v86 also an
+  HTTP request through the fetch adapter to the test's own server, again
+  after Wi-Fi off and on;
+- on v86, a tap on the multitouch screen at the centre of Gallery's icon
+  (found with uiautomator) opens Gallery;
+- an APK (`tests/a64/apk.mjs`) pushed, installed and started;
+- a reboot: boot_completed again, the APK and a file in /data still there,
+  SELinux still enforcing;
+- no service restarting over and over; the app crashes and ANRs since the
+  reboot, and DHCP failures, are recorded.
+
+Graphics with SwiftShader are too slow on v86 for the desktop's acceptance:
+A9's graphics move to Venus (P11.4). The prebuilt image has no Mesa, so
+Mesa's venus driver is built with the NDK (Mesa 26.1.6, the version of
+`venus_protocol.js`) and installed into the image; ANGLE runs GLES on it.
+
 ## Known defects
 
 The G-Alpine list (docs/arm64-virt-android16-plan.md P9.4). Major: a
@@ -152,7 +175,10 @@ declared deviation, a slower path or a documented limit. None is major.
 | Kernels with SW_TTBR0_PAN (the androidish one, GKI) boot 17% slower to a login than the stock kernel with `a64_asid_tag` auto, 70% slower without it | minor | the profile has no PAN; FEAT_PAN is a v2 candidate (P10.4) |
 | A single-buffer snapshot (`save_state`) refuses extended RAM | minor | `save_state_stream` holds it |
 | Android 16's first boot takes 23 minutes on 4 cores in workers (4.1 times QEMU TCG's; mostly APEX decompression and dex2oat, about 125 MIPS overall) | minor | performance (A10, P12.3's metrics against P10.3's budget); FEAT_PAN is the first candidate |
-| Android without a NIC (the v86 runs so far): the Thread network HAL's simulated radio (ot-rcp) cannot open its sockets and restarts | minor | networking is P11.2 (A9): v86 needs Cuttlefish's second and third NIC, and Wi-Fi's offers outrank ethernet's, so eth1 gets no DHCP even on QEMU |
+| Android's graphics with SwiftShader on v86: Launcher3's first frames take minutes; with animations on, ART's finalizer watchdog killed it (`ReferenceQueueDaemon` timed out on `HardwareRenderer$DestroyContextRunnable`) although `ro.hw_timeout_multiplier` is 50; screenshots lag the window manager by seconds | minor | A9's scenario turns animations off; the desktop's graphics move to Venus (P11.4) |
+| Android's first boot on v86: user 0 unlocks about ten minutes after `sys.boot_completed=1` (the receivers of PRE_BOOT_COMPLETED and BOOT_COMPLETED); SystemUI's SYSTEM_READY can then come before provisioning ends, so it never shows its keyguard while the window manager keeps the keyguard's sleep token, and dismissals do nothing | minor | the scenario waits for `RUNNING_UNLOCKED` and disables the lock screen as soon as adb answers |
+| DHCP on Android's wlan0 over the fetch adapter failed twice in one of the runs (the network then blocked for five minutes); the cause is not known yet | minor | the scenario connects again every two minutes; `dhcp.log` records the exchange |
+| Bluetooth's native stack aborts (FinalizerWatchdogDaemon) on Android's first boot | minor | on QEMU TCG too: not v86's |
 | virtio-snd | — | not done (P7.5, optional) |
 
 ## Testing
@@ -183,6 +209,8 @@ declared deviation, a slower path or a documented limit. None is major.
 | Android 16 to `sys.boot_completed=1` (P10.3; `A64_ANDROID_ACCEL=hvf`: the host's CPU; `A64_QEMU_PLUGINS=1`: instruction counts; `A64_MEMORY_MB`) | `node tests/a64/android_boot.mjs` (`make android-reference-tests`) | QEMU |
 | The GKI bridge (P10.6): the GKI kernel, Alpine's initramfs, the 19 virtual-device modules, the probe | `A64_KERNEL=gki [A64_LINUX_QEMU=1] A64_STAGE=initramfs node tests/a64/linux_boot.mjs` | both |
 | Android 16 to system_server and adbd over vsock (P10.7; `A64_ANDROID_WAIT=boot_completed`) | `A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 node tests/a64/android_boot.mjs` (`make android-guest-tests`) | v86 |
+| A9's scenario (P11): the desktop, Wi-Fi, HTTP (v86), touch (v86), an APK, a reboot | `A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs` (with the v86 variables above for v86) | both |
+| Shell commands over adb after boot_completed (`A64_ANDROID_PROBE=<file>`, one per line; `A64_ANDROID_PUSH=<local>=<remote>,...` first); Venus with the renderer in a headless Chrome (`A64_ANDROID_GPU=venus`, v86) | `node tests/a64/android_boot.mjs` | both |
 | Android's ISA (P10.4): the booted guest's partitions and APEXes (`build/a64-android/rootfs.tar`, on QEMU with HVF) against v1 | `node tools/a64_android.mjs --extract`, `node tools/a64_isa_scan.mjs --android build/a64-android/rootfs.tar` | QEMU |
 
 `make a64-gate` runs before each commit and `make a64-gate-full` at a
@@ -257,9 +285,10 @@ extended RAM goes through the interpreter's path.
 | `a64_helpers` | 1 | helper calls (0: single steps) |
 | `a64_relaxed_fma` | the host's probe | FMADD and FMLA through relaxed SIMD's fused multiply-add |
 | `a64_asid_tag` | 2 | an access-cache epoch per ASID, so ASID switches keep entries: 1 always, 2 (auto) while the ASIDs change at least 256 times in about 4 million instructions (SW_TTBR0_PAN changes them at every entry from EL0 and around every uaccess), 0 never |
+| `a64_page_code_mb` | 160 | the compiled code each core keeps (the Wasm functions' bytes, at least 8 MiB); past it the least recently used pages are evicted. V8 commits about 1.3 times that as native code, and a process has 4 GiB of committed code space: Android's first boot on 4 cores in workers exhausted it without the budget |
 
 `page_tier_stats()` on the ARM CPU (and `jit_stat(1, field)`) gives the
-counters. Tests: `make a64-page-tier-tests` (random programs against the
+counters, among them `live_code_bytes`. Tests: `make a64-page-tier-tests` (random programs against the
 interpreter, the FP loop, the ISA and system oracles compiled, litmus) and
 `make a64-jit-guest-tests` (Alpine and kvm-unit-tests with the page tier).
 

@@ -10,16 +10,20 @@
 import fs from "node:fs";
 import net from "node:net";
 import { QEMU_MACHINE, QEMU_CPU, smp } from "./guest_runner.mjs";
+import { save_png } from "../lib/picture_sink.mjs";
 
 /**
  * QEMU's arguments
  * @param {string} out tools/a64_android.mjs's output directory (with a slash)
  * @param {{accel?: string, memory_mb: number, cores: number, console_socket: string, kernel_log: string,
- *     logcat: string, extract?: string, snapshot?: boolean}} o
+ *     logcat: string, extract?: string, snapshot?: boolean, monitor_socket?: string, adb_port?: number}} o
  *     accel "tcg" (the reference: cortex-a35) or "hvf" (the host's CPU, for
  *     quick runs); extract: the Unix socket of a virtserialport named
  *     org.v86.extract (a socket: a file's backend never opens the port for
- *     the guest, whose writes then block)
+ *     the guest, whose writes then block); monitor_socket: the human monitor
+ *     on a Unix socket (screendump); adb_port: the host's port forwarded to
+ *     adbd's tcp:5555 on the third NIC, the one under Cuttlefish's Wi-Fi
+ *     (VirtWifi; DHCP gives it 10.0.3.15)
  */
 export function android_qemu_args(out, o)
 {
@@ -46,15 +50,40 @@ export function android_qemu_args(out, o)
         ...(o.extract ? ["-chardev", `socket,id=extract,path=${o.extract},server=on,wait=off`,
             "-device", "virtserialport,bus=virtio-serial.0,chardev=extract,name=org.v86.extract,nr=30"] : []),
         "-device", "virtio-rng-pci-non-transitional,addr=04.0",
-        "-device", "virtio-keyboard-pci,addr=05.0", "-device", "virtio-tablet-pci,addr=06.0",
+        // (a touch screen: QEMU's virtio-multitouch, as v86's)
+        "-device", "virtio-keyboard-pci,addr=05.0", "-device", "virtio-multitouch-pci,addr=06.0",
         // (eth0, eth1, eth2: Cuttlefish's mobile, ethernet and wifi; init renames eth0 and eth2)
         "-netdev", "user,id=n0,net=10.0.1.0/24,restrict=on", "-device", "virtio-net-pci-non-transitional,netdev=n0,addr=07.0,romfile=",
         "-netdev", "user,id=n1,net=10.0.2.0/24,restrict=on", "-device", "virtio-net-pci-non-transitional,netdev=n1,addr=08.0,romfile=",
-        "-netdev", "user,id=n2,net=10.0.3.0/24,restrict=on", "-device", "virtio-net-pci-non-transitional,netdev=n2,addr=09.0,romfile=",
-        "-display", "none", "-monitor", "none",
+        "-netdev", "user,id=n2,net=10.0.3.0/24,restrict=on" + (o.adb_port ? `,hostfwd=tcp:127.0.0.1:${o.adb_port}-10.0.3.15:5555` : ""),
+        "-device", "virtio-net-pci-non-transitional,netdev=n2,addr=09.0,romfile=",
+        "-display", "none", "-monitor", o.monitor_socket ? `unix:${o.monitor_socket},server,nowait` : "none",
         "-chardev", `socket,id=ser0,path=${o.console_socket},server=on,wait=off`, "-serial", "chardev:ser0",
-        "-no-reboot",
+        // (a reboot restarts the machine with the disk's writes kept: snapshot=on's overlay lives as long as QEMU)
     ];
+}
+
+/** a screenshot through the human monitor (screendump, PPM) as <directory>/<name>.png */
+export async function qemu_screendump(monitor_socket, directory, name)
+{
+    const ppm = directory + name + ".ppm";
+    fs.rmSync(ppm, { force: true });
+    await new Promise((resolve, reject) => {
+        const s = net.connect(monitor_socket);
+        s.on("connect", () => { s.write(`screendump ${ppm}\n`); setTimeout(() => { s.end(); resolve(); }, 1500); });
+        s.on("error", reject);
+    });
+    for(let i = 0; i < 40 && !fs.existsSync(ppm); i++) await new Promise(resolve => setTimeout(resolve, 250));
+    const bytes = fs.readFileSync(ppm);
+    const m = /^P6\s+(\d+)\s+(\d+)\s+255\s/.exec(bytes.toString("latin1", 0, 40));
+    const width = +m[1], height = +m[2], rgba = new Uint8Array(width * height * 4);
+    for(let i = 0; i < width * height; i++)
+    {
+        rgba.set(bytes.subarray(m[0].length + i * 3, m[0].length + i * 3 + 3), i * 4);
+        rgba[i * 4 + 3] = 255;
+    }
+    fs.rmSync(ppm);
+    return save_png({ width, height, rgba }, directory, name);
 }
 
 /** The Android console (a shell on ttyAMA0) through QEMU's serial socket */

@@ -14,6 +14,7 @@
 //   (vendor_ramdisk-debug.img: /force_debuggable, adb_debug.prop with
 //   ro.adb.secure=0, which init only honours on an unlocked device) so that
 //   adbd takes a connection without a key; --release takes vendor_boot.img's;
+//   SELinux enforcing (P11.3; --selinux permissive for debugging);
 // - disk.img: one GPT disk with Cuttlefish's partitions (misc, boot, init_boot,
 //   vendor_boot and the four vbmeta in slots a and b, super, userdata,
 //   metadata, frp), the sparse super and userdata made raw, a sparse file;
@@ -72,7 +73,7 @@ const BOOT_DEVICES = "4010000000.pcie";
 
 function parse_args(argv)
 {
-    const args = { download: false, release: false, selinux: "permissive", memory_mb: 1536, extract: false, fresh_disk: false,
+    const args = { download: false, release: false, selinux: "enforcing", memory_mb: 1536, extract: false, fresh_disk: false,
         out: ROOT + "build/a64-android/out/" };
     for(let i = 0; i < argv.length; i++)
     {
