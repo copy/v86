@@ -1,0 +1,325 @@
+Venus on Android with Cuttlefish's minigbm (Mesa 26.1.6, applied by
+tools/a64_venus/build.mjs; docs/arm64-virt-android16-plan.md P11.4):
+
+- vn_renderer_virtgpu.c: open the render node by path when drmGetDevices2
+  fails. Android's SELinux policy lets apps, SurfaceFlinger and gpuservice
+  open /dev/dri/renderD128 (gralloc opens it in every process) but not list
+  /dev/dri or read the device's sysfs, which drmGetDevices2 needs; the
+  driver then finds no device and reports none, silently.
+- u_gralloc_minigbm.c: minigbm's buffer handles read directly (its packed
+  cros_gralloc_handle, recognised by its magic). Cuttlefish's minigbm has the
+  AIDL allocator and IMapper5 but no gralloc0 module for the CrOS API, and
+  the NDK build has no libui for IMapper; the fallback backend needs a pixel
+  stride and HAL format venus does not give it, so AHardwareBuffers could
+  not be imported.
+- vn_physical_device.c: on Android, dma-buf imports (AHardwareBuffers) with
+  a renderer that has the modifier and foreign queue extensions but not
+  VK_EXT_external_memory_dma_buf: v86's imports virtio-gpu resources
+  (VkImportMemoryResourceInfoMESA) and makes no dma-bufs, and advertising
+  the extension would put venus on Linux on dma-buf swapchain images.
+  vn_device.c then does not ask such a renderer for the dma-buf extensions.
+- vn_common.c: on Android no abort when a wait outlives the ring's ALIVE
+  reports (VN_DEBUG=no_abort): v86's renderer runs on the host's main
+  thread, which can stop for seconds while the guest's time goes on;
+  Launcher3 aborted so in a run. A ring's FATAL status still aborts.
+
+--- a/src/util/u_gralloc/meson.build
++++ b/src/util/u_gralloc/meson.build
+@@ -15,6 +15,7 @@
+   'u_gralloc_cros_api.c',
+   'u_gralloc_libdrm.c',
+   'u_gralloc_qcom.c',
++  'u_gralloc_minigbm.c',
+ )
+ 
+ if dep_android_ui.found()
+--- a/src/util/u_gralloc/u_gralloc.c
++++ b/src/util/u_gralloc/u_gralloc.c
+@@ -30,6 +30,8 @@
+ #endif /* USE_IMAPPER4_METADATA_API */
+    {.type = U_GRALLOC_TYPE_LIBDRM, .create = u_gralloc_libdrm_create},
+    {.type = U_GRALLOC_TYPE_QCOM, .create = u_gralloc_qcom_create},
++   /* minigbm without a gralloc0 module (Cuttlefish): its handles directly */
++   {.type = U_GRALLOC_TYPE_MINIGBM, .create = u_gralloc_minigbm_create},
+    {.type = U_GRALLOC_TYPE_FALLBACK, .create = u_gralloc_fallback_create},
+ };
+ 
+--- a/src/util/u_gralloc/u_gralloc.h
++++ b/src/util/u_gralloc/u_gralloc.h
+@@ -54,6 +54,7 @@
+    U_GRALLOC_TYPE_LIBDRM,
+    U_GRALLOC_TYPE_QCOM,
+    U_GRALLOC_TYPE_FALLBACK,
++   U_GRALLOC_TYPE_MINIGBM,
+    U_GRALLOC_TYPE_COUNT,
+ };
+ 
+--- a/src/util/u_gralloc/u_gralloc_internal.h
++++ b/src/util/u_gralloc/u_gralloc_internal.h
+@@ -38,6 +38,7 @@
+ extern struct u_gralloc *u_gralloc_qcom_create(void);
+ extern struct u_gralloc *u_gralloc_libdrm_create(void);
+ extern struct u_gralloc *u_gralloc_fallback_create(void);
++extern struct u_gralloc *u_gralloc_minigbm_create(void);
+ 
+ /* Helpers for legacy grallocs */
+ struct android_ycbcr;
+--- a/src/virtio/vulkan/vn_renderer_virtgpu.c
++++ b/src/virtio/vulkan/vn_renderer_virtgpu.c
+@@ -22,6 +22,7 @@
+ #include "virtio/virtio-gpu/venus_hw.h"
+ 
+ #include "drm-uapi/virtgpu_drm.h"
++#include "util/detect_os.h"
+ #include "util/os_file.h"
+ #include "util/sparse_array.h"
+ 
+@@ -1742,7 +1743,61 @@
+       vn_log(gpu->instance, "using DRM device %s", node_path);
+ 
+    return VK_SUCCESS;
++}
++
++#if DETECT_OS_ANDROID
++/* Android's SELinux policy lets apps and SurfaceFlinger open the render node
++ * (gralloc opens it in every process) but not list /dev/dri or read the
++ * device's sysfs, which drmGetDevices2 needs: open the render nodes by path
++ * and keep the one virtio_gpu drives.
++ */
++static VkResult
++virtgpu_open_render_node_paths(struct virtgpu *gpu)
++{
++   for (int n = 128; n < 136; n++) {
++      char path[32];
++      snprintf(path, sizeof(path), "/dev/dri/renderD%d", n);
++      int fd = open(path, O_RDWR | O_CLOEXEC);
++      if (fd < 0)
++         continue;
++
++      drmVersionPtr version = drmGetVersion(fd);
++      const bool ok = version && !strcmp(version->name, "virtio_gpu") &&
++                      version->version_major == 0;
++      if (version)
++         drmFreeVersion(version);
++      if (!ok) {
++         close(fd);
++         continue;
++      }
++
++      gpu->fd = fd;
++
++      char primary_path[32];
++      struct stat st;
++      snprintf(primary_path, sizeof(primary_path), "/dev/dri/card%d", n - 128);
++      if (stat(primary_path, &st) == 0) {
++         gpu->has_primary = true;
++         gpu->primary_major = major(st.st_rdev);
++         gpu->primary_minor = minor(st.st_rdev);
++      } else {
++         gpu->has_primary = false;
++         gpu->primary_major = 0;
++         gpu->primary_minor = 0;
++      }
++      fstat(fd, &st);
++      gpu->render_major = major(st.st_rdev);
++      gpu->render_minor = minor(st.st_rdev);
++      gpu->bustype = DRM_BUS_PLATFORM;
++
++      if (VN_DEBUG(INIT))
++         vn_log(gpu->instance, "using DRM device %s (opened by path)", path);
++      return VK_SUCCESS;
++   }
++
++   return VK_ERROR_INITIALIZATION_FAILED;
+ }
++#endif
+ 
+ static VkResult
+ virtgpu_open(struct virtgpu *gpu)
+@@ -1752,7 +1807,11 @@
+    if (count < 0) {
+       if (VN_DEBUG(INIT))
+          vn_log(gpu->instance, "failed to enumerate DRM devices");
++#if DETECT_OS_ANDROID
++      return virtgpu_open_render_node_paths(gpu);
++#else
+       return VK_ERROR_INITIALIZATION_FAILED;
++#endif
+    }
+ 
+    VkResult result = VK_ERROR_INITIALIZATION_FAILED;
+@@ -1764,6 +1823,11 @@
+ 
+    drmFreeDevices(devs, count);
+ 
++#if DETECT_OS_ANDROID
++   if (result != VK_SUCCESS)
++      result = virtgpu_open_render_node_paths(gpu);
++#endif
++
+    return result;
+ }
+ 
+--- a/src/virtio/vulkan/vn_physical_device.c
++++ b/src/virtio/vulkan/vn_physical_device.c
+@@ -1044,7 +1044,21 @@
+     * For vtest, the protocol does not support external memory import. So we
+     * only mask out the importable bit so that wsi over vtest can be supported.
+     */
+-   if (physical_dev->renderer_extensions.EXT_external_memory_dma_buf) {
++   bool renderer_dma_buf =
++      physical_dev->renderer_extensions.EXT_external_memory_dma_buf;
++#ifdef VK_USE_PLATFORM_ANDROID_KHR
++   /* v86's renderer imports virtio-gpu resources
++    * (VkImportMemoryResourceInfoMESA), all Android's hardware buffers need,
++    * but makes no dma-bufs, so it does not advertise
++    * VK_EXT_external_memory_dma_buf (venus on Linux would then take
++    * swapchain images for dma-bufs); its modifier and foreign queue
++    * extensions stand for it here.
++    */
++   renderer_dma_buf = renderer_dma_buf ||
++      (physical_dev->renderer_extensions.EXT_image_drm_format_modifier &&
++       physical_dev->renderer_extensions.EXT_queue_family_foreign);
++#endif
++   if (renderer_dma_buf) {
+       physical_dev->external_memory.renderer_handle_type =
+          VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+ 
+--- a/src/virtio/vulkan/vn_device.c
++++ b/src/virtio/vulkan/vn_device.c
+@@ -313,8 +313,12 @@
+ 
+    if (app_exts->KHR_external_memory_fd ||
+        app_exts->EXT_external_memory_dma_buf || has_wsi) {
++      /* (not when the renderer imports without the extensions: see
++       * vn_physical_device_init_external_memory)
++       */
+       if (physical_dev->external_memory.renderer_handle_type ==
+-          VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT) {
++             VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT &&
++          renderer_exts->EXT_external_memory_dma_buf) {
+          if (!app_exts->EXT_external_memory_dma_buf) {
+             extra_exts[extra_count++] =
+                VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME;
+--- a/src/virtio/vulkan/vn_common.c
++++ b/src/virtio/vulkan/vn_common.c
+@@ -68,6 +68,14 @@
+ {
+    vn_env.debug =
+       parse_debug_string(os_get_option("VN_DEBUG"), vn_debug_options);
++#ifdef VK_USE_PLATFORM_ANDROID_KHR
++   /* v86's renderer runs on the host's main thread, which can stop for
++    * seconds (a busy page, a tab in the background) while the guest's time
++    * goes on: a wait outliving the ring's ALIVE reports is no reason to
++    * abort there. A ring's FATAL status still is.
++    */
++   vn_env.debug |= VN_DEBUG_NO_ABORT;
++#endif
+    vn_env.perf =
+       parse_debug_string(os_get_option("VN_PERF"), vn_perf_options);
+ }
+--- /dev/null
++++ b/src/util/u_gralloc/u_gralloc_minigbm.c
+@@ -0,0 +1,102 @@
++/*
++ * Mesa 3-D graphics library
++ *
++ * SPDX-License-Identifier: MIT
++ */
++
++/* minigbm's buffer handles read directly: gralloc on a device whose minigbm
++ * has only the AIDL allocator and IMapper5 (Cuttlefish), with no gralloc0
++ * module for the CrOS API and no libui for IMapper. The handle is minigbm's
++ * cros_gralloc_handle (external/minigbm/cros_gralloc/cros_gralloc_handle.h),
++ * a packed structure after native_handle_t, recognised by its magic. The
++ * layout is Android 16's (Cuttlefish build 15581820), as an AHardwareBuffer's
++ * handle showed it: 2 fds (the planes', the reserved region's), 34 ints.
++ */
++
++#include <errno.h>
++#include <stdint.h>
++#include <string.h>
++
++#include "drm-uapi/drm_fourcc.h"
++#include "util/log.h"
++#include "util/u_memory.h"
++
++#include "u_gralloc_internal.h"
++
++#define MINIGBM_MAX_PLANES 4
++#define MINIGBM_MAX_FDS (MINIGBM_MAX_PLANES + 1)
++#define MINIGBM_MAGIC 0xABCDDCBA
++
++struct minigbm_handle {
++   native_handle_t base;
++   int32_t fds[MINIGBM_MAX_FDS];
++   uint32_t strides[MINIGBM_MAX_PLANES];
++   uint32_t offsets[MINIGBM_MAX_PLANES];
++   uint32_t sizes[MINIGBM_MAX_PLANES];
++   uint32_t id;
++   uint32_t width;
++   uint32_t height;
++   uint32_t format; /* DRM fourcc */
++   uint32_t tiling;
++   uint64_t format_modifier;
++   uint64_t use_flags;
++   uint32_t magic;
++   uint32_t pixel_stride;
++   int32_t droid_format;
++   uint64_t usage; /* Android's */
++   uint32_t num_planes;
++   uint64_t reserved_region_size;
++   uint64_t total_size;
++} __attribute__((packed));
++
++static const struct minigbm_handle *
++minigbm_handle_of(const native_handle_t *handle)
++{
++   const size_t words = (sizeof(struct minigbm_handle) - sizeof(native_handle_t)) / sizeof(int);
++   if (!handle || handle->numFds < 1 || (size_t)(handle->numFds + handle->numInts) < words)
++      return NULL;
++   const struct minigbm_handle *h = (const struct minigbm_handle *)handle;
++   if (h->magic != MINIGBM_MAGIC || h->num_planes < 1 || h->num_planes > MINIGBM_MAX_PLANES)
++      return NULL;
++   return h;
++}
++
++static int
++minigbm_get_buffer_info(struct u_gralloc *gralloc,
++                        struct u_gralloc_buffer_handle *hnd,
++                        struct u_gralloc_buffer_basic_info *out)
++{
++   const struct minigbm_handle *h = minigbm_handle_of(hnd->handle);
++   if (!h)
++      return -EINVAL;
++
++   out->drm_fourcc = h->format;
++   out->modifier = h->format_modifier == DRM_FORMAT_MOD_INVALID ? DRM_FORMAT_MOD_LINEAR : h->format_modifier;
++   out->num_planes = h->num_planes;
++   for (uint32_t i = 0; i < h->num_planes; i++) {
++      /* (planes may share one buffer: minigbm packs the descriptors it has) */
++      out->fds[i] = (int)i < h->base.numFds ? h->fds[i] : h->fds[0];
++      out->offsets[i] = h->offsets[i];
++      out->strides[i] = h->strides[i];
++   }
++   return 0;
++}
++
++static int
++minigbm_destroy(struct u_gralloc *gralloc)
++{
++   FREE(gralloc);
++   return 0;
++}
++
++struct u_gralloc *
++u_gralloc_minigbm_create(void)
++{
++   struct u_gralloc *gralloc = CALLOC_STRUCT(u_gralloc);
++   if (!gralloc)
++      return NULL;
++   gralloc->ops.get_buffer_basic_info = minigbm_get_buffer_info;
++   gralloc->ops.destroy = minigbm_destroy;
++   mesa_logi("Using minigbm's handles directly");
++   return gralloc;
++}

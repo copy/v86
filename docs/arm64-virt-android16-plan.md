@@ -872,7 +872,8 @@ adbd 可用；R-a64-* 不退化。
 | P11.1 | 软件渲染桌面：guest_swiftshader 路径（minigbm、ANGLE、HWC/composer），SurfaceFlinger 与 Launcher；这是图形的第一步，在 v86 上显示出界面之后开始 P11.4 的 Venus。2026-10-18：v86 上已显示出界面（FallbackHome、Launcher3），但 SwiftShader 太慢（Launcher3 首帧要几分钟，ART 的 finalizer 看门狗因此杀掉它），A9 的图形改在 Venus 上验收（所有者决定，见待决问题 11） | XL |
 | P11.2 | 输入与网络：virtio-input 触摸、旋转后的坐标映射；DNS、连接与恢复；ADB | M |
 | P11.3 | 产品稳定性：SELinux enforcing；VINTF 匹配；必要的 HAL；userdata 与 metadata 在同一会话内的重启后保持，不在每次启动时重新初始化（跨会话持久化不做，见非目标）；lmkd | XL |
-| P11.4 | GPU 加速走 virtio-gpu 的 Venus（原 P12.4，所有者 2026-10-18 提前到 A9）。预编译的 Cuttlefish 镜像没有 Mesa，也没有 venus 驱动（只有 SwiftShader 的 `vulkan.pastel.so` 与 gfxstream 的 `vulkan.ranchu.so`），所以客体驱动自己编：Mesa 26.1.6（与 `venus_protocol.js` 同一版本）的 venus Vulkan 驱动，用 NDK 交叉编译成 `vulkan.virtio.so`；Android 16 的 GLES 是 ANGLE over Vulkan，一个 Vulkan 驱动同时承担 GL 与 Vulkan。分步：V0 编译并在 Android 中加载（QEMU 参考上验证链接与 SELinux）；V1 v86 的 venus 级别加无头 Chrome 的渲染器，`cmd gpu vkjson` 列出 Venus 设备；V2 宿主侧导入 virtio-gpu 资源（`VkImportMemoryResourceInfoMESA`，现在拒绝），gralloc（minigbm）分配的缓冲区才能给 ANGLE 渲染、给 SurfaceFlinger 合成、给 HWC 扫描输出；V3 镜像集成：开机时装入驱动（`ro.vulkan.apex` 与 `ro.hardware.vulkan`、SELinux 标签），SurfaceFlinger、HWUI 与 ANGLE 走 Venus；V4 A9 场景在 Venus 上通过，帧时间与 SwiftShader 对照。drm_virgl 与 gfxstream 不做 | XL |
+| P11.4 | GPU 加速走 virtio-gpu 的 Venus（原 P12.4，所有者 2026-10-18 提前到 A9）。预编译的 Cuttlefish 镜像没有 Mesa，也没有 venus 驱动（只有 SwiftShader 的 `vulkan.pastel.so` 与 gfxstream 的 `vulkan.ranchu.so`），所以客体驱动自己编：Mesa 26.1.6（与 `venus_protocol.js` 同一版本）的 venus Vulkan 驱动，用 NDK 交叉编译成 `vulkan.virtio.so`；Android 16 的 GLES 是 ANGLE over Vulkan，一个 Vulkan 驱动同时承担 GL 与 Vulkan。分步：V0 编译并在 Android 中加载（QEMU 参考上验证链接与 SELinux）；V1 v86 的 venus 级别加无头 Chrome 的渲染器，`cmd gpu vkjson` 列出 Venus 设备；V2 宿主侧导入 virtio-gpu 资源（`VkImportMemoryResourceInfoMESA`，现在拒绝），gralloc（minigbm）分配的缓冲区才能给 ANGLE 渲染、给 SurfaceFlinger 合成、给 HWC 扫描输出；V3 镜像集成：开机时装入驱动（`ro.vulkan.apex` 与 `ro.hardware.vulkan`、SELinux 标签），SurfaceFlinger、HWUI 与 ANGLE 走 Venus；V4 A9 场景在 Venus 上通过，帧时间与 SwiftShader 对照。drm_virgl 与 gfxstream 不做。2026-10-19：V0–V4 完成（附录 E 的
+“A9：P11.4 Venus”）；驱动装在 odm，`initrd-venus.img` 选它与 HWC 的 client 模式；ANGLE 在 Venus 上为 OpenGL ES 2.0 | XL |
 
 验收（A9）：`sys.boot_completed=1`；SurfaceFlinger 与 Launcher 在 Venus 上合成正确，输入、应用安装与启动、网络都可用；SELinux enforcing
 下必要服务不反复重启；反复冷启动（同一会话内 SYSTEM_RESET 后重新加载）后 userdata 保持；R-a64-* 不退化。跨浏览器
@@ -2160,3 +2161,119 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   （Closure 0 错误）通过。共享 JS（`src/virtio_net.js`、`src/browser/cpu_worker.js`）按跨阶段规则 1 跑了
   `make platform-release-gate GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项全部通过）与用 virtio 网卡或
   fetch 适配器的 x86 测试（`tests/devices/pcie_root_port.js`、`virtio_balloon.js`、`fetch_network.js`、`tests/api/reboot.js`）。
+
+### A9：P11.4 Venus（2026-10-18）
+
+- V1（v86 上看到 Venus 设备）：`A64_ANDROID_GPU=venus` 时 `tests/a64/android/vkprobe.c` 与 gpuservice 的 `cmd gpu vkjson`
+  列出 “Virtio-GPU Venus (v86 WebGPU)”（Vulkan 1.1；wire 1，vk.xml 1.4.343，venus 协议 4）。gpuservice、SurfaceFlinger 与
+  应用在 SELinux 下能打开 `/dev/dri/renderD128`，却不能列出 `/dev/dri` 或读设备的 sysfs，`drmGetDevices2` 静默失败，
+  驱动于是报告没有设备：补丁（`tools/a64_venus/venus-android.patch`）改为按路径打开 render node，并用 `drmGetVersion`
+  确认是 virtio_gpu。Mesa 的日志要 `MESA_LOG=file MESA_LOG_LEVEL=debug VN_DEBUG=init,result` 才有（release 默认 info
+  级别）。构建做成工具：`make android-venus`（`tools/a64_venus/build.mjs`：Mesa 与 libdrm 的 tarball 按 sha256 固定，
+  pip 的 meson、mako 等装在 `build/a64-venus/pyenv`，输出 `build/a64-android/venus/` 的 `vulkan.virtio.so`、`vkprobe`、
+  `vkahb` 与 `manifest.json`）。
+- V2（gralloc 的缓冲区）：宿主侧导入 virtio-gpu 资源。`vkAllocateMemory` 接受 `VkImportMemoryResourceInfoMESA`（导入
+  的内存没有自己的 VX 缓冲区），加 `vkGetMemoryResourcePropertiesMESA`；`VK_EXT_image_drm_format_modifier`（只有线性
+  修饰符：图像在这里是纹理，没有自己的布局）、`VK_KHR_image_format_list` 与 `VK_EXT_queue_family_foreign`；绑定时新的
+  `VX.TEXTURE_IMPORT` 让图像借用该资源在 GX 中的表面（GX 与 VX 共用一个 GPUDevice，渲染器给 VX 一个 peer）；每次 Venus
+  提交之后导入的资源以 GPU 上的为新（`virgl.wrote`），扫描输出与 `TRANSFER_FROM_HOST` 从 GPU 读回；导入记在快照里，
+  恢复时在 virgl 之后重放。客体：Cuttlefish 15581820 的 minigbm 只有 AIDL allocator 与 IMapper5，没有 CrOS API 的
+  gralloc0 模块，NDK 构建也没有 libui，Mesa 的 u_gralloc 没有能用的后端：补丁增加 `u_gralloc_minigbm.c`，直接读
+  minigbm 的 `cros_gralloc_handle`（packed；magic 0xABCDDCBA；2 个 fd、34 个 int；usage 为 u64）。
+  `tests/a64/android/vkahb.c`（AHB → 导入 → GPU 清屏 → CPU lock 后逐像素检查）在 v86 上通过；
+  `tests/devices/virtio_gpu_venus.js` 增加这一节。
+- V3（开机时装入驱动）：`tools/a64_android.mjs` 在有 `build/a64-android/venus/vulkan.virtio.so` 时把它写进 odm：在
+  mkfs.erofs 的镜像之后追加块（新的 inode、目录与数据，不压缩；根目录的目录项移到自己的块），得到
+  `/odm/lib64/vulkan.virtio.so`，标签 `same_process_hal_file`；重新生成 hash tree，vbmeta 中 odm 的描述符改为新的大小与
+  根摘要（不带 FEC；签名因此不再匹配：设备是 unlocked，第一阶段 init 只核对 bootconfig 给的摘要，状态为
+  VerificationError，dm-verity 照常建立）；odm_a 移到 super 中所有分区之后的空闲处，每个 metadata 副本（3 个槽位的主
+  与备份）重写并重算校验和。工具把驱动读回比对；erofs 的超级块校验和与 hash tree 的算法先用原来的 odm 核对过
+  （根摘要与原描述符一致）。另写 `initrd-venus.img`，bootconfig 多三项：
+  - `androidboot.hardware.vulkan=virtio`：libvulkan 先在 Vulkan APEX 的命名空间找 `vulkan.virtio.so`，找不到就回到
+    sphal 命名空间，其搜索路径以 `/odm/lib64` 开头（不是 `/odm/lib64/hw`，QEMU 上读 `/linkerconfig/ld.config.txt` 确认）；
+  - `androidboot.hardware.hwcomposer.mode=client`：ranchu HWC 把 pastel 以外的 Vulkan 当作 gfxstream 的宿主合成，连不上
+    宿主，SurfaceFlinger 随即中止（“Can't create AidlComposerClient”）；client 模式与 Cuttlefish 的 drm_virgl 一样，由
+    SurfaceFlinger 在 GPU 上合成，HWC 只做扫描输出；
+  - `androidboot.opengles.version=131072`：ANGLE 在 Venus 上只给 OpenGL ES 2.0（见下）。
+  `initrd.img` 仍是 SwiftShader，QEMU 参考（HVF）用它启动，挪动后的 odm 与改过的 vbmeta 照常通过，驱动可见、标签正确。
+  `A64_ANDROID_GPU=venus` 用 `initrd-venus.img`。v86 上从开机起 SurfaceFlinger 的 RenderEngine 就是
+  “ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU Venus (v86 WebGPU)))”，开机动画经 Venus 合成、DRM 扫描输出，不再需要 bind
+  mount 与重启框架。
+- 途中发现并修正：
+  - 宿主若声明 `VK_EXT_external_memory_dma_buf`，Linux 客体的 Mesa venus 就不走软件 WSI（`vn_wsi.c` 只在没有它时用），
+    改用 dma-buf 的交换链图像，v86 做不到：Alpine 的 vkcube 因此失败（`VK_ERROR_SURFACE_LOST_KHR`，`make
+    a64-gpu-guest-tests` 的 vkcube）。宿主不再声明它与 `VK_KHR_external_memory_fd`（本来也不导出 dma-buf）；Android 的
+    驱动在渲染器有修饰符与外部队列扩展时照样按 dma-buf 导入（补丁的 `vn_physical_device.c`），也不再向渲染器请求这两个
+    扩展（`vn_device.c`；否则 ANGLE 的 `vkCreateDevice` 得到 `VK_ERROR_EXTENSION_NOT_PRESENT`）。Alpine 的 venus 与
+    vkcube 场景重新通过。
+  - V3 的 bind mount 测试里框架重启后约 4 分钟像是停住：设备与 Venus 的队列都空闲，各线程停在 epoll、futex 与 binder，
+    不是 GPU。原因是 UWB：Cuttlefish 的 UWB HAL 经 hvc9 连宿主的 pica，v86 与参考都没有，初始化超时后 userdebug 版的
+    UwbServiceCore 请求完整的 bug report，dumpstate 在 v86 上要跑好几分钟（逐个进程抓原生栈）。`prepare_device` 关掉
+    UWB 设备错误的 bug report（DeviceConfig `uwb` 的 `device_error_bugreport_enabled`；会话的那一项不在 shell 的
+    allowlist 上，写入被拒）。
+  - VX：负高度视口（ANGLE 用它上下翻转）用顶点着色器保留 Vulkan Y 方向的 pipeline 变体绘制（naga 新增
+    `keep_coordinate_space`；变体有自己的 auto layout 与 bind group，WebGPU 不许跨 pipeline 用 auto layout 的 BGL）；
+    没有附件的 pass 与 pipeline 用占位附件；光栅化丢弃改为不写任何东西的片段阶段；sRGB 视图不带 STORAGE 用途（视图
+    继承纹理的用途）；GX 在释放表面之前先提交编码器（提交中用到已销毁的纹理会使整个提交无效）。见
+    docs/gpu-deviations.md 的 G-36、G-43、G-44。
+  - ANGLE 在 Venus 上只给 OpenGL ES 2.0（SwiftShader 是 3.1）：WebGPU 每个阶段 12 个 uniform buffer（本机 Chrome 的
+    Metal 适配器的上限）少于 ES 3 的 12 个 block 加 ANGLE 自己的 default uniform 块；也没有 transform feedback（扩展
+    没有，模拟需要顶点阶段可写的存储缓冲区，WebGPU 没有）。`standardSampleLocations` 顺带改为 1（只有 1 与 4 采样，
+    WebGPU 的 4 采样位置就是 Vulkan 的标准位置）。SurfaceFlinger 与 HWUI 用 ES 2 足够；ES 3 留作后续（超出的 uniform
+    buffer 改为只读存储缓冲区；transform feedback 另议）。
+  - Venus 的 ring：第 1 次 Venus 场景运行里 Launcher3 两次在驱动的 `vn_relax` 中中止（用 NDK 的 llvm-objdump 反汇编核对
+    中止点：+260 是 ALIVE 看门狗超时，+300 是 2^14 次迭代、约 895 s 的上限，+320 是 ring 的 FATAL）：一个线程等一个
+    ring 约 15 分钟。宿主侧两处修正：等待中的命令的回复写到命令开始时设定的回复流（每条带回复的命令之前，ring 都先设定
+    自己的回复流；一个 ring 等待时另一个 ring 可能已设定了它的），等待别的 ring 的 seqno 的命令在那个 ring 的 head 前进
+    时就被唤醒（不只在它的 run 结束时；推迟到这一轮之后，免得一个 ring 插进另一个 ring 的回复流与命令之间）。另外
+    Android 驱动不再因看门狗中止（补丁的 `vn_common.c` 设 `VN_DEBUG_NO_ABORT`）：v86 的渲染器在宿主的主线程上，
+    页面忙或标签页在后台时可能停好几秒，客体的时间却照走；ring 的 FATAL 仍然中止。`A64_ANDROID_GPU_DEBUG=1` 的输出
+    增加 Venus 的错误数与各 ring 的状态（空闲、运行、在某条命令中等待、FATAL）。之后的运行再没有出现。
+  - WGSL 默认不许在非一致的控制流中求导数（`fwidth`），SPIR-V 允许：VX 翻译出的着色器前加
+    `diagnostic(off, derivative_uniformity);`（GX 的 WGSL 本来就有）。
+- V4（A9 场景在 Venus 上）：场景增加帧时间——Launcher3 的全部应用列表上滑打开、Back 关闭，先一次（冷：着色器与
+  pipeline 在其间生成），再三次（热），各取 `dumpsys gfxinfo` 的统计；另截全部应用列表与桌面的图（上面的 `home`
+  可能还是 FallbackHome 的画面，Launcher3 的首帧还没出来）。结果（4 核 1536 MiB，page tier，并行 Worker，源码构建；
+  同一宿主，依次运行）：
+
+  | 项 | v86 Venus（第 3 次） | v86 SwiftShader（第 8 次） | QEMU TCG（参考，SwiftShader） | QEMU HVF（SwiftShader） |
+  | --- | --- | --- | --- | --- |
+  | boot_completed | 1076 s | 1091 s | 299 s | 19 s |
+  | 桌面（Launcher3 为 top resumed） | 1174 s（解锁晚于 boot_completed 2.7 s） | 1174 s | 370 s | 75 s |
+  | 帧（冷，一次） | 6 帧，p50 ≥ 4950 ms（gfxinfo 直方图的最高一档） | 没有统计（gfxinfo 没有给出） | 5 帧，p50 1500 ms | 4 帧，p50 600 ms |
+  | 帧（热，三次） | 9 帧，p50 2250 ms，p90 ≥ 4950 ms | 0 帧 | 20 帧，p50 1400 ms | 45 帧，p50 8 ms，p99 36 ms |
+  | 桌面的图（帧测完之后） | Launcher3 的桌面：搜索框、Gallery、Dock、导航栏 | 仍是 FallbackHome 淡出的画面 | — | — |
+  | 触摸打开 Gallery | 通过 | 失败：Launcher3 成为 top resumed 约 38 分钟后 uiautomator 的 dump 仍为空（还没画出来） | （只在 v86） | （只在 v86） |
+  | 应用启动（TotalTime） | 17.7 s（参考的 1.5 倍） | — | 12.1 s | 0.3 s |
+  | 重启后再到 boot_completed | 569 s（3.2 倍） | — | 179 s | 60 s |
+  | 反复重启的服务、重启后的崩溃与 ANR、DHCP 失败 | 无、无、0 | — | 无 | 无 |
+
+  SurfaceFlinger 的 GLES 为 “ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU Venus (v86 WebGPU)))”，OpenGL ES 2.0；SwiftShader 的为
+  OpenGL ES 3.1。帧仍要秒级（A10 的 P12.3 指标里再看；所有者定的顺序：性能在计划完成之后）。第 7 次（SwiftShader）
+  通过了触摸一步，推测是因为那时用户 0 要等约 10 分钟才解锁，Launcher3 有时间画出来；这一次解锁不再推迟（推测与
+  UWB 的 bug report 关掉有关），SwiftShader 就来不及了。第 2 次 Venus 运行（回复流与看门狗修正之前的代码、帧只测一种）也全部通过：
+  桌面 1091 s，应用启动 35.2 s，重启 518 s。
+
+### A9 完成（2026-10-19，`vA9`）
+
+提交：与本节同一个提交，打 tag `vA9`。
+
+- 验收逐条：
+  - `sys.boot_completed=1`：v86（Venus 与 SwiftShader）与 QEMU 参考（TCG、HVF）都到达。
+  - SurfaceFlinger 与 Launcher 在 Venus 上合成正确：SurfaceFlinger 的 RenderEngine 是 Venus 上的 ANGLE（OpenGL ES 2.0），
+    HWC 以 client 模式扫描输出；开机动画、Launcher3 的桌面（搜索框、Gallery、Dock、导航栏）、Gallery 与示例应用的画面
+    都由 Venus 画出（`build/a64-android/runs/v86-jit-par-venus-a9-1536m-4c/` 的截图）。
+  - 输入：多点触摸屏上点 Gallery 的图标把它打开；应用安装与启动：APK 安装、`am start -W` 17.7 s；网络：Wi-Fi 的 DHCP
+    地址，经 fetch 适配器的 HTTP（关开 Wi-Fi 之后再一次）。
+  - SELinux enforcing；必要服务不反复重启（没有 init 的 “exited 4 times”）；重启后没有应用崩溃与 ANR。
+  - 同一会话内 SYSTEM_RESET 之后重新加载，userdata 保持（APK 与 /data 中的文件都在）。
+  - R-a64-* 不退化：`make a64-gate`（16 项，136 s，含 core-split-check）；`make a64-gpu-guest-tests`（10 个场景，含 virgl
+    的 gltest、Venus 的 vktest 与 vkcube，40 分钟）；`make devices-test`；`make test-glbridge`（27 项）；
+    `make display-browser-tests`；`make all`（Closure 0 错误）；eslint。Rust 的改动只在 naga 的 crate（不在计划规定的
+    rustfmt 配置之下，没有重排）。x86：GX 与 SVGA 渲染器有改动，跑了 `make platform-release-gate GATE_ARGS="--levels
+    R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项通过）与 x86 Linux 上 SVGA 的 gltest（dx11-full：34 例中 31 例与 llvmpipe
+    一致，失败的 3 例正是 docs/gpu-deviations.md 已列的 Mesa svga 的问题）。
+- `make android-reference-tests` 与 `make android-guest-tests` 加入 A9 场景（v86 上用 Venus；后者先做 `make
+  android-venus` 与 `make glbridge`）。
+- 留给 A10 及以后：Venus 上的 OpenGL ES 3（超出 12 个的 uniform buffer、transform feedback）；帧时间（Venus 上热的
+  中位数 2.25 s，QEMU TCG 上的 SwiftShader 1.4 s；性能在 P12.3 的指标里看）；VX 把部分 resolve 当作整张图（警告）。

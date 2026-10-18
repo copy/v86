@@ -1077,7 +1077,7 @@ A64_PENDING = @echo "A64_PENDING $@: arrives with $(1) (docs/arm64-virt-android1
 	a64-kvm-unit-tests a64-litmus-tests a64-virt-device-tests a64-api-tests a64-guest-quick-tests a64-guest-tests \
 	a64-lifecycle-guest-tests a64-multicore-guest-tests a64-page-tier-tests a64-jit-guest-tests a64-gpu-guest-tests \
 	a64-parallel-tests a64-parallel-guest-tests a64-browser-tests a64-extended-guest-tests a64-pagesize-guest-tests \
-	a64-android-prep-tests android-materials android-reference-tests android-guest-tests
+	a64-android-prep-tests android-materials android-reference-tests android-guest-tests android-venus
 a64-decode-tests: build/v86-arm64.wasm
 	node tests/a64/oracle/decode.mjs --self-test
 	RUST_TEST_THREADS=1 cargo test --features aarch64 aarch64::
@@ -1291,11 +1291,18 @@ android-materials:
 	node tools/a64_android.mjs
 android-reference-tests: android-materials
 	A64_ANDROID_TARGET=qemu node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs
 	for cores in 1 4; do A64_KERNEL=gki A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
-android-guest-tests: android-materials build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+# (A9's scenario on Venus: the guest's driver in the materials, the renderer in a headless Chrome)
+android-guest-tests: android-venus android-materials build/v86-arm64.wasm build/v86-arm64-parallel.wasm glbridge
 	for cores in 1 4; do A64_KERNEL=gki A64_JIT=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
 	A64_KERNEL=gki A64_JIT=0 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=a9 A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+# Mesa's venus driver for Android (P11.4): tools/a64_venus/build.mjs with the
+# NDK (the pinned Mesa and libdrm tarballs, meson and mako with --download)
+android-venus:
+	node tools/a64_venus/build.mjs
 
 # The JIT's and the decoder's tests outside the x64 targets (the R-JIT level
 # of the release gate): the Rust unit tests, the Wasm builder's output, the

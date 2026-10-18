@@ -34,6 +34,13 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
  *   as test setups do (CTS turns the animations off). Blur is asked off too,
  *   unchecked: "wm disable-blur true" leaves this build's window manager
  *   reporting "Blur enabled: true".
+ * - No bug reports from UWB's device errors (DeviceConfig uwb's
+ *   device_error_bugreport_enabled false; the session one is not on the
+ *   shell's allowlist): Cuttlefish's UWB HAL talks to the host's pica on
+ *   hvc9, which neither v86 nor the reference has, so UWB's initialisation
+ *   times out, and on a userdebug build UwbServiceCore then asks for a full
+ *   bug report: dumpstate for minutes on v86 (every process's native
+ *   stacks), Android barely moving meanwhile.
  * @param {function(string, number=): !Promise<string>} adb
  * @return {!Promise<void>}
  */
@@ -43,12 +50,14 @@ export async function prepare_device(adb, ms = 3600000)
     const command = "locksettings set-disabled true >/dev/null 2>&1; " +
         "for s in window_animation_scale transition_animation_scale animator_duration_scale; do settings put global $s 0 >/dev/null 2>&1; done; " +
         "settings put global disable_window_blurs 1 >/dev/null 2>&1; wm disable-blur true >/dev/null 2>&1; " +
+        "device_config put uwb device_error_bugreport_enabled false >/dev/null 2>&1; " +
         "echo L=$(locksettings get-disabled 2>&1) W=$(settings get global window_animation_scale 2>&1) " +
-        "T=$(settings get global transition_animation_scale 2>&1) A=$(settings get global animator_duration_scale 2>&1)";
+        "T=$(settings get global transition_animation_scale 2>&1) A=$(settings get global animator_duration_scale 2>&1) " +
+        "U=$(device_config get uwb device_error_bugreport_enabled 2>&1)";
     for(let output; ; await sleep(15000))
     {
         output = await adb(command);
-        if(/L=true W=0(\.0)? T=0(\.0)? A=0(\.0)?\s*$/.test(output)) return;
+        if(/L=true W=0(\.0)? T=0(\.0)? A=0(\.0)? U=false\s*$/.test(output)) return;
         assert.ok(Date.now() < deadline, "the device's settings: " + JSON.stringify(output.slice(-300)));
     }
 }
@@ -97,6 +106,32 @@ export async function a9_scenario(env)
     await sleep(5000);
     result.screenshots = { home: await env.screenshot("home") };
     log("desktop: " + result.home);
+    // what draws (ANGLE's renderer string: SwiftShader or Venus), and frame
+    // times (P11.4 V4): Launcher3's all-apps list opened by a swipe up and
+    // closed by Back, once (cold: its shaders and pipelines made on the way)
+    // and then three times (warm), with Launcher3's frame statistics of each;
+    // pictures of the list and of the desktop (the one above can be the
+    // FallbackHome's, Launcher3's first frame still to come)
+    result.gles = (await adb("dumpsys -t 300 SurfaceFlinger 2>&1 | grep -m1 '^GLES'")).trim();
+    const frames = async cycles => {
+        await adb("dumpsys gfxinfo com.android.launcher3 reset >/dev/null 2>&1");
+        for(let i = 0; i < cycles; i++)
+        {
+            await adb("input swipe 360 1100 360 300 300");
+            await sleep(5000);
+            if(cycles === 1) result.screenshots.all_apps = await env.screenshot("all-apps");
+            await adb("input keyevent KEYCODE_BACK");
+            await sleep(5000);
+        }
+        const gfxinfo = await adb("dumpsys -t 300 gfxinfo com.android.launcher3 2>&1", 600000);
+        const stat = name => +(gfxinfo.match(new RegExp(name + ": (\\d+)"))?.[1] ?? NaN);
+        return { total: stat("Total frames rendered"), janky: stat("Janky frames"), p50_ms: stat("50th percentile"),
+            p90_ms: stat("90th percentile"), p99_ms: stat("99th percentile") };
+    };
+    result.frames_cold = await frames(1);
+    result.frames = await frames(3);
+    result.screenshots.desktop = await env.screenshot("desktop");
+    log("frames: cold " + JSON.stringify(result.frames_cold) + ", warm " + JSON.stringify(result.frames) + ", " + result.gles);
 
     // the network: Cuttlefish's VirtWifi (on v86, enabled from here; the reference's harness did it before adb)
     await adb("cmd wifi set-wifi-enabled enabled");

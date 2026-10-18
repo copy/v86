@@ -108,6 +108,8 @@ function Run(reader, on_command, on_end)
     this.on_command = on_command;
     this.on_end = on_end;
     this.waiting = false;
+    /** the command it waits in (for debugging) */
+    this.waiting_on = "";
 }
 
 /**
@@ -130,6 +132,8 @@ function VenusContext(venus, id)
     this.submissions = [];
     /** @type {!Array<function()>} commands waiting for a virtqueue or ring seqno */
     this.seqno_waits = [];
+    /** a wake of the seqno waits is due (Venus.run_ring) */
+    this.wake_pending = false;
     /** the Vulkan objects of this context, by the ids the driver gave them */
     this.objects = new Map();
     this.destroyed = false;
@@ -364,6 +368,7 @@ Venus.prototype.resume = function(ctx, run)
         {
             this.stats.waits++;
             run.waiting = true;
+            run.waiting_on = this.current;
             wait(() => {
                 run.on_command(r.p - start);
                 this.resume(ctx, run);
@@ -419,12 +424,14 @@ Venus.prototype.command = function(ctx, r)
         this.write_reply(ctx, entry[2], args);
         return null;
     }
-    // the reply goes where the stream is then
+    // the reply goes to the stream set for it (a ring sets one before each
+    // command with a reply; another ring's may be set while this one waits)
+    const stream = ctx.reply;
     return done => wait(() => {
         try
         {
             this.note_result(name, args);
-            this.write_reply(ctx, entry[2], args);
+            this.write_reply(ctx, entry[2], args, stream);
         }
         catch(e)
         {
@@ -445,10 +452,11 @@ Venus.prototype.note_result = function(name, args)
  * @param {!VenusContext} ctx
  * @param {function(!VenusWriter, !Object)} encode
  * @param {!Object} args
+ * @param {?{blob: !VenusBlob, offset: number, size: number, position: number}=} stream the context's when not given
  */
-Venus.prototype.write_reply = function(ctx, encode, args)
+Venus.prototype.write_reply = function(ctx, encode, args, stream)
 {
-    const stream = ctx.reply;
+    if(stream === undefined) stream = ctx.reply;
     if(!stream || stream.blob.map_offset < 0) throw new Error("a reply without a reply stream");
     const w = new VenusWriter(256);
     encode(w, args);
@@ -525,6 +533,14 @@ Venus.prototype.run_ring = function(ctx, ring)
         {
             const now = this.bytes();
             new DataView(now.buffer, now.byteOffset, now.byteLength).setUint32(ring.blob.map_offset + ring.head_offset, ring.head, true);
+        }
+        // (rings waiting for this one's head: not only when its run ends,
+        // which can wait on them; after this turn, so that no ring runs
+        // between another's reply stream and its command)
+        if(ctx.seqno_waits.length && !ctx.wake_pending)
+        {
+            ctx.wake_pending = true;
+            Promise.resolve().then(() => { ctx.wake_pending = false; this.wake_seqno_waits(ctx); });
         }
     }, () => {
         ring.run = null;

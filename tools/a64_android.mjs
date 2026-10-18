@@ -18,6 +18,25 @@
 // - disk.img: one GPT disk with Cuttlefish's partitions (misc, boot, init_boot,
 //   vendor_boot and the four vbmeta in slots a and b, super, userdata,
 //   metadata, frp), the sparse super and userdata made raw, a sparse file;
+// - with the Venus driver (P11.4 V3; build/a64-android/venus/vulkan.virtio.so,
+//   from `make android-venus`): the driver in odm, /odm/lib64, and
+//   initrd-venus.img, initrd.img with androidboot.hardware.vulkan=virtio and
+//   androidboot.hardware.hwcomposer.mode=client (as Cuttlefish's drm_virgl:
+//   SurfaceFlinger composes on the GPU, the ranchu HWC only scans out; it
+//   takes a Vulkan other than "pastel" for gfxstream's host composition),
+//   and androidboot.opengles.version=131072: ANGLE on Venus gives OpenGL ES
+//   2.0 (WebGPU's 12 uniform buffers a stage are fewer than ES 3's blocks
+//   and ANGLE's own; no transform feedback), so apps are not told 3.1.
+//   libvulkan tries the Vulkan APEX's namespace first (ro.vulkan.apex, set by
+//   the APEX), which has SwiftShader's vulkan.pastel.so but no vulkan.virtio.so,
+//   then its built-in path, the sphal namespace, whose search path starts
+//   with /odm/lib64 (not .../hw); initrd.img keeps SwiftShader. odm's erofs
+//   gets the file in blocks after its own (erofs_add_file), labelled
+//   same_process_hal_file; its hash tree is made again and vbmeta's odm
+//   descriptor gets the new size and root digest, without FEC (vbmeta's
+//   signature no longer matches: the device is unlocked, and first stage
+//   init checks the digest passed in bootconfig); odm_a moves to free space
+//   in super, every metadata copy rewritten;
 // - manifest.json: the artifacts' and results' hashes, the partitions, the
 //   kernel command line and bootconfig (bootconfig.txt, cmdline.txt too);
 // - modules/: the vendor ramdisk's virtual-device modules (virtio_pci,
@@ -70,6 +89,10 @@ const ALIGN = 1 << 20;
 /** the virt machine's PCIe host bridge (high ECAM), under which first stage
  * init looks for the partitions */
 const BOOT_DEVICES = "4010000000.pcie";
+/** the guest's Venus driver (tools/a64_venus/build.mjs), and what initrd-venus.img's bootconfig changes */
+const VENUS_DRIVER = ROOT + "build/a64-android/venus/vulkan.virtio.so";
+const VENUS_BOOTCONFIG = { "androidboot.hardware.vulkan": "virtio", "androidboot.hardware.hwcomposer.mode": "client",
+    "androidboot.opengles.version": "131072" };
 
 function parse_args(argv)
 {
@@ -317,6 +340,35 @@ export function unsparse_into(file, fd, offset)
     return total_blocks * block_size;
 }
 
+/** bytes [offset, offset + length) of a sparse image's raw contents */
+function sparse_read(file, offset, length)
+{
+    const out = Buffer.alloc(length);
+    const input = fs.openSync(file, "r");
+    const header = Buffer.alloc(28);
+    fs.readSync(input, header, 0, 28, 0);
+    if(header.readUInt32LE(0) !== 0xED26FF3A) throw new Error(file + ": not a sparse image");
+    const chunk_header = Buffer.alloc(header.readUInt16LE(10));
+    const block_size = header.readUInt32LE(12), total_chunks = header.readUInt32LE(20);
+    for(let i = 0, position = header.readUInt16LE(8), at = 0; i < total_chunks && at < offset + length; i++)
+    {
+        fs.readSync(input, chunk_header, 0, chunk_header.length, position);
+        const type = chunk_header.readUInt16LE(0), bytes = type === 0xCAC4 ? 0 : chunk_header.readUInt32LE(4) * block_size;
+        const data = position + chunk_header.length, from = Math.max(at, offset), to = Math.min(at + bytes, offset + length);
+        if(from < to && type === 0xCAC1) fs.readSync(input, out, from - offset, to - from, data + from - at);
+        else if(from < to && type === 0xCAC2)
+        {
+            const fill = Buffer.alloc(4);
+            fs.readSync(input, fill, 0, 4, data);
+            for(let j = from; j < to; j++) out[j - offset] = fill[(j - at) % 4];
+        }
+        at += bytes;
+        position += chunk_header.readUInt32LE(8);
+    }
+    fs.closeSync(input);
+    return out;
+}
+
 /** the raw size of a sparse image */
 function sparse_size(file)
 {
@@ -387,6 +439,303 @@ export function vbmeta_digest(read_partition)
     visit(root);
     const all = Buffer.concat(structs);
     return { digest: create_hash("sha256").update(all).digest("hex"), size: all.length, chained: root.descriptors.filter(d => d.tag === 4).map(d => d.partition) };
+}
+
+/** a hashtree descriptor's fields in a vbmeta struct (offsets into bytes) */
+function hashtree_descriptor(bytes, partition)
+{
+    const auth = Number(bytes.readBigUInt64BE(12));
+    const start = AVB_HEADER_SIZE + auth + Number(bytes.readBigUInt64BE(96)), end = start + Number(bytes.readBigUInt64BE(104));
+    for(let at = start; at < end; at += 16 + Number(bytes.readBigUInt64BE(at + 8)))
+    {
+        if(Number(bytes.readBigUInt64BE(at)) !== 1) continue;
+        const name_length = bytes.readUInt32BE(at + 104), salt_length = bytes.readUInt32BE(at + 108);
+        if(bytes.toString("latin1", at + 180, at + 180 + name_length) !== partition) continue;
+        const salt = at + 180 + name_length;
+        return { at, image_size: Number(bytes.readBigUInt64BE(at + 20)), data_block: bytes.readUInt32BE(at + 44),
+            hash_block: bytes.readUInt32BE(at + 48), algorithm: c_string(bytes, at + 72, 32),
+            salt: bytes.subarray(salt, salt + salt_length), digest: salt + salt_length, digest_length: bytes.readUInt32BE(at + 112) };
+    }
+    throw new Error("vbmeta: no hashtree descriptor for " + partition);
+}
+
+/** dm-verity's hash tree of image as avbtool makes it (the top level first)
+ * and its root digest */
+export function avb_hashtree(image, salt, block = 4096)
+{
+    const levels = [];
+    let level = image;
+    while(level.length > block)
+    {
+        const count = Math.ceil(level.length / block);
+        const next = Buffer.alloc(Math.ceil(count * 32 / block) * block);
+        for(let i = 0; i < count; i++)
+        {
+            const data = Buffer.alloc(block);
+            level.copy(data, 0, i * block, Math.min(level.length, (i + 1) * block));
+            create_hash("sha256").update(salt).update(data).digest().copy(next, i * 32);
+        }
+        levels.unshift(next);
+        level = next;
+    }
+    return { root: create_hash("sha256").update(salt).update(level).digest(), tree: Buffer.concat(levels) };
+}
+
+// liblp (system/core/fs_mgr/liblp/include/liblp/metadata_format.h): the
+// super partition's geometry and metadata, little-endian
+const LP_RESERVED_BYTES = 4096, LP_GEOMETRY_SIZE = 4096;
+
+/** every copy of super's metadata (each slot's primary and backup), read
+ * through read(offset, length) */
+function lp_metadata(read)
+{
+    const geometry = read(LP_RESERVED_BYTES, 52);
+    if(geometry.readUInt32LE(0) !== 0x616C4467) throw new Error("super: no liblp geometry");
+    const max = geometry.readUInt32LE(40), slots = geometry.readUInt32LE(44);
+    const copies = [];
+    for(let i = 0; i < 2 * slots; i++)
+    {
+        const offset = LP_RESERVED_BYTES + 2 * LP_GEOMETRY_SIZE + max * i;
+        const head = read(offset, 48);
+        if(head.readUInt32LE(0) !== 0x414C5030) throw new Error(`super: no metadata at ${offset}`);
+        const bytes = read(offset, head.readUInt32LE(8) + head.readUInt32LE(44));
+        const header_size = bytes.readUInt32LE(8);
+        const table = at => ({ offset: header_size + bytes.readUInt32LE(at), count: bytes.readUInt32LE(at + 4), size: bytes.readUInt32LE(at + 8) });
+        const partitions = [], extents = table(92);
+        const t = table(80);
+        for(let p = 0; p < t.count; p++)
+        {
+            const at = t.offset + p * t.size;
+            const first = bytes.readUInt32LE(at + 40), count = bytes.readUInt32LE(at + 44);
+            partitions.push({ name: c_string(bytes, at, 36), extents: Array.from({ length: count }, (_, e) =>
+            {
+                const x = extents.offset + (first + e) * extents.size;
+                return { at: x, sectors: Number(bytes.readBigUInt64LE(x)), type: bytes.readUInt32LE(x + 8), sector: Number(bytes.readBigUInt64LE(x + 12)) };
+            }) });
+        }
+        copies.push({ offset, bytes, partitions });
+    }
+    // (the block device: super itself)
+    const bytes = copies[0].bytes, device = bytes.readUInt32LE(8) + bytes.readUInt32LE(116);
+    return { copies, alignment: bytes.readUInt32LE(device + 8), size: Number(bytes.readBigUInt64LE(device + 16)) };
+}
+
+/** a metadata copy's checksums (sha256 of the tables, then of the header
+ * with its own checksum zero) */
+function lp_checksum(bytes)
+{
+    const header_size = bytes.readUInt32LE(8);
+    create_hash("sha256").update(bytes.subarray(header_size)).digest().copy(bytes, 48);
+    bytes.fill(0, 12, 44);
+    create_hash("sha256").update(bytes.subarray(0, header_size)).digest().copy(bytes, 12);
+}
+
+// erofs (fs/erofs/erofs_fs.h), little-endian
+const EROFS_SUPER_OFFSET = 1024;
+
+const CRC32C = Uint32Array.from({ length: 256 }, (_, i) =>
+{
+    for(let k = 0; k < 8; k++) i = i & 1 ? (i >>> 1) ^ 0x82F63B78 : i >>> 1;
+    return i;
+});
+const crc32c = (crc, bytes) => bytes.reduce((c, b) => CRC32C[(c ^ b) & 0xFF] ^ (c >>> 8), crc) >>> 0;
+
+/** an inode of a 4 KiB erofs image */
+function erofs_inode(image, nid)
+{
+    const sb = EROFS_SUPER_OFFSET;
+    if(image.readUInt32LE(sb) !== 0xE0F5E1E2 || image[sb + 12] !== 12) throw new Error("erofs: not a 4 KiB erofs image");
+    const at = image.readUInt32LE(sb + 40) * 4096 + nid * 32, extended = image.readUInt16LE(at) & 1, xattr_count = image.readUInt16LE(at + 2);
+    return { at, extended, layout: image.readUInt16LE(at) >> 1 & 7, mode: image.readUInt16LE(at + 4),
+        size: extended ? Number(image.readBigUInt64LE(at + 8)) : image.readUInt32LE(at + 8),
+        block: image.readUInt32LE(at + 16), xattrs: at + (extended ? 64 : 32), xattr_size: xattr_count ? 12 + 4 * (xattr_count - 1) : 0 };
+}
+
+/** an uncompressed (flat) inode's data, its last block inline or not */
+function erofs_data(image, inode)
+{
+    if(inode.layout !== 0 && inode.layout !== 2) throw new Error("erofs: not a flat inode");
+    const inline = inode.layout === 2 ? inode.size % 4096 : 0, blocks = inode.size - inline;
+    return Buffer.concat([image.subarray(inode.block * 4096, inode.block * 4096 + blocks),
+        image.subarray(inode.xattrs + inode.xattr_size, inode.xattrs + inode.xattr_size + inline)]);
+}
+
+/** a flat directory's entries */
+function erofs_entries(image, inode)
+{
+    const data = erofs_data(image, inode), entries = [];
+    for(let base = 0; base < data.length; base += 4096)
+    {
+        const length = Math.min(4096, data.length - base), count = data.readUInt16LE(base + 8) / 12;
+        for(let i = 0; i < count; i++)
+        {
+            const end = base + (i + 1 < count ? data.readUInt16LE(base + (i + 1) * 12 + 8) : length);
+            entries.push({ nid: Number(data.readBigUInt64LE(base + i * 12)), type: data[base + i * 12 + 10],
+                name: data.toString("latin1", base + data.readUInt16LE(base + i * 12 + 8), end).replace(/\0.*$/s, "") });
+        }
+    }
+    return entries;
+}
+
+/** the inode at path, through flat directories */
+export function erofs_lookup(image, file_path)
+{
+    let inode = erofs_inode(image, image.readUInt16LE(EROFS_SUPER_OFFSET + 14));
+    for(const name of file_path.split("/"))
+    {
+        const entry = erofs_entries(image, inode).find(e => e.name === name);
+        if(!entry) return null;
+        inode = erofs_inode(image, entry.nid);
+    }
+    return inode;
+}
+
+/** image (mkfs.erofs's) with a file at file_path, its directories new under
+ * the root: the new inodes, directories and the file's data (uncompressed)
+ * in blocks after the image's; the root's entries move into a block of
+ * their own. labels: the SELinux label of the directories and of the file */
+export function erofs_add_file(image, file_path, data, labels)
+{
+    const sb = EROFS_SUPER_OFFSET;
+    const B = 4096, blocks = image.readUInt32LE(sb + 36), meta = image.readUInt32LE(sb + 40) * B;
+    const root_nid = image.readUInt16LE(sb + 14), inos = Number(image.readBigUInt64LE(sb + 16));
+    const root = erofs_inode(image, root_nid);
+    const entries = erofs_entries(image, root);
+    const names = file_path.split("/");
+    if(entries.some(e => e.name === names[0])) throw new Error(`erofs: /${names[0]} exists`);
+    // (the name filter of the root's xattrs, with security.selinux as ours)
+    if(!root.xattr_size) throw new Error("erofs: the root has no xattrs");
+    const filter = image.readUInt32LE(root.xattrs);
+    const xattrs = label =>
+    {
+        const entry = Buffer.concat([Buffer.from([7, 6, label.length & 0xFF, label.length >> 8]), Buffer.from("selinux" + label, "latin1")]);
+        const body = Buffer.alloc(12 + Math.ceil(entry.length / 4) * 4);
+        body.writeUInt32LE(filter, 0);
+        entry.copy(body, 12);
+        return body;
+    };
+    const dirent_block = list =>
+    {
+        list.sort((a, b) => Buffer.compare(Buffer.from(a.name, "latin1"), Buffer.from(b.name, "latin1")));
+        const block = Buffer.alloc(B);
+        let name_at = list.length * 12;
+        list.forEach((e, i) =>
+        {
+            block.writeBigUInt64LE(BigInt(e.nid), i * 12);
+            block.writeUInt16LE(name_at, i * 12 + 8);
+            block[i * 12 + 10] = e.type;
+            name_at += block.write(e.name, name_at, "latin1");
+        });
+        if(name_at > B) throw new Error("erofs: a directory beyond one block");
+        return { block, size: name_at };
+    };
+    // the layout after the image: one block of inodes, the directories' blocks, the data
+    const new_dirs = names.length - 1;
+    const inode_block = blocks, dir_block = blocks + 1, data_block = dir_block + 1 + new_dirs;
+    const total = data_block + Math.ceil(data.length / B);
+    const out = Buffer.alloc(total * B);
+    image.copy(out, 0, 0, blocks * B);
+    const nids = [];
+    let at = inode_block * B;
+    for(let i = 0; i < names.length; i++)
+    {
+        nids.push((at - meta) / 32);
+        at += Math.ceil((32 + xattrs(labels[i + 1 === names.length ? "file" : "dir"]).length) / 32) * 32;
+    }
+    if(at > dir_block * B) throw new Error("erofs: the inodes beyond one block");
+    const write_inode = (index, mode, nlink, size, block, label) =>
+    {
+        const i = (nids[index] * 32) + meta, x = xattrs(label);
+        out.writeUInt16LE(0, i); // compact, flat plain
+        out.writeUInt16LE((x.length - 12) / 4 + 1, i + 2);
+        out.writeUInt16LE(mode, i + 4);
+        out.writeUInt16LE(nlink, i + 6);
+        out.writeUInt32LE(size, i + 8);
+        out.writeUInt32LE(block, i + 16);
+        out.writeUInt32LE(inos + 1 + index, i + 20);
+        x.copy(out, i + 32);
+    };
+    const EROFS_FT_REG_FILE = 1, EROFS_FT_DIR = 2;
+    for(let d = 0; d < new_dirs; d++)
+    {
+        const parent = d ? nids[d - 1] : root_nid;
+        const child = { nid: nids[d + 1], type: d + 1 < new_dirs ? EROFS_FT_DIR : EROFS_FT_REG_FILE, name: names[d + 1] };
+        const { block, size } = dirent_block([{ nid: nids[d], type: EROFS_FT_DIR, name: "." }, { nid: parent, type: EROFS_FT_DIR, name: ".." }, child]);
+        block.copy(out, (dir_block + 1 + d) * B);
+        write_inode(d, 0o40755, d + 1 < new_dirs ? 3 : 2, size, dir_block + 1 + d, labels.dir);
+    }
+    write_inode(new_dirs, 0o100644, 1, data.length, data_block, labels.file);
+    data.copy(out, data_block * B);
+    // the root: its entries and the new directory in a block of its own
+    const { block, size } = dirent_block([...entries, { nid: nids[0], type: EROFS_FT_DIR, name: names[0] }]);
+    block.copy(out, dir_block * B);
+    out.writeUInt16LE(out.readUInt16LE(root.at) & ~0xE, root.at);
+    if(root.extended)
+    {
+        out.writeBigUInt64LE(BigInt(size), root.at + 8);
+        out.writeUInt32LE(out.readUInt32LE(root.at + 44) + 1, root.at + 44);
+    }
+    else
+    {
+        out.writeUInt32LE(size, root.at + 8);
+        out.writeUInt16LE(out.readUInt16LE(root.at + 6) + 1, root.at + 6);
+    }
+    out.writeUInt32LE(dir_block, root.at + 16);
+    // the superblock: its counts and checksum
+    out.writeBigUInt64LE(BigInt(inos + names.length), sb + 16);
+    out.writeUInt32LE(total, sb + 36);
+    if(out.readUInt32LE(sb + 8) & 1)
+    {
+        out.writeUInt32LE(0, sb + 4);
+        out.writeUInt32LE(crc32c(0xFFFFFFFF, out.subarray(sb, B)), sb + 4);
+    }
+    return out;
+}
+
+/** the Venus driver on odm (docs/arm64-virt-android16-plan.md P11.4 V3; see
+ * the top): odm's image with the driver, its hash tree, the vbmeta with the
+ * new descriptor, super's metadata copies with odm_a moved */
+function odm_with_driver(super_read, vbmeta, driver)
+{
+    const lp = lp_metadata(super_read);
+    const odm = lp.copies[0].partitions.find(p => p.name === "odm_a");
+    if(!odm || odm.extents.length !== 1 || odm.extents[0].type !== 0) throw new Error("super: odm_a is not one linear extent");
+    const descriptor = hashtree_descriptor(vbmeta, "odm");
+    if(descriptor.algorithm !== "sha256" || descriptor.data_block !== 4096 || descriptor.hash_block !== 4096) throw new Error("vbmeta: odm's hash tree is not sha256 over 4 KiB blocks");
+    const labels = { dir: "u:object_r:vendor_file:s0", file: "u:object_r:same_process_hal_file:s0" };
+    const image = erofs_add_file(super_read(odm.extents[0].sector * SECTOR, descriptor.image_size), "lib64/vulkan.virtio.so", driver, labels);
+    // (read back)
+    const added = erofs_lookup(image, "lib64/vulkan.virtio.so");
+    if(!added || !erofs_data(image, added).equals(driver) || !image.subarray(added.xattrs, added.xattrs + added.xattr_size).includes("selinux" + labels.file, 0, "latin1") ||
+        !erofs_lookup(image, "etc/build.prop")) throw new Error("erofs: odm with the driver does not read back");
+    const { root, tree } = avb_hashtree(image, descriptor.salt);
+    const new_vbmeta = Buffer.from(vbmeta);
+    const d = descriptor.at;
+    new_vbmeta.writeBigUInt64BE(BigInt(image.length), d + 20);
+    new_vbmeta.writeBigUInt64BE(BigInt(image.length), d + 28);
+    new_vbmeta.writeBigUInt64BE(BigInt(tree.length), d + 36);
+    // (no FEC)
+    new_vbmeta.writeUInt32BE(0, d + 52);
+    new_vbmeta.writeBigUInt64BE(0n, d + 56);
+    new_vbmeta.writeBigUInt64BE(0n, d + 64);
+    root.copy(new_vbmeta, descriptor.digest);
+    // odm_a: in the free space after every partition's extents
+    const align = lp.alignment / SECTOR;
+    const end = Math.max(...lp.copies.flatMap(c => c.partitions.flatMap(p => p.extents.map(e => e.sector + e.sectors))));
+    const sector = Math.ceil(end / align) * align, sectors = Math.ceil((image.length + tree.length) / lp.alignment) * align;
+    if((sector + sectors) * SECTOR > lp.size) throw new Error("super: no room for odm_a");
+    const metadata = [];
+    for(const copy of lp.copies)
+    {
+        const p = copy.partitions.find(p => p.name === "odm_a");
+        if(!p || p.extents.length !== 1 || p.extents[0].sector !== odm.extents[0].sector) throw new Error("super: the metadata copies differ in odm_a");
+        copy.bytes.writeBigUInt64LE(BigInt(sectors), p.extents[0].at);
+        copy.bytes.writeBigUInt64LE(BigInt(sector), p.extents[0].at + 12);
+        lp_checksum(copy.bytes);
+        metadata.push({ offset: copy.offset, bytes: copy.bytes });
+    }
+    return { vbmeta: new_vbmeta, odm: { offset: sector * SECTOR, bytes: Buffer.concat([image, tree]) }, metadata,
+        record: { sector, sectors, image_blocks: image.length / 4096, root_digest: root.toString("hex") } };
 }
 
 // GPT
@@ -530,7 +879,10 @@ async function main()
         vbmeta: "vbmeta.img", vbmeta_system: "vbmeta_system.img", vbmeta_vendor_dlkm: "vbmeta_vendor_dlkm.img",
         vbmeta_system_dlkm: "vbmeta_system_dlkm.img", boot: "boot.img", init_boot: "init_boot.img", vendor_boot: "vendor_boot.img",
     };
-    const vbmeta = vbmeta_digest(name => read(partition_file[name]));
+    // the Venus driver on odm (see the top), when tools/a64_venus/build.mjs has made it
+    const driver = fs.existsSync(VENUS_DRIVER) ? fs.readFileSync(VENUS_DRIVER) : null;
+    const venus = driver && odm_with_driver((offset, length) => sparse_read(IMG + "super.img", offset, length), read("vbmeta.img"), driver);
+    const vbmeta = vbmeta_digest(name => name === "vbmeta" && venus ? venus.vbmeta : read(partition_file[name]));
 
     const bootconfig = parse_bootconfig(vendor_boot.bootconfig);
     for(const [key, value] of launcher_bootconfig(args, vbmeta)) bootconfig.set(key, value);
@@ -550,6 +902,11 @@ async function main()
     if(!fs.existsSync(modules + "modules.load")) throw new Error("no lib/modules/modules.load in the vendor ramdisk");
     const initrd = append_bootconfig(Buffer.concat([vendor_ramdisk, init_boot.ramdisk]), bootconfig);
     fs.writeFileSync(args.out + "initrd.img", initrd);
+    // (and with libvulkan's driver odm's, Venus)
+    const initrd_venus = venus && append_bootconfig(Buffer.concat([vendor_ramdisk, init_boot.ramdisk]),
+        new Map([...bootconfig, ...Object.entries(VENUS_BOOTCONFIG)]));
+    if(initrd_venus) fs.writeFileSync(args.out + "initrd-venus.img", initrd_venus);
+    else fs.rmSync(args.out + "initrd-venus.img", { force: true });
     const cmdline = [vendor_boot.cmdline, boot.cmdline, "console=hvc0 earlycon=pl011,mmio32,0x9000000"].filter(Boolean).join(" ");
     fs.writeFileSync(args.out + "cmdline.txt", cmdline + "\n");
     fs.writeFileSync(args.out + "bootconfig.txt", [...bootconfig].map(([k, v]) => `${k}=${v}\n`).join(""));
@@ -558,9 +915,10 @@ async function main()
     const layout = [["misc", { blank: 1 << 20 }]];
     for(const name of ["boot", "init_boot", "vendor_boot", "vbmeta", "vbmeta_system", "vbmeta_vendor_dlkm", "vbmeta_system_dlkm"])
     {
-        for(const slot of ["_a", "_b"]) layout.push([name + slot, { file: IMG + partition_file[name] }]);
+        for(const slot of ["_a", "_b"]) layout.push([name + slot, name === "vbmeta" && venus ? { bytes: venus.vbmeta } : { file: IMG + partition_file[name] }]);
     }
-    layout.push(["super", { sparse: IMG + "super.img" }], ["userdata", { sparse: IMG + "userdata.img" }], ["metadata", { blank: 64 << 20 }]);
+    layout.push(["super", { sparse: IMG + "super.img", patches: venus ? [...venus.metadata, venus.odm] : [] }],
+        ["userdata", { sparse: IMG + "userdata.img" }], ["metadata", { blank: 64 << 20 }]);
     // (and from Cuttlefish's second, persistent disk the one the guest
     // needs: frp, PersistentDataBlockService's, without which system_server
     // dies at boot phase 500)
@@ -569,7 +927,7 @@ async function main()
     let at = ALIGN;
     for(const [name, source] of layout)
     {
-        const size = source.blank || (source.file ? fs.statSync(source.file).size : sparse_size(source.sparse));
+        const size = source.blank || source.bytes?.length || (source.file ? fs.statSync(source.file).size : sparse_size(source.sparse));
         partitions.push({ name, start: at, size, source });
         at += Math.ceil(size / ALIGN) * ALIGN;
     }
@@ -578,7 +936,8 @@ async function main()
     // (kept when made from the same artifacts with the same layout, unless
     // --fresh-disk: the runs keep their writes in memory, the image stays
     // as made, and a guest still reading it is not disturbed)
-    const disk_key = JSON.stringify({ artifacts: hashes, partitions: partitions.map(p => [p.name, p.start, p.size]) });
+    const disk_key = JSON.stringify({ artifacts: hashes, partitions: partitions.map(p => [p.name, p.start, p.size]),
+        venus: venus ? venus.record : null });
     const key_file = args.out + "disk.key";
     if(args.fresh_disk || !fs.existsSync(disk) || fs.statSync(disk).size !== disk_size ||
         !fs.existsSync(key_file) || fs.readFileSync(key_file, "utf8") !== disk_key)
@@ -590,15 +949,16 @@ async function main()
         write_gpt(fd, disk_size, partitions);
         for(const p of partitions)
         {
-            if(p.source.file)
+            if(p.source.file || p.source.bytes)
             {
-                const bytes = fs.readFileSync(p.source.file);
+                const bytes = p.source.bytes || fs.readFileSync(p.source.file);
                 fs.writeSync(fd, bytes, 0, bytes.length, p.start);
             }
             else if(p.source.sparse)
             {
                 console.log(`${p.name}: unsparsing ${path.basename(p.source.sparse)} (${p.size} bytes)`);
                 unsparse_into(p.source.sparse, fd, p.start);
+                for(const patch of p.source.patches || []) fs.writeSync(fd, patch.bytes, 0, patch.bytes.length, p.start + patch.offset);
             }
         }
         fs.closeSync(fd);
@@ -614,13 +974,16 @@ async function main()
         artifacts: hashes,
         vendor_ramdisk: args.release ? "vendor_boot.img" : "vendor_ramdisk-debug.img",
         vbmeta,
+        venus: venus ? { driver: { file: path.relative(ROOT, VENUS_DRIVER), sha256: create_hash("sha256").update(driver).digest("hex") },
+            odm: venus.record, bootconfig: VENUS_BOOTCONFIG } : null,
         cmdline,
         bootconfig: Object.fromEntries(bootconfig),
         disk: { size: disk_size, sector: SECTOR, boot_devices: BOOT_DEVICES,
             partitions: partitions.map(p => ({ name: p.name, start: p.start, size: p.size })) },
         modules: module_count,
         results: { "Image": create_hash("sha256").update(boot.kernel).digest("hex"),
-            "initrd.img": create_hash("sha256").update(initrd).digest("hex") },
+            "initrd.img": create_hash("sha256").update(initrd).digest("hex"),
+            ...(initrd_venus ? { "initrd-venus.img": create_hash("sha256").update(initrd_venus).digest("hex") } : {}) },
     };
     fs.writeFileSync(args.out + "manifest.json", JSON.stringify(manifest, null, 2) + "\n");
     console.log(`${args.out}: Image, initrd.img (${initrd.length} bytes), disk.img (${disk_size} bytes, ${partitions.length} partitions), manifest.json`);

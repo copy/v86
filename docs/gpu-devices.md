@@ -715,7 +715,24 @@ keeps the Vulkan objects and answers.
   constants become a storage buffer, so do uniform buffers whose layout
   WGSL's uniform rules refuse, and Y is flipped. Pipelines use WebGPU's
   automatic layouts; bind groups are made per pipeline from the bound sets'
-  contents.
+  contents. A viewport of a negative height draws with a variant of the
+  pipeline whose vertex shader keeps Vulkan's Y; passes and pipelines
+  without attachments get a placeholder one (WebGPU needs one).
+- **Android's buffers** (gralloc, `VK_ANDROID_external_memory_android_hardware_buffer`
+  in the guest): Mesa's venus imports an AHardwareBuffer as its virtio-gpu
+  resource (`VkImportMemoryResourceInfoMESA`). The imported memory has no GPU
+  buffer of its own; an image bound to it (`VK_EXT_image_drm_format_modifier`,
+  the linear modifier) becomes the texture of the resource's GX surface
+  (`VX.TEXTURE_IMPORT`; GX and VX share the renderer's GPUDevice). After each
+  submission the GPU's copy of every imported resource counts as the newer
+  one, so scanout and `TRANSFER_FROM_HOST` read it back. The device does not
+  offer `VK_EXT_external_memory_dma_buf` (nothing becomes a dma-buf, and
+  Mesa's venus on Linux would then leave its software WSI); the Android
+  driver imports without it (`tools/a64_venus/venus-android.patch`).
+- **Rings**: Mesa's venus gives each thread a ring. A command that waits
+  replies, when it is done, into the reply stream set for it, whatever
+  another ring set meanwhile; a ring waiting for another's position is
+  woken when that ring's head passes it, not only when that ring runs out.
 - **Queries**: a pool's results are a VX memory. Occlusion queries are
   WebGPU's (the render pass names the pool it uses: the model looks ahead
   for the first one begun in it), resolved into that memory when the pass

@@ -89,6 +89,13 @@ and the image is 64-bit only.
   `4010000000.pcie`, the f2fs fstab, and the graphics keys.
 - `disk.img`: one GPT disk with Cuttlefish's partitions, written as a
   sparse file.
+- With the guest's Venus driver (`make android-venus`, below): the driver
+  in odm as `/odm/lib64/vulkan.virtio.so` (blocks added to odm's erofs, a
+  new hash tree and vbmeta descriptor, odm_a moved within super), and
+  `initrd-venus.img`, `initrd.img` with libvulkan's driver that one
+  (`androidboot.hardware.vulkan=virtio`), the ranchu HWC scanning out what
+  SurfaceFlinger composes (`hwcomposer.mode=client`) and OpenGL ES 2.0
+  announced. `initrd.img` keeps SwiftShader.
 - `manifest.json`: the hashes, partitions, command line and bootconfig.
 
 Cuttlefish's host services (keymint, gatekeeper, ...) are replaced by the
@@ -103,7 +110,7 @@ runs on the PL011.
 | --- | --- | --- |
 | Boot (first boot, 4 cores, 1536 MiB) | `sys.boot_completed=1` in 341 s (system_server at 143 s); 174 billion instructions to it (libinsn, an upper bound); about 1 GiB is the least RAM that boots | release build, page tier, cores in workers: system_server at 443 s, adbd over vsock at 447 s, `sys.boot_completed=1` (polled over adb) at 1396 s, 4.1 times the reference |
 | Devices | virtio-pci: blk 00:01.0, gpu 00:02.0, 18 virtconsoles, rng, keyboard, tablet, three NICs | the same order, `virtio_vsock` (adb), a multitouch screen, three virtio NICs (`net_device.count: 3`), the third on the fetch adapter under Cuttlefish's Wi-Fi |
-| A9's scenario (`A64_ANDROID_SCENARIO=a9`) | boot_completed 341 s, app start 27.8 s, second boot 208 s | SwiftShader: boot_completed 1550 s, app start 81.9 s (2.9 times), second boot 872 s (4.2 times); Wi-Fi, HTTP through the fetch adapter, a tap that opens Gallery |
+| A9's scenario (`A64_ANDROID_SCENARIO=a9`) | boot_completed 299 s, the desktop at 370 s, Launcher3's frames 1.4 s (warm median), app start 12.1 s, second boot 179 s (an earlier run: 341 s, 27.8 s, 208 s) | Venus (`A64_ANDROID_GPU=venus`): boot_completed 1076 s, the desktop at 1174 s (user 0 unlocked within 3 s), frames 2.3 s, app start 17.7 s (1.5 times), second boot 569 s (3.2 times); Wi-Fi, HTTP through the fetch adapter, a tap that opens Gallery. SwiftShader: Launcher3 still not drawn some 38 minutes after it resumed, so the tap fails |
 
 P10.3 freezes Android's E level against the QEMU TCG reference on the same
 host, with the same materials, on 4 cores with 1536 MiB, and v86 as above. A
@@ -156,8 +163,16 @@ A9's scenario (P11, `tests/a64/android_scenario.mjs`) runs over adb after
 
 Graphics with SwiftShader are too slow on v86 for the desktop's acceptance:
 A9's graphics move to Venus (P11.4). The prebuilt image has no Mesa, so
-Mesa's venus driver is built with the NDK (Mesa 26.1.6, the version of
-`venus_protocol.js`) and installed into the image; ANGLE runs GLES on it.
+`make android-venus` (`tools/a64_venus/build.mjs`) builds Mesa's venus
+driver with the NDK (Mesa 26.1.6, the version of `venus_protocol.js`;
+libdrm linked in; `tools/a64_venus/venus-android.patch`: the render node
+opened by path, as SELinux hides /dev/dri from drmGetDevices2; minigbm's
+buffer handles read directly; AHardwareBuffers imported as their
+virtio-gpu resources without `VK_EXT_external_memory_dma_buf`), and the
+materials install it. ANGLE runs GLES on it (OpenGL ES 2.0: WebGPU's 12
+uniform buffers a stage are fewer than ES 3 needs with ANGLE's own, and
+there is no transform feedback), for SurfaceFlinger and HWUI;
+`A64_ANDROID_GPU=venus` boots `initrd-venus.img`.
 
 ## Known defects
 
@@ -175,7 +190,10 @@ declared deviation, a slower path or a documented limit. None is major.
 | Kernels with SW_TTBR0_PAN (the androidish one, GKI) boot 17% slower to a login than the stock kernel with `a64_asid_tag` auto, 70% slower without it | minor | the profile has no PAN; FEAT_PAN is a v2 candidate (P10.4) |
 | A single-buffer snapshot (`save_state`) refuses extended RAM | minor | `save_state_stream` holds it |
 | Android 16's first boot takes 23 minutes on 4 cores in workers (4.1 times QEMU TCG's; mostly APEX decompression and dex2oat, about 125 MIPS overall) | minor | performance (A10, P12.3's metrics against P10.3's budget); FEAT_PAN is the first candidate |
-| Android's graphics with SwiftShader on v86: Launcher3's first frames take minutes; with animations on, ART's finalizer watchdog killed it (`ReferenceQueueDaemon` timed out on `HardwareRenderer$DestroyContextRunnable`) although `ro.hw_timeout_multiplier` is 50; screenshots lag the window manager by seconds | minor | A9's scenario turns animations off; the desktop's graphics move to Venus (P11.4) |
+| Android's graphics with SwiftShader on v86: Launcher3's first frames take minutes; with animations on, ART's finalizer watchdog killed it (`ReferenceQueueDaemon` timed out on `HardwareRenderer$DestroyContextRunnable`) although `ro.hw_timeout_multiplier` is 50; screenshots lag the window manager by seconds | minor | A9's scenario turns animations off; A9's graphics are Venus's (P11.4) |
+| Android on Venus: frames still take seconds (Launcher3's all-apps list: about 5 s cold, 2.3 s warm at the median) | minor | performance (A10, P12.3) |
+| Android on Venus offers OpenGL ES 2.0, not 3.x: ANGLE needs more uniform buffers a stage than WebGPU's 12 (the GL blocks and its own) and transform feedback (no extension; its emulation needs stores in the vertex stage, which WebGPU does not have) | minor | `androidboot.opengles.version` says 2.0 on Venus; ES 3 later (uniform buffers beyond 12 as read-only storage buffers) |
+| UWB's initialisation times out on Cuttlefish without the host's pica (hvc9), and a userdebug build then takes a full bug report: minutes of dumpstate on v86 | minor | A9's scenario turns UWB's device-error bug reports off (`device_config`) |
 | Android's first boot on v86: user 0 unlocks about ten minutes after `sys.boot_completed=1` (the receivers of PRE_BOOT_COMPLETED and BOOT_COMPLETED); SystemUI's SYSTEM_READY can then come before provisioning ends, so it never shows its keyguard while the window manager keeps the keyguard's sleep token, and dismissals do nothing | minor | the scenario waits for `RUNNING_UNLOCKED` and disables the lock screen as soon as adb answers |
 | DHCP on Android's wlan0 over the fetch adapter failed twice in one of the runs (the network then blocked for five minutes); the cause is not known yet | minor | the scenario connects again every two minutes; `dhcp.log` records the exchange |
 | Bluetooth's native stack aborts (FinalizerWatchdogDaemon) on Android's first boot | minor | on QEMU TCG too: not v86's |
@@ -209,8 +227,9 @@ declared deviation, a slower path or a documented limit. None is major.
 | Android 16 to `sys.boot_completed=1` (P10.3; `A64_ANDROID_ACCEL=hvf`: the host's CPU; `A64_QEMU_PLUGINS=1`: instruction counts; `A64_MEMORY_MB`) | `node tests/a64/android_boot.mjs` (`make android-reference-tests`) | QEMU |
 | The GKI bridge (P10.6): the GKI kernel, Alpine's initramfs, the 19 virtual-device modules, the probe | `A64_KERNEL=gki [A64_LINUX_QEMU=1] A64_STAGE=initramfs node tests/a64/linux_boot.mjs` | both |
 | Android 16 to system_server and adbd over vsock (P10.7; `A64_ANDROID_WAIT=boot_completed`) | `A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 node tests/a64/android_boot.mjs` (`make android-guest-tests`) | v86 |
-| A9's scenario (P11): the desktop, Wi-Fi, HTTP (v86), touch (v86), an APK, a reboot | `A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs` (with the v86 variables above for v86) | both |
-| Shell commands over adb after boot_completed (`A64_ANDROID_PROBE=<file>`, one per line; `A64_ANDROID_PUSH=<local>=<remote>,...` first); Venus with the renderer in a headless Chrome (`A64_ANDROID_GPU=venus`, v86) | `node tests/a64/android_boot.mjs` | both |
+| A9's scenario (P11): the desktop, frame times (Launcher3's all-apps list, cold and warm), Wi-Fi, HTTP (v86), touch (v86), an APK, a reboot; on v86 with Venus (`A64_ANDROID_GPU=venus`) | `A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs` (with the v86 variables above for v86); in `make android-reference-tests` and `make android-guest-tests` | both |
+| Shell commands over adb after boot_completed (`A64_ANDROID_PROBE=<file>`, one per line, `@screenshot <name>` for a picture; `A64_ANDROID_PUSH=<local>=<remote>,...` first); Venus with the renderer in a headless Chrome (`A64_ANDROID_GPU=venus`, v86, `initrd-venus.img`); a state saved after boot_completed and restored instead of booting (`A64_ANDROID_SAVE_STATE`, `A64_ANDROID_RESTORE_STATE`, v86; without a scenario add `A64_ANDROID_WAIT=boot_completed`) | `node tests/a64/android_boot.mjs` | both |
+| The guest's Venus driver (P11.4): Mesa 26.1.6 built with the NDK (r26b), `vkprobe` and `vkahb` (`tests/a64/android/`) | `make android-venus` | — |
 | Android's ISA (P10.4): the booted guest's partitions and APEXes (`build/a64-android/rootfs.tar`, on QEMU with HVF) against v1 | `node tools/a64_android.mjs --extract`, `node tools/a64_isa_scan.mjs --android build/a64-android/rootfs.tar` | QEMU |
 
 `make a64-gate` runs before each commit and `make a64-gate-full` at a

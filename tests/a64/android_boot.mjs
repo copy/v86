@@ -33,7 +33,8 @@
 //
 //   A64_CORES (4), A64_MEMORY_MB (1536: about 1 GiB is the least that boots, P10.3), A64_JIT=1 (the page tier),
 //   A64_PARALLEL=1 (vCPU workers), A64_ANDROID_GPU=venus (v86: virtio-gpu with Venus, the renderer in a headless
-//   Chrome), A64_ANDROID_TIMEOUT (ms), A64_ANDROID_PROBE=<file> (shell commands to run
+//   Chrome, the guest's driver initrd-venus.img's), A64_ANDROID_SAVE_STATE=<file> / A64_ANDROID_RESTORE_STATE=<file> (v86: a state after boot_completed, saved
+//   or restored instead of booting), A64_ANDROID_TIMEOUT (ms), A64_ANDROID_PROBE=<file> (shell commands to run
 //   over adb after boot_completed, one per line, with their output; A64_ANDROID_PUSH=<local>=<remote>,... first),
 //   TEST_RELEASE_BUILD=1 (build/libv86.mjs)
 // Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log, *.png, result.json)
@@ -168,10 +169,11 @@ function adb_over(open, retry_ms = 600000)
 
 /** the scenario's result, with its screenshots, into the result */
 // A64_ANDROID_PROBE=<file>: after boot_completed, each line of the file a
-// shell command over adb, with its time, length and output (debugging);
+// shell command over adb, with its time, length and output (debugging); a
+// line "@screenshot <name>" saves the display as <name>.png;
 // A64_ANDROID_PUSH=<local>=<remote>,...: files pushed first
 const probe_file = process.env.A64_ANDROID_PROBE || "";
-async function run_probes(shell, push)
+async function run_probes(shell, push, screenshot)
 {
     if(!probe_file) return;
     for(const pair of (process.env.A64_ANDROID_PUSH || "").split(",").filter(Boolean))
@@ -182,6 +184,11 @@ async function run_probes(shell, push)
     }
     for(const command of fs.readFileSync(probe_file, "utf8").split("\n").filter(line => line.trim() && !line.startsWith("#")))
     {
+        if(command.startsWith("@screenshot "))
+        {
+            console.log(`probe: screenshot ${await screenshot(command.slice(12).trim())}`);
+            continue;
+        }
         const start = Date.now();
         let output;
         try { output = await shell(command, 900000); }
@@ -274,7 +281,7 @@ if(target === "qemu")
                 s.once("error", reject);
             });
             const adb = adb_over(tcp);
-            await run_probes(adb.shell, adb.push);
+            await run_probes(adb.shell, adb.push, name => qemu_screendump(monitor, directory, name));
             if(scenario)
             {
                 await run_scenario({ target, adb: adb.shell, push: adb.push, reboot: adb.reboot,
@@ -342,12 +349,19 @@ const sink = new PictureSink();
 // renderer in a headless Chrome (tests/x64/gpu_remote_renderer.mjs, GL_CHROME)
 const gpu_level = process.env.A64_ANDROID_GPU || "";
 assert.ok(!gpu_level || gpu_level === "venus", "A64_ANDROID_GPU: venus");
+// (and tools/a64_android.mjs's initrd-venus.img: libvulkan's driver the odm's vulkan.virtio.so)
+const initrd = gpu_level === "venus" ? "initrd-venus.img" : "initrd.img";
+assert.ok(fs.existsSync(OUT + initrd), OUT + initrd + " is missing: make android-venus, then node tools/a64_android.mjs");
 const remote = gpu_level ? await create_remote_renderer() : null;
+// A64_ANDROID_SAVE_STATE=<file>: a V7 state saved after boot_completed;
+// A64_ANDROID_RESTORE_STATE=<file>: such a state restored instead of booting
+// (the same options otherwise), for quick rounds of probes
+const save_state_file = process.env.A64_ANDROID_SAVE_STATE || "", restore_state_file = process.env.A64_ANDROID_RESTORE_STATE || "";
 const emulator = new V86({
-    cpu_type: "arm64", cpu_cores: cores, memory_size: low_mb * 1048576, log_level: 0, autostart: true,
+    cpu_type: "arm64", cpu_cores: cores, memory_size: low_mb * 1048576, log_level: 0, autostart: !restore_state_file,
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
-    kernel: { url: OUT + "Image" }, initrd: { url: OUT + "initrd.img" },
+    kernel: { url: OUT + "Image" }, initrd: { url: OUT + initrd },
     cmdline: fs.readFileSync(OUT + "cmdline.txt", "utf8").trim(),
     virtio_transport: "pci", virtio_disks: [{ url: OUT + "disk.img", async: true, size: fs.statSync(OUT + "disk.img").size }],
     graphics_adapter: "virtio_gpu", virtio_gpu_pci_slot: 2, screen_adapter: sink,
@@ -357,6 +371,25 @@ const emulator = new V86({
     ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
     ...(parallel ? { parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm" } : {}),
 });
+const loaded = new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
+// A64_ANDROID_GPU_DEBUG=1 (with the sources, not the release build: the
+// device's names): virtio-gpu's control queue and Venus's queues every 30 s
+if(process.env.A64_ANDROID_GPU_DEBUG)
+{
+    setInterval(() => {
+        const gpu = emulator.v86?.cpu?.devices?.graphics_adapter?.device?.["virtio_gpu"];
+        if(!gpu) return;
+        const first = gpu.pending.find(entry => !entry.ready);
+        const vk = gpu.venus && gpu.venus.vk;
+        console.log(`gpu-debug: held=${gpu.held} pending=${gpu.pending.length} first-waiting=${first ? "0x" + new DataView(first.bytes.buffer, first.bytes.byteOffset).getUint32(0, true).toString(16) : "-"}` +
+            (vk ? ` venus queues=${[...vk.queues].map(q => q.pending.length + "p/" + q.inflight + "i/ring" + q.ring_idx).join(",")} waiters=${vk.waiters.length}` +
+                ` submissions=${vk.stats.submissions} batches=${vk.stats.batches}` : "") +
+            (gpu.venus ? ` errors=${gpu.venus.stats.errors}${gpu.venus.stats.last_error ? " last=" + JSON.stringify(gpu.venus.stats.last_error) : ""}` +
+                // (each context's rings: - idle, R running, W:<command> waiting in it, F fatal)
+                ` rings=${[...gpu.venus.contexts.values()].map(c => [...c.rings.values()].map(r => r.fatal ? "F" : !r.run ? "-" :
+                    r.run.waiting ? "W:" + r.run.waiting_on.replace(/^vk/, "") : "R").join("")).filter(r => /[RWF]/.test(r)).join(" ")}` : ""));
+    }, 30000).unref();
+}
 // (Cuttlefish's phone display: 720x1280, lcd_density 320)
 emulator.add_listener("emulator-ready", () => emulator.set_display_size(720, 1280));
 // (Node has no animation frames: the display draws into the sink when asked, as tests/x64/linux_gpu.mjs's)
@@ -406,6 +439,21 @@ const with_deadline = p => Promise.race([p, failed, deadline]);
 
 try
 {
+    if(restore_state_file)
+    {
+        await loaded;
+        const file = await fs.promises.open(restore_state_file, "r");
+        const size = (await file.stat()).size;
+        await emulator.restore_state_stream({ size, read: async (offset, length) => {
+            const data = new Uint8Array(length);
+            const read = (await file.read(data, 0, length, offset))["bytesRead"];
+            return read === length ? data : data.subarray(0, read);
+        } });
+        await file.close();
+        for(const name of ["restored", "system_server", "adbd", "boot_completed"]) mark(name);
+        console.log(`restored ${restore_state_file} (${(size / 1048576).toFixed(0)} MiB)`);
+        emulator.run();
+    }
     // system_server, then adbd's answer (retried: adbd starts before its vsock listener is ready)
     await with_deadline(new Promise(resolve => { const t = setInterval(() => { if(marks.system_server !== undefined && marks.adbd !== undefined) { clearInterval(t); resolve(); } }, 1000); }));
     const banner = await with_deadline(adb.banner());
@@ -426,7 +474,18 @@ try
         mark("boot_completed_adb");
         screenshot("boot-completed");
     }
-    await with_deadline(run_probes(adb.shell, adb.push));
+    if(save_state_file)
+    {
+        await emulator.stop();
+        const file = await fs.promises.open(save_state_file, "w");
+        let bytes = 0;
+        await emulator.save_state_stream(async chunk => { await file.write(chunk, 0, chunk.length, bytes); bytes += chunk.length; });
+        await file.close();
+        mark("state_saved");
+        console.log(`saved ${save_state_file} (${(bytes / 1048576).toFixed(0)} MiB)`);
+        emulator.run();
+    }
+    await with_deadline(run_probes(adb.shell, adb.push, async name => screenshot(name)));
     if(scenario)
     {
         await with_deadline(prepared);

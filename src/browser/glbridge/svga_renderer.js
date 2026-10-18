@@ -81,7 +81,9 @@
             if (!executor.device) await executor.initialize();
             const VX = global.V86VXExecutor;
             if (!VX) throw new Error("the renderer needs vx_executor.js (libv86-webgpu.js)");
-            vx = new VX.VXExecutor({ device: executor.device, formats: global.V86VenusFormats });
+            // (GX's surfaces: the images Venus imports from virtio-gpu resources)
+            const peer = { surface: sid => gx && gx.surfaces ? gx.surfaces.get(sid) || null : null };
+            vx = new VX.VXExecutor({ device: executor.device, formats: global.V86VenusFormats, peer });
             return vx;
         };
 

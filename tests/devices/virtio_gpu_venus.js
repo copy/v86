@@ -504,6 +504,80 @@ assert.equal(call("vkGetSemaphoreCounterValue", { device: DEVICE, semaphore: SEM
 assert.equal(read32(mem_base + 64), 7, "the command buffer, recorded before the snapshot, runs after it");
 console.log("PASS: snapshots");
 
+// gralloc's buffers (Android: docs/arm64-virt-android16-plan.md P11.4): the
+// modifier and foreign queue extensions without the dma-buf ones (Mesa's
+// venus on Linux would take swapchain images for dma-bufs), one modifier
+// (linear), dma-buf images importable all the same, a virgl resource imported as
+// memory (VkImportMemoryResourceInfoMESA) and an image bound to it, which
+// becomes the resource's GX surface (VX.TEXTURE_IMPORT); after a submission
+// the GPU's copy of the resource is the newer one; the import is in the
+// state a snapshot keeps
+reply = call("vkEnumerateDeviceExtensionProperties", { physicalDevice: PHYSICAL_DEVICE, pLayerName: null, pPropertyCount: 0, pProperties: null });
+reply = call("vkEnumerateDeviceExtensionProperties", { physicalDevice: PHYSICAL_DEVICE, pLayerName: null, pPropertyCount: reply.pPropertyCount,
+    pProperties: new Array(reply.pPropertyCount).fill(0).map(() => ({})) });
+for(const name of ["VK_EXT_image_drm_format_modifier", "VK_EXT_queue_family_foreign"])
+{
+    assert.ok(reply.pProperties.some(p => p.extensionName === name), name);
+}
+for(const name of ["VK_EXT_external_memory_dma_buf", "VK_KHR_external_memory_fd"])
+{
+    assert.ok(!reply.pProperties.some(p => p.extensionName === name), "not " + name);
+}
+const modifier_list = (count, properties) => call("vkGetPhysicalDeviceFormatProperties2", { physicalDevice: PHYSICAL_DEVICE, format: 37,
+    pFormatProperties: { sType: 1000059002, pNext: { sType: 1000158000, drmFormatModifierCount: count, pDrmFormatModifierProperties: properties } } })
+    .pFormatProperties.pNext;
+assert.equal(modifier_list(0, null).drmFormatModifierCount, 1, "R8G8B8A8_UNORM: one modifier");
+const linear = modifier_list(1, [{}]).pDrmFormatModifierProperties[0];
+assert.equal(Number(linear.drmFormatModifier), 0, "DRM_FORMAT_MOD_LINEAR");
+assert.equal(linear.drmFormatModifierPlaneCount, 1);
+assert.equal(linear.drmFormatModifierTilingFeatures & 0x1181, 0x1181, "with optimal tiling's features");
+const external_image = (handle_type, modifier) => call("vkGetPhysicalDeviceImageFormatProperties2", { physicalDevice: PHYSICAL_DEVICE,
+    pImageFormatInfo: { sType: 1000059004, pNext: { sType: 1000071000, handleType: handle_type, pNext: { sType: 1000158002, drmFormatModifier: modifier,
+        sharingMode: 0, queueFamilyIndexCount: 0, pQueueFamilyIndices: null } }, format: 37, type: 1, tiling: 1000158000, usage: 0x16, flags: 0 },
+    pImageFormatProperties: { sType: 1000059003, pNext: { sType: 1000071001 } } });
+reply = external_image(0x200, 0);
+assert.equal(reply.ret, 0, "a dma-buf image with the linear modifier");
+assert.equal(reply.pImageFormatProperties.pNext.externalMemoryProperties.externalMemoryFeatures, 5, "dedicated, importable");
+assert.equal(reply.pImageFormatProperties.pNext.externalMemoryProperties.compatibleHandleTypes, 0x200);
+assert.equal(external_image(0x1, 0).ret, -11, "opaque fds: no");
+assert.equal(external_image(0x200, 1).ret, -11, "another modifier: no");
+// (a virgl resource, as minigbm makes one: RESOURCE_CREATE_3D, a 2D texture of R8G8B8A8_UNORM)
+const AHB_RES = 30, AHB_IMAGE = 0x3010, AHB_MEM = 0x3011, CB2 = 0x3012;
+assert.equal(command(0x0204, AHB_RES, 2, 67, 2, 64, 32, 1, 1, 0, 0, 0, 0), OK, "RESOURCE_CREATE_3D");
+const resource_properties = id => call("vkGetMemoryResourcePropertiesMESA", { device: DEVICE, resourceId: id,
+    pMemoryResourceProperties: { pNext: { sType: 1000384003 } } });
+reply = resource_properties(AHB_RES);
+assert.equal(reply.ret, 0);
+assert.equal(reply.pMemoryResourceProperties.memoryTypeBits, 1, "device local");
+assert.equal(Number(reply.pMemoryResourceProperties.pNext.allocationSize), 64 * 32 * 4);
+assert.equal(resource_properties(99).ret, -1000072003, "an unknown resource: VK_ERROR_INVALID_EXTERNAL_HANDLE");
+ring_write(encode(["vkCreateImage", { device: DEVICE, pCreateInfo: { sType: 14,
+        pNext: { sType: 1000072001, handleTypes: 0x200, pNext: { sType: 1000158004, drmFormatModifier: 0, drmFormatModifierPlaneCount: 1,
+            pPlaneLayouts: [{ offset: 0, size: 8192, rowPitch: 256, arrayPitch: 0, depthPitch: 0 }] } },
+        flags: 0, imageType: 1, format: 37, extent: { width: 64, height: 32, depth: 1 }, mipLevels: 1, arrayLayers: 1, samples: 1,
+        tiling: 1000158000, usage: 0x16, sharingMode: 0, queueFamilyIndexCount: 0, pQueueFamilyIndices: null, initialLayout: 0 }, pImage: AHB_IMAGE }],
+    ["vkAllocateMemory", { device: DEVICE, pAllocateInfo: { sType: 5, pNext: { sType: 1000384002, resourceId: AHB_RES,
+        pNext: { sType: 1000127001, image: AHB_IMAGE, buffer: 0 } }, allocationSize: 8192, memoryTypeIndex: 0 }, pMemory: AHB_MEM }],
+    ["vkBindImageMemory", { device: DEVICE, image: AHB_IMAGE, memory: AHB_MEM, memoryOffset: 0 }],
+    ["vkAllocateCommandBuffers", { device: DEVICE, pAllocateInfo: { sType: 40, commandPool: POOL, level: 0, commandBufferCount: 1 }, pCommandBuffers: [CB2] }],
+    ["vkBeginCommandBuffer", { commandBuffer: CB2, pBeginInfo: { sType: 42 } }],
+    ["vkEndCommandBuffer", { commandBuffer: CB2 }]));
+const vk = gpu.venus.vk;
+const import_entry = [...vk.imports.values()][0];
+assert.equal(import_entry[1], AHB_RES);
+assert.equal(Number(call("vkGetImageDrmFormatModifierPropertiesEXT", { device: DEVICE, image: AHB_IMAGE, pProperties: {} }).pProperties.drmFormatModifier), 0);
+assert.equal(Number(call("vkGetImageSubresourceLayout", { device: DEVICE, image: AHB_IMAGE, pSubresource: { aspectMask: 1, mipLevel: 0, arrayLayer: 0 },
+    pLayout: {} }).pLayout.rowPitch), 256, "the guest's layout");
+const ahb = gpu.resources.get(AHB_RES);
+ahb.host_newer = true;
+ring_write(encode(["vkQueueSubmit", { queue: QUEUE, submitCount: 1, pSubmits: [{ sType: 4, waitSemaphoreCount: 0, pWaitSemaphores: null,
+    pWaitDstStageMask: null, commandBufferCount: 1, pCommandBuffers: [CB2], signalSemaphoreCount: 0, pSignalSemaphores: null }], fence: 0 }]));
+assert.equal(ahb.host_newer, false, "after a submission the GPU's copy is the newer one");
+// (the VX commands go with the submission's batch: the image made, then made the resource's surface)
+assert.ok(vx_log.lastIndexOf(VX.TEXTURE_IMPORT) > vx_log.lastIndexOf(VX.TEXTURE_CREATE), "the image is the resource's GX surface");
+assert.deepEqual(vk.get_state()[5], [import_entry], "a snapshot keeps the import");
+console.log("PASS: gralloc's buffers: dma-buf images, resources imported as memory");
+
 // Destroying the context
 assert.equal(command(0x0201), OK, "CTX_DESTROY");
 assert.ok(!gpu.venus.contexts.has(CTX));

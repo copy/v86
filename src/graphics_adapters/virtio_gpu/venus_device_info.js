@@ -83,6 +83,10 @@ export const STYPE = {
     IMAGE_FORMAT_PROPERTIES_2: 1000059003,
     EXTERNAL_IMAGE_FORMAT_PROPERTIES: 1000071001,
     PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO: 1000071000,
+    DRM_FORMAT_MODIFIER_PROPERTIES_LIST: 1000158000,
+    DRM_FORMAT_MODIFIER_PROPERTIES_LIST_2: 1000158006,
+    PHYSICAL_DEVICE_IMAGE_DRM_FORMAT_MODIFIER_INFO: 1000158002,
+    IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO: 1000158004,
     SAMPLER_YCBCR_CONVERSION_IMAGE_FORMAT_PROPERTIES: 1000156005,
     SEMAPHORE_TYPE_CREATE_INFO: 1000207002,
     DYNAMIC_RENDERING_FEATURES: 1000044003,
@@ -196,7 +200,8 @@ const LIMITS = {
     pointSizeGranularity: 0,
     lineWidthGranularity: 0,
     strictLines: 0,
-    standardSampleLocations: 0,
+    // (1 and 4 samples: WebGPU's four are Vulkan's standard positions)
+    standardSampleLocations: 1,
     optimalBufferCopyOffsetAlignment: 4,
     optimalBufferCopyRowPitchAlignment: 256,
     nonCoherentAtomSize: 64,
@@ -460,8 +465,8 @@ const USAGE_FEATURES = [
 export function image_format_properties(format, type, tiling, usage, flags)
 {
     const entry = FORMATS[format];
-    // (optimal tiling only)
-    if(!entry || !entry[0] || tiling !== 0) return null;
+    // (optimal tiling, and the linear modifier's: an image is a texture either way)
+    if(!entry || !entry[0] || tiling !== 0 && tiling !== TILING_DRM_FORMAT_MODIFIER) return null;
     const features = format_properties(format).optimalTilingFeatures;
     for(const [bit, need] of USAGE_FEATURES)
     {
@@ -502,7 +507,26 @@ export const DEVICE_EXTENSIONS = {
     "VK_KHR_create_renderpass2": 1,
     "VK_KHR_depth_stencil_resolve": 1,
     "VK_KHR_dynamic_rendering": 1,
+    // gralloc's buffers on Android (P11.4 of docs/arm64-virt-android16-plan.md):
+    // the driver imports a dma-buf as its virtio-gpu resource
+    // (VkImportMemoryResourceInfoMESA), whose GX surface the image then is;
+    // one modifier, linear (images are textures here, with no layout of
+    // their own); the foreign queue family is the CPU and the display.
+    // Not VK_EXT_external_memory_dma_buf (nor VK_KHR_external_memory_fd):
+    // nothing here becomes a dma-buf, and Mesa's venus on Linux takes it for
+    // dma-buf swapchain images (its software WSI only without it); the
+    // Android driver (tools/a64_venus/venus-android.patch) imports without it
+    "VK_KHR_image_format_list": 1,
+    "VK_EXT_image_drm_format_modifier": 2,
+    "VK_EXT_queue_family_foreign": 1,
 };
+
+// VkExternalMemoryHandleTypeFlagBits, VkExternalMemoryFeatureFlagBits
+export const MEMORY_HANDLE_DMA_BUF = 0x200;
+export const MEMORY_DEDICATED_ONLY = 1, MEMORY_IMPORTABLE = 4;
+/** VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT, and the one modifier offered */
+export const TILING_DRM_FORMAT_MODIFIER = 1000158000;
+export const DRM_FORMAT_MOD_LINEAR = 0;
 
 // VkExternalSemaphoreHandleTypeFlagBits, VkExternalFenceHandleTypeFlagBits
 export const SEMAPHORE_SYNC_FD = 0x10;

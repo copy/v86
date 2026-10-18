@@ -60,6 +60,21 @@ function buffer_requirements(size)
     return { size: align(size, 4), alignment: ALIGNMENT, memoryTypeBits: 7 };
 }
 
+/**
+ * An image bound to its memory; memory imported from a virtio-gpu resource
+ * makes the image that resource's GX surface (VX.TEXTURE_IMPORT)
+ */
+function bind_image(vk, image, memory, offset)
+{
+    image.memory = memory;
+    image.offset = offset;
+    if(memory && memory.resource_id && !image.resource_id)
+    {
+        image.resource_id = memory.resource_id;
+        vk.vx.command(VX.TEXTURE_IMPORT, [image.rid, memory.resource_id]);
+    }
+}
+
 /** VkMemoryRequirements of an image: device local memory (images are textures) */
 function image_requirements(image)
 {
@@ -78,6 +93,28 @@ function requirements2(out, requirements)
             s.requiresDedicatedAllocation = 0;
         }
     }
+}
+
+/**
+ * The bytes a virtio-gpu resource Venus imports holds: its blob's size, or
+ * its texels (the bits in its virgl format's name), aligned as images' memory
+ * @param {!Object} resource a virgl Resource3D
+ */
+function resource_size(resource)
+{
+    if(resource.blob_size > 0) return resource.blob_size;
+    // (the name is the SVGA3D format's: SVGA3D_R8G8B8A8_UNORM)
+    const bits = resource.info ? (resource.info.name.replace(/^SVGA3D_/, "").match(/\d+/g) || []).reduce((sum, n) => sum + +n, 0) : 32;
+    const texel = Math.max(1, Math.ceil((bits || 32) / 8));
+    return align(Math.max(1, resource.width) * Math.max(1, resource.height) * Math.max(1, resource.depth) *
+        Math.max(1, resource.array_size) * texel, ALIGNMENT);
+}
+
+/** the virtio-gpu resource an import names, when Venus can import it: a virgl resource with a GX surface */
+function importable_resource(vk, id)
+{
+    const resource = vk.gpu && vk.gpu.resources ? vk.gpu.resources.get(id) : null;
+    return resource && resource.three_d && resource.info ? resource : null;
 }
 
 /** an image from its create info */
@@ -104,8 +141,15 @@ export const RESOURCE_HANDLERS = {
         const type = info.memoryTypeIndex, size = info.allocationSize;
         for(let s = info.pNext; s; s = s.pNext)
         {
-            // (memory of another resource: dma-bufs, not yet)
-            if(s.sType === STYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA) { a.ret = VK_ERROR_INVALID_EXTERNAL_HANDLE; return null; }
+            // (a dma-buf: its virtio-gpu resource, whose GX surface the image
+            // bound to it becomes; no GPU buffer of its own)
+            if(s.sType !== STYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA) continue;
+            if(type !== INFO.MEMORY_DEVICE_LOCAL || !importable_resource(vk, s.resourceId)) { a.ret = VK_ERROR_INVALID_EXTERNAL_HANDLE; return null; }
+            const memory = new Memory(vk.new_rid(), size, type);
+            memory.resource_id = s.resourceId;
+            ctx.objects.set(a.pMemory, memory);
+            a.ret = VK_SUCCESS;
+            return null;
         }
         if(type > INFO.MEMORY_HOST_CACHED || !size || size > 1 << 30) { a.ret = VK_ERROR_OUT_OF_DEVICE_MEMORY; return null; }
         const host = type !== INFO.MEMORY_DEVICE_LOCAL;
@@ -122,6 +166,11 @@ export const RESOURCE_HANDLERS = {
     {
         const memory = ctx.objects.get(a.memory);
         if(!memory) return null;
+        if(memory.resource_id)
+        {
+            ctx.objects.delete(a.memory);
+            return null;
+        }
         if(memory.host_visible) vk.host_allocated -= memory.size; else vk.device_allocated -= memory.size;
         vk.vx.command(VX.DESTROY, [memory.rid]);
         if(memory.blob) memory.blob.memory = null;
@@ -136,7 +185,19 @@ export const RESOURCE_HANDLERS = {
     },
     "vkGetMemoryResourcePropertiesMESA": function(vk, ctx, a)
     {
-        a.ret = VK_ERROR_INVALID_EXTERNAL_HANDLE;
+        const resource = importable_resource(vk, a.resourceId);
+        if(!resource)
+        {
+            a.ret = VK_ERROR_INVALID_EXTERNAL_HANDLE;
+            return null;
+        }
+        const props = a.pMemoryResourceProperties;
+        props.memoryTypeBits = 1 << INFO.MEMORY_DEVICE_LOCAL;
+        for(let s = props.pNext; s; s = s.pNext)
+        {
+            if(s.sType === STYPE_MEMORY_RESOURCE_ALLOCATION_SIZE_PROPERTIES_MESA) s.allocationSize = resource_size(resource);
+        }
+        a.ret = VK_SUCCESS;
         return null;
     },
     // (coherent memory: nothing to do)
@@ -221,6 +282,11 @@ export const RESOURCE_HANDLERS = {
             return null;
         }
         const image = image_of(vk.new_rid(), info);
+        for(let s = info.pNext; s; s = s.pNext)
+        {
+            // (the layout the guest's buffer has, for vkGetImageSubresourceLayout)
+            if(s.sType === INFO.STYPE.IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO && s.pPlaneLayouts) image.layout = s.pPlaneLayouts[0];
+        }
         vk.vx.command(VX.TEXTURE_CREATE, [image.rid, image.format, image.image_type, image.width, image.height, image.depth,
             image.mips, image.layers, image.samples, image.usage, image.flags]);
         ctx.objects.set(a.pImage, image);
@@ -269,11 +335,7 @@ export const RESOURCE_HANDLERS = {
     "vkBindImageMemory": function(vk, ctx, a)
     {
         const image = ctx.objects.get(a.image);
-        if(image)
-        {
-            image.memory = ctx.objects.get(a.memory) || null;
-            image.offset = a.memoryOffset;
-        }
+        if(image) bind_image(vk, image, ctx.objects.get(a.memory) || null, a.memoryOffset);
         a.ret = VK_SUCCESS;
         return null;
     },
@@ -282,17 +344,22 @@ export const RESOURCE_HANDLERS = {
         for(const bind of a.pBindInfos || [])
         {
             const image = ctx.objects.get(bind.image);
-            if(!image) continue;
-            image.memory = ctx.objects.get(bind.memory) || null;
-            image.offset = bind.memoryOffset;
+            if(image) bind_image(vk, image, ctx.objects.get(bind.memory) || null, bind.memoryOffset);
         }
         a.ret = VK_SUCCESS;
         return null;
     },
     "vkGetImageSubresourceLayout": function(vk, ctx, a)
     {
-        // (optimal tiling only: no layout to speak of)
-        a.pLayout = { offset: 0, size: 0, rowPitch: 0, arrayPitch: 0, depthPitch: 0 };
+        // (optimal tiling: no layout to speak of; an imported buffer's is the guest's)
+        const image = ctx.objects.get(a.image);
+        a.pLayout = image && image.layout ? image.layout : { offset: 0, size: 0, rowPitch: 0, arrayPitch: 0, depthPitch: 0 };
+        return null;
+    },
+    "vkGetImageDrmFormatModifierPropertiesEXT": function(vk, ctx, a)
+    {
+        a.pProperties.drmFormatModifier = INFO.DRM_FORMAT_MOD_LINEAR;
+        a.ret = VK_SUCCESS;
         return null;
     },
     "vkCreateImageView": function(vk, ctx, a)

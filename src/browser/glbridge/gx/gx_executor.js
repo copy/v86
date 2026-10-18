@@ -262,6 +262,9 @@
                 case GX.SURFACE_DEFINE: return this.defineSurface(b);
                 case GX.SURFACE_DESTROY: {
                     const s = this.surfaces.get(b[0]);
+                    // (after the commands recorded with it: a submit with a
+                    // destroyed texture is refused whole, readbacks and all)
+                    if (s) this.flushEncoder();
                     if (s) this.releaseSurface(s);
                     this.surfaces.delete(b[0]);
                     return;
@@ -423,6 +426,7 @@
         defineSurface(b) {
             const [sid, format, flags, flags2, width, height, depth, mips, layers, samples, cube] = b;
             const old = this.surfaces.get(sid);
+            if (old) this.flushEncoder();
             if (old) this.releaseSurface(old);
             const f = this.formatOf(format);
             const s = { sid, format, f, flags, width: Math.max(1, width), height: Math.max(1, height),
