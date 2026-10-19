@@ -2689,15 +2689,18 @@ VGAScreen.prototype.render = function()
             this.machine.mmio_ram_fill_pixels(this.lfb_region, this.svga_bpp, this.svga_offset);
 
             const bytes_per_pixel = this.svga_bpp === 15 ? 2 : this.svga_bpp / 8;
-            min_y = (((this.machine.dirty_min_offset() / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width | 0);
-            max_y = (((this.machine.dirty_max_offset() / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width | 0) + 1;
+            // (floor: rows above the shown page are negative)
+            min_y = Math.floor(((this.machine.dirty_min_offset() / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width);
+            max_y = Math.floor(((this.machine.dirty_max_offset() / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width) + 1;
         }
+
+        // (the dirty rows on the screen: a page flipped away, e.g. DirectDraw's
+        // back buffer in video memory, can be dirty with none of them shown)
+        min_y = Math.max(min_y, 0);
+        max_y = Math.min(max_y, this.svga_height);
 
         if(min_y < max_y)
         {
-            min_y = Math.max(min_y, 0);
-            max_y = Math.min(max_y, this.svga_height);
-
             this.display.update_buffer([{
                 pixels: this.pixels,
                 screen_x: 0, screen_y: min_y,

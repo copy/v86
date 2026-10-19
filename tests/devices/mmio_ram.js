@@ -87,6 +87,35 @@ assert.equal(cpu.read8(moved + (6 * WIDTH + 2) * 4 + 2), 0x7f);
 assert.deepEqual(pixel(2, 6), [0x7f, 0, 0], "banked writes are shown too");
 console.log("PASS: the banked window is independent of BAR0");
 
+// Page flipping: with the second page shown (Y offset), writes to the pages
+// above and below it are dirty but not on the screen, and render passes no
+// rows for them (it passed a negative height, and the CPU Worker's copy threw
+// "Invalid typed array length": Yuri's Revenge drawing its DirectDraw back buffer)
+{
+    const heights = [];
+    const update_buffer = vga.display.update_buffer;
+    vga.display.update_buffer = function(layers)
+    {
+        for(const l of layers) heights.push(l.buffer_height);
+        return update_buffer.call(this, layers);
+    };
+    dispi(9, HEIGHT);
+    pixel(0, 0);
+    heights.length = 0;
+    for(const y of [4, HEIGHT - 10, 2 * HEIGHT + 3])
+    {
+        put(moved, 3, y, 0x00ABCDEF);
+        pixel(0, 0);
+    }
+    assert.deepEqual(heights, [], "no rows for the pages that are not shown");
+    put(moved, 4, HEIGHT + 7, 0x00123456);
+    assert.deepEqual(pixel(4, 7), [0x12, 0x34, 0x56], "the shown page still reaches the screen");
+    assert.ok(heights.length === 1 && heights[0] > 0, "the rows of the written page: " + heights);
+    vga.display.update_buffer = update_buffer;
+    dispi(9, 0);
+    console.log("PASS: dirty rows off the shown page are not passed on");
+}
+
 const state = await emulator.save_state();
 pci_write(0x10, base);
 assert.equal(vga.lfb_address, base);

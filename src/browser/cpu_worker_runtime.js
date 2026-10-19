@@ -39,7 +39,7 @@ export function start_cpu_worker()
         for(const l of layers)
         {
             const w = l.buffer_width, h = l.buffer_height;
-            if(!w || !h) continue;
+            if(!(w > 0 && h > 0)) continue;
             const pixels = new Uint8ClampedArray(w * h * 4);
             for(let y = 0; y < h; y++)
             {
