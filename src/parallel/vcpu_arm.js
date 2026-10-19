@@ -141,6 +141,10 @@ export async function run_vcpu_arm(init, post, handle)
             Atomics.wait(ctrl, C.RESUME, resumed, 1000);
         }
         if(Atomics.load(ctrl, C.SHUTDOWN)) return;
+        // (the machine's clock as resume() synchronized it: after a restore
+        // into a new machine this core's own clock, which only goes on by
+        // at most a second per reading, would stay behind it for good)
+        cpu.clock.set_time(now());
         const command = Atomics.load(ctrl, C.COMMAND);
         if(command === C.COMMAND_RESET || command === C.COMMAND_RELOAD)
         {

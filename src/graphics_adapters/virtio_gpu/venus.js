@@ -30,6 +30,9 @@ const RING_STATUS_ALIVE = 4;
 /** what may be written into a ring's buffer between two reads (the driver's limit is the buffer) */
 const MAX_DIRECT = 1 << 20;
 
+/** the start of the key of a ring restored from a snapshot whose ring ids were numbers (ring_key) */
+const ROUNDED = "~";
+
 /**
  * The capset: the protocol of venus_protocol.js (Mesa 26.1.6's), every
  * extension of it (the extension mask's bit 0 clear says so); what the
@@ -75,6 +78,7 @@ export function VenusBlob(id, ctx_id, blob_id, flags, size)
 /**
  * A command ring in shared memory
  * @constructor
+ * @param {string} id its key in its context's rings (ring_key)
  */
 function Ring(id, blob, info)
 {
@@ -122,7 +126,7 @@ function VenusContext(venus, id)
 {
     this.venus = venus;
     this.id = id;
-    /** @type {!Map<number, !Ring>} */
+    /** @type {!Map<string, !Ring>} by ring_key */
     this.rings = new Map();
     /** @type {?{blob: !VenusBlob, offset: number, size: number, position: number}} the reply stream */
     this.reply = null;
@@ -200,10 +204,13 @@ Venus.prototype.set_state = function(state, blob_of)
         this.contexts.set(id, ctx);
         ctx.physical_device = physical_device;
         ctx.objects = decode_objects(objects, ([kind, x]) => kind === "ctx" ? this.contexts.get(x) || null : kind === "blob" ? blob_of(x) : null);
-        for(const [ring_id, blob_id, head_offset, tail_offset, status_offset, buffer_offset, buffer_size, extra_offset, extra_size, head, fatal] of rings)
+        for(const [saved_id, blob_id, head_offset, tail_offset, status_offset, buffer_offset, buffer_size, extra_offset, extra_size, head, fatal] of rings)
         {
             const blob = blob_of(blob_id);
             if(!blob) continue;
+            // (a snapshot of before the ids were exact: its id is a number
+            // the driver's pointer rounded to, under which ring_key finds it)
+            const ring_id = typeof saved_id === "number" ? ROUNDED + saved_id : saved_id;
             const ring = new Ring(ring_id, blob, { headOffset: head_offset, tailOffset: tail_offset, statusOffset: status_offset,
                 bufferOffset: buffer_offset, bufferSize: buffer_size, extraOffset: extra_offset, extraSize: extra_size });
             ring.head = head;
@@ -581,6 +588,24 @@ function seqno_passed(a, b)
     return (a - b | 0) >= 0;
 }
 
+/**
+ * The key of the ring the driver names `id` (VenusReader.ring_id: its
+ * pointer's 16 hex digits). Until 2026-10-19 the ids were numbers, which
+ * round the driver's pointers to multiples of 2048 (Android's heap pointers
+ * have a tag in the top byte), so that two threads' rings could get one id
+ * and the second replaced the first, whose thread then waited for good; a
+ * snapshot of then has its rings under the rounded number (set_state)
+ * @param {!VenusContext} ctx
+ * @param {string} id
+ * @return {string}
+ */
+function ring_key(ctx, id)
+{
+    if(ctx.rings.has(id)) return id;
+    const rounded = ROUNDED + Number(BigInt("0x" + id));
+    return ctx.rings.has(rounded) ? rounded : id;
+}
+
 // ---------------------------------------------------------------------------
 // The transport commands
 
@@ -608,18 +633,18 @@ const TRANSPORT = {
     },
     "vkDestroyRingMESA": function(venus, ctx, a)
     {
-        ctx.rings.delete(a.ring);
+        ctx.rings.delete(ring_key(ctx, a.ring));
         return null;
     },
     "vkNotifyRingMESA": function(venus, ctx, a)
     {
-        const ring = ctx.rings.get(a.ring);
+        const ring = ctx.rings.get(ring_key(ctx, a.ring));
         if(ring) venus.run_ring(ctx, ring);
         return null;
     },
     "vkWriteRingExtraMESA": function(venus, ctx, a)
     {
-        const ring = ctx.rings.get(a.ring);
+        const ring = ctx.rings.get(ring_key(ctx, a.ring));
         if(!ring || a.offset + 4 > ring.extra_size) throw new Error("vkWriteRingExtraMESA: bad ring or offset");
         const bytes = venus.bytes();
         new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
@@ -681,10 +706,10 @@ const TRANSPORT = {
     },
     "vkWaitRingSeqnoMESA": function(venus, ctx, a)
     {
-        const ring = ctx.rings.get(a.ring);
+        const key = ring_key(ctx, a.ring), ring = ctx.rings.get(key);
         if(!ring) return null;
         venus.run_ring(ctx, ring);
-        const reached = () => !ctx.rings.has(a.ring) || seqno_passed(ring.head, a.seqno);
+        const reached = () => !ctx.rings.has(key) || seqno_passed(ring.head, a.seqno);
         if(reached()) return null;
         return done => {
             const check = () => { if(reached()) done(); else ctx.seqno_waits.push(check); };

@@ -153,6 +153,17 @@ MachineClock.prototype.resume = function()
     }
 };
 
+/**
+ * Go on from `time_ms` (a vCPU worker's clock when it leaves a stop: the
+ * machine's time, which a restore may have set anywhere)
+ * @param {number} time_ms
+ */
+MachineClock.prototype.set_time = function(time_ms)
+{
+    this.time_ms = time_ms;
+    this.host_last = this.host_now();
+};
+
 MachineClock.prototype.get_diagnostics = function()
 {
     return {

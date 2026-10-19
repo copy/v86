@@ -682,7 +682,14 @@ keeps the Vulkan objects and answers.
   keeps the `ALIVE` status bit up for the driver's watchdog, writes replies
   into the reply stream the driver names, and runs `vkExecuteCommandStreamsMESA`
   streams. A submission (`SUBMIT_3D`) that waits holds the control queue,
-  as virglrenderer's in-order processing does.
+  as virglrenderer's in-order processing does. A ring's id is the driver's
+  pointer to its ring (Mesa's venus makes one ring a thread for its
+  synchronous calls besides the instance's): the transport commands' `ring`
+  is read exactly (`VenusReader.ring_id`, 16 hex digits), since as a number
+  Android's heap pointers (a tag in the top byte) round to multiples of
+  2048 and two threads' rings shared an id, the second replacing the first
+  (until 2026-10-19; a snapshot of then keeps its rings under those numbers,
+  `ring_key` in `venus.js`).
 - **Vulkan model** (`venus_vk.js` and `venus_vk_*.js`): instance and physical
   device queries from `venus_device_info.js`. The device reports Vulkan 1.1,
   the lowest renderer version Mesa's venus driver accepts

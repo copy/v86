@@ -578,6 +578,41 @@ assert.ok(vx_log.lastIndexOf(VX.TEXTURE_IMPORT) > vx_log.lastIndexOf(VX.TEXTURE_
 assert.deepEqual(vk.get_state()[5], [import_entry], "a snapshot keeps the import");
 console.log("PASS: gralloc's buffers: dma-buf images, resources imported as memory");
 
+// Ring ids are the driver's pointers to its rings, exact: two threads' rings
+// 0x1c0 apart on Android's tagged heap are two rings (as numbers both were
+// 0xb4000076e5a3c000: the second ring replaced the first, whose thread
+// waited for its replies for good). A snapshot of then has its ids as those
+// numbers, and the driver's exact ids still find its rings.
+{
+    const rings = gpu.venus.contexts.get(CTX).rings;
+    const RINGS_RES = 40;
+    blob(RINGS_RES, RING_SIZE, 0x400000);
+    const create = ring => answer(submit_3d(encode(["vkCreateRingMESA", { ring, pCreateInfo: {
+        sType: 1000384000, resourceId: RINGS_RES, offset: 0, size: RING_SIZE, idleTimeout: 1000000,
+        headOffset: HEAD, tailOffset: TAIL, statusOffset: STATUS, bufferOffset: BUFFER, bufferSize: BUFFER_SIZE,
+        extraOffset: EXTRA, extraSize: 64 } }])));
+    const count = rings.size;
+    const [A, B] = ["b4000076e5a3c180", "b4000076e5a3c340"];
+    assert.equal(create(A), OK);
+    assert.equal(create(B), OK);
+    assert.equal(rings.size, count + 2, "two rings");
+    assert.equal(answer(submit_3d(encode(["vkDestroyRingMESA", { ring: B }]))), OK);
+    assert.ok(rings.has(A) && !rings.has(B), "one destroyed, the other there");
+
+    // (the Venus state of a snapshot of before: the ids as numbers)
+    const venus_state = gpu.venus.get_state();
+    for(const context of venus_state[0]) for(const r of context[1]) r[0] = Number(BigInt("0x" + r[0]));
+    gpu.venus.set_state(venus_state, id => { const r = gpu.resources.get(id); return r && r.venus ? r : null; });
+    const restored = gpu.venus.contexts.get(CTX).rings;
+    assert.equal(restored.size, count + 1);
+    assert.equal(answer(submit_3d(encode(["vkWriteRingExtraMESA", { ring: A, offset: 16, value: 0x5A5A }]))), OK, "a ring of the old snapshot by its exact id");
+    assert.equal(answer(submit_3d(encode(["vkWriteRingExtraMESA", { ring: RING2, offset: 20, value: 0xA5A5 }]))), OK);
+    assert.equal(read32(ring_base + EXTRA + 20), 0xA5A5, "and the test's own ring");
+    assert.equal(answer(submit_3d(encode(["vkDestroyRingMESA", { ring: A }]))), OK);
+    assert.equal(restored.size, count, "destroyed by its exact id");
+}
+console.log("PASS: ring ids, exact; a snapshot's rounded ids");
+
 // Destroying the context
 assert.equal(command(0x0201), OK, "CTX_DESTROY");
 assert.ok(!gpu.venus.contexts.has(CTX));
