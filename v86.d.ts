@@ -742,6 +742,14 @@ export interface V86Options {
     virtio_vsock?: boolean;
 
     /**
+     * machine_type "virt" only: virtio-snd with one output stream (PCM, 1 or
+     * 2 channels, S16 or S32, 8000 to 48000 Hz), played on the machine's
+     * clock to the speaker; each buffer played is also sent on the bus as
+     * "virtio-snd-pcm" ({stream, rate, channels, format, bytes})
+     */
+    virtio_sound?: boolean;
+
+    /**
      * machine_type "virt" only: virtio-console with this many ports, all
      * consoles (hvc0, hvc1, ...); without it 4 ports, 1-3 generic ones named
      * org.v86.port<N>

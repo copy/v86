@@ -9,6 +9,7 @@
 // driven through a Unix socket.
 import fs from "node:fs";
 import net from "node:net";
+import { createHash as create_hash } from "node:crypto";
 import { QEMU_MACHINE, QEMU_CPU, smp } from "./guest_runner.mjs";
 import { save_png } from "../lib/picture_sink.mjs";
 
@@ -16,14 +17,18 @@ import { save_png } from "../lib/picture_sink.mjs";
  * QEMU's arguments
  * @param {string} out tools/a64_android.mjs's output directory (with a slash)
  * @param {{accel?: string, memory_mb: number, cores: number, console_socket: string, kernel_log: string,
- *     logcat: string, extract?: string, snapshot?: boolean, monitor_socket?: string, adb_port?: number}} o
+ *     logcat: string, extract?: string, snapshot?: boolean, monitor_socket?: string, adb_port?: number, qmp_socket?: string,
+ *     sound_wav?: string}} o
  *     accel "tcg" (the reference: cortex-a35) or "hvf" (the host's CPU, for
  *     quick runs); extract: the Unix socket of a virtserialport named
  *     org.v86.extract (a socket: a file's backend never opens the port for
  *     the guest, whose writes then block); monitor_socket: the human monitor
  *     on a Unix socket (screendump); adb_port: the host's port forwarded to
  *     adbd's tcp:5555 on the third NIC, the one under Cuttlefish's Wi-Fi
- *     (VirtWifi; DHCP gives it 10.0.3.15)
+ *     (VirtWifi; DHCP gives it 10.0.3.15); qmp_socket: QMP on a Unix socket
+ *     (qemu_touch); sound_wav: where virtio-sound-pci's output goes (WAV,
+ *     without QEMU's mixing engine: the guest's bytes in its stream's format),
+ *     else nowhere (P12.5: the audio HAL's card, as v86's virtio_sound)
  */
 export function android_qemu_args(out, o)
 {
@@ -57,7 +62,10 @@ export function android_qemu_args(out, o)
         "-netdev", "user,id=n1,net=10.0.2.0/24,restrict=on", "-device", "virtio-net-pci-non-transitional,netdev=n1,addr=08.0,romfile=",
         "-netdev", "user,id=n2,net=10.0.3.0/24,restrict=on" + (o.adb_port ? `,hostfwd=tcp:127.0.0.1:${o.adb_port}-10.0.3.15:5555` : ""),
         "-device", "virtio-net-pci-non-transitional,netdev=n2,addr=09.0,romfile=",
+        "-audiodev", o.sound_wav ? `wav,id=snd0,path=${o.sound_wav},out.mixing-engine=off` : "none,id=snd0",
+        "-device", "virtio-sound-pci,audiodev=snd0,addr=0a.0",
         "-display", "none", "-monitor", o.monitor_socket ? `unix:${o.monitor_socket},server,nowait` : "none",
+        ...(o.qmp_socket ? ["-qmp", `unix:${o.qmp_socket},server,nowait`] : []),
         "-chardev", `socket,id=ser0,path=${o.console_socket},server=on,wait=off`, "-serial", "chardev:ser0",
         // (a reboot restarts the machine with the disk's writes kept: snapshot=on's overlay lives as long as QEMU)
     ];
@@ -84,6 +92,78 @@ export async function qemu_screendump(monitor_socket, directory, name)
     }
     fs.rmSync(ppm);
     return save_png({ width, height, rgba }, directory, name);
+}
+
+/**
+ * QMP on a Unix socket: commands, each answered in turn
+ * @param {string} socket_path
+ * @return {!Promise<{command: function(string, Object=): !Promise<*>, close: function()}>}
+ */
+export async function qmp_connect(socket_path)
+{
+    const s = await new Promise((resolve, reject) => { const c = net.connect(socket_path); c.once("connect", () => resolve(c)); c.once("error", reject); });
+    let text = "";
+    const waiting = [];
+    s.on("data", bytes => {
+        text += bytes.toString("utf8");
+        for(let at; (at = text.indexOf("\n")) >= 0;)
+        {
+            const line = text.slice(0, at);
+            text = text.slice(at + 1);
+            const message = JSON.parse(line);
+            if(("return" in message || "error" in message) && waiting.length) waiting.shift()(message);
+        }
+    });
+    s.on("error", () => {});
+    const command = (execute, args) => new Promise((resolve, reject) => {
+        waiting.push(message => message.error ? reject(new Error(execute + ": " + message.error.desc)) : resolve(message.return));
+        s.write(JSON.stringify(args ? { execute, arguments: args } : { execute }) + "\n");
+    });
+    await command("qmp_capabilities");
+    return { command, close: () => s.destroy() };
+}
+
+/**
+ * A tap on QEMU's virtio-multitouch (QMP input-send-event): touched at (x, y)
+ * of a width x height screen, released 300 ms later
+ */
+export async function qemu_touch(qmp, x, y, width, height)
+{
+    // (the absolute axes' range, INPUT_EVENT_ABS_MAX)
+    const vx = Math.round(x * 0x7FFF / (width - 1)), vy = Math.round(y * 0x7FFF / (height - 1));
+    const mtt = (type, axis, value) => ({ type: "mtt", data: { type, slot: 0, "tracking-id": 1, axis, value } });
+    await qmp.command("input-send-event", { events: [mtt("begin", "x", vx), mtt("data", "x", vx), mtt("data", "y", vy),
+        { type: "btn", data: { button: "touch", down: true } }] });
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await qmp.command("input-send-event", { events: [mtt("end", "x", vx), { type: "btn", data: { button: "touch", down: false } }] });
+}
+
+/**
+ * The picture's rows [from, to) through the human monitor (screendump), as
+ * a digest: quick, for noticing a change
+ */
+export async function qemu_picture_digest(monitor_socket, file, from, to)
+{
+    fs.rmSync(file, { force: true });
+    await new Promise((resolve, reject) => {
+        const s = net.connect(monitor_socket);
+        s.on("connect", () => { s.write(`screendump ${file}\n`); setTimeout(() => { s.end(); resolve(); }, 50); });
+        s.on("error", reject);
+    });
+    let bytes = null;
+    for(let i = 0; i < 100; i++)
+    {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        if(!fs.existsSync(file)) continue;
+        bytes = fs.readFileSync(file);
+        const m = /^P6\s+(\d+)\s+(\d+)\s+255\s/.exec(bytes.toString("latin1", 0, 40));
+        if(m && bytes.length >= m[0].length + +m[1] * +m[2] * 3)
+        {
+            const row = +m[1] * 3, start = m[0].length;
+            return create_hash("sha1").update(bytes.subarray(start + from * row, start + to * row)).digest("hex");
+        }
+    }
+    return null;
 }
 
 /** The Android console (a shell on ttyAMA0) through QEMU's serial socket */

@@ -883,11 +883,11 @@ adbd 可用；R-a64-* 不退化。
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| P12.1 | 16 KiB Android：16K 的 GKI 与 pgagnostic（页大小无关，同一镜像可在 4K 与 16K 内核上启动）产品（AOSP 文档要求用 arm64 Linux 宿主做参考，待核对）；native APK 的 4K/16K 对齐兼容性单独记录。16 KiB 需要 MMU、内核、bionic、库与 native APK 共同支持，不能只改 DTB 或内核配置 | L |
-| P12.2 | 快照、并行 Worker、长时间运行与内存压力 | L |
-| P12.3 | 选定的 CTS/VTS 子集；Android 指标（JIT 计划新增的 P6.6c）：冷启动与第二次启动、应用启动、输入延迟、持续帧率、JIT 时间、内存峰值，与 P10.3 冻结的预算对照 | M |
+| P12.1 | 16 KiB Android：16K 的 GKI 与 pgagnostic（页大小无关，同一镜像可在 4K 与 16K 内核上启动）产品（AOSP 文档要求用 arm64 Linux 宿主做参考，待核对）；native APK 的 4K/16K 对齐兼容性单独记录。16 KiB 需要 MMU、内核、bionic、库与 native APK 共同支持，不能只改 DTB 或内核配置。2026-10-19 完成（附录 E 的 A10）：没有公开的 pgagnostic 构建，用 16K 的 kernel_virt 构建的 GKI 内核与模块配同一份（页大小无关的）用户空间；参考用 macOS arm64 宿主上的 QEMU（HVF 与 TCG） | L |
+| P12.2 | 快照、并行 Worker、长时间运行与内存压力。2026-10-19 完成（附录 E 的 A10；恢复后停住的原因是 Venus ring id 冲突，5238279c） | L |
+| P12.3 | 选定的 CTS/VTS 子集；Android 指标（JIT 计划新增的 P6.6c）：冷启动与第二次启动、应用启动、输入延迟、持续帧率、JIT 时间、内存峰值，与 P10.3 冻结的预算对照。2026-10-19 完成：CTS 16.1_r1 的五个原生模块（VTS 本版本不可得，由面向内核的 CTS 模块代替），指标全部在预算内（附录 E 的 A10） | M |
 | P12.4 | （2026-10-18 移到 P11.4，A9。原文说用“Cuttlefish 的 venus 模式”，核实后预编译镜像里没有这个模式，也没有 Mesa；改为自己编 Mesa 的 venus 驱动，见 P11.4） | — |
-| P12.5 | 音频：virtio-snd 与 audio HAL；浏览器的音频权限与缓冲 | M |
+| P12.5 | 音频：virtio-snd 与 audio HAL；浏览器的音频权限与缓冲。2026-10-19 完成（附录 E 的 A10；HAL 在客体跟不上实时的时候跳过传输，记录在案） | M |
 
 验收（A10）：发布级别 R-android 全部通过；16K 的 GKI 与 pgagnostic 产品在 v86 上到 `sys.boot_completed=1`，native APK
 的 4K/16K 对齐兼容性记录在案；并行 Worker 下 Android 到桌面，桌面状态的快照恢复后继续交互，长时间运行与内存压力
@@ -2277,3 +2277,205 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   android-venus` 与 `make glbridge`）。
 - 留给 A10 及以后：Venus 上的 OpenGL ES 3（超出 12 个的 uniform buffer、transform feedback）；帧时间（Venus 上热的
   中位数 2.25 s，QEMU TCG 上的 SwiftShader 1.4 s；性能在 P12.3 的指标里看）；VX 把部分 resolve 当作整张图（警告）。
+
+### A10：Venus ring id 冲突（恢复后停住的原因，2026-10-19）
+
+- 现象（A10 的 P12.2）：恢复快照之后，Launcher3（另一次是 SystemUI）不再出帧，随后 input dispatch ANR；其 RenderThread
+  停在 `AsyncWaitableEvent::wait` ← `ProgramExecutableVk::waitForPostLinkTasksImpl` ← `glGetProgramiv(GL_PROGRAM_BINARY_LENGTH)`
+  ← hwui 的 `storeShaderInCache`。出事的快照都是在 Launcher3 还在链接最初几个 program 时存的（原地存取 3 次 3 次坏，
+  `android-a10-desktop.v7` 恢复到新机器 2 次 1 次坏）。
+- 根因：Venus 的环 id 被解码成 JS 数。环 id 是客体驱动的指针（Mesa `vn_ring_create`：`ring->id = (uintptr_t)ring`），
+  Android 堆指针的最高字节带标签（0xb4），数值约 1.3e19，双精度在这里的间距是 2048 字节；`VenusReader.u64`
+  （`lo + hi * 2**32`）把相距几百字节的两个 `struct vn_ring` 取整成同一个数。Mesa 的 venus 给每个线程一个自己的环做同步
+  调用（`vn_tls_get_ring`）；ANGLE 的工作线程从不置“异步建 pipeline”的标志，它们为 post-link 的 warm-up 调
+  `vkCreateGraphicsPipelines` 时走自己线程的环、同步等回复。第二个环的 `vkCreateRingMESA` 于是在 `ctx.rings` 里悄悄顶掉
+  第一个环，第一个环的线程从此在 `vn_relax` 里等它的 head（安卓补丁设了 `VN_DEBUG_NO_ABORT`；`vn_relax` 只看主环的
+  FATAL/ALIVE），宿主这边它认识的每个环都空闲、没有等待者、没有错误。证据：07:36 那次 SystemUI 卡住时的 `debuggerd -b`：
+  一个 ANGLE-Worker 在 `vn_ring_submit_command+628`（内联的 `vn_ring_wait_seqno` 的 `vn_relax` 循环）←
+  `vn_CreateGraphicsPipelines` ← `WarmUpGraphicsTask::operator()`，RenderThread 等 post-link 任务，其余三个 worker 空闲。
+  修复后的验证运行里，恢复后 90 s 内就有两次“作为数相同”的环：context 8 的 `b400007d71c54c90` 与 `b400007d71c55210`
+  （相距 0x580），context 12 的新环 `b400007d71c52fb0` 与快照里的一个环。修复前这两次都会顶掉别的线程的环。
+- 修复：`tools/venus_protocol_runtime.js` 加 `VenusReader.ring_id`（精确的 16 位十六进制串）与对应的 `VenusWriter.ring_id`；
+  `tools/venus_protocol_gen.mjs` 让传输命令的 `uint64_t ring`（`vkCreateRingMESA`、`vkDestroyRingMESA`、`vkNotifyRingMESA`、
+  `vkWriteRingExtraMESA`、`vkSubmitVirtqueueSeqnoMESA`、`vkWaitRingSeqnoMESA` 六条）用它，重新生成
+  `src/graphics_adapters/virtio_gpu/venus_protocol.js` 与 `tests/devices/venus_guest_protocol.js`（生成器先确认能逐字节
+  重现旧文件）；`venus.js` 的 `ring_key`：修复前存的快照里环 id 是取整后的数，恢复时以 `"~<数>"` 为键，驱动的精确 id
+  找不到时按取整值再找一次。测试：`tests/devices/venus_protocol.js`（两个相距 0x1c0 的带标签 id 解出来不同），
+  `tests/devices/virtio_gpu_venus.js`（两个这样的环各是各的，删一个另一个还在；把环 id 改成数的 Venus 状态恢复后，
+  用精确 id 仍能找到并删除它们）。
+- 停住并不是恢复造成的：环在线程第一次建环时（Launcher3、SystemUI 链接最初几个 program 的时候）就被顶掉了，存下的状态里只有
+  顶掉它的那个环。工作线程恰好接到 warm-up 任务时才卡住，所以看上去与“在链接时存的快照”相关。A10 会话的复核：worker
+  模式启动存下的 `android-a10-desktop.v7` 本身就带着它，4 次 worker 模式与 1 次协作模式的恢复全都同样停住（SystemUI 的
+  RenderThread 在 `waitForPostLinkTasksImpl`，一个 ANGLE-Worker 在 `vn_relax` 里等环的 seqno；宿主每个环 head = tail，
+  状态里的环 id 是取整后的数，如 12970367416510165000）。最初说“没有线程在 Venus 驱动里”是转储过滤漏掉了这个 worker。
+  修复前存的快照可能已经少了环，修复救不回来：`android-venus-booted.v7` 与 `android-a10-desktop.v7` 要用修复后的构建重新存。
+- 排除的方向：
+  - 丢失的 futex 唤醒：`tests/a64/android/futex_stress.c`（bionic 的 mutex 与条件变量，ANGLE 工作池与 waitable event 的
+    写法，加四对乒乓）与 `tests/a64/futex_snapshot.mjs`：4 核 worker 加页层，Alpine 内核与 Android 的 GKI 内核各 120 s，
+    每 3 s 原地存取一次（39 次、38 次），以及每 6 s 恢复到新机器，没有一次停顿。另：stall 若是条件变量的唤醒丢了，
+    `debuggerd` 中断并重启 `futex_wait` 时内核会重新比较 futex 字而把它放出来；卡住能熬过栈转储，本身就说明不是。
+  - 屏障：解释器的 DMB/DSB、LDAR、STLR 都是 SeqCst 的 fence；并行构建里页层的客体访存都是 SeqCst 原子，DMB 是
+    `atomic.fence`，独占对走解释器，STXR 用 compare-exchange。
+  - 保存的一致性：`tests/a64/android_restore_stall.mjs` 在 `get_state` 时给 RAM 与设备内存逐页求哈希，流写完后再求：
+    五次原地快照里都是 0 页变化；保存时 GPU 没有挂起的请求、没有 held，Venus 的环全都空闲（head = tail），队列为空。
+  - GIC 的状态整块在快照里；核状态块的保存范围覆盖所有体系结构字段（只少指令计数与 slice 预算）。
+- 顺带修的：vCPU worker 的时钟（`MachineClock`）每次读数最多前进 1 s；恢复到新进程后机器时间跳到快照里的值，worker
+  的时钟就一直落后，它的计数器只在别的核读计数器时前进（`counter()` 取各核的最大值），定时器最多晚约 100 ms。现在
+  worker 每次从 park 继续时把时钟设成机器的时间（`MachineClock.set_time`，`src/parallel/vcpu_arm.js`）。x86 的
+  `src/parallel/vcpu.js` 有同样的写法，没有改（要过 x86 的门禁）。
+- 验证（修复后）：`tests/devices/venus_protocol.js`、`tests/devices/virtio_gpu_venus.js`、`make devices-test`（A10 会话跑的）、
+  三个 Closure 包（`v86-virtio-gpu.js`、`vcpu-worker.js`、`libv86.mjs`）0 错误 0 警告、eslint；Alpine 上 4 核 worker 的 live 阶段带
+  快照（mmio、pci）、lifecycle、s2idle 与休眠、smp4 全部通过；`tests/a64/futex_snapshot.mjs` 恢复到新机器通过。Android：
+  从 `android-venus-booted.v7` 恢复，Launcher3 出第一帧时立即原地存取，连续三轮（每轮存 2.1 GiB，30–50 s）：前两轮之后
+  Launcher3 照常出帧（9→12、12→15），第三轮之后恰逢一次全局配置变化（0x80000000，资源路径；com.android.phone 因后台
+  ANR 被杀之后）让 Launcher3 重建，查询帧数时它正在 `onCreate` 里（重建 16:49:48 开始，16:50:33 resume，随后出帧）。三次保存时都是
+  0 页在保存期间变化、没有挂起的请求、环全空闲。这次运行里有三处“按数会相同”的环（context 8 相距 0x580，context 12
+  的新环与快照里的环，context 6 相距 0x2c0），修复前每一处都会顶掉一个线程的环。
+- 没有改、记在这里的：virtio-gpu 的 `set_state` 不清 `pending` 与 `held`（它们不进快照）；Venus 的 `set_state` 不让
+  恢复前还在等的 Run 失效，原地恢复后它们若被唤醒会往共享内存写旧的 head 与回复。四次测量中保存时都没有等待中的命令，
+  所以没有动。修复前的一次原地恢复后（`build/a64-android/runs/restore-stall-2`）Launcher3 也因同样的配置变化重建，6 分钟后
+  主线程仍在 `bindService` 的 binder 调用里，屏幕只剩导航栏，RenderThread 空闲；那次没有转储 SystemUI，也没有再观察，
+  是重建太慢还是另有原因未查。
+
+### A10：P12.1、P12.3 的 CTS 子集与 P12.5（2026-10-19）
+
+- P12.5 音频：
+  - 设备（`src/virtio_snd.js`，`virtio_sound: true`）：virtio 1.2 §5.14 的声卡（PCI 0x1059，class 0x040100），control、
+    event、tx、rx 四个队列；JACK_INFO、PCM_INFO、SET_PARAMS、PREPARE、RELEASE、START、STOP、CHMAP_INFO；一个输出流，
+    S16 或 S32，1–2 声道，8000–48000 Hz。tx 的缓冲按机器时钟消费，送给 speaker（`dac-tell-sampling-rate`、`dac-enable`、
+    `dac-send-data`），同时发 `virtio-snd-pcm` 事件（测试从这里取宿主收到的字节）；快照保存还没还的描述符链（按
+    head_idx，用导出的 `VirtQueueBufferChain` 重建）。Makefile 的 Closure 文件表漏了 `virtio_snd.js`，release 构建
+    失败，补上。
+  - Android：vendor_dlkm 的 virtio_snd.ko 由 dlkm_loader 加载，snd-aloop 在 blocklist 里，virtio 的卡是 card 0。
+    `androidboot.audio.tinyalsa.ignore_output` 由 true 改为 false：Cuttlefish 的主音频 HAL（AIDL 示例实现的
+    StreamPrimary）的输出是 tinyalsa 的 card 0 device 0，即这张卡；QEMU 参考加 `virtio-sound-pci`（`-audiodev wav`，
+    关掉 QEMU 的混音引擎，客体的字节原样进文件）。v86 上 Android 一律带这张卡，测试只在声音这一步收集 PCM。
+  - 场景的声音一步：`su 0 tinyplay` 播 48 kHz 立体声 S16 的 WAV（2 s 双音加 0.5 s 静音），宿主收到的字节中音调部分的
+    sha256 与源相同（v86 与 QEMU 都是；最后一个周期 tinyplay 关闭时不播）。再经框架播：`tests/a64/android/v86tone.c`
+    （NativeActivity，AAudio，媒体用途，48 kHz 立体声 16 位，1 kHz，2 s）经 AudioFlinger 与 HAL 到卡，宿主按过零点
+    算频率与长度。QEMU（HVF）上 1000 Hz、1.88 s（媒体音量下峰值 378）。v86 上 HAL 打开了 card 0 device 0，但卡只收到
+    20480 字节的静音：StreamPrimary 每次传输后比较已收帧数与真实时间，落后就跳过下一次传输（帧被收下但不写出，源码注释
+    说是给“做不到实时的模拟器”的变通，b/302587331，android-16.0.0_r4 的 `StreamPrimary.cpp:94-130`）；v86 上
+    AudioFlinger 的写入节奏一开始就落后于 85 ms 的周期，之后每次都跳过（5.6 s 里 57 次）。这一步因此记录 HAL 的跳过
+    次数与偏移（打开 `log.tag.AHAL_StreamPrimary` 的 VERBOSE），断言 HAL 打开了这张卡、没有跳过时音调完整到达。
+  - 浏览器：CPU worker 里设备发的 `dac-*` 事件经 audio port 直接到 AudioWorklet（与 SB16 相同）；virtio-snd 按自己的
+    时钟推数据，不响应 `dac-request-data`，Worklet 的队列有界。权限：页面没有用户手势就创建的 AudioContext 处于
+    suspended（自动播放策略），`resume()` 只在手势里有效；SpeakerAdapter 现在在页面的第一次点击、按键或触摸时恢复它
+    （`src/browser/speaker.js`），恢复后去掉监听。`tests/glbridge/speaker_unlock_browser_test.mjs`：无头 Chrome 加
+    `--autoplay-policy=document-user-activation-required`，不经手势启动 v86，点击前 suspended，经 DevTools 协议的
+    可信点击后 running（`make cpu-worker-tests`）。
+- P12.1 16 KiB：
+  - 产品：ci.android.com 上没有公开的 pgagnostic Cuttlefish arm64 构建（aosp-android-latest-release 的目标只有
+    aosp_cf_arm64_auto、aosp_cf_arm64_only_phone、x86_64 与 riscv64 的 Cuttlefish，没有 test_suites）；内核分支
+    aosp_kernel-common-android16-6.12 有 kernel_aarch64_16k 与 kernel_virt_aarch64_16k。P10.4 的扫描里 4 KiB 对齐的
+    ELF 只在 VNDK APEX（v31–v34）与 system_ext/etc/vm 中，所以同一份用户空间配 16K 内核就是页大小无关的产品：同一镜像在
+    4K 与 16K 内核上启动。
+  - 材料（`node tools/a64_android.mjs --page-size 16k`，输出 `build/a64-android/out-16k/`）：kernel_virt_aarch64_16k
+    构建 16637892（6.12.93-android16-6）的 Image、initramfs.img、system_dlkm.erofs.img（42.7 MB、10.6 MB、16.3 MB，
+    sha256 固定在工具里）。模块按 4K 镜像的位置换成同名的 16K 模块：vendor ramdisk 的 19 个（在它后面追加一个只有
+    字面量块的 LZ4 legacy cpio，内核解包时覆盖同名文件）；system_dlkm 的 102 个（GKI 模块，用 system_dlkm.erofs.img
+    中为它再签名的副本，比 initramfs.img 中的多 721 字节的签名）与 vendor_dlkm 的 45 个，在 erofs 中原地替换
+    （`erofs_replace_files`：新 inode 拷贝旧 inode 的字段与 xattr，平铺布局，数据追加在后，目录项改指新 inode）；
+    dlkm 镜像里 modules.dep 与 modules.alias 是压缩的，读不出来，按 4K 文件的规则重写（vendor_dlkm 的含
+    system_dlkm 的全部模块；第一阶段已加载的 ramdisk 模块不作依赖列出，与 4K 一样）。4K 的 tls.ko 在 16K 构建中
+    没有（原文件留着，不进 modules.dep）；16K 构建多出的 11 个模块（aes-neon-blk、efivarfs、pstore 等）在 4K 的布局里
+    没有位置，不加载。system_dlkm_a 与 vendor_dlkm_a 移到 super 的空闲区，vbmeta_system_dlkm 与 vbmeta_vendor_dlkm
+    的 hashtree 描述符更新，与 odm 共用 `super_replace`；vbmeta digest 重算。userdata 空白，fstab 用 cf.ext4.hctr2：
+    f2fs 的块大小就是页大小，镜像自带的 4 KiB 块 f2fs 在 16K 内核上挂不上，第一次启动时 vold 把它格式化为 ext4。
+    重构之后 4K 的材料逐字节不变（disk.img、disk.key 与 manifest 的 hash 都相同）。
+  - Venus 驱动、vkprobe、vkahb 改为 `-z max-page-size=16384` 链接（NDK r26b 默认 4 KiB；16K 内核上链接器不加载段
+    对齐小于页大小的库），4K 上照常。
+  - QEMU（HVF，宿主 CPU）：boot_completed 21 s，`getconf PAGE_SIZE` 16384，dlkm_loader 加载 44 个模块（4 个在
+    blocklist），zram 在，/data 为 ext4。system_dlkm 的 “offline vbmeta” 读不到（新分区没有 AVB footer），fs_mgr
+    回退到内置的 hashtree，verity 照常。
+  - native APK 的 4K/16K 对齐（`A64_ANDROID_SCENARIO=pagesize`；NativeActivity 加 `tests/a64/android/v86native.c`，
+    `tests/a64/apk.mjs` 的 `build_native_lib` 与 zip 对齐）：
+
+    | 变体 | 4K 内核 | 16K 内核（QEMU 与 v86 相同） |
+    | --- | --- | --- |
+    | ELF 16K，APK 中按 16K 对齐存放，不解压 | 从 APK 直接加载 | 从 APK 直接加载，没有提示 |
+    | ELF 16K，APK 中只按 4K 对齐 | 从 APK 直接加载 | 安装时解压，页大小兼容模式运行，提示 “APK alignment check failed” |
+    | ELF 4K，APK 中按 4K 对齐 | 从 APK 直接加载 | 同上，提示 “APK and ELF alignment checks failed” |
+    | ELF 4K，安装时解压 | 加载 | 兼容模式运行，提示 “ELF alignment check failed” |
+
+    提示是 Android 16 的 “Android App Compatibility” 对话框（`PageSizeMismatchDialog`）；四种都能运行，库报告的页大小
+    是 16384。
+- P12.3 的 CTS 子集（`tools/a64_cts.mjs`、`tests/a64/android_cts.mjs`，`A64_ANDROID_SCENARIO=cts`）：与镜像同版本的
+  CTS 是 android-cts-16.1_r1（Android 16 QPR2，2025-12-02），zip 23.8 GB，本机放不下；按字节范围取一次 central
+  directory，再只取选定模块的文件，各按 CRC-32 校验，保留 zip 中的 Unix 权限（模块的辅助程序要可执行，否则 Bionic 的
+  20 项失败）。不用 Tradefed（宿主是 macOS，客体的 adb 是测试自己的）：按模块配置中 FilePusher 的位置推送（一个 ustar
+  包，客体里用 toybox tar 解开），按 GTest 运行器的方式运行，解析 gtest 的汇总。子集与预算一起冻结：
+  CtsKernelConfigTestCases、CtsNativeEncryptionTestCases、CtsAslrMallocTestCases、CtsFsMgrTestCases、
+  CtsBionicTestCases（整个模块，3208 项）。VTS：本版本没有可得的 VTS（不公开分发；发布分支的 CI 没有 test_suites
+  目标；本机不能构建 AOSP），由上面面向内核的 CTS 原生模块代替。
+- P12.1 在 v86 上：16K 材料（Venus 驱动在 odm）在 4 核 worker 加页层上到 `sys.boot_completed=1`（1153 s），`getconf
+  PAGE_SIZE` 16384，内核 6.12.93，/data 为 ext4；上表四种 APK 与 QEMU 相同。第一次运行里 Launcher3 启动即停（“Quickstep
+  keeps stopping”：`DotRenderer` 从 `ShadowGenerator` 拿到 null 的硬件位图），开机动画在已销毁的互斥量上 abort：宿主
+  的 `VulkanModel.export_memory` 拒绝比内存按 4 KiB 取整还大的 blob，而 16K 的客体内核把 blob 按 16 KiB 页取整，可见
+  主机内存的导出都被拒，ANGLE 的分配失败。改为容许按最大 64 KiB 的页取整（`venus_vk.js`，
+  `tests/devices/virtio_gpu_venus.js` 加一例：20000 字节的内存配 32768 字节的 blob 接受，131072 拒绝）。之后 16K 上
+  A9 的整个场景通过：桌面、帧（热的中位数 2.35 s）、Wi-Fi 与 HTTP、触摸打开 Gallery、APK 安装启动 40.9 s、重启
+  （760 s）后应用与 /data 都在。
+- P12.2（release 构建，4 核 worker，页层，Venus，virtio-snd）：
+  - 冷启动到桌面并保存：boot_completed 1192 s，桌面 1378 s；Launcher3 帧数一分钟不变后保存（2146 MiB，7.7 s）。
+  - 恢复到新机器后的场景（Venus ring id 修复之后）：桌面 64 s，点 Gallery 打开它（152 s）；输入延迟五次
+    [4330, 1119, 884, 879, 1141] ms，中位数 1119 ms（另一次 [905, 2352, 1189, 810, 730]，中位数 905 ms）；持续帧率
+    14.13 fps（另一次 13.81）；tinyplay 的音调逐字节到达；经框架的音调：HAL 第一次传输时已落后 112 ms，最多落后
+    418 ms，跳过 33 次，到达的 1.54 s 频率 1000 Hz；30 分钟 monkey（种子 86，321 行事件；com.android.phone 的 ANR
+    与 QEMU 上相同，Cuttlefish 的 radio HAL 没有 modem）；内存压力：启动 4 个应用后 lmkd 杀了 3 个进程；
+    system_server、surfaceflinger、zygote64 从桌面到结束都是同一进程，没有 “exited 4 times”。
+  - 修复前（ring id 冲突）同一类状态的恢复都卡在 SystemUI 或 Launcher3（见上一节）。
+- P12.3 的指标（v86：release 构建，4 核 worker，页层，Venus；参考：QEMU TCG cortex-a35，SwiftShader；同一宿主同一天，
+  1536 MiB）与 P10.3 冻结的预算：
+
+  | 指标 | v86 | QEMU TCG | 比值 | 预算 |
+  | --- | --- | --- | --- | --- |
+  | 首次冷启动到 `sys.boot_completed=1` | 1192、1281、1325 s（中位数 1281） | 308.5、321.6、324.6、350.3 s（中位数 323） | 3.97 倍 | ≤ 5 倍 |
+  | 16K 内核冷启动 | 1153 s | 324.6 s | 3.55 倍 | — |
+  | 第二次启动（重启后） | 695 s | 190 s | 3.66 倍 | ≤ 5 倍 |
+  | 应用启动（`am start -W` 的 TotalTime） | 20.8 s | 6.9 s | 3.0 倍 | ≤ 5 倍 |
+  | 输入延迟（五次的中位数） | 905、1119 ms | 524、380 ms | 1.7–2.9 倍 | ≤ 5 倍 |
+  | 持续帧率（v86frames，60 s） | 13.81、14.13 fps（Venus） | 13.48、29.88 fps（SwiftShader） | 参考的 0.46–1.05 | ≥ 1/5 |
+  | Launcher3 全部应用列表的热帧（中位数） | 800 ms | 800 ms | 1.0 | — |
+  | CTS Bionic（3208 项） | 1266 s | 256 s | 4.9 倍 | — |
+  | JIT 时间（页层编译，核 0） | 到保存桌面 19.7 s（1745 s 的运行），A9 全程 32.3 s | — | — | — |
+  | 内存峰值（宿主进程 RSS） | 4958 MiB（到保存桌面），5882 MiB（A9 全程，含重启） | — | — | — |
+
+  v86 的整体 MIPS：到保存桌面 108.7，A9 全程 97.8，CTS 运行 137.3。全部在预算之内，没有触发停止条件；比值取最不利的
+  一对（参考的两次 A10 中较快的一次）。同一构建的冷启动在 1192–1325 s 之间波动，参考的帧率两次相差一倍（第一次
+  SwiftShader 的渲染器信息没有取到，启动较慢），都是同机测量，宿主上另有常驻进程。
+- 场景与测试的改动：`A64_ANDROID_SCENARIO=pagesize`、`=cts` 两个新场景；A10 场景加持续帧率（`tests/a64/android/v86frames.c`）、
+  经框架的音调（`v86tone.c`），轻触失败时留下停住的客体的诊断（`stall_diagnostics`：十秒内各 CPU 的中断、各线程的栈写到
+  运行目录）；`A64_ANDROID_SOUND` 取消（Android 一律带声卡）；`A64_ANDROID_PAGE_SIZE=16k`，客体的页大小与内核经 adb 或
+  控制台核对；QEMU 参考在等待 boot_completed 时就从控制台做 `prepare_device` 的设置（TCG 的一次运行在慢的首次启动上
+  碰到了 A9 记过的锁屏竞争：SystemUI 不显示锁屏而窗口管理器留着它的睡眠令牌，Launcher3 始终没有 resume）；QEMU 上
+  tinyplay 的逐字节比较只记录（TCG 比实时慢时 QEMU 的 virtio-sound 会丢样本：一次 466944 字节，哈希不同，另一次逐字节相同）。
+- R-android（`TEST_RELEASE_BUILD=1 make android-guest-tests`，然后 `make android-reference-tests`）：v86 上 GKI 桥（1 核与
+  4 核页层、1 核解释器）、A8 启动、A9、A10 的保存与恢复、CTS 子集、16K 的 pagesize 都通过（A10 的第一次恢复运行在经框架的
+  音调上失败，改成记录 HAL 的跳过之后重跑通过）；QEMU TCG 上启动、CTS、16K 的 pagesize、GKI 桥通过，A9 与 A10 在上面两处
+  改动之后重跑通过；16K 加 Venus 的 A9 场景在 blob 修复之后另跑一次通过。
+
+### A10 完成（2026-10-19，`vA10`）
+
+提交：Venus ring id 的修复（5238279c，A10 恢复后停住的原因，见上面“Venus ring id 冲突”一节）与本节同一个提交；打 tag `vA10`。
+
+- 验收逐条：
+  - R-android 全部通过（上一节）。
+  - 16K 的 GKI 与页大小无关的产品在 v86 上到 `sys.boot_completed=1`（1153 s，`getconf PAGE_SIZE` 16384），并且 A9 的
+    场景在 16K 上通过；native APK 的 4K/16K 对齐兼容性记录在上面的表里。
+  - 并行 Worker 下 Android 到桌面，桌面状态的快照恢复到新机器后继续交互（触摸、输入、帧、声音），30 分钟 monkey 与内存
+    压力中 system_server、surfaceflinger、zygote 没有重启，没有 “exited 4 times”。
+  - 选定的 CTS 子集在 v86 与 QEMU 上都通过（KernelConfig 5、NativeEncryption 1、AslrMalloc 1、FsMgr 36、Bionic 3208 项
+    中 3137 通过、71 跳过、0 失败）；VTS 本版本不可得，由面向内核的 CTS 模块代替。
+  - P12.3 的指标全部满足 P10.3 冻结的预算（上表）。
+  - virtio-snd 播放的 PCM 在宿主端校验和一致（tinyplay 的音调 sha256 相同）。
+  - R-a64-* 不退化：`make a64-gate-full` 通过（5 小时：快速档各项、宿主 arm64 的原生 oracle、QEMU 上 kvm-unit-tests 4k/16k/64k
+    与 Alpine 各阶段 1/2/4 核、ARM 核的长运行，发布级别 R-a64-isa、sys、virt、UP、SMP、jit、gpu、parallel、memory、
+    granule、android-prep 全部 21 项通过）。
+- 其余门禁：`make devices-test`、`make cpu-worker-tests`（含新的 speaker 解锁测试）、`make display-browser-tests`、
+  `make test-glbridge`、`make all`（Closure 0 错误）、eslint；`make a64-gpu-guest-tests`（10 个场景，含 Venus 与 vkcube）；
+  x86 的共享 JS 有改动（`virtio.js`、`starter.js`、`cpu_worker.js`、`speaker.js`、GX/VX）：`make platform-release-gate
+  GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项通过）。Rust 没有改动。
+- 至此计划的里程碑 A0–A10 全部完成并打了标签。留下的（不在计划的验收里，记在 `docs/aarch64.md` 的已知问题）：Venus 上的
+  OpenGL ES 3；经框架的声音在客体跟不上实时的时候被 HAL 跳过；启动与帧的性能（所有者定的顺序：计划完成之后再做，
+  FEAT_PAN 是第一个候选）。

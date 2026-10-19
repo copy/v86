@@ -7,8 +7,18 @@
 // made by openssl (build/a64-android/apk-key/, once). targetSdkVersion 29:
 // Android 16 installs from 24 on and asks for the v2 signature only from 30.
 //
+// With native (P12.1's native APK test, P12.3's frame rate app): the
+// activity is the framework's android.app.NativeActivity, which loads
+// lib/arm64-v8a/lib<native.name>.so (tests/a64/android/v86native.c or
+// v86frames.c, built by build_native_lib with its LOAD segments aligned to 4
+// or 16 KiB); stored in the zip at an offset aligned to native.zip_align,
+// android:extractNativeLibs native.extract.
+//
 //   const bytes = build_apk({ label: "v86 hello" });
+//   const native = build_apk({ label: "v86 native", package_name: "org.v86.native16k",
+//       native: { lib: build_native_lib(16384), extract: false, zip_align: 16384 } });
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash as create_hash } from "node:crypto";
@@ -20,8 +30,9 @@ export const APK_PACKAGE = "org.v86.hello";
 const ANDROID_NS = "http://schemas.android.com/apk/res/android";
 /** android:* attributes' resource IDs (frameworks/base/core/res/res/values/public*.xml) */
 const ATTR_IDS = {
-    label: 0x01010001, name: 0x01010003, hasCode: 0x0101000c, exported: 0x01010010,
+    label: 0x01010001, name: 0x01010003, hasCode: 0x0101000c, exported: 0x01010010, value: 0x01010024,
     minSdkVersion: 0x0101020c, versionCode: 0x0101021b, versionName: 0x0101021c, targetSdkVersion: 0x01010270,
+    extractNativeLibs: 0x010104ea,
 };
 const TYPE_STRING = 0x03, TYPE_INT_DEC = 0x10, TYPE_INT_BOOLEAN = 0x12;
 
@@ -92,25 +103,29 @@ export function binary_xml(tree)
     return chunk(0x0003, 8, Buffer.alloc(0), Buffer.concat([pool, resource_map, ...nodes]));
 }
 
-/** a zip of stored entries [[name, bytes], ...] */
+/** a zip of stored entries [[name, bytes, align?], ...]: an entry with
+ * align has its data at an offset that is a multiple of it (zipalign's way:
+ * zeros in the local header's extra field) */
 export function stored_zip(entries)
 {
     const local = [], central = [];
     let offset = 0;
-    for(const [name, data] of entries)
+    for(const [name, data, align = 1] of entries)
     {
         const n = Buffer.from(name), crc = crc32(data);
-        const header = Buffer.alloc(30);
+        const extra = (align - (offset + 30 + n.length) % align) % align;
+        const header = Buffer.alloc(30 + extra);
         header.writeUInt32LE(0x04034B50, 0); header.writeUInt16LE(10, 4); header.writeUInt16LE(0x0800, 6);
         header.writeUInt32LE(crc, 14); header.writeUInt32LE(data.length, 18); header.writeUInt32LE(data.length, 22);
         header.writeUInt16LE(n.length, 26);
-        local.push(header, n, data);
+        header.writeUInt16LE(extra, 28);
+        local.push(header.subarray(0, 30), n, header.subarray(30), data);
         const c = Buffer.alloc(46);
         c.writeUInt32LE(0x02014B50, 0); c.writeUInt16LE(10, 4); c.writeUInt16LE(10, 6); c.writeUInt16LE(0x0800, 8);
         c.writeUInt32LE(crc, 16); c.writeUInt32LE(data.length, 20); c.writeUInt32LE(data.length, 24);
         c.writeUInt16LE(n.length, 28); c.writeUInt32LE(offset, 42);
         central.push(c, n);
-        offset += 30 + n.length + data.length;
+        offset += 30 + n.length + extra + data.length;
     }
     const directory = Buffer.concat(central);
     const end = Buffer.alloc(22);
@@ -139,27 +154,43 @@ function signing_key()
     return { key: dir + "key.pem", cert: dir + "cert.pem" };
 }
 
-/** the APK's bytes */
-export function build_apk({ label = "v86 hello" } = {})
+/** tests/a64/android/<name>.c as lib<name>.so, its LOAD segments aligned
+ * to align (4096 or 16384), by the NDK (r26b under ~/Library/Android/sdk/ndk,
+ * or $ANDROID_NDK_HOME), linked with libraries */
+export function build_native_lib(align, name = "v86native", libraries = ["-landroid", "-llog"])
 {
-    const manifest = binary_xml(["manifest", { "package": APK_PACKAGE, "android:versionCode": 1, "android:versionName": "1" }, [
-        ["uses-sdk", { "android:minSdkVersion": 29, "android:targetSdkVersion": 29 }, []],
-        ["application", { "android:label": label, "android:hasCode": false }, [
-            ["activity", { "android:name": "android.app.Activity", "android:label": label, "android:exported": true }, [
-                ["intent-filter", {}, [
-                    ["action", { "android:name": "android.intent.action.MAIN" }, []],
-                    ["category", { "android:name": "android.intent.category.LAUNCHER" }, []],
-                ]],
-            ]],
-        ]],
+    const ndk = process.env.ANDROID_NDK_HOME || os.homedir() + "/Library/Android/sdk/ndk/26.1.10909125";
+    const out = ROOT + `build/a64-android/native/lib${name}-${align}.so`;
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    const r = spawnSync(ndk + "/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android29-clang",
+        ["-O2", "-Wall", "-shared", "-fPIC", `-Wl,-z,max-page-size=${align}`, ROOT + `tests/a64/android/${name}.c`, ...libraries, "-o", out]);
+    if(r.status !== 0) throw new Error(`${name}.c: ` + r.stderr);
+    return fs.readFileSync(out);
+}
+
+/** the APK's bytes */
+export function build_apk({ label = "v86 hello", package_name = APK_PACKAGE, native = null } = {})
+{
+    const activity = native ?
+        ["activity", { "android:name": "android.app.NativeActivity", "android:label": label, "android:exported": true }, [
+            ["meta-data", { "android:name": "android.app.lib_name", "android:value": native.name || "v86native" }, []]]] :
+        ["activity", { "android:name": "android.app.Activity", "android:label": label, "android:exported": true }, []];
+    activity[2].push(["intent-filter", {}, [
+        ["action", { "android:name": "android.intent.action.MAIN" }, []],
+        ["category", { "android:name": "android.intent.category.LAUNCHER" }, []],
     ]]);
+    const manifest = binary_xml(["manifest", { "package": package_name, "android:versionCode": 1, "android:versionName": "1" }, [
+        ["uses-sdk", { "android:minSdkVersion": 29, "android:targetSdkVersion": 29 }, []],
+        ["application", { "android:label": label, "android:hasCode": false, ...(native ? { "android:extractNativeLibs": native.extract } : {}) }, [activity]],
+    ]]);
+    const files = [["AndroidManifest.xml", manifest], ...(native ? [[`lib/arm64-v8a/lib${native.name || "v86native"}.so`, native.lib, native.zip_align]] : [])];
     // the JAR signature: MANIFEST.MF, CERT.SF, CERT.RSA (PKCS #7, detached)
     const b64 = data => create_hash("sha256").update(data).digest("base64");
-    const section = `Name: AndroidManifest.xml\r\nSHA-256-Digest: ${b64(manifest)}\r\n\r\n`;
-    const mf = Buffer.from(`Manifest-Version: 1.0\r\nCreated-By: v86\r\n\r\n` + section);
+    const sections = files.map(([name, data]) => `Name: ${name}\r\nSHA-256-Digest: ${b64(data)}\r\n\r\n`);
+    const mf = Buffer.from(`Manifest-Version: 1.0\r\nCreated-By: v86\r\n\r\n` + sections.join(""));
     const sf = Buffer.from(`Signature-Version: 1.0\r\nCreated-By: v86\r\nSHA-256-Digest-Manifest: ${b64(mf)}\r\n\r\n` +
-        `Name: AndroidManifest.xml\r\nSHA-256-Digest: ${b64(Buffer.from(section))}\r\n\r\n`);
+        files.map(([name], i) => `Name: ${name}\r\nSHA-256-Digest: ${b64(Buffer.from(sections[i]))}\r\n\r\n`).join(""));
     const { key, cert } = signing_key();
     const rsa = openssl(["smime", "-sign", "-binary", "-noattr", "-md", "sha256", "-outform", "DER", "-signer", cert, "-inkey", key], sf);
-    return stored_zip([["AndroidManifest.xml", manifest], ["META-INF/MANIFEST.MF", mf], ["META-INF/CERT.SF", sf], ["META-INF/CERT.RSA", rsa]]);
+    return stored_zip([...files, ["META-INF/MANIFEST.MF", mf], ["META-INF/CERT.SF", sf], ["META-INF/CERT.RSA", rsa]]);
 }

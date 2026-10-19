@@ -86,7 +86,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "kernel": file(o.kernel), "dtb": file(o.dtb),
         "virtio_disks": o.virtio_disks && o.virtio_disks.map(disk => Object.assign({}, file(disk), { "readonly": disk.readonly, "id": disk.id })),
         "virtio_rng": o.virtio_rng, "virtio_input": o.virtio_input, "virtio_transport": o.virtio_transport,
-        "virtio_vsock": o.virtio_vsock, "virtio_console_ports": o.virtio_console_ports, "virtio_gpu_pci_slot": o.virtio_gpu_pci_slot,
+        "virtio_vsock": o.virtio_vsock, "virtio_sound": o.virtio_sound, "virtio_console_ports": o.virtio_console_ports, "virtio_gpu_pci_slot": o.virtio_gpu_pci_slot,
         "initial_state": file(o.initial_state),
         "filesystem": fs && { "baseurl": fs.baseurl && new URL(fs.baseurl, location.href).href,
             "basefs": typeof fs.basefs === "string" ? new URL(fs.basefs, location.href).href : file(fs.basefs),

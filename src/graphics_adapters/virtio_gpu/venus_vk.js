@@ -314,11 +314,14 @@ VulkanModel.prototype.after = function(then)
 // ---------------------------------------------------------------------------
 // Host visible memory: the guest's mappings
 
+/** the largest page a guest's kernel may round a blob to (Arm's 64 KiB granule) */
+const GUEST_PAGE_MAX = 65536;
+
 /** RESOURCE_CREATE_BLOB of a VkDeviceMemory: host visible memory only */
 VulkanModel.prototype.export_memory = function(ctx, memory, blob)
 {
-    // (the guest's kernel makes blobs of whole pages)
-    if(memory.type !== "memory" || !memory.host_visible || memory.blob || blob.blob_size > Math.ceil(memory.size / PAGE) * PAGE) return false;
+    // (the guest's kernel makes blobs of whole pages: 4, 16 or 64 KiB)
+    if(memory.type !== "memory" || !memory.host_visible || memory.blob || blob.blob_size > Math.ceil(memory.size / GUEST_PAGE_MAX) * GUEST_PAGE_MAX) return false;
     memory.blob = blob;
     return true;
 };

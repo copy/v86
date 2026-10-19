@@ -552,6 +552,7 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.virtio_input) settings.virtio_input = Array.isArray(options.virtio_input) ? options.virtio_input.slice() : true;
     // (Android, P10.7: virtio-vsock, that many console ports, the GPU's PCI slot)
     if(options.virtio_vsock) settings.virtio_vsock = true;
+    if(options.virtio_sound) settings.virtio_sound = true;
     if(options.virtio_console_ports) settings.virtio_console_ports = options.virtio_console_ports;
     if(options.virtio_gpu_pci_slot) settings.virtio_gpu_pci_slot = options.virtio_gpu_pci_slot;
 

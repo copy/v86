@@ -37,6 +37,18 @@
 //   signature no longer matches: the device is unlocked, and first stage
 //   init checks the digest passed in bootconfig); odm_a moves to free space
 //   in super, every metadata copy rewritten;
+// - with --page-size 16k (P12.1; build/a64-android/out-16k/): the GKI kernel
+//   of a 16K kernel build (KERNEL_16K) and its modules where the 4K ones
+//   are, the same userspace (page-size agnostic: P10.4 found 4 KiB-aligned
+//   ELFs only in the VNDK APEXes): the vendor ramdisk's in a ramdisk after
+//   it (literal-only LZ4, the same names: the kernel's unpacking overwrites
+//   them), system_dlkm's (the 16K build's system_dlkm image's, signed for
+//   it) and vendor_dlkm's in their erofs images (erofs_replace_files), with
+//   modules.dep and modules.alias made again as the 4K ones are; those
+//   partitions moved in super with their hash trees and vbmeta descriptors
+//   (as odm's); userdata blank and fstab.cf.ext4.hctr2 (f2fs's block is the
+//   page: the image's 4 KiB-block f2fs does not mount on a 16K kernel, so
+//   first boot makes ext4 there);
 // - manifest.json: the artifacts' and results' hashes, the partitions, the
 //   kernel command line and bootconfig (bootconfig.txt, cmdline.txt too);
 // - modules/: the vendor ramdisk's virtual-device modules (virtio_pci,
@@ -54,7 +66,7 @@
 // on the PL011 (androidboot.console=ttyAMA0).
 //
 //   node tools/a64_android.mjs [--download] [--release] [--selinux enforcing|permissive]
-//       [--memory-mb 1536] [--out build/a64-android/out] [--extract] [--fresh-disk]
+//       [--memory-mb 1536] [--out build/a64-android/out] [--extract] [--fresh-disk] [--page-size 4k|16k]
 //   (--download: fetch the missing artifacts into build/a64-android/dl/ first;
 //   --extract: then boot them on QEMU with HVF, the host's CPU, and write the
 //   mounted read-only partitions and active APEXes as build/a64-android/rootfs.tar
@@ -82,6 +94,18 @@ export const ARTIFACTS = {
 };
 export const FINGERPRINT = `generic/aosp_cf_arm64_only_phone/vsoc_arm64_only:16/BP4A.251205.006/${BUILD}:userdebug/test-keys`;
 const DL = ROOT + "build/a64-android/dl/";
+/** --page-size 16k (P12.1): the GKI kernel and the virtual device's modules
+ * of a 16K kernel build (ci.android.com's aosp_kernel-common-android16-6.12,
+ * the newest build of kernel_virt_aarch64_16k on 2026-10-19) */
+const KERNEL_16K = { build: "16637892", target: "kernel_virt_aarch64_16k", branch: "aosp_kernel-common-android16-6.12",
+    release: "6.12.93-android16-6-g49f96790cc76-ab16637892" };
+const KERNEL_16K_URL = `https://ci.android.com/builds/submitted/${KERNEL_16K.build}/${KERNEL_16K.target}/latest/raw/`;
+export const ARTIFACTS_16K = {
+    "Image": { size: 42699264, sha256: "123c0605a610df1d512675a5532e77d6f3a2797a95b2e535f86584d7fb787269" },
+    "initramfs.img": { size: 10649329, sha256: "c9afd452c7414de93a603f0838d5c3bd0da8912f3f6086880a75a7e61bec2c02" },
+    "system_dlkm.erofs.img": { size: 16314368, sha256: "915bf4a4d80ed7912c2b46b38f2dac35e19fd019d05f6c65be625496f855d2d0" },
+};
+const DL_16K = DL + `16k-${KERNEL_16K.build}/`;
 const IMG = ROOT + "build/a64-android/img/";
 
 const SECTOR = 512;
@@ -97,7 +121,7 @@ const VENUS_BOOTCONFIG = { "androidboot.hardware.vulkan": "virtio", "androidboot
 function parse_args(argv)
 {
     const args = { download: false, release: false, selinux: "enforcing", memory_mb: 1536, extract: false, fresh_disk: false,
-        out: ROOT + "build/a64-android/out/" };
+        out: null, page_size: 4096 };
     for(let i = 0; i < argv.length; i++)
     {
         const arg = argv[i];
@@ -108,9 +132,13 @@ function parse_args(argv)
         else if(arg === "--extract") args.extract = true;
         else if(arg === "--fresh-disk") args.fresh_disk = true;
         else if(arg === "--out") args.out = path.resolve(argv[++i]) + "/";
+        else if(arg === "--page-size") args.page_size = { "4k": 4096, "16k": 16384 }[argv[++i]];
         else throw new Error("unknown argument " + arg);
     }
     if(!["enforcing", "permissive"].includes(args.selinux)) throw new Error("--selinux enforcing|permissive");
+    if(!args.page_size) throw new Error("--page-size 4k|16k");
+    if(args.extract && args.page_size !== 4096) throw new Error("--extract: 4k only");
+    args.out ||= ROOT + (args.page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
     return args;
 }
 
@@ -124,12 +152,12 @@ function sha256_file(file)
     return hash.digest("hex");
 }
 
-async function download(name)
+async function download(url, dir, name)
 {
-    const response = await fetch(ARTIFACT_URL + name, { redirect: "follow" });
+    const response = await fetch(url + name, { redirect: "follow" });
     if(!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
     const expected_md5 = (response.headers.get("x-goog-hash") || "").split(/,\s*/).find(h => h.startsWith("md5="));
-    const temporary = DL + name + ".part";
+    const temporary = dir + name + ".part";
     const fd = fs.openSync(temporary, "w");
     const md5 = create_hash("md5");
     for await (const chunk of response.body)
@@ -139,21 +167,21 @@ async function download(name)
     }
     fs.closeSync(fd);
     if(expected_md5 && expected_md5.slice(4) !== md5.digest("base64")) throw new Error(name + ": MD5 differs from the server's");
-    fs.renameSync(temporary, DL + name);
+    fs.renameSync(temporary, dir + name);
 }
 
-async function fetch_artifacts(allow_download)
+async function fetch_artifacts(allow_download, artifacts = ARTIFACTS, url = ARTIFACT_URL, dir = DL)
 {
-    fs.mkdirSync(DL, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true });
     const hashes = {};
-    for(const [name, { size, sha256 }] of Object.entries(ARTIFACTS))
+    for(const [name, { size, sha256 }] of Object.entries(artifacts))
     {
-        const file = DL + name;
+        const file = dir + name;
         if(!fs.existsSync(file))
         {
-            if(!allow_download) throw new Error(`${file} is missing (${size} bytes from ${ARTIFACT_URL}): run with --download`);
+            if(!allow_download) throw new Error(`${file} is missing (${size} bytes from ${url}): run with --download`);
             console.log(`downloading ${name} (${size} bytes) from ci.android.com`);
-            await download(name);
+            await download(url, dir, name);
         }
         if(fs.statSync(file).size !== size) throw new Error(`${file}: ${fs.statSync(file).size} bytes, expected ${size}`);
         hashes[name] = sha256_file(file);
@@ -341,7 +369,7 @@ export function unsparse_into(file, fd, offset)
 }
 
 /** bytes [offset, offset + length) of a sparse image's raw contents */
-function sparse_read(file, offset, length)
+export function sparse_read(file, offset, length)
 {
     const out = Buffer.alloc(length);
     const input = fs.openSync(file, "r");
@@ -487,7 +515,7 @@ const LP_RESERVED_BYTES = 4096, LP_GEOMETRY_SIZE = 4096;
 
 /** every copy of super's metadata (each slot's primary and backup), read
  * through read(offset, length) */
-function lp_metadata(read)
+export function lp_metadata(read)
 {
     const geometry = read(LP_RESERVED_BYTES, 52);
     if(geometry.readUInt32LE(0) !== 0x616C4467) throw new Error("super: no liblp geometry");
@@ -560,7 +588,14 @@ function erofs_data(image, inode)
         image.subarray(inode.xattrs + inode.xattr_size, inode.xattrs + inode.xattr_size + inline)]);
 }
 
-/** a flat directory's entries */
+/** where offset into a flat inode's data is in the image */
+function erofs_data_at(inode, offset)
+{
+    const blocks = inode.size - (inode.layout === 2 ? inode.size % 4096 : 0);
+    return offset < blocks ? inode.block * 4096 + offset : inode.xattrs + inode.xattr_size + offset - blocks;
+}
+
+/** a flat directory's entries (at: where each entry is in the image) */
 function erofs_entries(image, inode)
 {
     const data = erofs_data(image, inode), entries = [];
@@ -571,10 +606,24 @@ function erofs_entries(image, inode)
         {
             const end = base + (i + 1 < count ? data.readUInt16LE(base + (i + 1) * 12 + 8) : length);
             entries.push({ nid: Number(data.readBigUInt64LE(base + i * 12)), type: data[base + i * 12 + 10],
-                name: data.toString("latin1", base + data.readUInt16LE(base + i * 12 + 8), end).replace(/\0.*$/s, "") });
+                name: data.toString("latin1", base + data.readUInt16LE(base + i * 12 + 8), end).replace(/\0.*$/s, ""), at: erofs_data_at(inode, base + i * 12) });
         }
     }
     return entries;
+}
+
+/** every path under a flat directory (the root by default), depth first, with its inode */
+export function erofs_list(image, inode = erofs_inode(image, image.readUInt16LE(EROFS_SUPER_OFFSET + 14)), prefix = "")
+{
+    const out = [];
+    for(const e of erofs_entries(image, inode))
+    {
+        if(e.name === "." || e.name === "..") continue;
+        const child = erofs_inode(image, e.nid);
+        out.push({ path: prefix + e.name, type: e.type, inode: child });
+        if(e.type === 2) out.push(...erofs_list(image, child, prefix + e.name + "/"));
+    }
+    return out;
 }
 
 /** the inode at path, through flat directories */
@@ -692,22 +741,73 @@ export function erofs_add_file(image, file_path, data, labels)
     return out;
 }
 
-/** the Venus driver on odm (docs/arm64-virt-android16-plan.md P11.4 V3; see
- * the top): odm's image with the driver, its hash tree, the vbmeta with the
- * new descriptor, super's metadata copies with odm_a moved */
-function odm_with_driver(super_read, vbmeta, driver)
+/** image with files (path -> data) replaced: each file a new inode (the
+ * old one's fields and xattrs, its layout flat plain, no inode across a
+ * block) and its data uncompressed, in blocks after the image's; the
+ * directory entry points at the new inode, the old inode and blocks stay
+ * unused */
+export function erofs_replace_files(image, files)
 {
-    const lp = lp_metadata(super_read);
-    const odm = lp.copies[0].partitions.find(p => p.name === "odm_a");
-    if(!odm || odm.extents.length !== 1 || odm.extents[0].type !== 0) throw new Error("super: odm_a is not one linear extent");
-    const descriptor = hashtree_descriptor(vbmeta, "odm");
-    if(descriptor.algorithm !== "sha256" || descriptor.data_block !== 4096 || descriptor.hash_block !== 4096) throw new Error("vbmeta: odm's hash tree is not sha256 over 4 KiB blocks");
-    const labels = { dir: "u:object_r:vendor_file:s0", file: "u:object_r:same_process_hal_file:s0" };
-    const image = erofs_add_file(super_read(odm.extents[0].sector * SECTOR, descriptor.image_size), "lib64/vulkan.virtio.so", driver, labels);
-    // (read back)
-    const added = erofs_lookup(image, "lib64/vulkan.virtio.so");
-    if(!added || !erofs_data(image, added).equals(driver) || !image.subarray(added.xattrs, added.xattrs + added.xattr_size).includes("selinux" + labels.file, 0, "latin1") ||
-        !erofs_lookup(image, "etc/build.prop")) throw new Error("erofs: odm with the driver does not read back");
+    const sb = EROFS_SUPER_OFFSET, B = 4096;
+    const blocks = image.readUInt32LE(sb + 36), meta = image.readUInt32LE(sb + 40) * B;
+    const root = erofs_inode(image, image.readUInt16LE(sb + 14));
+    const changes = [];
+    for(const [file_path, data] of files)
+    {
+        const names = file_path.split("/"), name = names.pop();
+        const dir = names.length ? erofs_lookup(image, names.join("/")) : root;
+        const entry = dir && erofs_entries(image, dir).find(e => e.name === name);
+        if(!entry) throw new Error(`erofs: no /${file_path}`);
+        const inode = erofs_inode(image, entry.nid);
+        if((inode.mode & 0o170000) !== 0o100000) throw new Error(`erofs: /${file_path} is not a regular file`);
+        changes.push({ entry, inode, data, head: (inode.extended ? 64 : 32) + inode.xattr_size });
+    }
+    let end = blocks * B;
+    for(const c of changes)
+    {
+        const size = Math.ceil(c.head / 32) * 32;
+        if(end % B + size > B) end = Math.ceil(end / B) * B;
+        c.at = end;
+        end += size;
+    }
+    let block = Math.ceil(end / B);
+    for(const c of changes)
+    {
+        c.block = block;
+        block += Math.ceil(c.data.length / B);
+    }
+    const out = Buffer.alloc(block * B);
+    image.copy(out, 0, 0, blocks * B);
+    for(const c of changes)
+    {
+        image.copy(out, c.at, c.inode.at, c.inode.at + c.head);
+        out.writeUInt16LE(out.readUInt16LE(c.at) & ~0xE, c.at);
+        if(c.inode.extended) out.writeBigUInt64LE(BigInt(c.data.length), c.at + 8);
+        else out.writeUInt32LE(c.data.length, c.at + 8);
+        out.writeUInt32LE(c.block, c.at + 16);
+        c.data.copy(out, c.block * B);
+        out.writeBigUInt64LE(BigInt((c.at - meta) / 32), c.entry.at);
+    }
+    out.writeUInt32LE(block, sb + 36);
+    if(out.readUInt32LE(sb + 8) & 1)
+    {
+        out.writeUInt32LE(0, sb + 4);
+        out.writeUInt32LE(crc32c(0xFFFFFFFF, out.subarray(sb, B)), sb + 4);
+    }
+    return out;
+}
+
+/** super's partition name (slot a) replaced by image: its hash tree (as
+ * the descriptor's: sha256 over 4 KiB blocks, its salt; no FEC), vbmeta
+ * (the image holding name's hashtree descriptor) with the descriptor's sizes
+ * and root digest, and the partition's one linear extent moved to free
+ * space, space.sector onwards, in every metadata copy of lp (lp_metadata's,
+ * changed in place). Returns the new vbmeta, the bytes to write into super
+ * and a record */
+function super_replace(lp, vbmeta, name, image, space)
+{
+    const descriptor = hashtree_descriptor(vbmeta, name);
+    if(descriptor.algorithm !== "sha256" || descriptor.data_block !== 4096 || descriptor.hash_block !== 4096) throw new Error(`vbmeta: ${name}'s hash tree is not sha256 over 4 KiB blocks`);
     const { root, tree } = avb_hashtree(image, descriptor.salt);
     const new_vbmeta = Buffer.from(vbmeta);
     const d = descriptor.at;
@@ -719,23 +819,153 @@ function odm_with_driver(super_read, vbmeta, driver)
     new_vbmeta.writeBigUInt64BE(0n, d + 56);
     new_vbmeta.writeBigUInt64BE(0n, d + 64);
     root.copy(new_vbmeta, descriptor.digest);
-    // odm_a: in the free space after every partition's extents
     const align = lp.alignment / SECTOR;
-    const end = Math.max(...lp.copies.flatMap(c => c.partitions.flatMap(p => p.extents.map(e => e.sector + e.sectors))));
-    const sector = Math.ceil(end / align) * align, sectors = Math.ceil((image.length + tree.length) / lp.alignment) * align;
-    if((sector + sectors) * SECTOR > lp.size) throw new Error("super: no room for odm_a");
-    const metadata = [];
+    const sector = Math.ceil(space.sector / align) * align, sectors = Math.ceil((image.length + tree.length) / lp.alignment) * align;
+    if((sector + sectors) * SECTOR > lp.size) throw new Error(`super: no room for ${name}_a`);
+    const old = lp.copies[0].partitions.find(p => p.name === name + "_a")?.extents;
+    if(!old || old.length !== 1 || old[0].type !== 0) throw new Error(`super: ${name}_a is not one linear extent`);
     for(const copy of lp.copies)
     {
-        const p = copy.partitions.find(p => p.name === "odm_a");
-        if(!p || p.extents.length !== 1 || p.extents[0].sector !== odm.extents[0].sector) throw new Error("super: the metadata copies differ in odm_a");
+        const p = copy.partitions.find(p => p.name === name + "_a");
+        if(!p || p.extents.length !== 1 || p.extents[0].sector !== old[0].sector) throw new Error(`super: the metadata copies differ in ${name}_a`);
         copy.bytes.writeBigUInt64LE(BigInt(sectors), p.extents[0].at);
         copy.bytes.writeBigUInt64LE(BigInt(sector), p.extents[0].at + 12);
         lp_checksum(copy.bytes);
-        metadata.push({ offset: copy.offset, bytes: copy.bytes });
     }
-    return { vbmeta: new_vbmeta, odm: { offset: sector * SECTOR, bytes: Buffer.concat([image, tree]) }, metadata,
+    space.sector = sector + sectors;
+    return { vbmeta: new_vbmeta, data: { offset: sector * SECTOR, bytes: Buffer.concat([image, tree]) },
         record: { sector, sectors, image_blocks: image.length / 4096, root_digest: root.toString("hex") } };
+}
+
+/** super's partition name (slot a) as its hashtree descriptor in vbmeta sizes it */
+function super_partition(super_read, lp, vbmeta, name)
+{
+    const p = lp.copies[0].partitions.find(p => p.name === name + "_a");
+    if(!p || p.extents.length !== 1 || p.extents[0].type !== 0) throw new Error(`super: ${name}_a is not one linear extent`);
+    return super_read(p.extents[0].sector * SECTOR, hashtree_descriptor(vbmeta, name).image_size);
+}
+
+/** the Venus driver on odm (docs/arm64-virt-android16-plan.md P11.4 V3; see
+ * the top): odm's image with the driver, read back */
+function odm_with_driver(odm, driver)
+{
+    const labels = { dir: "u:object_r:vendor_file:s0", file: "u:object_r:same_process_hal_file:s0" };
+    const image = erofs_add_file(odm, "lib64/vulkan.virtio.so", driver, labels);
+    // (read back)
+    const added = erofs_lookup(image, "lib64/vulkan.virtio.so");
+    if(!added || !erofs_data(image, added).equals(driver) || !image.subarray(added.xattrs, added.xattrs + added.xattr_size).includes("selinux" + labels.file, 0, "latin1") ||
+        !erofs_lookup(image, "etc/build.prop")) throw new Error("erofs: odm with the driver does not read back");
+    return image;
+}
+
+// 16 KiB pages (P12.1; see the top)
+
+/** LZ4's legacy frame with blocks of literals only (no compression), which
+ * the kernel's unlz4 takes after another ramdisk's frame */
+export function lz4_legacy_store(data)
+{
+    const parts = [Buffer.from([0x02, 0x21, 0x4C, 0x18])];
+    for(let at = 0; at < data.length; at += 8 << 20)
+    {
+        const chunk = data.subarray(at, Math.min(data.length, at + (8 << 20)));
+        const length = [];
+        for(let rest = chunk.length - 15; rest >= 0; rest -= 255) length.push(Math.min(rest, 255));
+        if(chunk.length >= 15 && length.at(-1) === 255) length.push(0);
+        const block = Buffer.concat([Buffer.from([Math.min(chunk.length, 15) << 4, ...length]), chunk]);
+        const size = Buffer.alloc(4);
+        size.writeUInt32LE(block.length);
+        parts.push(size, block);
+    }
+    return Buffer.concat(parts);
+}
+
+/** a newc cpio archive of regular files [name, data] (mode 0644) */
+export function cpio_newc(files)
+{
+    const parts = [];
+    let ino = 0x7000;
+    const entry = (name, data, mode, nlink) =>
+    {
+        const fields = [ino++, mode, 0, 0, nlink, 0, data.length, 0, 0, 0, 0, name.length + 1, 0];
+        const header = Buffer.from("070701" + fields.map(f => f.toString(16).toUpperCase().padStart(8, "0")).join("") + name + "\0", "latin1");
+        parts.push(header, Buffer.alloc((4 - header.length % 4) % 4), data, Buffer.alloc((4 - data.length % 4) % 4));
+    };
+    for(const [name, data] of files) entry(name, data, 0o100644, 1);
+    entry("TRAILER!!!", Buffer.alloc(0), 0, 1);
+    return Buffer.concat(parts);
+}
+
+/** modules.dep's lines: Map path -> dependency paths */
+function parse_modules_dep(text)
+{
+    return new Map(text.split("\n").filter(Boolean).map(line =>
+    {
+        const [module, deps] = line.split(":");
+        return [module.trim(), deps.trim().split(/\s+/).filter(Boolean)];
+    }));
+}
+
+const module_name = file => file.replace(/^.*\//, "");
+
+/** the 16K kernel build's modules: name -> { data, deps (names) }, and the
+ * modules.alias lines. The virtual device's from initramfs.img, the GKI
+ * ones from system_dlkm.erofs.img (signed again for it, as the 4K
+ * system_dlkm's) */
+function kernel_16k_modules()
+{
+    const modules = new Map(), aliases = [];
+    const add = (files, version_dir) =>
+    {
+        const dep = parse_modules_dep(files.get(version_dir + "modules.dep").toString("latin1"));
+        for(const [file, deps] of dep)
+        {
+            const data = files.get(version_dir + file);
+            if(!data) throw new Error(`16K: ${file} of modules.dep is missing`);
+            modules.set(module_name(file), { data, deps: deps.map(module_name) });
+        }
+        aliases.push(...files.get(version_dir + "modules.alias").toString("latin1").split("\n").filter(line => line.startsWith("alias ")));
+    };
+    const version_dir = `lib/modules/${KERNEL_16K.release}/`;
+    add(cpio_files(lz4_legacy_decompress(fs.readFileSync(DL_16K + "initramfs.img"))), version_dir);
+    const system_dlkm = fs.readFileSync(DL_16K + "system_dlkm.erofs.img");
+    add(new Map(erofs_list(system_dlkm).filter(e => e.type === 1).map(e => [e.path, erofs_data(system_dlkm, e.inode)])), version_dir);
+    return { modules, aliases };
+}
+
+/** a 4K modules directory's files (names) for the 16K kernel: each .ko
+ * the 16K build's; modules.dep the 16K dependencies of the modules in lines
+ * (name -> path on the device: the directory's and those of the directories
+ * its modules may depend on, as the 4K files list them; a dependency first
+ * stage init has loaded, the ramdisk's, left out as the 4K files do),
+ * modules.alias their 16K aliases (both made again: the dlkm images keep
+ * them compressed); the rest (modules.load, .blocklist, .options, .softdep)
+ * as they were. A module the 16K build does not have stays as it was, out of
+ * modules.dep (missing) */
+function modules_for_16k(names, lines, loaded, k16, missing)
+{
+    const out = new Map();
+    for(const name of names)
+    {
+        if(!name.endsWith(".ko")) continue;
+        if(k16.modules.has(name)) out.set(name, k16.modules.get(name).data);
+        else missing.add(lines.get(name));
+    }
+    const present = [...lines].filter(([name]) => k16.modules.has(name));
+    if(names.includes("modules.dep"))
+    {
+        out.set("modules.dep", Buffer.from(present.map(([name, file]) => `${file}: ${k16.modules.get(name).deps.filter(d =>
+        {
+            if(!lines.has(d) && !loaded.has(d)) throw new Error(`16K: ${name} needs ${d}, which is not where it may load from`);
+            return lines.has(d);
+        }).map(d => lines.get(d)).join(" ")}`.trimEnd() + "\n").join("")));
+    }
+    if(names.includes("modules.alias"))
+    {
+        const named = new Set(present.map(([name]) => name.replace(/\.ko$/, "").replace(/-/g, "_")));
+        out.set("modules.alias", Buffer.from("# Aliases extracted from modules themselves.\n" +
+            k16.aliases.filter(line => named.has(line.split(" ")[2])).map(line => line + "\n").join("")));
+    }
+    return out;
 }
 
 // GPT
@@ -830,9 +1060,14 @@ function launcher_bootconfig(args, vbmeta)
         ["androidboot.enable_bootanimation", "1"],
         ...(args.selinux === "permissive" ? [["androidboot.selinux", "permissive"]] : []),
         ["androidboot.enable_confirmationui", "0"],
-        ["androidboot.audio.tinyalsa.ignore_output", "true"],
+        // (the audio HAL's primary output is tinyalsa's card 0 device 0:
+        // the guest's virtio-snd card, v86's virtio_sound, QEMU's
+        // virtio-sound-pci; P12.5)
+        ["androidboot.audio.tinyalsa.ignore_output", "false"],
         ["androidboot.audio.tinyalsa.simulate_input", "true"],
-        ["androidboot.fstab_suffix", "cf.f2fs.hctr2"],
+        // (16 KiB pages: f2fs's block is the page, the image's userdata is
+        // f2fs in 4 KiB blocks; ext4 takes 4 KiB blocks under 16K pages)
+        ["androidboot.fstab_suffix", args.page_size === 4096 ? "cf.f2fs.hctr2" : "cf.ext4.hctr2"],
         ["androidboot.wifi_mac_prefix", "5554"],
         ["androidboot.hw_timeout_multiplier", "50"],
         ["androidboot.hypervisor.vm.supported", "0"],
@@ -865,6 +1100,7 @@ async function main()
 {
     const args = parse_args(process.argv.slice(2));
     const hashes = await fetch_artifacts(args.download);
+    const hashes_16k = args.page_size === 16384 ? await fetch_artifacts(args.download, ARTIFACTS_16K, KERNEL_16K_URL, DL_16K) : null;
     unpack_images();
     fs.mkdirSync(args.out, { recursive: true });
 
@@ -872,38 +1108,102 @@ async function main()
     const boot = parse_boot_image(read("boot.img"));
     const init_boot = parse_boot_image(read("init_boot.img"));
     const vendor_boot = parse_vendor_boot_image(read("vendor_boot.img"));
-    if(boot.kernel.toString("latin1", 56, 60) !== "ARMd") throw new Error("boot.img's kernel is not a raw arm64 Image");
-    fs.writeFileSync(args.out + "Image", boot.kernel);
+    const kernel = hashes_16k ? fs.readFileSync(DL_16K + "Image") : boot.kernel;
+    if(kernel.toString("latin1", 56, 60) !== "ARMd") throw new Error("the kernel is not a raw arm64 Image");
+    if(hashes_16k && !kernel.includes(KERNEL_16K.release)) throw new Error("the 16K Image is not " + KERNEL_16K.release);
+    fs.writeFileSync(args.out + "Image", kernel);
 
     const partition_file = {
         vbmeta: "vbmeta.img", vbmeta_system: "vbmeta_system.img", vbmeta_vendor_dlkm: "vbmeta_vendor_dlkm.img",
         vbmeta_system_dlkm: "vbmeta_system_dlkm.img", boot: "boot.img", init_boot: "init_boot.img", vendor_boot: "vendor_boot.img",
     };
-    // the Venus driver on odm (see the top), when tools/a64_venus/build.mjs has made it
+    // super's partitions made again: odm with the Venus driver (see the top),
+    // when tools/a64_venus/build.mjs has made it, and with 16 KiB pages
+    // system_dlkm and vendor_dlkm with the 16K modules; each to free space
+    // after super's partitions, its vbmeta image's descriptor changed
+    const super_read = (offset, length) => sparse_read(IMG + "super.img", offset, length);
+    const lp = lp_metadata(super_read);
+    const space = { sector: Math.max(...lp.copies.flatMap(c => c.partitions.flatMap(p => p.extents.map(e => e.sector + e.sectors)))) };
+    const vbmeta_images = new Map(), super_patches = [];
+    const vbmeta_of = name => vbmeta_images.get(name) || read(partition_file[name]);
+    const replace = (name, vbmeta_name, image) =>
+    {
+        const result = super_replace(lp, vbmeta_of(vbmeta_name), name, image, space);
+        vbmeta_images.set(vbmeta_name, result.vbmeta);
+        super_patches.push(result.data);
+        return result.record;
+    };
     const driver = fs.existsSync(VENUS_DRIVER) ? fs.readFileSync(VENUS_DRIVER) : null;
-    const venus = driver && odm_with_driver((offset, length) => sparse_read(IMG + "super.img", offset, length), read("vbmeta.img"), driver);
-    const vbmeta = vbmeta_digest(name => name === "vbmeta" && venus ? venus.vbmeta : read(partition_file[name]));
+    const venus = driver && { record: replace("odm", "vbmeta", odm_with_driver(super_partition(super_read, lp, vbmeta_of("vbmeta"), "odm"), driver)) };
+
+    const vendor_ramdisk = args.release ? vendor_boot.ramdisk : fs.readFileSync(DL + "vendor_ramdisk-debug.img");
+    const lib_modules = ramdisk => new Map([...cpio_files(lz4_legacy_decompress(ramdisk))].flatMap(([name, data]) =>
+    {
+        const m = /^lib\/modules\/([^/]+)$/.exec(name);
+        return m ? [[m[1], data]] : [];
+    }));
+    // the 16K modules (see the top): the vendor ramdisk's in a ramdisk after
+    // it (the same files, which the kernel's unpacking overwrites),
+    // system_dlkm's and vendor_dlkm's in their images
+    let ramdisk_16k = Buffer.alloc(0), modules_16k = null;
+    if(hashes_16k)
+    {
+        const k16 = kernel_16k_modules();
+        const images = Object.fromEntries(["system_dlkm", "vendor_dlkm"].map(name => [name, super_partition(super_read, lp, vbmeta_of("vbmeta_" + name), name)]));
+        const listing = image => erofs_list(image).filter(e => e.type === 1 && /^lib\/modules\/[^/]+$/.test(e.path)).map(e => module_name(e.path));
+        const names = { ramdisk: [...lib_modules(vendor_ramdisk).keys()], system_dlkm: listing(images.system_dlkm), vendor_dlkm: listing(images.vendor_dlkm) };
+        // (where each directory's modules may load theirs from, and its modules.dep lists:
+        // vendor_dlkm's has system_dlkm's modules too)
+        const dirs = { ramdisk: "/lib/modules/", system_dlkm: "/system/lib/modules/", vendor_dlkm: "/vendor/lib/modules/" };
+        const from = { ramdisk: ["ramdisk"], system_dlkm: ["system_dlkm"], vendor_dlkm: ["system_dlkm", "vendor_dlkm"] };
+        const missing = new Set(), replaced = {};
+        for(const key of Object.keys(dirs))
+        {
+            const lines = new Map(from[key].flatMap(k => names[k].filter(n => n.endsWith(".ko")).map(n => [n, dirs[k] + n])));
+            const loaded = new Set(key === "ramdisk" ? [] : names.ramdisk.filter(n => n.endsWith(".ko")));
+            replaced[key] = modules_for_16k(names[key], lines, loaded, k16, missing);
+        }
+        const dlkm = {};
+        for(const name of ["system_dlkm", "vendor_dlkm"])
+        {
+            const image = erofs_replace_files(images[name], [...replaced[name]].map(([file, data]) => ["lib/modules/" + file, data]));
+            // (read back)
+            for(const [file, data] of replaced[name])
+            {
+                if(!erofs_data(image, erofs_lookup(image, "lib/modules/" + file)).equals(data)) throw new Error(`erofs: ${name}'s ${file} does not read back`);
+            }
+            dlkm[name] = replace(name, "vbmeta_" + name, image);
+        }
+        ramdisk_16k = lz4_legacy_store(cpio_newc([...replaced.ramdisk].map(([file, data]) => ["lib/modules/" + file, data])));
+        const back = cpio_files(lz4_legacy_decompress(ramdisk_16k));
+        for(const [file, data] of replaced.ramdisk) if(!back.get("lib/modules/" + file)?.equals(data)) throw new Error(`16K ramdisk: ${file} does not read back`);
+        modules_16k = { replaced: Object.fromEntries(Object.entries(replaced).map(([key, files]) => [key, [...files.keys()].filter(f => f.endsWith(".ko")).length])),
+            missing: [...missing].sort(), dlkm,
+            // (the 16K build's modules no 4K directory has: built in there, or new; loaded by nothing here either)
+            not_placed: [...k16.modules.keys()].filter(n => !Object.values(names).some(list => list.includes(n))).sort(), ramdisk_sha256: create_hash("sha256").update(ramdisk_16k).digest("hex") };
+        for(const file of modules_16k.missing) console.log(`16K: ${file} has no 16K module (left as it was, not in modules.dep)`);
+    }
+    const vbmeta = vbmeta_digest(name => vbmeta_of(name));
 
     const bootconfig = parse_bootconfig(vendor_boot.bootconfig);
     for(const [key, value] of launcher_bootconfig(args, vbmeta)) bootconfig.set(key, value);
-    const vendor_ramdisk = args.release ? vendor_boot.ramdisk : fs.readFileSync(DL + "vendor_ramdisk-debug.img");
     // (the virtual-device modules, for the GKI bridge)
     const modules = args.out + "modules/";
     fs.rmSync(modules, { recursive: true, force: true });
     fs.mkdirSync(modules);
     let module_count = 0;
-    for(const [name, data] of cpio_files(lz4_legacy_decompress(vendor_boot.ramdisk)))
+    const module_files = new Map([...lib_modules(vendor_boot.ramdisk), ...(ramdisk_16k.length ? lib_modules(ramdisk_16k) : [])]);
+    for(const [name, data] of module_files)
     {
-        const m = /^lib\/modules\/([^/]+)$/.exec(name);
-        if(!m || !/\.ko$|^modules\.(load|options|dep|softdep)$/.test(m[1])) continue;
-        fs.writeFileSync(modules + m[1], data);
-        if(m[1].endsWith(".ko")) module_count++;
+        if(!/\.ko$|^modules\.(load|options|dep|softdep)$/.test(name)) continue;
+        fs.writeFileSync(modules + name, data);
+        if(name.endsWith(".ko")) module_count++;
     }
     if(!fs.existsSync(modules + "modules.load")) throw new Error("no lib/modules/modules.load in the vendor ramdisk");
-    const initrd = append_bootconfig(Buffer.concat([vendor_ramdisk, init_boot.ramdisk]), bootconfig);
+    const initrd = append_bootconfig(Buffer.concat([vendor_ramdisk, ramdisk_16k, init_boot.ramdisk]), bootconfig);
     fs.writeFileSync(args.out + "initrd.img", initrd);
     // (and with libvulkan's driver odm's, Venus)
-    const initrd_venus = venus && append_bootconfig(Buffer.concat([vendor_ramdisk, init_boot.ramdisk]),
+    const initrd_venus = venus && append_bootconfig(Buffer.concat([vendor_ramdisk, ramdisk_16k, init_boot.ramdisk]),
         new Map([...bootconfig, ...Object.entries(VENUS_BOOTCONFIG)]));
     if(initrd_venus) fs.writeFileSync(args.out + "initrd-venus.img", initrd_venus);
     else fs.rmSync(args.out + "initrd-venus.img", { force: true });
@@ -915,10 +1215,13 @@ async function main()
     const layout = [["misc", { blank: 1 << 20 }]];
     for(const name of ["boot", "init_boot", "vendor_boot", "vbmeta", "vbmeta_system", "vbmeta_vendor_dlkm", "vbmeta_system_dlkm"])
     {
-        for(const slot of ["_a", "_b"]) layout.push([name + slot, name === "vbmeta" && venus ? { bytes: venus.vbmeta } : { file: IMG + partition_file[name] }]);
+        for(const slot of ["_a", "_b"]) layout.push([name + slot, vbmeta_images.has(name) ? { bytes: vbmeta_images.get(name) } : { file: IMG + partition_file[name] }]);
     }
-    layout.push(["super", { sparse: IMG + "super.img", patches: venus ? [...venus.metadata, venus.odm] : [] }],
-        ["userdata", { sparse: IMG + "userdata.img" }], ["metadata", { blank: 64 << 20 }]);
+    // (userdata: with 16 KiB pages blank, for first boot to make ext4 there,
+    // see the top)
+    layout.push(["super", { sparse: IMG + "super.img",
+        patches: super_patches.length ? [...lp.copies.map(c => ({ offset: c.offset, bytes: c.bytes })), ...super_patches] : [] }],
+        ["userdata", hashes_16k ? { blank: sparse_size(IMG + "userdata.img") } : { sparse: IMG + "userdata.img" }], ["metadata", { blank: 64 << 20 }]);
     // (and from Cuttlefish's second, persistent disk the one the guest
     // needs: frp, PersistentDataBlockService's, without which system_server
     // dies at boot phase 500)
@@ -937,7 +1240,7 @@ async function main()
     // --fresh-disk: the runs keep their writes in memory, the image stays
     // as made, and a guest still reading it is not disturbed)
     const disk_key = JSON.stringify({ artifacts: hashes, partitions: partitions.map(p => [p.name, p.start, p.size]),
-        venus: venus ? venus.record : null });
+        venus: venus ? venus.record : null, ...(hashes_16k ? { kernel_16k: hashes_16k, modules_16k } : {}) });
     const key_file = args.out + "disk.key";
     if(args.fresh_disk || !fs.existsSync(disk) || fs.statSync(disk).size !== disk_size ||
         !fs.existsSync(key_file) || fs.readFileSync(key_file, "utf8") !== disk_key)
@@ -969,8 +1272,10 @@ async function main()
     const manifest = {
         build: { id: BUILD, target: TARGET, branch: "aosp-android-latest-release", fingerprint: FINGERPRINT, source: "android16-qpr2-release",
             url: ARTIFACT_URL },
-        kernel: { release: boot.kernel.includes("6.12.38-android16-5") ? "6.12.38-android16-5-g501f58f107ab-ab13974591-4k" : null,
-            os_version: boot.os_version.toString(16) },
+        kernel: hashes_16k ? { release: KERNEL_16K.release, page_size: 16384, build: KERNEL_16K.build, target: KERNEL_16K.target,
+            branch: KERNEL_16K.branch, url: KERNEL_16K_URL, artifacts: hashes_16k } :
+            { release: boot.kernel.includes("6.12.38-android16-5") ? "6.12.38-android16-5-g501f58f107ab-ab13974591-4k" : null,
+                page_size: 4096, os_version: boot.os_version.toString(16) },
         artifacts: hashes,
         vendor_ramdisk: args.release ? "vendor_boot.img" : "vendor_ramdisk-debug.img",
         vbmeta,
@@ -981,7 +1286,8 @@ async function main()
         disk: { size: disk_size, sector: SECTOR, boot_devices: BOOT_DEVICES,
             partitions: partitions.map(p => ({ name: p.name, start: p.start, size: p.size })) },
         modules: module_count,
-        results: { "Image": create_hash("sha256").update(boot.kernel).digest("hex"),
+        modules_16k,
+        results: { "Image": create_hash("sha256").update(kernel).digest("hex"),
             "initrd.img": create_hash("sha256").update(initrd).digest("hex"),
             ...(initrd_venus ? { "initrd-venus.img": create_hash("sha256").update(initrd_venus).digest("hex") } : {}) },
     };

@@ -689,7 +689,11 @@ keeps the Vulkan objects and answers.
   Android's heap pointers (a tag in the top byte) round to multiples of
   2048 and two threads' rings shared an id, the second replacing the first
   (until 2026-10-19; a snapshot of then keeps its rings under those numbers,
-  `ring_key` in `venus.js`).
+  `ring_key` in `venus.js`). A host visible memory's blob may be larger than
+  the memory by the guest's page rounding: the kernel makes blobs of whole
+  pages, 16 KiB on Android's 16K kernel, so up to 64 KiB of rounding is taken
+  (a 4 KiB limit refused the blobs there, and hardware bitmaps came back
+  null).
 - **Vulkan model** (`venus_vk.js` and `venus_vk_*.js`): instance and physical
   device queries from `venus_device_info.js`. The device reports Vulkan 1.1,
   the lowest renderer version Mesa's venus driver accepts

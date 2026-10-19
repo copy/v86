@@ -36,6 +36,10 @@
 //   Chrome, the guest's driver initrd-venus.img's), A64_ANDROID_SAVE_STATE=<file> / A64_ANDROID_RESTORE_STATE=<file> (v86: a state after boot_completed, saved
 //   or restored instead of booting), A64_ANDROID_TIMEOUT (ms), A64_ANDROID_PROBE=<file> (shell commands to run
 //   over adb after boot_completed, one per line, with their output; A64_ANDROID_PUSH=<local>=<remote>,... first),
+//   A64_ANDROID_PAGE_SIZE=16k (P12.1: tools/a64_android.mjs --page-size 16k's materials, build/a64-android/out-16k/; the
+//   guest's page size and kernel are checked over adb or the console; A64_ANDROID_SCENARIO=pagesize records how native
+//   APKs aligned to 4 and 16 KiB fare, android_scenario.mjs), A64_ANDROID_SCENARIO=cts (P12.3's CTS subset, android_cts.mjs;
+//   A64_ANDROID_CTS_MODULES=<module>,... and A64_ANDROID_CTS_FILTER=<module>=<gtest filter>;... to try parts of it),
 //   TEST_RELEASE_BUILD=1 (build/libv86.mjs)
 // Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log, *.png, result.json)
 import assert from "node:assert/strict";
@@ -45,18 +49,29 @@ import net from "node:net";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { android_qemu_args, AndroidConsole, qemu_screendump } from "./android_qemu.mjs";
+import { android_qemu_args, AndroidConsole, qemu_screendump, qmp_connect, qemu_touch, qemu_picture_digest } from "./android_qemu.mjs";
+import { createHash as create_hash } from "node:crypto";
 import { qemu_binary } from "./guest_runner.mjs";
 import { AdbClient } from "./adb.mjs";
-import { a9_scenario, prepare_device } from "./android_scenario.mjs";
+import { a9_scenario, a10_scenario, pagesize_scenario, prepare_device, PREPARE_COMMAND, device_prepared } from "./android_scenario.mjs";
+import { cts_scenario } from "./android_cts.mjs";
 import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 import { create_remote_renderer } from "../x64/gpu_remote_renderer.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
-const OUT = ROOT + "build/a64-android/out/";
+const page_size = { "": 4096, "4k": 4096, "16k": 16384 }[process.env.A64_ANDROID_PAGE_SIZE || ""];
+assert.ok(page_size, "A64_ANDROID_PAGE_SIZE: 4k or 16k");
+const OUT = ROOT + (page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
 for(const file of ["Image", "initrd.img", "disk.img", "cmdline.txt"])
 {
-    assert.ok(fs.existsSync(OUT + file), OUT + file + " is missing: node tools/a64_android.mjs --download");
+    assert.ok(fs.existsSync(OUT + file), OUT + file + ` is missing: node tools/a64_android.mjs --download${page_size === 4096 ? "" : " --page-size 16k"}`);
+}
+/** the page size and kernel release the guest reports ("S=<getconf PAGE_SIZE> K=<uname -r>"), checked */
+function check_page_size(output)
+{
+    const m = /S=(\d+) K=(\S+)/.exec(output);
+    assert.ok(m && +m[1] === page_size, `the guest's page size: ${JSON.stringify(output)}, expected ${page_size}`);
+    return { page_size: +m[1], kernel_release: m[2] };
 }
 const target = process.env.A64_ANDROID_TARGET || "qemu";
 assert.ok(target === "qemu" || target === "v86", "A64_ANDROID_TARGET: qemu or v86");
@@ -67,11 +82,11 @@ const plugins = !!+process.env.A64_QEMU_PLUGINS;
 const jit = !!+process.env.A64_JIT;
 const parallel = !!+process.env.A64_PARALLEL;
 const scenario = process.env.A64_ANDROID_SCENARIO || "";
-assert.ok(!scenario || scenario === "a9", "A64_ANDROID_SCENARIO: a9");
+assert.ok(!scenario || ["a9", "a10", "pagesize", "cts"].includes(scenario), "A64_ANDROID_SCENARIO: a9, a10, pagesize or cts");
 assert.ok(!scenario || !plugins, "A64_ANDROID_SCENARIO and A64_QEMU_PLUGINS do not go together");
 const wait_for_boot_completed = target === "qemu" || !!scenario || process.env.A64_ANDROID_WAIT === "boot_completed";
 const tag = (target === "qemu" ? `qemu-${accel}${plugins ? "-plugins" : ""}` : `v86${jit ? "-jit" : ""}${parallel ? "-par" : ""}`) +
-    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}-${memory_mb}m-${cores}c`;
+    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}${page_size === 4096 ? "" : "-16k"}-${memory_mb}m-${cores}c`;
 const timeout = +process.env.A64_ANDROID_TIMEOUT || (target === "qemu" && !scenario ? (accel === "hvf" ? 600000 : plugins ? 14400000 : 3600000) : 14400000);
 const directory = ROOT + `build/a64-android/runs/${tag}/`;
 fs.mkdirSync(directory, { recursive: true });
@@ -173,6 +188,10 @@ function adb_over(open, retry_ms = 600000)
 // line "@screenshot <name>" saves the display as <name>.png;
 // A64_ANDROID_PUSH=<local>=<remote>,...: files pushed first
 const probe_file = process.env.A64_ANDROID_PROBE || "";
+/** the rows whose change ends a timed tap (below the status bar, above the navigation bar) */
+const LATENCY_ROWS = [300, 1000];
+// A64_ANDROID_A10_MONKEY_MINUTES: A10's long run (30, P10.3's budget)
+const monkey_minutes = +process.env.A64_ANDROID_A10_MONKEY_MINUTES || 30;
 async function run_probes(shell, push, screenshot)
 {
     if(!probe_file) return;
@@ -199,20 +218,28 @@ async function run_probes(shell, push, screenshot)
 
 async function run_scenario(env, result)
 {
-    console.log("scenario a9");
-    const found = await a9_scenario({ ...env, log: text => console.log(`${(elapsed() / 1000).toFixed(0)} s: a9: ${text}`) });
-    result.a9 = found;
-    mark("a9_done");
+    console.log("scenario " + scenario);
+    // (cts: A64_ANDROID_CTS_MODULES=<module>,... some of the subset only; A64_ANDROID_CTS_FILTER=<module>=<gtest filter>;...)
+    const cts = env => cts_scenario(env, {
+        modules: process.env.A64_ANDROID_CTS_MODULES ? process.env.A64_ANDROID_CTS_MODULES.split(",") : undefined,
+        filter: process.env.A64_ANDROID_CTS_FILTER ? Object.fromEntries(process.env.A64_ANDROID_CTS_FILTER.split(";").map(f => f.split(/=(.*)/s).slice(0, 2))) : undefined });
+    const found = await ({ a9: a9_scenario, a10: a10_scenario, pagesize: pagesize_scenario, cts })[scenario]({ ...env,
+        log: text => console.log(`${(elapsed() / 1000).toFixed(0)} s: ${scenario}: ${text}`) });
+    result[scenario] = found;
+    mark(scenario + "_done");
+    if(scenario === "cts") assert.ok(found.passed, "the CTS subset: " + JSON.stringify(found.modules));
 }
 
 if(target === "qemu")
 {
     const qemu = qemu_binary();
     const socket = `/tmp/v86-a64-android-${process.pid}.sock`, monitor = `/tmp/v86-a64-android-${process.pid}-m.sock`;
+    const qmp_socket = `/tmp/v86-a64-android-${process.pid}-q.sock`;
     const adb_port = 15600 + process.pid % 1000;
     const args = android_qemu_args(OUT, { accel, memory_mb, cores, console_socket: socket,
         kernel_log: directory + "kernel.log", logcat: directory + "logcat.log",
-        ...(scenario || probe_file ? { monitor_socket: monitor, adb_port } : {}) });
+        ...(scenario || probe_file ? { monitor_socket: monitor, adb_port } : {}), ...(scenario === "a10" ? { qmp_socket } : {}),
+        sound_wav: directory + "sound.wav" });
     const plugin_log = directory + "plugins.log";
     if(plugins)
     {
@@ -250,10 +277,20 @@ if(target === "qemu")
     try
     {
         await terminal.open();
+        // (with a scenario, the device's settings from the console as soon as
+        // the services take them, as v86 does over adb: on a slow boot the
+        // lock screen must be off before SystemUI sets up its keyguard,
+        // prepare_device in android_scenario.mjs)
+        let prepared = !scenario;
         const until_booted = async () =>
         {
             for(;;)
             {
+                if(!prepared)
+                {
+                    const p = await terminal.run(PREPARE_COMMAND, 60000);
+                    if(p && device_prepared(p.output)) { prepared = true; mark("device_prepared"); }
+                }
                 const r = await terminal.run("getprop sys.boot_completed", 30000);
                 if(r && r.output.trim() === "1") return;
                 await sleep(5000);
@@ -265,7 +302,8 @@ if(target === "qemu")
             new Promise((_, reject) => setTimeout(() => reject(new Error(`no sys.boot_completed=1 in ${timeout} ms`)), timeout))]);
         mark("boot_completed_getprop");
         const fingerprint = (await terminal.run("getprop ro.build.fingerprint")).output.trim();
-        const result = { tag, fingerprint, marks };
+        const result = { tag, fingerprint, marks, ...check_page_size((await terminal.run("echo S=$(getconf PAGE_SIZE) K=$(uname -r)")).output) };
+        console.log(`page size ${result.page_size}, kernel ${result.kernel_release}`);
         if(scenario || probe_file)
         {
             // (Wi-Fi first, from the console: adb reaches the guest through it)
@@ -284,8 +322,32 @@ if(target === "qemu")
             await run_probes(adb.shell, adb.push, name => qemu_screendump(monitor, directory, name));
             if(scenario)
             {
-                await run_scenario({ target, adb: adb.shell, push: adb.push, reboot: adb.reboot,
-                    screenshot: name => qemu_screendump(monitor, directory, name), touch: null, http: null, wait_reboot: () => sleep(30000) }, result);
+                // (A10: taps through QMP, and their latency to the screen's first change in screendumps)
+                const qmp = scenario === "a10" ? await qmp_connect(qmp_socket) : null;
+                const touch = qmp ? (x, y) => qemu_touch(qmp, x, y, 720, 1280) : null;
+                const digest = () => qemu_picture_digest(monitor, directory + "latency.ppm", LATENCY_ROWS[0], LATENCY_ROWS[1]);
+                const tap_latency = touch ? async (x, y) => {
+                    const before = await digest();
+                    const started = performance.now();
+                    await touch(x, y);
+                    while(performance.now() - started < 60000)
+                    {
+                        if(await digest() !== before) return Math.round(performance.now() - started);
+                    }
+                    return null;
+                } : null;
+                // (what the sound card played: the WAV's samples written since reset)
+                let sound_from = -1;
+                const sound = { reset: () => { sound_from = fs.existsSync(directory + "sound.wav") ? fs.statSync(directory + "sound.wav").size : 44; },
+                    played: () => {
+                        const wav = fs.existsSync(directory + "sound.wav") ? fs.readFileSync(directory + "sound.wav") : Buffer.alloc(0);
+                        const from = Math.max(44, sound_from);
+                        return wav.subarray(from, from + (wav.length - from & ~3));
+                    } };
+                await run_scenario({ target, directory, adb: adb.shell, push: adb.push, reboot: adb.reboot,
+                    screenshot: name => qemu_screendump(monitor, directory, name), touch, tap_latency, http: null, wait_reboot: () => sleep(30000), monkey_minutes,
+                    sound }, result);
+                qmp?.close();
             }
         }
         fs.writeFileSync(directory + "console.log", terminal.text);
@@ -357,6 +419,10 @@ const remote = gpu_level ? await create_remote_renderer() : null;
 // A64_ANDROID_RESTORE_STATE=<file>: such a state restored instead of booting
 // (the same options otherwise), for quick rounds of probes
 const save_state_file = process.env.A64_ANDROID_SAVE_STATE || "", restore_state_file = process.env.A64_ANDROID_RESTORE_STATE || "";
+// virtio-snd (P12.5): the audio HAL's card; what it plays is collected
+// while a scenario's sound step listens (sound.reset to sound.played)
+let sound_chunks = null;
+const sound = { reset: () => { sound_chunks = []; }, played: () => { const pcm = Buffer.concat(sound_chunks || []); sound_chunks = null; return pcm; } };
 const emulator = new V86({
     cpu_type: "arm64", cpu_cores: cores, memory_size: low_mb * 1048576, log_level: 0, autostart: !restore_state_file,
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
@@ -368,10 +434,13 @@ const emulator = new V86({
     ...(remote ? { graphics_adapter_test: { level: gpu_level, renderer: remote.renderer } } : {}),
     net_device: { type: "virtio", count: 3, relay_url: "fetch", id: 2 },
     virtio_console: true, virtio_console_ports: 18, virtio_rng: true, virtio_input: ["keyboard", "multitouch"], virtio_vsock: true,
+    virtio_sound: true,
     ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
     ...(parallel ? { parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm" } : {}),
 });
 const loaded = new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
+let sound_bytes = 0;
+emulator.add_listener("virtio-snd-pcm", pcm => { sound_bytes += pcm["bytes"].length; if(sound_chunks) sound_chunks.push(Buffer.from(pcm["bytes"])); });
 // A64_ANDROID_GPU_DEBUG=1 (with the sources, not the release build: the
 // device's names): virtio-gpu's control queue and Venus's queues every 30 s
 if(process.env.A64_ANDROID_GPU_DEBUG)
@@ -388,6 +457,22 @@ if(process.env.A64_ANDROID_GPU_DEBUG)
                 // (each context's rings: - idle, R running, W:<command> waiting in it, F fatal)
                 ` rings=${[...gpu.venus.contexts.values()].map(c => [...c.rings.values()].map(r => r.fatal ? "F" : !r.run ? "-" :
                     r.run.waiting ? "W:" + r.run.waiting_on.replace(/^vk/, "") : "R").join("")).filter(r => /[RWF]/.test(r)).join(" ")}` : ""));
+        // (=2: every ring: context, id, its blob's mapping, head, the tail and status in its memory)
+        if(process.env.A64_ANDROID_GPU_DEBUG === "2" && gpu.venus)
+        {
+            const bytes = gpu.venus.bytes(), view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            for(const c of gpu.venus.contexts.values())
+            {
+                for(const r of c.rings.values())
+                {
+                    const mapped = r.blob.map_offset >= 0;
+                    console.log(`gpu-ring: ctx=${c.id} ring=${r.id} blob=${r.blob.id} map=${r.blob.map_offset} head=${r.head}` +
+                        (mapped ? ` tail=${view.getUint32(r.blob.map_offset + r.tail_offset, true)} mem-head=${view.getUint32(r.blob.map_offset + r.head_offset, true)}` +
+                            ` status=${view.getUint32(r.blob.map_offset + r.status_offset, true)}` : "") +
+                        ` fatal=${r.fatal} run=${r.run ? (r.run.waiting ? "W:" + r.run.waiting_on : "R") : "-"}`);
+                }
+            }
+        }
     }, 30000).unref();
 }
 // (Cuttlefish's phone display: 720x1280, lcd_density 320)
@@ -457,14 +542,14 @@ try
     // system_server, then adbd's answer (retried: adbd starts before its vsock listener is ready)
     await with_deadline(new Promise(resolve => { const t = setInterval(() => { if(marks.system_server !== undefined && marks.adbd !== undefined) { clearInterval(t); resolve(); } }, 1000); }));
     const banner = await with_deadline(adb.banner());
-    const answer = await with_deadline(adb.shell("echo B=$(getprop sys.boot_completed) P=$(pidof system_server) F=$(getprop ro.build.fingerprint)"));
+    const answer = await with_deadline(adb.shell("echo B=$(getprop sys.boot_completed) P=$(pidof system_server) F=$(getprop ro.build.fingerprint) S=$(getconf PAGE_SIZE) K=$(uname -r)"));
     mark("adb");
     console.log("adb banner: " + banner.slice(0, 120));
     console.log("adb: " + JSON.stringify(answer));
     const fields = /B=(\S*) P=(\d*) F=(\S*)/.exec(answer);
     assert.ok(fields && fields[2], "system_server's pid over adb: " + JSON.stringify(answer));
     assert.ok(/:16\/BP4A\.251205\.006\//.test(fields[3]), "the build's fingerprint over adb");
-    const result = { tag, marks, system_server_pid: +fields[2], fingerprint: fields[3] };
+    const result = { tag, marks, system_server_pid: +fields[2], fingerprint: fields[3], ...check_page_size(answer) };
     // (the scenario's device settings, from now on: see prepare_device)
     const prepared = scenario ? prepare_device(adb.shell).then(() => mark("device_prepared")) : null;
     prepared?.catch(() => {});
@@ -485,7 +570,8 @@ try
         console.log(`saved ${save_state_file} (${(bytes / 1048576).toFixed(0)} MiB)`);
         emulator.run();
     }
-    await with_deadline(run_probes(adb.shell, adb.push, async name => screenshot(name)));
+    // (A10 runs the probes after its snapshot instead: debugging what follows a restore)
+    if(scenario !== "a10") await with_deadline(run_probes(adb.shell, adb.push, async name => screenshot(name)));
     if(scenario)
     {
         await with_deadline(prepared);
@@ -494,15 +580,95 @@ try
             await sleep(300);
             emulator.bus.send("touch", { "touches": [], "width": 720, "height": 1280 });
         };
+        // (A10's input latency: from the touch to the first change of the screen's middle rows)
+        const digest = () => {
+            emulator.v86?.cpu?.devices?.display?.request_frame(true);
+            const row = sink.width * 4;
+            return create_hash("sha1").update(sink.rgba.subarray(LATENCY_ROWS[0] * row, LATENCY_ROWS[1] * row)).digest("hex");
+        };
+        const tap_latency = async (x, y) => {
+            const before = digest();
+            const started = performance.now();
+            await touch(x, y);
+            while(performance.now() - started < 60000)
+            {
+                if(digest() !== before) return Math.round(performance.now() - started);
+                await sleep(20);
+            }
+            return null;
+        };
         // (after "reboot" adbd goes away, the machine resets and boots again: wait for adb, up to 2 hours)
         const wait_reboot = async () => { await sleep(60000); await adb_over(vsock, 7200000).shell("echo up"); };
-        await with_deadline(run_scenario({ target, adb: adb.shell, push: adb.push, reboot: adb.reboot,
+        // (A10: the desktop saved to A64_ANDROID_A10_SAVE, which a second run
+        // restores into a new machine; A64_ANDROID_SNAPSHOT=inprocess: saved
+        // and restored into this one, debugging: see docs/aarch64.md's known
+        // defects; =pause: only stopped for 20 s)
+        const a10_save = process.env.A64_ANDROID_A10_SAVE || "";
+        const snapshot = async () => {
+            const name = a10_save || directory + "snapshot.v7";
+            await emulator.stop();
+            if(a10_save)
+            {
+                const started = performance.now();
+                let bytes = 0;
+                const out = await fs.promises.open(name, "w");
+                await emulator.save_state_stream(async chunk => { await out.write(chunk, 0, chunk.length, bytes); bytes += chunk.length; });
+                await out.close();
+                emulator.run();
+                return { saved: name, mib: Math.round(bytes / 1048576), save_ms: Math.round(performance.now() - started) };
+            }
+            // (A64_ANDROID_SNAPSHOT=pause: the machine only stopped for 20 s, debugging)
+            if(process.env.A64_ANDROID_SNAPSHOT === "pause")
+            {
+                await sleep(20000);
+                emulator.run();
+                await adb_over(vsock, 600000).shell("echo up");
+                return { paused_ms: 20000 };
+            }
+            let started = performance.now(), bytes = 0;
+            const out = await fs.promises.open(name, "w");
+            await emulator.save_state_stream(async chunk => { await out.write(chunk, 0, chunk.length, bytes); bytes += chunk.length; });
+            await out.close();
+            const save_ms = Math.round(performance.now() - started);
+            started = performance.now();
+            const file = await fs.promises.open(name, "r");
+            await emulator.restore_state_stream({ size: bytes, read: async (offset, length) => {
+                const data = new Uint8Array(length);
+                const read = (await file.read(data, 0, length, offset))["bytesRead"];
+                return read === length ? data : data.subarray(0, read);
+            } });
+            await file.close();
+            const restore_ms = Math.round(performance.now() - started);
+            emulator.run();
+            if(!process.env.A64_ANDROID_KEEP_SNAPSHOT) fs.rmSync(name, { force: true });
+            await adb_over(vsock, 600000).shell("echo up");
+            return { mib: Math.round(bytes / 1048576), save_ms, restore_ms };
+        };
+        await with_deadline(run_scenario({ target, directory, adb: adb.shell, push: adb.push, reboot: adb.reboot,
             screenshot: async name => screenshot(name),
-            touch, http: { port: http_port, token: http_token }, wait_reboot }, result));
+            touch, tap_latency, http: { port: http_port, token: http_token }, wait_reboot, monkey_minutes,
+            snapshot: scenario === "a10" && (a10_save && !restore_state_file || process.env.A64_ANDROID_SNAPSHOT) ? snapshot : null,
+            restored: restore_state_file || null,
+            sound,
+            probe: probe_file ? () => run_probes(adb.shell, adb.push, async name => screenshot(name)) : null }, result));
     }
     clearInterval(progress);
     result.ms = elapsed();
     if(remote) result.renderer = remote.stats;
+    // (P12.3's metrics: the instructions each core retired, MIPS over the
+    // run, the page tier's counters (core 0's instance; the workers' compile
+    // their own), the host process's peak resident memory)
+    {
+        const cpu = emulator.v86.cpu;
+        const retired = Array.from({ length: cores }, (_, core) => cpu.retired_instructions(core));
+        const total = retired.reduce((sum, n) => sum + n, 0);
+        const t = jit ? cpu.page_tier_stats() : null;
+        result.metrics = { retired, mips: Math.round(total / result.ms / 100) / 10,
+            ...(t ? { compiles: t.compiled, compile_ms: Math.round(t.compile_ms), evictions: t.evictions, live_code_mib: Math.round(t.live_code_bytes / 1048576) } : {}),
+            max_rss_mib: Math.round(process.resourceUsage().maxRSS / 1024),
+            // (what the sound card played over the run: the audio HAL's output)
+            sound_mib: Math.round(sound_bytes / 1048576 * 10) / 10 };
+    }
     fs.writeFileSync(directory + "result.json", JSON.stringify(result, null, 2) + "\n");
     console.log(JSON.stringify(result));
     console.log(`A64_ANDROID_BOOT_OK ${tag}`);

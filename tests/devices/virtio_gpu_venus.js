@@ -448,6 +448,15 @@ reply = call("vkGetSemaphoreCounterValue", { device: DEVICE, semaphore: SEM, pVa
 assert.equal(reply.pValue, 2, "the submission signaled 2");
 console.log("PASS: a timeline wait the host meets; the GPU's and the guest's writes to one page");
 
+// A blob of whole guest pages: a 16 KiB-page kernel rounds a memory of 20000
+// bytes to 32768 (accepted); a blob past the largest page's rounding is not
+const MEM16 = 0x3009, MEM16_RES = 21, MEM_BIG = 0x300A, MEM_BIG_RES = 22;
+ring_write(encode(["vkAllocateMemory", { device: DEVICE, pAllocateInfo: { sType: 5, allocationSize: 20000, memoryTypeIndex: 1 }, pMemory: MEM16 }],
+    ["vkAllocateMemory", { device: DEVICE, pAllocateInfo: { sType: 5, allocationSize: 20000, memoryTypeIndex: 1 }, pMemory: MEM_BIG }]));
+assert.equal(command(0x010C, MEM16_RES, HOST3D, MAPPABLE, 0, MEM16, 0, 32768, 0), OK, "RESOURCE_CREATE_BLOB rounded to 16 KiB pages");
+assert.equal(command(0x010C, MEM_BIG_RES, HOST3D, MAPPABLE, 0, MEM_BIG, 0, 131072, 0), ERR_INVALID_PARAMETER, "a blob past 64 KiB pages' rounding");
+console.log("PASS: blobs rounded to the guest's pages (4, 16, 64 KiB)");
+
 // Sync files (Venus's WSI needs them): what the device says of them; a
 // fence's or semaphore's pending signal that went into a sync file does not
 // land on it any more; a sync file the driver waited for signals a semaphore

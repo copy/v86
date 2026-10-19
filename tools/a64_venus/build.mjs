@@ -8,6 +8,9 @@
 // directory's patch makes the driver open the render node by path where
 // Android's SELinux policy hides /dev/dri from drmGetDevices2, and reads
 // minigbm's buffer handles for AHardwareBuffers (venus-android.patch).
+// Everything is linked for 16 KiB pages (-z max-page-size=16384, NDK r26b's
+// default is 4 KiB): a 16K kernel's linker loads no library whose segments
+// are aligned to less than its page size (P12.1), a 4K one takes both.
 //
 // Outputs in build/a64-android/venus/: vulkan.virtio.so (the HAL module,
 // installed as a Vulkan driver), vkprobe (tests/a64/android/vkprobe.c: the
@@ -109,6 +112,10 @@ ar = '${bin}/llvm-ar'
 strip = '${bin}/llvm-strip'
 pkg-config = ['/usr/bin/false']
 
+[built-in options]
+c_link_args = ['-Wl,-z,max-page-size=16384']
+cpp_link_args = ['-Wl,-z,max-page-size=16384']
+
 [host_machine]
 system = 'android'
 cpu_family = 'aarch64'
@@ -135,7 +142,8 @@ fs.mkdirSync(OUT, { recursive: true });
 fs.copyFileSync(`${build}/src/virtio/vulkan/libvulkan_virtio.so`, OUT + "/vulkan.virtio.so");
 for(const [name, libraries] of [["vkprobe", ["-lvulkan"]], ["vkahb", ["-lvulkan", "-lnativewindow"]]])
 {
-    run(`${bin}/aarch64-linux-android${API}-clang`, ["-O2", "-Wall", `${ROOT}/tests/a64/android/${name}.c`, ...libraries, "-o", `${OUT}/${name}`]);
+    run(`${bin}/aarch64-linux-android${API}-clang`, ["-O2", "-Wall", "-Wl,-z,max-page-size=16384", `${ROOT}/tests/a64/android/${name}.c`, ...libraries,
+        "-o", `${OUT}/${name}`]);
 }
 const needed = exec_file_sync(`${bin}/llvm-readelf`, ["-d", OUT + "/vulkan.virtio.so"], { encoding: "utf8" })
     .split("\n").map(line => /NEEDED.*\[(.+)\]/.exec(line)?.[1]).filter(Boolean);

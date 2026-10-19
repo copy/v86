@@ -33,6 +33,7 @@ import { VirtioNet } from "../virtio_net.js";
 import { VirtioConsole } from "../virtio_console.js";
 import { VirtioInput } from "../virtio_input.js";
 import { VirtioVsock } from "../virtio_vsock.js";
+import { VirtioSnd } from "../virtio_snd.js";
 import { DisplayHub } from "../display.js";
 import { GraphicsAdapter, graphics_adapter_of_state } from "../graphics_adapter.js";
 import { ParallelMachine } from "../parallel/machine.js";
@@ -90,6 +91,8 @@ export function A64CPU(bus, wm, stop_idling)
 
     /** @type {!Object} */
     this.devices = {};
+    /** @type {?VirtioSnd} the sound device (virtio_sound), its timer the machine's */
+    this.virtio_sound = null;
     // (src/main.js: a snapshot waits while host I/O a device started is in
     // flight, the virtio disks' reads and writes; src/state_io.js counts it)
     this["snapshot_io_pending"] = 0;
@@ -323,6 +326,8 @@ A64CPU.prototype.init = function(settings, device_bus)
     }
     // (P10.7: stream sockets to the guest, its adbd's vsock:5555)
     if(settings.virtio_vsock) add("virtio-vsock", (transport, pci_id) => new VirtioVsock(this, device_bus, transport, pci_id));
+    // (P7.5, P12.5: sound, one output stream, played on the machine's clock)
+    this.virtio_sound = settings.virtio_sound ? add("virtio-snd", (transport, pci_id) => new VirtioSnd(this, device_bus, transport, pci_id)) : null;
     // The display adapter (P7.1): virtio-gpu without VGA, after the virtio
     // devices (the next PCI slot, or virtio-mmio slot), on the display hub
     if(this.graphics_adapter_descriptor)
@@ -603,7 +608,8 @@ A64CPU.prototype.state_block_of = function(core)
 A64CPU.prototype.run_hardware_timers = function(acpi, now)
 {
     const display = this.devices.display ? this.devices.display.timer(now) : 100;
-    return Math.min(100, display, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);
+    const sound = this.virtio_sound ? this.virtio_sound.timer(now) : 100;
+    return Math.min(100, display, sound, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);
 };
 
 /**

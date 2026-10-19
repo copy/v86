@@ -498,9 +498,16 @@
                 return;
             }
             this.flushEncoder();
-            if (!image.borrowed) image.texture.destroy();
-            this.objects.set(id, Object.assign({}, image, { texture, borrowed: true, mips: texture.mipLevelCount,
-                layers: texture.depthOrArrayLayers }));
+            const old = image.borrowed ? null : image.texture;
+            // (in place: a restored state makes the image's views before
+            // importing it again, and they are remade on the new texture)
+            Object.assign(image, { texture, borrowed: true, mips: texture.mipLevelCount, layers: texture.depthOrArrayLayers });
+            for (const v of this.objects.values()) {
+                if (v.kind !== "view" || v.texture !== image) continue;
+                v.view = this.view(texture, Object.assign({}, v.descriptor));
+                v.attachment = v.storage = null;
+            }
+            if (old) old.destroy();
         }
 
         texture(id) {
@@ -526,13 +533,14 @@
             if (!t) return;
             const f = this.format(vkformat) || t.f;
             const dimension = t.volume ? "3d" : VIEW_DIMENSION[type] || "2d";
-            const view = this.view(t.texture, {
+            const descriptor = {
                 format: f.gpu, dimension,
                 aspect: aspect === ASPECT.DEPTH && t.f.hasStencil ? "depth-only" : aspect === ASPECT.STENCIL && t.f.hasDepth ? "stencil-only" : "all",
                 baseMipLevel: baseMip, mipLevelCount: mips,
                 baseArrayLayer: t.volume ? 0 : baseLayer, arrayLayerCount: t.volume ? 1 : layers,
-            });
-            this.objects.set(id, { kind: "view", view, texture: t, f, aspect, baseMip, mips, baseLayer, layers, dimension });
+            };
+            const view = this.view(t.texture, Object.assign({}, descriptor));
+            this.objects.set(id, { kind: "view", view, descriptor, texture: t, f, aspect, baseMip, mips, baseLayer, layers, dimension });
         }
 
         createSampler(b) {

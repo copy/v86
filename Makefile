@@ -115,7 +115,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
 	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
-	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js \
+	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
@@ -808,6 +808,7 @@ cpu-worker-tests: build/cpu-worker.js build/cpu-worker-test.bin build/libv86.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_gpu_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_svga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_audio_browser_test.html
+	node tests/glbridge/speaker_unlock_browser_test.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_ui_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_hotplug_browser_test.html
 
@@ -1287,11 +1288,17 @@ a64-android-prep-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
 # --download), on the QEMU reference to sys.boot_completed=1 (P10.3) and the
 # GKI bridge's expected output (P10.6); then on v86 the bridge and Android to
 # system_server and adbd over vsock (P10.7)
+# (and P12.1's with the 16K kernel, P12.3's CTS modules: tools/a64_cts.mjs, byte ranges of the CTS zip with --download)
 android-materials:
 	node tools/a64_android.mjs
+	node tools/a64_android.mjs --page-size 16k
+	node tools/a64_cts.mjs --subset
 android-reference-tests: android-materials
 	A64_ANDROID_TARGET=qemu node tests/a64/android_boot.mjs
 	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=a10 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=cts node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=pagesize A64_ANDROID_PAGE_SIZE=16k node tests/a64/android_boot.mjs
 	for cores in 1 4; do A64_KERNEL=gki A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
 # (A9's scenario on Venus: the guest's driver in the materials, the renderer in a headless Chrome)
 android-guest-tests: android-venus android-materials build/v86-arm64.wasm build/v86-arm64-parallel.wasm glbridge
@@ -1299,6 +1306,15 @@ android-guest-tests: android-venus android-materials build/v86-arm64.wasm build/
 	A64_KERNEL=gki A64_JIT=0 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
 	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=a9 A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	# (A10: the desktop saved by one run, restored by the next)
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=a10 A64_ANDROID_A10_SAVE=build/a64-android/a10-desktop.v7 \
+		A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=a10 A64_ANDROID_RESTORE_STATE=build/a64-android/a10-desktop.v7 \
+		A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	# (P12.3's CTS subset; P12.1: the 16K kernel to boot_completed, native APKs aligned to 4 and 16 KiB)
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=cts A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=pagesize A64_ANDROID_PAGE_SIZE=16k A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 \
+		node tests/a64/android_boot.mjs
 # Mesa's venus driver for Android (P11.4): tools/a64_venus/build.mjs with the
 # NDK (the pinned Mesa and libdrm tarballs, meson and mako with --download)
 android-venus:

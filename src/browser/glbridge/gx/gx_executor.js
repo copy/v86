@@ -476,6 +476,7 @@
         }
 
         releaseSurface(s) {
+            if ((s.texture || s.buffer) && this.peer && this.peer.releasing) this.peer.releasing(s);
             if (s.soFilled) s.soFilled.destroy();
             s.soFilled = null;
             if (s.aliases) for (const alias of s.aliases.values()) alias.texture.destroy();

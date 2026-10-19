@@ -68,6 +68,8 @@
             const peer = {
                 resource: handle => executor.resources ? executor.resources.get(handle) || null : null,
                 flush: () => { if (executor.frame) executor.finishFrame(false); },
+                // (a surface goes: VX's commands recorded with it, as images Venus imported, are submitted first)
+                releasing: () => { if (vx) vx.flushEncoder(); },
             };
             gx = new GX.GXExecutor({ device: executor.device, formats: global.V86SVGADXFormats,
                 features: executor.deviceFeatures || {}, peer });
@@ -128,8 +130,9 @@
                 case "reset":
                     ++generation;
                     queue = queue.then(() => {
-                        if (gx) gx.reset();
+                        // (VX first: its images may be GX's surfaces)
                         if (vx) vx.reset();
+                        if (gx) gx.reset();
                         return executor.resetForReplay();
                     }).catch(error => fail(error));
                     break;
