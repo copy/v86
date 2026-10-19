@@ -200,10 +200,18 @@ export async function a9_scenario(env)
             await adb("input keyevent KEYCODE_BACK");
             await sleep(5000);
         }
-        const gfxinfo = await adb("dumpsys -t 300 gfxinfo com.android.launcher3 2>&1", 600000);
+        // (again after 10 s when the statistics are not in it, F6: once at
+        // 16K the cold ones were missing; then the start of what it said)
+        let gfxinfo = "";
+        for(let attempt = 0; attempt < 2 && !/Total frames rendered: \d+/.test(gfxinfo); attempt++)
+        {
+            if(attempt) await sleep(10000);
+            gfxinfo = await adb("dumpsys -t 300 gfxinfo com.android.launcher3 2>&1", 600000);
+        }
         const stat = name => +(gfxinfo.match(new RegExp(name + ": (\\d+)"))?.[1] ?? NaN);
         return { total: stat("Total frames rendered"), janky: stat("Janky frames"), p50_ms: stat("50th percentile"),
-            p90_ms: stat("90th percentile"), p99_ms: stat("99th percentile") };
+            p90_ms: stat("90th percentile"), p99_ms: stat("99th percentile"),
+            ...(/Total frames rendered: \d+/.test(gfxinfo) ? {} : { gfxinfo: gfxinfo.slice(0, 1500) }) };
     };
     result.frames_cold = await frames(1);
     result.frames = await frames(3);

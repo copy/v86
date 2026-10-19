@@ -447,7 +447,11 @@ const emulator = new V86({
     ...(jit ? { jit_switches: { a64_page: 1, ...Object.fromEntries((process.env.A64_JIT_SWITCHES || "").split(",").filter(Boolean)
         .map(p => [p.split("=")[0], +p.split("=")[1]])) } } : {}),
     ...(parallel ? { parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm" } : {}),
+    // (the bundle's own default is build/vcpu-worker.js of the working directory)
+    ...(parallel && +process.env.TEST_RELEASE_BUILD ? { vcpu_worker_url: ROOT + "build/vcpu-worker.js" } : {}),
 });
+// (a machine that fails to start, e.g. a worker script not found, says so here only)
+emulator.add_listener("emulator-error", error => { console.error("emulator-error:", error); process.exit(1); });
 const loaded = new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
 let sound_bytes = 0;
 emulator.add_listener("virtio-snd-pcm", pcm => { sound_bytes += pcm["bytes"].length; if(sound_chunks) sound_chunks.push(Buffer.from(pcm["bytes"])); });
@@ -464,6 +468,8 @@ if(process.env.A64_ANDROID_GPU_DEBUG)
             (vk ? ` venus queues=${[...vk.queues].map(q => q.pending.length + "p/" + q.inflight + "i/ring" + q.ring_idx).join(",")} waiters=${vk.waiters.length}` +
                 ` submissions=${vk.stats.submissions} batches=${vk.stats.batches}` : "") +
             (gpu.venus ? ` errors=${gpu.venus.stats.errors}${gpu.venus.stats.last_error ? " last=" + JSON.stringify(gpu.venus.stats.last_error) : ""}` +
+                // (the commands that answered an error, with the last one's VkResult)
+                ` failures=${JSON.stringify(gpu.venus.stats.failures)}` +
                 // (each context's rings: - idle, R running, W:<command> waiting in it, F fatal)
                 ` rings=${[...gpu.venus.contexts.values()].map(c => [...c.rings.values()].map(r => r.fatal ? "F" : !r.run ? "-" :
                     r.run.waiting ? "W:" + r.run.waiting_on.replace(/^vk/, "") : "R").join("")).filter(r => /[RWF]/.test(r)).join(" ")}` : ""));

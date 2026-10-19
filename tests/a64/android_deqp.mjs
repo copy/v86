@@ -6,7 +6,8 @@
 // and a command line per package, without Tradefed; the log (.qpa) read back
 // and each case's status counted. The subset (DEQP_SUBSET): dEQP-VK's API
 // smoke tests, dEQP-EGL's info, and GLES 2's prerequisites, implementation
-// limits, info, clears, buffer writes and constant expressions;
+// limits, info, clears, buffer writes and constant expressions; GLES 3's info,
+// limits, transform feedback, uniform blocks and flat shading;
 // A64_ANDROID_DEQP=<package>=<prefix>,...;... replaces it.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -25,6 +26,13 @@ export const DEQP_SUBSET = {
         "dEQP-GLES2.functional.implementation_limits.", "dEQP-GLES2.functional.color_clear.single_rgb",
         "dEQP-GLES2.functional.color_clear.single_rgba", "dEQP-GLES2.functional.depth_stencil_clear.depth",
         "dEQP-GLES2.functional.buffer.write.basic.", "dEQP-GLES2.functional.shaders.constant_expressions.trivial."]],
+    // (F2: what ES 3.0 asks of Venus, transform feedback and uniform blocks; flat shading's provoking vertex)
+    "dEQP-GLES3": ["gles3-main-2020-03-01.txt", ["dEQP-GLES3.info.", "dEQP-GLES3.functional.implementation_limits.",
+        "dEQP-GLES3.functional.transform_feedback.position.", "dEQP-GLES3.functional.transform_feedback.point_size.",
+        "dEQP-GLES3.functional.transform_feedback.basic_types.separate.points.highp_",
+        "dEQP-GLES3.functional.transform_feedback.basic_types.interleaved.triangles.highp_",
+        "dEQP-GLES3.functional.transform_feedback.interpolation.flat.", "dEQP-GLES3.functional.ubo.single_basic_type.std140.highp_vec4",
+        "dEQP-GLES3.functional.rasterization.flatshading.", "dEQP-GLES3.functional.ubo.random.all_per_block_buffers.1"]],
 };
 
 /** Cases in dEQP's trie format ({a{b,c{d}}}: a.b and a.c.d) */
@@ -92,19 +100,30 @@ export async function deqp_scenario(env)
         // (a list is cases, or the lists it is made of: vk-main-2019-03-01.txt names vk-main-2019-03-01/*.txt)
         const lines = file => fs.readFileSync(dir + file, "utf8").split("\n").map(c => c.trim()).filter(Boolean)
             .flatMap(c => c.endsWith(".txt") ? lines(c) : [c]);
-        const cases = lines(list).filter(c => prefixes.some(p => c.startsWith(p)));
+        // (in the order of the prefixes: a case that leaves the context broken, ubo.random's, last)
+        const all = lines(list), cases = [...new Set(prefixes.flatMap(p => all.filter(c => c.startsWith(p))))];
         assert.ok(cases.length, `${name}: no case of ${prefixes} in ${list}`);
         // (the log in the app's own external directory: scoped storage gives it nothing else of /sdcard, and the shell reads it)
         const files = `/sdcard/Android/data/${APK}/files`, qpa = `${files}/${name}.qpa`;
         await adb(`mkdir -p ${files}; rm -f ${qpa}`);
-        const started = Date.now();
-        // (DeqpTestRunner's: deqpLogFilename, the log's path)
-        const out = await adb(`am instrument -w -r -e deqpLogFilename ${qpa} -e deqpCmdLine "${command_line(name, cases)}" ` +
-            `-e deqpLogData false ${INSTRUMENTATION} 2>&1 | tail -5`, 4 * 3600000);
-        const ms = Date.now() - started;
-        const results = qpa_results(await adb(`cat ${qpa}`, 600000));
-        const logcat = (await adb("logcat -d -s dEQP:* DeqpInstrumentation:* AndroidRuntime:E 2>&1 | tail -25", 600000)).trim();
         await adb("logcat -c");
+        const started = Date.now();
+        // (DeqpTestRunner's: deqpLogFilename, the log's path; again when the
+        // instrumentation gave up waiting for the tester to start its log,
+        // which a slow first start of the app outlasts)
+        let out = "";
+        for(let attempt = 0; attempt < 3; attempt++)
+        {
+            out = await adb(`am instrument -w -r -e deqpLogFilename ${qpa} -e deqpCmdLine "${command_line(name, cases)}" ` +
+                `-e deqpLogData false ${INSTRUMENTATION} 2>&1 | tail -5`, 4 * 3600000);
+            if(!/Timeout while waiting for log file/.test(out)) break;
+            log(`${name}: the instrumentation timed out waiting for the log, again`);
+        }
+        const ms = Date.now() - started;
+        const text = await adb(`cat ${qpa}`, 600000), results = qpa_results(text);
+        const logcat = (await adb("logcat -d -s dEQP:* DeqpInstrumentation:* AndroidRuntime:E 2>&1 | tail -25", 600000)).trim();
+        // (all of it, for what the drivers said: ANGLE, the Vulkan loader, Mesa)
+        if(env.directory) fs.writeFileSync(env.directory + `deqp-${name}-logcat.txt`, await adb("logcat -d 2>&1 | tail -4000", 600000));
         const counts = {};
         for(const status of Object.values(results)) counts[status] = (counts[status] || 0) + 1;
         const missing = cases.filter(c => !(c in results));
@@ -113,6 +132,8 @@ export async function deqp_scenario(env)
             failed: failed.slice(0, 50).map(([c, s]) => c + ": " + s), missing: missing.slice(0, 20), instrumentation: out.trim().slice(-300),
             ...(Object.keys(results).length ? {} : { logcat: logcat.slice(-3000) }) };
         if(env.directory) fs.writeFileSync(env.directory + `deqp-${name}.json`, JSON.stringify(results, null, 1));
+        // (the log itself when a case did not pass: what it saw)
+        if(env.directory && failed.length) fs.writeFileSync(env.directory + `deqp-${name}.qpa`, text);
         log(`${name}: ${JSON.stringify(result.packages[name]).slice(0, 2000)}`);
     }
     await adb(`pm uninstall ${APK} >/dev/null 2>&1`);
