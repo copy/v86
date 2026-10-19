@@ -802,9 +802,12 @@ export function erofs_replace_files(image, files)
  * (the image holding name's hashtree descriptor) with the descriptor's sizes
  * and root digest, and the partition's one linear extent moved to free
  * space, space.sector onwards, in every metadata copy of lp (lp_metadata's,
- * changed in place). Returns the new vbmeta, the bytes to write into super
- * and a record */
-function super_replace(lp, vbmeta, name, image, space)
+ * changed in place). With `footer` (the partition's own vbmeta struct, as
+ * the old one's AVB footer held it) the partition gets a footer again: that
+ * struct with the same descriptor changes after the tree, the footer in the
+ * extent's last 64 bytes (fs_mgr reads the "offline" vbmeta there). Returns
+ * the new vbmeta, the bytes to write into super and a record */
+function super_replace(lp, vbmeta, name, image, space, footer = null)
 {
     const descriptor = hashtree_descriptor(vbmeta, name);
     if(descriptor.algorithm !== "sha256" || descriptor.data_block !== 4096 || descriptor.hash_block !== 4096) throw new Error(`vbmeta: ${name}'s hash tree is not sha256 over 4 KiB blocks`);
@@ -819,8 +822,26 @@ function super_replace(lp, vbmeta, name, image, space)
     new_vbmeta.writeBigUInt64BE(0n, d + 56);
     new_vbmeta.writeBigUInt64BE(0n, d + 64);
     root.copy(new_vbmeta, descriptor.digest);
+    let struct = null;
+    if(footer)
+    {
+        // (the same changes in the partition's own struct: unsigned, avbtool's add_hashtree_footer)
+        struct = Buffer.from(footer);
+        const own = hashtree_descriptor(struct, name);
+        if(own.salt.compare(descriptor.salt) !== 0) throw new Error(`vbmeta: ${name}'s footer has another salt`);
+        struct.writeBigUInt64BE(BigInt(image.length), own.at + 20);
+        struct.writeBigUInt64BE(BigInt(image.length), own.at + 28);
+        struct.writeBigUInt64BE(BigInt(tree.length), own.at + 36);
+        struct.writeUInt32BE(0, own.at + 52);
+        struct.writeBigUInt64BE(0n, own.at + 56);
+        struct.writeBigUInt64BE(0n, own.at + 64);
+        root.copy(struct, own.digest);
+    }
+    const page = n => Math.ceil(n / 4096) * 4096;
+    const vbmeta_offset = page(image.length + tree.length);
+    const used = struct ? vbmeta_offset + page(struct.length) + 4096 : image.length + tree.length;
     const align = lp.alignment / SECTOR;
-    const sector = Math.ceil(space.sector / align) * align, sectors = Math.ceil((image.length + tree.length) / lp.alignment) * align;
+    const sector = Math.ceil(space.sector / align) * align, sectors = Math.ceil(used / lp.alignment) * align;
     if((sector + sectors) * SECTOR > lp.size) throw new Error(`super: no room for ${name}_a`);
     const old = lp.copies[0].partitions.find(p => p.name === name + "_a")?.extents;
     if(!old || old.length !== 1 || old[0].type !== 0) throw new Error(`super: ${name}_a is not one linear extent`);
@@ -833,8 +854,36 @@ function super_replace(lp, vbmeta, name, image, space)
         lp_checksum(copy.bytes);
     }
     space.sector = sector + sectors;
-    return { vbmeta: new_vbmeta, data: { offset: sector * SECTOR, bytes: Buffer.concat([image, tree]) },
-        record: { sector, sectors, image_blocks: image.length / 4096, root_digest: root.toString("hex") } };
+    let bytes = Buffer.concat([image, tree]);
+    if(struct)
+    {
+        // AvbFooter: magic, version 1.0, original_image_size, vbmeta_offset, vbmeta_size, reserved[28]
+        bytes = Buffer.alloc(sectors * SECTOR);
+        image.copy(bytes, 0);
+        tree.copy(bytes, image.length);
+        struct.copy(bytes, vbmeta_offset);
+        const f = bytes.length - 64;
+        bytes.write("AVBf", f, "latin1");
+        bytes.writeUInt32BE(1, f + 4);
+        bytes.writeUInt32BE(0, f + 8);
+        bytes.writeBigUInt64BE(BigInt(image.length), f + 12);
+        bytes.writeBigUInt64BE(BigInt(vbmeta_offset), f + 20);
+        bytes.writeBigUInt64BE(BigInt(struct.length), f + 28);
+    }
+    return { vbmeta: new_vbmeta, data: { offset: sector * SECTOR, bytes },
+        record: { sector, sectors, image_blocks: image.length / 4096, root_digest: root.toString("hex"), footer: !!struct } };
+}
+
+/** The vbmeta struct of super's partition name (slot a) as its AVB footer holds it, or null */
+function super_footer_struct(super_read, lp, name)
+{
+    const p = lp.copies[0].partitions.find(p => p.name === name + "_a");
+    if(!p || p.extents.length !== 1) return null;
+    const end = (p.extents[0].sector + p.extents[0].sectors) * SECTOR;
+    const footer = super_read(end - 64, 64);
+    if(footer.toString("latin1", 0, 4) !== "AVBf") return null;
+    const offset = Number(footer.readBigUInt64BE(20)), size = Number(footer.readBigUInt64BE(28));
+    return vbmeta_struct(super_read(p.extents[0].sector * SECTOR + offset, size)).struct;
 }
 
 /** super's partition name (slot a) as its hashtree descriptor in vbmeta sizes it */
@@ -1126,9 +1175,9 @@ async function main()
     const space = { sector: Math.max(...lp.copies.flatMap(c => c.partitions.flatMap(p => p.extents.map(e => e.sector + e.sectors)))) };
     const vbmeta_images = new Map(), super_patches = [];
     const vbmeta_of = name => vbmeta_images.get(name) || read(partition_file[name]);
-    const replace = (name, vbmeta_name, image) =>
+    const replace = (name, vbmeta_name, image, footer = null) =>
     {
-        const result = super_replace(lp, vbmeta_of(vbmeta_name), name, image, space);
+        const result = super_replace(lp, vbmeta_of(vbmeta_name), name, image, space, footer);
         vbmeta_images.set(vbmeta_name, result.vbmeta);
         super_patches.push(result.data);
         return result.record;
@@ -1172,7 +1221,8 @@ async function main()
             {
                 if(!erofs_data(image, erofs_lookup(image, "lib/modules/" + file)).equals(data)) throw new Error(`erofs: ${name}'s ${file} does not read back`);
             }
-            dlkm[name] = replace(name, "vbmeta_" + name, image);
+            // (with an AVB footer again, as the partition had: fs_mgr's offline vbmeta)
+            dlkm[name] = replace(name, "vbmeta_" + name, image, super_footer_struct(super_read, lp, name));
         }
         ramdisk_16k = lz4_legacy_store(cpio_newc([...replaced.ramdisk].map(([file, data]) => ["lib/modules/" + file, data])));
         const back = cpio_files(lz4_legacy_decompress(ramdisk_16k));
