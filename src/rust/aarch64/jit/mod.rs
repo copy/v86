@@ -13,6 +13,11 @@
 //!   single steps)
 //! - a64_relaxed_fma: the multiply-adds through relaxed SIMD (only where the
 //!   host fuses them; its default is the host's probe)
+//! - a64_system: the EL1 system templates, a mask (pagegen::SYSTEM_*): bit 0
+//!   MRS and MSR of SP_EL0, TPIDR_EL1, DAIF, ELR_EL1, SPSR_EL1, ESR_EL1,
+//!   FAR_EL1, MRS DCZID_EL0, MSR DAIFSet and DAIFClr; 1 TLBI; 2 DC ZVA; 3 LDTR
+//!   and STTR; 4 DSB with cores in workers when nothing is pending (0: helpers
+//!   and steps, as before 2026-10-20)
 //!
 //! jitrt and pagegen never name this module (tools/check_a64_imports.mjs,
 //! tools/check_x86tpl_imports.mjs).
@@ -24,6 +29,8 @@ pub mod pages;
 pub static mut NEON: bool = true;
 /// Helper calls instead of single steps for the forms pagegen::helper takes
 pub static mut HELPERS: bool = true;
+/// The EL1 system templates (a64_system's mask: pagegen::SYSTEM_*)
+pub static mut SYSTEM: u32 = pagegen::SYSTEM_ALL;
 /// The multiply-adds through relaxed SIMD (a64_relaxed_fma): only where the
 /// host fuses them (a64_page_set_relaxed_fma_fused, the host's probe)
 pub static mut RELAXED_FMA: bool = false;
@@ -58,7 +65,7 @@ struct Switch {
     set: fn(u32) -> bool,
 }
 const UNSET: u32 = u32::MAX;
-const SWITCHES: [Switch; 7] = [
+const SWITCHES: [Switch; 8] = [
     Switch {
         name: "a64_page",
         default: 0,
@@ -82,6 +89,12 @@ const SWITCHES: [Switch; 7] = [
         default: 1,
         get: || unsafe { HELPERS as u32 },
         set: |v| v <= 1 && unsafe { HELPERS = v != 0 } == (),
+    },
+    Switch {
+        name: "a64_system",
+        default: pagegen::SYSTEM_ALL,
+        get: || unsafe { SYSTEM },
+        set: |v| v <= pagegen::SYSTEM_ALL && unsafe { SYSTEM = v } == (),
     },
     Switch {
         name: "a64_relaxed_fma",

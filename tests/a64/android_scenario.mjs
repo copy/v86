@@ -328,13 +328,15 @@ export async function a9_scenario(env)
  * - system_server, surfaceflinger and zygote64 the same processes from the
  *   desktop to the end (P10.3's budget: none of them may restart), and no
  *   service restarting over and over.
- * @param {!Object} env as a9_scenario's, with snapshot: ?function(): !Promise<!Object>
+ * @param {!Object} env as a9_scenario's, with snapshot: ?function(): !Promise<!Object>,
+ *     steps: the steps after the desktop to take (touch, frames, sound, monkey, memory; null: all)
  * @return {!Promise<!Object>} what it found
  */
 export async function a10_scenario(env)
 {
     const result = { screenshots: {} };
     const { adb, log } = env;
+    const step = name => !env.steps || env.steps.includes(name);
     const poll = async (command, test, what, ms = 600000, every = 5000) => {
         const deadline = Date.now() + ms;
         for(let output; ; await sleep(every))
@@ -392,7 +394,7 @@ export async function a10_scenario(env)
     {
         assert.match(await adb(top_resumed), /com\.android\.launcher3\//, "Launcher3 after the snapshot");
     }
-    if(env.touch)
+    if(env.touch && step("touch"))
     {
         const node = await poll("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; grep -o 'text=\"Gallery\"[^>]*bounds=\"[^\"]*\"' /data/local/tmp/ui.xml",
             o => /bounds="\[\d+,\d+\]\[\d+,\d+\]"/.test(o), "Gallery's icon on the workspace", 1800000, 15000);
@@ -440,6 +442,7 @@ export async function a10_scenario(env)
     // SurfaceFlinger has not released, so they are the frames that reach the
     // screen (this SurfaceFlinger has no frame counter: transaction 1013 is
     // gone)
+    if(step("frames"))
     {
         const lib = build_native_lib(16384, "v86frames", ["-landroid", "-llog", "-lEGL", "-lGLESv2", "-lm"]);
         await env.push("/data/local/tmp/v86-frames.apk", build_apk({ label: "v86 frames", package_name: "org.v86.frames",
@@ -459,7 +462,7 @@ export async function a10_scenario(env)
     }
 
     // sound: tinyplay on the virtio-snd card, the PCM compared on the host
-    if(env.sound)
+    if(env.sound && step("sound"))
     {
         const { wav, tone } = sound_wav();
         await env.push("/data/local/tmp/v86-tone.wav", wav);
@@ -496,11 +499,38 @@ export async function a10_scenario(env)
         assert.match(await adb("pm install -r /data/local/tmp/v86-tone.apk 2>&1", 600000), /^Success/m, "pm install v86-tone.apk");
         await adb("logcat -c; setprop log.tag.AHAL_StreamPrimary V");
         env.sound.reset();
+        // (A64_ANDROID_SOUND_PROFILE=1: simpleperf's cpu-clock samples of
+        // every CPU while the tone plays, the report in the run's directory)
+        const profile = !!process.env.A64_ANDROID_SOUND_PROFILE;
+        let recording = null;
+        if(profile)
+        {
+            // (Android hardens perf events: security.perf_harden 0 lets root sample)
+            await adb("su 0 setprop security.perf_harden 0; sleep 1");
+            recording = adb("su 0 simpleperf record -e cpu-clock -f 1000 -a --duration 25 " +
+                "-o /data/local/tmp/sound.perf 2>&1", 900000);
+            await sleep(5000);
+        }
         await adb("am start -W -n org.v86.tone/android.app.NativeActivity >/dev/null 2>&1", 600000);
         const line = await poll("logcat -d -s v86tone:I 2>&1 | grep -E 'V86_TONE (frames|error)'", o => /V86_TONE (frames|error)/.test(o),
             "the tone app's result", 900000, 5000);
         await sleep(3000);
         result.sound_framework = { app: line.trim().replace(/^.*V86_TONE /s, ""), ...tone_of(env.sound.played()) };
+        // (for the run's directory: the HAL's log by the guest's monotonic
+        // clock, and AudioFlinger's output threads' timing statistics)
+        const timing = await adb("logcat -d -v monotonic 2>&1 | grep -E 'AHAL_Stream|v86tone' | cut -c1-200; " +
+            "dumpsys -t 300 media.audio_flinger 2>&1 | grep -E 'Output thread|frame count|Process time|jitter|latency stats|writes|Standby|Sample rate|underrun' | cut -c1-200", 600000);
+        if(env.directory) fs.writeFileSync(env.directory + "sound-timing.txt", timing);
+        if(profile)
+        {
+            const recorded = await recording;
+            const report = recorded + await adb("su 0 sh -c '" +
+                "simpleperf report -i /data/local/tmp/sound.perf --sort pid,comm --percent-limit 0.3 2>&1 | head -60; " +
+                "simpleperf report -i /data/local/tmp/sound.perf --sort dso,symbol --percent-limit 0.4 2>&1 | head -100; " +
+                "simpleperf report -i /data/local/tmp/sound.perf --sort tid,comm --percent-limit 0.3 2>&1 | head -60'", 900000);
+            if(env.directory) fs.writeFileSync(env.directory + "sound-profile.txt", report);
+            log("sound profile: " + report.split("\n").slice(0, 40).join("\n"));
+        }
         const hal = await adb("logcat -d 2>&1 | grep -E 'proxy_open|skipping transfer|totalOffsetUs' | cut -c1-160");
         await adb("setprop log.tag.AHAL_StreamPrimary ''; am force-stop org.v86.tone; pm uninstall org.v86.tone >/dev/null 2>&1; input keyevent KEYCODE_HOME");
         const offsets = [...hal.matchAll(/totalOffsetUs (-?\d+)/g)].map(m => +m[1]);
@@ -514,49 +544,55 @@ export async function a10_scenario(env)
     }
 
     // a long run: 30 minutes of monkey (seed 86), crashes and ANRs ignored and counted
-    const monkey_apps = ["com.android.launcher3", "com.android.gallery3d", "com.android.calendar", "com.android.contacts",
-        "com.android.deskclock", "com.android.messaging", "com.android.documentsui"];
-    const started_monkey = Date.now();
-    const minutes = env.monkey_minutes || 30;
-    const monkey = await adb(`timeout ${minutes * 60} monkey -s 86 --throttle 500 --pct-syskeys 0 --pct-anyevent 0 ` +
-        "--ignore-crashes --ignore-timeouts --ignore-security-exceptions " + monkey_apps.map(p => "-p " + p).join(" ") +
-        " -v 1000000 2>&1 | grep -c -E '^:Sending|^    // '; echo monkey-done", (minutes + 15) * 60000);
-    result.monkey = { minutes: Math.round((Date.now() - started_monkey) / 60000), lines: +(monkey.match(/^(\d+)/m)?.[1] ?? 0) };
-    result.monkey.crashes = (await adb("logcat -d -b events 2>/dev/null | grep -E 'am_crash|am_anr' | cut -c1-200 | tail -20")).trim().split("\n").filter(Boolean);
-    await adb("input keyevent KEYCODE_HOME");
-    log("long run: " + JSON.stringify(result.monkey).slice(0, 300));
+    if(step("monkey"))
+    {
+        const monkey_apps = ["com.android.launcher3", "com.android.gallery3d", "com.android.calendar", "com.android.contacts",
+            "com.android.deskclock", "com.android.messaging", "com.android.documentsui"];
+        const started_monkey = Date.now();
+        const minutes = env.monkey_minutes || 30;
+        const monkey = await adb(`timeout ${minutes * 60} monkey -s 86 --throttle 500 --pct-syskeys 0 --pct-anyevent 0 ` +
+            "--ignore-crashes --ignore-timeouts --ignore-security-exceptions " + monkey_apps.map(p => "-p " + p).join(" ") +
+            " -v 1000000 2>&1 | grep -c -E '^:Sending|^    // '; echo monkey-done", (minutes + 15) * 60000);
+        result.monkey = { minutes: Math.round((Date.now() - started_monkey) / 60000), lines: +(monkey.match(/^(\d+)/m)?.[1] ?? 0) };
+        result.monkey.crashes = (await adb("logcat -d -b events 2>/dev/null | grep -E 'am_crash|am_anr' | cut -c1-200 | tail -20")).trim().split("\n").filter(Boolean);
+        await adb("input keyevent KEYCODE_HOME");
+        log("long run: " + JSON.stringify(result.monkey).slice(0, 300));
+    }
 
     // memory pressure: the launcher's apps, one after another, until lmkd kills
-    await adb("logcat -c");
-    const apps = (await adb("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER 2>&1"))
-        .split("\n").map(line => line.trim()).filter(line => /^[\w.]+\/[\w.$]+$/.test(line));
-    result.memory = { apps: apps.length, started: 0, kills: 0 };
-    for(let round = 0; round < 3 && !result.memory.kills; round++)
+    if(step("memory"))
     {
-        for(const app of apps)
+        await adb("logcat -c");
+        const apps = (await adb("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER 2>&1"))
+            .split("\n").map(line => line.trim()).filter(line => /^[\w.]+\/[\w.$]+$/.test(line));
+        result.memory = { apps: apps.length, started: 0, kills: 0 };
+        for(let round = 0; round < 3 && !result.memory.kills; round++)
         {
-            await adb(`am start -W -n ${app} >/dev/null 2>&1`, 600000);
-            result.memory.started++;
+            for(const app of apps)
+            {
+                await adb(`am start -W -n ${app} >/dev/null 2>&1`, 600000);
+                result.memory.started++;
+                await sleep(5000);
+                result.memory.kills = +(await adb("logcat -d -s lowmemorykiller 2>/dev/null | grep -c 'Kill'")).trim() || 0;
+                if(result.memory.kills) break;
+            }
+        }
+        result.memory.hog_mib = 0;
+        while(!result.memory.kills && result.memory.hog_mib < 1500)
+        {
+            await adb("su 0 sh -c 'dd if=/dev/urandom bs=1048576 count=100 >> /dev/v86-hog 2>/dev/null'", 900000);
+            result.memory.hog_mib += 100;
             await sleep(5000);
             result.memory.kills = +(await adb("logcat -d -s lowmemorykiller 2>/dev/null | grep -c 'Kill'")).trim() || 0;
-            if(result.memory.kills) break;
         }
+        result.memory.hog_bytes = +(await adb("su 0 stat -c %s /dev/v86-hog 2>/dev/null")).trim() || 0;
+        await adb("su 0 rm -f /dev/v86-hog");
+        result.memory.killed = (await adb("logcat -d -s lowmemorykiller 2>/dev/null | grep 'Kill' | cut -c1-200 | head -5")).trim().split("\n").filter(Boolean);
+        result.memory.meminfo = (await adb("grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo")).trim();
+        await adb("input keyevent KEYCODE_HOME");
+        log("memory pressure: " + JSON.stringify({ ...result.memory, killed: result.memory.killed.length }));
+        assert.ok(result.memory.kills > 0, "lmkd killed a process: " + JSON.stringify(result.memory));
     }
-    result.memory.hog_mib = 0;
-    while(!result.memory.kills && result.memory.hog_mib < 1500)
-    {
-        await adb("su 0 sh -c 'dd if=/dev/urandom bs=1048576 count=100 >> /dev/v86-hog 2>/dev/null'", 900000);
-        result.memory.hog_mib += 100;
-        await sleep(5000);
-        result.memory.kills = +(await adb("logcat -d -s lowmemorykiller 2>/dev/null | grep -c 'Kill'")).trim() || 0;
-    }
-    result.memory.hog_bytes = +(await adb("su 0 stat -c %s /dev/v86-hog 2>/dev/null")).trim() || 0;
-    await adb("su 0 rm -f /dev/v86-hog");
-    result.memory.killed = (await adb("logcat -d -s lowmemorykiller 2>/dev/null | grep 'Kill' | cut -c1-200 | head -5")).trim().split("\n").filter(Boolean);
-    result.memory.meminfo = (await adb("grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo")).trim();
-    await adb("input keyevent KEYCODE_HOME");
-    log("memory pressure: " + JSON.stringify({ ...result.memory, killed: result.memory.killed.length }));
-    assert.ok(result.memory.kills > 0, "lmkd killed a process: " + JSON.stringify(result.memory));
 
     // the core services kept, nothing restarting over and over
     result.pids_after = await core_pids();

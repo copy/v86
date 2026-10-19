@@ -14,6 +14,14 @@
   "value": "0x8ff",
   "names": "fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid"
  },
+ "v2": {
+  "profile": "v86-aarch64-v2",
+  "a64_profile": "v2",
+  "llvm_mattr": "+v8a,+fp-armv8,+neon,+aes,+sha2,+crc,+pan",
+  "about": "v1.1 and FEAT_PAN (optional in Armv8.0; docs/arm64-virt-android16-plan.md, profile v2 and appendix F3): PSTATE.PAN, MSR PAN (immediate and register), SPSR_EL1.PAN, SCTLR_EL1.SPAN; no PAN2 (AT S1E1RP/WP) or PAN3 (EPAN). HWCAP is v1.1's (PAN has none). tests/a64/pan.mjs checks it against QEMU's -cpu max",
+  "id_space": { "S3_0_C0_C7_1": "0x0000000000100000" },
+  "linux_cpu_features": ["Privileged Access Never"]
+ },
  "id_space_rules": ["op0=3, op1=0, CRn=0, CRm=0: MIDR_EL1 (op2=0), MPIDR_EL1 (op2=5), REVIDR_EL1 (op2=6); every other op2 is UNDEF at every EL (as QEMU)", "op0=3, op1=0, CRn=0, CRm=1-7: the registers listed; every unallocated encoding reads 0 at EL1 and is UNDEF at EL0 (Linux emulates EL0 reads with HWCAP_CPUID); Linux 6.18 reads ID_AA64MMFR3_EL1, MMFR4, ISAR3 and PFR2 unconditionally", "EL0 access to the ID registers is UNDEF (EC 0x00); there is no FEAT_IDST"],
  "id_space": [
   {

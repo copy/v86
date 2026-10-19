@@ -1111,6 +1111,7 @@ a64-mmu-tests: build/v86-arm64.wasm
 	node tests/a64/mmu.mjs
 	node tests/a64/mmu.mjs --seed 2
 	node tests/a64/mmu_granule.mjs
+	node tests/a64/pan.mjs
 # (L: every case on the interpreter, the SMP ones on its cooperative cores
 # (P3.9), at 4k, and at 16k and 64k with the test profile v1.1)
 a64-kvm-unit-tests: build/v86-arm64.wasm

@@ -44,7 +44,7 @@ pub enum Op {
     Clrex,
     /// DSB (sub 0), DMB (1), ISB (2)
     Barrier,
-    /// MSR (immediate) to PSTATE: sub 0 SPSel, 1 DAIFSet, 2 DAIFClr; imm = CRm
+    /// MSR (immediate) to PSTATE: sub 0 SPSel, 1 DAIFSet, 2 DAIFClr, 3 PAN; imm = CRm
     MsrImm,
     /// SYS (cache and TLB maintenance, AT): imm = op1:CRn:CRm:op2 (14 bits), rd = Rt
     Sys,
@@ -425,11 +425,13 @@ fn branch_system(word: u32) -> Inst {
             };
         }
         if crn == 0b0100 && rt == 31 {
-            // MSR (immediate): SPSel, DAIFSet, DAIFClr in v1 (UAO, PAN, DIT, SSBS, TCO are not)
+            // MSR (immediate): SPSel, DAIFSet, DAIFClr; PAN (FEAT_PAN: profile v2,
+            // UNDEFINED when it executes without it); UAO, DIT, SSBS, TCO are not
             let sub = match (op1, op2) {
                 (0b000, 0b101) => 0,
                 (0b011, 0b110) => 1,
                 (0b011, 0b111) => 2,
+                (0b000, 0b100) => 3,
                 _ => return Inst::UNDEF,
             };
             let mut i = Inst::new(Op::MsrImm, word);

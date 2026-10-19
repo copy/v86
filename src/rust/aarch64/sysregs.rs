@@ -70,6 +70,8 @@ pub fn read(reg: u32, rt: u32) -> Result<u64, Exception> {
             (5, 0) => Ok(ID_AA64DFR0),
             (6, 0) => Ok(ID_AA64ISAR0),
             (7, 0) => Ok(ID_AA64MMFR0 & !(0xFF << 20) | crate::aarch64::mmu::mmfr0_granules()),
+            // ID_AA64MMFR1_EL1: PAN 0b0001 (FEAT_PAN) in v2
+            (7, 1) => Ok(if cpu::has_pan() { 1 << 20 } else { 0 }),
             _ => Ok(0),
         };
     }
@@ -134,6 +136,8 @@ unsafe fn read_el1(reg: u32, rt: u32) -> Result<u64, Exception> {
         r if r == key(3, 1, 0, 0, 7) => 0, // AIDR_EL1
         r if r == key(3, 2, 0, 0, 0) => *csselr_el1,
         r if r == key(3, 0, 1, 0, 0) => *sctlr_el1,
+        // PAN (FEAT_PAN)
+        r if r == key(3, 0, 4, 2, 3) && cpu::has_pan() => (get_pstate() & PSTATE_PAN) as u64,
         r if r == key(3, 0, 1, 0, 1) => *actlr_el1,
         r if r == key(3, 0, 1, 0, 2) => *cpacr_el1,
         r if r == key(3, 0, 2, 0, 0) => *ttbr0_el1,
@@ -227,7 +231,14 @@ pub fn write(reg: u32, rt: u32, value: u64) -> Result<(), Exception> {
                 *tcr_el1 = value;
                 crate::aarch64::mmu::regime_changed();
             },
-            r if r == key(3, 0, 4, 0, 0) => *spsr_el1 = value & 0xF060_03FF, // NZCV, SS, IL, DAIF, M
+            // NZCV, SS, IL, DAIF, M; PAN with FEAT_PAN
+            r if r == key(3, 0, 4, 0, 0) => {
+                *spsr_el1 =
+                    value & (0xF060_03FF | if cpu::has_pan() { PSTATE_PAN as u64 } else { 0 })
+            },
+            r if r == key(3, 0, 4, 2, 3) && cpu::has_pan() => {
+                set_pstate(get_pstate() & !PSTATE_PAN | value as u32 & PSTATE_PAN)
+            },
             r if r == key(3, 0, 4, 0, 1) => *elr_el1 = value,
             r if r == key(3, 0, 4, 1, 0) => {
                 if get_pstate() & PSTATE_SP == 0 {
@@ -262,7 +273,7 @@ pub fn write(reg: u32, rt: u32, value: u64) -> Result<(), Exception> {
     Ok(())
 }
 
-/// MSR (immediate): SPSel (0), DAIFSet (1), DAIFClr (2)
+/// MSR (immediate): SPSel (0), DAIFSet (1), DAIFClr (2), PAN (3, FEAT_PAN)
 pub fn write_pstate_field(field: u8, imm: u32) -> Result<(), Exception> {
     let el = cpu::el();
     match field {
@@ -271,6 +282,12 @@ pub fn write_pstate_field(field: u8, imm: u32) -> Result<(), Exception> {
                 return Err(Exception::Undefined);
             }
             set_pstate(get_pstate() & !PSTATE_SP | imm & 1);
+        },
+        3 => {
+            if el == 0 || !cpu::has_pan() {
+                return Err(Exception::Undefined);
+            }
+            set_pstate(get_pstate() & !PSTATE_PAN | if imm & 1 != 0 { PSTATE_PAN } else { 0 });
         },
         _ => {
             if el == 0 && cpu::sctlr() & SCTLR_UMA == 0 {

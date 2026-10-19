@@ -269,7 +269,11 @@ export const STATICS = {
     // (and UNDEF telemetry; per core: the load-exclusive spin detection,
     // P3.9, and the stepped instruction's EX bit, P3.8)
     "aarch64/execute.rs": { DECODE_CACHE: "cache", UNDEF_COUNTS: "debug", UNDEF_LAST: "debug", UNDEF_NEXT: "debug", SPIN: "core",
-        STEPPED_EXCLUSIVE_LOADS: "core", STEPPED_EXCLUSIVE_LOAD: "scratch", STEPPED_CORE: "scratch" },
+        STEPPED_EXCLUSIVE_LOADS: "core", STEPPED_EXCLUSIVE_LOAD: "scratch", STEPPED_CORE: "scratch",
+        // (the page tier's step counters: the instruction interpret_one ran last)
+        LAST_STEPPED: "debug" },
+    // the profile's optional features (FEAT_PAN in v2)
+    "aarch64/cpu.rs": { FEATURES: "machine" },
     // the AES S-boxes (read-only); SoftFloat's globals around each FP operation
     "aarch64/crypto.rs": { SBOX: "machine", INVERSE_SBOX: "machine" },
     "aarch64/fp.rs": { softfloat_roundingMode: "scratch", softfloat_exceptionFlags: "scratch" },
@@ -300,14 +304,16 @@ export const STATICS = {
     // the A64 page tier (J2): its switches, functions and code pages, the
     // access caches and chaining tables per core (derived from the TLBs),
     // the code pages' translations, the flow a step asked for
-    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine",
+    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", SYSTEM: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine",
         ASID_TAG_MODE: "machine", EXPLICIT: "machine", NAMES: "machine" },
     "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
         CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug", ASIDS: "cache",
         // (a64_asid_tag's auto window, P9.3; the parallel build's bounce slots for unaligned reads, P8.3)
         AUTO_TICKS: "cache", AUTO_LAST: "cache", AUTO_SWITCHES: "debug", BOUNCE: "scratch",
         // (the code budget, a64_page_code_mb, and the live functions' Wasm bytes against it)
-        CODE_BUDGET_MB: "machine", LIVE_BYTES: "machine" },
+        CODE_BUDGET_MB: "machine", LIVE_BYTES: "machine",
+        // (diagnostics: the steps, context changes and helpers by instruction class and system register, every core's)
+        STEP_COUNTS: "debug", STEP_WORDS: "debug", SYSREG_COUNTS: "debug", SYS_COUNTS: "debug" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request

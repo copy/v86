@@ -16,7 +16,7 @@ import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtDeviceSpace } from "../virt/io.js";
 import {
-    A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
+    A64_PROFILES, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
     VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
     VIRT_EXTENDED_RAM_BASE, VIRT_EXTENDED_RAM_END,
 } from "../virt/platform.js";
@@ -199,11 +199,14 @@ A64CPU.prototype.init = function(settings, device_bus)
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
     // the CPU profile (docs/arm64-virt-android16-plan.md, "CPU profile"):
-    // v1.1 (the 4, 16 and 64 KiB granules, since P8.6), or v1 (4 KiB only)
+    // v1.1 (the 4, 16 and 64 KiB granules, since P8.6), v1 (4 KiB only), or
+    // v2 (v1.1 and FEAT_PAN)
     const profile = settings["a64_profile"] || "v1.1";
-    if(profile !== "v1" && profile !== "v1.1") throw new Error("a64_profile: \"v1\" or \"v1.1\", got " + JSON.stringify(profile));
-    this.profile = A64_PROFILE + (profile === "v1.1" ? ".1" : "");
-    this.wm.exports["a64_set_granules"](profile === "v1.1" ? 7 : 1);
+    if(!Object.prototype.hasOwnProperty.call(A64_PROFILES, profile))
+    {
+        throw new Error("a64_profile: " + Object.keys(A64_PROFILES).map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
+    }
+    this.set_profile(A64_PROFILES[profile][0]);
     // the A64 page tier (J2): synchronous publication (tests), the JIT switches by name
     this.ir_sync_publication = settings["ir_sync_publication"] === true;
     set_jit_switches(this.wm.exports, this.wasm_memory, settings["jit_switches"]);
@@ -1054,6 +1057,20 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     return state;
 };
 
+/**
+ * Take on a CPU profile by its name (A64_PROFILES): its granules and optional
+ * features; a restore takes the snapshot's
+ * @param {string} name
+ */
+A64CPU.prototype.set_profile = function(name)
+{
+    const entry = Object.values(A64_PROFILES).find(p => p[0] === name);
+    dbg_assert(!!entry, "unknown profile " + name);
+    this.profile = name;
+    this.wm.exports["a64_set_granules"](entry[1]);
+    this.wm.exports["a64_set_features"](entry[2]);
+};
+
 /** Refuse a snapshot of another machine (an x86 one in either direction) or layout */
 A64CPU.prototype.validate_state = function(state)
 {
@@ -1063,7 +1080,8 @@ A64CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from a machine with machine_type: \"" + machine + "\", this one has \"virt\"");
     }
-    if(identity[1] !== VIRT_LAYOUT_VERSION || identity[2] !== this.profile)
+    // (a snapshot of another profile restores as that profile, set_state)
+    if(identity[1] !== VIRT_LAYOUT_VERSION || !Object.values(A64_PROFILES).some(p => p[0] === identity[2]))
     {
         throw new Error("The snapshot is from virt layout " + identity[1] + " with CPU profile " + identity[2] +
             "; this machine is layout " + VIRT_LAYOUT_VERSION + ", " + this.profile);
@@ -1100,6 +1118,7 @@ A64CPU.prototype.validate_state = function(state)
 A64CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
+    if(state[103][2] !== this.profile) this.set_profile(state[103][2]);
     // (disk requests held after an I/O error belong to the machine left behind)
     drop_disk_holds(this);
     if(state[95]) this.clock.set_state(state[95]);
@@ -1245,6 +1264,54 @@ A64CPU.prototype.page_tier_stats = function()
         "asid_tag_switches": stat(109), "asid_tag": stat(110), "live_code_bytes": stat(111),
         "table_free_low": this.wm.exports["jit_wasm_table_free_low"]() };
     names.forEach((name, i) => { result[name] = stat(i); });
+    return result;
+};
+
+/**
+ * The page tier's steps (diagnostics, pages.rs a64_step_stat): the
+ * instruction classes (decode.rs Op << 4 | sub & 15) most often stepped, that
+ * ended an activation by changing what compiled code depends on, and that ran
+ * as helpers, with a word of each; every core's
+ * @param {number=} top
+ * @return {Object} null without the counters
+ */
+A64CPU.prototype.step_stats = function(top = 20)
+{
+    const stat = this.wm.exports["a64_step_stat"];
+    if(!stat) return null;
+    const result = {};
+    ["stepped", "changed_context", "helped"].forEach((name, kind) => {
+        const rows = [];
+        for(let key = 0; key < 1024; key++)
+        {
+            const count = stat(kind, key);
+            if(count) rows.push({ "op": key >> 4, "sub": key & 15, "word": "0x" + (stat(3, key) >>> 0).toString(16).padStart(8, "0"), "count": count });
+        }
+        rows.sort((a, b) => b["count"] - a["count"]);
+        result[name] = rows.slice(0, top);
+        // (MRS and MSR (register) by register: S<op0>_<op1>_C<CRn>_C<CRm>_<op2>)
+        const sysreg = this.wm.exports["a64_sysreg_stat"];
+        if(!sysreg) return;
+        const regs = [];
+        for(let reg = 0; reg < 1 << 16; reg++)
+        {
+            const count = sysreg(kind, reg);
+            if(!count) continue;
+            const r = reg & 0x7FFF;
+            regs.push({ "msr": reg >> 15, "reg": `S${2 + (r >> 14)}_${r >> 11 & 7}_C${r >> 7 & 15}_C${r >> 3 & 15}_${r & 7}`, "count": count });
+        }
+        regs.sort((a, b) => b["count"] - a["count"]);
+        result[name + "_sysregs"] = regs.slice(0, top);
+        // (SYS by operation: op1, CRn, CRm, op2, as "SYS #op1, Cn, Cm, #op2")
+        const ops = [];
+        for(let op = 0; op < 1 << 14; op++)
+        {
+            const count = sysreg(4 + kind, op);
+            if(count) ops.push({ "sys": `#${op >> 11 & 7}, C${op >> 7 & 15}, C${op >> 3 & 15}, #${op & 7}`, "count": count });
+        }
+        ops.sort((a, b) => b["count"] - a["count"]);
+        result[name + "_sys"] = ops.slice(0, top);
+    });
     return result;
 };
 

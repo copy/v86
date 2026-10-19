@@ -25,8 +25,10 @@
 //! In the parallel build (cores in workers, P8.2) guest memory accesses are
 //! sequentially consistent atomics (the frame refuses unaligned ones, which
 //! retry in the interpreter), DMB and ISB a fence, and a DSB a single step
-//! while cores run in workers (it waits for their TLB maintenance, P8.3).
+//! while cores run in workers (it waits for their TLB maintenance, P8.3),
+//! with a64_system only when this core's maintenance is pending.
 
+use crate::aarch64::cpu;
 use crate::aarch64::decode::{
     self, Inst, Op, LS_LOAD, LS_PREFETCH, LS_SIGNED, LS_SIMD, LS_TO_W, LS_UNPRIVILEGED, MODE_POST,
     MODE_PRE, MODE_REGISTER,
@@ -63,6 +65,8 @@ pub struct CompileEnv {
     pub neon: bool,
     /// helper calls (a64_helpers)
     pub helpers: bool,
+    /// the EL1 system templates (a64_system: SYSTEM_*)
+    pub system: u32,
     /// the host's relaxed SIMD multiply-adds fuse (a64_relaxed_fma, probed by the host)
     pub relaxed_fma: bool,
 }
@@ -275,19 +279,94 @@ fn native(i: &Inst, env: &CompileEnv) -> bool {
         Op::DataProc1 => matches!(i.sub, 1..=5),
         // NOP and the hints that are NOPs here (YIELD, WFE, WFI, SEV, SEVL step)
         Op::Hint => !(1..=5).contains(&i.imm),
-        // (DSB with cores in workers: a step, crate::aarch64::tlb::synced)
-        Op::Barrier => !(i.sub == 0 && crate::parallel::active()),
+        // (DSB with cores in workers: a step, crate::aarch64::tlb::synced;
+        // with a64_system only when this core's maintenance is pending)
+        Op::Barrier => !(i.sub == 0 && crate::parallel::active()) || env.system & SYSTEM_DSB != 0,
         // (and the SIMD&FP registers' S, D and Q forms: native_simd)
+        // (LDTR, STTR at EL1 through EL0's access cache tables with a64_system)
         Op::LoadStore => {
-            i.sub & LS_SIMD == 0 && (i.sub & LS_UNPRIVILEGED == 0 || !env.el1)
+            i.sub & LS_SIMD == 0
+                && (i.sub & LS_UNPRIVILEGED == 0
+                    || !env.el1
+                    || env.system & SYSTEM_UNPRIVILEGED != 0)
                 || native_simd(i, env)
         },
         Op::LoadStorePair => i.sub & LS_SIMD == 0 || native_simd(i, env),
         Op::LoadLiteral => i.sub <= 3,
         Op::LoadAcquireStoreRelease => true,
-        Op::Mrs | Op::Msr => i.imm as u32 == TPIDR_EL0 || i.imm as u32 == NZCV_KEY,
+        Op::Mrs | Op::Msr => {
+            i.imm as u32 == TPIDR_EL0
+                || i.imm as u32 == NZCV_KEY
+                || system_register(i, env).is_some()
+        },
+        // MSR DAIFSet, DAIFClr at EL1 (a64_system)
+        Op::MsrImm => env.system & SYSTEM_REGISTERS != 0 && env.el1 && (i.sub == 1 || i.sub == 2),
+        // TLBI and DC ZVA at EL1 (a64_system)
+        Op::Sys => {
+            env.el1
+                && i.sub == 0
+                && (env.system & SYSTEM_TLBI != 0 && tlbi_form(i.imm as u32)
+                    || env.system & SYSTEM_DC_ZVA != 0 && i.imm as u32 == DC_ZVA)
+        },
         _ => false,
     }
+}
+
+/// a64_system's templates: the system registers and PSTATE.DAIF, TLBI, DC
+/// ZVA, LDTR and STTR, DSB (with cores in workers)
+pub const SYSTEM_REGISTERS: u32 = 1;
+pub const SYSTEM_TLBI: u32 = 2;
+pub const SYSTEM_DC_ZVA: u32 = 4;
+pub const SYSTEM_UNPRIVILEGED: u32 = 8;
+pub const SYSTEM_DSB: u32 = 16;
+pub const SYSTEM_ALL: u32 = 31;
+
+/// SYS's DC ZVA (op1:CRn:CRm:op2)
+const DC_ZVA: u32 = 3 << 11 | 7 << 7 | 4 << 3 | 1;
+/// A TLBI the interpreter does (sysregs::sys): op1 0, CRn 8, CRm 3 (inner
+/// shareable) or 7, op2 VMALLE1, VAE1, ASIDE1, VAAE1, VALE1, VAALE1
+fn tlbi_form(op: u32) -> bool {
+    op >> 11 == 0
+        && op >> 7 & 15 == 8
+        && matches!(op >> 3 & 15, 3 | 7)
+        && matches!(op & 7, 0..=3 | 5 | 7)
+}
+
+/// The system registers whose MRS and MSR (register) have EL1 templates
+/// (a64_system): plain state, or PSTATE's bits
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SystemRegister {
+    /// SP_EL0: Linux's `current`; at EL1t the SP itself (an MSR there is UNDEFINED: retried)
+    SpEl0,
+    Tpidr1,
+    Daif,
+    Elr,
+    /// SPSR_EL1 (MSR: the bits the profile keeps)
+    Spsr,
+    /// ESR_EL1 (MSR: the low 32 bits)
+    Esr,
+    Far,
+    /// DCZID_EL0, read at EL1: BS 4, DZP clear
+    Dczid,
+}
+fn system_register(i: &Inst, env: &CompileEnv) -> Option<SystemRegister> {
+    use crate::aarch64::sysregs::key;
+    if env.system & SYSTEM_REGISTERS == 0 || !env.el1 {
+        return None;
+    }
+    let reg = i.imm as u32;
+    let write = i.op == Op::Msr;
+    Some(match reg {
+        r if r == key(3, 0, 4, 1, 0) => SystemRegister::SpEl0,
+        r if r == key(3, 0, 13, 0, 4) => SystemRegister::Tpidr1,
+        r if r == key(3, 3, 4, 2, 1) => SystemRegister::Daif,
+        r if r == key(3, 0, 4, 0, 1) => SystemRegister::Elr,
+        r if r == key(3, 0, 4, 0, 0) => SystemRegister::Spsr,
+        r if r == key(3, 0, 5, 2, 0) => SystemRegister::Esr,
+        r if r == key(3, 0, 6, 0, 0) => SystemRegister::Far,
+        r if r == key(3, 3, 0, 0, 7) && !write => SystemRegister::Dczid,
+        _ => return None,
+    })
 }
 /// A SIMD&FP load or store of an S, D or Q register (single or pair, not a
 /// prefetch) with the native template (a64_neon)
@@ -425,7 +504,9 @@ const HH: usize = 6;
 const ST: usize = 7;
 const C0: usize = 8;
 const C1: usize = 9;
-const LOCALS32: usize = 10;
+/// the access cache's EL0 tables, for LDTR and STTR at EL1
+const J0: usize = 10;
+const LOCALS32: usize = 11;
 
 struct Emitter<'a> {
     b: WasmBuilder,
@@ -976,6 +1057,154 @@ impl Emitter<'_> {
             offset as u64,
             retry,
         );
+    }
+    /// Push the value of a system register with an EL1 template (system_register)
+    fn system_read(&mut self, r: SystemRegister) {
+        match r {
+            SystemRegister::SpEl0 => {
+                // (at EL1h the banked copy, at EL1t the SP)
+                self.load64(state::sp_el as u32);
+                self.g(31);
+                self.load32(state::pstate as u32);
+                self.c32(cpu::PSTATE_SP as i32);
+                self.b.and_i32();
+                self.b.select();
+            },
+            SystemRegister::Tpidr1 => self.load64(state::tpidr_el1 as u32),
+            SystemRegister::Daif => {
+                self.load32(state::pstate as u32);
+                self.c32(cpu::PSTATE_DAIF as i32);
+                self.b.and_i32();
+                self.b.extend_unsigned_i32_to_i64();
+            },
+            SystemRegister::Elr => self.load64(state::elr_el1 as u32),
+            SystemRegister::Spsr => self.load64(state::spsr_el1 as u32),
+            SystemRegister::Esr => self.load64(state::esr_el1 as u32),
+            SystemRegister::Far => self.load64(state::far_el1 as u32),
+            SystemRegister::Dczid => self.c64(4),
+        }
+    }
+    /// MSR of a system register with an EL1 template: X[rt] into it
+    fn system_write(&mut self, r: SystemRegister, rt: u8, offset: u16) {
+        let store64 = |e: &mut Self, address: u32, mask: u64| {
+            e.c32(address as i32);
+            e.xr(rt);
+            if mask != u64::MAX {
+                e.c64(mask);
+                e.b.and_i64();
+            }
+            e.b.store_aligned_i64(0);
+        };
+        match r {
+            SystemRegister::SpEl0 => {
+                // (UNDEFINED at EL1t: the interpreter says so)
+                self.load32(state::pstate as u32);
+                self.c32(cpu::PSTATE_SP as i32);
+                self.b.and_i32();
+                self.b.eqz_i32();
+                self.retry_if(offset);
+                store64(self, state::sp_el as u32, u64::MAX);
+            },
+            SystemRegister::Tpidr1 => store64(self, state::tpidr_el1 as u32, u64::MAX),
+            SystemRegister::Daif => {
+                self.c32(state::pstate as i32);
+                self.load32(state::pstate as u32);
+                self.c32(!cpu::PSTATE_DAIF as i32);
+                self.b.and_i32();
+                self.xr(rt);
+                self.b.wrap_i64_to_i32();
+                self.c32(cpu::PSTATE_DAIF as i32);
+                self.b.and_i32();
+                self.b.or_i32();
+                self.b.store_aligned_i32(0);
+                self.unmasked(offset);
+            },
+            SystemRegister::Elr => store64(self, state::elr_el1 as u32, u64::MAX),
+            SystemRegister::Spsr => {
+                let pan = if cpu::has_pan() { cpu::PSTATE_PAN as u64 } else { 0 };
+                store64(self, state::spsr_el1 as u32, 0xF060_03FF | pan)
+            },
+            SystemRegister::Esr => store64(self, state::esr_el1 as u32, 0xFFFF_FFFF),
+            SystemRegister::Far => store64(self, state::far_el1 as u32, u64::MAX),
+            SystemRegister::Dczid => unreachable!(),
+        }
+    }
+    /// After a write to PSTATE.DAIF at `offset`: leave for the run loop,
+    /// the PC at the next instruction, when an interrupt is now deliverable
+    fn unmasked(&mut self, offset: u16) {
+        self.b
+            .call_signature("a64_page_unmasked", Signature::new(&[], &[WasmType::I32]));
+        self.b.if_void();
+        let exit = self.f().exit;
+        self.leave_to(exit, offset as u64 + 4);
+        self.b.block_end();
+    }
+    /// As `host`, an unprivileged access at EL1 (LDTR, STTR): a lookup of
+    /// the access cache's EL0 tables (after the EL1 ones: jitrt::access's
+    /// kinds, read 1 and write 3), filled on a miss with EL0's permissions
+    /// (pages::a64_page_access, kind bit 11); not the frame's lookups, which
+    /// probe the activation's tables
+    fn host_unprivileged(&mut self, size: u32, write: bool, offset: u16) {
+        let entries = super::pages::ENTRIES as u32;
+        let bytes = crate::jitrt::access::ENTRY_BYTES;
+        let table = if write { 2 * entries * bytes } else { 0 };
+        // the tag, the entry, the offset in the page
+        self.g(ADDR);
+        self.c64(12);
+        self.b.shr_u_i64();
+        self.g(EP);
+        self.b.or_i64();
+        self.s(TAG);
+        self.g(TAG);
+        self.b.wrap_i64_to_i32();
+        self.c32(entries as i32 - 1);
+        self.b.and_i32();
+        self.c32(bytes.trailing_zeros() as i32);
+        self.b.shl_i32();
+        self.gi(JAC);
+        self.b.add_i32();
+        self.c32((entries * bytes) as i32);
+        self.b.add_i32();
+        self.si(J0);
+        self.g(ADDR);
+        self.b.wrap_i64_to_i32();
+        self.c32(4095);
+        self.b.and_i32();
+        self.si(OFF);
+        // a hit: the tag matches, the access stays in the page (and is
+        // aligned with cores in workers, whose accesses are atomic)
+        self.gi(J0);
+        self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, table);
+        self.g(TAG);
+        self.b.eq_i64();
+        self.gi(OFF);
+        self.c32((4096 - size) as i32);
+        self.b.leu_i32();
+        self.b.and_i32();
+        if WasmBuilder::ATOMIC_GUEST_MEMORY && size > 1 {
+            self.gi(OFF);
+            self.c32(size.min(8) as i32 - 1);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.and_i32();
+        }
+        self.b.if_i32();
+        self.gi(J0);
+        self.b.load_aligned_i32(table + 8);
+        self.gi(OFF);
+        self.b.add_i32();
+        self.b.else_();
+        self.g(ADDR);
+        self.c32(size as i32 | (write as i32) << 8 | 0x800);
+        self.b.call_signature(
+            "a64_page_access",
+            Signature::new(&[WasmType::I64, WasmType::I32], &[WasmType::I32]),
+        );
+        self.b.block_end();
+        self.b.tee_local(&self.w[HH]);
+        self.b.eqz_i32();
+        self.retry_if(offset);
+        self.gi(HH);
     }
     /// Retry the instruction at `offset` when the i32 condition on the stack is true
     fn retry_if(&mut self, offset: u16) {
@@ -1594,7 +1823,72 @@ impl Emitter<'_> {
             Op::DataProc2 => self.data_processing_2(i),
             Op::DataProc1 => self.data_processing_1(i),
             Op::Hint => {},
-            Op::Barrier => self.b.guest_fence(),
+            Op::Barrier => {
+                self.b.guest_fence();
+                if i.sub == 0 && crate::parallel::active() {
+                    // (the TLB maintenance this core posted: the DSB steps, and waits)
+                    self.load32(crate::aarch64::tlb::pending_address());
+                    self.b.if_void();
+                    let step = self.f().step;
+                    self.leave_to(step, offset as u64);
+                    self.b.block_end();
+                }
+            },
+            Op::MsrImm => {
+                // DAIFSet (1), DAIFClr (2) at EL1
+                let bits = (i.imm as u32 & 15) << 6;
+                self.c32(state::pstate as i32);
+                self.load32(state::pstate as u32);
+                if i.sub == 1 {
+                    self.c32(bits as i32);
+                    self.b.or_i32();
+                }
+                else {
+                    self.c32(!bits as i32);
+                    self.b.and_i32();
+                }
+                self.b.store_aligned_i32(0);
+                if i.sub == 2 {
+                    self.unmasked(offset);
+                }
+            },
+            Op::Sys if i.imm as u32 == DC_ZVA => {
+                // the 64-byte block (DCZID_EL0's BS 4) zeroed through the
+                // access cache's write entry (a miss, Device memory, a code
+                // or watched page: the interpreter, which faults or marks)
+                self.xr(rd);
+                self.c64(!63);
+                self.b.and_i64();
+                self.s(ADDR);
+                self.host(8, true, offset);
+                self.si(C1);
+                for k in 0..8 {
+                    self.gi(C1);
+                    self.c64(0);
+                    self.b.guest_store_i64(8 * k);
+                }
+            },
+            Op::Sys => {
+                // TLBI: the TLBs and access caches in Rust; the function leaves
+                // when what it depends on changed (its access cache's epoch)
+                self.c32(self.words[offset as usize / 4] as i32);
+                self.xr(rd);
+                self.b.call_signature(
+                    "a64_page_tlbi",
+                    Signature::new(&[WasmType::I32, WasmType::I64], &[WasmType::I32]),
+                );
+                self.b.if_void();
+                let exit = self.f().exit;
+                self.leave_to(exit, offset as u64 + 4);
+                self.b.block_end();
+            },
+            Op::Mrs if system_register(i, &self.env).is_some() => {
+                self.system_read(system_register(i, &self.env).unwrap());
+                self.set_x(rd);
+            },
+            Op::Msr if system_register(i, &self.env).is_some() => {
+                self.system_write(system_register(i, &self.env).unwrap(), rd, offset);
+            },
             Op::Mrs => {
                 if i.imm as u32 == TPIDR_EL0 {
                     self.load64(state::tpidr_el0 as u32);
@@ -2183,7 +2477,12 @@ impl Emitter<'_> {
         }
         self.s(ADDR);
         let load = i.sub & LS_LOAD != 0;
-        self.host(1 << size_log, !load, offset);
+        if i.sub & LS_UNPRIVILEGED != 0 && self.env.el1 {
+            self.host_unprivileged(1 << size_log, !load, offset);
+        }
+        else {
+            self.host(1 << size_log, !load, offset);
+        }
         if simd {
             self.si(C1);
             if load {

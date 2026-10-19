@@ -41,9 +41,12 @@ struct a64_fault
 {
     int taken;
     uint64_t esr, far, elr;
+    // SPSR_EL1 at the exception, and what a64_fault_probe (if set) returned in the handler
+    uint64_t spsr, probe;
 };
 void a64_expect(void);
 int a64_caught(struct a64_fault *fault);
+extern uint64_t (*volatile a64_fault_probe)(void);
 
 void a64_putc(char c);
 void a64_fail(const char *why);

@@ -155,7 +155,9 @@ for(let i = 0; i < SAMPLE; i++)
 
 const words_file = option("--words", null);
 const list = words_file ? fs.readFileSync(words_file, "utf8").split("\n").filter(Boolean).map(w => parseInt(w, 16) >>> 0) : [...words];
-const decoded = oracle(list);
+// (the decoder decodes every profile's encodings, the widest's: v2, with
+// FEAT_PAN's MSR PAN; the executor refuses what the machine's profile lacks)
+const decoded = oracle(list, JSON.parse(fs.readFileSync(root + "tests/platform/a64-profile.json", "utf8")).v2.llvm_mattr);
 const differences = new Map();
 let different = 0;
 list.forEach((word, i) => {

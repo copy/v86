@@ -465,6 +465,8 @@ const jit = !!+process.env.A64_JIT;
 // the soft lockup threshold's 20 s whenever the host is busy. 60 s here; a
 // core that hangs is still reported, or misses the run's deadline)
 const V86_WATCHDOG = !jit && cores > 1 ? " watchdog_thresh=30" : "";
+// A64_PROFILE: the CPU profile (a64_profile: v1, v1.1, the default, or v2 with FEAT_PAN)
+const PROFILE_OPTIONS = process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {};
 const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
     ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};
 const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
@@ -482,7 +484,9 @@ const tag = tag_of(qemu_reference ? "qemu" : "v86");
 // Spectre-BHB on v86, whose MIDR is on none of Linux's safe lists (the
 // reference's Cortex-A35 is on all of them)
 const FEATURES_ONLY_ON_REFERENCE = ["32-bit EL0 Support", "32-bit EL1 Support"];
-const FEATURES_ONLY_ON_V86 = ["Spectre-v4", "Spectre-BHB"];
+// (and profile v2's own, tests/platform/a64-profile.json: the reference has not got them)
+const FEATURES_ONLY_ON_V86 = ["Spectre-v4", "Spectre-BHB",
+    ...(process.env.A64_PROFILE === "v2" ? JSON.parse(fs.readFileSync(ROOT + "tests/platform/a64-profile.json", "utf8")).v2.linux_cpu_features : [])];
 const detected = text => [...new Set([...text.matchAll(/CPU features: detected: ([^\r\n]+)/g)].map(m => m[1].trim()))].sort();
 
 /** The probe's lines in `text`, judged against `cores` and the stage */
@@ -618,7 +622,7 @@ if(qemu_reference)
 // ---- v86 (the ARM core; P4.7): the same kernel, initrd and command line
 const v86_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
-    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm", ...JIT_OPTIONS, ...PARALLEL_OPTIONS,
+    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm", ...JIT_OPTIONS, ...PROFILE_OPTIONS, ...PARALLEL_OPTIONS,
 };
 if(stage === "lifecycle")
 {
@@ -689,7 +693,7 @@ const machine_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory_mb * 1048576, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     kernel: { url: v86_kernel }, initrd: { url: single || live ? prepared.initrd : initrd },
-    cmdline: single ? SINGLE_CMDLINE + V86_WATCHDOG : live ? LIVE_CMDLINE + V86_WATCHDOG : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS, ...PARALLEL_OPTIONS,
+    cmdline: single ? SINGLE_CMDLINE + V86_WATCHDOG : live ? LIVE_CMDLINE + V86_WATCHDOG : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS, ...PROFILE_OPTIONS, ...PARALLEL_OPTIONS,
     ...(extended_memory ? { extended_memory_size: extended_memory } : {}),
     ...(process.env.A64_EXTENDED_CACHE ? { extended_memory_cache: +process.env.A64_EXTENDED_CACHE } : {}),
     ...(android ? { virtio_disks: [{ buffer: f2fs_disk, id: "a64f2fs" }] } : {}),

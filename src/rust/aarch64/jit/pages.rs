@@ -757,6 +757,7 @@ fn compile(key: u32, pc: u64) {
             chaining: unsafe { CHAINING },
             neon: unsafe { super::NEON },
             helpers: unsafe { super::HELPERS },
+            system: unsafe { super::SYSTEM },
             relaxed_fma: unsafe { super::RELAXED_FMA },
         },
         name,
@@ -933,7 +934,8 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         r.stats[ACCESS_REFUSED] += 1;
         return 0;
     }
-    let el0 = cpu::el() == 0;
+    // (kind bit 11: an unprivileged access at EL1, LDTR/STTR: EL0's permissions and table)
+    let el0 = cpu::el() == 0 || kind & 0x800 != 0;
     let Some((pa, _large, global)) = crate::aarch64::mmu::translate_for_cache(address, write, el0)
     else {
         r.stats[ACCESS_REFUSED] += 1;
@@ -1017,7 +1019,7 @@ pub fn a64_page_unserved(pc: u64) -> u32 {
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Context {
     el: u32,
-    /// DAIF, SS, IL, SPSel
+    /// DAIF, SS, IL, SPSel, PAN
     pstate: u32,
     sctlr: u64,
     tcr: u64,
@@ -1033,7 +1035,11 @@ fn context() -> Context {
         Context {
             el: cpu::el(),
             pstate: cpu::get_pstate()
-                & (cpu::PSTATE_DAIF | cpu::PSTATE_SS | PSTATE_IL | cpu::PSTATE_SP),
+                & (cpu::PSTATE_DAIF
+                    | cpu::PSTATE_SS
+                    | PSTATE_IL
+                    | cpu::PSTATE_SP
+                    | cpu::PSTATE_PAN),
             sctlr: *sctlr_el1,
             tcr: *tcr_el1,
             ttbr0: *ttbr0_el1,
@@ -1059,20 +1065,97 @@ impl StepFrontend for A64Step {
     fn context() -> Context { context() }
     fn interpret_one() {
         let flow = execute::interpret_one();
+        let (key, word) = unsafe { execute::LAST_STEPPED };
+        note_step(STEPPED, key, word);
         if matches!(flow, Flow::Wait(_) | Flow::Off | Flow::Yield | Flow::Retry) {
             unsafe { STEP_FLOW = Some(flow) };
         }
     }
     fn outcome(before: &Context) -> StepOutcome {
-        // (a busy loop around a stepped counter read sees its timer's interrupt)
-        crate::aarch64::timer::tick();
-        if unsafe { (*(&raw const STEP_FLOW)).is_some() }
-            || context() != *before
-            || interrupt_pending()
-        {
+        // (a busy loop around a stepped counter read sees its timer's
+        // interrupt: after the system register accesses and the hints, WFE
+        // and WFI among them; not after SYS, TLBI and its kind, nor other
+        // steps: the run loop ticks every 1024 instructions)
+        let (key, word) = unsafe { execute::LAST_STEPPED };
+        if word & 0xFFC0_0000 == 0xD500_0000 && word >> 19 & 3 != 1 {
+            crate::aarch64::timer::tick();
+        }
+        let changed = context() != *before;
+        if changed {
+            note_step(CHANGED_CONTEXT, key, word);
+        }
+        if unsafe { (*(&raw const STEP_FLOW)).is_some() } || changed || interrupt_pending() {
             return StepOutcome::Exit;
         }
         StepOutcome::Continue
+    }
+}
+
+// Diagnostics (a64_step_stat): how often each instruction class
+// (execute::step_key) was stepped, ended an activation by changing the
+// context, or ran as a helper; machine-wide (every core adds), approximate
+const STEPPED: usize = 0;
+const CHANGED_CONTEXT: usize = 1;
+const HELPED: usize = 2;
+const STEP_KEYS: usize = 1024;
+static mut STEP_COUNTS: [[u32; STEP_KEYS]; 3] = [[0; STEP_KEYS]; 3];
+/// the last word of each class
+static mut STEP_WORDS: [u32; STEP_KEYS] = [0; STEP_KEYS];
+/// MRS and MSR (register) by their register (the word's bits 19:5, op0's low bit and op1:CRn:CRm:op2), MSR from 1 << 15
+static mut SYSREG_COUNTS: [[u32; 1 << 16]; 3] = [[0; 1 << 16]; 3];
+/// SYS (TLBI, DC, IC, AT) by op1:CRn:CRm:op2
+static mut SYS_COUNTS: [[u32; 1 << 14]; 3] = [[0; 1 << 14]; 3];
+#[inline(always)]
+fn note_step(kind: usize, key: u32, word: u32) {
+    let index = key as usize & (STEP_KEYS - 1);
+    unsafe {
+        let counts = &mut *crate::parallel::machine(&raw mut STEP_COUNTS);
+        counts[kind][index] = counts[kind][index].wrapping_add(1);
+        (*crate::parallel::machine(&raw mut STEP_WORDS))[index] = word;
+        // (MRS and MSR (register): which register)
+        if word & 0xFFD0_0000 == 0xD510_0000 {
+            let reg = (word >> 5 & 0x7FFF | (!word >> 21 & 1) << 15) as usize;
+            let counts = &mut *crate::parallel::machine(&raw mut SYSREG_COUNTS);
+            counts[kind][reg] = counts[kind][reg].wrapping_add(1);
+        }
+        // (SYS: which operation)
+        else if word & 0xFFF8_0000 == 0xD508_0000 {
+            let op = (word >> 5 & 0x3FFF) as usize;
+            let counts = &mut *crate::parallel::machine(&raw mut SYS_COUNTS);
+            counts[kind][op] = counts[kind][op].wrapping_add(1);
+        }
+    }
+}
+/// (diagnostics) The count of MRS (`reg` < 1 << 15) or MSR (register) of
+/// the register `reg` & 0x7FFF (the word's bits 19:5), by kind as a64_step_stat
+#[no_mangle]
+pub fn a64_sysreg_stat(kind: u32, reg: u32) -> f64 {
+    // (kinds 4-6: SYS by op1:CRn:CRm:op2, as kinds 0-2)
+    if (4..=6).contains(&kind) {
+        return unsafe {
+            (*crate::parallel::machine(&raw mut SYS_COUNTS))[kind as usize - 4]
+                [reg as usize & 0x3FFF] as f64
+        };
+    }
+    if kind > 2 {
+        return 0.0;
+    }
+    unsafe {
+        (*crate::parallel::machine(&raw mut SYSREG_COUNTS))[kind as usize][reg as usize & 0xFFFF]
+            as f64
+    }
+}
+/// The count of class `key` (kind 0 stepped, 1 changed the context, 2 a
+/// helper), or with kind 3 the class's last word
+#[no_mangle]
+pub fn a64_step_stat(kind: u32, key: u32) -> f64 {
+    let key = key as usize & (STEP_KEYS - 1);
+    unsafe {
+        match kind {
+            0..=2 => (*crate::parallel::machine(&raw mut STEP_COUNTS))[kind as usize][key] as f64,
+            3 => (*crate::parallel::machine(&raw mut STEP_WORDS))[key] as f64,
+            _ => 0.0,
+        }
     }
 }
 /// An interrupt the PE would take now
@@ -1082,6 +1165,28 @@ fn interrupt_pending() -> bool {
     signal & crate::aarch64::gic::SIGNAL_IRQ != 0 && state & cpu::PSTATE_I == 0
         || signal & crate::aarch64::gic::SIGNAL_FIQ != 0 && state & cpu::PSTATE_F == 0
 }
+
+/// (pagegen's TLBI template, a64_system) the TLBI `word` of Xt `value` at
+/// EL1, as the interpreter does it: 1 when it changed what compiled code
+/// depends on (the access cache's epoch): the function then leaves
+#[no_mangle]
+pub fn a64_page_tlbi(word: u32, value: u64) -> u32 {
+    let core = current_core();
+    let epoch = access(core).epoch();
+    let crm = word >> 8 & 15;
+    crate::aarch64::mmu::tlbi(crm == 3, word >> 5 & 7, value);
+    note_step(
+        HELPED,
+        execute::step_key(&execute::decode_cached(word)),
+        word,
+    );
+    (access(core).epoch() != epoch) as u32
+}
+
+/// (pagegen's MSR DAIF and DAIFClr templates) 1 when an interrupt is now
+/// deliverable: the function leaves for the run loop to take it
+#[no_mangle]
+pub fn a64_page_unmasked() -> u32 { interrupt_pending() as u32 }
 
 /// A helper for a page function (pagegen's helper template): the instruction
 /// `word` at `pc` on the state in memory (the registers it names and NZCV
@@ -1093,6 +1198,7 @@ fn interrupt_pending() -> bool {
 pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
     unsafe { HELPERS += 1 };
     let inst = execute::decode_cached(word);
+    note_step(HELPED, execute::step_key(&inst), word);
     match execute::execute(&inst, pc) {
         Ok(Flow::Next) => {
             crate::core_stats::add_pending(1, 0);

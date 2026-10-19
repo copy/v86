@@ -315,6 +315,15 @@ pub fn translate(va: u64, access: Access, el0: bool, align: u32) -> Result<Trans
     if entry.flags & needed == 0 {
         return Err(FSC_PERMISSION + entry.level as u32);
     }
+    // (PAN: an EL1 data access to memory EL0 may access, AP[1] set; not
+    // the unprivileged ones, `el0`, nor instruction fetches)
+    if !el0
+        && access != Access::Fetch
+        && entry.flags & EL0_READ != 0
+        && cpu::get_pstate() & cpu::PSTATE_PAN != 0
+    {
+        return Err(FSC_PERMISSION + entry.level as u32);
+    }
     Ok(Translation {
         pa: entry.pa | va & 0xFFF,
         device,
@@ -335,6 +344,11 @@ pub fn translate_for_cache(va: u64, write: bool, el0: bool) -> Option<(u64, bool
         (true, true) => EL0_WRITE,
     };
     if entry.flags & DEVICE != 0 || entry.flags & needed == 0 {
+        return None;
+    }
+    // (with FEAT_PAN, EL1's entries are never of memory EL0 may access:
+    // PSTATE.PAN changes without the cache knowing)
+    if !el0 && entry.flags & EL0_READ != 0 && cpu::has_pan() {
         return None;
     }
     Some((

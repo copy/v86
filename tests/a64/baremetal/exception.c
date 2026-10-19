@@ -6,6 +6,7 @@
 
 static volatile struct a64_fault expected;
 static volatile int armed;
+uint64_t (*volatile a64_fault_probe)(void);
 
 void a64_unexpected(struct a64_frame *frame, uint64_t vector);
 
@@ -24,6 +25,8 @@ int a64_caught(struct a64_fault *fault)
     fault->esr = expected.esr;
     fault->far = expected.far;
     fault->elr = expected.elr;
+    fault->spsr = expected.spsr;
+    fault->probe = expected.probe;
     return fault->taken;
 }
 
@@ -36,6 +39,8 @@ void a64_exception(struct a64_frame *frame, uint64_t vector)
         expected.esr = a64_read(esr_el1);
         expected.far = a64_read(far_el1);
         expected.elr = frame->elr;
+        expected.spsr = frame->spsr;
+        expected.probe = a64_fault_probe ? a64_fault_probe() : 0;
         frame->elr += 4;
         return;
     }

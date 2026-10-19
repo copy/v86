@@ -39,9 +39,27 @@ export async function run_vcpu_arm(init, post, handle)
     const host_now = () => performance.timeOrigin + performance.now();
     const now = () => host_now() - clock_offset[0];
 
-    // a request the machine performs on the devices' thread: the result's low 32 bits (IO_RESULT_HI the high)
-    function request(op, addr, v0 = 0, v1 = 0, v2 = 0, v3 = 0)
+    // A posted request (an MMIO write) not waited for yet: the next request,
+    // and a park, wait for it first, so this core's device accesses stay in
+    // order and a stopped machine has done them all
+    let posted = false;
+    function settle()
     {
+        if(!posted) return;
+        posted = false;
+        while(Atomics.load(ctrl, word(C.IO_STATE)) === C.IO_REQUEST)
+        {
+            Atomics.wait(ctrl, word(C.IO_STATE), C.IO_REQUEST, 1000);
+            if(Atomics.load(ctrl, C.SHUTDOWN)) throw new Error("machine shut down during I/O");
+        }
+        Atomics.store(ctrl, word(C.IO_STATE), C.IO_IDLE);
+    }
+    // a request the machine performs on the devices' thread: the result's low
+    // 32 bits (IO_RESULT_HI the high); `post`: the result is not needed, the
+    // core goes on (MMIO writes are posted, as PCIe's)
+    function request(op, addr, v0 = 0, v1 = 0, v2 = 0, v3 = 0, post = false)
+    {
+        settle();
         ctrl[word(C.IO_OP)] = op;
         ctrl[word(C.IO_ADDR)] = addr;
         ctrl[word(C.IO_V0)] = v0;
@@ -53,6 +71,11 @@ export async function run_vcpu_arm(init, post, handle)
         Atomics.notify(ctrl, C.DOORBELL);
         // the machine's core leaves its slice to serve it
         exports["parallel_kick"](0);
+        if(post)
+        {
+            posted = true;
+            return 0;
+        }
         while(Atomics.load(ctrl, word(C.IO_STATE)) === C.IO_REQUEST)
         {
             Atomics.wait(ctrl, word(C.IO_STATE), C.IO_REQUEST, 1000);
@@ -80,7 +103,7 @@ export async function run_vcpu_arm(init, post, handle)
         "a64_mmio_write": (owner, offset, width, value) => {
             const [low, high] = halves(offset);
             const [value_low, value_high] = halves(value);
-            request(C.OP_A64_MMIO_WRITE, owner | width << 24, low, high, value_low, value_high);
+            request(C.OP_A64_MMIO_WRITE, owner | width << 24, low, high, value_low, value_high, true);
         },
         "jit_publish": (client, id, slot, pointer, length) => cpu.jit_publish(client, id, slot, pointer, length),
         "jit_clear_func": index => cpu.jit_clear_func(index),
@@ -128,6 +151,7 @@ export async function run_vcpu_arm(init, post, handle)
     // a safe point: the machine stops every core for a snapshot, a reset or a pause
     function park(epoch)
     {
+        settle();
         publish_counters();
         Atomics.store(ctrl, word(C.STATUS), C.STATUS_PARKED);
         exports["parallel_idle"](true);

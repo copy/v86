@@ -16,8 +16,11 @@ pub const PSTATE_D: u32 = 1 << 9;
 pub const PSTATE_DAIF: u32 = 0xF << 6;
 pub const PSTATE_IL: u32 = 1 << 20;
 pub const PSTATE_SS: u32 = 1 << 21;
-/// The bits of `pstate` an SPSR keeps (M[4:0] as AArch64 EL0t/EL1t/EL1h, DAIF, IL, SS)
-pub const PSTATE_SAVED: u32 = 0x1F | PSTATE_DAIF | PSTATE_IL | PSTATE_SS;
+/// Privileged Access Never (FEAT_PAN, profile v2): EL1's data accesses to
+/// memory EL0 may access fault, but the unprivileged ones (LDTR, STTR)
+pub const PSTATE_PAN: u32 = 1 << 22;
+/// The bits of `pstate` an SPSR keeps (M[4:0] as AArch64 EL0t/EL1t/EL1h, DAIF, IL, SS, PAN)
+pub const PSTATE_SAVED: u32 = 0x1F | PSTATE_DAIF | PSTATE_IL | PSTATE_SS | PSTATE_PAN;
 
 pub const NZCV_N: u32 = 1 << 31;
 pub const NZCV_Z: u32 = 1 << 30;
@@ -38,9 +41,30 @@ pub const SCTLR_NTWE: u64 = 1 << 18;
 pub const SCTLR_E0E: u64 = 1 << 24;
 pub const SCTLR_EE: u64 = 1 << 25;
 pub const SCTLR_UCI: u64 = 1 << 26;
+/// Set Privileged Access Never: when clear, an exception taken to EL1 sets PSTATE.PAN (FEAT_PAN)
+pub const SCTLR_SPAN: u64 = 1 << 23;
 /// SCTLR_EL1 at reset: the reference's (QEMU 9.2 cortex-a35: SA, SA0,
 /// CP15BEN, EOS, nTWI, nTWE, EIS, SPAN)
 pub const SCTLR_RESET: u64 = 0x00C5_0838;
+
+// ---- the profile's optional features (a64_set_features)
+
+/// FEAT_PAN (profile v2)
+pub const FEATURE_PAN: u32 = 1 << 0;
+static mut FEATURES: u32 = 0;
+
+/// The optional features of the machine's profile: FEATURE_PAN (v2); none in v1 and v1.1
+#[no_mangle]
+pub fn a64_set_features(mask: u32) {
+    unsafe { *crate::parallel::machine(&raw mut FEATURES) = mask & FEATURE_PAN };
+    crate::aarch64::tlb::flush(true);
+}
+
+/// Whether the profile has FEAT_PAN
+#[inline(always)]
+pub fn has_pan() -> bool {
+    unsafe { *crate::parallel::machine(&raw mut FEATURES) & FEATURE_PAN != 0 }
+}
 
 // ---- registers
 
@@ -301,7 +325,14 @@ pub fn take_exception(kind: u64, return_address: u64, esr: Option<u32>, far: Opt
         else {
             0x000
         };
-        set_pstate(1 << PSTATE_EL_SHIFT | PSTATE_SP | PSTATE_DAIF);
+        // (PAN: set with SCTLR_EL1.SPAN clear, else kept)
+        let pan = if has_pan() && *sctlr_el1 & SCTLR_SPAN == 0 {
+            PSTATE_PAN
+        }
+        else {
+            get_pstate() & PSTATE_PAN
+        };
+        set_pstate(1 << PSTATE_EL_SHIFT | PSTATE_SP | PSTATE_DAIF | pan);
         set_pc(*vbar_el1 + base + kind);
     }
 }
@@ -336,8 +367,10 @@ pub fn exception_return() {
             spsr & PSTATE_SAVED
         }
         else {
-            // (NZCV and DAIF still come from SPSR_EL1)
-            get_pstate() & !(PSTATE_IL | PSTATE_SS | PSTATE_DAIF) | PSTATE_IL | spsr & PSTATE_DAIF
+            // (NZCV, DAIF and PAN still come from SPSR_EL1)
+            get_pstate() & !(PSTATE_IL | PSTATE_SS | PSTATE_DAIF | PSTATE_PAN)
+                | PSTATE_IL
+                | spsr & (PSTATE_DAIF | PSTATE_PAN)
         };
         set_nzcv(spsr & 0xF000_0000);
         set_pstate(new);

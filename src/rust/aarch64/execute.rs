@@ -1264,6 +1264,13 @@ fn fetch_at(address: u64) -> Result<u32, Exception> {
 /// The stepped instruction was a load-exclusive (ISS.EX of the step exception), per core
 static mut STEPPED_EXCLUSIVE_LOADS: [bool; crate::isa::MAX_CORES] = [false; crate::isa::MAX_CORES];
 static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
+
+/// (diagnostics, crate::aarch64::jit::pages::a64_step_stat) the class
+/// (step_key) and word of the instruction interpret_one ran last
+pub static mut LAST_STEPPED: (u32, u32) = (0, 0);
+/// An instruction's class for the diagnostics: its Op and the low bits of its sub
+#[inline(always)]
+pub fn step_key(inst: &Inst) -> u32 { (inst.op as u32) << 4 | inst.sub as u32 & 15 }
 static mut STEPPED_CORE: usize = 0;
 
 /// (crate::aarch64::smp) another core runs now
@@ -1303,6 +1310,7 @@ pub fn interpret_one() -> Flow {
         if stepping {
             unsafe { STEPPED_EXCLUSIVE_LOAD = inst.op == Op::Exclusive && inst.sub & 1 != 0 };
         }
+        unsafe { LAST_STEPPED = (step_key(&inst), word) };
         execute(&inst, address)
     });
     match result {

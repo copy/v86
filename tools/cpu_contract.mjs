@@ -313,15 +313,21 @@ async function a64_v86_check()
 {
     const directory = a64_runner.build("id-registers", [root + "tests/a64/id_registers.c"]);
     let failed = false;
-    for(const [name, cores] of Object.entries(A64_PROFILES))
+    // (the default profile, then v2: its ID registers differ where the profile's v2 entry says)
+    const v2 = a64_profile.v2;
+    for(const [variant, options, changes] of [[a64_profile.profile, {}, {}], [v2.profile, { a64_profile: v2.a64_profile }, v2.id_space]])
     {
-        const result = await a64_runner.actual(directory, { cores });
-        assert.equal(result.status, "ok", name + " on v86: " + result.text);
-        const { problems, tolerated } = a64_compare(a64_profile, a64[name], a64_parse(result.text, cores));
-        const differences = [...problems, ...tolerated];
-        console.log(`${name}: v86 against ${a64_profile.profile}: ${differences.length} differences`);
-        for(const line of differences) console.log("  " + line.replace("reference", "v86"));
-        failed ||= differences.length > 0;
+        for(const [name, cores] of Object.entries(A64_PROFILES))
+        {
+            const result = await a64_runner.actual(directory, { cores, options });
+            assert.equal(result.status, "ok", name + " on v86: " + result.text);
+            const expected = { ...a64[name], registers: { ...a64[name].registers, ...changes } };
+            const { problems, tolerated } = a64_compare(a64_profile, expected, a64_parse(result.text, cores));
+            const differences = [...problems, ...tolerated];
+            console.log(`${name}: v86 against ${variant}: ${differences.length} differences`);
+            for(const line of differences) console.log("  " + line.replace("reference", "v86"));
+            failed ||= differences.length > 0;
+        }
     }
     return !failed;
 }

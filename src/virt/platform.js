@@ -8,6 +8,17 @@ export const VIRT_LAYOUT_VERSION = 2;
 /** The CPU profile (tests/platform/a64-profile.json) */
 /** The CPU profiles' base name: v1; v1.1, the default, adds ".1" (src/arm/cpu.js) */
 export const A64_PROFILE = "v86-aarch64-v1";
+/**
+ * The CPU profiles (docs/arm64-virt-android16-plan.md, "CPU profile") by
+ * a64_profile's value: [name, granules (bit 0 4 KiB, 1 16 KiB, 2 64 KiB),
+ * optional features (bit 0 FEAT_PAN)]
+ * @type {!Object<string, !Array>}
+ */
+export const A64_PROFILES = {
+    "v1": [A64_PROFILE, 1, 0],
+    "v1.1": [A64_PROFILE + ".1", 7, 0],
+    "v2": ["v86-aarch64-v2", 7, 1],
+};
 
 /** Must match MAX_CORES in src/rust/aarch64/isa_hooks.rs */
 export const VIRT_MAX_CORES = 8;

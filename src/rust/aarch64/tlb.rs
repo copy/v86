@@ -190,6 +190,8 @@ static mut RING_ACKED: [u32; MAX_CORES] = [0; MAX_CORES];
 static mut RING_SEEN: u32 = 0;
 /// The last entry this core posted that its next DSB waits for (0: none)
 static mut PENDING: u32 = 0;
+/// Where PENDING is (the page tier's DSB template steps a DSB only when it is not 0)
+pub fn pending_address() -> u32 { &raw const PENDING as u32 }
 /// (diagnostics, this instance's) 0 entries posted, 1 DSBs that waited, 2
 /// entries taken from the ring, 3 rings overflowed
 static mut RING_STATS: [u32; 4] = [0; 4];
