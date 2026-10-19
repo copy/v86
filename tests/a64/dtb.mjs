@@ -5,9 +5,9 @@
 // command line and an initrd), both decompiled by dtc with sorted nodes and
 // properties, must differ only by the allowed differences of
 // tests/platform/a64-profile.json: the nodes of devices v86 does not have
-// (flash, fw-cfg, PL061 and gpio-keys, the platform bus, and the PCIe host
-// bridge until P5.10), the cores' compatible (v86 is no Cortex part) and
-// /chosen/rng-seed (v86 writes one).
+// (flash, fw-cfg, PL061 and gpio-keys, the platform bus), the cores'
+// compatible (v86 is no Cortex part) and /chosen/rng-seed (v86 writes one).
+// The PCIe host bridge's node (P5.6) is the reference's.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -62,7 +62,7 @@ for(const cores of [1, 2, 4])
     const ours = directory + `v86-${cores}.dtb`;
     fs.writeFileSync(ours, flatten(virt_tree({ cores, memory_size: memory << 20, bootargs, initrd: { start, end: start + 300000 },
         rng_seed: new Uint8Array(32) })));
-    const allowed = { nodes: ["flash", "fw-cfg", "pl061", "gpio-keys", "platform-bus", "pcie"], props: ["rng-seed", "compatible = \"arm,cortex-a35\"", "compatible = \"arm,armv8\""] };
+    const allowed = { nodes: ["flash", "fw-cfg", "pl061", "gpio-keys", "platform-bus"], props: ["rng-seed", "compatible = \"arm,cortex-a35\"", "compatible = \"arm,armv8\""] };
     const want = without(dts(reference), allowed), have = without(dts(ours), allowed);
     fs.writeFileSync(directory + `qemu-${cores}.dts`, want);
     fs.writeFileSync(directory + `v86-${cores}.dts`, have);

@@ -121,6 +121,7 @@ pub fn fetch(va: u64) -> Result<u32, Exception> {
         Lookup::Ram { backing, .. } => {
             Ok(unsafe { crate::parallel::load32(bus::MEM8.add(backing as usize)) })
         },
+        Lookup::Extended { .. } => Ok(unsafe { crate::aarch64::extended::fetch(pa) }),
         _ => Err(Exception::InstructionAbort {
             fsc: FSC_EXTERNAL,
             far: va,

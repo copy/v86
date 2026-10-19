@@ -9,11 +9,15 @@ cores share memory coherently. The emulator can run the cores in two ways:
 - **parallel**: the application processors (APs) run at the same time, each in
   its own vCPU Worker.
 
+This document is about the x86 cores. The arm64 core (`cpu_type: "arm64"`)
+runs its cores the same two ways, with `build/v86-arm64-parallel.wasm` and
+PSCI's CPU_ON instead of INIT/SIPI: see [aarch64.md](aarch64.md#cores-in-workers).
+
 | | |
 | --- | --- |
 | Options | `cpu_cores: N` together with `acpi: true`; `experimental_smp_jit: true` to compile code on more than one core; internal option `parallel: "auto"` |
 | Verified guests | Linux 4.16 i386 on 1/2/3/4/8 cores; Alpine 3.24 x86_64 on 1/2/4 cores; Windows 8.1 x64 on 1/2/4 cores (reports 1 package × N cores × 1 thread and runs threads pinned to each core) |
-| Parallel mode | Litmus tests on 2/4/8 cores, an OS stress matrix (30/30 runs), 20 S3 + 20 S4 cycles on 4 cores, x86_64 Linux on 2/4 cores, headless Chrome, and a 90-minute soak test. Windows 8.1 x64 on 2 cores: 1 passing run after the last locking fix. |
+| Parallel mode | Litmus tests on 2/4/8 cores, an OS stress matrix (30/30 runs), 20 S3 + 20 S4 cycles on 4 cores, x86_64 Linux on 2/4 cores, headless Chrome, and a 90-minute soak test. Windows 8.1 x64 on 2 and 4 cores: 64-bit and WOW64 probes pass in every run since the fix of 2026-10-17 (see the known limits). |
 | Speed-up | Parallel, 4 cores against 1 core: compute 1.59×, memory 2.52×, I/O 1.99× (Apple M1 Pro). Workloads that contend for one lock do not scale. |
 
 ## Design
@@ -178,7 +182,12 @@ AP runs in a vCPU Worker ([`src/parallel/`](../src/parallel/)).
   are copied with plain loads and a fence, stores are plain stores after a
   fence. Compiled code leaves its function when another core kicks this one
   (an IPI, a code publication), so interrupts wait at most one block. The
-  other tiers leave LOCKed instructions to the interpreter.
+  other tiers leave LOCKed instructions to the interpreter. A kick can end
+  an activation before its first instruction, and the dispatcher still
+  delivers a pending interrupt then. From compatibility-mode code that
+  interrupt enters 64-bit code, so the dispatcher's fallback for an
+  activation that retired nothing (one interpreted 32-bit instruction) runs
+  only while the core still executes 32-bit code.
 - *Code coherence*: every backing page has an OWNERS byte, one bit per core.
   Before a core installs compiled code, it announces the page on a publish ring
   and waits until the other cores acknowledge, bounded by a count. Writes to a
@@ -367,7 +376,7 @@ Times are the best of 3 warm rounds.
 | `make multicore-atomic-tests`, `make multicore-memory-order-tests` | 107 atomic boundary cases per backend (crossing pages, MMIO, faults); 96 lock-free publication and queue cases |
 | `make multicore-state-tests`, `make multicore-os-stress-tests` | Snapshots taken with pending IPIs or in the middle of REP/HLT; Linux fork/signal/migration/IDE/NE2K stress on the interpreter and the page tier, reboot, S5 |
 | `make x64-multicore-tests` | Long mode on 4 cores: state and TLB isolation, CX16, fixed IPIs and NMIs to cores in HLT, broadcast IPIs, snapshot replay |
-| `make multicore-parallel-tests` (and `-release`, `-browser-tests`) | Litmus tests (counters, message passing, store buffering, SMC, an IPI wake-up ring, A/D races, locks of different widths on the same bytes), worker lifecycle and injected faults, relocation, Linux boot, headless Chrome with COOP/COEP |
+| `make multicore-parallel-tests` (and `-release`, `-browser-tests`) | Litmus tests (counters, message passing, store buffering, SMC, an IPI wake-up ring, A/D races, locks of different widths on the same bytes, an IPI ring through compatibility-mode code into 64-bit handlers above 4 GiB), worker lifecycle and injected faults, relocation, Linux boot, headless Chrome with COOP/COEP |
 | `node tests/parallel/soak.mjs` | 4 cores in parallel with JIT for 90 minutes: 775 rounds, 2325 stop/run cycles, 775 snapshots restored in place, 155 S3/RTC wake-ups; no oops, soft lockups or RCU stalls |
 
 These make up release levels `R-SMP32` and `R-parallel` of
@@ -375,9 +384,22 @@ These make up release levels `R-SMP32` and `R-parallel` of
 
 **Known limits:**
 
-- Windows 8.1 x64 in parallel mode has one clean 2-core run since the fix for
-  locks of different widths. An earlier run crashed in a `lock bts`. No 4-core
-  parallel Windows run has been done yet.
+- Windows 8.1 x64 in parallel mode has 8 runs since the fix of 2026-10-17, all
+  with both probes passing (`tests/x64/windows_boot.mjs`): 4 on 2 cores with
+  `WIN_CPU_FEATURES=x86-64-v2`, 2 on 2 cores and 1 on 4 cores with every
+  CPU feature on Q35 with VMware SVGA, and 1 on 4 cores with x86-64-v2.
+  Before the fix, parallel Windows froze or crashed within minutes of a
+  WOW64 process running (IRQL_NOT_LESS_OR_EQUAL or
+  PAGE_FAULT_IN_NONPAGED_AREA). A kick from another core had ended a
+  compatibility-mode activation before its first instruction. The interrupt
+  that the dispatcher then delivered entered 64-bit code, and the
+  dispatcher's 32-bit fallback ran the handler at its RIP truncated to 32
+  bits. That fetch faulted at CPL 0 with the WOW64 thread's GS base, and the
+  frame's kernel CS made Windows' page fault handler skip SWAPGS: a #PF and
+  #DF loop on its IST stack, or a bug check. `litmus.mjs` reproduces this in
+  phase 8. No core kicks another in cooperative mode, which never showed
+  it. An earlier crash in a `lock bts` predates the fix for locks of
+  different widths.
 - Extended RAM ([x86-64.md](x86-64.md)) always takes the slow path in parallel
   mode.
 - Parallel mode has been recorded only in Node and headless Chrome, not in

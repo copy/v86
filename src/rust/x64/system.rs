@@ -1463,6 +1463,18 @@ pub unsafe fn x64_fault_log(index: u32, field: u32, high: bool) -> u32 {
     let value = FAULT_LOG[(FAULT_NEXT - 1 - index as usize) % FAULT_LOG_LEN][field as usize];
     (if high { value >> 32 } else { value }) as u32
 }
+/// Diagnostics: where this instance keeps FAULT_LOG (`which` 0) and
+/// FAULT_NEXT (1), so that the machine thread can read a vCPU worker's
+/// (at the worker instance's base plus these, crate::parallel)
+#[no_mangle]
+pub unsafe fn x64_fault_log_location(which: u32) -> u32 {
+    if which == 0 {
+        &raw const FAULT_LOG as u32
+    }
+    else {
+        &raw const FAULT_NEXT as u32
+    }
+}
 /// Diagnostics: exceptions taken from CPL 3, as delivered (compatibility
 /// mode: every vector; 64-bit mode: all but #PF), in FAULT_LOG's layout with
 /// CR2 as the address, plus CR3. Off unless enabled; enabling clears it.

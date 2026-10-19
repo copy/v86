@@ -1,0 +1,316 @@
+<!doctype html><meta charset="utf-8"><title>Disk persistence in the browser</title>
+<div id="screen"><div style="white-space: pre; font: 14px monospace; line-height: 14px"></div><canvas style="display: none"></canvas></div>
+<div id="screen2"><div style="white-space: pre; font: 14px monospace; line-height: 14px"></div><canvas style="display: none"></canvas></div>
+<pre id="result">RUNNING</pre>
+<script type="module">
+// docs/disk-persistence-plan.md, on the page (worker=0) or in the CPU Worker
+// (worker=1); run by tests/persistence/browser_runner.mjs.
+// D0: MS-DOS from a RAW disk read with HTTP Range requests (read_only, as
+// before): its requests have the headers they had (Range, X-Accept-Encoding);
+// the image's ETag changes while it is read: with disk_error "stop" the read
+// fails, "disk-error" says so and the machine stops, run() reports it to the
+// guest (it cannot be retried); with "report" the guest sees the error at
+// once; from another origin (the ETag not exposed) the disk works unchecked.
+// D2 (part=d2): a static URL with disk_option "read_write" fails the start
+// saying why; MS-DOS on a disk written back to the disk service: a file
+// written is in the service's image when the command completes; a
+// snapshot, destroy() closes the session; another machine reading the same
+// image read_only while the first writes it gets "changed", not mixed
+// sectors. part=close: the guest writes, the runner kills the browser;
+// part=pagehide: the guest writes, the page goes away.
+import { V86 } from "../../build/libv86.mjs";
+const params = new URLSearchParams(location.search);
+const worker = params.get("worker") === "1";
+const part = params.get("part") || "d0";
+const service = params.get("service");
+const log = [];
+const result = document.getElementById("result");
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const config = (hda, container = "screen") => ({
+    wasm_path: "../../build/v86.wasm", cpu_worker: worker, cpu_worker_url: "../../build/cpu-worker.js",
+    bios: { url: "../../bios/seabios.bin" }, vga_bios: { url: "../../bios/vgabios.bin" },
+    graphics_adapter: "bochs_vga", graphics_adapter_path: "../../build/v86-bochs-vga.js",
+    hda, memory_size: 32 << 20, autostart: true, disable_speaker: true,
+    screen: { container: document.getElementById(container) },
+});
+const screen = vm => (vm.screen_adapter ? vm.screen_adapter.get_text_screen() : []).map(l => l.replace(/\x00/g, " "));
+let vm_current;
+async function until(condition, what, timeout = 120000)
+{
+    const end = performance.now() + timeout;
+    while(!condition())
+    {
+        if(performance.now() > end) throw new Error("timeout: " + what + "\n" + screen(vm_current).join("\n"));
+        await sleep(100);
+    }
+}
+async function boot(hda, container)
+{
+    const vm = vm_current = new V86(config(hda, container));
+    const events = [];
+    vm.add_listener("disk-error", event => events.push(event));
+    await new Promise((resolve, reject) => { vm.add_listener("emulator-loaded", resolve); vm.add_listener("emulator-error", reject); });
+    // (the prompt alone on its line for a second: AUTOEXEC.BAT is done)
+    let stable = 0;
+    await until(() => { const l = screen(vm).filter(x => x.trim()); stable = l.length && l[l.length - 1].trim() === "C:\\>" ? stable + 1 : 0; return stable >= 10; }, "C:\\>");
+    return { vm, events };
+}
+const bump = name => fetch("/__bump?name=" + name, { method: "POST" });
+const images = "../../build/persistence-browser/";
+const service_file = async (name, contains) => (await fetch("/__service_file?name=" + name + "&contains=" + encodeURIComponent(contains || ""))).json();
+async function dos(vm, command)
+{
+    await vm.keyboard_send_text("cls\n", 20);
+    await until(() => { const l = screen(vm).filter(x => x.trim()); return l.length === 1 && l[0].startsWith("C:\\>"); }, "cls");
+    await vm.keyboard_send_text(command + "\n", 20);
+    await until(() => screen(vm).filter(x => x.startsWith("C:\\>")).length >= 2, command);
+    return screen(vm).join("\n");
+}
+async function d2()
+{
+    // a static URL: the start fails, saying why
+    {
+        const vm = vm_current = new V86(config({ url: images + "stop.img", disk_option: "read_write" }));
+        const error = await Promise.race([new Promise(resolve => vm.add_listener("emulator-error", resolve)),
+            new Promise(resolve => vm.add_listener("emulator-loaded", () => resolve(null))), sleep(30000).then(() => "timeout")]);
+        if(!error || error === "timeout" || !/can only be read, not written back .*disk service that supports writing/.test(error.message))
+        {
+            throw new Error("a static URL with read_write: " + (error && error.message || error));
+        }
+        log.push("a static URL with read_write: emulator-error \"" + error.message.slice(0, 100) + "...\"");
+        try { await vm.destroy(); } catch(e) {}
+    }
+    // another origin whose CORS does not allow the protocol's requests
+    {
+        const vm = vm_current = new V86(config({ url: params.get("cross") + "/build/persistence-browser/cross.img", disk_option: "read_write" }));
+        const error = await Promise.race([new Promise(resolve => vm.add_listener("emulator-error", resolve)),
+            new Promise(resolve => vm.add_listener("emulator-loaded", () => resolve(null))), sleep(30000).then(() => "timeout")]);
+        if(!error || error === "timeout" || !/cannot be reached, or does not let this page use it \(CORS/.test(error.message))
+        {
+            throw new Error("a cross-origin URL without CORS for the protocol: " + (error && error.message || error));
+        }
+        log.push("another origin, its CORS without the protocol's headers: emulator-error \"" + error.message.slice(0, 120) + "...\"");
+        try { await vm.destroy(); } catch(e) {}
+    }
+    // written back to the disk service
+    {
+        const text = "WRITTEN IN THE BROWSER " + (worker ? "WORKER" : "PAGE");
+        const { vm, events } = await boot({ url: service + "/dos.img", disk_option: "read_write" });
+        log.push("C:\\> from the disk service, read_write (" + (worker ? "CPU Worker" : "page") + ")");
+        if(!(await service_file("dos.img")).writer) throw new Error("no write session");
+        await dos(vm, "echo " + text + " > C:\\BROWSER.TXT");
+        if(!(await service_file("dos.img", text)).contains) throw new Error("the write is not in the service's image");
+        log.push("the guest wrote a file: it is in the service's image when the command completes");
+        const state = await vm.save_state();
+        await vm.destroy();
+        if((await service_file("dos.img")).session_open) throw new Error("destroy() did not close the session");
+        log.push("save_state (" + state.byteLength + " bytes), destroy(): the session closed");
+        if(events.length) throw new Error("disk-error: " + JSON.stringify(events));
+        // the snapshot onto a read_only disk of the same image, read in ranges
+        // (the service's ETag tells its identity and generation)
+        const reader = await boot({ url: service + "/dos.img", async: true });
+        await reader.vm.restore_state(state);
+        if(!/WRITTEN IN THE BROWSER/.test(await dos(reader.vm, "type C:\\BROWSER.TXT"))) throw new Error("the restored read_only machine");
+        log.push("the snapshot restored onto a read_only disk of the same image (the service's ETag): the file is there");
+        await reader.vm.destroy();
+    }
+    // a read_only machine of the image another one writes: "changed"
+    {
+        const writer = await boot({ url: service + "/shared.img", disk_option: "read_write" }, "screen");
+        const reader = await boot({ url: service + "/shared.img", async: true }, "screen2");
+        await dos(writer.vm, "echo CHANGED > C:\\CHANGED.TXT");
+        const stopped = new Promise(resolve => reader.vm.add_listener("emulator-stopped", resolve));
+        await reader.vm.keyboard_send_text("copy C:\\DOS\\*.* NUL\n", 20);
+        await Promise.race([stopped, sleep(30000).then(() => { throw new Error("the reader did not stop: " + JSON.stringify(reader.events)); })]);
+        if(!reader.events.length || !/changed while it was read/.test(reader.events[0].reason)) throw new Error("reader: " + JSON.stringify(reader.events));
+        log.push("a read_only machine of the image the other writes: \"" + reader.events[0].reason.slice(0, 90) + "...\"");
+        await reader.vm.destroy();
+        await writer.vm.destroy();
+    }
+}
+async function write_and(what)
+{
+    const name = what + ".img";
+    const text = "BEFORE THE " + what.toUpperCase() + " " + (worker ? "WORKER" : "PAGE");
+    const { vm } = await boot({ url: service + "/" + name, disk_option: "read_write" });
+    await dos(vm, "echo " + text + " > C:\\" + what.toUpperCase() + ".TXT");
+    return { vm, name, text };
+}
+async function page_flow()
+{
+    // debug.html with a disk written back to the service
+    const frame = document.createElement("iframe");
+    frame.style.width = "1024px";
+    frame.style.height = "768px";
+    frame.src = "/debug.html?profile=custom&m=32&cpu_worker=" + (worker ? 1 : 0) + "&hda.url=" + encodeURIComponent(service + "/page.img") +
+        "&hda.disk_option=read_write";
+    document.body.appendChild(frame);
+    await until(() => frame.contentWindow && frame.contentWindow.emulator, "the page's emulator");
+    const vm = vm_current = frame.contentWindow.emulator;
+    const $ = id => frame.contentDocument.getElementById(id);
+    let stable = 0;
+    await until(() => { const l = screen(vm).filter(x => x.trim()); stable = l.length && l[l.length - 1].trim() === "C:\\>" ? stable + 1 : 0; return stable >= 10; }, "C:\\>");
+    if($("save_and_power_off").style.display === "none") throw new Error("no Save and power off button");
+    await dos(vm, "echo PAGE FLOW > C:\\PAGE.TXT");
+    if(!(await service_file("page.img", "PAGE FLOW")).contains) throw new Error("the write is not in the service's image");
+    log.push("debug.html, hda.url=<the service>, hda.disk_option=read_write (" + (worker ? "CPU Worker" : "page") + "): \"Save and power off\" shown, a write in the image");
+    // the service unreachable: the prompt, Retry
+    await fetch("/__service_down", { method: "POST" });
+    await vm.keyboard_send_text("echo WHILE DOWN > C:\\DOWN.TXT\n", 20);
+    await until(() => $("disk_error_box").style.display !== "none", "the disk error prompt", 60000);
+    const prompt = $("disk_error_text").textContent;
+    if(!/^Disk hda: the write of \d+ bytes at \d+ failed: .* retry once the disk can be reached again, or power off\.$/.test(prompt) ||
+        $("disk_error_retry").textContent !== "Retry" || $("disk_error_retry").style.display === "none") throw new Error("the prompt: " + prompt);
+    await fetch("/__service_up", { method: "POST" });
+    $("disk_error_retry").click();
+    if($("disk_error_box").style.display !== "none") throw new Error("the prompt stays");
+    let landed = false;
+    for(let i = 0; i < 300 && !landed; i++) { landed = (await service_file("page.img", "WHILE DOWN")).contains; if(!landed) await sleep(100); }
+    if(!landed) throw new Error("the retried write is not in the image");
+    let stable_again = 0;
+    await until(() => { const l = screen(vm).filter(x => x.trim()); stable_again = l.length && l[l.length - 1].trim() === "C:\\>" ? stable_again + 1 : 0; return stable_again >= 10; }, "the prompt after Retry");
+    log.push("the service unreachable: the prompt \"" + prompt.slice(0, 80) + "...\"; Retry: the write landed");
+    // save and power off
+    $("save_and_power_off").click();
+    await until(() => $("disk_status").style.display !== "none", "the status after saving", 60000);
+    if(!/^Saved the state \(v86state\.bin, \d+ bytes\) and powered off/.test($("disk_status").textContent)) throw new Error("status: " + $("disk_status").textContent);
+    await sleep(200);
+    if((await service_file("page.img")).session_open) throw new Error("the session is still open");
+    log.push("Save and power off: \"" + $("disk_status").textContent.slice(0, 70) + "...\", the session closed");
+    frame.remove();
+    // index.html (build/v86_all.js, compiled with ADVANCED): the same options, the button, powered off
+    const site = document.createElement("iframe");
+    site.style.width = "1024px";
+    site.style.height = "768px";
+    site.src = "/index.html?profile=custom&m=32&cpu_worker=" + (worker ? 1 : 0) + "&hda.url=" + encodeURIComponent(service + "/site.img") +
+        "&hda.disk_option=read_write";
+    document.body.appendChild(site);
+    const $$ = id => site.contentDocument && site.contentDocument.getElementById(id);
+    await until(() => $$("save_and_power_off") && $$("runtime_options") && $$("runtime_options").style.display !== "none", "index.html's machine");
+    let open = false;
+    for(let i = 0; i < 300 && !open; i++) { open = (await service_file("site.img")).session_open; if(!open) await sleep(100); }
+    if(!open || $$("save_and_power_off").style.display === "none") throw new Error("index.html: no session or no button");
+    await sleep(3000);
+    $$("save_and_power_off").click();
+    await until(() => $$("disk_status").style.display !== "none", "index.html's status", 60000);
+    if(!/^Saved the state/.test($$("disk_status").textContent)) throw new Error("index.html status: " + $$("disk_status").textContent);
+    await sleep(200);
+    if((await service_file("site.img")).session_open) throw new Error("index.html: the session is still open");
+    log.push("index.html (v86_all.js): the same disk options, the button, saved and powered off, the session closed");
+}
+try
+{
+    if(part === "page")
+    {
+        await page_flow();
+        result.textContent = "PASS\n" + log.join("\n");
+    }
+    else if(part === "d2")
+    {
+        await d2();
+        result.textContent = "PASS\n" + log.join("\n");
+    }
+    else if(part === "close")
+    {
+        // (the runner kills the browser and reads the service's image)
+        const { name, text } = await write_and("close");
+        await fetch("/__kill?name=" + name + "&contains=" + encodeURIComponent(text), { method: "POST" });
+    }
+    else if(part === "pagehide")
+    {
+        const { name, text } = await write_and("pagehide");
+        sessionStorage.setItem("pagehide", JSON.stringify({ name, text, at: Date.now() }));
+        location.href = location.pathname + "?part=after-pagehide&service=" + encodeURIComponent(service) + "&worker=" + (worker ? 1 : 0);
+    }
+    else if(part === "after-pagehide")
+    {
+        const { name, text, at } = JSON.parse(sessionStorage.getItem("pagehide"));
+        await sleep(300);
+        const file = await service_file(name, text);
+        if(!file.contains) throw new Error("the write is not in the service's image");
+        if(file.session_open)
+        {
+            // (the browser did not send the close: the lease ends)
+            await until(() => Date.now() - at > 3500, "the lease", 10000);
+            const later = await service_file(name);
+            if(later.writer) throw new Error("the lease did not end");
+            result.textContent = "PASS\nthe page went away: the write is in the service's image; the session was not closed by the page (" +
+                (worker ? "CPU Worker" : "page") + "), its lease ended";
+        }
+        else
+        {
+            result.textContent = "PASS\nthe page went away: the write is in the service's image; pagehide closed the session (" +
+                (worker ? "CPU Worker" : "page") + ")";
+        }
+    }
+    else
+    {
+        await d0();
+        result.textContent = "PASS\n" + log.join("\n");
+    }
+}
+catch(error)
+{
+    result.textContent = "FAIL " + (error && error.stack || error) + "\n" + log.join("\n");
+}
+async function d0()
+{
+    // read_only from this origin, disk_error "stop" (the default)
+    {
+        const { vm, events } = await boot({ url: images + "stop.img", async: true });
+        log.push("C:\\> from a RAW disk over HTTP Range (" + (worker ? "CPU Worker" : "page") + ")");
+        await bump("stop.img");
+        const stopped = new Promise(resolve => vm.add_listener("emulator-stopped", resolve));
+        await vm.keyboard_send_text("copy C:\\DOS\\*.* NUL\n", 20);
+        const before = (await (await fetch("/__requests")).json()).length;
+        await Promise.race([stopped, sleep(30000).then(async () => { throw new Error("the machine did not stop: " + JSON.stringify(events) +
+            " requests " + before + " -> " + (await (await fetch("/__requests")).json()).length + "\n" + screen(vm).join("\n")); })]);
+        const event = events[0];
+        if(!event || event.disk !== "hda" || event.operation !== "read" || event.retryable !== false || event.policy !== "stop" ||
+            !/changed while it was read/.test(event.reason)) throw new Error("disk-error: " + JSON.stringify(events));
+        if(vm.is_running()) throw new Error("the machine runs");
+        let refused = false;
+        try { await vm.save_state(); } catch(e) { refused = /held after an I\/O error/.test(e.message); }
+        if(!refused) throw new Error("save_state was not refused while the read is held");
+        log.push("the image's ETag changed: the read failed (\"" + event.reason + "\"), the machine stopped, save_state refused");
+        // (each run() reports the held read to the guest; the BIOS and DOS
+        // retry it, and each retry fails and stops the machine again)
+        let runs = 0;
+        await until(() =>
+        {
+            if(!vm.is_running() && runs < 50) { runs++; vm.run(); }
+            return screen(vm).some(l => /reading drive C/i.test(l));
+        }, "the guest's error message");
+        log.push("run() (" + runs + " times, " + events.length + " disk-error events): the read cannot be retried, the guest sees the error (\"" +
+            screen(vm).find(l => /reading drive C/i.test(l)).trim() + "\")");
+        await vm.destroy();
+    }
+    // disk_error "report": the guest sees the error at once
+    {
+        const { vm, events } = await boot({ url: images + "report.img", async: true, disk_error: "report" });
+        await bump("report.img");
+        await vm.keyboard_send_text("copy C:\\DOS\\*.* NUL\n", 20);
+        await until(() => screen(vm).some(l => /reading drive C/i.test(l)), "the guest's error message");
+        if(!vm.is_running() || !events.length || events[0].policy !== "report") throw new Error("report: " + JSON.stringify(events));
+        log.push("disk_error \"report\": the guest sees the error at once, the machine goes on");
+        await vm.destroy();
+    }
+    // another origin, the ETag not exposed: unchecked, as before
+    {
+        const { vm, events } = await boot({ url: params.get("cross") + "/build/persistence-browser/cross.img", async: true });
+        await vm.keyboard_send_text("copy C:\\DOS\\*.* NUL\n", 20);
+        await until(() => screen(vm).some(l => /\d+ file\(s\) copied/.test(l)), "the copy");
+        if(events.length) throw new Error("cross-origin: " + JSON.stringify(events));
+        log.push("another origin (CORS, ETag not exposed): the disk works, unchecked");
+        await vm.destroy();
+    }
+    // the requests of the read_only disks: what they were before
+    const requests = await (await fetch("/__requests")).json();
+    const kinds = new Set(requests.map(r => r.method + " " + r.headers.join(",")));
+    for(const kind of kinds)
+    {
+        if(!/^(GET range,x-accept-encoding|OPTIONS access-control-request-headers,access-control-request-method)$/.test(kind)) throw new Error("a request: " + kind);
+    }
+    log.push(requests.length + " image requests, only: " + [...kinds].join("; "));
+}
+</script>

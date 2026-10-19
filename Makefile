@@ -114,12 +114,14 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/loader.js
+	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/loader.js \
+	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js wasm_paths.js worker_bus.js state_stream_transport.js cpu_worker.js dummy_screen.js ansi_screen.js \
@@ -194,7 +196,7 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 .PHONY: graphics-adapters
 graphics-adapters: $(GRAPHICS_ADAPTER_PLUGINS)
 
-build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
+build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	-ls -lh build/v86_all.js
 	java -jar $(CLOSURE) \
@@ -209,7 +211,7 @@ build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*
 		--js src/browser/main.js
 	ls -lh build/v86_all.js
 
-build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
+build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/v86_all_debug.js\
@@ -222,7 +224,7 @@ build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/para
 		--js $(BROWSER_FILES)\
 		--js src/browser/main.js
 
-build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
+build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	java -jar $(CLOSURE) \
@@ -237,7 +239,7 @@ build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.
 		--js $(LIB_FILES)
 	ls -lh build/libv86.js
 
-build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
+build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	java -jar $(CLOSURE) \
@@ -254,7 +256,7 @@ build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*
 		--emit_use_strict=false
 	ls -lh build/libv86.mjs
 
-build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
+build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86-debug.js\
@@ -269,7 +271,7 @@ build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/paral
 		--js $(LIB_FILES)
 	ls -lh build/libv86-debug.js
 
-build/libv86-debug.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
+build/libv86-debug.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86-debug.mjs\
@@ -360,6 +362,16 @@ build/v86-arm64.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Car
 	CARGO_TARGET_DIR=build/arm64 cargo rustc --release $(CARGO_FLAGS_ARM64)
 	cp build/arm64/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64.wasm
 	BLOCK_SIZE=K ls -l build/v86-arm64.wasm
+
+# The ARM core with its cores in vCPU workers (P8.2): built as
+# v86-parallel.wasm is (atomics, the memory imported, relocations kept)
+CARGO_FLAGS_ARM64_PARALLEL=$(CARGO_FLAGS_ARM64) -C target-feature=+atomics \
+		-C link-args="--import-memory --export-memory --emit-relocs --no-check-features --max-memory=4294967296 --global-base=32768 --export=__heap_base --export=__data_end"
+
+build/v86-arm64-parallel.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Cargo.toml tools/parallel_wasm.mjs
+	mkdir -p build/
+	CARGO_TARGET_DIR=build/arm64-parallel cargo rustc --release --features parallel $(CARGO_FLAGS_ARM64_PARALLEL)
+	./tools/parallel_wasm.mjs build/arm64-parallel/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64-parallel.wasm
 
 build/v86-arm64-debug.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
@@ -584,6 +596,10 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/virtio_devices.js
 	./tests/devices/virtio_rng.js
 	./tests/devices/ide_large_disk.js
+	./tests/devices/ide_disk_image.js
+	./tests/devices/disk_error.mjs
+	./tests/devices/disk_writeback.mjs
+	./tests/devices/disk_sector_size.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
@@ -659,11 +675,57 @@ api-tests: build/v86-debug.wasm
 	./tests/api/floppy.js
 	./tests/api/parallel.js
 	./tests/api/cdrom-insert-eject.js
+	./tests/api/disk-image.js
+	./tests/api/disk-options.js
 	./tests/api/iso9660.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
 	#./tests/api/reboot-buildroot.js # https://github.com/copy/v86/issues/636
 	./tests/api/pic.js
+
+# Disk images in container formats (docs/disk-image-formats-plan.md): the
+# readers against images of qemu-img and qemu-io (QEMU_IMG, QEMU_IO; the
+# samples are made in build/disk-image-samples), the devices and guests;
+# the browser tests in headless Chrome (CHROME), on the page and in the CPU Worker
+.PHONY: disk-image-tests disk-image-browser-tests
+disk-image-tests: build/v86-debug.wasm
+	./tests/image/inflate.mjs
+	./tests/image/disk_image.mjs
+	./tests/image/qcow2.mjs
+	./tests/image/vhd_vdi.mjs
+	./tests/image/vmdk.mjs
+	./tests/image/vhdx.mjs
+	./tests/image/sector_size.mjs
+	./tests/image/qcow2_export.mjs
+	./tests/devices/ide_disk_image.js
+	./tests/devices/disk_sector_size.js
+	./tests/api/disk-image.js
+	./tests/image/guest.mjs
+	./tests/image/sector_size_guest.mjs
+
+disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+	./tests/image/browser_runner.mjs worker=0
+	./tests/image/browser_runner.mjs worker=1
+
+# Disk persistence (docs/disk-persistence-plan.md): disk_option, disk_error,
+# FLUSH, the consistent reads of a read_only disk; the browser tests in
+# headless Chrome (CHROME), on the page and in the CPU Worker
+.PHONY: disk-persistence-tests disk-persistence-browser-tests
+disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
+	./tests/api/disk-options.js
+	./tests/persistence/response_version.mjs
+	./tests/devices/disk_error.mjs
+	node tests/a64/virtio_blk_disk_error.mjs
+	./tests/persistence/node_file.mjs
+	./tests/devices/disk_writeback.mjs
+	./tests/persistence/guest.mjs
+	./tests/persistence/disk_service.mjs
+	./tests/persistence/service_machine.mjs
+	./tests/persistence/floppy.mjs
+
+disk-persistence-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+	for worker in 0 1; do for part in d0 d2 close pagehide page; do \
+		./tests/persistence/browser_runner.mjs worker=$$worker part=$$part || exit 1; done; done
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests
 	# Skipping:
@@ -717,7 +779,7 @@ sse3-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-fal
 	node tests/rust/sse3.mjs build/v86-debug.wasm
 
 # Keep the worker's public option/event wire names stable across bundles.
-build/cpu-worker.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
+build/cpu-worker.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
@@ -726,12 +788,12 @@ build/cpu-worker.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/paralle
 
 # The vCPU workers of the host-parallel build (src/parallel/vcpu.js), paired
 # with v86-parallel.wasm: `parallel: true` loads both next to the bundles
-build/vcpu-worker.js: $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
+build/vcpu-worker.js: $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--js $(CORE_FILES) --js $(LIB_FILES) --js $(BROWSER_FILES) \
-		--js src/parallel/vcpu.js --js src/parallel/vcpu_worker_entry.js
+		--js src/parallel/vcpu_arm.js --js src/parallel/vcpu.js --js src/parallel/vcpu_worker_entry.js
 
 .PHONY: parallel
 parallel: build/v86-parallel.wasm build/vcpu-worker.js
@@ -746,6 +808,7 @@ cpu-worker-tests: build/cpu-worker.js build/cpu-worker-test.bin build/libv86.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_gpu_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_svga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_audio_browser_test.html
+	node tests/glbridge/speaker_unlock_browser_test.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_ui_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_hotplug_browser_test.html
 
@@ -1015,7 +1078,7 @@ A64_PENDING = @echo "A64_PENDING $@: arrives with $(1) (docs/arm64-virt-android1
 	a64-kvm-unit-tests a64-litmus-tests a64-virt-device-tests a64-api-tests a64-guest-quick-tests a64-guest-tests \
 	a64-lifecycle-guest-tests a64-multicore-guest-tests a64-page-tier-tests a64-jit-guest-tests a64-gpu-guest-tests \
 	a64-parallel-tests a64-parallel-guest-tests a64-browser-tests a64-extended-guest-tests a64-pagesize-guest-tests \
-	a64-android-prep-tests android-reference-tests android-guest-tests
+	a64-android-prep-tests android-materials android-reference-tests android-guest-tests android-venus
 a64-decode-tests: build/v86-arm64.wasm
 	node tests/a64/oracle/decode.mjs --self-test
 	RUST_TEST_THREADS=1 cargo test --features aarch64 aarch64::
@@ -1061,30 +1124,58 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/pl011_hello.mjs
 	node tests/a64/dtb.mjs
 	node tests/a64/linux_loader.mjs
-	$(call A64_PENDING,A3 (device reset))
+	node tests/a64/device_io_reset.mjs
+	node tests/a64/virtio_blk_disk_image.mjs
+	node tests/a64/virtio_blk_disk_error.mjs
+	node tests/a64/virtio_blk_sector_size.mjs
+	node tests/a64/extended_memory.mjs
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm
 	node tests/api/arm64-options.js
 # (Alpine on the 1-core interpreter: the initramfs stage with the probe, about 40 s)
 a64-guest-quick-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
-# (L: the QEMU reference, then the interpreter's initramfs, single and lifecycle stages)
+	node tests/a64/linux_sector_size.mjs
+# (L: the QEMU reference, then the interpreter's initramfs, single,
+# lifecycle and live stages: the live one from the ISO on virtio-blk to a
+# login, the probe from its disk, virtio-net, -rng and -console, P5; then
+# setup-disk -m sys and the installed system, with the page tier: its
+# packages from tools/alpine_repo.mjs --arch aarch64 --set sys)
 a64-guest-tests: build/v86-arm64.wasm
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=single A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=lifecycle A64_CORES=1 node tests/a64/linux_boot.mjs
-	$(call A64_PENDING,A3 (the live stage: virtio, P5))
-a64-lifecycle-guest-tests:
-	$(call A64_PENDING,A6)
-# (L: the initramfs stage on 2 and 4 cooperative cores, and its kpti=1 variant on 1, 2 and 4)
+	A64_LINUX_QEMU=1 A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=live A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_JIT=1 node tests/a64/linux_install.mjs
+	A64_LINUX_QEMU=1 A64_STAGE=live A64_TRANSPORT=pci A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=live A64_TRANSPORT=pci A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_JIT=1 A64_TRANSPORT=pci node tests/a64/linux_install.mjs
+# (L, P8.1: snapshots at the probe's three markers, V7 and V6 in turn, for
+# the interpreter and the page tier on 1, 2 and 4 cores, on virtio-mmio and
+# virtio-pci; s2idle woken by the PL031's alarm and hibernation onto a swap
+# disk with a power-on and resume, twice each)
+a64-lifecycle-guest-tests: build/v86-arm64.wasm
+	for jit in 0 1; do for cores in 1 2 4; do for transport in mmio pci; do \
+		A64_JIT=$$jit A64_STAGE=live A64_LINUX_SNAPSHOT=1 A64_CORES=$$cores A64_TRANSPORT=$$transport node tests/a64/linux_boot.mjs || exit 1; \
+	done; done; done
+	for cores in 1 4; do for transport in mmio pci; do \
+		A64_JIT=1 A64_STAGE=live A64_LINUX_SLEEP=2 A64_CORES=$$cores A64_TRANSPORT=$$transport node tests/a64/linux_boot.mjs || exit 1; \
+	done; done
+	A64_STAGE=live A64_LINUX_SLEEP=1 A64_CORES=1 node tests/a64/linux_boot.mjs
+# (L: the initramfs stage on 2 and 4 cooperative cores, its kpti=1 variant
+# on 1, 2 and 4, and the live stage on 2 and 4 against QEMU's)
 a64-multicore-guest-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_CORES=4 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=4 node tests/a64/linux_boot.mjs
-	$(call A64_PENDING,A3 (the live stage on 1, 2 and 4 cores: virtio, P5))
+	for cores in 2 4; do A64_LINUX_QEMU=1 A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	for cores in 2 4; do A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	for cores in 2 4; do A64_LINUX_QEMU=1 A64_STAGE=live A64_TRANSPORT=pci A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	for cores in 2 4; do A64_STAGE=live A64_TRANSPORT=pci A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
 # (A4, JIT plan P6.5: random programs on the page tier against the
 # interpreter; the FP fast path's hot multiply-add loop; the ISA, exceptions
 # and MMU oracles with every instruction compiled (A64_JIT=1, threshold 1;
@@ -1103,7 +1194,8 @@ a64-page-tier-tests: build/v86-arm64.wasm
 	A64_JIT=1 node tests/a64/litmus.mjs
 # (L, A4: A2's and A3's Alpine stages with the page tier on 1, 2 and 4
 # cores, kpti=1, the workload with a snapshot in its middle against QEMU's
-# output, kvm-unit-tests at 4k, 16k and 64k, and P6.7's guest JIT workloads
+# output, kvm-unit-tests at 4k, 16k and 64k, the live stage on 1, 2 and 4
+# cores and with snapshots at three of the probe's markers, and P6.7's guest JIT workloads
 # (V8, HotSpot, LuaJIT, PCRE2; their packages: tools/alpine_repo.mjs --arch
 # aarch64 --set jit) against QEMU's output, also with a snapshot in their middle)
 a64-jit-guest-tests: build/v86-arm64.wasm
@@ -1114,27 +1206,119 @@ a64-jit-guest-tests: build/v86-arm64.wasm
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_WORKLOAD=3 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=3 A64_MIDWAY_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_JIT=1 node tests/kvm-unit-tests/arm64.mjs
+	for cores in 1 2 4; do A64_JIT=1 A64_STAGE=live A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	A64_JIT=1 A64_STAGE=live A64_LINUX_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
+	for cores in 1 2 4; do A64_JIT=1 A64_STAGE=live A64_TRANSPORT=pci A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	A64_JIT=1 A64_STAGE=live A64_TRANSPORT=pci A64_LINUX_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit A64_MIDWAY_SNAPSHOT=1 A64_CORES=1 node tests/a64/linux_boot.mjs
-a64-gpu-guest-tests:
-	$(call A64_PENDING,A5)
-a64-parallel-tests:
-	$(call A64_PENDING,A6)
-a64-parallel-guest-tests:
-	$(call A64_PENDING,A6)
-a64-browser-tests:
-	$(call A64_PENDING,A6)
-a64-extended-guest-tests:
-	$(call A64_PENDING,A6)
-a64-pagesize-guest-tests:
-	$(call A64_PENDING,A6)
-a64-android-prep-tests:
-	$(call A64_PENDING,A7)
-android-reference-tests:
-	$(call A64_PENDING,A8)
-android-guest-tests:
-	$(call A64_PENDING,A8)
+# (L, A5: Alpine on virtio-gpu without VGA, P7; the packages from
+# `node tools/alpine_repo.mjs --arch aarch64`; the 3D levels on the GPU of a
+# headless Chrome)
+a64-gpu-guest-tests: build/v86-arm64.wasm glbridge
+	for scenario in drm gl resize input; do GPU_SCENARIO=$$scenario node tests/a64/linux_gpu.mjs || exit 1; done
+	for scenario in gltest virgl kms; do GPU_SCENARIO=$$scenario GPU_LEVEL=virgl43-hostmem GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
+	for scenario in venus vkcube; do GPU_SCENARIO=$$scenario GPU_LEVEL=venus GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
+	GPU_SCENARIO=drm GPU_TRANSPORT=mmio node tests/a64/linux_gpu.mjs
+# (P8.2-P8.4: cores in vCPU workers) the litmus tests in all four modes on
+# 2, 4 and 8 cores; the parallel build's page tier against the interpreter
+a64-parallel-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+	LITMUS_MODES=cooperative,cooperative-jit,parallel,parallel-jit node tests/a64/litmus.mjs --cores 2,4,8 --rounds 20000
+	for seed in 1 2 3; do A64_WASM=build/v86-arm64-parallel.wasm node tests/a64/page_fuzz.mjs --seed $$seed || exit 1; done
+# Alpine with cores in workers: the initramfs stage interpreted and with the
+# page tier on 2 and 4 cores, the live stage with snapshots on mmio and pci,
+# reboot and poweroff, s2idle and hibernation, four workloads at once
+a64-parallel-guest-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+	for jit in 0 1; do for cores in 2 4; do \
+		A64_PARALLEL=1 A64_JIT=$$jit A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; \
+	done; done
+	for transport in mmio pci; do \
+		A64_PARALLEL=1 A64_JIT=1 A64_STAGE=live A64_LINUX_SNAPSHOT=1 A64_CORES=4 A64_TRANSPORT=$$transport node tests/a64/linux_boot.mjs || exit 1; \
+	done
+	A64_PARALLEL=1 A64_JIT=1 A64_STAGE=lifecycle A64_CORES=4 node tests/a64/linux_boot.mjs
+	A64_PARALLEL=1 A64_JIT=1 A64_STAGE=live A64_LINUX_SLEEP=1 A64_CORES=4 node tests/a64/linux_boot.mjs
+	A64_PARALLEL=1 A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=smp4 A64_CORES=4 node tests/a64/linux_boot.mjs
+# (P8.7: Alpine aarch64 from its ISO in a headless Chrome: the source tree,
+# the bundle, the CPU worker, virtio-pci; the files from linux_boot.mjs)
+a64-browser-tests: build/v86-arm64.wasm build/libv86.mjs build/cpu-worker.js
+	A64_LINUX_PREPARE_ONLY=1 A64_STAGE=live node tests/a64/linux_boot.mjs
+	node tests/a64/browser.mjs
+# (P8.5: guest RAM of 3 GiB and 4 GiB, extended RAM from 4 GiB: the probe's
+# memtest over most of it, code, an exclusive counter and DC ZVA there)
+a64-extended-guest-tests: build/v86-arm64.wasm
+	node tests/a64/extended_memory.mjs
+	A64_JIT=1 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=2147483648 A64_LINUX_MEMTEST=2304 node tests/a64/linux_boot.mjs
+	A64_JIT=0 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=2147483648 A64_LINUX_MEMTEST=2304 node tests/a64/linux_boot.mjs
+	A64_JIT=1 A64_CORES=2 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=3221225472 A64_LINUX_MEMTEST=3328 node tests/a64/linux_boot.mjs
+# (P8.6, P9.1, P9.2) the 16 and 64 KiB page kernels and the androidish one, built in an Alpine aarch64 VM under
+# Homebrew QEMU with HVF (tools/a64_kernel.mjs: the source in build/a64-kernel/dl/,
+# the toolchain from tools/alpine_repo.mjs --arch aarch64 --set kbuild)
+.PHONY: a64-kernels
+a64-kernels:
+	node tools/a64_kernel.mjs --variants 16k,64k,androidish
+# Each on 2 cores (TLBI broadcasts): the live stage to a login, interpreted
+# and with the page tier, the probe reporting the page size; the guest JIT
+# workloads, their output against the reference's (P6.7)
+a64-pagesize-guest-tests: build/v86-arm64.wasm
+	for kernel in 16k 64k; do \
+		A64_KERNEL=$$kernel A64_JIT=1 A64_STAGE=live A64_CORES=2 node tests/a64/linux_boot.mjs || exit 1; \
+		A64_KERNEL=$$kernel A64_STAGE=live A64_CORES=2 node tests/a64/linux_boot.mjs || exit 1; \
+		A64_KERNEL=$$kernel A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=jit node tests/a64/linux_boot.mjs || exit 1; \
+	done
+# (P9.1, P9.2: Android's kernel needs on Alpine) the androidish kernel
+# (tools/a64_kernel.mjs --variants androidish) and its images: f2fs with
+# fscrypt across a reboot, bootconfig, the minimal SELinux policy enforcing
+# (the probe after it), binderfs's selftest, binder between two cores,
+# userfaultfd, erofs on dm-verity, zram and PSI's trigger; interpreted and
+# with the page tier, on 2 and 4 cores, with the cores in workers, and with
+# 4 GiB of RAM (3 GiB of it extended); virtio-console's ports 1-3 are in
+# every live stage
+a64-android-prep-tests: build/v86-arm64.wasm build/v86-arm64-parallel.wasm
+	for jit in 0 1; do for cores in 2 4; do \
+		A64_KERNEL=androidish A64_JIT=$$jit A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; \
+	done; done
+	for jit in 0 1; do \
+		A64_KERNEL=androidish A64_PARALLEL=1 A64_JIT=$$jit A64_STAGE=initramfs A64_CORES=4 node tests/a64/linux_boot.mjs || exit 1; \
+	done
+	A64_KERNEL=androidish A64_JIT=1 A64_STAGE=initramfs A64_CORES=2 A64_MEMORY_MB=1024 A64_EXTENDED_MEMORY=3221225472 \
+		node tests/a64/linux_boot.mjs
+# Android 16 (docs/arm64-virt-android16-plan.md P10): the pinned Cuttlefish
+# build's materials (tools/a64_android.mjs: its downloads, about 1 GiB, with
+# --download), on the QEMU reference to sys.boot_completed=1 (P10.3) and the
+# GKI bridge's expected output (P10.6); then on v86 the bridge and Android to
+# system_server and adbd over vsock (P10.7)
+# (and P12.1's with the 16K kernel, P12.3's CTS modules: tools/a64_cts.mjs, byte ranges of the CTS zip with --download)
+android-materials:
+	node tools/a64_android.mjs
+	node tools/a64_android.mjs --page-size 16k
+	node tools/a64_cts.mjs --subset
+android-reference-tests: android-materials
+	A64_ANDROID_TARGET=qemu node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=a10 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=cts node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=pagesize A64_ANDROID_PAGE_SIZE=16k node tests/a64/android_boot.mjs
+	for cores in 1 4; do A64_KERNEL=gki A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+# (A9's scenario on Venus: the guest's driver in the materials, the renderer in a headless Chrome)
+android-guest-tests: android-venus android-materials build/v86-arm64.wasm build/v86-arm64-parallel.wasm glbridge
+	for cores in 1 4; do A64_KERNEL=gki A64_JIT=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	A64_KERNEL=gki A64_JIT=0 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=a9 A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	# (A10: the desktop saved by one run, restored by the next)
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=a10 A64_ANDROID_A10_SAVE=build/a64-android/a10-desktop.v7 \
+		A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=a10 A64_ANDROID_RESTORE_STATE=build/a64-android/a10-desktop.v7 \
+		A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	# (P12.3's CTS subset; P12.1: the 16K kernel to boot_completed, native APKs aligned to 4 and 16 KiB)
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=cts A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/android_boot.mjs
+	A64_ANDROID_TARGET=v86 A64_ANDROID_SCENARIO=pagesize A64_ANDROID_PAGE_SIZE=16k A64_ANDROID_GPU=venus A64_JIT=1 A64_PARALLEL=1 A64_CORES=4 \
+		node tests/a64/android_boot.mjs
+# Mesa's venus driver for Android (P11.4): tools/a64_venus/build.mjs with the
+# NDK (the pinned Mesa and libdrm tarballs, meson and mako with --download)
+android-venus:
+	node tools/a64_venus/build.mjs
 
 # The JIT's and the decoder's tests outside the x64 targets (the R-JIT level
 # of the release gate): the Rust unit tests, the Wasm builder's output, the

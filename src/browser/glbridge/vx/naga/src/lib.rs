@@ -26,10 +26,15 @@ use naga::{AddressSpace, ImageClass, ImageDimension, ResourceBinding, ShaderStag
 
 pub use split::SAMPLER_BINDING;
 
-/// Where push constants go
+/// Where push constants go; whether Vulkan's clip space stays as it is
 pub struct Options {
     pub immediates_group: u32,
     pub immediates_binding: u32,
+    /// (WebGPU's y is Vulkan's flipped, and naga flips the vertex position
+    /// to make up for it; a draw with a viewport of a negative height,
+    /// Vulkan's own flip, which WebGPU's viewports cannot do, keeps it as
+    /// it is: ANGLE draws GL's frames so)
+    pub keep_coordinate_space: bool,
 }
 
 fn quote(text: &str) -> String {
@@ -102,7 +107,7 @@ pub fn translate(bytes: &[u8], options: &Options) -> Result<String, String> {
     let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
     let words = split::split(&words);
     let data: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
-    let spv = naga::front::spv::Options { adjust_coordinate_space: true, strict_capabilities: false, block_ctx_dump_prefix: None };
+    let spv = naga::front::spv::Options { adjust_coordinate_space: !options.keep_coordinate_space, strict_capabilities: false, block_ctx_dump_prefix: None };
     let mut module = naga::front::spv::parse_u8_slice(&data, &spv).map_err(|e| format!("SPIR-V: {:?}", e))?;
     rebind(&mut module, options);
     let info = match validate(&module) {
@@ -186,11 +191,12 @@ pub unsafe extern "C" fn vx_free(ptr: *mut u8, len: usize) {
 }
 
 /// # Safety
-/// `ptr` holds `len` bytes
+/// `ptr` holds `len` bytes; `flags` bit 0: keep Vulkan's clip space (Options)
 #[no_mangle]
-pub unsafe extern "C" fn vx_translate(ptr: *const u8, len: usize, immediates_group: u32, immediates_binding: u32) -> *mut u8 {
+pub unsafe extern "C" fn vx_translate(ptr: *const u8, len: usize, immediates_group: u32, immediates_binding: u32, flags: u32) -> *mut u8 {
     let bytes = core::slice::from_raw_parts(ptr, len);
-    let answer = match translate(bytes, &Options { immediates_group, immediates_binding }) {
+    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: flags & 1 != 0 };
+    let answer = match translate(bytes, &options) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),
     };

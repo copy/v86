@@ -29,6 +29,11 @@ import { Modem } from "./modem.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
+import { check_image_options, create_disk_image, import_ova, set_buffer_sector_size } from "../image/factory.js";
+import { check_disk_options, check_disk_policy, check_disk_bindings, set_disk_policy, disk_kind, is_service_url } from "../disk_options.js";
+import { NodeFileDisk, check_loaded_disks, disk_buffers } from "../disk_writeback.js";
+import { floppy_format_size } from "../floppy.js";
+import { DiskServiceDisk } from "../disk_service.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -175,6 +180,10 @@ export function V86(options)
     const machine = check_machine_options(options);
     this.cpu_type = machine.cpu_type;
     this.machine_type = machine.machine_type;
+    // each disk's disk_option and disk_error (docs/disk-persistence-plan.md
+    // "启动校验"); the disks, to find an image bound twice (attach_sata_drive)
+    /** @type {!Array<!Array<*>>} [name, descriptor] */
+    this.disk_descriptors = check_disk_options(options).map(([name, file]) => [name, file]);
 
     const bus = Bus.create();
     this.bus = bus[0];
@@ -188,6 +197,15 @@ export function V86(options)
     /** the display adapter's 3D renderer on this page (create_adapter_renderer) */
     this.adapter_renderer = null;
     this.plugins_ready = [];
+
+    // the page goes away: the sessions of the disks written back to a disk
+    // service are closed as far as the browser still sends it (completed
+    // writes are in the image anyway; the service flushes when the lease ends)
+    if(typeof window !== "undefined" && typeof window.addEventListener === "function")
+    {
+        this.pagehide_listener = () => this.pagehide_disks();
+        window.addEventListener("pagehide", this.pagehide_listener);
+    }
 
     if(options["cpu_worker"] && typeof Worker !== "undefined")
     {
@@ -207,14 +225,9 @@ export function V86(options)
     this.parallel_forced = parallel_option === true;
     this.parallel_requested = false;
     this.parallel_fallback = "not requested";
-    if(this.cpu_type === "arm64" && parallel_option === true)
-    {
-        throw new Error("parallel: true is not supported with cpu_type \"arm64\" yet (docs/arm64-virt-android16-plan.md P8.2)");
-    }
     if(parallel_option === true || parallel_option === "auto")
     {
-        const reason = this.cpu_type === "arm64" ? "arm64: cores in workers come with P8.2" :
-            (options.cpu_cores || 1) <= 1 ? "one core" :
+        const reason = (options.cpu_cores || 1) <= 1 ? "one core" :
             options.cpu_clock && options.cpu_clock["mode"] === "deterministic" ? "deterministic clock" :
             parallel_unsupported_reason(options.cpu_cores);
         if(!reason || this.parallel_forced) this.parallel_requested = true;
@@ -298,7 +311,7 @@ export function V86(options)
                 if(this.parallel_requested)
                 {
                     if(!this.parallel_forced) v86_bin_fallback = v86_bin;
-                    v86_bin = "v86-parallel.wasm";
+                    v86_bin = arm ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm";
                 }
 
                 // (tests: V86_WASM selects another build, e.g. build/v86-parallel.wasm)
@@ -393,6 +406,23 @@ export function V86(options)
     this.zstd_worker_request_id = 0;
 }
 
+/**
+ * The backend of a disk written back (docs/disk-persistence-plan.md): a
+ * disk service's URL, or in Node a local file
+ * @param {string} name
+ * @param {!Object} file
+ * @return {!Object}
+ */
+function writeback_backend(name, file)
+{
+    if(is_service_url(file.url))
+    {
+        const base = typeof location !== "undefined" ? location.href : undefined;
+        return new DiskServiceDisk(new URL(file.url, base).href, { name, token: file.token, size: file.size });
+    }
+    return new NodeFileDisk(file.url, { name, size: file.size });
+}
+
 V86.prototype.continue_init = async function(emulator, options)
 {
     this.bus.register("emulator-stopped", function()
@@ -450,6 +480,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings["cpu_features"] = options["cpu_features"];
     settings["cpu_features_unreleased"] = options["cpu_features_unreleased"]; // (tests and development)
     settings["jit_switches"] = options["jit_switches"]; // (src/jit_switches.js)
+    settings["a64_profile"] = options["a64_profile"]; // (the arm64 CPU's profile: src/arm/cpu.js)
     settings.disable_jit = options.disable_jit;
     settings["jit_backend"] = options["jit_backend"];
     // (ir_region_budget, ir_stats, ir_verify, ir_dump, ir_opt_level,
@@ -508,7 +539,22 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "virtio" : "ne2k" };
+    // (the virt machine: only when asked for, since its virtio devices take
+    // the virtio-mmio slots in order, as the reference's -device options do)
+    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "none" : "ne2k" };
+    // the virt machine's virtio-blk disks (P5.4) and virtio-rng (P5.5)
+    // (src/machine_options.js refuses them on the PC machines)
+    if(options.virtio_disks) settings.virtio_disks = [];
+    if(options.virtio_rng) settings.virtio_rng = true;
+    // (their transport: virtio-mmio or the PCIe host, P5.7)
+    if(options.virtio_transport) settings.virtio_transport = options.virtio_transport;
+    // (virtio-input: a keyboard and a tablet, or the kinds listed, P5.8, P7.4)
+    if(options.virtio_input) settings.virtio_input = Array.isArray(options.virtio_input) ? options.virtio_input.slice() : true;
+    // (Android, P10.7: virtio-vsock, that many console ports, the GPU's PCI slot)
+    if(options.virtio_vsock) settings.virtio_vsock = true;
+    if(options.virtio_sound) settings.virtio_sound = true;
+    if(options.virtio_console_ports) settings.virtio_console_ports = options.virtio_console_ports;
+    if(options.virtio_gpu_pci_slot) settings.virtio_gpu_pci_slot = options.virtio_gpu_pci_slot;
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -690,9 +736,29 @@ V86.prototype.continue_init = async function(emulator, options)
     graphics_adapter.catch(() => {});
     const adapter_renderer = this.create_adapter_renderer(options);
 
+    // the disks' policies (src/disk_options.js), put on their buffers
+    const disk_policies = new Map();
+    /** @type {!Array<!Array<*>>} [name, buffer, descriptor] of the disks loaded */
+    const loaded_disks = [];
+    const disk_descriptors = new Map();
+
     // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
     {
+        if(disk_policies.has(name))
+        {
+            set_disk_policy(buffer, name, disk_policies.get(name));
+            loaded_disks.push([name, buffer, disk_descriptors.get(name)]);
+        }
+
+        // (virtio_disks[i]: "virtio_disk" + i)
+        if(name.startsWith("virtio_disk"))
+        {
+            const i = +name.slice("virtio_disk".length);
+            const disk = options.virtio_disks[i];
+            settings.virtio_disks[i] = { buffer, id: disk.id, readonly: !!disk.readonly };
+            return;
+        }
         switch(name)
         {
             case "hda":
@@ -754,11 +820,41 @@ V86.prototype.continue_init = async function(emulator, options)
             return;
         }
 
+        // (virtio_disks[i]: "virtio_disk" + i)
+        if(disk_kind(name) !== "other")
+        {
+            disk_policies.set(name, check_disk_policy(name, file));
+            disk_descriptors.set(name, file);
+            // written back (docs/disk-persistence-plan.md): in Node, the
+            // url's local file (src/disk_writeback.js); a buffer object of
+            // one's own is its own backend
+            if(disk_policies.get(name).disk_option === "read_write" && !(file.get && file.set && file.load))
+            {
+                files_to_load.push({ name, loadable: writeback_backend(name, file) });
+                return;
+            }
+        }
+
+        // hard disks in a container format (docs/disk-image-formats-plan.md);
+        // without a format, RAW in the buffers of src/buffer.js
+        if(check_image_options(name, file, name === "hda" || name === "hdb" || name.startsWith("virtio_disk")))
+        {
+            files_to_load.push({
+                name,
+                loadable: create_disk_image(name, file, this.disk_image_settings()),
+            });
+            return;
+        }
+
+        // (a RAW disk's logical sectors: set on its buffer once loaded)
+        const sector_size = file["logical_sector_size"];
+
         if(file.get && file.set && file.load)
         {
             files_to_load.push({
                 name: name,
                 loadable: file,
+                sector_size,
             });
             return;
         }
@@ -784,6 +880,7 @@ V86.prototype.continue_init = async function(emulator, options)
                 name: name,
                 url: file.url,
                 size: file.size,
+                sector_size,
             });
         }
         else
@@ -791,6 +888,7 @@ V86.prototype.continue_init = async function(emulator, options)
             files_to_load.push({
                 name,
                 loadable: buffer_from_object(file, this.zstd_decompress_worker.bind(this)),
+                sector_size,
             });
         }
     };
@@ -813,6 +911,14 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("initrd", options.initrd);
     add_file("kernel", options.kernel);
     add_file("dtb", options.dtb);
+    // the virt machine's virtio-blk disks: {url or buffer, async, size, id,
+    // readonly}; the buffer an ArrayBuffer, a File, or a buffer object of
+    // its own (get, set, load), as hda may be
+    (options.virtio_disks || []).forEach((disk, i) =>
+    {
+        const own = disk.buffer && disk.buffer.get && disk.buffer.set && disk.buffer.load;
+        add_file("virtio_disk" + i, own ? disk.buffer : disk);
+    });
 
     if(options.filesystem && options.filesystem.handle9p)
     {
@@ -875,14 +981,34 @@ V86.prototype.continue_init = async function(emulator, options)
 
         var f = files_to_load[index];
 
+        // (a disk whose size is not a multiple of its sectors fails the start)
+        const put = buffer =>
+        {
+            try
+            {
+                set_buffer_sector_size(f.name, buffer, f.sector_size);
+            }
+            catch(error)
+            {
+                reject_initialized(error);
+                return;
+            }
+            put_on_settings.call(this, f.name, buffer);
+            cont(index + 1);
+        };
+
         if(f.loadable)
         {
             f.loadable.onload = function(e)
             {
-                put_on_settings.call(this, f.name, f.loadable);
-                cont(index + 1);
+                put(f.loadable);
             }.bind(this);
-            f.loadable.load();
+            // (a disk that cannot be opened fails the start: emulator-error)
+            const loading = f.loadable.load();
+            if(loading && typeof loading.catch === "function")
+            {
+                loading.catch(reject_initialized);
+            }
         }
         else
         {
@@ -895,8 +1021,7 @@ V86.prototype.continue_init = async function(emulator, options)
                         result = this.zstd_decompress(f.size, new Uint8Array(result));
                     }
 
-                    put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
-                    cont(index + 1);
+                    put(f.as_json ? result : new SyncBuffer(result));
                 }.bind(this),
                 progress: function progress(e)
                 {
@@ -926,11 +1051,31 @@ V86.prototype.continue_init = async function(emulator, options)
             });
         }
     }.bind(this);
+    // (a start that fails: the files written back opened so far are closed)
+    initialized.catch(() =>
+    {
+        for(const f of files_to_load)
+        {
+            if(f.loadable && f.loadable.writeback && typeof f.loadable.close_now === "function") f.loadable.close_now();
+        }
+    });
     cont(0);
     return initialized;
 
     async function done()
     {
+        // (a disk written back and another disk of the same file, by
+        // another name: src/disk_writeback.js)
+        await check_loaded_disks(loaded_disks);
+        // (a floppy written back is used as it is: a floppy format's size)
+        for(const [name, buffer] of loaded_disks)
+        {
+            if(disk_kind(String(name)) === "floppy" && buffer.writeback && !floppy_format_size(buffer.byteLength))
+            {
+                throw new Error(name + ": a floppy image written back must have the size of a floppy format (such as 1474560 bytes), not " +
+                    buffer.byteLength);
+            }
+        }
         //if(settings.initial_state)
         //{
         //    // avoid large allocation now, memory will be restored later anyway
@@ -1040,6 +1185,48 @@ V86.prototype.continue_init = async function(emulator, options)
 
         this.emulator_bus.send("emulator-loaded");
     }
+};
+
+/**
+ * What the disk images (src/image/factory.js) need from the emulator
+ * @return {!Object}
+ */
+V86.prototype.disk_image_settings = function()
+{
+    return {
+        // a QCOW2 cluster or a downloaded image: an error for data that is
+        // not a Zstandard frame of that size (the core returns no data)
+        zstd_decompress: (size, bytes) =>
+        {
+            const cpu = this.v86.cpu;
+            const context = cpu.zstd_create_ctx(bytes.length);
+            try
+            {
+                new Uint8Array(cpu.wasm_memory.buffer).set(bytes, cpu.zstd_get_src_ptr(context) >>> 0);
+                const pointer = cpu.zstd_read(context, size) >>> 0;
+                if(!pointer) throw new Error("not a Zstandard frame of " + size + " bytes");
+                const result = new Uint8Array(cpu.wasm_memory.buffer.slice(pointer, pointer + size));
+                cpu.zstd_read_free(pointer, size);
+                return result;
+            }
+            finally
+            {
+                cpu.zstd_free_ctx(context);
+            }
+        },
+        zstd_decompress_worker: this.zstd_decompress_worker.bind(this),
+        progress: (file_name, e) =>
+        {
+            this.emulator_bus.send("download-progress", {
+                file_index: 0,
+                file_count: 1,
+                file_name,
+                lengthComputable: e.lengthComputable,
+                total: e.total,
+                loaded: e.loaded,
+            });
+        },
+    };
 };
 
 /**
@@ -1238,6 +1425,8 @@ V86.prototype.stop = async function()
     if(this.worker_controller) return this.worker_controller.serialize(() => this.worker_controller.stop());
     if(!this.cpu_is_running)
     {
+        // (stopped already: the disks written back are made durable all the same)
+        await this.flush_writeback_disks();
         return;
     }
 
@@ -1258,17 +1447,66 @@ V86.prototype.stop = async function()
         await cpu.parallel.park();
         if(!this.v86.running) cpu.parallel_capture();
     }
+    // the disks written back: their writes durable (docs/disk-persistence-plan.md)
+    await this.flush_writeback_disks();
+};
+
+/**
+ * [name, buffer] of the machine's disks
+ * @return {!Array<!Array<*>>}
+ */
+V86.prototype.disk_buffers = function()
+{
+    if(!this.v86) return [];
+    return disk_buffers(this.v86.cpu).map(([name, buffer]) => [name, buffer, undefined]);
+};
+
+/**
+ * Flush (or, closing, flush and close) the disks written back
+ * @param {boolean=} close
+ * @return {!Promise<undefined>}
+ */
+V86.prototype.flush_writeback_disks = async function(close)
+{
+    const buffers = new Set(this.disk_buffers().map(([, buffer]) => buffer).filter(buffer => buffer.writeback));
+    for(const buffer of buffers)
+    {
+        const operation = close ? buffer.close : buffer.flush;
+        if(typeof operation !== "function") continue;
+        await new Promise(resolve => operation.call(buffer, error =>
+        {
+            if(error) console.error((close ? "Closing " : "Flushing ") + (buffer.disk_name || "a disk") + ": " + error.message);
+            resolve();
+        }));
+    }
 };
 
 /**
  * Free resources associated with this instance
  */
+/** (pagehide: src/disk_service.js) */
+V86.prototype.pagehide_disks = function()
+{
+    if(this.worker_controller)
+    {
+        this.worker_controller.rpc("pagehide").catch(() => {});
+        return;
+    }
+    for(const [, buffer] of this.disk_buffers())
+    {
+        if(buffer.writeback && typeof buffer.close_keepalive === "function") buffer.close_keepalive();
+    }
+};
+
 V86.prototype.destroy = async function()
 {
     this.destroyed = true;
+    if(this.pagehide_listener) window.removeEventListener("pagehide", this.pagehide_listener);
     if(this.worker_controller) await this.worker_controller.destroy();
     else await this.stop();
     if(this.device_state_operation) await this.device_state_operation;
+    // (the disks written back: flushed, their files closed)
+    if(!this.worker_controller) await this.flush_writeback_disks(true);
 
     for(const plugin of this.device_plugins)
     {
@@ -1317,8 +1555,9 @@ V86.prototype.get_diagnostics = async function()
 /**
  * Press the ACPI power button. A running ACPI guest gets a power button event
  * (usually starting an orderly shutdown). A machine that the guest has turned
- * off (event "acpi-power-off") is powered on and started again.
- * Resolves to false if the machine has no ACPI (option acpi).
+ * off (event "acpi-power-off"; the virt machine: PSCI SYSTEM_OFF) is powered
+ * on and started again. Resolves to false if the machine has no ACPI (option
+ * acpi) and is not off.
  */
 /**
  * The ACPI power state: "S0", "S3" (suspended to RAM), "S4" (hibernated and
@@ -1340,6 +1579,14 @@ V86.prototype.power_button = async function()
     const acpi = this.v86.cpu.devices.acpi;
     if(!acpi)
     {
+        // (the virt machine has no power button; one the guest turned off
+        // with PSCI SYSTEM_OFF is powered on and started again)
+        if(this.v86.cpu.powered_off && this.v86.cpu.powered_off())
+        {
+            await this.restart("power-on");
+            await this.run();
+            return true;
+        }
         return false;
     }
     if(acpi.soft_off)
@@ -1556,7 +1803,15 @@ V86.prototype.get_instruction_counter = function()
     if(this.worker_controller) return this.worker_controller.instructions;
     if(this.v86)
     {
-        return this.v86.cpu.instruction_counter[0] >>> 0;
+        const cpu = this.v86.cpu;
+        // (the ARM core counts the instructions each core retired, P0.9)
+        if(cpu.cpu_type === "arm64")
+        {
+            let retired = 0;
+            for(let core = 0; core < cpu.cores; core++) retired += cpu.retired_instructions(core);
+            return retired >>> 0;
+        }
+        return cpu.instruction_counter[0] >>> 0;
     }
     else
     {
@@ -1575,33 +1830,14 @@ V86.prototype.is_running = function()
 
 /**
  * Set the image inserted in the floppy drive. Can be changed at runtime, as
- * when physically changing the floppy disk.
+ * when physically changing the floppy disk. With disk_option "read_write"
+ * (docs/disk-persistence-plan.md) the guest's writes go back to the image;
+ * the disk taken out (another inserted, or ejected) is flushed and closed.
  */
 V86.prototype.set_fda = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_fda", [encode_worker_file(file)]);
-    const fda = this.v86.cpu.devices.fdc.drives[0];
-    if(file.url && !file.async)
-    {
-        await new Promise(resolve => {
-            load_file(file.url, {
-                done: result =>
-                {
-                    fda.insert_disk(new SyncBuffer(result));
-                    resolve();
-                }
-            });
-        });
-    }
-    else
-    {
-        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
-        image.onload = () =>
-        {
-            fda.insert_disk(image);
-        };
-        await image.load();
-    }
+    await this.insert_floppy(0, file);
 };
 
 /**
@@ -1610,27 +1846,57 @@ V86.prototype.set_fda = async function(file)
 V86.prototype.set_fdb = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_fdb", [encode_worker_file(file)]);
-    const fdb = this.v86.cpu.devices.fdc.drives[1];
-    if(file.url && !file.async)
+    await this.insert_floppy(1, file);
+};
+
+/**
+ * @param {number} index
+ * @param {!Object} file
+ */
+V86.prototype.insert_floppy = async function(index, file)
+{
+    const name = index ? "fdb" : "fda";
+    check_image_options(name, file, false);
+    const policy = check_disk_policy(name, file);
+    const others = this.disk_descriptors.filter(([n]) => n !== name);
+    check_disk_bindings([[name, file, policy]], others);
+    const drive = this.v86.cpu.devices.fdc.drives[index];
+    let image;
+    if(policy.disk_option === "read_write" && !(file.get && file.set && file.load))
     {
-        await new Promise(resolve => {
-            load_file(file.url, {
-                done: result =>
-                {
-                    fdb.insert_disk(new SyncBuffer(result));
-                    resolve();
-                }
-            });
-        });
+        image = writeback_backend(name, file);
+        await image.load();
+        if(!floppy_format_size(image.byteLength))
+        {
+            image.close_now();
+            throw new Error(name + ": a floppy image written back must have the size of a floppy format (such as 1474560 bytes), not " + image.byteLength);
+        }
+    }
+    else if(file.url && !file.async)
+    {
+        image = await new Promise(resolve => load_file(file.url, { done: result => resolve(new SyncBuffer(result)) }));
     }
     else
     {
-        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
-        image.onload = () =>
-        {
-            fdb.insert_disk(image);
-        };
-        await image.load();
+        image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        await new Promise((resolve, reject) => { image.onload = resolve; Promise.resolve(image.load()).catch(reject); });
+    }
+    set_disk_policy(image, name, policy);
+    this.close_floppy(drive);
+    drive.insert_disk(image);
+    this.disk_descriptors = others.concat([[name, file]]);
+};
+
+/**
+ * The disk taken out of a floppy drive: written back, it is flushed and closed
+ * @param {?} drive
+ */
+V86.prototype.close_floppy = function(drive)
+{
+    const buffer = drive.buffer;
+    if(buffer && buffer.writeback && typeof buffer.close === "function")
+    {
+        buffer.close(error => { if(error) console.error(error.message); });
     }
 };
 
@@ -1640,7 +1906,10 @@ V86.prototype.set_fdb = async function(file)
 V86.prototype.eject_fda = function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("eject_fda");
-    this.v86.cpu.devices.fdc.drives[0].eject_disk();
+    const drive = this.v86.cpu.devices.fdc.drives[0];
+    this.close_floppy(drive);
+    drive.eject_disk();
+    this.disk_descriptors = this.disk_descriptors.filter(([n]) => n !== "fda");
 };
 
 /**
@@ -1649,7 +1918,88 @@ V86.prototype.eject_fda = function()
 V86.prototype.eject_fdb = function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("eject_fdb");
-    this.v86.cpu.devices.fdc.drives[1].eject_disk();
+    const drive = this.v86.cpu.devices.fdc.drives[1];
+    this.close_floppy(drive);
+    drive.eject_disk();
+    this.disk_descriptors = this.disk_descriptors.filter(([n]) => n !== "fdb");
+};
+
+/**
+ * Read an OVF package, an OVA archive (docs/disk-image-formats-plan.md P4),
+ * before a machine is made: its disks as descriptors for hda, hdb or
+ * attach_sata_drive (the archive with archive_member: read in it, not
+ * extracted), the hardware it describes as v86 options (memory_size,
+ * cpu_cores, machine_type, hda, hdb), and notes for what v86 does not have
+ * (architecture, firmware, controllers, devices).
+ * @param {!Object} file the archive, as for hda (url, buffer)
+ * @return {!Promise<!Object>} {ovf, files, disks, options, notes}
+ */
+V86.import_ova = function(file)
+{
+    return import_ova(file, {});
+};
+
+/**
+ * The buffer of a hard disk or CD drive by its name (hda, hdb, cdrom,
+ * sata<port>)
+ * @param {string} name
+ * @return {?}
+ */
+V86.prototype.disk_buffer = function(name)
+{
+    const entry = this.v86.cpu.disk_devices().find(([device_name]) => device_name === name);
+    const buffer = entry && entry[1].buffer;
+    if(!buffer) throw new Error("No disk " + name);
+    return buffer;
+};
+
+/**
+ * What an export of a disk writes (export_disk_image): its size as the guest
+ * sees it, and its image's format, file size and the bytes the guest wrote;
+ * the guest's sector size
+ * @param {string} name hda, hdb, cdrom, sata<port>, (virt) virtio_disk<n>
+ * @return {!Promise<!Object>}
+ */
+V86.prototype.disk_image_info = async function(name)
+{
+    if(this.worker_controller) return this.worker_controller.rpc("disk-info", [name]);
+    const buffer = this.disk_buffer(name);
+    const reader = buffer.reader;
+    const device = this.v86.cpu.disk_devices().find(([device_name]) => device_name === name)[1];
+    return {
+        "name": name,
+        "format": reader ? reader.format : "raw",
+        "size": buffer.byteLength,
+        "file_size": reader ? reader.source.byteLength : buffer.byteLength,
+        "written": buffer.overlay ? buffer.overlay.size() : buffer.written_blocks ? buffer.written_blocks.size * 256 : undefined,
+        // (an IDE or AHCI drive's, a CD's 2048; a virtio disk's image's)
+        "logical_sector_size": device.sector_size || buffer.logical_sector_size || 512,
+    };
+};
+
+/**
+ * Export a disk as the guest sees it, as a RAW image of its whole size
+ * (docs/disk-image-formats-plan.md P2) or as a new QCOW2 image (format:
+ * "qcow2", P5: version 3, 64 KiB clusters, the clusters of zeros left out):
+ * the image's data with the guest's writes. The machine stops and its disk
+ * I/O finishes first, so the stream is one view of the disk; it goes on
+ * afterwards. `write` gets each chunk (at most 1 MiB) and may return a
+ * promise: the next chunk waits for it.
+ * @param {string} name hda, hdb, cdrom, sata<port>, (virt) virtio_disk<n>
+ * @param {{write: function(!Uint8Array):(Promise<*>|undefined),
+ *          format: (string|undefined),
+ *          progress: (function({loaded: number, total: number})|undefined),
+ *          signal: (AbortSignal|undefined)}} options
+ * @return {!Promise<number>} the size written
+ */
+V86.prototype.export_disk_image = async function(name, options)
+{
+    if(!options || typeof options.write !== "function") throw new TypeError("export_disk_image: options.write must be a function");
+    if(this.worker_controller) return this.worker_controller.export_disk(name, options);
+    const buffer = this.disk_buffer(name);
+    // (a disk written back: flushed, then read from its image)
+    if(buffer.writeback && typeof buffer.flush === "function") await new Promise(resolve => buffer.flush(resolve));
+    return this.v86.export_disk(buffer, options.write, options);
 };
 
 /**
@@ -1679,6 +2029,7 @@ V86.prototype.get_disk_fdb = function()
 V86.prototype.set_cdrom = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_cdrom", [encode_worker_file(file)]);
+    check_image_options("cdrom", file, false);
     if(file.url && !file.async)
     {
         await new Promise(resolve => load_file(file.url, {
@@ -1731,8 +2082,28 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     const ahci = this.v86.cpu.devices.ahci;
     if(!ahci) throw new Error("attach_sata_drive: no AHCI controller (machine_type: \"q35\")");
     if(!file && !cdrom) throw new Error("attach_sata_drive: a disk needs an image");
+    // (its policy, docs/disk-persistence-plan.md: checked with the disks the machine has)
+    const name = cdrom ? "cdrom" : "sata" + port;
+    const policy = check_disk_policy(name, file);
+    if(file) check_disk_bindings([[name, file, policy]], this.disk_descriptors);
     let image;
-    if(file && file.url && !file.async)
+    const writeback = policy.disk_option === "read_write" && !(file.get && file.set && file.load);
+    const disk_image = !writeback && !!check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom);
+    if(writeback)
+    {
+        // (written back: src/disk_writeback.js, src/disk_service.js)
+        image = writeback_backend(name, /** @type {!Object} */ (file));
+        await image.load();
+        try { await check_loaded_disks([[name, image, file]].concat(this.disk_buffers())); }
+        catch(error) { image.close_now(); throw error; }
+    }
+    else if(disk_image)
+    {
+        // a hard disk in a container format (docs/disk-image-formats-plan.md)
+        image = create_disk_image("sata" + port, /** @type {!Object} */ (file), this.disk_image_settings());
+        await image.load();
+    }
+    else if(file && file.url && !file.async)
     {
         image = await new Promise(resolve => load_file(file.url, { done: result => resolve(new SyncBuffer(result)) }));
     }
@@ -1748,10 +2119,14 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     }
     if(image && !cdrom)
     {
+        // (a RAW disk's logical sectors; a disk image has its own)
+        if(!disk_image) set_buffer_sector_size("sata" + port, image, file["logical_sector_size"]);
         // (the disk's CHS geometry comes from its partition table)
         await new Promise(resolve => image.get_and_cache(0, 512, resolve));
     }
+    set_disk_policy(image, name, policy);
     ahci.attach(port, { buffer: image, is_cdrom: cdrom });
+    if(file) this.disk_descriptors.push([name, file]);
 };
 
 /**
@@ -1767,7 +2142,15 @@ V86.prototype.detach_sata_drive = function(port)
     if(this.worker_controller) return this.worker_controller.rpc("detach_sata_drive", [port]);
     const ahci = this.v86.cpu.devices.ahci;
     if(!ahci) throw new Error("detach_sata_drive: no AHCI controller (machine_type: \"q35\")");
+    const device = ahci.ports[port] && ahci.ports[port].device;
     ahci.detach(port);
+    // (a disk written back: its writes flushed, the file closed)
+    if(device && device.buffer && device.buffer.writeback && typeof device.buffer.close === "function")
+    {
+        device.buffer.close(error => { if(error) console.error(error.message); });
+    }
+    const names = ["sata" + port, ["hda", "hdb", "cdrom"][port]];
+    this.disk_descriptors = this.disk_descriptors.filter(([name]) => !names.includes(name));
 };
 
 /**
@@ -2021,6 +2404,45 @@ V86.prototype.serial0_send = function(data)
     {
         this.bus.send("serial0-input", data.charCodeAt(i));
     }
+};
+
+/**
+ * A stream socket to a port of the guest's vsock (machine_type "virt" with
+ * virtio_vsock; src/virtio_vsock.js): resolves when the guest accepts,
+ * rejects when it refuses. The stream has write(bytes), close(), and the
+ * callbacks on_data(bytes) and on_close() to be set.
+ *
+ * @param {number} port
+ * @return {!Promise<!Object>}
+ */
+V86.prototype.vsock_connect = function(port)
+{
+    const id = this.vsock_next_id = (this.vsock_next_id || 0) + 1;
+    const stream = {
+        "closed": false,
+        "on_data": null,
+        "on_close": null,
+        "write": bytes => { if(!stream["closed"]) this.bus.send("virtio-vsock-send", [id, bytes]); },
+        "close": () => { if(!stream["closed"]) this.bus.send("virtio-vsock-close", [id]); },
+    };
+    return new Promise((resolve, reject) => {
+        let connected = false;
+        const on_connected = ([i]) => { if(i === id) { connected = true; resolve(stream); } };
+        const on_data = ([i, bytes]) => { if(i === id && stream["on_data"]) stream["on_data"](bytes); };
+        const on_closed = ([i]) => {
+            if(i !== id) return;
+            stream["closed"] = true;
+            this.bus.unregister("virtio-vsock-connected", on_connected);
+            this.bus.unregister("virtio-vsock-data", on_data);
+            this.bus.unregister("virtio-vsock-closed", on_closed);
+            if(!connected) reject(new Error("vsock: the guest refused port " + port));
+            else if(stream["on_close"]) stream["on_close"]();
+        };
+        this.bus.register("virtio-vsock-connected", on_connected, this);
+        this.bus.register("virtio-vsock-data", on_data, this);
+        this.bus.register("virtio-vsock-closed", on_closed, this);
+        this.bus.send("virtio-vsock-connect", [id, port]);
+    });
 };
 
 /**
@@ -2428,7 +2850,11 @@ V86.prototype["remove_listener"] = V86.prototype.remove_listener;
 V86.prototype["write_memory"] = V86.prototype.write_memory;
 V86.prototype["read_memory_chunks"] = V86.prototype.read_memory_chunks;
 V86.prototype["save_state_stream"] = V86.prototype.save_state_stream;
+V86.prototype["export_disk_image"] = V86.prototype.export_disk_image;
+V86.prototype["disk_image_info"] = V86.prototype.disk_image_info;
+V86["import_ova"] = V86.import_ova;
 V86.prototype["restore_state_stream"] = V86.prototype.restore_state_stream;
+V86.prototype["vsock_connect"] = V86.prototype.vsock_connect;
 /* eslint-enable no-self-assign */
 
 if(typeof module !== "undefined" && typeof module.exports !== "undefined")

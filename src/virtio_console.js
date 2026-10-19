@@ -28,14 +28,26 @@ const VIRTIO_CONSOLE_F_EMERG_WRITE    = 2;
  * @param {BusConnector} bus
  * @param {number=} pci_id where the machine puts it (behind a root port), or
  *     its usual slot
+ * @param {?=} transport another transport than virtio-pci (the virt
+ *     machine's virtio-mmio, src/virtio_mmio.js)
+ * @param {boolean=} generic_ports ports 1-3 as generic ports (the virt machine)
+ * @param {number=} port_count the number of ports, 4 by default (the virt
+ *     machine's Android guests: 18 consoles, hvc0-hvc17, as Cuttlefish's)
  */
-export function VirtioConsole(cpu, bus, pci_id)
+export function VirtioConsole(cpu, bus, pci_id, transport, generic_ports, port_count)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;
+    /** Ports 1-3 as generic ports named org.v86.port<N> (/dev/vport<D>p<N>,
+     * QEMU's virtserialport: the virt machine's host service channels), else
+     * consoles (hvc1-hvc3) */
+    this.generic_ports = !!generic_ports;
     this.rows = 25;
     this.cols = 80;
-    this.ports = 4;
+    this.ports = port_count || 4;
+    /** control messages waiting for the guest's buffers (many ports send
+     * more of them at once than the control receive queue holds) */
+    this.control_pending = [];
 
     const queues = [
         {
@@ -66,6 +78,7 @@ export function VirtioConsole(cpu, bus, pci_id)
     this.virtio = new VirtIO(cpu,
     {
         name: "virtio-console",
+        transport,
         pci_id: pci_id === undefined ? 0x0C << 3 : pci_id,
         device_id: 0x1043,
         subsystem_device_id: 3,
@@ -110,9 +123,10 @@ export function VirtioConsole(cpu, bus, pci_id)
                     {
                         dbg_assert(false, "VirtioConsole Notified for wrong queue: " + queue_id +
                             " (expected queue_id of 2)");
-
+                        return;
                     }
-
+                    // (the guest's new control buffers)
+                    this.FlushControl();
                 },
                 (queue_id) =>
                 {
@@ -146,14 +160,14 @@ export function VirtioConsole(cpu, bus, pci_id)
                                 }
                                 break;
                             case VIRTIO_CONSOLE_PORT_READY:
-                                this.Ack(queue_id, bufchain);
-                                this.SendEvent(port, VIRTIO_CONSOLE_CONSOLE_PORT, 1);
-                                this.SendName(port, "virtio-" + port);
+                                // (the request was acknowledged above: a second
+                                // acknowledgement of it breaks the guest's queue)
+                                if(port === 0 || !this.generic_ports) this.SendEvent(port, VIRTIO_CONSOLE_CONSOLE_PORT, 1);
+                                this.SendName(port, port !== 0 && this.generic_ports ? "org.v86.port" + port : "virtio-" + port);
                                 this.SendEvent(port, VIRTIO_CONSOLE_PORT_OPEN, 1);
 
                                 break;
                             case VIRTIO_CONSOLE_PORT_OPEN:
-                                this.Ack(queue_id, bufchain);
                                 if(port === 0) {
                                     this.SendWindowSize(port);
                                 }
@@ -224,7 +238,7 @@ export function VirtioConsole(cpu, bus, pci_id)
                 this.rows = size[1];
             }
 
-            if(this.virtio.queues[2].is_configured() && this.virtio.queues[2].has_request()) {
+            if(this.virtio.queues[2].is_configured()) {
                 this.SendWindowSize(port, size[0], size[1]);
             }
         }, this);
@@ -235,15 +249,13 @@ VirtioConsole.prototype.SendWindowSize = function(port, cols = undefined, rows =
 {
     rows = rows || this.rows;
     cols = cols || this.cols;
-    const bufchain = this.virtio.queues[2].pop_request();
     const buf = new Uint8Array(12);
     marshall.Marshall(["w", "h", "h", "h", "h"], [port, VIRTIO_CONSOLE_RESIZE, 0, rows, cols], buf, 0);
-    this.Send(2, bufchain, buf);
+    this.SendControl(buf);
 };
 
 VirtioConsole.prototype.SendName = function(port, name)
 {
-    const bufchain = this.virtio.queues[2].pop_request();
     const namex = new TextEncoder().encode(name);
     const buf = new Uint8Array(8 + namex.length + 1);
     marshall.Marshall(["w", "h", "h"], [port, VIRTIO_CONSOLE_PORT_NAME, 1], buf, 0);
@@ -251,7 +263,7 @@ VirtioConsole.prototype.SendName = function(port, name)
         buf[i+8] = namex[i];
     }
     buf[8 + namex.length] = 0;
-    this.Send(2, bufchain, buf);
+    this.SendControl(buf);
 };
 
 
@@ -276,17 +288,36 @@ VirtioConsole.prototype.set_state = function(state)
 };
 
 VirtioConsole.prototype.reset = function() {
+    this.control_pending = [];
     this.virtio.reset();
 };
 
 VirtioConsole.prototype.SendEvent = function(port, event, value)
 {
-    const queue = this.virtio.queues[2];
-    const bufchain = queue.pop_request();
-
     const buf = new Uint8Array(8);
     marshall.Marshall(["w","h","h"], [port, event, value], buf, 0);
-    this.Send(2, bufchain, buf);
+    this.SendControl(buf);
+};
+
+/** a control message to the guest, now or once it has a buffer for it */
+VirtioConsole.prototype.SendControl = function(blob)
+{
+    this.control_pending.push(blob);
+    this.FlushControl();
+};
+
+VirtioConsole.prototype.FlushControl = function()
+{
+    const queue = this.virtio.queues[2];
+    let sent = false;
+    while(this.control_pending.length && queue.has_request())
+    {
+        const bufchain = queue.pop_request();
+        bufchain.set_next_blob(this.control_pending.shift());
+        queue.push_reply(bufchain);
+        sent = true;
+    }
+    if(sent) queue.flush_replies();
 };
 
 VirtioConsole.prototype.Send = function (queue_id, bufchain, blob)

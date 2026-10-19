@@ -702,8 +702,10 @@ AHCIPort.prototype.detach = function()
 {
     dbg_log("AHCI port " + this.number + ": drive detached", LOG_DISK);
     const device = this.device;
-    // its disk I/O in flight is dropped
+    // its disk I/O in flight is dropped (and the requests held after an
+    // I/O error: src/block_backend.js)
     device.cancel_io_operations();
+    device.drop_held_requests();
     device.reset_epoch++;
     this.device = this.master = null;
     // PhyRdy lost; no device: no link, PxTFD 7Fh, no signature
@@ -1070,7 +1072,8 @@ AHCIPort.prototype.start_queued = function(slot, header, table, prdtl, fis)
         this.ncq_failed(job, ATA_ER_ABRT);
         return;
     }
-    const start = lba * 512, length = count * 512;
+    // (in the disk's logical sectors: 512 or 4096 bytes)
+    const start = lba * device.sector_size, length = count * device.sector_size;
     if(start + length > device.buffer.byteLength)
     {
         this.ncq_failed(job, ATA_ER_IDNF);
@@ -1097,7 +1100,8 @@ AHCIPort.prototype.start_queued = function(slot, header, table, prdtl, fis)
             this.ncq_failed(job, ATA_ER_ABRT);
             return;
         }
-        device.write_to_backend(start, data, () => this.queued_done(job));
+        // (FUA, the device register's bit 7: durable before it completes)
+        device.write_to_backend(start, data, () => this.queued_done(job), () => this.queued_failed(job), !!(fis[7] & 0x80));
         device.report_write(length);
     }
     else
@@ -1126,6 +1130,10 @@ AHCIPort.prototype.start_queued = function(slot, header, table, prdtl, fis)
                 return;
             }
             this.queued_done(job);
+        }, () =>
+        {
+            device.report_read_end(0);
+            this.queued_failed(job);
         });
     }
 };
@@ -1145,6 +1153,22 @@ AHCIPort.prototype.queued_done = function(job)
     this.post_sdb(ATA_SR_DRDY | ATA_SR_DSC, 0, 1 << job.tag);
     this.controller.update_irq();
     this.check_commands();
+};
+
+/**
+ * The disk image failed a queued command's read or write
+ * (docs/disk-image-formats-plan.md P0): it ends with ABRT, as QEMU's
+ * ncq_err
+ * @param {!Object} job
+ */
+AHCIPort.prototype.queued_failed = function(job)
+{
+    if(job.epoch !== this.ncq_epoch || !(this.ncq_active & 1 << job.tag))
+    {
+        return;
+    }
+    this.ncq_active &= ~(1 << job.tag);
+    this.ncq_failed(job, ATA_ER_ABRT);
 };
 
 /**

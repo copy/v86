@@ -15,6 +15,9 @@ const DAC_QUEUE_RESERVE = 0.2;
 
 const AUDIOBUFFER_MINIMUM_SAMPLING_RATE = 8000;
 
+/** the user gestures that may resume an AudioContext */
+const UNLOCK_EVENTS = ["pointerdown", "keydown", "touchend"];
+
 /**
  * @constructor
  * @param {!BusConnector} bus
@@ -65,7 +68,32 @@ export function SpeakerAdapter(bus)
         bus.send("speaker-has-initialized");
     }, this);
     bus.send("speaker-has-initialized");
+
+    // The browser's autoplay policy: a context made before the page had a
+    // user gesture stays suspended, and resume() works only from one. The
+    // first click, key or touch on the page while the emulator runs resumes
+    // it (a page started from a button has its gesture already).
+    /** @type {?function()} */
+    this.unlock = () =>
+    {
+        if(!this.audio_context || this.audio_context.state !== "suspended" || this.dac.paused) return;
+        this.audio_context.resume().then(() => this.audio_context && this.audio_context.state === "running" && this.remove_unlock());
+    };
+    if(typeof document !== "undefined")
+    {
+        for(const type of UNLOCK_EVENTS) document.addEventListener(type, this.unlock, true);
+    }
 }
+
+
+SpeakerAdapter.prototype.remove_unlock = function()
+{
+    if(this.unlock && typeof document !== "undefined")
+    {
+        for(const type of UNLOCK_EVENTS) document.removeEventListener(type, this.unlock, true);
+    }
+    this.unlock = null;
+};
 
 SpeakerAdapter.prototype.pause = function()
 {
@@ -75,6 +103,7 @@ SpeakerAdapter.prototype.pause = function()
 
 SpeakerAdapter.prototype.destroy = function()
 {
+    this.remove_unlock();
     this.audio_context && this.audio_context.close();
     this.audio_context = null;
     this.dac && this.dac.node_processor && this.dac.node_processor.port.close();

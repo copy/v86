@@ -25,6 +25,7 @@
         SET_BLEND_CONSTANTS: 29, SET_STENCIL_REFERENCE: 30, DRAW: 31, DRAW_INDEXED: 32, DRAW_INDIRECT: 33,
         DISPATCH: 34, DISPATCH_INDIRECT: 35, CLEAR_ATTACHMENTS: 36,
         QUERY_POOL_CREATE: 37, BEGIN_QUERY: 38, END_QUERY: 39, COPY_QUERY_RESULTS: 40, TEXTURE_READ: 41, TEXTURE_WRITE: 42,
+        TEXTURE_IMPORT: 43,
     };
     // where the bundle is: naga's wasm is beside it
     const SCRIPT = typeof document !== "undefined" && document.currentScript ? document.currentScript.src : null;
@@ -37,6 +38,8 @@
     const STENCIL_OP = ["keep", "zero", "replace", "increment-clamp", "decrement-clamp", "invert", "increment-wrap", "decrement-wrap"];
     // the group and binding of push constants (vx/naga): after the sets, or in the last group
     const PUSH_BINDING = 998;
+    /** the attachment of passes and pipelines without any (WebGPU needs one) */
+    const PLACEHOLDER_FORMAT = "r8unorm";
     const pushGroup = setCount => setCount < 4 ? setCount : 3;
     const QUERY_REGION_BYTES = 16 * 1024, RESPONSE_OK = 1, RESPONSE_FAILED = 2;
     const BUFFER = { MAP_READ: 1, COPY_SRC: 4, COPY_DST: 8, INDEX: 16, VERTEX: 32, UNIFORM: 64, STORAGE: 128, INDIRECT: 256, QUERY_RESOLVE: 512 };
@@ -60,6 +63,8 @@
         constructor(options) {
             this.device = options.device;
             this.formats = options.formats || global.V86VenusFormats || {};
+            // { surface(sid) }: GX's surfaces, for images Venus imports from virtio-gpu resources
+            this.peer = options.peer || null;
             this.objects = new Map();
             this.encoderInstance = null;
             this.pending = [];
@@ -116,7 +121,8 @@
         release(object) {
             if (object.buffer) object.buffer.destroy();
             if (object.querySet) object.querySet.destroy();
-            if (object.texture && object.kind === "texture") object.texture.destroy();
+            // (an imported image's texture is its GX surface's)
+            if (object.texture && object.kind === "texture" && !object.borrowed) object.texture.destroy();
         }
 
         /**
@@ -244,6 +250,7 @@
                 case VX.COPY_QUERY_RESULTS: return this.copyQueryResults(b);
                 case VX.TEXTURE_READ: return this.readTexture(b);
                 case VX.TEXTURE_WRITE: return this.writeTexture(b);
+                case VX.TEXTURE_IMPORT: return this.importTexture(b);
             }
             this.warn("op" + op, "unknown VX op " + op);
         }
@@ -451,7 +458,10 @@
             let gpu_usage = TEXTURE.COPY_SRC | TEXTURE.COPY_DST | TEXTURE.TEXTURE_BINDING;
             // (render passes do clears, blits and resolves)
             if (f.renderable) gpu_usage |= TEXTURE.RENDER_ATTACHMENT;
-            if (usage & USAGE.STORAGE) gpu_usage |= TEXTURE.STORAGE_BINDING;
+            // (a format WebGPU cannot store to, sRGB: a mutable image's
+            // storage views would be of its linear twin, which WebGPU's
+            // textures cannot have; without storage, those views fail)
+            if (usage & USAGE.STORAGE && f.caps.includes("s")) gpu_usage |= TEXTURE.STORAGE_BINDING;
             const volume = type === 2;
             const descriptor = {
                 size: [width, volume ? height : Math.max(1, height), volume ? depth : layers],
@@ -465,9 +475,56 @@
             this.objects.set(id, { kind: "texture", texture, vkformat, f, volume, width, height, depth, mips, layers, samples });
         }
 
+        /**
+         * An image bound to an imported virtio-gpu resource: it becomes the
+         * texture of the resource's GX surface (same device), so Venus draws
+         * into what virgl, the display and the guest's transfers see. The
+         * image's own texture goes; GX keeps owning the surface's.
+         */
+        importTexture(b) {
+            const [id, sid] = b;
+            const image = this.objects.get(id);
+            const surface = this.peer ? this.peer.surface(sid) : null;
+            if (!image || image.kind !== "texture") return;
+            if (!surface || !surface.texture) {
+                this.warn("import" + sid, "resource " + sid + " has no GX texture to import");
+                return;
+            }
+            const texture = surface.texture;
+            if (texture.format !== image.f.gpu || texture.width !== image.width || texture.height !== Math.max(1, image.height) ||
+                surface.ss[0] !== 1 || surface.ss[1] !== 1) {
+                this.warn("import-mismatch" + sid, "resource " + sid + " (" + texture.format + " " + texture.width + "x" + texture.height +
+                    ") does not match its image (" + image.f.gpu + " " + image.width + "x" + image.height + ")");
+                return;
+            }
+            this.flushEncoder();
+            const old = image.borrowed ? null : image.texture;
+            // (in place: a restored state makes the image's views before
+            // importing it again, and they are remade on the new texture)
+            Object.assign(image, { texture, borrowed: true, mips: texture.mipLevelCount, layers: texture.depthOrArrayLayers });
+            for (const v of this.objects.values()) {
+                if (v.kind !== "view" || v.texture !== image) continue;
+                v.view = this.view(texture, Object.assign({}, v.descriptor));
+                v.attachment = v.storage = null;
+            }
+            if (old) old.destroy();
+        }
+
         texture(id) {
             const t = this.objects.get(id);
             return t && t.kind === "texture" ? t : null;
+        }
+
+        /**
+         * A texture view; an sRGB view of a texture that has storage usage
+         * leaves it out (a view has its texture's usage unless it says
+         * otherwise, and sRGB formats cannot be stored to)
+         */
+        view(texture, descriptor) {
+            if (texture.usage & TEXTURE.STORAGE_BINDING && /-srgb$/.test(descriptor.format)) {
+                descriptor.usage = texture.usage & ~TEXTURE.STORAGE_BINDING;
+            }
+            return texture.createView(descriptor);
         }
 
         createView(b) {
@@ -476,13 +533,14 @@
             if (!t) return;
             const f = this.format(vkformat) || t.f;
             const dimension = t.volume ? "3d" : VIEW_DIMENSION[type] || "2d";
-            const view = t.texture.createView({
+            const descriptor = {
                 format: f.gpu, dimension,
                 aspect: aspect === ASPECT.DEPTH && t.f.hasStencil ? "depth-only" : aspect === ASPECT.STENCIL && t.f.hasDepth ? "stencil-only" : "all",
                 baseMipLevel: baseMip, mipLevelCount: mips,
                 baseArrayLayer: t.volume ? 0 : baseLayer, arrayLayerCount: t.volume ? 1 : layers,
-            });
-            this.objects.set(id, { kind: "view", view, texture: t, f, aspect, baseMip, mips, baseLayer, layers, dimension });
+            };
+            const view = this.view(t.texture, Object.assign({}, descriptor));
+            this.objects.set(id, { kind: "view", view, descriptor, texture: t, f, aspect, baseMip, mips, baseLayer, layers, dimension });
         }
 
         createSampler(b) {
@@ -615,7 +673,7 @@
 
         /** A view of one mip and layer (or depth slice's layer: 0) for a render pass */
         attachment(t, mip, layer, format) {
-            return t.texture.createView({ format: format || t.f.gpu, dimension: t.volume ? "3d" : "2d", baseMipLevel: mip, mipLevelCount: 1,
+            return this.view(t.texture, { format: format || t.f.gpu, dimension: t.volume ? "3d" : "2d", baseMipLevel: mip, mipLevelCount: 1,
                 baseArrayLayer: t.volume ? 0 : layer, arrayLayerCount: 1 });
         }
 
@@ -752,15 +810,24 @@
 
         /** a shader module's translation for a pipeline layout's push constant group */
         async translate(shader, push) {
-            const key = String(push);
+            await this.loadNaga();
+            return this.translateNow(shader, push, false);
+        }
+
+        /**
+         * The same, naga loaded; `keep`: Vulkan's clip space kept, for draws
+         * with a viewport of a negative height (flippedPipeline)
+         */
+        translateNow(shader, push, keep) {
+            const key = String(push) + (keep ? ":keep" : "");
             let t = shader.translations.get(key);
             if (t) return t;
-            const naga = await this.loadNaga();
+            const naga = this.naga;
             const input = naga.vx_alloc(shader.spirv.length);
             new Uint8Array(naga.memory.buffer, input, shader.spirv.length).set(shader.spirv);
             let out;
             try {
-                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING);
+                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING, keep ? 1 : 0);
             } catch (error) {
                 // (a panic: a fresh instance next time)
                 this.naga = null;
@@ -771,6 +838,8 @@
             const text = new TextDecoder().decode(new Uint8Array(naga.memory.buffer, out + 4, length));
             naga.vx_free(out, length + 4);
             t = JSON.parse(text);
+            // (derivatives in non-uniform control flow: SPIR-V allows them, WGSL by default not)
+            if (!t.error) t.wgsl = "diagnostic(off, derivative_uniformity);\n" + t.wgsl;
             if (!t.error) t.module = this.device.createShaderModule({ code: t.wgsl });
             shader.translations.set(key, t);
             return t;
@@ -820,6 +889,9 @@
                 }
                 const vertex = stages.find(([s]) => s === 1), fragment = stages.find(([s]) => s === 16);
                 if (!vertex) throw new Error("no vertex stage");
+                // (its shader again for the flipped variant)
+                const vertex_stage = d.stages.find(stage => stage.stage === 1);
+                p.vertexSource = { shader: this.objects.get(vertex_stage.shader), stage: vertex_stage };
                 const buffers = [];
                 for (const b of d.buffers) {
                     if (b.binding >= 8) { this.warn("vertex-binding", "vertex binding " + b.binding + ": WebGPU has 8"); continue; }
@@ -858,23 +930,54 @@
                     if (d.depth_bias) Object.assign(descriptor.depthStencil, { depthBias: Math.round(d.depth_bias.constant),
                         depthBiasSlopeScale: d.depth_bias.slope, depthBiasClamp: d.depth_bias.clamp });
                 }
-                if (fragment && !d.discard) {
-                    descriptor.fragment = Object.assign(strip(fragment[1]), { targets: d.targets.map(t => {
-                        const f = this.format(t.format);
-                        if (!f) return null;
-                        const target = { format: f.gpu, writeMask: t.write_mask };
-                        if (t.blend && !f.int) target.blend = {
-                            color: { srcFactor: BLEND_FACTOR[t.src_color], dstFactor: BLEND_FACTOR[t.dst_color], operation: BLEND_OP[t.color_op] },
-                            alpha: { srcFactor: BLEND_FACTOR[t.src_alpha], dstFactor: BLEND_FACTOR[t.dst_alpha], operation: BLEND_OP[t.alpha_op] },
-                        };
-                        return target;
-                    }) });
+                const targets = d.targets.map(t => {
+                    const f = this.format(t.format);
+                    if (!f) return null;
+                    const target = { format: f.gpu, writeMask: d.discard ? 0 : t.write_mask };
+                    if (t.blend && !f.int && !d.discard) target.blend = {
+                        color: { srcFactor: BLEND_FACTOR[t.src_color], dstFactor: BLEND_FACTOR[t.dst_color], operation: BLEND_OP[t.color_op] },
+                        alpha: { srcFactor: BLEND_FACTOR[t.src_alpha], dstFactor: BLEND_FACTOR[t.dst_alpha], operation: BLEND_OP[t.alpha_op] },
+                    };
+                    return target;
+                });
+                if (fragment && !d.discard) descriptor.fragment = Object.assign(strip(fragment[1]), { targets });
+                else if (d.discard) {
+                    // rasterizer discard: a fragment stage that writes nothing,
+                    // for the pass's attachments, and no depth or stencil writes
+                    descriptor.fragment = { module: this.emptyFragment(), entryPoint: "fs", targets };
+                    if (descriptor.depthStencil) Object.assign(descriptor.depthStencil, { depthWriteEnabled: false, stencilWriteMask: 0 });
                 }
+                if (!descriptor.depthStencil && !(descriptor.fragment && descriptor.fragment.targets.some(t => t))) {
+                    // no attachments (WebGPU needs one): the placeholder the pass gets too, single-sampled
+                    descriptor.fragment = descriptor.fragment || { module: this.emptyFragment(), entryPoint: "fs", targets: [] };
+                    descriptor.fragment.targets = [{ format: PLACEHOLDER_FORMAT, writeMask: 0 }];
+                    descriptor.multisample.count = 1;
+                }
+                p.descriptor = descriptor;
                 p.gpu = await this.device.createRenderPipelineAsync(descriptor);
             } catch (error) {
                 p.error = String(error && error.message || error);
                 this.warn("pipeline:" + p.error, "a pipeline failed: " + p.error);
             }
+        }
+
+        /** a fragment stage that writes nothing */
+        emptyFragment() {
+            if (!this.emptyFragmentModule) this.emptyFragmentModule = this.device.createShaderModule({ code: "@fragment fn fs() {}" });
+            return this.emptyFragmentModule;
+        }
+
+        /** the attachment of a pass without any, by its size */
+        placeholder(width, height) {
+            const key = Math.max(1, width) + "x" + Math.max(1, height);
+            if (!this.placeholders) this.placeholders = new Map();
+            let view = this.placeholders.get(key);
+            if (!view) {
+                view = this.device.createTexture({ size: [Math.max(1, width), Math.max(1, height)], format: PLACEHOLDER_FORMAT,
+                    usage: TEXTURE.RENDER_ATTACHMENT }).createView();
+                this.placeholders.set(key, view);
+            }
+            return view;
         }
 
         // ------------------------------------------------------------------
@@ -884,7 +987,7 @@
         attachmentOf(id) {
             const v = this.objects.get(id);
             if (!v || v.kind !== "view") return null;
-            if (!v.attachment) v.attachment = v.texture.texture.createView({ format: v.f.gpu, dimension: v.texture.volume ? "3d" : "2d",
+            if (!v.attachment) v.attachment = this.view(v.texture.texture, { format: v.f.gpu, dimension: v.texture.volume ? "3d" : "2d",
                 baseMipLevel: v.baseMip, mipLevelCount: 1, baseArrayLayer: v.texture.volume ? 0 : v.baseLayer, arrayLayerCount: 1 });
             return v;
         }
@@ -904,6 +1007,10 @@
                 return a;
             });
             const descriptor = { colorAttachments };
+            if (!colorAttachments.some(a => a) && !(d.depth && this.attachmentOf(d.depth.view))) {
+                // no attachments: the pipelines' placeholder (see createPipeline)
+                colorAttachments.splice(0, colorAttachments.length, { view: this.placeholder(d.width, d.height), loadOp: "clear", storeOp: "discard" });
+            }
             if (d.depth) {
                 const v = this.attachmentOf(d.depth.view);
                 if (v) {
@@ -992,6 +1099,31 @@
             return v.storage;
         }
 
+        /**
+         * A render pipeline for draws with a viewport of a negative height:
+         * Vulkan flips y with it (ANGLE draws GL's frames so), WebGPU's
+         * viewports cannot, so the vertex stage keeps Vulkan's clip space
+         * instead of flipping into WebGPU's. Made at the first such draw; its
+         * own (automatic) layout, so its own bind groups: WebGPU does not let
+         * another pipeline use an automatic layout's bind group layouts.
+         */
+        flippedPipeline(p) {
+            if (p.flipped !== undefined) return p.flipped;
+            p.flipped = null;
+            try {
+                const t = this.translateNow(p.vertexSource.shader, p.push, true);
+                if (t.error) throw new Error("shader: " + t.error);
+                const st = this.stageState(t, p.vertexSource.stage);
+                const gpu = this.device.createRenderPipeline(Object.assign({}, p.descriptor, {
+                    vertex: Object.assign({}, p.descriptor.vertex, { module: st.module, entryPoint: st.entryPoint, constants: st.constants }),
+                }));
+                p.flipped = { kind: "pipeline", desc: p.desc, groups: p.groups, push: p.push, gpu, bindGroups: new Map(), error: null };
+            } catch (error) {
+                this.warn("flipped:" + error.message, "a pipeline's variant for flipped viewports failed: " + error.message);
+            }
+            return p.flipped;
+        }
+
         // ------------------------------------------------------------------
         // Draws and dispatches
 
@@ -1003,10 +1135,15 @@
             }
             this.stats.draws++;
             const s = this.state;
+            // viewport and scissor: the dynamic ones, or the pipeline's; within the target (WebGPU's rule)
+            const viewport = p.desc.dynamic.includes(0) && s.viewport ? s.viewport :
+                p.desc.viewport ? [p.desc.viewport.x, p.desc.viewport.y, p.desc.viewport.width, p.desc.viewport.height, p.desc.viewport.minDepth, p.desc.viewport.maxDepth] : null;
+            const q = viewport && viewport[3] < 0 ? this.flippedPipeline(p) : p;
+            if (!q) return;
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
-            pass.setPipeline(p.gpu);
+            pass.setPipeline(q.gpu);
             for (const group of p.groups.keys()) {
-                const bg = this.bindGroup(p, 0, group);
+                const bg = this.bindGroup(q, 0, group);
                 if (!bg) return;
                 pass.setBindGroup(group, bg);
             }
@@ -1014,12 +1151,10 @@
                 const v = s.vertex[slot], m = v && this.memory(v.memory);
                 if (m) pass.setVertexBuffer(slot, m.buffer, v.offset, Math.min(v.size, m.buffer.size - v.offset));
             }
-            // viewport and scissor: the dynamic ones, or the pipeline's; within the target (WebGPU's rule)
-            const viewport = p.desc.dynamic.includes(0) && s.viewport ? s.viewport :
-                p.desc.viewport ? [p.desc.viewport.x, p.desc.viewport.y, p.desc.viewport.width, p.desc.viewport.height, p.desc.viewport.minDepth, p.desc.viewport.maxDepth] : null;
             if (viewport) {
                 let [x, y, w, h, near, far] = viewport;
-                if (h < 0) { this.warn("negative-viewport", "viewports of a negative height are not done"); y += h; h = -h; }
+                // (flipped by the pipeline's variant: the rows it covers)
+                if (h < 0) { y += h; h = -h; }
                 const x0 = Math.max(0, x), y0 = Math.max(0, y);
                 const x1 = Math.min(s.passWidth, x + w), y1 = Math.min(s.passHeight, y + h);
                 if (x1 > x0 && y1 > y0) pass.setViewport(x0, y0, x1 - x0, y1 - y0, Math.max(0, Math.min(1, near)), Math.max(0, Math.min(1, far)));

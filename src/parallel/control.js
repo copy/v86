@@ -46,6 +46,10 @@ export const WAITS = 17;            // halted waits
 export const IO_COUNT = 18;         // requests served by the machine
 export const JIT_ENTRIES = 19;      // entries into compiled code (the x64 page tier's functions)
 export const REFUSED = 20;          // code installations given up: the other cores had not acknowledged in time
+export const IO_RESULT_HI = 21;     // the high 32 bits of a 64-bit result (OP_A64_MMIO_READ)
+export const STEPS_HI = 22;         // retired instructions, high bits (the ARM core's workers)
+export const RING_STATS = 23;       // (the ARM core's workers, 3 words) TLB maintenance posted, DSBs that waited, entries taken
+export const KICKED = 26;           // (the ARM core's workers) runs a kick ended early
 
 export const CONTROL_WORDS = CORE_BASE + CORE_STRIDE * MAX_CORES;
 
@@ -75,6 +79,9 @@ export const OP_MMIO_READ8 = 7, OP_MMIO_READ32 = 8;
 export const OP_MMIO_WRITE8 = 9, OP_MMIO_WRITE16 = 10, OP_MMIO_WRITE32 = 11, OP_MMIO_WRITE64 = 12, OP_MMIO_WRITE128 = 13;
 export const OP_HALTED_FOREVER = 14;   // HLT with interrupts disabled (cpu_event_halt)
 export const OP_RESET = 15;            // triple fault of the BSP is handled by the machine; unused by APs
+// the ARM core (P8.2): a device register of the virt machine (src/virt/io.js),
+// IO_ADDR the owner | width << 24, IO_V0/IO_V1 the offset, IO_V2/IO_V3 the value
+export const OP_A64_MMIO_READ = 16, OP_A64_MMIO_WRITE = 17;
 
 // commands for parked cores (the machine writes them before RESUME)
 export const COMMAND_NONE = 0;

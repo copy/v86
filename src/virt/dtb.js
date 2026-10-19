@@ -3,13 +3,15 @@
 // the machine has, laid out as the reference's (QEMU 9.2 virt, dumpdtb): the
 // same nodes, properties and phandle numbering (the clock 0x8000, the cores
 // from the last one up, then the GIC), so the two compare node for node.
-// v86 has no flash, fw-cfg, PL061 and gpio-keys, platform bus, or (until
-// P5.10) PCIe host bridge; those nodes are absent (allowed differences,
-// tests/platform/a64-profile.json).
+// v86 has no flash, fw-cfg, PL061 and gpio-keys, or platform bus; those
+// nodes are absent (allowed differences, tests/platform/a64-profile.json).
+// The PCIe host bridge (P5.6) is the reference's: its ECAM, windows and
+// interrupt map.
 
 import {
-    VIRT_GIC_DIST, VIRT_GIC_DIST_SIZE, VIRT_GIC_REDIST, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_RAM_BASE, VIRT_RTC,
-    VIRT_UART,
+    VIRT_GIC_DIST, VIRT_GIC_DIST_SIZE, VIRT_GIC_REDIST, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH,
+    VIRT_PCIE_ECAM_SIZE, VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_PCIE_PIO,
+    VIRT_PCIE_PIO_SIZE, VIRT_RAM_BASE, VIRT_RTC, VIRT_UART,
 } from "./platform.js";
 
 const FDT_MAGIC = 0xD00DFEED;
@@ -125,7 +127,8 @@ export function flatten(root, boot_cpu = 0)
 /**
  * The virt machine's tree
  * @param {{cores: number, memory_size: number, bootargs: (string|undefined),
- *          initrd: ({start: number, end: number}|undefined), rng_seed: (Uint8Array|undefined)}} m
+ *          initrd: ({start: number, end: number}|undefined), rng_seed: (Uint8Array|undefined),
+ *          extended: ({base: number, size: number}|undefined)}} m
  * @return {DtNode}
  */
 export function virt_tree(m)
@@ -142,6 +145,13 @@ export function virt_tree(m)
     children.push(node("memory@" + VIRT_RAM_BASE.toString(16), [
         ["reg", [...u64(VIRT_RAM_BASE), ...u64(m.memory_size)]], ["device_type", "memory"],
     ]));
+    // (extended RAM, P8.5: a second range from 4 GiB; the reference has one)
+    if(m.extended)
+    {
+        children.push(node("memory@" + m.extended.base.toString(16), [
+            ["reg", [...u64(m.extended.base), ...u64(m.extended.size)]], ["device_type", "memory"],
+        ]));
+    }
     for(let n = 0; n < VIRT_MMIO_COUNT; n++)
     {
         const base = VIRT_MMIO + n * VIRT_MMIO_SIZE;
@@ -150,6 +160,28 @@ export function virt_tree(m)
             ["compatible", "virtio,mmio"],
         ]));
     }
+    // (the PCIe host: pin p (1-4) of slot s is SPI 3 + (s + p - 1) % 4, level-triggered,
+    // for the slots modulo 4; the windows: I/O, 32-bit memory, 64-bit memory)
+    const interrupt_map = [];
+    for(let slot = 0; slot < 4; slot++)
+    {
+        for(let pin = 1; pin <= 4; pin++)
+        {
+            interrupt_map.push(slot << 11, 0, 0, pin, gic, 0, 0, ...spi(3 + (slot + pin - 1) % 4, 4));
+        }
+    }
+    const high = ([low, high_half]) => high_half * 0x100000000 + low;
+    children.push(node("pcie@" + VIRT_PCIE_MMIO.toString(16), [
+        ["interrupt-map-mask", [0x1800, 0, 0, 7]], ["interrupt-map", interrupt_map], ["#interrupt-cells", [1]],
+        ["ranges", [
+            0x1000000, 0, 0, ...u64(VIRT_PCIE_PIO), ...u64(VIRT_PCIE_PIO_SIZE),
+            0x2000000, ...u64(VIRT_PCIE_MMIO), ...u64(VIRT_PCIE_MMIO), ...u64(VIRT_PCIE_MMIO_SIZE),
+            0x3000000, ...u64(high(VIRT_PCIE_MMIO_HIGH)), ...u64(high(VIRT_PCIE_MMIO_HIGH)), ...u64(VIRT_PCIE_MMIO_HIGH_SIZE),
+        ]],
+        ["reg", [...u64(high(VIRT_PCIE_ECAM_HIGH)), ...u64(VIRT_PCIE_ECAM_SIZE)]], ["dma-coherent", true],
+        ["bus-range", [0, 0xFF]], ["linux,pci-domain", [0]], ["#size-cells", [2]], ["#address-cells", [3]],
+        ["device_type", "pci"], ["compatible", "pci-host-ecam-generic"],
+    ]));
     children.push(node("pl031@" + VIRT_RTC.toString(16), [
         ["clock-names", "apb_pclk"], ["clocks", [clock]], ["interrupts", spi(2, 4)], ["reg", [...u64(VIRT_RTC), ...u64(0x1000)]],
         ["compatible", ["arm,pl031", "arm,primecell"]],

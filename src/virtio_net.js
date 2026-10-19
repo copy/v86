@@ -29,12 +29,16 @@ const VIRTIO_NET_CTRL_MAC_ADDR_SET = 1;
  * @param {number=} mtu
  * @param {number=} pci_id where the machine puts it (behind a root port), or
  *     its usual slot
+ * @param {?=} transport another transport than virtio-pci (the virt
+ *     machine's virtio-mmio, src/virtio_mmio.js)
+ * @param {number=} id its bus events' number (net<id>-send, ...): the
+ *     virt machine's several functions; else 0, or 1 beside the PC's first NIC
  */
-export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = MTU_DEFAULT, pci_id = undefined)
+export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = MTU_DEFAULT, pci_id = undefined, transport = undefined, id = undefined)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;
-    this.id = cpu.devices.net ? 1 : 0;
+    this.id = id !== undefined ? id : cpu.devices.net ? 1 : 0;
     this.pairs = 1;
     this.status = 1;
     this.preserve_mac_from_state_image = preserve_mac_from_state_image;
@@ -63,6 +67,7 @@ export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = MTU_DEF
     this.virtio = new VirtIO(cpu,
     {
         name: "virtio-net",
+        transport,
         pci_id: pci_id === undefined ? 0x0A << 3 : pci_id,
         device_id: 0x1041,
         subsystem_device_id: 1,

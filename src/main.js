@@ -1,6 +1,10 @@
 import { CPU } from "./cpu.js";
 import { A64CPU } from "./arm/cpu.js";
 import { save_state, restore_state, save_state_stream, restore_state_stream } from "./state.js";
+import { export_raw } from "./image/export.js";
+import { export_qcow2 } from "./image/qcow2_export.js";
+import { release_disk_holds, drop_disk_holds, check_no_disk_holds } from "./block_backend.js";
+import { disks_to_prepare, prepare_disks } from "./disk_writeback.js";
 export { V86 } from "./browser/starter.js";
 
 /**
@@ -26,6 +30,8 @@ export function v86(bus, wasm)
     const stop_idling = () => { this.running && this.idle && this.next_tick(0); };
     /** @type {CPU} */
     this.cpu = wasm.exports["isa_aarch64"] ? /** @type {?} */ (new A64CPU(bus, wasm, stop_idling)) : new CPU(bus, wasm, stop_idling);
+    // (a disk request failed with disk_error "stop": src/block_backend.js)
+    this.cpu.stop_machine = () => this.stop();
 
     this.bus = bus;
 
@@ -50,6 +56,10 @@ v86.prototype.run = function()
         this.running = true;
         this.bus.send("emulator-started");
     }
+
+    // the disk requests held after an I/O error (disk_error "stop") are
+    // retried, in their order (src/block_backend.js)
+    release_disk_holds(this.cpu);
 
     this.next_tick(0);
 };
@@ -117,6 +127,8 @@ v86.prototype.stop = function()
 
 v86.prototype.destroy = function()
 {
+    // (the disk requests held after an I/O error are dropped, as by a power loss)
+    drop_disk_holds(this.cpu);
     this.cpu.parallel?.destroy();
     this.cpu.clock.pause();
     this.unregister_yield();
@@ -332,8 +344,15 @@ v86.prototype.parallel_restore = async function(restore)
 
 v86.prototype.save_state_stream = function(write)
 {
-    if(this.cpu.parallel) return this.state_transaction(() => this.parallel_save(() => save_state_stream(this.cpu, write)), true);
-    return this.state_transaction(() => save_state_stream(this.cpu, write), true);
+    // (the disks written back to a disk service: flushed, their generation
+    // recorded, with the machine stopped: src/disk_writeback.js)
+    const prepare = disks_to_prepare(this.cpu);
+    const save = async () =>
+    {
+        if(prepare.length) { check_no_disk_holds(this.cpu); await prepare_disks(prepare); }
+        return this.cpu.parallel ? this.parallel_save(() => save_state_stream(this.cpu, write)) : save_state_stream(this.cpu, write);
+    };
+    return this.state_transaction(save, true);
 };
 
 v86.prototype.restore_state_stream = function(source)
@@ -342,8 +361,39 @@ v86.prototype.restore_state_stream = function(source)
     return this.state_transaction(() => restore_state_stream(this.cpu, source), false);
 };
 
+/**
+ * Export a disk as the guest sees it, RAW (src/image/export.js) or a new
+ * QCOW2 image (src/image/qcow2_export.js): the machine stops and its disk
+ * I/O finishes first, so the stream is one view of the disk; it goes on
+ * afterwards
+ * @param {?} buffer the disk's buffer
+ * @param {function(!Uint8Array):(Promise<*>|undefined)} write
+ * @param {?=} options format ("raw", "qcow2"), progress, signal
+ * @return {!Promise<number>}
+ */
+v86.prototype.export_disk = function(buffer, write, options)
+{
+    const format = options && options.format || "raw";
+    if(format !== "raw" && format !== "qcow2") return Promise.reject(new Error("Export: unknown format " + JSON.stringify(format) + " (raw, qcow2)"));
+    const run = () => format === "qcow2" ? export_qcow2(buffer, write, options) : export_raw(buffer, write, options);
+    if(this.cpu.parallel) return this.state_transaction(() => this.parallel_save(run), true);
+    return this.state_transaction(run, true);
+};
+
 v86.prototype.save_state = function()
 {
+    // (the disks written back to a disk service: flushed, their generation
+    // recorded, with the machine stopped: src/disk_writeback.js)
+    const prepare = disks_to_prepare(this.cpu);
+    if(prepare.length)
+    {
+        return this.state_transaction(async () =>
+        {
+            check_no_disk_holds(this.cpu);
+            await prepare_disks(prepare);
+            return this.cpu.parallel ? this.parallel_save(() => save_state(this.cpu)) : save_state(this.cpu);
+        }, true);
+    }
     if(this.cpu.parallel) return this.state_transaction(() => this.parallel_save(() => save_state(this.cpu)), true);
     // (disk I/O in flight: the commands complete first, their devices are
     // then in a state a snapshot can hold)

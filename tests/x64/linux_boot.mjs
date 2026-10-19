@@ -190,7 +190,8 @@ const emulator = new V86({
     disable_jit: !jit, experimental_smp_jit: jit, ir_sync_publication: true, log_level: 0, net_device: {type: "virtio"},
     // (the x64 profile, as set_x64_test_capabilities below; LZCNT needs it)
     cpu_type: "x86_64",
-    ...(features.length ? {cpu_features: features, cpu_features_unreleased: true} : {}),
+    // (exactly X64_CPU_FEATURES, none without it: x86_64's default has every feature, the reference's qemu64 none)
+    cpu_features: features, ...(features.length ? {cpu_features_unreleased: true} : {}),
     ...(process.env.X64_IR_TIER0 === "0" ? {ir_tier0: false} : {}),
     // X64_PARALLEL=1: the application processors run in vCPU workers
     ...(+process.env.X64_PARALLEL ? {parallel: true, wasm_path: root + "build/v86-parallel.wasm"} : {}),
@@ -351,6 +352,9 @@ try
     }
     snapshot = inspect();
     assert.ok(booted && /\r?\nX64_LINUX_BOOT_OK\r?\n/.test(serial), "real x64 Linux login shell and command deadline");
+    // (to login and through the probes: docs/x86-64.md's boot time, the
+    // arm64 plan's E level compares its own with it)
+    console.log("X64_LINUX_PROBES_MS " + Math.round(performance.now() - started));
     assert.match(serial, /\r?\nx86_64\r?\n/, "uname confirms actual x86_64 userspace");
     check_probes(serial, true);
     assert.equal(echoed, 32, "the host echoed every probe frame");

@@ -27,6 +27,15 @@ import { CPU } from "./cpu.js";
 // bridge take decode and DMA from memory_decoded, upstream_forwards_memory and
 // is_bus_master, and hear of changes upstream by on_upstream_change; their I/O
 // BARs are mapped only where the bridges forward them.
+//
+// The virt machine's generic PCIe host bridge (`generic`,
+// docs/arm64-virt-android16-plan.md P5.6, P5.10) is the same bus without the
+// PC's parts: configuration through ECAM only (ecam_handler, no 0xCF8/0xCFC
+// and no reset control register), no i440FX; INTx to the GIC (an SPI per pin
+// and slot, level-triggered); memory BARs decoded only while their memory
+// space is enabled, reached through the bridge's windows (window_handler),
+// also above 4 GiB: a BAR may be 64 bits wide (bits64, the next BAR register
+// its upper half). A reset gives every function its power-on configuration.
 
 export const PCI_CONFIG_ADDRESS = 0xCF8;
 export const PCI_CONFIG_DATA = 0xCFC;
@@ -107,9 +116,13 @@ BRIDGE_HEADER_WRITABLE[BRIDGE_CONTROL] = 0x5F;
 /**
  * @constructor
  * @param {CPU} cpu
+ * @param {{generic: boolean}=} options generic: the virt machine's generic PCIe host bridge
  */
-export function PCI(cpu)
+export function PCI(cpu, options)
 {
+    /** the virt machine's generic PCIe host bridge (P5.6) */
+    this.generic = !!(options && options.generic);
+
     this.pci_addr = new Uint8Array(4);
     // (pci_value, pci_response and pci_status are no longer used; they stay
     // for the layout of state images)
@@ -166,6 +179,12 @@ export function PCI(cpu)
      * @type {function(number, number):{pic: number, gsi: number}}
      */
     this.irq_route = (pci_id, pin) => ({ pic: this.piix_pirq_line(pci_id, pin), gsi: -1 });
+    if(this.generic)
+    {
+        // (the reference's interrupt-map: pin p (0-3) of slot s is SPI 3 +
+        // (p + s) % 4, INTID 32 + that; not a PIC line, bit 7)
+        this.irq_route = (pci_id, pin) => ({ pic: 0x80, gsi: 32 + 3 + (pin + (pci_id >> 3 & 0x1F) & 3) });
+    }
 
     /**
      * The bridge whose secondary side each bus is, by the bus's number in
@@ -195,6 +214,20 @@ export function PCI(cpu)
      * @type {!Array<Int32Array|undefined>}
      */
     this.templates = [];
+
+    /**
+     * The generic host's decoded memory BARs: where each is, by its owner
+     * (window_handler)
+     * @type {!Array<{owner: !Object, base: number, size: number, handler: !Object}>}
+     */
+    this.memory_decoders = [];
+
+    if(this.generic)
+    {
+        this.reset_control = 0;
+        this.create_generic_host();
+        return;
+    }
 
     // Configuration data port. Accesses wider than a byte are one config
     // access each, so that registers keep their access-width semantics.
@@ -312,10 +345,65 @@ PCI.prototype.create_i440fx = function()
     this.isa_bridge_space8 = new Uint8Array(this.isa_bridge_space.buffer);
 };
 
-/** Machine reset */
+/**
+ * The generic host's function 00:00.0, QEMU's gpex-root ("QEMU PCIe Host
+ * bridge"): its configuration as the reference's (tests/a64/linux_boot.mjs's
+ * pci variant compares them)
+ */
+PCI.prototype.create_generic_host = function()
+{
+    const space = new Array(64).fill(0);
+    space.splice(0, 12, 0x36, 0x1B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06);
+    space.splice(0x2C, 4, 0xF4, 0x1A, 0x00, 0x11);
+    this.register_device({ pci_id: 0, pci_space: space, pci_bars: [], name: "gpex-root" });
+};
+
+/** Machine reset (the generic host: every function's power-on configuration, reset_functions) */
 PCI.prototype.reset = function()
 {
     this.reset_control = 0;
+    if(this.generic)
+    {
+        this.reset_functions();
+    }
+};
+
+/**
+ * The generic host's functions get their power-on configuration (a machine
+ * reset): their BARs unassigned (where the template has them), no
+ * interrupt asserted; the devices reset themselves
+ */
+PCI.prototype.reset_functions = function()
+{
+    this.devices.forEach((device, pci_id) => {
+        const template = this.templates[pci_id];
+        if(!device || !template) return;
+        if(this.intx_levels[pci_id])
+        {
+            this.set_irq_level(pci_id, false);
+        }
+        this.device_spaces[pci_id].set(template);
+        device.pci_bars.forEach((bar, i) => {
+            if(bar && bar.on_move && !(template[(0x10 >> 2) + i] & 1))
+            {
+                this.move_memory_bar(bar, this.bar_base(template, i, bar));
+            }
+        });
+        device.on_config_restore && device.on_config_restore();
+    });
+};
+
+/**
+ * Where a memory BAR's registers in `space` put it (both halves of a 64-bit one)
+ * @param {!Int32Array} space
+ * @param {number} bar_nr
+ * @param {Object} bar
+ * @return {number}
+ */
+PCI.prototype.bar_base = function(space, bar_nr, bar)
+{
+    const low = (space[(0x10 >> 2) + bar_nr] & ~0xF) >>> 0;
+    return bar.bits64 ? (space[(0x10 >> 2) + bar_nr + 1] >>> 0) * 0x100000000 + low : low;
 };
 
 PCI.prototype.get_state = function()
@@ -418,7 +506,7 @@ PCI.prototype.set_state = function(state)
                 // taken mid-sizing holds the size mask, which is not a place)
                 if((value | 0xF | bar.size - 1) !== -1)
                 {
-                    this.move_memory_bar(bar, value & ~0xF);
+                    this.move_memory_bar(bar, this.bar_base(space, bar_nr, bar));
                 }
             }
         }
@@ -760,6 +848,13 @@ PCI.prototype.write_bar = function(device, space, offset, written)
 
     if(!bar)
     {
+        const lower = bar_nr > 0 ? device.pci_bars[bar_nr - 1] : undefined;
+        if(lower && lower.bits64)
+        {
+            // the upper half of a 64-bit memory BAR (P5.10)
+            this.write_bar_upper(lower, space, space_addr, written);
+            return;
+        }
         space[space_addr] = 0;
         return;
     }
@@ -792,7 +887,7 @@ PCI.prototype.write_bar = function(device, space, offset, written)
                 // SeaBIOS assigns every BAR, and an OS may reassign them
                 const base = written & ~(bar.size - 1) & ~0xF;
                 space[space_addr] = base | original_bar & 0xF;
-                this.move_memory_bar(bar, base);
+                this.move_memory_bar(bar, this.bar_base(space, bar_nr, bar));
             }
             else
             {
@@ -847,6 +942,27 @@ PCI.prototype.write_bar = function(device, space, offset, written)
     }
 
     dbg_log("BAR effective value: " + h(space[space_addr] >>> 0), LOG_PCI);
+};
+
+/**
+ * A write to the upper half of a 64-bit memory BAR: all its bits are
+ * writable but those of a size of 4 GiB or more (sizing reads them back as
+ * the mask's upper half). The BAR moves unless either half holds the size
+ * mask.
+ * @param {Object} bar the BAR, of the register below
+ * @param {!Int32Array} space
+ * @param {number} space_addr
+ * @param {number} written
+ */
+PCI.prototype.write_bar_upper = function(bar, space, space_addr, written)
+{
+    const mask = ~Math.floor((bar.size - 1) / 0x100000000);
+    space[space_addr] = written & mask;
+    const low = space[space_addr - 1];
+    if(written !== -1 && (low | 0xF | bar.size - 1) !== -1)
+    {
+        this.move_memory_bar(bar, this.bar_base(space, space_addr - 1 - (0x10 >> 2), bar));
+    }
 };
 
 /**
@@ -1253,6 +1369,87 @@ PCI.prototype.set_ecam = function(base, size)
     }
 };
 
+/**
+ * The generic host's ECAM (src/virt/io.js's handler for its 256 MiB, bus
+ * 0-255): offset bits 27:20 select the bus, 19:12 device and function, 11:0
+ * the register; an 8-byte access is two 4-byte ones
+ * @return {{name: string, read: function(number, number): (number|bigint), write: function(number, number, (number|bigint))}}
+ */
+PCI.prototype.ecam_handler = function()
+{
+    const read = (offset, width) => this.config_read(offset >>> 12, offset & 0xFFF, width);
+    const write = (offset, width, value) => this.config_write(offset >>> 12, offset & 0xFFF, width, value);
+    return {
+        name: "pcie-ecam",
+        read: (offset, width) => width === 8 ?
+            BigInt(read(offset, 4) >>> 0) | BigInt(read(offset + 4, 4) >>> 0) << 32n : read(offset, width) >>> 0,
+        write: (offset, width, value) => {
+            if(width === 8)
+            {
+                write(offset, 4, Number(BigInt.asUintN(32, /** @type {bigint} */ (value))) | 0);
+                write(offset + 4, 4, Number(/** @type {bigint} */ (value) >> 32n) | 0);
+            }
+            else
+            {
+                write(offset, width, /** @type {number} */ (value));
+            }
+        },
+    };
+};
+
+/**
+ * The generic host's memory window at `window_base` (src/virt/io.js's
+ * handler): an access reaches the BAR that decodes all of it
+ * (set_memory_decoder), at its offset in the BAR; elsewhere reads are all
+ * ones and writes go nowhere, as on the reference
+ * @param {number} window_base
+ * @return {{name: string, read: function(number, number): (number|bigint), write: function(number, number, (number|bigint))}}
+ */
+PCI.prototype.window_handler = function(window_base)
+{
+    const find = (address, width) => {
+        for(const decoder of this.memory_decoders)
+        {
+            if(address >= decoder.base && address + width <= decoder.base + decoder.size) return decoder;
+        }
+        return null;
+    };
+    return {
+        name: "pcie-window",
+        read: (offset, width) => {
+            const address = window_base + offset;
+            const decoder = find(address, width);
+            if(decoder) return decoder.handler.read(address - decoder.base, width);
+            return width === 8 ? 0xFFFFFFFFFFFFFFFFn : 2 ** (8 * width) - 1;
+        },
+        write: (offset, width, value) => {
+            const address = window_base + offset;
+            const decoder = find(address, width);
+            if(decoder) decoder.handler.write(address - decoder.base, width, value);
+        },
+    };
+};
+
+/**
+ * A memory BAR of a function on the generic host is decoded at [base, base +
+ * size) by `handler` (offset in the BAR and width, as src/virt/io.js's), or
+ * no longer (base -1)
+ * @param {!Object} owner the BAR's device, which names the decoder
+ * @param {number} base
+ * @param {number} size
+ * @param {Object} handler
+ */
+PCI.prototype.set_memory_decoder = function(owner, base, size, handler)
+{
+    dbg_assert(this.generic);
+    this.memory_decoders = this.memory_decoders.filter(decoder => decoder.owner !== owner);
+    if(base !== -1)
+    {
+        dbg_log("PCI memory decoded at " + h(base) + " size " + h(size) + " (" + owner.name + ")", LOG_PCI);
+        this.memory_decoders.push({ owner, base, size, handler: /** @type {!Object} */ (handler) });
+    }
+};
+
 PCI.prototype.register_device = function(device)
 {
     dbg_assert(device.pci_id !== undefined);
@@ -1278,7 +1475,7 @@ PCI.prototype.register_device = function(device)
     space.set(new Int32Array(new Uint8Array(device.pci_space).buffer));
     this.device_spaces[device_id] = space;
     this.devices[device_id] = device;
-    if(device_id >= 256)
+    if(device_id >= 256 || this.generic)
     {
         this.templates[device_id] = space.slice();
     }
@@ -1316,7 +1513,9 @@ PCI.prototype.register_device = function(device)
         if(type === 0)
         {
             // memory: the device decodes it itself (bar.on_move)
-            bar.base = (bar_base & ~0xF) >>> 0;
+            dbg_assert(!bar.bits64 || this.generic && (bar_base & 6) === 4 && i < 5 && !device.pci_bars[i + 1],
+                "PCI: a 64-bit BAR is the generic host's, of type 64-bit, and the next register its upper half");
+            bar.base = this.bar_base(space, i, bar);
         }
         else if(bar.on_move)
         {
@@ -1399,7 +1598,7 @@ PCI.prototype.set_function_present = function(pci_id, present, fresh)
  */
 PCI.prototype.move_memory_bar = function(bar, base)
 {
-    base >>>= 0;
+    if(!bar.bits64) base >>>= 0;
     if(bar.base !== base)
     {
         dbg_log("memory bar moved from " + h(bar.base >>> 0, 8) + " to " + h(base, 8) + " size=" + h(bar.size), LOG_PCI);

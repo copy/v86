@@ -2,6 +2,57 @@ import { CPU } from "./cpu.js";
 import { load_file, get_file_size } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
+/**
+ * A read the buffer could not complete (src/block_backend.js: by the disk's
+ * disk_error policy); `kind` as the errors of src/image/source.js
+ * @param {string} message
+ * @param {string} kind
+ * @param {boolean} retryable
+ * @return {!Error}
+ */
+function read_error(message, kind, retryable)
+{
+    const error = new Error(message);
+    /** @type {?} */ (error).kind = kind;
+    error["retryable"] = retryable;
+    return error;
+}
+
+/**
+ * A disk read over HTTP sees one version of its file
+ * (docs/disk-persistence-plan.md "一致读取"): the first response's ETag (or,
+ * without one, its Last-Modified) is kept, every later response of the same
+ * file must have the same; otherwise the file changed while it was read
+ * (written by another session, or the site published a new image), and the
+ * read fails rather than mixing sectors of two versions. The requests are
+ * not changed (no If-Match: a header of its own would need a CORS preflight
+ * that a static host may refuse). Without either header (or with headers a
+ * cross-origin server does not expose) nothing is checked.
+ * @param {!Map<string, {etag: ?string, last_modified: ?string}>} versions by file name
+ * @param {string} filename
+ * @param {*} http the response's XMLHttpRequest (none in Node)
+ * @return {!Error|undefined}
+ */
+export function check_response_version(versions, filename, http)
+{
+    if(!http || typeof http.getResponseHeader !== "function") return undefined;
+    const etag = http.getResponseHeader("ETag");
+    const last_modified = http.getResponseHeader("Last-Modified");
+    const known = versions.get(filename);
+    if(!known)
+    {
+        if(etag || last_modified) versions.set(filename, { etag, last_modified });
+        return undefined;
+    }
+    const changed = known.etag && etag ? known.etag !== etag :
+        !known.etag && known.last_modified && last_modified ? known.last_modified !== last_modified : false;
+    if(!changed) return undefined;
+    return read_error(filename + " changed while it was read (" +
+        (known.etag ? "ETag " + known.etag + ", now " + etag : "Last-Modified " + known.last_modified + ", now " + last_modified) +
+        "): its sectors are not mixed with the other version's", "changed", false);
+}
+
+
 // The smallest size the emulated hardware can emit
 const BLOCK_SIZE = 256;
 
@@ -136,6 +187,9 @@ function AsyncXHRBuffer(filename, size, fixed_chunk_size)
     this.fixed_chunk_size = fixed_chunk_size;
     this.cache_reads = !!fixed_chunk_size; // TODO: could also be useful in other cases (needs testing)
 
+    /** @type {!Map<string, {etag: ?string, last_modified: ?string}>} (check_response_version) */
+    this.versions = new Map();
+
     this.onload = undefined;
     this.onprogress = undefined;
 }
@@ -207,7 +261,7 @@ AsyncXHRBuffer.prototype.cached_block = function(index)
 /**
  * @param {number} offset
  * @param {number} len
- * @param {function(!Uint8Array)} fn
+ * @param {function((!Uint8Array|undefined), !Error=)} fn the data, or (undefined, the error)
  */
 AsyncXHRBuffer.prototype.get = function(offset, len, fn, options)
 {
@@ -239,9 +293,22 @@ AsyncXHRBuffer.prototype.get = function(offset, len, fn, options)
     }
 
     load_file(this.filename, {
-        done: function done(buffer)
+        done: function done(buffer, http)
         {
+            const changed = check_response_version(this.versions, this.filename, http);
+            if(changed)
+            {
+                fn(undefined, changed);
+                return;
+            }
             var block = new Uint8Array(buffer);
+            // (a chunk at the end of the file may be shorter than asked for)
+            if(block.length < Math.min(requested_length, this.byteLength - requested_start))
+            {
+                fn(undefined, read_error(this.filename + ": " + block.length + " bytes at " + requested_start +
+                    " instead of " + requested_length, "io", true));
+                return;
+            }
             this.handle_read(requested_start, requested_length, block);
             if(requested_start === offset && requested_length === len)
             {
@@ -252,6 +319,8 @@ AsyncXHRBuffer.prototype.get = function(offset, len, fn, options)
                 fn(block.subarray(offset - requested_start, offset - requested_start + len));
             }
         }.bind(this),
+        error: status => fn(undefined, read_error(this.filename + ": the read of " + requested_length + " bytes at " + requested_start +
+            " failed (" + (typeof status === "number" ? "HTTP status " + status : status) + ")", "io", true)),
         range: { start: requested_start, length: requested_length },
         signal: options?.signal,
     });
@@ -261,12 +330,17 @@ AsyncXHRBuffer.prototype.get = function(offset, len, fn, options)
  * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
  * @param {number} offset
  * @param {number} len
- * @param {function(!Uint8Array)} fn
+ * @param {function((!Uint8Array|undefined), !Error=)} fn the data, or (undefined, the error)
  */
 AsyncXHRBuffer.prototype.get_and_cache = function(offset, len, fn, options)
 {
-    this.get(offset, len, function(block)
+    this.get(offset, len, function(block, error)
     {
+        if(!block)
+        {
+            fn(block, error);
+            return;
+        }
         const start_block = offset / BLOCK_SIZE;
         const block_count = len / BLOCK_SIZE;
 
@@ -518,6 +592,9 @@ export function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size, partfil
 
     this.cache_reads = !!fixed_chunk_size; // TODO: could also be useful in other cases (needs testing)
 
+    /** @type {!Map<string, {etag: ?string, last_modified: ?string}>} each part's (check_response_version) */
+    this.versions = new Map();
+
     this.onload = undefined;
     this.onprogress = undefined;
 }
@@ -536,7 +613,7 @@ AsyncXHRPartfileBuffer.prototype.load = function()
 /**
  * @param {number} offset
  * @param {number} len
- * @param {function(!Uint8Array)} fn
+ * @param {function((!Uint8Array|undefined), !Error=)} fn the data, or (undefined, the error)
  */
 AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
 {
@@ -568,6 +645,9 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
         const total_count = Math.ceil((m_offset + len) / this.fixed_chunk_size);
         const blocks = new Uint8Array(total_count * this.fixed_chunk_size);
         let finished = 0;
+        // (one part failed: the read fails once)
+        let failed = false;
+        const fail = error => { if(!failed) { failed = true; fn(undefined, error); } };
 
         for(let i = 0; i < total_count; i++)
         {
@@ -596,8 +676,15 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
             else
             {
                 load_file(part_filename, {
-                    done: async function done(buffer)
+                    done: async function done(buffer, http)
                     {
+                        if(failed) return;
+                        const changed = check_response_version(this.versions, part_filename, http);
+                        if(changed)
+                        {
+                            fail(changed);
+                            return;
+                        }
                         let block = new Uint8Array(buffer);
 
                         if(this.is_zstd)
@@ -606,6 +693,7 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
                             block = new Uint8Array(decompressed);
                         }
 
+                        if(failed) return;
                         blocks.set(block, i * this.fixed_chunk_size);
                         this.handle_read((start_index + i) * this.fixed_chunk_size, this.fixed_chunk_size|0, block);
 
@@ -615,6 +703,8 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
                             fn(blocks.subarray(m_offset, m_offset + len));
                         }
                     }.bind(this),
+                    error: status => fail(read_error(part_filename + ": the read failed (" +
+                        (typeof status === "number" ? "HTTP status " + status : status) + ")", "io", true)),
                     signal: options?.signal,
                 });
             }
@@ -625,13 +715,25 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
         const part_filename = this.basename + offset + "-" + (offset + len) + this.extension;
 
         load_file(part_filename, {
-            done: function done(buffer)
+            done: function done(buffer, http)
             {
-                dbg_assert(buffer.byteLength === len);
+                const changed = check_response_version(this.versions, part_filename, http);
+                if(changed)
+                {
+                    fn(undefined, changed);
+                    return;
+                }
+                if(buffer.byteLength !== len)
+                {
+                    fn(undefined, read_error(part_filename + ": " + buffer.byteLength + " bytes instead of " + len, "io", true));
+                    return;
+                }
                 var block = new Uint8Array(buffer);
                 this.handle_read(offset, len, block);
                 fn(block);
             }.bind(this),
+            error: status => fn(undefined, read_error(part_filename + ": the read failed (" +
+                (typeof status === "number" ? "HTTP status " + status : status) + ")", "io", true)),
             signal: options?.signal,
         });
     }
@@ -746,7 +848,7 @@ AsyncFileBuffer.prototype.load = function()
 /**
  * @param {number} offset
  * @param {number} len
- * @param {function(!Uint8Array)} fn
+ * @param {function((!Uint8Array|undefined), !Error=)} fn the data, or (undefined, the error)
  */
 AsyncFileBuffer.prototype.get = function(offset, len, fn)
 {
@@ -769,7 +871,15 @@ AsyncFileBuffer.prototype.get = function(offset, len, fn)
     // took minutes instead of seconds)
     if(typeof FileReaderSync !== "undefined")
     {
-        block = new Uint8Array(new FileReaderSync().readAsArrayBuffer(this.file.slice(offset, offset + len)));
+        try
+        {
+            block = new Uint8Array(new FileReaderSync().readAsArrayBuffer(this.file.slice(offset, offset + len)));
+        }
+        catch(e)
+        {
+            fn(undefined, read_error("the file " + this.file.name + " could not be read (" + e.name + ")", "io", true));
+            return;
+        }
         this.handle_read(offset, len, block);
         fn(block);
         return;
@@ -784,6 +894,11 @@ AsyncFileBuffer.prototype.get = function(offset, len, fn)
 
         this.handle_read(offset, len, block);
         fn(block);
+    }.bind(this);
+    // (the file changed or went away since it was picked: NotReadableError)
+    fr.onerror = function()
+    {
+        fn(undefined, read_error("the file " + this.file.name + " could not be read (" + (fr.error && fr.error.name) + ")", "io", true));
     }.bind(this);
 
     fr.readAsArrayBuffer(this.file.slice(offset, offset + len));

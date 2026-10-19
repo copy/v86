@@ -2,10 +2,11 @@
 // docs/arm64-virt-android16-plan.md): its physical address map, which copies
 // QEMU's virt-9.2 (the fixed reference), and the identity snapshots record.
 
-/** Version of the virt machine's device layout, recorded in snapshots */
-export const VIRT_LAYOUT_VERSION = 1;
+/** Version of the virt machine's device layout, recorded in snapshots (2: the PCIe host, P5.6) */
+export const VIRT_LAYOUT_VERSION = 2;
 
 /** The CPU profile (tests/platform/a64-profile.json) */
+/** The CPU profiles' base name: v1; v1.1, the default, adds ".1" (src/arm/cpu.js) */
 export const A64_PROFILE = "v86-aarch64-v1";
 
 /** Must match MAX_CORES in src/rust/aarch64/isa_hooks.rs */
@@ -13,6 +14,9 @@ export const VIRT_MAX_CORES = 8;
 
 /** Guest RAM's base (src/rust/aarch64/bus.rs RAM_BASE) */
 export const VIRT_RAM_BASE = 0x40000000;
+/** extended RAM (P8.5): from 4 GiB, to where the reference's RAM ends (256 GiB, before the high ECAM) */
+export const VIRT_EXTENDED_RAM_BASE = 0x100000000;
+export const VIRT_EXTENDED_RAM_END = 0x4000000000;
 
 // QEMU virt-9.2 with highmem-ecam/-mmio/-redists on (docs/virt.md)
 export const VIRT_GIC_DIST = 0x08000000;
@@ -30,6 +34,8 @@ export const VIRT_PCIE_PIO = 0x3EFF0000;
 export const VIRT_PCIE_PIO_SIZE = 0x10000;
 /** above 4 GiB: as [low, high] 32-bit halves */
 export const VIRT_PCIE_ECAM_HIGH = [0x10000000, 0x40];
+/** 256 buses */
+export const VIRT_PCIE_ECAM_SIZE = 0x10000000;
 export const VIRT_PCIE_MMIO_HIGH = [0x00000000, 0x80];
 export const VIRT_PCIE_MMIO_HIGH_SIZE = 0x8000000000;
 

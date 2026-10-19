@@ -12,6 +12,25 @@
 //! workers crate::parallel::code). A change of the map bumps the generation
 //! and drops all compiled code and cached translations.
 //!
+//! Device memory (P7.1: virtio-gpu's host visible memory) is guest memory
+//! a device owns, from DEVICE_START in the backing (after RAM and the ROMs),
+//! mapped where its BAR is: the cores read and write it as RAM, but their
+//! writes mark its pages (the device takes them, a64_device_take_dirty), and
+//! compiled code writes it through the interpreter's path (the access cache
+//! is not filled for it).
+//!
+//! Extended RAM (P8.5: RAM beyond the one allocation of guest memory) is a
+//! region at or above 4 GiB that crate::aarch64::extended keeps (a host store
+//! cached in frames): the cores read and write it a page at a time, code is
+//! compiled from it under its own code keys (from EXTENDED_CODE_KEY on), the
+//! access cache is not filled for it.
+//!
+//! With cores in workers (P8.2), the map is the machine instance's: a
+//! worker keeps a copy (`sync_worker`), taken again when the machine's
+//! generation changes; the machine changes it under MAP_SEQ (odd while
+//! changing), so that a copy made meanwhile is made again. Device memory's
+//! marks are the machine's words, set and taken atomically.
+//!
 //! JavaScript passes 64-bit addresses as two 32-bit halves (low, high).
 
 use crate::page::Page;
@@ -31,7 +50,15 @@ pub enum Kind {
     Rom { backing: u32 },
     /// a device: its accesses go to the owner (src/virt), offset from the region's base
     Mmio { owner: u32 },
+    /// device memory at `backing` (at or above DEVICE_START): guest memory whose written pages are marked
+    Device { backing: u32 },
+    /// extended RAM (crate::aarch64::extended)
+    Extended,
 }
+
+/// The code key of extended RAM's first page (the keys of guest memory are
+/// its pages, below 2 GiB)
+pub const EXTENDED_CODE_KEY: u32 = 1 << 20;
 
 /// What a physical address is
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -46,6 +73,10 @@ pub enum Lookup {
     Mmio {
         owner: u32,
         offset: u64,
+    },
+    /// extended RAM: `page` from its start
+    Extended {
+        page: u32,
     },
     Hole,
 }
@@ -80,6 +111,12 @@ static mut BUS: AddressSpace = AddressSpace {
 pub static mut MEM8: *mut u8 = std::ptr::null_mut();
 /// The bytes of guest memory (RAM and the ROMs after it)
 pub static mut MEM8_SIZE: u32 = 0;
+/// Where device memory starts in guest memory (u32::MAX: there is none)
+pub static mut DEVICE_START: u32 = u32::MAX;
+/// One bit per 4 KiB page of device memory, from DEVICE_START: written by a core since its device took it
+static mut DEVICE_DIRTY: Vec<u64> = Vec::new();
+/// The words a64_device_take_dirty hands out
+static mut DEVICE_TAKEN: Vec<u64> = Vec::new();
 
 #[inline(always)]
 pub fn bus() -> &'static AddressSpace { unsafe { &*(&raw const BUS) } }
@@ -133,6 +170,17 @@ impl AddressSpace {
                     owner,
                     offset: pa - r.base,
                 },
+                Kind::Device { backing } => {
+                    let at = backing + (pa - r.base) as u32;
+                    Lookup::Ram {
+                        backing: at,
+                        code_key: at >> 12,
+                        writable: true,
+                    }
+                },
+                Kind::Extended => Lookup::Extended {
+                    page: ((pa - r.base) >> 12) as u32,
+                },
             },
             None => Lookup::Hole,
         }
@@ -177,6 +225,7 @@ impl AddressSpace {
                     offset: p,
                 },
             ) if a == b && p - o == len - 1 => Ok(first),
+            (Lookup::Extended { .. }, Lookup::Extended { .. }) => Ok(first),
             _ => Err(Fault::External),
         }
     }
@@ -185,6 +234,7 @@ impl AddressSpace {
     pub fn code_key(&self, pa: u64) -> Option<u32> {
         match self.lookup(pa) {
             Lookup::Ram { code_key, .. } => Some(code_key),
+            Lookup::Extended { page } => Some(EXTENDED_CODE_KEY + page),
             _ => None,
         }
     }
@@ -212,6 +262,17 @@ impl AddressSpace {
                 return false;
             }
         }
+        if kind == Kind::Extended && (base | size) & 0xFFF != 0 {
+            return false;
+        }
+        if let Kind::Device { backing } = kind {
+            if backing < unsafe { DEVICE_START }
+                || backing as u64 + size > unsafe { MEM8_SIZE } as u64
+                || (backing | size as u32) & 0xFFF != 0
+            {
+                return false;
+            }
+        }
         self.regions.insert(i, Region { base, size, kind });
         self.changed();
         true
@@ -230,9 +291,69 @@ impl AddressSpace {
     /// The map changed: translations and compiled code that cached it go
     fn changed(&mut self) {
         self.generation = self.generation.wrapping_add(1);
-        for hook in unsafe { &*(&raw const MAP_CHANGED) } {
-            hook();
+        run_map_hooks();
+    }
+}
+
+fn run_map_hooks() {
+    for hook in unsafe { &*(&raw const MAP_CHANGED) } {
+        hook();
+    }
+}
+
+/// (cores in workers) odd while the machine instance changes its map
+static mut MAP_SEQ: u32 = 0;
+
+/// Change the machine's map (`change`), so that workers copying it meanwhile notice
+fn mutate<T>(change: impl FnOnce(&mut AddressSpace) -> T) -> T {
+    let seq = &raw mut MAP_SEQ;
+    unsafe {
+        crate::parallel::word_store(seq, *seq | 1);
+        let result = change(bus_mut());
+        crate::parallel::word_store(seq, (*seq | 1).wrapping_add(1));
+        result
+    }
+}
+
+/// A worker's copy of the machine's map and guest memory (P8.2): at its
+/// attachment, after a stop, and when the machine's generation changed
+pub unsafe fn sync_worker() {
+    let machine = &*crate::parallel::machine(&raw mut BUS);
+    let seq = crate::parallel::machine(&raw mut MAP_SEQ);
+    MEM8 = *crate::parallel::machine(&raw mut MEM8);
+    MEM8_SIZE = *crate::parallel::machine(&raw mut MEM8_SIZE);
+    DEVICE_START = *crate::parallel::machine(&raw mut DEVICE_START);
+    let b = bus_mut();
+    loop {
+        let before = crate::parallel::word_load(seq);
+        if before & 1 != 0 {
+            std::hint::spin_loop();
+            continue;
         }
+        // (the machine's Vec may be changing: its length is checked, a torn copy made again)
+        let (pointer, length) = (machine.regions.as_ptr(), machine.regions.len());
+        if length <= 4096 {
+            b.regions.clear();
+            b.regions
+                .extend_from_slice(std::slice::from_raw_parts(pointer, length));
+            b.ram_size = machine.ram_size;
+            b.generation = machine.generation;
+        }
+        if crate::parallel::word_load(seq) == before && length <= 4096 {
+            WORKER_SEQ = before;
+            break;
+        }
+    }
+    run_map_hooks();
+}
+
+/// The machine's MAP_SEQ when the worker's copy was made
+static mut WORKER_SEQ: u32 = 0;
+/// (cores in workers, each slice) copy the map again if the machine changed it
+#[inline]
+pub unsafe fn sync_worker_if_stale() {
+    if crate::parallel::word_load(crate::parallel::machine(&raw mut MAP_SEQ)) != WORKER_SEQ {
+        sync_worker();
     }
 }
 
@@ -271,11 +392,32 @@ pub fn written(backing: u32, len: u32) {
     if len == 0 {
         return;
     }
+    if backing >= unsafe { DEVICE_START } {
+        device_written(backing, len);
+    }
     crate::aarch64::smp::monitors_written(backing, len, false);
     retire_code(backing, len);
 }
 
-/// Retire code compiled from the pages of [backing, backing + len)
+/// A core wrote device memory: its pages are marked (the machine's words)
+#[cold]
+fn device_written(backing: u32, len: u32) {
+    let dirty = unsafe { &*crate::parallel::machine(&raw mut DEVICE_DIRTY) };
+    let start = unsafe { DEVICE_START };
+    for page in (backing - start) >> 12..=(backing - start + (len - 1)) >> 12 {
+        if (page as usize / 64) < dirty.len() {
+            unsafe {
+                crate::parallel::or64(
+                    dirty.as_ptr().add(page as usize / 64) as *mut u8,
+                    1 << (page % 64),
+                )
+            };
+        }
+    }
+}
+
+/// Retire code compiled from the pages of [backing, backing + len), by
+/// this core and (cores in workers) the others
 #[inline]
 fn retire_code(backing: u32, len: u32) {
     let first = backing >> 12;
@@ -285,6 +427,7 @@ fn retire_code(backing: u32, len: u32) {
             let lo = if page == first { backing & 0xFFF } else { 0 };
             let hi = if page == last { ((backing + (len - 1)) & 0xFFF) + 1 } else { 0x1000 };
             crate::aarch64::root::dirty_bytes(Page::page_of(page << 12), lo, hi);
+            unsafe { crate::parallel::code::written(page) };
         }
     }
 }
@@ -317,18 +460,19 @@ unsafe fn mmio_write(owner: u32, offset: u64, size: u32, value: u64) {
 pub unsafe fn a64_set_cores(cores: u32) -> bool {
     let cores = (cores as usize).clamp(1, crate::isa::MAX_CORES);
     *crate::parallel::machine(&raw mut crate::aarch64::isa_hooks::CORE_COUNT) = cores;
-    let b = bus_mut();
-    b.unmap(crate::aarch64::gic::GICD_BASE);
-    b.unmap(crate::aarch64::gic::GICR_BASE);
-    b.map(
-        crate::aarch64::gic::GICD_BASE,
-        crate::aarch64::gic::GICD_SIZE,
-        Kind::Mmio { owner: OWNER_GICD },
-    ) && b.map(
-        crate::aarch64::gic::GICR_BASE,
-        crate::aarch64::gic::GICR_STRIDE * cores as u64,
-        Kind::Mmio { owner: OWNER_GICR },
-    )
+    mutate(|b| {
+        b.unmap(crate::aarch64::gic::GICD_BASE);
+        b.unmap(crate::aarch64::gic::GICR_BASE);
+        b.map(
+            crate::aarch64::gic::GICD_BASE,
+            crate::aarch64::gic::GICD_SIZE,
+            Kind::Mmio { owner: OWNER_GICD },
+        ) && b.map(
+            crate::aarch64::gic::GICR_BASE,
+            crate::aarch64::gic::GICR_STRIDE * cores as u64,
+            Kind::Mmio { owner: OWNER_GICR },
+        )
+    })
 }
 
 /// Read `size` bytes (1, 2, 4, 8) at `pa`, little-endian
@@ -345,6 +489,7 @@ pub unsafe fn read(pa: u64, size: u32) -> Result<u64, Fault> {
             })
         },
         Lookup::Mmio { owner, offset } => Ok(mmio_read(owner, offset, size)),
+        Lookup::Extended { .. } => Ok(crate::aarch64::extended::read(pa, size)),
         Lookup::Hole => Err(Fault::External),
     }
 }
@@ -372,6 +517,10 @@ pub unsafe fn write(pa: u64, size: u32, value: u64) -> Result<(), Fault> {
             mmio_write(owner, offset, size, value);
             Ok(())
         },
+        Lookup::Extended { .. } => {
+            crate::aarch64::extended::write(pa, size, value);
+            Ok(())
+        },
         Lookup::Hole => Err(Fault::External),
     }
 }
@@ -386,6 +535,11 @@ pub unsafe fn read128(pa: u64) -> Result<u128, Fault> {
         Lookup::Mmio { owner, offset } => {
             let lo = mmio_read(owner, offset, 8);
             let hi = mmio_read(owner, offset + 8, 8);
+            Ok(lo as u128 | (hi as u128) << 64)
+        },
+        Lookup::Extended { .. } => {
+            let lo = crate::aarch64::extended::read(pa, 8);
+            let hi = crate::aarch64::extended::read(pa + 8, 8);
             Ok(lo as u128 | (hi as u128) << 64)
         },
         Lookup::Hole => Err(Fault::External),
@@ -407,6 +561,12 @@ pub unsafe fn write128(pa: u64, value: u128) -> Result<(), Fault> {
         Lookup::Mmio { owner, offset } => {
             mmio_write(owner, offset, 8, value as u64);
             mmio_write(owner, offset + 8, 8, (value >> 64) as u64);
+            Ok(())
+        },
+        Lookup::Extended { .. } => {
+            let _guard = crate::extended::Guard::new();
+            crate::aarch64::extended::write(pa, 8, value as u64);
+            crate::aarch64::extended::write(pa + 8, 8, (value >> 64) as u64);
             Ok(())
         },
         Lookup::Hole => Err(Fault::External),
@@ -453,9 +613,10 @@ pub unsafe fn a64_bus_set_ram(size: u32) -> bool {
     {
         return false;
     }
-    let b = bus_mut();
-    b.ram_size = size as u64;
-    b.changed();
+    mutate(|b| {
+        b.ram_size = size as u64;
+        b.changed();
+    });
     true
 }
 
@@ -468,11 +629,13 @@ pub unsafe fn a64_bus_map_mmio(
     size_high: u32,
     owner: u32,
 ) -> bool {
-    bus_mut().map(
-        pa(base_low, base_high),
-        pa(size_low, size_high),
-        Kind::Mmio { owner },
-    )
+    mutate(|b| {
+        b.map(
+            pa(base_low, base_high),
+            pa(size_low, size_high),
+            Kind::Mmio { owner },
+        )
+    })
 }
 /// Map read-only guest memory at [base, base + size), from `backing`
 #[no_mangle]
@@ -483,22 +646,88 @@ pub unsafe fn a64_bus_map_rom(
     size_high: u32,
     backing: u32,
 ) -> bool {
-    bus_mut().map(
-        pa(base_low, base_high),
-        pa(size_low, size_high),
-        Kind::Rom { backing },
-    )
+    mutate(|b| {
+        b.map(
+            pa(base_low, base_high),
+            pa(size_low, size_high),
+            Kind::Rom { backing },
+        )
+    })
 }
+/// Device memory from `start` to the end of guest memory (once, after
+/// a64_allocate_memory; `start` page aligned, at or after the RAM's end)
+#[no_mangle]
+pub unsafe fn a64_device_memory(start: u32) -> bool {
+    if start & 0xFFF != 0 || start > MEM8_SIZE || (start as u64) < bus().ram_size {
+        return false;
+    }
+    DEVICE_START = start;
+    let pages = (MEM8_SIZE - start).div_ceil(4096) as usize;
+    *(&raw mut DEVICE_DIRTY) = vec![0; pages.div_ceil(64)];
+    true
+}
+/// Map device memory at [base, base + size), from `backing` (page aligned, device memory)
+#[no_mangle]
+pub unsafe fn a64_bus_map_device(
+    base_low: u32,
+    base_high: u32,
+    size_low: u32,
+    size_high: u32,
+    backing: u32,
+) -> bool {
+    mutate(|b| {
+        b.map(
+            pa(base_low, base_high),
+            pa(size_low, size_high),
+            Kind::Device { backing },
+        )
+    })
+}
+/// Take the marks of the pages of [backing, backing + size) of device
+/// memory (backing 256 KiB aligned from DEVICE_START): the address of words
+/// with a bit a page, the first page bit 0 of the first word, 64 a word;
+/// 0 when none was written. The marks clear.
+#[no_mangle]
+pub unsafe fn a64_device_take_dirty(backing: u32, size: u32) -> u32 {
+    take_device_dirty(backing, size).map_or(0, |words| words.as_ptr() as u32)
+}
+unsafe fn take_device_dirty(backing: u32, size: u32) -> Option<&'static [u64]> {
+    let dirty = &mut *(&raw mut DEVICE_DIRTY);
+    let taken = &mut *(&raw mut DEVICE_TAKEN);
+    let offset = backing.checked_sub(DEVICE_START)?;
+    debug_assert!(offset % (64 * 4096) == 0);
+    let first = (offset >> 18) as usize;
+    let count = (size.div_ceil(4096) as usize).div_ceil(64);
+    taken.clear();
+    let mut any = false;
+    for i in first..(first + count).min(dirty.len()) {
+        // (cores in workers mark them meanwhile)
+        let word = crate::parallel::swap64(&raw mut dirty[i], 0);
+        any |= word != 0;
+        taken.push(word);
+    }
+    any.then_some(&taken[..])
+}
+/// Mark every page of [backing, backing + size) of device memory written
+#[no_mangle]
+pub unsafe fn a64_device_mark_dirty(backing: u32, size: u32) {
+    if backing >= DEVICE_START && size != 0 {
+        device_written(backing, size);
+    }
+}
+/// Map extended RAM at [base, base + size) (crate::aarch64::extended)
+pub fn map_extended(base: u64, size: u64) -> bool { mutate(|b| b.map(base, size, Kind::Extended)) }
+
 /// Unmap the region at `base`
 #[no_mangle]
 pub unsafe fn a64_bus_unmap(base_low: u32, base_high: u32) -> bool {
-    bus_mut().unmap(pa(base_low, base_high))
+    mutate(|b| b.unmap(pa(base_low, base_high)))
 }
 #[no_mangle]
 pub fn a64_bus_generation() -> u32 { bus().generation() }
 
-/// What `pa` is: 0 a hole, 1 RAM, 2 ROM, 3 MMIO (a64_bus_lookup_detail: the
-/// backing or the owner)
+/// What `pa` is: 0 a hole, 1 RAM, 2 ROM, 3 MMIO, 4 extended RAM
+/// (a64_bus_lookup_detail: the backing, the owner or the extended page)
 #[no_mangle]
 pub fn a64_bus_lookup(pa_low: u32, pa_high: u32) -> u32 {
     match bus().lookup(pa(pa_low, pa_high)) {
@@ -506,6 +735,7 @@ pub fn a64_bus_lookup(pa_low: u32, pa_high: u32) -> u32 {
         Lookup::Ram { writable: true, .. } => 1,
         Lookup::Ram { .. } => 2,
         Lookup::Mmio { .. } => 3,
+        Lookup::Extended { .. } => 4,
     }
 }
 #[no_mangle]
@@ -514,6 +744,7 @@ pub fn a64_bus_lookup_detail(pa_low: u32, pa_high: u32) -> f64 {
         Lookup::Hole => -1.0,
         Lookup::Ram { backing, .. } => backing as f64,
         Lookup::Mmio { owner, .. } => owner as f64,
+        Lookup::Extended { page } => page as f64,
     }
 }
 /// The code key of `pa`'s page, -1 when it is not guest memory
@@ -569,8 +800,52 @@ mod tests {
         b.regions.clear();
         b.ram_size = 0;
         MEM8 = std::ptr::null_mut();
+        DEVICE_START = u32::MAX;
         a64_allocate_memory(ram + extra);
         assert!(a64_bus_set_ram(ram));
+    }
+
+    /// Device memory (P7.1): read and written as RAM where it is mapped,
+    /// the pages the cores write marked, a device's own writes not
+    #[test]
+    fn device_memory() {
+        unsafe {
+            setup(1 << 20, 1 << 20);
+            let start = 1 << 20;
+            assert!(
+                !a64_bus_map_device(0, 0x80, 0x40000, 0, start),
+                "no device memory yet"
+            );
+            assert!(a64_device_memory(start));
+            assert!(
+                !a64_bus_map_device(0, 0x80, 0x40000, 0, 0x1000),
+                "RAM is no device memory"
+            );
+            assert!(a64_bus_map_device(0, 0x80, 0x80000, 0, start + 0x40000));
+            let take = || take_device_dirty(start + 0x40000, 0x80000).map(|words| words.to_vec());
+            assert_eq!(take(), None, "nothing written yet");
+            assert_eq!(write(0x80_0000_1008, 8, 0x1122_3344_5566_7788), Ok(()));
+            assert_eq!(
+                write(0x80_0004_5ffe, 4, 0xAABB_CCDD),
+                Ok(()),
+                "across two pages"
+            );
+            assert_eq!(read(0x80_0000_1008, 8), Ok(0x1122_3344_5566_7788));
+            assert_eq!(*host(start + 0x40000 + 0x100c), 0x44, "at its backing");
+            assert_eq!(
+                take(),
+                Some(vec![1 << 1, 1 << 5 | 1 << 6]),
+                "pages 1, 0x45 and 0x46"
+            );
+            assert_eq!(take(), None, "taken: clear");
+            // (a device's own writes, through JavaScript, are not marked)
+            a64_bus_written(start + 0x40000, 4096);
+            assert_eq!(take(), None);
+            a64_device_mark_dirty(start + 0x40000 + 0x2000, 1);
+            assert_eq!(take(), Some(vec![1 << 2, 0]));
+            assert!(a64_bus_unmap(0, 0x80));
+            assert_eq!(bus().lookup(0x80_0000_1008), Lookup::Hole);
+        }
     }
 
     #[test]

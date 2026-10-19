@@ -303,6 +303,8 @@
 
     <p id="graphics_proxy_status" role="status" style="display: none"></p>
 
+    <div id="disk_status" style="display: none"></div>
+    <div id="disk_error_box" style="display: none"><span id="disk_error_text"></span> <button id="disk_error_retry">Retry</button> <button id="disk_error_power_off">Power off</button></div>
     <div id="runtime_options" style="display: none">
         <button id="dump_regs">Dump Registers</button>
         <button id="dump_gdt">Dump GDT/LDT</button>
@@ -325,6 +327,7 @@
         <button id="change_fdb_image">Insert second floppy image</button>
         <button id="change_cdrom_image">Insert CD image</button>
         <button id="save_state">Save State</button>
+        <button id="save_and_power_off" style="display: none" title="The disks written back keep their changes: save the state and power off, to go on later">Save and power off</button>
         <button id="load_state">Load State</button>
         <button id="memory_dump">Memory Dump</button>
         <button id="capture_network_traffic">Capture network traffic</button>

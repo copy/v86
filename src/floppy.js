@@ -17,6 +17,7 @@ import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 import { CMOS_FLOPPY_DRIVE_TYPE } from "./rtc.js";
 import { SyncBuffer } from "./buffer.js";
+import { restore_disk_state } from "./disk_writeback.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -968,10 +969,14 @@ FloppyController.prototype.start_read_write = function(args, do_write)
             data_offset,
             data_length,
             FDC_DMA_CHANNEL,
-            dma_error => {
+            (dma_error, error) => {
                 if(dma_error)
                 {
                     dbg_log("DMA floppy error", LOG_FLOPPY);
+                    // (the image failed the read or write: the guest sees the
+                    // error, the host a disk-error event; floppies report,
+                    // docs/disk-persistence-plan.md D3)
+                    if(error) this.disk_failed(do_write ? "write" : "read", data_offset, data_length, error);
                     this.end_read_write(SR0_ABNTERM, 0, 0);
                 }
                 else
@@ -987,6 +992,26 @@ FloppyController.prototype.start_read_write = function(args, do_write)
         // start PIO transfer
         dbg_assert(false, this.cmd_table[this.cmd_code].name + " in PIO mode not supported!");
     }
+};
+
+/**
+ * The image of the current drive failed a transfer: a disk-error event
+ * (policy "report": the command ends with an error)
+ * @param {string} operation
+ * @param {number} offset
+ * @param {number} length
+ * @param {!Error} error
+ */
+FloppyController.prototype.disk_failed = function(operation, offset, length, error)
+{
+    const drive = this.drives[this.curr_drive_no];
+    const name = drive.buffer && drive.buffer.disk_name || drive.name;
+    dbg_log(name + ": " + operation + " failed: " + error.message, LOG_FLOPPY);
+    const retryable = typeof error["retryable"] === "boolean" ? error["retryable"] : true;
+    this.cpu.bus && this.cpu.bus.send("disk-error", {
+        "disk": name, "operation": operation, "offset": offset, "length": length,
+        "reason": error.message, "retryable": retryable, "policy": "report",
+    });
 };
 
 FloppyController.prototype.end_read_write = function(status0, status1, status2)
@@ -1154,6 +1179,17 @@ FloppyController.prototype.set_state = function(state)
  * @see {@link https://github.com/qemu/qemu/blob/e240f6cc25917f3138d9e95e0343ae23b63a3f8c/hw/block/fdc.c#L99}
  * @see {@link https://en.wikipedia.org/wiki/List_of_floppy_disk_formats}
  */
+/**
+ * Whether an image has the size of a floppy format (an image written back
+ * is used as it is)
+ * @param {number} size
+ * @return {boolean}
+ */
+export function floppy_format_size(size)
+{
+    return DISK_FORMATS.some(f => f.sectors * f.tracks * f.heads * SECTOR_SIZE === size);
+}
+
 const DISK_FORMATS = [
     //                                                                 ttl_sect     size     collides
     // 1.44 MB 3"1/2 floppy disks                                             |     |        |
@@ -1275,6 +1311,14 @@ FloppyDrive.prototype.insert_disk = function(buffer, read_only)
     }
 
     const [new_buffer, disk_format] = this.find_disk_format(buffer, this.drive_type);
+    // (a disk written back is not copied into a larger buffer: it has a
+    // floppy format's size)
+    if(new_buffer && buffer.writeback && new_buffer !== buffer)
+    {
+        dbg_log("WARNING: disk rejected, an image written back must have the size of a floppy format, not " +
+            buffer.byteLength + " bytes", LOG_FLOPPY);
+        return false;
+    }
     if(!new_buffer)
     {
         dbg_log("WARNING: disk rejected, no suitable disk format found for image of size " +
@@ -1506,7 +1550,8 @@ FloppyDrive.prototype.set_state = function(state)
         {
             this.buffer = new SyncBuffer(new ArrayBuffer(0));
         }
-        this.buffer.set_state(state[10]);
+        // (a disk written back: a reference, src/disk_writeback.js)
+        restore_disk_state(this.buffer, state[10]);
     }
     else
     {

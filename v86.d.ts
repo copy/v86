@@ -76,6 +76,124 @@ type V86BufferImage =
 export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
 
 /**
+ * The container format of a hard disk image (docs/disk-image-formats-plan.md).
+ * "raw" (or no format): the sectors as they are, as before. "auto": the
+ * format from the image's signature and structure; a RAW image has none, so
+ * "auto" fails for it. "vpc" is QEMU's name of VHD. VHD and VDI: fixed and
+ * dynamic images (not differencing ones). VMDK: monolithicSparse,
+ * streamOptimized, monolithicFlat, vmfs, twoGbMaxExtentSparse,
+ * twoGbMaxExtentFlat (other createTypes fail at start). VHDX: fixed and
+ * dynamic images with 512- or 4096-byte logical sectors (the disk's sectors
+ * are the image's) and no log to replay (not differencing ones).
+ */
+export type V86DiskFormat = "raw" | "qcow2" | "vhd" | "vpc" | "vdi" | "vmdk" | "vhdx" | "auto";
+
+/**
+ * The options of a hard disk image (hda, hdb, attach_sata_drive). With a
+ * container format, `size` is the length of the file (as for async images),
+ * and the guest sees the disk's virtual size; the guest's writes stay in
+ * memory, the file is never written.
+ */
+export type V86DiskImageOptions =
+    {
+        /** The container format; omitted: RAW, as before */
+        format?: V86DiskFormat;
+
+        /**
+         * The source image's policy (docs/disk-persistence-plan.md), not
+         * whether the guest may write (that is virtio_disks' readonly):
+         * "read_only" (the default) keeps the guest's writes in memory, the
+         * image stays as it is. "read_write" writes them back to the image
+         * the url names: a disk service's URL (a server, or the local disk
+         * service on 127.0.0.1: tools/disk-service.mjs; a URL that is not
+         * one fails at start), in Node a local file path (written in place,
+         * async is ignored), or a buffer object of one's own with the
+         * backend contract (flush, close, mark, generation, get_state,
+         * set_state, check_state). A completed write is in the
+         * image; it is durable after a flush (the guest's, or one by itself
+         * 1 s after the last write, 5 s at most; stop() and destroy() flush
+         * too). The guest sees a write cache it may turn off (IDE/AHCI). A
+         * snapshot of the disk holds only a reference of the image (no
+         * data), restored only onto the same image not written since. It
+         * fails at start for any other source (an ArrayBuffer, a File, a
+         * plain URL, an image in parts), for an image in a container
+         * format, with readonly, and for an image bound to two disks. An
+         * option of each disk, never of the V86 options.
+         */
+        disk_option?: "read_only" | "read_write";
+
+        /**
+         * What a failed read or write of this disk does (the "disk-error"
+         * event): "stop" (the default) stops the machine until run()
+         * retries the request; "report" ends the guest's command with an
+         * I/O error at once
+         */
+        disk_error?: "stop" | "report";
+
+        /**
+         * The credentials of a disk service that wants them (sent as
+         * Authorization: Bearer, never in the URL)
+         */
+        token?: string;
+
+        /**
+         * An identifier of the image's version, published with it (an
+         * image of a container format): a snapshot records it with the
+         * image's metadata, size and format, and restores only onto the
+         * same image
+         */
+        image_id?: string;
+
+        /**
+         * The most bytes of guest writes kept in memory (an image of a
+         * container format); beyond it, writes fail with an I/O error.
+         * Default: no limit
+         */
+        overlay_limit?: number;
+
+        /**
+         * The parent image of an image that has one (a QCOW2 image with a
+         * backing file): given here, never loaded by the name the image has
+         * for it. Its format is the one the image names, or `format` here.
+         * A snapshot records the parents' identities too.
+         */
+        backing?: V86Image & V86DiskImageOptions;
+
+        /**
+         * The other files of an image in several files (a VMDK descriptor's
+         * extents), by the name the image has for them: none is loaded by
+         * that name alone
+         */
+        files?: { [name: string]: V86Image };
+
+        /**
+         * The image is this file in the TAR archive `url` or `buffer` is (an
+         * OVA): read there, not extracted (see V86.import_ova)
+         */
+        archive_member?: string;
+
+        /**
+         * The disk's logical sectors as the guest sees them: 512 bytes (the
+         * default) or 4096. IDE and AHCI report them in IDENTIFY (words 106,
+         * 117-118) and count LBAs, the capacity and PIO blocks in them;
+         * virtio-blk reports them as blk_size. For RAW and the formats that
+         * do not record a sector size (QCOW2, VHD, VDI, VMDK); a VHDX image
+         * has its own, which this must equal, and a child takes its parent's.
+         * The disk's size must be a multiple. The BIOS (SeaBIOS) does not
+         * boot from a disk of 4096-byte sectors, and DOS cannot use one; on
+         * IDE the guest must move data by DMA (Linux's libata in PIO mode
+         * times out), AHCI and virtio-blk have no such limit. The physical
+         * sector size reported equals the logical one (as QEMU's default).
+         */
+        logical_sector_size?: 512 | 4096;
+    };
+
+/**
+ * A hard disk image
+ */
+export type V86HardDiskImage = V86Image & V86DiskImageOptions;
+
+/**
  * Config for virtio/serial console.
  */
 export type ConsoleConfig =
@@ -207,6 +325,25 @@ export interface Event {
         total: number,
         loaded: number,
     };
+    /**
+     * A disk's read, write or flush failed (docs/disk-persistence-plan.md
+     * "错误处理"). With the disk's disk_error "stop" (the default) the
+     * request stays unfinished and the machine stops: run() retries the
+     * held requests in their order (those that cannot be retried, such as
+     * an image that changed while it was read, are then reported to the
+     * guest), destroy() drops them; save_state is refused meanwhile. With
+     * "report" the guest's command ends with the device's error status.
+     */
+    "disk-error": {
+        /** hda, hdb, cdrom, sata<port>, virtio_disk<n> */
+        disk: string,
+        operation: "read" | "write" | "flush",
+        offset: number,
+        length: number,
+        reason: string,
+        retryable: boolean,
+        policy: "stop" | "report",
+    };
     "emulator-loaded": void;
     "emulator-ready": void;
     "emulator-started": void;
@@ -287,10 +424,18 @@ type V86NetworkDevice =
 
         /**
          * Network id, all v86 network instances with the same id share the same network namespace.
+         * On machine_type "virt" with `count`, the NIC the backend serves (net<id>).
          * @todo class NetworkAdapter should also get options.net_device as an argument, at least options.net_device.id.
          * @default 0
          */
         id?: number;
+
+        /**
+         * machine_type "virt" with type "virtio" only: this many virtio-net functions, NICs net0, net1, ...
+         * (Android's three, as Cuttlefish's: its Wi-Fi is on the third); the backend serves `id`'s
+         * @default 1
+         */
+        count?: number;
 
         /**
          * MAC address of virtual network peers (ARP, PING, DHCP, DNS, NTP, UDP echo and TCP peers) in common MAC
@@ -451,12 +596,13 @@ export interface V86Options {
 
     /**
      * Experimental: guest RAM beyond memory_size (a multiple of 2 MiB), at
-     * guest physical 4 GiB + high_memory_size, so that the total can exceed
-     * what fits in the emulator's 32-bit WebAssembly memory. Its pages are
-     * kept in host ArrayBuffers and cached in extended_memory_cache bytes of
-     * the WebAssembly heap: slower than memory_size, and code in it is
-     * interpreted. Only a 64-bit guest (cpu_type: "x86_64") can address
-     * it.
+     * guest physical 4 GiB + high_memory_size (cpu_type: "arm64": at 4 GiB,
+     * a second memory range of the device tree), so that the total can
+     * exceed what fits in the emulator's 32-bit WebAssembly memory. Its
+     * pages are kept in host ArrayBuffers and cached in
+     * extended_memory_cache bytes of the WebAssembly heap: slower than
+     * memory_size. Only a 64-bit guest (cpu_type: "x86_64" or "arm64") can
+     * address it.
      * Snapshots of it need save_state_stream. Fails at startup when the host
      * cannot allocate it.
      * @default 0
@@ -511,22 +657,26 @@ export interface V86Options {
     /**
      * First hard disk
      */
-    hda?: V86Image;
+    hda?: V86HardDiskImage;
 
     /**
      * Second hard disk
      */
-    hdb?: V86Image;
+    hdb?: V86HardDiskImage;
 
     /**
-     * First floppy disk
+     * First floppy disk. disk_option "read_write" writes the guest's
+     * changes back (docs/disk-persistence-plan.md D3: a local file in Node,
+     * a disk service's URL; the image of a floppy format's size); a floppy
+     * drive reports a failed read or write to the guest (disk_error is
+     * "report").
      */
-    fda?: V86Image;
+    fda?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string };
 
     /**
-     * Second floppy disk
+     * Second floppy disk, as fda
      */
-    fdb?: V86Image;
+    fdb?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string };
 
     /**
      * CD-ROM
@@ -563,9 +713,62 @@ export interface V86Options {
 
     /**
      * machine_type "virt" only: virtio-blk disks in order (not together
-     * with hda and hdb, which are the first two on virt)
+     * with hda and hdb, which are the first two on virt). Each may be in a
+     * container format as hda (export_disk_image names it virtio_disk<n>);
+     * a read or write its image fails ends with an I/O error
+     * (VIRTIO_BLK_S_IOERR).
      */
-    virtio_disks?: Array<V86Image & { readonly?: boolean; id?: string }>;
+    virtio_disks?: Array<V86HardDiskImage & { readonly?: boolean; id?: string }>;
+
+    /**
+     * machine_type "virt" only: virtio-rng, its entropy from
+     * crypto.getRandomValues (the guest's /dev/hwrng)
+     */
+    virtio_rng?: boolean;
+
+    /**
+     * machine_type "virt" only: virtio-input devices, true for a keyboard and
+     * a tablet, or a list of "keyboard", "tablet" (the pointer's absolute
+     * position) and "multitouch" (the page's touches), as QEMU's
+     * virtio-keyboard, virtio-tablet and virtio-multitouch
+     */
+    virtio_input?: boolean | Array<"keyboard" | "tablet" | "multitouch">;
+
+    /**
+     * machine_type "virt" only: virtio-vsock, the guest CID 3 (the host
+     * side, CID 2, connects with vsock_connect; the guest's own connections
+     * to the host are refused). Android's adbd listens on its port 5555.
+     */
+    virtio_vsock?: boolean;
+
+    /**
+     * machine_type "virt" only: virtio-snd with one output stream (PCM, 1 or
+     * 2 channels, S16 or S32, 8000 to 48000 Hz), played on the machine's
+     * clock to the speaker; each buffer played is also sent on the bus as
+     * "virtio-snd-pcm" ({stream, rate, channels, format, bytes})
+     */
+    virtio_sound?: boolean;
+
+    /**
+     * machine_type "virt" only: virtio-console with this many ports, all
+     * consoles (hvc0, hvc1, ...); without it 4 ports, 1-3 generic ones named
+     * org.v86.port<N>
+     */
+    virtio_console_ports?: number;
+
+    /**
+     * machine_type "virt" with virtio_transport "pci" only: the PCI slot of
+     * the display adapter (the other devices skip it), as Cuttlefish puts its
+     * GPU at 00:02.0
+     */
+    virtio_gpu_pci_slot?: number;
+
+    /**
+     * machine_type "virt" only: the virtio devices' transport, virtio-mmio
+     * slots or functions on the PCIe host (see docs/virt.md)
+     * @default "mmio"
+     */
+    virtio_transport?: "mmio" | "pci";
 
     /**
      * Automatically fetch bzimage and initrd from the 9p filesystem
@@ -696,7 +899,8 @@ export interface V86Options {
      * (bios, vga_bios, fda, fdb, cdrom, bzimage, multiboot, acpi: true, hpet,
      * smbus, pcie_root_ports, qemu_compatible, uart1-3, parallel1, modem,
      * cpuid_level, cpu_features, x87_*, high_memory_size) are errors there,
-     * as are kernel, dtb and virtio_disks on the PC machines, and every
+     * as are kernel, dtb, virtio_disks, virtio_rng, virtio_input and
+     * virtio_transport on the PC machines, and every
      * other combination of cpu_type and machine_type.
      * @default "i440fx" ("virt" with cpu_type "arm64")
      */
@@ -777,7 +981,9 @@ export interface V86Options {
      * A feature needs those it builds on (SSE4.1 needs SSSE3; SSE4.2 needs
      * SSE4.1; AVX needs XSAVE and SSE4.2; AVX2, FMA and F16C need AVX; the
      * XSAVE family needs XSAVE, XSAVES needs XSAVEC); other combinations fail
-     * at startup. Not set: the CPU v86 always had. See [docs/x86-64.md](https://github.com/copy/v86/blob/master/docs/x86-64.md).
+     * at startup. Not set: all of them with cpu_type "x86_64", none with
+     * "x86" ([] gives none); a restored snapshot's features then replace them.
+     * See [docs/x86-64.md](https://github.com/copy/v86/blob/master/docs/x86-64.md).
      */
     cpu_features?: Array<"SSSE3" | "SSE4.1" | "SSE4.2" | "XSAVE" | "AVX" | "AVX2" | "FMA" | "F16C" | "BMI1" | "BMI2" |
         "LZCNT" | "MOVBE" | "XSAVEOPT" | "XSAVEC" | "XGETBV1" | "XSAVES"> | "x86-64-v2" | "x86-64-v3";
@@ -1003,6 +1209,21 @@ export interface V86GraphicsProxyOptions {
 }
 
 export class V86 {
+    /**
+     * Read an OVF package, an OVA archive, before a machine is made: its
+     * disks as descriptors (the archive with archive_member: read in it),
+     * the hardware it describes as V86 options (memory_size, cpu_cores,
+     * machine_type, hda, hdb), notes for what v86 does not have
+     * (architecture, firmware, controllers, devices)
+     */
+    static import_ova(file: V86Image): Promise<{
+        ovf: string;
+        files: string[];
+        disks: Array<{ id: string; file: string; format: string; capacity: number; controller: string; descriptor: V86HardDiskImage | null }>;
+        options: Partial<V86Options>;
+        notes: string[];
+    }>;
+
     constructor(options: V86Options);
     /** The graphics proxy's plugin, when graphics_proxy is set (for diagnostics). */
     graphics_proxy?: object | null;
@@ -1106,9 +1327,11 @@ export class V86 {
 
     /**
      * Set the image inserted in the first floppy drive. Can be changed at runtime,
-     * as when physically changing the floppy disk.
+     * as when physically changing the floppy disk. A disk written back
+     * (disk_option "read_write") that is taken out, by another or by
+     * eject_fda, is flushed and closed.
      */
-    set_fda(image: V86Image): Promise<void>;
+    set_fda(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string }): Promise<void>;
 
     /**
      * Eject the first floppy drive.
@@ -1119,7 +1342,7 @@ export class V86 {
      * Set the image inserted in the second floppy drive. Can be changed at runtime,
      * as when physically changing the floppy disk.
      */
-    set_fdb(image: V86Image): Promise<void>;
+    set_fdb(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string }): Promise<void>;
 
     /**
      * Eject the second floppy drive.
@@ -1149,7 +1372,39 @@ export class V86 {
      * @param image the disk image, or for a CD drive the disc (null: empty)
      * @param options cdrom: attach an ATAPI CD drive instead of a hard disk
      */
-    attach_sata_drive(port: number, image: V86Image | null, options?: { cdrom?: boolean }): Promise<void>;
+    attach_sata_drive(port: number, image: V86HardDiskImage | null, options?: { cdrom?: boolean }): Promise<void>;
+
+    /**
+     * What an export of a disk writes: its size as the guest sees it, the
+     * format and size of its image file, the bytes the guest wrote (kept in
+     * memory), and the size of the sectors the guest sees (512 or 4096; a
+     * CD drive's 2048)
+     *
+     * @param name "hda", "hdb", "cdrom", "sata<port>" or (virt) "virtio_disk<n>"
+     */
+    disk_image_info(name: string): Promise<{ name: string; format: string; size: number; file_size: number; written?: number; logical_sector_size: number }>;
+
+    /**
+     * Export a disk as the guest sees it, as a RAW image of its whole size
+     * or a new QCOW2 image: the image's data with the guest's writes. The
+     * machine stops and its disk I/O finishes first (the stream is one view
+     * of the disk), and goes on afterwards. Each chunk (at most 1 MiB) goes to `write`;
+     * the next one waits for the promise it returns. Resolves to the size
+     * written.
+     *
+     * @param name "hda", "hdb", "cdrom", "sata<port>" or (virt) "virtio_disk<n>"
+     */
+    export_disk_image(name: string, options: {
+        write: (chunk: Uint8Array) => void | Promise<void>;
+        /**
+         * "raw" (the default): the disk's whole size. "qcow2": a new QCOW2
+         * image (version 3, 64 KiB clusters, clusters of zeros left out),
+         * which needs a pass over the disk first: its size is then known
+         */
+        format?: "raw" | "qcow2";
+        progress?: (progress: { loaded: number; total: number }) => void;
+        signal?: AbortSignal;
+    }): Promise<number>;
 
     /**
      * Remove the drive of a SATA port of the Q35 machine (a surprise
@@ -1330,6 +1585,18 @@ export class V86 {
      */
     /** CPU Worker mode returns a Promise with a copied buffer. */
     read_memory(offset: number, length: number): Uint8Array | Promise<Uint8Array>;
+
+    /**
+     * A stream socket to a port of the guest's vsock (virtio_vsock):
+     * resolves when the guest accepts, rejects when it refuses
+     */
+    vsock_connect(port: number): Promise<{
+        write(bytes: Uint8Array): void;
+        close(): void;
+        on_data: ((bytes: Uint8Array) => void) | null;
+        on_close: (() => void) | null;
+        readonly closed: boolean;
+    }>;
 
     /** Read a 36-bit physical range in bounded chunks (default 1 MiB). */
     read_memory_chunks(offset: number, length: number, chunk_size?: number): AsyncGenerator<Uint8Array, void, unknown>;

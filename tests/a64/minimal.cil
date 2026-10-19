@@ -1,0 +1,41 @@
+; A minimal SELinux policy for the androidish kernel (docs/arm64-virt-android16-plan.md
+; P9.2), compiled by tests/a64/cil2bin.c in tools/a64_kernel.mjs's VM: one user,
+; role and type for every process and object; the classes the kernel knows and
+; this policy does not are allowed (handleunknown), so that the probe runs in
+; enforcing mode, while the process permissions declared here are enforced:
+; fork, transition and sigchld allowed, setrlimit denied (the check that
+; enforcing is real, tests/a64/selinux_load.c); the kernel requires
+; transition and dyntransition to be declared.
+(handleunknown allow)
+(mls false)
+(class process (fork transition sigchld setrlimit dyntransition))
+(classorder (process))
+; the kernel's initial SIDs, in its numbering (security/selinux/include/initial_sid_to_string.h)
+(sid kernel) (sid security) (sid unlabeled) (sid fs) (sid file) (sid file_labels) (sid init) (sid any_socket)
+(sid port) (sid netif) (sid netmsg) (sid node) (sid igmp_packet) (sid icmp_socket) (sid tcp_socket)
+(sid sysctl_modprobe) (sid sysctl) (sid sysctl_fs) (sid sysctl_kernel) (sid sysctl_net) (sid sysctl_net_unix)
+(sid sysctl_vm) (sid sysctl_dev) (sid kmod) (sid policy) (sid scmp_packet) (sid devnull)
+(sidorder (kernel security unlabeled fs file file_labels init any_socket port netif netmsg node igmp_packet
+    icmp_socket tcp_socket sysctl_modprobe sysctl sysctl_fs sysctl_kernel sysctl_net sysctl_net_unix sysctl_vm
+    sysctl_dev kmod policy scmp_packet devnull))
+(sensitivity s0)
+(sensitivityorder (s0))
+(category c0)
+(categoryorder (c0))
+(sensitivitycategory s0 (c0))
+(user u)
+(role r)
+(type t)
+(roletype r t)
+(userrole u r)
+(userlevel u (s0))
+(userrange u ((s0) (s0)))
+(allow t self (process (fork transition sigchld)))
+(context ctx (u r t ((s0) (s0))))
+(sidcontext kernel ctx) (sidcontext security ctx) (sidcontext unlabeled ctx) (sidcontext fs ctx)
+(sidcontext file ctx) (sidcontext file_labels ctx) (sidcontext init ctx) (sidcontext any_socket ctx)
+(sidcontext port ctx) (sidcontext netif ctx) (sidcontext netmsg ctx) (sidcontext node ctx)
+(sidcontext igmp_packet ctx) (sidcontext icmp_socket ctx) (sidcontext tcp_socket ctx)
+(sidcontext sysctl_modprobe ctx) (sidcontext sysctl ctx) (sidcontext sysctl_fs ctx) (sidcontext sysctl_kernel ctx)
+(sidcontext sysctl_net ctx) (sidcontext sysctl_net_unix ctx) (sidcontext sysctl_vm ctx) (sidcontext sysctl_dev ctx)
+(sidcontext kmod ctx) (sidcontext policy ctx) (sidcontext scmp_packet ctx) (sidcontext devnull ctx)

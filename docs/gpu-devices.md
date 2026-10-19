@@ -538,6 +538,17 @@ there is no MSI or MSI-X.
 The device shows its VGA core (BIOS, boot loaders, VBE) until the driver
 sends its first control command. After a device reset, by the driver or the
 machine, the VGA core is on screen again and redraws its mode and picture.
+
+On the arm64 virt machine ([virt.md](virt.md); docs/arm64-virt-android16-plan.md
+P7.1) the same plugin makes a virtio-gpu without VGA (the handle's
+`has_vga` is false): class `0380`, no BAR0, no ROM, no ports; the screen is
+blank until the driver's first command. On the PCIe host the capabilities are
+in BAR 4 and the host visible memory in BAR 2, both 64-bit and prefetchable,
+as QEMU's virtio-gpu-pci; Linux puts them in the 64-bit window above 512 GiB.
+On virtio-mmio there is no BAR: the host visible memory is at the top of the
+64-bit window and the SHM registers say where. The host visible memory is the
+ARM core's device memory, which the cores read and write as RAM and whose
+written pages the device takes as from `mmio_ram`.
 While the driver's scanouts are shown, vblank is 60 Hz.
 
 **What each level declares.** Levels from `virgl` up need the WebGPU
@@ -671,7 +682,18 @@ keeps the Vulkan objects and answers.
   keeps the `ALIVE` status bit up for the driver's watchdog, writes replies
   into the reply stream the driver names, and runs `vkExecuteCommandStreamsMESA`
   streams. A submission (`SUBMIT_3D`) that waits holds the control queue,
-  as virglrenderer's in-order processing does.
+  as virglrenderer's in-order processing does. A ring's id is the driver's
+  pointer to its ring (Mesa's venus makes one ring a thread for its
+  synchronous calls besides the instance's): the transport commands' `ring`
+  is read exactly (`VenusReader.ring_id`, 16 hex digits), since as a number
+  Android's heap pointers (a tag in the top byte) round to multiples of
+  2048 and two threads' rings shared an id, the second replacing the first
+  (until 2026-10-19; a snapshot of then keeps its rings under those numbers,
+  `ring_key` in `venus.js`). A host visible memory's blob may be larger than
+  the memory by the guest's page rounding: the kernel makes blobs of whole
+  pages, 16 KiB on Android's 16K kernel, so up to 64 KiB of rounding is taken
+  (a 4 KiB limit refused the blobs there, and hardware bitmaps came back
+  null).
 - **Vulkan model** (`venus_vk.js` and `venus_vk_*.js`): instance and physical
   device queries from `venus_device_info.js`. The device reports Vulkan 1.1,
   the lowest renderer version Mesa's venus driver accepts
@@ -704,7 +726,24 @@ keeps the Vulkan objects and answers.
   constants become a storage buffer, so do uniform buffers whose layout
   WGSL's uniform rules refuse, and Y is flipped. Pipelines use WebGPU's
   automatic layouts; bind groups are made per pipeline from the bound sets'
-  contents.
+  contents. A viewport of a negative height draws with a variant of the
+  pipeline whose vertex shader keeps Vulkan's Y; passes and pipelines
+  without attachments get a placeholder one (WebGPU needs one).
+- **Android's buffers** (gralloc, `VK_ANDROID_external_memory_android_hardware_buffer`
+  in the guest): Mesa's venus imports an AHardwareBuffer as its virtio-gpu
+  resource (`VkImportMemoryResourceInfoMESA`). The imported memory has no GPU
+  buffer of its own; an image bound to it (`VK_EXT_image_drm_format_modifier`,
+  the linear modifier) becomes the texture of the resource's GX surface
+  (`VX.TEXTURE_IMPORT`; GX and VX share the renderer's GPUDevice). After each
+  submission the GPU's copy of every imported resource counts as the newer
+  one, so scanout and `TRANSFER_FROM_HOST` read it back. The device does not
+  offer `VK_EXT_external_memory_dma_buf` (nothing becomes a dma-buf, and
+  Mesa's venus on Linux would then leave its software WSI); the Android
+  driver imports without it (`tools/a64_venus/venus-android.patch`).
+- **Rings**: Mesa's venus gives each thread a ring. A command that waits
+  replies, when it is done, into the reply stream set for it, whatever
+  another ring set meanwhile; a ring waiting for another's position is
+  woken when that ring's head passes it, not only when that ring runs out.
 - **Queries**: a pool's results are a VX memory. Occlusion queries are
   WebGPU's (the render pass names the pool it uses: the model looks ahead
   for the first one begun in it), resolved into that memory when the pass
@@ -1270,7 +1309,18 @@ node tools/alpine_repo.mjs
 `tests/x64/linux_gpu.mjs` boots the unmodified ISO with the repository as
 `/dev/sda`, installs what the scenario needs, loads the adapter's DRM driver
 with `modprobe`, runs the scenario's steps on the serial console and saves
-screenshots. Neither guest harness has a make target.
+screenshots. The x86 harness has no make target.
+
+**arm64** (`tests/a64/linux_gpu.mjs`, `GPU_ARCH=aarch64`;
+`make a64-gpu-guest-tests`): the same scenarios on the virt machine's
+virtio-gpu without VGA, from `build/a64-linux/` (`node tools/alpine_repo.mjs
+--arch aarch64`), the ISO, the repository and the test programs on
+virtio-blk disks found by their serials (`$REPO`, `$TESTS` in the steps),
+1.5 GiB of RAM (the aarch64 packages need more root file system), the page
+tier, the GPU on the PCIe host (`GPU_TRANSPORT=mmio`: virtio-mmio). The
+guest's programs start about three times slower than on x86, so the steps'
+sleeps, timeouts and screenshot delays are three times as long. Two more
+scenarios use the virt machine's virtio-input and KMS:
 
 ```sh
 GPU_ADAPTER=vmware_svga GPU_LEVEL=dx11-full GPU_RENDERER=chrome GPU_SCENARIO=gltest node tests/x64/linux_gpu.mjs
@@ -1283,8 +1333,9 @@ GPU_ADAPTER=vmware_svga GPU_LEVEL=dx11-full GPU_RENDERER=chrome GPU_SCENARIO=glt
 | `GPU_LEVEL` | pins the level (`graphics_adapter_test`). Without it the adapter has no renderer and runs at its 2D default |
 | `GPU_RENDERER=chrome` | at a 3D level: the renderer in a headless Chrome. Without it the batches are recorded as a trace and answered with zeros |
 | `GPU_OUT` | the output directory; `build/x64-linux/gpu-<adapter>[-<level>]/` by default |
-| `LINUX_GPU_MEMORY` | guest RAM in MiB: 1024, or 1536 for the `virgl` and `vkcube` scenarios |
-| `LINUX_GPU_TIMEOUT` | in ms; 900000 by default |
+| `LINUX_GPU_MEMORY` | guest RAM in MiB: 1024, or 1536 for the `virgl` and `vkcube` scenarios and on arm64 |
+| `LINUX_GPU_TIMEOUT` | in ms; 900000 by default (arm64: 2700000) |
+| `GPU_SCREENSHOT_AFTER` | ms from a step's command to its screenshot, for every step |
 | `SHOW_LOGS=1` | echoes the serial console |
 | `VRAM_SIZE` | the adapter's `vram_size` in bytes |
 | `TEST_RELEASE_BUILD=1` | runs `build/libv86.mjs` instead of the source tree |
@@ -1300,6 +1351,9 @@ GPU_ADAPTER=vmware_svga GPU_LEVEL=dx11-full GPU_RENDERER=chrome GPU_SCENARIO=glt
 | `venus` | vulkaninfo on lavapipe and on Venus, then `tests/x64/vktest.c` on both |
 | `vkcube` | weston (pixman) and vkcube on Venus: the WSI extensions, the surface's formats and modes, a timed run, a snapshot while it draws |
 | `resize` | `virtio_gpu` loads with `+edid` with 1024x768 preferred. After the host's `set_display_size(1280, 800)`, a KMS probe (`modetest -c`) lists 1280x800 as preferred and `modetest -s` sets it (sysfs `modes` lists only what fbdev's probe kept). Then a snapshot saved and restored in place, and kmscube on llvmpipe |
+| `kms` | (arm64, at `virgl43-hostmem`) what Android needs of KMS: the planes (primary and cursor), an atomic commit of the mode and the primary plane, the cursor, `EGL_ANDROID_native_fence_sync` and dma-buf import and export, weston-simple-dmabuf-egl through linux-dmabuf with and without explicit synchronization |
+| `input` | (arm64, virtio-input) weston with its input devices: text typed into weston-terminal (which runs it), the pointer moved and clicked, two touches read from the multi-touch screen's evdev node. The live system has eudev's libudev but no udevd, so the step writes the udev database entries libinput needs (`ID_INPUT_*`); keys are typed 400 ms apart, as faster ones overflow evdev's buffer while weston renders in software (SYN_DROPPED) |
+| `custom` | the steps in the JSON file `GPU_STEPS`, for debugging |
 
 - **gltest** (GLES 3.0, plus GL 3.3 and 4.3 cases when the driver has them)
   draws each case into a 64×64 framebuffer object, first with llvmpipe
@@ -1311,9 +1365,12 @@ GPU_ADAPTER=vmware_svga GPU_LEVEL=dx11-full GPU_RENDERER=chrome GPU_SCENARIO=glt
   timeline semaphores and events, mapped memory, draws, depth, blending with
   MSAA, textures, compute, queries, secondary command buffers, indirect draws,
   mipmaps, storage images and dynamic rendering. Each checks its results
-  against what they must be; lavapipe runs them first, as the reference.
+  against what they must be; lavapipe runs them first, as the reference. On
+  arm64, Alpine 3.24's lavapipe crashes (SIGSEGV) in the 12 cases that build a
+  graphics pipeline, QEMU's guest too; there it runs a case a process
+  (`vktest list` names them) and Venus must pass all 27.
 - **Building them**: `linux_gpu.mjs` builds gltest and vktest on the host
-  without C library headers: clang (`--target=x86_64-unknown-linux-musl`;
+  without C library headers: clang (`--target=x86_64-unknown-linux-musl`, or aarch64;
   `CLANG` overrides) and rust-lld from the Rust toolchain (`LD_LLD`
   overrides), linked against musl's loader and Mesa's `libEGL` (vktest: the
   Vulkan loader) from the repository's packages, and handed to the guest as a

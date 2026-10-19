@@ -77,7 +77,7 @@ i440FX 与 Q35 保持不变。
   4/16/64 KiB granule），而不只是 Alpine 碰到的那部分。
 - A64 JIT 作为 jitrt 的第二个客户端接入，首次 ARM64 提速在 A4。
 - Android 16 ARM64（自有 virt product）在 v86 中启动到桌面、可交互、数据在同一会话内的重启后保持，并在 SELinux enforcing 下稳定
-  运行（A9）；再完成 GPU 加速、16 KiB、音频、快照与长时间运行（A10）。
+  运行，图形走 virtio-gpu 的 Venus（A9）；再完成 16 KiB、音频、快照与长时间运行（A10）。
 
 非目标：
 
@@ -854,7 +854,7 @@ A64 JIT 的语义红线（叠加在 JIT 计划规则 8 之上）：
 
 | ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
 | --- | --- | --- | --- | --- |
-| P10.1 | 固定源码与内核：AOSP Android 16 系列取 `android-16.0.0_r4`（QPR2，build BP4A.251205.006），或其后已推送到 AOSP 的 16 系列安全标签。QPR1、QPR3 没有推送到 AOSP；`android-latest-release` 已指向 Android 17，禁止使用（待核对）。GKI 取 `android16-6.12-YYYY-MM` 月度分支。导出 manifest、kernel commit、工具链与镜像 hash | — | — | M |
+| P10.1 | 固定源码与内核：AOSP Android 16 系列取 `android-16.0.0_r4`（QPR2，build BP4A.251205.006），或其后已推送到 AOSP 的 16 系列安全标签。QPR1、QPR3 没有推送到 AOSP；`android-latest-release` 已指向 Android 17，禁止使用（A8 已核对：ci.android.com 该分支 15660610 之后的 build 都是 Android 17；A8 用的是同一分支上 BP4A.251205.006 的 build 15581820，见附录 E）。GKI 取 `android16-6.12-YYYY-MM` 月度分支。导出 manifest、kernel commit、工具链与镜像 hash | — | — | M |
 | P10.2 | 产品：自有 `device/<project>/virt_arm64`，以 Cuttlefish 的 arm64-only 手机产品为底。Cuttlefish 已有 QEMU `virt` 后端（virtio-*-pci-non-transitional、U-Boot `-bios`、高位 ECAM，对应 `androidboot.boot_devices=4010000000.pcie`）；本计划的 virt 同样用高位 ECAM，`boot_devices` 不用改，只把 U-Boot 换成直接内核引导；Cuttlefish 经 virtio-console 端口与 vsock 提供的宿主服务（keymint、gatekeeper、oemlock 等）改为客体内的软件实现或 JS 后端；`TARGET_ARCH_VARIANT := armv8-a`、`TARGET_CPU_VARIANT := generic`，dalvik 的 ISA 属性与 profile 一致；图形先用 guest_swiftshader | — | — | XL |
 | P10.3 | QEMU 参考：与 A0 相同的 QEMU 版本与 virt 布局（改用 virtio-pci），启动到 `sys.boot_completed=1`；实测能启动的最小 `-m`；用 libinsn 与 howvec 统计 Android 启动的指令数与类别，按 A4 实测的 MIPS 推算在 v86 上的启动时间，并据此冻结 Android 的 E 级预算（冷启动、应用启动、输入延迟、持续帧率） | P0.9 的工具 | — | L |
 | P10.4 | ISA 与需求扫描：arm64-v8a 的 ABI 基线不能证明 vendor 库、APEX 或预装 APK 只用 v8.0 指令，所以扫描实际产物：`tools/a64_isa_scan.mjs` 扫描 system、vendor、apex 中的 ELF 与 OAT，超出 v1 的特性定为 v2（候选见 profile 一节）；v2 特性先实现，并在 Alpine 上通过 R-a64-isa、R-a64-sys、kselftest hwcap 与 litmus，才能进入 P10.6。若 P10.3 测得的最小内存超过 2 GiB − 128 KiB，确认 P8.5 的结论（并行模式下 extended RAM 中的代码是否可编译）满足 Android | — | — | M（v2 的实现另计） |
@@ -869,11 +869,13 @@ adbd 可用；R-a64-* 不退化。
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| P11.1 | 软件渲染桌面：guest_swiftshader 路径（minigbm、ANGLE、HWC/composer），SurfaceFlinger 与 Launcher；这是图形的第一步，在 v86 上显示出界面之后才开始 P12.4 的 Venus | XL |
+| P11.1 | 软件渲染桌面：guest_swiftshader 路径（minigbm、ANGLE、HWC/composer），SurfaceFlinger 与 Launcher；这是图形的第一步，在 v86 上显示出界面之后开始 P11.4 的 Venus。2026-10-18：v86 上已显示出界面（FallbackHome、Launcher3），但 SwiftShader 太慢（Launcher3 首帧要几分钟，ART 的 finalizer 看门狗因此杀掉它），A9 的图形改在 Venus 上验收（所有者决定，见待决问题 11） | XL |
 | P11.2 | 输入与网络：virtio-input 触摸、旋转后的坐标映射；DNS、连接与恢复；ADB | M |
 | P11.3 | 产品稳定性：SELinux enforcing；VINTF 匹配；必要的 HAL；userdata 与 metadata 在同一会话内的重启后保持，不在每次启动时重新初始化（跨会话持久化不做，见非目标）；lmkd | XL |
+| P11.4 | GPU 加速走 virtio-gpu 的 Venus（原 P12.4，所有者 2026-10-18 提前到 A9）。预编译的 Cuttlefish 镜像没有 Mesa，也没有 venus 驱动（只有 SwiftShader 的 `vulkan.pastel.so` 与 gfxstream 的 `vulkan.ranchu.so`），所以客体驱动自己编：Mesa 26.1.6（与 `venus_protocol.js` 同一版本）的 venus Vulkan 驱动，用 NDK 交叉编译成 `vulkan.virtio.so`；Android 16 的 GLES 是 ANGLE over Vulkan，一个 Vulkan 驱动同时承担 GL 与 Vulkan。分步：V0 编译并在 Android 中加载（QEMU 参考上验证链接与 SELinux）；V1 v86 的 venus 级别加无头 Chrome 的渲染器，`cmd gpu vkjson` 列出 Venus 设备；V2 宿主侧导入 virtio-gpu 资源（`VkImportMemoryResourceInfoMESA`，现在拒绝），gralloc（minigbm）分配的缓冲区才能给 ANGLE 渲染、给 SurfaceFlinger 合成、给 HWC 扫描输出；V3 镜像集成：开机时装入驱动（`ro.vulkan.apex` 与 `ro.hardware.vulkan`、SELinux 标签），SurfaceFlinger、HWUI 与 ANGLE 走 Venus；V4 A9 场景在 Venus 上通过，帧时间与 SwiftShader 对照。drm_virgl 与 gfxstream 不做。2026-10-19：V0–V4 完成（附录 E 的
+“A9：P11.4 Venus”）；驱动装在 odm，`initrd-venus.img` 选它与 HWC 的 client 模式；ANGLE 在 Venus 上为 OpenGL ES 2.0 | XL |
 
-验收（A9）：`sys.boot_completed=1`；SurfaceFlinger 与 Launcher、输入、应用安装与启动、网络都可用；SELinux enforcing
+验收（A9）：`sys.boot_completed=1`；SurfaceFlinger 与 Launcher 在 Venus 上合成正确，输入、应用安装与启动、网络都可用；SELinux enforcing
 下必要服务不反复重启；反复冷启动（同一会话内 SYSTEM_RESET 后重新加载）后 userdata 保持；R-a64-* 不退化。跨浏览器
 会话的持久化不在本计划内（待决问题 7 已定）。
 
@@ -881,16 +883,16 @@ adbd 可用；R-a64-* 不退化。
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| P12.1 | 16 KiB Android：16K 的 GKI 与 pgagnostic（页大小无关，同一镜像可在 4K 与 16K 内核上启动）产品（AOSP 文档要求用 arm64 Linux 宿主做参考，待核对）；native APK 的 4K/16K 对齐兼容性单独记录。16 KiB 需要 MMU、内核、bionic、库与 native APK 共同支持，不能只改 DTB 或内核配置 | L |
-| P12.2 | 快照、并行 Worker、长时间运行与内存压力 | L |
-| P12.3 | 选定的 CTS/VTS 子集；Android 指标（JIT 计划新增的 P6.6c）：冷启动与第二次启动、应用启动、输入延迟、持续帧率、JIT 时间、内存峰值，与 P10.3 冻结的预算对照 | M |
-| P12.4 | GPU 加速走 virtio-gpu 的 Venus（所有者 2026-10-07 决定）：P11.1 的 SwiftShader 桌面在 v86 上显示出界面之后开始；用 Cuttlefish 的 venus 模式（ANGLE over Vulkan，客体 Mesa 的 venus 驱动），对应 v86 已有的 Venus 后端，Alpine 上的同一路径已在 A5 验过（P7.2）；需要 virtio-gpu 的 blob 资源与 64 位窗口里的 hostmem（P7.1、P5.10）。drm_virgl 与 gfxstream 不做 | XL |
-| P12.5 | 音频：virtio-snd 与 audio HAL；浏览器的音频权限与缓冲 | M |
+| P12.1 | 16 KiB Android：16K 的 GKI 与 pgagnostic（页大小无关，同一镜像可在 4K 与 16K 内核上启动）产品（AOSP 文档要求用 arm64 Linux 宿主做参考，待核对）；native APK 的 4K/16K 对齐兼容性单独记录。16 KiB 需要 MMU、内核、bionic、库与 native APK 共同支持，不能只改 DTB 或内核配置。2026-10-19 完成（附录 E 的 A10）：没有公开的 pgagnostic 构建，用 16K 的 kernel_virt 构建的 GKI 内核与模块配同一份（页大小无关的）用户空间；参考用 macOS arm64 宿主上的 QEMU（HVF 与 TCG） | L |
+| P12.2 | 快照、并行 Worker、长时间运行与内存压力。2026-10-19 完成（附录 E 的 A10；恢复后停住的原因是 Venus ring id 冲突，5238279c） | L |
+| P12.3 | 选定的 CTS/VTS 子集；Android 指标（JIT 计划新增的 P6.6c）：冷启动与第二次启动、应用启动、输入延迟、持续帧率、JIT 时间、内存峰值，与 P10.3 冻结的预算对照。2026-10-19 完成：CTS 16.1_r1 的五个原生模块（VTS 本版本不可得，由面向内核的 CTS 模块代替），指标全部在预算内（附录 E 的 A10） | M |
+| P12.4 | （2026-10-18 移到 P11.4，A9。原文说用“Cuttlefish 的 venus 模式”，核实后预编译镜像里没有这个模式，也没有 Mesa；改为自己编 Mesa 的 venus 驱动，见 P11.4） | — |
+| P12.5 | 音频：virtio-snd 与 audio HAL；浏览器的音频权限与缓冲。2026-10-19 完成（附录 E 的 A10；HAL 在客体跟不上实时的时候跳过传输，记录在案） | M |
 
 验收（A10）：发布级别 R-android 全部通过；16K 的 GKI 与 pgagnostic 产品在 v86 上到 `sys.boot_completed=1`，native APK
 的 4K/16K 对齐兼容性记录在案；并行 Worker 下 Android 到桌面，桌面状态的快照恢复后继续交互，长时间运行与内存压力
 用例（时长与阈值与 P10.3 的预算一起冻结）中必要服务不反复重启；选定的 CTS/VTS 子集通过，P12.3 的指标满足 P10.3
-冻结的预算；Venus 模式下 SurfaceFlinger 合成正确；virtio-snd 播放的 PCM 在宿主端校验和一致；R-a64-* 不退化。完整 CTS/VTS、GMS 与兼容性认证不在范围内。
+冻结的预算；virtio-snd 播放的 PCM 在宿主端校验和一致；R-a64-* 不退化。完整 CTS/VTS、GMS 与兼容性认证不在范围内。
 
 ## 发布门禁级别
 
@@ -924,8 +926,8 @@ G-Alpine 等于 R-a64-android-prep 及其之前的全部级别，在同一个打
 | **A6** | P8 | 并行 Worker、3/4 GiB、16K/64K Linux、浏览器、hibernate | R-parallel、R-extended-memory 不变 | 并行与 16K/64K 下的 JIT 用例需要 A4 |
 | **A7** | P9 | **G-Alpine**：R-a64-* 全部通过，profile 完整性报告 | 不变 | — |
 | **A8** | P10 | Android 16 在 QEMU 参考上通过；v86 上启动到 system_server 与 adbd | 不变 | — |
-| **A9** | P11 | Android 桌面、输入、网络、会话内的数据保持、SELinux enforcing | 不变 | — |
-| **A10** | P12 | 16 KiB Android、GPU 加速、音频、快照与并行 Worker、长时间运行与内存压力、CTS/VTS 子集 | 不变 | JIT 计划 P6.6c 的 Android 指标 |
+| **A9** | P11 | Android 桌面（Venus）、输入、网络、会话内的数据保持、SELinux enforcing | 不变 | — |
+| **A10** | P12 | 16 KiB Android、音频、快照与并行 Worker、长时间运行与内存压力、CTS/VTS 子集 | 不变 | JIT 计划 P6.6c 的 Android 指标 |
 
 依赖关系：
 
@@ -1055,7 +1057,9 @@ flowchart TD
 10. （已定）FP、AdvSIMD 与 crypto 的真机对照在所有者的 Mac（Apple M1 Pro）上原生执行（P2.12）。所有者 2026-10-07 同意用
     GitHub 托管的 arm64 runner，2026-10-09 决定 GitHub CI 以后再做。
 11. （已定）Android 产品基于 Cuttlefish；图形先用 SwiftShader（P11.1），在 v86 上显示出界面之后再换成 virtio-gpu 的
-    Venus（P12.4），不做 drm_virgl 与 gfxstream。
+    Venus，不做 drm_virgl 与 gfxstream。（2026-10-18，所有者）SwiftShader 在 v86 上太慢，Venus 提前到 A9（P11.4）；
+    预编译镜像没有 venus 驱动，用 NDK 自己编 Mesa 26.1.6 的 venus 驱动装进镜像（所有者在“自己编 Mesa venus”、
+    “改用 gfxstream”、“A9 先用 SwiftShader 收尾”三者中选了第一种）。
 12. （已定，2026-10-09）A64 的 FMADD 族与 FMLA/FMLS 像 x86 一样用 relaxed SIMD 的乘加。x86 在 SIMD/XSAVE 计划 P12 第三
     部分的做法：CPU 创建时探测宿主的 `relaxed_madd` 是否融合（`src/cpu.js` 的 `relaxed_fma_fused`），融合时对操作数不是非规格化
     数、结果有限且不微小的通道用它，结果逐位精确，其余通道走 SoftFloat；x86-64-v3 下 glibc libm 的 FMA 版本因此从 v2 的
@@ -1563,7 +1567,57 @@ flowchart TD
 - 至此 P1–P3 的验收完成（P2a、P2b、P3 全部），JIT 计划 J2 的开工条件中属于本计划的部分已满足；A3 余下的是
   P5（virtio 与 live 阶）。
 
-### A4 中 P6 的部分（2026-10-16；JIT 计划 J2，P6.7 未做）
+### A3 中 P5 的部分（2026-10-16；A3 完成）
+
+提交：`592633ae`（P5.1–P5.5、P5.9 与 live 阶）、`7dfe115c`（安装到 virtio-blk 盘）。A3 的余下部分（P2b、P3）记在上面一节。
+
+- P5.1：`src/virtio.js` 的 VirtIO 本身就是核心（特性、状态、config generation、队列与请求），transport 是选项：不给即
+  virtio-pci（x86 的路径，行为不变）；给了就由 transport 按名字取 capability 的字段（attach、irq_line、present、kind、自己的
+  状态）。没有另起一个 VirtioCore 类：核心的字段与方法原样留在 VirtIO 上，x86 的设备一行不用改。`present()` 取代
+  `pci.absent`；快照标记 transport，恢复时 transport 不同则拒绝。修正 `on_driver_ok` 永不触发（状态先写入、后比较）。
+- P5.2：ARM CPU 的 DMA 门面加上 `read/write8/16/32_physical` 与 `validate_physical_range`，VirtQueue 原样可用；设备的写入经
+  `a64_bus_written` 让编译代码失效、清除其他核的独占保留。virtio-gpu 的内存访问留给 P7.1。
+- P5.3：`src/virtio_mmio.js`（version 2）。DeviceID、队列寄存器（QueueReady=0 收回队列）、InterruptStatus 与 InterruptACK
+  （不是读清零）、QueueNotify 带队列号、ConfigGeneration、SHM 寄存器（没有区域时读全 1）；0x100 起的设备配置可按整个字段或
+  其中的字节访问（Linux 读 u64 时分两次 32 位）。32 个槽位，SPI 16 + n、边沿触发；设备从槽 31 往下放，次序是磁盘、net、rng、
+  console，与参考按 `-device` 次序分配的结果相同（QEMU 的 `/proc/interrupts` 里 virtio0–4 正是 GICv3 75–79）。空槽读出参考的
+  值，Linux 跳过。`src/virt/io.js` 的类改名为 `VirtDeviceSpace`（原来也叫 VirtIO）。
+- P5.4：`src/virtio_blk.js`（IN、OUT、FLUSH、GET_ID、只读、SEG_MAX、BLK_SIZE）。块后端抽成 `src/block_backend.js` 的一组函数
+  （读取的取消、写入的 reset_epoch、FLUSH 等待在途写入，都计入快照等待的在途 I/O），IDEInterface（AHCI 的驱动器也是）改用
+  同一组函数。选项：`virtio_disks: [{url 或 buffer, id, readonly}]`（或 `hda`、`hdb`）、`virtio_rng`、`net_device: {type:
+  "virtio"}`、`virtio_console`；arm64 上网络改为按需开启（槽位要与参考的设备对应），`net_device: {type: "none"}` 合法。
+- P5.5：`src/virtio_rng.js`（`crypto.getRandomValues`）；virtio-net、virtio-console 接受 transport。virtio-console 的附加端口
+  照旧共 4 个。
+- P5.9：virt 的快照按槽位与种类记下每个 virtio 设备，布局不同则拒绝；可写盘的内容照 IDE 的做法存入，只读盘只存大小与
+  SHA-256（加载时用 `crypto.subtle` 计算），恢复时核对。`tests/a64/device_io_reset.mjs`（`a64-virt-device-tests`）：复位时在途的
+  读被丢弃、在途的写落盘但不应答、快照等待在途的读、其他布局的快照被拒绝；去掉复位对后端的复位时它失败。
+- live 阶（`tests/a64/linux_boot.mjs` `A64_STAGE=live`）：ISO 在 virtio-blk 上经 modloop 启动到 login；probe 从 `a64probe` 盘运行
+  （O_DIRECT，`direct_io=1`）；virtio-net 回显 16 帧；`/dev/hwrng` 读到 64 字节；hvc0 上登录。QEMU 参考加了同样的设备、同样的
+  次序（net 用 hubport，console 用 null chardev），CPU 特性比对照旧。到 login 的时间：
+
+  | | 1 核 | 2 核 | 4 核 |
+  | --- | --- | --- | --- |
+  | 解释器 | 232 s | 267 s | 341 s |
+  | page tier | 30 s | 39 s | 34 s |
+  | QEMU | 11 s | — | — |
+
+  `A64_LINUX_SNAPSHOT=1`：在 probe 的 `A64_PROBE_START`、`A64_PROBE_OK`、`A64_PROBE_XC` 处交替做 V7 流式（经文件写出读回）与 V6
+  单缓冲快照并恢复（107–116 MB，只读的 ISO 不在其中），结果不变。
+- 安装（`tests/a64/linux_install.mjs`）：同一次机器会话里，从 ISO 用 `setup-disk -m sys -s 0 -B none`（没有引导程序，机器直接
+  加载内核，同参考）离线装到空盘，记下文件的 md5，fsck 干净，把装好的 `/boot` 的内核与 initramfs 写到导出盘；机器重启进装好
+  的系统（它自己的内核 6.18.56 与 initramfs，按 UUID 挂根），文件 md5 一致；正常重启回 ISO，根文件系统 fsck 仍然干净。page tier
+  下三段 91、42、47 s。偏差：virt 版 ISO 没有内核包，离线安装需要 `tools/alpine_repo.mjs --arch aarch64 --set sys` 取得的本地
+  软件源盘（live 系统的 world、linux-virt、linux-firmware-none 与 setup-disk 的工具，50 个包 46 MiB，所有者 2026-10-16 同意
+  下载）；它要单独使用，因为镜像的索引与 ISO 的并存时 apk 会选镜像的新版本，而那些文件不在。`setup-disk` 会停掉 modloop
+  服务，连带卸下启动介质，所以软件源不能指向 ISO。工具的依赖解析补上了按 provider_priority 选虚拟名的提供者与 install_if。
+- 记下的坑：busybox ash 在提示符后发 `ESC [ 6 n`（查询光标位置），按整段文本轮询时提示符的模式要容许它；shell 会回显输入的
+  命令，结束标记要单独成行才算；macOS 的 `sed` 不认 `\b`。
+- x86：`devices-test`、`api-tests`、`highmem-tests`、`acpi-device-tests`（含 IDE 在途 I/O）与完整的 R-q35 通过；R 级性能门禁
+  （改了 `src/ide.js` 与 virtio 核心）通过：`tools/owner_perf.mjs`，6 个负载各 3 次会话，基线 `79c37884`，本支相对基线
+  win98-diablo1 1.013、win98-ra2 1.022、win98-themehospital 1.000、win98-boot 0.986（7.0 → 7.1 s）、xp 1.006、
+  win81 1.000（174 s），都在噪声内（`build/bench/a3gate/owner.json`）。
+
+### A4 中 P6 的部分（2026-10-16；JIT 计划 J2；A4 完成）
 
 JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论。提交：`94e24279`（page tier 第一部分）、`e5860bf9`（标量 FP、
 指标工具与 make 目标）、`1c9bd445`（AdvSIMD 向量模板）、`9957441e`（`a64_asid_tag`、TBI 与回绕修正、P3.7 的保留修正）、
@@ -1599,4 +1653,890 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - P6.7：所有者 2026-10-16 同意下载；`A64_WORKLOAD=jit`（包解成 initramfs 里的又一个 cpio，1.5 GiB RAM）下 node、
     `java Hello.java`、luajit（`-jon` 与 `-joff`）与 `pcre2test -jit` 的输出在 QEMU、解释器（1 核 433 s）与 page tier（1/2/4 核
     75–82 s）上一致，page tier 中途快照恢复后结果不变。ARM 核心的客体内存必须小于 2 GiB（wasm32 一次分配的上限），更大的属于 P8。
-  - 还没做的：live 阶与 `boot_to_login_ms`、E 级初值的比较（等 P5）。JIT 计划的 `vJ2` 已打。
+  - E 级（A3 的 live 阶之后，2026-10-16，release 构建，安静的 10 核 Mac，3 次会话的中位数）：1 核 page tier 从 ISO 到 login
+    并跑完 probe 33.1 s（login 32.2 s）；同一宿主上重测的 x86_64 page tier 到 login 并跑完全部 probe 24.1 s（login 23.6 s，
+    `tests/x64/linux_boot.mjs` 新打印的 `X64_LINUX_PROBES_MS`），比值 1.37，在初值 3 倍之内。按计划 A4 实测后冻结：E 级的
+    上限定为 3 倍不变。P9.3 的 X 要等 P9 有了 androidish 内核才能测，仍是初值 20%。JIT 计划的 `vJ2` 已打；A4 由此完成
+    （`vA4` 打在记下这次测量的提交上）。
+
+### A5（2026-10-16；P5.6–P5.8、P5.10 与 P7，P7.5 未做）
+
+提交：与本节同一个提交（`vA5`；`vA4` 也打在它上面，A4 的 E 级测量记在上面一节）。
+
+- P5.6：`src/pci.js` 的 PCI 加 `generic` 选项，作 virt 的通用 PCIe 主桥：不注册 0xCF8/0xCFC/0xCF9，不建 i440FX；配置空间只经
+  高位 ECAM（`ecam_handler`，`0x40_1000_0000`，256 MiB，总线 0–255，8 字节访问拆成两次 4 字节）；00:00.0 是 QEMU 的
+  gpex-root（1B36:0008，class 0600，子系统 1AF4:1100）；INTx 按参考的 interrupt-map 路由：槽 s 的引脚 p（0–3）接 SPI
+  3 + (p + s) % 4，电平触发，多个功能共用时取或（`A64CPU.set_shared_gsi_level`，快照记录各 SPI 的来源）；没有 MSI（GIC
+  没有 ITS）；机器复位时每个功能回到上电配置（BAR 未分配、命令寄存器为 0）。DTB 加上与参考相同的 `pcie@10000000` 节点，
+  `tests/a64/dtb.mjs` 不再把它列为允许的差异；布局版本升为 2（旧快照被拒绝）。
+- P5.10：64 位 BAR（`bits64`：下一个 BAR 寄存器是高半部，探测时两半都读出大小掩码）与 4 GiB 以上的地址。实现与计划的
+  写法不同：两个 PCIe 窗口（32 位与 64 位）是 AddressSpace 里固定的 MMIO 区间，由主桥按地址分派到解码它的 BAR
+  （`window_handler`，没有 BAR 处读全 1，同参考），所以普通 BAR 移动不改变映射、不递增 generation；只有设备内存（下面的
+  P7.1）映射进窗口时，窗口被切开、generation 递增。BAR 只在功能的内存空间使能时解码。`tests/a64/address_space.mjs` 加了
+  ECAM、64 位 BAR 的探测、在 4 GiB 以上与以下之间移动、使能与复位的用例。x86 的 32 位 BAR 与 ECAM 路径不变。
+- P5.7：`virtio_transport: "pci"` 时 virtio 设备是 PCIe 主桥上的功能，从 00:01.0 起按 virtio-mmio 槽位的次序排列，布局同
+  QEMU v9.2.0 的非过渡型 `virtio-*-pci`：capability 全在 BAR 4（64 位可预取，16 KiB：common、ISR、device、notify 各 4 KiB），
+  QEMU 的 class code 与子系统 1AF4:1100，上电时命令寄存器为 0。Linux 把 BAR 4 放在 64 位窗口（`0x80_0000_0000` 起）。
+  live 阶的 `A64_TRANSPORT=pci` 让两台机器都列出 `/sys/bus/pci/devices` 的 ID、class、子系统、版本、引脚与每个 BAR 的起止
+  和标志，v86 的必须与参考的逐行相同（mmio 下也比较，只有主桥）；参考用 `vectors=0`（没有 MSI-X，因此也没有 BAR 1）与
+  virtio-net 的 `romfile=`（没有扩展 ROM）。偏差：比较用 `/sys` 而不是 `lspci -vv`（pciutils 不在软件源里，要另行下载；
+  `/sys` 给出的 BAR 位置、类型与大小与它相同）。
+- P5.8：`src/virtio_input.js`：键盘（总线的 PS/2 set-1 扫描码转 evdev KEY_*，含 0xE0 扩展键与 Pause）、tablet
+  （`mouse-absolute` 转 0–0x7FFF 的 EV_ABS、按键与滚轮）；select/subsel 配置窗口的内容（名字、ID、事件位、轴的范围）
+  同 QEMU 的 virtio-keyboard 与 virtio-tablet（wheel-axis 开）。选项 `virtio_input: true`。live 阶在 v86 上注入两个键
+  （一个扩展键）的按下与抬起、一个位置与一次左键，客体用 `dd` 与 `hexdump` 读 `/dev/input/event*`（`struct input_event`），
+  事件序列必须与注入的完全相同。偏差：用 `dd`/`hexdump` 代替 evtest（evtest 不在软件源里）。
+- P7.1：virt 上的 virtio-gpu（`graphics_adapter: "virtio_gpu"`，与 PC 的 virtio-vga 同一个插件）：机器句柄的 `has_vga`
+  为假时没有 VGA 核心、BAR0、ROM 与端口，class 0380，驱动的第一个命令之前屏幕为空白文本屏；排在 virtio 设备之后的
+  下一个 PCI 槽（或 virtio-mmio 槽）。host visible memory 是 ARM 核心新的设备内存：显示适配器存在时，客体内存在 RAM 之后
+  多出 128 MiB（`a64_device_memory`），区域按 BAR 映射成 `Kind::Device`，核心按 RAM 读写，但写过的页被标记
+  （`a64_device_take_dirty`，同 x86 的 mmio_ram），page tier 的访问缓存不为它的写入填条目（写入走解释器的路径，由它标记）；
+  映射进 PCIe 窗口时窗口被切开（`A64CPU.update_windows`）。PCI 上它是 BAR 2（64 位可预取，同 QEMU 的 virtio-gpu-pci），
+  capability 在 BAR 4；virtio-mmio 上没有 BAR，放在 64 位窗口的顶端，SHM 寄存器给出地址。DisplayHub 的计时器挂在
+  `run_hardware_timers`；快照记录适配器（state[12]）。
+- P7.2：所有者 2026-10-16 同意下载 aarch64 的 GPU 软件源（`tools/alpine_repo.mjs --arch aarch64 --set gpu`：3.24 的 130 个包
+  117 MiB，3.23 的 Mesa 25.2 31 个包 76 MiB）；解析器改为把 live 系统的基础（alpine-base 的闭包）算作已装，install_if 才会
+  带上 seatd-openrc（因此比第一次多下了约 2.6 MiB）。harness 没有另写一份：`tests/x64/linux_gpu.mjs` 加 `GPU_ARCH=aarch64`，
+  `tests/a64/linux_gpu.mjs` 设好它再导入；ISO、软件源与测试程序在按序列号找到的 virtio-blk 盘上（步骤里写成 `$REPO`、
+  `$TESTS`），ICD 换成 `*.aarch64.json`，gltest 与 vktest 用 clang 编成 aarch64 musl 程序（各加了 aarch64 的 `_start`），
+  客体 RAM 1.5 GiB（根文件系统是 RAM 的一半，aarch64 的包放不进 512 MiB），page tier；客体程序的启动约慢 3 倍，所以步骤里的
+  sleep、timeout 与截图延迟都乘 3。`make a64-gpu-guest-tests`（R-a64-gpu）：drm、gl、resize、input、gltest、virgl、kms、
+  venus、vkcube，另有 virtio-mmio 上的 drm。
+- P7.3：新场景 `kms`（`virgl43-hostmem`）：两个 plane（primary 与 cursor）、`modetest -a` 对模式与 primary plane 的原子提交
+  （测试图案上屏）、光标、`EGL_ANDROID_native_fence_sync` 与 dma-buf 的导入导出、weston-simple-dmabuf-egl 经 linux-dmabuf
+  显示（显式同步关与开，weston 报告 explicit sync: yes）。
+- P7.4：virtio-input 多点触控（QEMU 的 virtio-multitouch：11 个槽、tracking ID 取槽号、INPUT_PROP_DIRECT、BTN_TOUCH，MT
+  协议 B），总线事件 `touch`（`src/browser/mouse.js` 发出页面上的全部触点）；`virtio_input` 也可以是种类的列表。新场景
+  `input`：weston 带输入设备启动（不用 `--continue-without-input`），在 weston-terminal 里输入的命令被执行，指针移到屏幕
+  中央并点击，多点触控的两个触点按下与抬起从 evdev 读出，序列正确。live 系统有 eudev 的 libudev 而没有 udevd，libinput
+  只接受 udev 属性标明为输入设备的节点，所以场景写入 udevd 的 input_id 会写的数据库条目；按键间隔 400 ms：更快时 weston
+  软件渲染期间来不及读，evdev 的 64 个事件溢出（SYN_DROPPED），libinput 丢弃按键。
+- P7.5（可选）：没有做，留给 Android 的音频（P12）。
+- 结果（arm64，page tier，单核）：drm 的 kmscube（llvmpipe）、gl 的 weston 与 simple-egl/shm、resize、input、mmio 上的 drm
+  都通过；gltest 在 virgl（GL 4.3，Chrome 的 WebGPU）上 35 个用例 0 失败（含两个经 host visible memory 的 buffer storage
+  用例）；virgl 场景含 kmscube 绘制中保存并恢复的 892 MiB 快照、之后 gltest 仍 0 失败、weston 上的 es2gears；venus 的
+  vktest 27 个用例全部通过，vkcube 在 weston 上绘制，中途快照恢复后继续绘制。lavapipe 在 aarch64 上的 12 个要建图形管线的
+  用例里崩溃（SIGSEGV），QEMU 的客体里也一样，与 v86 无关：aarch64 上 lavapipe 一个用例一个进程地跑，并要求 Venus 全部
+  通过（vktest 自己检查结果，其期望值是 x86_64 上 lavapipe 的）。
+- live 阶与安装在 pci 下：解释器 1/2/4 核、page tier 1 核、page tier 2 核加快照、page tier 安装都通过，PCI 功能与参考的一致。
+  到 login 的时间（release 构建，安静的机器）：page tier 33.6 s（跑完 probe 34.9 s），解释器 232 s（与 mmio 相同）。4 核解释器在宿主有负载时会在 jitterentropy 的初始化里触发
+  soft lockup（客体时间跟随宿主的墙钟，循环在客体时间里变长，超过 20 s 的阈值）；安静时 jitterentropy 在客体 25.8 s 时
+  完成，通过。
+- 记下的坑：macOS 的 Unix socket 路径不能超过 104 字节（QEMU 的 monitor 放在 scratchpad 里要用相对路径）；kmscube 在
+  aarch64 的 page tier 上启动约 30 s（截图早了只见清屏的灰色）；`ls` 带颜色的输出会让行首匹配落空。
+- x86：`devices-test`、`api-tests`、`highmem-tests`、`acpi-device-tests`、完整的 R-q35、x86 的 virtio_gpu drm 场景通过；R 级
+  性能门禁通过：`tools/owner_perf.mjs`，6 个负载各 3 次会话，基线 vA3（`4b57e437`），本支相对基线 win98-diablo1 1.004、
+  win98-ra2 0.997、win98-themehospital 1.001、win98-boot 1.015、xp 1.000、win81 0.978（178 → 182 s；两边各自的 3 次会话
+  在 173–184 s 之间，A3 门禁时为 167–183 s，在噪声内；`build/bench/a5gate/owner.log`）。随后单独重测 win81 时宿主上有别的
+  负载（两边都慢到 207–232 s），结果作废。
+
+### A6 中 P8.1、P8.5 与 P8.7 的部分（2026-10-16；P8.2–P8.4、P8.6 未做）
+
+提交：与本节同一个提交（不打标签，`vA6` 等 A6 完成）。
+
+- P8.1：生命周期。
+  - PSCI SYSTEM_OFF 之后重新上电：`V86.power_button` 在 virt 上调 `restart("power-on")`；`reboot_internal("power-on")`
+    清掉 RAM、设备内存与 extended RAM（真实机器断电后内容不保留），再按启动文件重新加载内核。
+  - s2idle：`echo freeze > /sys/power/state`，由 PL031 的闹钟（`/sys/class/rtc/rtc0/wakealarm`，3 s 后）唤醒；hibernate：
+    `echo disk > /sys/power/state` 写到第三块 virtio-blk 盘（512 MiB 的 swap，序列号 `a64swap`），机器经 SYSTEM_OFF 关机，
+    测试按电源键开机，命令行加 `resume=UUID=<swap 的 UUID>`，并把 `virtio_mmio,virtio_blk` 放进 `modules=`（Alpine 的
+    initramfs 要先装好盘的驱动才能找到 swap）；恢复后检查 tmpfs 中 4 MiB 随机文件的 MD5 不变、`/sys/devices/system/cpu/online`
+    是全部 CPU。`A64_LINUX_SLEEP=N` 跑 N 轮 s2idle 与 N 轮 hibernate；这个变体不与参考比较 PCI 功能（参考没有 swap 盘）。
+  - `make a64-lifecycle-guest-tests`：解释器与 page tier × 1/2/4 核 × mmio/pci 的 live 阶，每个组合在 probe 的三个标记处
+    交替做 V7 流式与 V6 快照（约 107–120 MiB）并恢复；page tier 下 1/4 核 × mmio/pci 各两轮 s2idle 与两轮 hibernate；
+    解释器 1 核各一轮。17 个组合全部通过（release 构建）。page tier 1 核：到 login 38.6 s，全程 45.2 s；s2idle 一轮约
+    2.7–3.0 s，hibernate 一轮 14–16.6 s（其中关机前 3.9–4.6 s）；解释器 1 核 hibernate 一轮 116 s。
+- P8.5：A64 的大内存。
+  - 中立引擎 `src/rust/extended.rs`（两个核心共用）：帧池、FIFO 加二次机会的替换、载入与写回、钉住、flush/discard、
+    代码页位图、可重入锁、统计；核心各自的部分经 `crate::isa` 的钩子接入：`extended_release_caches`、
+    `extended_retire_cached_writes`、`extended_code_written`、`extended_discarded`。x86 留在 `src/rust/x64/extended.rs`：
+    aperture、访问缓存的帧（`cache_frame`、CACHED）、32 位 TLB、代码键、LOCK 操作数、`x64_ext_*` 导出（`x64_ext_configure`
+    仍要求 ≥ 4 GiB）。
+  - ARM（`src/rust/aarch64/extended.rs`）：extended RAM 是地址空间里的 `Kind::Extended` 区间（`Lookup::Extended`），从 4 GiB
+    起，到参考 RAM 的上限 256 GiB 为止；解释器、页表遍历与取指按页经帧访问，访问缓存不为它填条目，编译代码也走这条路。
+    page tier 从 extended 页编译代码，代码键从 `EXTENDED_CODE_KEY`（1 << 20）起，函数比帧活得久；页的下一次写入（核心、
+    DMA）经 `extended_code_written` 让它退役。cores 在 Worker 中时（P8.2）那里的代码一律解释执行。独占监视器用 2 GiB 以上的键
+    （按 2 GiB − 64 KiB 取模，别名只会让保留失效、客体重试）；写入清除其他观察者的保留。DMA facade：`dma_classify` 给 −1，
+    blob 与标量按页经钉住的帧复制。DTB 多一个 `memory@100000000` 节点，Linux 认作普通内存。上电时清零（`clear_extended_memory`
+    同时丢掉编译代码）；单缓冲 `save_state()` 先写回再拒绝，V7 流式快照带上它。`machine_options` 不再拒绝 virt 上的
+    `extended_memory_size`；index.html 把超过 1792 MB 的部分放进 extended RAM，不再改选 x86_64。
+  - x86 的一个修正：单缓冲 `save_state()` 原先只看 `touched`，只在帧里写过、还没写回的页不算，快照会静默丢掉它们；现在先
+    `flush_extended_memory()` 再判断（ARM 同样）。`src/state.js` 改调 `cpu.flush_extended_memory()`。
+  - 测试：`tests/a64/extended_memory.mjs`（64 MiB RAM 加 8 MiB extended、1 MiB 帧）：总线查找与各宽度、跨页访问、覆盖全部
+    的图案（驱逐 4359 次）、DMA 的 blob 与标量、4 GiB 处经恒等映射运行的代码在帧被驱逐后由 DMA 改写再运行（解释器取指
+    20 万条；page tier 从 extended RAM 执行 19.6 万条，DMA 写入让它退役 1 次）、单缓冲快照被拒、V7 流式快照恢复到另一台
+    机器、上电清零、DTB 节点。probe 新增 `memtest=<MiB>`（配合 `high=<pfn>`）：按 64 MiB 一块映射、写入、校验，经 pagemap
+    统计落在 extended 区的页，并在其中一页里运行编译后改写的代码、做独占计数与 DC ZVA。`make a64-extended-guest-tests`：
+    3 GiB（1 GiB RAM 加 2 GiB extended）上 memtest 2304 MiB，page tier 1 核 95.5 s、解释器 1 核 88.5 s（memtest 的时间花在缺页、
+    清零与帧的换入换出上，编译代码帮不上），0 错误，589824 页中 482816 页（82%）在 extended 区；4 GiB（1 GiB 加 3 GiB）上
+    page tier 2 核 memtest 3328 MiB，159 s，0 错误，851968 页中 736256 页（86%）在 extended 区；Linux 报
+    `Memory: 3995676K/4194304K available`。三个运行里 extended 页中的代码、独占计数与 DC ZVA 都正确（帧池 512 MiB：4 GiB 时
+    换入 154 万次、写回 78 万次）；probe 之后的 16 MiB 块全部落在 extended 区（`high_pages=4096`）。
+  - 待决问题 8 的实测：来自 extended RAM 的退役指令占比（解释器取指加编译代码退役，除以全部退役指令）在 3 GiB 的 memtest
+    运行中为 3.0%（page tier）与 2.9%（解释器），4 GiB 2 核为 2.9%，1.5 GiB（512 MiB 加 1 GiB）为 2.5%：在 Alpine 的 initramfs
+    阶，内核与 probe 的代码几乎都在 RAM 里（extended 区是后分配的页）。阈值仍由 P8.2 之后、在并行模式下实测再定。
+  - x86 的回归：`make extended-memory-tests`（1 核与 2 核）、`make x64-extended-guest-tests`（Alpine x86_64，6 GiB extended，
+    memtest 5120 MiB，0 错误，全部页在 extended 区）通过。`make core-split-check`：20 个函数变化、4 个增加、4 个删除——增删
+    的是挪进 `crate::extended` 的引擎函数（`resident`、`read`、`write`、`release_cached`），热路径上变化的函数（`main_loop`、
+    `run_cpu_slice`、`read8_mapped`、`mmap_write32`、`string` 等）逐条比较只有调用目标的路径不同；真正改动的只有
+    `cache_frame`、`release_cached` 与 `x64_ext_*`，都只在有 extended RAM 时执行。所有者的性能负载（Win98、XP、Win 8.1）
+    不用 extended RAM，执行的代码相同，所以不跑 R 级的性能部分。
+- P8.7：浏览器。`tests/a64/browser.mjs` 用本地服务器（ISO 按 Range 读取）在 headless Chrome 里打开
+  `tests/a64/browser_test.html`：Alpine aarch64 从 ISO 启动到串口上的 shell，执行 `uname -m` 与 probe。
+  四种组合都通过（page tier，release 的 bundle）：源码树 40.4 s 到 login，bundle 37.0 s，bundle 加 CPU worker 33.4 s，
+  bundle 加 virtio-pci 37.3 s。第一次运行时 CPU worker 用了 224.8 s：`src/browser/cpu_worker.js` 没有把 `jit_switches`
+  传给 worker，arm64 核心在 worker 里是解释执行的，已改。
+  demo 页：arm64 的内核、initrd、命令行可由查询参数给出（`kernel.url`、`initrd.url`、`cmdline`），CD-ROM 与硬盘映射成
+  virtio-blk 盘（光盘只读），加 virtio-rng 与 virtio-input，并打开 page tier（`jit_switches: {a64_page: 1}`，`disable_jit`
+  时不开；库的默认值仍是关，翻转要走 F 级）；CPU worker 传递 virtio_rng、virtio_input、virtio_transport 与 jit_switches。
+  所有者在桌面 Chrome 上的手动运行留到 A6 结束。
+- 新的 make 目标：`a64-lifecycle-guest-tests`、`a64-extended-guest-tests`、`a64-browser-tests`；`a64-virt-device-tests`
+  加上 `tests/a64/extended_memory.mjs`。
+
+### A6 中 P8.2–P8.4 的部分（2026-10-16；并行 Worker）
+
+提交：与本节同一个提交。
+
+- P8.2：`build/v86-arm64-parallel.wasm`（`--features "aarch64 parallel"`、`+atomics`，`CARGO_TARGET_DIR=build/arm64-parallel`，
+  `tools/parallel_wasm.mjs` 不用改）；`parallel: true`（或 `"auto"`）时核心 1 起在 vCPU Worker 里（`src/parallel/vcpu_arm.js`，
+  由 `vcpu.js` 的入口按 `cpu_type` 分派，打进 `build/vcpu-worker.js`），核心 0 与设备在机器线程上。实现与计划的写法不同：
+  - 机器状态经 `parallel::machine()`：GIC（一把可重入锁，`SIGNAL` 改为访问函数，其他核心的信号变化时 kick 它）、PSCI 的电源
+    状态与 CPU_ON 的入口（CPU_ON 先写入口再置 ON_PENDING，然后 kick 目标核心；SYSTEM_OFF/RESET 的请求 kick 核心 0）、事件与
+    全局监视器（机器字上的原子操作）、地址空间（Worker 持有副本，机器改映射时在 MAP_SEQ 下进行，Worker 发现序号变了就重新
+    复制；设备内存的脏页位是机器的字）、extended RAM（本来就是）。计划写的"STATUS_WAIT_SIPI 改为断电状态"用 PSCI 的电源
+    状态本身表达：Worker 在核心 OFF 时等待，ON_PENDING 时从 START 复位并运行（`a64_worker_slice`）。
+  - Worker 访问设备寄存器经控制块的请求 `OP_A64_MMIO_READ`/`OP_A64_MMIO_WRITE`（IO_ADDR 为 owner 加宽度，偏移与值各 64 位，
+    结果高半在 `IO_RESULT_HI`）；计划写的 MMIO_READ16/READ64 不需要。被 kick 的机器核心立即回到 JS 的循环去服务请求
+    （否则每个 UART 字节要等到它的时间片结束，次核心启动时每个约 70 ms）。
+  - 快照：机器把 Worker 停在安全点后直接读写各 Worker 的状态块（`A64CPU.state_block_of`），恢复后下发 COMMAND_RELOAD；复位
+    （SYSTEM_RESET、上电）先停住所有 Worker，再复位，下发 COMMAND_RESET。
+  - page tier：每个实例各自编译；安装前等其他核心确认发布（`parallel::code`，与 x86 相同），并再比较源页的哈希。
+- P8.3：
+  - TLBI 的 IS 形式与 IC IVAU、IC IALLUIS：在本核心立即生效，并写进机器内存里的环（`tlb::post`）；本核心下一个 DSB 要等到
+    其他每个核心都取走了环（`tlb::synced`；空闲的核心算作已确认，它恢复运行前会先取），等待时 DSB 不退役（`Flow::Retry`），
+    Worker 在原地等待并同时处理别人的环，机器核心回到 JS 服务请求后重试。一批里 IC 只写一次，页条目超过 32 个后用一次全刷新
+    代替其余；DSB 只 kick 落后的核心一次。
+  - 内存模型：并行构建里解释器与 page tier 的客体访问都是顺序一致的 Wasm 原子操作（page tier 的不对齐访问由框架退回解释器；
+    不对齐的读经 bounce 缓冲区复制，ARM 的 pair 两个元素用两个槽：`frame.rs` 的 kind 第 10 位，x86 不用），DMB、ISB 是 fence，
+    并行时 DSB 是单步。修好的一个错误：pair 的两个元素都不对齐时原来共用同一个 bounce 缓冲区，第二个元素的复制覆盖了第一个
+    （`page_fuzz.mjs` 在并行构建上 15/40 个程序不同，修后 0/120）。
+  - 独占监视器：保留全局监视器（解释器的写入清除别的核心的保留并发事件），STXR 另外比较 LDXR 读到的值（同 QEMU）：在 RAM
+    与设备内存上用原子比较交换，extended RAM 上在引擎的锁内比较；另一个 Worker 里编译的存储不清除保留，写回相同值时 STXR
+    成功——作为声明的偏差写进 docs/aarch64.md，probe 的 `parallel` 参数与 litmus 的并行模式只报告 ABA 那一行。
+  - WFE/SEV：事件是机器字，SEV 与清除保留 kick 目标核心，Worker 等待用 Atomics.wait；并行时一个 WFE 最多等 20 µs（编译的
+    存储不发事件，Linux 的锁等待在 secondary 启动早期还没有事件流时会一直等）。
+  - CNTVCT：各 Worker 读自己的宿主时钟，机器内存里的最大值保证计数器跨核心不回退（恢复快照与启动时清零）。
+- P8.4：`tests/a64/litmus.mjs` 加 `LITMUS_MODES`（cooperative、cooperative-jit、parallel、parallel-jit）；`make a64-parallel-tests`：
+  四种模式 × 2/4/8 核 × 20000 轮全部通过（禁止的结果 0 次，独占计数精确，TLBI VAE1IS 后没有陈旧的翻译，SGI 环与 WFE/SEV 环
+  走完）；并行构建上的 `page_fuzz.mjs` 3 个种子 0 差异。
+  60 分钟 soak（`A64_WORKLOAD=soak60`：每轮四个工作负载同时运行，再跑一遍 probe，4 核并行、page tier）：1275 轮，共退役
+  3.5 万亿条指令（合计约 970 MIPS），没有 Oops、RCU stall 与 soft lockup，probe 每轮都通过（ABA 一行只报告）。
+- Alpine（`A64_PARALLEL=1`，`make a64-parallel-guest-tests`）全部通过：initramfs 阶解释器 2/4 核（到 probe 结束 29.8/29.0 s，
+  ABA 一行在解释器下仍失败，因为写入走解释器）、page tier 2/4 核（7.3/9.5 s）；live 阶 page tier 4 核在 mmio 与 pci 上到 login
+  50.1/51.6 s，三个标记处的 V7 与 V6 快照都恢复进新的并行机器；lifecycle 阶（单用户模式下快照恢复、reboot、poweroff）；
+  s2idle 与 hibernate（关机 4.7 s、恢复后 MD5 与在线 CPU 正确）；四个工作负载同时运行 14.8 s。
+- 速度（release，page tier，4 核）：initramfs 阶到 probe 结束 9.3 s（协作式 6.4 s：启动主要是核心 0 的工作，并行构建本身在
+  单核上约慢 15%）；四个工作负载同时运行（`A64_WORKLOAD=smp4`）14.5 s（协作式 23.0 s，1.59 倍）。主要的剩余开销是每个客体
+  访问都是 SeqCst 原子操作，以及 DSB 等待其他核心的确认。
+- x86 的回归：`make multicore-parallel-tests`（litmus 四种模式、lifecycle、Linux 启动、OS stress、ACPI）通过；`frame.rs`
+  的改动只在并行构建里生成不同的代码（x86 不设 kind 第 10 位）。
+- P8.6（16 KiB 与 64 KiB 页的内核）未做：要下载 linux-6.18.35 的源码（约 150 MiB）与 Alpine 的构建包（约 100 MiB），
+  并在 HVF 下的 Alpine aarch64 虚拟机里构建（macOS 上缺 GNU make 4、gsed、lld 等）；下载要所有者同意，
+  2026-10-17 尚未得到，所以 A6 暂不打 `vA6` 标签，P8.6 留待所有者决定后再做。
+
+### A6 中 P8.6 的部分（2026-10-17；A6 完成）
+
+提交：与本节同一个提交（`vA6`）。
+
+- 所有者 2026-10-17 同意下载：cdn.kernel.org 的 `linux-6.18.35.tar.xz`（147 MiB，sha256 与 kernel.org 的 `sha256sums.asc`
+  一致并固定在工具里）与 Alpine 3.24 aarch64 的构建包（`tools/alpine_repo.mjs --arch aarch64 --set kbuild`：91 个包，
+  104.6 MiB）。解析器修了两处：同优先级的提供者按提供的版本取高者（`so:libisl.so.23` 原来取了 isl25，apk 要的是
+  isl26）；live 系统里钉死了被升级包版本的包一并下载（openssl-dev 升级 libssl3 时 openssl 也要升级）。
+- `tools/a64_kernel.mjs`：
+  - 源码取 6.18.35（即 Alpine 3.24 的库存内核的版本），底配置取 ISO 里的 `config-6.18.35-0-virt`（库存内核实际用的
+    配置；计划写的 aports `virt.aarch64.config` 要另外下载，没有用），加公共片段（Alpine 各阶段要的驱动内建：virtio-mmio、
+    virtio-blk、virtio-net、virtio-input、hwrng 与 virtio-rng、loop、squashfs、iso9660、ext4、evdev、packet；无调试信息；
+    模块签名的密钥改为内核自己生成的一次性密钥，因为库存配置写的是 Alpine 构建机上的路径；不构建模块）与页大小片段，
+    片段直接接在底配置后面再 `olddefconfig`（`merge_config.sh` 要 GNU 的 `readlink -m`）。
+  - 偏差：计划写的是 macOS 上 `LLVM=1` 交叉编译；macOS 缺内核的宿主工具（GNU make 4、gsed、lld、Linux 头文件），
+    所以改为在 Homebrew QEMU 10.2 的 HVF 下启动 Alpine aarch64 live 系统（8 核、6 GiB），装上本地仓库里的 GCC 15.2，
+    在 ext4 暂存盘上原生编译，两个内核共 783 s；结果是 `build/a64-kernel/{16k,64k}/Image` 与 `config`，
+    `build/a64-kernel/manifest.json` 记录源码、底配置、片段、结果的 hash 与工具链。`make a64-kernels`。
+- profile v1.1：新的内部选项 `a64_profile: "v1" | "v1.1"`（`src/arm/cpu.js`，init 时调 `a64_set_granules`，快照标识随之为
+  `v86-aarch64-v1.1`）；加载器按核心实际的 granule 检查 Image 头里的页大小（`a64_granules`）。
+  自建内核验收之后按计划把默认值升为 v1.1：ID_AA64MMFR0_EL1 的 TGran16 = 1、TGran64 = 0（与参考 cortex-a35 相同，于是从
+  允许的差异里删掉这一条），`tests/platform/a64-profile.json` 与 `cpu-contract.json` 随之更新（`cpu_contract.mjs --check` 与
+  `--a64-reference` 通过）；`a64_profile: "v1"` 仍可选。旧快照的标识是 `v86-aarch64-v1`，恢复进 v1.1 的机器时被拒绝。
+- `make a64-pagesize-guest-tests`（`A64_KERNEL=16k|64k`，probe 检查 AT_PAGESZ）：
+  16K 与 64K 各在 2 核上：page tier 的 live 阶到 login 33.1/46.7 s，解释器 226/245 s，probe 全部通过并报告
+  `page_size=16384`/`65536`（`CPU features: detected` 与参考比较过）；JIT 工作负载（node、java、luajit、pcre2）的输出与参考的相同。
+  live 阶的模块来自库存内核，加载不了，所需驱动都已内建，所以不受影响。
+- 门禁：`make a64-gate-full` 的前置步骤（边界检查、解码 oracle、QEMU 参考、各单元目标、core-split-check、原生 oracle、
+  kvm-unit-tests 与 Alpine 的长测）与 R-a64-isa、R-a64-sys、R-a64-virt、R-a64-UP、R-a64-SMP 在一次运行中通过；这次运行到了
+  4 小时的上限（lifecycle 3101 s、SMP 1705 s），其余级别用 `tools/release_gate.mjs --levels R-a64-jit,R-a64-gpu,R-a64-parallel,
+  R-a64-memory,R-a64-granule,R-a64-android-prep` 接着跑，全部通过（GPU 2412 s、granule 792 s、android-prep 1255 s）。x86：
+  `tests/devices/virtio_console.js`、`tests/api/reboot.js` 通过（virtio-console 的修改，下一节）；fmt、eslint 干净。
+
+### A7 中 P9.1 与 P9.2 的部分（2026-10-17）
+
+提交：与上一节同一个提交（`vA6`）。
+
+- 内核：计划写的是 Alpine 的 lts 内核（`A64_LINUX_FLAVOR=lts`）；改为 `tools/a64_kernel.mjs` 自建的 androidish 内核（P9.2 本来
+  就要它，binder 与 binderfs 在其中内建），不再另外下载 lts 包。androidish 片段：binder、binderfs（`ANDROID_BINDER_DEVICES=""`）、
+  SELinux（加进 LSM 列表）、USERFAULTFD、BOOT_CONFIG、DM 与 DM_VERITY、EROFS、F2FS、FS_ENCRYPTION、ZRAM、PSI（同 GKI，
+  不默认关闭），GKI 的形态：ARM64_VA_BITS_39、ARM64_SW_TTBR0_PAN、ARM64_PSEUDO_NMI、RANDOMIZE_BASE（DTB 不写 kaslr-seed）。
+  测试程序与内核一同在 HVF 虚拟机里用 Alpine 的 GCC 与 musl 静态编译，头文件取这个内核的 UAPI；P9.2 的镜像也在那里做：
+  `minimal.cil` 用 libsepol 的 CIL 编译器（Alpine 没有 checkpolicy 与 secilc，`tests/a64/cil2bin.c`）编译为版本 33 的策略，
+  `mkfs.erofs`（时间与 UUID 固定）、`mkfs.f2fs -O encrypt`（64 MiB，压缩保存）。为此 kbuild 包集加了 libsepol-dev、erofs-utils、
+  f2fs-tools（所有者 2026-10-17 同意下载，约 1.4 MiB）。`--programs-only` 只重做配置、程序与镜像（约 20 s），Image 不动。
+- P9.1：
+  - binderfs 的 selftest（内核源码里的 `binderfs_test.c`）3/3 通过；kselftest harness 每个用例 30 s 的超时对 4 GiB 内存下的
+    `binderfs_stress`（1000 个设备、每个设备上每个 CPU 一个线程）不够，编译时把源码副本里的 `TEST_TIMEOUT_DEFAULT` 改为 300。
+  - `tests/a64/binder_pingpong.c`：context manager 与客户端各绑一个 CPU（0 与最后一个），经 binderfs 新建的设备用
+    `BINDER_WRITE_READ` 往返 10,000 轮，内容逐轮校验，缓冲区都释放。
+  - virtio-console 的端口 1–3 在 virt 机器上是通用端口（`org.v86.port<N>`，同 QEMU 的 virtserialport；PC 上仍是 hvc1–hvc3），
+    宿主经总线事件 `virtio-console<N>-output-bytes` / `-input-bytes` 收发。live 阶从 `/sys/class/virtio-ports/` 按名字找到
+    端口，每个写一行由测试回显：mmio 上是 `vport2p1`–`p3`，pci 上是 `vport4p1`–`p3`（设备序号随枚举变化，所以不写死）。
+    修好的一个错误：PORT_READY 与 PORT_OPEN 的控制消息被确认了两次（入口处一次、分支里一次），第二次确认让客体的控制队列
+    错乱（端口打不开）；x86 也受影响，`tests/devices/virtio_console.js` 与 `tests/api/reboot.js` 通过。
+- P9.2（`A64_KERNEL=androidish` 的 initramfs 阶；程序与镜像在 `/a64-android/` 下，a64-init 在 probe 之前与之后各跑一段）：
+  - f2fs 加 fscrypt：第一次启动在 virtio-blk 盘（serial a64f2fs）上加 64 字节的密钥，在空目录上设 v2 策略（AES-256-XTS 内容、
+    AES-256-CTS 文件名），写两个文件后卸载并 `reboot -f`（PSCI SYSTEM_RESET）；第二次启动没有密钥时策略在、密钥不在、文件名
+    是密文、打开文件得 ENOKEY，再加同一密钥后标识与策略的相同，文件名与内容（含 64 KiB 的文件）都回来。
+  - bootconfig：测试按 `tools/bootconfig` 的格式（数据、NUL、补齐到 4 字节、大小、校验和、`#BOOTCONFIG\n`）把三个键接在
+    initrd 之后，命令行加 `bootconfig`；`/proc/bootconfig` 列出这三个键（之后是 bootloader 命令行的注释行），`kernel.*` 的键
+    出现在 `/proc/cmdline` 的最前面。
+  - SELinux：`tests/a64/selinux_load.c` 把策略一次写进 selinuxfs 的 load，再写 enforce；策略只有一个用户、角色与类型，27 个
+    初始 SID 按内核的编号，`handleunknown allow`。enforcing 是真的：策略声明了 process 的 setrlimit 而没有允许，改硬限制得到
+    EACCES，内核记 `avc: denied { setrlimit } … permissive=0`；内核要求策略声明 process 的 transition 与 dyntransition。之后
+    probe、binder、uffd 等都在 enforcing 下运行并通过。
+  - userfaultfd：`tests/a64/uffd_test.c`，另一个 CPU 上的线程触发 64 个缺页，由 UFFDIO_COPY 填入，再加一页 UFFDIO_ZEROPAGE。
+  - erofs 加 dm-verity：测试在 JS 里为 erofs 镜像算出 format 1 的哈希树（SHA-256、4 KiB 块、salt 在块前、顶层在前，按内核
+    `dm-verity-target.c` 的查找方式对 2–16500 块的随机数据核对过），`tests/a64/dm_verity.c` 经 `/dev/mapper/control` 的 ioctl
+    （DM_DEV_CREATE、只读的 DM_TABLE_LOAD、DM_DEV_SUSPEND 恢复）在 loop 设备上建出设备；挂载后文件与整个设备的 SHA-256 等于
+    宿主算的，同一棵树配上改了一个字节的镜像时读取得 EIO，内核报告被改的那一块。
+  - zram 与 PSI：zram0 作 256 MiB 的交换，16 MiB 的 memory cgroup 里写 40 MiB 可压缩的页再读两遍（`tests/a64/psi_test.c`），
+    `/proc/pressure/memory` 上的触发器（1 s 内 100 ms）期间触发，页内容不变，约 25 MiB 进了 zram，压缩到约 0.54 MiB。
+  - pseudo-NMI：命令行加 `irqchip.gicv3_pseudo_nmi=1`，内核报告 `Pseudo-NMIs enabled using relaxed ICC_PMR_EL1 synchronisation`
+    与 `IRQ priority masking`：中断由 GIC 的优先级屏蔽而不是 PSTATE.I 关闭，v86 的 GICv3 不用改。
+  - 修好的一个错误：ARM 核心的 `validate_physical_range` 把 extended RAM 当作不是 RAM，所以 4 GiB 内存时内核放在 4 GiB 以上的
+    virtqueue 与缓冲区让 virtio 设备进入 NEEDS_RESET（P8.5 的 4 GiB 测试没有磁盘，没有发现）；现在只拒绝既不是 RAM 也不是
+    extended RAM 的范围（DMA 本来就按页复制 extended RAM），`tests/a64/extended_memory.mjs` 加了这一条。
+  - `make a64-android-prep-tests`：解释器与 page tier 各 2/4 核、并行 Worker 解释器与 page tier 4 核、page tier 2 核 4 GiB
+    （1 GiB 加 3 GiB extended）全部通过。时间：解释器 2/4 核全程 235/326 s（到 probe 结束 96/122 s，两次启动之间是
+    f2fs 的写入与重启）、page tier 2/4 核 39/41 s（15/15 s）、并行 Worker 解释器与 page tier 4 核 178/60 s、4 GiB 369 s；
+    PSI 的触发器在 page tier 下约 8 s 内触发 7 次，解释器下约 58 s 内 54 次。
+  - 4 GiB 时明显更慢（page tier 2 核全程 343–369 s，512 MiB 时约 40 s）：extended RAM 的帧缓存没有换出（512 MiB 的缓存够用），
+    慢在每次访问 extended RAM 都走帧查找，而内核的数据大多分配在 4 GiB 以上；原版内核的 4 GiB memtest 也是这样（到 init 79 s）。
+    记入 P9.4 的已知缺陷清单。
+
+### A7 中 P9.3 的部分（2026-10-17；`a64_asid_tag` 默认改为 auto）
+
+提交：与本节同一个提交。
+
+- 计数：`src/rust/aarch64/mmu.rs` 统计 TTBR0/TTBR1 的写入与改变了本核心当前 ASID 的写入（`a64_mmu_stat`，
+  `tests/a64/linux_boot.mjs` 的结果里的 `mmu`，机器线程实例的核心）。
+- 测量（release 构建，page tier，1 核 live 阶到 login，3 次交替会话的中位数；机器不安静：NotificationCenter 一直占满一个
+  核，负载约 7，所以只看同一轮里交替的比较；A/A 先跑过）：
+  - 一次启动里原版内核改变 ASID 约 8,300 次（TTBR 写约 25,000 次），androidish 约 160 万次（约 320 万次）：SW_TTBR0_PAN
+    在每次从 EL0 进入和每个 uaccess 窗口前后把 TTBR1 的 ASID 在保留的 0 与进程的之间切换。
+  - `boot_to_login_ms`：`a64_asid_tag=0` 时原版 33.6 s、androidish 57.0 s（慢 70%）；`=1` 时 35.0 s 与 37.8 s。
+- F 级：`=1` 不通过：androidish 快 34%，但原版内核慢 4.2%（低于 0.99）——每个新进程的 ASID 有自己的 epoch，内核的全局
+  条目要在每个 epoch 里重新填（访问缓存的填充从 240 万次升到 390 万次）。于是加了 `=2`（auto，`pages::asid_tag_tick`）：
+  run 循环大约每 1024 条指令一次 tick，每 4096 次 tick（约 400 万条指令）看一次这段时间的 ASID 变化次数，不少于 256 次
+  打开标签，少于 16 次关闭（androidish 启动时每段约 1300 次，原版约 7 次；切换时各核心的缓存清空，同 `set_asid_tag`）。
+  auto 对 0（3 次交替会话的中位数）：
+  - live 阶到 login：原版 34.8 → 34.6 s（不变），androidish 58.0 → 40.5 s（快 30%，目标指标）；
+  - initramfs 阶到 probe 结束：1/2/4 核 6.39/6.93/7.09 → 6.25/6.76/7.50 s。4 核的 A/A（5 次）：0 与 0 为 7.20/7.17 s，
+    auto 排在每轮最后时 7.49 s；把 auto 排在每轮最前再跑 5 次：7.89 s 对 7.88/7.72 s——差别来自顺序与噪声；
+  - JIT 代理负载（P6.7）：76.1 → 77.3 s；A/A 一轮：80.5/80.8 s 对 auto 78.9 s。
+  原版内核上 auto 从来不打开（`asid_tag_switches` 为 0），执行的与 0 相同，只多每 1024 条指令一次计数。按 F 级把默认值
+  改为 2；`tests/a64/asid.mjs` 加了 2。
+- X：默认 auto 之下 androidish 到 login 比原版慢 16.8%（40.5 对 34.6 s），在初值 20% 之内，所以 FEAT_PAN 不提前放进 v2，
+  仍由 P10.4 的审计决定；没有标签时慢 70%，FEAT_PAN 仍是 v2 的首选候选（硬件 PAN 存在时 Linux 不用 SW_TTBR0_PAN）。
+- extended RAM（P8.5 的后续，A7 发现的性能缺陷）：ARM 的 page tier 原来不为 extended RAM 填访问缓存，每次访问都走帧
+  查找，4 GiB（3 GiB extended）时 Linux 约慢 10 倍。现在与 x86 相同：访问缓存可以映射常驻的帧（`cache_frame`，标为
+  CACHED，不被换出），run 循环的 safe point（`crate::extended::safe_point`，在上面的 tick 处）在一半的帧被占用或没有空帧
+  时清掉所有核心的访问缓存并释放它们；写条目先把帧标脏；带代码的页不给写条目（编译时退掉已有的写条目），有独占保留的页
+  也不给（extended RAM 里有保留时退掉所有指向帧的写条目，因为保留的键对不回帧）；并行 Worker 时不缓存。`extended_memory.mjs`
+  加了编译代码经 256 个帧遍历 512 页的读写（检查和、内容与帧的释放）。结果：androidish 4 GiB 全程 369 → 51 s（MIPS 19.8 →
+  80.6），原版 4 GiB memtest 159 → 44 s。
+- 门禁：`make a64-gate`、`a64-page-tier-tests`、`a64-extended-guest-tests`、`a64-android-prep-tests` 与并行的 litmus 通过。默认 auto 之下 androidish 的 initramfs 阶（page tier）：2/4 核全程 38.7/41.1 → 28.8/31.6 s，4 GiB 369 → 35.2 s，并行 Worker 4 核 60.1 → 48.7 s；auto 在每次运行里都打开了标签。
+
+### A7 中 P9.4 的部分（2026-10-17/18；A7 完成，G-Alpine）
+
+提交：与本节同一个提交（`vA7`）。
+
+- G-Alpine：`make a64-gate-full` 在 `vA7`（本提交的代码，`arm64` 之上只多本节的记录与文档）上一次通过：前置步骤（边界与 state layout 检查、解码 oracle、QEMU 参考、各单元目标、core-split-check、原生 oracle、kvm-unit-tests 与 Alpine 的长测）之后，R-a64-isa、R-a64-sys、R-a64-virt、R-a64-UP（lifecycle 2837 s）、R-a64-SMP（1727 s）、R-a64-jit、R-a64-gpu（2390 s）、R-a64-parallel（含 headless Chrome 的 `a64-browser-tests`）、R-a64-memory、R-a64-granule（788 s）、R-a64-android-prep（864 s）全部通过，2026-10-17 21:23 到 10-18 02:12（`build/release-gate/2026-10-17T14-45-45-835Z/`）。Node 与 headless Chrome 都在所有者的机器（这台 Mac）上。
+- 第一次 `make a64-gate-full`（P9.3 之后的构建）在 R-a64-UP 的 lifecycle 中失败：解释器 4 核的 live 阶在引导时报
+  soft lockup（CPU1 在 `jent_entropy_init` 中 26 s）。原因：解释执行多核时客体时钟就是宿主时钟，每个核心在整个很慢的
+  启动期间都按 HZ=1000 处理时钟中断（QEMU 的每个 CPU 整个启动约 450 次，v86 解释器 17,000–34,000 次），4 核比 1 核多
+  退役约 50% 的指令，jitterentropy 的自检在 1/2/4 核上 3.6/8.3/18.3 s，接近 20 s 的阈值，宿主忙时（同时有磁盘计划的
+  agent 在构建与测试）越过。之后两次门禁在同样的情形下失败一次（multicore 级）。`tests/a64/linux_boot.mjs` 对解释器
+  多核的 v86 运行加 `watchdog_thresh=30`（软锁阈值 60 s，放在内核那一段命令行里），page tier 与 QEMU 参考不变；真正的
+  挂起仍会被报告或超过运行的期限。记入已知缺陷。另一次门禁在 QEMU 参考的 kvm-unit-tests（timer.flat 的
+  vtimer-busy-loop 延迟 10 ms）上失败，是宿主忙时的时间检查，与 v86 无关；之后在宿主不忙时重跑整个门禁。
+- profile 完整性报告（`tools/a64_profile_report.mjs --reference --kvm`）：编码：Arm ARM 编码索引的 49 类全部有状态（37 已实现、11 UNDEFINED、1 ID 空间）与测试；ID 寄存器：v86 在 1 核与 4 核上与 profile 完全相同，QEMU 参考只有允许的差异；HWCAP：stock、androidish、16k、64k 内核上都是 0x8ff、HWCAP2 0；granule：Linux 的页大小 4096/16384/65536，kvm-unit-tests arm64 在 4k/16k/64k 都通过。结果写在 `build/a64-linux/profile-report.json`，`docs/aarch64.md` 的 CPU profile 一节记录。
+- 性能基线（`tests/a64/perf-baseline.json`，`vA6-2-gd4f03ada` 的 release 构建，3 次会话的中位数；测量时机器不安静：
+  NotificationCenter 一直占满一个核，负载约 7）：live 阶到 login page tier 1/2/4 核 34.7/39.5/40.6 s，解释器
+  238/281/362 s；initramfs 阶到 probe 结束 page tier 6.3/6.9/7.0 s，解释器 35.6/41.8/57.4 s；`docs/aarch64.md` 的
+  Boot time 与 page tier 一节的表随之更新。工具：`TEST_RELEASE_BUILD=1 node tools/a64_jit_metrics.mjs --stages
+  initramfs,live --baseline tests/a64/perf-baseline.json`。
+- 已知缺陷清单（`docs/aarch64.md` 的 Known defects）：没有 major。minor：并行 Worker 时独占存储比较值（ABA，声明的
+  偏差）、WFE 最长 20 µs、DSB 单步与 extended RAM 走解释器；解释器访问 extended RAM 每次查帧；SW_TTBR0_PAN 的内核
+  （androidish、GKI）在 auto 下仍比原版慢 17%（FEAT_PAN 是 v2 候选）；单缓冲快照不含 extended RAM；解释器多核的时钟
+  中断开销（上一条）。virtio-snd 未做（P7.5，可选）。
+- 浏览器：Node 与 headless Chrome（R-a64-parallel 的 `a64-browser-tests`）都在所有者的机器上通过。P8.7 留给所有者
+  的桌面浏览器手动运行由应用内浏览器代做：demo 页（`index.html` 与 `build/v86_all.js`）的 arm64 第一次在桌面浏览器里
+  运行就暴露了四个问题并已修正（`45c9e311`）：页面对 arm64 也给 x86 的核心（CPU worker 拒绝）；arm64 选项
+  `jit_switches` 没有加引号，Closure 改了名，page tier 从未打开；没有显示时默认命令行最后是 `console=tty0`，init 与
+  login 去了看不见的屏幕；`get_instruction_counter` 读 ARM 核心不写的字段（速度显示 0）。另外 `build/v86_all.js`
+  因 A5 的两处类型注释无法编译（门禁只构建 libv86）。修正后 Alpine aarch64 从 ISO 在约 34 s 到 root shell，
+  `uname -m` 为 aarch64，HWCAP 与 profile 相同。
+- 同期并入 `arm64` 的其他工作（各自的计划里有记录）：磁盘镜像格式计划 P0–P5 与 4K 逻辑扇区、磁盘持久化计划 D0–D3
+  （`9551a7a2`，合并时修正了 arm64 的 virtio-blk 读失败时状态字节写进数据的问题）；x86_64 默认打开全部 CPU 能力
+  （所有者 2026-10-17 的决定，`ecf0490e`）。Windows 8.1 在并行 Worker 下崩溃（与能力无关，`docs/multicore.md`
+  已列为已知限制）已找到并修正（`c213ef1f`）：并行时另一核心的 kick 可以在 32 位页函数的第一个入口就结束激活，
+  之后送达的中断进入 64 位代码，而"退役 0 条指令时补跑一条 32 位指令"的回退把中断处理程序当作 32 位代码执行，
+  内核于是在用户的 GS 上缺页并循环（桌面不响应）或蓝屏；修正后 Windows 8.1 在 2/4 核、i440FX 与 Q35 加 VMware SVGA
+  上 8 次全部通过两个探针，litmus 加了第 8 阶段复现这一情形。`make state-layout-check`（x86 多核目标依赖它）自
+  extended RAM 引擎移动后失败：ARM 核心 34 个静态变量补上归属，`make a64-gate` 加了这一检查。
+
+### A8（2026-10-18；P10，Android 16 在 QEMU 参考上到 boot_completed，v86 上到 system_server 与 adbd）
+
+提交：与本节同一个提交（`vA8`）。
+
+- 偏差（P10.1、P10.2，所有者有 x86_64 Linux 宿主时可以回到原计划）：本机是 arm64 的 macOS，可用磁盘约 45 GiB，AOSP 只能在
+  x86_64 Linux 宿主上同步与构建（数百 GB），所以不自建产品与内核，改用固定的预构建产物：ci.android.com 的
+  `aosp-android-latest-release` 分支上 `aosp_cf_arm64_only_phone-userdebug` 的 build 15581820。它的 fingerprint 是
+  `generic/aosp_cf_arm64_only_phone/vsoc_arm64_only:16/BP4A.251205.006/15581820:userdebug/test-keys`：build ID 正是 P10.1
+  固定的 `android-16.0.0_r4`（QPR2，BP4A.251205.006），源码 `android16-qpr2-release`，SDK 36，安全补丁 2025-12-05。核对
+  （P10.1 的待核对一项）：该分支之后的 build 15660610、15885347、16102939、16373615 都是 Android 17（CP2A.260605.016，
+  SDK 37），只取 15581820。GKI 不另取月度分支，用这一 build 的 boot.img 里的
+  `6.12.38-android16-5-g501f58f107ab-ab13974591-4k`（manifest 中 kernel/prebuilts/6.12/arm64 为 `53f5d249`），
+  virtual-device 模块来自它的 vendor_boot。产品不自建 `device/<project>/virt_arm64`，Cuttlefish 的产品原样使用，P10.2 要改的
+  部分放进启动材料与 bootconfig（下一条）；ISA 为 `dalvik.vm.isa.arm64.variant=cortex-a53`、`features=default`（v8.0 加
+  CRC32，v1 都有），只有 64 位（vsoc_arm64_only），与 P0.12 的结论相同。
+- P10.1 的固定（`tools/a64_android.mjs`，`--download` 时从 ci.android.com 取，所有者 2026-10-17 已同意 Android 的下载）：
+  `aosp_cf_arm64_only_phone-img-15581820.zip`（1,046,288,463 字节，sha256 `d56b75f0…`，下载时另核对服务器的 MD5）、
+  `vendor_ramdisk-debug.img`（18,797,343 字节，`b9a00cd7…`）与 `manifest_15581820.xml`（`d36c615a…`，1013 个项目）。
+  `device/google/cuttlefish` 在 manifest 中的 revision `4d368849` 的源码（gitiles 归档 2.9 MB）只用来核对启动器的行为。
+- P10.5（`node tools/a64_android.mjs`）：按 header v4 解开 boot.img（原始 arm64 Image，加载器不必支持 Image.gz/lz4）、
+  init_boot.img 与 vendor_boot.img；initrd 是 vendor ramdisk、generic ramdisk（都是 lz4 legacy，内核接受拼接）再接
+  bootconfig（vendor_boot 自己的一段与启动器、U-Boot 会给的项，带长度、校验和与 trailer）；GPT 磁盘（稀疏文件 17.5 GB，
+  实占约 1.8 GB）按 Cuttlefish 的顺序放 misc、boot/init_boot/vendor_boot 与四个 vbmeta 的 _a/_b、super 与 userdata
+  （sparse 转 raw）、metadata（64 MiB 空白，首次启动时格式化）与 frp；manifest.json 记录 hash、分区、命令行与
+  bootconfig；modules/ 是 vendor ramdisk 里的 19 个模块（P10.6 用）。U-Boot 与启动器的项：slot `_a`、
+  `force_normal_boot=1`、解锁（`verifiedbootstate=orange`、`vbmeta.device_state=unlocked`）与按 libavb 的加载顺序算出的
+  `vbmeta.digest`（vbmeta 与它链到的 boot、init_boot、vbmeta_system、vbmeta_system_dlkm、vbmeta_vendor_dlkm，共 22,912
+  字节）、`boot_devices=4010000000.pcie`、`fstab_suffix=cf.f2fs.hctr2`、guest_swiftshader 的图形项（`assemble_cvd` 的
+  `bootconfig_args.cpp` 与 `qemu_manager.cpp`）。内核控制台是 hvc0（之前 earlycon 在 PL011），Android 的控制台 shell 在
+  PL011，logcat 在 hvc2，如 Cuttlefish。P10.2 中 Cuttlefish 经 virtio-console 与 vsock 由宿主提供的服务改为客体自己的：
+  KeyMint 与 Gatekeeper 用 vendor 中的 nonsecure APEX（bootconfig 的多安装 APEX 选择）。默认用该 build 的 debug vendor
+  ramdisk（`/force_debuggable` 与 `adb_debug.prop`，init 只在解锁时采用）：`ro.adb.secure=0`，adbd 不要密钥。
+  SELinux 先 permissive（`--selinux`，enforcing 是 P11.3）。
+- 启动时发现并补上的：没有 `androidboot.vsock_lights_port` 时灯的 HAL 绑定特权端口 0（EACCES）崩溃，system_server 在
+  StartLightsService 永远等它；Thread HAL 要 `androidboot.openthread_node_id` 大于 0；没有 frp 分区（Cuttlefish 第二块
+  磁盘上的）时 PersistentDataBlockService 在 boot phase 500 超时，system_server 反复重启。
+- P10.3（`tests/a64/android_qemu.mjs`、`tests/a64/android_boot.mjs`）：A0 的 QEMU 9.2.0 与 virt 布局，cortex-a35 TCG，设备照
+  Cuttlefish 的 QEMU 启动器（virtio-pci，blk 00:01.0、GPU 00:02.0（Cuttlefish 的 sepolicy 期望的位置）、18 个 virtconsole、
+  rng、键盘、tablet、三张网卡），直接引导上面的材料。首次启动到 `sys.boot_completed=1`（控制台 `getprop` 证实，
+  fingerprint 相同）：4 核 4 GiB 304 s；最终的布局（内核控制台在 hvc0）与 1536 MiB 时 341 s（system_server 143 s）。最小内存（HVF 快速运行，4 核）：1024 MiB 22 s 到 boot_completed，
+  768 与 512 MiB 到 system_server 但 4 分钟内不到 boot_completed，所以最小约 1 GiB，低于 2 GiB − 128 KiB：P8.5 的 extended
+  RAM 结论不影响 Android；v86 取 1536 MiB，全部在低端 RAM。指令数（libinsn inline 与 howvec；没有 `-icount`：它把 4 个 vCPU
+  串到一个线程上，插件下要数小时，时间驱动的等待因而变长，所以是上限）：首次启动到 boot_completed 共 1743 亿条，4 个核心各
+  约 430–460 亿；类别：成对加载存储 20.4%、立即数偏移的加载存储 15.1%、标量浮点与 SIMD 11.2%、加减立即数 10.0%、寄存器
+  数据处理 8.2%、条件分支 7.4%、字面量加载 5.2%（ART 的常量池）。按 A4 实测的 page tier MIPS（1 核约 130）推算 v86 约
+  1340 s，与 P10.7 的实测 1396 s 相近。
+- P10.3 冻结的 Android E 级预算（同一宿主、同一材料、4 核、1536 MiB；v86 为 release 构建、page tier、并行 Worker，参考为
+  QEMU TCG cortex-a35）：首次冷启动到 `sys.boot_completed=1` 不超过参考的 5 倍（实测 4.1 倍：1396 对 341 s；到
+  system_server 3.1 倍：443 对 143 s）；第二次启动、应用启动（`am start -W` 的 TotalTime）与输入延迟同样不超过参考的 5 倍，
+  持续帧率不低于参考的 1/5（P12.3 测量对照）；A10 的长时间运行用例是 30 分钟固定种子的 monkey，内存压力用例是依次启动应用
+  直到 lmkd 至少杀一次进程，两者中 system_server、surfaceflinger 与 zygote 都不得重启。超过预算的 2 倍按停止条件处理。
+- P10.4（`node tools/a64_android.mjs --extract`，`node tools/a64_isa_scan.mjs --android build/a64-android/rootfs.tar`）：在
+  QEMU（HVF）上启动后，以 root 在 system_server 的挂载命名空间里把 system、system_ext、product、vendor、odm、三个 dlkm
+  与 87 个活动 APEX 打包（2.19 GB），经 virtserialport 传回；扫描其中及 APK/JAR 内的 2601 个 AArch64 ELF（含 ART 的
+  .oat/.odex）：1.70 亿个代码字，只在 v1 之外有效的 17.1 万（0.1%）。逐项结论：SVE/SVE2/SME/SHA3/SM4/DotProd/i8mm/FP16/
+  MTE/MOPS/LSE 等都在按 HWCAP 运行时选择的路径里（BoringSSL、libjxl、libdng_sdk、libyuv、dav1d、libvpx、WebView；
+  bionic 的 MTE、MOPS 与 SME 路径；outline atomics 与内核模块的 alternatives 选 LSE），或者是 OAT `.text` 中方法头一类
+  的数据，或者在不运行的镜像里（`trusty_security_vm.elf` 是 pKVM 的 VM，没有 EL2 时不启动）。没有必须实现的特性：
+  v2 为空，P10.6 不必等待。执行上的证据是 cortex-a35（v8.0）参考到 boot_completed 与 v86 上的启动。FEAT_PAN 仍是性能
+  选项（P9.3：SW_TTBR0_PAN 的内核在 auto 下慢 17%），P12.3 的指标达不到预算时再做。LOAD 段 p_align：4 KiB 1624 个、
+  16 KiB 7005 个、64 KiB 455 个，16 KiB 的兼容留给 P12.1。
+- P10.6（`A64_KERNEL=gki`，`tests/a64/linux_boot.mjs` 的 initramfs 阶，QEMU 参考也跑）：GKI 内核配 Alpine 的 initramfs
+  与 probe，probe 之前按 modprobe 的顺序（modules.dep 的依赖在前）insmod vendor ramdisk 的 19 个模块。QEMU 1/4 核与 v86
+  page tier 1/4 核、解释器 1 核都通过：19 个模块全部加载，注册的 virtio 驱动与参考相同，probe 通过（HWCAP 0x8ff）；
+  v86 page tier 1 核 19.4 s（64.5 MIPS），解释器 101 s（12.9 MIPS）。
+- P10.7（`A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 node tests/a64/android_boot.mjs`）：同样的材料，设备的 PCI
+  顺序同参考（GPU 用新选项 `virtio_gpu_pci_slot: 2` 留在 00:02.0），`virtio_console_ports: 18`，没有网卡而用新的
+  virtio-vsock（`src/virtio_vsock.js`：客体 CID 3，宿主端经 `emulator.vsock_connect(port)` 连客体的端口，信用流控；
+  Cuttlefish 的 adb 走的就是 vsock，adbd 同时在 vsock:5555 监听）。page tier、4 核并行 Worker、1536 MiB，首次启动：
+  second stage init 44 s，zygote 365 s，adbd 413 s，开机动画（SurfaceFlinger）452 s，system_server 610 s，
+  `tests/a64/adb.mjs`（不带认证的 ADB 协议）经 vsock:5555 在 617 s 得到 adbd 的 banner、system_server 的 pid 与相同的
+  fingerprint。first stage 里 super 上的 dm-linear 逻辑分区、AVB 的 dm-verity（`sha256-ce`，用 v1 的 SHA2 扩展）、
+  47 个模块的加载与两次切换根目录都在 v86 上完成。以上时间是源码构建、与 QEMU 的插件运行同时跑的第一次；等到
+  `sys.boot_completed=1`（`A64_ANDROID_WAIT=boot_completed`，adb 每 30 s 查一次）：release 构建、机器较安静（NotificationCenter
+  照旧占一个核）时 1396 s（second stage 35 s、zygote 301 s、adbd 318 s、开机动画 334 s、system_server 443 s、adb 447 s），
+  与门禁同时跑时 2087 s。首次启动的时间主要花在 apexd 解压 system 中的压缩 APEX 与包的 dex2oat 上。v86 的运行没有网卡，
+  Thread 网络 HAL 的模拟射频（ot-rcp）打不开它的套接字而反复重启（QEMU 有网卡时不会），不影响启动，留给 P11.2。
+- v86 上的修正：virtio-console 有 18 个端口时，驱动就绪后一次发出的控制消息比控制接收队列的缓冲多，原来断言失败；
+  现在控制消息排队，等驱动给出缓冲（x86 的 4 个端口行为不变，`tests/devices/virtio_console.js` 通过）。
+  `src/virtio_vsock.js` 进入 Closure 的文件列表，`build/libv86.mjs` 与 `build/v86_all.js` 无错误。
+- QEMU 侧的陷阱（只影响参考与提取）：file 后端的 virtserialport 从不为客体打开（客体写入一直阻塞），改用 socket 后端，
+  而且要在客体驱动起来之后再连接（之前的打开事件被丢弃）；控制台 shell 在 init 的 bootstrap 挂载命名空间里，只看得到
+  10 个 bootstrap APEX，要 `nsenter -t $(pidof system_server) -m`。Wi-Fi 的网络 offer（IS_INVINCIBLE）分数高于以太网，
+  默认请求都给了没有连上的 Wi-Fi，eth1 从不 DHCP，QEMU 的 hostfwd 到不了 adbd：留给 P11.2（网络）。
+- 门禁：`make a64-gate-full` 在本提交的代码上一次通过（2026-10-18 04:47 到 09:37，`build/release-gate/2026-10-17T22-08-50-866Z/`）：
+  前置步骤之后 R-a64-isa、R-a64-sys、R-a64-virt、R-a64-UP（lifecycle 2923 s）、R-a64-SMP（1705 s）、R-a64-jit、R-a64-gpu（2392 s）、
+  R-a64-parallel（含 headless Chrome）、R-a64-memory、R-a64-granule、R-a64-android-prep 全部通过，各项用时与 A7 相当：R-a64-* 不
+  退化。core-split-check：`v86.wasm` 与 `vA7` 逐字节一致（本里程碑没有 Rust 改动）。共享 JS（virtio-console、starter、
+  cpu_worker、machine_options）按跨阶段规则 1 跑了 `make platform-release-gate GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`
+  （8 项全部通过）与 `make nasmtests-force-jit`（16499/16499），`tests/devices/virtio_console.js` 通过。GKI 桥接与 Android 的
+  测试进了 `make android-reference-tests` 与 `android-guest-tests`（R-android 级，A8–A10）；A8 的验收项都已达到：QEMU 参考到
+  `sys.boot_completed=1`，v86 上 GKI 桥接的 probe 通过，Android 启动到 system_server 并且 adbd 可用（还到了 boot_completed）。
+
+### A9 进行中（2026-10-18；P11 的场景在 v86 上用 SwiftShader 通过，图形改走 Venus）
+
+提交：与本节同一个提交（不打 tag：A9 的图形验收改在 Venus 上，P11.4 未完成）。
+
+- 场景（`tests/a64/android_scenario.mjs`，`A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs`，两个目标都跑）：
+  `sys.boot_completed=1` 之后经 adb：SELinux enforcing（`tools/a64_android.mjs` 默认改为 enforcing，`--selinux permissive`
+  留作调试）；测试用的设备设置（`prepare_device`：关锁屏、关窗口/过渡/动画三项动画，v86 上 adb 一应答就设）；等用户 0
+  解锁（`am get-started-user-state 0` 为 `RUNNING_UNLOCKED`），Launcher3 成为 top resumed activity；Wi-Fi 连上 Cuttlefish
+  的 VirtWifi 并由 DHCP 得到地址；v86 上再经 fetch 适配器向测试自己的 HTTP 服务器（`http://<port>.external/`）取一页，
+  关开 Wi-Fi 后再取一次；v86 上用 uiautomator 找到 Gallery 图标的边界，在多点触摸屏上点它的中心，Gallery 被打开；
+  推送、安装并 `am start -W` 一个 APK（`tests/a64/apk.mjs`：二进制 XML 的 manifest，`hasCode=false`，v1 JAR 签名）；
+  写 /data 中的一个文件后 `reboot`（PSCI SYSTEM_RESET），再到 boot_completed，APK 与文件都在，仍是 enforcing；没有反复
+  重启的服务（init 的 “exited 4 times”），并记录重启后的应用崩溃与 ANR、DHCP 失败次数。
+- 结果（4 核 1536 MiB；v86 为 release 构建、page tier、并行 Worker；同一宿主）：
+
+  | 项 | QEMU HVF | QEMU TCG（P10.3 的参考） | v86（第 7 次，SwiftShader） |
+  | --- | --- | --- | --- |
+  | boot_completed | 20 s | 341 s | 1550 s（与构建、QEMU 同时跑；之前安静时 1113–1412 s） |
+  | 解锁晚于 boot_completed | 12 ms | 1.9 s | 4.5 s（之前的运行约 10 分钟，见下） |
+  | Wi-Fi 地址 | 10.0.3.15 | 10.0.3.15 | 192.168.86.100，DHCP 失败 0 次 |
+  | HTTP（经 fetch 适配器，含关开 Wi-Fi 之后） | — | — | 通过 |
+  | 触摸打开 Gallery | — | — | 通过（图标 [188,775]–[360,1010]） |
+  | 应用启动（TotalTime） | 340 ms | 27.8 s | 81.9 s（参考的 2.9 倍，预算 5 倍） |
+  | 重启后再到 boot_completed | 60 s | 208 s | 872 s（4.2 倍） |
+  | 反复重启的服务、重启后的崩溃与 ANR | 无 | 无 | 无 |
+
+- v86 的改动：多张 virtio 网卡（`net_device.count`，网卡的 `id` 由构造参数给出，x86 一张网卡时不变）；第三张接 fetch
+  适配器（`net_device: { type: "virtio", count: 3, relay_url: "fetch", id: 2 }`），在 Cuttlefish 的 Wi-Fi（VirtWifi 建在
+  第三张网卡上）之下。page tier 的代码预算：第一次 v86 场景运行在 boot_completed 前因 “Exceeding maximum wasm committed
+  code space”（V8 每个进程 4 GiB）而崩溃；排查确认不是泄漏（V8 能回收丢弃的模块，Worker 之间也一样），而是每个核心长期
+  保留的页函数太多（每页约 36 KB 的原生代码，约为 Wasm 的 1.3 倍）。改为每个核心的预算（开关 `a64_page_code_mb`，默认
+  160 MiB，最少 8 MiB），超出时按最近最少使用淘汰；统计项 `live_code_bytes`。8 MiB 的压力运行淘汰 3668 次，仍正确。
+- 发现并在测试中处理的（都写进 docs/aarch64.md 的已知缺陷）：
+  - v86 首次启动时 `sys.boot_completed=1` 比用户 0 解锁早约 10 分钟（PRE_BOOT_COMPLETED 与 BOOT_COMPLETED 的接收者）。
+  - 锁屏的竞态：SystemUI 的 SYSTEM_READY 在 provisioning 结束前到来时不显示 keyguard（没有 SHOW），窗口管理器却保留
+    keyguard 的 sleep token，之后的 dismiss 都被忽略，Launcher3 一直处于 paused。在 SystemUI 建立 keyguard 之前
+    （v86 上约 1090 s）关掉锁屏即可避免；QEMU 启动快，keyguard 照常出现并能 dismiss。
+  - `dumpsys` 默认对每个服务只等 10 s（超时信息在 stderr），v86 上 activities 的 dump 更慢：用 `dumpsys -t 300 ... 2>&1`。
+  - `wm disable-blur true` 在这个 build 上不生效（仍报告 “Blur enabled: true”），不等待它。
+  - SwiftShader：Launcher3 的首帧要几分钟；开着动画时 ART 的 finalizer 看门狗（`ReferenceQueueDaemon` 在
+    `HardwareRenderer$DestroyContextRunnable` 上超时）杀掉了 Launcher3，尽管 `ro.hw_timeout_multiplier` 已是 50
+    （Cuttlefish 的 `init.cutf_cvm.rc` 由 `androidboot.hw_timeout_multiplier` 设置，libart 用它放大 finalizer 的超时）；
+    截图比窗口管理器的状态晚数秒（Gallery 与应用已是 top resumed，屏幕上仍是桌面）。所有者据此决定把 Venus 提前到 A9。
+  - 有一次运行里 wlan0 的 DHCP 连续失败两次，网络随后被禁用 5 分钟；场景改为每两分钟手动重连一次，`dhcp.log` 记录
+    客体与 fetch 适配器之间的 DHCP 报文。原因尚未查明。
+  - Bluetooth 的原生栈在首次启动时因 FinalizerWatchdogDaemon 中止，QEMU TCG 上也一样，与 v86 无关。
+- 调试手段（`tests/a64/android_boot.mjs`）：`A64_ANDROID_PROBE=<file>` 在 boot_completed 之后逐行经 adb 运行 shell 命令并
+  打印用时与输出，`A64_ANDROID_PUSH=<本地>=<远端>,...` 先推送文件，两个目标都可用；`A64_ANDROID_GPU=venus`（v86）用
+  virtio-gpu 的 venus 级别，渲染器在无头 Chrome 中（`tests/x64/gpu_remote_renderer.mjs`）。`tests/a64/adb.mjs` 增加
+  sync 服务的 push；截图的 PictureSink 移到 `tests/lib/picture_sink.mjs`，供 x64 与 a64 的测试共用。
+- P11.4 V0（Venus 的客体驱动）：预编译镜像只有 `vulkan.pastel.so`（SwiftShader）与 `vulkan.ranchu.so`（gfxstream），
+  没有 Mesa。用已装的 NDK r26b（clang 17，通用二进制）交叉编译 Mesa 26.1.6（与 `venus_protocol.js` 同一版本，源码
+  sha256 与发布说明一致）的 venus 驱动：meson 的 Android 交叉配置（API 34，`platforms=android`、`android-stub=true`、
+  `vulkan-drivers=virtio`，其余全关），libdrm 2.4.125 作为子项目静态链接，得到 `libvulkan_virtio.so`（1.8 MB，导出
+  `HMI`，依赖 libcutils、libhardware、liblog、libnativewindow、libsync，镜像中都有）。在 QEMU 参考（HVF，enforcing）上
+  把它以 `same_process_hal_file` 标签 bind mount 到 `/apex/com.google.cf.vulkan/lib64/hw/vulkan.pastel.so`，重启
+  gpuservice 后 `cmd gpu vkjson` 正常返回（Vulkan 1.4 的实例扩展），驱动读取它的 `vendor.mesa.vn.*` 属性（SELinux 拒绝
+  读取这些调试属性，无害），没有链接错误；QEMU 没有 venus 设备，所以没有物理设备。下一步 V1：v86 的 venus 级别加
+  无头 Chrome 的渲染器，看到 Venus 设备。V2 的缺口：v86 的 Venus 宿主侧拒绝 `VkImportMemoryResourceInfoMESA`
+  （`venus_vk_resources.js` 的 vkAllocateMemory），而 ANGLE 渲染、SurfaceFlinger 合成与 HWC 扫描输出都要导入 gralloc
+  （minigbm）分配的 virtio-gpu 资源。构建的步骤之后做成工具。
+- 门禁：`make a64-gate` 通过（16 项，2 分 14 秒），core-split-check：`v86.wasm` 与 03a7249f 逐字节一致（Rust 改动只在
+  `src/rust/aarch64/`）；`make state-layout-check`、eslint、`cargo +nightly fmt --check`（计划规定的配置）与 `make all`
+  （Closure 0 错误）通过。共享 JS（`src/virtio_net.js`、`src/browser/cpu_worker.js`）按跨阶段规则 1 跑了
+  `make platform-release-gate GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项全部通过）与用 virtio 网卡或
+  fetch 适配器的 x86 测试（`tests/devices/pcie_root_port.js`、`virtio_balloon.js`、`fetch_network.js`、`tests/api/reboot.js`）。
+
+### A9：P11.4 Venus（2026-10-18）
+
+- V1（v86 上看到 Venus 设备）：`A64_ANDROID_GPU=venus` 时 `tests/a64/android/vkprobe.c` 与 gpuservice 的 `cmd gpu vkjson`
+  列出 “Virtio-GPU Venus (v86 WebGPU)”（Vulkan 1.1；wire 1，vk.xml 1.4.343，venus 协议 4）。gpuservice、SurfaceFlinger 与
+  应用在 SELinux 下能打开 `/dev/dri/renderD128`，却不能列出 `/dev/dri` 或读设备的 sysfs，`drmGetDevices2` 静默失败，
+  驱动于是报告没有设备：补丁（`tools/a64_venus/venus-android.patch`）改为按路径打开 render node，并用 `drmGetVersion`
+  确认是 virtio_gpu。Mesa 的日志要 `MESA_LOG=file MESA_LOG_LEVEL=debug VN_DEBUG=init,result` 才有（release 默认 info
+  级别）。构建做成工具：`make android-venus`（`tools/a64_venus/build.mjs`：Mesa 与 libdrm 的 tarball 按 sha256 固定，
+  pip 的 meson、mako 等装在 `build/a64-venus/pyenv`，输出 `build/a64-android/venus/` 的 `vulkan.virtio.so`、`vkprobe`、
+  `vkahb` 与 `manifest.json`）。
+- V2（gralloc 的缓冲区）：宿主侧导入 virtio-gpu 资源。`vkAllocateMemory` 接受 `VkImportMemoryResourceInfoMESA`（导入
+  的内存没有自己的 VX 缓冲区），加 `vkGetMemoryResourcePropertiesMESA`；`VK_EXT_image_drm_format_modifier`（只有线性
+  修饰符：图像在这里是纹理，没有自己的布局）、`VK_KHR_image_format_list` 与 `VK_EXT_queue_family_foreign`；绑定时新的
+  `VX.TEXTURE_IMPORT` 让图像借用该资源在 GX 中的表面（GX 与 VX 共用一个 GPUDevice，渲染器给 VX 一个 peer）；每次 Venus
+  提交之后导入的资源以 GPU 上的为新（`virgl.wrote`），扫描输出与 `TRANSFER_FROM_HOST` 从 GPU 读回；导入记在快照里，
+  恢复时在 virgl 之后重放。客体：Cuttlefish 15581820 的 minigbm 只有 AIDL allocator 与 IMapper5，没有 CrOS API 的
+  gralloc0 模块，NDK 构建也没有 libui，Mesa 的 u_gralloc 没有能用的后端：补丁增加 `u_gralloc_minigbm.c`，直接读
+  minigbm 的 `cros_gralloc_handle`（packed；magic 0xABCDDCBA；2 个 fd、34 个 int；usage 为 u64）。
+  `tests/a64/android/vkahb.c`（AHB → 导入 → GPU 清屏 → CPU lock 后逐像素检查）在 v86 上通过；
+  `tests/devices/virtio_gpu_venus.js` 增加这一节。
+- V3（开机时装入驱动）：`tools/a64_android.mjs` 在有 `build/a64-android/venus/vulkan.virtio.so` 时把它写进 odm：在
+  mkfs.erofs 的镜像之后追加块（新的 inode、目录与数据，不压缩；根目录的目录项移到自己的块），得到
+  `/odm/lib64/vulkan.virtio.so`，标签 `same_process_hal_file`；重新生成 hash tree，vbmeta 中 odm 的描述符改为新的大小与
+  根摘要（不带 FEC；签名因此不再匹配：设备是 unlocked，第一阶段 init 只核对 bootconfig 给的摘要，状态为
+  VerificationError，dm-verity 照常建立）；odm_a 移到 super 中所有分区之后的空闲处，每个 metadata 副本（3 个槽位的主
+  与备份）重写并重算校验和。工具把驱动读回比对；erofs 的超级块校验和与 hash tree 的算法先用原来的 odm 核对过
+  （根摘要与原描述符一致）。另写 `initrd-venus.img`，bootconfig 多三项：
+  - `androidboot.hardware.vulkan=virtio`：libvulkan 先在 Vulkan APEX 的命名空间找 `vulkan.virtio.so`，找不到就回到
+    sphal 命名空间，其搜索路径以 `/odm/lib64` 开头（不是 `/odm/lib64/hw`，QEMU 上读 `/linkerconfig/ld.config.txt` 确认）；
+  - `androidboot.hardware.hwcomposer.mode=client`：ranchu HWC 把 pastel 以外的 Vulkan 当作 gfxstream 的宿主合成，连不上
+    宿主，SurfaceFlinger 随即中止（“Can't create AidlComposerClient”）；client 模式与 Cuttlefish 的 drm_virgl 一样，由
+    SurfaceFlinger 在 GPU 上合成，HWC 只做扫描输出；
+  - `androidboot.opengles.version=131072`：ANGLE 在 Venus 上只给 OpenGL ES 2.0（见下）。
+  `initrd.img` 仍是 SwiftShader，QEMU 参考（HVF）用它启动，挪动后的 odm 与改过的 vbmeta 照常通过，驱动可见、标签正确。
+  `A64_ANDROID_GPU=venus` 用 `initrd-venus.img`。v86 上从开机起 SurfaceFlinger 的 RenderEngine 就是
+  “ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU Venus (v86 WebGPU)))”，开机动画经 Venus 合成、DRM 扫描输出，不再需要 bind
+  mount 与重启框架。
+- 途中发现并修正：
+  - 宿主若声明 `VK_EXT_external_memory_dma_buf`，Linux 客体的 Mesa venus 就不走软件 WSI（`vn_wsi.c` 只在没有它时用），
+    改用 dma-buf 的交换链图像，v86 做不到：Alpine 的 vkcube 因此失败（`VK_ERROR_SURFACE_LOST_KHR`，`make
+    a64-gpu-guest-tests` 的 vkcube）。宿主不再声明它与 `VK_KHR_external_memory_fd`（本来也不导出 dma-buf）；Android 的
+    驱动在渲染器有修饰符与外部队列扩展时照样按 dma-buf 导入（补丁的 `vn_physical_device.c`），也不再向渲染器请求这两个
+    扩展（`vn_device.c`；否则 ANGLE 的 `vkCreateDevice` 得到 `VK_ERROR_EXTENSION_NOT_PRESENT`）。Alpine 的 venus 与
+    vkcube 场景重新通过。
+  - V3 的 bind mount 测试里框架重启后约 4 分钟像是停住：设备与 Venus 的队列都空闲，各线程停在 epoll、futex 与 binder，
+    不是 GPU。原因是 UWB：Cuttlefish 的 UWB HAL 经 hvc9 连宿主的 pica，v86 与参考都没有，初始化超时后 userdebug 版的
+    UwbServiceCore 请求完整的 bug report，dumpstate 在 v86 上要跑好几分钟（逐个进程抓原生栈）。`prepare_device` 关掉
+    UWB 设备错误的 bug report（DeviceConfig `uwb` 的 `device_error_bugreport_enabled`；会话的那一项不在 shell 的
+    allowlist 上，写入被拒）。
+  - VX：负高度视口（ANGLE 用它上下翻转）用顶点着色器保留 Vulkan Y 方向的 pipeline 变体绘制（naga 新增
+    `keep_coordinate_space`；变体有自己的 auto layout 与 bind group，WebGPU 不许跨 pipeline 用 auto layout 的 BGL）；
+    没有附件的 pass 与 pipeline 用占位附件；光栅化丢弃改为不写任何东西的片段阶段；sRGB 视图不带 STORAGE 用途（视图
+    继承纹理的用途）；GX 在释放表面之前先提交编码器（提交中用到已销毁的纹理会使整个提交无效）。见
+    docs/gpu-deviations.md 的 G-36、G-43、G-44。
+  - ANGLE 在 Venus 上只给 OpenGL ES 2.0（SwiftShader 是 3.1）：WebGPU 每个阶段 12 个 uniform buffer（本机 Chrome 的
+    Metal 适配器的上限）少于 ES 3 的 12 个 block 加 ANGLE 自己的 default uniform 块；也没有 transform feedback（扩展
+    没有，模拟需要顶点阶段可写的存储缓冲区，WebGPU 没有）。`standardSampleLocations` 顺带改为 1（只有 1 与 4 采样，
+    WebGPU 的 4 采样位置就是 Vulkan 的标准位置）。SurfaceFlinger 与 HWUI 用 ES 2 足够；ES 3 留作后续（超出的 uniform
+    buffer 改为只读存储缓冲区；transform feedback 另议）。
+  - Venus 的 ring：第 1 次 Venus 场景运行里 Launcher3 两次在驱动的 `vn_relax` 中中止（用 NDK 的 llvm-objdump 反汇编核对
+    中止点：+260 是 ALIVE 看门狗超时，+300 是 2^14 次迭代、约 895 s 的上限，+320 是 ring 的 FATAL）：一个线程等一个
+    ring 约 15 分钟。宿主侧两处修正：等待中的命令的回复写到命令开始时设定的回复流（每条带回复的命令之前，ring 都先设定
+    自己的回复流；一个 ring 等待时另一个 ring 可能已设定了它的），等待别的 ring 的 seqno 的命令在那个 ring 的 head 前进
+    时就被唤醒（不只在它的 run 结束时；推迟到这一轮之后，免得一个 ring 插进另一个 ring 的回复流与命令之间）。另外
+    Android 驱动不再因看门狗中止（补丁的 `vn_common.c` 设 `VN_DEBUG_NO_ABORT`）：v86 的渲染器在宿主的主线程上，
+    页面忙或标签页在后台时可能停好几秒，客体的时间却照走；ring 的 FATAL 仍然中止。`A64_ANDROID_GPU_DEBUG=1` 的输出
+    增加 Venus 的错误数与各 ring 的状态（空闲、运行、在某条命令中等待、FATAL）。之后的运行再没有出现。
+  - WGSL 默认不许在非一致的控制流中求导数（`fwidth`），SPIR-V 允许：VX 翻译出的着色器前加
+    `diagnostic(off, derivative_uniformity);`（GX 的 WGSL 本来就有）。
+- V4（A9 场景在 Venus 上）：场景增加帧时间——Launcher3 的全部应用列表上滑打开、Back 关闭，先一次（冷：着色器与
+  pipeline 在其间生成），再三次（热），各取 `dumpsys gfxinfo` 的统计；另截全部应用列表与桌面的图（上面的 `home`
+  可能还是 FallbackHome 的画面，Launcher3 的首帧还没出来）。结果（4 核 1536 MiB，page tier，并行 Worker，源码构建；
+  同一宿主，依次运行）：
+
+  | 项 | v86 Venus（第 3 次） | v86 SwiftShader（第 8 次） | QEMU TCG（参考，SwiftShader） | QEMU HVF（SwiftShader） |
+  | --- | --- | --- | --- | --- |
+  | boot_completed | 1076 s | 1091 s | 299 s | 19 s |
+  | 桌面（Launcher3 为 top resumed） | 1174 s（解锁晚于 boot_completed 2.7 s） | 1174 s | 370 s | 75 s |
+  | 帧（冷，一次） | 6 帧，p50 ≥ 4950 ms（gfxinfo 直方图的最高一档） | 没有统计（gfxinfo 没有给出） | 5 帧，p50 1500 ms | 4 帧，p50 600 ms |
+  | 帧（热，三次） | 9 帧，p50 2250 ms，p90 ≥ 4950 ms | 0 帧 | 20 帧，p50 1400 ms | 45 帧，p50 8 ms，p99 36 ms |
+  | 桌面的图（帧测完之后） | Launcher3 的桌面：搜索框、Gallery、Dock、导航栏 | 仍是 FallbackHome 淡出的画面 | — | — |
+  | 触摸打开 Gallery | 通过 | 失败：Launcher3 成为 top resumed 约 38 分钟后 uiautomator 的 dump 仍为空（还没画出来） | （只在 v86） | （只在 v86） |
+  | 应用启动（TotalTime） | 17.7 s（参考的 1.5 倍） | — | 12.1 s | 0.3 s |
+  | 重启后再到 boot_completed | 569 s（3.2 倍） | — | 179 s | 60 s |
+  | 反复重启的服务、重启后的崩溃与 ANR、DHCP 失败 | 无、无、0 | — | 无 | 无 |
+
+  SurfaceFlinger 的 GLES 为 “ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU Venus (v86 WebGPU)))”，OpenGL ES 2.0；SwiftShader 的为
+  OpenGL ES 3.1。帧仍要秒级（A10 的 P12.3 指标里再看；所有者定的顺序：性能在计划完成之后）。第 7 次（SwiftShader）
+  通过了触摸一步，推测是因为那时用户 0 要等约 10 分钟才解锁，Launcher3 有时间画出来；这一次解锁不再推迟（推测与
+  UWB 的 bug report 关掉有关），SwiftShader 就来不及了。第 2 次 Venus 运行（回复流与看门狗修正之前的代码、帧只测一种）也全部通过：
+  桌面 1091 s，应用启动 35.2 s，重启 518 s。
+
+### A9 完成（2026-10-19，`vA9`）
+
+提交：与本节同一个提交，打 tag `vA9`。
+
+- 验收逐条：
+  - `sys.boot_completed=1`：v86（Venus 与 SwiftShader）与 QEMU 参考（TCG、HVF）都到达。
+  - SurfaceFlinger 与 Launcher 在 Venus 上合成正确：SurfaceFlinger 的 RenderEngine 是 Venus 上的 ANGLE（OpenGL ES 2.0），
+    HWC 以 client 模式扫描输出；开机动画、Launcher3 的桌面（搜索框、Gallery、Dock、导航栏）、Gallery 与示例应用的画面
+    都由 Venus 画出（`build/a64-android/runs/v86-jit-par-venus-a9-1536m-4c/` 的截图）。
+  - 输入：多点触摸屏上点 Gallery 的图标把它打开；应用安装与启动：APK 安装、`am start -W` 17.7 s；网络：Wi-Fi 的 DHCP
+    地址，经 fetch 适配器的 HTTP（关开 Wi-Fi 之后再一次）。
+  - SELinux enforcing；必要服务不反复重启（没有 init 的 “exited 4 times”）；重启后没有应用崩溃与 ANR。
+  - 同一会话内 SYSTEM_RESET 之后重新加载，userdata 保持（APK 与 /data 中的文件都在）。
+  - R-a64-* 不退化：`make a64-gate`（16 项，136 s，含 core-split-check）；`make a64-gpu-guest-tests`（10 个场景，含 virgl
+    的 gltest、Venus 的 vktest 与 vkcube，40 分钟）；`make devices-test`；`make test-glbridge`（27 项）；
+    `make display-browser-tests`；`make all`（Closure 0 错误）；eslint。Rust 的改动只在 naga 的 crate（不在计划规定的
+    rustfmt 配置之下，没有重排）。x86：GX 与 SVGA 渲染器有改动，跑了 `make platform-release-gate GATE_ARGS="--levels
+    R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项通过）与 x86 Linux 上 SVGA 的 gltest（dx11-full：34 例中 31 例与 llvmpipe
+    一致，失败的 3 例正是 docs/gpu-deviations.md 已列的 Mesa svga 的问题）。
+- `make android-reference-tests` 与 `make android-guest-tests` 加入 A9 场景（v86 上用 Venus；后者先做 `make
+  android-venus` 与 `make glbridge`）。
+- 留给 A10 及以后：Venus 上的 OpenGL ES 3（超出 12 个的 uniform buffer、transform feedback）；帧时间（Venus 上热的
+  中位数 2.25 s，QEMU TCG 上的 SwiftShader 1.4 s；性能在 P12.3 的指标里看）；VX 把部分 resolve 当作整张图（警告）。
+
+### A10：Venus ring id 冲突（恢复后停住的原因，2026-10-19）
+
+- 现象（A10 的 P12.2）：恢复快照之后，Launcher3（另一次是 SystemUI）不再出帧，随后 input dispatch ANR；其 RenderThread
+  停在 `AsyncWaitableEvent::wait` ← `ProgramExecutableVk::waitForPostLinkTasksImpl` ← `glGetProgramiv(GL_PROGRAM_BINARY_LENGTH)`
+  ← hwui 的 `storeShaderInCache`。出事的快照都是在 Launcher3 还在链接最初几个 program 时存的（原地存取 3 次 3 次坏，
+  `android-a10-desktop.v7` 恢复到新机器 2 次 1 次坏）。
+- 根因：Venus 的环 id 被解码成 JS 数。环 id 是客体驱动的指针（Mesa `vn_ring_create`：`ring->id = (uintptr_t)ring`），
+  Android 堆指针的最高字节带标签（0xb4），数值约 1.3e19，双精度在这里的间距是 2048 字节；`VenusReader.u64`
+  （`lo + hi * 2**32`）把相距几百字节的两个 `struct vn_ring` 取整成同一个数。Mesa 的 venus 给每个线程一个自己的环做同步
+  调用（`vn_tls_get_ring`）；ANGLE 的工作线程从不置“异步建 pipeline”的标志，它们为 post-link 的 warm-up 调
+  `vkCreateGraphicsPipelines` 时走自己线程的环、同步等回复。第二个环的 `vkCreateRingMESA` 于是在 `ctx.rings` 里悄悄顶掉
+  第一个环，第一个环的线程从此在 `vn_relax` 里等它的 head（安卓补丁设了 `VN_DEBUG_NO_ABORT`；`vn_relax` 只看主环的
+  FATAL/ALIVE），宿主这边它认识的每个环都空闲、没有等待者、没有错误。证据：07:36 那次 SystemUI 卡住时的 `debuggerd -b`：
+  一个 ANGLE-Worker 在 `vn_ring_submit_command+628`（内联的 `vn_ring_wait_seqno` 的 `vn_relax` 循环）←
+  `vn_CreateGraphicsPipelines` ← `WarmUpGraphicsTask::operator()`，RenderThread 等 post-link 任务，其余三个 worker 空闲。
+  修复后的验证运行里，恢复后 90 s 内就有两次“作为数相同”的环：context 8 的 `b400007d71c54c90` 与 `b400007d71c55210`
+  （相距 0x580），context 12 的新环 `b400007d71c52fb0` 与快照里的一个环。修复前这两次都会顶掉别的线程的环。
+- 修复：`tools/venus_protocol_runtime.js` 加 `VenusReader.ring_id`（精确的 16 位十六进制串）与对应的 `VenusWriter.ring_id`；
+  `tools/venus_protocol_gen.mjs` 让传输命令的 `uint64_t ring`（`vkCreateRingMESA`、`vkDestroyRingMESA`、`vkNotifyRingMESA`、
+  `vkWriteRingExtraMESA`、`vkSubmitVirtqueueSeqnoMESA`、`vkWaitRingSeqnoMESA` 六条）用它，重新生成
+  `src/graphics_adapters/virtio_gpu/venus_protocol.js` 与 `tests/devices/venus_guest_protocol.js`（生成器先确认能逐字节
+  重现旧文件）；`venus.js` 的 `ring_key`：修复前存的快照里环 id 是取整后的数，恢复时以 `"~<数>"` 为键，驱动的精确 id
+  找不到时按取整值再找一次。测试：`tests/devices/venus_protocol.js`（两个相距 0x1c0 的带标签 id 解出来不同），
+  `tests/devices/virtio_gpu_venus.js`（两个这样的环各是各的，删一个另一个还在；把环 id 改成数的 Venus 状态恢复后，
+  用精确 id 仍能找到并删除它们）。
+- 停住并不是恢复造成的：环在线程第一次建环时（Launcher3、SystemUI 链接最初几个 program 的时候）就被顶掉了，存下的状态里只有
+  顶掉它的那个环。工作线程恰好接到 warm-up 任务时才卡住，所以看上去与“在链接时存的快照”相关。A10 会话的复核：worker
+  模式启动存下的 `android-a10-desktop.v7` 本身就带着它，4 次 worker 模式与 1 次协作模式的恢复全都同样停住（SystemUI 的
+  RenderThread 在 `waitForPostLinkTasksImpl`，一个 ANGLE-Worker 在 `vn_relax` 里等环的 seqno；宿主每个环 head = tail，
+  状态里的环 id 是取整后的数，如 12970367416510165000）。最初说“没有线程在 Venus 驱动里”是转储过滤漏掉了这个 worker。
+  修复前存的快照可能已经少了环，修复救不回来：`android-venus-booted.v7` 与 `android-a10-desktop.v7` 要用修复后的构建重新存。
+- 排除的方向：
+  - 丢失的 futex 唤醒：`tests/a64/android/futex_stress.c`（bionic 的 mutex 与条件变量，ANGLE 工作池与 waitable event 的
+    写法，加四对乒乓）与 `tests/a64/futex_snapshot.mjs`：4 核 worker 加页层，Alpine 内核与 Android 的 GKI 内核各 120 s，
+    每 3 s 原地存取一次（39 次、38 次），以及每 6 s 恢复到新机器，没有一次停顿。另：stall 若是条件变量的唤醒丢了，
+    `debuggerd` 中断并重启 `futex_wait` 时内核会重新比较 futex 字而把它放出来；卡住能熬过栈转储，本身就说明不是。
+  - 屏障：解释器的 DMB/DSB、LDAR、STLR 都是 SeqCst 的 fence；并行构建里页层的客体访存都是 SeqCst 原子，DMB 是
+    `atomic.fence`，独占对走解释器，STXR 用 compare-exchange。
+  - 保存的一致性：`tests/a64/android_restore_stall.mjs` 在 `get_state` 时给 RAM 与设备内存逐页求哈希，流写完后再求：
+    五次原地快照里都是 0 页变化；保存时 GPU 没有挂起的请求、没有 held，Venus 的环全都空闲（head = tail），队列为空。
+  - GIC 的状态整块在快照里；核状态块的保存范围覆盖所有体系结构字段（只少指令计数与 slice 预算）。
+- 顺带修的：vCPU worker 的时钟（`MachineClock`）每次读数最多前进 1 s；恢复到新进程后机器时间跳到快照里的值，worker
+  的时钟就一直落后，它的计数器只在别的核读计数器时前进（`counter()` 取各核的最大值），定时器最多晚约 100 ms。现在
+  worker 每次从 park 继续时把时钟设成机器的时间（`MachineClock.set_time`，`src/parallel/vcpu_arm.js`）。x86 的
+  `src/parallel/vcpu.js` 有同样的写法，没有改（要过 x86 的门禁）。
+- 验证（修复后）：`tests/devices/venus_protocol.js`、`tests/devices/virtio_gpu_venus.js`、`make devices-test`（A10 会话跑的）、
+  三个 Closure 包（`v86-virtio-gpu.js`、`vcpu-worker.js`、`libv86.mjs`）0 错误 0 警告、eslint；Alpine 上 4 核 worker 的 live 阶段带
+  快照（mmio、pci）、lifecycle、s2idle 与休眠、smp4 全部通过；`tests/a64/futex_snapshot.mjs` 恢复到新机器通过。Android：
+  从 `android-venus-booted.v7` 恢复，Launcher3 出第一帧时立即原地存取，连续三轮（每轮存 2.1 GiB，30–50 s）：前两轮之后
+  Launcher3 照常出帧（9→12、12→15），第三轮之后恰逢一次全局配置变化（0x80000000，资源路径；com.android.phone 因后台
+  ANR 被杀之后）让 Launcher3 重建，查询帧数时它正在 `onCreate` 里（重建 16:49:48 开始，16:50:33 resume，随后出帧）。三次保存时都是
+  0 页在保存期间变化、没有挂起的请求、环全空闲。这次运行里有三处“按数会相同”的环（context 8 相距 0x580，context 12
+  的新环与快照里的环，context 6 相距 0x2c0），修复前每一处都会顶掉一个线程的环。
+- 没有改、记在这里的：virtio-gpu 的 `set_state` 不清 `pending` 与 `held`（它们不进快照）；Venus 的 `set_state` 不让
+  恢复前还在等的 Run 失效，原地恢复后它们若被唤醒会往共享内存写旧的 head 与回复。四次测量中保存时都没有等待中的命令，
+  所以没有动。修复前的一次原地恢复后（`build/a64-android/runs/restore-stall-2`）Launcher3 也因同样的配置变化重建，6 分钟后
+  主线程仍在 `bindService` 的 binder 调用里，屏幕只剩导航栏，RenderThread 空闲；那次没有转储 SystemUI，也没有再观察，
+  是重建太慢还是另有原因未查。
+
+### A10：P12.1、P12.3 的 CTS 子集与 P12.5（2026-10-19）
+
+- P12.5 音频：
+  - 设备（`src/virtio_snd.js`，`virtio_sound: true`）：virtio 1.2 §5.14 的声卡（PCI 0x1059，class 0x040100），control、
+    event、tx、rx 四个队列；JACK_INFO、PCM_INFO、SET_PARAMS、PREPARE、RELEASE、START、STOP、CHMAP_INFO；一个输出流，
+    S16 或 S32，1–2 声道，8000–48000 Hz。tx 的缓冲按机器时钟消费，送给 speaker（`dac-tell-sampling-rate`、`dac-enable`、
+    `dac-send-data`），同时发 `virtio-snd-pcm` 事件（测试从这里取宿主收到的字节）；快照保存还没还的描述符链（按
+    head_idx，用导出的 `VirtQueueBufferChain` 重建）。Makefile 的 Closure 文件表漏了 `virtio_snd.js`，release 构建
+    失败，补上。
+  - Android：vendor_dlkm 的 virtio_snd.ko 由 dlkm_loader 加载，snd-aloop 在 blocklist 里，virtio 的卡是 card 0。
+    `androidboot.audio.tinyalsa.ignore_output` 由 true 改为 false：Cuttlefish 的主音频 HAL（AIDL 示例实现的
+    StreamPrimary）的输出是 tinyalsa 的 card 0 device 0，即这张卡；QEMU 参考加 `virtio-sound-pci`（`-audiodev wav`，
+    关掉 QEMU 的混音引擎，客体的字节原样进文件）。v86 上 Android 一律带这张卡，测试只在声音这一步收集 PCM。
+  - 场景的声音一步：`su 0 tinyplay` 播 48 kHz 立体声 S16 的 WAV（2 s 双音加 0.5 s 静音），宿主收到的字节中音调部分的
+    sha256 与源相同（v86 与 QEMU 都是；最后一个周期 tinyplay 关闭时不播）。再经框架播：`tests/a64/android/v86tone.c`
+    （NativeActivity，AAudio，媒体用途，48 kHz 立体声 16 位，1 kHz，2 s）经 AudioFlinger 与 HAL 到卡，宿主按过零点
+    算频率与长度。QEMU（HVF）上 1000 Hz、1.88 s（媒体音量下峰值 378）。v86 上 HAL 打开了 card 0 device 0，但卡只收到
+    20480 字节的静音：StreamPrimary 每次传输后比较已收帧数与真实时间，落后就跳过下一次传输（帧被收下但不写出，源码注释
+    说是给“做不到实时的模拟器”的变通，b/302587331，android-16.0.0_r4 的 `StreamPrimary.cpp:94-130`）；v86 上
+    AudioFlinger 的写入节奏一开始就落后于 85 ms 的周期，之后每次都跳过（5.6 s 里 57 次）。这一步因此记录 HAL 的跳过
+    次数与偏移（打开 `log.tag.AHAL_StreamPrimary` 的 VERBOSE），断言 HAL 打开了这张卡、没有跳过时音调完整到达。
+  - 浏览器：CPU worker 里设备发的 `dac-*` 事件经 audio port 直接到 AudioWorklet（与 SB16 相同）；virtio-snd 按自己的
+    时钟推数据，不响应 `dac-request-data`，Worklet 的队列有界。权限：页面没有用户手势就创建的 AudioContext 处于
+    suspended（自动播放策略），`resume()` 只在手势里有效；SpeakerAdapter 现在在页面的第一次点击、按键或触摸时恢复它
+    （`src/browser/speaker.js`），恢复后去掉监听。`tests/glbridge/speaker_unlock_browser_test.mjs`：无头 Chrome 加
+    `--autoplay-policy=document-user-activation-required`，不经手势启动 v86，点击前 suspended，经 DevTools 协议的
+    可信点击后 running（`make cpu-worker-tests`）。
+- P12.1 16 KiB：
+  - 产品：ci.android.com 上没有公开的 pgagnostic Cuttlefish arm64 构建（aosp-android-latest-release 的目标只有
+    aosp_cf_arm64_auto、aosp_cf_arm64_only_phone、x86_64 与 riscv64 的 Cuttlefish，没有 test_suites）；内核分支
+    aosp_kernel-common-android16-6.12 有 kernel_aarch64_16k 与 kernel_virt_aarch64_16k。P10.4 的扫描里 4 KiB 对齐的
+    ELF 只在 VNDK APEX（v31–v34）与 system_ext/etc/vm 中，所以同一份用户空间配 16K 内核就是页大小无关的产品：同一镜像在
+    4K 与 16K 内核上启动。
+  - 材料（`node tools/a64_android.mjs --page-size 16k`，输出 `build/a64-android/out-16k/`）：kernel_virt_aarch64_16k
+    构建 16637892（6.12.93-android16-6）的 Image、initramfs.img、system_dlkm.erofs.img（42.7 MB、10.6 MB、16.3 MB，
+    sha256 固定在工具里）。模块按 4K 镜像的位置换成同名的 16K 模块：vendor ramdisk 的 19 个（在它后面追加一个只有
+    字面量块的 LZ4 legacy cpio，内核解包时覆盖同名文件）；system_dlkm 的 102 个（GKI 模块，用 system_dlkm.erofs.img
+    中为它再签名的副本，比 initramfs.img 中的多 721 字节的签名）与 vendor_dlkm 的 45 个，在 erofs 中原地替换
+    （`erofs_replace_files`：新 inode 拷贝旧 inode 的字段与 xattr，平铺布局，数据追加在后，目录项改指新 inode）；
+    dlkm 镜像里 modules.dep 与 modules.alias 是压缩的，读不出来，按 4K 文件的规则重写（vendor_dlkm 的含
+    system_dlkm 的全部模块；第一阶段已加载的 ramdisk 模块不作依赖列出，与 4K 一样）。4K 的 tls.ko 在 16K 构建中
+    没有（原文件留着，不进 modules.dep）；16K 构建多出的 11 个模块（aes-neon-blk、efivarfs、pstore 等）在 4K 的布局里
+    没有位置，不加载。system_dlkm_a 与 vendor_dlkm_a 移到 super 的空闲区，vbmeta_system_dlkm 与 vbmeta_vendor_dlkm
+    的 hashtree 描述符更新，与 odm 共用 `super_replace`；vbmeta digest 重算。userdata 空白，fstab 用 cf.ext4.hctr2：
+    f2fs 的块大小就是页大小，镜像自带的 4 KiB 块 f2fs 在 16K 内核上挂不上，第一次启动时 vold 把它格式化为 ext4。
+    重构之后 4K 的材料逐字节不变（disk.img、disk.key 与 manifest 的 hash 都相同）。
+  - Venus 驱动、vkprobe、vkahb 改为 `-z max-page-size=16384` 链接（NDK r26b 默认 4 KiB；16K 内核上链接器不加载段
+    对齐小于页大小的库），4K 上照常。
+  - QEMU（HVF，宿主 CPU）：boot_completed 21 s，`getconf PAGE_SIZE` 16384，dlkm_loader 加载 44 个模块（4 个在
+    blocklist），zram 在，/data 为 ext4。system_dlkm 的 “offline vbmeta” 读不到（新分区没有 AVB footer），fs_mgr
+    回退到内置的 hashtree，verity 照常。
+  - native APK 的 4K/16K 对齐（`A64_ANDROID_SCENARIO=pagesize`；NativeActivity 加 `tests/a64/android/v86native.c`，
+    `tests/a64/apk.mjs` 的 `build_native_lib` 与 zip 对齐）：
+
+    | 变体 | 4K 内核 | 16K 内核（QEMU 与 v86 相同） |
+    | --- | --- | --- |
+    | ELF 16K，APK 中按 16K 对齐存放，不解压 | 从 APK 直接加载 | 从 APK 直接加载，没有提示 |
+    | ELF 16K，APK 中只按 4K 对齐 | 从 APK 直接加载 | 安装时解压，页大小兼容模式运行，提示 “APK alignment check failed” |
+    | ELF 4K，APK 中按 4K 对齐 | 从 APK 直接加载 | 同上，提示 “APK and ELF alignment checks failed” |
+    | ELF 4K，安装时解压 | 加载 | 兼容模式运行，提示 “ELF alignment check failed” |
+
+    提示是 Android 16 的 “Android App Compatibility” 对话框（`PageSizeMismatchDialog`）；四种都能运行，库报告的页大小
+    是 16384。
+- P12.3 的 CTS 子集（`tools/a64_cts.mjs`、`tests/a64/android_cts.mjs`，`A64_ANDROID_SCENARIO=cts`）：与镜像同版本的
+  CTS 是 android-cts-16.1_r1（Android 16 QPR2，2025-12-02），zip 23.8 GB，本机放不下；按字节范围取一次 central
+  directory，再只取选定模块的文件，各按 CRC-32 校验，保留 zip 中的 Unix 权限（模块的辅助程序要可执行，否则 Bionic 的
+  20 项失败）。不用 Tradefed（宿主是 macOS，客体的 adb 是测试自己的）：按模块配置中 FilePusher 的位置推送（一个 ustar
+  包，客体里用 toybox tar 解开），按 GTest 运行器的方式运行，解析 gtest 的汇总。子集与预算一起冻结：
+  CtsKernelConfigTestCases、CtsNativeEncryptionTestCases、CtsAslrMallocTestCases、CtsFsMgrTestCases、
+  CtsBionicTestCases（整个模块，3208 项）。VTS：本版本没有可得的 VTS（不公开分发；发布分支的 CI 没有 test_suites
+  目标；本机不能构建 AOSP），由上面面向内核的 CTS 原生模块代替。
+- P12.1 在 v86 上：16K 材料（Venus 驱动在 odm）在 4 核 worker 加页层上到 `sys.boot_completed=1`（1153 s），`getconf
+  PAGE_SIZE` 16384，内核 6.12.93，/data 为 ext4；上表四种 APK 与 QEMU 相同。第一次运行里 Launcher3 启动即停（“Quickstep
+  keeps stopping”：`DotRenderer` 从 `ShadowGenerator` 拿到 null 的硬件位图），开机动画在已销毁的互斥量上 abort：宿主
+  的 `VulkanModel.export_memory` 拒绝比内存按 4 KiB 取整还大的 blob，而 16K 的客体内核把 blob 按 16 KiB 页取整，可见
+  主机内存的导出都被拒，ANGLE 的分配失败。改为容许按最大 64 KiB 的页取整（`venus_vk.js`，
+  `tests/devices/virtio_gpu_venus.js` 加一例：20000 字节的内存配 32768 字节的 blob 接受，131072 拒绝）。之后 16K 上
+  A9 的整个场景通过：桌面、帧（热的中位数 2.35 s）、Wi-Fi 与 HTTP、触摸打开 Gallery、APK 安装启动 40.9 s、重启
+  （760 s）后应用与 /data 都在。
+- P12.2（release 构建，4 核 worker，页层，Venus，virtio-snd）：
+  - 冷启动到桌面并保存：boot_completed 1192 s，桌面 1378 s；Launcher3 帧数一分钟不变后保存（2146 MiB，7.7 s）。
+  - 恢复到新机器后的场景（Venus ring id 修复之后）：桌面 64 s，点 Gallery 打开它（152 s）；输入延迟五次
+    [4330, 1119, 884, 879, 1141] ms，中位数 1119 ms（另一次 [905, 2352, 1189, 810, 730]，中位数 905 ms）；持续帧率
+    14.13 fps（另一次 13.81）；tinyplay 的音调逐字节到达；经框架的音调：HAL 第一次传输时已落后 112 ms，最多落后
+    418 ms，跳过 33 次，到达的 1.54 s 频率 1000 Hz；30 分钟 monkey（种子 86，321 行事件；com.android.phone 的 ANR
+    与 QEMU 上相同，Cuttlefish 的 radio HAL 没有 modem）；内存压力：启动 4 个应用后 lmkd 杀了 3 个进程；
+    system_server、surfaceflinger、zygote64 从桌面到结束都是同一进程，没有 “exited 4 times”。
+  - 修复前（ring id 冲突）同一类状态的恢复都卡在 SystemUI 或 Launcher3（见上一节）。
+- P12.3 的指标（v86：release 构建，4 核 worker，页层，Venus；参考：QEMU TCG cortex-a35，SwiftShader；同一宿主同一天，
+  1536 MiB）与 P10.3 冻结的预算：
+
+  | 指标 | v86 | QEMU TCG | 比值 | 预算 |
+  | --- | --- | --- | --- | --- |
+  | 首次冷启动到 `sys.boot_completed=1` | 1192、1281、1325 s（中位数 1281） | 308.5、321.6、324.6、350.3 s（中位数 323） | 3.97 倍 | ≤ 5 倍 |
+  | 16K 内核冷启动 | 1153 s | 324.6 s | 3.55 倍 | — |
+  | 第二次启动（重启后） | 695 s | 190 s | 3.66 倍 | ≤ 5 倍 |
+  | 应用启动（`am start -W` 的 TotalTime） | 20.8 s | 6.9 s | 3.0 倍 | ≤ 5 倍 |
+  | 输入延迟（五次的中位数） | 905、1119 ms | 524、380 ms | 1.7–2.9 倍 | ≤ 5 倍 |
+  | 持续帧率（v86frames，60 s） | 13.81、14.13 fps（Venus） | 13.48、29.88 fps（SwiftShader） | 参考的 0.46–1.05 | ≥ 1/5 |
+  | Launcher3 全部应用列表的热帧（中位数） | 800 ms | 800 ms | 1.0 | — |
+  | CTS Bionic（3208 项） | 1266 s | 256 s | 4.9 倍 | — |
+  | JIT 时间（页层编译，核 0） | 到保存桌面 19.7 s（1745 s 的运行），A9 全程 32.3 s | — | — | — |
+  | 内存峰值（宿主进程 RSS） | 4958 MiB（到保存桌面），5882 MiB（A9 全程，含重启） | — | — | — |
+
+  v86 的整体 MIPS：到保存桌面 108.7，A9 全程 97.8，CTS 运行 137.3。全部在预算之内，没有触发停止条件；比值取最不利的
+  一对（参考的两次 A10 中较快的一次）。同一构建的冷启动在 1192–1325 s 之间波动，参考的帧率两次相差一倍（第一次
+  SwiftShader 的渲染器信息没有取到，启动较慢），都是同机测量，宿主上另有常驻进程。
+- 场景与测试的改动：`A64_ANDROID_SCENARIO=pagesize`、`=cts` 两个新场景；A10 场景加持续帧率（`tests/a64/android/v86frames.c`）、
+  经框架的音调（`v86tone.c`），轻触失败时留下停住的客体的诊断（`stall_diagnostics`：十秒内各 CPU 的中断、各线程的栈写到
+  运行目录）；`A64_ANDROID_SOUND` 取消（Android 一律带声卡）；`A64_ANDROID_PAGE_SIZE=16k`，客体的页大小与内核经 adb 或
+  控制台核对；QEMU 参考在等待 boot_completed 时就从控制台做 `prepare_device` 的设置（TCG 的一次运行在慢的首次启动上
+  碰到了 A9 记过的锁屏竞争：SystemUI 不显示锁屏而窗口管理器留着它的睡眠令牌，Launcher3 始终没有 resume）；QEMU 上
+  tinyplay 的逐字节比较只记录（TCG 比实时慢时 QEMU 的 virtio-sound 会丢样本：一次 466944 字节，哈希不同，另一次逐字节相同）。
+- R-android（`TEST_RELEASE_BUILD=1 make android-guest-tests`，然后 `make android-reference-tests`）：v86 上 GKI 桥（1 核与
+  4 核页层、1 核解释器）、A8 启动、A9、A10 的保存与恢复、CTS 子集、16K 的 pagesize 都通过（A10 的第一次恢复运行在经框架的
+  音调上失败，改成记录 HAL 的跳过之后重跑通过）；QEMU TCG 上启动、CTS、16K 的 pagesize、GKI 桥通过，A9 与 A10 在上面两处
+  改动之后重跑通过；16K 加 Venus 的 A9 场景在 blob 修复之后另跑一次通过。
+
+### A10 完成（2026-10-19，`vA10`）
+
+提交：Venus ring id 的修复（5238279c，A10 恢复后停住的原因，见上面“Venus ring id 冲突”一节）与本节同一个提交；打 tag `vA10`。
+
+- 验收逐条：
+  - R-android 全部通过（上一节）。
+  - 16K 的 GKI 与页大小无关的产品在 v86 上到 `sys.boot_completed=1`（1153 s，`getconf PAGE_SIZE` 16384），并且 A9 的
+    场景在 16K 上通过；native APK 的 4K/16K 对齐兼容性记录在上面的表里。
+  - 并行 Worker 下 Android 到桌面，桌面状态的快照恢复到新机器后继续交互（触摸、输入、帧、声音），30 分钟 monkey 与内存
+    压力中 system_server、surfaceflinger、zygote 没有重启，没有 “exited 4 times”。
+  - 选定的 CTS 子集在 v86 与 QEMU 上都通过（KernelConfig 5、NativeEncryption 1、AslrMalloc 1、FsMgr 36、Bionic 3208 项
+    中 3137 通过、71 跳过、0 失败）；VTS 本版本不可得，由面向内核的 CTS 模块代替。
+  - P12.3 的指标全部满足 P10.3 冻结的预算（上表）。
+  - virtio-snd 播放的 PCM 在宿主端校验和一致（tinyplay 的音调 sha256 相同）。
+  - R-a64-* 不退化：`make a64-gate-full` 通过（5 小时：快速档各项、宿主 arm64 的原生 oracle、QEMU 上 kvm-unit-tests 4k/16k/64k
+    与 Alpine 各阶段 1/2/4 核、ARM 核的长运行，发布级别 R-a64-isa、sys、virt、UP、SMP、jit、gpu、parallel、memory、
+    granule、android-prep 全部 21 项通过）。
+- 其余门禁：`make devices-test`、`make cpu-worker-tests`（含新的 speaker 解锁测试）、`make display-browser-tests`、
+  `make test-glbridge`、`make all`（Closure 0 错误）、eslint；`make a64-gpu-guest-tests`（10 个场景，含 Venus 与 vkcube）；
+  x86 的共享 JS 有改动（`virtio.js`、`starter.js`、`cpu_worker.js`、`speaker.js`、GX/VX）：`make platform-release-gate
+  GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项通过）。Rust 没有改动。
+- 至此计划的里程碑 A0–A10 全部完成并打了标签。留下的（不在计划的验收里，逐项写在附录 F，也记在 `docs/aarch64.md` 的已知问题）：Venus 上的
+  OpenGL ES 3；经框架的声音在客体跟不上实时的时候被 HAL 跳过；启动与帧的性能（所有者定的顺序：计划完成之后再做，
+  FEAT_PAN 是第一个候选）。
+
+## 附录 F：遗留问题（2026-10-19，A10 完成之后，待以后解决）
+
+计划的验收都已满足（`vA10`，91b385cf）。下面是验收之外留下的问题，按建议的先后排列；每项写了现象与证据、代码位置、
+建议的做法与验证方式，供之后接着做。所有者定的顺序：性能放在计划完成之后（F3）。
+
+- F1 经 Android 框架播放的声音在 v86 上大多被丢掉（P12.5 的遗留）。
+  - 现象：AAudio 的 1 kHz 音调（`tests/a64/android/v86tone.c`）经 AudioFlinger 与 Cuttlefish 的主音频 HAL 到 virtio-snd，
+    v86 上一次只到 0.1 s 的静音（57 次跳过），另一次到 1.54 s（33 次跳过）；QEMU TCG 上也只到 0.06 s（5 次跳过），HVF
+    上完整。tinyplay 直接走 ALSA 时逐字节一致，设备本身没有问题。
+  - 原因：android-16.0.0_r4 的 `hardware/interfaces/audio/aidl/default/primary/StreamPrimary.cpp:94-130`，每次传输后比较
+    已收帧数与真实时间，落后就把下一次传输的帧收下而不写出（注释说是给做不到实时的模拟器的变通，b/302587331）；v86 上
+    第一次传输时已落后约 112 ms，之后一直追不上。
+  - 建议：先量清楚落后从哪里来（HAL 的 `start()` 到第一次 `transfer()` 之间、AudioFlinger 混音线程的周期、FMQ 往返），
+    再看能否在不改客体的前提下改善：设备报更大的周期与缓冲，让 AudioFlinger 一次写更多帧；或启动音频流时少做别的事；
+    客体侧没有能关掉这个变通的属性，改 HAL 要重编 vendor 镜像，不在“用预编译镜像”的前提内。
+  - 验证：A10 场景的声音一步已经记录跳过次数与偏移（`result.sound_framework.hal`）；目标是没有跳过、音调完整到达，
+    然后把这一步的断言改回“完整到达”。
+- F2 Venus 上的 OpenGL ES 3（P11.4 的遗留）。
+  - 现象：ANGLE 在 Venus 上只能给 ES 2.0（`androidboot.opengles.version=131072`，`tools/a64_android.mjs` 的
+    `VENUS_BOOTCONFIG`）；SwiftShader 上是 3.1。
+  - 原因：ANGLE 的 ES 3 要每个阶段超过 12 个 uniform buffer（GL 的 uniform block 加 ANGLE 自己的），本机 Chrome 的
+    WebGPU 只给 12 个；还要 transform feedback（没有扩展，ANGLE 的模拟要在顶点阶段写存储缓冲，WebGPU 不允许）。
+  - 建议：VX（`src/browser/glbridge/vx/vx_executor.js`）在超出 12 个时把多出的 uniform buffer 改成只读 storage buffer
+    （SPIR-V 到 WGSL 时一并改写绑定）；transform feedback 用额外的计算或顶点拉取的 pass 模拟。设备的
+    `venus_device_info.js` 报相应的 limits 与 features。
+  - 验证：`cmd gpu vkjson` 与 ANGLE 报的 ES 版本；dEQP 的 GLES3 子集（见 F6）。
+- F3 性能（P12.3 的指标都在预算内，但余量不大）。
+  - 现状：release 构建 4 核 worker 加页层，冷启动 1192–1325 s（QEMU TCG 的 3.97 倍），第二次启动 695 s（3.66 倍），
+    应用启动 20.8 s，Launcher3 冷帧约 5 s，CTS Bionic 1266 s（4.9 倍），整体 100–140 MIPS；主要是 APEX 解压与 dex2oat。
+  - 建议的方向：FEAT_PAN（P9.3：带 SW_TTBR0_PAN 的内核在 auto 下慢 17%）是第一个候选；页层对 ART 代码的编译与淘汰
+    （A9 的运行里 7 万次编译、2.9 万次淘汰，`live_code_mib` 一直在 160 的上限）；Venus 冷帧的着色器与 pipeline 创建。
+  - 测量：附录 E 的 A10 一节的表是基线；本机测量时宿主上有常驻的高负载进程（如 NotificationCenter 一直占一个核），
+    同一构建的冷启动有约 10% 的波动，比较前后要在同样的条件下各跑几次。
+- F4 修复前存的 Android 快照要重存。
+  - `build/a64-android/android-venus-booted.v7`（快速探针用）是 Venus ring id 修复（5238279c）之前存的，可能已经少了环；
+    用修好的构建以 `A64_ANDROID_SAVE_STATE` 与 `A64_ANDROID_WAIT=boot_completed` 重存。A10 的
+    `build/a64-android/a10-desktop.v7` 是修复后存的，可以继续用。
+- F5 恢复路径上没有改的两处（Venus ring id 一节记的）。
+  - virtio-gpu 的 `set_state` 不清 `pending` 与 `held`（它们不进快照）；Venus 的 `set_state` 不让恢复前还在等的 Run
+    失效，原地恢复后它们若被唤醒会往共享内存写旧的 head 与回复。测量中保存时都没有等待中的命令，所以没有出过事。
+  - 修复前一次原地恢复后 Launcher3 在配置变化重建时卡在 `bindService` 的 binder 调用里 6 分钟，原因未查。
+  - 建议：给这两处加上清理与使之失效，并加一个在有等待中命令时保存、恢复的设备测试（`tests/devices/virtio_gpu_venus.js`）。
+- F6 测试覆盖可以再加的。
+  - GPU：CTS 的 `CtsDeqpTestCases`（约 156 MiB，`tools/a64_cts.mjs` 可按字节范围取）里选 dEQP-VK.api.smoke、
+    dEQP-EGL.info、dEQP-GLES2 的一部分，经 `com.drawelements.deqp` 的 instrumentation 运行，覆盖 Venus 与 ANGLE。
+  - VTS 本版本不可得（不公开分发、发布分支的 CI 没有 test_suites、本机不能构建 AOSP）；以后有可用的 VTS 再补。
+  - 16K 的 A9 运行里冷帧统计是空的（`frames.cold` 全为 null），热帧正常；查 gfxinfo 的取法在 16K 上为何取不到。
+- F7 16 KiB 材料的小问题（不影响启动与场景）。
+  - 16K 的内核构建没有 `tls.ko`（4K 的 system_dlkm 里的那个文件留着，不进 modules.dep）；16K 构建多出的 11 个模块
+    （aes-neon-blk、efivarfs、pstore_blk 等）在 4K 的布局里没有位置，没有加载；aes-neon-blk 若能加载可以加速 AES。
+  - 换过的 system_dlkm 与 vendor_dlkm 分区没有 AVB footer，fs_mgr 的 “offline vbmeta” 读不到，回退到 vbmeta 链里的
+    hashtree；可以照原分区的 footer 写一个（vbmeta 结构加上更新后的描述符）。
+  - 没有公开的 pgagnostic 构建；以后有了可以换成正式的产品再跑一遍。
+- F8 其余已知的小问题（`docs/aarch64.md` 的已知问题表里都有）。
+  - x86 的 `src/parallel/vcpu.js` 有与 ARM worker 时钟同样的写法（恢复到新进程后 worker 的时钟落后），ARM 已改
+    （`MachineClock.set_time`），x86 没有改，改了要过 x86 的门禁。
+  - VX 把部分 resolve 当作整张图（会打警告）。
+  - Android 的 wlan0 经 fetch 适配器的 DHCP 偶尔失败（场景每两分钟重连一次，`dhcp.log` 有记录），原因未查。
+  - QEMU 参考的 virtio-sound 在 TCG 比实时慢时会丢样本（只影响参考，A10 场景在 QEMU 上只记录逐字节比较的结果）。
+  - Bluetooth 的原生栈在首次启动时 abort、com.android.phone 的 ANR（没有 modem 的 radio HAL）：QEMU 上也有，不是 v86 的。

@@ -32,6 +32,9 @@ use cpu::isa_hooks as isa;
 #[cfg(not(feature = "aarch64"))]
 pub mod js_api;
 pub mod parallel;
+// guest RAM beyond the wasm32 backing store, both cores' (crate::x64::extended, crate::aarch64::extended)
+#[cfg_attr(feature = "aarch64", allow(dead_code))]
+mod extended;
 // retired instructions and the other per-core counters of both cores
 #[cfg_attr(feature = "aarch64", allow(dead_code))]
 mod core_stats;

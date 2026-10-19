@@ -170,6 +170,7 @@ export function MouseAdapter(bus, screen_container)
                 last_x = touch.clientX;
                 last_y = touch.clientY;
             }
+            send_touches(e);
         }
     }
 
@@ -180,6 +181,21 @@ export function MouseAdapter(bus, screen_container)
             mouse.bus.send("mouse-click", [false, false, false]);
             left_down = middle_down = right_down = false;
         }
+        send_touches(e);
+    }
+
+    /**
+     * The touches on the screen, for a multi-touch device (the virt
+     * machine's virtio-input, docs/arm64-virt-android16-plan.md P7.4):
+     * each one's identifier and place on the screen, and its size
+     */
+    function send_touches(e)
+    {
+        if(!mouse.bus || !screen_container || !mouse.is_running) return;
+        const rect = screen_container.getBoundingClientRect();
+        const touches = Array.from(e["touches"] || [], touch =>
+            [touch["identifier"], touch.clientX - rect.left, touch.clientY - rect.top]);
+        mouse.bus.send("touch", { "touches": touches, "width": rect.width, "height": rect.height });
     }
 
     function mousemove_handler(e)
@@ -217,6 +233,7 @@ export function MouseAdapter(bus, screen_container)
 
                 e.preventDefault();
             }
+            send_touches(e);
         }
         else
         {

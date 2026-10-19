@@ -2,6 +2,7 @@ import { h } from "./lib.js";
 import { STATE_MAX_SINGLE_BUFFER } from "./const.js";
 import { dbg_assert, dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
+import { check_no_disk_holds } from "./block_backend.js";
 
 const STATE_VERSION = 6;
 const STATE_MAGIC = 0x86768676|0;
@@ -132,6 +133,8 @@ function restore_buffers(obj, buffers)
 /* @param {CPU} cpu */
 export function save_state(cpu)
 {
+    // (not while disk requests are held after an I/O error: src/block_backend.js)
+    check_no_disk_holds(cpu);
     var saved_buffers = [];
     var state = save_object(cpu, saved_buffers);
 
@@ -413,6 +416,7 @@ function stream_record(kind, id, offset, data)
 // Pulling one chunk at a time also gives the Worker transport real backpressure.
 export function create_state_stream(cpu)
 {
+    check_no_disk_holds(cpu);
     const memory_size = cpu.memory_size[0] >>> 0;
     if(memory_size > cpu.mem8.length || memory_size % 4096) stream_error("RAM size");
     const bitmap = new Uint8Array(Math.ceil(memory_size / 4096 / 8));
@@ -430,7 +434,7 @@ export function create_state_stream(cpu)
     let extended_bitmap = null, extended_packed = 0;
     if(extended)
     {
-        cpu.wm.exports["x64_ext_flush"]();
+        cpu.flush_extended_memory();
         extended_bitmap = new Uint8Array(Math.ceil(extended.pages / 8));
         for(let page = 0; page < extended.pages; page++)
         {

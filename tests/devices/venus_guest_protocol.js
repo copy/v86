@@ -5323,7 +5323,7 @@ function g_vkCreateRingMESA(w, a)
 {
     w.u32(188);
     w.u32(a.cmd_flags || 0);
-    w.u64(a.ring);
+    w.ring_id(a.ring);
     if(a.pCreateInfo != null)
     {
         w.u64(1);
@@ -5341,7 +5341,7 @@ function g_vkDestroyRingMESA(w, a)
 {
     w.u32(189);
     w.u32(a.cmd_flags || 0);
-    w.u64(a.ring);
+    w.ring_id(a.ring);
 }
 function h_vkDestroyRingMESA_reply(r)
 {
@@ -5353,7 +5353,7 @@ function g_vkNotifyRingMESA(w, a)
 {
     w.u32(190);
     w.u32(a.cmd_flags || 0);
-    w.u64(a.ring);
+    w.ring_id(a.ring);
     w.u32(a.seqno);
     w.u32(a.flags);
 }
@@ -5367,7 +5367,7 @@ function g_vkWriteRingExtraMESA(w, a)
 {
     w.u32(191);
     w.u32(a.cmd_flags || 0);
-    w.u64(a.ring);
+    w.ring_id(a.ring);
     w.u64(a.offset);
     w.u32(a.value);
 }
@@ -6500,7 +6500,7 @@ function g_vkSubmitVirtqueueSeqnoMESA(w, a)
 {
     w.u32(251);
     w.u32(a.cmd_flags || 0);
-    w.u64(a.ring);
+    w.ring_id(a.ring);
     w.u64(a.seqno);
 }
 function h_vkSubmitVirtqueueSeqnoMESA_reply(r)
@@ -6525,7 +6525,7 @@ function g_vkWaitRingSeqnoMESA(w, a)
 {
     w.u32(253);
     w.u32(a.cmd_flags || 0);
-    w.u64(a.ring);
+    w.ring_id(a.ring);
     w.u64(a.seqno);
 }
 function h_vkWaitRingSeqnoMESA_reply(r)

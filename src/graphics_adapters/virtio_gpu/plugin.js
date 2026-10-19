@@ -23,7 +23,8 @@ register_graphics_adapter({
             renderer: options["renderer"] || test["renderer"],
         });
         return {
-            "vga": device.vga,
+            // (none on a machine without VGA)
+            "vga": device.has_vga ? device.vga : null,
             "virtio_gpu": device,
             "get_state": () => device.get_state(),
             "set_state": state => device.set_state(state),

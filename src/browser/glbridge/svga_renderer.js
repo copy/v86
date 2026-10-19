@@ -68,6 +68,8 @@
             const peer = {
                 resource: handle => executor.resources ? executor.resources.get(handle) || null : null,
                 flush: () => { if (executor.frame) executor.finishFrame(false); },
+                // (a surface goes: VX's commands recorded with it, as images Venus imported, are submitted first)
+                releasing: () => { if (vx) vx.flushEncoder(); },
             };
             gx = new GX.GXExecutor({ device: executor.device, formats: global.V86SVGADXFormats,
                 features: executor.deviceFeatures || {}, peer });
@@ -81,7 +83,9 @@
             if (!executor.device) await executor.initialize();
             const VX = global.V86VXExecutor;
             if (!VX) throw new Error("the renderer needs vx_executor.js (libv86-webgpu.js)");
-            vx = new VX.VXExecutor({ device: executor.device, formats: global.V86VenusFormats });
+            // (GX's surfaces: the images Venus imports from virtio-gpu resources)
+            const peer = { surface: sid => gx && gx.surfaces ? gx.surfaces.get(sid) || null : null };
+            vx = new VX.VXExecutor({ device: executor.device, formats: global.V86VenusFormats, peer });
             return vx;
         };
 
@@ -126,8 +130,9 @@
                 case "reset":
                     ++generation;
                     queue = queue.then(() => {
-                        if (gx) gx.reset();
+                        // (VX first: its images may be GX's surfaces)
                         if (vx) vx.reset();
+                        if (gx) gx.reset();
                         return executor.resetForReplay();
                     }).catch(error => fail(error));
                     break;

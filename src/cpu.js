@@ -1,3 +1,5 @@
+import { check_disk_state, is_writeback_state } from "./disk_writeback.js";
+import { drop_disk_holds } from "./block_backend.js";
 import {
     LOG_CPU, LOG_BIOS,
     FW_CFG_SIGNATURE, FW_CFG_SIGNATURE_QEMU,
@@ -107,6 +109,10 @@ export function CPU(bus, wm, stop_idling)
     this.parallel = null;
     /** why the cores run cooperatively although parallel execution was requested ("" if not) */
     this.parallel_fallback = "";
+
+    /** the CPU features (src/cpu_features.js) and whether cpu_features chose them (init) */
+    this.cpu_features = 0;
+    this.cpu_features_explicit = false;
 
     // extended RAM (configure_extended_memory)
     this.extended_pages = 0;
@@ -905,10 +911,15 @@ CPU.prototype.get_state = function(skip_memory = false)
     if(skip_memory) { state[77] = null; state[78] = null; }
     else
     {
-        // (a single-buffer snapshot does not hold extended RAM: the stream does)
-        if(this.extended_store && this.extended_store.touched.some(byte => byte !== 0))
+        // (a single-buffer snapshot does not hold extended RAM: the stream
+        // does; pages written only in their frames count too)
+        if(this.extended_store)
         {
-            throw new Error("A snapshot of extended RAM needs save_state_stream");
+            this.flush_extended_memory();
+            if(this.extended_store.touched.some(byte => byte !== 0))
+            {
+                throw new Error("A snapshot of extended RAM needs save_state_stream");
+            }
         }
         const { packed_memory, bitmap } = this.pack_memory();
         state[77] = packed_memory;
@@ -997,8 +1008,17 @@ CPU.prototype.validate_physical_state = function(state)
 };
 
 /**
+ * The features cpu_type "x86_64" has when cpu_features is not given: every
+ * released one of its profile (the owner's decision of 2026-10-17, which
+ * replaced docs/simd-xsave-plan.md Q1's "the old CPU unless asked")
+ */
+const X86_64_DEFAULT_FEATURES = Object.keys(CPU_FEATURES).filter(name =>
+    CPU_FEATURES[name]["released"] && CPU_FEATURES[name]["profiles"].includes("x86_64"));
+
+/**
  * The feature set (src/rust/cpu/features.rs) of the setting cpu_features: an
- * array of the names of src/cpu_features.js, or the name of a preset. A
+ * array of the names of src/cpu_features.js, or the name of a preset; not
+ * given, every released feature for x86_64 and none for x86 ([]: none). A
  * feature that cpuid_level cannot report is left out, with the features that
  * require it (docs/simd-xsave-plan.md 6.1); an unknown feature, one the CPU
  * profile cannot have or one without its requirements is an error.
@@ -1011,7 +1031,8 @@ export function resolve_cpu_features(requested, x86_64, cpuid_level)
 {
     if(requested === undefined)
     {
-        return 0;
+        if(!x86_64) return 0;
+        requested = X86_64_DEFAULT_FEATURES;
     }
     const names = typeof requested === "string" ? CPU_FEATURE_PRESETS[requested] : requested;
     if(!Array.isArray(names))
@@ -1232,6 +1253,7 @@ CPU.prototype.validate_state = function(state)
     }
     this.validate_machine_core_state(state[96]);
     this.validate_physical_state(state[97]);
+    this.validate_disk_states(state);
     resolve_virtio_devices_state(this.devices.virtio_devices, state[92]);
     if(this.devices.graphics_adapter)
     {
@@ -1252,9 +1274,10 @@ CPU.prototype.validate_state = function(state)
     if((state[98] || 0) !== this.extended_pages)
         throw new Error("Snapshot extended RAM size differs from this machine's");
     // The guest has seen these in CPUID and may use them (snapshots from
-    // before them have none)
+    // before them have none): a machine whose features were not chosen
+    // (cpu_features not given) takes the snapshot's, set_state
     const features = state[106] || 0;
-    if(features !== this.cpu_features)
+    if(features !== this.cpu_features && this.cpu_features_explicit)
     {
         const names = mask => Object.keys(CPU_FEATURES).filter(name => mask & 1 << CPU_FEATURES[name].bit).join(" ") || "none";
         throw new Error("The snapshot is from a machine with the CPU features " + names(features) +
@@ -1262,9 +1285,69 @@ CPU.prototype.validate_state = function(state)
     }
 };
 
+/**
+ * A snapshot's hard disks must be the images this machine has: the changes
+ * of a disk image in a container format are not applied to another image
+ * (docs/disk-image-formats-plan.md P1). Checked before anything is restored.
+ * @param {!Array<*>} state
+ */
+CPU.prototype.validate_disk_states = function(state)
+{
+    // (and a disk written back takes only a reference of its image in the
+    // same generation: src/disk_writeback.js)
+    const check = (device, saved) =>
+    {
+        if(!device || !device.buffer || !saved) return;
+        // (a hard disk's logical sectors, IDEInterface state 20: its LBAs
+        // and the guest's view of it are in them)
+        if(!device.is_atapi && !saved[13] && saved[20] !== undefined && saved[20] !== device.sector_size)
+        {
+            throw new Error("The snapshot's disk " + device.name + " has " + saved[20] + "-byte sectors, this machine's " +
+                device.sector_size + "-byte ones: its state cannot be restored onto it");
+        }
+        check_disk_state(device.buffer.disk_name || device.name, device.buffer, saved[28]);
+    };
+    const ide = this.devices.ide;
+    if(ide)
+    {
+        const saved = state[85] || [state[56] || state[57]];
+        [ide.primary, ide.secondary].forEach((channel, i) =>
+        {
+            if(!channel || !saved[i]) return;
+            check(channel.master, saved[i][0]);
+            check(channel.slave, saved[i][1]);
+        });
+    }
+    const ahci = this.devices.ahci;
+    if(ahci && state[101])
+    {
+        ahci.ports.forEach((port, i) => check(port.device, state[101][3][i] && state[101][3][i][17]));
+    }
+    // (the floppy drives' disks: written back, a reference)
+    const fdc = this.devices.fdc;
+    if(fdc && state[55])
+    {
+        fdc.drives.forEach((drive, i) =>
+        {
+            const saved = state[55][44 + i];
+            if(!saved) return;
+            if(drive.buffer) check_disk_state(drive.buffer.disk_name || (i ? "fdb" : "fda"), drive.buffer, saved[10]);
+            else if(is_writeback_state(saved[10])) throw new Error("The snapshot's floppy " + (i ? "fdb" : "fda") + " was written back; this machine has no disk in that drive");
+        });
+    }
+};
+
 CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
+    // (disk requests held after an I/O error belong to the machine left behind)
+    drop_disk_holds(this);
+    // (the snapshot's CPU features, where this machine's were the default)
+    if((state[106] || 0) !== this.cpu_features)
+    {
+        this.cpu_features = state[106] || 0;
+        this.wm.exports["set_cpu_features"](this.cpu_features);
+    }
     if(state[95]) this.clock.set_state(state[95]);
     this.wm.exports["take_clock_progress"]();
     this.wm.exports["set_deterministic_execution"](this.clock.mode === "deterministic");
@@ -2546,6 +2629,12 @@ CPU.prototype.configure_extended_memory = function(size, cache_size)
     this.extended_base = base;
 };
 
+/** Every dirty frame back into the store (src/state.js: a snapshot stream) */
+CPU.prototype.flush_extended_memory = function()
+{
+    this.wm.exports["x64_ext_flush"]();
+};
+
 /** Extended RAM reads as zero again (power-on); every core is stopped */
 CPU.prototype.clear_extended_memory = function()
 {
@@ -2704,11 +2793,12 @@ CPU.prototype.init = function(settings, device_bus)
     this.configure_extended_memory(settings.extended_memory_size || 0, settings.extended_memory_cache);
 
     settings.cpuid_level && this.set_cpuid_level(settings.cpuid_level);
-    // The features of docs/simd-xsave-plan.md (src/cpu_features.js): the
-    // released ones (SSSE3, SSE4.1, SSE4.2: the preset x86-64-v2), and for
-    // tests and development the others, which warn unless
+    // The features of docs/simd-xsave-plan.md (src/cpu_features.js): those
+    // cpu_features names (for x86_64 every released one if it names none),
+    // and for tests and development the unreleased ones, which warn unless
     // cpu_features_unreleased is set
     this.cpu_features = resolve_cpu_features(settings["cpu_features"], settings["cpu_type"] === "x86_64", settings.cpuid_level || 0x16);
+    this.cpu_features_explicit = settings["cpu_features"] !== undefined;
     const unreleased = unreleased_cpu_features(settings["cpu_features"]);
     if(unreleased.length && !settings["cpu_features_unreleased"])
     {

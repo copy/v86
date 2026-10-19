@@ -81,7 +81,19 @@ assert.equal(pipeline.basePipelineIndex, -1);
 a = decode("vkCmdDrawMultiEXT");
 assert.deepEqual(a.pVertexInfo, [{ firstVertex: 3, vertexCount: 6 }, { firstVertex: 10, vertexCount: 4 }], "a strided array");
 a = decode("vkCreateRingMESA");
-assert.equal(a.ring, 0x7f0012345678);
+assert.equal(a.ring, "00007f0012345678", "a ring's id: 16 hex digits");
+{
+    // (two threads' rings 0x1c0 apart on Android's tagged heap: a number
+    // would round both to 0xb4000076e5a3c000, one ring for two)
+    const ids = ["b4000076e5a3c180", "b4000076e5a3c340"].map(ring => {
+        const w = new P.VenusWriter(64);
+        GUEST["vkNotifyRingMESA"][0](w, { ring, seqno: 1, flags: 0 });
+        const r = new P.VenusReader(w.result());
+        r.u32(); r.u32();
+        return by_name["vkNotifyRingMESA"][1](r).ring;
+    });
+    assert.deepEqual(ids, ["b4000076e5a3c180", "b4000076e5a3c340"], "ring ids are exact");
+}
 assert.equal(a.pCreateInfo.pNext.maxReportingPeriodMicroseconds, 3000000);
 console.log("PASS: what they decode to");
 

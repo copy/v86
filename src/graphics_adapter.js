@@ -269,11 +269,14 @@ PluginDisplaySource.prototype.invalidate = function()
 };
 
 /**
- * The configured display adapter: v86's side of a plugin's device
+ * The configured display adapter: v86's side of a plugin's device. On the
+ * virt machine (docs/arm64-virt-android16-plan.md P7.1) there is no VGA and
+ * no port I/O: the device is a function of the PCIe host at
+ * options.pci_id, or on a virtio-mmio slot (options.transport).
  * @constructor
  * @param {CPU} cpu
  * @param {!Object} descriptor from load_graphics_adapter
- * @param {!Object} options { vram_size, test, renderer }
+ * @param {!Object} options { vram_size, test, renderer, pci_id, transport }
  */
 export function GraphicsAdapter(cpu, descriptor, options)
 {
@@ -285,8 +288,12 @@ export function GraphicsAdapter(cpu, descriptor, options)
     /** @const @type {string} */
     this.name = descriptor["name"];
 
-    /** The VGA slot: other devices keep their addresses whichever adapter is used */
-    this.pci_id = pci_functions(cpu.platform).vga;
+    /** the virt machine's: no VGA */
+    this.virt = /** @type {?} */ (cpu).cpu_type === "arm64";
+    /** The VGA slot: other devices keep their addresses whichever adapter is used (virt: given) */
+    this.pci_id = options.pci_id !== undefined ? options.pci_id : pci_functions(cpu.platform).vga;
+    /** the virt machine's virtio-mmio slot, if the device is there */
+    this.transport = options.transport || null;
 
     this.pci_device = null;
 
@@ -349,7 +356,9 @@ GraphicsAdapter.prototype.create_handle = function()
     return {
         "name": this.name,
         "wasm_memory": cpu.wasm_memory,
-        "qemu_compatible": !!cpu.platform.qemu_compatible,
+        "qemu_compatible": !this.virt && !!cpu.platform.qemu_compatible,
+        // (the virt machine: no VGA core, no ROM, no ports)
+        "has_vga": !this.virt,
 
         "register_read": (port, r8, r16, r32) => io.register_read(port, owner, r8, r16, r32),
         "register_write": (port, w8, w16, w32) => io.register_write(port, owner, w8, w16, w32),
@@ -398,7 +407,7 @@ GraphicsAdapter.prototype.create_handle = function()
         // (V86.set_display_size): width, height, the display's index
         "on_host_display_size": handler =>
             cpu.bus.register("display-host-size", data => handler(data[0], data[1], data[2] || 0), this),
-        "in_vm86": () => !!(cpu.flags[0] & FLAG_VM),
+        "in_vm86": () => !this.virt && !!(cpu.flags[0] & FLAG_VM),
 
         "display": {
             "set_mode": graphical => hub.set_mode(graphical),
@@ -489,7 +498,7 @@ GraphicsAdapter.prototype.create_virtio = function(descriptor)
     {
         throw new Error("graphics_adapter \"" + this.name + "\" registered its PCI function twice");
     }
-    const device = create_adapter_virtio_device(this.cpu, descriptor, this.pci_id);
+    const device = create_adapter_virtio_device(this.cpu, descriptor, this.pci_id, this.transport || undefined);
     this.pci_device = device.virtio;
     return device.handle;
 };

@@ -39,6 +39,7 @@ use crate::jitrt::step::{self, StepFrontend, StepOutcome, EXIT_RETRY, EXIT_UNKNO
 use crate::jitrt::table::{Owner, Signature};
 use crate::jitrt::{self, ClientId};
 use crate::page::Page;
+use crate::wasmgen::wasm_builder::WasmBuilder;
 use std::collections::HashSet;
 
 extern "C" {
@@ -55,6 +56,14 @@ pub static mut HOT: u32 = 2000;
 const RECOMPILE_MISSES: u32 = 64;
 /// The most functions (this client's quota of the core's table)
 pub const MAX_FUNCTIONS: u32 = 9000;
+/// The most Wasm bytes of live functions, MiB (a64_page_code_mb): the host
+/// commits about 1.3 times as much machine code for them, and every core
+/// of a process (cores in workers) draws on one limit, V8's 4 GiB of
+/// committed Wasm code; Android's boot on four cores exceeded it with the
+/// table full of functions. Past it the least recently used ones go
+pub static mut CODE_BUDGET_MB: u32 = 160;
+/// The Wasm bytes of the live (and pending) functions
+static mut LIVE_BYTES: u64 = 0;
 /// Instructions an activation may retire: the run loop ticks the timers
 /// and takes interrupts between activations (a step ticks them too)
 const MAX_BUDGET: u32 = 1 << 14;
@@ -305,6 +314,39 @@ fn bind_asid(core: usize) {
     };
     a.current = Some(i);
 }
+/// a64_asid_tag 2 (auto): every AUTO_WINDOW ticks of the run loop (about 4
+/// million instructions) the tags go on when the ASIDs changed AUTO_ON times
+/// or more in the window, off when fewer than AUTO_OFF (P9.3: about 1300 per
+/// window while the androidish kernel, with SW_TTBR0_PAN, boots Alpine to a
+/// login; about 7 for the stock kernel)
+const AUTO_WINDOW: u32 = 4096;
+const AUTO_ON: u64 = 256;
+const AUTO_OFF: u64 = 16;
+static mut AUTO_TICKS: u32 = 0;
+static mut AUTO_LAST: u64 = 0;
+/// the tags turned on or off by auto
+static mut AUTO_SWITCHES: u64 = 0;
+/// (crate::aarch64::smp::run_core, about every 1024 instructions: no compiled code is active)
+pub fn asid_tag_tick() {
+    unsafe {
+        if super::ASID_TAG_MODE != 2 {
+            return;
+        }
+        AUTO_TICKS += 1;
+        if AUTO_TICKS < AUTO_WINDOW {
+            return;
+        }
+        AUTO_TICKS = 0;
+        let changes = crate::aarch64::mmu::asid_changes();
+        let window = changes.wrapping_sub(AUTO_LAST);
+        AUTO_LAST = changes;
+        if !super::ASID_TAG && window >= AUTO_ON || super::ASID_TAG && window < AUTO_OFF {
+            set_asid_tag(!super::ASID_TAG);
+            AUTO_SWITCHES += 1;
+        }
+    }
+}
+
 /// a64_asid_tag changed: every core's cache starts over, empty (an epoch
 /// number either way may have been given out by the other)
 pub fn set_asid_tag(on: bool) {
@@ -324,8 +366,14 @@ pub fn set_asid_tag(on: bool) {
 // ---- the runtime
 
 pub struct A64;
+/// A function's own data: its source page's hash when it was compiled
+/// (with cores in workers, checked again when it is installed, P8.2)
 #[derive(Default)]
-pub struct A64Code;
+pub struct A64Code {
+    source: u64,
+    /// its module's Wasm bytes, against CODE_BUDGET_MB
+    bytes: u32,
+}
 #[derive(Default)]
 pub struct A64Page;
 pub struct A64Extra {
@@ -383,6 +431,7 @@ fn retire(r: &mut Runtime, index: usize) {
         return;
     }
     let f = &r.functions[index];
+    unsafe { LIVE_BYTES = LIVE_BYTES.saturating_sub(f.x.bytes as u64) };
     for &key in &f.members {
         if r.by_page.get(&key) == Some(&index) {
             r.by_page.remove(&key);
@@ -443,13 +492,29 @@ pub fn retire_reserved_writes(core: usize, monitors: u32) {
     let mem8 = unsafe { bus::MEM8 } as u32;
     let mut hosts = [u32::MAX; MAX_CORES];
     let mut count = 0;
+    let mut extended = false;
     for c in 0..MAX_CORES {
         if monitors & 1 << c != 0 {
-            hosts[count] = mem8.wrapping_add(crate::aarch64::smp::reserved_backing(c) & !0xFFF);
+            let backing = crate::aarch64::smp::reserved_backing(c);
+            extended |= backing >= crate::aarch64::extended::KEY_BASE;
+            hosts[count] = mem8.wrapping_add(backing & !0xFFF);
             count += 1;
         }
     }
-    access(core).retire_writes(ENTRIES, |entry| hosts[..count].contains(&entry.host));
+    // (a reservation in extended RAM: its key names no frame, so the write
+    // entries to every frame retire)
+    let (start, end) =
+        if extended { unsafe { crate::aarch64::extended::frame_range() } } else { (0, 0) };
+    access(core).retire_writes(ENTRIES, |entry| {
+        hosts[..count].contains(&entry.host) || entry.host >= start && entry.host < end
+    });
+}
+
+/// The frame of extended RAM at `host` gained code: write entries to it retire
+pub fn retire_writes_to(host: u32) {
+    for core in 0..MAX_CORES {
+        access(core).retire_writes(ENTRIES, |entry| entry.host == host);
+    }
 }
 
 /// Pages that gained code: write entries to them retire (stores must notify)
@@ -507,11 +572,12 @@ fn code_page(pc: u64, mode: u32) -> Option<u32> {
     )
     .ok()?
     .pa;
-    let Lookup::Ram { code_key, .. } = bus::bus().lookup(pa)
-    else {
-        return None;
-    };
-    if code_key >= 1 << MODE_SHIFT {
+    let code_key = bus::bus().code_key(pa)?;
+    // (code in extended RAM: compiled with the cores in one instance; in
+    // workers it is interpreted, P8.5)
+    if code_key >= 1 << MODE_SHIFT
+        || code_key >= bus::EXTENDED_CODE_KEY && crate::parallel::active()
+    {
         return None;
     }
     let key = code_key | mode << MODE_SHIFT;
@@ -553,7 +619,13 @@ pub fn run(budget: u32) -> Ran {
                 let slot = f.slot;
                 r.clock += 1;
                 r.functions[index].last_used = r.clock;
-                return execute(slot, budget, pc);
+                let ran = execute(slot, budget, pc);
+                if key & ((1 << MODE_SHIFT) - 1) >= bus::EXTENDED_CODE_KEY {
+                    if let Ran::Native { retired, .. } = ran {
+                        unsafe { crate::aarch64::extended::RETIRED[1] += retired as u64 };
+                    }
+                }
+                return ran;
             }
             // (an entry it does not serve: noted, recompiled after enough of them)
             let state = r.pages.entry(key).or_default();
@@ -583,6 +655,13 @@ pub fn interpreted() { unsafe { (*(&raw mut RUNTIME)).as_mut().map(|r| r.x.inter
 fn note_entry_bits(entries: &mut [u64; 64], offset: u16) {
     entries[offset as usize / 64] |= 1 << (offset % 64);
 }
+
+/// (the parallel build) where page functions copy unaligned reads to,
+/// pagegen::frame: two slots of 32 bytes (a pair's elements)
+#[repr(C, align(16))]
+struct Bounce([u8; 64]);
+static mut BOUNCE: Bounce = Bounce([0; 64]);
+pub fn bounce_address() -> u32 { &raw mut BOUNCE as u32 }
 
 /// The flow a step asked for (a wait, a stop, a yield) while compiled code ran
 static mut STEP_FLOW: Option<Flow> = None;
@@ -631,10 +710,10 @@ fn execute(slot: u32, budget: u32, pc: u64) -> Ran {
             // (the instruction at the PC: a template refused it before any of its effects)
             r.stats[RETRIES] += 1;
             let f = execute::interpret_one();
-            if !matches!(f, Flow::Set) {
+            if !matches!(f, Flow::Set | Flow::Retry) {
                 retired += 1;
             }
-            if matches!(f, Flow::Wait(_) | Flow::Off | Flow::Yield) {
+            if matches!(f, Flow::Wait(_) | Flow::Off | Flow::Yield | Flow::Retry) {
                 flow = f;
             }
         },
@@ -656,9 +735,13 @@ fn compile(key: u32, pc: u64) {
         .collect();
     let code_key = key & ((1 << MODE_SHIFT) - 1);
     let mode = key >> MODE_SHIFT;
-    let bytes =
+    let bytes = if code_key >= bus::EXTENDED_CODE_KEY {
+        unsafe { crate::extended::copy_page(code_key - bus::EXTENDED_CODE_KEY) }
+    }
+    else {
         unsafe { std::slice::from_raw_parts(bus::MEM8.add((code_key << 12) as usize), 4096) }
-            .to_vec();
+            .to_vec()
+    };
     let name = format!(
         "a64_page{}_{:x}",
         if mode & 1 != 0 { "_el1" } else { "_el0" },
@@ -700,6 +783,16 @@ fn compile(key: u32, pc: u64) {
             unsafe { EVICTIONS += 1 };
         }
     }
+    // room in the code budget: the least recently used go until it fits
+    let budget = unsafe { CODE_BUDGET_MB } as u64 * 1048576;
+    while unsafe { LIVE_BYTES } + code.bytes.len() as u64 > budget {
+        let Some(i) = r.victim(|_| true, usize::MAX)
+        else {
+            break;
+        };
+        retire(r, i);
+        unsafe { EVICTIONS += 1 };
+    }
     release_dead(r);
     let id = r.next_id;
     r.next_id += 1;
@@ -716,9 +809,13 @@ fn compile(key: u32, pc: u64) {
             return;
         };
         rt.watch
-            .attach(slot, HashSet::from([Page::page_of(code_key << 12)]));
+            .attach(slot, HashSet::from([Page::of_u32(code_key)]));
         slot
     };
+    // (its next write retires it: crate::aarch64::isa_hooks::extended_code_written)
+    if code_key >= bus::EXTENDED_CODE_KEY {
+        unsafe { crate::extended::watch_code(code_key - bus::EXTENDED_CODE_KEY) };
+    }
     let r = rt();
     if let Some(&old) = r.by_page.get(&key) {
         retire(r, old);
@@ -736,7 +833,7 @@ fn compile(key: u32, pc: u64) {
                 served: Vec::new(),
                 members: Vec::new(),
                 last_used: 0,
-                x: A64Code,
+                x: A64Code::default(),
             });
             r.functions.len() - 1
         },
@@ -750,8 +847,12 @@ fn compile(key: u32, pc: u64) {
         served: code.served,
         members: vec![key],
         last_used: r.clock,
-        x: A64Code,
+        x: A64Code {
+            source: source_hash(&bytes),
+            bytes: code.bytes.len() as u32,
+        },
     };
+    unsafe { LIVE_BYTES += code.bytes.len() as u64 };
     r.by_page.insert(key, index);
     r.generation = r.generation.wrapping_add(1);
     r.stats[COMPILED] += 1;
@@ -760,8 +861,37 @@ fn compile(key: u32, pc: u64) {
     publish::publish(ClientId::A64Page, id, slot, &code.bytes);
 }
 
+/// FNV-1a over a code page
+fn source_hash(bytes: &[u8]) -> u64 {
+    let mut hash = 0xCBF29CE484222325u64;
+    for &byte in bytes {
+        hash = (hash ^ byte as u64).wrapping_mul(0x100000001B3);
+    }
+    hash
+}
+
 // publication's answers (jitrt::publish)
-fn install(id: u64, slot: u32) -> bool { rt().pending(id, slot).is_some() }
+fn install(id: u64, slot: u32) -> bool {
+    let r = rt();
+    let Some(f) = r.pending(id, slot).map(|i| &r.functions[i])
+    else {
+        return false;
+    };
+    if !crate::parallel::active() {
+        return true;
+    }
+    // (cores in workers, P8.2: the other cores mark the page first, so that
+    // their stores to it retire this code; then its bytes are checked once
+    // more, which sees any store before the marks)
+    let (key, source) = (f.page & ((1 << MODE_SHIFT) - 1), f.x.source);
+    if key >= bus::EXTENDED_CODE_KEY
+        || !unsafe { crate::parallel::code::wait_published(std::iter::once(key), 0.5) }
+    {
+        return false;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(bus::MEM8.add((key << 12) as usize), 4096) };
+    source_hash(bytes) == source
+}
 fn ready(id: u64, slot: u32) -> bool { rt().ready(id, slot).is_some() }
 fn cancel(id: u64, slot: u32) {
     let r = rt();
@@ -792,7 +922,14 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
     let size = kind & 255;
     let write = kind & 0x100 != 0;
     let r = rt();
-    if (address & 0xFFF) + size as u64 > 0x1000 {
+    // (the parallel build's atomics need natural alignment: an unaligned
+    // access retries in the interpreter, pagegen::frame)
+    if (address & 0xFFF) + size as u64 > 0x1000
+        || WasmBuilder::ATOMIC_GUEST_MEMORY
+            && size > 1
+            && address & (size.min(8) as u64 - 1) != 0
+            && kind & 0x200 == 0
+    {
         r.stats[ACCESS_REFUSED] += 1;
         return 0;
     }
@@ -802,23 +939,48 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         r.stats[ACCESS_REFUSED] += 1;
         return 0;
     };
-    let Lookup::Ram {
-        backing, writable, ..
-    } = bus::bus().lookup(pa)
-    else {
-        r.stats[ACCESS_REFUSED] += 1;
-        return 0;
+    let host = match bus::bus().lookup(pa) {
+        Lookup::Ram {
+            backing, writable, ..
+        } => {
+            let page = backing & !0xFFF;
+            // (device memory: its writes go the interpreter's way, which marks them)
+            if write
+                && (!writable
+                    || page >= unsafe { bus::DEVICE_START }
+                    || crate::aarch64::root::page_watched(page >> 12)
+                    || crate::aarch64::smp::reserved_page(page))
+            {
+                r.stats[ACCESS_REFUSED] += 1;
+                return 0;
+            }
+            (unsafe { bus::MEM8 } as u32).wrapping_add(page)
+        },
+        // (extended RAM: its frame, held until the run loop's next safe
+        // point; no write entry while a core holds a reservation in the page)
+        Lookup::Extended { .. } => {
+            let frame = if write
+                && crate::aarch64::smp::reserved_page(crate::aarch64::extended::monitor_key(
+                    pa & !0xFFF,
+                )) {
+                None
+            }
+            else {
+                unsafe { crate::aarch64::extended::cache_frame(pa & !0xFFF, write) }
+            };
+            match frame {
+                Some(frame) => frame,
+                None => {
+                    r.stats[ACCESS_REFUSED] += 1;
+                    return 0;
+                },
+            }
+        },
+        _ => {
+            r.stats[ACCESS_REFUSED] += 1;
+            return 0;
+        },
     };
-    let page = backing & !0xFFF;
-    if write
-        && (!writable
-            || crate::aarch64::root::page_watched(page >> 12)
-            || crate::aarch64::smp::reserved_page(page))
-    {
-        r.stats[ACCESS_REFUSED] += 1;
-        return 0;
-    }
-    let host = (unsafe { bus::MEM8 } as u32).wrapping_add(page);
     // (a tagged pointer, TBI: no entry, since a TLBI names the page untagged)
     if ((address << 8) as i64 >> 8) as u64 != address {
         return host + (address & 0xFFF) as u32;
@@ -897,7 +1059,7 @@ impl StepFrontend for A64Step {
     fn context() -> Context { context() }
     fn interpret_one() {
         let flow = execute::interpret_one();
-        if matches!(flow, Flow::Wait(_) | Flow::Off | Flow::Yield) {
+        if matches!(flow, Flow::Wait(_) | Flow::Off | Flow::Yield | Flow::Retry) {
             unsafe { STEP_FLOW = Some(flow) };
         }
     }
@@ -915,7 +1077,7 @@ impl StepFrontend for A64Step {
 }
 /// An interrupt the PE would take now
 fn interrupt_pending() -> bool {
-    let signal = unsafe { crate::aarch64::gic::SIGNAL[current_core()] };
+    let signal = crate::aarch64::gic::signal(current_core());
     let state = cpu::get_pstate();
     signal & crate::aarch64::gic::SIGNAL_IRQ != 0 && state & cpu::PSTATE_I == 0
         || signal & crate::aarch64::gic::SIGNAL_FIQ != 0 && state & cpu::PSTATE_F == 0
@@ -961,6 +1123,9 @@ pub fn a64_page_stat(n: u32) -> f64 {
         106 => (unsafe { HELPERS }) as f64,
         107 => (unsafe { EVICTIONS }) as f64,
         108 => unsafe { COMPILE_MS },
+        109 => (unsafe { AUTO_SWITCHES }) as f64,
+        110 => (unsafe { super::ASID_TAG }) as u32 as f64,
+        111 => (unsafe { LIVE_BYTES }) as f64,
         _ => r.stats.get(n as usize).copied().unwrap_or(0) as f64,
     }
 }

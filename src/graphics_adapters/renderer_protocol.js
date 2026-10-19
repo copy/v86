@@ -94,6 +94,8 @@ export const VX = {
     COPY_QUERY_RESULTS: 40, // results memory, first, count, dst memory, dst offset (64), stride, VkQueryResultFlags
     TEXTURE_READ: 41,       // texture, aspect, mip, layer or slice, request id: answered with the image's texels, rows packed
     TEXTURE_WRITE: 42,      // texture, aspect, mip, layer or slice, length, then the texels (rows packed): a snapshot's contents
+    TEXTURE_IMPORT: 43,     // texture, virtio-gpu resource id: the image becomes the texture of that resource's GX surface
+                            // (a gralloc buffer imported by Venus: VkImportMemoryResourceInfoMESA), which GX keeps owning
 };
 
 /**

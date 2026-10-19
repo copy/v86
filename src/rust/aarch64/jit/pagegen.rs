@@ -21,6 +21,11 @@
 //!
 //! NZCV is kept in its local as the interpreter keeps it (bits 31:28),
 //! computed by every flag-setting template.
+//!
+//! In the parallel build (cores in workers, P8.2) guest memory accesses are
+//! sequentially consistent atomics (the frame refuses unaligned ones, which
+//! retry in the interpreter), DMB and ISB a fence, and a DSB a single step
+//! while cores run in workers (it waits for their TLB maintenance, P8.3).
 
 use crate::aarch64::decode::{
     self, Inst, Op, LS_LOAD, LS_PREFETCH, LS_SIGNED, LS_SIMD, LS_TO_W, LS_UNPRIVILEGED, MODE_POST,
@@ -270,7 +275,8 @@ fn native(i: &Inst, env: &CompileEnv) -> bool {
         Op::DataProc1 => matches!(i.sub, 1..=5),
         // NOP and the hints that are NOPs here (YIELD, WFE, WFI, SEV, SEVL step)
         Op::Hint => !(1..=5).contains(&i.imm),
-        Op::Barrier => true,
+        // (DSB with cores in workers: a step, crate::aarch64::tlb::synced)
+        Op::Barrier => !(i.sub == 0 && crate::parallel::active()),
         // (and the SIMD&FP registers' S, D and Q forms: native_simd)
         Op::LoadStore => {
             i.sub & LS_SIMD == 0 && (i.sub & LS_UNPRIVILEGED == 0 || !env.el1)
@@ -951,19 +957,22 @@ impl Emitter<'_> {
             base: state::a64_jac_base as u32,
             entries: super::pages::ENTRIES as u32,
             slow: "a64_page_access",
-            bounce: 0,
+            bounce: super::pages::bounce_address(),
         }
     }
     /// Push the host address of a `size`-byte access at ADDR (else retry the
     /// instruction at `offset`)
-    fn host(&mut self, size: u32, write: bool, offset: u16) {
+    fn host(&mut self, size: u32, write: bool, offset: u16) { self.host_in(size, write, offset, 0) }
+    /// As `host`, an unaligned read copied to bounce slot `slot` (0 or 1:
+    /// a pair's second element, whose copy must not replace the first's)
+    fn host_in(&mut self, size: u32, write: bool, offset: u16, slot: u32) {
         let (l, abi) = (self.lookup_locals(), Self::access_abi());
         let retry = self.f().retry;
         self.inline_lookup(
             &l,
             &abi,
             (size, false),
-            (write as u32) << 8,
+            (write as u32) << 8 | slot << 10,
             offset as u64,
             retry,
         );
@@ -989,6 +998,18 @@ impl Emitter<'_> {
     /// Load `size_log` bytes from the host address on the stack into an i64
     /// (sign-extended by `signed`, to 32 bits then zero-extended by `to_w`)
     fn load_value(&mut self, size_log: u32, signed: bool, to_w: bool) {
+        if WasmBuilder::ATOMIC_GUEST_MEMORY {
+            // (atomic loads only zero-extend: the sign extension follows)
+            self.b.guest_load_i64_bits(8 << size_log.min(3), 0);
+            if signed && size_log < 3 {
+                self.o([0xC2, 0xC3, 0xC4][size_log as usize]); // i64.extend8_s, 16_s, 32_s
+                if to_w {
+                    self.c64(0xFFFF_FFFF);
+                    self.b.and_i64();
+                }
+            }
+            return;
+        }
         let align = size_log.min(3) as u8;
         if signed && to_w {
             let opcode = [op::OP_I32LOAD8S, op::OP_I32LOAD16S, op::OP_I32LOAD][size_log as usize];
@@ -1009,6 +1030,10 @@ impl Emitter<'_> {
     }
     /// Store the i64 on the stack (after the host address) as `size_log` bytes
     fn store_value(&mut self, size_log: u32) {
+        if WasmBuilder::ATOMIC_GUEST_MEMORY {
+            self.b.guest_store_i64_bits(8 << size_log.min(3), 0);
+            return;
+        }
         let opcode = [
             op::OP_I64STORE8,
             op::OP_I64STORE16,
@@ -1568,7 +1593,8 @@ impl Emitter<'_> {
             Op::DataProc3 => self.data_processing_3(i),
             Op::DataProc2 => self.data_processing_2(i),
             Op::DataProc1 => self.data_processing_1(i),
-            Op::Hint | Op::Barrier => {},
+            Op::Hint => {},
+            Op::Barrier => self.b.guest_fence(),
             Op::Mrs => {
                 if i.imm as u32 == TPIDR_EL0 {
                     self.load64(state::tpidr_el0 as u32);
@@ -1602,10 +1628,18 @@ impl Emitter<'_> {
                 self.s(ADDR);
                 let size = if i.sub == 1 { 8 } else { 4 };
                 self.host(size, false, offset);
-                match i.sub {
-                    0 => self.b.memory_op(op::OP_I64LOAD32U, 2, 0),
-                    1 => self.b.memory_op(op::OP_I64LOAD, 3, 0),
-                    _ => self.b.memory_op(op::OP_I64LOAD32S, 2, 0),
+                if WasmBuilder::ATOMIC_GUEST_MEMORY {
+                    self.b.guest_load_i64_bits(8 * size, 0);
+                    if i.sub == 2 {
+                        self.o(0xC4); // i64.extend32_s
+                    }
+                }
+                else {
+                    match i.sub {
+                        0 => self.b.memory_op(op::OP_I64LOAD32U, 2, 0),
+                        1 => self.b.memory_op(op::OP_I64LOAD, 3, 0),
+                        _ => self.b.memory_op(op::OP_I64LOAD32S, 2, 0),
+                    }
                 }
                 self.set_x(rd);
             },
@@ -2061,7 +2095,11 @@ impl Emitter<'_> {
         // low half
         self.c32(at as i32);
         self.gi(host);
-        if size_log == 2 {
+        if WasmBuilder::ATOMIC_GUEST_MEMORY {
+            self.b
+                .guest_load_i64_bits(if size_log == 2 { 32 } else { 64 }, 0);
+        }
+        else if size_log == 2 {
             self.b.memory_op(op::OP_I64LOAD32U, 2, 0);
         }
         else {
@@ -2072,7 +2110,12 @@ impl Emitter<'_> {
         self.c32(at as i32 + 8);
         if size_log == 4 {
             self.gi(host);
-            self.b.memory_op(op::OP_I64LOAD, 3, 8);
+            if WasmBuilder::ATOMIC_GUEST_MEMORY {
+                self.b.guest_load_i64(8);
+            }
+            else {
+                self.b.memory_op(op::OP_I64LOAD, 3, 8);
+            }
         }
         else {
             self.c64(0);
@@ -2084,7 +2127,11 @@ impl Emitter<'_> {
         let at = state::v as u32 + 16 * v as u32;
         self.gi(host);
         self.load64(at);
-        if size_log == 2 {
+        if WasmBuilder::ATOMIC_GUEST_MEMORY {
+            self.b
+                .guest_store_i64_bits(if size_log == 2 { 32 } else { 64 }, 0);
+        }
+        else if size_log == 2 {
             self.b.memory_op(op::OP_I64STORE32, 2, 0);
         }
         else {
@@ -2093,7 +2140,12 @@ impl Emitter<'_> {
         if size_log == 4 {
             self.gi(host);
             self.load64(at + 8);
-            self.b.memory_op(op::OP_I64STORE, 3, 8);
+            if WasmBuilder::ATOMIC_GUEST_MEMORY {
+                self.b.guest_store_i64(8);
+            }
+            else {
+                self.b.memory_op(op::OP_I64STORE, 3, 8);
+            }
         }
     }
 
@@ -2190,7 +2242,7 @@ impl Emitter<'_> {
         self.c64(size as u64);
         self.b.add_i64();
         self.s(ADDR);
-        self.host(size, !load, offset);
+        self.host_in(size, !load, offset, 1);
         self.si(HH);
         if simd {
             // (both read before either register is written, as the interpreter)

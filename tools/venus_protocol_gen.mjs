@@ -348,6 +348,13 @@ function reads(body, self, counts, indent, name)
                 emit(js_value(s.args[1], self) + " = r." + reader + "(" + count + ");");
                 continue;
             }
+            // a ring's id (the transport commands' `uint64_t ring`): the
+            // driver's pointer to it, exact (VenusReader.ring_id)
+            if(fn === "vn_encode_uint64_t" && s.args[1] === "&ring")
+            {
+                emit(js_value(s.args[1], self) + " = r.ring_id();");
+                continue;
+            }
             const type = fn.slice("vn_encode_".length).replace(/_partial$/, "");
             const partial = fn.endsWith("_partial");
             emit(read_type(type, js_value(s.args[1], self), partial));
@@ -730,6 +737,7 @@ function guest_writes(body, self, indent, name)
                 continue;
             }
             const type = fn.slice(10);
+            if(fn === "vn_encode_uint64_t" && s.args[1] === "&ring") { emit("w.ring_id(" + js_value(s.args[1], self) + ");"); continue; }
             if(primitive.has(type)) { emit("w." + primitive.get(type) + "(" + js_value(s.args[1], self) + ");"); continue; }
             if(!functions.has(fn)) throw new Error("no " + fn);
             want_g(fn);

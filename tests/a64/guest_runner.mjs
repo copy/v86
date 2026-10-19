@@ -229,7 +229,7 @@ export async function actual(directory, { cores = 1, memory = 128, timeout = 600
             emulator.add_listener("emulator-error", reject);
         });
         const cpu = emulator.v86.cpu;
-        // (setup(cpu): a test's own configuration of the core, e.g. the test profile v1.1)
+        // (setup(cpu): a test's own configuration of the core, e.g. the granules)
         setup?.(cpu);
         let serial = "";
         emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });

@@ -10,6 +10,7 @@ pub mod crypto;
 pub mod debug;
 pub mod decode;
 pub mod execute;
+pub mod extended;
 pub mod fp;
 pub mod gic;
 pub mod isa_hooks;

@@ -5,9 +5,18 @@
 # keep running a stale bundle or core after a rebuild. The page is also
 # cross-origin isolated (COOP/COEP), which the cores in host threads need
 # (index.html with more than one CPU core, src/parallel).
+#
+# It also starts the local disk service (tools/disk-service.mjs,
+# docs/disk-persistence-plan.md) on 127.0.0.1:8471 for the images in
+# images/ (V86_DISK_DIR another directory; V86_DISK_SERVICE=0 none), for
+# this page's origins only: the page's "read write" hard disks are
+# http://127.0.0.1:8471/<name>, written back to <directory>/<name>.
 import contextlib
 import http.server
+import os
+import shutil
 import socket
+import subprocess
 import sys
 
 
@@ -30,6 +39,24 @@ class Server(http.server.ThreadingHTTPServer):
 
 
 port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-with Server(("::", port), Handler) as server:
-    print(f"Serving on http://localhost:{port}/", flush=True)
-    server.serve_forever()
+try:
+    server = Server(("::", port), Handler)
+except OSError as error:
+    # (on stdout: `make run` discards stderr, the request log)
+    print(f"Port {port}: {error.strerror}. Another dev server (an earlier `make run`?) may serve this directory "
+          f"already: open http://localhost:{port}/, or run python3 tools/dev-server.py <port>.", flush=True)
+    sys.exit(1)
+disk_service = None
+disk_dir = os.environ.get("V86_DISK_DIR", "images")
+if os.environ.get("V86_DISK_SERVICE", "1") != "0" and shutil.which("node") and os.path.isdir(disk_dir):
+    origins = [f"http://localhost:{port}", f"http://127.0.0.1:{port}", f"http://[::1]:{port}"]
+    disk_service = subprocess.Popen(["node", "tools/disk-service.mjs", "--dir", disk_dir, "--port", "8471"] +
+                                    [arg for origin in origins for arg in ("--origin", origin)], stdout=subprocess.DEVNULL)
+    print(f"Disk service for {os.path.realpath(disk_dir)} on http://127.0.0.1:8471/ (read write hard disks)", flush=True)
+try:
+    with server:
+        print(f"Serving on http://localhost:{port}/", flush=True)
+        server.serve_forever()
+finally:
+    if disk_service:
+        disk_service.terminate()

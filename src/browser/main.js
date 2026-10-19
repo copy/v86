@@ -20,6 +20,12 @@ const DEFAULT_MEMORY_SIZE = 128;
 // by 64-bit guests only (docs/x86-64.md); the 36-bit physical address space
 // ends at 64 GiB.
 const MAX_HEAP_MEMORY_SIZE = 2048;
+/** The arm64 core's RAM in MB: below 2 GiB with the display adapter's 128 MiB of device memory */
+const ARM64_MAX_MEMORY_SIZE = 1792;
+/** The arm64 virt machine's command line when none is given: Alpine's ISO (its initramfs finds the ISO on virtio-blk) */
+const ARM64_DEFAULT_CMDLINE = "console=ttyAMA0 console=tty0 modules=loop,squashfs,sd-mod,usb-storage";
+/** The same without a display: the last console, where init writes and the login comes, is the serial one */
+const ARM64_SERIAL_CMDLINE = "console=ttyAMA0 modules=loop,squashfs,sd-mod,usb-storage";
 const MAX_MEMORY_SIZE = MAX_HEAP_MEMORY_SIZE + 60 * 1024;
 const DEFAULT_CPU_CORES = 1;
 const DEFAULT_CPU_TYPE = CPU_TYPES[0];
@@ -174,6 +180,16 @@ function $(id)
 
 /** RAM and video memory from which the page saves states as V7 streams */
 const STREAMED_STATE_MEMORY = 1024 * 1024 * 1024;
+
+/**
+ * (docs/disk-persistence-plan.md D3: the page's notes about its disks)
+ * @param {string} text
+ */
+function show_disk_status(text)
+{
+    $("disk_status").textContent = text;
+    $("disk_status").style.display = "";
+}
 
 /**
  * Save a V7 snapshot, which never exists in one buffer: straight into a file
@@ -2401,6 +2417,21 @@ async function start_emulation(profile, query_args)
                 };
             }
 
+            // the disks' policies (docs/disk-persistence-plan.md): hda.disk_option=read_write
+            // with a disk service's URL writes the guest's changes back; hda.disk_error=report
+            // (the settings' names as properties: Closure renames them in v86_all.js)
+            for(const [name, disk] of [["hda", settings.hda], ["hdb", settings.hdb], ["fda", settings.fda]])
+            {
+                if(!disk) continue;
+                if(query_args.has(name + ".disk_option")) disk.disk_option = query_args.get(name + ".disk_option");
+                if(query_args.has(name + ".disk_error")) disk.disk_error = query_args.get(name + ".disk_error");
+            }
+
+            // (a kernel and an initrd: the PC's bzImage, or the arm64 virt machine's Image)
+            if(query_args.has("kernel.url")) settings.bzimage = { url: query_args.get("kernel.url"), async: false };
+            if(query_args.has("initrd.url")) settings.initrd = { url: query_args.get("initrd.url"), async: false };
+            if(query_args.has("cmdline")) settings.cmdline = query_args.get("cmdline");
+
             const m = parseInt(query_args.get("m"), 10);
             if(m > 0)
             {
@@ -2533,6 +2564,37 @@ async function start_emulation(profile, query_args)
             settings.hdb = { buffer: new ArrayBuffer(size) };
             new_query_args.set("hdb.empty", String(size));
         }
+        // (or an image's URL; read write: the guest's changes written back to
+        // it, which needs a disk service's URL, docs/disk-persistence-plan.md:
+        // a file chosen above can only be read)
+        const disk_from_url = name =>
+        {
+            const url = $(name + "_url")?.value.trim();
+            if(!url) return undefined;
+            const disk = { url, async: true };
+            new_query_args.set(name + ".url", url);
+            if($(name + "_disk_option")?.value === "read_write")
+            {
+                disk.disk_option = "read_write";
+                new_query_args.set(name + ".disk_option", "read_write");
+            }
+            return disk;
+        };
+        const hda_url = disk_from_url("hda");
+        if(hda_url) settings.hda = hda_url;
+        const hdb_url = disk_from_url("hdb");
+        if(hdb_url) settings.hdb = hdb_url;
+        for(const [name, label, disk] of [["hda", "Hard disk image", settings.hda], ["hdb", "Second hard disk image", settings.hdb]])
+        {
+            if($(name + "_disk_option")?.value === "read_write" && !(disk && disk.url))
+            {
+                alert(label + ": read write needs the image's URL from a disk service (e.g. http://127.0.0.1:8471/disk.img, " +
+                    "started by make run for images/, or node tools/disk-service.mjs --dir <directory> --origin " + location.origin +
+                    "). A file chosen on this computer can only be read, so its changes stay in memory: choose read only for it.");
+                $("boot_options").style.display = "block";
+                return;
+            }
+        }
         const multiboot = $("multiboot_image")?.files[0];
         if(multiboot)
         {
@@ -2613,14 +2675,32 @@ async function start_emulation(profile, query_args)
         {
             settings.cpu_type = $("cpu_type").value || DEFAULT_CPU_TYPE;
         }
-        // only a 64-bit CPU reaches extended RAM
-        if(settings.extended_memory_size && settings.cpu_type !== "x86_64")
+        // the 64-bit CPUs reach extended RAM: x86_64 above the Wasm heap's
+        // RAM, arm64 above ARM64_MAX_MEMORY_SIZE MB (its RAM and a display
+        // adapter's device memory are less than 2 GiB of the heap), at 4 GiB
+        // (docs/aarch64.md)
+        if(settings.cpu_type === "arm64")
+        {
+            const MB = 1024 * 1024;
+            const total = (settings.memory_size + (settings.extended_memory_size || 0)) / MB;
+            if(total > ARM64_MAX_MEMORY_SIZE)
+            {
+                settings.memory_size = ARM64_MAX_MEMORY_SIZE * MB;
+                settings.extended_memory_size = Math.ceil((total - ARM64_MAX_MEMORY_SIZE) / 2) * 2 * MB;
+            }
+        }
+        else if(settings.extended_memory_size && settings.cpu_type !== "x86_64")
         {
             console.log("More than " + MAX_HEAP_MEMORY_SIZE + " MB of memory: selecting the x86_64 CPU");
             settings.cpu_type = "x86_64";
             $("cpu_type").value = "x86_64";
         }
         if(settings.cpu_type !== DEFAULT_CPU_TYPE) new_query_args.set("cpu_type", settings.cpu_type);
+
+        // (the instruction sets come with the CPU type, docs/x86-64.md: x86
+        // up to SSE3, x86_64 all of them; the library's cpu_features option
+        // is for tests and debugging, the page has none, and an old link's
+        // cpu_features is dropped)
 
         if(settings.machine_type === undefined)
         {
@@ -2716,12 +2796,14 @@ async function start_emulation(profile, query_args)
         "cpu_worker": cpu_worker,
         "cpu_worker_url": "build/cpu-worker.js" + query_append(),
         "ir_tier0": settings["ir_tier0"],
-        wasm_path: "build/" + (DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
+        // (the core of the CPU type: arm64's is a separate build, docs/aarch64.md)
+        wasm_path: "build/" + (settings.cpu_type === "arm64" ? (DEBUG ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") :
+            DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
         // more than one core: each in a host thread (v86-parallel.wasm) where the
         // page is cross-origin isolated and the host has the threads; otherwise
         // the build above with the cores taking turns (see the runtime infos)
         "parallel": settings.cpu_cores > 1 && settings.parallel ? "auto" : false,
-        "parallel_wasm_path": "build/v86-parallel.wasm" + query_append(),
+        "parallel_wasm_path": "build/" + (settings.cpu_type === "arm64" ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm") + query_append(),
         // (the source tree's module entry, unless the bundled CPU worker starts them)
         "vcpu_worker_url": DEBUG && !cpu_worker ? undefined : "build/vcpu-worker.js" + query_append(),
         "graphics_proxy": graphics_proxy && {
@@ -2749,19 +2831,34 @@ async function start_emulation(profile, query_args)
         "graphics_adapter_test": settings.displays > 1 && settings.graphics_adapter === "virtio_gpu" ? { "scanouts": settings.displays } : undefined,
         boot_order: settings.boot_order,
 
-        bios: settings.bios,
-        vga_bios: settings.vga_bios,
-        fda: settings.fda,
-        fdb: settings.fdb,
-        hda: settings.hda,
-        hdb: settings.hdb,
-        cdrom: settings.cdrom,
-        multiboot: settings.multiboot,
-        bzimage: settings.bzimage,
-        initrd: settings.initrd,
-
-        cmdline: settings.cmdline,
-        bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
+        // the arm64 virt machine (docs/virt.md): the page's kernel and
+        // initrd, the CD-ROM image and the disks as virtio-blk disks (the
+        // image read-only), virtio-rng, the keyboard, tablet and touch screen
+        // with a display; the PC's firmware, floppies and IDE otherwise
+        ...(settings.cpu_type === "arm64" ? {
+            kernel: settings.bzimage,
+            initrd: settings.initrd,
+            virtio_disks: [settings.cdrom && Object.assign({}, settings.cdrom, { readonly: true }), settings.hda, settings.hdb].filter(Boolean),
+            virtio_rng: true,
+            virtio_input: settings.graphics_adapter === "virtio_gpu" ? ["keyboard", "tablet", "multitouch"] : undefined,
+            cmdline: settings.cmdline || (settings.graphics_adapter === "virtio_gpu" ? ARM64_DEFAULT_CMDLINE : ARM64_SERIAL_CMDLINE),
+            // (the A64 page tier: the library's default is off until its F gate;
+            // quoted, as the library reads it, or Closure renames it)
+            "jit_switches": settings.disable_jit ? undefined : { "a64_page": 1 },
+        } : {
+            bios: settings.bios,
+            vga_bios: settings.vga_bios,
+            fda: settings.fda,
+            fdb: settings.fdb,
+            hda: settings.hda,
+            hdb: settings.hdb,
+            cdrom: settings.cdrom,
+            multiboot: settings.multiboot,
+            bzimage: settings.bzimage,
+            initrd: settings.initrd,
+            cmdline: settings.cmdline,
+            bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
+        }),
         acpi: settings.cpu_type !== "arm64" && (settings.acpi || settings.cpu_cores > 1 || settings.machine_type === "q35"),
         cpu_cores: settings.cpu_cores,
         "cpu_type": settings.cpu_type,
@@ -3326,13 +3423,31 @@ function init_ui(profile, settings, emulator)
     {
         var elem = $("get_" + type + "_image");
 
-        if(!obj || obj.async)
+        // (a disk image in a container format: exported RAW, in parts;
+        // docs/disk-image-formats-plan.md P2)
+        const exported = obj && obj.format && obj.format !== "raw";
+        if(!obj || obj.async && !exported)
         {
             elem.style.display = "none";
         }
 
         elem.onclick = async function(e)
         {
+            if(exported)
+            {
+                const parts = [];
+                try
+                {
+                    await emulator.export_disk_image(type, { write: chunk => { parts.push(chunk); } });
+                    download(new Blob(parts), (profile?.id || "v86") + "-" + type + ".img");
+                }
+                catch(error)
+                {
+                    alert("The disk could not be exported: " + error.message);
+                }
+                elem.blur();
+                return;
+            }
             if(emulator.worker_controller)
             {
                 const name = (profile?.id || "v86") + "-" + type + (type === "cdrom" ? ".iso" : ".img");
@@ -3647,6 +3762,60 @@ function init_ui(profile, settings, emulator)
             button.textContent = label;
             button.blur();
         }
+    };
+
+    // Disks written back (docs/disk-persistence-plan.md D3): their changes
+    // are in their images, a snapshot holds only a reference of each, valid
+    // until the image is written again. So the page offers "save and power
+    // off": the state saved, the machine destroyed (the disks flushed and
+    // closed); restored later with the same disks, the machine goes on.
+    const written_back = [settings.hda, settings.hdb, settings.fda, settings.fdb].some(disk => disk && disk.disk_option === "read_write");
+    $("save_and_power_off").style.display = written_back ? "" : "none";
+    $("save_and_power_off").onclick = async function()
+    {
+        const button = $("save_and_power_off");
+        button.disabled = true;
+        try
+        {
+            const parts = [];
+            await emulator.save_state_stream(chunk => { parts.push(chunk.slice()); });
+            dump_file(parts, "v86state.bin");
+            await emulator.destroy();
+            show_disk_status("Saved the state (v86state.bin, " + parts.reduce((n, p) => n + p.length, 0) + " bytes) and powered off: " +
+                "the disks written back are flushed and closed. Load the state with the same disks to go on.");
+        }
+        catch(error)
+        {
+            console.error("Could not save and power off", error);
+            alert("Could not save the state:\n" + error.message);
+            button.disabled = false;
+        }
+    };
+    // a disk's read or write failed: with disk_error "stop" the machine
+    // waits for the user: retry (or, when it cannot be retried, continue:
+    // the guest sees the error), or power off
+    emulator.add_listener("disk-error", event =>
+    {
+        const stop = event["policy"] === "stop";
+        $("disk_error_text").textContent = "Disk " + event["disk"] + ": the " + event["operation"] + " of " + event["length"] +
+            " bytes at " + event["offset"] + " failed: " + event["reason"] + ". " +
+            (!stop ? "The guest was told." : event["retryable"] ? "The machine is stopped: retry once the disk can be reached again, or power off." :
+                "The machine is stopped: this cannot be retried; continue (the guest is told), or power off.");
+        $("disk_error_retry").textContent = event["retryable"] ? "Retry" : "Continue";
+        $("disk_error_retry").style.display = stop ? "" : "none";
+        $("disk_error_power_off").style.display = stop ? "" : "none";
+        $("disk_error_box").style.display = "";
+    });
+    $("disk_error_retry").onclick = function()
+    {
+        $("disk_error_box").style.display = "none";
+        emulator.run();
+    };
+    $("disk_error_power_off").onclick = async function()
+    {
+        $("disk_error_box").style.display = "none";
+        await emulator.destroy();
+        show_disk_status("Powered off: the requests still waiting for the disk are dropped, as by a power loss.");
     };
 
     $("load_state").onclick = async function()

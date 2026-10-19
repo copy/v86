@@ -3,7 +3,8 @@
 // later, the owner's decision of 2026-10-09), beside make jit-gate:
 //
 // make a64-gate, before each commit:
-//   the cores' boundaries (tools/check_a64_imports.mjs), the decode oracle's
+//   the cores' boundaries (tools/check_a64_imports.mjs), the state layout and
+//   every Rust static's owner (gen/state_layout.js --check), the decode oracle's
 //   self-test, the bare-metal reference checks on QEMU (float_convs and
 //   float_madds against QEMU's .ref files, the platform probe, the ID
 //   registers against the profile's allowed differences), the ARM core's
@@ -57,6 +58,8 @@ const llvm_mc = spawnSync("node", ["-e", "import('./tests/a64/oracle/decode.mjs'
 
 const steps = [
     { name: "the cores' boundaries", command: ["node", "tools/check_a64_imports.mjs"] },
+    // (every Rust static classified, both cores': gen/state_layout.js)
+    { name: "state layout and statics", command: ["node", "gen/state_layout.js", "--check"] },
     { name: "decode oracle self-test", command: ["node", "tests/a64/oracle/decode.mjs", "--self-test"], skip: llvm_mc ? null : "no llvm-mc" },
     { name: "float_convs, float_madds (QEMU)", command: ["node", "tests/a64/float_ref.mjs"], skip: no_qemu },
     { name: "platform probe (QEMU)", command: ["node", "tests/a64/platform_probe.mjs"], skip: no_qemu },

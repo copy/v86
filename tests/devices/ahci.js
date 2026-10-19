@@ -644,6 +644,151 @@ test("hot plug and snapshots: a drive on one side only is a hot plug event for t
     for(const port of [3, 4, 5]) pw(port, PX.SERR, -1);
 });
 
+// a disk image (docs/disk-image-formats-plan.md P0): a QCOW2 disk of 1 MiB,
+// its second cluster damaged
+const { build_qcow2 } = await import("../image/tiny_qcow2.mjs");
+await emulator.attach_sata_drive(3, { buffer: build_qcow2({ size: 1 << 20, data: [[0, extra.subarray(0, 65536)]], damaged: [65536] }).buffer, format: "qcow2", disk_error: "report" });
+pw(3, PX.SERR, -1);
+test("a QCOW2 disk: reads; a failed read or write ends a queued or DMA command with ABRT (TFES), the port goes on", () => {
+    start_port(3);
+    const read_log = slot => issue(3, slot, { command: 0x2F, lba: 0x10, count: 1, prdt: [[DATA + 0x8000, 512]] });
+    const restart = () => { pw(3, PX.CMD, FRE); pw(3, PX.CMD, FRE | ST); };
+    issue(3, 0, { command: 0x25, lba: 5, count: 2, prdt: [[DATA, 1024]] });
+    assert.deepEqual(mem.subarray(DATA, DATA + 1024), extra.subarray(5 * 512, 7 * 512), "DMA read");
+    ncq(3, 1, false, 128, 1, [[DATA, 512]]);
+    assert.ok(pr(3, PX.IS) & TFES, "queued read of the damaged cluster: TFES");
+    assert.equal(pr(3, PX.TFD), 0x0441, "ABRT, DRDY|ERR");
+    restart();
+    read_log(2);
+    assert.equal(mem[DATA + 0x8000], 1, "tag 1 in the NCQ error log");
+    issue(3, 3, { command: 0x25, lba: 129, count: 1, prdt: [[DATA, 512]] });
+    assert.ok(pr(3, PX.IS) & TFES, "DMA read of the damaged cluster: TFES");
+    assert.equal(pr(3, PX.TFD) >> 8, 0x04, "ABRT");
+    restart();
+    const disk = cpu.devices.ahci.ports[3].device.buffer;
+    disk.overlay.limit = disk.overlay.size();
+    ncq(3, 4, true, 7, 1, [[DATA, 512]]);
+    assert.ok(pr(3, PX.IS) & TFES, "queued write past the memory budget: TFES");
+    assert.equal(pr(3, PX.TFD), 0x0441);
+    disk.overlay.limit = Infinity;
+    restart();
+    read_log(5);
+    ncq(3, 6, false, 1, 1, [[DATA, 512]]);
+    assert.equal(pr(3, PX.SACT) | pr(3, PX.IS) & TFES, 0, "queued commands work again");
+    assert.deepEqual(mem.subarray(DATA, DATA + 512), extra.subarray(512, 1024));
+});
+emulator.detach_sata_drive(3);
+pw(3, PX.SERR, -1);
+
+// the drive's disk_error policy (docs/disk-persistence-plan.md D0): sata3
+// with the default ("stop"), sata4 with "report"; their reads and writes
+// fail on request
+class FlakyDrive
+{
+    constructor(policy)
+    {
+        this.byteLength = 1 << 20;
+        this.data = new Uint8Array(this.byteLength).map((_, i) => i * 3 + (i >> 9) & 0xFF);
+        this.fail_reads = 0;
+        this.fail_writes = 0;
+        if(policy) this.disk_error = policy;
+    }
+    load() { this.onload?.({}); }
+    get(start, length, done)
+    {
+        if(this.fail_reads) { this.fail_reads--; done(undefined, new Error("the test's drive failed the read")); return; }
+        done(this.data.slice(start, start + length));
+    }
+    get_and_cache(start, length, done) { this.get(start, length, done); }
+    get_from_cache() { return undefined; }
+    set(start, data, done)
+    {
+        if(this.fail_writes) { this.fail_writes--; done(new Error("the test's drive failed the write")); return; }
+        this.data.set(data, start);
+        done();
+    }
+    get_buffer(done) { done(undefined); }
+    get_state() { return []; }
+    set_state() {}
+}
+const stopping = new FlakyDrive(), reporting = new FlakyDrive("report");
+await emulator.attach_sata_drive(3, stopping);
+await emulator.attach_sata_drive(4, reporting);
+const disk_errors = [];
+emulator.add_listener("disk-error", event => disk_errors.push(event));
+pw(3, PX.SERR, -1);
+pw(4, PX.SERR, -1);
+test("disk_error: stop holds a failed queued read until run() retries it; report ends a queued write with ABRT (TFES)", () => {
+    start_port(3);
+    stopping.fail_reads = 1;
+    ncq(3, 1, false, 10, 2, [[DATA, 1024]]);
+    assert.equal(pr(3, PX.SACT), 1 << 1, "tag 1 is still in flight");
+    assert.equal(cpu.disk_holds.length, 1, "held");
+    assert.deepEqual(disk_errors[0], { disk: "sata3", operation: "read", offset: 10 * 512, length: 1024,
+        reason: "the test's drive failed the read", retryable: true, policy: "stop" });
+    // (run() retries it; the machine is stopped again before it runs)
+    emulator.v86.run();
+    emulator.v86.stop();
+    assert.equal(cpu.disk_holds.length, 0);
+    assert.equal(pr(3, PX.SACT) | pr(3, PX.IS) & TFES, 0, "the read completed");
+    assert.deepEqual(mem.subarray(DATA, DATA + 1024), stopping.data.subarray(10 * 512, 12 * 512));
+    start_port(4);
+    reporting.fail_writes = 1;
+    ncq(4, 2, true, 7, 1, [[DATA, 512]]);
+    assert.ok(pr(4, PX.IS) & TFES, "TFES at once");
+    assert.equal(pr(4, PX.TFD), 0x0441, "ABRT, DRDY|ERR");
+    assert.equal(disk_errors[1].policy, "report");
+    assert.equal(disk_errors[1].operation, "write");
+    assert.equal(cpu.disk_holds.length, 0, "nothing held");
+});
+emulator.detach_sata_drive(3);
+emulator.detach_sata_drive(4);
+pw(3, PX.SERR, -1);
+pw(4, PX.SERR, -1);
+
+// a drive written back (docs/disk-persistence-plan.md D1): a buffer object
+// of one's own with the backend contract, recording what the controller
+// asks of it
+class RecordingDrive extends FlakyDrive
+{
+    constructor()
+    {
+        super();
+        this.disk_option = "read_write";
+        this.log = [];
+    }
+    set(start, data, done) { this.log.push("write " + start / 512); super.set(start, data, done); }
+    flush(done) { this.log.push("flush"); done(); }
+    close(done) { this.log.push("close"); done(); }
+    mark() { return "1"; }
+    generation() { return "1"; }
+    check_state() {}
+}
+const recording = new RecordingDrive();
+await emulator.attach_sata_drive(3, recording);
+pw(3, PX.SERR, -1);
+test("a drive written back: IDENTIFY reports its write cache; an NCQ write with FUA is flushed before it completes", () => {
+    start_port(3);
+    issue(3, 0, { command: 0xEC, prdt: [[DATA, 512]] });
+    const id = words(DATA, 256);
+    assert.equal(id[82] & 1 << 5, 1 << 5, "word 82: write cache");
+    assert.equal(id[85] & 1 << 5, 1 << 5, "word 85: enabled");
+    ncq(3, 1, true, 8, 1, [[DATA, 512]]);
+    assert.equal(pr(3, PX.SACT), 0);
+    assert.deepEqual(recording.log, ["write 8"], "no FUA: no flush");
+    issue(3, 2, { command: 0x61, features: 1, lba: 9, count: 2 << 3, device: 0xC0, prdt: [[DATA, 512]], write: true, queued: true });
+    assert.equal(pr(3, PX.SACT) | pr(3, PX.IS) & TFES, 0, "completed");
+    assert.deepEqual(recording.log, ["write 8", "write 9", "flush"], "FUA: the write, then the flush, then the completion");
+    issue(3, 3, { command: 0xEF, features: 0x82 });
+    issue(3, 4, { command: 0xEC, prdt: [[DATA, 512]] });
+    assert.equal(words(DATA, 256)[85] & 1 << 5, 0, "SET FEATURES 82h: off");
+    ncq(3, 5, true, 10, 1, [[DATA, 512]]);
+    assert.deepEqual(recording.log.slice(3), ["write 10", "flush"], "write cache off: each write flushed");
+    issue(3, 6, { command: 0xEF, features: 0x02 });
+});
+emulator.detach_sata_drive(3);
+pw(3, PX.SERR, -1);
+
 test("link power management: CAP, ICC requests, PxSCTL.IPM, commands wake the link, ALPE/ASP when idle", () => {
     const cap = r32(0x00);
     assert.ok(cap & 1 << 26 && cap & 1 << 14 && cap & 1 << 13, "SALP, SSC, PSC");

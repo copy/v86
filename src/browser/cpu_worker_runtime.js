@@ -205,6 +205,8 @@ export function start_cpu_worker()
             audio_send("enabled", audio_enabled && emulator.is_running());
         },
         "run": () => emulator.run(),
+        // (the page goes away: src/disk_service.js)
+        "pagehide": () => emulator.pagehide_disks(),
         "stop": async () => { await emulator.stop(); flush_screen(); stats(); },
         "barrier": () => busy(),
         "save": async host_states => {
@@ -249,6 +251,12 @@ export function start_cpu_worker()
         "read_memory": (offset, length) => emulator.read_memory(offset, length).slice(),
         "write_memory": (bytes, offset) => emulator.write_memory(bytes, offset),
         "memory_dump": () => emulator.v86.cpu.mem8.slice(),
+        "disk-info": name => emulator.disk_image_info(name),
+        "export-disk": async (name, port, options) => {
+            const stream = state_stream_client(port);
+            try { return await emulator.export_disk_image(name, { write: stream["write"], format: options && options["format"] }); }
+            finally { stream["close"](); }
+        },
         "disk": name => {
             const buffer = disk(name);
             // (a local file read in parts, which has no buffer: the file with

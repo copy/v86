@@ -2,8 +2,8 @@
 //
 // Venus's encoding: little endian, everything a multiple of 4 bytes; 64-bit
 // values (sizes, handles, VkDeviceSize, 64-bit flags) are numbers here, exact
-// below 2**53; arrays, strings and pointers start with a 64-bit count (1 or 0
-// for a pointer to one value).
+// below 2**53, except a ring's id (ring_id); arrays, strings and pointers
+// start with a 64-bit count (1 or 0 for a pointer to one value).
 
 const MAX_COUNT = 1 << 24;
 
@@ -50,6 +50,18 @@ VenusReader.prototype.i64 = function()
 };
 /** a handle: the object id the driver gave it */
 VenusReader.prototype.h = VenusReader.prototype.u64;
+/**
+ * A ring's id (the `ring` of the transport commands): the driver's pointer
+ * to its ring, which a number would round to a multiple of 2048 (Android's
+ * heap pointers have a tag in their top byte), so that the rings of two
+ * threads could have the same id: 16 hex digits
+ * @return {string}
+ */
+VenusReader.prototype.ring_id = function()
+{
+    const at = this.take(8);
+    return this.view.getUint32(at + 4, true).toString(16).padStart(8, "0") + this.view.getUint32(at, true).toString(16).padStart(8, "0");
+};
 
 /** an array's size */
 VenusReader.prototype.size = function()
@@ -178,6 +190,14 @@ VenusWriter.prototype.i64 = function(v)
 };
 VenusWriter.prototype.h = VenusWriter.prototype.u64;
 VenusWriter.prototype.size = VenusWriter.prototype.u64;
+/** @param {(string|number)} v a ring's id: VenusReader.ring_id's 16 hex digits, or a number below 2**53 */
+VenusWriter.prototype.ring_id = function(v)
+{
+    if(typeof v !== "string") return this.u64(v);
+    const at = this.room(8);
+    this.view.setUint32(at, parseInt(v.slice(-8), 16) >>> 0, true);
+    this.view.setUint32(at + 4, parseInt(v.slice(0, -8) || "0", 16) >>> 0, true);
+};
 
 /**
  * @param {Uint8Array|undefined} data

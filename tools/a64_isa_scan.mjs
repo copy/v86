@@ -15,6 +15,15 @@
 //   node tools/a64_isa_scan.mjs [--repo DIR] [--json FILE]
 //
 // The full result goes to build/a64-linux/isa-scan.json (or FILE).
+//
+// P10.4 scans Android the same way: --android TAR, a tar of the booted
+// guest's mounted partitions (tools/a64_android.mjs --extract: system,
+// system_ext, product, vendor, odm, the dlkm partitions and every active
+// APEX), every AArch64 ELF in it (shared objects, executables, ART's
+// .oat/.odex) and in its zips (APKs, JARs: lib/arm64-v8a/*.so stored or
+// deflated); the result to build/a64-android/isa-scan.json.
+//
+//   node tools/a64_isa_scan.mjs --android build/a64-android/rootfs.tar [--json FILE]
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -96,28 +105,117 @@ function elf(data)
     return { aligns, code: code.length ? code : loads };
 }
 
-const { directory } = await prepare("aarch64-virt", ["apks"]);
-const apks = fs.readdirSync(directory + "apks/aarch64").filter(n => n.endsWith(".apk")).map(n => directory + "apks/aarch64/" + n);
-const index = parse_apkindex(apkindex(fs.readFileSync(directory + "apks/aarch64/APKINDEX.tar.gz")));
-const repo = option("--repo");
-if(repo)
+/** A tar file's regular members, read one at a time: [name, read()] */
+function* tar_file_members(file)
 {
-    const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".apk") ? [path.join(d, e.name)] : []);
-    apks.push(...walk(repo));
+    const fd = fs.openSync(file, "r");
+    const header = Buffer.alloc(512);
+    let long_name = null, pax_path = null;
+    for(let offset = 0; fs.readSync(fd, header, 0, 512, offset) === 512;)
+    {
+        if(header.every(b => b === 0)) break;
+        const field = (at, length) => header.subarray(at, at + length).toString("latin1").replace(/\0.*$/s, "");
+        const size = parseInt(field(124, 12).trim(), 8) || 0;
+        const type = String.fromCharCode(header[156] || 48);
+        const at = offset + 512;
+        const read = () => { const b = Buffer.alloc(size); fs.readSync(fd, b, 0, size, at); return b; };
+        let name = field(0, 100);
+        if(field(257, 5) === "ustar" && field(345, 155)) name = field(345, 155) + "/" + name;
+        if(type === "L") long_name = read().toString("latin1").replace(/\0.*$/s, "");
+        else if(type === "x")
+        {
+            const m = read().toString("utf8").match(/(?:^|\n)\d+ path=([^\n]*)/);
+            pax_path = m ? m[1] : null;
+        }
+        else
+        {
+            if(type === "0") yield [long_name || pax_path || name, read, size];
+            long_name = pax_path = null;
+        }
+        offset += 512 + Math.ceil(size / 512) * 512;
+    }
+    fs.closeSync(fd);
+}
+
+/** A zip's members whose data is an ELF: [{ name, data }] (stored or deflated) */
+function zip_elfs(zip)
+{
+    const result = [];
+    let end = -1;
+    for(let at = zip.length - 22; at >= Math.max(0, zip.length - 65557); at--)
+    {
+        if(zip.readUInt32LE(at) === 0x06054B50) { end = at; break; }
+    }
+    if(end < 0) return result;
+    let entries = zip.readUInt16LE(end + 10), at = zip.readUInt32LE(end + 16);
+    for(; entries-- > 0 && at + 46 <= zip.length && zip.readUInt32LE(at) === 0x02014B50;)
+    {
+        const method = zip.readUInt16LE(at + 10), compressed = zip.readUInt32LE(at + 20), size = zip.readUInt32LE(at + 24);
+        const name_length = zip.readUInt16LE(at + 28), extra = zip.readUInt16LE(at + 30), comment = zip.readUInt16LE(at + 32);
+        const local = zip.readUInt32LE(at + 42);
+        const name = zip.toString("utf8", at + 46, at + 46 + name_length);
+        at += 46 + name_length + extra + comment;
+        if(!/\.so$/.test(name) && !/\.(oat|odex)$/.test(name) || size < 64) continue;
+        const data_at = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+        let data = zip.subarray(data_at, data_at + compressed);
+        if(method === 8) data = zlib.inflateRawSync(data);
+        else if(method !== 0) continue;
+        result.push({ name, data });
+    }
+    return result;
+}
+
+const android_tar = option("--android");
+let apks = [], index = new Map();
+/** [label, data] of every file that may be an ELF */
+let sources;
+if(android_tar)
+{
+    sources = function*()
+    {
+        for(const [name, read, size] of tar_file_members(android_tar))
+        {
+            if(size < 64) continue;
+            if(/\.(apk|jar|zip|capex)$/.test(name))
+            {
+                for(const member of zip_elfs(read())) yield [name + "!" + member.name, member.data];
+                continue;
+            }
+            const data = read();
+            if(data.readUInt32BE(0) === 0x7F454C46) yield [name, data];
+        }
+    };
+}
+else
+{
+    const { directory } = await prepare("aarch64-virt", ["apks"]);
+    apks = fs.readdirSync(directory + "apks/aarch64").filter(n => n.endsWith(".apk")).map(n => directory + "apks/aarch64/" + n);
+    index = parse_apkindex(apkindex(fs.readFileSync(directory + "apks/aarch64/APKINDEX.tar.gz")));
+    const repo = option("--repo");
+    if(repo)
+    {
+        const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".apk") ? [path.join(d, e.name)] : []);
+        apks.push(...walk(repo));
+    }
+    sources = function*()
+    {
+        for(const apk of apks.sort())
+        {
+            const tar = zlib.gunzipSync(fs.readFileSync(apk));
+            for(const { name, data } of tar_files(tar)) yield [path.basename(apk, ".apk") + ":" + name, data];
+        }
+    };
 }
 
 const occurrences = new Map();  // word -> static count
 const where = new Map();        // word -> Set of ELFs (the first few)
 const elfs = [];
 let words_total = 0;
-for(const apk of apks.sort())
+for(const [file, data] of sources())
 {
-    const tar = zlib.gunzipSync(fs.readFileSync(apk));
-    for(const { name, data } of tar_files(tar))
     {
         const parsed = elf(data);
         if(!parsed) continue;
-        const file = path.basename(apk, ".apk") + ":" + name;
         let words = 0;
         for(const bytes of parsed.code)
         {
@@ -205,9 +303,9 @@ const result = {
     per_elf: elfs,
 };
 delete result.iso;
-const out = option("--json") || ROOT + "build/a64-linux/isa-scan.json";
+const out = option("--json") || ROOT + (android_tar ? "build/a64-android/isa-scan.json" : "build/a64-linux/isa-scan.json");
 fs.writeFileSync(out, JSON.stringify(result, null, 1) + "\n");
-console.log(`${apks.length} apks, ${elfs.length} AArch64 ELFs, ${words_total} words of code (${unique.length} distinct); llvm-mc ${result.llvm_mc}`);
+console.log(`${android_tar ? android_tar : apks.length + " apks"}, ${elfs.length} AArch64 ELFs, ${words_total} words of code (${unique.length} distinct); llvm-mc ${result.llvm_mc}`);
 console.log(`v1-valid ${valid_total}, valid only beyond v1 ${beyond_total}, invalid with every feature ${invalid_total}`);
 console.log("families: " + Object.entries(result.families).map(([k, v]) => `${k} ${(100 * v / valid_total).toFixed(1)}%`).join(", "));
 console.log("top mnemonics: " + Object.entries(result.mnemonics).slice(0, 25).map(([k, v]) => `${k} ${v}`).join(", "));

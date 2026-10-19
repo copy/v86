@@ -6,35 +6,49 @@
 //
 //     GPU_ADAPTER=bochs_vga node tests/x64/linux_gpu.mjs
 //
+// GPU_ARCH=aarch64 (tests/a64/linux_gpu.mjs; docs/arm64-virt-android16-plan.md
+// P7.2): the same scenarios on the arm64 virt machine with virtio_gpu (no
+// VGA), from build/a64-linux/ (gpu-repo.tar from `tools/alpine_repo.mjs
+// --arch aarch64`); the ISO, the repository and the test programs on
+// virtio-blk disks, found by their serials; the GPU on the PCIe host
+// (GPU_TRANSPORT=mmio: on virtio-mmio, without host visible memory); the
+// page tier (GPU_NO_JIT=1: the interpreter)
+//
 // GPU_ADAPTER: bochs_vga (default), vmware_svga, virtio_gpu
-// GPU_SCENARIO: the steps below: drm (default), gl, sm41, sm5, gltest, virgl, venus, resize
+// GPU_SCENARIO: the steps below: drm (default), gl, sm41, sm5, gltest, virgl, venus, resize, kms, input (the virt machine);
+// custom: the steps in the JSON file GPU_STEPS
 // GPU_LEVEL: pins the adapter's level (graphics_adapter_test), e.g. 2d or 2d-full;
 // vgpu9 records the 3D batches into <out>/trace.bin (tests/x64/gpu_trace.mjs),
 // or with GPU_RENDERER=chrome draws them on the GPU of a headless Chrome
 // GPU_OUT: the output directory (default build/x64-linux/gpu-<adapter>[-<level>]/)
-// SHOW_LOGS=1: echo the serial console; LINUX_GPU_TIMEOUT: ms (default 900000)
-// LINUX_GPU_MEMORY: MiB (default 1024; 1536 for the virgl and vkcube scenarios)
+// SHOW_LOGS=1: echo the serial console; LINUX_GPU_TIMEOUT: ms (default 900000);
+// GPU_SCREENSHOT_AFTER: ms from a step's command to its screenshot, for every step
+// LINUX_GPU_MEMORY: MiB (default 1024; 1536 for the virgl and vkcube scenarios and on arm64)
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { deflateSync as deflate_sync } from "node:zlib";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { create_trace_renderer } from "./gpu_trace.mjs";
 import { create_remote_renderer } from "./gpu_remote_renderer.mjs";
 import { IMAGES, directory_of } from "../lib/alpine_image.mjs";
+import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
+const arch = process.env.GPU_ARCH || "x86_64";
+assert.ok(arch === "x86_64" || arch === "aarch64", "GPU_ARCH is x86_64 or aarch64");
+const arm = arch === "aarch64";
 // (the pinned ISO and its unpacked files: tests/lib/alpine_image.mjs)
-const directory = directory_of("x86_64");
-const adapter = process.env.GPU_ADAPTER || "bochs_vga";
+const directory = directory_of(arch);
+const adapter = process.env.GPU_ADAPTER || (arm ? "virtio_gpu" : "bochs_vga");
+assert.ok(!arm || adapter === "virtio_gpu", "the virt machine has virtio_gpu only");
 const scenario = process.env.GPU_SCENARIO || "drm";
 const out = process.env.GPU_OUT || path.join(directory, "gpu-" + adapter + (process.env.GPU_LEVEL ? "-" + process.env.GPU_LEVEL : ""));
 fs.mkdirSync(out, { recursive: true });
 
-const iso = directory + IMAGES["x86_64-virt"].name;
+const iso = directory + IMAGES[arch + "-virt"].name;
 const repo = directory + "gpu-repo.tar";
 for(const file of [iso, directory + "boot/vmlinuz-virt", directory + "boot/initramfs-virt"])
 {
@@ -81,7 +95,7 @@ const SCENARIOS = {
             { screenshot: "kmscube-rgba", after: LEVEL_3D ? 2500 : 20000 }],
         ["seatd -g video >/tmp/seatd.log 2>&1 & sleep 1; export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p -m 700 $XDG_RUNTIME_DIR; " +
             "(weston --backend=drm --shell=desktop --idle-time=0 --continue-without-input >/tmp/weston.log 2>&1 &); sleep 15; export WAYLAND_DISPLAY=$(ls $XDG_RUNTIME_DIR | grep -m1 '^wayland-[0-9]*$'); echo $WAYLAND_DISPLAY; " +
-            "[ -n \"$WAYLAND_DISPLAY\" ] || tail -25 /tmp/weston.log /tmp/seatd.log; echo STEP_WESTON_UP",
+            "[ -n \"$WAYLAND_DISPLAY\" ] || { tail -25 /tmp/weston.log /tmp/seatd.log; ps; dmesg | tail -15; }; echo STEP_WESTON_UP",
             /wayland-\d[\s\S]*STEP_WESTON_UP/],
         ["timeout 20 weston-simple-egl -f 2>&1 | tail -3; echo STEP_EGL_DONE", /STEP_EGL_DONE/,
             { screenshot: "weston-simple-egl", after: 12000 }],
@@ -187,7 +201,7 @@ const SCENARIOS = {
         ["/tmp/gltest cmp 2>&1 | grep -E 'FAIL|done'; echo STEP_GLTEST_AGAIN", /GLTEST done 0 failures[\s\S]*STEP_GLTEST_AGAIN/],
         ["seatd -g video >/tmp/seatd.log 2>&1 & sleep 1; export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p -m 700 $XDG_RUNTIME_DIR; " +
             "(weston --backend=drm --shell=desktop --idle-time=0 --continue-without-input >/tmp/weston.log 2>&1 &); sleep 15; export WAYLAND_DISPLAY=$(ls $XDG_RUNTIME_DIR | grep -m1 '^wayland-[0-9]*$'); echo $WAYLAND_DISPLAY; " +
-            "[ -n \"$WAYLAND_DISPLAY\" ] || tail -25 /tmp/weston.log /tmp/seatd.log; echo STEP_WESTON_UP",
+            "[ -n \"$WAYLAND_DISPLAY\" ] || { tail -25 /tmp/weston.log /tmp/seatd.log; ps; dmesg | tail -15; }; echo STEP_WESTON_UP",
             /wayland-\d[\s\S]*STEP_WESTON_UP/],
         ["timeout 20 weston-simple-egl -f 2>&1 | tail -3; echo STEP_EGL_DONE", /STEP_EGL_DONE/,
             { screenshot: "weston-simple-egl", after: 12000 }],
@@ -211,13 +225,26 @@ const SCENARIOS = {
         ["HOST stats", null],
         ["VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/virtio_icd.x86_64.json vulkaninfo > /tmp/vulkaninfo.txt 2>&1; echo STEP_VULKANINFO_RC=$?; " +
             "wc -l < /tmp/vulkaninfo.txt; grep -i -E 'error|abort|fail' /tmp/vulkaninfo.txt | head -10", /STEP_VULKANINFO_RC=0/],
-        // tests/x64/vktest.c: lavapipe's results, then Venus's (a real GPU: GPU_RENDERER=chrome)
-        ["tar -xf /dev/sdb -C /tmp && for t in " + (process.env.VKTEST_ONLY || "\"\"") + "; do VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json /tmp/vktest $t" +
-            " 2>&1 | grep VKTEST; done; echo STEP_LVP_DONE",
-            /VKTEST done[\s\S]*STEP_LVP_DONE/],
-        ["VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/virtio_icd.x86_64.json /tmp/vktest " + (process.env.VKTEST_ONLY || "") +
-            " 2>&1 | grep -E 'VKTEST|rror|abort'; echo STEP_VKTEST_DONE",
-            /STEP_VKTEST_DONE/],
+        // tests/x64/vktest.c: lavapipe's results, then Venus's (a real GPU:
+        // GPU_RENDERER=chrome). On arm64, Alpine 3.24's lavapipe crashes in the
+        // tests whose meta operations compile shaders (blit, resolve, ...; on
+        // QEMU too): there it runs a test a process and Venus must pass them
+        // all (vktest checks each result itself, its expectations lavapipe's on x86_64)
+        ...(arm ? [
+            ["tar -xf /dev/sdb -C /tmp && for t in $(/tmp/vktest list); do VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json " +
+                "/tmp/vktest $t > /tmp/lvp-$t.log 2>&1; echo \"VKTEST-LVP $t rc=$? $(grep -E 'VKTEST '$t' (ok|FAIL)' /tmp/lvp-$t.log)\"; done; echo STEP_LVP_DONE",
+                /STEP_LVP_DONE/],
+            ["VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/virtio_icd.x86_64.json /tmp/vktest " + (process.env.VKTEST_ONLY || "") +
+                " 2>&1 | grep -E 'VKTEST|rror|abort'; echo STEP_VKTEST_DONE",
+                /VKTEST done 0 failures[\s\S]*STEP_VKTEST_DONE/],
+        ] : [
+            ["tar -xf /dev/sdb -C /tmp && for t in " + (process.env.VKTEST_ONLY || "\"\"") + "; do VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json /tmp/vktest $t" +
+                " 2>&1 | grep VKTEST; done; echo STEP_LVP_DONE",
+                /VKTEST done[\s\S]*STEP_LVP_DONE/],
+            ["VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/virtio_icd.x86_64.json /tmp/vktest " + (process.env.VKTEST_ONLY || "") +
+                " 2>&1 | grep -E 'VKTEST|rror|abort'; echo STEP_VKTEST_DONE",
+                /STEP_VKTEST_DONE/],
+        ]),
         ["HOST stats", null],
     ],
     // Venus's WSI (GPU_LEVEL=venus): vkcube on weston, through the driver's
@@ -235,7 +262,7 @@ const SCENARIOS = {
         ["seatd -g video >/tmp/seatd.log 2>&1 & sleep 1; export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p -m 700 $XDG_RUNTIME_DIR; " +
             "(weston --backend=drm --renderer=pixman --shell=desktop --idle-time=0 --continue-without-input >/tmp/weston.log 2>&1 &); sleep 15; " +
             "export WAYLAND_DISPLAY=$(ls $XDG_RUNTIME_DIR | grep -m1 '^wayland-[0-9]*$'); echo $WAYLAND_DISPLAY; " +
-            "[ -n \"$WAYLAND_DISPLAY\" ] || tail -25 /tmp/weston.log /tmp/seatd.log; echo STEP_WESTON_UP",
+            "[ -n \"$WAYLAND_DISPLAY\" ] || { tail -25 /tmp/weston.log /tmp/seatd.log; ps; dmesg | tail -15; }; echo STEP_WESTON_UP",
             /wayland-\d[\s\S]*STEP_WESTON_UP/],
         // what the Wayland surface offers (formats, present modes, extents)
         ["VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/virtio_icd.x86_64.json vulkaninfo 2>&1 | sed -n '/Presentable Surfaces/,/Device Properties and Extensions/p' | " +
@@ -258,6 +285,87 @@ const SCENARIOS = {
         ["HOST stats", null],
         ["pidof vkcube && echo STEP_VKCUBE_ALIVE; pkill vkcube; sleep 1; tail -5 /tmp/vkcube-bg.log; echo STEP_KILLED", /STEP_VKCUBE_ALIVE[\s\S]*STEP_KILLED/],
         ["grep -i -E 'error|warn' /tmp/weston.log | head -10; echo STEP_WESTON_LOG", /STEP_WESTON_LOG/],
+    ],
+    // what Android's graphics needs of the kernel's KMS (docs/arm64-virt-android16-plan.md
+    // P7.3; GPU_LEVEL=virgl43-hostmem, for the fences): the planes (a primary
+    // and a cursor), an atomic mode set, the cursor, dma-buf PRIME from GBM
+    // to weston (linux-dmabuf) and explicit synchronization with sync files
+    // (EGL_ANDROID_native_fence_sync, weston's linux-explicit-synchronization)
+    kms: [
+        ["mkdir -p /mnt/repo && tar -xf /dev/sda -C /mnt/repo && echo STEP_REPO_OK", /STEP_REPO_OK/],
+        [APK_VIRGL + " libdrm-tests mesa-utils weston weston-backend-drm weston-shell-desktop weston-clients seatd " +
+            ">/tmp/apk.log 2>&1; echo STEP_APK_RC=$?; command -v modetest weston weston-simple-dmabuf-egl eglinfo >/dev/null && echo STEP_APK_PROGRAMS",
+            /STEP_APK_PROGRAMS/],
+        [`modprobe ${DRIVER} && sleep 2 && ls /dev/dri && echo STEP_DRM_OK`, /STEP_DRM_OK/],
+        ["modetest -M virtio_gpu -p 2>&1 | grep -E -A2 '^[0-9]+\\s+[0-9]+\\s+[0-9]+' | head -12; " +
+            "modetest -M virtio_gpu -p | awk '/^Planes:/ {p=1} p && /^[0-9]/ {n++} END {print \"STEP_PLANES \" n}'",
+            /STEP_PLANES [2-9]/],
+        // (the connector, the CRTC and the primary plane: an atomic commit of
+        // the mode and the plane with modetest's test pattern)
+        ["C=$(modetest -M virtio_gpu -c | awk '$3==\"connected\" {print $1; exit}'); " +
+            "R=$(modetest -M virtio_gpu -p | awk '/^CRTCs:/ {c=1; next} c && /^[0-9]/ {print $1; exit}'); " +
+            "P=$(modetest -M virtio_gpu -p | awk '/^Planes:/ {p=1; next} p && /^[0-9]/ {print $1; exit}'); echo $C $R $P; " +
+            "sleep 10 | modetest -M virtio_gpu -a -s $C@$R:1024x768 -P $P@$R:1024x768 > /tmp/atomic.log 2>&1; head -6 /tmp/atomic.log; " +
+            "echo ATOMIC_FAILURES $(grep -c -i -E 'fail|invalid' /tmp/atomic.log); echo STEP_ATOMIC", /ATOMIC_FAILURES 0\r?\nSTEP_ATOMIC/,
+            { screenshot: "atomic-modeset", after: 6000 }],
+        ["sleep 12 | modetest -M virtio_gpu -s $C:1024x768 -C 2>&1 | head -4; echo STEP_CURSOR", /STEP_CURSOR/,
+            { screenshot: "cursor", after: 8000 }],
+        ["HOST stats", null],
+        ["eglinfo -p gbm 2>&1 | grep -o -E 'EGL_ANDROID_native_fence_sync|EGL_EXT_image_dma_buf_import|EGL_MESA_image_dma_buf_export' | sort -u; echo STEP_EGL_EXTENSIONS",
+            /EGL_ANDROID_native_fence_sync[\s\S]*EGL_EXT_image_dma_buf_import[\s\S]*STEP_EGL_EXTENSIONS/],
+        ["seatd -g video >/tmp/seatd.log 2>&1 & sleep 1; export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p -m 700 $XDG_RUNTIME_DIR; " +
+            "(weston --backend=drm --shell=desktop --idle-time=0 --continue-without-input >/tmp/weston.log 2>&1 &); sleep 15; export WAYLAND_DISPLAY=$(ls $XDG_RUNTIME_DIR | grep -m1 '^wayland-[0-9]*$'); echo $WAYLAND_DISPLAY; " +
+            "[ -n \"$WAYLAND_DISPLAY\" ] || { tail -25 /tmp/weston.log /tmp/seatd.log; ps; dmesg | tail -15; }; echo STEP_WESTON_UP",
+            /wayland-\d[\s\S]*STEP_WESTON_UP/],
+        ["weston-simple-dmabuf-egl --help 2>&1 | head -30; echo STEP_HELP", /STEP_HELP/],
+        // (dma-buf from GBM through linux-dmabuf; then with explicit
+        // synchronization: acquire and release fences as sync files)
+        ["timeout 20 weston-simple-dmabuf-egl 2>&1 | tail -4; echo STEP_DMABUF rc=$?", /STEP_DMABUF/,
+            { screenshot: "dmabuf", after: 15000 }],
+        ["timeout 20 weston-simple-dmabuf-egl -e 1 2>&1 | tail -4; echo STEP_EXPLICIT", /STEP_EXPLICIT/,
+            { screenshot: "dmabuf-explicit-sync", after: 15000 }],
+        ["grep -i -E 'dmabuf|explicit|sync|error' /tmp/weston.log | head -12; echo STEP_WESTON_LOG", /explicit sync: yes[\s\S]*STEP_WESTON_LOG/],
+        ["HOST stats", null],
+    ],
+    // input on the desktop (the virt machine's virtio-input, P7.4): weston
+    // with its input devices (no --continue-without-input), text typed into
+    // weston-terminal (which runs it), the pointer moved and clicked, and
+    // two touches on the multi-touch screen read from its evdev node
+    input: [
+        ["mkdir -p /mnt/repo && tar -xf /dev/sda -C /mnt/repo && echo STEP_REPO_OK", /STEP_REPO_OK/],
+        [APK + " mesa-dri-gallium weston weston-backend-drm weston-shell-desktop weston-terminal weston-clients seatd " +
+            ">/tmp/apk.log 2>&1; echo STEP_APK_RC=$?; grep -i error /tmp/apk.log | head -5; " +
+            "command -v weston weston-terminal seatd >/dev/null && echo STEP_APK_PROGRAMS", /STEP_APK_PROGRAMS/],
+        [`modprobe ${DRIVER}; modprobe evdev; modprobe virtio_input; sleep 2; ls /dev/dri /dev/input; echo STEP_DRM_OK`, /event\d[\s\S]*STEP_DRM_OK/],
+        // (the live system has eudev's libudev but no udevd: libinput takes
+        // only devices whose udev properties say they are input devices, so
+        // the database entries udevd's input_id would write are written here)
+        ["mkdir -p /run/udev/data; for e in /sys/class/input/event*; do t=; case \"$(cat $e/device/name)\" in " +
+            "*Keyboard) t='ID_INPUT_KEY=1 ID_INPUT_KEYBOARD=1';; *Tablet) t='ID_INPUT_MOUSE=1';; *MultiTouch) t='ID_INPUT_TOUCHSCREEN=1';; esac; " +
+            "{ echo I:1; echo E:ID_INPUT=1; for p in $t; do echo E:$p; done; echo G:seat; echo Q:seat; echo V:1; } > /run/udev/data/c$(cat $e/dev); done; " +
+            "grep -c ID_INPUT=1 /run/udev/data/c13:*; echo STEP_UDEV_DATA", /STEP_UDEV_DATA/],
+        ["seatd -g video >/tmp/seatd.log 2>&1 & sleep 1; export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p -m 700 $XDG_RUNTIME_DIR; " +
+            "(weston --backend=drm --shell=desktop --idle-time=0 >/tmp/weston.log 2>&1 &); sleep 20; export WAYLAND_DISPLAY=$(ls $XDG_RUNTIME_DIR | grep -m1 '^wayland-[0-9]*$'); echo $WAYLAND_DISPLAY; " +
+            "[ -n \"$WAYLAND_DISPLAY\" ] || { tail -25 /tmp/weston.log /tmp/seatd.log; ps; dmesg | tail -15; }; echo STEP_WESTON_UP",
+            /wayland-\d[\s\S]*STEP_WESTON_UP/],
+        ["grep -i -E 'input device|keyboard|pointer|touch' /tmp/weston.log | head -12; echo STEP_INPUT_DEVICES",
+            /Virtio Keyboard[\s\S]*Virtio Tablet[\s\S]*STEP_INPUT_DEVICES/],
+        ["(weston-terminal --shell=/bin/sh >/tmp/terminal.log 2>&1 &); sleep 20; echo STEP_TERMINAL", /STEP_TERMINAL/],
+        ["HOST pointer 0.5 0.5", null],
+        ["HOST click", null],
+        ["HOST type touch /tmp/typed\n", null],
+        ["sleep 8; [ -e /tmp/typed ] && echo TYPED_FILE_EXISTS; grep -c SYN_DROPPED /tmp/weston.log; echo STEP_TYPED", /\nTYPED_FILE_EXISTS[\s\S]*STEP_TYPED/,
+            { screenshot: "weston-typed", after: 6000 }],
+        // (the multi-touch screen's events as the guest's evdev reads them,
+        // for 15 s: two touches, tracking IDs 0 and 1, the first at x 0.25
+        // (0x2000), BTN_TOUCH down; then both lifted, BTN_TOUCH up)
+        ["for e in /sys/class/input/event*; do grep -q MultiTouch $e/device/name && M=/dev/input/${e##*/}; done; " +
+            "(timeout 15 dd if=$M bs=24 2>/dev/null | hexdump -v -e '24/1 \"%02x\" \"\\n\"' | sed 's/^/GPU_EVT /' > /tmp/touch.txt &); sleep 2; echo STEP_TOUCH_READY",
+            /STEP_TOUCH_READY/],
+        ["HOST touch 0.25 0.25 0.75 0.5", null],
+        ["HOST touch", null],
+        ["sleep 16; cut -c 41- /tmp/touch.txt | tr '\\n' ' '; echo; echo STEP_TOUCHED",
+            /0300390000000000 0300350000200000[\s\S]*0300390001000000[\s\S]*01004a0101000000[\s\S]*03003900ffffffff[\s\S]*01004a0100000000[\s\S]*STEP_TOUCHED/],
     ],
     // the page's size reaching the guest (virtio_gpu): a display event, the
     // new preferred mode, which a KMS client then sets
@@ -284,68 +392,24 @@ const SCENARIOS = {
         ["HOST stats", null],
     ],
 };
-const steps = SCENARIOS[scenario];
-assert.ok(steps, "unknown GPU_SCENARIO " + scenario);
-
-/**
- * A presenter that keeps the guest's picture, for screenshots in node
- */
-class PictureSink
+// (GPU_SCENARIO=custom: the steps in the JSON file GPU_STEPS, [command, pattern source, options], for debugging)
+if(scenario === "custom")
 {
-    constructor() { this.width = 0; this.height = 0; this.rgba = new Uint8Array(0); this.graphical = false; this.text = []; }
-    set_mode(graphical) { this.graphical = graphical; }
-    set_size_text(cols, rows) { this.text = Array.from({ length: rows }, () => " ".repeat(cols)); }
-    set_size_graphical(width, height) { this.width = width; this.height = height; this.rgba = new Uint8Array(width * height * 4); }
-    put_char(row, col, chr) { const line = this.text[row]; if(line !== undefined) this.text[row] = line.slice(0, col) + String.fromCharCode(chr) + line.slice(col + 1); }
-    update_cursor() {}
-    update_cursor_scanline() {}
-    set_font_bitmap() {}
-    set_font_page() {}
-    clear_screen() {}
-    clear_text_state() {}
-    update_buffer(layers)
-    {
-        for(const layer of layers)
-        {
-            const { pixels } = layer;
-            for(let y = 0; y < layer.buffer_height; y++)
-            {
-                const sy = layer.buffer_y + y, dy = layer.screen_y + y;
-                if(dy >= this.height) break;
-                const from = (sy * pixels.width + layer.buffer_x) * 4;
-                const count = Math.min(layer.buffer_width, this.width - layer.screen_x) * 4;
-                this.rgba.set(pixels.data.subarray(from, from + count), (dy * this.width + layer.screen_x) * 4);
-            }
-        }
-    }
-    pause() {}
-    continue() {}
-    destroy() {}
-    set_scale() {}
-    get_text_screen() { return this.text; }
-    get_text_row(y) { return this.text[y] || ""; }
+    SCENARIOS.custom = JSON.parse(fs.readFileSync(process.env.GPU_STEPS, "utf8")).map(([command, pattern, options]) =>
+        [command, pattern === null ? null : new RegExp(pattern), ...(options ? [options] : [])]);
 }
+assert.ok(SCENARIOS[scenario], "unknown GPU_SCENARIO " + scenario);
+// (the repository's and the test programs' disks: $REPO and $TESTS, set
+// after the login; the Vulkan ICDs are the architecture's)
+// (the arm64 guest's programs start about three times slower: its sleeps
+// and timeouts are three times as long)
+const steps = SCENARIOS[scenario].map(([command, ...rest]) => [command.replaceAll("/dev/sda", "$REPO").replaceAll("/dev/sdb", "$TESTS")
+    .replaceAll(".x86_64.json", "." + arch + ".json")
+    .replace(/\b(sleep|timeout) (\d+)([; ])/g, (match, verb, seconds, after) => arm ? `${verb} ${seconds * 3}${after}` : match), ...rest]);
+const DISKS = arm ? "REPO=; TESTS=; for d in /sys/block/vd*; do case \"$(cat $d/serial 2>/dev/null)\" in " +
+    "a64gpurepo) REPO=/dev/${d##*/};; a64gputests) TESTS=/dev/${d##*/};; esac; done; echo STEP_DISKS $REPO $TESTS" :
+    "REPO=/dev/sda; TESTS=/dev/sdb; echo STEP_DISKS $REPO $TESTS";
 
-function save_png(sink, name)
-{
-    const { width, height, rgba } = sink;
-    if(!width) return null;
-    const raw = Buffer.alloc((width * 3 + 1) * height);
-    for(let y = 0; y < height; y++)
-    {
-        for(let x = 0; x < width; x++)
-        {
-            const s = (y * width + x) * 4, d = y * (width * 3 + 1) + 1 + x * 3;
-            raw[d] = rgba[s]; raw[d + 1] = rgba[s + 1]; raw[d + 2] = rgba[s + 2];
-        }
-    }
-    const crc = data => { let c = 0xFFFFFFFF; for(const byte of data) { c ^= byte; for(let i = 0; i < 8; i++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; } return (c ^ 0xFFFFFFFF) >>> 0; };
-    const chunk = (tag, data) => { const body = Buffer.concat([Buffer.from(tag), data]), b = Buffer.alloc(data.length + 12); b.writeUInt32BE(data.length); body.copy(b, 4); b.writeUInt32BE(crc(body), b.length - 4); return b; };
-    const header = Buffer.alloc(13); header.writeUInt32BE(width); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 2;
-    const file = path.join(out, name + ".png");
-    fs.writeFileSync(file, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", header), chunk("IDAT", deflate_sync(raw)), chunk("IEND", Buffer.alloc(0))]));
-    return file;
-}
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const sink = new PictureSink();
@@ -364,16 +428,16 @@ function build_gltest()
         return result.stdout.trim();
     };
     fs.mkdirSync(sysroot, { recursive: true });
-    const packages = directory + "gpu-repo/v3.23/main/x86_64/";
+    const packages = directory + "gpu-repo/v3.23/main/" + arch + "/";
     for(const name of fs.readdirSync(packages).filter(f => /^(musl|mesa-egl)-\d.*\.apk$/.test(f)))
     {
         spawnSync("bsdtar", ["-xf", packages + name, "-C", sysroot]);
     }
     const host = run("rustc", ["-vV"]).match(/host: (.+)/)[1];
     const lld = process.env.LD_LLD || `${run("rustc", ["--print", "sysroot"])}/lib/rustlib/${host}/bin/rust-lld`;
-    run(process.env.CLANG || "clang", ["--target=x86_64-unknown-linux-musl", "-fPIC", "-O1", "-c", root + "tests/x64/gltest.c", "-o", dir + "gltest.o"]);
-    run(lld, ["-flavor", "gnu", "-m", "elf_x86_64", "-pie", "--dynamic-linker", "/lib/ld-musl-x86_64.so.1", "--allow-shlib-undefined",
-        "-o", dir + "gltest", dir + "gltest.o", sysroot + "lib/ld-musl-x86_64.so.1", sysroot + "usr/lib/libEGL.so.1"]);
+    run(process.env.CLANG || "clang", ["--target=" + arch + "-unknown-linux-musl", "-fPIC", "-O1", "-c", root + "tests/x64/gltest.c", "-o", dir + "gltest.o"]);
+    run(lld, ["-flavor", "gnu", "-m", LINKER_EMULATION, "-pie", "--dynamic-linker", "/lib/ld-musl-" + arch + ".so.1", "--allow-shlib-undefined",
+        "-o", dir + "gltest", dir + "gltest.o", sysroot + "lib/ld-musl-" + arch + ".so.1", sysroot + "usr/lib/libEGL.so.1"]);
     run("bsdtar", ["--format", "ustar", "--no-xattrs", "--no-mac-metadata", "--uid", "0", "--gid", "0", "-cf", dir + "gltest.tar", "-C", dir, "gltest"]);
     return dir + "gltest.tar";
 }
@@ -388,7 +452,7 @@ function build_vktest()
         return result.stdout.trim();
     };
     fs.mkdirSync(sysroot, { recursive: true });
-    const packages = directory + "gpu-repo/main/x86_64/";
+    const packages = directory + "gpu-repo/main/" + arch + "/";
     for(const name of fs.readdirSync(packages).filter(f => /^(musl|vulkan-loader)-\d.*\.apk$/.test(f)))
     {
         spawnSync("bsdtar", ["-xf", packages + name, "-C", sysroot]);
@@ -433,21 +497,38 @@ function build_vktest()
         }
     }
     fs.writeFileSync(dir + "vktest_shaders.h", "// generated by tests/x64/linux_gpu.mjs\n" + shaders.join("\n") + "\n");
-    run(process.env.CLANG || "clang", ["--target=x86_64-unknown-linux-musl", "-fPIC", "-O1", "-I", dir, "-I", root + "tests/x64/include", "-I", root + "third_party/vulkan",
+    run(process.env.CLANG || "clang", ["--target=" + arch + "-unknown-linux-musl", "-fPIC", "-O1", "-I", dir, "-I", root + "tests/x64/include", "-I", root + "third_party/vulkan",
         "-c", root + "tests/x64/vktest.c", "-o", dir + "vktest.o"]);
-    run(lld, ["-flavor", "gnu", "-m", "elf_x86_64", "-pie", "--dynamic-linker", "/lib/ld-musl-x86_64.so.1", "--allow-shlib-undefined",
-        "-o", dir + "vktest", dir + "vktest.o", sysroot + "lib/ld-musl-x86_64.so.1", sysroot + "usr/lib/libvulkan.so.1"]);
+    run(lld, ["-flavor", "gnu", "-m", LINKER_EMULATION, "-pie", "--dynamic-linker", "/lib/ld-musl-" + arch + ".so.1", "--allow-shlib-undefined",
+        "-o", dir + "vktest", dir + "vktest.o", sysroot + "lib/ld-musl-" + arch + ".so.1", sysroot + "usr/lib/libvulkan.so.1"]);
     run("bsdtar", ["--format", "ustar", "--no-xattrs", "--no-mac-metadata", "--uid", "0", "--gid", "0", "-cf", dir + "vktest.tar", "-C", dir, "vktest"]);
     return dir + "vktest.tar";
 }
-const gltest = steps.some(step => step[0].includes("/dev/sdb")) ? (scenario === "venus" ? build_vktest() : build_gltest()) : null;
+const LINKER_EMULATION = arm ? "aarch64linux" : "elf_x86_64";
+const gltest = steps.some(step => step[0].includes("$TESTS")) ? (scenario === "venus" ? build_vktest() : build_gltest()) : null;
 
 const remote = LEVEL_3D && process.env.GPU_RENDERER === "chrome" ? await create_remote_renderer() : null;
 const trace = LEVEL_3D && !remote ?
     create_trace_renderer(path.join(out, "trace.bin"), { adapter, level: process.env.GPU_LEVEL, scenario }) : null;
 // VENUS_TRACE=1: the Venus commands the device runs, as decoded (venus.js's on_command)
 const venus_trace = name => +process.env.VENUS_TRACE > 1 || !/^vk(Cmd|SetReply|Get(PhysicalDevice|Device|Image|Buffer)\w*(Properties|Requirements))/.test(name);
-const emulator = new V86({
+// (the root file system is half the RAM: the arm64 packages need more than 512 MiB of it)
+const memory_size = Number(process.env.LINUX_GPU_MEMORY || (arm || ["virgl", "vkcube"].includes(scenario) ? 1536 : 1024)) * 1048576;
+const array_buffer = file => { const b = fs.readFileSync(file); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
+const test_options = process.env.GPU_LEVEL ? { graphics_adapter_test: { level: process.env.GPU_LEVEL, renderer: remote ? remote.renderer : trace && trace.renderer } } : {};
+// (the virt machine: the ISO, the repository and the test programs on
+// virtio-blk, the GPU on the PCIe host or virtio-mmio; less than 2 GiB of
+// RAM with the GPU's device memory)
+const emulator = arm ? new V86({
+    cpu_type: "arm64", graphics_adapter: "virtio_gpu", wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm",
+    kernel: { url: directory + "boot/vmlinuz-virt" }, initrd: { url: directory + "boot/initramfs-virt" },
+    cmdline: "console=ttyAMA0 loglevel=4 nokaslr panic=-1 modules=loop,squashfs,sd-mod,usb-storage",
+    virtio_disks: [{ buffer: array_buffer(iso), readonly: true }, { buffer: array_buffer(repo), id: "a64gpurepo", readonly: true },
+        ...(gltest ? [{ buffer: array_buffer(gltest), id: "a64gputests", readonly: true }] : [])],
+    virtio_transport: process.env.GPU_TRANSPORT || "pci", virtio_input: ["keyboard", "tablet", "multitouch"],
+    memory_size, cpu_cores: Number(process.env.GPU_CORES || 1), autostart: false, log_level: 0, net_device: { type: "none" },
+    screen_adapter: sink, ...(+process.env.GPU_NO_JIT ? {} : { jit_switches: { a64_page: 1 } }), ...test_options,
+}) : new V86({
     graphics_adapter: adapter,
     wasm_path: process.env.WASM_PATH,
     bios: { url: root + "bios/seabios.bin" }, vga_bios: { url: root + "bios/vgabios.bin" },
@@ -455,11 +536,11 @@ const emulator = new V86({
     cdrom: { url: iso }, hda: { url: repo }, ...(gltest ? { hdb: { url: gltest } } : {}),
     cmdline: "console=ttyS0,115200 loglevel=4 nokaslr panic=-1 modules=loop,squashfs,sd-mod,usb-storage",
     // (the root file system is half the RAM: the virgl and vkcube scenarios' packages need more than 1 GiB's)
-    memory_size: Number(process.env.LINUX_GPU_MEMORY || (scenario === "virgl" || scenario === "vkcube" ? 1536 : 1024)) * 1048576, acpi: true, autostart: false,
+    memory_size, acpi: true, autostart: false,
     disable_jit: !!+process.env.LINUX_GPU_NO_JIT, experimental_smp_jit: !+process.env.LINUX_GPU_NO_JIT,
     log_level: 0, net_device: { type: "none" }, screen_adapter: sink,
     ...(process.env.VRAM_SIZE ? { vram_size: Number(process.env.VRAM_SIZE) } : {}),
-    ...(process.env.GPU_LEVEL ? { graphics_adapter_test: { level: process.env.GPU_LEVEL, renderer: remote ? remote.renderer : trace && trace.renderer } } : {}),
+    ...test_options,
 });
 
 let serial = "";
@@ -473,7 +554,7 @@ emulator.add_listener("serial0-output-byte", byte => {
 
 const started = performance.now();
 const elapsed = () => ((performance.now() - started) / 1000).toFixed(0) + "s";
-const deadline = started + Number(process.env.LINUX_GPU_TIMEOUT || 900000);
+const deadline = started + Number(process.env.LINUX_GPU_TIMEOUT || (arm ? 2700000 : 900000));
 
 async function wait_for(pattern, from)
 {
@@ -498,7 +579,7 @@ try
         emulator.add_listener("emulator-error", reject);
     });
     const cpu = emulator.v86.cpu;
-    cpu.wm.exports.set_x64_test_capabilities(1);
+    if(!arm) cpu.wm.exports.set_x64_test_capabilities(1);
     const venus = cpu.devices.graphics_adapter && cpu.devices.graphics_adapter.device["virtio_gpu"]?.venus;
     if(venus && +process.env.VENUS_TRACE)
     {
@@ -562,6 +643,12 @@ try
     emulator.serial0_send("root\n");
     await wait_for(/localhost:~# /, 0);
     console.log(`[${elapsed()}] logged in`);
+    {
+        const from = serial.length;
+        emulator.serial0_send(DISKS + "\n");
+        const tail = await wait_for(/\nSTEP_DISKS \/dev\/\w+ ?(\/dev\/\w+)?\r?\n[\s\S]*localhost:~# /, from);
+        console.log(`[${elapsed()}] disks: ${tail.match(/\nSTEP_DISKS ([^\r\n]*)/)[1]}`);
+    }
 
     for(const step of steps)
     {
@@ -572,6 +659,25 @@ try
             // HOST snapshot (saved, then restored in place)
             const [verb, ...values] = command.slice(5).split(" ");
             if(verb === "set_display_size") emulator.set_display_size(...values.map(Number));
+            // HOST pointer <x> <y> (fractions of the screen), HOST click, HOST type <text>,
+            // HOST touch [<x> <y> ...] (the touches now, fractions of the screen; none: all lifted)
+            else if(verb === "pointer") emulator.bus.send("mouse-absolute", [Number(values[0]) * 1000, Number(values[1]) * 1000, 1000, 1000]);
+            else if(verb === "click")
+            {
+                emulator.bus.send("mouse-click", [true, false, false]);
+                await delay(100);
+                emulator.bus.send("mouse-click", [false, false, false]);
+            }
+            // (slowly: a guest compositor under emulation that renders in
+            // software for a while lets evdev's 64 events overflow, SYN_DROPPED,
+            // and libinput drops the keys)
+            else if(verb === "type") await emulator.keyboard_send_text(values.join(" ").replace(/\\n/g, "\n"), 400);
+            else if(verb === "touch")
+            {
+                const touches = [];
+                for(let i = 0; i + 1 < values.length; i += 2) touches.push([i / 2, Number(values[i]) * 1000, Number(values[i + 1]) * 1000]);
+                emulator.bus.send("touch", { "touches": touches, "width": 1000, "height": 1000 });
+            }
             else if(verb === "stats")
             {
                 // what the adapter's device has done (virtio_gpu: commands, virgl's)
@@ -600,7 +706,7 @@ try
         {
             // nothing presents in node: ask for a whole frame first
             cpu.devices.display.request_frame(true);
-            const file = save_png(sink, command.slice(11));
+            const file = save_png(sink, out, command.slice(11));
             console.log(`[${elapsed()}] screenshot ${file || "(text mode)"}`);
             continue;
         }
@@ -609,9 +715,11 @@ try
         const options = arguments_of(step);
         if(options.screenshot)
         {
-            await delay(options.after);
+            // (GPU_SCREENSHOT_AFTER: ms, for every screenshot step instead of its
+            // own; the arm64 guest's llvmpipe takes three times as long to start)
+            await delay(Number(process.env.GPU_SCREENSHOT_AFTER || options.after * (arm && !LEVEL_3D ? 3 : 1)));
             cpu.devices.display.request_frame(true);
-            console.log(`[${elapsed()}] screenshot ${save_png(sink, options.screenshot)}`);
+            console.log(`[${elapsed()}] screenshot ${save_png(sink, out, options.screenshot)}`);
         }
         // the command is done when the prompt comes back after its output
         const tail = await wait_for(/\n[^\n]*localhost:~# /, from + command.length);
@@ -625,7 +733,7 @@ catch(error)
     failed = true;
     console.error("LINUX_GPU_FAIL " + adapter + ": " + error.message + "\n" + error.stack);
     emulator.v86 && emulator.v86.cpu.devices.display && emulator.v86.cpu.devices.display.request_frame(true);
-    save_png(sink, "failure");
+    save_png(sink, out, "failure");
 }
 finally
 {
@@ -645,7 +753,7 @@ finally
         const width = +header[1], height = +header[2], rgb = ppm.subarray(header[0].length);
         const rgba = new Uint8Array(width * height * 4);
         for(let i = 0; i < width * height; i++) rgba.set([rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2], 255], 4 * i);
-        console.log("gltest picture " + save_png({ width, height, rgba }, "gltest-" + key));
+        console.log("gltest picture " + save_png({ width, height, rgba }, out, "gltest-" + key));
     }
     const svga3d = emulator.v86 && emulator.v86.cpu.devices.graphics_adapter && emulator.v86.cpu.devices.graphics_adapter.device["svga"]?.svga3d;
     if(svga3d) console.log("svga3d commands: " + JSON.stringify(svga3d.counts) + " warnings: " + JSON.stringify(svga3d.warnings));

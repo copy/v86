@@ -3533,7 +3533,7 @@ pub unsafe fn cycle_internal() -> bool {
         // this loop every 4096 instructions cost 531.bitboard 4%)
         let ran = (*instruction_counter).wrapping_sub(jit_link_batch_start);
         let attempt = crate::x64::pages::run(jit_link_batch_limit.saturating_sub(ran).max(1));
-        if attempt.retired == 0 {
+        if attempt.retired == 0 && still_32_bit_code() {
             let span = crate::cpu::execution::ledger_begin();
             run_compat_instruction();
             crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
@@ -3574,6 +3574,19 @@ pub unsafe fn cycle_internal() -> bool {
     );
     false
 }
+
+/// After a 32-bit page tier attempt that retired nothing (x64::pages::run),
+/// whether its fallback, the interpreted instruction at CS:EIP, still
+/// applies. An activation that ends before its first instruction (with
+/// cores in workers: another core kicked this one, parallel::kick) still
+/// takes a deliverable interrupt (pages::execute), and in IA-32e mode that
+/// enters 64-bit code. The 32-bit interpreter would then fetch at the
+/// handler's RIP truncated to 32 bits, at CPL 0 with the interrupted user
+/// code's GS base: Windows 8.1 x64 took a #PF there from a WOW64 process
+/// and, finding a kernel CS in the frame, ran its page fault handler
+/// without SWAPGS (a #PF/#DF loop on its IST stack, or a bug check).
+#[inline(always)]
+unsafe fn still_32_bit_code() -> bool { !crate::x64::state::mode().is_long() }
 
 // IA-32e mode (compatibility-mode code) paths of the legacy memory and
 // fetch helpers. Out of line and cold, so the 32-bit fast paths stay small
@@ -3956,7 +3969,7 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
         // protected-mode code (x64_page_legacy32, P7.3)
         if page32 && !crate::cpu::execution::is_deterministic() && crate::x64::pages::runnable32() {
             let attempt = crate::x64::pages::run(remaining);
-            if attempt.retired == 0 {
+            if attempt.retired == 0 && still_32_bit_code() {
                 let span = crate::cpu::execution::ledger_begin();
                 run_compat_instruction();
                 crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);

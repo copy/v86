@@ -5,13 +5,26 @@ import { GraphicsPerformance } from "./graphics_performance.js";
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
 
-export function encode_worker_file(f)
+/**
+ * @param {*} f
+ * @param {number=} depth (a disk image's parents, backing)
+ */
+export function encode_worker_file(f, depth = 0)
 {
     if(!f) return undefined;
     if(f.get || f.set || f.load) throw new Error("CPU Worker requires a URL, File or buffer disk descriptor");
+    // (MAX_CHAIN_DEPTH of src/image/factory.js)
+    if(depth > 16) throw new Error("CPU Worker: the backing images of a disk are nested too deeply (or circular)");
     return { "url": f.url && new URL(f.url, location.href).href,
         "buffer": f.buffer, "async": f.async, "size": f.size,
-        "fixed_chunk_size": f.fixed_chunk_size, "use_parts": f.use_parts };
+        "fixed_chunk_size": f.fixed_chunk_size, "use_parts": f.use_parts,
+        // disk images (docs/disk-image-formats-plan.md): the worker opens them
+        "format": f.format, "disk_option": f.disk_option, "image_id": f.image_id,
+        // the disk's policy (docs/disk-persistence-plan.md): the worker builds its backend
+        "disk_error": f.disk_error, "token": f.token,
+        "overlay_limit": f.overlay_limit, "backing": f.backing ? encode_worker_file(f.backing, depth + 1) : undefined,
+        "archive_member": f.archive_member, "logical_sector_size": f["logical_sector_size"],
+        "files": f.files ? Object.fromEntries(Object.entries(f.files).map(([name, file]) => [name, encode_worker_file(file, depth + 1)])) : undefined };
 }
 
 /**
@@ -53,7 +66,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "cpu_clock": o.cpu_clock, "cpu_quantum": o.cpu_quantum, "cpu_schedule_seed": o.cpu_schedule_seed,
         "experimental_smp_jit": o.experimental_smp_jit, "disable_jit": o.disable_jit,
         "cpu_type": o["cpu_type"], "cpu_features": o["cpu_features"], "cpu_features_unreleased": o["cpu_features_unreleased"],
-        "jit_backend": o["jit_backend"], "ir_tier0": o["ir_tier0"],
+        "jit_backend": o["jit_backend"], "ir_tier0": o["ir_tier0"], "jit_switches": o["jit_switches"], "a64_profile": o["a64_profile"],
         "x87_fast_math": o["x87_fast_math"],
         "x87_jit_cache": o["x87_jit_cache"],
         "fastboot": o.fastboot, "bootmenu": o.bootmenu, "cmdline": o.cmdline,
@@ -64,13 +77,16 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "modem": o.modem && { "uart": o.modem.uart },
         "preserve_mac_from_state_image": o.preserve_mac_from_state_image,
         "mac_address_translation": o.mac_address_translation,
-        "net_device": { "type": o.net_device?.type || (o["cpu_type"] === "arm64" ? "virtio" : "ne2k"), ...placement(o.net_device) },
+        "net_device": { "type": o.net_device?.type || (o["cpu_type"] === "arm64" ? "virtio" : "ne2k"), "count": o.net_device?.count,
+            ...placement(o.net_device) },
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),
         // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)
         "kernel": file(o.kernel), "dtb": file(o.dtb),
         "virtio_disks": o.virtio_disks && o.virtio_disks.map(disk => Object.assign({}, file(disk), { "readonly": disk.readonly, "id": disk.id })),
+        "virtio_rng": o.virtio_rng, "virtio_input": o.virtio_input, "virtio_transport": o.virtio_transport,
+        "virtio_vsock": o.virtio_vsock, "virtio_sound": o.virtio_sound, "virtio_console_ports": o.virtio_console_ports, "virtio_gpu_pci_slot": o.virtio_gpu_pci_slot,
         "initial_state": file(o.initial_state),
         "filesystem": fs && { "baseurl": fs.baseurl && new URL(fs.baseurl, location.href).href,
             "basefs": typeof fs.basefs === "string" ? new URL(fs.basefs, location.href).href : file(fs.basefs),
@@ -443,6 +459,53 @@ export class CPUWorkerController
                 server["close"]();
                 if(kind === "save") this.release_plugins_save();
                 if(running && !this.emulator.destroyed && (success || kind === "save")) await this.rpc("run");
+            }
+        });
+    }
+
+    /**
+     * V86.export_disk_image: the worker writes the chunks to a port, one at a
+     * time, and each waits for the page's write to finish (backpressure);
+     * after the signal aborts, the next chunk's write fails the export
+     * @param {string} name
+     * @param {!Object} options write, progress, signal
+     * @return {!Promise<number>}
+     */
+    export_disk(name, options)
+    {
+        return this.serialize(async () => {
+            const info = await this.rpc("disk-info", [name]);
+            // (a QCOW2 image's size is known once the disk was read)
+            const total = options.format === "qcow2" ? undefined : info["size"];
+            const channel = new globalThis.MessageChannel();
+            let loaded = 0;
+            const port = channel.port1;
+            const receive = async event => {
+                const message = event.data, id = message["id"];
+                try
+                {
+                    if(options.signal && options.signal.aborted) throw new Error("The export was cancelled at " + loaded + " of " + total + " bytes");
+                    const bytes = message["bytes"];
+                    if(message["kind"] !== "write" || !(bytes instanceof Uint8Array)) throw new Error("Invalid export chunk");
+                    await options.write(bytes);
+                    loaded += bytes.length;
+                    options.progress && options.progress({ loaded, total });
+                    port.postMessage({ "id": id });
+                }
+                catch(error)
+                {
+                    port.postMessage({ "id": id, "error": String(error && error.message || error) });
+                }
+            };
+            port.onmessage = event => { receive(event); };
+            options.progress && options.progress({ loaded: 0, total });
+            try
+            {
+                return await this.rpc("export-disk", [name, channel.port2, { "format": options.format }], [channel.port2]);
+            }
+            finally
+            {
+                port.close();
             }
         });
     }

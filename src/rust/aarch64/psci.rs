@@ -2,6 +2,11 @@
 //! HVC as PSCI/SMCCC, as QEMU does without EL2): the functions QEMU 9.2
 //! implements (target/arm/tcg/psci.c), with the same results; any other
 //! function ID, SMCCC_VERSION included, returns NOT_SUPPORTED.
+//!
+//! The power states, the start addresses and the machine's request are the
+//! machine instance's (crate::parallel::machine): with cores in workers
+//! (P8.2) CPU_ON kicks the started core's worker, SYSTEM_OFF and
+//! SYSTEM_RESET the machine's core.
 
 use crate::aarch64::cpu;
 
@@ -40,6 +45,57 @@ pub static mut START: [(u64, u64); crate::isa::MAX_CORES] = [(0, 0); crate::isa:
 /// SYSTEM_OFF (1) or SYSTEM_RESET (2) was called
 pub static mut REQUEST: u32 = 0;
 
+/// Core `core`'s power state (ON, OFF, ON_PENDING)
+#[inline(always)]
+pub fn power(core: usize) -> u8 {
+    unsafe {
+        crate::parallel::load8(
+            crate::parallel::machine(&raw mut POWER)
+                .cast::<u8>()
+                .add(core),
+        )
+    }
+}
+pub fn set_power(core: usize, state: u8) {
+    unsafe {
+        crate::parallel::store8(
+            crate::parallel::machine(&raw mut POWER)
+                .cast::<u8>()
+                .add(core),
+            state,
+        )
+    }
+}
+/// The entry point and context ID CPU_ON gave core `core`
+pub fn start(core: usize) -> (u64, u64) {
+    unsafe {
+        let at = crate::parallel::machine(&raw mut START)
+            .cast::<(u64, u64)>()
+            .add(core);
+        crate::parallel::full_fence();
+        *at
+    }
+}
+/// The machine's request: SYSTEM_OFF (1), SYSTEM_RESET (2)
+#[inline(always)]
+pub fn request() -> u32 {
+    unsafe { crate::parallel::word_load(crate::parallel::machine(&raw mut REQUEST)) }
+}
+pub fn set_request(value: u32) {
+    unsafe { crate::parallel::word_store(crate::parallel::machine(&raw mut REQUEST), value) };
+    // (the machine's core leaves its slice: the machine stops)
+    if value != 0 {
+        unsafe { crate::parallel::kick(0) };
+    }
+}
+/// Reset the power states: core 0 on, the others off (a64_boot)
+pub fn reset() {
+    for core in 0..crate::isa::MAX_CORES {
+        set_power(core, if core == 0 { ON } else { OFF });
+    }
+    set_request(0);
+}
+
 #[repr(C)]
 struct PowerState {
     power: [u8; crate::isa::MAX_CORES],
@@ -58,9 +114,9 @@ static mut SNAPSHOT: PowerState = PowerState {
 pub fn state_bytes() -> (u32, u32) {
     unsafe {
         SNAPSHOT = PowerState {
-            power: POWER,
-            start: START,
-            request: REQUEST,
+            power: *crate::parallel::machine(&raw mut POWER),
+            start: *crate::parallel::machine(&raw mut START),
+            request: request(),
         };
         (
             &raw const SNAPSHOT as u32,
@@ -73,9 +129,9 @@ pub fn state_bytes() -> (u32, u32) {
 #[no_mangle]
 pub fn a64_psci_restored() {
     unsafe {
-        POWER = SNAPSHOT.power;
-        START = SNAPSHOT.start;
-        REQUEST = SNAPSHOT.request;
+        *crate::parallel::machine(&raw mut POWER) = SNAPSHOT.power;
+        *crate::parallel::machine(&raw mut START) = SNAPSHOT.start;
+        *crate::parallel::machine(&raw mut REQUEST) = SNAPSHOT.request;
     }
 }
 
@@ -109,33 +165,38 @@ pub fn call() -> After {
                 }
                 else {
                     match core_of(a1) {
-                        Some(core) => POWER[core] as i64,
+                        Some(core) => power(core) as i64,
                         None => INVALID_PARAMETERS,
                     }
                 }
             },
             SYSTEM_RESET => {
-                REQUEST = 2;
+                set_request(2);
                 after = After::Off;
                 0
             },
             SYSTEM_OFF => {
-                REQUEST = 1;
+                set_request(1);
                 after = After::Off;
                 0
             },
             f if f == CPU_ON || f == CPU_ON | FN64 || f == V01_CPU_ON => match core_of(a1) {
                 None => INVALID_PARAMETERS,
-                Some(core) if POWER[core] == ON => ALREADY_ON,
-                Some(core) if POWER[core] == ON_PENDING => ON_PENDING_RESULT,
+                Some(core) if power(core) == ON => ALREADY_ON,
+                Some(core) if power(core) == ON_PENDING => ON_PENDING_RESULT,
                 Some(core) => {
-                    POWER[core] = ON_PENDING;
-                    START[core] = (a2, a3);
+                    // (the start address before the state the core's worker waits for)
+                    *crate::parallel::machine(&raw mut START)
+                        .cast::<(u64, u64)>()
+                        .add(core) = (a2, a3);
+                    crate::parallel::full_fence();
+                    set_power(core, ON_PENDING);
+                    crate::parallel::kick(core);
                     SUCCESS
                 },
             },
             CPU_OFF | V01_CPU_OFF => {
-                POWER[crate::isa::current_core()] = OFF;
+                set_power(crate::isa::current_core(), OFF);
                 after = After::Off;
                 0
             },
@@ -166,15 +227,13 @@ pub fn call() -> After {
 
 /// Whether the guest turned the machine off (the machine's power hook)
 #[no_mangle]
-pub fn a64_powered_off() -> bool { unsafe { REQUEST == 1 } }
+pub fn a64_powered_off() -> bool { request() == 1 }
 /// SYSTEM_RESET was called (and is taken)
 #[no_mangle]
 pub fn a64_take_reset_request() -> bool {
-    unsafe {
-        let reset = REQUEST == 2;
-        if reset {
-            REQUEST = 0;
-        }
-        reset
+    let reset = request() == 2;
+    if reset {
+        unsafe { crate::parallel::word_store(crate::parallel::machine(&raw mut REQUEST), 0) };
     }
+    reset
 }

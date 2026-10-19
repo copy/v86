@@ -41,10 +41,14 @@ export function VulkanModel(options)
     this.created = new Map();
     /** @type {!Map<number, !Array>} shaders destroyed while pipelines made of them may live (they are made again for those) */
     this.retired = new Map();
+    /** @type {!Map<number, !Array<number>>} images that are virtio-gpu resources' GX surfaces: rid -> [rid, resource id] */
+    this.imports = new Map();
     this.vx.listener = (op, dwords, bytes) => {
         if(CREATIONS.has(op)) this.created.set(dwords[0], [op, Array.from(dwords), bytes ? bytes.slice() : null]);
+        else if(op === VX.TEXTURE_IMPORT) this.imports.set(dwords[0], Array.from(dwords));
         else if(op === VX.DESTROY)
         {
+            this.imports.delete(dwords[0]);
             const entry = this.created.get(dwords[0]);
             if(entry && entry[0] === VX.SHADER_CREATE)
             {
@@ -92,7 +96,8 @@ VulkanModel.prototype.save_contents = function()
             const size = words[1] + words[2] * 0x100000000;
             if(size) read(VX.MEMORY_READ, [rid, 0, 0, size], data => { if(data) saved.set(rid, data); });
         }
-        else if(op === VX.TEXTURE_CREATE)
+        // (an imported image's texels are its resource's: virgl saves them)
+        else if(op === VX.TEXTURE_CREATE && !this.imports.has(/** @type {number} */ (rid)))
         {
             const [, format, type, , , depth, mips, layers, samples] = words;
             const entry = INFO.FORMATS[format];
@@ -150,7 +155,7 @@ VulkanModel.prototype.get_state = function()
         .concat(retired.map(([, dwords]) => [VX.DESTROY, [dwords[0]], null]));
     const contents = this.saved ? [...this.saved] : [];
     this.saved = null;
-    return [this.next_rid, this.host_allocated, this.device_allocated, created, contents];
+    return [this.next_rid, this.host_allocated, this.device_allocated, created, contents, [...this.imports.values()]];
 };
 
 /**
@@ -161,12 +166,13 @@ VulkanModel.prototype.get_state = function()
  */
 VulkanModel.prototype.set_state = function(state, contexts)
 {
-    const [next_rid, host_allocated, device_allocated, created, contents] = state;
+    const [next_rid, host_allocated, device_allocated, created, contents, imports] = state;
     this.next_rid = next_rid;
     this.host_allocated = host_allocated;
     this.device_allocated = device_allocated;
     this.created.clear();
     this.retired.clear();
+    this.imports.clear();
     this.queues.clear();
     this.waiters = [];
     if(!this.vx.empty()) this.vx.finish();
@@ -188,6 +194,8 @@ VulkanModel.prototype.set_state = function(state, contexts)
             for(const [aspect, mip, layer, bytes] of content) this.vx.command(VX.TEXTURE_WRITE, [rid, aspect, mip, layer, bytes.length], bytes);
         }
     }
+    // (the resources' GX surfaces are back: virgl's state comes first)
+    for(const dwords of imports || []) this.vx.command(VX.TEXTURE_IMPORT, dwords);
     for(const ctx of contexts)
     {
         for(const object of ctx.objects.values())
@@ -306,11 +314,14 @@ VulkanModel.prototype.after = function(then)
 // ---------------------------------------------------------------------------
 // Host visible memory: the guest's mappings
 
+/** the largest page a guest's kernel may round a blob to (Arm's 64 KiB granule) */
+const GUEST_PAGE_MAX = 65536;
+
 /** RESOURCE_CREATE_BLOB of a VkDeviceMemory: host visible memory only */
 VulkanModel.prototype.export_memory = function(ctx, memory, blob)
 {
-    // (the guest's kernel makes blobs of whole pages)
-    if(memory.type !== "memory" || !memory.host_visible || memory.blob || blob.blob_size > Math.ceil(memory.size / PAGE) * PAGE) return false;
+    // (the guest's kernel makes blobs of whole pages: 4, 16 or 64 KiB)
+    if(memory.type !== "memory" || !memory.host_visible || memory.blob || blob.blob_size > Math.ceil(memory.size / GUEST_PAGE_MAX) * GUEST_PAGE_MAX) return false;
     memory.blob = blob;
     return true;
 };
@@ -495,6 +506,13 @@ VulkanModel.prototype.run_submission = function(queue, entry)
     }
     this.read_back(state.written);
     this.read_queries(state.queries);
+    // (the resources Venus draws into: what the GPU has is newer than what
+    // the device last copied, for the display and the guest's transfers)
+    for(const [, resource_id] of this.imports.values())
+    {
+        const resource = this.gpu && this.gpu.resources ? this.gpu.resources.get(resource_id) : null;
+        if(resource && resource.three_d) this.gpu.virgl.wrote(resource);
+    }
     if(this.debug) this.debug("submission of " + entry.submits.map(s => s.command_buffers.join("+")).join(", ") + ": writes " +
         [...state.written].map(([m, r]) => m.rid + ":" + JSON.stringify(r)).join(" "));
     queue.inflight++;
@@ -759,7 +777,21 @@ const HANDLERS = {
     },
     "vkGetPhysicalDeviceFormatProperties2": function(vk, ctx, a)
     {
-        a.pFormatProperties.formatProperties = INFO.format_properties(a.format);
+        const props = INFO.format_properties(a.format);
+        a.pFormatProperties.formatProperties = props;
+        for(let s = a.pFormatProperties.pNext; s; s = s.pNext)
+        {
+            if(s.sType !== INFO.STYPE.DRM_FORMAT_MODIFIER_PROPERTIES_LIST && s.sType !== INFO.STYPE.DRM_FORMAT_MODIFIER_PROPERTIES_LIST_2) continue;
+            // (the linear modifier, with optimal tiling's features)
+            const modifiers = props.optimalTilingFeatures ? [{ drmFormatModifier: INFO.DRM_FORMAT_MOD_LINEAR, drmFormatModifierPlaneCount: 1,
+                drmFormatModifierTilingFeatures: props.optimalTilingFeatures }] : [];
+            if(s.pDrmFormatModifierProperties)
+            {
+                s.drmFormatModifierCount = Math.min(s.drmFormatModifierCount, modifiers.length);
+                s.pDrmFormatModifierProperties = modifiers.slice(0, s.drmFormatModifierCount);
+            }
+            else s.drmFormatModifierCount = modifiers.length;
+        }
     },
     "vkGetPhysicalDeviceImageFormatProperties": function(vk, ctx, a)
     {
@@ -770,13 +802,28 @@ const HANDLERS = {
     "vkGetPhysicalDeviceImageFormatProperties2": function(vk, ctx, a)
     {
         const info = a.pImageFormatInfo;
-        // (external memory: none)
+        // (external memory: dma-bufs, imported as their virtio-gpu
+        // resources, dedicated; with the linear modifier)
+        let handle_type = 0, modifier = INFO.DRM_FORMAT_MOD_LINEAR;
         for(let s = info.pNext; s; s = s.pNext)
         {
-            if(s.sType === INFO.STYPE.PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO && s.handleType) { a.ret = VK_ERROR_FORMAT_NOT_SUPPORTED; return; }
+            if(s.sType === INFO.STYPE.PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO) handle_type = s.handleType;
+            else if(s.sType === INFO.STYPE.PHYSICAL_DEVICE_IMAGE_DRM_FORMAT_MODIFIER_INFO) modifier = Number(s.drmFormatModifier);
+        }
+        if(handle_type && handle_type !== INFO.MEMORY_HANDLE_DMA_BUF || modifier !== INFO.DRM_FORMAT_MOD_LINEAR)
+        {
+            a.ret = VK_ERROR_FORMAT_NOT_SUPPORTED;
+            return;
         }
         const props = INFO.image_format_properties(info.format, info.type, info.tiling, info.usage, info.flags);
         a.pImageFormatProperties.imageFormatProperties = props || {};
+        for(let s = a.pImageFormatProperties.pNext; s; s = s.pNext)
+        {
+            if(s.sType !== INFO.STYPE.EXTERNAL_IMAGE_FORMAT_PROPERTIES) continue;
+            s.externalMemoryProperties = handle_type ? { externalMemoryFeatures: INFO.MEMORY_DEDICATED_ONLY | INFO.MEMORY_IMPORTABLE,
+                exportFromImportedHandleTypes: 0, compatibleHandleTypes: INFO.MEMORY_HANDLE_DMA_BUF } :
+                { externalMemoryFeatures: 0, exportFromImportedHandleTypes: 0, compatibleHandleTypes: 0 };
+        }
         a.ret = props ? VK_SUCCESS : VK_ERROR_FORMAT_NOT_SUPPORTED;
     },
     "vkGetPhysicalDeviceSparseImageFormatProperties": function(vk, ctx, a)
