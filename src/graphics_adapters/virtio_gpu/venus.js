@@ -114,6 +114,8 @@ function Run(reader, on_command, on_end)
     this.waiting = false;
     /** the command it waits in (for debugging) */
     this.waiting_on = "";
+    /** where that command starts */
+    this.at = 0;
 }
 
 /**
@@ -166,7 +168,11 @@ export function Venus(gpu, vk)
 
 Venus.prototype.reset = function()
 {
-    for(const ctx of this.contexts.values()) this.vk.destroy_context(ctx);
+    for(const ctx of this.contexts.values())
+    {
+        ctx.destroyed = true;
+        this.vk.destroy_context(ctx);
+    }
     this.contexts.clear();
 };
 
@@ -195,7 +201,9 @@ Venus.prototype.get_state = function()
  */
 Venus.prototype.set_state = function(state, blob_of)
 {
-    // (the renderer was reset: its objects are gone already)
+    // (the renderer was reset: its objects are gone already; the old
+    // contexts' commands that wait never go on, nor write their replies)
+    for(const ctx of this.contexts.values()) ctx.destroyed = true;
     this.contexts.clear();
     const [contexts, vk_state] = state;
     for(const [id, rings, reply, seqnos, objects, physical_device] of contexts)
@@ -342,7 +350,36 @@ Venus.prototype.submit = function(ctx_id, bytes, ring_idx)
     });
     ctx.submissions.push(run);
     if(ctx.submissions.length === 1) this.resume(ctx, run);
-    return finished ? null : done => { if(finished) done(); else finish = done; };
+    if(finished) return null;
+    const wait = done => { if(finished) done(); else finish = done; };
+    // (for a snapshot: save_submission)
+    wait.submission = { ctx_id, run, ring_idx: ring_idx || 0 };
+    return wait;
+};
+
+/**
+ * A submission whose answer waits, for a snapshot: its commands from the one
+ * it waits in (those before it are done), or all of them when it has not
+ * started (it waits for the one before it)
+ * @param {{ctx_id: number, run: !Run, ring_idx: number}} submission
+ * @return {!Array}
+ */
+Venus.prototype.save_submission = function(submission)
+{
+    const { ctx_id, run, ring_idx } = submission;
+    const r = run.reader;
+    return [ctx_id, r.bytes.slice(run.waiting ? run.at : r.p, r.end), ring_idx];
+};
+
+/**
+ * A snapshot's submission, submitted again (after the contexts are restored)
+ * @param {!Array} saved from save_submission
+ * @return {?function(function())} as submit
+ */
+Venus.prototype.resubmit = function(saved)
+{
+    const [ctx_id, bytes, ring_idx] = saved;
+    return this.submit(ctx_id, Uint8Array.from(bytes), ring_idx);
 };
 
 /**
@@ -354,6 +391,7 @@ Venus.prototype.resume = function(ctx, run)
 {
     const r = run.reader;
     run.waiting = false;
+    if(ctx.destroyed) return;
     while(r.p < r.end)
     {
         if(ctx.destroyed) return;
@@ -376,7 +414,10 @@ Venus.prototype.resume = function(ctx, run)
             this.stats.waits++;
             run.waiting = true;
             run.waiting_on = this.current;
+            run.at = start;
             wait(() => {
+                // (a context of before a restore or a reset: its ring's head is not this machine's)
+                if(ctx.destroyed) return;
                 run.on_command(r.p - start);
                 this.resume(ctx, run);
             });
@@ -435,6 +476,7 @@ Venus.prototype.command = function(ctx, r)
     // command with a reply; another ring's may be set while this one waits)
     const stream = ctx.reply;
     return done => wait(() => {
+        if(ctx.destroyed) return;
         try
         {
             this.note_result(name, args);

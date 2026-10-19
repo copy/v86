@@ -622,6 +622,60 @@ console.log("PASS: gralloc's buffers: dma-buf images, resources imported as memo
 }
 console.log("PASS: ring ids, exact; a snapshot's rounded ids");
 
+// A snapshot while requests wait: the ring waits for a virtqueue seqno, a
+// SUBMIT_3D waits for the ring and holds the queue, a request after it is not
+// read. Restored in place over a machine whose ring and submission wait too:
+// the other machine's waits, woken, write nothing into the ring and release
+// nothing; the snapshot's submission is answered once its ring goes on, and
+// the request after it after that
+{
+    const q = QUEUES[0];
+    const ring_wait = seqno => ring_write(encode(["vkWaitVirtqueueSeqnoMESA", { seqno }], ["vkEnumerateInstanceVersion", {}]));
+    const wake = (ctx, seqno) => { ctx.virtqueue_seqnos.set(RING2, seqno); gpu.venus.wake_seqno_waits(ctx); };
+    const head = read32(ring_base + HEAD);
+    ring_wait(20);
+    assert.equal(read32(ring_base + HEAD), head, "the ring waits");
+    const submission = submit_3d(encode(["vkWaitRingSeqnoMESA", { ring: RING2, seqno: tail }]), false);
+    const behind = control(0x0108, [2, 0], false);
+    assert.equal(answer(submission), 0xDEADBEEF, "the submission waits");
+    assert.equal(answer(behind), 0xDEADBEEF, "the request after it is held back");
+    const saved = { avail_idx: q.avail_idx, next_slot, tail, reply_position };
+    // (prepare_save waits for the requests a while, then they go into the snapshot)
+    const state = await emulator.save_state();
+
+    // the other machine: these go on, then a ring and a submission wait again
+    wake(gpu.venus.contexts.get(CTX), 20);
+    assert.equal(answer(submission), OK);
+    assert.equal(answer(behind), OK_CAPSET_INFO);
+    ring_wait(21);
+    const other_head = read32(ring_base + HEAD);
+    assert.notEqual(other_head, head);
+    const other_submission = submit_3d(encode(["vkWaitRingSeqnoMESA", { ring: RING2, seqno: tail }]), false);
+    assert.equal(answer(other_submission), 0xDEADBEEF);
+    const other_ctx = gpu.venus.contexts.get(CTX);
+
+    await emulator.restore_state(state);
+    ({ avail_idx: q.avail_idx, next_slot, tail, reply_position } = saved);
+    assert.equal(answer(submission), 0xDEADBEEF, "the snapshot's submission not answered");
+    assert.equal(answer(behind), 0xDEADBEEF);
+    // (the timer: the snapshot's requests queued again, after its guest RAM)
+    cpu.devices.display.timer(cpu.clock.now());
+    assert.equal(answer(submission), 0xDEADBEEF, "it waits again, in the command it waited in");
+    assert.ok(gpu.held, "and holds the queue again");
+
+    wake(other_ctx, 21);
+    assert.equal(read32(ring_base + HEAD), head, "the other machine's ring writes no head into the restored one");
+    assert.ok(gpu.held, "its submission releases nothing");
+    assert.equal(answer(behind), 0xDEADBEEF, "the request after the snapshot's submission is still held back");
+
+    wake(gpu.venus.contexts.get(CTX), 20);
+    assert.equal(read32(ring_base + HEAD), tail, "the restored ring goes on");
+    assert.equal(answer(submission), OK, "the snapshot's submission answered");
+    assert.equal(answer(behind), OK_CAPSET_INFO, "then the request after it");
+    assert.ok(!gpu.held && gpu.pending.length === 0);
+}
+console.log("PASS: a snapshot while requests wait, restored over a machine whose requests wait");
+
 // Destroying the context
 assert.equal(command(0x0201), OK, "CTX_DESTROY");
 assert.ok(!gpu.venus.contexts.has(CTX));

@@ -395,7 +395,7 @@ GraphicsMachine.prototype.register_pci = function(description)
  * option, with "class_code", "revision", "bars" and "capability_bar"
  * (src/virtio_devices.js, create_adapter_virtio_device).
  * @param {!Object} descriptor
- * @return {!Object} the quoted handle: has_request, pop_request, flush,
+ * @return {!Object} the quoted handle: has_request, pop_request, request_at, flush,
  *     read_memory, write_memory, config_changed, transport, set_transport, reset, ...
  */
 GraphicsMachine.prototype.create_virtio = function(descriptor)

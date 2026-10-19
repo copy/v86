@@ -770,7 +770,17 @@ keeps the Vulkan objects and answers.
   snapshot holds the contexts (rings, reply streams, the model's objects as
   JSON), the blobs with their mappings, the creation commands and the
   contents; a restore makes the renderer's objects again and fills them.
-  A command that waited is read again from where its ring stopped.
+  A command that waited is read again from where its ring stopped. The
+  control requests still unanswered when the save gives up waiting (5 s) are
+  in the snapshot by their descriptor heads, with their answers: after the
+  restore (on the device's timer or the guest's next request, once the RAM
+  is back) they are answered again in order, and a submission that waited is
+  run again from the command it waited in, holding the queue as before. A
+  reset or a restore starts a new generation: the requests of before it are
+  forgotten, the old contexts' waiting commands write no head or reply when
+  woken, and the old blobs count as unmapped, so that no GPU read still on
+  its way lands in the host visible memory
+  (`tests/devices/virtio_gpu_venus.js`, "a snapshot while requests wait").
 
 ## GX
 

@@ -9,7 +9,7 @@ import { dbg_log } from "./log.js";
 import { LOG_PCI } from "./const.js";
 import {
     VirtIO, VIRTIO_F_VERSION_1, VIRTIO_STATUS_DRIVER_OK,
-    VIRTIO_STATUS_DEVICE_NEEDS_RESET, VIRTIO_STATUS_FAILED,
+    VIRTIO_STATUS_DEVICE_NEEDS_RESET, VIRTIO_STATUS_FAILED, VirtQueueBufferChain,
 } from "./virtio.js";
 
 // For Types Only
@@ -504,6 +504,7 @@ VirtioDevice.prototype.create_handle = function()
         "is_ready": () => this.is_ready(),
         "has_request": queue_id => this.has_request(queue_id),
         "pop_request": queue_id => this.pop_request(queue_id),
+        "request_at": (queue_id, head) => this.request_at(queue_id, head),
         "flush": queue_id => this.flush(queue_id),
         "is_ram": (address, length) => this.is_ram(address, length),
         "read_memory": (address, length) => this.read_memory(address, length),
@@ -586,6 +587,28 @@ VirtioDevice.prototype.pop_request = function(queue_id)
         this.virtio.needs_reset();
         return null;
     }
+    return this.request(queue, chain);
+};
+
+/**
+ * A request popped before, again: its chain from its head (a snapshot keeps
+ * the heads of the requests a device had not answered yet)
+ * @return {Object} null when the chain is malformed
+ */
+VirtioDevice.prototype.request_at = function(queue_id, head)
+{
+    const queue = this.get_queue(queue_id);
+    if(!this.is_ready() || !queue.is_configured() || !(head >= 0 && head < queue.size)) return null;
+    return this.request(queue, new VirtQueueBufferChain(queue, head));
+};
+
+/**
+ * @param {!Object} queue its VirtQueue
+ * @param {!VirtQueueBufferChain} chain
+ * @return {Object}
+ */
+VirtioDevice.prototype.request = function(queue, chain)
+{
     if(!chain.valid) return null;
     for(const buffer of chain.read_buffers.concat(chain.write_buffers))
     {
@@ -599,6 +622,7 @@ VirtioDevice.prototype.pop_request = function(queue_id)
     const generation = this.generation;
     let completed = false;
     return {
+        "head": chain.head_idx,
         "readable": chain.length_readable,
         "writable": chain.length_writable,
         "read": () =>

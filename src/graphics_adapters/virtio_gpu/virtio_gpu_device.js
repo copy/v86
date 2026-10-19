@@ -367,6 +367,10 @@ export function VirtioGPU(machine, options)
      * them in order: Venus's vkWaitRingSeqnoMESA before the blob of what the ring makes) */
     this.hold = false;
     this.held = false;
+    /** a reset or a restore: answers and holds of the requests before it are not this machine's */
+    this.generation = 0;
+    /** @type {Array} a restored snapshot's requests not answered yet (get_state), queued again once its guest RAM is back */
+    this.restored_requests = null;
 
     // The host visible memory: device memory of the core's, which the guest
     // reads and writes at memory speed; the pages it writes are uploaded into
@@ -436,7 +440,11 @@ export function VirtioGPU(machine, options)
 
     machine.on_host_display_size((width, height, index) => this.set_host_size(index, width, height));
     // (Venus reads its rings whenever the machine's timers run)
-    if(this.venus) machine.display.add_timer(now => { this.venus.timer(now); return 100; });
+    machine.display.add_timer(now => {
+        if(this.restored_requests) this.requeue_restored();
+        if(this.venus) this.venus.timer(now);
+        return 100;
+    });
     this.display.add_source(this);
 }
 
@@ -453,10 +461,10 @@ VirtioGPU.prototype.reset = function()
 VirtioGPU.prototype.reset_device = function()
 {
     // (requests popped before are stale: the transport drops their answers)
-    this.pending = [];
-    this.held = false;
+    this.forget_requests();
     if(this.virgl) this.virgl.reset();
     if(this.venus) this.venus.reset();
+    this.unmap_all();
     this.resources.clear();
     this.host_memory = 0;
     this.mapped.clear();
@@ -522,6 +530,7 @@ VirtioGPU.prototype.set_host_size = function(index, width, height)
 VirtioGPU.prototype.notify = function(queue)
 {
     let request;
+    if(queue === CONTROLQ && this.restored_requests) this.requeue_restored();
     // (a request that holds the queue: the ones after it wait, unread)
     while(!(queue === CONTROLQ && this.held) && (request = this.virtio["pop_request"](queue)))
     {
@@ -533,21 +542,7 @@ VirtioGPU.prototype.notify = function(queue)
             const wait = this.deferred, hold = this.hold;
             this.deferred = null;
             this.hold = false;
-            const entry = { request, bytes, response, ready: !wait };
-            this.pending.push(entry);
-            if(wait)
-            {
-                if(hold) this.held = true;
-                wait(() => {
-                    entry.ready = true;
-                    this.drain();
-                    if(hold && this.held)
-                    {
-                        this.held = false;
-                        this.notify(CONTROLQ);
-                    }
-                });
-            }
+            this.enqueue(request, bytes, response, wait, hold);
         }
         else if(queue === CURSORQ)
         {
@@ -557,6 +552,76 @@ VirtioGPU.prototype.notify = function(queue)
     }
     if(queue === CONTROLQ) this.drain();
     else this.virtio["flush"](queue);
+};
+
+/**
+ * A control request's answer, after the ones before it: now, or once `wait`
+ * calls back
+ * @param {!Object} request
+ * @param {!Uint8Array} bytes the request (its header, at least)
+ * @param {!Uint8Array} response
+ * @param {?function(function())} wait
+ * @param {boolean} hold the requests after it wait, unread, until then
+ */
+VirtioGPU.prototype.enqueue = function(request, bytes, response, wait, hold)
+{
+    const entry = { request, bytes, response, ready: !wait, hold: !!wait && hold,
+        /** a Venus submission's answer (Venus.submit) */
+        submission: wait && wait.submission || null };
+    this.pending.push(entry);
+    if(!wait) return;
+    if(entry.hold) this.held = true;
+    const generation = this.generation;
+    wait(() => {
+        // (a request of before a reset or a restore: not this machine's)
+        if(generation !== this.generation) return;
+        entry.ready = true;
+        this.drain();
+        if(entry.hold && this.held)
+        {
+            this.held = false;
+            this.notify(CONTROLQ);
+        }
+    });
+};
+
+/** A reset or a restore: the requests in progress are not answered, nor waited for */
+VirtioGPU.prototype.forget_requests = function()
+{
+    this.generation++;
+    this.pending = [];
+    this.held = false;
+    this.restored_requests = null;
+};
+
+/**
+ * The requests a restored snapshot's machine had not answered, after the
+ * restore (the device's state comes before the guest's RAM): answered again
+ * in their order, a Venus submission run again from the command it waited
+ * in; those it held back are still in the queue
+ */
+VirtioGPU.prototype.requeue_restored = function()
+{
+    const saved = /** @type {!Array} */ (this.restored_requests);
+    this.restored_requests = null;
+    for(const [head, header, response, ready, hold, submission] of saved)
+    {
+        const request = this.virtio["request_at"] && this.virtio["request_at"](CONTROLQ, head);
+        if(!request) continue;
+        const wait = !ready && submission && this.venus ? this.venus.resubmit(submission) : null;
+        this.enqueue(request, Uint8Array.from(header), Uint8Array.from(response), wait, hold);
+    }
+    this.drain();
+};
+
+/**
+ * Before the resources go (a reset, a restore): the blobs are not mapped any
+ * more, so that GPU reads still on their way do not land in the host visible
+ * memory (a restored blob may be mapped where one of them was)
+ */
+VirtioGPU.prototype.unmap_all = function()
+{
+    for(const r of this.resources.values()) if(r.map_offset !== undefined) r.map_offset = -1;
 };
 
 /**
@@ -1634,7 +1699,7 @@ VirtioGPU.prototype.prepare_save = function()
     });
 };
 
-/** 2: with the 3D resources and virgl's contexts; 3: with Venus's */
+/** 2: with the 3D resources and virgl's contexts; 3: with Venus's (and, since 2026-10-20, the requests not answered yet) */
 const STATE_VERSION = 3;
 
 VirtioGPU.prototype.get_state = function()
@@ -1683,6 +1748,11 @@ VirtioGPU.prototype.get_state = function()
         this.scanouts.map(s => s.blob ? [s.blob.width, s.blob.height, s.blob.format, s.blob.stride, s.blob.offset] : null),
         venus_blobs,
         this.venus ? this.venus.get_state() : null,
+        // the control requests not answered yet, in order: their heads in the
+        // queue, headers and answers; a Venus submission's commands from the
+        // one it waits in (prepare_save waits for them, a while at most)
+        this.restored_requests || this.pending.filter(e => typeof e.request["head"] === "number").map(e => [e.request["head"],
+            e.bytes.slice(0, HEADER_SIZE), e.response, e.ready, e.hold, e.submission && this.venus ? this.venus.save_submission(e.submission) : null]),
     ];
 };
 
@@ -1699,6 +1769,8 @@ VirtioGPU.prototype.set_state = function(state)
     }
     this.vga.set_state(state[3]);
     this.virtio["set_transport"](state[4]);
+    this.forget_requests();
+    this.unmap_all();
     this.resources.clear();
     this.host_memory = 0;
     this.mapped.clear();
@@ -1793,4 +1865,5 @@ VirtioGPU.prototype.set_state = function(state)
     this.active = state[9];
     this.layout_key = "";
     if(!this.active) this.vga.redisplay();
+    this.restored_requests = state[16] && state[16].length ? state[16] : null;
 };
