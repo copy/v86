@@ -2476,6 +2476,67 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   `make test-glbridge`、`make all`（Closure 0 错误）、eslint；`make a64-gpu-guest-tests`（10 个场景，含 Venus 与 vkcube）；
   x86 的共享 JS 有改动（`virtio.js`、`starter.js`、`cpu_worker.js`、`speaker.js`、GX/VX）：`make platform-release-gate
   GATE_ARGS="--levels R-x64-UP,R-x64-SMP,R-q35 --quick"`（8 项通过）。Rust 没有改动。
-- 至此计划的里程碑 A0–A10 全部完成并打了标签。留下的（不在计划的验收里，记在 `docs/aarch64.md` 的已知问题）：Venus 上的
+- 至此计划的里程碑 A0–A10 全部完成并打了标签。留下的（不在计划的验收里，逐项写在附录 F，也记在 `docs/aarch64.md` 的已知问题）：Venus 上的
   OpenGL ES 3；经框架的声音在客体跟不上实时的时候被 HAL 跳过；启动与帧的性能（所有者定的顺序：计划完成之后再做，
   FEAT_PAN 是第一个候选）。
+
+## 附录 F：遗留问题（2026-10-19，A10 完成之后，待以后解决）
+
+计划的验收都已满足（`vA10`，91b385cf）。下面是验收之外留下的问题，按建议的先后排列；每项写了现象与证据、代码位置、
+建议的做法与验证方式，供之后接着做。所有者定的顺序：性能放在计划完成之后（F3）。
+
+- F1 经 Android 框架播放的声音在 v86 上大多被丢掉（P12.5 的遗留）。
+  - 现象：AAudio 的 1 kHz 音调（`tests/a64/android/v86tone.c`）经 AudioFlinger 与 Cuttlefish 的主音频 HAL 到 virtio-snd，
+    v86 上一次只到 0.1 s 的静音（57 次跳过），另一次到 1.54 s（33 次跳过）；QEMU TCG 上也只到 0.06 s（5 次跳过），HVF
+    上完整。tinyplay 直接走 ALSA 时逐字节一致，设备本身没有问题。
+  - 原因：android-16.0.0_r4 的 `hardware/interfaces/audio/aidl/default/primary/StreamPrimary.cpp:94-130`，每次传输后比较
+    已收帧数与真实时间，落后就把下一次传输的帧收下而不写出（注释说是给做不到实时的模拟器的变通，b/302587331）；v86 上
+    第一次传输时已落后约 112 ms，之后一直追不上。
+  - 建议：先量清楚落后从哪里来（HAL 的 `start()` 到第一次 `transfer()` 之间、AudioFlinger 混音线程的周期、FMQ 往返），
+    再看能否在不改客体的前提下改善：设备报更大的周期与缓冲，让 AudioFlinger 一次写更多帧；或启动音频流时少做别的事；
+    客体侧没有能关掉这个变通的属性，改 HAL 要重编 vendor 镜像，不在“用预编译镜像”的前提内。
+  - 验证：A10 场景的声音一步已经记录跳过次数与偏移（`result.sound_framework.hal`）；目标是没有跳过、音调完整到达，
+    然后把这一步的断言改回“完整到达”。
+- F2 Venus 上的 OpenGL ES 3（P11.4 的遗留）。
+  - 现象：ANGLE 在 Venus 上只能给 ES 2.0（`androidboot.opengles.version=131072`，`tools/a64_android.mjs` 的
+    `VENUS_BOOTCONFIG`）；SwiftShader 上是 3.1。
+  - 原因：ANGLE 的 ES 3 要每个阶段超过 12 个 uniform buffer（GL 的 uniform block 加 ANGLE 自己的），本机 Chrome 的
+    WebGPU 只给 12 个；还要 transform feedback（没有扩展，ANGLE 的模拟要在顶点阶段写存储缓冲，WebGPU 不允许）。
+  - 建议：VX（`src/browser/glbridge/vx/vx_executor.js`）在超出 12 个时把多出的 uniform buffer 改成只读 storage buffer
+    （SPIR-V 到 WGSL 时一并改写绑定）；transform feedback 用额外的计算或顶点拉取的 pass 模拟。设备的
+    `venus_device_info.js` 报相应的 limits 与 features。
+  - 验证：`cmd gpu vkjson` 与 ANGLE 报的 ES 版本；dEQP 的 GLES3 子集（见 F6）。
+- F3 性能（P12.3 的指标都在预算内，但余量不大）。
+  - 现状：release 构建 4 核 worker 加页层，冷启动 1192–1325 s（QEMU TCG 的 3.97 倍），第二次启动 695 s（3.66 倍），
+    应用启动 20.8 s，Launcher3 冷帧约 5 s，CTS Bionic 1266 s（4.9 倍），整体 100–140 MIPS；主要是 APEX 解压与 dex2oat。
+  - 建议的方向：FEAT_PAN（P9.3：带 SW_TTBR0_PAN 的内核在 auto 下慢 17%）是第一个候选；页层对 ART 代码的编译与淘汰
+    （A9 的运行里 7 万次编译、2.9 万次淘汰，`live_code_mib` 一直在 160 的上限）；Venus 冷帧的着色器与 pipeline 创建。
+  - 测量：附录 E 的 A10 一节的表是基线；本机测量时宿主上有常驻的高负载进程（如 NotificationCenter 一直占一个核），
+    同一构建的冷启动有约 10% 的波动，比较前后要在同样的条件下各跑几次。
+- F4 修复前存的 Android 快照要重存。
+  - `build/a64-android/android-venus-booted.v7`（快速探针用）是 Venus ring id 修复（5238279c）之前存的，可能已经少了环；
+    用修好的构建以 `A64_ANDROID_SAVE_STATE` 与 `A64_ANDROID_WAIT=boot_completed` 重存。A10 的
+    `build/a64-android/a10-desktop.v7` 是修复后存的，可以继续用。
+- F5 恢复路径上没有改的两处（Venus ring id 一节记的）。
+  - virtio-gpu 的 `set_state` 不清 `pending` 与 `held`（它们不进快照）；Venus 的 `set_state` 不让恢复前还在等的 Run
+    失效，原地恢复后它们若被唤醒会往共享内存写旧的 head 与回复。测量中保存时都没有等待中的命令，所以没有出过事。
+  - 修复前一次原地恢复后 Launcher3 在配置变化重建时卡在 `bindService` 的 binder 调用里 6 分钟，原因未查。
+  - 建议：给这两处加上清理与使之失效，并加一个在有等待中命令时保存、恢复的设备测试（`tests/devices/virtio_gpu_venus.js`）。
+- F6 测试覆盖可以再加的。
+  - GPU：CTS 的 `CtsDeqpTestCases`（约 156 MiB，`tools/a64_cts.mjs` 可按字节范围取）里选 dEQP-VK.api.smoke、
+    dEQP-EGL.info、dEQP-GLES2 的一部分，经 `com.drawelements.deqp` 的 instrumentation 运行，覆盖 Venus 与 ANGLE。
+  - VTS 本版本不可得（不公开分发、发布分支的 CI 没有 test_suites、本机不能构建 AOSP）；以后有可用的 VTS 再补。
+  - 16K 的 A9 运行里冷帧统计是空的（`frames.cold` 全为 null），热帧正常；查 gfxinfo 的取法在 16K 上为何取不到。
+- F7 16 KiB 材料的小问题（不影响启动与场景）。
+  - 16K 的内核构建没有 `tls.ko`（4K 的 system_dlkm 里的那个文件留着，不进 modules.dep）；16K 构建多出的 11 个模块
+    （aes-neon-blk、efivarfs、pstore_blk 等）在 4K 的布局里没有位置，没有加载；aes-neon-blk 若能加载可以加速 AES。
+  - 换过的 system_dlkm 与 vendor_dlkm 分区没有 AVB footer，fs_mgr 的 “offline vbmeta” 读不到，回退到 vbmeta 链里的
+    hashtree；可以照原分区的 footer 写一个（vbmeta 结构加上更新后的描述符）。
+  - 没有公开的 pgagnostic 构建；以后有了可以换成正式的产品再跑一遍。
+- F8 其余已知的小问题（`docs/aarch64.md` 的已知问题表里都有）。
+  - x86 的 `src/parallel/vcpu.js` 有与 ARM worker 时钟同样的写法（恢复到新进程后 worker 的时钟落后），ARM 已改
+    （`MachineClock.set_time`），x86 没有改，改了要过 x86 的门禁。
+  - VX 把部分 resolve 当作整张图（会打警告）。
+  - Android 的 wlan0 经 fetch 适配器的 DHCP 偶尔失败（场景每两分钟重连一次，`dhcp.log` 有记录），原因未查。
+  - QEMU 参考的 virtio-sound 在 TCG 比实时慢时会丢样本（只影响参考，A10 场景在 QEMU 上只记录逐字节比较的结果）。
+  - Bluetooth 的原生栈在首次启动时 abort、com.android.phone 的 ANR（没有 modem 的 radio HAL）：QEMU 上也有，不是 v86 的。
