@@ -101,6 +101,10 @@ export const VX = {
     XFB_BIND: 44,           // buffer, memory, offset (64), size (64)
     XFB_BEGIN: 45,          // first counter, count, then per counter buffer: memory (0: none), offset (64)
     XFB_END: 46,            // as XFB_BEGIN: the bytes captured into each buffer go to its counter (u32)
+    // the dynamic stencil masks (VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+    // _WRITE_MASK): WebGPU's are the pipeline's, so a variant per pair
+    SET_STENCIL_COMPARE_MASK: 47, // faces, mask
+    SET_STENCIL_WRITE_MASK: 48, // faces, mask
 };
 
 /**

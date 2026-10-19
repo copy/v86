@@ -25,7 +25,7 @@
         SET_BLEND_CONSTANTS: 29, SET_STENCIL_REFERENCE: 30, DRAW: 31, DRAW_INDEXED: 32, DRAW_INDIRECT: 33,
         DISPATCH: 34, DISPATCH_INDIRECT: 35, CLEAR_ATTACHMENTS: 36,
         QUERY_POOL_CREATE: 37, BEGIN_QUERY: 38, END_QUERY: 39, COPY_QUERY_RESULTS: 40, TEXTURE_READ: 41, TEXTURE_WRITE: 42,
-        TEXTURE_IMPORT: 43, XFB_BIND: 44, XFB_BEGIN: 45, XFB_END: 46,
+        TEXTURE_IMPORT: 43, XFB_BIND: 44, XFB_BEGIN: 45, XFB_END: 46, SET_STENCIL_COMPARE_MASK: 47, SET_STENCIL_WRITE_MASK: 48,
     };
     // VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT; VkPrimitiveTopology's vertices a primitive (lists only)
     const QUERY_XFB = 1000028004;
@@ -101,7 +101,7 @@
                 groups: [new Map(), new Map()], groupVersion: 0,
                 vertex: [], vertexDirty: true, index: null, indexDirty: true,
                 push: new Uint8Array(256), pushVersion: 0,
-                viewport: null, scissor: null, blend: null, stencilReference: 0, dynamicDirty: true,
+                viewport: null, scissor: null, blend: null, stencilReference: 0, stencilMasks: [0xFF, 0xFF], dynamicDirty: true,
                 passWidth: 0, passHeight: 0,
                 // transform feedback: the buffers ({ memory, offset, size } by binding), whether it is active, the bytes captured into each
                 xfb: { buffers: [], active: false, written: [0, 0, 0, 0] },
@@ -237,6 +237,9 @@
                 case VX.SET_SCISSOR: this.state.scissor = [b[0] | 0, b[1] | 0, b[2], b[3]]; this.state.dynamicDirty = true; return;
                 case VX.SET_BLEND_CONSTANTS: this.state.blend = Array.from(b.subarray(0, 4), f32); this.state.dynamicDirty = true; return;
                 case VX.SET_STENCIL_REFERENCE: this.state.stencilReference = b[1]; this.state.dynamicDirty = true; return;
+                // (the front face's: WebGPU has one pair for both faces)
+                case VX.SET_STENCIL_COMPARE_MASK: if (b[0] & 1) this.state.stencilMasks[0] = b[1] & 0xFF; return;
+                case VX.SET_STENCIL_WRITE_MASK: if (b[0] & 1) this.state.stencilMasks[1] = b[1] & 0xFF; return;
                 case VX.DRAW: return this.draw(b, 0);
                 case VX.DRAW_INDEXED: return this.draw(b, 1);
                 case VX.DRAW_INDIRECT: return this.draw(b, 2);
@@ -1196,11 +1199,36 @@
                 const gpu = this.device.createRenderPipeline(Object.assign({}, p.descriptor, {
                     vertex: Object.assign({}, p.descriptor.vertex, { module: st.module, entryPoint: st.entryPoint, constants: st.constants }),
                 }));
-                p.flipped = { kind: "pipeline", desc: p.desc, groups: p.groups, push: p.push, gpu, bindGroups: new Map(), error: null };
+                p.flipped = { kind: "pipeline", desc: p.desc, groups: p.groups, push: p.push, gpu, bindGroups: new Map(), error: null,
+                    descriptor: Object.assign({}, p.descriptor, { vertex: Object.assign({}, p.descriptor.vertex, { module: st.module, entryPoint: st.entryPoint, constants: st.constants }) }) };
             } catch (error) {
                 this.warn("flipped:" + error.message, "a pipeline's variant for flipped viewports failed: " + error.message);
             }
             return p.flipped;
+        }
+
+        /**
+         * A render pipeline with other stencil masks: the dynamic ones
+         * (VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, _WRITE_MASK) of a draw, as
+         * WebGPU's are the pipeline's. Made at the first draw with them; its
+         * own bind groups (an automatic layout, as flippedPipeline's)
+         */
+        maskedPipeline(q, read, write) {
+            const ds = q.descriptor.depthStencil;
+            if ((ds.stencilReadMask & 0xFF) === read && (ds.stencilWriteMask & 0xFF) === write) return q;
+            q.masked = q.masked || new Map();
+            const key = read << 8 | write;
+            if (q.masked.has(key)) return q.masked.get(key);
+            let v = null;
+            try {
+                const descriptor = Object.assign({}, q.descriptor, { depthStencil: Object.assign({}, ds, { stencilReadMask: read, stencilWriteMask: write }) });
+                v = { kind: "pipeline", desc: q.desc, groups: q.groups, push: q.push, descriptor, gpu: this.device.createRenderPipeline(descriptor),
+                    bindGroups: new Map(), error: null };
+            } catch (error) {
+                this.warn("masked:" + error.message, "a pipeline's variant for dynamic stencil masks failed: " + error.message);
+            }
+            q.masked.set(key, v);
+            return v;
         }
 
         // ------------------------------------------------------------------
@@ -1222,8 +1250,17 @@
             // viewport and scissor: the dynamic ones, or the pipeline's; within the target (WebGPU's rule)
             const viewport = p.desc.dynamic.includes(0) && s.viewport ? s.viewport :
                 p.desc.viewport ? [p.desc.viewport.x, p.desc.viewport.y, p.desc.viewport.width, p.desc.viewport.height, p.desc.viewport.minDepth, p.desc.viewport.maxDepth] : null;
-            const q = viewport && viewport[3] < 0 ? this.flippedPipeline(p) : p;
+            let q = viewport && viewport[3] < 0 ? this.flippedPipeline(p) : p;
             if (!q) return;
+            // (the dynamic stencil masks, with the stencil test on)
+            const dynamicMasks = p.desc.dynamic.includes(6) || p.desc.dynamic.includes(7);
+            if (dynamicMasks && !p.desc.discard && q.descriptor && q.descriptor.depthStencil && q.descriptor.depthStencil.stencilFront &&
+                q.descriptor.depthStencil.stencilFront.compare) {
+                const ds = q.descriptor.depthStencil;
+                q = this.maskedPipeline(q, p.desc.dynamic.includes(6) ? s.stencilMasks[0] : ds.stencilReadMask & 0xFF,
+                    p.desc.dynamic.includes(7) ? s.stencilMasks[1] : ds.stencilWriteMask & 0xFF);
+                if (!q) return;
+            }
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
             pass.setPipeline(q.gpu);
             for (const group of p.groups.keys()) {

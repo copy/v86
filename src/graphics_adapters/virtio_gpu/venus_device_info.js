@@ -136,7 +136,9 @@ const LIMITS = {
     maxVertexInputBindings: 16,
     maxVertexInputAttributeOffset: 2047,
     maxVertexInputBindingStride: 2048,
-    maxVertexOutputComponents: 64,
+    // (17 of WebGPU's inter-stage variables, one past its default: ANGLE keeps
+    // 4 components for capturing gl_Position, GL ES 3.0 needs 64 besides)
+    maxVertexOutputComponents: 68,
     maxTessellationGenerationLevel: 0,
     maxTessellationPatchSize: 0,
     maxTessellationControlPerVertexInputComponents: 0,
@@ -150,7 +152,7 @@ const LIMITS = {
     maxGeometryOutputComponents: 0,
     maxGeometryOutputVertices: 0,
     maxGeometryTotalOutputComponents: 0,
-    maxFragmentInputComponents: 64,
+    maxFragmentInputComponents: 68,
     maxFragmentOutputAttachments: 8,
     maxFragmentDualSrcAttachments: 0,
     maxFragmentCombinedOutputResources: 16,
@@ -425,10 +427,12 @@ export const FORMATS = {
     122: ["rg11b10ufloat", "fc", null, 4],             // B10G11R11_UFLOAT_PACK32
     123: ["rgb9e5ufloat", "fc", null, 4],              // E5B9G9R9_UFLOAT_PACK32
     124: ["depth16unorm", "dmc", null, 2],             // D16_UNORM
-    125: ["depth24plus", "dm", null, 4],               // X8_D24_UNORM_PACK32
+    // (24-bit depth: transfers between images and of the stencil aspect;
+    // WebGPU copies no 24-bit depth to or from a buffer, VX warns and skips)
+    125: ["depth24plus", "dmc", null, 4],              // X8_D24_UNORM_PACK32
     126: ["depth32float", "dmc", null, 4],             // D32_SFLOAT
     127: ["stencil8", "dmc", null, 1],                 // S8_UINT
-    129: ["depth24plus-stencil8", "dm", null, 4],      // D24_UNORM_S8_UINT
+    129: ["depth24plus-stencil8", "dmc", null, 4],     // D24_UNORM_S8_UINT
 };
 
 /**

@@ -215,6 +215,53 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         check(Array.from(again.subarray(6, 9)).join() === "170,181,0" && cnt2[0] === 256 && cnt2[1] === 32 && qp2[0] === 2 && qp2[2] === 3,
             "transform feedback: resumed from the counters, 2 of 3 points fit: " + [Array.from(again.subarray(6, 9)), Array.from(cnt2), Array.from(qp2)].join(" "));
 
+        // Dynamic stencil masks (VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, _WRITE_MASK):
+        // WebGPU's are the pipeline's, so VX makes a variant per pair. The SPIR-V
+        // (naga, from WGSL) of a vertex shader drawing the whole target from
+        // vertex_index, and of a fragment shader writing green; a D24S8 target
+        // cleared to 0, a draw replacing with 0xFF through write mask 0x0F, then
+        // one replacing with 0x3C through 0xF0: 0x3F, the stencil read back
+        const STENCIL_VS = Uint8Array.from(atob("AwIjBwAAAQAcAAAAHQAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ABwAAAAAADQAAAG1haW4AAAAACAAAAAsAAABHAAQACAAAAAsAAAAqAAAARwAEAAsAAAALAAAAAAAAABMAAgACAAAAFQAEAAMAAAAgAAAAAAAAABYAAwAFAAAAIAAAABcABAAEAAAABQAAAAQAAAAXAAQABgAAAAUAAAACAAAAIAAEAAkAAAABAAAAAwAAADsABAAJAAAACAAAAAEAAAAgAAQADAAAAAMAAAAEAAAAOwAEAAwAAAALAAAAAwAAACEAAwAOAAAAAgAAACsABAADAAAADwAAAAEAAAArAAQABQAAABAAAAAAAABAKwAEAAUAAAARAAAAAACAPywABQAGAAAAEgAAABEAAAARAAAAKwAEAAUAAAATAAAAAAAAADYABQACAAAADQAAAAAAAAAOAAAA+AACAAcAAAA9AAQAAwAAAAoAAAAIAAAA+QACABQAAAD4AAIAFAAAAMcABQADAAAAFQAAAAoAAAAPAAAAcAAEAAUAAAAWAAAAFQAAAMIABQADAAAAFwAAAAoAAAAPAAAAcAAEAAUAAAAYAAAAFwAAAFAABQAGAAAAGQAAABYAAAAYAAAAjgAFAAYAAAAaAAAAGQAAABAAAACDAAUABgAAABsAAAAaAAAAEgAAAFAABgAEAAAAHAAAABsAAAATAAAAEQAAAD4AAwALAAAAHAAAAP0AAQA4AAEA"), c => c.charCodeAt(0));
+        const STENCIL_FS = Uint8Array.from(atob("AwIjBwAAAQAcAAAADgAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ABgAEAAAACAAAAG1haW4AAAAABgAAABAAAwAIAAAABwAAAEcABAAGAAAAHgAAAAAAAAATAAIAAgAAABYAAwAEAAAAIAAAABcABAADAAAABAAAAAQAAAAgAAQABwAAAAMAAAADAAAAOwAEAAcAAAAGAAAAAwAAACEAAwAJAAAAAgAAACsABAAEAAAACgAAAAAAAAArAAQABAAAAAsAAAAAAIA/LAAHAAMAAAAMAAAACgAAAAsAAAAKAAAACwAAADYABQACAAAACAAAAAAAAAAJAAAA+AACAAUAAAD5AAIADQAAAPgAAgANAAAAPgADAAYAAAAMAAAA/QABADgAAQA="), c => c.charCodeAt(0));
+        const SVS = 40, SFS = 41, SPIPE = 42, DS = 43, DSV = 44;
+        w.command(VX.SHADER_CREATE, [SVS, STENCIL_VS.length], STENCIL_VS);
+        w.command(VX.SHADER_CREATE, [SFS, STENCIL_FS.length], STENCIL_FS);
+        w.command(VX.TEXTURE_CREATE, [DS, 129, 1, 8, 8, 1, 1, 1, 1, 0x21, 0]);
+        w.command(VX.VIEW_CREATE, [DSV, DS, 1, 129, 6, 0, 1, 0, 1, 0, 0, 0, 0]);
+        const replace = { fail: 0, pass: 2, depth_fail: 0, compare: 7, read_mask: 0, write_mask: 0, reference: 0 };
+        w.command(VX.PIPELINE_CREATE, [SPIPE], json({ kind: "graphics",
+            stages: [{ shader: SVS, stage: 1, entry: "main", constants: {} }, { shader: SFS, stage: 16, entry: "main", constants: {} }],
+            buffers: [], attributes: [], topology: 4, restart: false, cull: 0, front: 0, polygon: 0, depth_clamp: false, discard: false, depth_bias: null,
+            samples: 1, sample_mask: 0xFFFFFFFF, alpha_to_coverage: false,
+            depth: { test: false, write: false, compare: 7, stencil: true, front: replace, back: replace }, depth_format: 129,
+            targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [6, 7, 8],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 0, push_size: 0 }));
+        const stencil_draw = (first, write_mask, reference) => {
+            w.command(VX.BEGIN_PASS, [], json({ colors: [{ view: XRTV, load: 1, store: 0, clear: [0, 0, 0, 0], resolve: 0 }],
+                depth: { view: DSV, load: 1, clear_depth: 1, store: 0, stencil_load: first ? 1 : 0, clear_stencil: 0, stencil_store: 0 }, width: 8, height: 8 }));
+            w.command(VX.BIND_PIPELINE, [SPIPE]);
+            w.command(VX.SET_STENCIL_COMPARE_MASK, [3, 0xFF]);
+            w.command(VX.SET_STENCIL_WRITE_MASK, [3, write_mask]);
+            w.command(VX.SET_STENCIL_REFERENCE, [3, reference]);
+            w.command(VX.DRAW, [4, 1, 0, 0]);
+            w.command(VX.END_PASS, []);
+        };
+        w.command(VX.BEGIN, []);
+        stencil_draw(true, 0x0F, 0xFF);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 0, 0, DS, 4, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        w.command(VX.END, []);
+        bytes = await read(B, 0, 64);
+        check(bytes.every(v => v === 0x0F), "dynamic stencil write mask 0x0F: " + bytes.slice(0, 8).join() + " (" + renderer.vx.warnings.join("; ") + ")");
+        w.command(VX.BEGIN, []);
+        stencil_draw(false, 0xF0, 0x3C);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 0, 0, DS, 4, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, B, 256, 0, 0, 0, XRT, 1, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        w.command(VX.END, []);
+        bytes = await read(B, 0, 512);
+        check(bytes.slice(0, 64).every(v => v === 0x3F), "then write mask 0xF0 with 0x3C: " + bytes.slice(0, 8).join());
+        check(bytes.slice(256, 260).join() === "0,255,0,255", "the draws' color: " + bytes.slice(256, 260).join());
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

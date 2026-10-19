@@ -668,11 +668,15 @@ export function translate(vk, ctx, commands, state)
             case "vkCmdSetStencilReference":
                 vx.command(VX.SET_STENCIL_REFERENCE, [a.faceMask, a.reference]);
                 break;
+            case "vkCmdSetStencilCompareMask":
+                vx.command(VX.SET_STENCIL_COMPARE_MASK, [a.faceMask, a.compareMask]);
+                break;
+            case "vkCmdSetStencilWriteMask":
+                vx.command(VX.SET_STENCIL_WRITE_MASK, [a.faceMask, a.writeMask]);
+                break;
             case "vkCmdSetLineWidth":
             case "vkCmdSetDepthBias":
             case "vkCmdSetDepthBounds":
-            case "vkCmdSetStencilCompareMask":
-            case "vkCmdSetStencilWriteMask":
                 vk.warn_once(name, name + " is kept from the pipeline (WebGPU's is static)");
                 break;
 

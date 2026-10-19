@@ -32,6 +32,7 @@ use naga::{Binding, BuiltIn, Handle, ScalarKind, TypeInner, VectorSize};
 pub enum Output {
     Location(u32),
     Position,
+    PointSize,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct Capture {
@@ -68,6 +69,7 @@ const DECORATION_OFFSET: u32 = 35;
 const DECORATION_XFB_BUFFER: u32 = 36;
 const DECORATION_XFB_STRIDE: u32 = 37;
 const BUILTIN_POSITION: u32 = 0;
+const BUILTIN_POINT_SIZE: u32 = 1;
 const STORAGE_OUTPUT: u32 = 3;
 
 /// The captured outputs a vertex shader's SPIR-V declares (an Xfb execution
@@ -134,6 +136,9 @@ pub fn captures(words: &[u32]) -> Option<(Vec<Capture>, [u32; 4])> {
             if builtin == BUILTIN_POSITION {
                 captures.push(Capture { output: Output::Position, buffer: b, offset });
             }
+            else if builtin == BUILTIN_POINT_SIZE {
+                captures.push(Capture { output: Output::PointSize, buffer: b, offset });
+            }
         }
         let (Some(b), Some(offset)) = (buffer, find(decorated, DECORATION_OFFSET))
         else {
@@ -144,6 +149,9 @@ pub fn captures(words: &[u32]) -> Option<(Vec<Capture>, [u32; 4])> {
         }
         else if find(decorated, DECORATION_BUILTIN) == Some(BUILTIN_POSITION) {
             captures.push(Capture { output: Output::Position, buffer: b, offset });
+        }
+        else if find(decorated, DECORATION_BUILTIN) == Some(BUILTIN_POINT_SIZE) {
+            captures.push(Capture { output: Output::PointSize, buffer: b, offset });
         }
     }
     if captures.is_empty() {
@@ -300,23 +308,23 @@ pub fn compute_shader(module: &mut naga::Module, captures: &[Capture], strides: 
         argument.binding = None;
     }
     let result = function.result.clone().ok_or("the vertex shader has no outputs")?;
-    function.result = Some(naga::FunctionResult { ty: result.ty, binding: None });
-    // the output struct's members, named
-    let members = match &module.types[result.ty].inner {
-        TypeInner::Struct { members, .. } => members.clone(),
+    // the output struct's members; the copy's own struct of them, named, and
+    // without bindings (an ordinary struct: gl_PointSize too, which WGSL's
+    // entry points cannot have)
+    let (members, span) = match &module.types[result.ty].inner {
+        TypeInner::Struct { members, span } => (members.clone(), *span),
         _ => return Err(String::from("the vertex shader's output is not a struct")),
     };
-    {
-        let ty = module.types[result.ty].clone();
-        let mut renamed = ty.clone();
-        if let TypeInner::Struct { members, .. } = &mut renamed.inner {
-            for (i, m) in members.iter_mut().enumerate() {
-                // (not ending in a digit: naga's namer would add an underscore)
-                m.name = Some(format!("vx_o{}m", i));
-            }
-        }
-        module.types.replace(result.ty, renamed);
-    }
+    let plain: Vec<naga::StructMember> = members.iter().enumerate().map(|(i, m)| naga::StructMember {
+        // (not ending in a digit: naga's namer would add an underscore)
+        name: Some(format!("vx_o{}m", i)),
+        ty: m.ty,
+        binding: None,
+        offset: m.offset,
+    }).collect();
+    let plain = module.types.insert(naga::Type { name: Some(String::from("VxVertexOut")), inner: TypeInner::Struct { members: plain, span } },
+        naga::Span::UNDEFINED);
+    crate::retype(&mut function, result.ty, plain, None);
     module.functions.append(function, naga::Span::UNDEFINED);
 
     let mut wgsl = String::new();
@@ -380,6 +388,7 @@ pub fn compute_shader(module: &mut naga::Module, captures: &[Capture], strides: 
         let member = members.iter().position(|m| match (&m.binding, c.output) {
             (Some(Binding::Location { location, .. }), Output::Location(l)) => *location == l,
             (Some(Binding::BuiltIn(BuiltIn::Position { .. })), Output::Position) => true,
+            (Some(Binding::BuiltIn(BuiltIn::PointSize)), Output::PointSize) => true,
             _ => false,
         }).ok_or("a captured output the shader does not write")?;
         let mut parts = Vec::new();

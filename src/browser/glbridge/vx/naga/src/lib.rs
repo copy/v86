@@ -4,6 +4,7 @@
 //!
 //! What it changes on the way:
 //! - combined image samplers become an image and a sampler (split.rs)
+//! - NaN and infinity tests become bit tests (relational.rs: WGSL has none)
 //! - bindings: Vulkan's binding b of a set is WGSL's binding 2b of the same
 //!   group, and 2b + 1 for the sampler of a combined image sampler
 //! - push constants (naga's immediates) become a read-only storage buffer
@@ -13,12 +14,15 @@
 //!   WebGPU, Vulkan's devices report more: the rest are read-only storage)
 //! - Y of the position is flipped (naga's default for SPIR-V: Vulkan's
 //!   clip space has Y down, WebGPU's up)
+//! - a vertex shader's gl_PointSize is dropped (WGSL has none: WebGPU's
+//!   points are one pixel); a capturing draw's compute shader keeps it
 //!
 //! It answers in JSON: the WGSL, and per entry point the bindings it uses
 //! and their kind; the overrides (specialization constants) by id.
 
 extern crate alloc;
 
+mod relational;
 mod split;
 pub mod xfb;
 
@@ -104,6 +108,56 @@ fn rebind(module: &mut naga::Module, options: &Options) {
     }
 }
 
+/// Function `f`'s values of struct type `from` made of `to` instead: its
+/// result, and its Compose (of the members `keep` says) and ZeroValue
+/// expressions
+pub(crate) fn retype(f: &mut naga::Function, from: naga::Handle<naga::Type>, to: naga::Handle<naga::Type>, keep: Option<&[bool]>) {
+    if let Some(r) = f.result.as_mut() {
+        if r.ty == from {
+            r.ty = to;
+        }
+    }
+    for (_, e) in f.expressions.iter_mut() {
+        match e {
+            naga::Expression::Compose { ty, components } if *ty == from => {
+                *ty = to;
+                if let Some(keep) = keep {
+                    let mut i = 0;
+                    components.retain(|_| {
+                        i += 1;
+                        keep.get(i - 1).copied().unwrap_or(true)
+                    });
+                }
+            },
+            naga::Expression::ZeroValue(ty) if *ty == from => *ty = to,
+            _ => {},
+        }
+    }
+}
+
+/// The vertex entry points' gl_PointSize outputs dropped: each result's
+/// struct without them (in place: naga's WGSL writes every struct)
+fn drop_point_size(module: &mut naga::Module) {
+    for ep in module.entry_points.iter_mut() {
+        if ep.stage != ShaderStage::Vertex {
+            continue;
+        }
+        let Some(old) = ep.function.result.as_ref().map(|r| r.ty) else { continue };
+        let (members, span) = match &module.types[old].inner {
+            TypeInner::Struct { members, span } => (members.clone(), *span),
+            _ => continue,
+        };
+        let keep: Vec<bool> = members.iter().map(|m| !matches!(m.binding, Some(naga::Binding::BuiltIn(naga::BuiltIn::PointSize)))).collect();
+        if keep.iter().all(|k| *k) {
+            continue;
+        }
+        let kept = members.into_iter().zip(&keep).filter(|(_, k)| **k).map(|(m, _)| m).collect();
+        let name = module.types[old].name.clone();
+        module.types.replace(old, naga::Type { name, inner: TypeInner::Struct { members: kept, span } });
+        retype(&mut ep.function, old, old, Some(&keep));
+    }
+}
+
 fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
     naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all())
         .validate(module)
@@ -129,7 +183,7 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
         return Err(String::from("not SPIR-V: not whole words"));
     }
     let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
-    let words = split::split(&words);
+    let words = relational::lower(&split::split(&words));
     // (transform feedback's: read by xfb::captures, naga refuses them)
     let data: Vec<u8> = xfb::strip(&words).iter().flat_map(|w| w.to_le_bytes()).collect();
     let spv = naga::front::spv::Options { adjust_coordinate_space: !options.keep_coordinate_space, strict_capabilities: false, block_ctx_dump_prefix: None };
@@ -150,6 +204,7 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
     else if xfb::captures(&words).is_some() {
         capture_json = String::from(",\"captures\":true");
     }
+    drop_point_size(&mut module);
     let info = match validate(&module) {
         Ok(info) => info,
         Err(first) => {
