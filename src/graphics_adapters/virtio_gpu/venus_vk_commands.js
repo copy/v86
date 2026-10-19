@@ -8,7 +8,7 @@
 
 import { VX } from "../renderer_protocol.js";
 import { VK_SUCCESS, VK_NOT_READY, VK_TIMEOUT, VK_EVENT_SET, VK_EVENT_RESET, VK_ERROR_FEATURE_NOT_PRESENT,
-    REMAINING } from "./venus_device_info.js";
+    REMAINING, QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM } from "./venus_device_info.js";
 import { lo, hi, range_size } from "./venus_vk_resources.js";
 
 const STYPE_SEMAPHORE_TYPE_CREATE_INFO = 1000207002;
@@ -310,9 +310,11 @@ export const COMMAND_HANDLERS = {
     "vkCreateQueryPool": function(vk, ctx, a)
     {
         const info = a.pCreateInfo, count = info.queryCount;
-        const pool = { type: "query_pool", query_type: info.queryType, count, rid: vk.new_rid(), memory: { rid: vk.new_rid(), size: count * 8 },
-            results: new Float64Array(count), available: new Uint8Array(count) };
-        vk.vx.command(VX.MEMORY_CREATE, [pool.memory.rid, count * 8, 0]);
+        // (transform feedback's: two values a query, the primitives written and needed)
+        const values = info.queryType === QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM ? 2 : 1;
+        const pool = { type: "query_pool", query_type: info.queryType, count, values, rid: vk.new_rid(),
+            memory: { rid: vk.new_rid(), size: count * 8 * values }, results: new Float64Array(count * values), available: new Uint8Array(count) };
+        vk.vx.command(VX.MEMORY_CREATE, [pool.memory.rid, count * 8 * values, 0]);
         vk.vx.command(VX.QUERY_POOL_CREATE, [pool.rid, info.queryType, count]);
         ctx.objects.set(a.pQueryPool, pool);
         a.ret = VK_SUCCESS;
@@ -345,7 +347,7 @@ export const COMMAND_HANDLERS = {
             {
                 const q = a.firstQuery + i, at = i * a.stride, available = pool && pool.available[q];
                 if(!available) all = false;
-                const value = pool ? pool.results[q] : 0;
+                const values = pool ? pool.values : 1, width = a.flags & QUERY_RESULT_64 ? 8 : 4;
                 const write = (offset, v) => {
                     if(a.flags & QUERY_RESULT_64)
                     {
@@ -355,8 +357,8 @@ export const COMMAND_HANDLERS = {
                     }
                     else if(offset + 4 <= out.length) view.setUint32(offset, Math.min(v, 0xFFFFFFFF), true);
                 };
-                if(available) write(at, value);
-                if(a.flags & QUERY_RESULT_WITH_AVAILABILITY) write(at + (a.flags & QUERY_RESULT_64 ? 8 : 4), available ? 1 : 0);
+                if(available) for(let k = 0; k < values; k++) write(at + k * width, pool.results[q * values + k]);
+                if(a.flags & QUERY_RESULT_WITH_AVAILABILITY) write(at + values * width, available ? 1 : 0);
             }
             a.pData = out;
             a.ret = all ? VK_SUCCESS : VK_NOT_READY;
@@ -394,6 +396,8 @@ export function command_state()
         pass: null,
         // the bound descriptor sets, by bind point: group -> [set, dynamic offsets]
         sets: [new Map(), new Map()],
+        // the transform feedback buffers: [memory, offset, size] by binding
+        xfb: [],
     };
 }
 
@@ -863,6 +867,8 @@ export function translate(vk, ctx, commands, state)
                     if(cb.pass && cb.pass.occlusion === pool) vx.command(VX.BEGIN_QUERY, [pool.rid, a.query]);
                     else vk.warn_once("query-outside", "an occlusion query outside of a render pass is 0");
                 }
+                // (transform feedback's: VX counts the primitives of the draws that capture)
+                else if(pool.query_type === QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM) vx.command(VX.BEGIN_QUERY, [pool.rid, a.query]);
                 touch(pool, a.query);
                 break;
             }
@@ -872,6 +878,39 @@ export function translate(vk, ctx, commands, state)
                 const pool = ctx.objects.get(a.queryPool);
                 if(pool && pool.query_type === QUERY_TYPE_OCCLUSION && cb.pass && cb.pass.occlusion === pool)
                     vx.command(VX.END_QUERY, [pool.rid, a.query, pool.memory.rid]);
+                if(pool && pool.query_type === QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM) vx.command(VX.END_QUERY, [pool.rid, a.query, pool.memory.rid]);
+                break;
+            }
+            // Transform feedback (VK_EXT_transform_feedback): the bytes a
+            // capture writes are the GPU's (read back where mapped), and so
+            // are the counters End writes
+            case "vkCmdBindTransformFeedbackBuffersEXT":
+            {
+                for(let i = 0; i < a.bindingCount; i++)
+                {
+                    const offset = Number(a.pOffsets[i]), place = at(ctx, a.pBuffers[i], offset);
+                    const buffer = ctx.objects.get(a.pBuffers[i]);
+                    if(!place || !buffer) continue;
+                    const size = range_size(buffer, offset, a.pSizes ? Number(a.pSizes[i]) : 2 ** 64);
+                    cb.xfb[a.firstBinding + i] = [place[0], place[1], size];
+                    vx.command(VX.XFB_BIND, [a.firstBinding + i, place[0].rid, lo(place[1]), hi(place[1]), lo(size), hi(size)]);
+                }
+                break;
+            }
+            case "vkCmdBeginTransformFeedbackEXT":
+            case "vkCmdEndTransformFeedbackEXT":
+            {
+                const words = [a.firstCounterBuffer, a.counterBufferCount];
+                for(let i = 0; i < a.counterBufferCount; i++)
+                {
+                    const id = a.pCounterBuffers && a.pCounterBuffers[i];
+                    const offset = a.pCounterBufferOffsets ? Number(a.pCounterBufferOffsets[i]) : 0;
+                    const place = id ? at(ctx, id, offset) : null;
+                    words.push(place ? place[0].rid : 0, place ? lo(place[1]) : 0, place ? hi(place[1]) : 0);
+                    if(place && name === "vkCmdEndTransformFeedbackEXT") write(place[0], place[1], 4);
+                }
+                if(name === "vkCmdEndTransformFeedbackEXT") for(const bound of cb.xfb) if(bound) write(bound[0], bound[1], bound[2]);
+                vx.command(name === "vkCmdBeginTransformFeedbackEXT" ? VX.XFB_BEGIN : VX.XFB_END, words);
                 break;
             }
             case "vkCmdWriteTimestamp":
@@ -891,8 +930,9 @@ export function translate(vk, ctx, commands, state)
             {
                 const pool = ctx.objects.get(a.queryPool), dst = at(ctx, a.dstBuffer, a.dstOffset);
                 if(!pool || !dst || !a.queryCount) break;
-                vx.command(VX.COPY_QUERY_RESULTS, [pool.memory.rid, a.firstQuery, a.queryCount, dst[0].rid, lo(dst[1]), hi(dst[1]), a.stride, a.flags]);
-                const size = (a.flags & QUERY_RESULT_64 ? 8 : 4) * (a.flags & QUERY_RESULT_WITH_AVAILABILITY ? 2 : 1);
+                vx.command(VX.COPY_QUERY_RESULTS, [pool.memory.rid, a.firstQuery, a.queryCount, dst[0].rid, lo(dst[1]), hi(dst[1]), a.stride, a.flags,
+                    pool.values]);
+                const size = (a.flags & QUERY_RESULT_64 ? 8 : 4) * (pool.values + (a.flags & QUERY_RESULT_WITH_AVAILABILITY ? 1 : 0));
                 write(dst[0], dst[1], a.stride * (a.queryCount - 1) + size);
                 break;
             }

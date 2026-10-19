@@ -126,6 +126,95 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         bytes = await read(B, 0, 4);
         check(bytes.join() === "255,0,128,255", "RESOLVE_IMAGE: " + bytes.join());
 
+        // a resolve of a region (4x4 from (2, 2)) into an image of another
+        // size (16x16) at (8, 4): the rest of the image keeps its clear
+        const BIG = 8;
+        w.command(VX.TEXTURE_CREATE, [BIG, 37, 1, 16, 16, 1, 1, 1, 1, 0x13, 0]);
+        w.command(VX.BEGIN, []);
+        w.command(VX.CLEAR_IMAGE, [BIG, 1, 0, 1, 0, 1, f32(0), f32(1), f32(0), f32(1)]);
+        w.command(VX.RESOLVE_IMAGE, [MS, 0, 0, 2, 2, BIG, 0, 0, 8, 4, 4, 4, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 64, 0, BIG, 1, 0, 0, 1, 0, 0, 0, 16, 16, 1]);
+        w.command(VX.END, []);
+        bytes = await read(B, 0, 4096);
+        const pixel = (x, y) => bytes.slice(y * 256 + x * 4, y * 256 + x * 4 + 4).join();
+        check(pixel(8, 4) === "255,0,128,255" && pixel(11, 7) === "255,0,128,255", "RESOLVE_IMAGE of a region: " + pixel(8, 4) + " " + pixel(11, 7));
+        check(pixel(7, 4) === "0,255,0,255" && pixel(12, 4) === "0,255,0,255" && pixel(8, 8) === "0,255,0,255",
+            "outside the resolved region: the clear: " + pixel(7, 4) + " " + pixel(12, 4) + " " + pixel(8, 8));
+
+        // Transform feedback (VK_EXT_transform_feedback, vx/naga/src/xfb.rs): the
+        // SPIR-V of this vertex shader (glslc -fshader-stage=vert --target-env=vulkan1.1):
+        //   layout(location = 0) in vec2 a_pos;
+        //   layout(location = 1) in vec4 a_color;   // R8G8B8A8_UNORM
+        //   layout(location = 2) in uint a_id;      // R32_UINT
+        //   layout(set = 0, binding = 0) uniform U { vec4 scale; } u;
+        //   layout(location = 0, xfb_buffer = 0, xfb_offset = 16, xfb_stride = 32) out vec4 v_color;
+        //   layout(location = 1, xfb_buffer = 1, xfb_offset = 0, xfb_stride = 4) out flat uint v_id;
+        //   out gl_PerVertex { layout(xfb_buffer = 0, xfb_offset = 0) vec4 gl_Position; };
+        //   void main() { gl_Position = vec4(a_pos * u.scale.xy, 0.0, 1.0); v_color = a_color;
+        //       v_id = a_id * 10u + uint(gl_VertexIndex) + 100u * uint(gl_InstanceIndex); }
+        // 3 points, 2 instances, rasterizer discard: buffer 0 gets the position
+        // and the color (32 bytes a vertex), buffer 1 the id; End writes the
+        // counters, the query the primitives; a second draw resumes from the
+        // counters and fits 2 of its 3 points into buffer 0's 256 bytes
+        const XFB_SPV = Uint8Array.from(atob("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"), c => c.charCodeAt(0));
+        const SH = 20, PIPE = 21, VB0 = 22, VB1 = 23, UB = 24, XB0 = 25, XB1 = 26, CNT = 27, XRT = 28, XRTV = 29, QP = 30, QPM = 31;
+        for(const [id, size] of [[VB0, 256], [VB1, 256], [UB, 256], [XB0, 256], [XB1, 256], [CNT, 256], [QPM, 256]]) w.command(VX.MEMORY_CREATE, [id, size, 0]);
+        w.command(VX.MEMORY_WRITE, [VB0, 0, 0, 24], new Uint8Array(Float32Array.from([1, 2, 3, 4, 5, 6]).buffer));
+        const vb1 = new DataView(new ArrayBuffer(24));
+        [[255, 0, 128, 51, 7], [0, 255, 0, 255, 8], [51, 102, 153, 204, 9]].forEach(([r, g, bl, a, id], i) => {
+            vb1.setUint8(i * 8, r); vb1.setUint8(i * 8 + 1, g); vb1.setUint8(i * 8 + 2, bl); vb1.setUint8(i * 8 + 3, a); vb1.setUint32(i * 8 + 4, id, true);
+        });
+        w.command(VX.MEMORY_WRITE, [VB1, 0, 0, 24], new Uint8Array(vb1.buffer));
+        w.command(VX.MEMORY_WRITE, [UB, 0, 0, 16], new Uint8Array(Float32Array.from([0.5, 2, 0, 0]).buffer));
+        w.command(VX.TEXTURE_CREATE, [XRT, 37, 1, 8, 8, 1, 1, 1, 1, 0x13, 0]);
+        w.command(VX.VIEW_CREATE, [XRTV, XRT, 1, 37, 1, 0, 1, 0, 1, 0, 0, 0, 0]);
+        w.command(VX.QUERY_POOL_CREATE, [QP, 1000028004, 1]);
+        w.command(VX.SHADER_CREATE, [SH, XFB_SPV.length], XFB_SPV);
+        const json = o => new TextEncoder().encode(JSON.stringify(o));
+        w.command(VX.PIPELINE_CREATE, [PIPE], json({ kind: "graphics", stages: [{ shader: SH, stage: 1, entry: "main", constants: {} }],
+            buffers: [{ binding: 0, stride: 8, rate: 0 }, { binding: 1, stride: 8, rate: 0 }],
+            attributes: [{ location: 0, binding: 0, format: 103, offset: 0 }, { location: 1, binding: 1, format: 37, offset: 0 }, { location: 2, binding: 1, format: 98, offset: 4 }],
+            topology: 0, restart: false, cull: 0, front: 0, polygon: 0, depth_clamp: false, discard: true, depth_bias: null, samples: 1, sample_mask: 0xFFFFFFFF,
+            alpha_to_coverage: false, depth: null, depth_format: 0, targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 1, push_size: 0 }));
+        const xfb_draw = (draw, resume) => {
+            w.command(VX.BEGIN_PASS, [], json({ colors: [{ view: XRTV, load: 1, store: 0, clear: [0, 0, 0, 0], resolve: 0 }], depth: null, width: 8, height: 8 }));
+            w.command(VX.BIND_PIPELINE, [PIPE]);
+            w.command(VX.SET_BIND_GROUP, [0, 1, 0, 0, 6, UB, 0, 0, 0, 16]);
+            w.command(VX.SET_VERTEX_BUFFER, [0, VB0, 0, 0, 256, 0]);
+            w.command(VX.SET_VERTEX_BUFFER, [1, VB1, 0, 0, 256, 0]);
+            w.command(VX.XFB_BIND, [0, XB0, 0, 0, 256, 0]);
+            w.command(VX.XFB_BIND, [1, XB1, 0, 0, 256, 0]);
+            w.command(VX.BEGIN_QUERY, [QP, 0]);
+            w.command(VX.XFB_BEGIN, resume ? [0, 2, CNT, 0, 0, CNT, 4, 0] : [0, 0]);
+            w.command(VX.DRAW, draw);
+            w.command(VX.XFB_END, [0, 2, CNT, 0, 0, CNT, 4, 0]);
+            w.command(VX.END_QUERY, [QP, 0, QPM]);
+            w.command(VX.END_PASS, []);
+        };
+        w.command(VX.BEGIN, []);
+        xfb_draw([3, 2, 0, 0], false);
+        w.command(VX.END, []);
+        const xb0 = new Float32Array((await read(XB0, 0, 256)).buffer), xb1 = new Uint32Array((await read(XB1, 0, 256)).buffer);
+        const cnt = new Uint32Array((await read(CNT, 0, 8)).buffer), qp = new Uint32Array((await read(QPM, 0, 16)).buffer);
+        const near = (a, b) => Math.abs(a - b) < 1e-5;
+        const positions = [0, 1, 2, 3, 4, 5].map(k => Array.from(xb0.subarray(k * 8, k * 8 + 4)));
+        check(positions.every((p, k) => near(p[0], [0.5, 1.5, 2.5][k % 3]) && near(p[1], [4, 8, 12][k % 3]) && p[2] === 0 && p[3] === 1),
+            "transform feedback: the positions, instance by instance: " + JSON.stringify(positions) + " (" + renderer.vx.warnings.join("; ") + ")");
+        check(near(xb0[4], 1) && near(xb0[5], 0) && near(xb0[6], 128 / 255) && near(xb0[7], 51 / 255) && near(xb0[8 + 5], 1),
+            "transform feedback: the colors (R8G8B8A8_UNORM): " + Array.from(xb0.subarray(4, 8)));
+        check(Array.from(xb1.subarray(0, 6)).join() === "70,81,92,170,181,192", "transform feedback: the ids (vertex and instance indices): " + Array.from(xb1.subarray(0, 6)));
+        check(cnt[0] === 192 && cnt[1] === 24, "transform feedback: the counters End wrote: " + Array.from(cnt));
+        check(qp[0] === 6 && qp[2] === 6, "transform feedback: the query, 6 primitives written of 6: " + Array.from(qp));
+        w.command(VX.BEGIN, []);
+        xfb_draw([3, 1, 0, 1], true);
+        w.command(VX.END, []);
+        const again = new Uint32Array((await read(XB1, 0, 64)).buffer), cnt2 = new Uint32Array((await read(CNT, 0, 8)).buffer);
+        const qp2 = new Uint32Array((await read(QPM, 0, 16)).buffer);
+        check(Array.from(again.subarray(6, 9)).join() === "170,181,0" && cnt2[0] === 256 && cnt2[1] === 32 && qp2[0] === 2 && qp2[2] === 3,
+            "transform feedback: resumed from the counters, 2 of 3 points fit: " + [Array.from(again.subarray(6, 9)), Array.from(cnt2), Array.from(qp2)].join(" "));
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

@@ -328,6 +328,15 @@ const count = reply.pPropertyCount;
 reply = call("vkEnumerateDeviceExtensionProperties", { physicalDevice: PHYSICAL_DEVICE, pLayerName: null, pPropertyCount: count,
     pProperties: new Array(count).fill(0).map(() => ({})) });
 assert.ok(reply.pProperties.some(p => p.extensionName === "VK_KHR_driver_properties"));
+// transform feedback (VX captures in a compute pass), and more uniform buffers a stage than WebGPU's 12 (VX makes the rest storage)
+assert.ok(reply.pProperties.some(p => p.extensionName === "VK_EXT_transform_feedback"), "VK_EXT_transform_feedback");
+reply = call("vkGetPhysicalDeviceFeatures2", { physicalDevice: PHYSICAL_DEVICE, pFeatures: { sType: 1000059000, pNext: { sType: 1000028000 } } });
+assert.deepEqual([reply.pFeatures.pNext.transformFeedback, reply.pFeatures.pNext.geometryStreams], [1, 0], "VkPhysicalDeviceTransformFeedbackFeaturesEXT");
+reply = call("vkGetPhysicalDeviceProperties2", { physicalDevice: PHYSICAL_DEVICE, pProperties: { sType: 1000059001, pNext: { sType: 1000028001 } } });
+const xfb_properties = reply.pProperties.pNext;
+assert.deepEqual([xfb_properties.maxTransformFeedbackStreams, xfb_properties.maxTransformFeedbackBuffers, xfb_properties.transformFeedbackQueries], [1, 4, 1],
+    "VkPhysicalDeviceTransformFeedbackPropertiesEXT");
+assert.equal(reply.pProperties.properties.limits.maxPerStageDescriptorUniformBuffers, 14, "14 uniform buffers a stage");
 console.log("PASS: the instance and physical device queries");
 
 // A command the model does not do yet: an error, the ring goes on
@@ -675,6 +684,32 @@ console.log("PASS: ring ids, exact; a snapshot's rounded ids");
     assert.ok(!gpu.held && gpu.pending.length === 0);
 }
 console.log("PASS: a snapshot while requests wait, restored over a machine whose requests wait");
+
+// Transform feedback: a command buffer's binds, begin and end are VX's
+// XFB ops; a stream query pool keeps two values a query, and its query is
+// one VX counts (BEGIN_QUERY and END_QUERY of the pool)
+{
+    const CB2 = 0x3020, XQ = 0x3021, XBUF = 0x3022;
+    ring_write(encode(["vkCreateBuffer", { device: DEVICE, pCreateInfo: { sType: 12, size: 1024, usage: 0x800 }, pBuffer: XBUF }],
+        ["vkBindBufferMemory", { device: DEVICE, buffer: XBUF, memory: MEM, memoryOffset: 0 }],
+        ["vkCreateQueryPool", { device: DEVICE, pCreateInfo: { sType: 11, queryType: 1000028004, queryCount: 1 }, pQueryPool: XQ }],
+        ["vkAllocateCommandBuffers", { device: DEVICE, pAllocateInfo: { sType: 40, commandPool: POOL, level: 0, commandBufferCount: 1 }, pCommandBuffers: [CB2] }],
+        ["vkBeginCommandBuffer", { commandBuffer: CB2, pBeginInfo: { sType: 42 } }],
+        ["vkCmdBeginQueryIndexedEXT", { commandBuffer: CB2, queryPool: XQ, query: 0, flags: 0, index: 0 }],
+        ["vkCmdBindTransformFeedbackBuffersEXT", { commandBuffer: CB2, firstBinding: 0, bindingCount: 1, pBuffers: [XBUF], pOffsets: [256], pSizes: [512] }],
+        ["vkCmdBeginTransformFeedbackEXT", { commandBuffer: CB2, firstCounterBuffer: 0, counterBufferCount: 1, pCounterBuffers: [XBUF], pCounterBufferOffsets: [0] }],
+        ["vkCmdEndTransformFeedbackEXT", { commandBuffer: CB2, firstCounterBuffer: 0, counterBufferCount: 1, pCounterBuffers: [XBUF], pCounterBufferOffsets: [0] }],
+        ["vkCmdEndQueryIndexedEXT", { commandBuffer: CB2, queryPool: XQ, query: 0, index: 0 }],
+        ["vkEndCommandBuffer", { commandBuffer: CB2 }]));
+    const pool = gpu.venus.contexts.get(CTX).objects.get(XQ);
+    assert.deepEqual([pool.values, pool.memory.size], [2, 16], "a stream query pool: two u64 a query");
+    vx_log.length = 0;
+    ring_write(encode(["vkQueueSubmit", { queue: QUEUE, submitCount: 1, pSubmits: [{ sType: 4, waitSemaphoreCount: 0, pWaitSemaphores: null,
+        pWaitDstStageMask: null, commandBufferCount: 1, pCommandBuffers: [CB2], signalSemaphoreCount: 0, pSignalSemaphores: null }], fence: 0 }]));
+    const ops = vx_log.filter(op => [VX.BEGIN_QUERY, VX.XFB_BIND, VX.XFB_BEGIN, VX.XFB_END, VX.END_QUERY].includes(op));
+    assert.deepEqual(ops, [VX.BEGIN_QUERY, VX.XFB_BIND, VX.XFB_BEGIN, VX.XFB_END, VX.END_QUERY], "the XFB ops in order: " + ops);
+}
+console.log("PASS: transform feedback's commands and queries");
 
 // Destroying the context
 assert.equal(command(0x0201), OK, "CTX_DESTROY");

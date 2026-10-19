@@ -540,11 +540,17 @@ VulkanModel.prototype.read_queries = function(queries)
     for(const [pool, set] of queries)
     {
         const list = [...set].sort((p, q) => p - q), first = list[0], count = list[list.length - 1] - first + 1;
-        this.read(pool.memory, first * 8, count * 8, data => {
-            const view = data && data.length >= count * 8 ? new DataView(data.buffer, data.byteOffset, data.length) : null;
+        // (values a query: two for transform feedback's)
+        const values = pool.values || 1, bytes = 8 * values;
+        this.read(pool.memory, first * bytes, count * bytes, data => {
+            const view = data && data.length >= count * bytes ? new DataView(data.buffer, data.byteOffset, data.length) : null;
             for(const q of list)
             {
-                if(view) pool.results[q] = view.getUint32((q - first) * 8, true) + view.getUint32((q - first) * 8 + 4, true) * 0x100000000;
+                for(let k = 0; k < values && view; k++)
+                {
+                    const at = (q - first) * bytes + 8 * k;
+                    pool.results[q * values + k] = view.getUint32(at, true) + view.getUint32(at + 4, true) * 0x100000000;
+                }
                 pool.available[q] = 1;
             }
         });

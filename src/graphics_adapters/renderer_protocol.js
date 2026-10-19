@@ -96,6 +96,11 @@ export const VX = {
     TEXTURE_WRITE: 42,      // texture, aspect, mip, layer or slice, length, then the texels (rows packed): a snapshot's contents
     TEXTURE_IMPORT: 43,     // texture, virtio-gpu resource id: the image becomes the texture of that resource's GX surface
                             // (a gralloc buffer imported by Venus: VkImportMemoryResourceInfoMESA), which GX keeps owning
+    // transform feedback (VK_EXT_transform_feedback): a draw in an active one
+    // runs its vertex shader as a compute shader first (vx/naga/src/xfb.rs)
+    XFB_BIND: 44,           // buffer, memory, offset (64), size (64)
+    XFB_BEGIN: 45,          // first counter, count, then per counter buffer: memory (0: none), offset (64)
+    XFB_END: 46,            // as XFB_BEGIN: the bytes captured into each buffer go to its counter (u32)
 };
 
 /**

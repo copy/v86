@@ -25,8 +25,11 @@
         SET_BLEND_CONSTANTS: 29, SET_STENCIL_REFERENCE: 30, DRAW: 31, DRAW_INDEXED: 32, DRAW_INDIRECT: 33,
         DISPATCH: 34, DISPATCH_INDIRECT: 35, CLEAR_ATTACHMENTS: 36,
         QUERY_POOL_CREATE: 37, BEGIN_QUERY: 38, END_QUERY: 39, COPY_QUERY_RESULTS: 40, TEXTURE_READ: 41, TEXTURE_WRITE: 42,
-        TEXTURE_IMPORT: 43,
+        TEXTURE_IMPORT: 43, XFB_BIND: 44, XFB_BEGIN: 45, XFB_END: 46,
     };
+    // VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT; VkPrimitiveTopology's vertices a primitive (lists only)
+    const QUERY_XFB = 1000028004;
+    const LIST_VERTICES = { 0: 1, 1: 2, 3: 3 };
     // where the bundle is: naga's wasm is beside it
     const SCRIPT = typeof document !== "undefined" && document.currentScript ? document.currentScript.src : null;
     // Vulkan's enums, as WebGPU's
@@ -38,6 +41,9 @@
     const STENCIL_OP = ["keep", "zero", "replace", "increment-clamp", "decrement-clamp", "invert", "increment-wrap", "decrement-wrap"];
     // the group and binding of push constants (vx/naga): after the sets, or in the last group
     const PUSH_BINDING = 998;
+    // (WebGPU's uniform buffers a stage, the default limit; the rest a stage
+    // uses are read-only storage buffers: createPipeline)
+    const MAX_UNIFORMS_PER_STAGE = 12;
     /** the attachment of passes and pipelines without any (WebGPU needs one) */
     const PLACEHOLDER_FORMAT = "r8unorm";
     const pushGroup = setCount => setCount < 4 ? setCount : 3;
@@ -82,6 +88,9 @@
             this.queryResolves = [];
             this.activeQuery = -1;
             this.ones = null;
+            // transform feedback: each counter's bytes (memory:offset -> value), as End wrote it; the active query
+            this.xfbCounters = new Map();
+            this.xfbQuery = null;
             this.resetState();
         }
 
@@ -94,6 +103,8 @@
                 push: new Uint8Array(256), pushVersion: 0,
                 viewport: null, scissor: null, blend: null, stencilReference: 0, dynamicDirty: true,
                 passWidth: 0, passHeight: 0,
+                // transform feedback: the buffers ({ memory, offset, size } by binding), whether it is active, the bytes captured into each
+                xfb: { buffers: [], active: false, written: [0, 0, 0, 0] },
             };
         }
 
@@ -234,12 +245,23 @@
                 case VX.CLEAR_ATTACHMENTS: return this.clearAttachments(this.json(b, 0));
                 case VX.QUERY_POOL_CREATE:
                     if (b[1] === 0) this.objects.set(b[0], { kind: "queries", querySet: this.device.createQuerySet({ type: "occlusion", count: Math.max(1, b[2]) }) });
+                    // (transform feedback's: the captures count the primitives)
+                    if (b[1] === QUERY_XFB) this.objects.set(b[0], { kind: "queries", xfb: true, count: b[2] });
                     return;
                 case VX.BEGIN_QUERY:
+                    if (this.objects.get(b[0]) && this.objects.get(b[0]).xfb) { this.xfbQuery = { pool: b[0], query: b[1], written: 0, needed: 0 }; return; }
                     if (this.pass && this.passInfo.occlusion === b[0]) { this.pass.beginOcclusionQuery(b[1]); this.activeQuery = b[1]; }
                     else this.warn("query-outside", "an occlusion query outside of a render pass, or of another pool than the pass's");
                     return;
                 case VX.END_QUERY: {
+                    if (this.xfbQuery && this.xfbQuery.pool === b[0] && this.xfbQuery.query === b[1]) {
+                        // (two u64, primitives written and needed; the queue's write goes before this encoder)
+                        const q = this.xfbQuery, memory = this.memory(b[2]);
+                        this.xfbQuery = null;
+                        if (memory && b[1] * 16 + 16 <= memory.buffer.size) this.device.queue.writeBuffer(memory.buffer, b[1] * 16,
+                            new Uint32Array([q.written >>> 0, Math.floor(q.written / 0x100000000), q.needed >>> 0, Math.floor(q.needed / 0x100000000)]));
+                        return;
+                    }
                     if (!this.pass || this.activeQuery !== b[1]) return;
                     this.pass.endOcclusionQuery();
                     this.activeQuery = -1;
@@ -251,6 +273,11 @@
                 case VX.TEXTURE_READ: return this.readTexture(b);
                 case VX.TEXTURE_WRITE: return this.writeTexture(b);
                 case VX.TEXTURE_IMPORT: return this.importTexture(b);
+                case VX.XFB_BIND:
+                    this.state.xfb.buffers[b[0] & 3] = { memory: b[1], offset: b[2] + b[3] * 0x100000000, size: b[4] + b[5] * 0x100000000 };
+                    return;
+                case VX.XFB_BEGIN: return this.xfbBegin(b, true);
+                case VX.XFB_END: return this.xfbBegin(b, false);
             }
             this.warn("op" + op, "unknown VX op " + op);
         }
@@ -283,9 +310,14 @@
             });
         }
 
-        /** vkCmdCopyQueryPoolResults: the u64 results, or their low halves, and availability (1: run in order, they are done) */
+        /**
+         * vkCmdCopyQueryPoolResults: the u64 results (`values` a query: two
+         * for transform feedback's), or their low halves, and availability
+         * (1: run in order, they are done)
+         */
         copyQueryResults(b) {
             const [from, first, count, to, low, high, stride, flags] = b;
+            const values = b[8] || 1;
             const src = this.memory(from), dst = this.memory(to);
             if (!src || !dst) return;
             const offset = low + high * 0x100000000, size = flags & 1 ? 8 : 4;
@@ -297,9 +329,9 @@
             const encoder = this.encoder();
             for (let i = 0; i < count; i++) {
                 const at = offset + i * stride;
-                if (at + size > dst.buffer.size) break;
-                encoder.copyBufferToBuffer(src.buffer, (first + i) * 8, dst.buffer, at, size);
-                if (flags & 4 && at + 2 * size <= dst.buffer.size) encoder.copyBufferToBuffer(this.ones, 0, dst.buffer, at + size, size);
+                if (at + values * size > dst.buffer.size) break;
+                for (let k = 0; k < values; k++) encoder.copyBufferToBuffer(src.buffer, ((first + i) * values + k) * 8, dst.buffer, at + k * size, size);
+                if (flags & 4 && at + (values + 1) * size <= dst.buffer.size) encoder.copyBufferToBuffer(this.ones, 0, dst.buffer, at + values * size, size);
             }
         }
 
@@ -713,14 +745,26 @@
             const [sid, smip, slayer, sx, sy, did, dmip, dlayer, dx, dy, w, h, layers] = b;
             const s = this.texture(sid), t = this.texture(did);
             if (!s || !t) return;
-            if (sx || sy || dx || dy || w !== Math.max(1, s.width >> smip) || h !== Math.max(1, s.height >> smip)) {
-                this.warn("resolve-region", "resolves of part of an image are of all of it");
+            const sw = Math.max(1, s.width >> smip), sh = Math.max(1, s.height >> smip);
+            const tw = Math.max(1, t.width >> dmip), th = Math.max(1, t.height >> dmip);
+            // (a render pass resolves all of an attachment into one of its
+            // size: a region, or an image of another size, is resolved whole
+            // into a single-sample copy, and the region copied from there)
+            const whole = !sx && !sy && !dx && !dy && w === sw && h === sh && tw === sw && th === sh;
+            let single = null;
+            if (!whole) {
+                single = this.device.createTexture({ size: [sw, sh, 1], format: s.f.gpu, usage: TEXTURE.RENDER_ATTACHMENT | TEXTURE.COPY_SRC });
+                this.transient.push(single);
             }
             for (let i = 0; i < layers; i++) {
+                const resolveTarget = whole ? this.attachment(t, dmip, dlayer + i) : this.view(single, { dimension: "2d" });
                 this.encoder().beginRenderPass({ colorAttachments: [{
-                    view: this.attachment(s, smip, slayer + i), resolveTarget: this.attachment(t, dmip, dlayer + i),
-                    loadOp: "load", storeOp: "store",
+                    view: this.attachment(s, smip, slayer + i), resolveTarget, loadOp: "load", storeOp: "store",
                 }] }).end();
+                if (!whole) {
+                    this.encoder().copyTextureToTexture({ texture: single, mipLevel: 0, origin: [sx, sy, 0] },
+                        { texture: t.texture, mipLevel: dmip, origin: [dx, dy, dlayer + i] }, [w, h, 1]);
+                }
             }
         }
 
@@ -809,31 +853,36 @@
         }
 
         /** a shader module's translation for a pipeline layout's push constant group */
-        async translate(shader, push) {
+        async translate(shader, push, storage = []) {
             await this.loadNaga();
-            return this.translateNow(shader, push, false);
+            return this.translateNow(shader, push, false, storage);
         }
 
         /**
          * The same, naga loaded; `keep`: Vulkan's clip space kept, for draws
-         * with a viewport of a negative height (flippedPipeline)
+         * with a viewport of a negative height (flippedPipeline); `storage`:
+         * the uniform buffers (set << 16 | binding) that are read-only
+         * storage buffers in it (spilledUniforms)
          */
-        translateNow(shader, push, keep) {
-            const key = String(push) + (keep ? ":keep" : "");
+        translateNow(shader, push, keep, storage = []) {
+            const key = String(push) + (keep ? ":keep" : "") + (storage.length ? ":" + storage.join(",") : "");
             let t = shader.translations.get(key);
             if (t) return t;
             const naga = this.naga;
             const input = naga.vx_alloc(shader.spirv.length);
             new Uint8Array(naga.memory.buffer, input, shader.spirv.length).set(shader.spirv);
+            const list = storage.length ? naga.vx_alloc(storage.length * 4) : 0;
+            if (list) new Uint32Array(naga.memory.buffer, list, storage.length).set(storage);
             let out;
             try {
-                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING, keep ? 1 : 0);
+                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING, keep ? 1 : 0, list, storage.length);
             } catch (error) {
                 // (a panic: a fresh instance next time)
                 this.naga = null;
                 throw error;
             }
             naga.vx_free(input, shader.spirv.length);
+            if (list) naga.vx_free(list, storage.length * 4);
             const length = new DataView(naga.memory.buffer).getUint32(out, true);
             const text = new TextDecoder().decode(new Uint8Array(naga.memory.buffer, out + 4, length));
             naga.vx_free(out, length + 4);
@@ -859,21 +908,49 @@
             return { module: t.module, entryPoint: entry ? entry.name : stage.entry, constants, entry };
         }
 
+        /**
+         * The uniform buffers a pipeline's stages make read-only storage
+         * buffers: WebGPU has 12 uniform buffers a stage, the device reports
+         * more (venus_device_info.js); in each stage with more, those after
+         * its first 12 (by set and binding), the same in every stage that
+         * has them (an automatic layout merges the stages' bindings)
+         * @return {!Array<number>} set << 16 | binding, sorted
+         */
+        spilledUniforms(translations) {
+            const spilled = new Set();
+            for (const [t, stage] of translations) {
+                const entry = t.entries.find(e => e.name === stage.entry) || t.entries[0];
+                const uniforms = (entry ? entry.bindings : []).filter(b => b[2] === "uniform").map(([group, binding]) => group << 16 | binding >> 1)
+                    .sort((a, b) => a - b);
+                for (const key of uniforms.slice(MAX_UNIFORMS_PER_STAGE)) spilled.add(key);
+            }
+            return [...spilled].sort((a, b) => a - b);
+        }
+
         async createPipeline(id, d) {
             const push = pushGroup(d.set_count);
             const p = { kind: "pipeline", desc: d, compute: d.kind === "compute", gpu: null, groups: new Map(), push,
-                bindGroups: new Map(), error: null };
+                bindGroups: new Map(), error: null, storage: [] };
             this.objects.set(id, p);
             this.stats.pipelines++;
             try {
-                const stages = [];
-                for (const stage of d.stages) {
+                const shaders = d.stages.map(stage => {
                     const shader = this.objects.get(stage.shader);
                     if (!shader) throw new Error("no shader " + stage.shader);
-                    const t = await this.translate(shader, push);
-                    if (t.error) throw new Error("shader: " + t.error);
-                    stages.push([stage.stage, this.stageState(t, stage)]);
+                    return shader;
+                });
+                let translations = [];
+                for (const [i, stage] of d.stages.entries()) translations.push([await this.translate(shaders[i], push), stage]);
+                for (const [t] of translations) if (t.error) throw new Error("shader: " + t.error);
+                // (more uniform buffers than a stage has: some are storage, every stage translated so)
+                p.storage = this.spilledUniforms(translations);
+                if (p.storage.length) {
+                    this.stats.spilledUniforms = (this.stats.spilledUniforms || 0) + 1;
+                    translations = [];
+                    for (const [i, stage] of d.stages.entries()) translations.push([await this.translate(shaders[i], push, p.storage), stage]);
+                    for (const [t] of translations) if (t.error) throw new Error("shader: " + t.error);
                 }
+                const stages = translations.map(([t, stage]) => [stage.stage, this.stageState(t, stage)]);
                 // the bindings the stages use, by group
                 for (const [, st] of stages) {
                     for (const [group, binding, kind] of st.entry ? st.entry.bindings : []) {
@@ -994,6 +1071,8 @@
 
         beginPass(d) {
             this.endPasses();
+            // (a capture's compute pass ends it, and it begins again: resumePass)
+            this.passDesc = d;
             const colorAttachments = d.colors.map(c => {
                 if (!c) return null;
                 const v = this.attachmentOf(c.view);
@@ -1111,7 +1190,7 @@
             if (p.flipped !== undefined) return p.flipped;
             p.flipped = null;
             try {
-                const t = this.translateNow(p.vertexSource.shader, p.push, true);
+                const t = this.translateNow(p.vertexSource.shader, p.push, true, p.storage);
                 if (t.error) throw new Error("shader: " + t.error);
                 const st = this.stageState(t, p.vertexSource.stage);
                 const gpu = this.device.createRenderPipeline(Object.assign({}, p.descriptor, {
@@ -1128,6 +1207,11 @@
         // Draws and dispatches
 
         draw(b, kind) {
+            // (transform feedback: what the draw's vertices capture, before the draw: a pass of its own)
+            if (this.state.xfb.active && this.state.graphics && this.state.graphics.gpu) {
+                if (kind === 0) this.capture(this.state.graphics, b);
+                else this.warn("xfb-indexed", "indexed and indirect draws capture nothing (GL ES 3.0 has none)");
+            }
             const p = this.state.graphics, pass = this.pass;
             if (!pass || !p || !p.gpu) {
                 if (p && p.error) this.warn("draw-pipeline", "draws with a failed pipeline are skipped");
@@ -1185,6 +1269,167 @@
                     else pass.drawIndirect(m.buffer, offset + i * b[4]);
                 }
             }
+        }
+
+        // ------------------------------------------------------------------
+        // Transform feedback (VK_EXT_transform_feedback): WebGPU's vertex
+        // stage cannot write storage buffers, so a draw that captures runs
+        // its vertex shader as a compute shader first (vx/naga/src/xfb.rs),
+        // in a compute pass between two halves of the render pass, into
+        // scratch buffers copied where the transform feedback buffers are
+        // (a vertex buffer and a capture buffer may be one memory, which a
+        // dispatch cannot have as storage both read and written). The
+        // primitives that fit are counted here (GL ES 3.0 captures draws of
+        // lists, not indexed nor indirect): so are the counters and queries.
+
+        /** XFB_BEGIN (`begin`) or XFB_END: the bytes captured from each counter (End: into it) */
+        xfbBegin(b, begin) {
+            const x = this.state.xfb, first = b[0], count = b[1];
+            if (begin) { x.active = true; x.written = [0, 0, 0, 0]; }
+            for (let i = 0; i < count; i++) {
+                const rid = b[2 + 3 * i], offset = b[3 + 3 * i] + b[4 + 3 * i] * 0x100000000, slot = first + i;
+                if (!rid || slot > 3) continue;
+                const key = rid + ":" + offset;
+                if (begin) { x.written[slot] = this.xfbCounters.get(key) || 0; continue; }
+                this.xfbCounters.set(key, x.written[slot]);
+                const m = this.memory(rid);
+                if (m && offset + 4 <= m.buffer.size) this.device.queue.writeBuffer(m.buffer, offset, new Uint32Array([x.written[slot]]));
+            }
+            if (!begin) x.active = false;
+        }
+
+        /** a capturing draw's compute pipeline (made at its first draw), or null */
+        xfbPipeline(p) {
+            if (p.xfb !== undefined) return p.xfb;
+            p.xfb = null;
+            try {
+                const vs = p.vertexSource, d = p.desc;
+                // (its own resources in a group the vertex shader does not use)
+                const group = [0, 1, 2, 3].find(g => !p.groups.has(g));
+                if (group === undefined) throw new Error("the vertex shader uses every bind group");
+                const words = [group, d.attributes.length];
+                for (const a of d.attributes) words.push(a.location, a.binding, a.format, a.offset);
+                words.push(d.buffers.length);
+                for (const v of d.buffers) words.push(v.binding, v.stride, v.rate ? 1 : 0);
+                const t = this.translateXfb(vs.shader, p.push, p.storage, words);
+                if (t.error) throw new Error(t.error);
+                const st = this.stageState(t, vs.stage);
+                const module = this.device.createShaderModule({ code: "diagnostic(off, derivative_uniformity);\n" + t.wgsl });
+                const gpu = this.device.createComputePipeline({ layout: "auto", compute: { module, entryPoint: "vx_xfb", constants: st.constants } });
+                const groups = new Map();
+                for (const [g, binding, kind] of st.entry ? st.entry.bindings : []) {
+                    if (!groups.has(g)) groups.set(g, new Map());
+                    groups.get(g).set(binding, kind);
+                }
+                p.xfb = { kind: "pipeline", gpu, groups, push: p.push, bindGroups: new Map(), group, strides: t.xfb.strides, buffers: t.xfb.buffers,
+                    slots: t.xfb.slots };
+            } catch (error) {
+                this.warn("xfb:" + error.message, "a capturing draw's compute shader failed: " + error.message);
+            }
+            return p.xfb;
+        }
+
+        /** The vertices of draw `b` (vertices, instances, first vertex, first instance) captured */
+        capture(p, b) {
+            const x = this.state.xfb;
+            const vertices = LIST_VERTICES[p.desc.topology];
+            if (!vertices) { this.warn("xfb-topology", "captures of strips and fans are not done (GL ES 3.0 captures lists)"); return; }
+            const c = this.xfbPipeline(p);
+            if (!c) return;
+            const [count, instances, firstVertex, firstInstance] = b;
+            const primitives = Math.floor(count / vertices), needed = primitives * instances;
+            // the primitives that fit in every buffer the shader captures into
+            let fit = needed;
+            for (const buffer of c.buffers) {
+                const bound = x.buffers[buffer], stride = c.strides[buffer];
+                if (!bound || !stride) { fit = 0; break; }
+                fit = Math.min(fit, Math.max(0, Math.floor((bound.size - x.written[buffer]) / (stride * vertices))));
+            }
+            if (this.xfbQuery) { this.xfbQuery.written += fit; this.xfbQuery.needed += needed; }
+            const limit = fit * vertices;
+            if (!limit) return;
+            this.stats.captures = (this.stats.captures || 0) + 1;
+            if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
+            const groups = [];
+            for (const group of c.groups.keys()) {
+                const bg = this.bindGroup(c, 0, group);
+                if (!bg) return;
+                groups.push([group, bg]);
+            }
+            // the parameters (VxXfbParams), the vertex buffers' memories, the scratch buffers
+            const params = new Uint32Array(20);
+            params.set([firstVertex, primitives * vertices, firstInstance, instances, 0, limit]);
+            const entries = [];
+            for (const slot of c.slots) {
+                const v = this.state.vertex[slot], m = v && this.memory(v.memory);
+                if (!m) { this.warn("xfb-vertex", "a capture without its vertex buffer"); return; }
+                params[12 + slot] = v.offset;
+                entries.push({ binding: 961 + slot, resource: { buffer: m.buffer } });
+            }
+            const uniform = this.device.createBuffer({ size: params.byteLength, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+            this.transient.push(uniform);
+            this.device.queue.writeBuffer(uniform, 0, params);
+            entries.push({ binding: 960, resource: { buffer: uniform } });
+            const scratch = [];
+            for (const buffer of c.buffers) {
+                const bytes = limit * c.strides[buffer];
+                const s = this.scratch(bytes, BUFFER.STORAGE | BUFFER.COPY_SRC);
+                scratch.push([buffer, s, bytes]);
+                entries.push({ binding: 970 + buffer, resource: { buffer: s } });
+            }
+            groups.push([c.group, this.device.createBindGroup({ layout: c.gpu.getBindGroupLayout(c.group), entries })]);
+            // between the halves of the render pass
+            const resume = !!this.pass;
+            this.endPasses();
+            const encoder = this.encoder();
+            const pass = encoder.beginComputePass();
+            pass.setPipeline(c.gpu);
+            for (const [group, bg] of groups) pass.setBindGroup(group, bg);
+            pass.dispatchWorkgroups(Math.ceil(limit / 64));
+            pass.end();
+            for (const [buffer, s, bytes] of scratch) {
+                const bound = x.buffers[buffer], m = this.memory(bound.memory);
+                if (m) encoder.copyBufferToBuffer(s, 0, m.buffer, bound.offset + x.written[buffer], Math.min(bytes, m.buffer.size - bound.offset - x.written[buffer]));
+                x.written[buffer] += bytes;
+            }
+            if (resume) this.resumePass();
+        }
+
+        /** The render pass again after a capture's compute pass: as it was begun, its attachments loaded */
+        resumePass() {
+            const d = JSON.parse(JSON.stringify(this.passDesc));
+            for (const c of d.colors) if (c) { if (c.store === 1) this.warn("xfb-discard", "a capture in a pass whose attachments it discards"); c.load = 0; }
+            if (d.depth) { d.depth.load = 0; d.depth.stencil_load = 0; }
+            // (its occlusion queries go on in no pass: an occlusion query across a capture counts its first half)
+            d.occlusion = 0;
+            const pipeline = this.state.graphics;
+            this.beginPass(d);
+            this.state.graphics = pipeline;
+        }
+
+        /** The compute shader of a capturing draw (vx_translate_xfb), naga loaded */
+        translateXfb(shader, push, storage, words) {
+            const naga = this.naga;
+            const input = naga.vx_alloc(shader.spirv.length);
+            new Uint8Array(naga.memory.buffer, input, shader.spirv.length).set(shader.spirv);
+            const list = storage.length ? naga.vx_alloc(storage.length * 4) : 0;
+            if (list) new Uint32Array(naga.memory.buffer, list, storage.length).set(storage);
+            const desc = naga.vx_alloc(words.length * 4);
+            new Uint32Array(naga.memory.buffer, desc, words.length).set(words);
+            let out;
+            try {
+                out = naga.vx_translate_xfb(input, shader.spirv.length, push, PUSH_BINDING, list, storage.length, desc, words.length);
+            } catch (error) {
+                this.naga = null;
+                throw error;
+            }
+            naga.vx_free(input, shader.spirv.length);
+            if (list) naga.vx_free(list, storage.length * 4);
+            naga.vx_free(desc, words.length * 4);
+            const length = new DataView(naga.memory.buffer).getUint32(out, true);
+            const text = new TextDecoder().decode(new Uint8Array(naga.memory.buffer, out + 4, length));
+            naga.vx_free(out, length + 4);
+            return JSON.parse(text);
         }
 
         /** push constants into the push buffer, before the pass they are for (a copy is not in a pass) */

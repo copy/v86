@@ -91,7 +91,11 @@ export const STYPE = {
     SEMAPHORE_TYPE_CREATE_INFO: 1000207002,
     DYNAMIC_RENDERING_FEATURES: 1000044003,
     DEPTH_STENCIL_RESOLVE_PROPERTIES: 1000199000,
+    TRANSFORM_FEEDBACK_FEATURES: 1000028000,
+    TRANSFORM_FEEDBACK_PROPERTIES: 1000028001,
 };
+/** VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT: two values a query, primitives written and needed */
+export const QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM = 1000028004;
 
 const KB = 1024, MB = 1024 * 1024;
 
@@ -112,7 +116,9 @@ const LIMITS = {
     sparseAddressSpaceSize: 0,
     maxBoundDescriptorSets: 4,
     maxPerStageDescriptorSamplers: 16,
-    maxPerStageDescriptorUniformBuffers: 12,
+    // (WebGPU has 12 a stage; VX makes the rest read-only storage buffers,
+    // which leaves 8 + 2 of WebGPU's 10: GL ES 3.0 needs 12 besides ANGLE's own)
+    maxPerStageDescriptorUniformBuffers: 14,
     maxPerStageDescriptorStorageBuffers: 8,
     maxPerStageDescriptorSampledImages: 16,
     maxPerStageDescriptorStorageImages: 4,
@@ -269,12 +275,18 @@ const CHAIN_PROPERTIES = {
     [STYPE.TIMELINE_SEMAPHORE_PROPERTIES]: { maxTimelineSemaphoreValueDifference: 0xFFFFFFFF },
     [STYPE.DRIVER_PROPERTIES]: { driverID: 0, driverName: "v86 WebGPU", driverInfo: "WebGPU through the v86 renderer",
         conformanceVersion: { major: 0, minor: 0, subminor: 0, patch: 0 } },
+    // (VX captures in a compute pass: one stream, 4 buffers, GL ES's interleaved 64 components and more)
+    [STYPE.TRANSFORM_FEEDBACK_PROPERTIES]: { maxTransformFeedbackStreams: 1, maxTransformFeedbackBuffers: 4,
+        maxTransformFeedbackBufferSize: 1024 * MB, maxTransformFeedbackStreamDataSize: 512, maxTransformFeedbackBufferDataSize: 512,
+        maxTransformFeedbackBufferDataStride: 512, transformFeedbackQueries: 1, transformFeedbackStreamsLinesTriangles: 0,
+        transformFeedbackRasterizationStreamSelect: 0, transformFeedbackDraw: 0 },
 };
 
 /** Features of chain structs, by sType (absent: all false) */
 const CHAIN_FEATURES = {
     [STYPE.TIMELINE_SEMAPHORE_FEATURES]: { timelineSemaphore: 1 },
     [STYPE.DYNAMIC_RENDERING_FEATURES]: { dynamicRendering: 1 },
+    [STYPE.TRANSFORM_FEEDBACK_FEATURES]: { transformFeedback: 1, geometryStreams: 0 },
 };
 
 /**
@@ -519,6 +531,8 @@ export const DEVICE_EXTENSIONS = {
     "VK_KHR_image_format_list": 1,
     "VK_EXT_image_drm_format_modifier": 2,
     "VK_EXT_queue_family_foreign": 1,
+    // (captured in a compute pass, VX: what GL ES 3.0 needs, so that ANGLE gives it)
+    "VK_EXT_transform_feedback": 1,
 };
 
 // VkExternalMemoryHandleTypeFlagBits, VkExternalMemoryFeatureFlagBits
