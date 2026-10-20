@@ -67,7 +67,7 @@ function frame_reader(on_message)
 }
 
 /**
- * @param {{timeout: (number|undefined)}=} options
+ * @param {{timeout: (number|undefined), shader_dir: (string|undefined)}=} options
  * @return {!Promise<{renderer: !Object, close: function(), stats: !Object}>}
  */
 export async function create_remote_renderer(options = {})
@@ -140,12 +140,45 @@ export async function create_remote_renderer(options = {})
         clearTimeout(timer);
     }
 
+    // options.shader_dir: Venus's shaders (VX SHADER_CREATE: SPIR-V, by
+    // content) and pipelines (PIPELINE_CREATE, with their shaders' files)
+    // written there, a corpus for VX's translation (vx/naga)
+    const shader_files = new Map();
+    const dump_vx = bytes => {
+        const words = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength >> 2);
+        if(words[0] !== 0x30315856) return;
+        for(let at = 4, end = Math.min(words[2], words.length); at + 2 <= end;)
+        {
+            const op = words[at], n = words[at + 1], body = words.subarray(at + 2, at + 2 + n);
+            at += 2 + n;
+            if(op === 18)
+            {
+                const spirv = Buffer.from(body.buffer, body.byteOffset + 8, body[1]);
+                const name = create_hash("sha1").update(spirv).digest("hex").slice(0, 16) + ".spv";
+                shader_files.set(body[0], name);
+                if(!fs.existsSync(options.shader_dir + "/" + name)) fs.writeFileSync(options.shader_dir + "/" + name, spirv);
+            }
+            else if(op === 19)
+            {
+                let text = Buffer.from(body.buffer, body.byteOffset + 4, (n - 1) * 4).toString("utf8").replace(/\0+$/, "");
+                try
+                {
+                    const desc = JSON.parse(text);
+                    for(const stage of desc["stages"] || []) stage["file"] = shader_files.get(stage["shader"]);
+                    fs.appendFileSync(options.shader_dir + "/pipelines.jsonl", JSON.stringify(desc) + "\n");
+                }
+                catch(e) {}
+            }
+        }
+    };
+    if(options.shader_dir) fs.mkdirSync(options.shader_dir, { recursive: true });
     const renderer = {
         "post": message => {
             if(!socket) return;
             if(message["type"] === "submit")
             {
                 const bytes = message["bytes"], head = Buffer.alloc(5);
+                if(options.shader_dir && message["stream"] === "vx") dump_vx(bytes);
                 head[0] = message["stream"] === "gx" ? TYPES.submit_gx : message["stream"] === "vx" ? TYPES.submit_vx : TYPES.submit;
                 head.writeUInt32LE(message["seq"], 1);
                 stats.batches++;

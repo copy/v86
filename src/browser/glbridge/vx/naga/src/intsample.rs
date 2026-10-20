@@ -1,0 +1,411 @@
+//! Samples of integer images (GLSL's `texture` of a usampler2D or isampler3D)
+//! as fetches: WGSL samples only float textures. The texel is the one the
+//! nearest filter takes, `floor(coordinate * size)` (plus a constant
+//! offset), clamped to the image: the sampler's wrap mode is the
+//! sampler's, which the shader cannot read, so it is always clamp to edge.
+//! An array's layer is the coordinate rounded, clamped; a projective
+//! sample's coordinate is divided first; the level is an explicit lod's,
+//! else 0. Cube images are left as they were.
+
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
+
+const OP_EXT_INST_IMPORT: u32 = 11;
+const OP_EXT_INST: u32 = 12;
+const OP_TYPE_INT: u32 = 21;
+const OP_TYPE_FLOAT: u32 = 22;
+const OP_TYPE_VECTOR: u32 = 23;
+const OP_TYPE_IMAGE: u32 = 25;
+const OP_TYPE_SAMPLED_IMAGE: u32 = 27;
+const OP_CONSTANT: u32 = 43;
+const OP_CONSTANT_COMPOSITE: u32 = 44;
+const OP_FUNCTION: u32 = 54;
+const OP_VECTOR_SHUFFLE: u32 = 79;
+const OP_COMPOSITE_EXTRACT: u32 = 81;
+const OP_COMPOSITE_CONSTRUCT: u32 = 80;
+const OP_IMAGE_SAMPLE_IMPLICIT_LOD: u32 = 87;
+const OP_IMAGE_SAMPLE_EXPLICIT_LOD: u32 = 88;
+const OP_IMAGE_SAMPLE_PROJ_IMPLICIT_LOD: u32 = 91;
+const OP_IMAGE_SAMPLE_PROJ_EXPLICIT_LOD: u32 = 92;
+const OP_IMAGE_FETCH: u32 = 95;
+const OP_IMAGE: u32 = 100;
+const OP_IMAGE_QUERY_SIZE_LOD: u32 = 103;
+const OP_CONVERT_F_TO_S: u32 = 110;
+const OP_CONVERT_S_TO_F: u32 = 111;
+const OP_I_ADD: u32 = 128;
+const OP_F_ADD: u32 = 129;
+const OP_I_SUB: u32 = 130;
+const OP_F_MUL: u32 = 133;
+const OP_F_DIV: u32 = 136;
+const GLSL_FLOOR: u32 = 8;
+const GLSL_S_CLAMP: u32 = 45;
+const IMAGE_OPERANDS_BIAS: u32 = 1;
+const IMAGE_OPERANDS_LOD: u32 = 2;
+const IMAGE_OPERANDS_GRAD: u32 = 4;
+const IMAGE_OPERANDS_CONST_OFFSET: u32 = 8;
+const IMAGE_OPERANDS_OFFSET: u32 = 0x10;
+
+fn instruction(op: u32, operands: &[u32]) -> Vec<u32> {
+    let mut out = Vec::with_capacity(operands.len() + 1);
+    out.push((operands.len() as u32 + 1) << 16 | op);
+    out.extend_from_slice(operands);
+    out
+}
+
+/// The opcodes in a function that have no result type
+fn untyped(op: u32) -> bool { matches!(op, 8 | 56 | 62 | 63 | 99 | 224 | 225 | 246..=255 | 317) }
+
+struct Pass {
+    bound: u32,
+    types: BTreeMap<u32, Vec<u32>>,
+    vectors: BTreeMap<(u32, u32), u32>,
+    constants: BTreeMap<(u32, u32), u32>,
+    composites: BTreeMap<(u32, Vec<u32>), u32>,
+    int: Option<u32>,
+    declarations: Vec<Vec<u32>>,
+}
+
+impl Pass {
+    fn fresh(&mut self) -> u32 {
+        self.bound += 1;
+        self.bound - 1
+    }
+    fn declare(&mut self, w: Vec<u32>) { self.declarations.push(w); }
+    fn int(&mut self) -> u32 {
+        if let Some(id) = self.int {
+            return id;
+        }
+        let id = self.fresh();
+        self.declare(instruction(OP_TYPE_INT, &[id, 32, 1]));
+        self.int = Some(id);
+        id
+    }
+    fn vector(&mut self, component: u32, n: u32) -> u32 {
+        if n == 1 {
+            return component;
+        }
+        if let Some(&id) = self.vectors.get(&(component, n)) {
+            return id;
+        }
+        let id = self.fresh();
+        self.declare(instruction(OP_TYPE_VECTOR, &[id, component, n]));
+        self.vectors.insert((component, n), id);
+        id
+    }
+    fn constant(&mut self, ty: u32, bits: u32) -> u32 {
+        if let Some(&id) = self.constants.get(&(ty, bits)) {
+            return id;
+        }
+        let id = self.fresh();
+        self.declare(instruction(OP_CONSTANT, &[ty, id, bits]));
+        self.constants.insert((ty, bits), id);
+        id
+    }
+    /// A constant vector of `n` of the scalar constant
+    fn splat(&mut self, scalar_ty: u32, bits: u32, n: u32) -> u32 {
+        let c = self.constant(scalar_ty, bits);
+        if n == 1 {
+            return c;
+        }
+        let ty = self.vector(scalar_ty, n);
+        let parts: Vec<u32> = core::iter::repeat(c).take(n as usize).collect();
+        if let Some(&id) = self.composites.get(&(ty, parts.clone())) {
+            return id;
+        }
+        let id = self.fresh();
+        let mut operands = Vec::from([ty, id]);
+        operands.extend(&parts);
+        self.declare(instruction(OP_CONSTANT_COMPOSITE, &operands));
+        self.composites.insert((ty, parts), id);
+        id
+    }
+}
+
+/// The module with its samples of integer images made fetches, or the words as they were
+pub fn lower(words: &[u32]) -> Vec<u32> {
+    if words.len() < 5 {
+        return words.to_vec();
+    }
+    let mut instructions: Vec<&[u32]> = Vec::new();
+    let mut at = 5;
+    while at < words.len() {
+        let count = (words[at] >> 16) as usize;
+        if count == 0 || at + count > words.len() {
+            return words.to_vec();
+        }
+        instructions.push(&words[at..at + count]);
+        at += count;
+    }
+    let op = |w: &[u32]| w[0] & 0xFFFF;
+    let sample = |o: u32| matches!(o, OP_IMAGE_SAMPLE_IMPLICIT_LOD | OP_IMAGE_SAMPLE_EXPLICIT_LOD | OP_IMAGE_SAMPLE_PROJ_IMPLICIT_LOD | OP_IMAGE_SAMPLE_PROJ_EXPLICIT_LOD);
+    if !instructions.iter().any(|w| sample(op(w))) {
+        return words.to_vec();
+    }
+    let mut pass = Pass { bound: words[3], types: BTreeMap::new(), vectors: BTreeMap::new(), constants: BTreeMap::new(), composites: BTreeMap::new(),
+        int: None, declarations: Vec::new() };
+    let mut type_of: BTreeMap<u32, u32> = BTreeMap::new();
+    let mut glsl = None;
+    let first_function = instructions.iter().position(|w| op(w) == OP_FUNCTION).unwrap_or(instructions.len());
+    for (i, w) in instructions.iter().enumerate() {
+        let o = op(w);
+        match o {
+            19..=39 if w.len() >= 2 => {
+                pass.types.insert(w[1], w.to_vec());
+                if o == OP_TYPE_VECTOR && w.len() >= 4 {
+                    pass.vectors.entry((w[2], w[3])).or_insert(w[1]);
+                }
+                if o == OP_TYPE_INT && w.len() >= 4 && w[2] == 32 && w[3] == 1 {
+                    pass.int = Some(w[1]);
+                }
+            },
+            OP_CONSTANT if w.len() == 4 => {
+                pass.constants.entry((w[1], w[3])).or_insert(w[2]);
+            },
+            OP_EXT_INST_IMPORT if w.len() >= 3 => {
+                let name: Vec<u8> = w[2..].iter().flat_map(|x| x.to_le_bytes()).take_while(|&b| b != 0).collect();
+                if name == b"GLSL.std.450" {
+                    glsl = Some(w[1]);
+                }
+            },
+            _ => {},
+        }
+        if (i >= first_function && !untyped(o) && o != 248 || i < first_function && (41..=52).contains(&o)) && w.len() >= 3 {
+            type_of.insert(w[2], w[1]);
+        }
+    }
+    let Some(glsl) = glsl else { return words.to_vec() };
+    // the image type of a sampled image's type, when its texels are integers and it is not a cube
+    let integer_image = |pass: &Pass, sampled_image_ty: u32| -> Option<(u32, u32, bool)> {
+        let si = pass.types.get(&sampled_image_ty)?;
+        if op(si) != OP_TYPE_SAMPLED_IMAGE {
+            return None;
+        }
+        let image = pass.types.get(&si[2])?;
+        if op(image) != OP_TYPE_IMAGE || op(pass.types.get(&image[2])?) != OP_TYPE_INT {
+            return None;
+        }
+        // (dim: 1 2D, 2 3D; arrayed)
+        let (dim, arrayed, ms) = (image[3], image[5], image[6]);
+        if ms != 0 || !matches!(dim, 1 | 2) {
+            return None;
+        }
+        Some((si[2], dim, arrayed != 0))
+    };
+    let mut body: Vec<Vec<u32>> = Vec::new();
+    let mut changed = false;
+    for w in &instructions[first_function..] {
+        let o = op(w);
+        let sampled = if sample(o) && w.len() >= 5 { type_of.get(&w[3]).and_then(|&t| integer_image(&pass, t)) } else { None };
+        let Some((image_ty, dim, arrayed)) = sampled else {
+            body.push(w.to_vec());
+            continue;
+        };
+        let (rt, result, si, coord) = (w[1], w[2], w[3], w[4]);
+        let Some(&coord_ty) = type_of.get(&coord) else {
+            body.push(w.to_vec());
+            continue;
+        };
+        let float = match pass.types.get(&coord_ty).map(|t| (op(t), t.clone())) {
+            Some((OP_TYPE_VECTOR, t)) => t[2],
+            _ => {
+                body.push(w.to_vec());
+                continue;
+            },
+        };
+        if pass.types.get(&float).map(|t| op(t)) != Some(OP_TYPE_FLOAT) {
+            body.push(w.to_vec());
+            continue;
+        }
+        changed = true;
+        let int = pass.int();
+        let spatial = if dim == 2 { 3 } else { 2 };
+        let size_n = spatial + arrayed as u32;
+        // the image operands: an explicit lod, a constant offset
+        let mask = *w.get(5).unwrap_or(&0);
+        let mut arg = 6;
+        let mut lod_f = None;
+        let mut offset = None;
+        for (bit, args) in [(IMAGE_OPERANDS_BIAS, 1), (IMAGE_OPERANDS_LOD, 1), (IMAGE_OPERANDS_GRAD, 2), (IMAGE_OPERANDS_CONST_OFFSET, 1), (IMAGE_OPERANDS_OFFSET, 1)] {
+            if mask & bit != 0 {
+                if bit == IMAGE_OPERANDS_LOD {
+                    lod_f = w.get(arg).copied();
+                }
+                if bit == IMAGE_OPERANDS_CONST_OFFSET || bit == IMAGE_OPERANDS_OFFSET {
+                    offset = w.get(arg).copied();
+                }
+                arg += args;
+            }
+        }
+        let image = pass.fresh();
+        body.push(instruction(OP_IMAGE, &[image_ty, image, si]));
+        let lod = match lod_f {
+            Some(l) => {
+                let id = pass.fresh();
+                body.push(instruction(OP_CONVERT_F_TO_S, &[int, id, l]));
+                id
+            },
+            None => pass.constant(int, 0),
+        };
+        let size_ty = pass.vector(int, size_n);
+        let size = pass.fresh();
+        body.push(instruction(OP_IMAGE_QUERY_SIZE_LOD, &[size_ty, size, image, lod]));
+        // the coordinate: divided by q for a projective one
+        let fvec = pass.vector(float, spatial);
+        let ivec = pass.vector(int, spatial);
+        let mut xy = pass.fresh();
+        let mut operands = Vec::from([fvec, xy, coord, coord]);
+        operands.extend(0..spatial);
+        body.push(instruction(OP_VECTOR_SHUFFLE, &operands));
+        if matches!(o, OP_IMAGE_SAMPLE_PROJ_IMPLICIT_LOD | OP_IMAGE_SAMPLE_PROJ_EXPLICIT_LOD) {
+            let q_index = pass.types.get(&coord_ty).map_or(spatial, |t| t[3] - 1);
+            let (q, qs, divided) = (pass.fresh(), pass.fresh(), pass.fresh());
+            body.push(instruction(OP_COMPOSITE_EXTRACT, &[float, q, coord, q_index]));
+            let mut c = Vec::from([fvec, qs]);
+            c.extend(core::iter::repeat(q).take(spatial as usize));
+            body.push(instruction(OP_COMPOSITE_CONSTRUCT, &c));
+            body.push(instruction(OP_F_DIV, &[fvec, divided, xy, qs]));
+            xy = divided;
+        }
+        let size_xy = if arrayed {
+            let id = pass.fresh();
+            let mut operands = Vec::from([ivec, id, size, size]);
+            operands.extend(0..spatial);
+            body.push(instruction(OP_VECTOR_SHUFFLE, &operands));
+            id
+        }
+        else {
+            size
+        };
+        let (fsize, scaled, floored, texel) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh());
+        body.push(instruction(OP_CONVERT_S_TO_F, &[fvec, fsize, size_xy]));
+        body.push(instruction(OP_F_MUL, &[fvec, scaled, xy, fsize]));
+        body.push(instruction(OP_EXT_INST, &[fvec, floored, glsl, GLSL_FLOOR, scaled]));
+        body.push(instruction(OP_CONVERT_F_TO_S, &[ivec, texel, floored]));
+        let mut texel = texel;
+        if let Some(offset) = offset {
+            let id = pass.fresh();
+            body.push(instruction(OP_I_ADD, &[ivec, id, texel, offset]));
+            texel = id;
+        }
+        let (zero, one) = (pass.splat(int, 0, spatial), pass.splat(int, 1, spatial));
+        let (last, clamped) = (pass.fresh(), pass.fresh());
+        body.push(instruction(OP_I_SUB, &[ivec, last, size_xy, one]));
+        body.push(instruction(OP_EXT_INST, &[ivec, clamped, glsl, GLSL_S_CLAMP, texel, zero, last]));
+        let fetch_at = if arrayed {
+            // the layer: floor(z + 0.5), clamped
+            let half = pass.constant(float, 0x3F00_0000);
+            let (z, zh, zf, zi, layers, layers_last, layer, at) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(),
+                pass.fresh(), pass.fresh());
+            body.push(instruction(OP_COMPOSITE_EXTRACT, &[float, z, coord, spatial]));
+            body.push(instruction(OP_F_ADD, &[float, zh, z, half]));
+            body.push(instruction(OP_EXT_INST, &[float, zf, glsl, GLSL_FLOOR, zh]));
+            body.push(instruction(OP_CONVERT_F_TO_S, &[int, zi, zf]));
+            body.push(instruction(OP_COMPOSITE_EXTRACT, &[int, layers, size, spatial]));
+            let (zero1, one1) = (pass.constant(int, 0), pass.constant(int, 1));
+            body.push(instruction(OP_I_SUB, &[int, layers_last, layers, one1]));
+            body.push(instruction(OP_EXT_INST, &[int, layer, glsl, GLSL_S_CLAMP, zi, zero1, layers_last]));
+            let all = pass.vector(int, spatial + 1);
+            let mut c = Vec::from([all, at]);
+            for k in 0..spatial {
+                let x = pass.fresh();
+                body.push(instruction(OP_COMPOSITE_EXTRACT, &[int, x, clamped, k]));
+                c.push(x);
+            }
+            c.push(layer);
+            body.push(instruction(OP_COMPOSITE_CONSTRUCT, &c));
+            at
+        }
+        else {
+            clamped
+        };
+        body.push(instruction(OP_IMAGE_FETCH, &[rt, result, image, fetch_at, IMAGE_OPERANDS_LOD, lod]));
+    }
+    if !changed {
+        return words.to_vec();
+    }
+    let mut out = words[..5].to_vec();
+    for w in &instructions[..first_function] {
+        out.extend_from_slice(w);
+    }
+    for d in &pass.declarations {
+        out.extend_from_slice(d);
+    }
+    for w in &body {
+        out.extend_from_slice(w);
+    }
+    out[3] = pass.bound;
+    out
+}
+
+/// Each image's coordinate types declared (float and signed int vectors of
+/// its dimensions' size): naga's SPIR-V front end looks them up for an
+/// array image's coordinates (a fetch splits off the layer) and panics when
+/// the module never declared them
+pub fn coordinate_types(words: &[u32]) -> Vec<u32> {
+    if words.len() < 5 {
+        return words.to_vec();
+    }
+    let mut instructions: Vec<&[u32]> = Vec::new();
+    let mut at = 5;
+    while at < words.len() {
+        let count = (words[at] >> 16) as usize;
+        if count == 0 || at + count > words.len() {
+            return words.to_vec();
+        }
+        instructions.push(&words[at..at + count]);
+        at += count;
+    }
+    let op = |w: &[u32]| w[0] & 0xFFFF;
+    let mut sizes: Vec<u32> = instructions.iter().filter(|w| op(w) == OP_TYPE_IMAGE && w.len() >= 9 && w[5] != 0)
+        .filter_map(|w| match w[3] { 1 => Some(2), 2 | 3 => Some(3), _ => None }).collect();
+    sizes.sort_unstable();
+    sizes.dedup();
+    if sizes.is_empty() {
+        return words.to_vec();
+    }
+    let first_function = instructions.iter().position(|w| op(w) == OP_FUNCTION).unwrap_or(instructions.len());
+    let find = |pred: &dyn Fn(&[u32]) -> bool| instructions[..first_function].iter().find(|w| pred(w)).map(|w| w[1]);
+    let mut bound = words[3];
+    let mut declarations: Vec<Vec<u32>> = Vec::new();
+    let mut fresh = || {
+        bound += 1;
+        bound - 1
+    };
+    let float = find(&|w| op(w) == OP_TYPE_FLOAT && w[2] == 32).unwrap_or_else(|| {
+        let id = fresh();
+        declarations.push(instruction(OP_TYPE_FLOAT, &[id, 32]));
+        id
+    });
+    let int = find(&|w| op(w) == OP_TYPE_INT && w[2] == 32 && w[3] == 1).unwrap_or_else(|| {
+        let id = fresh();
+        declarations.push(instruction(OP_TYPE_INT, &[id, 32, 1]));
+        id
+    });
+    for size in sizes {
+        for component in [float, int] {
+            if find(&|w| op(w) == OP_TYPE_VECTOR && w[2] == component && w[3] == size).is_none() {
+                let id = fresh();
+                declarations.push(instruction(OP_TYPE_VECTOR, &[id, component, size]));
+            }
+        }
+    }
+    if declarations.is_empty() {
+        return words.to_vec();
+    }
+    let mut out = words[..5].to_vec();
+    for (i, w) in instructions.iter().enumerate() {
+        if i == first_function {
+            for d in &declarations {
+                out.extend_from_slice(d);
+            }
+        }
+        out.extend_from_slice(w);
+    }
+    if first_function == instructions.len() {
+        for d in &declarations {
+            out.extend_from_slice(d);
+        }
+    }
+    out[3] = bound;
+    out
+}

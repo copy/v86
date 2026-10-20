@@ -9,7 +9,8 @@
 // limits, info, clears, buffer writes and constant expressions; GLES 3's info,
 // limits, transform feedback, uniform blocks and flat shading;
 // A64_ANDROID_DEQP=<package>=<prefix>,...;... replaces it (a prefix "!..."
-// is an instrumentation run of its own).
+// is an instrumentation run of its own, and so is "@<file>": the cases
+// that file names).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { fetch_module } from "../../tools/a64_cts.mjs";
@@ -104,9 +105,11 @@ export async function deqp_scenario(env)
         // (a prefix "!..." runs on its own: a failing ubo.random case leaves
         // the context answering GL_INVALID_OPERATION to every later case,
         // and dEQP runs a package's cases in its own order)
+        // ("@<file>": that file's cases, by name, also a run of their own)
         const all = lines(list), match = p => all.filter(c => c.startsWith(p.replace(/^!/, "")));
-        const runs = [prefixes.filter(p => !p.startsWith("!")).flatMap(match), ...prefixes.filter(p => p.startsWith("!")).map(match)]
-            .filter(r => r.length);
+        const named = file => { const wanted = new Set(fs.readFileSync(file, "utf8").split("\n").map(c => c.trim())); return all.filter(c => wanted.has(c)); };
+        const runs = [prefixes.filter(p => !/^[!@]/.test(p)).flatMap(match), ...prefixes.filter(p => p.startsWith("!")).map(match),
+            ...prefixes.filter(p => p.startsWith("@")).map(p => named(p.slice(1)))].filter(r => r.length);
         const cases = [...new Set(runs.flat())];
         assert.ok(cases.length, `${name}: no case of ${prefixes} in ${list}`);
         // (the log in the app's own external directory: scoped storage gives it nothing else of /sdcard, and the shell reads it)

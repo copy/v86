@@ -1,0 +1,72 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VX: a corpus of Venus pipelines</title>
+<pre id="result">RUNNING</pre>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+// The pipelines a guest made on Venus, as tests/x64/gpu_remote_renderer.mjs
+// dumps them (A64_ANDROID_SHADER_DIR: <hash>.spv and pipelines.jsonl, and
+// index.json, the list of the shaders), made again by VX: each shader
+// translated, each pipeline created on WebGPU. ?dir=<the directory, from the
+// repository's root>. PASS when none fails; the failures by message.
+import { GXWriter, VX, VX_MAGIC } from "../../src/graphics_adapters/renderer_protocol.js";
+
+const result = document.getElementById("result");
+const dir = new URLSearchParams(location.search).get("dir") || "build/a64-android/shader-corpus";
+
+(async () => {
+    try {
+        const handlers = [null, null];
+        const end = (self, other) => ({ post: message => handlers[other] && handlers[other](message), listen: handler => { handlers[self] = handler; } });
+        const renderer = globalThis.V86SVGARenderer(end(1, 0), {});
+        const device = end(0, 1);
+        const done = new Map();
+        device.listen(message => {
+            if(message.type === "done") { const resolve = done.get(message.seq); if(resolve) resolve(); }
+        });
+        let seq = 0;
+        const w = new GXWriter(VX_MAGIC);
+        const send = () => {
+            const s = ++seq;
+            const finished = new Promise(resolve => done.set(s, resolve));
+            device.post({ type: "submit", seq: s, bytes: w.finish(), stream: "vx" });
+            return finished;
+        };
+        const json = o => new TextEncoder().encode(JSON.stringify(o));
+        const root = "../../" + dir + "/";
+        const shaders = await (await fetch(root + "index.json")).json();
+        const ids = new Map();
+        let next = 1;
+        for(const name of shaders)
+        {
+            const spirv = new Uint8Array(await (await fetch(root + name)).arrayBuffer());
+            ids.set(name, next);
+            w.command(VX.SHADER_CREATE, [next++, spirv.length], spirv);
+        }
+        await send();
+        const lines = (await (await fetch(root + "pipelines.jsonl")).text()).split("\n").filter(Boolean);
+        const seen = new Set();
+        let pipelines = 0;
+        for(const line of lines)
+        {
+            const d = JSON.parse(line);
+            if(d.stages.some(s => !ids.has(s.file))) continue;
+            for(const s of d.stages) s.shader = ids.get(s.file);
+            const key = JSON.stringify(d);
+            if(seen.has(key)) continue;
+            seen.add(key);
+            w.command(VX.PIPELINE_CREATE, [next++], json(d));
+            pipelines++;
+            if(pipelines % 50 === 0) await send();
+        }
+        await send();
+        // (pipelines are made asynchronously: their failures come in later)
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const vx = renderer.vx;
+        const failed = vx.warnings.filter(text => /failed|WebGPU/.test(text));
+        result.textContent = (failed.length ? "FAIL " : "PASS ") + shaders.length + " shaders, " + pipelines + " pipelines\n" + vx.warnings.join("\n");
+    } catch(e) {
+        result.textContent = "FAIL " + (e.stack || e);
+    }
+})();
+</script>

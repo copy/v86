@@ -5,8 +5,23 @@
 //! What it changes on the way:
 //! - combined image samplers become an image and a sampler (split.rs)
 //! - NaN and infinity tests become bit tests (relational.rs: WGSL has none)
+//! - samples of integer images become fetches (intsample.rs: WGSL samples
+//!   float textures only)
+//! - input attachments become textures read at the fragment's position
+//!   (subpass.rs)
+//! - matrices of laid out blocks naga cannot read (std140's 2-row ones, row
+//!   major ones) become arrays of vectors (layout.rs)
+//! - entry point inputs and outputs of matrices, arrays and structs at a
+//!   location become their vectors at consecutive locations (io.rs)
+//! - an array image's size has its layer count (layers.rs: naga's SPIR-V
+//!   front end leaves it out)
+//! - outer products become matrices of columns, modf's and frexp's results
+//!   naga's special types (math.rs)
+//! - switch cases that fall through get the next ones' statements (switches.rs)
 //! - bindings: Vulkan's binding b of a set is WGSL's binding 2b of the same
-//!   group, and 2b + 1 for the sampler of a combined image sampler
+//!   group, and 2b + 1 for the sampler of a combined image sampler; a
+//!   descriptor array of blocks becomes a block each (blockarrays.rs), its
+//!   element e > 0 at 300 + 12b + e
 //! - push constants (naga's immediates) become a read-only storage buffer
 //!   at the group and binding the caller says
 //! - uniform buffers whose layout WGSL's uniform rules refuse are storage too,
@@ -22,8 +37,18 @@
 
 extern crate alloc;
 
+mod intsample;
+mod io;
+mod layers;
+mod layout;
+mod math;
 mod relational;
+mod remap;
+mod blockarrays;
+mod depth;
 mod split;
+mod subpass;
+mod switches;
 pub mod xfb;
 
 use alloc::format;
@@ -42,9 +67,14 @@ pub struct Options {
     /// Vulkan's own flip, which WebGPU's viewports cannot do, keeps it as
     /// it is: ANGLE draws GL's frames so)
     pub keep_coordinate_space: bool,
-    /// Vulkan's (set, binding) of the uniform buffers to make read-only
-    /// storage buffers, as `set << 16 | binding`
+    /// The uniform buffers to make read-only storage buffers, by their
+    /// group and WGSL binding, `group << 16 | binding`
     pub storage_uniforms: Vec<u32>,
+    /// a fragment shader's depth output dropped (a pipeline with no depth
+    /// attachment); a vertex shader's depth reversed (a viewport with its
+    /// depths reversed): depth.rs
+    pub drop_frag_depth: bool,
+    pub reverse_depth: bool,
 }
 
 fn quote(text: &str) -> String {
@@ -90,10 +120,27 @@ fn kind(module: &naga::Module, var: &naga::GlobalVariable) -> &'static str {
     }
 }
 
+/// WGSL's binding of a SPIR-V binding: Vulkan's b is 2b, a split sampler's
+/// 2b + 1, element e > 0 of a descriptor array of blocks ELEMENTS + 12b + e
+/// (vx_executor.js's descriptorKey reads them back)
+fn wgsl_binding(binding: u32) -> u32 {
+    if binding >= blockarrays::ELEMENT_BINDING {
+        ELEMENTS + (binding - blockarrays::ELEMENT_BINDING)
+    }
+    else if binding >= SAMPLER_BINDING {
+        (binding - SAMPLER_BINDING) * 2 + 1
+    }
+    else {
+        binding * 2
+    }
+}
+
+const ELEMENTS: u32 = 300;
+
 fn rebind(module: &mut naga::Module, options: &Options) {
     for (_, var) in module.global_variables.iter_mut() {
         if let (AddressSpace::Uniform, Some(b)) = (var.space, var.binding.as_ref()) {
-            if options.storage_uniforms.contains(&(b.group << 16 | b.binding)) {
+            if options.storage_uniforms.contains(&(b.group << 16 | wgsl_binding(b.binding))) {
                 var.space = AddressSpace::Storage { access: StorageAccess::LOAD };
             }
         }
@@ -103,7 +150,7 @@ fn rebind(module: &mut naga::Module, options: &Options) {
             continue;
         }
         if let Some(b) = var.binding.as_mut() {
-            b.binding = if b.binding >= SAMPLER_BINDING { (b.binding - SAMPLER_BINDING) * 2 + 1 } else { b.binding * 2 };
+            b.binding = wgsl_binding(b.binding);
         }
     }
 }
@@ -135,26 +182,12 @@ pub(crate) fn retype(f: &mut naga::Function, from: naga::Handle<naga::Type>, to:
     }
 }
 
-/// The vertex entry points' gl_PointSize outputs dropped: each result's
-/// struct without them (in place: naga's WGSL writes every struct), and
-/// other structs' members (gl_PerVertex's, a private global's) unbound
+/// The vertex entry points' gl_PointSize outputs dropped: each result a new
+/// struct without them, and the structs that keep them (gl_PerVertex's, a
+/// private global's, the old results: naga may have made them one type)
+/// unbound, since naga's WGSL writes every struct
 fn drop_point_size(module: &mut naga::Module) {
-    let results: Vec<naga::Handle<naga::Type>> = module.entry_points.iter().filter_map(|ep| ep.function.result.as_ref().map(|r| r.ty)).collect();
-    let unbind: Vec<naga::Handle<naga::Type>> = module.types.iter().filter(|(handle, ty)| !results.contains(handle) && match &ty.inner {
-        TypeInner::Struct { members, .. } => members.iter().any(|m| matches!(m.binding, Some(naga::Binding::BuiltIn(naga::BuiltIn::PointSize)))),
-        _ => false,
-    }).map(|(handle, _)| handle).collect();
-    for handle in unbind {
-        let mut ty = module.types[handle].clone();
-        if let TypeInner::Struct { members, .. } = &mut ty.inner {
-            for m in members.iter_mut() {
-                if matches!(m.binding, Some(naga::Binding::BuiltIn(naga::BuiltIn::PointSize))) {
-                    m.binding = None;
-                }
-            }
-        }
-        module.types.replace(handle, ty);
-    }
+    let point_size = |m: &naga::StructMember| matches!(m.binding, Some(naga::Binding::BuiltIn(naga::BuiltIn::PointSize)));
     for ep in module.entry_points.iter_mut() {
         if ep.stage != ShaderStage::Vertex {
             continue;
@@ -164,14 +197,30 @@ fn drop_point_size(module: &mut naga::Module) {
             TypeInner::Struct { members, span } => (members.clone(), *span),
             _ => continue,
         };
-        let keep: Vec<bool> = members.iter().map(|m| !matches!(m.binding, Some(naga::Binding::BuiltIn(naga::BuiltIn::PointSize)))).collect();
+        let keep: Vec<bool> = members.iter().map(|m| !point_size(m)).collect();
         if keep.iter().all(|k| *k) {
             continue;
         }
         let kept = members.into_iter().zip(&keep).filter(|(_, k)| **k).map(|(m, _)| m).collect();
-        let name = module.types[old].name.clone();
-        module.types.replace(old, naga::Type { name, inner: TypeInner::Struct { members: kept, span } });
-        retype(&mut ep.function, old, old, Some(&keep));
+        let new = module.types.insert(naga::Type { name: Some(String::from("VxVertexOutput")), inner: TypeInner::Struct { members: kept, span } },
+            naga::Span::UNDEFINED);
+        retype(&mut ep.function, old, new, Some(&keep));
+    }
+    let results: Vec<naga::Handle<naga::Type>> = module.entry_points.iter().filter_map(|ep| ep.function.result.as_ref().map(|r| r.ty)).collect();
+    let unbind: Vec<naga::Handle<naga::Type>> = module.types.iter().filter(|(handle, ty)| !results.contains(handle) && match &ty.inner {
+        TypeInner::Struct { members, .. } => members.iter().any(point_size),
+        _ => false,
+    }).map(|(handle, _)| handle).collect();
+    for handle in unbind {
+        let mut ty = module.types[handle].clone();
+        if let TypeInner::Struct { members, .. } = &mut ty.inner {
+            for m in members.iter_mut() {
+                if point_size(m) {
+                    m.binding = None;
+                }
+            }
+        }
+        module.types.replace(handle, ty);
     }
 }
 
@@ -179,6 +228,31 @@ fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
     naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all())
         .validate(module)
         .map_err(|e| format!("{:?}", e.into_inner()))
+}
+
+/// VX's passes on the SPIR-V, in order; VX_SKIP (a list of their names, in
+/// a native build's environment: debugging) leaves some out
+fn passes(words: &[u32]) -> Vec<u32> {
+    let skip = std::env::var("VX_SKIP").unwrap_or_default();
+    let list: [(&str, fn(&[u32]) -> Vec<u32>); 7] = [("split", split::split), ("coordinates", intsample::coordinate_types), ("blockarrays", blockarrays::lower), ("subpass", subpass::lower),
+        ("intsample", intsample::lower), ("relational", relational::lower), ("layout", layout::lower)];
+    let mut words = words.to_vec();
+    for (name, pass) in list {
+        if !skip.split(',').any(|s| s == name) {
+            words = pass(&words);
+        }
+    }
+    words
+}
+
+/// The module naga reads of SPIR-V (bytes), after VX's passes on the SPIR-V
+/// (examples/dump.rs)
+pub fn parse_for_debugging(bytes: &[u8]) -> Result<naga::Module, String> {
+    let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+    let words = passes(&words);
+    let data: Vec<u8> = xfb::strip(&words).iter().flat_map(|w| w.to_le_bytes()).collect();
+    let spv = naga::front::spv::Options { adjust_coordinate_space: true, strict_capabilities: false, block_ctx_dump_prefix: None };
+    naga::front::spv::parse_u8_slice(&data, &spv).map_err(|e| format!("SPIR-V: {:?}", e))
 }
 
 /// SPIR-V (bytes) to the JSON answer
@@ -200,11 +274,14 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
         return Err(String::from("not SPIR-V: not whole words"));
     }
     let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
-    let words = relational::lower(&split::split(&words));
+    let words = passes(&words);
     // (transform feedback's: read by xfb::captures, naga refuses them)
     let data: Vec<u8> = xfb::strip(&words).iter().flat_map(|w| w.to_le_bytes()).collect();
     let spv = naga::front::spv::Options { adjust_coordinate_space: !options.keep_coordinate_space, strict_capabilities: false, block_ctx_dump_prefix: None };
     let mut module = naga::front::spv::parse_u8_slice(&data, &spv).map_err(|e| format!("SPIR-V: {:?}", e))?;
+    layers::lower(&mut module);
+    math::lower(&mut module);
+    switches::lower(&mut module);
     rebind(&mut module, options);
     // (transform feedback: the compute shader of a capturing draw, xfb.rs)
     let mut appended = String::new();
@@ -222,6 +299,13 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
         capture_json = String::from(",\"captures\":true");
     }
     drop_point_size(&mut module);
+    io::flatten(&mut module)?;
+    if options.drop_frag_depth {
+        depth::drop_frag_depth(&mut module);
+    }
+    if options.reverse_depth {
+        depth::reverse_depth(&mut module);
+    }
     let info = match validate(&module) {
         Ok(info) => info,
         Err(first) => {
@@ -324,7 +408,7 @@ pub unsafe extern "C" fn vx_translate_xfb(ptr: *const u8, len: usize, immediates
     let group = next();
     let attributes = (0..next()).map(|_| xfb::Attribute { location: next(), slot: next(), format: next(), offset: next() }).collect();
     let slots = (0..next()).map(|_| xfb::Slot { slot: next(), stride: next(), instance: next() != 0 }).collect();
-    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: true, storage_uniforms };
+    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: true, storage_uniforms, drop_frag_depth: false, reverse_depth: false };
     let answer = match translate_with(bytes, &options, Some(&XfbInput { attributes, slots, group })) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),
@@ -344,7 +428,8 @@ pub unsafe extern "C" fn vx_translate(ptr: *const u8, len: usize, immediates_gro
     storage: *const u32, storage_count: usize) -> *mut u8 {
     let bytes = core::slice::from_raw_parts(ptr, len);
     let storage_uniforms = if storage.is_null() || storage_count == 0 { Vec::new() } else { core::slice::from_raw_parts(storage, storage_count).to_vec() };
-    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: flags & 1 != 0, storage_uniforms };
+    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: flags & 1 != 0, storage_uniforms,
+        drop_frag_depth: flags & 2 != 0, reverse_depth: flags & 4 != 0 };
     let answer = match translate(bytes, &options) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),

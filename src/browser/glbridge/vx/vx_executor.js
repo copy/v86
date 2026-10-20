@@ -34,6 +34,22 @@
     const SCRIPT = typeof document !== "undefined" && document.currentScript ? document.currentScript.src : null;
     // Vulkan's enums, as WebGPU's
     const TOPOLOGY = ["point-list", "line-list", "line-strip", "triangle-list", "triangle-strip", null];
+    // WGSL's bindings of a Vulkan binding b (vx/naga's rebind): 2b, 2b + 1 for
+    // a combined image sampler's sampler, and ELEMENTS + 12 b + e for element
+    // e > 0 of a descriptor array of blocks (vx/naga/src/blockarrays.rs)
+    const ELEMENTS = 300, ELEMENTS_END = 960;
+    /** vx_naga's translation flags */
+    const TRANSLATE = { KEEP: 1, NO_DEPTH: 2, REVERSE_DEPTH: 4 };
+    /** The descriptor (binding * 1024 + element) a WGSL binding is of */
+    const descriptorKey = binding => binding >= ELEMENTS && binding < ELEMENTS_END ?
+        Math.floor((binding - ELEMENTS) / 12) * 1024 + (binding - ELEMENTS) % 12 : (binding >> 1) * 1024;
+    const samplerBinding = binding => binding < ELEMENTS && (binding & 1) === 1;
+    /** A render pass's or pipeline's attachments, as WebGPU compares them (trailing empty colors aside) */
+    const attachmentState = (colors, depth, samples) => {
+        const c = colors.map(f => f || "-");
+        while (c.length && c[c.length - 1] === "-") c.pop();
+        return c.join(",") + "|" + (depth || "") + "|" + samples;
+    };
     const BLEND_FACTOR = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-dst", "src-alpha", "one-minus-src-alpha",
         "dst-alpha", "one-minus-dst-alpha", "constant", "one-minus-constant", "constant", "one-minus-constant",
         "src-alpha-saturated", "src1", "one-minus-src1", "src1-alpha", "one-minus-src1-alpha"];
@@ -437,7 +453,7 @@
             const from = b[1] + b[2] * 0x100000000, to = b[4] + b[5] * 0x100000000, size = b[6] + b[7] * 0x100000000;
             if (!src || !dst) return;
             if ((from | to | size) & 3) {
-                this.warn("copy-unaligned", "a buffer copy not in whole dwords (" + from + ", " + to + ", " + size + ")");
+                this.copyBytes(src.buffer, from, dst.buffer, to, size);
                 return;
             }
             if (src === dst) {
@@ -448,6 +464,70 @@
                 return;
             }
             this.encoder().copyBufferToBuffer(src.buffer, from, dst.buffer, to, size);
+        }
+
+        /**
+         * A copy of bytes not in whole dwords (Vulkan's copies have no
+         * alignment, WebGPU's are of dwords): repack's, one row
+         */
+        copyBytes(src, from, dst, to, size) {
+            if (size) this.repack(src, { offset: from, pitch: size, image: size }, dst, { offset: to, pitch: size, image: size }, size, 1, 1);
+        }
+
+        /**
+         * Rows of bytes from one buffer layout to another, neither in whole
+         * dwords: a compute shader writes each destination dword, the
+         * source's bytes merged into it (the bytes between the rows kept).
+         * Layouts: { offset, pitch (a row's), image (a slice's) }; a repack
+         * within one buffer goes through a scratch buffer first
+         */
+        repack(src, from, dst, to, rowBytes, rows, slices) {
+            const last = (l) => l.offset + (slices - 1) * l.image + (rows - 1) * l.pitch + rowBytes;
+            if (src === dst) {
+                const start = from.offset & ~3, length = align(last(from) - start, 4);
+                const between = this.scratch(length, BUFFER.COPY_SRC | BUFFER.COPY_DST | BUFFER.STORAGE);
+                this.encoder().copyBufferToBuffer(src, start, between, 0, length);
+                src = between;
+                from = Object.assign({}, from, { offset: from.offset - start });
+            }
+            if (!this.repacker) {
+                const code = [
+                    "struct P { src: u32, src_pitch: u32, src_image: u32, dst: u32, dst_pitch: u32, dst_image: u32, row: u32, rows: u32, slices: u32, end: u32 };",
+                    "@group(0) @binding(0) var<uniform> p: P;",
+                    "@group(0) @binding(1) var<storage, read> s: array<u32>;",
+                    "@group(0) @binding(2) var<storage, read_write> d: array<u32>;",
+                    "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {",
+                    "    let w = (p.dst >> 2u) + id.x;",
+                    "    if (w * 4u >= p.end) { return; }",
+                    "    var word = d[w];",
+                    "    for (var k = 0u; k < 4u; k++) {",
+                    "        let at = w * 4u + k;",
+                    "        if (at < p.dst || at >= p.end) { continue; }",
+                    "        let rel = at - p.dst;",
+                    "        let slice = rel / p.dst_image;",
+                    "        let row = (rel % p.dst_image) / p.dst_pitch;",
+                    "        let column = (rel % p.dst_image) % p.dst_pitch;",
+                    "        if (slice >= p.slices || row >= p.rows || column >= p.row) { continue; }",
+                    "        let i = p.src + slice * p.src_image + row * p.src_pitch + column;",
+                    "        let b = (s[i >> 2u] >> ((i & 3u) * 8u)) & 0xFFu;",
+                    "        word = (word & ~(0xFFu << (k * 8u))) | (b << (k * 8u));",
+                    "    }",
+                    "    d[w] = word;",
+                    "}",
+                ].join("\n");
+                this.repacker = this.device.createComputePipeline({ layout: "auto", compute: { module: this.device.createShaderModule({ code }), entryPoint: "main" } });
+            }
+            const end = last(to);
+            const params = this.device.createBuffer({ size: 48, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+            this.device.queue.writeBuffer(params, 0, Uint32Array.from([from.offset, from.pitch, from.image, to.offset, to.pitch, to.image, rowBytes, rows, slices, end, 0, 0]));
+            this.transient.push(params);
+            const group = this.device.createBindGroup({ layout: this.repacker.getBindGroupLayout(0), entries: [
+                { binding: 0, resource: { buffer: params } }, { binding: 1, resource: { buffer: src } }, { binding: 2, resource: { buffer: dst } }] });
+            const pass = this.encoder().beginComputePass();
+            pass.setPipeline(this.repacker);
+            pass.setBindGroup(0, group);
+            pass.dispatchWorkgroups(Math.ceil((((end + 3) >> 2) - (to.offset >> 2)) / 64));
+            pass.end();
         }
 
         fillBuffer(b) {
@@ -568,9 +648,11 @@
             if (!t) return;
             const f = this.format(vkformat) || t.f;
             const dimension = t.volume ? "3d" : VIEW_DIMENSION[type] || "2d";
+            const only = aspect === ASPECT.DEPTH && t.f.hasStencil ? "depth-only" : aspect === ASPECT.STENCIL && t.f.hasDepth ? "stencil-only" : "all";
             const descriptor = {
-                format: f.gpu, dimension,
-                aspect: aspect === ASPECT.DEPTH && t.f.hasStencil ? "depth-only" : aspect === ASPECT.STENCIL && t.f.hasDepth ? "stencil-only" : "all",
+                // (a view of one aspect has that aspect's format: depth24plus of depth24plus-stencil8, stencil8)
+                format: only === "depth-only" ? f.gpu.replace(/-stencil8$/, "") : only === "stencil-only" ? "stencil8" : f.gpu, dimension,
+                aspect: only,
                 baseMipLevel: baseMip, mipLevelCount: mips,
                 baseArrayLayer: t.volume ? 0 : baseLayer, arrayLayerCount: t.volume ? 1 : layers,
             };
@@ -664,7 +746,18 @@
                 return;
             }
             if ((offset | pitch | rowBytes | pitch * rows) & 3) {
-                this.warn("copy-pitch", "buffer-image copies of rows not in whole dwords are not done");
+                // (rows not in whole dwords: repacked by a compute shader to and from WebGPU's pitch)
+                const staging = this.scratch(aligned * h * slices, BUFFER.COPY_SRC | BUFFER.COPY_DST | BUFFER.STORAGE);
+                const layout = { buffer: staging, offset: 0, bytesPerRow: aligned, rowsPerImage: h };
+                const guest = { offset, pitch, image: pitch * rows }, ours = { offset: 0, pitch: aligned, image: aligned * h };
+                if (toImage) {
+                    this.repack(m.buffer, guest, staging, ours, rowBytes, h, slices);
+                    this.encoder().copyBufferToTexture(layout, place, size);
+                }
+                else {
+                    this.encoder().copyTextureToBuffer(place, layout, size);
+                    this.repack(staging, ours, m.buffer, guest, rowBytes, h, slices);
+                }
                 return;
             }
             // row by row through a staging buffer of WebGPU's pitch
@@ -856,19 +949,21 @@
         }
 
         /** a shader module's translation for a pipeline layout's push constant group */
-        async translate(shader, push, storage = []) {
+        async translate(shader, push, storage = [], flags = 0) {
             await this.loadNaga();
-            return this.translateNow(shader, push, false, storage);
+            return this.translateNow(shader, push, flags, storage);
         }
 
         /**
-         * The same, naga loaded; `keep`: Vulkan's clip space kept, for draws
-         * with a viewport of a negative height (flippedPipeline); `storage`:
-         * the uniform buffers (set << 16 | binding) that are read-only
+         * The same, naga loaded; `flags` (TRANSLATE): Vulkan's clip space
+         * kept (draws with a viewport of a negative height), the fragment
+         * depth output dropped (a pipeline with no depth attachment), depth
+         * reversed (a viewport's depths reversed): vertexVariant; `storage`:
+         * the uniform buffers (group << 16 | binding) that are read-only
          * storage buffers in it (spilledUniforms)
          */
-        translateNow(shader, push, keep, storage = []) {
-            const key = String(push) + (keep ? ":keep" : "") + (storage.length ? ":" + storage.join(",") : "");
+        translateNow(shader, push, flags, storage = []) {
+            const key = String(push) + (flags ? ":f" + flags : "") + (storage.length ? ":" + storage.join(",") : "");
             let t = shader.translations.get(key);
             if (t) return t;
             const naga = this.naga;
@@ -878,7 +973,7 @@
             if (list) new Uint32Array(naga.memory.buffer, list, storage.length).set(storage);
             let out;
             try {
-                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING, keep ? 1 : 0, list, storage.length);
+                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING, flags, list, storage.length);
             } catch (error) {
                 // (a panic: a fresh instance next time)
                 this.naga = null;
@@ -923,7 +1018,7 @@
             const spilled = new Set();
             for (const [t, stage] of translations) {
                 const entry = t.entries.find(e => e.name === stage.entry) || t.entries[0];
-                const uniforms = (entry ? entry.bindings : []).filter(b => b[2] === "uniform").map(([group, binding]) => group << 16 | binding >> 1)
+                const uniforms = (entry ? entry.bindings : []).filter(b => b[2] === "uniform").map(([group, binding]) => group << 16 | binding)
                     .sort((a, b) => a - b);
                 for (const key of uniforms.slice(MAX_UNIFORMS_PER_STAGE)) spilled.add(key);
             }
@@ -942,15 +1037,17 @@
                     if (!shader) throw new Error("no shader " + stage.shader);
                     return shader;
                 });
+                // (a fragment shader writing depth with no depth attachment: its depth output dropped)
+                const flagsOf = stage => stage.stage === 16 && !d.depth_format ? TRANSLATE.NO_DEPTH : 0;
                 let translations = [];
-                for (const [i, stage] of d.stages.entries()) translations.push([await this.translate(shaders[i], push), stage]);
+                for (const [i, stage] of d.stages.entries()) translations.push([await this.translate(shaders[i], push, [], flagsOf(stage)), stage]);
                 for (const [t] of translations) if (t.error) throw new Error("shader: " + t.error);
                 // (more uniform buffers than a stage has: some are storage, every stage translated so)
                 p.storage = this.spilledUniforms(translations);
                 if (p.storage.length) {
                     this.stats.spilledUniforms = (this.stats.spilledUniforms || 0) + 1;
                     translations = [];
-                    for (const [i, stage] of d.stages.entries()) translations.push([await this.translate(shaders[i], push, p.storage), stage]);
+                    for (const [i, stage] of d.stages.entries()) translations.push([await this.translate(shaders[i], push, p.storage, flagsOf(stage)), stage]);
                     for (const [t] of translations) if (t.error) throw new Error("shader: " + t.error);
                 }
                 const stages = translations.map(([t, stage]) => [stage.stage, this.stageState(t, stage)]);
@@ -1015,9 +1112,12 @@
                     const f = this.format(t.format);
                     if (!f) return null;
                     const target = { format: f.gpu, writeMask: d.discard ? 0 : t.write_mask };
+                    // (min and max take no factors in Vulkan; WebGPU wants them one)
+                    const component = (src, dst, op) => op === 3 || op === 4 ? { srcFactor: "one", dstFactor: "one", operation: BLEND_OP[op] } :
+                        { srcFactor: BLEND_FACTOR[src], dstFactor: BLEND_FACTOR[dst], operation: BLEND_OP[op] };
                     if (t.blend && !f.int && !d.discard) target.blend = {
-                        color: { srcFactor: BLEND_FACTOR[t.src_color], dstFactor: BLEND_FACTOR[t.dst_color], operation: BLEND_OP[t.color_op] },
-                        alpha: { srcFactor: BLEND_FACTOR[t.src_alpha], dstFactor: BLEND_FACTOR[t.dst_alpha], operation: BLEND_OP[t.alpha_op] },
+                        color: component(t.src_color, t.dst_color, t.color_op),
+                        alpha: component(t.src_alpha, t.dst_alpha, t.alpha_op),
                     };
                     return target;
                 });
@@ -1077,11 +1177,13 @@
             this.endPasses();
             // (a capture's compute pass ends it, and it begins again: resumePass)
             this.passDesc = d;
-            const colorAttachments = d.colors.map(c => {
+            const colorFormats = [];
+            const colorAttachments = d.colors.map((c, i) => {
                 if (!c) return null;
                 const v = this.attachmentOf(c.view);
                 if (!v) return null;
                 const f = v.f;
+                colorFormats[i] = f.gpu;
                 const value = f.uint ? c.clear.map(x => x >>> 0) : f.sint ? c.clear.map(x => x | 0) : c.clear.map(f32);
                 const a = { view: v.attachment, loadOp: c.load === 0 ? "load" : "clear", storeOp: c.store === 1 ? "discard" : "store",
                     clearValue: { r: value[0], g: value[1], b: value[2], a: value[3] } };
@@ -1093,10 +1195,13 @@
             if (!colorAttachments.some(a => a) && !(d.depth && this.attachmentOf(d.depth.view))) {
                 // no attachments: the pipelines' placeholder (see createPipeline)
                 colorAttachments.splice(0, colorAttachments.length, { view: this.placeholder(d.width, d.height), loadOp: "clear", storeOp: "discard" });
+                colorFormats.splice(0, colorFormats.length, PLACEHOLDER_FORMAT);
             }
+            let depthFormat = "";
             if (d.depth) {
                 const v = this.attachmentOf(d.depth.view);
                 if (v) {
+                    depthFormat = v.texture.f.gpu;
                     const ds = { view: v.attachment };
                     if (v.texture.f.hasDepth) Object.assign(ds, { depthLoadOp: d.depth.load === 0 ? "load" : "clear", depthClearValue: d.depth.clear_depth,
                         depthStoreOp: d.depth.store === 1 ? "discard" : "store" });
@@ -1113,6 +1218,10 @@
             const firstView = first && this.objects.get(first.view);
             this.passInfo = { colors: d.colors, depth: d.depth, samples: firstView && firstView.texture ? firstView.texture.samples : 1,
                 occlusion: queries && queries.querySet ? d.occlusion : 0 };
+            this.passAttachments = attachmentState(Array.from(colorFormats, f => f || null), depthFormat, this.passInfo.samples > 1 ? 4 : 1);
+            // (the textures attached: a draw that samples one reads a copy, attachmentCopies)
+            this.passTextures = new Set([...d.colors.flatMap(c => c ? [c.view, c.resolve] : []), d.depth && d.depth.view]
+                .map(id => id && this.objects.get(id)).filter(v => v && v.kind === "view").map(v => v.texture.texture));
             this.state.passWidth = d.width;
             this.state.passHeight = d.height;
             this.state.pipelineApplied = false;
@@ -1137,25 +1246,50 @@
             this.state.groups[point].set(group, { version: ++this.state.groupVersion, descriptors });
         }
 
-        /** the bind group of a pipeline's group from what is bound there */
-        bindGroup(p, point, group) {
+        /** The buffers a compute pipeline's bind groups bind as writable storage */
+        writableBuffers(p) {
+            const writable = new Set();
+            for (const [group, used] of p.groups) {
+                const contents = this.state.groups[1].get(group);
+                for (const [binding, kind] of used) {
+                    const d = kind === "storage-rw" && contents && contents.descriptors.get(descriptorKey(binding));
+                    const m = d && this.memory(d.rid);
+                    if (m) writable.add(m.buffer);
+                }
+            }
+            return writable;
+        }
+
+        /**
+         * the bind group of a pipeline's group from what is bound there;
+         * `writable`: buffers a dispatch writes, whose other bindings in it
+         * become copies (WebGPU allows no other use of a buffer a dispatch
+         * writes; Vulkan's bindings of one memory's other ranges may)
+         */
+        bindGroup(p, point, group, writable) {
             const used = p.groups.get(group);
             if (!used) return null;
             const isPush = group === p.push;
             const contents = this.state.groups[point].get(group);
+            const aliased = writable && [...used].some(([binding, kind]) => {
+                const d = (kind === "uniform" || kind === "storage") && contents && contents.descriptors.get(descriptorKey(binding));
+                const m = d && this.memory(d.rid);
+                return m && writable.has(m.buffer);
+            });
             const key = (contents ? contents.version : 0) + (isPush ? ":" + this.state.pushOffset : "");
             let bg = p.bindGroups.get(group);
-            if (bg && bg.key === key) return bg.group;
+            const substituted = !!this.substitutes;
+            if (bg && bg.key === key && !aliased && !substituted) return bg.group;
             const entries = [];
             for (const [binding, kind] of used) {
                 if (isPush && binding === PUSH_BINDING) {
                     entries.push({ binding, resource: { buffer: this.pushBuffer, offset: this.state.pushOffset, size: 256 } });
                     continue;
                 }
-                const d = contents && contents.descriptors.get((binding >> 1) * 1024);
+                const d = contents && contents.descriptors.get(descriptorKey(binding));
                 if (!d) { this.warn("unbound" + group + ":" + binding, "group " + group + " binding " + binding + " has nothing bound"); return null; }
-                if (binding & 1 || kind === "sampler" || kind === "sampler-comparison") {
-                    const s = this.objects.get(binding & 1 ? d.sampler : d.sampler || d.rid);
+                if (samplerBinding(binding) || kind === "sampler" || kind === "sampler-comparison") {
+                    const s = this.objects.get(samplerBinding(binding) ? d.sampler : d.sampler || d.rid);
                     if (!s || !s.sampler) return null;
                     entries.push({ binding, resource: s.sampler });
                     continue;
@@ -1163,15 +1297,24 @@
                 if (kind === "uniform" || kind === "storage" || kind === "storage-rw") {
                     const m = this.memory(d.rid);
                     if (!m) return null;
-                    entries.push({ binding, resource: { buffer: m.buffer, offset: d.offset, size: Math.min(d.size, m.buffer.size - d.offset) } });
+                    const size = Math.min(d.size, m.buffer.size - d.offset);
+                    if (aliased && kind !== "storage-rw" && writable.has(m.buffer)) {
+                        // (what it binds as it is before the dispatch)
+                        const copy = this.scratch(size, BUFFER.COPY_DST | BUFFER.UNIFORM | BUFFER.STORAGE);
+                        this.encoder().copyBufferToBuffer(m.buffer, d.offset, copy, 0, align(size, 4));
+                        entries.push({ binding, resource: { buffer: copy, offset: 0, size } });
+                        continue;
+                    }
+                    entries.push({ binding, resource: { buffer: m.buffer, offset: d.offset, size } });
                     continue;
                 }
                 const v = this.objects.get(d.rid);
                 if (!v || v.kind !== "view") return null;
-                entries.push({ binding, resource: kind === "storage-texture" ? this.singleMip(v) : v.view });
+                const copy = this.substitutes && this.substitutes.get(v);
+                entries.push({ binding, resource: copy || (kind === "storage-texture" ? this.singleMip(v) : v.view) });
             }
             const created = this.device.createBindGroup({ layout: p.gpu.getBindGroupLayout(group), entries });
-            p.bindGroups.set(group, { key, group: created });
+            if (!aliased && !substituted) p.bindGroups.set(group, { key, group: created });
             return created;
         }
 
@@ -1183,36 +1326,41 @@
         }
 
         /**
-         * A render pipeline for draws with a viewport of a negative height:
-         * Vulkan flips y with it (ANGLE draws GL's frames so), WebGPU's
+         * A render pipeline whose vertex shader is another translation
+         * (`flags`, TRANSLATE): for draws with a viewport of a negative height
+         * (Vulkan flips y with it, ANGLE draws GL's frames so; WebGPU's
          * viewports cannot, so the vertex stage keeps Vulkan's clip space
-         * instead of flipping into WebGPU's. Made at the first such draw; its
-         * own (automatic) layout, so its own bind groups: WebGPU does not let
-         * another pipeline use an automatic layout's bind group layouts.
+         * instead of flipping into WebGPU's), and for a viewport whose depths
+         * are reversed (z made w - z, the viewport's depths swapped). Made at
+         * the first such draw; its own (automatic) layout, so its own bind
+         * groups: WebGPU does not let another pipeline use an automatic
+         * layout's bind group layouts.
          */
-        flippedPipeline(p) {
-            if (p.flipped !== undefined) return p.flipped;
-            p.flipped = null;
+        vertexVariant(p, flags) {
+            p.vertexVariants = p.vertexVariants || new Map();
+            if (p.vertexVariants.has(flags)) return p.vertexVariants.get(flags);
+            let v = null;
             try {
-                const t = this.translateNow(p.vertexSource.shader, p.push, true, p.storage);
+                const t = this.translateNow(p.vertexSource.shader, p.push, flags, p.storage);
                 if (t.error) throw new Error("shader: " + t.error);
                 const st = this.stageState(t, p.vertexSource.stage);
-                const gpu = this.device.createRenderPipeline(Object.assign({}, p.descriptor, {
+                const descriptor = Object.assign({}, p.descriptor, {
                     vertex: Object.assign({}, p.descriptor.vertex, { module: st.module, entryPoint: st.entryPoint, constants: st.constants }),
-                }));
-                p.flipped = { kind: "pipeline", desc: p.desc, groups: p.groups, push: p.push, gpu, bindGroups: new Map(), error: null,
-                    descriptor: Object.assign({}, p.descriptor, { vertex: Object.assign({}, p.descriptor.vertex, { module: st.module, entryPoint: st.entryPoint, constants: st.constants }) }) };
+                });
+                v = { kind: "pipeline", desc: p.desc, groups: p.groups, push: p.push, gpu: this.device.createRenderPipeline(descriptor), bindGroups: new Map(),
+                    error: null, descriptor };
             } catch (error) {
-                this.warn("flipped:" + error.message, "a pipeline's variant for flipped viewports failed: " + error.message);
+                this.warn("vertex-variant:" + flags + ":" + error.message, "a pipeline's variant for flipped or reversed viewports failed: " + error.message);
             }
-            return p.flipped;
+            p.vertexVariants.set(flags, v);
+            return v;
         }
 
         /**
          * A render pipeline with other stencil masks: the dynamic ones
          * (VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, _WRITE_MASK) of a draw, as
          * WebGPU's are the pipeline's. Made at the first draw with them; its
-         * own bind groups (an automatic layout, as flippedPipeline's)
+         * own bind groups (an automatic layout, as vertexVariant's)
          */
         maskedPipeline(q, read, write) {
             const ds = q.descriptor.depthStencil;
@@ -1263,6 +1411,7 @@
                 if (kind === 0) this.capture(this.state.graphics, b);
                 else this.warn("xfb-indexed", "indexed and indirect draws capture nothing (GL ES 3.0 has none)");
             }
+            if (this.pass && this.state.graphics && this.state.graphics.gpu) this.attachmentCopies(this.state.graphics);
             const p = this.state.graphics, pass = this.pass;
             if (!pass || !p || !p.gpu) {
                 if (p && p.error) this.warn("draw-pipeline", "draws with a failed pipeline are skipped");
@@ -1273,7 +1422,10 @@
             // viewport and scissor: the dynamic ones, or the pipeline's; within the target (WebGPU's rule)
             const viewport = p.desc.dynamic.includes(0) && s.viewport ? s.viewport :
                 p.desc.viewport ? [p.desc.viewport.x, p.desc.viewport.y, p.desc.viewport.width, p.desc.viewport.height, p.desc.viewport.minDepth, p.desc.viewport.maxDepth] : null;
-            let q = viewport && viewport[3] < 0 ? this.flippedPipeline(p) : p;
+            // (a viewport flipped, or with its depths reversed: a variant of the vertex shader)
+            const reversed = viewport && viewport[4] > viewport[5];
+            const variant = (viewport && viewport[3] < 0 ? TRANSLATE.KEEP : 0) | (reversed ? TRANSLATE.REVERSE_DEPTH : 0);
+            let q = variant ? this.vertexVariant(p, variant) : p;
             if (!q) return;
             // (the dynamic stencil masks, with the stencil test on)
             const dynamicMasks = p.desc.dynamic.includes(6) || p.desc.dynamic.includes(7);
@@ -1296,6 +1448,15 @@
                 this.warn("fan-indexed", "indexed and indirect triangle fans are not done");
                 return;
             }
+            // (a pipeline for other attachments: WebGPU would drop the whole batch for it)
+            const attachments = q.attachments || (q.attachments = attachmentState(q.descriptor && q.descriptor.fragment ?
+                q.descriptor.fragment.targets.map(t => t ? t.format : null) : [], q.descriptor && q.descriptor.depthStencil ? q.descriptor.depthStencil.format : "",
+                q.descriptor && q.descriptor.multisample ? q.descriptor.multisample.count || 1 : 1));
+            if (attachments !== this.passAttachments) {
+                this.warn("attachments:" + attachments + ":" + this.passAttachments, "a draw's pipeline is for other attachments: " + attachments +
+                    ", the pass's " + this.passAttachments + " (skipped)");
+                return;
+            }
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
             pass.setPipeline(q.gpu);
             for (const group of p.groups.keys()) {
@@ -1313,6 +1474,7 @@
                 if (h < 0) { y += h; h = -h; }
                 const x0 = Math.max(0, x), y0 = Math.max(0, y);
                 const x1 = Math.min(s.passWidth, x + w), y1 = Math.min(s.passHeight, y + h);
+                if (reversed) [near, far] = [far, near];
                 if (x1 > x0 && y1 > y0) pass.setViewport(x0, y0, x1 - x0, y1 - y0, Math.max(0, Math.min(1, near)), Math.max(0, Math.min(1, far)));
             }
             const scissor = p.desc.dynamic.includes(1) && s.scissor ? s.scissor :
@@ -1330,6 +1492,7 @@
                 if (!m) return;
                 pass.setIndexBuffer(m.buffer, ib.type === 1 ? "uint32" : "uint16", ib.offset, Math.min(ib.size, m.buffer.size - ib.offset));
             }
+            this.substitutes = null;
             if (kind === 0 && fan) {
                 if (b[0] < 3) return;
                 pass.setIndexBuffer(this.fanIndices(b[0]), "uint32");
@@ -1475,13 +1638,59 @@
         /** The render pass again after a capture's compute pass: as it was begun, its attachments loaded */
         resumePass() {
             const d = JSON.parse(JSON.stringify(this.passDesc));
-            for (const c of d.colors) if (c) { if (c.store === 1) this.warn("xfb-discard", "a capture in a pass whose attachments it discards"); c.load = 0; }
+            for (const c of d.colors) if (c) { if (c.store === 1) this.warn("resume-discard", "a pass ended in its middle (a capture, a copy of an attachment it samples) whose attachments it discards"); c.load = 0; }
             if (d.depth) { d.depth.load = 0; d.depth.stencil_load = 0; }
             // (its occlusion queries go on in no pass: an occlusion query across a capture counts its first half)
             d.occlusion = 0;
             const pipeline = this.state.graphics;
             this.beginPass(d);
             this.state.graphics = pipeline;
+        }
+
+        /**
+         * A draw that samples a texture attached to its pass (an input
+         * attachment of its own subpass: framebuffer fetch, ANGLE's advanced
+         * blending): WebGPU samples no attachment of the pass it is in, so
+         * the pass ends, each such texture is copied, the pass goes on and
+         * the draw samples the copies (what the attachments held before it,
+         * the non-coherent behaviour). Multisampled ones are not copied.
+         */
+        attachmentCopies(p) {
+            this.substitutes = null;
+            if (!this.passTextures || !this.passTextures.size) return;
+            const views = new Set();
+            for (const [group, used] of p.groups) {
+                const contents = this.state.groups[0].get(group);
+                if (!contents || group === p.push) continue;
+                for (const [binding, kind] of used) {
+                    if (samplerBinding(binding) || !/^texture/.test(kind)) continue;
+                    const d = contents.descriptors.get(descriptorKey(binding));
+                    const v = d && this.objects.get(d.rid);
+                    if (v && v.kind === "view" && this.passTextures.has(v.texture.texture)) views.add(v);
+                }
+            }
+            if (!views.size) return;
+            this.endPass();
+            const substitutes = new Map();
+            for (const v of views) {
+                const t = v.texture;
+                if (t.samples > 1) {
+                    this.warn("fetch-ms", "a draw reading its multisampled attachment reads it as it is (not done)");
+                    continue;
+                }
+                const copy = this.device.createTexture({ size: [t.width, Math.max(1, t.height), t.volume ? t.depth : t.layers], dimension: t.volume ? "3d" : "2d",
+                    format: t.texture.format, mipLevelCount: t.mips, usage: TEXTURE.TEXTURE_BINDING | TEXTURE.COPY_DST });
+                this.transient.push(copy);
+                for (let mip = v.baseMip; mip < v.baseMip + v.mips; mip++) {
+                    const width = Math.max(1, t.width >> mip), height = Math.max(1, Math.max(1, t.height) >> mip);
+                    this.encoder().copyTextureToTexture({ texture: t.texture, mipLevel: mip, origin: [0, 0, t.volume ? 0 : v.baseLayer] },
+                        { texture: copy, mipLevel: mip, origin: [0, 0, t.volume ? 0 : v.baseLayer] },
+                        [width, height, t.volume ? Math.max(1, t.depth >> mip) : v.layers]);
+                }
+                substitutes.set(v, copy.createView(Object.assign({}, v.descriptor)));
+            }
+            this.resumePass();
+            this.substitutes = substitutes;
         }
 
         /** The compute shader of a capturing draw (vx_translate_xfb), naga loaded */
@@ -1530,17 +1739,21 @@
             this.stats.dispatches++;
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
             this.endPass();
+            // (the bind groups first: their copies are outside the compute pass)
+            const writable = this.writableBuffers(p);
+            const groups = [];
+            for (const group of p.groups.keys()) {
+                const bg = this.bindGroup(p, 1, group, writable);
+                if (!bg) return;
+                groups.push([group, bg]);
+            }
             if (!this.computePass) {
                 const encoder = this.encoder();
                 this.computePass = encoder.beginComputePass();
             }
             const pass = this.computePass;
             pass.setPipeline(p.gpu);
-            for (const group of p.groups.keys()) {
-                const bg = this.bindGroup(p, 1, group);
-                if (!bg) return;
-                pass.setBindGroup(group, bg);
-            }
+            for (const [group, bg] of groups) pass.setBindGroup(group, bg);
             if (indirect) {
                 const m = this.memory(b[0]);
                 if (m) pass.dispatchWorkgroupsIndirect(m.buffer, b[1] + b[2] * 0x100000000);
@@ -1567,19 +1780,24 @@
                     const outputs = colors.map((f, i) => f ? "@location(" + i + ") c" + i + ": vec4<" + type(f) + ">" : null).filter(x => x);
                     const values = colors.map((f, i) => !f ? null : "c" + i + " = " + (i === a.index ?
                         (f.uint ? "value.bits" : f.sint ? "bitcast<vec4<i32>>(value.bits)" : "bitcast<vec4<f32>>(value.bits)") : "vec4<" + type(f) + ">()") + ";").filter(x => x);
+                    // (depth written only where there is depth: a stencil8 attachment has none; nothing to
+                    // return when nothing is written, the value still used, for the bind group)
+                    const writesDepth = !color && depthFormat && depthFormat.hasDepth;
+                    if (writesDepth) outputs.push("@builtin(frag_depth) depth: f32");
                     const code = [
                         "struct Value { bits: vec4<u32>, depth: f32 };",
                         "@group(0) @binding(0) var<uniform> value: Value;",
-                        "struct Out { " + outputs.concat(color ? [] : ["@builtin(frag_depth) depth: f32"]).join(", ") + " };",
+                        outputs.length ? "struct Out { " + outputs.join(", ") + " };" : "",
                         "@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {",
                         "    let corner = vec2f(f32(i & 1u), f32(i >> 1u));",
                         "    return vec4f(corner * 2.0 - 1.0, 0.0, 1.0);",
                         "}",
-                        "@fragment fn fs() -> Out {",
-                        "    var out: Out;",
+                        outputs.length ? "@fragment fn fs() -> Out {" : "@fragment fn fs() {",
+                        "    _ = value;",
+                        outputs.length ? "    var out: Out;" : "",
                         ...values.map(v => "    out." + v),
-                        color ? "" : "    out.depth = value.depth;",
-                        "    return out;",
+                        writesDepth ? "    out.depth = value.depth;" : "",
+                        outputs.length ? "    return out;" : "",
                         "}",
                     ].join("\n");
                     const module = this.device.createShaderModule({ code });
@@ -1592,7 +1810,7 @@
                     };
                     if (depthFormat) {
                         const depthToo = !color && a.aspect & ASPECT.DEPTH, stencilToo = !color && a.aspect & ASPECT.STENCIL;
-                        descriptor.depthStencil = { format: depthFormat.gpu, depthWriteEnabled: !!depthToo, depthCompare: "always" };
+                        descriptor.depthStencil = { format: depthFormat.gpu, depthWriteEnabled: !!depthToo && depthFormat.hasDepth, depthCompare: "always" };
                         if (depthFormat.hasStencil) {
                             const face = { compare: "always", passOp: stencilToo ? "replace" : "keep", failOp: "keep", depthFailOp: "keep" };
                             Object.assign(descriptor.depthStencil, { stencilFront: face, stencilBack: face, stencilWriteMask: stencilToo ? 0xFF : 0 });

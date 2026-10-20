@@ -420,7 +420,8 @@ assert.ok(!gpu_level || gpu_level === "venus", "A64_ANDROID_GPU: venus");
 // (and tools/a64_android.mjs's initrd-venus.img: libvulkan's driver the odm's vulkan.virtio.so)
 const initrd = gpu_level === "venus" ? "initrd-venus.img" : "initrd.img";
 assert.ok(fs.existsSync(OUT + initrd), OUT + initrd + " is missing: make android-venus, then node tools/a64_android.mjs");
-const remote = gpu_level ? await create_remote_renderer() : null;
+// (A64_ANDROID_SHADER_DIR=<dir>: Venus's shaders and pipelines written there, a corpus for VX's translation)
+const remote = gpu_level ? await create_remote_renderer({ shader_dir: process.env.A64_ANDROID_SHADER_DIR }) : null;
 // A64_ANDROID_SAVE_STATE=<file>: a V7 state saved after boot_completed;
 // A64_ANDROID_RESTORE_STATE=<file>: such a state restored instead of booting
 // (the same options otherwise), for quick rounds of probes
