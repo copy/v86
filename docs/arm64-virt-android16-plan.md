@@ -2540,3 +2540,66 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - Android 的 wlan0 经 fetch 适配器的 DHCP 偶尔失败（场景每两分钟重连一次，`dhcp.log` 有记录），原因未查。
   - QEMU 参考的 virtio-sound 在 TCG 比实时慢时会丢样本（只影响参考，A10 场景在 QEMU 上只记录逐字节比较的结果）。
   - Bluetooth 的原生栈在首次启动时 abort、com.android.phone 的 ANR（没有 modem 的 radio HAL）：QEMU 上也有，不是 v86 的。
+
+### F 的进展（2026-10-20，分支 `arm64`）
+
+- F1：原因已经量清，在不改客体的前提下没有解法，归入 F3。HAL（StreamPrimary）一旦落后真实时间，就把每次传输都收下而不写出；
+  v86 上应用启动时 AudioFlinger 的混音线程跟不上（QEMU TCG 也是），落后从流开始就有。设备报更大的周期与缓冲改变不了这一点。
+  场景的声音一步记录 HAL 的逐次时间（`sound-timing.txt`：logcat -v monotonic 与 `dumpsys media.audio_flinger`），
+  `A64_ANDROID_SOUND_PROFILE=1` 另做整机的 simpleperf（`sound-profile.txt`）。
+- F2：Venus 现在满足 Android 16 的 ANGLE 给 ES 3.0 的条件（android16 与 qpr1 分支的 `getMaxSupportedESVersion`）：
+  - `VK_EXT_transform_feedback`（VX 用计算 pass 模拟，G-45）；
+  - 每阶段 14 个 uniform buffer（超过 12 个的作只读 storage buffer，G-46）；
+  - 68 个顶点输出分量（ANGLE 为 transform feedback 留 4 个，G-47）；
+  - 24 位深度格式有 transfer 特性：ANGLE 的窗口深度模板图要，没有它 `eglCreateWindowSurface` 就是 EGL_BAD_SURFACE。
+  同时修了几处所有 ANGLE 应用都会碰到的问题（G-48）：
+  - 动态的 stencil 掩码以前被丢掉（每对掩码一个 pipeline 变体）；
+  - 写了 `gl_PointSize` 的顶点着色器以前译不成 WGSL（顶点入口去掉它，捕获的计算着色器保留）；
+  - `isnan`/`isinf` 以前译不成 WGSL（改成位测试）；
+  - 带索引的 strip（ANGLE 画 GL 的 line loop 用它）的 pipeline 缺 WebGPU 的 strip index format，校验错误让整批命令作废，
+    之后 GL 上下文对每次绘制都报 GL_INVALID_OPERATION；
+  - triangle fan 以前不画（不带索引的改成三角形列表）。
+  dEQP 的 GLES3 子集结果见 F6。还没做的：
+  - std140 下两行的矩阵（naga 的 `UnsupportedMatrixStride`）与 row_major 矩阵（`MemberOverlap`）；
+  - 矩阵类型的 varying（WGSL 不许；transform feedback 的矩阵用例因此失败）；
+  - uniform block 的实例数组（描述符数组）；
+  - 平面着色的 provoking vertex（WebGPU 取第一个顶点，GL 取最后一个；新版 ANGLE 因此只给 ES 2.0，Android 16 的版本不查）；
+  - ANGLE 的 `DescriptorSetHelper::destroy` 递归栈溢出（dEQP 应用第一次启动时偶尔出现，instrumentation 重试后通过）。
+  dEQP 里一个失败的 `ubo.random` 用例会让之后的用例都报 GL_INVALID_OPERATION，所以它单独跑（前缀 `!`）。
+  因此 `androidboot.opengles.version` 仍报 2.0；ANGLE 对明确要 ES 3 上下文的应用已经给 3.0。
+- F3：分两部分做了。
+  - FEAT_PAN 放在新的配置 v2（`a64_profile: "v2"`，`A64_PROFILE=v2`）：v1 与 v1.1 不变，快照保留自己的配置。
+  - 页层的系统指令模板：普通寄存器的 MRS/MSR、DAIFSet/Clr、DC ZVA、TLBI、不必等待的 DSB、LDTR/STTR，
+    开关为 `a64_system` 掩码；worker 的 MMIO 写不再等回复。
+  测得：
+  - androidish Alpine 登录：58.2 → 54.6 s（模板）→ 52.2 s（v2）；
+  - 从 A10 快照起的 Android（v1.1）：fork+exec 67 → 54 s，dd 7.4 → 5.2 s；
+  - v2 加 Venus 的冷启动（release、4 核 worker 加页层）：969 s 到 `sys.boot_completed`（A10 的基线是 1192–1325 s，一次的测量），126 MIPS。
+  默认配置仍是 v1.1。
+- F4：`build/a64-android/android-venus-booted.v7` 已用现在的构建重存（配置 v2、Venus，`sys.boot_completed` 时，即 F3 那次冷启动），
+  dEQP 与 F5 的运行都从它恢复。
+- F5：已做（778c4f88）。恢复或复位开始新的一代：之前的请求被忘掉，旧的 Venus 上下文作废，blob 当作已解除映射。
+  保存时还在等的请求按描述符头进快照，恢复后依次重新应答；设备测试有“等待中保存”一节。
+  用新快照在真实客体上原地保存、恢复两次（`tests/a64/android_restore_stall.mjs`，补上了 virtio-snd）：没有卡住，Launcher3 的帧
+  11 → 14 → 22 照常增长（两次保存时都没有等待中的请求）。
+- F6：
+  - `A64_ANDROID_SCENARIO=deqp`（`tests/a64/android_deqp.mjs`）：CTS 16.1_r1 的 CtsDeqpTestCases 经 instrumentation，
+    内联 caselist。失败的包保存 .qpa 与整段 logcat；instrumentation 等日志超时会重试，v86 上应用第一次启动慢。
+  - QEMU HVF（SwiftShader）：VK 6/6，EGL 5/5，GLES2 45/45，GLES3 150 例中 139 通过、11 不支持。
+  - v86（Venus，从新存的快照起）：VK 6/6，EGL 5/5，GLES2 45/45（修 stencil 掩码前 43），GLES3 112 通过、27 失败、11 不支持
+    （修之前 58 通过、81 失败）。失败的是平面着色 6 个、`ubo.random` 11 个、transform feedback 的矩阵 10 个，原因见 F2；
+    transform feedback 的 position、point_size、interpolation 与非矩阵的 basic_types 都通过。
+  - 16K 冷帧为空：gfxinfo 的输出里没有统计时，等 10 s 再取一次，仍没有就把开头存进结果；推测是 RenderThread 忙时 dump 超时。
+- F7：
+  - 换过的 system_dlkm 与 vendor_dlkm 重新有了 AVB footer（ef639620），16K 启动时 fs_mgr 读到 offline vbmeta，与 4K 一样。
+  - `tls.ko`：16K 的 GKI 配置里 `CONFIG_TLS` 没开，无从补上。
+  - 没放进去的 11 个模块：virt 机器上没有的硬件，没有 EFI 或 pstore 设备时用不上的 efivarfs 与 pstore，
+    以及 aes-neon-blk（内建的 aes-ce-blk 用 FEAT_AES，更快）。
+- F8：
+  - x86 `vcpu.js` 的时钟改了（acfb12f2）；
+  - VX 的部分 resolve 改了（c6229911）；
+  - wlan0 的“DHCP 失败”查清了：是 IpClient 从启动起 18 s 的配置期限（NetworkStack `ProvisioningConfiguration` 的默认值），
+    fetch 适配器每次一秒内应答，v86 上 Wi-Fi 线程的 pre-DHCP 一步要 11 s；
+  - QEMU 的声音与 Bluetooth、phone 不是 v86 的，照旧。
+  - 另外修了一处：harness 在 release 构建下以工作目录找 `build/vcpu-worker.js`，找不到时机器不启动、也不报错。
+    现在明确传路径，`emulator-error` 时退出。

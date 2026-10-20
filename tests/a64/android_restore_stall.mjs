@@ -57,9 +57,14 @@ const emulator = new V86({
     graphics_adapter_test: { level: "venus", renderer: remote.renderer },
     net_device: { type: "virtio", count: 3, relay_url: "fetch", id: 2 },
     virtio_console: true, virtio_console_ports: 18, virtio_rng: true, virtio_input: ["keyboard", "multitouch"], virtio_vsock: true,
+    // (as android_boot.mjs's machine since P12.5: states saved since have the sound card)
+    virtio_sound: true,
     jit_switches: { a64_page: 1 },
     parallel: true, parallel_wasm_path: process.env.A64_PARALLEL_WASM || ROOT + "build/v86-arm64-parallel.wasm",
+    // (the bundle's own default is build/vcpu-worker.js of the working directory)
+    ...(+process.env.TEST_RELEASE_BUILD ? { vcpu_worker_url: ROOT + "build/vcpu-worker.js" } : {}),
 });
+emulator.add_listener("emulator-error", error => { console.error("emulator-error:", error); process.exit(1); });
 await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
 emulator.add_listener("emulator-ready", () => emulator.set_display_size(720, 1280));
 const logcat = fs.openSync(directory + "logcat.log", "w"), kernel = fs.openSync(directory + "kernel.log", "w");
