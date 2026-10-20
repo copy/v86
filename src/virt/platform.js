@@ -6,7 +6,7 @@
 export const VIRT_LAYOUT_VERSION = 2;
 
 /** The CPU profile (tests/platform/a64-profile.json) */
-/** The CPU profiles' base name: v1; v1.1, the default, adds ".1" (src/arm/cpu.js) */
+/** The CPU profiles' base name: v1; v1.1 adds ".1"; v2 is the default (src/arm/cpu.js) */
 export const A64_PROFILE = "v86-aarch64-v1";
 /**
  * The CPU profiles (docs/arm64-virt-android16-plan.md, "CPU profile") by

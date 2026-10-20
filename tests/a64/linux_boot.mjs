@@ -465,8 +465,9 @@ const jit = !!+process.env.A64_JIT;
 // the soft lockup threshold's 20 s whenever the host is busy. 60 s here; a
 // core that hangs is still reported, or misses the run's deadline)
 const V86_WATCHDOG = !jit && cores > 1 ? " watchdog_thresh=30" : "";
-// A64_PROFILE: the CPU profile (a64_profile: v1, v1.1, the default, or v2 with FEAT_PAN)
+// A64_PROFILE: the CPU profile (a64_profile: v1, v1.1, or v2 with FEAT_PAN, the default)
 const PROFILE_OPTIONS = process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {};
+const profile_name = process.env.A64_PROFILE || "v2";
 const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
     ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};
 const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${transport === "pci" ? "-pci" : ""}` +
@@ -486,7 +487,7 @@ const tag = tag_of(qemu_reference ? "qemu" : "v86");
 const FEATURES_ONLY_ON_REFERENCE = ["32-bit EL0 Support", "32-bit EL1 Support"];
 // (and profile v2's own, tests/platform/a64-profile.json: the reference has not got them)
 const FEATURES_ONLY_ON_V86 = ["Spectre-v4", "Spectre-BHB",
-    ...(process.env.A64_PROFILE === "v2" ? JSON.parse(fs.readFileSync(ROOT + "tests/platform/a64-profile.json", "utf8")).v2.linux_cpu_features : [])];
+    ...(profile_name === "v2" ? JSON.parse(fs.readFileSync(ROOT + "tests/platform/a64-profile.json", "utf8")).v2.linux_cpu_features : [])];
 const detected = text => [...new Set([...text.matchAll(/CPU features: detected: ([^\r\n]+)/g)].map(m => m[1].trim()))].sort();
 
 /** The probe's lines in `text`, judged against `cores` and the stage */

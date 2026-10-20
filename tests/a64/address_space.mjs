@@ -168,7 +168,8 @@ try
 
     // snapshot identity
     const state = cpu.get_state(true);
-    assert.deepEqual(state[103], ["virt", 2, "v86-aarch64-v1.1"]);
+    // (the default profile, v2)
+    assert.deepEqual(state[103], ["virt", 2, "v86-aarch64-v2"]);
     assert.throws(() => cpu.validate_state(Object.assign([], state, { 103: ["i440fx", 1] })), /machine_type: "i440fx"/);
     assert.throws(() => cpu.validate_state(Object.assign([], state, { 103: undefined })), /machine_type: "i440fx"/);
     console.log("PASS snapshot identity");

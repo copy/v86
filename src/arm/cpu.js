@@ -199,9 +199,9 @@ A64CPU.prototype.init = function(settings, device_bus)
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
     // the CPU profile (docs/arm64-virt-android16-plan.md, "CPU profile"):
-    // v1.1 (the 4, 16 and 64 KiB granules, since P8.6), v1 (4 KiB only), or
-    // v2 (v1.1 and FEAT_PAN)
-    const profile = settings["a64_profile"] || "v1.1";
+    // v2 (v1.1 and FEAT_PAN, the default since 2026-10-20), v1.1 (the 4, 16
+    // and 64 KiB granules, P8.6), or v1 (4 KiB only)
+    const profile = settings["a64_profile"] || "v2";
     if(!Object.prototype.hasOwnProperty.call(A64_PROFILES, profile))
     {
         throw new Error("a64_profile: " + Object.keys(A64_PROFILES).map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));

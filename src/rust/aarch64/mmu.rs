@@ -1,6 +1,6 @@
 //! The stage 1 MMU of the AArch64 core (docs/arm64-virt-android16-plan.md
 //! P3.3-P3.5): VMSAv8-64 translation of the EL1&0 regime with the 4 KiB
-//! granule (16 and 64 KiB too with profile v1.1, the default), TBI, ASIDs, the TLB
+//! granule (16 and 64 KiB too with profiles v1.1 and v2, the default), TBI, ASIDs, the TLB
 //! (tlb.rs), AT and TLBI. Where the Arm ARM leaves a choice this follows
 //! QEMU 9.2 (target/arm/ptw.c), the reference: a TnSZ out of range is a
 //! level 0 translation fault; a granule the profile does not have is the
@@ -27,7 +27,7 @@ const FSC_EXTERNAL_WALK: u32 = 0x14;
 /// The granules the profile has: bit 0 4 KiB, 1 16 KiB, 2 64 KiB (v1: 4 KiB only)
 static mut GRANULES: u32 = 1;
 
-/// (profile v1.1, the default since P8.6: 16 and 64 KiB granules too, P3.4)
+/// (profiles v1.1 and v2, the default: 16 and 64 KiB granules too, P3.4)
 #[no_mangle]
 pub fn a64_set_granules(mask: u32) {
     unsafe { *crate::parallel::machine(&raw mut GRANULES) = mask & 7 | 1 };

@@ -42,7 +42,7 @@
 //   A64_ANDROID_CTS_MODULES=<module>,... and A64_ANDROID_CTS_FILTER=<module>=<gtest filter>;... to try parts of it),
 //   A64_ANDROID_SCENARIO=deqp (appendix F6: a dEQP subset through CtsDeqpTestCases's APK, android_deqp.mjs;
 //   A64_ANDROID_DEQP=<package>=<prefix>,...;... for other cases),
-//   A64_PROFILE=v2 (the CPU profile v2, FEAT_PAN), TEST_RELEASE_BUILD=1 (build/libv86.mjs)
+//   A64_PROFILE=v1.1 (the CPU profile without FEAT_PAN; v2, the default, has it), TEST_RELEASE_BUILD=1 (build/libv86.mjs)
 // Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log, *.png, result.json)
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -431,7 +431,7 @@ let sound_chunks = null;
 const sound = { reset: () => { sound_chunks = []; }, played: () => { const pcm = Buffer.concat(sound_chunks || []); sound_chunks = null; return pcm; } };
 const emulator = new V86({
     cpu_type: "arm64", cpu_cores: cores, memory_size: low_mb * 1048576, log_level: 0, autostart: !restore_state_file,
-    // (A64_PROFILE: the CPU profile, a64_profile; v2 has FEAT_PAN)
+    // (A64_PROFILE: the CPU profile, a64_profile; v2, the default, has FEAT_PAN)
     ...(process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {}),
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
