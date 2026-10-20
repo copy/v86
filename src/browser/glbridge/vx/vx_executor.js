@@ -983,7 +983,8 @@
                     if (!f || !f[2]) { this.warn("vertex-format" + a.format, "vertex format " + a.format + " is not done"); continue; }
                     if (buffers[a.binding]) buffers[a.binding].attributes.push({ format: f[2], offset: a.offset, shaderLocation: a.location });
                 }
-                const topology = TOPOLOGY[d.topology];
+                // (triangle fans: lists, drawn through fanIndices)
+                const topology = d.topology === 5 ? "triangle-list" : TOPOLOGY[d.topology];
                 if (!topology) this.warn("topology" + d.topology, "topology " + d.topology + " is not done");
                 const descriptor = {
                     layout: "auto",
@@ -1216,19 +1217,41 @@
         maskedPipeline(q, read, write) {
             const ds = q.descriptor.depthStencil;
             if ((ds.stencilReadMask & 0xFF) === read && (ds.stencilWriteMask & 0xFF) === write) return q;
-            q.masked = q.masked || new Map();
-            const key = read << 8 | write;
-            if (q.masked.has(key)) return q.masked.get(key);
+            return this.variant(q, "masks:" + read + ":" + write,
+                d => Object.assign(d, { depthStencil: Object.assign({}, ds, { stencilReadMask: read, stencilWriteMask: write }) }));
+        }
+
+        /**
+         * A render pipeline's variant by `key`, its descriptor as `change`
+         * makes it of a copy of the pipeline's: made at the first draw that
+         * needs it, with its own bind groups (an automatic layout)
+         */
+        variant(q, key, change) {
+            q.variants = q.variants || new Map();
+            if (q.variants.has(key)) return q.variants.get(key);
             let v = null;
             try {
-                const descriptor = Object.assign({}, q.descriptor, { depthStencil: Object.assign({}, ds, { stencilReadMask: read, stencilWriteMask: write }) });
+                const descriptor = change(Object.assign({}, q.descriptor));
                 v = { kind: "pipeline", desc: q.desc, groups: q.groups, push: q.push, descriptor, gpu: this.device.createRenderPipeline(descriptor),
                     bindGroups: new Map(), error: null };
             } catch (error) {
-                this.warn("masked:" + error.message, "a pipeline's variant for dynamic stencil masks failed: " + error.message);
+                this.warn("variant:" + error.message, "a pipeline's variant (" + key + ") failed: " + error.message);
             }
-            q.masked.set(key, v);
+            q.variants.set(key, v);
             return v;
+        }
+
+        /** An index buffer of triangle fans as lists for fans of up to `n` vertices: Vulkan's (i + 1, i + 2, 0), its provoking vertex first */
+        fanIndices(n) {
+            if (this.fans && this.fans.vertices >= n) return this.fans.buffer;
+            const vertices = Math.max(64, 1 << Math.ceil(Math.log2(n)));
+            const indices = new Uint32Array(3 * (vertices - 2));
+            for (let i = 0; i < vertices - 2; i++) indices.set([i + 1, i + 2, 0], 3 * i);
+            if (this.fans) this.transient.push(this.fans.buffer);
+            const buffer = this.device.createBuffer({ size: indices.byteLength, usage: BUFFER.INDEX | BUFFER.COPY_DST });
+            this.device.queue.writeBuffer(buffer, 0, indices);
+            this.fans = { vertices, buffer };
+            return buffer;
         }
 
         // ------------------------------------------------------------------
@@ -1260,6 +1283,18 @@
                 q = this.maskedPipeline(q, p.desc.dynamic.includes(6) ? s.stencilMasks[0] : ds.stencilReadMask & 0xFF,
                     p.desc.dynamic.includes(7) ? s.stencilMasks[1] : ds.stencilWriteMask & 0xFF);
                 if (!q) return;
+            }
+            // (indexed strips: WebGPU wants the index format in the pipeline)
+            const indexed = kind === 1 || kind === 2 && b[5];
+            if (indexed && (p.desc.topology === 2 || p.desc.topology === 4) && q.descriptor) {
+                const format = s.index && s.index.type === 1 ? "uint32" : "uint16";
+                q = this.variant(q, "strip:" + format, d => Object.assign(d, { primitive: Object.assign({}, d.primitive, { stripIndexFormat: format }) }));
+                if (!q) return;
+            }
+            const fan = p.desc.topology === 5;
+            if (fan && kind !== 0) {
+                this.warn("fan-indexed", "indexed and indirect triangle fans are not done");
+                return;
             }
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
             pass.setPipeline(q.gpu);
@@ -1295,7 +1330,12 @@
                 if (!m) return;
                 pass.setIndexBuffer(m.buffer, ib.type === 1 ? "uint32" : "uint16", ib.offset, Math.min(ib.size, m.buffer.size - ib.offset));
             }
-            if (kind === 0) pass.draw(b[0], b[1], b[2], b[3]);
+            if (kind === 0 && fan) {
+                if (b[0] < 3) return;
+                pass.setIndexBuffer(this.fanIndices(b[0]), "uint32");
+                pass.drawIndexed(3 * (b[0] - 2), b[1], 0, b[2], b[3]);
+            }
+            else if (kind === 0) pass.draw(b[0], b[1], b[2], b[3]);
             else if (kind === 1) pass.drawIndexed(b[0], b[1], b[2], b[3] | 0, b[4]);
             else {
                 const m = this.memory(b[0]);

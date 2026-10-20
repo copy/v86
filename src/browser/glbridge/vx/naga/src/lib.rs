@@ -136,8 +136,25 @@ pub(crate) fn retype(f: &mut naga::Function, from: naga::Handle<naga::Type>, to:
 }
 
 /// The vertex entry points' gl_PointSize outputs dropped: each result's
-/// struct without them (in place: naga's WGSL writes every struct)
+/// struct without them (in place: naga's WGSL writes every struct), and
+/// other structs' members (gl_PerVertex's, a private global's) unbound
 fn drop_point_size(module: &mut naga::Module) {
+    let results: Vec<naga::Handle<naga::Type>> = module.entry_points.iter().filter_map(|ep| ep.function.result.as_ref().map(|r| r.ty)).collect();
+    let unbind: Vec<naga::Handle<naga::Type>> = module.types.iter().filter(|(handle, ty)| !results.contains(handle) && match &ty.inner {
+        TypeInner::Struct { members, .. } => members.iter().any(|m| matches!(m.binding, Some(naga::Binding::BuiltIn(naga::BuiltIn::PointSize)))),
+        _ => false,
+    }).map(|(handle, _)| handle).collect();
+    for handle in unbind {
+        let mut ty = module.types[handle].clone();
+        if let TypeInner::Struct { members, .. } = &mut ty.inner {
+            for m in members.iter_mut() {
+                if matches!(m.binding, Some(naga::Binding::BuiltIn(naga::BuiltIn::PointSize))) {
+                    m.binding = None;
+                }
+            }
+        }
+        module.types.replace(handle, ty);
+    }
     for ep in module.entry_points.iter_mut() {
         if ep.stage != ShaderStage::Vertex {
             continue;

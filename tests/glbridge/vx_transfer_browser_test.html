@@ -262,6 +262,47 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         check(bytes.slice(0, 64).every(v => v === 0x3F), "then write mask 0xF0 with 0x3C: " + bytes.slice(0, 8).join());
         check(bytes.slice(256, 260).join() === "0,255,0,255", "the draws' color: " + bytes.slice(256, 260).join());
 
+        // Triangle fans (WebGPU has none: lists through an index buffer of
+        // Vulkan's (i + 1, i + 2, 0)) and indexed strips (a variant with the
+        // strip index format): the shaders above; a fan of the 4 corners
+        // covers all but the wedge right of the diagonals, an indexed strip
+        // of them the whole target
+        const FANP = 45, STRIPP = 46, IB = 47;
+        const plain = topology => json({ kind: "graphics",
+            stages: [{ shader: SVS, stage: 1, entry: "main", constants: {} }, { shader: SFS, stage: 16, entry: "main", constants: {} }],
+            buffers: [], attributes: [], topology, restart: false, cull: 0, front: 0, polygon: 0, depth_clamp: false, discard: false, depth_bias: null,
+            samples: 1, sample_mask: 0xFFFFFFFF, alpha_to_coverage: false, depth: null, depth_format: 0,
+            targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 0, push_size: 0 });
+        w.command(VX.PIPELINE_CREATE, [FANP], plain(5));
+        w.command(VX.PIPELINE_CREATE, [STRIPP], plain(4));
+        w.command(VX.MEMORY_CREATE, [IB, 256, 0]);
+        w.command(VX.MEMORY_WRITE, [IB, 0, 0, 8], new Uint8Array(Uint16Array.from([0, 1, 2, 3]).buffer));
+        const one_draw = (pipeline, indexed) => {
+            w.command(VX.BEGIN_PASS, [], json({ colors: [{ view: XRTV, load: 1, store: 0, clear: [0, 0, 0, 0], resolve: 0 }], depth: null, width: 8, height: 8 }));
+            w.command(VX.BIND_PIPELINE, [pipeline]);
+            if(indexed)
+            {
+                w.command(VX.SET_INDEX_BUFFER, [IB, 0, 0, 8, 0, 0]);
+                w.command(VX.DRAW_INDEXED, [4, 1, 0, 0, 0]);
+            }
+            else w.command(VX.DRAW, [4, 1, 0, 0]);
+            w.command(VX.END_PASS, []);
+            w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 64, 0, XRT, 1, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        };
+        w.command(VX.BEGIN, []);
+        one_draw(FANP, false);
+        w.command(VX.END, []);
+        bytes = await read(B, 0, 2048);
+        check(pixel(0, 4) === "0,255,0,255" && pixel(7, 4) === "0,0,0,0", "a triangle fan: " + pixel(0, 4) + " " + pixel(7, 4) +
+            " (" + renderer.vx.warnings.join("; ") + ")");
+        w.command(VX.BEGIN, []);
+        one_draw(STRIPP, true);
+        w.command(VX.END, []);
+        bytes = await read(B, 0, 2048);
+        check(pixel(0, 4) === "0,255,0,255" && pixel(7, 4) === "0,255,0,255", "an indexed triangle strip: " + pixel(0, 4) + " " + pixel(7, 4));
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");
