@@ -6,9 +6,12 @@
 // input, sound, tools), the status bar (time, speed, disk, network, display,
 // mouse), the drawers (serial terminal, shared folder, details), the disk
 // error dialog, and the warning before closing a page with disks written back.
+// A library machine runs in one tab at a time (its lock), and suspends into
+// a state file of the browser's private storage, resumed when it starts again (U5).
 
 import { h, replace, confirm, inform, dialog, download, pick_file, ask_text, menu_button, format_size } from "./dom.js";
 import { VMStore } from "../vm_store.js";
+import { read_state, delete_state, write_state, storage_space, state_estimate, machine_digest, hold_machine } from "../vm_state.js";
 import { config_to_options } from "../vm_config.js";
 import { combination_scancodes, COMBINATIONS } from "../keys.js";
 import { get_profiles, user_profile_base, user_profile } from "../../browser/profiles.js";
@@ -239,13 +242,13 @@ export async function open_console(root, target)
     };
 
     /** @type {any} */
-    let options, profile = null, config = null;
+    let options, profile = null, config = null, store = null, lock = null, resume = null;
     const on_proxy_error = text => set_status(text);
     try
     {
         if(target.vm)
         {
-            const store = await VMStore.open();
+            store = await VMStore.open();
             config = await store.get(target.vm);
             if(!config)
             {
@@ -253,6 +256,24 @@ export async function open_console(root, target)
                 return;
             }
             set_title(config.name);
+            // (one tab at a time: its lock, held until it powers off or the tab closes)
+            lock = await hold_machine(config.id);
+            if(!lock)
+            {
+                fail(config.name + " runs in another tab. Close it there first (a machine runs in one tab at a time).");
+                return;
+            }
+            if(config.suspended)
+            {
+                resume = await resume_choice(config, store, layout.notice);
+                if(resume === "cancel")
+                {
+                    lock.release();
+                    location.href = location.pathname;
+                    return;
+                }
+                if(resume !== "resume") config = await store.get(config.id);
+            }
             const files = await resolve_files(config, store, layout.notice);
             if(config.display.proxy) await load_graphics_proxy();
             options = config_to_options(config, Object.assign(page_env(layout.screen_container, config.display.proxy, on_proxy_error),
@@ -284,11 +305,71 @@ export async function open_console(root, target)
         return;
     }
 
+    if(resume === "resume") options.autostart = false;
     const emulator = create_emulator(options);
     if(!emulator) return;
     const name = config ? config.name : profile ? profile.name : "Custom";
     /** @type {any} */ (window).v86_console = { emulator, config, profile, options };
-    console_ui(layout, emulator, { options, config, profile, query_args: target.query_args, name, fail, set_status, set_renderer: f => { render_status = f; } });
+    console_ui(layout, emulator, { options, config, profile, query_args: target.query_args, name, fail, set_status, set_renderer: f => { render_status = f; },
+        store, release: () => lock && lock.release() });
+    if(resume === "resume")
+    {
+        // (the machine loaded, not started: its state, then it runs on; the state file is used up)
+        emulator.add_listener("emulator-loaded", async () =>
+        {
+            set_status("Resuming ...");
+            try
+            {
+                await emulator.restore_state_stream(await read_state(config.id));
+                emulator.run();
+                await delete_state(config.id);
+                await store.put(Object.assign({}, config, { suspended: null }));
+                replace(layout.notice);
+            }
+            catch(error)
+            {
+                replace(layout.notice, h("p.error", null, "The suspended state could not be resumed: " + error.message + " ",
+                    h("button", { type: "button", onclick: async () => { await delete_state(config.id); await store.put(Object.assign({}, config, { suspended: null }));
+                        location.reload(); } }, "Discard it and power on"), " ", h("a", { href: location.pathname }, "Back to the library")));
+                set_status("Not resumed");
+            }
+        });
+    }
+}
+
+/**
+ * How a suspended machine starts: from its state ("resume"), afresh with the
+ * state discarded ("discard"), or not ("cancel"); asked when its settings
+ * changed after it was suspended, or its state is gone
+ * @param {VMConfig} config
+ * @param {VMStore} store
+ * @param {HTMLElement} notice
+ * @return {Promise<"resume" | "discard" | "cancel">}
+ */
+async function resume_choice(config, store, notice)
+{
+    const discard = async () =>
+    {
+        await delete_state(config.id);
+        await store.put(Object.assign({}, config, { suspended: null }));
+        return /** @type {"discard"} */ ("discard");
+    };
+    const file = await read_state(config.id);
+    if(!file)
+    {
+        await discard();
+        replace(notice, h("p", null, "The suspended state is gone (the browser's storage was cleared?): the machine starts afresh."));
+        return "discard";
+    }
+    if(await machine_digest(config) === /** @type {any} */ (config.suspended).digest) return "resume";
+    const answer = await new Promise(resolve => replace(notice, h("div.resume-choice", { role: "alert" },
+        h("p", null, "The settings of " + config.name + " changed after it was suspended: its state may not fit them any more."),
+        h("button.primary", { type: "button", id: "resume_anyway", onclick: () => resolve("resume") }, "Resume anyway"), " ",
+        h("button", { type: "button", id: "resume_discard", onclick: () => resolve("discard") }, "Discard the state and power on"), " ",
+        h("button", { type: "button", id: "resume_cancel", onclick: () => resolve("cancel") }, "Cancel"))));
+    replace(notice);
+    if(answer === "discard") return discard();
+    return answer;
 }
 
 /**
@@ -296,7 +377,8 @@ export async function open_console(root, target)
  * @param {ReturnType<typeof console_layout>} layout
  * @param {any} emulator
  * @param {{options: any, config: VMConfig | null, profile: any, query_args?: URLSearchParams, name: string,
- *     fail: (text: string) => void, set_status: (text: string) => void, set_renderer: (f: () => void) => void}} ctx
+ *     fail: (text: string) => void, set_status: (text: string) => void, set_renderer: (f: () => void) => void,
+ *     store: VMStore | null, release: () => void}} ctx
  */
 function console_ui(layout, emulator, ctx)
 {
@@ -427,6 +509,7 @@ function console_ui(layout, emulator, ctx)
         powered_off = true;
         clearInterval(interval);
         await emulator.destroy();
+        ctx.release();
         replace(layout.toolbar, h("a.button", { href: location.pathname }, "Library"), h("span.console-name", null, ctx.name));
         replace(layout.notice, h("p", null, "Powered off. ", h("a", { href: location.href }, "Power on again"), " or go back to the ",
             h("a", { href: location.pathname }, "library"), "."));
@@ -447,6 +530,40 @@ function console_ui(layout, emulator, ctx)
         catch(error)
         {
             await inform("The state was not saved", error.message);
+        }
+    };
+    const suspend = async () =>
+    {
+        const config = /** @type {VMConfig} */ (ctx.config), store = /** @type {VMStore} */ (ctx.store);
+        const space = await storage_space();
+        const need = state_estimate(options);
+        if(space.quota && space.free < need)
+        {
+            await inform("Not enough space to suspend", "The state needs about " + format_size(need) + "; the browser gives this site " +
+                format_size(space.free) + " more. Free some (delete other machines' states or disks), or power off.");
+            return;
+        }
+        // (once: ask the browser to keep this site's storage when it runs short)
+        if(!space.persisted && !await store.get_pref("persist_asked"))
+        {
+            await store.put_pref("persist_asked", true);
+            await navigator.storage.persist?.().catch(() => false);
+        }
+        ctx.set_status("Suspending ...");
+        try
+        {
+            const size = await write_state(config.id, write => emulator.save_state_stream(write));
+            await store.put(Object.assign({}, config, { suspended: { size, time: new Date().toISOString(), digest: await machine_digest(config) } }));
+            await power_off(false);
+            replace(layout.notice, h("p", null, "Suspended (" + format_size(size) + " in this browser's storage). Power it on from the ",
+                h("a", { href: location.pathname }, "library"), " to resume it."));
+            ctx.set_status("Suspended");
+        }
+        catch(error)
+        {
+            await delete_state(config.id).catch(() => {});
+            await inform("The machine was not suspended", error.message);
+            ctx.set_status(emulator.is_running() ? "Running" : "Paused");
         }
     };
     const save_state = async () =>
@@ -837,6 +954,7 @@ function console_ui(layout, emulator, ctx)
             { label: running ? "Pause" : "Run", id: "menu_run", action: () => running ? emulator.stop() : emulator.run() },
             { label: "Reset", id: "menu_reset", disabled: !!options.initial_state, title: options.initial_state ? "Started from a saved state" : "", action: () => emulator.restart() },
             { label: "Power off…", id: "menu_power_off", action: () => power_off() },
+            ...(ctx.config ? [{ label: "Suspend", id: "menu_suspend", action: suspend }] : []),
             ...(written_back ? [{ label: "Save and power off", id: "menu_save_and_power_off", action: save_and_power_off }] : []),
             "-",
             { label: "Save the state to a file", id: "menu_save_state", action: save_state },

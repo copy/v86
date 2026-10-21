@@ -1,6 +1,6 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：U0–U4 已实现（2026-10-21，`ui` 分支），U5–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+状态：U0–U5 已实现（2026-10-21，`ui` 分支），U6、U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
 `arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
@@ -913,3 +913,34 @@ JSON。
 | `tests/app/console_test.html part=main`（无头 Chrome，新） | MS-DOS 6.22（库里的虚拟机，`images/msdos622.img`）到提示符；状态栏（运行、时间、速度、Text 80×25）；暂停与运行；Alt+Tab 的按下与 100 ms 后的松开、“其他按键” Ctrl+Alt+F1、Ctrl+Alt+Del 使 DOS 重启；文件组成的光盘（DOS 的 `dir D:` 列出 README.TXT）与弹出、软盘（`dir A:` 列出 COMMAND.COM）与弹出、hda 镜像下载（与源镜像同样大小）；200% 缩放、适应窗口、剧院模式与退出、截图（PNG）、全屏；鼠标关与开、锁定；静音与取消；性能记录 2.5 秒后停止并导出报告（有样本与元数据）、内存转储（128 MB）、抓包文件；串口终端（xterm）、共享文件夹送入与取回 hello.txt、详细信息（IDE、Text 80×25、1 core）；状态存为文件后在 DOS 里写一行，再载入状态，那一行消失、机器继续运行；关机（确认）。CPU 在 Worker 中与在页面中（`cpu_worker: false`）各一遍 |
 | `tests/app/console_test.html part=disk`（无头 Chrome，运行器的磁盘服务） | hda 为磁盘服务上的 MS-DOS 镜像（`read_write`）：离开页面时浏览器先询问；写入落在服务的文件里；服务断开后再写：磁盘错误对话框（“the write … failed … retry once the disk can be reached again”），机器停止；服务恢复后点“Retry”，写入落盘；“保存并关机”下载状态，磁盘的会话关闭 |
 | 回归 | `make app-check` 无错；Closure（`libv86.js`、`libv86.mjs`、`libv86-debug.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
+
+### U5 挂起与恢复、单标签页锁（2026-10-21）
+
+**实现。**
+
+- [`src/app/vm_state.js`](../src/app/vm_state.js)：挂起状态存在 OPFS 的 `v86/states/<id>.bin`（V7 流，边生成边写入
+  `createWritable`，写完才替换原文件）；`storage_space`（`navigator.storage.estimate()` 与 `persisted()`）、`state_estimate`（内存、
+  扩展内存、显存再加 16 MiB）；`machine_digest`（配置去掉 id、名字、备注、预设、时间与挂起信息后的 SHA-256）；`hold_machine`、
+  `running_machines`（`navigator.locks` 的排他锁 `v86-vm-<id>`）。
+- 控制台：库里的虚拟机开机前取得它的锁，取不到时说明“在另一个标签页运行”并不启动，关机时释放（关闭标签页时浏览器释放）。电源菜单
+  的“挂起”：先核对剩余空间（不足时说明需要多少、还有多少），第一次挂起时请求 `navigator.storage.persist()`（只请求一次，记在首选项），
+  写入状态，配置记下大小、时间与摘要，然后关机；失败时删掉不完整的状态。开机时若有挂起状态：状态文件不见了（站点数据被清除）则说明
+  后重新开机；配置的摘要与挂起时不同则询问“仍然恢复”“丢弃状态并开机”“取消”；否则直接恢复：机器加载但不启动，
+  `restore_state_stream` 读入状态后运行，状态文件随即删除。恢复失败时给出“丢弃并开机”。
+- 库：列表显示“已挂起”“在另一个标签页运行”（窗口重新获得焦点时刷新）；挂起的虚拟机摘要页显示挂起时间与大小，按钮为“恢复”，并有
+  “丢弃挂起状态…”；删除虚拟机时一并删除其状态（运行中的不能删除）；侧栏显示浏览器存储的占用与是否持久。
+
+**决定与偏差。**
+
+1. **恢复之后删除状态文件**：恢复的机器随即运行，状态与磁盘（尤其写回盘）不再对应，状态只用一次（VMware 的挂起也是如此）。
+2. **摘要不含名字、备注**：只改名字或备注不询问；其余设置任何改动都询问。
+3. **状态的位置是 `v86/states/`**：计划写 `states/<id>.bin`，与 U6 的 `v86/disks/` 放在同一个目录下。
+4. **本地文件的句柄**：U2 起控制台已在开机时检查读权限，没有时请用户点击授予（同一个 U5 条目）；测试用的 OPFS 句柄总是有权限，
+   选取文件的权限对话框只能人工验证。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/app/suspend_test.html`（无头 Chrome，新） | MS-DOS 运行时，同一虚拟机的第二个标签页被拒（“runs in another tab”）、库显示“Running in another tab”；挂起：状态约 10 MB 在 `v86/states/`、配置记下大小与摘要、`persist()` 只请求一次；关闭标签页后库显示“Suspended”与“Resume”“Discard”；重新打开即恢复，屏幕与挂起前相同（BEFORE-SUSPEND），客户机继续运行（AFTER-RESUME），状态文件已删除；剩余空间不足（模拟 64 MB 配额）时说明原因、机器继续运行、不留状态；挂起后改了内存，再开时询问，选“丢弃”后重新启动、状态已删；只改名字与备注时不询问、直接恢复 |
+| 回归 | `app_test.html`（关机改走电源菜单）三种通过；`console_test.html part=main` 通过；`make app-check` 无错；eslint 无输出 |

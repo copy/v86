@@ -748,7 +748,8 @@ app-check: node_modules/.bin/tsc
 # Alpine arm64 (build/a64-linux: tests/a64/linux_boot.mjs prepares it), the
 # settings dialog, the wizard's disk on the disk service; U4: the console's
 # every function with MS-DOS (in its Worker and in the page), a disk written
-# back to the disk service with its error dialog
+# back to the disk service with its error dialog; U5: suspend and resume, one
+# tab per machine
 .PHONY: app-shared-tests app-tests
 app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm build/v86-arm64.wasm build/libv86-debug.mjs
 	node tests/app/vm_config.mjs
@@ -764,6 +765,7 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main worker=0
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1
+	node tests/app/browser_runner.mjs tests/app/suspend_test.html
 
 app-shared-tests: build/v86_all.js
 	node tests/app/machine_rules.mjs

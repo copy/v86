@@ -140,8 +140,9 @@ async function main()
     const cdrom = await emulator.get_cdrom_state();
     check(cdrom.present === true && cdrom.inserted === false, "get_cdrom_state: the i440FX machine's empty CD drive: " + JSON.stringify(cdrom));
     log("get_cdrom_state: " + JSON.stringify(cdrom));
-    // power off from the toolbar (its confirmation)
-    Array.from(c.querySelectorAll(".console-toolbar button")).find(b => b.textContent === "Power off").click();
+    // power off from the Power menu (its confirmation)
+    c.querySelector("#menu_power").click();
+    (await until(() => c.querySelector("#menu_power_off"), "the Power menu")).click();
     const yes = await until(() => Array.from(c.querySelectorAll("dialog[open] button")).find(b => b.textContent === "Power off"), "the power off dialog");
     yes.click();
     await until(() => /Powered off/.test(c.querySelector(".console-status").textContent), "powered off");

@@ -4,13 +4,14 @@
 // wizard), import, edit settings (the settings dialog), rename, export,
 // delete, power on in a new tab; the preferences (the disk service).
 
-import { h, replace, ask_text, confirm, inform, download, pick_file, dialog } from "./dom.js";
+import { h, replace, ask_text, confirm, inform, download, pick_file, dialog, format_size } from "./dom.js";
 import { hardware_rows } from "./describe.js";
 import { open_wizard } from "./wizard.js";
 import { open_settings } from "./settings.js";
 import { VMStore, export_config, export_file_name, import_config, files_to_choose } from "../vm_store.js";
 import { preset } from "../guest_presets.js";
 import { probe, LOCAL_SERVICE } from "../disk_service_client.js";
+import { delete_state, running_machines, storage_space } from "../vm_state.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
@@ -79,12 +80,17 @@ export async function open_library(root)
     const store = await VMStore.open();
     let configs = await store.list();
     let service = await current_service(store);
+    /** @type {Set<string>} the machines running in a tab now */
+    let running = await running_machines();
+    let space = await storage_space().catch(() => null);
     /** @type {string | undefined} */
     let selected = configs[0]?.id;
 
     const reload = async id =>
     {
         configs = await store.list();
+        running = await running_machines();
+        space = await storage_space().catch(() => null);
         selected = id && configs.some(c => c.id === id) ? id : configs[0]?.id;
         render();
     };
@@ -134,14 +140,17 @@ export async function open_library(root)
             tabindex: "0",
             onclick: () => { selected = c.id; render(); },
             onkeydown: e => { if(e.key === "Enter" || e.key === " ") { selected = c.id; render(); } },
-        }, h("span.vm-name", null, c.name), h("span.vm-state", null, "Powered off"))));
+        }, h("span.vm-name", null, c.name), h("span.vm-state", null, running.has(c.id) ? "Running in another tab" :
+            c.suspended ? "Suspended" : "Powered off"))));
         const sidebar = h("aside.library-list", null,
             h("div.library-actions", null,
                 h("button.primary#new_vm", { onclick: create }, "New virtual machine…"),
                 h("button#import_vm", { onclick: import_file }, "Import…"),
                 h("button#preferences", { onclick: async () => { await preferences(store); service = await current_service(store); render(); } }, "Preferences…")),
             h("p.note#service_status", null, service ? "Disk service: " + service.url : "No disk service"),
-            configs.length ? list : h("p.empty", null, "No virtual machines yet. Make a new one, or import a .v86vm.json file."));
+            configs.length ? list : h("p.empty", null, "No virtual machines yet. Make a new one, or import a .v86vm.json file."),
+            space && space.quota ? h("p.note#storage_status", null, "Browser storage: " + format_size(space.usage) + " used of " + format_size(space.quota) +
+                (space.persisted ? " (kept)" : "")) : null);
         const config = configs.find(c => c.id === selected);
         replace(root, h("div.library", null, sidebar, h("main.library-summary", null, config ? summary(config) : intro())));
     }
@@ -169,18 +178,36 @@ export async function open_library(root)
         };
         const remove = async () =>
         {
-            if(!await confirm("Delete " + config.name + "?", "Its settings are deleted from this browser. Images on web sites or on your computer stay where they are.",
-                "Delete", true)) return;
+            if(running.has(config.id))
+            {
+                await inform("It runs", config.name + " runs in another tab: power it off there first.");
+                return;
+            }
+            if(!await confirm("Delete " + config.name + "?", "Its settings" + (config.suspended ? " and its suspended state" : "") +
+                " are deleted from this browser. Images on web sites, on your computer or on a disk service stay where they are.", "Delete", true)) return;
+            await delete_state(config.id);
             await store.delete(config.id);
             await reload(undefined);
+        };
+        const discard = async () =>
+        {
+            if(!await confirm("Discard the suspended state?", "The next power on starts " + config.name + " afresh: what it had in its memory is lost.",
+                "Discard", true)) return;
+            await delete_state(config.id);
+            await store.put(Object.assign({}, config, { suspended: null }));
+            await reload(config.id);
         };
         const p = config.template ? preset(config.template) : undefined;
         return h("div.summary", null,
             h("h1", null, config.name),
             config.notes ? h("p.notes", null, config.notes) : null,
             p && !p.verified ? h("p.error", null, "Its system's settings are not verified: " + p.basis) : null,
+            config.suspended ? h("p.note#suspended_note", null, "Suspended " + new Date(config.suspended.time).toLocaleString() + " (" +
+                format_size(config.suspended.size) + " in this browser's storage)") : null,
+            running.has(config.id) ? h("p.note", null, "Running in another tab.") : null,
             h("div.summary-actions", null,
-                h("button.primary#power_on", { onclick: power_on }, "Power on"),
+                h("button.primary#power_on", { onclick: power_on }, config.suspended ? "Resume" : "Power on"),
+                config.suspended ? h("button#discard_state", { onclick: discard }, "Discard the suspended state…") : null,
                 h("button#edit_vm", { onclick: () => edit(config) }, "Edit settings…"),
                 h("button#rename_vm", { onclick: rename }, "Rename…"),
                 h("button#export_vm", { onclick: () => download([export_config(config)], export_file_name(config), "application/json") }, "Export"),
@@ -192,5 +219,8 @@ export async function open_library(root)
             h("p.note", null, "Changed " + new Date(config.modified).toLocaleString()));
     }
 
+    // (another tab powered a machine on or off, or suspended it)
+    window.addEventListener("focus", () => reload(selected));
+    document.addEventListener("visibilitychange", () => { if(!document.hidden) reload(selected); });
     render();
 }
