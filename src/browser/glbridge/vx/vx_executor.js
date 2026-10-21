@@ -829,7 +829,8 @@
             if (compare) descriptor.compare = COMPARE[compareOp] || "always";
             if (f32(bias)) this.warn("lod-bias", "samplers' LOD bias is not done");
             if (u === 3 || v === 3 || w === 3) this.warn("border", "clamp to border is clamp to edge");
-            this.objects.set(id, { kind: "sampler", sampler: this.device.createSampler(descriptor) });
+            // (its address modes, for integer images' samples: vx_naga's int_wraps)
+            this.objects.set(id, { kind: "sampler", sampler: this.device.createSampler(descriptor), wrap: (u & 15) | (v & 15) << 4 | (w & 15) << 8 });
         }
 
         /** The aspect a copy names, and the bytes of its texels */
@@ -842,6 +843,79 @@
             }
             // (16-bit packed texels: the texture's are rgba8unorm, `gpu` bytes)
             return { aspect: "all", bytes: t.f.bytes, gpu: t.f.packed ? 4 : t.f.bytes };
+        }
+
+        /**
+         * Depth from a memory (4 bytes a texel: a float, or 24-bit depth in
+         * the low bits) into an image, which WebGPU copies only into
+         * depth16unorm: a draw over the region writing frag_depth, a layer at
+         * a time; and 24-bit depth out of an image, which WebGPU copies out of
+         * no buffer: a dispatch reading it into the memory
+         */
+        depthByShader(toImage, m, guest, t, mip, layer, layers, x, y, w, h) {
+            const d24 = /^depth24/.test(t.f.gpu) ? 1 : 0;
+            const key = "depth-" + (toImage ? "up:" + t.f.gpu : "down");
+            let pipeline = this.pipelines.get(key);
+            if (!pipeline) {
+                const common = [
+                    "struct P { offset: u32, pitch: u32, x: u32, y: u32, w: u32, h: u32, d24: u32, layer: u32 };",
+                    "@group(0) @binding(0) var<uniform> p: P;",
+                ];
+                const code = toImage ? [...common,
+                    "@group(0) @binding(1) var<storage, read> src: array<u32>;",
+                    "@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {",
+                    "    return vec4f(f32(i & 1u) * 4.0 - 1.0, f32(i >> 1u) * 4.0 - 1.0, 0.0, 1.0);",
+                    "}",
+                    "@fragment fn fs(@builtin(position) at: vec4f) -> @builtin(frag_depth) f32 {",
+                    "    let word = src[(p.offset + (u32(at.y) - p.y) * p.pitch + (u32(at.x) - p.x) * 4u) >> 2u];",
+                    "    return select(bitcast<f32>(word), f32(word & 0xFFFFFFu) / 16777215.0, p.d24 == 1u);",
+                    "}",
+                ] : [...common,
+                    "@group(0) @binding(1) var source: texture_depth_2d_array;",
+                    "@group(0) @binding(2) var<storage, read_write> dst: array<u32>;",
+                    "@compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) id: vec3<u32>) {",
+                    "    if (id.x >= p.w || id.y >= p.h) { return; }",
+                    "    let depth = textureLoad(source, vec2u(p.x + id.x, p.y + id.y), p.layer, 0);",
+                    "    dst[(p.offset + id.y * p.pitch + id.x * 4u) >> 2u] = u32(round(clamp(depth, 0.0, 1.0) * 16777215.0));",
+                    "}",
+                ];
+                const module = this.device.createShaderModule({ code: code.join("\n") });
+                pipeline = toImage ? this.device.createRenderPipeline({ layout: "auto", vertex: { module, entryPoint: "vs" },
+                    fragment: { module, entryPoint: "fs", targets: [] }, primitive: { topology: "triangle-list" },
+                    depthStencil: { format: t.f.gpu, depthWriteEnabled: true, depthCompare: "always" } }) :
+                    this.device.createComputePipeline({ layout: "auto", compute: { module, entryPoint: "main" } });
+                this.pipelines.set(key, pipeline);
+            }
+            const encoder = this.encoder();
+            for (let i = 0; i < layers; i++) {
+                const ubo = this.device.createBuffer({ size: 32, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+                this.device.queue.writeBuffer(ubo, 0, Uint32Array.from([guest.offset + i * guest.image, guest.pitch, x, y, w, h, d24, layer + i]));
+                this.transient.push(ubo);
+                if (toImage) {
+                    const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+                        { binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: { buffer: m.buffer } }] });
+                    const ds = { view: this.attachment(t, mip, layer + i), depthLoadOp: "load", depthStoreOp: "store" };
+                    if (t.f.hasStencil) Object.assign(ds, { stencilLoadOp: "load", stencilStoreOp: "store" });
+                    const pass = encoder.beginRenderPass({ colorAttachments: [], depthStencilAttachment: ds });
+                    pass.setPipeline(pipeline);
+                    pass.setBindGroup(0, group);
+                    pass.setViewport(x, y, w, h, 0, 1);
+                    pass.setScissorRect(x, y, w, h);
+                    pass.draw(3);
+                    pass.end();
+                }
+                else {
+                    const source = t.texture.createView({ dimension: "2d-array", aspect: "depth-only", baseMipLevel: mip, mipLevelCount: 1,
+                        format: t.f.gpu.replace(/-stencil8$/, "") });
+                    const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+                        { binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: source }, { binding: 2, resource: { buffer: m.buffer } }] });
+                    const pass = encoder.beginComputePass();
+                    pass.setPipeline(pipeline);
+                    pass.setBindGroup(0, group);
+                    pass.dispatchWorkgroups(Math.ceil(w / 8), Math.ceil(h / 8));
+                    pass.end();
+                }
+            }
         }
 
         /**
@@ -937,6 +1011,22 @@
         readTexture(b) {
             const [id, aspectMask, mip, layer, request] = b;
             const t = this.texture(id);
+            // (24-bit depth, which WebGPU copies out of no texture: read by a dispatch, 4 bytes a texel)
+            if (t && t.samples <= 1 && aspectMask === ASPECT.DEPTH && /^depth24/.test(t.f.gpu)) {
+                const w = Math.max(1, t.width >> mip), h = Math.max(1, t.height >> mip);
+                const out = this.device.createBuffer({ size: w * h * 4, usage: BUFFER.STORAGE | BUFFER.COPY_SRC });
+                const target = this.device.createBuffer({ size: w * h * 4, usage: BUFFER.MAP_READ | BUFFER.COPY_DST });
+                this.transient.push(out);
+                this.depthByShader(false, { buffer: out }, { offset: 0, pitch: w * 4, image: w * h * 4 }, t, mip, layer, 1, 0, 0, w, h);
+                this.encoder().copyBufferToBuffer(out, 0, target, 0, w * h * 4);
+                this.flushEncoder();
+                this.pending.push(target.mapAsync(1).then(() => {
+                    const bytes = new Uint8Array(target.getMappedRange()).slice();
+                    target.destroy();
+                    this.respond(request, bytes);
+                }, () => { target.destroy(); this.respond(request, null); }));
+                return;
+            }
             const a = t && t.samples <= 1 ? this.copyAspect(t, aspectMask) : null;
             if (!a) return this.respond(request, null);
             const w = Math.max(1, t.width >> mip), h = Math.max(1, t.height >> mip);
@@ -954,17 +1044,23 @@
             }, () => { target.destroy(); this.respond(request, null); }));
         }
 
-        /** a snapshot's image back into its texture (WebGPU writes no depth32float: those come back cleared) */
+        /** a snapshot's image back into its texture (depth WebGPU writes no buffer into: by a draw, depthByShader) */
         writeTexture(b) {
             const [id, aspectMask, mip, layer, length] = b;
             const t = this.texture(id);
-            const a = t ? this.copyAspect(t, aspectMask) : null;
-            if (!a || t.samples > 1) return;
+            if (!t || t.samples > 1) return;
             this.touch(t.texture);
-            if (t.f.gpu === "depth32float" || t.f.gpu === "depth32float-stencil8" && a.aspect === "depth-only") {
-                this.warn("restore-depth32", "32-bit depth comes back from a snapshot cleared");
+            if (aspectMask === ASPECT.DEPTH && t.f.hasDepth && t.f.gpu !== "depth16unorm") {
+                const w = Math.max(1, t.width >> mip), h = Math.max(1, t.height >> mip);
+                if (length < w * h * 4) return;
+                const staged = this.device.createBuffer({ size: w * h * 4, usage: BUFFER.STORAGE | BUFFER.COPY_DST });
+                this.transient.push(staged);
+                this.device.queue.writeBuffer(staged, 0, new Uint8Array(b.buffer, b.byteOffset + 20, w * h * 4));
+                this.depthByShader(true, { buffer: staged }, { offset: 0, pitch: w * 4, image: w * h * 4 }, t, mip, layer, 1, 0, 0, w, h);
                 return;
             }
+            const a = this.copyAspect(t, aspectMask);
+            if (!a) return;
             const w = Math.max(1, t.width >> mip), h = Math.max(1, t.height >> mip);
             if (length < w * h * a.gpu) return;
             this.flushEncoder();
@@ -977,6 +1073,11 @@
             const m = this.memory(mid), t = this.texture(tid);
             if (!m || !t || !w || !h || !d) return;
             if (toImage) this.touch(t.texture);
+            // (depth WebGPU copies no buffer into, or 24-bit depth out of: by a draw, a dispatch)
+            if (aspectMask === ASPECT.DEPTH && t.f.hasDepth && t.f.gpu !== "depth16unorm" && t.samples <= 1 && (toImage || /^depth24/.test(t.f.gpu))) {
+                const offset = low + high * 0x100000000, pitch = (rowLength || w) * 4, rows = imageHeight || h;
+                return this.depthByShader(toImage, m, { offset, pitch, image: pitch * rows }, t, mip, layer, layers, x, y, w, h);
+            }
             const a = this.copyAspect(t, aspectMask);
             if (!a) {
                 this.warn("copy-d24", "copies of 24-bit depth are not done");
@@ -1244,8 +1345,9 @@
          * the uniform buffers (group << 16 | binding) that are read-only
          * storage buffers in it (spilledUniforms)
          */
-        translateNow(shader, push, flags, storage = []) {
-            const key = String(push) + (flags ? ":f" + flags : "") + (storage.length ? ":" + storage.join(",") : "");
+        translateNow(shader, push, flags, storage = [], wraps = []) {
+            const key = String(push) + (flags ? ":f" + flags : "") + (storage.length ? ":" + storage.join(",") : "") +
+                (wraps.length ? ":w" + wraps.flat().join(",") : "");
             let t = shader.translations.get(key);
             if (t) return t;
             const naga = this.naga;
@@ -1253,9 +1355,12 @@
             new Uint8Array(naga.memory.buffer, input, shader.spirv.length).set(shader.spirv);
             const list = storage.length ? naga.vx_alloc(storage.length * 4) : 0;
             if (list) new Uint32Array(naga.memory.buffer, list, storage.length).set(storage);
+            // (integer images' samplers' address modes: pairs of the image's group << 16 | binding, the modes)
+            const wrapList = wraps.length ? naga.vx_alloc(wraps.length * 8) : 0;
+            if (wrapList) new Uint32Array(naga.memory.buffer, wrapList, wraps.length * 2).set(wraps.flat());
             let out;
             try {
-                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING, flags, list, storage.length);
+                out = naga.vx_translate(input, shader.spirv.length, push, PUSH_BINDING, flags, list, storage.length, wrapList, wraps.length);
             } catch (error) {
                 // (a panic: a fresh instance next time)
                 this.naga = null;
@@ -1263,6 +1368,7 @@
             }
             naga.vx_free(input, shader.spirv.length);
             if (list) naga.vx_free(list, storage.length * 4);
+            if (wrapList) naga.vx_free(wrapList, wraps.length * 8);
             const length = new DataView(naga.memory.buffer).getUint32(out, true);
             const text = new TextDecoder().decode(new Uint8Array(naga.memory.buffer, out + 4, length));
             naga.vx_free(out, length + 4);
@@ -1333,6 +1439,9 @@
                     for (const [t] of translations) if (t.error) throw new Error("shader: " + t.error);
                 }
                 const stages = translations.map(([t, stage]) => [stage.stage, this.stageState(t, stage)]);
+                // (integer images sampled: the draws' samplers' address modes, wrapVariant)
+                p.intsamples = [...new Set(translations.flatMap(([t]) => t.intsamples || []))];
+                p.stageSources = d.stages.map((stage, i) => ({ shader: shaders[i], stage, flags: flagsOf(stage) }));
                 // the bindings the stages use, by group (and the buffers' least sizes)
                 const sizes = new Map();
                 this.bindingSizes.set(p.groups, sizes);
@@ -1679,6 +1788,73 @@
         }
 
         /**
+         * The address modes of the samplers bound with a pipeline's integer
+         * images (their samples are fetches, vx_naga's intsample.rs), where
+         * one is not clamp to edge: [group << 16 | binding, modes] pairs
+         */
+        intWraps(p, point) {
+            if (!p.intsamples || !p.intsamples.length) return [];
+            const wraps = [];
+            for (const key of p.intsamples) {
+                const contents = this.state.groups[point].get(key >>> 16);
+                const d = contents && contents.descriptors.get(descriptorKey(key & 0xFFFF));
+                const s = d && this.objects.get(d.sampler);
+                if (s && s.kind === "sampler" && [0, 4, 8].some(shift => (s.wrap >> shift & 15) < 2)) wraps.push([key, s.wrap]);
+            }
+            return wraps;
+        }
+
+        /**
+         * A render pipeline whose stages are translated again with integer
+         * images' address modes (`wraps`, intWraps) and the vertex shader's
+         * `flags` (vertexVariant's): made at the first draw with them, its own
+         * bind groups (an automatic layout)
+         */
+        wrapVariant(p, flags, wraps) {
+            p.wrapVariants = p.wrapVariants || new Map();
+            const key = flags + ":" + wraps.flat().join(",");
+            if (p.wrapVariants.has(key)) return p.wrapVariants.get(key);
+            let v = null;
+            try {
+                const descriptor = Object.assign({}, p.descriptor);
+                for (const { shader, stage, flags: own } of p.stageSources) {
+                    const t = this.translateNow(shader, p.push, own | (stage.stage === 1 ? flags : 0), p.storage, wraps);
+                    if (t.error) throw new Error("shader: " + t.error);
+                    const st = this.stageState(t, stage);
+                    const replaced = { module: st.module, entryPoint: st.entryPoint, constants: st.constants };
+                    if (stage.stage === 1) descriptor.vertex = Object.assign({}, p.descriptor.vertex, replaced);
+                    else if (stage.stage === 16 && p.descriptor.fragment && !p.desc.discard) descriptor.fragment = Object.assign({}, p.descriptor.fragment, replaced);
+                }
+                v = { kind: "pipeline", desc: p.desc, groups: p.groups, push: p.push, gpu: this.device.createRenderPipeline(descriptor), bindGroups: new Map(),
+                    error: null, descriptor };
+            } catch (error) {
+                this.warn("wrap-variant:" + error.message, "a pipeline's variant for its integer images' address modes failed: " + error.message);
+            }
+            p.wrapVariants.set(key, v);
+            return v;
+        }
+
+        /** wrapVariant's for a compute pipeline */
+        wrapComputeVariant(p, wraps) {
+            p.wrapVariants = p.wrapVariants || new Map();
+            const key = wraps.flat().join(",");
+            if (p.wrapVariants.has(key)) return p.wrapVariants.get(key);
+            let v = null;
+            try {
+                const { shader, stage } = p.stageSources[0];
+                const t = this.translateNow(shader, p.push, 0, p.storage, wraps);
+                if (t.error) throw new Error("shader: " + t.error);
+                const st = this.stageState(t, stage);
+                v = { kind: "pipeline", desc: p.desc, groups: p.groups, push: p.push, bindGroups: new Map(), error: null,
+                    gpu: this.device.createComputePipeline({ layout: "auto", compute: { module: st.module, entryPoint: st.entryPoint, constants: st.constants } }) };
+            } catch (error) {
+                this.warn("wrap-variant:" + error.message, "a pipeline's variant for its integer images' address modes failed: " + error.message);
+            }
+            p.wrapVariants.set(key, v);
+            return v;
+        }
+
+        /**
          * A render pipeline with other stencil masks: the dynamic ones
          * (VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, _WRITE_MASK) of a draw, as
          * WebGPU's are the pipeline's. Made at the first draw with them; its
@@ -1962,7 +2138,9 @@
             // (a viewport flipped, or with its depths reversed: a variant of the vertex shader)
             const reversed = viewport && viewport[4] > viewport[5];
             const variant = (viewport && viewport[3] < 0 ? TRANSLATE.KEEP : 0) | (reversed ? TRANSLATE.REVERSE_DEPTH : 0);
-            let q = variant ? this.vertexVariant(p, variant) : p;
+            // (integer images sampled with samplers that repeat: their address modes in the shaders)
+            const wraps = this.intWraps(p, 0);
+            let q = wraps.length ? this.wrapVariant(p, variant, wraps) : variant ? this.vertexVariant(p, variant) : p;
             if (!q) return;
             // the stencil masks and reference of each face (the dynamic ones, or
             // the pipeline's): WebGPU's are one for both faces, so a draw whose
@@ -2344,11 +2522,15 @@
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
             this.endPass();
             this.swizzleCopies(p, 1);
+            // (integer images sampled with samplers that repeat: a variant of the shader)
+            const wraps = this.intWraps(p, 1);
+            const q = wraps.length ? this.wrapComputeVariant(p, wraps) : p;
+            if (!q) return;
             // (the bind groups first: their copies are outside the compute pass)
             const writable = this.writableBuffers(p);
             const groups = [];
             for (const group of p.groups.keys()) {
-                const bg = this.bindGroup(p, 1, group, writable);
+                const bg = this.bindGroup(q, 1, group, writable);
                 if (!bg) return;
                 groups.push([group, bg]);
             }
@@ -2357,7 +2539,7 @@
                 this.computePass = encoder.beginComputePass();
             }
             const pass = this.computePass;
-            pass.setPipeline(p.gpu);
+            pass.setPipeline(q.gpu);
             for (const [group, bg] of groups) pass.setBindGroup(group, bg);
             if (indirect) {
                 const m = this.memory(b[0]);

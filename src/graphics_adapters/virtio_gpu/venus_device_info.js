@@ -440,8 +440,8 @@ export const FORMATS = {
     122: ["rg11b10ufloat", "fc", null, 4],             // B10G11R11_UFLOAT_PACK32
     123: ["rgb9e5ufloat", "fc", null, 4],              // E5B9G9R9_UFLOAT_PACK32
     124: ["depth16unorm", "dmc", null, 2],             // D16_UNORM
-    // (24-bit depth: transfers between images and of the stencil aspect;
-    // WebGPU copies no 24-bit depth to or from a buffer, VX warns and skips)
+    // (24-bit depth: WebGPU copies none to or from a buffer; VX does it by a
+    // draw and a dispatch, as depth into depth32float)
     125: ["depth24plus", "dmc", null, 4],              // X8_D24_UNORM_PACK32
     126: ["depth32float", "dmc", null, 4],             // D32_SFLOAT
     127: ["stencil8", "dmc", null, 1],                 // S8_UINT

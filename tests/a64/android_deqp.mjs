@@ -116,23 +116,35 @@ export async function deqp_scenario(env)
         const files = `/sdcard/Android/data/${APK}/files`, qpa = `${files}/${name}.qpa`;
         const started = Date.now();
         let out = "", text = "", logcat = "";
-        for(const [index, run] of runs.entries())
+        for(const [index, first] of runs.entries())
         {
-            await adb(`mkdir -p ${files}; rm -f ${qpa}; logcat -c`);
-            // (DeqpTestRunner's: deqpLogFilename, the log's path; again when the
-            // instrumentation gave up waiting for the tester to start its log,
-            // which a slow first start of the app outlasts)
-            for(let attempt = 0; attempt < 3; attempt++)
+            // (a case that ends the instrumentation, a crash or dEQP's watchdog: the run's
+            // other cases again, without those that have a result, while some do)
+            let run = first;
+            for(let pass = 0; run.length; pass++)
             {
-                out = await adb(`am instrument -w -r -e deqpLogFilename ${qpa} -e deqpCmdLine "${command_line(name, run)}" ` +
-                    `-e deqpLogData false ${INSTRUMENTATION} 2>&1 | tail -5`, 4 * 3600000);
-                if(!/Timeout while waiting for log file/.test(out)) break;
-                log(`${name}: the instrumentation timed out waiting for the log, again`);
+                await adb(`mkdir -p ${files}; rm -f ${qpa}; logcat -c`);
+                // (DeqpTestRunner's: deqpLogFilename, the log's path; again when the
+                // instrumentation gave up waiting for the tester to start its log,
+                // which a slow first start of the app outlasts)
+                for(let attempt = 0; attempt < 3; attempt++)
+                {
+                    out = await adb(`am instrument -w -r -e deqpLogFilename ${qpa} -e deqpCmdLine "${command_line(name, run)}" ` +
+                        `-e deqpLogData false ${INSTRUMENTATION} 2>&1 | tail -5`, 4 * 3600000);
+                    if(!/Timeout while waiting for log file/.test(out)) break;
+                    log(`${name}: the instrumentation timed out waiting for the log, again`);
+                }
+                const got = await adb(`cat ${qpa}`, 600000);
+                text += got;
+                logcat = (await adb("logcat -d -s dEQP:* DeqpInstrumentation:* AndroidRuntime:E 2>&1 | tail -25", 600000)).trim();
+                // (all of it, for what the drivers said: ANGLE, the Vulkan loader, Mesa)
+                if(env.directory) fs.writeFileSync(env.directory + `deqp-${name}-logcat${index ? "-" + index : ""}${pass ? "." + pass : ""}.txt`,
+                    await adb("logcat -d 2>&1 | tail -4000", 600000));
+                const done = qpa_results(got), rest = run.filter(c => !(c in done));
+                if(rest.length === run.length || pass >= 50) break;
+                if(rest.length) log(`${name}: the run ended at ${Object.keys(done).length} of ${run.length} cases; the other ${rest.length} again`);
+                run = rest;
             }
-            text += await adb(`cat ${qpa}`, 600000);
-            logcat = (await adb("logcat -d -s dEQP:* DeqpInstrumentation:* AndroidRuntime:E 2>&1 | tail -25", 600000)).trim();
-            // (all of it, for what the drivers said: ANGLE, the Vulkan loader, Mesa)
-            if(env.directory) fs.writeFileSync(env.directory + `deqp-${name}-logcat${index ? "-" + index : ""}.txt`, await adb("logcat -d 2>&1 | tail -4000", 600000));
         }
         const ms = Date.now() - started, results = qpa_results(text);
         const counts = {};

@@ -45,6 +45,11 @@ const GLSL_F_CLAMP: u32 = 43;
 const GLSL_LENGTH: u32 = 66;
 const OP_IMAGE_QUERY_LEVELS: u32 = 106;
 const OP_DPDX: u32 = 207;
+const OP_I_MUL: u32 = 132;
+const OP_S_MOD: u32 = 139;
+const OP_S_LESS_THAN: u32 = 177;
+const OP_SELECT: u32 = 169;
+const OP_TYPE_BOOL: u32 = 20;
 const OP_DPDY: u32 = 208;
 const GLSL_S_CLAMP: u32 = 45;
 const IMAGE_OPERANDS_BIAS: u32 = 1;
@@ -88,6 +93,18 @@ impl Pass {
         self.int = Some(id);
         id
     }
+    /// the bool type, existing or new
+    fn boolean(&mut self) -> u32 {
+        if let Some((&id, _)) = self.types.iter().find(|(_, w)| w[0] & 0xFFFF == OP_TYPE_BOOL) {
+            return id;
+        }
+        let id = self.fresh();
+        let w = instruction(OP_TYPE_BOOL, &[id]);
+        self.types.insert(id, w.clone());
+        self.declare(w);
+        id
+    }
+
     fn vector(&mut self, component: u32, n: u32) -> u32 {
         if n == 1 {
             return component;
@@ -129,8 +146,12 @@ impl Pass {
     }
 }
 
-/// The module with its samples of integer images made fetches, or the words as they were
-pub fn lower(words: &[u32]) -> Vec<u32> {
+/// The module with its samples of integer images made fetches, or the words
+/// as they were; `wraps`: their samplers' address modes by the images'
+/// group << 16 | WGSL binding (VkSamplerAddressMode u | v << 4 | w << 8:
+/// repeat 0 and mirrored repeat 1 wrap the texel, the others clamp it);
+/// `fetched`: the images made fetches of, so
+pub fn lower(words: &[u32], wraps: &[(u32, u32)], fetched: &mut Vec<u32>) -> Vec<u32> {
     if words.len() < 5 {
         return words.to_vec();
     }
@@ -189,6 +210,22 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
             pass.bound += 1;
             pass.bound - 1
         },
+    };
+    // what defines each id in the functions, and the variables' set and binding
+    // (a sampled image's image: OpSampledImage of an OpLoad of a variable)
+    let defs: BTreeMap<u32, &[u32]> = instructions[first_function..].iter().filter(|w| w.len() >= 3 && !untyped(op(w))).map(|w| (w[2], *w)).collect();
+    let decoration = |id: u32, d: u32| instructions[..first_function].iter().find(|w| op(w) == 71 && w.len() >= 4 && w[1] == id && w[2] == d).map(|w| w[3]);
+    let image_key = |si: u32| -> Option<u32> {
+        let s = defs.get(&si)?;
+        if op(s) != 86 || s.len() < 5 {
+            return None;
+        }
+        let load = defs.get(&s[3])?;
+        if op(load) != 61 || load.len() < 4 {
+            return None;
+        }
+        let (set, binding) = (decoration(load[3], 34)?, decoration(load[3], 33)?);
+        Some(set << 16 | crate::wgsl_binding(binding))
     };
     // the image type of a sampled image's type, when its texels are integers and it is not a cube
     let integer_image = |pass: &Pass, sampled_image_ty: u32| -> Option<(u32, u32, bool)> {
@@ -349,10 +386,52 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
             body.push(instruction(OP_I_ADD, &[ivec, id, texel, offset]));
             texel = id;
         }
+        // the sampler's address modes, each axis's
+        let key = image_key(w[3]);
+        if let Some(k) = key {
+            fetched.push(k);
+        }
+        let modes = key.and_then(|k| wraps.iter().find(|(x, _)| *x == k)).map_or(0x222, |&(_, m)| m);
+        let mode = |k: u32| modes >> (4 * k) & 0xF;
         let (zero, one) = (pass.splat(int, 0, spatial), pass.splat(int, 1, spatial));
         let (last, clamped) = (pass.fresh(), pass.fresh());
         body.push(instruction(OP_I_SUB, &[ivec, last, size_xy, one]));
         body.push(instruction(OP_EXT_INST, &[ivec, clamped, glsl, GLSL_S_CLAMP, texel, zero, last]));
+        // (repeat: the texel modulo the size; mirrored repeat: modulo twice the size, folded back)
+        let clamped = if (0..spatial).all(|k| mode(k) >= 2) { clamped } else {
+            let boolean = pass.boolean();
+            let (one1, two1) = (pass.constant(int, 1), pass.constant(int, 2));
+            let mut parts = Vec::new();
+            for k in 0..spatial {
+                let part = pass.fresh();
+                body.push(instruction(OP_COMPOSITE_EXTRACT, &[int, part, if mode(k) >= 2 { clamped } else { texel }, k]));
+                if mode(k) >= 2 {
+                    parts.push(part);
+                    continue;
+                }
+                let size_k = pass.fresh();
+                body.push(instruction(OP_COMPOSITE_EXTRACT, &[int, size_k, size_xy, k]));
+                if mode(k) == 0 {
+                    let wrapped = pass.fresh();
+                    body.push(instruction(OP_S_MOD, &[int, wrapped, part, size_k]));
+                    parts.push(wrapped);
+                    continue;
+                }
+                let (twice, folded, back, last_k, under, mirrored) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh());
+                body.push(instruction(OP_I_MUL, &[int, twice, size_k, two1]));
+                body.push(instruction(OP_S_MOD, &[int, folded, part, twice]));
+                body.push(instruction(OP_I_SUB, &[int, last_k, twice, one1]));
+                body.push(instruction(OP_I_SUB, &[int, back, last_k, folded]));
+                body.push(instruction(OP_S_LESS_THAN, &[boolean, under, folded, size_k]));
+                body.push(instruction(OP_SELECT, &[int, mirrored, under, folded, back]));
+                parts.push(mirrored);
+            }
+            let id = pass.fresh();
+            let mut c = Vec::from([ivec, id]);
+            c.extend(parts);
+            body.push(instruction(OP_COMPOSITE_CONSTRUCT, &c));
+            id
+        };
         let fetch_at = if arrayed {
             // the layer: floor(z + 0.5), clamped
             let half = pass.constant(float, 0x3F00_0000);

@@ -756,6 +756,60 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         const padded = Array.from(new Float32Array((await read(POUT, 0, 20)).buffer)).join();
         check(padded === "12,11,23,12,20", "std140 arrays of scalars and vec2s: " + padded + " (" + renderer.vx.warnings.join("; ") + ")");
 
+        // Integer images sampled outside [0, 1] with samplers that repeat (GL's
+        // default wrap; the fetch clamps otherwise): the cube test's two R32_UINT
+        // images, s[0] repeating at (1.25, 0.25): texel (0, 0), 200; s[1]
+        // mirrored at (-0.75, 1.25): texel (1, 1), 311
+        const WRAP_SPV = Uint8Array.from(atob("AwIjBwADAQAAAAAANgAAAAAAAAARAAIAAQAAAA4AAwAAAAAAAQAAAA8ABQAFAAAAAQAAAG1haW4AAAAAEAAGAAEAAAARAAAAAQAAAAEAAAABAAAARwAEAAIAAAAiAAAAAAAAAEcABAACAAAAIQAAAAAAAABHAAQAAwAAACIAAAAAAAAARwAEAAMAAAAhAAAAAQAAAEcAAwAEAAAAAgAAAEgABQAEAAAAAAAAACMAAAAAAAAARwAEAAUAAAAGAAAABAAAAEcABAAGAAAAIgAAAAAAAABHAAQABgAAACEAAAACAAAAEwACAAcAAAAhAAMACAAAAAcAAAAWAAMACQAAACAAAAAVAAQACgAAACAAAAABAAAAFQAEAAsAAAAgAAAAAAAAABcABAAMAAAACQAAAAIAAAAXAAQADQAAAAkAAAADAAAAFwAEAA4AAAALAAAABAAAACsABAAKAAAADwAAAAAAAAArAAQACgAAABAAAAABAAAAKwAEAAoAAAARAAAAAgAAACsABAAKAAAAEgAAAAMAAAArAAQACQAAABMAAAAAAAAAKwAEAAkAAAAUAAAAAACAvysABAAJAAAAFQAAAM3MzD0rAAQACQAAABYAAADNzEw+KwAEAAkAAAAXAAAAmpmZPisABAAJAAAAGAAAAAAAAL8rAAQACQAAABkAAAAAAEA/KwAEAAkAAAAaAAAAAACAPisABAAJAAAAGwAAAAAAoD8rAAQACQAAABwAAAAAAEC/LAAGAA0AAAAdAAAAFAAAABUAAAAWAAAALAAGAA0AAAAeAAAAFwAAABgAAAAUAAAALAAFAAwAAAAfAAAAGwAAABoAAAAsAAUADAAAACAAAAAcAAAAGwAAABkACQAhAAAACwAAAAMAAAAAAAAAAAAAAAAAAAABAAAAAAAAABsAAwAiAAAAIQAAACAABAAjAAAAAAAAACIAAAA7AAQAIwAAAAIAAAAAAAAAGQAJACQAAAALAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAGwADACUAAAAkAAAAHAAEACYAAAAlAAAAEQAAACAABAAnAAAAAAAAACYAAAA7AAQAJwAAAAMAAAAAAAAAIAAEACgAAAAAAAAAJQAAAB0AAwAFAAAACwAAAB4AAwAEAAAABQAAACAABAApAAAADAAAAAQAAAA7AAQAKQAAAAYAAAAMAAAAIAAEACoAAAAMAAAACwAAADYABQAHAAAAAQAAAAAAAAAIAAAA+AACACsAAABBAAUAKAAAACwAAAADAAAADwAAAD0ABAAlAAAALQAAACwAAABYAAcADgAAAC4AAAAtAAAAHwAAAAIAAAATAAAAUQAFAAsAAAAvAAAALgAAAAAAAABBAAYAKgAAADAAAAAGAAAADwAAAA8AAAA+AAMAMAAAAC8AAABBAAUAKAAAADEAAAADAAAAEAAAAD0ABAAlAAAAMgAAADEAAABYAAcADgAAADMAAAAyAAAAIAAAAAIAAAATAAAAUQAFAAsAAAA0AAAAMwAAAAAAAABBAAYAKgAAADUAAAAGAAAADwAAABAAAAA+AAMANQAAADQAAAD9AAEAOAABAA=="), c => c.charCodeAt(0));
+        const WSH = 220, WPIPE = 221, WREP = 222, WMIR = 223;
+        w.command(VX.SHADER_CREATE, [WSH, WRAP_SPV.length], WRAP_SPV);
+        w.command(VX.PIPELINE_CREATE, [WPIPE], json({ kind: "compute", stages: [{ shader: WSH, stage: 32, entry: "main", constants: {} }],
+            set_count: 1, push_size: 0 }));
+        w.command(VX.SAMPLER_CREATE, [WREP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        w.command(VX.SAMPLER_CREATE, [WMIR, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]);
+        w.command(VX.BEGIN, []);
+        w.command(VX.BIND_PIPELINE, [WPIPE]);
+        w.command(VX.SET_BIND_GROUP, [1 << 16 | 0, 3, 1, 0, 1, S0V, WREP, 0, 0, 0, 1, 1, 1, S1V, WMIR, 0, 0, 0, 2, 0, 7, COUT, 0, 0, 0, 256]);
+        w.command(VX.DISPATCH, [1, 1, 1]);
+        w.command(VX.END, []);
+        const wrapped = Array.from(new Uint32Array((await read(COUT, 0, 8)).buffer)).join();
+        check(wrapped === "200,311", "integer images sampled with samplers that repeat: " + wrapped + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // Depth from a memory into D32_SFLOAT and D24_UNORM_S8_UINT images (WebGPU
+        // copies buffers into depth16unorm only: a draw writing frag_depth), and
+        // 24-bit depth back out (a dispatch: WebGPU copies none out): 3x2 texels
+        const UD32 = 230, UD24 = 231, UDM = 232;
+        w.command(VX.TEXTURE_CREATE, [UD32, 126, 1, 3, 2, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.TEXTURE_CREATE, [UD24, 129, 1, 3, 2, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.MEMORY_CREATE, [UDM, 512, 0]);
+        const d32in = Float32Array.from([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
+        const d24in = Uint32Array.from([0, 0x400000, 0x800000, 0xC00000, 0xFFFFFF, 0x123456]);
+        w.command(VX.MEMORY_WRITE, [UDM, 0, 0, 24], new Uint8Array(d32in.buffer));
+        w.command(VX.MEMORY_WRITE, [UDM, 32, 0, 24], new Uint8Array(d24in.buffer));
+        w.command(VX.BEGIN, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, UDM, 0, 0, 0, 0, UD32, 2, 0, 0, 1, 0, 0, 0, 3, 2, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, UDM, 32, 0, 0, 0, UD24, 2, 0, 0, 1, 0, 0, 0, 3, 2, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, UDM, 256, 0, 0, 0, UD32, 2, 0, 0, 1, 0, 0, 0, 3, 2, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, UDM, 384, 0, 0, 0, UD24, 2, 0, 0, 1, 0, 0, 0, 3, 2, 1]);
+        w.command(VX.END, []);
+        const dback = await read(UDM, 256, 160);
+        const d32out = Array.from(new Float32Array(dback.buffer, 0, 6)), d24out = Array.from(new Uint32Array(dback.buffer, 128, 6));
+        check(d32out.every((v, i) => near(v, d32in[i])) && d24out.every((v, i) => Math.abs(v - d24in[i]) <= 1),
+            "depth into D32 and D24S8 by a draw, 24-bit depth out by a dispatch: " + d32out.map(v => v.toFixed(2)).join() + " / " + d24out.join() +
+            " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // A snapshot's 24-bit depth: written into D24S8 (TEXTURE_WRITE, by a draw)
+        // and read again (TEXTURE_READ, by a dispatch)
+        const snapIn = Uint32Array.from([7, 0x111111, 0x222222, 0x333333, 0x444444, 0xFFFFFF]);
+        w.command(VX.TEXTURE_WRITE, [UD24, 2, 0, 0, 24], new Uint8Array(snapIn.buffer));
+        const snapRequest = request++;
+        w.command(VX.TEXTURE_READ, [UD24, 2, 0, 0, snapRequest]);
+        await send();
+        const snapOut = answers.get(snapRequest) ? Array.from(new Uint32Array(answers.get(snapRequest).buffer.slice(answers.get(snapRequest).byteOffset,
+            answers.get(snapRequest).byteOffset + 24))) : [];
+        check(snapOut.length === 6 && snapOut.every((v, i) => Math.abs(v - snapIn[i]) <= 1), "a snapshot's 24-bit depth written and read: " + snapOut.join() +
+            " (" + renderer.vx.warnings.join("; ") + ")");
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

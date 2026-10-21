@@ -76,6 +76,11 @@ pub struct Options {
     /// depths reversed): depth.rs
     pub drop_frag_depth: bool,
     pub reverse_depth: bool,
+    /// The address modes of the samplers of integer images (whose samples
+    /// are fetches, intsample.rs), by their group and WGSL binding
+    /// (`group << 16 | binding`): VkSamplerAddressMode u | v << 4 | w << 8;
+    /// clamp to edge for the others
+    pub int_wraps: Vec<(u32, u32)>,
 }
 
 fn quote(text: &str) -> String {
@@ -130,7 +135,7 @@ fn kind(module: &naga::Module, var: &naga::GlobalVariable) -> &'static str {
 /// 2b + 1; element e > 0 of a descriptor array (blockarrays.rs) is
 /// ELEMENTS + 2 (16b + e), its split sampler's one more (vx_executor.js's
 /// descriptorKey reads them back)
-fn wgsl_binding(binding: u32) -> u32 {
+pub(crate) fn wgsl_binding(binding: u32) -> u32 {
     if binding >= blockarrays::ELEMENT_BINDING + SAMPLER_BINDING {
         ELEMENTS + (binding - blockarrays::ELEMENT_BINDING - SAMPLER_BINDING) * 2 + 1
     }
@@ -242,12 +247,18 @@ fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
 
 /// VX's passes on the SPIR-V, in order; VX_SKIP (a list of their names, in
 /// a native build's environment: debugging) leaves some out
-fn passes(words: &[u32]) -> Vec<u32> {
+/// (`wraps`: the address modes of integer images' samplers, intsample.rs;
+/// `sampled`: the integer images it made fetches of)
+fn passes(words: &[u32], wraps: &[(u32, u32)], sampled: &mut Vec<u32>) -> Vec<u32> {
     let skip = std::env::var("VX_SKIP").unwrap_or_default();
-    let list: [(&str, fn(&[u32]) -> Vec<u32>); 7] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
-        ("intsample", intsample::lower), ("relational", relational::lower), ("layout", layout::lower)];
+    let list: [(&str, fn(&[u32]) -> Vec<u32>); 6] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
+        ("relational", relational::lower), ("layout", layout::lower)];
     let mut words = words.to_vec();
     for (name, pass) in list {
+        // (intsample after subpass)
+        if name == "relational" && !skip.split(',').any(|s| s == "intsample") {
+            words = intsample::lower(&words, wraps, sampled);
+        }
         if !skip.split(',').any(|s| s == name) {
             words = pass(&words);
         }
@@ -259,7 +270,7 @@ fn passes(words: &[u32]) -> Vec<u32> {
 /// (examples/dump.rs)
 pub fn parse_for_debugging(bytes: &[u8]) -> Result<naga::Module, String> {
     let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
-    let words = passes(&words);
+    let words = passes(&words, &[], &mut Vec::new());
     let data: Vec<u8> = xfb::strip(&words).iter().flat_map(|w| w.to_le_bytes()).collect();
     let spv = naga::front::spv::Options { adjust_coordinate_space: true, strict_capabilities: false, block_ctx_dump_prefix: None };
     naga::front::spv::parse_u8_slice(&data, &spv).map_err(|e| format!("SPIR-V: {:?}", e))
@@ -268,7 +279,7 @@ pub fn parse_for_debugging(bytes: &[u8]) -> Result<naga::Module, String> {
 /// The SPIR-V (bytes) after VX's passes on it (examples/dump.rs)
 pub fn passes_for_debugging(bytes: &[u8]) -> Vec<u8> {
     let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
-    passes(&words).iter().flat_map(|w| w.to_le_bytes()).collect()
+    passes(&words, &[], &mut Vec::new()).iter().flat_map(|w| w.to_le_bytes()).collect()
 }
 
 /// SPIR-V (bytes) to the JSON answer
@@ -290,7 +301,8 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
         return Err(String::from("not SPIR-V: not whole words"));
     }
     let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
-    let words = passes(&words);
+    let mut sampled = Vec::new();
+    let words = passes(&words, &options.int_wraps, &mut sampled);
     // (transform feedback's: read by xfb::captures, naga refuses them)
     let data: Vec<u8> = xfb::strip(&words).iter().flat_map(|w| w.to_le_bytes()).collect();
     let spv = naga::front::spv::Options { adjust_coordinate_space: !options.keep_coordinate_space, strict_capabilities: false, block_ctx_dump_prefix: None };
@@ -400,6 +412,10 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
         json.push_str(&format!("[{},\"{}\"]", id, ty));
     }
     json.push(']');
+    // (the integer images whose samples are fetches: their samplers' address modes matter, int_wraps)
+    sampled.sort_unstable();
+    sampled.dedup();
+    json.push_str(&format!(",\"intsamples\":{:?}", sampled));
     json.push_str(&capture_json);
     json.push('}');
     Ok(json)
@@ -444,7 +460,8 @@ pub unsafe extern "C" fn vx_translate_xfb(ptr: *const u8, len: usize, immediates
     let group = next();
     let attributes = (0..next()).map(|_| xfb::Attribute { location: next(), slot: next(), format: next(), offset: next() }).collect();
     let slots = (0..next()).map(|_| xfb::Slot { slot: next(), stride: next(), instance: next() != 0 }).collect();
-    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: true, storage_uniforms, drop_frag_depth: false, reverse_depth: false };
+    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: true, storage_uniforms, drop_frag_depth: false, reverse_depth: false,
+        int_wraps: Vec::new() };
     let answer = match translate_with(bytes, &options, Some(&XfbInput { attributes, slots, group })) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),
@@ -461,11 +478,15 @@ pub unsafe extern "C" fn vx_translate_xfb(ptr: *const u8, len: usize, immediates
 /// storage (Options::storage_uniforms; null when none)
 #[no_mangle]
 pub unsafe extern "C" fn vx_translate(ptr: *const u8, len: usize, immediates_group: u32, immediates_binding: u32, flags: u32,
-    storage: *const u32, storage_count: usize) -> *mut u8 {
+    storage: *const u32, storage_count: usize, wraps: *const u32, wrap_count: usize) -> *mut u8 {
     let bytes = core::slice::from_raw_parts(ptr, len);
     let storage_uniforms = if storage.is_null() || storage_count == 0 { Vec::new() } else { core::slice::from_raw_parts(storage, storage_count).to_vec() };
+    // (pairs: the image's group << 16 | binding, its address modes)
+    let int_wraps = if wraps.is_null() || wrap_count == 0 { Vec::new() } else {
+        core::slice::from_raw_parts(wraps, wrap_count * 2).chunks_exact(2).map(|p| (p[0], p[1])).collect()
+    };
     let options = Options { immediates_group, immediates_binding, keep_coordinate_space: flags & 1 != 0, storage_uniforms,
-        drop_frag_depth: flags & 2 != 0, reverse_depth: flags & 4 != 0 };
+        drop_frag_depth: flags & 2 != 0, reverse_depth: flags & 4 != 0, int_wraps };
     let answer = match translate(bytes, &options) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),
