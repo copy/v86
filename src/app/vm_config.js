@@ -230,6 +230,7 @@ function check_image(image, path, problems)
     {
         case "url":
             if(typeof image.url !== "string" || !image.url) problem("the image's URL is missing");
+            else if(image.url.endsWith("/")) problem("the URL names a directory, not an image (choose the disk service's image)");
             if(image.size !== undefined && !size_ok(image.size)) problem("the image's size must be a positive integer");
             break;
         case "file":

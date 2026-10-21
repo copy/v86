@@ -95,6 +95,67 @@ dialog.dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .field input { width: 100%; }
 pre.problems { white-space: pre-wrap; margin: 0; font-size: 0.95em; }
 
+/* the settings dialog and the wizard */
+dialog.settings-dialog, dialog.wizard-dialog {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 0;
+    width: min(980px, calc(100vw - 32px));
+    height: min(720px, calc(100vh - 32px));
+}
+dialog.settings-dialog::backdrop, dialog.wizard-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.settings {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: 100%;
+}
+.settings-header, .wizard header { grid-column: 1 / -1; padding: 14px 18px 0; }
+.settings-list { border-right: 1px solid var(--line); overflow: auto; padding: 8px; display: flex; flex-direction: column; }
+.hardware-list { list-style: none; margin: 0; padding: 0; flex: 1; }
+.hardware-list li { display: flex; flex-direction: column; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.hardware-list li:hover { background: #202020; }
+.hardware-list li.selected { background: var(--selected); }
+.hardware-list li.has-problem .item-label::after { content: " ⚠"; color: var(--error); }
+.item-summary { color: var(--muted); font-size: 0.88em; overflow-wrap: anywhere; }
+.settings-list-actions { display: flex; gap: 6px; padding-top: 8px; }
+.settings-panel { overflow: auto; padding: 4px 20px 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.settings-panel h3 { margin: 6px 0 4px; }
+.settings-panel .field { max-width: 100%; }
+.settings-panel textarea { width: min(520px, 100%); }
+.settings-footer, .wizard-footer {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 18px;
+    border-top: 1px solid var(--line);
+}
+.settings-notes, .wizard-status { flex: 1; color: var(--muted); font-size: 0.92em; }
+.wizard-status.error { color: var(--error); }
+ul.problems { color: var(--error); margin: 0; padding-left: 1.2em; }
+small.reason { color: var(--muted); }
+label.check { display: flex; gap: 4px; align-items: baseline; }
+.image-picker { display: flex; flex-direction: column; gap: 6px; border-left: 2px solid #2c2c2c; padding-left: 10px; }
+.service-images { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.wizard { display: flex; flex-direction: column; height: 100%; }
+.wizard-steps { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; padding: 0; margin: 4px 0 8px; color: var(--muted); }
+.wizard-steps li.current { color: var(--text); font-weight: 600; }
+.wizard-steps li.done::after { content: " ✓"; }
+.wizard-body { flex: 1; overflow: auto; padding: 8px 18px; display: flex; flex-direction: column; gap: 10px; }
+.wizard-body fieldset { border: 1px solid var(--line); border-radius: 4px; display: flex; flex-direction: column; gap: 6px; }
+.preset-pane { display: grid; grid-template-columns: 230px 1fr; gap: 16px; min-height: 0; }
+.preset-list { list-style: none; margin: 0; padding: 0; overflow: auto; }
+.preset-list li { padding: 6px 10px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
+.preset-list li:hover { background: #202020; }
+.preset-list li.selected { background: var(--selected); }
+.badge { font-size: 0.78em; color: #ffcc80; border: 1px solid #6b5a36; border-radius: 3px; padding: 0 4px; white-space: nowrap; }
+.preset-detail h4 { margin: 10px 0 4px; }
+.indent { margin-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+details.checklist { margin: 10px 0; }
+
 /* the console */
 .console { padding: 8px 12px; }
 .console-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
@@ -123,6 +184,9 @@ pre.problems { white-space: pre-wrap; margin: 0; font-size: 0.95em; }
 footer { color: var(--muted); padding: 10px 16px; border-top: 1px solid var(--line); font-size: 0.9em; }
 
 @media (max-width: 700px) {
+    .settings { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
+    .settings-list { border-right: 0; border-bottom: 1px solid var(--line); max-height: 34vh; }
+    .preset-pane { grid-template-columns: 1fr; }
     .library { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
     .library-list { border-right: 0; border-bottom: 1px solid var(--line); }
     .library-summary { padding: 16px; }

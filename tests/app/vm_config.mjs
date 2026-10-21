@@ -142,6 +142,7 @@ const RULES = [
     ["a slot twice", c => { c.disks = [disk(), disk()]; }, "disks.1.slot"],
     ["an image's kind", c => { c.disks = [disk({ image: { kind: "ftp" } })]; }, "disks.0.image"],
     ["a URL without a URL", c => { c.disks = [disk({ image: { kind: "url", url: "" } })]; }, "disks.0.image"],
+    ["a directory's URL", c => { c.disks = [disk({ image: { kind: "url", url: "http://127.0.0.1:8471/" } })]; }, "disks.0.image"],
     ["a URL's size", c => { c.disks = [disk({ image: { kind: "url", url: "a.img", size: -1 } })]; }, "disks.0.image"],
     ["a file without a name", c => { c.disks = [disk({ image: { kind: "file", name: "", size: 1, last_modified: 0 } })]; }, "disks.0.image"],
     ["an empty disk's size", c => { c.disks = [disk({ image: { kind: "empty", size: 0 } })]; }, "disks.0.image"],

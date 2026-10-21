@@ -55,14 +55,30 @@ async function main()
     check(names().length === 0 && /No virtual machines yet/.test($(".library-list").textContent), "an empty library");
     log("the library: empty");
 
-    $("#new_vm").click();
+    // New: the wizard, "install later", the "Other" preset's machine, its name by default, no disk
+    const create = async () =>
+    {
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        const next = () => Array.from(wizard.querySelectorAll("button")).find(b => b.textContent === "Next").click();
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.value === "later").click();
+        next();
+        await until(() => wizard.querySelector("li[data-preset=other].selected"), "the preset");
+        next();
+        await until(() => wizard.querySelector("input[aria-label=Name]"), "the name");
+        next();
+        (await until(() => wizard.querySelector("input[name=disk][value=none]"), "the disk")).click();
+        next();
+        (await until(() => Array.from(wizard.querySelectorAll("button")).find(b => b.textContent === "Finish"), "the summary")).click();
+    };
+    await create();
     await until(() => names().length === 1, "a new machine in the list");
-    check(names()[0] === "New virtual machine", "its name: " + names()[0]);
+    check(names()[0] === "Other", "its name: " + names()[0]);
     check(/Memory128MB/.test($(".hardware").textContent.replace(/\s+/g, "")), "its hardware: " + $(".hardware").textContent);
-    $("#new_vm").click();
+    await create();
     await until(() => names().length === 2, "a second new machine");
-    check(names().includes("New virtual machine 2"), "the second's name");
-    log("New: " + names().join(", "));
+    check(names().includes("Other 2"), "the second's name");
+    log("New (the wizard): " + names().join(", "));
 
     // rename the selected one in the dialog
     const selected = $(".vm-list li.selected .vm-name").textContent;
@@ -143,8 +159,8 @@ async function main()
     await new Promise(resolve => frame.onload = resolve);
     await until(() => frame.contentDocument.querySelector(".library"), "the library again");
     const after = Array.from(frame.contentDocument.querySelectorAll(".vm-list .vm-name"), e => e.textContent).sort();
-    check(JSON.stringify(after) === JSON.stringify(["New virtual machine 2", "Renamed machine"].sort()) ||
-        JSON.stringify(after) === JSON.stringify(["New virtual machine", "Renamed machine"].sort()), "after the reload: " + after);
+    check(JSON.stringify(after) === JSON.stringify(["Other 2", "Renamed machine"].sort()) ||
+        JSON.stringify(after) === JSON.stringify(["Other", "Renamed machine"].sort()), "after the reload: " + after);
     log("after a reload: " + after.join(", "));
 }
 

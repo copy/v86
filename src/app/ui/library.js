@@ -1,91 +1,72 @@
 // @ts-check
 // The library (docs/vm-manager-plan.md "虚拟机库"): the virtual machines of
-// this browser on the left, the chosen one's summary on the right. U2: new
-// (the default configuration), import, rename, export, delete, power on in a
-// new tab; U3 brings the wizard and the settings dialog.
+// this browser on the left, the chosen one's summary on the right: new (the
+// wizard), import, edit settings (the settings dialog), rename, export,
+// delete, power on in a new tab; the preferences (the disk service).
 
-import { h, replace, ask_text, confirm, inform, download, pick_file, format_size } from "./dom.js";
+import { h, replace, ask_text, confirm, inform, download, pick_file, dialog } from "./dom.js";
+import { hardware_rows } from "./describe.js";
+import { open_wizard } from "./wizard.js";
+import { open_settings } from "./settings.js";
 import { VMStore, export_config, export_file_name, import_config, files_to_choose } from "../vm_store.js";
-import { new_config } from "../vm_config.js";
+import { preset } from "../guest_presets.js";
+import { probe, LOCAL_SERVICE } from "../disk_service_client.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
 
-const MACHINES = { i440fx: "i440FX (IDE)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (arm64)" };
-const ADAPTERS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", none: "None (serial console only)" };
-const BACKENDS = { none: "no network", inbrowser: "in the browser", relay: "relay", wisp: "wisp", fetch: "fetch" };
+/** The page is served from this computer (the local disk service is looked for there) */
+const PAGE_ON_THIS_COMPUTER = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 
 /**
- * Where an image is, for people
- * @param {Image | null} image
- * @return {string}
+ * The disk service the manager uses: the preference's, or on a page served
+ * from this computer the local one of make run when it answers
+ * @param {VMStore} store
+ * @return {Promise<import("../disk_service_client.js").Service | null>}
  */
-export function describe_image(image)
+export async function current_service(store)
 {
-    if(!image) return "none";
-    switch(image.kind)
-    {
-        case "url": return image.url + (image.size ? " (" + format_size(image.size) + ")" : "");
-        case "file": return "file on this computer: " + image.name + " (" + format_size(image.size) + ")" + (image.handle ? "" : ", to be chosen again");
-        case "empty": return "empty disk in memory, " + format_size(image.size) + " (lost at power off)";
-        case "browser": return "browser disk, " + format_size(image.size);
-    }
-    return "?";
+    const pref = await store.get_pref("disk_service");
+    if(pref && pref.url) return (await probe(pref)).ok ? pref : null;
+    if(pref && pref.off) return null;
+    if(!PAGE_ON_THIS_COMPUTER) return null;
+    const local = { url: LOCAL_SERVICE };
+    return (await probe(local)).ok ? local : null;
 }
 
 /**
- * The hardware of a configuration, a row each (the settings dialog's list in U3)
- * @param {VMConfig} c
- * @return {Array<[string, string]>}
+ * The preferences dialog: the disk service's URL and token
+ * @param {VMStore} store
  */
-export function hardware_rows(c)
+async function preferences(store)
 {
-    /** @type {Array<[string, string]>} */
-    const rows = [
-        ["Memory", c.memory.mb + " MB"],
-        ["Processor", c.cpu.type + ", " + c.cpu.cores + (c.cpu.cores === 1 ? " core" : " cores") + (c.cpu.cores > 1 && c.cpu.parallel ? " in parallel" : "") +
-            (c.cpu.jit ? "" : ", no JIT")],
-        ["Machine", (MACHINES[c.machine.type] || c.machine.type) + (c.machine.acpi ? ", ACPI" : "")],
-    ];
-    for(const disk of c.disks)
+    const pref = await store.get_pref("disk_service") || {};
+    const url = /** @type {HTMLInputElement} */ (h("input", { type: "text", value: pref.url || "", size: 40, placeholder: PAGE_ON_THIS_COMPUTER ? LOCAL_SERVICE + " (looked for by default)" : "https://…/",
+        "aria-label": "Disk service URL" }));
+    const token = /** @type {HTMLInputElement} */ (h("input", { type: "password", value: pref.token || "", size: 40, autocomplete: "off", "aria-label": "Token" }));
+    const off = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: !!pref.off }));
+    const result = h("p.note", { role: "status" });
+    const test = h("button", { type: "button", onclick: async () =>
     {
-        rows.push(["Hard disk (" + disk.slot + ")", describe_image(disk.image) + (disk.disk_option === "read_write" ? ", read write" : ", read only")]);
-    }
-    if(c.cdrom.image) rows.push(["CD/DVD", describe_image(c.cdrom.image)]);
-    for(const floppy of c.floppies) if(floppy.image) rows.push(["Floppy (" + floppy.slot + ")", describe_image(floppy.image)]);
-    if(c.kernel)
-    {
-        rows.push(["Direct boot", [c.kernel.bzimage && "kernel " + describe_image(c.kernel.bzimage), c.kernel.initrd && "initrd " + describe_image(c.kernel.initrd),
-            c.kernel.multiboot && "multiboot " + describe_image(c.kernel.multiboot), c.kernel.cmdline && "command line " + c.kernel.cmdline,
-            c.kernel.from_filesystem && "kernel and initrd from the shared folder"].filter(Boolean).join("; ")]);
-    }
-    if(c.initial_state) rows.push(["Starts from a state", describe_image(c.initial_state)]);
-    rows.push(["Display", (ADAPTERS[c.display.adapter] || c.display.adapter) + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : "") +
-        (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "")]);
-    for(const network of c.network)
-    {
-        rows.push(["Network", network.device === "none" ? "none" : network.device + ", " + (BACKENDS[network.backend] || network.backend) +
-            (network.relay_url ? " " + network.relay_url : "")]);
-    }
-    rows.push(["Sound", c.sound.device === "sb16" ? "Sound Blaster 16" : "none"]);
-    for(const serial of c.serial) if(serial.attach !== "none") rows.push(["UART" + serial.port, serial.attach]);
-    if(c.filesystem) rows.push(["Shared folder", c.filesystem.baseurl || "in the browser"]);
-    return rows;
-}
-
-/**
- * A name not taken yet: "New virtual machine", "New virtual machine 2", ...
- * @param {string} base
- * @param {VMConfig[]} configs
- */
-function unused_name(base, configs)
-{
-    const names = new Set(configs.map(c => c.name));
-    for(let i = 1; ; i++)
-    {
-        const name = i === 1 ? base : base + " " + i;
-        if(!names.has(name)) return name;
-    }
+        result.textContent = "Asking …";
+        /** @type {any} */
+        const found = await probe({ url: url.value.trim() || LOCAL_SERVICE, token: token.value || undefined });
+        result.textContent = found.ok ? "A disk service: " + found.list.images.length + " images" + (found.list.create ? ", creates new ones" : ", does not create images") :
+            found.reason;
+    } }, "Test");
+    const answer = await dialog({
+        title: "Preferences",
+        body: [
+            h("p", null, "A disk service keeps hard disks in image files and writes the guests' changes back (tools/disk-service.mjs; make run starts one)."),
+            h("label.field", null, h("span", null, "Disk service URL"), url),
+            h("label.field", null, h("span", null, "Token (if it needs one)"), token),
+            h("label.check", null, off, " Use no disk service"),
+            h("div", null, test, result),
+        ],
+        buttons: [{ label: "Cancel", value: false }, { label: "Save", value: true, primary: true }],
+    });
+    if(!answer) return;
+    await store.put_pref("disk_service", off.checked ? { off: true } : url.value.trim() ? { url: url.value.trim(), token: token.value || undefined } : undefined);
 }
 
 /**
@@ -97,6 +78,7 @@ export async function open_library(root)
     document.title = "Virtual machines - v86";
     const store = await VMStore.open();
     let configs = await store.list();
+    let service = await current_service(store);
     /** @type {string | undefined} */
     let selected = configs[0]?.id;
 
@@ -109,8 +91,16 @@ export async function open_library(root)
 
     const create = async () =>
     {
-        const config = await store.put(new_config({ name: unused_name("New virtual machine", configs) }));
-        await reload(config.id);
+        const config = await open_wizard({ store, service, names: configs.map(c => c.name) });
+        if(!config) return;
+        await reload((await store.put(config)).id);
+    };
+
+    const edit = async config =>
+    {
+        const edited = await open_settings(config, { store, service });
+        if(!edited) return;
+        await reload((await store.put(edited)).id);
     };
 
     const import_file = async () =>
@@ -147,8 +137,10 @@ export async function open_library(root)
         }, h("span.vm-name", null, c.name), h("span.vm-state", null, "Powered off"))));
         const sidebar = h("aside.library-list", null,
             h("div.library-actions", null,
-                h("button.primary#new_vm", { onclick: create }, "New virtual machine"),
-                h("button#import_vm", { onclick: import_file }, "Import…")),
+                h("button.primary#new_vm", { onclick: create }, "New virtual machine…"),
+                h("button#import_vm", { onclick: import_file }, "Import…"),
+                h("button#preferences", { onclick: async () => { await preferences(store); service = await current_service(store); render(); } }, "Preferences…")),
+            h("p.note#service_status", null, service ? "Disk service: " + service.url : "No disk service"),
             configs.length ? list : h("p.empty", null, "No virtual machines yet. Make a new one, or import a .v86vm.json file."));
         const config = configs.find(c => c.id === selected);
         replace(root, h("div.library", null, sidebar, h("main.library-summary", null, config ? summary(config) : intro())));
@@ -182,16 +174,21 @@ export async function open_library(root)
             await store.delete(config.id);
             await reload(undefined);
         };
+        const p = config.template ? preset(config.template) : undefined;
         return h("div.summary", null,
             h("h1", null, config.name),
             config.notes ? h("p.notes", null, config.notes) : null,
+            p && !p.verified ? h("p.error", null, "Its system's settings are not verified: " + p.basis) : null,
             h("div.summary-actions", null,
                 h("button.primary#power_on", { onclick: power_on }, "Power on"),
-                h("button#edit_vm", { disabled: true, title: "The settings dialog comes in a later version" }, "Edit settings"),
+                h("button#edit_vm", { onclick: () => edit(config) }, "Edit settings…"),
                 h("button#rename_vm", { onclick: rename }, "Rename…"),
                 h("button#export_vm", { onclick: () => download([export_config(config)], export_file_name(config), "application/json") }, "Export"),
                 h("button.danger#delete_vm", { onclick: remove }, "Delete…")),
             h("table.hardware", null, h("tbody", null, hardware_rows(config).map(([name, value]) => h("tr", null, h("th", null, name), h("td", null, value))))),
+            p && (p.checklist.length || p.issues.length) ? h("details.checklist", null, h("summary", null, "After the installation, known problems"),
+                p.checklist.length ? h("ul", null, p.checklist.map(c => h("li", null, h("label.check", null, h("input", { type: "checkbox" }), " " + c)))) : null,
+                p.issues.length ? h("ul", null, p.issues.map(c => h("li", null, c))) : null) : null,
             h("p.note", null, "Changed " + new Date(config.modified).toLocaleString()));
     }
 

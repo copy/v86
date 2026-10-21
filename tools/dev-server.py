@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Development server for `make run`: `python3 -m http.server`, except that every
-# response says Cache-Control: no-cache. The page loads build/cpu-worker.js and
+# response says Cache-Control: no-cache, and Range requests are answered (206). The page loads build/cpu-worker.js and
 # build/v86.wasm under a fixed ?<version> query, so without this a browser can
 # keep running a stale bundle or core after a rebuild. The page is also
 # cross-origin isolated (COOP/COEP), which the cores in host threads need
@@ -14,7 +14,9 @@
 # manager may create new images there (--allow-create, docs/vm-manager-plan.md).
 import contextlib
 import http.server
+import io
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -26,7 +28,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        self.send_header("Accept-Ranges", "bytes")
         super().end_headers()
+
+    def send_head(self):
+        # Range requests (bytes=<first>-<last>), as web servers answer them:
+        # v86 reads images given by URL (async) in parts
+        match = re.fullmatch(r"bytes=(\d+)-(\d*)", self.headers.get("Range", ""))
+        path = self.translate_path(self.path)
+        if not match or not os.path.isfile(path):
+            return super().send_head()
+        size = os.path.getsize(path)
+        first = int(match.group(1))
+        last = min(int(match.group(2)) if match.group(2) else size - 1, size - 1)
+        if first >= size or last < first:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.end_headers()
+            return None
+        with open(path, "rb") as f:
+            f.seek(first)
+            data = f.read(last - first + 1)
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(path))
+        self.send_header("Content-Range", f"bytes {first}-{last}/{size}")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        return io.BytesIO(data)
 
 
 class Server(http.server.ThreadingHTTPServer):

@@ -1,6 +1,6 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：U0–U2 已实现（2026-10-21，`ui` 分支），U3–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+状态：U0–U3 已实现（2026-10-21，`ui` 分支），U4–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
 `arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
@@ -814,3 +814,61 @@ JSON。
 | `tests/app/app_test.html`（无头 Chrome，新） | 在框架里打开新页面：空库；新建两台（名字不重复）；改名（对话框）；导出（文件名与内容）；导入 FreeDOS 的 `.v86vm.json`（软盘为 `images/freedos722.img`）；开机打开 `?vm=<id>` 的控制台，标题为虚拟机名，FreeDOS 启动到 “Welcome to FreeDOS”；`get_cdrom_state` 为空光驱；关机（确认）；删除（确认）；重新加载后库不变。`index.html`、`app_debug.html`、CPU 在页面中（`cpu_worker: false`）三种都通过 |
 | `tests/api/cdrom-insert-eject.js`（补充） | `get_cdrom_state`：空光驱、放入光盘、`eject_cdrom` 之后；源码与发布构建都通过 |
 | 回归 | `make app-shared-tests`（两页改名后重录）、`tests/app/vm_config.mjs`、`store_test.html` 通过；`tests/persistence/browser_runner.mjs part=page`（`legacy.html`，页面与 CPU Worker）、`cpu_worker_ui_browser_test` 通过；Closure（`libv86.js`、`libv86.mjs`、`libv86-debug.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |
+
+### U3 向导、客户机预设、设置对话框、磁盘服务的创建与列出（2026-10-21）
+
+**实现。**
+
+- 磁盘服务（b23b5b2d）：[`tools/disk-service.mjs`](../tools/disk-service.mjs) 新增 `list`（发往服务根网址：名字、大小、修改
+  时间、是否有写者，并告知能否创建与上限）与 `create`（发往新镜像的网址，`X-V86-Disk-Size`）。`create` 只在
+  `--allow-create` 时接受（`make run` 的服务带上它）；名字须为目录内的 `.img` 文件名（字母或数字开头，不超过 128 个字符）；
+  大小为 512 的正整数倍，不超过 `--max-size`（默认 64 GiB）与卷的剩余空间；以 `wx` 创建，不覆盖已有文件；`ftruncate`
+  （稀疏）、`fsync` 文件与目录后登记身份（新 UUID、generation 1）；令牌与来源核对同其他操作；没有删除操作。
+  [`src/app/disk_service_client.js`](../src/app/disk_service_client.js)：`list_images`、`create_image`、`probe`、`new_image_name`。
+  虚拟机库的数据库升到第 2 版，新增 `prefs` 表（磁盘服务的地址与令牌）。
+- 预设与规则（b84b9200）：[`src/app/guest_presets.js`](../src/app/guest_presets.js) 的 15 个预设按计划的表格（Windows 95、98、ME
+  分开，另加“其他”），各带硬件、依据、安装方式、安装后的步骤与已知问题。[`src/app/vm_model.js`](../src/app/vm_model.js)：
+  `choices()`（每个控件可取的值，来自 `allowed_options`）与 `change()`（一处改动及其连带的改动，逐条说明：CPU 决定机型，
+  Q35 与多核打开 ACPI，超过 2048 MB 改用 x86_64，换到 virt 时去掉它没有的软驱、PC 固件、调制解调器、Sound Blaster、
+  CPUID 级别，换网络后端时给出该后端的默认网址）。配置格式（仍为第 1 版，新字段有默认值）增加 virt 机器的设备
+  （`virt`：virtio 传输方式、输入设备、console 端口数、vsock、virtio-gpu 的 PCI 槽）、`sound.device: "virtio"`
+  与 virt 上最多四张 virtio 网卡（只有一张接后端，`net_device` 的 `count`、`id`），Android 预设由此可以表达。
+- 界面：
+  - [`src/app/ui/wizard.js`](../src/app/ui/wizard.js)：五步——来源（光盘、软盘、已安装的硬盘镜像、内核与 initrd 加系统光盘、稍后安装）、
+    系统（预设列表，未验证的带标记，显示依据、安装方式、硬件、安装后步骤、已知问题；来源与预设的常用安装方式不符时提示）、
+    名称与备注、硬盘（新建空盘：大小与存放位置——磁盘服务、内存，浏览器磁盘在 U6 之前禁用；或不要硬盘）、摘要（“完成”或
+    “自定义硬件…”打开设置对话框）。磁盘服务上的新镜像在“完成”时才创建。
+  - [`src/app/ui/settings.js`](../src/app/ui/settings.js) 与 [`ui/panels/`](../src/app/ui/panels/)：左侧硬件列表（常规、内存、处理器、
+    机器与固件、硬盘、CD/DVD、软驱、网络适配器、声卡、显示、串口、共享文件夹、直接启动、virt 设备、高级），“添加…”与“移除”；
+    右侧面板只提供允许的取值，固定的项禁用并写明原因（例如 virt 的 ACPI、多核时的 ACPI、非 Q35 的 HPET）；底部显示上一处
+    改动的连带改动。保存前运行 `check_config`，问题标在对应项上并显示在其面板中。
+  - [`src/app/ui/image_picker.js`](../src/app/ui/image_picker.js)：网址、本机文件（Chromium 经 `showOpenFilePicker` 保存句柄，
+    其他浏览器开机时重新选取）、内存中的空盘或空软盘、磁盘服务的镜像（列出，或“新建镜像…”）、浏览器磁盘（U6）。
+  - 库：“新建虚拟机…”为向导，“编辑设置…”为设置对话框，“首选项…”配置磁盘服务（地址、令牌、“测试”、“不使用”）；
+    侧栏显示当前的磁盘服务；页面来自本机（localhost、127.0.0.1、[::1]）且未设置时探测 `http://127.0.0.1:8471/`。摘要页显示
+    预设的安装后清单与已知问题，未验证的预设标出。
+- `make run` 的 `tools/dev-server.py` 回答 Range 请求（206、416）：向导里网址来源的镜像按块读取（`async`），原来的
+  Python 服务器不支持，与真实的网站服务器不同。测试的静态服务（`tests/app/browser_runner.mjs`）同样支持，并可用
+  `service=1` 起一个可创建镜像的磁盘服务。
+
+**决定与偏差。**
+
+1. **规则用“改动并说明”，不只禁用。** 计划说对话框“禁用不适用的项并说明原因”。取值类的控件只列允许的值；
+   而一处改动使别处失效时（例如换成 arm64），连带的项随之改成允许的值并在底部说明，而不是留下一个不能保存的配置。
+   被去掉的项（软驱、PC 固件等）也逐条列出。
+2. **Android 预设的“代码预算 160 MiB”没有对应的选项**：页级编译没有公开的代码预算开关，预设不写它；其余设备
+   与 `tests/a64/android_boot.mjs` 的选项一致（测试逐项核对）。
+3. **旧版磁盘服务对 `list`、`create` 回答 404**（根网址与不存在的镜像本来就是 404），不是计划写的 400；客户端以
+   缺少协议响应头判断“不是能列出和创建镜像的磁盘服务”。
+4. **浏览器磁盘的选项在 U6 之前禁用**，向导与选择器里都显示为“以后的版本”。
+5. **磁盘服务的镜像网址不能以 `/` 结尾**（新的校验规则）：选了“磁盘服务的镜像”却没选具体镜像时，配置不能保存。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/app/disk_service_create.mjs`（新） | 未开 `--allow-create` 时 `list` 正常、`create` 403；10 个不合格的名字 400、128 个字符的名字可以；7 种不合格的大小与超过 `--max-size` 400、超过剩余空间 507 且未留下文件；新镜像全零、身份为新 UUID 与 generation 1、在本卷上不占块（稀疏），再次创建与覆盖已有文件 409；`list` 的内容与写者标记、只在根网址；令牌 401、外来来源 403、预检放行 `X-V86-Disk-Size`；客户端的列出、创建、错误码、对磁盘服务、普通服务器与无人监听的探测、新镜像命名；Linux 4.16 客户机把新建的镜像（`read_write`）格式化为 ext2、写文件、`sync`，服务目录里的文件含该文本与 ext2 超级块。8 项 |
+| `tests/app/presets.mjs`（新） | 15 个预设各自（带上默认位置的新盘）通过 `validate_config` 与库的检查，未验证的只有 Vista/7/10 与“其他”；各预设的硬件与计划的表格一致；Android 预设的选项与 Android 测试一致；`change()` 的连带改动与说明；CPU、机型、显卡、网卡、声卡、核数的全部组合（312 种）与 5000 次随机改动之后的配置都被库接受（随机测试找到并修正了一处：改用 fetch 时沿用了 relay 的网址） |
+| `tests/app/vm_config.mjs`（补充） | 校验规则增加到 95 条：virtio 声卡与 virt 设备在 PC 上、传输方式、输入设备、console 端口、vsock、没有 pci 的 GPU 槽、五张网卡、两张接后端的网卡、目录网址 |
+| `tests/app/wizard_test.html`（无头 Chrome，新） | `freedos`：DOS 预设、软盘网址、不要硬盘，开机到 “Welcome to FreeDOS”；`linux`：32 位 Linux 预设、光盘网址、内存中 64 MB 新盘，开机到 shell 的 “~%”；`arm64`：arm64 Linux 预设、直接启动（Alpine 的内核、initrd 与 ISO，`build/a64-linux/`），串口出现 “localhost login:”；`dialog`：换成 arm64 时机型变为 virt 并在底部说明、显卡只剩 none 与 virtio-gpu、ACPI 禁用并写明原因，换回 x86 加第二核后 ACPI 打开且固定，网址为空时保存被拒、问题标在硬盘项并显示在其面板、改好后消失，添加并移除软驱、添加第二块硬盘，保存后库里的摘要更新，取消不改配置；`service`：首选项里填入并测试磁盘服务，向导的新盘建在服务目录（16 MB，`kept-disk.img`），配置为读写 |
+| 回归 | `tests/app/app_test.html`（新建改走向导）在 `index.html` 通过；`store_test.html`（增加首选项与数据库第 1 版到第 2 版的升级）通过；`tests/persistence/disk_service.mjs` 与 `service_machine.mjs` 通过；`make app-check` 无错；eslint 无输出 |
