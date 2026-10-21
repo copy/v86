@@ -4,8 +4,11 @@
 // result in an element #result starting with PASS or FAIL (the server adds
 // the script that sends it here), and Chrome with a profile of its own.
 // With service=1, a disk service (tools/disk-service.mjs, --allow-create)
-// on a directory of its own, for this page's origin: its URL is the page's
-// query argument service=<url>, and GET /__service_files lists its files.
+// on a directory of its own (with dos.img, a copy of images/msdos622.img),
+// for this page's origin: its URL is the page's query argument
+// service=<url>; GET /__service_files lists its files, GET
+// /__service_file?name=&contains= says whether one has a text and a writer,
+// POST /__service_down and /__service_up take the service away and back.
 //   node tests/app/browser_runner.mjs <page> [query arguments...]
 //   node tests/app/browser_runner.mjs tests/app/store_test.html
 // Needs Chrome (CHROME); TIMEOUT_MS (default 300000).
@@ -28,7 +31,7 @@ if(!page)
 const args = process.argv.slice(3);
 const with_service = args.includes("service=1");
 let query = args.filter(a => a !== "service=1").join("&");
-let service, service_dir;
+let service, service_dir, service_listeners = null;
 
 const REPORTER = `<script>
     const reporter = new MutationObserver(() => {
@@ -51,6 +54,33 @@ let browser, timeout;
 const server = http.createServer((req, res) =>
 {
     const address = new URL(req.url, "http://localhost");
+    if(address.pathname === "/__service_file")
+    {
+        const name = path.basename(address.searchParams.get("name") || "");
+        const text = address.searchParams.get("contains") || "";
+        const image = service && service.images.get(name);
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ contains: !!text && fs.readFileSync(path.join(service_dir, name)).includes(text),
+            writer: !!(image && image.writer && image.writer.expires > Date.now()), session_open: !!(image && image.writer) }));
+        return;
+    }
+    if(req.method === "POST" && (address.pathname === "/__service_down" || address.pathname === "/__service_up"))
+    {
+        if(address.pathname === "/__service_down")
+        {
+            service_listeners = service.server.listeners("request");
+            service.server.removeAllListeners("request");
+            service.server.on("request", request => request.socket.destroy());
+        }
+        else if(service_listeners)
+        {
+            service.server.removeAllListeners("request");
+            for(const listener of service_listeners) service.server.on("request", listener);
+            service_listeners = null;
+        }
+        res.end("OK");
+        return;
+    }
     if(address.pathname === "/__service_files")
     {
         const files = service_dir ? fs.readdirSync(service_dir).filter(name => !name.startsWith(".")).map(name => ({ name, size: fs.statSync(path.join(service_dir, name)).size })) : [];
@@ -127,6 +157,7 @@ server.listen(0, "127.0.0.1", async () =>
     if(with_service)
     {
         service_dir = fs.mkdtempSync(path.join(profile, "service-"));
+        fs.copyFileSync(path.join(root, "images/msdos622.img"), path.join(service_dir, "dos.img"));
         service = create_disk_service({ dir: service_dir, origins: [origin], allow_create: true, lease_ms: 5000 });
         await new Promise(resolve => service.server.listen(0, "127.0.0.1", resolve));
         query = [query, "service=" + encodeURIComponent("http://127.0.0.1:" + service.server.address().port + "/")].filter(Boolean).join("&");

@@ -184,3 +184,59 @@ export function format_size(bytes)
     }
     return (unit === 0 || value >= 100 || Number.isInteger(value) ? Math.round(value) : value.toFixed(1)) + " " + units[unit];
 }
+
+/**
+ * @typedef {{label: string, action?: () => any, disabled?: boolean, checked?: boolean, title?: string, id?: string}} MenuItem
+ */
+
+/**
+ * A menu button; its items are made each time it opens (their labels and
+ * states follow the machine). Arrow keys move, Escape and a click elsewhere close it.
+ * @param {string} label
+ * @param {() => Array<MenuItem | "-">} items "-" separates
+ * @param {string} [id] the button's id
+ * @return {HTMLElement}
+ */
+export function menu_button(label, items, id)
+{
+    const list = h("div.menu-list", { role: "menu", hidden: true });
+    const button = h("button.menu-button", { type: "button", "aria-haspopup": "menu", "aria-expanded": "false", id });
+    button.textContent = label;
+    const wrapper = h("div.menu", null, button, list);
+    const outside = e => { if(!wrapper.contains(/** @type {Node} */ (e.target))) close(); };
+    const close = () =>
+    {
+        list.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+        document.removeEventListener("pointerdown", outside, true);
+    };
+    const open = () =>
+    {
+        replace(list, items().map(item => item === "-" ? h("div.menu-separator", { role: "separator" }) :
+            h("button.menu-item", {
+                type: "button",
+                role: item.checked === undefined ? "menuitem" : "menuitemcheckbox",
+                "aria-checked": item.checked === undefined ? undefined : String(item.checked),
+                disabled: !!item.disabled,
+                title: item.title || "",
+                id: item.id,
+                onclick: () => { close(); if(item.action) item.action(); },
+            }, (item.checked === undefined ? "" : item.checked ? "✓ " : "   ") + item.label)));
+        list.hidden = false;
+        button.setAttribute("aria-expanded", "true");
+        document.addEventListener("pointerdown", outside, true);
+        /** @type {HTMLElement | null} */ (list.querySelector("button:not(:disabled)"))?.focus();
+    };
+    button.addEventListener("click", () => { if(list.hidden) open(); else close(); });
+    wrapper.addEventListener("keydown", e =>
+    {
+        if(e.key === "Escape" && !list.hidden) { e.preventDefault(); close(); button.focus(); return; }
+        if(e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        if(list.hidden) { e.preventDefault(); open(); return; }
+        const buttons = /** @type {HTMLElement[]} */ (Array.from(list.querySelectorAll("button:not(:disabled)")));
+        const at = buttons.indexOf(/** @type {HTMLElement} */ (document.activeElement));
+        e.preventDefault();
+        buttons[(at + (e.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
+    });
+    return wrapper;
+}

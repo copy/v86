@@ -1,7 +1,9 @@
 import { wasm_fallback_path } from "./wasm_paths.js";
 import { instantiate_v86, memory_import } from "../parallel/relocate.js";
 import { default_worker_url, parallel_unsupported_reason } from "../parallel/machine.js";
-import { CPUWorkerController, encode_worker_file } from "./cpu_worker.js";
+import { CPUWorkerController, WorkerPerformanceRecorder, encode_worker_file } from "./cpu_worker.js";
+import { PerformanceRecorder } from "./performance_recorder.js";
+import * as iso9660 from "../iso9660.js";
 import { get_jit_switches } from "../jit_switches.js";
 import { v86 } from "../main.js";
 import { LOG_CPU, LOG_VGA, WASM_TABLE_OFFSET, WASM_TABLE_SIZE } from "../const.js";
@@ -2020,6 +2022,62 @@ V86.prototype.get_disk_fdb = function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("get_disk_fdb");
     return this.v86.cpu.devices.fdc.drives[1].get_buffer();
+};
+
+/**
+ * A CD of files into the CD-ROM drive: an ISO 9660 image made of them, the
+ * files in its root directory
+ * @param {Array<{name: string, contents: Uint8Array}>} files
+ */
+V86.prototype.set_cdrom_files = async function(files)
+{
+    await this.set_cdrom({ buffer: iso9660.generate(files).buffer });
+};
+
+/**
+ * A performance recorder of this machine (the instructions run, the JIT's
+ * work, the frames drawn): its start() begins a recording, its stop() ends
+ * it and resolves with the report (plain data), also given to on_stop (a
+ * recording also ends by itself after 10 minutes)
+ * @param {{metadata: (Object|undefined), on_stop: (function(Object)|undefined)}=} options metadata goes into the report
+ * @return {{start: function(): (Promise|undefined), stop: function(): *, active: boolean, report: *}}
+ */
+V86.prototype.create_performance_recorder = function(options)
+{
+    const recorder_options = { metadata: options && options.metadata, on_stop: options && options.on_stop };
+    if(this.worker_controller) return new WorkerPerformanceRecorder(this, recorder_options);
+    return new PerformanceRecorder(this, recorder_options);
+};
+
+/**
+ * Watch the first network card's traffic: each packet the guest sends
+ * ("O") and receives ("I"), as it passes
+ * @param {function(string, Uint8Array)} listener
+ * @return {function()} stops watching
+ */
+V86.prototype.capture_network_traffic = function(listener)
+{
+    const received = data => listener("I", data);
+    const sent = data => listener("O", data);
+    this.emulator_bus.register("net0-receive", received, this);
+    this.bus.register("net0-send", sent, this);
+    return () =>
+    {
+        this.emulator_bus.unregister("net0-receive", received);
+        this.bus.unregister("net0-send", sent);
+    };
+};
+
+/**
+ * The speaker's volume: 0 mutes it, 1 is full
+ * @param {number} volume
+ * @return {boolean} whether the machine has a speaker (none with disable_speaker)
+ */
+V86.prototype.set_speaker_volume = function(volume)
+{
+    if(!this.speaker_adapter) return false;
+    this.speaker_adapter.mixer.set_volume(volume, undefined);
+    return true;
 };
 
 /**

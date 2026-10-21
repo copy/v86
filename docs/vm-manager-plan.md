@@ -1,6 +1,6 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：U0–U3 已实现（2026-10-21，`ui` 分支），U4–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+状态：U0–U4 已实现（2026-10-21，`ui` 分支），U5–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
 `arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
@@ -872,3 +872,44 @@ JSON。
 | `tests/app/vm_config.mjs`（补充） | 校验规则增加到 95 条：virtio 声卡与 virt 设备在 PC 上、传输方式、输入设备、console 端口、vsock、没有 pci 的 GPU 槽、五张网卡、两张接后端的网卡、目录网址 |
 | `tests/app/wizard_test.html`（无头 Chrome，新） | `freedos`：DOS 预设、软盘网址、不要硬盘，开机到 “Welcome to FreeDOS”；`linux`：32 位 Linux 预设、光盘网址、内存中 64 MB 新盘，开机到 shell 的 “~%”；`arm64`：arm64 Linux 预设、直接启动（Alpine 的内核、initrd 与 ISO，`build/a64-linux/`），串口出现 “localhost login:”；`dialog`：换成 arm64 时机型变为 virt 并在底部说明、显卡只剩 none 与 virtio-gpu、ACPI 禁用并写明原因，换回 x86 加第二核后 ACPI 打开且固定，网址为空时保存被拒、问题标在硬盘项并显示在其面板、改好后消失，添加并移除软驱、添加第二块硬盘，保存后库里的摘要更新，取消不改配置；`service`：首选项里填入并测试磁盘服务，向导的新盘建在服务目录（16 MB，`kept-disk.img`），配置为读写 |
 | 回归 | `tests/app/app_test.html`（新建改走向导）在 `index.html` 通过；`store_test.html`（增加首选项与数据库第 1 版到第 2 版的升级）通过；`tests/persistence/disk_service.mjs` 与 `service_machine.mjs` 通过；`make app-check` 无错；eslint 无输出 |
+
+### U4 控制台（2026-10-21）
+
+**实现。**
+
+- [`src/app/ui/console.js`](../src/app/ui/console.js) 的运行部分：
+  - 工具栏的菜单（[`dom.js`](../src/app/ui/dom.js) 的 `menu_button`：每次打开时按机器的状态生成，方向键移动，Esc 与点外面关闭）：
+    电源（暂停/运行、重置（从状态启动时禁用）、关机…（确认）、有写回盘时“保存并关机”、把状态存为文件、从文件载入状态）；
+    按键（Ctrl+Alt+Del、Alt+Tab、Alt+F4、Ctrl+Esc、Win、Win+R、Ctrl+Alt+F1/F2/Backspace、PrintScreen 与“其他按键…”，
+    由 [`src/app/keys.js`](../src/app/keys.js) 转成扫描码，按下后 100 ms 松开，与旧页面的 Alt+Tab 相同；Del 用小键盘的码，与旧页面的
+    Ctrl+Alt+Del 相同）；设备（光驱放入镜像或一组文件（文件组成 ISO 9660）、弹出，软驱 A/B 放入、弹出，各盘镜像的下载）；
+    视图（全屏、适应窗口、50%–300% 缩放、剧院模式、截图存为 PNG）；输入（鼠标开关、锁定鼠标）；静音按钮（没有扬声器时不显示）；
+    工具（性能记录的开始与停止、报告导出，内存转储，抓包（Wireshark 的十六进制导入格式，与旧页面相同））。
+  - 状态栏：运行状态、运行时间、当前与平均速度、磁盘与网络的读写量、文本或图形模式与分辨率、鼠标。
+  - 抽屉：串口终端（xterm.js）、共享文件夹（送入文件、按路径取回；配置了 9p 或客户机挂载后出现）、详细信息（机器、内存、时间、
+    速度、指令数、存储、网络、共享文件夹、显示、鼠标、多核的运行方式）。
+  - 磁盘错误对话框（`disk_error: "stop"`：重试或继续、关机；`report`：说明客户机已被告知）。
+  - 离开页面：有写回盘、或按着 Ctrl（Ctrl+W 到不了客户机）时浏览器先询问；关机后不再询问。点击屏幕时锁定鼠标（客户机用相对鼠标时）
+    并把输入焦点交给手机键盘的文本框，与旧页面相同。
+- 公开接口（G1）新增四个方法，替代旧页面对内部对象的访问：`set_cdrom_files(files)`（文件做成光盘）、
+  `create_performance_recorder(options)`（页面与 CPU Worker 的记录器）、`capture_network_traffic(listener)`（收发两个方向，返回停止函数）、
+  `set_speaker_volume(volume)`；`v86.d.ts` 一并声明。
+
+**决定与偏差。**
+
+1. **公开接口代替内部访问**：旧页面的抓包用 `emulator_bus`、静音用 `speaker_adapter.mixer`、性能记录直接构造记录器、文件组成光盘用
+   内部的 `iso9660`。新页面只用公开方法，库因此多了上面四个方法；磁盘镜像的下载用 `export_disk_image`（软盘用 `get_disk_fda/fdb`），
+   内存转储用 `read_memory_chunks`。
+2. **截图存为文件**：旧页面在新窗口打开截图，新页面下载 PNG（弹出窗口常被浏览器拦截）。
+3. **音频解锁不需要页面代码**：库的扬声器在页面的第一次点击或按键时自己恢复 AudioContext。
+4. **“挂起”在 U5**：电源菜单的挂起与恢复、单标签页锁随 U5 加入。
+5. **测试里的输入**：MS-DOS 的键盘缓冲只有 16 个键，`keyboard_send_text` 不带延迟时会丢键；测试按 20 ms 一键输入并等输入结束。
+   `wait_until_vga_screen_contains` 的字符串参数只匹配行首（库的既有语义）。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/app/console_test.html part=main`（无头 Chrome，新） | MS-DOS 6.22（库里的虚拟机，`images/msdos622.img`）到提示符；状态栏（运行、时间、速度、Text 80×25）；暂停与运行；Alt+Tab 的按下与 100 ms 后的松开、“其他按键” Ctrl+Alt+F1、Ctrl+Alt+Del 使 DOS 重启；文件组成的光盘（DOS 的 `dir D:` 列出 README.TXT）与弹出、软盘（`dir A:` 列出 COMMAND.COM）与弹出、hda 镜像下载（与源镜像同样大小）；200% 缩放、适应窗口、剧院模式与退出、截图（PNG）、全屏；鼠标关与开、锁定；静音与取消；性能记录 2.5 秒后停止并导出报告（有样本与元数据）、内存转储（128 MB）、抓包文件；串口终端（xterm）、共享文件夹送入与取回 hello.txt、详细信息（IDE、Text 80×25、1 core）；状态存为文件后在 DOS 里写一行，再载入状态，那一行消失、机器继续运行；关机（确认）。CPU 在 Worker 中与在页面中（`cpu_worker: false`）各一遍 |
+| `tests/app/console_test.html part=disk`（无头 Chrome，运行器的磁盘服务） | hda 为磁盘服务上的 MS-DOS 镜像（`read_write`）：离开页面时浏览器先询问；写入落在服务的文件里；服务断开后再写：磁盘错误对话框（“the write … failed … retry once the disk can be reached again”），机器停止；服务恢复后点“Retry”，写入落盘；“保存并关机”下载状态，磁盘的会话关闭 |
+| 回归 | `make app-check` 无错；Closure（`libv86.js`、`libv86.mjs`、`libv86-debug.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |

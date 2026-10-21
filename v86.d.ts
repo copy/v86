@@ -1369,6 +1369,35 @@ export class V86 {
     get_cdrom_state(): Promise<{ present: boolean; inserted: boolean }>;
 
     /**
+     * Insert a CD made of files: an ISO 9660 image with the files in its root directory.
+     */
+    set_cdrom_files(files: Array<{ name: string; contents: Uint8Array }>): Promise<void>;
+
+    /**
+     * A performance recorder of this machine: start() begins a recording,
+     * stop() ends it and gives the report (plain data, also given to
+     * on_stop; a recording ends by itself after 10 minutes).
+     */
+    create_performance_recorder(options?: { metadata?: object; on_stop?: (report: any) => void }): {
+        start(): Promise<void> | void;
+        stop(): any;
+        readonly active: boolean;
+        readonly report: any;
+    };
+
+    /**
+     * Watch the first network card's traffic: each packet the guest sends ("O") and receives ("I").
+     * @returns a function that stops watching
+     */
+    capture_network_traffic(listener: (direction: "I" | "O", data: Uint8Array) => void): () => void;
+
+    /**
+     * The speaker's volume: 0 mutes it, 1 is full.
+     * @returns whether the machine has a speaker (none with disable_speaker)
+     */
+    set_speaker_volume(volume: number): boolean;
+
+    /**
      * The image in the first floppy drive, or null if the drive is empty
      * (a promise when the CPU runs in a Worker).
      */

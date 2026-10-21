@@ -746,7 +746,9 @@ app-check: node_modules/.bin/tsc
 # in its Worker and in the page); U3: the presets and the dialog's rules, the
 # disk service's create and list, the wizard booting FreeDOS, Linux and
 # Alpine arm64 (build/a64-linux: tests/a64/linux_boot.mjs prepares it), the
-# settings dialog, the wizard's disk on the disk service
+# settings dialog, the wizard's disk on the disk service; U4: the console's
+# every function with MS-DOS (in its Worker and in the page), a disk written
+# back to the disk service with its error dialog
 .PHONY: app-shared-tests app-tests
 app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm build/v86-arm64.wasm build/libv86-debug.mjs
 	node tests/app/vm_config.mjs
@@ -759,6 +761,9 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
 	for part in freedos linux arm64 dialog; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
+	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
+	node tests/app/browser_runner.mjs tests/app/console_test.html part=main worker=0
+	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1
 
 app-shared-tests: build/v86_all.js
 	node tests/app/machine_rules.mjs

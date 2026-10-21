@@ -1,0 +1,326 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: the console</title>
+<!-- The VM manager's console (docs/vm-manager-plan.md U4, "功能对照"), MS-DOS 6.22 in a frame, every runtime function of the old page:
+     part=main  power (pause, run), keys (Alt+Tab's press and release, other keys, Ctrl+Alt+Del reboots), devices (a CD of files that
+                DOS reads, ejected; a floppy that DOS reads, ejected; the hda image downloaded), view (scale, zoom to fit, theatre mode,
+                screenshot, full screen), input (mouse off, lock), sound (mute), tools (a performance recording and its report, a
+                memory dump, a network capture), drawers (the serial terminal, the shared folder's files sent and got, the details),
+                the status bar, a state saved to a file and loaded, power off
+     part=disk  (with the runner's service=1) a hard disk written back to the disk service: the warning before leaving, a write in
+                the service's file, the service gone: the disk error dialog, Retry once it is back, Save and power off (the session closed)
+     node tests/app/browser_runner.mjs tests/app/console_test.html part=main [worker=0] -->
+<style>iframe { width: 1200px; height: 800px; border: 1px solid #888; }</style>
+<pre id="log"></pre>
+<pre id="result"></pre>
+<script type="module">
+import { VMStore } from "../../src/app/vm_store.js";
+import { new_config } from "../../src/app/vm_config.js";
+
+const args = new URLSearchParams(location.search);
+const part = args.get("part") || "main";
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(condition, what, timeout = 30000)
+{
+    const end = Date.now() + timeout;
+    for(;;)
+    {
+        const value = await condition();
+        if(value) return value;
+        if(Date.now() > end) throw new Error("timed out: " + what);
+        await sleep(100);
+    }
+}
+function check(condition, what) { if(!condition) throw new Error(what); }
+
+let frame, w, d, emulator;
+const $ = selector => d.querySelector(selector);
+/** what the frame downloaded: [name, Blob] */
+const downloads = [];
+/** a click on a menu's item */
+async function menu(menu_id, item_id)
+{
+    $("#" + menu_id).click();
+    const item = await until(() => $("#" + item_id), "the menu item " + item_id);
+    check(!item.disabled, item_id + " enabled");
+    item.click();
+}
+/** the frame's next file picker answers with these files */
+function answer_picker(files)
+{
+    w.HTMLInputElement.prototype.click = function()
+    {
+        const transfer = new w.DataTransfer();
+        for(const file of files) transfer.items.add(file);
+        this.files = transfer.files;
+        this.dispatchEvent(new w.Event("change"));
+    };
+}
+/** a command typed at DOS's prompt, then the prompt again */
+async function dos(command, expect, timeout = 30000)
+{
+    // (20 ms a key: DOS's 16-key buffer drops what comes faster)
+    await emulator.keyboard_send_text(command + "\n", 20);
+    if(expect && !await emulator.wait_until_vga_screen_contains(expect, { timeout_msec: timeout }))
+    {
+        // (the screen's last lines, for the report: the page's screen adapter)
+        const screen = emulator.screen_adapter?.get_text_screen?.() || [];
+        throw new Error("DOS shows " + expect + " after " + command + "; the screen ends: " + JSON.stringify(screen.map(l => l.trimEnd()).filter(Boolean).slice(-5)));
+    }
+}
+/** wrap an emulator method to record its calls */
+function spy(name)
+{
+    const calls = [];
+    const original = emulator[name].bind(emulator);
+    emulator[name] = (...a) => { calls.push(a); return original(...a); };
+    return calls;
+}
+
+async function start(config)
+{
+    const store = await VMStore.open();
+    const stored = await store.put(config);
+    store.close();
+    frame = document.createElement("iframe");
+    frame.src = "/index.html?vm=" + stored.id;
+    document.body.append(frame);
+    await new Promise(resolve => frame.onload = resolve);
+    w = frame.contentWindow;
+    d = frame.contentDocument;
+    // (downloads: the anchor's click with its object URL or data URL)
+    const create_url = w.URL.createObjectURL.bind(w.URL);
+    const blobs = new Map();
+    w.URL.createObjectURL = blob => { const url = create_url(blob); blobs.set(url, blob); return url; };
+    w.HTMLAnchorElement.prototype.click = function()
+    {
+        if(!this.download) return;
+        downloads.push([this.download, blobs.get(this.href) || this.href]);
+    };
+    emulator = await until(() => w.v86_console?.emulator, "the console's emulator", 60000);
+    check(await emulator.wait_until_vga_screen_contains("C:\\>", { timeout_msec: 120000 }), "MS-DOS's prompt");
+}
+async function next_download(what)
+{
+    const count = downloads.length;
+    return { wait: () => until(() => downloads.length > count && downloads[downloads.length - 1], what) };
+}
+
+const parts = {
+    async main()
+    {
+        const config = new_config({ name: "DOS console" });
+        config.disks = [{ slot: "hda", image: { kind: "url", url: "images/msdos622.img", async: true }, disk_option: "read_only", disk_error: "stop" }];
+        config.filesystem = {};
+        config.network[0].backend = "inbrowser";
+        config.network[0].relay_url = "";
+        if(args.get("worker") === "0") config.advanced.cpu_worker = false;
+        await start(config);
+        log("MS-DOS 6.22 at its prompt in the console");
+
+        // the status bar
+        const status = await until(() => /MIPS/.test($(".console-status").textContent) && $(".console-status").textContent, "the status bar's speed", 10000);
+        check(/Running/.test(status) && /\d+s/.test(status) && /Text 80×25/.test(status), "the status bar: " + status);
+        log("status bar: " + status.replace(/\s+/g, " "));
+
+        // power: pause, run
+        await menu("menu_power", "menu_run");
+        await until(() => !emulator.is_running() && /Paused/.test($(".console-status").textContent), "paused");
+        await menu("menu_power", "menu_run");
+        await until(() => emulator.is_running() && /Running/.test($(".console-status").textContent), "running again");
+        log("Power: Pause and Run");
+
+        // keys
+        const scancodes = spy("keyboard_send_scancodes");
+        await menu("menu_keys", "keys_Alt_Tab");
+        await until(() => scancodes.length === 2, "Alt+Tab's press and release");
+        check(JSON.stringify(scancodes) === JSON.stringify([[[56, 15]], [[143, 184]]]), "Alt+Tab: " + JSON.stringify(scancodes));
+        await menu("menu_keys", "keys_other");
+        const input = await until(() => $("dialog[open] input"), "the keys dialog");
+        input.value = "Ctrl+Alt+F1";
+        Array.from(d.querySelectorAll("dialog[open] button")).find(b => b.textContent === "OK").click();
+        await until(() => scancodes.length === 4, "Ctrl+Alt+F1");
+        check(JSON.stringify(scancodes[2]) === JSON.stringify([[29, 56, 59]]), "Ctrl+Alt+F1: " + JSON.stringify(scancodes[2]));
+        await dos("cls");
+        await sleep(500);
+        await menu("menu_keys", "keys_Ctrl_Alt_Del");
+        check(await emulator.wait_until_vga_screen_contains("Starting MS-DOS", { timeout_msec: 60000 }), "Ctrl+Alt+Del rebooted DOS");
+        check(await emulator.wait_until_vga_screen_contains("C:\\>", { timeout_msec: 60000 }), "the prompt after the reboot");
+        log("Keys: Alt+Tab pressed and released, Ctrl+Alt+F1, Ctrl+Alt+Del reboots DOS");
+
+        // devices: a CD of files, a floppy, the hda image
+        answer_picker([new w.File(["Hello from the console's CD\r\n"], "readme.txt")]);
+        await menu("menu_devices", "devices_insert_cdrom");
+        await until(async () => (await emulator.get_cdrom_state()).inserted, "the CD inserted");
+        await dos("cls");
+        await dos("dir D:", "README");
+        await menu("menu_devices", "devices_eject_cdrom");
+        await until(async () => !(await emulator.get_cdrom_state()).inserted, "the CD ejected");
+        const floppy = await (await fetch("/images/freedos722.img")).blob();
+        answer_picker([new w.File([floppy], "freedos722.img")]);
+        await menu("menu_devices", "devices_insert_fda");
+        await until(async () => !!(await emulator.get_disk_fda()), "the floppy inserted");
+        await dos("cls");
+        await dos("dir A:", "COMMAND");
+        await menu("menu_devices", "devices_eject_fda");
+        await until(async () => !(await emulator.get_disk_fda()), "the floppy ejected");
+        const hda = await next_download("the hda image");
+        await menu("menu_devices", "devices_get_hda");
+        const [hda_name, hda_blob] = await hda.wait();
+        const original = await (await fetch("/images/msdos622.img")).blob();
+        check(hda_name === "DOS_console-hda.img" && hda_blob.size === original.size, "the hda image: " + hda_name + " " + hda_blob.size);
+        log("Devices: a CD of files (DOS lists README.TXT), ejected; a floppy (DOS lists COMMAND.COM), ejected; " + hda_name + " (" + hda_blob.size + " bytes)");
+
+        // view
+        const scale = spy("screen_set_scale");
+        await menu("menu_view", "view_scale_200");
+        check(JSON.stringify(scale.at(-1)) === "[2,2]", "scale 200%: " + JSON.stringify(scale));
+        await menu("menu_view", "view_zoom_to_fit");
+        check(scale.length >= 3 && scale.at(-1)[0] > 0, "zoom to fit");
+        await menu("menu_view", "view_zoom_to_fit");
+        await menu("menu_view", "view_theatre");
+        check($(".console").classList.contains("theatre") && !$(".theatre-show-ui").hidden, "theatre mode");
+        $(".theatre-show-ui").click();
+        check(!$(".console").classList.contains("theatre"), "theatre mode left");
+        const shot = await next_download("the screenshot");
+        await menu("menu_view", "view_screenshot");
+        const [shot_name, shot_url] = await shot.wait();
+        check(shot_name === "DOS_console-screenshot.png" && String(shot_url).startsWith("data:image/png"), "the screenshot: " + shot_name);
+        const fullscreen = spy("screen_go_fullscreen");
+        await menu("menu_view", "view_fullscreen");
+        check(fullscreen.length === 1, "full screen asked");
+        log("View: scale 200%, zoom to fit, theatre mode and back, a screenshot (" + shot_name + "), full screen");
+
+        // input, sound
+        const mouse = spy("mouse_set_enabled");
+        await menu("menu_input", "input_mouse");
+        check(JSON.stringify(mouse) === "[[false]]" && /Mouse off/.test($(".console-status").textContent), "the mouse off");
+        await menu("menu_input", "input_mouse");
+        const lock = spy("lock_mouse");
+        await menu("menu_input", "input_lock_mouse");
+        check(lock.length === 1, "lock the mouse");
+        const volume = spy("set_speaker_volume");
+        $("#mute").click();
+        check(JSON.stringify(volume) === "[[0]]" && $("#mute").textContent === "Unmute", "muted");
+        $("#mute").click();
+        check(JSON.stringify(volume.at(-1)) === "[1]", "unmuted");
+        log("Input: the mouse off and on, locked; Sound: muted and unmuted");
+
+        // tools
+        await menu("menu_tools", "tools_record");
+        await sleep(2500);
+        await menu("menu_tools", "tools_record");
+        await until(() => /Recorded/.test($(".console-status").textContent), "the recording's end");
+        const report_file = await next_download("the report");
+        await menu("menu_tools", "tools_export_report");
+        const [, report_blob] = await report_file.wait();
+        const report = JSON.parse(await report_blob.text());
+        check(report.samples && report.samples.length > 0 && report.metadata && report.metadata.memory_size === config.memory.mb << 20,
+            "the performance report: " + Object.keys(report).join(","));
+        const dump = await next_download("the memory dump");
+        await menu("menu_tools", "tools_memory_dump");
+        const [dump_name, dump_blob] = await dump.wait();
+        check(dump_blob.size === config.memory.mb << 20, "the memory dump: " + dump_blob.size);
+        await menu("menu_tools", "tools_capture");
+        await until(() => /Capturing network traffic: 0 packets/.test($(".console-status").textContent), "capturing");
+        const traffic = await next_download("the capture");
+        await menu("menu_tools", "tools_capture");
+        const [traffic_name] = await traffic.wait();
+        await menu("menu_tools", "tools_stop_capture");
+        log("Tools: a performance report (" + report.samples.length + " samples), " + dump_name + " (" + dump_blob.size + " bytes), " + traffic_name);
+
+        // drawers
+        $("#drawer_terminal").click();
+        await until(() => $(".console-drawer .terminal .xterm"), "the serial terminal (xterm)", 20000);
+        $("#drawer_files").click();
+        answer_picker([new w.File(["hello 9p"], "hello.txt")]);
+        const send = await until(() => $(".console-drawer input[type=file]"), "the shared folder's send");
+        send.click();
+        await until(() => /Sent to the shared folder/.test($(".console-status").textContent), "sent");
+        const got = await next_download("the file got");
+        const path = $(".console-drawer input[aria-label='File to get']");
+        path.value = "/hello.txt";
+        Array.from(d.querySelectorAll(".console-drawer button")).find(b => b.textContent === "Get").click();
+        const [got_name, got_blob] = await got.wait();
+        check(got_name === "hello.txt" && await got_blob.text() === "hello 9p", "the file got: " + got_name);
+        $("#drawer_details").click();
+        const details = await until(() => /Instructions/.test($(".console-drawer").textContent) && $(".console-drawer").textContent, "the details");
+        check(/Storage \(IDE\)/.test(details) && /Text, 80×25/.test(details), "the details: " + details);
+        await until(() => /Execution: 1 core/.test($(".console-drawer").textContent), "the execution note");
+        $("#drawer_details").click();
+        check($(".console-drawer").hidden, "the drawer closed");
+        log("Drawers: the serial terminal, the shared folder (hello.txt sent and got), the details");
+
+        // a state saved to a file and loaded
+        const saved = await next_download("the state");
+        await menu("menu_power", "menu_save_state");
+        const [state_name, state_blob] = await saved.wait();
+        check(state_name === "DOS_console-state.bin" && state_blob.size > 1 << 20, "the state: " + state_blob.size);
+        await dos("cls");
+        await dos("echo AFTER-THE-SAVE", "AFTER-THE-SAVE");
+        answer_picker([new w.File([state_blob], state_name)]);
+        await menu("menu_power", "menu_load_state");
+        await until(async () => !/AFTER-THE-SAVE/.test(await screen_text()), "the state loaded (the text after the save gone)", 30000);
+        check(emulator.is_running(), "running after the load");
+        log("State: saved (" + state_blob.size + " bytes) and loaded back");
+
+        // power off
+        await menu("menu_power", "menu_power_off");
+        Array.from((await until(() => $("dialog[open]"), "the power off dialog")).querySelectorAll("button")).find(b => b.textContent === "Power off").click();
+        await until(() => /Powered off/.test($(".console-status").textContent), "powered off");
+        log("Power off: confirmed");
+    },
+    async disk()
+    {
+        const service = args.get("service");
+        check(service, "the runner's disk service (service=1)");
+        const config = new_config({ name: "DOS written back" });
+        config.disks = [{ slot: "hda", image: { kind: "url", url: service + "dos.img", async: true }, disk_option: "read_write", disk_error: "stop" }];
+        await start(config);
+        log("MS-DOS on the disk service's dos.img (read write)");
+        const leave = new w.Event("beforeunload", { cancelable: true });
+        w.dispatchEvent(leave);
+        check(leave.defaultPrevented, "leaving the page asks first");
+        log("leaving the page: the browser asks first");
+
+        const service_file = async text => (await fetch("/__service_file?name=dos.img&contains=" + encodeURIComponent(text))).json();
+        await dos("echo FIRST-WRITE > C:\\FIRST.TXT");
+        await until(async () => (await service_file("FIRST-WRITE")).contains, "the write in the service's file", 30000);
+        log("a write is in the service's file");
+
+        await fetch("/__service_down", { method: "POST" });
+        emulator.keyboard_send_text("echo SECOND-WRITE > C:\\SECOND.TXT\n", 20);
+        const text = await until(() => $("#disk_error_text") && $("#disk_error_text").textContent, "the disk error dialog", 120000);
+        check(/Disk hda: the write .* failed/.test(text) && /retry once the disk can be reached again/.test(text), "the dialog: " + text);
+        check(!emulator.is_running(), "the machine stopped");
+        log("the service gone: \"" + text.slice(0, 90) + "…\"");
+        await fetch("/__service_up", { method: "POST" });
+        Array.from(d.querySelectorAll("dialog[open] button")).find(b => b.textContent === "Retry").click();
+        await until(async () => (await service_file("SECOND-WRITE")).contains, "the second write after Retry", 30000);
+        log("Retry: the write landed");
+
+        const saved = await next_download("the state");
+        await menu("menu_power", "menu_save_and_power_off");
+        const [state_name, state_blob] = await saved.wait();
+        await until(() => /Powered off/.test($(".console-status").textContent), "powered off");
+        await until(async () => !(await service_file("x")).session_open, "the session closed");
+        log("Save and power off: " + state_name + " (" + state_blob.size + " bytes), the disk's session closed");
+    },
+};
+
+async function screen_text()
+{
+    // (the guest's text screen through a screenshot would need OCR: the emulator's own check, with no wait)
+    return await emulator.wait_until_vga_screen_contains("AFTER-THE-SAVE", { timeout_msec: 1 }) ? "AFTER-THE-SAVE" : "";
+}
+
+parts[part]().then(() =>
+{
+    document.getElementById("result").textContent = "PASS (" + part + ")\n" + lines.join("\n");
+}, e =>
+{
+    document.getElementById("result").textContent = "FAIL (" + part + "): " + (e.stack || e.message) + "\n" + lines.join("\n");
+});
+</script>

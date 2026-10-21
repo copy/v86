@@ -241,17 +241,18 @@ const parts = {
         const prefs = await until(() => $("dialog[open]"), "the preferences");
         set(prefs.querySelector("input[aria-label='Disk service URL']"), service);
         button("Test", prefs).click();
-        await until(() => /A disk service: 0 images, creates new ones/.test(prefs.textContent), "the test of the service");
+        await until(() => /A disk service: 1 images, creates new ones/.test(prefs.textContent), "the test of the service");
         button("Save", prefs).click();
         await until(() => $("#service_status").textContent === "Disk service: " + service, "the library using the disk service");
         log("Preferences: " + service + ", tested; the library shows it");
         const summary = await wizard({ source: "A CD or DVD image", urls: { "CD image": "images/linux4.iso" }, preset: "linux", name: "Kept disk", disk: "service", disk_mb: 16 });
         check(/read write/.test(summary) || /created when finished/.test(summary), "the summary: " + summary);
         const files = await (await fetch("/__service_files")).json();
-        check(files.length === 1 && files[0].name === "kept-disk.img" && files[0].size === 16 << 20, "the service's files: " + JSON.stringify(files));
+        const kept = files.find(f => f.name === "kept-disk.img");
+        check(files.length === 2 && kept && kept.size === 16 << 20, "the service's files: " + JSON.stringify(files));
         const table = await until(() => table_text($(".hardware")).includes(service + "kept-disk.img") && table_text($(".hardware")), "the machine's disk");
         check(/read write/.test(table), "the machine's disk: " + table);
-        log("the wizard's new disk: " + files[0].name + " (" + files[0].size + " bytes) in the service's directory, read write");
+        log("the wizard's new disk: " + kept.name + " (" + kept.size + " bytes) in the service's directory, read write");
     },
 };
 
