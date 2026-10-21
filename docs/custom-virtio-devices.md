@@ -68,7 +68,8 @@ const emulator = new V86({
 | `upgrade_state(slot)` | Optional: recognizes `state[92]` of a snapshot from before custom devices, and returns `[transport state, device state, host state]` or `null` |
 
 Descriptors are read with their field names as written, so they work with
-both `libv86.js` and the Closure-compiled `v86_all.js`.
+any bundle, also one compiled with Closure's ADVANCED mode (as the old page's
+`v86_all.js` was).
 
 A slot or I/O window that is already taken is an error. So are two devices
 with the same name.

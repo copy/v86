@@ -165,9 +165,10 @@ owns the device.
   (`make graphics-adapters`, a prerequisite of every libv86 bundle and of
   `build/cpu-worker.js`): `GRAPHICS_ADAPTER_COMMON` (the VGA core,
   `machine.js`, `renderer_protocol.js` and the core modules they import) plus
-  the adapter's own files. `v86_all.js` is ADVANCED-compiled and renames
-  properties, so everything that crosses the boundary (descriptor, handle,
-  device) uses quoted names, and any plugin works with any bundle. There is no
+  the adapter's own files. A bundle compiled with Closure's ADVANCED mode (as
+  the old page's `v86_all.js` was) renames properties, so everything that
+  crosses the boundary (descriptor, handle, device) uses quoted names, and any
+  plugin works with any bundle. There is no
   externs file; type checking inside a plugin comes from `GraphicsMachine`.
 - **Loading.** v86 first looks in `globalThis.V86GraphicsAdapters`, so a page
   may load the plugin itself (`<script>` or `require`). Otherwise:

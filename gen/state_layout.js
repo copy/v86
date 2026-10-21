@@ -393,17 +393,12 @@ export const STATICS = {
         REFUSED: "debug", PUBLISH_SEEN: "cache", INVALIDATE_SEEN: "cache", CLAIMED: "cache",
         KICKS: "debug",
     },
-    "profiler.rs": Object.fromEntries([
-        "PERFORMANCE_BATCH_CHUNKS", "PERFORMANCE_CODEGEN", "PERFORMANCE_COUNTDOWN", "PERFORMANCE_COUNTERS", "PERFORMANCE_EXECUTION",
-        "PERFORMANCE_NEXT_SAMPLE", "PERFORMANCE_PENDING_ROW", "PERFORMANCE_PREVIOUS_CHUNKS", "PERFORMANCE_RANDOM",
-        "PERFORMANCE_RECORDING", "PERFORMANCE_ROWS", "PERFORMANCE_SAMPLE_TIME", "PERFORMANCE_STARTED", "stat_array",
-    ].map(name => [name, "debug"])),
+    "profiler.rs": { stat_array: "debug" },
     // SoftFloat's C globals: set from the x87 control word before each operation
     "softfloat.rs": {
         X87_FAST_MATH: "machine", X87_POLICY_OBSERVER: "machine",
         softfloat_roundingMode: "scratch", extF80_roundingPrecision: "scratch", softfloat_exceptionFlags: "scratch",
     },
-    "x87_profiler.rs": { CACHE: "debug", COUNTS: "debug", ENABLED: "debug" },
     "x64/physical.rs": { PHYSICAL_BUS: "machine" },
     // (LOCKED: the locked instruction in progress, within one instruction)
     "x64/memory.rs": { X64_TLBS: "core", LOCKED: "scratch" },

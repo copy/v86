@@ -23,6 +23,9 @@ function print_misc_stats(cpu)
         "FULL_CLEAR_TLB",
         "TLB_FULL",
         "TLB_GLOBAL_FULL",
+        "X87_EXACT",
+        "X87_SOFTFLOAT",
+        "X87_NATIVE_F64",
     ];
 
     let j = 0;

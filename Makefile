@@ -18,9 +18,9 @@ WASM_OPT ?= false
 default: build/v86-debug.wasm
 # (v86-parallel.wasm and vcpu-worker.js: index.html runs more than one core in
 # host threads with them where the page allows it; see `make parallel`)
-all: build/cpu-worker.js build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm build/v86-parallel.wasm build/vcpu-worker.js glbridge
+all: build/cpu-worker.js build/v86_app.js build/libv86.js build/libv86.mjs build/v86.wasm build/v86-parallel.wasm build/vcpu-worker.js glbridge
 all-debug: build/cpu-worker.js build/libv86-debug.js build/libv86-debug.mjs build/v86-debug.wasm glbridge
-browser: build/cpu-worker.js build/v86_all.js
+browser: build/cpu-worker.js build/v86_app.js
 
 # CPU benchmark suite (tests/bench): one IR core against another, see docs/cpu-benchmarks.md.
 .PHONY: bench-build bench bench-quick bench-same-source replay-check replay-record
@@ -114,7 +114,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
@@ -126,12 +126,12 @@ LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js wasm_paths.js worker_bus.js state_stream_transport.js cpu_worker.js dummy_screen.js ansi_screen.js \
 	      inbrowser_network.js fake_network.js wisp_network.js fetch_network.js \
-          print_stats.js filestorage.js modem.js graphics_performance.js performance_recorder.js
+          print_stats.js filestorage.js modem.js
 
 # Display adapter plugins (src/graphics_adapter.js): each its own file, loaded
 # when graphics_adapter names it. Built with every bundle, which looks for
 # them beside itself. The boundary to v86 uses quoted names only, so a plugin
-# works with any bundle, including the ADVANCED-compiled v86_all.js.
+# works with any bundle, also one compiled in Closure's ADVANCED mode.
 GRAPHICS_ADAPTER_PLUGINS=build/v86-bochs-vga.js build/v86-vmware-svga.js build/v86-virtio-gpu.js
 GRAPHICS_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/bus.js src/display.js \
 	src/graphics_adapters/machine.js src/graphics_adapters/vga_core.js src/graphics_adapters/renderer_protocol.js
@@ -195,34 +195,6 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 
 .PHONY: graphics-adapters
 graphics-adapters: $(GRAPHICS_ADAPTER_PLUGINS)
-
-build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
-	mkdir -p build
-	-ls -lh build/v86_all.js
-	java -jar $(CLOSURE) \
-		--js_output_file build/v86_all.js\
-		--define=DEBUG=false\
-		$(CLOSURE_SOURCE_MAP)\
-		$(CLOSURE_FLAGS)\
-		--compilation_level ADVANCED\
-		--js $(CORE_FILES)\
-		--js $(LIB_FILES)\
-		--js $(BROWSER_FILES)\
-		--js src/browser/main.js
-	ls -lh build/v86_all.js
-
-build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
-	mkdir -p build
-	java -jar $(CLOSURE) \
-		--js_output_file build/v86_all_debug.js\
-		--define=DEBUG=true\
-		$(CLOSURE_SOURCE_MAP)\
-		$(CLOSURE_FLAGS)\
-		--compilation_level ADVANCED\
-		--js $(CORE_FILES)\
-		--js $(LIB_FILES)\
-		--js $(BROWSER_FILES)\
-		--js src/browser/main.js
 
 build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
@@ -428,7 +400,7 @@ clean:
 	-rm build/libv86.mjs
 	-rm build/libv86-debug.js
 	-rm build/libv86-debug.mjs
-	-rm build/v86_all.js
+	-rm build/v86_app.js build/v86_app.js.map
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
 	-rm $(INSTRUCTION_TABLES)
@@ -447,9 +419,7 @@ update_version:
 	SEARCH='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
 	REPLACE='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
 	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
-	SEARCH='<script src="build/v86_all.js?[a-f0-9]\+"></script>' ;\
-	REPLACE='<script src="build/v86_all.js?'$$COMMIT'"></script>' ;\
-	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
+	sed -i "s@\(build/v86_app.js\|build/libv86.mjs\|src/app/app.css\)?[a-f0-9]\+@\1?$$COMMIT@g" index.html ;\
 	grep $$COMMIT index.html
 
 
@@ -608,16 +578,13 @@ rust-test: $(RUST_FILES)
 rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test
 
-build/softfloat-fast-test.wasm: tests/rust/softfloat_fast_path.rs src/rust/softfloat.rs src/rust/x87_profiler.rs build/softfloat.o
+build/softfloat-fast-test.wasm: tests/rust/softfloat_fast_path.rs src/rust/softfloat.rs src/rust/profiler.rs build/softfloat.o
 	rustc --edition=2021 --target wasm32-unknown-unknown --crate-type cdylib -O \
 	    -C linker=tools/rust-lld-wrapper -C link-arg=build/softfloat.o \
 	    tests/rust/softfloat_fast_path.rs -o $@
 
 softfloat-fast-tests: build/softfloat-fast-test.wasm
 	node tests/rust/softfloat_fast_path.mjs
-
-x87-recording-tests: build/softfloat-fast-test.wasm
-	node tests/rust/x87_recording.mjs
 
 x87-fast-math-tests: build/softfloat-fast-test.wasm
 	node tests/rust/x87_fast_math.mjs
@@ -628,8 +595,16 @@ x87-jit-cache-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
 build/x87-fast-test.bin: tests/rust/x87_fast_path.asm
 	nasm -f bin $< -o $@
 
-x87-fast-tests: build/x87-fast-test.bin build/v86.wasm build/libv86.mjs
+x87-fast-tests: build/x87-fast-test.bin build/v86.wasm build/v86-profiler.wasm build/libv86.mjs
 	node tests/rust/x87_fast_path.mjs
+	X87_PATHS=1 node tests/rust/x87_fast_path.mjs "" build/v86-profiler.wasm
+
+# The release core with the profiler's statistics (src/rust/profiler.rs), in
+# its own target directory: x87-fast-tests checks the x87 paths with it
+build/v86-profiler.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	CARGO_TARGET_DIR=build/profiler cargo rustc --release --features profiler $(CARGO_FLAGS)
+	cp build/profiler/wasm32-unknown-unknown/release/v86.wasm build/v86-profiler.wasm
 
 .PHONY: cpu-optimization-tests cpu-optimization-benchmark
 cpu-optimization-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
@@ -657,12 +632,6 @@ cpu-optimization-benchmark: build/jit-capacity.bin build/v86.wasm build/libv86.m
 
 build/jit-capacity.bin: tests/rust/jit_capacity.asm
 	nasm -f bin $< -o $@
-
-build/performance-recording-test: tests/rust/performance_recording.rs src/rust/profiler.rs
-	rustc --edition=2021 --test -O $< -o $@
-
-performance-recording-tests: build/performance-recording-test
-	./build/performance-recording-test
 
 api-tests: build/v86-debug.wasm
 	./tests/api/clean-shutdown.js
@@ -710,6 +679,66 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # Disk persistence (docs/disk-persistence-plan.md): disk_option, disk_error,
 # FLUSH, the consistent reads of a read_only disk; the browser tests in
 # headless Chrome (CHROME), on the page and in the CPU Worker
+# The VM manager (docs/vm-manager-plan.md G2-G4): src/app/ as ES modules
+# outside Closure, bundled by esbuild into build/v86_app.js (build/libv86.mjs
+# stays its own file: index.html's import map names it "v86"), checked by tsc
+# against v86.d.ts. The tools are package.json's devDependencies (npm ci).
+APP_FILES=$(shell find src/app -name '*.js') src/browser/profiles.js src/browser/vm_options.js src/browser/query_compat.js \
+	src/machine_options.js src/disk_options.js
+node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
+	npm ci
+	touch node_modules/.bin/esbuild node_modules/.bin/tsc
+
+.PHONY: app app-check
+app: build/v86_app.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
+
+build/v86_app.js: $(APP_FILES) node_modules/.bin/esbuild
+	mkdir -p build
+	node_modules/.bin/esbuild src/app/main.js --bundle --format=esm --target=es2022 --minify --sourcemap \
+		--external:v86 --outfile=build/v86_app.js --log-level=warning
+
+app-check: node_modules/.bin/tsc
+	node_modules/.bin/tsc -p tsconfig.json
+
+# the VM manager plan (docs/vm-manager-plan.md), U0: the shared modules
+# (src/browser/profiles.js, vm_options.js, query_compat.js) give the options
+# the pages give (index.html's addresses, debug.html's addresses and form),
+# made by Node from the modules as by the pages
+# U1: the configurations (src/app/vm_config.js) and the library (vm_store.js);
+# U2: the page: the type check, the addresses' options as the modules make them, the
+# library and a console booting FreeDOS (the release and debug pages, the CPU
+# in its Worker and in the page); U3: the presets and the dialog's rules, the
+# disk service's create and list, the wizard booting FreeDOS, Linux and
+# Alpine arm64 (build/a64-linux: tests/a64/linux_boot.mjs prepares it), the
+# settings dialog, the wizard's disk on the disk service; U4: the console's
+# every function with MS-DOS (in its Worker and in the page), a disk written
+# back to the disk service with its error dialog; U5: suspend and resume, one
+# tab per machine; U6: browser disks (the backend in a worker, Linux and
+# MS-DOS on them, import, export, sharing, the CPU in the page refused)
+.PHONY: app-shared-tests app-tests
+app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm build/v86-arm64.wasm build/libv86-debug.mjs
+	node tests/app/vm_config.mjs
+	node tests/app/presets.mjs
+	node tests/app/browser_runner.mjs tests/app/store_test.html
+	node tests/app/disk_service_create.mjs
+	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html
+	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
+	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
+	for part in freedos linux arm64 dialog; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
+	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
+	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
+	node tests/app/browser_runner.mjs tests/app/console_test.html part=main worker=0
+	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1
+	node tests/app/browser_runner.mjs tests/app/suspend_test.html
+	node tests/app/browser_runner.mjs tests/app/opfs_disk_test.html
+	for part in page import share linux; do node tests/app/browser_runner.mjs tests/app/browser_disk_test.html part=$$part || exit 1; done
+
+app-shared-tests: build/v86_app.js build/libv86.mjs
+	node tests/app/machine_rules.mjs
+	mkdir -p build/app
+	node tests/app/legacy_options.mjs record=build/app/legacy-options.json
+	node tests/app/shared_options.mjs build/app/legacy-options.json
+
 .PHONY: disk-persistence-tests disk-persistence-browser-tests
 disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
 	./tests/api/disk-options.js
@@ -720,6 +749,7 @@ disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
 	./tests/devices/disk_writeback.mjs
 	./tests/persistence/guest.mjs
 	./tests/persistence/disk_service.mjs
+	./tests/persistence/disk_service_sync.mjs
 	./tests/persistence/service_machine.mjs
 	./tests/persistence/floppy.mjs
 
@@ -802,14 +832,13 @@ build/cpu-worker-test.bin: tests/rust/cpu_worker.asm
 	nasm -f bin $< -o $@
 
 .PHONY: cpu-worker-tests
-cpu-worker-tests: build/cpu-worker.js build/cpu-worker-test.bin build/libv86.mjs build/libv86.js build/v86_all.js build/v86.wasm build/v86-vmware-svga.js glbridge
+cpu-worker-tests: build/cpu-worker.js build/cpu-worker-test.bin build/libv86.mjs build/libv86.js build/v86_app.js build/v86.wasm build/v86-vmware-svga.js glbridge
 	node tests/glbridge/cpu_worker_screen_test.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_gpu_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_svga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_audio_browser_test.html
 	node tests/glbridge/speaker_unlock_browser_test.mjs
-	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_ui_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_hotplug_browser_test.html
 
 # One canvas for text, graphics and composited D3D/GL windows (docs/display-design.md)
@@ -836,10 +865,10 @@ display-browser-tests: build/cpu-worker.js build/libv86.mjs build/libv86.js buil
 	node tests/glbridge/gl_multipass_browser_runner.js vx_transfer_browser_test.html
 
 # A browser/library rebuild must ship the matching wire-protocol implementation.
-build/v86_all.js build/v86_all_debug.js build/libv86.js build/libv86.mjs build/libv86-debug.js build/libv86-debug.mjs: | build/cpu-worker.js
+build/libv86.js build/libv86.mjs build/libv86-debug.js build/libv86-debug.mjs: | build/cpu-worker.js
 
 # Keep the terminal available even when building the page bundle directly.
-build/v86_all.js build/v86_all_debug.js: | build/xterm.js
+build/v86_app.js: | build/xterm.js
 
 # The decoder catalogue's tables (src/rust/decode/encodings.rs)
 .PHONY: decoder-generated decoder-generated-check

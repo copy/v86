@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-debug>
+<meta charset="utf-8">
+<title>v86</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content">
+<meta name="description" content="Virtual machines in your browser: make one, install a system from a CD or floppy, start it again later">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="192.png">
+<link rel="apple-touch-icon" href="192.png">
+<!-- the VM manager (docs/vm-manager-plan.md): its source (src/app/main.js) and the library's debug build -->
+<script type="importmap">{ "imports": { "v86": "./build/libv86-debug.mjs" } }</script>
+<link rel="stylesheet" href="src/app/app.css">
+<script type="module" src="src/app/main.js"></script>
+<body>
+<div id="app"></div>
+<footer>
+    <a href="legacy.html">The old page</a>
+    &mdash;
+    <a href="index.html">Release build</a>
+    &mdash;
+    <a href="https://github.com/copy/v86/blob/master/Readme.md">Readme</a>
+    &mdash;
+    <code>Version: <a id="version" href="https://github.com/copy/v86/commits/98e7110c2">98e7110c2</a> (Feb 16, 2021 12:02)</code>
+</footer>

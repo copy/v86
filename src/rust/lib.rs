@@ -79,6 +79,4 @@ mod step_profile;
 mod wasmgen;
 #[cfg(not(feature = "aarch64"))]
 mod x86tpl;
-#[cfg(not(feature = "aarch64"))]
-mod x87_profiler;
 mod zstd;

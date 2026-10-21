@@ -3,7 +3,6 @@
 <script src="../../build/glbridge/libv86-webgpu.js"></script>
 <script type="module">
 import { V86 } from "../../build/libv86.mjs";
-import { WorkerPerformanceRecorder } from "../../src/browser/cpu_worker.js";
 const params = new URLSearchParams(location.search);
 const irBackend = params.get("jit_backend") === "ir";
 const corePath = "../../build/v86.wasm";
@@ -176,10 +175,6 @@ try {
     vm.bus.send("dac-request-data");
     await wait(()=>!!pcm);
     check(rate===22050 && pcm[0][0]===1 && pcm[1][0]===1,"SB16 sample rate and PCM survive worker transfer");
-    const recorder=new WorkerPerformanceRecorder(vm,{metadata:{},on_stop(){}});
-    await recorder.start();await sleep(600);const report=await recorder.stop();
-    check(report.summary.main_loop_calls>0 && report.execution.jit_chunks>0,"performance recording runs on actual worker CPU/JIT");
-    check(report.metadata.cpu_thread==="dedicated-worker","report identifies CPU thread");
     let rejected=false;
     try { await vm.restore_state(new ArrayBuffer(8)); } catch(_) { rejected=true; }
     check(rejected && !vm.is_running(),"failed restore leaves CPU stopped and rejects caller");

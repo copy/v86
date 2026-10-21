@@ -3546,8 +3546,6 @@ pub unsafe fn cycle_internal() -> bool {
     let phys_addr = return_on_pagefault!(get_phys_eip(), false);
 
     let initial_instruction_counter = *instruction_counter;
-    let performance_sample =
-        profiler::performance_chunk_start(false, initial_eip as u32, *cr.offset(3) as u32, *cpl);
     let span = crate::cpu::execution::ledger_begin();
     jit_run_interpreted(phys_addr, u32::MAX);
     crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
@@ -3555,18 +3553,9 @@ pub unsafe fn cycle_internal() -> bool {
         initial_eip as u32,
         (*instruction_counter).wrapping_sub(initial_instruction_counter),
     );
-    profiler::performance_chunk_finish(
-        performance_sample,
-        (*instruction_counter).wrapping_sub(initial_instruction_counter),
-    );
-
     profiler::stat_increment_by(
         stat::RUN_INTERPRETED_STEPS,
         (*instruction_counter - initial_instruction_counter) as u64,
-    );
-    profiler::performance_recording_add(
-        0,
-        (*instruction_counter).wrapping_sub(initial_instruction_counter) as u64,
     );
     dbg_assert!(
         *instruction_counter != initial_instruction_counter,
@@ -4038,44 +4027,37 @@ pub unsafe fn main_loop() -> f64 {
     let start = js::microtick();
 
     if *in_hlt {
-        profiler::performance_execution_add(4, 1.0);
         if *flags & FLAG_INTERRUPT != 0
             || *acpi_enabled && !*nmi_blocked && apic::nmi_pending()
             || crate::cpu::smm::smi_deliverable()
         {
-            let performance_start = profiler::performance_timer_start();
             let t = js::run_hardware_timers(*acpi_enabled, start);
             handle_irqs();
-            profiler::performance_timer_finish(performance_start, 1);
             if *in_hlt {
                 profiler::stat_increment(stat::MAIN_LOOP_IDLE);
-                return profiler::performance_main_loop_exit(t.max(0.0), true);
+                return t.max(0.0);
             }
         }
         else {
             // dead
-            return profiler::performance_main_loop_exit(100.0, true);
+            return 100.0;
         }
     }
 
     let mut batches = 0;
     loop {
         batches += 1;
-        let performance_start = profiler::performance_batch_start();
         let publication_yield = do_many_cycles_native();
-        profiler::performance_timer_finish(performance_start, 0);
 
         let now = js::microtick();
-        let performance_start = profiler::performance_timer_start();
         let t = js::run_hardware_timers(*acpi_enabled, now);
         handle_irqs();
-        profiler::performance_timer_finish(performance_start, 1);
         if *in_hlt {
-            return profiler::performance_main_loop_exit(t.max(0.0), true);
+            return t.max(0.0);
         }
         if core_yield {
             core_yield = false;
-            return profiler::performance_main_loop_exit(0.0, false);
+            return 0.0;
         }
 
         // Give the host a chance to install a newly submitted IR module. All
@@ -4086,7 +4068,7 @@ pub unsafe fn main_loop() -> f64 {
         }
     }
 
-    return profiler::performance_main_loop_exit(0.0, false);
+    return 0.0;
 }
 
 // The CPU batch in progress: IR chaining stops at the batch's instruction

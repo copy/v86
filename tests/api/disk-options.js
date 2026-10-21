@@ -38,15 +38,16 @@ refused({ cdrom: { buffer: image(), disk_option: "read_only" } }, /cdrom: disk_o
 refused({ hda: { buffer: image() }, bios: { ...bios, disk_option: "read_only" } }, /bios: disk_option is for disks/);
 refused({ hda: { buffer: image() }, initial_state: { url: "x", disk_error: "stop" } }, /initial_state: disk_error is for disks and CD drives/);
 refused({ hda: { buffer: image() }, bzimage: { url: "x", token: "t" } }, /bzimage: token is for disks/);
-refused({ fda: { buffer: image(), disk_error: "stop" } }, /fda: floppy drives report a failed read or write to the guest/);
 refused({ fda: { buffer: image(), disk_option: "read_write" } }, /fda: an ArrayBuffer is an image in memory/, "read_write on a floppy: as for disks");
-assert.deepEqual(check_disk_policy("fda", { buffer: image(), disk_option: "read_only" }), { disk_option: "read_only", disk_error: "report" },
-    "read_only on a floppy: as without it; floppies report errors");
+assert.deepEqual(check_disk_policy("fda", { buffer: image(), disk_option: "read_only" }), { disk_option: "read_only", disk_error: "stop" },
+    "read_only on a floppy: as without it; a floppy's errors stop the machine, as a disk's");
+assert.deepEqual(check_disk_policy("fdb", { buffer: image(), disk_error: "stop" }), { disk_option: "read_only", disk_error: "stop" },
+    "disk_error on a floppy");
 assert.deepEqual(check_disk_policy("fdb", { url: "/images/a.img", disk_option: "read_write", disk_error: "report" }), { disk_option: "read_write", disk_error: "report" },
     "a floppy written back (D3)");
 assert.deepEqual(check_disk_policy("cdrom", { buffer: image(), disk_error: "report" }), { disk_option: "read_only", disk_error: "report" },
     "disk_error on a CD drive");
-console.log("ok - disk_option is for hard disks and floppies, disk_error for hard disks and CD drives (floppies report), neither for the other files");
+console.log("ok - disk_option is for hard disks and floppies, disk_error for hard disks, floppies and CD drives, neither for the other files");
 
 // read_write: the sources that cannot be written back
 refused({ hda: { buffer: image(), disk_option: "read_write" } }, /hda: an ArrayBuffer is an image in memory, with no persistent source/);
@@ -78,6 +79,12 @@ const shared = image();
 assert.doesNotThrow(() => check_disk_bindings([["hda", { buffer: shared }, ro], ["hdb", { buffer: shared }, ro]]), "read_only twice");
 assert.doesNotThrow(() => check_disk_bindings([["hda", { url: "/images/a.img" }, rw], ["hdb", { url: "/images/b.img" }, ro]]));
 console.log("ok - an image bound to two disks with one of them read_write is refused");
+
+// a browser disk (docs/vm-manager-plan.md U6) is in a browser's private storage: not in Node, read only or read write
+refused({ hda: { url: "opfs:v86/disks/x.img", disk_option: "read_write" } }, /hda: a browser disk \(opfs:v86\/disks\/x\.img\) is in a browser's private storage \(OPFS\), not in Node/);
+refused({ cdrom: { url: "opfs:v86/disks/x.img" } }, /cdrom: a browser disk .* not in Node/);
+assert.throws(() => check_disk_policy("fda", { url: "opfs:v86/disks/f.img" }), /fda: a browser disk .* not in Node/);
+console.log("ok - a browser disk (opfs:) is refused in Node");
 
 // the CPU Worker gets them
 assert.deepEqual((({ disk_option, disk_error, token }) => ({ disk_option, disk_error, token }))(

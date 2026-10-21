@@ -1,0 +1,217 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: browser disks</title>
+<!-- Browser disks (docs/vm-manager-plan.md U6), machines in frames ("tabs"):
+     part=linux    Linux 4.16 (images/linux4.iso) formats a new browser disk, writes a file, syncs, powers off; the tab
+                   closed and opened again: the file is there; a file synced, the tab closed without powering off after
+                   the timed flush: there too
+     part=import   images/msdos622.img imported (its SHA-256 the source's), exported (the same bytes), MS-DOS on it
+                   writes a file, which is in the disk after power off
+     part=share    two machines with one browser disk: the second is refused while the first runs; one suspended, the
+                   other writes to the disk: the resume is refused; the library's Browser disks dialog; deleting a
+                   machine deletes its own disk, not the shared one
+     part=page     the CPU in the page: a browser disk written back is refused at the start
+     node tests/app/browser_runner.mjs tests/app/browser_disk_test.html part=linux -->
+<style>iframe { width: 1000px; height: 650px; border: 1px solid #888; }</style>
+<pre id="log"></pre>
+<pre id="result"></pre>
+<script type="module">
+import { VMStore } from "../../src/app/vm_store.js";
+import { new_config } from "../../src/app/vm_config.js";
+import { create_disk, import_disk, export_disk, disk_file, list_disks, disk_id } from "../../src/app/browser_disks.js";
+import { SHA256 } from "../../src/image/sha256.js";
+
+const args = new URLSearchParams(location.search);
+const part = args.get("part") || "linux";
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(condition, what, timeout = 30000)
+{
+    const end = Date.now() + timeout;
+    for(;;)
+    {
+        const value = await condition();
+        if(value) return value;
+        if(Date.now() > end) throw new Error("timed out: " + what);
+        await sleep(100);
+    }
+}
+function check(condition, what) { if(!condition) throw new Error(what); }
+const sha256 = bytes => { const h = new SHA256(); h.update(bytes); return h.hex(); };
+const contains = (bytes, text) => { const needle = new TextEncoder().encode(text); outer: for(let i = 0; i + needle.length <= bytes.length; i++) { for(let j = 0; j < needle.length; j++) if(bytes[i + j] !== needle[j]) continue outer; return true; } return false; };
+
+let store;
+async function machine(name, fields)
+{
+    return store.put(Object.assign(new_config({ name }), fields));
+}
+/** a console tab; its emulator (or, with expect_error, its notice's text) */
+async function open_console(id, { expect_error = false } = {})
+{
+    const frame = document.createElement("iframe");
+    frame.src = "/index.html?vm=" + id;
+    document.body.append(frame);
+    await new Promise(resolve => frame.onload = resolve);
+    const w = frame.contentWindow, d = frame.contentDocument;
+    const $ = s => d.querySelector(s);
+    const menu = async (m, item) => { $("#" + m).click(); (await until(() => $("#" + item), item)).click(); };
+    const power_off = async () =>
+    {
+        await menu("menu_power", "menu_power_off");
+        Array.from((await until(() => $("dialog[open]"), "the power off dialog")).querySelectorAll("button")).find(b => b.textContent === "Power off").click();
+        await until(() => /Powered off/.test($(".console-status").textContent), "powered off", 60000);
+    };
+    if(expect_error)
+    {
+        const text = await until(() => $(".console-notice p.error")?.textContent, "the console's error", 60000);
+        return { frame, w, d, $, text };
+    }
+    const emulator = await until(() => w.v86_console?.emulator, "the console's emulator", 60000);
+    return { frame, w, d, $, menu, power_off, emulator };
+}
+const type = (emulator, text) => emulator.keyboard_send_text(text + "\n", 20);
+const screen = (emulator, pattern, timeout = 120000) => emulator.wait_until_vga_screen_contains(pattern, { timeout_msec: timeout });
+/** a page's error, as the console shows it when the machine does not start */
+async function start_error(c)
+{
+    return until(() => c.$(".console-notice p.error")?.textContent, "the start's error", 60000);
+}
+
+const linux_vm = path => ({
+    cdrom: { image: { kind: "url", url: "images/linux4.iso", async: true }, disk_error: "stop" },
+    disks: [{ slot: "hda", image: { kind: "browser", path, size: 32 << 20 }, disk_option: "read_write", disk_error: "stop" }],
+});
+const dos_vm = path => ({
+    disks: [{ slot: "hda", image: { kind: "browser", path, size: 64 << 20 }, disk_option: "read_write", disk_error: "stop" }],
+});
+
+const parts = {
+    async linux()
+    {
+        const disk = await create_disk(32 << 20, "linux disk", store);
+        const config = await machine("Linux on a browser disk", linux_vm(disk.path));
+        let c = await open_console(config.id);
+        check(await screen(c.emulator, /^~%/, 240000), "Linux's shell");
+        await type(c.emulator, "mke2fs -q /dev/sda && mkdir -p /mnt && mount /dev/sda /mnt && echo PERSISTENT > /mnt/note && sync && umount /mnt && echo FORMATTED-OK");
+        check(await screen(c.emulator, /^FORMATTED-OK/), "formatted, written, synced");
+        await c.power_off();
+        c.frame.remove();
+        log("Linux formatted the browser disk, wrote /note, synced, powered off; the tab closed");
+
+        c = await open_console(config.id);
+        check(await screen(c.emulator, /^~%/, 240000), "Linux's shell again");
+        await type(c.emulator, "mkdir -p /mnt && mount /dev/sda /mnt && cat /mnt/note && echo TIMED > /mnt/timed && sync");
+        check(await screen(c.emulator, /^PERSISTENT/), "the file after the tab was closed and opened again");
+        log("opened again: /note says PERSISTENT");
+        // (the guest's sync done: the backend's timer flushes within 5 s; then the tab goes without powering off)
+        await sleep(7000);
+        c.frame.remove();
+        c = await open_console(config.id);
+        check(await screen(c.emulator, /^~%/, 240000), "Linux's shell a third time");
+        await type(c.emulator, "mkdir -p /mnt && mount /dev/sda /mnt && cat /mnt/timed");
+        check(await screen(c.emulator, /^TIMED/), "the file of the timed flush");
+        await c.power_off();
+        log("a file synced, the tab closed after 7 s without powering off: there after opening again (the timed flush)");
+    },
+    async import()
+    {
+        const source = new Uint8Array(await (await fetch("/images/msdos622.img")).arrayBuffer());
+        let progress = 0;
+        const disk = await import_disk("/images/msdos622.img", "msdos622.img", { prefs: store, progress: done => { progress = done; } });
+        check(disk.size === source.length && disk.sha256 === sha256(source) && progress === source.length, "the import: " + disk.sha256);
+        log("imported images/msdos622.img: " + disk.size + " bytes, SHA-256 " + disk.sha256.slice(0, 16) + "… the source's");
+        // (exported: as a download, no save picker here)
+        let exported;
+        const save_picker = window.showSaveFilePicker;
+        window.showSaveFilePicker = undefined;
+        await export_disk(disk.id, "copy.img", parts => { exported = parts[0]; });
+        window.showSaveFilePicker = save_picker;
+        check(exported && sha256(new Uint8Array(await exported.arrayBuffer())) === disk.sha256, "the export");
+        log("exported: the same SHA-256");
+        const config = await machine("DOS on an imported disk", dos_vm(disk.path));
+        const c = await open_console(config.id);
+        check(await screen(c.emulator, "C:\\>", 120000), "MS-DOS's prompt");
+        await type(c.emulator, "echo IMPORTED-WRITE > C:\\IW.TXT");
+        await sleep(1500);
+        await c.power_off();
+        const bytes = new Uint8Array(await (await disk_file(disk.id)).arrayBuffer());
+        check(contains(bytes, "IMPORTED-WRITE"), "the write in the browser disk");
+        check(sha256(source) === disk.sha256, "the source unchanged");
+        log("MS-DOS wrote C:\\IW.TXT on it; powered off: the text is in the browser disk, the source as it was");
+    },
+    async share()
+    {
+        const disk = await import_disk("/images/msdos622.img", "shared.img", { prefs: store });
+        const own = await create_disk(4 << 20, "own disk", store);
+        const first = await machine("First", Object.assign(dos_vm(disk.path)));
+        first.disks.push({ slot: "hdb", image: { kind: "browser", path: own.path, size: 4 << 20 }, disk_option: "read_write", disk_error: "stop" });
+        await store.put(first);
+        const second = await machine("Second", dos_vm(disk.path));
+        const a = await open_console(first.id);
+        check(await screen(a.emulator, "C:\\>", 120000), "the first's prompt");
+        const b = await open_console(second.id, { expect_error: true });
+        check(/used by another tab/.test(b.text), "the second refused: " + b.text);
+        b.frame.remove();
+        log("one disk, two machines: the second refused while the first runs (\"" + b.text.slice(0, 70) + "…\")");
+
+        await a.menu("menu_power", "menu_suspend");
+        await until(() => /Suspended/.test(a.$(".console-status").textContent), "the first suspended", 120000);
+        a.frame.remove();
+        const c = await open_console(second.id);
+        check(await screen(c.emulator, "C:\\>", 120000), "the second's prompt");
+        await type(c.emulator, "echo SECOND-WROTE > C:\\SW.TXT");
+        await sleep(1500);
+        await c.power_off();
+        c.frame.remove();
+        const r = await open_console(first.id, { expect_error: true });
+        check(/could not be resumed/.test(r.text) && /cannot go back/.test(r.text), "the resume refused: " + r.text);
+        r.frame.remove();
+        log("the first suspended, the second wrote to the disk: the first's resume refused (\"" + r.text.slice(r.text.indexOf("(a disk"), r.text.indexOf("(a disk") + 60) + "…\")");
+
+        // the library: its Browser disks dialog; deleting the first deletes its own disk, not the shared one
+        const library = document.createElement("iframe");
+        library.src = "/index.html";
+        document.body.append(library);
+        await new Promise(resolve => library.onload = resolve);
+        const ld = library.contentDocument;
+        (await until(() => ld.querySelector("#browser_disks"), "the library")).click();
+        const rows = await until(() => ld.querySelectorAll("dialog[open] table.browser-disks tr").length >= 2 &&
+            Array.from(ld.querySelectorAll("dialog[open] table.browser-disks tr"), tr => tr.textContent), "the browser disks dialog");
+        check(rows.some(r => /shared\.img/.test(r) && /First, Second/.test(r)) && rows.some(r => /own disk/.test(r) && /First/.test(r)), "the dialog: " + rows.join(" | "));
+        Array.from(ld.querySelectorAll("dialog[open] button")).find(x => x.textContent === "Close").click();
+        log("Browser disks: " + rows.map(r => r.replace(/Export.*$/, "")).join("; "));
+        Array.from(ld.querySelectorAll(".vm-list li")).find(li => li.textContent.startsWith("First")).click();
+        (await until(() => ld.querySelector("#delete_vm"), "the delete button")).click();
+        Array.from((await until(() => ld.querySelector("dialog[open]"), "the delete dialog")).querySelectorAll("button")).find(x => x.textContent === "Delete").click();
+        await until(async () => !(await store.get(first.id)), "the first deleted");
+        const left = (await list_disks()).map(d => d.id);
+        check(left.includes(disk.id) && !left.includes(own.id), "the disks after deleting the first: " + left);
+        log("deleting the first: its own disk deleted, the shared one kept");
+    },
+    async page()
+    {
+        const disk = await create_disk(1 << 20, "page disk", store);
+        const config = await machine("CPU in the page", Object.assign(dos_vm(disk.path)));
+        config.disks[0].image.size = 1 << 20;
+        config.advanced.cpu_worker = false;
+        await store.put(config);
+        const c = await open_console(config.id, { expect_error: true });
+        check(/needs the CPU Worker/.test(c.text), "the CPU in the page: " + c.text);
+        log("the CPU in the page: \"" + c.text.slice(0, 100) + "…\"");
+        check(disk_id(disk.path) === disk.id, "disk_id");
+    },
+};
+
+(async () =>
+{
+    store = await VMStore.open();
+    await parts[part]();
+})().then(() =>
+{
+    document.getElementById("result").textContent = "PASS (" + part + ")\n" + lines.join("\n");
+}, e =>
+{
+    document.getElementById("result").textContent = "FAIL (" + part + "): " + (e.stack || e.message) + "\n" + lines.join("\n");
+});
+</script>

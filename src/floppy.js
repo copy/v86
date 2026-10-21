@@ -18,6 +18,7 @@ import { dbg_assert, dbg_log } from "./log.js";
 import { CMOS_FLOPPY_DRIVE_TYPE } from "./rtc.js";
 import { SyncBuffer } from "./buffer.js";
 import { restore_disk_state } from "./disk_writeback.js";
+import { block_failed } from "./block_backend.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -969,14 +970,21 @@ FloppyController.prototype.start_read_write = function(args, do_write)
             data_offset,
             data_length,
             FDC_DMA_CHANNEL,
-            (dma_error, error) => {
-                if(dma_error)
+            (dma_error, error, retry) => {
+                if(dma_error && error)
+                {
+                    // (the image failed the read or write: the disk's policy,
+                    // as for hard disks (src/block_backend.js): "stop" holds
+                    // the transfer, the command unfinished, and stops the
+                    // machine, run() tries it again; "report" ends the
+                    // command with an error; the host gets a disk-error event)
+                    const owner = { buffer: curr_drive.buffer, cpu: this.cpu, name: curr_drive.name, drive: curr_drive };
+                    block_failed(owner, do_write ? "write" : "read", data_offset, data_length, error, retry,
+                        () => this.end_read_write(SR0_ABNTERM, 0, 0), () => {});
+                }
+                else if(dma_error)
                 {
                     dbg_log("DMA floppy error", LOG_FLOPPY);
-                    // (the image failed the read or write: the guest sees the
-                    // error, the host a disk-error event; floppies report,
-                    // docs/disk-persistence-plan.md D3)
-                    if(error) this.disk_failed(do_write ? "write" : "read", data_offset, data_length, error);
                     this.end_read_write(SR0_ABNTERM, 0, 0);
                 }
                 else
@@ -995,23 +1003,18 @@ FloppyController.prototype.start_read_write = function(args, do_write)
 };
 
 /**
- * The image of the current drive failed a transfer: a disk-error event
- * (policy "report": the command ends with an error)
- * @param {string} operation
- * @param {number} offset
- * @param {number} length
- * @param {!Error} error
+ * A drive's disk is taken out (ejected, or another inserted): its transfer
+ * held after an error ends with the error, as the guest would see a disk
+ * pulled out
+ * @param {!FloppyDrive} drive
  */
-FloppyController.prototype.disk_failed = function(operation, offset, length, error)
+FloppyController.prototype.disk_removed = function(drive)
 {
-    const drive = this.drives[this.curr_drive_no];
-    const name = drive.buffer && drive.buffer.disk_name || drive.name;
-    dbg_log(name + ": " + operation + " failed: " + error.message, LOG_FLOPPY);
-    const retryable = typeof error["retryable"] === "boolean" ? error["retryable"] : true;
-    this.cpu.bus && this.cpu.bus.send("disk-error", {
-        "disk": name, "operation": operation, "offset": offset, "length": length,
-        "reason": error.message, "retryable": retryable, "policy": "report",
-    });
+    const holds = this.cpu.disk_holds;
+    if(!holds || !holds.length) return;
+    const mine = holds.filter(hold => hold.owner.drive === drive);
+    this.cpu.disk_holds = holds.filter(hold => hold.owner.drive !== drive);
+    mine.forEach(hold => hold.report(hold.error));
 };
 
 FloppyController.prototype.end_read_write = function(status0, status1, status2)

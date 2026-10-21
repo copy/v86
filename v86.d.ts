@@ -344,6 +344,8 @@ export interface Event {
         retryable: boolean,
         policy: "stop" | "report",
     };
+    /** The start failed (an image could not be loaded or opened, the CPU Worker did not start): the emulator does not run */
+    "emulator-error": Error;
     "emulator-loaded": void;
     "emulator-ready": void;
     "emulator-started": void;
@@ -667,16 +669,18 @@ export interface V86Options {
     /**
      * First floppy disk. disk_option "read_write" writes the guest's
      * changes back (docs/disk-persistence-plan.md D3: a local file in Node,
-     * a disk service's URL; the image of a floppy format's size); a floppy
-     * drive reports a failed read or write to the guest (disk_error is
-     * "report").
+     * a disk service's URL; the image of a floppy format's size).
+     * disk_error as for hard disks: "stop" (the default) holds a failed
+     * transfer and stops the machine, run() tries it again; "report" ends
+     * the command with an error. A held transfer of a disk taken out ends
+     * with the error.
      */
-    fda?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string };
+    fda?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string };
 
     /**
      * Second floppy disk, as fda
      */
-    fdb?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string };
+    fdb?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string };
 
     /**
      * CD-ROM
@@ -1331,7 +1335,7 @@ export class V86 {
      * (disk_option "read_write") that is taken out, by another or by
      * eject_fda, is flushed and closed.
      */
-    set_fda(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string }): Promise<void>;
+    set_fda(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string }): Promise<void>;
 
     /**
      * Eject the first floppy drive.
@@ -1342,7 +1346,7 @@ export class V86 {
      * Set the image inserted in the second floppy drive. Can be changed at runtime,
      * as when physically changing the floppy disk.
      */
-    set_fdb(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string }): Promise<void>;
+    set_fdb(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string }): Promise<void>;
 
     /**
      * Eject the second floppy drive.
@@ -1359,6 +1363,48 @@ export class V86 {
      * Eject the CD-ROM.
      */
     eject_cdrom(): void | Promise<void>;
+
+    /**
+     * The CD-ROM drive: whether the machine has one (an IDE or AHCI drive;
+     * the virt machine's CD image is a virtio disk) and whether a disc is in it.
+     */
+    get_cdrom_state(): Promise<{ present: boolean; inserted: boolean }>;
+
+    /**
+     * Insert a CD made of files: an ISO 9660 image with the files in its root directory.
+     */
+    set_cdrom_files(files: Array<{ name: string; contents: Uint8Array }>): Promise<void>;
+
+    /**
+     * Watch the first network card's traffic: each packet the guest sends ("O") and receives ("I").
+     * @returns a function that stops watching
+     */
+    capture_network_traffic(listener: (direction: "I" | "O", data: Uint8Array) => void): () => void;
+
+    /**
+     * The speaker's volume: 0 mutes it, 1 is full.
+     * @returns whether the machine has a speaker (none with disable_speaker)
+     */
+    set_speaker_volume(volume: number): boolean;
+
+    /**
+     * The image in the first floppy drive, or null if the drive is empty
+     * (a promise when the CPU runs in a Worker).
+     */
+    get_disk_fda(): Uint8Array | null | Promise<Uint8Array | null>;
+
+    /**
+     * The image in the second floppy drive, or null if the drive is empty
+     * (a promise when the CPU runs in a Worker).
+     */
+    get_disk_fdb(): Uint8Array | null | Promise<Uint8Array | null>;
+
+    /**
+     * A diagnostic snapshot of the machine (CPU mode and registers, interrupt
+     * controllers, ACPI, how the cores run: `execution`) as plain data, for
+     * debugging and test reports; the format is not a stable API.
+     */
+    get_diagnostics(): Promise<any>;
 
     /**
      * Hot plug a drive into a free SATA port of the Q35 machine's AHCI

@@ -58,28 +58,17 @@ pub unsafe fn set_x87_policy_observer(observer: unsafe fn()) {
     X87_POLICY_OBSERVER = Some(observer);
 }
 
-// State snapshots use SoftFloat's codes: precision 32/64/80 and rounding
-// nearest-even/toward-zero/down/up (0/1/2/3), not x87 control-word RC bits.
-#[no_mangle]
-pub unsafe fn performance_recording_x87_state(index: u32) -> u32 {
-    match index {
-        0 => extF80_roundingPrecision as u32,
-        1 => softfloat_roundingMode as u32,
-        2 => X87_FAST_MATH as u32,
-        _ => 0,
-    }
-}
-
+/// The host arithmetic policy: native f64 (set_x87_fast_math) or compatible
 #[inline(always)]
-fn record_x87_arithmetic(op: usize, path: usize) {
-    if crate::x87_profiler::enabled() {
-        unsafe {
-            crate::x87_profiler::record(op, path, extF80_roundingPrecision, softfloat_roundingMode);
-        }
-    }
-}
+pub fn x87_fast_math() -> bool { unsafe { X87_FAST_MATH } }
 
-pub fn record_cached_arithmetic(op: usize) { record_x87_arithmetic(op, 2); }
+#[no_mangle]
+pub fn get_x87_fast_math() -> bool { x87_fast_math() }
+
+/// The path an F80 operation took, in the profiler's statistics (the
+/// profiler feature only; tests/rust/x87_fast_path.mjs)
+#[inline(always)]
+pub fn count_x87_path(path: crate::profiler::stat) { crate::profiler::stat_increment(path); }
 
 pub enum Precision {
     P80,
@@ -740,14 +729,14 @@ impl std::ops::Add for F80 {
     #[inline(always)]
     fn add(self, other: Self) -> Self {
         if unsafe { X87_FAST_MATH } {
-            record_x87_arithmetic(0, 2);
+            count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
             return F80::of_f64x(self.to_f64x() + other.to_f64x());
         }
         if let Some(result) = self.exact_add(other) {
-            record_x87_arithmetic(0, 0);
+            count_x87_path(crate::profiler::stat::X87_EXACT);
             return result;
         }
-        record_x87_arithmetic(0, 1);
+        count_x87_path(crate::profiler::stat::X87_SOFTFLOAT);
         let mut result = F80::ZERO;
         unsafe { extF80M_add(&self, &other, &mut result) };
         result
@@ -758,14 +747,14 @@ impl std::ops::Sub for F80 {
     #[inline(always)]
     fn sub(self, other: Self) -> Self {
         if unsafe { X87_FAST_MATH } {
-            record_x87_arithmetic(1, 2);
+            count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
             return F80::of_f64x(self.to_f64x() - other.to_f64x());
         }
         if let Some(result) = self.exact_add(-other) {
-            record_x87_arithmetic(1, 0);
+            count_x87_path(crate::profiler::stat::X87_EXACT);
             return result;
         }
-        record_x87_arithmetic(1, 1);
+        count_x87_path(crate::profiler::stat::X87_SOFTFLOAT);
         let mut result = F80::ZERO;
         unsafe { extF80M_sub(&self, &other, &mut result) };
         result
@@ -784,14 +773,14 @@ impl std::ops::Mul for F80 {
     #[inline(always)]
     fn mul(self, other: Self) -> Self {
         if unsafe { X87_FAST_MATH } {
-            record_x87_arithmetic(2, 2);
+            count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
             return F80::of_f64x(self.to_f64x() * other.to_f64x());
         }
         if let Some(result) = self.exact_mul(other) {
-            record_x87_arithmetic(2, 0);
+            count_x87_path(crate::profiler::stat::X87_EXACT);
             return result;
         }
-        record_x87_arithmetic(2, 1);
+        count_x87_path(crate::profiler::stat::X87_SOFTFLOAT);
         let mut result = F80::ZERO;
         unsafe { extF80M_mul(&self, &other, &mut result) };
         result
@@ -802,21 +791,21 @@ impl std::ops::Div for F80 {
     #[inline(always)]
     fn div(self, other: Self) -> Self {
         if unsafe { X87_FAST_MATH } {
-            record_x87_arithmetic(3, 2);
+            count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
             return F80::of_f64x(self.to_f64x() / other.to_f64x());
         }
         if let Some(result) = self.exact_div(other) {
-            record_x87_arithmetic(3, 0);
+            count_x87_path(crate::profiler::stat::X87_EXACT);
             return result;
         }
         let mut result = F80::ZERO;
         if unsafe { extF80_roundingPrecision } != 80 {
             if let Some(value) = self.native_div(other) {
-                record_x87_arithmetic(3, 0);
+                count_x87_path(crate::profiler::stat::X87_EXACT);
                 return value;
             }
         }
-        record_x87_arithmetic(3, 1);
+        count_x87_path(crate::profiler::stat::X87_SOFTFLOAT);
         unsafe { extF80M_div(&self, &other, &mut result) };
         result
     }

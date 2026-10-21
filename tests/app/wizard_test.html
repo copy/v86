@@ -1,0 +1,266 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: the wizard and the settings dialog</title>
+<!-- The VM manager's wizard and settings dialog (docs/vm-manager-plan.md U3), in a frame:
+     part=freedos  the DOS preset from a floppy URL (images/freedos722.img), no hard disk: "Welcome to FreeDOS"
+     part=linux    the 32-bit Linux preset from a CD URL (images/linux4.iso), a new disk in memory: the shell's "~%"
+     part=arm64    the arm64 Linux preset, direct boot: Alpine's kernel, initrd and ISO (build/a64-linux/): "login:" on the serial console
+     part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
+                   reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
+     part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
+     node tests/app/browser_runner.mjs tests/app/wizard_test.html part=freedos -->
+<style>iframe { width: 1100px; height: 760px; border: 1px solid #888; }</style>
+<pre id="log"></pre>
+<pre id="result"></pre>
+<script type="module">
+const args = new URLSearchParams(location.search);
+const part = args.get("part") || "freedos";
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(condition, what, timeout = 30000)
+{
+    const end = Date.now() + timeout;
+    for(;;)
+    {
+        const value = await condition();
+        if(value) return value;
+        if(Date.now() > end) throw new Error("timed out: " + what);
+        await sleep(100);
+    }
+}
+function check(condition, what) { if(!condition) throw new Error(what); }
+
+async function open_frame(url)
+{
+    const frame = document.createElement("iframe");
+    frame.src = url;
+    document.body.append(frame);
+    await new Promise(resolve => frame.onload = resolve);
+    return frame;
+}
+
+let library, w, d;
+const $ = selector => d.querySelector(selector);
+const $$ = selector => Array.from(d.querySelectorAll(selector));
+const button = (text, scope = d) => Array.from(scope.querySelectorAll("button")).find(b => b.textContent.trim() === text && !b.disabled);
+const names = () => $$(".vm-list .vm-name").map(e => e.textContent);
+/** set a field the way a person does: its value, then change */
+function set(element, value)
+{
+    element.value = value;
+    element.dispatchEvent(new w.Event("input", { bubbles: true }));
+    element.dispatchEvent(new w.Event("change", { bubbles: true }));
+}
+/** A table's rows as "name value; name value" */
+const table_text = table => Array.from(table.querySelectorAll("tr"), tr => Array.from(tr.children, c => c.textContent.trim()).join(" ")).join("; ");
+const select_text = (element, text) => set(element, Array.from(element.options).find(o => o.textContent.startsWith(text)).value);
+
+async function open_library()
+{
+    library = await open_frame("/index.html");
+    w = library.contentWindow;
+    d = library.contentDocument;
+    await until(() => $(".library"), "the library");
+    // (power on opens a tab: here, the address)
+    w.open = url => { w.__opened = url; return null; };
+}
+
+/**
+ * The wizard: the source (its radio's text and URLs), the preset, the name, the disk
+ * @param {{source: string, urls: Object<string, string>, preset: string, name: string, disk: "none" | "memory" | "service", disk_mb?: number}} o
+ */
+async function wizard(o)
+{
+    $("#new_vm").click();
+    const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+    Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith(o.source)).click();
+    for(const [label, url] of Object.entries(o.urls))
+    {
+        // (an optional image starts as "None": its URL choice first)
+        const source = await until(() => wizard.querySelector("select[aria-label=\"" + label + ": source\"]"), "the source of " + label);
+        if(source.value !== "url") set(source, "url");
+        const input = await until(() => wizard.querySelector("input[aria-label=\"" + label + ": URL\"]"), "the URL of " + label);
+        set(input, url);
+    }
+    button("Next", wizard).click();
+    (await until(() => wizard.querySelector("li[data-preset=" + o.preset + "]"), "the preset " + o.preset)).click();
+    log("wizard: " + o.source + " " + JSON.stringify(o.urls) + ", preset " + wizard.querySelector(".preset-detail h3").textContent +
+        " (" + wizard.querySelector(".preset-detail p").textContent.slice(0, 60) + "…)");
+    button("Next", wizard).click();
+    set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), o.name);
+    button("Next", wizard).click();
+    await until(() => wizard.querySelector("input[name=disk]"), "the disk step");
+    if(o.disk === "none")
+    {
+        wizard.querySelector("input[name=disk][value=none]").click();
+    }
+    else
+    {
+        if(o.disk_mb) set(wizard.querySelector("input[aria-label='Disk size in MB']"), String(o.disk_mb));
+        const location = await until(() => wizard.querySelector("input[name=location][value=" + o.disk + "]"), "the location");
+        check(!location.disabled, "the location " + o.disk + " can be chosen");
+        location.click();
+    }
+    button("Next", wizard).click();
+    const summary = table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary"));
+    button("Finish", wizard).click();
+    await until(() => names().includes(o.name), "the new machine in the library");
+    return summary;
+}
+
+/** Power on the selected machine: its console in another frame; its emulator */
+async function power_on()
+{
+    w.__opened = undefined;
+    $("#power_on").click();
+    const url = await until(() => w.__opened, "power on");
+    const frame = await open_frame(new URL(url, w.location.href).href);
+    const emulator = await until(() => frame.contentWindow.v86_console?.emulator, "the console's emulator", 60000);
+    return { frame, emulator };
+}
+
+const parts = {
+    async freedos()
+    {
+        await open_library();
+        const summary = await wizard({ source: "A floppy image", urls: { "Floppy image": "images/freedos722.img" }, preset: "dos", name: "FreeDOS (wizard)", disk: "none" });
+        check(/Memory 64 MB/.test(summary) && /Floppy \(fda\) images\/freedos722\.img/.test(summary) && !/Hard disk/.test(summary), "the summary: " + summary);
+        check(/Memory 64 MB/.test(table_text($(".hardware"))), "the library's summary");
+        log("library: " + names().join(", "));
+        const { emulator } = await power_on();
+        check(await emulator.wait_until_vga_screen_contains("Welcome to FreeDOS", { timeout_msec: 120000 }), "FreeDOS's welcome");
+        log("power on: \"Welcome to FreeDOS\"");
+        await emulator.destroy();
+    },
+    async linux()
+    {
+        await open_library();
+        const summary = await wizard({ source: "A CD or DVD image", urls: { "CD image": "images/linux4.iso" }, preset: "linux", name: "Linux 4 (wizard)",
+            disk: "memory", disk_mb: 64 });
+        check(/Memory 512 MB/.test(summary) && /CD\/DVD images\/linux4\.iso/.test(summary) && /Hard disk \(hda\) empty disk in memory, 64 MB/.test(summary) &&
+            /ACPI/.test(summary), "the summary: " + summary);
+        const { emulator } = await power_on();
+        check(await emulator.wait_until_vga_screen_contains("~%", { timeout_msec: 240000 }), "Linux's shell");
+        log("power on: Linux 4 boots to its shell (\"~%\")");
+        await emulator.destroy();
+    },
+    async arm64()
+    {
+        await open_library();
+        const base = "build/a64-linux/";
+        const summary = await wizard({ source: "A kernel and initrd", urls: { "Kernel": base + "boot/vmlinuz-virt", "Initrd": base + "boot/initramfs-virt",
+            "The system's CD (optional)": base + "alpine-virt-3.24.0-aarch64.iso" }, preset: "linux_arm64", name: "Alpine arm64 (wizard)", disk: "none" });
+        check(/Processor arm64, 4 cores/.test(summary) && /Machine virt/.test(summary) && /Direct boot kernel/.test(summary) && /Display virtio-gpu/.test(summary),
+            "the summary: " + summary);
+        const { emulator } = await power_on();
+        let serial = "";
+        emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+        await until(() => /login:/.test(serial), "Alpine's login on the serial console", 300000);
+        log("power on: Alpine arm64 boots to \"" + serial.trim().split("\n").pop().trim() + "\"");
+        await emulator.destroy();
+    },
+    async dialog()
+    {
+        await open_library();
+        await wizard({ source: "Install the system later", urls: {}, preset: "other", name: "To edit", disk: "memory", disk_mb: 32 });
+        const before = JSON.stringify(names());
+        $("#edit_vm").click();
+        let dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        const item = id => dialog.querySelector("li[data-item=" + id + "]");
+        const panel = () => dialog.querySelector(".settings-panel");
+        const items = () => Array.from(dialog.querySelectorAll(".hardware-list li"), li => li.dataset.item);
+        check(JSON.stringify(items()) === JSON.stringify(["general", "memory", "processor", "machine", "disk-0", "cdrom", "network-0", "sound", "display", "serial", "advanced"]),
+            "the hardware list: " + items());
+
+        // the CPU: arm64 makes the machine virt, said in the notes
+        item("processor").click();
+        select_text(panel().querySelector("select[aria-label=CPU]"), "arm64");
+        await until(() => /Machine: virt/.test(dialog.querySelector(".settings-notes").textContent), "the note");
+        log("arm64: " + dialog.querySelector(".settings-notes").textContent);
+        item("display").click();
+        const adapters = Array.from(panel().querySelector("select[aria-label='Display adapter']").options, o => o.textContent);
+        check(JSON.stringify(adapters) === JSON.stringify(["None (serial console only)", "virtio-gpu"]), "virt's display adapters: " + adapters);
+        item("machine").click();
+        const acpi = Array.from(panel().querySelectorAll("label.check")).find(l => /^ACPI/.test(l.textContent.trim()));
+        check(acpi.querySelector("input").disabled && /device tree/.test(acpi.textContent), "ACPI fixed, with its reason: " + acpi.textContent);
+        check(items().includes("virt") && !items().includes("floppy-0"), "virt's items: " + items());
+        log("virt: display adapters " + adapters.join(", ") + "; ACPI " + acpi.textContent.trim());
+
+        // back to x86, then two cores: ACPI on, fixed
+        item("processor").click();
+        select_text(panel().querySelector("select[aria-label=CPU]"), "x86 (32-bit");
+        select_text(panel().querySelector("select[aria-label=Cores]"), "2");
+        item("machine").click();
+        const acpi2 = Array.from(panel().querySelectorAll("label.check")).find(l => /^ACPI/.test(l.textContent.trim())).querySelector("input");
+        check(acpi2.checked && acpi2.disabled, "two cores: ACPI on and fixed");
+
+        // a problem: the disk's URL left empty; Save shows it on the disk's panel
+        item("disk-0").click();
+        select_text(panel().querySelector("select[aria-label='Source: source']"), "An image on the web");
+        button("Save", dialog).click();
+        await until(() => dialog.querySelector(".settings-panel ul.problems"), "the problem on its panel");
+        check(dialog.querySelector("li[data-item=disk-0]").classList.contains("has-problem") && dialog.querySelector("li[data-item=disk-0]").classList.contains("selected"),
+            "the disk's item marked and chosen");
+        log("Save with an empty URL: " + dialog.querySelector(".settings-panel ul.problems").textContent + " (on the disk's panel)");
+        set(panel().querySelector("input[aria-label='Source: URL']"), "images/msdos622.img");
+        check(!dialog.querySelector("ul.problems"), "the problem gone after the fix");
+
+        // Add a floppy drive, remove it again; add a second disk
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "Floppy drive");
+        await until(() => item("floppy-0") && item("floppy-0").classList.contains("selected"), "the floppy drive added and chosen");
+        button("Remove", dialog).click();
+        await until(() => !item("floppy-0"), "the floppy drive removed");
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "Hard disk");
+        await until(() => item("disk-1"), "a second hard disk");
+        log("Add and Remove: a floppy drive added and removed, a second hard disk added");
+        button("Save", dialog).click();
+        await until(() => !$("dialog.settings-dialog[open]"), "saved");
+        const table = await until(() => /2 cores/.test(table_text($(".hardware"))) && table_text($(".hardware")), "the library showing the saved machine");
+        check(/x86, 2 cores/.test(table) && /ACPI/.test(table) && /Hard disk \(hda\) images\/msdos622\.img/.test(table) && /Hard disk \(hdb\)/.test(table),
+            "the saved machine: " + table);
+        log("saved: " + table.slice(0, 160));
+
+        // Cancel: nothing changes
+        $("#edit_vm").click();
+        dialog = await until(() => $("dialog.settings-dialog[open]"), "the dialog again");
+        item("memory").click();
+        set(dialog.querySelector(".settings-panel input[aria-label='Memory in MB']"), "1024");
+        button("Cancel", dialog).click();
+        await until(() => !$("dialog.settings-dialog[open]"), "cancelled");
+        await sleep(500);
+        check(!/1024 MB/.test(table_text($(".hardware"))) && JSON.stringify(names()) === before, "Cancel keeps the configuration");
+        log("Cancel: the configuration unchanged");
+    },
+    async service()
+    {
+        const service = args.get("service");
+        check(service, "the runner's disk service (service=1)");
+        await open_library();
+        $("#preferences").click();
+        const prefs = await until(() => $("dialog[open]"), "the preferences");
+        set(prefs.querySelector("input[aria-label='Disk service URL']"), service);
+        button("Test", prefs).click();
+        await until(() => /A disk service: 1 images, creates new ones/.test(prefs.textContent), "the test of the service");
+        button("Save", prefs).click();
+        await until(() => $("#service_status").textContent === "Disk service: " + service, "the library using the disk service");
+        log("Preferences: " + service + ", tested; the library shows it");
+        const summary = await wizard({ source: "A CD or DVD image", urls: { "CD image": "images/linux4.iso" }, preset: "linux", name: "Kept disk", disk: "service", disk_mb: 16 });
+        check(/read write/.test(summary) || /created when finished/.test(summary), "the summary: " + summary);
+        const files = await (await fetch("/__service_files")).json();
+        const kept = files.find(f => f.name === "kept-disk.img");
+        check(files.length === 2 && kept && kept.size === 16 << 20, "the service's files: " + JSON.stringify(files));
+        const table = await until(() => table_text($(".hardware")).includes(service + "kept-disk.img") && table_text($(".hardware")), "the machine's disk");
+        check(/read write/.test(table), "the machine's disk: " + table);
+        log("the wizard's new disk: " + kept.name + " (" + kept.size + " bytes) in the service's directory, read write");
+    },
+};
+
+parts[part]().then(() =>
+{
+    document.getElementById("result").textContent = "PASS (" + part + ")\n" + lines.join("\n");
+}, e =>
+{
+    document.getElementById("result").textContent = "FAIL (" + part + "): " + (e.stack || e.message) + "\n" + lines.join("\n");
+});
+</script>

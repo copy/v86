@@ -15,17 +15,46 @@ export const CPU_TYPES = ["x86", "x86_64", "arm64"];
  */
 export const MACHINE_TYPES = ["i440fx", "q35", "virt"];
 
+/**
+ * The most cores (`cpu_cores`) of the PC machines (src/platform.js): must
+ * match MAX_CORES in src/rust/cpu/apic.rs. The virt machine has as many
+ * (VIRT_MAX_CORES in src/virt/platform.js; tests/app/machine_rules.mjs checks)
+ */
+export const MAX_CORES = 8;
+
+/** Q35's PCI Express root ports (`pcie_root_ports`): ICH9 has six, device 28 (src/platform.js) */
+export const Q35_ROOT_PORTS_MAX = 6;
+
+/**
+ * The largest vram_size: the VGA core backs at most this much
+ * (VGA_MAX_MEMORY_SIZE in graphics_adapters/vga_core.js), and a device whose
+ * BAR were larger would reach past it (src/graphics_adapter.js)
+ */
+export const MAX_VRAM_SIZE = 256 << 20;
+
+/** Every value graphics_adapter may name (src/graphics_adapter.js) */
+export const GRAPHICS_ADAPTERS = ["bochs_vga", "vmware_svga", "virtio_gpu", "none"];
+
+/** The network cards (net_device.type) of the PC machines */
+export const NET_DEVICE_TYPES = ["ne2k", "virtio", "none"];
+
 /** Options of the PC machines that the virt machine rejects */
-const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",
+export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",
     "hpet", "smbus", "pcie_root_ports", "qemu_compatible", "uart1", "uart2", "uart3", "parallel1", "modem",
     "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features"];
 
 /** Options of the virt machine that the PC machines reject */
-const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
+export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
     "virtio_console_ports", "virtio_gpu_pci_slot"];
 
 /** The display adapters of the virt machine (no VGA) */
-const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
+export const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
+
+/** The network cards of the virt machine (virtio-net) */
+export const VIRT_NET_DEVICE_TYPES = ["virtio", "none"];
+
+/** Options that only the Q35 machine has */
+export const Q35_ONLY = ["hpet", "smbus", "pcie_root_ports"];
 
 const given = value => value !== undefined && value !== null && value !== false;
 
@@ -109,4 +138,55 @@ export function check_machine_options(options)
         }
     }
     return { cpu_type, machine_type };
+}
+
+/**
+ * What the options of new V86() may be on a CPU and machine, for a page that
+ * offers them (docs/vm-manager-plan.md, the settings dialog: it disables what
+ * does not apply and says why). The same rules as check_machine_options and
+ * the machines' own checks (src/platform.js: hpet, smbus and pcie_root_ports
+ * need Q35, Q35 needs ACPI, more than one core needs ACPI).
+ * @param {string} cpu_type
+ * @param {string} machine_type
+ * @return {{machine_types: !Array<string>, graphics_adapters: !Array<string>, net_device_types: !Array<string>,
+ *     max_cores: number, acpi: string, unavailable: !Object<string, string>}} machine_types: the machines
+ *     of the CPU; acpi: "required" (Q35), "with_cores" (needed with more than one core), "none" (virt);
+ *     unavailable: the options that do not apply, each with the reason
+ */
+export function allowed_options(cpu_type, machine_type)
+{
+    const virt = machine_type === "virt";
+    /** @type {!Object<string, string>} */
+    const unavailable = {};
+    if(virt)
+    {
+        for(const name of PC_ONLY)
+        {
+            unavailable[name] = name + " is an option of the PC machines (i440FX, Q35), not of the virt machine";
+        }
+        unavailable["bios"] = unavailable["vga_bios"] = "the virt machine has no PC firmware (it boots its kernel directly)";
+        unavailable["fda"] = unavailable["fdb"] = "the virt machine has no floppy controller";
+        unavailable["acpi"] = "the virt machine describes itself with a device tree, not ACPI";
+    }
+    else
+    {
+        for(const name of VIRT_ONLY)
+        {
+            unavailable[name] = name + " is an option of the virt machine (cpu_type \"arm64\")";
+        }
+        if(machine_type !== "q35")
+        {
+            unavailable["hpet"] = "only the Q35 machine has an HPET";
+            unavailable["smbus"] = "only the Q35 machine has an SMBus controller";
+            unavailable["pcie_root_ports"] = "only the Q35 machine has PCI Express root ports";
+        }
+    }
+    return {
+        machine_types: cpu_type === "arm64" ? ["virt"] : MACHINE_TYPES.filter(m => m !== "virt"),
+        graphics_adapters: virt ? VIRT_GRAPHICS_ADAPTERS.slice() : GRAPHICS_ADAPTERS.slice(),
+        net_device_types: virt ? VIRT_NET_DEVICE_TYPES.slice() : NET_DEVICE_TYPES.slice(),
+        max_cores: MAX_CORES,
+        acpi: virt ? "none" : machine_type === "q35" ? "required" : "with_cores",
+        unavailable,
+    };
 }

@@ -1390,10 +1390,6 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     COUNTERS[COUNT_ACTIVATIONS] += 1;
     STEP_EXITED = false;
     let t_call = if TIMING { time::microtick() } else { 0.0 };
-    // (the performance recorder's JIT chunks, as the IR cache's activations)
-    let sample = crate::profiler::performance_recording_enabled().then(|| {
-        crate::profiler::performance_chunk_start(true, rip as u32, *gp::cr.add(3) as u32, *gp::cpl)
-    });
     let native = call_indirect1_ret(
         (slot + cpu::WASM_TABLE_OFFSET) as i32,
         budget.min(u16::MAX as u32) as u16,
@@ -1410,10 +1406,6 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     if *gp::x64_page_rep_elements != 0 {
         execution::note_jit_rep(*gp::x64_page_rep_elements);
         *gp::x64_page_rep_elements = 0;
-    }
-    if let Some(sample) = sample {
-        crate::profiler::performance_chunk_finish(sample, native);
-        crate::profiler::performance_recording_add(1, native as u64);
     }
     *gp::instruction_counter = (*gp::instruction_counter).wrapping_add(native);
     execution::note_native_retired(native);
@@ -1482,9 +1474,6 @@ unsafe fn compile(page: u32) -> Attempt { compile_mode(page, false) }
 /// compile(page), or with `hot` its recompile with inline access lookups
 /// (P4.14), which is no compile of its own: no backoff
 unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
-    // (the performance recorder's synchronous code generation, up to the
-    // publication of a function: src/browser/performance_recorder.js)
-    let started = crate::profiler::performance_codegen_start();
     let r = rt();
     let state = r.pages.entry(page).or_default();
     if hot {
@@ -1769,7 +1758,6 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     unsafe { BYTES_COMPILED += code.bytes.len() as u64 };
     r.stats[INSTRUCTIONS] += code.instructions as u64;
     r.stats[TEMPLATED] += code.templated as u64;
-    crate::profiler::performance_codegen_finish(started);
     // The host installs it synchronously when it can (x64_page_install).
     publish::publish(ClientId::X86Page, id, slot, &code.bytes);
     Attempt {

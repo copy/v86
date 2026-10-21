@@ -2,7 +2,7 @@
 // own file and is loaded only when it is configured. v86 owns the VGA slot,
 // the PCI bus, the port and memory maps, device memory (mmio_ram), the display
 // hub and the adapter's place in a snapshot; the plugin owns the device.
-// Plugins are not compiled with v86 (v86_all.js renames properties), so the
+// Plugins are not compiled with v86 (an ADVANCED build renames properties), so the
 // handle a plugin gets and the descriptor and device it gives back use quoted
 // names only. src/graphics_adapters/machine.js is the plugin's end of it.
 // See docs/gpu-devices.md, "Adapter plugins".
@@ -12,6 +12,7 @@ import { dbg_log } from "./log.js";
 import { pci_functions } from "./platform.js";
 import { DisplaySource } from "./display.js";
 import { create_adapter_virtio_device } from "./virtio_devices.js";
+import { GRAPHICS_ADAPTERS, MAX_VRAM_SIZE } from "./machine_options.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -19,14 +20,10 @@ import { CPU } from "./cpu.js";
 /* global __dirname, V86_BUNDLE, V86_BUNDLE_URL */
 
 /** Every value graphics_adapter may name */
-const ADAPTERS = ["bochs_vga", "vmware_svga", "virtio_gpu", "none"];
+const ADAPTERS = GRAPHICS_ADAPTERS;
 
-/**
- * The largest vram_size: the VGA core backs at most this much
- * (VGA_MAX_MEMORY_SIZE in graphics_adapters/vga_core.js), and a device whose
- * BAR were larger would reach past it
- */
-export const MAX_VRAM_SIZE = 256 << 20;
+// (MAX_VRAM_SIZE, the largest vram_size, is in machine_options.js with the other option rules)
+export { MAX_VRAM_SIZE };
 
 /** The global registry plugin files add their descriptors to */
 const REGISTRY = "V86GraphicsAdapters";
@@ -43,8 +40,8 @@ const NODE = typeof process !== "undefined" && process.versions && process.versi
 
 /**
  * The bundle's own URL: plugins are built beside it. libv86.mjs gets it from
- * its output wrapper (import.meta.url); a classic script in a page (libv86.js,
- * v86_all.js) from document.currentScript while it runs
+ * its output wrapper (import.meta.url); a classic script in a page (libv86.js)
+ * from document.currentScript while it runs
  */
 const BUNDLE_URL = typeof V86_BUNDLE_URL === "string" ? V86_BUNDLE_URL :
     typeof document !== "undefined" && document.currentScript && document.currentScript.src || "";

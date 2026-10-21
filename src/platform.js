@@ -5,10 +5,8 @@
 
 import { dbg_assert } from "./log.js";
 import { h } from "./lib.js";
-import { MACHINE_TYPES } from "./machine_options.js";
+import { MACHINE_TYPES, MAX_CORES, Q35_ROOT_PORTS_MAX } from "./machine_options.js";
 
-/** Must match MAX_CORES in src/rust/cpu/apic.rs */
-export const MAX_CORES = 8;
 
 export const LAPIC_ADDRESS = 0xFEE00000;
 export const IOAPIC_ADDRESS = 0xFEC00000;
@@ -26,7 +24,8 @@ export const QEMU_PCI_SUBSYSTEM = [0xF4, 0x1A, 0x00, 0x11];
 
 // settings.machine_type: see src/machine_options.js ("i440fx", "q35" and,
 // with cpu_type "arm64", "virt"); this file describes the PC machines
-export { MACHINE_TYPES } from "./machine_options.js";
+// (MAX_CORES must match src/rust/cpu/apic.rs: src/machine_options.js)
+export { MACHINE_TYPES, MAX_CORES, Q35_ROOT_PORTS_MAX } from "./machine_options.js";
 
 /**
  * Version of the device layout a snapshot records with its machine type;
@@ -60,7 +59,6 @@ export const ICH9_AHCI_PCI_ID = 0x1F << 3 | 2;
 const Q35_CHIPSET_SLOTS = [0x00, 0x1F];
 /** ICH9's PCI Express root ports: device 28, one function per port (src/pcie_root_port.js) */
 export const Q35_ROOT_PORT_SLOT = 0x1C;
-export const Q35_ROOT_PORTS_MAX = 6;
 
 /**
  * PCI functions (device << 3 | function on bus 0) of the devices whose place

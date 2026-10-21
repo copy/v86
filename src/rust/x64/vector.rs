@@ -1447,7 +1447,7 @@ struct X87Strict {
 }
 impl X87Strict {
     unsafe fn new() -> Self {
-        let old_fast = crate::softfloat::performance_recording_x87_state(2) != 0;
+        let old_fast = crate::softfloat::x87_fast_math();
         let old_flags = softfloat_exceptionFlags;
         if old_fast {
             crate::softfloat::set_x87_fast_math(false);

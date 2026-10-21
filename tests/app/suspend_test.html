@@ -1,0 +1,145 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: suspend and resume</title>
+<!-- The VM manager's suspended machines and one tab per machine (docs/vm-manager-plan.md U5), MS-DOS in frames ("tabs"):
+     a second tab of a running machine refused, the library shows it running; Suspend (the browser asked once to keep
+     the storage), the tab closed, the library shows it suspended; opened again it resumes, the guest's screen as it was,
+     and goes on, the state file used up; settings changed after suspending: asked, "Discard" starts afresh; only the
+     notes changed: resumed without asking; not enough space: refused, said why.
+     node tests/app/browser_runner.mjs tests/app/suspend_test.html -->
+<style>iframe { width: 1000px; height: 650px; border: 1px solid #888; }</style>
+<pre id="log"></pre>
+<pre id="result"></pre>
+<script type="module">
+import { VMStore } from "../../src/app/vm_store.js";
+import { new_config } from "../../src/app/vm_config.js";
+import { read_state } from "../../src/app/vm_state.js";
+
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(condition, what, timeout = 30000)
+{
+    const end = Date.now() + timeout;
+    for(;;)
+    {
+        const value = await condition();
+        if(value) return value;
+        if(Date.now() > end) throw new Error("timed out: " + what);
+        await sleep(100);
+    }
+}
+function check(condition, what) { if(!condition) throw new Error(what); }
+
+async function open_tab(url)
+{
+    const frame = document.createElement("iframe");
+    frame.src = url;
+    document.body.append(frame);
+    await new Promise(resolve => frame.onload = resolve);
+    return frame;
+}
+/** a console tab of the machine, its emulator once its prompt is there (or its notice when it does not start) */
+async function console_tab(id, { prompt = true } = {})
+{
+    const frame = await open_tab("/index.html?vm=" + id);
+    const w = frame.contentWindow, d = frame.contentDocument;
+    const $ = s => d.querySelector(s);
+    const menu = async (menu_id, item_id) => { $("#" + menu_id).click(); (await until(() => $("#" + item_id), item_id)).click(); };
+    const emulator = prompt ? await until(() => w.v86_console?.emulator, "the console's emulator", 60000) : null;
+    return { frame, w, d, $, menu, emulator };
+}
+const type = async (emulator, text) => { await emulator.keyboard_send_text(text + "\n", 20); };
+const screen_has = (emulator, text, timeout = 60000) => emulator.wait_until_vga_screen_contains(text, { timeout_msec: timeout });
+
+async function main()
+{
+    const store = await VMStore.open();
+    const config = await store.put(Object.assign(new_config({ name: "DOS to suspend" }), {
+        disks: [{ slot: "hda", image: { kind: "url", url: "images/msdos622.img", async: true }, disk_option: "read_only", disk_error: "stop" }],
+    }));
+    const id = config.id;
+
+    // a running machine: a second tab is refused, the library shows it running
+    const a = await console_tab(id);
+    check(await screen_has(a.emulator, "C:\\>", 120000), "MS-DOS's prompt");
+    await type(a.emulator, "echo BEFORE-SUSPEND");
+    check(await screen_has(a.emulator, "BEFORE-SUSPEND"), "the text before suspending");
+    const b = await console_tab(id, { prompt: false });
+    const refused = await until(() => b.$(".console-notice p.error")?.textContent, "the second tab's refusal");
+    check(/runs in another tab/.test(refused) && !b.w.v86_console, "the second tab: " + refused);
+    b.frame.remove();
+    const library = await open_tab("/index.html");
+    const state_of = () => library.contentDocument.querySelector(".vm-list li[data-id='" + id + "'] .vm-state")?.textContent;
+    await until(() => state_of() === "Running in another tab", "the library: running");
+    log("a second tab refused (\"" + refused.slice(0, 60) + "…\"); the library: Running in another tab");
+
+    // suspend: persistent storage asked once; the tab closed; the library: suspended
+    let persist_calls = 0;
+    a.w.navigator.storage.persist = async () => { persist_calls++; return true; };
+    await a.menu("menu_power", "menu_suspend");
+    await until(() => /Suspended/.test(a.$(".console-status").textContent), "suspended", 120000);
+    const file = await read_state(id);
+    const suspended = (await store.get(id)).suspended;
+    check(file && file.size > 1 << 20 && suspended && suspended.size === file.size && /^[0-9a-f]{64}$/.test(suspended.digest), "the state: " + JSON.stringify(suspended));
+    check(persist_calls === 1 && await store.get_pref("persist_asked") === true, "persist() asked once: " + persist_calls);
+    a.frame.remove();
+    library.contentWindow.dispatchEvent(new Event("focus"));
+    await until(() => state_of() === "Suspended", "the library: suspended");
+    check(library.contentDocument.querySelector("#power_on").textContent === "Resume" && library.contentDocument.querySelector("#discard_state"),
+        "the library's Resume and Discard");
+    log("Suspend: " + file.size + " bytes in v86/states/, persist() asked once, the tab closed; the library: Suspended, Resume");
+
+    // opened again: resumed, the screen as it was, the guest goes on; the state file used up
+    const c = await console_tab(id);
+    check(await screen_has(c.emulator, "BEFORE-SUSPEND", 60000), "the resumed screen");
+    await type(c.emulator, "echo AFTER-RESUME");
+    check(await screen_has(c.emulator, "AFTER-RESUME"), "the guest goes on after resuming");
+    await until(async () => !(await read_state(id)) && !(await store.get(id)).suspended, "the state used up");
+    log("Resume: the screen as it was (BEFORE-SUSPEND), the guest goes on (AFTER-RESUME), the state file used up");
+
+    // not enough space: refused, said why
+    c.w.navigator.storage.estimate = async () => ({ quota: 64 << 20, usage: 60 << 20 });
+    await c.menu("menu_power", "menu_suspend");
+    const too_small = await until(() => c.$("dialog[open]"), "the space dialog");
+    check(/Not enough space/.test(too_small.textContent), "the space dialog: " + too_small.textContent);
+    Array.from(too_small.querySelectorAll("button")).find(x => x.textContent === "OK").click();
+    check(c.emulator.is_running() && !(await read_state(id)), "still running, no state");
+    delete c.w.navigator.storage.estimate;
+    log("not enough space: \"" + too_small.querySelector("p, .dialog-body").textContent.slice(0, 70) + "…\", still running");
+
+    // settings changed after suspending: asked; Discard starts afresh
+    await c.menu("menu_power", "menu_suspend");
+    await until(() => /Suspended/.test(c.$(".console-status").textContent), "suspended again", 120000);
+    c.frame.remove();
+    const changed = await store.get(id);
+    changed.memory.mb = 64;
+    await store.put(changed);
+    const d = await console_tab(id, { prompt: false });
+    (await until(() => d.$("#resume_discard"), "the question about the changed settings")).click();
+    const fresh = await until(() => d.w.v86_console?.emulator, "the fresh machine", 60000);
+    check(await screen_has(fresh, "Starting MS-DOS", 120000), "a fresh boot");
+    check(!(await read_state(id)) && !(await store.get(id)).suspended, "the state discarded");
+    log("settings changed after suspending: asked; Discard: a fresh boot, the state gone");
+
+    // only the notes changed: resumed without asking
+    check(await screen_has(fresh, "C:\\>", 120000), "the prompt");
+    await d.menu("menu_power", "menu_suspend");
+    await until(() => /Suspended/.test(d.$(".console-status").textContent), "suspended a third time", 120000);
+    d.frame.remove();
+    await store.put(Object.assign(await store.get(id), { notes: "notes changed", name: "DOS renamed" }));
+    const e = await console_tab(id);
+    check(!e.$("#resume_anyway"), "no question for the notes and the name");
+    await until(async () => !(await read_state(id)), "resumed (the state used up)", 60000);
+    log("only the name and notes changed: resumed without asking");
+    store.close();
+}
+
+main().then(() =>
+{
+    document.getElementById("result").textContent = "PASS\n" + lines.join("\n");
+}, e =>
+{
+    document.getElementById("result").textContent = "FAIL: " + (e.stack || e.message) + "\n" + lines.join("\n");
+});
+</script>

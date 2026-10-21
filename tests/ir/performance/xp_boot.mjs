@@ -16,7 +16,6 @@ const [disk, wasm = "build/v86.wasm", ...extra] = process.argv.slice(2);
 assert(disk && !extra.length, "usage: xp_boot.mjs disk.img [core.wasm]");
 const duration = Number(process.env.IR_BOOT_MS || 30000);
 assert(Number.isFinite(duration) && duration >= 1000);
-const recording = process.env.IR_BENCH_RECORD === "1";
 const target = process.env.IR_BOOT_TARGET || "time";
 assert(["time", "desktop"].includes(target));
 // IR_SYNC_DISK=1: reads complete synchronously from the image and writes stay
@@ -92,7 +91,6 @@ try {
         vm.add_listener("emulator-error", reject);
     });
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
-    if(recording) e.performance_recording_enable(1);
     started = previous = performance.now();
     count = vm.get_instruction_counter() >>> 0;
     vm.run();
@@ -105,9 +103,7 @@ try {
             phase, instructions: total,
             requested_ms: duration, overrun_ms: Math.max(0, now - started - duration),
             mips: steps / (now - previous) / 1000, avg_mips: total / (now - started) / 1000,
-            recording, jit: vm.get_jit_info(),
-            sync_codegen_ms: recording ? e.performance_recording_get(5) : null,
-            sync_codegen_calls: recording ? e.performance_recording_get(7) : null,
+            jit: vm.get_jit_info(),
         }));
         previous = now; count = next;
     }
@@ -120,19 +116,6 @@ try {
     if(jit_stats_enabled()) print_jit_stats(vm, { script: "xp_boot", wasm, target, milestone, ms: performance.now() - started });
     console.log(JSON.stringify({event:"result", target, completed:target === "time" || !!milestone,
         ms:performance.now()-started, instructions:total, milestone, jit:vm.get_jit_info(), cr4:cpu.cr[4]>>>0}));
-    if(recording) {
-        const rows = Array.from({ length: e.performance_recording_hotspot_count() }, (_, i) =>
-            Array.from({ length: 10 }, (_, j) => e.performance_recording_hotspot_get(i, j)));
-        console.log(JSON.stringify({ event: "samples", rows }));
-        const counts = new Map();
-        for(const row of rows) counts.set(row[9], (counts.get(row[9]) || 0) + 1);
-        const hot = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([pc, samples]) => ({
-            pc: pc.toString(16), samples,
-            // Physical bytes are useful for early identity-mapped BIOS code only.
-            physical_bytes: Buffer.from(cpu.mem8.subarray(pc, pc + 32)).toString("hex"),
-        }));
-        console.log(JSON.stringify({ event: "hot", hot }));
-    }
 } finally {
     await vm.destroy();
 }

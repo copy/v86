@@ -36,6 +36,9 @@ setTimeout(async () =>
 {
     await emulator.wait_until_vga_screen_contains("C:\\> ");
     console.log("Got C:\\>");
+    // (get_cdrom_state, docs/vm-manager-plan.md G1: the drive, empty)
+    const empty = await emulator.get_cdrom_state();
+    if(!empty.present || empty.inserted) throw new Error("get_cdrom_state of the empty drive: " + JSON.stringify(empty));
     await pause(1000);
     emulator.keyboard_send_text("dir D:\n");
     await emulator.wait_until_vga_screen_contains("Abort, Retry, Fail?");
@@ -47,6 +50,12 @@ setTimeout(async () =>
     emulator.keyboard_send_text("dir D:\n");
     await emulator.wait_until_vga_screen_contains("BOOT         <DIR>");
     console.log("Got BOOT");
+    const inserted = await emulator.get_cdrom_state();
+    if(!inserted.present || !inserted.inserted) throw new Error("get_cdrom_state with a disc: " + JSON.stringify(inserted));
+    await emulator.eject_cdrom();
+    const ejected = await emulator.get_cdrom_state();
+    if(!ejected.present || ejected.inserted) throw new Error("get_cdrom_state after eject_cdrom: " + JSON.stringify(ejected));
+    console.log("get_cdrom_state: empty, a disc, ejected");
     emulator.destroy();
     clearTimeout(timeout);
     //clearInterval(interval);

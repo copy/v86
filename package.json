@@ -20,5 +20,9 @@
   "main": "build/libv86.mjs",
   "types": "v86.d.ts",
   "repository": "github:copy/v86",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "6.0.3"
+  }
 }

@@ -10,8 +10,12 @@
 //   closes it;
 // - a snapshot holds the floppies' references (no data): restored into a
 //   new machine with the same disks;
-// - the service gone: the write fails, the guest sees the error (floppy
-//   drives report), "disk-error" tells the host;
+// - the service gone, disk_error "report": the write fails, the guest sees
+//   the error, "disk-error" tells the host; "stop" (the default): the
+//   machine stops, the guest waits, a snapshot is refused; the service
+//   back, run() tries the transfer again and the command completes, the
+//   file in the image; the disk ejected while a transfer is held: the
+//   guest sees the error;
 // - a disk written back that is not of a floppy format's size is refused.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -33,6 +37,18 @@ await new Promise(resolve => service.server.listen(0, "127.0.0.1", resolve));
 const base = "http://127.0.0.1:" + service.server.address().port + "/";
 const has = (name, text) => fs.readFileSync(path.join(temp, name)).includes(text);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+let service_listeners = null;
+function service_down()
+{
+    service_listeners = service.server.listeners("request");
+    service.server.removeAllListeners("request");
+    service.server.on("request", req => req.socket.destroy());
+}
+function service_up()
+{
+    service.server.removeAllListeners("request");
+    for(const listener of service_listeners) service.server.on("request", listener);
+}
 
 async function start(options)
 {
@@ -107,19 +123,48 @@ try
     await emulator.destroy();
     console.log("ok - a snapshot with the floppies' references restored into a new machine; eject closes the disk");
 
-    // the service gone: the guest sees the error
-    const m = await start({ fdb: { url: base + "b.img", disk_option: "read_write" } });
+    // the service gone, disk_error "report": the guest sees the error
+    const m = await start({ fdb: { url: base + "b.img", disk_option: "read_write", disk_error: "report" } });
     await prompt(m.emulator);
-    const listeners = service.server.listeners("request");
-    service.server.removeAllListeners("request");
-    service.server.on("request", req => req.socket.destroy());
+    service_down();
     const failed = await dos(m.emulator, "echo LOST > B:\\LOST.TXT");
     assert.match(failed, /Abort, Retry, Fail/, "the guest sees the error");
     assert.ok(m.events.length && m.events[0].disk === "fdb" && m.events[0].policy === "report", JSON.stringify(m.events));
-    service.server.removeAllListeners("request");
-    for(const listener of listeners) service.server.on("request", listener);
+    service_up();
     await m.emulator.destroy();
-    console.log("ok - the service gone: the floppy's write fails, the guest sees the error, disk-error (report) tells the host");
+    console.log("ok - the service gone, report: the floppy's write fails, the guest sees the error, disk-error (report) tells the host");
+
+    // the service gone, disk_error "stop" (the default): the machine stops; run() tries again
+    const s = await start({ fdb: { url: base + "b.img", disk_option: "read_write" } });
+    await prompt(s.emulator);
+    const held = async command =>
+    {
+        await s.emulator.keyboard_send_text("cls\n", 20);
+        await until(() => { const l = screen(s.emulator).filter(x => x.trim()); return l.length === 1 && l[0].startsWith("C:\\>"); }, "cls");
+        const before = s.events.length;
+        service_down();
+        await s.emulator.keyboard_send_text(command + "\n", 20);
+        await until(() => s.events.length > before && !s.emulator.is_running(), "the machine stopped");
+        const event = s.events[before];
+        assert.ok(event.disk === "fdb" && event.policy === "stop" && event.retryable === true, JSON.stringify(event));
+        assert.ok(!screen(s.emulator).some(l => /Abort, Retry, Fail/.test(l)), "the guest does not see the error");
+    };
+    await held("echo HELD > B:\\HELD.TXT");
+    await assert.rejects(s.emulator.save_state(), /held after an I\/O error/);
+    service_up();
+    await s.emulator.run();
+    await until(() => screen(s.emulator).filter(x => x.startsWith("C:\\>")).length >= 2, "the command completes");
+    assert.ok(!screen(s.emulator).some(l => /Abort, Retry, Fail/.test(l)), "the guest saw no error");
+    await wait(1500);
+    assert.ok(has("b.img", "HELD"), "the file in the service's image");
+    console.log("ok - the service gone, stop: the machine stops (disk-error, stop), the guest waits, no snapshot; run() after the service is back: the command completes, the file in the image");
+    await held("echo EJECTED > B:\\EJECTED.TXT");
+    await s.emulator.eject_fdb();
+    service_up();
+    await s.emulator.run();
+    await until(() => screen(s.emulator).some(l => /Abort, Retry, Fail/.test(l)), "the guest sees the error");
+    await s.emulator.destroy();
+    console.log("ok - the disk ejected while a transfer is held: the guest sees the error");
 }
 finally
 {

@@ -1,0 +1,17 @@
+{
+    "//": "The VM manager's type check (docs/vm-manager-plan.md G2): src/app/ only, each file with // @ts-check; the library is v86.d.ts",
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ES2022",
+        "moduleResolution": "bundler",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "allowJs": true,
+        "checkJs": false,
+        "noEmit": true,
+        "strict": false,
+        "skipLibCheck": true,
+        "types": [],
+        "paths": { "v86": ["./v86.d.ts"] }
+    },
+    "include": ["src/app/**/*.js"]
+}
