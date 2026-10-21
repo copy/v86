@@ -154,6 +154,8 @@ FORCE:
 CORE_FILES:=$(addprefix src/,$(CORE_FILES))
 LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
 BROWSER_FILES:=$(addprefix src/browser/,$(BROWSER_FILES))
+# the old page's modules that the VM manager shares (docs/vm-manager-plan.md U0)
+PAGE_FILES=src/browser/profiles.js src/browser/vm_options.js src/browser/query_compat.js
 
 build/v86-bochs-vga.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/graphics_adapters/bochs_vga/*.js
 	mkdir -p build
@@ -209,6 +211,7 @@ build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
+		--js $(PAGE_FILES)\
 		--js src/browser/main.js
 	ls -lh build/v86_all.js
 
@@ -223,6 +226,7 @@ build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/para
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
+		--js $(PAGE_FILES)\
 		--js src/browser/main.js
 
 build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
@@ -711,6 +715,16 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # Disk persistence (docs/disk-persistence-plan.md): disk_option, disk_error,
 # FLUSH, the consistent reads of a read_only disk; the browser tests in
 # headless Chrome (CHROME), on the page and in the CPU Worker
+# the VM manager plan (docs/vm-manager-plan.md), U0: the old page's shared
+# modules (src/browser/profiles.js, vm_options.js, query_compat.js) give the
+# options the old pages give, made by Node from the modules as by the pages
+.PHONY: app-shared-tests
+app-shared-tests: build/v86_all.js
+	node tests/app/machine_rules.mjs
+	mkdir -p build/app
+	node tests/app/legacy_options.mjs record=build/app/legacy-options.json
+	node tests/app/shared_options.mjs build/app/legacy-options.json
+
 .PHONY: disk-persistence-tests disk-persistence-browser-tests
 disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
 	./tests/api/disk-options.js

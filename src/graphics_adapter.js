@@ -12,6 +12,7 @@ import { dbg_log } from "./log.js";
 import { pci_functions } from "./platform.js";
 import { DisplaySource } from "./display.js";
 import { create_adapter_virtio_device } from "./virtio_devices.js";
+import { GRAPHICS_ADAPTERS, MAX_VRAM_SIZE } from "./machine_options.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -19,14 +20,10 @@ import { CPU } from "./cpu.js";
 /* global __dirname, V86_BUNDLE, V86_BUNDLE_URL */
 
 /** Every value graphics_adapter may name */
-const ADAPTERS = ["bochs_vga", "vmware_svga", "virtio_gpu", "none"];
+const ADAPTERS = GRAPHICS_ADAPTERS;
 
-/**
- * The largest vram_size: the VGA core backs at most this much
- * (VGA_MAX_MEMORY_SIZE in graphics_adapters/vga_core.js), and a device whose
- * BAR were larger would reach past it
- */
-export const MAX_VRAM_SIZE = 256 << 20;
+// (MAX_VRAM_SIZE, the largest vram_size, is in machine_options.js with the other option rules)
+export { MAX_VRAM_SIZE };
 
 /** The global registry plugin files add their descriptors to */
 const REGISTRY = "V86GraphicsAdapters";

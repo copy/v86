@@ -1,6 +1,7 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：计划，未实施（2026-10-18，依据 `arm64` 分支 03a7249f）。
+状态：U0 已实现（2026-10-21，`ui` 分支），U1–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+`arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
 页面有虚拟机库、新建向导、硬件设置对话框和运行控制台，用户在页面里创建磁盘，配置 CPU、
@@ -16,7 +17,7 @@
 - **一个页面，两种状态。** `index.html` 的 `boot_options` 是选择系统与设置，开机后隐藏它，
   显示 `runtime_options`（控制按钮）、屏幕和 `runtime_infos`（信息面板）。所有逻辑在
   [`src/browser/main.js`](../src/browser/main.js)（4152 行），其中：
-  - `onload`（288 行起）：内含 138 个系统配置（`oses`，319 行起）。首页按钮有 92 个，
+  - `onload`（288 行起）：内含 137 个系统配置（计划初稿误记为 138）（`oses`，319 行起）。首页按钮有 92 个，
     其余只能经 `?profile=` 打开；
   - `start_emulation`（2264 行起）：把表单与查询参数变成 `settings`，再变成 `V86` 选项；
   - `init_ui`（3014 行起）：运行时的按钮与信息面板；
@@ -140,7 +141,7 @@
   - 从挂起恢复、丢弃挂起状态；
   - 克隆、导出、删除。
 - **不提供“示例系统”列表**（负责人决定）。现在首页的 92 个系统按钮与过滤不搬到新页面。
-  138 个配置只用来解析 `?profile=` 链接，见[兼容](#兼容)。
+  137 个配置只用来解析 `?profile=` 链接，见[兼容](#兼容)。
 
 ### 新建虚拟机向导
 
@@ -551,7 +552,7 @@ JSON。
 
 | 文件 | 内容 |
 | --- | --- |
-| `profiles.js` | 138 个配置，即现在 `onload` 中的 `oses`；新页面只用来解析 `?profile=` |
+| `profiles.js` | 137 个配置，即现在 `onload` 中的 `oses`；新页面只用来解析 `?profile=` |
 | `vm_options.js` | `config_to_options` |
 | `query_compat.js` | 查询参数转成配置 |
 
@@ -575,7 +576,7 @@ JSON。
 
 - **旧网址照旧可用。** `index.html?profile=<id>` 与上面列出的全部查询参数在新页面直接打开
   控制台，配置不进库。控制台工具栏有“加入虚拟机库”。新页面没有系统列表，`?profile=` 是
-  打开这 138 个配置的唯一入口。
+  打开这 137 个配置的唯一入口。
 - **网址同步。** 现在开机后，`push_state` 把实际设置写回网址（`main.js` 4145 行），以便复制
   分享。新控制台对 `?profile=` 与查询参数启动的会话照做；从库启动的会话网址只有 `?vm=<id>`。
 - **站点链接。** 部署到 Cloudflare Pages 的站点若链接 `index.html?profile=…`，行为不变。
@@ -586,7 +587,7 @@ JSON。
 
 | 阶段 | 工作内容 | 验收 |
 | --- | --- | --- |
-| U0 | 从 `main.js` 提取 `profiles.js`、`vm_options.js`、`query_compat.js`；导出 `machine_options.js` 的规则表或加 `allowed_options`；旧页面改用这些模块，行为不变 | 提取前先录基线：给 `start_emulation` 加一个测试钩子，在构造 `V86` 之前记下选项并停止；在无头 Chrome 中对 138 个配置和一组查询参数各录一次。提取后，Node 直接导入这些模块（ES 模块用法）生成选项，与基线逐项相同；旧页面的编译包（Closure 用法）再录一次，也相同。lint、Closure 构建、现有测试通过 |
+| U0 | 从 `main.js` 提取 `profiles.js`、`vm_options.js`、`query_compat.js`；导出 `machine_options.js` 的规则表或加 `allowed_options`；旧页面改用这些模块，行为不变 | 提取前先录基线：给 `start_emulation` 加一个测试钩子，在构造 `V86` 之前记下选项并停止；在无头 Chrome 中对 137 个配置和一组查询参数各录一次。提取后，Node 直接导入这些模块（ES 模块用法）生成选项，与基线逐项相同；旧页面的编译包（Closure 用法）再录一次，也相同。lint、Closure 构建、现有测试通过 |
 | U1 | `vm_config.js`（格式 v1、默认值、迁移、校验）与 `vm_store.js` | Node 测试覆盖纯函数：默认值、迁移、每条校验规则、`config_to_options`；无头 Chrome 中做保存、重新加载、导出、导入的往返，配置逐字段相同 |
 | U2 | 开发依赖与 `make app`、`make app-check`（G3，下载前请负责人确认）；`build/v86_app.js`、新 `index.html`、`legacy.html`、`app_debug.html`；路由；库的列表、新建（默认配置）、导入、改名、删除；控制台能从配置开机；`v86.d.ts` 补上未声明的方法，新增光驱状态的公开方法（G1） | `make app-check` 无错；无头 Chrome：`?profile=` 打开的会话与旧页面的 `V86` 选项相同（比较两页记录的选项）；从库开机 FreeDOS（`images/freedos722.img`）到提示符 |
 | U3 | 向导、[客户机预设](#客户机预设)（含验证状态、安装方式、安装后的清单）、设置对话框及全部硬件面板；规则驱动的禁用与说明；保存前完整校验；磁盘服务的 `create`、`list` 与管理器的探测、首选项 | 每个预设生成的配置都通过 `check_machine_options`，仓库中有镜像的预设从向导启动到提示符；对话框中不能组合出被拒的配置（遍历机器、CPU、显卡、网卡的组合）；校验错误显示在对应面板。磁盘服务：`create` 的每条规则（未开 `--allow-create`、名字、已存在、大小、空间、令牌、来源）各有测试；新建的镜像在 Linux 客户机中格式化、写入、`sync` 后，直接读服务目录里的文件核对 |
@@ -644,3 +645,70 @@ JSON。
 5. **浏览器磁盘用 `read_only` 与 `read_write`。** 浏览器磁盘是一份完整的镜像，不是修改层，
    `disk_option` 的两个取值照常适用，不另起选项名。磁盘计划的决定 7 只指修改层，已在那里加注。
    见[与磁盘计划的关系](#与磁盘计划的关系)。
+
+## 附录：实施记录
+
+实施在 `ui` 分支（自 master 1a978143）。测试入口：`make app-shared-tests`。
+
+### U0 共用模块（2026-10-21）
+
+**实现。**
+
+- 基线（95836504，提取之前）：`start_emulation` 在构造 `V86` 之前查 `window.v86_record_options`，有就把
+  选项交给它并返回。[`tests/app/legacy_options.mjs`](../tests/app/legacy_options.mjs) 起一个静态服务，在
+  页面最前面插入记录脚本，在一个无头 Chrome 里用 iframe 依次打开：137 个 `?profile=`、37 组查询参数
+  （[`tests/app/legacy_cases.mjs`](../tests/app/legacy_cases.mjs)：自定义镜像、`m`、`cores`、`cpu_type`、
+  `machine_type`、Q35 设备、显存与显卡、多显示器、网卡、relay、调制解调器、`disk_option`、内核、CPU 策略、
+  `cdn` 等，以及带配置的组合）和 17 种表单启动（在表单里填值后点开机），`index.html` 与 `debug.html`
+  各一遍，共 382 例。记下选项（函数、元素、ArrayBuffer、`undefined` 有标记）、`alert` 的文字、开机后的
+  地址（`push_state`）、标题、表单回写的字段。`index.html` 是 ADVANCED 编译的 `v86_all.js`，属性名被
+  Closure 改过：构建现在同时写出改名表（`--property_renaming_report build/v86_all.js.properties`），
+  记录时按它还原。
+- 提取（[`src/browser/`](../src/browser/)）：
+  - [`profiles.js`](../src/browser/profiles.js)：`get_profiles(host, on_localhost)` 返回 137 个配置（调试页
+    另加的 kvm-unit-tests 仍在 `main.js`，它依赖 `DEBUG`）；用户镜像服务器的 `user_profile_base`、`user_profile`。
+  - [`vm_options.js`](../src/browser/vm_options.js)：默认值与上限常量；`clamp_*`、`set_memory_size`；
+    `DEFAULT_FORM`（`index.html` 未改动时的表单）；`profile_settings`；`apply_form`（表单叠加到配置与地址的
+    设置上，并做旧页面的全部规整：内存拆分、x86_64 自动选择、arm64 与 virt、Q35 设备、ACPI、固件、网卡、
+    MTU、调制解调器；返回错误文字、标题和要回写的表单字段，不碰 DOM）；`settings_to_options`（`V86` 选项，
+    页面的部分经参数传入：CPU Worker、调试构建、`?version`、图形代理、屏幕元素）。
+  - [`query_compat.js`](../src/browser/query_compat.js)：`bool_arg` 等参数读取；`image_host`；
+    `apply_query_args`；`start_settings`（配置、地址、表单合成一次开机的设置，即旧 `start_emulation` 的
+    前半段）；`format_query_args`。
+  - `main.js` 只剩 DOM：`read_form` 读表单，`start_emulation` 调 `start_settings` 与 `settings_to_options`，
+    处理标题、说明链接、`alert`、表单回写和 `push_state`。三个模块在 `Makefile` 的 `PAGE_FILES` 里，只进
+    `v86_all.js` 与 `v86_all_debug.js`。
+- 规则表（[`src/machine_options.js`](../src/machine_options.js)）：导出 `PC_ONLY`、`VIRT_ONLY`、
+  `VIRT_GRAPHICS_ADAPTERS`，新增 `GRAPHICS_ADAPTERS`（`graphics_adapter.js` 改用它）、`NET_DEVICE_TYPES`、
+  `VIRT_NET_DEVICE_TYPES`、`Q35_ONLY`；`MAX_VRAM_SIZE`、`Q35_ROOT_PORTS_MAX`、`MAX_CORES` 从
+  `graphics_adapter.js`、`platform.js` 移来（原处转出）。`allowed_options(cpu_type, machine_type)` 返回可选的
+  机型、显卡、网卡、核数上限、ACPI 要求（`required`：Q35；`with_cores`：多核时需要；`none`：virt），以及不适用的
+  选项各自的原因。
+
+**决定与偏差。**
+
+1. **共用的是“设置”，不是配置格式。** 计划说查询参数转成配置（`query_compat.js`），新旧页面共用
+   `config_to_options`。配置格式要到 U1 才定，而 137 个配置带着配置格式没有的字段（`state`、`filesystem`、
+   `bzimage_initrd_from_filesystem`、`mac_address_translation`、`cpuid_level` 等）。所以 U0 共用的是旧页面
+   内部本来就有的中间“设置”：`start_settings` 从配置、地址、表单得到设置，`settings_to_options` 从设置得到
+   选项。U1 的 `config_to_options` 把配置转成设置，再走同一个 `apply_form(DEFAULT_FORM)` 与
+   `settings_to_options`，规整规则仍只有一份。新页面打开 `?profile=` 时调用同一个 `start_settings`（表单用
+   `DEFAULT_FORM`），选项因此与旧页面相同。
+2. **表单是数据。** 从地址启动时旧页面也读表单（全为默认值），所以新页面需要这份默认值：`DEFAULT_FORM`。
+   `index.html` 的表单默认值与它一致由 Node 测试间接核对（同一组记录）。`debug.html` 的表单少几个字段（没有
+   镜像网址栏），下拉框也少选项（`cpu_type` 没有 arm64、`machine_type` 没有 virt），设置不存在的选项时下拉框的
+   值为空；记录如实保留，Node 测试按两页各自的选项模拟。
+3. **Closure 改名的陷阱在基线里出现了一次。** 表单里按盘名（`"hda"`）下标读取的 `urls`、`disk_options`
+   必须加引号，否则 `v86_all.js` 里读不到，读写选项在 `index.html` 中失效（与磁盘计划 D3 偏差 3 同类）；
+   对比时 `index.html` 的三种表单启动报出差异，加引号后消失。回写表单的字段（`updates`）按元素 id 读取，同样加
+   引号。
+4. **配置数是 137。** 计划初稿写 138，已改正。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/app/legacy_options.mjs check=<基线>` | 提取后两页 382 例与提取前的基线逐项相同（含改名还原后的 `index.html`）；同一基线连录两次也相同 |
+| `tests/app/shared_options.mjs`（新） | Node 直接导入三个模块，按 `main.js` 的路由与两页的表单生成 382 例：选项、`alert`、地址、标题、回写字段与页面记录逐项相同 |
+| `tests/app/machine_rules.mjs`（新） | `allowed_options` 与 `check_machine_options`、PC 平台自身的检查一致：每种 CPU、机型、显卡、网卡的组合，标为不适用的选项都被拒绝、其余都被接受，Q35 设备、ACPI 与核数上限，virt 与 PC 的核数上限相同。232 项 |
+| 回归 | eslint 无输出；Closure（`libv86.js`、`libv86.mjs`、`libv86-debug.mjs`、`cpu-worker.js`、`v86_all.js`、`v86_all_debug.js`）0 错误；`tests/api/arm64-options.js`、`tests/devices/graphics_adapter.js`、`tests/api/disk-options.js`、`tests/api/state.js` 通过；`tests/persistence/browser_runner.mjs part=page`（页面与 CPU Worker：`debug.html` 与 `index.html` 以查询参数启动 MS-DOS、写回磁盘服务、出错重试、保存并关机）通过 |
