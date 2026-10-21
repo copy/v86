@@ -69,8 +69,12 @@ export const VERSION = 1;
  * @property {{bzimage: Image | null, initrd: Image | null, cmdline: string | null, multiboot: Image | null, from_filesystem: boolean} | null} kernel
  * @property {{adapter: string, vram_mb: number | null, proxy: boolean, displays: number}} display vram_mb: null
  *     with an initial_state, whose video memory it is
- * @property {Network[]} network one in version 1
- * @property {{device: "sb16" | "none"}} sound
+ * @property {Network[]} network one on the PC machines; up to four virtio-net cards on virt (Android's
+ *     three), at most one of them with a backend
+ * @property {{device: "sb16" | "virtio" | "none"}} sound virtio: virt's virtio-snd
+ * @property {{transport: "mmio" | "pci", input: string[] | null, console_ports: number, vsock: boolean,
+ *     gpu_pci_slot: number | null}} virt the virt machine's devices: input null as the display has them
+ *     (keyboard, tablet and touch screen with virtio-gpu); console_ports 0: no virtio console
  * @property {{port: number, attach: "none" | "terminal" | "modem"}[]} serial
  * @property {{baseurl?: string, basefs?: {url: string}} | null} filesystem the 9p file system: its files' base URL, its description (fs.json)
  * @property {Image | null} initial_state a state to start from (an old page's profile with a state)
@@ -83,7 +87,13 @@ export const VERSION = 1;
 export const NETWORK_BACKENDS = ["none", "inbrowser", "relay", "wisp", "fetch"];
 /** The boot orders the old page offers (index.html's boot_order) */
 export const BOOT_ORDERS = [0, 0x213, 0x123, 0x231, 0x321, 0x312, 0x132];
+/** The sound devices of the PC machines (virt: virtio, none) */
 export const SOUND_DEVICES = ["sb16", "none"];
+const VIRT_SOUND_DEVICES = ["virtio", "none"];
+/** The virt machine's input devices (virtio_input) */
+const VIRT_INPUTS = ["keyboard", "tablet", "multitouch"];
+/** The virt section of a PC machine, and virt's defaults */
+export const VIRT_DEFAULTS = { transport: "mmio", input: null, console_ports: 0, vsock: false, gpu_pci_slot: null };
 export const SERIAL_ATTACH = ["none", "terminal", "modem"];
 /** The floppy images' sizes (as the old page's empty floppies, src/floppy.js) */
 export const FLOPPY_SIZES = [320, 360, 400, 640, 720, 800, 1440, 2400, 2880, 3444, 5760, 7680].map(sectors => sectors * 512);
@@ -142,6 +152,7 @@ export function with_defaults(config)
     section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
     section("sound", { device: "sb16" });
+    section("virt", Object.assign({}, VIRT_DEFAULTS));
     c.serial = Array.isArray(c.serial) ? c.serial : [{ port: 0, attach: "terminal" }];
     c.filesystem = is_object(c.filesystem) ? c.filesystem : null;
     c.initial_state = is_object(c.initial_state) ? c.initial_state : null;
@@ -382,7 +393,9 @@ export function validate_config(config)
     int(display.displays, "display.displays", 1, 4);
     if(display.displays > 1 && display.adapter !== "virtio_gpu") problem("display.displays", "only virtio-gpu has more than one display");
 
-    if(config.network.length > 1) problem("network", "this version has one network card");
+    if(config.network.length > (virt ? 4 : 1)) problem("network", virt ? "the virt machine has four network cards at most" : "a PC machine has one network card");
+    if(config.network.filter(n => n.backend !== "none").length > 1) problem("network", "one network card reaches the network, the others stay unconnected");
+    if(virt && config.network.length > 1 && config.network.some(n => n.device !== "virtio")) problem("network", "the virt machine's cards are virtio-net");
     config.network.forEach((network, i) =>
     {
         const path = "network." + i;
@@ -399,8 +412,34 @@ export function validate_config(config)
         bool(network.mac_address_translation, path + ".mac_address_translation");
     });
 
-    if(!SOUND_DEVICES.includes(config.sound.device)) problem("sound.device", "must be sb16 or none");
-    if(virt && config.sound.device !== "none") problem("sound.device", "the virt machine has no Sound Blaster");
+    if(!(virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES).includes(config.sound.device))
+    {
+        problem("sound.device", virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16 or none (virtio-snd is the virt machine's)");
+    }
+
+    const v = config.virt;
+    if(!virt)
+    {
+        if(v.transport !== "mmio" || v.input !== null || v.console_ports || v.vsock || v.gpu_pci_slot !== null)
+        {
+            problem("virt", "the virtio transport, input devices, console ports, vsock and GPU slot are the virt machine's");
+        }
+    }
+    else
+    {
+        if(v.transport !== "mmio" && v.transport !== "pci") problem("virt.transport", "must be mmio or pci");
+        if(v.input !== null && !(Array.isArray(v.input) && v.input.every(kind => VIRT_INPUTS.includes(kind)) && new Set(v.input).size === v.input.length))
+        {
+            problem("virt.input", "is null (as the display has them) or a list of " + VIRT_INPUTS.join(", "));
+        }
+        int(v.console_ports, "virt.console_ports", 0, 30);
+        bool(v.vsock, "virt.vsock");
+        if(v.gpu_pci_slot !== null)
+        {
+            int(v.gpu_pci_slot, "virt.gpu_pci_slot", 1, 31);
+            if(v.transport !== "pci" || display.adapter !== "virtio_gpu") problem("virt.gpu_pci_slot", "a PCI slot for virtio-gpu needs the pci transport and virtio-gpu");
+        }
+    }
 
     const ports = new Set();
     let modems = 0;
@@ -597,7 +636,9 @@ export function config_to_options(config, env)
     const MB = 1024 * 1024;
     const image = value => image_option(value, env.file);
     const machine = config.machine, cpu = config.cpu, display = config.display, advanced = config.advanced;
-    const network = config.network[0];
+    // (the card the backend serves: the virt machine's net<id>; else the first)
+    const served = Math.max(0, config.network.findIndex(n => n.backend !== "none"));
+    const network = config.network[served];
     const modem = config.serial.find(serial => serial.attach === "modem");
     /** @type {any} */
     const settings = {};
@@ -696,5 +737,25 @@ export function config_to_options(config, env)
     // (the firmware's boot options, which the old page does not have)
     if(machine.fastboot) options.fastboot = true;
     if(machine.bootmenu) options.bootmenu = true;
+    // (the virt machine's devices, which the old page does not have either)
+    if(machine.type === "virt")
+    {
+        const v = config.virt;
+        if(v.transport === "pci") options.virtio_transport = "pci";
+        if(v.input !== null) options.virtio_input = v.input.length ? v.input.slice() : undefined;
+        if(v.console_ports)
+        {
+            options.virtio_console = true;
+            options.virtio_console_ports = v.console_ports;
+        }
+        if(v.vsock) options.virtio_vsock = true;
+        if(v.gpu_pci_slot !== null) options.virtio_gpu_pci_slot = v.gpu_pci_slot;
+        if(config.sound.device === "virtio") options.virtio_sound = true;
+        if(config.network.length > 1)
+        {
+            options.net_device.count = config.network.length;
+            options.net_device.id = served;
+        }
+    }
     return options;
 }
