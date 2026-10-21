@@ -79,6 +79,16 @@
         const m = /^[a-z]+(8|16|32)(?:x([234]))?$/.exec(format);
         return m ? +m[1] / 8 * (+m[2] || 1) : 4;
     };
+    /**
+     * How a view bound as `kind` is sampled through a copy (VX.swizzleCopies),
+     * the view's field holding it: "depthRead" for a depth view bound as a float
+     * texture, "swizzled" for a swizzled color view; null: the view itself
+     */
+    const copyMode = (v, kind) => {
+        if (kind === "texture" && v.f.hasDepth && v.descriptor.aspect !== "stencil-only" && v.texture.samples <= 1) return "depthRead";
+        if (v.swizzle && !v.f.depth && v.texture.samples <= 1 && kind !== "storage-texture") return "swizzled";
+        return null;
+    };
     /** VK_FORMAT_R5G6B5_UNORM_PACK16: an rgba8unorm texture whose alpha stays 1 (draws and clears leave it) */
     const R5G6B5 = 4;
     /** The color write mask a format's target takes: no alpha into R5G6B5 */
@@ -583,7 +593,9 @@
         format(vk) {
             const entry = this.formats[vk];
             if (!entry || !entry[0]) return null;
-            const [gpu, caps, , bytes] = entry;
+            const [wanted, caps, , bytes] = entry;
+            // (an optional format the device has not got: the nearest it has)
+            const gpu = wanted === "depth32float-stencil8" && this.device && !this.device.features.has(wanted) ? "depth24plus-stencil8" : wanted;
             return { gpu, bytes, caps, float: /[fx]/.test(caps), int: caps.includes("i"), depth: caps.includes("d"), packed: caps.includes("p") ? vk : 0,
                 renderable: caps.includes("r") || caps.includes("d"),
                 uint: /uint$/.test(gpu), sint: /sint$/.test(gpu),
@@ -647,7 +659,7 @@
             for (const v of this.objects.values()) {
                 if (v.kind !== "view" || v.texture !== image) continue;
                 v.view = this.view(texture, Object.assign({}, v.descriptor));
-                v.attachment = v.storage = v.faces = v.swizzled = null;
+                v.attachment = v.storage = v.faces = v.swizzled = v.depthRead = null;
             }
             if (old) old.destroy();
         }
@@ -697,11 +709,14 @@
         }
 
         /**
-         * The views a pipeline samples that have a swizzle (WebGPU's views
-         * have none; ANGLE's GL_ALPHA, GL_LUMINANCE and GL ES 3.0's texture
-         * swizzles are VkComponentMappings): each one's copy made again where
-         * its texture was written since (a pass of its own per mip and layer,
-         * swizzled as it is drawn), outside of any pass; true when one was
+         * The views a pipeline samples that WebGPU cannot bind as they are,
+         * through copies: a view with a swizzle (WebGPU's views have none;
+         * ANGLE's GL_ALPHA, GL_LUMINANCE and GL ES 3.0's texture swizzles are
+         * VkComponentMappings), and a depth view sampled as a float texture
+         * (GL's sampler2D of a depth texture; WebGPU binds depth as depth or
+         * unfilterable float only): each one's copy made again where its
+         * texture was written since (a pass of its own per mip and layer),
+         * outside of any pass; true when one was
          */
         swizzleCopies(p, point) {
             const stale = [];
@@ -712,48 +727,54 @@
                     if (samplerBinding(binding) || !/^texture/.test(kind) || kind === "storage-texture") continue;
                     const d = contents.descriptors.get(descriptorKey(binding));
                     const v = d && this.objects.get(d.rid);
-                    if (!v || v.kind !== "view" || !v.swizzle) continue;
+                    if (!v || v.kind !== "view") continue;
+                    const mode = copyMode(v, kind);
+                    if (!mode) {
+                        if (v.swizzle && (v.f.depth || v.texture.samples > 1)) this.warn("swizzle-kind", "swizzles of depth, stencil and multisampled views are not done");
+                        continue;
+                    }
                     const generation = v.texture.borrowed ? NaN : v.texture.texture.vxGeneration || 0;
-                    if (!v.swizzled || v.swizzled.generation !== generation) stale.push([v, generation]);
+                    if (!v[mode] || v[mode].generation !== generation) stale.push([v, generation, mode]);
                 }
             }
             if (!stale.length) return false;
             const resume = !!this.pass;
             this.endPass();
-            for (const [v, generation] of stale) this.swizzleCopy(v, generation);
+            for (const [v, generation, mode] of stale) this.swizzleCopy(v, generation, mode);
             if (resume) this.resumePass();
             return true;
         }
 
-        /** a swizzled view's copy, drawn again (the copy's view is the one bound, swizzledView) */
-        swizzleCopy(v, generation) {
-            const t = v.texture, f = v.f;
-            if (f.depth || t.samples > 1) {
-                this.warn("swizzle-kind", "swizzles of depth, stencil and multisampled views are not done");
-                v.swizzled = { generation, view: v.view };
-                return;
-            }
+        /** a view's copy (`mode`: copyMode's), drawn again: v[mode].view is the one bound */
+        swizzleCopy(v, generation, mode) {
+            const t = v.texture, f = v.f, depth = mode === "depthRead";
             const type = f.uint ? "u32" : f.sint ? "i32" : "f32";
-            // (a copy of four components, of the view's kind and at least its precision)
-            const view = v.descriptor.format;
-            const format = f.uint ? "rgba32uint" : f.sint ? "rgba32sint" : /^(r|rg|rgba|bgra)8unorm-srgb$/.test(view) ? "rgba8unorm-srgb" :
-                /^(r|rg|rgba|bgra)8unorm$/.test(view) ? "rgba8unorm" : /32float/.test(view) ? "rgba32float" : "rgba16float";
+            // (a copy of four components, of the view's kind and at least its precision; depth's in its
+            // red, 32-bit where the device filters them)
+            const view = v.descriptor.format, wide = this.device.features.has("float32-filterable");
+            const format = depth ? (v.swizzle ? "rgba" : "r") + (wide ? "32float" : "16float") : f.uint ? "rgba32uint" : f.sint ? "rgba32sint" :
+                /^(r|rg|rgba|bgra)8unorm-srgb$/.test(view) ? "rgba8unorm-srgb" : /^(r|rg|rgba|bgra)8unorm$/.test(view) ? "rgba8unorm" :
+                /32float/.test(view) ? "rgba32float" : "rgba16float";
+            if (depth && !wide) this.warn("depth-read16", "depth read as a float texture at 16 bits (the device filters no 32-bit floats)");
             const volume = t.volume, slices = m => volume ? Math.max(1, t.depth >> (v.baseMip + m)) : v.layers;
-            if (!v.swizzled || !v.swizzled.texture) {
+            if (!v[mode] || !v[mode].texture) {
                 const texture = this.device.createTexture({ size: [Math.max(1, t.width >> v.baseMip), Math.max(1, Math.max(1, t.height) >> v.baseMip),
                     volume ? Math.max(1, t.depth >> v.baseMip) : v.layers], dimension: volume ? "3d" : "2d", format, mipLevelCount: v.mips,
                     usage: TEXTURE.TEXTURE_BINDING | TEXTURE.RENDER_ATTACHMENT });
-                v.swizzled = { texture, view: texture.createView({ dimension: v.dimension, format }) };
+                v[mode] = { texture, view: texture.createView({ dimension: v.dimension, format }) };
                 // (bind groups made before bound the view itself)
                 this.swizzleEpoch = (this.swizzleEpoch || 0) + 1;
             }
-            const key = "swizzle:" + format + ":" + type + (volume ? ":3d" : "");
+            const key = "swizzle:" + format + ":" + type + (volume ? ":3d" : "") + (depth ? ":depth" : "");
             let pipeline = this.pipelines.get(key);
             if (!pipeline) {
+                const texel = depth ? "    let c = vec4f(textureLoad(source, vec2i(at.xy), i32(s.layer), i32(s.mip)), 0.0, 0.0, 1.0);" :
+                    volume ? "    let c = textureLoad(source, vec3i(vec2i(at.xy), i32(s.layer)), i32(s.mip));" :
+                        "    let c = textureLoad(source, vec2i(at.xy), i32(s.layer), i32(s.mip));";
                 const code = [
                     "struct S { swizzle: vec4u, mip: u32, layer: u32 };",
                     "@group(0) @binding(0) var<uniform> s: S;",
-                    "@group(0) @binding(1) var source: " + (volume ? "texture_3d<" : "texture_2d_array<") + type + ">;",
+                    "@group(0) @binding(1) var source: " + (depth ? "texture_depth_2d_array;" : (volume ? "texture_3d<" : "texture_2d_array<") + type + ">;"),
                     "@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {",
                     "    return vec4f(f32(i & 1u) * 4.0 - 1.0, f32(i >> 1u) * 4.0 - 1.0, 0.0, 1.0);",
                     "}",
@@ -762,8 +783,7 @@
                     "        case 3u: { return c.y; } case 4u: { return c.z; } default: { return c.w; } }",
                     "}",
                     "@fragment fn fs(@builtin(position) at: vec4f) -> @location(0) vec4<" + type + "> {",
-                    volume ? "    let c = textureLoad(source, vec3i(vec2i(at.xy), i32(s.layer)), i32(s.mip));" :
-                        "    let c = textureLoad(source, vec2i(at.xy), i32(s.layer), i32(s.mip));",
+                    texel,
                     "    return vec4<" + type + ">(pick(c, s.swizzle.x), pick(c, s.swizzle.y), pick(c, s.swizzle.z), pick(c, s.swizzle.w));",
                     "}",
                 ].join("\n");
@@ -772,16 +792,17 @@
                     fragment: { module, entryPoint: "fs", targets: [{ format }] }, primitive: { topology: "triangle-list" } });
                 this.pipelines.set(key, pipeline);
             }
-            const source = t.texture.createView({ dimension: volume ? "3d" : "2d-array", format: v.descriptor.format });
+            const source = depth ? t.texture.createView({ dimension: "2d-array", aspect: "depth-only", format: v.descriptor.format }) :
+                t.texture.createView({ dimension: volume ? "3d" : "2d-array", format: v.descriptor.format });
             const encoder = this.encoder();
             for (let m = 0; m < v.mips; m++) {
                 for (let l = 0; l < slices(m); l++) {
                     const ubo = this.device.createBuffer({ size: 32, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
-                    this.device.queue.writeBuffer(ubo, 0, Uint32Array.from([...v.swizzle, v.baseMip + m, volume ? l : v.baseLayer + l, 0, 0]));
+                    this.device.queue.writeBuffer(ubo, 0, Uint32Array.from([...v.swizzle || [2, 3, 4, 5], v.baseMip + m, volume ? l : v.baseLayer + l, 0, 0]));
                     this.transient.push(ubo);
                     const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
                         { binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: source }] });
-                    const target = { view: v.swizzled.texture.createView({ dimension: volume ? "3d" : "2d", baseMipLevel: m, mipLevelCount: 1,
+                    const target = { view: v[mode].texture.createView({ dimension: volume ? "3d" : "2d", baseMipLevel: m, mipLevelCount: 1,
                         baseArrayLayer: volume ? 0 : l, arrayLayerCount: 1 }), loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] };
                     if (volume) target.depthSlice = l;
                     const pass = encoder.beginRenderPass({ colorAttachments: [target] });
@@ -791,7 +812,7 @@
                     pass.end();
                 }
             }
-            v.swizzled.generation = generation;
+            v[mode].generation = generation;
             this.stats.swizzleCopies = (this.stats.swizzleCopies || 0) + 1;
         }
 
@@ -1591,7 +1612,7 @@
                 if (!v || v.kind !== "view") return null;
                 const copy = this.substitutes && this.substitutes.get(v);
                 if (kind === "storage-texture") this.touch(v.texture.texture);
-                const swizzled = v.swizzle && v.swizzled && kind !== "storage-texture" ? v.swizzled.view : null;
+                const mode = copyMode(v, kind), swizzled = mode && v[mode] ? v[mode].view : null;
                 // (a texture of the render pass this binds into, not copied: WebGPU would drop the batch)
                 if (point === 0 && this.pass && !copy && !swizzled && this.passTextures && this.passTextures.has(v.texture.texture)) {
                     this.warn("feedback:" + group + ":" + binding + ":" + kind, "a draw samples a texture of its own pass, not copied (group " + group +
@@ -1749,8 +1770,9 @@
                 if (f.slot === 1 && kind !== 0 || f.slot === 2 && kind === 2) rows[f.slot] = Math.max(rows[f.slot], available(f));
             }
             if (rows[1] > PACKED_ROWS) { this.warn("packed-rows", "a draw's vertices repacked: the first " + PACKED_ROWS + " only"); rows[1] = PACKED_ROWS; }
-            const buffers = layout.packed.map((l, slot) => l && rows[slot] ?
-                this.scratch(rows[slot] * (layout.strides[slot] || 4), BUFFER.VERTEX | BUFFER.STORAGE | BUFFER.COPY_DST) : null);
+            // (a slot of the pipeline's always gets a buffer, of one row at least: WebGPU wants each set)
+            const buffers = layout.packed.map((l, slot) => l ?
+                this.scratch(Math.max(1, rows[slot]) * (layout.strides[slot] || 4), BUFFER.VERTEX | BUFFER.STORAGE | BUFFER.COPY_DST) : null);
             const resume = !!this.pass;
             this.endPass();
             for (const f of layout.fields) {
@@ -2014,10 +2036,17 @@
             }
             if (packed) packed.buffers.forEach((buffer, slot) => { if (buffer) pass.setVertexBuffer(slot, buffer); });
             else {
-                // (the pipeline's bindings only: others may be bound where WebGPU refuses)
+                // (the pipeline's bindings only: others may be bound where WebGPU refuses; one with
+                // nothing bound reads zeros, as WebGPU would drop the whole batch for it)
                 for (const { binding: slot } of p.desc.buffers) {
                     const v = s.vertex[slot], m = v && this.memory(v.memory);
-                    if (m && slot < 8) pass.setVertexBuffer(slot, m.buffer, v.offset, Math.min(v.size, m.buffer.size - v.offset));
+                    if (slot >= 8) continue;
+                    if (m) pass.setVertexBuffer(slot, m.buffer, v.offset, Math.min(v.size, m.buffer.size - v.offset));
+                    else {
+                        this.warn("vertex-unbound" + slot, "vertex binding " + slot + " has nothing bound (zeros)");
+                        if (!this.zeroVertices) this.zeroVertices = this.device.createBuffer({ size: 1 << 16, usage: BUFFER.VERTEX });
+                        pass.setVertexBuffer(slot, this.zeroVertices);
+                    }
                 }
             }
             if (viewport) {

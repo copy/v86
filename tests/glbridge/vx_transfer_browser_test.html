@@ -693,6 +693,35 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         check(swizzled.join(" ") === "128,128,128,255,0,64 192,192,192,255,0,128", "view swizzles: " + swizzled.join(" ") +
             " (" + renderer.vx.warnings.join("; ") + ")");
 
+        // D32_SFLOAT_S8_UINT (GL ES 3.0's DEPTH32F_STENCIL8: WebGPU's optional
+        // depth32float-stencil8): depth cleared to 0.3, stencil to 7, both read back
+        const D32S8 = 200, D32M = 201;
+        w.command(VX.TEXTURE_CREATE, [D32S8, 130, 1, 4, 4, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.MEMORY_CREATE, [D32M, 1024, 0]);
+        w.command(VX.BEGIN, []);
+        w.command(VX.CLEAR_IMAGE, [D32S8, 6, 0, 1, 0, 1, f32(0.3), 7, 0, 0]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, D32M, 0, 0, 0, 0, D32S8, 2, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, D32M, 512, 0, 0, 0, D32S8, 4, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.END, []);
+        const d32s8 = await read(D32M, 0, 1024);
+        const depth32 = new Float32Array(d32s8.buffer, 0, 1)[0], stencil8 = d32s8[512];
+        check(near(depth32, 0.3) && stencil8 === 7, "D32_SFLOAT_S8_UINT: " + depth32 + ", " + stencil8 + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // A depth view sampled as a float texture (GL's sampler2D of a depth
+        // texture; WebGPU binds depth as depth or unfilterable float): through a
+        // copy of (d, 0, 0, 1), the swizzle test's shader; a D32 image cleared to 0.6
+        const DR = 205, DRV = 206;
+        w.command(VX.TEXTURE_CREATE, [DR, 126, 1, 2, 1, 1, 1, 1, 1, 0x27, 0]);
+        w.command(VX.VIEW_CREATE, [DRV, DR, 1, 126, 2, 0, 1, 0, 1, 0, 0, 0, 0]);
+        w.command(VX.BEGIN, []);
+        w.command(VX.CLEAR_IMAGE, [DR, 2, 0, 1, 0, 1, f32(0.6), 0, 0, 0]);
+        w.command(VX.BIND_PIPELINE, [ZPIPE]);
+        w.command(VX.SET_BIND_GROUP, [1 << 16 | 0, 3, 0, 0, 2, DRV, 0, 0, 0, 0, 1, 0, 2, DRV, 0, 0, 0, 0, 2, 0, 7, ZOUT, 0, 0, 0, 256]);
+        w.command(VX.DISPATCH, [1, 1, 1]);
+        w.command(VX.END, []);
+        const depth_read = Array.from(new Float32Array((await read(ZOUT, 0, 24)).buffer), x => Math.round(x * 100) / 100).join();
+        check(depth_read === "0.6,0,0,1,0.6,1", "a depth view sampled as a float texture: " + depth_read + " (" + renderer.vx.warnings.join("; ") + ")");
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

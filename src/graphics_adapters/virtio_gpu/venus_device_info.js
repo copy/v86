@@ -446,6 +446,9 @@ export const FORMATS = {
     126: ["depth32float", "dmc", null, 4],             // D32_SFLOAT
     127: ["stencil8", "dmc", null, 1],                 // S8_UINT
     129: ["depth24plus-stencil8", "dmc", null, 4],     // D24_UNORM_S8_UINT
+    // (GL ES 3.0's DEPTH32F_STENCIL8: WebGPU's optional depth32float-stencil8,
+    // which VX makes depth24plus-stencil8 on a device without it)
+    130: ["depth32float-stencil8", "dmc", null, 8],    // D32_SFLOAT_S8_UINT
 };
 
 /**
