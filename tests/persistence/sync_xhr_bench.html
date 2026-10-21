@@ -1,0 +1,108 @@
+<!doctype html><meta charset="utf-8"><title>Disk service: synchronous requests</title>
+<div id="screen"><div style="white-space: pre; font: 14px monospace; line-height: 14px"></div><canvas style="display: none"></canvas></div>
+<pre id="log"></pre>
+<pre id="result">RUNNING</pre>
+<script type="module">
+// docs/disk-persistence-plan.md, D2's synchronous XHR: MS-DOS 6.22 on a disk
+// written back to the local disk service (the runner's dos.img), the CPU in
+// its Worker, on i440FX (IDE) and Q35 (AHCI); the BIOS does all of DOS's
+// disk I/O and polls for each command. Timed: the boot to the prompt, a
+// copy that writes about 1.7 MB (COMMAND.COM 8 times, then that 4 times),
+// a copy of it to NUL (reads). Each machine with the CPU Worker of this
+// tree (build/cpu-worker.js) and with the one given as async=<path under
+// build/> (a build of the client without synchronous requests), alternating,
+// runs=<n> times each.
+//   node tests/app/browser_runner.mjs tests/persistence/sync_xhr_bench.html service=1 async=cpu-worker-async.js runs=2
+import { V86 } from "../../build/libv86.mjs";
+const params = new URLSearchParams(location.search);
+const url = params.get("service") + "dos.img";
+const runs = +(params.get("runs") || 2);
+const workers = [["sync", "../../build/cpu-worker.js"]].concat(params.get("async") ? [["async", "../../build/" + params.get("async")]] : []);
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const screen = vm => (vm.screen_adapter ? vm.screen_adapter.get_text_screen() : []).map(l => l.replace(/\x00/g, " "));
+async function until(vm, condition, what, timeout = 300000)
+{
+    const end = performance.now() + timeout;
+    while(!condition())
+    {
+        if(performance.now() > end) throw new Error("timeout: " + what + "\n" + screen(vm).join("\n"));
+        await sleep(10);
+    }
+    return performance.now();
+}
+const prompt_last = vm => { const l = screen(vm).filter(x => x.trim()); return l.length && l[l.length - 1].trim() === "C:\\>"; };
+/** a command's time: from its Enter to the prompt after it */
+async function command(vm, text)
+{
+    await vm.keyboard_send_text("cls\n", 20);
+    await until(vm, () => { const l = screen(vm).filter(x => x.trim()); return l.length === 1 && l[0].startsWith("C:\\>"); }, "cls");
+    await vm.keyboard_send_text(text, 20);
+    await until(vm, () => screen(vm).some(l => l.includes(text.slice(-12))), "the command typed");
+    const began = performance.now();
+    await vm.keyboard_send_text("\n");
+    return await until(vm, () => screen(vm).filter(x => x.startsWith("C:\\>")).length >= 2, text) - began;
+}
+async function run(machine, worker)
+{
+    const began = performance.now();
+    const vm = new V86({
+        wasm_path: "../../build/v86.wasm", cpu_worker: true, cpu_worker_url: worker,
+        bios: { url: "../../bios/seabios.bin" }, vga_bios: { url: "../../bios/vgabios.bin" },
+        graphics_adapter: "bochs_vga", graphics_adapter_path: "../../build/v86-bochs-vga.js",
+        machine_type: machine, acpi: machine === "q35",
+        hda: { url, disk_option: "read_write" }, memory_size: 32 << 20, autostart: true, disable_speaker: true,
+        screen: { container: document.getElementById("screen") },
+    });
+    await new Promise((resolve, reject) => { vm.add_listener("emulator-loaded", resolve); vm.add_listener("emulator-error", reject); });
+    const prompt = await until(vm, () => prompt_last(vm), "the prompt");
+    // (AUTOEXEC.BAT done: the prompt alone on its line for half a second)
+    let since = performance.now();
+    await until(vm, () => { if(!prompt_last(vm)) since = performance.now(); return performance.now() - since > 500; }, "a stable prompt");
+    const boot = prompt - began;
+    await command(vm, "del A.BIN");
+    await command(vm, "del B.BIN");
+    const write_a = await command(vm, "copy /b COMMAND.COM+COMMAND.COM+COMMAND.COM+COMMAND.COM+COMMAND.COM+COMMAND.COM+COMMAND.COM+COMMAND.COM A.BIN");
+    const write_b = await command(vm, "copy /b A.BIN+A.BIN+A.BIN+A.BIN B.BIN");
+    const read = await command(vm, "copy /b B.BIN NUL");
+    const dir = screen(vm).join("\n");
+    await command(vm, "dir B.BIN");
+    const listed = screen(vm).find(l => /B\s+BIN/.test(l)) || "";
+    await vm.destroy();
+    return { boot, write: write_a + write_b, read, listed: listed.trim().replace(/\s+/g, " "), dir };
+}
+
+const results = [];
+try
+{
+    for(let i = 0; i < runs; i++)
+    {
+        for(const machine of ["i440fx", "q35"])
+        {
+            for(const [mode, worker] of (i % 2 ? workers.slice().reverse() : workers))
+            {
+                const r = await run(machine, worker);
+                results.push({ machine, mode, ...r });
+                log(machine + " " + mode + ": boot " + (r.boot / 1000).toFixed(2) + " s, write " + (r.write / 1000).toFixed(2) +
+                    " s, read " + (r.read / 1000).toFixed(2) + " s (" + r.listed + ")");
+            }
+        }
+    }
+    const median = list => { const s = list.slice().sort((a, b) => a - b); return s[s.length >> 1]; };
+    const table = ["machine mode boot write read (medians, s)"];
+    for(const machine of ["i440fx", "q35"])
+    {
+        for(const [mode] of workers)
+        {
+            const rows = results.filter(r => r.machine === machine && r.mode === mode);
+            table.push([machine, mode].concat(["boot", "write", "read"].map(k => (median(rows.map(r => r[k])) / 1000).toFixed(2))).join(" "));
+        }
+    }
+    document.getElementById("result").textContent = "PASS\n" + lines.join("\n") + "\n" + table.join("\n");
+}
+catch(e)
+{
+    document.getElementById("result").textContent = "FAIL " + (e.stack || e.message) + "\n" + lines.join("\n");
+}
+</script>

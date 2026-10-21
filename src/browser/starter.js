@@ -1928,6 +1928,7 @@ V86.prototype.insert_floppy = async function(index, file)
  */
 V86.prototype.close_floppy = function(drive)
 {
+    this.v86.cpu.devices.fdc.disk_removed(drive);
     const buffer = drive.buffer;
     if(buffer && buffer.writeback && typeof buffer.close === "function")
     {

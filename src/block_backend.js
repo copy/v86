@@ -22,6 +22,8 @@
 //   stop()); run() retries the held requests in their order
 //   (release_disk_holds), or reports those that cannot be retried;
 //   destroy() and a restored snapshot drop them, as a power loss would.
+//   The floppy controller's DMA transfers are held the same way
+//   (src/floppy.js, block_failed).
 // Either way a "disk-error" event tells the host: the disk, the operation,
 // offset, length, the reason, whether it can be retried, the policy. A
 // cancelled read, or a request a reset overtook, calls neither callback.
@@ -79,7 +81,7 @@ export function is_retryable(error)
  * @param {function(!Error)} report ends it with the error
  * @param {function()} drop forgets it (held, then destroy() or a restore)
  */
-function block_failed(owner, operation, start, length, error, retry, report, drop)
+export function block_failed(owner, operation, start, length, error, retry, report, drop)
 {
     const buffer = owner.buffer;
     const policy = buffer && buffer.disk_error === "report" ? "report" : "stop";

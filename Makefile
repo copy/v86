@@ -750,6 +750,7 @@ disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
 	./tests/devices/disk_writeback.mjs
 	./tests/persistence/guest.mjs
 	./tests/persistence/disk_service.mjs
+	./tests/persistence/disk_service_sync.mjs
 	./tests/persistence/service_machine.mjs
 	./tests/persistence/floppy.mjs
 

@@ -506,7 +506,14 @@ export function create_disk_service(options)
     };
 }
 
-if(process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url))
+/** run as a program (not imported; in an eval worker argv[1] is not a file) */
+function is_main()
+{
+    try { return !!process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url); }
+    catch(e) { return false; }
+}
+
+if(is_main())
 {
     const args = process.argv.slice(2);
     const options = { dir: "", origins: [], token: undefined, lease_ms: 30000, port: 8471, host: "127.0.0.1", allow_create: false, max_size: DEFAULT_MAX_SIZE };

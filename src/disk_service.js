@@ -21,6 +21,14 @@
 // - Snapshots: prepare_snapshot (flush, mark: the generation recorded),
 //   then get_state gives the reference (identity: the URL and the
 //   service's UUID of the image; generation; size).
+// - In a worker (the CPU Worker), reads and writes to the local disk service
+//   on this computer (127.0.0.1, localhost, [::1]) are synchronous
+//   XMLHttpRequests: they complete before the device goes on, as a local
+//   file's do, which the firmware's polling drivers need (SeaBIOS's AHCI
+//   driver waits for each command; an asynchronous answer arrives only after
+//   the emulator's batch of instructions). One attempt of 2 s at most: what
+//   fails goes the asynchronous way, with its retries (reads can be repeated,
+//   a write's sequence number makes the service apply it once).
 
 import { WRITEBACK_STATE, WRITEBACK_STATE_VERSION, FLUSH_IDLE_MS, FLUSH_MAX_MS, disk_error, is_writeback_state } from "./disk_writeback.js";
 import { dbg_log } from "./log.js";
@@ -31,6 +39,21 @@ const CACHE_BLOCK = 4096;
 const CACHE_BLOCKS = 4096;
 const ATTEMPTS = 4;
 const ATTEMPT_MS = 30000;
+const SYNC_ATTEMPT_MS = 2000;
+
+/**
+ * Whether the requests to a disk service may block: in a worker, to this
+ * computer (docs/disk-persistence-plan.md, D2's synchronous XHR)
+ * @param {string} url
+ * @return {boolean}
+ */
+function sync_requests(url)
+{
+    if(typeof window !== "undefined" || typeof XMLHttpRequest === "undefined") return false;
+    let host;
+    try { host = new URL(url).hostname; } catch(e) { return false; }
+    return host === "127.0.0.1" || host === "localhost" || host === "[::1]";
+}
 
 /**
  * @constructor
@@ -46,6 +69,9 @@ export function DiskServiceDisk(url, options)
     /** @type {number} */
     this.byteLength = 0;
     this.writeback = true;
+    /** reads and writes as synchronous requests (sync_requests) */
+    this.sync = sync_requests(url);
+    this.sync_requests = 0;
     this.session = "";
     this.epoch = 0;
     this.lease_ms = 0;
@@ -140,6 +166,36 @@ DiskServiceDisk.prototype.request = async function(what, init, attempts = ATTEMP
 };
 
 /**
+ * One synchronous request (this.sync): its answer, or null when it did not
+ * get one, or got a 5xx (but 507): then the asynchronous way tries it again
+ * @param {string} method
+ * @param {!Object<string, string>} headers
+ * @param {!Uint8Array=} body
+ * @return {?{status: number, header: function(string): ?string, data: !ArrayBuffer}}
+ */
+DiskServiceDisk.prototype.request_sync = function(method, headers, body)
+{
+    const xhr = new XMLHttpRequest();
+    this.requests++;
+    this.sync_requests++;
+    try
+    {
+        xhr.open(method, this.url, false);
+        xhr.responseType = "arraybuffer";
+        xhr.timeout = SYNC_ATTEMPT_MS;
+        for(const name of Object.keys(headers)) xhr.setRequestHeader(name, headers[name]);
+        xhr.send(body || null);
+    }
+    catch(e)
+    {
+        dbg_log(this.name + ": a synchronous " + method + " failed (" + e.message + "), asynchronously again", LOG_DISK);
+        return null;
+    }
+    if(xhr.status === 0 || xhr.status >= 500 && xhr.status !== 507) return null;
+    return { status: xhr.status, header: name => xhr.getResponseHeader(name), data: /** @type {!ArrayBuffer} */ (xhr.response) };
+};
+
+/**
  * A refusal of the service as an error (not to be retried)
  * @param {!Response} response
  * @param {string} what
@@ -147,12 +203,24 @@ DiskServiceDisk.prototype.request = async function(what, init, attempts = ATTEMP
  */
 DiskServiceDisk.prototype.refusal = async function(response, what)
 {
+    /** @type {?} */
     let body = {};
     try { body = await response.json(); } catch(e) {}
+    return this.refusal_of(response.status, body, what);
+};
+
+/**
+ * @param {number} status
+ * @param {?} body the answer's JSON
+ * @param {string} what
+ * @return {!Error}
+ */
+DiskServiceDisk.prototype.refusal_of = function(status, body, what)
+{
     const code = body["code"] || "";
     if(code === "lease" || code === "epoch") this.lease_lost = true;
     const kind = code === "no_space" ? "no_space" : code === "lease" || code === "epoch" ? "lease" : "io";
-    return disk_error(this.name + ": the " + what + " was refused (HTTP " + response.status + (body["error"] ? ": " + body["error"] : "") + ")" +
+    return disk_error(this.name + ": the " + what + " was refused (HTTP " + status + (body["error"] ? ": " + body["error"] : "") + ")" +
         (kind === "lease" ? "; another session writes the image now" : ""), kind, false);
 };
 
@@ -279,31 +347,57 @@ DiskServiceDisk.prototype.get = function(start, length, fn, options)
     const headers = this.headers("read");
     delete headers["X-V86-Disk-Op"];
     headers["Range"] = "bytes=" + from + "-" + (to - 1);
+    if(this.sync)
+    {
+        const answer = this.request_sync("GET", headers);
+        if(answer)
+        {
+            let data;
+            try { data = this.got(from, to, began, answer.status, answer.header("Content-Range") || "", new Uint8Array(answer.data)); }
+            catch(error) { fn(undefined, /** @type {!Error} */ (error)); return; }
+            fn(data.subarray(start - from, start - from + length));
+            return;
+        }
+    }
     this.request("read", { method: "GET", headers, signal }).then(async response =>
     {
-        const range = response.headers.get("Content-Range") || "";
-        const data = new Uint8Array(await response.arrayBuffer());
-        if(response.status !== 206 || range !== "bytes " + from + "-" + (to - 1) + "/" + this.byteLength || data.length !== to - from)
-        {
-            throw disk_error(this.name + ": the read of " + (to - from) + " bytes at " + from + " got HTTP " + response.status +
-                ", Content-Range " + JSON.stringify(range) + ", " + data.length + " bytes", "io", response.status >= 500 || response.status === 206);
-        }
+        const data = this.got(from, to, began, response.status, response.headers.get("Content-Range") || "", new Uint8Array(await response.arrayBuffer()));
         if(signal && signal.aborted) return;
-        for(let b = from / CACHE_BLOCK; b * CACHE_BLOCK < to; b++)
-        {
-            // (a write that completed since the read began has newer data)
-            if((this.block_written.get(b) || 0) > began) continue;
-            if((b + 1) * CACHE_BLOCK > to) continue;
-            this.cache.delete(b);
-            this.cache.set(b, data.slice(b * CACHE_BLOCK - from, (b + 1) * CACHE_BLOCK - from));
-            if(this.cache.size > CACHE_BLOCKS) this.cache.delete(this.cache.keys().next().value);
-        }
         fn(data.subarray(start - from, start - from + length));
     }).catch(error =>
     {
         if(signal && signal.aborted) return;
         fn(undefined, /** @type {!Error} */ (error));
     });
+};
+
+/**
+ * A read's answer: checked, and cached unless a write completed since it began
+ * @param {number} from
+ * @param {number} to
+ * @param {number} began writes_completed when the read began
+ * @param {number} status
+ * @param {string} range the answer's Content-Range
+ * @param {!Uint8Array} data
+ * @return {!Uint8Array} data
+ */
+DiskServiceDisk.prototype.got = function(from, to, began, status, range, data)
+{
+    if(status !== 206 || range !== "bytes " + from + "-" + (to - 1) + "/" + this.byteLength || data.length !== to - from)
+    {
+        throw disk_error(this.name + ": the read of " + (to - from) + " bytes at " + from + " got HTTP " + status +
+            ", Content-Range " + JSON.stringify(range) + ", " + data.length + " bytes", "io", status >= 500 || status === 206);
+    }
+    for(let b = from / CACHE_BLOCK; b * CACHE_BLOCK < to; b++)
+    {
+        // (a write that completed since the read began has newer data)
+        if((this.block_written.get(b) || 0) > began) continue;
+        if((b + 1) * CACHE_BLOCK > to) continue;
+        this.cache.delete(b);
+        this.cache.set(b, data.slice(b * CACHE_BLOCK - from, (b + 1) * CACHE_BLOCK - from));
+        if(this.cache.size > CACHE_BLOCKS) this.cache.delete(this.cache.keys().next().value);
+    }
+    return data;
 };
 
 DiskServiceDisk.prototype.get_and_cache = DiskServiceDisk.prototype.get;
@@ -353,12 +447,31 @@ DiskServiceDisk.prototype.set = function(start, data, fn)
         this.schedule_flush();
         fn(undefined);
     };
+    const headers = this.headers("write");
+    headers["X-V86-Disk-Sequence"] = String(sequence);
+    headers["X-V86-Disk-Offset"] = String(start);
+    headers["Content-Type"] = "application/octet-stream";
+    // (synchronous when no write it overlaps is on its way)
+    if(this.sync && !before.length)
+    {
+        const answer = this.request_sync("POST", headers, data);
+        if(answer)
+        {
+            /** @type {?} */
+            let body = {};
+            try { body = JSON.parse(new TextDecoder().decode(answer.data)); } catch(e) {}
+            if(answer.status < 200 || answer.status > 299)
+            {
+                complete(this.refusal_of(answer.status, body, "write of " + data.length + " bytes at " + start));
+                return;
+            }
+            this.generation_known = String(body["generation"]);
+            complete(undefined);
+            return;
+        }
+    }
     Promise.all(before).then(async () =>
     {
-        const headers = this.headers("write");
-        headers["X-V86-Disk-Sequence"] = String(sequence);
-        headers["X-V86-Disk-Offset"] = String(start);
-        headers["Content-Type"] = "application/octet-stream";
         const response = await this.request("write", { method: "POST", headers, body: data });
         if(!response.ok) throw await this.refusal(response, "write of " + data.length + " bytes at " + start);
         this.generation_known = String((await response.json())["generation"]);

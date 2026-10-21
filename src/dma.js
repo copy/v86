@@ -308,28 +308,36 @@ DMA.prototype.do_read = function(buffer, start, len, channel, fn)
         this.channel_addr[channel] += read_count;
 
         const epoch = this.epoch;
-        track_state_io(cpu, done => buffer.get(start, read_count, done), (data, error) =>
+        // (the image's read; when it fails, fn gets the error and this, to try
+        // it again into the same memory: the registers are already as after
+        // the transfer, docs/disk-persistence-plan.md, disk_error "stop")
+        const attempt = () =>
         {
-            // (a machine reset in between: the transfer belongs to the machine before it)
             if(epoch !== this.epoch) return;
-            // (the image failed the read: docs/disk-persistence-plan.md D3)
-            if(error || !data)
+            track_state_io(cpu, done => buffer.get(start, read_count, done), (data, error) =>
             {
-                fn(true, error || new Error("the disk image returned no data"));
-                return;
-            }
-            try
-            {
-                cpu.write_blob_physical(data, addr);
-            }
-            catch(error)
-            {
-                if(!(error instanceof RangeError)) throw error;
-                fn(true);
-                return;
-            }
-            fn(false);
-        });
+                // (a machine reset in between: the transfer belongs to the machine before it)
+                if(epoch !== this.epoch) return;
+                // (the image failed the read: docs/disk-persistence-plan.md D3)
+                if(error || !data)
+                {
+                    fn(true, error || new Error("the disk image returned no data"), attempt);
+                    return;
+                }
+                try
+                {
+                    cpu.write_blob_physical(data, addr);
+                }
+                catch(error)
+                {
+                    if(!(error instanceof RangeError)) throw error;
+                    fn(true);
+                    return;
+                }
+                fn(false);
+            });
+        };
+        attempt();
     }
 };
 
@@ -392,13 +400,18 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
         }
 
         const epoch = this.epoch;
-        track_state_io(this.cpu, done => buffer.set(start, data, done),
+        // (the image's write; when it fails, fn gets the error and this, to
+        // write the same data again; after a reset it still lands, unanswered,
+        // as a held write does in src/block_backend.js)
+        const attempt = () =>
+        {
+            track_state_io(this.cpu, done => buffer.set(start, data, done),
                 error =>
                 {
                     if(epoch !== this.epoch) return;
                     if(error)
                     {
-                        fn(true, error);
+                        fn(true, error, attempt);
                         return;
                     }
                     if(want_more && autoinit)
@@ -412,6 +425,8 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
                     }
                 }
             );
+        };
+        attempt();
     }
 };
 

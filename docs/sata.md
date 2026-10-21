@@ -323,7 +323,10 @@ device layer registers every read and write with
   from about 180 seconds to about 20, and the time to the lock screen from about
   10 minutes to about 5. Disks loaded from a URL and the debug mode
   `cpu_worker=0` still read asynchronously, so the BIOS phase on Q35 remains slow
-  with them.
+  with them. A disk written back to the local disk service (`127.0.0.1`) is read
+  and written with synchronous XMLHttpRequests in the CPU worker
+  ([disk-persistence-plan.md](disk-persistence-plan.md), D2): MS-DOS copying
+  1.7 MB on Q35 took 17.1 s asynchronously and 1.2 s with them.
 - What FLUSH guarantees depends on the backend: with the in-memory overlay, a
   write is complete when the backend calls back.
 

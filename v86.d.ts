@@ -669,16 +669,18 @@ export interface V86Options {
     /**
      * First floppy disk. disk_option "read_write" writes the guest's
      * changes back (docs/disk-persistence-plan.md D3: a local file in Node,
-     * a disk service's URL; the image of a floppy format's size); a floppy
-     * drive reports a failed read or write to the guest (disk_error is
-     * "report").
+     * a disk service's URL; the image of a floppy format's size).
+     * disk_error as for hard disks: "stop" (the default) holds a failed
+     * transfer and stops the machine, run() tries it again; "report" ends
+     * the command with an error. A held transfer of a disk taken out ends
+     * with the error.
      */
-    fda?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string };
+    fda?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string };
 
     /**
      * Second floppy disk, as fda
      */
-    fdb?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string };
+    fdb?: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string };
 
     /**
      * CD-ROM
@@ -1333,7 +1335,7 @@ export class V86 {
      * (disk_option "read_write") that is taken out, by another or by
      * eject_fda, is flushed and closed.
      */
-    set_fda(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string }): Promise<void>;
+    set_fda(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string }): Promise<void>;
 
     /**
      * Eject the first floppy drive.
@@ -1344,7 +1346,7 @@ export class V86 {
      * Set the image inserted in the second floppy drive. Can be changed at runtime,
      * as when physically changing the floppy disk.
      */
-    set_fdb(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "report"; token?: string }): Promise<void>;
+    set_fdb(image: V86Image & { disk_option?: "read_only" | "read_write"; disk_error?: "stop" | "report"; token?: string }): Promise<void>;
 
     /**
      * Eject the second floppy drive.

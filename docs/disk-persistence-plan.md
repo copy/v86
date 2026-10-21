@@ -1,7 +1,7 @@
 # 磁盘持久化计划：`disk_option`
 
-状态：D0–D3 已实现（2026-10-17，`disk-formats` 分支）。未做：D2 中同步 XHR 的测量与 Chrome 本地网络访问
-授权的人工验证，D4（需要测量，并由负责人决定），见[附录](#附录实施记录)末节。
+状态：D0–D3 已实现（2026-10-17，`disk-formats` 分支）；2026-10-21（`ui` 分支）补完 D2 的同步 XHR（测量后采用）与软盘的
+`disk_error: "stop"`，D4 按所有者 2026-10-18 的决定不做。仍需人工：Chrome 本地网络访问授权；见[附录](#附录实施记录)末节。
 本文是 2026 年 10 月 17 日对“`disk_option` 写回源盘”方案的评审修订版，依据 `arm64` 分支
 a6674aa4 的代码。
 
@@ -701,3 +701,71 @@ D0–D3 按“实施阶段”完成。以下未做，或与计划不同，需要
 - 验证：应用内浏览器中用表单填网址并选 read write、启动 FreeDOS（硬盘为单独目录里的空白镜像），磁盘服务记录
   到写会话（`opened by epoch 1`），页面出现 “Save and power off”；`part=d2` 与 `part=page` 的无头 Chrome
   测试（页面以同样的查询参数写回、保存并关机、服务中断后 Retry）通过。
+
+### 余项（2026-10-21，`ui` 分支）
+
+上面“需要负责人决定的事项”在机器空闲后逐项处理：
+
+**1. D2 的同步 XHR：测量后采用。**
+
+- 测量（[`tests/persistence/sync_xhr_bench.html`](../tests/persistence/sync_xhr_bench.html)，无头 Chrome，CPU Worker）：MS-DOS 6.22
+  在写回本机磁盘服务的盘上（`tests/app/browser_runner.mjs service=1` 的 `dos.img`），先引导到提示符，再执行一条写约 1.7 MB 的
+  `copy`（COMMAND.COM 拼 8 次，再拼 4 次）和一条把它读到 `NUL` 的 `copy`。DOS 的磁盘读写全部经 BIOS，BIOS 逐条轮询命令完成。
+  同步版与当前提交的异步版（同一树的另一份 `cpu-worker.js`）交替各跑 2 次，取中位数（秒）：
+
+  | 机器 | 方式 | 引导 | 写 1.7 MB | 读 1.7 MB |
+  | --- | --- | --- | --- | --- |
+  | i440FX（IDE） | 异步 | 6.00 | 3.42 | 0.30 |
+  | i440FX（IDE） | 同步 | 5.74 | 1.01 | 0.10 |
+  | Q35（AHCI） | 异步 | 6.77 | 17.11 | 0.88 |
+  | Q35（AHCI） | 同步 | 5.91 | 1.27 | 0.12 |
+
+  Q35 上 SeaBIOS 的 AHCI 驱动经 SMM 轮询，异步回答要等一批指令结束，写入慢 13 倍、读取慢 7 倍；IDE 上约 3 倍。引导时间
+  大部分是 POST，差别小。
+- 决定与实现（[`src/disk_service.js`](../src/disk_service.js)）：在 Worker 中（没有 `window`、有 `XMLHttpRequest`），对本机
+  （`127.0.0.1`、`localhost`、`[::1]`）的磁盘服务，缓存未命中的读取与写入用同步 XHR，完成后才回调，与 Node 本地文件一样；
+  同步请求只试一次、最多 2 秒（请求期间 CPU 线程阻塞，不能像异步那样等 30 秒），没有回答、网络错误或 5xx（507 除外）时改走
+  原来的异步路径及其重试（读取可重复；写入沿用同一序号，服务只应用一次）；拒绝（409 租约、507）立即作为错误回调；与一个
+  在途写入重叠的写入不走同步，等它完成后异步发出。打开、续租、flush、mark、close 仍是异步。页面里（`cpu_worker=0`）与远程
+  服务不变。
+- 测试：[`tests/persistence/disk_service_sync.mjs`](../tests/persistence/disk_service_sync.mjs)（新，加入
+  `make disk-persistence-tests`）给 Node 一个同步 XHR（工作线程发请求、本线程 `Atomics.wait`；服务也在那个线程里，本线程等待时
+  它照常回答）：读与写在 `get`/`set` 返回前完成，缓存命中不发请求，写入完成时已在文件中；同步请求无回答、回答丢失（服务已
+  应用）、503 时改走异步，数据正确、写入只应用一次；重叠写入等待在途写入、后者的数据为准；租约丢失立即报错且不可重试；
+  页面与他机网址不用同步。`make disk-persistence-browser-tests` 的 CPU Worker 各项（d0、d2、close、pagehide、page，含服务中断后
+  Retry）用同步版通过。为在线程里引入，`tools/disk-service.mjs` 判断“作为程序运行”时不再因 `argv[1]` 不是文件而抛错。
+
+**2. 软盘的 `disk_error: "stop"`：已实现，默认与硬盘相同。**
+
+- 原以为要回退 ISA DMA 的状态（D3 偏差 1）；实际只需重试镜像操作本身：[`src/dma.js`](../src/dma.js) 的 `do_read`/`do_write`
+  在镜像失败时把错误连同“再试一次”交给软驱控制器，重试读到同一内存地址、写同样的数据，DMA 寄存器在发起时已推进到传输
+  完成后的值；挂起期间机器停着、快照被拒，客户机看不到中间状态。重置后重试的读取不再发出，写入照样落盘而不回答（与
+  `block_backend.js` 中挂起的写入相同）。
+- 软驱控制器（[`src/floppy.js`](../src/floppy.js)）改用 `block_backend.js` 的 `block_failed`（导出）：`stop` 挂起传输、命令停在执行阶段、
+  机器停下，`run()` 重试或把不可重试的错误报告给客户机（ABNTERM）；`report` 与原来相同；事件相同。盘被取出（`eject_fda`、
+  `set_fda` 换盘）时，它挂起的传输以错误结束（`disk_removed`），如同拔出软盘。
+- [`src/disk_options.js`](../src/disk_options.js) 不再拒绝软盘的 `"stop"`，软盘的默认值随硬盘为 `"stop"`（计划“错误处理”的决定；
+  `report` 默认只是因为没有实现）。内存中的软盘镜像不会失败，只有写回的软盘（Node 文件、磁盘服务）受影响。`v86.d.ts` 随之更新。
+- 测试：`tests/persistence/floppy.mjs` 增加 `stop`：服务中断时机器停下（`disk-error`，`policy: "stop"`、可重试），客户机不报错，
+  `save_state` 被拒；服务恢复后 `run()`，命令完成、服务端镜像有文件；挂起时弹出软盘，客户机看到“Abort, Retry, Fail”。原来的
+  中断用例显式给 `report`。`tests/api/disk-options.js` 改为软盘接受 `stop` 且默认 `stop`。`tests/api/floppy.js`、
+  `tests/api/sb16-state.js`（SB16 也经 DMA）通过；`TEST_RELEASE_BUILD=1` 下 `floppy.mjs` 通过。
+
+**3. D4：不做。** 所有者 2026-10-18 选定本机磁盘服务（见上节“页面的读写选项”），不做直接写所选文件，测量不再需要。
+“在浏览器里保留修改”（[后续单独考虑](#后续单独考虑在浏览器里保留修改)）已由 VM 管理器计划 U6 的“浏览器磁盘”实现：
+`opfs:` 网址的镜像在 OPFS 中，`read_write` 写回该镜像（[`src/opfs_disk.js`](../src/opfs_disk.js)），快照引用沿用本文的身份与
+generation 规则（[vm-manager-plan.md](vm-manager-plan.md) U6）。
+
+**4. 仍未做。**
+
+- Chrome 本地网络访问授权：需要公网 HTTPS 页面与有界面的 Chrome 人工点授权，本环境仍做不到。按设计，同步 XHR 在授权前失败时
+  改走异步请求，由它触发授权提示（未验证）。
+- Node 跨进程锁：按计划不做。
+- 掉电验收的 fsck：本机与客户机仍没有 `e2fsck`，需要下载带 e2fsprogs 的客户机镜像。
+
+| 测试 | 结果 |
+| --- | --- |
+| `make disk-persistence-tests` | 通过（含新的 `disk_service_sync.mjs` 与更新的 `floppy.mjs`） |
+| `make disk-persistence-browser-tests` | 通过（页面与 CPU Worker 各 5 项；CPU Worker 中为同步 XHR） |
+| `tests/api/floppy.js`、`tests/api/sb16-state.js`、`TEST_RELEASE_BUILD=1 floppy.mjs` | 通过 |
+| Closure（`libv86.js`、`libv86.mjs`、`libv86-debug.mjs`、`cpu-worker.js`）、`make app-check`、eslint | 0 错误、无输出 |

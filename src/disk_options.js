@@ -143,12 +143,6 @@ export function check_disk_policy(name, file)
         {
             throw config_error(name + ": disk_error " + JSON.stringify(on_error) + " is not one of " + DISK_ERRORS.join(", "));
         }
-        if(kind === "floppy" && on_error !== "report")
-        {
-            // (the floppy controller reports a failed transfer to the guest: src/floppy.js)
-            throw config_error(name + ": floppy drives report a failed read or write to the guest (disk_error \"report\"); " +
-                "\"stop\" is for hard disks and CD drives");
-        }
         policy.disk_error = on_error;
     }
     if(token !== undefined)
@@ -162,7 +156,6 @@ export function check_disk_policy(name, file)
             throw config_error(name + ": token must be a string");
         }
     }
-    if(kind === "floppy") policy.disk_error = "report";
     if(policy.disk_option === "read_write")
     {
         if(file.readonly)
