@@ -834,10 +834,11 @@
 
         /** The aspect a copy names, and the bytes of its texels */
         copyAspect(t, aspect) {
-            if (aspect === ASPECT.STENCIL) return { aspect: "stencil-only", bytes: 1 };
+            if (aspect === ASPECT.STENCIL) return { aspect: "stencil-only", bytes: 1, gpu: 1 };
             if (aspect === ASPECT.DEPTH) {
                 if (t.f.gpu === "depth24plus" || t.f.gpu === "depth24plus-stencil8") return null;
-                return { aspect: t.f.hasStencil ? "depth-only" : "all", bytes: t.f.gpu === "depth16unorm" ? 2 : 4 };
+                const bytes = t.f.gpu === "depth16unorm" ? 2 : 4;
+                return { aspect: t.f.hasStencil ? "depth-only" : "all", bytes, gpu: bytes };
             }
             // (16-bit packed texels: the texture's are rgba8unorm, `gpu` bytes)
             return { aspect: "all", bytes: t.f.bytes, gpu: t.f.packed ? 4 : t.f.bytes };
@@ -1354,6 +1355,11 @@
                 const vertex_stage = d.stages.find(stage => stage.stage === 1);
                 p.vertexSource = { shader: this.objects.get(vertex_stage.shader), stage: vertex_stage };
                 p.vertexLayout = this.vertexLayout(d);
+                // (VK_BLEND_FACTOR_CONSTANT_ALPHA: WebGPU's constant is the color's for color; such a
+                // pipeline's draws get the constant's alpha in all four, warned when it uses both)
+                const colorFactors = d.targets.filter(x => x.blend).flatMap(x => [x.src_color, x.dst_color]);
+                p.constantAlpha = colorFactors.some(f => f === 12 || f === 13);
+                if (p.constantAlpha && colorFactors.some(f => f === 10 || f === 11)) this.warn("constant-alpha", "a pipeline blends with the constant's color and its alpha (not done)");
                 // (flat varyings of a pipeline of GL's provoking vertex: its draws reordered, provokingLast)
                 p.flat = !!(vertex[1].entry && vertex[1].entry.flat);
                 const buffers = p.vertexLayout.native ? p.vertexLayout.buffers : p.vertexLayout.packed;
@@ -2066,7 +2072,8 @@
                 pass.setScissorRect(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
             }
             const blend = p.desc.dynamic.includes(4) && s.blend ? s.blend : p.desc.blend_constants;
-            pass.setBlendConstant({ r: blend[0], g: blend[1], b: blend[2], a: blend[3] });
+            if (p.constantAlpha) pass.setBlendConstant({ r: blend[3], g: blend[3], b: blend[3], a: blend[3] });
+            else pass.setBlendConstant({ r: blend[0], g: blend[1], b: blend[2], a: blend[3] });
             if ((kind === 1 || kind === 2 && b[5]) && !reorder) {
                 const ib = s.index, m = ib && this.memory(ib.memory);
                 if (!m) return;

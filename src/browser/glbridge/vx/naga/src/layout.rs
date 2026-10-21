@@ -14,6 +14,12 @@
 //!   (row major: the indices swapped);
 //! - a load of a struct or array holding such members: member by member.
 //!
+//! Arrays of scalars and 2-component vectors 16 bytes apart (std140's
+//! `float a[4]`, `vec2 b[2]`; WGSL's are 4 and 8 apart, and naga writes
+//! them so) are done over the same way, as column major "matrices" whose
+//! columns are the elements: arrays of 4-component vectors, an element the
+//! first components of its vector.
+//!
 //! The blocks get copies of their structs (and arrays) with the vectors
 //! (`storage_of`), the originals stay for values, without their layout. A
 //! module with an access this does not do (a store, a copy of memory, such
@@ -80,6 +86,8 @@ struct Bad {
     /// the arrays around the matrix, outermost first, and their storage copies
     wrappers: Vec<u32>,
     wrapper_storage: Vec<u32>,
+    /// an array of padded elements (`matrix` the array, `column` the element), not a matrix
+    padded: bool,
 }
 
 /// What a pointer this pass follows points at
@@ -260,6 +268,9 @@ impl Lowering {
         if let Some(&b) = self.bad_of.get(&(s, m)) {
             return Some(b);
         }
+        if let Some(b) = self.find_padded(s, m, member_type) {
+            return Some(b);
+        }
         let stride = self.member_decoration(s, m, DECORATION_MATRIX_STRIDE)?;
         let row_major = self.member_decoration(s, m, DECORATION_ROW_MAJOR).is_some();
         let mut wrappers = Vec::new();
@@ -301,7 +312,46 @@ impl Lowering {
         }
         wrapper_storage.reverse();
         let b = self.bads.len();
-        self.bads.push(Bad { matrix: ty, column, float, columns, rows, row_major, vectors, vector, stored, wrappers, wrapper_storage });
+        self.bads.push(Bad { matrix: ty, column, float, columns, rows, row_major, vectors, vector, stored, wrappers, wrapper_storage, padded: false });
+        self.bad_of.insert((s, m), b);
+        Some(b)
+    }
+
+    /// The member `m` of struct `s` done over if it is an array of padded elements (or arrays of them)
+    fn find_padded(&mut self, s: u32, m: u32, member_type: u32) -> Option<usize> {
+        // the arrays around the innermost one
+        let mut wrappers = Vec::new();
+        let mut ty = member_type;
+        while self.type_op(ty) == OP_TYPE_ARRAY && self.type_op(self.types[&ty][2]) == OP_TYPE_ARRAY {
+            wrappers.push(ty);
+            ty = self.types[&ty][2];
+        }
+        if self.type_op(ty) != OP_TYPE_ARRAY || self.array_stride(ty) != Some(16) {
+            return None;
+        }
+        let element = self.types[&ty][2];
+        let (scalar, rows) = match self.type_op(element) {
+            OP_TYPE_INT | OP_TYPE_FLOAT => (element, 1),
+            OP_TYPE_VECTOR if self.types[&element][3] == 2 => (self.types[&element][2], 2),
+            _ => return None,
+        };
+        if !matches!(self.type_op(scalar), OP_TYPE_INT | OP_TYPE_FLOAT) || self.types[&scalar][2] != 32 || wrappers.iter().any(|&w| self.array_stride(w).is_none()) {
+            return None;
+        }
+        let columns = self.constant_value(self.types[&ty][3])?;
+        let vector = self.vector(scalar, 4);
+        let stored = self.array(vector, self.types[&ty][3], 16);
+        let mut wrapper_storage = Vec::new();
+        let mut inner = stored;
+        for &w in wrappers.iter().rev() {
+            let (length, stride) = (self.types[&w][3], self.array_stride(w).unwrap_or(0));
+            inner = self.array(inner, length, stride);
+            wrapper_storage.push(inner);
+        }
+        wrapper_storage.reverse();
+        let b = self.bads.len();
+        self.bads.push(Bad { matrix: ty, column: element, float: scalar, columns, rows, row_major: false, vectors: columns, vector, stored, wrappers,
+            wrapper_storage, padded: true });
         self.bad_of.insert((s, m), b);
         Some(b)
     }
@@ -579,7 +629,11 @@ impl Lowering {
                 let (vector, rows) = (self.bads[bad].vector, self.bads[bad].rows);
                 let loaded = if rows == 4 { result } else { self.fresh() };
                 body.push(instruction(OP_LOAD, &[vector, loaded, pointer]));
-                if rows != 4 {
+                if rows == 1 {
+                    // (a padded scalar: the vector's first component)
+                    body.push(instruction(OP_COMPOSITE_EXTRACT, &[ty, result, loaded, 0]));
+                }
+                else if rows != 4 {
                     let mut operands = Vec::from([ty, result, loaded, loaded]);
                     operands.extend(0..rows);
                     body.push(instruction(OP_VECTOR_SHUFFLE, &operands));
@@ -692,6 +746,9 @@ impl Lowering {
                 }
                 body.push(instruction(OP_COMPOSITE_CONSTRUCT, &operands));
             }
+            else if bad.rows == 1 {
+                body.push(instruction(OP_COMPOSITE_EXTRACT, &[bad.column, column, vectors[c as usize], 0]));
+            }
             else {
                 let v = vectors[c as usize];
                 let mut operands = Vec::from([bad.column, column, v, v]);
@@ -711,7 +768,8 @@ impl Lowering {
     /// the variables' pointer types redirected, the functions
     fn assemble(&mut self, globals: &[Vec<u32>], redirect: &BTreeMap<u32, u32>, body: Vec<Vec<u32>>) -> Vec<u32> {
         let copied: BTreeSet<u32> = self.copy_memo.iter().filter(|(_, &n)| n).map(|(&id, _)| id).collect();
-        let wrappers: BTreeSet<u32> = self.bads.iter().flat_map(|b| b.wrappers.iter().copied()).collect();
+        // (and a padded array's own type: a value type now)
+        let wrappers: BTreeSet<u32> = self.bads.iter().flat_map(|b| b.wrappers.iter().copied().chain(b.padded.then_some(b.matrix))).collect();
         let bad_members: BTreeSet<(u32, u32)> = self.bad_of.keys().copied().collect();
         let mut out: Vec<u32> = Vec::new();
         let header = globals.iter().position(|w| !preamble(Lowering::op(w))).unwrap_or(globals.len());

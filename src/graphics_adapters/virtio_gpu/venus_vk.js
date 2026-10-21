@@ -399,7 +399,12 @@ VulkanModel.prototype.read_back = function(written)
     {
         memory.fresh = false;
         const blob = memory.blob;
-        if(!memory.host_visible || !blob || blob.map_offset < 0) continue;
+        if(!memory.host_visible || !blob || blob.map_offset < 0)
+        {
+            if(this.debug && memory.host_visible) this.debug("readback skipped memory " + memory.rid + " " + JSON.stringify(ranges.slice(0, 4)) +
+                (blob ? " (not mapped)" : " (no blob)"));
+            continue;
+        }
         // merged, in whole dwords, within the memory
         const sorted = ranges.map(([a, b]) => [a & ~3, Math.min(memory.size, b + 3 & ~3)]).filter(r => r[1] > r[0]).sort((p, q) => p[0] - q[0]);
         const merged = [];

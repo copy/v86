@@ -722,6 +722,40 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         const depth_read = Array.from(new Float32Array((await read(ZOUT, 0, 24)).buffer), x => Math.round(x * 100) / 100).join();
         check(depth_read === "0.6,0,0,1,0.6,1", "a depth view sampled as a float texture: " + depth_read + " (" + renderer.vx.warnings.join("; ") + ")");
 
+        // A snapshot's stencil back into its texture (TEXTURE_WRITE of the stencil aspect), then copied out
+        const SW = 210, SWM = 211;
+        w.command(VX.TEXTURE_CREATE, [SW, 129, 1, 4, 2, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.MEMORY_CREATE, [SWM, 256, 0]);
+        w.command(VX.TEXTURE_WRITE, [SW, 4, 0, 0, 8], Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8]));
+        w.command(VX.BEGIN, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, SWM, 0, 0, 0, 0, SW, 4, 0, 0, 1, 0, 0, 0, 4, 2, 1]);
+        w.command(VX.END, []);
+        const stencil_back = Array.from((await read(SWM, 0, 8))).join();
+        check(stencil_back === "1,2,3,4,5,6,7,8", "a snapshot's stencil restored: " + stencil_back + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // std140 arrays of scalars and vec2s, 16 bytes apart (naga writes WGSL's
+        // 4 and 8): vec4 arrays (vx/naga/src/layout.rs). U { int n; float a[3];
+        // vec2 b[2]; }: a[n - 1], a[1], b[1].y, the whole a's [2], the whole b's [0].x
+        const PADDED_SPV = Uint8Array.from(atob("AwIjBwADAQAAAAAALwAAAAAAAAARAAIAAQAAAA4AAwAAAAAAAQAAAA8ABQAFAAAAAQAAAG1haW4AAAAAEAAGAAEAAAARAAAAAQAAAAEAAAABAAAARwADAAIAAAACAAAASAAFAAIAAAAAAAAAIwAAAAAAAABIAAUAAgAAAAEAAAAjAAAAEAAAAEgABQACAAAAAgAAACMAAABAAAAARwAEAAMAAAAGAAAAEAAAAEcABAAEAAAABgAAABAAAABHAAQABQAAACIAAAAAAAAARwAEAAUAAAAhAAAAAAAAAEcAAwAGAAAAAgAAAEgABQAGAAAAAAAAACMAAAAAAAAARwAEAAcAAAAGAAAABAAAAEcABAAIAAAAIgAAAAAAAABHAAQACAAAACEAAAABAAAAEwACAAkAAAAhAAMACgAAAAkAAAAWAAMACwAAACAAAAAVAAQADAAAACAAAAABAAAAFwAEAA0AAAALAAAAAgAAACsABAAMAAAADgAAAAAAAAArAAQADAAAAA8AAAABAAAAKwAEAAwAAAAQAAAAAgAAACsABAAMAAAAEQAAAAMAAAArAAQADAAAABIAAAAEAAAAHAAEAAMAAAALAAAAEQAAABwABAAEAAAADQAAABAAAAAeAAUAAgAAAAwAAAADAAAABAAAACAABAATAAAAAgAAAAIAAAA7AAQAEwAAAAUAAAACAAAAHQADAAcAAAALAAAAHgADAAYAAAAHAAAAIAAEABQAAAAMAAAABgAAADsABAAUAAAACAAAAAwAAAAgAAQAFQAAAAIAAAAMAAAAIAAEABYAAAACAAAACwAAACAABAAXAAAAAgAAAAMAAAAgAAQAGAAAAAIAAAAEAAAAIAAEABkAAAAMAAAACwAAADYABQAJAAAAAQAAAAAAAAAKAAAA+AACABoAAABBAAUAFQAAABsAAAAFAAAADgAAAD0ABAAMAAAAHAAAABsAAACCAAUADAAAAB0AAAAcAAAADwAAAEEABgAWAAAAHgAAAAUAAAAPAAAAHQAAAD0ABAALAAAAHwAAAB4AAABBAAYAGQAAACAAAAAIAAAADgAAAA4AAAA+AAMAIAAAAB8AAABBAAYAFgAAACEAAAAFAAAADwAAAA8AAAA9AAQACwAAACIAAAAhAAAAQQAGABkAAAAjAAAACAAAAA4AAAAPAAAAPgADACMAAAAiAAAAQQAHABYAAAAkAAAABQAAABAAAAAPAAAADwAAAD0ABAALAAAAJQAAACQAAABBAAYAGQAAACYAAAAIAAAADgAAABAAAAA+AAMAJgAAACUAAABBAAUAFwAAACcAAAAFAAAADwAAAD0ABAADAAAAKAAAACcAAABRAAUACwAAACkAAAAoAAAAAgAAAEEABgAZAAAAKgAAAAgAAAAOAAAAEQAAAD4AAwAqAAAAKQAAAEEABQAYAAAAKwAAAAUAAAAQAAAAPQAEAAQAAAAsAAAAKwAAAFEABgALAAAALQAAACwAAAAAAAAAAAAAAEEABgAZAAAALgAAAAgAAAAOAAAAEgAAAD4AAwAuAAAALQAAAP0AAQA4AAEA"), c => c.charCodeAt(0));
+        const PSH = 215, PPIPE3 = 216, PUM = 217, POUT = 218;
+        w.command(VX.SHADER_CREATE, [PSH, PADDED_SPV.length], PADDED_SPV);
+        w.command(VX.PIPELINE_CREATE, [PPIPE3], json({ kind: "compute", stages: [{ shader: PSH, stage: 32, entry: "main", constants: {} }],
+            set_count: 1, push_size: 0 }));
+        w.command(VX.MEMORY_CREATE, [PUM, 256, 0]);
+        w.command(VX.MEMORY_CREATE, [POUT, 256, 0]);
+        const ublock = new Float32Array(24);
+        new Int32Array(ublock.buffer)[0] = 3;
+        [10, 11, 12].forEach((v, k) => { ublock[4 + 4 * k] = v; });
+        [[20, 21], [22, 23]].forEach(([x, y], k) => { ublock[16 + 4 * k] = x; ublock[17 + 4 * k] = y; });
+        w.command(VX.MEMORY_WRITE, [PUM, 0, 0, 96], new Uint8Array(ublock.buffer));
+        w.command(VX.BEGIN, []);
+        w.command(VX.BIND_PIPELINE, [PPIPE3]);
+        w.command(VX.SET_BIND_GROUP, [1 << 16 | 0, 2, 0, 0, 6, PUM, 0, 0, 0, 96, 1, 0, 7, POUT, 0, 0, 0, 256]);
+        w.command(VX.DISPATCH, [1, 1, 1]);
+        w.command(VX.END, []);
+        const padded = Array.from(new Float32Array((await read(POUT, 0, 20)).buffer)).join();
+        check(padded === "12,11,23,12,20", "std140 arrays of scalars and vec2s: " + padded + " (" + renderer.vx.warnings.join("; ") + ")");
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

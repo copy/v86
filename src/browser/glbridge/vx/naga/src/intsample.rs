@@ -39,6 +39,13 @@ const OP_I_SUB: u32 = 130;
 const OP_F_MUL: u32 = 133;
 const OP_F_DIV: u32 = 136;
 const GLSL_FLOOR: u32 = 8;
+const GLSL_LOG2: u32 = 30;
+const GLSL_F_MAX: u32 = 40;
+const GLSL_F_CLAMP: u32 = 43;
+const GLSL_LENGTH: u32 = 66;
+const OP_IMAGE_QUERY_LEVELS: u32 = 106;
+const OP_DPDX: u32 = 207;
+const OP_DPDY: u32 = 208;
 const GLSL_S_CLAMP: u32 = 45;
 const IMAGE_OPERANDS_BIAS: u32 = 1;
 const IMAGE_OPERANDS_LOD: u32 = 2;
@@ -233,11 +240,15 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
         let mask = *w.get(5).unwrap_or(&0);
         let mut arg = 6;
         let mut lod_f = None;
+        let mut bias = None;
         let mut offset = None;
         for (bit, args) in [(IMAGE_OPERANDS_BIAS, 1), (IMAGE_OPERANDS_LOD, 1), (IMAGE_OPERANDS_GRAD, 2), (IMAGE_OPERANDS_CONST_OFFSET, 1), (IMAGE_OPERANDS_OFFSET, 1)] {
             if mask & bit != 0 {
                 if bit == IMAGE_OPERANDS_LOD {
                     lod_f = w.get(arg).copied();
+                }
+                if bit == IMAGE_OPERANDS_BIAS {
+                    bias = w.get(arg).copied();
                 }
                 if bit == IMAGE_OPERANDS_CONST_OFFSET || bit == IMAGE_OPERANDS_OFFSET {
                     offset = w.get(arg).copied();
@@ -247,17 +258,7 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
         }
         let image = pass.fresh();
         body.push(instruction(OP_IMAGE, &[image_ty, image, si]));
-        let lod = match lod_f {
-            Some(l) => {
-                let id = pass.fresh();
-                body.push(instruction(OP_CONVERT_F_TO_S, &[int, id, l]));
-                id
-            },
-            None => pass.constant(int, 0),
-        };
         let size_ty = pass.vector(int, size_n);
-        let size = pass.fresh();
-        body.push(instruction(OP_IMAGE_QUERY_SIZE_LOD, &[size_ty, size, image, lod]));
         // the coordinate: divided by q for a projective one
         let fvec = pass.vector(float, spatial);
         let ivec = pass.vector(int, spatial);
@@ -275,7 +276,8 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
             body.push(instruction(OP_F_DIV, &[fvec, divided, xy, qs]));
             xy = divided;
         }
-        let size_xy = if arrayed {
+        // (the spatial components of a size query)
+        let spatial_of = |pass: &mut Pass, body: &mut Vec<Vec<u32>>, size: u32| if arrayed {
             let id = pass.fresh();
             let mut operands = Vec::from([ivec, id, size, size]);
             operands.extend(0..spatial);
@@ -285,6 +287,57 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
         else {
             size
         };
+        // the level: an explicit lod's; an implicit one's (a fragment shader's) as the nearest
+        // mip filter takes it, λ = log2(ρ) + bias of the texel coordinate's derivatives at level 0,
+        // floor(λ + 0.5) within the levels (0 for an image of one level)
+        let lod = match lod_f {
+            Some(l) => {
+                let id = pass.fresh();
+                body.push(instruction(OP_CONVERT_F_TO_S, &[int, id, l]));
+                id
+            },
+            None if matches!(o, OP_IMAGE_SAMPLE_IMPLICIT_LOD | OP_IMAGE_SAMPLE_PROJ_IMPLICIT_LOD) => {
+                let zero = pass.constant(int, 0);
+                let size0 = pass.fresh();
+                body.push(instruction(OP_IMAGE_QUERY_SIZE_LOD, &[size_ty, size0, image, zero]));
+                let size0 = spatial_of(&mut pass, &mut body, size0);
+                let (fsize0, scaled0, dx, dy, lx, ly, rho, lambda) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(),
+                    pass.fresh(), pass.fresh());
+                body.push(instruction(OP_CONVERT_S_TO_F, &[fvec, fsize0, size0]));
+                body.push(instruction(OP_F_MUL, &[fvec, scaled0, xy, fsize0]));
+                body.push(instruction(OP_DPDX, &[fvec, dx, scaled0]));
+                body.push(instruction(OP_DPDY, &[fvec, dy, scaled0]));
+                body.push(instruction(OP_EXT_INST, &[float, lx, glsl, GLSL_LENGTH, dx]));
+                body.push(instruction(OP_EXT_INST, &[float, ly, glsl, GLSL_LENGTH, dy]));
+                body.push(instruction(OP_EXT_INST, &[float, rho, glsl, GLSL_F_MAX, lx, ly]));
+                body.push(instruction(OP_EXT_INST, &[float, lambda, glsl, GLSL_LOG2, rho]));
+                let lambda = match bias {
+                    Some(b) => {
+                        let id = pass.fresh();
+                        body.push(instruction(OP_F_ADD, &[float, id, lambda, b]));
+                        id
+                    },
+                    None => lambda,
+                };
+                let half = pass.constant(float, 0x3F00_0000);
+                let zero_f = pass.constant(float, 0);
+                let one = pass.constant(int, 1);
+                let (rounded, floored, levels, last, last_f, level, lod) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(),
+                    pass.fresh());
+                body.push(instruction(OP_F_ADD, &[float, rounded, lambda, half]));
+                body.push(instruction(OP_EXT_INST, &[float, floored, glsl, GLSL_FLOOR, rounded]));
+                body.push(instruction(OP_IMAGE_QUERY_LEVELS, &[int, levels, image]));
+                body.push(instruction(OP_I_SUB, &[int, last, levels, one]));
+                body.push(instruction(OP_CONVERT_S_TO_F, &[float, last_f, last]));
+                body.push(instruction(OP_EXT_INST, &[float, level, glsl, GLSL_F_CLAMP, floored, zero_f, last_f]));
+                body.push(instruction(OP_CONVERT_F_TO_S, &[int, lod, level]));
+                lod
+            },
+            None => pass.constant(int, 0),
+        };
+        let size = pass.fresh();
+        body.push(instruction(OP_IMAGE_QUERY_SIZE_LOD, &[size_ty, size, image, lod]));
+        let size_xy = spatial_of(&mut pass, &mut body, size);
         let (fsize, scaled, floored, texel) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh());
         body.push(instruction(OP_CONVERT_S_TO_F, &[fvec, fsize, size_xy]));
         body.push(instruction(OP_F_MUL, &[fvec, scaled, xy, fsize]));

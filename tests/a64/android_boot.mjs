@@ -456,6 +456,36 @@ emulator.add_listener("emulator-error", error => { console.error("emulator-error
 const loaded = new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
 let sound_bytes = 0;
 emulator.add_listener("virtio-snd-pcm", pcm => { sound_bytes += pcm["bytes"].length; if(sound_chunks) sound_chunks.push(Buffer.from(pcm["bytes"])); });
+// A64_ANDROID_VENUS_TRACE=1 (with the sources, not the release build): the
+// device's fence commands, with their answers and the fences' state, and its
+// small readbacks (fence feedback slots), into venus-trace.txt
+if(process.env.A64_ANDROID_VENUS_TRACE)
+{
+    const trace = fs.openSync(directory + "venus-trace.txt", "w"), started = Date.now();
+    const line = text => fs.writeSync(trace, ((Date.now() - started) / 1000).toFixed(3) + " " + text + "\n");
+    const FENCES = /Fence|QueueSubmit/;
+    const install = setInterval(() => {
+        const gpu = emulator.v86?.cpu?.devices?.graphics_adapter?.device?.["virtio_gpu"];
+        const vk = gpu && gpu.venus && gpu.venus.vk;
+        if(!vk) return;
+        clearInterval(install);
+        const handle = vk.handle.bind(vk);
+        vk.handle = (ctx, name, a) => {
+            const wait = handle(ctx, name, a);
+            if(FENCES.test(name))
+            {
+                const ids = [a.fence, ...(a.pFences || [])].filter(id => id);
+                const state = ids.map(id => { const f = ctx.objects.get(id); return id + (f ? (f.signaled ? ":S" : ":-") + f.pending : ":gone"); });
+                line(name + " " + state.join(" ") + (wait ? " (waits)" : " ret=" + a.ret));
+            }
+            return wait;
+        };
+        vk.debug = text => {
+            const m = /^readback memory \d+ \[(\d+),(\d+)\)/.exec(text);
+            if(m && m[2] - m[1] <= 64 || /^readback skipped/.test(text)) line(text);
+        };
+    }, 1000);
+}
 // A64_ANDROID_GPU_DEBUG=1 (with the sources, not the release build: the
 // device's names): virtio-gpu's control queue and Venus's queues every 30 s
 if(process.env.A64_ANDROID_GPU_DEBUG)
