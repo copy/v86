@@ -2023,6 +2023,19 @@ V86.prototype.get_disk_fdb = function()
 };
 
 /**
+ * The CD-ROM drive: whether the machine has one (an IDE or AHCI drive; the
+ * virt machine's CD image is a virtio disk) and whether a disc is in it
+ * @return {!Promise<{present: boolean, inserted: boolean}>}
+ */
+V86.prototype.get_cdrom_state = async function()
+{
+    if(this.worker_controller) return this.worker_controller.rpc("get_cdrom_state");
+    const devices = this.v86.cpu.devices;
+    const cdrom = devices && devices.cdrom;
+    return { "present": !!cdrom, "inserted": !!cdrom && cdrom.has_disk() };
+};
+
+/**
  * Set the image inserted in the CD-ROM drive. Can be changed at runtime, as
  * when physically changing the CD-ROM.
  */

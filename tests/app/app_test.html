@@ -1,0 +1,158 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: the page</title>
+<!-- The VM manager's page in a frame (docs/vm-manager-plan.md U2): the
+     library starts empty; New, Rename and Export; Import of a FreeDOS machine
+     (a .v86vm.json naming images/freedos722.img); Power on opens its console,
+     which boots FreeDOS to "Welcome to FreeDOS"; get_cdrom_state; Delete.
+     The frame's file picker, window.open and downloads are taken over.
+     node tests/app/browser_runner.mjs tests/app/app_test.html [page=app_debug.html] [worker=0] -->
+<style>iframe { width: 1000px; height: 700px; border: 1px solid #888; }</style>
+<pre id="log"></pre>
+<pre id="result"></pre>
+<script type="module">
+import { new_config } from "../../src/app/vm_config.js";
+import { export_config } from "../../src/app/vm_store.js";
+
+const args = new URLSearchParams(location.search);
+const page = args.get("page") || "index.html";
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(condition, what, timeout = 30000)
+{
+    const end = Date.now() + timeout;
+    for(;;)
+    {
+        const value = await condition();
+        if(value) return value;
+        if(Date.now() > end) throw new Error("timed out: " + what);
+        await sleep(100);
+    }
+}
+function check(condition, what)
+{
+    if(!condition) throw new Error(what);
+}
+
+/** The page in a frame; resolves when its document is there */
+async function open_frame(url)
+{
+    const frame = document.createElement("iframe");
+    frame.src = url;
+    document.body.append(frame);
+    await new Promise(resolve => frame.onload = resolve);
+    return frame;
+}
+
+async function main()
+{
+    const frame = await open_frame("/" + page);
+    const w = frame.contentWindow, d = frame.contentDocument;
+    const $ = selector => d.querySelector(selector);
+    const names = () => Array.from(d.querySelectorAll(".vm-list .vm-name"), e => e.textContent);
+    await until(() => $(".library"), "the library");
+    check(names().length === 0 && /No virtual machines yet/.test($(".library-list").textContent), "an empty library");
+    log("the library: empty");
+
+    $("#new_vm").click();
+    await until(() => names().length === 1, "a new machine in the list");
+    check(names()[0] === "New virtual machine", "its name: " + names()[0]);
+    check(/Memory128MB/.test($(".hardware").textContent.replace(/\s+/g, "")), "its hardware: " + $(".hardware").textContent);
+    $("#new_vm").click();
+    await until(() => names().length === 2, "a second new machine");
+    check(names().includes("New virtual machine 2"), "the second's name");
+    log("New: " + names().join(", "));
+
+    // rename the selected one in the dialog
+    const selected = $(".vm-list li.selected .vm-name").textContent;
+    $("#rename_vm").click();
+    const input = await until(() => $("dialog[open] input"), "the rename dialog");
+    input.value = "Renamed machine";
+    Array.from(d.querySelectorAll("dialog[open] button")).find(b => b.textContent === "OK").click();
+    await until(() => names().includes("Renamed machine"), "the new name");
+    check(!names().includes(selected), "the old name is gone");
+    log("Rename: " + selected + " -> Renamed machine");
+
+    // export: the download's file
+    let exported;
+    const create_url = w.URL.createObjectURL;
+    w.URL.createObjectURL = blob => { exported = blob; return create_url.call(w.URL, blob); };
+    w.HTMLAnchorElement.prototype.click = function() { exported_name = this.download; };
+    let exported_name;
+    $("#export_vm").click();
+    await until(() => exported && exported_name, "the export");
+    const exported_config = JSON.parse(await exported.text());
+    check(exported_config.format === "v86-vm" && exported_config.name === $(".summary h1").textContent, "the exported configuration");
+    check(exported_name === exported_config.name + ".v86vm.json", "the export's name " + exported_name);
+    log("Export: " + exported_name);
+
+    // import a FreeDOS machine: the frame's file picker answers with the file
+    const freedos = new_config({ name: "FreeDOS", notes: "from images/freedos722.img" });
+    freedos.floppies = [{ slot: "fda", image: { kind: "url", url: "images/freedos722.img", size: 737280 }, disk_option: "read_only" }];
+    if(args.get("worker") === "0") freedos.advanced.cpu_worker = false;
+    w.HTMLInputElement.prototype.click = function()
+    {
+        const transfer = new w.DataTransfer();
+        transfer.items.add(new w.File([export_config(freedos)], "FreeDOS.v86vm.json", { type: "application/json" }));
+        this.files = transfer.files;
+        this.dispatchEvent(new w.Event("change"));
+    };
+    $("#import_vm").click();
+    await until(() => names().includes("FreeDOS"), "the imported machine");
+    check($(".summary h1").textContent === "FreeDOS", "the imported machine is selected");
+    check(/Floppy\(fda\)images\/freedos722\.img/.test($(".hardware").textContent.replace(/\s+/g, "")), "its floppy: " + $(".hardware").textContent);
+    log("Import: FreeDOS, " + names().length + " machines");
+
+    // power on: a new tab (here another frame) with its console
+    let opened;
+    w.open = url => { opened = url; return null; };
+    $("#power_on").click();
+    await until(() => opened, "window.open");
+    check(/\?vm=[0-9a-f-]{36}$/.test(opened), "the console's address " + opened);
+    const console_frame = await open_frame(new URL(opened, w.location.href).href);
+    const c = console_frame.contentDocument;
+    await until(() => c.getElementById("screen_container"), "the console's screen");
+    await until(() => c.title.startsWith("FreeDOS - v86"), "the console's title, its machine's name (" + c.title + ")");
+    const emulator = await until(() => console_frame.contentWindow.v86_console?.emulator, "the console's emulator");
+    // (text mode is drawn on the canvas: the emulator reads its screen)
+    await emulator.wait_until_vga_screen_contains("Welcome to FreeDOS", { timeout_msec: 120000 }).then(found =>
+    {
+        if(!found) throw new Error("no \"Welcome to FreeDOS\" on the screen; the console's status: " + c.querySelector(".console-status").textContent);
+    });
+    log("Power on: the console at " + opened.replace(/^.*\?/, "?") + " boots FreeDOS: \"Welcome to FreeDOS\"");
+    const cdrom = await emulator.get_cdrom_state();
+    check(cdrom.present === true && cdrom.inserted === false, "get_cdrom_state: the i440FX machine's empty CD drive: " + JSON.stringify(cdrom));
+    log("get_cdrom_state: " + JSON.stringify(cdrom));
+    // power off from the toolbar (its confirmation)
+    Array.from(c.querySelectorAll(".console-toolbar button")).find(b => b.textContent === "Power off").click();
+    const yes = await until(() => Array.from(c.querySelectorAll("dialog[open] button")).find(b => b.textContent === "Power off"), "the power off dialog");
+    yes.click();
+    await until(() => /Powered off/.test(c.querySelector(".console-status").textContent), "powered off");
+    log("Power off: confirmed, the console says so");
+
+    // delete the FreeDOS machine
+    $("#delete_vm").click();
+    const confirm_delete = await until(() => Array.from(d.querySelectorAll("dialog[open] button")).find(b => b.textContent === "Delete"), "the delete dialog");
+    confirm_delete.click();
+    await until(() => !names().includes("FreeDOS"), "deleted");
+    log("Delete: " + names().length + " machines left");
+
+    // the library after a reload
+    w.location.reload();
+    await new Promise(resolve => frame.onload = resolve);
+    await until(() => frame.contentDocument.querySelector(".library"), "the library again");
+    const after = Array.from(frame.contentDocument.querySelectorAll(".vm-list .vm-name"), e => e.textContent).sort();
+    check(JSON.stringify(after) === JSON.stringify(["New virtual machine 2", "Renamed machine"].sort()) ||
+        JSON.stringify(after) === JSON.stringify(["New virtual machine", "Renamed machine"].sort()), "after the reload: " + after);
+    log("after a reload: " + after.join(", "));
+}
+
+main().then(() =>
+{
+    document.getElementById("result").textContent = "PASS (" + page + ")\n" + lines.join("\n");
+}, e =>
+{
+    document.getElementById("result").textContent = "FAIL (" + page + "): " + (e.stack || e.message) + "\n" + lines.join("\n");
+});
+</script>

@@ -451,11 +451,12 @@ update_version:
 	DATE=`git log --date="format:%b %e, %Y %H:%m" --format="%cd" -n 1` ;\
 	SEARCH='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
 	REPLACE='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
-	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
+	sed -i "s@$$SEARCH@$$REPLACE@g" index.html legacy.html ;\
 	SEARCH='<script src="build/v86_all.js?[a-f0-9]\+"></script>' ;\
 	REPLACE='<script src="build/v86_all.js?'$$COMMIT'"></script>' ;\
-	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
-	grep $$COMMIT index.html
+	sed -i "s@$$SEARCH@$$REPLACE@g" legacy.html ;\
+	sed -i "s@\(build/v86_app.js\|build/libv86.mjs\|src/app/app.css\)?[a-f0-9]\+@\1?$$COMMIT@g" index.html ;\
+	grep $$COMMIT index.html legacy.html
 
 
 $(CLOSURE):
@@ -715,14 +716,42 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # Disk persistence (docs/disk-persistence-plan.md): disk_option, disk_error,
 # FLUSH, the consistent reads of a read_only disk; the browser tests in
 # headless Chrome (CHROME), on the page and in the CPU Worker
+# The VM manager (docs/vm-manager-plan.md G2-G4): src/app/ as ES modules
+# outside Closure, bundled by esbuild into build/v86_app.js (build/libv86.mjs
+# stays its own file: index.html's import map names it "v86"), checked by tsc
+# against v86.d.ts. The tools are package.json's devDependencies (npm ci).
+APP_FILES=$(shell find src/app -name '*.js') src/browser/profiles.js src/browser/vm_options.js src/browser/query_compat.js \
+	src/machine_options.js src/disk_options.js
+node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
+	npm ci
+	touch node_modules/.bin/esbuild node_modules/.bin/tsc
+
+.PHONY: app app-check
+app: build/v86_app.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
+
+build/v86_app.js: $(APP_FILES) node_modules/.bin/esbuild
+	mkdir -p build
+	node_modules/.bin/esbuild src/app/main.js --bundle --format=esm --target=es2022 --minify --sourcemap \
+		--external:v86 --outfile=build/v86_app.js --log-level=warning
+
+app-check: node_modules/.bin/tsc
+	node_modules/.bin/tsc -p tsconfig.json
+
 # the VM manager plan (docs/vm-manager-plan.md), U0: the old page's shared
 # modules (src/browser/profiles.js, vm_options.js, query_compat.js) give the
 # options the old pages give, made by Node from the modules as by the pages
-# U1: the configurations (src/app/vm_config.js) and the library (vm_store.js)
+# U1: the configurations (src/app/vm_config.js) and the library (vm_store.js);
+# U2: the page: the type check, the addresses' options as legacy.html's, the
+# library and a console booting FreeDOS (the release and debug pages, the CPU
+# in its Worker and in the page)
 .PHONY: app-shared-tests app-tests
-app-tests: app-shared-tests
+app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm build/libv86-debug.mjs
 	node tests/app/vm_config.mjs
 	node tests/app/browser_runner.mjs tests/app/store_test.html
+	node tests/app/legacy_options.mjs same=index.html:legacy.html
+	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html
+	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
+	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
 
 app-shared-tests: build/v86_all.js
 	node tests/app/machine_rules.mjs

@@ -6,7 +6,7 @@
     const frame = document.getElementById("app");
     const fastMath = new URLSearchParams(location.search).get("x87_fast_math") !== "0";
     const jitCache = new URLSearchParams(location.search).get("x87_jit_cache") !== "0";
-    frame.src = "../../index.html?cpu_worker=1&graphics_proxy=0&mute=1&net_device_type=none&x87_fast_math=" + +fastMath + "&x87_jit_cache=" + +jitCache;
+    frame.src = "../../legacy.html?cpu_worker=1&graphics_proxy=0&mute=1&net_device_type=none&x87_fast_math=" + +fastMath + "&x87_jit_cache=" + +jitCache;
     const win = frame.contentWindow;
     const checks = [];
     const check = (ok, label) => { if (!ok) throw new Error(label); checks.push(label); };

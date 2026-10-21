@@ -344,6 +344,8 @@ export interface Event {
         retryable: boolean,
         policy: "stop" | "report",
     };
+    /** The start failed (an image could not be loaded or opened, the CPU Worker did not start): the emulator does not run */
+    "emulator-error": Error;
     "emulator-loaded": void;
     "emulator-ready": void;
     "emulator-started": void;
@@ -1359,6 +1361,31 @@ export class V86 {
      * Eject the CD-ROM.
      */
     eject_cdrom(): void | Promise<void>;
+
+    /**
+     * The CD-ROM drive: whether the machine has one (an IDE or AHCI drive;
+     * the virt machine's CD image is a virtio disk) and whether a disc is in it.
+     */
+    get_cdrom_state(): Promise<{ present: boolean; inserted: boolean }>;
+
+    /**
+     * The image in the first floppy drive, or null if the drive is empty
+     * (a promise when the CPU runs in a Worker).
+     */
+    get_disk_fda(): Uint8Array | null | Promise<Uint8Array | null>;
+
+    /**
+     * The image in the second floppy drive, or null if the drive is empty
+     * (a promise when the CPU runs in a Worker).
+     */
+    get_disk_fdb(): Uint8Array | null | Promise<Uint8Array | null>;
+
+    /**
+     * A diagnostic snapshot of the machine (CPU mode and registers, interrupt
+     * controllers, ACPI, how the cores run: `execution`) as plain data, for
+     * debugging and test reports; the format is not a stable API.
+     */
+    get_diagnostics(): Promise<any>;
 
     /**
      * Hot plug a drive into a free SATA port of the Q35 machine's AHCI

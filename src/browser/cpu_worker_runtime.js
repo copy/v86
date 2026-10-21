@@ -268,6 +268,7 @@ export function start_cpu_worker()
         "set_cdrom": file => emulator.set_cdrom(file),
         "eject_fda": () => emulator.eject_fda(), "eject_fdb": () => emulator.eject_fdb(),
         "eject_cdrom": () => emulator.eject_cdrom(),
+        "get_cdrom_state": () => emulator.get_cdrom_state(),
         "attach_sata_drive": (port, file, options) => emulator.attach_sata_drive(port, file || null, options),
         "detach_sata_drive": port => emulator.detach_sata_drive(port),
         "attach_pcie_device": port => emulator.attach_pcie_device(port),

@@ -1,6 +1,6 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：U0、U1 已实现（2026-10-21，`ui` 分支），U2–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+状态：U0–U2 已实现（2026-10-21，`ui` 分支），U3–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
 `arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
@@ -759,3 +759,58 @@ JSON。
 | `tests/app/vm_config.mjs`（新） | 默认配置有效，选项与旧页面不改表单直接开机相同；137 个配置各转成配置后有效，选项与旧页面 `?profile=<id>` 相同；JSON 往返不变；`migrate` 拒绝非配置、错误与更新的版本，补齐缺的字段；85 条校验规则各报在自己的字段上，一个问题不掩盖其他问题；`config_to_options` 的各字段（Q35 设备、启动顺序、fastboot、bootmenu、Bochs BIOS、x86_64 与扩展内存、读写盘、本地文件、浏览器磁盘、空软盘、内核、virtio-gpu 多显示器、fetch 与 CORS 代理、MAC 地址转换、调制解调器、9p、高级项）；各网络后端、arm64（virtio 盘、输入设备、页级编译、内存拆分）、未选取的文件报错；`check_config` 报出库自己的检查（分片镜像不能读写）。11 项 |
 | `tests/app/store_test.html`（无头 Chrome，新） | 存 26 个配置与一个文件句柄（OPFS 中的文件，句柄与选取的文件同类）；无名配置被拒；重新加载页面后列表与逐个读取逐字段相同，句柄可读出文件的 4 个字节；26 个各自导出再导入：字段相同、id 为新、本地文件需要重新选取；非 JSON 与 99 核的导入被拒；导入另一个库保留 id，再次重新加载后相同；删除配置连同其句柄，重新加载后仍删除 |
 | 回归 | `make app-shared-tests` 通过；`v86_all.js` 0 错误；eslint 无输出 |
+
+### U2 工具链、新页面、库与控制台（2026-10-21）
+
+**实现。**
+
+- 工具链（G3，负责人同意下载）：`package.json` 的 `devDependencies` 为 `typescript` 6.0.3 与 `esbuild` 0.28.2
+  （精确版本），提交 `package-lock.json`。`make app`：esbuild 把 `src/app/main.js` 打成 `build/v86_app.js`（ES 模块、
+  压缩、source map，`v86` 为外部依赖，约 63 KB，大半是 137 个配置）；`make app-check`：`tsc -p tsconfig.json`。
+  `node_modules/.bin/esbuild`、`tsc` 缺失时 Makefile 先 `npm ci`。`tsconfig.json` 只含 `src/app/`，`paths` 把
+  `v86` 指到 `v86.d.ts`。
+- 页面：原 `index.html` 改名为 `legacy.html`（内容不变）；新 `index.html` 的 import map 把 `v86` 指到
+  `build/libv86.mjs`，加载 `build/v86_app.js` 与 `src/app/app.css`；`app_debug.html`（`<html data-debug>`）直接加载
+  `src/app/main.js` 的源码，`v86` 指到 `build/libv86-debug.mjs`，固件与 Wasm 用调试版，与旧调试页相同。页脚链接
+  旧页面。`make update_version` 同时更新两个页面（新页面三个文件的 `?版本`）。旧页面的测试（磁盘计划的
+  `part=page`、glbridge 的 `cpu_worker_ui`、`performance_recorder_ui`、`tests/app/legacy_options.mjs`）改指 `legacy.html`。
+- `src/app/main.js` 路由：`?vm=<id>` 为库里虚拟机的控制台；`?profile=<id>`（及旧页面的其他查询参数）为直接
+  打开的控制台，规则与旧页面的 `onload` 相同（已知配置、用户镜像服务器、带镜像的 `custom`）；其余为库。
+- [`src/app/ui/library.js`](../src/app/ui/library.js)：左栏虚拟机列表与“新建”“导入…”，右栏摘要（硬件表、备注）
+  与“开机”（新标签页打开 `?vm=<id>`）、“改名…”、“导出”、“删除…”。新建为默认配置（向导在 U3）；“编辑设置”
+  在 U3 之前禁用。空库时说明库在浏览器存储里、清除站点数据会删掉它。
+- [`src/app/ui/console.js`](../src/app/ui/console.js)：屏幕（与旧页面相同的 `screen_container` 结构）、状态行，
+  工具栏只有“库”“关机”（确认后 `destroy()`）“重置”（从状态启动时禁用）“Ctrl+Alt+Del”（菜单、状态栏、抽屉在 U4）。
+  库里的虚拟机：本地文件经保存的句柄读取，没有读取权限时在页面上给出按钮，点击后请求；没有句柄（导入的、
+  或浏览器不保存句柄）时请用户重新选取，核对大小（不同则拒绝）与名字、修改时间（不同则确认）。地址启动的
+  会话沿用旧页面的细节：标题、几个配置开机后自动按键、`c`、`s` 参数、virtio-gpu 随窗口改分辨率、图形代理。
+- [`src/app/emulator_bridge.js`](../src/app/emulator_bridge.js)：唯一 `import { V86 } from "v86"` 的模块；页面的
+  选项部分（调试构建、`?版本`、图形代理、屏幕）、图形代理的加载、测试钩子 `window.v86_record_options`。
+  [`src/app/ui/dom.js`](../src/app/ui/dom.js)：`h()`、模态对话框（`<dialog>`）、下载、选文件、大小格式。
+  [`src/app/app.css`](../src/app/app.css)：深色，窄屏单栏。
+- 公开接口（G1）：新增 `get_cdrom_state()`（`{present, inserted}`，页面与 CPU Worker）；`v86.d.ts` 补上
+  `get_cdrom_state`、`get_disk_fda`、`get_disk_fdb`、`get_diagnostics`，以及 tsc 报出的 `emulator-error` 事件
+  （旧页面一直在用，类型声明里没有）。
+
+**决定与偏差。**
+
+1. **TypeScript 用 6.0.3**（负责人选定）：最后一个 JS 实现的版本，对共用模块里 Closure 写法的 JSDoc 推断最成熟；
+   7.0 是 Go 重写版。`strict` 未打开：先保证公开接口的名字与参数类型，严格空值检查以后再开。
+2. **`get_cdrom_state` 的语义**：i440FX 总有一个 IDE 光驱，没有给 `cdrom` 时 `present: true, inserted: false`；
+   virt 机器的光盘镜像是 virtio 盘，`present: false`。
+3. **测试读屏幕要经模拟器**：显示解耦之后文本模式也画在画布上，`#screen` 里没有文字；测试用公开的
+   `wait_until_vga_screen_contains`。
+4. **`?profile=custom` 不带镜像时打开库**（旧页面此时显示表单，新页面没有表单）。调试页的 kvm-unit-tests 配置
+   （旧 `debug.html` 独有）不进新页面。
+5. **`performance_recorder_ui_browser_test` 的一项失败与本计划无关**：“URL cache policy reaches native regions and
+   exported cache counters”在 master（1a978143，旧页面原样）上同样失败（两次），其余检查通过。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `make app-check` | tsc 无错（初次运行报出 `emulator-error` 未声明、两处类型推断，已改） |
+| `tests/app/legacy_options.mjs same=index.html:legacy.html` | 新页面对 137 个 `?profile=` 与 37 组查询参数，共 174 个地址，给 `V86` 的选项与旧页面逐项相同 |
+| `tests/app/app_test.html`（无头 Chrome，新） | 在框架里打开新页面：空库；新建两台（名字不重复）；改名（对话框）；导出（文件名与内容）；导入 FreeDOS 的 `.v86vm.json`（软盘为 `images/freedos722.img`）；开机打开 `?vm=<id>` 的控制台，标题为虚拟机名，FreeDOS 启动到 “Welcome to FreeDOS”；`get_cdrom_state` 为空光驱；关机（确认）；删除（确认）；重新加载后库不变。`index.html`、`app_debug.html`、CPU 在页面中（`cpu_worker: false`）三种都通过 |
+| `tests/api/cdrom-insert-eject.js`（补充） | `get_cdrom_state`：空光驱、放入光盘、`eject_cdrom` 之后；源码与发布构建都通过 |
+| 回归 | `make app-shared-tests`（两页改名后重录）、`tests/app/vm_config.mjs`、`store_test.html` 通过；`tests/persistence/browser_runner.mjs part=page`（`legacy.html`，页面与 CPU Worker）、`cpu_worker_ui_browser_test` 通过；Closure（`libv86.js`、`libv86.mjs`、`libv86-debug.mjs`、`cpu-worker.js`、`v86_all.js`）0 错误；eslint 无输出 |

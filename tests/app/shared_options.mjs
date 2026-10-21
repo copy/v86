@@ -2,7 +2,7 @@
 // The old page's shared modules as ES modules (docs/vm-manager-plan.md U0):
 // Node imports src/browser/profiles.js, vm_options.js and query_compat.js,
 // as the VM manager will, and makes each start that tests/app/legacy_options.mjs
-// recorded in the old pages (index.html's Closure build, debug.html's
+// recorded in the old pages (legacy.html's Closure build, debug.html's
 // modules): the same options, alerts, addresses and form fields.
 //   node tests/app/legacy_options.mjs record=build/app/legacy-options.json
 //   node tests/app/shared_options.mjs build/app/legacy-options.json
@@ -39,7 +39,7 @@ const ser = v =>
 
 /** The pages: their builds, form, version, title and elements */
 const PAGES = {};
-for(const [name, debug] of [["index.html", false], ["debug.html", true]])
+for(const [name, debug] of [["legacy.html", false], ["debug.html", true]])
 {
     const html = fs.readFileSync(path.join(root, name), "utf8");
     const version = /id="version"[^>]*>([^<]*)</.exec(html);

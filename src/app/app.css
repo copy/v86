@@ -1,0 +1,130 @@
+/* The VM manager's page (docs/vm-manager-plan.md); v86.css stays the old page's */
+:root {
+    --bg: #111;
+    --panel: #1a1a1a;
+    --panel-2: #222;
+    --line: #333;
+    --text: #e6e6e6;
+    --muted: #a0a0a0;
+    --accent: #3d7bd9;
+    --accent-text: #fff;
+    --selected: #24344d;
+    --danger: #ff8a80;
+    --error: #ffb4a9;
+    color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+#app { flex: 1; display: flex; flex-direction: column; }
+a { color: #8ab4f8; }
+h1 { font-size: 1.5em; margin: 0 0 0.5em; font-weight: 600; }
+h2 { font-size: 1.15em; margin: 0 0 0.75em; font-weight: 600; }
+
+button, a.button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 5px 12px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+button:hover:not(:disabled), a.button:hover { border-color: #666; }
+button:focus-visible, a.button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.danger { color: var(--danger); border-color: #6b3a36; }
+input[type=text], input[type=number], select {
+    font: inherit;
+    color: var(--text);
+    background: #0c0c0c;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 4px 6px;
+}
+
+/* the library */
+.library { flex: 1; display: grid; grid-template-columns: 280px 1fr; }
+.library-list { background: var(--panel); border-right: 1px solid var(--line); padding: 12px; }
+.library-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.vm-list { list-style: none; margin: 0; padding: 0; }
+.vm-list li {
+    display: flex;
+    flex-direction: column;
+    padding: 7px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.vm-list li:hover { background: #202020; }
+.vm-list li.selected { background: var(--selected); }
+.vm-name { font-weight: 500; overflow-wrap: anywhere; }
+.vm-state { color: var(--muted); font-size: 0.9em; }
+.library-summary { padding: 20px 28px; min-width: 0; }
+.summary-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.hardware { border-collapse: collapse; max-width: 100%; }
+.hardware th, .hardware td { text-align: left; vertical-align: top; padding: 4px 16px 4px 0; border-bottom: 1px solid #262626; }
+.hardware th { color: var(--muted); font-weight: normal; white-space: nowrap; }
+.hardware td { overflow-wrap: anywhere; }
+.notes { white-space: pre-wrap; }
+.note, .empty { color: var(--muted); }
+.intro { max-width: 40em; }
+
+/* dialogs */
+dialog.dialog {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 18px 20px;
+    max-width: min(560px, calc(100vw - 32px));
+}
+dialog.dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.dialog-body { margin-bottom: 16px; }
+.dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field input { width: 100%; }
+pre.problems { white-space: pre-wrap; margin: 0; font-size: 0.95em; }
+
+/* the console */
+.console { padding: 8px 12px; }
+.console-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.console-name { color: var(--muted); margin-left: 8px; }
+.console-notice:empty { display: none; }
+.console-notice { margin-bottom: 8px; }
+.console-status { color: var(--muted); margin-top: 6px; min-height: 1.45em; }
+.error { color: var(--error); }
+.console-screen { overflow: auto; }
+#screen_container { position: relative; display: inline-block; outline: 1px solid #555; background: #000; }
+#screen {
+    white-space: pre;
+    position: relative;
+    font-family: Liberation Mono, DejaVu Sans Mono, Courier New, monospace;
+    font-weight: bold;
+    font-size: 15px;
+    line-height: normal;
+    color: #fff;
+    transform-origin: top left;
+}
+#vga { background-color: #000; touch-action: none; transform-origin: top left; }
+#screen_container:fullscreen { display: flex !important; align-items: center; justify-content: center; }
+#screen_container:fullscreen #vga { width: auto !important; height: 100% !important; }
+.phone_keyboard { position: absolute; opacity: 0; width: 0; height: 0; resize: none; left: -9999em; top: 0; z-index: -10; }
+
+footer { color: var(--muted); padding: 10px 16px; border-top: 1px solid var(--line); font-size: 0.9em; }
+
+@media (max-width: 700px) {
+    .library { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .library-list { border-right: 0; border-bottom: 1px solid var(--line); }
+    .library-summary { padding: 16px; }
+    .console { padding: 8px 16px; }
+}

@@ -452,7 +452,9 @@ export function check_config(config)
     if(problems.length) return problems;
     // (a picked file stands in as an empty Blob: the checks look at the kind of source)
     const options = config_to_options(config, { debug: false, query_append: "", graphics_proxy: false, screen_container: undefined, file: () => new Blob([]) });
-    for(const [path, check] of [["machine", check_machine_options], ["disks", check_disk_options]])
+    /** @type {Array<[string, (options: any) => any]>} */
+    const checks = [["machine", check_machine_options], ["disks", check_disk_options]];
+    for(const [path, check] of checks)
     {
         try
         {
@@ -517,8 +519,8 @@ export function profile_to_config(profile, form = DEFAULT_FORM)
             vram_mb: p.vram_size ? p.vram_size / MB : p.state ? null : DEFAULT_VGA_MEMORY_SIZE }),
         network: [{ device: p.net_device_type || DEFAULT_FORM.net_device_type, backend, relay_url: backend === "fetch" ? relay_url.slice(6) :
             backend === "relay" || backend === "wisp" ? relay_url : "", mtu: DEFAULT_MTU, mac_address_translation: !!p.mac_address_translation }],
-        serial: p.modem ? (p.modem.uart === 0 ? [] : [{ port: 0, attach: "terminal" }]).concat([{ port: p.modem.uart, attach: "modem" }]) :
-            [{ port: 0, attach: "terminal" }],
+        serial: /** @type {any} */ (p.modem ? (p.modem.uart === 0 ? [] : [{ port: 0, attach: "terminal" }]).concat([{ port: p.modem.uart, attach: "modem" }]) :
+            [{ port: 0, attach: "terminal" }]),
         filesystem: p.filesystem || null,
         initial_state: profile_image(p.state),
         advanced: /** @type {any} */ ({ cpuid_level: p.cpuid_level ?? null, mouse_disabled: !!p.mouse_disabled_default }),
