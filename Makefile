@@ -114,7 +114,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
@@ -749,7 +749,8 @@ app-check: node_modules/.bin/tsc
 # settings dialog, the wizard's disk on the disk service; U4: the console's
 # every function with MS-DOS (in its Worker and in the page), a disk written
 # back to the disk service with its error dialog; U5: suspend and resume, one
-# tab per machine
+# tab per machine; U6: browser disks (the backend in a worker, Linux and
+# MS-DOS on them, import, export, sharing, the CPU in the page refused)
 .PHONY: app-shared-tests app-tests
 app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm build/v86-arm64.wasm build/libv86-debug.mjs
 	node tests/app/vm_config.mjs
@@ -766,6 +767,8 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main worker=0
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1
 	node tests/app/browser_runner.mjs tests/app/suspend_test.html
+	node tests/app/browser_runner.mjs tests/app/opfs_disk_test.html
+	for part in page import share linux; do node tests/app/browser_runner.mjs tests/app/browser_disk_test.html part=$$part || exit 1; done
 
 app-shared-tests: build/v86_all.js
 	node tests/app/machine_rules.mjs

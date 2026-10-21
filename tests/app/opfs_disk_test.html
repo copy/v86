@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: the browser disk backend</title>
+<!-- src/opfs_disk.js (docs/vm-manager-plan.md U6): tests/app/opfs_disk_worker.js in a dedicated worker;
+     and on the page, where there are no synchronous access handles: written back, it needs the CPU Worker.
+     node tests/app/browser_runner.mjs tests/app/opfs_disk_test.html -->
+<pre id="result"></pre>
+<script type="module">
+import { OpfsDisk } from "../../src/opfs_disk.js";
+
+const worker = new Worker("opfs_disk_worker.js", { type: "module" });
+const result = await new Promise(resolve => { worker.onmessage = e => resolve(e.data); worker.onerror = e => resolve({ status: "FAIL", error: e.message, log: [] }); });
+let page = "";
+if(result.status === "PASS")
+{
+    // (the worker made v86/disks/t1.img)
+    try
+    {
+        await new OpfsDisk("opfs:v86/disks/t1.img", { name: "hda" }).load();
+        page = "FAIL: the page opened a disk to write back";
+    }
+    catch(e)
+    {
+        page = /needs the CPU Worker/.test(e.message) ? "on the page: \"" + e.message.slice(0, 90) + "…\"" : "FAIL: " + e.message;
+    }
+}
+const failed = result.status !== "PASS" || page.startsWith("FAIL");
+document.getElementById("result").textContent = (failed ? "FAIL " + (result.error || page) : "PASS") + "\n" + result.log.concat(page ? [page] : []).join("\n");
+</script>

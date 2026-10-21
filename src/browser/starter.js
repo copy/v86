@@ -36,6 +36,7 @@ import { check_disk_options, check_disk_policy, check_disk_bindings, set_disk_po
 import { NodeFileDisk, check_loaded_disks, disk_buffers } from "../disk_writeback.js";
 import { floppy_format_size } from "../floppy.js";
 import { DiskServiceDisk } from "../disk_service.js";
+import { OpfsDisk, is_opfs_url, opfs_file } from "../opfs_disk.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
@@ -410,13 +411,18 @@ export function V86(options)
 
 /**
  * The backend of a disk written back (docs/disk-persistence-plan.md): a
- * disk service's URL, or in Node a local file
+ * browser disk (opfs:, docs/vm-manager-plan.md U6), a disk service's URL,
+ * or in Node a local file
  * @param {string} name
  * @param {!Object} file
  * @return {!Object}
  */
 function writeback_backend(name, file)
 {
+    if(is_opfs_url(file.url))
+    {
+        return new OpfsDisk(file.url, { name, size: file.size });
+    }
     if(is_service_url(file.url))
     {
         const base = typeof location !== "undefined" ? location.href : undefined;
@@ -425,8 +431,34 @@ function writeback_backend(name, file)
     return new NodeFileDisk(file.url, { name, size: file.size });
 }
 
+/**
+ * A browser disk (url "opfs:...") read only: its image as a File, read as a
+ * file the user picked is, the changes in memory (src/opfs_disk.js)
+ * @param {string} name
+ * @param {?Object} file
+ * @return {!Promise<?Object>}
+ */
+async function opfs_readable(name, file)
+{
+    if(!file || !is_opfs_url(file.url) || file.disk_option === "read_write") return file;
+    const copy = Object.assign({}, file, { buffer: await opfs_file(file.url, name), async: true });
+    delete copy.url;
+    return copy;
+}
+
 V86.prototype.continue_init = async function(emulator, options)
 {
+    // (browser disks read only: their File, before the disks are made)
+    options = Object.assign({}, options);
+    for(const name of ["hda", "hdb", "cdrom", "fda", "fdb"])
+    {
+        options[name] = await opfs_readable(name, options[name]);
+    }
+    if(options.virtio_disks)
+    {
+        options.virtio_disks = await Promise.all(options.virtio_disks.map((disk, i) => opfs_readable("virtio_disk" + i, disk)));
+    }
+
     this.bus.register("emulator-stopped", function()
     {
         this.cpu_is_running = false;
@@ -1858,6 +1890,7 @@ V86.prototype.set_fdb = async function(file)
 V86.prototype.insert_floppy = async function(index, file)
 {
     const name = index ? "fdb" : "fda";
+    file = /** @type {!Object} */ (await opfs_readable(name, file));
     check_image_options(name, file, false);
     const policy = check_disk_policy(name, file);
     const others = this.disk_descriptors.filter(([n]) => n !== name);
@@ -2100,6 +2133,7 @@ V86.prototype.get_cdrom_state = async function()
 V86.prototype.set_cdrom = async function(file)
 {
     if(this.worker_controller) return this.worker_controller.rpc("set_cdrom", [encode_worker_file(file)]);
+    file = await opfs_readable("cdrom", file);
     check_image_options("cdrom", file, false);
     if(file.url && !file.async)
     {
@@ -2155,6 +2189,7 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     if(!file && !cdrom) throw new Error("attach_sata_drive: a disk needs an image");
     // (its policy, docs/disk-persistence-plan.md: checked with the disks the machine has)
     const name = cdrom ? "cdrom" : "sata" + port;
+    file = await opfs_readable(name, file);
     const policy = check_disk_policy(name, file);
     if(file) check_disk_bindings([[name, file, policy]], this.disk_descriptors);
     let image;

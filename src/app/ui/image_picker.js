@@ -2,12 +2,14 @@
 // Where an image comes from (docs/vm-manager-plan.md "虚拟机配置格式", the
 // image's kinds; "磁盘的存放位置"): a URL, a file on this computer (its
 // handle kept where the browser allows it), an empty disk in memory, an
-// image of the disk service (listed, or created there), a browser disk (U6).
+// image of the disk service (listed, or created there), a browser disk (in
+// the browser's private storage: chosen, made empty, or imported, U6).
 // The settings dialog and the wizard use it.
 
 import { h, ask_text, inform, format_size } from "./dom.js";
 import { FLOPPY_SIZES } from "../vm_config.js";
 import { list_images, create_image, image_url, new_image_name } from "../disk_service_client.js";
+import { list_disks, create_disk, import_disk } from "../browser_disks.js";
 
 /** @typedef {import("../vm_config.js").Image} Image */
 /** @typedef {import("../disk_service_client.js").Service} Service */
@@ -20,7 +22,9 @@ import { list_images, create_image, image_url, new_image_name } from "../disk_se
  * @property {boolean} [optional] "none" is a choice
  * @property {(image: Image | null, extra?: {read_write?: boolean}) => void} on_change extra.read_write: an image
  *     the service created, to be written back
- * @property {{put_handle: (handle: any) => Promise<string>}} store where a picked file's handle is kept
+ * @property {{put_handle: (handle: any) => Promise<string>, get_pref?: (name: string) => Promise<any>,
+ *     put_pref?: (name: string, value: any) => Promise<void>}} store where a picked file's handle is kept (and the
+ *     preferences: persistent storage asked for once)
  * @property {Service | null} [service] the disk service, if there is one
  * @property {string} [machine_name] for the name of a new image of the service
  * @property {string} label
@@ -86,14 +90,14 @@ export function image_picker(o)
     if(o.role === "disk") kinds.push(["empty", "A new empty disk in memory (lost at power off)"]);
     if(o.role === "floppy") kinds.push(["empty", "An empty floppy"]);
     if((o.role === "disk" || o.role === "cdrom" || o.role === "floppy") && o.service) kinds.push(["service", "An image of the disk service"]);
-    if(o.role === "disk") kinds.push(["browser", "A browser disk (in a later version)"]);
+    if(o.role === "disk" || o.role === "floppy") kinds.push(["browser", "A browser disk (kept in this browser)"]);
     // (without "none" among the choices, an empty URL to begin with)
     /** @type {any} (its kind is the picker's) */
     const image = o.image || (o.optional ? null : { kind: "url", url: "", async: true });
     const kind = picker_kind(image, o.service);
 
     const select = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": o.label + ": source" },
-        kinds.map(([value, text]) => h("option", { value, selected: value === kind, disabled: value === "browser" }, text))));
+        kinds.map(([value, text]) => h("option", { value, selected: value === kind }, text))));
     select.addEventListener("change", () =>
     {
         const value = select.value;
@@ -102,6 +106,7 @@ export function image_picker(o)
         else if(value === "empty") o.on_change({ kind: "empty", size: o.role === "floppy" ? 1474560 : 512 << 20 });
         else if(value === "file") pick_local_file(o.store).then(picked => { if(picked) o.on_change(picked); else select.value = kind; });
         else if(value === "service") o.on_change({ kind: "url", url: image_url(/** @type {Service} */ (o.service), ""), async: true });
+        else if(value === "browser") o.on_change({ kind: "browser", path: "", size: 0 });
     });
 
     const detail = [];
@@ -179,5 +184,74 @@ export function image_picker(o)
             list.replaceChildren(h("label.field", null, h("span", null, "Image"), choose), create);
         }, e => list.replaceChildren(h("p.error", null, e.message)));
     }
+    else if(image && kind === "browser")
+    {
+        detail.push(browser_disk_choice(o, image));
+    }
     return h("div.image-picker", null, h("label.field", null, h("span", null, o.label), select), detail);
+}
+
+/**
+ * The browser disks to choose from, and making or importing one
+ * @param {PickerOptions} o
+ * @param {any} image
+ */
+function browser_disk_choice(o, image)
+{
+    const element = h("div.service-images", null, "Listing the browser disks…");
+    const prefs = o.store.get_pref && o.store.put_pref ? /** @type {any} */ (o.store) : undefined;
+    const chosen = disk => o.on_change({ kind: "browser", path: disk.path, size: disk.size }, { read_write: true });
+    const status = h("small.reason", { role: "status" });
+    list_disks().then(disks =>
+    {
+        const choose = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": o.label + ": the browser disk" },
+            h("option", { value: "", selected: !image.path }, "Choose a disk…"),
+            disks.map(d => h("option", { value: d.path, selected: d.path === image.path }, d.label + " (" + format_size(d.size) + ")"))));
+        choose.addEventListener("change", () => { const d = disks.find(x => x.path === choose.value); if(d) chosen(d); });
+        const make = h("button", { type: "button", onclick: async () =>
+        {
+            const size = await ask_text("New browser disk", "Size in MB", o.role === "floppy" ? "1.44" : "1024");
+            if(!size || !(+size > 0)) return;
+            try
+            {
+                status.textContent = "Making the disk …";
+                chosen(await create_disk(o.role === "floppy" ? 1474560 : Math.round(+size) * 1048576, o.machine_name || "disk", prefs));
+            }
+            catch(e) { status.textContent = ""; await inform("The disk was not made", e.message); }
+        } }, "New empty disk…");
+        const bring = h("button", { type: "button", onclick: async () =>
+        {
+            const from = await ask_text("Import into a browser disk", "The image's URL (empty: a file on this computer)", "");
+            if(from === undefined) return;
+            /** @type {string | File} */
+            let source = from.trim();
+            if(!source)
+            {
+                const file = await new Promise(resolve =>
+                {
+                    const input = /** @type {HTMLInputElement} */ (h("input", { type: "file", style: { display: "none" } }));
+                    input.addEventListener("change", () => { resolve(input.files?.[0]); input.remove(); });
+                    input.addEventListener("cancel", () => { resolve(undefined); input.remove(); });
+                    document.body.append(input);
+                    input.click();
+                });
+                if(!file) return;
+                source = file;
+            }
+            try
+            {
+                const label = typeof source === "string" ? source.split("/").pop() || "disk" : source.name;
+                const disk = await import_disk(source, label, { prefs, progress: (done, total) =>
+                {
+                    status.textContent = "Copying " + format_size(done) + (total ? " of " + format_size(total) : "") + " …";
+                } });
+                status.textContent = "Copied, the copy checked (SHA-256)";
+                chosen(disk);
+            }
+            catch(e) { status.textContent = ""; await inform("The image was not imported", e.message); }
+        } }, "Import an image…");
+        element.replaceChildren(h("label.field", null, h("span", null, "Disk"), choose), make, bring, status,
+            h("small.reason", null, "An import is a copy: the original stays as it is."));
+    }, e => element.replaceChildren(h("p.error", null, e.message)));
+    return element;
 }

@@ -2,19 +2,83 @@
 // The library (docs/vm-manager-plan.md "虚拟机库"): the virtual machines of
 // this browser on the left, the chosen one's summary on the right: new (the
 // wizard), import, edit settings (the settings dialog), rename, export,
-// delete, power on in a new tab; the preferences (the disk service).
+// delete (with its own browser disks), power on in a new tab, resume; the
+// preferences (the disk service); the browser disks (U6).
 
 import { h, replace, ask_text, confirm, inform, download, pick_file, dialog, format_size } from "./dom.js";
 import { hardware_rows } from "./describe.js";
 import { open_wizard } from "./wizard.js";
 import { open_settings } from "./settings.js";
-import { VMStore, export_config, export_file_name, import_config, files_to_choose } from "../vm_store.js";
+import { VMStore, export_config, export_file_name, import_config, files_to_choose, config_images } from "../vm_store.js";
+import { list_disks, create_disk, import_disk, export_disk, delete_disk, disk_id } from "../browser_disks.js";
 import { preset } from "../guest_presets.js";
 import { probe, LOCAL_SERVICE } from "../disk_service_client.js";
 import { delete_state, running_machines, storage_space } from "../vm_state.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
+
+/**
+ * The browser disks a configuration uses
+ * @param {VMConfig} config
+ * @return {string[]} their paths
+ */
+function browser_disk_paths(config)
+{
+    return config_images(config).filter(image => image.kind === "browser").map(image => /** @type {any} */ (image).path);
+}
+
+/**
+ * The browser disks dialog: each disk's size and machines, export, delete,
+ * import, a new one; their total
+ * @param {VMStore} store
+ * @param {VMConfig[]} configs
+ */
+async function browser_disks_dialog(store, configs)
+{
+    for(;;)
+    {
+        const disks = await list_disks();
+        const users = path => configs.filter(c => browser_disk_paths(c).includes(path)).map(c => c.name);
+        /** @type {null | (() => any)} */
+        let action = null;
+        const act = fn => () => { action = fn; /** @type {HTMLElement | null} */ (document.querySelector("dialog[open] .dialog-buttons button"))?.click(); };
+        const total = disks.reduce((n, d) => n + d.size, 0);
+        await dialog({
+            title: "Browser disks",
+            body: [
+                h("p.note", null, "Disks kept in this browser's private storage for this site: " + disks.length + ", " + format_size(total) +
+                    ". Clearing the site's data deletes them: export the ones you want to keep."),
+                disks.length ? h("table.hardware.browser-disks", null, h("tbody", null, disks.map(d => h("tr", { dataset: { disk: d.id } },
+                    h("th", null, d.label), h("td", null, format_size(d.size)), h("td", null, users(d.path).join(", ") || "not used"),
+                    h("td", null,
+                        h("button", { type: "button", onclick: act(() => export_disk(d.id, d.label.replace(/[^\w.-]+/g, "_") + ".img", download)) }, "Export"), " ",
+                        h("button.danger", { type: "button", onclick: act(async () =>
+                        {
+                            const used = users(d.path);
+                            if(!await confirm("Delete " + d.label + "?", used.length ? "It is the disk of " + used.join(", ") + ": they will not start without it." :
+                                "Its data is gone for good.", "Delete", true)) return;
+                            await delete_disk(d.id);
+                        }) }, "Delete")))))) : h("p.empty", null, "No browser disks."),
+                h("div.summary-actions", null,
+                    h("button", { type: "button", id: "browser_disk_new", onclick: act(async () =>
+                    {
+                        const size = await ask_text("New browser disk", "Size in MB", "1024");
+                        if(size && +size > 0) await create_disk(Math.round(+size) * 1048576, "disk", store);
+                    }) }, "New empty disk…"),
+                    h("button", { type: "button", id: "browser_disk_import", onclick: act(async () =>
+                    {
+                        const file = await pick_file("");
+                        if(file) await import_disk(file, file.name, { prefs: store });
+                    }) }, "Import a file…")),
+            ],
+            buttons: [{ label: "Close", value: true, primary: true }],
+        });
+        if(!action) return;
+        try { await action(); }
+        catch(e) { await inform("Browser disks", e.message); }
+    }
+}
 
 /** The page is served from this computer (the local disk service is looked for there) */
 const PAGE_ON_THIS_COMPUTER = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
@@ -146,7 +210,8 @@ export async function open_library(root)
             h("div.library-actions", null,
                 h("button.primary#new_vm", { onclick: create }, "New virtual machine…"),
                 h("button#import_vm", { onclick: import_file }, "Import…"),
-                h("button#preferences", { onclick: async () => { await preferences(store); service = await current_service(store); render(); } }, "Preferences…")),
+                h("button#preferences", { onclick: async () => { await preferences(store); service = await current_service(store); render(); } }, "Preferences…"),
+                h("button#browser_disks", { onclick: async () => { await browser_disks_dialog(store, configs); await reload(selected); } }, "Browser disks…")),
             h("p.note#service_status", null, service ? "Disk service: " + service.url : "No disk service"),
             configs.length ? list : h("p.empty", null, "No virtual machines yet. Make a new one, or import a .v86vm.json file."),
             space && space.quota ? h("p.note#storage_status", null, "Browser storage: " + format_size(space.usage) + " used of " + format_size(space.quota) +
@@ -183,8 +248,20 @@ export async function open_library(root)
                 await inform("It runs", config.name + " runs in another tab: power it off there first.");
                 return;
             }
-            if(!await confirm("Delete " + config.name + "?", "Its settings" + (config.suspended ? " and its suspended state" : "") +
-                " are deleted from this browser. Images on web sites, on your computer or on a disk service stay where they are.", "Delete", true)) return;
+            // (its own browser disks go with it; those other machines use stay)
+            const own = browser_disk_paths(config).filter(path => !configs.some(c => c.id !== config.id && browser_disk_paths(c).includes(path)));
+            if(!await confirm("Delete " + config.name + "?", "Its settings" + (config.suspended ? ", its suspended state" : "") +
+                (own.length ? " and its browser disk" + (own.length > 1 ? "s" : "") : "") + " are deleted from this browser. " +
+                "Images on web sites, on your computer or on a disk service stay where they are.", "Delete", true)) return;
+            try
+            {
+                for(const path of own) await delete_disk(disk_id(path));
+            }
+            catch(e)
+            {
+                await inform("Not deleted", e.message);
+                return;
+            }
             await delete_state(config.id);
             await store.delete(config.id);
             await reload(undefined);

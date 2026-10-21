@@ -3,10 +3,10 @@
 // 1 where the system comes from (a CD, a floppy, an installed hard disk, a
 // kernel and initrd, or later), 2 the system (a preset of
 // src/app/guest_presets.js: all the hardware), 3 the name, 4 the hard disk
-// (a new empty one and where it goes: the disk service, memory; browser
-// disks come with U6), 5 the summary: finish, or customize the hardware in
-// the settings dialog first. The disk service's image is created only when
-// the wizard finishes.
+// (a new empty one and where it goes: a browser disk, the disk service,
+// memory), 5 the summary: finish, or customize the hardware in the settings
+// dialog first. The browser disk and the disk service's image are made only
+// when the wizard finishes.
 
 import { h, replace, format_size } from "./dom.js";
 import { image_picker } from "./image_picker.js";
@@ -14,6 +14,7 @@ import { hardware_rows } from "./describe.js";
 import { open_settings } from "./settings.js";
 import { PRESETS, preset, preset_config } from "../guest_presets.js";
 import { create_image, list_images, new_image_name } from "../disk_service_client.js";
+import { create_disk } from "../browser_disks.js";
 import { MAX_ARRAY_BUFFER_SIZE_MB } from "../../browser/vm_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
@@ -30,7 +31,8 @@ const SOURCES = [
 
 /**
  * The wizard; resolves with the new configuration (stored by the caller) or null when cancelled
- * @param {{store: {put_handle: (handle: any) => Promise<string>}, service: Service | null, names: string[]}} options names: the library's
+ * @param {{store: {put_handle: (handle: any) => Promise<string>, get_pref?: any, put_pref?: any}, service: Service | null, names: string[]}} options
+ *     names: the library's
  * @return {Promise<VMConfig | null>}
  */
 export function open_wizard(options)
@@ -49,7 +51,7 @@ export function open_wizard(options)
             notes: "",
             disk: "new",
             disk_mb: 512,
-            location: options.service ? "service" : "memory",
+            location: "browser",
             read_write: false,
             error: "",
         };
@@ -71,18 +73,18 @@ export function open_wizard(options)
             const p = /** @type {import("../guest_presets.js").Preset} */ (preset(id));
             state.preset = id;
             state.disk_mb = p.disk_mb;
-            state.location = p.disk_mb > MAX_ARRAY_BUFFER_SIZE_MB && !options.service ? "memory" : p.disk_location === "service" && options.service ? "service" :
-                p.disk_location === "memory" || !options.service ? "memory" : "service";
+            state.location = p.disk_location === "service" && options.service ? "service" :
+                p.disk_location === "memory" && p.disk_mb <= MAX_ARRAY_BUFFER_SIZE_MB ? "memory" : "browser";
             if(!state.name || PRESETS.some(q => unique(q.name) === state.name)) state.name = unique(p.name);
         };
         choose_preset("other");
 
         /**
-         * The configuration of the choices (the disk service's new image: its URL, made when finished)
-         * @param {string} [service_image_url]
+         * The configuration of the choices (the new disk: the disk service's image's URL, or the browser disk's path, made when finished)
+         * @param {string} [made]
          * @return {VMConfig}
          */
-        const build = service_image_url =>
+        const build = made =>
         {
             const p = /** @type {import("../guest_presets.js").Preset} */ (preset(state.preset));
             const config = preset_config(p, { name: state.name.trim() || p.name, notes: state.notes });
@@ -101,8 +103,9 @@ export function open_wizard(options)
             else if(state.disk === "new")
             {
                 const size = state.disk_mb * 1048576;
-                config.disks = [{ slot: "hda", image: state.location === "service" ? { kind: "url", url: service_image_url || "(created when finished)", size, async: true } :
-                    { kind: "empty", size }, disk_option: state.location === "service" ? "read_write" : "read_only", disk_error: "stop" }];
+                config.disks = [{ slot: "hda", image: state.location === "service" ? { kind: "url", url: made || "(created when finished)", size, async: true } :
+                    state.location === "browser" ? { kind: "browser", path: made || "(made when finished)", size } : { kind: "empty", size },
+                disk_option: state.location === "memory" ? "read_only" : "read_write", disk_error: "stop" }];
             }
             return config;
         };
@@ -111,8 +114,21 @@ export function open_wizard(options)
         {
             state.error = "";
             let url;
-            const new_service_disk = state.source !== "disk" && state.disk === "new" && state.location === "service";
-            if(new_service_disk)
+            const new_disk = state.source !== "disk" && state.disk === "new";
+            if(new_disk && state.location === "browser")
+            {
+                try
+                {
+                    url = (await create_disk(state.disk_mb * 1048576, state.name || "disk", /** @type {any} */ (options.store))).path;
+                }
+                catch(e)
+                {
+                    state.error = "The browser disk was not made: " + e.message;
+                    render();
+                    return;
+                }
+            }
+            if(new_disk && state.location === "service")
             {
                 const service = /** @type {Service} */ (options.service);
                 try
@@ -217,16 +233,16 @@ export function open_wizard(options)
                 checked: state.disk === value, disabled, onchange: () => { state.disk = value; render(); } }), " " + text);
             /** @type {Array<[string, string, boolean, string]>} */
             const locations = [
+                ["browser", "A browser disk: kept in this browser (until its site data is cleared)", false, ""],
                 ["service", "The disk service: an image file on " + (options.service ? options.service.url : "a disk service") + " (kept)", !options.service,
                     options.service ? "" : "No disk service: start one (make run starts one), or set it in Preferences"],
                 ["memory", "Memory: lost at power off (at most " + MAX_ARRAY_BUFFER_SIZE_MB + " MB)", state.disk_mb > MAX_ARRAY_BUFFER_SIZE_MB, "too large for memory"],
-                ["browser", "A browser disk: kept in this browser (in a later version)", true, "comes in a later version"],
             ];
             const size = /** @type {HTMLInputElement} */ (h("input", { type: "number", min: "1", value: state.disk_mb, "aria-label": "Disk size in MB" }));
             size.addEventListener("change", () =>
             {
                 state.disk_mb = Math.max(1, Math.round(+size.value || 1));
-                if(state.location === "memory" && state.disk_mb > MAX_ARRAY_BUFFER_SIZE_MB && options.service) state.location = "service";
+                if(state.location === "memory" && state.disk_mb > MAX_ARRAY_BUFFER_SIZE_MB) state.location = "browser";
                 render();
             });
             return [
@@ -235,9 +251,21 @@ export function open_wizard(options)
                     h("label.field", null, h("span", null, "Size in MB"), size, h("small.reason", null, format_size(state.disk_mb * 1048576))),
                     h("fieldset", null, h("legend", null, "Where it is kept"), locations.map(([value, text, disabled, title]) => h("label.check", { title },
                         h("input", { type: "radio", name: "location", value, checked: state.location === value, disabled,
-                            onchange: () => { state.location = value; render(); } }), " " + text)))) : null,
+                            onchange: () => { state.location = value; render(); } }), " " + text))),
+                    state.location === "browser" ? quota_note() : null) : null,
                 choice("none", "No hard disk"),
             ];
+        };
+
+        // (a browser disk counts its whole size against the site's storage at once: measured in Chrome, docs/vm-manager-plan.md U6)
+        const quota_note = () =>
+        {
+            const note = h("small.reason", { role: "status" }, "A browser disk takes its whole size of the browser's storage for this site at once.");
+            navigator.storage?.estimate?.().then(e =>
+            {
+                if(e.quota) note.textContent += " This site has " + format_size(Math.max(0, e.quota - (e.usage || 0))) + " more.";
+            }).catch(() => {});
+            return note;
         };
 
         const summary_step = () =>

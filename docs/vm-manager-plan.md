@@ -1,6 +1,6 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：U0–U5 已实现（2026-10-21，`ui` 分支），U6、U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+状态：U0–U6 已实现（2026-10-21，`ui` 分支），U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
 `arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
@@ -944,3 +944,53 @@ JSON。
 | --- | --- |
 | `tests/app/suspend_test.html`（无头 Chrome，新） | MS-DOS 运行时，同一虚拟机的第二个标签页被拒（“runs in another tab”）、库显示“Running in another tab”；挂起：状态约 10 MB 在 `v86/states/`、配置记下大小与摘要、`persist()` 只请求一次；关闭标签页后库显示“Suspended”与“Resume”“Discard”；重新打开即恢复，屏幕与挂起前相同（BEFORE-SUSPEND），客户机继续运行（AFTER-RESUME），状态文件已删除；剩余空间不足（模拟 64 MB 配额）时说明原因、机器继续运行、不留状态；挂起后改了内存，再开时询问，选“丢弃”后重新启动、状态已删；只改名字与备注时不询问、直接恢复 |
 | 回归 | `app_test.html`（关机改走电源菜单）三种通过；`console_test.html part=main` 通过；`make app-check` 无错；eslint 无输出 |
+
+### U6 浏览器磁盘（2026-10-21）
+
+**实现。**
+
+- 库：[`src/opfs_disk.js`](../src/opfs_disk.js)（进 Closure 的核心文件列表）。`OpfsDisk` 照 `NodeFileDisk` 写，满足同一份后端契约，
+  文件描述符换成 OPFS 的 `FileSystemSyncAccessHandle`：`read`/`write`/`flush`/`getSize` 同步完成，写入在文件里即完成，flush
+  之后持久，定时 flush（空闲 1 秒、最长 5 秒），`stop()`、`destroy()`、拔出时 flush 并关闭。身份与 generation 记在
+  `v86/disks/<id>.json`（UUID、generation、大小；管理器的标签、来源等字段原样保留）：打开时大小与记录不符则 generation 加一；
+  **每个会话的第一次写入**与快照之后的第一次写入在写数据之前使 generation 加一并写回记录，所以快照之后任何会话改过这块盘，那份
+  快照都不再相符。同步句柄排他：别的标签页（或本机另一块盘）已打开时报“正被另一个标签页使用”。`QuotaExceededError` 报成
+  `no_space`、不可重试的写错误（按 `disk_error` 暂停并提示）。不在 Worker 里（`cpu_worker: false`）时没有同步句柄，`read_write` 启动报
+  “需要 CPU Worker”。`read_only` 的浏览器磁盘以 `getFile()` 得到的 File 读取（修改在内存，与用户选取的文件相同），页面与 Worker
+  都可以。`starter.js` 的 `writeback_backend` 对 `opfs:` 网址建 `OpfsDisk`；启动、`set_fda`/`set_fdb`、`set_cdrom`、`attach_sata_drive`
+  的只读浏览器磁盘先换成 File。`check_disk_policy` 在 Node 中拒绝 `opfs:` 网址。
+- 管理器：[`src/app/browser_disks.js`](../src/app/browser_disks.js)——列出、新建（`createWritable` 后 `truncate`）、从网址（流式 `fetch`）或本地
+  文件（`File.stream()`）导入（边写边算 SHA-256，写完重读副本再算一遍，不符则删除并报错；大小不是整扇区也拒绝）、导出（Chromium 用
+  `showSaveFilePicker` 流式写出，其他浏览器以 `getFile()` 的 File 下载，不整份读进内存）、删除（正被使用时拒绝）、改标签；新建与导入前
+  检查剩余配额，第一次时请求 `persist()`。图像选择器与向导加入“浏览器磁盘”（选已有的、新建空盘、导入），向导的新盘默认放在浏览器
+  磁盘（完成时才建）。库的“浏览器磁盘…”对话框：每块盘的大小、哪些虚拟机在用、导出、删除、导入、新建与总占用；删除虚拟机时一并删除
+  只有它用的浏览器磁盘。
+
+**测量与核实。**
+
+- **空间**：Chrome 的 `navigator.storage.estimate()` 把新建空盘的整个大小立即计入本站的用量（256 MB 的空盘：用量增加 256 MB，再写 1 MB
+  不再增加），即便底层文件可能稀疏。所以浏览器磁盘按标称大小占配额；向导选浏览器磁盘时写明这一点并显示本站剩余空间。本机无头 Chrome
+  的配额约 10 GB（随磁盘剩余空间）。
+- **浏览器支持**：同步访问句柄只在专用 Worker、OPFS 与安全上下文中可用。按 MDN 与 caniuse 的数据：Chrome/Edge 102、Firefox 111、
+  Safari 15.2 起提供；但 Chromium 在 108 之前 `getSize`、`flush`、`truncate`、`close` 是异步的，本实现按同步接口写，所以 Chromium 需要 108 起。
+  本机只核实了 Chrome；Firefox 与 Safari 未实测。
+
+**决定与偏差。**
+
+1. **generation 在每个会话的第一次写入时移动**：计划写“打开时大小不符则加一；mark 时加一”。OPFS 文件没有 mtime 可用，只靠 mark 不能
+   发现别的会话在快照之后写过（它的写入不经过 mark），所以改为每个会话第一次写入前移动，快照之后第一次写入前也移动；mark 本身只记录。
+2. **只读的浏览器磁盘在页面中也可以用**：计划把“CPU 不在 Worker 中”一律列为启动错误；只读时读的是 File，不需要同步句柄，所以只拒绝
+   `read_write`。
+3. **配额错误的端到端注入未做**：`QuotaExceededError` 的映射在后端单元测试中注入（Worker 里替换句柄的 `write`）；它进入 D0 的错误策略
+   后的暂停与提示已由磁盘错误对话框的测试覆盖（磁盘服务断开的情形）。真实耗尽配额在无头 Chrome 中需要写满约 10 GB，未做。
+4. **“不 sync 只等定时 flush”按“客户机 sync 之后不关机、等定时 flush 后直接关掉标签页”验证**：客户机不 sync 时数据还在它自己的页缓存里，
+   根本没到盘上；块设备层面的写入完成后，后端的定时 flush 使它持久。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/app/opfs_disk_test.html`（新，后端在专用 Worker 中） | 读写；管理器写的记录（UUID、generation 7）被读入，会话的第一次写入使 generation 变为 8、第二次不变；最后一次写入 1 秒后定时 flush；快照引用（generation 8、不含数据），之后的写入使其变为 9，旧引用被拒；第二个写者被拒（正被使用）；注入 `QuotaExceededError`：`no_space`、不可重试；关闭后重新打开数据与记录（含管理器的标签）都在；启动时拒绝非整扇区、与描述不符的大小、不存在的盘；没有记录的盘建立记录。页面上（没有同步句柄）`read_write` 报“需要 CPU Worker” |
+| `tests/app/browser_disk_test.html`（新） | `linux`：Linux 4.16 把新建的 32 MB 浏览器磁盘格式化为 ext2、写文件、`sync`、关机，关闭标签页后重新打开，文件在；再写一个文件并 `sync`，7 秒后不关机直接关掉标签页，重新打开后文件在（定时 flush）。`import`：导入 `images/msdos622.img`（SHA-256 与源相同，进度到 64 MB），导出的文件 SHA-256 相同；MS-DOS 在其上写文件，关机后文本在浏览器磁盘里、源不变。`share`：两台虚拟机共用一块盘，第一台运行时第二台启动被拒；第一台挂起后第二台写盘，第一台恢复被拒（“cannot go back”）；库的“浏览器磁盘”对话框列出两块盘及其使用者；删除第一台时只删除它独有的盘。`page`：CPU 在页面中时启动被拒（“needs the CPU Worker”） |
+| `tests/api/disk-options.js`（补充） | Node 中 `opfs:` 网址（硬盘 `read_write`、光驱、软盘）启动被拒；源码与发布构建都通过 |
+| 回归 | `make disk-persistence-tests` 通过；`tests/persistence/browser_runner.mjs part=d2/page`（页面与 CPU Worker）通过；`tests/api/state.js`、`floppy.js`、`cdrom-insert-eject.js`、`disk-image.js`、`reset.js`、`clean-shutdown.js`、`arm64-options.js`、`destroy-during-init.js` 通过；Closure 全部 0 错误；`make app-check` 无错；eslint 无输出 |

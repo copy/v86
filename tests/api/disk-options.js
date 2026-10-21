@@ -79,6 +79,12 @@ assert.doesNotThrow(() => check_disk_bindings([["hda", { buffer: shared }, ro], 
 assert.doesNotThrow(() => check_disk_bindings([["hda", { url: "/images/a.img" }, rw], ["hdb", { url: "/images/b.img" }, ro]]));
 console.log("ok - an image bound to two disks with one of them read_write is refused");
 
+// a browser disk (docs/vm-manager-plan.md U6) is in a browser's private storage: not in Node, read only or read write
+refused({ hda: { url: "opfs:v86/disks/x.img", disk_option: "read_write" } }, /hda: a browser disk \(opfs:v86\/disks\/x\.img\) is in a browser's private storage \(OPFS\), not in Node/);
+refused({ cdrom: { url: "opfs:v86/disks/x.img" } }, /cdrom: a browser disk .* not in Node/);
+assert.throws(() => check_disk_policy("fda", { url: "opfs:v86/disks/f.img" }), /fda: a browser disk .* not in Node/);
+console.log("ok - a browser disk (opfs:) is refused in Node");
+
 // the CPU Worker gets them
 assert.deepEqual((({ disk_option, disk_error, token }) => ({ disk_option, disk_error, token }))(
     encode_worker_file({ buffer: image(), disk_option: "read_only", disk_error: "report", token: "secret" })),

@@ -114,6 +114,11 @@ export function check_disk_policy(name, file)
 {
     const policy = { disk_option: "read_only", disk_error: "stop" };
     if(!file || typeof file !== "object") return policy;
+    // (a browser disk, docs/vm-manager-plan.md U6: in a browser's private storage)
+    if(typeof file.url === "string" && file.url.startsWith("opfs:") && in_node())
+    {
+        throw config_error(name + ": a browser disk (" + file.url + ") is in a browser's private storage (OPFS), not in Node");
+    }
     const option = file.disk_option, on_error = file.disk_error, token = file.token;
     const kind = disk_kind(name);
     if(option !== undefined)
