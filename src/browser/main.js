@@ -2792,7 +2792,7 @@ async function start_emulation(profile, query_args)
         push_state(new_query_args);
     }
 
-    const emulator = new V86({
+    const options = {
         "cpu_worker": cpu_worker,
         "cpu_worker_url": "build/cpu-worker.js" + query_append(),
         "ir_tier0": settings["ir_tier0"],
@@ -2876,7 +2876,17 @@ async function start_emulation(profile, query_args)
         disable_speaker: settings.disable_audio,
         mac_address_translation: settings.mac_address_translation,
         cpuid_level: settings.cpuid_level,
-    });
+    };
+
+    // (tests/app/legacy_options.mjs: the options this page gives V86, recorded
+    // instead of starting the emulator)
+    if(typeof window["v86_record_options"] === "function")
+    {
+        window["v86_record_options"](options);
+        return;
+    }
+
+    const emulator = new V86(options);
 
     if(DEBUG) window.emulator = emulator;
 

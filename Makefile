@@ -205,6 +205,7 @@ build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*
 		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
 		--compilation_level ADVANCED\
+		--property_renaming_report build/v86_all.js.properties\
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
