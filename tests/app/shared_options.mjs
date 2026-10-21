@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// The old page's shared modules as ES modules (docs/vm-manager-plan.md U0):
-// Node imports src/browser/profiles.js, vm_options.js and query_compat.js,
-// as the VM manager will, and makes each start that tests/app/legacy_options.mjs
-// recorded in the old pages (legacy.html's Closure build, debug.html's
-// modules): the same options, alerts, addresses and form fields.
+// The shared modules as ES modules (docs/vm-manager-plan.md U0): Node
+// imports src/browser/profiles.js, vm_options.js and query_compat.js, as the
+// pages do, and makes each start that tests/app/legacy_options.mjs recorded
+// in the VM manager (index.html: the addresses) and the debug page
+// (debug.html: the addresses and its form): the same options, alerts,
+// addresses and form fields.
 //   node tests/app/legacy_options.mjs record=build/app/legacy-options.json
 //   node tests/app/shared_options.mjs build/app/legacy-options.json
 
@@ -39,7 +40,7 @@ const ser = v =>
 
 /** The pages: their builds, form, version, title and elements */
 const PAGES = {};
-for(const [name, debug] of [["legacy.html", false], ["debug.html", true]])
+for(const [name, debug] of [["index.html", false], ["debug.html", true]])
 {
     const html = fs.readFileSync(path.join(root, name), "utf8");
     const version = /id="version"[^>]*>([^<]*)</.exec(html);
@@ -106,7 +107,7 @@ function start(page, profile, query_args, form, location_search)
         fields,
         kind: "options",
         options: ser(options),
-        reset: profile?.state ? "none" : "",
+        reset: profile?.state && page.ids.has("reset") ? "none" : "",
         search: query_args ? location_search : format_query_args(result.new_query_args),
         title: title ? title + " - v86" + (page.debug ? " - debug" : "") : page.title,
     };

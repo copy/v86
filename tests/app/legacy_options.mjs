@@ -1,18 +1,16 @@
 #!/usr/bin/env node
-// The options the old page (legacy.html, ADVANCED-compiled build/v86_all.js,
-// and debug.html, the ES modules) gives new V86(), recorded in headless
-// Chrome (docs/vm-manager-plan.md U0): every profile (?profile=<id>), a set
-// of query arguments, and starts from the form. A test hook in main.js's
-// start_emulation (window.v86_record_options, defined by the script this
+// The options the pages give new V86(), recorded in headless Chrome
+// (docs/vm-manager-plan.md U0): the VM manager (index.html, build/v86_app.js)
+// for every profile (?profile=<id>) and a set of query arguments, the debug
+// page (debug.html, src/browser/main.js) for those and for starts from its
+// form. A test hook (window.v86_record_options, defined by the script this
 // server puts at the top of the pages) receives the options instead of
-// starting the emulator. legacy.html's property names are translated back
-// with Closure's property renaming report (build/v86_all.js.properties).
-// U2: the VM manager (index.html, build/v86_app.js) starts the same
-// addresses with the same options (same=index.html:legacy.html).
+// starting the emulator. The old page (legacy.html, ADVANCED-compiled
+// build/v86_all.js) was recorded too until U7 deleted it.
 //   node tests/app/legacy_options.mjs record=<file>   record into a JSON file
 //   node tests/app/legacy_options.mjs check=<file>    record and compare with a recorded file
-//   node tests/app/legacy_options.mjs same=<page>:<page>   the options of both pages' addresses the same
-// Needs build/v86_all.js (make build/v86_all.js), for index.html make app, and Chrome (CHROME).
+// tests/app/shared_options.mjs makes the same starts from the modules.
+// Needs build/v86_app.js and build/libv86.mjs (make app), and Chrome (CHROME).
 
 import http from "node:http";
 import fs from "node:fs";
@@ -24,14 +22,14 @@ import { QUERY_CASES, FORM_CASES, profile_ids, compare_records } from "./legacy_
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const arg = name => (process.argv.find(a => a.startsWith(name + "=")) || "").slice(name.length + 1) || undefined;
-const record_file = arg("record"), check_file = arg("check"), same = arg("same");
-if(!record_file && !check_file && !same)
+const record_file = arg("record"), check_file = arg("check");
+if(!record_file && !check_file)
 {
-    console.error("usage: node tests/app/legacy_options.mjs record=<file> | check=<file> | same=<page>:<page>");
+    console.error("usage: node tests/app/legacy_options.mjs record=<file> | check=<file>");
     process.exit(2);
 }
-/** The pages: the old ones, or the two to compare (the forms only on the old pages) */
-const PAGES = same ? same.split(":") : ["legacy.html", "debug.html"];
+/** The pages (the form only on the debug page) */
+const PAGES = ["index.html", "debug.html"];
 const HAS_FORM = page => page !== "index.html";
 
 // (the page's hook and the frame's report to the driver)
@@ -98,17 +96,6 @@ const DRIVER = `<!doctype html><body><script>
 })();
 </script>`;
 
-/** Closure's renamed property names back to the source's */
-function unmangle(value, names)
-{
-    if(Array.isArray(value)) return value.map(v => unmangle(v, names));
-    if(value && typeof value === "object")
-    {
-        return Object.fromEntries(Object.keys(value).map(k => [k === "$" ? k : names.get(k) || k, unmangle(value[k], names)]));
-    }
-    return value;
-}
-
 /** The keys in order, for a stable file */
 function sorted(value)
 {
@@ -160,40 +147,18 @@ function done(results)
     if(browser) browser.kill();
     setTimeout(() => fs.rmSync(profile_dir, { recursive: true, force: true }), 500);
 
-    const names = new Map(fs.readFileSync(path.join(root, "build/v86_all.js.properties"), "utf8").split("\n")
-        .filter(Boolean).map(line => line.split(":")).map(([original, renamed]) => [renamed, original]));
     // (this server's origin, a new port each run, as one name)
     const origin = new RegExp("http://127\\.0\\.0\\.1:" + port, "g");
     const record = {};
     for(const [key, result] of Object.entries(results))
     {
-        const value = sorted(key.startsWith("legacy.html") ? unmangle(result, names) : result);
+        const value = sorted(result);
         record[key] = JSON.parse(JSON.stringify(value).replace(origin, "http://ORIGIN"));
     }
     // (a form case of a field the page does not have is recorded as such)
     const failed = Object.entries(record).filter(([, r]) => !["options", "alert", "missing"].includes(r.kind));
     for(const [key, r] of failed) console.log("NO OPTIONS " + key + ": " + JSON.stringify(r));
     console.log(Object.keys(record).length + " cases, " + ids.length + " profiles, " + failed.length + " without options");
-    if(same)
-    {
-        // (the addresses' options and alerts; the pages' titles and forms are their own)
-        const [a, b] = PAGES;
-        const pick = r => r.kind === "options" ? { kind: r.kind, options: r.options } : { kind: r.kind, text: r.text };
-        const left = {}, right = {};
-        for(const [key, r] of Object.entries(record))
-        {
-            if(key.startsWith(a + " ")) left[key.slice(a.length + 1)] = pick(r);
-            if(key.startsWith(b + " ")) right[key.slice(b.length + 1)] = pick(r);
-        }
-        // (the old page's form starts: the VM manager has no form)
-        for(const key of Object.keys(right)) if(key.startsWith("form ") && !(key in left)) delete right[key];
-        const differences = compare_records(right, left);
-        for(const line of differences.slice(0, 60)) console.log(line);
-        console.log(differences.length ? "FAIL: " + differences.length + " differences between " + a + " and " + b :
-            "PASS: " + a + " gives the options " + b + " gives, for " + Object.keys(left).length + " addresses");
-        process.exitCode = differences.length || failed.length ? 1 : 0;
-        return;
-    }
     if(record_file)
     {
         fs.writeFileSync(record_file, JSON.stringify(record, null, 1) + "\n");

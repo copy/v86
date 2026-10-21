@@ -18,9 +18,9 @@ WASM_OPT ?= false
 default: build/v86-debug.wasm
 # (v86-parallel.wasm and vcpu-worker.js: index.html runs more than one core in
 # host threads with them where the page allows it; see `make parallel`)
-all: build/cpu-worker.js build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm build/v86-parallel.wasm build/vcpu-worker.js glbridge
+all: build/cpu-worker.js build/v86_app.js build/libv86.js build/libv86.mjs build/v86.wasm build/v86-parallel.wasm build/vcpu-worker.js glbridge
 all-debug: build/cpu-worker.js build/libv86-debug.js build/libv86-debug.mjs build/v86-debug.wasm glbridge
-browser: build/cpu-worker.js build/v86_all.js
+browser: build/cpu-worker.js build/v86_app.js
 
 # CPU benchmark suite (tests/bench): one IR core against another, see docs/cpu-benchmarks.md.
 .PHONY: bench-build bench bench-quick bench-same-source replay-check replay-record
@@ -131,7 +131,7 @@ BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 # Display adapter plugins (src/graphics_adapter.js): each its own file, loaded
 # when graphics_adapter names it. Built with every bundle, which looks for
 # them beside itself. The boundary to v86 uses quoted names only, so a plugin
-# works with any bundle, including the ADVANCED-compiled v86_all.js.
+# works with any bundle, also one compiled in Closure's ADVANCED mode.
 GRAPHICS_ADAPTER_PLUGINS=build/v86-bochs-vga.js build/v86-vmware-svga.js build/v86-virtio-gpu.js
 GRAPHICS_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/bus.js src/display.js \
 	src/graphics_adapters/machine.js src/graphics_adapters/vga_core.js src/graphics_adapters/renderer_protocol.js
@@ -154,8 +154,6 @@ FORCE:
 CORE_FILES:=$(addprefix src/,$(CORE_FILES))
 LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
 BROWSER_FILES:=$(addprefix src/browser/,$(BROWSER_FILES))
-# the old page's modules that the VM manager shares (docs/vm-manager-plan.md U0)
-PAGE_FILES=src/browser/profiles.js src/browser/vm_options.js src/browser/query_compat.js
 
 build/v86-bochs-vga.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/graphics_adapters/bochs_vga/*.js
 	mkdir -p build
@@ -197,37 +195,6 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 
 .PHONY: graphics-adapters
 graphics-adapters: $(GRAPHICS_ADAPTER_PLUGINS)
-
-build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
-	mkdir -p build
-	-ls -lh build/v86_all.js
-	java -jar $(CLOSURE) \
-		--js_output_file build/v86_all.js\
-		--define=DEBUG=false\
-		$(CLOSURE_SOURCE_MAP)\
-		$(CLOSURE_FLAGS)\
-		--compilation_level ADVANCED\
-		--property_renaming_report build/v86_all.js.properties\
-		--js $(CORE_FILES)\
-		--js $(LIB_FILES)\
-		--js $(BROWSER_FILES)\
-		--js $(PAGE_FILES)\
-		--js src/browser/main.js
-	ls -lh build/v86_all.js
-
-build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
-	mkdir -p build
-	java -jar $(CLOSURE) \
-		--js_output_file build/v86_all_debug.js\
-		--define=DEBUG=true\
-		$(CLOSURE_SOURCE_MAP)\
-		$(CLOSURE_FLAGS)\
-		--compilation_level ADVANCED\
-		--js $(CORE_FILES)\
-		--js $(LIB_FILES)\
-		--js $(BROWSER_FILES)\
-		--js $(PAGE_FILES)\
-		--js src/browser/main.js
 
 build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
@@ -433,7 +400,7 @@ clean:
 	-rm build/libv86.mjs
 	-rm build/libv86-debug.js
 	-rm build/libv86-debug.mjs
-	-rm build/v86_all.js
+	-rm build/v86_app.js build/v86_app.js.map
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
 	-rm $(INSTRUCTION_TABLES)
@@ -451,12 +418,9 @@ update_version:
 	DATE=`git log --date="format:%b %e, %Y %H:%m" --format="%cd" -n 1` ;\
 	SEARCH='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
 	REPLACE='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
-	sed -i "s@$$SEARCH@$$REPLACE@g" index.html legacy.html ;\
-	SEARCH='<script src="build/v86_all.js?[a-f0-9]\+"></script>' ;\
-	REPLACE='<script src="build/v86_all.js?'$$COMMIT'"></script>' ;\
-	sed -i "s@$$SEARCH@$$REPLACE@g" legacy.html ;\
+	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
 	sed -i "s@\(build/v86_app.js\|build/libv86.mjs\|src/app/app.css\)?[a-f0-9]\+@\1?$$COMMIT@g" index.html ;\
-	grep $$COMMIT index.html legacy.html
+	grep $$COMMIT index.html
 
 
 $(CLOSURE):
@@ -737,11 +701,12 @@ build/v86_app.js: $(APP_FILES) node_modules/.bin/esbuild
 app-check: node_modules/.bin/tsc
 	node_modules/.bin/tsc -p tsconfig.json
 
-# the VM manager plan (docs/vm-manager-plan.md), U0: the old page's shared
-# modules (src/browser/profiles.js, vm_options.js, query_compat.js) give the
-# options the old pages give, made by Node from the modules as by the pages
+# the VM manager plan (docs/vm-manager-plan.md), U0: the shared modules
+# (src/browser/profiles.js, vm_options.js, query_compat.js) give the options
+# the pages give (index.html's addresses, debug.html's addresses and form),
+# made by Node from the modules as by the pages
 # U1: the configurations (src/app/vm_config.js) and the library (vm_store.js);
-# U2: the page: the type check, the addresses' options as legacy.html's, the
+# U2: the page: the type check, the addresses' options as the modules make them, the
 # library and a console booting FreeDOS (the release and debug pages, the CPU
 # in its Worker and in the page); U3: the presets and the dialog's rules, the
 # disk service's create and list, the wizard booting FreeDOS, Linux and
@@ -757,7 +722,6 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/presets.mjs
 	node tests/app/browser_runner.mjs tests/app/store_test.html
 	node tests/app/disk_service_create.mjs
-	node tests/app/legacy_options.mjs same=index.html:legacy.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
@@ -770,7 +734,7 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/opfs_disk_test.html
 	for part in page import share linux; do node tests/app/browser_runner.mjs tests/app/browser_disk_test.html part=$$part || exit 1; done
 
-app-shared-tests: build/v86_all.js
+app-shared-tests: build/v86_app.js build/libv86.mjs
 	node tests/app/machine_rules.mjs
 	mkdir -p build/app
 	node tests/app/legacy_options.mjs record=build/app/legacy-options.json
@@ -868,7 +832,7 @@ build/cpu-worker-test.bin: tests/rust/cpu_worker.asm
 	nasm -f bin $< -o $@
 
 .PHONY: cpu-worker-tests
-cpu-worker-tests: build/cpu-worker.js build/cpu-worker-test.bin build/libv86.mjs build/libv86.js build/v86_all.js build/v86.wasm build/v86-vmware-svga.js glbridge
+cpu-worker-tests: build/cpu-worker.js build/cpu-worker-test.bin build/libv86.mjs build/libv86.js build/v86_app.js build/v86.wasm build/v86-vmware-svga.js glbridge
 	node tests/glbridge/cpu_worker_screen_test.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_gpu_browser_test.html
@@ -902,10 +866,10 @@ display-browser-tests: build/cpu-worker.js build/libv86.mjs build/libv86.js buil
 	node tests/glbridge/gl_multipass_browser_runner.js vx_transfer_browser_test.html
 
 # A browser/library rebuild must ship the matching wire-protocol implementation.
-build/v86_all.js build/v86_all_debug.js build/libv86.js build/libv86.mjs build/libv86-debug.js build/libv86-debug.mjs: | build/cpu-worker.js
+build/libv86.js build/libv86.mjs build/libv86-debug.js build/libv86-debug.mjs: | build/cpu-worker.js
 
 # Keep the terminal available even when building the page bundle directly.
-build/v86_all.js build/v86_all_debug.js: | build/xterm.js
+build/v86_app.js: | build/xterm.js
 
 # The decoder catalogue's tables (src/rust/decode/encodings.rs)
 .PHONY: decoder-generated decoder-generated-check

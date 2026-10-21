@@ -2,7 +2,7 @@
 // own file and is loaded only when it is configured. v86 owns the VGA slot,
 // the PCI bus, the port and memory maps, device memory (mmio_ram), the display
 // hub and the adapter's place in a snapshot; the plugin owns the device.
-// Plugins are not compiled with v86 (v86_all.js renames properties), so the
+// Plugins are not compiled with v86 (an ADVANCED build renames properties), so the
 // handle a plugin gets and the descriptor and device it gives back use quoted
 // names only. src/graphics_adapters/machine.js is the plugin's end of it.
 // See docs/gpu-devices.md, "Adapter plugins".
@@ -40,8 +40,8 @@ const NODE = typeof process !== "undefined" && process.versions && process.versi
 
 /**
  * The bundle's own URL: plugins are built beside it. libv86.mjs gets it from
- * its output wrapper (import.meta.url); a classic script in a page (libv86.js,
- * v86_all.js) from document.currentScript while it runs
+ * its output wrapper (import.meta.url); a classic script in a page (libv86.js)
+ * from document.currentScript while it runs
  */
 const BUNDLE_URL = typeof V86_BUNDLE_URL === "string" ? V86_BUNDLE_URL :
     typeof document !== "undefined" && document.currentScript && document.currentScript.src || "";

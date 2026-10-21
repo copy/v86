@@ -1,10 +1,11 @@
 // A page's V86 options (docs/vm-manager-plan.md, U0): the settings of a
 // profile and of the old page's form, normalized as the old page always did
-// it, and the options new V86() gets for them. The old page (Closure, in
-// build/v86_all.js) and the VM manager (an ES module, outside Closure) both
-// import this module, so it uses neither Closure's defines nor the
-// emulator's internals (the plan's G5); the library reads some options by
-// their quoted names, and they stay quoted here as they were in main.js.
+// it, and the options new V86() gets for them. The VM manager (index.html,
+// an ES module outside Closure) and the debug page (debug.html,
+// src/browser/main.js) both import this module, so it uses neither Closure's
+// defines nor the emulator's internals (the plan's G5); the library reads
+// some options by their quoted names, and they stay quoted here as they were
+// in main.js.
 
 import { CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE } from "../machine_options.js";
 

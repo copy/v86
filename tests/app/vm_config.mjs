@@ -304,6 +304,10 @@ test("config_to_options: the configuration's fields", () =>
     assert.equal(o.x87_fast_math, true);
     assert.equal(o.x87_jit_cache, false);
     assert.equal(o.cpuid_level, 7);
+    // (the library refuses a browser disk in Node, U6: here, not on the page)
+    const node = check_config(c);
+    assert(node.length === 1 && node[0].path === "disks" && /not in Node/.test(node[0].message), JSON.stringify(node));
+    c.cdrom.image = { kind: "url", url: "cd.iso", async: true };
     assert.deepEqual(check_config(c), []);
 });
 

@@ -1,0 +1,103 @@
+# The virtual machine manager
+
+`index.html` is a virtual machine manager in the manner of VMware
+Workstation: a library of virtual machines kept in the browser, a wizard
+that makes new ones, a settings dialog for their hardware, and a console
+that runs one machine per tab. The plan and its implementation record are
+in [vm-manager-plan.md](vm-manager-plan.md) (in Chinese).
+
+## The library
+
+The page without arguments shows the library: the machines on the left
+(powered off, suspended, or running in another tab), the chosen one's
+hardware on the right, with its buttons: power on (or resume), edit
+settings, rename, export, delete.
+
+- **New virtual machine…** opens the wizard: where the system comes from (a
+  CD or floppy image, an installed hard disk image, a kernel and initrd, or
+  later), the system (a preset: DOS, Windows 3.x to 8.1, Linux 32-bit,
+  x86_64 and arm64, Android 16, or other), the name, the hard disk, and a
+  summary. A preset sets all the hardware; it says whether that setting was
+  verified, how the system is installed, the steps after the installation
+  and its known problems. "Customize hardware…" opens the settings dialog
+  before the machine is made.
+- **Edit settings…** opens the settings dialog: the hardware list (memory,
+  processor, machine and firmware, hard disks, CD/DVD, floppies, network
+  adapters, sound, display, serial ports, shared folder, direct boot, the
+  virt machine's devices, advanced) with Add and Remove. A control offers
+  only what the machine allows; when one change implies others (the arm64
+  CPU makes the machine virt, a second core needs ACPI, more than 2048 MB
+  needs x86_64), the dialog makes them and says so. Before saving, the
+  whole configuration is checked, and each problem shows on its item.
+- **Import…** and **Export** read and write `.v86vm.json` files. Files on
+  your computer are not part of an export: the console asks for them.
+- **Preferences…** sets the disk service (below). **Browser disks…** lists
+  the disks kept in the browser, their sizes and machines; export, delete,
+  import and make them there.
+
+The library lives in the browser's storage for this site (IndexedDB and the
+origin private file system). Clearing the site's data deletes it: export
+the machines and disks you want to keep.
+
+## Disks
+
+A hard disk's image is one of:
+
+| Source | Kept | Written back (`read_write`) |
+| --- | --- | --- |
+| An image on the web (URL) | on the web | no: the guest's changes stay in memory |
+| A file on this computer | on your computer | no (a browser cannot write into a file you picked): use the disk service |
+| An empty disk in memory | until power off | no |
+| A browser disk | in this browser, until its site data is cleared | yes |
+| An image of the disk service | in the service's directory | yes |
+
+**Read only** keeps the guest's changes in memory and leaves the image as it
+was; **read write** writes them into the image (docs/disk-persistence-plan.md).
+A browser disk takes its whole size of the browser's storage for this site
+at once; written back, it needs the CPU in its Worker (the default).
+
+The disk service, `node tools/disk-service.mjs --dir <directory> --origin
+<page origin> [--allow-create]`, serves the images of a directory on
+`http://127.0.0.1:8471/`; `make run` starts one for `images/` that may
+create new images. The manager looks for it when the page is served from
+this computer, or uses the one set in Preferences.
+
+## The console
+
+Power on opens the machine's console in a new tab (`index.html?vm=<id>`);
+a machine runs in one tab at a time. Its menus: Power (pause, reset, power
+off, suspend, save and power off for disks written back, save a state to a
+file, load one), Keys (Ctrl+Alt+Del and other combinations), Devices (CD
+and floppies in and out, the disks' images), View (full screen, zoom to
+fit, scales, theatre mode, screenshot), Input (the mouse), Tools
+(performance recording, memory dump, network capture), and Mute. The
+status bar shows the time, speed, disk and network traffic, the display
+mode and the mouse; the drawers hold the serial terminal, the shared
+folder's files and the details. A disk that fails with `disk_error: "stop"`
+pauses the machine and asks: retry, or power off.
+
+**Suspend** saves the machine's state in the browser; it resumes the next
+time it is powered on (if its settings changed since, the console asks
+first). Leaving a page with a disk written back asks first.
+
+## Addresses
+
+`index.html?profile=<id>` (the systems of the old page's list) and the old
+page's query arguments (`?profile=custom&hda.url=…`, `m=`, `cpu_type=`, …)
+open a console directly, with the options the old page gave them. Such a
+session is not in the library.
+
+## Development
+
+- The page is ES modules in `src/app/`, outside the Closure build, driving
+  only the public API of `build/libv86.mjs` (`v86.d.ts`); it shares
+  `src/browser/profiles.js`, `vm_options.js` and `query_compat.js` with the
+  debug page (`debug.html`, `src/browser/main.js`).
+- `make app` bundles it into `build/v86_app.js` (esbuild); `make app-check`
+  type-checks it with tsc against `v86.d.ts`. Both tools are dev
+  dependencies (`npm ci`, which make runs when they are missing).
+- `app_debug.html` loads the source directly, with `build/libv86-debug.mjs`.
+- `make app-tests` runs its tests (Node and headless Chrome).
+
+Browsers: the browser disks' synchronous file access exists in Chromium 108,
+Firefox 111 and Safari 15.2 or later (MDN, caniuse); only Chrome was tried.

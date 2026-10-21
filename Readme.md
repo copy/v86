@@ -68,6 +68,7 @@ list of emulated hardware:
 
 ## Documentation
 
+[The virtual machine manager](docs/vm-manager.md) —
 [How it works](docs/how-it-works.md) —
 [Networking](docs/networking.md) —
 [Dial-up modem networking](docs/modem.md) —
@@ -132,30 +133,35 @@ You need:
 - Rust with the wasm32-unknown-unknown target
 - A version of clang compatible with Rust
 - java (for Closure Compiler, not necessary when using `debug.html?cpu_worker=0`)
-- nodejs (a recent version is required, v24.16 is known to be working)
+- nodejs (a recent version is required, v24.16 is known to be working) and
+  npm (the page's build tools, TypeScript and esbuild: `npm ci`, which make
+  runs when they are missing)
 - To run tests: nasm, gdb, qemu-system, gcc, libc-i386 and rustfmt
 
 See [tools/docker/test-image/Dockerfile](tools/docker/test-image/Dockerfile)
 for a full setup on Debian or
 [WSL](https://docs.microsoft.com/en-us/windows/wsl/install).
 
-- Run `make all-debug` to build the debug build (at `debug.html`). Like
-  `index.html`, it runs the CPU in a Worker, `build/cpu-worker.js` (a release
-  bundle). `debug.html?cpu_worker=0` runs the CPU in the page from the source
-  tree, with the register dumps, the debug panel and debug logs; it needs only
-  `make`.
-- Run `make all` to build the optimized build (at `index.html`). It includes
+- Run `make all-debug` to build the debug build (at `debug.html`: the old
+  page's form with the debugger). Like `index.html`, it runs the CPU in a
+  Worker, `build/cpu-worker.js` (a release bundle). `debug.html?cpu_worker=0`
+  runs the CPU in the page from the source tree, with the register dumps, the
+  debug panel and debug logs; it needs only `make`.
+- Run `make all` to build the optimized build (at `index.html`, the
+  [virtual machine manager](docs/vm-manager.md): `build/v86_app.js` with
+  `build/libv86.mjs`; `app_debug.html` loads its source). It includes
   `build/v86-parallel.wasm` and `build/vcpu-worker.js`, with which `index.html`
   runs a guest with more than one CPU core in host threads (one per core). That
   needs a cross-origin isolated page: serve it with the headers
   `Cross-Origin-Opener-Policy: same-origin` and
   `Cross-Origin-Embedder-Policy: require-corp`. Without them, or with the
-  "Run cores in parallel" option off (`?parallel=0`), the cores take turns on one
-  thread as before; the runtime infos say which.
+  processor's "Run the cores in host threads" setting off (`?parallel=0`), the
+  cores take turns on one thread as before; the console's details say which.
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's http module (it sends the COOP/COEP headers
-  mentioned above).
+  mentioned above, answers Range requests, and starts the local disk service
+  for `images/`).
 - If you only want to embed v86 in a webpage you can use `libv86.js`. For usage,
   check out the [examples](examples/). You can download it from the [release section](https://github.com/copy/v86/releases).
 - For bundler-based setups (Vite/React/Next/Webpack), there is also an official npm package:

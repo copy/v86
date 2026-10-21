@@ -178,25 +178,29 @@ async function page_flow()
     if((await service_file("page.img")).session_open) throw new Error("the session is still open");
     log.push("Save and power off: \"" + $("disk_status").textContent.slice(0, 70) + "...\", the session closed");
     frame.remove();
-    // legacy.html (build/v86_all.js, compiled with ADVANCED): the same options, the button, powered off
+    // index.html (the VM manager, docs/vm-manager-plan.md): the same address, its Power menu's "Save and power off"
     const site = document.createElement("iframe");
     site.style.width = "1024px";
     site.style.height = "768px";
-    site.src = "/legacy.html?profile=custom&m=32&cpu_worker=" + (worker ? 1 : 0) + "&hda.url=" + encodeURIComponent(service + "/site.img") +
+    site.src = "/index.html?profile=custom&m=32&cpu_worker=" + (worker ? 1 : 0) + "&hda.url=" + encodeURIComponent(service + "/site.img") +
         "&hda.disk_option=read_write";
     document.body.appendChild(site);
-    const $$ = id => site.contentDocument && site.contentDocument.getElementById(id);
-    await until(() => $$("save_and_power_off") && $$("runtime_options") && $$("runtime_options").style.display !== "none", "legacy.html's machine");
+    const $$ = selector => site.contentDocument && site.contentDocument.querySelector(selector);
+    await until(() => $$("#menu_power") && site.contentWindow.v86_console, "index.html's machine");
     let open = false;
     for(let i = 0; i < 300 && !open; i++) { open = (await service_file("site.img")).session_open; if(!open) await sleep(100); }
-    if(!open || $$("save_and_power_off").style.display === "none") throw new Error("legacy.html: no session or no button");
+    if(!open) throw new Error("index.html: no session");
     await sleep(3000);
-    $$("save_and_power_off").click();
-    await until(() => $$("disk_status").style.display !== "none", "legacy.html's status", 60000);
-    if(!/^Saved the state/.test($$("disk_status").textContent)) throw new Error("legacy.html status: " + $$("disk_status").textContent);
+    // (its download: kept from Chrome's download flow)
+    site.contentWindow.HTMLAnchorElement.prototype.click = function() {};
+    $$("#menu_power").click();
+    await until(() => $$("#menu_save_and_power_off"), "index.html's Save and power off");
+    $$("#menu_save_and_power_off").click();
+    await until(() => /Powered off/.test($$(".console-status").textContent), "index.html powered off", 60000);
+    if(!/^Saved the state/.test($$(".console-notice").textContent)) throw new Error("index.html notice: " + $$(".console-notice").textContent);
     await sleep(200);
-    if((await service_file("site.img")).session_open) throw new Error("legacy.html: the session is still open");
-    log.push("legacy.html (v86_all.js): the same disk options, the button, saved and powered off, the session closed");
+    if((await service_file("site.img")).session_open) throw new Error("index.html: the session is still open");
+    log.push("index.html (the VM manager): the same disk options, its Save and power off, the session closed");
 }
 try
 {

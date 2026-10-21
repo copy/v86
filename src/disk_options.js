@@ -210,8 +210,8 @@ function source_of(file)
  */
 export function check_disk_options(options, also)
 {
-    // (the options by property, as the rest of v86 reads them: Closure
-    // renames them alike in v86_all.js)
+    // (the options by property, as the rest of v86 reads them: an ADVANCED
+    // build, as the old page's v86_all.js was, renames them alike)
     for(const [key, value] of [["disk_option", options.disk_option], ["disk_error", options.disk_error], ["token", options.token]])
     {
         if(value !== undefined)

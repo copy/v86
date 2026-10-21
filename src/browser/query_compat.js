@@ -1,7 +1,7 @@
 // The old page's address (docs/vm-manager-plan.md, U0): ?profile=, ?hda.url=
 // and the rest, as the page's settings, and a start's settings from the
 // profile, the address and the form (src/browser/vm_options.js). Sites and
-// bookmarks link to these addresses; the old page and the VM manager both
+// bookmarks link to these addresses; the VM manager and the debug page both
 // import this module (the plan's G5: no Closure defines, no internals).
 
 import { CPU_TYPES, MACHINE_TYPES, Q35_ROOT_PORTS_MAX } from "../machine_options.js";
@@ -133,7 +133,7 @@ export function apply_query_args(settings, query_args)
 
         // the disks' policies (docs/disk-persistence-plan.md): hda.disk_option=read_write
         // with a disk service's URL writes the guest's changes back; hda.disk_error=report
-        // (the settings' names as properties: Closure renames them in v86_all.js)
+        // (the settings' names as properties, as main.js had them for its ADVANCED build)
         for(const [name, disk] of [["hda", settings.hda], ["hdb", settings.hdb], ["fda", settings.fda]])
         {
             if(!disk) continue;

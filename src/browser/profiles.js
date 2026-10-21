@@ -1,7 +1,7 @@
-// The old page's systems: ?profile=<id> (docs/vm-manager-plan.md, U0). The
-// old page (Closure, in build/v86_all.js) and the VM manager (an ES module,
-// outside Closure) both import this module, so it uses neither Closure's
-// defines nor the emulator's internals (the plan's G5).
+// The systems of the old page's list: ?profile=<id> (docs/vm-manager-plan.md,
+// U0). The VM manager (index.html, an ES module outside Closure) and the
+// debug page (debug.html, src/browser/main.js) both import this module, so it
+// uses neither Closure's defines nor the emulator's internals (the plan's G5).
 
 /**
  * The systems, their images on `host`

@@ -1,6 +1,6 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：U0–U6 已实现（2026-10-21，`ui` 分支），U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+状态：全部完成（U0–U7，2026-10-21，`ui` 分支），见[附录](#附录实施记录)。计划写于 2026-10-18，依据
 `arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
@@ -602,30 +602,30 @@ JSON。
 
 ## 功能对照
 
-旧页面的每项功能在新页面的位置。U7 时逐项打勾。
+旧页面的每项功能在新页面的位置。U7 时逐项打勾（第三列：核对它的测试）。
 
-| 旧页面 | 新页面 |
-| --- | --- |
-| 系统按钮与过滤 | 不保留（负责人决定）；`?profile=` 链接照旧 |
-| 光盘、软盘、硬盘镜像（文件、空盘、网址、读写选项） | 向导与设置对话框的 CD/DVD、软盘、硬盘面板 |
-| multiboot、bzImage、initrd | “直接启动”面板 |
-| BIOS、VGA BIOS、启动顺序、ACPI | “机器与固件”面板 |
-| 内存、核数、并行、`cpu_type`、`machine_type` | 内存、处理器、“机器与固件”面板 |
-| 显卡、显存、图形代理 | “显示”面板 |
-| 网络后端、relay 地址、网卡型号、MTU | “网络适配器”面板 |
-| 调制解调器 | “串口与并口”面板 |
-| 静音 | “声卡”面板（声卡选“无”），控制台的静音按钮 |
-| 运行/暂停、重置、退出 | 电源菜单 |
-| Ctrl+Alt+Del、Alt+Tab | 发送按键菜单 |
-| 取回各盘镜像、更换光盘与软盘 | 可移动设备菜单 |
-| 保存状态、载入状态、保存并关机 | 电源菜单（挂起、保存并关机），工具菜单（保存或载入状态文件） |
-| 性能记录与导出、内存转储、抓包 | 工具菜单 |
-| 鼠标开关与锁定、全屏、截图、剧院模式、适应窗口、缩放 | 视图与输入菜单 |
-| 信息面板 | 状态栏与“详细信息”抽屉 |
-| 文件系统收发面板 | “共享文件夹”抽屉 |
-| 串口终端 | “串口终端”抽屉 |
-| 磁盘错误对话框 | 不变 |
-| 查询参数与 `?profile=` | 不变（`query_compat.js`） |
+| 旧页面 | 新页面 | U7 |
+| --- | --- | --- |
+| 系统按钮与过滤 | 不保留（负责人决定）；`?profile=` 链接照旧 | ✓ `?profile=` 的 137 个配置（`legacy_options.mjs`、`shared_options.mjs`） |
+| 光盘、软盘、硬盘镜像（文件、空盘、网址、读写选项） | 向导与设置对话框的 CD/DVD、软盘、硬盘面板 | ✓ `wizard_test.html`、`browser_disk_test.html`、`console_test.html` |
+| multiboot、bzImage、initrd | “直接启动”面板 | ✓ 直接启动（`wizard_test.html part=arm64`、`vm_config.mjs`） |
+| BIOS、VGA BIOS、启动顺序、ACPI | “机器与固件”面板 | ✓ `vm_config.mjs`、`presets.mjs`、自定义 BIOS 的记录器测试 |
+| 内存、核数、并行、`cpu_type`、`machine_type` | 内存、处理器、“机器与固件”面板 | ✓ `presets.mjs`（312 种组合、5000 次随机改动）、`wizard_test.html part=dialog` |
+| 显卡、显存、图形代理 | “显示”面板 | ✓ 显示面板；图形代理需要 WebGPU，只核对了选项 |
+| 网络后端、relay 地址、网卡型号、MTU | “网络适配器”面板 | ✓ 网络适配器面板（`vm_config.mjs`、`presets.mjs`） |
+| 调制解调器 | “串口与并口”面板 | ✓ 串口面板（`vm_config.mjs`） |
+| 静音 | “声卡”面板（声卡选“无”），控制台的静音按钮 | ✓ `console_test.html` |
+| 运行/暂停、重置、退出 | 电源菜单 | ✓ `console_test.html` |
+| Ctrl+Alt+Del、Alt+Tab | 发送按键菜单 | ✓ `console_test.html`（Ctrl+Alt+Del 使 DOS 重启） |
+| 取回各盘镜像、更换光盘与软盘 | 可移动设备菜单 | ✓ `console_test.html` |
+| 保存状态、载入状态、保存并关机 | 电源菜单（挂起、保存并关机），工具菜单（保存或载入状态文件） | ✓ `console_test.html`、`tests/persistence/browser_test.html part=page` |
+| 性能记录与导出、内存转储、抓包 | 工具菜单 | ✓ `console_test.html`、`tests/glbridge/recorder_ui_test.mjs` |
+| 鼠标开关与锁定、全屏、截图、剧院模式、适应窗口、缩放 | 视图与输入菜单 | ✓ `console_test.html` |
+| 信息面板 | 状态栏与“详细信息”抽屉 | ✓ 状态栏与“详细信息”（`console_test.html`） |
+| 文件系统收发面板 | “共享文件夹”抽屉 | ✓ `console_test.html` |
+| 串口终端 | “串口终端”抽屉 | ✓ `console_test.html`、记录器测试 |
+| 磁盘错误对话框 | 不变 | ✓ `console_test.html part=disk` |
+| 查询参数与 `?profile=` | 不变（`query_compat.js`） | ✓ `index.html` 的 174 个地址与模块一致 |
 
 ## 不在本计划内
 
@@ -994,3 +994,40 @@ JSON。
 | `tests/app/browser_disk_test.html`（新） | `linux`：Linux 4.16 把新建的 32 MB 浏览器磁盘格式化为 ext2、写文件、`sync`、关机，关闭标签页后重新打开，文件在；再写一个文件并 `sync`，7 秒后不关机直接关掉标签页，重新打开后文件在（定时 flush）。`import`：导入 `images/msdos622.img`（SHA-256 与源相同，进度到 64 MB），导出的文件 SHA-256 相同；MS-DOS 在其上写文件，关机后文本在浏览器磁盘里、源不变。`share`：两台虚拟机共用一块盘，第一台运行时第二台启动被拒；第一台挂起后第二台写盘，第一台恢复被拒（“cannot go back”）；库的“浏览器磁盘”对话框列出两块盘及其使用者；删除第一台时只删除它独有的盘。`page`：CPU 在页面中时启动被拒（“needs the CPU Worker”） |
 | `tests/api/disk-options.js`（补充） | Node 中 `opfs:` 网址（硬盘 `read_write`、光驱、软盘）启动被拒；源码与发布构建都通过 |
 | 回归 | `make disk-persistence-tests` 通过；`tests/persistence/browser_runner.mjs part=d2/page`（页面与 CPU Worker）通过；`tests/api/state.js`、`floppy.js`、`cdrom-insert-eject.js`、`disk-image.js`、`reset.js`、`clean-shutdown.js`、`arm64-options.js`、`destroy-during-init.js` 通过；Closure 全部 0 错误；`make app-check` 无错；eslint 无输出 |
+
+### U7 收尾（2026-10-21）
+
+**实现。**
+
+- 删除 `legacy.html` 与 `build/v86_all.js`、`build/v86_all_debug.js` 的构建规则（及其属性改名表）；`make all` 与 `make browser`
+  改为构建 `build/v86_app.js`（`make run` 随之），`make update_version` 只改 `index.html`，`cpu-worker-tests` 依赖新页面。
+- 旧页面的测试改指新页面：`tests/persistence/browser_test.html part=page` 的第二段改为新页面以同样的地址启动、电源菜单的
+  “保存并关机”；glbridge 的 `cpu_worker_ui_browser_test` 与 `performance_recorder_ui_browser_test` 改为共用
+  [`tests/glbridge/recorder_ui_test.mjs`](../tests/glbridge/recorder_ui_test.mjs)：库里一台 BIOS 为 x87 循环（blob 网址）的虚拟机，经控制台的
+  工具菜单记录性能，报告的各项检查不变；U0 的记录器改为录 `index.html`（地址）与 `debug.html`（地址与表单），Node 用模块对两页
+  各自生成并比较。
+- 共用模块与库里提到 `v86_all.js` 的注释改写为历史说明（引号规则对任何 ADVANCED 构建仍然必要）。
+- 文档：新增使用说明 [docs/vm-manager.md](vm-manager.md)（库、向导、设置、磁盘与存放位置、控制台、挂起、地址、开发与浏览器支持），
+  `Readme.md` 的文档列表、构建要求（npm）与构建说明随之更新；功能对照表逐项打勾。
+
+**决定与偏差。**
+
+1. **`debug.html` 保留为调试页，旧页面的表单仍在其中**：计划给了两种做法（加载新页面并保留调试器，或只保留调试器）。调试器的
+   寄存器、GDT/IDT/页表转储与日志级别都在旧页面的面板与 `main.js` 的 `debug_start` 里，依赖页面里的 CPU（`cpu_worker=0`）与内部对象；
+   新页面只用公开接口（G1），放进去就违背 G1。所以 `debug.html` 原样保留（旧表单加调试器，ES 模块，不经 Closure），`main.js` 只为它存在；
+   新页面的调试构建是 `app_debug.html`。
+2. **`make all` 包含新页面**：计划说部署流程在 `make all` 之后加 `make app`；为免部署漏掉，直接放进 `make all`。新页面的工具来自
+   `npm ci`（缺失时 make 自动运行），所以 `make all` 现在需要 npm。
+3. **`performance_recorder_ui_browser_test` 的一项仍失败**：“URL cache policy reaches native regions and exported cache counters”在旧页面与
+   master 上就失败（见 U2 偏差 5），移植后检查原样保留，结果相同；它不在任何 make 目标里。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `make all` | 通过（`build/v86_app.js` 约 150 KB）；eslint 无输出 |
+| `make app-tests` | U0–U6 的全部测试通过（`app-check` 的 tsc、Node 测试、无头 Chrome 各页面）。一次运行中 `suspend_test.html` 的“the text before suspending”失败（机器负载很高时 MS-DOS 没有回显键入的命令），单独重跑两次通过；`vm_config.mjs` 的一项检查随 U6 更新（Node 中库拒绝浏览器磁盘，U6 时漏改） |
+| `make app-shared-tests` | `index.html` 与 `debug.html` 共 365 次启动，模块生成的选项与页面记录的逐项相同；`allowed_options` 232 项 |
+| `tests/persistence/browser_runner.mjs part=page` | 页面与 CPU Worker：`debug.html` 的流程与 `index.html` 的“保存并关机”（会话关闭）通过 |
+| `tests/glbridge/cpu_worker_ui_browser_test.html` | 通过（全部检查，含终端、图标、记录器控制、报告各项、第二次记录的标记） |
+| `tests/glbridge/performance_recorder_ui_browser_test.html` | 与 master 相同的一项失败，其余检查通过 |
