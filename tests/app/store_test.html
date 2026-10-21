@@ -1,0 +1,178 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: the library</title>
+<!-- The VM manager's library (docs/vm-manager-plan.md U1, src/app/vm_store.js):
+     configurations stored, read back after the page is reloaded, exported,
+     imported (a new id on a collision, into another library with their own),
+     a file's handle kept, a configuration deleted with its handles.
+     node tests/app/browser_runner.mjs tests/app/store_test.html -->
+<pre id="log"></pre>
+<pre id="result"></pre>
+<script type="module">
+import { VMStore, export_config, import_config, export_file_name, files_to_choose } from "../../src/app/vm_store.js";
+import { new_config, profile_to_config } from "../../src/app/vm_config.js";
+import { get_profiles } from "../../src/browser/profiles.js";
+
+const DB = "v86-vm-manager-test", DB2 = "v86-vm-manager-test-imported";
+const phase = new URLSearchParams(location.search).get("phase") || "1";
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+
+/** The same value: plain data, any order of keys */
+function canonical(value)
+{
+    if(Array.isArray(value)) return value.map(canonical);
+    if(value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])]));
+    return value;
+}
+function check(condition, what)
+{
+    if(!condition) throw new Error(what);
+}
+function same(a, b, what)
+{
+    const x = JSON.stringify(canonical(a)), y = JSON.stringify(canonical(b));
+    if(x !== y) throw new Error(what + ": differs\n" + x.slice(0, 600) + "\n" + y.slice(0, 600));
+}
+/** The next phase, after a reload: this phase's lines kept */
+function next(phase)
+{
+    sessionStorage.setItem("lines", JSON.stringify(JSON.parse(sessionStorage.getItem("lines") || "[]").concat(lines)));
+    location.search = "?phase=" + phase;
+}
+const by_name = list => list.slice().sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+const remove_database = name => new Promise(resolve =>
+{
+    const request = globalThis.indexedDB.deleteDatabase(name);
+    request.onsuccess = request.onerror = request.onblocked = () => resolve();
+});
+
+async function phase1()
+{
+    sessionStorage.removeItem("lines");
+    await remove_database(DB);
+    await remove_database(DB2);
+    const store = await VMStore.open(DB);
+    // (a file's handle: a file in this origin's private file system, a FileSystemFileHandle as a picked file's)
+    const opfs = await navigator.storage.getDirectory();
+    const handle = await opfs.getFileHandle("vm-store-test.img", { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(new Uint8Array([1, 2, 3, 4]));
+    await writable.close();
+    const handle_id = await store.put_handle(handle);
+
+    const stored = [];
+    for(const profile of get_profiles("images/", true).slice(0, 25))
+    {
+        stored.push(await store.put(profile_to_config(profile)));
+    }
+    const custom = new_config({ name: "With a file", notes: "notes ✓ 中文" });
+    custom.disks = [{ slot: "hda", image: { kind: "file", name: "vm-store-test.img", size: 4, last_modified: (await handle.getFile()).lastModified,
+        handle: handle_id }, disk_option: "read_only", disk_error: "stop" }];
+    custom.cpu.cores = 2;
+    custom.machine.acpi = true;
+    stored.push(await store.put(custom));
+    log("stored " + stored.length + " configurations and a file's handle");
+
+    let refused;
+    try
+    {
+        await store.put(Object.assign(new_config(), { name: "" }));
+    }
+    catch(e)
+    {
+        refused = e;
+    }
+    check(refused && refused.problems && refused.problems[0].path === "name", "a configuration without a name is refused");
+    log("refused a configuration without a name: " + refused.message.split("\n")[1]);
+
+    sessionStorage.setItem("stored", JSON.stringify(stored));
+    sessionStorage.setItem("handle_id", handle_id);
+    store.close();
+    next(2);
+}
+
+async function phase2()
+{
+    const store = await VMStore.open(DB);
+    const stored = JSON.parse(sessionStorage.getItem("stored"));
+    const listed = await store.list();
+    same(listed, by_name(stored), "the library after the reload");
+    for(const config of stored)
+    {
+        same(await store.get(config.id), config, "get " + config.name);
+    }
+    log("after the reload: " + listed.length + " configurations, each field the same");
+
+    const handle = await store.get_handle(sessionStorage.getItem("handle_id"));
+    check(handle && handle.kind === "file", "the handle after the reload");
+    const bytes = new Uint8Array(await (await handle.getFile()).arrayBuffer());
+    same(Array.from(bytes), [1, 2, 3, 4], "the handle's file");
+    log("the file's handle after the reload: " + handle.name + ", its 4 bytes");
+
+    // export, and import into the same library: a new id; the file's handle stays behind
+    const ids = new Set(listed.map(c => c.id));
+    const texts = [];
+    for(const config of listed)
+    {
+        const text = export_config(config);
+        texts.push(text);
+        const imported = import_config(text, ids);
+        check(imported.id !== config.id, "an import into the same library gets a new id");
+        const expected = JSON.parse(JSON.stringify(config));
+        for(const disk of expected.disks) if(disk.image.kind === "file") delete disk.image.handle;
+        expected.id = imported.id;
+        same(imported, expected, "export and import of " + config.name);
+    }
+    const custom = listed.find(c => c.name === "With a file");
+    check(export_file_name(custom) === "With a file.v86vm.json", "the export's file name");
+    check(files_to_choose(import_config(export_config(custom))).length === 1, "an imported file needs to be chosen again");
+    check(files_to_choose(custom).length === 0, "a stored file with a handle does not");
+    log("exported and imported " + texts.length + ": the same fields, a new id, the file to be chosen again");
+
+    let bad;
+    try { import_config("{ not json"); } catch(e) { bad = e; }
+    check(bad && /not JSON/.test(bad.message), "a file that is not JSON");
+    bad = undefined;
+    try { import_config(JSON.stringify({ format: "v86-vm", version: 1, name: "x", cpu: { cores: 99 } })); } catch(e) { bad = e; }
+    check(bad && bad.problems.some(p => p.path === "cpu.cores"), "an imported configuration is checked");
+    log("refused an import that is not JSON, and one with 99 cores");
+
+    // into another library: the ids kept
+    const other = await VMStore.open(DB2);
+    const imported = [];
+    for(const text of texts) imported.push(await other.put(import_config(text, new Set((await other.list()).map(c => c.id)))));
+    for(const [i, config] of imported.entries()) check(config.id === listed[i].id, "an import into another library keeps its id");
+    other.close();
+    sessionStorage.setItem("imported", JSON.stringify(imported));
+
+    // delete: the configuration and its file's handle
+    await store.delete(custom.id);
+    check(await store.get(custom.id) === undefined, "deleted");
+    check(await store.get_handle(sessionStorage.getItem("handle_id")) === undefined, "the deleted configuration's handle");
+    check((await store.list()).length === listed.length - 1, "the others stay");
+    log("deleted the configuration with the file, and its handle");
+    store.close();
+    next(3);
+}
+
+async function phase3()
+{
+    const other = await VMStore.open(DB2);
+    same(await other.list(), by_name(JSON.parse(sessionStorage.getItem("imported"))), "the other library after the reload");
+    other.close();
+    const store = await VMStore.open(DB);
+    check((await store.list()).length === JSON.parse(sessionStorage.getItem("stored")).length - 1, "the deletion after the reload");
+    store.close();
+    log("after another reload: the imported library the same, the deletion kept");
+    await remove_database(DB);
+    await remove_database(DB2);
+    document.getElementById("result").textContent = "PASS\n" + JSON.parse(sessionStorage.getItem("lines")).concat(lines).join("\n");
+}
+
+const run = { "1": phase1, "2": phase2, "3": phase3 }[phase];
+run().catch(e =>
+{
+    document.getElementById("result").textContent = "FAIL (phase " + phase + "): " + (e.stack || e.message);
+});
+</script>

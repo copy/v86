@@ -1,6 +1,6 @@
 # 虚拟机管理器计划：替换 index.html
 
-状态：U0 已实现（2026-10-21，`ui` 分支），U1–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
+状态：U0、U1 已实现（2026-10-21，`ui` 分支），U2–U7 未实施，见[附录](#附录实施记录)。计划写于 2026-10-18，依据
 `arm64` 分支 03a7249f。
 
 本计划用一个仿 VMware Workstation 的虚拟机管理器替换现在的 [`index.html`](../index.html)：
@@ -332,7 +332,8 @@ JSON，带格式名与版本号，按版本迁移（`vm_config.js` 的 `migrate`
 | `empty` | `size` | 新建的内存盘，关机即丢失，见[磁盘的存放位置](#磁盘的存放位置) |
 | `browser` | `path`、`size` | 浏览器磁盘，转换成 `url: "opfs:<path>"`，见[浏览器磁盘](#浏览器磁盘opfs) |
 
-转换函数 `config_to_options(config)` 在 `src/browser/vm_options.js`，新旧两个页面共用。
+转换函数 `config_to_options(config)` 在 `src/app/vm_config.js`（实施时由 `vm_options.js` 移来，见附录 U1 偏差 1），
+建在新旧两个页面共用的 `vm_options.js` 的规则上。
 转换规则从 `start_emulation` 提取，各配置节的对应关系：
 
 | 配置 | `V86` 选项 |
@@ -553,8 +554,8 @@ JSON。
 | 文件 | 内容 |
 | --- | --- |
 | `profiles.js` | 137 个配置，即现在 `onload` 中的 `oses`；新页面只用来解析 `?profile=` |
-| `vm_options.js` | `config_to_options` |
-| `query_compat.js` | 查询参数转成配置 |
+| `vm_options.js` | 默认值、表单的默认值、开机设置的规整（`apply_form`）与 `V86` 选项（`settings_to_options`）；`config_to_options` 在 `src/app/vm_config.js` |
+| `query_compat.js` | 查询参数转成开机设置（`start_settings`：配置、地址与表单） |
 
 库里的新文件：
 
@@ -648,7 +649,7 @@ JSON。
 
 ## 附录：实施记录
 
-实施在 `ui` 分支（自 master 1a978143）。测试入口：`make app-shared-tests`。
+实施在 `ui` 分支（自 master 1a978143）。测试入口：`make app-tests`（含 U0 的 `make app-shared-tests`）。
 
 ### U0 共用模块（2026-10-21）
 
@@ -712,3 +713,49 @@ JSON。
 | `tests/app/shared_options.mjs`（新） | Node 直接导入三个模块，按 `main.js` 的路由与两页的表单生成 382 例：选项、`alert`、地址、标题、回写字段与页面记录逐项相同 |
 | `tests/app/machine_rules.mjs`（新） | `allowed_options` 与 `check_machine_options`、PC 平台自身的检查一致：每种 CPU、机型、显卡、网卡的组合，标为不适用的选项都被拒绝、其余都被接受，Q35 设备、ACPI 与核数上限，virt 与 PC 的核数上限相同。232 项 |
 | 回归 | eslint 无输出；Closure（`libv86.js`、`libv86.mjs`、`libv86-debug.mjs`、`cpu-worker.js`、`v86_all.js`、`v86_all_debug.js`）0 错误；`tests/api/arm64-options.js`、`tests/devices/graphics_adapter.js`、`tests/api/disk-options.js`、`tests/api/state.js` 通过；`tests/persistence/browser_runner.mjs part=page`（页面与 CPU Worker：`debug.html` 与 `index.html` 以查询参数启动 MS-DOS、写回磁盘服务、出错重试、保存并关机）通过 |
+
+### U1 配置格式与虚拟机库（2026-10-21）
+
+**实现。**
+
+- [`src/app/vm_config.js`](../src/app/vm_config.js)（`// @ts-check`，U2 起由 tsc 检查）：
+  - 格式 `v86-vm` 第 1 版，字段按[配置格式](#虚拟机配置格式)一节，另加旧页面配置需要的几项：`machine.bootmenu`、
+    `cdrom.disk_error`、软盘的 `disk_option`、`kernel.from_filesystem`（`bzimage_initrd_from_filesystem`）、
+    网卡的 `mac_address_translation`、`initial_state`（从状态启动）、`advanced` 的 `ir_tier0`、`x87_fast_math`、
+    `x87_jit_cache`、`cpuid_level`、`mouse_disabled`。镜像来源四种（`url` 另可带 `async`、`fixed_chunk_size`、
+    `use_parts`；`file` 的 `handle` 是句柄表里的 id，配置本身仍是 JSON）。
+  - `new_config`、`with_defaults`（缺的字段补默认值，默认值即旧页面未改动的表单）、`migrate`（格式名、版本号的
+    检查，按版本逐步迁移，现在只有第 1 版；比本版本新的拒绝）。
+  - `validate_config`：每个字段的取值与 `allowed_options` 的组合规则，问题按字段路径给出（如 `disks.0.disk_option`），
+    供 U3 的对话框显示在对应面板；`check_config` 再跑库自己的 `check_machine_options` 与 `check_disk_options`。
+  - `config_to_options`：配置的字段按“配置的设置”和“地址的设置”放进设置，表单按配置填好，再经旧页面的
+    `apply_form` 与 `settings_to_options`，规整规则只有一份；有 `initial_state` 时与旧页面一样把机器交给状态。
+  - `profile_to_config`：旧页面的配置转成库里的配置（U4 的“加入虚拟机库”）。
+- [`src/app/vm_store.js`](../src/app/vm_store.js)：IndexedDB `v86-vm-manager`（`vms` 以 `id` 为键，`handles` 存
+  `FileSystemFileHandle`）；`VMStore` 的 `list`、`get`、`put`（先校验，记修改时间）、`delete`（连同它的句柄）、
+  `put_handle`、`get_handle`；`export_config`（`.v86vm.json` 的文本，句柄不导出）、`export_file_name`、
+  `import_config`（迁移、校验；没有 id 或与库中已有的重复时给新 id）、`files_to_choose`（没有句柄、需要重新
+  选取的本地文件）。
+- [`tests/app/browser_runner.mjs`](../tests/app/browser_runner.mjs)：新页面测试共用的无头 Chrome 运行器（静态服务、
+  不缓存，页面在 `#result` 写 PASS/FAIL）。
+
+**决定与偏差。**
+
+1. **`config_to_options` 在 `src/app/vm_config.js`，不在 `vm_options.js`。** 计划把它列在共用的 `vm_options.js` 里。
+   但旧页面不读配置，而 `vm_options.js` 在 Closure 构建里：配置的字段名在 Closure 程序中从未定义，
+   `missingProperties` 报错（未知类型也一样），只能处处加引号。放到新页面一侧后，它只导入共用的
+   `apply_form`、`settings_to_options` 与常量，规则仍只有一份。
+2. **`display.vram_mb` 可以是 `null`**：只用于带 `initial_state` 的配置，表示显存由状态决定。旧页面 12 个带状态的
+   配置里 11 个不给 `vram_size`，交给状态；若配置写成默认的 8 MB，就与旧页面的选项不同。
+3. **与旧页面比较的口径**：配置转换得到的选项与旧页面 `?profile=<id>` 的选项按“行为”比较：`undefined` 与 `false`
+   视为相同（旧页面的两条启动路径自己就不一致，例如地址启动时 `disable_jit: false`、按钮启动时没有这一项），
+   但默认为真的 `cpu_worker`、`ir_tier0`、`x87_fast_math`、`x87_jit_cache`、`autostart` 严格比较；ArrayBuffer 比大小。
+4. **版本 1 的网卡只有一张**（`network` 是数组，为以后的多网卡留位置）；Android 预设要三张，在 U3 做预设时扩展。
+
+**测试结果。**
+
+| 测试 | 结果 |
+| --- | --- |
+| `tests/app/vm_config.mjs`（新） | 默认配置有效，选项与旧页面不改表单直接开机相同；137 个配置各转成配置后有效，选项与旧页面 `?profile=<id>` 相同；JSON 往返不变；`migrate` 拒绝非配置、错误与更新的版本，补齐缺的字段；85 条校验规则各报在自己的字段上，一个问题不掩盖其他问题；`config_to_options` 的各字段（Q35 设备、启动顺序、fastboot、bootmenu、Bochs BIOS、x86_64 与扩展内存、读写盘、本地文件、浏览器磁盘、空软盘、内核、virtio-gpu 多显示器、fetch 与 CORS 代理、MAC 地址转换、调制解调器、9p、高级项）；各网络后端、arm64（virtio 盘、输入设备、页级编译、内存拆分）、未选取的文件报错；`check_config` 报出库自己的检查（分片镜像不能读写）。11 项 |
+| `tests/app/store_test.html`（无头 Chrome，新） | 存 26 个配置与一个文件句柄（OPFS 中的文件，句柄与选取的文件同类）；无名配置被拒；重新加载页面后列表与逐个读取逐字段相同，句柄可读出文件的 4 个字节；26 个各自导出再导入：字段相同、id 为新、本地文件需要重新选取；非 JSON 与 99 核的导入被拒；导入另一个库保留 id，再次重新加载后相同；删除配置连同其句柄，重新加载后仍删除 |
+| 回归 | `make app-shared-tests` 通过；`v86_all.js` 0 错误；eslint 无输出 |

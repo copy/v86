@@ -718,7 +718,12 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # the VM manager plan (docs/vm-manager-plan.md), U0: the old page's shared
 # modules (src/browser/profiles.js, vm_options.js, query_compat.js) give the
 # options the old pages give, made by Node from the modules as by the pages
-.PHONY: app-shared-tests
+# U1: the configurations (src/app/vm_config.js) and the library (vm_store.js)
+.PHONY: app-shared-tests app-tests
+app-tests: app-shared-tests
+	node tests/app/vm_config.mjs
+	node tests/app/browser_runner.mjs tests/app/store_test.html
+
 app-shared-tests: build/v86_all.js
 	node tests/app/machine_rules.mjs
 	mkdir -p build/app
