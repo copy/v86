@@ -70,7 +70,7 @@ off, suspend, save and power off for disks written back, save a state to a
 file, load one), Keys (Ctrl+Alt+Del and other combinations), Devices (CD
 and floppies in and out, the disks' images), View (full screen, zoom to
 fit, scales, theatre mode, screenshot), Input (the mouse), Tools
-(performance recording, memory dump, network capture), and Mute. The
+(memory dump, network capture), and Mute. The
 status bar shows the time, speed, disk and network traffic, the display
 mode and the mouse; the drawers hold the serial terminal, the shared
 folder's files and the details. A disk that fails with `disk_error: "stop"`

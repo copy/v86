@@ -749,30 +749,6 @@ function console_ui(layout, emulator, ctx)
     } }, "Mute");
 
     // ---- tools
-    let recorder = null, report = null;
-    const record = async () =>
-    {
-        try
-        {
-            if(recorder && recorder.active)
-            {
-                await recorder.stop();
-                return;
-            }
-            recorder = emulator.create_performance_recorder({
-                metadata: { user_agent: navigator.userAgent, version: query_append().slice(1), memory_size: options.memory_size,
-                    extended_memory_size: options.extended_memory_size || 0, graphics_adapter: options.graphics_adapter, vram_size: options.vram_size,
-                    graphics_revision: /** @type {any} */ (globalThis).V86GL_BUILD_REVISION || null },
-                on_stop: r => { report = r; ctx.set_status("Recorded " + format_time((r && r.duration_ms || 0) / 1000 | 0) + " of performance"); },
-            });
-            await recorder.start();
-            ctx.set_status("Recording performance ...");
-        }
-        catch(error)
-        {
-            await inform("Performance recording failed", error.message);
-        }
-    };
     const memory_dump = async () =>
     {
         const size = (options.memory_size || 0) + (options.extended_memory_size || 0);
@@ -990,10 +966,6 @@ function console_ui(layout, emulator, ctx)
             { label: "Lock the mouse", id: "input_lock_mouse", action: lock_mouse },
         ],
         tools: () => [
-            { label: recorder && recorder.active ? "Stop recording performance" : "Record performance", id: "tools_record", action: record },
-            { label: "Export the performance report", id: "tools_export_report", disabled: !report,
-                action: () => download([JSON.stringify(report, null, 2)], "v86-performance.json", "application/json") },
-            "-",
             { label: "Memory dump", id: "tools_memory_dump", action: memory_dump },
             { label: capture ? "Save the " + capture.length + " packets captured" : "Capture network traffic", id: "tools_capture", action: capture_network },
             ...(capture ? [{ label: "Stop capturing", id: "tools_stop_capture", action: end_capture }] : []),

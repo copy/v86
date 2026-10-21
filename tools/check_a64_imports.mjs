@@ -7,7 +7,7 @@
 //   the modules and the ISA hooks of a core, and in src/rust/aarch64/;
 // - src/rust/aarch64/ names no module of the x86 core (the ARM core is built
 //   without them, src/rust/lib.rs): crate::cpu, x64, x86tpl, decode,
-//   decode_rules, prefix, paging, x87_profiler, simd_corpus, state_flags,
+//   decode_rules, prefix, paging, simd_corpus, state_flags,
 //   softfloat, the x86 composition root crate::jit (the ARM core's is
 //   aarch64::root), jit_switches, step_profile, profiler, js_api, gen, config;
 // - no other module names crate::aarch64 (lib.rs's hooks call into it).
@@ -20,7 +20,7 @@ import url from "node:url";
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 const RUST = path.join(ROOT, "src/rust");
-const X86_MODULES = ["cpu", "x64", "x86tpl", "decode", "decode_rules", "prefix", "paging", "x87_profiler", "simd_corpus", "state_flags",
+const X86_MODULES = ["cpu", "x64", "x86tpl", "decode", "decode_rules", "prefix", "paging", "simd_corpus", "state_flags",
     "softfloat", "jit", "jit_switches", "step_profile", "profiler", "js_api", "gen", "config"];
 
 /** The code of a Rust file without comments, strings and character literals */

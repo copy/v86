@@ -37,7 +37,6 @@ pub unsafe fn fpu_sync_slot(index: u32) {
     if *X87_DIRTY & bit != 0 {
         *fpu_st.add(index as usize) = F80::of_f64((*X87_VALUES)[index as usize]);
         *X87_DIRTY &= !bit;
-        crate::x87_profiler::cache_add(4, 1);
     }
 }
 #[no_mangle]
@@ -76,7 +75,7 @@ pub unsafe fn set_x87_jit_cache(enabled: bool) {
 /// both policies hold; a change applies at the next instruction.
 unsafe fn refresh_x87_native_policy() {
     *x87_native_policy =
-        (X87_JIT_CACHE && crate::softfloat::performance_recording_x87_state(2) != 0) as u8;
+        (X87_JIT_CACHE && crate::softfloat::x87_fast_math()) as u8;
 }
 /// Addresses of the shadow values ([u64; 8]), VALID and DIRTY masks, for
 /// generated code that reads/writes the cache exactly like `write_cached`.
@@ -84,7 +83,7 @@ pub fn x87_cache_addresses() -> [u32; 3] { [X87_VALUES as u32, X87_VALID as u32,
 /// Mirror every full slot whose F80 is exactly a binary64 into the cache, as
 /// `cached_value` would on first use. F80 stays authoritative (not DIRTY).
 pub unsafe fn fpu_mirror_exact_slots() {
-    if !X87_JIT_CACHE || crate::softfloat::performance_recording_x87_state(2) == 0 {
+    if !X87_JIT_CACHE || !crate::softfloat::x87_fast_math() {
         return;
     }
     let full = !*fpu_stack_empty as u32 & !*X87_VALID & 255;
@@ -110,7 +109,7 @@ pub unsafe fn get_x87_jit_cache() -> bool { X87_JIT_CACHE }
 // A host-side f64 helper shares exactly the same physical cache as emitted
 // Wasm. F80 observers materialize only the slots they actually read.
 unsafe fn cached_value(r: u32) -> Option<f64> {
-    if !X87_JIT_CACHE || crate::softfloat::performance_recording_x87_state(2) == 0 {
+    if !X87_JIT_CACHE || !crate::softfloat::x87_fast_math() {
         return None;
     }
     let slot = (*fpu_stack_ptr as u32 + r) & 7;
@@ -129,10 +128,6 @@ unsafe fn cached_value(r: u32) -> Option<f64> {
         }
         (*X87_VALUES)[slot as usize] = f.to_f64();
         *X87_VALID |= 1 << slot;
-        crate::x87_profiler::cache_add(3, 1);
-    }
-    else {
-        crate::x87_profiler::cache_add(8, 1);
     }
     Some(f64::from_bits((*X87_VALUES)[slot as usize]))
 }
@@ -143,12 +138,11 @@ unsafe fn write_cached(r: u32, value: f64) {
     (*X87_VALUES)[slot as usize] = value.to_bits();
     *X87_VALID |= 1 << slot;
     *X87_DIRTY |= 1 << slot;
-    crate::x87_profiler::cache_add(9, 1);
 }
 unsafe fn push_cached(value: f64) -> bool {
     let next = (*fpu_stack_ptr + 7) & 7;
     if !X87_JIT_CACHE
-        || crate::softfloat::performance_recording_x87_state(2) == 0
+        || !crate::softfloat::x87_fast_math()
         || *fpu_stack_empty & (1 << next) == 0
     {
         return false;
@@ -323,7 +317,7 @@ pub unsafe fn fpu_fadd(target_index: i32, val: F80) {
     F80::clear_exception_flags();
     if let Some(x) = cached_value(0) {
         let y = f64::from_bits(val.to_f64());
-        crate::softfloat::record_cached_arithmetic(0);
+        crate::softfloat::count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
         write_cached(target_index as u32, x + y);
         *fpu_status_word |= F80::get_exception_flags() as u16;
         return;
@@ -403,7 +397,7 @@ pub unsafe fn fpu_fdiv(target_index: i32, val: F80) {
     F80::clear_exception_flags();
     if let Some(x) = cached_value(0) {
         let y = f64::from_bits(val.to_f64());
-        crate::softfloat::record_cached_arithmetic(3);
+        crate::softfloat::count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
         write_cached(target_index as u32, x / y);
         *fpu_status_word |= F80::get_exception_flags() as u16;
         return;
@@ -417,7 +411,7 @@ pub unsafe fn fpu_fdivr(target_index: i32, val: F80) {
     F80::clear_exception_flags();
     if let Some(x) = cached_value(0) {
         let y = f64::from_bits(val.to_f64());
-        crate::softfloat::record_cached_arithmetic(3);
+        crate::softfloat::count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
         write_cached(target_index as u32, y / x);
         *fpu_status_word |= F80::get_exception_flags() as u16;
         return;
@@ -648,7 +642,7 @@ pub unsafe fn fpu_fldm80(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_m80
 pub unsafe fn fpu_fmul(target_index: i32, val: F80) {
     if let Some(x) = cached_value(0) {
         let y = f64::from_bits(val.to_f64());
-        crate::softfloat::record_cached_arithmetic(2);
+        crate::softfloat::count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
         write_cached(target_index as u32, x * y);
         return;
     }
@@ -884,7 +878,7 @@ pub unsafe fn fpu_fbstp(addr: i32) {
 pub unsafe fn fpu_fsub(target_index: i32, val: F80) {
     if let Some(x) = cached_value(0) {
         let y = f64::from_bits(val.to_f64());
-        crate::softfloat::record_cached_arithmetic(1);
+        crate::softfloat::count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
         write_cached(target_index as u32, x - y);
         return;
     }
@@ -895,7 +889,7 @@ pub unsafe fn fpu_fsub(target_index: i32, val: F80) {
 pub unsafe fn fpu_fsubr(target_index: i32, val: F80) {
     if let Some(x) = cached_value(0) {
         let y = f64::from_bits(val.to_f64());
-        crate::softfloat::record_cached_arithmetic(1);
+        crate::softfloat::count_x87_path(crate::profiler::stat::X87_NATIVE_F64);
         write_cached(target_index as u32, y - x);
         return;
     }

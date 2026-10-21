@@ -1,11 +1,9 @@
-import { WorkerPerformanceRecorder } from "./cpu_worker.js";
 import { V86 } from "./starter.js";
 import { LOG_NAMES } from "../const.js";
 import { SyncBuffer, SyncFileBuffer } from "../buffer.js";
 import { h, pad0, pads, hex_dump, dump_file, download } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
 import * as iso9660 from "../iso9660.js";
-import { PerformanceRecorder } from "./performance_recorder.js";
 import { get_profiles, user_profile_base, user_profile } from "./profiles.js";
 import { DEFAULT_CPU_CORES, DEFAULT_GRAPHICS_ADAPTER, MAX_ARRAY_BUFFER_SIZE_MB, settings_to_options } from "./vm_options.js";
 import { bool_arg, cpu_type_arg, machine_type_arg, image_host, start_settings, format_query_args } from "./query_compat.js";
@@ -906,50 +904,6 @@ function init_ui(profile, settings, emulator)
     $("runtime_options").style.display = "block";
     $("runtime_infos").style.display = "block";
     $("screen_container").style.display = "block";
-
-    const performance_button = $("performance_record");
-    if(performance_button)
-    {
-        const export_button = $("performance_export");
-        const Recorder = emulator.worker_controller ? WorkerPerformanceRecorder : PerformanceRecorder;
-        const recorder = new Recorder(emulator, {
-            metadata: {
-                "user_agent": navigator.userAgent,
-                "version": $("version").textContent,
-                "memory_size": settings.memory_size,
-                "extended_memory_size": settings.extended_memory_size || 0,
-                "graphics_adapter": settings.graphics_adapter || DEFAULT_GRAPHICS_ADAPTER,
-                "vram_size": settings.vram_size,
-                "graphics_revision": globalThis["V86GL_BUILD_REVISION"] || null,
-            },
-            on_stop: () => {
-                performance_button.textContent = "Record performance";
-                export_button.disabled = false;
-            },
-        });
-        performance_button.onclick = async () => {
-            performance_button.disabled = true;
-            try {
-            if(recorder.active)
-            {
-                await recorder.stop();
-            }
-            else
-            {
-                await recorder.start();
-                performance_button.textContent = "Stop recording";
-                export_button.disabled = true;
-            }
-            }
-            catch(error) { alert("Performance recording failed: " + error.message); }
-            finally { performance_button.disabled = false; }
-            performance_button.blur();
-        };
-        export_button.onclick = () => {
-            dump_file(new TextEncoder().encode(JSON.stringify(recorder.report, null, 2)), "v86-performance.json");
-            export_button.blur();
-        };
-    }
 
     var filesystem_is_enabled = false;
 

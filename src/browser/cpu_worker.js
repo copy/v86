@@ -1,7 +1,6 @@
 import { state_stream_server } from "./state_stream_transport.js";
 // Browser-side ownership boundary. Guest RAM and synchronous devices live only
 // in the worker; this side owns DOM adapters and asynchronous GPU execution.
-import { GraphicsPerformance } from "./graphics_performance.js";
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
 
@@ -125,9 +124,7 @@ export class CPUWorkerController
         this.ready = false;
         this.screen_queue = [];
         this.device_info = {};
-        this.recording_report = null;
         this.direct_audio = false;
-        this.stats = { "mode": "worker" };
         // Device plugins: the host side here, the device in the worker
         this.device_handlers = new Map();
         // (sent before the worker has made the devices)
@@ -295,7 +292,6 @@ export class CPUWorkerController
                 if(handler) handler(m["message"]);
                 break;
             }
-            case "recording": this.recording_report?.(m["value"]); break;
         }
     }
 
@@ -531,45 +527,5 @@ export class CPUWorkerController
         this.pending.clear();
         this.input_queue = [];
         this.screen_queue = [];
-    }
-}
-
-export class WorkerPerformanceRecorder
-{
-    constructor(emulator, options)
-    {
-        this.emulator = emulator;
-        this.options = options;
-        this.active = false;
-        this.report = null;
-        this.graphics = null;
-    }
-    async start()
-    {
-        if(this.active) throw new Error("Performance recording is already active");
-        this.active = true;
-        this.graphics = new GraphicsPerformance(this.emulator);
-        this.emulator.worker_controller.recording_report = report => this.finish(report);
-        try {
-            await this.emulator.worker_controller.startup;
-            await this.emulator.worker_controller.rpc("record-start", [this.options.metadata || {}]);
-        }
-        catch(error) { this.active = false; this.graphics.stop(); throw error; }
-    }
-    finish(report)
-    {
-        if(!this.active) return;
-        report["graphics"] = this.graphics.stop();
-        report["worker_transport"] = { ...this.emulator.worker_controller.stats,
-            ...(this.emulator["graphics_proxy"] ? this.emulator["graphics_proxy"]["stats"] : {}) };
-        report["metadata"]["cpu_thread"] = "dedicated-worker";
-        this.report = report;
-        this.active = false;
-        this.options.on_stop?.(report);
-    }
-    async stop()
-    {
-        if(this.active) this.finish(await this.emulator.worker_controller.rpc("record-stop"));
-        return this.report;
     }
 }

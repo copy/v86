@@ -126,7 +126,7 @@ LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js wasm_paths.js worker_bus.js state_stream_transport.js cpu_worker.js dummy_screen.js ansi_screen.js \
 	      inbrowser_network.js fake_network.js wisp_network.js fetch_network.js \
-          print_stats.js filestorage.js modem.js graphics_performance.js performance_recorder.js
+          print_stats.js filestorage.js modem.js
 
 # Display adapter plugins (src/graphics_adapter.js): each its own file, loaded
 # when graphics_adapter names it. Built with every bundle, which looks for
@@ -578,16 +578,13 @@ rust-test: $(RUST_FILES)
 rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test
 
-build/softfloat-fast-test.wasm: tests/rust/softfloat_fast_path.rs src/rust/softfloat.rs src/rust/x87_profiler.rs build/softfloat.o
+build/softfloat-fast-test.wasm: tests/rust/softfloat_fast_path.rs src/rust/softfloat.rs src/rust/profiler.rs build/softfloat.o
 	rustc --edition=2021 --target wasm32-unknown-unknown --crate-type cdylib -O \
 	    -C linker=tools/rust-lld-wrapper -C link-arg=build/softfloat.o \
 	    tests/rust/softfloat_fast_path.rs -o $@
 
 softfloat-fast-tests: build/softfloat-fast-test.wasm
 	node tests/rust/softfloat_fast_path.mjs
-
-x87-recording-tests: build/softfloat-fast-test.wasm
-	node tests/rust/x87_recording.mjs
 
 x87-fast-math-tests: build/softfloat-fast-test.wasm
 	node tests/rust/x87_fast_math.mjs
@@ -598,8 +595,16 @@ x87-jit-cache-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
 build/x87-fast-test.bin: tests/rust/x87_fast_path.asm
 	nasm -f bin $< -o $@
 
-x87-fast-tests: build/x87-fast-test.bin build/v86.wasm build/libv86.mjs
+x87-fast-tests: build/x87-fast-test.bin build/v86.wasm build/v86-profiler.wasm build/libv86.mjs
 	node tests/rust/x87_fast_path.mjs
+	X87_PATHS=1 node tests/rust/x87_fast_path.mjs "" build/v86-profiler.wasm
+
+# The release core with the profiler's statistics (src/rust/profiler.rs), in
+# its own target directory: x87-fast-tests checks the x87 paths with it
+build/v86-profiler.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	CARGO_TARGET_DIR=build/profiler cargo rustc --release --features profiler $(CARGO_FLAGS)
+	cp build/profiler/wasm32-unknown-unknown/release/v86.wasm build/v86-profiler.wasm
 
 .PHONY: cpu-optimization-tests cpu-optimization-benchmark
 cpu-optimization-tests: build/jit-capacity.bin build/v86.wasm build/libv86.mjs
@@ -627,12 +632,6 @@ cpu-optimization-benchmark: build/jit-capacity.bin build/v86.wasm build/libv86.m
 
 build/jit-capacity.bin: tests/rust/jit_capacity.asm
 	nasm -f bin $< -o $@
-
-build/performance-recording-test: tests/rust/performance_recording.rs src/rust/profiler.rs
-	rustc --edition=2021 --test -O $< -o $@
-
-performance-recording-tests: build/performance-recording-test
-	./build/performance-recording-test
 
 api-tests: build/v86-debug.wasm
 	./tests/api/clean-shutdown.js
@@ -840,7 +839,6 @@ cpu-worker-tests: build/cpu-worker.js build/cpu-worker-test.bin build/libv86.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_svga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_audio_browser_test.html
 	node tests/glbridge/speaker_unlock_browser_test.mjs
-	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_ui_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js cpu_worker_hotplug_browser_test.html
 
 # One canvas for text, graphics and composited D3D/GL windows (docs/display-design.md)

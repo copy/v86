@@ -3,12 +3,11 @@ import { wasm_fallback_path } from "./wasm_paths.js";
 import { instantiate_v86 } from "../parallel/relocate.js";
 // Dedicated-worker entry. Never transfer the WebAssembly.Memory buffer.
 import { V86 } from "./starter.js";
-import { PerformanceRecorder } from "./performance_recorder.js";
 import { DisplaySinkRecorder } from "../display.js";
 
 export function start_cpu_worker()
 {
-    let emulator, epoch = 1, recorder;
+    let emulator, epoch = 1;
     let screen_commands = [], screen_scheduled = false, frame_layers = [];
     let timer, command_chain = Promise.resolve();
     let audio_port = null, audio_reset_done = null, audio_enabled = false, audio_rate = 22050;
@@ -286,17 +285,6 @@ export function start_cpu_worker()
         "audio-info": () => ({ ...audio_stats, "direct": !!audio_port, "sample_rate": audio_rate }),
         "get_instruction_stats": () => emulator.get_instruction_stats(),
         "get_jit_info": () => emulator.get_jit_info(),
-        "record-start": metadata => {
-            if(recorder?.active) throw new Error("Already recording");
-            for(const key of Object.keys(audio_stats)) audio_stats[key] = 0;
-            recorder = new PerformanceRecorder(emulator, { metadata,
-                on_stop: report => {
-                    report["worker_audio"] = { ...audio_stats, "direct": !!audio_port, "sample_rate": audio_rate };
-                    send("recording", { "value": report });
-                } });
-            recorder.start();
-        },
-        "record-stop": () => recorder?.stop(),
     };
     globalThis.onmessage = e => {
         const m = e.data;

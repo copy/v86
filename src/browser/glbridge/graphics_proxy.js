@@ -260,7 +260,7 @@
             name: "v86gl",
             // The compositor draws the whole screen (docs/display-design.md)
             wants_screen: true,
-            // For diagnostics (graphics_performance.js, performance_recorder.js)
+            // The bridge, once started (for tests)
             bridge: null,
             // Batches across the CPU worker boundary
             stats,

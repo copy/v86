@@ -284,7 +284,7 @@ try {
         if(round>=2) times[mode].push(((word(cached,0x600)-before)>>>0)/(performance.now()-start));
     }
     const median=a=>a.sort((a,b)=>a-b)[a.length>>1];
-    console.log(JSON.stringify({benchmark:"actual x87 guest loop, unrecorded",helper_loops_per_ms:median(times[0]),
+    console.log(JSON.stringify({benchmark:"actual x87 guest loop",helper_loops_per_ms:median(times[0]),
         cached_loops_per_ms:median(times[1]),speedup:median(times[1])/median(times[0])}));
     if(process.env.X87_COMPARE_BASELINE) {
         const baseline=await boot({ x87_jit_cache: true },process.env.X87_COMPARE_BASELINE);
@@ -298,7 +298,7 @@ try {
             while(performance.now()-start<80) vm.v86.cpu.main_loop();
             if(round>=2) rates[mode].push(((word(vm,0x600)-count)>>>0)/(performance.now()-start));
         }
-        console.log(JSON.stringify({benchmark:"previous build vs persistent cache, unrecorded guest loop",
+        console.log(JSON.stringify({benchmark:"previous build vs persistent cache guest loop",
             before_loops_per_ms:median(rates[0]),after_loops_per_ms:median(rates[1]),speedup:median(rates[1])/median(rates[0])}));
         // Seed once, then retain the stack across loop backedges, matching the
         // persistence mechanism independently of per-iteration FSAVE/reloads.
@@ -316,7 +316,7 @@ try {
             while(performance.now()-start<80) vm.v86.cpu.main_loop();
             if(round>=2) persistent_rates[mode].push(((word(vm,0x600)-count)>>>0)/(performance.now()-start));
         }
-        console.log(JSON.stringify({benchmark:"persistent x87 backedge, unrecorded guest loop",
+        console.log(JSON.stringify({benchmark:"persistent x87 backedge guest loop",
             before_loops_per_ms:median(persistent_rates[0]),after_loops_per_ms:median(persistent_rates[1]),
             speedup:median(persistent_rates[1])/median(persistent_rates[0])}));
 

@@ -1376,18 +1376,6 @@ export class V86 {
     set_cdrom_files(files: Array<{ name: string; contents: Uint8Array }>): Promise<void>;
 
     /**
-     * A performance recorder of this machine: start() begins a recording,
-     * stop() ends it and gives the report (plain data, also given to
-     * on_stop; a recording ends by itself after 10 minutes).
-     */
-    create_performance_recorder(options?: { metadata?: object; on_stop?: (report: any) => void }): {
-        start(): Promise<void> | void;
-        stop(): any;
-        readonly active: boolean;
-        readonly report: any;
-    };
-
-    /**
      * Watch the first network card's traffic: each packet the guest sends ("O") and receives ("I").
      * @returns a function that stops watching
      */

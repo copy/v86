@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-#[path = "../../src/rust/x87_profiler.rs"]
-mod x87_profiler;
+#[path = "../../src/rust/profiler.rs"]
+mod profiler;
 include!("../../src/rust/softfloat.rs");
 
 static mut FAILURE: [u64; 10] = [0; 10];
@@ -35,16 +35,6 @@ pub unsafe fn benchmark_fast_math(fast: bool, points: u32) -> u64 {
         sum = sum.wrapping_add(x.mantissa ^ y.mantissa);
     }
     sum
-}
-
-// Exercise the production trait hooks, with known exact/fallback operands.
-#[no_mangle]
-pub unsafe fn recording_arithmetic(op: u32, fallback: bool, precision: u8, rounding: u8) -> bool {
-    extF80_roundingPrecision = precision;
-    softfloat_roundingMode = rounding;
-    let mut a = F80::of_f64(1.5f64.to_bits());
-    if fallback { a.mantissa |= 1; }
-    check(op, a, F80::of_f64(1.25f64.to_bits()), 0)
 }
 
 #[inline(always)]

@@ -4,8 +4,8 @@
 <!-- The VM manager's console (docs/vm-manager-plan.md U4, "功能对照"), MS-DOS 6.22 in a frame, every runtime function of the old page:
      part=main  power (pause, run), keys (Alt+Tab's press and release, other keys, Ctrl+Alt+Del reboots), devices (a CD of files that
                 DOS reads, ejected; a floppy that DOS reads, ejected; the hda image downloaded), view (scale, zoom to fit, theatre mode,
-                screenshot, full screen), input (mouse off, lock), sound (mute), tools (a performance recording and its report, a
-                memory dump, a network capture), drawers (the serial terminal, the shared folder's files sent and got, the details),
+                screenshot, full screen), input (mouse off, lock), sound (mute), tools (a memory dump, a network capture), drawers
+                (the serial terminal, the shared folder's files sent and got, the details), the application icon,
                 the status bar, a state saved to a file and loaded, power off
      part=disk  (with the runner's service=1) a hard disk written back to the disk service: the warning before leaving, a write in
                 the service's file, the service gone: the disk error dialog, Retry once it is back, Save and power off (the session closed)
@@ -209,16 +209,6 @@ const parts = {
         log("Input: the mouse off and on, locked; Sound: muted and unmuted");
 
         // tools
-        await menu("menu_tools", "tools_record");
-        await sleep(2500);
-        await menu("menu_tools", "tools_record");
-        await until(() => /Recorded/.test($(".console-status").textContent), "the recording's end");
-        const report_file = await next_download("the report");
-        await menu("menu_tools", "tools_export_report");
-        const [, report_blob] = await report_file.wait();
-        const report = JSON.parse(await report_blob.text());
-        check(report.samples && report.samples.length > 0 && report.metadata && report.metadata.memory_size === config.memory.mb << 20,
-            "the performance report: " + Object.keys(report).join(","));
         const dump = await next_download("the memory dump");
         await menu("menu_tools", "tools_memory_dump");
         const [dump_name, dump_blob] = await dump.wait();
@@ -229,11 +219,19 @@ const parts = {
         await menu("menu_tools", "tools_capture");
         const [traffic_name] = await traffic.wait();
         await menu("menu_tools", "tools_stop_capture");
-        log("Tools: a performance report (" + report.samples.length + " samples), " + dump_name + " (" + dump_blob.size + " bytes), " + traffic_name);
+        log("Tools: " + dump_name + " (" + dump_blob.size + " bytes), " + traffic_name);
 
         // drawers
         $("#drawer_terminal").click();
         await until(() => $(".console-drawer .terminal .xterm"), "the serial terminal (xterm)", 20000);
+        const icon = new w.Image();
+        await new Promise((resolve, reject) =>
+        {
+            icon.onload = resolve;
+            icon.onerror = () => reject(new Error("the application icon failed to load"));
+            icon.src = d.querySelector('link[rel="apple-touch-icon"]').href;
+        });
+        check(icon.naturalWidth === 192 && icon.naturalHeight === 192, "the application icon: " + icon.naturalWidth + "x" + icon.naturalHeight);
         $("#drawer_files").click();
         answer_picker([new w.File(["hello 9p"], "hello.txt")]);
         const send = await until(() => $(".console-drawer input[type=file]"), "the shared folder's send");

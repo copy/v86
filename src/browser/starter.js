@@ -1,8 +1,7 @@
 import { wasm_fallback_path } from "./wasm_paths.js";
 import { instantiate_v86, memory_import } from "../parallel/relocate.js";
 import { default_worker_url, parallel_unsupported_reason } from "../parallel/machine.js";
-import { CPUWorkerController, WorkerPerformanceRecorder, encode_worker_file } from "./cpu_worker.js";
-import { PerformanceRecorder } from "./performance_recorder.js";
+import { CPUWorkerController, encode_worker_file } from "./cpu_worker.js";
 import * as iso9660 from "../iso9660.js";
 import { get_jit_switches } from "../jit_switches.js";
 import { v86 } from "../main.js";
@@ -2066,21 +2065,6 @@ V86.prototype.get_disk_fdb = function()
 V86.prototype.set_cdrom_files = async function(files)
 {
     await this.set_cdrom({ buffer: iso9660.generate(files).buffer });
-};
-
-/**
- * A performance recorder of this machine (the instructions run, the JIT's
- * work, the frames drawn): its start() begins a recording, its stop() ends
- * it and resolves with the report (plain data), also given to on_stop (a
- * recording also ends by itself after 10 minutes)
- * @param {{metadata: (Object|undefined), on_stop: (function(Object)|undefined)}=} options metadata goes into the report
- * @return {{start: function(): (Promise|undefined), stop: function(): *, active: boolean, report: *}}
- */
-V86.prototype.create_performance_recorder = function(options)
-{
-    const recorder_options = { metadata: options && options.metadata, on_stop: options && options.on_stop };
-    if(this.worker_controller) return new WorkerPerformanceRecorder(this, recorder_options);
-    return new PerformanceRecorder(this, recorder_options);
 };
 
 /**

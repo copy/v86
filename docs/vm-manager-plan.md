@@ -44,7 +44,7 @@
   - 电源：运行/暂停、重置、退出，保存/载入状态，保存并关机。
   - 按键：Ctrl+Alt+Del、Alt+Tab。
   - 可移动介质与镜像：取回各盘镜像，更换光盘与软盘。
-  - 调试与记录：性能记录与导出，内存转储，抓包。
+  - 调试与记录：性能记录与导出（2026-10-21 删除，见附录末节），内存转储，抓包。
   - 输入与显示：鼠标开关与锁定，全屏，截图，静音，剧院模式，适应窗口与缩放。
   - 面板：
     - 信息面板（速度、存储、9p 文件系统、网络、VGA 模式）；
@@ -271,7 +271,7 @@ Chrome 中从向导建好的虚拟机启动到提示符。
 - 视图：全屏、适应窗口、缩放、剧院模式、截图；
 - 输入：鼠标开关、锁定鼠标；
 - 声音：静音；
-- 工具：性能记录与导出、内存转储、抓包。
+- 工具：性能记录与导出（2026-10-21 删除）、内存转储、抓包。
 
 **状态栏：** 运行时间、速度（当前与平均）、磁盘与网络活动、VGA 模式与分辨率、鼠标状态，
 来自现在的信息面板（`update_info`，3251 行）。
@@ -609,7 +609,7 @@ JSON。
 | 系统按钮与过滤 | 不保留（负责人决定）；`?profile=` 链接照旧 | ✓ `?profile=` 的 137 个配置（`legacy_options.mjs`、`shared_options.mjs`） |
 | 光盘、软盘、硬盘镜像（文件、空盘、网址、读写选项） | 向导与设置对话框的 CD/DVD、软盘、硬盘面板 | ✓ `wizard_test.html`、`browser_disk_test.html`、`console_test.html` |
 | multiboot、bzImage、initrd | “直接启动”面板 | ✓ 直接启动（`wizard_test.html part=arm64`、`vm_config.mjs`） |
-| BIOS、VGA BIOS、启动顺序、ACPI | “机器与固件”面板 | ✓ `vm_config.mjs`、`presets.mjs`、自定义 BIOS 的记录器测试 |
+| BIOS、VGA BIOS、启动顺序、ACPI | “机器与固件”面板 | ✓ `vm_config.mjs`、`presets.mjs` |
 | 内存、核数、并行、`cpu_type`、`machine_type` | 内存、处理器、“机器与固件”面板 | ✓ `presets.mjs`（312 种组合、5000 次随机改动）、`wizard_test.html part=dialog` |
 | 显卡、显存、图形代理 | “显示”面板 | ✓ 显示面板；图形代理需要 WebGPU，只核对了选项 |
 | 网络后端、relay 地址、网卡型号、MTU | “网络适配器”面板 | ✓ 网络适配器面板（`vm_config.mjs`、`presets.mjs`） |
@@ -619,11 +619,11 @@ JSON。
 | Ctrl+Alt+Del、Alt+Tab | 发送按键菜单 | ✓ `console_test.html`（Ctrl+Alt+Del 使 DOS 重启） |
 | 取回各盘镜像、更换光盘与软盘 | 可移动设备菜单 | ✓ `console_test.html` |
 | 保存状态、载入状态、保存并关机 | 电源菜单（挂起、保存并关机），工具菜单（保存或载入状态文件） | ✓ `console_test.html`、`tests/persistence/browser_test.html part=page` |
-| 性能记录与导出、内存转储、抓包 | 工具菜单 | ✓ `console_test.html`、`tests/glbridge/recorder_ui_test.mjs` |
+| 性能记录与导出、内存转储、抓包 | 工具菜单 | ✓ `console_test.html`（性能记录 2026-10-21 删除，见附录末节） |
 | 鼠标开关与锁定、全屏、截图、剧院模式、适应窗口、缩放 | 视图与输入菜单 | ✓ `console_test.html` |
 | 信息面板 | 状态栏与“详细信息”抽屉 | ✓ 状态栏与“详细信息”（`console_test.html`） |
 | 文件系统收发面板 | “共享文件夹”抽屉 | ✓ `console_test.html` |
-| 串口终端 | “串口终端”抽屉 | ✓ `console_test.html`、记录器测试 |
+| 串口终端 | “串口终端”抽屉 | ✓ `console_test.html` |
 | 磁盘错误对话框 | 不变 | ✓ `console_test.html part=disk` |
 | 查询参数与 `?profile=` | 不变（`query_compat.js`） | ✓ `index.html` 的 174 个地址与模块一致 |
 
@@ -1031,3 +1031,28 @@ JSON。
 | `tests/persistence/browser_runner.mjs part=page` | 页面与 CPU Worker：`debug.html` 的流程与 `index.html` 的“保存并关机”（会话关闭）通过 |
 | `tests/glbridge/cpu_worker_ui_browser_test.html` | 通过（全部检查，含终端、图标、记录器控制、报告各项、第二次记录的标记） |
 | `tests/glbridge/performance_recorder_ui_browser_test.html` | 与 master 相同的一项失败，其余检查通过 |
+
+### 之后：删除性能记录器（2026-10-21，所有者的决定）
+
+工具菜单的“Record performance”与“Export the performance report”及其全部代码已删除：没有使用者（网站不调用，
+以往的性能工作都在 Node 里用保存的状态与 `tests/bench` 测量，仓库里没有读取报告的工具），而它直接读 JIT 的内部状态，
+每次改 JIT 都要跟着改，`performance_recorder_ui_browser_test` 已有一项在 master 上失败。删除的内容：
+
+- 页面与库：`src/browser/performance_recorder.js`、`graphics_performance.js`，`V86.create_performance_recorder` 与 `v86.d.ts`
+  中的声明，CPU Worker 的转发（`WorkerPerformanceRecorder`、`record-start`/`record-stop`、`recording` 消息、控制器的
+  `stats`），`main.js` 中旧页面的记录按钮代码，控制台工具菜单的两项。
+- 核心（Rust）：`profiler.rs` 的记录部分（执行批次与页函数的采样、计时、代码生成计时、热点）与 `x87_profiler.rs`
+  （x87 运算与 JIT 缓存的计数），`cpu.rs`、`x64/pages.rs`、`cpu/fpu.rs`、`softfloat.rs` 中的调用点，`gen/state_layout.js`
+  与 `tools/check_a64_imports.mjs` 中的对应项。`performance_recording_x87_state(2)`（是否 fast math）改为
+  `softfloat::x87_fast_math()` 与导出的 `get_x87_fast_math()`。
+- 测试：`tests/glbridge/` 的 `performance_recorder_test.js`、`performance_recorder_browser_test.html`、
+  `performance_recorder_ui_browser_test.html`、`cpu_worker_ui_browser_test.html`、`recorder_ui_test.mjs`、
+  `graphics_performance_test.js`、`graphics_performance_browser_test.html`，`tests/rust/performance_recording.rs` 与
+  `x87_recording.mjs`（及 make 目标 `performance-recording-tests`、`x87-recording-tests`）；`cpu_worker_browser_test.html`
+  与 `console_test.html` 去掉记录器的部分，后者接过原 `cpu_worker_ui` 的应用图标检查；`tests/ir/performance/xp_boot.mjs`
+  去掉 `IR_BENCH_RECORD=1`（代码生成计时与热点采样）。
+- 保留的检查：`tests/rust/x87_fast_path.mjs` 原用记录器的 x87 计数确认客户程序同时走了精确路径与 SoftFloat、fast math
+  只走原生 f64。这三类计数改为 `profiler.rs` 的统计项 `X87_EXACT`、`X87_SOFTFLOAT`、`X87_NATIVE_F64`，只在带
+  `profiler` 特性的核心里计数（发布与调试核心中为空操作）；`make x87-fast-tests` 另建 `build/v86-profiler.wasm`
+  （独立的目标目录），以 `X87_PATHS=1` 用它再跑一遍并核对。按运算与按 12 种控制模式的细分不再检查，结果的逐字节比较不变。
+  `x87_fast_math.mjs` 去掉计数检查（fast math 不回退是构造保证的），结果检查不变。
