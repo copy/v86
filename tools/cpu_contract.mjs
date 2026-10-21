@@ -313,9 +313,10 @@ async function a64_v86_check()
 {
     const directory = a64_runner.build("id-registers", [root + "tests/a64/id_registers.c"]);
     let failed = false;
-    // (the default profile, then v2: its ID registers differ where the profile's v2 entry says)
+    // (v1.1, then v2: its ID registers differ where the profile's v2 entry
+    // says; v2 is the default since 2026-10-21, so v1.1 is asked for)
     const v2 = a64_profile.v2;
-    for(const [variant, options, changes] of [[a64_profile.profile, {}, {}], [v2.profile, { a64_profile: v2.a64_profile }, v2.id_space]])
+    for(const [variant, options, changes] of [[a64_profile.profile, { a64_profile: "v1.1" }, {}], [v2.profile, { a64_profile: v2.a64_profile }, v2.id_space]])
     {
         for(const [name, cores] of Object.entries(A64_PROFILES))
         {

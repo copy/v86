@@ -40,6 +40,30 @@ bench-same-source: bench-build build/v86.wasm build/libv86.mjs
 	node tests/bench/run.mjs --same-source --quick --out build/bench/same-source.json $(BENCH_ARGS)
 	node tests/bench/gate.mjs --level S build/bench/same-source.json
 
+# What .github/workflows/ci.yml runs besides eslint and the builds: the
+# checks that need no disk images (the guest tests read images/, which this
+# repository does not distribute: run them locally) and take minutes, not
+# hours (the SIMD suites, avx-tests and the like, stay with the release gate,
+# tools/release_gate.mjs)
+.PHONY: ci-tests
+ci-tests: rust-test test-glbridge app-check platform-contract-tests \
+	acpi-device-tests q35-device-tests jit-switch-tests \
+	cpu-optimization-tests flags-provenance-tests cpu-plan-tests jit-tiers-tests jit-disabled-tests mmx-fast-tests \
+	softfloat-fast-tests x87-fast-math-tests x87-fast-tests x87-jit-cache-tests \
+	build/v86-debug.wasm build/libv86.mjs build/v86.wasm build/jit-capacity.bin
+	node tests/rust/bmi.mjs
+	node tests/rust/fma.mjs
+	node tests/app/vm_config.mjs
+	node tests/app/presets.mjs
+	node tests/app/machine_rules.mjs
+	./tests/api/disk-options.js
+	./tests/api/sb16-state.js
+	./tests/devices/disk_error.mjs
+	./tests/persistence/response_version.mjs
+	./tests/persistence/node_file.mjs
+	./tests/persistence/disk_service.mjs
+	./tests/persistence/disk_service_sync.mjs
+
 .PHONY: glbridge test-glbridge
 glbridge:
 	node tools/build_glbridge.mjs

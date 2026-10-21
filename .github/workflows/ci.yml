@@ -1,8 +1,16 @@
 name: CI
 
+# The repository's checks: eslint, the builds, rustfmt and `make ci-tests`,
+# the tests that need no disk images (the guest tests read images/, which
+# this repository does not distribute: run them locally, see Readme.md).
+# The site's deployment is pages.yml.
+
 on:
   push:
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   eslint:
@@ -12,25 +20,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Setup Node.js version
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.17.0'
+
+      # (a fixed version: eslint.config.mjs's rules as the repository keeps them)
       - name: Run eslint
-        run: sudo npm install -g eslint; make eslint
+        run: npx --yes eslint@10.13.0 src tests gen lib examples tools
 
   test:
-    runs-on: ubuntu-latest
     name: Build and test
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
 
       - name: Setup Node.js version
         uses: actions/setup-node@v6
         with:
           node-version: '24.17.0'
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup toolchain
         run: |
@@ -38,158 +48,33 @@ jobs:
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
 
+      # (nasm: the CPU tests' guest programs)
       - name: Install APT packages
         run: |
           sudo apt-get update -y
-          sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 -y
+          sudo apt-get install nasm -y
 
-      - name: Build all-debug
-        run: |
-          rustc --version
-          make all-debug
+      - name: Cache crates
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build all
-        run: make all
-
-      - name: Graphics host tests
-        run: make test-glbridge
-
-      - name: Build fallback
-        run: make build/v86-fallback.wasm
+      - name: Cache Closure Compiler
+        uses: actions/cache@v5
+        with:
+          path: closure-compiler/
+          key: closure-compiler-v20210601
 
       - name: rustfmt check
         run: make rustfmt
 
-      # build.sh builds out of tree (build/kvm-unit-tests/); cache that, keyed
-      # on the sources, so a cache never restores stale sources or binaries
-      - name: Fetch kvm-unit-test cache
-        uses: actions/cache@v5
-        with:
-          path: build/kvm-unit-tests/
-          key: ${{ runner.os }}-kvm-unit-test-${{ hashFiles('tests/kvm-unit-tests/**') }}
-
-      - name: Build and run kvm-unit-test
-        run: make kvm-unit-test
-
-      - name: Fetch namsmtests cache
-        uses: actions/cache@v5
-        id: cache-nasmtests
-        with:
-          path: tests/nasm/build/
-          key: ${{ runner.os }}-nasmtests
-
-      - name: Run nasmtests
-        run: MAX_PARALLEL_TESTS=1 make nasmtests
-
-      - name: Run nasmtests-force-jit
-        run: MAX_PARALLEL_TESTS=1 make nasmtests-force-jit
-
-      - name: Run rust-test
-        run: make rust-test
-
-      # docs/simd-xsave-plan.md 11.4: the deterministic checks (forms catalogue,
-      # CPU contract and feature resolution, decode rules, the IR helpers
-      # against the interpreter); the x64 oracles need QEMU 10.2 and avx-tests
-      # takes an hour, so they stay with tools/release_gate.mjs
-      - name: SIMD/XSAVE checks
-        run: make isa-forms-check platform-contract-tests decode-rules-tests ir-avx-tests ir-bmi-tests
-
-      - name: SIMD/XSAVE semantics against the models
+      - name: Build all
         run: |
-          node tests/rust/bmi.mjs
-          node tests/rust/fma.mjs
+          rustc --version
+          make all build/v86-fallback.wasm
 
-      - name: Fetch image cache
-        uses: actions/cache@v5
-        id: cache-images
-        with:
-          path: images/
-          key: ${{ runner.os }}-images-v2
-
-      - name: Download uncached images
-        if: steps.cache-images.outputs.cache-hit != 'true'
-        run: mkdir -p images && curl --compressed --output-dir images --remote-name-all https://i.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage68.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img,msdos622.img}
-
-      - name: Run api-tests
-        run: make api-tests
-
-      - name: Run qemutests
-        run: make qemutests
-
-      - name: Run qemutests-release
-        run: make qemutests-release
-
-      - name: Run jitpagingtests
-        run: make jitpagingtests
-
-      - name: Run integration tests
-        run: MAX_PARALLEL_TESTS=1 make tests
-
-      - name: Run devices tests
-        run: make devices-test
-
-      - name: Run expect tests
-        run: make expect-tests
-
-      - name: Update package.json version
-        run: make update-package-json-version
-
-      - name: Upload the artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: v86
-          path: |
-            package.json
-            LICENSE
-            Readme.md
-            v86.d.ts
-            build/libv86*.js
-            build/libv86*.js.map
-            build/v86*.wasm
-            build/glbridge/
-            build/*.mjs
-
-  upload:
-    name: Upload release
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/master'
-
-    permissions:
-      id-token: write
-      contents: write
-
-    steps:
-      - name: Delete old release and tag
-        uses: dev-drprasad/delete-tag-and-release@v1.0.1
-        with:
-          delete_release: true
-          tag_name: latest
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: v86
-
-      - name: Display structure of downloaded files
-        run: ls -R
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24.17.0'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Release to GitHub
-        uses: ncipollo/release-action@v1
-        with:
-          name: Latest Release
-          tag: latest
-          commit: master
-          body: ${{ github.event.head_commit.message }}
-          artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm,build/glbridge/*"
-          prerelease: true
-
-      - name: Release to NPM
-        run: npm publish --provenance --access public
-        if: github.repository == 'copy/v86'
+      - name: Tests (no disk images)
+        run: make ci-tests

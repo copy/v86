@@ -74,8 +74,7 @@ pub unsafe fn set_x87_jit_cache(enabled: bool) {
 /// Generated IR code inlines fast-math x87 against the shadow cache only while
 /// both policies hold; a change applies at the next instruction.
 unsafe fn refresh_x87_native_policy() {
-    *x87_native_policy =
-        (X87_JIT_CACHE && crate::softfloat::x87_fast_math()) as u8;
+    *x87_native_policy = (X87_JIT_CACHE && crate::softfloat::x87_fast_math()) as u8;
 }
 /// Addresses of the shadow values ([u64; 8]), VALID and DIRTY masks, for
 /// generated code that reads/writes the cache exactly like `write_cached`.
@@ -141,10 +140,7 @@ unsafe fn write_cached(r: u32, value: f64) {
 }
 unsafe fn push_cached(value: f64) -> bool {
     let next = (*fpu_stack_ptr + 7) & 7;
-    if !X87_JIT_CACHE
-        || !crate::softfloat::x87_fast_math()
-        || *fpu_stack_empty & (1 << next) == 0
-    {
+    if !X87_JIT_CACHE || !crate::softfloat::x87_fast_math() || *fpu_stack_empty & (1 << next) == 0 {
         return false;
     }
     *fpu_stack_ptr = next;

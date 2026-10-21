@@ -150,7 +150,9 @@ for a full setup on Debian or
 ## Testing
 
 The disk images for testing are not included in this repository: the tests
-read them from `images/` (each test names the files it needs).
+read them from `images/` (each test names the files it needs). `make ci-tests`
+runs the tests that need no images; it is what CI (`.github/workflows/ci.yml`)
+runs, with eslint and the builds.
 
 Run integration tests: `make tests`
 
