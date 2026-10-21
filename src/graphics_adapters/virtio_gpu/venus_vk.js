@@ -490,15 +490,14 @@ VulkanModel.prototype.run_submission = function(queue, entry)
             const semaphore = ctx.objects.get(id);
             if(semaphore && !semaphore.timeline) semaphore.signaled = false;
         }
-        if(submit.command_buffers.length)
+        // (a WebGPU command buffer for each: one WebGPU refuses drops only its own
+        // commands, not the next one's, as Mesa's fence and semaphore feedback)
+        for(const id of submit.command_buffers)
         {
+            const cb = ctx.objects.get(id);
+            state.cb = command_state();
             this.vx.command(VX.BEGIN, []);
-            for(const id of submit.command_buffers)
-            {
-                const cb = ctx.objects.get(id);
-                state.cb = command_state();
-                if(cb) translate(this, ctx, cb.commands, state);
-            }
+            if(cb) translate(this, ctx, cb.commands, state);
             this.vx.command(VX.END, []);
         }
         for(const [id, value] of submit.signals)
