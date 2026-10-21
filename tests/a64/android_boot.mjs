@@ -622,9 +622,11 @@ try
     if(scenario)
     {
         await with_deadline(prepared);
+        // (a tap held 100 ms: a busy guest that reads the release late would otherwise
+        // see more than the long press timeout, 400 ms, and Launcher3 opens the icon's menu)
         const touch = async (x, y) => {
             emulator.bus.send("touch", { "touches": [[1, x, y]], "width": 720, "height": 1280 });
-            await sleep(300);
+            await sleep(100);
             emulator.bus.send("touch", { "touches": [], "width": 720, "height": 1280 });
         };
         // (A10's input latency: from the touch to the first change of the screen's middle rows)
