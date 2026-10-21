@@ -412,6 +412,15 @@ clean:
 run: browser glbridge build/v86.wasm
 	python3 tools/dev-server.py 2> /dev/null
 
+# The VM manager as a static site in build/pages (tools/pages_dist.mjs, for
+# Cloudflare Pages: .github/workflows/pages.yml, docs/vm-manager.md)
+PAGES_BUILD=build/v86_app.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js build/xterm.js \
+	build/v86.wasm build/v86-fallback.wasm build/v86-parallel.wasm \
+	build/v86-arm64.wasm build/v86-arm64-fallback.wasm build/v86-arm64-parallel.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+.PHONY: pages
+pages: $(PAGES_BUILD) glbridge
+	node tools/pages_dist.mjs
+
 update_version:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\

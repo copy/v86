@@ -99,5 +99,34 @@ session is not in the library.
 - `app_debug.html` loads the source directly, with `build/libv86-debug.mjs`.
 - `make app-tests` runs its tests (Node and headless Chrome).
 
+## Deployment
+
+`make pages` builds the page and every file it loads into `build/pages/`, a
+static site ([tools/pages_dist.mjs](../tools/pages_dist.mjs)): the files keep
+the paths the page uses, their version (the query the page adds to them) is a
+hash of the files, the footer's links to the debug pages are left out, and
+`_headers` makes the site cross-origin isolated (COOP/COEP, as
+`tools/dev-server.py`), which the cores in host threads need. Any static host
+that sends those two headers can serve it.
+
+[.github/workflows/pages.yml](../.github/workflows/pages.yml) deploys it to
+Cloudflare Pages, project `v64`: a push to master deploys the site, a pull
+request from this repository a preview of its branch (`<branch>.v64.pages.dev`).
+It builds on GitHub (Cloudflare's build environment lacks the Rust wasm target
+and Java) and uploads with wrangler, so the Pages project is a Direct Upload
+project. Once, in Cloudflare and GitHub:
+
+1. Create the project: `npx wrangler pages project create v64 --production-branch master`
+   (or Workers & Pages → Create → Pages → Upload assets, named `v64`).
+2. Create an API token with the permission "Cloudflare Pages: Edit", and note the
+   account ID.
+3. Add them to the repository as the Actions secrets `CLOUDFLARE_API_TOKEN` and
+   `CLOUDFLARE_ACCOUNT_ID`.
+
+A custom domain is set in the project's Custom domains. Settle it before the
+site is used: the library, its suspended machines and its browser disks live
+in the browser's storage for the site's origin, so a machine made on
+`v64.pages.dev` is not there on another domain.
+
 Browsers: the browser disks' synchronous file access exists in Chromium 108,
 Firefox 111 and Safari 15.2 or later (MDN, caniuse); only Chrome was tried.

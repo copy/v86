@@ -1,0 +1,73 @@
+name: Pages
+
+# The VM manager (index.html) on Cloudflare Pages, project "v64"
+# (docs/vm-manager.md, "Deployment"): a push to master deploys the site, a
+# pull request from this repository deploys a preview of its branch. Needs
+# the repository secrets CLOUDFLARE_API_TOKEN (a token with "Cloudflare
+# Pages: Edit") and CLOUDFLARE_ACCOUNT_ID. Independent of ci.yml.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js version
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.17.0'
+
+      - name: Setup toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache crates
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Closure Compiler
+        uses: actions/cache@v5
+        with:
+          path: closure-compiler/
+          key: closure-compiler-v20210601
+
+      # (the VM manager's types and its Node tests: quick, no browser)
+      - name: Check the VM manager
+        run: |
+          make app-check
+          node tests/app/vm_config.mjs
+          node tests/app/presets.mjs
+          node tests/app/machine_rules.mjs
+
+      - name: Build the site
+        run: make pages
+
+      # (a pull request from a fork has no secrets: built, not deployed)
+      - name: Deploy to Cloudflare Pages
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy build/pages --project-name=v64 --branch=${{ github.head_ref || github.ref_name }} --commit-hash=${{ github.event.pull_request.head.sha || github.sha }}
