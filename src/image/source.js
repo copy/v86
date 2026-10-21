@@ -12,6 +12,7 @@
 
 import { dbg_assert, dbg_log } from "../log.js";
 import { LOG_DISK } from "../const.js";
+import { response_header } from "../lib.js";
 
 // How long one HTTP request may take, and how often one that failed for a
 // reason that may pass (network, timeout, 5xx) is tried again
@@ -222,8 +223,8 @@ export function xhr_transport(url, start, length, callback, signal)
         status: http.status,
         content_range: http.getResponseHeader("Content-Range"),
         content_encoding: http.getResponseHeader("Content-Encoding"),
-        etag: http.getResponseHeader("ETag"),
-        last_modified: http.getResponseHeader("Last-Modified"),
+        etag: response_header(http, "ETag"),
+        last_modified: response_header(http, "Last-Modified"),
         total: undefined,
         version: undefined,
     });

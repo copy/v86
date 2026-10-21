@@ -9,6 +9,12 @@ import assert from "node:assert/strict";
 
 const { check_response_version } = await import("../../src/buffer.js");
 const response = headers => ({ getResponseHeader: name => headers[name] ?? null });
+// (an XMLHttpRequest of a cross-origin response that exposes no ETag: getResponseHeader("ETag") would log
+// "Refused to get unsafe header"; getAllResponseHeaders lists only what the page may read)
+const cross_origin = headers => ({
+    getAllResponseHeaders: () => Object.entries(headers).map(([name, value]) => name.toLowerCase() + ": " + value + "\r\n").join(""),
+    getResponseHeader: name => { throw new Error("getResponseHeader(" + name + ") on a cross-origin response"); },
+});
 
 let versions = new Map();
 assert.equal(check_response_version(versions, "a.img", response({ "ETag": "\"1\"", "Last-Modified": "Mon" })), undefined, "the first");
@@ -34,4 +40,16 @@ assert.equal(check_response_version(versions, "a.img", response({})), undefined)
 assert.equal(check_response_version(versions, "a.img", response({ "ETag": "\"1\"" })), undefined, "the first with a version");
 assert.equal(versions.get("a.img").etag, "\"1\"");
 console.log("ok - responses without a version are not checked");
+
+// a cross-origin response that exposes Last-Modified (always readable) but not ETag: the headers are read
+// without getResponseHeader, Last-Modified is the version
+versions = new Map();
+assert.equal(check_response_version(versions, "c.img", cross_origin({ "Last-Modified": "Mon", "Content-Length": "1048576" })), undefined);
+assert.deepEqual(versions.get("c.img"), { etag: null, last_modified: "Mon" });
+assert.equal(check_response_version(versions, "c.img", cross_origin({ "Last-Modified": "Mon" })), undefined);
+assert.match(check_response_version(versions, "c.img", cross_origin({ "Last-Modified": "Tue" })).message, /Last-Modified Mon, now Tue/);
+versions = new Map();
+check_response_version(versions, "d.img", cross_origin({ "ETag": "\"7\"", "Last-Modified": "Mon" }));
+assert.equal(versions.get("d.img").etag, "\"7\"", "an exposed ETag is read (any case)");
+console.log("ok - cross-origin responses: no getResponseHeader of headers they do not expose; Last-Modified then");
 console.log("response version tests passed");

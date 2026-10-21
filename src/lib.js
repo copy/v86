@@ -521,6 +521,28 @@ Bitmap.prototype.get_buffer = function()
 export var load_file;
 export var get_file_size;
 
+/**
+ * A response header, or null when the response has none or does not expose
+ * it to this page (a cross-origin response's ETag without
+ * Access-Control-Expose-Headers): getResponseHeader logs "Refused to get
+ * unsafe header" for each such read, getAllResponseHeaders lists only the
+ * headers the page may read
+ * @param {?} http an XMLHttpRequest (or an object with getResponseHeader)
+ * @param {string} name
+ * @return {?string}
+ */
+export function response_header(http, name)
+{
+    if(typeof http.getAllResponseHeaders !== "function") return http.getResponseHeader(name);
+    const wanted = name.toLowerCase();
+    for(const line of String(http.getAllResponseHeaders() || "").split("\r\n"))
+    {
+        const colon = line.indexOf(":");
+        if(colon > 0 && line.slice(0, colon).trim().toLowerCase() === wanted) return line.slice(colon + 1).trim();
+    }
+    return null;
+}
+
 if(typeof XMLHttpRequest === "undefined" ||
     typeof process !== "undefined" && process.versions && process.versions.node)
 {

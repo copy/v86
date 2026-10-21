@@ -1,5 +1,5 @@
 import { CPU } from "./cpu.js";
-import { load_file, get_file_size } from "./lib.js";
+import { load_file, get_file_size, response_header } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
 /**
@@ -27,7 +27,8 @@ function read_error(message, kind, retryable)
  * read fails rather than mixing sectors of two versions. The requests are
  * not changed (no If-Match: a header of its own would need a CORS preflight
  * that a static host may refuse). Without either header (or with headers a
- * cross-origin server does not expose) nothing is checked.
+ * cross-origin server does not expose: ETag is not readable across origins
+ * unless exposed, Last-Modified always is) nothing is checked.
  * @param {!Map<string, {etag: ?string, last_modified: ?string}>} versions by file name
  * @param {string} filename
  * @param {*} http the response's XMLHttpRequest (none in Node)
@@ -36,8 +37,8 @@ function read_error(message, kind, retryable)
 export function check_response_version(versions, filename, http)
 {
     if(!http || typeof http.getResponseHeader !== "function") return undefined;
-    const etag = http.getResponseHeader("ETag");
-    const last_modified = http.getResponseHeader("Last-Modified");
+    const etag = response_header(http, "ETag");
+    const last_modified = response_header(http, "Last-Modified");
     const known = versions.get(filename);
     if(!known)
     {
