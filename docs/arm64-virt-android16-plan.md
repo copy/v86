@@ -2567,6 +2567,25 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - ANGLE 的 `DescriptorSetHelper::destroy` 递归栈溢出（dEQP 应用第一次启动时偶尔出现，instrumentation 重试后通过）。
   dEQP 里一个失败的 `ubo.random` 用例会让之后的用例都报 GL_INVALID_OPERATION，所以它单独跑（前缀 `!`）。
   因此 `androidboot.opengles.version` 仍报 2.0；ANGLE 对明确要 ES 3 上下文的应用已经给 3.0。
+- F2（续，2026-10-21，所有者选“补全所有缺口后报 3.0”）：上面列的缺口与 dEQP GLES3 抽样（1334 例）里查出的其余缺口都补上了，
+  `tools/a64_android.mjs` 的 `VENUS_BOOTCONFIG` 改报 `androidboot.opengles.version=196608`（3.0；SwiftShader 的 initrd 仍是 3.1）。
+  做法记在 `docs/gpu-deviations.md` 的 G-49 到 G-58：
+  - naga 前后的改写：std140 的矩阵与 16 字节间隔的标量/vec2 数组（`layout.rs`），矩阵/数组/结构体的 varying 与窄的片元输出
+    （`io.rs`），描述符数组（uniform block 与 sampler 的数组，`blockarrays.rs`），整数采样（`intsample.rs`：最近的 mip、
+    采样器的 repeat/mirror 由管线变体带入）、整数 cube（`cubes.rs`），数组层取整、fall-through 的 switch、outerProduct、
+    modf/frexp、subpassInput（framebuffer fetch）、texelFetchOffset 的偏移（naga 丢了）；
+  - VX：GL 的 provoking vertex（`VK_EXT_provoking_vertex`，平面 varying 的绘制重排）、超过 8 个顶点绑定与奇数步长的顶点输入
+    （绘制时重新打包）、view 的 swizzle 与当作浮点纹理采样的深度（拷贝）、R5G6B5/R5G5B5A1/A1R5G5B5（GL 的 RGB565、RGB5_A1）、
+    D32_SFLOAT_S8_UINT、两面不同的 stencil、动态 depth bias、两面都剔除、CONSTANT_ALPHA、深度/模板的 resolve 与部分拷贝、
+    列表的 primitive restart、3D 的 blit、深度经着色器的上传与读回（快照也恢复深度）；
+  - 设备：每个 Vulkan 命令缓冲一个 WebGPU 命令缓冲。WebGPU 拒收一条命令就丢掉整个命令缓冲，以前同一次提交里 Mesa 的
+    fence feedback 也一起丢掉，驱动于是返回 VK_ERROR_UNKNOWN，ANGLE 之后每次等待都报 GL_INVALID_OPERATION。
+  抽样（同一份 1334 例）：修之前 656 通过、300 失败（996 例跑到）；中途 967 通过、170 失败（1186 例跑到）；
+  改报 3.0 后从冷启动重存的 `a10-desktop.v7`（`ro.opengles.version` 196608）：1334 例全跑到，1233 通过、94 不支持
+  （ASTC、浮点颜色缓冲、multiview、8 个采样、宽点宽线等可选项）、5 失败（显式 lod/梯度的阴影查找 3 例，
+  invalidate 之后把多采样深度模板 blit 到窗口 2 例）、2 个 QualityWarning。
+  还没做的：带显式 lod 或梯度的阴影查找按 level 0 比较（WGSL 只有 level 0 的比较）；同时用常量颜色与常量 alpha 的混合；
+  dEQP 里 ART 的 GC 线程偶尔 SIGBUS（`HeapTaskDaemon`，地址不在堆里，与 GL 无关，另查）。
 - F3：分两部分做了。
   - FEAT_PAN 放在新的配置 v2（`a64_profile: "v2"`，`A64_PROFILE=v2`）：v1 与 v1.1 不变，快照保留自己的配置。
   - 页层的系统指令模板：普通寄存器的 MRS/MSR、DAIFSet/Clr、DC ZVA、TLBI、不必等待的 DSB、LDTR/STTR，
@@ -2575,7 +2594,7 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - androidish Alpine 登录：58.2 → 54.6 s（模板）→ 52.2 s（v2）；
   - 从 A10 快照起的 Android（v1.1）：fork+exec 67 → 54 s，dd 7.4 → 5.2 s；
   - v2 加 Venus 的冷启动（release、4 核 worker 加页层）：969 s 到 `sys.boot_completed`（A10 的基线是 1192–1325 s，一次的测量），126 MIPS。
-  默认配置仍是 v1.1。
+  默认配置原为 v1.1；2026-10-21 起默认是 v2（所有者选定），`A64_PROFILE=v1.1` 得到旧配置，快照保留自己的配置。
 - F4：`build/a64-android/android-venus-booted.v7` 已用现在的构建重存（配置 v2、Venus，`sys.boot_completed` 时，即 F3 那次冷启动），
   dEQP 与 F5 的运行都从它恢复。
 - F5：已做（778c4f88）。恢复或复位开始新的一代：之前的请求被忘掉，旧的 Venus 上下文作废，blob 当作已解除映射。
