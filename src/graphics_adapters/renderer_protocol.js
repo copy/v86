@@ -105,6 +105,8 @@ export const VX = {
     // _WRITE_MASK): WebGPU's are the pipeline's, so a variant per pair
     SET_STENCIL_COMPARE_MASK: 47, // faces, mask
     SET_STENCIL_WRITE_MASK: 48, // faces, mask
+    // the dynamic depth bias (VK_DYNAMIC_STATE_DEPTH_BIAS: GL's glPolygonOffset): a variant per bias
+    SET_DEPTH_BIAS: 49,     // constant factor, clamp, slope factor (f32)
 };
 
 /**

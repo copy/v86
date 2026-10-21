@@ -26,6 +26,7 @@
         DISPATCH: 34, DISPATCH_INDIRECT: 35, CLEAR_ATTACHMENTS: 36,
         QUERY_POOL_CREATE: 37, BEGIN_QUERY: 38, END_QUERY: 39, COPY_QUERY_RESULTS: 40, TEXTURE_READ: 41, TEXTURE_WRITE: 42,
         TEXTURE_IMPORT: 43, XFB_BIND: 44, XFB_BEGIN: 45, XFB_END: 46, SET_STENCIL_COMPARE_MASK: 47, SET_STENCIL_WRITE_MASK: 48,
+        SET_DEPTH_BIAS: 49,
     };
     // VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT; VkPrimitiveTopology's vertices a primitive (lists only)
     const QUERY_XFB = 1000028004;
@@ -78,6 +79,10 @@
         const m = /^[a-z]+(8|16|32)(?:x([234]))?$/.exec(format);
         return m ? +m[1] / 8 * (+m[2] || 1) : 4;
     };
+    /** VK_FORMAT_R5G6B5_UNORM_PACK16: an rgba8unorm texture whose alpha stays 1 (draws and clears leave it) */
+    const R5G6B5 = 4;
+    /** The color write mask a format's target takes: no alpha into R5G6B5 */
+    const alphaMask = f => f && f.packed === R5G6B5 ? 0x7 : 0xF;
     /** The most vertices a draw's packed vertex input has (VX.packVertices) */
     const PACKED_ROWS = 1 << 20;
     const f32 = bits => new Float32Array(new Uint32Array([bits]).buffer)[0];
@@ -127,7 +132,7 @@
                 groups: [new Map(), new Map()], groupVersion: 0,
                 vertex: [], vertexDirty: true, index: null, indexDirty: true,
                 push: new Uint8Array(256), pushVersion: 0,
-                viewport: null, scissor: null, blend: null, stencilReference: 0, stencilMasks: [0xFF, 0xFF], dynamicDirty: true,
+                viewport: null, scissor: null, blend: null, stencilReference: 0, stencilMasks: [0xFF, 0xFF], stencilBack: [0xFF, 0xFF, 0], dynamicDirty: true,
                 passWidth: 0, passHeight: 0,
                 // transform feedback: the buffers ({ memory, offset, size } by binding), whether it is active, the bytes captured into each
                 xfb: { buffers: [], active: false, written: [0, 0, 0, 0] },
@@ -262,10 +267,22 @@
                 case VX.SET_VIEWPORT: this.state.viewport = Array.from(b.subarray(0, 6), f32); this.state.dynamicDirty = true; return;
                 case VX.SET_SCISSOR: this.state.scissor = [b[0] | 0, b[1] | 0, b[2], b[3]]; this.state.dynamicDirty = true; return;
                 case VX.SET_BLEND_CONSTANTS: this.state.blend = Array.from(b.subarray(0, 4), f32); this.state.dynamicDirty = true; return;
-                case VX.SET_STENCIL_REFERENCE: this.state.stencilReference = b[1]; this.state.dynamicDirty = true; return;
+                case VX.SET_STENCIL_REFERENCE:
+                    if (b[0] & 1) this.state.stencilReference = b[1];
+                    if (b[0] & 2) this.state.stencilBack[2] = b[1];
+                    this.state.dynamicDirty = true;
+                    return;
                 // (the front face's: WebGPU has one pair for both faces)
-                case VX.SET_STENCIL_COMPARE_MASK: if (b[0] & 1) this.state.stencilMasks[0] = b[1] & 0xFF; return;
-                case VX.SET_STENCIL_WRITE_MASK: if (b[0] & 1) this.state.stencilMasks[1] = b[1] & 0xFF; return;
+                // (the back face's: stencilBack, compare and write masks and reference)
+                case VX.SET_STENCIL_COMPARE_MASK:
+                    if (b[0] & 1) this.state.stencilMasks[0] = b[1] & 0xFF;
+                    if (b[0] & 2) this.state.stencilBack[0] = b[1] & 0xFF;
+                    return;
+                case VX.SET_STENCIL_WRITE_MASK:
+                    if (b[0] & 1) this.state.stencilMasks[1] = b[1] & 0xFF;
+                    if (b[0] & 2) this.state.stencilBack[1] = b[1] & 0xFF;
+                    return;
+                case VX.SET_DEPTH_BIAS: this.state.depthBias = Array.from(b.subarray(0, 3), f32); return;
                 case VX.DRAW: return this.draw(b, 0);
                 case VX.DRAW_INDEXED: return this.draw(b, 1);
                 case VX.DRAW_INDIRECT: return this.draw(b, 2);
@@ -322,7 +339,7 @@
         }
 
         endPasses() {
-            if (this.pass) { this.pass.end(); this.pass = null; this.resolveQueries(); }
+            this.endPass();
             if (this.computePass) { this.computePass.end(); this.computePass = null; }
         }
 
@@ -567,7 +584,7 @@
             const entry = this.formats[vk];
             if (!entry || !entry[0]) return null;
             const [gpu, caps, , bytes] = entry;
-            return { gpu, bytes, caps, float: /[fx]/.test(caps), int: caps.includes("i"), depth: caps.includes("d"),
+            return { gpu, bytes, caps, float: /[fx]/.test(caps), int: caps.includes("i"), depth: caps.includes("d"), packed: caps.includes("p") ? vk : 0,
                 renderable: caps.includes("r") || caps.includes("d"),
                 uint: /uint$/.test(gpu), sint: /sint$/.test(gpu),
                 hasDepth: /^depth/.test(gpu), hasStencil: /stencil/.test(gpu) };
@@ -630,7 +647,7 @@
             for (const v of this.objects.values()) {
                 if (v.kind !== "view" || v.texture !== image) continue;
                 v.view = this.view(texture, Object.assign({}, v.descriptor));
-                v.attachment = v.storage = null;
+                v.attachment = v.storage = v.faces = v.swizzled = null;
             }
             if (old) old.destroy();
         }
@@ -653,7 +670,7 @@
         }
 
         createView(b) {
-            const [id, tid, type, vkformat, aspect, baseMip, mips, baseLayer, layers] = b;
+            const [id, tid, type, vkformat, aspect, baseMip, mips, baseLayer, layers, ...components] = b;
             const t = this.texture(tid);
             if (!t) return;
             const f = this.format(vkformat) || t.f;
@@ -667,7 +684,115 @@
                 baseArrayLayer: t.volume ? 0 : baseLayer, arrayLayerCount: t.volume ? 1 : layers,
             };
             const view = this.view(t.texture, Object.assign({}, descriptor));
-            this.objects.set(id, { kind: "view", view, descriptor, texture: t, f, aspect, baseMip, mips, baseLayer, layers, dimension });
+            // the view's swizzle (VkComponentMapping: identity 0, zero 1, one 2, r..a 3..6) as
+            // codes 0 zero, 1 one, 2..5 r..a; none when it is the identity
+            const codes = [0, 1, 2, 3].map(i => components[i] === 0 || components[i] === undefined ? i + 2 : components[i] - 1);
+            const swizzle = codes.join() === "2,3,4,5" ? null : codes;
+            this.objects.set(id, { kind: "view", view, descriptor, texture: t, f, aspect, baseMip, mips, baseLayer, layers, dimension, swizzle });
+        }
+
+        /** A write into a texture (a copy, a clear, a pass's attachment, a storage binding): its swizzled copies are old */
+        touch(texture) {
+            if (texture) texture.vxGeneration = (texture.vxGeneration || 0) + 1;
+        }
+
+        /**
+         * The views a pipeline samples that have a swizzle (WebGPU's views
+         * have none; ANGLE's GL_ALPHA, GL_LUMINANCE and GL ES 3.0's texture
+         * swizzles are VkComponentMappings): each one's copy made again where
+         * its texture was written since (a pass of its own per mip and layer,
+         * swizzled as it is drawn), outside of any pass; true when one was
+         */
+        swizzleCopies(p, point) {
+            const stale = [];
+            for (const [group, used] of p.groups) {
+                const contents = this.state.groups[point].get(group);
+                if (!contents || group === p.push) continue;
+                for (const [binding, kind] of used) {
+                    if (samplerBinding(binding) || !/^texture/.test(kind) || kind === "storage-texture") continue;
+                    const d = contents.descriptors.get(descriptorKey(binding));
+                    const v = d && this.objects.get(d.rid);
+                    if (!v || v.kind !== "view" || !v.swizzle) continue;
+                    const generation = v.texture.borrowed ? NaN : v.texture.texture.vxGeneration || 0;
+                    if (!v.swizzled || v.swizzled.generation !== generation) stale.push([v, generation]);
+                }
+            }
+            if (!stale.length) return false;
+            const resume = !!this.pass;
+            this.endPass();
+            for (const [v, generation] of stale) this.swizzleCopy(v, generation);
+            if (resume) this.resumePass();
+            return true;
+        }
+
+        /** a swizzled view's copy, drawn again (the copy's view is the one bound, swizzledView) */
+        swizzleCopy(v, generation) {
+            const t = v.texture, f = v.f;
+            if (f.depth || t.samples > 1) {
+                this.warn("swizzle-kind", "swizzles of depth, stencil and multisampled views are not done");
+                v.swizzled = { generation, view: v.view };
+                return;
+            }
+            const type = f.uint ? "u32" : f.sint ? "i32" : "f32";
+            // (a copy of four components, of the view's kind and at least its precision)
+            const view = v.descriptor.format;
+            const format = f.uint ? "rgba32uint" : f.sint ? "rgba32sint" : /^(r|rg|rgba|bgra)8unorm-srgb$/.test(view) ? "rgba8unorm-srgb" :
+                /^(r|rg|rgba|bgra)8unorm$/.test(view) ? "rgba8unorm" : /32float/.test(view) ? "rgba32float" : "rgba16float";
+            const volume = t.volume, slices = m => volume ? Math.max(1, t.depth >> (v.baseMip + m)) : v.layers;
+            if (!v.swizzled || !v.swizzled.texture) {
+                const texture = this.device.createTexture({ size: [Math.max(1, t.width >> v.baseMip), Math.max(1, Math.max(1, t.height) >> v.baseMip),
+                    volume ? Math.max(1, t.depth >> v.baseMip) : v.layers], dimension: volume ? "3d" : "2d", format, mipLevelCount: v.mips,
+                    usage: TEXTURE.TEXTURE_BINDING | TEXTURE.RENDER_ATTACHMENT });
+                v.swizzled = { texture, view: texture.createView({ dimension: v.dimension, format }) };
+                // (bind groups made before bound the view itself)
+                this.swizzleEpoch = (this.swizzleEpoch || 0) + 1;
+            }
+            const key = "swizzle:" + format + ":" + type + (volume ? ":3d" : "");
+            let pipeline = this.pipelines.get(key);
+            if (!pipeline) {
+                const code = [
+                    "struct S { swizzle: vec4u, mip: u32, layer: u32 };",
+                    "@group(0) @binding(0) var<uniform> s: S;",
+                    "@group(0) @binding(1) var source: " + (volume ? "texture_3d<" : "texture_2d_array<") + type + ">;",
+                    "@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {",
+                    "    return vec4f(f32(i & 1u) * 4.0 - 1.0, f32(i >> 1u) * 4.0 - 1.0, 0.0, 1.0);",
+                    "}",
+                    "fn pick(c: vec4<" + type + ">, k: u32) -> " + type + " {",
+                    "    switch k { case 0u: { return " + type + "(0); } case 1u: { return " + type + "(1); } case 2u: { return c.x; }",
+                    "        case 3u: { return c.y; } case 4u: { return c.z; } default: { return c.w; } }",
+                    "}",
+                    "@fragment fn fs(@builtin(position) at: vec4f) -> @location(0) vec4<" + type + "> {",
+                    volume ? "    let c = textureLoad(source, vec3i(vec2i(at.xy), i32(s.layer)), i32(s.mip));" :
+                        "    let c = textureLoad(source, vec2i(at.xy), i32(s.layer), i32(s.mip));",
+                    "    return vec4<" + type + ">(pick(c, s.swizzle.x), pick(c, s.swizzle.y), pick(c, s.swizzle.z), pick(c, s.swizzle.w));",
+                    "}",
+                ].join("\n");
+                const module = this.device.createShaderModule({ code });
+                pipeline = this.device.createRenderPipeline({ layout: "auto", vertex: { module, entryPoint: "vs" },
+                    fragment: { module, entryPoint: "fs", targets: [{ format }] }, primitive: { topology: "triangle-list" } });
+                this.pipelines.set(key, pipeline);
+            }
+            const source = t.texture.createView({ dimension: volume ? "3d" : "2d-array", format: v.descriptor.format });
+            const encoder = this.encoder();
+            for (let m = 0; m < v.mips; m++) {
+                for (let l = 0; l < slices(m); l++) {
+                    const ubo = this.device.createBuffer({ size: 32, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+                    this.device.queue.writeBuffer(ubo, 0, Uint32Array.from([...v.swizzle, v.baseMip + m, volume ? l : v.baseLayer + l, 0, 0]));
+                    this.transient.push(ubo);
+                    const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+                        { binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: source }] });
+                    const target = { view: v.swizzled.texture.createView({ dimension: volume ? "3d" : "2d", baseMipLevel: m, mipLevelCount: 1,
+                        baseArrayLayer: volume ? 0 : l, arrayLayerCount: 1 }), loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] };
+                    if (volume) target.depthSlice = l;
+                    const pass = encoder.beginRenderPass({ colorAttachments: [target] });
+                    pass.setPipeline(pipeline);
+                    pass.setBindGroup(0, group);
+                    pass.draw(3);
+                    pass.end();
+                }
+            }
+            v.swizzled.generation = generation;
+            this.stats.swizzleCopies = (this.stats.swizzleCopies || 0) + 1;
         }
 
         createSampler(b) {
@@ -693,7 +818,97 @@
                 if (t.f.gpu === "depth24plus" || t.f.gpu === "depth24plus-stencil8") return null;
                 return { aspect: t.f.hasStencil ? "depth-only" : "all", bytes: t.f.gpu === "depth16unorm" ? 2 : 4 };
             }
-            return { aspect: "all", bytes: t.f.bytes };
+            // (16-bit packed texels: the texture's are rgba8unorm, `gpu` bytes)
+            return { aspect: "all", bytes: t.f.bytes, gpu: t.f.packed ? 4 : t.f.bytes };
+        }
+
+        /**
+         * A copy between a memory and an image of 16-bit packed texels
+         * (R5G6B5, R5G5B5A1, A1R5G5B5: textures of rgba8unorm here): through
+         * a staging buffer of WebGPU's pitch that a compute shader unpacks
+         * into or packs from
+         */
+        copyPacked(m, guest, place, size, toImage, format) {
+            const [w, h, slices] = size, aligned = align(w * 4, 256);
+            const staging = this.scratch(aligned * h * slices, BUFFER.COPY_SRC | BUFFER.COPY_DST | BUFFER.STORAGE);
+            const layout = { buffer: staging, offset: 0, bytesPerRow: aligned, rowsPerImage: h };
+            const ours = { offset: 0, pitch: aligned, image: aligned * h };
+            if (!this.packer) {
+                const code = [
+                    "struct P { src: u32, src_pitch: u32, src_image: u32, dst: u32, dst_pitch: u32, dst_image: u32, w: u32, h: u32, slices: u32, end: u32, format: u32, pack: u32 };",
+                    "@group(0) @binding(0) var<uniform> p: P;",
+                    "@group(0) @binding(1) var<storage, read> s: array<u32>;",
+                    "@group(0) @binding(2) var<storage, read_write> d: array<u32>;",
+                    "fn to8(x: u32, top: u32) -> u32 { return (x * 255u + top / 2u) / top; }",
+                    "fn from8(x: u32, top: u32) -> u32 { return (x * top + 127u) / 255u; }",
+                    "fn bits(v: u32, at: u32, n: u32) -> u32 { return (v >> at) & ((1u << n) - 1u); }",
+                    "// (VkFormat 4 R5G6B5, 6 R5G5B5A1, 8 A1R5G5B5; rgba8 with red in the low byte)",
+                    "fn unpack(v: u32) -> u32 {",
+                    "    var c = vec4u(to8(bits(v, 10u, 5u), 31u), to8(bits(v, 5u, 5u), 31u), to8(bits(v, 0u, 5u), 31u), bits(v, 15u, 1u) * 255u);",
+                    "    if (p.format == 4u) { c = vec4u(to8(bits(v, 11u, 5u), 31u), to8(bits(v, 5u, 6u), 63u), to8(bits(v, 0u, 5u), 31u), 255u); }",
+                    "    if (p.format == 6u) { c = vec4u(to8(bits(v, 11u, 5u), 31u), to8(bits(v, 6u, 5u), 31u), to8(bits(v, 1u, 5u), 31u), bits(v, 0u, 1u) * 255u); }",
+                    "    return c.x | (c.y << 8u) | (c.z << 16u) | (c.w << 24u);",
+                    "}",
+                    "fn pack(t: u32) -> u32 {",
+                    "    let c = vec4u(bits(t, 0u, 8u), bits(t, 8u, 8u), bits(t, 16u, 8u), bits(t, 24u, 8u));",
+                    "    let a = select(0u, 1u, c.w >= 128u);",
+                    "    if (p.format == 4u) { return (from8(c.x, 31u) << 11u) | (from8(c.y, 63u) << 5u) | from8(c.z, 31u); }",
+                    "    if (p.format == 6u) { return (from8(c.x, 31u) << 11u) | (from8(c.y, 31u) << 6u) | (from8(c.z, 31u) << 1u) | a; }",
+                    "    return (a << 15u) | (from8(c.x, 31u) << 10u) | (from8(c.y, 31u) << 5u) | from8(c.z, 31u);",
+                    "}",
+                    "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>, @builtin(num_workgroups) n: vec3<u32>) {",
+                    "    let i = id.x + id.y * n.x * 64u;",
+                    "    if (p.pack == 0u) {",
+                    "        // a texel of the image from the memory's 16 bits",
+                    "        if (i >= p.w * p.h * p.slices) { return; }",
+                    "        let slice = i / (p.w * p.h); let row = (i % (p.w * p.h)) / p.w; let column = i % p.w;",
+                    "        let at = p.src + slice * p.src_image + row * p.src_pitch + column * 2u;",
+                    "        let v = bits(s[at >> 2u], (at & 3u) * 8u, 16u);",
+                    "        d[(p.dst + slice * p.dst_image + row * p.dst_pitch + column * 4u) >> 2u] = unpack(v);",
+                    "        return;",
+                    "    }",
+                    "    // a dword of the memory: its texels in the region packed, the rest kept",
+                    "    let w = (p.dst >> 2u) + i;",
+                    "    if (w * 4u >= p.end) { return; }",
+                    "    var word = d[w];",
+                    "    for (var k = 0u; k < 4u; k += 2u) {",
+                    "        let at = w * 4u + k;",
+                    "        if (at < p.dst || at >= p.end) { continue; }",
+                    "        let rel = at - p.dst;",
+                    "        let slice = rel / p.dst_image; let row = (rel % p.dst_image) / p.dst_pitch; let byte = (rel % p.dst_image) % p.dst_pitch;",
+                    "        if (slice >= p.slices || row >= p.h || byte >= p.w * 2u) { continue; }",
+                    "        let texel = s[(p.src + slice * p.src_image + row * p.src_pitch + byte * 2u) >> 2u];",
+                    "        word = (word & ~(0xFFFFu << (k * 8u))) | (pack(texel) << (k * 8u));",
+                    "    }",
+                    "    d[w] = word;",
+                    "}",
+                ].join("\n");
+                this.packer = this.device.createComputePipeline({ layout: "auto", compute: { module: this.device.createShaderModule({ code }), entryPoint: "main" } });
+            }
+            const run = (src, from, dst, to, pack) => {
+                const end = to.offset + (slices - 1) * to.image + (h - 1) * to.pitch + w * (pack ? 2 : 4);
+                const params = this.device.createBuffer({ size: 48, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+                this.device.queue.writeBuffer(params, 0, Uint32Array.from([from.offset, from.pitch, from.image, to.offset, to.pitch, to.image, w, h, slices, end,
+                    format, pack ? 1 : 0]));
+                this.transient.push(params);
+                const group = this.device.createBindGroup({ layout: this.packer.getBindGroupLayout(0), entries: [
+                    { binding: 0, resource: { buffer: params } }, { binding: 1, resource: { buffer: src } }, { binding: 2, resource: { buffer: dst } }] });
+                const invocations = pack ? ((end + 3) >> 2) - (to.offset >> 2) : w * h * slices;
+                const groups = Math.ceil(invocations / 64);
+                const pass = this.encoder().beginComputePass();
+                pass.setPipeline(this.packer);
+                pass.setBindGroup(0, group);
+                pass.dispatchWorkgroups(Math.min(groups, 65535), Math.ceil(groups / 65535));
+                pass.end();
+            };
+            if (toImage) {
+                run(m.buffer, guest, staging, ours, false);
+                this.encoder().copyBufferToTexture(layout, place, size);
+            }
+            else {
+                this.encoder().copyTextureToBuffer(place, layout, size);
+                run(staging, ours, m.buffer, guest, true);
+            }
         }
 
         /** a texture's image (one mip, one layer or slice, one aspect), for a snapshot: null where WebGPU cannot copy it (multisampled, 24-bit depth) */
@@ -703,7 +918,8 @@
             const a = t && t.samples <= 1 ? this.copyAspect(t, aspectMask) : null;
             if (!a) return this.respond(request, null);
             const w = Math.max(1, t.width >> mip), h = Math.max(1, t.height >> mip);
-            const rowBytes = w * a.bytes, aligned = align(rowBytes, 256);
+            // (the texture's texels: rgba8unorm ones of 16-bit packed formats)
+            const rowBytes = w * a.gpu, aligned = align(rowBytes, 256);
             const target = this.device.createBuffer({ size: aligned * h, usage: BUFFER.MAP_READ | BUFFER.COPY_DST });
             this.encoder().copyTextureToBuffer({ texture: t.texture, mipLevel: mip, origin: [0, 0, layer], aspect: a.aspect },
                 { buffer: target, bytesPerRow: aligned, rowsPerImage: h }, [w, h, 1]);
@@ -722,21 +938,23 @@
             const t = this.texture(id);
             const a = t ? this.copyAspect(t, aspectMask) : null;
             if (!a || t.samples > 1) return;
+            this.touch(t.texture);
             if (t.f.gpu === "depth32float" || t.f.gpu === "depth32float-stencil8" && a.aspect === "depth-only") {
                 this.warn("restore-depth32", "32-bit depth comes back from a snapshot cleared");
                 return;
             }
             const w = Math.max(1, t.width >> mip), h = Math.max(1, t.height >> mip);
-            if (length < w * h * a.bytes) return;
+            if (length < w * h * a.gpu) return;
             this.flushEncoder();
             this.device.queue.writeTexture({ texture: t.texture, mipLevel: mip, origin: [0, 0, layer], aspect: a.aspect },
-                new Uint8Array(b.buffer, b.byteOffset + 20, length), { bytesPerRow: w * a.bytes, rowsPerImage: h }, [w, h, 1]);
+                new Uint8Array(b.buffer, b.byteOffset + 20, length), { bytesPerRow: w * a.gpu, rowsPerImage: h }, [w, h, 1]);
         }
 
         copyBufferImage(b) {
             const [toImage, mid, low, high, rowLength, imageHeight, tid, aspectMask, mip, layer, layers, x, y, z, w, h, d] = b;
             const m = this.memory(mid), t = this.texture(tid);
             if (!m || !t || !w || !h || !d) return;
+            if (toImage) this.touch(t.texture);
             const a = this.copyAspect(t, aspectMask);
             if (!a) {
                 this.warn("copy-d24", "copies of 24-bit depth are not done");
@@ -748,6 +966,7 @@
             const rowBytes = w * a.bytes, aligned = align(rowBytes, 256);
             const place = { texture: t.texture, mipLevel: mip, origin: [x, y, t.volume ? z : layer], aspect: a.aspect };
             const size = [w, h, slices];
+            if (t.f.packed && a.aspect === "all") return this.copyPacked(m, { offset, pitch, image: pitch * rows }, place, size, toImage, t.f.packed);
             const encoder = this.encoder();
             if (pitch % 256 === 0 && offset % 4 === 0) {
                 const layout = { buffer: m.buffer, offset, bytesPerRow: pitch, rowsPerImage: rows };
@@ -788,6 +1007,7 @@
             const [sid, sa, smip, slayer, sx, sy, sz, did, da, dmip, dlayer, dx, dy, dz, w, h, d, layers] = b;
             const s = this.texture(sid), t = this.texture(did);
             if (!s || !t) return;
+            this.touch(t.texture);
             const as = this.copyAspect(s, sa), at = this.copyAspect(t, da);
             if (!as || !at) {
                 this.warn("copy-d24", "copies of 24-bit depth are not done");
@@ -797,6 +1017,10 @@
             const from = { texture: s.texture, mipLevel: smip, origin: [sx, sy, s.volume ? sz : slayer], aspect: as.aspect };
             const to = { texture: t.texture, mipLevel: dmip, origin: [dx, dy, t.volume ? dz : dlayer], aspect: at.aspect };
             const base = f => f.gpu.replace("-srgb", "");
+            if (!s.f.packed !== !t.f.packed) {
+                this.warn("copy-packed", "copies between 16-bit packed images and others are not done");
+                return;
+            }
             if (base(s.f) === base(t.f)) {
                 this.encoder().copyTextureToTexture(from, to, size);
                 return;
@@ -819,6 +1043,7 @@
             const [tid, aspect, baseMip, mips, baseLayer, layers, v0, v1, v2, v3] = b;
             const t = this.texture(tid);
             if (!t) return;
+            this.touch(t.texture);
             const encoder = this.encoder();
             for (let mip = baseMip; mip < baseMip + mips; mip++) {
                 const slices = t.volume ? Math.max(1, t.depth >> mip) : layers;
@@ -840,6 +1065,7 @@
                     }
                     const values = [v0, v1, v2, v3];
                     const clearValue = t.f.uint ? values.map(v => v >>> 0) : t.f.sint ? values.map(v => v | 0) : values.map(f32);
+                    if (t.f.packed === R5G6B5) clearValue[3] = 1;
                     const attachment = { view, loadOp: "clear", storeOp: "store", clearValue: { r: clearValue[0], g: clearValue[1], b: clearValue[2], a: clearValue[3] } };
                     if (t.volume) attachment.depthSlice = i;
                     encoder.beginRenderPass({ colorAttachments: [attachment] }).end();
@@ -851,6 +1077,7 @@
             const [sid, smip, slayer, sx, sy, did, dmip, dlayer, dx, dy, w, h, layers] = b;
             const s = this.texture(sid), t = this.texture(did);
             if (!s || !t) return;
+            this.touch(t.texture);
             const sw = Math.max(1, s.width >> smip), sh = Math.max(1, s.height >> smip);
             const tw = Math.max(1, t.width >> dmip), th = Math.max(1, t.height >> dmip);
             // (a render pass resolves all of an attachment into one of its
@@ -876,8 +1103,8 @@
 
         /** The blit pipeline into a format: a quad sampling the source */
         /** a blit's pipeline into `format` from a texture of `kind` (f, u, i), a 3D one when `volume` (at the depth rect.w) */
-        blitPipeline(format, kind, volume) {
-            const key = format + ":" + kind + (volume ? ":3d" : "");
+        blitPipeline(format, kind, volume, mask = 0xF) {
+            const key = format + ":" + kind + (volume ? ":3d" : "") + ":" + mask;
             let p = this.pipelines.get(key);
             if (p) return p;
             const type = kind === "u" ? "u32" : kind === "i" ? "i32" : "f32";
@@ -906,7 +1133,7 @@
             p = this.device.createRenderPipeline({
                 layout: "auto",
                 vertex: { module, entryPoint: "vs" },
-                fragment: { module, entryPoint: "fs", targets: [{ format }] },
+                fragment: { module, entryPoint: "fs", targets: [{ format, writeMask: mask }] },
                 primitive: { topology: "triangle-strip" },
             });
             this.pipelines.set(key, p);
@@ -917,13 +1144,14 @@
             const [sid, smip, slayer, sx0, sy0, sz0, sx1, sy1, sz1, did, dmip, dlayer, dx0, dy0, dz0, dx1, dy1, dz1, layers, linear] = b;
             const s = this.texture(sid), t = this.texture(did);
             if (!s || !t) return;
+            this.touch(t.texture);
             // (Venus offers neither: VK_FORMAT_FEATURE_BLIT_DST_BIT is for the renderable color formats)
             if (t.f.depth || s.f.depth || !t.f.renderable) {
                 this.warn("blit-kind", "blits of depth and into formats not renderable are not done");
                 return;
             }
             const kind = s.f.uint ? "u" : s.f.sint ? "i" : "f";
-            const pipeline = this.blitPipeline(t.f.gpu, kind, s.volume);
+            const pipeline = this.blitPipeline(t.f.gpu, kind, s.volume, alphaMask(t.f));
             const sw = Math.max(1, s.width >> smip), sh = Math.max(1, s.height >> smip);
             const tw = Math.max(1, t.width >> dmip), th = Math.max(1, t.height >> dmip);
             // the destination's corners in order, the source's following them (flips)
@@ -1133,13 +1361,14 @@
                     };
                     if (f.hasStencil) Object.assign(descriptor.depthStencil, { stencilFront: face(z.front), stencilBack: face(z.back),
                         stencilReadMask: z.stencil && z.front ? z.front.read_mask : 0xFFFFFFFF, stencilWriteMask: z.stencil && z.front ? z.front.write_mask : 0 });
-                    if (d.depth_bias) Object.assign(descriptor.depthStencil, { depthBias: Math.round(d.depth_bias.constant),
+                    // (WebGPU biases triangles only)
+                    if (d.depth_bias && d.topology >= 3) Object.assign(descriptor.depthStencil, { depthBias: Math.round(d.depth_bias.constant),
                         depthBiasSlopeScale: d.depth_bias.slope, depthBiasClamp: d.depth_bias.clamp });
                 }
                 const targets = d.targets.map(t => {
                     const f = this.format(t.format);
                     if (!f) return null;
-                    const target = { format: f.gpu, writeMask: d.discard ? 0 : t.write_mask };
+                    const target = { format: f.gpu, writeMask: d.discard ? 0 : t.write_mask & alphaMask(f) };
                     // (min and max take no factors in Vulkan; WebGPU wants them one)
                     const component = (src, dst, op) => op === 3 || op === 4 ? { srcFactor: "one", dstFactor: "one", operation: BLEND_OP[op] } :
                         { srcFactor: BLEND_FACTOR[src], dstFactor: BLEND_FACTOR[dst], operation: BLEND_OP[op] };
@@ -1218,10 +1447,13 @@
                 const f = v.f;
                 colorFormats[i] = f.gpu;
                 const value = f.uint ? c.clear.map(x => x >>> 0) : f.sint ? c.clear.map(x => x | 0) : c.clear.map(f32);
+                if (f.packed === R5G6B5) value[3] = 1;
                 const a = { view: v.attachment, loadOp: c.load === 0 ? "load" : "clear", storeOp: c.store === 1 ? "discard" : "store",
                     clearValue: { r: value[0], g: value[1], b: value[2], a: value[3] } };
                 const resolve = c.resolve ? this.attachmentOf(c.resolve) : null;
                 if (resolve) a.resolveTarget = resolve.attachment;
+                // (a slice of a 3D image: Vulkan's 2D view of it)
+                if (v.texture.volume) a.depthSlice = v.baseLayer;
                 return a;
             });
             const descriptor = { colorAttachments };
@@ -1263,7 +1495,13 @@
         }
 
         endPass() {
-            if (this.pass) { this.pass.end(); this.pass = null; this.resolveQueries(); }
+            if (this.pass) {
+                this.pass.end();
+                this.pass = null;
+                this.resolveQueries();
+                // (what it drew into: written)
+                if (this.passTextures) for (const texture of this.passTextures) this.touch(texture);
+            }
         }
 
         // ------------------------------------------------------------------
@@ -1309,7 +1547,7 @@
                 const m = d && this.memory(d.rid);
                 return m && writable.has(m.buffer);
             });
-            const key = (contents ? contents.version : 0) + (isPush ? ":" + this.state.pushOffset : "");
+            const key = (contents ? contents.version : 0) + (isPush ? ":" + this.state.pushOffset : "") + ":" + (this.swizzleEpoch || 0);
             let bg = p.bindGroups.get(group);
             const substituted = !!this.substitutes;
             if (bg && bg.key === key && !aliased && !substituted) return bg.group;
@@ -1352,7 +1590,15 @@
                 const v = this.objects.get(d.rid);
                 if (!v || v.kind !== "view") return null;
                 const copy = this.substitutes && this.substitutes.get(v);
-                entries.push({ binding, resource: copy || (kind === "storage-texture" ? this.singleMip(v) : /-faces$/.test(kind) ? this.facesView(v) : v.view) });
+                if (kind === "storage-texture") this.touch(v.texture.texture);
+                const swizzled = v.swizzle && v.swizzled && kind !== "storage-texture" ? v.swizzled.view : null;
+                // (a texture of the render pass this binds into, not copied: WebGPU would drop the batch)
+                if (point === 0 && this.pass && !copy && !swizzled && this.passTextures && this.passTextures.has(v.texture.texture)) {
+                    this.warn("feedback:" + group + ":" + binding + ":" + kind, "a draw samples a texture of its own pass, not copied (group " + group +
+                        " binding " + binding + " " + kind + ", " + v.f.gpu + " " + v.texture.width + "x" + v.texture.height + ")");
+                }
+                entries.push({ binding, resource: copy || (kind === "storage-texture" ? this.singleMip(v) : /-faces$/.test(kind) ? this.facesView(v) :
+                    swizzled || v.view) });
             }
             const created = this.device.createBindGroup({ layout: p.gpu.getBindGroupLayout(group), entries });
             if (!aliased && !substituted) p.bindGroups.set(group, { key, group: created });
@@ -1664,7 +1910,11 @@
                 if (kind === 0) this.capture(this.state.graphics, b);
                 else this.warn("xfb-indexed", "indexed and indirect draws capture nothing (GL ES 3.0 has none)");
             }
-            if (this.pass && this.state.graphics && this.state.graphics.gpu) this.attachmentCopies(this.state.graphics);
+            if (this.pass && this.state.graphics && this.state.graphics.gpu) {
+                this.attachmentCopies(this.state.graphics);
+                // (swizzled views: their copies, drawn again where their textures were written)
+                this.swizzleCopies(this.state.graphics, 0);
+            }
             // (vertex input WebGPU cannot take: repacked, between two halves of the pass)
             const packed = this.pass && this.state.graphics && this.state.graphics.gpu ? this.packVertices(this.state.graphics, kind, b) : null;
             // (GL's provoking vertex with flat varyings, and indexed fans: the vertices reordered)
@@ -1676,6 +1926,8 @@
             }
             this.stats.draws++;
             const s = this.state;
+            // (both faces culled: no triangle drawn; WebGPU culls one face or none)
+            if (p.desc.cull === 3 && p.desc.topology >= 3 && !p.desc.discard) return;
             // viewport and scissor: the dynamic ones, or the pipeline's; within the target (WebGPU's rule)
             const viewport = p.desc.dynamic.includes(0) && s.viewport ? s.viewport :
                 p.desc.viewport ? [p.desc.viewport.x, p.desc.viewport.y, p.desc.viewport.width, p.desc.viewport.height, p.desc.viewport.minDepth, p.desc.viewport.maxDepth] : null;
@@ -1684,14 +1936,35 @@
             const variant = (viewport && viewport[3] < 0 ? TRANSLATE.KEEP : 0) | (reversed ? TRANSLATE.REVERSE_DEPTH : 0);
             let q = variant ? this.vertexVariant(p, variant) : p;
             if (!q) return;
-            // (the dynamic stencil masks, with the stencil test on)
-            const dynamicMasks = p.desc.dynamic.includes(6) || p.desc.dynamic.includes(7);
-            if (dynamicMasks && !p.desc.discard && q.descriptor && q.descriptor.depthStencil && q.descriptor.depthStencil.stencilFront &&
-                q.descriptor.depthStencil.stencilFront.compare) {
-                const ds = q.descriptor.depthStencil;
-                q = this.maskedPipeline(q, p.desc.dynamic.includes(6) ? s.stencilMasks[0] : ds.stencilReadMask & 0xFF,
-                    p.desc.dynamic.includes(7) ? s.stencilMasks[1] : ds.stencilWriteMask & 0xFF);
-                if (!q) return;
+            // the stencil masks and reference of each face (the dynamic ones, or
+            // the pipeline's): WebGPU's are one for both faces, so a draw whose
+            // faces differ is drawn twice, a face each, the other culled
+            const z = p.desc.depth, dyn = state => p.desc.dynamic.includes(state);
+            const stencil = !p.desc.discard && q.descriptor && q.descriptor.depthStencil && q.descriptor.depthStencil.stencilFront &&
+                !!q.descriptor.depthStencil.stencilFront.compare && z;
+            const faceOf = back => {
+                const fixed = back ? z.back : z.front;
+                return { read: (dyn(6) ? back ? s.stencilBack[0] : s.stencilMasks[0] : fixed.read_mask) & 0xFF,
+                    write: (dyn(7) ? back ? s.stencilBack[1] : s.stencilMasks[1] : fixed.write_mask) & 0xFF,
+                    reference: dyn(8) ? back ? s.stencilBack[2] : s.stencilReference : fixed.reference };
+            };
+            let faces = [{ face: null, cull: null }];
+            if (stencil) {
+                const front = faceOf(false), back = faceOf(true);
+                const same = front.read === back.read && front.write === back.write && front.reference === back.reference;
+                // (lines and points are front faces; a pipeline culling one face draws the other)
+                if (p.desc.topology < 3 || p.desc.cull === 2 || same) faces = [{ face: front, cull: null }];
+                else if (p.desc.cull === 1) faces = [{ face: back, cull: null }];
+                else faces = [{ face: front, cull: "back" }, { face: back, cull: "front" }];
+            }
+            // (the dynamic depth bias, when the pipeline biases: a variant per bias)
+            if (p.desc.dynamic.includes(3) && p.desc.depth_bias && p.desc.topology >= 3 && s.depthBias && q.descriptor && q.descriptor.depthStencil) {
+                const [constant, clamp, slope] = s.depthBias, ds = q.descriptor.depthStencil;
+                if (ds.depthBias !== Math.round(constant) || ds.depthBiasSlopeScale !== slope || ds.depthBiasClamp !== clamp) {
+                    q = this.variant(q, "bias:" + constant + ":" + clamp + ":" + slope, d => Object.assign(d, { depthStencil: Object.assign({}, ds,
+                        { depthBias: Math.round(constant), depthBiasSlopeScale: slope, depthBiasClamp: clamp }) }));
+                    if (!q) return;
+                }
             }
             // (indexed strips: WebGPU wants the index format in the pipeline)
             const indexed = kind === 1 || kind === 2 && b[5];
@@ -1724,11 +1997,20 @@
                 return;
             }
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
-            pass.setPipeline(q.gpu);
-            for (const group of p.groups.keys()) {
-                const bg = this.bindGroup(q, 0, group);
-                if (!bg) return;
-                pass.setBindGroup(group, bg);
+            // each face's pipeline (its masks, and the other face culled) and bind groups
+            const draws = [];
+            for (const { face, cull } of faces) {
+                let f = q;
+                if (face) f = this.maskedPipeline(f, face.read, face.write);
+                if (f && cull) f = this.variant(f, "cull:" + cull, d => Object.assign(d, { primitive: Object.assign({}, d.primitive, { cullMode: cull }) }));
+                if (!f) return;
+                const groups = [];
+                for (const group of p.groups.keys()) {
+                    const bg = this.bindGroup(f, 0, group);
+                    if (!bg) return;
+                    groups.push([group, bg]);
+                }
+                draws.push({ f, groups, reference: face ? face.reference : z && z.front ? z.front.reference : 0 });
             }
             if (packed) packed.buffers.forEach((buffer, slot) => { if (buffer) pass.setVertexBuffer(slot, buffer); });
             else {
@@ -1756,13 +2038,22 @@
             }
             const blend = p.desc.dynamic.includes(4) && s.blend ? s.blend : p.desc.blend_constants;
             pass.setBlendConstant({ r: blend[0], g: blend[1], b: blend[2], a: blend[3] });
-            pass.setStencilReference(p.desc.dynamic.includes(8) ? s.stencilReference : p.desc.depth && p.desc.depth.front ? p.desc.depth.front.reference : 0);
             if ((kind === 1 || kind === 2 && b[5]) && !reorder) {
                 const ib = s.index, m = ib && this.memory(ib.memory);
                 if (!m) return;
                 pass.setIndexBuffer(m.buffer, ib.type === 1 ? "uint32" : "uint16", ib.offset, Math.min(ib.size, m.buffer.size - ib.offset));
             }
             this.substitutes = null;
+            for (const { f, groups, reference } of draws) {
+                pass.setPipeline(f.gpu);
+                for (const [group, bg] of groups) pass.setBindGroup(group, bg);
+                pass.setStencilReference(reference);
+                if (!this.issueDraw(pass, b, kind, reorder, fan)) return;
+            }
+        }
+
+        /** A draw's call, its pipeline and state set: false when it cannot be drawn */
+        issueDraw(pass, b, kind, reorder, fan) {
             if (reorder) {
                 pass.setIndexBuffer(reorder.buffer, "uint32");
                 if (reorder.args) pass.drawIndexedIndirect(reorder.args, 0);
@@ -1770,7 +2061,7 @@
                 else pass.drawIndexed(reorder.count, b[1], 0, b[2], b[3]);
             }
             else if (kind === 0 && fan) {
-                if (b[0] < 3) return;
+                if (b[0] < 3) return false;
                 pass.setIndexBuffer(this.fanIndices(b[0]), "uint32");
                 pass.drawIndexed(3 * (b[0] - 2), b[1], 0, b[2], b[3]);
             }
@@ -1778,13 +2069,14 @@
             else if (kind === 1) pass.drawIndexed(b[0], b[1], b[2], b[3] | 0, b[4]);
             else {
                 const m = this.memory(b[0]);
-                if (!m) return;
+                if (!m) return false;
                 const offset = b[1] + b[2] * 0x100000000;
                 for (let i = 0; i < b[3]; i++) {
                     if (b[5]) pass.drawIndexedIndirect(m.buffer, offset + i * b[4]);
                     else pass.drawIndirect(m.buffer, offset + i * b[4]);
                 }
             }
+            return true;
         }
 
         // ------------------------------------------------------------------
@@ -2015,6 +2307,7 @@
             this.stats.dispatches++;
             if (p.desc.push_size && p.groups.has(p.push)) this.pushWrite();
             this.endPass();
+            this.swizzleCopies(p, 1);
             // (the bind groups first: their copies are outside the compute pass)
             const writable = this.writableBuffers(p);
             const groups = [];
@@ -2080,7 +2373,7 @@
                     const descriptor = {
                         layout: "auto",
                         vertex: { module, entryPoint: "vs" },
-                        fragment: { module, entryPoint: "fs", targets: colors.map((f, i) => f ? { format: f.gpu, writeMask: color && i === a.index ? 0xF : 0 } : null) },
+                        fragment: { module, entryPoint: "fs", targets: colors.map((f, i) => f ? { format: f.gpu, writeMask: color && i === a.index ? alphaMask(f) : 0 } : null) },
                         primitive: { topology: "triangle-strip" },
                         multisample: { count: info.samples > 1 ? 4 : 1 },
                     };

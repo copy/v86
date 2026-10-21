@@ -574,6 +574,125 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         const slices3d = Array.from(await read(V3M, 256, 64)).filter((_, i) => i % 16 === 0);
         check(slices3d.join() === "64,64,192,192", "a blit of 3D images: " + slices3d.join() + " (" + renderer.vx.warnings.join("; ") + ")");
 
+        // The dynamic depth bias (VK_DYNAMIC_STATE_DEPTH_BIAS, GL's glPolygonOffset):
+        // a pipeline variant per bias. A D16 target cleared to 1, the whole of it
+        // drawn at z 0.5 with a bias of 100 units (100 / 65536 for D16): about
+        // 32868 of 65535, not 32768
+        const HALF_VS = Uint8Array.from(atob("AwIjBwAAAQAcAAAAHQAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ABwAAAAAADQAAAG1haW4AAAAACAAAAAsAAABHAAQACAAAAAsAAAAqAAAARwAEAAsAAAALAAAAAAAAABMAAgACAAAAFQAEAAMAAAAgAAAAAAAAABYAAwAFAAAAIAAAABcABAAEAAAABQAAAAQAAAAXAAQABgAAAAUAAAACAAAAIAAEAAkAAAABAAAAAwAAADsABAAJAAAACAAAAAEAAAAgAAQADAAAAAMAAAAEAAAAOwAEAAwAAAALAAAAAwAAACEAAwAOAAAAAgAAACsABAADAAAADwAAAAEAAAArAAQABQAAABAAAAAAAABAKwAEAAUAAAARAAAAAACAPywABQAGAAAAEgAAABEAAAARAAAAKwAEAAUAAAATAAAAAAAAPzYABQACAAAADQAAAAAAAAAOAAAA+AACAAcAAAA9AAQAAwAAAAoAAAAIAAAA+QACABQAAAD4AAIAFAAAAMcABQADAAAAFQAAAAoAAAAPAAAAcAAEAAUAAAAWAAAAFQAAAMIABQADAAAAFwAAAAoAAAAPAAAAcAAEAAUAAAAYAAAAFwAAAFAABQAGAAAAGQAAABYAAAAYAAAAjgAFAAYAAAAaAAAAGQAAABAAAACDAAUABgAAABsAAAAaAAAAEgAAAFAABgAEAAAAHAAAABsAAAATAAAAEQAAAD4AAwALAAAAHAAAAP0AAQA4AAEA"), c => c.charCodeAt(0));
+        const BVS = 160, BPIPE2 = 161, BD = 162, BDV = 163;
+        w.command(VX.SHADER_CREATE, [BVS, HALF_VS.length], HALF_VS);
+        w.command(VX.TEXTURE_CREATE, [BD, 124, 1, 8, 8, 1, 1, 1, 1, 0x21, 0]);
+        w.command(VX.VIEW_CREATE, [BDV, BD, 1, 124, 2, 0, 1, 0, 1, 0, 0, 0, 0]);
+        w.command(VX.PIPELINE_CREATE, [BPIPE2], json({ kind: "graphics",
+            stages: [{ shader: BVS, stage: 1, entry: "main", constants: {} }, { shader: SFS, stage: 16, entry: "main", constants: {} }],
+            buffers: [], attributes: [], topology: 4, restart: false, cull: 0, front: 0, polygon: 0, depth_clamp: false, discard: false,
+            depth_bias: { constant: 0, clamp: 0, slope: 0 }, samples: 1, sample_mask: 0xFFFFFFFF, alpha_to_coverage: false,
+            depth: { test: true, write: true, compare: 7, stencil: false, front: null, back: null }, depth_format: 124,
+            targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [3],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 0, push_size: 0 }));
+        w.command(VX.BEGIN, []);
+        w.command(VX.BEGIN_PASS, [], json({ colors: [{ view: XRTV, load: 1, store: 0, clear: [0, 0, 0, 0], resolve: 0 }],
+            depth: { view: BDV, load: 1, clear_depth: 1, store: 0, stencil_load: 0, clear_stencil: 0, stencil_store: 0 }, width: 8, height: 8 }));
+        w.command(VX.BIND_PIPELINE, [BPIPE2]);
+        w.command(VX.SET_DEPTH_BIAS, [f32(100), 0, 0]);
+        w.command(VX.DRAW, [4, 1, 0, 0]);
+        w.command(VX.END_PASS, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 0, 0, BD, 2, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        w.command(VX.END, []);
+        const biased = new Uint16Array((await read(B, 0, 16)).buffer)[0];
+        check(biased > 32800 && biased < 32950, "the dynamic depth bias: " + biased + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // 16-bit packed formats (R5G6B5, A1R5G5B5: GL ES's RGB565 and RGB5_A1),
+        // textures of rgba8unorm here: a 3x2 image's texels in from byte 2 of a
+        // memory and out to byte 66 (the bytes around kept), unpacked and packed
+        // by VX's compute shader, the same 16 bits back; then a clear of
+        // (1, 0.5, 0, 1): 0xFC00
+        const P565 = 170, P1555 = 171, PM = 172;
+        w.command(VX.TEXTURE_CREATE, [P565, 4, 1, 3, 2, 1, 1, 1, 1, 0x17, 0]);
+        w.command(VX.TEXTURE_CREATE, [P1555, 8, 1, 3, 2, 1, 1, 1, 1, 0x17, 0]);
+        w.command(VX.MEMORY_CREATE, [PM, 256, 0]);
+        const packed16 = Uint16Array.from([0x1234, 0xF81F, 0x07E0, 0xFFFF, 0x0000, 0xA5A5]);
+        w.command(VX.MEMORY_WRITE, [PM, 0, 0, 16], Uint8Array.from([0, 0, ...new Uint8Array(packed16.buffer), 0, 0]));
+        const packed_results = [];
+        for(const image of [P565, P1555])
+        {
+            w.command(VX.BEGIN, []);
+            w.command(VX.FILL_BUFFER, [PM, 64, 0, 32, 0, 0x55555555]);
+            w.command(VX.COPY_BUFFER_IMAGE, [1, PM, 2, 0, 0, 0, image, 1, 0, 0, 1, 0, 0, 0, 3, 2, 1]);
+            w.command(VX.COPY_BUFFER_IMAGE, [0, PM, 66, 0, 0, 0, image, 1, 0, 0, 1, 0, 0, 0, 3, 2, 1]);
+            w.command(VX.END, []);
+            const back = await read(PM, 64, 16);
+            packed_results.push(back[0] === 0x55 && back[1] === 0x55 && back[14] === 0x55 &&
+                Array.from(new Uint16Array(back.buffer, 2, 6)).join() === Array.from(packed16).join() ? "same" : Array.from(back).join());
+        }
+        w.command(VX.BEGIN, []);
+        w.command(VX.CLEAR_IMAGE, [P565, 1, 0, 1, 0, 1, f32(1), f32(0.5), f32(0), f32(1)]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, PM, 128, 0, 0, 0, P565, 1, 0, 0, 1, 0, 0, 0, 3, 2, 1]);
+        w.command(VX.END, []);
+        const cleared565 = new Uint16Array((await read(PM, 128, 4)).buffer)[0];
+        check(packed_results.join() === "same,same" && cleared565 === 0xFC00, "16-bit packed formats: " + packed_results.join(" ") + ", cleared " +
+            cleared565.toString(16) + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // Stencil references of each face (GL's glStencilFuncSeparate; WebGPU's
+        // is one for both): a triangle of each winding, replacing with 0x11 on
+        // front faces and 0x22 on back ones; VX draws twice, a face each
+        const FACES_VS = Uint8Array.from(atob("AwIjBwAAAQAcAAAAIQAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ABwAAAAAADwAAAG1haW4AAAAACgAAAA0AAABHAAQABwAAAAYAAAAIAAAARwAEAAoAAAALAAAAKgAAAEcABAANAAAACwAAAAAAAAATAAIAAgAAABUABAADAAAAIAAAAAAAAAAWAAMABQAAACAAAAAXAAQABAAAAAUAAAAEAAAAFwAEAAYAAAAFAAAAAgAAACsABAADAAAACAAAAAYAAAAcAAQABwAAAAYAAAAIAAAAIAAEAAsAAAABAAAAAwAAADsABAALAAAACgAAAAEAAAAgAAQADgAAAAMAAAAEAAAAOwAEAA4AAAANAAAAAwAAACEAAwAQAAAAAgAAACsABAAFAAAAEQAAAAAAgL8sAAUABgAAABIAAAARAAAAEQAAACsABAAFAAAAEwAAAAAAgD8sAAUABgAAABQAAAARAAAAEwAAACsABAAFAAAAFQAAAAAAAAAsAAUABgAAABYAAAAVAAAAEQAAACwABQAGAAAAFwAAABMAAAARAAAALAAFAAYAAAAYAAAAEwAAABMAAAAsAAkABwAAABkAAAASAAAAFAAAABYAAAAWAAAAFwAAABgAAAAgAAQAGwAAAAcAAAAHAAAAIAAEAB0AAAAHAAAABgAAADYABQACAAAADwAAAAAAAAAQAAAA+AACAAkAAAA7AAUAGwAAABoAAAAHAAAAGQAAAD0ABAADAAAADAAAAAoAAAD5AAIAHAAAAPgAAgAcAAAAQQAFAB0AAAAeAAAAGgAAAAwAAAA9AAQABgAAAB8AAAAeAAAAUAAGAAQAAAAgAAAAHwAAABUAAAATAAAAPgADAA0AAAAgAAAA/QABADgAAQA="), c => c.charCodeAt(0));
+        const FVS2 = 180, FPIPE2 = 181;
+        w.command(VX.SHADER_CREATE, [FVS2, FACES_VS.length], FACES_VS);
+        const replace_face = { fail: 0, pass: 2, depth_fail: 0, compare: 7, read_mask: 0xFF, write_mask: 0xFF, reference: 0 };
+        w.command(VX.PIPELINE_CREATE, [FPIPE2], json({ kind: "graphics",
+            stages: [{ shader: FVS2, stage: 1, entry: "main", constants: {} }, { shader: SFS, stage: 16, entry: "main", constants: {} }],
+            buffers: [], attributes: [], topology: 3, restart: false, cull: 0, front: 0, polygon: 0, depth_clamp: false, discard: false, depth_bias: null,
+            samples: 1, sample_mask: 0xFFFFFFFF, alpha_to_coverage: false,
+            depth: { test: false, write: false, compare: 7, stencil: true, front: replace_face, back: replace_face }, depth_format: 129,
+            targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [8],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 0, push_size: 0 }));
+        w.command(VX.BEGIN, []);
+        w.command(VX.BEGIN_PASS, [], json({ colors: [{ view: XRTV, load: 1, store: 0, clear: [0, 0, 0, 0], resolve: 0 }],
+            depth: { view: DSV, load: 1, clear_depth: 1, store: 0, stencil_load: 1, clear_stencil: 0, stencil_store: 0 }, width: 8, height: 8 }));
+        w.command(VX.BIND_PIPELINE, [FPIPE2]);
+        w.command(VX.SET_STENCIL_REFERENCE, [1, 0x11]);
+        w.command(VX.SET_STENCIL_REFERENCE, [2, 0x22]);
+        w.command(VX.DRAW, [6, 1, 0, 0]);
+        w.command(VX.END_PASS, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 0, 0, DS, 4, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        w.command(VX.END, []);
+        const sides = await read(B, 0, 64);
+        check([sides[8 * 4 + 1], sides[8 * 4 + 6]].sort().join() === "17,34", "stencil references of each face: " + sides[8 * 4 + 1] + " " + sides[8 * 4 + 6] +
+            " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // View swizzles (VkComponentMapping: ANGLE's GL_LUMINANCE and GL_ALPHA on
+        // R8, GL ES 3.0's texture swizzles; WebGPU's views have none): an R8
+        // texture (0x40, 0x80) as (r, r, r, 1) and (0, 0, 0, r), loaded by a
+        // compute shader from VX's swizzled copies; then the texture written
+        // again (0xC0 at texel 1), and the copy with it
+        const SWZ_SPV = Uint8Array.from(atob("AwIjBwAAAQAcAAAAMAAAAAAAAAARAAIAAQAAAAoACwBTUFZfS0hSX3N0b3JhZ2VfYnVmZmVyX3N0b3JhZ2VfY2xhc3MAAAAACwAGAAEAAABHTFNMLnN0ZC40NTAAAAAADgADAAAAAAABAAAADwAFAAUAAAAPAAAAbWFpbgAAAAAQAAYADwAAABEAAAABAAAAAQAAAAEAAABHAAQABQAAAAYAAAAEAAAASAAFAAYAAAAAAAAAIwAAAAAAAABHAAMABgAAAAIAAABHAAQACQAAACIAAAAAAAAARwAEAAkAAAAhAAAAAAAAAEcABAALAAAAIgAAAAAAAABHAAQACwAAACEAAAABAAAARwAEAAwAAAAiAAAAAAAAAEcABAAMAAAAIQAAAAIAAAATAAIAAgAAABYAAwADAAAAIAAAABkACQAEAAAAAwAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAB0AAwAFAAAAAwAAAB4AAwAGAAAABQAAABUABAAIAAAAIAAAAAEAAAAXAAQABwAAAAgAAAACAAAAIAAEAAoAAAAAAAAABAAAADsABAAKAAAACQAAAAAAAAA7AAQACgAAAAsAAAAAAAAAIAAEAA0AAAAMAAAABgAAADsABAANAAAADAAAAAwAAAAhAAMAEAAAAAIAAAArAAQACAAAABMAAAABAAAAKwAEAAgAAAAUAAAAAAAAACwABQAHAAAAFQAAABMAAAAUAAAALAAFAAcAAAAWAAAAFAAAABQAAAAXAAQAGAAAAAMAAAAEAAAAIAAEABsAAAAMAAAABQAAACAABAAcAAAADAAAAAMAAAAVAAQAHwAAACAAAAAAAAAAKwAEAB8AAAAeAAAAAAAAACsABAAfAAAAIgAAAAEAAAArAAQAHwAAACUAAAACAAAAKwAEAB8AAAAoAAAAAwAAACsABAAfAAAAKwAAAAQAAAArAAQAHwAAAC4AAAAFAAAANgAFAAIAAAAPAAAAAAAAABAAAAD4AAIADgAAAD0ABAAEAAAAEQAAAAkAAAA9AAQABAAAABIAAAALAAAA+QACABcAAAD4AAIAFwAAAF8ABwAYAAAAGQAAABEAAAAVAAAAAgAAABQAAABfAAcAGAAAABoAAAASAAAAFgAAAAIAAAAUAAAAUQAFAAMAAAAdAAAAGQAAAAAAAABBAAYAHAAAACAAAAAMAAAAHgAAAB4AAAA+AAMAIAAAAB0AAABRAAUAAwAAACEAAAAZAAAAAQAAAEEABgAcAAAAIwAAAAwAAAAeAAAAIgAAAD4AAwAjAAAAIQAAAFEABQADAAAAJAAAABkAAAACAAAAQQAGABwAAAAmAAAADAAAAB4AAAAlAAAAPgADACYAAAAkAAAAUQAFAAMAAAAnAAAAGQAAAAMAAABBAAYAHAAAACkAAAAMAAAAHgAAACgAAAA+AAMAKQAAACcAAABRAAUAAwAAACoAAAAaAAAAAAAAAEEABgAcAAAALAAAAAwAAAAeAAAAKwAAAD4AAwAsAAAAKgAAAFEABQADAAAALQAAABoAAAADAAAAQQAGABwAAAAvAAAADAAAAB4AAAAuAAAAPgADAC8AAAAtAAAA/QABADgAAQA="), c => c.charCodeAt(0));
+        const ZSH = 190, ZPIPE = 191, ZT = 192, ZLUM = 193, ZALPHA = 194, ZM = 195, ZOUT = 196;
+        w.command(VX.SHADER_CREATE, [ZSH, SWZ_SPV.length], SWZ_SPV);
+        w.command(VX.PIPELINE_CREATE, [ZPIPE], json({ kind: "compute", stages: [{ shader: ZSH, stage: 32, entry: "main", constants: {} }],
+            set_count: 1, push_size: 0 }));
+        w.command(VX.TEXTURE_CREATE, [ZT, 9, 1, 2, 1, 1, 1, 1, 1, 0x7, 0]);
+        w.command(VX.VIEW_CREATE, [ZLUM, ZT, 1, 9, 1, 0, 1, 0, 1, 3, 3, 3, 2]);
+        w.command(VX.VIEW_CREATE, [ZALPHA, ZT, 1, 9, 1, 0, 1, 0, 1, 1, 1, 1, 3]);
+        w.command(VX.MEMORY_CREATE, [ZM, 256, 0]);
+        w.command(VX.MEMORY_CREATE, [ZOUT, 256, 0]);
+        w.command(VX.MEMORY_WRITE, [ZM, 0, 0, 4], Uint8Array.from([0x40, 0x80, 0xC0, 0]));
+        const swizzled = [];
+        for(const from of [0, 1])
+        {
+            w.command(VX.BEGIN, []);
+            w.command(VX.COPY_BUFFER_IMAGE, [1, ZM, from, 0, 0, 0, ZT, 1, 0, 0, 1, 0, 0, 0, 2, 1, 1]);
+            w.command(VX.BIND_PIPELINE, [ZPIPE]);
+            w.command(VX.SET_BIND_GROUP, [1 << 16 | 0, 3, 0, 0, 2, ZLUM, 0, 0, 0, 0, 1, 0, 2, ZALPHA, 0, 0, 0, 0, 2, 0, 7, ZOUT, 0, 0, 0, 256]);
+            w.command(VX.DISPATCH, [1, 1, 1]);
+            w.command(VX.END, []);
+            swizzled.push(Array.from(new Float32Array((await read(ZOUT, 0, 24)).buffer), x => Math.round(x * 255)).join());
+        }
+        check(swizzled.join(" ") === "128,128,128,255,0,64 192,192,192,255,0,128", "view swizzles: " + swizzled.join(" ") +
+            " (" + renderer.vx.warnings.join("; ") + ")");
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

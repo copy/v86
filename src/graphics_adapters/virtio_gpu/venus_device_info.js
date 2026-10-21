@@ -378,9 +378,16 @@ const F = {
  * VkFormat: [WebGPU texture format or null, capabilities, WebGPU vertex
  * format or null, texel block bytes]. Capabilities: f filterable float,
  * x unfilterable float, i integer, r renderable, b blendable, m 4x
- * multisampled, s storage, d depth/stencil, c copies through buffers
+ * multisampled, s storage, d depth/stencil, c copies through buffers, p
+ * 16-bit packed texels stored as the texture format's (VX converts them in
+ * copies through buffers)
  */
 export const FORMATS = {
+    // (Vulkan's required color attachment formats, and GL ES 3.0's RGB565
+    // and RGB5_A1, which ANGLE gives no other format)
+    4: ["rgba8unorm", "frbmcp", null, 2],              // R5G6B5_UNORM_PACK16
+    6: ["rgba8unorm", "frbmcp", null, 2],              // R5G5B5A1_UNORM_PACK16
+    8: ["rgba8unorm", "frbmcp", null, 2],              // A1R5G5B5_UNORM_PACK16
     9: ["r8unorm", "frbmc", "unorm8", 1],              // R8_UNORM
     10: ["r8snorm", "fc", "snorm8", 1],                // R8_SNORM
     13: ["r8uint", "irmc", "uint8", 1],                // R8_UINT
