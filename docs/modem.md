@@ -18,7 +18,7 @@ Limitations:
 
 ### Web interface setup
 
-At **https://copy.sh/v86/**, enable the Modem by selecting a COM-Port (UART) from its menu (default: `None`).
+In the VM manager (`index.html`), attach a serial port to the modem in the machine's settings; on the debug page (`debug.html`), enable the Modem by selecting a COM-Port (UART) from its menu (default: `None`).
 
 ### Code-based setup
 

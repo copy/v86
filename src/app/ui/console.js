@@ -1,8 +1,8 @@
 // @ts-check
 // The console (docs/vm-manager-plan.md "控制台", U2 and U4): one virtual
 // machine in this tab, started from the library (?vm=<id>) or from an old
-// page's address (?profile=<id> and its query arguments, as the old page
-// starts it). The toolbar's menus (power, keys, removable devices, view,
+// page's address (?profile=custom with its images and query arguments, as
+// the old page starts it). The toolbar's menus (power, keys, removable devices, view,
 // input, sound, tools), the status bar (time, speed, disk, network, display,
 // mouse), the drawers (serial terminal, shared folder, details), the disk
 // error dialog, and the warning before closing a page with disks written back.
@@ -14,17 +14,14 @@ import { VMStore } from "../vm_store.js";
 import { read_state, delete_state, write_state, storage_space, state_estimate, machine_digest, hold_machine } from "../vm_state.js";
 import { config_to_options } from "../vm_config.js";
 import { combination_scancodes, COMBINATIONS } from "../keys.js";
-import { get_profiles, user_profile_base, user_profile } from "../../browser/profiles.js";
 import { DEFAULT_FORM, DEFAULT_GRAPHICS_ADAPTER, settings_to_options } from "../../browser/vm_options.js";
-import { bool_arg, image_host, start_settings } from "../../browser/query_compat.js";
+import { bool_arg, start_settings } from "../../browser/query_compat.js";
 import { DEBUG_PAGE, ON_LOCALHOST, page_env, load_graphics_proxy, create_emulator, query_append } from "../emulator_bridge.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
 
 /** The old page's profiles that start themselves after a key press (main.js's hack) */
-const PRESS_A_KEY = ["dsl", "helenos", "android", "android4", "redox", "beos", "9legacy"];
-
 /** RAM and video memory from which states are saved as V7 streams (the old page's STREAMED_STATE_MEMORY) */
 const STREAMED_STATE_MEMORY = 1024 * 1024 * 1024;
 
@@ -90,29 +87,20 @@ function console_layout()
 }
 
 /**
- * The start of an old page's address: its profile (one of src/browser/profiles.js,
- * a user image's, or custom with an image) and the settings the old page makes of it
+ * The start of an old page's address (?profile=custom with an image: hda.url,
+ * cdrom.url or fda.url) and the settings the old page makes of it
  * @param {URLSearchParams} query_args
  * @return {Promise<{error: string} | {profile: any, start: ReturnType<typeof start_settings>, graphics_proxy: boolean}>}
  */
 async function address_start(query_args)
 {
     const id = query_args.get("profile");
-    const host = image_host(query_args, ON_LOCALHOST);
-    let profile = get_profiles(host, ON_LOCALHOST).find(p => p.id === id) || null;
-    if(!profile)
+    // (the old page's list of systems with images on its host is not part of this page)
+    const profile = null;
+    if(!(id === "custom" && ["hda.url", "cdrom.url", "fda.url"].some(name => query_args.has(name))))
     {
-        const base = user_profile_base(id);
-        if(base)
-        {
-            const response = await fetch(base + "/profile.json").catch(() => null);
-            if(!response || !response.ok) return { error: "Profile not found: " + id };
-            profile = user_profile(base, await response.json());
-        }
-        else if(!(id === "custom" && ["hda.url", "cdrom.url", "fda.url"].some(name => query_args.has(name))))
-        {
-            return { error: id === "custom" ? "The address names no image (hda.url, cdrom.url or fda.url)." : "There is no system " + JSON.stringify(id) + "." };
-        }
+        return { error: id === "custom" ? "The address names no image (hda.url, cdrom.url or fda.url)." :
+            "There is no system " + JSON.stringify(id) + ": an address names its images, ?profile=custom&hda.url=… (or cdrom.url, fda.url)." };
     }
     // (the old page's form as it is before anyone changes it; on debug.html at localhost, its relay)
     const form = DEBUG_PAGE && ON_LOCALHOST ? Object.assign({}, DEFAULT_FORM, { relay_url: "ws://localhost:8080/" }) : DEFAULT_FORM;
@@ -473,11 +461,6 @@ function console_ui(layout, emulator, ctx)
     emulator.add_listener("emulator-ready", () =>
     {
         ctx.set_status("Running");
-        const profile = ctx.profile;
-        if(profile && PRESS_A_KEY.includes(profile.id))
-        {
-            setTimeout(() => emulator.keyboard_send_text(profile.id === "9legacy" ? "1\n" : "\n"), 3000);
-        }
         if(ctx.query_args?.has("c")) setTimeout(() => emulator.keyboard_send_text(ctx.query_args.get("c") + "\n"), 25);
         if(ctx.query_args?.has("s")) setTimeout(() => emulator.serial0_send(ctx.query_args.get("s") + "\n"), 25);
         if(ctx.query_args?.has("theatre") && bool_arg(ctx.query_args.get("theatre"))) set_theatre(true);

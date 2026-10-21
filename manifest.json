@@ -1,7 +1,7 @@
 {
     "name": "v86",
     "short_name": "v86",
-    "start_url": "/v86/",
+    "start_url": "./",
     "display": "standalone",
     "icons": [
         {

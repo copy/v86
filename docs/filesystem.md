@@ -26,7 +26,7 @@ argument makes this a read-write root filesystem.
 This is the standard way to setup the 9p filesystem. It loads files over
 HTTP on-demand into an in-memory filesystem in JS. This allows files to be
 exchanged with the guest OS. See `create_file` and `read_file` in
-[`starter.js`](https://github.com/copy/v86/blob/master/src/browser/starter.js).
+[`starter.js`](../src/browser/starter.js).
 
 This mode is enabled by passing the following options to `V86`:
 

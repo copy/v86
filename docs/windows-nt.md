@@ -139,7 +139,7 @@ After installation, change the computer type to "Standard PC" as described [here
 
 #### 4.1.2 Installing using v86
 
-1. Go to https://copy.sh/v86/ and set the following settings:
+1. Open the debug page (`debug.html`, which `make run` serves) and set the following settings:
 
 | Option          | Value/File                                              |
 |:----------------|:--------------------------------------------------------|

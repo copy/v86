@@ -82,16 +82,17 @@ first). Leaving a page with a disk written back asks first.
 
 ## Addresses
 
-`index.html?profile=<id>` (the systems of the old page's list) and the old
-page's query arguments (`?profile=custom&hda.url=…`, `m=`, `cpu_type=`, …)
-open a console directly, with the options the old page gave them. Such a
-session is not in the library.
+`index.html?profile=custom` with images (`hda.url=`, `cdrom.url=`,
+`fda.url=`) and the old page's other query arguments (`m=`, `cpu_type=`, …)
+opens a console directly, with the options the old page gave them. Such a
+session is not in the library. Any other `?profile=` names no system (this
+page has no list of systems with hosted images) and says so.
 
 ## Development
 
 - The page is ES modules in `src/app/`, outside the Closure build, driving
   only the public API of `build/libv86.mjs` (`v86.d.ts`); it shares
-  `src/browser/profiles.js`, `vm_options.js` and `query_compat.js` with the
+  `src/browser/vm_options.js` and `query_compat.js` with the
   debug page (`debug.html`, `src/browser/main.js`).
 - `make app` bundles it into `build/v86_app.js` (esbuild); `make app-check`
   type-checks it with tsc against `v86.d.ts`. Both tools are dev
@@ -111,11 +112,8 @@ makes a missing file a 404 (without it Cloudflare Pages answers any path with
 `index.html`, and a wrong image URL would become a disk of HTML). Any static
 host that sends those two headers can serve it.
 
-The systems of `?profile=` addresses take their images from `images/` on any
-host but copy.sh, and `images/` is not deployed (i.copy.sh does not serve other
-sites): there they fail with "could not be loaded (HTTP 404)" unless their
-images are deployed too, or `?cdn=<host>/` names a host that has them. The
-library does not need them.
+The site holds no disk images: the library's machines use the images their
+users give (a file, a URL, a browser disk, the disk service).
 
 [.github/workflows/pages.yml](../.github/workflows/pages.yml) deploys it to
 Cloudflare Pages, project `v64` (`https://v64-2ys.pages.dev`): a push to

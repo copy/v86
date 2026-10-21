@@ -3,8 +3,7 @@
 // "虚拟机配置格式", U1): the format and its version, the defaults, the
 // migration of older versions, the checks, the V86 options of a
 // configuration (config_to_options, with the old page's rules of
-// src/browser/vm_options.js) and the configuration of an old page's profile
-// (src/browser/profiles.js).
+// src/browser/vm_options.js).
 
 import { CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
@@ -506,65 +505,6 @@ export function check_config(config)
         }
     }
     return problems;
-}
-
-/**
- * An image of an old page's profile (its url, size, async, fixed_chunk_size, use_parts)
- * @param {*} image
- * @return {Image | null}
- */
-function profile_image(image)
-{
-    if(!image) return null;
-    /** @type {any} */
-    const result = { kind: "url", url: image.url };
-    for(const name of ["size", "async", "fixed_chunk_size", "use_parts"])
-    {
-        if(image[name] !== undefined) result[name] = image[name];
-    }
-    return result;
-}
-
-/**
- * The configuration of an old page's profile (src/browser/profiles.js), for
- * the console's "add to the library" (U4): the same machine, as the old page
- * starts it with the form's defaults (form: the page's own, DEFAULT_FORM by default)
- * @param {Object} profile
- * @param {Object} [form]
- * @return {VMConfig}
- */
-export function profile_to_config(profile, form = DEFAULT_FORM)
-{
-    /** @type {any} */
-    const p = profile;
-    const MB = 1024 * 1024;
-    const kernel = p.bzimage || p.initrd || p.multiboot || p.cmdline || p.bzimage_initrd_from_filesystem ? {
-        bzimage: profile_image(p.bzimage), initrd: profile_image(p.initrd), multiboot: profile_image(p.multiboot),
-        cmdline: p.cmdline ?? null, from_filesystem: !!p.bzimage_initrd_from_filesystem,
-    } : null;
-    const relay_url = form.relay_url;
-    const backend = !relay_url ? "none" : relay_url === "inbrowser" ? "inbrowser" : relay_url.startsWith("fetch") ? "fetch" :
-        /^wisps?:/.test(relay_url) ? "wisp" : "relay";
-    return new_config({
-        name: p.name,
-        notes: p.homepage ? p.homepage : "",
-        template: "profile:" + p.id,
-        machine: /** @type {any} */ ({ acpi: !!p.acpi, boot_order: p.boot_order || 0 }),
-        memory: { mb: p.memory_size ? p.memory_size / MB : DEFAULT_MEMORY_SIZE },
-        disks: /** @type {any} */ ([["hda", p.hda], ["hdb", p.hdb]].filter(([, image]) => image).map(([slot, image]) => ({ slot, image: profile_image(image) }))),
-        cdrom: /** @type {any} */ ({ image: profile_image(p.cdrom) }),
-        floppies: /** @type {any} */ ([["fda", p.fda], ["fdb", p.fdb]].filter(([, image]) => image).map(([slot, image]) => ({ slot, image: profile_image(image) }))),
-        kernel,
-        display: /** @type {any} */ ({ adapter: p.graphics_adapter || DEFAULT_FORM.graphics_adapter,
-            vram_mb: p.vram_size ? p.vram_size / MB : p.state ? null : DEFAULT_VGA_MEMORY_SIZE }),
-        network: [{ device: p.net_device_type || DEFAULT_FORM.net_device_type, backend, relay_url: backend === "fetch" ? relay_url.slice(6) :
-            backend === "relay" || backend === "wisp" ? relay_url : "", mtu: DEFAULT_MTU, mac_address_translation: !!p.mac_address_translation }],
-        serial: /** @type {any} */ (p.modem ? (p.modem.uart === 0 ? [] : [{ port: 0, attach: "terminal" }]).concat([{ port: p.modem.uart, attach: "modem" }]) :
-            [{ port: 0, attach: "terminal" }]),
-        filesystem: p.filesystem || null,
-        initial_state: profile_image(p.state),
-        advanced: /** @type {any} */ ({ cpuid_level: p.cpuid_level ?? null, mouse_disabled: !!p.mouse_disabled_default }),
-    });
 }
 
 /**

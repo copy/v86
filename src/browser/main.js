@@ -4,12 +4,12 @@ import { SyncBuffer, SyncFileBuffer } from "../buffer.js";
 import { h, pad0, pads, hex_dump, dump_file, download } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
 import * as iso9660 from "../iso9660.js";
-import { get_profiles, user_profile_base, user_profile } from "./profiles.js";
 import { DEFAULT_CPU_CORES, DEFAULT_GRAPHICS_ADAPTER, MAX_ARRAY_BUFFER_SIZE_MB, settings_to_options } from "./vm_options.js";
-import { bool_arg, cpu_type_arg, machine_type_arg, image_host, start_settings, format_query_args } from "./query_compat.js";
+import { bool_arg, cpu_type_arg, machine_type_arg, start_settings, format_query_args } from "./query_compat.js";
 
 
-const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
+// (served from this computer: the local network relay)
+const ON_LOCALHOST = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 
 function query_append()
 {
@@ -203,9 +203,8 @@ function onload()
 
     const query_args = new URLSearchParams(location.search);
     if(query_args.has("graphics_proxy")) $("graphics_proxy").checked = bool_arg(query_args.get("graphics_proxy"));
-    const host = image_host(query_args, ON_LOCALHOST);
-
-    const oses = get_profiles(host, ON_LOCALHOST);
+    // (the systems this page starts by ?profile=<id>: in DEBUG, the kvm-unit-tests)
+    const oses = [];
 
     if(DEBUG)
     {
@@ -291,19 +290,6 @@ function onload()
             start_emulation(null, query_args);
             return;
         }
-    }
-    else if(user_profile_base(profile))
-    {
-        // experimental: server that allows user-uploaded images
-
-        const base = /** @type {string} */ (user_profile_base(profile));
-
-        fetch(base + "/profile.json")
-            .catch(e => alert("Profile not found: " + profile))
-            .then(response => response.json())
-            .then(p => {
-                start_emulation(user_profile(base, p), query_args);
-            });
     }
 
     if(query_args.has("m")) $("memory_size").value = query_args.get("m");
@@ -818,14 +804,6 @@ async function start_emulation(profile, query_args)
 
                     CLEAR_STATS && emulator.v86.cpu.clear_stats();
                 }, CLEAR_STATS ? 5000 : 1000);
-        }
-
-        if(["dsl", "helenos", "android", "android4", "redox", "beos", "9legacy"].includes(profile?.id))
-        {
-            setTimeout(() => {
-                // hack: Start automatically
-                emulator.keyboard_send_text(profile.id === "9legacy" ? "1\n" : "\n");
-            }, 3000);
         }
 
         init_ui(profile, settings, emulator);

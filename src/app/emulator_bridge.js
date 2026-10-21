@@ -9,8 +9,8 @@ import { V86 } from "v86";
 /** app_debug.html: the library's debug build and the firmware's (its <html data-debug>) */
 export const DEBUG_PAGE = document.documentElement.hasAttribute("data-debug");
 
-/** The page is not copy.sh's: the images in images/, KolibriOS from its own builds there */
-export const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
+/** The page is served from this computer (on debug pages: the local network relay) */
+export const ON_LOCALHOST = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 
 /**
  * The files' version (?<commit>, for the browser's cache): the page's #version

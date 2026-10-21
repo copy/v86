@@ -425,8 +425,8 @@ update_version:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\
 	DATE=`git log --date="format:%b %e, %Y %H:%m" --format="%cd" -n 1` ;\
-	SEARCH='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
-	REPLACE='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
+	SEARCH='<code>Version: <a id="version" href="https://github.com/speedyHKjournalist/v64/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
+	REPLACE='<code>Version: <a id="version" href="https://github.com/speedyHKjournalist/v64/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
 	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
 	sed -i "s@\(build/v86_app.js\|build/libv86.mjs\|src/app/app.css\)?[a-f0-9]\+@\1?$$COMMIT@g" index.html ;\
 	grep $$COMMIT index.html
@@ -692,7 +692,7 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # outside Closure, bundled by esbuild into build/v86_app.js (build/libv86.mjs
 # stays its own file: index.html's import map names it "v86"), checked by tsc
 # against v86.d.ts. The tools are package.json's devDependencies (npm ci).
-APP_FILES=$(shell find src/app -name '*.js') src/browser/profiles.js src/browser/vm_options.js src/browser/query_compat.js \
+APP_FILES=$(shell find src/app -name '*.js') src/browser/vm_options.js src/browser/query_compat.js \
 	src/machine_options.js src/disk_options.js
 node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
 	npm ci
@@ -710,7 +710,7 @@ app-check: node_modules/.bin/tsc
 	node_modules/.bin/tsc -p tsconfig.json
 
 # the VM manager plan (docs/vm-manager-plan.md), U0: the shared modules
-# (src/browser/profiles.js, vm_options.js, query_compat.js) give the options
+# (src/browser/vm_options.js, query_compat.js) give the options
 # the pages give (index.html's addresses, debug.html's addresses and form),
 # made by Node from the modules as by the pages
 # U1: the configurations (src/app/vm_config.js) and the library (vm_store.js);
@@ -802,7 +802,7 @@ update-package-json-version:
 doc:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\
-	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/copy/v86/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
+	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/speedyHKjournalist/v64/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
 
 denodoc:
 	deno doc --html --name="v86 API" --output=./docs/api ./v86.d.ts
