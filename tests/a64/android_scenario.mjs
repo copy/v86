@@ -190,6 +190,9 @@ export async function a9_scenario(env)
     // pictures of the list and of the desktop (the one above can be the
     // FallbackHome's, Launcher3's first frame still to come)
     result.gles = (await adb("dumpsys -t 300 SurfaceFlinger 2>&1 | grep -m1 '^GLES'")).trim();
+    // (the OpenGL ES version apps are told: the bootconfig's, 3.0 on Venus, 3.1 on SwiftShader)
+    result.opengles = +(await adb("getprop ro.opengles.version")).trim();
+    log("ro.opengles.version: " + result.opengles + " (" + (result.opengles >> 16) + "." + (result.opengles & 0xFFFF) + ")");
     const frames = async cycles => {
         await adb("dumpsys gfxinfo com.android.launcher3 reset >/dev/null 2>&1");
         for(let i = 0; i < cycles; i++)
@@ -375,7 +378,8 @@ export async function a10_scenario(env)
     await sleep(10000);
     result.pids = await core_pids();
     result.screenshots.desktop = await env.screenshot("desktop");
-    log("desktop: drawn; " + JSON.stringify(result.pids));
+    result.opengles = +(await adb("getprop ro.opengles.version")).trim();
+    log("desktop: drawn; " + JSON.stringify(result.pids) + "; ro.opengles.version " + result.opengles);
 
     // a snapshot of the desktop: saved (the first run ends there), or restored and going on.
     // (saved when Launcher3 is quiet, its frame count the same for a minute:

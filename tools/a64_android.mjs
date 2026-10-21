@@ -24,9 +24,10 @@
 //   androidboot.hardware.hwcomposer.mode=client (as Cuttlefish's drm_virgl:
 //   SurfaceFlinger composes on the GPU, the ranchu HWC only scans out; it
 //   takes a Vulkan other than "pastel" for gfxstream's host composition),
-//   and androidboot.opengles.version=131072: ANGLE on Venus gives OpenGL ES
-//   2.0 (WebGPU's 12 uniform buffers a stage are fewer than ES 3's blocks
-//   and ANGLE's own; no transform feedback), so apps are not told 3.1.
+//   and androidboot.opengles.version=196608: ANGLE on Venus gives OpenGL ES
+//   3.0 (the plan's appendix F2 and docs/gpu-deviations.md's G-45 to G-57:
+//   transform feedback, uniform buffers past WebGPU's 12, GL's provoking
+//   vertex, std140, swizzles and the rest), not SwiftShader's 3.1.
 //   libvulkan tries the Vulkan APEX's namespace first (ro.vulkan.apex, set by
 //   the APEX), which has SwiftShader's vulkan.pastel.so but no vulkan.virtio.so,
 //   then its built-in path, the sphal namespace, whose search path starts
@@ -116,7 +117,7 @@ const BOOT_DEVICES = "4010000000.pcie";
 /** the guest's Venus driver (tools/a64_venus/build.mjs), and what initrd-venus.img's bootconfig changes */
 const VENUS_DRIVER = ROOT + "build/a64-android/venus/vulkan.virtio.so";
 const VENUS_BOOTCONFIG = { "androidboot.hardware.vulkan": "virtio", "androidboot.hardware.hwcomposer.mode": "client",
-    "androidboot.opengles.version": "131072" };
+    "androidboot.opengles.version": "196608" };
 
 function parse_args(argv)
 {
