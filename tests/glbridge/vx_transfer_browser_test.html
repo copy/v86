@@ -423,6 +423,157 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         const blocks = Array.from(new Float32Array((await read(BOUT, 0, 12)).buffer));
         check(blocks.join() === "1,3,2", "a descriptor array of uniform blocks: " + blocks.join() + " (" + renderer.vx.warnings.join("; ") + ")");
 
+        // An integer cube (usamplerCube, R32_UINT 2x2 faces, texel 100 face +
+        // 10 y + x) and an array of two integer 2D samplers (200 and 300 +
+        // 10 y + x): WGSL samples neither, so vx/naga loads from the cube's
+        // faces as a 2D array (cubes.rs) and from each element's own binding
+        // (blockarrays.rs). The SPIR-V (by hand) samples the cube at
+        // (-1, 0.1, 0.2) (face -x, texel (1, 0)) and (0.3, -0.5, -1) (face -z,
+        // texel (0, 1)), s[1] at (0.75, 0.25) and s[0] at (0.25, 0.75)
+        const CUBE_SPV = Uint8Array.from(atob("AwIjBwADAQAAAAAAPAAAAAAAAAARAAIAAQAAAA4AAwAAAAAAAQAAAA8ABQAFAAAAAQAAAG1haW4AAAAAEAAGAAEAAAARAAAAAQAAAAEAAAABAAAARwAEAAIAAAAiAAAAAAAAAEcABAACAAAAIQAAAAAAAABHAAQAAwAAACIAAAAAAAAARwAEAAMAAAAhAAAAAQAAAEcAAwAEAAAAAgAAAEgABQAEAAAAAAAAACMAAAAAAAAARwAEAAUAAAAGAAAABAAAAEcABAAGAAAAIgAAAAAAAABHAAQABgAAACEAAAACAAAAEwACAAcAAAAhAAMACAAAAAcAAAAWAAMACQAAACAAAAAVAAQACgAAACAAAAABAAAAFQAEAAsAAAAgAAAAAAAAABcABAAMAAAACQAAAAIAAAAXAAQADQAAAAkAAAADAAAAFwAEAA4AAAALAAAABAAAACsABAAKAAAADwAAAAAAAAArAAQACgAAABAAAAABAAAAKwAEAAoAAAARAAAAAgAAACsABAAKAAAAEgAAAAMAAAArAAQACQAAABMAAAAAAAAAKwAEAAkAAAAUAAAAAACAvysABAAJAAAAFQAAAM3MzD0rAAQACQAAABYAAADNzEw+KwAEAAkAAAAXAAAAmpmZPisABAAJAAAAGAAAAAAAAL8rAAQACQAAABkAAAAAAEA/KwAEAAkAAAAaAAAAAACAPiwABgANAAAAGwAAABQAAAAVAAAAFgAAACwABgANAAAAHAAAABcAAAAYAAAAFAAAACwABQAMAAAAHQAAABkAAAAaAAAALAAFAAwAAAAeAAAAGgAAABkAAAAZAAkAHwAAAAsAAAADAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAbAAMAIAAAAB8AAAAgAAQAIQAAAAAAAAAgAAAAOwAEACEAAAACAAAAAAAAABkACQAiAAAACwAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAABsAAwAjAAAAIgAAABwABAAkAAAAIwAAABEAAAAgAAQAJQAAAAAAAAAkAAAAOwAEACUAAAADAAAAAAAAACAABAAmAAAAAAAAACMAAAAdAAMABQAAAAsAAAAeAAMABAAAAAUAAAAgAAQAJwAAAAwAAAAEAAAAOwAEACcAAAAGAAAADAAAACAABAAoAAAADAAAAAsAAAA2AAUABwAAAAEAAAAAAAAACAAAAPgAAgApAAAAPQAEACAAAAAqAAAAAgAAAFgABwAOAAAAKwAAACoAAAAbAAAAAgAAABMAAABRAAUACwAAACwAAAArAAAAAAAAAEEABgAoAAAALQAAAAYAAAAPAAAADwAAAD4AAwAtAAAALAAAAD0ABAAgAAAALgAAAAIAAABYAAcADgAAAC8AAAAuAAAAHAAAAAIAAAATAAAAUQAFAAsAAAAwAAAALwAAAAAAAABBAAYAKAAAADEAAAAGAAAADwAAABAAAAA+AAMAMQAAADAAAABBAAUAJgAAADIAAAADAAAAEAAAAD0ABAAjAAAAMwAAADIAAABYAAcADgAAADQAAAAzAAAAHQAAAAIAAAATAAAAUQAFAAsAAAA1AAAANAAAAAAAAABBAAYAKAAAADYAAAAGAAAADwAAABEAAAA+AAMANgAAADUAAABBAAUAJgAAADcAAAADAAAADwAAAD0ABAAjAAAAOAAAADcAAABYAAcADgAAADkAAAA4AAAAHgAAAAIAAAATAAAAUQAFAAsAAAA6AAAAOQAAAAAAAABBAAYAKAAAADsAAAAGAAAADwAAABIAAAA+AAMAOwAAADoAAAD9AAEAOAABAA=="), c => c.charCodeAt(0));
+        const CSH = 100, CPIPE = 101, CUBE = 102, CUBEV = 103, S0 = 104, S0V = 105, S1 = 106, S1V = 107, SMP = 108, CM = 109, COUT = 110;
+        w.command(VX.SHADER_CREATE, [CSH, CUBE_SPV.length], CUBE_SPV);
+        w.command(VX.PIPELINE_CREATE, [CPIPE], json({ kind: "compute", stages: [{ shader: CSH, stage: 32, entry: "main", constants: {} }],
+            set_count: 1, push_size: 0 }));
+        w.command(VX.TEXTURE_CREATE, [CUBE, 98, 1, 2, 2, 1, 1, 6, 1, 0x7, 0x10]);
+        w.command(VX.VIEW_CREATE, [CUBEV, CUBE, 3, 98, 1, 0, 1, 0, 6, 0, 0, 0, 0]);
+        w.command(VX.TEXTURE_CREATE, [S0, 98, 1, 2, 2, 1, 1, 1, 1, 0x7, 0]);
+        w.command(VX.VIEW_CREATE, [S0V, S0, 1, 98, 1, 0, 1, 0, 1, 0, 0, 0, 0]);
+        w.command(VX.TEXTURE_CREATE, [S1, 98, 1, 2, 2, 1, 1, 1, 1, 0x7, 0]);
+        w.command(VX.VIEW_CREATE, [S1V, S1, 1, 98, 1, 0, 1, 0, 1, 0, 0, 0, 0]);
+        w.command(VX.SAMPLER_CREATE, [SMP, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0]);
+        w.command(VX.MEMORY_CREATE, [CM, 256, 0]);
+        w.command(VX.MEMORY_CREATE, [COUT, 256, 0]);
+        const texels = base => Array.from({ length: 4 }, (_, i) => base + 10 * (i >> 1) + (i & 1));
+        const cube_texels = Uint32Array.from([0, 1, 2, 3, 4, 5].flatMap(face => texels(100 * face)));
+        w.command(VX.MEMORY_WRITE, [CM, 0, 0, 96], new Uint8Array(cube_texels.buffer));
+        w.command(VX.MEMORY_WRITE, [CM, 128, 0, 32], new Uint8Array(Uint32Array.from([...texels(200), ...texels(300)]).buffer));
+        w.command(VX.BEGIN, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, CM, 0, 0, 0, 0, CUBE, 1, 0, 0, 6, 0, 0, 0, 2, 2, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, CM, 128, 0, 0, 0, S0, 1, 0, 0, 1, 0, 0, 0, 2, 2, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, CM, 144, 0, 0, 0, S1, 1, 0, 0, 1, 0, 0, 0, 2, 2, 1]);
+        w.command(VX.BIND_PIPELINE, [CPIPE]);
+        w.command(VX.SET_BIND_GROUP, [1 << 16 | 0, 4, 0, 0, 1, CUBEV, SMP, 0, 0, 0, 1, 0, 1, S0V, SMP, 0, 0, 0, 1, 1, 1, S1V, SMP, 0, 0, 0,
+            2, 0, 7, COUT, 0, 0, 0, 256]);
+        w.command(VX.DISPATCH, [1, 1, 1]);
+        w.command(VX.END, []);
+        const fetched = Array.from(new Uint32Array((await read(COUT, 0, 16)).buffer));
+        check(fetched.join() === "101,510,301,210", "an integer cube and an array of integer samplers: " + fetched.join() + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // Vertex input WebGPU cannot take (ANGLE's: an attribute a binding, 10
+        // of them): the positions R16G16_SNORM 6 bytes apart, bound at offset 2,
+        // the others constants (stride 0); VX repacks them into its own buffers
+        // at the draw (VX.packVertices). The SPIR-V (naga, from WGSL) colors
+        // with (a1 + a2, a8, a9, 1) = (0.5, 0.75, 1, 1); drawn, then drawn indexed
+        const VIN_VS = Uint8Array.from(atob("AwIjBwAAAQAcAAAAIgAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ADAAAAAAAFwAAAG1haW4AAAAACAAAAAsAAAAOAAAAEAAAABIAAAAUAAAAFgAAAEgABQAFAAAAAAAAACMAAAAAAAAASAAFAAUAAAABAAAAIwAAABAAAABHAAQACAAAAB4AAAAAAAAARwAEAAsAAAAeAAAAAQAAAEcABAAOAAAAHgAAAAIAAABHAAQAEAAAAB4AAAAIAAAARwAEABIAAAAeAAAACQAAAEcABAAUAAAACwAAAAAAAABHAAQAFgAAAB4AAAAAAAAAEwACAAIAAAAWAAMAAwAAACAAAAAXAAQABAAAAAMAAAAEAAAAHgAEAAUAAAAEAAAABAAAABcABAAGAAAAAwAAAAIAAAAgAAQACQAAAAEAAAAGAAAAOwAEAAkAAAAIAAAAAQAAACAABAAMAAAAAQAAAAMAAAA7AAQADAAAAAsAAAABAAAAOwAEAAwAAAAOAAAAAQAAADsABAAMAAAAEAAAAAEAAAA7AAQADAAAABIAAAABAAAAIAAEABUAAAADAAAABAAAADsABAAVAAAAFAAAAAMAAAA7AAQAFQAAABYAAAADAAAAIQADABgAAAACAAAAKwAEAAMAAAAZAAAAAAAAACsABAADAAAAGgAAAAAAgD82AAUAAgAAABcAAAAAAAAAGAAAAPgAAgAHAAAAPQAEAAYAAAAKAAAACAAAAD0ABAADAAAADQAAAAsAAAA9AAQAAwAAAA8AAAAOAAAAPQAEAAMAAAARAAAAEAAAAD0ABAADAAAAEwAAABIAAAD5AAIAGwAAAPgAAgAbAAAAUAAGAAQAAAAcAAAACgAAABkAAAAaAAAAgQAFAAMAAAAdAAAADQAAAA8AAABQAAcABAAAAB4AAAAdAAAAEQAAABMAAAAaAAAAUAAFAAUAAAAfAAAAHAAAAB4AAABRAAUABAAAACAAAAAfAAAAAAAAAD4AAwAUAAAAIAAAAFEABQAEAAAAIQAAAB8AAAABAAAAPgADABYAAAAhAAAA/QABADgAAQA="), c => c.charCodeAt(0));
+        const VIN_FS = Uint8Array.from(atob("AwIjBwAAAQAcAAAADgAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ABwAEAAAACwAAAG1haW4AAAAABgAAAAkAAAAQAAMACwAAAAcAAABHAAQABgAAAB4AAAAAAAAARwAEAAkAAAAeAAAAAAAAABMAAgACAAAAFgADAAQAAAAgAAAAFwAEAAMAAAAEAAAABAAAACAABAAHAAAAAQAAAAMAAAA7AAQABwAAAAYAAAABAAAAIAAEAAoAAAADAAAAAwAAADsABAAKAAAACQAAAAMAAAAhAAMADAAAAAIAAAA2AAUAAgAAAAsAAAAAAAAADAAAAPgAAgAFAAAAPQAEAAMAAAAIAAAABgAAAPkAAgANAAAA+AACAA0AAAA+AAMACQAAAAgAAAD9AAEAOAABAA=="), c => c.charCodeAt(0));
+        const VVS = 120, VFS = 121, VPIPE = 122, VM = 123;
+        w.command(VX.SHADER_CREATE, [VVS, VIN_VS.length], VIN_VS);
+        w.command(VX.SHADER_CREATE, [VFS, VIN_FS.length], VIN_FS);
+        w.command(VX.PIPELINE_CREATE, [VPIPE], json({ kind: "graphics",
+            stages: [{ shader: VVS, stage: 1, entry: "main", constants: {} }, { shader: VFS, stage: 16, entry: "main", constants: {} }],
+            buffers: Array.from({ length: 10 }, (_, k) => ({ binding: k, stride: k ? 0 : 6, rate: 0 })),
+            attributes: Array.from({ length: 10 }, (_, k) => ({ location: k, binding: k, format: k ? 100 : 78, offset: 0 })),
+            topology: 4, restart: false, cull: 0, front: 0, polygon: 0, depth_clamp: false, discard: false, depth_bias: null,
+            samples: 1, sample_mask: 0xFFFFFFFF, alpha_to_coverage: false, depth: null, depth_format: 0,
+            targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 0, push_size: 0 }));
+        w.command(VX.MEMORY_CREATE, [VM, 256, 0]);
+        const corners = new Int16Array(12);
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, y], i) => { corners[3 * i] = x * 32767; corners[3 * i + 1] = y * 32767; });
+        w.command(VX.MEMORY_WRITE, [VM, 0, 0, 28], Uint8Array.from([0, 0, ...new Uint8Array(corners.buffer), 0, 0]));
+        w.command(VX.MEMORY_WRITE, [VM, 64, 0, 40], new Uint8Array(Float32Array.from([0, 0.25, 0.25, 0, 0, 0, 0, 0, 0.75, 1]).buffer));
+        const vin_draw = indexed => {
+            w.command(VX.BEGIN_PASS, [], json({ colors: [{ view: XRTV, load: 1, store: 0, clear: [0, 0, 0, 0], resolve: 0 }], depth: null, width: 8, height: 8 }));
+            w.command(VX.BIND_PIPELINE, [VPIPE]);
+            w.command(VX.SET_VERTEX_BUFFER, [0, VM, 2, 0, 24, 0]);
+            for(let k = 1; k < 10; k++) w.command(VX.SET_VERTEX_BUFFER, [k, VM, 64 + 4 * k, 0, 4, 0]);
+            if(indexed)
+            {
+                w.command(VX.SET_INDEX_BUFFER, [IB, 0, 0, 8, 0, 0]);
+                w.command(VX.DRAW_INDEXED, [4, 1, 0, 0, 0]);
+            }
+            else w.command(VX.DRAW, [4, 1, 0, 0]);
+            w.command(VX.END_PASS, []);
+            w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 64, 0, XRT, 1, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        };
+        const vin = [];
+        for(const indexed of [false, true])
+        {
+            w.command(VX.BEGIN, []);
+            vin_draw(indexed);
+            w.command(VX.END, []);
+            bytes = await read(B, 0, 2048);
+            vin.push(pixel(0, 0), pixel(7, 7));
+        }
+        check(vin.every(v => v === "128,191,255,255"), "vertex input of 10 bindings, a stride of 6, an offset of 2: " + vin.join(" ") +
+            " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // A uniform buffer bound smaller than its block (GL's std140 size without
+        // the padding at its end: 20 bytes of a 32-byte struct { vec4 a; float b; }):
+        // WebGPU wants the whole block, so VX binds the memory after it too
+        const SHORT_SPV = Uint8Array.from(atob("AwIjBwAAAQAcAAAAIAAAAAAAAAARAAIAAQAAAAoACwBTUFZfS0hSX3N0b3JhZ2VfYnVmZmVyX3N0b3JhZ2VfY2xhc3MAAAAACwAGAAEAAABHTFNMLnN0ZC40NTAAAAAADgADAAAAAAABAAAADwAFAAUAAAAOAAAAbWFpbgAAAAAQAAYADgAAABEAAAABAAAAAQAAAAEAAABIAAUABQAAAAAAAAAjAAAAAAAAAEgABQAFAAAAAQAAACMAAAAQAAAARwAEAAYAAAAGAAAABAAAAEgABQAHAAAAAAAAACMAAAAAAAAARwADAAcAAAACAAAARwAEAAgAAAAiAAAAAAAAAEcABAAIAAAAIQAAAAAAAABHAAMACQAAAAIAAABIAAUACQAAAAAAAAAjAAAAAAAAAEcABAALAAAAIgAAAAAAAABHAAQACwAAACEAAAABAAAAEwACAAIAAAAWAAMAAwAAACAAAAAXAAQABAAAAAMAAAAEAAAAHgAEAAUAAAAEAAAAAwAAAB0AAwAGAAAAAwAAAB4AAwAHAAAABgAAAB4AAwAJAAAABQAAACAABAAKAAAAAgAAAAkAAAA7AAQACgAAAAgAAAACAAAAIAAEAAwAAAAMAAAABwAAADsABAAMAAAACwAAAAwAAAAhAAMADwAAAAIAAAAgAAQAEAAAAAIAAAAFAAAAFQAEABIAAAAgAAAAAAAAACsABAASAAAAEQAAAAAAAAAgAAQAFQAAAAwAAAAGAAAAIAAEABYAAAAMAAAAAwAAACAABAAXAAAAAgAAAAMAAAArAAQAEgAAABgAAAABAAAAIAAEABsAAAACAAAABAAAADYABQACAAAADgAAAAAAAAAPAAAA+AACAA0AAABBAAUAEAAAABMAAAAIAAAAEQAAAPkAAgAUAAAA+AACABQAAABBAAUAFwAAABkAAAATAAAAGAAAAD0ABAADAAAAGgAAABkAAABBAAYAFwAAABwAAAATAAAAEQAAABgAAAA9AAQAAwAAAB0AAAAcAAAAgQAFAAMAAAAeAAAAGgAAAB0AAABBAAYAFgAAAB8AAAALAAAAEQAAABEAAAA+AAMAHwAAAB4AAAD9AAEAOAABAA=="), c => c.charCodeAt(0));
+        const USH = 130, UPIPE = 131, UM = 132, UOUT = 133;
+        w.command(VX.SHADER_CREATE, [USH, SHORT_SPV.length], SHORT_SPV);
+        w.command(VX.PIPELINE_CREATE, [UPIPE], json({ kind: "compute", stages: [{ shader: USH, stage: 32, entry: "main", constants: {} }],
+            set_count: 1, push_size: 0 }));
+        w.command(VX.MEMORY_CREATE, [UM, 256, 0]);
+        w.command(VX.MEMORY_CREATE, [UOUT, 256, 0]);
+        w.command(VX.MEMORY_WRITE, [UM, 0, 0, 20], new Uint8Array(Float32Array.from([0, 2, 0, 0, 5]).buffer));
+        w.command(VX.BEGIN, []);
+        w.command(VX.BIND_PIPELINE, [UPIPE]);
+        w.command(VX.SET_BIND_GROUP, [1 << 16 | 0, 2, 0, 0, 6, UM, 0, 0, 0, 20, 1, 0, 7, UOUT, 0, 0, 0, 256]);
+        w.command(VX.DISPATCH, [1, 1, 1]);
+        w.command(VX.END, []);
+        const short = new Float32Array((await read(UOUT, 0, 4)).buffer)[0];
+        check(short === 7, "a uniform buffer bound smaller than its block: " + short + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // GL's provoking vertex (VK_EXT_provoking_vertex's last): a strip of 4
+        // vertices with a flat color (red 0.25 per vertex index), drawn as it is
+        // and indexed; each of its triangles has its last vertex's color (2's
+        // and 3's: 128 and 191; WebGPU's first would give 0 and 64). The SPIR-V
+        // is naga's, from WGSL
+        const FLAT_VS = Uint8Array.from(atob("AwIjBwAAAQAcAAAAJgAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ACAAAAAAADwAAAG1haW4AAAAACQAAAAwAAAAOAAAASAAFAAUAAAAAAAAAIwAAAAAAAABIAAUABQAAAAEAAAAjAAAAEAAAAEcABAAJAAAACwAAACoAAABHAAQADAAAAAsAAAAAAAAARwAEAA4AAAAeAAAAAAAAAEcAAwAOAAAADgAAABMAAgACAAAAFgADAAQAAAAgAAAAFwAEAAMAAAAEAAAABAAAAB4ABAAFAAAAAwAAAAMAAAAVAAQABgAAACAAAAAAAAAAFwAEAAcAAAAEAAAAAgAAACAABAAKAAAAAQAAAAYAAAA7AAQACgAAAAkAAAABAAAAIAAEAA0AAAADAAAAAwAAADsABAANAAAADAAAAAMAAAA7AAQADQAAAA4AAAADAAAAIQADABAAAAACAAAAKwAEAAYAAAARAAAAAQAAACsABAAEAAAAEgAAAAAAAEArAAQABAAAABMAAAAAAIA/LAAFAAcAAAAUAAAAEwAAABMAAAArAAQABAAAABUAAAAAAAAAKwAEAAQAAAAWAAAAAACAPjYABQACAAAADwAAAAAAAAAQAAAA+AACAAgAAAA9AAQABgAAAAsAAAAJAAAA+QACABcAAAD4AAIAFwAAAMcABQAGAAAAGAAAAAsAAAARAAAAcAAEAAQAAAAZAAAAGAAAAMIABQAGAAAAGgAAAAsAAAARAAAAcAAEAAQAAAAbAAAAGgAAAFAABQAHAAAAHAAAABkAAAAbAAAAjgAFAAcAAAAdAAAAHAAAABIAAACDAAUABwAAAB4AAAAdAAAAFAAAAFAABgADAAAAHwAAAB4AAAAVAAAAEwAAAHAABAAEAAAAIAAAAAsAAACFAAUABAAAACEAAAAgAAAAFgAAAFAABwADAAAAIgAAACEAAAAVAAAAFQAAABMAAABQAAUABQAAACMAAAAfAAAAIgAAAFEABQADAAAAJAAAACMAAAAAAAAAPgADAAwAAAAkAAAAUQAFAAMAAAAlAAAAIwAAAAEAAAA+AAMADgAAACUAAAD9AAEAOAABAA=="), c => c.charCodeAt(0));
+        const FLAT_FS = Uint8Array.from(atob("AwIjBwAAAQAcAAAADgAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ABwAEAAAACwAAAG1haW4AAAAABgAAAAkAAAAQAAMACwAAAAcAAABHAAQABgAAAB4AAAAAAAAARwADAAYAAAAOAAAARwAEAAkAAAAeAAAAAAAAABMAAgACAAAAFgADAAQAAAAgAAAAFwAEAAMAAAAEAAAABAAAACAABAAHAAAAAQAAAAMAAAA7AAQABwAAAAYAAAABAAAAIAAEAAoAAAADAAAAAwAAADsABAAKAAAACQAAAAMAAAAhAAMADAAAAAIAAAA2AAUAAgAAAAsAAAAAAAAADAAAAPgAAgAFAAAAPQAEAAMAAAAIAAAABgAAAPkAAgANAAAA+AACAA0AAAA+AAMACQAAAAgAAAD9AAEAOAABAA=="), c => c.charCodeAt(0));
+        const PVS = 140, PFS = 141, PPIPE = 142;
+        w.command(VX.SHADER_CREATE, [PVS, FLAT_VS.length], FLAT_VS);
+        w.command(VX.SHADER_CREATE, [PFS, FLAT_FS.length], FLAT_FS);
+        w.command(VX.PIPELINE_CREATE, [PPIPE], json({ kind: "graphics",
+            stages: [{ shader: PVS, stage: 1, entry: "main", constants: {} }, { shader: PFS, stage: 16, entry: "main", constants: {} }],
+            buffers: [], attributes: [], topology: 4, restart: false, cull: 0, front: 0, polygon: 0, depth_clamp: false, provoking_last: true,
+            discard: false, depth_bias: null, samples: 1, sample_mask: 0xFFFFFFFF, alpha_to_coverage: false, depth: null, depth_format: 0,
+            targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 0, push_size: 0 }));
+        const flats = [];
+        for(const indexed of [false, true])
+        {
+            w.command(VX.BEGIN, []);
+            one_draw(PPIPE, indexed);
+            w.command(VX.END, []);
+            bytes = await read(B, 0, 2048);
+            flats.push([pixel(0, 0), pixel(7, 7)].map(x => x.split(",")[0]).sort().join("/"));
+        }
+        check(flats.every(f => f === "128/191"), "the last vertex's flat color, drawn and indexed: " + flats.join(" ") + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // A blit of 3D images (ANGLE makes a 3D texture's mipmaps so): a 2x2x2
+        // source, slice 0 all 0x40 and slice 1 all 0xC0, nearest into 2x2x4:
+        // slices 0 and 1 from source slice 0, 2 and 3 from slice 1
+        const V3 = 150, V3D = 151, V3M = 152;
+        w.command(VX.TEXTURE_CREATE, [V3, 37, 2, 2, 2, 2, 1, 1, 1, 0x17, 0]);
+        w.command(VX.TEXTURE_CREATE, [V3D, 37, 2, 2, 2, 4, 1, 1, 1, 0x17, 0]);
+        w.command(VX.MEMORY_CREATE, [V3M, 1024, 0]);
+        w.command(VX.MEMORY_WRITE, [V3M, 0, 0, 32], Uint8Array.from({ length: 32 }, (_, i) => i < 16 ? 0x40 : 0xC0));
+        w.command(VX.BEGIN, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, V3M, 0, 0, 0, 0, V3, 1, 0, 0, 1, 0, 0, 0, 2, 2, 2]);
+        w.command(VX.BLIT_IMAGE, [V3, 0, 0, 0, 0, 0, 2, 2, 2, V3D, 0, 0, 0, 0, 0, 2, 2, 4, 1, 0]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, V3M, 256, 0, 0, 0, V3D, 1, 0, 0, 1, 0, 0, 0, 2, 2, 4]);
+        w.command(VX.END, []);
+        // (a texel of each slice: 16 bytes a slice)
+        const slices3d = Array.from(await read(V3M, 256, 64)).filter((_, i) => i % 16 === 0);
+        check(slices3d.join() === "64,64,192,192", "a blit of 3D images: " + slices3d.join() + " (" + renderer.vx.warnings.join("; ") + ")");
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

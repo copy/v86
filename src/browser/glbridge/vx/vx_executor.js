@@ -35,15 +35,16 @@
     // Vulkan's enums, as WebGPU's
     const TOPOLOGY = ["point-list", "line-list", "line-strip", "triangle-list", "triangle-strip", null];
     // WGSL's bindings of a Vulkan binding b (vx/naga's rebind): 2b, 2b + 1 for
-    // a combined image sampler's sampler, and ELEMENTS + 12 b + e for element
-    // e > 0 of a descriptor array of blocks (vx/naga/src/blockarrays.rs)
+    // a combined image sampler's sampler; for element e > 0 of a descriptor
+    // array (vx/naga/src/blockarrays.rs) ELEMENTS + 2 (16b + e), and one more
+    // for its sampler (below 960: xfb.rs binds from there)
     const ELEMENTS = 300, ELEMENTS_END = 960;
     /** vx_naga's translation flags */
     const TRANSLATE = { KEEP: 1, NO_DEPTH: 2, REVERSE_DEPTH: 4 };
     /** The descriptor (binding * 1024 + element) a WGSL binding is of */
     const descriptorKey = binding => binding >= ELEMENTS && binding < ELEMENTS_END ?
-        Math.floor((binding - ELEMENTS) / 12) * 1024 + (binding - ELEMENTS) % 12 : (binding >> 1) * 1024;
-    const samplerBinding = binding => binding < ELEMENTS && (binding & 1) === 1;
+        ((binding - ELEMENTS) >> 5) * 1024 + ((binding - ELEMENTS) >> 1 & 15) : (binding >> 1) * 1024;
+    const samplerBinding = binding => (binding & 1) === 1;
     /** A render pass's or pipeline's attachments, as WebGPU compares them (trailing empty colors aside) */
     const attachmentState = (colors, depth, samples) => {
         const c = colors.map(f => f || "-");
@@ -72,6 +73,13 @@
     const ASPECT = { COLOR: 1, DEPTH: 2, STENCIL: 4 };
 
     const align = (value, to) => Math.ceil(value / to) * to;
+    /** The bytes of a WebGPU vertex format ("float32x3": 12, "unorm10-10-10-2": 4) */
+    const vertexFormatBytes = format => {
+        const m = /^[a-z]+(8|16|32)(?:x([234]))?$/.exec(format);
+        return m ? +m[1] / 8 * (+m[2] || 1) : 4;
+    };
+    /** The most vertices a draw's packed vertex input has (VX.packVertices) */
+    const PACKED_ROWS = 1 << 20;
     const f32 = bits => new Float32Array(new Uint32Array([bits]).buffer)[0];
     const SRGB_TWIN = { "rgba8unorm": "rgba8unorm-srgb", "rgba8unorm-srgb": "rgba8unorm", "bgra8unorm": "bgra8unorm-srgb", "bgra8unorm-srgb": "bgra8unorm" };
     const VIEW_DIMENSION = ["2d", "2d", "3d", "cube", "2d-array", "2d-array", "cube-array"];
@@ -85,6 +93,8 @@
         constructor(options) {
             this.device = options.device;
             this.formats = options.formats || global.V86VenusFormats || {};
+            /** a pipeline's buffers' least binding sizes (group << 16 | binding), by its groups (which its variants share) */
+            this.bindingSizes = new WeakMap();
             // { surface(sid) }: GX's surfaces, for images Venus imports from virtio-gpu resources
             this.peer = options.peer || null;
             this.objects = new Map();
@@ -865,15 +875,17 @@
         }
 
         /** The blit pipeline into a format: a quad sampling the source */
-        blitPipeline(format, kind) {
-            const key = format + ":" + kind;
+        /** a blit's pipeline into `format` from a texture of `kind` (f, u, i), a 3D one when `volume` (at the depth rect.w) */
+        blitPipeline(format, kind, volume) {
+            const key = format + ":" + kind + (volume ? ":3d" : "");
             let p = this.pipelines.get(key);
             if (p) return p;
             const type = kind === "u" ? "u32" : kind === "i" ? "i32" : "f32";
+            const at = volume ? "vec3f(in.uv, rect.w)" : "in.uv";
             const code = [
-                "struct Rect { dst: vec4f, src: vec4f, level: f32 };",
+                "struct Rect { dst: vec4f, src: vec4f, level: f32, w: f32 };",
                 "@group(0) @binding(0) var<uniform> rect: Rect;",
-                "@group(0) @binding(1) var source: texture_2d<" + type + ">;",
+                "@group(0) @binding(1) var source: texture_" + (volume ? "3d" : "2d") + "<" + type + ">;",
                 kind === "f" ? "@group(0) @binding(2) var smp: sampler;" : "",
                 "struct Out { @builtin(position) position: vec4f, @location(0) uv: vec2f };",
                 "@vertex fn vs(@builtin(vertex_index) i: u32) -> Out {",
@@ -885,9 +897,9 @@
                 "    return out;",
                 "}",
                 "@fragment fn fs(in: Out) -> @location(0) vec4<" + type + "> {",
-                kind === "f" ? "    return textureSampleLevel(source, smp, in.uv, rect.level);" :
-                    "    let size = vec2f(textureDimensions(source, u32(rect.level)));\n" +
-                    "    return textureLoad(source, vec2i(floor(in.uv * size)), i32(rect.level));",
+                kind === "f" ? "    return textureSampleLevel(source, smp, " + at + ", rect.level);" :
+                    "    let size = " + (volume ? "vec3f" : "vec2f") + "(textureDimensions(source, u32(rect.level)));\n" +
+                    "    return textureLoad(source, " + (volume ? "vec3i" : "vec2i") + "(floor(" + at + " * size)), i32(rect.level));",
                 "}",
             ].join("\n");
             const module = this.device.createShaderModule({ code });
@@ -905,12 +917,13 @@
             const [sid, smip, slayer, sx0, sy0, sz0, sx1, sy1, sz1, did, dmip, dlayer, dx0, dy0, dz0, dx1, dy1, dz1, layers, linear] = b;
             const s = this.texture(sid), t = this.texture(did);
             if (!s || !t) return;
-            if (t.f.depth || s.f.depth || !t.f.renderable || s.volume || t.volume) {
-                this.warn("blit-kind", "blits of depth, of 3D images and into formats not renderable are not done");
+            // (Venus offers neither: VK_FORMAT_FEATURE_BLIT_DST_BIT is for the renderable color formats)
+            if (t.f.depth || s.f.depth || !t.f.renderable) {
+                this.warn("blit-kind", "blits of depth and into formats not renderable are not done");
                 return;
             }
             const kind = s.f.uint ? "u" : s.f.sint ? "i" : "f";
-            const pipeline = this.blitPipeline(t.f.gpu, kind);
+            const pipeline = this.blitPipeline(t.f.gpu, kind, s.volume);
             const sw = Math.max(1, s.width >> smip), sh = Math.max(1, s.height >> smip);
             const tw = Math.max(1, t.width >> dmip), th = Math.max(1, t.height >> dmip);
             // the destination's corners in order, the source's following them (flips)
@@ -919,16 +932,35 @@
             rect.set([Math.min(dx0, dx1) / tw, Math.min(dy0, dy1) / th, Math.max(dx0, dx1) / tw, Math.max(dy0, dy1) / th,
                 (flipX ? sx1 : sx0) / sw, (flipY ? sy1 : sy0) / sh, (flipX ? sx0 : sx1) / sw, (flipY ? sy0 : sy1) / sh, 0]);
             const uniform = this.staging(new Uint8Array(rect.buffer));
-            const ubo = this.scratch(48, BUFFER.UNIFORM | BUFFER.COPY_DST);
+            const rects = this.scratch(48, BUFFER.UNIFORM | BUFFER.COPY_DST);
             const encoder = this.encoder();
-            encoder.copyBufferToBuffer(uniform, 0, ubo, 0, 48);
+            encoder.copyBufferToBuffer(uniform, 0, rects, 0, 48);
             const sampler = kind === "f" ? this.device.createSampler({ magFilter: linear ? "linear" : "nearest", minFilter: linear ? "linear" : "nearest" }) : null;
-            for (let i = 0; i < layers; i++) {
-                const source = s.texture.createView({ dimension: "2d", baseMipLevel: smip, mipLevelCount: 1, baseArrayLayer: slayer + i, arrayLayerCount: 1 });
+            // the slices: a 3D destination's of the blit's depths (each from the
+            // source's depth its middle maps to, Vulkan's rule), else the layers
+            const sd = Math.max(1, s.depth >> smip), td = Math.max(1, t.depth >> dmip);
+            const slices = t.volume ? Math.abs(dz1 - dz0) : layers;
+            const volumeSource = s.volume ? s.texture.createView({ dimension: "3d", baseMipLevel: smip, mipLevelCount: 1 }) : null;
+            for (let i = 0; i < slices; i++) {
+                const z = Math.min(dz0, dz1) + i;
+                let ubo = rects;
+                if (s.volume) {
+                    const w = t.volume ? (sz0 + (z + 0.5 - dz0) * (sz1 - sz0) / (dz1 - dz0)) / sd : (sz0 + sz1) / 2 / sd;
+                    rect[9] = w;
+                    ubo = this.scratch(48, BUFFER.UNIFORM | BUFFER.COPY_DST);
+                    encoder.copyBufferToBuffer(this.staging(new Uint8Array(rect.buffer)), 0, ubo, 0, 48);
+                }
+                const source = volumeSource || s.texture.createView({ dimension: "2d", baseMipLevel: smip, mipLevelCount: 1,
+                    baseArrayLayer: slayer + (t.volume ? 0 : i), arrayLayerCount: 1 });
                 const entries = [{ binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: source }];
                 if (sampler) entries.push({ binding: 2, resource: sampler });
                 const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries });
-                const pass = encoder.beginRenderPass({ colorAttachments: [{ view: this.attachment(t, dmip, dlayer + i), loadOp: "load", storeOp: "store" }] });
+                const target = { view: this.attachment(t, dmip, t.volume ? 0 : dlayer + i), loadOp: "load", storeOp: "store" };
+                if (t.volume) {
+                    if (z < 0 || z >= td) continue;
+                    target.depthSlice = z;
+                }
+                const pass = encoder.beginRenderPass({ colorAttachments: [target] });
                 pass.setPipeline(pipeline);
                 pass.setBindGroup(0, group);
                 pass.draw(4);
@@ -1051,11 +1083,14 @@
                     for (const [t] of translations) if (t.error) throw new Error("shader: " + t.error);
                 }
                 const stages = translations.map(([t, stage]) => [stage.stage, this.stageState(t, stage)]);
-                // the bindings the stages use, by group
+                // the bindings the stages use, by group (and the buffers' least sizes)
+                const sizes = new Map();
+                this.bindingSizes.set(p.groups, sizes);
                 for (const [, st] of stages) {
-                    for (const [group, binding, kind] of st.entry ? st.entry.bindings : []) {
+                    for (const [group, binding, kind, size] of st.entry ? st.entry.bindings : []) {
                         if (!p.groups.has(group)) p.groups.set(group, new Map());
                         p.groups.get(group).set(binding, kind);
+                        if (size) sizes.set(group << 16 | binding, Math.max(size, sizes.get(group << 16 | binding) || 0));
                     }
                 }
                 const strip = s => ({ module: s.module, entryPoint: s.entryPoint, constants: s.constants });
@@ -1069,17 +1104,10 @@
                 // (its shader again for the flipped variant)
                 const vertex_stage = d.stages.find(stage => stage.stage === 1);
                 p.vertexSource = { shader: this.objects.get(vertex_stage.shader), stage: vertex_stage };
-                const buffers = [];
-                for (const b of d.buffers) {
-                    if (b.binding >= 8) { this.warn("vertex-binding", "vertex binding " + b.binding + ": WebGPU has 8"); continue; }
-                    while (buffers.length <= b.binding) buffers.push({ arrayStride: 0, attributes: [] });
-                    buffers[b.binding] = { arrayStride: b.stride, stepMode: b.rate ? "instance" : "vertex", attributes: [] };
-                }
-                for (const a of d.attributes) {
-                    const f = this.formats[a.format];
-                    if (!f || !f[2]) { this.warn("vertex-format" + a.format, "vertex format " + a.format + " is not done"); continue; }
-                    if (buffers[a.binding]) buffers[a.binding].attributes.push({ format: f[2], offset: a.offset, shaderLocation: a.location });
-                }
+                p.vertexLayout = this.vertexLayout(d);
+                // (flat varyings of a pipeline of GL's provoking vertex: its draws reordered, provokingLast)
+                p.flat = !!(vertex[1].entry && vertex[1].entry.flat);
+                const buffers = p.vertexLayout.native ? p.vertexLayout.buffers : p.vertexLayout.packed;
                 // (triangle fans: lists, drawn through fanIndices)
                 const topology = d.topology === 5 ? "triangle-list" : TOPOLOGY[d.topology];
                 if (!topology) this.warn("topology" + d.topology, "topology " + d.topology + " is not done");
@@ -1127,6 +1155,11 @@
                     // for the pass's attachments, and no depth or stencil writes
                     descriptor.fragment = { module: this.emptyFragment(), entryPoint: "fs", targets };
                     if (descriptor.depthStencil) Object.assign(descriptor.depthStencil, { depthWriteEnabled: false, stencilWriteMask: 0 });
+                }
+                else {
+                    // no fragment shader (a depth-only draw; Vulkan leaves the colors undefined): one that writes
+                    // nothing, for the pass's attachments
+                    descriptor.fragment = { module: this.emptyFragment(), entryPoint: "fs", targets: targets.map(t => t && { format: t.format, writeMask: 0 }) };
                 }
                 if (!descriptor.depthStencil && !(descriptor.fragment && descriptor.fragment.targets.some(t => t))) {
                     // no attachments (WebGPU needs one): the placeholder the pass gets too, single-sampled
@@ -1281,6 +1314,7 @@
             const substituted = !!this.substitutes;
             if (bg && bg.key === key && !aliased && !substituted) return bg.group;
             const entries = [];
+            const sizes = this.bindingSizes.get(p.groups);
             for (const [binding, kind] of used) {
                 if (isPush && binding === PUSH_BINDING) {
                     entries.push({ binding, resource: { buffer: this.pushBuffer, offset: this.state.pushOffset, size: 256 } });
@@ -1297,7 +1331,14 @@
                 if (kind === "uniform" || kind === "storage" || kind === "storage-rw") {
                     const m = this.memory(d.rid);
                     if (!m) return null;
-                    const size = Math.min(d.size, m.buffer.size - d.offset);
+                    let size = Math.min(d.size, m.buffer.size - d.offset);
+                    // (a range smaller than the shader's block, as std140's padding at its end may leave it:
+                    // Vulkan reads what the shader reads, WebGPU wants the whole block; the memory after it)
+                    const least = sizes && sizes.get(group << 16 | binding) || 0;
+                    if (size < least) {
+                        if (m.buffer.size - d.offset >= least) size = least;
+                        else this.warn("binding-size", "a buffer bound smaller than the shader's block, at the end of its memory (not done)");
+                    }
                     if (aliased && kind !== "storage-rw" && writable.has(m.buffer)) {
                         // (what it binds as it is before the dispatch)
                         const copy = this.scratch(size, BUFFER.COPY_DST | BUFFER.UNIFORM | BUFFER.STORAGE);
@@ -1311,11 +1352,19 @@
                 const v = this.objects.get(d.rid);
                 if (!v || v.kind !== "view") return null;
                 const copy = this.substitutes && this.substitutes.get(v);
-                entries.push({ binding, resource: copy || (kind === "storage-texture" ? this.singleMip(v) : v.view) });
+                entries.push({ binding, resource: copy || (kind === "storage-texture" ? this.singleMip(v) : /-faces$/.test(kind) ? this.facesView(v) : v.view) });
             }
             const created = this.device.createBindGroup({ layout: p.gpu.getBindGroupLayout(group), entries });
             if (!aliased && !substituted) p.bindGroups.set(group, { key, group: created });
             return created;
+        }
+
+        /** A cube view's faces as a 2D array (integer cubes, which vx_naga's cubes.rs loads from) */
+        facesView(v) {
+            if (v.dimension !== "cube") return v.view;
+            if (!v.faces) v.faces = v.texture.texture.createView({ format: v.descriptor.format, dimension: "2d-array", baseMipLevel: v.baseMip, mipLevelCount: v.mips,
+                baseArrayLayer: v.baseLayer, arrayLayerCount: 6 });
+            return v.faces;
         }
 
         singleMip(v) {
@@ -1389,6 +1438,210 @@
             return v;
         }
 
+        /**
+         * A pipeline's vertex input as WebGPU's buffers: Vulkan's bindings at
+         * their slots (`buffers`, `native`), and packed (`packed`, `fields`,
+         * `strides`: each attribute a field of slot 0 (bindings of stride 0),
+         * 1 (per vertex) or 2 (per instance), which draws repack into, for
+         * what WebGPU cannot take: more than 8 bindings (ANGLE gives each
+         * attribute one), strides not in dwords or above 2048, attributes not
+         * aligned to their size, buffers bound at offsets not in dwords)
+         */
+        vertexLayout(d) {
+            const buffers = [], attributes = [];
+            let native = true;
+            for (const b of d.buffers) {
+                if (b.binding >= 8 || b.stride % 4 || b.stride > 2048) { native = false; continue; }
+                while (buffers.length <= b.binding) buffers.push({ arrayStride: 0, attributes: [] });
+                buffers[b.binding] = { arrayStride: b.stride, stepMode: b.rate ? "instance" : "vertex", attributes: [] };
+            }
+            for (const a of d.attributes) {
+                const f = this.formats[a.format], b = d.buffers.find(x => x.binding === a.binding);
+                if (!f || !f[2]) { this.warn("vertex-format" + a.format, "vertex format " + a.format + " is not done"); continue; }
+                if (!b) continue;
+                const bytes = vertexFormatBytes(f[2]);
+                if (a.offset % Math.min(4, bytes) || b.stride && a.offset + bytes > b.stride) native = false;
+                attributes.push({ a, b, format: f[2], bytes });
+                if (buffers[a.binding]) buffers[a.binding].attributes.push({ format: f[2], offset: a.offset, shaderLocation: a.location });
+            }
+            const slots = [[], [], []], strides = [0, 0, 0], fields = [];
+            for (const { a, b, format, bytes } of attributes) {
+                const slot = b.stride === 0 ? 0 : b.rate ? 2 : 1;
+                slots[slot].push({ format, offset: strides[slot], shaderLocation: a.location });
+                fields.push({ slot, offset: strides[slot], binding: a.binding, from: a.offset, stride: b.stride, bytes });
+                strides[slot] += align(bytes, 4);
+            }
+            const packed = slots.map((list, slot) => list.length ? { arrayStride: slot ? strides[slot] : 0, stepMode: slot === 2 ? "instance" : "vertex",
+                attributes: list } : null);
+            if (!native) this.stats.packedPipelines = (this.stats.packedPipelines || 0) + 1;
+            return { native, buffers, packed, fields, strides };
+        }
+
+        /**
+         * A draw's vertex input repacked into scratch buffers (vertexLayout's
+         * `packed`), between two halves of its pass: { buffers (by slot),
+         * variant (a pipeline of native input bound at an offset WebGPU
+         * refuses: its packed variant) }, or null when the draw needs none.
+         * The rows are a draw's vertices and instances from 0 (the shader's
+         * vertex and instance indices are kept); for indexed and indirect
+         * draws, as many as the bound buffers have (up to PACKED_ROWS)
+         */
+        packVertices(p, kind, b) {
+            const layout = p.vertexLayout, s = this.state;
+            if (!layout || layout.native && !p.desc.buffers.some(x => s.vertex[x.binding] && s.vertex[x.binding].offset % 4)) return null;
+            const bound = f => {
+                const v = s.vertex[f.binding], m = v && this.memory(v.memory);
+                return m ? { v, m, size: Math.min(v.size, m.buffer.size - v.offset) } : null;
+            };
+            const available = f => {
+                const x = bound(f);
+                if (!x || x.size < f.from + f.bytes) return 0;
+                return f.stride ? Math.floor((x.size - f.from - f.bytes) / f.stride) + 1 : 1;
+            };
+            const rows = [1, kind === 0 ? b[2] + b[0] : 0, kind === 0 ? b[3] + b[1] : kind === 1 ? b[4] + b[1] : 0];
+            for (const f of layout.fields) {
+                if (f.slot === 1 && kind !== 0 || f.slot === 2 && kind === 2) rows[f.slot] = Math.max(rows[f.slot], available(f));
+            }
+            if (rows[1] > PACKED_ROWS) { this.warn("packed-rows", "a draw's vertices repacked: the first " + PACKED_ROWS + " only"); rows[1] = PACKED_ROWS; }
+            const buffers = layout.packed.map((l, slot) => l && rows[slot] ?
+                this.scratch(rows[slot] * (layout.strides[slot] || 4), BUFFER.VERTEX | BUFFER.STORAGE | BUFFER.COPY_DST) : null);
+            const resume = !!this.pass;
+            this.endPass();
+            for (const f of layout.fields) {
+                const x = bound(f), dst = buffers[f.slot], n = Math.min(rows[f.slot], available(f));
+                if (!x || !dst || !n) continue;
+                const from = f.stride || f.bytes, to = layout.strides[f.slot] || 4;
+                this.repack(x.m.buffer, { offset: x.v.offset + f.from, pitch: from, image: from * n }, dst, { offset: f.offset, pitch: to, image: to * n }, f.bytes, n, 1);
+            }
+            this.stats.packedDraws = (this.stats.packedDraws || 0) + 1;
+            if (resume) this.resumePass();
+            return { buffers, variant: layout.native };
+        }
+
+        /**
+         * GL's provoking vertex (VK_EXT_provoking_vertex's last vertex,
+         * which ANGLE asks of every pipeline) is the last of a primitive,
+         * WebGPU's the first: a draw of such a pipeline whose vertex shader
+         * has flat outputs is drawn as a list of its primitives with their
+         * vertices rotated, the last first (so triangles keep their winding);
+         * indexed triangle fans so too, either way. Without indices the order
+         * is made here once per count; with indices a compute pass (between
+         * two halves of the render pass) rewrites them, restarts included, and
+         * the draw is indirect (the count is the pass's). Indirect draws are
+         * drawn as they are (warned).
+         * @return {?Object} { topology, buffer, count | args }, or null: drawn as it is
+         */
+        provokingLast(p, kind, b) {
+            const s = this.state, d = p.desc, fan = d.topology === 5;
+            const last = !!d.provoking_last && p.flat;
+            if (!last && !(fan && kind === 1)) return null;
+            if (kind === 2) {
+                if (last) this.warn("provoking-indirect", "indirect draws of flat varyings keep WebGPU's first vertex");
+                return null;
+            }
+            // (VkPrimitiveTopology as GX's kinds: triangle list 1, strip 2, line list 3, strip 4, triangle fan 5)
+            const order = { 1: 3, 2: 4, 3: 1, 4: 2, 5: 5 }[d.topology];
+            if (!order || !b[0]) return null;
+            const list = order <= 2 || order === 5 ? "triangle-list" : "line-list";
+            if (kind === 0) {
+                const key = order + ":" + b[0] + ":" + last;
+                this.provokingIndices = this.provokingIndices || new Map();
+                let entry = this.provokingIndices.get(key);
+                if (!entry) {
+                    const n = b[0], out = [];
+                    if (order === 1) for (let k = 0; k + 2 < n; k += 3) out.push(k + 2, k, k + 1);
+                    else if (order === 2) for (let k = 0; k + 2 < n; k++) out.push(...(k & 1 ? [k + 2, k + 1, k] : [k + 2, k, k + 1]));
+                    else if (order === 3) for (let k = 0; k + 1 < n; k += 2) out.push(k + 1, k);
+                    else if (order === 4) for (let k = 0; k + 1 < n; k++) out.push(k + 1, k);
+                    else for (let k = 1; k + 1 < n; k++) out.push(...(last ? [k + 1, 0, k] : [k, k + 1, 0]));
+                    if (!out.length) return null;
+                    const data = Uint32Array.from(out);
+                    const buffer = this.device.createBuffer({ size: align(data.byteLength, 4), usage: BUFFER.INDEX | BUFFER.COPY_DST });
+                    this.device.queue.writeBuffer(buffer, 0, data);
+                    if (this.provokingIndices.size >= 64) {
+                        for (const old of this.provokingIndices.values()) old.buffer.destroy();
+                        this.provokingIndices.clear();
+                    }
+                    entry = { buffer, count: out.length };
+                    this.provokingIndices.set(key, entry);
+                }
+                return { topology: list, buffer: entry.buffer, count: entry.count };
+            }
+            const ib = s.index, m = ib && this.memory(ib.memory);
+            if (!m) return null;
+            const wide = ib.type === 1;
+            if (!this.provokingPipeline) {
+                const code = [
+                    "struct P { count: u32, offset: u32, wide: u32, kind: u32, base: u32, instances: u32, first_instance: u32, last: u32 }",
+                    "@group(0) @binding(0) var<storage, read> src: array<u32>;",
+                    "@group(0) @binding(1) var<uniform> p: P;",
+                    "@group(0) @binding(2) var<storage, read_write> dst: array<u32>;",
+                    "@group(0) @binding(3) var<storage, read_write> args: array<u32, 5>;",
+                    "fn index(i: u32) -> u32 {",
+                    "    let at = p.offset + i;",
+                    "    if (p.wide == 1u) { return src[at]; }",
+                    "    let w = src[at >> 1u];",
+                    "    return select(w & 0xFFFFu, w >> 16u, (at & 1u) == 1u);",
+                    "}",
+                    "@compute @workgroup_size(1) fn main() {",
+                    "    let cut = select(0xFFFFu, 0xFFFFFFFFu, p.wide == 1u);",
+                    "    var n = 0u;",
+                    "    var start = 0u;",
+                    "    var i = 0u;",
+                    "    loop {",
+                    "        if (i >= p.count) { break; }",
+                    "        if (p.kind == 1u) {",
+                    "            if (i + 2u < p.count) { dst[n] = index(i + 2u); dst[n + 1u] = index(i); dst[n + 2u] = index(i + 1u); n += 3u; }",
+                    "            i += 3u; continue;",
+                    "        }",
+                    "        if (p.kind == 3u) {",
+                    "            if (i + 1u < p.count) { dst[n] = index(i + 1u); dst[n + 1u] = index(i); n += 2u; }",
+                    "            i += 2u; continue;",
+                    "        }",
+                    "        // strips and fans: a restart starts another",
+                    "        if (index(i) == cut) { start = i + 1u; i++; continue; }",
+                    "        let k = i - start;",
+                    "        if (p.kind == 2u && k >= 2u) {",
+                    "            if ((k & 1u) == 1u) { dst[n] = index(i); dst[n + 1u] = index(i - 1u); dst[n + 2u] = index(i - 2u); }",
+                    "            else { dst[n] = index(i); dst[n + 1u] = index(i - 2u); dst[n + 2u] = index(i - 1u); }",
+                    "            n += 3u;",
+                    "        }",
+                    "        if (p.kind == 4u && k >= 1u) { dst[n] = index(i); dst[n + 1u] = index(i - 1u); n += 2u; }",
+                    "        if (p.kind == 5u && k >= 2u) {",
+                    "            let first = index(start);",
+                    "            if (p.last == 1u) { dst[n] = index(i); dst[n + 1u] = first; dst[n + 2u] = index(i - 1u); }",
+                    "            else { dst[n] = index(i - 1u); dst[n + 1u] = index(i); dst[n + 2u] = first; }",
+                    "            n += 3u;",
+                    "        }",
+                    "        i++;",
+                    "    }",
+                    "    args[0] = n; args[1] = p.instances; args[2] = 0u; args[3] = p.base; args[4] = p.first_instance;",
+                    "}",
+                ].join("\n");
+                this.provokingPipeline = this.device.createComputePipeline({ layout: "auto", compute: { module: this.device.createShaderModule({ code }), entryPoint: "main" } });
+            }
+            // b: indexCount, instanceCount, firstIndex, vertexOffset, firstInstance
+            const offset = Math.floor(ib.offset / (wide ? 4 : 2)) + b[2];
+            const dst = this.scratch(Math.max(16, b[0] * 3 * 4), BUFFER.STORAGE | BUFFER.INDEX);
+            const args = this.scratch(32, BUFFER.STORAGE | BUFFER.INDIRECT);
+            const params = this.device.createBuffer({ size: 32, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+            this.device.queue.writeBuffer(params, 0, Uint32Array.from([b[0], offset, wide ? 1 : 0, order, b[3] >>> 0, b[1], b[4], last ? 1 : 0]));
+            this.transient.push(params);
+            const group = this.device.createBindGroup({ layout: this.provokingPipeline.getBindGroupLayout(0), entries: [
+                { binding: 0, resource: { buffer: m.buffer } }, { binding: 1, resource: { buffer: params } },
+                { binding: 2, resource: { buffer: dst } }, { binding: 3, resource: { buffer: args } }] });
+            const resume = !!this.pass;
+            this.endPass();
+            const compute = this.encoder().beginComputePass();
+            compute.setPipeline(this.provokingPipeline);
+            compute.setBindGroup(0, group);
+            compute.dispatchWorkgroups(1);
+            compute.end();
+            this.stats.provokingDraws = (this.stats.provokingDraws || 0) + 1;
+            if (resume) this.resumePass();
+            return { topology: list, buffer: dst, args };
+        }
+
         /** An index buffer of triangle fans as lists for fans of up to `n` vertices: Vulkan's (i + 1, i + 2, 0), its provoking vertex first */
         fanIndices(n) {
             if (this.fans && this.fans.vertices >= n) return this.fans.buffer;
@@ -1412,6 +1665,10 @@
                 else this.warn("xfb-indexed", "indexed and indirect draws capture nothing (GL ES 3.0 has none)");
             }
             if (this.pass && this.state.graphics && this.state.graphics.gpu) this.attachmentCopies(this.state.graphics);
+            // (vertex input WebGPU cannot take: repacked, between two halves of the pass)
+            const packed = this.pass && this.state.graphics && this.state.graphics.gpu ? this.packVertices(this.state.graphics, kind, b) : null;
+            // (GL's provoking vertex with flat varyings, and indexed fans: the vertices reordered)
+            const reorder = this.pass && this.state.graphics && this.state.graphics.gpu ? this.provokingLast(this.state.graphics, kind, b) : null;
             const p = this.state.graphics, pass = this.pass;
             if (!pass || !p || !p.gpu) {
                 if (p && p.error) this.warn("draw-pipeline", "draws with a failed pipeline are skipped");
@@ -1438,13 +1695,22 @@
             }
             // (indexed strips: WebGPU wants the index format in the pipeline)
             const indexed = kind === 1 || kind === 2 && b[5];
-            if (indexed && (p.desc.topology === 2 || p.desc.topology === 4) && q.descriptor) {
+            if (reorder && q.descriptor) {
+                q = this.variant(q, "list:" + reorder.topology, d => Object.assign(d, { primitive: Object.assign({}, d.primitive,
+                    { topology: reorder.topology, stripIndexFormat: undefined }) }));
+                if (!q) return;
+            }
+            else if (indexed && (p.desc.topology === 2 || p.desc.topology === 4) && q.descriptor) {
                 const format = s.index && s.index.type === 1 ? "uint32" : "uint16";
                 q = this.variant(q, "strip:" + format, d => Object.assign(d, { primitive: Object.assign({}, d.primitive, { stripIndexFormat: format }) }));
                 if (!q) return;
             }
+            if (packed && packed.variant && q.descriptor) {
+                q = this.variant(q, "packed", d => Object.assign(d, { vertex: Object.assign({}, d.vertex, { buffers: p.vertexLayout.packed }) }));
+                if (!q) return;
+            }
             const fan = p.desc.topology === 5;
-            if (fan && kind !== 0) {
+            if (fan && kind !== 0 && !reorder) {
                 this.warn("fan-indexed", "indexed and indirect triangle fans are not done");
                 return;
             }
@@ -1464,9 +1730,13 @@
                 if (!bg) return;
                 pass.setBindGroup(group, bg);
             }
-            for (let slot = 0; slot < 8; slot++) {
-                const v = s.vertex[slot], m = v && this.memory(v.memory);
-                if (m) pass.setVertexBuffer(slot, m.buffer, v.offset, Math.min(v.size, m.buffer.size - v.offset));
+            if (packed) packed.buffers.forEach((buffer, slot) => { if (buffer) pass.setVertexBuffer(slot, buffer); });
+            else {
+                // (the pipeline's bindings only: others may be bound where WebGPU refuses)
+                for (const { binding: slot } of p.desc.buffers) {
+                    const v = s.vertex[slot], m = v && this.memory(v.memory);
+                    if (m && slot < 8) pass.setVertexBuffer(slot, m.buffer, v.offset, Math.min(v.size, m.buffer.size - v.offset));
+                }
             }
             if (viewport) {
                 let [x, y, w, h, near, far] = viewport;
@@ -1487,13 +1757,19 @@
             const blend = p.desc.dynamic.includes(4) && s.blend ? s.blend : p.desc.blend_constants;
             pass.setBlendConstant({ r: blend[0], g: blend[1], b: blend[2], a: blend[3] });
             pass.setStencilReference(p.desc.dynamic.includes(8) ? s.stencilReference : p.desc.depth && p.desc.depth.front ? p.desc.depth.front.reference : 0);
-            if (kind === 1 || kind === 2 && b[5]) {
+            if ((kind === 1 || kind === 2 && b[5]) && !reorder) {
                 const ib = s.index, m = ib && this.memory(ib.memory);
                 if (!m) return;
                 pass.setIndexBuffer(m.buffer, ib.type === 1 ? "uint32" : "uint16", ib.offset, Math.min(ib.size, m.buffer.size - ib.offset));
             }
             this.substitutes = null;
-            if (kind === 0 && fan) {
+            if (reorder) {
+                pass.setIndexBuffer(reorder.buffer, "uint32");
+                if (reorder.args) pass.drawIndexedIndirect(reorder.args, 0);
+                // (the vertices from the draw's first: its vertex index kept)
+                else pass.drawIndexed(reorder.count, b[1], 0, b[2], b[3]);
+            }
+            else if (kind === 0 && fan) {
                 if (b[0] < 3) return;
                 pass.setIndexBuffer(this.fanIndices(b[0]), "uint32");
                 pass.drawIndexed(3 * (b[0] - 2), b[1], 0, b[2], b[3]);

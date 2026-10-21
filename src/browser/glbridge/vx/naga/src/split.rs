@@ -182,14 +182,19 @@ pub fn split(words: &[u32]) -> Vec<u32> {
     for i in &instructions {
         let o = op(i);
         // (the new decorations after the annotations, before the first
-        // type, constant, variable or function; the new types before the
-        // first combined variable, after everything they name)
+        // type, constant, variable or function; the new types, then the
+        // variables of the images and samplers, after every other global:
+        // after everything they name, whatever the order of the types)
         if !decorated && ((19..=52).contains(&o) || o == OP_VARIABLE || o == OP_FUNCTION || o == 1) {
             for d in &decorations { out.extend_from_slice(d); }
             decorated = true;
         }
-        if !typed && o == OP_VARIABLE && variables.contains_key(&i[2]) {
+        if !typed && o == OP_FUNCTION {
             for t in &types { out.extend_from_slice(t); }
+            for (&variable, &(image_type, sampler_variable, sampler_type)) in &new_variables {
+                out.extend(instruction(OP_VARIABLE, &[image_type, variable, UNIFORM_CONSTANT]));
+                out.extend(instruction(OP_VARIABLE, &[sampler_type, sampler_variable, UNIFORM_CONSTANT]));
+            }
             typed = true;
         }
         match o {
@@ -206,11 +211,8 @@ pub fn split(words: &[u32]) -> Vec<u32> {
                 }
                 out.extend(instruction(OP_ENTRY_POINT, &operands));
             }
-            OP_VARIABLE if new_variables.contains_key(&i[2]) => {
-                let (image_type, sampler_variable, sampler_type) = new_variables[&i[2]];
-                out.extend(instruction(OP_VARIABLE, &[image_type, i[2], UNIFORM_CONSTANT]));
-                out.extend(instruction(OP_VARIABLE, &[sampler_type, sampler_variable, UNIFORM_CONSTANT]));
-            }
+            // (made again before the first function)
+            OP_VARIABLE if new_variables.contains_key(&i[2]) => {}
             OP_ACCESS_CHAIN | OP_IN_BOUNDS_ACCESS_CHAIN if new_variables.contains_key(&i[3]) => {
                 let (_, sampler_variable, _) = new_variables[&i[3]];
                 let image = match variables[&i[3]] { Pointee::Array { image, .. } | Pointee::One { image } => image };

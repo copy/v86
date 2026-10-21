@@ -3,6 +3,10 @@
 fn main() {
     let path = std::env::args().nth(1).expect("a SPIR-V file");
     let bytes = std::fs::read(&path).expect("read");
+    // (DUMP_SPV=<file>: the SPIR-V after VX's passes written there)
+    if let Ok(out) = std::env::var("DUMP_SPV") {
+        std::fs::write(out, vx_naga::passes_for_debugging(&bytes)).expect("write");
+    }
     let module = vx_naga::parse_for_debugging(&bytes).expect("parse");
     for (handle, var) in module.global_variables.iter() {
         println!("{:?} {:?} {:?} {:?} {:?}", handle, var.name, var.space, var.binding, module.types[var.ty].inner);

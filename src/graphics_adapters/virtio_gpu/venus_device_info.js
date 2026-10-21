@@ -93,6 +93,9 @@ export const STYPE = {
     DEPTH_STENCIL_RESOLVE_PROPERTIES: 1000199000,
     TRANSFORM_FEEDBACK_FEATURES: 1000028000,
     TRANSFORM_FEEDBACK_PROPERTIES: 1000028001,
+    PROVOKING_VERTEX_FEATURES: 1000254000,
+    PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO: 1000254001,
+    PROVOKING_VERTEX_PROPERTIES: 1000254002,
 };
 /** VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT: two values a query, primitives written and needed */
 export const QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM = 1000028004;
@@ -282,6 +285,8 @@ const CHAIN_PROPERTIES = {
         maxTransformFeedbackBufferSize: 1024 * MB, maxTransformFeedbackStreamDataSize: 512, maxTransformFeedbackBufferDataSize: 512,
         maxTransformFeedbackBufferDataStride: 512, transformFeedbackQueries: 1, transformFeedbackStreamsLinesTriangles: 0,
         transformFeedbackRasterizationStreamSelect: 0, transformFeedbackDraw: 0 },
+    // (VX draws a pipeline of the last vertex with flat varyings reordered, the last first)
+    [STYPE.PROVOKING_VERTEX_PROPERTIES]: { provokingVertexModePerPipeline: 1, transformFeedbackPreservesTriangleFanProvokingVertex: 0 },
 };
 
 /** Features of chain structs, by sType (absent: all false) */
@@ -289,6 +294,7 @@ const CHAIN_FEATURES = {
     [STYPE.TIMELINE_SEMAPHORE_FEATURES]: { timelineSemaphore: 1 },
     [STYPE.DYNAMIC_RENDERING_FEATURES]: { dynamicRendering: 1 },
     [STYPE.TRANSFORM_FEEDBACK_FEATURES]: { transformFeedback: 1, geometryStreams: 0 },
+    [STYPE.PROVOKING_VERTEX_FEATURES]: { provokingVertexLast: 1, transformFeedbackPreservesProvokingVertex: 0 },
 };
 
 /**
@@ -537,6 +543,9 @@ export const DEVICE_EXTENSIONS = {
     "VK_EXT_queue_family_foreign": 1,
     // (captured in a compute pass, VX: what GL ES 3.0 needs, so that ANGLE gives it)
     "VK_EXT_transform_feedback": 1,
+    // (GL's last vertex for flat shading, which ANGLE takes from it: VX reorders
+    // the vertices of draws with flat varyings, G-51 of docs/gpu-deviations.md)
+    "VK_EXT_provoking_vertex": 1,
 };
 
 // VkExternalMemoryHandleTypeFlagBits, VkExternalMemoryFeatureFlagBits

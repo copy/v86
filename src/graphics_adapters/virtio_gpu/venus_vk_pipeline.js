@@ -9,6 +9,8 @@ import { VK_SUCCESS, VK_ERROR_OUT_OF_HOST_MEMORY, REMAINING, out_array } from ".
 
 const STYPE_RENDER_PASS_MULTIVIEW = 1000053000;
 const STYPE_PIPELINE_RENDERING_CREATE_INFO = 1000044002;
+// VkPipelineRasterizationProvokingVertexStateCreateInfoEXT
+const STYPE_PROVOKING_VERTEX_STATE = 1000254001;
 
 /** UTF-8 of a JSON description, for the renderer */
 function json_bytes(object)
@@ -84,6 +86,9 @@ function graphics_pipeline(ctx, info)
         depth = depth_format ? { format: depth_format } : null;
         samples = ms.rasterizationSamples || 1;
     }
+    // VK_EXT_provoking_vertex: the last vertex of a primitive (GL's) for flat varyings
+    let provoking_last = false;
+    for(let s = rs.pNext; s; s = s.pNext) if(s.sType === STYPE_PROVOKING_VERTEX_STATE) provoking_last = s.provokingVertexMode === 1;
     const stencil = s => s && { fail: s.failOp, pass: s.passOp, depth_fail: s.depthFailOp, compare: s.compareOp,
         read_mask: s.compareMask, write_mask: s.writeMask, reference: s.reference };
     return {
@@ -93,7 +98,7 @@ function graphics_pipeline(ctx, info)
         buffers: (vi.pVertexBindingDescriptions || []).map(b => ({ binding: b.binding, stride: b.stride, rate: b.inputRate })),
         attributes: (vi.pVertexAttributeDescriptions || []).map(a => ({ location: a.location, binding: a.binding, format: a.format, offset: a.offset })),
         topology: ia.topology || 0, restart: !!ia.primitiveRestartEnable,
-        cull: rs.cullMode || 0, front: rs.frontFace || 0, polygon: rs.polygonMode || 0, depth_clamp: !!rs.depthClampEnable,
+        cull: rs.cullMode || 0, front: rs.frontFace || 0, polygon: rs.polygonMode || 0, depth_clamp: !!rs.depthClampEnable, provoking_last,
         discard: !!rs.rasterizerDiscardEnable,
         depth_bias: rs.depthBiasEnable ? { constant: rs.depthBiasConstantFactor, clamp: rs.depthBiasClamp, slope: rs.depthBiasSlopeFactor } : null,
         samples, sample_mask: ms.pSampleMask ? ms.pSampleMask[0] : 0xFFFFFFFF, alpha_to_coverage: !!ms.alphaToCoverageEnable,

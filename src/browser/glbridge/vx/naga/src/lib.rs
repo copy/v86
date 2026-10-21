@@ -45,6 +45,7 @@ mod math;
 mod relational;
 mod remap;
 mod blockarrays;
+mod cubes;
 mod depth;
 mod split;
 mod subpass;
@@ -107,6 +108,11 @@ fn kind(module: &naga::Module, var: &naga::GlobalVariable) -> &'static str {
                 ImageClass::Depth { multi: true } => "texture-depth-ms",
                 ImageClass::Depth { .. } => "texture-depth",
                 ImageClass::Sampled { multi: true, .. } => "texture-ms",
+                // (an integer cube's faces, cubes.rs)
+                ImageClass::Sampled { kind, .. } if var.name.as_deref() == Some(cubes::FACES) => match kind {
+                    naga::ScalarKind::Uint => "texture-uint-faces",
+                    _ => "texture-sint-faces",
+                },
                 ImageClass::Sampled { kind, .. } => match kind {
                     naga::ScalarKind::Uint => "texture-uint",
                     naga::ScalarKind::Sint => "texture-sint",
@@ -121,11 +127,15 @@ fn kind(module: &naga::Module, var: &naga::GlobalVariable) -> &'static str {
 }
 
 /// WGSL's binding of a SPIR-V binding: Vulkan's b is 2b, a split sampler's
-/// 2b + 1, element e > 0 of a descriptor array of blocks ELEMENTS + 12b + e
-/// (vx_executor.js's descriptorKey reads them back)
+/// 2b + 1; element e > 0 of a descriptor array (blockarrays.rs) is
+/// ELEMENTS + 2 (16b + e), its split sampler's one more (vx_executor.js's
+/// descriptorKey reads them back)
 fn wgsl_binding(binding: u32) -> u32 {
-    if binding >= blockarrays::ELEMENT_BINDING {
-        ELEMENTS + (binding - blockarrays::ELEMENT_BINDING)
+    if binding >= blockarrays::ELEMENT_BINDING + SAMPLER_BINDING {
+        ELEMENTS + (binding - blockarrays::ELEMENT_BINDING - SAMPLER_BINDING) * 2 + 1
+    }
+    else if binding >= blockarrays::ELEMENT_BINDING {
+        ELEMENTS + (binding - blockarrays::ELEMENT_BINDING) * 2
     }
     else if binding >= SAMPLER_BINDING {
         (binding - SAMPLER_BINDING) * 2 + 1
@@ -234,7 +244,7 @@ fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
 /// a native build's environment: debugging) leaves some out
 fn passes(words: &[u32]) -> Vec<u32> {
     let skip = std::env::var("VX_SKIP").unwrap_or_default();
-    let list: [(&str, fn(&[u32]) -> Vec<u32>); 7] = [("split", split::split), ("coordinates", intsample::coordinate_types), ("blockarrays", blockarrays::lower), ("subpass", subpass::lower),
+    let list: [(&str, fn(&[u32]) -> Vec<u32>); 7] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
         ("intsample", intsample::lower), ("relational", relational::lower), ("layout", layout::lower)];
     let mut words = words.to_vec();
     for (name, pass) in list {
@@ -253,6 +263,12 @@ pub fn parse_for_debugging(bytes: &[u8]) -> Result<naga::Module, String> {
     let data: Vec<u8> = xfb::strip(&words).iter().flat_map(|w| w.to_le_bytes()).collect();
     let spv = naga::front::spv::Options { adjust_coordinate_space: true, strict_capabilities: false, block_ctx_dump_prefix: None };
     naga::front::spv::parse_u8_slice(&data, &spv).map_err(|e| format!("SPIR-V: {:?}", e))
+}
+
+/// The SPIR-V (bytes) after VX's passes on it (examples/dump.rs)
+pub fn passes_for_debugging(bytes: &[u8]) -> Vec<u8> {
+    let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+    passes(&words).iter().flat_map(|w| w.to_le_bytes()).collect()
 }
 
 /// SPIR-V (bytes) to the JSON answer
@@ -280,6 +296,7 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
     let spv = naga::front::spv::Options { adjust_coordinate_space: !options.keep_coordinate_space, strict_capabilities: false, block_ctx_dump_prefix: None };
     let mut module = naga::front::spv::parse_u8_slice(&data, &spv).map_err(|e| format!("SPIR-V: {:?}", e))?;
     layers::lower(&mut module);
+    cubes::lower(&mut module);
     math::lower(&mut module);
     switches::lower(&mut module);
     rebind(&mut module, options);
@@ -318,10 +335,18 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
             validate(&module).map_err(|_| first)?
         }
     };
+    // the types nothing uses any more (the arrays blockarrays.rs split, the
+    // structs io.rs flattened) gone: naga's WGSL writer writes every type,
+    // and enables binding arrays when one is among them
+    let _ = info;
+    naga::compact::compact(&mut module, naga::compact::KeepUnused::Yes);
+    let info = validate(&module)?;
     let mut wgsl = naga::back::wgsl::write_string(&module, &info, naga::back::wgsl::WriterFlags::empty())
         .map_err(|e| format!("WGSL: {:?}", e))?;
     wgsl.push_str(&appended);
 
+    let mut layouter = naga::proc::Layouter::default();
+    let laid = layouter.update(module.to_ctx()).is_ok();
     let mut json = String::from("{\"wgsl\":");
     json.push_str(&quote(&wgsl));
     json.push_str(",\"entries\":[");
@@ -333,8 +358,14 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
             ShaderStage::Compute => "compute",
             _ => "other",
         };
-        json.push_str(&format!("{{\"name\":{},\"stage\":\"{}\",\"workgroup\":[{},{},{}],\"bindings\":[",
-            quote(&entry.name), stage, entry.workgroup_size[0], entry.workgroup_size[1], entry.workgroup_size[2]));
+        // (a vertex shader's outputs flat shaded: the provoking vertex matters, vx_executor.js's provokingLast)
+        let flat_binding = |b: &Option<naga::Binding>| matches!(b, Some(naga::Binding::Location { interpolation: Some(naga::Interpolation::Flat), .. }));
+        let flat = entry.function.result.as_ref().is_some_and(|r| flat_binding(&r.binding) || match &module.types[r.ty].inner {
+            TypeInner::Struct { members, .. } => members.iter().any(|m| flat_binding(&m.binding)),
+            _ => false,
+        });
+        json.push_str(&format!("{{\"name\":{},\"stage\":\"{}\",\"workgroup\":[{},{},{}],\"flat\":{},\"bindings\":[",
+            quote(&entry.name), stage, entry.workgroup_size[0], entry.workgroup_size[1], entry.workgroup_size[2], flat));
         let uses = info.get_entry_point(index);
         let mut first = true;
         for (handle, var) in module.global_variables.iter() {
@@ -342,7 +373,12 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
             if uses[handle].is_empty() { continue; }
             if !first { json.push(','); }
             first = false;
-            json.push_str(&format!("[{},{},\"{}\"]", binding.group, binding.binding, kind(&module, var)));
+            // (a buffer's: the size WebGPU wants bound at least, its type's: one element of a runtime array)
+            let size = match var.space {
+                AddressSpace::Uniform | AddressSpace::Storage { .. } if laid => layouter[var.ty].size,
+                _ => 0,
+            };
+            json.push_str(&format!("[{},{},\"{}\",{}]", binding.group, binding.binding, kind(&module, var), size));
         }
         json.push_str("]}");
     }

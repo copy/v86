@@ -11,6 +11,7 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 const OP_EXT_INST_IMPORT: u32 = 11;
+const OP_MEMORY_MODEL: u32 = 14;
 const OP_EXT_INST: u32 = 12;
 const OP_TYPE_INT: u32 = 21;
 const OP_TYPE_FLOAT: u32 = 22;
@@ -173,7 +174,15 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
             type_of.insert(w[2], w[1]);
         }
     }
-    let Some(glsl) = glsl else { return words.to_vec() };
+    // (GLSL.std.450, for floor and clamp: imported when the shader does not)
+    let imported = glsl.is_none();
+    let glsl = match glsl {
+        Some(id) => id,
+        None => {
+            pass.bound += 1;
+            pass.bound - 1
+        },
+    };
     // the image type of a sampled image's type, when its texels are integers and it is not a cube
     let integer_image = |pass: &Pass, sampled_image_ty: u32| -> Option<(u32, u32, bool)> {
         let si = pass.types.get(&sampled_image_ty)?;
@@ -325,6 +334,11 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
     }
     let mut out = words[..5].to_vec();
     for w in &instructions[..first_function] {
+        if imported && op(w) == OP_MEMORY_MODEL {
+            let mut import = Vec::from([glsl]);
+            import.extend(b"GLSL.std.450\0\0\0\0".chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])));
+            out.extend_from_slice(&instruction(OP_EXT_INST_IMPORT, &import));
+        }
         out.extend_from_slice(w);
     }
     for d in &pass.declarations {

@@ -164,6 +164,24 @@ pub fn flatten(module: &mut naga::Module) -> Result<(), String> {
         flatten_inputs(module, e)?;
         flatten_outputs(module, e)?;
     }
+    // the structs the entry points had (naga's WGSL writer writes every
+    // struct, and WGSL refuses a location on a matrix or an array): their
+    // members of such types unbound
+    let unbind: Vec<Handle<Type>> = module.types.iter().filter(|(_, ty)| match &ty.inner {
+        TypeInner::Struct { members, .. } => members.iter().any(|m| matches!(m.binding, Some(Binding::Location { .. })) && !shareable(module, m.ty)),
+        _ => false,
+    }).map(|(handle, _)| handle).collect();
+    for handle in unbind {
+        let mut ty = module.types[handle].clone();
+        if let TypeInner::Struct { members, .. } = &mut ty.inner {
+            for m in members.iter_mut() {
+                if matches!(m.binding, Some(Binding::Location { .. })) && !shareable(module, m.ty) {
+                    m.binding = None;
+                }
+            }
+        }
+        module.types.replace(handle, ty);
+    }
     Ok(())
 }
 
