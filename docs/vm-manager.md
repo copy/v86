@@ -104,14 +104,23 @@ session is not in the library.
 `make pages` builds the page and every file it loads into `build/pages/`, a
 static site ([tools/pages_dist.mjs](../tools/pages_dist.mjs)): the files keep
 the paths the page uses, their version (the query the page adds to them) is a
-hash of the files, the footer's links to the debug pages are left out, and
+hash of the files, the footer's links to the debug pages are left out,
 `_headers` makes the site cross-origin isolated (COOP/COEP, as
-`tools/dev-server.py`), which the cores in host threads need. Any static host
-that sends those two headers can serve it.
+`tools/dev-server.py`), which the cores in host threads need, and `404.html`
+makes a missing file a 404 (without it Cloudflare Pages answers any path with
+`index.html`, and a wrong image URL would become a disk of HTML). Any static
+host that sends those two headers can serve it.
+
+The systems of `?profile=` addresses take their images from `images/` on any
+host but copy.sh, and `images/` is not deployed (i.copy.sh does not serve other
+sites): there they fail with "could not be loaded (HTTP 404)" unless their
+images are deployed too, or `?cdn=<host>/` names a host that has them. The
+library does not need them.
 
 [.github/workflows/pages.yml](../.github/workflows/pages.yml) deploys it to
-Cloudflare Pages, project `v64`: a push to master deploys the site, a pull
-request from this repository a preview of its branch (`<branch>.v64.pages.dev`).
+Cloudflare Pages, project `v64` (`https://v64-2ys.pages.dev`): a push to
+master deploys the site, a pull request from this repository a preview of its
+branch (`https://<branch>.v64-2ys.pages.dev`).
 It builds on GitHub (Cloudflare's build environment lacks the Rust wasm target
 and Java) and uploads with wrangler, so the Pages project is a Direct Upload
 project. Once, in Cloudflare and GitHub:

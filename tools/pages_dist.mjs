@@ -8,7 +8,10 @@
 // - the footer's links to the debug pages go (they are not deployed); its
 //   version links the commit;
 // - _headers makes the site cross-origin isolated (COOP/COEP, as
-//   tools/dev-server.py): the cores in host threads need SharedArrayBuffer.
+//   tools/dev-server.py): the cores in host threads need SharedArrayBuffer;
+// - 404.html: a missing file is a 404 (without it Cloudflare Pages answers
+//   any path with index.html and 200, and a wrong image URL becomes a disk of
+//   HTML).
 // Run by `make pages`, which builds the files first.
 //   node tools/pages_dist.mjs [output directory]
 
@@ -89,6 +92,14 @@ files.set("_headers", Buffer.from([
     "/*",
     "  Cross-Origin-Opener-Policy: same-origin",
     "  Cross-Origin-Embedder-Policy: require-corp",
+    "",
+].join("\n")));
+
+files.set("404.html", Buffer.from([
+    "<!doctype html>",
+    "<meta charset=\"utf-8\">",
+    "<title>Not found</title>",
+    "<p>Not found. <a href=\"/\">The virtual machines</a></p>",
     "",
 ].join("\n")));
 

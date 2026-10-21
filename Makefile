@@ -740,6 +740,8 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1
 	node tests/app/browser_runner.mjs tests/app/suspend_test.html
 	node tests/app/browser_runner.mjs tests/app/opfs_disk_test.html
+	node tests/app/browser_runner.mjs tests/app/missing_image_test.html
+	node tests/app/browser_runner.mjs tests/app/missing_image_test.html worker=0
 	for part in page import share linux; do node tests/app/browser_runner.mjs tests/app/browser_disk_test.html part=$$part || exit 1; done
 
 app-shared-tests: build/v86_app.js build/libv86.mjs

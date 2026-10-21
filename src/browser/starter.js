@@ -41,6 +41,24 @@ import { PCIeRootPort } from "../pcie_root_port.js";
 import { FS } from "../../lib/filesystem.js";
 
 /**
+ * A whole file of a URL (load_file), or why it could not be loaded: an
+ * answer of 4xx fails at once (a missing image must not hang the start or
+ * become a disk; 5xx answers and network errors are tried again)
+ * @param {string} name the option it is for (fda, cdrom, ...)
+ * @param {string} url
+ * @param {Object=} options more of load_file's options (progress, as_json)
+ * @return {!Promise<*>}
+ */
+function load_whole_file(name, url, options)
+{
+    return new Promise((resolve, reject) => load_file(url, Object.assign({}, options, {
+        done: resolve,
+        error: status => reject(new Error(name + ": " + url + " could not be loaded (" +
+            (typeof status === "number" ? "HTTP " + status : status) + ")")),
+    })));
+}
+
+/**
  * graphics_adapter selects the display hardware the guest sees (a plugin,
  * src/graphics_adapter.js); graphics_proxy adds the D3D/DDraw/GL proxy of
  * libv86-webgpu.js, which the page loads first, as xterm.js for a serial
@@ -1045,17 +1063,7 @@ V86.prototype.continue_init = async function(emulator, options)
         }
         else
         {
-            load_file(f.url, {
-                done: function(result)
-                {
-                    if(f.url.endsWith(".zst") && f.name !== "initial_state")
-                    {
-                        dbg_assert(f.size, "A size must be provided for compressed images");
-                        result = this.zstd_decompress(f.size, new Uint8Array(result));
-                    }
-
-                    put(f.as_json ? result : new SyncBuffer(result));
-                }.bind(this),
+            load_whole_file(f.name, f.url, {
                 progress: function progress(e)
                 {
                     if(e.target.status === 200)
@@ -1081,7 +1089,16 @@ V86.prototype.continue_init = async function(emulator, options)
                     }
                 },
                 as_json: f.as_json,
-            });
+            }).then(result =>
+            {
+                if(f.url.endsWith(".zst") && f.name !== "initial_state")
+                {
+                    dbg_assert(f.size, "A size must be provided for compressed images");
+                    result = this.zstd_decompress(f.size, new Uint8Array(/** @type {!ArrayBuffer} */ (result)));
+                }
+
+                put(f.as_json ? result : new SyncBuffer(result));
+            }).catch(reject_initialized);
         }
     }.bind(this);
     // (a start that fails: the files written back opened so far are closed)
@@ -1908,7 +1925,7 @@ V86.prototype.insert_floppy = async function(index, file)
     }
     else if(file.url && !file.async)
     {
-        image = await new Promise(resolve => load_file(file.url, { done: result => resolve(new SyncBuffer(result)) }));
+        image = new SyncBuffer(await load_whole_file(name, file.url));
     }
     else
     {
@@ -2122,13 +2139,7 @@ V86.prototype.set_cdrom = async function(file)
     check_image_options("cdrom", file, false);
     if(file.url && !file.async)
     {
-        await new Promise(resolve => load_file(file.url, {
-            done: result =>
-            {
-                this.v86.cpu.devices.cdrom.set_cdrom(new SyncBuffer(result));
-                resolve();
-            },
-        }));
+        this.v86.cpu.devices.cdrom.set_cdrom(new SyncBuffer(await load_whole_file("cdrom", file.url)));
     }
     else
     {
@@ -2196,7 +2207,7 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     }
     else if(file && file.url && !file.async)
     {
-        image = await new Promise(resolve => load_file(file.url, { done: result => resolve(new SyncBuffer(result)) }));
+        image = new SyncBuffer(await load_whole_file("sata" + port, file.url));
     }
     else if(file)
     {
