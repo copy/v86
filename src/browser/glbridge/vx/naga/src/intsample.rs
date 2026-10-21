@@ -39,7 +39,9 @@ const OP_I_SUB: u32 = 130;
 const OP_F_MUL: u32 = 133;
 const OP_F_DIV: u32 = 136;
 const GLSL_FLOOR: u32 = 8;
+const GLSL_CEIL: u32 = 9;
 const GLSL_LOG2: u32 = 30;
+const OP_F_SUB: u32 = 131;
 const GLSL_F_MAX: u32 = 40;
 const GLSL_F_CLAMP: u32 = 43;
 const GLSL_LENGTH: u32 = 66;
@@ -278,6 +280,7 @@ pub fn lower(words: &[u32], wraps: &[(u32, u32)], fetched: &mut Vec<u32>) -> Vec
         let mut arg = 6;
         let mut lod_f = None;
         let mut bias = None;
+        let mut grad = None;
         let mut offset = None;
         for (bit, args) in [(IMAGE_OPERANDS_BIAS, 1), (IMAGE_OPERANDS_LOD, 1), (IMAGE_OPERANDS_GRAD, 2), (IMAGE_OPERANDS_CONST_OFFSET, 1), (IMAGE_OPERANDS_OFFSET, 1)] {
             if mask & bit != 0 {
@@ -286,6 +289,9 @@ pub fn lower(words: &[u32], wraps: &[(u32, u32)], fetched: &mut Vec<u32>) -> Vec
                 }
                 if bit == IMAGE_OPERANDS_BIAS {
                     bias = w.get(arg).copied();
+                }
+                if bit == IMAGE_OPERANDS_GRAD {
+                    grad = w.get(arg).copied().zip(w.get(arg + 1).copied());
                 }
                 if bit == IMAGE_OPERANDS_CONST_OFFSET || bit == IMAGE_OPERANDS_OFFSET {
                     offset = w.get(arg).copied();
@@ -324,49 +330,76 @@ pub fn lower(words: &[u32], wraps: &[(u32, u32)], fetched: &mut Vec<u32>) -> Vec
         else {
             size
         };
-        // the level: an explicit lod's; an implicit one's (a fragment shader's) as the nearest
-        // mip filter takes it, λ = log2(ρ) + bias of the texel coordinate's derivatives at level 0,
-        // floor(λ + 0.5) within the levels (0 for an image of one level)
-        let lod = match lod_f {
-            Some(l) => {
-                let id = pass.fresh();
-                body.push(instruction(OP_CONVERT_F_TO_S, &[int, id, l]));
-                id
-            },
-            None if matches!(o, OP_IMAGE_SAMPLE_IMPLICIT_LOD | OP_IMAGE_SAMPLE_PROJ_IMPLICIT_LOD) => {
+        // the level, as the nearest mip filter takes it: ceil(λ + 0.5) - 1 within
+        // the levels (0 for an image of one level), λ an explicit lod, or
+        // log2(ρ) of the texel coordinate's derivatives at level 0 (given, or a
+        // fragment shader's own, plus the bias)
+        let implicit = matches!(o, OP_IMAGE_SAMPLE_IMPLICIT_LOD | OP_IMAGE_SAMPLE_PROJ_IMPLICIT_LOD);
+        let lambda = match (lod_f, grad) {
+            (Some(l), _) => Some(l),
+            (None, grad) if grad.is_some() || implicit => {
                 let zero = pass.constant(int, 0);
                 let size0 = pass.fresh();
                 body.push(instruction(OP_IMAGE_QUERY_SIZE_LOD, &[size_ty, size0, image, zero]));
                 let size0 = spatial_of(&mut pass, &mut body, size0);
-                let (fsize0, scaled0, dx, dy, lx, ly, rho, lambda) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(),
-                    pass.fresh(), pass.fresh());
+                let fsize0 = pass.fresh();
                 body.push(instruction(OP_CONVERT_S_TO_F, &[fvec, fsize0, size0]));
-                body.push(instruction(OP_F_MUL, &[fvec, scaled0, xy, fsize0]));
-                body.push(instruction(OP_DPDX, &[fvec, dx, scaled0]));
-                body.push(instruction(OP_DPDY, &[fvec, dy, scaled0]));
+                let (dx, dy) = match grad {
+                    Some((gx, gy)) => {
+                        // (the gradients' spatial components, in texels)
+                        let (sx, sy, tx, ty) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh());
+                        let shuffle = |from: u32, to: u32, body: &mut Vec<Vec<u32>>| {
+                            let mut operands = Vec::from([fvec, to, from, from]);
+                            operands.extend(0..spatial);
+                            body.push(instruction(OP_VECTOR_SHUFFLE, &operands));
+                        };
+                        let gx_ty = type_of.get(&gx).copied();
+                        if gx_ty == Some(fvec) { body.push(instruction(OP_F_MUL, &[fvec, tx, gx, fsize0])); }
+                        else { shuffle(gx, sx, &mut body); body.push(instruction(OP_F_MUL, &[fvec, tx, sx, fsize0])); }
+                        let gy_ty = type_of.get(&gy).copied();
+                        if gy_ty == Some(fvec) { body.push(instruction(OP_F_MUL, &[fvec, ty, gy, fsize0])); }
+                        else { shuffle(gy, sy, &mut body); body.push(instruction(OP_F_MUL, &[fvec, ty, sy, fsize0])); }
+                        (tx, ty)
+                    },
+                    None => {
+                        let (scaled0, dx, dy) = (pass.fresh(), pass.fresh(), pass.fresh());
+                        body.push(instruction(OP_F_MUL, &[fvec, scaled0, xy, fsize0]));
+                        body.push(instruction(OP_DPDX, &[fvec, dx, scaled0]));
+                        body.push(instruction(OP_DPDY, &[fvec, dy, scaled0]));
+                        (dx, dy)
+                    },
+                };
+                let (lx, ly, rho, lambda) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh());
                 body.push(instruction(OP_EXT_INST, &[float, lx, glsl, GLSL_LENGTH, dx]));
                 body.push(instruction(OP_EXT_INST, &[float, ly, glsl, GLSL_LENGTH, dy]));
                 body.push(instruction(OP_EXT_INST, &[float, rho, glsl, GLSL_F_MAX, lx, ly]));
                 body.push(instruction(OP_EXT_INST, &[float, lambda, glsl, GLSL_LOG2, rho]));
-                let lambda = match bias {
+                Some(match bias {
                     Some(b) => {
                         let id = pass.fresh();
                         body.push(instruction(OP_F_ADD, &[float, id, lambda, b]));
                         id
                     },
                     None => lambda,
-                };
+                })
+            },
+            _ => None,
+        };
+        let lod = match lambda {
+            Some(lambda) => {
                 let half = pass.constant(float, 0x3F00_0000);
                 let zero_f = pass.constant(float, 0);
+                let one_f = pass.constant(float, 0x3F80_0000);
                 let one = pass.constant(int, 1);
-                let (rounded, floored, levels, last, last_f, level, lod) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(),
-                    pass.fresh());
+                let (rounded, ceiled, below, levels, last, last_f, level, lod) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(),
+                    pass.fresh(), pass.fresh(), pass.fresh());
                 body.push(instruction(OP_F_ADD, &[float, rounded, lambda, half]));
-                body.push(instruction(OP_EXT_INST, &[float, floored, glsl, GLSL_FLOOR, rounded]));
+                body.push(instruction(OP_EXT_INST, &[float, ceiled, glsl, GLSL_CEIL, rounded]));
+                body.push(instruction(OP_F_SUB, &[float, below, ceiled, one_f]));
                 body.push(instruction(OP_IMAGE_QUERY_LEVELS, &[int, levels, image]));
                 body.push(instruction(OP_I_SUB, &[int, last, levels, one]));
                 body.push(instruction(OP_CONVERT_S_TO_F, &[float, last_f, last]));
-                body.push(instruction(OP_EXT_INST, &[float, level, glsl, GLSL_F_CLAMP, floored, zero_f, last_f]));
+                body.push(instruction(OP_EXT_INST, &[float, level, glsl, GLSL_F_CLAMP, below, zero_f, last_f]));
                 body.push(instruction(OP_CONVERT_F_TO_S, &[int, lod, level]));
                 lod
             },

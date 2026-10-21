@@ -441,10 +441,14 @@ function begin_rendering(vk, ctx, info, p)
     if(d || st)
     {
         const v = ctx.objects.get((d || st).imageView);
+        // (the depth and stencil resolved, sample zero, into the resolve views)
+        const resolve_of = a => a && a.resolveMode && a.resolveImageView ? (ctx.objects.get(a.resolveImageView) || { rid: 0 }).rid : 0;
+        const resolve = resolve_of(d) || resolve_of(st);
         depth = { view: v.rid, load: d && !resuming ? d.loadOp : LOAD_OP_LOAD, store: d ? d.storeOp : STORE_OP_STORE,
             stencil_load: st && !resuming ? st.loadOp : LOAD_OP_LOAD, stencil_store: st ? st.storeOp : STORE_OP_STORE,
             clear_depth: d ? new Float32Array(new Uint32Array([bits(d.clearValue)[0]]).buffer)[0] : 1,
-            clear_stencil: st ? bits(st.clearValue)[1] : 0, format: v.format };
+            clear_stencil: st ? bits(st.clearValue)[1] : 0, format: v.format,
+            resolve, resolve_depth: !!resolve_of(d), resolve_stencil: !!resolve_of(st) };
     }
     const area = info.renderArea;
     const width = size ? size.width : area.offset.x + area.extent.width, height = size ? size.height : area.offset.y + area.extent.height;
@@ -475,8 +479,10 @@ function begin_subpass(vk, ctx, p)
     {
         const i = sub.depth.attachment, a = p.pass.attachments[i];
         const bits = clear(i);
+        const r = sub.depth_resolve && sub.depth_resolve.attachment !== REMAINING ? sub.depth_resolve : null;
         depth = { view: view(i), load: load(i, a.load), store: a.store, stencil_load: load(i, a.stencil_load), stencil_store: a.stencil_store,
-            clear_depth: new Float32Array(new Uint32Array([bits[0]]).buffer)[0], clear_stencil: bits[1], format: a.format };
+            clear_depth: new Float32Array(new Uint32Array([bits[0]]).buffer)[0], clear_stencil: bits[1], format: a.format,
+            resolve: r ? view(r.attachment) : 0, resolve_depth: !!(r && r.depth), resolve_stencil: !!(r && r.stencil) };
     }
     for(const r of sub.colors.concat([sub.depth], sub.resolves || [])) if(r && r.attachment !== REMAINING) p.used.add(r.attachment);
     const occlusion = p.occlusion ? p.occlusion.rid : 0;

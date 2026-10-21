@@ -11,6 +11,8 @@ const STYPE_RENDER_PASS_MULTIVIEW = 1000053000;
 const STYPE_PIPELINE_RENDERING_CREATE_INFO = 1000044002;
 // VkPipelineRasterizationProvokingVertexStateCreateInfoEXT
 const STYPE_PROVOKING_VERTEX_STATE = 1000254001;
+// VkSubpassDescriptionDepthStencilResolve
+const STYPE_DEPTH_STENCIL_RESOLVE = 1000199001;
 
 /** UTF-8 of a JSON description, for the renderer */
 function json_bytes(object)
@@ -51,6 +53,17 @@ function render_pass(info, two)
             resolves: s.pResolveAttachments ? s.pResolveAttachments.map(ref) : null,
             inputs: (s.pInputAttachments || []).map(ref),
             depth: ref(s.pDepthStencilAttachment),
+            // (VkSubpassDescriptionDepthStencilResolve: the depth and stencil resolved, sample zero)
+            depth_resolve: (() => {
+                for(let n = s.pNext; n; n = n.pNext)
+                {
+                    if(n.sType === STYPE_DEPTH_STENCIL_RESOLVE && n.pDepthStencilResolveAttachment)
+                    {
+                        return { attachment: n.pDepthStencilResolveAttachment.attachment, depth: n.depthResolveMode, stencil: n.stencilResolveMode };
+                    }
+                }
+                return null;
+            })(),
             view_mask: two ? s.viewMask : 0,
         })),
     };

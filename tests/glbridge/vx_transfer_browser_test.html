@@ -810,6 +810,85 @@ const f32 = v => new Uint32Array(new Float32Array([v]).buffer)[0];
         check(snapOut.length === 6 && snapOut.every((v, i) => Math.abs(v - snapIn[i]) <= 1), "a snapshot's 24-bit depth written and read: " + snapOut.join() +
             " (" + renderer.vx.warnings.join("; ") + ")");
 
+        // Parts of depth and stencil (WebGPU copies only whole subresources of
+        // them): 2x2 of 16-bit depth in at (1, 1) of a 4x4 D16 image, the whole read
+        // out; 2x2 of a D24S8 image's depth and stencil from (1, 1) to (2, 0) of another
+        const PD16 = 235, PS1 = 236, PS2 = 237, PDM = 238;
+        w.command(VX.TEXTURE_CREATE, [PD16, 124, 1, 4, 4, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.TEXTURE_CREATE, [PS1, 129, 1, 4, 4, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.TEXTURE_CREATE, [PS2, 129, 1, 4, 4, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.MEMORY_CREATE, [PDM, 1024, 0]);
+        w.command(VX.MEMORY_WRITE, [PDM, 0, 0, 8], new Uint8Array(Uint16Array.from([1000, 2000, 3000, 4000]).buffer));
+        const s1depth = Uint32Array.from({ length: 16 }, (_, i) => i * 0x10000), s1stencil = Uint8Array.from({ length: 16 }, (_, i) => i + 1);
+        w.command(VX.MEMORY_WRITE, [PDM, 64, 0, 64], new Uint8Array(s1depth.buffer));
+        w.command(VX.MEMORY_WRITE, [PDM, 128, 0, 16], s1stencil);
+        w.command(VX.BEGIN, []);
+        w.command(VX.CLEAR_IMAGE, [PD16, 2, 0, 1, 0, 1, f32(0), 0, 0, 0]);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, PDM, 0, 0, 0, 0, PD16, 2, 0, 0, 1, 1, 1, 0, 2, 2, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, PDM, 256, 0, 0, 0, PD16, 2, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, PDM, 64, 0, 0, 0, PS1, 2, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [1, PDM, 128, 0, 0, 0, PS1, 4, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.CLEAR_IMAGE, [PS2, 6, 0, 1, 0, 1, f32(0), 0, 0, 0]);
+        w.command(VX.COPY_IMAGE, [PS1, 6, 0, 0, 1, 1, 0, PS2, 6, 0, 0, 2, 0, 0, 2, 2, 1, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, PDM, 320, 0, 0, 0, PS2, 2, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, PDM, 400, 0, 0, 0, PS2, 4, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.END, []);
+        const pback = await read(PDM, 256, 160);
+        const d16 = Array.from(new Uint16Array(pback.buffer, 0, 16)), d24 = Array.from(new Uint32Array(pback.buffer, 64, 16)), st = Array.from(pback.slice(144, 160));
+        const ok16 = d16.join() === "0,0,0,0,0,1000,2000,0,0,3000,4000,0,0,0,0,0";
+        const ok24 = d24.every((v, i) => Math.abs(v - [0, 0, s1depth[5], s1depth[6], 0, 0, s1depth[9], s1depth[10], 0, 0, 0, 0, 0, 0, 0, 0][i]) <= 1);
+        const okSt = st.join() === [0, 0, 6, 7, 0, 0, 10, 11, 0, 0, 0, 0, 0, 0, 0, 0].join();
+        check(ok16 && ok24 && okSt, "parts of depth and stencil copied: " + d16.join() + " / " + d24.join() + " / " + st.join() + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // Primitive restart in a list (GL ES 3.0's; WebGPU restarts strips only): an
+        // indexed point list of (0, 0xFFFF, 0) with restart; the restart index's
+        // point (at x +0.5) is not drawn, vertex 0's (at -0.5) is
+        const RESTART_VS = Uint8Array.from(atob("AwIjBwAAAQAcAAAAGAAAAAAAAAARAAIAAQAAAAsABgABAAAAR0xTTC5zdGQuNDUwAAAAAA4AAwAAAAAAAQAAAA8ABwAAAAAADAAAAG1haW4AAAAABwAAAAoAAABHAAQABwAAAAsAAAAqAAAARwAEAAoAAAALAAAAAAAAABMAAgACAAAAFQAEAAMAAAAgAAAAAAAAABYAAwAFAAAAIAAAABcABAAEAAAABQAAAAQAAAAgAAQACAAAAAEAAAADAAAAOwAEAAgAAAAHAAAAAQAAACAABAALAAAAAwAAAAQAAAA7AAQACwAAAAoAAAADAAAAIQADAA0AAAACAAAAKwAEAAMAAAAOAAAA//8AACsABAAFAAAADwAAAAAAAL8rAAQABQAAABAAAAAAAAA/KwAEAAUAAAARAAAAAAAAACsABAAFAAAAEgAAAAAAgD8UAAIAFAAAADYABQACAAAADAAAAAAAAAANAAAA+AACAAYAAAA9AAQAAwAAAAkAAAAHAAAA+QACABMAAAD4AAIAEwAAAKoABQAUAAAAFQAAAAkAAAAOAAAAqQAGAAUAAAAWAAAAFQAAABAAAAAPAAAAUAAHAAQAAAAXAAAAFgAAABEAAAARAAAAEgAAAD4AAwAKAAAAFwAAAP0AAQA4AAEA"), c => c.charCodeAt(0));
+        const RVS = 240, RPIPE = 241, RIB = 242;
+        w.command(VX.SHADER_CREATE, [RVS, RESTART_VS.length], RESTART_VS);
+        w.command(VX.PIPELINE_CREATE, [RPIPE], json({ kind: "graphics",
+            stages: [{ shader: RVS, stage: 1, entry: "main", constants: {} }, { shader: SFS, stage: 16, entry: "main", constants: {} }],
+            buffers: [], attributes: [], topology: 0, restart: true, cull: 0, front: 0, polygon: 0, depth_clamp: false, discard: false, depth_bias: null,
+            samples: 1, sample_mask: 0xFFFFFFFF, alpha_to_coverage: false, depth: null, depth_format: 0,
+            targets: [{ format: 37, blend: false, write_mask: 15 }], blend_constants: [0, 0, 0, 0], dynamic: [],
+            viewport: { x: 0, y: 0, width: 8, height: 8, minDepth: 0, maxDepth: 1 }, scissor: { offset: { x: 0, y: 0 }, extent: { width: 8, height: 8 } },
+            set_count: 0, push_size: 0 }));
+        w.command(VX.MEMORY_CREATE, [RIB, 256, 0]);
+        w.command(VX.MEMORY_WRITE, [RIB, 0, 0, 8], new Uint8Array(Uint16Array.from([0, 0xFFFF, 0, 0]).buffer));
+        w.command(VX.BEGIN, []);
+        w.command(VX.BEGIN_PASS, [], json({ colors: [{ view: XRTV, load: 1, store: 0, clear: [0, 0, 0, 0], resolve: 0 }], depth: null, width: 8, height: 8 }));
+        w.command(VX.BIND_PIPELINE, [RPIPE]);
+        w.command(VX.SET_INDEX_BUFFER, [RIB, 0, 0, 8, 0, 0]);
+        w.command(VX.DRAW_INDEXED, [3, 1, 0, 0, 0]);
+        w.command(VX.END_PASS, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, B, 0, 0, 64, 0, XRT, 1, 0, 0, 1, 0, 0, 0, 8, 8, 1]);
+        w.command(VX.END, []);
+        bytes = await read(B, 0, 2048);
+        const lit = [];
+        for(let y = 0; y < 8; y++) for(let x = 0; x < 8; x++) if(pixel(x, y) !== "0,0,0,0") lit.push(x + ":" + y);
+        check(lit.length === 1 && +lit[0].split(":")[0] < 4, "primitive restart in a point list: " + lit.join(" ") + " (" + renderer.vx.warnings.join("; ") + ")");
+
+        // Depth and stencil resolves (VK_KHR_depth_stencil_resolve's sample zero;
+        // WebGPU resolves colors only): a 4x D24S8 cleared to 0.25 and 0x5A in a
+        // pass that resolves into a single-sample D24S8, both read back
+        const MSD = 245, MSDV = 246, RSD = 247, RSDV = 248, RSM = 249;
+        w.command(VX.TEXTURE_CREATE, [MSD, 129, 1, 4, 4, 1, 1, 1, 4, 0x24, 0]);
+        w.command(VX.VIEW_CREATE, [MSDV, MSD, 1, 129, 6, 0, 1, 0, 1, 0, 0, 0, 0]);
+        w.command(VX.TEXTURE_CREATE, [RSD, 129, 1, 4, 4, 1, 1, 1, 1, 0x23, 0]);
+        w.command(VX.VIEW_CREATE, [RSDV, RSD, 1, 129, 6, 0, 1, 0, 1, 0, 0, 0, 0]);
+        w.command(VX.MEMORY_CREATE, [RSM, 256, 0]);
+        w.command(VX.BEGIN, []);
+        w.command(VX.BEGIN_PASS, [], json({ colors: [], depth: { view: MSDV, load: 1, clear_depth: 0.25, store: 1, stencil_load: 1, clear_stencil: 0x5A,
+            stencil_store: 1, resolve: RSDV, resolve_depth: true, resolve_stencil: true }, width: 4, height: 4 }));
+        w.command(VX.END_PASS, []);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, RSM, 0, 0, 0, 0, RSD, 2, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.COPY_BUFFER_IMAGE, [0, RSM, 128, 0, 0, 0, RSD, 4, 0, 0, 1, 0, 0, 0, 4, 4, 1]);
+        w.command(VX.END, []);
+        const rsback = await read(RSM, 0, 144);
+        const rdepth = new Uint32Array(rsback.buffer, 0, 16), rstencil = Array.from(rsback.slice(128, 144));
+        check(Array.from(rdepth).every(v => Math.abs(v - 0x400000) <= 1) && rstencil.every(v => v === 0x5A),
+            "depth and stencil resolved: " + rdepth[0] + " " + rstencil[0] + " (" + renderer.vx.warnings.join("; ") + ")");
+
         // DESTROY, then a read of what is gone fails
         w.command(VX.DESTROY, [A]);
         check(await read(A, 0, 4) === null, "a destroyed memory reads as nothing");

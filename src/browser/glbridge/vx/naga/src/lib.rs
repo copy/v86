@@ -46,6 +46,7 @@ mod relational;
 mod remap;
 mod blockarrays;
 mod cubes;
+mod fetches;
 mod depth;
 mod split;
 mod subpass;
@@ -251,8 +252,8 @@ fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
 /// `sampled`: the integer images it made fetches of)
 fn passes(words: &[u32], wraps: &[(u32, u32)], sampled: &mut Vec<u32>) -> Vec<u32> {
     let skip = std::env::var("VX_SKIP").unwrap_or_default();
-    let list: [(&str, fn(&[u32]) -> Vec<u32>); 6] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
-        ("relational", relational::lower), ("layout", layout::lower)];
+    let list: [(&str, fn(&[u32]) -> Vec<u32>); 7] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
+        ("relational", relational::lower), ("fetches", fetches::lower), ("layout", layout::lower)];
     let mut words = words.to_vec();
     for (name, pass) in list {
         // (intsample after subpass)

@@ -250,7 +250,13 @@
                 }
                 case VX.PIPELINE_CREATE: return this.createPipeline(b[0], this.json(b, 1));
                 case VX.BEGIN_PASS: return this.beginPass(this.json(b, 0));
-                case VX.END_PASS: return this.endPass();
+                case VX.END_PASS: {
+                    this.endPass();
+                    // (the depth and stencil resolved, VK_KHR_depth_stencil_resolve's sample zero)
+                    const depth = this.passDesc && this.passDesc.depth;
+                    if (depth && depth.resolve) this.resolveDepthStencil(depth);
+                    return;
+                }
                 case VX.BIND_PIPELINE: {
                     const p = this.objects.get(b[0]);
                     if (p && p.kind === "pipeline") {
@@ -722,9 +728,9 @@
             const stale = [];
             for (const [group, used] of p.groups) {
                 const contents = this.state.groups[point].get(group);
-                if (!contents || group === p.push) continue;
+                if (!contents) continue;
                 for (const [binding, kind] of used) {
-                    if (samplerBinding(binding) || !/^texture/.test(kind) || kind === "storage-texture") continue;
+                    if (group === p.push && binding === PUSH_BINDING || samplerBinding(binding) || !/^texture/.test(kind) || kind === "storage-texture") continue;
                     const d = contents.descriptors.get(descriptorKey(binding));
                     const v = d && this.objects.get(d.rid);
                     if (!v || v.kind !== "view") continue;
@@ -919,6 +925,148 @@
         }
 
         /**
+         * A pass's depth and stencil resolved into its resolve view (sample
+         * zero, the mode Venus offers; WebGPU resolves colors only): the depth
+         * by a draw writing frag_depth from sample 0, the stencil cleared, then
+         * written a bit at a time (a draw replacing through a write mask of the
+         * bit, discarding where sample 0's bit is clear)
+         */
+        resolveDepthStencil(desc) {
+            const v = this.attachmentOf(desc.view), r = this.attachmentOf(desc.resolve);
+            if (!v || !r || v.texture.samples <= 1 || r.texture.samples > 1) return;
+            const f = r.f, layer = { dimension: "2d", baseMipLevel: v.baseMip, mipLevelCount: 1, baseArrayLayer: v.texture.volume ? 0 : v.baseLayer, arrayLayerCount: 1 };
+            const encoder = this.encoder();
+            const vs = "@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {\n" +
+                "    return vec4f(f32(i & 1u) * 4.0 - 1.0, f32(i >> 1u) * 4.0 - 1.0, 0.0, 1.0);\n}\n";
+            const ds = { view: r.attachment };
+            if (f.hasDepth) Object.assign(ds, { depthLoadOp: "load", depthStoreOp: "store" });
+            if (f.hasStencil) Object.assign(ds, { stencilLoadOp: "load", stencilStoreOp: "store" });
+            if (desc.resolve_depth && f.hasDepth && v.f.hasDepth) {
+                const key = "resolve-depth:" + f.gpu;
+                let pipeline = this.pipelines.get(key);
+                if (!pipeline) {
+                    const module = this.device.createShaderModule({ code: vs + "@group(0) @binding(0) var source: texture_depth_multisampled_2d;\n" +
+                        "@fragment fn fs(@builtin(position) at: vec4f) -> @builtin(frag_depth) f32 { return textureLoad(source, vec2i(at.xy), 0); }\n" });
+                    pipeline = this.device.createRenderPipeline({ layout: "auto", vertex: { module, entryPoint: "vs" },
+                        fragment: { module, entryPoint: "fs", targets: [] }, primitive: { topology: "triangle-list" },
+                        depthStencil: { format: f.gpu, depthWriteEnabled: true, depthCompare: "always" } });
+                    this.pipelines.set(key, pipeline);
+                }
+                const source = v.texture.texture.createView(Object.assign({ aspect: "depth-only", format: v.f.gpu.replace(/-stencil8$/, "") }, layer));
+                const pass = encoder.beginRenderPass({ colorAttachments: [], depthStencilAttachment: ds });
+                pass.setPipeline(pipeline);
+                pass.setBindGroup(0, this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: source }] }));
+                pass.draw(3);
+                pass.end();
+            }
+            if (desc.resolve_stencil && f.hasStencil && v.f.hasStencil) {
+                const source = v.texture.texture.createView(Object.assign({ aspect: "stencil-only", format: "stencil8" }, layer));
+                const pass = encoder.beginRenderPass({ colorAttachments: [], depthStencilAttachment: Object.assign({}, ds,
+                    { stencilLoadOp: "clear", stencilClearValue: 0 }) });
+                pass.setStencilReference(0xFF);
+                for (let bit = 0; bit < 8; bit++) {
+                    const key = "resolve-stencil:" + f.gpu + ":" + bit;
+                    let pipeline = this.pipelines.get(key);
+                    if (!pipeline) {
+                        const module = this.device.createShaderModule({ code: vs + "@group(0) @binding(0) var source: texture_multisampled_2d<u32>;\n" +
+                            "@fragment fn fs(@builtin(position) at: vec4f) {\n" +
+                            "    if ((textureLoad(source, vec2i(at.xy), 0).x & " + (1 << bit) + "u) == 0u) { discard; }\n}\n" });
+                        const face = { compare: "always", passOp: "replace", failOp: "keep", depthFailOp: "keep" };
+                        pipeline = this.device.createRenderPipeline({ layout: "auto", vertex: { module, entryPoint: "vs" },
+                            fragment: { module, entryPoint: "fs", targets: [] }, primitive: { topology: "triangle-list" },
+                            depthStencil: { format: f.gpu, depthWriteEnabled: false, depthCompare: "always", stencilFront: face, stencilBack: face,
+                                stencilWriteMask: 1 << bit } });
+                        this.pipelines.set(key, pipeline);
+                    }
+                    pass.setPipeline(pipeline);
+                    pass.setBindGroup(0, this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: source }] }));
+                    pass.draw(3);
+                }
+                pass.end();
+            }
+            this.touch(r.texture.texture);
+        }
+
+        /**
+         * A copy between a memory and part of a depth or stencil aspect
+         * (`a`, copyAspect's), which WebGPU copies only whole: the whole
+         * subresource through a buffer, the region repacked in it
+         */
+        copyPartialAspect(toImage, m, guest, t, a, mip, layer, layers, x, y, w, h) {
+            const W = Math.max(1, t.width >> mip), H = Math.max(1, Math.max(1, t.height) >> mip), aligned = align(W * a.bytes, 256);
+            const staging = this.scratch(aligned * H * layers, BUFFER.COPY_SRC | BUFFER.COPY_DST | BUFFER.STORAGE);
+            const whole = { texture: t.texture, mipLevel: mip, origin: [0, 0, layer], aspect: a.aspect };
+            const layout = { buffer: staging, offset: 0, bytesPerRow: aligned, rowsPerImage: H };
+            const ours = { offset: y * aligned + x * a.bytes, pitch: aligned, image: aligned * H };
+            this.encoder().copyTextureToBuffer(whole, layout, [W, H, layers]);
+            if (toImage) {
+                this.repack(m.buffer, guest, staging, ours, w * a.bytes, h, layers);
+                this.encoder().copyBufferToTexture(layout, whole, [W, H, layers]);
+            }
+            else this.repack(staging, ours, m.buffer, guest, w * a.bytes, h, layers);
+        }
+
+        /**
+         * A copy between images of depth or stencil that is not of whole
+         * subresources: stencil (and 16-bit depth) through buffers, other
+         * depth by a draw writing frag_depth from the source's texels
+         */
+        copyPartialDepthStencil(s, sa, smip, slayer, sx, sy, t, da, dmip, dlayer, dx, dy, w, h, layers) {
+            const as = this.copyAspect(s, sa), at = this.copyAspect(t, da);
+            if (as && at && (sa === ASPECT.STENCIL || s.f.gpu === "depth16unorm" && t.f.gpu === "depth16unorm")) {
+                const SW = Math.max(1, s.width >> smip), SH = Math.max(1, Math.max(1, s.height) >> smip), sAligned = align(SW * as.bytes, 256);
+                const staging = this.scratch(sAligned * SH * layers, BUFFER.COPY_SRC | BUFFER.COPY_DST | BUFFER.STORAGE);
+                this.encoder().copyTextureToBuffer({ texture: s.texture, mipLevel: smip, origin: [0, 0, slayer], aspect: as.aspect },
+                    { buffer: staging, offset: 0, bytesPerRow: sAligned, rowsPerImage: SH }, [SW, SH, layers]);
+                const m = { buffer: staging };
+                return this.copyPartialAspect(true, m, { offset: sy * sAligned + sx * as.bytes, pitch: sAligned, image: sAligned * SH }, t, at,
+                    dmip, dlayer, layers, dx, dy, w, h);
+            }
+            if (sa !== ASPECT.DEPTH || da !== ASPECT.DEPTH) {
+                this.warn("copy-depth-partial", "partial copies between these depth and stencil images are not done");
+                return;
+            }
+            const key = "depth-copy:" + t.f.gpu;
+            let pipeline = this.pipelines.get(key);
+            if (!pipeline) {
+                const code = [
+                    "struct P { dx: i32, dy: i32, sx: i32, sy: i32, layer: u32, mip: u32 };",
+                    "@group(0) @binding(0) var<uniform> p: P;",
+                    "@group(0) @binding(1) var source: texture_depth_2d_array;",
+                    "@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {",
+                    "    return vec4f(f32(i & 1u) * 4.0 - 1.0, f32(i >> 1u) * 4.0 - 1.0, 0.0, 1.0);",
+                    "}",
+                    "@fragment fn fs(@builtin(position) at: vec4f) -> @builtin(frag_depth) f32 {",
+                    "    return textureLoad(source, vec2i(at.xy) - vec2i(p.dx, p.dy) + vec2i(p.sx, p.sy), p.layer, p.mip);",
+                    "}",
+                ].join("\n");
+                const module = this.device.createShaderModule({ code });
+                pipeline = this.device.createRenderPipeline({ layout: "auto", vertex: { module, entryPoint: "vs" },
+                    fragment: { module, entryPoint: "fs", targets: [] }, primitive: { topology: "triangle-list" },
+                    depthStencil: { format: t.f.gpu, depthWriteEnabled: true, depthCompare: "always" } });
+                this.pipelines.set(key, pipeline);
+            }
+            const source = s.texture.createView({ dimension: "2d-array", aspect: "depth-only", format: s.f.gpu.replace(/-stencil8$/, "") });
+            const encoder = this.encoder();
+            for (let i = 0; i < layers; i++) {
+                const ubo = this.device.createBuffer({ size: 32, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+                this.device.queue.writeBuffer(ubo, 0, Int32Array.from([dx, dy, sx, sy, slayer + i, smip, 0, 0]));
+                this.transient.push(ubo);
+                const group = this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+                    { binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: source }] });
+                const ds = { view: this.attachment(t, dmip, dlayer + i), depthLoadOp: "load", depthStoreOp: "store" };
+                if (t.f.hasStencil) Object.assign(ds, { stencilLoadOp: "load", stencilStoreOp: "store" });
+                const pass = encoder.beginRenderPass({ colorAttachments: [], depthStencilAttachment: ds });
+                pass.setPipeline(pipeline);
+                pass.setBindGroup(0, group);
+                pass.setViewport(dx, dy, w, h, 0, 1);
+                pass.setScissorRect(dx, dy, w, h);
+                pass.draw(3);
+                pass.end();
+            }
+        }
+
+        /**
          * A copy between a memory and an image of 16-bit packed texels
          * (R5G6B5, R5G5B5A1, A1R5G5B5: textures of rgba8unorm here): through
          * a staging buffer of WebGPU's pitch that a compute shader unpacks
@@ -1090,6 +1238,10 @@
             const place = { texture: t.texture, mipLevel: mip, origin: [x, y, t.volume ? z : layer], aspect: a.aspect };
             const size = [w, h, slices];
             if (t.f.packed && a.aspect === "all") return this.copyPacked(m, { offset, pitch, image: pitch * rows }, place, size, toImage, t.f.packed);
+            // (depth and stencil: WebGPU copies only whole subresources of them)
+            if (t.f.depth && (x || y || w !== Math.max(1, t.width >> mip) || h !== Math.max(1, Math.max(1, t.height) >> mip))) {
+                return this.copyPartialAspect(toImage, m, { offset, pitch, image: pitch * rows }, t, a, mip, layer, slices, x, y, w, h);
+            }
             const encoder = this.encoder();
             if (pitch % 256 === 0 && offset % 4 === 0) {
                 const layout = { buffer: m.buffer, offset, bytesPerRow: pitch, rowsPerImage: rows };
@@ -1131,6 +1283,20 @@
             const s = this.texture(sid), t = this.texture(did);
             if (!s || !t) return;
             this.touch(t.texture);
+            // (depth and stencil: WebGPU copies whole subresources of all their aspects only)
+            if (s.f.depth || t.f.depth) {
+                const all = f => (f.hasDepth ? ASPECT.DEPTH : 0) | (f.hasStencil ? ASPECT.STENCIL : 0);
+                const full = (f, mip, x0, y0) => !x0 && !y0 && w === Math.max(1, f.width >> mip) && h === Math.max(1, Math.max(1, f.height) >> mip);
+                if (s.f.gpu === t.f.gpu && sa === all(s.f) && da === sa && full(s, smip, sx, sy) && full(t, dmip, dx, dy) && s.samples === t.samples) {
+                    this.encoder().copyTextureToTexture({ texture: s.texture, mipLevel: smip, origin: [0, 0, slayer] },
+                        { texture: t.texture, mipLevel: dmip, origin: [0, 0, dlayer] }, [w, h, layers]);
+                    return;
+                }
+                for (const aspect of [ASPECT.DEPTH, ASPECT.STENCIL]) {
+                    if (sa & aspect) this.copyPartialDepthStencil(s, aspect, smip, slayer, sx, sy, t, aspect, dmip, dlayer, dx, dy, w, h, layers);
+                }
+                return;
+            }
             const as = this.copyAspect(s, sa), at = this.copyAspect(t, da);
             if (!as || !at) {
                 this.warn("copy-d24", "copies of 24-bit depth are not done");
@@ -1605,9 +1771,9 @@
                     depthFormat = v.texture.f.gpu;
                     const ds = { view: v.attachment };
                     if (v.texture.f.hasDepth) Object.assign(ds, { depthLoadOp: d.depth.load === 0 ? "load" : "clear", depthClearValue: d.depth.clear_depth,
-                        depthStoreOp: d.depth.store === 1 ? "discard" : "store" });
+                        depthStoreOp: d.depth.store === 1 && !d.depth.resolve ? "discard" : "store" });
                     if (v.texture.f.hasStencil) Object.assign(ds, { stencilLoadOp: d.depth.stencil_load === 0 ? "load" : "clear",
-                        stencilClearValue: d.depth.clear_stencil, stencilStoreOp: d.depth.stencil_store === 1 ? "discard" : "store" });
+                        stencilClearValue: d.depth.clear_stencil, stencilStoreOp: d.depth.stencil_store === 1 && !d.depth.resolve ? "discard" : "store" });
                     descriptor.depthStencilAttachment = ds;
                 }
             }
@@ -1901,7 +2067,8 @@
             let native = true;
             for (const b of d.buffers) {
                 if (b.binding >= 8 || b.stride % 4 || b.stride > 2048) { native = false; continue; }
-                while (buffers.length <= b.binding) buffers.push({ arrayStride: 0, attributes: [] });
+                // (slots of no binding: none, which WebGPU wants no buffer for)
+                while (buffers.length <= b.binding) buffers.push(null);
                 buffers[b.binding] = { arrayStride: b.stride, stepMode: b.rate ? "instance" : "vertex", attributes: [] };
             }
             for (const a of d.attributes) {
@@ -1984,15 +2151,18 @@
         provokingLast(p, kind, b) {
             const s = this.state, d = p.desc, fan = d.topology === 5;
             const last = !!d.provoking_last && p.flat;
-            if (!last && !(fan && kind === 1)) return null;
+            // (and primitive restart in lists, GL ES 3.0's, which WebGPU does in strips only: the
+            // restart index dropped, the primitive it cuts short too)
+            const listRestart = kind === 1 && d.restart && (d.topology === 0 || d.topology === 1 || d.topology === 3);
+            if (!last && !(fan && kind === 1) && !listRestart) return null;
             if (kind === 2) {
                 if (last) this.warn("provoking-indirect", "indirect draws of flat varyings keep WebGPU's first vertex");
                 return null;
             }
-            // (VkPrimitiveTopology as GX's kinds: triangle list 1, strip 2, line list 3, strip 4, triangle fan 5)
-            const order = { 1: 3, 2: 4, 3: 1, 4: 2, 5: 5 }[d.topology];
-            if (!order || !b[0]) return null;
-            const list = order <= 2 || order === 5 ? "triangle-list" : "line-list";
+            // (VkPrimitiveTopology as GX's kinds: triangle list 1, strip 2, line list 3, strip 4, triangle fan 5; and point list 6)
+            const order = { 0: 6, 1: 3, 2: 4, 3: 1, 4: 2, 5: 5 }[d.topology];
+            if (!order || !b[0] || order === 6 && kind === 0) return null;
+            const list = order <= 2 || order === 5 ? "triangle-list" : order === 6 ? "point-list" : "line-list";
             if (kind === 0) {
                 const key = order + ":" + b[0] + ":" + last;
                 this.provokingIndices = this.provokingIndices || new Map();
@@ -2022,7 +2192,7 @@
             const wide = ib.type === 1;
             if (!this.provokingPipeline) {
                 const code = [
-                    "struct P { count: u32, offset: u32, wide: u32, kind: u32, base: u32, instances: u32, first_instance: u32, last: u32 }",
+                    "struct P { count: u32, offset: u32, wide: u32, kind: u32, base: u32, instances: u32, first_instance: u32, last: u32, restart: u32 }",
                     "@group(0) @binding(0) var<storage, read> src: array<u32>;",
                     "@group(0) @binding(1) var<uniform> p: P;",
                     "@group(0) @binding(2) var<storage, read_write> dst: array<u32>;",
@@ -2038,16 +2208,27 @@
                     "    var n = 0u;",
                     "    var start = 0u;",
                     "    var i = 0u;",
+                    "    // lists: a primitive's indices gathered (a restart drops the one it cuts short), then the last first or as they were",
+                    "    if (p.kind == 1u || p.kind == 3u || p.kind == 6u) {",
+                    "        let per = select(select(1u, 2u, p.kind == 3u), 3u, p.kind == 1u);",
+                    "        var k = 0u; var a = 0u; var b = 0u; var c = 0u;",
+                    "        for (var j = 0u; j < p.count; j++) {",
+                    "            let v = index(j);",
+                    "            if (p.restart == 1u && v == cut) { k = 0u; continue; }",
+                    "            if (k == 0u) { a = v; } else if (k == 1u) { b = v; } else { c = v; }",
+                    "            k++;",
+                    "            if (k < per) { continue; }",
+                    "            if (per == 1u) { dst[n] = a; }",
+                    "            else if (per == 2u) { dst[n] = select(a, b, p.last == 1u); dst[n + 1u] = select(b, a, p.last == 1u); }",
+                    "            else if (p.last == 1u) { dst[n] = c; dst[n + 1u] = a; dst[n + 2u] = b; }",
+                    "            else { dst[n] = a; dst[n + 1u] = b; dst[n + 2u] = c; }",
+                    "            n += per; k = 0u;",
+                    "        }",
+                    "        args[0] = n; args[1] = p.instances; args[2] = 0u; args[3] = p.base; args[4] = p.first_instance;",
+                    "        return;",
+                    "    }",
                     "    loop {",
                     "        if (i >= p.count) { break; }",
-                    "        if (p.kind == 1u) {",
-                    "            if (i + 2u < p.count) { dst[n] = index(i + 2u); dst[n + 1u] = index(i); dst[n + 2u] = index(i + 1u); n += 3u; }",
-                    "            i += 3u; continue;",
-                    "        }",
-                    "        if (p.kind == 3u) {",
-                    "            if (i + 1u < p.count) { dst[n] = index(i + 1u); dst[n + 1u] = index(i); n += 2u; }",
-                    "            i += 2u; continue;",
-                    "        }",
                     "        // strips and fans: a restart starts another",
                     "        if (index(i) == cut) { start = i + 1u; i++; continue; }",
                     "        let k = i - start;",
@@ -2074,8 +2255,9 @@
             const offset = Math.floor(ib.offset / (wide ? 4 : 2)) + b[2];
             const dst = this.scratch(Math.max(16, b[0] * 3 * 4), BUFFER.STORAGE | BUFFER.INDEX);
             const args = this.scratch(32, BUFFER.STORAGE | BUFFER.INDIRECT);
-            const params = this.device.createBuffer({ size: 32, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
-            this.device.queue.writeBuffer(params, 0, Uint32Array.from([b[0], offset, wide ? 1 : 0, order, b[3] >>> 0, b[1], b[4], last ? 1 : 0]));
+            const params = this.device.createBuffer({ size: 48, usage: BUFFER.UNIFORM | BUFFER.COPY_DST });
+            this.device.queue.writeBuffer(params, 0, Uint32Array.from([b[0], offset, wide ? 1 : 0, order, b[3] >>> 0, b[1], b[4], last ? 1 : 0,
+                d.restart ? 1 : 0, 0, 0, 0]));
             this.transient.push(params);
             const group = this.device.createBindGroup({ layout: this.provokingPipeline.getBindGroupLayout(0), entries: [
                 { binding: 0, resource: { buffer: m.buffer } }, { binding: 1, resource: { buffer: params } },
@@ -2443,9 +2625,10 @@
             const views = new Set();
             for (const [group, used] of p.groups) {
                 const contents = this.state.groups[0].get(group);
-                if (!contents || group === p.push) continue;
+                if (!contents) continue;
                 for (const [binding, kind] of used) {
-                    if (samplerBinding(binding) || !/^texture/.test(kind)) continue;
+                    // (push constants share a group with the last set when there are 4)
+                    if (group === p.push && binding === PUSH_BINDING || samplerBinding(binding) || !/^texture/.test(kind)) continue;
                     const d = contents.descriptors.get(descriptorKey(binding));
                     const v = d && this.objects.get(d.rid);
                     if (v && v.kind === "view" && this.passTextures.has(v.texture.texture)) views.add(v);

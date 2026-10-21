@@ -109,9 +109,39 @@ fn fix(module: &mut naga::Module, function: &mut Function, faces: &mut Vec<Handl
         let shifted = add(&mut f, Expression::Binary { op: BinaryOperator::Add, left: ratio, right: one2 });
         let half2 = add(&mut f, Expression::Splat { size: VectorSize::Bi, value: half });
         let uv = add(&mut f, Expression::Binary { op: BinaryOperator::Multiply, left: shifted, right: half2 });
-        // the level, the texel
-        let lod = match level {
-            SampleLevel::Exact(l) => add(&mut f, Expression::As { expr: l, kind: ScalarKind::Sint, convert: Some(4) }),
+        // the level, the texel: the nearest mip filter's, ceil(λ + 0.5) - 1 within the
+        // levels, λ an explicit lod or (a fragment shader's) log2(ρ) of the face
+        // coordinate's derivatives in texels at level 0, plus the bias
+        let lambda = match level {
+            SampleLevel::Exact(l) => Some(l),
+            SampleLevel::Auto | SampleLevel::Bias(_) => {
+                let size0 = add(&mut f, Expression::ImageQuery { image, query: ImageQuery::Size { level: Some(izero) } });
+                let size0f = add(&mut f, Expression::As { expr: size0, kind: ScalarKind::Float, convert: Some(4) });
+                let texels = add(&mut f, Expression::Binary { op: BinaryOperator::Multiply, left: uv, right: size0f });
+                let dx = add(&mut f, Expression::Derivative { axis: naga::DerivativeAxis::X, ctrl: naga::DerivativeControl::None, expr: texels });
+                let dy = add(&mut f, Expression::Derivative { axis: naga::DerivativeAxis::Y, ctrl: naga::DerivativeControl::None, expr: texels });
+                let lx = add(&mut f, Expression::Math { fun: MathFunction::Length, arg: dx, arg1: None, arg2: None, arg3: None });
+                let ly = add(&mut f, Expression::Math { fun: MathFunction::Length, arg: dy, arg1: None, arg2: None, arg3: None });
+                let rho = add(&mut f, Expression::Math { fun: MathFunction::Max, arg: lx, arg1: Some(ly), arg2: None, arg3: None });
+                let log = add(&mut f, Expression::Math { fun: MathFunction::Log2, arg: rho, arg1: None, arg2: None, arg3: None });
+                Some(match level {
+                    SampleLevel::Bias(b) => add(&mut f, Expression::Binary { op: BinaryOperator::Add, left: log, right: b }),
+                    _ => log,
+                })
+            },
+            _ => None,
+        };
+        let lod = match lambda {
+            Some(l) => {
+                let raised = add(&mut f, Expression::Binary { op: BinaryOperator::Add, left: l, right: half });
+                let ceiled = add(&mut f, Expression::Math { fun: MathFunction::Ceil, arg: raised, arg1: None, arg2: None, arg3: None });
+                let below = add(&mut f, Expression::Binary { op: BinaryOperator::Subtract, left: ceiled, right: one });
+                let whole = add(&mut f, Expression::As { expr: below, kind: ScalarKind::Sint, convert: Some(4) });
+                let levels = add(&mut f, Expression::ImageQuery { image, query: ImageQuery::NumLevels });
+                let levels_i = add(&mut f, Expression::As { expr: levels, kind: ScalarKind::Sint, convert: Some(4) });
+                let last_level = add(&mut f, Expression::Binary { op: BinaryOperator::Subtract, left: levels_i, right: ione });
+                add(&mut f, Expression::Math { fun: MathFunction::Clamp, arg: whole, arg1: Some(izero), arg2: Some(last_level), arg3: None })
+            },
             _ => izero,
         };
         let size = add(&mut f, Expression::ImageQuery { image, query: ImageQuery::Size { level: Some(lod) } });
