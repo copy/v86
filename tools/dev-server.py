@@ -10,7 +10,8 @@
 # docs/disk-persistence-plan.md) on 127.0.0.1:8471 for the images in
 # images/ (V86_DISK_DIR another directory; V86_DISK_SERVICE=0 none), for
 # this page's origins only: the page's "read write" hard disks are
-# http://127.0.0.1:8471/<name>, written back to <directory>/<name>.
+# http://127.0.0.1:8471/<name>, written back to <directory>/<name>. The VM
+# manager may create new images there (--allow-create, docs/vm-manager-plan.md).
 import contextlib
 import http.server
 import os
@@ -50,7 +51,7 @@ disk_service = None
 disk_dir = os.environ.get("V86_DISK_DIR", "images")
 if os.environ.get("V86_DISK_SERVICE", "1") != "0" and shutil.which("node") and os.path.isdir(disk_dir):
     origins = [f"http://localhost:{port}", f"http://127.0.0.1:{port}", f"http://[::1]:{port}"]
-    disk_service = subprocess.Popen(["node", "tools/disk-service.mjs", "--dir", disk_dir, "--port", "8471"] +
+    disk_service = subprocess.Popen(["node", "tools/disk-service.mjs", "--dir", disk_dir, "--port", "8471", "--allow-create"] +
                                     [arg for origin in origins for arg in ("--origin", origin)], stdout=subprocess.DEVNULL)
     print(f"Disk service for {os.path.realpath(disk_dir)} on http://127.0.0.1:8471/ (read write hard disks)", flush=True)
 try:

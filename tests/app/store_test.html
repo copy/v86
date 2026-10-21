@@ -86,6 +86,32 @@ async function phase1()
     check(refused && refused.problems && refused.problems[0].path === "name", "a configuration without a name is refused");
     log("refused a configuration without a name: " + refused.message.split("\n")[1]);
 
+    // preferences (U3: the disk service)
+    check(await store.get_pref("disk_service") === undefined, "no preference yet");
+    await store.put_pref("disk_service", { url: "http://127.0.0.1:8471/", token: "t" });
+
+    // a library of version 1 (vms, handles; no prefs) opens as version 2, its configurations kept
+    const OLD = "v86-vm-manager-test-v1";
+    await remove_database(OLD);
+    await new Promise((resolve, reject) =>
+    {
+        const request = globalThis.indexedDB.open(OLD, 1);
+        request.onupgradeneeded = () =>
+        {
+            request.result.createObjectStore("vms", { keyPath: "id" }).put(stored[0]);
+            request.result.createObjectStore("handles");
+        };
+        request.onsuccess = () => { request.result.close(); resolve(); };
+        request.onerror = () => reject(request.error);
+    });
+    const upgraded = await VMStore.open(OLD);
+    same(await upgraded.list(), [stored[0]], "the version 1 library's configuration");
+    await upgraded.put_pref("x", 1);
+    check(await upgraded.get_pref("x") === 1, "the upgraded library's preferences");
+    upgraded.close();
+    await remove_database(OLD);
+    log("a version 1 library opens as version 2, its configuration kept, with preferences");
+
     sessionStorage.setItem("stored", JSON.stringify(stored));
     sessionStorage.setItem("handle_id", handle_id);
     store.close();
@@ -109,6 +135,10 @@ async function phase2()
     const bytes = new Uint8Array(await (await handle.getFile()).arrayBuffer());
     same(Array.from(bytes), [1, 2, 3, 4], "the handle's file");
     log("the file's handle after the reload: " + handle.name + ", its 4 bytes");
+    same(await store.get_pref("disk_service"), { url: "http://127.0.0.1:8471/", token: "t" }, "the preference after the reload");
+    await store.put_pref("disk_service", undefined);
+    check(await store.get_pref("disk_service") === undefined, "a preference removed");
+    log("a preference after the reload, and removed");
 
     // export, and import into the same library: a new id; the file's handle stays behind
     const ids = new Set(listed.map(c => c.id));

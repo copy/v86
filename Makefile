@@ -748,6 +748,7 @@ app-check: node_modules/.bin/tsc
 app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm build/libv86-debug.mjs
 	node tests/app/vm_config.mjs
 	node tests/app/browser_runner.mjs tests/app/store_test.html
+	node tests/app/disk_service_create.mjs
 	node tests/app/legacy_options.mjs same=index.html:legacy.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html

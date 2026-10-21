@@ -6,6 +6,7 @@
 //
 //     node tools/disk-service.mjs --dir <images> [--port 8471] [--host 127.0.0.1]
 //         [--origin <page origin>]... [--token <secret>] [--lease-ms 30000]
+//         [--allow-create] [--max-size 64G]
 //
 // Every operation goes to the image's own URL (<service>/<name>):
 // - GET with Range: the sectors (206, Content-Range, ETag = the image's
@@ -31,6 +32,14 @@
 // --token, the session operations need Authorization: Bearer <token>.
 // The state (each image's UUID, generation, epoch) is kept in
 // <dir>/.v86-disk-service.json.
+// The VM manager (docs/vm-manager-plan.md "磁盘服务的创建与列出") adds two
+// operations, POST with X-V86-Disk-Op as the others: list, at the service's
+// root URL (the images: name, size, time of change, whether a writer has
+// them), and create, at the new image's URL with X-V86-Disk-Size (a RAW
+// image of zeros, sparse where the file system allows it; never over an
+// existing file). create needs --allow-create (make run gives it); a size
+// is a positive multiple of 512 up to --max-size (64 GiB) and the free
+// space of the directory's volume. There is no delete operation.
 
 import http from "node:http";
 import fs from "node:fs";
@@ -43,9 +52,15 @@ const SECTOR_SIZE = 512;
 const STATE_FILE = ".v86-disk-service.json";
 /** (the last writes of a session, for retries and late arrivals) */
 const RECENT_WRITES = 4096;
+/** The largest image create makes unless --max-size says otherwise */
+export const DEFAULT_MAX_SIZE = 64 * 1024 * 1024 * 1024;
+/** A name create accepts: of the directory, a letter or digit first, .img last, at most 128 characters */
+const NEW_IMAGE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,123}\.img$/;
 
 /**
- * @param {{dir: string, origins?: string[], token?: string, lease_ms?: number, log?: function(string)}} options
+ * @param {{dir: string, origins?: string[], token?: string, lease_ms?: number, log?: function(string),
+ *     allow_create?: boolean, max_size?: number, free_space?: function(): number}} options free_space: the
+ *     directory's volume's free bytes (tests)
  */
 export function create_disk_service(options)
 {
@@ -138,7 +153,7 @@ export function create_disk_service(options)
             res.setHeader("Vary", "Origin");
             res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
             res.setHeader("Access-Control-Allow-Headers", "Range, X-Accept-Encoding, Authorization, Content-Type, " +
-                "X-V86-Disk-Op, X-V86-Disk-Session, X-V86-Disk-Epoch, X-V86-Disk-Sequence, X-V86-Disk-Offset");
+                "X-V86-Disk-Op, X-V86-Disk-Session, X-V86-Disk-Epoch, X-V86-Disk-Sequence, X-V86-Disk-Offset, X-V86-Disk-Size");
             res.setHeader("Access-Control-Expose-Headers", "ETag, Content-Range, Content-Length, X-V86-Disk-Protocol");
         }
     };
@@ -310,6 +325,107 @@ export function create_disk_service(options)
         refuse(res, 400, "request", "unknown operation " + JSON.stringify(op));
     };
 
+    const max_size = options.max_size || DEFAULT_MAX_SIZE;
+    const free_space = options.free_space || (() =>
+    {
+        const volume = fs.statfsSync(dir);
+        return Number(volume.bavail) * Number(volume.bsize);
+    });
+    /** The service's URL as the request names it */
+    const base_url = req => (req.socket.encrypted ? "https://" : "http://") + req.headers["host"] + "/";
+
+    /** list and create (the VM manager's); answered or refused */
+    const manage = (req, res, name, op) =>
+    {
+        if(options.token && req.headers["authorization"] !== "Bearer " + options.token)
+        {
+            refuse(res, 401, "token", "the disk service needs its token (Authorization: Bearer)");
+            return;
+        }
+        if(op === "list")
+        {
+            if(name !== "")
+            {
+                refuse(res, 400, "request", "list goes to the service's own URL, not to an image's");
+                return;
+            }
+            const list = [];
+            for(const entry of fs.readdirSync(dir, { withFileTypes: true }))
+            {
+                if(!entry.isFile() || entry.name.startsWith(".")) continue;
+                const image = image_of(entry.name);
+                if(!image) continue;
+                const stat = fs.statSync(image.file);
+                list.push({ name: image.name, size: image.size, modified: stat.mtime.toISOString(), writer: !!writer_valid(image) });
+            }
+            list.sort((a, b) => a.name.localeCompare(b.name));
+            answer(res, 200, { images: list, create: !!options.allow_create, max_size });
+            return;
+        }
+        // create
+        if(!options.allow_create)
+        {
+            refuse(res, 403, "create", "this disk service does not create images (start it with --allow-create)");
+            return;
+        }
+        if(!NEW_IMAGE_NAME.test(name))
+        {
+            refuse(res, 400, "name", "a new image's name has letters, digits, '.', '_' and '-', starts with a letter or digit, " +
+                "ends with .img and has at most 128 characters");
+            return;
+        }
+        const size = Number(req.headers["x-v86-disk-size"]);
+        if(!Number.isSafeInteger(size) || size <= 0 || size % SECTOR_SIZE)
+        {
+            refuse(res, 400, "size", "a new image's size (X-V86-Disk-Size) is a positive multiple of " + SECTOR_SIZE + " bytes");
+            return;
+        }
+        if(size > max_size)
+        {
+            refuse(res, 400, "size", "a new image has at most " + max_size + " bytes (--max-size)");
+            return;
+        }
+        if(size > free_space())
+        {
+            refuse(res, 507, "no_space", "the disk service's volume has less than " + size + " bytes free");
+            return;
+        }
+        const file = path.join(dir, name);
+        let fd;
+        try
+        {
+            fd = fs.openSync(file, "wx");
+        }
+        catch(e)
+        {
+            if(e.code === "EEXIST") refuse(res, 409, "exists", name + " exists already");
+            else refuse(res, 500, "io", name + " cannot be created (" + e.message + ")");
+            return;
+        }
+        try
+        {
+            fs.ftruncateSync(fd, size);
+            fs.fsyncSync(fd);
+        }
+        catch(e)
+        {
+            fs.closeSync(fd);
+            fs.rmSync(file, { force: true });
+            refuse(res, e.code === "ENOSPC" || e.code === "EDQUOT" ? 507 : 500, e.code === "ENOSPC" || e.code === "EDQUOT" ? "no_space" : "io",
+                name + " cannot be created (" + e.message + ")");
+            return;
+        }
+        fs.closeSync(fd);
+        // (the directory's entry durable too)
+        const dir_fd = fs.openSync(dir, "r");
+        try { fs.fsyncSync(dir_fd); } catch(e) {} finally { fs.closeSync(dir_fd); }
+        // (its identity: a new UUID, generation 1, in the state file)
+        delete saved[name];
+        image_of(name);
+        log(name + ": created, " + size + " bytes");
+        answer(res, 201, { name, size, url: base_url(req) + encodeURIComponent(name) });
+    };
+
     const server = http.createServer((req, res) =>
     {
         stats.requests++;
@@ -320,6 +436,22 @@ export function create_disk_service(options)
             return;
         }
         const name = decodeURIComponent(new URL(req.url, "http://localhost").pathname.slice(1));
+        const op = req.headers["x-v86-disk-op"];
+        if(req.method === "POST" && (op === "list" || op === "create"))
+        {
+            if(!origin_allowed(req))
+            {
+                refuse(res, 403, "origin", "requests from " + req.headers["origin"] + " are not accepted (start the service with --origin)");
+                return;
+            }
+            req.resume();
+            req.on("end", () =>
+            {
+                try { manage(req, res, name, op); }
+                catch(e) { refuse(res, 500, "io", e.message); }
+            });
+            return;
+        }
         const image = image_of(name);
         if(!image)
         {
@@ -377,7 +509,13 @@ export function create_disk_service(options)
 if(process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     const args = process.argv.slice(2);
-    const options = { dir: "", origins: [], token: undefined, lease_ms: 30000, port: 8471, host: "127.0.0.1" };
+    const options = { dir: "", origins: [], token: undefined, lease_ms: 30000, port: 8471, host: "127.0.0.1", allow_create: false, max_size: DEFAULT_MAX_SIZE };
+    /** 64G, 512M, 1048576 */
+    const bytes = value =>
+    {
+        const match = /^(\d+)([KMGT]?)$/i.exec(value || "");
+        return match ? +match[1] * 1024 ** "_KMGT".indexOf((match[2] || "_").toUpperCase()) : NaN;
+    };
     for(let i = 0; i < args.length; i++)
     {
         const value = args[i + 1];
@@ -389,13 +527,16 @@ if(process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.
             case "--origin": options.origins.push(value); i++; break;
             case "--token": options.token = value; i++; break;
             case "--lease-ms": options.lease_ms = +value; i++; break;
+            case "--allow-create": options.allow_create = true; break;
+            case "--max-size": options.max_size = bytes(value); i++; break;
             default:
                 console.error("usage: node tools/disk-service.mjs --dir <images> [--port 8471] [--host 127.0.0.1] " +
-                    "[--origin <page origin>]... [--token <secret>] [--lease-ms 30000]");
+                    "[--origin <page origin>]... [--token <secret>] [--lease-ms 30000] [--allow-create] [--max-size 64G]");
                 process.exit(2);
         }
     }
     if(!options.dir) { console.error("--dir is needed"); process.exit(2); }
+    if(!(options.max_size > 0)) { console.error("--max-size is a size in bytes, or with K, M, G or T"); process.exit(2); }
     const service = create_disk_service({ ...options, log: message => console.log(message) });
     service.server.listen(options.port, options.host, () =>
     {

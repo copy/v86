@@ -1,10 +1,11 @@
 // @ts-check
 // The VM manager's library (docs/vm-manager-plan.md, "存储与持久化", U1):
 // the configurations in IndexedDB (the database v86-vm-manager: the store
-// vms by id, and handles, the FileSystemFileHandles of the files the
-// configurations name), and a configuration's export to a .v86vm.json file
-// and import from one. The suspended states and the browser disks in OPFS
-// come with U5 and U6.
+// vms by id, handles, the FileSystemFileHandles of the files the
+// configurations name, and prefs, the manager's preferences such as its disk
+// service, U3), and a configuration's export to a .v86vm.json file and
+// import from one. The suspended states and the browser disks in OPFS come
+// with U5 and U6.
 
 import { migrate, validate_config, new_id } from "./vm_config.js";
 
@@ -12,9 +13,11 @@ import { migrate, validate_config, new_id } from "./vm_config.js";
 /** @typedef {import("./vm_config.js").Image} Image */
 
 export const DB_NAME = "v86-vm-manager";
-const DB_VERSION = 1;
+/** 1: vms, handles; 2: prefs */
+const DB_VERSION = 2;
 const VMS = "vms";
 const HANDLES = "handles";
+const PREFS = "prefs";
 
 /**
  * A request's result
@@ -93,6 +96,7 @@ export class VMStore
             const db = request.result;
             if(!db.objectStoreNames.contains(VMS)) db.createObjectStore(VMS, { keyPath: "id" });
             if(!db.objectStoreNames.contains(HANDLES)) db.createObjectStore(HANDLES);
+            if(!db.objectStoreNames.contains(PREFS)) db.createObjectStore(PREFS);
         };
         return new VMStore(await done(request));
     }
@@ -178,6 +182,29 @@ export class VMStore
     async get_handle(id)
     {
         return done(this.db.transaction(HANDLES, "readonly").objectStore(HANDLES).get(id));
+    }
+
+    /**
+     * A preference (undefined when not set)
+     * @param {string} name
+     * @return {Promise<any>}
+     */
+    async get_pref(name)
+    {
+        return done(this.db.transaction(PREFS, "readonly").objectStore(PREFS).get(name));
+    }
+
+    /**
+     * Set a preference (undefined: back to its default)
+     * @param {string} name
+     * @param {any} value
+     */
+    async put_pref(name, value)
+    {
+        const transaction = this.db.transaction(PREFS, "readwrite");
+        if(value === undefined) transaction.objectStore(PREFS).delete(name);
+        else transaction.objectStore(PREFS).put(value, name);
+        await complete(transaction);
     }
 }
 
