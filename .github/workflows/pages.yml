@@ -4,7 +4,9 @@ name: Pages
 # (docs/vm-manager.md, "Deployment"): a push to master deploys the site, a
 # pull request from this repository deploys a preview of its branch. Needs
 # the repository secrets CLOUDFLARE_API_TOKEN (a token with "Cloudflare
-# Pages: Edit") and CLOUDFLARE_ACCOUNT_ID. Independent of ci.yml.
+# Pages: Edit") and CLOUDFLARE_ACCOUNT_ID: without them a pull request is
+# built and not deployed (a warning says so), and a push to master fails.
+# Independent of ci.yml.
 
 on:
   push:
@@ -24,6 +26,8 @@ jobs:
     name: Build and deploy
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      HAS_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -65,9 +69,20 @@ jobs:
 
       # (a pull request from a fork has no secrets: built, not deployed)
       - name: Deploy to Cloudflare Pages
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: env.HAS_CLOUDFLARE_TOKEN == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: cloudflare/wrangler-action@v3
         with:
+          wranglerVersion: '4.151.3'
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy build/pages --project-name=v64 --branch=${{ github.head_ref || github.ref_name }} --commit-hash=${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Without the Cloudflare secrets
+        if: env.HAS_CLOUDFLARE_TOKEN != 'true'
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "::warning title=Not deployed::The repository secret CLOUDFLARE_API_TOKEN is not set: the site was built, not deployed (docs/vm-manager.md, Deployment)"
+          else
+            echo "::error title=Not deployed::The repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are needed to deploy (docs/vm-manager.md, Deployment)"
+            exit 1
+          fi
