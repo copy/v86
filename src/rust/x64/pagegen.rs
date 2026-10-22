@@ -2728,6 +2728,14 @@ fn low_lanes(bytes: u8) -> [u8; 16] {
     }
     lanes
 }
+/// On the stack a v128 `other` and a v128 `low`: `other` with its low 32
+/// bits replaced by those of `low`, by f32x4 lane moves (bits unchanged, a
+/// vector register move; the i8x16.shuffle of low_lanes(4) is four on
+/// ARM64)
+fn low_single(b: &mut WasmBuilder) {
+    b.simd_lane(0x1F, 0); // f32x4.extract_lane
+    b.simd_lane(0x20, 0); // f32x4.replace_lane
+}
 /// The XMM register an instruction overwrites whole, unconditionally and
 /// without reading it (XMM locals: Emitter::xmm_claim)
 fn xmm_overwritten(op: &Op) -> u16 {
@@ -8929,16 +8937,29 @@ impl Emitter<'_> {
                     // through a general register)
                     (Xmm::Reg(d), Xmm::Reg(s)) if bits < 128 && self.env.xmm_locals => {
                         // the low bits of s; the others zero, or from the
-                        // destination or VEX.vvvv
-                        self.xv_push(s);
-                        if zero {
-                            self.b.simd_zero();
+                        // destination or VEX.vvvv (a single by low_single)
+                        if bits == 32 {
+                            if zero {
+                                self.b.simd_zero();
+                            }
+                            else {
+                                self.xv_push(upper.unwrap_or(d));
+                            }
+                            self.xv_push(s);
+                            low_single(&mut self.b);
+                            self.xv_pop(d);
                         }
                         else {
-                            self.xv_push(upper.unwrap_or(d));
+                            self.xv_push(s);
+                            if zero {
+                                self.b.simd_zero();
+                            }
+                            else {
+                                self.xv_push(upper.unwrap_or(d));
+                            }
+                            self.b.simd_shuffle(low_lanes(bits / 8));
+                            self.xv_pop(d);
                         }
-                        self.b.simd_shuffle(low_lanes(bits / 8));
-                        self.xv_pop(d);
                     },
                     (Xmm::Reg(d), Xmm::Mem(a)) if bits < 128 && self.env.xmm_locals => {
                         self.vector_address(&a, bits, aligned, false, inst);
