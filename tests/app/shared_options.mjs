@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The shared modules as ES modules (docs/vm-manager-plan.md U0): Node
-// imports src/browser/profiles.js, vm_options.js and query_compat.js, as the
+// imports src/browser/vm_options.js and query_compat.js, as the
 // pages do, and makes each start that tests/app/legacy_options.mjs recorded
 // in the VM manager (index.html: the addresses) and the debug page
 // (debug.html: the addresses and its form): the same options, alerts,
@@ -11,9 +11,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { get_profiles } from "../../src/browser/profiles.js";
 import { DEFAULT_FORM, settings_to_options } from "../../src/browser/vm_options.js";
-import { image_host, start_settings, format_query_args } from "../../src/browser/query_compat.js";
+import { start_settings, format_query_args } from "../../src/browser/query_compat.js";
 import { FORM_CASES, compare_records } from "./legacy_cases.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -129,14 +128,13 @@ for(const key of Object.keys(recorded))
         made[key] = filled.missing ? { id: filled.missing, kind: "missing" } : start(page, null, null, filled.form, "");
         continue;
     }
-    // (main.js's onload: a profile's id, or custom with an image)
+    // (main.js's onload: custom with an image)
     const search = kind;
     const query_args = new URLSearchParams(search);
     const id = query_args.get("profile");
-    const profile = get_profiles(image_host(query_args, true), true).find(p => p.id === id);
-    if(profile || id === "custom" && ["hda.url", "cdrom.url", "fda.url"].some(name => query_args.has(name)))
+    if(id === "custom" && ["hda.url", "cdrom.url", "fda.url"].some(name => query_args.has(name)))
     {
-        made[key] = start(page, profile || null, query_args, clone(page.form), search);
+        made[key] = start(page, null, query_args, clone(page.form), search);
     }
     else
     {

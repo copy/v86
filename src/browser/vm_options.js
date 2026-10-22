@@ -135,7 +135,7 @@ export function set_memory_size(settings, total)
 }
 
 /**
- * A profile's settings (src/browser/profiles.js)
+ * A profile's settings (debug.html's kvm-unit-tests: name, memory_size, multiboot, ...)
  * @param {!Object} profile
  * @param {!Object} settings
  */

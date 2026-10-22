@@ -1,10 +1,7 @@
 // The old page's starts that tests/app/legacy_options.mjs records
 // (docs/vm-manager-plan.md U0): query arguments and form inputs.
 
-import fs from "node:fs";
-import path from "node:path";
-
-/** Query arguments: custom images and every argument start_emulation reads, alone and with profiles */
+/** Query arguments: custom images and every argument start_emulation reads */
 export const QUERY_CASES = [
     "profile=custom&hda.url=images/msdos622.img",
     "profile=custom&cdrom.url=images/linux4.iso&cdrom.size=7731200&m=512",
@@ -36,13 +33,8 @@ export const QUERY_CASES = [
     "profile=custom&cdrom.url=c.iso&cpu_type=bogus&machine_type=bogus",
     "profile=custom&hda.url=h.img&fda.url=f.img&fda.disk_option=read_write&fda.disk_error=report&hdb.disk_option=read_write",
     "profile=custom&cdrom.url=c.iso&c=dir&s=ls&theatre=1&graphics_proxy=0",
-    "profile=freedos&m=256&cores=2&vram=16",
-    "profile=windows98&acpi=1&mute=1&relay_url=inbrowser&disable_jit=1",
-    "profile=archlinux&hda.url=x.img&m=1024",
-    "profile=linux4&cpu_type=x86_64&machine_type=q35",
-    "profile=freedos&graphics_adapter=none&net_device_type=none&modem=0",
-    "profile=freedos&hda.url=h.img&hda.disk_option=read_write&cdn=https://cdn.invalid/",
-    "profile=linux4&cdn=https://cdn.invalid/images/",
+    "profile=custom&cdrom.url=c.iso&graphics_adapter=none&net_device_type=none&modem=0",
+    "profile=custom&cdrom.url=c.iso&acpi=1&mute=1&relay_url=inbrowser&disable_jit=1",
 ];
 
 /** Starts from the form: [name, [["value" | "check" | "click", element id, value]...]] */
@@ -68,23 +60,6 @@ export const FORM_CASES = [
     ["read write without a url", [["value", "hda_disk_option", "read_write"]]],
     ["second read write without a url", [["value", "hda_url", "a.img"], ["value", "hdb_disk_option", "read_write"]]],
 ];
-
-/**
- * The profiles' ids: profiles.js's once it exists, else main.js's list
- * @param {string} root
- */
-export async function profile_ids(root)
-{
-    const profiles = path.join(root, "src/browser/profiles.js");
-    if(fs.existsSync(profiles))
-    {
-        const { get_profiles } = await import(profiles);
-        return get_profiles("images/", true).map(p => p.id);
-    }
-    const main = fs.readFileSync(path.join(root, "src/browser/main.js"), "utf8");
-    const list = main.slice(main.indexOf("    const oses = ["), main.indexOf("\n    ];\n", main.indexOf("    const oses = [")));
-    return Array.from(list.matchAll(/^ {12}id: "([^"]+)",$/gm), m => m[1]);
-}
 
 /**
  * The differences between two records, one line each

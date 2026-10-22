@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 // The options the pages give new V86(), recorded in headless Chrome
 // (docs/vm-manager-plan.md U0): the VM manager (index.html, build/v86_app.js)
-// for every profile (?profile=<id>) and a set of query arguments, the debug
-// page (debug.html, src/browser/main.js) for those and for starts from its
-// form. A test hook (window.v86_record_options, defined by the script this
+// for a set of query arguments, the debug page (debug.html,
+// src/browser/main.js) for those and for starts from its form. A test hook (window.v86_record_options, defined by the script this
 // server puts at the top of the pages) receives the options instead of
 // starting the emulator. The old page (legacy.html, ADVANCED-compiled
 // build/v86_all.js) was recorded too until U7 deleted it.
@@ -18,7 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { QUERY_CASES, FORM_CASES, profile_ids, compare_records } from "./legacy_cases.mjs";
+import { QUERY_CASES, FORM_CASES, compare_records } from "./legacy_cases.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const arg = name => (process.argv.find(a => a.startsWith(name + "=")) || "").slice(name.length + 1) || undefined;
@@ -104,11 +103,9 @@ function sorted(value)
     return value;
 }
 
-const ids = await profile_ids(root);
 const cases = [];
 for(const page of PAGES)
 {
-    for(const id of ids) cases.push({ key: page + " ?profile=" + id, url: "/" + page + "?profile=" + id });
     for(const query of QUERY_CASES) cases.push({ key: page + " ?" + query, url: "/" + page + "?" + query });
     if(HAS_FORM(page)) for(const [name, form] of FORM_CASES) cases.push({ key: page + " form " + name, url: "/" + page, form });
 }
@@ -158,7 +155,7 @@ function done(results)
     // (a form case of a field the page does not have is recorded as such)
     const failed = Object.entries(record).filter(([, r]) => !["options", "alert", "missing"].includes(r.kind));
     for(const [key, r] of failed) console.log("NO OPTIONS " + key + ": " + JSON.stringify(r));
-    console.log(Object.keys(record).length + " cases, " + ids.length + " profiles, " + failed.length + " without options");
+    console.log(Object.keys(record).length + " cases, " + failed.length + " without options");
     if(record_file)
     {
         fs.writeFileSync(record_file, JSON.stringify(record, null, 1) + "\n");

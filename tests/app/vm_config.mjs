@@ -7,10 +7,10 @@
 //   node tests/app/vm_config.mjs
 
 import assert from "node:assert/strict";
-import { get_profiles } from "../../src/browser/profiles.js";
 import { DEFAULT_FORM, settings_to_options } from "../../src/browser/vm_options.js";
 import { start_settings } from "../../src/browser/query_compat.js";
-import { FORMAT, VERSION, new_config, with_defaults, migrate, validate_config, check_config, profile_to_config, config_to_options } from "../../src/app/vm_config.js";
+import { FORMAT, VERSION, new_config, with_defaults, migrate, validate_config, check_config, config_to_options } from "../../src/app/vm_config.js";
+import { PRESETS, preset_config } from "../../src/app/guest_presets.js";
 
 let passed = 0;
 function test(name, fn)
@@ -56,30 +56,12 @@ test("the defaults: a valid configuration, the old page's machine before its for
     assert.deepEqual(behaviour(config_to_options(config, ENV)), behaviour(settings_to_options(start.settings, Object.assign({ cpu_worker: start.cpu_worker }, ENV))));
 });
 
-test("each of the 137 profiles as a configuration: the old page's options of ?profile=<id>", () =>
-{
-    const profiles = get_profiles("images/", true);
-    assert.equal(profiles.length, 137);
-    for(const profile of profiles)
-    {
-        const config = profile_to_config(profile);
-        assert.deepEqual(validate_config(config), [], profile.id);
-        const query_args = new URLSearchParams("profile=" + profile.id);
-        console.log = () => {};
-        const start = start_settings(profile, query_args, DEFAULT_FORM, { location_args: query_args, origin: "", debug: false, graphics_proxy: false });
-        const expected = settings_to_options(start.settings, Object.assign({ cpu_worker: start.cpu_worker }, ENV));
-        const actual = config_to_options(config, ENV);
-        console.log = log;
-        assert.deepEqual(behaviour(actual), behaviour(expected), profile.id);
-    }
-});
-
 test("JSON and back: the same configuration", () =>
 {
-    for(const profile of get_profiles("//i.copy.sh/", false).slice(0, 40))
+    for(const p of PRESETS)
     {
-        const config = profile_to_config(profile);
-        assert.deepEqual(migrate(JSON.parse(JSON.stringify(config))), config, profile.id);
+        const config = preset_config(p, { name: p.name, notes: "notes ✓ 中文" });
+        assert.deepEqual(migrate(JSON.parse(JSON.stringify(config))), config, p.id);
     }
 });
 

@@ -14,7 +14,7 @@ Download:
 * **[Microsoft DOS 6.22.zip](https://archive.org/download/MS_DOS_6.22_MICROSOFT)** [3.5 MB]  
   MS-DOS 6.22 Setup floppy images, unpack to folder **`dos622/`**
 
-Go to https://copy.sh/v86/ and select custom settings:
+Open the debug page (`debug.html`, which `make run` serves) and select custom settings:
 
 * **Floppy disk image:** `dos622/Disk 1.img`
 * **Hard disk image:** select ***create empty hard disk*** to create a blank disk of 64 MB (for example)
@@ -59,7 +59,7 @@ Download from the [FreeDOS Homepage](https://www.freedos.org/):
 
 There are more optional packages on the Bonus CD [FD14-BonusCD.zip](https://download.freedos.org/1.4/FD14-BonusCD.zip).
 
-Go to https://copy.sh/v86 and select custom settings:
+Open the debug page (`debug.html`, which `make run` serves) and select custom settings:
 
 * **CD image:** `FD14LIVE.iso`
 * **Hard disk image:** select ***create empty hard disk*** to create a blank disk of 64 MB (for example)
@@ -105,16 +105,16 @@ ECHO NE2000.COM 0x60 0xA 0x300 > NET\FDNET\FDNETPD.BAT
 Reboot, wait for a DHCP lease and then test networking with:
 
 ```
-NET\MTCP\HTGET.EXE http://copy.sh/v86/
+NET\MTCP\HTGET.EXE http://example.com/
 ```
 
 ## 3. FAT-formatted disk images
 
-You need a bootable DOS-floppy image that contains `FDISK.EXE` and `FORMAT.COM` (or something similar) in order to create floppy and hard disk images using v86, for example **`msdos622-boot-fd.img`** (TODO: upload to copy.sh website).
+You need a bootable DOS-floppy image that contains `FDISK.EXE` and `FORMAT.COM` (or something similar) in order to create floppy and hard disk images using v86, for example **`msdos622-boot-fd.img`**.
 
 ### 3.1 Creating FAT-formatted floppy disks
 
-Go to https://copy.sh/v86 and select custom settings:
+Open the debug page (`debug.html`, which `make run` serves) and select custom settings:
 
 * **Floppy disk image:** `msdos622-boot-fd.img`
 * **Second floppy disk image:** select ***create empty floppy disk*** to create a blank disk image
@@ -129,7 +129,7 @@ When finished, export the floppy disk image in `B:` using v86 button **Get secon
 
 ### 3.2 Creating DOS-partitioned and FAT-formatted hard disks
 
-Go to https://copy.sh/v86 and select custom settings:
+Open the debug page (`debug.html`, which `make run` serves) and select custom settings:
 
 * **Floppy disk image:** `msdos622-boot-fd.img`
 * **Hard disk image:** select ***create empty hard disk*** to create a blank disk image

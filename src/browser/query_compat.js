@@ -51,17 +51,6 @@ export function root_ports_arg(query_args)
 }
 
 /**
- * Where the profiles' images are: ?cdn=, else images/ on localhost, else copy.sh's
- * @param {URLSearchParams} query_args
- * @param {boolean} on_localhost
- * @return {string}
- */
-export function image_host(query_args, on_localhost)
-{
-    return query_args.get("cdn") || (on_localhost ? "images/" : "//i.copy.sh/");
-}
-
-/**
  * The address's settings: on top of a profile's, except those a state image
  * (the profile's initial_state) does not allow
  * @param {!Object} settings

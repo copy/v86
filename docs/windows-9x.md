@@ -41,7 +41,7 @@ qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
 > Due to [#1556](https://github.com/copy/v86/issues/1556), you will have problems with original Retail CD images.
 > You can modify your CD image (delete the `ADMIN`, `DATALINK`, `DEMOS`, `FUNSTUFF`, `HELP`, `OTHER` and `SAMPLER` folders to reduce the size, and apply Pather9x) or use [ready converted HD images](https://github.com/copy/v86/discussions/1553#discussioncomment-16893976).
 
-1. Go to https://copy.sh/v86/ and set the following settings:
+1. Open the debug page (`debug.html`, which `make run` serves) and set the following settings:
 
 | Option                      | File                                                              |
 |:----------------------------|:------------------------------------------------------------------|

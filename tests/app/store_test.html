@@ -10,8 +10,8 @@
 <pre id="result"></pre>
 <script type="module">
 import { VMStore, export_config, import_config, export_file_name, files_to_choose } from "../../src/app/vm_store.js";
-import { new_config, profile_to_config } from "../../src/app/vm_config.js";
-import { get_profiles } from "../../src/browser/profiles.js";
+import { new_config } from "../../src/app/vm_config.js";
+import { PRESETS, preset_config } from "../../src/app/guest_presets.js";
 
 const DB = "v86-vm-manager-test", DB2 = "v86-vm-manager-test-imported";
 const phase = new URLSearchParams(location.search).get("phase") || "1";
@@ -62,9 +62,9 @@ async function phase1()
     const handle_id = await store.put_handle(handle);
 
     const stored = [];
-    for(const profile of get_profiles("images/", true).slice(0, 25))
+    for(const p of PRESETS)
     {
-        stored.push(await store.put(profile_to_config(profile)));
+        stored.push(await store.put(preset_config(p)));
     }
     const custom = new_config({ name: "With a file", notes: "notes ✓ 中文" });
     custom.disks = [{ slot: "hda", image: { kind: "file", name: "vm-store-test.img", size: 4, last_modified: (await handle.getFile()).lastModified,

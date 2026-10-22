@@ -1,0 +1,65 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>A missing image</title>
+<!-- An image that is not there (HTTP 404) fails with the reason, on the page (worker=0) and with the CPU in its Worker:
+     the start (emulator-error, no hang, no disk of an error page), and set_fda, set_cdrom and attach_sata_drive
+     (rejected). node tests/app/browser_runner.mjs tests/app/missing_image_test.html [worker=0] -->
+<div id="screen"><canvas></canvas></div>
+<pre id="result"></pre>
+<script type="module">
+import { V86 } from "../../build/libv86.mjs";
+const worker = new URLSearchParams(location.search).get("worker") !== "0";
+const lines = [];
+const check = (condition, what) => { if(!condition) throw new Error(what); };
+const config = options => Object.assign({
+    wasm_path: "../../build/v86.wasm", cpu_worker: worker, cpu_worker_url: "../../build/cpu-worker.js",
+    bios: { url: "../../bios/seabios.bin" }, vga_bios: { url: "../../bios/vgabios.bin" },
+    graphics_adapter: "bochs_vga", graphics_adapter_path: "../../build/v86-bochs-vga.js",
+    memory_size: 32 << 20, autostart: false, disable_speaker: true,
+    screen: { container: document.getElementById("screen") },
+}, options);
+/** loaded, or the start's error */
+function started(vm)
+{
+    return Promise.race([
+        new Promise(resolve => vm.add_listener("emulator-loaded", () => resolve({ loaded: true }))),
+        new Promise(resolve => vm.add_listener("emulator-error", error => resolve({ error: String(error && error.message || error) }))),
+        new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 30000)),
+    ]);
+}
+async function rejection(promise)
+{
+    try { await promise; } catch(error) { return error.message; }
+    return null;
+}
+
+try
+{
+    let vm = new V86(config({ fda: { url: "missing-floppy.img" } }));
+    const start = await started(vm);
+    check(start.error && /fda: (\S*\/)?missing-floppy\.img could not be loaded \(HTTP 404\)/.test(start.error), "the start: " + JSON.stringify(start));
+    lines.push("the start with a missing fda: emulator-error \"" + start.error + "\"");
+    await vm.destroy().catch(() => {});
+
+    vm = new V86(config({}));
+    check((await started(vm)).loaded, "a machine without disks starts");
+    const fda = await rejection(vm.set_fda({ url: "missing-floppy.img" }));
+    check(fda && /fda: (\S*\/)?missing-floppy\.img could not be loaded \(HTTP 404\)/.test(fda), "set_fda: " + fda);
+    const cdrom = await rejection(vm.set_cdrom({ url: "missing-cd.iso" }));
+    check(cdrom && /cdrom: (\S*\/)?missing-cd\.iso could not be loaded \(HTTP 404\)/.test(cdrom), "set_cdrom: " + cdrom);
+    lines.push("set_fda and set_cdrom of a missing image: rejected (\"" + fda + "\", \"" + cdrom + "\")");
+    await vm.destroy();
+
+    vm = new V86(config({ machine_type: "q35", acpi: true }));
+    check((await started(vm)).loaded, "a Q35 machine starts");
+    const sata = await rejection(vm.attach_sata_drive(3, { url: "missing-disk.img" }));
+    check(sata && /sata3: (\S*\/)?missing-disk\.img could not be loaded \(HTTP 404\)/.test(sata), "attach_sata_drive: " + sata);
+    lines.push("attach_sata_drive of a missing image: rejected (\"" + sata + "\")");
+    await vm.destroy();
+    document.getElementById("result").textContent = "PASS (" + (worker ? "CPU Worker" : "page") + ")\n" + lines.join("\n");
+}
+catch(error)
+{
+    document.getElementById("result").textContent = "FAIL " + (error.stack || error.message) + "\n" + lines.join("\n");
+}
+</script>

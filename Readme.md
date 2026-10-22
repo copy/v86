@@ -1,5 +1,3 @@
-[![Join the chat at https://gitter.im/copy/v86](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/copy/v86) or #v86 on [irc.libera.chat](https://libera.chat/)
-
 v86 emulates an x86-compatible CPU and hardware. Machine code is translated to
 WebAssembly modules at runtime in order to achieve decent performance. Here's a
 list of emulated hardware:
@@ -38,33 +36,6 @@ list of emulated hardware:
 - Various virtio devices: Filesystem, network, balloon and GPU.
 - A SoundBlaster 16 sound card.
 - A hayes-compatible dial-up Modem.
-
-## Demos
-
-[9front](https://copy.sh/v86/?profile=9front) —
-[Arch Linux](https://copy.sh/v86/?profile=archlinux) —
-[Android-x86 1.6-r2](https://copy.sh/v86?profile=android) —
-[Android-x86 4.4-r2](https://copy.sh/v86?profile=android4) —
-[BasicLinux](https://copy.sh/v86/?profile=basiclinux) —
-[Buildroot Linux](https://copy.sh/v86/?profile=buildroot) —
-[Damn Small Linux](https://copy.sh/v86/?profile=dsl) —
-[ELKS](https://copy.sh/v86/?profile=elks) —
-[FreeDOS](https://copy.sh/v86/?profile=freedos) —
-[FreeBSD](https://copy.sh/v86/?profile=freebsd) —
-[FiwixOS](https://copy.sh/v86/?profile=fiwix) —
-[Haiku](https://copy.sh/v86/?profile=haiku) —
-[SkiffOS](https://copy.sh/v86/?profile=copy/skiffos) —
-[ReactOS](https://copy.sh/v86/?profile=reactos) —
-[Windows 2000](https://copy.sh/v86/?profile=windows2000) —
-[Windows 98](https://copy.sh/v86/?profile=windows98) —
-[Windows 95](https://copy.sh/v86/?profile=windows95) —
-[Windows 1.01](https://copy.sh/v86/?profile=windows1) —
-[MS-DOS 6.22](https://copy.sh/v86/?profile=msdos) —
-[OpenBSD](https://copy.sh/v86/?profile=openbsd) —
-[Oberon](https://copy.sh/v86/?profile=oberon) —
-[KolibriOS](https://copy.sh/v86/?profile=kolibrios) —
-[SkiftOS](https://copy.sh/v86?profile=skift) —
-[QNX](https://copy.sh/v86/?profile=qnx)
 
 ## Documentation
 
@@ -123,8 +94,6 @@ Here's an overview of the operating systems supported in v86:
 - SerenityOS works (only 32-bit versions).
 - [SkiftOS](https://skiftos.org/) works.
 
-You can get some information on the disk images here: https://github.com/copy/images.
-
 ## How to build, run and embed?
 
 You need:
@@ -163,14 +132,7 @@ for a full setup on Debian or
   mentioned above, answers Range requests, and starts the local disk service
   for `images/`).
 - If you only want to embed v86 in a webpage you can use `libv86.js`. For usage,
-  check out the [examples](examples/). You can download it from the [release section](https://github.com/copy/v86/releases).
-- For bundler-based setups (Vite/React/Next/Webpack), there is also an official npm package:
-https://www.npmjs.com/package/v86
-
-  This package was originally maintained by [@giulioz](https://github.com/giulioz) (bundler-optimized fork) and was made "official" for this repo by [@basicer](https://github.com/basicer) with the author's permission.
-  It is published automatically from this repository via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml), Upload release job) on pushes to `master` and uses `npm publish --provenance`.
-
-  Install: `npm install v86`
+  check out the [examples](examples/).
 
 ### Alternatively, to build using Docker
 
@@ -184,14 +146,13 @@ https://www.npmjs.com/package/v86
 
 - If you are using an IDE that supports Dev Containers, such as GitHub Codespaces, the Visual Studio Code Remote Container extension, or possibly others such as Jetbrains' IntelliJ IDEA, you can setup the development environment in a Dev Container.
 - Follow the instructions from your development environment to setup the container.
-- Run the Task "Fetch images" in order to download images for testing.
 
 ## Testing
 
-The disk images for testing are not included in this repository. You can
-download them directly from the website using:
-
-`mkdir -p images && curl --compressed --output-dir images/ --remote-name-all https://i.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage68.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img,msdos622.img}`
+The disk images for testing are not included in this repository: the tests
+read them from `images/` (each test names the files it needs). `make ci-tests`
+runs the tests that need no images; it is what CI (`.github/workflows/ci.yml`)
+runs, with eslint and the builds.
 
 Run integration tests: `make tests`
 
@@ -260,4 +221,4 @@ repository under their own licenses:
 
 ## More questions?
 
-Shoot me an email to `copy@copy.sh`. Please report bugs on GitHub.
+Please report bugs on GitHub: https://github.com/speedyHKjournalist/v64/issues

@@ -40,6 +40,30 @@ bench-same-source: bench-build build/v86.wasm build/libv86.mjs
 	node tests/bench/run.mjs --same-source --quick --out build/bench/same-source.json $(BENCH_ARGS)
 	node tests/bench/gate.mjs --level S build/bench/same-source.json
 
+# What .github/workflows/ci.yml runs besides eslint and the builds: the
+# checks that need no disk images (the guest tests read images/, which this
+# repository does not distribute: run them locally) and take minutes, not
+# hours (the SIMD suites, avx-tests and the like, stay with the release gate,
+# tools/release_gate.mjs)
+.PHONY: ci-tests
+ci-tests: rust-test test-glbridge app-check platform-contract-tests \
+	acpi-device-tests q35-device-tests jit-switch-tests \
+	cpu-optimization-tests flags-provenance-tests cpu-plan-tests jit-tiers-tests jit-disabled-tests mmx-fast-tests \
+	softfloat-fast-tests x87-fast-math-tests x87-fast-tests x87-jit-cache-tests \
+	build/v86-debug.wasm build/libv86.mjs build/v86.wasm build/jit-capacity.bin
+	node tests/rust/bmi.mjs
+	node tests/rust/fma.mjs
+	node tests/app/vm_config.mjs
+	node tests/app/presets.mjs
+	node tests/app/machine_rules.mjs
+	./tests/api/disk-options.js
+	./tests/api/sb16-state.js
+	./tests/devices/disk_error.mjs
+	./tests/persistence/response_version.mjs
+	./tests/persistence/node_file.mjs
+	./tests/persistence/disk_service.mjs
+	./tests/persistence/disk_service_sync.mjs
+
 .PHONY: glbridge test-glbridge
 glbridge:
 	node tools/build_glbridge.mjs
@@ -412,12 +436,21 @@ clean:
 run: browser glbridge build/v86.wasm
 	python3 tools/dev-server.py 2> /dev/null
 
+# The VM manager as a static site in build/pages (tools/pages_dist.mjs, for
+# Cloudflare Pages: .github/workflows/pages.yml, docs/vm-manager.md)
+PAGES_BUILD=build/v86_app.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js build/xterm.js \
+	build/v86.wasm build/v86-fallback.wasm build/v86-parallel.wasm \
+	build/v86-arm64.wasm build/v86-arm64-fallback.wasm build/v86-arm64-parallel.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+.PHONY: pages
+pages: $(PAGES_BUILD) glbridge
+	node tools/pages_dist.mjs
+
 update_version:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\
 	DATE=`git log --date="format:%b %e, %Y %H:%m" --format="%cd" -n 1` ;\
-	SEARCH='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
-	REPLACE='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
+	SEARCH='<code>Version: <a id="version" href="https://github.com/speedyHKjournalist/v64/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
+	REPLACE='<code>Version: <a id="version" href="https://github.com/speedyHKjournalist/v64/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
 	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
 	sed -i "s@\(build/v86_app.js\|build/libv86.mjs\|src/app/app.css\)?[a-f0-9]\+@\1?$$COMMIT@g" index.html ;\
 	grep $$COMMIT index.html
@@ -683,7 +716,7 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # outside Closure, bundled by esbuild into build/v86_app.js (build/libv86.mjs
 # stays its own file: index.html's import map names it "v86"), checked by tsc
 # against v86.d.ts. The tools are package.json's devDependencies (npm ci).
-APP_FILES=$(shell find src/app -name '*.js') src/browser/profiles.js src/browser/vm_options.js src/browser/query_compat.js \
+APP_FILES=$(shell find src/app -name '*.js') src/browser/vm_options.js src/browser/query_compat.js \
 	src/machine_options.js src/disk_options.js
 node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
 	npm ci
@@ -701,7 +734,7 @@ app-check: node_modules/.bin/tsc
 	node_modules/.bin/tsc -p tsconfig.json
 
 # the VM manager plan (docs/vm-manager-plan.md), U0: the shared modules
-# (src/browser/profiles.js, vm_options.js, query_compat.js) give the options
+# (src/browser/vm_options.js, query_compat.js) give the options
 # the pages give (index.html's addresses, debug.html's addresses and form),
 # made by Node from the modules as by the pages
 # U1: the configurations (src/app/vm_config.js) and the library (vm_store.js);
@@ -731,6 +764,8 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1
 	node tests/app/browser_runner.mjs tests/app/suspend_test.html
 	node tests/app/browser_runner.mjs tests/app/opfs_disk_test.html
+	node tests/app/browser_runner.mjs tests/app/missing_image_test.html
+	node tests/app/browser_runner.mjs tests/app/missing_image_test.html worker=0
 	for part in page import share linux; do node tests/app/browser_runner.mjs tests/app/browser_disk_test.html part=$$part || exit 1; done
 
 app-shared-tests: build/v86_app.js build/libv86.mjs
@@ -791,7 +826,7 @@ update-package-json-version:
 doc:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\
-	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/copy/v86/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
+	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/speedyHKjournalist/v64/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
 
 denodoc:
 	deno doc --html --name="v86 API" --output=./docs/api ./v86.d.ts

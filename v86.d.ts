@@ -29,7 +29,7 @@ type V86AsyncFileImage =
          * Use parts instead of Range header, useful for static hostings.
          *
          * If true, v86 expects the image to be split in files of `fixed_chunk_size`
-         * bytes. You can use [split-image.py](https://github.com/copy/v86/blob/master/tools/split-image.py)
+         * bytes. You can use [split-image.py](https://github.com/speedyHKjournalist/v64/blob/master/tools/split-image.py)
          * to split an image. V86 appends `-<start-byte>-<end-byte>` to the url.
          */
         use_parts?: boolean;
@@ -221,7 +221,7 @@ export type ScreenConfig =
     {
         /**
          * HTML container for emulator screen. This should have a certain structure.
-         * @see {@link https://github.com/copy/v86/blob/master/examples/basic.html} for example
+         * @see {@link https://github.com/speedyHKjournalist/v64/blob/master/examples/basic.html} for example
          */
         container?: HTMLElement | null;
 
@@ -406,7 +406,7 @@ declare class FileNotFoundError extends Error {
 
 /**
  * Network device configuration.
- * @see {@link https://github.com/copy/v86/blob/master/docs/networking.md} for more infos
+ * @see {@link https://github.com/speedyHKjournalist/v64/blob/master/docs/networking.md} for more infos
  */
 type V86NetworkDevice =
     {
@@ -420,7 +420,7 @@ type V86NetworkDevice =
         /**
          * The network backend URL.
          * Note that the CORS proxy server of the fetch backend is defined in field `cors_proxy` below.
-         * @see {@link https://github.com/copy/v86/blob/master/docs/networking.md#backend-url-schemes} for backend URL schemes
+         * @see {@link https://github.com/speedyHKjournalist/v64/blob/master/docs/networking.md#backend-url-schemes} for backend URL schemes
          */
         relay_url?: string;
 
@@ -646,13 +646,13 @@ export interface V86Options {
 
     /**
      * BIOS image (supported SeaBIOS and Bochs BIOS)
-     * @see {@link https://github.com/copy/v86/tree/master/bios} for BIOS images
+     * @see {@link https://github.com/speedyHKjournalist/v64/tree/master/bios} for BIOS images
      */
     bios?: V86Image;
 
     /**
      * VGA BIOS image
-     * @see {@link https://github.com/copy/v86/tree/master/bios} for BIOS images
+     * @see {@link https://github.com/speedyHKjournalist/v64/tree/master/bios} for BIOS images
      */
     vga_bios?: V86Image;
 
@@ -794,7 +794,7 @@ export interface V86Options {
      * Should the MAC address be preserved from the state image, for operating systems that
      * don't allow you to reload the network card driver
      * @default false
-     * @see {@link https://github.com/copy/v86/blob/master/docs/networking.md#v86-run-time-state-images}
+     * @see {@link https://github.com/speedyHKjournalist/v64/blob/master/docs/networking.md#v86-run-time-state-images}
      */
     preserve_mac_from_state_image?: boolean;
 
@@ -804,13 +804,13 @@ export interface V86Options {
      */
     filesystem?: {
         /**
-         * A URL to a JSON file created using [fs2json](https://github.com/copy/v86/blob/master/tools/fs2json.py).
+         * A URL to a JSON file created using [fs2json](https://github.com/speedyHKjournalist/v64/blob/master/tools/fs2json.py).
          */
         baseurl?: string;
 
         /**
-         * A directory of 9p files, as created by [copy-to-sha256.py](https://github.com/copy/v86/blob/master/tools/copy-to-sha256.py).
-         * @see {@link https://github.com/copy/v86/blob/master/docs/filesystem.md} for more details
+         * A directory of 9p files, as created by [copy-to-sha256.py](https://github.com/speedyHKjournalist/v64/blob/master/tools/copy-to-sha256.py).
+         * @see {@link https://github.com/speedyHKjournalist/v64/blob/master/docs/filesystem.md} for more details
          */
         basefs?: string;
 
@@ -832,7 +832,7 @@ export interface V86Options {
     /**
      * A textarea that will receive and send data to the emulated serial terminal (only browsers).
      * Alternatively the serial terminal can also be accessed programatically, see
-     * [examples/serial.html](https://github.com/copy/v86/blob/master/examples/serial.html) for example.
+     * [examples/serial.html](https://github.com/speedyHKjournalist/v64/blob/master/examples/serial.html) for example.
      * Deprecated in favor of {@link V86Options.serial_console}.
      * @deprecated
      * @see {@link V86Options.serial_console}
@@ -862,7 +862,7 @@ export interface V86Options {
      * Emulator screen element (only browsers).
      * Only provided for backwards compatibility, use {@link V86Options.screen} instead.
      * @deprecated
-     * @see {@link https://github.com/copy/v86/blob/master/examples/basic.html} for example
+     * @see {@link https://github.com/speedyHKjournalist/v64/blob/master/examples/basic.html} for example
      */
     screen_container?: HTMLElement | null;
 
@@ -987,7 +987,7 @@ export interface V86Options {
      * XSAVE family needs XSAVE, XSAVES needs XSAVEC); other combinations fail
      * at startup. Not set: all of them with cpu_type "x86_64", none with
      * "x86" ([] gives none); a restored snapshot's features then replace them.
-     * See [docs/x86-64.md](https://github.com/copy/v86/blob/master/docs/x86-64.md).
+     * See [docs/x86-64.md](https://github.com/speedyHKjournalist/v64/blob/master/docs/x86-64.md).
      */
     cpu_features?: Array<"SSSE3" | "SSE4.1" | "SSE4.2" | "XSAVE" | "AVX" | "AVX2" | "FMA" | "F16C" | "BMI1" | "BMI2" |
         "LZCNT" | "MOVBE" | "XSAVEOPT" | "XSAVEC" | "XGETBV1" | "XSAVES"> | "x86-64-v2" | "x86-64-v3";
@@ -1024,7 +1024,7 @@ export interface V86Options {
 
     /**
      * Override the maximum supported cpuid level
-     * Used for some versions of Windows, see [docs/windows-nt.md](https://github.com/copy/v86/blob/master/docs/windows-nt.md)
+     * Used for some versions of Windows, see [docs/windows-nt.md](https://github.com/speedyHKjournalist/v64/blob/master/docs/windows-nt.md)
      */
     cpuid_level?: number;
 
@@ -1695,7 +1695,7 @@ export class V86 {
     /**
      * Get instruction stats
      *
-     * @see {@link https://github.com/copy/v86/blob/master/docs/profiling.md} for more infos
+     * @see {@link https://github.com/speedyHKjournalist/v64/blob/master/docs/profiling.md} for more infos
      */
     get_instruction_stats(): string | Promise<string>;
 

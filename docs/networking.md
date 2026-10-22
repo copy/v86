@@ -33,7 +33,7 @@ Note that `wss://` and `wisps://` are the TLS-secured transports of `ws://` and 
 
 ### Web interface setup
 
-Network setup in the v86 web interface at **https://copy.sh/v86/** is straightforward, simply copy the backend URL into the text box named **`Networking proxy`** or select one of the presets to configure the network backend. The guest's NIC emulation (NE2000 or VirtIO) is automatically configured when selecting the guest image in the web interface.
+Network setup in the web interface is straightforward: in the VM manager (`index.html`), choose the backend in a network adapter's settings; on the debug page (`debug.html`), copy the backend URL into the text box named **`Networking proxy`** or select one of the presets. The guest's NIC emulation (NE2000 or VirtIO) is automatically configured when selecting the guest image in the web interface.
 
 ### Embedded v86 setup
 
@@ -175,7 +175,7 @@ When restoring a state image, v86 randomises the restored guest's MAC address to
   randomised MAC address in outgoing packets (and vice-versa for incoming
   packets). This mechanism currently only supports the ethernet, ipv4, dhcp and
   arp protcols. See `translate_mac_address` in
-  [`src/ne2k.js`](https://github.com/copy/v86/blob/master/src/ne2k.js). This is
+  [`src/ne2k.js`](../src/ne2k.js). This is
   currently used in Windows, ReactOS and SerenityOS profiles.
 - Some OSes don't cache the MAC address when the driver loads and therefore
   don't need any of the above workarounds. This seems to be the case for Haiku,

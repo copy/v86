@@ -1155,7 +1155,7 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
         this.sectors_per_track = sectors;
 
         // for CMOS see:
-        //   https://github.com/copy/v86/blob/master/src/rtc.js
+        //   src/rtc.js
         //   https://github.com/coreboot/seabios/blob/master/src/hw/rtc.h
         //   https://web.archive.org/web/20240119203005/http://www.bioscentral.com/misc/cmosmap.htm
         // (IDE drives only: SeaBIOS takes the geometry of AHCI disks from IDENTIFY)

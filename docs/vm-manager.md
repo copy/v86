@@ -82,22 +82,58 @@ first). Leaving a page with a disk written back asks first.
 
 ## Addresses
 
-`index.html?profile=<id>` (the systems of the old page's list) and the old
-page's query arguments (`?profile=custom&hda.url=…`, `m=`, `cpu_type=`, …)
-open a console directly, with the options the old page gave them. Such a
-session is not in the library.
+`index.html?profile=custom` with images (`hda.url=`, `cdrom.url=`,
+`fda.url=`) and the old page's other query arguments (`m=`, `cpu_type=`, …)
+opens a console directly, with the options the old page gave them. Such a
+session is not in the library. Any other `?profile=` names no system (this
+page has no list of systems with hosted images) and says so.
 
 ## Development
 
 - The page is ES modules in `src/app/`, outside the Closure build, driving
   only the public API of `build/libv86.mjs` (`v86.d.ts`); it shares
-  `src/browser/profiles.js`, `vm_options.js` and `query_compat.js` with the
+  `src/browser/vm_options.js` and `query_compat.js` with the
   debug page (`debug.html`, `src/browser/main.js`).
 - `make app` bundles it into `build/v86_app.js` (esbuild); `make app-check`
   type-checks it with tsc against `v86.d.ts`. Both tools are dev
   dependencies (`npm ci`, which make runs when they are missing).
 - `app_debug.html` loads the source directly, with `build/libv86-debug.mjs`.
 - `make app-tests` runs its tests (Node and headless Chrome).
+
+## Deployment
+
+`make pages` builds the page and every file it loads into `build/pages/`, a
+static site ([tools/pages_dist.mjs](../tools/pages_dist.mjs)): the files keep
+the paths the page uses, their version (the query the page adds to them) is a
+hash of the files, the footer's links to the debug pages are left out,
+`_headers` makes the site cross-origin isolated (COOP/COEP, as
+`tools/dev-server.py`), which the cores in host threads need, and `404.html`
+makes a missing file a 404 (without it Cloudflare Pages answers any path with
+`index.html`, and a wrong image URL would become a disk of HTML). Any static
+host that sends those two headers can serve it.
+
+The site holds no disk images: the library's machines use the images their
+users give (a file, a URL, a browser disk, the disk service).
+
+[.github/workflows/pages.yml](../.github/workflows/pages.yml) deploys it to
+Cloudflare Pages, project `v64` (`https://v64-2ys.pages.dev`): a push to
+master deploys the site, a pull request from this repository a preview of its
+branch (`https://<branch>.v64-2ys.pages.dev`).
+It builds on GitHub (Cloudflare's build environment lacks the Rust wasm target
+and Java) and uploads with wrangler, so the Pages project is a Direct Upload
+project. Once, in Cloudflare and GitHub:
+
+1. Create the project: `npx wrangler pages project create v64 --production-branch master`
+   (or Workers & Pages → Create → Pages → Upload assets, named `v64`).
+2. Create an API token with the permission "Cloudflare Pages: Edit", and note the
+   account ID.
+3. Add them to the repository as the Actions secrets `CLOUDFLARE_API_TOKEN` and
+   `CLOUDFLARE_ACCOUNT_ID`.
+
+A custom domain is set in the project's Custom domains. Settle it before the
+site is used: the library, its suspended machines and its browser disks live
+in the browser's storage for the site's origin, so a machine made on
+`v64.pages.dev` is not there on another domain.
 
 Browsers: the browser disks' synchronous file access exists in Chromium 108,
 Firefox 111 and Safari 15.2 or later (MDN, caniuse); only Chrome was tried.

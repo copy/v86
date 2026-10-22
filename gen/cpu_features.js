@@ -174,10 +174,15 @@ export const PRESETS = {
     "x86-64-v3": ["SSSE3", "SSE4.1", "SSE4.2", "XSAVE", "AVX", "AVX2", "FMA", "F16C", "BMI1", "BMI2", "LZCNT", "MOVBE"],
 };
 
+// cpu_type "x86_64" without cpu_features: every released feature of its
+// profile (the owner's decision of 2026-10-17; src/cpu.js,
+// X86_64_DEFAULT_FEATURES), which the contract's x64-1 and x64-4 record
+const X86_64_DEFAULT = feature_bits().filter(f => RELEASED.includes(f.milestone) && (f.profiles || PROFILES).includes("x86_64")).map(f => f.name);
+
 // The contract profiles (tools/cpu_contract.mjs): their cpu_type and the
 // features they request
 const CONTRACT_PROFILES = {
-    "legacy-1": ["x86", []], "legacy-4": ["x86", []], "x64-1": ["x86_64", []], "x64-4": ["x86_64", []],
+    "legacy-1": ["x86", []], "legacy-4": ["x86", []], "x64-1": ["x86_64", X86_64_DEFAULT], "x64-4": ["x86_64", X86_64_DEFAULT],
     "legacy-v2": ["x86", PRESETS["x86-64-v2"]], "x64-v2": ["x86_64", PRESETS["x86-64-v2"]],
     "legacy-xsave": ["x86", ["XSAVE"]], "x64-xsave": ["x86_64", ["XSAVE"]],
     "legacy-avx": ["x86", [...PRESETS["x86-64-v2"], "XSAVE", "AVX"]], "x64-avx": ["x86_64", [...PRESETS["x86-64-v2"], "XSAVE", "AVX"]],
