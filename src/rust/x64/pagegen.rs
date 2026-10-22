@@ -2003,6 +2003,17 @@ fn sse(d: &Decoded) -> Option<Op> {
                 wide: false,
             }
         },
+        // UNPCKLPS UNPCKHPS UNPCKLPD UNPCKHPD: bit shuffles, those of
+        // PUNPCKLDQ PUNPCKHDQ PUNPCKLQDQ PUNPCKHQDQ (an m128, aligned)
+        0x0F14 | 0x0F15 | 0x660F14 | 0x660F15 => Op::Vpacked {
+            op: Packed::Unpack(
+                if d.opcode >> 16 == 0x66 { 8 } else { 4 },
+                d.opcode & 0xFF == 0x15,
+            ),
+            dst: register,
+            first: register,
+            src: xmm_rm()?,
+        },
         op if op >> 8 == 0x660F => Op::Vpacked {
             op: vec::packed_op(op as u8, false)?,
             dst: register,

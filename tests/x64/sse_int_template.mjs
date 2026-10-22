@@ -94,6 +94,7 @@ const binary = ["paddb", "paddw", "paddd", "paddq", "psubb", "psubw", "psubd", "
     "psubsb", "psubsw", "psubusb", "psubusw", "pcmpgtb", "pcmpgtw", "pcmpgtd", "pcmpeqb", "pcmpeqw", "pcmpeqd",
     "pminub", "pmaxub", "pminsw", "pmaxsw", "pavgb", "pavgw", "pmulhuw", "pmulhw", "pmuludq", "psadbw", "pmullw", "pmaddwd",
     "punpcklbw", "punpcklwd", "punpckldq", "punpckhbw", "punpckhwd", "punpckhdq", "punpcklqdq", "punpckhqdq",
+    "unpcklps", "unpckhps", "unpcklpd", "unpckhpd",
     "packsswb", "packuswb", "packssdw", "psrlw", "psrld", "psrlq", "psraw", "psrad", "psllw", "pslld", "psllq"];
 const forms = [];
 for(const op of binary)
@@ -104,6 +105,7 @@ for(const op of binary)
 // high registers (REX.R/REX.B)
 forms.push({ text: "paddw xmm9, xmm12", high: true });
 forms.push({ text: "punpcklbw xmm9, [rsi + 32]", high: true });
+forms.push({ text: "unpcklps xmm9, xmm12", high: true });
 forms.push({ text: "pshufd xmm9, xmm12, 0x1B", high: true });
 forms.push({ text: "psrlw xmm12, 3", high: true, shifted: 12 });
 for(const imm of [0x00, 0x1B, 0x4E, 0xB1, 0xE4, 0xFF, int(256)])
