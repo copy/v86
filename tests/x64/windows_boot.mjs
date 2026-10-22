@@ -29,7 +29,10 @@
 // <cmd /c line>" (elevated through PowerShell, Alt+Y for UAC), "wait <s>",
 // "launch <command line>" (run by the launcher with cmd /c, see WIN_LAUNCHER),
 // "display <width> <height> [index]" (V86.set_display_size), "mouse <dx> <dy>",
-// "pointer <x> <y> <screen width> <screen height>",
+// "nudge <dx> <dy> <n>" (n PS/2 movements; Windows' pointer ballistics
+// depend on each packet's size, so a fixed recipe lands at the same place:
+// "corner", the pointer into the top left corner, then nudges), "click
+// [right]", "pointer <x> <y> <screen width> <screen height>",
 // "snapshot" (saved
 // and restored in place),
 // "svgalog on|off" (the SVGA3D commands other than DX and the frequent GB
@@ -925,6 +928,26 @@ try
         else if(verb === "display") vm.set_display_size(...argument.split(/\s+/).map(Number));
         // a relative mouse movement (PS/2), in pixels, y up
         else if(verb === "mouse") vm.bus.send("mouse-delta", argument.split(/\s+/).map(Number));
+        // "nudge <dx> <dy> <n>": n relative movements of (dx, dy), one PS/2
+        // packet each (y up; Windows' pointer ballistics see each packet's size)
+        else if(verb === "nudge")
+        {
+            const [dx, dy, n] = argument.split(/\s+/).map(Number);
+            for(let i = 0; i < n; i++) { vm.bus.send("mouse-delta", [dx, dy]); await delay(20); }
+        }
+        // "corner": the pointer into the top left corner of the screen
+        else if(verb === "corner")
+        {
+            for(let i = 0; i < 40; i++) { vm.bus.send("mouse-delta", [-120, 120]); await delay(20); }
+        }
+        // "click [right]": a click of the left (right) button where the pointer is
+        else if(verb === "click")
+        {
+            const right = argument === "right";
+            vm.bus.send("mouse-click", [!right, false, right]);
+            await delay(300);
+            vm.bus.send("mouse-click", [false, false, false]);
+        }
         // an absolute position on a screen of the given size (the VMware
         // backdoor's mouse, which takes over from PS/2 once its driver runs)
         else if(verb === "pointer") vm.bus.send("mouse-absolute", argument.split(/\s+/).map(Number));
