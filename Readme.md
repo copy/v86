@@ -1,48 +1,102 @@
-v86 emulates an x86-compatible CPU and hardware. Machine code is translated to
-WebAssembly modules at runtime in order to achieve decent performance. Here's a
-list of emulated hardware:
+[![Discord](https://img.shields.io/badge/Discord-join%20the%20chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/re5CY3MbfW)
 
-- An x86-compatible CPU. The instruction set is around Pentium 4 level,
-  including full SSE3 support. Some features are missing, in particular:
-  - Task gates, far calls in protected mode
-  - Some 16 bit protected mode features
-  - Single stepping (trap flag, debug registers)
-  - Some exceptions, especially floating point and SSE
-  - Multicore
-  - 64-bit extensions
-- A floating point unit (FPU). Calculations are done using the Berkeley
-  SoftFloat library and therefore should be precise (but slow). Trigonometric
-  and log functions are emulated using 64-bit floats and may be less precise.
-  Not all FPU exceptions are supported.
-- A floppy disk controller (8272A).
-- An 8042 Keyboard Controller, PS2. With mouse support.
-- An 8254 Programmable Interval Timer (PIT).
-- An 8259 Programmable Interrupt Controller (PIC).
-- Partial APIC support.
-- A CMOS Real Time Clock (RTC).
-- A display adapter, chosen with `graphics_adapter`
-  ([GPU devices](docs/gpu-devices.md)):
-  - A generic VGA card with SVGA support and Bochs VBE Extensions
-    (`bochs_vga`).
-  - VMware SVGA II (`vmware_svga`). With WebGPU (`libv86-webgpu.js`), it
-    runs the guest's 3D: Direct3D 9–11 through VMware's Windows driver,
-    OpenGL 4.3 through Mesa.
-  - virtio-gpu as virtio-vga (`virtio_gpu`). With WebGPU, it runs OpenGL 4.3
-    (virgl) and Vulkan 1.1 (Venus) through Mesa.
-- A PCI bus. This one is partly incomplete and not used by every device.
-- An IDE disk controller.
-  - A built-in ISO 9660 CD-ROM generator with Joliet support.
-- An NE2000 (RTL8390) PCI network card.
-- Various virtio devices: Filesystem, network, balloon and GPU.
-- A SoundBlaster 16 sound card.
-- A hayes-compatible dial-up Modem.
+# v64
+
+v64 runs x86 (32- and 64-bit) and ARM64 virtual machines in the browser.
+Machine code is compiled to WebAssembly at runtime, one 4 KiB page of guest
+code at a time ([JIT design](docs/ir-design.md)). Its JavaScript API keeps the
+names it started with: `V86`, `libv86.js`.
+
+**Try it: [v64-2ys.pages.dev](https://v64-2ys.pages.dev)**, the virtual
+machine manager: make a machine with a preset that says whether it was
+verified, install a system from a CD or floppy, keep its disks in the browser,
+suspend it and start it again later ([how to use it](docs/vm-manager.md)).
+
+## Showcase: Retro Gaming Site
+
+**[retrogaming.dpdns.org](https://retrogaming.dpdns.org/)** runs classic PC
+games on v64, ready to play in the browser: Heroes of Might and Magic III,
+StarCraft, Diablo I and II, Red Alert 2, Age of Empires II, Warcraft III,
+MapleStory, KartRider and more, on Windows 98 and Windows XP. Its Direct3D,
+DirectDraw and OpenGL games draw through v64's [graphics proxy](docs/glbridge.md)
+on WebGPU. Join its [Discord](https://discord.gg/re5CY3MbfW).
+
+## Emulated hardware
+
+- **x86 CPU** (`cpu_type: "x86"`, the default, or `"x86_64"`):
+  - 32-bit protected mode with x87, MMX and SSE to SSE3; with `"x86_64"`, also
+    long and compatibility mode with NX, 2 MiB pages, SYSCALL/SYSRET and
+    CMPXCHG16B ([x86-64](docs/x86-64.md)), and more RAM than WebAssembly's 4 GiB
+    memory with `extended_memory_size`.
+  - `"x86_64"` reports SSSE3, SSE4.1, SSE4.2, AVX, AVX2, FMA, F16C, BMI1,
+    BMI2, LZCNT, MOVBE and XSAVE, XSAVEOPT, XSAVEC, XSAVES by default;
+    `cpu_features` chooses others (for example `"x86-64-v2"`, or `[]` for none).
+  - The x87 FPU computes with Berkeley SoftFloat (exact 80-bit results), or,
+    with `x87_fast_math` (the default), adds, subtracts, multiplies and divides
+    in native 64-bit floats; trigonometric and log functions use 64-bit floats.
+  - Up to 8 cores (`cpu_cores`, with `acpi: true`), taking turns on one thread,
+    or each in its own Worker when the page is cross-origin isolated
+    ([multicore](docs/multicore.md)).
+  - Not implemented: the trap flag in 32-bit code, JMP through a call gate,
+    AVX-512, AES-NI, SHA, PCID, VMX/SVM, x2APIC.
+- **PC machines** (`machine_type`):
+  - `i440fx` (the default): i440FX and PIIX, an IDE controller.
+  - `q35`: Q35 and ICH9 with AHCI (6 SATA ports, NCQ, hot plug), PCIe root
+    ports with hot plug, HPET, SMBus, SMM ([Q35](docs/q35.md),
+    [AHCI](docs/ahci.md)); it needs ACPI.
+  - ACPI (`acpi: true`): generated tables, sleep states (S3/S4/S5 on i440FX),
+    local APICs and an IOAPIC ([ACPI](docs/acpi.md)); an 8259 PIC, an 8254 PIT and a CMOS RTC
+    always.
+- **ARM64** (`cpu_type: "arm64"`, `machine_type: "virt"`): Armv8.0-A at EL0/EL1
+  with AES, SHA, CRC32 and PAN, on a copy of QEMU's `virt` board: GICv3, PL011
+  UART, PL031 RTC, PSCI, PCIe, and virtio over MMIO or PCI (block, network,
+  entropy, console, input, vsock, sound, GPU). It boots a Linux kernel
+  directly with a device tree ([ARM64](docs/aarch64.md), [virt](docs/virt.md)).
+- **Devices** of the PC machines: a floppy disk controller (8272A); IDE with a
+  built-in ISO 9660 CD-ROM generator (Joliet); a PS/2 keyboard and mouse;
+  serial ports COM1–COM4 and parallel ports; an NE2000 or virtio network card;
+  a virtio 9p filesystem, console and balloon; a SoundBlaster 16 and the PC
+  speaker; a Hayes-compatible dial-up modem ([modem](docs/modem.md)); and
+  [custom virtio devices](docs/custom-virtio-devices.md).
+- **Display** (`graphics_adapter`, [GPU devices](docs/gpu-devices.md)):
+  - `bochs_vga`: a generic VGA card with SVGA support and Bochs VBE Extensions.
+  - `vmware_svga`: VMware SVGA II. With WebGPU (`libv86-webgpu.js`) it runs the
+    guest's 3D: Direct3D 9–11 through VMware's Windows 8.1 driver, OpenGL 4.3
+    through Mesa.
+  - `virtio_gpu`: virtio-gpu (as virtio-vga on PC). With WebGPU it runs OpenGL
+    4.3 (virgl) and Vulkan 1.1 (Venus) through Mesa.
+  - The [graphics proxy](docs/glbridge.md) (`graphics_proxy: true`): OpenGL,
+    DirectDraw, Direct3D 8 and Direct3D 9 for Windows 2000/XP programs, through
+    proxy DLLs and a guest driver, rendered with WebGPU.
+- **Disks**: RAW images and QCOW2, VHD, VDI, VMDK and VHDX, OVA import, export
+  to QCOW2 or RAW ([formats](docs/disk-image-formats-plan.md)); with
+  `disk_option: "read_write"` a RAW disk is written back to a disk service, a
+  local file in Node, or a disk kept in the browser
+  ([persistence](docs/disk-persistence-plan.md)).
 
 ## Documentation
 
 [The virtual machine manager](docs/vm-manager.md) —
-[How it works](docs/how-it-works.md) —
+[JIT design](docs/ir-design.md) —
+[x86-64](docs/x86-64.md) —
+[Multicore](docs/multicore.md) —
+[Q35](docs/q35.md) —
+[AHCI](docs/ahci.md) —
+[SATA](docs/sata.md) —
+[ACPI](docs/acpi.md) —
+[ARM64](docs/aarch64.md) —
+[virt machine](docs/virt.md) —
+[GPU devices: VMware SVGA II and virtio-gpu](docs/gpu-devices.md) —
+[GPU deviations from hardware](docs/gpu-deviations.md) —
+[Display design](docs/display-design.md) —
+[Graphics proxy](docs/glbridge.md) —
+[Custom virtio devices](docs/custom-virtio-devices.md) —
+[Disk image formats](docs/disk-image-formats-plan.md) —
+[Disk persistence](docs/disk-persistence-plan.md) —
 [Networking](docs/networking.md) —
 [Dial-up modem networking](docs/modem.md) —
+[9p filesystem](docs/filesystem.md) —
+[Linux rootfs on 9p](docs/linux-9p-image.md) —
 [Alpine Linux guest setup](tools/docker/alpine/) —
 [Arch Linux guest setup](docs/archlinux.md) —
 [Debian with xfce guest setup](tools/docker/debian/) —
@@ -50,49 +104,36 @@ list of emulated hardware:
 [Windows 3.1x guest setup](docs/windows-31x.md) —
 [Windows 9x guest setup](docs/windows-9x.md) —
 [Windows NT guest setup](docs/windows-nt.md) —
-[9p filesystem](docs/filesystem.md) —
-[Linux rootfs on 9p](docs/linux-9p-image.md) —
-[GPU devices: VMware SVGA II and virtio-gpu](docs/gpu-devices.md) —
-[GPU deviations from hardware](docs/gpu-deviations.md) —
-[Display design](docs/display-design.md) —
-[Graphics proxy](docs/glbridge.md) —
-[Custom virtio devices](docs/custom-virtio-devices.md) —
 [Profiling](docs/profiling.md)
 
 ## Compatibility
 
-Here's an overview of the operating systems supported in v86:
+Verified, each with the machine the VM manager's preset gives it:
 
-- Linux works pretty well. 64-bit kernels are not supported.
-  - [Buildroot](https://buildroot.org/) can be used to build a minimal image.
-    [humphd/browser-vm](https://github.com/humphd/browser-vm) and
-    [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot) have some useful scripts for building one.
-  - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
-  - Ubuntu and other Debian derivatives works up to the latest version that supported i386 (16.04 LTS or 18.04 LTS for some variants).
-  - Alpine Linux works. An image can be built from a Dockerfile, see [tools/docker/alpine/](tools/docker/alpine/).
-  - Arch Linux 32 works. See [archlinux.md](docs/archlinux.md) for building an image.
-- ReactOS works.
-- FreeDOS, Windows 1.01 and MS-DOS run very well.
-- KolibriOS works.
-- Haiku works.
-- Android-x86 has been tested up to 4.4-r2.
-- Windows 1, 3.x, 95, 98, ME, NT and 2000 work reasonably well.
-  - In Windows 2000 and higher the PC type has to be changed from ACPI PC to Standard PC
-  - There are some known boot issues ([#250](https://github.com/copy/v86/issues/250), [#433](https://github.com/copy/v86/issues/433), [#507](https://github.com/copy/v86/issues/507), [#555](https://github.com/copy/v86/issues/555), [#620](https://github.com/copy/v86/issues/620), [#645](https://github.com/copy/v86/issues/645))
-  - See [Windows 9x guest setup](docs/windows-9x.md)
-- Windows XP, Vista and 8 work under certain conditions (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208))
-  - See [Windows NT guest setup](docs/windows-nt.md)
-- Many hobby operating systems work.
-- 9front works.
-- Plan 9 doesn't work.
-- QNX works.
-- OS/2 doesn't work.
-- FreeBSD works.
-- OpenBSD works with a specific boot configuration. At the `boot>` prompt type
-  `boot -c`, then at the `UKC>` prompt `disable mpbios` and `exit`.
-- NetBSD works only with a custom kernel, see [#350](https://github.com/copy/v86/issues/350).
-- SerenityOS works (only 32-bit versions).
-- [SkiftOS](https://skiftos.org/) works.
+- MS-DOS 6.22 and FreeDOS; Windows 3.x ([guide](docs/windows-31x.md)).
+- Windows 95, 98 and ME ([guide](docs/windows-9x.md)); Windows NT 4 and 2000
+  ([guide](docs/windows-nt.md)).
+- Windows XP, on the 32-bit CPU with one core (with `"x86_64"` it uses its PAE
+  kernel).
+- Windows 8.1 x64, booted from an installed image on 1, 2 or 4 cores, on
+  i440FX or Q35, with Direct3D 9–11 on `vmware_svga`; installing it from its CD
+  was not verified.
+- 32-bit Linux (4.16, 6.8, 6.18) and 64-bit Linux (Alpine 3.24 x86_64), on up
+  to 8 and 4 cores.
+- ARM64: Alpine 3.24 aarch64 (Linux 6.18) on 1, 2 or 4 cores, and Android 16
+  (Cuttlefish, 4 cores) to its desktop, with Vulkan (Venus), touch, Wi-Fi,
+  sound and snapshots.
+
+Not verified: Windows Vista (its installation CD only starts), 7 and 10.
+
+Known to work on the 32-bit CPU: ReactOS, KolibriOS, Haiku, Android-x86 up to
+4.4-r2, FreeBSD, 9front, QNX, SerenityOS (32-bit versions),
+[SkiftOS](https://skiftos.org/), Arch Linux 32 ([guide](docs/archlinux.md)) and
+many hobby operating systems; [Buildroot](https://buildroot.org/) and
+[SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86)
+build minimal Linux images. OpenBSD needs `boot -c`, then `disable mpbios` and
+`exit` at the `UKC>` prompt; NetBSD needs a custom kernel. Plan 9 and OS/2 do
+not work.
 
 ## How to build, run and embed?
 
@@ -131,6 +172,11 @@ for a full setup on Debian or
   to serve the files using Python's http module (it sends the COOP/COEP headers
   mentioned above, answers Range requests, and starts the local disk service
   for `images/`).
+- Run `make pages` to put `index.html` and everything it loads into
+  `build/pages/`, a static site with those headers (`_headers`) that any static
+  host can serve; [.github/workflows/pages.yml](.github/workflows/pages.yml)
+  deploys it to Cloudflare Pages on every push to `master`
+  ([Deployment](docs/vm-manager.md#deployment)).
 - If you only want to embed v86 in a webpage you can use `libv86.js`. For usage,
   check out the [examples](examples/).
 
@@ -198,14 +244,15 @@ Exceptions may be made on a case-by-case basis.
 
 ## License
 
-v86 is distributed under the terms of the Simplified BSD License, see
-[LICENSE](LICENSE). The following third-party dependencies are included in the
-repository under their own licenses:
+v64 is distributed under the terms of the Simplified BSD License, see
+[LICENSE](LICENSE) (it began as v86, whose contributors hold its
+copyright). The following third-party dependencies are
+included in the repository under their own licenses:
 
 - [`lib/softfloat/softfloat.c`](lib/softfloat/softfloat.c)
 - [`lib/zstd/zstddeclib.c`](lib/zstd/zstddeclib.c)
 - [`tests/kvm-unit-tests/`](tests/kvm-unit-tests)
-- [`tests/qemutests/`](tests/qemutests)
+- [`tests/qemu/`](tests/qemu)
 - [`src/floppy.js/`](src/floppy.js) contains parts ported from qemu under the MIT license, see LICENSE.MIT.
 
 ## Credits
@@ -221,4 +268,5 @@ repository under their own licenses:
 
 ## More questions?
 
-Please report bugs on GitHub: https://github.com/speedyHKjournalist/v64/issues
+Ask on [Discord](https://discord.gg/re5CY3MbfW), or report bugs on GitHub:
+https://github.com/speedyHKjournalist/v64/issues
