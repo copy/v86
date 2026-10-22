@@ -237,11 +237,6 @@ var emulator = new V86({
 
 See [v86.d.ts](v86.d.ts) for TypeScript definitions. You can use `make doc` (TypeDoc) or `make denodoc` (Deno) to generate HTML documentation in `./docs/api/`.
 
-## Generative AI
-
-At this time, v86 does not accept pull requests or issues written partially or entirely by generative AI tools.
-Exceptions may be made on a case-by-case basis.
-
 ## License
 
 v64 is distributed under the terms of the Simplified BSD License, see
