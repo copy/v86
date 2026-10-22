@@ -3513,7 +3513,11 @@ pub unsafe fn cycle_internal() -> bool {
             crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
             return false;
         }
-        let attempt = crate::x64::pages::run(4096);
+        // (to the end of the batch, as legacy mode's functions run since P7.3:
+        // a return to this loop every 4096 instructions, as long mode had,
+        // cost a CPU-Z-like float kernel 2%)
+        let ran = (*instruction_counter).wrapping_sub(jit_link_batch_start);
+        let attempt = crate::x64::pages::run(jit_link_batch_limit.saturating_sub(ran).max(1));
         if attempt.retired == 0 {
             let span = crate::cpu::execution::ledger_begin();
             run_long_instruction();
