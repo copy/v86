@@ -143,4 +143,24 @@ await part("v64's bootloader (V86 android option)", [OUT + "disk.img", OUT + "ma
     }
 });
 
+// the importer (I3.1): the Cuttlefish zip as a disk, the same as the tool's
+// --release --no-venus --shrink-super --userdata-mb 4096 disk.img
+const SMALL = A + "out-official-small/";
+await part("the importer's disk (tools/a64_android.mjs's out-official-small)", [CF_ZIP, SMALL + "disk.img"], async () =>
+{
+    const { cuttlefish_disk, write_disk, package_entries } = await import("../../src/android/assemble.js");
+    const read = file_reader(CF_ZIP);
+    const disk = await cuttlefish_disk(read, await package_entries(read, fs.statSync(CF_ZIP).size), { userdata_bytes: 4096 * 1048576 });
+    const file = A + "i1-imported.img";
+    fs.rmSync(file, { force: true });
+    const fd = fs.openSync(file, "w");
+    fs.ftruncateSync(fd, disk.disk_size);
+    await write_disk(read, disk, (offset, bytes) => { fs.writeSync(fd, bytes, 0, bytes.length, offset); });
+    fs.closeSync(fd);
+    assert.equal(fs.statSync(file).size, fs.statSync(SMALL + "disk.img").size);
+    const a = file_reader(file), b = file_reader(SMALL + "disk.img");
+    for(let at = 0; at < disk.disk_size; at += 16 << 20) assert.ok(equals(a(at, 16 << 20), b(at, 16 << 20)), "the disks differ in [" + at + ", +16 MiB)");
+    fs.rmSync(file);
+});
+
 console.log(`${ran} parts ran`);

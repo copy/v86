@@ -646,3 +646,54 @@ await run("zip", async () =>
     assert.equal(decoder.end(), raw.length);
     assert.ok(equals(out, raw));
 });
+
+await run("assemble a Cuttlefish package", async () =>
+{
+    const { identify_package, cuttlefish_disk, write_disk, package_entries, SUPER_SLACK } = await import("../../src/android/assemble.js");
+    // super: two partitions in 3 MiB of 16 MiB, as a sparse image (raw, then "don't care")
+    const MiB = 2048;
+    const super_raw = make_super([["system_a", MiB, MiB], ["vendor_a", MiB, 2 * MiB]], 16 << 20);
+    super_raw.set(random(4096), MiB * SECTOR);
+    super_raw.set(random(4096), 2 * MiB * SECTOR);
+    const raw_blocks = 3 * MiB * SECTOR / 4096;
+    const { sparse } = make_sparse([[0xCAC1, raw_blocks, super_raw.subarray(0, raw_blocks * 4096)], [0xCAC3, (16 << 20) / 4096 - raw_blocks, new Uint8Array(0)]]);
+    const kernel = random(8192);
+    kernel.set(bytes_of("ARMd"), 56);
+    const images = {
+        "boot.img": make_boot(kernel, new Uint8Array(0), ""), "init_boot.img": make_boot(new Uint8Array(0), random(50), ""),
+        "vendor_boot.img": make_vendor_boot([["r", random(70)]], "", ""), "vbmeta.img": make_vbmeta([]),
+        "vbmeta_system.img": make_vbmeta([]), "vbmeta_vendor_dlkm.img": make_vbmeta([]), "vbmeta_system_dlkm.img": make_vbmeta([]),
+    };
+    const members = [{ name: "fastboot-info.txt", data: bytes_of("# cuttlefish\nversion 1\n") }, { name: "android-info.txt", data: bytes_of("config=phone\n") },
+        ...Object.entries(images).map(([name, data]) => ({ name, data })), { name: "super.img", data: sparse },
+        { name: "userdata.img", data: make_sparse([[0xCAC3, 4, new Uint8Array(0)]]).sparse }];
+    const zip = make_zip(members);
+    const read = reader(zip);
+    const entries = await package_entries(read, zip.length);
+    assert.deepEqual(await identify_package(entries, read), { kind: "cuttlefish", device: "cf_arm64_only_phone", text: "a Cuttlefish arm64 device (its images zip)" });
+    assert.equal((await identify_package([{ name: "system.img" }, { name: "vbmeta.img" }, { name: "build.prop" }], read)).kind, "gsi");
+    assert.equal(await identify_package([{ name: "readme.txt" }], read), null);
+    const disk = await cuttlefish_disk(read, entries, { userdata_bytes: 3 << 20 });
+    assert.equal(disk.super_size, Math.ceil((3 * MiB * SECTOR + SUPER_SLACK) / (1 << 20)) * (1 << 20));
+    const out = new Uint8Array(disk.disk_size);
+    const progress = [];
+    await write_disk(read, disk, async (offset, bytes) => { out.set(bytes, offset); }, (done, total) => progress.push([done, total]));
+    assert.deepEqual(progress.at(-1), [disk.data_bytes, disk.data_bytes]);
+    const parts = new Map(gpt_partitions(reader(out), out.length).map(p => [p.name, p]));
+    assert.deepEqual([...parts.keys()], device_partitions(CF_ARM64_ONLY_PHONE).map(p => p.name));
+    for(const [name, data] of Object.entries(images))
+    {
+        // (the partition: the image, in whole sectors)
+        const p = parts.get(name.replace(".img", "") + "_a");
+        assert.equal(p.size, Math.ceil(data.length / SECTOR) * SECTOR, name);
+        assert.ok(equals(out.subarray(p.start, p.start + data.length), data), name);
+    }
+    const sp = parts.get("super");
+    assert.equal(sp.size, disk.super_size);
+    const lp = lp_metadata(reader(out.subarray(sp.start, sp.start + sp.size)));
+    assert.equal(lp.size, disk.super_size);
+    assert.deepEqual(lp.copies[0].partitions.map(p => [p.name, p.extents[0].sector]), [["system_a", MiB], ["vendor_a", 2 * MiB]]);
+    assert.ok(equals(out.subarray(sp.start + MiB * SECTOR, sp.start + 2 * MiB * SECTOR), super_raw.subarray(MiB * SECTOR, 2 * MiB * SECTOR)));
+    assert.equal(parts.get("userdata").size, 3 << 20);
+    assert.ok(out.subarray(parts.get("userdata").start, parts.get("userdata").start + (3 << 20)).every(b => b === 0));
+});

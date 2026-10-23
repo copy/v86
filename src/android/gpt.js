@@ -79,8 +79,10 @@ export function gpt_writes(disk_size, partitions)
         const e = i * ENTRY_SIZE;
         entries.set(guid_bytes(LINUX_FILESYSTEM), e);
         entries.set(guid_bytes(name_guid(p.name)), e + 16);
+        // (whole sectors: a size that is not ends in its last sector)
+        if(p.start % SECTOR) throw new Error("GPT: " + p.name + " starts within a sector");
         put64(entries, e + 32, p.start / SECTOR);
-        put64(entries, e + 40, (p.start + p.size) / SECTOR - 1);
+        put64(entries, e + 40, Math.ceil((p.start + p.size) / SECTOR) - 1);
         if(p.name.length > 36) throw new Error("GPT: a name beyond 36 characters: " + p.name);
         for(let c = 0; c < p.name.length; c++) put16(entries, e + 56 + 2 * c, p.name.charCodeAt(c));
     });

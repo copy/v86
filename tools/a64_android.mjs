@@ -79,10 +79,13 @@
 // I1), which v64's own bootloader and importer use too; this tool keeps the
 // files, the downloads and the 16K modules.
 //
-//   node tools/a64_android.mjs [--download] [--release] [--no-venus] [--gsi <zip>] [--selinux enforcing|permissive]
+//   node tools/a64_android.mjs [--download] [--release] [--no-venus] [--gsi <zip>] [--shrink-super] [--userdata-mb <n>] [--selinux enforcing|permissive]
 //       [--memory-mb 1536] [--out build/a64-android/out] [--extract] [--fresh-disk] [--page-size 4k|16k]
 //   (--release --no-venus: Cuttlefish's images as they are, I0.2's official
-//   reference: vendor_boot's own ramdisk, SwiftShader, super unchanged)
+//   reference: vendor_boot's own ramdisk, SwiftShader, super unchanged;
+//   --shrink-super: super to its partitions and 64 MiB; --userdata-mb <n>:
+//   userdata blank, n MiB, formatted at first boot: docs/android-images-plan.md
+//   I4.3's disk)
 //   (--download: fetch the missing artifacts into build/a64-android/dl/ first;
 //   --extract: then boot them on QEMU with HVF, the host's CPU, and write the
 //   mounted read-only partitions and active APEXes as build/a64-android/rootfs.tar
@@ -101,7 +104,7 @@ import { parse_boot_image, parse_vendor_boot_image } from "../src/android/bootim
 import { lz4_legacy_decompress, lz4_legacy_store } from "../src/android/lz4.js";
 import { cpio_files, cpio_newc } from "../src/android/cpio.js";
 import { unsparse, sparse_read, sparse_size } from "../src/android/sparse.js";
-import { lp_metadata, lp_end, lp_place, super_replace, super_footer_struct, super_partition } from "../src/android/lp.js";
+import { lp_metadata, lp_end, lp_place, lp_resize, super_replace, super_footer_struct, super_partition } from "../src/android/lp.js";
 import { vbmeta_struct, AVB_FLAG_VERIFICATION_DISABLED } from "../src/android/avb.js";
 import { zip_entries, zip_stream, zip_read } from "../src/android/zip.js";
 import { erofs_data, erofs_list, erofs_lookup, erofs_add_file, erofs_replace_files } from "../src/android/erofs.js";
@@ -143,7 +146,7 @@ const VENUS_DRIVER = ROOT + "build/a64-android/venus/vulkan.virtio.so";
 function parse_args(argv)
 {
     const args = { download: false, release: false, selinux: "enforcing", memory_mb: 1536, extract: false, fresh_disk: false,
-        out: null, page_size: 4096, venus: true, gsi: null };
+        out: null, page_size: 4096, venus: true, gsi: null, shrink_super: false, userdata_mb: 0 };
     for(let i = 0; i < argv.length; i++)
     {
         const arg = argv[i];
@@ -151,6 +154,8 @@ function parse_args(argv)
         else if(arg === "--release") args.release = true;
         else if(arg === "--no-venus") args.venus = false;
         else if(arg === "--gsi") { args.gsi = path.resolve(argv[++i]); args.venus = false; }
+        else if(arg === "--shrink-super") args.shrink_super = true;
+        else if(arg === "--userdata-mb") args.userdata_mb = +argv[++i];
         else if(arg === "--selinux") args.selinux = argv[++i];
         else if(arg === "--memory-mb") args.memory_mb = +argv[++i];
         else if(arg === "--extract") args.extract = true;
@@ -245,10 +250,17 @@ function file_reader(file)
     return readers.get(file);
 }
 
-/** Android sparse image -> raw, written into fd at offset; returns the raw size */
-function unsparse_into(file, fd, offset)
+/** Android sparse image -> raw, written into fd at offset; returns the raw
+ * size. Writes from limit on (a partition smaller than the image: super
+ * shrunk) are left out, and must be zeros */
+function unsparse_into(file, fd, offset, limit = Infinity)
 {
-    return unsparse(file_reader(file), (at, bytes) => fs.writeSync(fd, bytes, 0, bytes.length, offset + at));
+    return unsparse(file_reader(file), (at, bytes) =>
+    {
+        const n = Math.max(0, Math.min(bytes.length, limit - at));
+        if(n) fs.writeSync(fd, bytes, 0, n, offset + at);
+        if(n < bytes.length && bytes.subarray(n).some(b => b)) throw new Error(`${file}: data at ${at + n}, past its partition's ${limit} bytes`);
+    });
 }
 
 /** the Venus driver on odm (docs/arm64-virt-android16-plan.md P11.4 V3; see
@@ -452,6 +464,9 @@ async function main()
             not_placed: [...k16.modules.keys()].filter(n => !Object.values(names).some(list => list.includes(n))).sort(), ramdisk_sha256: create_hash("sha256").update(ramdisk_16k).digest("hex") };
         for(const file of modules_16k.missing) console.log(`16K: ${file} has no 16K module (left as it was, not in modules.dep)`);
     }
+    // (--shrink-super: super to its partitions' end and 64 MiB, its block
+    // device's size in every metadata copy; docs/android-images-plan.md I4.3)
+    if(args.shrink_super) super_patches.push(...lp_resize(lp, lp_end(lp) * SECTOR + (64 << 20)));
     // the bootloader's work (src/android/boot.js): the vbmeta digest,
     // bootconfig, the initrd and the command line
     const materials = gpu_mode => android_boot(name => vbmeta_of(name), DEVICE, { memory_mb: args.memory_mb, selinux: args.selinux,
@@ -480,17 +495,19 @@ async function main()
 
     // the disk: the device's partitions (Cuttlefish's order), the slotted
     // ones in both slots; userdata with 16 KiB pages blank, for first boot to
-    // make ext4 there (see the top)
+    // make ext4 there (see the top), and with --userdata-mb blank of that
+    // size (first boot formats it, fs_mgr's formattable)
     const sources = {
-        super: { sparse: IMG + "super.img",
+        super: { sparse: IMG + "super.img", limit: args.shrink_super ? lp.size : undefined,
             patches: super_patches.length ? [...lp.copies.map(c => ({ offset: c.offset, bytes: c.bytes })), ...super_patches] : [] },
-        userdata: hashes_16k ? { blank: sparse_size(file_reader(IMG + "userdata.img")) } : { sparse: IMG + "userdata.img" },
+        userdata: args.userdata_mb ? { blank: args.userdata_mb * 1048576 } :
+            hashes_16k ? { blank: sparse_size(file_reader(IMG + "userdata.img")) } : { sparse: IMG + "userdata.img" },
     };
     const layout = device_partitions(DEVICE).map(({ name, base, blank }) =>
     {
         const source = blank ? { blank } : sources[base] ||
             (vbmeta_images.has(base) ? { bytes: vbmeta_images.get(base) } : { file: IMG + partition_file[base] });
-        const size = source.blank || source.bytes?.length || (source.file ? fs.statSync(source.file).size : sparse_size(file_reader(source.sparse)));
+        const size = source.blank || source.bytes?.length || source.limit || (source.file ? fs.statSync(source.file).size : sparse_size(file_reader(source.sparse)));
         return { name, size, source };
     });
     const { partitions, disk_size } = gpt_layout(layout);
@@ -519,7 +536,7 @@ async function main()
             else if(p.source.sparse)
             {
                 console.log(`${p.name}: unsparsing ${path.basename(p.source.sparse)} (${p.size} bytes)`);
-                unsparse_into(p.source.sparse, fd, p.start);
+                unsparse_into(p.source.sparse, fd, p.start, p.size);
                 for(const patch of p.source.patches || [])
                 {
                     if(patch.bytes) fs.writeSync(fd, patch.bytes, 0, patch.bytes.length, p.start + patch.offset);

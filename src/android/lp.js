@@ -308,6 +308,7 @@ export function super_replace(lp, vbmeta, name, image, space, footer = null)
         put64(copy.bytes, p.extents[0].at, sectors);
         put64(copy.bytes, p.extents[0].at + 12, sector);
         lp_checksum(copy.bytes);
+        copy.partitions = copy_partitions(copy.bytes);
     }
     space.sector = sector + sectors;
     let bytes = concat([image, tree]);
