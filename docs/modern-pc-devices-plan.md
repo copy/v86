@@ -126,7 +126,7 @@ new V86({
     acpi: true,
     cpu_cores: 2,
     net_device: { type: "e1000", relay_url: "..." }, // N1："ne2k" | "virtio" | "e1000"
-    audio_device: { type: "hda" },                   // H1："sb16" | "hda" | "none"
+    audio_device: "hd_audio",                        // H1："sb16" | "hd_audio" | "none"
     usb: {                                           // U1、U2
         controller: "uhci",                          // U3 以后可为 "xhci"
         tablet: true,
@@ -145,7 +145,9 @@ new V86({
 });
 ```
 
-- `hda` 已表示第一块硬盘，HD Audio 用新增的 `audio_device`。
+- 声卡用新增的 `audio_device` 选型，取值是字符串，与 `graphics_adapter` 相同。HD Audio 的值是
+  `"hd_audio"`，不用 `"hda"`：`hda` 已是第一块硬盘的选项。不写时保持现在的行为（x86 总有
+  SB16）；ARM64 继续用现有的 `virtio_sound`。
 - 库的默认值不变：SB16、NE2000、PS/2、SeaBIOS。新设备由 VM 管理器的预设
   （[guest_presets.js](../src/app/guest_presets.js)）选用；设置对话框只列当前机器能用的型号
   （arm64 只有 virtio，与 [vm_options.js](../src/browser/vm_options.js) 一致）。
@@ -329,7 +331,7 @@ Vista 以后没有 SB16 驱动，Windows 8.1 与 Vista/7/10 预设现在没有�
 | XP SP3 | 只有总线驱动，没有通用 codec 驱动（光盘已核对）：XP 继续用 SB16 |
 | ARM64 | 不需要：已有 virtio-snd |
 
-建议拆为 `src/hda.js` 控制器、`src/hda_codec.js` codec 和可复用的 PCM 路径。控制器身份：i440FX
+建议拆为 `src/hd_audio.js` 控制器、`src/hd_audio_codec.js` codec 和可复用的 PCM 路径（文件名同样避开 `hda`）。控制器身份：i440FX
 用 ICH6（`8086:2668`），Q35 用 ICH9（`8086:293E`），与 QEMU 的 `intel-hda`、`ich9-intel-hda` 相同；
 Windows 按类匹配，Linux 两个 ID 都认。codec 用通用输出 codec（参照 QEMU `hda-codec.c` 的
 `hda-output`），不冒充需要大量私有初始化的真实 codec。
@@ -355,7 +357,8 @@ PCM 经现有的 `dac-send-data` 送到 [speaker.js](../src/browser/speaker.js)�
 验收：Linux ALSA（linux4.iso、Alpine）与 Windows 8.1 的自带驱动，然后是 Vista/7/10/11 镜像；自动
 检查生成 PCM 的频率/声道/样本数和 DMA/IRQ，浏览器检查可听输出。连续播放至少 10 分钟，记录
 underrun、overflow、延迟和漂移；覆盖格式变更、静音、暂停、reset、快照、Worker 与后台切换。
-预设：Windows 8.1、Vista/7/10 改为 `sound: "hda"`，删除 “No sound card” 一条已知问题。
+预设：Windows 8.1、Vista/7/10 改为 `sound: "hd_audio"`（VM 管理器的 `sound.device` 与库的
+`audio_device` 用同一组值），删除 “No sound card” 一条已知问题。
 [Microsoft HDA 总线驱动](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/hd-audio-bus-driver)
 
 ## 3. U1 USB 核心、UHCI 与 HID tablet
@@ -688,7 +691,8 @@ WebUSB 没有可通用假设的逐请求取消或物理状态回滚。虚拟取�
 
 1. N1：82540EM 设备与 Node 测试；`net_device.type: "e1000"`、`v86.d.ts`、Worker 序列化与快照；
    预设默认值；linux4.iso、Alpine 与 Windows 8.1 验收。
-2. H1：HDA 控制器、codec 与 Node 测试；`audio_device`；linux4.iso 与 Windows 8.1 验收；预设默认值。
+2. H1：HDA 控制器、codec 与 Node 测试；`audio_device: "hd_audio"`；linux4.iso 与 Windows 8.1 验收；
+   预设默认值。
 3. U1：USB 设备核心、UHCI、tablet 与统一输入路由；Alpine、XP 与 Windows 8.1 验收。
 4. U2：BOT/SCSI 与镜像 U 盘的热插拔 API。
 5. F1 探路：fw_cfg 修订号与 `etc/e820`；固定 edk2 构建，在 QEMU 的相同配置上取得串口参考，再在
