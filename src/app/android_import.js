@@ -78,3 +78,30 @@ export async function import_android_package(file, label, options)
         worker.terminate();
     }
 }
+
+/**
+ * A browser disk's Android user data wiped: the start of its userdata and
+ * metadata partitions zeroed (their file systems' superblocks), which
+ * Android formats again at its next boot (fs_mgr's formattable). In the
+ * importer's worker, through the file's sync access handle: not while the
+ * machine runs (its CPU holds the disk open)
+ * @param {string} id the browser disk's
+ * @return {Promise<string[]>} the partitions wiped
+ */
+export async function wipe_android_data(id)
+{
+    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
+    try
+    {
+        return await new Promise((resolve, reject) =>
+        {
+            worker.onmessage = e => e.data.wiped ? resolve(e.data.wiped) : reject(new Error(e.data.error));
+            worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
+            worker.postMessage({ op: "wipe", id });
+        });
+    }
+    finally
+    {
+        worker.terminate();
+    }
+}

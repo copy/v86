@@ -6,11 +6,66 @@
 //
 // in:  { file: File, id: string, userdata_bytes: number }
 // out: { progress: [done, total] }..., then { done: { size, kind, partitions } } or { error: string }
+// in:  { op: "wipe", id }: the disk's userdata and metadata wiped (their first MiB zeroed)
+// out: { wiped: [names] } or { error: string }
 
 import { package_entries, identify_package, cuttlefish_disk, write_disk } from "../android/assemble.js";
+import { gpt_partitions } from "../android/gpt.js";
+
+/** the browser disks' directory */
+async function disks_directory()
+{
+    let dir = await navigator.storage.getDirectory();
+    for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name, { create: true });
+    return dir;
+}
+
+/** a browser disk's userdata and metadata: their first MiB zeroed */
+async function wipe(id)
+{
+    const handle = await (await disks_directory()).getFileHandle(id + ".img");
+    let access;
+    try
+    {
+        access = await handle.createSyncAccessHandle();
+    }
+    catch(e)
+    {
+        throw new Error("the disk is in use: power the machine off first (" + e.message + ")");
+    }
+    try
+    {
+        const size = access.getSize();
+        const read = (offset, length) =>
+        {
+            const bytes = new Uint8Array(length);
+            return bytes.subarray(0, access.read(bytes, { at: offset }));
+        };
+        const wiped = [];
+        for(const p of gpt_partitions(read, size))
+        {
+            if(p.name !== "userdata" && p.name !== "metadata") continue;
+            access.write(new Uint8Array(Math.min(p.size, 1 << 20)), { at: p.start });
+            wiped.push(p.name);
+        }
+        if(!wiped.length) throw new Error("the disk has no userdata or metadata partition");
+        access.flush();
+        return wiped;
+    }
+    finally
+    {
+        access.close();
+    }
+}
 
 globalThis.onmessage = async event =>
 {
+    if(event.data.op === "wipe")
+    {
+        try { postMessage({ wiped: await wipe(event.data.id) }); }
+        catch(e) { postMessage({ error: e && e.message || String(e) }); }
+        return;
+    }
     const { file, id, userdata_bytes } = event.data;
     /** @type {any} */
     let dir = null, access = null;
@@ -22,8 +77,7 @@ globalThis.onmessage = async event =>
         if(!kind) throw new Error(file.name + " is not an Android image package v64 knows (a Cuttlefish images zip)");
         if(kind.kind !== "cuttlefish") throw new Error(file.name + " is " + kind.text + ": not imported yet");
         const disk = await cuttlefish_disk(read, entries, { userdata_bytes });
-        dir = await navigator.storage.getDirectory();
-        for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name, { create: true });
+        dir = await disks_directory();
         const handle = await dir.getFileHandle(id + ".img", { create: true });
         access = await handle.createSyncAccessHandle();
         access.truncate(disk.disk_size);

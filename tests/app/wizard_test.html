@@ -283,6 +283,20 @@ const parts = {
             "the bootloader on the disk: " + boot.kernel.length + " " + boot.cmdline);
         log("the browser disk (" + disk.size + " bytes): the bootloader gives " + boot.kernel.length + " bytes of kernel, " + boot.initrd.length + " of initrd, vbmeta " +
             boot.vbmeta.digest.slice(0, 16) + "…, cmdline " + boot.cmdline);
+        // the settings dialog's Android item: its choices, and Wipe user data
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        dialog.querySelector("li[data-item=android]").click();
+        const panel = await until(() => dialog.querySelector(".settings-panel[aria-label=Android]"), "the Android panel");
+        const gpu = panel.querySelector("select[aria-label=GPU]");
+        check(/SwiftShader/.test(gpu.selectedOptions[0].textContent) && gpu.disabled, "the GPU: SwiftShader, fixed without Vulkan");
+        button("Wipe user data…", panel).click();
+        const ask = await until(() => $$("dialog[open]").find(e => /Wipe user data\?/.test(e.textContent)), "the question");
+        button("Wipe", ask).click();
+        const wiped = await until(() => /^Wiped|^Not wiped/.test(panel.querySelector("[role=status]").textContent) && panel.querySelector("[role=status]").textContent, "the wipe");
+        check(/^Wiped: userdata, metadata/.test(wiped), "the wipe: " + wiped);
+        log("settings: Android panel, " + wiped);
+        button("Cancel", dialog).click();
     },
     async android_boot()
     {

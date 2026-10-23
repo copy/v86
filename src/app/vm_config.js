@@ -98,7 +98,8 @@ export const ANDROID_DEVICES = ["cf_arm64_only_phone"];
 export const ANDROID_GPU_MODES = ["swiftshader", "venus"];
 export const ANDROID_VENDOR_RAMDISKS = ["release", "debug"];
 export const ANDROID_SELINUX = ["enforcing", "permissive"];
-/** an android section's defaults */
+/** an android section's defaults
+ * @type {Android} */
 export const ANDROID_DEFAULTS = { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
 
 /** The network backends and the old page's relay_url of each */
