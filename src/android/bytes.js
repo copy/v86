@@ -90,6 +90,18 @@ export function c_string(b, at, length)
 }
 
 /**
+ * A copy of bytes of its own (b.slice() is a view when b is node's Buffer)
+ * @param {!Uint8Array} b
+ * @param {number=} start
+ * @param {number=} end
+ * @return {!Uint8Array}
+ */
+export function copy(b, start = 0, end = b.length)
+{
+    return new Uint8Array(b.subarray(start, end));
+}
+
+/**
  * @param {!Array<!Uint8Array>} parts
  * @return {!Uint8Array}
  */

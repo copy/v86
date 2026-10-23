@@ -5,16 +5,17 @@
 // the library on Cuttlefish's real images.
 
 import assert from "node:assert/strict";
-import { crc32 as zlib_crc32 } from "node:zlib";
+import { crc32 as zlib_crc32, deflateRawSync as deflate_raw_sync } from "node:zlib";
 import { createHash as create_hash } from "node:crypto";
 import * as bytes from "../../src/android/bytes.js";
 import { parse_boot_image, parse_vendor_boot_image } from "../../src/android/bootimg.js";
 import { lz4_legacy_decompress, lz4_legacy_store } from "../../src/android/lz4.js";
 import { cpio_files, cpio_newc } from "../../src/android/cpio.js";
 import { parse_bootconfig, append_bootconfig } from "../../src/android/bootconfig.js";
-import { is_sparse, sparse_size, unsparse, sparse_read } from "../../src/android/sparse.js";
+import { is_sparse, sparse_size, unsparse, sparse_read, sparse_decoder } from "../../src/android/sparse.js";
 import { vbmeta_struct, partition_vbmeta, vbmeta_digest, hashtree_descriptor, avb_hashtree, AVB_FLAG_VERIFICATION_DISABLED } from "../../src/android/avb.js";
-import { lp_metadata, lp_checksum, lp_end, super_replace, super_footer_struct, super_partition } from "../../src/android/lp.js";
+import { lp_metadata, lp_checksum, lp_end, lp_parse, lp_serialize, lp_resize, lp_remove, lp_place, super_replace, super_footer_struct, super_partition } from "../../src/android/lp.js";
+import { zip_entries, zip_stream, zip_read } from "../../src/android/zip.js";
 import { erofs_root, erofs_data, erofs_entries, erofs_list, erofs_lookup, erofs_add_file, erofs_replace_files } from "../../src/android/erofs.js";
 import { SECTOR, guid_bytes, guid_text, name_guid, gpt_layout, gpt_writes, gpt_partitions } from "../../src/android/gpt.js";
 import { CF_ARM64_ONLY_PHONE, device_partitions, device_bootconfig } from "../../src/android/devices.js";
@@ -25,9 +26,9 @@ const sha = (...parts) => { const h = create_hash("sha256"); for(const p of part
 let seed = 12345;
 const random = n => Uint8Array.from({ length: n }, () => (seed = seed * 1103515245 + 12345 >>> 0) >>> 24);
 const reader = image => (offset, length) => image.subarray(offset, offset + length);
-const run = (name, f) => { f(); console.log("ok " + name); };
+const run = async (name, f) => { await f(); console.log("ok " + name); };
 
-run("bytes", () =>
+await run("bytes", () =>
 {
     const b = new Uint8Array(16);
     put64(b, 0, 2 ** 40 + 5); put64be(b, 8, 2 ** 45 + 7);
@@ -58,7 +59,7 @@ run("bytes", () =>
     assert.deepEqual(bytes.utf16le("Az"), new Uint8Array([0x41, 0, 0x7A, 0]));
 });
 
-run("lz4", () =>
+await run("lz4", () =>
 {
     // a block with a match: "abc", then 9 bytes 3 back, then "x"
     const block = new Uint8Array([0x35, 0x61, 0x62, 0x63, 3, 0, 0x10, 0x78]);
@@ -76,7 +77,7 @@ run("lz4", () =>
     }
 });
 
-run("cpio", () =>
+await run("cpio", () =>
 {
     const files = [["lib/modules/a.ko", random(5)], ["init", random(4096)], ["x", new Uint8Array(0)]];
     const back = cpio_files(cpio_newc(files));
@@ -84,7 +85,7 @@ run("cpio", () =>
     for(const [name, data] of files) assert.ok(equals(back.get(name), data), name);
 });
 
-run("bootconfig", () =>
+await run("bootconfig", () =>
 {
     const map = parse_bootconfig("# comment\nandroidboot.a = 1\n androidboot.b=\"two words\"\n\nbad line\n");
     assert.deepEqual([...map], [["androidboot.a", "1"], ["androidboot.b", "two words"]]);
@@ -125,7 +126,7 @@ function make_sparse(chunks, block = 4096)
     return { sparse: concat([header, ...parts]), raw: concat(raw) };
 }
 
-run("sparse", () =>
+await run("sparse", () =>
 {
     const { sparse, raw } = make_sparse([[0xCAC1, 2, random(8192)], [0xCAC2, 3, new Uint8Array([0x11, 0x22, 0x33, 0x44])],
         [0xCAC3, 2, new Uint8Array(0)], [0xCAC2, 1, new Uint8Array(4)], [0xCAC4, 0, random(4)], [0xCAC1, 1, random(4096)]]);
@@ -144,6 +145,25 @@ run("sparse", () =>
     {
         assert.ok(equals(sparse_read(read, offset, length), raw.subarray(offset, offset + length)), `sparse_read ${offset} ${length}`);
     }
+    // as a stream, in pieces of any size
+    for(const piece of [1, 3, 7, 12, 4096, sparse.length])
+    {
+        const streamed = new Uint8Array(raw.length);
+        const decoder = sparse_decoder((at, data) => streamed.set(data, at), 5000);
+        for(let i = 0; i < sparse.length; i += piece)
+        {
+            decoder.push(sparse.subarray(i, i + piece));
+            if(i >= 28) assert.equal(decoder.size(), raw.length);
+        }
+        assert.equal(decoder.end(), raw.length);
+        assert.ok(equals(streamed, raw), "sparse_decoder " + piece);
+    }
+    const cut = sparse_decoder(() => {});
+    cut.push(sparse.subarray(0, sparse.length - 1));
+    assert.throws(() => cut.end(), /cut short/);
+    assert.throws(() => sparse_decoder(() => {}).push(random(28)), /not a sparse image/);
+    const after = sparse_decoder(() => {});
+    assert.throws(() => after.push(concat([sparse, new Uint8Array(1)])), /after its last chunk/);
 });
 
 /** a vbmeta struct with descriptors (hashtree: { partition, size, salt },
@@ -203,7 +223,7 @@ function with_footer(data, struct)
     return out;
 }
 
-run("avb", () =>
+await run("avb", () =>
 {
     const salt = random(32);
     const top = make_vbmeta([{ chain: "boot" }, { partition: "odm", size: 3 * 4096, salt }]);
@@ -287,7 +307,7 @@ function make_super(partitions, size)
     return image;
 }
 
-run("lp", () =>
+await run("lp", () =>
 {
     const MiB = 2048;
     const image = make_super([["odm_a", 2 * MiB, 2 * MiB], ["system_a", 4 * MiB, 4 * MiB]], 16 << 20);
@@ -332,6 +352,30 @@ run("lp", () =>
     const own = super_footer_struct(reader(image), lp_metadata(reader(image)), "odm");
     assert.equal(hashtree_descriptor(own, "odm").image_size, bigger.length);
     assert.throws(() => super_replace(lp, r.vbmeta, "odm", random(9 << 20), space), /no room/);
+
+    // the writer: tables as they were, then changed
+    const fresh = make_super([["product_a", MiB, 2 * MiB], ["system_a", 2 * MiB, 3 * MiB], ["system_b", 0, 0]], 16 << 20);
+    const lp2 = lp_metadata(reader(fresh));
+    for(const copy of lp2.copies) assert.ok(equals(lp_serialize(lp_parse(copy.bytes)), copy.bytes));
+    const model = lp_parse(lp2.copies[0].bytes);
+    assert.deepEqual(model.partitions.map(p => [p.name, p.group, p.extents.length]), [["product_a", 1, 1], ["system_a", 1, 1], ["system_b", 1, 1]]);
+    assert.deepEqual(model.groups.map(g => g.name), ["default", "g"]);
+    assert.equal(model.block_devices[0].name, "super");
+    const apply = writes => { for(const w of writes) fresh.set(w.bytes, w.offset); };
+    apply(lp_remove(lp2, "product_a"));
+    apply(lp_place(lp2, "system_a", 6 * MiB, 4 * MiB + 1));
+    assert.throws(() => lp_place(lp2, "system_a", 6 * MiB + 1, 1), /unaligned/);
+    assert.throws(() => lp_place(lp2, "vendor_a", 6 * MiB, 1), /no vendor_a/);
+    assert.throws(() => lp_resize(lp2, 5 << 20), /leave out/);
+    apply(lp_resize(lp2, (10 << 20) + 1));
+    const lp3 = lp_metadata(reader(fresh));
+    assert.equal(lp3.size, 11 << 20);
+    assert.equal(lp_end(lp3), 10 * MiB + 1);
+    for(const copy of lp3.copies)
+    {
+        assert.deepEqual(copy.partitions.map(p => [p.name, p.extents.map(e => [e.sectors, e.sector])]), [["system_a", [[4 * MiB + 1, 6 * MiB]]], ["system_b", [[0, 0]]]]);
+        assert.ok(equals(copy.bytes.subarray(48, 80), sha(copy.bytes.subarray(256))));
+    }
 });
 
 /** a 4 KiB erofs image: the root (with xattrs) holding "hello" (flat
@@ -370,7 +414,7 @@ function make_erofs()
     return image;
 }
 
-run("erofs", () =>
+await run("erofs", () =>
 {
     const image = make_erofs();
     assert.deepEqual(erofs_list(image).map(e => [e.path, e.type]), [["hello", 1], ["tail", 1]]);
@@ -399,7 +443,7 @@ run("erofs", () =>
     assert.throws(() => erofs_replace_files(added, [["lib64", data]]), /not a regular file/);
 });
 
-run("gpt", () =>
+await run("gpt", () =>
 {
     const guid = "0FC63DAF-8483-4772-8E79-3D69D8477DE4";
     assert.deepEqual([...guid_bytes(guid).subarray(0, 4)], [0xAF, 0x3D, 0xC6, 0x0F]);
@@ -457,7 +501,7 @@ function make_vendor_boot(ramdisks, cmdline, bootconfig)
     return concat([header, pad(ramdisk), pad(table), bytes_of(bootconfig)]);
 }
 
-run("boot images", () =>
+await run("boot images", () =>
 {
     const kernel = random(5000), ramdisk = random(300);
     const boot = parse_boot_image(make_boot(kernel, ramdisk, "a=b"));
@@ -475,7 +519,7 @@ run("boot images", () =>
     assert.throws(() => parse_boot_image(random(100)), /not a boot image/);
 });
 
-run("device and bootloader", () =>
+await run("device and bootloader", () =>
 {
     const device = CF_ARM64_ONLY_PHONE;
     const names = device_partitions(device).map(p => p.name);
@@ -511,4 +555,94 @@ run("device and bootloader", () =>
     const m2 = android_boot(read, device, { memory_mb: 1536, vendor_ramdisk: debug, extra_ramdisk: extra, gpu_mode: "venus" });
     assert.ok(equals(m2.initrd.subarray(0, 9 + 7 + 100), concat([debug, extra, generic])));
     assert.equal(m2.bootconfig.get("androidboot.hardware.vulkan"), "virtio");
+});
+
+/** a zip of members [{ name, data, store }], with zip64's fields when zip64 */
+function make_zip(members, zip64 = false, comment = "")
+{
+    const parts = [], central = [];
+    let offset = 0;
+    for(const { name, data, store } of members)
+    {
+        const compressed = store ? data : new Uint8Array(deflate_raw_sync(data));
+        const crc = zlib_crc32(data), n = bytes_of(name), big = zip64 ? 0xFFFFFFFF : 0;
+        const local = new Uint8Array(30 + n.length);
+        put32(local, 0, 0x04034B50); put16(local, 4, 20); put16(local, 8, store ? 0 : 8); put32(local, 14, crc);
+        put32(local, 18, big || compressed.length); put32(local, 22, big || data.length); put16(local, 26, n.length);
+        local.set(n, 30);
+        parts.push(local, compressed);
+        const extra = new Uint8Array(zip64 ? 28 : 0);
+        if(zip64) { put16(extra, 0, 1); put16(extra, 2, 24); put64(extra, 4, data.length); put64(extra, 12, compressed.length); put64(extra, 20, offset); }
+        const c = new Uint8Array(46 + n.length + extra.length);
+        put32(c, 0, 0x02014B50); put16(c, 4, 45); put16(c, 6, 45); put16(c, 10, store ? 0 : 8); put32(c, 16, crc);
+        put32(c, 20, big || compressed.length); put32(c, 24, big || data.length);
+        put16(c, 28, n.length); put16(c, 30, extra.length); put32(c, 42, big || offset);
+        c.set(n, 46); c.set(extra, 46 + n.length);
+        central.push(c);
+        offset += local.length + compressed.length;
+    }
+    const cd = concat(central), tail = [];
+    if(zip64)
+    {
+        const z = new Uint8Array(56);
+        put32(z, 0, 0x06064B50); put64(z, 4, 44); put16(z, 12, 45); put16(z, 14, 45);
+        put64(z, 24, members.length); put64(z, 32, members.length); put64(z, 40, cd.length); put64(z, 48, offset);
+        const locator = new Uint8Array(20);
+        put32(locator, 0, 0x07064B50); put64(locator, 8, offset + cd.length); put32(locator, 16, 1);
+        tail.push(z, locator);
+    }
+    const e = new Uint8Array(22);
+    put32(e, 0, 0x06054B50);
+    put16(e, 8, zip64 ? 0xFFFF : members.length); put16(e, 10, zip64 ? 0xFFFF : members.length);
+    put32(e, 12, zip64 ? 0xFFFFFFFF : cd.length); put32(e, 16, zip64 ? 0xFFFFFFFF : offset); put16(e, 20, comment.length);
+    return concat([...parts, cd, ...tail, e, bytes_of(comment)]);
+}
+
+await run("zip", async () =>
+{
+    const pattern = Uint8Array.from({ length: 3 << 20 }, (_, i) => (i * 7) % 251);
+    const members = [{ name: "boot.img", data: random(300000) }, { name: "stored.txt", data: bytes_of("hello"), store: true },
+        { name: "pattern.img", data: pattern }, { name: "empty", data: new Uint8Array(0) }];
+    for(const zip64 of [false, true])
+    {
+        const archive = make_zip(members, zip64, "a comment");
+        const sync_read = reader(archive);
+        // (reads as promises: a File's slices)
+        const async_read = async (offset, length) => sync_read(offset, length);
+        const entries = await zip_entries(async_read, archive.length);
+        assert.deepEqual(entries.map(e => [e.name, e.method, e.size]), members.map(m => [m.name, m.store ? 0 : 8, m.data.length]));
+        for(const [i, m] of members.entries())
+        {
+            assert.ok(equals(await zip_read(sync_read, entries[i]), m.data), m.name);
+            const pieces = [];
+            const n = await zip_stream(async_read, entries[i], async bytes => { pieces.push(bytes.slice()); }, { chunk: 1000 });
+            assert.equal(n, m.data.length);
+            assert.ok(equals(concat(pieces), m.data), m.name + " in pieces");
+        }
+        assert.ok(equals(await zip_read(sync_read, entries[2], 10), pattern.subarray(0, 10)));
+    }
+    const archive = make_zip(members);
+    const entries = await zip_entries(reader(archive), archive.length);
+    // a stored member's byte changed: its CRC-32
+    const broken = new Uint8Array(archive);
+    broken[entries[1].offset + 30 + "stored.txt".length] ^= 1;
+    await assert.rejects(zip_read(reader(broken), entries[1]), /CRC-32 differs/);
+    // a deflated member broken, a read failing, the sink failing: errors, not hangs
+    const garbage = new Uint8Array(archive);
+    garbage.fill(0xFF, entries[0].offset + 40, entries[0].offset + 40 + 64);
+    await assert.rejects(zip_read(reader(garbage), entries[0]));
+    let reads = 0;
+    const failing = async (offset, length) => { if(++reads > 3) throw new Error("read failed"); return archive.subarray(offset, offset + length); };
+    await assert.rejects(zip_stream(failing, entries[2], () => {}, { chunk: 4096 }), /read failed/);
+    await assert.rejects(zip_stream(reader(archive), entries[2], () => { throw new Error("sink failed"); }, { chunk: 4096 }), /sink failed/);
+    await assert.rejects(zip_entries(reader(random(1000)), 1000), /no end of central directory/);
+    // a sparse member straight into the decoder
+    const { sparse, raw } = make_sparse([[0xCAC1, 3, random(3 * 4096)], [0xCAC3, 5, new Uint8Array(0)], [0xCAC2, 2, new Uint8Array([1, 2, 3, 4])]]);
+    const z = make_zip([{ name: "super.img", data: sparse }]);
+    const [member] = await zip_entries(reader(z), z.length);
+    const out = new Uint8Array(raw.length);
+    const decoder = sparse_decoder((at, data) => out.set(data, at));
+    await zip_stream(reader(z), member, bytes => decoder.push(bytes), { chunk: 777 });
+    assert.equal(decoder.end(), raw.length);
+    assert.ok(equals(out, raw));
 });

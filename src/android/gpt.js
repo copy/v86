@@ -2,7 +2,7 @@
 // of named partitions, the protective MBR and both GPTs as writes, and a
 // reader (docs/android-images-plan.md I1, I2)
 
-import { u32, u64, put16, put32, put64, latin1, bytes_of, utf8, crc32, sha256_hex } from "./bytes.js";
+import { u32, u64, put16, put32, put64, latin1, bytes_of, utf8, copy, crc32, sha256_hex } from "./bytes.js";
 
 export const SECTOR = 512;
 const LINUX_FILESYSTEM = "0FC63DAF-8483-4772-8E79-3D69D8477DE4";
@@ -133,9 +133,9 @@ export function gpt_partitions(read, disk_size = 0)
         if(h.length < 92 || latin1(h, 0, 8) !== "EFI PART") return false;
         const size = u32(h, 12);
         if(size < 92 || size > SECTOR) return false;
-        const copy = h.slice(0, size);
-        put32(copy, 16, 0);
-        return crc32(copy) === u32(h, 16);
+        const header = copy(h, 0, size);
+        put32(header, 16, 0);
+        return crc32(header) === u32(h, 16);
     };
     let h = read(SECTOR, SECTOR);
     if(!valid(h) && disk_size) h = read(disk_size - SECTOR, SECTOR);
