@@ -40,15 +40,16 @@ L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](ar
    - 官方 GSI zip（`system.img`）：替换 Cuttlefish 设备的 system；设备部分来自一个 Cuttlefish 包。
    - Android 模拟器的系统镜像 zip（SDK 仓库，与 AVD 用的同一批）：需要模拟器的 ranchu 板，
      来自 [aarch32-plan.md](aarch32-plan.md) R6；64 位镜像在 arm64 下，API 25 及以前的 32 位镜像在 `arm32` 下。
-   - v64 自己的材料（`a64_android.mjs` 的输出目录与 `manifest.json`）。
+   - v64 自己的材料（`a64_android.mjs` 的输出目录与 `manifest.json`）：只供开发与自动化测试，不出现在目录里。
 4. **磁盘在 Worker 里组装，按实际数据写。** sparse 的 FILL 与 DONT_CARE 不写；浏览器磁盘用 OPFS 的同步
    访问句柄在专用 Worker 里按位置写（现在只有 CPU Worker 里的 `OpfsDisk` 这样写，
    [src/opfs_disk.js](../src/opfs_disk.js) 150–182），磁盘服务用会话写入。Chrome 把新浏览器磁盘的**名义大小**整个计入
    配额（vm-manager-plan.md 971–973），而 Cuttlefish 的盘名义上 17.5 GB（super 与 userdata 各 8 GiB）：
    组装时把 super 缩到已用加余量（改写 LP 元数据的块设备大小），userdata 的大小由用户选（默认 4 GiB）。
-5. **显卡分三档。** 不改镜像只有 SwiftShader（v64 上画不出桌面，见 aarch64.md）；gfxstream 完成后不改镜像也能
-   用 GPU（[gfxstream-plan.md](gfxstream-plan.md)）；在那之前，导入时可选“安装 v64 的 Venus 驱动”（改 odm、哈希树与
-   vbmeta，`a64_android.mjs` 的现有做法）。界面如实说明每档的代价。
+5. **导入的镜像一律不改，显卡靠 gfxstream。** 不改镜像时，gfxstream 之前只有 SwiftShader（软件渲染，在 v64 上
+   画不出桌面，见 aarch64.md）；gfxstream 完成后用 GPU（[gfxstream-plan.md](gfxstream-plan.md)）。导入时**不提供**
+   “安装 v64 的 Venus 驱动”（所有者 2026-10-23 决定）。所以“选镜像能开机”在 I3 达成，“选镜像能用桌面”要等
+   gfxstream 的 G5；界面在 gfxstream 之前如实提示“暂时只能开机，桌面需要 GPU 支持”。
 6. **下载受跨域限制，按来源分别处理（I7）。** 2026-10-23 核对：
    - `dl.google.com`（官方 GSI，例如 `aosp_arm64-exp-BP2A.250605.031.A3-13578795-82277143.zip`，
      915,606,688 字节；SDK 的模拟器镜像）不发 `Access-Control-Allow-Origin`，网页不能直接下载。
@@ -151,7 +152,7 @@ page, url, size, sha256, optional }], requires, gpu, license, notes }`。每个�
 | 6 | I5 GSI | 选官方 GSI zip（加一个 Cuttlefish 设备包）即可开机 | I3 | M |
 | 7 | I6 模拟器镜像 | 选 SDK 的模拟器镜像 zip 即可开机（arm64；32 位见 aarch32-plan） | I3；aarch32-plan R6 | M |
 | 8 | I7 系统目录 | `catalog.json`、下载指引、拖入多文件与校验、目录界面 | I3 | M |
-| 9 | I8 GPU 选项与收尾 | Venus 注入作为导入选项；gfxstream 完成后的默认；文档与门禁 | I3；gfxstream-plan | S |
+| 9 | I8 GPU 与收尾 | gfxstream 完成后的默认档位；文档与门禁 | I3；gfxstream-plan | S |
 
 I0–I4 之后：选官方 Cuttlefish zip 即可开机（与 AVD 相当的体验）。全部约 3 个月；I6 依赖 ranchu 机器，
 I8 的 gfxstream 默认依赖 gfxstream 计划。
@@ -189,7 +190,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I3.3 | 向导的来源“Android 镜像”：选文件（或输入 URL），识别结果、空间需求、显卡档位说明；完成即建好虚拟机 | `src/app/ui/wizard.js` | wizard 测试（headless Chrome，小型合成包） | M |
 
 验收（I3）：用户在向导选官方 `aosp_cf_arm64_only_phone-img-15581820.zip`，不填任何启动参数，虚拟机开机到
-`sys.boot_completed`（SwiftShader 档，或 I8 之前手动勾 Venus 注入）。
+`sys.boot_completed`（SwiftShader 档；桌面的验收在 gfxstream 的 G5 之后，见 I8）。
 
 ## 5. I4 进度、设置与磁盘大小
 
@@ -197,7 +198,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | --- | --- | --- |
 | I4.1 | 长任务对话框：阶段、字节进度、速度、剩余时间、取消；导入在后台继续时库里显示状态 | M |
 | I4.2 | Android 设置节：设备型号、GPU 档位、vendor ramdisk、SELinux（调试用）；“清除用户数据”（重写 userdata 与 metadata）与“恢复出厂”（重新组装） | S |
-| I4.3 | super 缩到已用加余量（LP 元数据改写）；userdata 大小可选（默认 4 GiB）；名义大小与配额的提示 | M |
+| I4.3 | super 缩到已用加余量（LP 元数据改写）；userdata 大小可选 2、4、8、16 GiB（默认 4 GiB），放不进可用配额的选项不可选；以后用“清除数据并改大小”调整；名义大小与配额的提示 | M |
 
 ## 6. I5 GSI
 
@@ -227,13 +228,32 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 验收（I7）：在部署的站点上，从目录选“Android 16（Cuttlefish）”，按指引下载官方 zip 并拖入，之后不再需要
 任何操作：校验、组装、建虚拟机与开机自动完成。
 
-## 9. I8 GPU 选项与收尾
+## 9. I8 GPU 与收尾
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| I8.1 | 导入选项“安装 v64 的 Venus 驱动”：移植 `odm_with_driver`、哈希树、vbmeta 描述符与 LP 的 odm 移动；驱动文件随站点发布或在目录里 | S |
-| I8.2 | gfxstream 完成后：设备型号的默认 GPU 档位改为 gfxstream，导入不再需要 Venus | S |
+| I8.1 | gfxstream 完成后：设备型号的默认 GPU 档位改为 gfxstream；验收：选官方 Cuttlefish zip 与官方 GSI 都进入桌面并通过 A9 场景 | S |
+| I8.2 | gfxstream 之前的界面提示：SwiftShader 档只保证开机，说明桌面需要 GPU 支持 | S |
 | I8.3 | 文档：[vm-manager.md](vm-manager.md)（Android 一节、目录、下载）、[aarch64.md](aarch64.md)（引导器、导入）、vm-manager-plan.md 记录“目录”的新决定；release_gate 增加导入与引导器的级别 | S |
+
+## 兼容范围：第三方系统（LineageOS 等）
+
+导入器认的是**包的格式**，不认发行方，所以第三方系统能否使用取决于它是哪一类：
+
+| 类别 | 例子 | 能否使用 | 条件 |
+| --- | --- | --- | --- |
+| Treble GSI（只有 system） | 社区维护的 LineageOS GSI（LineageOS 官方不发布 GSI）、其他基于 TrebleDroid 的 GSI | 能，走 I5 的 GSI 路径 | arm64；Android 版本与设备包的 vendor 相同（vendor 是 Android 16 时用 Android 16 的 GSI，即 LineageOS 23 一代；旧系统配新 vendor 不受 Treble 保证）；含 32 位用户态或 32 位 binder 的变体需要 AArch32（[aarch32-plan.md](aarch32-plan.md)）；签名不同，按 GSI 的做法关闭 vbmeta 校验 |
+| Cuttlefish 格式的构建 | 自己从 LineageOS 或 AOSP 源码编的 Cuttlefish arm64 目标 | 能，走 I3 的 Cuttlefish 路径 | 包的布局与官方 Cuttlefish 镜像 zip 相同 |
+| Android 模拟器格式的构建 | 第三方按 SDK 模拟器格式打包的镜像 | 原则上能，走 I6 | 需要 ranchu 机器；只要包内有 `kernel-ranchu`、`ramdisk.img`、`system.img` 等 |
+| 真机的整机刷机包 | 某款手机的 LineageOS（`payload.bin` 的 OTA zip） | 不能 | 内核、vendor 与驱动是那款手机硬件的，不是虚拟设备的 |
+
+为此需要的补充（列入 I1、I5）：
+
+- 文件格式：GSI 常以 `.img.xz`、`.img.gz` 或 `.zip` 发布，`system.img` 可能是 sparse 或原始格式。I1 的库加
+  xz 与 gzip 的流式解压（浏览器没有内置 xz，需要 JS 或 wasm 解码器），导入器按内容而不是扩展名识别。
+- 版本检查：导入时读 GSI 的 `ro.build.version.release` 与设备包 vendor 的版本，不一致时提示可能不能开机。
+- 设备包：如果要支持 Android 14、15 的 GSI，需要对应版本的 Cuttlefish 设备包（ci.android.com 有各版本的构建），
+  作为目录里的独立条目；首批只做 Android 16。
 
 ## 待决问题
 
@@ -241,8 +261,12 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 2. （已定，2026-10-23）不加 Pages Function，站点保持纯静态；ci.android.com 的文件同样由用户下载、拖入。
 3. （已定，2026-10-23）vendor ramdisk 默认 release；debug 为高级选项（另需拖入 `vendor_ramdisk-debug.img`），
    自动化测试用 debug。
-4. **在 gfxstream 之前**，Venus 注入作为可选的“修改镜像”是否保留，还是目录里只提供不改镜像的条目。
-5. **默认盘大小**：userdata 默认 4 GiB 是否合适；super 缩小后的余量。
+4. （已定，2026-10-23）不提供 Venus 注入；导入的镜像一律不改，桌面等 gfxstream。
+5. **默认盘大小**（建议 4 GiB，待所有者确认）。实测（2026-10-23，QEMU HVF，官方 Cuttlefish 15581820）：
+   全新开机后 `/data` 用了约 0.6 GB（boot_completed 时 615,848 KB，两分钟后 589,708 KB）。整块盘的名义大小
+   约为 2.2 GB（缩小后的 super 加启动分区与 metadata）加 userdata：2 GiB 时约 4.4 GB、4 GiB 时约 6.5 GB、
+   8 GiB 时约 10.6 GB。Android 在剩余空间低于约 10% 或 500 MB 时提示空间不足；2 GiB 只够装几个应用，
+   8 GiB 在配额紧的浏览器里放不下（所有者的 Chrome 显示 70.1 GB 中已用 60.1 GB）。
 
 ## 风险与缓解
 
