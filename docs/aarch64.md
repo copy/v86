@@ -88,7 +88,8 @@ macOS.
 ## Android 16
 
 Importing official images in the VM manager (v64 booting Android from the
-disk itself, a catalog and one-click download) is planned in
+disk itself, a catalog that tells what to download and where, the files then
+dropped in) is planned in
 [android-images-plan.md](android-images-plan.md).
 
 A8 of the plan (P10). The product is not built here: AOSP builds need an

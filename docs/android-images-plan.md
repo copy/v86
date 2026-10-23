@@ -1,11 +1,11 @@
-# Android 镜像：选镜像就能用、目录与一键下载 实施计划
+# Android 镜像：选镜像就能用与系统目录 实施计划
 
 状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `336f0df7`。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
-本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（或在目录里
-点一下），v64 识别它、建好磁盘、按设备型号配好硬件，然后由 v64 自己从磁盘引导，不再要求用户填写内核、
-initrd、命令行与磁盘。
+本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
+按指引从官方页面下载后拖进来），v64 识别它、建好磁盘、按设备型号配好硬件，然后由 v64 自己从磁盘引导，
+不再要求用户填写内核、initrd、命令行与磁盘。
 
 现在 Android 16 能在 v64 上运行（[aarch64.md](aarch64.md)），但启动材料由 `tools/a64_android.mjs` 在 node 里
 做好，用户在设置里手填内核与 initrd 的 URL、命令行与磁盘；Android 预设声明的安装方式 `"android"`
@@ -56,11 +56,12 @@ initrd、命令行与磁盘。
      签名地址，它允许跨域（`*`）与 Range，但约 5.5 分钟后失效，`x-goog-hash` 也不对页面暴露。
    - 站点（Cloudflare Pages，Direct Upload）不放磁盘镜像（vm-manager.md 115–116），单个文件上限 25 MiB。
 
-   所以“一键下载”对 ci.android.com 需要一个只解析重定向的小函数（Pages Function），浏览器拿到签名地址后直接
-   从 Google 下载（是否采用待定，见“待决问题”）；dl.google.com 的文件由用户自己从官方页面下载、再拖进向导
-   （所有者 2026-10-23 决定），不代下、不镜像。
+   ci.android.com 本可以用一个只解析重定向的小函数（Pages Function）做到网页直接下载，所有者 2026-10-23
+   决定不加：站点保持纯静态，**所有官方镜像都由用户从官方页面下载、再拖进向导**，v64 不代下、不镜像。
+   因此没有网页内的一键下载；目录给出“下载什么、去哪里下、多大、hash 是多少”的指引，拖入之后的校验、
+   组装、建虚拟机与开机全部自动。
 7. **目录是新的所有者决定。** VM 管理器计划原定“不提供示例系统列表”（vm-manager-plan.md 143、645）；
-   所有者 2026-10-23 要求加入目录与一键下载，本计划以此为准，并在 vm-manager-plan.md 记一笔。
+   所有者 2026-10-23 要求加入目录，本计划以此为准，并在 vm-manager-plan.md 记一笔。
 
 ## 现有基础
 
@@ -72,7 +73,7 @@ initrd、命令行与磁盘。
 | 选项到 Worker | [src/browser/cpu_worker.js](../src/browser/cpu_worker.js) 71–93 | 新的 `android` 选项要带过去 |
 | 磁盘 | 浏览器磁盘 [src/app/browser_disks.js](../src/app/browser_disks.js)（`create_disk` 截断建盘；`import_disk` 在页面上顺序写并算 SHA-256，没有按位置写）；磁盘服务 [tools/disk-service.mjs](../tools/disk-service.mjs)（列表、建盘、会话写，无上传） | 组装器在 Worker 里按位置写 OPFS；磁盘服务加流式导入 |
 | 向导 | [src/app/ui/wizard.js](../src/app/ui/wizard.js)（来源、系统、名称、硬盘、摘要五步）；预设 [guest_presets.js](../src/app/guest_presets.js) 155–178 | 加“Android 镜像”来源与进度对话框 |
-| 部署 | `.github/workflows/pages.yml`（wrangler pages deploy）、[tools/pages_dist.mjs](../tools/pages_dist.mjs)（`_headers` 的 COOP/COEP） | 目录 JSON 随站点发布；解析函数作为 Pages Function |
+| 部署 | `.github/workflows/pages.yml`（wrangler pages deploy）、[tools/pages_dist.mjs](../tools/pages_dist.mjs)（`_headers` 的 COOP/COEP） | 目录 JSON 随站点发布（站点保持纯静态，没有服务端函数） |
 
 ## 设计
 
@@ -109,8 +110,10 @@ VM 配置的 `android` 节：`{ device, slot: "a", gpu_mode, vendor_ramdisk: "re
    内存大小、fstab 后缀），按 `append_bootconfig` 的格式附在 initrd 尾；命令行 = vendor 的 + boot 的 + 设备的尾部。
 5. 交给 `load_linux`。快照里不存引导材料：恢复时内存里已有内核。
 
-`vendor_ramdisk: "debug"` 需要额外的 `vendor_ramdisk-debug.img`（ci.android.com 单独的工件，不在镜像 zip 里；
-adbd 不需要密钥）；默认用 vendor_boot 自带的 release ramdisk，与官方启动一致。
+默认 `vendor_ramdisk: "release"`（所有者 2026-10-23 决定）：用 vendor_boot 自带的 release ramdisk，与官方启动
+一致，只需要镜像 zip；adb 第一次连接要在屏幕上确认。`"debug"` 是设置里的高级选项：需要另外下载并拖入
+`vendor_ramdisk-debug.img`（ci.android.com 单独的工件，约 19 MB，不在镜像 zip 里），adbd 不需要确认、
+可以 root，部分 SELinux 限制放宽；自动化测试用它。
 
 ### 导入与组装
 
@@ -129,15 +132,12 @@ adbd 不需要密钥）；默认用 vendor_boot 自带的 release ramdisk，与�
 ### 目录与下载
 
 `catalog.json` 随站点发布（版本号、条目），条目：`{ id, title, android, api, abi, kind, device, parts: [{ name,
-url, size, sha256, via }], requires, gpu, license, notes }`。`via` 说明怎么取：
+page, url, size, sha256, optional }], requires, gpu, license, notes }`。每个文件给官方下载页（`page`，如 GSI
+发布页、ci.android.com 的构建页）与直链（`url`，用户在浏览器里打开即可下载），以及大小与 sha256。
 
-| `via` | 用于 | 怎么取 |
-| --- | --- | --- |
-| `ci-resolve` | ci.android.com 的工件 | Pages Function 向 `.../latest/raw/<文件>` 发请求，只返回 307 的 Location；浏览器直接对签名地址发 Range 请求；签名过期就再解析 |
-| `manual` | dl.google.com 的 GSI 与 SDK 镜像 | 页面给出官方下载页的链接与文件名、大小、sha256，用户下载后拖进来，导入器校验（所有者决定：不代下、不镜像） |
-
-下载器在 Worker 里：Range 分段、断点续传、暂存到 OPFS 的 `v86/downloads/`、流式 SHA-256；配额不足时先提示
-（`navigator.storage.estimate`，并申请 `persist()`）。下载完成直接进入导入；暂存文件在导入成功后删除。
+流程：用户在目录里选条目 → 页面列出要下载的文件与官方链接 → 用户下载后把文件（一个或几个）拖进来 →
+导入器按大小与 sha256 认出是哪个文件、校验，缺哪个就说缺哪个 → 组装、建虚拟机。拖入的文件只读，导入
+不复制整份原文件（只按需读取成员）；配额不足时先提示（`navigator.storage.estimate`，并申请 `persist()`）。
 
 ## 阶段
 
@@ -150,10 +150,10 @@ url, size, sha256, via }], requires, gpu, license, notes }`。`via` 说明怎么
 | 5 | I4 进度、设置与磁盘大小 | 长任务对话框；Android 设置节（GPU 模式、清除数据、重置）；super 缩小与 userdata 选择 | I3 | M |
 | 6 | I5 GSI | 选官方 GSI zip（加一个 Cuttlefish 设备包）即可开机 | I3 | M |
 | 7 | I6 模拟器镜像 | 选 SDK 的模拟器镜像 zip 即可开机（arm64；32 位见 aarch32-plan） | I3；aarch32-plan R6 | M |
-| 8 | I7 目录与一键下载 | `catalog.json`、下载器、解析函数、目录界面 | I3；所有者的托管决定 | L |
+| 8 | I7 系统目录 | `catalog.json`、下载指引、拖入多文件与校验、目录界面 | I3 | M |
 | 9 | I8 GPU 选项与收尾 | Venus 注入作为导入选项；gfxstream 完成后的默认；文档与门禁 | I3；gfxstream-plan | S |
 
-I0–I4 之后：选官方 Cuttlefish zip 即可开机（与 AVD 相当的体验）。全部约 3–4 个月；I6 依赖 ranchu 机器，
+I0–I4 之后：选官方 Cuttlefish zip 即可开机（与 AVD 相当的体验）。全部约 3 个月；I6 依赖 ranchu 机器，
 I8 的 gfxstream 默认依赖 gfxstream 计划。
 
 ## 1. I0 调研、参考与决定
@@ -163,7 +163,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I0.1 | 包的内容：Cuttlefish 镜像 zip（已知：11 个 deflate 成员，无 zip64；boot、vendor_boot 各 64 MiB，init_boot 8 MiB，四个 vbmeta，sparse 的 super 与 userdata）；官方 GSI zip（成员、`system.img` 的文件系统 erofs 或 ext4、`ro.product.cpu.abilist32`、是否带 vbmeta）；SDK 模拟器镜像（API 25 armeabi-v7a 与 API 28 arm64-v8a 的成员已读 zip 目录核对） | S |
 | I0.2 | 参考：QEMU（HVF）用 node 工具产出的材料引导三种组合：官方 Cuttlefish 不改（release vendor ramdisk，SwiftShader）、Cuttlefish 加 Venus（现状）、Cuttlefish vendor 加官方 GSI；记录 GSI 需要的 super 与 vbmeta 改动 | M |
 | I0.3 | 配额与空间：Chrome、Firefox、Safari 对 OPFS 的名义大小计费与同步访问句柄的支持；super 缩小后的盘大小；最低空间要求 | S |
-| I0.4 | 所有者决定：下载的托管方式（见待决问题）、许可审查、目录的首批条目、vendor ramdisk 的默认（release 或 debug） | S |
+| I0.4 | 所有者决定：目录的首批条目（下载方式与 vendor ramdisk 的默认已定，见待决问题） | S |
 
 ## 2. I1 共用镜像库
 
@@ -215,17 +215,17 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I6.2 | 设备型号 `ranchu`（按 API 级别的命令行与属性），机器来自 aarch32-plan R6 | S |
 | I6.3 | 验收：官方 Android 9 的 `arm64-v8a`（API 28）在 arm64 下开机；32 位的 Android 7.1.1 见 aarch32-plan R7 | S |
 
-## 8. I7 目录与一键下载
+## 8. I7 系统目录
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| I7.1 | `catalog.json` 的格式与首批条目（Cuttlefish Android 16 的镜像 zip；官方 GSI；I6 之后的 SDK 模拟器镜像）；`tools/android_catalog.mjs` 校验每个条目的大小与 sha256，并随站点发布 | M |
-| I7.2 | 下载器（Worker）：Range 分段、续传、暂存、SHA-256、配额检查、取消；下载完成交给导入器 | L |
-| I7.3 | `ci-resolve` 的 Pages Function：只对目录里的构建号与文件名解析重定向，返回签名地址与过期时间；`tools/pages_dist.mjs` 打包 `functions/` | S |
-| I7.4 | `manual` 来源的界面：官方页面链接、文件名、大小与 hash 的说明，拖入后自动校验，校验不符时说明是哪个文件 | S |
-| I7.5 | 目录界面：向导第一步的“从目录安装”，条目显示 Android 版本、大小、显卡档位、许可与来源；`manual` 条目显示“下载后拖入”的步骤 | M |
+| I7.1 | `catalog.json` 的格式与首批条目（Cuttlefish Android 16 的镜像 zip；官方 GSI；I6 之后的 SDK 模拟器镜像；可选的 `vendor_ramdisk-debug.img`）；`tools/android_catalog.mjs` 用 Range 读取核对每个条目的大小与 sha256，并随站点发布 | M |
+| I7.2 | 拖入多文件与校验：一次拖入一个或几个文件，按大小与 sha256 对上条目的各个部分（GSI 加 Cuttlefish 设备包等），缺失、多余与不符逐个说明；大文件的 sha256 在 Worker 里流式计算，显示进度 | M |
+| I7.3 | 下载指引的界面：每个文件的官方下载页与直链、大小、预计占用的空间，“下载后拖到这里”的区域 | S |
+| I7.4 | 目录界面：向导第一步的“从目录安装”，条目显示 Android 版本、大小、显卡档位、许可与来源 | M |
 
-验收（I7）：在部署的站点上，从目录选“Android 16（Cuttlefish）”，一次点击完成下载、组装与建虚拟机，开机。
+验收（I7）：在部署的站点上，从目录选“Android 16（Cuttlefish）”，按指引下载官方 zip 并拖入，之后不再需要
+任何操作：校验、组装、建虚拟机与开机自动完成。
 
 ## 9. I8 GPU 选项与收尾
 
@@ -238,9 +238,9 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 ## 待决问题
 
 1. （已定，2026-10-23）dl.google.com 的文件由用户自己下载、拖入向导；不代下，不镜像。
-2. **Cloudflare 上的解析函数**：Pages Function 只解析 ci.android.com 的重定向、不转发文件内容，是否接受。
-3. **vendor ramdisk 的默认**：release（与官方启动一致，adb 需要密钥）还是 debug（今天的做法，adbd 无密钥，
-   需要额外下载 `vendor_ramdisk-debug.img`）。
+2. （已定，2026-10-23）不加 Pages Function，站点保持纯静态；ci.android.com 的文件同样由用户下载、拖入。
+3. （已定，2026-10-23）vendor ramdisk 默认 release；debug 为高级选项（另需拖入 `vendor_ramdisk-debug.img`），
+   自动化测试用 debug。
 4. **在 gfxstream 之前**，Venus 注入作为可选的“修改镜像”是否保留，还是目录里只提供不改镜像的条目。
 5. **默认盘大小**：userdata 默认 4 GiB 是否合适；super 缩小后的余量。
 
@@ -249,7 +249,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | 风险 | 缓解 |
 | --- | --- |
 | 配额按名义大小计费，Android 盘大 | super 缩小、userdata 可选；导入前算出名义大小与实际写入量，不足时先提示 |
-| 下载大（约 0.9–1.8 GB）而不稳定 | Worker 下载器分段续传；暂存在 OPFS；签名地址过期时重新解析 |
+| 用户要自己下载大文件（约 0.9–1.8 GB），可能下错版本或下不完整 | 目录给出确切的文件名、大小与 sha256；拖入后先比大小再流式算 hash，不符时指出是哪个文件、应该是什么 |
 | GSI 与 vendor 的版本搭配（vendor 比 system 新） | I0.2 的参考先验证；目录只列验证过的组合 |
 | 浏览器差异（OPFS 同步句柄要 Chromium 108 以上；Firefox、Safari 的配额与性能） | 先保证 Chrome；其他浏览器在 I0.3 核对后标注支持程度 |
 | LP 元数据与 vbmeta 的改写出错导致不能开机 | 共用库对 node 工具与浏览器同一套测试；组装结果与工具产物逐分区比对；参考引导先行 |
@@ -262,4 +262,4 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 - [AVB（libavb）](https://android.googlesource.com/platform/external/avb/)、[动态分区与 liblp](https://source.android.com/docs/core/ota/dynamic_partitions)
 - [GSI 说明](https://developer.android.com/topic/generic-system-image) 与 [GSI 发布页](https://developer.android.com/topic/generic-system-image/releases)
 - [Android SDK 系统镜像仓库](https://dl.google.com/android/repository/sys-img/google_apis/sys-img2-1.xml)
-- [OPFS 与同步访问句柄](https://developer.mozilla.org/docs/Web/API/File_System_API/Origin_private_file_system)、[Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/)
+- [OPFS 与同步访问句柄](https://developer.mozilla.org/docs/Web/API/File_System_API/Origin_private_file_system)
