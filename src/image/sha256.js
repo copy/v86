@@ -104,6 +104,17 @@ SHA256.prototype.hex = function()
 };
 
 /**
+ * @return {!Uint8Array} the digest's 32 bytes
+ */
+SHA256.prototype.digest = function()
+{
+    const hex = this.hex();
+    const out = new Uint8Array(32);
+    for(let i = 0; i < 32; i++) out[i] = parseInt(hex.substr(2 * i, 2), 16);
+    return out;
+};
+
+/**
  * @param {...!Uint8Array} parts
  * @return {string}
  */

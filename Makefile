@@ -56,6 +56,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	node tests/app/vm_config.mjs
 	node tests/app/presets.mjs
 	node tests/app/machine_rules.mjs
+	node tests/android/library.mjs
 	./tests/api/disk-options.js
 	./tests/api/sb16-state.js
 	./tests/devices/disk_error.mjs
