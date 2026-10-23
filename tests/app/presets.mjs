@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { PRESETS, preset, preset_config } from "../../src/app/guest_presets.js";
 import { choices, change } from "../../src/app/vm_model.js";
 import { new_config, validate_config, check_config, config_to_options } from "../../src/app/vm_config.js";
+import { hardware_rows } from "../../src/app/ui/describe.js";
 
 let passed = 0;
 function test(name, fn)
@@ -92,6 +93,14 @@ test("Android's options: those of tests/a64/android_boot.mjs", () =>
     assert.equal(o.virtio_sound, true);
     assert.deepEqual(o.jit_switches, { a64_page: 1 });
     assert.deepEqual(check_config(c), []);
+});
+
+test("the summary's rows: Android's display and sound", () =>
+{
+    const rows = Object.fromEntries(hardware_rows(preset_config(preset("android16"))));
+    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan");
+    assert.equal(rows["Sound"], "virtio-snd");
+    assert.equal(Object.fromEntries(hardware_rows(preset_config(preset("dos"))))["Sound"], "Sound Blaster 16");
 });
 
 test("change: what a choice implies, and says", () =>
