@@ -1,12 +1,17 @@
-# AArch32 实施计划
+# AArch32 与 arm32 实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
-L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
+状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `c5debe9a`；同日按所有者的要求加入第二部分
+`cpu_type: "arm32"`。规模：S 为几天，M 约 1–2 周，L 约 3–4 周，XL 超过一个月（与
+[ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
-本计划为 ARM64 核心增加 AArch32：64 位内核下运行 32 位进程（A32 与 T32 指令集、VFP 与 Advanced
-SIMD），即 Linux arm64 的 compat 与 Android 的 `armeabi-v7a`。现在的 CPU 只有 AArch64（[aarch64.md](aarch64.md)
-“CPU profile”一节把 AArch32 列为不公布），只含 32 位原生库的 APK 安装失败、Linux 的 armhf 程序得到
-ENOEXEC，都是 ARM64 计划的预期（arm64-virt-android16-plan.md 84–86）。
+本计划为 ARM 核心增加 AArch32（A32 与 T32 指令集、VFP 与 Advanced SIMD），分两部分：
+
+- **第一部分（Q0–Q7）**：64 位内核下运行 32 位进程，即 Linux arm64 的 compat 与 Android 的
+  `armeabi-v7a`，作为 arm64 的 CPU profile `v3`。现在的 CPU 只有 AArch64（[aarch64.md](aarch64.md)
+  “CPU profile”一节把 AArch32 列为不公布），只含 32 位原生库的 APK 安装失败、Linux 的 armhf 程序得到
+  ENOEXEC，都是 ARM64 计划的预期（arm64-virt-android16-plan.md 84–86）。
+- **第二部分（R0–R8）**：新的 `cpu_type: "arm32"`，运行 32 位内核（AArch32 的 PL1，即 ARMv7 风格的
+  系统）：32 位 Linux，以及 Android 模拟器的官方 32 位镜像。指令集的实现与第一部分共用。
 
 ## 结论
 
@@ -21,12 +26,20 @@ ENOEXEC，都是 ARM64 计划的预期（arm64-virt-android16-plan.md 84–86）
    快照，任何改动都升版本号，AArch32 EL0 另立 profile（同上 427–434）。新增 `a64_profile: "v3"`：
    v2 的全部特性加 AArch32 EL0（`ID_AA64PFR0_EL1.EL0 = 0b0010`，AArch32 的 ID 寄存器按实现的功能填写）。
    v1、v1.1、v2 的 ID 寄存器不变，旧快照照旧恢复。默认 profile 在 Q5 验收后再决定是否改成 v3。
-3. **什么时候才需要单独的选项**：只有 AArch32 跑在 EL1，也就是 32 位内核（ARMv7 的 Linux、Android 9 以前
-   只有 32 位的系统、32 位的 Raspberry Pi OS）。那是另一台机器：短描述符或 LPAE 页表、带模式切换和
-   分组寄存器的异常模型、CP15 系统寄存器、zImage 与 ATAGS 或 32 位设备树的引导。它若要做，就像 x86
-   与 x86-64 那样另设 `cpu_type`（例如 `"arm"`，现在被 [tests/api/arm64-options.js](../tests/api/arm64-options.js) 51–53 拒绝），
-   另写计划；本计划不做。
-4. **先确认需求再动手。** Cuttlefish 的 `aosp_cf_arm64_only_phone` 是纯 64 位（P10.2 特意选了它，
+3. **32 位内核是单独的选项 `cpu_type: "arm32"`（第二部分）。** AArch32 跑在 EL1，也就是 32 位内核
+   （ARMv7 的 Linux、只有 32 位的旧 Android、32 位的 Raspberry Pi OS），是另一台机器：短描述符或 LPAE
+   页表、带模式切换和分组寄存器的异常模型、CP15 系统寄存器、zImage 与 32 位设备树的引导。这正对应
+   x86 与 x86-64 的关系：两个 `cpu_type`，同一个核心文件（`x86` 与 `x86_64` 都用 `v86.wasm`）。ARM 这边
+   `arm32` 与 `arm64` 都用 `v86-arm64.wasm`（ARM 一族一个核心，见 jit-unification-plan.md 169），按
+   `cpu_type` 复位到不同的执行状态与 ID 寄存器。现在 `"arm"` 与 `"aarch64"` 这两个名字被
+   [tests/api/arm64-options.js](../tests/api/arm64-options.js) 51–53 拒绝；新名字取 `"arm32"`，与 `"arm64"` 对称。
+4. **官方 32 位 Android 8、9 不存在。** 2026-10-23 核对 Google 的 SDK 镜像仓库（`sys-img2-1.xml` 的
+   default、google_apis、google_apis_playstore）：`armeabi-v7a` 的官方模拟器镜像到 API 25（Android 7.1.1，
+   google_apis `armeabi-v7a-25_r18.zip`，953 MB）为止；API 26–28（Android 8.0、8.1、9）只有 `arm64-v8a`。
+   所以第二部分的 Android 验收用**官方 Android 7.1.1 的 32 位镜像**；Android 8、9 的官方 arm64 镜像带 32 位
+   用户态，用来验收第一部分（64 位内核下的 32 位进程）。32 位的 Android 8、9 只能从 AOSP 源码自己构建
+   （见 R7），不是官方二进制。
+5. **先确认需求再动手。** Cuttlefish 的 `aosp_cf_arm64_only_phone` 是纯 64 位（P10.2 特意选了它，
    arm64-virt-android16-plan.md 1027、1329），不需要 AArch32。需要它的是：带 32 位第二架构的 Android 系统
    （`TARGET_2ND_ARCH := arm`，例如非 arm64-only 的 Cuttlefish 产品，以及 `ro.product.cpu.abilist32` 不为空
    的 GSI）、只有 `armeabi-v7a` 原生库的应用，以及 Linux 上的 armhf 程序。Q0.1 先查要用的 GSI。
@@ -44,7 +57,7 @@ ENOEXEC，都是 ARM64 计划的预期（arm64-virt-android16-plan.md 84–86）
 
 非目标：
 
-- AArch32 EL1、EL2、EL3（32 位内核、Hyp、Monitor）。
+- EL2、EL3（Hyp、Monitor）与虚拟化扩展；32 位内核（AArch32 EL1）属于第二部分。
 - Jazelle、ThumbEE、大端数据（`SETEND` 与 E 位按 SCTLR_EL1.SED 处理为 UNDEF，内核可以模拟）、
   ARMv8 已移除的 SWP/SWPB（UNDEF，Linux 的 `armv8_deprecated` 可以模拟）。
 - VFP 的短向量（FPSCR.Len/Stride 非零时的行为按 ARMv8 处理为 UNDEF 或忽略，见 Q4）。
@@ -85,7 +98,7 @@ S4n..S4n+3 是 Vn 的四个 32 位。FPSCR 是 FPCR 与 FPSR 的合并视图。�
 4. 只公布实现了的功能：ID 寄存器与 COMPAT_HWCAP 跟实现同步更新，没实现的编码是 UNDEF 而不是
    “大概能跑”。
 
-## 阶段与任务
+## 第一部分：AArch32 EL0（profile v3）
 
 ### Q0 需求确认、参考与 profile 定义
 
@@ -145,7 +158,7 @@ v2 的全部 ARM64 测试不变。
 | ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
 | --- | --- | --- | --- | --- |
 | Q5.1 | Linux：Alpine 的 armhf 或 armv7 程序在 arm64 内核（COMPAT=y）下运行；`linux_probe` 的 `aarch32()` 在 v3 下为 “ran”；compat 系统调用、信号与 32 位的 vDSO | `tests/a64/linux_probe.c` 548–571、692–693；`tests/a64/linux_boot.mjs` 484–511 | C：与 QEMU 同一组探针结果 | M |
-| Q5.2 | Android：带 32 位第二架构的系统（Q0.1 选定的 GSI，或非 arm64-only 的 Cuttlefish 产品）启动到 `sys.boot_completed`，`zygote_secondary` 存活；只含 `armeabi-v7a` 库的 APK 安装并启动 | `tools/a64_android.mjs`、`tests/a64/android_boot.mjs`、`android_scenario.mjs` | 场景通过 | M |
+| Q5.2 | Android：带 32 位第二架构的系统启动到 `sys.boot_completed`，`zygote_secondary` 存活；只含 `armeabi-v7a` 库的 APK 安装并启动。系统取 Q0.1 选定的 GSI（Cuttlefish vendor），或官方 Android 8.0、8.1、9 的 `arm64-v8a` 模拟器镜像（API 26–28，需要第二部分 R6 的 ranchu 机器） | `tools/a64_android.mjs`、`tests/a64/android_boot.mjs`、`android_scenario.mjs` | 场景通过 | M |
 | Q5.3 | 32 位与 64 位进程混跑的多核与快照：vCPU worker、保存恢复时 AArch32 进程的状态 | `a64-parallel-guest-tests`、`a64-lifecycle-guest-tests` | 场景通过 | S |
 
 验收（Q5）：v3 下 ARM64 的全部测试、Q0–Q4 的 oracle 与 Q5 的场景通过；v2 下所有测试不变。
@@ -169,6 +182,119 @@ v2 的全部 ARM64 测试不变。
 | Q7.2 | `a64_profile` 写进公开选项与 `v86.d.ts`（现在只是内部选项，arm64-virt-android16-plan.md 1865） | `v86.d.ts`、`src/machine_options.js` | api 测试 | S |
 | Q7.3 | 文档：[aarch64.md](aarch64.md) 的 CPU profile 一节、已知缺陷与测试表 | 文档 | — | S |
 
+## 第二部分：`cpu_type: "arm32"`（32 位内核）
+
+目标：v64 运行 32 位 ARM 内核：32 位 Linux 到登录，官方 Android 7.1.1 的 32 位模拟器镜像到桌面。
+A32、T32、VFP、NEON 的指令实现来自第一部分（Q2–Q4）；这里补 PL1 的系统层、MMU、32 位平台与
+Android 模拟器的 ranchu 机器。
+
+### 设计
+
+- **CPU**：复位到 AArch32 的 SVC 模式。profile `arm32-v1`：ARMv8-A 的 AArch32 状态，只有 PL0 与 PL1
+  （无 Hyp、无 Monitor、无安全扩展），LPAE、通用定时器（CP15）、VFPv4、Advanced SIMD、AArch32 的加密
+  与 CRC32；ID 寄存器（MIDR、ID_PFR0/1、ID_MMFR0–4、ID_ISAR0–6、MVFR0–2）取与 QEMU `cortex-a15`
+  兼容的值（Android 模拟器 32 位镜像的参考 CPU）再按实现裁剪，Q0.4 的 AArch32 ID 值与此共用一套来源。
+- **状态**：AArch32 PL1 的分组寄存器（FIQ 的 R8–R12，各模式的 SP、LR、SPSR）按 ARMv8 的映射放在
+  AArch64 的 X 寄存器与 SPSR 存储里（架构规定的 AArch32 与 AArch64 寄存器对应关系），CPSR 用第一部分的
+  PSTATE 字段，另加模式位与 A、I、F；CP15 寄存器多数是 AArch64 系统寄存器的 32 位视图（SCTLR、TTBR0/1、
+  TTBCR、DACR、DFSR/IFSR、DFAR/IFAR、PRRR/NMRR 或 MAIR0/1、CONTEXTIDR、VBAR、TPIDR*），存储共用。
+- **核心文件**：`v86-arm64.wasm`，与 x86、x86-64 共用 `v86.wasm` 的做法相同；`check_core()`（
+  `src/browser/starter.js` 155–166）与 `src/main.js` 32 的选择按 ISA 族而不是按 64 位判断。
+- **机器**：`machine_type: "virt"` 在 `arm32` 下是 32 位的 virt：内存与外设在 4 GiB 以下，GICv2（gic.rs
+  现为 GICv3，加 v2 的分发器与 CPU 接口 MMIO；Android 的 32 位 ranchu 内核按 cortex-a15 期望 GICv2），
+  CP15 的通用定时器，PSCI 0.2 的 SMC32/HVC32 函数号，PL011、PL031、virtio-mmio 与 virtio-pci。另设
+  `machine_type: "ranchu"`：Android 模拟器的板子（R6），32 位与 64 位共用。
+- **引导**：32 位 Linux 的 zImage 协议（MMU 关、SVC 模式、r0=0、r1=~0、r2=DTB 地址，内核在内存起点
+  加 0x8000）；initrd 与命令行经 DTB 的 chosen 节点。
+
+### R0 目标与参考
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R0.1 | 固定验收镜像：官方 Android 7.1.1 `armeabi-v7a-25_r18.zip`（google_apis；内含 `kernel-ranchu`、`kernel-qemu`、`ramdisk.img`、2 GiB 的 `system.img`、`userdata.img`、`build.prop`，2026-10-23 读 zip 目录核对）；32 位 Linux 取 Debian armhf 或 Alpine armv7 的 netboot 内核与 initramfs；记录 hash | `tests/a64/` 下新目录、`tools/` 下载脚本 | 镜像与 hash 入库（不入 git 的大文件按现有做法放 `build/`） | S |
+| R0.2 | 参考：本地构建的 QEMU 9.2.0（`qemu-system-aarch64` 可用 `-M virt -cpu cortex-a15` 跑 32 位客体）跑 32 位 Linux；Android 模拟器（Android Studio 的 emulator，TCG）跑 7.1.1 的 32 位镜像，记录内核命令行、DTB（从客体 `/proc/device-tree` 导出）与 ranchu 的设备清单 | `tools/a64_qemu/`、新的参考脚本 | 两个参考都能到登录或桌面 | M |
+| R0.3 | ranchu 的设备与属性清单：读 Android 模拟器 QEMU 的 ranchu 板定义与镜像 ramdisk 里的 `init.ranchu.rc`、`fstab.ranchu`、`ueventd.ranchu.rc`，列出 32 位与 64 位镜像各自真正需要的 goldfish 设备 | 文档 | 清单入本文 | S |
+
+### R1 `cpu_type: "arm32"` 接线与 profile
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R1.1 | `CPU_TYPES` 增加 `"arm32"`；校验、默认机器（virt）、跨族选项的拒绝；`v86.d.ts`；`tests/api/arm64-options.js` 改为接受 `"arm32"`，仍拒绝 `"arm"` 与 `"aarch64"` | `src/machine_options.js` 9、62–141；`v86.d.ts` 962–973 | api 测试 | S |
+| R1.2 | 核心选择：`arm32` 加载 `v86-arm64.wasm` 系列（含 parallel、debug、fallback）；A64CPU 按 `cpu_type` 复位 | `src/browser/starter.js` 155–166、326–339；`src/main.js` 32；`src/arm/cpu.js` | `tests/a64/core_loader.mjs` 扩展 | S |
+| R1.3 | profile `arm32-v1` 的 ID 值与特性掩码；快照身份含 cpu_type 与 profile | `src/virt/platform.js` 10–21；`src/arm/cpu.js` 1056–1095；`tests/platform/` 下新的 arm32 profile | C：`tools/cpu_contract.mjs` 的 32 位版本与参考一致 | M |
+
+### R2 PL1 的系统层
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R2.1 | 模式与分组寄存器：USR、FIQ、IRQ、SVC、ABT、UND、SYS；CPSR 与各模式的 SPSR；模式切换的合法性 | `cpu.rs`、新 `a32_system.rs` | C：裸机对照 | M |
+| R2.2 | 异常模型：向量（VBAR、SCTLR.V 的高向量）、各异常的入口模式与返回地址偏移、IRQ 与 FIQ、数据与预取中止（DFSR/IFSR 的短格式与长格式状态码、DFAR/IFAR）、未定义指令、SVC、BKPT | 同上 | C | L |
+| R2.3 | 特权指令：CPS、MRS/MSR（含分组与 SPSR）、SRS、RFE、`LDM`/`STM` 的用户寄存器形式、`SUBS PC, LR`、WFI、WFE、SEV；CP14 调试寄存器的最小集合 | `a32_execute.rs` | C | M |
+| R2.4 | CP15：上面列出的系统寄存器、缓存与 TLB 维护操作（按 ASID、MVA、全部）、屏障、通用定时器（CNTFRQ、CNTPCT、CNTV_*、CNTP_*）、性能计数器读零 | `sysregs.rs` 的 AArch32 视图、`timer.rs` | C | L |
+
+### R3 MMU
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R3.1 | 短描述符：段、超级段、大页、小页；域（DACR）；AP/APX、XN、PXN；TEX 重映射（PRRR/NMRR）；ASID 与全局页 | `mmu.rs`、`tlb.rs` | C：随机页表对照（`tests/a64/mmu.mjs` 的 32 位版本） | L |
+| R3.2 | 长描述符（LPAE，TTBCR.EAE=1）：三级、MAIR0/1、40 位物理地址、TTBR 的分割 | 同上 | C | M |
+| R3.3 | 与访问缓存、页层、TLBI 的 epoch 对接；对齐与权限错误的状态码 | `jit/`、`memory.rs` | C | M |
+
+### R4 32 位平台
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R4.1 | 32 位 virt 的内存布局与 DTB（CPU 节点、GICv2、定时器的中断号、PSCI 的 32 位函数号、chosen） | `src/virt/platform.js`、`src/virt/dtb.js` | `a64-virt-device-tests` 的 32 位用例 | M |
+| R4.2 | GICv2：分发器与 CPU 接口 MMIO、SGI、优先级与掩码；多核的 SMP 启动（PSCI CPU_ON） | `gic.rs`、`psci.rs` | kvm-unit-tests（`--arch=arm`）的 gicv2 用例 | M |
+| R4.3 | zImage 引导：加载、DTB 与 initrd 的位置、32 位内核的解压入口 | `src/virt/loader.js` | 32 位 Linux 打印到控制台 | S |
+
+### R5 32 位 Linux 验收
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R5.1 | kvm-unit-tests 的 32 位 ARM 用例（selftest、psci、timer、gicv2、pmu 读零、spinlock），QEMU 与 v64 同一组结果 | `tests/kvm-unit-tests/`（新 `--arch=arm` 构建） | C | M |
+| R5.2 | Debian armhf 或 Alpine armv7 到登录；探针程序（线程、信号、浮点上下文、独占、自修改代码）；1、2、4 核；快照、重启、关机 | 新 `tests/a64/linux32_boot.mjs`（沿用 `linux_boot.mjs` 的结构） | 与 QEMU 同一组探针结果 | M |
+| R5.3 | 页层：PL1 的系统模板与短描述符、长描述符在访问缓存中的支持（与 Q6 共用 A32/T32 模板） | `jit/` | E：同源基准 | L |
+
+### R6 ranchu 机器（Android 模拟器镜像）
+
+Android 模拟器的官方镜像（32 位与 64 位）都为模拟器的 ranchu 板构建：`kernel-ranchu` 期望
+goldfish 设备与模拟器给的命令行和 DTB，`system.img`、`userdata.img`（API 28 起还有 `vendor.img`、
+`encryptionkey.img`）是各自独立的 virtio 盘。设备的确切清单以 R0.3 为准；预计包括：
+
+| 设备 | 用途 | 说明 |
+| --- | --- | --- |
+| goldfish_events | 键盘、触摸 | 输入事件与按键表 |
+| goldfish_battery | 电池与充电状态 | 固定为插电满电 |
+| goldfish_pipe（qemud） | 启动属性、传感器等 qemud 服务；宿主 GLES 时的渲染管道 | 只实现启动属性与必要服务；渲染用客体软件渲染（`-gpu guest` 的等价设置），不做宿主 GLES |
+| goldfish_fb 或 virtio-gpu 2D | 显示 | 软件渲染的帧缓冲 |
+| goldfish_sync、goldfish_rtc、goldfish_audio | 同步、时钟、声音 | 按 R0.3 的结论取舍；声音可先不做 |
+| virtio-mmio 的块设备与网卡 | system、userdata、vendor；网络 | 现有设备 |
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R6.1 | `machine_type: "ranchu"`：内存布局、DTB 与命令行与模拟器一致；32 位（`arm32`）与 64 位（`arm64`）共用 | 新 `src/virt/ranchu.js` | 内核启动到 init | M |
+| R6.2 | goldfish 设备（按 R0.3 的清单） | 新 `src/virt/goldfish/` | 设备测试 | L |
+| R6.3 | 导入 Android 模拟器的镜像 zip（`kernel-ranchu`、`ramdisk.img`、`system.img`、`vendor.img`、`userdata.img`），与 Android 镜像导入计划共用 zip 读取与磁盘建立；`build.prop` 与 `source.properties` 决定 cpu_type 与 API 级别 | VM 管理器 | app-tests | M |
+
+R6 也让 64 位的官方模拟器镜像（API 24 起的 `arm64-v8a`，包括 Android 8.0、8.1、9）能在 arm64 下运行，
+第一部分 Q5.2 用它们验收 32 位应用。
+
+### R7 Android 验收
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R7.1 | 官方 Android 7.1.1（`armeabi-v7a-25_r18`，google_apis）在 `cpu_type: "arm32"`、ranchu 上启动到 `sys.boot_completed` 与桌面；触摸打开应用；安装一个 `armeabi-v7a` APK | 新的 Android 32 位场景（沿用 `android_scenario.mjs`） | 场景通过；冷启动时间与 Android 模拟器 TCG 对比记录 | M |
+| R7.2 | 官方 Android 8.0、8.1、9 的 `arm64-v8a` 镜像（API 26–28）在 arm64、profile v3 下运行 32 位应用（第一部分的验收，见 Q5.2） | 同上 | 场景通过 | S |
+| R7.3 | 可选：32 位 Android 8 或 9 从 AOSP 源码构建（例如 `pie-release` 的 `aosp_arm-userdebug` 模拟器目标），需要 Linux 构建机（这台 Mac 不能构建 AOSP）；由所有者决定是否需要 | 构建记录 | 场景通过 | M |
+
+### R8 界面
+
+| ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
+| --- | --- | --- | --- | --- |
+| R8.1 | VM 管理器：处理器类型增加“ARM（32 位）”；机器可选 virt 或 ranchu；新预设“Android 7.1（32 位，模拟器镜像）”与“Linux（ARM 32 位）” | `src/app/ui/panels/system.js` 10、`src/app/vm_model.js`、`src/app/guest_presets.js` | app-tests | S |
+| R8.2 | 文档：新 `docs/arm32.md`（或并入 [aarch64.md](aarch64.md) 改名为 ARM 的总文档）、[virt.md](virt.md) 的 32 位 virt 与 ranchu | 文档 | — | S |
+
 ## 里程碑
 
 | 里程碑 | 内容 | 可见的收益 |
@@ -177,9 +303,15 @@ v2 的全部 ARM64 测试不变。
 | B2 | Q2、Q3 | 整数的 32 位程序（无浮点）可以运行 |
 | B3 | Q4、Q5 | Linux armhf 程序与 Android 32 位应用、带 32 位第二架构的系统 |
 | B4 | Q6 | 32 位代码的性能达标 |
-| B5 | Q7 | 界面可选，文档完成 |
+| B5 | Q7 | 第一部分的界面与文档 |
+| C1 | R0–R4 | `cpu_type: "arm32"`：32 位内核在 virt 上启动 |
+| C2 | R5 | 32 位 Linux 到登录，kvm-unit-tests 通过 |
+| C3 | R6 | ranchu 机器：官方模拟器镜像可以导入并引导（32 位与 64 位） |
+| C4 | R7、R8 | 官方 Android 7.1.1 的 32 位镜像到桌面；Android 8、9 的官方 arm64 镜像跑 32 位应用 |
 
-只为让某个 GSI 能开机时，B1–B3 加 Q7 即可（约 3 个月）；Q6 按性能需要再做。全部约 4–5 个月。
+第一部分只为让某个 GSI 能开机时，B1–B3 加 Q7 即可（约 3 个月）；Q6 按性能需要再做，第一部分全部
+约 4–5 个月。第二部分在第一部分的指令实现（Q2–Q4）之后再约 4–5 个月（R2、R3、R6 最大）。R6 的 ranchu
+机器不依赖 32 位，可以提前做，先让官方的 64 位模拟器镜像在 arm64 下运行。
 
 ## 主要风险与缓解
 
@@ -189,7 +321,11 @@ v2 的全部 ARM64 测试不变。
 | 没有实机对照（M1 不支持 AArch32） | 以 QEMU 为准，另用 llvm-mc 对照解码；QEMU 的已知偏差照 ARM64 计划的做法登记 |
 | v2 行为被意外改变 | v2 的测试全集作为回归；`core-split-check`；新行为全部挂在 v3 下 |
 | 页层的条件执行与 IT 块使代码膨胀 | 先只编译无条件或短 IT 块的常见形式，其余单步；以基准决定范围 |
-| 需求可能不成立（GSI 是纯 64 位） | Q0.1 先确认；若不需要，本计划延后，只保留结论 |
+| 需求可能不成立（GSI 是纯 64 位） | Q0.1 先确认；若不需要，第一部分延后，只保留结论 |
+| 没有官方的 32 位 Android 8、9 | 第二部分以官方 Android 7.1.1 的 32 位镜像验收；Android 8、9 的官方 arm64 镜像验收 32 位应用；32 位的 8、9 只能自建（R7.3） |
+| ranchu 的 goldfish 设备没有规范，只有模拟器的源码 | 以模拟器的 QEMU 源码与镜像里的 rc、fstab 为准，只做客体实际用到的；R0.2 的参考记录作对照 |
+| PL1 的系统层（模式、短描述符 MMU、CP15）面大 | 裸机对照与 kvm-unit-tests 的 32 位用例逐项推进；与 AArch64 共用 TLB、访问缓存与定时器 |
+| 参考 CPU（cortex-a15）是 ARMv7，v64 实现的是 ARMv8 的 AArch32 | ID 值标明 ARMv8 AArch32；ARMv8 移除或改变的行为（SWP、短向量、CP15 屏障）按 ARMv8 处理，与 QEMU 的差异登记 |
 
 ## 规范与实现参考
 
@@ -198,3 +334,6 @@ v2 的全部 ARM64 测试不变。
 - [QEMU target/arm](https://gitlab.com/qemu-project/qemu/-/tree/master/target/arm)：`translate.c`、`translate-a32`/`t32` 的 decodetree 描述
 - [Linux arm64 compat](https://www.kernel.org/doc/html/latest/arch/arm64/index.html)：`arch/arm64/kernel/armv8_deprecated.c`、compat 信号与 vDSO
 - [Android ABI 管理](https://developer.android.com/ndk/guides/abis)：`armeabi-v7a`
+- Arm Architecture Reference Manual ARMv7-A and ARMv7-R（ARM DDI 0406）：短描述符 MMU、CP15、异常模型
+- [Android 模拟器（external/qemu，emu-master-dev 分支）](https://android.googlesource.com/platform/external/qemu/)：ranchu 板与 goldfish 设备；[goldfish 内核驱动](https://android.googlesource.com/kernel/goldfish/)
+- [Android SDK 系统镜像仓库](https://dl.google.com/android/repository/sys-img/google_apis/sys-img2-1.xml)：官方模拟器镜像的清单
