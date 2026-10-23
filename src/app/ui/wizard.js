@@ -61,15 +61,17 @@ export function open_wizard(options)
             read_write: false,
             error: "",
             /** @type {{file: File | null, gsi: File | null, debug_ramdisk: File | null, info: import("../android_import.js").PackageInfo | null, error: string,
-             *     userdata_gib: number, entry: string, checks: Object<string, string>}} entry: the catalog's (I7), "" for another package;
-             *     checks: each dropped part's against it (ok, checking…, or what differs) */
+             *     userdata_gib: number, entry: string, checks: Object<string, string>, room?: number | null}} entry: the catalog's (I7), "" for another
+             *     package; checks: each dropped part's against it (ok, checking…, or what differs); room: the site's storage left (null: unknown) */
             android: { file: null, gsi: null, debug_ramdisk: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB,
                 entry: ANDROID_CATALOG.entries[0].id, checks: {} },
             progress: "",
+            /** @type {AbortController | null} the import going on (its Cancel) */
+            importing: null,
         };
         const element = /** @type {HTMLDialogElement} */ (h("dialog.wizard-dialog", { "aria-label": "New virtual machine" }));
         const close = value => { element.close(); element.remove(); resolve(value); };
-        element.addEventListener("cancel", e => { e.preventDefault(); close(null); });
+        element.addEventListener("cancel", e => { e.preventDefault(); if(state.importing) state.importing.abort(); else close(null); });
         const steps = ["Source", "System", "Name", "Hard disk", "Summary"];
 
         const unique = name =>
@@ -154,16 +156,20 @@ export function open_wizard(options)
                         const status = element.querySelector(".wizard-status");
                         if(status) status.textContent = state.progress;
                     };
-                    const imported = { userdata_gib: state.android.userdata_gib, gsi: state.android.gsi, progress };
+                    state.importing = new AbortController();
+                    render();
+                    const imported = { userdata_gib: state.android.userdata_gib, gsi: state.android.gsi, progress, signal: state.importing.signal };
                     url = state.location === "service" ?
                         (await import_android_package_to_service(file, state.name || "android", /** @type {Service} */ (options.service), imported)).url :
                         (await import_android_package(file, state.name || "Android", Object.assign({ prefs: options.store }, imported))).path;
                     state.progress = "";
+                    state.importing = null;
                 }
                 catch(e)
                 {
                     state.progress = "";
-                    state.error = "The package was not imported: " + e.message;
+                    state.importing = null;
+                    state.error = e.message === "Cancelled" ? "The import was cancelled" : "The package was not imported: " + e.message;
                     render();
                     return;
                 }
@@ -383,8 +389,19 @@ export function open_wizard(options)
             if(state.source === "android")
             {
                 const info = /** @type {import("../android_import.js").PackageInfo} */ (state.android.info);
-                const sizes = USERDATA_GIB.map(gib => h("label.check", null, h("input", { type: "radio", name: "userdata", value: String(gib), checked: state.android.userdata_gib === gib,
-                    onchange: () => { state.android.userdata_gib = gib; render(); } }), " " + gib + " GiB" + (gib === DEFAULT_USERDATA_GIB ? " (the usual)" : "")));
+                // (a browser disk takes its whole size at once: the sizes past the site's room are not offered, I4.3)
+                if(state.android.room === undefined)
+                {
+                    state.android.room = null;
+                    navigator.storage?.estimate?.().then(e => { state.android.room = e.quota ? Math.max(0, e.quota - (e.usage || 0)) : null; render(); }).catch(() => {});
+                }
+                const room = state.location === "browser" ? state.android.room : null;
+                const fits = gib => room === null || room === undefined || info.disk_size(gib) <= room;
+                if(!fits(state.android.userdata_gib)) state.android.userdata_gib = USERDATA_GIB.filter(fits).pop() || USERDATA_GIB[0];
+                const sizes = USERDATA_GIB.map(gib => h("label.check", { title: fits(gib) ? "" : "the disk would be " + format_size(info.disk_size(gib)) + ", the site has " +
+                    format_size(/** @type {number} */ (room)) + " more" }, h("input", { type: "radio", name: "userdata", value: String(gib),
+                    checked: state.android.userdata_gib === gib, disabled: !fits(gib), onchange: () => { state.android.userdata_gib = gib; render(); } }),
+                " " + gib + " GiB" + (gib === DEFAULT_USERDATA_GIB ? " (the usual)" : "") + (fits(gib) ? "" : " (no room)")));
                 if(state.location === "memory" || state.location === "service" && !options.service) state.location = "browser";
                 const where = [["browser", "A browser disk: kept in this browser (until its site data is cleared)", false, ""],
                     ["service", "The disk service: an image file on " + (options.service ? options.service.url : "a disk service") + " (kept)", !options.service,
@@ -495,11 +512,13 @@ export function open_wizard(options)
                 h("section.wizard-body", { "aria-label": steps[state.step] }, body),
                 h("footer.wizard-footer", null,
                     h("span.wizard-status", { role: "status", class: state.error ? "error" : "" }, state.error || state.progress || blocked),
-                    h("button", { type: "button", onclick: () => close(null) }, "Cancel"),
-                    h("button", { type: "button", disabled: state.step === 0, onclick: () => { state.step--; render(); } }, "Back"),
-                    last ? [h("button", { type: "button", onclick: () => finish(true) }, "Customize hardware…"),
-                        h("button.primary", { type: "button", onclick: () => finish(false) }, "Finish")] :
-                        h("button.primary", { type: "button", disabled: !!blocked, onclick: () => { state.step++; render(); } }, "Next"))));
+                    // (while a package is imported: only its Cancel)
+                    state.importing ? h("button", { type: "button", onclick: () => state.importing && state.importing.abort() }, "Cancel import") : [
+                        h("button", { type: "button", onclick: () => close(null) }, "Cancel"),
+                        h("button", { type: "button", disabled: state.step === 0, onclick: () => { state.step--; render(); } }, "Back"),
+                        last ? [h("button", { type: "button", onclick: () => finish(true) }, "Customize hardware…"),
+                            h("button.primary", { type: "button", onclick: () => finish(false) }, "Finish")] :
+                            h("button.primary", { type: "button", disabled: !!blocked, onclick: () => { state.step++; render(); } }, "Next")])));
         }
 
         document.body.append(element);

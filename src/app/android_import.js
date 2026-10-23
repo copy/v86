@@ -5,7 +5,7 @@
 // from it in a worker (android_import_worker.js, build/android-import-worker.js).
 
 import { package_entries, identify_package, cuttlefish_disk, gsi_package } from "../android/assemble.js";
-import { reserve_disk, finish_disk } from "./browser_disks.js";
+import { reserve_disk, finish_disk, delete_disk } from "./browser_disks.js";
 import { create_image, list_images, new_image_name } from "./disk_service_client.js";
 import { query_append } from "./emulator_bridge.js";
 import { catalog_parts_of } from "./android_catalog.js";
@@ -83,10 +83,40 @@ export async function inspect_android_package(file, gsi_file = null)
 }
 
 /**
- * The browser disk of a package (with a GSI), made in a worker
+ * The importer's worker on a message: its progress, then its answer;
+ * signal aborts it (the worker ended at once)
+ * @param {any} message
+ * @param {{progress?: (done: number, total: number) => void, signal?: AbortSignal}} options
+ * @return {Promise<any>}
+ */
+function run_worker(message, options)
+{
+    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
+    return new Promise((resolve, reject) =>
+    {
+        const end = () => { worker.terminate(); options.signal && options.signal.removeEventListener("abort", abort); };
+        const abort = () => { end(); reject(new Error("Cancelled")); };
+        if(options.signal && options.signal.aborted) { abort(); return; }
+        options.signal && options.signal.addEventListener("abort", abort);
+        worker.onmessage = e =>
+        {
+            if(e.data.progress) { options.progress && options.progress(e.data.progress[0], e.data.progress[1]); return; }
+            end();
+            if(e.data.error) reject(new Error(e.data.error));
+            else resolve(e.data);
+        };
+        worker.onerror = e => { end(); reject(new Error("The importer's worker failed: " + (e.message || "it did not start"))); };
+        worker.postMessage(message);
+    });
+}
+
+/**
+ * The browser disk of a package (with a GSI), made in a worker; cancelled
+ * by signal (the disk made so far deleted)
  * @param {Blob & {name?: string}} file
  * @param {string} label
- * @param {{userdata_gib: number, gsi?: (Blob & {name?: string}) | null, prefs?: any, progress?: (done: number, total: number) => void}} options
+ * @param {{userdata_gib: number, gsi?: (Blob & {name?: string}) | null, prefs?: any, progress?: (done: number, total: number) => void,
+ *     signal?: AbortSignal}} options
  * @return {Promise<import("./browser_disks.js").BrowserDisk>}
  */
 export async function import_android_package(file, label, options)
@@ -94,28 +124,24 @@ export async function import_android_package(file, label, options)
     const info = await inspect_android_package(file, options.gsi || null);
     const userdata_bytes = options.userdata_gib * GIB;
     const { id } = await reserve_disk(info.disk_size(options.userdata_gib), options.prefs);
-    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
+    /** @type {any} */
+    let result;
     try
     {
-        /** @type {any} */
-        const result = await new Promise((resolve, reject) =>
-        {
-            worker.onmessage = e =>
-            {
-                if(e.data.progress) options.progress && options.progress(e.data.progress[0], e.data.progress[1]);
-                else if(e.data.done) resolve(e.data.done);
-                else reject(new Error(e.data.error));
-            };
-            worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
-            worker.postMessage({ file, gsi_file: options.gsi || null, id, userdata_bytes });
-        });
-        return await finish_disk(id, label, { source: file.name || "", android: { kind: result.kind, device: result.device, userdata_gib: options.userdata_gib,
-            gsi: options.gsi ? options.gsi.name || "" : undefined } });
+        result = (await run_worker({ file, gsi_file: options.gsi || null, id, userdata_bytes }, options)).done;
     }
-    finally
+    catch(e)
     {
-        worker.terminate();
+        // (the worker's handle on the file goes with it: the disk deleted once it can be)
+        for(let i = 0; i < 20; i++)
+        {
+            try { await delete_disk(id); break; }
+            catch(_) { await new Promise(resolve => setTimeout(resolve, 250)); }
+        }
+        throw e;
     }
+    return await finish_disk(id, label, { source: file.name || "", android: { kind: result.kind, device: result.device, userdata_gib: options.userdata_gib,
+        gsi: options.gsi ? options.gsi.name || "" : undefined } });
 }
 
 /**
@@ -129,20 +155,7 @@ export async function import_android_package(file, label, options)
  */
 export async function wipe_android_data(id)
 {
-    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
-    try
-    {
-        return await new Promise((resolve, reject) =>
-        {
-            worker.onmessage = e => e.data.wiped ? resolve(e.data.wiped) : reject(new Error(e.data.error));
-            worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
-            worker.postMessage({ op: "wipe", id });
-        });
-    }
-    finally
-    {
-        worker.terminate();
-    }
+    return (await run_worker({ op: "wipe", id }, {})).wiped;
 }
 
 /**
@@ -153,25 +166,7 @@ export async function wipe_android_data(id)
  */
 export async function hash_file(file, progress)
 {
-    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
-    try
-    {
-        return await new Promise((resolve, reject) =>
-        {
-            worker.onmessage = e =>
-            {
-                if(e.data.progress) progress && progress(e.data.progress[0], e.data.progress[1]);
-                else if(e.data.sha256) resolve(e.data.sha256);
-                else reject(new Error(e.data.error));
-            };
-            worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
-            worker.postMessage({ op: "hash", file });
-        });
-    }
-    finally
-    {
-        worker.terminate();
-    }
+    return (await run_worker({ op: "hash", file }, { progress })).sha256;
 }
 
 /**
@@ -181,7 +176,8 @@ export async function hash_file(file, progress)
  * @param {Blob & {name?: string}} file
  * @param {string} machine the machine's name (the image's)
  * @param {import("./disk_service_client.js").Service} service
- * @param {{userdata_gib: number, gsi?: (Blob & {name?: string}) | null, progress?: (done: number, total: number) => void}} options
+ * @param {{userdata_gib: number, gsi?: (Blob & {name?: string}) | null, progress?: (done: number, total: number) => void, signal?: AbortSignal}} options
+ *     signal: cancelled (the image created stays: the service has no delete; its name said)
  * @return {Promise<{url: string, size: number}>}
  */
 export async function import_android_package_to_service(file, machine, service, options)
@@ -189,25 +185,14 @@ export async function import_android_package_to_service(file, machine, service, 
     const info = await inspect_android_package(file, options.gsi || null);
     const size = info.disk_size(options.userdata_gib);
     const image = await create_image(service, new_image_name(machine, (await list_images(service)).images), size);
-    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
     try
     {
-        await new Promise((resolve, reject) =>
-        {
-            worker.onmessage = e =>
-            {
-                if(e.data.progress) options.progress && options.progress(e.data.progress[0], e.data.progress[1]);
-                else if(e.data.done) resolve(e.data.done);
-                else reject(new Error(e.data.error));
-            };
-            worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
-            worker.postMessage({ file, gsi_file: options.gsi || null, id: "", userdata_bytes: options.userdata_gib * GIB,
-                service: { url: image.url, token: service.token } });
-        });
-        return { url: image.url, size };
+        await run_worker({ file, gsi_file: options.gsi || null, id: "", userdata_bytes: options.userdata_gib * GIB,
+            service: { url: image.url, token: service.token } }, options);
     }
-    finally
+    catch(e)
     {
-        worker.terminate();
+        throw new Error(e.message + " (the disk service keeps the image made so far, " + image.name + ")");
     }
+    return { url: image.url, size };
 }

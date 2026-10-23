@@ -15,9 +15,12 @@
                    vbmeta the GSI's (nothing chained)
      part=android_service  (with the runner's service=1) the package imported into a new image of the disk service (I3.2):
                    its size, and the bootloader reading it from the service
+     part=android_cancel  (local) the official zip's import cancelled: the wizard says so, the browser disk made so far is gone
      part=android_boot  (local, an hour or more) docs/android-images-plan.md I3's acceptance: the official Cuttlefish images zip
                    (package=<path>, build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip) through the wizard, nothing
-                   else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0); timeout=<minutes> (180)
+                   else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0); timeout=<minutes> (180);
+                   gsi=<path> also drops a GSI (I5.3), entry=<catalog id> the catalog's entry chosen (android16-cuttlefish, or
+                   android16-gsi-bp4a with gsi=; "" for another package)
      node tests/app/browser_runner.mjs tests/app/wizard_test.html part=freedos -->
 <style>iframe { width: 1100px; height: 760px; border: 1px solid #888; }</style>
 <pre id="log"></pre>
@@ -400,34 +403,72 @@ const parts = {
         check(/read write/.test(table_text($(".hardware"))) && table_text($(".hardware")).includes(image.name), "the machine's disk: " + table_text($(".hardware")));
         log("the disk service's image " + image.name + " (" + image.size + " bytes): the bootloader gives " + boot.kernel.length + " bytes of kernel, cmdline " + boot.cmdline);
     },
+    async android_cancel()
+    {
+        await open_library();
+        const disks = async () =>
+        {
+            let dir = await w.navigator.storage.getDirectory();
+            for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name, { create: true });
+            const list = [];
+            for await (const [name] of dir.entries()) if(name.endsWith(".img")) list.push(name);
+            return list;
+        };
+        const before = await disks();
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(new w.File([await (await fetch("/build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip")).blob()], "aosp_cf_arm64_only_phone-img-15581820.zip"));
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        await until(() => button("Next", wizard), "the package read", 120000);
+        for(let i = 0; i < 3; i++) { button("Next", wizard).click(); await sleep(200); }
+        button("Next", wizard).click();
+        await until(() => button("Finish", wizard), "the summary");
+        button("Finish", wizard).click();
+        await until(() => /Importing .*: \d+%/.test(wizard.querySelector(".wizard-status").textContent), "the import going on", 60000);
+        button("Cancel import", wizard).click();
+        await until(() => /cancelled/.test(wizard.querySelector(".wizard-status").textContent), "the import cancelled");
+        check(button("Finish", wizard), "the wizard back to its buttons");
+        await until(async () => JSON.stringify(await disks()) === JSON.stringify(before), "the browser disk made so far deleted", 10000);
+        log("cancelled: " + wizard.querySelector(".wizard-status").textContent + "; the browser disks as before (" + before.length + ")");
+    },
     async android_boot()
     {
-        const url = "/" + (args.get("package") || "build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip");
-        const name = url.split("/").pop();
+        const urls = ["/" + (args.get("package") || "build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip"),
+            ...(args.get("gsi") ? ["/" + args.get("gsi")] : [])];
+        const entry = args.has("entry") ? args.get("entry") : args.get("gsi") ? "android16-gsi-bp4a" : "android16-cuttlefish";
         await open_library();
         $("#new_vm").click();
         const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
         Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='" + entry + "']"), "the catalog's entry " + entry)).click();
         const started = Date.now();
-        const blob = await (await fetch(url)).blob();
         const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
         const files = new w.DataTransfer();
-        files.items.add(new w.File([blob], name, { type: "application/zip" }));
+        for(const url of urls) files.items.add(new w.File([await (await fetch(url)).blob()], url.split("/").pop(), { type: "application/zip" }));
         input.files = files.files;
         input.dispatchEvent(new w.Event("change", { bubbles: true }));
         log("package: " + await until(() => /Cuttlefish arm64 device/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
             wizard.querySelector(".drop-zone [role=status]").textContent, "the package read", 120000));
+        // (the catalog's SHA-256 checks)
+        await until(() => button("Next", wizard), "the files checked: " + wizard.querySelector(".wizard-status").textContent, 600000);
+        if(entry) log("checked against the catalog's " + entry + " in " + ((Date.now() - started) / 1000).toFixed(0) + " s");
         button("Next", wizard).click();
         await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
         button("Next", wizard).click();
-        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android 16 (official)");
+        const machine = args.get("gsi") ? "Android GSI (official)" : "Android 16 (official)";
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), machine);
         button("Next", wizard).click();
         await until(() => wizard.querySelector("input[name=userdata][value='4']:checked"), "the usual userdata");
         button("Next", wizard).click();
         log("summary: " + table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary")));
         const import_started = Date.now();
         button("Finish", wizard).click();
-        await until(() => names().includes("Android 16 (official)"), "the imported machine in the library", 1800000);
+        await until(() => names().includes(machine), "the imported machine in the library", 1800000);
         log("imported in " + ((Date.now() - import_started) / 1000).toFixed(0) + " s");
         const { emulator } = await power_on();
         const booted = Date.now();
