@@ -275,7 +275,7 @@ goldfish 设备与模拟器给的命令行和 DTB，`system.img`、`userdata.img
 | --- | --- | --- | --- | --- |
 | R6.1 | `machine_type: "ranchu"`：内存布局、DTB 与命令行与模拟器一致；32 位（`arm32`）与 64 位（`arm64`）共用 | 新 `src/virt/ranchu.js` | 内核启动到 init | M |
 | R6.2 | goldfish 设备（按 R0.3 的清单） | 新 `src/virt/goldfish/` | 设备测试 | L |
-| R6.3 | 导入 Android 模拟器的镜像 zip（`kernel-ranchu`、`ramdisk.img`、`system.img`、`vendor.img`、`userdata.img`），与 Android 镜像导入计划共用 zip 读取与磁盘建立；`build.prop` 与 `source.properties` 决定 cpu_type 与 API 级别 | VM 管理器 | app-tests | M |
+| R6.3 | 导入 Android 模拟器的镜像 zip（`kernel-ranchu`、`ramdisk.img`、`system.img`、`vendor.img`、`userdata.img`），与 [android-images-plan.md](android-images-plan.md) 的 I6 共用 zip 读取与磁盘建立；`build.prop` 与 `source.properties` 决定 cpu_type 与 API 级别 | VM 管理器 | app-tests | M |
 
 R6 也让 64 位的官方模拟器镜像（API 24 起的 `arm64-v8a`，包括 Android 8.0、8.1、9）能在 arm64 下运行，
 第一部分 Q5.2 用它们验收 32 位应用。

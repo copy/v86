@@ -119,7 +119,8 @@ gfxstream.js（传输：上下文、ASG 环的读取与 ping、同步导出）
 
 不改镜像的另一半是引导：v64 要像 Cuttlefish 的 bootloader 一样从磁盘上的 boot、init_boot、
 vendor_boot 取内核与 ramdisk，按启动器的规则生成 bootconfig（包括上面的 GPU 键）。这一步不依赖
-gfxstream，单独排期（向导导入 GSI zip 的计划）；本计划只要求它能写出 `gfxstream_guest_angle` 的键。
+gfxstream，单独排期（[android-images-plan.md](android-images-plan.md) 的 I2 引导器）；本计划只要求它能写出
+`gfxstream_guest_angle` 的键。
 在它完成前，G5 的验收用 `tools/a64_android.mjs` 生成的 initrd（新增一个 `--gpu gfxstream` 选项，只改
 bootconfig 的 GPU 键，不改分区）。
 
