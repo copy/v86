@@ -484,6 +484,22 @@ export function apply_form(settings, form, new_query_args, page)
 }
 
 /**
+ * What virtio_gpu is pinned to (graphics_adapter_test, the device's own
+ * name for it): its displays, and its level when the settings ask for one
+ * (virtio_gpu_level: "venus", Vulkan through the page's renderer)
+ * @param {!Object} settings
+ * @return {(Object|undefined)}
+ */
+function virtio_gpu_test(settings)
+{
+    if(settings.graphics_adapter !== "virtio_gpu") return undefined;
+    const test = {};
+    if(settings.displays > 1) test["scanouts"] = settings.displays;
+    if(settings.virtio_gpu_level) test["level"] = settings.virtio_gpu_level;
+    return Object.keys(test).length ? test : undefined;
+}
+
+/**
  * The options of new V86() for the settings
  * @param {!Object} settings
  * @param {{cpu_worker: boolean, debug: boolean, query_append: string, graphics_proxy: (Object|boolean), screen_container: *}} env
@@ -526,7 +542,7 @@ export function settings_to_options(settings, env)
         extended_memory_size: settings.extended_memory_size || undefined,
         "graphics_adapter": settings.graphics_adapter || DEFAULT_GRAPHICS_ADAPTER,
         "vram_size": settings.vram_size,
-        "graphics_adapter_test": settings.displays > 1 && settings.graphics_adapter === "virtio_gpu" ? { "scanouts": settings.displays } : undefined,
+        "graphics_adapter_test": virtio_gpu_test(settings),
         boot_order: settings.boot_order,
 
         // the arm64 virt machine (docs/virt.md): the page's kernel and

@@ -137,6 +137,7 @@ function fit(c, notes)
         note("Display: " + c.display.adapter + (virt ? " (the virt machine has no VGA)" : ""));
     }
     if(c.display.adapter !== "virtio_gpu" && c.display.displays > 1) { c.display.displays = 1; note("One display: only virtio-gpu has more"); }
+    if(c.display.adapter !== "virtio_gpu" && c.display.vulkan) { c.display.vulkan = false; note("No Vulkan: only virtio-gpu has it"); }
     const max_network = virt ? 4 : 1;
     if(c.network.length > max_network)
     {
@@ -198,6 +199,16 @@ export function change(config, path, value)
         c.machine.hpet = Q35_PAGE_DEVICES.hpet;
         c.machine.smbus = Q35_PAGE_DEVICES.smbus;
         c.machine.pcie_root_ports = Q35_PAGE_DEVICES.pcie_root_ports;
+    }
+    if(path === "display.vulkan" && value && !c.display.proxy)
+    {
+        c.display.proxy = true;
+        notes.push("Graphics proxy: on (its WebGPU renderer draws Vulkan)");
+    }
+    if(path === "display.proxy" && !value && c.display.vulkan)
+    {
+        c.display.vulkan = false;
+        notes.push("Vulkan: off (it needs the graphics proxy)");
     }
     if(path === "cpu.type" && value === "arm64" && c.machine.type !== "virt")
     {

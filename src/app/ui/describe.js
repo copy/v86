@@ -57,7 +57,7 @@ export function hardware_rows(c)
     }
     if(c.initial_state) rows.push(["Starts from a state", describe_image(c.initial_state)]);
     rows.push(["Display", (ADAPTERS[c.display.adapter] || c.display.adapter) + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : "") +
-        (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "")]);
+        (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "") + (c.display.vulkan ? ", Vulkan" : "")]);
     for(const network of c.network)
     {
         rows.push(["Network", network.device === "none" ? "none" : network.device + ", " + (BACKENDS[network.backend] || network.backend) +
