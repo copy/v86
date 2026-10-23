@@ -1,7 +1,7 @@
 # Android 镜像：选镜像就能用与系统目录 实施计划
 
 状态：实施中。2026-10-23 初稿，基于 `336f0df7`。2026-10-24：I0.1、I0.2 完成（结果见 §1 之后的“I0 的结果”），
-I1、I2 完成，I3.1、I3.3 完成（浏览器磁盘），I3.2（磁盘服务）与 I3 的浏览器开机验收未做；见各节的进度。规模：S 为几天，M 约 1–2 周，
+I1、I2 完成；I3.1、I3.3、I4.2、I5.1、I5.2 完成（浏览器磁盘）；I3.2（磁盘服务）、I4.1、I6–I8 未做；见各节的进度。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
@@ -272,6 +272,12 @@ kernel、initrd 与 cmdline），Venus 盘、页层与 vCPU Worker，1120 s 到 
 | I4.2 | Android 设置节：设备型号、GPU 档位、vendor ramdisk、SELinux（调试用）；“清除用户数据”（重写 userdata 与 metadata）与“恢复出厂”（重新组装） | S |
 | I4.3 | super 缩到已用加余量（LP 元数据改写）；userdata 大小可选 2、4、8、16 GiB（默认 4 GiB），放不进可用配额的选项不可选；以后用“清除数据并改大小”调整；名义大小与配额的提示 | M |
 
+进度（2026-10-24）：I4.2 完成：设置对话框的“Android”项（`src/app/ui/panels/android.js`：设备型号、GPU 档位（没有 Vulkan 时只有
+SwiftShader）、vendor ramdisk 与 debug ramdisk 的文件、SELinux），“添加硬件”里的“Android boot”；“Wipe user data…”在导入器的
+Worker 里用同步访问句柄把浏览器磁盘上 userdata 与 metadata 的第一个 MiB 清零（下次开机格式化；机器运行时磁盘被占用，
+会说明）。“恢复出厂”（重新组装）要用户再次拖入包，留到 I7 的多文件拖入之后。I4.3 的 super 缩小与 userdata 选择已在 I3
+完成；放不进配额的选项不可选未做。I4.1 现在只是向导状态栏里的进度与剩余时间，没有取消。
+
 ## 6. I5 GSI
 
 | ID | 任务 | 规模 |
@@ -279,6 +285,14 @@ kernel、initrd 与 cmdline），Venus 盘、页层与 vCPU Worker，1120 s 到 
 | I5.1 | GSI 导入：需要一个设备包（目录里的 Cuttlefish 包，或用户已有的 Android 虚拟机作为来源）；`system_a` 替换、GSI 的 `vbmeta.img` 作顶层 vbmeta、版本检查（GSI 的 `sdk_full` 不低于设备包 system 的），按 I0.2 的结论（`product_a` 不删） | M |
 | I5.2 | ABI 检查：读 `system.img` 里的 `build.prop`（erofs 或 ext4 只读查找；ext4 读取器若需要则新写）；`abilist32` 非空而 CPU profile 没有 AArch32 时提示（32 位应用与 `zygote_secondary` 不可用，见 aarch32-plan） | M |
 | I5.3 | 验收：`aosp_arm64-exp-BP4A.251205.006`（与设备包同为 16 QPR2；BP2A 比 vendor 旧，不能开机，见 I0 的结果）在参考与 v64 上开机，Android 17 的 CP3A 也开机（显卡档位同 I3） | S |
+
+进度（2026-10-24）：I5.1 完成：`assemble.js` 的 `gsi_package`（`system.img` 原始 ext4、erofs 或 sparse；`vbmeta.img` 须关闭校验；
+`build.prop` 的版本、指纹与 32 位 ABI）与 `cuttlefish_disk` 的 GSI 路径（`system_a` 放进 super 的空闲处、每份元数据都改、再缩小
+super，旧 `system_a` 的数据不写；`vbmeta_a/_b` 用 GSI 的）。版本检查用 vendor_boot 的 ramdisk 里 `prop.default` 的
+`ro.vendor.build.version.sdk_full`（不必解压 erofs：Cuttlefish 的 erofs 文件是 LZ4 压缩的，layout 3）。向导的 Android 来源
+可同时或先后拖入设备包与 GSI，页面上先读出版本与指纹，GSI 较旧时拒绝并说明，GSI 有 32 位 ABI 时提示需要 AArch32
+（I5.2；读 zip 里的 `build.prop`，不读 ext4）。`tools/android_import.mjs --gsi` 与 `tools/a64_android.mjs --gsi --shrink-super
+--userdata-mb 4096` 逐字节相同，这块盘在 QEMU 上 35 s 到 `boot_completed`。I5.3 的 v64 开机未做。
 
 ## 7. I6 模拟器镜像（AVD 的同一批镜像）
 
