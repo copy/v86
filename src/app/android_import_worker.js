@@ -4,12 +4,12 @@
 // src/android/assemble.js lays it out. Bundled into
 // build/android-import-worker.js; src/app/android_import.js starts it.
 //
-// in:  { file: File, id: string, userdata_bytes: number }
+// in:  { file: File, gsi_file: File | null, id: string, userdata_bytes: number }
 // out: { progress: [done, total] }..., then { done: { size, kind, partitions } } or { error: string }
 // in:  { op: "wipe", id }: the disk's userdata and metadata wiped (their first MiB zeroed)
 // out: { wiped: [names] } or { error: string }
 
-import { package_entries, identify_package, cuttlefish_disk, write_disk } from "../android/assemble.js";
+import { package_entries, identify_package, cuttlefish_disk, write_disk, gsi_package } from "../android/assemble.js";
 import { gpt_partitions } from "../android/gpt.js";
 
 /** the browser disks' directory */
@@ -66,17 +66,20 @@ globalThis.onmessage = async event =>
         catch(e) { postMessage({ error: e && e.message || String(e) }); }
         return;
     }
-    const { file, id, userdata_bytes } = event.data;
+    const { file, gsi_file, id, userdata_bytes } = event.data;
     /** @type {any} */
     let dir = null, access = null;
     try
     {
-        const read = async (offset, length) => new Uint8Array(await file.slice(offset, offset + length).arrayBuffer());
+        const reader = blob => async (offset, length) => new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer());
+        const read = reader(file);
         const entries = await package_entries(read, file.size);
         const kind = await identify_package(entries, read);
         if(!kind) throw new Error(file.name + " is not an Android image package v64 knows (a Cuttlefish images zip)");
         if(kind.kind !== "cuttlefish") throw new Error(file.name + " is " + kind.text + ": not imported yet");
-        const disk = await cuttlefish_disk(read, entries, { userdata_bytes });
+        const gsi_read = gsi_file ? reader(gsi_file) : undefined;
+        const gsi = gsi_file ? await gsi_package(gsi_read, await package_entries(gsi_read, gsi_file.size)) : undefined;
+        const disk = await cuttlefish_disk(read, entries, { userdata_bytes, gsi, gsi_read });
         dir = await disks_directory();
         const handle = await dir.getFileHandle(id + ".img", { create: true });
         access = await handle.createSyncAccessHandle();

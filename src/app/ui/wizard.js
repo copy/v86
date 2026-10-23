@@ -17,7 +17,7 @@ import { open_settings } from "./settings.js";
 import { PRESETS, preset, preset_config } from "../guest_presets.js";
 import { create_image, list_images, new_image_name } from "../disk_service_client.js";
 import { create_disk } from "../browser_disks.js";
-import { inspect_android_package, import_android_package, USERDATA_GIB, DEFAULT_USERDATA_GIB } from "../android_import.js";
+import { inspect_android_package, import_android_package, sort_android_files, USERDATA_GIB, DEFAULT_USERDATA_GIB } from "../android_import.js";
 import { MAX_ARRAY_BUFFER_SIZE_MB } from "../../browser/vm_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
@@ -29,7 +29,7 @@ const SOURCES = [
     ["floppy", "A floppy image"],
     ["disk", "A hard disk image with the system installed"],
     ["direct", "A kernel and initrd (and the system's CD as a read-only disk)"],
-    ["android", "An Android image package (.zip): Cuttlefish's images (aosp_cf_arm64_only_phone-img-<build>.zip from ci.android.com)"],
+    ["android", "An Android image package (.zip): Cuttlefish's images (aosp_cf_arm64_only_phone-img-<build>.zip from ci.android.com), and a GSI if wanted"],
     ["later", "Install the system later"],
 ];
 
@@ -58,8 +58,8 @@ export function open_wizard(options)
             location: "browser",
             read_write: false,
             error: "",
-            /** @type {{file: File | null, info: import("../android_import.js").PackageInfo | null, error: string, userdata_gib: number}} */
-            android: { file: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB },
+            /** @type {{file: File | null, gsi: File | null, info: import("../android_import.js").PackageInfo | null, error: string, userdata_gib: number}} */
+            android: { file: null, gsi: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB },
             progress: "",
         };
         const element = /** @type {HTMLDialogElement} */ (h("dialog.wizard-dialog", { "aria-label": "New virtual machine" }));
@@ -139,7 +139,8 @@ export function open_wizard(options)
                     state.progress = "Importing " + file.name + "…";
                     render();
                     const started = Date.now();
-                    url = (await import_android_package(file, state.name || "Android", { userdata_gib: state.android.userdata_gib, prefs: options.store,
+                    url = (await import_android_package(file, state.name || "Android", { userdata_gib: state.android.userdata_gib, gsi: state.android.gsi,
+                        prefs: options.store,
                         progress: (done, total) =>
                         {
                             const seconds = (Date.now() - started) / 1000;
@@ -237,42 +238,54 @@ export function open_wizard(options)
             return [h("fieldset", null, h("legend", null, "Where does the system come from?"), radios), pickers];
         };
 
-        // (the package: chosen or dropped, then read: what it is, the disk it gives)
-        const take_package = async file =>
+        // (the files: chosen or dropped, the device's package and a GSI (in
+        // one go or one after the other), then read: what they are, the disk)
+        const take_files = async files =>
         {
-            state.android = { file, info: null, error: "", userdata_gib: state.android.userdata_gib };
+            const a = state.android;
+            Object.assign(a, { info: null, error: "" });
             render();
             try
             {
-                state.android.info = await inspect_android_package(file);
+                const sorted = await sort_android_files(files);
+                if(sorted.device) a.file = sorted.device;
+                if(sorted.gsi) a.gsi = sorted.gsi;
+                if(!a.file) throw new Error("A GSI is a system for a device: add the device's package (a Cuttlefish images zip) too");
+                a.info = await inspect_android_package(a.file, a.gsi);
                 choose_preset("android16");
             }
             catch(e)
             {
-                state.android.error = e.message;
+                a.error = e.message;
             }
             render();
         };
         const android_picker = () =>
         {
-            const input = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".zip,application/zip", "aria-label": "Android image package" }));
-            input.addEventListener("change", () => { if(input.files && input.files[0]) take_package(input.files[0]); });
+            const input = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".zip,application/zip", multiple: true, "aria-label": "Android image package" }));
+            input.addEventListener("change", () => { if(input.files && input.files.length) take_files(Array.from(input.files)); });
             const a = state.android;
+            const gsi = a.info && a.info.gsi;
             const zone = h("div.drop-zone", { tabindex: "0" },
                 h("p", null, "Drop the package here, or choose it: ", input),
                 h("p", null, h("small.reason", null, "Download it from ci.android.com yourself (the build's Artifacts: aosp_cf_arm64_only_phone-img-<build>.zip); " +
-                    "v64 reads it here, it is not uploaded anywhere.")),
-                a.file ? h("p", { role: "status" }, a.file.name + " (" + format_size(a.file.size) + "): " +
-                    (a.error ? "" : a.info ? a.info.text + "; its disk: " + format_size(a.info.disk_size(a.userdata_gib)) : "reading…")) : null,
-                a.error ? h("p.error", null, a.error) : null);
+                    "to run a Generic System Image on that device, drop the GSI's zip too (developer.android.com's GSI releases, " +
+                    "of the device's Android version or newer). v64 reads them here, nothing is uploaded.")),
+                a.file || a.gsi ? h("p", { role: "status" }, [a.file, a.gsi].filter(Boolean).map(f => f.name + " (" + format_size(f.size) + ")").join(" and ") + ": " +
+                    (a.error ? "" : a.info ? a.info.text + (gsi ? ", running the GSI's Android " + gsi.release + " (" + gsi.fingerprint + ")" : "") +
+                        "; its disk: " + format_size(a.info.disk_size(a.userdata_gib)) : "reading…")) : null,
+                gsi && gsi.abilist32 ? h("p", null, h("small.reason", null, "The GSI has 32-bit app support (" + gsi.abilist32 + "), which needs AArch32 " +
+                    "(docs/aarch32-plan.md): Android starts, 32-bit apps do not run yet.")) : null,
+                a.error ? h("p.error", null, a.error) : null,
+                a.gsi ? h("button", { type: "button", onclick: () => { a.gsi = null; take_files([]); } }, "Without the GSI") : null);
             zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
             zone.addEventListener("dragleave", () => zone.classList.remove("over"));
             zone.addEventListener("drop", e =>
             {
                 e.preventDefault();
                 zone.classList.remove("over");
-                const file = e.dataTransfer && e.dataTransfer.files[0];
-                if(file) take_package(file);
+                const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : [];
+                if(files.length) take_files(files);
             });
             return zone;
         };

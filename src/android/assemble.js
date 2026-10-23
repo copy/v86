@@ -125,8 +125,9 @@ export async function gsi_package(read, entries)
  * @param {!Array<!Object>} entries
  * @param {{userdata_bytes: number, gsi: (Object|undefined), gsi_read: (Function|undefined)}} options
  * @return {!Promise<{device: !Object, partitions: !Array<{name: string, start: number, size: number, member: (Object|undefined), blank: (boolean|undefined)}>,
- *     disk_size: number, super_head: !Uint8Array, super_writes: !Array<{offset: number, bytes: !Uint8Array}>, super_size: number, data_bytes: number}>}
- *     data_bytes: what is written (no blank space), for progress
+ *     disk_size: number, super_head: !Uint8Array, super_writes: !Array<{offset: number, bytes: !Uint8Array}>, super_size: number, data_bytes: number,
+ *     vendor_sdk_full: string, gsi: Object}>}
+ *     data_bytes: what is written (no blank space), for progress; vendor_sdk_full: the vendor's version ("" unknown)
  */
 export async function cuttlefish_disk(read, entries, options)
 {

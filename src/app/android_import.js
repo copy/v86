@@ -4,7 +4,7 @@
 // start of its boot image and super's metadata) and the browser disk made
 // from it in a worker (android_import_worker.js, build/android-import-worker.js).
 
-import { package_entries, identify_package, cuttlefish_disk } from "../android/assemble.js";
+import { package_entries, identify_package, cuttlefish_disk, gsi_package } from "../android/assemble.js";
 import { reserve_disk, finish_disk } from "./browser_disks.js";
 import { query_append } from "./emulator_bridge.js";
 
@@ -15,7 +15,9 @@ const GIB = 1024 * 1024 * 1024;
 
 /**
  * @typedef {{kind: string, text: string, device: string | undefined, disk_size: (userdata_gib: number) => number,
- *     data_bytes: number, super_size: number}} PackageInfo disk_size: the disk's with that userdata
+ *     data_bytes: number, super_size: number, vendor_sdk_full: string,
+ *     gsi: {name: string, release: string, sdk_full: string, fingerprint: string, abilist32: string} | null}} PackageInfo
+ *     disk_size: the disk's with that userdata; gsi: the system the device runs in place of its own
  */
 
 /**
@@ -28,32 +30,64 @@ function file_reader(file)
 }
 
 /**
- * What a chosen file is, and the disk it gives
- * @param {Blob} file
+ * The chosen files sorted: the device's package (a Cuttlefish images zip)
+ * and a GSI (docs/android-images-plan.md I5), each read on the page
+ * @param {File[]} files
+ * @return {Promise<{device: File | null, gsi: File | null}>}
+ */
+export async function sort_android_files(files)
+{
+    /** @type {{device: any, gsi: any}} */
+    const sorted = { device: null, gsi: null };
+    for(const file of files)
+    {
+        const read = file_reader(file);
+        const kind = await identify_package(await package_entries(read, file.size), read);
+        const name = file.name || "the file";
+        if(!kind) throw new Error(name + " is not an Android image package v64 knows (a Cuttlefish images zip, aosp_cf_arm64_only_phone-img-<build>.zip, or a GSI zip)");
+        if(kind.kind === "cuttlefish") sorted.device = file;
+        else if(kind.kind === "gsi") sorted.gsi = file;
+        else throw new Error(name + " is " + kind.text + ": v64 does not import it yet");
+    }
+    return sorted;
+}
+
+/**
+ * What the package (and a GSI with it) gives: the device, the disk
+ * @param {Blob} file the device's package
+ * @param {(Blob & {name?: string}) | null} [gsi_file]
  * @return {Promise<PackageInfo>}
  */
-export async function inspect_android_package(file)
+export async function inspect_android_package(file, gsi_file = null)
 {
     const read = file_reader(file);
     const entries = await package_entries(read, file.size);
     const kind = await identify_package(entries, read);
     if(!kind) throw new Error("Not an Android image package v64 knows (a Cuttlefish images zip, aosp_cf_arm64_only_phone-img-<build>.zip)");
+    if(kind.kind === "gsi") throw new Error("This is a GSI: a system for a device; add the device's package (a Cuttlefish images zip) with it");
     if(kind.kind !== "cuttlefish") throw new Error("This is " + kind.text + ": v64 does not import it yet");
-    const disk = await cuttlefish_disk(read, entries, { userdata_bytes: GIB });
+    let gsi = null, gsi_read;
+    if(gsi_file)
+    {
+        gsi_read = file_reader(gsi_file);
+        gsi = await gsi_package(gsi_read, await package_entries(gsi_read, gsi_file.size));
+    }
+    const disk = await cuttlefish_disk(read, entries, { userdata_bytes: GIB, gsi: gsi || undefined, gsi_read });
     return { kind: kind.kind, text: kind.text, device: kind.device, disk_size: userdata_gib => disk.disk_size - GIB + userdata_gib * GIB,
-        data_bytes: disk.data_bytes, super_size: disk.super_size };
+        data_bytes: disk.data_bytes, super_size: disk.super_size, vendor_sdk_full: disk.vendor_sdk_full,
+        gsi: gsi && { name: gsi_file && gsi_file.name || "", release: gsi.release, sdk_full: gsi.sdk_full, fingerprint: gsi.fingerprint, abilist32: gsi.abilist32 } };
 }
 
 /**
- * The browser disk of a package, made in a worker
+ * The browser disk of a package (with a GSI), made in a worker
  * @param {Blob & {name?: string}} file
  * @param {string} label
- * @param {{userdata_gib: number, prefs?: any, progress?: (done: number, total: number) => void}} options
+ * @param {{userdata_gib: number, gsi?: (Blob & {name?: string}) | null, prefs?: any, progress?: (done: number, total: number) => void}} options
  * @return {Promise<import("./browser_disks.js").BrowserDisk>}
  */
 export async function import_android_package(file, label, options)
 {
-    const info = await inspect_android_package(file);
+    const info = await inspect_android_package(file, options.gsi || null);
     const userdata_bytes = options.userdata_gib * GIB;
     const { id } = await reserve_disk(info.disk_size(options.userdata_gib), options.prefs);
     const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
@@ -69,9 +103,10 @@ export async function import_android_package(file, label, options)
                 else reject(new Error(e.data.error));
             };
             worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
-            worker.postMessage({ file, id, userdata_bytes });
+            worker.postMessage({ file, gsi_file: options.gsi || null, id, userdata_bytes });
         });
-        return await finish_disk(id, label, { source: file.name || "", android: { kind: result.kind, device: result.device, userdata_gib: options.userdata_gib } });
+        return await finish_disk(id, label, { source: file.name || "", android: { kind: result.kind, device: result.device, userdata_gib: options.userdata_gib,
+            gsi: options.gsi ? options.gsi.name || "" : undefined } });
     }
     finally
     {
