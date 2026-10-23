@@ -42,7 +42,9 @@
 //   A64_ANDROID_CTS_MODULES=<module>,... and A64_ANDROID_CTS_FILTER=<module>=<gtest filter>;... to try parts of it),
 //   A64_ANDROID_SCENARIO=deqp (appendix F6: a dEQP subset through CtsDeqpTestCases's APK, android_deqp.mjs;
 //   A64_ANDROID_DEQP=<package>=<prefix>,...;... for other cases),
-//   A64_PROFILE=v1.1 (the CPU profile without FEAT_PAN; v2, the default, has it), TEST_RELEASE_BUILD=1 (build/libv86.mjs)
+//   A64_PROFILE=v1.1 (the CPU profile without FEAT_PAN; v2, the default, has it), TEST_RELEASE_BUILD=1 (build/libv86.mjs),
+//   A64_ANDROID_OUT=<dir> (tools/a64_android.mjs --out's materials in place of out/ or out-16k/), A64_ANDROID_CONSOLE=0 (QEMU:
+//   a user build, such as a GSI with the release vendor ramdisk, has no console; boot_completed from the kernel's log)
 // Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log, *.png, result.json)
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -64,7 +66,9 @@ import { create_remote_renderer } from "../x64/gpu_remote_renderer.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
 const page_size = { "": 4096, "4k": 4096, "16k": 16384 }[process.env.A64_ANDROID_PAGE_SIZE || ""];
 assert.ok(page_size, "A64_ANDROID_PAGE_SIZE: 4k or 16k");
-const OUT = ROOT + (page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
+// (A64_ANDROID_OUT=<dir>: another tools/a64_android.mjs output, as --out gave it: --release --no-venus's, --gsi's)
+const OUT = process.env.A64_ANDROID_OUT ? path.resolve(process.env.A64_ANDROID_OUT) + "/" :
+    ROOT + (page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
 for(const file of ["Image", "initrd.img", "disk.img", "cmdline.txt"])
 {
     assert.ok(fs.existsSync(OUT + file), OUT + file + ` is missing: node tools/a64_android.mjs --download${page_size === 4096 ? "" : " --page-size 16k"}`);
@@ -85,11 +89,15 @@ const plugins = !!+process.env.A64_QEMU_PLUGINS;
 const jit = !!+process.env.A64_JIT;
 const parallel = !!+process.env.A64_PARALLEL;
 const scenario = process.env.A64_ANDROID_SCENARIO || "";
+// A64_ANDROID_CONSOLE=0 (QEMU): no console (a user build's: ro.debuggable=0), boot_completed from the kernel's log
+const use_console = process.env.A64_ANDROID_CONSOLE !== "0";
+assert.ok(use_console || target === "qemu" && !scenario && !process.env.A64_ANDROID_PROBE, "A64_ANDROID_CONSOLE=0: QEMU, no scenario or probes");
 assert.ok(!scenario || ["a9", "a10", "pagesize", "cts", "deqp"].includes(scenario), "A64_ANDROID_SCENARIO: a9, a10, pagesize, cts or deqp");
 assert.ok(!scenario || !plugins, "A64_ANDROID_SCENARIO and A64_QEMU_PLUGINS do not go together");
 const wait_for_boot_completed = target === "qemu" || !!scenario || process.env.A64_ANDROID_WAIT === "boot_completed";
 const tag = (target === "qemu" ? `qemu-${accel}${plugins ? "-plugins" : ""}` : `v86${jit ? "-jit" : ""}${parallel ? "-par" : ""}`) +
-    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}${page_size === 4096 ? "" : "-16k"}-${memory_mb}m-${cores}c`;
+    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}${page_size === 4096 ? "" : "-16k"}-${memory_mb}m-${cores}c` +
+    (process.env.A64_ANDROID_OUT ? "-" + path.basename(OUT) : "");
 const timeout = +process.env.A64_ANDROID_TIMEOUT || (target === "qemu" && !scenario ? (accel === "hvf" ? 600000 : plugins ? 14400000 : 3600000) : 14400000);
 const directory = ROOT + `build/a64-android/runs/${tag}/`;
 fs.mkdirSync(directory, { recursive: true });
@@ -127,6 +135,8 @@ const watch = (name, file) =>
         for(const [milestone, pattern] of MILESTONES) if(marks[milestone] === undefined && pattern.test(window)) mark(milestone);
         const panic = /Kernel panic[^\n]*/.exec(window);
         if(panic) fail(new Error(panic[0]));
+        // (init's fatal errors reboot into the bootloader: an SELinux policy that does not compile, ...)
+        if(/reboot: Restarting system with command 'bootloader'/.test(window)) fail(new Error("the guest rebooted into the bootloader (init failed: kernel.log)"));
         text = window.slice(-512);
     };
 };
@@ -282,6 +292,21 @@ if(target === "qemu")
     const terminal = new AndroidConsole(socket);
     try
     {
+        if(!use_console)
+        {
+            // (a user build has no console: boot_completed from init's line in the kernel's log)
+            const qemu_failed = exited.then(code => { throw new Error("QEMU exited " + code); });
+            qemu_failed.catch(() => {});
+            await Promise.race([(async () => { while(marks.boot_completed === undefined) await sleep(1000); })(), failed, qemu_failed,
+                new Promise((_, reject) => setTimeout(() => reject(new Error(`no sys.boot_completed=1 in the kernel's log in ${timeout} ms`)), timeout))]);
+            const result = { tag, console: false, marks, ms: elapsed() };
+            child.kill("SIGKILL");
+            await exited;
+            fs.writeFileSync(directory + "result.json", JSON.stringify(result, null, 2) + "\n");
+            console.log(JSON.stringify(result));
+            console.log(`A64_ANDROID_BOOT_OK ${tag}`);
+            process.exit(0);
+        }
         await terminal.open();
         // (with a scenario, the device's settings from the console as soon as
         // the services take them, as v86 does over adb: on a slow boot the

@@ -38,6 +38,7 @@ import { DiskServiceDisk } from "../disk_service.js";
 import { OpfsDisk, is_opfs_url, opfs_file } from "../opfs_disk.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
+import { android_bootloader, ANDROID_DEVICES } from "../android/bootloader.js";
 import { FS } from "../../lib/filesystem.js";
 
 /**
@@ -475,6 +476,18 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         options.virtio_disks = await Promise.all(options.virtio_disks.map((disk, i) => opfs_readable("virtio_disk" + i, disk)));
     }
+    // android: { device, gpu_mode, selinux, vendor_ramdisk }: the kernel,
+    // initrd and command line from the disk (docs/android-images-plan.md I2)
+    if(options.android)
+    {
+        const android = options.android;
+        if(this.cpu_type !== "arm64") throw new Error("android: needs cpu_type \"arm64\"");
+        if(options.kernel || options.initrd || options.bzimage) throw new Error("android: the disk's boot partitions give the kernel and initrd (kernel and initrd left out)");
+        if(!options.virtio_disks || !options.virtio_disks.length) throw new Error("android: the disk with the device's partitions is the first of virtio_disks");
+        if(android.device !== undefined && !ANDROID_DEVICES[android.device]) throw new Error("android.device: one of " + Object.keys(ANDROID_DEVICES).join(", "));
+        if(android.gpu_mode !== undefined && !["swiftshader", "venus"].includes(android.gpu_mode)) throw new Error("android.gpu_mode: swiftshader or venus");
+        if(android.selinux !== undefined && !["enforcing", "permissive"].includes(android.selinux)) throw new Error("android.selinux: enforcing or permissive");
+    }
 
     this.bus.register("emulator-stopped", function()
     {
@@ -844,6 +857,10 @@ V86.prototype.continue_init = async function(emulator, options)
             case "dtb":
                 settings.dtb = buffer.buffer;
                 break;
+            // android.vendor_ramdisk (docs/android-images-plan.md I2)
+            case "android_vendor_ramdisk":
+                settings.android_vendor_ramdisk = buffer.buffer;
+                break;
 
             case "bios":
                 settings.bios = buffer.buffer;
@@ -912,7 +929,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         if(name === "bios" || name === "vga_bios" ||
             name === "initial_state" || name === "multiboot" ||
-            name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb")
+            name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb" || name === "android_vendor_ramdisk")
         {
             // Ignore async for these because they must be available before boot.
             // This should make result.buffer available after the object is loaded
@@ -962,6 +979,7 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("initrd", options.initrd);
     add_file("kernel", options.kernel);
     add_file("dtb", options.dtb);
+    add_file("android_vendor_ramdisk", options.android && options.android.vendor_ramdisk);
     // the virt machine's virtio-blk disks: {url or buffer, async, size, id,
     // readonly}; the buffer an ArrayBuffer, a File, or a buffer object of
     // its own (get, set, load), as hda may be
@@ -1182,6 +1200,25 @@ V86.prototype.continue_init = async function(emulator, options)
 
         settings.graphics_adapter = await graphics_adapter;
         settings.graphics_adapter_renderer = await adapter_renderer;
+
+        if(options.android)
+        {
+            // Android's bootloader (docs/android-images-plan.md I2): the
+            // kernel, the initrd with bootconfig and the command line from
+            // the first disk's boot partitions. Also with a state: a reset
+            // loads them again (src/arm/cpu.js)
+            const disk = settings.virtio_disks[0].buffer;
+            const boot = await android_bootloader((offset, length) => new Promise(resolve => disk.get(offset, length, resolve)), disk.byteLength, {
+                device: options.android.device, gpu_mode: options.android.gpu_mode, selinux: options.android.selinux,
+                memory_mb: Math.round((settings.memory_size + (settings.extended_memory_size || 0)) / 1048576),
+                vendor_ramdisk: settings.android_vendor_ramdisk ? new Uint8Array(settings.android_vendor_ramdisk) : undefined,
+            });
+            settings.kernel = boot.kernel.slice().buffer;
+            settings.initrd = boot.initrd.slice().buffer;
+            settings.cmdline = [boot.cmdline, options.cmdline].filter(Boolean).join(" ");
+            dbg_log("android: " + settings.kernel.byteLength + " bytes of kernel, " + settings.initrd.byteLength + " of initrd, vbmeta " +
+                boot.vbmeta.digest + ", cmdline " + settings.cmdline);
+        }
 
         if(this.destroyed) return;
         this.v86.init(settings);

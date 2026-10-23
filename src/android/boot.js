@@ -29,7 +29,9 @@ export function android_boot(read_partition, device, options)
     const vendor_boot = parse_vendor_boot_image(read_partition("vendor_boot"));
     const vbmeta = vbmeta_digest(read_partition);
     const bootconfig = parse_bootconfig(vendor_boot.bootconfig);
-    for(const [key, value] of device_bootconfig(device, { ...options, vbmeta })) bootconfig.set(key, value);
+    const launcher = device_bootconfig(device, { vbmeta, memory_mb: options.memory_mb, selinux: options.selinux, page_size: options.page_size,
+        gpu_mode: options.gpu_mode });
+    for(const [key, value] of launcher) bootconfig.set(key, value);
     const ramdisk = concat([options.vendor_ramdisk || vendor_boot.ramdisk, options.extra_ramdisk || new Uint8Array(0), init_boot.ramdisk]);
     const cmdline = [vendor_boot.cmdline, boot.cmdline, device.cmdline_tail].filter(Boolean).join(" ");
     return { kernel: boot.kernel, initrd: append_bootconfig(ramdisk, bootconfig), cmdline, bootconfig, vbmeta, boot, vendor_boot };

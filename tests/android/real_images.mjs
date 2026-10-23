@@ -119,4 +119,28 @@ await part("the bootloader's work from disk.img", [OUT + "disk.img", OUT + "mani
     }
 });
 
+// v64's bootloader (I2.2): a V86 with android in place of kernel, initrd
+// and cmdline loads what the tool made (TEST_RELEASE_BUILD=1: build/libv86.mjs)
+await part("v64's bootloader (V86 android option)", [OUT + "disk.img", OUT + "manifest.json", A + "dl/vendor_ramdisk-debug.img", ROOT + "build/v86-arm64.wasm"], async () =>
+{
+    const manifest = JSON.parse(fs.readFileSync(OUT + "manifest.json", "utf8"));
+    if(manifest.kernel.page_size !== 4096) { console.log("  (16K: not on the disk)"); return; }
+    const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+    for(const gpu_mode of manifest.results["initrd-venus.img"] ? ["swiftshader", "venus"] : ["swiftshader"])
+    {
+        const emulator = new V86({
+            cpu_type: "arm64", cpu_cores: 1, memory_size: 1536 * 1048576, log_level: 0, autostart: false,
+            wasm_path: ROOT + "build/v86-arm64.wasm", virtio_transport: "pci", graphics_adapter: "none",
+            virtio_disks: [{ url: OUT + "disk.img", async: true, size: fs.statSync(OUT + "disk.img").size }],
+            android: { gpu_mode, vendor_ramdisk: { url: A + "dl/vendor_ramdisk-debug.img" } },
+        });
+        await new Promise((resolve, reject) => { emulator.add_listener("emulator-loaded", resolve); emulator.add_listener("emulator-error", reject); });
+        const files = emulator.v86.cpu.boot_files;
+        assert.equal(files.cmdline, manifest.cmdline);
+        assert.equal(sha256(new Uint8Array(files.kernel)), manifest.results.Image);
+        assert.equal(sha256(new Uint8Array(files.initrd)), manifest.results[gpu_mode === "venus" ? "initrd-venus.img" : "initrd.img"], gpu_mode);
+        await emulator.destroy();
+    }
+});
+
 console.log(`${ran} parts ran`);

@@ -83,6 +83,9 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),
         // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)
         "kernel": file(o.kernel), "dtb": file(o.dtb),
+        // (docs/android-images-plan.md I2: the bootloader runs in the worker, beside the disk)
+        "android": o.android && { "device": o.android.device, "gpu_mode": o.android.gpu_mode, "selinux": o.android.selinux,
+            "vendor_ramdisk": file(o.android.vendor_ramdisk) },
         "virtio_disks": o.virtio_disks && o.virtio_disks.map(disk => Object.assign({}, file(disk), { "readonly": disk.readonly, "id": disk.id })),
         "virtio_rng": o.virtio_rng, "virtio_input": o.virtio_input, "virtio_transport": o.virtio_transport,
         "virtio_vsock": o.virtio_vsock, "virtio_sound": o.virtio_sound, "virtio_console_ports": o.virtio_console_ports, "virtio_gpu_pci_slot": o.virtio_gpu_pci_slot,

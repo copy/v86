@@ -50,6 +50,14 @@
 //   (as odm's); userdata blank and fstab.cf.ext4.hctr2 (f2fs's block is the
 //   page: the image's 4 KiB-block f2fs does not mount on a 16K kernel, so
 //   first boot makes ext4 there);
+// - with --gsi <zip> (docs/android-images-plan.md I0.2, I5): a Generic
+//   System Image's system.img (from ci.android.com's or the GSI release
+//   page's aosp_arm64 zip, raw ext4) as system_a, in free space in super,
+//   every metadata copy's extent changed; its vbmeta.img (verification
+//   disabled) the top-level vbmeta, so the bootconfig's digest is that
+//   struct's alone and nothing is verified (the device is unlocked, as
+//   flashing a GSI needs); no Venus (--no-venus is implied), and
+//   build/a64-android/out-gsi/ by default;
 // - manifest.json: the artifacts' and results' hashes, the partitions, the
 //   kernel command line and bootconfig (bootconfig.txt, cmdline.txt too);
 // - modules/: the vendor ramdisk's virtual-device modules (virtio_pci,
@@ -71,8 +79,10 @@
 // I1), which v64's own bootloader and importer use too; this tool keeps the
 // files, the downloads and the 16K modules.
 //
-//   node tools/a64_android.mjs [--download] [--release] [--selinux enforcing|permissive]
+//   node tools/a64_android.mjs [--download] [--release] [--no-venus] [--gsi <zip>] [--selinux enforcing|permissive]
 //       [--memory-mb 1536] [--out build/a64-android/out] [--extract] [--fresh-disk] [--page-size 4k|16k]
+//   (--release --no-venus: Cuttlefish's images as they are, I0.2's official
+//   reference: vendor_boot's own ramdisk, SwiftShader, super unchanged)
 //   (--download: fetch the missing artifacts into build/a64-android/dl/ first;
 //   --extract: then boot them on QEMU with HVF, the host's CPU, and write the
 //   mounted read-only partitions and active APEXes as build/a64-android/rootfs.tar
@@ -86,12 +96,14 @@ import os from "node:os";
 import net from "node:net";
 import { android_qemu_args, AndroidConsole } from "../tests/a64/android_qemu.mjs";
 import { qemu_binary } from "../tests/a64/guest_runner.mjs";
-import { latin1, bytes_of, equals, index_of } from "../src/android/bytes.js";
+import { u16, u32, latin1, bytes_of, equals, index_of } from "../src/android/bytes.js";
 import { parse_boot_image, parse_vendor_boot_image } from "../src/android/bootimg.js";
 import { lz4_legacy_decompress, lz4_legacy_store } from "../src/android/lz4.js";
 import { cpio_files, cpio_newc } from "../src/android/cpio.js";
 import { unsparse, sparse_read, sparse_size } from "../src/android/sparse.js";
-import { lp_metadata, lp_end, super_replace, super_footer_struct, super_partition } from "../src/android/lp.js";
+import { lp_metadata, lp_end, lp_place, super_replace, super_footer_struct, super_partition } from "../src/android/lp.js";
+import { vbmeta_struct, AVB_FLAG_VERIFICATION_DISABLED } from "../src/android/avb.js";
+import { zip_entries, zip_stream, zip_read } from "../src/android/zip.js";
 import { erofs_data, erofs_list, erofs_lookup, erofs_add_file, erofs_replace_files } from "../src/android/erofs.js";
 import { SECTOR, gpt_layout, gpt_writes } from "../src/android/gpt.js";
 import { CF_ARM64_ONLY_PHONE, device_partitions } from "../src/android/devices.js";
@@ -131,12 +143,14 @@ const VENUS_DRIVER = ROOT + "build/a64-android/venus/vulkan.virtio.so";
 function parse_args(argv)
 {
     const args = { download: false, release: false, selinux: "enforcing", memory_mb: 1536, extract: false, fresh_disk: false,
-        out: null, page_size: 4096 };
+        out: null, page_size: 4096, venus: true, gsi: null };
     for(let i = 0; i < argv.length; i++)
     {
         const arg = argv[i];
         if(arg === "--download") args.download = true;
         else if(arg === "--release") args.release = true;
+        else if(arg === "--no-venus") args.venus = false;
+        else if(arg === "--gsi") { args.gsi = path.resolve(argv[++i]); args.venus = false; }
         else if(arg === "--selinux") args.selinux = argv[++i];
         else if(arg === "--memory-mb") args.memory_mb = +argv[++i];
         else if(arg === "--extract") args.extract = true;
@@ -148,7 +162,8 @@ function parse_args(argv)
     if(!["enforcing", "permissive"].includes(args.selinux)) throw new Error("--selinux enforcing|permissive");
     if(!args.page_size) throw new Error("--page-size 4k|16k");
     if(args.extract && args.page_size !== 4096) throw new Error("--extract: 4k only");
-    args.out ||= ROOT + (args.page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
+    if(args.gsi && args.page_size !== 4096) throw new Error("--gsi: 4k only");
+    args.out ||= ROOT + (args.gsi ? "build/a64-android/out-gsi/" : args.page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
     return args;
 }
 
@@ -363,8 +378,31 @@ async function main()
         super_patches.push(result.data);
         return result.record;
     };
-    const driver = fs.existsSync(VENUS_DRIVER) ? fs.readFileSync(VENUS_DRIVER) : null;
+    const driver = args.venus && fs.existsSync(VENUS_DRIVER) ? fs.readFileSync(VENUS_DRIVER) : null;
     const venus = driver && { record: replace("odm", "vbmeta", odm_with_driver(super_partition(super_read, lp, vbmeta_of("vbmeta"), "odm"), driver)) };
+    // the GSI (see the top): system_a in free space, streamed from the zip
+    // as the disk is written; the GSI's vbmeta the top-level one
+    let gsi = null;
+    if(args.gsi)
+    {
+        const zip_read_at = file_reader(args.gsi);
+        const entries = await zip_entries(zip_read_at, fs.statSync(args.gsi).size);
+        const member = name => entries.find(e => e.name === name) || (() => { throw new Error(`${args.gsi}: no ${name}`); })();
+        const system = member("system.img"), gsi_vbmeta = await zip_read(zip_read_at, member("vbmeta.img"));
+        if(!(vbmeta_struct(gsi_vbmeta).flags & AVB_FLAG_VERIFICATION_DISABLED)) throw new Error("the GSI's vbmeta.img does not disable verification");
+        // (ext4's magic at 1024 + 56, erofs's at 1024)
+        const head = await zip_read(zip_read_at, system, 1082);
+        if(u16(head, 1080) !== 0xEF53 && u32(head, 1024) !== 0xE0F5E1E2) throw new Error("the GSI's system.img is neither ext4 nor erofs (sparse?)");
+        if(system.size % SECTOR) throw new Error("the GSI's system.img is not whole sectors");
+        const align = lp.alignment / SECTOR, sector = Math.ceil(space.sector / align) * align;
+        super_patches.push(...lp_place(lp, "system_a", sector, system.size / SECTOR), { offset: sector * SECTOR, zip: { read: zip_read_at, entry: system } });
+        space.sector = sector + Math.ceil(system.size / lp.alignment) * align;
+        vbmeta_images.set("vbmeta", gsi_vbmeta);
+        const build_prop = entries.find(e => e.name === "build.prop");
+        gsi = { zip: path.basename(args.gsi), sha256: sha256_file(args.gsi), system: { size: system.size, crc32: system.crc32, sector },
+            vbmeta_sha256: create_hash("sha256").update(gsi_vbmeta).digest("hex"),
+            fingerprint: build_prop ? (/^ro\.(?:system\.)?build\.fingerprint=(.*)$/m.exec(latin1(await zip_read(zip_read_at, build_prop))) || [])[1] || null : null };
+    }
 
     const vendor_ramdisk = args.release ? vendor_boot.ramdisk : fs.readFileSync(DL + "vendor_ramdisk-debug.img");
     const lib_modules = ramdisk => new Map([...cpio_files(lz4_legacy_decompress(ramdisk))].flatMap(([name, data]) =>
@@ -461,7 +499,7 @@ async function main()
     // --fresh-disk: the runs keep their writes in memory, the image stays
     // as made, and a guest still reading it is not disturbed)
     const disk_key = JSON.stringify({ artifacts: hashes, partitions: partitions.map(p => [p.name, p.start, p.size]),
-        venus: venus ? venus.record : null, ...(hashes_16k ? { kernel_16k: hashes_16k, modules_16k } : {}) });
+        venus: venus ? venus.record : null, ...(hashes_16k ? { kernel_16k: hashes_16k, modules_16k } : {}), ...(gsi ? { gsi } : {}) });
     const key_file = args.out + "disk.key";
     if(args.fresh_disk || !fs.existsSync(disk) || fs.statSync(disk).size !== disk_size ||
         !fs.existsSync(key_file) || fs.readFileSync(key_file, "utf8") !== disk_key)
@@ -482,7 +520,17 @@ async function main()
             {
                 console.log(`${p.name}: unsparsing ${path.basename(p.source.sparse)} (${p.size} bytes)`);
                 unsparse_into(p.source.sparse, fd, p.start);
-                for(const patch of p.source.patches || []) fs.writeSync(fd, patch.bytes, 0, patch.bytes.length, p.start + patch.offset);
+                for(const patch of p.source.patches || [])
+                {
+                    if(patch.bytes) fs.writeSync(fd, patch.bytes, 0, patch.bytes.length, p.start + patch.offset);
+                    else
+                    {
+                        // (a zip member, as it inflates)
+                        console.log(`${p.name}: ${patch.zip.entry.name} (${patch.zip.entry.size} bytes) at ${patch.offset}`);
+                        let at = p.start + patch.offset;
+                        await zip_stream(patch.zip.read, patch.zip.entry, bytes => { fs.writeSync(fd, bytes, 0, bytes.length, at); at += bytes.length; });
+                    }
+                }
             }
         }
         fs.closeSync(fd);
@@ -502,6 +550,7 @@ async function main()
         vbmeta,
         venus: venus ? { driver: { file: path.relative(ROOT, VENUS_DRIVER), sha256: create_hash("sha256").update(driver).digest("hex") },
             odm: venus.record, bootconfig: Object.fromEntries(DEVICE.gpu_modes.venus) } : null,
+        ...(gsi ? { gsi } : {}),
         cmdline,
         bootconfig: Object.fromEntries(bootconfig),
         disk: { size: disk_size, sector: SECTOR, boot_devices: DEVICE.boot_devices,

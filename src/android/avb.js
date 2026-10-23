@@ -6,7 +6,8 @@ import { u32be, u64be, put32be, put64be, latin1, c_string, concat, sha256, sha25
 
 const AVB_HEADER_SIZE = 256;
 /** vbmeta's flags: hash trees off, verification off (avbtool --disable-verity, --disable-verification) */
-export const AVB_FLAG_HASHTREE_DISABLED = 1, AVB_FLAG_VERIFICATION_DISABLED = 2;
+export const AVB_FLAG_HASHTREE_DISABLED = 1;
+export const AVB_FLAG_VERIFICATION_DISABLED = 2;
 
 /**
  * A vbmeta struct (header, authentication and auxiliary blocks) at offset

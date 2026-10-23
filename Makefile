@@ -146,6 +146,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
 	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/loader.js \
+	   android/bytes.js android/gpt.js android/avb.js android/bootimg.js android/bootconfig.js android/devices.js android/boot.js android/bootloader.js \
 	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
