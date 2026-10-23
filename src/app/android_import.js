@@ -6,6 +6,7 @@
 
 import { package_entries, identify_package, cuttlefish_disk, gsi_package } from "../android/assemble.js";
 import { reserve_disk, finish_disk } from "./browser_disks.js";
+import { create_image, list_images, new_image_name } from "./disk_service_client.js";
 import { query_append } from "./emulator_bridge.js";
 import { catalog_parts_of } from "./android_catalog.js";
 
@@ -166,6 +167,44 @@ export async function hash_file(file, progress)
             worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
             worker.postMessage({ op: "hash", file });
         });
+    }
+    finally
+    {
+        worker.terminate();
+    }
+}
+
+/**
+ * A package (with a GSI) made into a new image of the disk service
+ * (docs/android-images-plan.md I3.2): the image created, then written by
+ * the importer's worker through a write session
+ * @param {Blob & {name?: string}} file
+ * @param {string} machine the machine's name (the image's)
+ * @param {import("./disk_service_client.js").Service} service
+ * @param {{userdata_gib: number, gsi?: (Blob & {name?: string}) | null, progress?: (done: number, total: number) => void}} options
+ * @return {Promise<{url: string, size: number}>}
+ */
+export async function import_android_package_to_service(file, machine, service, options)
+{
+    const info = await inspect_android_package(file, options.gsi || null);
+    const size = info.disk_size(options.userdata_gib);
+    const image = await create_image(service, new_image_name(machine, (await list_images(service)).images), size);
+    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
+    try
+    {
+        await new Promise((resolve, reject) =>
+        {
+            worker.onmessage = e =>
+            {
+                if(e.data.progress) options.progress && options.progress(e.data.progress[0], e.data.progress[1]);
+                else if(e.data.done) resolve(e.data.done);
+                else reject(new Error(e.data.error));
+            };
+            worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
+            worker.postMessage({ file, gsi_file: options.gsi || null, id: "", userdata_bytes: options.userdata_gib * GIB,
+                service: { url: image.url, token: service.token } });
+        });
+        return { url: image.url, size };
     }
     finally
     {

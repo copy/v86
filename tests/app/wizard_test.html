@@ -13,6 +13,8 @@
                    importer's worker, the bootloader (src/android/bootloader.js) reading the disk's GPT and boot partitions
      part=android_gsi  the same package with a GSI (build/android-test-gsi.zip) dropped together; an older GSI refused; the disk's
                    vbmeta the GSI's (nothing chained)
+     part=android_service  (with the runner's service=1) the package imported into a new image of the disk service (I3.2):
+                   its size, and the bootloader reading it from the service
      part=android_boot  (local, an hour or more) docs/android-images-plan.md I3's acceptance: the official Cuttlefish images zip
                    (package=<path>, build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip) through the wizard, nothing
                    else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0); timeout=<minutes> (180)
@@ -354,6 +356,49 @@ const parts = {
         const boot = await android_bootloader(async (offset, length) => new Uint8Array(await disk.slice(offset, offset + length).arrayBuffer()), disk.size, { memory_mb: 1536 });
         check(boot.vbmeta.chained.length === 0 && boot.vbmeta.size === 256, "the GSI's vbmeta: " + JSON.stringify(boot.vbmeta));
         log("the browser disk (" + disk.size + " bytes): vbmeta the GSI's alone (" + boot.vbmeta.size + " bytes, nothing chained)");
+    },
+    async android_service()
+    {
+        const service = args.get("service");
+        check(service, "the runner's disk service (service=1)");
+        await open_library();
+        $("#preferences").click();
+        const prefs = await until(() => $("dialog[open]"), "the preferences");
+        set(prefs.querySelector("input[aria-label='Disk service URL']"), service);
+        button("Save", prefs).click();
+        await until(() => $("#service_status").textContent === "Disk service: " + service, "the library using the disk service");
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(new w.File([await (await fetch("/build/android-test-package.zip")).blob()], "aosp_cf_test-img-1.zip", { type: "application/zip" }));
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        await until(() => /Cuttlefish arm64 device/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent), "the package read");
+        await until(() => button("Next", wizard), "Next");
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
+        button("Next", wizard).click();
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android on the service");
+        button("Next", wizard).click();
+        (await until(() => wizard.querySelector("input[name=userdata][value='2']"), "the userdata sizes")).click();
+        (await until(() => wizard.querySelector("input[name=location][value=service]:not([disabled])"), "the service as the location")).click();
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary");
+        button("Finish", wizard).click();
+        await until(() => names().includes("Android on the service"), "the new machine in the library", 120000);
+        const listed = await (await fetch("/__service_files")).json();
+        const image = listed.find(f => f.name === "android-on-the-service.img");
+        check(image && image.size > 2 << 30, "the service's image: " + JSON.stringify(listed));
+        const url = service.replace(/\/?$/, "/") + image.name;
+        const { android_bootloader } = await import("/src/android/bootloader.js");
+        const read = async (offset, length) => new Uint8Array(await (await fetch(url, { headers: { Range: "bytes=" + offset + "-" + (offset + length - 1) } })).arrayBuffer());
+        const boot = await android_bootloader(read, image.size, { memory_mb: 1536 });
+        check(boot.kernel.length === 8192 && /console=hvc0/.test(boot.cmdline), "the bootloader on the service's image");
+        check(/read write/.test(table_text($(".hardware"))) && table_text($(".hardware")).includes(image.name), "the machine's disk: " + table_text($(".hardware")));
+        log("the disk service's image " + image.name + " (" + image.size + " bytes): the bootloader gives " + boot.kernel.length + " bytes of kernel, cmdline " + boot.cmdline);
     },
     async android_boot()
     {

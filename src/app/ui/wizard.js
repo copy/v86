@@ -17,7 +17,8 @@ import { open_settings } from "./settings.js";
 import { PRESETS, preset, preset_config } from "../guest_presets.js";
 import { create_image, list_images, new_image_name } from "../disk_service_client.js";
 import { create_disk } from "../browser_disks.js";
-import { inspect_android_package, import_android_package, sort_android_files, hash_file, USERDATA_GIB, DEFAULT_USERDATA_GIB } from "../android_import.js";
+import { inspect_android_package, import_android_package, import_android_package_to_service, sort_android_files, hash_file, USERDATA_GIB,
+    DEFAULT_USERDATA_GIB } from "../android_import.js";
 import { ANDROID_CATALOG } from "../android_catalog.js";
 import { MAX_ARRAY_BUFFER_SIZE_MB } from "../../browser/vm_options.js";
 
@@ -117,8 +118,9 @@ export function open_wizard(options)
                 if(config.android) config.android.gpu_mode = "swiftshader";
                 config.display.vulkan = false;
                 config.display.proxy = false;
-                config.disks = [{ slot: "hda", image: { kind: "browser", path: made || "(made when finished)", size: state.android.info.disk_size(state.android.userdata_gib) },
-                    disk_option: "read_write", disk_error: "stop" }];
+                const size = state.android.info.disk_size(state.android.userdata_gib);
+                config.disks = [{ slot: "hda", image: state.location === "service" ? { kind: "url", url: made || "(created when finished)", size, async: true } :
+                    { kind: "browser", path: made || "(made when finished)", size }, disk_option: "read_write", disk_error: "stop" }];
             }
             else if(state.disk === "new")
             {
@@ -143,17 +145,19 @@ export function open_wizard(options)
                     state.progress = "Importing " + file.name + "…";
                     render();
                     const started = Date.now();
-                    url = (await import_android_package(file, state.name || "Android", { userdata_gib: state.android.userdata_gib, gsi: state.android.gsi,
-                        prefs: options.store,
-                        progress: (done, total) =>
-                        {
-                            const seconds = (Date.now() - started) / 1000;
-                            const left = done ? seconds * (total - done) / done : 0;
-                            state.progress = "Importing " + file.name + ": " + Math.floor(done / total * 100) + "% (" + format_size(done) + " of " + format_size(total) +
-                                (done && done < total ? ", about " + Math.ceil(left) + " s left" : "") + ")";
-                            const status = element.querySelector(".wizard-status");
-                            if(status) status.textContent = state.progress;
-                        } })).path;
+                    const progress = (done, total) =>
+                    {
+                        const seconds = (Date.now() - started) / 1000;
+                        const left = done ? seconds * (total - done) / done : 0;
+                        state.progress = "Importing " + file.name + ": " + Math.floor(done / total * 100) + "% (" + format_size(done) + " of " + format_size(total) +
+                            (done && done < total ? ", about " + Math.ceil(left) + " s left" : "") + ")";
+                        const status = element.querySelector(".wizard-status");
+                        if(status) status.textContent = state.progress;
+                    };
+                    const imported = { userdata_gib: state.android.userdata_gib, gsi: state.android.gsi, progress };
+                    url = state.location === "service" ?
+                        (await import_android_package_to_service(file, state.name || "android", /** @type {Service} */ (options.service), imported)).url :
+                        (await import_android_package(file, state.name || "Android", Object.assign({ prefs: options.store }, imported))).path;
                     state.progress = "";
                 }
                 catch(e)
@@ -381,12 +385,19 @@ export function open_wizard(options)
                 const info = /** @type {import("../android_import.js").PackageInfo} */ (state.android.info);
                 const sizes = USERDATA_GIB.map(gib => h("label.check", null, h("input", { type: "radio", name: "userdata", value: String(gib), checked: state.android.userdata_gib === gib,
                     onchange: () => { state.android.userdata_gib = gib; render(); } }), " " + gib + " GiB" + (gib === DEFAULT_USERDATA_GIB ? " (the usual)" : "")));
+                if(state.location === "memory" || state.location === "service" && !options.service) state.location = "browser";
+                const where = [["browser", "A browser disk: kept in this browser (until its site data is cleared)", false, ""],
+                    ["service", "The disk service: an image file on " + (options.service ? options.service.url : "a disk service") + " (kept)", !options.service,
+                        options.service ? "" : "No disk service: start one (make run starts one), or set it in Preferences"]].map(([value, text, disabled, title]) =>
+                    h("label.check", { title }, h("input", { type: "radio", name: "location", value, checked: state.location === value, disabled,
+                        onchange: () => { state.location = /** @type {string} */ (value); render(); } }), " " + text));
                 return [
-                    h("p", null, "A browser disk made from the package: its images as they are, super shrunk to its partitions (" + format_size(info.super_size) + "), " +
+                    h("p", null, "A disk made from the package: its images as they are, super shrunk to its partitions (" + format_size(info.super_size) + "), " +
                         "userdata blank (Android formats it at first boot). " + format_size(info.disk_size(state.android.userdata_gib)) + " in all, about " +
                         format_size(info.data_bytes) + " of it written now."),
                     h("fieldset", null, h("legend", null, "Space for apps and data (userdata)"), sizes),
-                    quota_note(),
+                    h("fieldset", null, h("legend", null, "Where it is kept"), where),
+                    state.location === "browser" ? quota_note() : null,
                     h("p", null, h("small.reason", null, "The package boots with SwiftShader (the CPU draws): Android starts, its desktop needs the GPU support of " +
                         "docs/gfxstream-plan.md.")),
                 ];

@@ -769,6 +769,7 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/android/make_package.mjs
 	for part in freedos linux arm64 dialog android android_gsi; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
+	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main worker=0
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1

@@ -4,7 +4,8 @@
 // src/android/assemble.js lays it out. Bundled into
 // build/android-import-worker.js; src/app/android_import.js starts it.
 //
-// in:  { file: File, gsi_file: File | null, id: string, userdata_bytes: number }
+// in:  { file: File, gsi_file: File | null, id: string, userdata_bytes: number, service?: { url, token } }
+//      (service: the disk service's new image written, I3.2, in place of the browser disk id)
 // out: { progress: [done, total] }..., then { done: { size, kind, partitions } } or { error: string }
 // in:  { op: "wipe", id }: the disk's userdata and metadata wiped (their first MiB zeroed)
 // out: { wiped: [names] } or { error: string }
@@ -14,6 +15,7 @@
 import { package_entries, identify_package, cuttlefish_disk, write_disk, gsi_package } from "../android/assemble.js";
 import { gpt_partitions } from "../android/gpt.js";
 import { SHA256 } from "../image/sha256.js";
+import { service_writer } from "../android/service_writer.js";
 
 /** the browser disks' directory */
 async function disks_directory()
@@ -87,7 +89,7 @@ globalThis.onmessage = async event =>
         catch(e) { postMessage({ error: e && e.message || String(e) }); }
         return;
     }
-    const { file, gsi_file, id, userdata_bytes } = event.data;
+    const { file, gsi_file, id, userdata_bytes, service } = event.data;
     /** @type {any} */
     let dir = null, access = null;
     try
@@ -101,15 +103,8 @@ globalThis.onmessage = async event =>
         const gsi_read = gsi_file ? reader(gsi_file) : undefined;
         const gsi = gsi_file ? await gsi_package(gsi_read, await package_entries(gsi_read, gsi_file.size)) : undefined;
         const disk = await cuttlefish_disk(read, entries, { userdata_bytes, gsi, gsi_read });
-        dir = await disks_directory();
-        const handle = await dir.getFileHandle(id + ".img", { create: true });
-        access = await handle.createSyncAccessHandle();
-        access.truncate(disk.disk_size);
         let shown = 0;
-        await write_disk(read, disk, (offset, bytes) =>
-        {
-            if(access.write(bytes, { at: offset }) !== bytes.length) throw new Error("a short write into the browser disk (no room?)");
-        }, (done, total) =>
+        const progress = (done, total) =>
         {
             // (at most every 1/200th)
             if(done - shown >= total / 200 || done === total)
@@ -117,12 +112,29 @@ globalThis.onmessage = async event =>
                 shown = done;
                 postMessage({ progress: [done, total] });
             }
-        });
+        };
+        const done = () => postMessage({ done: { size: disk.disk_size, kind: kind.kind, device: kind.device,
+            partitions: disk.partitions.map(p => ({ name: p.name, start: p.start, size: p.size })) } });
+        if(service)
+        {
+            const writer = await service_writer(service.url, service.token);
+            await write_disk(read, disk, (offset, bytes) => writer.write(offset, bytes), progress);
+            await writer.close();
+            done();
+            return;
+        }
+        dir = await disks_directory();
+        const handle = await dir.getFileHandle(id + ".img", { create: true });
+        access = await handle.createSyncAccessHandle();
+        access.truncate(disk.disk_size);
+        await write_disk(read, disk, (offset, bytes) =>
+        {
+            if(access.write(bytes, { at: offset }) !== bytes.length) throw new Error("a short write into the browser disk (no room?)");
+        }, progress);
         access.flush();
         access.close();
         access = null;
-        postMessage({ done: { size: disk.disk_size, kind: kind.kind, device: kind.device,
-            partitions: disk.partitions.map(p => ({ name: p.name, start: p.start, size: p.size })) } });
+        done();
     }
     catch(e)
     {
