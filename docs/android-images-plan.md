@@ -1,6 +1,7 @@
 # Android 镜像：选镜像就能用与系统目录 实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `336f0df7`。规模：S 为几天，M 约 1–2 周，
+状态：实施中。2026-10-23 初稿，基于 `336f0df7`。2026-10-24：I0.1、I0.2 完成（结果见 §1 之后的“I0 的结果”），
+I1 完成（`1e9506c5`、`2c958904`），I2.1、I2.2 完成（`442d8b52` 及其后），I2.3 的 v64 验收见 §3。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
@@ -166,7 +167,55 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I0.3 | 配额与空间：Chrome、Firefox、Safari 对 OPFS 的名义大小计费与同步访问句柄的支持；super 缩小后的盘大小；最低空间要求 | S |
 | I0.4 | 所有者决定：目录的首批条目（下载方式与 vendor ramdisk 的默认已定，见待决问题） | S |
 
+### I0 的结果（2026-10-24）
+
+**I0.1 包的内容。** 官方 GSI zip（三个都是 `system.img`、`vbmeta.img`、`build.prop` 三个成员，deflate，
+`system.img` 为原始 ext4，不是 sparse；`vbmeta.img` 的标志为 2，即关闭校验，可直接作顶层 vbmeta；
+`build.prop` 在 zip 里，不必读 ext4）：
+
+| GSI | `system.img` | `ro.system.build.version.sdk_full` | 类型 | `abilist32` |
+| --- | --- | --- | --- | --- |
+| `aosp_arm64-exp-BP2A.250605.031.A3-13578795`（Android 16） | 1,958,629,376 | 36.0 | user | `armeabi-v7a,armeabi` |
+| `aosp_arm64-exp-BP4A.251205.006-14401865`（Android 16 QPR2） | 1,889,701,888 | 36.1 | user | `armeabi-v7a,armeabi` |
+| `aosp_arm64-exp-CP3A.260905.010-16176746`（Android 17 QPR1） | 2,072,014,848 | 37.1 | user | `armeabi-v7a,armeabi` |
+
+发布页（2026-10-24）列出了每个 zip 的 sha256（`2171cf0e…`、`4a869a69…` 与下载的文件一致）。Cuttlefish 15581820
+的 super：LP 头 v10.2（Virtual A/B 标志），3 个元数据槽共 6 份相同的副本，16 个逻辑分区、5 个组，已用到
+1.42 GiB（块设备 8 GiB）。
+
+**I0.2 参考引导**（QEMU 9.2 HVF，4 核，1536 MB；`tools/a64_android.mjs` 的 `--release --no-venus` 与 `--gsi`，
+`tests/a64/android_boot.mjs` 的 `A64_ANDROID_OUT`、`A64_ANDROID_CONSOLE=0`）：
+
+| system | vendor ramdisk | 结果 |
+| --- | --- | --- |
+| Cuttlefish 15581820 自带（官方镜像不改，SwiftShader） | release | 19 s 到 `sys.boot_completed` |
+| GSI 16（BP2A，36.0） | debug | init 编译 SELinux 策略失败：debug ramdisk 的 `userdebug_plat_sepolicy.cil` 用了该 GSI 的 secilc 不认识的 policycap `functionfs_seclabel` |
+| GSI 16（BP2A，36.0） | release | init 编译策略失败：vendor 的策略用了 `nlmsg` 权限，该 GSI 的平台策略没有 |
+| GSI 16 QPR2（BP4A，36.1） | debug | 25 s（控制台可用：force_debuggable） |
+| GSI 16 QPR2（BP4A，36.1） | release | 23 s（user 版本没有控制台，从内核日志里 init 的那一行判断） |
+| GSI 17 QPR1（CP3A，37.1） | release | 22 s |
+
+结论：
+
+- **GSI 不能比 vendor 旧。** 导入 GSI 时比较它的 `ro.system.build.version.sdk_full` 与设备包自带 system 的
+  `sdk_full`（Cuttlefish 15581820 为 36.1），GSI 较旧时拒绝并说明原因；较新的（Android 17）可以。I5.3 的验收
+  改用 BP4A，目录首批列 BP4A 与 CP3A。
+- **debug vendor ramdisk 只配同一版本的 system。** 它的 userdebug 策略取代平台策略；GSI 较新时只用 release
+  （I4.2 的设置在 GSI 版本不同时不提供 debug）。
+- **`product_a` 不用删。** GSI 的 `skip_mount.cfg` 让 first stage init 跳过 `/product`（内核日志
+  “Skip mounting mountpoint: /product”）；I5.1 只替换 `system_a`，并以 GSI 的 `vbmeta.img` 作顶层 vbmeta
+  （摘要只算它一个结构，链接的分区不加载）。
+- 官方 Cuttlefish 镜像不改即可开机，I3 的“选 zip 就能开机”没有额外障碍。
+
 ## 2. I1 共用镜像库
+
+完成（2026-10-24，`1e9506c5`、`2c958904`）：`src/android/` 的 `bytes`、`bootimg`、`lz4`、`cpio`、`bootconfig`、
+`sparse`（随机读、按写入解开、流式 `sparse_decoder`）、`avb`、`lp`（读；`lp_parse`/`lp_serialize`、
+`lp_resize`、`lp_remove`、`lp_place`，Cuttlefish 的 6 份元数据原样写回逐字节相同）、`erofs`、`gpt`、`zip`
+（zip64、`DecompressionStream` 流式解压、CRC-32）、`devices`、`boot`。`tools/a64_android.mjs` 改用它们：4K 与
+16K（都带 Venus）的全部产物与 17.5 GB 的 `disk.img` 逐字节不变。单元测试 `tests/android/library.mjs`
+（`make ci-tests`），真实镜像的检查 `tests/android/real_images.mjs`（本地）。浏览器里跑同一套测试留到 I3 的
+组装器测试一起做。xz 与 gzip 的流式解压（第三方 GSI）留到 I5。
 
 | ID | 任务 | 关键位置 | 门禁 | 规模 |
 | --- | --- | --- | --- | --- |
@@ -174,6 +223,14 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I1.2 | `tools/a64_android.mjs` 改用这些模块（node 的 I/O 留在工具里） | 工具 | 4K、16K、Venus 三种产物与 `manifest.json` 的 `results` hash 逐字节不变 | M |
 
 ## 3. I2 引导器
+
+进度（2026-10-24）：I2.2 完成：`src/android/bootloader.js`，V86 的 `android` 选项（`{ device, gpu_mode, selinux,
+vendor_ramdisk }`，vendor_ramdisk 为 debug ramdisk 的文件），在 `starter.js` 的 `done()` 里执行（CPU Worker 下在
+Worker 里；有状态时也执行，供复位重新加载）。从工具的 `disk.img` 得到的内核、`initrd.img`、`initrd-venus.img` 与
+命令行逐字节相同（源码与 `build/libv86.mjs` 都核对过）。I2.1 完成：VM 配置的 `android` 节（`device`、
+`gpu_mode`、`vendor_ramdisk`、`debug_ramdisk`、`selinux`；没有 `slot` 字段，槽位属于设备型号），校验、
+`config_to_options`、`vm_model` 的连带修改与摘要行；`android16` 预设改用它，安装方式为“硬盘镜像”
+（工具的 `disk.img`）。
 
 | ID | 任务 | 关键位置 | 门禁 | 规模 |
 | --- | --- | --- | --- | --- |
@@ -204,9 +261,9 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| I5.1 | GSI 导入：需要一个设备包（目录里的 Cuttlefish 包，或用户已有的 Android 虚拟机作为来源）；`system_a` 替换、`product_a` 删除、vbmeta 标志，按 I0.2 的结论 | M |
+| I5.1 | GSI 导入：需要一个设备包（目录里的 Cuttlefish 包，或用户已有的 Android 虚拟机作为来源）；`system_a` 替换、GSI 的 `vbmeta.img` 作顶层 vbmeta、版本检查（GSI 的 `sdk_full` 不低于设备包 system 的），按 I0.2 的结论（`product_a` 不删） | M |
 | I5.2 | ABI 检查：读 `system.img` 里的 `build.prop`（erofs 或 ext4 只读查找；ext4 读取器若需要则新写）；`abilist32` 非空而 CPU profile 没有 AArch32 时提示（32 位应用与 `zygote_secondary` 不可用，见 aarch32-plan） | M |
-| I5.3 | 验收：`aosp_arm64-exp-BP2A.250605.031.A3` 在参考与 v64 上开机到桌面（显卡档位同 I3） | S |
+| I5.3 | 验收：`aosp_arm64-exp-BP4A.251205.006`（与设备包同为 16 QPR2；BP2A 比 vendor 旧，不能开机，见 I0 的结果）在参考与 v64 上开机，Android 17 的 CP3A 也开机（显卡档位同 I3） | S |
 
 ## 7. I6 模拟器镜像（AVD 的同一批镜像）
 
@@ -242,7 +299,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 
 | 类别 | 例子 | 能否使用 | 条件 |
 | --- | --- | --- | --- |
-| Treble GSI（只有 system） | 社区维护的 LineageOS GSI（LineageOS 官方不发布 GSI）、其他基于 TrebleDroid 的 GSI | 能，走 I5 的 GSI 路径 | arm64；Android 版本与设备包的 vendor 相同（vendor 是 Android 16 时用 Android 16 的 GSI，即 LineageOS 23 一代；旧系统配新 vendor 不受 Treble 保证）；含 32 位用户态或 32 位 binder 的变体需要 AArch32（[aarch32-plan.md](aarch32-plan.md)）；签名不同，按 GSI 的做法关闭 vbmeta 校验 |
+| Treble GSI（只有 system） | 社区维护的 LineageOS GSI（LineageOS 官方不发布 GSI）、其他基于 TrebleDroid 的 GSI | 能，走 I5 的 GSI 路径 | arm64；Android 版本不低于设备包的 vendor（I0.2：16 QPR2 的 vendor 配 16 r1 的 GSI 编译策略失败，配 16 QPR2 与 17 QPR1 的 GSI 能开机；vendor 是 Android 16 QPR2 时用 LineageOS 23.2 一代或更新的）；含 32 位用户态或 32 位 binder 的变体需要 AArch32（[aarch32-plan.md](aarch32-plan.md)）；签名不同，按 GSI 的做法关闭 vbmeta 校验 |
 | Cuttlefish 格式的构建 | 自己从 LineageOS 或 AOSP 源码编的 Cuttlefish arm64 目标 | 能，走 I3 的 Cuttlefish 路径 | 包的布局与官方 Cuttlefish 镜像 zip 相同 |
 | Android 模拟器格式的构建 | 第三方按 SDK 模拟器格式打包的镜像 | 原则上能，走 I6 | 需要 ranchu 机器；只要包内有 `kernel-ranchu`、`ramdisk.img`、`system.img` 等 |
 | 真机的整机刷机包 | 某款手机的 LineageOS（`payload.bin` 的 OTA zip） | 不能 | 内核、vendor 与驱动是那款手机硬件的，不是虚拟设备的 |
@@ -274,7 +331,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | --- | --- |
 | 配额按名义大小计费，Android 盘大 | super 缩小、userdata 可选；导入前算出名义大小与实际写入量，不足时先提示 |
 | 用户要自己下载大文件（约 0.9–1.8 GB），可能下错版本或下不完整 | 目录给出确切的文件名、大小与 sha256；拖入后先比大小再流式算 hash，不符时指出是哪个文件、应该是什么 |
-| GSI 与 vendor 的版本搭配（vendor 比 system 新） | I0.2 的参考先验证；目录只列验证过的组合 |
+| GSI 与 vendor 的版本搭配（vendor 比 system 新） | I0.2 已验证：GSI 比 vendor 旧时 init 编译 SELinux 策略失败；导入时比较 `sdk_full` 并拒绝；目录只列验证过的组合 |
 | 浏览器差异（OPFS 同步句柄要 Chromium 108 以上；Firefox、Safari 的配额与性能） | 先保证 Chrome；其他浏览器在 I0.3 核对后标注支持程度 |
 | LP 元数据与 vbmeta 的改写出错导致不能开机 | 共用库对 node 工具与浏览器同一套测试；组装结果与工具产物逐分区比对；参考引导先行 |
 | 官方镜像的许可与再分发 | 默认不镜像，只给官方下载地址；镜像需逐项许可审查与所有者批准 |

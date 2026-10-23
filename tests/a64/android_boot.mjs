@@ -43,6 +43,7 @@
 //   A64_ANDROID_SCENARIO=deqp (appendix F6: a dEQP subset through CtsDeqpTestCases's APK, android_deqp.mjs;
 //   A64_ANDROID_DEQP=<package>=<prefix>,...;... for other cases),
 //   A64_PROFILE=v1.1 (the CPU profile without FEAT_PAN; v2, the default, has it), TEST_RELEASE_BUILD=1 (build/libv86.mjs),
+//   A64_ANDROID_BOOTLOADER=1 (v86: the android option, the kernel and initrd from the disk),
 //   A64_ANDROID_OUT=<dir> (tools/a64_android.mjs --out's materials in place of out/ or out-16k/), A64_ANDROID_CONSOLE=0 (QEMU:
 //   a user build, such as a GSI with the release vendor ramdisk, has no console; boot_completed from the kernel's log)
 // Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log, *.png, result.json)
@@ -89,6 +90,10 @@ const plugins = !!+process.env.A64_QEMU_PLUGINS;
 const jit = !!+process.env.A64_JIT;
 const parallel = !!+process.env.A64_PARALLEL;
 const scenario = process.env.A64_ANDROID_SCENARIO || "";
+// A64_ANDROID_BOOTLOADER=1 (v86): the android option in place of kernel, initrd and cmdline: v64's
+// bootloader reads them from disk.img (docs/android-images-plan.md I2.3), the vendor ramdisk the tool's
+const bootloader = !!+process.env.A64_ANDROID_BOOTLOADER;
+assert.ok(!bootloader || target === "v86" && page_size === 4096, "A64_ANDROID_BOOTLOADER=1: v86, 4K (the 16K kernel is not on the disk)");
 // A64_ANDROID_CONSOLE=0 (QEMU): no console (a user build's: ro.debuggable=0), boot_completed from the kernel's log
 const use_console = process.env.A64_ANDROID_CONSOLE !== "0";
 assert.ok(use_console || target === "qemu" && !scenario && !process.env.A64_ANDROID_PROBE, "A64_ANDROID_CONSOLE=0: QEMU, no scenario or probes");
@@ -96,7 +101,7 @@ assert.ok(!scenario || ["a9", "a10", "pagesize", "cts", "deqp"].includes(scenari
 assert.ok(!scenario || !plugins, "A64_ANDROID_SCENARIO and A64_QEMU_PLUGINS do not go together");
 const wait_for_boot_completed = target === "qemu" || !!scenario || process.env.A64_ANDROID_WAIT === "boot_completed";
 const tag = (target === "qemu" ? `qemu-${accel}${plugins ? "-plugins" : ""}` : `v86${jit ? "-jit" : ""}${parallel ? "-par" : ""}`) +
-    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}${page_size === 4096 ? "" : "-16k"}-${memory_mb}m-${cores}c` +
+    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}${page_size === 4096 ? "" : "-16k"}${bootloader ? "-bl" : ""}-${memory_mb}m-${cores}c` +
     (process.env.A64_ANDROID_OUT ? "-" + path.basename(OUT) : "");
 const timeout = +process.env.A64_ANDROID_TIMEOUT || (target === "qemu" && !scenario ? (accel === "hvf" ? 600000 : plugins ? 14400000 : 3600000) : 14400000);
 const directory = ROOT + `build/a64-android/runs/${tag}/`;
@@ -461,8 +466,10 @@ const emulator = new V86({
     ...(process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {}),
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
-    kernel: { url: OUT + "Image" }, initrd: { url: OUT + initrd },
-    cmdline: fs.readFileSync(OUT + "cmdline.txt", "utf8").trim(),
+    ...(bootloader ? { android: { gpu_mode: gpu_level === "venus" ? "venus" : "swiftshader",
+        vendor_ramdisk: JSON.parse(fs.readFileSync(OUT + "manifest.json", "utf8")).vendor_ramdisk === "vendor_ramdisk-debug.img" ?
+            { url: ROOT + "build/a64-android/dl/vendor_ramdisk-debug.img" } : undefined } } :
+        { kernel: { url: OUT + "Image" }, initrd: { url: OUT + initrd }, cmdline: fs.readFileSync(OUT + "cmdline.txt", "utf8").trim() }),
     virtio_transport: "pci", virtio_disks: [{ url: OUT + "disk.img", async: true, size: fs.statSync(OUT + "disk.img").size }],
     graphics_adapter: "virtio_gpu", virtio_gpu_pci_slot: 2, screen_adapter: sink,
     ...(remote ? { graphics_adapter_test: { level: gpu_level, renderer: remote.renderer } } : {}),

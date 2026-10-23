@@ -18,9 +18,9 @@ import { fitted } from "./vm_model.js";
  * @property {string} guest the configuration's guest (its family)
  * @property {boolean} verified
  * @property {string} basis the document or test it rests on; for one not verified, the closest verified one
- * @property {Array<"cdrom" | "floppy" | "disk" | "direct" | "android">} install the ways to install it, the usual first:
- *     from a CD or a floppy, an existing hard disk image, a kernel and initrd (and its CD as a read-only disk),
- *     Android's boot materials (tools/a64_android.mjs)
+ * @property {Array<"cdrom" | "floppy" | "disk" | "direct">} install the ways to install it, the usual first:
+ *     from a CD or a floppy, an existing hard disk image (Android's: its GPT disk, which its bootloader boots),
+ *     a kernel and initrd (and its CD as a read-only disk)
  * @property {string} install_text
  * @property {number} disk_mb the new empty disk's default size
  * @property {"memory" | "browser" | "service"} disk_location where its new disk goes by default
@@ -154,8 +154,8 @@ export const PRESETS = [
     {
         id: "android16", name: "Android 16 (arm64)", guest: "android", verified: true,
         basis: "boot_completed and the A9 scenario: docs/aarch64.md (graphics: the ARM64 plan's P11.4)",
-        install: ["android"], install_text: "Android's boot materials from tools/a64_android.mjs: kernel, initrd (initrd-venus.img: the GPU through Vulkan), " +
-            "command line, GPT disk",
+        install: ["disk"], install_text: "tools/a64_android.mjs's disk.img (its GPT disk, Venus's driver in odm): v64's bootloader reads " +
+            "the kernel and initrd from its boot partitions (docs/android-images-plan.md I2)",
 
         disk_mb: 8 * GB, disk_location: "browser", checklist: [],
         issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 20 minutes on 4 cores", "See docs/aarch64.md"],
@@ -174,6 +174,8 @@ export const PRESETS = [
             // (three virtio-net cards, as Cuttlefish's: its Wi-Fi, the third, on the fetch backend)
             c.network = [0, 1, 2].map(i => ({ device: "virtio", backend: i === 2 ? "fetch" : "none", relay_url: "", mtu: 1500, mac_address_translation: false }));
             c.virt = { transport: "pci", input: ["keyboard", "multitouch"], console_ports: 18, vsock: true, gpu_pci_slot: 2 };
+            // (the bootloader: the disk's kernel and initrd, bootconfig with Venus's keys)
+            c.android = { device: "cf_arm64_only_phone", gpu_mode: "venus", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
         },
     },
     {

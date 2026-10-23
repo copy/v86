@@ -189,11 +189,24 @@ const RULES = [
     ["the mouse", c => { c.advanced.mouse_disabled = 0; }, "advanced.mouse_disabled"],
     ["cpuid_level", c => { c.advanced.cpuid_level = 0; }, "advanced.cpuid_level"],
     ["cpuid_level on virt", c => { Object.assign(c, arm64()); c.advanced.cpuid_level = 2; }, "advanced.cpuid_level"],
+    ["Android on a PC", c => { c.android = android(); c.disks = [disk()]; }, "android"],
+    ["Android's device", c => { Object.assign(c, arm64(), { android: android({ device: "pixel" }), disks: [disk()] }); }, "android.device"],
+    ["Android's GPU mode", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "gfxstream" }), disks: [disk()] }); }, "android.gpu_mode"],
+    ["Android's Venus without Vulkan", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "venus" }), disks: [disk()] }); }, "android.gpu_mode"],
+    ["Android's vendor ramdisk", c => { Object.assign(c, arm64(), { android: android({ vendor_ramdisk: "eng" }), disks: [disk()] }); }, "android.vendor_ramdisk"],
+    ["Android's debug ramdisk not chosen", c => { Object.assign(c, arm64(), { android: android({ vendor_ramdisk: "debug" }), disks: [disk()] }); }, "android.debug_ramdisk"],
+    ["Android's debug ramdisk's image", c => { Object.assign(c, arm64(), { android: android({ debug_ramdisk: { kind: "url", url: "" } }), disks: [disk()] }); },
+        "android.debug_ramdisk"],
+    ["Android's SELinux", c => { Object.assign(c, arm64(), { android: android({ selinux: "off" }), disks: [disk()] }); }, "android.selinux"],
+    ["Android with a kernel", c => { Object.assign(c, arm64(), { android: android(), disks: [disk()], kernel: kernel({ bzimage: { kind: "url", url: "Image" } }) }); },
+        "kernel"],
+    ["Android with a CD", c => { Object.assign(c, arm64(), { android: android(), disks: [disk()] }); c.cdrom.image = { kind: "url", url: "a.iso" }; }, "cdrom.image"],
 ];
 
 function disk(fields) { return Object.assign({ slot: "hda", image: { kind: "url", url: "a.img" }, disk_option: "read_only", disk_error: "stop" }, fields); }
 function floppy(fields) { return Object.assign({ slot: "fda", image: null, disk_option: "read_only" }, fields); }
 function kernel(fields) { return Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, fields); }
+function android(fields) { return Object.assign({ device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" }, fields); }
 /** The sections of a valid arm64 machine */
 function arm64()
 {
@@ -207,6 +220,14 @@ function arm64()
 }
 
 test("arm64's sections are valid", () => assert.deepEqual(validate_config(new_config(arm64())), []));
+
+test("android: its defaults, a valid Android machine", () =>
+{
+    assert.equal(new_config().android, null);
+    assert.deepEqual(new_config({ android: { gpu_mode: "swiftshader" } }).android,
+        { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" });
+    assert.deepEqual(validate_config(new_config(Object.assign(arm64(), { android: android(), disks: [disk()] }))), []);
+});
 
 test("a problem does not hide the others (only a bad CPU or machine type does)", () =>
 {

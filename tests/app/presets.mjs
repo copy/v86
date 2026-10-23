@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import { PRESETS, preset, preset_config } from "../../src/app/guest_presets.js";
-import { choices, change } from "../../src/app/vm_model.js";
+import { choices, change, fitted } from "../../src/app/vm_model.js";
 import { new_config, validate_config, check_config, config_to_options } from "../../src/app/vm_config.js";
 import { hardware_rows } from "../../src/app/ui/describe.js";
 
@@ -67,18 +67,18 @@ test("the presets' hardware (the plan's table)", () =>
     assert.equal(preset_config(preset("windowsnt4")).advanced.cpuid_level, 2);
 });
 
-test("Android's options: those of tests/a64/android_boot.mjs", () =>
+test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLOADER=1)", () =>
 {
     const c = preset_config(preset("android16"));
-    c.kernel = { bzimage: { kind: "url", url: "Image" }, initrd: { kind: "url", url: "initrd.img" }, cmdline: "console=hvc0", multiboot: null, from_filesystem: false };
     c.disks = [{ slot: "hda", image: { kind: "url", url: "disk.img", async: true }, disk_option: "read_only", disk_error: "stop" }];
-    const o = config_to_options(c, ENV);
+    let o = config_to_options(c, ENV);
     assert.equal(o.cpu_type, "arm64");
     assert.equal(o.cpu_cores, 4);
     assert.equal(o.memory_size, 1536 << 20);
-    assert.deepEqual(o.kernel, { url: "Image" });
-    assert.deepEqual(o.initrd, { url: "initrd.img" });
-    assert.equal(o.cmdline, "console=hvc0");
+    // (the bootloader: no kernel, initrd or command line of the page's)
+    assert.deepEqual(o.android, { device: "cf_arm64_only_phone", gpu_mode: "venus", selinux: "enforcing", vendor_ramdisk: undefined });
+    assert.equal("kernel" in o || "initrd" in o, false);
+    assert.equal(o.cmdline, undefined);
     assert.equal(o.virtio_transport, "pci");
     assert.deepEqual(o.virtio_disks, [{ url: "disk.img", async: true }]);
     assert.equal(o.graphics_adapter, "virtio_gpu");
@@ -93,6 +93,25 @@ test("Android's options: those of tests/a64/android_boot.mjs", () =>
     assert.equal(o.virtio_sound, true);
     assert.deepEqual(o.jit_switches, { a64_page: 1 });
     assert.deepEqual(check_config(c), []);
+    // (the debug vendor ramdisk, and a command line after the device's)
+    c.android = Object.assign({}, c.android, { vendor_ramdisk: "debug", debug_ramdisk: { kind: "url", url: "vendor_ramdisk-debug.img" } });
+    c.kernel = { bzimage: null, initrd: null, cmdline: "androidboot.x=1", multiboot: null, from_filesystem: false };
+    o = config_to_options(c, ENV);
+    assert.deepEqual(o.android.vendor_ramdisk, { url: "vendor_ramdisk-debug.img" });
+    assert.equal(o.cmdline, "androidboot.x=1");
+    assert.deepEqual(check_config(c), []);
+});
+
+test("change: Android's bootloader follows the machine and Vulkan", () =>
+{
+    let { config, notes } = change(preset_config(preset("android16")), "display.proxy", false);
+    assert.equal(config.display.vulkan, false);
+    assert.equal(config.android.gpu_mode, "swiftshader");
+    assert.ok(notes.some(n => /SwiftShader/.test(n)), JSON.stringify(notes));
+    assert.equal(fitted(config).config.android.gpu_mode, "swiftshader");
+    ({ config, notes } = change(preset_config(preset("android16")), "cpu.type", "x86"));
+    assert.equal(config.android, null);
+    assert.ok(notes.some(n => /Android's bootloader off/.test(n)), JSON.stringify(notes));
 });
 
 test("the summary's rows: Android's display and sound", () =>
@@ -100,6 +119,7 @@ test("the summary's rows: Android's display and sound", () =>
     const rows = Object.fromEntries(hardware_rows(preset_config(preset("android16"))));
     assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan");
     assert.equal(rows["Sound"], "virtio-snd");
+    assert.equal(rows["Android boot"], "from the first disk (cf_arm64_only_phone), Venus");
     assert.equal(Object.fromEntries(hardware_rows(preset_config(preset("dos"))))["Sound"], "Sound Blaster 16");
 });
 

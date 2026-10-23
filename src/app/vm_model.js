@@ -138,6 +138,9 @@ function fit(c, notes)
     }
     if(c.display.adapter !== "virtio_gpu" && c.display.displays > 1) { c.display.displays = 1; note("One display: only virtio-gpu has more"); }
     if(c.display.adapter !== "virtio_gpu" && c.display.vulkan) { c.display.vulkan = false; note("No Vulkan: only virtio-gpu has it"); }
+    // (Android: the arm64 virt machine's; Venus with Vulkan)
+    if(c.android && (!virt || c.cpu.type !== "arm64")) { c.android = null; note("Android's bootloader off: Android boots on the arm64 virt machine"); }
+    if(c.android && c.android.gpu_mode === "venus" && !c.display.vulkan) { c.android.gpu_mode = "swiftshader"; note("Android's GPU: SwiftShader (Venus needs Vulkan)"); }
     const max_network = virt ? 4 : 1;
     if(c.network.length > max_network)
     {

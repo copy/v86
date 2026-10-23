@@ -56,6 +56,13 @@ export function hardware_rows(c)
             c.kernel.multiboot && "multiboot " + describe_image(c.kernel.multiboot), c.kernel.cmdline && "command line " + c.kernel.cmdline,
             c.kernel.from_filesystem && "kernel and initrd from the shared folder"].filter(Boolean).join("; ")]);
     }
+    if(c.android)
+    {
+        // (docs/android-images-plan.md I2: the kernel and initrd from the disk's boot partitions)
+        rows.push(["Android boot", "from the first disk (" + c.android.device + "), " + (c.android.gpu_mode === "venus" ? "Venus" : "SwiftShader") +
+            (c.android.vendor_ramdisk === "debug" ? ", debug vendor ramdisk " + (c.android.debug_ramdisk ? describe_image(c.android.debug_ramdisk) : "(not chosen)") : "") +
+            (c.android.selinux === "permissive" ? ", SELinux permissive" : "")]);
+    }
     if(c.initial_state) rows.push(["Starts from a state", describe_image(c.initial_state)]);
     rows.push(["Display", (ADAPTERS[c.display.adapter] || c.display.adapter) + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : "") +
         (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "") + (c.display.vulkan ? ", Vulkan" : "")]);
