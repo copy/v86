@@ -1,7 +1,8 @@
 # Android 镜像：选镜像就能用与系统目录 实施计划
 
 状态：实施中。2026-10-23 初稿，基于 `336f0df7`。2026-10-24：I0.1、I0.2 完成（结果见 §1 之后的“I0 的结果”），
-I1、I2 完成；I3.1、I3.3、I4.2、I5.1、I5.2 完成（浏览器磁盘）；I3.2（磁盘服务）、I4.1、I6–I8 未做；见各节的进度。规模：S 为几天，M 约 1–2 周，
+I1–I3 完成（I3 的验收：浏览器里选官方 zip 即开机到 `boot_completed`）；I4.2、I5.1、I5.2、I7 完成；I4.1、I4.3 的一部分、I5.3、
+I6、I8 未做；见各节的进度。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
@@ -262,7 +263,12 @@ kernel、initrd 与 cmdline），Venus 盘、页层与 vCPU Worker，1120 s 到 
   选 Android 16 预设（SwiftShader，不开 Vulkan 与代理），硬盘一步选 userdata（2/4/8/16 GiB，默认 4）、给出盘的大小与写入量，
   完成时在 Worker 里组装并在状态栏显示进度与剩余时间。`tests/app/wizard_test.html part=android`（小型合成包，
   `make app-tests`）；`part=android_boot` 是 I3 的验收（官方 zip，开机到 `boot_completed`，本地运行）。
-- I3.2（磁盘服务的流式导入）未做：先只有浏览器磁盘。
+- I3.2 完成：硬盘一步可选浏览器磁盘或磁盘服务；磁盘服务先建镜像，再由导入器的 Worker 经写入会话写入
+  （`src/android/service_writer.js`：整扇区、每次 4 MiB）。`wizard_test part=android_service`（`service=1`）。
+- **I3 验收通过**（2026-10-24，`wizard_test part=android_boot isolated=1`，无头 Chrome，跨源隔离，4 个 vCPU Worker）：
+  向导里拖入官方 `aosp_cf_arm64_only_phone-img-15581820.zip`（目录的第一项，SHA-256 核对），不填任何启动参数，
+  11 s 导入为 5.8 GB 的浏览器磁盘，开机后 26 s 到 second stage、289 s 到 zygote、**1302 s 到 `sys.boot_completed`**
+  （SwiftShader），全程 21.9 分钟。
 
 ## 5. I4 进度、设置与磁盘大小
 
@@ -313,6 +319,13 @@ super，旧 `system_a` 的数据不写；`vbmeta_a/_b` 用 GSI 的）。版本�
 
 验收（I7）：在部署的站点上，从目录选“Android 16（Cuttlefish）”，按指引下载官方 zip 并拖入，之后不再需要
 任何操作：校验、组装、建虚拟机与开机自动完成。
+
+进度（2026-10-24）：I7.1–I7.4 完成：目录是随应用打包的 `src/app/android_catalog.js`（不是单独的 JSON：没有额外请求），
+首批三项：Android 16 QPR2（Cuttlefish 15581820，可选的 debug vendor ramdisk）、16 QPR2 GSI（BP4A）与 17 QPR1 GSI（CP3A）
+在该设备上；每个文件有官方页面、直链、大小与 SHA-256。`tools/android_catalog.mjs` 用本地副本（大小与 SHA-256）或
+服务器的大小（HEAD）核对，六个部分全部相符。向导的 Android 来源列出目录与“另一个包”，所选项的文件与下载处；
+拖入的文件先比大小、再在导入器的 Worker 里流式算 SHA-256（有进度，每个文件只算一次），缺哪个、哪个不符逐个说明，
+都对上才能继续。debug vendor ramdisk 按大小认出（不是 zip），在设置的 Android 项里使用。部署站点上的验收待部署后做。
 
 ## 9. I8 GPU 与收尾
 
