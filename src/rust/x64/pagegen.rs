@@ -2998,6 +2998,76 @@ fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool, span: u64
     crate::pagegen::frame::structured(&successors, &|k| blocks[k as usize].start as usize, true)
 }
 
+/// The blocks a walk of a callee's code visits at most (return_sites), and
+/// the return addresses a RET compares with at most (Emitter::return_guess)
+const RETURN_WALK: usize = 256;
+const RETURN_GUESSES: usize = 4;
+
+/// Where each RET of the function may return to: per RET's offset, the
+/// return addresses of the in-page calls whose callee reaches it, walking
+/// the callee's blocks from its entry (over its own calls to their return
+/// addresses; RETURN_WALK blocks a call at most). Only a prediction: a RET
+/// compares its address with these (Op::Ret), else dispatches.
+fn return_sites(
+    blocks: &[Block],
+    index: &BTreeMap<u16, usize>,
+    span: u64,
+) -> BTreeMap<u16, Vec<u16>> {
+    let mut sites: BTreeMap<u16, Vec<u16>> = BTreeMap::new();
+    let block_at = |o: u64| in_page(span, o).and_then(|o| index.get(&o)).copied();
+    let mut seen = vec![usize::MAX; blocks.len()];
+    for (c, call) in blocks.iter().enumerate() {
+        let Some((Op::Call { target }, after)) = call.insts.last().map(|i| (i.op, i.d.next.0))
+        else {
+            continue;
+        };
+        let (Some(entry), Some(_)) = (block_at(target), block_at(after))
+        else {
+            continue;
+        };
+        let back = after as u16;
+        let mut work = vec![entry];
+        seen[entry] = c;
+        let mut walked = 0;
+        while let Some(k) = work.pop() {
+            walked += 1;
+            if walked > RETURN_WALK {
+                break;
+            }
+            let block = &blocks[k];
+            let mut next = |o: u64, work: &mut Vec<usize>| {
+                if let Some(j) = block_at(o) {
+                    if seen[j] != c {
+                        seen[j] = c;
+                        work.push(j);
+                    }
+                }
+            };
+            match block.insts.last().map(|i| (i.op, i.d.start.0, i.d.next.0)) {
+                Some((Op::Ret { .. }, start, _)) => {
+                    let to = sites.entry(start as u16).or_default();
+                    if !to.contains(&back) {
+                        to.push(back);
+                    }
+                    continue;
+                },
+                Some((
+                    Op::Jcc { target, .. } | Op::LoopJump { target, .. } | Op::Jmp { target },
+                    ..,
+                )) => next(target, &mut work),
+                Some((Op::Call { .. } | Op::CallIndirect { .. }, _, after)) => {
+                    next(after, &mut work)
+                },
+                _ => {},
+            }
+            if let End::Next(o) | End::Shadow(o) = block.end {
+                next(o as u64, &mut work);
+            }
+        }
+    }
+    sites
+}
+
 /// Whether the instruction at `next`, in STI's interrupt shadow, compiles
 /// into STI's block (x64_sti_shadow): it decodes within the page, is no
 /// control transfer, step, STI or REP string instruction (block boundaries),
@@ -4161,6 +4231,9 @@ struct Emitter<'a> {
     /// the structured layout's levels (P4.16): the page level (its loop is
     /// Frame::dispatch), then each loop being emitted
     levels: Vec<Level>,
+    /// per RET, the return addresses it is predicted to return to
+    /// (return_sites)
+    returns: BTreeMap<u16, Vec<u16>>,
     /// XMM registers in v128 locals (CompileEnv::xmm_locals): the locals,
     /// the registers held in them, those written since they were loaded
     xmm_locals: [Option<WasmLocalV128>; 16],
@@ -4489,6 +4562,7 @@ impl Emitter<'_> {
             budget,
             frame: None,
             levels: Vec::new(),
+            returns: return_sites(blocks, index, PAGE as u64 * env.span as u64),
             xmm_locals: Default::default(),
             xmm_held: 0,
             xmm_dirty: 0,
@@ -5291,6 +5365,38 @@ impl Emitter<'_> {
     /// head, which dispatches on RIP over its members (else the page
     /// dispatch): a switch's jump or a call's return in a loop body takes
     /// one table, not the page's buckets and then the loop's (P7.2)
+    /// Before a RET's dispatch: its predicted return addresses
+    /// (return_sites) whose blocks follow on this page as single units
+    /// (PageEmitter::direct_label), RETURN_GUESSES at most, each compared
+    /// with RIP and branched to directly (every way on finds the XMM
+    /// registers in memory)
+    fn return_guess(&mut self, start: u64, index: &BTreeMap<u16, usize>) {
+        let Some(sites) = self.returns.get(&(start as u16))
+        else {
+            return;
+        };
+        let page = self.current_page;
+        let guesses: Vec<(u16, Label)> = sites
+            .iter()
+            .filter(|&&o| o / PAGE as u16 == page)
+            .filter_map(|&o| self.direct_label(o, index).map(|label| (o, label)))
+            .take(RETURN_GUESSES)
+            .collect();
+        if guesses.is_empty() {
+            return;
+        }
+        self.xmm_release();
+        self.g(RIP);
+        self.g(BASE);
+        self.b.sub_i64();
+        self.s(TV);
+        for (o, label) in guesses {
+            self.g(TV);
+            self.c64(o as u64);
+            self.b.eq_i64();
+            self.b.br_if(label);
+        }
+    }
     fn dispatch(&mut self) {
         self.xmm_writeback();
         if self.env.compat && self.levels.len() > 1 {
@@ -7968,6 +8074,7 @@ impl Emitter<'_> {
                 self.retired();
                 self.g(TV);
                 self.s(RIP);
+                self.return_guess(start, index);
                 self.dispatch();
             },
             Op::JmpIndirect { src } => {
