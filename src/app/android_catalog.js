@@ -44,7 +44,7 @@ export const ANDROID_CATALOG = {
                 url: "https://dl.google.com/developers/android/baklava/images/gsi/aosp_arm64-exp-BP4A.251205.006-14401865-2171cf0e.zip", size: 905400114,
                 sha256: "2171cf0ea849f8eaa399f4bad2165fab80b0fd9e98d37723a705dca6c41e49ea" }, CF_DEVICE],
             verified: "QEMU (HVF): boot_completed in 23-35 s (docs/android-images-plan.md I0.2, I5)", license: AOSP_LICENSE + "; the GSI under the terms on its release page",
-            notes: "Google's Generic System Image (a user build) on Cuttlefish's vendor of the same release. 32-bit apps need AArch32 (docs/aarch32-plan.md).",
+            notes: "Google's Generic System Image (a user build) on Cuttlefish's vendor of the same release. 64-bit apps only: the device runs the 64-bit zygote (docs/aarch32-plan.md Q0.1).",
         },
         {
             id: "android17-gsi-cp3a", title: "Android 17 QPR1 GSI (CP3A.260905.010) on the Cuttlefish phone (Android 16 vendor)", android: "17 QPR1", api: 37,
@@ -53,7 +53,7 @@ export const ANDROID_CATALOG = {
                 url: "https://dl.google.com/developers/android/cinnamonbun/images/gsi/aosp_arm64-exp-CP3A.260905.010-16176746-4a869a69.zip", size: 1166864309,
                 sha256: "4a869a6959a50fee15ff871ce378853ced4485f2aa456eb64dbdbf7a2c0408aa" }, CF_DEVICE],
             verified: "QEMU (HVF): boot_completed in 22 s (docs/android-images-plan.md I0.2)", license: AOSP_LICENSE + "; the GSI under the terms on its release page",
-            notes: "A newer system on the Android 16 vendor (Treble). 32-bit apps need AArch32 (docs/aarch32-plan.md).",
+            notes: "A newer system on the Android 16 vendor (Treble). 64-bit apps only: the device runs the 64-bit zygote (docs/aarch32-plan.md Q0.1).",
         },
     ],
 };

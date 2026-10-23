@@ -66,8 +66,9 @@ from the disk's boot partitions at each power on (Settings: **Android**:
 the device model, the GPU, the vendor ramdisk, SELinux, and **Wipe user
 data…**). Imported images draw with SwiftShader: Android starts (in about
 20 minutes on 4 cores the first time), but its desktop needs GPU support,
-which docs/gfxstream-plan.md plans. 32-bit apps need AArch32
-(docs/aarch32-plan.md).
+which docs/gfxstream-plan.md plans. The Cuttlefish phone runs 64-bit apps
+only (its 64-bit zygote, also under a GSI); 32-bit apps need AArch32 and
+another device (docs/aarch32-plan.md).
 
 ## Disks
 

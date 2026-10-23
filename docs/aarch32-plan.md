@@ -111,6 +111,13 @@ S4n..S4n+3 是 Vn 的四个 32 位。FPSCR 是 FPCR 与 FPSR 的合并视图。�
 | Q0.3 | 单指令 oracle（A32、T32、VFP、NEON）：随机寄存器与内存，逐条与 QEMU 比较；llvm-mc 解码对照 | 新 `tests/a64/aarch32_oracle.mjs`、`tests/a64/oracle/decode.mjs` | 框架自测 | M |
 | Q0.4 | v3 的 ID 值：`ID_AA64PFR0_EL1.EL0 = 2`；ID_PFR0/1、ID_ISAR0–6、ID_MMFR0–4、MVFR0–2 取 cortex-a35 与实现范围的交集；COMPAT_HWCAP 预期（half、thumb、fastmult、vfp、edsp、neon、vfpv3、tls、vfpv4、idiva、idivt、lpae、evtstrm 与 aes、pmull、sha1、sha2、crc32） | `tests/platform/a64-profile.json`、`src/virt/platform.js` | C：`tools/cpu_contract.mjs --a64-v86` 与参考一致（允许差异只剩明确列出的） | S |
 
+Q0.1 的结论（2026-10-24）：官方 GSI `aosp_arm64-exp-BP4A.251205.006` 与 `CP3A.260905.010` 的 `build.prop` 都有
+`ro.system.product.cpu.abilist32=armeabi-v7a,armeabi`，但它们放在 Cuttlefish 的 arm64-only 设备上时，vendor 的
+`ro.zygote` 是 `zygote64`：init 报 “start zygote_secondary … service zygote_secondary not found”，只有 64 位
+zygote，开机不受影响（QEMU 上 22–35 s 到 `boot_completed`，Apple 的 CPU 本来就没有 AArch32 EL0）。所以对这两个
+GSI 与这台设备，本计划**不是开机的前提**；32 位应用要同时有 AArch32 与带 32 位 zygote 的设备（`zygote64_32`，
+例如 Cuttlefish 的 `aosp_cf_arm64_phone`，或 R6 的模拟器镜像）。
+
 ### Q1 执行状态、异常与返回
 
 目标：AArch64 EL1 与 AArch32 EL0 之间可以往返，A32 指令先只有 NOP、SVC、B。

@@ -337,8 +337,9 @@ export function open_wizard(options)
                 a.file || a.gsi ? h("p", { role: "status" }, [a.file, a.gsi].filter(Boolean).map(f => f.name + " (" + format_size(f.size) + ")").join(" and ") + ": " +
                     (a.error ? "" : a.info ? a.info.text + (gsi ? ", running the GSI's Android " + gsi.release + " (" + gsi.fingerprint + ")" : "") +
                         "; its disk: " + format_size(a.info.disk_size(a.userdata_gib)) : "reading…")) : null,
-                gsi && gsi.abilist32 ? h("p", null, h("small.reason", null, "The GSI has 32-bit app support (" + gsi.abilist32 + "), which needs AArch32 " +
-                    "(docs/aarch32-plan.md): Android starts, 32-bit apps do not run yet.")) : null,
+                gsi && gsi.abilist32 ? h("p", null, h("small.reason", null, "The GSI lists 32-bit ABIs (" + gsi.abilist32 + "), but this device runs " +
+                    "only the 64-bit zygote: Android starts, 32-bit apps do not run (they need AArch32 and a device with a 32-bit zygote: " +
+                    "docs/aarch32-plan.md).")) : null,
                 a.error ? h("p.error", null, a.error) : null,
                 a.gsi ? h("button", { type: "button", onclick: () => { a.gsi = null; take_files([]); } }, "Without the GSI") : null);
             zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });

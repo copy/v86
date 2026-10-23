@@ -338,7 +338,7 @@ const parts = {
         await drop([await file("/build/android-test-gsi.zip", "aosp_arm64-exp-test.zip")]);
         const status = await until(() => /running the GSI's Android 16/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
             wizard.querySelector(".drop-zone [role=status]").textContent, "the device and the GSI read");
-        check(/32-bit app support/.test(wizard.querySelector(".drop-zone").textContent), "the note on 32-bit apps");
+        check(/32-bit ABIs/.test(wizard.querySelector(".drop-zone").textContent), "the note on 32-bit apps");
         log("package: " + status);
         button("Next", wizard).click();
         await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
