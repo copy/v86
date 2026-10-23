@@ -4258,9 +4258,9 @@ struct Emitter<'a> {
     xmm_clean: [u8; 16],
     /// x64_fast_lookup (P4.21): per base register, kind and displacement
     /// page (Kept), the translation of an operand `[r + displacement]` (or a
-    /// stack operation, r = RSP) the function's inline lookups found last,
-    /// valid for the function's run (see host_fast; made when first used,
-    /// MAX_KEPT at most). The base register of the operand being looked up,
+    /// stack operation, r = RSP) the block's inline lookups found last (see
+    /// host_fast and host_tlb; made when first used, MAX_KEPT at most). The
+    /// base register of the operand being looked up,
     /// if it has no index, and its displacement's page (kept_page).
     lookup_kept: Vec<Kept>,
     lookup_base: Option<(u8, i64)>,
@@ -4271,8 +4271,8 @@ struct Emitter<'a> {
     /// and the page of the block being emitted
     verified: Option<WasmLocal>,
     current_page: u16,
-    /// (compatibility mode: the kept translations the current block has
-    /// set, host_tlb)
+    /// (the kept translations the current block has set: host_fast,
+    /// host_tlb)
     kept_set: u64,
     /// the YMM registers whose bits 255:128 the block zeroed and nothing
     /// wrote since (ymm_zero once per block, as Tier-0's)
@@ -5989,6 +5989,12 @@ impl Emitter<'_> {
     ) {
         let write = bits & 0x100 != 0;
         let kept = self.kept(write);
+        // (a block's first access by the key sets it on every path: none is
+        // live into a block, as in host_tlb)
+        let first = kept.is_some_and(|k| self.kept_set >> k & 1 == 0);
+        if let Some(k) = kept {
+            self.kept_set |= 1 << k;
+        }
         let atomic = WasmBuilder::ATOMIC_GUEST_MEMORY && size > 1 && !aligned;
         // the last byte's tag
         self.g(ADDR);
@@ -6012,7 +6018,7 @@ impl Emitter<'_> {
                 e.b.and_i32();
             }
         };
-        if let Some(k) = kept {
+        if let Some(k) = kept.filter(|_| !first) {
             self.g(TAG);
             self.b.get_local_i64(self.lookup_kept[k].tag.wide());
             self.b.eq_i64();
@@ -6065,6 +6071,12 @@ impl Emitter<'_> {
         self.b.wrap_i64_to_i32();
         self.b.add_i32();
         self.b.else_();
+        if let Some(k) = kept.filter(|_| first) {
+            // (set, forgotten, on this path too)
+            self.lookup_kept[k].tag.forget(&mut self.b);
+            self.c32(0);
+            self.b.set_local(&self.lookup_kept[k].delta);
+        }
         self.g(ADDR);
         if WasmBuilder::ATOMIC_GUEST_MEMORY {
             let f = self.access_function();
@@ -6085,7 +6097,7 @@ impl Emitter<'_> {
         self.b.block_end();
         self.gi(HH);
         self.b.block_end();
-        if kept.is_some() {
+        if kept.is_some() && !first {
             self.b.block_end();
         }
     }
