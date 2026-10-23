@@ -11,6 +11,9 @@
      part=android  an Android image package (build/android-test-package.zip: tests/android/make_package.mjs) dropped on the
                    wizard: Cuttlefish's arm64 device, the Android 16 preset with SwiftShader, a browser disk made in the
                    importer's worker, the bootloader (src/android/bootloader.js) reading the disk's GPT and boot partitions
+     part=android_boot  (local, an hour or more) docs/android-images-plan.md I3's acceptance: the official Cuttlefish images zip
+                   (package=<path>, build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip) through the wizard, nothing
+                   else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0); timeout=<minutes> (180)
      node tests/app/browser_runner.mjs tests/app/wizard_test.html part=freedos -->
 <style>iframe { width: 1100px; height: 760px; border: 1px solid #888; }</style>
 <pre id="log"></pre>
@@ -280,6 +283,52 @@ const parts = {
             "the bootloader on the disk: " + boot.kernel.length + " " + boot.cmdline);
         log("the browser disk (" + disk.size + " bytes): the bootloader gives " + boot.kernel.length + " bytes of kernel, " + boot.initrd.length + " of initrd, vbmeta " +
             boot.vbmeta.digest.slice(0, 16) + "…, cmdline " + boot.cmdline);
+    },
+    async android_boot()
+    {
+        const url = "/" + (args.get("package") || "build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip");
+        const name = url.split("/").pop();
+        await open_library();
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        const started = Date.now();
+        const blob = await (await fetch(url)).blob();
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(new w.File([blob], name, { type: "application/zip" }));
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        log("package: " + await until(() => /Cuttlefish arm64 device/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
+            wizard.querySelector(".drop-zone [role=status]").textContent, "the package read", 120000));
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
+        button("Next", wizard).click();
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android 16 (official)");
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector("input[name=userdata][value='4']:checked"), "the usual userdata");
+        button("Next", wizard).click();
+        log("summary: " + table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary")));
+        const import_started = Date.now();
+        button("Finish", wizard).click();
+        await until(() => names().includes("Android 16 (official)"), "the imported machine in the library", 1800000);
+        log("imported in " + ((Date.now() - import_started) / 1000).toFixed(0) + " s");
+        const { emulator } = await power_on();
+        const booted = Date.now();
+        let kernel = "";
+        const milestones = [["second stage", /init: init second stage started/], ["zygote", /starting service 'zygote'/], ["system_server", /starting service 'system_server'|SystemServer/],
+            ["boot_completed", /init: processing action \(sys\.boot_completed=1\)/]];
+        const seen = new Set();
+        emulator.add_listener("virtio-console0-output-bytes", bytes =>
+        {
+            kernel = (kernel + String.fromCharCode.apply(null, Array.from(bytes))).slice(-8192);
+            for(const [what, pattern] of milestones) if(!seen.has(what) && pattern.test(kernel)) { seen.add(what); log(((Date.now() - booted) / 1000).toFixed(0) + " s: " + what); }
+            if(/reboot: Restarting system with command 'bootloader'/.test(kernel)) seen.add("failed");
+        });
+        await until(() => seen.has("boot_completed") || seen.has("failed"), "sys.boot_completed=1 in the kernel's log", (+args.get("timeout") || 180) * 60000);
+        check(!seen.has("failed"), "init rebooted into the bootloader: " + kernel.slice(-1500));
+        log("boot_completed " + ((Date.now() - booted) / 1000).toFixed(0) + " s after power on (" + ((Date.now() - started) / 60000).toFixed(1) + " min in all)");
+        await emulator.destroy();
     },
     async service()
     {

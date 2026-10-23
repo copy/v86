@@ -1,7 +1,7 @@
 # Android 镜像：选镜像就能用与系统目录 实施计划
 
 状态：实施中。2026-10-23 初稿，基于 `336f0df7`。2026-10-24：I0.1、I0.2 完成（结果见 §1 之后的“I0 的结果”），
-I1 完成（`1e9506c5`、`2c958904`），I2.1、I2.2 完成（`442d8b52` 及其后），I2.3 的 v64 验收见 §3。规模：S 为几天，M 约 1–2 周，
+I1、I2 完成，I3.1、I3.3 完成（浏览器磁盘），I3.2（磁盘服务）与 I3 的浏览器开机验收未做；见各节的进度。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
@@ -230,7 +230,9 @@ Worker 里；有状态时也执行，供复位重新加载）。从工具的 `di
 命令行逐字节相同（源码与 `build/libv86.mjs` 都核对过）。I2.1 完成：VM 配置的 `android` 节（`device`、
 `gpu_mode`、`vendor_ramdisk`、`debug_ramdisk`、`selinux`；没有 `slot` 字段，槽位属于设备型号），校验、
 `config_to_options`、`vm_model` 的连带修改与摘要行；`android16` 预设改用它，安装方式为“硬盘镜像”
-（工具的 `disk.img`）。
+（工具的 `disk.img`）。I2.3 完成：`tests/a64/android_boot.mjs` 的 `A64_ANDROID_BOOTLOADER=1`（v64：`android` 选项代替
+kernel、initrd 与 cmdline），Venus 盘、页层与 vCPU Worker，1120 s 到 `sys.boot_completed`（2026-10-24，
+`v86-jit-par-venus-bl-1536m-4c`；以前给内核与 initrd 时 969–1229 s）。
 
 | ID | 任务 | 关键位置 | 门禁 | 规模 |
 | --- | --- | --- | --- | --- |
@@ -248,6 +250,19 @@ Worker 里；有状态时也执行，供复位重新加载）。从工具的 `di
 
 验收（I3）：用户在向导选官方 `aosp_cf_arm64_only_phone-img-15581820.zip`，不填任何启动参数，虚拟机开机到
 `sys.boot_completed`（SwiftShader 档；桌面的验收在 gfxstream 的 G5 之后，见 I8）。
+
+进度（2026-10-24）：
+
+- I3.1 完成：`src/android/assemble.js`（认包、布局、随 zip 成员解压写盘，super 的写入超出缩小后的大小时检查为零）；
+  node 前端 `tools/android_import.mjs`：官方 `aosp_cf_arm64_only_phone-img-15581820.zip` 约 28 s 写成 6.25 GB 的盘
+  （实际写入 1.7 GB），与 `tools/a64_android.mjs --release --no-venus --shrink-super --userdata-mb 4096` 的盘逐字节
+  相同；这块盘在 QEMU（HVF）上 29 s 到 `boot_completed`，首次开机把空白的 userdata 格式化为 f2fs、metadata 为 ext4。
+  浏览器里在 `build/android-import-worker.js` 中用同步访问句柄写 OPFS。
+- I3.3 完成：向导的来源“An Android image package (.zip)”，拖入或选择文件，页面上读目录与 super 的元数据、说明是什么包；
+  选 Android 16 预设（SwiftShader，不开 Vulkan 与代理），硬盘一步选 userdata（2/4/8/16 GiB，默认 4）、给出盘的大小与写入量，
+  完成时在 Worker 里组装并在状态栏显示进度与剩余时间。`tests/app/wizard_test.html part=android`（小型合成包，
+  `make app-tests`）；`part=android_boot` 是 I3 的验收（官方 zip，开机到 `boot_completed`，本地运行）。
+- I3.2（磁盘服务的流式导入）未做：先只有浏览器磁盘。
 
 ## 5. I4 进度、设置与磁盘大小
 
