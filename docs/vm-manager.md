@@ -14,8 +14,8 @@ hardware on the right, with its buttons: power on (or resume), edit
 settings, rename, export, delete.
 
 - **New virtual machine…** opens the wizard: where the system comes from (a
-  CD or floppy image, an installed hard disk image, a kernel and initrd, or
-  later), the system (a preset: DOS, Windows 3.x to 8.1, Linux 32-bit,
+  CD or floppy image, an installed hard disk image, a kernel and initrd, an
+  Android image package (below), or later), the system (a preset: DOS, Windows 3.x to 8.1, Linux 32-bit,
   x86_64 and arm64, Android 16, or other), the name, the hard disk, and a
   summary. A preset sets all the hardware; it says whether that setting was
   verified, how the system is installed, the steps after the installation
@@ -38,6 +38,36 @@ settings, rename, export, delete.
 The library lives in the browser's storage for this site (IndexedDB and the
 origin private file system). Clearing the site's data deletes it: export
 the machines and disks you want to keep.
+
+## Android
+
+The wizard's source **An Android image package** makes an Android machine
+from Google's own images, as Android Studio's AVD manager does
+(docs/android-images-plan.md):
+
+1. Choose a system in the catalog: Android 16 QPR2 on Cuttlefish's phone,
+   or a Generic System Image (Android 16 QPR2, Android 17 QPR1) on that
+   phone. The catalog lists each file to download, its official page and
+   direct link, its size and SHA-256. The site does not host them: download
+   them yourself (ci.android.com: the build's Artifacts tab; GSIs:
+   developer.android.com's GSI releases).
+2. Drop the files on the wizard (or choose them). They are read here, never
+   uploaded: what they are, then their SHA-256 against the catalog's.
+   "Another package" takes a Cuttlefish images zip that is not in the
+   catalog, unchecked. A GSI older than the device's vendor is refused (it
+   does not boot).
+3. The disk: the images as they are, super shrunk to its partitions,
+   userdata of 2, 4 (the usual), 8 or 16 GiB, blank (Android formats it at
+   its first boot), kept in the browser or on the disk service. Finish
+   imports it in a worker, with its progress and Cancel import.
+
+No kernel, initrd or command line is filled in: v64's bootloader reads them
+from the disk's boot partitions at each power on (Settings: **Android**:
+the device model, the GPU, the vendor ramdisk, SELinux, and **Wipe user
+data…**). Imported images draw with SwiftShader: Android starts (in about
+20 minutes on 4 cores the first time), but its desktop needs GPU support,
+which docs/gfxstream-plan.md plans. 32-bit apps need AArch32
+(docs/aarch32-plan.md).
 
 ## Disks
 

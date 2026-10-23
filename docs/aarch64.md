@@ -87,10 +87,20 @@ macOS.
 
 ## Android 16
 
-Importing official images in the VM manager (v64 booting Android from the
-disk itself, a catalog that tells what to download and where, the files then
-dropped in) is planned in
-[android-images-plan.md](android-images-plan.md).
+v64 boots Android from its disk itself: V86's `android` option
+(`{ device, gpu_mode, selinux, vendor_ramdisk }`, in place of `kernel`,
+`initrd` and `cmdline`) reads the first virtio disk's GPT, the slot's boot,
+init_boot, vendor_boot and vbmeta partitions and those vbmeta chains, and
+gives the kernel, the initrd with bootconfig (the vendor's section, the
+launcher's and bootloader's keys, the vbmeta digest as libavb computes it)
+and the command line (`src/android/bootloader.js`, run where the disk is: in
+the CPU Worker by default). The VM manager imports official images into
+such a disk: Cuttlefish's images zip, and a GSI on that device
+(`src/android/assemble.js`; `node tools/android_import.mjs <zip> <disk.img>
+[--gsi <zip>]` does it in node); see [vm-manager.md](vm-manager.md) and
+[android-images-plan.md](android-images-plan.md). The image formats (boot
+images, LZ4, cpio, bootconfig, sparse, AVB, LP, erofs, GPT, zip) are
+`src/android/`'s, which `tools/a64_android.mjs` uses too.
 
 A8 of the plan (P10). The product is not built here: AOSP builds need an
 x86_64 Linux host. The pinned prebuilt is Cuttlefish's arm64-only phone,
