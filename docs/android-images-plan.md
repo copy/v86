@@ -57,8 +57,8 @@ initrd、命令行与磁盘。
    - 站点（Cloudflare Pages，Direct Upload）不放磁盘镜像（vm-manager.md 115–116），单个文件上限 25 MiB。
 
    所以“一键下载”对 ci.android.com 需要一个只解析重定向的小函数（Pages Function），浏览器拿到签名地址后直接
-   从 Google 下载；对 dl.google.com，可选的办法是用户自己下载后拖进来、本机磁盘服务在服务端代下、或镜像到
-   站点自己的存储（R2，需要许可审查）。具体组合待所有者决定（见“待决问题”）。
+   从 Google 下载（是否采用待定，见“待决问题”）；dl.google.com 的文件由用户自己从官方页面下载、再拖进向导
+   （所有者 2026-10-23 决定），不代下、不镜像。
 7. **目录是新的所有者决定。** VM 管理器计划原定“不提供示例系统列表”（vm-manager-plan.md 143、645）；
    所有者 2026-10-23 要求加入目录与一键下载，本计划以此为准，并在 vm-manager-plan.md 记一笔。
 
@@ -134,9 +134,7 @@ url, size, sha256, via }], requires, gpu, license, notes }`。`via` 说明怎么
 | `via` | 用于 | 怎么取 |
 | --- | --- | --- |
 | `ci-resolve` | ci.android.com 的工件 | Pages Function 向 `.../latest/raw/<文件>` 发请求，只返回 307 的 Location；浏览器直接对签名地址发 Range 请求；签名过期就再解析 |
-| `manual` | dl.google.com 的 GSI 与 SDK 镜像 | 页面给出官方下载页的链接与文件名、大小、sha256，用户下载后拖进来，导入器校验 |
-| `service` | 同上，本机有磁盘服务时 | 磁盘服务在 node 里代下（只允许目录里的主机与 hash），浏览器读本机文件 |
-| `mirror` | 所有者批准镜像的条目 | 站点自己的存储（例如 R2，配 CORS 与 Range） |
+| `manual` | dl.google.com 的 GSI 与 SDK 镜像 | 页面给出官方下载页的链接与文件名、大小、sha256，用户下载后拖进来，导入器校验（所有者决定：不代下、不镜像） |
 
 下载器在 Worker 里：Range 分段、断点续传、暂存到 OPFS 的 `v86/downloads/`、流式 SHA-256；配额不足时先提示
 （`navigator.storage.estimate`，并申请 `persist()`）。下载完成直接进入导入；暂存文件在导入成功后删除。
@@ -224,8 +222,8 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I7.1 | `catalog.json` 的格式与首批条目（Cuttlefish Android 16 的镜像 zip；官方 GSI；I6 之后的 SDK 模拟器镜像）；`tools/android_catalog.mjs` 校验每个条目的大小与 sha256，并随站点发布 | M |
 | I7.2 | 下载器（Worker）：Range 分段、续传、暂存、SHA-256、配额检查、取消；下载完成交给导入器 | L |
 | I7.3 | `ci-resolve` 的 Pages Function：只对目录里的构建号与文件名解析重定向，返回签名地址与过期时间；`tools/pages_dist.mjs` 打包 `functions/` | S |
-| I7.4 | `manual` 与 `service` 两种来源的界面：官方页面链接、文件名、大小与 hash 的说明，拖入后自动校验；磁盘服务代下（只允许目录里的主机与 hash） | M |
-| I7.5 | 目录界面：向导第一步的“从目录安装”，条目显示 Android 版本、大小、显卡档位、许可与来源；所有者批准后加 `mirror` 来源 | M |
+| I7.4 | `manual` 来源的界面：官方页面链接、文件名、大小与 hash 的说明，拖入后自动校验，校验不符时说明是哪个文件 | S |
+| I7.5 | 目录界面：向导第一步的“从目录安装”，条目显示 Android 版本、大小、显卡档位、许可与来源；`manual` 条目显示“下载后拖入”的步骤 | M |
 
 验收（I7）：在部署的站点上，从目录选“Android 16（Cuttlefish）”，一次点击完成下载、组装与建虚拟机，开机。
 
@@ -239,8 +237,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 
 ## 待决问题
 
-1. **dl.google.com 的文件怎么给一键下载**：只用 `manual`（拖入），本机加 `service` 代下，还是镜像到站点存储
-   （R2，需要逐个确认许可；带 Google Play 或 GMS 的镜像不镜像）。
+1. （已定，2026-10-23）dl.google.com 的文件由用户自己下载、拖入向导；不代下，不镜像。
 2. **Cloudflare 上的解析函数**：Pages Function 只解析 ci.android.com 的重定向、不转发文件内容，是否接受。
 3. **vendor ramdisk 的默认**：release（与官方启动一致，adb 需要密钥）还是 debug（今天的做法，adbd 无密钥，
    需要额外下载 `vendor_ramdisk-debug.img`）。
