@@ -4248,9 +4248,8 @@ struct Emitter<'a> {
     /// twice or more in its stretch of the block (between instructions that
     /// read them from memory)
     xmm_worth: u16,
-    /// native_fp::mxcsr_refused's i32 once the block computed it, and the
-    /// vector checks it passed (VECTOR_SSE, VECTOR_VEX): P4.18
-    fp_mxcsr: Option<WasmLocal>,
+    /// the vector checks the block passed (VECTOR_SSE, VECTOR_VEX,
+    /// VECTOR_X87): P4.18
     vector_checked: u8,
     /// per XMM register, the lanes known to be neither NaN nor denormal
     /// (x86tpl::vec::clean_bits; P4.18, as Tier-0's xmm_clean): from where
@@ -4290,10 +4289,6 @@ struct Emitter<'a> {
     /// loops and dispatch; M9 for compatibility mode, which kept it in a
     /// local)
     last_op1_memory: bool,
-    /// legacy mode (P7.3): which vector_checked kinds may run natively, from
-    /// CR0, CR4 and XCR0 at entry and after each step (reload: a stepped
-    /// CLTS, MOV CR or XSETBV may change them), for the checks once a block
-    vector_ok: Option<WasmLocal>,
     /// compatibility mode's x87 forms (P7.2a): their operand words (low,
     /// high), made when first used
     x87_words: Option<(WasmLocal, WasmLocal)>,
@@ -4415,6 +4410,11 @@ const VECTOR_SSE: u8 = 1;
 const VECTOR_VEX: u8 = 2;
 /// (and the x87 one: CR0.EM and TS clear, P7.2a)
 const VECTOR_X87: u8 = 4;
+/// The budget's low bits (Emitter::budget_flags): the vector checks that
+/// pass (VECTOR_SSE, VECTOR_VEX, VECTOR_X87) and BUDGET_MXCSR, MXCSR
+/// admitting native float results
+const BUDGET_MXCSR: i32 = 8;
+const BUDGET_FLAGS: i32 = 15;
 /// Dispatch through a table of 16-byte buckets and compares instead of a
 /// page-sized table (x64_page_set_bucket_dispatch).
 static mut BUCKET_DISPATCH: bool = true;
@@ -4556,7 +4556,6 @@ impl Emitter<'_> {
             .map(|_| b.declare_zeroed_local_i64())
             .collect();
         let w = (0..LOCALS32).map(|_| b.declare_zeroed_local()).collect();
-        let vector_ok = env.compat.then(|| b.declare_zeroed_local());
         let verified = (env.span > 1).then(|| b.declare_zeroed_local());
 
         let mut e = Emitter {
@@ -4572,7 +4571,6 @@ impl Emitter<'_> {
             xmm_held: 0,
             xmm_dirty: 0,
             xmm_worth: 0,
-            fp_mxcsr: None,
             vector_checked: 0,
             xmm_clean: [0; 16],
             lookup_kept: Vec::new(),
@@ -4585,7 +4583,6 @@ impl Emitter<'_> {
             access: None,
             lock_loop: None,
             last_op1_memory: env.compat,
-            vector_ok,
             x87_words: None,
             x87_cache: None,
             x87_is_open: None,
@@ -4624,9 +4621,7 @@ impl Emitter<'_> {
             w,
             budget,
             xmm_locals,
-            fp_mxcsr,
             lookup_kept,
-            vector_ok,
             x87_words,
             x87_cache,
             x87_is_open,
@@ -4645,7 +4640,7 @@ impl Emitter<'_> {
             }
             b.free_local(delta);
         }
-        for l in w.into_iter().chain(fp_mxcsr).chain(vector_ok) {
+        for l in w {
             b.free_local(l);
         }
         if let Some((low, high)) = x87_words {
@@ -4915,56 +4910,96 @@ impl Emitter<'_> {
         }
         self.b.load_fixed_i32(gp::flags as u32);
         self.si(FL);
-        if self.vector_ok.is_some() {
-            // SSE: CR0.EM and TS clear, CR4.OSFXSR set (sse_check)
-            self.b.load_fixed_i32(gp::cr as u32);
-            self.c32(0xC);
-            self.b.and_i32();
-            self.b.eqz_i32();
-            self.b.load_fixed_i32(gp::cr as u32 + 16);
-            self.c32(0x200);
-            self.b.and_i32();
-            self.c32(0);
-            self.b.ne_i32();
-            self.b.and_i32();
-            // VEX: CR0.TS clear, CR4.OSXSAVE set, XCR0 with SSE and AVX state
-            self.b.load_fixed_i32(gp::cr as u32);
-            self.c32(crate::cpu::cpu::CR0_TS);
-            self.b.and_i32();
-            self.b.eqz_i32();
-            self.b.load_fixed_i32(gp::cr as u32 + 16);
-            self.c32(crate::cpu::cpu::CR4_OSXSAVE);
-            self.b.and_i32();
-            self.c32(0);
-            self.b.ne_i32();
-            self.b.and_i32();
-            self.b.load_fixed_i32(gp::xcr0 as u32);
-            self.c32(6);
-            self.b.and_i32();
-            self.c32(6);
-            self.b.eq_i32();
-            self.b.and_i32();
-            self.c32(VECTOR_VEX.trailing_zeros() as i32);
-            self.b.shl_i32();
-            self.b.or_i32();
-            // x87: CR0.EM and TS clear (x87_check)
-            self.b.load_fixed_i32(gp::cr as u32);
-            self.c32(crate::cpu::cpu::CR0_EM | crate::cpu::cpu::CR0_TS);
-            self.b.and_i32();
-            self.b.eqz_i32();
-            self.c32(VECTOR_X87.trailing_zeros() as i32);
-            self.b.shl_i32();
-            self.b.or_i32();
-            self.b.set_local(self.vector_ok.as_ref().unwrap());
-        }
+        self.budget_flags();
     }
-    /// Retry unless `kind` (vector_checked) may run, by the local reload
-    /// sets (legacy mode)
-    fn vector_ok_check(&mut self, kind: u8, start: u64) {
-        self.b.get_local(self.vector_ok.as_ref().unwrap());
-        self.c32(kind as i32);
+    /// The budget's low bits (BUDGET_FLAGS), at entry and after each step
+    /// (reload: a stepped CLTS, MOV CR, XSETBV, LDMXCSR or FXRSTOR may change
+    /// what they say): which vector_checked kinds may run natively (from
+    /// CR0, CR4 and XCR0) and BUDGET_MXCSR, whether MXCSR admits native
+    /// float results (native_fp::mxcsr_refused_any_daz clear). The checks
+    /// read them there, not CR0, CR4 and MXCSR in each block (5% of a
+    /// CPU-Z-like float kernel): every head reads the budget anyway, which
+    /// only bounds the activation, while a function-wide local of their own
+    /// takes a register the function's other values need (3.7% slower)
+    fn budget_flags(&mut self) {
+        self.b.get_local(&self.budget);
+        self.c32(!BUDGET_FLAGS);
+        self.b.and_i32();
+        // SSE: CR0.EM and TS clear, CR4.OSFXSR set
+        self.b.load_fixed_i32(gp::cr as u32);
+        self.c32(0xC);
         self.b.and_i32();
         self.b.eqz_i32();
+        self.b.load_fixed_i32(gp::cr as u32 + 16);
+        self.c32(0x200);
+        self.b.and_i32();
+        self.c32(0);
+        self.b.ne_i32();
+        self.b.and_i32();
+        self.b.or_i32();
+        // VEX: CR0.TS clear, CR4.OSXSAVE set, XCR0 with SSE and AVX state
+        self.b.load_fixed_i32(gp::cr as u32);
+        self.c32(crate::cpu::cpu::CR0_TS);
+        self.b.and_i32();
+        self.b.eqz_i32();
+        self.b.load_fixed_i32(gp::cr as u32 + 16);
+        self.c32(crate::cpu::cpu::CR4_OSXSAVE);
+        self.b.and_i32();
+        self.c32(0);
+        self.b.ne_i32();
+        self.b.and_i32();
+        self.b.load_fixed_i32(gp::xcr0 as u32);
+        self.c32(6);
+        self.b.and_i32();
+        self.c32(6);
+        self.b.eq_i32();
+        self.b.and_i32();
+        self.c32(VECTOR_VEX.trailing_zeros() as i32);
+        self.b.shl_i32();
+        self.b.or_i32();
+        // x87: CR0.EM and TS clear
+        self.b.load_fixed_i32(gp::cr as u32);
+        self.c32(crate::cpu::cpu::CR0_EM | crate::cpu::cpu::CR0_TS);
+        self.b.and_i32();
+        self.b.eqz_i32();
+        self.c32(VECTOR_X87.trailing_zeros() as i32);
+        self.b.shl_i32();
+        self.b.or_i32();
+        self.mxcsr_native();
+        self.b.or_i32();
+        // (none once the budget is spent: the head leaves, and no step of
+        // the 32-bit modes takes a unit it does not have)
+        self.c32(0);
+        self.b.get_local(&self.budget);
+        self.c32(!BUDGET_FLAGS);
+        self.b.and_i32();
+        self.b.select();
+        self.b.set_local(&self.budget);
+    }
+    /// Push BUDGET_MXCSR if MXCSR admits native float results, else 0
+    fn mxcsr_native(&mut self) {
+        crate::x86tpl::native_fp::mxcsr_refused_any_daz(&mut self.b);
+        self.b.eqz_i32();
+        self.c32(BUDGET_MXCSR.trailing_zeros() as i32);
+        self.b.shl_i32();
+    }
+    /// BUDGET_MXCSR again from MXCSR (an LDMXCSR wrote it, an exact helper
+    /// may have set PE)
+    fn mxcsr_flag(&mut self) {
+        self.b.get_local(&self.budget);
+        self.c32(!BUDGET_MXCSR);
+        self.b.and_i32();
+        self.mxcsr_native();
+        self.b.or_i32();
+        self.b.set_local(&self.budget);
+    }
+    /// Retry unless the budget's flags have all of `bits` (budget_flags)
+    fn budget_check(&mut self, bits: i32, start: u64) {
+        self.b.get_local(&self.budget);
+        self.c32(bits);
+        self.b.and_i32();
+        self.c32(bits);
+        self.b.ne_i32();
         self.b.if_void();
         self.leave_to(self.f().retry, start);
         self.b.block_end();
@@ -4982,6 +5017,13 @@ impl Emitter<'_> {
     }
     fn prologue(&mut self) {
         self.set_exit(EXIT_NORMAL);
+        // (the budget in units above its flags, BUDGET_FLAGS: one at least)
+        self.b.get_local(&self.budget);
+        self.c32(BUDGET_FLAGS);
+        self.b.add_i32();
+        self.c32(!BUDGET_FLAGS);
+        self.b.and_i32();
+        self.b.set_local(&self.budget);
         if self.env.fast_chain {
             // (P4.22: the GPRs of a chaining predecessor, see chain)
             self.b.get_local(&self.budget);
@@ -4999,6 +5041,7 @@ impl Emitter<'_> {
             self.c32(!CHAINED_GPRS);
             self.b.and_i32();
             self.b.set_local(&self.budget);
+            self.budget_flags();
             self.b.else_();
             self.reload();
             self.b.block_end();
@@ -5153,8 +5196,9 @@ impl Emitter<'_> {
         self.materialize_if(ARITH);
         self.writeback();
         if self.env.compat {
+            // (a step's unit above the flags, BUDGET_FLAGS)
             self.b.get_local(&self.budget);
-            self.c32(1);
+            self.c32(BUDGET_FLAGS + 1);
             self.b.sub_i32();
             self.b.set_local(&self.budget);
         }
@@ -5430,11 +5474,8 @@ impl Emitter<'_> {
         self.xmm_held = 0;
         self.xmm_dirty = 0;
         self.x87_known_open = false;
-        // (and what the block learns about MXCSR and the vector checks
-        // holds from where it learns it)
-        if let Some(local) = self.fp_mxcsr.take() {
-            self.b.free_local(local);
-        }
+        // (and what the block learns about the vector checks holds from
+        // where it learns it)
         self.vector_checked = 0;
         self.xmm_clean = [0; 16];
         self.kept_set = 0;
@@ -9635,9 +9676,7 @@ impl Emitter<'_> {
                     self.c32(gp::mxcsr as i32);
                     self.gi(ST);
                     self.b.store_aligned_i32(0);
-                    if let Some(local) = self.fp_mxcsr.take() {
-                        self.b.free_local(local);
-                    }
+                    self.mxcsr_flag();
                 }
                 else {
                     self.address(&address, next, true);
@@ -9835,21 +9874,15 @@ impl Emitter<'_> {
         }
         self.vex_upper(inst, dst);
     }
-    /// Push native_fp::mxcsr_refused_any_daz's i32, computed once per block
-    /// (x64_sse_fast_check, P4.18): MXCSR changes only by LDMXCSR (Op::Mxcsr
-    /// drops the value) and by steps, which leave the block, while the exact
-    /// helper only sets flags (PE too, which the value then misses: it
-    /// errs on the slow side)
+    /// Push native_fp::mxcsr_refused_any_daz's i32 as BUDGET_MXCSR says
+    /// (x64_sse_fast_check, P4.18): MXCSR changes by LDMXCSR (Op::Mxcsr
+    /// sets the flag again) and by steps, while the exact helper only sets
+    /// flags (PE too: exact_open sets the flag again)
     fn fp_mxcsr_refused(&mut self) {
-        match &self.fp_mxcsr {
-            Some(local) => self.b.get_local(local),
-            None => {
-                crate::x86tpl::native_fp::mxcsr_refused_any_daz(&mut self.b);
-                let local = self.b.set_new_local();
-                self.b.get_local(&local);
-                self.fp_mxcsr = Some(local);
-            },
-        }
+        self.b.get_local(&self.budget);
+        self.c32(BUDGET_MXCSR);
+        self.b.and_i32();
+        self.b.eqz_i32();
     }
     /// The x87 cache's locals (Emitter::x87_cache), made once: from the
     /// start in a function with x87 forms, as Tier-0's, so that x87_close
@@ -10037,12 +10070,7 @@ impl Emitter<'_> {
             return;
         }
         self.vector_checked |= VECTOR_X87;
-        self.b.load_fixed_i32(gp::cr as u32);
-        self.c32(crate::cpu::cpu::CR0_EM | crate::cpu::cpu::CR0_TS);
-        self.b.and_i32();
-        self.b.if_void();
-        self.leave_to(self.f().retry, start);
-        self.b.block_end();
+        self.budget_check(VECTOR_X87 as i32, start);
     }
     /// A run of register-only x87 forms (P7.2a, x86tpl::x87run, as Tier-0
     /// compiles it): one guard and f64 locals, else the forms one by one
@@ -10189,9 +10217,9 @@ impl Emitter<'_> {
         }
     }
     /// Retry unless the vector instruction may execute (the interpreter
-    /// raises #UD or #NM): sse_check, or for a VEX form CR0.TS clear,
-    /// CR4.OSXSAVE set and XCR0 with SSE and AVX state (CR0.EM and
-    /// CR4.OSFXSR do not matter)
+    /// raises #UD or #NM): SSE with CR0.EM and TS clear and CR4.OSFXSR set,
+    /// a VEX form with CR0.TS clear, CR4.OSXSAVE set and XCR0 with SSE and
+    /// AVX state (budget_flags)
     fn vector_check(&mut self, inst: &Inst, start: u64) {
         // (P4.18: once per block; nothing a block compiles changes CR0, CR4
         // or XCR0)
@@ -10202,30 +10230,7 @@ impl Emitter<'_> {
             }
             self.vector_checked |= kind;
         }
-        if self.vector_ok.is_some() {
-            return self.vector_ok_check(kind, start);
-        }
-        if inst.d.vex.is_none() {
-            self.sse_check(start);
-            return;
-        }
-        self.b.load_fixed_i32(gp::cr as u32);
-        self.c32(crate::cpu::cpu::CR0_TS);
-        self.b.and_i32();
-        self.b.load_fixed_i32(gp::cr as u32 + 16);
-        self.c32(crate::cpu::cpu::CR4_OSXSAVE);
-        self.b.and_i32();
-        self.b.eqz_i32();
-        self.b.or_i32();
-        self.b.load_fixed_i32(gp::xcr0 as u32);
-        self.c32(6);
-        self.b.and_i32();
-        self.c32(6);
-        self.b.ne_i32();
-        self.b.or_i32();
-        self.b.if_void();
-        self.leave_to(self.f().retry, start);
-        self.b.block_end();
+        self.budget_check(kind as i32, start);
     }
     /// The address of the 64 bits at `offset` (0, 8, 16, 24) of YMM
     /// register `n`
@@ -10284,21 +10289,6 @@ impl Emitter<'_> {
             self.xmm_load(from, half * 8, 64);
             self.xmm_store(to, half * 8, 64, false);
         }
-    }
-    /// Retry unless SSE may execute: CR0.EM and CR0.TS clear, CR4.OSFXSR set
-    /// (the interpreter raises #UD or #NM).
-    fn sse_check(&mut self, start: u64) {
-        self.b.load_fixed_i32(gp::cr as u32);
-        self.c32(0xC);
-        self.b.and_i32();
-        self.b.load_fixed_i32(gp::cr as u32 + 16);
-        self.c32(0x200);
-        self.b.and_i32();
-        self.b.eqz_i32();
-        self.b.or_i32();
-        self.b.if_void();
-        self.leave_to(self.f().retry, start);
-        self.b.block_end();
     }
     /// SSE ADD/MUL/SUB/DIV natively when the result is exactly what the
     /// interpreter (SoftFloat, crate::x64::vector) produces: round to

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CR0.TS under compiled legacy-mode SSE and x87 code (docs/jit-unification-
-// plan.md P7.3; pagegen's vector_ok, which the page tier computes at entry
+// plan.md P7.3; pagegen's budget_flags, which the page tier computes at entry
 // and after each step): a hot loop adds with ADDPS and FADD, and every 8th
 // iteration sets CR0.TS with MOV CR0 (a step); the next SSE or x87
 // instruction raises #NM, whose handler counts it, clears TS with CLTS and

@@ -266,6 +266,8 @@ impl VecOperands for Operands<'_, '_> {
             source,
         );
         self.e.retry_if(self.start);
+        // (it may have set PE: native results from here on)
+        self.e.mxcsr_flag();
     }
     fn exact_result(&mut self) { sse_fp_result(&mut self.e.b, self.e.env.sse_fp_operands) }
     /// (the templates whose facts the page tier follows: arithmetic,
