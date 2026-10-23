@@ -37,30 +37,39 @@ HID tablet、镜像 U 盘），然后是 OVMF、TPM 2.0 与 Secure Boot；xHCI�
    先评估 SMM 路线。
 7. **e1000e 降为按需**：82540EM 已覆盖 Vista 到 Windows 11；82574L 的驱动在 Windows 11 中是
    可移除的 Feature on Demand。
+8. **新设备做成插件，声卡单选**（所有者确认）：e1000 与 HD Audio 照显示适配器的插件机制实现，
+   只在被选中时加载；声卡与显示适配器一样只能选一种（见“设备插件”与“API 与配置”）。NE2000 与
+   SB16 迁成插件列为 N1/H1 之后的可选阶段 M1。
+9. **界面改动随阶段交付**（所有者要求）：每个阶段在 VM 管理器中的选型、预设、控制台与配置迁移见
+   “界面”一节。核对界面代码时发现两个现有问题，也写在那里：声卡选“无”其实只是静音，客体里仍有
+   SB16；摘要把 virtio-snd 显示成 “none”。
 
 ## 优先级总览
 
 | 顺序 | 阶段 | 首个交付 | 用自带驱动的客体 | 前置 | 规模 | 排序理由 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | N1 网卡 | e1000（82540EM）与按预设选型；ARM64 沿用 virtio-net | Vista/7/8/8.1/10/11（x86、x64），Linux x86/x86-64；Android 与 Linux aarch64 | 无（传统 PCI、INTx） | 中 | 所有者的直接需求；现有 Windows 预设没有可用网卡 |
-| 2 | H1 HD Audio | ICH6/ICH9 HDA 与通用输出 codec | Vista 及以后，Linux（不含 XP） | 无（INTx，可选 MSI） | 中 | 同一批预设没有声卡；Vista 以后没有 SB16 驱动 |
+| 1 | N1 网卡 | e1000（82540EM）与按预设选型；ARM64 沿用 virtio-net | Vista/7/8/8.1/10/11（x86、x64），Linux x86/x86-64；Android 与 Linux aarch64 | 设备插件句柄（随 N1 先做）；硬件上无（传统 PCI、INTx） | 中 | 所有者的直接需求；现有 Windows 预设没有可用网卡 |
+| 2 | H1 HD Audio | ICH6/ICH9 HDA 与通用输出 codec | Vista 及以后，Linux（不含 XP） | 设备插件句柄；硬件上无（INTx，可选 MSI） | 中 | 同一批预设没有声卡；Vista 以后没有 SB16 驱动 |
 | 3 | U1 USB 核心、UHCI、HID tablet | 不需 pointer lock 或 VMware Tools 的绝对坐标指针 | XP 到 Windows 11（XP、8.1 已核对），Linux | 无 | 中 | UHCI 覆盖 XP 到 11；xHCI 只覆盖 Windows 8 以后 |
 | 4 | U2 镜像 U 盘 | BOT/SCSI，可热插拔 | XP 及以后，Linux | U1 | 中小 | 复用 U1 与 `block_backend.js`；SATA/PCIe 热插拔已有，排在三项缺失设备之后 |
 | 5 | F1 OVMF / UEFI | Shell、GOP、GPT/ESP 冷启动、持久变量 | — | Q35（已完成） | 很大 | Windows 11 与纯 UEFI 镜像的前提；8.1/10 用 SeaBIOS 已能启动 |
 | 6 | T1/T2 TPM 2.0 | CRB 前端与 libtpms 后端；T2 接入 OVMF 度量 | Windows 8 以后（`tpm.inf`），Linux | T1 无；T2 需 F1 | 大 | Windows 11 的前提 |
 | 7 | F2 Secure Boot | 受保护变量与验签正反例 | — | F1；SMM 路线另需 pflash | 大 | 完整安全启动 |
 | 8 | C1 Windows 11 集成 | 固定镜像的安装、运行与安全功能证据 | — | 1–7 | 中 | 汇总验收 |
+| 可选 | M1 NE2000、SB16 迁成插件 | 内置网卡与声卡改为插件，客体看到的硬件不变 | 与现在相同 | N1、H1（共用句柄已验证） | 中 | 网卡与声卡的结构与显示适配器一致；没有客体可见的收益，不阻塞其他阶段 |
 | 按需 | U3 xHCI（必要时 EHCI） | USB 2/3、更多端口 | Windows 8 以后，Linux | U1，按型号的 MSI/MSI-X | 大 | 只在 UHCI 的吞吐或兼容性不够时 |
 | 按需 | N2 e1000e（82574L） | PCIe 网卡 | 8.1 有；11 中为可移除 FOD | N1，MSI-X | 中 | 只在某个目标镜像缺 82540EM 驱动时 |
 | 按需 | U4 WebUSB | 受限直通 | — | U1 | 中 | 浏览器限制多，不阻塞任何交付 |
 
-1–3 互不依赖，可以并行；每个阶段通过自己的验收矩阵后单独发布，不等后面的阶段。OVMF、
+1–3 可以并行（1 和 2 共用一次设备插件句柄的抽取，先做的阶段带上它）；每个阶段通过自己的验收
+矩阵后单独发布，不等后面的阶段。OVMF、
 vTPM 移植和 Windows 驱动身份的小型探测可以提前做，以尽早暴露阻塞（F1 的 fw_cfg 问题就是
 这样找到的）。
 
 ```mermaid
 flowchart TD
     Q["Q35 / AHCI / SMM（已完成）"]
+    P["设备插件句柄（抽自显示适配器）"]
     N1["1 N1 e1000 + 按预设选型"]
     H1["2 H1 HD Audio"]
     U1["3 U1 USB 核心 + UHCI + HID tablet"]
@@ -73,6 +82,11 @@ flowchart TD
     U3["按需 U3 xHCI / EHCI"]
     N2["按需 N2 e1000e"]
     U4["按需 U4 WebUSB"]
+    M1["可选 M1 NE2000/SB16 迁成插件"]
+    P --> N1
+    P --> H1
+    N1 --> M1
+    H1 --> M1
     U1 --> U2
     U1 --> U3
     U1 --> U4
@@ -106,6 +120,7 @@ flowchart TD
 | [src/ne2k.js](../src/ne2k.js)、[src/virtio_net.js](../src/virtio_net.js)、[networking.md](networking.md) | NE2000 PCI（RTL8029，`10EC:8029`）、virtio-net（virt 上可多张）；fetch、wisp、wsproxy、inbrowser 后端经 `net{id}-send/receive/mac` 连接 | e1000 前端（N1） |
 | [src/app/guest_presets.js](../src/app/guest_presets.js)、[src/browser/vm_options.js](../src/browser/vm_options.js)、[v86.d.ts](../v86.d.ts) | 系统预设；arm64 强制 virtio-net；`net_device.type` 只有 `"ne2k"`、`"virtio"`；Windows 预设为 `nic: "none"`、`sound: "none"` | 新类型与预设默认值 |
 | [src/browser/cpu_worker.js](../src/browser/cpu_worker.js)、[src/browser/cpu_worker_runtime.js](../src/browser/cpu_worker_runtime.js) | 设备与 RAM 在 CPU Worker，页面适配器经消息通信 | 新选项的序列化；WebUSB 权限代理（U4） |
+| [src/graphics_adapter.js](../src/graphics_adapter.js)、[src/graphics_adapters/machine.js](../src/graphics_adapters/machine.js)、[gpu-devices.md](gpu-devices.md) | 显示适配器都是插件：各自用 Closure SIMPLE 单独编译，按需加载（页面、Node、CPU Worker 的 `importScripts`），描述符与句柄跨边界只用带引号的名字，快照槽位 `state[52]`；`virtio_devices` 是只适用于 virtio 设备的另一种插件 | 抽出各类插件共用的设备句柄，供 e1000 与 HD Audio 使用（见“设备插件”） |
 | [src/virt/](../src/virt/)、[virt.md](virt.md) | ARM64 virt：GICv3 无 ITS（没有 MSI），PCIe 只有 INTx，virtio-pci 没有 MSI-X | 不新增设备 |
 
 仓库里还没有 USB 栈（UHCI、EHCI、xHCI）、HDA、e1000、OVMF、Secure Boot 或 TPM 的实现。
@@ -126,7 +141,7 @@ new V86({
     acpi: true,
     cpu_cores: 2,
     net_device: { type: "e1000", relay_url: "..." }, // N1："ne2k" | "virtio" | "e1000"
-    audio_device: "hd_audio",                        // H1："sb16" | "hd_audio" | "none"
+    audio_device: "hd_audio",                        // H1：单选 "sb16" | "hd_audio" | "none"
     usb: {                                           // U1、U2
         controller: "uhci",                          // U3 以后可为 "xhci"
         tablet: true,
@@ -145,14 +160,14 @@ new V86({
 });
 ```
 
-- 声卡用新增的 `audio_device` 选型，取值是字符串，与 `graphics_adapter` 相同。HD Audio 的值是
-  `"hd_audio"`，不用 `"hda"`：`hda` 已是第一块硬盘的选项。不写时保持现在的行为（x86 总有
-  SB16）；ARM64 继续用现有的 `virtio_sound`。
+- 声卡用新增的 `audio_device` 选型。它与 `graphics_adapter` 一样是单选的字符串：x86 上只能是
+  `"sb16"`、`"hd_audio"`、`"none"` 之一，不支持两张声卡共存（PC 喇叭不算声卡，照常存在）；不写
+  时保持现在的行为（x86 总有 SB16）。HD Audio 的值是 `"hd_audio"`，不用 `"hda"`：`hda` 已是第一块
+  硬盘的选项。ARM64 的声卡只有 virtio-snd（现有的 `virtio_sound`）。VM 管理器的 `sound.device`
+  用同一组值，也是单选。
 - 库的默认值不变：SB16、NE2000、PS/2、SeaBIOS。新设备由 VM 管理器的预设
   （[guest_presets.js](../src/app/guest_presets.js)）选用；设置对话框只列当前机器能用的型号
   （arm64 只有 virtio，与 [vm_options.js](../src/browser/vm_options.js) 一致）。
-- 首版 SB16 与 HDA 二选一；以后要共存，先给 `dac-*` 加来源标识并实现混音，不能共用无来源
-  标识的队列。
 - UEFI 与 `bios/vga_bios` 互斥，CODE/变量模板的版本组合在启动前校验。`secure_boot: true`
   表示要求加载并核验受信配置，不是一个对外可见的状态位。
 - USB 设备有稳定 ID 和端口号；热插拔 API 有明确的成功、失败、取消和断开事件。Node 支持
@@ -162,6 +177,35 @@ new V86({
   的句柄。
 - 固件变量、TPM 和可写介质的存储属于同一个 VM 身份，复用 VM 管理器的磁盘存储（浏览器磁盘、
   磁盘服务）；不同 VM 不能意外共用状态。
+
+### 设备插件
+
+e1000 与 HD Audio 照显示适配器的方式做成插件：每个型号一个文件，只在被选中时加载，libv86 与
+CPU Worker 的包不因它们变大（Win9x、XP 等旧客体用不到它们）。现有机制见
+[gpu-devices.md](gpu-devices.md) 的 “Adapter plugins”：
+
+- **沿用的部分**：插件文件为 `build/v86-<name>.js`（`build/v86-e1000.js`、`build/v86-hd-audio.js`），
+  入口为 `src/<类别>/<name>/plugin.js`（`src/net_adapters/e1000/`、`src/audio_devices/hd_audio/`）；
+  用 Closure SIMPLE 单独编译，跨边界的描述符、句柄和设备只用带引号的名字；加载顺序（页面已注册的
+  全局表、路径选项、libv86 包旁边、`build/`）、CPU Worker 中用 `importScripts`、并行模式下只在机器
+  线程加载，都与 [graphics_adapter.js](../src/graphics_adapter.js) 相同。
+- **要抽出的部分**：现在的句柄 `GraphicsMachine`（[machine.js](../src/graphics_adapters/machine.js)）里
+  与显示无关的部分，即端口与 MMIO、`register_pci`（BAR 与 `on_move`）、`raise_irq`/`lower_irq`、客体
+  内存读写和机器时钟，抽成各类插件共用的设备句柄；显示适配器在其上保留显示中枢与设备内存。共用
+  句柄还要提供定时器（e1000 的中断合并、HDA 的 DMA 节拍）和 PCI 位置（`pci_functions` 的槽位、
+  Q35 的 `pcie_root_port`）。网卡插件另得到网络总线（`net{id}-send/receive/mac`），声卡插件另得到
+  音频输出（`dac-*`）。
+- **快照**：网卡与声卡各一个槽位，记录 `[标签, 版本, 型号名, 设备状态]`，与显示适配器的
+  `state[52]` 相同；恢复时型号名必须与配置一致，插件在恢复设备状态之前加载好。
+- **路径选项**：与 `graphics_adapter_path` 同规则，拟为 `audio_device_path` 与
+  `net_device.plugin_path`。
+- **内置型号**：NE2000 与 SB16 先保持内置，在可选阶段 M1 再迁成插件；virtio-net 一直内置（virtio
+  传输在核心里，x86 的 Linux 与 ARM64/Android 共用）。内置型号与插件型号在同一个选项里单选
+  （`net_device.type`、`audio_device`）。
+- **不用 `virtio_devices`**：那是 virtio 设备的插件接口（v86 提供 virtio 传输），e1000 与 HDA 不是
+  virtio 设备。
+
+U1 的 UHCI 与 USB 设备也可以按同一方式做成插件，在 U1 开始时决定。
 
 ### PCI、DMA、中断和时钟
 
@@ -191,6 +235,60 @@ schema、固件和后端状态版本，状态槽位在 [state.js](../src/state.j
 （[state_io.js](../src/state_io.js)）和错误策略；写入一旦提交，复位不能撤销。长轮询的 USB IN、
 断开的 WebUSB 和超时的后端要有取消或脱离策略，保存快照不能无限等待。关机和 S5 时的持久化
 失败必须可观测，不能默默丢弃。
+
+## 界面：VM 管理器与调试页
+
+每个阶段的设备都要能在 VM 管理器（index.html）里选择、显示和验收，界面改动随该阶段一起交付；
+调试页（debug.html）只补最少的入口。涉及的文件：配置 [vm_config.js](../src/app/vm_config.js)（格式、
+默认值、迁移、检查、到 V86 选项的转换）、[machine_options.js](../src/machine_options.js)（每种机器允许的
+型号）、[vm_options.js](../src/browser/vm_options.js)（index.html 与 debug.html 共用的选项规则）、设置对话框
+（[settings.js](../src/app/ui/settings.js) 与 [panels/](../src/app/ui/panels/)）、摘要
+（[describe.js](../src/app/ui/describe.js)）、预设（[guest_presets.js](../src/app/guest_presets.js)）、控制台
+（[console.js](../src/app/ui/console.js)），以及用户文档 [vm-manager.md](vm-manager.md)。
+
+### 共同规则
+
+- **型号列表来自机器规则**：设置对话框的下拉框由 `allowed_options` 给出，新型号加进
+  machine_options.js 的 `NET_DEVICE_TYPES` 与 vm_config.js 的 `SOUND_DEVICES`，界面就按机器过滤：
+  x86 的网卡为 NE2000、e1000、virtio-net、无，声卡为 Sound Blaster 16、HD Audio、无；ARM64 只有
+  virtio-net 与 virtio-snd。显示名放在 panels/devices.js 的 `NIC_LABELS`、`SOUND_LABELS`，硬件列表与
+  摘要用同一份显示名。顺带修正一个现有问题：摘要只认 `sb16`，把 Android 虚拟机的 virtio-snd 显示成
+  “none”。
+- **配置格式与迁移**：只新增枚举值（`e1000`、`hd_audio`）时沿用格式版本 1，旧版界面会在该项上报
+  “must be one of …”，含义清楚；新增配置段（`usb`、`firmware`、`tpm`）时格式版本加一，`migrate` 用
+  默认值补齐旧配置，旧版界面打开新配置时报 “made by a newer v86”。每次迁移都在
+  `tests/app/vm_config.mjs` 中加用例，`.v86vm.json` 的导出与导入往返不丢字段。
+- **挂起的虚拟机**：`machine_digest`（[vm_state.js](../src/app/vm_state.js)）对整个配置（含版本号）取
+  哈希，恢复时与挂起时的值比较。不改变客体硬件的迁移（补默认值、版本号变化、下面的“无 → SB16 +
+  静音”）要同时改写已存的 `suspended.digest`，否则升级后每台挂起的虚拟机都会误报设置在挂起后改过；
+  改变硬件的修改照常提醒。
+- **声卡“无”的含义**：现在声卡选“无”只是 `disable_audio`（静音），客体里仍有 SB16。H1 引入
+  `audio_device: "none"` 后，“无”表示没有声卡。为了不改变已有虚拟机的客体硬件，迁移把 PC 机器上的
+  “无”改为“SB16 + 静音”，静音成为单独的复选框（对应 `disable_audio`），用户再改选“无”才真正去掉
+  声卡。ARM64 的“无”本来就没有设备，不变。
+- **存储与导出**：UEFI 变量与 TPM 状态随虚拟机保存在浏览器存储中（与浏览器磁盘同一套），删除
+  虚拟机时一并删除。导出 `.v86vm.json` 时 UEFI 变量可选包含；TPM 状态含密钥材料，默认不导出，
+  要用户明确选择并提示风险。
+- **插件文件**：插件缺失或加载失败时，控制台的错误提示写明缺的文件与型号。每个插件阶段都把新
+  文件加进 [tools/pages_dist.mjs](../tools/pages_dist.mjs) 的清单，否则 Pages 上的 index.html 找不到插件。
+- **调试页**：debug.html 的网卡下拉框加入 e1000，并加一个同样的声卡下拉框（Sound Blaster 16、
+  HD Audio、无）；两者经 vm_options.js 与 index.html 共用规则。USB、固件和 TPM 只在 VM 管理器中提供。
+- **测试**：每个阶段扩展 `make app-tests`：`tests/app/vm_config.mjs`（检查与迁移）、`presets.mjs`、
+  `machine_rules.mjs`，以及向导、设置对话框、控制台的浏览器测试，最后从界面启动一台虚拟机，确认
+  客体看到所选的设备。
+
+### 各阶段的界面改动
+
+| 阶段 | 设置对话框 | 预设与向导 | 控制台 |
+| --- | --- | --- | --- |
+| N1 | 网络适配器下拉框加入 e1000（x86）；MTU 字段仍只对 virtio-net 显示 | Windows 8.1、Vista/7/10 预设改为 e1000，删除 “ne2k has no Windows 8.1 driver” | 详情抽屉显示网卡型号 |
+| H1 | 声卡下拉框加入 HD Audio（x86），新增“静音”复选框 | 同一批预设改为 HD Audio，删除 “No sound card” | “静音”按钮沿用；详情显示声卡型号 |
+| U1 | 新增 “USB” 硬件项（可从“添加”菜单加入）：控制器 UHCI、tablet 开关 | XP 到 Windows 11、Linux 的预设默认开启 tablet；Win9x 不开 | “输入”菜单在 USB tablet（绝对坐标）与 PS/2（相对，锁定鼠标）之间切换；状态栏显示当前路径 |
+| U2 | “USB” 项下列出 U 盘：镜像来源与硬盘相同（URL、本机文件、浏览器磁盘、磁盘服务），只读或读写 | — | “设备”菜单：插入 U 盘镜像、安全弹出、拔出；写回的镜像可下载 |
+| F1 | “机器与固件”面板：固件 SeaBIOS 或 UEFI（与 BIOS 文件选择互斥）；“UEFI 变量恢复出厂设置”按钮 | Windows 11 预设（C1 新增）默认 UEFI | — |
+| T1/T2 | 新增 “TPM” 硬件项（可从“添加”菜单加入）：TPM 2.0（CRB）；“清除 TPM”要确认 | Windows 11 预设带 TPM | — |
+| F2 | “机器与固件”面板：Secure Boot 开关与密钥配置（默认用目标系统所需的证书） | Windows 11 预设默认开启 | — |
+| M1 | 没有可见变化 | — | 恢复旧存档照常；插件缺失时提示 |
 
 ## 1. N1 网卡：一个后端，按机器选两种免驱前端
 
@@ -267,7 +365,8 @@ Linux x86-64 上都有自带驱动。这三类客体运行在两种机器上（A
 
 ### 自动选型
 
-- 库 API：`net_device.type` 增加 `"e1000"`；库默认保持 `"ne2k"`（兼容旧页面、旧快照和旧客体）。
+- 库 API：`net_device.type` 增加 `"e1000"`，由插件 `build/v86-e1000.js` 提供，选中时才加载（见
+  “设备插件”）；库默认保持 `"ne2k"`（兼容旧页面、旧快照和旧客体）。
 - VM 管理器预设（[guest_presets.js](../src/app/guest_presets.js)）：
   - Windows 8.1、Windows Vista/7/10（以后的 11）：`nic: "e1000"`，取代现在的 `"none"`，并删除
     `WINDOWS_81_ISSUES` 中 “ne2k has no Windows 8.1 driver” 一条。
@@ -280,7 +379,7 @@ Linux x86-64 上都有自带驱动。这三类客体运行在两种机器上（A
 ### 设备契约（82540EM）
 
 参照 Intel 8254x 软件开发手册与 QEMU、VirtualBox 的实现，按 82540EM 这一个型号实现完整的
-必要契约：
+必要契约。设备代码在插件 `src/net_adapters/e1000/` 中，经共用设备句柄访问 PCI、DMA、中断与定时器：
 
 - **PCI**：`8086:100E`，class `02/00/00`，子系统 `8086:001E`；BAR0 为 128 KiB MMIO，另有 I/O BAR
   （IOADDR/IODATA 间接访问）；INTA；PCI 电源管理 capability；不提供 MSI（与 QEMU、VirtualBox
@@ -331,7 +430,8 @@ Vista 以后没有 SB16 驱动，Windows 8.1 与 Vista/7/10 预设现在没有�
 | XP SP3 | 只有总线驱动，没有通用 codec 驱动（光盘已核对）：XP 继续用 SB16 |
 | ARM64 | 不需要：已有 virtio-snd |
 
-建议拆为 `src/hd_audio.js` 控制器、`src/hd_audio_codec.js` codec 和可复用的 PCM 路径（文件名同样避开 `hda`）。控制器身份：i440FX
+做成插件 `build/v86-hd-audio.js`（见“设备插件”），入口 `src/audio_devices/hd_audio/plugin.js`，控制器、
+codec 与 PCM 路径分文件，文件名同样避开 `hda`；它与 SB16 二选一。控制器身份：i440FX
 用 ICH6（`8086:2668`），Q35 用 ICH9（`8086:293E`），与 QEMU 的 `intel-hda`、`ich9-intel-hda` 相同；
 Windows 按类匹配，Linux 两个 ID 都认。codec 用通用输出 codec（参照 QEMU `hda-codec.c` 的
 `hda-output`），不冒充需要大量私有初始化的真实 codec。
@@ -610,9 +710,81 @@ x86-64.md 的缺失列表），缺失语义在解释器/JIT 中实现并做差�
 正反例通过；保存/恢复不破坏持久状态；旧默认配置继续可用；用户文档明确 WebUSB、vTPM、Windows 11
 CPU/图形兼容的边界。只出现设备名称、播放一次声音或绕过安装检查，都不能替代相应阶段的验收。
 
-## 按需扩展
+## 可选与按需阶段
 
-以下阶段不阻塞 1–8，在各自的触发条件出现时立项。
+以下阶段不阻塞 1–8：M1 是可选的结构调整，在 N1、H1 之后做；U3、N2、U4 在各自的触发条件出现时
+立项。
+
+### M1 NE2000 与 SB16 迁成插件（可选）
+
+目的：网卡与声卡的所有型号都像显示适配器一样是插件，核心只保留槽位、总线与共用设备句柄。客体
+看到的硬件完全不变，所以没有客体可见的收益；等 e1000 与 HD Audio 两个插件验证过共用句柄之后再做。
+先迁 NE2000，再迁 SB16，各自单独发布。virtio-net 不迁（见“设备插件”）。
+
+- **NE2000**：插件 `build/v86-ne2k.js`（入口 `src/net_adapters/ne2k/plugin.js`）。它是 PCI 设备（RTL8029），
+  要用的端口、`register_pci`、`raise_irq`/`lower_irq` 与网络总线都已在共用句柄中；
+  `preserve_mac_from_state_image` 与 `mac_address_translation` 作为插件选项传入。
+- **SB16**：插件 `build/v86-sb16.js`（入口 `src/audio_devices/sb16/plugin.js`）。它是 ISA 设备，共用句柄要
+  增加 ISA 部分：ISA 中断线（现在的 `cpu.device_raise_irq`）、8237 DMA 通道（`do_read`/`do_write`、通道
+  屏蔽、`on_unmask` 监听）和固定端口（现在注册的 0x220–0x22F、0x330、0x388）。
+- **不变的部分**：`net_device.type` 默认仍为 `"ne2k"`，`audio_device` 不写仍是 SB16，页面与 VM 管理器的
+  配置和预设都不变；客体看到的 PCI ID、I/O 端口、IRQ、DMA 通道与 MAC 处理都不变。
+
+验收条件：
+
+1. **旧快照兼容**
+   - **两种格式**：这两个槽位在迁移前存的是设备自己的寄存器数组；迁移后外面包一层标签、版本与
+     型号名（标签名以实现为准）：
+
+     ```js
+     // 迁移前保存的 bin（现在的格式）
+     state[59] = [isr, imr, cr, dcfg, …, mac, memory]          // NE2000 自己的状态
+     state[61] = [ …SB16 的寄存器与缓冲… ]
+
+     // 迁移后保存的 bin
+     state[59] = ["net_adapter", 1, "ne2k", [isr, imr, cr, …, mac, memory]]
+     state[61] = ["audio_device", 1, "sb16", [ … ]]
+     ```
+
+   - **恢复规则**：
+     - 第一个元素是标签：新格式。版本不认识或型号名与配置不符时，在修改 RAM 之前失败；否则把
+       内层数组交给插件的 `set_state`。
+     - 不是标签：迁移前的文件，整个数组交给 ne2k 或 sb16 插件的 `set_state`。这不会认错：迁移前
+       `state[59]` 只可能是 NE2000（virtio-net 存在 `state[83]`），`state[61]` 只可能是 SB16；插件沿用
+       现在 `ne2k.js`、`sb16.js` 的状态字段顺序，所以旧数组照样能读。
+     - 槽位为空（机器没有这个设备）：不恢复，与现在相同。
+
+     做法与显示适配器相同：[graphics_adapter.js](../src/graphics_adapter.js) 把插件之前的 `state[52]` 当作
+     Bochs VGA 自己的状态。
+   - **只向前兼容**：新版 v86 能打开旧快照，**新快照不能在旧版 v86 中打开**。旧代码会把带标签的外层
+     当成寄存器数组来读，得到错误的设备状态。为了让旧版明确报错，而不是读出错误的状态，M1 把快照
+     头的版本号加一：单文件格式的 `STATE_VERSION` 从 6 改为 7，流式格式的 `STREAM_VERSION` 从 7 改为
+     8。[state.js](../src/state.js) 对版本号做相等检查，旧版遇到新版本号会报 “Version mismatch”；新版
+     同时接受新旧两个版本号。版本号对所有快照生效，所以 M1 之后保存的快照（包括 ARM64 的）都不能
+     再用旧版打开。站点升级到 M1 之后，用户新存的存档不能再回退到旧版 v86 使用；这一点写进发布说明
+     和站点的部署说明。
+   - **回归集**：两条恢复路径都用真实文件测。先用新版恢复站点现有的 Windows XP 存档
+     （`windowsxp_audio_vga_2d_multidisk_*.bin.zst`）与 Windows 98 存档，声音与网络照常（旧格式 → 插件）；
+     再保存一次得到新格式并恢复（新格式 → 插件）；最后确认旧版 v86 打开这份新快照时报版本不符。
+     现有的 `tests/api/sb16-state.js` 与默认用 NE2000 的 `tests/devices/fetch_network.js` 通过。
+2. **默认加载**
+   - 默认配置（不写 `net_device`、`audio_device`）自动加载 `v86-ne2k.js` 与 `v86-sb16.js`：与 bochs_vga 一样
+     在磁盘镜像加载期间并行获取，不增加启动的串行等待。页面执行、CPU Worker（`importScripts`）、Node、
+     从源码树运行（`src/main.js`）与并行模式（只在机器线程加载）都要覆盖。
+   - 插件文件缺失、加载失败或描述符无效时，启动报错并指名缺少的插件，不能悄悄变成没有网卡或没有
+     声卡。
+   - 性能不回退：XP 性能门禁（`tests/ir/performance/xp_boot.mjs`）与站点存档的负载
+     （`tests/ir/performance/game_state.mjs`）没有可测的变慢；NE2000 端口 I/O 与 SB16 DMA 的每次访问
+     不因经过句柄而增加开销。
+3. **部署**
+   - 构建：两个插件进入 Makefile 的插件列表（照 `GRAPHICS_ADAPTER_PLUGINS` 与 `make graphics-adapters`），
+     作为每个 libv86 包与 `build/cpu-worker.js` 的前置；npm 包已由 `package.json` 的 `build/v86-*.js` 覆盖。
+   - Pages：[tools/pages_dist.mjs](../tools/pages_dist.mjs) 的文件清单加入两个插件（显示适配器插件在那里是
+     逐个列出的）。
+   - 站点：retro-gaming-site 把 `v86-ne2k.js`、`v86-sb16.js` 与 `libv86.js`、`cpu-worker.js`、`v86-bochs-vga.js`
+     一起放在根目录并提交（站点按默认路径在 libv86 旁边加载插件）。
+   - 部署后在 Pages 预览和站点上各启动一次默认机器，确认两个插件文件返回 200 并带内容哈希版本，再
+     恢复一个站点存档，检查声音与网络。
 
 ### U3 xHCI（必要时 EHCI）
 
@@ -689,19 +861,22 @@ WebUSB 没有可通用假设的逐请求取消或物理状态回滚。虚拟取�
 
 ## 建议的首批提交
 
-1. N1：82540EM 设备与 Node 测试；`net_device.type: "e1000"`、`v86.d.ts`、Worker 序列化与快照；
+1. 设备插件句柄：把 `GraphicsMachine` 的通用部分抽成共用的设备句柄，三个显示适配器插件的回归
+   不变；加入网卡与声卡插件的加载路径和快照槽位。
+2. N1：e1000 插件与 Node 测试；`net_device.type: "e1000"`、`v86.d.ts`、Worker 序列化与快照；
    预设默认值；linux4.iso、Alpine 与 Windows 8.1 验收。
-2. H1：HDA 控制器、codec 与 Node 测试；`audio_device: "hd_audio"`；linux4.iso 与 Windows 8.1 验收；
-   预设默认值。
-3. U1：USB 设备核心、UHCI、tablet 与统一输入路由；Alpine、XP 与 Windows 8.1 验收。
-4. U2：BOT/SCSI 与镜像 U 盘的热插拔 API。
-5. F1 探路：fw_cfg 修订号与 `etc/e820`；固定 edk2 构建，在 QEMU 的相同配置上取得串口参考，再在
+3. H1：HD Audio 插件与 Node 测试；单选的 `audio_device`；linux4.iso 与 Windows 8.1 验收；预设默认值。
+4. U1：USB 设备核心、UHCI、tablet 与统一输入路由；Alpine、XP 与 Windows 8.1 验收。
+5. U2：BOT/SCSI 与镜像 U 盘的热插拔 API。
+6. F1 探路：fw_cfg 修订号与 `etc/e820`；固定 edk2 构建，在 QEMU 的相同配置上取得串口参考，再在
    v86 中以 ROM 方式启动到 Shell。
-6. T1：libtpms 的 Wasm 可行性探测与 CRB 前端。
-7. F1 完整（GOP、GPT/ESP、pflash 持久变量）→ T2 → F2 → C1。
-8. U3、N2、U4 在各自的触发条件出现时立项。
+7. T1：libtpms 的 Wasm 可行性探测与 CRB 前端。
+8. F1 完整（GOP、GPT/ESP、pflash 持久变量）→ T2 → F2 → C1。
+9. M1（可选）：2、3 完成后先迁 NE2000，再迁 SB16，各自通过 M1 的验收条件后发布。
+10. U3、N2、U4 在各自的触发条件出现时立项。
 
-1–3 可以由独立的工作流并行推进。
+第 1 项完成后，2–4 可以由独立的工作流并行推进（4 不依赖第 1 项，可以更早开始）。每一项都包含
+“界面”一节中对应阶段的改动与 `make app-tests` 的用例。
 
 ## 规范与实现参考
 
