@@ -180,6 +180,15 @@ bootconfig 的 GPU 键，不改分区）。
 
 验收：设备测试通过；Venus 的全部设备测试与 Android A9 场景不退化。
 
+设计补充（2026-10-24，读 `virtio_gpu_device.js` 之后）：第一步是设备里**按 capset 的上下文类型表**：每种上下文
+（Venus 的 4，gfxstream 的 3、9）一个处理者，接口是 Venus 已有的那一组（`contexts`、`create_context`、
+`destroy_context`、`create_blob`、`mapped`、`unref_blob`、`submit`、`resubmit`、`timer`、`reset`、
+`get_state`/`set_state`）；设备里现在 35 处直接引用 `this.venus`（建 blob、映射、提交、快照等）改成查上下文所属的
+处理者，blob 的 `venus` 标记改成所属处理者。Venus 的设备测试（`tests/devices/virtio_gpu_venus.js`、
+`venus_protocol.js`）逐字不变即是这一步的门禁。gfxstream 的 ASG blob（blob id 0、host3d、可映射）与 Venus 的共享内存
+blob 同类，映射与脏页的路径可以共用。宿主在空闲时把 `host_state` 置为 `NEED_NOTIFY`（0），客体每次刷新都会 ping
+（[gfxstream-protocol.md](gfxstream-protocol.md)），设备不必在 CPU 的时间片之间轮询环。
+
 ## 3. G2 Vulkan 解码与共用模型
 
 - 把 `venus_vk*.js` 拆成协议无关的 `vulkan_model`（对象、内存、提交、等待、快照记录）与 Venus 前端；
