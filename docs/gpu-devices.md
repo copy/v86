@@ -1652,7 +1652,9 @@ them. Smaller gaps are listed in [gpu-deviations.md](gpu-deviations.md#not-done)
     `venus`, VENUS (4). GFXSTREAM_VULKAN (3), CROSS_DOMAIN (5) and DRM (6,
     native contexts) are not declared: they need Android's gfxstream on the
     host, Wayland passthrough to a host compositor, and a host kernel GPU
-    driver, none of which a browser has.
+    driver, none of which a browser has. gfxstream's Vulkan side over the
+    same Vulkan model and VX, for unmodified Android images, is planned:
+    [gfxstream-plan.md](gfxstream-plan.md).
 - **Not tried in a guest.**
   - VMware's Windows OpenGL ICD, from the same "VMware SVGA 3D" package.
     Windows acceptance covers D3D9 (3DMark06), D3D10/11 (`d3d11cmp.c`,
