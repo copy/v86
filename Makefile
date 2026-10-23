@@ -718,19 +718,26 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # outside Closure, bundled by esbuild into build/v86_app.js (build/libv86.mjs
 # stays its own file: index.html's import map names it "v86"), checked by tsc
 # against v86.d.ts. The tools are package.json's devDependencies (npm ci).
-APP_FILES=$(shell find src/app -name '*.js') src/browser/vm_options.js src/browser/query_compat.js \
+APP_FILES=$(shell find src/app -name '*.js') $(wildcard src/android/*.js) src/browser/vm_options.js src/browser/query_compat.js \
 	src/machine_options.js src/disk_options.js
 node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
 	npm ci
 	touch node_modules/.bin/esbuild node_modules/.bin/tsc
 
 .PHONY: app app-check
-app: build/v86_app.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
+app: build/v86_app.js build/android-import-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
 
 build/v86_app.js: $(APP_FILES) node_modules/.bin/esbuild
 	mkdir -p build
 	node_modules/.bin/esbuild src/app/main.js --bundle --format=esm --target=es2022 --minify --sourcemap \
 		--external:v86 --outfile=build/v86_app.js --log-level=warning
+
+# the Android importer's worker (src/app/android_import.js starts it): the
+# image library of src/android/ and a browser disk's sync access handle
+build/android-import-worker.js: src/app/android_import_worker.js $(wildcard src/android/*.js) src/image/sha256.js node_modules/.bin/esbuild
+	mkdir -p build
+	node_modules/.bin/esbuild src/app/android_import_worker.js --bundle --format=esm --target=es2022 --minify --sourcemap \
+		--outfile=build/android-import-worker.js --log-level=warning
 
 app-check: node_modules/.bin/tsc
 	node_modules/.bin/tsc -p tsconfig.json
@@ -759,7 +766,8 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
-	for part in freedos linux arm64 dialog; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
+	node tests/android/make_package.mjs
+	for part in freedos linux arm64 dialog android; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main worker=0

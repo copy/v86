@@ -1,12 +1,14 @@
 // @ts-check
 // The new machine wizard (docs/vm-manager-plan.md "新建虚拟机向导", U3):
 // 1 where the system comes from (a CD, a floppy, an installed hard disk, a
-// kernel and initrd, or later), 2 the system (a preset of
+// kernel and initrd, an Android image package, or later), 2 the system (a preset of
 // src/app/guest_presets.js: all the hardware), 3 the name, 4 the hard disk
 // (a new empty one and where it goes: a browser disk, the disk service,
 // memory), 5 the summary: finish, or customize the hardware in the settings
 // dialog first. The browser disk and the disk service's image are made only
-// when the wizard finishes.
+// when the wizard finishes. An Android image package (docs/android-images-plan.md
+// I3) becomes a browser disk then, in a worker (src/app/android_import.js):
+// its images as they are, booted by v64's bootloader with SwiftShader.
 
 import { h, replace, format_size } from "./dom.js";
 import { image_picker } from "./image_picker.js";
@@ -15,6 +17,7 @@ import { open_settings } from "./settings.js";
 import { PRESETS, preset, preset_config } from "../guest_presets.js";
 import { create_image, list_images, new_image_name } from "../disk_service_client.js";
 import { create_disk } from "../browser_disks.js";
+import { inspect_android_package, import_android_package, USERDATA_GIB, DEFAULT_USERDATA_GIB } from "../android_import.js";
 import { MAX_ARRAY_BUFFER_SIZE_MB } from "../../browser/vm_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
@@ -26,6 +29,7 @@ const SOURCES = [
     ["floppy", "A floppy image"],
     ["disk", "A hard disk image with the system installed"],
     ["direct", "A kernel and initrd (and the system's CD as a read-only disk)"],
+    ["android", "An Android image package (.zip): Cuttlefish's images (aosp_cf_arm64_only_phone-img-<build>.zip from ci.android.com)"],
     ["later", "Install the system later"],
 ];
 
@@ -54,6 +58,9 @@ export function open_wizard(options)
             location: "browser",
             read_write: false,
             error: "",
+            /** @type {{file: File | null, info: import("../android_import.js").PackageInfo | null, error: string, userdata_gib: number}} */
+            android: { file: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB },
+            progress: "",
         };
         const element = /** @type {HTMLDialogElement} */ (h("dialog.wizard-dialog", { "aria-label": "New virtual machine" }));
         const close = value => { element.close(); element.remove(); resolve(value); };
@@ -100,6 +107,15 @@ export function open_wizard(options)
             {
                 config.disks = [{ slot: "hda", image: state.image, disk_option: state.read_write ? "read_write" : "read_only", disk_error: "stop" }];
             }
+            else if(state.source === "android" && state.android.info)
+            {
+                // (its images as they are: SwiftShader, no Venus driver; the disk kept and written)
+                if(config.android) config.android.gpu_mode = "swiftshader";
+                config.display.vulkan = false;
+                config.display.proxy = false;
+                config.disks = [{ slot: "hda", image: { kind: "browser", path: made || "(made when finished)", size: state.android.info.disk_size(state.android.userdata_gib) },
+                    disk_option: "read_write", disk_error: "stop" }];
+            }
             else if(state.disk === "new")
             {
                 const size = state.disk_mb * 1048576;
@@ -114,7 +130,35 @@ export function open_wizard(options)
         {
             state.error = "";
             let url;
-            const new_disk = state.source !== "disk" && state.disk === "new";
+            const new_disk = state.source !== "disk" && state.source !== "android" && state.disk === "new";
+            if(state.source === "android")
+            {
+                const file = /** @type {File} */ (state.android.file);
+                try
+                {
+                    state.progress = "Importing " + file.name + "…";
+                    render();
+                    const started = Date.now();
+                    url = (await import_android_package(file, state.name || "Android", { userdata_gib: state.android.userdata_gib, prefs: options.store,
+                        progress: (done, total) =>
+                        {
+                            const seconds = (Date.now() - started) / 1000;
+                            const left = done ? seconds * (total - done) / done : 0;
+                            state.progress = "Importing " + file.name + ": " + Math.floor(done / total * 100) + "% (" + format_size(done) + " of " + format_size(total) +
+                                (done && done < total ? ", about " + Math.ceil(left) + " s left" : "") + ")";
+                            const status = element.querySelector(".wizard-status");
+                            if(status) status.textContent = state.progress;
+                        } })).path;
+                    state.progress = "";
+                }
+                catch(e)
+                {
+                    state.progress = "";
+                    state.error = "The package was not imported: " + e.message;
+                    render();
+                    return;
+                }
+            }
             if(new_disk && state.location === "browser")
             {
                 try
@@ -175,6 +219,7 @@ export function open_wizard(options)
                         render();
                     } }));
             }
+            if(state.source === "android") pickers.push(android_picker());
             if(state.source === "direct")
             {
                 pickers.push(
@@ -190,6 +235,46 @@ export function open_wizard(options)
                         on_change: image => { state.image = image; render(); } }));
             }
             return [h("fieldset", null, h("legend", null, "Where does the system come from?"), radios), pickers];
+        };
+
+        // (the package: chosen or dropped, then read: what it is, the disk it gives)
+        const take_package = async file =>
+        {
+            state.android = { file, info: null, error: "", userdata_gib: state.android.userdata_gib };
+            render();
+            try
+            {
+                state.android.info = await inspect_android_package(file);
+                choose_preset("android16");
+            }
+            catch(e)
+            {
+                state.android.error = e.message;
+            }
+            render();
+        };
+        const android_picker = () =>
+        {
+            const input = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".zip,application/zip", "aria-label": "Android image package" }));
+            input.addEventListener("change", () => { if(input.files && input.files[0]) take_package(input.files[0]); });
+            const a = state.android;
+            const zone = h("div.drop-zone", { tabindex: "0" },
+                h("p", null, "Drop the package here, or choose it: ", input),
+                h("p", null, h("small.reason", null, "Download it from ci.android.com yourself (the build's Artifacts: aosp_cf_arm64_only_phone-img-<build>.zip); " +
+                    "v64 reads it here, it is not uploaded anywhere.")),
+                a.file ? h("p", { role: "status" }, a.file.name + " (" + format_size(a.file.size) + "): " +
+                    (a.error ? "" : a.info ? a.info.text + "; its disk: " + format_size(a.info.disk_size(a.userdata_gib)) : "reading…")) : null,
+                a.error ? h("p.error", null, a.error) : null);
+            zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
+            zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+            zone.addEventListener("drop", e =>
+            {
+                e.preventDefault();
+                zone.classList.remove("over");
+                const file = e.dataTransfer && e.dataTransfer.files[0];
+                if(file) take_package(file);
+            });
+            return zone;
         };
 
         const system_step = () =>
@@ -225,6 +310,21 @@ export function open_wizard(options)
 
         const disk_step = () =>
         {
+            if(state.source === "android")
+            {
+                const info = /** @type {import("../android_import.js").PackageInfo} */ (state.android.info);
+                const sizes = USERDATA_GIB.map(gib => h("label.check", null, h("input", { type: "radio", name: "userdata", value: String(gib), checked: state.android.userdata_gib === gib,
+                    onchange: () => { state.android.userdata_gib = gib; render(); } }), " " + gib + " GiB" + (gib === DEFAULT_USERDATA_GIB ? " (the usual)" : "")));
+                return [
+                    h("p", null, "A browser disk made from the package: its images as they are, super shrunk to its partitions (" + format_size(info.super_size) + "), " +
+                        "userdata blank (Android formats it at first boot). " + format_size(info.disk_size(state.android.userdata_gib)) + " in all, about " +
+                        format_size(info.data_bytes) + " of it written now."),
+                    h("fieldset", null, h("legend", null, "Space for apps and data (userdata)"), sizes),
+                    quota_note(),
+                    h("p", null, h("small.reason", null, "The package boots with SwiftShader (the CPU draws): Android starts, its desktop needs the GPU support of " +
+                        "docs/gfxstream-plan.md.")),
+                ];
+            }
             if(state.source === "disk")
             {
                 return h("p", null, "The machine starts from the chosen hard disk image" + (state.read_write ? ", written back to the disk service." : ": its changes stay in memory."));
@@ -285,6 +385,7 @@ export function open_wizard(options)
             if(state.step === 0)
             {
                 if(state.source === "direct") return state.direct.bzimage ? "" : "Choose the kernel";
+                if(state.source === "android") return state.android.info ? "" : state.android.file && !state.android.error ? "Reading the package…" : "Choose the package";
                 if(state.source !== "later" && !state.image) return "Choose the image";
                 if(state.image && state.image.kind === "url" && !state.image.url) return "Give the image's URL";
             }
@@ -303,7 +404,7 @@ export function open_wizard(options)
                     h("ol.wizard-steps", null, steps.map((s, i) => h("li", { class: i === state.step ? "current" : i < state.step ? "done" : "" }, s)))),
                 h("section.wizard-body", { "aria-label": steps[state.step] }, body),
                 h("footer.wizard-footer", null,
-                    h("span.wizard-status", { role: "status", class: state.error ? "error" : "" }, state.error || blocked),
+                    h("span.wizard-status", { role: "status", class: state.error ? "error" : "" }, state.error || state.progress || blocked),
                     h("button", { type: "button", onclick: () => close(null) }, "Cancel"),
                     h("button", { type: "button", disabled: state.step === 0, onclick: () => { state.step--; render(); } }, "Back"),
                     last ? [h("button", { type: "button", onclick: () => finish(true) }, "Customize hardware…"),

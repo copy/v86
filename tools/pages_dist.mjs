@@ -28,7 +28,7 @@ const graphics = JSON.parse(await read_file(join(root, "build/glbridge/manifest.
 // (Makefile, PAGES_BUILD)
 const FILES = [
     "index.html", "manifest.json", "192.png", "src/app/app.css",
-    "build/v86_app.js", "build/v86_app.js.map", "build/libv86.mjs", "build/cpu-worker.js", "build/vcpu-worker.js", "build/xterm.js",
+    "build/v86_app.js", "build/v86_app.js.map", "build/android-import-worker.js", "build/android-import-worker.js.map", "build/libv86.mjs", "build/cpu-worker.js", "build/vcpu-worker.js", "build/xterm.js",
     "build/v86.wasm", "build/v86-fallback.wasm", "build/v86-parallel.wasm",
     "build/v86-arm64.wasm", "build/v86-arm64-fallback.wasm", "build/v86-arm64-parallel.wasm",
     "build/v86-bochs-vga.js", "build/v86-vmware-svga.js", "build/v86-virtio-gpu.js",
