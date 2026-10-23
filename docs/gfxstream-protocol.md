@@ -119,6 +119,26 @@ each) naming flushed ranges of the buffer; mode 3: one large transfer of
 `transfer_size` bytes through the large-transfer rings. The host sets
 `host_consumed_pos` as it consumes and `in_error` on failure.
 
+### Writing, waking the host, reading replies
+
+From mesa's `AddressSpaceStream.cpp`:
+
+- The guest fills the buffer in steps of `flush_interval` bytes; a flush
+  pushes an 8-byte `asg_type1_xfer { offset, size }` onto the to-host
+  ring (at most `buffer_size / flush_interval - 1` outstanding).
+- It pings (`CONTEXT_PING`) when the shared `host_state` is neither
+  `CAN_CONSUME` (1) nor `RENDERING` (4), and again after its write unless the
+  host is rendering. `host_state`: `NEED_NOTIFY` 0, `CAN_CONSUME` 1, `EXIT` 2,
+  `ERROR` 3, `RENDERING` 4. A host that stays at `NEED_NOTIFY` while idle is
+  pinged for every flush (v64's choice: the device runs between the CPU's
+  slices, not as a thread reading the ring).
+- Before it reads, the guest waits (busy, with backoff) until the to-host
+  ring is empty (`ensureType1Finished`) and any large transfer done.
+- Replies come through `from_host_large_xfer`: the host writes them into its
+  view over the auxiliary buffer and moves that ring's `write_pos`; the guest
+  reads what is available (`speculativeRead`). `in_error = 1` fails the
+  guest's reads and writes.
+
 ## On the stream
 
 What travels in the buffer is gfxstream's encoder output: commands of a
