@@ -37,8 +37,8 @@
    default、google_apis、google_apis_playstore）：`armeabi-v7a` 的官方模拟器镜像到 API 25（Android 7.1.1，
    google_apis `armeabi-v7a-25_r18.zip`，953 MB）为止；API 26–28（Android 8.0、8.1、9）只有 `arm64-v8a`。
    所以第二部分的 Android 验收用**官方 Android 7.1.1 的 32 位镜像**；Android 8、9 的官方 arm64 镜像带 32 位
-   用户态，用来验收第一部分（64 位内核下的 32 位进程）。32 位的 Android 8、9 只能从 AOSP 源码自己构建
-   （见 R7），不是官方二进制。
+   用户态，用来验收第一部分（64 位内核下的 32 位进程）。32 位的 Android 8、9 只能从 AOSP 源码自己构建，
+   不是官方二进制，不在本计划内（所有者 2026-10-23 决定）。
 5. **先确认需求再动手。** Cuttlefish 的 `aosp_cf_arm64_only_phone` 是纯 64 位（P10.2 特意选了它，
    arm64-virt-android16-plan.md 1027、1329），不需要 AArch32。需要它的是：带 32 位第二架构的 Android 系统
    （`TARGET_2ND_ARCH := arm`，例如非 arm64-only 的 Cuttlefish 产品，以及 `ro.product.cpu.abilist32` 不为空
@@ -286,7 +286,6 @@ R6 也让 64 位的官方模拟器镜像（API 24 起的 `arm64-v8a`，包括 An
 | --- | --- | --- | --- | --- |
 | R7.1 | 官方 Android 7.1.1（`armeabi-v7a-25_r18`，google_apis）在 `cpu_type: "arm32"`、ranchu 上启动到 `sys.boot_completed` 与桌面；触摸打开应用；安装一个 `armeabi-v7a` APK | 新的 Android 32 位场景（沿用 `android_scenario.mjs`） | 场景通过；冷启动时间与 Android 模拟器 TCG 对比记录 | M |
 | R7.2 | 官方 Android 8.0、8.1、9 的 `arm64-v8a` 镜像（API 26–28）在 arm64、profile v3 下运行 32 位应用（第一部分的验收，见 Q5.2） | 同上 | 场景通过 | S |
-| R7.3 | 可选：32 位 Android 8 或 9 从 AOSP 源码构建（例如 `pie-release` 的 `aosp_arm-userdebug` 模拟器目标），需要 Linux 构建机（这台 Mac 不能构建 AOSP）；由所有者决定是否需要 | 构建记录 | 场景通过 | M |
 
 ### R8 界面
 
@@ -322,7 +321,7 @@ R6 也让 64 位的官方模拟器镜像（API 24 起的 `arm64-v8a`，包括 An
 | v2 行为被意外改变 | v2 的测试全集作为回归；`core-split-check`；新行为全部挂在 v3 下 |
 | 页层的条件执行与 IT 块使代码膨胀 | 先只编译无条件或短 IT 块的常见形式，其余单步；以基准决定范围 |
 | 需求可能不成立（GSI 是纯 64 位） | Q0.1 先确认；若不需要，第一部分延后，只保留结论 |
-| 没有官方的 32 位 Android 8、9 | 第二部分以官方 Android 7.1.1 的 32 位镜像验收；Android 8、9 的官方 arm64 镜像验收 32 位应用；32 位的 8、9 只能自建（R7.3） |
+| 没有官方的 32 位 Android 8、9 | 第二部分以官方 Android 7.1.1 的 32 位镜像验收；Android 8、9 的官方 arm64 镜像验收 32 位应用；自建的 32 位 8、9 不做 |
 | ranchu 的 goldfish 设备没有规范，只有模拟器的源码 | 以模拟器的 QEMU 源码与镜像里的 rc、fstab 为准，只做客体实际用到的；R0.2 的参考记录作对照 |
 | PL1 的系统层（模式、短描述符 MMU、CP15）面大 | 裸机对照与 kvm-unit-tests 的 32 位用例逐项推进；与 AArch64 共用 TLB、访问缓存与定时器 |
 | 参考 CPU（cortex-a15）是 ARMv7，v64 实现的是 ARMv8 的 AArch32 | ID 值标明 ARMv8 AArch32；ARMv8 移除或改变的行为（SWP、短向量、CP15 屏障）按 ARMv8 处理，与 QEMU 的差异登记 |
