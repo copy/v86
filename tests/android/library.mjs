@@ -338,7 +338,11 @@ await run("device and bootloader", () =>
     assert.equal(venus.get("androidboot.fstab_suffix"), "cf.ext4.hctr2");
     // (Venus's new key last, the ones it changes where they were)
     assert.deepEqual([...venus.keys()].slice(-2), ["androidboot.opengles.version", "androidboot.hardware.hwcomposer.mode"]);
-    assert.throws(() => device_bootconfig(device, { vbmeta, memory_mb: 1, gpu_mode: "gfxstream" }), /no GPU mode/);
+    assert.throws(() => device_bootconfig(device, { vbmeta, memory_mb: 1, gpu_mode: "virgl" }), /no GPU mode/);
+    // gfxstream_guest_angle's keys, as Cuttlefish's launcher writes them
+    const gfxstream = device_bootconfig(device, { vbmeta, memory_mb: 2048, gpu_mode: "gfxstream" });
+    assert.deepEqual(["cpuvulkan.version", "hardware.vulkan", "hardware.gltransport", "hardware.egl", "opengles.version", "hardware.hwcomposer"]
+        .map(k => gfxstream.get("androidboot." + k)), ["0", "ranchu", "virtio-gpu-asg", "angle", "196609", "ranchu"]);
 
     const kernel = random(8192), generic = random(100), vendor_ramdisk = random(200);
     const top = make_vbmeta([{ chain: "boot" }], AVB_FLAG_VERIFICATION_DISABLED);

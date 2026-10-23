@@ -485,7 +485,8 @@ V86.prototype.continue_init = async function(emulator, options)
         if(options.kernel || options.initrd || options.bzimage) throw new Error("android: the disk's boot partitions give the kernel and initrd (kernel and initrd left out)");
         if(!options.virtio_disks || !options.virtio_disks.length) throw new Error("android: the disk with the device's partitions is the first of virtio_disks");
         if(android.device !== undefined && !ANDROID_DEVICES[android.device]) throw new Error("android.device: one of " + Object.keys(ANDROID_DEVICES).join(", "));
-        if(android.gpu_mode !== undefined && !["swiftshader", "venus"].includes(android.gpu_mode)) throw new Error("android.gpu_mode: swiftshader or venus");
+        // (gfxstream: for the gfxstream device's development, docs/gfxstream-plan.md)
+        if(android.gpu_mode !== undefined && !["swiftshader", "venus", "gfxstream"].includes(android.gpu_mode)) throw new Error("android.gpu_mode: swiftshader, venus or gfxstream");
         if(android.selinux !== undefined && !["enforcing", "permissive"].includes(android.selinux)) throw new Error("android.selinux: enforcing or permissive");
     }
 

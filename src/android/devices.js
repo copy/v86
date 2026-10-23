@@ -61,6 +61,16 @@ export const CF_ARM64_ONLY_PHONE = {
             ["androidboot.hardware.hwcomposer.mode", "client"],
             ["androidboot.opengles.version", "196608"],
         ],
+        // gpu_mode gfxstream_guest_angle as the launcher writes it
+        // (host/libs/vm_manager/qemu_manager.cpp; docs/gfxstream-protocol.md):
+        // the guest's Vulkan driver gfxstream's (vulkan.ranchu), GLES ANGLE on
+        // it, the transport ASG rings in virtio-gpu blobs; for v64's
+        // gfxstream device (docs/gfxstream-plan.md G1-G5)
+        gfxstream: [
+            ["androidboot.cpuvulkan.version", "0"],
+            ["androidboot.hardware.vulkan", "ranchu"],
+            ["androidboot.hardware.gltransport", "virtio-gpu-asg"],
+        ],
     },
 };
 

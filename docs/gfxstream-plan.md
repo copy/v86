@@ -154,6 +154,20 @@ bootconfig 的 GPU 键，不改分区）。
 
 验收：参考宿主进入桌面；轨迹语料与命令清单入库；本计划的未定项（capset 组合、合成方式）定稿。
 
+进度（2026-10-24）：
+- 版本固定与协议：完成，记在 [gfxstream-protocol.md](gfxstream-protocol.md)。Cuttlefish 15581820 的清单给出
+  `device/google/cuttlefish` `4d368849`、mesa `d4b6f1eb`（客体的 gfxstream Vulkan 驱动与传输在 mesa 的
+  `src/gfxstream/guest`，不在 gfxstream 仓库）、gfxstream `7e9d595b`、ANGLE `ff25cbdf`、minigbm `b7c93249`。
+  capset：3 Vulkan、8 GLES、9 composer（字段布局已记）；execbuffer 命令表（CONTEXT_CREATE/PING、同步、
+  RESOURCE_CREATE_3D 等）；一个连接 = 一个 host3d 可映射 blob（ring 加 buffer，按 blobAlignment 对齐），
+  CONTEXT_CREATE 把 ASG 环绑在 blob 上，`asg_ring_storage` 三个 4 KiB 页与 `asg_ring_config` 的字节偏移。
+- 启动器的选择：完成。`gfxstream_guest_angle` 写的 bootconfig（`vulkan=ranchu`、`gltransport=virtio-gpu-asg`、
+  `cpuvulkan.version=0`，其余同 SwiftShader 档）进了设备型号的 `gpu_modes.gfxstream`（`src/android/devices.js`，
+  引导器接受 `gpu_mode: "gfxstream"`，界面在 G5 前不提供）；QEMU 的设备是
+  `virtio-gpu-rutabaga,gfxstream-vulkan=on,x-gfxstream-composer=on,hostmem=256M`。客体里 HWC 带 renderControl
+  编码器（composer capset），GLES 是 ANGLE（没有宿主 GLES）。macOS 上 Cuttlefish 自己的启动器不提供 gfxstream。
+- 参考宿主与轨迹：未做。
+
 ## 2. G1 传输与按环围栏
 
 - `virtio_gpu_device.js`：级别 `gfxstream`、capset 声明与内容、CONTEXT_INIT 分派到新的 `gfxstream.js`。
