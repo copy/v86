@@ -7,6 +7,8 @@
 import { crc32 as zlib_crc32, deflateRawSync as deflate_raw_sync } from "node:zlib";
 import { put16, put32, put64, put32be, put64be, bytes_of, concat, crc32c } from "../../src/android/bytes.js";
 import { lp_checksum } from "../../src/android/lp.js";
+import { lz4_legacy_store } from "../../src/android/lz4.js";
+import { cpio_newc } from "../../src/android/cpio.js";
 
 const SECTOR = 512;
 let seed = 12345;
@@ -269,11 +271,24 @@ export function make_cuttlefish_package()
     kernel.set(bytes_of("ARMd"), 56);
     const images = {
         "boot.img": make_boot(kernel, new Uint8Array(0), ""), "init_boot.img": make_boot(new Uint8Array(0), random(50), ""),
-        "vendor_boot.img": make_vendor_boot([["r", random(70)]], "", ""), "vbmeta.img": make_vbmeta([]),
+        "vendor_boot.img": make_vendor_boot([["r", lz4_legacy_store(cpio_newc([["prop.default", bytes_of("ro.vendor.build.version.sdk_full=36.1\n")]]))]], "", ""),
+        "vbmeta.img": make_vbmeta([]),
         "vbmeta_system.img": make_vbmeta([]), "vbmeta_vendor_dlkm.img": make_vbmeta([]), "vbmeta_system_dlkm.img": make_vbmeta([]),
     };
     const members = [{ name: "fastboot-info.txt", data: bytes_of("# cuttlefish\nversion 1\n") }, { name: "android-info.txt", data: bytes_of("config=phone\n") },
         ...Object.entries(images).map(([name, data]) => ({ name, data })), { name: "super.img", data: sparse },
         { name: "userdata.img", data: make_sparse([[0xCAC3, 4, new Uint8Array(0)]]).sparse }];
     return { zip: make_zip(members), images, super_raw, MiB };
+}
+
+/** A GSI zip: system.img (an ext4 magic, 1 MiB; or as a sparse image),
+ * vbmeta.img (verification disabled), build.prop at sdk_full */
+export function make_gsi_package(sdk_full = "36.1", sparse = false)
+{
+    const system = random(1 << 20);
+    system[1080] = 0x53; system[1081] = 0xEF;
+    const image = sparse ? make_sparse([[0xCAC1, 128, system.subarray(0, 128 * 4096)], [0xCAC3, 64, new Uint8Array(0)], [0xCAC1, 64, system.subarray(192 * 4096)]]) : null;
+    if(sparse) system.fill(0, 128 * 4096, 192 * 4096);
+    return { system, zip: make_zip([{ name: "system.img", data: sparse ? image.sparse : system }, { name: "vbmeta.img", data: make_vbmeta([], 2) },
+        { name: "build.prop", data: bytes_of(`ro.system.build.version.release=16\nro.system.build.version.sdk_full=${sdk_full}\nro.system.product.cpu.abilist32=armeabi-v7a\n`) }]) };
 }

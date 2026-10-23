@@ -24,7 +24,7 @@ import { android_boot } from "../../src/android/boot.js";
 const { u16, u32, u64, u32be, u64be, put16, put32, put64, put32be, put64be, latin1, bytes_of, concat, equals } = bytes;
 const sha = (...parts) => { const h = create_hash("sha256"); for(const p of parts) h.update(p); return new Uint8Array(h.digest()); };
 import { random, reader, make_sparse, make_vbmeta, with_footer, make_super, make_erofs, make_zip, make_boot, make_vendor_boot,
-    make_cuttlefish_package } from "./fixtures.mjs";
+    make_cuttlefish_package, make_gsi_package } from "./fixtures.mjs";
 const run = async (name, f) => { await f(); console.log("ok " + name); };
 
 await run("bytes", () =>
@@ -439,4 +439,46 @@ await run("assemble a Cuttlefish package", async () =>
     assert.ok(equals(out.subarray(sp.start + MiB * SECTOR, sp.start + 2 * MiB * SECTOR), super_raw.subarray(MiB * SECTOR, 2 * MiB * SECTOR)));
     assert.equal(parts.get("userdata").size, 3 << 20);
     assert.ok(out.subarray(parts.get("userdata").start, parts.get("userdata").start + (3 << 20)).every(b => b === 0));
+});
+
+await run("assemble a Cuttlefish package with a GSI", async () =>
+{
+    const { cuttlefish_disk, write_disk, package_entries, gsi_package, identify_package } = await import("../../src/android/assemble.js");
+    const { zip, images, super_raw, MiB } = make_cuttlefish_package();
+    const read = reader(zip);
+    const entries = await package_entries(read, zip.length);
+    for(const sparse of [false, true])
+    {
+        const g = make_gsi_package("36.1", sparse);
+        const gread = reader(g.zip);
+        const gentries = await package_entries(gread, g.zip.length);
+        assert.equal((await identify_package(gentries, gread)).kind, "gsi");
+        const gsi = await gsi_package(gread, gentries);
+        assert.deepEqual([gsi.sdk_full, gsi.release, gsi.abilist32, gsi.size, gsi.sparse], ["36.1", "16", "armeabi-v7a", 1 << 20, sparse]);
+        const disk = await cuttlefish_disk(read, entries, { userdata_bytes: 1 << 20, gsi, gsi_read: gread });
+        assert.equal(disk.vendor_sdk_full, "36.1");
+        const out = new Uint8Array(disk.disk_size);
+        await write_disk(read, disk, (offset, bytes) => { out.set(bytes, offset); });
+        const parts = new Map(gpt_partitions(reader(out), out.length).map(p => [p.name, p]));
+        // (vbmeta: the GSI's; the other images the device's)
+        const vb = parts.get("vbmeta_a");
+        assert.ok(equals(out.subarray(vb.start, vb.start + 256), make_vbmeta([], 2)));
+        assert.ok(equals(out.subarray(parts.get("boot_a").start, parts.get("boot_a").start + images["boot.img"].length), images["boot.img"]));
+        const sp = parts.get("super");
+        const lp = lp_metadata(reader(out.subarray(sp.start, sp.start + sp.size)));
+        const system = lp.copies[0].partitions.find(p => p.name === "system_a").extents[0];
+        assert.equal(system.sector, 3 * MiB);
+        assert.equal(system.sectors, (1 << 20) / SECTOR);
+        assert.ok(lp.copies.every(c => c.partitions.find(p => p.name === "system_a").extents[0].sector === 3 * MiB));
+        assert.ok(equals(out.subarray(sp.start + system.sector * SECTOR, sp.start + system.sector * SECTOR + (1 << 20)), g.system), "the GSI's system");
+        // (the old system_a's data not written; vendor_a's as it was)
+        assert.ok(out.subarray(sp.start + MiB * SECTOR, sp.start + 2 * MiB * SECTOR).every(b => b === 0));
+        assert.ok(equals(out.subarray(sp.start + 2 * MiB * SECTOR, sp.start + 3 * MiB * SECTOR), super_raw.subarray(2 * MiB * SECTOR, 3 * MiB * SECTOR)));
+        assert.equal(lp.size, Math.ceil(((3 * MiB + 2048) * SECTOR + (64 << 20)) / (1 << 20)) * (1 << 20));
+    }
+    // a GSI older than the vendor: refused
+    const old = make_gsi_package("36.0");
+    const oread = reader(old.zip);
+    const oentries = await package_entries(oread, old.zip.length);
+    await assert.rejects(cuttlefish_disk(read, entries, { userdata_bytes: 1 << 20, gsi: await gsi_package(oread, oentries), gsi_read: oread }), /older than the device's vendor/);
 });

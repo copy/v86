@@ -252,14 +252,24 @@ function file_reader(file)
 
 /** Android sparse image -> raw, written into fd at offset; returns the raw
  * size. Writes from limit on (a partition smaller than the image: super
- * shrunk) are left out, and must be zeros */
-function unsparse_into(file, fd, offset, limit = Infinity)
+ * shrunk) are left out, and must be zeros; so are those in skip's ranges
+ * [from, to) (a replaced partition's old data) */
+function unsparse_into(file, fd, offset, limit = Infinity, skip = [])
 {
     return unsparse(file_reader(file), (at, bytes) =>
     {
-        const n = Math.max(0, Math.min(bytes.length, limit - at));
-        if(n) fs.writeSync(fd, bytes, 0, n, offset + at);
-        if(n < bytes.length && bytes.subarray(n).some(b => b)) throw new Error(`${file}: data at ${at + n}, past its partition's ${limit} bytes`);
+        let pieces = [[at, bytes]];
+        for(const [from, to] of skip)
+        {
+            pieces = pieces.flatMap(([a, b]) => a >= to || a + b.length <= from ? [[a, b]] :
+                [[a, b.subarray(0, Math.max(0, from - a))], [to, b.subarray(Math.min(b.length, to - a))]].filter(([, x]) => x.length));
+        }
+        for(const [a, b] of pieces)
+        {
+            const n = Math.max(0, Math.min(b.length, limit - a));
+            if(n) fs.writeSync(fd, b, 0, n, offset + a);
+            if(n < b.length && b.subarray(n).some(x => x)) throw new Error(`${file}: data at ${a + n}, past its partition's ${limit} bytes`);
+        }
     });
 }
 
@@ -394,7 +404,7 @@ async function main()
     const venus = driver && { record: replace("odm", "vbmeta", odm_with_driver(super_partition(super_read, lp, vbmeta_of("vbmeta"), "odm"), driver)) };
     // the GSI (see the top): system_a in free space, streamed from the zip
     // as the disk is written; the GSI's vbmeta the top-level one
-    let gsi = null;
+    let gsi = null, super_skip = [];
     if(args.gsi)
     {
         const zip_read_at = file_reader(args.gsi);
@@ -407,6 +417,8 @@ async function main()
         if(u16(head, 1080) !== 0xEF53 && u32(head, 1024) !== 0xE0F5E1E2) throw new Error("the GSI's system.img is neither ext4 nor erofs (sparse?)");
         if(system.size % SECTOR) throw new Error("the GSI's system.img is not whole sectors");
         const align = lp.alignment / SECTOR, sector = Math.ceil(space.sector / align) * align;
+        // (the old system_a's data not written, as the importer does: src/android/assemble.js)
+        super_skip = lp.copies[0].partitions.find(p => p.name === "system_a").extents.map(e => [e.sector * SECTOR, (e.sector + e.sectors) * SECTOR]);
         super_patches.push(...lp_place(lp, "system_a", sector, system.size / SECTOR), { offset: sector * SECTOR, zip: { read: zip_read_at, entry: system } });
         space.sector = sector + Math.ceil(system.size / lp.alignment) * align;
         vbmeta_images.set("vbmeta", gsi_vbmeta);
@@ -498,7 +510,7 @@ async function main()
     // make ext4 there (see the top), and with --userdata-mb blank of that
     // size (first boot formats it, fs_mgr's formattable)
     const sources = {
-        super: { sparse: IMG + "super.img", limit: args.shrink_super ? lp.size : undefined,
+        super: { sparse: IMG + "super.img", limit: args.shrink_super ? lp.size : undefined, skip: super_skip,
             patches: super_patches.length ? [...lp.copies.map(c => ({ offset: c.offset, bytes: c.bytes })), ...super_patches] : [] },
         userdata: args.userdata_mb ? { blank: args.userdata_mb * 1048576 } :
             hashes_16k ? { blank: sparse_size(file_reader(IMG + "userdata.img")) } : { sparse: IMG + "userdata.img" },
@@ -536,7 +548,7 @@ async function main()
             else if(p.source.sparse)
             {
                 console.log(`${p.name}: unsparsing ${path.basename(p.source.sparse)} (${p.size} bytes)`);
-                unsparse_into(p.source.sparse, fd, p.start, p.size);
+                unsparse_into(p.source.sparse, fd, p.start, p.size, p.source.skip || []);
                 for(const patch of p.source.patches || [])
                 {
                     if(patch.bytes) fs.writeSync(fd, patch.bytes, 0, patch.bytes.length, p.start + patch.offset);
