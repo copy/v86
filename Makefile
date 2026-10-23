@@ -1377,6 +1377,31 @@ android-reference-tests: android-materials
 	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=cts node tests/a64/android_boot.mjs
 	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=pagesize A64_ANDROID_PAGE_SIZE=16k node tests/a64/android_boot.mjs
 	for cores in 1 4; do A64_KERNEL=gki A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+# Official Android images (docs/android-images-plan.md, release level
+# R-android-images): the image library's tests, then (long) the layouts
+# the importer makes booted on QEMU (A64_ANDROID_ACCEL, hvf on this Mac:
+# Cuttlefish as built, super shrunk with blank userdata, the BP4A GSI on
+# it), then (long) the official zip and the GSI through the wizard in
+# headless Chrome to boot_completed. The GSI zips are not downloaded here:
+# build/a64-android/dl/gsi/ (the catalog's, tools/android_catalog.mjs).
+ANDROID_GSI=build/a64-android/dl/gsi/aosp_arm64-exp-BP4A.251205.006-14401865-2171cf0e.zip
+A64_ANDROID_ACCEL?=hvf
+.PHONY: android-image-tests android-image-reference-tests android-image-browser-tests
+android-image-tests:
+	node tests/android/library.mjs
+	node tests/android/real_images.mjs
+	node tools/android_catalog.mjs
+android-image-reference-tests: android-materials
+	node tools/a64_android.mjs --release --no-venus --out build/a64-android/out-official
+	node tools/a64_android.mjs --release --no-venus --shrink-super --userdata-mb 4096 --out build/a64-android/out-official-small
+	node tools/a64_android.mjs --release --gsi $(ANDROID_GSI) --shrink-super --userdata-mb 4096 --out build/a64-android/out-gsi-bp4a-small
+	for out in out-official out-official-small; do A64_ANDROID_ACCEL=$(A64_ANDROID_ACCEL) A64_ANDROID_OUT=build/a64-android/$$out node tests/a64/android_boot.mjs || exit 1; done
+	A64_ANDROID_CONSOLE=0 A64_ANDROID_ACCEL=$(A64_ANDROID_ACCEL) A64_ANDROID_OUT=build/a64-android/out-gsi-bp4a-small node tests/a64/android_boot.mjs
+	node tests/android/real_images.mjs
+android-image-browser-tests: app android-materials
+	TIMEOUT_MS=14400000 node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_boot isolated=1 timeout=220
+	TIMEOUT_MS=14400000 node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_boot isolated=1 timeout=220 gsi=$(ANDROID_GSI)
+	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_cancel
 # (A9's scenario on Venus: the guest's driver in the materials, the renderer in a headless Chrome)
 android-guest-tests: android-venus android-materials build/v86-arm64.wasm build/v86-arm64-parallel.wasm glbridge
 	for cores in 1 4; do A64_KERNEL=gki A64_JIT=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done

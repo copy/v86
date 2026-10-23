@@ -131,6 +131,11 @@ const LEVELS = {
     "R-android": [
         ["android-reference-tests"], ["android-guest-tests", true],
     ],
+    // official images in the VM manager (docs/android-images-plan.md): the
+    // image library, the importer's layouts on QEMU, the wizard in Chrome
+    "R-android-images": [
+        ["android-image-tests"], ["android-image-reference-tests", true], ["android-image-browser-tests", true],
+    ],
 };
 
 const args = process.argv.slice(2);
