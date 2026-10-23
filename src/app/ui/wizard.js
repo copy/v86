@@ -17,7 +17,8 @@ import { open_settings } from "./settings.js";
 import { PRESETS, preset, preset_config } from "../guest_presets.js";
 import { create_image, list_images, new_image_name } from "../disk_service_client.js";
 import { create_disk } from "../browser_disks.js";
-import { inspect_android_package, import_android_package, sort_android_files, USERDATA_GIB, DEFAULT_USERDATA_GIB } from "../android_import.js";
+import { inspect_android_package, import_android_package, sort_android_files, hash_file, USERDATA_GIB, DEFAULT_USERDATA_GIB } from "../android_import.js";
+import { ANDROID_CATALOG } from "../android_catalog.js";
 import { MAX_ARRAY_BUFFER_SIZE_MB } from "../../browser/vm_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
@@ -58,8 +59,11 @@ export function open_wizard(options)
             location: "browser",
             read_write: false,
             error: "",
-            /** @type {{file: File | null, gsi: File | null, info: import("../android_import.js").PackageInfo | null, error: string, userdata_gib: number}} */
-            android: { file: null, gsi: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB },
+            /** @type {{file: File | null, gsi: File | null, debug_ramdisk: File | null, info: import("../android_import.js").PackageInfo | null, error: string,
+             *     userdata_gib: number, entry: string, checks: Object<string, string>}} entry: the catalog's (I7), "" for another package;
+             *     checks: each dropped part's against it (ok, checking…, or what differs) */
+            android: { file: null, gsi: null, debug_ramdisk: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB,
+                entry: ANDROID_CATALOG.entries[0].id, checks: {} },
             progress: "",
         };
         const element = /** @type {HTMLDialogElement} */ (h("dialog.wizard-dialog", { "aria-label": "New virtual machine" }));
@@ -240,6 +244,35 @@ export function open_wizard(options)
 
         // (the files: chosen or dropped, the device's package and a GSI (in
         // one go or one after the other), then read: what they are, the disk)
+        // (the dropped parts against the catalog's entry: size, then SHA-256 in
+        // the importer's worker, each file hashed once)
+        const hashes = new WeakMap();
+        const check_parts = async () =>
+        {
+            const a = state.android;
+            const entry = ANDROID_CATALOG.entries.find(e => e.id === a.entry);
+            a.checks = {};
+            if(!entry) return;
+            for(const [role, file] of /** @type {Array<[string, File | null]>} */ ([["device", a.file], ["gsi", a.gsi], ["debug_ramdisk", a.debug_ramdisk]]))
+            {
+                if(!file) continue;
+                const part = entry.parts.find(p => p.role === role);
+                if(!part) { a.checks[role] = "not one of this entry's files"; continue; }
+                if(file.size !== part.size) { a.checks[role] = "differs: " + format_size(file.size) + ", the catalog's " + part.name + " is " + format_size(part.size); continue; }
+                if(!hashes.has(file))
+                {
+                    a.checks[role] = "checking…";
+                    render();
+                    hashes.set(file, await hash_file(file, (done, total) =>
+                    {
+                        const status = element.querySelector(".drop-zone [data-role=" + role + "]");
+                        if(status) status.textContent = "checking " + Math.floor(done / total * 100) + "%";
+                    }));
+                }
+                a.checks[role] = hashes.get(file) === part.sha256 ? "ok" : "differs: its SHA-256 is not the catalog's (another build, or a damaged download)";
+            }
+            render();
+        };
         const take_files = async files =>
         {
             const a = state.android;
@@ -250,7 +283,9 @@ export function open_wizard(options)
                 const sorted = await sort_android_files(files);
                 if(sorted.device) a.file = sorted.device;
                 if(sorted.gsi) a.gsi = sorted.gsi;
-                if(!a.file) throw new Error("A GSI is a system for a device: add the device's package (a Cuttlefish images zip) too");
+                if(sorted.debug_ramdisk) a.debug_ramdisk = sorted.debug_ramdisk;
+                if(!a.file) throw new Error(a.gsi ? "A GSI is a system for a device: add the device's package (a Cuttlefish images zip) too" :
+                    "Add the device's package (a Cuttlefish images zip)");
                 a.info = await inspect_android_package(a.file, a.gsi);
                 choose_preset("android16");
             }
@@ -259,6 +294,24 @@ export function open_wizard(options)
                 a.error = e.message;
             }
             render();
+            await check_parts();
+        };
+        /** the catalog (I7): its entries, the chosen one's files and where to download them */
+        const catalog = () =>
+        {
+            const a = state.android;
+            const entry = ANDROID_CATALOG.entries.find(e => e.id === a.entry);
+            const ROLES = { device: "The device's images", gsi: "The GSI (the system)", debug_ramdisk: "The debug vendor ramdisk" };
+            const radios = [...ANDROID_CATALOG.entries.map(e => [e.id, e.title]), ["", "Another package (not in the catalog: no checksums)"]].map(([id, title]) =>
+                h("label.check", null, h("input", { type: "radio", name: "catalog", value: id, checked: a.entry === id,
+                    onchange: () => { a.entry = id; check_parts(); render(); } }), " " + title));
+            return h("fieldset", null, h("legend", null, "From the catalog"), radios, entry ? [
+                h("p", null, h("small.reason", null, entry.notes + " Verified: " + entry.verified + ".")),
+                h("table.hardware.catalog-parts", null, h("tbody", null, entry.parts.map(p => h("tr", null,
+                    h("th", null, ROLES[p.role] + (p.optional ? " (optional: Settings, Android)" : "")),
+                    h("td", null, h("a", { href: p.url, target: "_blank", rel: "noopener" }, p.name), " ", format_size(p.size), " ",
+                        h("a", { href: p.page, target: "_blank", rel: "noopener" }, "(its page)"), h("br"), h("small.reason", null, "SHA-256 " + p.sha256)),
+                    h("td", { "data-role": p.role }, a.checks[p.role] || (p.optional ? "" : "needed"))))))] : null);
         };
         const android_picker = () =>
         {
@@ -266,7 +319,7 @@ export function open_wizard(options)
             input.addEventListener("change", () => { if(input.files && input.files.length) take_files(Array.from(input.files)); });
             const a = state.android;
             const gsi = a.info && a.info.gsi;
-            const zone = h("div.drop-zone", { tabindex: "0" },
+            const zone = h("div.drop-zone", { tabindex: "0" }, catalog(),
                 h("p", null, "Drop the package here, or choose it: ", input),
                 h("p", null, h("small.reason", null, "Download it from ci.android.com yourself (the build's Artifacts: aosp_cf_arm64_only_phone-img-<build>.zip); " +
                     "to run a Generic System Image on that device, drop the GSI's zip too (developer.android.com's GSI releases, " +
@@ -398,7 +451,20 @@ export function open_wizard(options)
             if(state.step === 0)
             {
                 if(state.source === "direct") return state.direct.bzimage ? "" : "Choose the kernel";
-                if(state.source === "android") return state.android.info ? "" : state.android.file && !state.android.error ? "Reading the package…" : "Choose the package";
+                if(state.source === "android")
+                {
+                    const a = state.android;
+                    if(!a.info) return a.file && !a.error ? "Reading the package…" : "Choose the package";
+                    const entry = ANDROID_CATALOG.entries.find(e => e.id === a.entry);
+                    if(entry)
+                    {
+                        const missing = entry.parts.filter(p => !p.optional && !{ device: a.file, gsi: a.gsi }[p.role]);
+                        if(missing.length) return "Still needed: " + missing.map(p => p.name).join(", ");
+                        const bad = Object.entries(a.checks).find(([, c]) => c !== "ok");
+                        if(bad) return bad[1] === "checking…" ? "Checking the files…" : "A file is not the catalog's: " + bad[1];
+                    }
+                    return "";
+                }
                 if(state.source !== "later" && !state.image) return "Choose the image";
                 if(state.image && state.image.kind === "url" && !state.image.url) return "Give the image's URL";
             }

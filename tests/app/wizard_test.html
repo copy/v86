@@ -257,6 +257,13 @@ const parts = {
         const status = await until(() => /Cuttlefish arm64 device/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
             wizard.querySelector(".drop-zone [role=status]").textContent, "the package read");
         log("package: " + status);
+        // (the catalog's first entry is chosen: this package is not its file)
+        const differs = await until(() => /^differs/.test(wizard.querySelector(".drop-zone td[data-role=device]")?.textContent) &&
+            wizard.querySelector(".drop-zone td[data-role=device]").textContent, "the catalog's check");
+        check(!button("Next", wizard) && /not the catalog's/.test(wizard.querySelector(".wizard-status").textContent), "Next held back: " + wizard.querySelector(".wizard-status").textContent);
+        log("the catalog's entry: " + differs);
+        wizard.querySelector("input[name=catalog][value='']").click();
+        await until(() => button("Next", wizard), "Next, with another package");
         button("Next", wizard).click();
         const chosen = await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
         check(!wizard.querySelector(".preset-detail p.error"), "the preset installs from a package");
@@ -306,6 +313,7 @@ const parts = {
         $("#new_vm").click();
         const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
         Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
         const file = async (url, name) => new w.File([await (await fetch(url)).blob()], name, { type: "application/zip" });
         const drop = async files =>
         {

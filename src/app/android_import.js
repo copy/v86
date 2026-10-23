@@ -7,6 +7,7 @@
 import { package_entries, identify_package, cuttlefish_disk, gsi_package } from "../android/assemble.js";
 import { reserve_disk, finish_disk } from "./browser_disks.js";
 import { query_append } from "./emulator_bridge.js";
+import { catalog_parts_of } from "./android_catalog.js";
 
 /** The userdata sizes offered (GiB) and the default (the owner's, 2026-10-23); first boot formats it */
 export const USERDATA_GIB = [2, 4, 8, 16];
@@ -33,14 +34,16 @@ function file_reader(file)
  * The chosen files sorted: the device's package (a Cuttlefish images zip)
  * and a GSI (docs/android-images-plan.md I5), each read on the page
  * @param {File[]} files
- * @return {Promise<{device: File | null, gsi: File | null}>}
+ * @return {Promise<{device: File | null, gsi: File | null, debug_ramdisk: File | null}>}
  */
 export async function sort_android_files(files)
 {
-    /** @type {{device: any, gsi: any}} */
-    const sorted = { device: null, gsi: null };
+    /** @type {{device: any, gsi: any, debug_ramdisk: any}} */
+    const sorted = { device: null, gsi: null, debug_ramdisk: null };
     for(const file of files)
     {
+        // (the catalog's debug vendor ramdisk, by its size: not a zip)
+        if(catalog_parts_of(file).some(p => p.role === "debug_ramdisk")) { sorted.debug_ramdisk = file; continue; }
         const read = file_reader(file);
         const kind = await identify_package(await package_entries(read, file.size), read);
         const name = file.name || "the file";
@@ -133,6 +136,35 @@ export async function wipe_android_data(id)
             worker.onmessage = e => e.data.wiped ? resolve(e.data.wiped) : reject(new Error(e.data.error));
             worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
             worker.postMessage({ op: "wipe", id });
+        });
+    }
+    finally
+    {
+        worker.terminate();
+    }
+}
+
+/**
+ * A file's SHA-256, in the importer's worker
+ * @param {Blob} file
+ * @param {(done: number, total: number) => void} [progress]
+ * @return {Promise<string>}
+ */
+export async function hash_file(file, progress)
+{
+    const worker = new Worker("build/android-import-worker.js" + query_append(), { type: "module" });
+    try
+    {
+        return await new Promise((resolve, reject) =>
+        {
+            worker.onmessage = e =>
+            {
+                if(e.data.progress) progress && progress(e.data.progress[0], e.data.progress[1]);
+                else if(e.data.sha256) resolve(e.data.sha256);
+                else reject(new Error(e.data.error));
+            };
+            worker.onerror = e => reject(new Error("The importer's worker failed: " + (e.message || "it did not start")));
+            worker.postMessage({ op: "hash", file });
         });
     }
     finally

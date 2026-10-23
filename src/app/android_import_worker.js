@@ -8,9 +8,12 @@
 // out: { progress: [done, total] }..., then { done: { size, kind, partitions } } or { error: string }
 // in:  { op: "wipe", id }: the disk's userdata and metadata wiped (their first MiB zeroed)
 // out: { wiped: [names] } or { error: string }
+// in:  { op: "hash", file }: the file's SHA-256 (the catalog's check, I7.2)
+// out: { progress: [done, total] }..., then { sha256 } or { error: string }
 
 import { package_entries, identify_package, cuttlefish_disk, write_disk, gsi_package } from "../android/assemble.js";
 import { gpt_partitions } from "../android/gpt.js";
+import { SHA256 } from "../image/sha256.js";
 
 /** the browser disks' directory */
 async function disks_directory()
@@ -58,8 +61,26 @@ async function wipe(id)
     }
 }
 
+/** a file's SHA-256, read in pieces */
+async function hash(file)
+{
+    const sha = new SHA256(), piece = 8 << 20;
+    for(let at = 0; at < file.size; at += piece)
+    {
+        sha.update(new Uint8Array(await file.slice(at, at + piece).arrayBuffer()));
+        postMessage({ progress: [Math.min(file.size, at + piece), file.size] });
+    }
+    return sha.hex();
+}
+
 globalThis.onmessage = async event =>
 {
+    if(event.data.op === "hash")
+    {
+        try { postMessage({ sha256: await hash(event.data.file) }); }
+        catch(e) { postMessage({ error: e && e.message || String(e) }); }
+        return;
+    }
     if(event.data.op === "wipe")
     {
         try { postMessage({ wiped: await wipe(event.data.id) }); }
