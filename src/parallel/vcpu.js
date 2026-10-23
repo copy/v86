@@ -251,7 +251,11 @@ export async function run_vcpu(init, post, handle)
 
     const wake = new Int32Array(memory.buffer);
     const wake_index = exports["parallel_wake_addr"](core) >>> 2;
-    const quantum = settings.cpu_quantum || 20000;
+    // (a slice as long as the BSP's main-loop batch, LOOP_COUNTER: kicks end
+    // it early, and run_cpu_slice acknowledges other cores' code
+    // publications between entries as the BSP's loop does; what this loop
+    // does per slice cost a float benchmark 2% at 20000)
+    const quantum = settings.cpu_quantum || 100000;
     // test hook (tests/parallel/lifecycle.mjs): this core fails after some slices
     const fault = settings["parallel_fault"];
     const faulty = fault && fault["core"] === core;

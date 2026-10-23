@@ -3928,8 +3928,11 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
     // (P7.2, P7.3: a switch hands 32-bit code to the page tier)
     let page32 = native && crate::x64::pages::page32();
     while remaining != 0 && !*in_hlt && !core_yield {
-        // (as in do_many_cycles_native: extended RAM frames held by access
-        // caches are released between entries)
+        // (as in do_many_cycles_native: other cores' code publications and
+        // code writes are taken between entries, so a core installing code
+        // waits for an activation of this one, not its slice; extended RAM
+        // frames held by access caches are released)
+        crate::parallel::code::poll();
         crate::x64::extended::safe_point();
         *previous_ip = *instruction_pointer;
         // A fault can change CS:EIP without retiring an instruction. Charge
