@@ -94,6 +94,7 @@ const binary = ["paddb", "paddw", "paddd", "paddq", "psubb", "psubw", "psubd", "
     "psubsb", "psubsw", "psubusb", "psubusw", "pcmpgtb", "pcmpgtw", "pcmpgtd", "pcmpeqb", "pcmpeqw", "pcmpeqd",
     "pminub", "pmaxub", "pminsw", "pmaxsw", "pavgb", "pavgw", "pmulhuw", "pmulhw", "pmuludq", "psadbw", "pmullw", "pmaddwd",
     "punpcklbw", "punpcklwd", "punpckldq", "punpckhbw", "punpckhwd", "punpckhdq", "punpcklqdq", "punpckhqdq",
+    "unpcklps", "unpckhps", "unpcklpd", "unpckhpd",
     "packsswb", "packuswb", "packssdw", "psrlw", "psrld", "psrlq", "psraw", "psrad", "psllw", "pslld", "psllq"];
 const forms = [];
 for(const op of binary)
@@ -104,6 +105,7 @@ for(const op of binary)
 // high registers (REX.R/REX.B)
 forms.push({ text: "paddw xmm9, xmm12", high: true });
 forms.push({ text: "punpcklbw xmm9, [rsi + 32]", high: true });
+forms.push({ text: "unpcklps xmm9, xmm12", high: true });
 forms.push({ text: "pshufd xmm9, xmm12, 0x1B", high: true });
 forms.push({ text: "psrlw xmm12, 3", high: true, shifted: 12 });
 for(const imm of [0x00, 0x1B, 0x4E, 0xB1, 0xE4, 0xFF, int(256)])
@@ -122,6 +124,44 @@ for(const op of ["comiss", "ucomiss", "comisd", "ucomisd"])
     forms.push({ text: `${op} xmm0, xmm1`, flags: true });
     forms.push({ text: `${op} xmm0, [rsi + 32]`, flags: true });
     forms.push({ text: `${op} xmm11, xmm1`, flags: true, high: true });
+}
+// conditions fused with the compare (Known::Float), whose EFLAGS are then
+// written again unread: each condition by SETcc (eight a form, packed into
+// [rdi + 8]) and by a Jcc after a compare of its own
+const CONDITIONS = ["o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g"];
+const SET_REGISTERS = ["al", "ah", "bl", "bh", "dl", "dh", "r8b", "r9b"];
+let jumps = 0;
+for(const op of ["comiss", "ucomiss", "comisd", "ucomisd"])
+{
+    for(const half of [0, 1])
+    {
+        forms.push({ text: `
+xor eax, eax
+xor ebx, ebx
+xor edx, edx
+xor r8d, r8d
+xor r9d, r9d
+${op} xmm0, xmm1
+${CONDITIONS.slice(8 * half, 8 * half + 8).map((cc, k) => `set${cc} ${SET_REGISTERS[k]}`).join("\n")}
+add r10d, r10d
+shl ebx, 16
+or eax, ebx
+shl r9d, 8
+or r8d, r9d
+shl rdx, 32
+or rax, rdx
+shl r8, 48
+or rax, r8
+mov [rdi + 8], rax` });
+    }
+    forms.push({ text: `
+xor eax, eax
+${CONDITIONS.map((cc, k) => `${op} xmm0, xmm1
+j${cc} .jump${jumps}_${k}
+bts eax, ${k}
+.jump${jumps}_${k}:`).join("\n")}
+mov [rdi + 8], rax` });
+    jumps++;
 }
 
 let body = `

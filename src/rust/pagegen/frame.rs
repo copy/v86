@@ -703,25 +703,7 @@ pub trait PageEmitter {
         else {
             return self.leave_to(self.frame().dispatch, target);
         };
-        // The innermost level holding the block: a unit after the one being
-        // emitted by its label (a single block directly), else the level's
-        // head, which dispatches on the PC (P4.16; the page level: Frame::dispatch)
-        let mut found = None;
-        for level in self.levels_ref().iter().rev() {
-            let u = level.unit_of[k];
-            if u == u32::MAX {
-                continue;
-            }
-            let u = u as usize;
-            found = Some((
-                u <= level.current,
-                level.single[u],
-                level.labels[u],
-                level.repeat,
-            ));
-            break;
-        }
-        let Some((emitted, single, label, repeat)) = found
+        let Some((emitted, single, label, repeat)) = self.unit_holding(k)
         else {
             return self.leave_to(self.frame().dispatch, target);
         };
@@ -733,6 +715,36 @@ pub trait PageEmitter {
             return self.b().br(label);
         }
         self.leave_to(label, target)
+    }
+    /// Block `k`'s unit at the innermost level holding it: whether it was
+    /// emitted (at or before the one being emitted), the block if the unit
+    /// is that one alone, the unit's label and the level's head. A unit
+    /// after the one being emitted is reached by its label (a single block
+    /// directly), an emitted one by the level's head, which dispatches on
+    /// the PC (P4.16; the page level: Frame::dispatch).
+    fn unit_holding(&self, k: usize) -> Option<(bool, Option<u32>, Label, Label)> {
+        let level = self
+            .levels_ref()
+            .iter()
+            .rev()
+            .find(|level| level.unit_of[k] != u32::MAX)?;
+        let u = level.unit_of[k] as usize;
+        Some((
+            u <= level.current,
+            level.single[u],
+            level.labels[u],
+            level.repeat,
+        ))
+    }
+    /// The label that continues straight into the code of the block at `o`
+    /// from here, with the PC already there (goto's direct case: a later
+    /// single block of its level; the caller checks the span's page)
+    fn direct_label(&self, o: u16, index: &BTreeMap<u16, usize>) -> Option<Label> {
+        let &k = index.get(&o)?;
+        match self.unit_holding(k)? {
+            (false, Some(single), label, _) if single == k as u32 => Some(label),
+            _ => None,
+        }
     }
     /// Whether the block at `o` is the next unit of the innermost level, a
     /// single block, whose code follows (no branch needed)

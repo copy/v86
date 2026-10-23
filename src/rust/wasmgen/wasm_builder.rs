@@ -1068,6 +1068,10 @@ impl WasmBuilder {
     pub fn trunc_f64_to_i32(&mut self) { self.instruction_body.push(op::OP_I32TRUNCSF64); }
     /// Traps outside the i64 range: callers range-check first.
     pub fn trunc_f64_to_i64(&mut self) { self.instruction_body.push(op::OP_I64TRUNCSF64); }
+    pub fn const_f32(&mut self, v: f32) {
+        self.instruction_body.push(op::OP_F32CONST);
+        self.instruction_body.extend_from_slice(&v.to_le_bytes());
+    }
     pub fn const_f64(&mut self, v: f64) {
         self.instruction_body.push(op::OP_F64CONST);
         self.instruction_body.extend_from_slice(&v.to_le_bytes());

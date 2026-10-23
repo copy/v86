@@ -1485,6 +1485,7 @@ x64-legacy32-tests: bench-build build/v86.wasm build/libv86.mjs build/jit-capaci
 	node tests/ir/differential/tier0_mode_ledger.mjs
 	node tests/ir/differential/page_smc.mjs
 	node tests/ir/differential/page_vector_ts.mjs
+	node tests/ir/differential/page_step_budget.mjs
 	node tests/ir/differential/page_x87_cw.mjs
 	node tests/ir/differential/page_crossing.mjs
 	# (multi-page functions, x64_page_clusters: P7.3b; spans form after one

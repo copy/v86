@@ -11,7 +11,7 @@
 //! destination's, and the arithmetic, compare and conversion templates read
 //! and state them. Integer results are i64 here: store_int extends a
 //! template's i32 explicitly.
-use super::{low_lanes, Emitter, Inst, Op, Reg, Xmm, HOST};
+use super::{low_lanes, low_single, Emitter, Inst, Op, Reg, Xmm, HOST};
 use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocalV128};
 use crate::x86tpl::native_fp;
 use crate::x86tpl::ops::{Facts, VecOperands};
@@ -162,8 +162,17 @@ impl VecOperands for Operands<'_, '_> {
         // (a template states the new facts after its write)
         self.e.xmm_clean[self.dst as usize] = 0;
         if bytes < 16 && self.e.env.xmm_locals && self.e.held(self.dst) {
-            // (into the held register by a shuffle, no lane through a
-            // general register: the other lanes from the first source)
+            // (into the held register, no lane through a general register:
+            // the other lanes from the first source; a single's lane by
+            // f32x4 lane moves, one vector move where the shuffle took four
+            // on ARM64)
+            if bytes == 4 {
+                self.e.xv_push(self.first);
+                self.e.b.get_local_v128(value);
+                low_single(&mut self.e.b);
+                self.e.xv_pop(self.dst);
+                return;
+            }
             self.e.b.get_local_v128(value);
             self.e.xv_push(self.first);
             self.e.b.simd_shuffle(low_lanes(bytes));
@@ -257,6 +266,8 @@ impl VecOperands for Operands<'_, '_> {
             source,
         );
         self.e.retry_if(self.start);
+        // (it may have set PE: native results from here on)
+        self.e.mxcsr_flag();
     }
     fn exact_result(&mut self) { sse_fp_result(&mut self.e.b, self.e.env.sse_fp_operands) }
     /// (the templates whose facts the page tier follows: arithmetic,
