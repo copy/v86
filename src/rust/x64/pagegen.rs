@@ -3221,6 +3221,10 @@ enum Known {
     Logic(u8),
     /// only ZF, SF, PF of fr (ADD, XADD, INC, DEC)
     Result(u8),
+    /// fa, fb the bits of two ordered floats (single, or double when set),
+    /// ZF = fa == fb, CF = fa < fb and the rest clear (COMISS, UCOMISS,
+    /// COMISD, UCOMISD: Emitter::vcompare refuses NaNs)
+    Float(bool),
 }
 fn producer(op: &Op) -> Option<Known> {
     match *op {
@@ -3238,12 +3242,13 @@ fn producer(op: &Op) -> Option<Known> {
         Op::Alu { code: 0, width, .. } | Op::Xadd { width, .. } | Op::IncDec { width, .. } => {
             Some(Known::Result(width))
         },
+        Op::Vcompare { double, .. } => Some(Known::Float(double)),
         _ => None,
     }
 }
 fn fusable(known: Known, cc: u8) -> bool {
     match known {
-        Known::Sub(_) | Known::Logic(_) => true,
+        Known::Sub(_) | Known::Logic(_) | Known::Float(_) => true,
         Known::Result(_) => matches!(cc >> 1, 2 | 4 | 5),
     }
 }
@@ -6992,6 +6997,22 @@ impl Emitter<'_> {
                     self.signed_compare(cc, w);
                     return;
                 },
+            },
+            Some(Known::Float(double)) => {
+                // (ordered: SF, OF and PF clear, so L is false and LE is E)
+                let compare = match (cc >> 1, invert) {
+                    (1, false) => [op::OP_F32LT, op::OP_F64LT],
+                    (1, true) => [op::OP_F32GE, op::OP_F64GE],
+                    (2 | 7, false) => [op::OP_F32EQ, op::OP_F64EQ],
+                    (2 | 7, true) => [op::OP_F32NE, op::OP_F64NE],
+                    (3, false) => [op::OP_F32LE, op::OP_F64LE],
+                    (3, true) => [op::OP_F32GT, op::OP_F64GT],
+                    _ => return self.c32(invert as i32),
+                };
+                self.float_of(FA, double);
+                self.float_of(FB, double);
+                self.b.op(compare[double as usize]);
+                return;
             },
             Some(Known::Logic(w)) | Some(Known::Result(w)) => match cc >> 1 {
                 0 | 1 => self.c32(0),
@@ -10913,57 +10934,77 @@ impl Emitter<'_> {
         self.s(TB);
         self.xmm_load(dst, 0, bits);
         self.s(TA);
-        // exponent all zeros or all ones with a nonzero fraction
-        let (fraction, exponent_shift, exponent_max) =
-            if double { ((1u64 << 52) - 1, 52, 0x7FF) } else { ((1u64 << 23) - 1, 23, 0xFF) };
+        // retry for a NaN or a denormal: each operand zero, or a normal
+        // number's magnitude at least (infinities too)
         for v in [TA, TB] {
-            self.g(v);
-            self.c64(fraction);
-            self.b.and_i64();
-            self.c64(0);
-            self.b.ne_i64();
-            self.g(v);
-            self.c64(exponent_shift);
-            self.b.shr_u_i64();
-            self.c64(exponent_max);
-            self.b.and_i64();
-            self.s(TX);
-            self.g(TX);
-            self.b.op(op::OP_I64EQZ);
-            self.g(TX);
-            self.c64(exponent_max);
-            self.b.eq_i64();
+            self.float_of(v, double);
+            if double {
+                self.b.op(op::OP_F64ABS);
+                self.b.const_f64(f64::MIN_POSITIVE);
+                self.b.op(op::OP_F64GE);
+            }
+            else {
+                self.b.op(op::OP_F32ABS);
+                self.b.const_f32(f32::MIN_POSITIVE);
+                self.b.op(op::OP_F32GE);
+            }
+            self.float_of(v, double);
+            if double {
+                self.b.const_f64(0.0);
+                self.b.op(op::OP_F64EQ);
+            }
+            else {
+                self.b.const_f32(0.0);
+                self.b.op(op::OP_F32EQ);
+            }
             self.b.or_i32();
-            self.b.and_i32();
-            self.b.if_void();
-            self.leave_to(self.f().retry, start);
-            self.b.block_end();
         }
-        // FL = FL & ~arithmetic | ZF (a == b) | CF (a < b)
-        self.gi(FL);
-        self.c32(!ARITH as i32);
         self.b.and_i32();
-        for (compare, flag) in [(op::OP_F64EQ, ZF), (op::OP_F64LT, CF)] {
-            for v in [TA, TB] {
-                self.g(v);
-                if double {
-                    self.b.op(op::OP_F64REINTERPRETI64);
-                }
-                else {
-                    self.b.wrap_i64_to_i32();
-                    self.b.op(op::OP_F32REINTERPRETI32);
-                    self.b.op(op::OP_F64PROMOTEF32);
-                }
-            }
-            self.b.op(compare);
-            if flag != 1 {
-                self.c32(flag.trailing_zeros() as i32);
-                self.b.shl_i32();
-            }
-            self.b.or_i32();
+        self.b.eqz_i32();
+        self.b.if_void();
+        self.leave_to(self.f().retry, start);
+        self.b.block_end();
+        // (a fused condition compares the operands: Known::Float)
+        if inst.keep {
+            self.g(TA);
+            self.s(FA);
+            self.g(TB);
+            self.s(FB);
         }
-        self.si(FL);
+        // FL = FL & ~arithmetic | ZF (a == b) | CF (a < b), where read or
+        // observable (P4.23)
+        if !self.env.exit_flags || inst.writes & (inst.live_out | inst.exit_live) != 0 {
+            self.gi(FL);
+            self.c32(!ARITH as i32);
+            self.b.and_i32();
+            for (compare, flag) in [
+                ([op::OP_F32EQ, op::OP_F64EQ], ZF),
+                ([op::OP_F32LT, op::OP_F64LT], CF),
+            ] {
+                self.float_of(TA, double);
+                self.float_of(TB, double);
+                self.b.op(compare[double as usize]);
+                if flag != 1 {
+                    self.c32(flag.trailing_zeros() as i32);
+                    self.b.shl_i32();
+                }
+                self.b.or_i32();
+            }
+            self.si(FL);
+        }
         self.written(ARITH);
+    }
+    /// Push the float whose bits local `v` holds: double precision, or
+    /// single in its low 32 bits
+    fn float_of(&mut self, v: usize, double: bool) {
+        self.g(v);
+        if double {
+            self.b.op(op::OP_F64REINTERPRETI64);
+        }
+        else {
+            self.b.wrap_i64_to_i32();
+            self.b.op(op::OP_F32REINTERPRETI32);
+        }
     }
     /// CMPPS/CMPPD/CMPSS/CMPSD (Op::Vcmp): x86tpl::ops::compare_mask on the
     /// page tier's operands, whose refused instructions retry (a NaN or

@@ -125,6 +125,44 @@ for(const op of ["comiss", "ucomiss", "comisd", "ucomisd"])
     forms.push({ text: `${op} xmm0, [rsi + 32]`, flags: true });
     forms.push({ text: `${op} xmm11, xmm1`, flags: true, high: true });
 }
+// conditions fused with the compare (Known::Float), whose EFLAGS are then
+// written again unread: each condition by SETcc (eight a form, packed into
+// [rdi + 8]) and by a Jcc after a compare of its own
+const CONDITIONS = ["o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g"];
+const SET_REGISTERS = ["al", "ah", "bl", "bh", "dl", "dh", "r8b", "r9b"];
+let jumps = 0;
+for(const op of ["comiss", "ucomiss", "comisd", "ucomisd"])
+{
+    for(const half of [0, 1])
+    {
+        forms.push({ text: `
+xor eax, eax
+xor ebx, ebx
+xor edx, edx
+xor r8d, r8d
+xor r9d, r9d
+${op} xmm0, xmm1
+${CONDITIONS.slice(8 * half, 8 * half + 8).map((cc, k) => `set${cc} ${SET_REGISTERS[k]}`).join("\n")}
+add r10d, r10d
+shl ebx, 16
+or eax, ebx
+shl r9d, 8
+or r8d, r9d
+shl rdx, 32
+or rax, rdx
+shl r8, 48
+or rax, r8
+mov [rdi + 8], rax` });
+    }
+    forms.push({ text: `
+xor eax, eax
+${CONDITIONS.map((cc, k) => `${op} xmm0, xmm1
+j${cc} .jump${jumps}_${k}
+bts eax, ${k}
+.jump${jumps}_${k}:`).join("\n")}
+mov [rdi + 8], rax` });
+    jumps++;
+}
 
 let body = `
 mov rax, cr4
