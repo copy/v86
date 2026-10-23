@@ -66,8 +66,9 @@ export const VERSION = 1;
  * @property {{image: Image | null, disk_error: "stop" | "report"}} cdrom
  * @property {Floppy[]} floppies
  * @property {{bzimage: Image | null, initrd: Image | null, cmdline: string | null, multiboot: Image | null, from_filesystem: boolean} | null} kernel
- * @property {{adapter: string, vram_mb: number | null, proxy: boolean, displays: number}} display vram_mb: null
- *     with an initial_state, whose video memory it is
+ * @property {{adapter: string, vram_mb: number | null, proxy: boolean, vulkan: boolean, displays: number}} display vram_mb: null
+ *     with an initial_state, whose video memory it is; vulkan: virtio-gpu's Vulkan (Venus contexts), drawn by the
+ *     graphics proxy's WebGPU renderer
  * @property {Network[]} network one on the PC machines; up to four virtio-net cards on virt (Android's
  *     three), at most one of them with a backend
  * @property {{device: "sb16" | "virtio" | "none"}} sound virtio: virt's virtio-snd
@@ -148,7 +149,7 @@ export function with_defaults(config)
     section("cdrom", { image: null, disk_error: "stop" });
     c.floppies = Array.isArray(c.floppies) ? c.floppies.map(f => Object.assign({ image: null, disk_option: "read_only" }, f)) : [];
     c.kernel = is_object(c.kernel) ? Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, c.kernel) : null;
-    section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, displays: 1 });
+    section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: false, displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
     section("sound", { device: "sb16" });
     section("virt", Object.assign({}, VIRT_DEFAULTS));
@@ -390,6 +391,9 @@ export function validate_config(config)
         problem("display.vram_mb", "must be a power of two from 1 to " + (MAX_VRAM_SIZE >> 20) + " MB");
     }
     bool(display.proxy, "display.proxy");
+    bool(display.vulkan, "display.vulkan");
+    if(display.vulkan === true && display.adapter !== "virtio_gpu") problem("display.vulkan", "only virtio-gpu has Vulkan");
+    else if(display.vulkan === true && display.proxy !== true) problem("display.vulkan", "needs the graphics proxy, whose WebGPU renderer draws it");
     int(display.displays, "display.displays", 1, 4);
     if(display.displays > 1 && display.adapter !== "virtio_gpu") problem("display.displays", "only virtio-gpu has more than one display");
 
@@ -639,6 +643,8 @@ export function config_to_options(config, env)
             settings.pcie_root_ports = machine.pcie_root_ports;
         }
         if(display.displays > 1) settings.displays = display.displays;
+        // (the device's level, chosen at power-on: a state image has its own)
+        if(display.vulkan) settings.virtio_gpu_level = "venus";
         settings.mtu = network ? network.mtu : DEFAULT_MTU;
     }
     settings.relay_url = relay_url_of(network);

@@ -10,6 +10,7 @@ import { format_size } from "./dom.js";
 const MACHINES = { i440fx: "i440FX (IDE)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (arm64)" };
 const ADAPTERS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", none: "None (serial console only)" };
 const BACKENDS = { none: "no network", inbrowser: "in the browser", relay: "relay", wisp: "wisp", fetch: "fetch" };
+const SOUND = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "none" };
 
 /**
  * Where an image is, for people
@@ -57,13 +58,13 @@ export function hardware_rows(c)
     }
     if(c.initial_state) rows.push(["Starts from a state", describe_image(c.initial_state)]);
     rows.push(["Display", (ADAPTERS[c.display.adapter] || c.display.adapter) + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : "") +
-        (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "")]);
+        (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "") + (c.display.vulkan ? ", Vulkan" : "")]);
     for(const network of c.network)
     {
         rows.push(["Network", network.device === "none" ? "none" : network.device + ", " + (BACKENDS[network.backend] || network.backend) +
             (network.relay_url ? " " + network.relay_url : "")]);
     }
-    rows.push(["Sound", c.sound.device === "sb16" ? "Sound Blaster 16" : "none"]);
+    rows.push(["Sound", SOUND[c.sound.device] || c.sound.device]);
     for(const serial of c.serial) if(serial.attach !== "none") rows.push(["UART" + serial.port, serial.attach]);
     if(c.filesystem) rows.push(["Shared folder", c.filesystem.baseurl || "in the browser"]);
     return rows;

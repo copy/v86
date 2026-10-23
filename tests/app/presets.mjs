@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { PRESETS, preset, preset_config } from "../../src/app/guest_presets.js";
 import { choices, change } from "../../src/app/vm_model.js";
 import { new_config, validate_config, check_config, config_to_options } from "../../src/app/vm_config.js";
+import { hardware_rows } from "../../src/app/ui/describe.js";
 
 let passed = 0;
 function test(name, fn)
@@ -81,6 +82,7 @@ test("Android's options: those of tests/a64/android_boot.mjs", () =>
     assert.equal(o.virtio_transport, "pci");
     assert.deepEqual(o.virtio_disks, [{ url: "disk.img", async: true }]);
     assert.equal(o.graphics_adapter, "virtio_gpu");
+    assert.deepEqual(o.graphics_adapter_test, { level: "venus" });
     assert.equal(o.virtio_gpu_pci_slot, 2);
     assert.deepEqual(o.net_device, { type: "virtio", relay_url: "fetch", cors_proxy: undefined, mtu: 1500, count: 3, id: 2 });
     assert.equal(o.virtio_console, true);
@@ -91,6 +93,14 @@ test("Android's options: those of tests/a64/android_boot.mjs", () =>
     assert.equal(o.virtio_sound, true);
     assert.deepEqual(o.jit_switches, { a64_page: 1 });
     assert.deepEqual(check_config(c), []);
+});
+
+test("the summary's rows: Android's display and sound", () =>
+{
+    const rows = Object.fromEntries(hardware_rows(preset_config(preset("android16"))));
+    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan");
+    assert.equal(rows["Sound"], "virtio-snd");
+    assert.equal(Object.fromEntries(hardware_rows(preset_config(preset("dos"))))["Sound"], "Sound Blaster 16");
 });
 
 test("change: what a choice implies, and says", () =>
@@ -127,6 +137,24 @@ test("change: what a choice implies, and says", () =>
     const choice = choices(config);
     assert.deepEqual(choice.graphics_adapters, ["none", "virtio_gpu"]);
     assert.deepEqual(choice.acpi_fixed && choice.acpi_fixed.value, false);
+});
+
+test("change: Vulkan and the graphics proxy", () =>
+{
+    let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", true);
+    assert.equal(config.display.proxy, true);
+    assert(notes.some(n => /Graphics proxy: on/.test(n)), notes.join("; "));
+    assert.deepEqual(problems(config), []);
+    assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "venus" });
+    ({ config, notes } = change(config, "display.proxy", false));
+    assert.equal(config.display.vulkan, false);
+    assert(notes.some(n => /Vulkan: off/.test(n)), notes.join("; "));
+    // (a PC keeps virtio-gpu and its Vulkan; another adapter drops it)
+    ({ config } = change(change(config, "display.vulkan", true).config, "cpu.type", "x86"));
+    assert.equal(config.display.vulkan, true);
+    ({ config } = change(config, "display.adapter", "bochs_vga"));
+    assert.equal(config.display.vulkan, false);
+    assert.deepEqual(problems(config), []);
 });
 
 test("every combination of the dialog's choices: CPU, machine, display, network, sound, cores", () =>
@@ -175,6 +203,8 @@ test("random sequences of the dialog's choices (5000 changes): every configurati
             () => ["display.adapter", pick(ch.graphics_adapters)],
             () => ["display.vram_mb", pick([1, 8, 16, 64, ch.max_vram])],
             () => ["display.displays", config.display.adapter === "virtio_gpu" ? pick([1, 2, 4]) : 1],
+            () => ["display.proxy", pick([true, false])],
+            () => ["display.vulkan", config.display.adapter === "virtio_gpu" && pick([true, false])],
             () => ["network.0.device", pick(ch.net_devices)],
             () => ["network.0.backend", pick(["none", "inbrowser", "fetch"])],
             () => ["sound.device", pick(ch.sound_devices)],

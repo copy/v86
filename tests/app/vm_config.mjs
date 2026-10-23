@@ -152,6 +152,9 @@ const RULES = [
     ["512 MB of video memory", c => { c.display.vram_mb = 512; }, "display.vram_mb"],
     ["the state's video memory without a state", c => { c.display.vram_mb = null; }, "display.vram_mb"],
     ["the proxy", c => { c.display.proxy = 1; }, "display.proxy"],
+    ["Vulkan", c => { c.display.vulkan = 1; }, "display.vulkan"],
+    ["Vulkan on Bochs VGA", c => { c.display.proxy = true; c.display.vulkan = true; }, "display.vulkan"],
+    ["Vulkan without the proxy", c => { c.display.adapter = "virtio_gpu"; c.display.vulkan = true; }, "display.vulkan"],
     ["5 displays", c => { c.display.adapter = "virtio_gpu"; c.display.displays = 5; }, "display.displays"],
     ["2 displays on Bochs VGA", c => { c.display.displays = 2; }, "display.displays"],
     ["two network cards", c => { c.network.push(c.network[0]); }, "network"],
@@ -242,7 +245,7 @@ test("config_to_options: the configuration's fields", () =>
     c.cdrom.image = { kind: "browser", path: "v86/disks/cd.img", size: 2048 };
     c.floppies = [floppy({ image: { kind: "empty", size: 1474560 } })];
     c.kernel = kernel({ bzimage: { kind: "url", url: "k.bin", async: false }, cmdline: "quiet" });
-    c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: false, displays: 2 };
+    c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: true, vulkan: true, displays: 2 };
     c.network = [{ device: "virtio", backend: "fetch", relay_url: "https://cors.invalid/", mtu: 9000, mac_address_translation: true }];
     c.sound.device = "none";
     c.serial = [{ port: 0, attach: "terminal" }, { port: 2, attach: "modem" }];
@@ -275,7 +278,7 @@ test("config_to_options: the configuration's fields", () =>
     assert.equal(o.cmdline, "quiet");
     assert.equal(o.graphics_adapter, "virtio_gpu");
     assert.equal(o.vram_size, 32 * 1024 * 1024);
-    assert.deepEqual(o.graphics_adapter_test, { scanouts: 2 });
+    assert.deepEqual(o.graphics_adapter_test, { scanouts: 2, level: "venus" });
     assert.deepEqual(o.net_device, { type: "virtio", relay_url: "fetch", cors_proxy: "https://cors.invalid/", mtu: 9000 });
     assert.equal(o.mac_address_translation, true);
     assert.equal(o.disable_speaker, true);

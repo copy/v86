@@ -36,7 +36,7 @@ Reference Manual, DDI 0487 issue L.b.
 
 | Advertised | Not advertised |
 | --- | --- |
-| AArch64 at EL0 and EL1; FP and Advanced SIMD (no FP16); AES with 64-bit PMULL, SHA1, SHA-256, CRC32; GICv3 system registers; 2 breakpoints, 2 watchpoints; CSV2 and CSV3; 40-bit physical addresses, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1 has 4 KiB only) | EL2, EL3, AArch32; LSE, RDM, SHA512, SHA3, SM3/SM4, DotProd, FP16; PAuth, BTI, MTE, SVE, SME; PMU; hardware AF/DBM, PAN, VHE |
+| AArch64 at EL0 and EL1; FP and Advanced SIMD (no FP16); AES with 64-bit PMULL, SHA1, SHA-256, CRC32; GICv3 system registers; 2 breakpoints, 2 watchpoints; CSV2 and CSV3; 40-bit physical addresses, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1 has 4 KiB only) | EL2, EL3, AArch32 (planned in [aarch32-plan.md](aarch32-plan.md): EL0 compat as profile v3, and 32-bit kernels as `cpu_type: "arm32"`); LSE, RDM, SHA512, SHA3, SM3/SM4, DotProd, FP16; PAuth, BTI, MTE, SVE, SME; PMU; hardware AF/DBM, PAN, VHE |
 
 HWCAP is `0x8ff`: `fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid`.
 
@@ -86,6 +86,11 @@ Only `aarch64-softmmu` is built. QEMU's linux-user targets do not build on
 macOS.
 
 ## Android 16
+
+Importing official images in the VM manager (v64 booting Android from the
+disk itself, a catalog that tells what to download and where, the files then
+dropped in) is planned in
+[android-images-plan.md](android-images-plan.md).
 
 A8 of the plan (P10). The product is not built here: AOSP builds need an
 x86_64 Linux host. The pinned prebuilt is Cuttlefish's arm64-only phone,

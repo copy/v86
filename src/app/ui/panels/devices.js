@@ -52,6 +52,8 @@ export function display_panel(ctx)
         d.vram_mb === null ? h("p.note", null, "Video memory: the saved state's") :
             select_field("Video memory", sizes, d.vram_mb, value => ctx.set("display.vram_mb", value), v => v + " MB"),
         check_field("Graphics proxy (WebGPU: Direct3D and OpenGL of the guest)", d.proxy, value => ctx.set("display.proxy", value)),
+        check_field("Vulkan (Venus, through the graphics proxy; Android's initrd-venus.img)", d.vulkan, value => ctx.set("display.vulkan", value),
+            d.adapter === "virtio_gpu" ? undefined : "only virtio-gpu has Vulkan"),
         select_field("Displays", [1, 2, 3, 4], d.displays, value => ctx.set("display.displays", value), String,
             d.adapter === "virtio_gpu" ? {} : { disabled: true, title: "only virtio-gpu has more than one display" }),
     ];

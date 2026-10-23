@@ -5017,10 +5017,10 @@ impl Emitter<'_> {
     }
     fn prologue(&mut self) {
         self.set_exit(EXIT_NORMAL);
-        // (the budget in units above its flags, BUDGET_FLAGS: one at least)
+        // (the budget in units above its flags, BUDGET_FLAGS, rounded down:
+        // what a chain passes on only shrinks, and below one unit the head
+        // leaves at once, for the interpreter)
         self.b.get_local(&self.budget);
-        self.c32(BUDGET_FLAGS);
-        self.b.add_i32();
         self.c32(!BUDGET_FLAGS);
         self.b.and_i32();
         self.b.set_local(&self.budget);
@@ -5310,6 +5310,8 @@ impl Emitter<'_> {
     fn chain(&mut self) {
         self.n_and_steps();
         self.b.get_local(&self.budget);
+        self.c32(!BUDGET_FLAGS);
+        self.b.and_i32();
         self.b.ltu_i32();
         if cfg!(feature = "parallel") {
             // (cores in workers: not while code publications or invalidations
@@ -5379,7 +5381,10 @@ impl Emitter<'_> {
         self.gi(N);
         self.b.add_i32();
         self.b.store_aligned_i32(0);
+        // (without the flags: the next function's own)
         self.b.get_local(&self.budget);
+        self.c32(!BUDGET_FLAGS);
+        self.b.and_i32();
         self.gi(N);
         self.b.sub_i32();
         if !self.env.compat {
