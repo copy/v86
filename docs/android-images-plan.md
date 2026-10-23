@@ -262,7 +262,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 3. （已定，2026-10-23）vendor ramdisk 默认 release；debug 为高级选项（另需拖入 `vendor_ramdisk-debug.img`），
    自动化测试用 debug。
 4. （已定，2026-10-23）不提供 Venus 注入；导入的镜像一律不改，桌面等 gfxstream。
-5. **默认盘大小**（建议 4 GiB，待所有者确认）。实测（2026-10-23，QEMU HVF，官方 Cuttlefish 15581820）：
+5. （已定，2026-10-23）userdata 可选 2、4、8、16 GiB，默认 4 GiB。实测（2026-10-23，QEMU HVF，官方 Cuttlefish 15581820）：
    全新开机后 `/data` 用了约 0.6 GB（boot_completed 时 615,848 KB，两分钟后 589,708 KB）。整块盘的名义大小
    约为 2.2 GB（缩小后的 super 加启动分区与 metadata）加 userdata：2 GiB 时约 4.4 GB、4 GiB 时约 6.5 GB、
    8 GiB 时约 10.6 GB。Android 在剩余空间低于约 10% 或 500 MB 时提示空间不足；2 GiB 只够装几个应用，
