@@ -898,7 +898,7 @@ export interface V86Options {
      * snapshot only restores into an emulator of the same machine type. See
      * docs/q35.md.
      *
-     * "virt" is the machine of cpu_type "arm64" (and its default; see
+     * "virt" is the machine of cpu_type "arm64" and "arm32" (and their default; see
      * docs/virt.md): no PC firmware, chipset or VGA. The PC machines' options
      * (bios, vga_bios, fda, fdb, cdrom, bzimage, multiboot, acpi: true, hpet,
      * smbus, pcie_root_ports, qemu_compatible, uart1-3, parallel1, modem,
@@ -906,7 +906,7 @@ export interface V86Options {
      * as are kernel, dtb, virtio_disks, virtio_rng, virtio_input and
      * virtio_transport on the PC machines, and every
      * other combination of cpu_type and machine_type.
-     * @default "i440fx" ("virt" with cpu_type "arm64")
+     * @default "i440fx" ("virt" with cpu_type "arm64" or "arm32")
      */
     machine_type?: "i440fx" | "q35" | "virt";
 
@@ -966,11 +966,14 @@ export interface V86Options {
      * (experimental) adds long mode, NX, SYSCALL, CMPXCHG16B, ..., needed by
      * 64-bit operating systems such as Windows 8.1 x64 or x86_64 Linux.
      * "arm64" (experimental, in development: docs/aarch64.md) is an Armv8.0-A
-     * CPU on machine_type "virt", with its own core (v86-arm64.wasm).
+     * CPU on machine_type "virt", with its own core (v86-arm64.wasm);
+     * "arm32" (in development: docs/aarch32-plan.md part 2) the same core in
+     * AArch32 throughout, a 32-bit Arm (ARMv7-A, Cortex-A15-like) CPU for
+     * 32-bit kernels on the same machine.
      * Other values fail at startup.
      * @default "x86"
      */
-    cpu_type?: "x86" | "x86_64" | "arm64";
+    cpu_type?: "x86" | "x86_64" | "arm64" | "arm32";
 
     /**
      * The arm64 CPU's profile (cpu_type "arm64" only; see

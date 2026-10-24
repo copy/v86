@@ -70,4 +70,11 @@ state!(a64_page_linear: u64 = 1336);
 state!(a64_jac_epoch: u64 = 1344);
 state!(a64_jac_base: u32 = 1352);
 state!(a64_code_base: u32 = 1356);
+state!(a32_bank: u32 = 1360);
+state!(a32_bank_r8: u32 = 1408);
+state!(a32_spsr: u32 = 1448);
+state!(a32_ttbcr: u32 = 1468);
+state!(a32_dacr: u32 = 1472);
+state!(a32_ifsr: u32 = 1476);
+state!(a32_fpexc: u32 = 1480);
 // END GENERATED

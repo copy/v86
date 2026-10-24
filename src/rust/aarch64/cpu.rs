@@ -79,14 +79,18 @@ pub const SCTLR_RESET: u64 = 0x00C5_0838;
 pub const FEATURE_PAN: u32 = 1 << 0;
 /// AArch32 at EL0 (profile v3)
 pub const FEATURE_AARCH32: u32 = 1 << 1;
+/// AArch32 throughout, PL0 and PL1 (cpu_type "arm32", profile arm32-v1:
+/// crate::aarch64::a32_system)
+pub const FEATURE_A32: u32 = 1 << 2;
 static mut FEATURES: u32 = 0;
 
 /// The optional features of the machine's profile: FEATURE_PAN (v2),
-/// FEATURE_AARCH32 (v3); none in v1 and v1.1
+/// FEATURE_AARCH32 (v3), FEATURE_A32 (arm32-v1); none in v1 and v1.1
 #[no_mangle]
 pub fn a64_set_features(mask: u32) {
     unsafe {
-        *crate::parallel::machine(&raw mut FEATURES) = mask & (FEATURE_PAN | FEATURE_AARCH32)
+        *crate::parallel::machine(&raw mut FEATURES) =
+            mask & (FEATURE_PAN | FEATURE_AARCH32 | FEATURE_A32)
     };
     crate::aarch64::tlb::flush(true);
 }
@@ -103,7 +107,13 @@ pub fn has_aarch32() -> bool {
     unsafe { *crate::parallel::machine(&raw mut FEATURES) & FEATURE_AARCH32 != 0 }
 }
 
-/// Whether the core runs AArch32 (EL0's A32 or T32)
+/// Whether the CPU is AArch32 throughout (cpu_type "arm32")
+#[inline(always)]
+pub fn a32_only() -> bool {
+    unsafe { *crate::parallel::machine(&raw mut FEATURES) & FEATURE_A32 != 0 }
+}
+
+/// Whether the core runs AArch32 (EL0's A32 or T32; with a32_only any mode)
 #[inline(always)]
 pub fn aarch32() -> bool { get_pstate() & PSTATE_NRW != 0 }
 
@@ -158,9 +168,17 @@ pub fn get_nzcv() -> u32 { unsafe { *nzcv } }
 pub fn set_nzcv(value: u32) { unsafe { *nzcv = value & 0xF000_0000 } }
 #[inline(always)]
 pub fn get_pstate() -> u32 { unsafe { *pstate } }
-/// The current exception level (0 or 1)
+/// The current exception level (0 or 1; AArch32's User mode PL0, its other modes PL1)
 #[inline(always)]
-pub fn el() -> u32 { get_pstate() >> PSTATE_EL_SHIFT & 3 }
+pub fn el() -> u32 {
+    let p = get_pstate();
+    if p & PSTATE_NRW != 0 {
+        (p & 0xF != 0) as u32
+    }
+    else {
+        p >> PSTATE_EL_SHIFT & 3
+    }
+}
 #[inline(always)]
 pub fn sctlr() -> u64 { unsafe { *sctlr_el1 } }
 
@@ -175,9 +193,15 @@ fn sp_select(pstate_value: u32) -> usize {
     }
 }
 
-/// Change PSTATE (but NZCV), banking the stack pointer when its selection changes
+/// Change PSTATE (but NZCV), banking the stack pointer when its selection
+/// changes (AArch32's modes: their banked registers)
 pub fn set_pstate(value: u32) {
     unsafe {
+        if value & *pstate & PSTATE_NRW != 0 {
+            crate::aarch64::a32_system::switch_registers(*pstate & 0x1F, value & 0x1F);
+            *pstate = value;
+            return;
+        }
         let old = sp_select(*pstate);
         let new = sp_select(value);
         if old != new {
@@ -381,6 +405,10 @@ pub const VECTOR_SERROR: u64 = 0x180;
 /// Take an exception to EL1: ELR_EL1 = `return_address`, SPSR_EL1 the
 /// PSTATE before, the vector by where it came from (`kind`: VECTOR_*)
 pub fn take_exception(kind: u64, return_address: u64, esr: Option<u32>, far: Option<u64>) {
+    if a32_only() {
+        // (an interrupt: AArch32's IRQ or FIQ)
+        return crate::aarch64::a32_system::take_interrupt(kind == VECTOR_FIQ);
+    }
     unsafe {
         let from = el();
         *spsr_el1 = current_spsr();
@@ -420,6 +448,10 @@ pub fn take_exception(kind: u64, return_address: u64, esr: Option<u32>, far: Opt
 
 /// The current instruction (at the PC) takes a synchronous exception
 pub fn take_sync(exception: Exception) {
+    if a32_only() {
+        crate::core_stats::note_fault();
+        return crate::aarch64::a32_system::take_sync(exception);
+    }
     let from = el();
     let return_address = match exception {
         // (the preferred return address of SVC, HVC and SMC is the next
@@ -513,5 +545,8 @@ pub fn reset_core(entry: u64, context: u64) {
         *event_register = 0;
         *x = context;
         *pc = entry;
+    }
+    if a32_only() {
+        crate::aarch64::a32_system::reset(entry, context);
     }
 }

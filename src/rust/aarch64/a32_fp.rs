@@ -511,6 +511,10 @@ fn transfer(word: u32, thumb: bool) -> Result<Flow, Exception> {
 
 /// VMRS, VMSR at EL0: FPSCR (VMRS to the PC: APSR_nzcv from FPSCR's)
 fn special_register(register: u32, rt: u32, to_core: bool, thumb: bool) -> Result<Flow, Exception> {
+    if register != 1 && crate::aarch64::a32_system::privileged() && !(thumb && rt == 13) {
+        // (PL1's: FPSID, MVFR0-2, FPEXC)
+        return crate::aarch64::a32_system::vfp_system(register, rt, to_core);
+    }
     if register != 1 || (thumb && rt == 13) || (!to_core && rt == 15) {
         return Err(Exception::Undefined);
     }

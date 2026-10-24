@@ -6,7 +6,14 @@
 // never silently ignored.
 
 /** The guest CPUs (`cpu_type`); the first is the default */
-export const CPU_TYPES = ["x86", "x86_64", "arm64"];
+export const CPU_TYPES = ["x86", "x86_64", "arm64", "arm32"];
+/** The ARM family's CPU types: the ARM core (v86-arm64.wasm) on the virt machine; arm32 is AArch32 throughout (docs/aarch32-plan.md part 2) */
+export const ARM_CPU_TYPES = ["arm64", "arm32"];
+/**
+ * @param {string|undefined} cpu_type
+ * @return {boolean} whether the ARM core runs it
+ */
+export function is_arm(cpu_type) { return ARM_CPU_TYPES.includes(/** @type {string} */ (cpu_type)); }
 
 /**
  * The machines (`machine_type`): "i440fx" (the default with an x86 CPU:
@@ -78,7 +85,7 @@ export function check_machine_options(options)
         throw new Error("Unknown cpu_type " + JSON.stringify(cpu_type) + "; supported: " +
             CPU_TYPES.map(name => "\"" + name + "\"").join(", "));
     }
-    const arm = cpu_type === "arm64";
+    const arm = is_arm(cpu_type);
     const machine_type = options["machine_type"] === undefined ? (arm ? "virt" : "i440fx") : options["machine_type"];
     if(!MACHINE_TYPES.includes(machine_type))
     {
@@ -88,7 +95,7 @@ export function check_machine_options(options)
     if(arm !== (machine_type === "virt"))
     {
         throw new Error("cpu_type \"" + cpu_type + "\" does not run on machine_type \"" + machine_type + "\": " +
-            (arm ? "the arm64 CPU needs machine_type \"virt\" (the default with it)" : "the virt machine needs cpu_type \"arm64\""));
+            (arm ? "the ARM CPUs need machine_type \"virt\" (the default with them)" : "the virt machine needs cpu_type \"arm64\" or \"arm32\""));
     }
 
     if(arm)
@@ -130,6 +137,10 @@ export function check_machine_options(options)
             throw new Error("virtio_transport is \"mmio\" (the default) or \"pci\", got " + JSON.stringify(transport));
         }
         const profile = options["a64_profile"];
+        if(profile !== undefined && cpu_type !== "arm64")
+        {
+            throw new Error("a64_profile is an option of cpu_type \"arm64\"; cpu_type \"arm32\" has its own profile");
+        }
         if(profile !== undefined && !A64_PROFILES.includes(profile))
         {
             throw new Error("a64_profile is one of " + A64_PROFILES.map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
@@ -141,7 +152,7 @@ export function check_machine_options(options)
         {
             if(given(options[name]))
             {
-                throw new Error(name + " is an option of machine_type \"virt\" (cpu_type \"arm64\")");
+                throw new Error(name + " is an option of machine_type \"virt\" (cpu_type \"arm64\" or \"arm32\")");
             }
         }
     }
@@ -180,7 +191,7 @@ export function allowed_options(cpu_type, machine_type)
     {
         for(const name of VIRT_ONLY)
         {
-            unavailable[name] = name + " is an option of the virt machine (cpu_type \"arm64\")";
+            unavailable[name] = name + " is an option of the virt machine (cpu_type \"arm64\" or \"arm32\")";
         }
         if(machine_type !== "q35")
         {
@@ -190,7 +201,7 @@ export function allowed_options(cpu_type, machine_type)
         }
     }
     return {
-        machine_types: cpu_type === "arm64" ? ["virt"] : MACHINE_TYPES.filter(m => m !== "virt"),
+        machine_types: is_arm(cpu_type) ? ["virt"] : MACHINE_TYPES.filter(m => m !== "virt"),
         graphics_adapters: virt ? VIRT_GRAPHICS_ADAPTERS.slice() : GRAPHICS_ADAPTERS.slice(),
         net_device_types: virt ? VIRT_NET_DEVICE_TYPES.slice() : NET_DEVICE_TYPES.slice(),
         max_cores: MAX_CORES,

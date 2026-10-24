@@ -603,9 +603,11 @@ fn code_page(pc: u64, mode: u32) -> Option<u32> {
 /// and compile it when hot
 pub fn run(budget: u32) -> Ran {
     // (AArch32's code with a64_page_aarch32, docs/aarch32-plan.md Q6; not
-    // from inside an IT block: compiled code enters at ITSTATE 0, little-endian)
+    // from inside an IT block: compiled code enters at ITSTATE 0, little-endian;
+    // not yet with cpu_type arm32, R5.3)
     if !allowed()
         || budget == 0
+        || cpu::a32_only()
         || cpu::aarch32()
             && !(unsafe { AARCH32 }
                 && crate::aarch64::t32::itstate() == 0

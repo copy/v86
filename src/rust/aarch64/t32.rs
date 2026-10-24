@@ -392,6 +392,10 @@ fn t16_miscellaneous(hw: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
                 if in_it_block() {
                     return Err(Exception::Undefined);
                 }
+                if a32_only() {
+                    // (im bit 4: disable)
+                    crate::aarch64::a32_system::cps(2 | hw >> 4 & 1, hw & 7, false, 0);
+                }
                 return Ok(Flow::Next);
             }
             Err(Exception::Undefined)
@@ -504,6 +508,20 @@ fn t32_block_transfer(hw1: u32, hw2: u32, pc: u32) -> Result<Flow, Exception> {
     let l = hw1 & 1 << 4 != 0;
     let rn = hw1 & 15;
     let list = hw2;
+    if (op == 0 || op == 3) && crate::aarch64::a32_system::privileged() {
+        // SRS (to SP: Rn 13, the mode in the list's bits 4:0), RFE (DB op 0, IA op 3)
+        let (p, u) = (op == 0, op == 3);
+        if l {
+            if list != 0xC000 || !last_in_it_block() {
+                return Err(Exception::Undefined);
+            }
+            return crate::aarch64::a32_system::rfe(p, u, w, rn);
+        }
+        if rn != 13 || list & 0xFFE0 != 0xC000 {
+            return Err(Exception::Undefined);
+        }
+        return crate::aarch64::a32_system::srs(p, u, w, list & 31);
+    }
     if op == 0 || op == 3 || rn == 15 || list.count_ones() < 2 || list & 1 << 13 != 0 {
         // (SRS, RFE: UNDEFINED at EL0; one register, SP in the list: UNPREDICTABLE)
         return Err(Exception::Undefined);
@@ -828,7 +846,66 @@ fn t32_branch_control(hw1: u32, hw2: u32, pc: u32, cond: u32) -> Result<Flow, Ex
         }
         // (HVC, SMC, UDF (T2): bit 10 of the first halfword set; UNDEFINED at EL0)
         if hw1 & 1 << 10 != 0 {
+            // (HVC 1111 0111 1110, SMC 1111 0111 1111, op1 0: PSCI at PL1)
+            if crate::aarch64::a32_system::privileged() && op1 == 0 && hw1 >> 5 & 0x3F == 0x3F {
+                return crate::aarch64::a32_system::hvc();
+            }
             return Err(Exception::Undefined);
+        }
+        if a32_only() {
+            match op {
+                // MSR (register) of CPSR (mask hw2[11:8]), SPSR (R), a banked register (bit 5)
+                0b111000 | 0b111001 => {
+                    let rn = hw1 & 15;
+                    let r = hw1 & 1 << 4 != 0;
+                    if bad(rn) {
+                        return Err(Exception::Undefined);
+                    }
+                    if hw2 & 0x20 != 0 {
+                        return banked(false, r, (hw2 >> 4 & 1) << 4 | hw2 >> 8 & 15, rn);
+                    }
+                    let mask = hw2 >> 8 & 15;
+                    if mask == 0 {
+                        return Err(Exception::Undefined);
+                    }
+                    return if r { msr_spsr(reg(rn), mask) } else { msr_cpsr(reg(rn), mask) };
+                },
+                // MRS of CPSR, SPSR (R), a banked register (bit 5)
+                0b111110 | 0b111111 => {
+                    let rd = hw2 >> 8 & 15;
+                    let r = hw1 & 1 << 4 != 0;
+                    if bad(rd) {
+                        return Err(Exception::Undefined);
+                    }
+                    if hw2 & 0x20 != 0 {
+                        return banked(true, r, (hw2 >> 4 & 1) << 4 | hw1 & 15, rd);
+                    }
+                    return mrs(rd, r);
+                },
+                // CPS (imod hw2[10:9], M bit 8)
+                0b111010 if hw2 & 0x700 != 0 => {
+                    if in_it_block() {
+                        return Err(Exception::Undefined);
+                    }
+                    crate::aarch64::a32_system::cps(
+                        hw2 >> 9 & 3,
+                        hw2 >> 5 & 7,
+                        hw2 & 1 << 8 != 0,
+                        hw2 & 31,
+                    );
+                    return Ok(Flow::Next);
+                },
+                // SUBS PC, LR, #imm8 (ERET: imm8 0)
+                0b111101 if hw1 & 15 == 14 && hw2 & 0xFF00 == 0x8F00 => {
+                    if !crate::aarch64::a32_system::privileged() || !last_in_it_block() {
+                        return Err(Exception::Undefined);
+                    }
+                    return crate::aarch64::a32_system::exception_return(
+                        reg(14).wrapping_sub(hw2 & 0xFF),
+                    );
+                },
+                _ => {},
+            }
         }
         return match op {
             // MSR (register): APSR's nzcvq (bit 11), g (bit 10)
@@ -1180,6 +1257,9 @@ fn t32_coprocessor(hw1: u32, hw2: u32, pc: u32, cond: u32) -> Result<Flow, Excep
             pc.wrapping_add(4),
             true,
         );
+    }
+    if cp == 14 && hw1 >> 12 & 1 == 0 && hw1 >> 8 & 15 == 0b1110 && hw2 & 1 << 4 != 0 {
+        return crate::aarch64::a32_system::cp14(hw1 & 1 << 4 != 0, hw2 >> 12 & 15);
     }
     // (MCR2 and the other 1111 forms: UNDEFINED)
     if cp != 15 || hw1 >> 12 & 1 != 0 {

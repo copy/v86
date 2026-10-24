@@ -1,5 +1,5 @@
 // The string primitives of tests/a64/aarch32_bench.mjs's builds, as the
-// bare-metal runtime has them (tests/a64/baremetal/runtime.c: byte loops),
+// bare-metal runtime has them (tests/a64/baremetal/libc.c: byte loops),
 // so that A64 and the 32-bit builds run the same code; memmove both lack.
 typedef __SIZE_TYPE__ size_t;
 #ifdef BENCH32

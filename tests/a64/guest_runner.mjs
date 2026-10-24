@@ -70,6 +70,7 @@ export function build(name, sources, { cflags = [], optimize = "-O2", general_re
     // (A64_MMU=1: the runtime turns the MMU on, an identity map, before main: see runtime.c)
     compile(runtime + "runtime.c", ["-O2", ...no_fp, ...(+process.env.A64_MMU ? ["-DA64_MMU"] : [])]);
     compile(runtime + "exception.c", ["-O2", "-mgeneral-regs-only"]);
+    compile(runtime + "libc.c", ["-O2", ...no_fp]);
     for(const source of sources)
     {
         // (AArch32 code, foo.a32.S: assembled for ARMv8-A AArch32 into a flat
@@ -128,11 +129,12 @@ function track(child)
 
 /**
  * Run guest.bin on QEMU until its result block is done (or `timeout` ms)
- * and return parse() of the block
+ * and return parse() of the block (`machine`, `cpu`: other than the
+ * reference's, tests/a32/runner.mjs)
  */
-export async function reference(directory, { cores = 1, memory = 128, timeout = 60000, extra = [] } = {})
+export async function reference(directory, { cores = 1, memory = 128, timeout = 60000, extra = [], machine = QEMU_MACHINE, cpu = QEMU_CPU } = {})
 {
-    const args = ["-machine", QEMU_MACHINE, "-cpu", QEMU_CPU, "-m", memory + "M", "-smp", smp(cores),
+    const args = ["-machine", machine, "-cpu", cpu, "-m", memory + "M", "-smp", smp(cores),
         "-display", "none", "-serial", "file:" + directory + "qemu-serial.txt", "-monitor", "none", "-qmp", "stdio", "-no-reboot", "-no-shutdown",
         "-kernel", directory + "guest.bin", ...extra,
         ...(process.env.A64_QEMU_TRACE ? ["-d", "int,guest_errors", "-D", directory + "qemu.log"] : [])];

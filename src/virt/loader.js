@@ -8,7 +8,10 @@
 // aligned (some kernels map its 2 MiB block early). The core starts at the
 // kernel's first byte with x0 the device tree's address. A kernel built for
 // 16 or 64 KiB pages needs those granules (profiles v1.1 and v2, the
-// default; v1 declares the 4 KiB granule only).
+// default; v1 declares the 4 KiB granule only). A 32-bit kernel (cpu_type
+// "arm32": a zImage, or a raw binary) goes where QEMU puts one, RAM +
+// 0x10000, the device tree after the initrd 4 KiB aligned; the core starts
+// in SVC mode with r0 0, r1 ~0 and r2 the device tree.
 
 import { VIRT_RAM_BASE } from "./platform.js";
 import { gunzip } from "./inflate.js";
@@ -17,6 +20,8 @@ import { flatten, virt_tree } from "./dtb.js";
 const IMAGE_MAGIC = 0x644D5241; // "ARM\x64" at 56
 const ZBOOT_MAGIC = 0x676D697A; // "zimg" at 4
 const DEFAULT_TEXT_OFFSET = 0x80000;
+/** a 32-bit kernel's place (QEMU's hw/arm/boot.c KERNEL_LOAD_ADDR) */
+const ARM32_KERNEL_OFFSET = 0x10000;
 const MiB = 1024 * 1024;
 
 /**
@@ -75,8 +80,10 @@ export function load_linux(cpu, boot)
 {
     const ram_size = cpu.memory_size[0];
     const ram_end = VIRT_RAM_BASE + ram_size;
-    const image = unpack_kernel(new Uint8Array(boot.kernel));
-    const { offset, size } = image_placement(image, cpu.wm.exports["a64_granules"] ? cpu.wm.exports["a64_granules"]() : 1);
+    const arm32 = cpu.cpu_type === "arm32";
+    const image = arm32 ? new Uint8Array(boot.kernel) : unpack_kernel(new Uint8Array(boot.kernel));
+    const { offset, size } = arm32 ? { offset: ARM32_KERNEL_OFFSET, size: image.length } :
+        image_placement(image, cpu.wm.exports["a64_granules"] ? cpu.wm.exports["a64_granules"]() : 1);
     if(offset + image.length > ram_size)
     {
         throw new Error("kernel: " + image.length + " bytes at RAM + 0x" + offset.toString(16) + " do not fit in RAM");
@@ -94,7 +101,8 @@ export function load_linux(cpu, boot)
         cpu.write_blob_physical(bytes, initrd_start);
         initrd = { start: initrd_start, end: initrd_start + bytes.length };
     }
-    const dtb_start = Math.ceil((initrd_start + (initrd ? initrd.end - initrd.start : 0)) / (2 * MiB)) * (2 * MiB);
+    const dtb_align = arm32 ? 4096 : 2 * MiB;
+    const dtb_start = Math.ceil((initrd_start + (initrd ? initrd.end - initrd.start : 0)) / dtb_align) * dtb_align;
     let dtb;
     if(boot.dtb)
     {
@@ -105,7 +113,7 @@ export function load_linux(cpu, boot)
         const rng_seed = new Uint8Array(32);
         globalThis.crypto?.getRandomValues?.(rng_seed);
         dtb = flatten(virt_tree({
-            cores: boot.cores, memory_size: ram_size, bootargs: boot.cmdline || undefined, initrd, rng_seed,
+            cores: boot.cores, memory_size: ram_size, bootargs: boot.cmdline || undefined, initrd, rng_seed, arm32,
             extended: cpu.extended_pages ? { base: cpu.extended_base, size: cpu.extended_pages * 4096 } : undefined,
         }));
     }

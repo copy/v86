@@ -3,6 +3,7 @@ import { state_stream_server } from "./state_stream_transport.js";
 // in the worker; this side owns DOM adapters and asynchronous GPU execution.
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
+import { is_arm } from "../machine_options.js";
 
 /**
  * @param {*} f
@@ -45,7 +46,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
             return { "name": plugin["name"], "script": new URL(plugin["worker_script"], location.href).href };
         }),
         // (the core of the CPU's family: docs/arm64-virt-android16-plan.md P1.3)
-        "wasm_path": new URL(o.wasm_path || (o["cpu_type"] === "arm64" ? "build/v86-arm64.wasm" : "build/v86.wasm"), location.href).href,
+        "wasm_path": new URL(o.wasm_path || (is_arm(o["cpu_type"]) ? "build/v86-arm64.wasm" : "build/v86.wasm"), location.href).href,
         "wasm_fallback_path": o["wasm_fallback_path"] && new URL(o["wasm_fallback_path"], location.href).href,
         // (cores in vCPU workers, which this worker starts: absolute URLs)
         "parallel": o["parallel"],
@@ -76,7 +77,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "modem": o.modem && { "uart": o.modem.uart },
         "preserve_mac_from_state_image": o.preserve_mac_from_state_image,
         "mac_address_translation": o.mac_address_translation,
-        "net_device": { "type": o.net_device?.type || (o["cpu_type"] === "arm64" ? "virtio" : "ne2k"), "count": o.net_device?.count,
+        "net_device": { "type": o.net_device?.type || (is_arm(o["cpu_type"]) ? "virtio" : "ne2k"), "count": o.net_device?.count,
             ...placement(o.net_device) },
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),

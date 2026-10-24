@@ -16,7 +16,7 @@ import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtDeviceSpace } from "../virt/io.js";
 import {
-    A64_PROFILES, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
+    A64_PROFILES, ARM32_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
     VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
     VIRT_EXTENDED_RAM_BASE, VIRT_EXTENDED_RAM_END,
 } from "../virt/platform.js";
@@ -198,15 +198,17 @@ A64CPU.prototype.init = function(settings, device_bus)
     }
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
+    // (cpu_type "arm32": AArch32 throughout, docs/aarch32-plan.md part 2)
+    this.cpu_type = settings["cpu_type"] === "arm32" ? "arm32" : "arm64";
     // the CPU profile (docs/arm64-virt-android16-plan.md, "CPU profile"):
     // v2 (v1.1 and FEAT_PAN, the default since 2026-10-20), v1.1 (the 4, 16
-    // and 64 KiB granules, P8.6), or v1 (4 KiB only)
+    // and 64 KiB granules, P8.6), or v1 (4 KiB only); arm32's own
     const profile = settings["a64_profile"] || "v2";
     if(!Object.prototype.hasOwnProperty.call(A64_PROFILES, profile))
     {
         throw new Error("a64_profile: " + Object.keys(A64_PROFILES).map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
     }
-    this.set_profile(A64_PROFILES[profile][0]);
+    this.set_profile(this.cpu_type === "arm32" ? ARM32_PROFILE[0] : A64_PROFILES[profile][0]);
     // the A64 page tier (J2): synchronous publication (tests), the JIT switches by name
     this.ir_sync_publication = settings["ir_sync_publication"] === true;
     set_jit_switches(this.wm.exports, this.wasm_memory, settings["jit_switches"]);
@@ -385,7 +387,15 @@ A64CPU.prototype.init = function(settings, device_bus)
  */
 A64CPU.prototype.boot = function(entry, x0)
 {
-    this.wm.exports["a64_boot"](entry >>> 0, Math.floor(entry / 0x100000000), x0 >>> 0, Math.floor(x0 / 0x100000000));
+    if(this.cpu_type === "arm32")
+    {
+        // (a 32-bit kernel: SVC mode, r0 0, r1 ~0 (a device tree, not a board), r2 the device tree)
+        this.wm.exports["a32_boot"](entry >>> 0, x0 >>> 0);
+    }
+    else
+    {
+        this.wm.exports["a64_boot"](entry >>> 0, Math.floor(entry / 0x100000000), x0 >>> 0, Math.floor(x0 / 0x100000000));
+    }
     this.boot_entry = entry;
     this.boot_x0 = x0;
     this.booted = true;
@@ -1064,7 +1074,7 @@ A64CPU.prototype.get_state = function(skip_memory = false)
  */
 A64CPU.prototype.set_profile = function(name)
 {
-    const entry = Object.values(A64_PROFILES).find(p => p[0] === name);
+    const entry = [...Object.values(A64_PROFILES), ARM32_PROFILE].find(p => p[0] === name);
     dbg_assert(!!entry, "unknown profile " + name);
     this.profile = name;
     this.wm.exports["a64_set_granules"](entry[1]);
@@ -1081,7 +1091,9 @@ A64CPU.prototype.validate_state = function(state)
         throw new Error("The snapshot is from a machine with machine_type: \"" + machine + "\", this one has \"virt\"");
     }
     // (a snapshot of another profile restores as that profile, set_state)
-    if(identity[1] !== VIRT_LAYOUT_VERSION || !Object.values(A64_PROFILES).some(p => p[0] === identity[2]))
+    // (arm32's and arm64's profiles are of different CPUs)
+    const profiles = this.cpu_type === "arm32" ? [ARM32_PROFILE] : Object.values(A64_PROFILES);
+    if(identity[1] !== VIRT_LAYOUT_VERSION || !profiles.some(p => p[0] === identity[2]))
     {
         throw new Error("The snapshot is from virt layout " + identity[1] + " with CPU profile " + identity[2] +
             "; this machine is layout " + VIRT_LAYOUT_VERSION + ", " + this.profile);
@@ -1220,14 +1232,15 @@ A64CPU.prototype.get_diagnostics = function()
         return {
             "pc": worker ? "0x" + (new BigUint64Array(block.buffer, block.byteOffset + STATE_OFFSETS.pc, 1)[0]).toString(16) : this.read_pc(),
             "state": power[psci[core]] === "on" ? ["runnable", "wfi", "wfe", "off"][waiting] : power[psci[core]],
-            "el": word(STATE_OFFSETS.pstate) >> 2 & 3,
+            // (AArch32's modes: User is EL0, the others PL1)
+            "el": word(STATE_OFFSETS.pstate) & 0x10 ? +((word(STATE_OFFSETS.pstate) & 0xF) !== 0) : word(STATE_OFFSETS.pstate) >> 2 & 3,
             "retired_instructions": this.retired_instructions(core),
             "halt_count": worker ? this.parallel.core_counters(core).waits :
                 exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
         };
     });
     return {
-        "cpu_type": "arm64",
+        "cpu_type": this.cpu_type,
         "machine_type": "virt",
         "active_core": exports["a64_current_core"](),
         "parallel": this.parallel ? Object.assign(this.parallel.status(), { "machine_core": {

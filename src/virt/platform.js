@@ -22,6 +22,13 @@ export const A64_PROFILES = {
     "v3": ["v86-aarch64-v3", 7, 3],
 };
 
+/**
+ * cpu_type "arm32"'s profile (docs/aarch32-plan.md part 2): AArch32
+ * throughout (feature bit 2), with AArch32's instructions (bit 1); its
+ * name, granules (none of AArch64's: the 4 KiB one), features
+ */
+export const ARM32_PROFILE = ["v86-arm32-v1", 1, 6];
+
 /** Must match MAX_CORES in src/rust/aarch64/isa_hooks.rs */
 export const VIRT_MAX_CORES = 8;
 

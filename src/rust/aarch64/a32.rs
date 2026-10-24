@@ -287,7 +287,10 @@ pub fn data_processing(
     let compare = (DP_TST..=DP_CMN).contains(&op);
     if s || compare {
         if rd == 15 && !compare {
-            // (SUBS PC, LR and the like: an exception return, UNPREDICTABLE at EL0)
+            // (SUBS PC, LR and the like: an exception return at PL1, UNPREDICTABLE at EL0)
+            if crate::aarch64::a32_system::privileged() {
+                return crate::aarch64::a32_system::exception_return(result);
+            }
             return Err(Exception::Undefined);
         }
         set_nzcv(match arithmetic {
@@ -763,6 +766,86 @@ pub fn mrs_apsr(rd: u32) -> Result<Flow, Exception> {
     Ok(Flow::Next)
 }
 
+/// MSR CPSR_<fields> (`fields` c 0, x 1, s 2, f 3): APSR's at EL0 (s and
+/// f), CPSRWriteByInstr's with cpu_type arm32
+pub fn msr_cpsr(value: u32, fields: u32) -> Result<Flow, Exception> {
+    if a32_only() {
+        crate::aarch64::a32_system::msr_cpsr(value, fields);
+        return Ok(Flow::Next);
+    }
+    msr_apsr(fields >> 2, value)
+}
+
+/// MSR SPSR_<fields> (at PL1; UNPREDICTABLE in User and System modes, and at EL0)
+pub fn msr_spsr(value: u32, fields: u32) -> Result<Flow, Exception> {
+    if !crate::aarch64::a32_system::privileged() || crate::aarch64::a32_system::spsr().is_none() {
+        return Err(Exception::Undefined);
+    }
+    crate::aarch64::a32_system::msr_spsr(value, fields);
+    Ok(Flow::Next)
+}
+
+/// MRS Rd, CPSR (APSR's view at EL0) or SPSR (`spsr`, at PL1)
+pub fn mrs(rd: u32, spsr: bool) -> Result<Flow, Exception> {
+    use crate::aarch64::a32_system as system;
+    if spsr {
+        match system::spsr() {
+            Some(value) if system::privileged() => set_reg(rd, value),
+            _ => return Err(Exception::Undefined),
+        }
+        return Ok(Flow::Next);
+    }
+    if a32_only() {
+        set_reg(rd, system::mrs_cpsr());
+        return Ok(Flow::Next);
+    }
+    mrs_apsr(rd)
+}
+
+/// MRS Rd, <banked register> and MSR <banked register>, Rn (SYSm `sysm`,
+/// `r` the SPSRs) at PL1
+pub fn banked(read: bool, r: bool, sysm: u32, rd: u32) -> Result<Flow, Exception> {
+    use crate::aarch64::a32_system::{self as system, *};
+    if !system::privileged() {
+        return Err(Exception::Undefined);
+    }
+    if r {
+        // (SPSR_fiq, _irq, _svc, _abt, _und)
+        let mode = match sysm {
+            0b01110 => MODE_FIQ,
+            0b10000 => MODE_IRQ,
+            0b10010 => MODE_SVC,
+            0b10100 => MODE_ABT,
+            0b10110 => MODE_UND,
+            _ => return Err(Exception::Undefined),
+        };
+        if read {
+            set_reg(rd, system::spsr_of(mode));
+        }
+        else {
+            system::set_spsr_of(mode, reg(rd));
+        }
+        return Ok(Flow::Next);
+    }
+    // (R8_usr-R14_usr, R8_fiq-R14_fiq, then LR and SP of IRQ, SVC, ABT, UND)
+    let (mode, n) = match sysm {
+        0b00000..=0b00110 => (MODE_USR, 8 + sysm),
+        0b01000..=0b01110 => (MODE_FIQ, sysm),
+        0b10000..=0b10111 => {
+            let mode = [MODE_IRQ, MODE_SVC, MODE_ABT, MODE_UND][(sysm >> 1 & 3) as usize];
+            (mode, if sysm & 1 == 0 { 14 } else { 13 })
+        },
+        _ => return Err(Exception::Undefined),
+    };
+    if read {
+        set_reg(rd, system::banked_reg(mode, n));
+    }
+    else {
+        system::set_banked_reg(mode, n, reg(rd));
+    }
+    Ok(Flow::Next)
+}
+
 /// MSR APSR_<mask>, value: bit 1 of `mask` NZCVQ, bit 0 GE
 pub fn msr_apsr(mask: u32, value: u32) -> Result<Flow, Exception> {
     if mask & 2 != 0 {
@@ -796,7 +879,7 @@ pub fn load(address: u32, size: u32, unprivileged: bool) -> Result<u32, Exceptio
 
 /// A load that must be aligned (MemA: LDRD, LDM, LDREX, LDA)
 #[inline(always)]
-fn load_aligned(address: u32, size: u32) -> Result<u32, Exception> {
+pub(crate) fn load_aligned(address: u32, size: u32) -> Result<u32, Exception> {
     if address & (size - 1) != 0 {
         return Err(execute::alignment(address as u64, false, Syndrome::NONE));
     }
@@ -806,7 +889,7 @@ fn load_aligned(address: u32, size: u32) -> Result<u32, Exception> {
 /// A store's translation, written later (nothing is written if any of an
 /// instruction's accesses faults)
 #[inline(always)]
-fn prepare_store(
+pub(crate) fn prepare_store(
     address: u32,
     size: u32,
     unprivileged: bool,
@@ -1020,7 +1103,7 @@ pub fn hint(hint: u32, cond: u32) -> Result<Flow, Exception> {
                 *event_register = 0;
                 Ok(Flow::Next)
             }
-            else if sctlr() & SCTLR_NTWE == 0 {
+            else if sctlr() & SCTLR_NTWE == 0 && el() == 0 {
                 Err(wfx(1))
             }
             else {
@@ -1028,7 +1111,7 @@ pub fn hint(hint: u32, cond: u32) -> Result<Flow, Exception> {
             }
         },
         3 => {
-            if sctlr() & SCTLR_NTWI == 0 {
+            if sctlr() & SCTLR_NTWI == 0 && el() == 0 {
                 return Err(wfx(0));
             }
             Ok(Flow::Wait(1))
@@ -1107,6 +1190,9 @@ pub fn cp15(
     value: u32,
     cond: u32,
 ) -> Result<Flow, Exception> {
+    if crate::aarch64::a32_system::privileged() {
+        return crate::aarch64::a32_system::cp15(read, opc1, crn, crm, opc2, rt, value);
+    }
     let trap = cp_trap(0x03, cond, opc1, crn, crm, opc2, rt, 0, read);
     match (opc1, crn, crm, opc2) {
         // TPIDRURW (TPIDR_EL0's low half), TPIDRURO (TPIDRRO_EL0's, read-only at EL0)
@@ -1158,6 +1244,9 @@ pub fn cp15_64(
     value: u64,
     cond: u32,
 ) -> Result<Flow, Exception> {
+    if crate::aarch64::a32_system::privileged() {
+        return crate::aarch64::a32_system::cp15_64(read, opc1, crm, rt, rt2, value);
+    }
     let trap = cp_trap(0x04, cond, opc1, 0, crm, 0, rt, rt2, read);
     if crm != 14 || opc1 > 3 {
         return Err(Exception::Undefined);
@@ -1398,12 +1487,12 @@ fn a32(word: u32, pc: u32) -> Result<Flow, Exception> {
                     if op1 == 0b10010 && rn == 0 {
                         return hint(word & 0xFF, cond);
                     }
+                    let (value, _) = expand_imm_c(word & 0xFFF, carry());
                     if op1 == 0b10110 {
                         // (MSR SPSR: UNPREDICTABLE at EL0)
-                        return Err(Exception::Undefined);
+                        return msr_spsr(value, rn);
                     }
-                    let (value, _) = expand_imm_c(word & 0xFFF, carry());
-                    msr_apsr(rn >> 2, value)
+                    msr_cpsr(value, rn)
                 },
                 _ => {
                     let (operand, shifter_carry) = expand_imm_c(word & 0xFFF, carry());
@@ -1566,15 +1655,21 @@ fn a32_miscellaneous(word: u32, pc: u32) -> Result<Flow, Exception> {
     let rm = word & 15;
     match word >> 4 & 7 {
         0 => {
-            if word & 1 << 9 != 0 || word & 1 << 22 != 0 {
-                // (banked registers, SPSR: UNPREDICTABLE at EL0)
-                return Err(Exception::Undefined);
+            let spsr = word & 1 << 22 != 0;
+            if word & 1 << 9 != 0 {
+                // (banked registers: PL1's; SYSm M:M1)
+                let sysm = (word >> 8 & 1) << 4 | rn;
+                return if op0 & 1 == 0 {
+                    banked(true, spsr, sysm, rd)
+                }
+                else {
+                    banked(false, spsr, sysm, rm)
+                };
             }
-            if op0 & 1 == 0 {
-                mrs_apsr(rd)
-            }
-            else {
-                msr_apsr(word >> 18 & 3, reg(rm))
+            match (op0 & 1 != 0, spsr) {
+                (false, _) => mrs(rd, spsr),
+                (true, false) => msr_cpsr(reg(rm), rn),
+                (true, true) => msr_spsr(reg(rm), rn),
             }
         },
         // BX, BXJ (as BX)
@@ -1592,6 +1687,16 @@ fn a32_miscellaneous(word: u32, pc: u32) -> Result<Flow, Exception> {
             ec: 0x38,
             iss: (word >> 4 & 0xFFF0) | word & 15,
         }),
+        // HVC, SMC (PSCI at PL1, the device tree's conduit is HVC); ERET (as SUBS PC, LR, #0)
+        7 if op0 == 2 && crate::aarch64::a32_system::privileged() => {
+            crate::aarch64::a32_system::hvc()
+        },
+        7 if op0 == 3 && crate::aarch64::a32_system::privileged() => {
+            crate::aarch64::a32_system::hvc()
+        },
+        6 if op0 == 3 && rm == 14 && crate::aarch64::a32_system::privileged() => {
+            crate::aarch64::a32_system::exception_return(reg(14))
+        },
         _ => Err(Exception::Undefined),
     }
 }
@@ -1665,7 +1770,7 @@ fn a32_block_transfer(word: u32, pc: u32) -> Result<Flow, Exception> {
     let l = word & 1 << 20 != 0;
     let rn = word >> 16 & 15;
     let list = word & 0xFFFF;
-    if user || rn == 15 || list == 0 {
+    if rn == 15 || list == 0 || user && !crate::aarch64::a32_system::privileged() {
         // (the user registers and exception returns: UNPREDICTABLE at EL0)
         return Err(Exception::Undefined);
     }
@@ -1678,6 +1783,17 @@ fn a32_block_transfer(word: u32, pc: u32) -> Result<Flow, Exception> {
         (true, false) => base.wrapping_sub(4 * count),
     };
     let new_base = if u { base.wrapping_add(4 * count) } else { base.wrapping_sub(4 * count) };
+    if user {
+        // LDM (exception return), LDM and STM of the User mode's registers (no writeback)
+        return crate::aarch64::a32_system::block_user(
+            l,
+            rn,
+            list,
+            start,
+            if w { Some(new_base) } else { None },
+            pc.wrapping_add(8),
+        );
+    }
     if l {
         // (the base in the list with writeback: UNPREDICTABLE, the loaded value here)
         let writeback = if w && list & 1 << rn == 0 { Some(new_base) } else { None };
@@ -1787,6 +1903,9 @@ fn a32_coprocessor(word: u32, pc: u32, cp: u32, cond: u32) -> Result<Flow, Excep
     if cp == 10 || cp == 11 {
         return crate::aarch64::a32_fp::vfp(word, pc.wrapping_add(8), false);
     }
+    if cp == 14 && word >> 24 & 15 == 0b1110 && word & 1 << 4 != 0 {
+        return crate::aarch64::a32_system::cp14(word & 1 << 20 != 0, word >> 12 & 15);
+    }
     if cp != 15 {
         return Err(Exception::Undefined);
     }
@@ -1841,6 +1960,35 @@ fn a32_unconditional(word: u32, pc: u32) -> Result<Flow, Exception> {
     }
     if word == 0xF57F_F01F {
         return clear_exclusive();
+    }
+    // CPS (a NOP in User mode), SRS, RFE: PL1's (cpu_type arm32)
+    if word & 0xFFF1_FE20 == 0xF100_0000 && a32_only() {
+        crate::aarch64::a32_system::cps(
+            word >> 18 & 3,
+            word >> 6 & 7,
+            word & 1 << 17 != 0,
+            word & 31,
+        );
+        return Ok(Flow::Next);
+    }
+    if crate::aarch64::a32_system::privileged() {
+        // (P bit 24, U 23, W 21)
+        if word & 0xFE5F_FFE0 == 0xF84D_0500 {
+            return crate::aarch64::a32_system::srs(
+                word >> 24 & 1 != 0,
+                word >> 23 & 1 != 0,
+                word >> 21 & 1 != 0,
+                word & 31,
+            );
+        }
+        if word & 0xFE50_FFFF == 0xF810_0A00 {
+            return crate::aarch64::a32_system::rfe(
+                word >> 24 & 1 != 0,
+                word >> 23 & 1 != 0,
+                word >> 21 & 1 != 0,
+                word >> 16 & 15,
+            );
+        }
     }
     if word & 0xFFFF_FF00 == 0xF57F_F000 {
         return match word >> 4 & 15 {

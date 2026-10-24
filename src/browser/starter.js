@@ -13,7 +13,7 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { check_machine_options } from "../machine_options.js";
+import { check_machine_options, is_arm } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
 import { NetworkAdapter } from "./network.js";
@@ -156,7 +156,7 @@ function create_local_channel()
 function check_core(exports, cpu_type, wasm_table)
 {
     const arm = !!exports["isa_aarch64"];
-    if(arm !== (cpu_type === "arm64"))
+    if(arm !== is_arm(cpu_type))
     {
         throw new Error("The Wasm core is the " + (arm ? "ARM" : "x86") + " core (" + (arm ? "v86-arm64.wasm" : "v86.wasm") +
             "), cpu_type is \"" + cpu_type + "\": wasm_path names the wrong file");
@@ -324,7 +324,7 @@ export function V86(options)
                 // the core of the CPU's family (docs/arm64-virt-android16-plan.md
                 // P1.3): the ARM core for arm64, the x86 core otherwise; the
                 // fallback stays in the family
-                const arm = this.cpu_type === "arm64";
+                const arm = is_arm(this.cpu_type);
                 let v86_bin = arm ? (DEBUG ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") : DEBUG ? "v86-debug.wasm" : "v86.wasm";
                 let v86_bin_fallback = arm ? "v86-arm64-fallback.wasm" : "v86-fallback.wasm";
                 // cores in vCPU workers need the relocatable build (src/parallel);
@@ -606,7 +606,7 @@ V86.prototype.continue_init = async function(emulator, options)
     // TODO: Should be properly fixed in restore_state
     // (the virt machine: only when asked for, since its virtio devices take
     // the virtio-mmio slots in order, as the reference's -device options do)
-    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "none" : "ne2k" };
+    settings.net_device = options.net_device || { type: is_arm(this.cpu_type) ? "none" : "ne2k" };
     // the virt machine's virtio-blk disks (P5.4) and virtio-rng (P5.5)
     // (src/machine_options.js refuses them on the PC machines)
     if(options.virtio_disks) settings.virtio_disks = [];
@@ -1893,7 +1893,7 @@ V86.prototype.get_instruction_counter = function()
     {
         const cpu = this.v86.cpu;
         // (the ARM core counts the instructions each core retired, P0.9)
-        if(cpu.cpu_type === "arm64")
+        if(is_arm(cpu.cpu_type))
         {
             let retired = 0;
             for(let core = 0; core < cpu.cores; core++) retired += cpu.retired_instructions(core);
@@ -2895,7 +2895,7 @@ V86.prototype.write_memory = function(blob, offset)
 V86.prototype.read_memory_chunks = async function*(offset, length, chunk_size = 1024 * 1024)
 {
     // (the machine's physical address space: 36 bits on the PC machines, 40 on virt)
-    const limit = this.cpu_type === "arm64" ? 0x10000000000 : 0x1000000000;
+    const limit = is_arm(this.cpu_type) ? 0x10000000000 : 0x1000000000;
     if(!Number.isSafeInteger(offset) || offset < 0 || offset >= limit ||
         !Number.isSafeInteger(length) || length < 0 || offset + length > limit ||
         !Number.isInteger(chunk_size) || chunk_size < 1 || chunk_size > 16 * 1024 * 1024)

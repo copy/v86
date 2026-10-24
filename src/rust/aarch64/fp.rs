@@ -36,6 +36,10 @@ pub fn fpcr_write(value: u64) { unsafe { *fpcr = value as u32 & FPCR_WRITABLE } 
 /// CPACR_EL1.FPEN: whether FP and AdvSIMD instructions trap at this EL
 #[inline]
 pub fn check_access() -> Result<(), Exception> {
+    // (cpu_type arm32: FPEXC.EN too)
+    if cpu::a32_only() && !crate::aarch64::a32_system::fp_enabled() {
+        return Err(Exception::Undefined);
+    }
     let fpen = unsafe { *cpacr_el1 } >> 20 & 3;
     let allowed = match fpen {
         0b01 => cpu::el() == 1,

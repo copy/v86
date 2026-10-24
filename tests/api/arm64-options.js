@@ -17,11 +17,11 @@ import { CPU_TYPES, MACHINE_TYPES, check_machine_options } from "../../src/machi
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
-assert.deepEqual(CPU_TYPES, ["x86", "x86_64", "arm64"]);
+assert.deepEqual(CPU_TYPES, ["x86", "x86_64", "arm64", "arm32"]);
 assert.deepEqual(MACHINE_TYPES, ["i440fx", "q35", "virt"]);
 
 // the matrix
-const runs = { x86: ["i440fx", "q35"], x86_64: ["i440fx", "q35"], arm64: ["virt"] };
+const runs = { x86: ["i440fx", "q35"], x86_64: ["i440fx", "q35"], arm64: ["virt"], arm32: ["virt"] };
 for(const cpu_type of CPU_TYPES)
 {
     for(const machine_type of MACHINE_TYPES)
@@ -45,12 +45,13 @@ console.log("PASS the cpu_type and machine_type matrix");
 assert.deepEqual(check_machine_options({}), { cpu_type: "x86", machine_type: "i440fx" });
 assert.deepEqual(check_machine_options({ cpu_type: "x86_64" }), { cpu_type: "x86_64", machine_type: "i440fx" });
 assert.deepEqual(check_machine_options({ cpu_type: "arm64" }), { cpu_type: "arm64", machine_type: "virt" });
-console.log("PASS defaults: i440fx with x86, virt with arm64");
+assert.deepEqual(check_machine_options({ cpu_type: "arm32" }), { cpu_type: "arm32", machine_type: "virt" });
+console.log("PASS defaults: i440fx with x86, virt with arm64 and arm32");
 
 // unknown names
 for(const cpu_type of ["aarch64", "arm", "x86-64", ""])
 {
-    assert.throws(() => check_machine_options({ cpu_type }), /Unknown cpu_type .*supported: "x86", "x86_64", "arm64"/);
+    assert.throws(() => check_machine_options({ cpu_type }), /Unknown cpu_type .*supported: "x86", "x86_64", "arm64", "arm32"/);
 }
 assert.throws(() => check_machine_options({ machine_type: "pc" }), /machine_type must be one of "i440fx", "q35", "virt"/);
 assert.throws(() => check_machine_options({ experimental_x64: true }), /experimental_x64 was replaced/);
@@ -58,6 +59,8 @@ console.log("PASS unknown cpu_type and machine_type");
 
 // the arm64 CPU's profile (docs/aarch32-plan.md Q7.2)
 for(const a64_profile of ["v1", "v1.1", "v2", "v3"]) assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", a64_profile }), a64_profile);
+// (arm32 has its own profile, arm32-v1)
+assert.throws(() => check_machine_options({ cpu_type: "arm32", a64_profile: "v3" }), /a64_profile is an option of cpu_type "arm64"/);
 assert.throws(() => check_machine_options({ cpu_type: "arm64", a64_profile: "v4" }), /a64_profile is one of "v1", "v1.1", "v2", "v3", got "v4"/);
 assert.throws(() => check_machine_options({ cpu_type: "x86_64", a64_profile: "v3" }), /a64_profile is an option of machine_type "virt"/);
 console.log("PASS a64_profile");
