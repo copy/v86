@@ -1,8 +1,8 @@
 # Android 镜像：选镜像就能用与系统目录 实施计划
 
 状态：实施中。2026-10-23 初稿，基于 `336f0df7`。2026-10-24：I0.1、I0.2 完成（结果见 §1 之后的“I0 的结果”），
-I1–I3 完成（I3 的验收：浏览器里选官方 zip 即开机到 `boot_completed`）；I4.2、I5.1、I5.2、I7 完成；I4.1、I4.3 的一部分、I5.3、
-I6、I8 未做；见各节的进度。规模：S 为几天，M 约 1–2 周，
+I1–I5、I7 完成（I3 与 I5 的验收：浏览器里拖入官方 zip，或官方 zip 加 GSI，即开机到 `boot_completed`）；I6、I8 未做
+（I6 等 aarch32-plan R6，I8.1 等 gfxstream）；见各节的进度。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
@@ -298,7 +298,10 @@ super，旧 `system_a` 的数据不写；`vbmeta_a/_b` 用 GSI 的）。版本�
 `ro.vendor.build.version.sdk_full`（不必解压 erofs：Cuttlefish 的 erofs 文件是 LZ4 压缩的，layout 3）。向导的 Android 来源
 可同时或先后拖入设备包与 GSI，页面上先读出版本与指纹，GSI 较旧时拒绝并说明，GSI 有 32 位 ABI 时提示需要 AArch32
 （I5.2；读 zip 里的 `build.prop`，不读 ext4）。`tools/android_import.mjs --gsi` 与 `tools/a64_android.mjs --gsi --shrink-super
---userdata-mb 4096` 逐字节相同，这块盘在 QEMU 上 35 s 到 `boot_completed`。I5.3 的 v64 开机未做。
+--userdata-mb 4096` 逐字节相同，这块盘在 QEMU 上 35 s 到 `boot_completed`。
+- **I5.3 验收通过**（2026-10-24，`wizard_test part=android_boot isolated=1 gsi=…BP4A…zip`，无头 Chrome）：目录项
+  `android16-gsi-bp4a`，同时拖入官方 Cuttlefish zip 与 BP4A GSI，两个文件 14 s 核对完 SHA-256，20 s 导入为 7.6 GB 的
+  浏览器磁盘，开机后 33 s 到 second stage、297 s 到 zygote、**1975 s 到 `sys.boot_completed`**（SwiftShader），全程 33.5 分钟。
 
 ## 7. I6 模拟器镜像（AVD 的同一批镜像）
 
