@@ -358,7 +358,11 @@ export function VirtioGPU(machine, options)
     this.blank = null;
     this.serial = 0x0086;
     /** What the driver has done, for harnesses and debugging */
-    this.stats = { commands: {}, errors: 0, last_error: 0, transfers: 0, flushes: 0, cursor_updates: 0, cursor_moves: 0 };
+    this.stats = { commands: {}, errors: 0, last_error: 0, transfers: 0, flushes: 0, cursor_updates: 0, cursor_moves: 0,
+        /** the fences answered by lane ("" the global timeline, else ctx:ring): [count, the last fence id, its command] */
+        fences: {},
+        /** the first command the device failed on (an exception), answered with an error */
+        failed_command: "" };
     /** @type {Virgl} 3D, at the virgl level */
     this.virgl = LEVELS[this.level].three_d ? new Virgl(this, /** @type {!Object} */ (options.renderer), !!LEVELS[this.level].gl43) : null;
     /** @type {Venus} Vulkan, at level venus */
@@ -570,7 +574,21 @@ VirtioGPU.prototype.notify = function(queue)
         if(queue === CONTROLQ)
         {
             this.set_active(true);
-            const response = this.control(bytes);
+            // (a command the device fails on is answered, with an error: a
+            // request left unanswered would hold its fence, and the guest, forever)
+            let response;
+            try
+            {
+                response = this.control(bytes);
+            }
+            catch(e)
+            {
+                if(!this.stats.failed_command) console.warn("virtio-gpu: a command failed:", e);
+                this.stats.failed_command = String(e && e.stack || e);
+                this.deferred = null;
+                this.hold = false;
+                response = this.error(RESP_ERR_UNSPEC, bytes.length >= 4 ? bytes[0] | bytes[1] << 8 : 0);
+            }
             const wait = this.deferred, hold = this.hold;
             this.deferred = null;
             this.hold = false;
@@ -716,6 +734,11 @@ VirtioGPU.prototype.respond = function(request, bytes, response)
             // fence_id, ctx_id, ring_idx
             response[4] = FLAG_FENCE | flags & FLAG_INFO_RING_IDX;
             response.set(bytes.subarray(8, 21), 8);
+            const lane = timeline_of(bytes);
+            const counts = this.stats.fences[lane] = this.stats.fences[lane] || [0, 0, 0];
+            counts[0]++;
+            counts[1] = bytes[8] | bytes[9] << 8 | bytes[10] << 16 | bytes[11] << 24;
+            counts[2] = bytes[0] | bytes[1] << 8;
         }
     }
     request["write"](response);

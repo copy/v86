@@ -508,7 +508,11 @@ for(const [name, make] of Object.entries(VFP))
         const c = make(14);
         const unconditional = c.word >>> 28 === 15;
         const it = !unconditional && random() % 4 === 0 ? 0xBF00 | (random() % 14) << 4 | 0x8 : undefined;
-        if(c.literal) c.word = c.word & ~(15 << 16) | reg() << 16, c.pointers = 1 << (c.word >>> 16 & 15);
+        if(c.literal)
+        {
+            c.word = c.word & ~(15 << 16) | reg() << 16;
+            c.pointers = 1 << (c.word >>> 16 & 15);
+        }
         return { ...c, word: unconditional ? c.word >>> 0 : (c.word & 0x0FFFFFFF | 0xE0000000) >>> 0, prefix: it, fp: true };
     };
 }

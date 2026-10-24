@@ -330,6 +330,12 @@ const copied = [...vx_memory.values()].find(m => m.length >= 272 && m[16] === pa
 assert.ok(copied, "the guest's bytes, written through the blob, copied on the GPU");
 a = call("vkWaitForFences", { device, fenceCount: 1, pFences: [fence], waitAll: 1, timeout: 0 });
 assert.equal(a.ret, 0, "vkWaitForFences: signaled");
+// vkQueueSignalReleaseImageANDROID's sync file (CREATE_QSRI_EXPORT_VK on ring
+// 0): answered once the queues are idle, here at once
+const before_qsri = used_idx();
+submit_3d([0xa002, 0x1234, 0], false, { id: 6, ring: 0 });
+for(let i = 0; i < 100 && used_idx() === before_qsri; i++) await new Promise(resolve => setTimeout(resolve, 10));
+assert.equal(used_idx(), before_qsri + 1 & 0xFFFF, "CREATE_QSRI_EXPORT_VK's fence answered");
 errors();
 console.log("PASS: a command buffer flushed, submitted without a reply, its fence exported");
 

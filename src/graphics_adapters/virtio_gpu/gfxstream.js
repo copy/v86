@@ -155,7 +155,9 @@ export function Gfxstream(gpu, vk)
     this.next_puid = 1;
     this.stats = { pings: 0, transfers: 0, bytes: 0, commands: 0, replies: 0, unknown: {}, errors: 0, last_error: "",
         /** the sync commands by opcode: [given, waited, done] */
-        syncs: {} };
+        syncs: {},
+        /** the execbuffers' commands by context and opcode */
+        execbuffer: {} };
 }
 
 /** its capsets, [id, version, size] (the device's kinds of context) */
@@ -314,6 +316,8 @@ Gfxstream.prototype.submit = function(ctx_id, bytes, ring_idx)
             break;
         }
         const u32 = i => view.getUint32(at + 4 + 4 * i, true);
+        const key = ctx_id + ":" + op.toString(16) + (ring_idx ? "@" + ring_idx : "");
+        this.stats.execbuffer[key] = (this.stats.execbuffer[key] || 0) + 1;
         switch(op)
         {
             case CONTEXT_CREATE:
@@ -346,7 +350,10 @@ Gfxstream.prototype.submit = function(ctx_id, bytes, ring_idx)
             {
                 // a task on the context's timeline: done when the GPU's work
                 // it names is (G2: the Vulkan fence's, the image's)
-                const task = this.sync_task(ctx, op, [u32(0), u32(1), u32(2), u32(3)]);
+                // (the command's own words: QSRI's has two)
+                const words = [];
+                for(let i = 0; 8 + 4 * i <= size; i++) words.push(u32(i));
+                const task = this.sync_task(ctx, op, words);
                 const counts = this.stats.syncs[op] = this.stats.syncs[op] || [0, 0, 0];
                 counts[0]++;
                 if(task)

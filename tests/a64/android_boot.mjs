@@ -221,6 +221,7 @@ async function run_probes(shell, push, screenshot)
         await push(remote, fs.readFileSync(local));
         console.log(`push: ${local} -> ${remote}`);
     }
+    let probe_number = 0;
     for(const command of fs.readFileSync(probe_file, "utf8").split("\n").filter(line => line.trim() && !line.startsWith("#")))
     {
         if(command.startsWith("@screenshot "))
@@ -232,6 +233,8 @@ async function run_probes(shell, push, screenshot)
         let output;
         try { output = await shell(command, 900000); }
         catch(e) { output = "(error: " + e.message + ")"; }
+        // (the whole output in the run's directory, probe-<n>.txt)
+        fs.writeFileSync(directory + `probe-${++probe_number}.txt`, command + "\n\n" + output);
         console.log(`probe: ${command}\n  ${Date.now() - start} ms, ${output.length} chars: ${JSON.stringify(output.slice(0, 4000))}`);
     }
 }
@@ -566,8 +569,10 @@ if(process.env.A64_ANDROID_GPU_DEBUG)
                     ` unimplemented=${JSON.stringify(v.stats.unimplemented)} failures=${JSON.stringify(v.stats.failures)}` +
                     ` queues=${[...g.vk.queues].map(q => q.pending.length + "p/" + q.inflight + "i").join(",")} waiters=${g.vk.waiters.length}` : "") +
                 ` unknown=${JSON.stringify(g.stats.unknown)} syncs=${JSON.stringify(g.stats.syncs)}` +
+                ` execbuffer=${JSON.stringify(g.stats.execbuffer)} fences=${JSON.stringify(gpu.stats.fences)}` +
                 // (the control queue's commands by type, flushes: KMS's scanouts)
-                ` control=${JSON.stringify(gpu.stats.commands)} flushes=${gpu.stats.flushes} gpu-errors=${gpu.stats.errors}/${gpu.stats.last_error.toString(16)}`);
+                ` control=${JSON.stringify(gpu.stats.commands)} flushes=${gpu.stats.flushes} gpu-errors=${gpu.stats.errors}/${gpu.stats.last_error.toString(16)}` +
+                (gpu.stats.failed_command ? ` failed=${JSON.stringify(gpu.stats.failed_command.slice(0, 300))}` : ""));
             return;
         }
         const first = gpu.pending.find(entry => !entry.ready);
