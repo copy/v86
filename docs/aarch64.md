@@ -248,7 +248,10 @@ lists, vendor's 32-bit boringssl self test left to the system's). An APK
 with only `armeabi-v7a` libraries then installs and runs its library in a
 32-bit process (`A64_ANDROID_SCENARIO=compat32`, with `A64_PROFILE=v3` on
 v86). It gets no window: the vendor has no 32-bit gralloc mapper or graphics
-drivers.
+drivers. On v86 (4 vCPU workers, the page tier) the BP4A GSI so built reaches
+`boot_completed` after 1982 s, both zygotes up, and the library reports a
+32-bit process and the host's floating-point sum (2026-10-25); QEMU's
+cortex-a35 TCG, the reference, after 370 s.
 
 ## Known defects
 

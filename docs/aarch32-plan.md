@@ -1,6 +1,6 @@
 # AArch32 与 arm32 实施计划
 
-状态：第一部分实施中（见“进展”），第二部分未开始。2026-10-23 初稿，基于 `c5debe9a`；同日按所有者的要求加入第二部分
+状态：完成（2026-10-25；见“进展”：第一部分 Q0–Q7，第二部分 R1–R8，R7.2 的结论是官方 64 位模拟器镜像没有 32 位一半）。2026-10-23 初稿，基于 `c5debe9a`；同日按所有者的要求加入第二部分
 `cpu_type: "arm32"`。规模：S 为几天，M 约 1–2 周，L 约 3–4 周，XL 超过一个月（与
 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
@@ -48,6 +48,13 @@
   浮点求和与宿主相同）。限制：借来的 vendor 没有 32 位的 gralloc mapper 与图形驱动，32 位进程拿不到窗口缓冲，
   所以测试应用不开窗口就结束；Android 16 对 32 位应用弹出 DeprecatedAbiDialog（只是提示）。QEMU 9.2 cortex-a35 的
   TCG 上通过（`boot_completed` 370 s；HVF 没有 AArch32 EL0，32 位自检 “Exec format error” 后重启）。
+  v86（profile v3、4 个 vCPU Worker、页层）上 2026-10-25 通过（`67ed5467` 之后）：`boot_completed` 1982 s，
+  `zygote64` 与 `zygote` 都在，安装 Success，primaryCpuAbi 为 armeabi-v7a，`V86_ARM32_LOADED bits=32` 且浮点
+  求和与宿主相同，无应用崩溃（开机中 Bluetooth 的 HAL 启动与 NFC 的看门狗超时，慢速客体的现象，与 32 位无关）。
+  途中修正（`67ed5467`）：A64 页层的帮助调用在重试检查之前就把局部变量写回，帮助调用若已完成但要求运行循环
+  让出（LDXR 的自旋让出，`pages::HELPER_DONE`），它写的寄存器被旧值覆盖；GSI 的 apexd-bootstrap 因此在 4 核下
+  SIGABRT、SIGSEGV 反复重启（`a64_helpers=0` 时不出现）。现在先从内存重新读回局部变量再检查；
+  `tests/a64/page_fuzz.mjs` 增加 LDXR 自旋的构造（旧版 40 个程序有 28 个不同）。
 
 门禁结果：oracle 全部编码类（69 类）、VFP 6720 例（种子 2–5）、Advanced SIMD 21000 例（种子 2、3、4、5、7–10）与
 QEMU 0 差异；q1、q3、q4、qdebug 的退出与 QEMU 相同；v2 的 fp、simd、system、integer、crypto oracle 不变。
@@ -82,7 +89,7 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
   其余走帮助调用。门禁：随机程序 0 差异（含这几类）。调试：`a64_page_aarch32` 的 2、3 与 16 加掩码，
   `a64_page_aarch32_filter`（按页二分），`a64_page_aarch32_trace`（事件环，见 R7.1）。
 
-尚未完成：Q5.2（带 32 位第二架构的 Android）。
+第一部分全部完成（Q5.2 于 2026-10-25 在 v86 上通过）。
 
 第二部分（`cpu_type: "arm32"`），2026-10-24：
 
@@ -126,14 +133,13 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
   e2fsck 通过）。API 28（Android 9）的 arm64-v8a 镜像：system 与 vendor 都是 GPT 盘、system-as-root、
   /data 用 vdd 上的密钥强制加密、vendor 由设备树的 fstab 在第一阶段挂载；它的 SurfaceFlinger 需要 OpenGL ES 2.0，
   而镜像里客体侧只有 libagl（1.1）与宿主 GPU 的驱动，没有客体的 SwiftShader，所以不做宿主 GLES（本计划的取舍）就
-  画不出来；Android 8.0、8.1 的镜像待查是否还带客体 SwiftShader（7.1 的带）。
+  画不出来；Android 8.0（`arm64-v8a-26_r03`）、8.1（`-27_r02`）的镜像也一样，只有 libagl 与宿主 GPU 的 EGL（见 R7.2）。
 - **R7.1**：官方 Android 7.1.1（`armeabi-v7a-25_r18`）在 arm32、ranchu、2 核、1 GiB 上到 `sys.boot_completed`
   （安静的主机 633–826 s；`tests/a32/android_boot.mjs`，`A32_ANDROID_DISK=1` 走导入的盘）。途中修正：页层帮助调用里
-  自旋的 LDREXD 被重做一次（`f71ea54b`：执行后的 Yield 当作未执行）。未完：开机后屏幕仍黑（framebuffer 的通路
-  本身可用：`cat /dev/urandom > /dev/graphics/fb0` 能上屏），主机忙时 system_server 被 Watchdog 杀掉（线程 60 s
-  无响应：ANR 时转储各进程的栈太慢），所以这项开机只在安静的主机上跑；触摸开应用、安装 APK 的阶段已写
-  （`A32_ANDROID_APP=1`：点 hotseat 的图标、焦点窗口改变；APK 经控制台以 base64 传入，`pm install`，NativeActivity 的
-  `tests/a32/android/v86arm32.c` 用 CPU 画一帧并记日志）。
+  自旋的 LDREXD 被重做一次（`f71ea54b`：执行后的 Yield 当作未执行）。**R7.1 通过**（`2a53bf5f` 至 `24b3cdc1`，
+  2026-10-25）：开机 417 s 到 `boot_completed`（2 个协作核、页层），桌面（启动器、状态栏与导航栏），点 hotseat 的
+  图标打开拨号程序，经控制台传入的 `armeabi-v7a` APK（NativeActivity 的 `tests/a32/android/v86arm32.c`）安装并画出
+  一帧；文件路径与导入的盘（`A32_ANDROID_DISK=1`，引导器）两条路径都通过（`A32_ANDROID_APP=1`）。途中查明与修正的：
   执行 SwiftShader 的 JIT 页得到 SIGSEGV、system_server 随之死去的原因已查明：没有宿主 GPU 时镜像的 EGL 加载器选
   vendor 的 SwiftShader（把 `qemu.gles` 设为 2），而镜像自己的 SELinux 策略不给 system_server `execmem`，它的
   RenderThread 跳进不可执行的 JIT 代码。设备型号 `ranchu_25_armeabi_v7a` 现在给出启动属性
@@ -154,6 +160,11 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
   页函数从它不服务的偏移起逐条单步，单步了 IT 本身（ITSTATE 置位）后分派进一个**原生 IT 块**（条件编进代码、
   ITSTATE 保持 0）的块头；这个块头来自字面量池被当作代码时的“bne”（不返回的调用之后）。现在发现阶段删去原生 IT
   块内部的块起点，留下 ITSTATE 的单步结束这次执行，ITSTATE 非零时不记入口（q3 的 `t32_it_bogus`：修正前与解释器不同）。
+- **R7.2 的结论**（2026-10-25）：官方 Android 8.0、8.1、9 的 `arm64-v8a` 模拟器镜像（`arm64-v8a-26_r03`、`-27_r02`、
+  `-28_r02`，按 SDK 仓库的 SHA-1 核对）都是纯 64 位的：`build.prop` 的 `ro.product.cpu.abilist32` 为空，system 里没有
+  `/system/lib`、vendor 里没有 `lib/`，没有 `app_process32` 的 zygote；而且客体侧只有 libagl（GLES 1.1）与宿主 GPU 的
+  `libEGL_emulation`，SurfaceFlinger 起不来（R6）。所以这些镜像无论如何都跑不了 32 位应用，R7.2 不成立；第一部分的
+  32 位应用验收由 Q5.2 的 GSI 路线完成（GSI 带 32 位一半，Cuttlefish 的 vendor 加上第二架构）。
 - **R8.1**（`150e8f65`）：VM 管理器的处理器“ARM (32-bit, ARMv7-A)”，两种 ARM CPU 都可选 virt 与 ranchu，预设
   “Linux (ARM 32-bit)”与“Android 7.1 (32-bit, emulator image)”；ranchu 的规则（无显示适配器、无声音、只有
   virtio-mmio）、Android 设备型号决定机器与 CPU；app 测试（presets、machine_rules、向导的 android_emulator）。
