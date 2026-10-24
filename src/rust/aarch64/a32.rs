@@ -970,6 +970,7 @@ pub fn exclusive(
     pc: u32,
 ) -> Result<Flow, Exception> {
     let pair = size == 3;
+    unsafe { execute::STEPPED_EXCLUSIVE_LOAD = load };
     let i = Inst {
         op: crate::aarch64::decode::Op::Exclusive,
         rd: rt as u8,
@@ -1223,6 +1224,14 @@ pub fn interpret_one(address: u64) -> Flow {
     unsafe { INSTRUCTION_LENGTH = if thumb { 2 } else { 4 } };
     let result = fetch(address, thumb).and_then(|(word, length)| {
         unsafe { INSTRUCTION_LENGTH = length };
+        // (a breakpoint: BAS 1111 or 0011 the word, 1100 its second halfword)
+        if unsafe { crate::aarch64::debug::ANY_BREAKPOINT } {
+            if let Some(exception) = crate::aarch64::debug::check_breakpoint(address) {
+                return Err(exception);
+            }
+        }
+        // (software step's EX: whether the stepped instruction is a load exclusive)
+        unsafe { execute::STEPPED_EXCLUSIVE_LOAD = false };
         if thumb {
             crate::aarch64::t32::execute(word, length, address as u32)
         }
@@ -1248,10 +1257,14 @@ pub fn interpret_one(address: u64) -> Flow {
             flow
         },
         Err(exception @ Exception::Svc(_)) => {
-            // (the instruction executed: the exception returns after it, the IT block a step on)
+            // (the instruction executed: the exception returns after it, the
+            // IT block a step on; a software step is done, SPSR.SS 0)
             crate::core_stats::add_pending(1, 0);
             if thumb {
                 crate::aarch64::t32::it_advance();
+            }
+            if crate::aarch64::debug::stepping() {
+                crate::aarch64::debug::step_done();
             }
             take_sync(exception);
             Flow::Set

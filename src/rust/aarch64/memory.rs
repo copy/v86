@@ -82,29 +82,32 @@ pub fn translate(
 ) -> Result<u64, Exception> {
     let sctlr = cpu::sctlr();
     let aligned = va & (size as u64 - 1) == 0;
+    let el0 = unprivileged || cpu::el() == 0;
+    // (a watchpoint fires after translation, before the access; the MMU on or off)
+    let watch = |pa: u64| {
+        if access != Access::Fetch && unsafe { crate::aarch64::debug::ANY_WATCHPOINT } {
+            if let Some(exception) =
+                crate::aarch64::debug::check_watchpoint(va, size, access == Access::Write, el0)
+            {
+                return Err(exception);
+            }
+        }
+        Ok(pa)
+    };
     if sctlr & SCTLR_M == 0 {
         // the MMU off: data accesses are to Device memory (always aligned)
         if access != Access::Fetch && !aligned {
             return Err(abort(access, va, FSC_ALIGNMENT, syndrome));
         }
-        return mmu::mmu_off(va).ok_or_else(|| abort(access, va, FSC_ADDRESS_SIZE_L0, syndrome));
+        let pa =
+            mmu::mmu_off(va).ok_or_else(|| abort(access, va, FSC_ADDRESS_SIZE_L0, syndrome))?;
+        return watch(pa);
     }
     if access != Access::Fetch && sctlr & SCTLR_A != 0 && !aligned {
         return Err(abort(access, va, FSC_ALIGNMENT, syndrome));
     }
-    let el0 = unprivileged || cpu::el() == 0;
     match mmu::translate(va, access, el0, size) {
-        Ok(translation) => {
-            // (a watchpoint fires after translation, before the access)
-            if access != Access::Fetch && unsafe { crate::aarch64::debug::ANY_WATCHPOINT } {
-                if let Some(exception) =
-                    crate::aarch64::debug::check_watchpoint(va, size, access == Access::Write, el0)
-                {
-                    return Err(exception);
-                }
-            }
-            Ok(translation.pa)
-        },
+        Ok(translation) => watch(translation.pa),
         Err(fsc) => Err(abort(access, va, fsc, syndrome)),
     }
 }

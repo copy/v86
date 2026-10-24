@@ -1269,7 +1269,7 @@ fn fetch_at(address: u64) -> Result<u32, Exception> {
 
 /// The stepped instruction was a load-exclusive (ISS.EX of the step exception), per core
 static mut STEPPED_EXCLUSIVE_LOADS: [bool; crate::isa::MAX_CORES] = [false; crate::isa::MAX_CORES];
-static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
+pub(crate) static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
 
 /// (diagnostics, crate::aarch64::jit::pages::a64_step_stat) the class
 /// (step_key) and word of the instruction interpret_one ran last
