@@ -5,6 +5,7 @@
 //! state block) and names no x86 module (tools/check_a64_imports.mjs).
 
 pub mod a32;
+pub mod a32_fp;
 pub mod bus;
 pub mod cpu;
 pub mod crypto;

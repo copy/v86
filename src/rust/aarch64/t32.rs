@@ -106,8 +106,8 @@ fn bad(r: u32) -> bool { r == 13 || r == 15 }
 pub fn execute(word: u32, length: u32, pc: u32) -> Result<Flow, Exception> {
     unsafe { IT_JUST_SET = false };
     let cond = it_condition();
-    // (BKPT runs whatever its condition)
-    if !condition_passed(cond) && !(length == 2 && word >> 8 == 0xBE) {
+    // (BKPT and HLT run whatever their condition)
+    if !condition_passed(cond) && !(length == 2 && (word >> 8 == 0xBE || word >> 6 == 0x2EA)) {
         return Ok(Flow::Next);
     }
     if length == 2 {
@@ -449,7 +449,7 @@ fn t32(word: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
     match hw1 >> 11 {
         0b11101 => {
             if hw1 & 1 << 10 != 0 {
-                return t32_coprocessor(hw1, hw2, cond);
+                return t32_coprocessor(hw1, hw2, pc, cond);
             }
             if hw1 & 1 << 9 == 0 {
                 if hw1 & 1 << 6 == 0 {
@@ -488,7 +488,7 @@ fn t32(word: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
                 }
             },
             // (1111 11xx: coprocessor, Advanced SIMD and floating point: Q4)
-            _ => t32_coprocessor(hw1, hw2, cond),
+            _ => t32_coprocessor(hw1, hw2, pc, cond),
         },
     }
 }
@@ -1154,10 +1154,22 @@ fn t32_multiply(hw1: u32, hw2: u32) -> Result<Flow, Exception> {
     }
 }
 
-/// The coprocessor space (111x 11xx): MCR, MRC, MCRR, MRRC of CP15; the
-/// rest UNDEFINED (VFP and Advanced SIMD: Q4)
-fn t32_coprocessor(hw1: u32, hw2: u32, cond: u32) -> Result<Flow, Exception> {
+/// The coprocessor space (111x 11xx): VFP (coprocessors 10, 11: A32's
+/// encodings with the condition 1110, and ARMv8's unconditional ones),
+/// MCR, MRC, MCRR, MRRC of CP15; the rest UNDEFINED (Advanced SIMD: Q4)
+fn t32_coprocessor(hw1: u32, hw2: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
     let cp = hw2 >> 8 & 15;
+    let word = hw1 << 16 | hw2;
+    if hw1 >> 8 == 0xFE {
+        return crate::aarch64::a32_fp::vfp_unconditional(word);
+    }
+    if (cp == 10 || cp == 11) && hw1 >> 12 == 0xE {
+        return crate::aarch64::a32_fp::vfp(
+            word & 0x0FFF_FFFF | 0xE000_0000,
+            pc.wrapping_add(4),
+            true,
+        );
+    }
     // (MCR2 and the other 1111 forms: UNDEFINED)
     if cp != 15 || hw1 >> 12 & 1 != 0 {
         return Err(Exception::Undefined);

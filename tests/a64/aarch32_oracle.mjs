@@ -365,6 +365,154 @@ const T32 = {
     },
 };
 
+// VFP (Q4.1): A32 encodings (`c` the condition); T32's are the same with
+// the condition 1110, the unconditional ones the same. A floating-point
+// case (fp) runs with random D0-D31 and FPSCR controls.
+const vd = (r, double) => double ? (r & 15) << 12 | (r >> 4) << 22 : (r >> 1) << 12 | (r & 1) << 22;
+const vn = (r, double) => double ? (r & 15) << 16 | (r >> 4) << 7 : (r >> 1) << 16 | (r & 1) << 7;
+const vm = (r, double) => double ? (r & 15) | (r >> 4) << 5 : (r >> 1) | (r & 1) << 5;
+const VFP = {
+    vfp_three(c) {
+        const double = bits(1);
+        // (opc1: bits 23, 21:20; op: bit 6)
+        const [opc1, op] = pick([[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1], [3, 0], [3, 1], [8, 0], [9, 0], [9, 1], [10, 0], [10, 1]]);
+        return { word: c << 28 | 0xE << 24 | (opc1 & 8) << 20 | (opc1 & 3) << 20 | 0xA << 8 | double << 8 | op << 6 |
+            vd(bits(5), double) | vn(bits(5), double) | vm(bits(5), double) };
+    },
+    vfp_two(c) {
+        const double = bits(1);
+        const base = c << 28 | 0x0EB00A40 | double << 8;
+        const k = random() % 6;
+        // VMOV (immediate)
+        if(k === 0) return { word: c << 28 | 0x0EB00A00 | double << 8 | vd(bits(5), double) | bits(4) << 16 | bits(4) };
+        // VMOV, VABS, VNEG, VSQRT
+        if(k === 1) return { word: base | bits(1) << 16 | bits(1) << 7 | vd(bits(5), double) | vm(bits(5), double) };
+        // VCMP, VCMPE (with zero: Vm 0)
+        if(k === 2)
+        {
+            const zero = bits(1);
+            return { word: base | (4 | zero) << 16 | bits(1) << 7 | vd(bits(5), double) | (zero ? 0 : vm(bits(5), double)) };
+        }
+        // VRINTR, VRINTZ, VRINTX
+        if(k === 3)
+        {
+            const [opc2, b7] = pick([[6, 0], [6, 1], [7, 0]]);
+            return { word: base | opc2 << 16 | b7 << 7 | vd(bits(5), double) | vm(bits(5), double) };
+        }
+        // VCVTB, VCVTT from half precision, to half precision
+        if(k === 4)
+        {
+            const to = bits(1);
+            return { word: base | (2 | to) << 16 | bits(1) << 7 | vd(bits(5), double && !to) | vm(bits(5), double && to) };
+        }
+        // VCVT between single and double
+        return { word: base | 7 << 16 | 1 << 7 | vd(bits(5), !double) | vm(bits(5), double) };
+    },
+    vfp_convert(c) {
+        const double = bits(1);
+        const base = c << 28 | 0x0EB00A40 | double << 8;
+        const k = random() % 3;
+        // VCVT from a 32-bit integer (bit 7: signed)
+        if(k === 0) return { word: base | 8 << 16 | bits(1) << 7 | vd(bits(5), double) | vm(bits(5), false) };
+        // VCVT, VCVTR to one (bit 16: signed; bit 7: toward zero)
+        if(k === 1) return { word: base | (12 | bits(1)) << 16 | bits(1) << 7 | vd(bits(5), false) | vm(bits(5), double) };
+        // VCVT between floating and fixed point (bit 18: to fixed, 16: unsigned, 7: 32 bits)
+        // (the fraction bits, size - imm4:i, at least 0: imm up to 16 for 16 bits)
+        const sx = bits(1);
+        const imm = random() % (sx ? 32 : 17);
+        return { word: base | (10 | bits(1) << 2 | bits(1)) << 16 | sx << 7 | vd(bits(5), double) | (imm >> 1) | (imm & 1) << 5 };
+    },
+    vfp_transfer(c) {
+        const k = random() % 6, rt = reg(), l = bits(1);
+        // VMOV between a core register and S
+        if(k === 0) return { word: c << 28 | 0x0E000A10 | l << 20 | vn(bits(5), false) | rt << 12 };
+        // VMRS (to APSR_nzcv too), VMSR (Len and Stride clear)
+        if(k === 1)
+        {
+            if(l) return { word: c << 28 | 0x0EF10A10 | (random() % 3 ? rt : 15) << 12 };
+            return { word: c << 28 | 0x0EE10A10 | rt << 12, small: 1 << (16 + rt) };
+        }
+        // VMOV between core registers and two S or a D
+        if(k === 2)
+        {
+            const double = bits(1), rt2 = reg(l ? rt : 99);
+            return { word: c << 28 | 0x0C400A10 | l << 20 | rt2 << 16 | rt << 12 | double << 8 | vm(double ? bits(5) : random() % 31, double) };
+        }
+        // VDUP (core): bytes, halfwords or words, D or Q
+        if(k === 3)
+        {
+            const [b, e] = pick([[0, 0], [0, 1], [1, 0]]), q = bits(1);
+            return { word: c << 28 | 0x0E800B10 | b << 22 | q << 21 | vn(bits(5) & ~q, true) | rt << 12 | e << 5 };
+        }
+        // VMOV (scalar to core, core to scalar): a byte, halfword or word
+        const size = random() % 3, u = l && size < 2 ? bits(1) : 0;
+        const index = size === 0 ? bits(3) : size === 1 ? bits(2) : bits(1);
+        const fields = size === 0 ? 1 << 22 | (index >> 2) << 21 | (index & 3) << 5 : size === 1 ? (index >> 1) << 21 | (index & 1) << 6 | 1 << 5 : index << 21;
+        return { word: c << 28 | 0x0E000B10 | u << 23 | fields | l << 20 | vn(bits(5), true) | rt << 12 };
+    },
+    vfp_load_store(c) {
+        const double = bits(1), l = bits(1), rn = reg();
+        // (an unaligned base now and then)
+        const offset = random() % 8 === 0 ? 0x102 : 0x100;
+        if(random() % 2)
+        {
+            // VLDR, VSTR (A32's literal VLDR: the code's words)
+            const literal = l && c !== 15 && random() % 6 === 0;
+            return { word: c << 28 | 0x0D000A00 | bits(1) << 23 | l << 20 | (literal ? 15 : rn) << 16 | vd(bits(5), double) | double << 8 | bits(8),
+                pointers: literal ? 0 : 1 << rn, offset, literal };
+        }
+        // VLDM, VSTM: IA, IA!, DB!; FLDMX, FSTMX: an odd count
+        const [p, u, w] = pick([[0, 1, 0], [0, 1, 1], [1, 0, 1]]);
+        const d = bits(5), regs = 1 + random() % Math.min(double ? 16 : 32, 32 - d);
+        const imm8 = double ? regs * 2 + (random() % 4 === 0 ? 1 : 0) : regs;
+        return { word: c << 28 | 0x0C000A00 | p << 24 | u << 23 | w << 21 | l << 20 | rn << 16 | vd(d, double) | double << 8 | imm8,
+            pointers: 1 << rn, offset };
+    },
+    vfp_unconditional() {
+        const double = bits(1), k = random() % 4;
+        // VSEL
+        if(k === 0) return { word: 0xFE000A00 | bits(2) << 20 | double << 8 | vd(bits(5), double) | vn(bits(5), double) | vm(bits(5), double) };
+        // VMAXNM, VMINNM
+        if(k === 1) return { word: 0xFE800A00 | bits(1) << 6 | double << 8 | vd(bits(5), double) | vn(bits(5), double) | vm(bits(5), double) };
+        // VRINTA, VRINTN, VRINTP, VRINTM
+        if(k === 2) return { word: 0xFEB80A40 | bits(2) << 16 | double << 8 | vd(bits(5), double) | vm(bits(5), double) };
+        // VCVTA, VCVTN, VCVTP, VCVTM (bit 7 signed)
+        return { word: 0xFEBC0A40 | bits(2) << 16 | bits(1) << 7 | double << 8 | vd(bits(5), false) | vm(bits(5), double) };
+    },
+};
+// (random encodings of the data processing and transfer spaces, the
+// UNDEFINED ones among them; without what is UNPREDICTABLE: the PC or SP
+// as a core register, VMOV of S31 and S32, a 16-bit VCVT with fewer than
+// zero fraction bits; no loads or stores at random addresses)
+VFP.vfp_random = c => {
+    for(;;)
+    {
+        const unconditional = random() % 4 === 0;
+        let word = (unconditional ? 0xFE000000 : c << 28 | pick([0x0C, 0x0E]) << 24) | bits(24) & ~(7 << 9) | 5 << 9;
+        if((word >> 24 & 15) === 0xC) word = word & ~(7 << 21) | 2 << 21;
+        const rt = word >> 12 & 15, rt2 = word >> 16 & 15, l = word >> 20 & 1, double = word >> 8 & 1;
+        if(rt === 13 || rt === 15) continue;
+        if((word >> 24 & 15) === 0xC && (rt2 === 13 || rt2 === 15 || l && rt === rt2 || !double && (word & 15) === 15 && word & 1 << 5)) continue;
+        const opc2 = word >> 16 & 15;
+        if(!unconditional && (word >> 24 & 15) === 0xE && !(word & 1 << 4) && (word >> 20 & 0xB) === 0xB && word & 1 << 6 &&
+            [10, 11, 14, 15].includes(opc2) && !(word & 1 << 7) && ((word & 15) << 1 | word >> 5 & 1) > 16) continue;
+        const vmsr = (word >> 24 & 15) === 0xE && word & 1 << 4 && !double && (word >> 21 & 7) === 7 && !l;
+        return { word, small: vmsr ? 1 << (16 + rt) : 0 };
+    }
+};
+for(const [name, make] of Object.entries(VFP))
+{
+    A32[name] = () => ({ ...make(cond()), fp: true });
+    // (T32: the condition 1110; in an IT block now and then)
+    T32["t32_" + name] = () => {
+        const c = make(14);
+        const unconditional = c.word >>> 28 === 15;
+        const it = !unconditional && random() % 4 === 0 ? 0xBF00 | (random() % 14) << 4 | 0x8 : undefined;
+        if(c.literal) c.word = c.word & ~(15 << 16) | reg() << 16, c.pointers = 1 << (c.word >>> 16 & 15);
+        return { ...c, word: unconditional ? c.word >>> 0 : (c.word & 0x0FFFFFFF | 0xE0000000) >>> 0, prefix: it, fp: true };
+    };
+}
+
 const sets = (process.env.A64_AARCH32_SET || "a32,t32").split(",");
 const only = process.env.A64_AARCH32_ONLY ? process.env.A64_AARCH32_ONLY.split(",") : null;
 const count = +process.env.A64_AARCH32_COUNT || 40;
@@ -378,8 +526,10 @@ for(const [set, classes] of [["a32", A32], ["t32", T32]])
         for(let i = 0; i < count; i++)
         {
             const c = make();
+            // (a floating-point case: bit 0, FPSCR's RMode, FZ, DN half the time, AHP a quarter)
+            const fp = c.fp ? 1 | bits(2) << 22 | bits(1) << 24 | bits(1) << 25 | (random() % 4 === 0) << 26 : 0;
             cases.push({ set, name, word: c.word >>> 0, prefix: c.prefix, pointers: c.pointers || 0, small: c.small || 0, offset: c.offset || 0,
-                psr: (random() & 0xF80F0000) >>> 0, seed: random() });
+                psr: ((random() & 0xF80F0000) | fp) >>> 0, seed: random() });
         }
     }
 }

@@ -3,11 +3,34 @@
 // R0-R14 (W0-W14) from regs[15]; the lower-EL handler (el0.c) makes the
 // exception that comes back return to a32_resume_el1, which returns from
 // a32_run with the callee-saved registers and the stack it had.
+// a32_run_fp(entry, spsr, regs, fp) also sets V0-V15, FPSR and FPCR from
+// fp (16 Q registers, then FPSR, FPCR) and stores them back there on the
+// way out (the EL1 code in between uses no FP or SIMD register).
 
     .text
+    .global a32_run_fp
+a32_run_fp:
+    adrp    x9, a32_fp_state
+    str     x3, [x9, :lo12:a32_fp_state]
+    ldp     q0, q1, [x3, #0]
+    ldp     q2, q3, [x3, #32]
+    ldp     q4, q5, [x3, #64]
+    ldp     q6, q7, [x3, #96]
+    ldp     q8, q9, [x3, #128]
+    ldp     q10, q11, [x3, #160]
+    ldp     q12, q13, [x3, #192]
+    ldp     q14, q15, [x3, #224]
+    ldr     x10, [x3, #256]
+    msr     fpsr, x10
+    ldr     x10, [x3, #264]
+    msr     fpcr, x10
+    b       1f
+
     .global a32_run
 a32_run:
-    adrp    x9, a32_context
+    adrp    x9, a32_fp_state
+    str     xzr, [x9, :lo12:a32_fp_state]
+1:  adrp    x9, a32_context
     add     x9, x9, :lo12:a32_context
     stp     x19, x20, [x9, #0]
     stp     x21, x22, [x9, #16]
@@ -34,7 +57,22 @@ a32_run:
 
     .global a32_resume_el1
 a32_resume_el1:
-    adrp    x9, a32_context
+    adrp    x9, a32_fp_state
+    ldr     x3, [x9, :lo12:a32_fp_state]
+    cbz     x3, 1f
+    stp     q0, q1, [x3, #0]
+    stp     q2, q3, [x3, #32]
+    stp     q4, q5, [x3, #64]
+    stp     q6, q7, [x3, #96]
+    stp     q8, q9, [x3, #128]
+    stp     q10, q11, [x3, #160]
+    stp     q12, q13, [x3, #192]
+    stp     q14, q15, [x3, #224]
+    mrs     x10, fpsr
+    str     x10, [x3, #256]
+    mrs     x10, fpcr
+    str     x10, [x3, #264]
+1:  adrp    x9, a32_context
     add     x9, x9, :lo12:a32_context
     ldp     x19, x20, [x9, #0]
     ldp     x21, x22, [x9, #16]
@@ -50,3 +88,5 @@ a32_resume_el1:
     .balign 16
 a32_context:
     .space  112
+a32_fp_state:
+    .space  8

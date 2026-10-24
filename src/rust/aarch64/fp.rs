@@ -161,8 +161,10 @@ pub fn is_denormal<T: Format>(v: u64) -> bool { v & T::EXPONENT == 0 && v & T::M
 
 impl Fp {
     /// The current FPCR, SoftFloat set to its rounding mode
-    pub fn new() -> Fp {
-        let fpcr_value = unsafe { *fpcr };
+    pub fn new() -> Fp { Fp::with(unsafe { *fpcr }) }
+    /// An environment of the given FPCR (AArch32's Advanced SIMD runs on
+    /// the standard FPSCR value: AHP as FPSCR's, DN, FZ, round to nearest)
+    pub fn with(fpcr_value: u32) -> Fp {
         unsafe {
             softfloat_roundingMode = rounding_of(fpcr_value >> 22);
             softfloat_exceptionFlags = 0;
@@ -464,6 +466,21 @@ impl Fp {
         };
         self.flags |= self.take_softfloat();
         r
+    }
+
+    /// FPToFixed to a 16-bit integer (AArch32's VCVT to fixed point): the
+    /// 32-bit conversion saturated again, Invalid Operation alone when it
+    /// saturates; the result in the low 16 bits
+    pub fn to_integer16<T: Format>(&mut self, a: u64, signed: bool, fbits: u32, mode: u8) -> u64 {
+        let before = self.flags;
+        let r = self.to_integer::<T>(a, signed, 32, fbits, mode) as u32;
+        let (value, low, high) =
+            if signed { (r as i32 as i64, -0x8000, 0x7FFF) } else { (r as i64, 0, 0xFFFF) };
+        if value < low || value > high {
+            self.flags = before | FPSR_IOC;
+            return (if value < low { low } else { high }) as u64 & 0xFFFF;
+        }
+        value as u64 & 0xFFFF
     }
 
     /// FixedToFP: a signed or unsigned integer (`int_bits` wide) with `fbits` fraction bits

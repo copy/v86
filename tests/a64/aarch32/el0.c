@@ -4,7 +4,8 @@
 // at EL0 until it takes an exception to EL1; what came back is printed (the
 // vector, ESR, ELR and FAR as offsets into the binary, SPSR, R0-R14 as X0-X14),
 // then the case resumes at ELR with R0 + 0x100, as many times as it says.
-// The same output from QEMU (cortex-a35) and v86 is the test.
+// The same output from QEMU (cortex-a35) and v86 is the test. The NZCV word's
+// bit 8 runs the case with CPACR_EL1.FPEN from its bits 5:4.
 #include <a64.h>
 #include <stdio.h>
 
@@ -49,11 +50,17 @@ int main(int argc, char **argv)
         regs[14] = 0xE14E14E1u;
         uint64_t entry = base + (offset & ~1u);
         // AArch32 User, A I F masked, T for a T32 case
-        uint64_t spsr = 0x10 | 0x1C0 | (offset & 1 ? 0x20 : 0) | (uint64_t)nzcv << 28;
+        uint64_t spsr = 0x10 | 0x1C0 | (offset & 1 ? 0x20 : 0) | (uint64_t)(nzcv & 15) << 28;
+        // (EL1's printf uses FP registers: FPEN as the case says only around its run)
+        const uint64_t cpacr = a64_read(cpacr_el1);
         for(unsigned r = 0;; r++)
         {
             last.vector = ~0ul;
+            if(nzcv & 0x100) a64_write(cpacr_el1, (cpacr & ~(3ul << 20)) | (uint64_t)(nzcv >> 4 & 3) << 20);
+            __asm__ volatile("isb");
             a32_run(entry, spsr, regs);
+            a64_write(cpacr_el1, cpacr);
+            __asm__ volatile("isb");
             const uint32_t ec = last.esr >> 26;
             printf("case %u.%u: vector %lu esr %08lx elr %+ld spsr %08lx", c, r, last.vector, last.esr, (long)(last.elr - base), last.spsr);
             if(ec >= 0x20 && ec <= 0x25) printf(" far %+ld", (long)(last.far - base));

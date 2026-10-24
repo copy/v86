@@ -1400,7 +1400,7 @@ fn a32(word: u32, pc: u32) -> Result<Flow, Exception> {
             if word >> 24 & 15 == 15 {
                 return Err(Exception::Svc(word as u16));
             }
-            a32_coprocessor(word, word >> 8 & 15, cond)
+            a32_coprocessor(word, pc, word >> 8 & 15, cond)
         },
     }
 }
@@ -1744,9 +1744,12 @@ fn a32_media(word: u32) -> Result<Flow, Exception> {
     }
 }
 
-/// The coprocessor space (bits 27:25 110, 111 but SVC): MCR, MRC, MCRR,
-/// MRRC of CP15; CP14 and the rest UNDEFINED (VFP and NEON: Q4)
-fn a32_coprocessor(word: u32, cp: u32, cond: u32) -> Result<Flow, Exception> {
+/// The coprocessor space (bits 27:25 110, 111 but SVC): VFP (coprocessors
+/// 10, 11), MCR, MRC, MCRR, MRRC of CP15; CP14 and the rest UNDEFINED
+fn a32_coprocessor(word: u32, pc: u32, cp: u32, cond: u32) -> Result<Flow, Exception> {
+    if cp == 10 || cp == 11 {
+        return crate::aarch64::a32_fp::vfp(word, pc.wrapping_add(8), false);
+    }
     if cp != 15 {
         return Err(Exception::Undefined);
     }
@@ -1780,8 +1783,12 @@ fn a32_coprocessor(word: u32, cp: u32, cond: u32) -> Result<Flow, Exception> {
 }
 
 /// A32's unconditional space (cond 0b1111): barriers, CLREX, preloads,
-/// BLX (immediate); the rest UNDEFINED (SETEND, CPS, SRS, RFE at EL0; NEON: Q4)
+/// BLX (immediate), ARMv8's VFP additions; the rest UNDEFINED (SETEND,
+/// CPS, SRS, RFE at EL0; NEON: Q4)
 fn a32_unconditional(word: u32, pc: u32) -> Result<Flow, Exception> {
+    if word >> 24 == 0xFE {
+        return crate::aarch64::a32_fp::vfp_unconditional(word);
+    }
     // BLX (immediate): to T32, imm24:H:0 from the PC + 8
     if word >> 25 & 7 == 0b101 {
         let offset = ((word << 8) as i32 >> 6) as u32 | (word >> 23 & 2);
