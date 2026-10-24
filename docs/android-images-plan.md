@@ -1,8 +1,8 @@
 # Android 镜像：选镜像就能用与系统目录 实施计划
 
 状态：实施中。2026-10-23 初稿，基于 `336f0df7`。2026-10-24：I0.1、I0.2 完成（结果见 §1 之后的“I0 的结果”），
-I1–I5、I7 完成（I3 与 I5 的验收：浏览器里拖入官方 zip，或官方 zip 加 GSI，即开机到 `boot_completed`）；I6、I8 未做
-（I6 等 aarch32-plan R6，I8.1 等 gfxstream）；见各节的进度。规模：S 为几天，M 约 1–2 周，
+I1–I5、I7 完成（I3 与 I5 的验收：浏览器里拖入官方 zip，或官方 zip 加 GSI，即开机到 `boot_completed`）；I6 完成
+（模拟器镜像的导入，7.1.1 的 32 位镜像；API 26–28 的 64 位镜像要宿主 GLES，不做），I8 进行中；见各节的进度。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
@@ -311,6 +311,23 @@ super，旧 `system_a` 的数据不写；`vbmeta_a/_b` 用 GSI 的）。版本�
 | I6.2 | 设备型号 `ranchu`（按 API 级别的命令行与属性），机器来自 aarch32-plan R6 | S |
 | I6.3 | 验收：官方 Android 9 的 `arm64-v8a`（API 28）在 arm64 下开机；32 位的 Android 7.1.1 见 aarch32-plan R7 | S |
 
+进度（2026-10-24）：I6.1、I6.2 完成（`150e8f65`）。导入（`src/android/assemble.js` 的 `emulator_disk`）读 zip 的
+`source.properties`，按 API 级别与 ABI 选设备型号（`src/android/devices.js` 的 `RANCHU_DEVICES`），把它的分区按顺序
+做成一块 GPT 盘：镜像原样写入，模拟器自己生成的盘（cache）写一个空的 ext4（`src/android/ext4.js`，任意大小，只写元数据）。
+引导器对这种型号给出内核、ramdisk 与模拟器的命令行，并让盘上的分区成为 ranchu 机器的 virtio 盘
+（`src/android/partition_buffer.js`）。向导、导入 Worker、`tools/android_import.mjs` 与预设 “Android 7.1 (32-bit,
+emulator image)” 都接上了；`A32_ANDROID_DISK=1 node tests/a32/android_boot.mjs` 从导入的盘开机。已有型号：
+`ranchu_25_armeabi_v7a`（Android 7.1.1，cpu_type arm32）。
+
+I6.3 的结论：Android 8.0 起 SurfaceFlinger 必须有 OpenGL ES 2.0（`RenderEngine` 对 1.x 直接中止）。官方 API 27、28 的
+`arm64-v8a` 镜像（`arm64-v8a-27_r02`、`-28_r02`，下载核对过 SHA-1）客体里只有宿主 GPU 用的 `libEGL_emulation`
+与 1.1 的 libagl，没有 7.1 镜像里那种客体 SwiftShader；它们只能靠模拟器的宿主 GLES（goldfish pipe 上的 GLES 编码流）
+显示。aarch32-plan 定下 ranchu 不做宿主 GLES，所以这些镜像在 v64 上起不到 system_server 之后，I6.3 改为以 7.1.1 的
+32 位镜像验收（aarch32-plan R7.1），64 位的模拟器镜像不在本计划内。顺带记下 API 28 镜像的格式（将来做宿主 GLES 时用）：
+system-as-root（system.img、vendor.img 都是 GPT 盘，ext4 在 1 MiB 处，内核要 `skip_initramfs root=/dev/vda1`），
+vendor 由设备树 `/firmware/android/fstab/vendor` 在第一阶段挂载，/data 是 vdc、用 vdd（encryptionkey.img）上的密钥
+强制加密，userdata.img 只有 1 MiB（模拟器在宿主上扩大）。
+
 ## 8. I7 系统目录
 
 | ID | 任务 | 规模 |
@@ -337,6 +354,11 @@ super，旧 `system_a` 的数据不写；`vbmeta_a/_b` 用 GSI 的）。版本�
 | I8.1 | gfxstream 完成后：设备型号的默认 GPU 档位改为 gfxstream；验收：选官方 Cuttlefish zip 与官方 GSI 都进入桌面并通过 A9 场景 | S |
 | I8.2 | gfxstream 之前的界面提示：SwiftShader 档只保证开机，说明桌面需要 GPU 支持 | S |
 | I8.3 | 文档：[vm-manager.md](vm-manager.md)（Android 一节、目录、下载）、[aarch64.md](aarch64.md)（引导器、导入）、vm-manager-plan.md 记录“目录”的新决定；release_gate 增加导入与引导器的级别 | S |
+
+进度（2026-10-24）：I8.1 的代码完成（`949f8fe0`）：Android 16 预设的显示是 virtio-gpu 的 gfxstream、GPU 档位 gfxstream，
+向导不再把导入的包改成 SwiftShader；官方 Cuttlefish zip 在 gfxstream 下通过 A9 场景（gfxstream-plan G5）；官方 GSI 的
+A9 场景待跑。I8.2 不再需要（默认已有 GPU），向导改为说明没有 WebGPU 时选 SwiftShader。I8.3：vm-manager.md 的 Android
+一节写了 gfxstream 与模拟器镜像。
 
 ## 兼容范围：第三方系统（LineageOS 等）
 
