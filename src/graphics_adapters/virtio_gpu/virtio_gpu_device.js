@@ -25,6 +25,7 @@ import { make_edid } from "./edid.js";
 import { Virgl, Resource3D } from "./virgl.js";
 import { CAPSETS, capset } from "./virgl_caps.js";
 import { Venus, VenusBlob } from "./venus.js";
+import { Gfxstream } from "./gfxstream.js";
 import { VulkanModel } from "./venus_vk.js";
 import { GX } from "../renderer_protocol.js";
 
@@ -74,8 +75,14 @@ const LEVELS = {
     // ... and Vulkan: Venus contexts (Mesa's venus driver; venus.js)
     "venus": { features: [VIRTIO_GPU_F_VIRGL, VIRTIO_GPU_F_EDID, VIRTIO_GPU_F_RESOURCE_UUID, VIRTIO_GPU_F_RESOURCE_BLOB,
         VIRTIO_GPU_F_CONTEXT_INIT, VIRTIO_F_RING_INDIRECT_DESC], three_d: true, gl43: true, blob: true, hostmem: true, venus: true },
+    // gfxstream's contexts in place of virgl's (gfxstream.js; Android's
+    // official images: docs/gfxstream-plan.md): its capsets only, as
+    // rutabaga's gfxstream component offers them; a context without a
+    // capset is gfxstream's too, and a pipe resource its process pipe
+    "gfxstream": { features: [VIRTIO_GPU_F_VIRGL, VIRTIO_GPU_F_EDID, VIRTIO_GPU_F_RESOURCE_UUID, VIRTIO_GPU_F_RESOURCE_BLOB,
+        VIRTIO_GPU_F_CONTEXT_INIT, VIRTIO_F_RING_INDIRECT_DESC], three_d: true, gl43: true, blob: true, hostmem: true, gfxstream: true },
 };
-const LEVEL_ORDER = ["2d", "2d-blob", "virgl", "virgl43", "virgl43-blob", "virgl43-hostmem", "venus"];
+const LEVEL_ORDER = ["2d", "2d-blob", "virgl", "virgl43", "virgl43-blob", "virgl43-hostmem", "venus", "gfxstream"];
 /** Without a pinned level: the highest, with a renderer or without */
 const DEFAULT_3D_LEVEL = "virgl43-hostmem";
 const DEFAULT_LEVEL = "2d-blob";
@@ -358,9 +365,11 @@ export function VirtioGPU(machine, options)
     this.venus = LEVELS[this.level].venus ? new Venus(this, new VulkanModel({ host_visible_size: VENUS_MEMORY_SIZE, gpu: this })) : null;
     /** @type {!Array<!Object>} the kinds of context besides virgl's, each of
      * its capsets (CONTEXT_INIT): Venus (docs/gfxstream-plan.md G1) */
-    this.kinds = this.venus ? [this.venus] : [];
-    /** the capsets: [id, version, size] */
-    this.capsets = this.virgl ? CAPSETS.concat(...this.kinds.map(kind => kind.capsets)) : [];
+    /** @type {Gfxstream} gfxstream's contexts, at level gfxstream */
+    this.gfxstream = LEVELS[this.level].gfxstream ? new Gfxstream(this) : null;
+    this.kinds = [this.venus, this.gfxstream].filter(Boolean);
+    /** the capsets: [id, version, size] (gfxstream's alone at its level) */
+    this.capsets = this.gfxstream ? this.gfxstream.capsets.slice() : this.virgl ? CAPSETS.concat(...this.kinds.map(kind => kind.capsets)) : [];
     /** @type {!Array<{request: !Object, bytes: !Uint8Array, response: !Uint8Array, ready: boolean}>}
      * control requests answered in the order they came: some wait for the GPU */
     this.pending = [];
@@ -381,7 +390,7 @@ export function VirtioGPU(machine, options)
     // read back into it before their fences complete
     this.hostmem_region = -1;
     this.hostmem_backing = 0;
-    this.hostmem_size = LEVELS[this.level].venus ? VENUS_HOST_VISIBLE_SIZE : HOST_VISIBLE_SIZE;
+    this.hostmem_size = LEVELS[this.level].venus || LEVELS[this.level].gfxstream ? VENUS_HOST_VISIBLE_SIZE : HOST_VISIBLE_SIZE;
     /** @type {Uint32Array} pages written and not yet uploaded, as taken from the core */
     this.hostmem_pending = null;
     /** @type {!Map<number, (!Resource3D|!VenusBlob)>} the mapped blobs, by resource id */
@@ -590,7 +599,9 @@ VirtioGPU.prototype.enqueue = function(request, bytes, response, wait, hold)
 {
     const entry = { request, bytes, response, ready: !wait, hold: !!wait && hold,
         /** a Venus submission's answer (Venus.submit) */
-        submission: wait && wait.submission || null };
+        submission: wait && wait.submission || null,
+        /** its lane of answers (timeline_of) */
+        timeline: timeline_of(bytes) };
     this.pending.push(entry);
     if(!wait) return;
     if(entry.hold) this.held = true;
@@ -648,17 +659,42 @@ VirtioGPU.prototype.unmap_all = function()
 };
 
 /**
- * Answer the control requests that are ready, in order (a fence must not
- * pass the GPU work before it)
+ * A request's lane of answers: a fence on a context's ring its own (that
+ * timeline's, as rutabaga's fence contexts), the rest one lane in order
+ * (docs/gfxstream-plan.md G1)
+ * @param {!Uint8Array} bytes the request
+ * @return {string}
+ */
+function timeline_of(bytes)
+{
+    const flags = bytes[4] | bytes[5] << 8 | bytes[6] << 16 | bytes[7] << 24;
+    if(!(flags & FLAG_FENCE && flags & FLAG_INFO_RING_IDX)) return "";
+    const ctx_id = (bytes[16] | bytes[17] << 8 | bytes[18] << 16 | bytes[19] << 24) >>> 0;
+    return ctx_id + ":" + bytes[20];
+}
+
+/**
+ * Answer the control requests that are ready, in order within each lane (a
+ * fence must not pass the GPU work before it on its timeline; another
+ * timeline's does not wait for it)
  */
 VirtioGPU.prototype.drain = function()
 {
     let answered = false;
-    while(this.pending.length && this.pending[0].ready)
+    /** the lanes with a request waiting before */
+    const blocked = new Set();
+    for(let i = 0; i < this.pending.length;)
     {
-        const { request, bytes, response } = this.pending.shift();
-        this.respond(request, bytes, response);
-        request["complete"]();
+        const entry = this.pending[i];
+        if(!entry.ready || blocked.has(entry.timeline))
+        {
+            blocked.add(entry.timeline);
+            i++;
+            continue;
+        }
+        this.pending.splice(i, 1);
+        this.respond(entry.request, entry.bytes, entry.response);
+        entry.request["complete"]();
         answered = true;
     }
     if(answered) this.virtio["flush"](CONTROLQ);
@@ -907,7 +943,7 @@ VirtioGPU.prototype.unref = function(id)
     {
         this.mapped.delete(id);
         resource.map_offset = -1;
-        this.virgl.destroy_resource(/** @type {!Resource3D} */ (resource));
+        if(!resource.pipe) this.virgl.destroy_resource(/** @type {!Resource3D} */ (resource));
     }
     else if(!resource.blob) this.host_memory -= resource.data.length;
     this.resources.delete(id);
@@ -1417,8 +1453,9 @@ VirtioGPU.prototype.command_3d = function(type, ctx_id, bytes, u32, need)
             // name length, context_init (the capset in its low byte: virgl's or none), name
             const capset = LEVELS[this.level].features.includes(VIRTIO_GPU_F_CONTEXT_INIT) ? u32(4) & 0xFF : 0;
             if(capset && !this.capsets.some(c => c[0] === capset)) return this.error(RESP_ERR_INVALID_PARAMETER, type);
-            // (a context of one kind: the others' of that id go)
-            const kind = capset ? this.kind_of_capset(capset) : null;
+            // (a context of one kind: the others' of that id go; without a
+            // capset, gfxstream's at its level)
+            const kind = capset ? this.kind_of_capset(capset) : this.gfxstream;
             for(const other of this.kinds) if(other !== kind) other.destroy_context(ctx_id);
             if(kind)
             {
@@ -1445,7 +1482,9 @@ VirtioGPU.prototype.command_3d = function(type, ctx_id, bytes, u32, need)
             if(id === 0 || this.resources.has(id)) return this.error(RESP_ERR_INVALID_RESOURCE_ID, type);
             const r = new Resource3D(id, u32(4), u32(8), u32(12), u32(16), u32(20), u32(24), u32(28), u32(32), u32(36), u32(40));
             r.set_backing = Resource.prototype.set_backing;
-            if(!virgl.create_resource(r)) return this.error(RESP_ERR_INVALID_PARAMETER, type);
+            // (gfxstream's process pipe: a buffer of transfers, no texture of the GPU's)
+            if(this.gfxstream && this.gfxstream.is_pipe(r.target, r.bind)) r.pipe = this.gfxstream.create_pipe();
+            else if(!virgl.create_resource(r)) return this.error(RESP_ERR_INVALID_PARAMETER, type);
             this.resources.set(id, r);
             return this.ok();
         }
@@ -1460,6 +1499,19 @@ VirtioGPU.prototype.command_3d = function(type, ctx_id, bytes, u32, need)
             const r = /** @type {!Resource3D} */ (found);
             if(!r.backing) return this.error(RESP_ERR_UNSPEC, type);
             const level = u32(36), stride = u32(40), layer_stride = u32(44);
+            if(r.pipe)
+            {
+                // a pipe: box x and width are the bytes of its buffer
+                const gfxstream = /** @type {!Gfxstream} */ (this.gfxstream);
+                if(type === CMD_TRANSFER_TO_HOST_3D)
+                {
+                    const data = new Uint8Array(box[3]);
+                    if(!this.read_backing(r, box[0], data, 0, box[3])) return this.error(RESP_ERR_INVALID_PARAMETER, type);
+                    gfxstream.pipe_write(r.pipe, data);
+                }
+                else this.write_backing(r, box[0], gfxstream.pipe_read(r.pipe, box[3]));
+                return this.ok();
+            }
             if(type === CMD_TRANSFER_TO_HOST_3D)
             {
                 const read = (from, out, at, length) => this.read_backing(r, from, out, at, length);
@@ -1489,7 +1541,9 @@ VirtioGPU.prototype.command_3d = function(type, ctx_id, bytes, u32, need)
                 const flags = bytes[4] | bytes[5] << 8 | bytes[6] << 16 | bytes[7] << 24;
                 const ring_idx = flags & FLAG_FENCE && flags & FLAG_INFO_RING_IDX ? bytes[20] : 0;
                 this.deferred = kind.submit(ctx_id, new Uint8Array(bytes.buffer.slice(start, start + size)), ring_idx);
-                this.hold = !!this.deferred;
+                // (Venus: the requests after it wait for it, as virglrenderer's;
+                // gfxstream's sync tasks hold their fence only)
+                this.hold = !!this.deferred && kind === this.venus;
                 return this.ok();
             }
             if(!virgl.contexts.has(ctx_id)) return this.error(RESP_ERR_INVALID_CONTEXT_ID, type);
@@ -1716,7 +1770,7 @@ VirtioGPU.prototype.prepare_save = function()
 {
     const virgl = this.virgl;
     if(!virgl) return Promise.resolve(undefined);
-    const resources = /** @type {!Array<!Resource3D>} */ ([...this.resources.values()].filter(r => r.three_d));
+    const resources = /** @type {!Array<!Resource3D>} */ ([...this.resources.values()].filter(r => r.three_d && !r.pipe));
     // (the mappings' newest bytes into their blobs, and back)
     this.upload_hostmem();
     const venus = this.venus;
@@ -1744,6 +1798,8 @@ VirtioGPU.prototype.get_state = function()
                 b.map_offset >= 0 ? this.hostmem_bytes().slice(b.map_offset, b.map_offset + b.blob_size) : null]);
             continue;
         }
+        // (gfxstream's process pipes: used once as a process starts, G6)
+        if(found.pipe) continue;
         if(found.three_d)
         {
             const r = /** @type {!Resource3D} */ (found);

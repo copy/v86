@@ -53,6 +53,8 @@ export function Resource3D(id, target, format, bind, width, height, depth, array
     this.backing = null;
     this.backing_starts = null;
     this.backing_length = 0;
+    /** @type {Object} gfxstream's process pipe, when the resource is one (gfxstream.js) */
+    this.pipe = null;
     this.uuid = null;
     /** @type {Array<Uint8Array>} the contents, for a snapshot (save_contents) */
     this.saved = null;
