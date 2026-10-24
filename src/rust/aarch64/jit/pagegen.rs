@@ -1357,7 +1357,11 @@ impl Emitter<'_> {
 
     /// A helper call (helper): the registers it names and NZCV to memory,
     /// the interpreter's execute, back into their locals; a refusal retries
-    /// the instruction in the interpreter
+    /// the instruction in the interpreter. (The locals are loaded again
+    /// before the result is looked at: a helper that was done but asks the
+    /// run loop for something, a load-exclusive's spin yield, leaves as a
+    /// refusal does (pages::HELPER_DONE), and the leaving writes the locals
+    /// back over what it wrote; after a refusal memory holds what was stored)
     fn helper_call(&mut self, offset: u16, sync: &HelperSync) {
         let mut gprs = sync.gprs.clone();
         gprs.sort_unstable();
@@ -1376,7 +1380,7 @@ impl Emitter<'_> {
             "a64_page_helper",
             Signature::new(&[WasmType::I32, WasmType::I64], &[WasmType::I32]),
         );
-        self.retry_if(offset);
+        self.si(A0);
         for &r in &gprs {
             self.load64(x_address(r as usize));
             self.s(r as usize);
@@ -1385,6 +1389,8 @@ impl Emitter<'_> {
             self.load32(state::nzcv as u32);
             self.si(NZCV);
         }
+        self.gi(A0);
+        self.retry_if(offset);
     }
 
     // ---- scalar FP (P6.3b): the fast path's rules (docs/arm64-virt-android16-plan.md P6)
