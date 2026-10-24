@@ -1783,9 +1783,15 @@ fn a32_coprocessor(word: u32, pc: u32, cp: u32, cond: u32) -> Result<Flow, Excep
 }
 
 /// A32's unconditional space (cond 0b1111): barriers, CLREX, preloads,
-/// BLX (immediate), ARMv8's VFP additions; the rest UNDEFINED (SETEND,
-/// CPS, SRS, RFE at EL0; NEON: Q4)
+/// BLX (immediate), Advanced SIMD, ARMv8's VFP additions; the rest
+/// UNDEFINED (SETEND, CPS, SRS, RFE at EL0)
 fn a32_unconditional(word: u32, pc: u32) -> Result<Flow, Exception> {
+    if word >> 25 == 0b1111001 {
+        return crate::aarch64::a32_simd::data_processing(word);
+    }
+    if word & 0xFF10_0000 == 0xF400_0000 {
+        return crate::aarch64::a32_simd::load_store(word);
+    }
     if word >> 24 == 0xFE {
         return crate::aarch64::a32_fp::vfp_unconditional(word);
     }

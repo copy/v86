@@ -118,9 +118,9 @@ fn from_words(w: [u32; 4]) -> u128 {
     w[0] as u128 | (w[1] as u128) << 32 | (w[2] as u128) << 64 | (w[3] as u128) << 96
 }
 
-fn choose(x: u32, y: u32, z: u32) -> u32 { (y ^ z) & x ^ z }
-fn parity(x: u32, y: u32, z: u32) -> u32 { x ^ y ^ z }
-fn majority(x: u32, y: u32, z: u32) -> u32 { x & y | (x | y) & z }
+pub(crate) fn choose(x: u32, y: u32, z: u32) -> u32 { (y ^ z) & x ^ z }
+pub(crate) fn parity(x: u32, y: u32, z: u32) -> u32 { x ^ y ^ z }
+pub(crate) fn majority(x: u32, y: u32, z: u32) -> u32 { x & y | (x | y) & z }
 
 /// SHA1C (choose), SHA1P (parity), SHA1M (majority): four rounds
 pub fn sha1_hash(abcd: u128, e: u32, w: u128, f: fn(u32, u32, u32) -> u32) -> u128 {
@@ -173,27 +173,32 @@ pub fn sha3(word: u32) -> Flow {
         0b000 => sha1_hash(vd, vn as u32, vm, choose),
         0b001 => sha1_hash(vd, vn as u32, vm, parity),
         0b010 => sha1_hash(vd, vn as u32, vm, majority),
-        0b011 => (vn << 64 | vd >> 64) ^ vd ^ vm,
+        0b011 => sha1su0(vd, vn, vm),
         0b100 => sha256_hash(vd, vn, vm, true),
         0b101 => sha256_hash(vn, vd, vm, false),
-        _ => {
-            // SHA256SU1
-            let t0 = words((vm as u32 as u128) << 96 | vn >> 32);
-            let op1 = words(vd);
-            let sigma = |x: u32| x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10);
-            let mut r = [0u32; 4];
-            let t1 = words(vm);
-            for e in 0..2 {
-                r[e] = sigma(t1[2 + e]).wrapping_add(op1[e]).wrapping_add(t0[e]);
-            }
-            for e in 2..4 {
-                r[e] = sigma(r[e - 2]).wrapping_add(op1[e]).wrapping_add(t0[e]);
-            }
-            from_words(r)
-        },
+        _ => sha256su1(vd, vn, vm),
     };
     set_vreg(d, result);
     Flow::Next
+}
+
+/// SHA1SU0
+pub fn sha1su0(vd: u128, vn: u128, vm: u128) -> u128 { (vn << 64 | vd >> 64) ^ vd ^ vm }
+
+/// SHA256SU1
+pub fn sha256su1(vd: u128, vn: u128, vm: u128) -> u128 {
+    let t0 = words((vm as u32 as u128) << 96 | vn >> 32);
+    let op1 = words(vd);
+    let sigma = |x: u32| x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10);
+    let mut r = [0u32; 4];
+    let t1 = words(vm);
+    for e in 0..2 {
+        r[e] = sigma(t1[2 + e]).wrapping_add(op1[e]).wrapping_add(t0[e]);
+    }
+    for e in 2..4 {
+        r[e] = sigma(r[e - 2]).wrapping_add(op1[e]).wrapping_add(t0[e]);
+    }
+    from_words(r)
 }
 
 pub fn sha2(word: u32) -> Flow {
@@ -202,32 +207,36 @@ pub fn sha2(word: u32) -> Flow {
     let (vd, vn) = (vreg(d), vreg(n));
     let result = match bits(word, 16, 12) {
         0b00000 => (vn as u32).rotate_left(30) as u128,
-        0b00001 => {
-            // SHA1SU1
-            let t = words(vd ^ vn >> 32);
-            let mut r = [
-                t[0].rotate_left(1),
-                t[1].rotate_left(1),
-                t[2].rotate_left(1),
-                t[3].rotate_left(1),
-            ];
-            r[3] ^= t[0].rotate_left(2);
-            from_words(r)
-        },
-        _ => {
-            // SHA256SU0
-            let t = words((vn as u32 as u128) << 96 | vd >> 32);
-            let op1 = words(vd);
-            let mut r = [0u32; 4];
-            for e in 0..4 {
-                let x = t[e];
-                r[e] = (x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)).wrapping_add(op1[e]);
-            }
-            from_words(r)
-        },
+        0b00001 => sha1su1(vd, vn),
+        _ => sha256su0(vd, vn),
     };
     set_vreg(d, result);
     Flow::Next
+}
+
+/// SHA1SU1
+pub fn sha1su1(vd: u128, vn: u128) -> u128 {
+    let t = words(vd ^ vn >> 32);
+    let mut r = [
+        t[0].rotate_left(1),
+        t[1].rotate_left(1),
+        t[2].rotate_left(1),
+        t[3].rotate_left(1),
+    ];
+    r[3] ^= t[0].rotate_left(2);
+    from_words(r)
+}
+
+/// SHA256SU0
+pub fn sha256su0(vd: u128, vn: u128) -> u128 {
+    let t = words((vn as u32 as u128) << 96 | vd >> 32);
+    let op1 = words(vd);
+    let mut r = [0u32; 4];
+    for e in 0..4 {
+        let x = t[e];
+        r[e] = (x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)).wrapping_add(op1[e]);
+    }
+    from_words(r)
 }
 
 #[cfg(test)]

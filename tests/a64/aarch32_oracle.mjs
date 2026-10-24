@@ -513,6 +513,115 @@ for(const [name, make] of Object.entries(VFP))
     };
 }
 
+// Advanced SIMD (Q4.2, Q4.3): A32 encodings, random within each group of
+// QEMU's neon-dp.decode (so the UNDEFINED ones are there too); a Q form
+// names even registers nine times in ten. T32's: 111U 1111 for data
+// processing, 1111 1001 for the loads and stores.
+const dreg = q => q && random() % 10 ? bits(5) & ~1 : bits(5);
+const NEON = {
+    neon_three_same() {
+        const q = bits(1);
+        // (the floating point opcodes, 1100-1111, a third of the time)
+        const opc = random() % 3 ? bits(4) : 12 + bits(2);
+        return { word: 0xF2000000 | bits(1) << 24 | bits(2) << 20 | vd(dreg(q), true) | vn(dreg(q), true) | opc << 8 | q << 6 |
+            vm(dreg(q), true) | bits(1) << 4 };
+    },
+    neon_three_different() {
+        return { word: 0xF2800000 | bits(1) << 24 | random() % 3 << 20 | vd(dreg(1), true) | vn(dreg(random() % 2), true) | bits(4) << 8 |
+            vm(dreg(random() % 2), true) };
+    },
+    neon_two_scalar() {
+        const q = bits(1);
+        return { word: 0xF2800040 | q << 24 | random() % 3 << 20 | vd(dreg(q), true) | vn(dreg(q), true) | bits(4) << 8 | bits(5) };
+    },
+    neon_shift() {
+        const q = bits(1), l = bits(1);
+        // (L:imm6 at least 8: below, the modified immediates)
+        const imm6 = l ? bits(6) : 8 + random() % 56;
+        return { word: 0xF2800010 | bits(1) << 24 | imm6 << 16 | vd(dreg(q), true) | bits(4) << 8 | l << 7 | q << 6 | vm(dreg(q), true) };
+    },
+    neon_immediate() {
+        const q = bits(1);
+        return { word: 0xF2800010 | bits(1) << 24 | bits(3) << 16 | vd(dreg(q), true) | bits(4) << 8 | q << 6 | bits(1) << 5 | bits(4) };
+    },
+    neon_misc() {
+        const q = bits(1), k = random() % 6;
+        // VEXT
+        if(k === 0) return { word: 0xF2B00000 | vd(dreg(q), true) | vn(dreg(q), true) | (q ? bits(4) : bits(3)) << 8 | q << 6 | vm(dreg(q), true) };
+        // VTBL, VTBX
+        if(k === 1) return { word: 0xF3B00800 | vd(bits(5), true) | vn(random() % 29, true) | bits(2) << 8 | bits(1) << 6 | vm(bits(5), true) };
+        // VDUP (scalar)
+        if(k === 2) return { word: 0xF3B00C00 | bits(4) << 16 | vd(dreg(q), true) | q << 6 | vm(bits(5), true) };
+        // two registers, miscellaneous (VTRN, VUZP, VZIP of a register with itself: UNPREDICTABLE)
+        const opc1 = bits(2), opc2 = bits(4), d = dreg(q);
+        let m = dreg(q);
+        while(opc1 === 2 && opc2 >= 1 && opc2 <= 3 && m === d) m = dreg(q);
+        return { word: 0xF3B00000 | bits(2) << 18 | opc1 << 16 | vd(d, true) | opc2 << 7 | q << 6 | vm(m, true) };
+    },
+    neon_load_store() {
+        const rn = reg(), l = bits(1);
+        const small = reg(rn);
+        const rm = pick([15, 13, small]);
+        const k = random() % 3;
+        let word, span;
+        // multiple structures: a type, a size, an alignment
+        if(k === 0)
+        {
+            const type = random() % 11;
+            const [registers, interleave, spacing] = [[1, 4, 1], [1, 4, 2], [4, 1, 1], [2, 2, 2], [1, 3, 1], [1, 3, 2], [3, 1, 1], [1, 1, 1],
+                [1, 2, 1], [1, 2, 2], [2, 1, 1]][type];
+            span = registers - 1 + spacing * (interleave - 1);
+            word = 0xF4000000 | l << 21 | rn << 16 | type << 8 | bits(2) << 6 | bits(2) << 4 | rm;
+        }
+        // one lane: the register stride in bit 5 (halfwords), 6 (words)
+        else if(k === 1)
+        {
+            const size = random() % 3, n = bits(2), index_align = bits(4);
+            const stride = size === 1 && index_align & 2 || size === 2 && index_align & 4 ? 2 : 1;
+            span = stride * n;
+            word = 0xF4800000 | l << 21 | rn << 16 | size << 10 | n << 8 | index_align << 4 | rm;
+        }
+        // all lanes (T: two registers for VLD1, else the stride)
+        else
+        {
+            const n = bits(2), t = bits(1);
+            span = n === 0 ? t : (t + 1) * n;
+            word = 0xF4A00C00 | rn << 16 | n << 8 | bits(2) << 6 | t << 5 | bits(1) << 4 | rm;
+        }
+        // (no register past D31: UNPREDICTABLE)
+        word |= vd(random() % (32 - span), true);
+        // (the buffer's 4096-aligned middle: the MMU is off, Device memory
+        // faults an unaligned access, and QEMU makes VLD1's elements one
+        // access per register)
+        return { word, pointers: 1 << rn, small: rm === small ? 1 << small : 0, offset: 0 };
+    },
+    neon_crypto() {
+        const even = () => bits(5) & ~1;
+        const k = random() % 4;
+        // SHA1C, SHA1P, SHA1M, SHA1SU0, SHA256H, SHA256H2, SHA256SU1
+        if(k === 0)
+        {
+            const [u, size] = pick([[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2]]);
+            return { word: 0xF2000C40 | u << 24 | size << 20 | vd(even(), true) | vn(even(), true) | vm(even(), true) };
+        }
+        // AESE, AESD, AESMC, AESIMC
+        if(k === 1) return { word: 0xF3B00300 | pick([0x00, 0x40, 0x80, 0xC0]) | vd(even(), true) | vm(even(), true) };
+        // SHA1H, SHA1SU1, SHA256SU0
+        if(k === 2) return { word: pick([0xF3B902C0, 0xF3BA0380, 0xF3BA03C0]) | vd(even(), true) | vm(even(), true) };
+        // VMULL.P64, VMULL.P8
+        return { word: 0xF2800E00 | pick([0, 2]) << 20 | vd(even(), true) | vn(bits(5), true) | vm(bits(5), true) };
+    },
+};
+for(const [name, make] of Object.entries(NEON))
+{
+    A32[name] = () => ({ ...make(), fp: true });
+    T32["t32_" + name] = () => {
+        const c = make();
+        const t32 = name === "neon_load_store" ? c.word & 0x00FFFFFF | 0xF9000000 : c.word & 0x00FFFFFF | 0xEF000000 | (c.word >>> 24 & 1) << 28;
+        return { ...c, word: t32 >>> 0, fp: true };
+    };
+}
+
 const sets = (process.env.A64_AARCH32_SET || "a32,t32").split(",");
 const only = process.env.A64_AARCH32_ONLY ? process.env.A64_AARCH32_ONLY.split(",") : null;
 const count = +process.env.A64_AARCH32_COUNT || 40;

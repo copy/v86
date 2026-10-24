@@ -17,9 +17,9 @@ use crate::aarch64::state::{cpacr_el1, fpcr, fpsr};
 /// FPCR's bits that take effect: AHP, DN, FZ, RMode (the trap enables are
 /// RAZ/WI, FZ16 is not in v1)
 pub const FPCR_WRITABLE: u32 = 0x07C0_0000;
-const FPCR_AHP: u32 = 1 << 26;
-const FPCR_DN: u32 = 1 << 25;
-const FPCR_FZ: u32 = 1 << 24;
+pub const FPCR_AHP: u32 = 1 << 26;
+pub const FPCR_DN: u32 = 1 << 25;
+pub const FPCR_FZ: u32 = 1 << 24;
 
 // FPSR's cumulative bits
 pub const FPSR_IOC: u32 = 1 << 0;

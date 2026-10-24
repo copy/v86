@@ -477,6 +477,10 @@ fn t32(word: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
             }
         },
         _ => match hw1 >> 9 & 3 {
+            // (1111 1001 xxx0: Advanced SIMD's loads and stores, A32's 1111 0100)
+            0 if word & 0xFF10_0000 == 0xF900_0000 => {
+                crate::aarch64::a32_simd::load_store(word & 0x00FF_FFFF | 0xF400_0000)
+            },
             0 => t32_load_store(hw1, hw2, pc),
             // (1111 1010: data processing (register); 1111 1011: the multiplies)
             1 => {
@@ -487,7 +491,7 @@ fn t32(word: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
                     t32_data_register(hw1, hw2)
                 }
             },
-            // (1111 11xx: coprocessor, Advanced SIMD and floating point: Q4)
+            // (1111 11xx: coprocessor, Advanced SIMD and floating point)
             _ => t32_coprocessor(hw1, hw2, pc, cond),
         },
     }
@@ -1156,10 +1160,17 @@ fn t32_multiply(hw1: u32, hw2: u32) -> Result<Flow, Exception> {
 
 /// The coprocessor space (111x 11xx): VFP (coprocessors 10, 11: A32's
 /// encodings with the condition 1110, and ARMv8's unconditional ones),
-/// MCR, MRC, MCRR, MRRC of CP15; the rest UNDEFINED (Advanced SIMD: Q4)
+/// Advanced SIMD's data processing, MCR, MRC, MCRR, MRRC of CP15; the
+/// rest UNDEFINED
 fn t32_coprocessor(hw1: u32, hw2: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
     let cp = hw2 >> 8 & 15;
     let word = hw1 << 16 | hw2;
+    // (111U 1111: Advanced SIMD data processing, A32's 1111 001U)
+    if word & 0xEF00_0000 == 0xEF00_0000 {
+        return crate::aarch64::a32_simd::data_processing(
+            word & 0xE2FF_FFFF | (word & 1 << 28) >> 4 | 1 << 28,
+        );
+    }
     if hw1 >> 8 == 0xFE {
         return crate::aarch64::a32_fp::vfp_unconditional(word);
     }
