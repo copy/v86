@@ -9,7 +9,7 @@
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
      part=android  an Android image package (build/android-test-package.zip: tests/android/make_package.mjs) dropped on the
-                   wizard: Cuttlefish's arm64 device, the Android 16 preset with SwiftShader, a browser disk made in the
+                   wizard: Cuttlefish's arm64 device, the Android 16 preset with gfxstream (I8.1), a browser disk made in the
                    importer's worker, the bootloader (src/android/bootloader.js) reading the disk's GPT and boot partitions
      part=android_gsi  the same package with a GSI (build/android-test-gsi.zip) dropped together; an older GSI refused; the disk's
                    vbmeta the GSI's (nothing chained)
@@ -282,8 +282,8 @@ const parts = {
         check(/userdata blank/.test(wizard.querySelector(".wizard-body").textContent), "the disk step says what the disk is");
         button("Next", wizard).click();
         const summary = table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary"));
-        check(/Android boot from the first disk \(cf_arm64_only_phone\), SwiftShader/.test(summary) && /Hard disk \(hda\) .*read write/.test(summary) &&
-            !/Vulkan/.test(summary), "the summary: " + summary);
+        check(/Android boot from the first disk \(cf_arm64_only_phone\), gfxstream/.test(summary) && /Hard disk \(hda\) .*read write/.test(summary) &&
+            /Vulkan \(gfxstream\)/.test(summary), "the summary: " + summary);
         button("Finish", wizard).click();
         await until(() => names().includes("Android (wizard)"), "the new machine in the library", 120000);
         const table = table_text($(".hardware"));
@@ -306,7 +306,7 @@ const parts = {
         dialog.querySelector("li[data-item=android]").click();
         const panel = await until(() => dialog.querySelector(".settings-panel[aria-label=Android]"), "the Android panel");
         const gpu = panel.querySelector("select[aria-label=GPU]");
-        check(/SwiftShader/.test(gpu.selectedOptions[0].textContent) && gpu.disabled, "the GPU: SwiftShader, fixed without Vulkan");
+        check(/gfxstream/.test(gpu.selectedOptions[0].textContent) && !gpu.disabled && gpu.options.length === 2, "the GPU: gfxstream, or SwiftShader");
         button("Wipe user data…", panel).click();
         const ask = await until(() => $$("dialog[open]").find(e => /Wipe user data\?/.test(e.textContent)), "the question");
         button("Wipe", ask).click();

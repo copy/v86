@@ -116,11 +116,9 @@ export function open_wizard(options)
             }
             else if(state.source === "android" && state.android.info)
             {
-                // (its images as they are: SwiftShader, no Venus driver; the disk kept and written; an emulator image's device model its own)
-                if(config.android) config.android.gpu_mode = "swiftshader";
+                // (its images as they are: their own GPU drivers on gfxstream, the preset's (I8.1); the disk kept and
+                // written; an emulator image's device model its own, the guest drawing)
                 if(config.android && state.android.info.emulator) config.android.device = /** @type {string} */ (state.android.info.device);
-                config.display.vulkan = "none";
-                config.display.proxy = false;
                 const size = state.android.info.disk_size(state.android.userdata_gib);
                 config.disks = [{ slot: "hda", image: state.location === "service" ? { kind: "url", url: made || "(created when finished)", size, async: true } :
                     { kind: "browser", path: made || "(made when finished)", size }, disk_option: "read_write", disk_error: "stop" }];
@@ -433,8 +431,8 @@ export function open_wizard(options)
                     h("fieldset", null, h("legend", null, "Space for apps and data (userdata)"), sizes),
                     h("fieldset", null, h("legend", null, "Where it is kept"), where),
                     state.location === "browser" ? quota_note() : null,
-                    h("p", null, h("small.reason", null, "The package boots with SwiftShader (the CPU draws): Android starts, its desktop needs the GPU support of " +
-                        "docs/gfxstream-plan.md.")),
+                    h("p", null, h("small.reason", null, "The package boots with its own GPU drivers on gfxstream: the graphics proxy's WebGPU " +
+                        "renderer draws (Settings, Display; without WebGPU choose SwiftShader in Settings, Android: Android starts, its desktop is slow).")),
                 ];
             }
             if(state.source === "disk")

@@ -78,13 +78,13 @@ test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLO
     assert.equal(o.cpu_cores, 4);
     assert.equal(o.memory_size, 1536 << 20);
     // (the bootloader: no kernel, initrd or command line of the page's)
-    assert.deepEqual(o.android, { device: "cf_arm64_only_phone", gpu_mode: "venus", selinux: "enforcing", vendor_ramdisk: undefined });
+    assert.deepEqual(o.android, { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", selinux: "enforcing", vendor_ramdisk: undefined });
     assert.equal("kernel" in o || "initrd" in o, false);
     assert.equal(o.cmdline, undefined);
     assert.equal(o.virtio_transport, "pci");
     assert.deepEqual(o.virtio_disks, [{ url: "disk.img", async: true }]);
     assert.equal(o.graphics_adapter, "virtio_gpu");
-    assert.deepEqual(o.graphics_adapter_test, { level: "venus" });
+    assert.deepEqual(o.graphics_adapter_test, { level: "gfxstream" });
     assert.equal(o.virtio_gpu_pci_slot, 2);
     assert.deepEqual(o.net_device, { type: "virtio", relay_url: "fetch", cors_proxy: undefined, mtu: 1500, count: 3, id: 2 });
     assert.equal(o.virtio_console, true);
@@ -168,21 +168,21 @@ test("change: Android's bootloader follows the machine and Vulkan", () =>
     ({ config, notes } = change(preset_config(preset("android16")), "cpu.type", "x86"));
     assert.equal(config.android, null);
     assert.ok(notes.some(n => /Android's bootloader off/.test(n)), JSON.stringify(notes));
-    // (gfxstream for the display: Android's GPU follows)
-    ({ config, notes } = change(preset_config(preset("android16")), "display.vulkan", "gfxstream"));
-    assert.equal(config.android.gpu_mode, "gfxstream");
-    assert.ok(notes.some(n => /Android's GPU: gfxstream/.test(n)), JSON.stringify(notes));
+    // (Venus for the display: Android's GPU follows)
+    ({ config, notes } = change(preset_config(preset("android16")), "display.vulkan", "venus"));
+    assert.equal(config.android.gpu_mode, "venus");
+    assert.ok(notes.some(n => /Android's GPU: Venus/.test(n)), JSON.stringify(notes));
     assert.deepEqual(problems(config), []);
-    assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "gfxstream" });
-    assert.equal(config_to_options(config, ENV).android.gpu_mode, "gfxstream");
+    assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "venus" });
+    assert.equal(config_to_options(config, ENV).android.gpu_mode, "venus");
 });
 
 test("the summary's rows: Android's display and sound", () =>
 {
     const rows = Object.fromEntries(hardware_rows(preset_config(preset("android16"))));
-    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan (Venus)");
+    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan (gfxstream)");
     assert.equal(rows["Sound"], "virtio-snd");
-    assert.equal(rows["Android boot"], "from the first disk (cf_arm64_only_phone), Venus");
+    assert.equal(rows["Android boot"], "from the first disk (cf_arm64_only_phone), gfxstream");
     assert.equal(Object.fromEntries(hardware_rows(preset_config(preset("dos"))))["Sound"], "Sound Blaster 16");
 });
 

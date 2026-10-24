@@ -136,6 +136,15 @@ const LEVELS = {
     "R-android-images": [
         ["android-image-tests"], ["android-image-reference-tests", true], ["android-image-browser-tests", true],
     ],
+    // cpu_type "arm32" (docs/arm32.md): PL1, the 32-bit platform and ranchu
+    // against QEMU's cortex-a15, Alpine armv7, kvm-unit-tests; Android 7.1's
+    // emulator image to boot_completed
+    "R-arm32": [
+        ["a32-system-tests", true],
+    ],
+    "R-arm32-android": [
+        ["a32-android-tests", true],
+    ],
 };
 
 const args = process.argv.slice(2);

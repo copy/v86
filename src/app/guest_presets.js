@@ -195,10 +195,10 @@ export const PRESETS = [
     },
     {
         id: "android16", name: "Android 16 (arm64)", guest: "android", verified: true,
-        basis: "boot_completed and the A9 scenario: docs/aarch64.md (graphics: the ARM64 plan's P11.4)",
-        install: ["android", "disk"], install_text: "An Android image package (Cuttlefish's images zip, made into a disk: SwiftShader), or " +
-            "tools/a64_android.mjs's disk.img (Venus's driver in odm): v64's bootloader reads the kernel and initrd from the disk's boot partitions " +
-            "(docs/android-images-plan.md I2, I3)",
+        basis: "boot_completed and the A9 scenario on gfxstream with the official images: docs/aarch64.md, docs/gfxstream-plan.md G5",
+        install: ["android", "disk"], install_text: "An Android image package (Cuttlefish's images zip, made into a disk: the image's own GPU " +
+            "drivers on gfxstream), or tools/a64_android.mjs's disk.img: v64's bootloader reads the kernel and initrd from the disk's boot " +
+            "partitions (docs/android-images-plan.md I2, I3)",
 
         disk_mb: 8 * GB, disk_location: "browser", checklist: [],
         issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 20 minutes on 4 cores", "See docs/aarch64.md"],
@@ -210,15 +210,16 @@ export const PRESETS = [
             c.cpu.cores = 4;
             c.memory.mb = 1536 * MB;
             c.display.adapter = "virtio_gpu";
-            // (Venus, as initrd-venus.img's libvulkan wants it: SwiftShader's desktop on initrd.img takes too long to draw)
+            // (gfxstream: the official images' own drivers, vulkan.ranchu and ANGLE; Venus needs
+            // initrd-venus.img's libvulkan; SwiftShader's desktop takes too long to draw)
             c.display.proxy = true;
-            c.display.vulkan = "venus";
+            c.display.vulkan = "gfxstream";
             c.sound.device = "virtio";
             // (three virtio-net cards, as Cuttlefish's: its Wi-Fi, the third, on the fetch backend)
             c.network = [0, 1, 2].map(i => ({ device: "virtio", backend: i === 2 ? "fetch" : "none", relay_url: "", mtu: 1500, mac_address_translation: false }));
             c.virt = { transport: "pci", input: ["keyboard", "multitouch"], console_ports: 18, vsock: true, gpu_pci_slot: 2 };
             // (the bootloader: the disk's kernel and initrd, bootconfig with Venus's keys)
-            c.android = { device: "cf_arm64_only_phone", gpu_mode: "venus", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
+            c.android = { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
         },
     },
     {

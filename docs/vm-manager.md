@@ -16,7 +16,7 @@ settings, rename, export, delete.
 - **New virtual machine…** opens the wizard: where the system comes from (a
   CD or floppy image, an installed hard disk image, a kernel and initrd, an
   Android image package (below), or later), the system (a preset: DOS, Windows 3.x to 8.1, Linux 32-bit,
-  x86_64 and arm64, Android 16, or other), the name, the hard disk, and a
+  x86_64, arm64 and ARM 32-bit, Android 16, Android 7.1 (32-bit), or other), the name, the hard disk, and a
   summary. A preset sets all the hardware; it says whether that setting was
   verified, how the system is installed, the steps after the installation
   and its known problems. "Customize hardware…" opens the settings dialog
@@ -64,11 +64,24 @@ from Google's own images, as Android Studio's AVD manager does
 No kernel, initrd or command line is filled in: v64's bootloader reads them
 from the disk's boot partitions at each power on (Settings: **Android**:
 the device model, the GPU, the vendor ramdisk, SELinux, and **Wipe user
-data…**). Imported images draw with SwiftShader: Android starts (in about
-20 minutes on 4 cores the first time), but its desktop needs GPU support,
-which docs/gfxstream-plan.md plans. The Cuttlefish phone runs 64-bit apps
-only (its 64-bit zygote, also under a GSI); 32-bit apps need AArch32 and
-another device (docs/aarch32-plan.md).
+data…**). Imported images draw with their own GPU drivers on virtio-gpu's
+gfxstream (docs/gfxstream-plan.md; the graphics proxy's WebGPU renderer):
+the desktop in about 20 minutes on 4 cores the first time. Without WebGPU,
+choose SwiftShader in Settings, Android (the CPU draws: Android starts, its
+desktop is slow). The Cuttlefish phone runs 64-bit apps only (its 64-bit
+zygote, also under a GSI); 32-bit apps need AArch32 and another device
+(docs/aarch32-plan.md).
+
+An **Android Emulator system image** zip (the SDK's
+`system-images/android-<api>/<tag>/<abi>` package, as Android Studio
+downloads it; "Another package" in the catalog) makes a machine of the
+emulator's board, ranchu (docs/virt.md): v64 knows Android 7.1's
+`armeabi-v7a` image (API 25: the 32-bit ARM CPU, the preset **Android 7.1
+(32-bit, emulator image)**, docs/arm32.md). Its disk holds the image's
+kernel, ramdisk, system and userdata as they are and an empty cache; the
+bootloader gives the kernel and ramdisk and makes the other partitions the
+machine's disks. The guest draws (no host GPU); its user data is the
+image's own (no size to choose, no wipe).
 
 ## Disks
 
