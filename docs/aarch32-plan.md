@@ -1,6 +1,6 @@
 # AArch32 与 arm32 实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `c5debe9a`；同日按所有者的要求加入第二部分
+状态：第一部分实施中（见“进展”），第二部分未开始。2026-10-23 初稿，基于 `c5debe9a`；同日按所有者的要求加入第二部分
 `cpu_type: "arm32"`。规模：S 为几天，M 约 1–2 周，L 约 3–4 周，XL 超过一个月（与
 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
@@ -12,6 +12,40 @@
   ENOEXEC，都是 ARM64 计划的预期（arm64-virt-android16-plan.md 84–86）。
 - **第二部分（R0–R8）**：新的 `cpu_type: "arm32"`，运行 32 位内核（AArch32 的 PL1，即 ARMv7 风格的
   系统）：32 位 Linux，以及 Android 模拟器的官方 32 位镜像。指令集的实现与第一部分共用。
+
+## 进展
+
+2026-10-24，分支 `android`：
+
+- **Q0.2、Q1.1–Q1.4（`fd40ea3a`）**：PSTATE 的 nRW、T、ITSTATE、GE、Q、E，ERET 到 AArch32 User，0x600 向量，
+  AArch32 的 ESR（16 位 T32 的 IL=0、SVC32、WFx、BKPT、CP15 陷入），取指按执行状态。裸机框架
+  `tests/a64/aarch32_el0.mjs`（`tests/a64/aarch32/el0.c`、`el0_run.S`，`A64_AARCH32_CASES=q1|q3|q4`）。
+- **Q0.3、Q2（`126a0376`）、Q3（`2cf6dc99`）**：A32 与 T32 的整数指令、IT 块。单指令 oracle
+  `tests/a64/aarch32_oracle.mjs`（A32 与 T32 的各编码类，`A64_AARCH32_SEED`、`A64_AARCH32_COUNT`、`A64_AARCH32_ONLY`）。
+- **Q4.1、Q4.4（`cc014fec`）**：`a32_fp.rs`，VFPv4（ARMv8 的形式，没有短向量与半精度运算），FPSCR 映射到
+  FPSR/FPCR（Len、Stride 读 0，同 FPCR）；CPACR_EL1.FPEN 的陷入（EC 0x07）。
+- **Q4.2、Q4.3（`6d2e6779`）**：`a32_simd.rs`，Advanced SIMD 的全部数据处理组与 VLDn/VSTn，AES、SHA-1、SHA-256、
+  VMULL.P64；浮点用标准 FPSCR 值。
+- **Q0.4（`14cd0ec7`）**：v3 的 AArch32 ID 寄存器：参考机的值按“只有 EL0 的 AArch32”调整（ID_PFR1.ProgMod、
+  ID_ISAR1.Endian、ID_ISAR4.SMC 为 0，同 Cortex-A76）；`tests/platform/a64-profile.json` 的 `v3` 一项，
+  `tools/cpu_contract.mjs --a64-v86` 检查。
+- **Q1.5（`8925f5d0`）**：AArch32 EL0 下的单步（LDREX 的 EX、SVC 结束单步）、断点（BAS）、观察点；顺带修正 MMU
+  关闭时观察点不触发（A64 同样）。`A64_AARCH32_DRIVER=debug A64_AARCH32_CASES=qdebug`。
+- **Q5.1、Q5.3、Q1.6（`9f2e9e91`）**：`A64_PROFILE=v3 A64_WORKLOAD=aarch32 node tests/a64/linux_boot.mjs`：32 位探针
+  `tests/a64/linux_probe32.c`（A32 与 T32 两个版本）与 Alpine armv7 的程序（`tools/alpine_repo.mjs --arch armv7 --set aarch32`）
+  的输出与参考机相同：1 核、4 核且中途保存恢复快照、4 核 vCPU worker。快照不需要新字段：AArch32 的状态都在原有的
+  PSTATE（SPSR 格式）、X、V、FPSR/FPCR 里，profile 已在快照身份里。
+
+门禁结果：oracle 全部编码类（69 类）、VFP 6720 例（种子 2–5）、Advanced SIMD 21000 例（种子 2、3、4、5、7–10）与
+QEMU 0 差异；q1、q3、q4、qdebug 的退出与 QEMU 相同；v2 的 fp、simd、system、integer、crypto oracle 不变。
+
+偏离 QEMU 之处（都是 UNPREDICTABLE 或 QEMU 自身的问题，oracle 不生成）：v86 对 UNPREDICTABLE 的编码 UNDEF
+（寄存器列表越过 D31、以 PC 为基址、同一寄存器的 VTRN/VUZP/VZIP、PC 或 SP 作核心寄存器的 VMOV、负的定点小数位数）；
+FPSCR.Len、Stride 读 0（QEMU 保存它们，非 0 时 VFP 运算 UNDEF）；VLDR.16 无 FEAT_FP16 时 UNDEF（QEMU 执行）；
+VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 的 CP14 访问 UNDEF（未实现调试通信通道）。
+
+尚未完成：Q5.2（带 32 位第二架构的 Android）、Q6（页层编译 A32 与 T32，现在 32 位代码只走解释器，单核约 14 MIPS）、
+Q7（界面与配置、文档）。
 
 ## 结论
 
