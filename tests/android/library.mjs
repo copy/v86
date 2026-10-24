@@ -517,7 +517,14 @@ await run("assemble an emulator image, its partitions as disks", async () =>
         const boot = await android_bootloader(async (offset, length) => out.slice(offset, offset + length), out.length,
             { device: "ranchu_25_armeabi_v7a", memory_mb: 1024 });
         assert.ok(equals(boot.kernel.subarray(0, 5000), e.kernel) && boot.kernel.subarray(5000).every(b => b === 0));
-        assert.ok(equals(boot.initrd.subarray(0, 3000), e.ramdisk));
+        // (the image's ramdisk, then the device model's init additions: src/android/ramdisk_overlay.js)
+        assert.ok(equals(boot.initrd.subarray(0, e.ramdisk.length), e.ramdisk));
+        const added = cpio_files(boot.initrd.subarray(Math.ceil(e.ramdisk.length / 4) * 4));
+        assert.deepEqual([...added.keys()], ["init.ranchu.rc"]);
+        assert.match(latin1(added.get("init.ranchu.rc")),
+            /^on boot\n {4}setprop ro.fixture 1\n\n# v64 .*\nservice v64_anr \/system\/bin\/sh -c ".*settings put secure anr_show_background 1; done"\n/);
+        assert.equal(boot.clock_rate, 0.1);
+        assert.deepEqual(boot.properties, { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "" });
         assert.match(boot.cmdline, /^qemu=1 androidboot.hardware=ranchu console=ttyAMA0 .* android.bootanim=0$/);
         assert.equal(boot.bootconfig, null);
         assert.deepEqual(boot.disks.map(d => [d.name, d.start, d.size, d.readonly]),

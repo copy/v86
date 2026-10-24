@@ -85,13 +85,12 @@ export const CF_ARM64_ONLY_PHONE = {
  * (zygote64_32), for 32-bit apps on arm64 (docs/aarch32-plan.md Q5.2);
  * otherwise as the arm64-only phone, tools/a64_android.mjs --build a14
  */
-export const CF_ARM64_PHONE_A14 = {
-    ...CF_ARM64_ONLY_PHONE,
+export const CF_ARM64_PHONE_A14 = /** @type {!Object} */ (Object.assign({}, CF_ARM64_ONLY_PHONE, {
     id: "cf_arm64_phone_a14",
     // (no vbmeta_system_dlkm: the build has no such image, system_dlkm is
     // in vbmeta's chain)
     partitions: CF_ARM64_ONLY_PHONE.partitions.filter(p => p.name !== "vbmeta_system_dlkm"),
-};
+}));
 
 /**
  * The partitions of a device's disk in order, each slotted one per slot
@@ -206,6 +205,30 @@ export const RANCHU_25_ARMEABI_V7A = {
     // every process held ActivityManager's lock past the Watchdog's 60 s,
     // which killed system_server
     properties: { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "" },
+    // the machine's clock at a tenth of the host's (cpu_clock.rate, with
+    // cooperative cores): Android 7.1's timeouts are a real phone's (a
+    // service's start 20 s, the Watchdog 60 s); on this CPU SystemUI's start
+    // took longer, ActivityManager killed it again and again (a background
+    // ANR) and the keyguard's black scrim never went away
+    clock_rate: 0.1,
+    // init's additions (src/android/ramdisk_overlay.js): background ANRs
+    // shown, not killed (Settings.Secure.ANR_SHOW_BACKGROUND, set by the
+    // shell's settings command once system_server's provider answers), so
+    // that a slow start does not kill SystemUI for good (the script inline:
+    // the shell's domain may not read the ramdisk's own files)
+    init: {
+        rc: [
+            "# v64 (src/android/devices.js): background ANRs shown, not killed",
+            "service v64_anr /system/bin/sh -c \"until [ $(settings get secure anr_show_background) = 1 ]; " +
+                "do sleep 5; settings put secure anr_show_background 1; done\"",
+            "    class main",
+            "    user shell",
+            "    group shell",
+            "    seclabel u:r:shell:s0",
+            "    oneshot",
+            "",
+        ].join("\n"),
+    },
 };
 
 /** The emulator images v64 boots, by API level and ABI */

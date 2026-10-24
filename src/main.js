@@ -77,7 +77,7 @@ v86.prototype.do_tick = function()
     }
 
     this.idle = false;
-    const t = this.cpu.run_cores();
+    const t = this.cpu.clock.to_host_ms(this.cpu.run_cores());
 
     const failure = this.cpu.parallel?.failure;
     if(failure)

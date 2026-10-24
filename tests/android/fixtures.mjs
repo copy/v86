@@ -4,7 +4,7 @@
 // zip (tests/android/library.mjs; tests/android/make_package.mjs writes one
 // for the wizard's browser test).
 
-import { crc32 as zlib_crc32, deflateRawSync as deflate_raw_sync } from "node:zlib";
+import { crc32 as zlib_crc32, deflateRawSync as deflate_raw_sync, gzipSync as gzip_sync } from "node:zlib";
 import { put16, put32, put64, put32be, put64be, bytes_of, concat, crc32c } from "../../src/android/bytes.js";
 import { lp_checksum } from "../../src/android/lp.js";
 import { lz4_legacy_store } from "../../src/android/lz4.js";
@@ -295,11 +295,13 @@ export function make_gsi_package(sdk_full = "36.1", sparse = false)
 
 /** An Android Emulator system image zip (the SDK's layout: everything in
  * the ABI's directory): source.properties of `api` and `abi`, build.prop,
- * kernel-ranchu, ramdisk.img, system.img (an ext4 magic, 1 MiB; or as a
- * sparse image) and userdata.img (an ext4 magic, 512 KiB) */
+ * kernel-ranchu, ramdisk.img (a gzip-compressed cpio with init.ranchu.rc
+ * and an init), system.img (an ext4 magic, 1 MiB; or as a sparse image)
+ * and userdata.img (an ext4 magic, 512 KiB) */
 export function make_emulator_package(api = 25, abi = "armeabi-v7a", sparse = false)
 {
-    const kernel = random(5000), ramdisk = random(3000);
+    const kernel = random(5000);
+    const ramdisk = new Uint8Array(gzip_sync(cpio_newc([["init.ranchu.rc", bytes_of("on boot\n    setprop ro.fixture 1\n")], ["init", random(2000)]])));
     const system = random(1 << 20), userdata = random(1 << 19);
     for(const fs of [system, userdata]) { fs[1080] = 0x53; fs[1081] = 0xEF; }
     const image = sparse ? make_sparse([[0xCAC1, 128, system.subarray(0, 128 * 4096)], [0xCAC3, 64, new Uint8Array(0)], [0xCAC1, 64, system.subarray(192 * 4096)]]) : null;

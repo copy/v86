@@ -138,6 +138,14 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
   vendor 的 SwiftShader（把 `qemu.gles` 设为 2），而镜像自己的 SELinux 策略不给 system_server `execmem`，它的
   RenderThread 跳进不可执行的 JIT 代码。设备型号 `ranchu_25_armeabi_v7a` 现在给出启动属性
   `ro.config.low_ram=true`（低内存设备：system_server 自己的窗口用 CPU 画，不走 GL）。
+  开机后的黑屏也已查明：SurfaceFlinger 正常合成并送帧（`dumpsys SurfaceFlinger`：显示开着，flips 增加），可见的只有
+  PhoneWindowManager 的 KeyguardScrim（不透明的黑幕，等 SystemUI 的 KeyguardService 连上才撤）；而 SystemUI 的启动在
+  这个 CPU 上超过服务启动的 20 s 超时，被当作后台 ANR 杀掉、重启、再杀，键盘锁永远连不上。修正：设备型号的时钟
+  按主机的十分之一走（`cpu_clock.rate` 0.1，协作核：Android 的超时都得到十倍的主机时间，客体的时钟相应落后），
+  后台 ANR 只弹框不杀（`Settings.Secure.ANR_SHOW_BACKGROUND`：引导器在 ramdisk 后面追加一个 cpio，替换
+  `init.ranchu.rc`，加一个开机设置它的 shell 服务，`src/android/ramdisk_overlay.js`），ANR 的栈不写
+  （`dalvik.vm.stack-trace-file` 为空：写所有进程的栈时 ActivityManager 的锁被持有超过 Watchdog 的 60 s）。
+  这样桌面（Pixel 启动器、状态栏、导航栏）出来了；测试按 uiautomator 找到 ANR 对话框的 “Wait” 点掉。
   冷启动时间与模拟器 TCG 的对照：SDK 的模拟器（35.4.9）已不能运行 32 位 ARM 镜像（“CPU Architecture 'arm' is not
   supported by the QEMU2 emulator”），存档里最旧的 Apple 芯片版本是 2023 年的 32.1.11，这台主机上没有可对照的
   模拟器；记录 v86 的时间与 QEMU 9.2 cortex-a15 TCG 在同一类 32 位工作负载上的比值（arm32.md 的 Boot time）。

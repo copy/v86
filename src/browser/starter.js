@@ -257,7 +257,10 @@ export function V86(options)
     {
         const reason = (options.cpu_cores || 1) <= 1 ? "one core" :
             options.cpu_clock && options.cpu_clock["mode"] === "deterministic" ? "deterministic clock" :
+            options.cpu_clock && options.cpu_clock["rate"] !== undefined && options.cpu_clock["rate"] !== 1 ? "clock rate" :
             parallel_unsupported_reason(options.cpu_cores);
+        // (cores in workers keep the host's time: a clock rate needs cooperative cores)
+        if(reason === "clock rate" && this.parallel_forced) throw new Error("cpu_clock.rate: the cores must be cooperative, not parallel: true");
         if(!reason || this.parallel_forced) this.parallel_requested = true;
         this.parallel_fallback = reason;
     }
@@ -1232,6 +1235,8 @@ V86.prototype.continue_init = async function(emulator, options)
             settings.cmdline = [boot.cmdline, options.cmdline].filter(Boolean).join(" ");
             // (an emulator image's device: its boot properties, under the options')
             if(boot.properties) settings.ranchu_properties = Object.assign({}, boot.properties, options.ranchu_properties);
+            // (and its clock rate, with cooperative cores, unless the options set the clock)
+            if(boot.clock_rate && !options.cpu_clock && !this.parallel_requested) settings.cpu_clock = { "rate": boot.clock_rate };
             if(boot.disks)
             {
                 // (an emulator image: its disks the partitions, the first

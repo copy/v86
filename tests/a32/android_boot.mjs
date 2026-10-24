@@ -36,6 +36,7 @@ import { make_empty_ext4 } from "../../src/android/ext4.js";
 import { ranchu_cmdline } from "../../src/virt/ranchu.js";
 import { build_apk, build_native_lib } from "../a64/apk.mjs";
 import { RANCHU_25_ARMEABI_V7A } from "../../src/android/devices.js";
+import { ramdisk_overlay } from "../../src/android/ramdisk_overlay.js";
 
 const directory = ROOT + "build/a32-android/";
 const image = directory + "armeabi-v7a/";
@@ -66,6 +67,7 @@ const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv
 const sink = new PictureSink();
 const cmdline = ranchu_cmdline({ arm32: true, bootanim: false, extra: process.env.A32_ANDROID_CMDLINE });
 const restore = process.env.A32_ANDROID_RESTORE_STATE, save = process.env.A32_ANDROID_SAVE_STATE;
+const ramdisk = await ramdisk_overlay(new Uint8Array(fs.readFileSync(image + "ramdisk.img")), RANCHU_25_ARMEABI_V7A);
 const emulator = new V86({
     cpu_type: "arm32", machine_type: "ranchu", cpu_cores: cores, memory_size: memory_mb << 20, log_level: 0, autostart: !restore,
     wasm_path: process.env.A32_WASM || ROOT + "build/v86-arm64.wasm",
@@ -73,8 +75,11 @@ const emulator = new V86({
         android: { device: "ranchu_25_armeabi_v7a" }, cmdline: process.env.A32_ANDROID_CMDLINE,
         virtio_disks: [{ url: disk, async: true, size: fs.statSync(disk).size }],
     } : {
-        kernel: { url: image + "kernel-ranchu" }, initrd: { url: image + "ramdisk.img" }, cmdline,
+        // (the ramdisk with the device model's init additions, as the bootloader gives it)
+        kernel: { url: image + "kernel-ranchu" }, initrd: { buffer: ramdisk.buffer.slice(ramdisk.byteOffset, ramdisk.byteOffset + ramdisk.length) }, cmdline,
         ranchu_properties: RANCHU_25_ARMEABI_V7A.properties,
+        // (the device model's clock rate, as the bootloader hands it over; A32_ANDROID_RATE another)
+        ...(process.env.A32_PARALLEL === "1" ? {} : { cpu_clock: { rate: Number(process.env.A32_ANDROID_RATE || RANCHU_25_ARMEABI_V7A.clock_rate) } }),
         virtio_disks: [
             { url: image + "system.img", async: true, size: fs.statSync(image + "system.img").size, readonly: true },
             { buffer: make_empty_ext4(64 << 20, "cache", 1595289711).buffer },
@@ -178,15 +183,25 @@ try
     // (each input or wm starts a Dalvik VM: a minute or more here)
     await ask("input keyevent 224; sleep 2; wm dismiss-keyguard; sleep 2; input keyevent 3", "A32_HOME", 900000);
     await new Promise(resolve => setTimeout(resolve, 40000));
-    // (what SurfaceFlinger composes, apart from what reaches the framebuffer:
-    // a black 480x800 PNG is a few KB)
-    const after = await ask("dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen'; " +
-        "screencap -p /data/local/tmp/sc.png; ls -l /data/local/tmp/sc.png", "A32_AFTER", 600000);
+    const after = await ask("dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen'", "A32_AFTER", 600000);
     console.log("after: " + after.replace(/\s+/g, " ").slice(0, 400) + "; frames " + fb.frames);
     const shot = save_png(sink, run_directory, "home");
     if(process.env.A32_ANDROID_APP === "1")
     {
-        const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS", 600000)).match(/mCurrentFocus=\S+ \S+ (\S+)\}/)?.[1] || "";
+        const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS", 600000)).match(/mCurrentFocus=\S+ \S+ ([^}]+)\}/)?.[1] || "";
+        // (background ANRs are shown, not killed: their dialogs' Wait, found by uiautomator)
+        const dismiss_dialogs = async () =>
+        {
+            for(let i = 0; i < 8 && /Not Responding/.test(await focus()); i++)
+            {
+                const dump = await ask("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; grep -o 'text=\"Wait\"[^>]*bounds=\"[^\"]*\"' /data/local/tmp/ui.xml",
+                    "A32_UI", 900000);
+                const m = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(dump);
+                if(!m) break;
+                await ask(`input tap ${(+m[1] + +m[3]) >> 1} ${(+m[2] + +m[4]) >> 1}`, "A32_TAP", 600000);
+            }
+        };
+        await dismiss_dialogs();
         // a touch: the hotseat's icons, from the left, until one opens its app
         const home = await focus();
         const events = emulator.v86.cpu.devices.goldfish_events;
@@ -194,8 +209,9 @@ try
         for(const column of [0, 1, 3, 4])
         {
             events.tap(fb.width * (column + 0.5) / 5, fb.height * 0.86, fb.width, fb.height);
-            await new Promise(resolve => setTimeout(resolve, 30000));
+            await new Promise(resolve => setTimeout(resolve, 60000));
             opened = await focus();
+            if(/Not Responding/.test(opened)) { await dismiss_dialogs(); opened = await focus(); }
             if(opened && opened !== home) break;
         }
         console.log(`touch: ${home} -> ${opened}`);
@@ -214,6 +230,7 @@ try
         const installed = await ask("base64 -d /data/local/tmp/app.b64 > /data/local/tmp/app.apk && pm install -r /data/local/tmp/app.apk", "A32_INSTALL", 900000);
         console.log("install: " + installed.replace(/\s+/g, " ").slice(-200));
         assert.match(installed, /Success/, "pm install");
+        await dismiss_dialogs();
         const started = await ask("am start -W -n org.v86.arm32/android.app.NativeActivity", "A32_START", 900000);
         console.log("start: " + started.replace(/\s+/g, " ").slice(-300));
         let drew = "";

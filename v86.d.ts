@@ -971,9 +971,11 @@ export interface V86Options {
      * @default 1
      */
     cpu_cores?: number;
-    /** Testing option. All device clocks and TSC share this domain; deterministic mode uses the interpreter. */
+    /** Testing option. All device clocks and TSC share this domain; deterministic mode uses the interpreter.
+     * rate (normal mode, at most 1, cooperative cores): the machine's milliseconds per host millisecond, so that the
+     * guest's timeouts get more host time on a slow CPU (its wall clock lags). */
     cpu_clock?: { mode?: "normal" | "deterministic"; instructions_per_ms?: number;
-        wall_epoch_ms?: number; max_host_delta_ms?: number };
+        wall_epoch_ms?: number; max_host_delta_ms?: number; rate?: number };
     /** Testing option: work budget for each CPU scheduling slice. */
     cpu_quantum?: number;
     /** Testing option: seed for reproducible CPU scheduling. */

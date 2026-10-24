@@ -178,8 +178,9 @@ export const PRESETS = [
         install: ["android"], install_text: "The Android Emulator's system image zip (system-images/android-25/google_apis/armeabi-v7a, " +
             "armeabi-v7a-25_r18.zip), made into a disk: its kernel, ramdisk, system, cache and userdata (docs/android-images-plan.md I6)",
         disk_mb: 4 * GB, disk_location: "browser", checklist: [],
-        issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 10 minutes on 2 cores",
-            "The guest draws with the CPU (no host GPU): a slow desktop", "No sound"],
+        issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 7 minutes on 2 cores",
+            "The guest draws with the CPU (no host GPU): a slow desktop",
+            "The guest's clock runs at a tenth of the host's, so that Android's timeouts suit this CPU", "No sound"],
         hardware: c =>
         {
             c.cpu.type = "arm32";

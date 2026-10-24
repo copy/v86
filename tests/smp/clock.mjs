@@ -262,4 +262,18 @@ test("invalid clock rates, committed counts and deadlines are rejected", () => {
     assert.throws(() => clock.advance_to(Infinity));
 });
 
+test("a normal clock's rate: the machine's time at a fraction of the host's, waits scaled back", () => {
+    let host = 0;
+    const clock = new MachineClock({ now: () => host, rate: 0.25 });
+    host = 400;
+    assert.equal(clock.now(), 100);
+    assert.equal(clock.to_host_ms(100), 400);
+    // (a long host gap: capped first, then scaled)
+    host = 5400;
+    assert.equal(clock.now(), 350);
+    assert.equal(new MachineClock({ now: () => host }).to_host_ms(100), 100);
+    assert.equal(new MachineClock({ mode: "deterministic" }).to_host_ms(100), 100);
+    for(const rate of [0, -1, 1.5, NaN]) assert.throws(() => new MachineClock({ now: () => 0, rate }));
+});
+
 console.log(JSON.stringify({ suite: "machine-clock-devices", passed }));

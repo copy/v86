@@ -16,7 +16,7 @@ Emulator's board.
 | Option | `cpu_type: "arm32"`; `machine_type: "virt"` (the default: [virt.md](virt.md)'s board with a 32-bit device tree) or `"ranchu"` (the Android Emulator's board, [virt.md](virt.md#the-ranchu-machine)) |
 | Profile | `v86-arm32-v1`: ARMv8-A's AArch32 state at PL0 and PL1 (no Hyp, no Monitor, no Security Extensions), LPAE, the generic timer, VFPv4, Advanced SIMD, AES, SHA-1, SHA-256, VMULL.P64 and CRC32; MIDR `0x414FC0F0` (a Cortex-A15's), the AArch32 ID registers of part 1's v3 with PL1's fields |
 | Verified guests | Alpine 3.24 armv7 (Linux 6.18.58, the netboot kernel and initramfs) on 1, 2 and 4 cores: its initramfs with part 1's 32-bit workload, the same output as QEMU's but for the CPU's deliberate differences (below); single-user mode, snapshots, `reboot -f` and `poweroff -f`; from a FAT disk with its modloop and packages to OpenRC's login. kvm-unit-tests arm (selftest, gicv3, psci, pl031, spinlock). The official Android 7.1.1 emulator image (`armeabi-v7a-25_r18`, google_apis) on ranchu with 2 cores and 1 GiB to `sys.boot_completed` |
-| Boot time | Alpine's initramfs stage through the workload: 12.8 s with the page tier (interpreted 174 s, QEMU TCG 7.4 s), 14.3 s on 4 cores. Android 7.1.1 to `sys.boot_completed`: 633 to 826 s on 2 cores with the page tier |
+| Boot time | Alpine's initramfs stage through the workload: 12.8 s with the page tier (interpreted 174 s, QEMU TCG 7.4 s), 14.3 s on 4 cores. Android 7.1.1 to `sys.boot_completed`: 417 s on 2 cores with the page tier (its clock at a tenth of the host's; 333 s at the host's, with SystemUI killed by ANRs). The SDK's emulator no longer runs 32-bit ARM images (35.4.9: "CPU Architecture 'arm' is not supported"), so there is no emulator TCG time to set beside it |
 
 ## The CPU
 
@@ -50,7 +50,14 @@ The device is a low-RAM one (boot property `ro.config.low_ram=true`, the device 
 own windows with Skia on the CPU, because the image's SELinux policy denies it `execmem`, which SwiftShader's JIT needs
 (with GL, system_server's RenderThread jumped into its non-executable JIT code and system_server died), and ANRs write no
 stack traces (`dalvik.vm.stack-trace-file` empty): dumping every process took ActivityManager's lock past the Watchdog's
-60 s on a CPU this slow. The VM manager imports
+60 s on a CPU this slow. Two more of the device model's settings are for this CPU's speed: the machine's clock runs at
+a tenth of the host's (`cpu_clock.rate` 0.1, cooperative cores), so that Android's timeouts (a service's start 20 s, an
+input 5 s, the Watchdog 60 s) get ten times the host time, and background ANRs are shown, not killed
+(`Settings.Secure.ANR_SHOW_BACKGROUND`, set at boot by a service that v64's bootloader adds to `init.ranchu.rc` in a
+second ramdisk archive, `src/android/ramdisk_overlay.js`). Without them SystemUI's start outlasted its timeout, was
+killed and started again for good, and the screen stayed black: the keyguard's opaque scrim, which PhoneWindowManager
+shows until SystemUI's KeyguardService connects, covered the launcher (SurfaceFlinger itself composed and posted
+frames). The guest's clock lags the host's accordingly. The VM manager imports
 the zip into one disk ([android-images-plan.md](android-images-plan.md) I6, the "Android 7.1 (32-bit, emulator image)"
 preset): v64's bootloader hands its kernel and ramdisk partitions to the kernel and makes its system, cache and userdata
 partitions the machine's virtio disks (`src/android/partition_buffer.js`).
@@ -72,7 +79,7 @@ What differs from the emulator: no host GPU (no `opengles` pipe), no boot animat
 | Alpine 3.24 armv7 (pinned SHA-256): the initramfs stage with the 32-bit workload, single-user mode, the lifecycle (snapshots, reboot, poweroff), the live stage from a FAT disk; 1/2/4 cores, interpreted and with the page tier (`A32_STAGE`, `A32_CORES`, `A32_JIT=1`: the page tier, `A32_LINUX_TARGET=qemu\|v86\|both`) | `node tests/a32/linux_boot.mjs` | both |
 | kvm-unit-tests arm (`tests/kvm-unit-tests/build.sh arm`) | `node tests/kvm-unit-tests/arm32.mjs` | both |
 | The ranchu machine's devices through their registers: the device tree, virtio-mmio's legacy transport with virtio-blk, goldfish_events, _battery, _audio, _pipe (qemud's boot properties), the framebuffer, `/cache`'s file system, snapshots | `node tests/a32/ranchu_devices.mjs` | v86 |
-| Android 7.1.1 to `sys.boot_completed`, the screen woken and unlocked, a screenshot (`A32_ANDROID_DISK=1`: the imported disk through the bootloader; `A32_ANDROID_SAVE_STATE`, `A32_ANDROID_RESTORE_STATE`; `A32_ANDROID_LOGCAT=1`) | `node tests/a32/android_boot.mjs` | v86 |
+| Android 7.1.1 to `sys.boot_completed`, the screen woken and unlocked, the home screen; `A32_ANDROID_APP=1`: a tap on the hotseat opens an app, a 32-bit APK (`tests/a32/android/v86arm32.c`, sent over the console) is installed and draws a frame (`A32_ANDROID_DISK=1`: the imported disk through the bootloader; `A32_ANDROID_SAVE_STATE`, `A32_ANDROID_RESTORE_STATE`; `A32_ANDROID_LOGCAT=1`; `A32_ANDROID_PROBE`: shell commands) | `node tests/a32/android_boot.mjs` | v86 |
 | The emulator image's import: the disk, the bootloader, partitions as disks (`tests/android/library.mjs`); the wizard (`part=android_emulator`) | `make app-tests` | — |
 
 `make a32-system-tests` runs these but the Android boot (`make a32-android-tests`); `make a32-tests` runs them with part 1's AArch32 EL0 tests.

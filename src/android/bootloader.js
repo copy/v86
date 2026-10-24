@@ -12,6 +12,7 @@ import { vbmeta_struct, AVB_FLAG_VERIFICATION_DISABLED } from "./avb.js";
 import { android_boot } from "./boot.js";
 import { CF_ARM64_ONLY_PHONE, RANCHU_DEVICES } from "./devices.js";
 import { ranchu_cmdline } from "../virt/ranchu.js";
+import { ramdisk_overlay } from "./ramdisk_overlay.js";
 
 /** the device models by id (the VM config's android.device) */
 export const ANDROID_DEVICES = Object.fromEntries([CF_ARM64_ONLY_PHONE, ...RANCHU_DEVICES].map(d => [d.id, d]));
@@ -52,8 +53,9 @@ export async function android_bootloader(read, disk_size, options)
         };
         const load = async name => { const p = part(name); return new Uint8Array(await read(p.start, p.size)); };
         // (a partition is whole sectors: the kernel's and ramdisk's bytes run to their ends, which the kernel ignores)
-        return { kernel: await load("kernel"), initrd: await load("ramdisk"), cmdline: ranchu_cmdline(device.cmdline), bootconfig: null, vbmeta: null,
-            properties: device.properties || null,
+        return { kernel: await load("kernel"), initrd: await ramdisk_overlay(await load("ramdisk"), device), cmdline: ranchu_cmdline(device.cmdline),
+            bootconfig: null, vbmeta: null,
+            properties: device.properties || null, clock_rate: device.clock_rate || null,
             disks: device.partitions.filter(p => p.disk).map(p => ({ name: p.name, start: part(p.name).start, size: part(p.name).size,
                 readonly: p.disk === "read_only" })) };
     }
