@@ -445,8 +445,12 @@ const low_mb = Math.min(memory_mb, LOW_LIMIT_MB);
 const sink = new PictureSink();
 // A64_ANDROID_GPU=venus (v86): virtio-gpu's level with Venus, drawn by the
 // renderer in a headless Chrome (tests/x64/gpu_remote_renderer.mjs, GL_CHROME)
+// A64_ANDROID_GPU=gfxstream (v86, A64_ANDROID_BOOTLOADER=1): virtio-gpu's
+// level gfxstream, the image's own driver (vulkan.ranchu: gpu mode
+// gfxstream's bootconfig), docs/gfxstream-plan.md
 const gpu_level = process.env.A64_ANDROID_GPU || "";
-assert.ok(!gpu_level || gpu_level === "venus", "A64_ANDROID_GPU: venus");
+assert.ok(!gpu_level || gpu_level === "venus" || gpu_level === "gfxstream", "A64_ANDROID_GPU: venus or gfxstream");
+assert.ok(gpu_level !== "gfxstream" || bootloader, "A64_ANDROID_GPU=gfxstream: with A64_ANDROID_BOOTLOADER=1");
 // (and tools/a64_android.mjs's initrd-venus.img: libvulkan's driver the odm's vulkan.virtio.so)
 const initrd = gpu_level === "venus" ? "initrd-venus.img" : "initrd.img";
 assert.ok(fs.existsSync(OUT + initrd), OUT + initrd + " is missing: make android-venus, then node tools/a64_android.mjs");
@@ -466,7 +470,7 @@ const emulator = new V86({
     ...(process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {}),
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
-    ...(bootloader ? { android: { gpu_mode: gpu_level === "venus" ? "venus" : "swiftshader",
+    ...(bootloader ? { android: { gpu_mode: gpu_level || "swiftshader",
         vendor_ramdisk: JSON.parse(fs.readFileSync(OUT + "manifest.json", "utf8")).vendor_ramdisk === "vendor_ramdisk-debug.img" ?
             { url: ROOT + "build/a64-android/dl/vendor_ramdisk-debug.img" } : undefined } } :
         { kernel: { url: OUT + "Image" }, initrd: { url: OUT + initrd }, cmdline: fs.readFileSync(OUT + "cmdline.txt", "utf8").trim() }),
@@ -488,6 +492,28 @@ emulator.add_listener("emulator-error", error => { console.error("emulator-error
 const loaded = new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
 let sound_bytes = 0;
 emulator.add_listener("virtio-snd-pcm", pcm => { sound_bytes += pcm["bytes"].length; if(sound_chunks) sound_chunks.push(Buffer.from(pcm["bytes"])); });
+// A64_ANDROID_GFXSTREAM_TRACE=1 (with the sources): gfxstream's Vulkan
+// commands (but a command buffer's vkCmd*), each process's, with their
+// results and the stats' errors when they change, into gfxstream-trace.txt
+if(process.env.A64_ANDROID_GFXSTREAM_TRACE)
+{
+    const trace = fs.openSync(directory + "gfxstream-trace.txt", "w"), started = Date.now();
+    let lines = 0, last_error = "";
+    const install = setInterval(() => {
+        const gpu = emulator.v86?.cpu?.devices?.graphics_adapter?.device?.["virtio_gpu"];
+        const vulkan = gpu && gpu.gfxstream && gpu.gfxstream.vulkan;
+        if(!vulkan) return;
+        clearInterval(install);
+        vulkan.on_command = (name, a) => {
+            if(name.startsWith("vkCmd") || ++lines > 200000) return;
+            const t = ((Date.now() - started) / 1000).toFixed(3);
+            const ext = name === "vkCreateDevice" || name === "vkCreateInstance" ? " " + JSON.stringify(a.pCreateInfo.ppEnabledExtensionNames) : "";
+            fs.writeSync(trace, `${t} ${name}${a.ret !== undefined ? " ret=" + a.ret : ""}${ext}\n`);
+            if(vulkan.stats.last_error !== last_error) { last_error = vulkan.stats.last_error; fs.writeSync(trace, `${t} ERROR ${last_error}\n`); }
+        };
+    }, 100);
+    install.unref();
+}
 // A64_ANDROID_VENUS_TRACE=1 (with the sources, not the release build): the
 // device's fence commands, with their answers and the fences' state, and its
 // small readbacks (fence feedback slots), into venus-trace.txt
@@ -525,6 +551,20 @@ if(process.env.A64_ANDROID_GPU_DEBUG)
     setInterval(() => {
         const gpu = emulator.v86?.cpu?.devices?.graphics_adapter?.device?.["virtio_gpu"];
         if(!gpu) return;
+        if(gpu.gfxstream)
+        {
+            // gfxstream: each context's rings (W waiting, B after another ring's command, - idle), Vulkan's stats
+            const g = gpu.gfxstream, v = g.vulkan;
+            console.log(`gpu-debug: held=${gpu.held} pending=${gpu.pending.length} gfxstream pings=${g.stats.pings} commands=${g.stats.commands}` +
+                ` errors=${g.stats.errors}${g.stats.last_error ? " last=" + JSON.stringify(g.stats.last_error) : ""}` +
+                ` contexts=${[...g.contexts.values()].map(c => c.capset + ":" + [...c.rings.values()].map(r => r.waiting ? "W" : r.blocked ? "B" : "-").join("")).join(" ")}` +
+                (v ? ` vulkan commands=${v.stats.commands} flushed=${v.stats.flushed} errors=${v.stats.errors}` +
+                    `${v.stats.last_error ? " last=" + JSON.stringify(v.stats.last_error) : ""} unknown=${JSON.stringify(v.stats.unknown)}` +
+                    ` unimplemented=${JSON.stringify(v.stats.unimplemented)} failures=${JSON.stringify(v.stats.failures)}` +
+                    ` queues=${[...g.vk.queues].map(q => q.pending.length + "p/" + q.inflight + "i").join(",")} waiters=${g.vk.waiters.length}` : "") +
+                ` unknown=${JSON.stringify(g.stats.unknown)}`);
+            return;
+        }
         const first = gpu.pending.find(entry => !entry.ready);
         const vk = gpu.venus && gpu.venus.vk;
         console.log(`gpu-debug: held=${gpu.held} pending=${gpu.pending.length} first-waiting=${first ? "0x" + new DataView(first.bytes.buffer, first.bytes.byteOffset).getUint32(0, true).toString(16) : "-"}` +

@@ -12,6 +12,7 @@
 // model's.
 
 import { COMMANDS, GfxReader, GfxWriter } from "./gfxstream_protocol.js";
+import { DEVICE_EXTENSIONS } from "./venus_device_info.js";
 import { dbg_log } from "../../log.js";
 import { LOG_VIRTIO } from "../../const.js";
 
@@ -23,6 +24,14 @@ const VK_SUCCESS = 0, VK_ERROR_INITIALIZATION_FAILED = -3, VK_ERROR_MEMORY_MAP_F
 const STYPE_WRITE_DESCRIPTOR_SET = 35;
 const STYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA = 1000384002;
 const STYPE_IMPORT_COLOR_BUFFER_GOOGLE = 1000385000, STYPE_IMPORT_BUFFER_GOOGLE = 1000385001, STYPE_CREATE_BLOB_GOOGLE = 1000385002;
+const STYPE_MEMORY_ALLOCATE_INFO = 5, STYPE_NATIVE_BUFFER_ANDROID = 1000010000;
+const STYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO = 1000071000, STYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES = 1000071001;
+// VkExternalMemoryHandleTypeFlagBits: dma-bufs (the model's imports), Android hardware buffers (the guest's)
+const HANDLE_DMA_BUF = 0x200, HANDLE_AHB = 0x400;
+// VkExternalMemoryFeatureFlagBits: dedicated only, exportable, importable
+const EXTERNAL_MEMORY_FEATURES_AHB = 1 | 2 | 4;
+/** the model's device local memory type (venus_device_info.js MEMORY_DEVICE_LOCAL): imports are of it */
+const MEMORY_DEVICE_LOCAL = 0;
 // VkDescriptorType: images (sampler, combined, sampled, storage, input attachment), texel buffers, buffers
 const IMAGE_DESCRIPTORS = new Set([0, 1, 2, 3, 10]), TEXEL_DESCRIPTORS = new Set([4, 5]), BUFFER_DESCRIPTORS = new Set([6, 7, 8, 9]);
 // execbuffer commands with a Vulkan object (gfxstream.js runs them as sync tasks)
@@ -31,6 +40,15 @@ const CREATE_EXPORT_SYNC_VK = 0xa000, CREATE_QSRI_EXPORT_VK = 0xa002;
 const HOST_SYNC_TIMEOUT = 5000;
 // VkFormat's of the swapchain's gralloc usage (GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE)
 const GRALLOC_USAGE_HW = 0x200 | 0x100;
+
+/**
+ * Device extensions the host says it has though the model does not: the
+ * guest takes VK_KHR_external_memory_fd for the host's external memory, and
+ * offers VK_ANDROID_external_memory_android_hardware_buffer then (its own:
+ * color buffer imports, the model's resource imports); it does not enable it
+ * on the host
+ */
+const HOST_EXTENSIONS = [["VK_KHR_external_memory_fd", 1]];
 
 /** the gfxstream commands that are a model's under another name */
 const SAME_AS = {
@@ -94,6 +112,8 @@ GfxstreamVulkan.prototype.state = function(ctx)
             templates: new Map(),
             /** the host syncs' sequence numbers, by queue or command buffer */
             order: new Map(),
+            /** images of gralloc buffers (VkNativeBufferANDROID) -> the memory imported for them */
+            native_images: new Map(),
             since: new Map(),
         };
         this.vk.create_context(st);
@@ -203,6 +223,36 @@ GfxstreamVulkan.prototype.run = function(st, name, entry, a)
             // (one, the same each time)
             if(a.pPhysicalDevices) a.pPhysicalDevices = a.pPhysicalDevices.map(() => st.physical_device || (st.physical_device = this.new_handle()));
             return this.model(st, name, a);
+        case "vkEnumerateDeviceExtensionProperties":
+        {
+            const wait = this.model(st, name, a);
+            if(a.ret !== VK_SUCCESS || a.pLayerName) return wait;
+            const extra = HOST_EXTENSIONS.filter(([n]) => !DEVICE_EXTENSIONS[n]);
+            const total = Object.keys(DEVICE_EXTENSIONS).length + extra.length;
+            if(!a.pProperties) { a.pPropertyCount = total; return wait; }
+            const asked = a.pProperties.length;
+            const all = Object.entries(DEVICE_EXTENSIONS).concat(extra).map(([extensionName, specVersion]) => ({ extensionName, specVersion }));
+            a.pProperties = all.slice(0, asked);
+            a.pPropertyCount = a.pProperties.length;
+            a.ret = asked < total ? 5 /* VK_INCOMPLETE */ : VK_SUCCESS;
+            return wait;
+        }
+        case "vkCreateDevice":
+        {
+            // (what the guest emulates, or gfxstream's host does: not the model's)
+            const info = a.pCreateInfo;
+            const names = info.ppEnabledExtensionNames || [];
+            const kept = names.filter(n => DEVICE_EXTENSIONS[n]);
+            if(kept.length !== names.length)
+            {
+                for(const n of names) if(!DEVICE_EXTENSIONS[n]) this.stats.unimplemented["(extension) " + n] = 1;
+                a.pCreateInfo = Object.assign({}, info, { enabledExtensionCount: kept.length, ppEnabledExtensionNames: kept });
+            }
+            a.pDevice = this.new_handle();
+            const wait = this.model(st, name, a);
+            a.pCreateInfo = info;
+            return wait;
+        }
         case "vkGetDeviceQueue":
         case "vkGetDeviceQueue2":
         {
@@ -213,12 +263,23 @@ GfxstreamVulkan.prototype.run = function(st, name, entry, a)
             st.queues.set(key, a.pQueue);
             return this.model(st, name, a);
         }
+        case "vkCreateImage":
+            a.pImage = this.new_handle();
+            this.create_image(st, a);
+            return null;
+        case "vkDestroyImage":
+        {
+            const memory = st.native_images.get(a.image);
+            this.model(st, name, a);
+            if(memory) { st.native_images.delete(a.image); this.model(st, "vkFreeMemory", { device: a.device, memory, pAllocator: null }); }
+            return null;
+        }
         case "vkCreateImageWithRequirementsGOOGLE":
         case "vkCreateBufferWithRequirementsGOOGLE":
         {
             const image = name === "vkCreateImageWithRequirementsGOOGLE";
-            if(image) a.pImage = this.new_handle(); else a.pBuffer = this.new_handle();
-            this.model(st, image ? "vkCreateImage" : "vkCreateBuffer", a);
+            if(image) { a.pImage = this.new_handle(); this.create_image(st, a); }
+            else { a.pBuffer = this.new_handle(); this.model(st, "vkCreateBuffer", a); }
             if(a.ret !== VK_SUCCESS) return null;
             const q = image ? { device: a.device, image: a.pImage, pMemoryRequirements: {} } : { device: a.device, buffer: a.pBuffer, pMemoryRequirements: {} };
             this.model(st, image ? "vkGetImageMemoryRequirements" : "vkGetBufferMemoryRequirements", q);
@@ -311,6 +372,34 @@ GfxstreamVulkan.prototype.run = function(st, name, entry, a)
             a.pNativeFenceFd = -1;
             a.ret = VK_SUCCESS;
             return null;
+        case "vkGetPhysicalDeviceImageFormatProperties2":
+        case "vkGetPhysicalDeviceImageFormatProperties2KHR":
+        {
+            // Android hardware buffers: gralloc's, virtio-gpu resources the
+            // model imports as it imports dma-bufs (the guest keeps only AHB's
+            // bits of what the host says)
+            let ahb = false;
+            const chain = [];
+            for(let s = a.pImageFormatInfo.pNext; s; s = s.pNext)
+            {
+                const copy = Object.assign({}, s);
+                if(s.sType === STYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO && s.handleType === HANDLE_AHB) { copy.handleType = HANDLE_DMA_BUF; ahb = true; }
+                chain.push(copy);
+            }
+            if(!ahb) return this.model(st, "vkGetPhysicalDeviceImageFormatProperties2", a);
+            for(let i = 0; i < chain.length; i++) chain[i].pNext = chain[i + 1] || null;
+            const info = a.pImageFormatInfo;
+            a.pImageFormatInfo = Object.assign({}, info, { pNext: chain[0] || null });
+            this.model(st, "vkGetPhysicalDeviceImageFormatProperties2", a);
+            a.pImageFormatInfo = info;
+            for(let s = a.pImageFormatProperties.pNext; s; s = s.pNext)
+            {
+                if(s.sType !== STYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES || a.ret !== VK_SUCCESS) continue;
+                s.externalMemoryProperties = { externalMemoryFeatures: EXTERNAL_MEMORY_FEATURES_AHB,
+                    exportFromImportedHandleTypes: HANDLE_AHB, compatibleHandleTypes: HANDLE_AHB };
+            }
+            return null;
+        }
         case "vkGetSemaphoreGOOGLE":
         case "vkTraceAsyncGOOGLE":
             a.ret = VK_SUCCESS;
@@ -322,6 +411,51 @@ GfxstreamVulkan.prototype.run = function(st, name, entry, a)
         else if(a[p] !== null) a[p] = this.new_handle();
     }
     return this.model(st, SAME_AS[name] || name, a);
+};
+
+/**
+ * vkCreateImage: an image of a gralloc buffer (VkNativeBufferANDROID: the
+ * guest put its virtio-gpu resource's id in the handle) is the model's
+ * image bound to the resource, imported as memory
+ * @param {!Object} st
+ * @param {!Object} a vkCreateImage's parameters, pImage allocated
+ */
+GfxstreamVulkan.prototype.create_image = function(st, a)
+{
+    let native = null;
+    const chain = [];
+    for(let s = a.pCreateInfo.pNext; s; s = s.pNext)
+    {
+        if(s.sType === STYPE_NATIVE_BUFFER_ANDROID) native = s;
+        else chain.push(Object.assign({}, s));
+    }
+    if(!native)
+    {
+        this.model(st, "vkCreateImage", a);
+        return;
+    }
+    for(let i = 0; i < chain.length; i++) chain[i].pNext = chain[i + 1] || null;
+    a.pCreateInfo = Object.assign({}, a.pCreateInfo, { pNext: chain[0] || null });
+    this.model(st, "vkCreateImage", a);
+    if(a.ret !== VK_SUCCESS) return;
+    const q = { device: a.device, image: a.pImage, pMemoryRequirements: {} };
+    this.model(st, "vkGetImageMemoryRequirements", q);
+    const memory = this.new_handle();
+    const alloc = { device: a.device, pAllocator: null, pMemory: memory, pAllocateInfo: { sType: STYPE_MEMORY_ALLOCATE_INFO,
+        pNext: { sType: STYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA, pNext: null, resourceId: native.handle },
+        allocationSize: q.pMemoryRequirements.size || 1, memoryTypeIndex: MEMORY_DEVICE_LOCAL } };
+    this.model(st, "vkAllocateMemory", alloc);
+    if(alloc.ret !== VK_SUCCESS)
+    {
+        this.error("the gralloc buffer of resource " + native.handle + ": not importable (" + alloc.ret + ")");
+        a.ret = alloc.ret;
+        this.model(st, "vkDestroyImage", { device: a.device, image: a.pImage, pAllocator: null });
+        return;
+    }
+    const bind = { device: a.device, image: a.pImage, memory, memoryOffset: 0 };
+    this.model(st, "vkBindImageMemory", bind);
+    st.native_images.set(a.pImage, memory);
+    a.ret = bind.ret === undefined ? VK_SUCCESS : bind.ret;
 };
 
 /**
