@@ -153,7 +153,9 @@ export function Gfxstream(gpu, vk)
     if(this.vulkan) this.decoders.push(...this.vulkan.decoders());
     /** the process pipe's ids (GLProcessPipe) */
     this.next_puid = 1;
-    this.stats = { pings: 0, transfers: 0, bytes: 0, commands: 0, replies: 0, unknown: {}, errors: 0, last_error: "" };
+    this.stats = { pings: 0, transfers: 0, bytes: 0, commands: 0, replies: 0, unknown: {}, errors: 0, last_error: "",
+        /** the sync commands by opcode: [given, waited, done] */
+        syncs: {} };
 }
 
 /** its capsets, [id, version, size] (the device's kinds of context) */
@@ -345,7 +347,13 @@ Gfxstream.prototype.submit = function(ctx_id, bytes, ring_idx)
                 // a task on the context's timeline: done when the GPU's work
                 // it names is (G2: the Vulkan fence's, the image's)
                 const task = this.sync_task(ctx, op, [u32(0), u32(1), u32(2), u32(3)]);
-                if(task) tasks.push(task);
+                const counts = this.stats.syncs[op] = this.stats.syncs[op] || [0, 0, 0];
+                counts[0]++;
+                if(task)
+                {
+                    counts[1]++;
+                    tasks.push(done => task(() => { counts[2]++; done(); }));
+                }
                 break;
             }
             case RESOURCE_CREATE_3D:

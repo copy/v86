@@ -548,9 +548,12 @@ if(process.env.A64_ANDROID_VENUS_TRACE)
 // device's names): virtio-gpu's control queue and Venus's queues every 30 s
 if(process.env.A64_ANDROID_GPU_DEBUG)
 {
+    let debug_lines = 0;
     setInterval(() => {
         const gpu = emulator.v86?.cpu?.devices?.graphics_adapter?.device?.["virtio_gpu"];
         if(!gpu) return;
+        // (and the display every 5 minutes: what reached it)
+        if(++debug_lines % 10 === 0) try { screenshot("gpu-debug-" + debug_lines / 10); } catch(e) { console.log("gpu-debug: no screenshot: " + e.message); }
         if(gpu.gfxstream)
         {
             // gfxstream: each context's rings (W waiting, B after another ring's command, - idle), Vulkan's stats
@@ -562,7 +565,9 @@ if(process.env.A64_ANDROID_GPU_DEBUG)
                     `${v.stats.last_error ? " last=" + JSON.stringify(v.stats.last_error) : ""} unknown=${JSON.stringify(v.stats.unknown)}` +
                     ` unimplemented=${JSON.stringify(v.stats.unimplemented)} failures=${JSON.stringify(v.stats.failures)}` +
                     ` queues=${[...g.vk.queues].map(q => q.pending.length + "p/" + q.inflight + "i").join(",")} waiters=${g.vk.waiters.length}` : "") +
-                ` unknown=${JSON.stringify(g.stats.unknown)}`);
+                ` unknown=${JSON.stringify(g.stats.unknown)} syncs=${JSON.stringify(g.stats.syncs)}` +
+                // (the control queue's commands by type, flushes: KMS's scanouts)
+                ` control=${JSON.stringify(gpu.stats.commands)} flushes=${gpu.stats.flushes} gpu-errors=${gpu.stats.errors}/${gpu.stats.last_error.toString(16)}`);
             return;
         }
         const first = gpu.pending.find(entry => !entry.ready);
