@@ -125,6 +125,23 @@ assert.equal(a.ret, 0, "vkBindImageMemory2 with VkNativeBufferANDROID");
 await clear_and_read(swapchain_image, SWAPCHAIN_RES, [1, 0.5, 0, 1], "the swapchain image");
 console.log("PASS: a swapchain image cleared on the GPU, read back through its gralloc buffer");
 
+// A snapshot (G6), saved and restored: the gralloc buffers' contents (the
+// renderer is reset and makes them again), then the context's objects go on
+// (the handles, the import, the sequence numbers)
+async function read_colour(res, what)
+{
+    control(0x0206, [0, 0, 0, W, H, 1, 0, 0, res, 0, W * 4, 0], false);
+    await settle(what + ": TRANSFER_FROM_HOST_3D");
+    return [...read_bytes(BACKING, 4)];
+}
+const state = await emulator.save_state();
+await emulator.restore_state(state);
+assert.deepEqual(await read_colour(RES, "the AHB, restored"), [64, 128, 191, 255], "the AHB's texels came back");
+assert.deepEqual(await read_colour(SWAPCHAIN_RES, "the swapchain buffer, restored"), [255, 128, 0, 255], "the swapchain buffer's too");
+await clear_and_read(image, RES, [0, 1, 0, 1], "the AHB after the restore");
+await clear_and_read(swapchain_image, SWAPCHAIN_RES, [0, 0, 1, 1], "the swapchain image after the restore");
+console.log("PASS: a snapshot: gralloc buffers' contents, the context's objects go on");
+
 emulator.destroy();
 remote.close();
 await wait(10);

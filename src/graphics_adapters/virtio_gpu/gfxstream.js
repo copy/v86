@@ -6,7 +6,8 @@
 // opcode and a size, each to the decoder of its range: renderControl's,
 // Vulkan's) and the replies back through it; the sync commands as tasks on
 // the context's timeline, and the process pipe (pipe resources:
-// GLProcessPipe) that renderControl's guest opens first.
+// GLProcessPipe) that renderControl's guest opens first; snapshots of all
+// that (G6).
 
 import { GfxstreamVulkan } from "./gfxstream_vk.js";
 
@@ -85,6 +86,8 @@ function Ring(blob)
     this.flags_read = false;
     /** a decoder waits (the GPU's work): decoding resumes when it is done */
     this.waiting = false;
+    /** @type {Uint8Array} the command it waits in (a snapshot decodes it again: the waits are idempotent) */
+    this.waiting_command = null;
     /** a command waits for another ring's (its sequence number): decoded again when one is */
     this.blocked = false;
     /** per decoder, its state for this stream */
@@ -307,6 +310,8 @@ Gfxstream.prototype.submit = function(ctx_id, bytes, ring_idx)
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     /** @type {!Array<function(function())>} the tasks the answer waits for (the GPU's) */
     const tasks = [];
+    /** @type {!Array<!Uint8Array>} their commands (a snapshot gives them again) */
+    const waited = [];
     for(let at = 0; at + 4 <= bytes.length;)
     {
         const op = view.getUint32(at, true), size = COMMAND_SIZE[op];
@@ -360,6 +365,7 @@ Gfxstream.prototype.submit = function(ctx_id, bytes, ring_idx)
                 {
                     counts[1]++;
                     tasks.push(done => task(() => { counts[2]++; done(); }));
+                    waited.push(bytes.subarray(at, at + size));
                 }
                 break;
             }
@@ -377,10 +383,38 @@ Gfxstream.prototype.submit = function(ctx_id, bytes, ring_idx)
     }
     if(!tasks.length) return null;
     // (the fence waits for them all: the timeline's tasks before it)
-    return done => {
+    const wait = done => {
         let left = tasks.length;
         for(const task of tasks) task(() => { if(--left === 0) done(); });
     };
+    // (for a snapshot: save_submission)
+    wait.submission = { ctx_id, bytes: waited, ring_idx: ring_idx || 0 };
+    return wait;
+};
+
+/**
+ * A submission whose answer waits, for a snapshot: its sync commands (they
+ * wait again for what they name, done already or not)
+ * @param {{ctx_id: number, bytes: !Array<!Uint8Array>, ring_idx: number}} submission
+ * @return {!Array}
+ */
+Gfxstream.prototype.save_submission = function(submission)
+{
+    const { ctx_id, bytes, ring_idx } = submission;
+    const all = new Uint8Array(bytes.reduce((n, b) => n + b.length, 0));
+    bytes.reduce((at, b) => { all.set(b, at); return at + b.length; }, 0);
+    return [ctx_id, all, ring_idx];
+};
+
+/**
+ * A snapshot's submission, submitted again (after the contexts are restored)
+ * @param {!Array} saved from save_submission
+ * @return {?function(function())} as submit
+ */
+Gfxstream.prototype.resubmit = function(saved)
+{
+    const [ctx_id, bytes, ring_idx] = saved;
+    return this.submit(ctx_id, Uint8Array.from(bytes), ring_idx);
 };
 
 /**
@@ -410,7 +444,7 @@ Gfxstream.prototype.timer = function(now)
     if(this.vk) this.vk.timer(now);
     for(const ctx of this.contexts.values())
     {
-        for(const ring of ctx.rings.values()) if(!ring.waiting && ring.input_length) this.decode(ctx, ring);
+        for(const ring of ctx.rings.values()) if(!ring.waiting && ring.input_length) this.run(ctx, ring);
     }
 };
 
@@ -421,7 +455,15 @@ Gfxstream.prototype.timer = function(now)
  */
 Gfxstream.prototype.run = function(ctx, asg)
 {
-    if(!asg.ready || asg.blob.map_offset < 0) return;
+    // (as gfxstream's render thread: after it says it needs a ping, what the
+    // guest wrote meanwhile, without one, is read too)
+    for(let pass = 0; pass < 8 && this.run_once(ctx, asg); pass++) {}
+};
+
+/** @return {boolean} whether the guest wrote more once the host said it needs a ping */
+Gfxstream.prototype.run_once = function(ctx, asg)
+{
+    if(!asg.ready || asg.blob.map_offset < 0) return false;
     const view = this.view(), bytes = this.gpu.hostmem_bytes(), base = asg.blob.map_offset, buffer = base + RING_SIZE;
     const config = base + TO_HOST + CONFIG;
     view.setUint32(base + TO_HOST + STATE, HOST_CAN_CONSUME, true);
@@ -460,11 +502,13 @@ Gfxstream.prototype.run = function(ctx, asg)
         view.setUint32(large + READ_POS, large_read, true);
     }
     this.decode(ctx, asg);
-    this.set_state(asg);
+    this.set_host_state(asg);
+    return !asg.waiting && !ctx.destroyed && asg.blob.map_offset === base &&
+        (view.getUint32(ring + WRITE_POS, true) !== read || view.getUint32(large + WRITE_POS, true) !== large_read);
 };
 
 /** The host's state on a ring: rendering while a command waits, else waiting for a ping */
-Gfxstream.prototype.set_state = function(ring)
+Gfxstream.prototype.set_host_state = function(ring)
 {
     if(ring.blob.map_offset >= 0) this.view().setUint32(ring.blob.map_offset + TO_HOST + STATE, ring.waiting ? HOST_RENDERING : HOST_NEED_NOTIFY, true);
 };
@@ -522,6 +566,7 @@ Gfxstream.prototype.decode = function(ctx, ring)
             break;
         }
         if(data.length - p < size) break;
+        const command = data.subarray(p, p + size);
         const payload = data.subarray(p + 8, p + size);
         const decoder = this.decoders.find(d => opcode >= d.first && opcode <= d.last);
         if(!decoder)
@@ -552,13 +597,16 @@ Gfxstream.prototype.decode = function(ctx, ring)
         if(wait)
         {
             ring.waiting = true;
+            ring.waiting_command = command;
             ring.input = [data.subarray(p)];
             ring.input_length = data.length - p;
             /** @type {function(function())} */ (wait)(() => {
+                // (a restored snapshot's ring is another)
+                if(ring.waiting_command !== command) return;
                 ring.waiting = false;
+                ring.waiting_command = null;
                 if(ctx.destroyed) return;
-                this.decode(ctx, ring);
-                this.set_state(ring);
+                this.run(ctx, ring);
                 // (rings whose commands came after it)
                 this.wake_blocked(ctx, ring);
             });
@@ -585,7 +633,7 @@ Gfxstream.prototype.wake_blocked = function(ctx, by)
         if(ring !== by && ring.blocked && !ring.waiting)
         {
             this.decode(ctx, ring);
-            this.set_state(ring);
+            this.set_host_state(ring);
         }
     }
 };
@@ -684,4 +732,119 @@ Gfxstream.prototype.pipe_write = function(pipe, data)
 Gfxstream.prototype.pipe_read = function(pipe, length)
 {
     return Uint8Array.from(pipe.output.splice(0, length));
+};
+
+// ---------------------------------------------------------------------------
+// Snapshots: the contexts (rings, what their streams had not decoded yet,
+// the decoders' state: Vulkan's objects), the process pipes; a command that
+// waited is decoded again from its ring (gfxstream's waits are idempotent:
+// queue and device idles, fences, semaphores, query results)
+
+/** @return {!Array} */
+Gfxstream.prototype.get_state = function()
+{
+    const contexts = [];
+    for(const ctx of this.contexts.values())
+    {
+        const rings = [...ctx.rings.values()].map(r => {
+            const parts = r.waiting && r.waiting_command ? [r.waiting_command, ...r.input] : r.input;
+            const input = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+            parts.reduce((at, p) => { input.set(p, at); return at + p.length; }, 0);
+            return [r.blob.id, r.ready, r.flags_read, input];
+        });
+        contexts.push([ctx.id, ctx.capset, rings, [...ctx.pending_blobs], ctx.sync,
+            this.vulkan ? this.vulkan.save_context(ctx, o => o instanceof GfxstreamBlob ? ["blob", o.id] : null) : null]);
+    }
+    return [this.next_puid, contexts, this.vulkan ? this.vulkan.get_state() : null];
+};
+
+/**
+ * @param {!Array} state from get_state
+ * @param {function(number): GfxstreamBlob} blob_of the restored blob of a resource id
+ */
+Gfxstream.prototype.set_state = function(state, blob_of)
+{
+    // (the renderer was reset: the old contexts' waits never go on)
+    for(const ctx of this.contexts.values())
+    {
+        ctx.destroyed = true;
+        for(const ring of ctx.rings.values()) ring.waiting_command = null;
+    }
+    this.contexts.clear();
+    const [next_puid, contexts, vulkan] = state;
+    this.next_puid = next_puid;
+    const restored = [];
+    for(const [id, capset, rings, pending_blobs, sync, vulkan_context] of contexts)
+    {
+        const ctx = new GfxstreamContext(id, capset);
+        this.contexts.set(id, ctx);
+        for(const [blob_id, ready, flags_read, input] of rings)
+        {
+            const blob = blob_of(blob_id);
+            if(!blob) continue;
+            const ring = new Ring(blob);
+            ring.ready = ready;
+            ring.flags_read = flags_read;
+            if(input.length)
+            {
+                // (decoded again by the timer, or once another ring's command is)
+                ring.input = [Uint8Array.from(input)];
+                ring.input_length = input.length;
+                ring.blocked = true;
+            }
+            ctx.rings.set(blob_id, ring);
+        }
+        ctx.pending_blobs = new Map(pending_blobs);
+        ctx.sync = sync;
+        if(vulkan_context && this.vulkan) restored.push(this.vulkan.restore_context(ctx, vulkan_context, blob_of));
+    }
+    if(this.vulkan && vulkan) this.vulkan.set_state(vulkan, restored);
+};
+
+/**
+ * Before a save: the rings run (the machine is stopped: nothing pings them)
+ * until no command waits and `idle` says the device's requests are done,
+ * for a while at most
+ * @param {function(): boolean} idle
+ * @return {!Promise}
+ */
+Gfxstream.prototype.settle = function(idle)
+{
+    const deadline = Date.now() + 5000;
+    const waiting = () => [...this.contexts.values()].some(ctx => [...ctx.rings.values()].some(r => r.waiting));
+    return new Promise(resolve => {
+        const step = () => {
+            if(this.vk) this.vk.wake();
+            for(const ctx of this.contexts.values())
+            {
+                for(const ring of ctx.rings.values()) if(!ring.waiting) this.run(ctx, ring);
+            }
+            if(idle() && !waiting() || Date.now() > deadline) resolve(undefined);
+            else setTimeout(step, 5);
+        };
+        step();
+    });
+};
+
+/**
+ * A pipe, for a snapshot
+ * @param {!Object} pipe a Pipe
+ * @return {!Array}
+ */
+Gfxstream.prototype.save_pipe = function(pipe)
+{
+    return [pipe.service, pipe.name, pipe.output, pipe.confirmed];
+};
+
+/**
+ * @param {!Array} saved from save_pipe
+ * @return {!Pipe}
+ */
+Gfxstream.prototype.restore_pipe = function(saved)
+{
+    const pipe = new Pipe();
+    [pipe.service, pipe.name, pipe.output, pipe.confirmed] = saved;
+    pipe.name = Array.from(pipe.name);
+    pipe.output = Array.from(pipe.output);
+    return pipe;
 };

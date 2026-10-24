@@ -13,6 +13,7 @@
 
 import { COMMANDS, GfxReader, GfxWriter } from "./gfxstream_protocol.js";
 import { DEVICE_EXTENSIONS } from "./venus_device_info.js";
+import { encode_objects, decode_objects } from "./venus_state.js";
 import { dbg_log } from "../../log.js";
 import { LOG_VIRTIO } from "../../const.js";
 
@@ -625,6 +626,65 @@ GfxstreamVulkan.prototype.sync_task = function(ctx, op, words)
         if(check()) done();
         else vk.add_waiter(check, Infinity, () => done());
     };
+};
+
+// Snapshots (G6): a context's objects and tables as Venus's are saved
+// (venus_state.js); the model makes the renderer's objects again
+
+/** the key of a context's own tables among its objects in a snapshot (handles start at 0x1000) */
+const TABLES = -1;
+
+/** @return {!Array} */
+GfxstreamVulkan.prototype.get_state = function()
+{
+    return [this.next_handle, this.vk.get_state()];
+};
+
+/**
+ * @param {!Array} state from get_state
+ * @param {!Array<!Object>} contexts the contexts' Vulkan states, restored (restore_context)
+ */
+GfxstreamVulkan.prototype.set_state = function(state, contexts)
+{
+    const [next_handle, model] = state;
+    this.next_handle = next_handle;
+    this.vk.set_state(model, contexts);
+};
+
+/**
+ * A context's Vulkan state for a snapshot: its objects, its tables
+ * @param {!Object} ctx
+ * @param {function(!Object): Array} outside [kind, id] of an object owned elsewhere (a blob)
+ * @return {?string}
+ */
+GfxstreamVulkan.prototype.save_context = function(ctx, outside)
+{
+    const st = ctx.decoder_state.get("vulkan");
+    if(!st) return null;
+    const objects = new Map(st.objects);
+    objects.set(TABLES, { physical_device: st.physical_device, seqno: st.seqno, blobs: st.blobs, queues: st.queues,
+        templates: st.templates, order: st.order, native_images: st.native_images });
+    return encode_objects(objects, o => o === st ? ["ctx", ctx.id] : outside(o));
+};
+
+/**
+ * @param {!Object} ctx the restored context
+ * @param {string} json from save_context
+ * @param {function(number): Object} blob_of the restored blob of a resource id
+ * @return {!Object} its Vulkan state
+ */
+GfxstreamVulkan.prototype.restore_context = function(ctx, json, blob_of)
+{
+    const st = this.state(ctx);
+    const objects = decode_objects(json, ([kind, x]) => kind === "ctx" ? st : kind === "blob" ? blob_of(x) : null);
+    const tables = objects.get(TABLES);
+    objects.delete(TABLES);
+    st.objects = objects;
+    st.physical_device = tables.physical_device;
+    st.seqno = tables.seqno;
+    for(const key of ["blobs", "queues", "templates", "order", "native_images"]) st[key] = tables[key];
+    st.since = new Map();
+    return st;
 };
 
 /** CTX_DESTROY: the process's objects go */

@@ -10,7 +10,7 @@
 // (vkQueueFlushCommandsGOOGLE) and submitted without a reply
 // (vkQueueSubmitAsyncGOOGLE), a fence exported (CREATE_EXPORT_SYNC_VK on a
 // ring's timeline), and a second ring's command held until the one before
-// it in the process's sequence.
+// it in the process's sequence, across a snapshot.
 
 import assert from "assert/strict";
 process.on("unhandledRejection", exn => { throw exn; });
@@ -18,26 +18,39 @@ process.on("unhandledRejection", exn => { throw exn; });
 const { gfxstream_machine, GUEST_COMMANDS, GfxReader, OK, OK_MAP_INFO, HOST3D, MAPPABLE, CTX } = await import("./gfxstream_guest_driver.js");
 const VX = (await import("../../src/graphics_adapters/renderer_protocol.js")).VX;
 
-// a renderer whose memories are arrays (VX: the commands this test needs)
+// a renderer whose memories are arrays (VX: the commands this test needs;
+// a snapshot's readbacks: memories', the rest answered "not done")
 let to_device = null;
 const vx_memory = new Map(), vx_log = [];
+const respond = (id, data) => {
+    const answer = new Uint8Array(16 + (data ? data.length : 0));
+    const v = new DataView(answer.buffer);
+    v.setUint32(0, id, true); v.setUint32(4, data ? data.length : 0, true); v.setUint32(12, data ? 1 : 0, true);
+    if(data) answer.set(data, 16);
+    to_device({ "type": "write", "offset": 16 * 1024, "bytes": answer });
+};
+const GX_SURFACE_READBACK = 4;
 const renderer = {
     "post": message => {
         if(message["type"] !== "submit") return;
-        if(message["stream"] === "vx")
+        const words = new Uint32Array(message["bytes"].buffer, message["bytes"].byteOffset, message["bytes"].byteLength >> 2);
+        for(let at = 4; at < words[2];)
         {
-            const words = new Uint32Array(message["bytes"].buffer, message["bytes"].byteOffset, message["bytes"].byteLength >> 2);
-            for(let at = 4; at < words[2];)
+            const op = words[at], n = words[at + 1], b = words.subarray(at + 2, at + 2 + n);
+            const bytes = new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+            at += 2 + n;
+            if(message["stream"] !== "vx")
             {
-                const op = words[at], n = words[at + 1], b = words.subarray(at + 2, at + 2 + n);
-                const bytes = new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
-                at += 2 + n;
-                vx_log.push(op);
-                if(op === VX.MEMORY_CREATE) vx_memory.set(b[0], new Uint8Array(b[1]));
-                else if(op === VX.DESTROY) vx_memory.delete(b[0]);
-                else if(op === VX.MEMORY_WRITE) vx_memory.get(b[0]).set(bytes.subarray(16, 16 + b[3]), b[1]);
-                else if(op === VX.COPY_BUFFER) vx_memory.get(b[3]).set(vx_memory.get(b[0]).slice(b[1], b[1] + b[6]), b[4]);
+                if(message["stream"] === "gx" && op === GX_SURFACE_READBACK) respond(b[9], null);
+                continue;
             }
+            vx_log.push(op);
+            if(op === VX.MEMORY_CREATE) vx_memory.set(b[0], new Uint8Array(b[1]));
+            else if(op === VX.DESTROY) vx_memory.delete(b[0]);
+            else if(op === VX.MEMORY_WRITE) vx_memory.get(b[0]).set(bytes.subarray(16, 16 + b[3]), b[1]);
+            else if(op === VX.COPY_BUFFER) vx_memory.get(b[3]).set(vx_memory.get(b[0]).slice(b[1], b[1] + b[6]), b[4]);
+            else if(op === VX.MEMORY_READ) respond(b[4], vx_memory.get(b[0]).slice(b[1], b[1] + b[3]));
+            else if(op === VX.TEXTURE_READ) respond(b[4], null);
         }
         to_device({ "type": "done", "seq": message["seq"] });
     },
@@ -186,12 +199,21 @@ const first = ++driver.seqno, second = ++driver.seqno;
 push(ring2, encode("vkGetFenceStatus", { device, fence }, second));
 ping(ring2);
 assert.equal(replies(ring2).length, 0, "ring 2's command (number " + second + ") waits for number " + first);
+// (G6: a snapshot meanwhile, restored: the command still waits on its ring,
+// the process's objects and sequence go on)
+const objects = gpu.gfxstream.contexts.get(CTX).decoder_state.get("vulkan").objects.size;
+const state = await emulator.save_state();
+await emulator.restore_state(state);
+const restored = gpu.gfxstream.contexts.get(CTX);
+assert.ok(restored.rings.get(ring2.res).input_length > 0, "ring 2's command kept, not decoded");
+assert.equal(restored.decoder_state.get("vulkan").objects.size, objects, "the process's objects");
 push(ring1, encode("vkDestroyFence", { device, fence, pAllocator: null }, first));
 ping(ring1);
 const r = new GfxReader(replies(ring2));
 assert.equal(GUEST_COMMANDS.vkGetFenceStatus[2](r, {}).ret, 0, "then it runs: vkGetFenceStatus of a destroyed fence");
+assert.equal(call("vkGetDeviceQueue", { device, queueFamilyIndex: 0, queueIndex: 0, pQueue: 0 }).pQueue, queue, "the queue's handle, as before");
 errors();
-console.log("PASS: two rings in the process's sequence");
+console.log("PASS: two rings in the process's sequence, across a snapshot");
 
 assert.equal(command(0x0201), OK, "CTX_DESTROY");
 assert.ok(!gpu.gfxstream.contexts.has(CTX));
