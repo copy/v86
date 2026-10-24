@@ -11,7 +11,7 @@ import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZ
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
 
 export const FORMAT = "v86-vm";
-export const VERSION = 1;
+export const VERSION = 2;
 
 /**
  * Where an image is (the plan's 镜像来源): a URL (or a disk service's), a
@@ -68,9 +68,9 @@ export const VERSION = 1;
  * @property {{bzimage: Image | null, initrd: Image | null, cmdline: string | null, multiboot: Image | null, from_filesystem: boolean} | null} kernel
  * @property {Android | null} android Android booted from its disk: the kernel and initrd from its boot partitions
  *     (kernel's cmdline, if any, after the device's)
- * @property {{adapter: string, vram_mb: number | null, proxy: boolean, vulkan: boolean, displays: number}} display vram_mb: null
- *     with an initial_state, whose video memory it is; vulkan: virtio-gpu's Vulkan (Venus contexts), drawn by the
- *     graphics proxy's WebGPU renderer
+ * @property {{adapter: string, vram_mb: number | null, proxy: boolean, vulkan: "none" | "venus" | "gfxstream", displays: number}} display
+ *     vram_mb: null with an initial_state, whose video memory it is; vulkan: virtio-gpu's Vulkan, drawn by the graphics
+ *     proxy's WebGPU renderer: Venus contexts, or gfxstream's (its contexts only: Android's official images)
  * @property {Network[]} network one on the PC machines; up to four virtio-net cards on virt (Android's
  *     three), at most one of them with a backend
  * @property {{device: "sb16" | "virtio" | "none"}} sound virtio: virt's virtio-snd
@@ -88,14 +88,17 @@ export const VERSION = 1;
 /**
  * Android's bootloader (docs/android-images-plan.md I2): the device
  * models of src/android/devices.js, its GPU modes (venus: Android's own
- * Venus driver, as tools/a64_android.mjs puts it in odm; with
- * display.vulkan), the vendor ramdisks (debug: Cuttlefish's
+ * Venus driver, as tools/a64_android.mjs puts it in odm, with display.vulkan
+ * "venus"; gfxstream: the image's own drivers, with display.vulkan
+ * "gfxstream"), the vendor ramdisks (debug: Cuttlefish's
  * vendor_ramdisk-debug.img, a file of its own) and SELinux's modes
- * @typedef {{device: string, gpu_mode: "swiftshader" | "venus", vendor_ramdisk: "release" | "debug",
+ * @typedef {{device: string, gpu_mode: "swiftshader" | "venus" | "gfxstream", vendor_ramdisk: "release" | "debug",
  *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive"}} Android
  */
 export const ANDROID_DEVICES = ["cf_arm64_only_phone"];
-export const ANDROID_GPU_MODES = ["swiftshader", "venus"];
+export const ANDROID_GPU_MODES = ["swiftshader", "venus", "gfxstream"];
+/** display.vulkan: none, Venus contexts, gfxstream's */
+export const DISPLAY_VULKAN = ["none", "venus", "gfxstream"];
 export const ANDROID_VENDOR_RAMDISKS = ["release", "debug"];
 export const ANDROID_SELINUX = ["enforcing", "permissive"];
 /** an android section's defaults
@@ -170,7 +173,7 @@ export function with_defaults(config)
     c.floppies = Array.isArray(c.floppies) ? c.floppies.map(f => Object.assign({ image: null, disk_option: "read_only" }, f)) : [];
     c.kernel = is_object(c.kernel) ? Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, c.kernel) : null;
     c.android = is_object(c.android) ? Object.assign({}, ANDROID_DEFAULTS, c.android) : null;
-    section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: false, displays: 1 });
+    section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: "none", displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
     section("sound", { device: "sb16" });
     section("virt", Object.assign({}, VIRT_DEFAULTS));
@@ -192,10 +195,19 @@ function default_network()
 }
 
 /**
- * Each version's change to the next (none yet: version 1 is the first)
+ * Each version's change to the next
  * @type {Object<number, function(any): any>}
  */
-const MIGRATIONS = {};
+const MIGRATIONS = {
+    // 2 (2026-10-24, docs/gfxstream-plan.md G5): display.vulkan names the kind, Venus or gfxstream
+    1: config => {
+        if(is_object(config.display) && typeof config.display.vulkan === "boolean")
+        {
+            config = Object.assign({}, config, { display: Object.assign({}, config.display, { vulkan: config.display.vulkan ? "venus" : "none" }) });
+        }
+        return config;
+    },
+};
 
 /**
  * A stored or imported configuration in the current version: older versions
@@ -410,7 +422,8 @@ export function validate_config(config)
         if(!virt || config.cpu.type !== "arm64") problem("android", "Android boots on the arm64 virt machine");
         one_of(a.device, ANDROID_DEVICES, "android.device");
         one_of(a.gpu_mode, ANDROID_GPU_MODES, "android.gpu_mode");
-        if(a.gpu_mode === "venus" && config.display.vulkan !== true) problem("android.gpu_mode", "Venus needs virtio-gpu's Vulkan (display.vulkan)");
+        if(a.gpu_mode === "venus" && config.display.vulkan !== "venus") problem("android.gpu_mode", "Venus needs virtio-gpu's Venus (display.vulkan)");
+        if(a.gpu_mode === "gfxstream" && config.display.vulkan !== "gfxstream") problem("android.gpu_mode", "gfxstream needs virtio-gpu's gfxstream (display.vulkan)");
         one_of(a.vendor_ramdisk, ANDROID_VENDOR_RAMDISKS, "android.vendor_ramdisk");
         if(a.vendor_ramdisk === "debug" && a.debug_ramdisk === null) problem("android.debug_ramdisk", "the debug vendor ramdisk (vendor_ramdisk-debug.img) is a file of its own: choose it");
         if(a.debug_ramdisk !== null) check_image(a.debug_ramdisk, "android.debug_ramdisk", problems);
@@ -437,9 +450,9 @@ export function validate_config(config)
         problem("display.vram_mb", "must be a power of two from 1 to " + (MAX_VRAM_SIZE >> 20) + " MB");
     }
     bool(display.proxy, "display.proxy");
-    bool(display.vulkan, "display.vulkan");
-    if(display.vulkan === true && display.adapter !== "virtio_gpu") problem("display.vulkan", "only virtio-gpu has Vulkan");
-    else if(display.vulkan === true && display.proxy !== true) problem("display.vulkan", "needs the graphics proxy, whose WebGPU renderer draws it");
+    if(!DISPLAY_VULKAN.includes(display.vulkan)) problem("display.vulkan", "must be one of " + DISPLAY_VULKAN.join(", "));
+    else if(display.vulkan !== "none" && display.adapter !== "virtio_gpu") problem("display.vulkan", "only virtio-gpu has Vulkan");
+    else if(display.vulkan !== "none" && display.proxy !== true) problem("display.vulkan", "needs the graphics proxy, whose WebGPU renderer draws it");
     int(display.displays, "display.displays", 1, 4);
     if(display.displays > 1 && display.adapter !== "virtio_gpu") problem("display.displays", "only virtio-gpu has more than one display");
 
@@ -691,7 +704,7 @@ export function config_to_options(config, env)
         }
         if(display.displays > 1) settings.displays = display.displays;
         // (the device's level, chosen at power-on: a state image has its own)
-        if(display.vulkan) settings.virtio_gpu_level = "venus";
+        if(display.vulkan !== "none") settings.virtio_gpu_level = display.vulkan;
         settings.mtu = network ? network.mtu : DEFAULT_MTU;
     }
     settings.relay_url = relay_url_of(network);

@@ -118,7 +118,7 @@ export function open_wizard(options)
             {
                 // (its images as they are: SwiftShader, no Venus driver; the disk kept and written)
                 if(config.android) config.android.gpu_mode = "swiftshader";
-                config.display.vulkan = false;
+                config.display.vulkan = "none";
                 config.display.proxy = false;
                 const size = state.android.info.disk_size(state.android.userdata_gib);
                 config.disks = [{ slot: "hda", image: state.location === "service" ? { kind: "url", url: made || "(created when finished)", size, async: true } :

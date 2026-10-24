@@ -105,19 +105,26 @@ test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLO
 test("change: Android's bootloader follows the machine and Vulkan", () =>
 {
     let { config, notes } = change(preset_config(preset("android16")), "display.proxy", false);
-    assert.equal(config.display.vulkan, false);
+    assert.equal(config.display.vulkan, "none");
     assert.equal(config.android.gpu_mode, "swiftshader");
     assert.ok(notes.some(n => /SwiftShader/.test(n)), JSON.stringify(notes));
     assert.equal(fitted(config).config.android.gpu_mode, "swiftshader");
     ({ config, notes } = change(preset_config(preset("android16")), "cpu.type", "x86"));
     assert.equal(config.android, null);
     assert.ok(notes.some(n => /Android's bootloader off/.test(n)), JSON.stringify(notes));
+    // (gfxstream for the display: Android's GPU follows)
+    ({ config, notes } = change(preset_config(preset("android16")), "display.vulkan", "gfxstream"));
+    assert.equal(config.android.gpu_mode, "gfxstream");
+    assert.ok(notes.some(n => /Android's GPU: gfxstream/.test(n)), JSON.stringify(notes));
+    assert.deepEqual(problems(config), []);
+    assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "gfxstream" });
+    assert.equal(config_to_options(config, ENV).android.gpu_mode, "gfxstream");
 });
 
 test("the summary's rows: Android's display and sound", () =>
 {
     const rows = Object.fromEntries(hardware_rows(preset_config(preset("android16"))));
-    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan");
+    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan (Venus)");
     assert.equal(rows["Sound"], "virtio-snd");
     assert.equal(rows["Android boot"], "from the first disk (cf_arm64_only_phone), Venus");
     assert.equal(Object.fromEntries(hardware_rows(preset_config(preset("dos"))))["Sound"], "Sound Blaster 16");
@@ -161,19 +168,20 @@ test("change: what a choice implies, and says", () =>
 
 test("change: Vulkan and the graphics proxy", () =>
 {
-    let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", true);
+    let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", "venus");
     assert.equal(config.display.proxy, true);
     assert(notes.some(n => /Graphics proxy: on/.test(n)), notes.join("; "));
     assert.deepEqual(problems(config), []);
     assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "venus" });
     ({ config, notes } = change(config, "display.proxy", false));
-    assert.equal(config.display.vulkan, false);
+    assert.equal(config.display.vulkan, "none");
     assert(notes.some(n => /Vulkan: off/.test(n)), notes.join("; "));
     // (a PC keeps virtio-gpu and its Vulkan; another adapter drops it)
-    ({ config } = change(change(config, "display.vulkan", true).config, "cpu.type", "x86"));
-    assert.equal(config.display.vulkan, true);
+    ({ config } = change(change(config, "display.vulkan", "gfxstream").config, "cpu.type", "x86"));
+    assert.equal(config.display.vulkan, "gfxstream");
+    assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "gfxstream" });
     ({ config } = change(config, "display.adapter", "bochs_vga"));
-    assert.equal(config.display.vulkan, false);
+    assert.equal(config.display.vulkan, "none");
     assert.deepEqual(problems(config), []);
 });
 
@@ -224,7 +232,7 @@ test("random sequences of the dialog's choices (5000 changes): every configurati
             () => ["display.vram_mb", pick([1, 8, 16, 64, ch.max_vram])],
             () => ["display.displays", config.display.adapter === "virtio_gpu" ? pick([1, 2, 4]) : 1],
             () => ["display.proxy", pick([true, false])],
-            () => ["display.vulkan", config.display.adapter === "virtio_gpu" && pick([true, false])],
+            () => ["display.vulkan", config.display.adapter === "virtio_gpu" ? pick(["none", "venus", "gfxstream"]) : "none"],
             () => ["network.0.device", pick(ch.net_devices)],
             () => ["network.0.backend", pick(["none", "inbrowser", "fetch"])],
             () => ["sound.device", pick(ch.sound_devices)],

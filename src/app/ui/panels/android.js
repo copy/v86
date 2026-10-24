@@ -15,8 +15,9 @@ import { disk_id } from "../../browser_disks.js";
 
 const DEVICES = { cf_arm64_only_phone: "Cuttlefish arm64-only phone (aosp_cf_arm64_only_phone)" };
 const GPU = {
-    swiftshader: "SwiftShader: the CPU draws (Android starts; its desktop needs gfxstream, docs/gfxstream-plan.md)",
+    swiftshader: "SwiftShader: the CPU draws (Android starts; its desktop needs a GPU)",
     venus: "Venus: the disk's own Venus driver (tools/a64_android.mjs puts it in odm), drawn by the graphics proxy",
+    gfxstream: "gfxstream: the image's own drivers (official images), drawn by the graphics proxy",
 };
 const RAMDISKS = {
     release: "The device's own (release: adb asks on the screen)",
@@ -52,8 +53,10 @@ export function android_panel(ctx)
     return [
         h("p.note", null, "v64 boots Android from the first hard disk: the kernel, initrd and command line come from its boot partitions."),
         select_field("Device model", ANDROID_DEVICES, a.device, value => set("device", value), v => DEVICES[v] || v),
-        select_field("GPU", ANDROID_GPU_MODES, a.gpu_mode, value => set("gpu_mode", value), v => GPU[v] || v,
-            ctx.config.display.vulkan ? {} : { disabled: a.gpu_mode === "swiftshader", title: "Venus needs Vulkan (Display: Vulkan)" }),
+        // (a GPU mode other than SwiftShader is the display's Vulkan: chosen there)
+        select_field("GPU", ANDROID_GPU_MODES.filter(v => v === "swiftshader" || v === ctx.config.display.vulkan || v === a.gpu_mode), a.gpu_mode,
+            value => set("gpu_mode", value), v => GPU[v] || v,
+            ctx.config.display.vulkan !== "none" ? {} : { disabled: a.gpu_mode === "swiftshader", title: "Venus and gfxstream need the display's Vulkan (Display: Vulkan)" }),
         select_field("Vendor ramdisk", ANDROID_VENDOR_RAMDISKS, a.vendor_ramdisk, value => set("vendor_ramdisk", value), v => RAMDISKS[v] || v),
         a.vendor_ramdisk === "debug" ? image_picker({ label: "Debug vendor ramdisk (vendor_ramdisk-debug.img, from the build's artifacts on ci.android.com)",
             role: "file", image: a.debug_ramdisk, store: ctx.store, on_change: image => set("debug_ramdisk", image) }) : null,

@@ -87,10 +87,19 @@ test("migrate: missing fields get their defaults, the given ones stay", () =>
     assert.deepEqual(with_defaults(config), config, "with_defaults keeps a whole configuration");
 });
 
+test("migrate: version 1's display.vulkan (a boolean) names Venus", () =>
+{
+    const venus = migrate({ format: FORMAT, version: 1, id: "x", display: { adapter: "virtio_gpu", proxy: true, vulkan: true } });
+    assert.equal(venus.version, VERSION);
+    assert.equal(venus.display.vulkan, "venus");
+    assert.equal(migrate({ format: FORMAT, version: 1, id: "y", display: { vulkan: false } }).display.vulkan, "none");
+    assert.equal(migrate({ format: FORMAT, version: 1, id: "z" }).display.vulkan, "none");
+});
+
 /** Every check: a change of a valid configuration and the field it is reported on */
 const RULES = [
     ["format", c => { c.format = "x"; }, "format"],
-    ["version", c => { c.version = 2; }, "version"],
+    ["version", c => { c.version = 1; }, "version"],
     ["no id", c => { c.id = ""; }, "id"],
     ["no name", c => { c.name = "  "; }, "name"],
     ["a long name", c => { c.name = "x".repeat(201); }, "name"],
@@ -153,8 +162,9 @@ const RULES = [
     ["the state's video memory without a state", c => { c.display.vram_mb = null; }, "display.vram_mb"],
     ["the proxy", c => { c.display.proxy = 1; }, "display.proxy"],
     ["Vulkan", c => { c.display.vulkan = 1; }, "display.vulkan"],
-    ["Vulkan on Bochs VGA", c => { c.display.proxy = true; c.display.vulkan = true; }, "display.vulkan"],
-    ["Vulkan without the proxy", c => { c.display.adapter = "virtio_gpu"; c.display.vulkan = true; }, "display.vulkan"],
+    ["Vulkan of another kind", c => { c.display.adapter = "virtio_gpu"; c.display.proxy = true; c.display.vulkan = "virgl"; }, "display.vulkan"],
+    ["Vulkan on Bochs VGA", c => { c.display.proxy = true; c.display.vulkan = "venus"; }, "display.vulkan"],
+    ["Vulkan without the proxy", c => { c.display.adapter = "virtio_gpu"; c.display.vulkan = "gfxstream"; }, "display.vulkan"],
     ["5 displays", c => { c.display.adapter = "virtio_gpu"; c.display.displays = 5; }, "display.displays"],
     ["2 displays on Bochs VGA", c => { c.display.displays = 2; }, "display.displays"],
     ["two network cards", c => { c.network.push(c.network[0]); }, "network"],
@@ -193,7 +203,9 @@ const RULES = [
     ["cpuid_level on virt", c => { Object.assign(c, arm64()); c.advanced.cpuid_level = 2; }, "advanced.cpuid_level"],
     ["Android on a PC", c => { c.android = android(); c.disks = [disk()]; }, "android"],
     ["Android's device", c => { Object.assign(c, arm64(), { android: android({ device: "pixel" }), disks: [disk()] }); }, "android.device"],
-    ["Android's GPU mode", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "gfxstream" }), disks: [disk()] }); }, "android.gpu_mode"],
+    ["Android's GPU mode", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "virgl" }), disks: [disk()] }); }, "android.gpu_mode"],
+    ["Android's gfxstream with Venus", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "gfxstream" }), disks: [disk()] });
+        Object.assign(c.display, { proxy: true, vulkan: "venus" }); }, "android.gpu_mode"],
     ["Android's Venus without Vulkan", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "venus" }), disks: [disk()] }); }, "android.gpu_mode"],
     ["Android's vendor ramdisk", c => { Object.assign(c, arm64(), { android: android({ vendor_ramdisk: "eng" }), disks: [disk()] }); }, "android.vendor_ramdisk"],
     ["Android's debug ramdisk not chosen", c => { Object.assign(c, arm64(), { android: android({ vendor_ramdisk: "debug" }), disks: [disk()] }); }, "android.debug_ramdisk"],
@@ -268,7 +280,7 @@ test("config_to_options: the configuration's fields", () =>
     c.cdrom.image = { kind: "browser", path: "v86/disks/cd.img", size: 2048 };
     c.floppies = [floppy({ image: { kind: "empty", size: 1474560 } })];
     c.kernel = kernel({ bzimage: { kind: "url", url: "k.bin", async: false }, cmdline: "quiet" });
-    c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: true, vulkan: true, displays: 2 };
+    c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: true, vulkan: "venus", displays: 2 };
     c.network = [{ device: "virtio", backend: "fetch", relay_url: "https://cors.invalid/", mtu: 9000, mac_address_translation: true }];
     c.sound.device = "none";
     c.serial = [{ port: 0, attach: "terminal" }, { port: 2, attach: "modem" }];

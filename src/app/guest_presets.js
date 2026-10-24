@@ -172,7 +172,7 @@ export const PRESETS = [
             c.display.adapter = "virtio_gpu";
             // (Venus, as initrd-venus.img's libvulkan wants it: SwiftShader's desktop on initrd.img takes too long to draw)
             c.display.proxy = true;
-            c.display.vulkan = true;
+            c.display.vulkan = "venus";
             c.sound.device = "virtio";
             // (three virtio-net cards, as Cuttlefish's: its Wi-Fi, the third, on the fetch backend)
             c.network = [0, 1, 2].map(i => ({ device: "virtio", backend: i === 2 ? "fetch" : "none", relay_url: "", mtu: 1500, mac_address_translation: false }));

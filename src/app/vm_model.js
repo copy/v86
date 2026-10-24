@@ -11,6 +11,9 @@ import { CPU_TYPES, MAX_VRAM_SIZE, allowed_options } from "../machine_options.js
 import { MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, Q35_PAGE_DEVICES } from "../browser/vm_options.js";
 import { SOUND_DEVICES, BOOT_ORDERS } from "./vm_config.js";
 
+/** Android's GPU modes and display.vulkan's kinds, as the notes name them */
+const GPU_NAMES = { swiftshader: "SwiftShader", venus: "Venus", gfxstream: "gfxstream", none: "none" };
+
 /** @typedef {import("./vm_config.js").VMConfig} VMConfig */
 
 /** The sound devices of the virt machine (virtio-snd) */
@@ -137,10 +140,15 @@ function fit(c, notes)
         note("Display: " + c.display.adapter + (virt ? " (the virt machine has no VGA)" : ""));
     }
     if(c.display.adapter !== "virtio_gpu" && c.display.displays > 1) { c.display.displays = 1; note("One display: only virtio-gpu has more"); }
-    if(c.display.adapter !== "virtio_gpu" && c.display.vulkan) { c.display.vulkan = false; note("No Vulkan: only virtio-gpu has it"); }
-    // (Android: the arm64 virt machine's; Venus with Vulkan)
+    if(c.display.adapter !== "virtio_gpu" && c.display.vulkan !== "none") { c.display.vulkan = "none"; note("No Vulkan: only virtio-gpu has it"); }
+    // (Android: the arm64 virt machine's; Venus and gfxstream with theirs)
     if(c.android && (!virt || c.cpu.type !== "arm64")) { c.android = null; note("Android's bootloader off: Android boots on the arm64 virt machine"); }
-    if(c.android && c.android.gpu_mode === "venus" && !c.display.vulkan) { c.android.gpu_mode = "swiftshader"; note("Android's GPU: SwiftShader (Venus needs Vulkan)"); }
+    if(c.android && c.android.gpu_mode !== "swiftshader" && c.display.vulkan !== c.android.gpu_mode)
+    {
+        const was = c.android.gpu_mode;
+        c.android.gpu_mode = c.display.vulkan === "none" ? "swiftshader" : c.display.vulkan;
+        note("Android's GPU: " + GPU_NAMES[c.android.gpu_mode] + " (" + GPU_NAMES[was] + " needs the display's " + GPU_NAMES[was] + ")");
+    }
     const max_network = virt ? 4 : 1;
     if(c.network.length > max_network)
     {
@@ -203,14 +211,14 @@ export function change(config, path, value)
         c.machine.smbus = Q35_PAGE_DEVICES.smbus;
         c.machine.pcie_root_ports = Q35_PAGE_DEVICES.pcie_root_ports;
     }
-    if(path === "display.vulkan" && value && !c.display.proxy)
+    if(path === "display.vulkan" && value !== "none" && !c.display.proxy)
     {
         c.display.proxy = true;
         notes.push("Graphics proxy: on (its WebGPU renderer draws Vulkan)");
     }
-    if(path === "display.proxy" && !value && c.display.vulkan)
+    if(path === "display.proxy" && !value && c.display.vulkan !== "none")
     {
-        c.display.vulkan = false;
+        c.display.vulkan = "none";
         notes.push("Vulkan: off (it needs the graphics proxy)");
     }
     if(path === "cpu.type" && value === "arm64" && c.machine.type !== "virt")
