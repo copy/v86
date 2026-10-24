@@ -215,6 +215,7 @@ pub fn cps(imod: u32, aif: u32, change_mode: bool, new_mode: u32) {
 /// CPSR from memory): CPSR := `value`, the PC `target` aligned for the
 /// instruction set it returns to
 pub fn return_to(target: u32, value: u32) -> Flow {
+    crate::aarch64::jit::pages::a32_trace(7, target, value);
     set_cpsr(value);
     unsafe { *excl_valid = 0 };
     Flow::Jump((target & if value & PSTATE_T != 0 { !1 } else { !3 }) as u64)
@@ -396,6 +397,7 @@ pub fn vfp_system(register: u32, rt: u32, to_core: bool) -> Result<Flow, Excepti
 /// the masks `mask` set, T and E as SCTLR says
 fn enter(offset: u32, new_mode: u32, lr: u32, mask: u32) {
     let old = cpsr();
+    crate::aarch64::jit::pages::a32_trace(6, cpu::get_pc() as u32, old);
     let sctlr = cpu::sctlr() as u32;
     let mut value = get_pstate()
         & !(0x1F | PSTATE_T | PSTATE_IT | PSTATE_E | PSTATE_IL | PSTATE_SS)
@@ -460,6 +462,11 @@ pub fn take_sync(exception: Exception) {
             PSTATE_I,
         ),
         Exception::InstructionAbort { fsc, far } => {
+            // (a64_page_aarch32_trace: EL0's execute permission faults, which
+            // Linux makes SIGSEGV)
+            if fsc & 0x3C == 0x0C && cpu::el() == 0 {
+                crate::aarch64::jit::pages::a32_trace_dump("an instruction permission fault");
+            }
             unsafe {
                 *a32_ifsr = fsr(fsc);
                 *far_el1 = *far_el1 & 0xFFFF_FFFF | (far as u32 as u64) << 32;

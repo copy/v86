@@ -74,7 +74,7 @@ struct Switch {
     set: fn(u32) -> bool,
 }
 const UNSET: u32 = u32::MAX;
-const SWITCHES: [Switch; 10] = [
+const SWITCHES: [Switch; 11] = [
     Switch {
         name: "a64_page",
         default: 0,
@@ -137,6 +137,12 @@ const SWITCHES: [Switch; 10] = [
         default: 0,
         get: || unsafe { pages::AARCH32_FILTER },
         set: |v| v < 32 << 16 && unsafe { pages::AARCH32_FILTER = v } == (),
+    },
+    Switch {
+        name: "a64_page_aarch32_trace",
+        default: 0,
+        get: || unsafe { pages::A32_TRACE as u32 },
+        set: |v| v <= 1 && unsafe { pages::A32_TRACE = v != 0 } == (),
     },
     Switch {
         name: "a64_asid_tag",

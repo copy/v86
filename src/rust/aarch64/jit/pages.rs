@@ -56,6 +56,105 @@ pub static mut AARCH32: bool = true;
 pub static mut AARCH32_DEBUG: u32 = 1;
 /// (bisecting, a64_page_aarch32_filter) n << 16 | pattern
 pub static mut AARCH32_FILTER: u32 = 0;
+/// (debugging, a64_page_aarch32_trace) the last events of AArch32's EL0
+/// code, its exceptions and returns, printed when an IT instruction is
+/// UNDEFINED inside an IT block (a32_trace_dump)
+pub static mut A32_TRACE: bool = false;
+const TRACE_LENGTH: usize = 384;
+/// (kind, core, ITSTATE, PC, extra): kinds 1 interpreted (the word), 2 a
+/// helper (the word), 3 a function entered (its slot), 4 left (the exit
+/// code | retired << 8), 5 a step (before), 8 its end (the step's result),
+/// 6 an exception taken (the CPSR it saved), 7 an exception return (the CPSR)
+static mut TRACE: [(u8, u8, u8, u32, u32); TRACE_LENGTH] = [(0, 0, 0, 0, 0); TRACE_LENGTH];
+static mut TRACE_AT: usize = 0;
+#[inline(always)]
+pub fn a32_trace(kind: u8, pc: u32, extra: u32) {
+    unsafe {
+        if !A32_TRACE {
+            return;
+        }
+        TRACE[TRACE_AT % TRACE_LENGTH] = (
+            kind,
+            current_core() as u8,
+            crate::aarch64::t32::itstate() as u8,
+            pc,
+            extra,
+        );
+        TRACE_AT += 1;
+    }
+}
+/// (a64_page_aarch32_trace) the trace, oldest first, and the page function's
+/// view of the PC's page (pagegen::describe_a32)
+pub fn a32_trace_dump(why: &str) {
+    if !unsafe { A32_TRACE } {
+        return;
+    }
+    let pc = cpu::get_pc();
+    console_log!("a32 trace: {} at {:x} core {}", why, pc, current_core());
+    let at = unsafe { TRACE_AT };
+    for i in at.saturating_sub(TRACE_LENGTH)..at {
+        let (kind, core, it, pc, extra) = unsafe { TRACE[i % TRACE_LENGTH] };
+        let name = [
+            "?", "interp", "helper", "enter", "leave", "step", "exc", "eret", "stepped",
+        ][kind as usize % 9];
+        console_log!(
+            "  {} c{} it={:02x} {:08x} {:08x}",
+            name,
+            core,
+            it,
+            pc,
+            extra
+        );
+    }
+    let mode = mode();
+    if let Some(key) = code_page(pc, mode) {
+        let code_key = key & ((1 << MODE_SHIFT) - 1);
+        let r = rt();
+        let entries: Vec<u16> = r.pages.get(&key).map_or(Vec::new(), |state| {
+            (0..4096u16)
+                .filter(|&o| state.entries[o as usize / 64] >> (o % 64) & 1 != 0)
+                .collect()
+        });
+        let compiled = r.by_page.get(&key).is_some();
+        if code_key < bus::EXTENDED_CODE_KEY {
+            let bytes = unsafe {
+                std::slice::from_raw_parts(bus::MEM8.add((code_key << 12) as usize), 4096)
+            };
+            let offset = (pc & 0xFFF) as u16;
+            console_log!(
+                "a32 trace: page key {:x} compiled {} entries {:?}",
+                key,
+                compiled,
+                entries
+            );
+            console_log!(
+                "{}",
+                pagegen::describe_a32(
+                    bytes,
+                    &entries,
+                    pagegen::CompileEnv {
+                        el1: false,
+                        sp_checked: false,
+                        chaining: true,
+                        neon: unsafe { super::NEON },
+                        helpers: unsafe { super::HELPERS },
+                        system: unsafe { super::SYSTEM },
+                        relaxed_fma: unsafe { super::RELAXED_FMA },
+                        isa: if mode & !1 == MODE_T32 {
+                            pagegen::Isa::T32
+                        }
+                        else {
+                            pagegen::Isa::A32
+                        },
+                    },
+                    offset.saturating_sub(32),
+                    offset + 16,
+                )
+            );
+        }
+    }
+    unsafe { TRACE_AT = 0 };
+}
 /// Interpreted instructions on a page before it is compiled
 pub static mut HOT: u32 = 2000;
 /// Unserved entries of a published function before its page is recompiled
@@ -719,6 +818,7 @@ fn execute(slot: u32, budget: u32, pc: u64) -> Ran {
     }
     let r = rt();
     r.stats[ACTIVATIONS] += 1;
+    a32_trace(3, pc as u32, slot);
     let native = unsafe {
         call_indirect1_ret(
             (slot + crate::aarch64::root::WASM_TABLE_OFFSET) as i32,
@@ -758,6 +858,11 @@ fn execute(slot: u32, budget: u32, pc: u64) -> Ran {
         _ => {},
     }
     release_dead(rt());
+    a32_trace(
+        4,
+        cpu::get_pc() as u32,
+        unsafe { *a64_page_exit } | retired << 8,
+    );
     Ran::Native { retired, flow }
 }
 
@@ -1066,6 +1171,10 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
 /// it; whether the page is due for a recompile (the function then leaves)
 #[no_mangle]
 pub fn a64_page_unserved(pc: u64) -> u32 {
+    // (inside an IT block, a step's PC: no entry, compiled code never starts there)
+    if cpu::aarch32() && crate::aarch64::t32::itstate() != 0 {
+        return 0;
+    }
     let mode = mode();
     let Some(key) = code_page(pc, mode)
     else {
@@ -1151,7 +1260,11 @@ impl StepFrontend for A64Step {
         if changed {
             note_step(CHANGED_CONTEXT, key, word);
         }
-        if unsafe { (*(&raw const STEP_FLOW)).is_some() } || changed || interrupt_pending() {
+        // (T32: inside an IT block, which the interpreter finishes: the
+        // function's next instruction may be a native IT block's, compiled
+        // for ITSTATE 0)
+        let it = cpu::aarch32() && crate::aarch64::t32::itstate() != 0;
+        if unsafe { (*(&raw const STEP_FLOW)).is_some() } || changed || it || interrupt_pending() {
             return StepOutcome::Exit;
         }
         StepOutcome::Continue
@@ -1291,6 +1404,7 @@ pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
 #[no_mangle]
 pub fn a32_page_helper(word: u32, pc: u64, length: u32) -> u32 {
     unsafe { HELPERS += 1 };
+    a32_trace(2, pc as u32, word);
     let thumb = cpu::get_pstate() & cpu::PSTATE_T != 0;
     note_step(
         HELPED,
@@ -1318,6 +1432,12 @@ pub fn a32_page_helper(word: u32, pc: u64, length: u32) -> u32 {
 #[no_mangle]
 pub fn a64_page_step() -> i32 {
     rt().stats[STEPS] += 1;
+    if cpu::aarch32() {
+        a32_trace(5, cpu::get_pc() as u32, 0);
+        let result = step::step::<A64Step>() as i32;
+        a32_trace(8, cpu::get_pc() as u32, result as u32);
+        return result;
+    }
     step::step::<A64Step>() as i32
 }
 

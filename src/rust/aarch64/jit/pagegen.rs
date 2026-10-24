@@ -558,6 +558,33 @@ struct Emitter<'a> {
 /// The state block's fields generated code reads and writes
 fn x_address(n: usize) -> u32 { state::x as u32 + 8 * n as u32 }
 
+/// (debugging, pages::a32_trace_dump) AArch32 discovery's blocks over the
+/// offsets [from, to): each one's start, instructions' kinds and end
+pub fn describe_a32(bytes: &[u8], entries: &[u16], env: CompileEnv, from: u16, to: u16) -> String {
+    let (blocks, _) = a32::discover(bytes, entries, &env);
+    let mut out = String::new();
+    for b in &blocks {
+        let last = b
+            .insts32
+            .last()
+            .map_or(b.start, |&(o, i)| o + i.length as u16);
+        if last < from || b.start >= to {
+            continue;
+        }
+        out += &format!("block {:x}:", b.start);
+        for (o, i) in &b.insts32 {
+            out += &format!(" {:x}={}", o, a32::kind_name(&i.kind));
+        }
+        out += &match b.end {
+            End::Stop => " stop".to_string(),
+            End::StepAt(o) => format!(" step@{:x}", o),
+            End::Next(o) => format!(" next@{:x}", o),
+        };
+        out += "\n";
+    }
+    out
+}
+
 pub fn compile(bytes: &[u8], entries: &[u16], env: CompileEnv, name: String) -> Option<Compiled> {
     let words: Vec<u32> = bytes
         .chunks_exact(4)

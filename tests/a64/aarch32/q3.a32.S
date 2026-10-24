@@ -6,12 +6,15 @@
 // them, and an exception in the middle of one (ITSTATE in SPSR_EL1) whose
 // return goes on with the block. A load-exclusive that spins (the same
 // doubleword again and again: the interpreter's yield) overwriting its
-// base register. An IT block the end of a page cuts, in a loop.
+// base register. An IT block the end of a page cuts, in a loop. A native
+// IT block (all its instructions native) that something which is not code
+// "branches" into, run from an offset the page's function does not serve
+// (it steps the instructions up to the IT and the IT itself).
 // The table: count, then per case offset (+1: T32), resumes, NZCV.
     .syntax unified
     .arm
 base:
-    .word   21
+    .word   22
     .word   a32_branches - base, 0, 0
     .word   a32_bl - base, 0, 0
     .word   a32_bx_t32 - base, 0, 0
@@ -33,6 +36,7 @@ base:
     .word   a32_ldrexd_spin - base, 0, 0
     .word   t32_ldrexd_spin - base + 1, 0, 0
     .word   t32_it_page - base + 1, 0, 0
+    .word   t32_it_bogus - base + 1, 0, 0
 
 a32_branches:
     b       1f
@@ -259,3 +263,30 @@ t32_it_page:
     cmp     r2, #0
     bne     1b
     svc     #25
+
+    .balign 4096
+t32_it_bogus:
+    movs    r0, #4
+    movs    r5, #3
+    movs    r6, #0
+1:  cmp     r5, #0
+    bne     2f
+    blx     t32_it_bogus_arm    @ never runs: a step (to A32), after it
+    bne.n   4f                  @ what discovery takes for code: a target in the IT block
+2:  adr     r1, 3f + 1
+    bx      r1                  @ to an offset no block starts at: stepped from there
+    .balign 4
+3:  mov     r4, r0
+    cmp     r0, #0
+    it      ne
+4:  addne   r0, #8              @ the native IT block
+    str     r0, [sp, #-4]
+    itt     ne                  @ a helper's IT block (a load in it)
+    ldrne   r7, [sp, #-4]
+    addne   r6, r7
+    subs    r5, #1
+    bne     1b
+    svc     #26
+    .arm
+t32_it_bogus_arm:
+    bx      lr

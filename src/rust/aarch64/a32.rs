@@ -1341,6 +1341,9 @@ pub fn interpret_one(address: u64) -> Flow {
     unsafe { INSTRUCTION_LENGTH = if thumb { 2 } else { 4 } };
     let result = fetch(address, thumb).and_then(|(word, length)| {
         unsafe { INSTRUCTION_LENGTH = length };
+        if unsafe { crate::aarch64::jit::pages::A32_TRACE } && crate::aarch64::cpu::el() == 0 {
+            crate::aarch64::jit::pages::a32_trace(1, address as u32, word);
+        }
         // (a breakpoint: BAS 1111 or 0011 the word, 1100 its second halfword)
         if unsafe { crate::aarch64::debug::ANY_BREAKPOINT } {
             if let Some(exception) = crate::aarch64::debug::check_breakpoint(address) {

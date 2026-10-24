@@ -9,8 +9,10 @@
 //! an immediate), raises an exception (SVC, BKPT, UDF) or waits (WFE, WFI,
 //! YIELD), and the UNPREDICTABLE forms around the PC, are single steps.
 //! Inside an IT block every instruction is a helper call or a step (ITSTATE
-//! decides their conditions); compiled code is entered at ITSTATE 0
-//! (pages::run).
+//! decides their conditions), but in IT blocks of native instructions only
+//! (their conditions compiled, ITSTATE left 0, no block starts inside);
+//! compiled code is entered at ITSTATE 0 (pages::run), and a step that
+//! leaves ITSTATE set ends the activation.
 
 use super::{Block, CompileEnv, Emitter, End, Isa, A0, A1, A2, C0, C1, NZCV, PAGE};
 use crate::aarch64::state;
@@ -168,6 +170,29 @@ pub enum Kind {
     /// an IT whose instructions are all native (with their conditions,
     /// pagegen's discovery): nothing at run time, ITSTATE stays 0
     It,
+}
+
+/// (debugging) the kind's name, and a condition's
+pub fn kind_name(kind: &Kind) -> String {
+    match kind {
+        Kind::Helper => "helper".into(),
+        Kind::Branch { cond, .. } => format!("branch/{}", cond),
+        Kind::CompareBranch { .. } => "cbz".into(),
+        Kind::Exchange { cond, .. } => format!("bx/{}", cond),
+        Kind::Data { cond, s, .. } => format!("data{}/{}", if *s { "s" } else { "" }, cond),
+        Kind::Wide { cond, .. } => format!("wide/{}", cond),
+        Kind::Mem { cond, .. } => format!("mem/{}", cond),
+        Kind::Multiple { .. } => "multiple".into(),
+        Kind::Multiply { cond, .. } => format!("mul/{}", cond),
+        Kind::Extend { cond, .. } => format!("extend/{}", cond),
+        Kind::Dual { .. } => "dual".into(),
+        Kind::Bits { cond, .. } => format!("bits/{}", cond),
+        Kind::FpMemory { .. } => "fpmem".into(),
+        Kind::FpArith { .. } => "fparith".into(),
+        Kind::FpMove { .. } => "fpmove".into(),
+        Kind::Vld1 { .. } => "vld1".into(),
+        Kind::It => "it".into(),
+    }
 }
 
 /// Data processing's second operand
@@ -1742,8 +1767,8 @@ pub(super) fn discover(
     // the instructions IT blocks cover (helpers or steps only), but those of
     // native IT blocks (their conditions)
     let mut covered: BTreeSet<u16> = BTreeSet::new();
-    let mut native_it: BTreeMap<u16, u8> = BTreeMap::new();
-    let mut decode = |o: u16, covered: &mut BTreeSet<u16>| -> (Option<Inst32>, u16) {
+    let native_it: std::cell::RefCell<BTreeMap<u16, u8>> = Default::default();
+    let decode = |o: u16, covered: &mut BTreeSet<u16>| -> (Option<Inst32>, u16) {
         let Some((word, length)) = fetch(o)
         else {
             return (None, 2);
@@ -1753,7 +1778,7 @@ pub(super) fn discover(
             kind = None;
         }
         // (an instruction of an IT block whose instructions are all native)
-        if let Some(&cond) = native_it.get(&o) {
+        if let Some(&cond) = native_it.borrow().get(&o) {
             return (
                 t32_native_it(word, length, cond).map(|kind| Inst32 { word, length, kind }),
                 length as u16,
@@ -1827,7 +1852,7 @@ pub(super) fn discover(
                 });
             if native && matches!(kind, Some(Kind::Helper)) {
                 for &(at, _, cond) in &block {
-                    native_it.insert(at, cond);
+                    native_it.borrow_mut().insert(at, cond);
                 }
                 kind = Some(Kind::It);
             }
@@ -1877,6 +1902,12 @@ pub(super) fn discover(
             }
         }
     }
+    // (no block starts inside a native IT block: its instructions run with
+    // their conditions and ITSTATE 0, so none may be entered nor left at.
+    // Such a start is the target of something that is not code (a literal
+    // pool's "branch" after a call that does not return) or a stepped PC
+    // inside the block; the interpreter runs those)
+    starts.retain(|o| !native_it.borrow().contains_key(o));
     let mut blocks = Vec::new();
     let mut index = BTreeMap::new();
     for &start in &starts {

@@ -432,6 +432,9 @@ fn t16_miscellaneous(hw: u32, pc: u32, cond: u32) -> Result<Flow, Exception> {
                 // IT: firstcond:mask (UNPREDICTABLE in a block, or with cond 1111, or AL with a mask bit set)
                 let first = hw >> 4 & 15;
                 if in_it_block() || first == 15 || first == 14 && (hw & 15).count_ones() != 1 {
+                    if in_it_block() && crate::aarch64::cpu::el() == 0 {
+                        crate::aarch64::jit::pages::a32_trace_dump("IT in an IT block");
+                    }
                     return Err(Exception::Undefined);
                 }
                 set_itstate(hw & 0xFF);

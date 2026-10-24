@@ -110,9 +110,12 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
 - **R7.1**：官方 Android 7.1.1（`armeabi-v7a-25_r18`）在 arm32、ranchu、2 核、1 GiB 上到 `sys.boot_completed`
   （安静的主机 633–826 s；`tests/a32/android_boot.mjs`，`A32_ANDROID_DISK=1` 走导入的盘）。途中修正：页层帮助调用里
   自旋的 LDREXD 被重做一次（`f71ea54b`：执行后的 Yield 当作未执行）。未完：开机后屏幕仍黑（framebuffer 的通路
-  本身可用：`cat /dev/urandom > /dev/graphics/fb0` 能上屏；客体的 GLES 是 SwiftShader 的 JIT），偶发的崩溃各见一次
-  （libstagefright 里 IT 块内的 `itt` 得到 SIGILL；执行 SwiftShader 的 JIT 页得到 SIGSEGV），主机忙时 system_server
-  被 Watchdog 杀掉（线程 60 s 无响应）；触摸开应用、安装 APK 未做。
+  本身可用：`cat /dev/urandom > /dev/graphics/fb0` 能上屏；客体的 GLES 是 SwiftShader 的 JIT），执行 SwiftShader 的
+  JIT 页偶尔得到 SIGSEGV，主机忙时 system_server 被 Watchdog 杀掉（线程 60 s 无响应）；触摸开应用、安装 APK 未做。
+  libstagefright 里 `itt` 的 SIGILL（每次开机同一处）已查明并修正：开关 `a64_page_aarch32_trace` 的事件环显示，
+  页函数从它不服务的偏移起逐条单步，单步了 IT 本身（ITSTATE 置位）后分派进一个**原生 IT 块**（条件编进代码、
+  ITSTATE 保持 0）的块头；这个块头来自字面量池被当作代码时的“bne”（不返回的调用之后）。现在发现阶段删去原生 IT
+  块内部的块起点，留下 ITSTATE 的单步结束这次执行，ITSTATE 非零时不记入口（q3 的 `t32_it_bogus`：修正前与解释器不同）。
 - **R8.1**（`150e8f65`）：VM 管理器的处理器“ARM (32-bit, ARMv7-A)”，两种 ARM CPU 都可选 virt 与 ranchu，预设
   “Linux (ARM 32-bit)”与“Android 7.1 (32-bit, emulator image)”；ranchu 的规则（无显示适配器、无声音、只有
   virtio-mmio）、Android 设备型号决定机器与 CPU；app 测试（presets、machine_rules、向导的 android_emulator）。
