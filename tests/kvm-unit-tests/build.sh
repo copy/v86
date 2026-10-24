@@ -16,7 +16,7 @@ arch="${1:-i386}"
 shift || true
 kut_arm64_commit=5a221342a025948fa7d84f0c404748f6ba57f3ad
 
-case "$arch" in arm64-*)
+case "$arch" in arm64-*|arm)
     page="${arch#arm64-}"
     ksrc="${KUT_ARM64_SRC:-$src/../../build/a64-ref/kvm-unit-tests}"
     ksrc="$(cd "$ksrc"; pwd)"
@@ -25,7 +25,12 @@ case "$arch" in arm64-*)
         echo "$ksrc is not kvm-unit-tests $kut_arm64_commit" >&2
         exit 1
     fi
-    if [ $# -eq 0 ]
+    if [ $# -eq 0 ] && [ "$arch" = arm ]
+    then
+        # (ARCH arm: the 32-bit tests, cpu_type arm32's: docs/aarch32-plan.md R5.1)
+        # (upstream's timer, cache, debug and fpu tests are arm64's)
+        set -- arm/selftest.flat arm/psci.flat arm/gic.flat arm/pmu.flat arm/pl031.flat arm/spinlock-test.flat arm/sieve.flat
+    elif [ $# -eq 0 ]
     then
         set -- arm/selftest.flat arm/psci.flat arm/timer.flat arm/gic.flat arm/cache.flat arm/debug.flat \
             arm/fpu.flat arm/pl031.flat arm/spinlock-test.flat
@@ -38,12 +43,19 @@ case "$arch" in arm64-*)
     llvm="${LLVM_BIN:-$(dirname "$(command -v llvm-objcopy || echo /opt/homebrew/opt/llvm/bin/llvm-objcopy)")}"
     mkdir -p tools
     ln -sf "$rust_bin/rust-lld" tools/ld.lld
-    cc="clang -target aarch64-unknown-linux-gnu --ld-path=$out/tools/ld.lld -Wno-unknown-warning-option -Wno-unused-command-line-argument"
+    if [ "$arch" = arm ]
+    then
+        cc="clang -target armv7a-unknown-linux-gnueabi --ld-path=$out/tools/ld.lld -Wno-unknown-warning-option -Wno-unused-command-line-argument"
+        configure_args=(--arch=arm)
+    else
+        cc="clang -target aarch64-unknown-linux-gnu --ld-path=$out/tools/ld.lld -Wno-unknown-warning-option -Wno-unused-command-line-argument"
+        configure_args=(--arch=arm64 --page-size="$page")
+    fi
     if [ ! -f config.mak ]
     then
         # (upstream's configure insists on bash 4 but runs on macOS's 3.2)
         sed -e '/BASH_VERSINFO/,/^fi$/d' -e "s|^srcdir=.*|srcdir=\"$ksrc\"|" "$ksrc/configure" > configure
-        bash ./configure --arch=arm64 --page-size="$page" --cc="$cc" --ld="$out/tools/ld.lld" --disable-werror
+        bash ./configure "${configure_args[@]}" --cc="$cc" --ld="$out/tools/ld.lld" --disable-werror
     fi
     tools=(CC="$cc" LD="$out/tools/ld.lld" OBJCOPY="$llvm/llvm-objcopy" OBJDUMP="$llvm/llvm-objdump" READELF="$llvm/llvm-readelf" AR="$llvm/llvm-ar")
     # (the object directories: only `make all` creates them)

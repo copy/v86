@@ -199,6 +199,14 @@ static void known_answers(void)
     __asm__ volatile("vld1.32 {q0}, [%1]\n vld1.32 {q1}, [%2]\n vqadd.s16 q2, q0, q1\n vmul.f32 q3, q0, q1\n vmla.f32 q2, q3, q1\n"
         "vpadd.i32 d4, d4, d5\n vcnt.8 d5, d6\n vst1.32 {q2}, [%0]" : : "r"(r), "r"(a), "r"(b) : "q0", "q1", "q2", "q3", "memory");
     vector("neon", r, 4);
+    /* (the crypto instructions only where HWCAP2 has them: AES 1, PMULL 2,
+     * SHA1 4, SHA2 8; a CPU without them, the 32-bit reference's cortex-a15, says none) */
+    u32 hwcap2 = auxv(26);
+    if((hwcap2 & 15) != 15)
+    {
+        out(" aes=none sha=none pmull=none");
+        goto vfp;
+    }
     /* AES: one round (AESE, AESMC), its inverse (AESD, AESIMC) */
     __asm__ volatile("vld1.32 {q0}, [%1]\n vld1.32 {q1}, [%2]\n aese.8 q0, q1\n aesmc.8 q0, q0\n aesd.8 q0, q1\n aesimc.8 q0, q0\n vst1.32 {q0}, [%0]"
         : : "r"(r), "r"(a), "r"(b) : "q0", "q1", "memory");
@@ -212,6 +220,7 @@ static void known_answers(void)
     __asm__ volatile("vld1.32 {d0}, [%1]\n vld1.32 {d1}, [%2]\n vmull.p64 q1, d0, d1\n vst1.32 {q1}, [%0]"
         : : "r"(r), "r"(a), "r"(b) : "q0", "q1", "memory");
     vector("pmull", r, 4);
+vfp:;
     /* VFP: VDIV, VSQRT, VFMA.F64, VCVT to and from fixed point */
     u32 v[4];
     __asm__ volatile("vmov.f64 d0, #3.0\n vmov.f64 d1, #7.0\n vdiv.f64 d2, d1, d0\n vsqrt.f64 d3, d2\n vfma.f64 d3, d2, d1\n"

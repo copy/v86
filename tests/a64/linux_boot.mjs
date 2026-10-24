@@ -69,6 +69,7 @@ import { createHash as create_hash } from "node:crypto";
 import { gunzipSync as gunzip } from "node:zlib";
 import { prepare, unzboot, sha256, ROOT } from "../lib/alpine_image.mjs";
 import { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } from "./guest_runner.mjs";
+import { aarch32_workload as stage_aarch32_workload } from "../lib/aarch32_workload.mjs";
 
 const stage = process.env.A64_STAGE || "initramfs";
 assert.ok(["initramfs", "single", "lifecycle", "live"].includes(stage), "A64_STAGE is initramfs, single, lifecycle or live");
@@ -224,62 +225,8 @@ const aarch32_workload = process.env.A64_WORKLOAD === "aarch32";
 assert.ok(!aarch32_workload || +process.env.A64_LINUX_QEMU || process.env.A64_PROFILE === "v3", "A64_WORKLOAD=aarch32 on v86 needs A64_PROFILE=v3");
 if(aarch32_workload)
 {
-    const { output_directory } = await import("../../tools/alpine_repo.mjs");
-    const repo = path.join(output_directory("armv7"), "aarch32-repo");
-    assert.ok(fs.existsSync(repo), repo + " is missing: node tools/alpine_repo.mjs --arch armv7 --set aarch32");
     const staging = directory + "aarch32-root/";
-    fs.rmSync(staging, { recursive: true, force: true });
-    fs.mkdirSync(staging + "a32", { recursive: true });
-    for(const section of ["main", "community"])
-    {
-        const apks = path.join(repo, section, "armv7");
-        if(!fs.existsSync(apks)) continue;
-        for(const file of fs.readdirSync(apks).filter(f => f.endsWith(".apk")).sort())
-        {
-            run("bsdtar", ["-xf", path.join(apks, file), "-C", staging + "a32", "--exclude", ".PKGINFO", "--exclude", ".SIGN.*",
-                "--exclude", ".*-install", "--exclude", ".*-upgrade", "--exclude", ".*-deinstall", "--exclude", ".trigger"]);
-        }
-    }
-    // (bbsuid is setuid without read permission: the cpio needs to read it)
-    run("chmod", ["-R", "u+rw", staging]);
-    for(const [isa, flag] of [["a32", "-marm"], ["t32", "-mthumb"]])
-    {
-        run(process.env.CLANG || "clang", ["--target=armv7a-linux-gnueabihf", "-march=armv8-a", "-mfpu=crypto-neon-fp-armv8", "-mfloat-abi=hard",
-            flag, "-O2", "-ffreestanding", "-fno-builtin", "-fno-stack-protector", "-fomit-frame-pointer", "-c",
-            ROOT + "tests/a64/linux_probe32.c", "-o", directory + `probe32-${isa}.o`]);
-        run(lld, ["-flavor", "gnu", "-m", "armelf_linux_eabi", "-static", "-e", "_start", "-o", staging + `a64-probe32-${isa}`, directory + `probe32-${isa}.o`]);
-        fs.chmodSync(staging + `a64-probe32-${isa}`, 0o755);
-    }
-    // (inside the chroot every command is its own line, the outputs deterministic:
-    // no addresses, timings or the MIDR's fields)
-    const commands = [
-        "/bin/busybox --install -s",
-        "uname -m",
-        "lua5.4 -e 'print(string.format(\"%.6f %.3e\", math.sin(1.0) * 1e6, 2^-60)); local t = {} for i = 1, 200000 do t[i] = i * i end print(#t, t[#t])'",
-        "seq 1 50000 | xz -6e | md5sum",
-        "seq 1 50000 | xz -6 | xz -d | md5sum",
-        "seq 1 20000 | openssl dgst -sha256",
-        "seq 1 20000 | openssl dgst -sha1",
-        "seq 1 20000 | openssl enc -aes-128-cbc -K 000102030405060708090a0b0c0d0e0f -iv 0f0e0d0c0b0a09080706050403020100 | md5sum",
-        "seq 1 20000 | openssl enc -aes-256-ctr -K 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f -iv 0f0e0d0c0b0a09080706050403020100 | md5sum",
-        "seq 1 20000 | openssl enc -chacha20 -K 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f -iv 0f0e0d0c0b0a09080706050403020100 | md5sum",
-        "sqlite3 -list :memory: 'with recursive c(x) as (select 1 union all select x + 1 from c where x < 20000) select count(*), sum(x), total(x * 0.5) from c;'",
-        "for i in 1 2 3 4 5 6 7 8; do true & done; wait; echo forks done",
-        "grep -m1 Features /proc/cpuinfo",
-        // (PER_LINUX32: the 32-bit uname and /proc/cpuinfo)
-        "linux32 uname -m",
-        "linux32 grep -m1 Features /proc/cpuinfo",
-    ];
-    fs.writeFileSync(staging + "a64-aarch32-workload", [
-        "#!/bin/busybox sh",
-        "B=/bin/busybox",
-        "$B mkdir -p /a32/proc /a32/dev /a32/tmp; $B mount -t proc proc /a32/proc; $B mount -o bind /dev /a32/dev",
-        "$B echo A64_WORKLOAD_BEGIN",
-        "/a64-probe32-a32",
-        "/a64-probe32-t32",
-        ...commands.map(c => `$B chroot /a32 /bin/busybox sh -c '${c.replace(/'/g, "'\\''")}' 2>&1`),
-        "$B echo A64_WORKLOAD_END",
-        ""].join("\n"), { mode: 0o755 });
+    await stage_aarch32_workload({ staging, objects: directory, run, lld, prefix: "a64" });
     run("bsdtar", ["--format", "newc", ...tar_args, "-cf", directory + "aarch32.cpio", "-C", staging, "."]);
     initrd = directory + "initramfs-virt+probe+aarch32.cpio";
     fs.writeFileSync(initrd, Buffer.concat([fs.readFileSync(initrd_probe), fs.readFileSync(directory + "aarch32.cpio")]));

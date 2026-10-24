@@ -20,6 +20,8 @@
 //   --qemu            run arm64 tests on the fixed QEMU reference
 //                     (docs/arm64-virt-android16-plan.md P0.6); v86 runs need
 //                     the ARM core
+//   --arm32           a 32-bit arm build (build.sh arm): booted as arm64's are,
+//                     on cpu_type "arm32" or QEMU's cortex-a15 (docs/aarch32-plan.md R5.1)
 //   --granules-all    (v86, arm64) the 16 and 64 KiB granules set explicitly
 //                     (P3.4; profile v1.1, the default, has them), for the 16k and 64k builds
 // Environment: TEST_RELEASE_BUILD=1 uses build/libv86.mjs, DISABLE_JIT=1 the interpreter,
@@ -36,7 +38,7 @@ import url from "node:url";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const options = { acpi: false, cores: 1, memory: 64, timeout: 60, expect_pass: 0, quiet: false, cpu_features: undefined, cpu_type: undefined,
-    arm64: false, append: "", qemu: false, granules_all: false };
+    arm64: false, arm32: false, append: "", qemu: false, granules_all: false };
 let test_file;
 for(let i = 2; i < process.argv.length; i++)
 {
@@ -50,6 +52,7 @@ for(let i = 2; i < process.argv.length; i++)
     else if(arg === "--cpu-features") options.cpu_features = process.argv[++i].split(",");
     else if(arg === "--cpu-type") options.cpu_type = process.argv[++i];
     else if(arg === "--arm64") options.arm64 = true;
+    else if(arg === "--arm32") options.arm64 = options.arm32 = true;
     else if(arg === "--granules-all") options.granules_all = true;
     else if(arg === "--append") options.append = process.argv[++i];
     else if(arg === "--qemu") options.qemu = true;
@@ -93,7 +96,7 @@ if(options.arm64 && !options.qemu)
     const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
     const { root, jit_options } = await import("../a64/guest_runner.mjs");
     const emulator = new V86({
-        cpu_type: "arm64", graphics_adapter: "none", cpu_cores: options.cores, memory_size: options.memory << 20,
+        cpu_type: options.arm32 ? "arm32" : "arm64", graphics_adapter: "none", cpu_cores: options.cores, memory_size: options.memory << 20,
         wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm", kernel: { url: test_file }, cmdline: options.append,
         autostart: !options.granules_all, log_level: 0, ...jit_options(),
     });
@@ -134,7 +137,9 @@ if(options.arm64)
 {
     const { spawn } = await import("node:child_process");
     const { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } = await import("../a64/guest_runner.mjs");
-    const child = spawn(qemu_binary(), ["-nodefaults", "-machine", QEMU_MACHINE, "-cpu", QEMU_CPU, "-m", (options.memory === 64 ? 128 : options.memory) + "M",
+    const { QEMU_MACHINE32, QEMU_CPU32 } = options.arm32 ? await import("../a32/runner.mjs") : {};
+    const child = spawn(qemu_binary(), ["-nodefaults", "-machine", options.arm32 ? QEMU_MACHINE32 : QEMU_MACHINE,
+        "-cpu", options.arm32 ? QEMU_CPU32 : QEMU_CPU, "-m", (options.memory === 64 ? 128 : options.memory) + "M",
         "-smp", smp(options.cores), "-display", "none", "-serial", "stdio", "-kernel", test_file, "-append", options.append], { stdio: ["ignore", "pipe", "pipe"] });
     process.on("exit", () => child.kill("SIGKILL"));
     let error = "";

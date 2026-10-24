@@ -78,17 +78,22 @@ const MAX_BUDGET: u32 = 1 << 14;
 
 /// A function's key: the code key (below 2^28) with its mode's bits
 const MODE_SHIFT: u32 = 28;
-/// Modes: bit 0 EL1, bit 1 SP alignment checked; AArch32 at EL0 (Q6), A32
-/// and T32 (bit 0 clear: EL0's)
-pub const MODES: usize = 7;
+/// Modes: bit 0 EL1, bit 1 SP alignment checked; AArch32, A32 and T32 at
+/// EL0 (Q6), or PL1 with bit 0 (cpu_type arm32, R5.3)
+pub const MODES: usize = 8;
 pub const MODE_A32: u32 = 4;
 pub const MODE_T32: u32 = 6;
+
+/// Whether a mode is AArch32's (A32 or T32, either privilege)
+#[inline(always)]
+fn aarch32_mode(mode: u32) -> bool { mode & !1 == MODE_A32 || mode & !1 == MODE_T32 }
 
 /// The mode the running core's code would be compiled for
 #[inline(always)]
 fn mode() -> u32 {
     if cpu::aarch32() {
-        return if cpu::get_pstate() & cpu::PSTATE_T != 0 { MODE_T32 } else { MODE_A32 };
+        let isa = if cpu::get_pstate() & cpu::PSTATE_T != 0 { MODE_T32 } else { MODE_A32 };
+        return isa | (cpu::el() != 0) as u32;
     }
     let el1 = cpu::el() != 0;
     let sctlr = cpu::sctlr();
@@ -602,12 +607,10 @@ fn code_page(pc: u64, mode: u32) -> Option<u32> {
 /// for at most `budget` instructions; else note the page's heat and entry,
 /// and compile it when hot
 pub fn run(budget: u32) -> Ran {
-    // (AArch32's code with a64_page_aarch32, docs/aarch32-plan.md Q6; not
-    // from inside an IT block: compiled code enters at ITSTATE 0, little-endian;
-    // not yet with cpu_type arm32, R5.3)
+    // (AArch32's code with a64_page_aarch32, docs/aarch32-plan.md Q6, R5.3; not
+    // from inside an IT block: compiled code enters at ITSTATE 0, little-endian)
     if !allowed()
         || budget == 0
-        || cpu::a32_only()
         || cpu::aarch32()
             && !(unsafe { AARCH32 }
                 && crate::aarch64::t32::itstate() == 0
@@ -758,7 +761,7 @@ fn compile(key: u32, pc: u64) {
     let code_key = key & ((1 << MODE_SHIFT) - 1);
     let mode = key >> MODE_SHIFT;
     let filter = unsafe { AARCH32_FILTER };
-    if filter != 0 && (mode == MODE_A32 || mode == MODE_T32) {
+    if filter != 0 && aarch32_mode(mode) {
         let mask = (1u32 << (filter >> 16)) - 1;
         if code_key & mask != filter & 0xFFFF & mask {
             return;
@@ -767,7 +770,7 @@ fn compile(key: u32, pc: u64) {
             "a32 page {:x} key {:x} {}",
             pc & !0xFFF,
             code_key,
-            if mode == MODE_T32 { "T32" } else { "A32" }
+            if mode & !1 == MODE_T32 { "T32" } else { "A32" }
         );
     }
     let bytes = if code_key >= bus::EXTENDED_CODE_KEY {
@@ -782,6 +785,8 @@ fn compile(key: u32, pc: u64) {
         match mode {
             MODE_A32 => "_a32",
             MODE_T32 => "_t32",
+            5 => "_a32_pl1",
+            7 => "_t32_pl1",
             _ if mode & 1 != 0 => "_el1",
             _ => "_el0",
         },
@@ -795,13 +800,12 @@ fn compile(key: u32, pc: u64) {
             el1: mode & 1 != 0,
             sp_checked: mode & 2 != 0,
             // (a64_page_aarch32_filter's bit 15: AArch32's functions do not chain)
-            chaining: unsafe { CHAINING }
-                && !((mode == MODE_A32 || mode == MODE_T32) && filter & 0x8000 != 0),
+            chaining: unsafe { CHAINING } && !(aarch32_mode(mode) && filter & 0x8000 != 0),
             neon: unsafe { super::NEON },
             helpers: unsafe { super::HELPERS },
             system: unsafe { super::SYSTEM },
             relaxed_fma: unsafe { super::RELAXED_FMA },
-            isa: match mode {
+            isa: match mode & !1 {
                 MODE_A32 => pagegen::Isa::A32,
                 MODE_T32 => pagegen::Isa::T32,
                 _ => pagegen::Isa::A64,

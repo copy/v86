@@ -667,11 +667,14 @@ pub fn cp15(
             }
             r
         },
-        // DACR (the TLB's entries keep their domain: mmu_a32::with_domain)
+        // DACR (the TLB's entries keep their domain: mmu_a32::with_domain; the
+        // page tier's access cache has the permissions it gave)
         (0, 3, 0, 0) => {
+            let old = unsafe { *a32_dacr };
             let r = field(a32_dacr);
-            if !read {
+            if !read && value != old {
                 crate::aarch64::tlb::bump_generation();
+                crate::aarch64::jit::pages::tlb_flushed(crate::isa::current_core());
             }
             r
         },

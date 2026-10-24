@@ -21,7 +21,7 @@ const libc = root + "tests/a64/baremetal/";
 // the 32-bit reference: cortex-a15 (its generic timer at the v86 frequency),
 // everything below 4 GiB
 export const QEMU_MACHINE32 = "virt-9.2,gic-version=3,its=off,highmem=off,virtualization=off,secure=off,acpi=off,dtb-randomness=off";
-export const QEMU_CPU32 = "cortex-a15,cntfrq=1000000000";
+export const QEMU_CPU32 = "cortex-a15,pmu=off,cntfrq=1000000000";
 
 const host = spawnSync("rustc", ["-vV"], { encoding: "utf8" }).stdout.match(/host: (.*)/)[1];
 const lld = process.env.LD_LLD || `${spawnSync("rustc", ["--print", "sysroot"], { encoding: "utf8" }).stdout.trim()}/lib/rustlib/${host}/bin/rust-lld`;

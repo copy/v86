@@ -209,6 +209,27 @@ fn control(i: &Inst32, offset: u16) -> Option<(Vec<u64>, bool)> {
     }
 }
 
+/// (PL1, cpu_type arm32: docs/aarch32-plan.md R5.3) the instructions a PL1
+/// function steps that are helpers otherwise: MSR of CPSR's control or
+/// extension field (the mode, the masks: a function is of one privilege,
+/// and interrupts are taken between activations) and CP15's writes, MCR
+/// and MCRR (the MMU's controls, TLB and cache maintenance)
+fn pl1_steps(word: u32, length: u8, thumb: bool) -> bool {
+    if !thumb {
+        let msr = word & 0x0FB0_F000 == 0x0320_F000 || word & 0x0FB0_FFF0 == 0x0120_F000;
+        let mcr = word & 0x0F10_0010 == 0x0E00_0010 || word & 0x0FF0_0000 == 0x0C40_0000;
+        return msr && word & 1 << 22 == 0 && word >> 16 & 3 != 0 || mcr && word >> 8 & 15 == 15;
+    }
+    if length != 4 {
+        return false;
+    }
+    let (hw1, hw2) = (word >> 16, word & 0xFFFF);
+    let msr = hw1 & 0xFFE0 == 0xF380 && hw2 & 0xD020 == 0x8000 && hw2 >> 8 & 3 != 0;
+    let mcr = (hw1 & 0xEF10 == 0xEE00 && hw2 & 0x10 != 0 || hw1 & 0xEFF0 == 0xEC40)
+        && hw2 >> 8 & 15 == 15;
+    msr || mcr
+}
+
 fn sign_extend(value: u32, bits: u32) -> i64 {
     ((value << (32 - bits)) as i32 >> (32 - bits)) as i64
 }
@@ -1492,6 +1513,9 @@ pub(super) fn discover(
             return (None, 2);
         };
         let mut kind = if thumb { t32(word, length, o) } else { a32(word, o) };
+        if env.el1 && pl1_steps(word, length, thumb) {
+            kind = None;
+        }
         // (an instruction of an IT block whose instructions are all native)
         if let Some(&cond) = native_it.get(&o) {
             return (
