@@ -56,7 +56,7 @@ const cond = () => !thumb && rand(4) === 0 ? pick(CONDS) : "";
 function plain(c = "")
 {
     const s = c ? (rand(4) === 0 ? "s" : "") : (rand(3) === 0 ? "s" : "");
-    switch(rand(25))
+    switch(rand(26))
     {
         case 0: case 1: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, ${r()}${shift()}`;
         case 2: case 3: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, #${IMMS()}`;
@@ -114,6 +114,18 @@ function plain(c = "")
                         `vldmdb${c} r12!, ${list}`, `vstmdb${c} r12!, ${list}`]) + `\n    vmov${c} ${a}, ${b}, d${f}`;
                 }
             }
+        }
+        case 24: {
+            // VFP's arithmetic and moves (Q6.3): values from integers, an
+            // operation, back to a core register; D's through two core registers
+            const [a, b] = distinct(2), x = rand(8), y = rand(8), z = rand(8), dd = rand(16);
+            const op = pick(["vadd", "vsub", "vmul", "vnmul", "vdiv"]);
+            const unary = pick(["vmov", "vabs", "vneg"]);
+            return rand(2) ?
+                `vmov${c} s${x}, ${a}\n    vcvt${c}.f32.s32 s${x}, s${x}\n    vmov${c} s${y}, ${b}\n    vcvt${c}.f32.s32 s${y}, s${y}\n    ` +
+                `${op}${c}.f32 s${z}, s${x}, s${y}\n    ${unary}${c}.f32 s${z + 8}, s${z}\n    vmov${c} ${a}, s${z + 8}` :
+                `vmov${c} s${x}, ${a}\n    vcvt${c}.f64.s32 d${x}, s${x}\n    vmov${c} s${y + 8}, ${b}\n    vcvt${c}.f64.s32 d${y + 8}, s${y + 8}\n    ` +
+                `${op}${c}.f64 d${dd}, d${x}, d${y + 8}\n    ${unary}${c}.f64 d${dd + 16}, d${dd}\n    vmov${c} ${a}, ${b}, d${dd + 16}`;
         }
         case 23: {
             // VLD1, VST1 (multiple, all lanes): unconditional; through r12,

@@ -132,6 +132,28 @@ pub enum Kind {
         writeback: bool,
         cond: u8,
     },
+    /// VADD, VSUB, VMUL, VNMUL, VDIV (`op` 0-4) of S (or with `double` D)
+    /// registers: on A64's fast path (RN, no flush, IXC set, ordinary
+    /// operands and result: Wasm's arithmetic), else the helper (Q6.3)
+    FpArith {
+        op: u8,
+        double: bool,
+        d: u8,
+        n: u8,
+        m: u8,
+        cond: u8,
+    },
+    /// VFP's moves (Q6.3): `kind` 0 VMOV (register), 1 VABS, 2 VNEG of S or
+    /// D registers (`double`) m to d; 3 core register `n` to S[d]; 4 S[m] to
+    /// core register `d`; 5 core registers `n`, `m` to D[d]; 6 D[d] to them
+    FpMove {
+        kind: u8,
+        double: bool,
+        d: u8,
+        n: u8,
+        m: u8,
+        cond: u8,
+    },
     /// VLD1, VST1 of multiple single elements (whole D registers `first`..,
     /// `count` of them): word aligned (and to `align` bytes, 0 none) and in
     /// one page; Rm 15 no writeback, 13 the size, else Rm added (Q6.3)
@@ -276,6 +298,108 @@ fn fp_memory(word: u32, thumb: bool) -> Option<Kind> {
         writeback: w,
         cond,
     })
+}
+
+/// VFP's data processing with native templates (Q6.3): A32's word or
+/// T32's (A32's with the condition 1110): the arithmetic of FpArith and
+/// the moves of FpMove; None for anything else
+fn fp_data(word: u32, thumb: bool) -> Option<Kind> {
+    let cond = (word >> 28) as u8;
+    if cond == 15 {
+        return None;
+    }
+    let cond = if thumb { 14 } else { cond };
+    let double = word & 1 << 8 != 0;
+    let (vd, vn, vm) = (word >> 12 & 15, word >> 16 & 15, word & 15);
+    let (bd, bn, bm) = (word >> 22 & 1, word >> 7 & 1, word >> 5 & 1);
+    let reg = |v: u32, bit: u32| (if double { bit << 4 | v } else { v << 1 | bit }) as u8;
+    let (d, n, m) = (reg(vd, bd), reg(vn, bn), reg(vm, bm));
+    let op = match word & 0x0FB0_0E50 {
+        0x0E30_0A00 => Some(0),
+        0x0E30_0A40 => Some(1),
+        0x0E20_0A00 => Some(2),
+        0x0E20_0A40 => Some(4),
+        0x0E80_0A00 => Some(3),
+        _ => None,
+    };
+    if let Some(op) = op {
+        return Some(Kind::FpArith {
+            op,
+            double,
+            d,
+            n,
+            m,
+            cond,
+        });
+    }
+    let unary = match word & 0x0FBF_0ED0 {
+        0x0EB0_0A40 => Some(0),
+        0x0EB0_0AC0 => Some(1),
+        0x0EB1_0A40 => Some(2),
+        _ => None,
+    };
+    if let Some(kind) = unary {
+        return Some(Kind::FpMove {
+            kind,
+            double,
+            d,
+            n: 0,
+            m,
+            cond,
+        });
+    }
+    let rt = (word >> 12 & 15) as u8;
+    if word & 0x0FE0_0F7F == 0x0E00_0A10 && rt != 15 {
+        // VMOV between Rt and S[Vn:N]
+        let s = (vn << 1 | bn) as u8;
+        return Some(if word & 1 << 20 != 0 {
+            Kind::FpMove {
+                kind: 4,
+                double: false,
+                d: rt,
+                n: 0,
+                m: s,
+                cond,
+            }
+        }
+        else {
+            Kind::FpMove {
+                kind: 3,
+                double: false,
+                d: s,
+                n: rt,
+                m: 0,
+                cond,
+            }
+        });
+    }
+    let rt2 = (word >> 16 & 15) as u8;
+    if word & 0x0FE0_0FD0 == 0x0C40_0B10 && rt != 15 && rt2 != 15 {
+        // VMOV between Rt, Rt2 and D[M:Vm] (to the core registers: not one register twice)
+        let dm = (bm << 4 | vm) as u8;
+        if word & 1 << 20 != 0 {
+            if rt == rt2 {
+                return None;
+            }
+            return Some(Kind::FpMove {
+                kind: 6,
+                double: true,
+                d: dm,
+                n: rt,
+                m: rt2,
+                cond,
+            });
+        }
+        return Some(Kind::FpMove {
+            kind: 5,
+            double: true,
+            d: dm,
+            n: rt,
+            m: rt2,
+            cond,
+        });
+    }
+    None
 }
 
 /// DecodeImmShift: the kind and amount of a constant shift (`kind` 0-3, `imm5`)
@@ -1645,8 +1769,12 @@ pub(super) fn discover(
         // (Q6.2: the forms with native templates, of those a helper call would
         // run; Q6.3: VFP's and Advanced SIMD's loads and stores)
         if matches!(kind, Some(Kind::Helper)) && !covered.contains(&o) {
-            let native = if thumb { t32_native(word, length) } else { a32_native(word) }
-                .or_else(|| (length == 4).then(|| fp_memory(word, thumb)).flatten());
+            let native =
+                if thumb { t32_native(word, length) } else { a32_native(word) }.or_else(|| {
+                    (length == 4)
+                        .then(|| fp_memory(word, thumb).or_else(|| fp_data(word, thumb)))
+                        .flatten()
+                });
             if let Some(native) = native {
                 let debug = unsafe { crate::aarch64::jit::pages::AARCH32_DEBUG };
                 let bit = match native {
@@ -1655,7 +1783,10 @@ pub(super) fn discover(
                     Kind::Mem { .. } => 128,
                     Kind::Multiple { .. } => 256,
                     Kind::Multiply { .. } => 512,
-                    Kind::FpMemory { .. } | Kind::Vld1 { .. } => 2048,
+                    Kind::FpMemory { .. }
+                    | Kind::Vld1 { .. }
+                    | Kind::FpArith { .. }
+                    | Kind::FpMove { .. } => 2048,
                     _ => 1024,
                 };
                 if debug & 16 == 0 || debug & bit == 0 {
@@ -2436,6 +2567,180 @@ impl Emitter<'_> {
         self.si(super::HH);
     }
 
+    /// A helper call: the interpreter's execute of the instruction
+    /// (pages::a32_page_helper), a refusal retried in the interpreter
+    fn a32_helper(&mut self, word: u32, length: u8, offset: u16) {
+        self.c32(word as i32);
+        self.linear(offset as u64);
+        self.c32(length as i32);
+        self.b.call_signature(
+            "a32_page_helper",
+            Signature::new(
+                &[WasmType::I32, WasmType::I64, WasmType::I32],
+                &[WasmType::I32],
+            ),
+        );
+        self.retry_if(offset);
+    }
+
+    /// The state's address of S[r] (word r of the V registers) or D[r]
+    fn fp_address(r: u8, double: bool) -> u32 {
+        state::v as u32 + if double { 8 } else { 4 } * r as u32
+    }
+    /// S[r] (zero-extended) or D[r] into 64-bit local `l`
+    fn a32_fp_load(&mut self, r: u8, double: bool, l: usize) {
+        self.c32(Self::fp_address(r, double) as i32);
+        self.b.memory_op(
+            if double {
+                crate::wasmgen::wasm_opcodes::OP_I64LOAD
+            }
+            else {
+                crate::wasmgen::wasm_opcodes::OP_I64LOAD32U
+            },
+            if double { 3 } else { 2 },
+            0,
+        );
+        self.s(l);
+    }
+    /// 64-bit local `l` into D[r], or its low 32 bits into S[r] (the rest of the V register as it was)
+    fn a32_fp_store(&mut self, r: u8, double: bool, l: usize) {
+        self.c32(Self::fp_address(r, double) as i32);
+        self.g(l);
+        if double {
+            self.b.store_aligned_i64(0);
+        }
+        else {
+            self.b.wrap_i64_to_i32();
+            self.b.store_aligned_i32(0);
+        }
+    }
+
+    /// VADD, VSUB, VMUL, VNMUL, VDIV (FpArith): pagegen's scalar rules
+    #[allow(clippy::too_many_arguments)]
+    fn fp_arith(
+        &mut self,
+        op: u8,
+        double: bool,
+        d: u8,
+        n: u8,
+        m: u8,
+        word: u32,
+        length: u8,
+        offset: u16,
+    ) {
+        use super::{T0, T1, T3};
+        self.fp_access(offset);
+        let done = self.b.block_void();
+        self.a32_fp_load(n, double, T0);
+        self.a32_fp_load(m, double, T1);
+        // RMode RN and FZ 0 (FPCR), IXC already set (FPSR), the operands zero or normal
+        self.load32(state::fpcr as u32);
+        self.c32(0x01C0_0000);
+        self.b.and_i32();
+        self.b.eqz_i32();
+        self.load32(state::fpsr as u32);
+        self.c32(4);
+        self.b.shr_u_i32();
+        self.c32(1);
+        self.b.and_i32();
+        self.b.and_i32();
+        for l in [T0, T1] {
+            self.fp_ordinary(l, double, false);
+            self.b.and_i32();
+        }
+        if op == 3 {
+            // (a divisor that is not zero)
+            self.g(T1);
+            self.c64(if double { 0x7FFF_FFFF_FFFF_FFFF } else { 0x7FFF_FFFF });
+            self.b.and_i64();
+            self.c64(0);
+            self.b.ne_i64();
+            self.b.and_i32();
+        }
+        self.b.if_void();
+        self.fp_value(T0, double);
+        self.fp_value(T1, double);
+        // (Wasm's 0 add, 1 sub, 2 mul, 3 div)
+        let wasm = [0, 1, 2, 3, 2][op as usize];
+        if double {
+            self.b.arithmetic_f64(wasm);
+        }
+        else {
+            self.b.arithmetic_f32(wasm);
+        }
+        if op == 4 {
+            if double {
+                self.b.unary_f64(true);
+            }
+            else {
+                self.o(0x8C); // f32.neg
+            }
+        }
+        self.fp_bits(T3, double);
+        self.fp_ordinary(T3, double, true);
+        self.b.if_void();
+        self.a32_fp_store(d, double, T3);
+        self.b.br(done);
+        self.b.block_end();
+        self.b.block_end();
+        // the exact path: the interpreter's
+        self.a32_helper(word, length, offset);
+        self.b.block_end();
+    }
+
+    /// VFP's moves (FpMove)
+    fn fp_move(&mut self, kind: u8, double: bool, d: u8, n: u8, m: u8, offset: u16) {
+        use super::T0;
+        self.fp_access(offset);
+        match kind {
+            0..=2 => {
+                self.a32_fp_load(m, double, T0);
+                let sign = if double { 1u64 << 63 } else { 1 << 31 };
+                if kind != 0 {
+                    self.g(T0);
+                    if kind == 1 {
+                        self.c64(!sign);
+                        self.b.and_i64();
+                    }
+                    else {
+                        self.c64(sign);
+                        self.b.xor_i64();
+                    }
+                    self.s(T0);
+                }
+                self.a32_fp_store(d, double, T0);
+            },
+            3 => {
+                self.c32(Self::fp_address(d, false) as i32);
+                self.r32(n);
+                self.b.store_aligned_i32(0);
+            },
+            4 => {
+                self.load32(Self::fp_address(m, false));
+                self.si(A0);
+                self.set_r32(d, A0);
+            },
+            5 => {
+                let at = Self::fp_address(d, true);
+                self.c32(at as i32);
+                self.r32(n);
+                self.b.store_aligned_i32(0);
+                self.c32(at as i32 + 4);
+                self.r32(m);
+                self.b.store_aligned_i32(0);
+            },
+            _ => {
+                let at = Self::fp_address(d, true);
+                self.load32(at);
+                self.si(A0);
+                self.set_r32(n, A0);
+                self.load32(at + 4);
+                self.si(A0);
+                self.set_r32(m, A0);
+            },
+        }
+    }
+
     /// VLDR, VSTR, VLDM, VSTM, VPUSH, VPOP (FpMemory)
     #[allow(clippy::too_many_arguments)]
     fn fp_memory(
@@ -2769,20 +3074,26 @@ impl Emitter<'_> {
                 rm,
                 align,
             } => self.vld1(load, first, count, rn, rm, align, offset),
+            Kind::FpArith {
+                op,
+                double,
+                d,
+                n,
+                m,
+                cond,
+            } => self.when(cond, |e| {
+                e.fp_arith(op, double, d, n, m, i.word, i.length, offset)
+            }),
+            Kind::FpMove {
+                kind,
+                double,
+                d,
+                n,
+                m,
+                cond,
+            } => self.when(cond, |e| e.fp_move(kind, double, d, n, m, offset)),
             Kind::It => {},
-            Kind::Helper => {
-                self.c32(i.word as i32);
-                self.linear(offset as u64);
-                self.c32(i.length as i32);
-                self.b.call_signature(
-                    "a32_page_helper",
-                    Signature::new(
-                        &[WasmType::I32, WasmType::I64, WasmType::I32],
-                        &[WasmType::I32],
-                    ),
-                );
-                self.retry_if(offset);
-            },
+            Kind::Helper => self.a32_helper(i.word, i.length, offset),
             Kind::Branch { target, cond, link } => {
                 if cond != 14 {
                     self.load32(state::nzcv as u32);
