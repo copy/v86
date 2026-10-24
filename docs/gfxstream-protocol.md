@@ -67,6 +67,17 @@ contents, 32-bit little-endian fields:
 | Vulkan (3) | `protocolVersion`, `ringSize`, `bufferSize`, `colorBufferMemoryIndex`, `deferredMapping`, `blobAlignment`, `noRenderControlEnc`, `alwaysBlob`, `externalSync`, `virglSupportedFormats[16]`, `vulkanBatchedDescriptorSetUpdate`, `hasTraceAsyncCommand` |
 | GLES (8), composer (9), magma (7) | `protocolVersion`, `ringSize`, `bufferSize`, `blobAlignment` |
 
+gfxstream's own host fills them (host/VirtioGpuFrontend.cpp `fillCaps`):
+every capset `protocolVersion` 1, `ringSize` 12288 (the ring storage's three
+pages), `bufferSize` 1 MiB, `blobAlignment` the host's page size; Vulkan's also
+`noRenderControlEnc` 1, `deferredMapping` 1 and `colorBufferMemoryIndex` the
+guest memory type of color buffers when it emulates Vulkan,
+`vulkanBatchedDescriptorSetUpdate` per its feature, `hasTraceAsyncCommand` 1,
+`virglSupportedFormats` a bitmask of the virgl formats it can sample and
+render (B5G6R5, B8G8R8A8/X8, NV12, P010, R10G10B10A2, R16, R16G16B16A16F, R8,
+R8G8, R8G8B8, R8G8B8A8/X8, YV12, Z16, Z24S8, Z24X8, Z32FS8X24, Z32F), and
+`alwaysBlob`, `externalSync` 0 unless built with the unstable flags.
+
 Execbuffer commands (`virtgpu_gfxstream_protocol.h`), each starting with a
 32-bit `opCode`:
 
