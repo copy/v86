@@ -64,6 +64,60 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
 
 尚未完成：Q5.2（带 32 位第二架构的 Android，需要第二部分的 R6）、Q6.3 的 VFP/NEON 原生模板。
 
+第二部分（`cpu_type: "arm32"`），2026-10-24：
+
+- **R1–R3（`2407a08d`）**：`cpu_type: "arm32"`（`machine_options`、加载器、32 位 DTB、`v86.d.ts`、
+  `tests/api/arm64-options.js`、`tests/a64/core_loader.mjs`），profile `v86-arm32-v1`（特性位 2）。PL1 的系统层
+  `src/rust/aarch64/a32_system.rs`：模式与分组寄存器（状态块的 a32 字段）、CPSR 与各 SPSR、异常的向量、模式、
+  返回地址与 DFSR/IFSR/DFAR/IFAR、特权指令（MRS/MSR 含分组寄存器与 SPSR、CPS、SRS、RFE、`LDM`/`STM ^`、
+  `SUBS PC, LR`、ERET、HVC/SMC 的 PSCI）、CP15（多为 AArch64 寄存器的视图；TTBCR、DACR、IFSR 自有）、
+  读零的 CP14、FPEXC.EN。MMU（`mmu_a32.rs`）：短描述符（段、超级段、大小页、AP 与 AFE、XN、PXN、TEX
+  重映射、域：TLB 项带域、每次使用时按 DACR 判定，所以写 DACR 不清 TLB；故障的域如 QEMU 报在 FSR）与
+  LPAE（mmu.rs 的遍历、VMSAv8-32 的执行规则）。门禁：`tests/a32/baremetal.mjs` 的 system、mmu 与 QEMU
+  cortex-a15 输出相同（48、58 行）。
+- **R4（`73c1e0b7` 起）**：platform（PSCI、两个定时器、GICv3 的 CP15 接口、SGI、CPU_ON 的第二核，14 行）；
+  GICv2（gic.rs 的 v2 前端：分发器的分组寄存器、ITARGETSR、GICD_SGIR 与来源核、内存映射的 CPU 接口；自己的
+  状态块，GICv3 的布局不变），与 QEMU `gic-version=2` 相同（12 行）。顺带修正：协作多核切换时只保存到
+  event_register（1320），丢了其他核的 AArch32 分组寄存器与 SPSR（2 核启动栈损坏），现在保存到 a32_fpexc。
+- **R5**：`tests/a32/linux_boot.mjs`：Alpine 3.24.3 armv7 netboot（固定 SHA-256）在 arm32 与 QEMU cortex-a15
+  上：initramfs 阶段跑与兼容测试同一份 32 位工作负载（`tests/lib/aarch32_workload.mjs`），除 CPU 有意的差异
+  （加密与 CRC32、ThumbEE）外与 QEMU 相同；1、2、4 核；single、lifecycle（快照、reboot -f、poweroff -f）、
+  live（FAT 盘上的 rpi 版 apks 与 modloop，OpenRC 到登录）。页层编译 PL1 的 AArch32（模式 5、7，EL1 的访问
+  缓存；改模式、屏蔽或 MMU 的指令单步；写 DACR 清访问缓存）：initramfs 阶段 12.8 s（解释 174 s，QEMU 7.4 s），
+  4 核 14.3 s。kvm-unit-tests（`build.sh arm`、`arm32.mjs`）：selftest、gicv3、psci、pl031、spinlock 通过，pmu
+  如参考机跳过（无 PMU），sieve 解释器下太慢（等页层）。R5.3 的 E（`22b957d3`）：`aarch32_bench.mjs --arm32` 把同一份
+  C 在 arm32 的 PL1（MMU 开，短描述符，`tests/a32/bench.c`）上跑：A32 为 A64 的 1.78 倍时间、T32 1.67 倍（门槛 2）。
+  vCPU worker（`6b5ce66c`）：worker 只对 arm64 选 ARM 的运行器，arm32 的应用处理器起不来；修正后能启动，速度待在
+  空闲的主机上量。
+- **R6**（`150e8f65`、`93928d2e`）：`machine_type: "ranchu"`（`src/virt/ranchu.js`、`src/virt/goldfish.js`）：GICv2（arm32）、
+  goldfish 的 events（qwerty2：键盘与单点触摸）、battery、audio（按样本时间消费的写缓冲）、pipe（v1，无批量
+  缓冲；qemud 的 boot-properties、sensors、hw-control）、PL031；virtio-mmio 用旧版传输（版本 1：Linux 3.10
+  只认它；VirtioNet 的头按协商 10 或 12 字节）；`/cache` 由 `src/android/ext4.js` 生成空的 ext2 格式文件系统。
+  R0.3 的结论：官方 7.1.1 的 kernel-ranchu 是 Linux 3.10、LPAE 无 ZONE_DMA，所以 goldfish_fb 的
+  `dma_alloc_coherent` 总失败（模拟器靠宿主 GLES 的 pipe 显示）；arm32 的 ranchu 改给内存顶端的
+  simple-framebuffer（CONFIG_FB_SIMPLE，gralloc.default 每帧拷贝），设备按内容变化以至多 20 帧/秒显示。
+  console 服务用 /dev/console（策略不给 ttyAMA 标签，不传 androidboot.console）。PL011 在驱动重置 FIFO 后从积压里
+  补充（驱动打开端口前到的输入不再卡住）。设备测试 `tests/a32/ranchu_devices.mjs`（设备树、旧版传输加 virtio-blk、
+  goldfish 各设备、framebuffer、ext4、快照）。R6.3：导入（`src/android/assemble.js` 的 `emulator_disk`）把模拟器镜像
+  zip 做成一块 GPT 盘（kernel、ramdisk、system、cache、userdata；设备型号按 source.properties 的 API 级别与 ABI，
+  `ranchu_25_armeabi_v7a`），引导器给出内核、ramdisk 与模拟器的命令行，并把 system、cache、userdata 分区作为
+  机器的 virtio 盘（`src/android/partition_buffer.js`，盘的快照状态只存一份）；向导、导入 Worker 与
+  `tools/android_import.mjs` 都接受这种 zip。`src/android/ext4.js` 现在能做任意大小（按 128 MiB 的块组，只写元数据，
+  e2fsck 通过）。API 28（Android 9）的 arm64-v8a 镜像：system 与 vendor 都是 GPT 盘、system-as-root、
+  /data 用 vdd 上的密钥强制加密、vendor 由设备树的 fstab 在第一阶段挂载；它的 SurfaceFlinger 需要 OpenGL ES 2.0，
+  而镜像里客体侧只有 libagl（1.1）与宿主 GPU 的驱动，没有客体的 SwiftShader，所以不做宿主 GLES（本计划的取舍）就
+  画不出来；Android 8.0、8.1 的镜像待查是否还带客体 SwiftShader（7.1 的带）。
+- **R7.1**：官方 Android 7.1.1（`armeabi-v7a-25_r18`）在 arm32、ranchu、2 核、1 GiB 上到 `sys.boot_completed`
+  （安静的主机 633–826 s；`tests/a32/android_boot.mjs`，`A32_ANDROID_DISK=1` 走导入的盘）。途中修正：页层帮助调用里
+  自旋的 LDREXD 被重做一次（`f71ea54b`：执行后的 Yield 当作未执行）。未完：开机后屏幕仍黑（framebuffer 的通路
+  本身可用：`cat /dev/urandom > /dev/graphics/fb0` 能上屏；客体的 GLES 是 SwiftShader 的 JIT），偶发的崩溃各见一次
+  （libstagefright 里 IT 块内的 `itt` 得到 SIGILL；执行 SwiftShader 的 JIT 页得到 SIGSEGV），主机忙时 system_server
+  被 Watchdog 杀掉（线程 60 s 无响应）；触摸开应用、安装 APK 未做。
+- **R8.1**（`150e8f65`）：VM 管理器的处理器“ARM (32-bit, ARMv7-A)”，两种 ARM CPU 都可选 virt 与 ranchu，预设
+  “Linux (ARM 32-bit)”与“Android 7.1 (32-bit, emulator image)”；ranchu 的规则（无显示适配器、无声音、只有
+  virtio-mmio）、Android 设备型号决定机器与 CPU；app 测试（presets、machine_rules、向导的 android_emulator）。
+- **R8.2**：文档 [arm32.md](arm32.md)、[virt.md](virt.md) 的 32 位 virt 与 ranchu 两节。
+
 ## 结论
 
 1. **AArch32 放进 arm64，不新增 `cpu_type`。** 这里要的是 AArch32 EL0 跑在 AArch64 EL1 之下：同一个

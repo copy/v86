@@ -6,12 +6,12 @@
 // them, and an exception in the middle of one (ITSTATE in SPSR_EL1) whose
 // return goes on with the block. A load-exclusive that spins (the same
 // doubleword again and again: the interpreter's yield) overwriting its
-// base register.
+// base register. An IT block the end of a page cuts, in a loop.
 // The table: count, then per case offset (+1: T32), resumes, NZCV.
     .syntax unified
     .arm
 base:
-    .word   20
+    .word   21
     .word   a32_branches - base, 0, 0
     .word   a32_bl - base, 0, 0
     .word   a32_bx_t32 - base, 0, 0
@@ -32,6 +32,7 @@ base:
     .word   t32_it_else - base + 1, 0, 0
     .word   a32_ldrexd_spin - base, 0, 0
     .word   t32_ldrexd_spin - base + 1, 0, 0
+    .word   t32_it_page - base + 1, 0, 0
 
 a32_branches:
     b       1f
@@ -240,3 +241,21 @@ a32_ldrexd_spin:
     subs    r2, r2, #1
     bne     1b
     svc     #24
+
+    .thumb
+    .balign 4096
+    .space  4096 - 16
+t32_it_page:
+    movs    r2, #250
+    movs    r3, #0
+1:  subs    r2, #1
+    cmp     r2, #100
+    nop
+    nop
+    nop
+    itt     gt                  @ the last halfword of the page
+    addgt   r3, #1              @ the next page's first instructions
+    addgt   r3, #2
+    cmp     r2, #0
+    bne     1b
+    svc     #25
