@@ -26,6 +26,7 @@ pub mod simd_fp;
 pub mod smp;
 pub mod state;
 pub mod sysregs;
+pub mod t32;
 pub mod timer;
 pub mod tlb;
 

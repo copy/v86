@@ -232,10 +232,17 @@ pub fn write(reg: u32, rt: u32, value: u64) -> Result<(), Exception> {
                 *tcr_el1 = value;
                 crate::aarch64::mmu::regime_changed();
             },
-            // NZCV, SS, IL, DAIF, M; PAN with FEAT_PAN
+            // NZCV, SS, DAIF, M; PAN with FEAT_PAN; in profile v3 AArch32's
+            // Q, IT and GE too, and IL (which v1 and v2 drop, as they always did)
             r if r == key(3, 0, 4, 0, 0) => {
+                let a32 = if cpu::has_aarch32() {
+                    (PSTATE_Q | PSTATE_IT | PSTATE_GE | PSTATE_IL) as u64
+                }
+                else {
+                    0
+                };
                 *spsr_el1 =
-                    value & (0xF060_03FF | if cpu::has_pan() { PSTATE_PAN as u64 } else { 0 })
+                    value & (0xF060_03FF | a32 | if cpu::has_pan() { PSTATE_PAN as u64 } else { 0 })
             },
             r if r == key(3, 0, 4, 2, 3) && cpu::has_pan() => {
                 set_pstate(get_pstate() & !PSTATE_PAN | value as u32 & PSTATE_PAN)

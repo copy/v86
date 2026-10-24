@@ -260,6 +260,12 @@ pub enum Exception {
     },
     /// software step (EC 0x32/0x33): whether the stepped instruction was a load-exclusive
     SoftwareStep(bool),
+    /// an AArch32 instruction's trap with its own syndrome (MCR/MRC and
+    /// MCRR/MRRC of CP15 and CP14 0x03-0x06/0x0C, WFx 0x01, FP 0x07, BKPT 0x38): EC, ISS
+    Trapped32 {
+        ec: u32,
+        iss: u32,
+    },
 }
 
 pub const EC_UNKNOWN: u32 = 0x00;
@@ -327,6 +333,7 @@ impl Exception {
                 EC_STEP_LOWER + (from != 0) as u32,
                 1 << 24 | (ex as u32) << 6 | FSC_DEBUG,
             ),
+            Exception::Trapped32 { ec, iss } => (ec, iss),
         };
         // (IL: the instruction's length, 0 for a 16-bit T32 one; 1 where
         // there is no instruction to speak of: unknown, aborts on fetch, PC

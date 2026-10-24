@@ -817,7 +817,7 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
     }
 }
 
-fn alignment(va: u64, write: bool, _syndrome: Syndrome) -> Exception {
+pub(crate) fn alignment(va: u64, write: bool, _syndrome: Syndrome) -> Exception {
     // (ISV 0, as for every data abort taken to EL1: memory.rs)
     Exception::DataAbort {
         iss: FSC_ALIGNMENT | (write as u32) << 6,
@@ -985,7 +985,7 @@ static mut SPIN: [(u64, u128, u32); crate::isa::MAX_CORES] = [(0, 0, 0); crate::
 const SPIN_YIELD: u32 = 4;
 
 /// LDXR/STXR/LDAXR/STLXR/LDXP/STXP/LDAXP/STLXP
-fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
+pub(crate) fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
     let rt = i.rd as u32;
     let rt2 = i.ra as u32;
     let rs = i.rm as u32;
