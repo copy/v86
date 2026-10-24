@@ -1121,8 +1121,15 @@ impl Emitter<'_> {
             },
             SystemRegister::Elr => store64(self, state::elr_el1 as u32, u64::MAX),
             SystemRegister::Spsr => {
+                // (sysregs' mask: in profile v3 AArch32's Q, IT, GE and IL too)
                 let pan = if cpu::has_pan() { cpu::PSTATE_PAN as u64 } else { 0 };
-                store64(self, state::spsr_el1 as u32, 0xF060_03FF | pan)
+                let a32 = if cpu::has_aarch32() {
+                    (cpu::PSTATE_Q | cpu::PSTATE_IT | cpu::PSTATE_GE | cpu::PSTATE_IL) as u64
+                }
+                else {
+                    0
+                };
+                store64(self, state::spsr_el1 as u32, 0xF060_03FF | pan | a32)
             },
             SystemRegister::Esr => store64(self, state::esr_el1 as u32, 0xFFFF_FFFF),
             SystemRegister::Far => store64(self, state::far_el1 as u32, u64::MAX),
