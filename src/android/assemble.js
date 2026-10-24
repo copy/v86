@@ -16,7 +16,7 @@ import { parse_vendor_boot_image } from "./bootimg.js";
 import { lz4_legacy_decompress } from "./lz4.js";
 import { cpio_files } from "./cpio.js";
 import { CF_ARM64_ONLY_PHONE, RANCHU_DEVICES, device_partitions } from "./devices.js";
-import { make_empty_ext4 } from "./ext4.js";
+import { ext4_writes } from "./ext4.js";
 
 /** super's room after its partitions once shrunk */
 export const SUPER_SLACK = 64 << 20;
@@ -216,6 +216,8 @@ export async function write_disk(read, disk, write, progress = () => {})
     for(const p of disk.partitions)
     {
         if(p.bytes) { await write(p.start, p.bytes); continue; }
+        // (a filesystem made here: its metadata's writes)
+        if(p.writes) { for(const w of p.writes) await write(p.start + w.offset, w.bytes); continue; }
         if(!p.member) continue;
         if(!p.sparse)
         {
@@ -311,11 +313,8 @@ export async function emulator_disk(read, entries)
     {
         if(p.ext4)
         {
-            // (the file system's blocks in use: the start of it; zeros after)
-            const image = make_empty_ext4(p.ext4, p.name, 0);
-            let end = image.length;
-            while(end > 0 && !image[end - 1]) end--;
-            list.push({ name: p.name, size: p.ext4, bytes: image.slice(0, Math.ceil(end / 4096) * 4096) });
+            // (only the file system's metadata written: zeros elsewhere)
+            list.push({ name: p.name, size: p.ext4, writes: ext4_writes(p.ext4, p.name, 0) });
             continue;
         }
         const m = member(p.member);

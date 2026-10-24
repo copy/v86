@@ -26,7 +26,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { PictureSink } from "../lib/picture_sink.mjs";
-import { make_empty_ext4 } from "../../src/android/ext4.js";
+import { make_empty_ext4, ext4_writes } from "../../src/android/ext4.js";
 import { ranchu_cmdline, ranchu_dtb, ranchu_framebuffer, RANCHU_DISPLAY } from "../../src/virt/ranchu.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -324,7 +324,13 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
     // (the free counts: the superblock's are the group's)
     assert.equal(view.getUint32(sb + 12, true), view.getUint16(4096 + 12, true));
     assert.equal(view.getUint32(sb + 16, true), view.getUint16(4096 + 14, true));
-    assert.throws(() => make_empty_ext4(256 << 20), /128 MiB/);
+    // (a larger one, as the metadata's writes: groups of 128 MiB, the superblock's copies in groups 0, 1, 3, 5, 7, 9)
+    const writes = ext4_writes(1200 << 20, "userdata", 1);
+    const copies = writes.filter(w => w.bytes.length === 1024 && new DataView(w.bytes.buffer).getUint16(56, true) === 0xEF53);
+    assert.deepEqual(copies.map(w => [w.offset / 4096 / 32768, new DataView(w.bytes.buffer).getUint16(90, true)]),
+        [[1024 / 4096 / 32768, 0], [1, 1], [3, 3], [5, 5], [7, 7], [9, 9]]);
+    assert.equal(new DataView(copies[0].bytes.buffer).getUint32(4, true), 1200 << 8, "the blocks");
+    assert.throws(() => make_empty_ext4(1000), /a multiple of 4 KiB/);
     console.log("PASS: /cache's filesystem");
 }
 
