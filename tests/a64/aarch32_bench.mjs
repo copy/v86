@@ -7,14 +7,17 @@
 // each run less that of a run of no iterations (the machine's start; the
 // guest's counter is the harness's clock); the checksums of the three
 // builds must agree. The gate: 32-bit takes at most twice A64's time (the
-// geometric mean of the kernels).
+// geometric mean of the kernels). --arm32 (R5.3's E level): the A32 and T32
+// builds run at PL1 on cpu_type "arm32" instead (tests/a32/bench.c: the
+// 32-bit kernel's view, the MMU on with short descriptors).
 //
-//   node tests/a64/aarch32_bench.mjs [--kernels hash,sort,...] [--scale N]
+//   node tests/a64/aarch32_bench.mjs [--kernels hash,sort,...] [--scale N] [--arm32]
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { build, actual, root } from "./guest_runner.mjs";
+import { build32 as build_arm32, actual32 } from "../a32/runner.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, value) => { const i = args.indexOf(name); return i < 0 ? value : args[i + 1]; };
@@ -24,6 +27,7 @@ const option = (name, value) => { const i = args.indexOf(name); return i < 0 ? v
 const KERNELS = { bytecode: 310, vcall: 490, strings: 85, bitboard: 370, recursion: 390, lz: 13, hash: 66, sort: 24 };
 const names = option("--kernels", Object.keys(KERNELS).join(",")).split(",");
 const SCALE = +option("--scale", 0.1);
+const arm32 = args.includes("--arm32");
 
 const host = spawnSync("rustc", ["-vV"], { encoding: "utf8" }).stdout.match(/host: (\S+)/)[1];
 const lld = process.env.LD_LLD || `${spawnSync("rustc", ["--print", "sysroot"], { encoding: "utf8" }).stdout.trim()}/lib/rustlib/${host}/bin/rust-lld`;
@@ -92,14 +96,20 @@ if(process.env.A64_BENCH_JIT !== "0")
 const builds = (name, source, iterations) => [
     ["a64", build(`aarch32-bench-${name}-${iterations}-a64`, [root + "tests/a64/aarch32/bench.c", source, root + "tests/a64/aarch32/bench_rt.c"],
         { cflags: [`-DITERATIONS=${iterations}`, `-DNAME="${name}"`, "-fno-vectorize", "-fno-slp-vectorize"], general_regs_only: true })],
-    ["a32", build32(name, source, iterations, false)],
-    ["t32", build32(name, source, iterations, true)],
+    ...(arm32 ? [false, true].map(thumb => [thumb ? "t32" : "a32", build_arm32(`bench-${name}-${iterations}-${thumb ? "t32" : "a32"}`,
+        [root + "tests/a32/bench.c", source, root + "tests/a64/aarch32/bench_rt.c"],
+        { cflags: [`-DITERATIONS=${iterations}`, `-DNAME="${name}"`, "-fno-vectorize", "-fno-slp-vectorize"], thumb })]) : [
+        ["a32", build32(name, source, iterations, false)],
+        ["t32", build32(name, source, iterations, true)],
+    ]),
 ];
 /** a run: its checksum and the host's milliseconds */
-async function measure(directory, what)
+async function measure(directory, what, kind)
 {
     const started = performance.now();
-    const r = await actual(directory, { timeout: +(process.env.A64_BENCH_TIMEOUT || 600000), options: { a64_profile: "v3" } });
+    const r = arm32 && kind !== "a64" ?
+        await actual32(directory, { timeout: +(process.env.A64_BENCH_TIMEOUT || 600000) }) :
+        await actual(directory, { timeout: +(process.env.A64_BENCH_TIMEOUT || 600000), options: { a64_profile: "v3" } });
     const ms = performance.now() - started;
     assert.equal(r.status, "ok", `${what}: ${r.status}\n${r.text}`);
     assert.ok(!/an exception/.test(r.text), `${what}: ${r.text}`);
@@ -112,7 +122,7 @@ const baseline = {};
 for(const [kind, directory] of builds(names[0], `${root}tests/bench/src/${names[0]}.c`, 0))
 {
     const times = [];
-    for(let i = 0; i < 3; i++) times.push((await measure(directory, kind + " baseline")).ms);
+    for(let i = 0; i < 3; i++) times.push((await measure(directory, kind + " baseline", kind)).ms);
     baseline[kind] = Math.min(...times);
 }
 console.log(`baseline (the machine's start): ${Object.entries(baseline).map(([k, v]) => k + " " + v.toFixed(0) + " ms").join(", ")}`);
@@ -124,7 +134,7 @@ for(const name of names)
     const row = { name, iterations };
     for(const [kind, directory] of builds(name, source, iterations))
     {
-        const m = await measure(directory, `${name} ${kind}`);
+        const m = await measure(directory, `${name} ${kind}`, kind);
         row[kind] = { checksum: m.checksum, ms: Math.max(1, m.ms - baseline[kind]) };
     }
     assert.equal(row.a32.checksum, row.a64.checksum, name + ": A32's checksum is A64's");
@@ -134,4 +144,4 @@ for(const name of names)
     results.push(row);
 }
 const mean = kind => Math.exp(results.reduce((n, r) => n + Math.log(r[kind].ms / r.a64.ms), 0) / results.length);
-console.log(`aarch32 bench: 32-bit against A64 (geometric means): A32 x${mean("a32").toFixed(2)}, T32 x${mean("t32").toFixed(2)}`);
+console.log(`aarch32 bench${arm32 ? " (arm32, PL1)" : ""}: 32-bit against A64 (geometric means): A32 x${mean("a32").toFixed(2)}, T32 x${mean("t32").toFixed(2)}`);

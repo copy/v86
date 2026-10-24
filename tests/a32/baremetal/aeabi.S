@@ -4,7 +4,9 @@
     .syntax unified
     .arm
     .text
+    // (functions: a T32 caller's BL becomes BLX)
     .global __aeabi_uldivmod
+    .type __aeabi_uldivmod, %function
 __aeabi_uldivmod:
     push    {r4, lr}
     sub     sp, sp, #16
@@ -20,6 +22,7 @@ __aeabi_uldivmod:
     pop     {r4, pc}
 
     .global __aeabi_ldivmod
+    .type __aeabi_ldivmod, %function
 __aeabi_ldivmod:
     push    {r4, lr}
     sub     sp, sp, #16
