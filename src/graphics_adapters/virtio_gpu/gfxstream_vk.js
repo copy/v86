@@ -74,7 +74,9 @@ export function GfxstreamVulkan(gfxstream, vk)
     this.vk = vk;
     /** the host's handles: any context's unique (gfxstream's boxed handles are the host's) */
     this.next_handle = 0x1000;
-    this.stats = { commands: 0, flushed: 0, unknown: {}, unimplemented: {}, failures: {}, errors: 0, last_error: "" };
+    this.stats = { commands: 0, flushed: 0, unknown: {}, unimplemented: {}, failures: {}, errors: 0, last_error: "",
+        /** @type {!Array<{name: string, payload: !Uint8Array}>} the first commands that did not decode (a harness keeps them) */
+        undecoded: [] };
     /** @type {?function(string, !Object)} a harness's hook: each command and its parameters */
     this.on_command = null;
 }
@@ -169,6 +171,7 @@ GfxstreamVulkan.prototype.decode = function(ctx, ring, opcode, payload, reply)
     catch(e)
     {
         this.error(name + ": " + (e && e.message || e));
+        if(this.stats.undecoded.length < 4) this.stats.undecoded.push({ name, payload: payload.slice() });
         st.seqno = seqno;
         return null;
     }

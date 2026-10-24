@@ -585,6 +585,12 @@ if(process.env.A64_ANDROID_GPU_DEBUG)
         {
             // gfxstream: each context's rings (W waiting, B after another ring's command, - idle), Vulkan's stats
             const g = gpu.gfxstream, v = g.vulkan;
+            // (the commands that did not decode: their payloads into the run's directory)
+            for(const [i, u] of (v ? v.stats.undecoded : []).entries())
+            {
+                const file = `${directory}gfxstream-undecoded-${i}-${u.name}.bin`;
+                if(!fs.existsSync(file)) fs.writeFileSync(file, u.payload);
+            }
             console.log(`gpu-debug: held=${gpu.held} pending=${gpu.pending.length} gfxstream pings=${g.stats.pings} commands=${g.stats.commands}` +
                 ` errors=${g.stats.errors}${g.stats.last_error ? " last=" + JSON.stringify(g.stats.last_error) : ""}` +
                 ` contexts=${[...g.contexts.values()].map(c => c.capset + ":" + [...c.rings.values()].map(r => r.waiting ? "W" : r.blocked ? "B" : "-").join("")).join(" ")}` +
