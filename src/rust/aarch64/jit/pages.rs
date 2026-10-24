@@ -690,6 +690,11 @@ pub fn bounce_address() -> u32 { &raw mut BOUNCE as u32 }
 
 /// The flow a step asked for (a wait, a stop, a yield) while compiled code ran
 static mut STEP_FLOW: Option<Flow> = None;
+/// A helper's instruction that completed but asked the run loop for
+/// something (a load-exclusive's spin yield): its next PC and that flow;
+/// the function left as for a retry, which this finishes instead of
+/// executing the instruction again
+static mut HELPER_DONE: Option<(u64, Flow)> = None;
 
 fn execute(slot: u32, budget: u32, pc: u64) -> Ran {
     let core = current_core();
@@ -710,6 +715,7 @@ fn execute(slot: u32, budget: u32, pc: u64) -> Ran {
         *a64_jac_base = access(core).base(ENTRIES, (mode & 1 == 0) as usize);
         *a64_code_base = chain(core).0[mode as usize].base();
         STEP_FLOW = None;
+        HELPER_DONE = None;
     }
     let r = rt();
     r.stats[ACTIVATIONS] += 1;
@@ -731,6 +737,12 @@ fn execute(slot: u32, budget: u32, pc: u64) -> Ran {
     let mut retired = retired;
     let mut flow = unsafe { (*(&raw mut STEP_FLOW)).take() }.unwrap_or(Flow::Next);
     match unsafe { *a64_page_exit } {
+        EXIT_RETRY if unsafe { (*(&raw const HELPER_DONE)).is_some() } => {
+            let (next, f) = unsafe { (*(&raw mut HELPER_DONE)).take() }.unwrap();
+            cpu::set_pc(next);
+            retired += 1;
+            flow = f;
+        },
         EXIT_RETRY => {
             // (the instruction at the PC: a template refused it before any of its effects)
             r.stats[RETRIES] += 1;
@@ -1248,7 +1260,8 @@ pub fn a64_page_unmasked() -> u32 { interrupt_pending() as u32 }
 /// were written back), by the interpreter's own execute. Only forms that
 /// never transfer control nor change what compiled code depends on come
 /// here (pagegen::helper_kind); 0 when done, 1 when it refused before any
-/// effect (an exception: the function retries it in the interpreter)
+/// effect (an exception: the function retries it in the interpreter) or
+/// was done but asks the run loop for something (HELPER_DONE)
 #[no_mangle]
 pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
     unsafe { HELPERS += 1 };
@@ -1259,6 +1272,11 @@ pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
             crate::core_stats::add_pending(1, 0);
             0
         },
+        Ok(flow @ (Flow::Yield | Flow::Wait(_) | Flow::Off)) => {
+            crate::core_stats::add_pending(1, 0);
+            unsafe { HELPER_DONE = Some((pc.wrapping_add(4), flow)) };
+            1
+        },
         _ => 1,
     }
 }
@@ -1268,7 +1286,8 @@ pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
 /// memory, as the interpreter does it without the fetch (the IT block a step
 /// on); 1 when it did not simply go on to the next instruction, which the
 /// compiler rules out but for its exceptions (raised before any of its
-/// effects: the interpreter runs it again)
+/// effects: the interpreter runs it again) and a load-exclusive's spin
+/// yield (done: HELPER_DONE)
 #[no_mangle]
 pub fn a32_page_helper(word: u32, pc: u64, length: u32) -> u32 {
     unsafe { HELPERS += 1 };
@@ -1279,12 +1298,17 @@ pub fn a32_page_helper(word: u32, pc: u64, length: u32) -> u32 {
         word,
     );
     match crate::aarch64::a32::execute_fetched(word, length, pc as u32, thumb) {
-        Ok(Flow::Next) => {
+        Ok(flow @ (Flow::Next | Flow::Yield | Flow::Wait(_) | Flow::Off)) => {
             crate::core_stats::add_pending(1, 0);
             if thumb {
                 crate::aarch64::t32::it_advance();
             }
-            0
+            if matches!(flow, Flow::Next) {
+                return 0;
+            }
+            let next = (pc as u32).wrapping_add(length) as u64;
+            unsafe { HELPER_DONE = Some((next, flow)) };
+            1
         },
         _ => 1,
     }

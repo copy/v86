@@ -4,12 +4,14 @@
 // ALU's writes of it), CBZ and CBNZ, TBB and TBH, conditional branches,
 // and IT blocks: conditions, the flags 16-bit instructions do not set in
 // them, and an exception in the middle of one (ITSTATE in SPSR_EL1) whose
-// return goes on with the block.
+// return goes on with the block. A load-exclusive that spins (the same
+// doubleword again and again: the interpreter's yield) overwriting its
+// base register.
 // The table: count, then per case offset (+1: T32), resumes, NZCV.
     .syntax unified
     .arm
 base:
-    .word   18
+    .word   20
     .word   a32_branches - base, 0, 0
     .word   a32_bl - base, 0, 0
     .word   a32_bx_t32 - base, 0, 0
@@ -28,6 +30,8 @@ base:
     .word   t32_it_flags - base + 1, 0, 0
     .word   t32_it_svc - base + 1, 2, 0
     .word   t32_it_else - base + 1, 0, 0
+    .word   a32_ldrexd_spin - base, 0, 0
+    .word   t32_ldrexd_spin - base + 1, 0, 0
 
 a32_branches:
     b       1f
@@ -208,3 +212,31 @@ t32_it_else:
     moveq   r3, #3
     movne   r4, #4
     svc     #22
+
+t32_ldrexd_spin:
+    mov     r3, sp
+    movs    r4, #0x55
+    movs    r5, #0x66
+    strd    r4, r5, [r3]
+    movs    r2, #100
+1:  mov     r0, r3
+    ldrexd  r4, r0, [r0]
+    clrex
+    subs    r2, #1
+    bne     1b
+    svc     #23
+
+    .arm
+    .balign 4
+a32_ldrexd_spin:
+    mov     r3, sp
+    mov     r4, #0x77
+    mov     r5, #0x88
+    strd    r4, r5, [r3]
+    mov     r2, #100
+1:  mov     r1, r3
+    ldrexd  r0, r1, [r1]
+    clrex
+    subs    r2, r2, #1
+    bne     1b
+    svc     #24
