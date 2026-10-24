@@ -1335,6 +1335,19 @@ A64CPU.prototype.step_stats = function(top = 20)
     const stat = this.wm.exports["a64_step_stat"];
     if(!stat) return null;
     const result = {};
+    // (AArch32's helper calls by instruction word)
+    const helper_word = this.wm.exports["a32_helper_word"];
+    if(helper_word)
+    {
+        const words = [];
+        for(let i = 0; i < 4096; i++)
+        {
+            const count = helper_word(i, true);
+            if(count) words.push({ "word": "0x" + (helper_word(i, false) >>> 0).toString(16).padStart(8, "0"), "count": count });
+        }
+        words.sort((a, b) => b["count"] - a["count"]);
+        result["helped_words"] = words.slice(0, top);
+    }
     ["stepped", "changed_context", "helped"].forEach((name, kind) => {
         const rows = [];
         for(let key = 0; key < 1024; key++)

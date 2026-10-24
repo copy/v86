@@ -25,7 +25,8 @@
 // (goldfish_events) opens an app (the focused window changes), and a 32-bit
 // APK (tests/a32/android/v86arm32.c as armeabi-v7a, tests/a64/apk.mjs) goes
 // over the console (base64), is installed (pm install) and started: its log
-// line and its frame.
+// line and its frame. A32_ANDROID_PROBE: shell commands (";;" between
+// them) whose output is printed after boot or restore.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -154,6 +155,9 @@ try
             console.log("saved " + save);
         }
     }
+    // (the page tier's steps and helper calls: what is not compiled natively)
+    const cpu = emulator.v86.cpu;
+    if(cpu.step_stats) fs.writeFileSync(run_directory + "steps.json", JSON.stringify(cpu.step_stats(40), null, 1));
     // the screen woken and unlocked, the home screen; what the system says of them
     const fb = emulator.v86.cpu.devices.goldfish_fb;
     const ask = async (command, marker, limit = 120000) =>
@@ -163,20 +167,26 @@ try
         await wait(() => transcript.indexOf(marker + "_2", from) >= 0, marker, limit);
         return transcript.slice(from, transcript.indexOf(marker + "_2", from));
     };
+    // (A32_ANDROID_PROBE: shell commands, ";;" between them, run and printed first)
+    for(const command of (process.env.A32_ANDROID_PROBE || "").split(";;").filter(c => c.trim()))
+    {
+        console.log(`probe: ${command}\n` + (await ask(command, "A32_PROBE", 600000)).split("\n").slice(1).join("\n").slice(0, 8000));
+    }
     const state = await ask("getprop ro.config.low_ram; getprop qemu.gles; getprop qemu.sf.lcd_density; " +
-        "dumpsys power | grep -E 'mWakefulness=|mScreenOn|Display Power' ; dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen|mScreenOnFully'", "A32_STATE");
+        "dumpsys power | grep -E 'mWakefulness=|mScreenOn|Display Power' ; dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen|mScreenOnFully'", "A32_STATE", 600000);
     console.log("before: " + state.replace(/\s+/g, " ").slice(0, 600) + "; frames " + fb.frames);
-    await ask("input keyevent 224; sleep 2; wm dismiss-keyguard; sleep 2; input keyevent 3", "A32_HOME");
+    // (each input or wm starts a Dalvik VM: a minute or more here)
+    await ask("input keyevent 224; sleep 2; wm dismiss-keyguard; sleep 2; input keyevent 3", "A32_HOME", 900000);
     await new Promise(resolve => setTimeout(resolve, 40000));
-    const after = await ask("dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen'", "A32_AFTER");
+    // (what SurfaceFlinger composes, apart from what reaches the framebuffer:
+    // a black 480x800 PNG is a few KB)
+    const after = await ask("dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen'; " +
+        "screencap -p /data/local/tmp/sc.png; ls -l /data/local/tmp/sc.png", "A32_AFTER", 600000);
     console.log("after: " + after.replace(/\s+/g, " ").slice(0, 400) + "; frames " + fb.frames);
     const shot = save_png(sink, run_directory, "home");
-    // (the page tier's steps and helper calls: what is not compiled natively)
-    const cpu = emulator.v86.cpu;
-    if(cpu.step_stats) fs.writeFileSync(run_directory + "steps.json", JSON.stringify(cpu.step_stats(40), null, 1));
     if(process.env.A32_ANDROID_APP === "1")
     {
-        const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS")).match(/mCurrentFocus=\S+ \S+ (\S+)\}/)?.[1] || "";
+        const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS", 600000)).match(/mCurrentFocus=\S+ \S+ (\S+)\}/)?.[1] || "";
         // a touch: the hotseat's icons, from the left, until one opens its app
         const home = await focus();
         const events = emulator.v86.cpu.devices.goldfish_events;
@@ -191,7 +201,7 @@ try
         console.log(`touch: ${home} -> ${opened}`);
         save_png(sink, run_directory, "touched");
         assert.ok(opened && opened !== home, "a touch on the hotseat opens an app");
-        await ask("input keyevent 3", "A32_HOME2");
+        await ask("input keyevent 3", "A32_HOME2", 600000);
 
         // the 32-bit APK, base64 over the console
         const lib = build_native_lib(4096, "v86arm32", ["-landroid", "-llog", "-lm"],
@@ -199,8 +209,8 @@ try
         const apk = build_apk({ label: "v86 arm32", package_name: "org.v86.arm32", min_sdk: 21, target_sdk: 25,
             native: { name: "v86arm32", lib, extract: true, abi: "armeabi-v7a", software: true } });
         const text = apk.toString("base64");
-        await ask("rm -f /data/local/tmp/app.b64", "A32_RM");
-        for(let at = 0; at < text.length; at += 768) await ask(`echo ${text.slice(at, at + 768)} >> /data/local/tmp/app.b64`, "A32_PUT");
+        await ask("rm -f /data/local/tmp/app.b64", "A32_RM", 600000);
+        for(let at = 0; at < text.length; at += 768) await ask(`echo ${text.slice(at, at + 768)} >> /data/local/tmp/app.b64`, "A32_PUT", 600000);
         const installed = await ask("base64 -d /data/local/tmp/app.b64 > /data/local/tmp/app.apk && pm install -r /data/local/tmp/app.apk", "A32_INSTALL", 900000);
         console.log("install: " + installed.replace(/\s+/g, " ").slice(-200));
         assert.match(installed, /Success/, "pm install");
@@ -210,7 +220,7 @@ try
         for(let i = 0; i < 20 && !drew; i++)
         {
             await new Promise(resolve => setTimeout(resolve, 10000));
-            drew = (await ask("logcat -d -s v86arm32:I", "A32_LOG")).match(/V86_ARM32_DREW \S+ sum=\S+ bits=\d+/)?.[0] || "";
+            drew = (await ask("logcat -d -s v86arm32:I", "A32_LOG", 600000)).match(/V86_ARM32_DREW \S+ sum=\S+ bits=\d+/)?.[0] || "";
         }
         console.log("app: " + drew + "; focus " + await focus() + "; frames " + fb.frames);
         assert.ok(drew, "the 32-bit app drew its frame");

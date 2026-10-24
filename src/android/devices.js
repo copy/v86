@@ -200,8 +200,12 @@ export const RANCHU_25_ARMEABI_V7A = {
     // system_server draws its own windows with the CPU. Its GL would be the
     // guest's SwiftShader (without a host GPU the EGL loader takes the
     // vendor's SwiftShader: qemu.gles 2), whose JIT the image's SELinux
-    // policy denies system_server (execmem): its first GL frame killed it
-    properties: { "ro.config.low_ram": "true" },
+    // policy denies system_server (execmem): its first GL frame killed it.
+    // No ANR stack traces (an empty dalvik.vm.stack-trace-file: AMS's
+    // dumpStackTraces returns at once): on a CPU this slow an ANR's dumps of
+    // every process held ActivityManager's lock past the Watchdog's 60 s,
+    // which killed system_server
+    properties: { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "" },
 };
 
 /** The emulator images v64 boots, by API level and ABI */

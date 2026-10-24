@@ -240,6 +240,16 @@ second boot 665 s. The VM manager's Android preset and imported images use
 gfxstream by default; the screen shows the scanout straight from the GPU
 when the graphics proxy's compositor is on the page (no readback, G-31).
 
+32-bit apps (profile `v3`, [aarch32-plan.md](aarch32-plan.md) Q5.2): Cuttlefish's
+arm64 phone is 64-bit only, so `tools/a64_android.mjs --gsi <zip>
+--zygote64-32` gives its vendor a 32-bit second architecture for a GSI that
+has one (vendor's `ro.zygote=zygote64_32`, vendor's and odm's 32-bit ABI
+lists, vendor's 32-bit boringssl self test left to the system's). An APK
+with only `armeabi-v7a` libraries then installs and runs its library in a
+32-bit process (`A64_ANDROID_SCENARIO=compat32`, with `A64_PROFILE=v3` on
+v86). It gets no window: the vendor has no 32-bit gralloc mapper or graphics
+drivers.
+
 ## Known defects
 
 The G-Alpine list (docs/arm64-virt-android16-plan.md P9.4). Major: a

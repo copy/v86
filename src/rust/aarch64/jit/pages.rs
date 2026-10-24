@@ -1401,9 +1401,42 @@ pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
 /// compiler rules out but for its exceptions (raised before any of its
 /// effects: the interpreter runs it again) and a load-exclusive's spin
 /// yield (done: HELPER_DONE)
+/// (diagnostics) AArch32's helper calls by instruction word: an open
+/// addressed table of (word, count), new words dropped when it is full
+const HELPER_WORDS_SIZE: usize = 4096;
+static mut HELPER_WORDS: [(u32, u32); HELPER_WORDS_SIZE] = [(0, 0); HELPER_WORDS_SIZE];
+#[inline(always)]
+fn note_helper_word(word: u32) {
+    let table = unsafe { &mut *crate::parallel::machine(&raw mut HELPER_WORDS) };
+    let mut i = (word.wrapping_mul(0x9E37_79B1) >> 20) as usize;
+    for _ in 0..8 {
+        let e = &mut table[i];
+        if e.1 == 0 || e.0 == word {
+            *e = (word, e.1.wrapping_add(1));
+            return;
+        }
+        i = (i + 1) % HELPER_WORDS_SIZE;
+    }
+}
+/// (diagnostics) entry `i` of the helper words' table: `count` false the
+/// word, true its count (0: empty)
+#[no_mangle]
+pub fn a32_helper_word(i: u32, count: bool) -> f64 {
+    let e = unsafe {
+        (*crate::parallel::machine(&raw mut HELPER_WORDS))[i as usize % HELPER_WORDS_SIZE]
+    };
+    if count {
+        e.1 as f64
+    }
+    else {
+        e.0 as f64
+    }
+}
+
 #[no_mangle]
 pub fn a32_page_helper(word: u32, pc: u64, length: u32) -> u32 {
     unsafe { HELPERS += 1 };
+    note_helper_word(word);
     a32_trace(2, pc as u32, word);
     let thumb = cpu::get_pstate() & cpu::PSTATE_T != 0;
     note_step(

@@ -36,6 +36,19 @@
   的输出与参考机相同：1 核、4 核且中途保存恢复快照、4 核 vCPU worker。快照不需要新字段：AArch32 的状态都在原有的
   PSTATE（SPSR 格式）、X、V、FPSR/FPCR 里，profile 已在快照身份里。
 
+- **Q5.2（`65ad5765`）**：带 32 位第二架构的 Android 16。Cuttlefish 的 arm64 设备是纯 64 位的（Q0.1），而 Android 14
+  的 `aosp_cf_arm64_phone`（`aosp-android14-gsi` 分支 16571446，`tools/a64_android.mjs --build a14`）虽有 32 位，
+  却开不了机：它的 KeyMint 与 Gatekeeper 只有 Cuttlefish 的远程版本，可信的一侧是宿主的 secure_env。所以做法是
+  官方 GSI（带 32 位一半：`app_process32`、`/system/lib`、`init.zygote64_32.rc`）加改过的 Cuttlefish vendor：
+  `--gsi <zip> --zygote64-32` 把 vendor 的 `build.prop` 改为 `ro.zygote=zygote64_32`，vendor 与 odm 的 ABI 列表加上
+  `armeabi-v7a,armeabi`（init 的 `ro.product.cpu.abilist32` 先取 odm 的；erofs 里的文件是 LZ4 压缩的，内容取构建的
+  `build.prop-vendor`、`build.prop-odm` 产物，按大小核对），vendor 的 32 位 boringssl 自检的 rc 改为导入 64 位的（这个
+  vendor 没有 32 位的自检程序，`reboot_on_failure` 会一直重启）。场景 `A64_ANDROID_SCENARIO=compat32`：两个 zygote
+  都在，只含 `armeabi-v7a` 库的 APK 安装成功、primaryCpuAbi 为 armeabi-v7a、启动后库在 32 位进程里运行（指针 32 位，
+  浮点求和与宿主相同）。限制：借来的 vendor 没有 32 位的 gralloc mapper 与图形驱动，32 位进程拿不到窗口缓冲，
+  所以测试应用不开窗口就结束；Android 16 对 32 位应用弹出 DeprecatedAbiDialog（只是提示）。QEMU 9.2 cortex-a35 的
+  TCG 上通过（`boot_completed` 370 s；HVF 没有 AArch32 EL0，32 位自检 “Exec format error” 后重启）。
+
 门禁结果：oracle 全部编码类（69 类）、VFP 6720 例（种子 2–5）、Advanced SIMD 21000 例（种子 2、3、4、5、7–10）与
 QEMU 0 差异；q1、q3、q4、qdebug 的退出与 QEMU 相同；v2 的 fp、simd、system、integer、crypto oracle 不变。
 
@@ -63,6 +76,9 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
   VPOP、VLD1/VST1（多个、全部通道），VFP 的 VADD、VSUB、VMUL、VNMUL、VDIV（A64 标量快路径的规则）、VMOV、VABS、VNEG
   与核心寄存器之间的 VMOV，Advanced SIMD 的数据处理（按位与选择、VADD/VSUB、比较、VMAX/VMIN、整数 VMUL、按立即数的
   VSHL/VSHR、改造立即数、标量 VDUP、VEXT、VREV、VMVN/VCNT/VABS/VNEG；D 寄存器按 64 位读写，所在 Q 的另一半不动）；
+  核心寄存器与系统、扩展寄存器之间的传送也是原生的（第四部分）：EL0 的 TPIDRURW、TPIDRURO（PL1 读它们与 TPIDRPRW），
+  VMRS（FPSCR 与 APSR_nzcv），核心寄存器与标量之间的 VMOV（8、16、32 位），VDUP（核心）。Android 7.1 的开机里帮助调用
+  约 118 亿次，大头就是这一类（op 62），做完后 `boot_completed` 从 444 s 到 353 s。
   其余走帮助调用。门禁：随机程序 0 差异（含这几类）。调试：`a64_page_aarch32` 的 2、3 与 16 加掩码，
   `a64_page_aarch32_filter`（按页二分），`a64_page_aarch32_trace`（事件环，见 R7.1）。
 

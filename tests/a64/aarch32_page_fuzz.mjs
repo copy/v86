@@ -95,9 +95,36 @@ function neon_op()
 function plain(c = "")
 {
     const s = c ? (rand(4) === 0 ? "s" : "") : (rand(3) === 0 ? "s" : "");
-    switch(rand(28))
+    switch(rand(30))
     {
         case 25: case 26: return c ? plain(c) : neon_op();
+        case 27: case 28: {
+            // transfers (Q6.3 part 4): the thread ID registers, VMRS, VMOV
+            // between core registers and scalars, VDUP (core)
+            const [a, b] = distinct(2), d = rand(32);
+            const lane = e => rand(64 / e);
+            switch(rand(5))
+            {
+                case 0: return `mcr${c} p15, 0, ${a}, c13, c0, 2
+    mrc${c} p15, 0, ${b}, c13, c0, ${pick([2, 3])}`;
+                case 1: return `vmov${c} s${rand(8)}, ${a}
+    vmov${c} s${8 + rand(8)}, ${b}
+    vcmp${c}.f32 s${rand(8)}, s${8 + rand(8)}
+    ` +
+                    (rand(2) ? `vmrs${c} APSR_nzcv, fpscr` : `vmrs${c} ${a}, fpscr`);
+                case 2: { const t = pick(["s8", "u8", "s16", "u16", "32"]); return `vldr d${d}, [r8, #${8 * rand(128)}]
+    vmov${c}.${t} ${a}, d${d}[${lane(+t.replace(/[su]/, ""))}]`; }
+                case 3: { const e = pick([8, 16, 32]); return `vmov${c}.${e} d${d}[${lane(e)}], ${a}
+    vmov${c} ${a}, ${b}, d${d}`; }
+                default: {
+                    const e = pick([8, 16, 32]), q = rand(2) ? rand(16) : -1;
+                    return q >= 0 ? `vdup${c}.${e} q${q}, ${a}
+    vstr d${2 * q + rand(2)}, [r8, #${8 * rand(128)}]` :
+                        `vdup${c}.${e} d${d}, ${a}
+    vmov${c} ${a}, ${b}, d${d}`;
+                }
+            }
+        }
         case 0: case 1: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, ${r()}${shift()}`;
         case 2: case 3: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, #${IMMS()}`;
         case 4: return `${pick(["mov", "mvn"])}${s}${c} ${r()}, ${r()}${shift()}`;

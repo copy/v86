@@ -170,6 +170,19 @@ pub enum Kind {
     /// an IT whose instructions are all native (with their conditions,
     /// pagegen's discovery): nothing at run time, ITSTATE stays 0
     It,
+    /// Transfers between core registers and system or extension registers
+    /// (Q6.3 part 4): `op` TRANSFER_*; `address` the state's field (the
+    /// TPIDR registers) or the element's byte (VMOV scalar: `size` bytes,
+    /// `signed`); VDUP's Q (`q`)
+    Transfer {
+        op: u8,
+        rt: u8,
+        address: u32,
+        size: u8,
+        signed: bool,
+        q: bool,
+        cond: u8,
+    },
     /// Advanced SIMD data processing (Q6.3 part 3), unconditional (T32's in
     /// an IT block are helper calls): `form` on D registers (`q` false: the
     /// 64 bits of D[d], D[n], D[m]; the other half of their Q register
@@ -226,6 +239,7 @@ pub fn kind_name(kind: &Kind) -> String {
         Kind::Vld1 { .. } => "vld1".into(),
         Kind::It => "it".into(),
         Kind::Neon { .. } => "neon".into(),
+        Kind::Transfer { op, cond, .. } => format!("transfer{}/{}", op, cond),
     }
 }
 
@@ -362,6 +376,133 @@ fn fp_memory(word: u32, thumb: bool) -> Option<Kind> {
 /// VFP's data processing with native templates (Q6.3): A32's word or
 /// T32's (A32's with the condition 1110): the arithmetic of FpArith and
 /// the moves of FpMove; None for anything else
+/// Kind::Transfer's operations
+const TRANSFER_READ: u8 = 0;
+const TRANSFER_WRITE: u8 = 1;
+const TRANSFER_FPSCR: u8 = 2;
+const TRANSFER_FPSCR_FLAGS: u8 = 3;
+const TRANSFER_FROM_SCALAR: u8 = 4;
+const TRANSFER_TO_SCALAR: u8 = 5;
+const TRANSFER_DUP: u8 = 6;
+
+/// MRC and MCR of the thread ID registers (EL0: TPIDRURW and TPIDRURO;
+/// PL1's reads of those and TPIDRPRW), VMRS of FPSCR, VMOV between a core
+/// register and a scalar, VDUP (core) as native transfers (Q6.3 part 4)
+fn transfer(word: u32, thumb: bool, el1: bool) -> Option<Kind> {
+    let cond = (word >> 28) as u8;
+    if cond == 15 || word >> 24 & 15 != 0b1110 || word & 1 << 4 == 0 {
+        return None;
+    }
+    let cond = if thumb { 14 } else { cond };
+    let rt = (word >> 12 & 15) as u8;
+    if rt == 15 && word & 0x0FFF_0FFF != 0x0EF1_0A10 || thumb && rt == 13 {
+        return None;
+    }
+    let read = word & 1 << 20 != 0;
+    let kind = |op: u8, address: u32, size: u8, signed: bool, q: bool| {
+        Some(Kind::Transfer {
+            op,
+            rt,
+            address,
+            size,
+            signed,
+            q,
+            cond,
+        })
+    };
+    match word >> 8 & 15 {
+        15 => {
+            // MRC, MCR p15: opc1 0, CRn 13, CRm 0
+            if word >> 21 & 7 != 0 || word >> 16 & 15 != 13 || word & 15 != 0 {
+                return None;
+            }
+            let field = match (word >> 5 & 7, el1) {
+                (2, _) => state::tpidr_el0 as u32,
+                (3, _) => state::tpidrro_el0 as u32,
+                (4, true) => state::tpidr_el1 as u32,
+                _ => return None,
+            };
+            if read {
+                kind(TRANSFER_READ, field, 4, false, false)
+            }
+            else if !el1 && word >> 5 & 7 == 2 {
+                kind(TRANSFER_WRITE, field, 4, false, false)
+            }
+            else {
+                None
+            }
+        },
+        10 => {
+            // VMRS Rt, FPSCR; VMRS APSR_nzcv, FPSCR
+            if word & 0x0FFF_0FFF != 0x0EF1_0A10 {
+                return None;
+            }
+            kind(
+                if rt == 15 { TRANSFER_FPSCR_FLAGS } else { TRANSFER_FPSCR },
+                0,
+                4,
+                false,
+                false,
+            )
+        },
+        11 => {
+            // VMOV (scalar), VDUP (core): D[Vn:N]
+            if word & 15 != 0 || rt == 15 {
+                return None;
+            }
+            let n = (word >> 7 & 1) << 4 | word >> 16 & 15;
+            let unsigned = word & 1 << 23 != 0;
+            if !read && unsigned {
+                let (b, q, e) = (word >> 22 & 1, word >> 21 & 1 != 0, word >> 5 & 1);
+                if word & 1 << 6 != 0 || b == 1 && e == 1 || q && n & 1 != 0 {
+                    return None;
+                }
+                return kind(
+                    TRANSFER_DUP,
+                    state::v as u32 + 8 * n,
+                    if b == 1 {
+                        1
+                    }
+                    else if e == 1 {
+                        2
+                    }
+                    else {
+                        4
+                    },
+                    false,
+                    q,
+                );
+            }
+            let (size, index) = if word & 1 << 22 != 0 {
+                (1, (word >> 21 & 1) << 2 | (word >> 5 & 3))
+            }
+            else if word & 1 << 5 != 0 {
+                (2, (word >> 21 & 1) << 1 | (word >> 6 & 1))
+            }
+            else if word & 1 << 6 == 0 && !unsigned {
+                (4, word >> 21 & 1)
+            }
+            else {
+                return None;
+            };
+            let address = state::v as u32 + 8 * n + size * index;
+            if read {
+                kind(
+                    TRANSFER_FROM_SCALAR,
+                    address,
+                    size as u8,
+                    !unsigned && size < 4,
+                    false,
+                )
+            }
+            else {
+                kind(TRANSFER_TO_SCALAR, address, size as u8, false, false)
+            }
+        },
+        _ => None,
+    }
+}
+
 /// Advanced SIMD data processing (A32's 1111 001U, T32's 111U 1111) as a
 /// native form (Q6.3 part 3); None: a helper call (the others, and the
 /// UNDEFINED forms: odd Q registers, reserved sizes)
@@ -2050,6 +2191,7 @@ pub(super) fn discover(
                         .then(|| {
                             fp_memory(word, thumb)
                                 .or_else(|| fp_data(word, thumb))
+                                .or_else(|| transfer(word, thumb, env.el1))
                                 .or_else(|| env.neon.then(|| neon_data(word, thumb)).flatten())
                         })
                         .flatten()
@@ -2066,7 +2208,8 @@ pub(super) fn discover(
                     | Kind::Vld1 { .. }
                     | Kind::FpArith { .. }
                     | Kind::FpMove { .. }
-                    | Kind::Neon { .. } => 2048,
+                    | Kind::Neon { .. }
+                    | Kind::Transfer { .. } => 2048,
                     _ => 1024,
                 };
                 if debug & 16 == 0 || debug & bit == 0 {
@@ -2975,6 +3118,97 @@ impl Emitter<'_> {
     }
 
     /// VFP's moves (FpMove)
+    /// Kind::Transfer
+    #[allow(clippy::too_many_arguments)]
+    fn transfer(
+        &mut self,
+        op: u8,
+        rt: u8,
+        address: u32,
+        size: u8,
+        signed: bool,
+        q: bool,
+        offset: u16,
+    ) {
+        use crate::wasmgen::wasm_opcodes as o;
+        match op {
+            TRANSFER_READ => {
+                self.load32(address);
+                self.si(A0);
+                self.set_r32(rt, A0);
+            },
+            TRANSFER_WRITE => {
+                self.c32(address as i32);
+                self.r32(rt);
+                self.b.extend_unsigned_i32_to_i64();
+                self.b.store_aligned_i64(0);
+            },
+            TRANSFER_FPSCR | TRANSFER_FPSCR_FLAGS => {
+                self.fp_access(offset);
+                if op == TRANSFER_FPSCR_FLAGS {
+                    self.c32(state::nzcv as i32);
+                    self.load32(state::fpsr as u32);
+                    self.c32(0xF000_0000u32 as i32);
+                    self.b.and_i32();
+                    self.b.store_aligned_i32(0);
+                    return;
+                }
+                self.load32(state::fpsr as u32);
+                self.c32(0xF800_009Fu32 as i32);
+                self.b.and_i32();
+                self.load32(state::fpcr as u32);
+                self.c32(crate::aarch64::fp::FPCR_WRITABLE as i32);
+                self.b.and_i32();
+                self.b.or_i32();
+                self.si(A0);
+                self.set_r32(rt, A0);
+            },
+            TRANSFER_FROM_SCALAR => {
+                self.fp_access(offset);
+                self.c32(address as i32);
+                let opcode = match (size, signed) {
+                    (1, true) => o::OP_I32LOAD8S,
+                    (1, false) => o::OP_I32LOAD8U,
+                    (2, true) => o::OP_I32LOAD16S,
+                    (2, false) => o::OP_I32LOAD16U,
+                    _ => o::OP_I32LOAD,
+                };
+                self.b.memory_op(opcode, size.trailing_zeros() as u8, 0);
+                self.si(A0);
+                self.set_r32(rt, A0);
+            },
+            TRANSFER_TO_SCALAR => {
+                self.fp_access(offset);
+                self.c32(address as i32);
+                self.r32(rt);
+                let opcode = match size {
+                    1 => o::OP_I32STORE8,
+                    2 => o::OP_I32STORE16,
+                    _ => o::OP_I32STORE,
+                };
+                self.b.memory_op(opcode, size.trailing_zeros() as u8, 0);
+            },
+            _ => {
+                // VDUP (core): Rt's low `size` bytes in every element of D or Q
+                self.fp_access(offset);
+                self.c32(address as i32);
+                self.r32(rt);
+                self.b.simd(match size {
+                    1 => 0x0F,
+                    2 => 0x10,
+                    _ => 0x11,
+                });
+                if q {
+                    self.b.simd_memory(0x0B, 4);
+                }
+                else {
+                    self.b.simd_lane(0x1D, 0);
+                    self.b.store_aligned_i64(0);
+                }
+            },
+        }
+    }
+
     /// D[r] (`q` false: in both halves) or Q[r/2] onto the stack, a v128
     fn neon_load(&mut self, r: u8, q: bool) {
         self.c32(state::v as i32 + 8 * r as i32);
@@ -3475,6 +3709,17 @@ impl Emitter<'_> {
             } => self.when(cond, |e| e.fp_move(kind, double, d, n, m, offset)),
             Kind::It => {},
             Kind::Neon { form, q, d, n, m } => self.neon(form, q, d, n, m, offset),
+            Kind::Transfer {
+                op,
+                rt,
+                address,
+                size,
+                signed,
+                q,
+                cond,
+            } => self.when(cond, |e| {
+                e.transfer(op, rt, address, size, signed, q, offset)
+            }),
             Kind::Helper => self.a32_helper(i.word, i.length, offset),
             Kind::Branch { target, cond, link } => {
                 if cond != 14 {

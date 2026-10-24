@@ -48,7 +48,9 @@ draws with the CPU: without a host GPU (`qemu.gles=0` on the command line) the i
 SwiftShader (it sets `qemu.gles` to 2), and gralloc copies SurfaceFlinger's frames into the framebuffer (no page flipping).
 The device is a low-RAM one (boot property `ro.config.low_ram=true`, the device model's): system_server then draws its
 own windows with Skia on the CPU, because the image's SELinux policy denies it `execmem`, which SwiftShader's JIT needs
-(with GL, system_server's RenderThread jumped into its non-executable JIT code and system_server died). The VM manager imports
+(with GL, system_server's RenderThread jumped into its non-executable JIT code and system_server died), and ANRs write no
+stack traces (`dalvik.vm.stack-trace-file` empty): dumping every process took ActivityManager's lock past the Watchdog's
+60 s on a CPU this slow. The VM manager imports
 the zip into one disk ([android-images-plan.md](android-images-plan.md) I6, the "Android 7.1 (32-bit, emulator image)"
 preset): v64's bootloader hands its kernel and ramdisk partitions to the kernel and makes its system, cache and userdata
 partitions the machine's virtio disks (`src/android/partition_buffer.js`).
