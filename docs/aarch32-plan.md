@@ -114,8 +114,17 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
 - **R7.1**：官方 Android 7.1.1（`armeabi-v7a-25_r18`）在 arm32、ranchu、2 核、1 GiB 上到 `sys.boot_completed`
   （安静的主机 633–826 s；`tests/a32/android_boot.mjs`，`A32_ANDROID_DISK=1` 走导入的盘）。途中修正：页层帮助调用里
   自旋的 LDREXD 被重做一次（`f71ea54b`：执行后的 Yield 当作未执行）。未完：开机后屏幕仍黑（framebuffer 的通路
-  本身可用：`cat /dev/urandom > /dev/graphics/fb0` 能上屏；客体的 GLES 是 SwiftShader 的 JIT），执行 SwiftShader 的
-  JIT 页偶尔得到 SIGSEGV，主机忙时 system_server 被 Watchdog 杀掉（线程 60 s 无响应）；触摸开应用、安装 APK 未做。
+  本身可用：`cat /dev/urandom > /dev/graphics/fb0` 能上屏），主机忙时 system_server 被 Watchdog 杀掉（线程 60 s
+  无响应：ANR 时转储各进程的栈太慢），所以这项开机只在安静的主机上跑；触摸开应用、安装 APK 的阶段已写
+  （`A32_ANDROID_APP=1`：点 hotseat 的图标、焦点窗口改变；APK 经控制台以 base64 传入，`pm install`，NativeActivity 的
+  `tests/a32/android/v86arm32.c` 用 CPU 画一帧并记日志）。
+  执行 SwiftShader 的 JIT 页得到 SIGSEGV、system_server 随之死去的原因已查明：没有宿主 GPU 时镜像的 EGL 加载器选
+  vendor 的 SwiftShader（把 `qemu.gles` 设为 2），而镜像自己的 SELinux 策略不给 system_server `execmem`，它的
+  RenderThread 跳进不可执行的 JIT 代码。设备型号 `ranchu_25_armeabi_v7a` 现在给出启动属性
+  `ro.config.low_ram=true`（低内存设备：system_server 自己的窗口用 CPU 画，不走 GL）。
+  冷启动时间与模拟器 TCG 的对照：SDK 的模拟器（35.4.9）已不能运行 32 位 ARM 镜像（“CPU Architecture 'arm' is not
+  supported by the QEMU2 emulator”），存档里最旧的 Apple 芯片版本是 2023 年的 32.1.11，这台主机上没有可对照的
+  模拟器；记录 v86 的时间与 QEMU 9.2 cortex-a15 TCG 在同一类 32 位工作负载上的比值（arm32.md 的 Boot time）。
   libstagefright 里 `itt` 的 SIGILL（每次开机同一处）已查明并修正：开关 `a64_page_aarch32_trace` 的事件环显示，
   页函数从它不服务的偏移起逐条单步，单步了 IT 本身（ITSTATE 置位）后分派进一个**原生 IT 块**（条件编进代码、
   ITSTATE 保持 0）的块头；这个块头来自字面量池被当作代码时的“bne”（不返回的调用之后）。现在发现阶段删去原生 IT

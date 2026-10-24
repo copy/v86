@@ -53,6 +53,7 @@ export async function android_bootloader(read, disk_size, options)
         const load = async name => { const p = part(name); return new Uint8Array(await read(p.start, p.size)); };
         // (a partition is whole sectors: the kernel's and ramdisk's bytes run to their ends, which the kernel ignores)
         return { kernel: await load("kernel"), initrd: await load("ramdisk"), cmdline: ranchu_cmdline(device.cmdline), bootconfig: null, vbmeta: null,
+            properties: device.properties || null,
             disks: device.partitions.filter(p => p.disk).map(p => ({ name: p.name, start: part(p.name).start, size: part(p.name).size,
                 readonly: p.disk === "read_only" })) };
     }

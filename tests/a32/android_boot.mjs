@@ -21,6 +21,11 @@
 // disk.img, its changes in memory), booted by the android option (device
 // model ranchu_25_armeabi_v7a: the kernel and ramdisk from its partitions,
 // the system, cache and userdata partitions as the virtio disks).
+// A32_ANDROID_APP=1: after the home screen, a touch on its hotseat
+// (goldfish_events) opens an app (the focused window changes), and a 32-bit
+// APK (tests/a32/android/v86arm32.c as armeabi-v7a, tests/a64/apk.mjs) goes
+// over the console (base64), is installed (pm install) and started: its log
+// line and its frame.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -28,6 +33,8 @@ import { ROOT } from "../lib/alpine_image.mjs";
 import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 import { make_empty_ext4 } from "../../src/android/ext4.js";
 import { ranchu_cmdline } from "../../src/virt/ranchu.js";
+import { build_apk, build_native_lib } from "../a64/apk.mjs";
+import { RANCHU_25_ARMEABI_V7A } from "../../src/android/devices.js";
 
 const directory = ROOT + "build/a32-android/";
 const image = directory + "armeabi-v7a/";
@@ -66,6 +73,7 @@ const emulator = new V86({
         virtio_disks: [{ url: disk, async: true, size: fs.statSync(disk).size }],
     } : {
         kernel: { url: image + "kernel-ranchu" }, initrd: { url: image + "ramdisk.img" }, cmdline,
+        ranchu_properties: RANCHU_25_ARMEABI_V7A.properties,
         virtio_disks: [
             { url: image + "system.img", async: true, size: fs.statSync(image + "system.img").size, readonly: true },
             { buffer: make_empty_ext4(64 << 20, "cache", 1595289711).buffer },
@@ -155,7 +163,8 @@ try
         await wait(() => transcript.indexOf(marker + "_2", from) >= 0, marker, limit);
         return transcript.slice(from, transcript.indexOf(marker + "_2", from));
     };
-    const state = await ask("dumpsys power | grep -E 'mWakefulness=|mScreenOn|Display Power' ; dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen|mScreenOnFully'", "A32_STATE");
+    const state = await ask("getprop ro.config.low_ram; getprop qemu.gles; getprop qemu.sf.lcd_density; " +
+        "dumpsys power | grep -E 'mWakefulness=|mScreenOn|Display Power' ; dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen|mScreenOnFully'", "A32_STATE");
     console.log("before: " + state.replace(/\s+/g, " ").slice(0, 600) + "; frames " + fb.frames);
     await ask("input keyevent 224; sleep 2; wm dismiss-keyguard; sleep 2; input keyevent 3", "A32_HOME");
     await new Promise(resolve => setTimeout(resolve, 40000));
@@ -165,6 +174,49 @@ try
     // (the page tier's steps and helper calls: what is not compiled natively)
     const cpu = emulator.v86.cpu;
     if(cpu.step_stats) fs.writeFileSync(run_directory + "steps.json", JSON.stringify(cpu.step_stats(40), null, 1));
+    if(process.env.A32_ANDROID_APP === "1")
+    {
+        const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS")).match(/mCurrentFocus=\S+ \S+ (\S+)\}/)?.[1] || "";
+        // a touch: the hotseat's icons, from the left, until one opens its app
+        const home = await focus();
+        const events = emulator.v86.cpu.devices.goldfish_events;
+        let opened = "";
+        for(const column of [0, 1, 3, 4])
+        {
+            events.tap(fb.width * (column + 0.5) / 5, fb.height * 0.86, fb.width, fb.height);
+            await new Promise(resolve => setTimeout(resolve, 30000));
+            opened = await focus();
+            if(opened && opened !== home) break;
+        }
+        console.log(`touch: ${home} -> ${opened}`);
+        save_png(sink, run_directory, "touched");
+        assert.ok(opened && opened !== home, "a touch on the hotseat opens an app");
+        await ask("input keyevent 3", "A32_HOME2");
+
+        // the 32-bit APK, base64 over the console
+        const lib = build_native_lib(4096, "v86arm32", ["-landroid", "-llog", "-lm"],
+            { abi: "armeabi-v7a", source: ROOT + "tests/a32/android/v86arm32.c" });
+        const apk = build_apk({ label: "v86 arm32", package_name: "org.v86.arm32", min_sdk: 21, target_sdk: 25,
+            native: { name: "v86arm32", lib, extract: true, abi: "armeabi-v7a", software: true } });
+        const text = apk.toString("base64");
+        await ask("rm -f /data/local/tmp/app.b64", "A32_RM");
+        for(let at = 0; at < text.length; at += 768) await ask(`echo ${text.slice(at, at + 768)} >> /data/local/tmp/app.b64`, "A32_PUT");
+        const installed = await ask("base64 -d /data/local/tmp/app.b64 > /data/local/tmp/app.apk && pm install -r /data/local/tmp/app.apk", "A32_INSTALL", 900000);
+        console.log("install: " + installed.replace(/\s+/g, " ").slice(-200));
+        assert.match(installed, /Success/, "pm install");
+        const started = await ask("am start -W -n org.v86.arm32/android.app.NativeActivity", "A32_START", 900000);
+        console.log("start: " + started.replace(/\s+/g, " ").slice(-300));
+        let drew = "";
+        for(let i = 0; i < 20 && !drew; i++)
+        {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            drew = (await ask("logcat -d -s v86arm32:I", "A32_LOG")).match(/V86_ARM32_DREW \S+ sum=\S+ bits=\d+/)?.[0] || "";
+        }
+        console.log("app: " + drew + "; focus " + await focus() + "; frames " + fb.frames);
+        assert.ok(drew, "the 32-bit app drew its frame");
+        await new Promise(resolve => setTimeout(resolve, 20000));
+        save_png(sink, run_directory, "app");
+    }
     console.log(JSON.stringify({ tag, marks, screenshot: shot, cmdline }));
     console.log("A32_ANDROID_BOOT_OK " + tag);
 }

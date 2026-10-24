@@ -41,7 +41,9 @@
 //   APKs aligned to 4 and 16 KiB fare, android_scenario.mjs), A64_ANDROID_SCENARIO=cts (P12.3's CTS subset, android_cts.mjs;
 //   A64_ANDROID_CTS_MODULES=<module>,... and A64_ANDROID_CTS_FILTER=<module>=<gtest filter>;... to try parts of it),
 //   A64_ANDROID_SCENARIO=deqp (appendix F6: a dEQP subset through CtsDeqpTestCases's APK, android_deqp.mjs;
-//   A64_ANDROID_DEQP=<package>=<prefix>,...;... for other cases),
+//   A64_ANDROID_DEQP=<package>=<prefix>,...;... for other cases), A64_ANDROID_SCENARIO=compat32 (the aarch32
+//   plan's Q5.2: 32-bit apps on tools/a64_android.mjs --build a14's materials, A64_ANDROID_OUT=build/a64-android/out-a14;
+//   on v86 with A64_PROFILE=v3, which has AArch32 at EL0; QEMU's cortex-a35 has it, HVF does not),
 //   A64_PROFILE=v1.1 (the CPU profile without FEAT_PAN; v2, the default, has it), TEST_RELEASE_BUILD=1 (build/libv86.mjs),
 //   A64_ANDROID_BOOTLOADER=1 (v86: the android option, the kernel and initrd from the disk),
 //   A64_ANDROID_OUT=<dir> (tools/a64_android.mjs --out's materials in place of out/ or out-16k/), A64_ANDROID_CONSOLE=0 (QEMU:
@@ -58,7 +60,7 @@ import { android_qemu_args, AndroidConsole, qemu_screendump, qmp_connect, qemu_t
 import { createHash as create_hash } from "node:crypto";
 import { qemu_binary } from "./guest_runner.mjs";
 import { AdbClient } from "./adb.mjs";
-import { a9_scenario, a10_scenario, pagesize_scenario, prepare_device, PREPARE_COMMAND, device_prepared } from "./android_scenario.mjs";
+import { a9_scenario, a10_scenario, pagesize_scenario, compat32_scenario, prepare_device, PREPARE_COMMAND, device_prepared } from "./android_scenario.mjs";
 import { cts_scenario } from "./android_cts.mjs";
 import { deqp_scenario } from "./android_deqp.mjs";
 import { PictureSink, save_png } from "../lib/picture_sink.mjs";
@@ -97,7 +99,7 @@ assert.ok(!bootloader || target === "v86" && page_size === 4096, "A64_ANDROID_BO
 // A64_ANDROID_CONSOLE=0 (QEMU): no console (a user build's: ro.debuggable=0), boot_completed from the kernel's log
 const use_console = process.env.A64_ANDROID_CONSOLE !== "0";
 assert.ok(use_console || target === "qemu" && !scenario && !process.env.A64_ANDROID_PROBE, "A64_ANDROID_CONSOLE=0: QEMU, no scenario or probes");
-assert.ok(!scenario || ["a9", "a10", "pagesize", "cts", "deqp"].includes(scenario), "A64_ANDROID_SCENARIO: a9, a10, pagesize, cts or deqp");
+assert.ok(!scenario || ["a9", "a10", "pagesize", "cts", "deqp", "compat32"].includes(scenario), "A64_ANDROID_SCENARIO: a9, a10, pagesize, cts, deqp or compat32");
 assert.ok(!scenario || !plugins, "A64_ANDROID_SCENARIO and A64_QEMU_PLUGINS do not go together");
 const wait_for_boot_completed = target === "qemu" || !!scenario || process.env.A64_ANDROID_WAIT === "boot_completed";
 const tag = (target === "qemu" ? `qemu-${accel}${plugins ? "-plugins" : ""}` : `v86${jit ? "-jit" : ""}${parallel ? "-par" : ""}`) +
@@ -246,7 +248,7 @@ async function run_scenario(env, result)
     const cts = env => cts_scenario(env, {
         modules: process.env.A64_ANDROID_CTS_MODULES ? process.env.A64_ANDROID_CTS_MODULES.split(",") : undefined,
         filter: process.env.A64_ANDROID_CTS_FILTER ? Object.fromEntries(process.env.A64_ANDROID_CTS_FILTER.split(";").map(f => f.split(/=(.*)/s).slice(0, 2))) : undefined });
-    const found = await ({ a9: a9_scenario, a10: a10_scenario, pagesize: pagesize_scenario, cts, deqp: deqp_scenario })[scenario]({ ...env,
+    const found = await ({ a9: a9_scenario, a10: a10_scenario, pagesize: pagesize_scenario, cts, deqp: deqp_scenario, compat32: compat32_scenario })[scenario]({ ...env,
         log: text => console.log(`${(elapsed() / 1000).toFixed(0)} s: ${scenario}: ${text}`) });
     result[scenario] = found;
     mark(scenario + "_done");
@@ -345,8 +347,10 @@ if(target === "qemu")
         console.log(`page size ${result.page_size}, kernel ${result.kernel_release}`);
         if(scenario || probe_file)
         {
-            // (Wi-Fi first, from the console: adb reaches the guest through it)
-            await terminal.run("su 0 cmd wifi set-wifi-enabled enabled; sleep 10; su 0 cmd wifi connect-network VirtWifi open", 120000);
+            // (Wi-Fi first, from the console: adb reaches the guest through it;
+            // a user build's GSI has no su, and the shell may run cmd wifi)
+            await terminal.run("S=; command -v su >/dev/null 2>&1 && S='su 0'; " +
+                "$S cmd wifi set-wifi-enabled enabled; sleep 10; $S cmd wifi connect-network VirtWifi open", 120000);
             const tcp = () => new Promise((resolve, reject) => {
                 const s = net.connect(adb_port, "127.0.0.1");
                 s.once("connect", () => {

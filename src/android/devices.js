@@ -80,6 +80,20 @@ export const CF_ARM64_ONLY_PHONE = {
 };
 
 /**
+ * Cuttlefish's arm64 phone of Android 14 (aosp_cf_arm64_phone from the
+ * aosp-android14-gsi branch, vsoc_arm64): a 32-bit second architecture
+ * (zygote64_32), for 32-bit apps on arm64 (docs/aarch32-plan.md Q5.2);
+ * otherwise as the arm64-only phone, tools/a64_android.mjs --build a14
+ */
+export const CF_ARM64_PHONE_A14 = {
+    ...CF_ARM64_ONLY_PHONE,
+    id: "cf_arm64_phone_a14",
+    // (no vbmeta_system_dlkm: the build has no such image, system_dlkm is
+    // in vbmeta's chain)
+    partitions: CF_ARM64_ONLY_PHONE.partitions.filter(p => p.name !== "vbmeta_system_dlkm"),
+};
+
+/**
  * The partitions of a device's disk in order, each slotted one per slot
  * @param {!Object} device
  * @return {!Array<{name: string, base: string, blank: (number|undefined)}>}
@@ -181,6 +195,13 @@ export const RANCHU_25_ARMEABI_V7A = {
     ],
     // (no boot animation: the CPU draws it, which slows the first boot down)
     cmdline: { arm32: true, bootanim: false },
+    // qemud's boot properties (src/virt/goldfish.js), beyond the machine's:
+    // a low-RAM device (ActivityManager.isHighEndGfx false), so that
+    // system_server draws its own windows with the CPU. Its GL would be the
+    // guest's SwiftShader (without a host GPU the EGL loader takes the
+    // vendor's SwiftShader: qemu.gles 2), whose JIT the image's SELinux
+    // policy denies system_server (execmem): its first GL frame killed it
+    properties: { "ro.config.low_ram": "true" },
 };
 
 /** The emulator images v64 boots, by API level and ABI */

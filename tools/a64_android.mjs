@@ -80,7 +80,12 @@
 // files, the downloads and the 16K modules.
 //
 //   node tools/a64_android.mjs [--download] [--release] [--no-venus] [--gsi <zip>] [--shrink-super] [--userdata-mb <n>] [--selinux enforcing|permissive]
-//       [--memory-mb 1536] [--out build/a64-android/out] [--extract] [--fresh-disk] [--page-size 4k|16k]
+//       [--memory-mb 1536] [--out build/a64-android/out] [--extract] [--fresh-disk] [--page-size 4k|16k] [--build a16|a14] [--zygote64-32]
+//   (--build a14: Android 14's Cuttlefish phone with 32-bit apps, BUILDS
+//   below, into build/a64-android/out-a14/: its own system, SwiftShader;
+//   it does not boot here: its KeyMint and Gatekeeper are Cuttlefish's
+//   remote ones, whose trusted side is the host's secure_env.
+//   --zygote64-32, with --gsi: the GSI's 32-bit half run, see above)
 //   (--release --no-venus: Cuttlefish's images as they are, I0.2's official
 //   reference: vendor_boot's own ramdisk, SwiftShader, super unchanged;
 //   --shrink-super: super to its partitions and 64 MiB; --userdata-mb <n>:
@@ -109,21 +114,53 @@ import { vbmeta_struct, AVB_FLAG_VERIFICATION_DISABLED } from "../src/android/av
 import { zip_entries, zip_stream, zip_read } from "../src/android/zip.js";
 import { erofs_data, erofs_list, erofs_lookup, erofs_add_file, erofs_replace_files } from "../src/android/erofs.js";
 import { SECTOR, gpt_layout, gpt_writes } from "../src/android/gpt.js";
-import { CF_ARM64_ONLY_PHONE, device_partitions } from "../src/android/devices.js";
+import { CF_ARM64_ONLY_PHONE, CF_ARM64_PHONE_A14, device_partitions } from "../src/android/devices.js";
 import { android_boot } from "../src/android/boot.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..") + "/";
-const BUILD = "15581820";
-const TARGET = "aosp_cf_arm64_only_phone-userdebug";
-const ARTIFACT_URL = `https://ci.android.com/builds/submitted/${BUILD}/${TARGET}/latest/raw/`;
-/** the build's artifacts used, with their sizes and sha256 (the server's MD5 checked at download time) */
-export const ARTIFACTS = {
-    [`aosp_cf_arm64_only_phone-img-${BUILD}.zip`]: { size: 1046288463, sha256: "d56b75f00cd4a0005d54175fdf9bafb48c4b4f8c1a20ee4ac062b019080ef506" },
-    "vendor_ramdisk-debug.img": { size: 18797343, sha256: "b9a00cd701d93acdb7fe3787d6674741e5373e0137777e0b3b68e5812ba65665" },
-    [`manifest_${BUILD}.xml`]: { size: 156408, sha256: "d36c615a2210772946ba6d8a18165ac79faaa16c2ae17685adb47e4ec460cc1b" },
+/** the Cuttlefish builds (--build): Android 16's arm64-only phone (the
+ * default, the plan's), and Android 14's phone with a 32-bit second
+ * architecture (aosp_cf_arm64_phone-userdebug from the aosp-android14-gsi
+ * branch: zygote64_32, armeabi-v7a in ro.product.cpu.abilist; for 32-bit
+ * apps on arm64, docs/aarch32-plan.md Q5.2); each with its artifacts (sizes
+ * and sha256, the server's MD5 checked at download time) and directories */
+const BUILDS = {
+    a16: {
+        id: "15581820", target: "aosp_cf_arm64_only_phone-userdebug", product: "aosp_cf_arm64_only_phone",
+        branch: "aosp-android-latest-release", source: "android16-qpr2-release",
+        fingerprint: "generic/aosp_cf_arm64_only_phone/vsoc_arm64_only:16/BP4A.251205.006/15581820:userdebug/test-keys",
+        artifacts: {
+            "aosp_cf_arm64_only_phone-img-15581820.zip": { size: 1046288463, sha256: "d56b75f00cd4a0005d54175fdf9bafb48c4b4f8c1a20ee4ac062b019080ef506" },
+            "vendor_ramdisk-debug.img": { size: 18797343, sha256: "b9a00cd701d93acdb7fe3787d6674741e5373e0137777e0b3b68e5812ba65665" },
+            "manifest_15581820.xml": { size: 156408, sha256: "d36c615a2210772946ba6d8a18165ac79faaa16c2ae17685adb47e4ec460cc1b" },
+        },
+        dl: "dl/", img: "img/", out: "out", device: CF_ARM64_ONLY_PHONE,
+    },
+    a14: {
+        id: "16571446", target: "aosp_cf_arm64_phone-userdebug", product: "aosp_cf_arm64_phone",
+        branch: "aosp-android14-gsi", source: "android14-gsi",
+        fingerprint: "generic/aosp_cf_arm64_phone/vsoc_arm64:14/UP1A.231105.001/16571446:userdebug/test-keys",
+        artifacts: {
+            "aosp_cf_arm64_phone-img-16571446.zip": { size: 1010205638, sha256: "dbf9771d92cc3af9499d37fcfd4cb824926d82060298af21d2c7876f1446b7d5" },
+            "vendor_ramdisk-debug.img": { size: 16047885, sha256: "746a9d292368ee1bc4d0874d5ebc72b16abdc98bc08d5b3a5dd1c76339ecd482" },
+            "manifest_16571446.xml": { size: 179926, sha256: "71ae846868ed4df6309e11d0575559ea49d4c8fcb8f7d2a5eca25253f5837950" },
+        },
+        dl: "dl-a14/", img: "img-a14/", out: "out-a14", device: CF_ARM64_PHONE_A14,
+    },
 };
-export const FINGERPRINT = `generic/aosp_cf_arm64_only_phone/vsoc_arm64_only:16/BP4A.251205.006/${BUILD}:userdebug/test-keys`;
+/** (--zygote64-32) vendor's and odm's build.prop as artifacts of the build */
+const BUILD_PROPS = {
+    "build.prop-vendor": { size: 5258, sha256: "a56578e5b38216a5899937b057041789d54588099a21e44c3c3979898f1fba2f" },
+    "build.prop-odm": { size: 1066, sha256: "946796d2bebdf29b145c465c263bf15e78084e304cae5e3d69377511c8de7570" },
+};
+/** the build of this run (main's --build) */
+let B = BUILDS.a16;
+const artifact_url = b => `https://ci.android.com/builds/submitted/${b.id}/${b.target}/latest/raw/`;
+export const ARTIFACTS = BUILDS.a16.artifacts;
+export const FINGERPRINT = BUILDS.a16.fingerprint;
 const DL = ROOT + "build/a64-android/dl/";
+const dl = () => ROOT + "build/a64-android/" + B.dl;
+const img = () => ROOT + "build/a64-android/" + B.img;
 /** --page-size 16k (P12.1): the GKI kernel and the virtual device's modules
  * of a 16K kernel build (ci.android.com's aosp_kernel-common-android16-6.12,
  * the newest build of kernel_virt_aarch64_16k on 2026-10-19) */
@@ -136,17 +173,14 @@ export const ARTIFACTS_16K = {
     "system_dlkm.erofs.img": { size: 16314368, sha256: "915bf4a4d80ed7912c2b46b38f2dac35e19fd019d05f6c65be625496f855d2d0" },
 };
 const DL_16K = DL + `16k-${KERNEL_16K.build}/`;
-const IMG = ROOT + "build/a64-android/img/";
 
-/** the device: its partitions, bootconfig and GPU modes (src/android/devices.js) */
-const DEVICE = CF_ARM64_ONLY_PHONE;
 /** the guest's Venus driver (tools/a64_venus/build.mjs) */
 const VENUS_DRIVER = ROOT + "build/a64-android/venus/vulkan.virtio.so";
 
 function parse_args(argv)
 {
     const args = { download: false, release: false, selinux: "enforcing", memory_mb: 1536, extract: false, fresh_disk: false,
-        out: null, page_size: 4096, venus: true, gsi: null, shrink_super: false, userdata_mb: 0 };
+        out: null, page_size: 4096, venus: true, gsi: null, shrink_super: false, userdata_mb: 0, build: "a16", zygote64_32: false };
     for(let i = 0; i < argv.length; i++)
     {
         const arg = argv[i];
@@ -162,13 +196,20 @@ function parse_args(argv)
         else if(arg === "--fresh-disk") args.fresh_disk = true;
         else if(arg === "--out") args.out = path.resolve(argv[++i]) + "/";
         else if(arg === "--page-size") args.page_size = { "4k": 4096, "16k": 16384 }[argv[++i]];
+        else if(arg === "--build") args.build = argv[++i];
+        else if(arg === "--zygote64-32") args.zygote64_32 = true;
         else throw new Error("unknown argument " + arg);
     }
     if(!["enforcing", "permissive"].includes(args.selinux)) throw new Error("--selinux enforcing|permissive");
     if(!args.page_size) throw new Error("--page-size 4k|16k");
     if(args.extract && args.page_size !== 4096) throw new Error("--extract: 4k only");
     if(args.gsi && args.page_size !== 4096) throw new Error("--gsi: 4k only");
-    args.out ||= ROOT + (args.gsi ? "build/a64-android/out-gsi/" : args.page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
+    if(!BUILDS[args.build]) throw new Error("--build " + Object.keys(BUILDS).join("|"));
+    if(args.zygote64_32 && (!args.gsi || args.build !== "a16")) throw new Error("--zygote64-32: with --gsi, on --build a16");
+    // (Android 14's build: its own system, SwiftShader, 4 KiB pages)
+    if(args.build !== "a16" && (args.gsi || args.page_size !== 4096)) throw new Error(`--build ${args.build}: no --gsi, no --page-size 16k`);
+    if(args.build !== "a16") args.venus = false;
+    args.out ||= ROOT + (args.gsi ? "build/a64-android/out-gsi/" : args.page_size === 4096 ? `build/a64-android/${BUILDS[args.build].out}/` : "build/a64-android/out-16k/");
     return args;
 }
 
@@ -200,7 +241,7 @@ async function download(url, dir, name)
     fs.renameSync(temporary, dir + name);
 }
 
-async function fetch_artifacts(allow_download, artifacts = ARTIFACTS, url = ARTIFACT_URL, dir = DL)
+async function fetch_artifacts(allow_download, artifacts = B.artifacts, url = artifact_url(B), dir = dl())
 {
     fs.mkdirSync(dir, { recursive: true });
     const hashes = {};
@@ -223,7 +264,7 @@ async function fetch_artifacts(allow_download, artifacts = ARTIFACTS, url = ARTI
 /** the image zip's files, unpacked once into build/a64-android/img/ */
 function unpack_images()
 {
-    const zip = DL + `aosp_cf_arm64_only_phone-img-${BUILD}.zip`;
+    const zip = dl() + `${B.product}-img-${B.id}.zip`, IMG = img();
     const stamp = IMG + ".unpacked";
     if(fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8") === String(fs.statSync(zip).mtimeMs)) return;
     fs.rmSync(IMG, { recursive: true, force: true });
@@ -366,6 +407,8 @@ function modules_for_16k(names, lines, loaded, k16, missing)
 async function main()
 {
     const args = parse_args(process.argv.slice(2));
+    B = BUILDS[args.build];
+    const IMG = img(), DEVICE = B.device;
     const hashes = await fetch_artifacts(args.download);
     const hashes_16k = args.page_size === 16384 ? await fetch_artifacts(args.download, ARTIFACTS_16K, KERNEL_16K_URL, DL_16K) : null;
     unpack_images();
@@ -402,6 +445,55 @@ async function main()
     };
     const driver = args.venus && fs.existsSync(VENUS_DRIVER) ? fs.readFileSync(VENUS_DRIVER) : null;
     const venus = driver && { record: replace("odm", "vbmeta", odm_with_driver(super_partition(super_read, lp, vbmeta_of("vbmeta"), "odm"), driver)) };
+    // (--zygote64-32, with --gsi: a 32-bit second architecture for 32-bit
+    // apps, docs/aarch32-plan.md Q5.2: vendor's build.prop with ro.zygote
+    // zygote64_32, vendor's and odm's with the 32-bit ABIs, from which init
+    // makes ro.product.cpu.abilist32 (the first of product, odm, vendor,
+    // system that has a list: odm's); the GSI brings app_process32, the
+    // 32-bit libraries and init.zygote64_32.rc. With the GSI's vbmeta
+    // nothing is verified: the new images are only placed in free space.
+    // The images' build.prop files are LZ4-compressed, which
+    // src/android/erofs.js does not read: the build's own build.prop
+    // artifacts, of their sizes)
+    let zygote64_32 = null;
+    if(args.zygote64_32)
+    {
+        await fetch_artifacts(args.download, BUILD_PROPS);
+        zygote64_32 = {};
+        for(const [name, file] of [["vendor", "build.prop"], ["odm", "etc/build.prop"]])
+        {
+            const image = super_partition(super_read, lp, vbmeta_of("vbmeta"), name);
+            const prop = latin1(fs.readFileSync(dl() + "build.prop-" + name));
+            const inode = erofs_lookup(image, file);
+            if(!inode || inode.size !== prop.length) throw new Error(`build.prop-${name} is not ${name}'s /${file}`);
+            let patched = prop.replace(new RegExp(`^ro\\.${name}\\.product\\.cpu\\.abilist=.*$`, "m"), `ro.${name}.product.cpu.abilist=arm64-v8a,armeabi-v7a,armeabi`)
+                .replace(new RegExp(`^ro\\.${name}\\.product\\.cpu\\.abilist32=.*$`, "m"), `ro.${name}.product.cpu.abilist32=armeabi-v7a,armeabi`);
+            if(name === "vendor") patched = patched.replace(/^ro\.zygote=.*$/m, "ro.zygote=zygote64_32");
+            if(!patched.includes(`ro.${name}.product.cpu.abilist32=armeabi-v7a`) || name === "vendor" && !/^ro\.zygote=zygote64_32$/m.test(patched))
+            {
+                throw new Error(`${name}'s build.prop: no ro.${name}.product.cpu.abilist32${name === "vendor" ? " or ro.zygote" : ""} to change`);
+            }
+            const files = [[file, bytes_of(patched)]];
+            // (vendor's boringssl self test for zygote64_32 runs a 32-bit
+            // binary this arm64-only vendor does not have, and reboots when
+            // it fails: its 64-bit file instead; the system's own 32-bit
+            // self test runs)
+            const SELF_TEST = "etc/boringssl_self_test.zygote64";
+            if(name === "vendor" && erofs_lookup(image, SELF_TEST + "_32.rc"))
+            {
+                if(!erofs_lookup(image, SELF_TEST + ".rc")) throw new Error(`vendor: no /${SELF_TEST}.rc`);
+                files.push([SELF_TEST + "_32.rc", bytes_of(`import /vendor/${SELF_TEST}.rc\n`)]);
+            }
+            const changed = erofs_replace_files(image, files);
+            for(const [path, data] of files)
+            {
+                if(latin1(erofs_data(changed, erofs_lookup(changed, path))) !== latin1(data)) throw new Error(`erofs: ${name}'s /${path} does not read back`);
+            }
+            const result = super_replace(lp, vbmeta_of("vbmeta"), name, changed, space);
+            super_patches.push(result.data);
+            zygote64_32[name] = { record: result.record, build_prop_sha256: create_hash("sha256").update(patched).digest("hex") };
+        }
+    }
     // the GSI (see the top): system_a in free space, streamed from the zip
     // as the disk is written; the GSI's vbmeta the top-level one
     let gsi = null, super_skip = [];
@@ -428,7 +520,7 @@ async function main()
             fingerprint: build_prop ? (/^ro\.(?:system\.)?build\.fingerprint=(.*)$/m.exec(latin1(await zip_read(zip_read_at, build_prop))) || [])[1] || null : null };
     }
 
-    const vendor_ramdisk = args.release ? vendor_boot.ramdisk : fs.readFileSync(DL + "vendor_ramdisk-debug.img");
+    const vendor_ramdisk = args.release ? vendor_boot.ramdisk : fs.readFileSync(dl() + "vendor_ramdisk-debug.img");
     const lib_modules = ramdisk => new Map([...cpio_files(lz4_legacy_decompress(ramdisk))].flatMap(([name, data]) =>
     {
         const m = /^lib\/modules\/([^/]+)$/.exec(name);
@@ -528,7 +620,8 @@ async function main()
     // --fresh-disk: the runs keep their writes in memory, the image stays
     // as made, and a guest still reading it is not disturbed)
     const disk_key = JSON.stringify({ artifacts: hashes, partitions: partitions.map(p => [p.name, p.start, p.size]),
-        venus: venus ? venus.record : null, ...(hashes_16k ? { kernel_16k: hashes_16k, modules_16k } : {}), ...(gsi ? { gsi } : {}) });
+        venus: venus ? venus.record : null, ...(hashes_16k ? { kernel_16k: hashes_16k, modules_16k } : {}), ...(gsi ? { gsi } : {}),
+        ...(zygote64_32 ? { zygote64_32 } : {}) });
     const key_file = args.out + "disk.key";
     if(args.fresh_disk || !fs.existsSync(disk) || fs.statSync(disk).size !== disk_size ||
         !fs.existsSync(key_file) || fs.readFileSync(key_file, "utf8") !== disk_key)
@@ -568,8 +661,7 @@ async function main()
     else console.log("disk.img: kept (the same artifacts and layout; --fresh-disk makes it again)");
 
     const manifest = {
-        build: { id: BUILD, target: TARGET, branch: "aosp-android-latest-release", fingerprint: FINGERPRINT, source: "android16-qpr2-release",
-            url: ARTIFACT_URL },
+        build: { id: B.id, target: B.target, branch: B.branch, fingerprint: B.fingerprint, source: B.source, url: artifact_url(B) },
         kernel: hashes_16k ? { release: KERNEL_16K.release, page_size: 16384, build: KERNEL_16K.build, target: KERNEL_16K.target,
             branch: KERNEL_16K.branch, url: KERNEL_16K_URL, artifacts: hashes_16k } :
             { release: boot.kernel.includes("6.12.38-android16-5") ? "6.12.38-android16-5-g501f58f107ab-ab13974591-4k" : null,
@@ -580,6 +672,7 @@ async function main()
         venus: venus ? { driver: { file: path.relative(ROOT, VENUS_DRIVER), sha256: create_hash("sha256").update(driver).digest("hex") },
             odm: venus.record, bootconfig: Object.fromEntries(DEVICE.gpu_modes.venus) } : null,
         ...(gsi ? { gsi } : {}),
+        ...(zygote64_32 ? { zygote64_32 } : {}),
         cmdline,
         bootconfig: Object.fromEntries(bootconfig),
         disk: { size: disk_size, sector: SECTOR, boot_devices: DEVICE.boot_devices,

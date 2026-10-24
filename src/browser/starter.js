@@ -1230,6 +1230,8 @@ V86.prototype.continue_init = async function(emulator, options)
             settings.kernel = boot.kernel.slice().buffer;
             settings.initrd = boot.initrd.slice().buffer;
             settings.cmdline = [boot.cmdline, options.cmdline].filter(Boolean).join(" ");
+            // (an emulator image's device: its boot properties, under the options')
+            if(boot.properties) settings.ranchu_properties = Object.assign({}, boot.properties, options.ranchu_properties);
             if(boot.disks)
             {
                 // (an emulator image: its disks the partitions, the first
