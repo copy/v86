@@ -230,3 +230,22 @@ node tools/gfxstream_protocol_gen.mjs <mesa>/src/gfxstream/guest/vulkan_enc <mes
 tools/gfxstream_oracle/build.sh <mesa>/src/gfxstream <mesa>/include
 node tests/devices/gfxstream_protocol.js --oracle build/gfxstream-oracle/oracle
 ```
+
+## What the official image sends
+
+The Vulkan commands of the official Cuttlefish image (15581820, gpu_mode
+gfxstream) from its first gfxstream context to the desktop, on v86
+(`A64_ANDROID_GFXSTREAM_TRACE=1 node tests/a64/android_boot.mjs`, 2026-10-24):
+73 commands, with their counts. The frames are `vkAcquireImageANDROID`,
+`vkQueueSignalReleaseImageANDROIDAsyncGOOGLE` and the command buffers flushed
+by `vkQueueFlushCommandsGOOGLE` (recorded in the guest, without sequence
+numbers or replies); the rest is setup and ANGLE's buffers.
+
+`vkGetFenceStatus` 14764, `vkResetFences` 13316, `vkTraceAsyncGOOGLE` 13287, `vkQueueSubmitAsyncGOOGLE` 13287, `vkQueueFlushCommandsGOOGLE` 13287, `vkEndCommandBufferAsyncGOOGLE` 13287, `vkBeginCommandBufferAsyncGOOGLE` 13287, `vkCreateBufferWithRequirementsGOOGLE` 6909, `vkDestroyBuffer` 6897, `vkQueueSignalReleaseImageANDROIDAsyncGOOGLE` 6657, `vkAcquireImageANDROID` 6657, `vkCreateFence` 6647, `vkDestroyFence` 6643, `vkGetPhysicalDeviceFormatProperties` 1200, `vkGetPhysicalDeviceImageFormatProperties2` 721, `vkGetPhysicalDeviceProperties2` 223, `vkGetPhysicalDeviceExternalSemaphoreProperties` 108, `vkGetPhysicalDeviceFeatures2` 89, `vkCreateImageView` 70, `vkCreateImageWithRequirementsGOOGLE` 67, `vkAllocateMemory` 65, `vkGetPhysicalDeviceMemoryProperties` 51, `vkDestroyImageView` 51, `vkDestroyImage` 51, `vkBindBufferMemory` 48, `vkCreateShaderModule` 42, `vkCreateGraphicsPipelines` 41, `vkGetBlobGOOGLE` 39, `vkCreateRenderPass2` 39, `vkAllocateDescriptorSets` 39, `vkCreateSemaphore` 37, `vkGetPhysicalDeviceQueueFamilyProperties` 36, `vkEnumerateInstanceExtensionProperties` 36, `vkBindImageMemory` 36, `vkFreeMemorySyncGOOGLE` 30, `vkEnumerateInstanceVersion` 30, `vkDestroySemaphore` 30, `vkDestroyRenderPass` 29, `vkGetImageMemoryRequirements2` 25, `vkUpdateDescriptorSets` 24, `vkDestroyPipeline` 24, `vkCreatePipelineCache` 24, `vkDestroyShaderModule` 22, `vkQueueWaitIdle` 20, `vkEnumeratePhysicalDevices` 20, `vkCreateDescriptorSetLayout` 20, `vkAllocateCommandBuffers` 20, `vkCreateFramebuffer` 19, `vkMergePipelineCaches` 18, `vkGetPipelineCacheData` 18, `vkEnumerateDeviceExtensionProperties` 18, `vkFreeMemory` 17, `vkDestroyPipelineCache` 14, `vkDestroyFramebuffer` 13, `vkFreeCommandBuffers` 12, `vkCreateSampler` 12, `vkCreateDescriptorPool` 12, `vkBindImageMemory2` 12, `vkDestroyDescriptorSetLayout` 11, `vkCreateInstance` 10, `vkGetPhysicalDeviceProperties` 9, `vkGetDeviceQueue2` 9, `vkCreatePipelineLayout` 9, `vkCreateDevice` 9, `vkCreateCommandPool` 9, `vkGetPhysicalDeviceFeatures` 8, `vkDestroyInstance` 7, `vkDestroySampler` 6, `vkDestroyDevice` 6, `vkDestroyDescriptorPool` 6, `vkDestroyCommandPool` 6, `vkDestroyPipelineLayout` 5, `vkWaitForFences` 2.
+
+The renderControl commands are the process pipe's only: the HWC composes no
+layers (`hwcomposer.mode client`). The plan's reference host (QEMU's rutabaga
+with the gfxstream host) was not built: the decoder is checked against the
+guest's own encoder instead (the oracle above), and the official image's boot
+on v86 is the end-to-end check.
+

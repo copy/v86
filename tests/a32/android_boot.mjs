@@ -162,6 +162,9 @@ try
     const after = await ask("dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen'", "A32_AFTER");
     console.log("after: " + after.replace(/\s+/g, " ").slice(0, 400) + "; frames " + fb.frames);
     const shot = save_png(sink, run_directory, "home");
+    // (the page tier's steps and helper calls: what is not compiled natively)
+    const cpu = emulator.v86.cpu;
+    if(cpu.step_stats) fs.writeFileSync(run_directory + "steps.json", JSON.stringify(cpu.step_stats(40), null, 1));
     console.log(JSON.stringify({ tag, marks, screenshot: shot, cmdline }));
     console.log("A32_ANDROID_BOOT_OK " + tag);
 }

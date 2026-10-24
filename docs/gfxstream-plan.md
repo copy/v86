@@ -166,7 +166,11 @@ bootconfig 的 GPU 键，不改分区）。
   引导器接受 `gpu_mode: "gfxstream"`，界面在 G5 前不提供）；QEMU 的设备是
   `virtio-gpu-rutabaga,gfxstream-vulkan=on,x-gfxstream-composer=on,hostmem=256M`。客体里 HWC 带 renderControl
   编码器（composer capset），GLES 是 ANGLE（没有宿主 GLES）。macOS 上 Cuttlefish 自己的启动器不提供 gfxstream。
-- 参考宿主与轨迹：未做。
+- 参考宿主与轨迹：命令清单完成——官方镜像从第一个 gfxstream 上下文到桌面发出的 Vulkan 命令与次数（v86 上
+  `A64_ANDROID_GFXSTREAM_TRACE=1` 记录）写进 [gfxstream-protocol.md](gfxstream-protocol.md) 的“What the official
+  image sends”。参考宿主（QEMU 的 rutabaga 加 gfxstream 宿主）不做：协议由客体自己的编码器对照（G2 的对照程序与
+  向量）检验，官方镜像在 v86 上到桌面并通过 A9 场景是端到端的检验；macOS 上要另建 Linux 虚拟机、rutabaga、
+  gfxstream 宿主与 lavapipe（A3/A5 记录的 aarch64 崩溃），投入大而不再改变实现。
 
 ## 2. G1 传输与按环围栏
 
