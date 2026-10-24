@@ -150,6 +150,17 @@ From mesa's `AddressSpaceStream.cpp`:
   reads what is available (`speculativeRead`). `in_error = 1` fails the
   guest's reads and writes.
 
+What gfxstream's host does with it (host/RingStream.cpp): for each
+transfer on the to-host ring, copy `buffer[offset, offset + size)` into its
+decoder's input, advance the ring's `read_pos` by 8 and add `size` to
+`host_consumed_pos`; `host_state` is `CAN_CONSUME` while it reads, `RENDERING`
+while it decodes, `NEED_NOTIFY` when it waits for the guest. Replies are
+written into `from_host_large_xfer`'s view (the auxiliary buffer, its size a
+power of two) at that ring's `write_pos`, which then advances.
+`ring_buffer` positions are free-running 32-bit counters: what is readable is
+`write_pos - read_pos`, a byte's place `pos & (size - 1)` (2048 for a ring's
+own `buf`, the view's size for a view).
+
 ## On the stream
 
 What travels in the buffer is gfxstream's encoder output: commands of a
