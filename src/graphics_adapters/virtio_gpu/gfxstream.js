@@ -1,11 +1,12 @@
 // virtio-gpu's gfxstream contexts (docs/gfxstream-plan.md G1, the protocol
 // in docs/gfxstream-protocol.md): the capsets of gfxstream's Vulkan and
-// composer, a context's ASG ring in a HOST3D blob (CONTEXT_CREATE, PING),
-// the stream on it (the client's flags, then commands of an opcode and a
-// size, each to the decoder of its range: renderControl's, Vulkan's) and
-// the replies back through the ring, the sync commands as tasks on the
-// context's timeline, and the process pipe (pipe resources: GLProcessPipe)
-// that renderControl's guest opens first.
+// composer; a context (a guest process) has an ASG ring per stream (a
+// thread's connection), each in a HOST3D blob that CONTEXT_CREATE names and
+// PING runs; on a ring, the stream (the client's flags, then commands of an
+// opcode and a size, each to the decoder of its range: renderControl's,
+// Vulkan's) and the replies back through it; the sync commands as tasks on
+// the context's timeline, and the process pipe (pipe resources:
+// GLProcessPipe) that renderControl's guest opens first.
 
 const VULKAN_CAPSET_WORDS = 27, SMALL_CAPSET_WORDS = 4;
 export const CAPSET_GFXSTREAM_VULKAN = 3;
@@ -61,20 +62,35 @@ export function GfxstreamBlob(id, ctx_id, blob_id, flags, size)
     this.memory = null;
 }
 
+/** a decoder's answer: the command is not decoded yet (decode it again later) */
+export const AGAIN = {};
+
 /**
- * An ASG ring: the blob that holds its storage and buffer
+ * An ASG ring: a stream of the context's (gfxstream's render thread), in
+ * the blob that holds its storage and buffer
  * @constructor
  * @param {!GfxstreamBlob} blob
  */
-function Asg(blob)
+function Ring(blob)
 {
     this.blob = blob;
     /** its config written (the blob mapped once) */
     this.ready = false;
+    /** @type {!Array<!Uint8Array>} what came in the stream and was not decoded yet */
+    this.input = [];
+    this.input_length = 0;
+    /** the client's flags (4 bytes before the commands) read */
+    this.flags_read = false;
+    /** a decoder waits (the GPU's work): decoding resumes when it is done */
+    this.waiting = false;
+    /** a command waits for another ring's (its sequence number): decoded again when one is */
+    this.blocked = false;
+    /** per decoder, its state for this stream */
+    this.decoder_state = new Map();
 }
 
 /**
- * A gfxstream context: the guest process's connection
+ * A gfxstream context: the guest process's
  * @constructor
  * @param {number} id
  * @param {number} capset
@@ -83,21 +99,14 @@ function GfxstreamContext(id, capset)
 {
     this.id = id;
     this.capset = capset;
-    /** @type {Asg} */
-    this.asg = null;
-    /** @type {!Array<!Uint8Array>} what came in the stream and was not decoded yet */
-    this.input = [];
-    this.input_length = 0;
-    /** the client's flags (4 bytes before the commands) read */
-    this.flags_read = false;
-    /** a decoder waits (the GPU's work): decoding resumes when it is done */
-    this.waiting = false;
+    /** @type {!Map<number, !Ring>} its streams' rings, by the blob's resource id */
+    this.rings = new Map();
     this.destroyed = false;
     /** RESOURCE_CREATE_3D's templates by blob id (G3: color buffers) */
     this.pending_blobs = new Map();
     /** ACQUIRE_SYNC's sync id */
     this.sync = 0;
-    /** per decoder, its state for this context (the Vulkan objects, ...) */
+    /** per decoder, its state for this context (the process's: Vulkan objects, sequence numbers) */
     this.decoder_state = new Map();
 }
 
@@ -126,11 +135,15 @@ export function Gfxstream(gpu)
     this.contexts = new Map();
     /**
      * the decoders of the stream's commands, each of its opcodes
-     * [first, last]: decode(ctx, opcode, payload, reply) answers null, or a
-     * wait(done) when the command waits (the GPU's work)
-     * @type {!Array<{name: string, first: number, last: number, decode: function(!Object, number, !Uint8Array, function(!Uint8Array)): ?function(function())}>}
+     * [first, last]: decode(ctx, ring, opcode, payload, reply) answers null
+     * (done), a wait(done) when the command waits (the GPU's work), or
+     * AGAIN: not decoded yet (another ring's command comes first), decoded
+     * again when a ring of the context has decoded one
+     * @type {!Array<{name: string, first: number, last: number, decode: function(!Object, !Object, number, !Uint8Array, function(!Uint8Array)): *}>}
      */
     this.decoders = [];
+    /** a decoder's answer: not decoded yet (exported for decoders outside the module) */
+    this.AGAIN = AGAIN;
     /** the process pipe's ids (GLProcessPipe) */
     this.next_puid = 1;
     this.stats = { pings: 0, transfers: 0, bytes: 0, commands: 0, replies: 0, unknown: {}, errors: 0, last_error: "" };
@@ -215,10 +228,9 @@ Gfxstream.prototype.create_blob = function(id, ctx_id, flags, blob_id, size)
  */
 Gfxstream.prototype.mapped = function(blob)
 {
-    for(const ctx of this.contexts.values())
-    {
-        if(ctx.asg && ctx.asg.blob === blob && !ctx.asg.ready) this.init_ring(ctx);
-    }
+    const ctx = this.contexts.get(blob.ctx_id);
+    const ring = ctx && ctx.rings.get(blob.id);
+    if(ring && !ring.ready) this.init_ring(ctx, ring);
     return null;
 };
 
@@ -229,7 +241,7 @@ Gfxstream.prototype.upload_blob = function(blob, x, data) {};
 Gfxstream.prototype.unref_blob = function(blob)
 {
     const ctx = this.contexts.get(blob.ctx_id);
-    if(ctx && ctx.asg && ctx.asg.blob === blob) ctx.asg = null;
+    if(ctx) ctx.rings.delete(blob.id);
 };
 
 /** @return {!DataView} the host visible memory */
@@ -242,15 +254,15 @@ Gfxstream.prototype.view = function()
 /**
  * The ring's config, as the host sets it before the guest reads it
  * @param {!GfxstreamContext} ctx
+ * @param {!Ring} ring
  */
-Gfxstream.prototype.init_ring = function(ctx)
+Gfxstream.prototype.init_ring = function(ctx, ring)
 {
-    const asg = /** @type {!Asg} */ (ctx.asg);
-    if(asg.blob.map_offset < 0) return;
-    const view = this.view(), base = asg.blob.map_offset;
-    if(asg.blob.blob_size < RING_SIZE + BUFFER_SIZE)
+    if(ring.blob.map_offset < 0) return;
+    const view = this.view(), base = ring.blob.map_offset;
+    if(ring.blob.blob_size < RING_SIZE + BUFFER_SIZE)
     {
-        this.error(ctx, "the ring's blob is " + asg.blob.blob_size + " bytes");
+        this.error(ctx, "the ring's blob is " + ring.blob.blob_size + " bytes");
         return;
     }
     const config = base + TO_HOST + CONFIG;
@@ -260,7 +272,7 @@ Gfxstream.prototype.init_ring = function(ctx)
     view.setUint32(config + TRANSFER_MODE, 1, true);
     view.setUint32(config + IN_ERROR, 0, true);
     view.setUint32(base + TO_HOST + STATE, HOST_NEED_NOTIFY, true);
-    asg.ready = true;
+    ring.ready = true;
 };
 
 /**
@@ -296,15 +308,20 @@ Gfxstream.prototype.submit = function(ctx_id, bytes, ring_idx)
                     this.error(ctx, "CONTEXT_CREATE: resource " + u32(0) + " is not this context's blob");
                     break;
                 }
-                ctx.asg = new Asg(blob);
-                if(blob.map_offset >= 0) this.init_ring(ctx);
+                const ring = new Ring(blob);
+                ctx.rings.set(blob.id, ring);
+                if(blob.map_offset >= 0) this.init_ring(ctx, ring);
                 break;
             }
             case CONTEXT_PING:
             case CONTEXT_PING_WITH_RESPONSE:
+            {
                 this.stats.pings++;
-                this.run(ctx);
+                const ring = ctx.rings.get(u32(0));
+                if(ring) this.run(ctx, ring);
+                else this.error(ctx, "PING of resource " + u32(0) + ", no ring of this context's");
                 break;
+            }
             case CREATE_EXPORT_SYNC:
             case CREATE_IMPORT_SYNC:
             case CREATE_EXPORT_SYNC_VK:
@@ -361,17 +378,20 @@ Gfxstream.prototype.sync_task = function(ctx, op, words)
 /** The machine's timers: the rings whose decoding waited, again */
 Gfxstream.prototype.timer = function(now)
 {
-    for(const ctx of this.contexts.values()) if(!ctx.waiting && ctx.input_length) this.decode(ctx);
+    for(const ctx of this.contexts.values())
+    {
+        for(const ring of ctx.rings.values()) if(!ring.waiting && ring.input_length) this.decode(ctx, ring);
+    }
 };
 
 /**
- * PING: what the guest wrote on the ring, into the stream, then decoded
+ * PING: what the guest wrote on the ring, into its stream, then decoded
  * @param {!GfxstreamContext} ctx
+ * @param {!Ring} asg
  */
-Gfxstream.prototype.run = function(ctx)
+Gfxstream.prototype.run = function(ctx, asg)
 {
-    const asg = ctx.asg;
-    if(!asg || !asg.ready || asg.blob.map_offset < 0) return;
+    if(!asg.ready || asg.blob.map_offset < 0) return;
     const view = this.view(), bytes = this.gpu.hostmem_bytes(), base = asg.blob.map_offset, buffer = base + RING_SIZE;
     const config = base + TO_HOST + CONFIG;
     view.setUint32(base + TO_HOST + STATE, HOST_CAN_CONSUME, true);
@@ -386,10 +406,10 @@ Gfxstream.prototype.run = function(ctx)
         if(offset + size > BUFFER_SIZE)
         {
             this.error(ctx, "a transfer of [" + offset + ", +" + size + ") past the buffer");
-            view.setUint32(config + IN_ERROR, 1, true);
+            this.fail_ring(asg);
             break;
         }
-        this.take(ctx, bytes.slice(buffer + offset, buffer + offset + size));
+        this.take(asg, bytes.slice(buffer + offset, buffer + offset + size));
         read = read + 8 >>> 0;
         view.setUint32(ring + READ_POS, read, true);
         view.setUint32(config + HOST_CONSUMED_POS, view.getUint32(config + HOST_CONSUMED_POS, true) + size >>> 0, true);
@@ -405,54 +425,61 @@ Gfxstream.prototype.run = function(ctx)
         const data = new Uint8Array(available);
         data.set(bytes.subarray(buffer + at, buffer + at + first));
         if(first < available) data.set(bytes.subarray(buffer, buffer + available - first), first);
-        this.take(ctx, data);
+        this.take(asg, data);
         large_read = large_read + available >>> 0;
         view.setUint32(large + READ_POS, large_read, true);
     }
-    this.decode(ctx);
-    if(ctx.asg && ctx.asg.blob.map_offset >= 0)
-    {
-        this.view().setUint32(base + TO_HOST + STATE, ctx.waiting ? HOST_RENDERING : HOST_NEED_NOTIFY, true);
-    }
+    this.decode(ctx, asg);
+    this.set_state(asg);
+};
+
+/** The host's state on a ring: rendering while a command waits, else waiting for a ping */
+Gfxstream.prototype.set_state = function(ring)
+{
+    if(ring.blob.map_offset >= 0) this.view().setUint32(ring.blob.map_offset + TO_HOST + STATE, ring.waiting ? HOST_RENDERING : HOST_NEED_NOTIFY, true);
 };
 
 /**
- * Bytes of the stream
- * @param {!GfxstreamContext} ctx
+ * Bytes of a ring's stream
+ * @param {!Ring} ring
  * @param {!Uint8Array} data
  */
-Gfxstream.prototype.take = function(ctx, data)
+Gfxstream.prototype.take = function(ring, data)
 {
     if(!data.length) return;
-    ctx.input.push(data);
-    ctx.input_length += data.length;
+    ring.input.push(data);
+    ring.input_length += data.length;
     this.stats.transfers++;
     this.stats.bytes += data.length;
 };
 
 /**
- * The stream's commands decoded, each whole one in order; a command that
- * waits stops decoding until it is done
+ * A ring's commands decoded, each whole one in order; a command that waits
+ * stops this ring's decoding until it is done, one that comes later (AGAIN)
+ * until another ring of the context has decoded a command
  * @param {!GfxstreamContext} ctx
+ * @param {!Ring} ring
  */
-Gfxstream.prototype.decode = function(ctx)
+Gfxstream.prototype.decode = function(ctx, ring)
 {
-    if(ctx.waiting || ctx.destroyed) return;
-    if(ctx.input.length > 1)
+    if(ring.waiting || ctx.destroyed) return;
+    ring.blocked = false;
+    if(ring.input.length > 1)
     {
-        const all = new Uint8Array(ctx.input_length);
+        const all = new Uint8Array(ring.input_length);
         let at = 0;
-        for(const part of ctx.input) { all.set(part, at); at += part.length; }
-        ctx.input = [all];
+        for(const part of ring.input) { all.set(part, at); at += part.length; }
+        ring.input = [all];
     }
-    let data = ctx.input[0] || new Uint8Array(0), p = 0;
-    if(!ctx.flags_read)
+    let data = ring.input[0] || new Uint8Array(0), p = 0;
+    if(!ring.flags_read)
     {
         // the client's flags, not used any more (gfxstream's RenderThread)
         if(data.length < 4) return;
-        ctx.flags_read = true;
+        ring.flags_read = true;
         p = 4;
     }
+    let decoded = false;
     while(data.length - p >= 8)
     {
         const view = new DataView(data.buffer, data.byteOffset + p, data.length - p);
@@ -460,57 +487,86 @@ Gfxstream.prototype.decode = function(ctx)
         if(size < 8)
         {
             this.error(ctx, "command " + opcode + " of " + size + " bytes");
-            this.fail_ring(ctx);
+            this.fail_ring(ring);
             p = data.length;
             break;
         }
         if(data.length - p < size) break;
         const payload = data.subarray(p + 8, p + size);
-        p += size;
-        this.stats.commands++;
         const decoder = this.decoders.find(d => opcode >= d.first && opcode <= d.last);
         if(!decoder)
         {
+            p += size;
+            this.stats.commands++;
             this.stats.unknown[opcode] = (this.stats.unknown[opcode] || 0) + 1;
             continue;
         }
         let wait = null;
         try
         {
-            wait = decoder.decode(ctx, opcode, payload, reply => this.reply(ctx, reply));
+            wait = decoder.decode(ctx, ring, opcode, payload, reply => this.reply(ctx, ring, reply));
         }
         catch(e)
         {
             this.error(ctx, decoder.name + " " + opcode + ": " + (e && e.message || e));
         }
+        if(wait === AGAIN)
+        {
+            // (later: another ring's command first)
+            ring.blocked = true;
+            break;
+        }
+        p += size;
+        this.stats.commands++;
+        decoded = true;
         if(wait)
         {
-            ctx.waiting = true;
-            ctx.input = [data.subarray(p)];
-            ctx.input_length = data.length - p;
-            wait(() => {
-                ctx.waiting = false;
+            ring.waiting = true;
+            ring.input = [data.subarray(p)];
+            ring.input_length = data.length - p;
+            /** @type {function(function())} */ (wait)(() => {
+                ring.waiting = false;
                 if(ctx.destroyed) return;
-                this.decode(ctx);
-                if(ctx.asg && ctx.asg.blob.map_offset >= 0) this.view().setUint32(ctx.asg.blob.map_offset + TO_HOST + STATE, HOST_NEED_NOTIFY, true);
+                this.decode(ctx, ring);
+                this.set_state(ring);
             });
+            this.wake_blocked(ctx, ring);
             return;
         }
     }
     data = data.subarray(p);
-    ctx.input = data.length ? [data] : [];
-    ctx.input_length = data.length;
+    ring.input = data.length ? [data] : [];
+    ring.input_length = data.length;
+    if(decoded) this.wake_blocked(ctx, ring);
+};
+
+/**
+ * A ring decoded a command: the context's rings whose command waited for
+ * another's, decoded again
+ * @param {!GfxstreamContext} ctx
+ * @param {!Ring} by
+ */
+Gfxstream.prototype.wake_blocked = function(ctx, by)
+{
+    for(const ring of ctx.rings.values())
+    {
+        if(ring !== by && ring.blocked && !ring.waiting)
+        {
+            this.decode(ctx, ring);
+            this.set_state(ring);
+        }
+    }
 };
 
 /**
  * A reply into the from-host ring's view of the buffer
  * @param {!GfxstreamContext} ctx
+ * @param {!Ring} asg
  * @param {!Uint8Array} reply
  */
-Gfxstream.prototype.reply = function(ctx, reply)
+Gfxstream.prototype.reply = function(ctx, asg, reply)
 {
-    const asg = ctx.asg;
-    if(!asg || asg.blob.map_offset < 0 || !reply.length) return;
+    if(asg.blob.map_offset < 0 || !reply.length) return;
     const view = this.view(), bytes = this.gpu.hostmem_bytes(), base = asg.blob.map_offset, buffer = base + RING_SIZE;
     const ring = base + FROM_HOST_LARGE;
     const write = view.getUint32(ring + WRITE_POS, true), read = view.getUint32(ring + READ_POS, true);
@@ -527,9 +583,9 @@ Gfxstream.prototype.reply = function(ctx, reply)
 };
 
 /** The ring in error: the guest's reads and writes fail (in_error) */
-Gfxstream.prototype.fail_ring = function(ctx)
+Gfxstream.prototype.fail_ring = function(ring)
 {
-    if(ctx.asg && ctx.asg.blob.map_offset >= 0) this.view().setUint32(ctx.asg.blob.map_offset + TO_HOST + CONFIG + IN_ERROR, 1, true);
+    if(ring.blob.map_offset >= 0) this.view().setUint32(ring.blob.map_offset + TO_HOST + CONFIG + IN_ERROR, 1, true);
 };
 
 /**

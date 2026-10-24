@@ -179,8 +179,11 @@ console.log("PASS: a context's ASG ring");
 // A decoder of 12340-12349 that answers what it got, and 12345's
 const decoded = [];
 let held = null;
-gpu.gfxstream.decoders.push({ name: "test", first: 12340, last: 12349, decode: (ctx, opcode, payload, reply) => {
+let ready_12349 = false;
+gpu.gfxstream.decoders.push({ name: "test", first: 12340, last: 12349, decode: (ctx, ring, opcode, payload, reply) => {
+    if(opcode === 12349 && !ready_12349) return gpu.gfxstream.AGAIN;
     decoded.push([opcode, Array.from(payload)]);
+    if(opcode === 12342) ready_12349 = true;
     if(opcode === 12345) reply(payload.slice());
     if(opcode === 12346) return done => { held = done; };
     return null;
@@ -244,6 +247,29 @@ held();
 assert.deepEqual(decoded.at(-1), [12341, [1]], "the next one once it is done");
 assert.equal(read32(ring + 2176), 0, "NEED_NOTIFY again");
 console.log("PASS: a command that waits");
+
+// a second ring of the context (another thread's stream): its own stream
+// and replies; a command that comes after another ring's (AGAIN) decoded
+// once that ring has decoded one
+const RING2_RES = 11, RING2_AT = 0x300000;
+assert.equal(command(0x010C, RING2_RES, HOST3D, MAPPABLE, 0, 0, 0, RING_SIZE + BUFFER_SIZE, 0), OK, "the second ring's blob");
+assert.equal(answer(submit_3d([0x1001, RING2_RES])), OK, "CONTEXT_CREATE of the second ring");
+assert.equal(command(0x0208, RING2_RES, 0, RING2_AT, 0), OK_MAP_INFO);
+assert.equal(gpu.gfxstream.contexts.get(CTX).rings.size, 2, "two rings");
+const ring2 = hostmem + RING2_AT, buffer2 = ring2 + RING_SIZE;
+assert.equal(read32(ring2 + 2180 + 16), 1, "its config");
+type1(packet(12349, 9));
+ping();
+assert.notEqual(decoded.at(-1)[0], 12349, "12349 waits for ring 2's command");
+write_bytes(buffer2, Uint8Array.of(0, 0, 0, 0, ...packet(12345, 3, 1, 4), ...packet(12342)));
+write32(ring2 + 128, 0); write32(ring2 + 132, 23);
+write32(ring2 + 8, 8);
+assert.equal(answer(submit_3d([0x1002, RING2_RES])), OK, "PING of the second ring");
+assert.deepEqual(decoded.slice(-3).map(d => d[0]), [12345, 12342, 12349], "ring 2's commands, then ring 1's");
+assert.deepEqual(Array.from(read_bytes(buffer2, 3)), [3, 1, 4], "the reply in ring 2's buffer");
+assert.equal(read32(ring2 + 8192 + 8), 3, "ring 2's from-host write_pos");
+assert.equal(read32(ring + 64), write_pos, "ring 1's transfers consumed");
+console.log("PASS: two rings of a context");
 
 // fences on rings: a sync task of ring 1 holds its fence, not ring 2's
 let task_done = null;
