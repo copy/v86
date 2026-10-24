@@ -1216,6 +1216,19 @@ fn fetch(address: u64, thumb: bool) -> Result<(u32, u32), Exception> {
 
 // ---- one instruction
 
+/// An instruction fetched (`length` 4, or T32's 2 or 4) executed at `pc`
+/// (the page tier's helpers too: crate::aarch64::jit::pages::a32_page_helper)
+#[inline(always)]
+pub fn execute_fetched(word: u32, length: u32, pc: u32, thumb: bool) -> Result<Flow, Exception> {
+    unsafe { INSTRUCTION_LENGTH = length };
+    if thumb {
+        crate::aarch64::t32::execute(word, length, pc)
+    }
+    else {
+        a32(word, pc)
+    }
+}
+
 /// Execute the AArch32 instruction at `address` (the PC): it retires, or
 /// takes its exception having written no state (execute::interpret_one's
 /// contract)
@@ -1232,12 +1245,7 @@ pub fn interpret_one(address: u64) -> Flow {
         }
         // (software step's EX: whether the stepped instruction is a load exclusive)
         unsafe { execute::STEPPED_EXCLUSIVE_LOAD = false };
-        if thumb {
-            crate::aarch64::t32::execute(word, length, address as u32)
-        }
-        else {
-            a32(word, address as u32)
-        }
+        execute_fetched(word, length, address as u32, thumb)
     });
     let length = instruction_length();
     match result {

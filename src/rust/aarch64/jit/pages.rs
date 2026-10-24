@@ -50,6 +50,9 @@ extern "C" {
 
 /// The page tier runs (a64_page; default off until its F gate)
 pub static mut ENABLED: bool = false;
+/// AArch32's code is compiled too (a64_page_aarch32, docs/aarch32-plan.md Q6)
+pub static mut AARCH32: bool = false;
+pub static mut AARCH32_DEBUG: u32 = 0;
 /// Interpreted instructions on a page before it is compiled
 pub static mut HOT: u32 = 2000;
 /// Unserved entries of a published function before its page is recompiled
@@ -72,12 +75,18 @@ const MAX_BUDGET: u32 = 1 << 14;
 
 /// A function's key: the code key (below 2^28) with its mode's bits
 const MODE_SHIFT: u32 = 28;
-/// Modes: bit 0 EL1, bit 1 SP alignment checked
-pub const MODES: usize = 4;
+/// Modes: bit 0 EL1, bit 1 SP alignment checked; AArch32 at EL0 (Q6), A32
+/// and T32 (bit 0 clear: EL0's)
+pub const MODES: usize = 7;
+pub const MODE_A32: u32 = 4;
+pub const MODE_T32: u32 = 6;
 
 /// The mode the running core's code would be compiled for
 #[inline(always)]
 fn mode() -> u32 {
+    if cpu::aarch32() {
+        return if cpu::get_pstate() & cpu::PSTATE_T != 0 { MODE_T32 } else { MODE_A32 };
+    }
     let el1 = cpu::el() != 0;
     let sctlr = cpu::sctlr();
     let sp_checked = sctlr & if el1 { cpu::SCTLR_SA } else { cpu::SCTLR_SA0 } != 0;
@@ -590,8 +599,15 @@ fn code_page(pc: u64, mode: u32) -> Option<u32> {
 /// for at most `budget` instructions; else note the page's heat and entry,
 /// and compile it when hot
 pub fn run(budget: u32) -> Ran {
-    // (AArch32's code is interpreted: docs/aarch32-plan.md Q6 compiles it)
-    if !allowed() || budget == 0 || cpu::aarch32() {
+    // (AArch32's code with a64_page_aarch32, docs/aarch32-plan.md Q6; not
+    // from inside an IT block: compiled code enters at ITSTATE 0, little-endian)
+    if !allowed()
+        || budget == 0
+        || cpu::aarch32()
+            && !(unsafe { AARCH32 }
+                && crate::aarch64::t32::itstate() == 0
+                && cpu::get_pstate() & cpu::PSTATE_E == 0)
+    {
         return Ran::None;
     }
     let pc = cpu::get_pc();
@@ -745,7 +761,12 @@ fn compile(key: u32, pc: u64) {
     };
     let name = format!(
         "a64_page{}_{:x}",
-        if mode & 1 != 0 { "_el1" } else { "_el0" },
+        match mode {
+            MODE_A32 => "_a32",
+            MODE_T32 => "_t32",
+            _ if mode & 1 != 0 => "_el1",
+            _ => "_el0",
+        },
         pc & !0xFFF
     );
     let started = unsafe { crate::isa::microtick() };
@@ -760,6 +781,11 @@ fn compile(key: u32, pc: u64) {
             helpers: unsafe { super::HELPERS },
             system: unsafe { super::SYSTEM },
             relaxed_fma: unsafe { super::RELAXED_FMA },
+            isa: match mode {
+                MODE_A32 => pagegen::Isa::A32,
+                MODE_T32 => pagegen::Isa::T32,
+                _ => pagegen::Isa::A64,
+            },
         },
         name,
     );
@@ -1020,7 +1046,8 @@ pub fn a64_page_unserved(pc: u64) -> u32 {
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Context {
     el: u32,
-    /// DAIF, SS, IL, SPSel, PAN
+    /// DAIF, SS, IL, SPSel, PAN; AArch32's state and instruction set
+    /// (a step's BX or BLX: a function is one set's, Q6)
     pstate: u32,
     sctlr: u64,
     tcr: u64,
@@ -1040,7 +1067,10 @@ fn context() -> Context {
                     | cpu::PSTATE_SS
                     | PSTATE_IL
                     | cpu::PSTATE_SP
-                    | cpu::PSTATE_PAN),
+                    | cpu::PSTATE_PAN
+                    | cpu::PSTATE_NRW
+                    | cpu::PSTATE_T
+                    | cpu::PSTATE_E),
             sctlr: *sctlr_el1,
             tcr: *tcr_el1,
             ttbr0: *ttbr0_el1,
@@ -1203,6 +1233,28 @@ pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
     match execute::execute(&inst, pc) {
         Ok(Flow::Next) => {
             crate::core_stats::add_pending(1, 0);
+            0
+        },
+        _ => 1,
+    }
+}
+
+/// A helper call of an AArch32 page function (pagegen::a32): the A32 or
+/// T32 instruction (`length` 4, or T32's 2 or 4) executed on the state in
+/// memory, as the interpreter does it without the fetch (the IT block a step
+/// on); 1 when it did not simply go on to the next instruction, which the
+/// compiler rules out but for its exceptions (raised before any of its
+/// effects: the interpreter runs it again)
+#[no_mangle]
+pub fn a32_page_helper(word: u32, pc: u64, length: u32) -> u32 {
+    unsafe { HELPERS += 1 };
+    let thumb = cpu::get_pstate() & cpu::PSTATE_T != 0;
+    match crate::aarch64::a32::execute_fetched(word, length, pc as u32, thumb) {
+        Ok(Flow::Next) => {
+            crate::core_stats::add_pending(1, 0);
+            if thumb {
+                crate::aarch64::t32::it_advance();
+            }
             0
         },
         _ => 1,
