@@ -23,9 +23,11 @@ pub const SLICE: u32 = 50_000;
 const QUANTUM: u32 = 4096;
 
 /// The per-core part of the state block, from its offset 64 to the end of the last field
-/// (src/arm/state_layout.js: event_register at 1316)
+/// (src/arm/state_layout.js: a32_fpexc at 1480, cpu_type arm32's; the
+/// page tier's scratch fields before the a32 range come along, unused
+/// between activations)
 const STATE_START: usize = 64;
-const STATE_END: usize = 1320;
+const STATE_END: usize = 1484;
 const STATE_BYTES: usize = STATE_END - STATE_START;
 
 #[repr(C, align(16))]
@@ -603,6 +605,8 @@ pub fn a64_boot(entry_low: u32, entry_high: u32, x0_low: u32, x0_high: u32) {
 pub fn a64_machine_state(which: u32, size: bool) -> u32 {
     let (pointer, length) = match which {
         0 => crate::aarch64::gic::state_bytes(),
+        // (the GICv2's own state, docs/aarch32-plan.md R4.2)
+        2 => crate::aarch64::gic::v2_state_bytes(),
         _ => psci::state_bytes(),
     };
     if size {
@@ -655,9 +659,9 @@ pub fn a64_state_base() -> u32 { crate::state_block::state_base() }
 mod tests {
     #[test]
     fn saved_range_covers_the_layout() {
-        use crate::aarch64::state::{event_register, x};
+        use crate::aarch64::state::{a32_fpexc, x};
         let base = crate::state_block::state_base() as usize;
         assert_eq!(x as usize - base, super::STATE_START);
-        assert_eq!(event_register as usize + 4 - base, super::STATE_END);
+        assert_eq!(a32_fpexc as usize + 4 - base, super::STATE_END);
     }
 }

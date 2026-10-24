@@ -6,12 +6,14 @@
 // GICv3 CPU interface, a second core.
 //
 //   node tests/a32/baremetal.mjs [name...]     A32_TARGET=qemu|v86 runs one side
-import { build32, compare, root } from "./runner.mjs";
+import { build32, compare, root, QEMU_MACHINE32 } from "./runner.mjs";
 
 const TESTS = {
     system: { sources: ["system.c", "system_asm.S"] },
     mmu: { sources: ["mmu.c", "mmu_asm.S", "system_asm.S"] },
     platform: { sources: ["platform.c"], cores: 2 },
+    // (the ranchu board's GICv2: QEMU's virt with gic-version=2, v86's GIC in its v2 mode)
+    gicv2: { sources: ["gicv2.c"], cores: 2, gic: 2 },
 };
 const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(TESTS);
 let failures = 0;
@@ -20,7 +22,10 @@ for(const name of names)
     const test = TESTS[name];
     if(!test) throw new Error("no test " + name + "; there are " + Object.keys(TESTS).join(", "));
     const directory = build32(name, test.sources.map(s => root + "tests/a32/" + s));
-    const results = await compare(directory, { timeout: 30000, cores: test.cores || 1 });
+    const results = await compare(directory, { timeout: 30000, cores: test.cores || 1, ...(test.gic === 2 ? {
+        machine: QEMU_MACHINE32.replace("gic-version=3", "gic-version=2"),
+        setup: cpu => { cpu.wm.exports["a64_gic_set_version"](2); cpu.wm.exports["a64_set_cores"](test.cores); },
+    } : {}) });
     let failed = false;
     for(const [target, r] of Object.entries(results))
     {

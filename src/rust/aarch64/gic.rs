@@ -13,6 +13,14 @@
 //! With cores in workers (P8.2) the GIC is the machine instance's: every
 //! entry point holds its lock (re-entrant), the signals are its bytes, and a
 //! changed signal of another core kicks that core.
+//!
+//! The same state behind a GICv2's registers (a64_gic_set_version(2): the
+//! ranchu board's Linux 3.10, docs/aarch32-plan.md R4.2, R6): the
+//! distributor without affinity routing (the SGIs' and PPIs' registers
+//! banked per core, ITARGETSR, GICD_SGIR and the SGIs' source cores) and a
+//! memory-mapped CPU interface (GICC) at GICC_BASE whose priority logic is
+//! the ICC registers'; group 0 is an IRQ there unless GICC_CTLR.FIQEn. No
+//! Security Extensions, 5 priority bits, as QEMU's GICv2 without EL3.
 
 use crate::aarch64::cpu::{self, Exception};
 use crate::isa::MAX_CORES;
@@ -26,6 +34,9 @@ pub const GICD_BASE: u64 = 0x0800_0000;
 pub const GICD_SIZE: u64 = 0x1_0000;
 pub const GICR_BASE: u64 = 0x080A_0000;
 pub const GICR_STRIDE: u64 = 0x2_0000;
+/// The GICv2 CPU interface's frame (GICC_DIR at 0x1000)
+pub const GICC_BASE: u64 = 0x0801_0000;
+pub const GICC_SIZE: u64 = 0x1_0000;
 
 const CTLR_EN_GRP0: u32 = 1 << 0;
 const CTLR_EN_GRP1: u32 = 1 << 1;
@@ -133,6 +144,49 @@ static mut GIC: Gic = Gic {
     hppi: [HPPI_NONE; MAX_CORES],
 };
 
+/// The GICv2's own state (a64_gic_set_version; snapshots: a64_machine_state 2)
+#[derive(Clone, Copy)]
+struct Gic2 {
+    /// 2 or 3
+    version: u32,
+    /// ITARGETSR of the SPIs: the cores an SPI may go to (the lowest takes it)
+    targets: [u8; NUM_IRQ],
+    /// the source cores of each core's pending SGIs
+    sgi_sources: [[u8; 16]; MAX_CORES],
+    /// GICC_CTLR's bits besides the group enables and EOImode: AckCtl, FIQEn, CBPR
+    ctlr: [u32; MAX_CORES],
+    /// the source core of each core's active SGIs (IAR's CPUID)
+    active_source: [[u8; 16]; MAX_CORES],
+}
+static mut GIC2: Gic2 = Gic2 {
+    version: 3,
+    targets: [0; NUM_IRQ],
+    sgi_sources: [[0; 16]; MAX_CORES],
+    ctlr: [0; MAX_CORES],
+    active_source: [[0; 16]; MAX_CORES],
+};
+#[inline(always)]
+fn gic2() -> &'static mut Gic2 { unsafe { &mut *crate::parallel::machine(&raw mut GIC2) } }
+/// Whether the GIC is a GICv2
+#[inline(always)]
+pub fn is_v2() -> bool { gic2().version == 2 }
+
+/// (the machine, before a64_set_cores) the GIC's architecture: 2 or 3 (the default)
+#[no_mangle]
+pub fn a64_gic_set_version(version: u32) {
+    gic2().version = if version == 2 { 2 } else { 3 };
+    reset();
+}
+
+/// (snapshots) the GICv2's own state as bytes: its address and size
+pub fn v2_state_bytes() -> (u32, u32) {
+    (&raw const GIC2 as u32, core::mem::size_of::<Gic2>() as u32)
+}
+
+const GICC_CTLR_FIQEN: u32 = 1 << 3;
+const GICC_CTLR_CBPR: u32 = 1 << 4;
+const GICC_CTLR_EOIMODE: u32 = 1 << 9;
+
 /// Each core's interrupt request to the PE: bit 0 IRQ, bit 1 FIQ
 pub static mut SIGNAL: [u8; MAX_CORES] = [0; MAX_CORES];
 pub const SIGNAL_IRQ: u8 = 1;
@@ -235,6 +289,20 @@ pub fn reset() {
     g.redist = [REDIST_RESET; MAX_CORES];
     g.cpuif = [CPUIF_RESET; MAX_CORES];
     g.hppi = [HPPI_NONE; MAX_CORES];
+    let v2 = gic2();
+    v2.targets = [0; NUM_IRQ];
+    v2.sgi_sources = [[0; 16]; MAX_CORES];
+    v2.ctlr = [0; MAX_CORES];
+    v2.active_source = [[0; 16]; MAX_CORES];
+    if v2.version == 2 {
+        // (no affinity routing; the SGIs always enabled, as QEMU's; BPR's
+        // minimum 0, ABPR's 1)
+        g.dist.ctlr = 0;
+        for core in 0..MAX_CORES {
+            g.redist[core].enabled = 0xFFFF;
+            g.cpuif[core].bpr = [0, 1];
+        }
+    }
     for core in 0..MAX_CORES {
         set_signal(core, 0);
     }
@@ -252,8 +320,13 @@ fn set_bit(words: &mut [u32], irq: usize, value: bool) {
     }
 }
 
-/// The core an SPI goes to (its IROUTER's affinity), if any
+/// The core an SPI goes to (its IROUTER's affinity; a GICv2's lowest ITARGETSR core), if any
 fn target(irq: usize) -> Option<usize> {
+    if is_v2() {
+        let mask = gic2().targets[irq];
+        let core = mask.trailing_zeros() as usize;
+        return (mask != 0 && core < cores()).then_some(core);
+    }
     let r = gic().dist.irouter[irq];
     // (Aff3:Aff2:Aff1:Aff0; Aff0 is the core, the others 0)
     let affinity = r & 0xFF_FFFF | (r >> 32 & 0xFF) << 24;
@@ -312,7 +385,8 @@ fn update(core: usize) {
     }
     g.hppi[core] = best;
     let signal = if can_preempt(core) {
-        if best.group == 0 {
+        // (a GICv2's group 0 is an IRQ unless FIQEn)
+        if best.group == 0 && (!is_v2() || gic2().ctlr[core] & GICC_CTLR_FIQEN != 0) {
             SIGNAL_FIQ
         }
         else {
@@ -397,6 +471,16 @@ fn activate(core: usize, irq: usize) {
         let r = &mut g.redist[core];
         r.active |= 1 << irq;
         r.pending &= !(1 << irq);
+        // (a GICv2's SGI: one source at a time, the others stay pending)
+        if is_v2() && irq < 16 {
+            let sources = &mut gic2().sgi_sources[core][irq];
+            let source = sources.trailing_zeros().min(7) as u8;
+            *sources &= !(1 << source);
+            gic2().active_source[core][irq] = source;
+            if *sources != 0 {
+                g.redist[core].pending |= 1 << irq;
+            }
+        }
         update(core);
     }
     else {
@@ -716,6 +800,10 @@ fn bytes_read(bytes: &[u8], irq: usize, size: u32) -> u64 {
 pub fn gicd_read(offset: u64, size: u32) -> u64 {
     crate::aarch64::timer::tick_all();
     let _guard = Guard::new();
+    if is_v2() {
+        let value = gicd2_read(offset, size);
+        return value & if size == 8 { u64::MAX } else { (1u64 << (8 * size)) - 1 };
+    }
     let d = &gic().dist;
     let word = ((offset & 0x7F) / 4) as usize;
     let value = match offset {
@@ -796,6 +884,9 @@ pub fn gicd_read(offset: u64, size: u32) -> u64 {
 
 pub fn gicd_write(offset: u64, size: u32, value: u64) {
     let _guard = Guard::new();
+    if is_v2() {
+        return gicd2_write(offset, size, value);
+    }
     let g = gic();
     let word = ((offset & 0x7F) / 4) as usize;
     let v = value as u32;
@@ -944,6 +1035,353 @@ pub fn gicr_write(offset: u64, size: u32, value: u64) {
                 }
             }
             r.edge = edge;
+        },
+        _ => return,
+    }
+    update(core);
+}
+
+// ---- the GICv2's registers
+
+/// A GICv2 distributor register: the SGIs' and PPIs' words and bytes are
+/// the current core's (its redistributor state)
+fn gicd2_read(offset: u64, size: u32) -> u64 {
+    let core = crate::isa::current_core();
+    let g = gic();
+    let d = &g.dist;
+    let r = &g.redist[core];
+    let word = ((offset & 0x7F) / 4) as usize;
+    let banked = |w: usize, own: u32, words: &[u32; WORDS]| -> u64 {
+        if w == 0 {
+            own as u64
+        }
+        else if w < WORDS {
+            words[w] as u64
+        }
+        else {
+            0
+        }
+    };
+    match offset {
+        0x0000 => (d.ctlr & (CTLR_EN_GRP0 | CTLR_EN_GRP1)) as u64,
+        // TYPER: CPUNumber, ITLinesNumber; no Security Extensions
+        0x0004 => (cores() as u64 - 1) << 5 | (NUM_IRQ / 32 - 1) as u64,
+        0x0008 => 0x43B,
+        0x0080..=0x00FC => banked(word, r.group, &d.group),
+        0x0100..=0x017C | 0x0180..=0x01FC => banked(word, r.enabled, &d.enabled),
+        0x0200..=0x027C | 0x0280..=0x02FC => {
+            let own = r.pending | !r.edge & r.level;
+            if word == 0 {
+                own as u64
+            }
+            else if word < WORDS {
+                (d.pending[word] | !d.edge[word] & d.level[word]) as u64
+            }
+            else {
+                0
+            }
+        },
+        0x0300..=0x037C | 0x0380..=0x03FC => banked(word, r.active, &d.active),
+        0x0400..=0x07FB => {
+            let irq = (offset - 0x400) as usize;
+            let mut value = 0u64;
+            for i in 0..size as usize {
+                let n = irq + i;
+                let p = if n < 32 {
+                    r.priority[n]
+                }
+                else if n < NUM_IRQ {
+                    d.priority[n]
+                }
+                else {
+                    0
+                };
+                value |= (p as u64) << (8 * i);
+            }
+            value
+        },
+        // ITARGETSR: the SGIs' and PPIs' read as this core
+        0x0800..=0x0BFB => {
+            let irq = (offset - 0x800) as usize;
+            let mut value = 0u64;
+            for i in 0..size as usize {
+                let n = irq + i;
+                let t = if n < 32 {
+                    1u8 << core
+                }
+                else if n < NUM_IRQ {
+                    gic2().targets[n]
+                }
+                else {
+                    0
+                };
+                value |= (t as u64) << (8 * i);
+            }
+            value
+        },
+        0x0C00..=0x0CFC => {
+            let first = ((offset - 0xC00) / 4) as usize * 16;
+            let mut value = 0u64;
+            for i in 0..16 {
+                let n = first + i;
+                let edge = if n < 16 {
+                    true
+                }
+                else if n < 32 {
+                    r.edge >> n & 1 != 0
+                }
+                else {
+                    n < NUM_IRQ && bit(&d.edge, n)
+                };
+                if edge {
+                    value |= 2 << (2 * i);
+                }
+            }
+            value
+        },
+        // CPENDSGIR, SPENDSGIR: a byte per SGI, a bit per source core
+        0x0F10..=0x0F2F => {
+            let sgi = ((offset & 0xF) as usize).min(15);
+            let mut value = 0u64;
+            for i in 0..size as usize {
+                if sgi + i < 16 {
+                    value |= (gic2().sgi_sources[core][sgi + i] as u64) << (8 * i);
+                }
+            }
+            value
+        },
+        // PIDR2: ArchRev 2
+        0x0FE8 => 0x2B,
+        _ => 0,
+    }
+}
+
+fn gicd2_write(offset: u64, size: u32, value: u64) {
+    let core = crate::isa::current_core();
+    let g = gic();
+    let word = ((offset & 0x7F) / 4) as usize;
+    let v = value as u32;
+    // (word 0 of a bitmap: the current core's SGIs and PPIs)
+    let bitmap = |g: &mut Gic, kind: usize, set: bool| {
+        if word == 0 {
+            let r = &mut g.redist[core];
+            let own = match kind {
+                0 => &mut r.enabled,
+                1 => &mut r.pending,
+                _ => &mut r.active,
+            };
+            if set {
+                *own |= v;
+            }
+            else {
+                *own &= !v;
+            }
+        }
+        else if word < WORDS {
+            let words = match kind {
+                0 => &mut g.dist.enabled,
+                1 => &mut g.dist.pending,
+                _ => &mut g.dist.active,
+            };
+            bitmap_write(words, word, v, set);
+        }
+    };
+    match offset {
+        0x0000 => g.dist.ctlr = v & (CTLR_EN_GRP0 | CTLR_EN_GRP1),
+        0x0080..=0x00FC => {
+            if word == 0 {
+                g.redist[core].group = v;
+            }
+            else if word < WORDS {
+                g.dist.group[word] = v;
+            }
+        },
+        0x0100..=0x017C => bitmap(g, 0, true),
+        0x0180..=0x01FC => {
+            bitmap(g, 0, false);
+            g.redist[core].enabled |= 0xFFFF;
+        },
+        0x0200..=0x027C => bitmap(g, 1, true),
+        0x0280..=0x02FC => {
+            bitmap(g, 1, false);
+            // (SGIs are cleared through CPENDSGIR, not here)
+        },
+        0x0300..=0x037C => bitmap(g, 2, true),
+        0x0380..=0x03FC => bitmap(g, 2, false),
+        0x0400..=0x07FB => {
+            let irq = (offset - 0x400) as usize;
+            for i in 0..size as usize {
+                let n = irq + i;
+                let p = (value >> (8 * i)) as u8;
+                if n < 32 {
+                    g.redist[core].priority[n] = p;
+                }
+                else if n < NUM_IRQ {
+                    g.dist.priority[n] = p;
+                }
+            }
+        },
+        0x0800..=0x0BFB => {
+            let irq = (offset - 0x800) as usize;
+            for i in 0..size as usize {
+                let n = irq + i;
+                if (32..NUM_IRQ).contains(&n) {
+                    gic2().targets[n] = (value >> (8 * i)) as u8;
+                }
+            }
+        },
+        0x0C00..=0x0CFC => {
+            let first = ((offset - 0xC00) / 4) as usize * 16;
+            for i in 0..16 {
+                let n = first + i;
+                let edge = v >> (2 * i + 1) & 1 != 0;
+                if (16..32).contains(&n) {
+                    let r = &mut g.redist[core];
+                    r.edge = r.edge & !(1 << n) | (edge as u32) << n;
+                }
+                else if (32..NUM_IRQ).contains(&n) {
+                    set_bit(&mut g.dist.edge, n, edge);
+                }
+            }
+        },
+        // SGIR: TargetListFilter (0 the list, 1 the others, 2 this core), the list, the INTID
+        0x0F00 => {
+            let sgi = (v & 15) as usize;
+            let list = match v >> 24 & 3 {
+                0 => v >> 16 & 0xFF,
+                1 => 0xFF & !(1 << core),
+                2 => 1 << core,
+                _ => 0,
+            };
+            for other in 0..cores().min(8) {
+                if list >> other & 1 != 0 {
+                    gic2().sgi_sources[other][sgi] |= 1 << core;
+                    g.redist[other].pending |= 1 << sgi;
+                    update(other);
+                }
+            }
+        },
+        0x0F10..=0x0F2F => {
+            let set = offset >= 0x0F20;
+            let sgi = (offset & 0xF) as usize;
+            for i in 0..size as usize {
+                if sgi + i >= 16 {
+                    break;
+                }
+                let bits = (value >> (8 * i)) as u8;
+                let sources = &mut gic2().sgi_sources[core][sgi + i];
+                if set {
+                    *sources |= bits;
+                }
+                else {
+                    *sources &= !bits;
+                }
+                let r = &mut g.redist[core];
+                r.pending = r.pending & !(1 << (sgi + i)) | ((*sources != 0) as u32) << (sgi + i);
+            }
+        },
+        _ => return,
+    }
+    update_all();
+}
+
+/// The GICv2 CPU interface (GICC): its registers are the ICC registers'
+/// logic for both groups at once (no Security Extensions)
+pub fn gicc_read(offset: u64, _size: u32) -> u64 {
+    crate::aarch64::timer::tick();
+    let _guard = Guard::new();
+    let core = crate::isa::current_core();
+    let c = gic().cpuif[core];
+    match offset {
+        0x0000 => {
+            (c.igrpen[0] | c.igrpen[1] << 1) as u64
+                | gic2().ctlr[core] as u64
+                | if c.ctlr & ICC_CTLR_EOIMODE != 0 { GICC_CTLR_EOIMODE as u64 } else { 0 }
+        },
+        0x0004 => c.pmr as u64,
+        0x0008 => c.bpr[0] as u64,
+        0x001C => c.bpr[1] as u64,
+        // IAR, AIAR: acknowledge the highest priority pending interrupt (an SGI with its source)
+        0x000C | 0x0020 => {
+            if !can_preempt(core) {
+                return SPURIOUS;
+            }
+            let h = gic().hppi[core];
+            let irq = h.irq as usize;
+            activate(core, irq);
+            if irq < 16 {
+                irq as u64 | (gic2().active_source[core][irq] as u64) << 10
+            }
+            else {
+                irq as u64
+            }
+        },
+        0x0014 => running_priority(core) as u64,
+        // (HPPIR: not an interrupt the priority mask holds back, as QEMU's)
+        0x0018 | 0x0028 => {
+            let h = gic().hppi[core];
+            if no_enabled_hppi(core) || h.prio >= c.pmr {
+                SPURIOUS
+            }
+            else {
+                h.irq as u64
+            }
+        },
+        0x00D0 => c.apr[0] as u64,
+        0x00E0 => c.apr[1] as u64,
+        // IIDR: GICv2, ARM
+        0x00FC => 0x0202_043B,
+        _ => 0,
+    }
+}
+
+pub fn gicc_write(offset: u64, _size: u32, value: u64) {
+    let _guard = Guard::new();
+    let core = crate::isa::current_core();
+    let g = gic();
+    let v = value as u32;
+    match offset {
+        0x0000 => {
+            let c = &mut g.cpuif[core];
+            c.igrpen = [v & 1, v >> 1 & 1];
+            let mut ctlr = c.ctlr & !(ICC_CTLR_CBPR | ICC_CTLR_EOIMODE);
+            if v & GICC_CTLR_CBPR != 0 {
+                ctlr |= ICC_CTLR_CBPR;
+            }
+            if v & GICC_CTLR_EOIMODE != 0 {
+                ctlr |= ICC_CTLR_EOIMODE;
+            }
+            c.ctlr = ctlr;
+            gic2().ctlr[core] = v & (1 << 2 | GICC_CTLR_FIQEN | GICC_CTLR_CBPR);
+        },
+        0x0004 => g.cpuif[core].pmr = v & PRIO_MASK,
+        0x0008 => g.cpuif[core].bpr[0] = v & 7,
+        0x001C => g.cpuif[core].bpr[1] = v.max(1) & 7,
+        // EOIR, AEOIR: priority drop of the highest active priority, and deactivation unless EOImode
+        0x0010 | 0x0024 => {
+            let irq = (v & 0x3FF) as usize;
+            if irq >= NUM_IRQ {
+                return;
+            }
+            let Some(group) = highest_active_group(core)
+            else {
+                return;
+            };
+            let apr = &mut g.cpuif[core].apr[group];
+            *apr &= apr.wrapping_sub(1);
+            update(core);
+            if g.cpuif[core].ctlr & ICC_CTLR_EOIMODE == 0 {
+                deactivate(core, irq);
+            }
+        },
+        0x00D0 => g.cpuif[core].apr[0] = v,
+        0x00E0 => g.cpuif[core].apr[1] = v,
+        // DIR
+        0x1000 => {
+            let irq = (v & 0x3FF) as usize;
+            if irq < NUM_IRQ && g.cpuif[core].ctlr & ICC_CTLR_EOIMODE != 0 {
+                deactivate(core, irq);
+            }
         },
         _ => return,
     }

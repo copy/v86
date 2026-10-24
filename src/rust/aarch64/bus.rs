@@ -436,12 +436,15 @@ fn retire_code(backing: u32, len: u32) {
 /// distributor and redistributors, P4.2); src/virt's owners count from 1
 pub const OWNER_GICD: u32 = 0xFFFF_0000;
 pub const OWNER_GICR: u32 = 0xFFFF_0001;
+/// (a GICv2's CPU interface)
+pub const OWNER_GICC: u32 = 0xFFFF_0002;
 
 #[inline(always)]
 unsafe fn mmio_read(owner: u32, offset: u64, size: u32) -> u64 {
     match owner {
         OWNER_GICD => crate::aarch64::gic::gicd_read(offset, size),
         OWNER_GICR => crate::aarch64::gic::gicr_read(offset, size),
+        OWNER_GICC => crate::aarch64::gic::gicc_read(offset, size),
         _ => js::a64_mmio_read(owner, offset, size),
     }
 }
@@ -451,6 +454,7 @@ unsafe fn mmio_write(owner: u32, offset: u64, size: u32, value: u64) {
     match owner {
         OWNER_GICD => crate::aarch64::gic::gicd_write(offset, size, value),
         OWNER_GICR => crate::aarch64::gic::gicr_write(offset, size, value),
+        OWNER_GICC => crate::aarch64::gic::gicc_write(offset, size, value),
         _ => js::a64_mmio_write(owner, offset, size, value),
     }
 }
@@ -460,18 +464,30 @@ unsafe fn mmio_write(owner: u32, offset: u64, size: u32, value: u64) {
 pub unsafe fn a64_set_cores(cores: u32) -> bool {
     let cores = (cores as usize).clamp(1, crate::isa::MAX_CORES);
     *crate::parallel::machine(&raw mut crate::aarch64::isa_hooks::CORE_COUNT) = cores;
+    let v2 = crate::aarch64::gic::is_v2();
     mutate(|b| {
         b.unmap(crate::aarch64::gic::GICD_BASE);
         b.unmap(crate::aarch64::gic::GICR_BASE);
+        b.unmap(crate::aarch64::gic::GICC_BASE);
         b.map(
             crate::aarch64::gic::GICD_BASE,
             crate::aarch64::gic::GICD_SIZE,
             Kind::Mmio { owner: OWNER_GICD },
-        ) && b.map(
-            crate::aarch64::gic::GICR_BASE,
-            crate::aarch64::gic::GICR_STRIDE * cores as u64,
-            Kind::Mmio { owner: OWNER_GICR },
-        )
+        ) && if v2 {
+            // (a GICv2: its CPU interface, no redistributors)
+            b.map(
+                crate::aarch64::gic::GICC_BASE,
+                crate::aarch64::gic::GICC_SIZE,
+                Kind::Mmio { owner: OWNER_GICC },
+            )
+        }
+        else {
+            b.map(
+                crate::aarch64::gic::GICR_BASE,
+                crate::aarch64::gic::GICR_STRIDE * cores as u64,
+                Kind::Mmio { owner: OWNER_GICR },
+            )
+        }
     })
 }
 
