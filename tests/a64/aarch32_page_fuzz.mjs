@@ -1,0 +1,226 @@
+#!/usr/bin/env node
+// AArch32's page functions against the interpreter (docs/aarch32-plan.md
+// Q6.2, Q6.3; page_fuzz.mjs's A64 counterpart): random A32 and T32 programs
+// of the forms the page tier compiles natively or by helper calls (data
+// processing with every shift and condition, MOVW and MOVT, multiplies,
+// extends, bit fields, loads and stores in every addressing mode, LDM, STM,
+// PUSH and POP, IT blocks, forward branches, counted loops, calls, CBZ and
+// CBNZ, VFP), run at EL0 (tests/a64/aarch32/fuzz.c) ROUNDS times on their
+// registers and a buffer; the buffer, the registers and NZCV at the end
+// must be the same interpreted and with the page tier (a64_page_aarch32,
+// compiling at the first boundary), bit for bit.
+//
+//   node tests/a64/aarch32_page_fuzz.mjs [--programs N] [--length N] [--rounds N] [--seed S] [--write DIR]
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { build, actual, root } from "./guest_runner.mjs";
+
+const args = process.argv.slice(2);
+const option = (name, value) => { const i = args.indexOf(name); return i < 0 ? value : args[i + 1]; };
+const PROGRAMS = +option("--programs", 40);
+const LENGTH = +option("--length", 100);
+const ROUNDS = +option("--rounds", 32);
+const SEED = +option("--seed", 1);
+
+let state = BigInt(SEED) * 0x9E3779B97F4A7C15n & (1n << 64n) - 1n || 1n;
+function next64()
+{
+    state ^= state << 13n & (1n << 64n) - 1n;
+    state ^= state >> 7n;
+    state ^= state << 17n & (1n << 64n) - 1n;
+    return state;
+}
+const rand = n => Number(next64() % BigInt(n));
+const pick = list => list[rand(list.length)];
+
+// the registers programs compute in (r8 holds the buffer, r11 counts loops,
+// r12 is addressing scratch)
+const REGS = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10];
+const LOW = [0, 1, 2, 3, 4, 5, 6, 7];
+const r = () => "r" + pick(REGS);
+/** k distinct registers of REGS, in order */
+const distinct = k => { const all = REGS.slice(); for(let i = all.length - 1; i > 0; i--) { const j = rand(i + 1); [all[i], all[j]] = [all[j], all[i]]; } return all.slice(0, k).sort((a, b) => a - b).map(n => "r" + n); };
+const lo = () => "r" + pick(LOW);
+const CONDS = ["eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc", "hi", "ls", "ge", "lt", "gt", "le"];
+const SHIFTS = ["lsl", "lsr", "asr", "ror"];
+// immediates both instruction sets encode
+const IMMS = () => pick([rand(256), rand(256), 0xFF000000, 0x3FC00, 0x80000000, 0xF0000000, 0]);
+const shift = () => { const kind = pick(SHIFTS); return rand(3) ? "" : rand(8) === 0 ? ", rrx" : `, ${kind} #${kind === "lsl" || kind === "ror" ? 1 + rand(31) : 1 + rand(32)}`; };
+
+let label = 0;
+let thumb = false;
+/** an instruction's condition suffix: A32's any, T32's only in an IT block (it()) */
+const cond = () => !thumb && rand(4) === 0 ? pick(CONDS) : "";
+
+/** One instruction that may run conditionally (in an IT block or with a condition): no branch */
+function plain(c = "")
+{
+    const s = c ? (rand(4) === 0 ? "s" : "") : (rand(3) === 0 ? "s" : "");
+    switch(rand(22))
+    {
+        case 0: case 1: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, ${r()}${shift()}`;
+        case 2: case 3: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, #${IMMS()}`;
+        case 4: return `${pick(["mov", "mvn"])}${s}${c} ${r()}, ${r()}${shift()}`;
+        case 5: return `${pick(["mov", "mvn"])}${s}${c} ${r()}, #${IMMS()}`;
+        case 6: return `${pick(["cmp", "cmn", "tst", "teq"])}${c} ${r()}, ${rand(2) ? r() + shift() : "#" + IMMS()}`;
+        case 7: return `${pick(["lsl", "lsr", "asr", "ror"])}${s}${c} ${r()}, ${r()}, ${rand(2) ? "#" + (1 + rand(31)) : r()}`;
+        case 8: return `${rand(2) ? "movw" : "movt"}${c} ${r()}, #${rand(65536)}`;
+        case 9: return pick([`mul${c} ${r()}, ${r()}, ${r()}`, `mla${c} ${r()}, ${r()}, ${r()}, ${r()}`, `mls${c} ${r()}, ${r()}, ${r()}, ${r()}`]);
+        case 10: { const [low, high] = distinct(2); return `${pick(["umull", "smull", "umlal", "smlal"])}${c} ${low}, ${high}, ${r()}, ${r()}`; }
+        case 11: return `${pick(["uxtb", "uxth", "sxtb", "sxth"])}${c} ${r()}, ${r()}${rand(2) ? ", ror #" + pick([8, 16, 24]) : ""}`;
+        case 12: return pick([`clz${c} ${r()}, ${r()}`, `rev${c} ${r()}, ${r()}`, `rev16${c} ${r()}, ${r()}`, `rbit${c} ${r()}, ${r()}`, `revsh${c} ${r()}, ${r()}`]);
+        case 13: { const lsb = rand(32), width = 1 + rand(32 - lsb); return pick([`ubfx${c} ${r()}, ${r()}, #${lsb}, #${width}`, `sbfx${c} ${r()}, ${r()}, #${lsb}, #${width}`, `bfi${c} ${r()}, ${r()}, #${lsb}, #${width}`, `bfc${c} ${r()}, #${lsb}, #${width}`]); }
+        case 14: case 15: {
+            // a load or store of the buffer: an immediate offset
+            // (A32's halfword and signed forms have 8 bits of offset)
+            const [op, align] = pick([["ldr", 4], ["str", 4], ["ldrb", 1], ["strb", 1], ["ldrh", 2], ["strh", 2], ["ldrsb", 1], ["ldrsh", 2]]);
+            const most = /h|sb/.test(op) ? 256 : 2048;
+            return `${op}${c} ${r()}, [r8, #${align * rand(Math.min(255, most / align))}]`;
+        }
+        case 16: {
+            // a register offset (the index masked into the buffer, as a byte offset of words)
+            const [op, k] = pick([["ldr", 2], ["str", 2], ["ldrb", 0], ["strb", 0], ["ldrh", 1], ["strh", 1], ["ldrsh", 1], ["ldrsb", 0]]);
+            // (A32 and T32 both shift a word's index by LSL #2)
+            return k === 2 && rand(2) ? `and${c} r12, ${r()}, #0xff\n    ${op}${c} ${r()}, [r8, r12, lsl #2]` :
+                `and${c} r12, ${r()}, #${k ? "0x3fc" : "0xff"}\n    ${op}${c} ${r()}, [r8, r12]`;
+        }
+        case 17: {
+            // pre- and post-indexed with writeback, through r12
+            const [op, a] = pick([["ldr", 4], ["str", 4], ["ldrb", 1], ["strb", 1], ["ldrh", 2], ["strh", 2]]);
+            const off = a * (1 + rand(16));
+            return `add${c} r12, r8, #${16 * rand(64)}\n    ` + (rand(2) ? `${op}${c} ${r()}, [r12, #${off}]!` : `${op}${c} ${r()}, [r12], #${rand(2) ? off : -off}`);
+        }
+        case 18: { const t = pick([0, 2, 4, 6]); return `${rand(2) ? "ldrd" : "strd"}${c} r${t}, r${t + 1}, [r8, #${8 * rand(32)}]`; }
+        case 19: {
+            // (T32's LDM and STM of one register are UNPREDICTABLE: v86 UNDEFs them)
+            const list = distinct(2 + rand(4)).join(", ");
+            return `add${c} r12, r8, #${16 * rand(64)}\n    ${pick(["ldm", "stm", "ldmdb", "stmdb"])}${c} r12${rand(2) ? "!" : ""}, {${list}}`;
+        }
+        case 20: return `${pick(["qadd", "qsub", "uadd8", "usub16", "sadd16", "uhadd8", "sel"])}${c} ${r()}, ${r()}, ${r()}`;
+        default: return `vmov${c} s${rand(8)}, ${r()}\n    vcvt${c}.f32.s32 s${rand(8)}, s${rand(8)}\n    vadd${c}.f32 s${rand(8)}, s${rand(8)}, s${rand(8)}\n    vmov${c} ${r()}, s${rand(8)}`;
+    }
+}
+
+/** One construct of the body: an instruction, an IT block, control flow */
+function construct(depth)
+{
+    switch(rand(depth ? 6 : 14))
+    {
+        case 0: case 1: case 2: case 3: case 4: {
+            const c = cond();
+            return plain(c).split("\n    ").map(line => line).join("\n    ");
+        }
+        case 5: {
+            if(!thumb) return plain(pick(CONDS));
+            // an IT block: up to four instructions, each its own condition or the inverse
+            const c = pick(CONDS), n = 1 + rand(4);
+            const inverse = { eq: "ne", ne: "eq", cs: "cc", cc: "cs", mi: "pl", pl: "mi", vs: "vc", vc: "vs", hi: "ls", ls: "hi", ge: "lt", lt: "ge", gt: "le", le: "gt" };
+            const pattern = Array.from({ length: n - 1 }, () => rand(2) ? "t" : "e");
+            const conds = [c, ...pattern.map(p => p === "t" ? c : inverse[c])];
+            // (an IT block's instructions one each: no multi-instruction plain forms)
+            const body = conds.map(x => {
+                let line;
+                do line = plain(x); while(line.includes("\n"));
+                return line;
+            });
+            return `it${pattern.join("")} ${c}\n    ${body.join("\n    ")}`;
+        }
+        case 6: { const l = label++; return `b${pick(CONDS)} 1${l}f\n    ${plain()}\n1${l}:`; }
+        case 7: { const l = label++; return `b 1${l}f\n    ${plain()}\n1${l}:`; }
+        case 8: {
+            // a counted loop (r11 its counter)
+            const l = label++;
+            return `mov r11, #${2 + rand(5)}\n2${l}:\n    ${construct(depth + 1)}\n    ${construct(depth + 1)}\n    subs r11, r11, #1\n    bne 2${l}b`;
+        }
+        case 9: return `bl leaf_${rand(3)}`;
+        case 10: {
+            if(!thumb) return plain(cond());
+            const l = label++;
+            return `${pick(["cbz", "cbnz"])} ${lo()}, 1${l}f\n    ${plain()}\n1${l}:`;
+        }
+        case 11: {
+            // (balanced: as many popped as pushed, into other registers maybe)
+            const k = 1 + rand(4);
+            return `push {${distinct(k).join(", ")}}\n    ${plain()}\n    pop {${distinct(k).join(", ")}}`;
+        }
+        case 12: return `mrs r12, apsr\n    eor r12, r12, #0x${pick(["40000000", "20000000", "80000000", "10000000"])}\n    msr apsr_nzcvq, r12`;
+        default: return plain(cond());
+    }
+}
+
+function program(n)
+{
+    thumb = n % 2 === 1;
+    label = 0;
+    const body = Array.from({ length: LENGTH }, () => construct(0)).join("\n    ");
+    const leaf = k => `leaf_${k}:\n    ${Array.from({ length: 3 }, () => plain()).join("\n    ")}\n    bx lr`;
+    return `@ generated by tests/a64/aarch32_page_fuzz.mjs (seed ${SEED}, program ${n})
+    .syntax unified
+    .${thumb ? "thumb" : "arm"}
+header:
+    .word   ${thumb ? 1 : 0}
+entry:
+${[...REGS, 11].map(i => `    ldr r${i}, [r8, #${3072 + 4 * i}]`).join("\n")}
+    ldr r12, [r8, #${3072 + 64}]
+    msr apsr_nzcvq, r12
+    mov r12, #${ROUNDS}
+    str r12, [r8, #4092]
+round:
+    ${body}
+    ldr r12, [r8, #4092]
+    subs r12, r12, #1
+    str r12, [r8, #4092]
+    bne round
+${[...REGS, 11].map(i => `    str r${i}, [r8, #${3072 + 4 * i}]`).join("\n")}
+    mrs r12, apsr
+    str r12, [r8, #${3072 + 64}]
+    svc #0
+    .balign 4
+${[0, 1, 2].map(leaf).join("\n")}
+`;
+}
+
+// (--write DIR: the programs written there, not run)
+if(option("--write", null))
+{
+    for(let n = 0; n < PROGRAMS; n++) fs.writeFileSync(option("--write") + `/fuzz-${n}.a32.S`, program(n));
+    process.exit(0);
+}
+const directory = root + "build/a64-aarch32-page-fuzz/";
+fs.mkdirSync(directory, { recursive: true });
+process.env.A64_MMU = "1";
+let differences = 0, helpers = 0, retired = 0, steps = 0, finished = 0;
+for(let n = 0; n < PROGRAMS; n++)
+{
+    const seed = next64();
+    fs.writeFileSync(directory + "fuzz.a32.S", program(n));
+    const guest = build("aarch32-page-fuzz", [root + "tests/a64/aarch32/fuzz.c", root + "tests/a64/aarch32/el0_run.S", directory + "fuzz.a32.S"],
+        { cflags: [`-DSEED=${seed}ULL`, "-DA64_MMU"] });
+    delete process.env.A64_JIT;
+    const interpreted = await actual(guest, { options: { a64_profile: "v3" } });
+    process.env.A64_JIT = "1";
+    process.env.A64_JIT_HOT = "1";
+    process.env.A64_JIT_SWITCHES = "a64_page_aarch32=" + (process.env.A64_AARCH32_PAGE || "1");
+    const compiled = await actual(guest, { options: { a64_profile: "v3" } });
+    assert.equal(interpreted.status, "ok", `program ${n} (interpreter): ${interpreted.status}\n${interpreted.text}`);
+    assert.equal(compiled.status, "ok", `program ${n} (page tier): ${compiled.status}\n${compiled.text}`);
+    const t = compiled.page_tier;
+    // (a program that ends with its SVC, not an exception on the way)
+    if(/^exit esr 4[46]000000/.test(interpreted.text)) finished++;
+    else console.log(`program ${n}: ${interpreted.text.split("\n")[0]}`);
+    helpers += t.helpers;
+    retired += t.retired;
+    steps += t.steps;
+    if(interpreted.text !== compiled.text)
+    {
+        differences++;
+        fs.copyFileSync(directory + "fuzz.a32.S", directory + `fuzz-diff-${n}.a32.S`);
+        const a = interpreted.text.split("\n"), b = compiled.text.split("\n");
+        const first = a.findIndex((line, i) => line !== b[i]);
+        console.log(`program ${n} (${n % 2 ? "T32" : "A32"}): differs at line ${first + 1} (kept as fuzz-diff-${n}.a32.S)\n  interpreter: ${a[first]}\n  page tier:   ${b[first]}`);
+    }
+}
+delete process.env.A64_JIT;
+console.log(`aarch32 page fuzz: ${PROGRAMS} programs of ${LENGTH} constructs x ${ROUNDS} rounds (${finished} to their end), ${differences} differences ` +
+    `(page tier: ${retired} retired, ${helpers} helper calls, ${steps} steps)`);
+process.exit(differences ? 1 : 0);

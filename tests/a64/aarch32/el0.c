@@ -8,6 +8,7 @@
 // bit 8 runs the case with CPACR_EL1.FPEN from its bits 5:4.
 #include <a64.h>
 #include <stdio.h>
+#include "el0_map.h"
 
 #ifndef CASES
 #define CASES q1_a32
@@ -38,15 +39,17 @@ static void lower(struct a64_frame *frame, uint64_t vector)
 int main(int argc, char **argv)
 {
     a64_lower_handler = lower;
+    el0_map();
     const uint32_t *table = CASES;
-    const uint64_t base = (uint64_t)CASES;
+    // (EL0's addresses: el0_map.h)
+    const uint64_t base = el0_address(CASES);
     const unsigned n = table[0];
     for(unsigned c = 0; c < n; c++)
     {
         const uint32_t offset = table[1 + 3 * c], resumes = table[2 + 3 * c], nzcv = table[3 + 3 * c];
         uint32_t regs[15];
         for(int i = 0; i < 13; i++) regs[i] = 0x01010101u * (i + 1) + c;
-        regs[13] = (uint32_t)(uintptr_t)(stack + 1024);
+        regs[13] = (uint32_t)el0_address(stack + 1024);
         regs[14] = 0xE14E14E1u;
         uint64_t entry = base + (offset & ~1u);
         // AArch32 User, A I F masked, T for a T32 case
@@ -65,7 +68,7 @@ int main(int argc, char **argv)
             printf("case %u.%u: vector %lu esr %08lx elr %+ld spsr %08lx", c, r, last.vector, last.esr, (long)(last.elr - base), last.spsr);
             if(ec >= 0x20 && ec <= 0x25) printf(" far %+ld", (long)(last.far - base));
             printf("\n ");
-            for(int i = 0; i < 15; i++) printf(" %lx", i == 13 ? last.x[i] - (uint64_t)(uintptr_t)stack : last.x[i]);
+            for(int i = 0; i < 15; i++) printf(" %lx", i == 13 ? last.x[i] - el0_address(stack) : last.x[i]);
             printf("\n");
             if(r == resumes || last.vector != 12) break;
             for(int i = 0; i < 15; i++) regs[i] = (uint32_t)last.x[i];

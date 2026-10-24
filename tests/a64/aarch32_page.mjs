@@ -15,7 +15,7 @@ let failures = 0;
 for(const cases of (process.env.A64_AARCH32_CASES || "q1,q3,q4").split(","))
 {
     const directory = build("aarch32-page-" + cases, [root + "tests/a64/aarch32/el0.c", root + "tests/a64/aarch32/el0_run.S",
-        root + `tests/a64/aarch32/${cases}.a32.S`], { cflags: [`-DCASES=${cases}_a32`] });
+        root + `tests/a64/aarch32/${cases}.a32.S`], { cflags: [`-DCASES=${cases}_a32`, "-DA64_MMU"] });
     delete process.env.A64_JIT;
     const interpreted = await actual(directory, { options: { a64_profile: "v3" } });
     process.env.A64_JIT = "1";
