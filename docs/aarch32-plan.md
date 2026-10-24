@@ -44,8 +44,25 @@ QEMU 0 差异；q1、q3、q4、qdebug 的退出与 QEMU 相同；v2 的 fp、sim
 FPSCR.Len、Stride 读 0（QEMU 保存它们，非 0 时 VFP 运算 UNDEF）；VLDR.16 无 FEAT_FP16 时 UNDEF（QEMU 执行）；
 VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 的 CP14 访问 UNDEF（未实现调试通信通道）。
 
-尚未完成：Q5.2（带 32 位第二架构的 Android）、Q6（页层编译 A32 与 T32，现在 32 位代码只走解释器，单核约 14 MIPS）、
-Q7（界面与配置、文档）。
+- **Q7（`f7f822d8`）**：`a64_profile` 成为公开选项（`v86.d.ts`、`src/machine_options.js`），VM 管理器处理器面板的
+  “Instruction sets”（arm64 下 v1、v1.1、v2、v3），Linux arm64 预设用 v3；[aarch64.md](aarch64.md) 的 v3 一节。
+- **Q6（`6c53f39d`、`d375a247`、`16fd9fe3`、`2d738c5d`）**：页层编译 AArch32（`a64_page_aarch32`，默认开）。A32 与
+  T32 的页各有函数（键的模式 4、6），在 A64 的页框架里（`jit/pagegen/a32.rs`）：R0–R14 与 NZCV 留在内存，帮助调用即
+  解释器对已取指令的执行（`pages::a32_page_helper`）；原生的有分支、返回（LDM、POP、LDR 到 PC，目标指令集在任何
+  副作用之前检查）、各种移位与标志的数据处理、MOVW/MOVT、各寻址方式的加载存储（含 LDRD/STRD、LDM/STM/PUSH/POP）、
+  MUL/MLA/MLS、扩展、CLZ/REV，以及全由这些组成的 IT 块（按各自条件执行，不留 ITSTATE）。其余（VFP、Advanced SIMD、
+  独占、饱和与并行运算）为帮助调用，改 PC 或换指令集的、异常与等待为单步。进入编译代码要求 ITSTATE 为 0 且小端；
+  T32 函数在 IT 块里不链接到下一页的函数。
+  途中修正：页层的 MSR SPSR_EL1 模板保留 v3 的 Q、IT、GE、IL（解释器 Q1 已改，模板漏了：EL1 的异常返回路径被编译后，
+  32 位进程在 IT 块中恢复会把 16 位指令当作设置标志的形式）；单步上下文含 nRW、T、E。
+  门禁：C——`tests/a64/aarch32_page.mjs`（EL0 用例，解释器对页层）与 `tests/a64/aarch32_page_fuzz.mjs`（随机 A32/T32
+  程序：各种数据处理、加载存储、LDM/STM、IT 块、循环、调用与返回、条件 BX、VFP）0 差异；Alpine armv7 的工作负载
+  1 核与 4 个 vCPU worker 输出同参考机，13.7 s（解释 207 s）。E——`tests/a64/aarch32_bench.mjs` 把 tests/bench 的整数
+  内核同一份 C 编成 A64、A32、T32：几何平均 A32 为 A64 的 1.45 倍时间、T32 1.41 倍（门槛 2 倍）。
+  Q6.3 的 VFP 与 NEON 走帮助调用（正确，未做原生模板）。调试：`a64_page_aarch32` 的 2、3 与 16 加掩码，
+  `a64_page_aarch32_filter`（按页二分）。
+
+尚未完成：Q5.2（带 32 位第二架构的 Android，需要第二部分的 R6）、Q6.3 的 VFP/NEON 原生模板。
 
 ## 结论
 
