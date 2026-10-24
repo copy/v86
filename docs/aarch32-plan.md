@@ -256,6 +256,13 @@ Android 模拟器的 ranchu 机器。
 | R0.2 | 参考：本地构建的 QEMU 9.2.0（`qemu-system-aarch64` 可用 `-M virt -cpu cortex-a15` 跑 32 位客体）跑 32 位 Linux；Android 模拟器（Android Studio 的 emulator，TCG）跑 7.1.1 的 32 位镜像，记录内核命令行、DTB（从客体 `/proc/device-tree` 导出）与 ranchu 的设备清单 | `tools/a64_qemu/`、新的参考脚本 | 两个参考都能到登录或桌面 | M |
 | R0.3 | ranchu 的设备与属性清单：读 Android 模拟器 QEMU 的 ranchu 板定义与镜像 ramdisk 里的 `init.ranchu.rc`、`fstab.ranchu`、`ueventd.ranchu.rc`，列出 32 位与 64 位镜像各自真正需要的 goldfish 设备 | 文档 | 清单入本文 | S |
 
+R0 的进展（2026-10-24）：Alpine 3.24 armv7 的 netboot 内核与 initramfs（`vmlinuz-lts` 6.18.58，
+`initramfs-lts`、`modloop-lts`，`build/a32-linux/`）：多平台内核，`CONFIG_ARCH_VIRT`、PSCI、VFPv3、内核态 NEON，
+GICv2 与 GICv3 都编进内核，没有 LPAE（短描述符页表）。参考机 `qemu-system-aarch64 -M virt -cpu cortex-a15`
+引导到 Alpine 的 init（没有启动介质时停在那里）；`-M virt,gic-version=3` 也一样（GICv3 的 AArch32 CP15 接口）。
+所以 32 位 virt 沿用现有的 GICv3（加它的 CP15 访问），不另做 GICv2；ranchu 是否需要 GICv2 由 R0.3 决定。
+官方 Android 7.1.1 的 `armeabi-v7a-25_r18.zip` 下载到 `build/a32-android/`。
+
 ### R1 `cpu_type: "arm32"` 接线与 profile
 
 | ID | 任务 | 关键位置 | 门禁/开关 | 规模 |
