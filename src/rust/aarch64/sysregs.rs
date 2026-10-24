@@ -27,6 +27,35 @@ pub const CTR: u64 = 0x8444_C004;
 pub const CLIDR: u64 = 0x0A20_0023;
 pub const CCSIDR: [u64; 3] = [0x700F_E01A, 0x200F_E01A, 0x703F_E07A];
 
+/// Profile v3's AArch32 ID registers (CRm 1-3, op2 0-7: ID_PFR0, PFR1,
+/// DFR0, AFR0, MMFR0-3; ISAR0-5, MMFR4, ISAR6; MVFR0-2, -, PFR2, DFR1,
+/// MMFR5): the reference's (cortex-a35) for an AArch32 at EL0 only, as
+/// Cortex-A76's: no AArch32 EL1 modes (ID_PFR1.ProgMod 0), no SETEND
+/// (ID_ISAR1.Endian 0, no mixed endianness), no SMC (ID_ISAR4.SMC 0, no EL3)
+pub const AARCH32_ID: [[u64; 8]; 3] = [
+    [
+        0x0000_0131,
+        0x1001_0000,
+        0x0000_0006,
+        0,
+        0x1020_1105,
+        0x4000_0000,
+        0x0126_0000,
+        0x0210_2211,
+    ],
+    [
+        0x0210_1110,
+        0x1311_2110,
+        0x2123_2042,
+        0x0111_2131,
+        0x0001_0142,
+        0x0001_1121,
+        0,
+        0,
+    ],
+    [0x1011_0222, 0x1211_1111, 0x0000_0043, 0, 0, 0, 0, 0],
+];
+
 /// SCTLR_EL1 keeps what is written but the MTE controls (ITFSB, TCF0, TCF,
 /// ATA0, ATA: FEAT_MTE is not in v1), as the reference does; v86 acts on the
 /// bits profile v1 defines
@@ -68,6 +97,7 @@ pub fn read(reg: u32, rt: u32) -> Result<u64, Exception> {
             (0, _) => Err(Exception::Undefined),
             // (EL0: AArch64 and AArch32 in profile v3)
             (4, 0) => Ok(if cpu::has_aarch32() { ID_AA64PFR0 & !0xF | 2 } else { ID_AA64PFR0 }),
+            (1..=3, _) if cpu::has_aarch32() => Ok(AARCH32_ID[crm as usize - 1][op2 as usize]),
             (5, 0) => Ok(ID_AA64DFR0),
             (6, 0) => Ok(ID_AA64ISAR0),
             (7, 0) => Ok(ID_AA64MMFR0 & !(0xFF << 20) | crate::aarch64::mmu::mmfr0_granules()),

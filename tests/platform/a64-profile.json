@@ -22,6 +22,49 @@
   "id_space": { "S3_0_C0_C7_1": "0x0000000000100000" },
   "linux_cpu_features": ["Privileged Access Never"]
  },
+ "v3": {
+  "profile": "v86-aarch64-v3",
+  "a64_profile": "v3",
+  "llvm_mattr": "+v8a,+fp-armv8,+neon,+aes,+sha2,+crc,+pan",
+  "about": "v2 and AArch32 at EL0 (docs/aarch32-plan.md part 1): A32, T32 with IT blocks, VFPv4 and Advanced SIMD with the crypto instructions, CP15's EL0 registers. The AArch32 ID registers are the reference's (cortex-a35) for an AArch32 at EL0 only, as Cortex-A76 reports them: no AArch32 EL1 modes (ID_PFR1.ProgMod 0), no SETEND (ID_ISAR1.Endian 0: no mixed endianness), no SMC (ID_ISAR4.SMC 0: no EL3). tests/a64/aarch32_oracle.mjs and aarch32_el0.mjs check the instructions against the reference. id_space: v1.1's registers that differ (v2's PAN included)",
+  "id_space": {
+   "S3_0_C0_C4_0": "0x1100000001000012",
+   "S3_0_C0_C7_1": "0x0000000000100000",
+   "S3_0_C0_C1_0": "0x0000000000000131",
+   "S3_0_C0_C1_1": "0x0000000010010000",
+   "S3_0_C0_C1_2": "0x0000000000000006",
+   "S3_0_C0_C1_3": "0x0000000000000000",
+   "S3_0_C0_C1_4": "0x0000000010201105",
+   "S3_0_C0_C1_5": "0x0000000040000000",
+   "S3_0_C0_C1_6": "0x0000000001260000",
+   "S3_0_C0_C1_7": "0x0000000002102211",
+   "S3_0_C0_C2_0": "0x0000000002101110",
+   "S3_0_C0_C2_1": "0x0000000013112110",
+   "S3_0_C0_C2_2": "0x0000000021232042",
+   "S3_0_C0_C2_3": "0x0000000001112131",
+   "S3_0_C0_C2_4": "0x0000000000010142",
+   "S3_0_C0_C2_5": "0x0000000000011121",
+   "S3_0_C0_C2_6": "0x0000000000000000",
+   "S3_0_C0_C2_7": "0x0000000000000000",
+   "S3_0_C0_C3_0": "0x0000000010110222",
+   "S3_0_C0_C3_1": "0x0000000012111111",
+   "S3_0_C0_C3_2": "0x0000000000000043",
+   "S3_0_C0_C3_3": "0x0000000000000000",
+   "S3_0_C0_C3_4": "0x0000000000000000",
+   "S3_0_C0_C3_5": "0x0000000000000000",
+   "S3_0_C0_C3_6": "0x0000000000000000",
+   "S3_0_C0_C3_7": "0x0000000000000000"
+  },
+  "reference_differences": {
+   "registers": ["ID_AA64PFR0_EL1.EL1", "ID_AA64PFR0_EL1.CSV2", "ID_AA64PFR0_EL1.CSV3", "ID_PFR1_EL1.ProgMod", "ID_ISAR1_EL1.Endian", "ID_ISAR4_EL1.SMC"],
+   "why": "AArch32 at EL0 only (the reference has it at EL1 too); no SETEND, no SMC; CSV2 and CSV3 as v1.1's. The rest of the AArch32 registers is the reference's"
+  },
+  "compat_hwcap": {
+   "names": "half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt lpae evtstrm",
+   "hwcap2": "aes pmull sha1 sha2 crc32",
+   "why": "Linux's compat_elf_hwcap from these registers (docs/aarch32-plan.md Q0.4, checked in Q5.1 with a 32-bit /proc/cpuinfo)"
+  }
+ },
  "id_space_rules": ["op0=3, op1=0, CRn=0, CRm=0: MIDR_EL1 (op2=0), MPIDR_EL1 (op2=5), REVIDR_EL1 (op2=6); every other op2 is UNDEF at every EL (as QEMU)", "op0=3, op1=0, CRn=0, CRm=1-7: the registers listed; every unallocated encoding reads 0 at EL1 and is UNDEF at EL0 (Linux emulates EL0 reads with HWCAP_CPUID); Linux 6.18 reads ID_AA64MMFR3_EL1, MMFR4, ISAR3 and PFR2 unconditionally", "EL0 access to the ID registers is UNDEF (EC 0x00); there is no FEAT_IDST"],
  "id_space": [
   {
@@ -89,7 +132,16 @@
    "name": "ID_PFR1_EL1",
    "encoding": "S3_0_C0_C1_1",
    "value": "0x0000000000000000",
-   "fields": "all 0",
+   "fields": [
+    ["ProgMod", 3, 0, 0],
+    ["Security", 7, 4, 0],
+    ["MProgMod", 11, 8, 0],
+    ["Virtualization", 15, 12, 0],
+    ["GenTimer", 19, 16, 0],
+    ["Sec_frac", 23, 20, 0],
+    ["Virt_frac", 27, 24, 0],
+    ["GIC", 31, 28, 0]
+   ],
    "note": "AArch32 is not implemented"
   },
   {
@@ -145,7 +197,16 @@
    "name": "ID_ISAR1_EL1",
    "encoding": "S3_0_C0_C2_1",
    "value": "0x0000000000000000",
-   "fields": "all 0",
+   "fields": [
+    ["Endian", 3, 0, 0],
+    ["Except", 7, 4, 0],
+    ["Except_AR", 11, 8, 0],
+    ["Extend", 15, 12, 0],
+    ["IfThen", 19, 16, 0],
+    ["Immediate", 23, 20, 0],
+    ["Interwork", 27, 24, 0],
+    ["Jazelle", 31, 28, 0]
+   ],
    "note": "AArch32 is not implemented"
   },
   {
@@ -166,7 +227,16 @@
    "name": "ID_ISAR4_EL1",
    "encoding": "S3_0_C0_C2_4",
    "value": "0x0000000000000000",
-   "fields": "all 0",
+   "fields": [
+    ["Unpriv", 3, 0, 0],
+    ["WithShifts", 7, 4, 0],
+    ["Writeback", 11, 8, 0],
+    ["SMC", 15, 12, 0],
+    ["Barrier", 19, 16, 0],
+    ["SynchPrim_frac", 23, 20, 0],
+    ["PSR_M", 27, 24, 0],
+    ["SWP_frac", 31, 28, 0]
+   ],
    "note": "AArch32 is not implemented"
   },
   {
