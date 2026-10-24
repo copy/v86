@@ -7,7 +7,7 @@
 //     tar -xf /dev/sda -C /mnt/repo
 //     apk add --no-network --repository /mnt/repo/main --repository /mnt/repo/community <packages>
 //
-//     node tools/alpine_repo.mjs [--arch x86_64|aarch64] [--set gpu|jit|sys|kbuild]
+//     node tools/alpine_repo.mjs [--arch x86_64|aarch64|armv7] [--set gpu|jit|sys|kbuild|aarch32]
 //
 // --set gpu (the default): Mesa and the GPU test programs, for the display
 // adapters' tests (tests/x64/linux_gpu.mjs). Alpine 3.24's Mesa (26.1) has
@@ -18,6 +18,10 @@
 //
 // --set jit: the guest JIT workloads of docs/arm64-virt-android16-plan.md
 // P6.7 (V8 in nodejs, HotSpot in openjdk21, luajit, pcre2's JIT).
+//
+// --set aarch32 (--arch armv7): 32-bit Arm programs for the AArch32
+// processes of docs/aarch32-plan.md Q5.1 (tests/a64/linux_boot.mjs with
+// A64_WORKLOAD=aarch32).
 //
 // --set sys: what `setup-disk -m sys` installs, from the mirror's index
 // alone (mixed with the ISO's older one, apk would pick the mirror's
@@ -63,10 +67,14 @@ export const KBUILD_PACKAGES = ["build-base", "bash", "bison", "flex", "gawk", "
     "linux-headers", "findutils", "diffutils", "sed", "xz", "tar", "gmp-dev", "mpc1-dev", "mpfr-dev", "e2fsprogs",
     // (P9.2: the test images the VM makes: a minimal SELinux policy with libsepol's CIL compiler, erofs, f2fs)
     "libsepol-dev", "erofs-utils", "f2fs-tools"];
+/** 32-bit userland for profile v3's AArch32 processes (docs/aarch32-plan.md Q5.1;
+ * --arch armv7): BusyBox and musl's dynamic linker, OpenSSL (NEON and the
+ * crypto instructions), Lua, xz, SQLite */
+export const AARCH32_PACKAGES = ["busybox", "musl-utils", "openssl", "lua5.4", "xz", "sqlite"];
 /** The virt ISO's live system: its world besides alpine-base */
 const LIVE_WORLD = ["openssl", "ssl_client"];
 /** Where a set's repository and image go */
-export const output_directory = arch => path.join(ROOT, arch === "aarch64" ? "build/a64-linux" : "build/x64-linux");
+export const output_directory = arch => path.join(ROOT, arch === "aarch64" || arch === "armv7" ? "build/a64-linux" : "build/x64-linux");
 
 /** Extract the APKINDEX member of a gzipped tar */
 export function apkindex(tar_gz)
@@ -240,10 +248,11 @@ if(process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import
     const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
     const arch = option("--arch", "x86_64");
     const set = option("--set", "gpu");
-    if(!["x86_64", "aarch64"].includes(arch)) throw new Error("--arch: x86_64 or aarch64");
-    if(!["gpu", "jit", "sys", "kbuild"].includes(set)) throw new Error("--set: gpu, jit, sys or kbuild");
+    if(!["x86_64", "aarch64", "armv7"].includes(arch)) throw new Error("--arch: x86_64, aarch64 or armv7");
+    if(!["gpu", "jit", "sys", "kbuild", "aarch32"].includes(set)) throw new Error("--set: gpu, jit, sys, kbuild or aarch32");
+    if((arch === "armv7") !== (set === "aarch32")) throw new Error("--set aarch32 is --arch armv7's, and its only one");
     const out = path.join(output_directory(arch), set + "-repo");
-    await build_repo("v3.24", out, { gpu: PACKAGES, jit: JIT_PACKAGES, sys: SYS_PACKAGES, kbuild: KBUILD_PACKAGES }[set], arch);
+    await build_repo("v3.24", out, { gpu: PACKAGES, jit: JIT_PACKAGES, sys: SYS_PACKAGES, kbuild: KBUILD_PACKAGES, aarch32: AARCH32_PACKAGES }[set], arch);
     if(set === "gpu") await build_repo("v3.23", path.join(out, "v3.23"), VIRGL_PACKAGES, arch);
 
     // A ustar image on the disk (as for tests/x64/linux_boot.mjs's probes):

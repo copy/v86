@@ -115,7 +115,7 @@ fs.writeFileSync(probe_directory + "root/a64-init", [
     "/a64-probe nodisk \"$@\"",
     "[ -x /a64-android/post ] && /a64-android/post",
     // (smpN: N copies of the workload at once, between two readings of the uptime: P8.2's speed-up)
-    "case \"$A64_WORKLOAD\" in '') ;; jit) /a64-jit-workload ;; " +
+    "case \"$A64_WORKLOAD\" in '') ;; jit) /a64-jit-workload ;; aarch32) /a64-aarch32-workload ;; " +
         "smp*) $B echo A64_SMP_START $($B cat /proc/uptime); for i in $($B seq 1 ${A64_WORKLOAD#smp}); do /a64-workload 3 > /dev/null & done; wait; " +
         "$B echo A64_SMP_END $($B cat /proc/uptime) ;; " +
         // (soakN, P8.4: N minutes of rounds of four workloads at once and the probe; a failing probe's output shows)
@@ -212,6 +212,77 @@ if(jit_workload)
     run("bsdtar", ["--format", "newc", ...tar_args, "-cf", directory + "jit.cpio", "-C", staging, "."]);
     initrd = directory + "initramfs-virt+probe+jit.cpio";
     fs.writeFileSync(initrd, Buffer.concat([fs.readFileSync(initrd_probe), fs.readFileSync(directory + "jit.cpio")]));
+}
+// (A64_WORKLOAD=aarch32, docs/aarch32-plan.md Q5.1: 32-bit processes on the
+// 64-bit kernel, between A64_WORKLOAD_BEGIN and A64_WORKLOAD_END:
+// tests/a64/linux_probe32.c built for A32 and for T32, then Alpine's armv7
+// programs (tools/alpine_repo.mjs --arch armv7 --set aarch32) in a chroot:
+// BusyBox and musl's dynamic linker, Lua, xz, OpenSSL's digests and ciphers
+// (the crypto instructions), SQLite, forks; v86 needs profile v3
+// (A64_PROFILE=v3), the reference runs them as they are)
+const aarch32_workload = process.env.A64_WORKLOAD === "aarch32";
+assert.ok(!aarch32_workload || +process.env.A64_LINUX_QEMU || process.env.A64_PROFILE === "v3", "A64_WORKLOAD=aarch32 on v86 needs A64_PROFILE=v3");
+if(aarch32_workload)
+{
+    const { output_directory } = await import("../../tools/alpine_repo.mjs");
+    const repo = path.join(output_directory("armv7"), "aarch32-repo");
+    assert.ok(fs.existsSync(repo), repo + " is missing: node tools/alpine_repo.mjs --arch armv7 --set aarch32");
+    const staging = directory + "aarch32-root/";
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.mkdirSync(staging + "a32", { recursive: true });
+    for(const section of ["main", "community"])
+    {
+        const apks = path.join(repo, section, "armv7");
+        if(!fs.existsSync(apks)) continue;
+        for(const file of fs.readdirSync(apks).filter(f => f.endsWith(".apk")).sort())
+        {
+            run("bsdtar", ["-xf", path.join(apks, file), "-C", staging + "a32", "--exclude", ".PKGINFO", "--exclude", ".SIGN.*",
+                "--exclude", ".*-install", "--exclude", ".*-upgrade", "--exclude", ".*-deinstall", "--exclude", ".trigger"]);
+        }
+    }
+    // (bbsuid is setuid without read permission: the cpio needs to read it)
+    run("chmod", ["-R", "u+rw", staging]);
+    for(const [isa, flag] of [["a32", "-marm"], ["t32", "-mthumb"]])
+    {
+        run(process.env.CLANG || "clang", ["--target=armv7a-linux-gnueabihf", "-march=armv8-a", "-mfpu=crypto-neon-fp-armv8", "-mfloat-abi=hard",
+            flag, "-O2", "-ffreestanding", "-fno-builtin", "-fno-stack-protector", "-fomit-frame-pointer", "-c",
+            ROOT + "tests/a64/linux_probe32.c", "-o", directory + `probe32-${isa}.o`]);
+        run(lld, ["-flavor", "gnu", "-m", "armelf_linux_eabi", "-static", "-e", "_start", "-o", staging + `a64-probe32-${isa}`, directory + `probe32-${isa}.o`]);
+        fs.chmodSync(staging + `a64-probe32-${isa}`, 0o755);
+    }
+    // (inside the chroot every command is its own line, the outputs deterministic:
+    // no addresses, timings or the MIDR's fields)
+    const commands = [
+        "/bin/busybox --install -s",
+        "uname -m",
+        "lua5.4 -e 'print(string.format(\"%.6f %.3e\", math.sin(1.0) * 1e6, 2^-60)); local t = {} for i = 1, 200000 do t[i] = i * i end print(#t, t[#t])'",
+        "seq 1 50000 | xz -6e | md5sum",
+        "seq 1 50000 | xz -6 | xz -d | md5sum",
+        "seq 1 20000 | openssl dgst -sha256",
+        "seq 1 20000 | openssl dgst -sha1",
+        "seq 1 20000 | openssl enc -aes-128-cbc -K 000102030405060708090a0b0c0d0e0f -iv 0f0e0d0c0b0a09080706050403020100 | md5sum",
+        "seq 1 20000 | openssl enc -aes-256-ctr -K 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f -iv 0f0e0d0c0b0a09080706050403020100 | md5sum",
+        "seq 1 20000 | openssl enc -chacha20 -K 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f -iv 0f0e0d0c0b0a09080706050403020100 | md5sum",
+        "sqlite3 -list :memory: 'with recursive c(x) as (select 1 union all select x + 1 from c where x < 20000) select count(*), sum(x), total(x * 0.5) from c;'",
+        "for i in 1 2 3 4 5 6 7 8; do true & done; wait; echo forks done",
+        "grep -m1 Features /proc/cpuinfo",
+        // (PER_LINUX32: the 32-bit uname and /proc/cpuinfo)
+        "linux32 uname -m",
+        "linux32 grep -m1 Features /proc/cpuinfo",
+    ];
+    fs.writeFileSync(staging + "a64-aarch32-workload", [
+        "#!/bin/busybox sh",
+        "B=/bin/busybox",
+        "$B mkdir -p /a32/proc /a32/dev /a32/tmp; $B mount -t proc proc /a32/proc; $B mount -o bind /dev /a32/dev",
+        "$B echo A64_WORKLOAD_BEGIN",
+        "/a64-probe32-a32",
+        "/a64-probe32-t32",
+        ...commands.map(c => `$B chroot /a32 /bin/busybox sh -c '${c.replace(/'/g, "'\\''")}' 2>&1`),
+        "$B echo A64_WORKLOAD_END",
+        ""].join("\n"), { mode: 0o755 });
+    run("bsdtar", ["--format", "newc", ...tar_args, "-cf", directory + "aarch32.cpio", "-C", staging, "."]);
+    initrd = directory + "initramfs-virt+probe+aarch32.cpio";
+    fs.writeFileSync(initrd, Buffer.concat([fs.readFileSync(initrd_probe), fs.readFileSync(directory + "aarch32.cpio")]));
 }
 const memory_mb = +process.env.A64_MEMORY_MB || (jit_workload ? 1536 : 512);
 // (A64_EXTENDED_MEMORY=<bytes>: v86's extended RAM from 4 GiB, P8.5, the
@@ -404,7 +475,7 @@ assert.ok(!(extended_memory || memtest_mib) || stage === "initramfs" && !+proces
     "A64_EXTENDED_MEMORY and A64_LINUX_MEMTEST are variants of v86's initramfs stage");
 const soak_minutes = /^soak\d+$/.test(process.env.A64_WORKLOAD || "") ? +process.env.A64_WORKLOAD.slice(4) : 0;
 const timeout = Number(process.env.A64_LINUX_TIMEOUT || (soak_minutes ? (soak_minutes + 10) * 60000 :
-    jit_workload ? 3600000 : stage === "live" ? 1800000 : android ? 900000 : 180000));
+    jit_workload ? 3600000 : aarch32_workload ? 1800000 : stage === "live" ? 1800000 : android ? 900000 : 180000));
 // (a root that does not exist: init looks for it, then enters single mode before mounting it)
 const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
 const SINGLE_COMMANDS = "cat /proc/interrupts; echo A64_SINGLE_$((6*7)) && echo A64_SINGLE_OK; /bin/busybox poweroff -f\n";
@@ -447,14 +518,15 @@ const input_events = (text, tag) => [...text.matchAll(new RegExp(`^${tag} ([0-9a
 const kpti = !!+process.env.A64_KPTI;
 assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramfs stage");
 // (A64_WORKLOAD=N: the initramfs stage runs /a64-workload N after the probe;
-// A64_WORKLOAD=jit: the guest JIT workloads, below)
-const workload = process.env.A64_WORKLOAD === "jit" ? "jit" : /^(smp|soak)\d+$/.test(process.env.A64_WORKLOAD || "") ?
+// A64_WORKLOAD=jit: the guest JIT workloads, aarch32: 32-bit processes, below)
+const workload = ["jit", "aarch32"].includes(process.env.A64_WORKLOAD) ? process.env.A64_WORKLOAD : /^(smp|soak)\d+$/.test(process.env.A64_WORKLOAD || "") ?
     process.env.A64_WORKLOAD : +process.env.A64_WORKLOAD || 0;
 assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the initramfs stage");
 // (androidish: bootconfig, and pseudo-NMIs, GKI's: interrupts masked by the GIC's priority mask, not PSTATE.I)
 const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
     `${android ? " bootconfig irqchip.gicv3_pseudo_nmi=1" : ""}` +
     `${workload ? " A64_WORKLOAD=" + workload : ""}${ref === "v86" ? V86_WATCHDOG : ""} rdinit=/a64-init -- ref=${ref}${ref === "v86" && parallel ? " parallel" : ""}` +
+    `${ref === "v86" && process.env.A64_PROFILE === "v3" ? " aarch32" : ""}` +
     `${memtest_mib ? " memtest=" + memtest_mib : ""}${extended_memory ? " high=" + EXTENDED_BASE / 4096 : ""}`;
 // (A64_JIT=1: the v86 runs with the A64 page tier, docs/jit-unification-plan.md J2;
 // A64_JIT_HOT its compile threshold)
@@ -465,7 +537,7 @@ const jit = !!+process.env.A64_JIT;
 // the soft lockup threshold's 20 s whenever the host is busy. 60 s here; a
 // core that hangs is still reported, or misses the run's deadline)
 const V86_WATCHDOG = !jit && cores > 1 ? " watchdog_thresh=30" : "";
-// A64_PROFILE: the CPU profile (a64_profile: v1, v1.1, or v2 with FEAT_PAN, the default)
+// A64_PROFILE: the CPU profile (a64_profile: v1, v1.1, v2 with FEAT_PAN, the default, or v3 with AArch32 at EL0)
 const PROFILE_OPTIONS = process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {};
 const profile_name = process.env.A64_PROFILE || "v2";
 const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
@@ -484,10 +556,11 @@ const tag = tag_of(qemu_reference ? "qemu" : "v86");
 // the reference's 32-bit EL0 and EL1 (no AArch32 in v1); Spectre-v4 and
 // Spectre-BHB on v86, whose MIDR is on none of Linux's safe lists (the
 // reference's Cortex-A35 is on all of them)
-const FEATURES_ONLY_ON_REFERENCE = ["32-bit EL0 Support", "32-bit EL1 Support"];
-// (and profile v2's own, tests/platform/a64-profile.json: the reference has not got them)
+// (profile v3 has AArch32 at EL0: "32-bit EL0 Support" on both)
+const FEATURES_ONLY_ON_REFERENCE = profile_name === "v3" ? ["32-bit EL1 Support"] : ["32-bit EL0 Support", "32-bit EL1 Support"];
+// (and profile v2's own, which v3 has too, tests/platform/a64-profile.json: the reference has not got them)
 const FEATURES_ONLY_ON_V86 = ["Spectre-v4", "Spectre-BHB",
-    ...(profile_name === "v2" ? JSON.parse(fs.readFileSync(ROOT + "tests/platform/a64-profile.json", "utf8")).v2.linux_cpu_features : [])];
+    ...(profile_name === "v2" || profile_name === "v3" ? JSON.parse(fs.readFileSync(ROOT + "tests/platform/a64-profile.json", "utf8")).v2.linux_cpu_features : [])];
 const detected = text => [...new Set([...text.matchAll(/CPU features: detected: ([^\r\n]+)/g)].map(m => m[1].trim()))].sort();
 
 /** The probe's lines in `text`, judged against `cores` and the stage */
@@ -506,11 +579,9 @@ function check_probe(text, reference)
     assert.deepEqual([xc[1], xc[2], xc[3], xc[4], xc[5]].map(Number), [cores, cores * 24, cores * 16, 64, 64], "topology, migrations, signals, cross-modified and dual-mapped code");
     assert.deepEqual([+xc[8], +xc[9], +xc[10]], [2 * cores, 2 * cores * 20, 0], "FPCR, FPSR and V0-V31 across context switches");
     assert.equal(+xc[12], stage === "initramfs" ? 0 : 1, "O_DIRECT read of the probe disk");
-    if(!reference && !parallel)
-    {
-        assert.equal(xc[6], "1", "exclusive ABA: the store-exclusive fails");
-        assert.equal(xc[11], "enoexec", "no AArch32");
-    }
+    if(!reference && !parallel) assert.equal(xc[6], "1", "exclusive ABA: the store-exclusive fails");
+    // (AArch32 at EL0: the reference's, profile v3's; ENOEXEC before it)
+    if(!reference) assert.equal(xc[11], profile_name === "v3" ? "ran" : "enoexec", "the AArch32 ELF (profile " + profile_name + ")");
     return { ok: ok[0], xc: xc[0] };
 }
 

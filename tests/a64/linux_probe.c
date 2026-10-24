@@ -191,7 +191,7 @@ static const char *argument(const char *prefix)
         if(starts((const char *)initial_stack[1 + i], prefix)) return (const char *)initial_stack[1 + i] + length(prefix);
     return 0;
 }
-static int reference, value_compare;
+static int reference, value_compare, aarch32_profile;
 
 /* --- the multicore matrix (A64_PROBE_XC) --- */
 #define MIGRATIONS 24
@@ -690,7 +690,8 @@ static void matrix(int disk)
     if(fp_handled != fp_threads * FP_ROUNDS) die("fp signals");
     if(fp_bad) die("FPCR, FPSR or V registers across a context switch");
     const char *arm32 = aarch32();
-    if(!reference && !same(arm32, "enoexec")) die("AArch32 ELF executed");
+    if(!reference && !aarch32_profile && !same(arm32, "enoexec")) die("AArch32 ELF executed");
+    if(aarch32_profile && !same(arm32, "ran")) die("AArch32 ELF did not run");
 
     out("A64_PROBE_XC arch=aarch64 packages=1 cores="); number(cpus); out(" threads_per_core=1 migrations="); number(migrated);
     out(" signals="); number(signals); out(" smc_rounds="); number(SMC_ROUNDS); out(" dual_map="); number(dual);
@@ -749,6 +750,8 @@ void entry(word *stack)
     initial_stack = stack;
     reference = argument("ref=qemu") != 0;
     value_compare = argument("parallel") != 0;
+    /* (v86's profile v3, docs/aarch32-plan.md: AArch32 at EL0, as the reference) */
+    aarch32_profile = argument("aarch32") != 0;
     int disk = !argument("nodisk");
     out("A64_PROBE_START arch=aarch64\n");
     page_size = auxv(6 /* AT_PAGESZ */);
