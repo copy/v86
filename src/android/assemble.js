@@ -15,7 +15,8 @@ import { vbmeta_struct, AVB_FLAG_VERIFICATION_DISABLED } from "./avb.js";
 import { parse_vendor_boot_image } from "./bootimg.js";
 import { lz4_legacy_decompress } from "./lz4.js";
 import { cpio_files } from "./cpio.js";
-import { CF_ARM64_ONLY_PHONE, device_partitions } from "./devices.js";
+import { CF_ARM64_ONLY_PHONE, RANCHU_DEVICES, device_partitions } from "./devices.js";
+import { make_empty_ext4 } from "./ext4.js";
 
 /** super's room after its partitions once shrunk */
 export const SUPER_SLACK = 64 << 20;
@@ -275,6 +276,56 @@ export async function write_disk(read, disk, write, progress = () => {})
             await zip_stream(g.read, g.system, async bytes => { await write(at, bytes); at += bytes.length; done += bytes.length; progress(done, disk.data_bytes); });
         }
     }
+}
+
+/**
+ * The disk an Android Emulator system image zip (the SDK's
+ * system-images/android-<api>/<tag>/<abi> package) gives
+ * (docs/android-images-plan.md I6): the device model of its API level and
+ * ABI (source.properties), its partitions in order, each image as it is
+ * (system.img raw or sparse), an empty ext4 where the emulator makes one
+ * (only its metadata written: the rest of a new disk reads as zeros)
+ * @param {function(number, number): (!Uint8Array|!Promise<!Uint8Array>)} read
+ * @param {!Array<!Object>} entries
+ * @return {!Promise<{device: !Object, partitions: !Array<Object>, disk_size: number, data_bytes: number,
+ *     api: number, abi: string, tag: string, release: string}>}
+ */
+export async function emulator_disk(read, entries)
+{
+    const source = entries.find(e => /(^|\/)source\.properties$/.test(e.name));
+    if(!source) throw new Error("the emulator image has no source.properties");
+    const directory = source.name.slice(0, source.name.length - "source.properties".length);
+    const member = name => entries.find(e => e.name === directory + name) || (() => { throw new Error("the emulator image has no " + name); })();
+    const props = properties(latin1(await zip_read(read, source)));
+    const api = +(props.get("AndroidVersion.ApiLevel") || NaN), abi = props.get("SystemImage.Abi") || "";
+    const device = RANCHU_DEVICES.find(d => d.api === api && d.abi === abi);
+    if(!device)
+    {
+        throw new Error(`an emulator image of API ${api} for ${abi || "an unknown ABI"}: v64 boots ` +
+            RANCHU_DEVICES.map(d => `API ${d.api} ${d.abi}`).join(", "));
+    }
+    const build = entries.find(e => e.name === directory + "build.prop");
+    const release = build ? properties(latin1(await zip_read(read, build))).get("ro.build.version.release") || "" : "";
+    const list = [];
+    for(const p of device.partitions)
+    {
+        if(p.ext4)
+        {
+            // (the file system's blocks in use: the start of it; zeros after)
+            const image = make_empty_ext4(p.ext4, p.name, 0);
+            let end = image.length;
+            while(end > 0 && !image[end - 1]) end--;
+            list.push({ name: p.name, size: p.ext4, bytes: image.slice(0, Math.ceil(end / 4096) * 4096) });
+            continue;
+        }
+        const m = member(p.member);
+        const head = await zip_read(read, m, 28);
+        if(u32(head, 0) === 0xED26FF3A) list.push({ name: p.name, size: u32(head, 12) * u32(head, 16), member: m, sparse: true });
+        else list.push({ name: p.name, size: m.size, member: m });
+    }
+    const { partitions, disk_size } = gpt_layout(list);
+    const data_bytes = partitions.reduce((n, p) => n + (p.member ? p.member.size : 0), 0);
+    return { device, partitions, disk_size, data_bytes, api, abi, tag: props.get("SystemImage.TagId") || "", release };
 }
 
 /**

@@ -2,16 +2,19 @@
 // first disk's GPT, the slot's boot, init_boot, vendor_boot and vbmeta
 // partitions (and those vbmeta chains), what the device's bootloader hands
 // the kernel (boot.js): the kernel, the initrd with bootconfig, the command
-// line. The disk is read through read(offset, length), a promise of the
-// bytes (a disk buffer's get).
+// line. An emulator image's device (the ranchu machine's, I6): its kernel
+// and ramdisk partitions as they are, the emulator's command line, and the
+// partitions that are the emulator's disks. The disk is read through
+// read(offset, length), a promise of the bytes (a disk buffer's get).
 
 import { gpt_partitions } from "./gpt.js";
 import { vbmeta_struct, AVB_FLAG_VERIFICATION_DISABLED } from "./avb.js";
 import { android_boot } from "./boot.js";
-import { CF_ARM64_ONLY_PHONE } from "./devices.js";
+import { CF_ARM64_ONLY_PHONE, RANCHU_DEVICES } from "./devices.js";
+import { ranchu_cmdline } from "../virt/ranchu.js";
 
 /** the device models by id (the VM config's android.device) */
-export const ANDROID_DEVICES = { [CF_ARM64_ONLY_PHONE.id]: CF_ARM64_ONLY_PHONE };
+export const ANDROID_DEVICES = Object.fromEntries([CF_ARM64_ONLY_PHONE, ...RANCHU_DEVICES].map(d => [d.id, d]));
 
 /**
  * @param {function(number, number): !Promise<!Uint8Array>} read
@@ -19,7 +22,9 @@ export const ANDROID_DEVICES = { [CF_ARM64_ONLY_PHONE.id]: CF_ARM64_ONLY_PHONE }
  * @param {{device: (string|undefined), gpu_mode: (string|undefined), selinux: (string|undefined), memory_mb: number,
  *     vendor_ramdisk: (Uint8Array|undefined)}} options vendor_ramdisk: in
  *     place of the vendor_boot's (Cuttlefish's debug one)
- * @return {!Promise<{kernel: !Uint8Array, initrd: !Uint8Array, cmdline: string, bootconfig: !Map<string, string>, vbmeta: !Object}>}
+ * @return {!Promise<{kernel: !Uint8Array, initrd: !Uint8Array, cmdline: string, bootconfig: ?Map<string, string>, vbmeta: ?Object,
+ *     disks: (!Array<{name: string, start: number, size: number, readonly: boolean}>|undefined)}>}
+ *     disks: (an emulator image's) the partitions that are the machine's virtio disks, in order
  */
 export async function android_bootloader(read, disk_size, options)
 {
@@ -36,6 +41,21 @@ export async function android_bootloader(read, disk_size, options)
         throw new Error("android: the GPT's entries are not at an end of the disk");
     }, disk_size);
     const by_name = new Map(partitions.map(p => [p.name, p]));
+    if(device.machine === "ranchu")
+    {
+        const part = name =>
+        {
+            const p = by_name.get(name);
+            if(!p) throw new Error(`android: the disk has no ${name} partition (${partitions.map(p => p.name).join(", ")})`);
+            if(p.start + p.size > disk_size) throw new Error(`android: ${p.name} is beyond the disk`);
+            return p;
+        };
+        const load = async name => { const p = part(name); return new Uint8Array(await read(p.start, p.size)); };
+        // (a partition is whole sectors: the kernel's and ramdisk's bytes run to their ends, which the kernel ignores)
+        return { kernel: await load("kernel"), initrd: await load("ramdisk"), cmdline: ranchu_cmdline(device.cmdline), bootconfig: null, vbmeta: null,
+            disks: device.partitions.filter(p => p.disk).map(p => ({ name: p.name, start: part(p.name).start, size: part(p.name).size,
+                readonly: p.disk === "read_only" })) };
+    }
     const loaded = new Map();
     const load = async name =>
     {

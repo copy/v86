@@ -906,9 +906,28 @@ export interface V86Options {
      * as are kernel, dtb, virtio_disks, virtio_rng, virtio_input and
      * virtio_transport on the PC machines, and every
      * other combination of cpu_type and machine_type.
+     *
+     * "ranchu" is the Android Emulator's board, for cpu_type "arm64" and
+     * "arm32" (docs/virt.md, "The ranchu machine"): the virt machine's RAM,
+     * PL011, timer and virtio-mmio slots (the legacy transport), the
+     * emulator's goldfish devices and its framebuffer (graphics_adapter
+     * "none"), a GICv2 with "arm32"; no PCIe.
      * @default "i440fx" ("virt" with cpu_type "arm64" or "arm32")
      */
-    machine_type?: "i440fx" | "q35" | "virt";
+    machine_type?: "i440fx" | "q35" | "virt" | "ranchu";
+
+    /**
+     * machine_type "ranchu" only: the display (the framebuffer's size in
+     * pixels, the density the boot properties give)
+     * @default { width: 480, height: 800, dpi: 240 }
+     */
+    ranchu_display?: { width: number; height: number; dpi: number };
+
+    /**
+     * machine_type "ranchu" only: boot properties added to the emulator's
+     * (qemu.sf.lcd_density, qemu.hw.mainkeys), which qemu-props sets
+     */
+    ranchu_properties?: { [name: string]: string };
 
     /**
      * machine_type "q35" only: the number of ICH9 PCI Express root ports

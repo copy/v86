@@ -5,7 +5,8 @@
 // configuration (config_to_options, with the old page's rules of
 // src/browser/vm_options.js).
 
-import { A64_PROFILES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
+import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
+import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
 import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, MAX_ARRAY_BUFFER_SIZE_MB, DEFAULT_VGA_MEMORY_SIZE,
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
@@ -95,7 +96,8 @@ export const VERSION = 2;
  * @typedef {{device: string, gpu_mode: "swiftshader" | "venus" | "gfxstream", vendor_ramdisk: "release" | "debug",
  *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive"}} Android
  */
-export const ANDROID_DEVICES = ["cf_arm64_only_phone"];
+/** the device models (src/android/devices.js): Cuttlefish's phone (arm64 on virt), the emulator images (ranchu) */
+export const ANDROID_DEVICES = Object.keys(ANDROID_DEVICE_MODELS);
 export const ANDROID_GPU_MODES = ["swiftshader", "venus", "gfxstream"];
 /** display.vulkan: none, Venus contexts, gfxstream's */
 export const DISPLAY_VULKAN = ["none", "venus", "gfxstream"];
@@ -109,9 +111,10 @@ export const ANDROID_DEFAULTS = { device: "cf_arm64_only_phone", gpu_mode: "swif
 export const NETWORK_BACKENDS = ["none", "inbrowser", "relay", "wisp", "fetch"];
 /** The boot orders the old page offers (index.html's boot_order) */
 export const BOOT_ORDERS = [0, 0x213, 0x123, 0x231, 0x321, 0x312, 0x132];
-/** The sound devices of the PC machines (virt: virtio, none) */
+/** The sound devices of the PC machines (virt: virtio, none; ranchu: none, its goldfish audio is not played) */
 export const SOUND_DEVICES = ["sb16", "none"];
 const VIRT_SOUND_DEVICES = ["virtio", "none"];
+const RANCHU_SOUND_DEVICES = ["none"];
 /** The virt machine's input devices (virtio_input) */
 const VIRT_INPUTS = ["keyboard", "tablet", "multitouch"];
 /** The virt section of a PC machine, and virt's defaults */
@@ -320,10 +323,13 @@ export function validate_config(config)
     }
 
     const allowed = allowed_options(cpu.type, machine.type);
-    const virt = machine.type === "virt";
+    // (arm: an ARM board, virt or ranchu; virt: the virt machine's own devices)
+    const arm = ARM_MACHINE_TYPES.includes(machine.type);
+    const virt = machine.type === "virt", ranchu = machine.type === "ranchu";
     if(!allowed.machine_types.includes(machine.type))
     {
-        problem("machine.type", cpu.type === "arm64" ? "the arm64 CPU runs on the virt machine" : "the virt machine needs the arm64 CPU");
+        problem("machine.type", arm ? "the " + machine.type + " machine needs an ARM CPU (arm64 or arm32)" :
+            "the " + cpu.type + " CPU runs on " + allowed.machine_types.join(" or "));
         return problems;
     }
 
@@ -343,7 +349,7 @@ export function validate_config(config)
     }
 
     bool(machine.acpi, "machine.acpi");
-    if(virt && machine.acpi) problem("machine.acpi", allowed.unavailable["acpi"]);
+    if(arm && machine.acpi) problem("machine.acpi", allowed.unavailable["acpi"]);
     if(allowed.acpi === "required" && !machine.acpi) problem("machine.acpi", "the Q35 machine always has ACPI");
     if(allowed.acpi === "with_cores" && cpu.cores > 1 && !machine.acpi) problem("machine.acpi", "more than one core needs ACPI");
     for(const name of ["hpet", "smbus"])
@@ -359,7 +365,7 @@ export function validate_config(config)
     for(const name of ["bios", "vga_bios"])
     {
         if(machine[name] === null) continue;
-        if(virt) problem("machine." + name, allowed.unavailable[name]);
+        if(arm) problem("machine." + name, allowed.unavailable[name]);
         else check_image(machine[name], "machine." + name, problems);
     }
 
@@ -392,7 +398,7 @@ export function validate_config(config)
     config.floppies.forEach((floppy, i) =>
     {
         const path = "floppies." + i;
-        if(virt) problem(path, allowed.unavailable["fda"]);
+        if(arm) problem(path, allowed.unavailable["fda"]);
         if(floppy.slot !== "fda" && floppy.slot !== "fdb") problem(path + ".slot", "must be fda or fdb");
         else if(floppies.has(floppy.slot)) problem(path + ".slot", floppy.slot + " is given twice");
         floppies.add(floppy.slot);
@@ -410,7 +416,7 @@ export function validate_config(config)
         {
             if(config.kernel[name] !== null) check_image(config.kernel[name], "kernel." + name, problems);
         }
-        if(virt && config.kernel.multiboot) problem("kernel.multiboot", allowed.unavailable["multiboot"]);
+        if(arm && config.kernel.multiboot) problem("kernel.multiboot", allowed.unavailable["multiboot"]);
         if(config.kernel.cmdline !== null && typeof config.kernel.cmdline !== "string") problem("kernel.cmdline", "must be text");
         bool(config.kernel.from_filesystem, "kernel.from_filesystem");
     }
@@ -419,8 +425,12 @@ export function validate_config(config)
     {
         const a = config.android;
         const one_of = (value, list, path) => { if(!list.includes(value)) problem(path, "must be one of " + list.join(", ")); };
-        if(!virt || config.cpu.type !== "arm64") problem("android", "Android boots on the arm64 virt machine");
         one_of(a.device, ANDROID_DEVICES, "android.device");
+        const model = ANDROID_DEVICE_MODELS[a.device];
+        if(model && (model.machine !== machine.type || model.cpu !== cpu.type))
+        {
+            problem("android", model.id + " boots on the " + model.machine + " machine with the " + model.cpu + " CPU");
+        }
         one_of(a.gpu_mode, ANDROID_GPU_MODES, "android.gpu_mode");
         if(a.gpu_mode === "venus" && config.display.vulkan !== "venus") problem("android.gpu_mode", "Venus needs virtio-gpu's Venus (display.vulkan)");
         if(a.gpu_mode === "gfxstream" && config.display.vulkan !== "gfxstream") problem("android.gpu_mode", "gfxstream needs virtio-gpu's gfxstream (display.vulkan)");
@@ -439,7 +449,8 @@ export function validate_config(config)
     const display = config.display;
     if(!allowed.graphics_adapters.includes(display.adapter))
     {
-        problem("display.adapter", virt ? "the virt machine has no VGA: virtio-gpu or none" : "must be one of " + allowed.graphics_adapters.join(", "));
+        problem("display.adapter", ranchu ? "the ranchu machine has the emulator's framebuffer: none" :
+            virt ? "the virt machine has no VGA: virtio-gpu or none" : "must be one of " + allowed.graphics_adapters.join(", "));
     }
     if(display.vram_mb === null)
     {
@@ -475,9 +486,10 @@ export function validate_config(config)
         bool(network.mac_address_translation, path + ".mac_address_translation");
     });
 
-    if(!(virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES).includes(config.sound.device))
+    if(!(ranchu ? RANCHU_SOUND_DEVICES : virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES).includes(config.sound.device))
     {
-        problem("sound.device", virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16 or none (virtio-snd is the virt machine's)");
+        problem("sound.device", ranchu ? "the ranchu machine's sound is not played: none" :
+            virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16 or none (virtio-snd is the virt machine's)");
     }
 
     const v = config.virt;
@@ -514,7 +526,7 @@ export function validate_config(config)
         ports.add(serial.port);
         if(!SERIAL_ATTACH.includes(serial.attach)) problem(path + ".attach", "must be none, terminal or modem");
         if(serial.attach === "modem") modems++;
-        if(serial.attach === "modem" && virt) problem(path + ".attach", allowed.unavailable["modem"]);
+        if(serial.attach === "modem" && arm) problem(path + ".attach", allowed.unavailable["modem"]);
     });
     if(modems > 1) problem("serial", "one modem at most");
 
@@ -537,7 +549,7 @@ export function validate_config(config)
         bool(advanced[name], "advanced." + name);
     }
     if(advanced.cpuid_level !== null) int(advanced.cpuid_level, "advanced.cpuid_level", 1, 0x20);
-    if(virt && advanced.cpuid_level !== null) problem("advanced.cpuid_level", allowed.unavailable["cpuid_level"]);
+    if(arm && advanced.cpuid_level !== null) problem("advanced.cpuid_level", allowed.unavailable["cpuid_level"]);
     return problems;
 }
 

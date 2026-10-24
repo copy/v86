@@ -116,8 +116,9 @@ export function open_wizard(options)
             }
             else if(state.source === "android" && state.android.info)
             {
-                // (its images as they are: SwiftShader, no Venus driver; the disk kept and written)
+                // (its images as they are: SwiftShader, no Venus driver; the disk kept and written; an emulator image's device model its own)
                 if(config.android) config.android.gpu_mode = "swiftshader";
+                if(config.android && state.android.info.emulator) config.android.device = /** @type {string} */ (state.android.info.device);
                 config.display.vulkan = "none";
                 config.display.proxy = false;
                 const size = state.android.info.disk_size(state.android.userdata_gib);
@@ -295,9 +296,12 @@ export function open_wizard(options)
                 if(sorted.gsi) a.gsi = sorted.gsi;
                 if(sorted.debug_ramdisk) a.debug_ramdisk = sorted.debug_ramdisk;
                 if(!a.file) throw new Error(a.gsi ? "A GSI is a system for a device: add the device's package (a Cuttlefish images zip) too" :
-                    "Add the device's package (a Cuttlefish images zip)");
+                    "Add the device's package (a Cuttlefish images zip, or an Android Emulator image zip)");
                 a.info = await inspect_android_package(a.file, a.gsi);
-                choose_preset("android16");
+                // (an emulator image: the preset of its device model, I6)
+                const device = a.info.device;
+                const model = a.info.emulator ? PRESETS.find(p => preset_config(p).android?.device === device) : undefined;
+                choose_preset(model ? model.id : "android16");
             }
             catch(e)
             {
@@ -409,6 +413,19 @@ export function open_wizard(options)
                         options.service ? "" : "No disk service: start one (make run starts one), or set it in Preferences"]].map(([value, text, disabled, title]) =>
                     h("label.check", { title }, h("input", { type: "radio", name: "location", value, checked: state.location === value, disabled,
                         onchange: () => { state.location = /** @type {string} */ (value); render(); } }), " " + text));
+                if(info.emulator)
+                {
+                    const e = info.emulator;
+                    return [
+                        h("p", null, "A disk made from the Android Emulator's image (Android " + (e.release || "?") + ", API " + e.api + ", " + e.abi +
+                            (e.tag ? ", " + e.tag : "") + "): its kernel, ramdisk, system and userdata as they are, an empty cache. " +
+                            format_size(info.disk_size(0)) + " in all, about " + format_size(info.data_bytes) + " of it written now."),
+                        h("fieldset", null, h("legend", null, "Where it is kept"), where),
+                        state.location === "browser" ? quota_note() : null,
+                        h("p", null, h("small.reason", null, "The " + (e.cpu === "arm32" ? "32-bit ARM CPU" : "arm64 CPU") + " on the ranchu machine boots it; " +
+                            "the guest draws (no host GPU).")),
+                    ];
+                }
                 return [
                     h("p", null, "A disk made from the package: its images as they are, super shrunk to its partitions (" + format_size(info.super_size) + "), " +
                         "userdata blank (Android formats it at first boot). " + format_size(info.disk_size(state.android.userdata_gib)) + " in all, about " +

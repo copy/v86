@@ -106,8 +106,9 @@ export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = MTU_DEF
                         const bufchain = queue.pop_request();
                         const buffer = new Uint8Array(bufchain.length_readable);
                         bufchain.get_next_blob(buffer);
-                        this.bus.send("net" + this.id + "-send", buffer.subarray(12));
-                        this.bus.send("eth-transmit-end", [buffer.length - 12]);
+                        const header = this.header_size();
+                        this.bus.send("net" + this.id + "-send", buffer.subarray(header));
+                        this.bus.send("eth-transmit-end", [buffer.length - header]);
                         this.virtio.queues[queue_id].push_reply(bufchain);
                     }
                     this.virtio.queues[queue_id].flush_replies();
@@ -196,10 +197,12 @@ export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = MTU_DEF
 
     this.bus.register("net" + this.id + "-receive", data => {
         this.bus.send("eth-receive-end", [data.length]);
-        const with_header = new Uint8Array(12 + data.byteLength);
+        const header = this.header_size();
+        const with_header = new Uint8Array(header + data.byteLength);
         const view = new DataView(with_header.buffer, with_header.byteOffset, with_header.byteLength);
-        view.setInt16(10, 1);
-        with_header.set(data, 12);
+        // (num_buffers: the modern header's)
+        if(header === 12) view.setInt16(10, 1);
+        with_header.set(data, header);
 
         const queue = this.virtio.queues[0];
         if(queue.has_request()) {
@@ -251,4 +254,15 @@ VirtioNet.prototype.Ack = function (queue_id, bufchain)
     //bufchain.set_next_blob(new Uint8Array(0));
     this.virtio.queues[queue_id].push_reply(bufchain);
     this.virtio.queues[queue_id].flush_replies();
+};
+
+/**
+ * The bytes of struct virtio_net_hdr before each packet: 12 (num_buffers
+ * too) with VIRTIO_F_VERSION_1, 10 for a legacy driver (the ranchu
+ * machine's legacy virtio-mmio; no VIRTIO_NET_F_MRG_RXBUF is offered)
+ * @return {number}
+ */
+VirtioNet.prototype.header_size = function()
+{
+    return this.virtio.is_feature_negotiated(VIRTIO_F_VERSION_1) ? 12 : 10;
 };

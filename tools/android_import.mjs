@@ -4,7 +4,9 @@
 // manager's importer does in a worker, into a file. A Cuttlefish images
 // zip (ci.android.com's aosp_cf_arm64_only_phone-img-<build>.zip) gives the
 // device's GPT disk: its images as they are, super shrunk, userdata blank
-// (formatted at first boot). V86's android option boots it.
+// (formatted at first boot). An Android Emulator system image zip (the
+// SDK's, I6) gives its device model's disk: kernel, ramdisk, system, an
+// empty cache, its userdata. V86's android option boots it.
 //
 //   node tools/android_import.mjs <package.zip> <disk.img> [--userdata-mb 4096] [--gsi <gsi.zip>]
 //   (--gsi: a Generic System Image's system as system_a, its vbmeta the
@@ -12,7 +14,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { identify_package, cuttlefish_disk, write_disk, package_entries, gsi_package } from "../src/android/assemble.js";
+import { identify_package, cuttlefish_disk, emulator_disk, write_disk, package_entries, gsi_package } from "../src/android/assemble.js";
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(name); return i < 0 ? fallback : args.splice(i, 2)[1]; };
@@ -33,8 +35,12 @@ const file_reader = file =>
 const read = file_reader(zip);
 const entries = await package_entries(read, fs.statSync(zip).size);
 const kind = await identify_package(entries, read);
-if(!kind || kind.kind !== "cuttlefish") throw new Error(path.basename(zip) + ": " + (kind ? kind.text + ", which this importer does not take yet" : "not an Android image package"));
+if(!kind || kind.kind !== "cuttlefish" && kind.kind !== "emulator")
+{
+    throw new Error(path.basename(zip) + ": " + (kind ? kind.text + ", which this importer does not take yet" : "not an Android image package"));
+}
 console.log(path.basename(zip) + ": " + kind.text);
+if(kind.kind === "emulator" && gsi_zip) throw new Error("--gsi goes with a Cuttlefish images zip");
 let gsi = null, gsi_read = null;
 if(gsi_zip)
 {
@@ -44,9 +50,12 @@ if(gsi_zip)
     gsi = await gsi_package(gsi_read, gsi_entries);
     console.log(`${path.basename(gsi_zip)}: a GSI, Android ${gsi.release} (sdk_full ${gsi.sdk_full}), ${gsi.fingerprint}`);
 }
-const disk = await cuttlefish_disk(read, entries, { userdata_bytes: userdata_mb * 1048576, gsi, gsi_read });
+const disk = kind.kind === "emulator" ? await emulator_disk(read, entries) :
+    await cuttlefish_disk(read, entries, { userdata_bytes: userdata_mb * 1048576, gsi, gsi_read });
 if(gsi) console.log("the device's vendor: sdk_full " + disk.vendor_sdk_full);
-console.log(`disk: ${disk.disk_size} bytes, ${disk.partitions.length} partitions, super ${disk.super_size} bytes, ${disk.data_bytes} bytes to write`);
+if(kind.kind === "emulator") console.log(`device model ${disk.device.id} (Android ${disk.release}, API ${disk.api}, ${disk.abi})`);
+console.log(`disk: ${disk.disk_size} bytes, ${disk.partitions.length} partitions, ` +
+    (disk.super_size ? `super ${disk.super_size} bytes, ` : "") + `${disk.data_bytes} bytes to write`);
 fs.rmSync(out, { force: true });
 const target = fs.openSync(out, "w");
 fs.ftruncateSync(target, disk.disk_size);

@@ -4,7 +4,7 @@
 // start of its boot image and super's metadata) and the browser disk made
 // from it in a worker (android_import_worker.js, build/android-import-worker.js).
 
-import { package_entries, identify_package, cuttlefish_disk, gsi_package } from "../android/assemble.js";
+import { package_entries, identify_package, cuttlefish_disk, emulator_disk, gsi_package } from "../android/assemble.js";
 import { reserve_disk, finish_disk, delete_disk } from "./browser_disks.js";
 import { create_image, list_images, new_image_name } from "./disk_service_client.js";
 import { query_append } from "./emulator_bridge.js";
@@ -18,8 +18,10 @@ const GIB = 1024 * 1024 * 1024;
 /**
  * @typedef {{kind: string, text: string, device: string | undefined, disk_size: (userdata_gib: number) => number,
  *     data_bytes: number, super_size: number, vendor_sdk_full: string,
- *     gsi: {name: string, release: string, sdk_full: string, fingerprint: string, abilist32: string} | null}} PackageInfo
- *     disk_size: the disk's with that userdata; gsi: the system the device runs in place of its own
+ *     gsi: {name: string, release: string, sdk_full: string, fingerprint: string, abilist32: string} | null,
+ *     emulator: {api: number, abi: string, tag: string, release: string, cpu: string} | null}} PackageInfo
+ *     disk_size: the disk's with that userdata (an emulator image's: its own userdata.img, whatever the size);
+ *     gsi: the system the device runs in place of its own; emulator: an Android Emulator image's (I6)
  */
 
 /**
@@ -48,8 +50,9 @@ export async function sort_android_files(files)
         const read = file_reader(file);
         const kind = await identify_package(await package_entries(read, file.size), read);
         const name = file.name || "the file";
-        if(!kind) throw new Error(name + " is not an Android image package v64 knows (a Cuttlefish images zip, aosp_cf_arm64_only_phone-img-<build>.zip, or a GSI zip)");
-        if(kind.kind === "cuttlefish") sorted.device = file;
+        if(!kind) throw new Error(name + " is not an Android image package v64 knows (a Cuttlefish images zip, aosp_cf_arm64_only_phone-img-<build>.zip, " +
+            "a GSI zip, or an Android Emulator image zip)");
+        if(kind.kind === "cuttlefish" || kind.kind === "emulator") sorted.device = file;
         else if(kind.kind === "gsi") sorted.gsi = file;
         else throw new Error(name + " is " + kind.text + ": v64 does not import it yet");
     }
@@ -67,8 +70,17 @@ export async function inspect_android_package(file, gsi_file = null)
     const read = file_reader(file);
     const entries = await package_entries(read, file.size);
     const kind = await identify_package(entries, read);
-    if(!kind) throw new Error("Not an Android image package v64 knows (a Cuttlefish images zip, aosp_cf_arm64_only_phone-img-<build>.zip)");
+    if(!kind) throw new Error("Not an Android image package v64 knows (a Cuttlefish images zip, aosp_cf_arm64_only_phone-img-<build>.zip, " +
+        "an Android Emulator image zip)");
     if(kind.kind === "gsi") throw new Error("This is a GSI: a system for a device; add the device's package (a Cuttlefish images zip) with it");
+    if(kind.kind === "emulator")
+    {
+        if(gsi_file) throw new Error("A GSI goes with a Cuttlefish images zip, not with an emulator image");
+        const disk = await emulator_disk(read, entries);
+        return { kind: kind.kind, text: kind.text, device: disk.device.id, disk_size: () => disk.disk_size, data_bytes: disk.data_bytes,
+            super_size: 0, vendor_sdk_full: "", gsi: null,
+            emulator: { api: disk.api, abi: disk.abi, tag: disk.tag, release: disk.release, cpu: disk.device.cpu } };
+    }
     if(kind.kind !== "cuttlefish") throw new Error("This is " + kind.text + ": v64 does not import it yet");
     let gsi = null, gsi_read;
     if(gsi_file)
@@ -79,7 +91,8 @@ export async function inspect_android_package(file, gsi_file = null)
     const disk = await cuttlefish_disk(read, entries, { userdata_bytes: GIB, gsi: gsi || undefined, gsi_read });
     return { kind: kind.kind, text: kind.text, device: kind.device, disk_size: userdata_gib => disk.disk_size - GIB + userdata_gib * GIB,
         data_bytes: disk.data_bytes, super_size: disk.super_size, vendor_sdk_full: disk.vendor_sdk_full,
-        gsi: gsi && { name: gsi_file && gsi_file.name || "", release: gsi.release, sdk_full: gsi.sdk_full, fingerprint: gsi.fingerprint, abilist32: gsi.abilist32 } };
+        gsi: gsi && { name: gsi_file && gsi_file.name || "", release: gsi.release, sdk_full: gsi.sdk_full, fingerprint: gsi.fingerprint, abilist32: gsi.abilist32 },
+        emulator: null };
 }
 
 /**

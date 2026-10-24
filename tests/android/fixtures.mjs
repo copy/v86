@@ -292,3 +292,23 @@ export function make_gsi_package(sdk_full = "36.1", sparse = false)
     return { system, zip: make_zip([{ name: "system.img", data: sparse ? image.sparse : system }, { name: "vbmeta.img", data: make_vbmeta([], 2) },
         { name: "build.prop", data: bytes_of(`ro.system.build.version.release=16\nro.system.build.version.sdk_full=${sdk_full}\nro.system.product.cpu.abilist32=armeabi-v7a\n`) }]) };
 }
+
+/** An Android Emulator system image zip (the SDK's layout: everything in
+ * the ABI's directory): source.properties of `api` and `abi`, build.prop,
+ * kernel-ranchu, ramdisk.img, system.img (an ext4 magic, 1 MiB; or as a
+ * sparse image) and userdata.img (an ext4 magic, 512 KiB) */
+export function make_emulator_package(api = 25, abi = "armeabi-v7a", sparse = false)
+{
+    const kernel = random(5000), ramdisk = random(3000);
+    const system = random(1 << 20), userdata = random(1 << 19);
+    for(const fs of [system, userdata]) { fs[1080] = 0x53; fs[1081] = 0xEF; }
+    const image = sparse ? make_sparse([[0xCAC1, 128, system.subarray(0, 128 * 4096)], [0xCAC3, 64, new Uint8Array(0)], [0xCAC1, 64, system.subarray(192 * 4096)]]) : null;
+    if(sparse) system.fill(0, 128 * 4096, 192 * 4096);
+    const dir = abi + "/";
+    return { kernel, ramdisk, system, userdata, zip: make_zip([
+        { name: dir + "source.properties", data: bytes_of(`Pkg.Revision=18\nAndroidVersion.ApiLevel=${api}\nSystemImage.Abi=${abi}\nSystemImage.TagId=google_apis\n`) },
+        { name: dir + "build.prop", data: bytes_of("ro.build.version.release=7.1.1\nro.build.version.sdk=25\n") },
+        { name: dir + "kernel-ranchu", data: kernel }, { name: dir + "ramdisk.img", data: ramdisk },
+        { name: dir + "system.img", data: sparse ? image.sparse : system }, { name: dir + "userdata.img", data: userdata },
+    ]) };
+}

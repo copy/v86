@@ -16,6 +16,7 @@
 import { VIRT_RAM_BASE } from "./platform.js";
 import { gunzip } from "./inflate.js";
 import { flatten, virt_tree } from "./dtb.js";
+import { ranchu_dtb } from "./ranchu.js";
 
 const IMAGE_MAGIC = 0x644D5241; // "ARM\x64" at 56
 const ZBOOT_MAGIC = 0x676D697A; // "zimg" at 4
@@ -112,10 +113,13 @@ export function load_linux(cpu, boot)
     {
         const rng_seed = new Uint8Array(32);
         globalThis.crypto?.getRandomValues?.(rng_seed);
-        dtb = flatten(virt_tree({
-            cores: boot.cores, memory_size: ram_size, bootargs: boot.cmdline || undefined, initrd, rng_seed, arm32,
-            extended: cpu.extended_pages ? { base: cpu.extended_base, size: cpu.extended_pages * 4096 } : undefined,
-        }));
+        dtb = cpu.machine_type === "ranchu" ?
+            ranchu_dtb({ cores: boot.cores, memory_size: ram_size, bootargs: boot.cmdline || undefined, initrd, arm32,
+                framebuffer: cpu.ranchu_framebuffer || undefined }) :
+            flatten(virt_tree({
+                cores: boot.cores, memory_size: ram_size, bootargs: boot.cmdline || undefined, initrd, rng_seed, arm32,
+                extended: cpu.extended_pages ? { base: cpu.extended_base, size: cpu.extended_pages * 4096 } : undefined,
+            }));
     }
     if(dtb_start + dtb.length > ram_end) throw new Error("dtb: not enough RAM after the kernel and initrd");
     cpu.write_blob_physical(dtb, dtb_start);

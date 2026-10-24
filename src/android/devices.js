@@ -151,3 +151,37 @@ export function device_bootconfig(device, options)
     if(mode !== "swiftshader") for(const [key, value] of device.gpu_modes[mode]) map.set(key, value);
     return map;
 }
+
+/**
+ * The Android Emulator's system images on the ranchu machine
+ * (docs/android-images-plan.md I6, docs/aarch32-plan.md R6): how the
+ * emulator boots an SDK image of one API level and ABI: its kernel
+ * (kernel-ranchu) and ramdisk, its disks in the emulator's order (the
+ * virtio disks vda, vdb, ...: the ramdisk's fstab.ranchu names them) and
+ * the kernel command line (src/virt/ranchu.js). On v64's disk each is a
+ * partition: `member` the zip's file (in its ABI's directory), `ext4` an
+ * empty file system of that size (the emulator's own, made at its start:
+ * src/android/ext4.js); the bootloader (bootloader.js) makes each `disk`
+ * partition a virtio disk, read-only or not
+ */
+export const RANCHU_25_ARMEABI_V7A = {
+    id: "ranchu_25_armeabi_v7a",
+    name: "Android 7.1 emulator image (armeabi-v7a)",
+    cpu: "arm32",
+    machine: "ranchu",
+    api: 25,
+    abi: "armeabi-v7a",
+    partitions: [
+        { name: "kernel", member: "kernel-ranchu" },
+        { name: "ramdisk", member: "ramdisk.img" },
+        // (fstab.ranchu: vda /system, vdb /cache, vdc /data)
+        { name: "system", member: "system.img", disk: "read_only" },
+        { name: "cache", ext4: 64 << 20, disk: "read_write" },
+        { name: "userdata", member: "userdata.img", disk: "read_write" },
+    ],
+    // (no boot animation: the CPU draws it, which slows the first boot down)
+    cmdline: { arm32: true, bootanim: false },
+};
+
+/** The emulator images v64 boots, by API level and ABI */
+export const RANCHU_DEVICES = [RANCHU_25_ARMEABI_V7A];

@@ -15,7 +15,7 @@ import { select_field, check_field, text_field } from "./system.js";
  */
 function bus(machine)
 {
-    return machine === "q35" ? "AHCI (SATA)" : machine === "virt" ? "virtio-blk" : "IDE";
+    return machine === "q35" ? "AHCI (SATA)" : machine === "virt" || machine === "ranchu" ? "virtio-blk" : "IDE";
 }
 
 /**
@@ -63,11 +63,11 @@ export function disk_panel(ctx, index)
 /** @param {PanelContext} ctx */
 export function cdrom_panel(ctx)
 {
-    const virt = ctx.config.machine.type === "virt";
+    const virt = ctx.config.machine.type === "virt" || ctx.config.machine.type === "ranchu";
     return [
         image_picker({ label: "Disc", role: "cdrom", optional: true, image: ctx.config.cdrom.image, store: ctx.store, service: ctx.service,
             on_change: image => ctx.set("cdrom.image", image) }),
-        virt ? h("p.note", null, "On the virt machine the disc is a read-only virtio disk.") : null,
+        virt ? h("p.note", null, "On the " + ctx.config.machine.type + " machine the disc is a read-only virtio disk.") : null,
         select_field("When a read fails", ["stop", "report"], ctx.config.cdrom.disk_error, value => ctx.set("cdrom.disk_error", value),
             v => v === "stop" ? "Pause the machine and ask" : "Report it to the guest"),
     ];
@@ -100,7 +100,7 @@ export function floppy_panel(ctx, index)
 export function direct_boot_panel(ctx)
 {
     const k = /** @type {NonNullable<import("../../vm_config.js").VMConfig["kernel"]>} */ (ctx.config.kernel);
-    const virt = ctx.config.machine.type === "virt";
+    const virt = ctx.config.machine.type === "virt" || ctx.config.machine.type === "ranchu";
     const set = (name, value) => ctx.edit(next => { /** @type {any} */ (next.kernel)[name] = value; });
     return [
         image_picker({ label: virt ? "Kernel (Image, or a gzipped vmlinuz)" : "Kernel (bzImage)", role: "file", optional: true, image: k.bzimage, store: ctx.store,

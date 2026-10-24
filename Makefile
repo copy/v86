@@ -145,8 +145,8 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/loader.js \
-	   android/bytes.js android/gpt.js android/avb.js android/bootimg.js android/bootconfig.js android/devices.js android/boot.js android/bootloader.js \
+	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/ranchu.js virt/goldfish.js virt/loader.js \
+	   android/bytes.js android/gpt.js android/avb.js android/bootimg.js android/bootconfig.js android/devices.js android/boot.js android/bootloader.js android/partition_buffer.js \
 	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
@@ -772,7 +772,7 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
 	node tests/android/make_package.mjs
-	for part in freedos linux arm64 dialog android android_gsi; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
+	for part in freedos linux arm64 dialog android android_gsi android_emulator; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
@@ -1270,7 +1270,7 @@ a64-multicore-guest-tests: build/v86-arm64.wasm
 # time), Alpine armv7's
 # programs on the 64-bit kernel against QEMU's output (the packages:
 # tools/alpine_repo.mjs --arch armv7 --set aarch32), interpreted and compiled
-a32-tests: build/v86-arm64.wasm
+a32-tests: a32-system-tests build/v86-arm64.wasm
 	node tests/a64/aarch32_oracle.mjs
 	for cases in q1 q3 q4; do A64_AARCH32_CASES=$$cases node tests/a64/aarch32_el0.mjs || exit 1; done
 	A64_AARCH32_DRIVER=debug A64_AARCH32_CASES=qdebug node tests/a64/aarch32_el0.mjs
@@ -1280,6 +1280,26 @@ a32-tests: build/v86-arm64.wasm
 	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_JIT=1 A64_JIT_SWITCHES=a64_page_aarch32=1 A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_JIT=1 A64_JIT_SWITCHES=a64_page_aarch32=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/linux_boot.mjs
+
+# cpu_type "arm32" (docs/arm32.md, docs/aarch32-plan.md part 2): PL1 at
+# bare metal against QEMU's cortex-a15, the ranchu machine's devices, Alpine
+# armv7's initramfs stage on 1/2/4 cores with the page tier (against the
+# reference) and its lifecycle, kvm-unit-tests arm
+a32-system-tests: build/v86-arm64.wasm
+	node tests/a32/baremetal.mjs
+	node tests/a32/ranchu_devices.mjs
+	for cores in 1 2 4; do A32_JIT=1 A32_CORES=$$cores node tests/a32/linux_boot.mjs || exit 1; done
+	A32_STAGE=lifecycle A32_JIT=1 A32_CORES=2 node tests/a32/linux_boot.mjs
+	node tests/kvm-unit-tests/arm32.mjs
+
+# the official Android 7.1.1 emulator image (armeabi-v7a-25_r18.zip in
+# build/a32-android/) on ranchu to sys.boot_completed and the home screen,
+# booted directly and from the imported disk (about 15 minutes each)
+a32-android-tests: build/v86-arm64.wasm
+	node tests/a32/android_boot.mjs
+	A32_ANDROID_DISK=1 node tests/a32/android_boot.mjs
+
+.PHONY: a32-system-tests a32-android-tests
 
 a64-page-tier-tests: build/v86-arm64.wasm
 	node tests/a64/page_fuzz.mjs

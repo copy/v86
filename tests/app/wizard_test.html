@@ -13,6 +13,9 @@
                    importer's worker, the bootloader (src/android/bootloader.js) reading the disk's GPT and boot partitions
      part=android_gsi  the same package with a GSI (build/android-test-gsi.zip) dropped together; an older GSI refused; the disk's
                    vbmeta the GSI's (nothing chained)
+     part=android_emulator  an Android Emulator image zip (build/android-test-emulator.zip) dropped on the wizard: the Android
+                   7.1 (32-bit) preset, its disk made in the importer's worker, the bootloader giving its kernel, ramdisk and the
+                   emulator's disks as partitions; the settings dialog's Android panel (no wipe)
      part=android_service  (with the runner's service=1) the package imported into a new image of the disk service (I3.2):
                    its size, and the bootloader reading it from the service
      part=android_cancel  (local) the official zip's import cancelled: the wizard says so, the browser disk made so far is gone
@@ -310,6 +313,65 @@ const parts = {
         const wiped = await until(() => /^Wiped|^Not wiped/.test(panel.querySelector("[role=status]").textContent) && panel.querySelector("[role=status]").textContent, "the wipe");
         check(/^Wiped: userdata, metadata/.test(wiped), "the wipe: " + wiped);
         log("settings: Android panel, " + wiped);
+        button("Cancel", dialog).click();
+    },
+    async android_emulator()
+    {
+        await open_library();
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
+        const blob = await (await fetch("/build/android-test-emulator.zip")).blob();
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(new w.File([blob], "armeabi-v7a-25_r18.zip", { type: "application/zip" }));
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        const status = await until(() => /Android Emulator system image/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
+            wizard.querySelector(".drop-zone [role=status]").textContent, "the package read");
+        log("package: " + status);
+        await until(() => button("Next", wizard), "Next");
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector("li[data-preset=android7_arm32][aria-selected=true]"), "the Android 7.1 (32-bit) preset chosen");
+        check(!wizard.querySelector(".preset-detail p.error"), "the preset installs from a package");
+        button("Next", wizard).click();
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android 7 (wizard)");
+        button("Next", wizard).click();
+        const body = await until(() => /Android Emulator's image \(Android 7\.1\.1, API 25, armeabi-v7a/.test(wizard.querySelector(".wizard-body")?.textContent) &&
+            wizard.querySelector(".wizard-body").textContent, "the disk step");
+        check(!wizard.querySelector("input[name=userdata]"), "no userdata sizes: the image's own");
+        log("disk step: " + body.slice(0, 200));
+        button("Next", wizard).click();
+        const summary = table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary"));
+        check(/Android boot from the first disk \(ranchu_25_armeabi_v7a\), the emulator's disks/.test(summary) && /Hard disk \(hda\) .*read write/.test(summary),
+            "the summary: " + summary);
+        button("Finish", wizard).click();
+        await until(() => names().includes("Android 7 (wizard)"), "the new machine in the library", 120000);
+        const table = table_text($(".hardware"));
+        check(/arm32/.test(table) && /ranchu/.test(table), "the library: " + table.slice(0, 300));
+        let dir = await w.navigator.storage.getDirectory();
+        for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name);
+        const disks = [];
+        for await (const [name, handle] of dir.entries()) if(name.endsWith(".img")) disks.push(await handle.getFile());
+        const disk = disks.sort((a, b) => b.lastModified - a.lastModified)[0];
+        const { android_bootloader } = await import("/src/android/bootloader.js");
+        const boot = await android_bootloader(async (offset, length) => new Uint8Array(await disk.slice(offset, offset + length).arrayBuffer()), disk.size,
+            { device: "ranchu_25_armeabi_v7a", memory_mb: 1024 });
+        check(boot.kernel.length >= 5000 && /androidboot.hardware=ranchu/.test(boot.cmdline) &&
+            boot.disks.map(d => d.name + (d.readonly ? " ro" : "")).join(",") === "system ro,cache,userdata",
+            "the bootloader on the disk: " + boot.kernel.length + " " + boot.cmdline + " " + JSON.stringify(boot.disks));
+        log("the browser disk (" + disk.size + " bytes): " + boot.disks.map(d => d.name + "@" + d.start).join(", "));
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        dialog.querySelector("li[data-item=android]").click();
+        const panel = await until(() => dialog.querySelector(".settings-panel[aria-label=Android]"), "the Android panel");
+        const wipe = Array.from(panel.querySelectorAll("button")).find(b => b.textContent === "Wipe user data…");
+        check(wipe && wipe.disabled && !panel.querySelector("select[aria-label=GPU]"), "the emulator image's panel: no wipe, no GPU");
+        const machine = dialog.querySelector("li[data-item=processor]");
+        machine.click();
+        const cpu = await until(() => dialog.querySelector(".settings-panel select[aria-label=CPU]"), "the CPU");
+        check(/ARM \(32-bit/.test(cpu.selectedOptions[0].textContent), "the CPU: " + cpu.selectedOptions[0].textContent);
         button("Cancel", dialog).click();
     },
     async android_gsi()

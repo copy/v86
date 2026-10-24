@@ -6,7 +6,7 @@
 //   node tests/app/machine_rules.mjs
 
 import assert from "node:assert/strict";
-import { CPU_TYPES, MACHINE_TYPES, GRAPHICS_ADAPTERS, NET_DEVICE_TYPES, MAX_CORES, PC_ONLY, VIRT_ONLY, Q35_ONLY,
+import { ARM_MACHINE_TYPES, CPU_TYPES, MACHINE_TYPES, GRAPHICS_ADAPTERS, NET_DEVICE_TYPES, MAX_CORES, PC_ONLY, VIRT_ONLY, Q35_ONLY,
     allowed_options, check_machine_options } from "../../src/machine_options.js";
 import { create_platform } from "../../src/platform.js";
 import { VIRT_MAX_CORES } from "../../src/virt/platform.js";
@@ -51,7 +51,7 @@ for(const cpu_type of CPU_TYPES)
             }
             checks++;
         }
-        if(machine_type !== "virt")
+        if(!ARM_MACHINE_TYPES.includes(machine_type))
         {
             // (the PC platform's checks: Q35's devices, ACPI)
             const platform = settings => { try { create_platform(Object.assign({ machine_type, acpi: true }, settings), 128 << 20); return true; } catch(e) { return false; } };

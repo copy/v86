@@ -59,7 +59,9 @@ export function hardware_rows(c)
     if(c.android)
     {
         // (docs/android-images-plan.md I2: the kernel and initrd from the disk's boot partitions)
-        rows.push(["Android boot", "from the first disk (" + c.android.device + "), " + ({ venus: "Venus", gfxstream: "gfxstream" }[c.android.gpu_mode] || "SwiftShader") +
+        // (an emulator image's: the guest draws, ranchu's framebuffer)
+        rows.push(["Android boot", "from the first disk (" + c.android.device + "), " + (/^ranchu_/.test(c.android.device) ? "the emulator's disks, the guest draws" :
+            { venus: "Venus", gfxstream: "gfxstream" }[c.android.gpu_mode] || "SwiftShader") +
             (c.android.vendor_ramdisk === "debug" ? ", debug vendor ramdisk " + (c.android.debug_ramdisk ? describe_image(c.android.debug_ramdisk) : "(not chosen)") : "") +
             (c.android.selinux === "permissive" ? ", SELinux permissive" : "")]);
     }

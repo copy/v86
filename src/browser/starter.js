@@ -39,6 +39,7 @@ import { OpfsDisk, is_opfs_url, opfs_file } from "../opfs_disk.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { android_bootloader, ANDROID_DEVICES } from "../android/bootloader.js";
+import { PartitionBuffer } from "../android/partition_buffer.js";
 import { FS } from "../../lib/filesystem.js";
 
 /**
@@ -481,10 +482,13 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.android)
     {
         const android = options.android;
-        if(this.cpu_type !== "arm64") throw new Error("android: needs cpu_type \"arm64\"");
+        if(android.device !== undefined && !ANDROID_DEVICES[android.device]) throw new Error("android.device: one of " + Object.keys(ANDROID_DEVICES).join(", "));
+        // (the device's CPU and machine: Cuttlefish's arm64 virt, an emulator image's ranchu)
+        const device = ANDROID_DEVICES[android.device || "cf_arm64_only_phone"];
+        if(this.cpu_type !== device.cpu) throw new Error("android: " + device.id + " needs cpu_type \"" + device.cpu + "\"");
+        if(this.machine_type !== device.machine) throw new Error("android: " + device.id + " needs machine_type \"" + device.machine + "\"");
         if(options.kernel || options.initrd || options.bzimage) throw new Error("android: the disk's boot partitions give the kernel and initrd (kernel and initrd left out)");
         if(!options.virtio_disks || !options.virtio_disks.length) throw new Error("android: the disk with the device's partitions is the first of virtio_disks");
-        if(android.device !== undefined && !ANDROID_DEVICES[android.device]) throw new Error("android.device: one of " + Object.keys(ANDROID_DEVICES).join(", "));
         // (gfxstream: for the gfxstream device's development, docs/gfxstream-plan.md)
         if(android.gpu_mode !== undefined && !["swiftshader", "venus", "gfxstream"].includes(android.gpu_mode)) throw new Error("android.gpu_mode: swiftshader, venus or gfxstream");
         if(android.selinux !== undefined && !["enforcing", "permissive"].includes(android.selinux)) throw new Error("android.selinux: enforcing or permissive");
@@ -620,6 +624,9 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.virtio_sound) settings.virtio_sound = true;
     if(options.virtio_console_ports) settings.virtio_console_ports = options.virtio_console_ports;
     if(options.virtio_gpu_pci_slot) settings.virtio_gpu_pci_slot = options.virtio_gpu_pci_slot;
+    // (the ranchu machine: its framebuffer's size and density, its boot properties, src/virt/ranchu.js)
+    if(options.ranchu_display) settings.ranchu_display = Object.assign({}, options.ranchu_display);
+    if(options.ranchu_properties) settings.ranchu_properties = Object.assign({}, options.ranchu_properties);
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -1217,8 +1224,16 @@ V86.prototype.continue_init = async function(emulator, options)
             settings.kernel = boot.kernel.slice().buffer;
             settings.initrd = boot.initrd.slice().buffer;
             settings.cmdline = [boot.cmdline, options.cmdline].filter(Boolean).join(" ");
-            dbg_log("android: " + settings.kernel.byteLength + " bytes of kernel, " + settings.initrd.byteLength + " of initrd, vbmeta " +
-                boot.vbmeta.digest + ", cmdline " + settings.cmdline);
+            if(boot.disks)
+            {
+                // (an emulator image: its disks the partitions, the first
+                // written one keeping the disk's snapshot state)
+                const owner = boot.disks.findIndex(d => !d.readonly);
+                settings.virtio_disks = boot.disks.map((d, i) => ({ buffer: new PartitionBuffer(disk, d, i === owner), id: d.name, readonly: d.readonly }))
+                    .concat(settings.virtio_disks.slice(1));
+            }
+            dbg_log("android: " + settings.kernel.byteLength + " bytes of kernel, " + settings.initrd.byteLength + " of initrd, " +
+                (boot.vbmeta ? "vbmeta " + boot.vbmeta.digest : (boot.disks || []).map(d => d.name).join(", ")) + ", cmdline " + settings.cmdline);
         }
 
         if(this.destroyed) return;

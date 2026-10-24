@@ -68,7 +68,7 @@ export function display_panel(ctx)
 /** @param {PanelContext} ctx */
 export function serial_panel(ctx)
 {
-    const virt = ctx.config.machine.type === "virt";
+    const virt = ctx.config.machine.type === "virt" || ctx.config.machine.type === "ranchu";
     const attach = virt ? ["none", "terminal"] : ["none", "terminal", "modem"];
     return [0, 1, 2, 3].map(port =>
     {

@@ -4,13 +4,16 @@
 
 import { h } from "../dom.js";
 import { image_picker } from "../image_picker.js";
+import { ARM_MACHINE_TYPES } from "../../../machine_options.js";
 
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
-export const CPU_LABELS = { x86: "x86 (32-bit, up to SSE3)", x86_64: "x86_64 (64-bit, every instruction set)", arm64: "arm64 (the virt machine)" };
+export const CPU_LABELS = { x86: "x86 (32-bit, up to SSE3)", x86_64: "x86_64 (64-bit, every instruction set)", arm64: "arm64 (64-bit ARM)",
+    arm32: "ARM (32-bit, ARMv7-A)" };
 /** The arm64 CPU's profiles the panel offers (cpu.profile; null is v2, the library's default) */
 export const A64_PROFILE_LABELS = { v2: "Armv8.0-A: 64-bit programs", v3: "Armv8.0-A and 32-bit programs (AArch32 at EL0)" };
-export const MACHINE_LABELS = { i440fx: "i440FX (IDE, PCI)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (arm64, virtio devices)" };
+export const MACHINE_LABELS = { i440fx: "i440FX (IDE, PCI)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (ARM, virtio devices)",
+    ranchu: "ranchu (the Android Emulator's board)" };
 const BOOT_ORDER_LABELS = { 0: "Automatic (floppy, then hard disk, then CD)", 0x213: "CD, floppy, hard disk", 0x123: "CD, hard disk, floppy",
     0x231: "Floppy, CD, hard disk", 0x321: "Floppy, hard disk, CD", 0x312: "Hard disk, floppy, CD", 0x132: "Hard disk, CD, floppy" };
 
@@ -95,6 +98,7 @@ export function memory_panel(ctx)
     return [
         number_field("Memory in MB", c.memory.mb, { min: 16, max: ctx.choices.max_memory, step: 16 }, mb => ctx.set("memory.mb", mb)),
         h("p.note", null, c.cpu.type === "x86" ? "The 32-bit CPU reaches 2048 MB; more chooses x86_64." :
+            c.cpu.type === "arm32" ? "The 32-bit ARM CPU reaches 2048 MB (its kernels' high memory above 768 MB)." :
             "Up to 2048 MB live in the WebAssembly heap, the rest in extended RAM above 4 GiB (64-bit guests only)."),
     ];
 }
@@ -122,7 +126,8 @@ export function processor_panel(ctx)
 export function machine_panel(ctx)
 {
     const c = ctx.config, ch = ctx.choices;
-    const virt = c.machine.type === "virt";
+    // (an ARM board, virt or ranchu: no PC firmware)
+    const arm = ARM_MACHINE_TYPES.includes(c.machine.type);
     const q35 = c.machine.type === "q35";
     const bochs = !!(c.machine.bios && c.machine.bios.kind === "url" && c.machine.bios.url === "bios/bochs-bios.bin");
     const firmware = c.machine.bios === null ? "seabios" : bochs ? "bochs" : "custom";
@@ -133,11 +138,11 @@ export function machine_panel(ctx)
             next.machine.bios = value === "seabios" ? null : value === "bochs" ? { kind: "url", url: "bios/bochs-bios.bin" } : { kind: "url", url: "", async: false };
             next.machine.vga_bios = value === "bochs" ? { kind: "url", url: "bios/bochs-vgabios.bin" } : value === "seabios" ? null : next.machine.vga_bios;
         });
-    }, v => ({ seabios: "SeaBIOS (the default)", bochs: "Bochs BIOS", custom: "An image of your own" })[v], virt ? { disabled: true, title: ch.unavailable["bios"] } : {});
+    }, v => ({ seabios: "SeaBIOS (the default)", bochs: "Bochs BIOS", custom: "An image of your own" })[v], arm ? { disabled: true, title: ch.unavailable["bios"] } : {});
     return [
         select_field("Machine", ch.machine_types, c.machine.type, value => ctx.set("machine.type", value), v => MACHINE_LABELS[v] || v),
         firmware_field,
-        !virt && firmware === "custom" ? [
+        !arm && firmware === "custom" ? [
             image_picker({ label: "BIOS image", role: "file", image: c.machine.bios, store: ctx.store, on_change: image => ctx.set("machine.bios", image) }),
             image_picker({ label: "VGA BIOS image", role: "file", optional: true, image: c.machine.vga_bios, store: ctx.store,
                 on_change: image => ctx.set("machine.vga_bios", image) }),
@@ -148,9 +153,9 @@ export function machine_panel(ctx)
         q35 ? number_field("PCI Express root ports", c.machine.pcie_root_ports, { min: 0, max: 6 }, value => ctx.set("machine.pcie_root_ports", value)) :
             h("p.note", null, "PCI Express root ports: " + ch.unavailable["pcie_root_ports"]),
         select_field("Boot order", ch.boot_orders, c.machine.boot_order, value => ctx.set("machine.boot_order", value), v => BOOT_ORDER_LABELS[v],
-            virt ? { disabled: true, title: "the virt machine boots its kernel" } : {}),
-        check_field("Fast boot (no boot menu delay)", c.machine.fastboot, value => ctx.set("machine.fastboot", value), virt ? "no PC firmware" : undefined),
-        check_field("Boot menu", c.machine.bootmenu, value => ctx.set("machine.bootmenu", value), virt ? "no PC firmware" : undefined),
+            arm ? { disabled: true, title: "the " + c.machine.type + " machine boots its kernel" } : {}),
+        check_field("Fast boot (no boot menu delay)", c.machine.fastboot, value => ctx.set("machine.fastboot", value), arm ? "no PC firmware" : undefined),
+        check_field("Boot menu", c.machine.bootmenu, value => ctx.set("machine.bootmenu", value), arm ? "no PC firmware" : undefined),
     ];
 }
 
@@ -158,7 +163,7 @@ export function machine_panel(ctx)
 export function advanced_panel(ctx)
 {
     const c = ctx.config, a = c.advanced;
-    const virt = c.machine.type === "virt";
+    const virt = ARM_MACHINE_TYPES.includes(c.machine.type);
     return [
         check_field("Run the CPU in a Worker (the page stays responsive)", a.cpu_worker, value => ctx.set("advanced.cpu_worker", value)),
         check_field("Compile 32-bit code in the x64 page tier (ir_tier0)", a.ir_tier0, value => ctx.set("advanced.ir_tier0", value), virt ? "x86 only" : undefined),

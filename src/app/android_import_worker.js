@@ -12,7 +12,7 @@
 // in:  { op: "hash", file }: the file's SHA-256 (the catalog's check, I7.2)
 // out: { progress: [done, total] }..., then { sha256 } or { error: string }
 
-import { package_entries, identify_package, cuttlefish_disk, write_disk, gsi_package } from "../android/assemble.js";
+import { package_entries, identify_package, cuttlefish_disk, emulator_disk, write_disk, gsi_package } from "../android/assemble.js";
 import { gpt_partitions } from "../android/gpt.js";
 import { SHA256 } from "../image/sha256.js";
 import { service_writer } from "../android/service_writer.js";
@@ -98,11 +98,22 @@ globalThis.onmessage = async event =>
         const read = reader(file);
         const entries = await package_entries(read, file.size);
         const kind = await identify_package(entries, read);
-        if(!kind) throw new Error(file.name + " is not an Android image package v64 knows (a Cuttlefish images zip)");
-        if(kind.kind !== "cuttlefish") throw new Error(file.name + " is " + kind.text + ": not imported yet");
-        const gsi_read = gsi_file ? reader(gsi_file) : undefined;
-        const gsi = gsi_file ? await gsi_package(gsi_read, await package_entries(gsi_read, gsi_file.size)) : undefined;
-        const disk = await cuttlefish_disk(read, entries, { userdata_bytes, gsi, gsi_read });
+        if(!kind) throw new Error(file.name + " is not an Android image package v64 knows (a Cuttlefish images zip, an emulator image zip)");
+        if(kind.kind !== "cuttlefish" && kind.kind !== "emulator") throw new Error(file.name + " is " + kind.text + ": not imported yet");
+        /** @type {any} */
+        let disk;
+        if(kind.kind === "emulator")
+        {
+            // (an emulator image, I6: its device model is its API level's and ABI's)
+            disk = await emulator_disk(read, entries);
+            kind.device = disk.device.id;
+        }
+        else
+        {
+            const gsi_read = gsi_file ? reader(gsi_file) : undefined;
+            const gsi = gsi_file ? await gsi_package(gsi_read, await package_entries(gsi_read, gsi_file.size)) : undefined;
+            disk = await cuttlefish_disk(read, entries, { userdata_bytes, gsi, gsi_read });
+        }
         let shown = 0;
         const progress = (done, total) =>
         {

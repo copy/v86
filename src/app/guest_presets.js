@@ -154,6 +154,46 @@ export const PRESETS = [
         },
     },
     {
+        id: "linux_arm32", name: "Linux (ARM 32-bit)", guest: "linux", verified: true,
+        basis: "Alpine 3.24 armv7 (netboot): docs/aarch32-plan.md R5, tests/a32/linux_boot.mjs",
+        install: ["direct"], install_text: "The netboot kernel and initramfs (vmlinuz-lts, initramfs-lts), its modloop and packages from a disk or the network",
+        disk_mb: 4 * GB, disk_location: "browser", checklist: [],
+        issues: ["Only with the page tier (the JIT on)", "The serial console only: the 32-bit virt machine's display is not verified"],
+        hardware: c =>
+        {
+            c.cpu.type = "arm32";
+            c.machine.type = "virt";
+            c.machine.acpi = false;
+            c.cpu.cores = 2;
+            c.memory.mb = 512 * MB;
+            c.display.adapter = "none";
+            c.network[0].device = "virtio";
+            c.sound.device = "none";
+            c.kernel = { bzimage: null, initrd: null, cmdline: "console=ttyAMA0", multiboot: null, from_filesystem: false };
+        },
+    },
+    {
+        id: "android7_arm32", name: "Android 7.1 (32-bit, emulator image)", guest: "android", verified: true,
+        basis: "the SDK's armeabi-v7a-25_r18 image to boot_completed: docs/aarch32-plan.md R7.1, tests/a32/android_boot.mjs",
+        install: ["android"], install_text: "The Android Emulator's system image zip (system-images/android-25/google_apis/armeabi-v7a, " +
+            "armeabi-v7a-25_r18.zip), made into a disk: its kernel, ramdisk, system, cache and userdata (docs/android-images-plan.md I6)",
+        disk_mb: 4 * GB, disk_location: "browser", checklist: [],
+        issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 10 minutes on 2 cores",
+            "The guest draws with the CPU (no host GPU): a slow desktop", "No sound"],
+        hardware: c =>
+        {
+            c.cpu.type = "arm32";
+            c.machine.type = "ranchu";
+            c.machine.acpi = false;
+            c.cpu.cores = 2;
+            c.memory.mb = 1024 * MB;
+            c.display.adapter = "none";
+            c.sound.device = "none";
+            c.network = [{ device: "virtio", backend: "fetch", relay_url: "", mtu: 1500, mac_address_translation: false }];
+            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
+        },
+    },
+    {
         id: "android16", name: "Android 16 (arm64)", guest: "android", verified: true,
         basis: "boot_completed and the A9 scenario: docs/aarch64.md (graphics: the ARM64 plan's P11.4)",
         install: ["android", "disk"], install_text: "An Android image package (Cuttlefish's images zip, made into a disk: SwiftShader), or " +

@@ -24,7 +24,7 @@ import { android_boot } from "../../src/android/boot.js";
 const { u16, u32, u64, u32be, u64be, put16, put32, put64, put32be, put64be, latin1, bytes_of, concat, equals } = bytes;
 const sha = (...parts) => { const h = create_hash("sha256"); for(const p of parts) h.update(p); return new Uint8Array(h.digest()); };
 import { random, reader, make_sparse, make_vbmeta, with_footer, make_super, make_erofs, make_zip, make_boot, make_vendor_boot,
-    make_cuttlefish_package, make_gsi_package } from "./fixtures.mjs";
+    make_cuttlefish_package, make_gsi_package, make_emulator_package } from "./fixtures.mjs";
 const run = async (name, f) => { await f(); console.log("ok " + name); };
 
 await run("bytes", () =>
@@ -486,4 +486,57 @@ await run("assemble a Cuttlefish package with a GSI", async () =>
     const oread = reader(old.zip);
     const oentries = await package_entries(oread, old.zip.length);
     await assert.rejects(cuttlefish_disk(read, entries, { userdata_bytes: 1 << 20, gsi: await gsi_package(oread, oentries), gsi_read: oread }), /older than the device's vendor/);
+});
+
+await run("assemble an emulator image, its partitions as disks", async () =>
+{
+    const { emulator_disk, write_disk, package_entries, identify_package } = await import("../../src/android/assemble.js");
+    const { android_bootloader } = await import("../../src/android/bootloader.js");
+    const { PartitionBuffer } = await import("../../src/android/partition_buffer.js");
+    for(const sparse of [false, true])
+    {
+        const e = make_emulator_package(25, "armeabi-v7a", sparse);
+        const read = reader(e.zip);
+        const entries = await package_entries(read, e.zip.length);
+        const kind = await identify_package(entries, read);
+        assert.equal(kind.kind, "emulator");
+        const disk = await emulator_disk(read, entries);
+        assert.equal(disk.device.id, "ranchu_25_armeabi_v7a");
+        assert.deepEqual([disk.api, disk.abi, disk.tag, disk.release], [25, "armeabi-v7a", "google_apis", "7.1.1"]);
+        assert.deepEqual(disk.partitions.map(p => p.name), ["kernel", "ramdisk", "system", "cache", "userdata"]);
+        const out = new Uint8Array(disk.disk_size);
+        await write_disk(read, disk, (offset, bytes) => { out.set(bytes, offset); });
+        const parts = new Map(gpt_partitions(reader(out), out.length).map(p => [p.name, p]));
+        const at = (name, length) => out.subarray(parts.get(name).start, parts.get(name).start + length);
+        assert.ok(equals(at("system", 1 << 20), e.system), "system.img" + (sparse ? " (sparse)" : ""));
+        assert.ok(equals(at("userdata", 1 << 19), e.userdata));
+        // (an empty ext4 for cache: its superblock)
+        assert.equal(u16(at("cache", 2048), 1080), 0xEF53);
+        assert.equal(parts.get("cache").size, 64 << 20);
+        // the bootloader: the kernel and ramdisk, the emulator's command line, the disks in fstab's order
+        const boot = await android_bootloader(async (offset, length) => out.slice(offset, offset + length), out.length,
+            { device: "ranchu_25_armeabi_v7a", memory_mb: 1024 });
+        assert.ok(equals(boot.kernel.subarray(0, 5000), e.kernel) && boot.kernel.subarray(5000).every(b => b === 0));
+        assert.ok(equals(boot.initrd.subarray(0, 3000), e.ramdisk));
+        assert.match(boot.cmdline, /^qemu=1 androidboot.hardware=ranchu console=ttyAMA0 .* android.bootanim=0$/);
+        assert.equal(boot.bootconfig, null);
+        assert.deepEqual(boot.disks.map(d => [d.name, d.start, d.size, d.readonly]),
+            ["system", "cache", "userdata"].map(name => [name, parts.get(name).start, parts.get(name).size, name === "system"]));
+        // a partition as a disk: reads and writes moved by its start; the disk's state once
+        const backing = { get: (start, length, done) => done(out.slice(start, start + length)), set: (start, data, done) => { out.set(data, start); done(); },
+            get_state: () => ["state"], set_state: () => {}, disk_name: "virtio_disk0" };
+        const userdata = new PartitionBuffer(backing, boot.disks[2], true), cache = new PartitionBuffer(backing, boot.disks[1], false);
+        assert.equal(userdata.byteLength, parts.get("userdata").size);
+        assert.equal(userdata.disk_name, "virtio_disk0:userdata");
+        const got = await new Promise(resolve => userdata.get(1080, 2, resolve));
+        assert.deepEqual([...got], [0x53, 0xEF]);
+        await new Promise(resolve => cache.set(0, new Uint8Array([1, 2, 3]), resolve));
+        assert.deepEqual([...at("cache", 3)], [1, 2, 3]);
+        assert.deepEqual(userdata.get_state(), [backing]);
+        assert.deepEqual(cache.get_state(), []);
+    }
+    // an image v64 has no device model for: refused, saying which it boots
+    const other = make_emulator_package(30, "x86_64");
+    const oread = reader(other.zip);
+    await assert.rejects(emulator_disk(oread, await package_entries(oread, other.zip.length)), /API 30 for x86_64: v64 boots API 25 armeabi-v7a/);
 });
