@@ -366,7 +366,7 @@ export function VirtioGPU(machine, options)
     /** @type {!Array<!Object>} the kinds of context besides virgl's, each of
      * its capsets (CONTEXT_INIT): Venus (docs/gfxstream-plan.md G1) */
     /** @type {Gfxstream} gfxstream's contexts, at level gfxstream */
-    this.gfxstream = LEVELS[this.level].gfxstream ? new Gfxstream(this) : null;
+    this.gfxstream = LEVELS[this.level].gfxstream ? new Gfxstream(this, new VulkanModel({ host_visible_size: VENUS_MEMORY_SIZE, gpu: this })) : null;
     this.kinds = [this.venus, this.gfxstream].filter(Boolean);
     /** the capsets: [id, version, size] (gfxstream's alone at its level) */
     this.capsets = this.gfxstream ? this.gfxstream.capsets.slice() : this.virgl ? CAPSETS.concat(...this.kinds.map(kind => kind.capsets)) : [];

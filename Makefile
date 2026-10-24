@@ -216,6 +216,7 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 		--js src/graphics_adapters/virtio_gpu/venus_vk_resources.js --js src/graphics_adapters/virtio_gpu/venus_vk_commands.js \
 		--js src/graphics_adapters/virtio_gpu/venus_vk_pipeline.js \
 		--js src/graphics_adapters/virtio_gpu/venus_vk.js --js src/graphics_adapters/virtio_gpu/venus_state.js --js src/graphics_adapters/virtio_gpu/venus.js \
+		--js src/graphics_adapters/virtio_gpu/gfxstream_protocol.js --js src/graphics_adapters/virtio_gpu/gfxstream_vk.js \
 		--js src/graphics_adapters/virtio_gpu/gfxstream.js \
 		--js src/graphics_adapters/virtio_gpu/virtio_gpu_device.js \
 		--js src/graphics_adapters/virtio_gpu/plugin.js
@@ -590,6 +591,8 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/virtio_gpu_venus.js
 	./tests/devices/venus_protocol.js
 	./tests/devices/virtio_gpu_gfxstream.js
+	./tests/devices/virtio_gpu_gfxstream_vk.js
+	./tests/devices/gfxstream_protocol.js
 	./tests/devices/virgl_tgsi.js
 	./tests/devices/vmware_backdoor.js
 	./tests/devices/mmio_ram.js

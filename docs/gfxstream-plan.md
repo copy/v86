@@ -189,6 +189,14 @@ bootconfig 的 GPU 键，不改分区）。
 blob 同类，映射与脏页的路径可以共用。宿主在空闲时把 `host_state` 置为 `NEED_NOTIFY`（0），客体每次刷新都会 ping
 （[gfxstream-protocol.md](gfxstream-protocol.md)），设备不必在 CPU 的时间片之间轮询环。
 
+进度（2026-10-24）：完成。级别 `gfxstream`、两个 capset（3、9）、上下文类型表、`gfxstream.js` 的传输：一个
+virtio-gpu 上下文（一个客体进程）可有多个 ASG 环（每个线程的流一个，按 blob 的资源号，同宿主的
+`mAddressSpaceHandles`；PING 带资源号选环），每个环各自的流、客户端标志与等待；解码者可回答 `AGAIN`
+（命令排在另一个环的后面，见 G2 的序号），另一个环解码了命令后再试。按环的围栏（`timeline_of`、分环的
+`drain`），同步命令作为上下文时间线上的任务，进程管道（`GLProcessPipe`）。设备测试
+`tests/devices/virtio_gpu_gfxstream.js`；Venus 的设备测试不变，A9 的 Venus 引导（v86、CPU Worker、4 核、
+引导器）`boot_completed` 1313 s，不退化。
+
 ## 3. G2 Vulkan 解码与共用模型
 
 - 把 `venus_vk*.js` 拆成协议无关的 `vulkan_model`（对象、内存、提交、等待、快照记录）与 Venus 前端；
@@ -202,6 +210,35 @@ blob 同类，映射与脏页的路径可以共用。宿主在空闲时把 `host
   不重编译）。
 
 验收：协议向量全部一致；vkprobe、vkahb 在 v64 上通过，结果与 Venus 一致。
+
+进度（2026-10-24）：
+- 生成器与对照：完成。`tools/gfxstream_protocol_gen.mjs` 解析固定版本客体的生成代码（mesa
+  `src/gfxstream/guest/vulkan_enc` 的 `goldfish_vk_reserved_marshaling_guest.cpp`、`goldfish_vk_marshaling_guest.cpp`、
+  `VkEncoder.cpp`，类型取 mesa `include/vulkan` 与客体自己的 `vk_android_native_buffer_gfxstream.h`、
+  `vulkan_gfxstream.h`），按语句翻译：请求的写入变成设备的解码（`d_*`），回复的读取变成设备的编码（`e_*`），
+  `--guest` 另写客体一侧（测试用，`tests/devices/gfxstream_guest_protocol.js`）。356 个命令、1163 个函数；流特性
+  按 virtio-gpu 客体的四个全开折叠成常量。pNext 的大小按 LP64 布局算出（客体只看是否为 0，但写的是 `sizeof`）。
+  对照程序 `tools/gfxstream_oracle`（`build.sh` 把客体的编组 C++ 与桩一起编译）：17 个请求结构由客体自己的
+  `reservedmarshal_*` 写出，解码再编码逐字节一致（指针的存在字统一成 1）；9 个回复由客体的 `unmarshal_*`
+  读回再写出，与写入的一致。向量在 `tests/devices/gfxstream_protocol_vectors.txt`，测试
+  `tests/devices/gfxstream_protocol.js`。
+- 模型：Venus 的 `VulkanModel`（`venus_vk*.js`）本来就只经 `ctx.objects` 与 `ctx.physical_device` 认上下文，处理者
+  吃 C 字段名的对象，gfxstream 直接用它（每个 gfxstream 上下文一份状态作为模型的上下文），不另拆文件；只加了
+  `handles(name)`。Venus 专有的处理者（`*MESA`）留在原处。
+- `gfxstream_vk.js`：完成第一版。顶层命令先读序号（QUEUE_SUBMIT_WITH_COMMANDS：一个进程的命令按序号执行，
+  不论在哪个环；不是下一个就 `AGAIN`），命令完成后才前进。宿主分配句柄（生成器从回复里映射句柄的参数得出每个
+  命令的输出句柄）；物理设备与队列句柄固定。私有命令：`vkCreateImage/BufferWithRequirementsGOOGLE`、
+  `vkQueueSubmitAsync(2)GOOGLE`、`vkQueueWaitIdleAsyncGOOGLE`、`vkQueueFlushCommandsGOOGLE`（客体录好的命令缓冲：
+  操作码、长度、参数，没有序号与句柄，含 `vkBegin/End/ResetCommandBufferAsyncGOOGLE`）、`vkQueueHostSyncGOOGLE`
+  与 `vkCommandBufferHostSyncGOOGLE`（同宿主：最多等 5 s）、`vkAllocateMemory` 的 `VkCreateBlobGOOGLE`（blob id 记到
+  内存，`vkGetBlobGOOGLE` 后客体以该 id 建 HOST3D blob，映射与上传沿用模型的 `export_memory`/`map_memory`/
+  `upload_blob`）、`VkImportColorBufferGOOGLE`/`VkImportBufferGOOGLE`（换成模型的资源导入）、描述符更新模板与
+  `vkUpdateDescriptorSetWithTemplateSized(2)GOOGLE`（按宿主的线性化顺序拆成写入）、`vkGetLinearImageLayout(2)GOOGLE`、
+  交换链的 gralloc 用途、`vkAcquireImageANDROID`；`CREATE_EXPORT_SYNC_VK` 等围栏信号，`CREATE_QSRI_EXPORT_VK` 等队列空闲。
+  KHR/EXT 别名走核心命令。capset 不开批量描述符更新，`vkQueueCommitDescriptorSetUpdatesGOOGLE` 不会来。
+  设备测试 `tests/devices/virtio_gpu_gfxstream_vk.js` 用客体编码器在环上走一遍：实例、物理设备、设备与队列、带需求的
+  缓冲、以 blob 映射的内存（客体写入经 blob 到 GPU 的复制）、刷入的命令缓冲、无回复的提交、导出围栏、两个环按序号。
+- 未做：官方镜像里的 vkprobe/vkahb（G5 的引导之后）；ANB 图像与颜色缓冲导入的细节在 G3。
 
 ## 4. G3 渲染控制与颜色缓冲
 

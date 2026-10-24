@@ -8,6 +8,8 @@
 // the context's timeline, and the process pipe (pipe resources:
 // GLProcessPipe) that renderControl's guest opens first.
 
+import { GfxstreamVulkan } from "./gfxstream_vk.js";
+
 const VULKAN_CAPSET_WORDS = 27, SMALL_CAPSET_WORDS = 4;
 export const CAPSET_GFXSTREAM_VULKAN = 3;
 export const CAPSET_GFXSTREAM_COMPOSER = 9;
@@ -127,10 +129,12 @@ function Pipe()
 /**
  * @constructor
  * @param {!Object} gpu the VirtioGPU
+ * @param {Object=} vk the Vulkan model (venus_vk.js) its Vulkan streams run on
  */
-export function Gfxstream(gpu)
+export function Gfxstream(gpu, vk)
 {
     this.gpu = gpu;
+    this.vk = vk || null;
     /** @type {!Map<number, !GfxstreamContext>} */
     this.contexts = new Map();
     /**
@@ -144,6 +148,9 @@ export function Gfxstream(gpu)
     this.decoders = [];
     /** a decoder's answer: not decoded yet (exported for decoders outside the module) */
     this.AGAIN = AGAIN;
+    /** Vulkan's streams (G2) */
+    this.vulkan = vk ? new GfxstreamVulkan(this, vk) : null;
+    if(this.vulkan) this.decoders.push(...this.vulkan.decoders());
     /** the process pipe's ids (GLProcessPipe) */
     this.next_puid = 1;
     this.stats = { pings: 0, transfers: 0, bytes: 0, commands: 0, replies: 0, unknown: {}, errors: 0, last_error: "" };
@@ -216,9 +223,10 @@ Gfxstream.prototype.create_blob = function(id, ctx_id, flags, blob_id, size)
 {
     const ctx = this.contexts.get(ctx_id);
     if(!ctx || !size) return null;
-    // (a blob id: a Vulkan memory's or a color buffer's export, G2-G3)
-    if(blob_id !== 0) return null;
-    return new GfxstreamBlob(id, ctx_id, blob_id, flags, size);
+    const blob = new GfxstreamBlob(id, ctx_id, blob_id, flags, size);
+    // (a blob id: a Vulkan memory's export; G3: a color buffer's)
+    if(blob_id !== 0 && !(this.vulkan && this.vulkan.export_memory(ctx, blob))) return null;
+    return blob;
 };
 
 /**
@@ -228,18 +236,24 @@ Gfxstream.prototype.create_blob = function(id, ctx_id, flags, blob_id, size)
  */
 Gfxstream.prototype.mapped = function(blob)
 {
+    // (a memory's: its contents, maybe from the GPU)
+    if(blob.memory) return this.vk.map_memory(blob.memory, blob);
     const ctx = this.contexts.get(blob.ctx_id);
     const ring = ctx && ctx.rings.get(blob.id);
     if(ring && !ring.ready) this.init_ring(ctx, ring);
     return null;
 };
 
-/** (shared memory: the guest's writes are read where they are) */
-Gfxstream.prototype.upload_blob = function(blob, x, data) {};
+/** the guest's writes: a memory's go to the GPU (shared memory's are read where they are) */
+Gfxstream.prototype.upload_blob = function(blob, x, data)
+{
+    if(blob.memory) this.vk.upload_blob(blob, x, data);
+};
 
 /** @param {!GfxstreamBlob} blob */
 Gfxstream.prototype.unref_blob = function(blob)
 {
+    if(blob.memory) this.vk.unexport_memory(blob.memory, blob);
     const ctx = this.contexts.get(blob.ctx_id);
     if(ctx) ctx.rings.delete(blob.id);
 };
@@ -378,6 +392,7 @@ Gfxstream.prototype.sync_task = function(ctx, op, words)
 /** The machine's timers: the rings whose decoding waited, again */
 Gfxstream.prototype.timer = function(now)
 {
+    if(this.vk) this.vk.timer(now);
     for(const ctx of this.contexts.values())
     {
         for(const ring of ctx.rings.values()) if(!ring.waiting && ring.input_length) this.decode(ctx, ring);
@@ -529,6 +544,8 @@ Gfxstream.prototype.decode = function(ctx, ring)
                 if(ctx.destroyed) return;
                 this.decode(ctx, ring);
                 this.set_state(ring);
+                // (rings whose commands came after it)
+                this.wake_blocked(ctx, ring);
             });
             this.wake_blocked(ctx, ring);
             return;

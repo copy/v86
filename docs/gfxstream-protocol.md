@@ -161,6 +161,14 @@ power of two) at that ring's `write_pos`, which then advances.
 `write_pos - read_pos`, a byte's place `pos & (size - 1)` (2048 for a ring's
 own `buf`, the view's size for a view).
 
+## A context's rings
+
+One virtio-gpu context is one guest process (its `VirtGpuDevice`); each
+thread's connection is a ring of its own, a blob of its own named by its own
+`CONTEXT_CREATE`. gfxstream's host keeps them by the blob's resource id
+(`VirtioGpuContext`'s `mAddressSpaceHandles`), and `CONTEXT_PING` carries the
+resource id of the ring to read.
+
 ## On the stream
 
 What travels in the buffer is gfxstream's encoder output: commands of a
@@ -170,3 +178,55 @@ driver's carries the Vulkan encoder's commands (`OP_vk*`, from 20000),
 generated from vk.xml by gfxstream's codegen. The commands that actually
 occur from boot to the desktop are G0's trace (not recorded yet: the plan's
 reference host) and G2-G3's scope.
+
+## The Vulkan stream
+
+What `VkEncoder.cpp` writes, with the stream features a virtio-gpu guest
+sets (`ResourceTracker::setupCaps`: null optional strings, ignored handles,
+float16/int8, queue submit with commands; the generator folds them as
+constants):
+
+- A command: `opcode` (u32), `size` (u32, the whole command), then
+  (QUEUE_SUBMIT_WITH_COMMANDS) a sequence number (u32), then the parameters.
+  The host runs a process's commands in the order of their numbers, whatever
+  ring they come on: it waits until `seqno - last == 1` and counts on when
+  the command is done (gfxstream's `VkDecoder.cpp`, the process's
+  `ProcessResources`). Numbers start at 1.
+- Commands a command buffer records (the `vkCmd*`, and
+  `vkBegin/End/ResetCommandBufferAsyncGOOGLE`, `vkCommandBufferHostSyncGOOGLE`)
+  are written to the command buffer's own stream, without a number and
+  without the command buffer's handle (`packetSize -= 8`), and reach the
+  host inside `vkQueueFlushCommandsGOOGLE(queue, commandBuffer, dataSize,
+  pData)` before the submit (`vkQueueSubmitAsyncGOOGLE`, no reply).
+- Parameters and structs (cereal's reserved marshaling): each value in its C
+  size, little endian, no padding; handles 8 bytes (the host's: it creates
+  them and returns them in replies); an optional pointer is an 8-byte big
+  endian presence word (the guest's pointer) and then what it points to; a
+  `size_t` is 8 bytes big endian; a string is a big endian u32 length and its
+  bytes; a string array a big endian u32 count and its strings; `pNext` is
+  a big endian u32 size (the struct's `sizeof`, 0 for none), the sType, then
+  the struct again from its own sType. Some sTypes of gfxstream's
+  (VkImportColorBufferGOOGLE, VkCreateBlobGOOGLE, VkImportBufferGOOGLE as
+  older guests numbered them) are told apart by the chain's root.
+- With ignored handles, a descriptor write's pointers of the other
+  descriptor types are written (their presence) but not what they point to;
+  a graphics pipeline's state structs come with `hasRasterization` and
+  `hasTessellation` flags (big endian u32) first.
+- A reply: what the command's outputs are (handles, structs, counts behind
+  their presence words), then its `VkResult`. Asynchronous commands have
+  none.
+- Host visible memory (deferredMapping): `vkAllocateMemory` carries
+  `VkCreateBlobGOOGLE { blobMem: HOST3D, blobId }` (the guest's own counter),
+  and when the guest maps it, `vkGetBlobGOOGLE(device, memory)` and then
+  `RESOURCE_CREATE_BLOB` with that blob id, mappable.
+
+v64's decoder and encoder are generated from these sources
+(`tools/gfxstream_protocol_gen.mjs`) and checked against the guest's own
+code (`tools/gfxstream_oracle`, `tests/devices/gfxstream_protocol.js`):
+
+```
+node tools/gfxstream_protocol_gen.mjs <mesa>/src/gfxstream/guest/vulkan_enc <mesa>/include/vulkan \
+    src/graphics_adapters/virtio_gpu/gfxstream_protocol.js --guest tests/devices/gfxstream_guest_protocol.js
+tools/gfxstream_oracle/build.sh <mesa>/src/gfxstream <mesa>/include
+node tests/devices/gfxstream_protocol.js --oracle build/gfxstream-oracle/oracle
+```

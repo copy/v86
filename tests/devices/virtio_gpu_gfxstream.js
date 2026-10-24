@@ -273,7 +273,8 @@ console.log("PASS: two rings of a context");
 
 // fences on rings: a sync task of ring 1 holds its fence, not ring 2's
 let task_done = null;
-gpu.gfxstream.decoders.push({ name: "sync", first: 0, last: -1, sync_task: (ctx, op, words) => done => { task_done = done; } });
+// (before Vulkan's, whose tasks these would be)
+gpu.gfxstream.decoders.unshift({ name: "sync", first: 0, last: -1, sync_task: (ctx, op, words) => done => { task_done = done; } });
 const before = used_idx();
 submit_3d([0xa000, 1, 0, 2, 0], false, { id: 100, ring: 1 });
 submit_3d([0xf002, 0, 0], false, { id: 101, ring: 2 });
