@@ -117,6 +117,32 @@ pub enum Kind {
     },
     /// CLZ (0), REV (1), REV16 (2), REVSH (3)
     Bits { op: u8, rd: u8, rm: u8, cond: u8 },
+    /// VLDR, VSTR (`single`: one register at Rn plus or minus `imm`; Rn 15
+    /// a literal), VLDM, VSTM, VPUSH, VPOP: `count` S (or with `double` D)
+    /// registers from `first`, word aligned and in one page (Q6.3)
+    FpMemory {
+        load: bool,
+        double: bool,
+        first: u8,
+        count: u8,
+        rn: u8,
+        imm: u16,
+        add: bool,
+        single: bool,
+        writeback: bool,
+        cond: u8,
+    },
+    /// VLD1, VST1 of multiple single elements (whole D registers `first`..,
+    /// `count` of them): word aligned (and to `align` bytes, 0 none) and in
+    /// one page; Rm 15 no writeback, 13 the size, else Rm added (Q6.3)
+    Vld1 {
+        load: bool,
+        first: u8,
+        count: u8,
+        rn: u8,
+        rm: u8,
+        align: u8,
+    },
     /// an IT whose instructions are all native (with their conditions,
     /// pagegen's discovery): nothing at run time, ITSTATE stays 0
     It,
@@ -165,6 +191,92 @@ const MVN: u8 = 15;
 const ORN: u8 = 16;
 /// no first operand
 const NONE: u8 = 16;
+
+/// VFP's and Advanced SIMD's loads and stores with native templates (Q6.3):
+/// A32's word, or T32's (whose halfwords are A32's with the condition 1110
+/// and, for Advanced SIMD, 1111 1001 for 1111 0100): VLDR, VSTR, VLDM,
+/// VSTM (not FLDMX nor FSTMX, nor the UNPREDICTABLE forms) and VLD1, VST1
+/// of multiple single elements; None for anything else
+fn fp_memory(word: u32, thumb: bool) -> Option<Kind> {
+    let rn = (word >> 16 & 15) as u8;
+    let simd = if thumb { word >> 24 == 0xF9 } else { word >> 24 == 0xF4 };
+    if simd {
+        // 1111 0100 A D L 0 Rn Vd type size align Rm, A 0 (multiple structures)
+        if word & 1 << 23 != 0 || word & 1 << 20 != 0 || rn == 15 {
+            return None;
+        }
+        let align_field = word >> 4 & 3;
+        let count = match word >> 8 & 15 {
+            0b0111 if align_field & 2 == 0 => 1,
+            0b1010 if align_field != 3 => 2,
+            0b0110 if align_field & 2 == 0 => 3,
+            0b0010 => 4,
+            _ => return None,
+        };
+        let first = (word >> 22 & 1) << 4 | word >> 12 & 15;
+        if first + count > 32 {
+            return None;
+        }
+        return Some(Kind::Vld1 {
+            load: word & 1 << 21 != 0,
+            first: first as u8,
+            count: count as u8,
+            rn,
+            rm: (word & 15) as u8,
+            align: if align_field == 0 { 0 } else { 4 << align_field },
+        });
+    }
+    let cond = (word >> 28) as u8;
+    if cond == 15 || word >> 25 & 7 != 0b110 || word >> 9 & 7 != 0b101 {
+        return None;
+    }
+    let (p, u, w, l) = (
+        word & 1 << 24 != 0,
+        word & 1 << 23 != 0,
+        word & 1 << 21 != 0,
+        word & 1 << 20 != 0,
+    );
+    let double = word & 1 << 8 != 0;
+    let (vd, bit) = (word >> 12 & 15, word >> 22 & 1);
+    let first = if double { bit << 4 | vd } else { vd << 1 | bit };
+    let imm8 = word & 0xFF;
+    let cond = if thumb { 14 } else { cond };
+    if p && !w {
+        // VLDR, VSTR
+        return Some(Kind::FpMemory {
+            load: l,
+            double,
+            first: first as u8,
+            count: 1,
+            rn,
+            imm: (imm8 * 4) as u16,
+            add: u,
+            single: true,
+            writeback: false,
+            cond,
+        });
+    }
+    // VLDM, VSTM: increment after (W 0 or 1), or decrement before with W
+    if p == u || p && !w || rn == 15 || double && imm8 & 1 != 0 {
+        return None;
+    }
+    let count = if double { imm8 / 2 } else { imm8 };
+    if count == 0 || first + count > 32 || double && count > 16 {
+        return None;
+    }
+    Some(Kind::FpMemory {
+        load: l,
+        double,
+        first: first as u8,
+        count: count as u8,
+        rn,
+        imm: 0,
+        add: u,
+        single: false,
+        writeback: w,
+        cond,
+    })
+}
 
 /// DecodeImmShift: the kind and amount of a constant shift (`kind` 0-3, `imm5`)
 fn imm_shift(kind: u32, imm5: u32) -> (u8, u8) {
@@ -1530,9 +1642,12 @@ pub(super) fn discover(
         {
             kind = if thumb { t32_return(word, length) } else { a32_return(word) };
         }
-        // (Q6.2: the forms with native templates, of those a helper call would run)
+        // (Q6.2: the forms with native templates, of those a helper call would
+        // run; Q6.3: VFP's and Advanced SIMD's loads and stores)
         if matches!(kind, Some(Kind::Helper)) && !covered.contains(&o) {
-            if let Some(native) = if thumb { t32_native(word, length) } else { a32_native(word) } {
+            let native = if thumb { t32_native(word, length) } else { a32_native(word) }
+                .or_else(|| (length == 4).then(|| fp_memory(word, thumb)).flatten());
+            if let Some(native) = native {
                 let debug = unsafe { crate::aarch64::jit::pages::AARCH32_DEBUG };
                 let bit = match native {
                     Kind::Data { .. } => 32,
@@ -1540,6 +1655,7 @@ pub(super) fn discover(
                     Kind::Mem { .. } => 128,
                     Kind::Multiple { .. } => 256,
                     Kind::Multiply { .. } => 512,
+                    Kind::FpMemory { .. } | Kind::Vld1 { .. } => 2048,
                     _ => 1024,
                 };
                 if debug & 16 == 0 || debug & bit == 0 {
@@ -2255,6 +2371,143 @@ impl Emitter<'_> {
         self.b.br(self.f().dispatch);
     }
 
+    /// The FP and Advanced SIMD access check (pagegen's fp_check), with
+    /// cpu_type arm32's FPEXC.EN too: retry the instruction when disabled
+    fn fp_access(&mut self, offset: u16) {
+        self.fp_check(offset);
+        if crate::aarch64::cpu::a32_only() {
+            self.load32(state::a32_fpexc as u32);
+            self.c32(1 << 30);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.retry_if(offset);
+        }
+    }
+
+    /// Words between memory at the host address in HH and the SIMD&FP
+    /// registers' bytes from `register_word` (the state's V registers as
+    /// words: S[n] word n, D[n] words 2n and 2n + 1): word copies, which
+    /// atomic guest memory allows at any word-aligned address
+    fn fp_words(&mut self, load: bool, register_word: u32, words: u32) {
+        for w in 0..words {
+            let at = state::v as u32 + 4 * (register_word + w);
+            if load {
+                self.c32(at as i32);
+                self.gi(super::HH);
+                if w != 0 {
+                    self.c32(4 * w as i32);
+                    self.b.add_i32();
+                }
+                self.load_value(2, false, false);
+                self.b.wrap_i64_to_i32();
+                self.b.store_aligned_i32(0);
+            }
+            else {
+                self.gi(super::HH);
+                if w != 0 {
+                    self.c32(4 * w as i32);
+                    self.b.add_i32();
+                }
+                self.load32(at);
+                self.b.extend_unsigned_i32_to_i64();
+                self.store_value(2);
+            }
+        }
+    }
+
+    /// The host address of `bytes` from the address in local A1 into HH:
+    /// word aligned (and to `align` bytes) and in one page, else the
+    /// interpreter's
+    fn fp_host(&mut self, load: bool, bytes: u32, align: u32, offset: u16) {
+        self.gi(A1);
+        self.c32(align.max(4) as i32 - 1);
+        self.b.and_i32();
+        self.gi(A1);
+        self.c32(0xFFF);
+        self.b.and_i32();
+        self.c32((4096 - bytes) as i32);
+        self.b.gtu_i32();
+        self.b.or_i32();
+        self.retry_if(offset);
+        self.gi(A1);
+        self.b.extend_unsigned_i32_to_i64();
+        self.s(super::ADDR);
+        self.host(4, !load, offset);
+        self.si(super::HH);
+    }
+
+    /// VLDR, VSTR, VLDM, VSTM, VPUSH, VPOP (FpMemory)
+    #[allow(clippy::too_many_arguments)]
+    fn fp_memory(
+        &mut self,
+        load: bool,
+        double: bool,
+        first: u8,
+        count: u8,
+        rn: u8,
+        imm: u16,
+        add: bool,
+        single: bool,
+        writeback: bool,
+        offset: u16,
+    ) {
+        self.fp_access(offset);
+        let bytes = count as i32 * if double { 8 } else { 4 };
+        // the lowest address (A1) and the base's new value (A2)
+        self.operand(rn, offset);
+        self.si(A0);
+        self.gi(A0);
+        if single {
+            if imm != 0 {
+                self.c32(imm as i32);
+                if add {
+                    self.b.add_i32();
+                }
+                else {
+                    self.b.sub_i32();
+                }
+            }
+        }
+        else if !add {
+            self.c32(bytes);
+            self.b.sub_i32();
+        }
+        self.si(A1);
+        self.gi(A0);
+        self.c32(if add { bytes } else { -bytes });
+        self.b.add_i32();
+        self.si(A2);
+        self.fp_host(load, bytes as u32, 4, offset);
+        let register_word = if double { 2 * first as u32 } else { first as u32 };
+        self.fp_words(load, register_word, bytes as u32 / 4);
+        if writeback {
+            self.set_r32(rn, A2);
+        }
+    }
+
+    /// VLD1, VST1 of multiple single elements (Vld1)
+    #[allow(clippy::too_many_arguments)]
+    fn vld1(&mut self, load: bool, first: u8, count: u8, rn: u8, rm: u8, align: u8, offset: u16) {
+        self.fp_access(offset);
+        let bytes = 8 * count as u32;
+        self.r32(rn);
+        self.si(A1);
+        self.fp_host(load, bytes, align as u32, offset);
+        self.fp_words(load, 2 * first as u32, 2 * count as u32);
+        if rm != 15 {
+            self.gi(A1);
+            if rm == 13 {
+                self.c32(bytes as i32);
+            }
+            else {
+                self.r32(rm);
+            }
+            self.b.add_i32();
+            self.si(A2);
+            self.set_r32(rn, A2);
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn dual(
         &mut self,
@@ -2492,6 +2745,30 @@ impl Emitter<'_> {
                 e.dual(load, rt, rt2, rn, imm, add, ix, writeback, offset)
             }),
             Kind::Bits { op, rd, rm, cond } => self.when(cond, |e| e.bits(op, rd, rm)),
+            Kind::FpMemory {
+                load,
+                double,
+                first,
+                count,
+                rn,
+                imm,
+                add,
+                single,
+                writeback,
+                cond,
+            } => self.when(cond, |e| {
+                e.fp_memory(
+                    load, double, first, count, rn, imm, add, single, writeback, offset,
+                )
+            }),
+            Kind::Vld1 {
+                load,
+                first,
+                count,
+                rn,
+                rm,
+                align,
+            } => self.vld1(load, first, count, rn, rm, align, offset),
             Kind::It => {},
             Kind::Helper => {
                 self.c32(i.word as i32);

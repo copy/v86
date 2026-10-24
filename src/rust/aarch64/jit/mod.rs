@@ -125,7 +125,7 @@ const SWITCHES: [Switch; 10] = [
         default: 1,
         get: || unsafe { pages::AARCH32 as u32 },
         set: |v| {
-            v < 1 << 11
+            v < 1 << 12
                 && unsafe {
                     pages::AARCH32 = v != 0;
                     pages::AARCH32_DEBUG = v

@@ -5,7 +5,7 @@
 // processing with every shift and condition, MOVW and MOVT, multiplies,
 // extends, bit fields, loads and stores in every addressing mode, LDM, STM,
 // PUSH and POP, IT blocks, forward branches, counted loops, calls, CBZ and
-// CBNZ, VFP), run at EL0 (tests/a64/aarch32/fuzz.c) ROUNDS times on their
+// CBNZ, VFP and its loads and stores, VLD1 and VST1), run at EL0 (tests/a64/aarch32/fuzz.c) ROUNDS times on their
 // registers and a buffer; the buffer, the registers and NZCV at the end
 // must be the same interpreted and with the page tier (a64_page_aarch32,
 // compiling at the first boundary), bit for bit.
@@ -56,7 +56,7 @@ const cond = () => !thumb && rand(4) === 0 ? pick(CONDS) : "";
 function plain(c = "")
 {
     const s = c ? (rand(4) === 0 ? "s" : "") : (rand(3) === 0 ? "s" : "");
-    switch(rand(22))
+    switch(rand(25))
     {
         case 0: case 1: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, ${r()}${shift()}`;
         case 2: case 3: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, #${IMMS()}`;
@@ -97,6 +97,37 @@ function plain(c = "")
             return `add${c} r12, r8, #${16 * rand(64)}\n    ${pick(["ldm", "stm", "ldmdb", "stmdb"])}${c} r12${rand(2) ? "!" : ""}, {${list}}`;
         }
         case 20: return `${pick(["qadd", "qsub", "uadd8", "usub16", "sadd16", "uhadd8", "sel"])}${c} ${r()}, ${r()}, ${r()}`;
+        case 21: case 22: {
+            // VFP's loads and stores (Q6.3): VLDR, VSTR of S and D, observed
+            // through core registers; VLDM, VSTM through r12
+            const [a, b] = distinct(2), d = rand(32), sr = rand(32);
+            switch(rand(5))
+            {
+                case 0: return `vldr${c} d${d}, [r8, #${4 * rand(256)}]\n    vmov${c} ${a}, ${b}, d${d}`;
+                case 1: return `vmov${c} d${d}, ${a}, ${b}\n    vstr${c} d${d}, [r8, #${4 * rand(256)}]`;
+                case 2: return `vldr${c} s${sr}, [r8, #${4 * rand(256)}]\n    vmov${c} ${a}, s${sr}`;
+                case 3: return `vmov${c} s${sr}, ${a}\n    vstr${c} s${sr}, [r8, #${4 * rand(256)}]`;
+                default: {
+                    const n = 1 + rand(4), f = rand(32 - n), wb = rand(2) ? "!" : "";
+                    const list = `{d${f}-d${f + n - 1}}`;
+                    return `add${c} r12, r8, #${16 * rand(48) + 64}\n    ` + pick([`vldmia${c} r12${wb}, ${list}`, `vstmia${c} r12${wb}, ${list}`,
+                        `vldmdb${c} r12!, ${list}`, `vstmdb${c} r12!, ${list}`]) + `\n    vmov${c} ${a}, ${b}, d${f}`;
+                }
+            }
+        }
+        case 23: {
+            // VLD1, VST1 (multiple, all lanes): unconditional; through r12,
+            // word aligned or not, with an alignment specifier or not
+            if(c) return plain(c);
+            const n = pick([1, 2, 3, 4]), f = rand(33 - n), [a, b] = distinct(2);
+            const list = `{${Array.from({ length: n }, (_, i) => "d" + (f + i)).join(", ")}}`;
+            const aligned = rand(3) === 0;
+            const spec = aligned ? pick([":64", n === 2 || n === 4 ? ":128" : ":64"]) : "";
+            // (constants both sets encode: 16 * k, then a small one)
+            const skew = aligned ? 0 : 4 * rand(4) + pick([0, 0, 1, 2]);
+            const op = rand(2) ? "vld1" : "vst1";
+            return `add r12, r8, #${16 * rand(96)}\n    ${skew ? `add r12, r12, #${skew}\n    ` : ""}${op}.${pick([8, 16, 32, 64])} ${list}, [r12${spec}]${rand(2) ? "!" : ""}\n    vmov ${a}, ${b}, d${f}`;
+        }
         default: return `vmov${c} s${rand(8)}, ${r()}\n    vcvt${c}.f32.s32 s${rand(8)}, s${rand(8)}\n    vadd${c}.f32 s${rand(8)}, s${rand(8)}, s${rand(8)}\n    vmov${c} ${r()}, s${rand(8)}`;
     }
 }
