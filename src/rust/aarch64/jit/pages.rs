@@ -590,7 +590,8 @@ fn code_page(pc: u64, mode: u32) -> Option<u32> {
 /// for at most `budget` instructions; else note the page's heat and entry,
 /// and compile it when hot
 pub fn run(budget: u32) -> Ran {
-    if !allowed() || budget == 0 {
+    // (AArch32's code is interpreted: docs/aarch32-plan.md Q6 compiles it)
+    if !allowed() || budget == 0 || cpu::aarch32() {
         return Ran::None;
     }
     let pc = cpu::get_pc();

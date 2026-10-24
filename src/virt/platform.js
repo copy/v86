@@ -11,13 +11,15 @@ export const A64_PROFILE = "v86-aarch64-v1";
 /**
  * The CPU profiles (docs/arm64-virt-android16-plan.md, "CPU profile") by
  * a64_profile's value: [name, granules (bit 0 4 KiB, 1 16 KiB, 2 64 KiB),
- * optional features (bit 0 FEAT_PAN)]
+ * optional features (bit 0 FEAT_PAN, bit 1 AArch32 at EL0)]
  * @type {!Object<string, !Array>}
  */
 export const A64_PROFILES = {
     "v1": [A64_PROFILE, 1, 0],
     "v1.1": [A64_PROFILE + ".1", 7, 0],
     "v2": ["v86-aarch64-v2", 7, 1],
+    // (v2 and 32-bit processes: docs/aarch32-plan.md)
+    "v3": ["v86-aarch64-v3", 7, 3],
 };
 
 /** Must match MAX_CORES in src/rust/aarch64/isa_hooks.rs */

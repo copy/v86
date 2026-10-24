@@ -66,7 +66,8 @@ pub fn read(reg: u32, rt: u32) -> Result<u64, Exception> {
             (0, 5) => Ok(mpidr()),
             (0, 6) => Ok(0),
             (0, _) => Err(Exception::Undefined),
-            (4, 0) => Ok(ID_AA64PFR0),
+            // (EL0: AArch64 and AArch32 in profile v3)
+            (4, 0) => Ok(if cpu::has_aarch32() { ID_AA64PFR0 & !0xF | 2 } else { ID_AA64PFR0 }),
             (5, 0) => Ok(ID_AA64DFR0),
             (6, 0) => Ok(ID_AA64ISAR0),
             (7, 0) => Ok(ID_AA64MMFR0 & !(0xFF << 20) | crate::aarch64::mmu::mmfr0_granules()),

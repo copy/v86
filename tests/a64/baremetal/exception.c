@@ -7,6 +7,7 @@
 static volatile struct a64_fault expected;
 static volatile int armed;
 uint64_t (*volatile a64_fault_probe)(void);
+void (*volatile a64_lower_handler)(struct a64_frame *frame, uint64_t vector);
 
 void a64_unexpected(struct a64_frame *frame, uint64_t vector);
 
@@ -30,9 +31,15 @@ int a64_caught(struct a64_fault *fault)
     return fault->taken;
 }
 
-// (vector 4 is a synchronous exception from EL1 with SP_EL1)
+// (vector 4 is a synchronous exception from EL1 with SP_EL1; 8-15 come from
+// EL0, AArch64's then AArch32's)
 void a64_exception(struct a64_frame *frame, uint64_t vector)
 {
+    if(vector >= 8 && a64_lower_handler)
+    {
+        a64_lower_handler(frame, vector);
+        return;
+    }
     if(vector == 4 && armed && !expected.taken)
     {
         expected.taken = 1;

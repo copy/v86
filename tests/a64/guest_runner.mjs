@@ -70,7 +70,24 @@ export function build(name, sources, { cflags = [], optimize = "-O2", general_re
     // (A64_MMU=1: the runtime turns the MMU on, an identity map, before main: see runtime.c)
     compile(runtime + "runtime.c", ["-O2", ...no_fp, ...(+process.env.A64_MMU ? ["-DA64_MMU"] : [])]);
     compile(runtime + "exception.c", ["-O2", "-mgeneral-regs-only"]);
-    for(const source of sources) compile(source, [optimize, ...no_fp, ...cflags]);
+    for(const source of sources)
+    {
+        // (AArch32 code, foo.a32.S: assembled for ARMv8-A AArch32 into a flat
+        // binary that the image carries as foo_a32 .. foo_a32_end, page aligned;
+        // position independent, with .arm and .thumb as it needs)
+        if(source.endsWith(".a32.S"))
+        {
+            const base = path.basename(source, ".a32.S");
+            const object = directory + base + ".a32.o", binary = directory + base + ".a32.bin", wrapper = directory + base + ".a32.wrap.S";
+            run(clang, ["--target=armv8a-none-eabi", "-march=armv8-a+crc+crypto", "-mfpu=crypto-neon-fp-armv8", "-c", "-o", object, source]);
+            run(lld, ["-flavor", "gnu", "-m", "armelf", "--image-base=0", "-Ttext=0", "--oformat=binary", "-o", binary, object]);
+            fs.writeFileSync(wrapper, `    .section .rodata\n    .balign 4096\n    .global ${base}_a32\n${base}_a32:\n    .incbin "${binary}"\n` +
+                `    .global ${base}_a32_end\n${base}_a32_end:\n`);
+            compile(wrapper, []);
+            continue;
+        }
+        compile(source, [optimize, ...no_fp, ...cflags]);
+    }
     const link = ["-flavor", "gnu", "-m", "aarch64elf", "-static", "-T", runtime + "link.ld", ...objects];
     run(lld, [...link, "-o", directory + "guest.elf"]);
     run(lld, [...link, "--oformat=binary", "-o", directory + "guest.bin"]);

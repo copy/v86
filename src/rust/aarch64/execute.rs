@@ -1300,6 +1300,14 @@ pub fn interpret_one() -> Flow {
         take_sync(Exception::SoftwareStep(unsafe { STEPPED_EXCLUSIVE_LOAD }));
         return Flow::Set;
     }
+    // (AArch32 at EL0: its own instructions; docs/aarch32-plan.md)
+    if cpu::aarch32() {
+        let flow = crate::aarch64::a32::interpret_one(address);
+        if stepping && !matches!(flow, Flow::Set | Flow::Retry) {
+            crate::aarch64::debug::step_done();
+        }
+        return flow;
+    }
     let result = fetch_at(address).and_then(|word| {
         if unsafe { crate::aarch64::debug::ANY_BREAKPOINT } {
             if let Some(exception) = crate::aarch64::debug::check_breakpoint(address) {
