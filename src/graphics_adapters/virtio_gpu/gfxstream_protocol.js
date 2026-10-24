@@ -10371,17 +10371,6 @@ function d_vkGetPhysicalDeviceQueueFamilyProperties(r)
             a.pQueueFamilyProperties[i] = d_VkQueueFamilyProperties(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pQueueFamilyProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pQueueFamilyProperties = [];
-        }
-    }
     return a;
 }
 function e_vkGetPhysicalDeviceQueueFamilyProperties(w, a)
@@ -10499,17 +10488,6 @@ function d_vkEnumerateInstanceExtensionProperties(r)
             a.pProperties[i] = d_VkExtensionProperties(r, 2147483647);
         }
     }
-    if(p3)
-    {
-        a.pProperties = [];
-    }
-    if(p2)
-    {
-        if(p3)
-        {
-            a.pProperties = [];
-        }
-    }
     return a;
 }
 function e_vkEnumerateInstanceExtensionProperties(w, a)
@@ -10561,17 +10539,6 @@ function d_vkEnumerateDeviceExtensionProperties(r)
             a.pProperties[i] = d_VkExtensionProperties(r, 2147483647);
         }
     }
-    if(p3)
-    {
-        a.pProperties = [];
-    }
-    if(p2)
-    {
-        if(p3)
-        {
-            a.pProperties = [];
-        }
-    }
     return a;
 }
 function e_vkEnumerateDeviceExtensionProperties(w, a)
@@ -10612,17 +10579,6 @@ function d_vkEnumerateInstanceLayerProperties(r)
         for(let i = 0; i < a.pPropertyCount; i++)
         {
             a.pProperties[i] = d_VkLayerProperties(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pProperties = [];
         }
     }
     return a;
@@ -10666,17 +10622,6 @@ function d_vkEnumerateDeviceLayerProperties(r)
         for(let i = 0; i < a.pPropertyCount; i++)
         {
             a.pProperties[i] = d_VkLayerProperties(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pProperties = [];
         }
     }
     return a;
@@ -10899,17 +10844,6 @@ function d_vkGetImageSparseMemoryRequirements(r)
             a.pSparseMemoryRequirements[i] = d_VkSparseImageMemoryRequirements(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pSparseMemoryRequirements = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pSparseMemoryRequirements = [];
-        }
-    }
     return a;
 }
 function e_vkGetImageSparseMemoryRequirements(w, a)
@@ -10955,17 +10889,6 @@ function d_vkGetPhysicalDeviceSparseImageFormatProperties(r)
         for(let i = 0; i < a.pPropertyCount; i++)
         {
             a.pProperties[i] = d_VkSparseImageFormatProperties(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pProperties = [];
         }
     }
     return a;
@@ -12574,17 +12497,6 @@ function d_vkEnumeratePhysicalDeviceGroups(r)
             a.pPhysicalDeviceGroupProperties[i] = d_VkPhysicalDeviceGroupProperties(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pPhysicalDeviceGroupProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pPhysicalDeviceGroupProperties = [];
-        }
-    }
     return a;
 }
 function e_vkEnumeratePhysicalDeviceGroups(w, a)
@@ -12651,17 +12563,6 @@ function d_vkGetImageSparseMemoryRequirements2(r)
         for(let i = 0; i < a.pSparseMemoryRequirementCount; i++)
         {
             a.pSparseMemoryRequirements[i] = d_VkSparseImageMemoryRequirements2(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pSparseMemoryRequirements = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pSparseMemoryRequirements = [];
         }
     }
     return a;
@@ -12753,17 +12654,6 @@ function d_vkGetPhysicalDeviceQueueFamilyProperties2(r)
             a.pQueueFamilyProperties[i] = d_VkQueueFamilyProperties2(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pQueueFamilyProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pQueueFamilyProperties = [];
-        }
-    }
     return a;
 }
 function e_vkGetPhysicalDeviceQueueFamilyProperties2(w, a)
@@ -12816,17 +12706,6 @@ function d_vkGetPhysicalDeviceSparseImageFormatProperties2(r)
         for(let i = 0; i < a.pPropertyCount; i++)
         {
             a.pProperties[i] = d_VkSparseImageFormatProperties2(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pProperties = [];
         }
     }
     return a;
@@ -13154,17 +13033,6 @@ function d_vkGetPhysicalDeviceToolProperties(r)
         for(let i = 0; i < a.pToolCount; i++)
         {
             a.pToolProperties[i] = d_VkPhysicalDeviceToolProperties(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pToolProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pToolProperties = [];
         }
     }
     return a;
@@ -13547,17 +13415,6 @@ function d_vkGetDeviceImageSparseMemoryRequirements(r)
             a.pSparseMemoryRequirements[i] = d_VkSparseImageMemoryRequirements2(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pSparseMemoryRequirements = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pSparseMemoryRequirements = [];
-        }
-    }
     return a;
 }
 function e_vkGetDeviceImageSparseMemoryRequirements(w, a)
@@ -13857,17 +13714,6 @@ function d_vkGetPhysicalDeviceQueueFamilyProperties2KHR(r)
             a.pQueueFamilyProperties[i] = d_VkQueueFamilyProperties2(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pQueueFamilyProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pQueueFamilyProperties = [];
-        }
-    }
     return a;
 }
 function e_vkGetPhysicalDeviceQueueFamilyProperties2KHR(w, a)
@@ -13920,17 +13766,6 @@ function d_vkGetPhysicalDeviceSparseImageFormatProperties2KHR(r)
         for(let i = 0; i < a.pPropertyCount; i++)
         {
             a.pProperties[i] = d_VkSparseImageFormatProperties2(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pProperties = [];
         }
     }
     return a;
@@ -14177,17 +14012,6 @@ function d_vkGetImageSparseMemoryRequirements2KHR(r)
             a.pSparseMemoryRequirements[i] = d_VkSparseImageMemoryRequirements2(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pSparseMemoryRequirements = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pSparseMemoryRequirements = [];
-        }
-    }
     return a;
 }
 function e_vkGetImageSparseMemoryRequirements2KHR(w, a)
@@ -14340,17 +14164,6 @@ function d_vkGetPipelineExecutablePropertiesKHR(r)
             a.pProperties[i] = d_VkPipelineExecutablePropertiesKHR(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pProperties = [];
-        }
-    }
     return a;
 }
 function e_vkGetPipelineExecutablePropertiesKHR(w, a)
@@ -14395,17 +14208,6 @@ function d_vkGetPipelineExecutableStatisticsKHR(r)
             a.pStatistics[i] = d_VkPipelineExecutableStatisticKHR(r, 2147483647);
         }
     }
-    if(p1)
-    {
-        a.pStatistics = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pStatistics = [];
-        }
-    }
     return a;
 }
 function e_vkGetPipelineExecutableStatisticsKHR(w, a)
@@ -14448,17 +14250,6 @@ function d_vkGetPipelineExecutableInternalRepresentationsKHR(r)
         for(let i = 0; i < a.pInternalRepresentationCount; i++)
         {
             a.pInternalRepresentations[i] = d_VkPipelineExecutableInternalRepresentationKHR(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pInternalRepresentations = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pInternalRepresentations = [];
         }
     }
     return a;
@@ -14627,17 +14418,6 @@ function d_vkGetDeviceImageSparseMemoryRequirementsKHR(r)
         for(let i = 0; i < a.pSparseMemoryRequirementCount; i++)
         {
             a.pSparseMemoryRequirements[i] = d_VkSparseImageMemoryRequirements2(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pSparseMemoryRequirements = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pSparseMemoryRequirements = [];
         }
     }
     return a;
@@ -14935,17 +14715,6 @@ function d_vkGetPhysicalDeviceToolPropertiesEXT(r)
         for(let i = 0; i < a.pToolCount; i++)
         {
             a.pToolProperties[i] = d_VkPhysicalDeviceToolProperties(r, 2147483647);
-        }
-    }
-    if(p1)
-    {
-        a.pToolProperties = [];
-    }
-    if(p0)
-    {
-        if(p1)
-        {
-            a.pToolProperties = [];
         }
     }
     return a;

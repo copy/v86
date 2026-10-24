@@ -1288,12 +1288,13 @@ class Translator
         const at = this.lines.length;
         this.emit("{");
         this.depth++;
-        // (decode: a present array's default, empty)
-        if(this.mode === "decode" && this.source === "writes" && this.presence.has(c_text(lvalue(s.cond))) && uses_as_array(s.then, lvalue(s.cond)))
-        {
-            this.emit(`${this.js(lvalue(s.cond))} = [];`);
-        }
         this.run(block_of(s.then));
+        // (decode: a present array's default, empty, when the block decodes something)
+        if(this.mode === "decode" && this.source === "writes" && this.presence.has(c_text(lvalue(s.cond))) && uses_as_array(s.then, lvalue(s.cond)) &&
+            this.lines.length > at + 1)
+        {
+            this.lines.splice(at + 1, 0, "    ".repeat(this.depth) + `${this.js(lvalue(s.cond))} = [];`);
+        }
         this.depth--;
         this.emit("}");
         if(s.else)

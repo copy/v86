@@ -225,12 +225,13 @@ GfxstreamVulkan.prototype.run = function(st, name, entry, a)
             return this.model(st, name, a);
         case "vkEnumerateDeviceExtensionProperties":
         {
+            // (the guest's array before the model answers into it)
+            const asked = a.pProperties ? a.pProperties.length : 0;
             const wait = this.model(st, name, a);
-            if(a.ret !== VK_SUCCESS || a.pLayerName) return wait;
+            if(a.ret < 0 || a.pLayerName) return wait;
             const extra = HOST_EXTENSIONS.filter(([n]) => !DEVICE_EXTENSIONS[n]);
             const total = Object.keys(DEVICE_EXTENSIONS).length + extra.length;
-            if(!a.pProperties) { a.pPropertyCount = total; return wait; }
-            const asked = a.pProperties.length;
+            if(!a.pProperties) { a.pPropertyCount = total; a.ret = VK_SUCCESS; return wait; }
             const all = Object.entries(DEVICE_EXTENSIONS).concat(extra).map(([extensionName, specVersion]) => ({ extensionName, specVersion }));
             a.pProperties = all.slice(0, asked);
             a.pPropertyCount = a.pProperties.length;

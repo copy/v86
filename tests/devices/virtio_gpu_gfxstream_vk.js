@@ -244,6 +244,14 @@ a = call("vkEnumeratePhysicalDevices", { instance, pPhysicalDeviceCount: 1, pPhy
 const physical = a.pPhysicalDevices[0];
 assert.equal(call("vkEnumeratePhysicalDevices", { instance, pPhysicalDeviceCount: 1, pPhysicalDevices: [0] }).pPhysicalDevices[0], physical,
     "the same each time");
+// the device's extensions, as the guest asks: the count, then them all
+a = call("vkEnumerateDeviceExtensionProperties", { physicalDevice: physical, pLayerName: null, pPropertyCount: 0, pProperties: null });
+assert.equal(a.ret, 0);
+const extension_count = a.pPropertyCount;
+a = call("vkEnumerateDeviceExtensionProperties", { physicalDevice: physical, pLayerName: null, pPropertyCount: extension_count,
+    pProperties: Array.from({ length: extension_count }, () => ({})) });
+assert.deepEqual([a.ret, a.pPropertyCount], [0, extension_count], "all of them: VK_SUCCESS");
+assert.ok(a.pProperties.some(p => p.extensionName === "VK_KHR_external_memory_fd"), "the host's external memory (the guest offers AHBs then)");
 a = call("vkGetPhysicalDeviceProperties2", { physicalDevice: physical, pProperties: { sType: STYPE.PHYSICAL_DEVICE_PROPERTIES_2, pNext: null, properties: {} } });
 assert.equal(a.pProperties.properties.deviceName, "v86 WebGPU");
 a = call("vkGetPhysicalDeviceMemoryProperties", { physicalDevice: physical, pMemoryProperties: {} });

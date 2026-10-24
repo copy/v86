@@ -201,6 +201,8 @@ assert.equal(a.device, 5);
 assert.equal(a.pCreateInfo.pNext.handle, 77);
 a = roundtrip("vkEnumeratePhysicalDevices", { instance: 3, pPhysicalDeviceCount: 1, pPhysicalDevices: [0] });
 assert.deepEqual([a.pPhysicalDeviceCount, a.pPhysicalDevices], [1, [0]]);
+a = roundtrip("vkEnumerateDeviceExtensionProperties", { physicalDevice: 3, pLayerName: null, pPropertyCount: 2, pProperties: [{}, {}] });
+assert.deepEqual([a.pPropertyCount, a.pProperties.length], [2, 2], "an output array of structs: as long as its count");
 a = roundtrip("vkCmdDraw", { commandBuffer: 9, vertexCount: 3, instanceCount: 1, firstVertex: 0, firstInstance: 0 });
 assert.deepEqual([a.commandBuffer, a.vertexCount], [undefined, 3], "a command buffer's command: no handle (it is the buffer's)");
 assert.ok(by_name.vkCmdDraw[3], "vkCmdDraw is in a command buffer's stream");
