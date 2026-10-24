@@ -24,6 +24,8 @@ void a64_putc(char c)
 {
     if(text_length >= A64_TEXT_SIZE) finish(A64_TEXT_OVERFLOW);
     ((volatile char *)A64_TEXT)[text_length++] = c;
+    // (the length so far too: a run that hangs shows its output)
+    a64_result->length = text_length;
 }
 
 void a64_fail(const char *why)

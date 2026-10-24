@@ -69,10 +69,17 @@ export function reference32(directory, options = {})
     return reference(directory, { machine: QEMU_MACHINE32, cpu: QEMU_CPU32, ...options });
 }
 
-/** guest.bin on v86 with cpu_type "arm32" */
-export function actual32(directory, { options = {}, ...rest } = {})
+/**
+ * guest.bin on v86 with cpu_type "arm32", the machine's clock running (the
+ * runner drives the slices without run(), which would start it: the timers
+ * need it)
+ */
+export function actual32(directory, { options = {}, setup = null, ...rest } = {})
 {
-    return actual(directory, { ...rest, options: { cpu_type: "arm32", ...options } });
+    return actual(directory, { ...rest, options: { cpu_type: "arm32", ...options }, setup: cpu => {
+        cpu.clock.resume();
+        setup?.(cpu);
+    } });
 }
 
 /** Both, by A32_TARGET=qemu|v86|both (default both): the outputs must be the same */
