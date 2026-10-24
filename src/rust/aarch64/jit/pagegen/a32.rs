@@ -170,6 +170,39 @@ pub enum Kind {
     /// an IT whose instructions are all native (with their conditions,
     /// pagegen's discovery): nothing at run time, ITSTATE stays 0
     It,
+    /// Advanced SIMD data processing (Q6.3 part 3), unconditional (T32's in
+    /// an IT block are helper calls): `form` on D registers (`q` false: the
+    /// 64 bits of D[d], D[n], D[m]; the other half of their Q register
+    /// stays) or Q registers (Q[d/2], ...)
+    Neon {
+        form: NeonForm,
+        q: bool,
+        d: u8,
+        n: u8,
+        m: u8,
+    },
+}
+
+/// The template of an Advanced SIMD data processing instruction (Wasm SIMD,
+/// neon.rs's lane operations)
+#[derive(Clone, Copy)]
+pub enum NeonForm {
+    /// d = op(n, m), the lanes' operation `op`; `invert_m`: VORN's m
+    /// inverted first; `test`: VTST, (n & m) != 0 with `op` the lanes' ne
+    Binary { op: u32, invert_m: bool, test: bool },
+    /// VBSL, VBIT, VBIF: v128.bitselect(first, second, mask), each 0 (d), 1 (n) or 2 (m)
+    Select { first: u8, second: u8, mask: u8 },
+    /// d = op(m, amount): VSHL, VSHR by an immediate; `zero`: VSHR.U by the element's size
+    Shift { op: u32, amount: u8, zero: bool },
+    /// VMOV, VMVN (`kind` 0: d = value), VORR (1: d | value), VBIC (2: d & value) of a modified immediate
+    Immediate { value: u64, kind: u8 },
+    /// VDUP (scalar): element `index` of D[m] (`esize` bits) in every element
+    Dup { esize: u8, index: u8 },
+    /// VEXT, VREV: the bytes `lanes` of first:m (0-15 first's, n's or with
+    /// `of_m` m's; 16-31 m's)
+    Shuffle { lanes: [u8; 16], of_m: bool },
+    /// d = op(m): VMVN, VCNT, VABS, VNEG (register)
+    Unary { op: u32 },
 }
 
 /// (debugging) the kind's name, and a condition's
@@ -192,6 +225,7 @@ pub fn kind_name(kind: &Kind) -> String {
         Kind::FpMove { .. } => "fpmove".into(),
         Kind::Vld1 { .. } => "vld1".into(),
         Kind::It => "it".into(),
+        Kind::Neon { .. } => "neon".into(),
     }
 }
 
@@ -328,6 +362,222 @@ fn fp_memory(word: u32, thumb: bool) -> Option<Kind> {
 /// VFP's data processing with native templates (Q6.3): A32's word or
 /// T32's (A32's with the condition 1110): the arithmetic of FpArith and
 /// the moves of FpMove; None for anything else
+/// Advanced SIMD data processing (A32's 1111 001U, T32's 111U 1111) as a
+/// native form (Q6.3 part 3); None: a helper call (the others, and the
+/// UNDEFINED forms: odd Q registers, reserved sizes)
+fn neon_data(word: u32, thumb: bool) -> Option<Kind> {
+    if !cfg!(target_feature = "simd128") {
+        return None;
+    }
+    let word = if thumb {
+        if word >> 24 & 0xEF != 0xEF {
+            return None;
+        }
+        0xF200_0000 | (word >> 28 & 1) << 24 | word & 0x00FF_FFFF
+    }
+    else {
+        if word >> 25 != 0b111_1001 {
+            return None;
+        }
+        word
+    };
+    let d = (word >> 22 & 1) << 4 | word >> 12 & 15;
+    let n = (word >> 7 & 1) << 4 | word >> 16 & 15;
+    let m = (word >> 5 & 1) << 4 | word & 15;
+    let q = word & 1 << 6 != 0;
+    let u = word >> 24 & 1;
+    let even = |r: u32| !q || r & 1 == 0;
+    let neon = |form: NeonForm, registers: &[u32]| {
+        registers.iter().all(|&r| even(r)).then_some(Kind::Neon {
+            form,
+            q,
+            d: d as u8,
+            n: n as u8,
+            m: m as u8,
+        })
+    };
+    if word & 1 << 23 == 0 {
+        // three registers of the same length
+        let size = (word >> 20 & 3) as usize;
+        let lanes = |table: [u32; 4]| Some(table[size]).filter(|&op| op != 0);
+        let binary = |op: Option<u32>, test: bool| {
+            op.and_then(|op| {
+                neon(
+                    NeonForm::Binary {
+                        op,
+                        invert_m: false,
+                        test,
+                    },
+                    &[d, n, m],
+                )
+            })
+        };
+        return match (word >> 8 & 15, word >> 4 & 1, u) {
+            (0b0001, 1, 0) => neon(
+                NeonForm::Binary {
+                    op: [0x4E, 0x4F, 0x50, 0x50][size],
+                    invert_m: size == 3,
+                    test: false,
+                },
+                &[d, n, m],
+            ),
+            (0b0001, 1, _) => neon(
+                match size {
+                    0 => NeonForm::Binary {
+                        op: 0x51,
+                        invert_m: false,
+                        test: false,
+                    },
+                    1 => NeonForm::Select {
+                        first: 1,
+                        second: 2,
+                        mask: 0,
+                    },
+                    2 => NeonForm::Select {
+                        first: 1,
+                        second: 0,
+                        mask: 2,
+                    },
+                    _ => NeonForm::Select {
+                        first: 0,
+                        second: 1,
+                        mask: 2,
+                    },
+                },
+                &[d, n, m],
+            ),
+            (0b1000, 0, 0) => binary(lanes([0x6E, 0x8E, 0xAE, 0xCE]), false),
+            (0b1000, 0, _) => binary(lanes([0x71, 0x91, 0xB1, 0xD1]), false),
+            (0b1000, 1, 0) => binary(lanes([0x24, 0x2E, 0x38, 0]), true),
+            (0b1000, 1, _) => binary(lanes([0x23, 0x2D, 0x37, 0]), false),
+            (0b0011, 0, 0) => binary(lanes([0x27, 0x31, 0x3B, 0]), false),
+            (0b0011, 0, _) => binary(lanes([0x28, 0x32, 0x3C, 0]), false),
+            (0b0011, 1, 0) => binary(lanes([0x2B, 0x35, 0x3F, 0]), false),
+            (0b0011, 1, _) => binary(lanes([0x2C, 0x36, 0x40, 0]), false),
+            (0b0110, 0, 0) => binary(lanes([0x78, 0x98, 0xB8, 0]), false),
+            (0b0110, 0, _) => binary(lanes([0x79, 0x99, 0xB9, 0]), false),
+            (0b0110, 1, 0) => binary(lanes([0x76, 0x96, 0xB6, 0]), false),
+            (0b0110, 1, _) => binary(lanes([0x77, 0x97, 0xB7, 0]), false),
+            (0b1001, 1, 0) => binary(lanes([0, 0x95, 0xB5, 0]), false),
+            _ => None,
+        };
+    }
+    if word & 1 << 4 != 0 {
+        if word >> 19 & 7 == 0 && word & 1 << 7 == 0 {
+            // one register and a modified immediate (expand_imm: VMVN's and
+            // VBIC's inverted)
+            let imm8 = (word >> 24 & 1) << 7 | (word >> 16 & 7) << 4 | word & 15;
+            let (cmode, op) = (word >> 8 & 15, word >> 5 & 1);
+            if cmode == 15 && op == 1 {
+                return None;
+            }
+            let value = crate::aarch64::a32_simd::expand_imm(imm8, cmode, op);
+            let kind = if cmode & 1 == 1 && cmode < 12 { 1 + op as u8 } else { 0 };
+            return neon(NeonForm::Immediate { value, kind }, &[d]);
+        }
+        // shifts by an immediate: VSHR, VSHL
+        let imm6 = word >> 16 & 63;
+        let size = if word & 1 << 7 != 0 {
+            3
+        }
+        else {
+            match imm6 >> 3 {
+                0 => return None,
+                1 => 0,
+                2 | 3 => 1,
+                _ => 2,
+            }
+        };
+        let esize = 8u32 << size;
+        let field = if size == 3 { imm6 } else { imm6 & (2 * esize - 1) };
+        return match (word >> 8 & 15, u) {
+            (0b0000, _) => {
+                let amount = (if size == 3 { 64 } else { 2 * esize }) - field;
+                let zero = u == 1 && amount == esize;
+                let op =
+                    if u == 1 { [0x6D, 0x8D, 0xAD, 0xCD] } else { [0x6C, 0x8C, 0xAC, 0xCC] }[size];
+                neon(
+                    NeonForm::Shift {
+                        op,
+                        amount: amount.min(esize - 1) as u8,
+                        zero,
+                    },
+                    &[d, m],
+                )
+            },
+            (0b0101, 0) => neon(
+                NeonForm::Shift {
+                    op: [0x6B, 0x8B, 0xAB, 0xCB][size],
+                    amount: (if size == 3 { field } else { field - esize }) as u8,
+                    zero: false,
+                },
+                &[d, m],
+            ),
+            _ => None,
+        };
+    }
+    if word >> 20 & 3 != 3 {
+        return None;
+    }
+    if word & 1 << 24 == 0 {
+        // VEXT: bytes from imm4 of n:m
+        let imm = (word >> 8 & 15) as u8;
+        let bytes = if q { 16 } else { 8 };
+        if imm >= bytes {
+            return None;
+        }
+        let mut lanes = [0u8; 16];
+        for i in 0..bytes {
+            let at = i + imm;
+            lanes[i as usize] = if at < bytes { at } else { 16 + at - bytes };
+        }
+        return neon(NeonForm::Shuffle { lanes, of_m: false }, &[d, n, m]);
+    }
+    if word >> 7 & 31 == 0b11000 {
+        // VDUP (scalar)
+        let imm4 = word >> 16 & 15;
+        let (esize, index) = match imm4.trailing_zeros() {
+            0 => (8, imm4 >> 1),
+            1 => (16, imm4 >> 2),
+            2 => (32, imm4 >> 3),
+            _ => return None,
+        };
+        return neon(
+            NeonForm::Dup {
+                esize,
+                index: index as u8,
+            },
+            &[d],
+        );
+    }
+    if word & 1 << 11 != 0 {
+        return None;
+    }
+    // two registers, miscellaneous
+    let size = (word >> 18 & 3) as usize;
+    let unary = |op: u32| neon(NeonForm::Unary { op }, &[d, m]);
+    match (word >> 16 & 3, word >> 7 & 15) {
+        (0b00, 0b1011) if size == 0 => unary(0x4D),
+        (0b00, 0b1010) if size == 0 => unary(0x62),
+        (0b01, 0b0110) if size < 3 => unary([0x60, 0x80, 0xA0][size]),
+        (0b01, 0b0111) if size < 3 => unary([0x61, 0x81, 0xA1][size]),
+        (0b00, rev @ 0..=2) => {
+            // VREV64, VREV32, VREV16: the elements reversed in each region
+            let (region, element) = (8 >> rev, 1 << size);
+            if element >= region {
+                return None;
+            }
+            let mut lanes = [0u8; 16];
+            for i in 0..16 {
+                let (start, j, k) = (i - i % region, i % region / element, i % element);
+                lanes[i as usize] = (start + (region / element - 1 - j) * element + k) as u8;
+            }
+            neon(NeonForm::Shuffle { lanes, of_m: true }, &[d, m])
+        },
+        _ => None,
+    }
+}
+
 fn fp_data(word: u32, thumb: bool) -> Option<Kind> {
     let cond = (word >> 28) as u8;
     if cond == 15 {
@@ -1797,7 +2047,11 @@ pub(super) fn discover(
             let native =
                 if thumb { t32_native(word, length) } else { a32_native(word) }.or_else(|| {
                     (length == 4)
-                        .then(|| fp_memory(word, thumb).or_else(|| fp_data(word, thumb)))
+                        .then(|| {
+                            fp_memory(word, thumb)
+                                .or_else(|| fp_data(word, thumb))
+                                .or_else(|| env.neon.then(|| neon_data(word, thumb)).flatten())
+                        })
                         .flatten()
                 });
             if let Some(native) = native {
@@ -1811,7 +2065,8 @@ pub(super) fn discover(
                     Kind::FpMemory { .. }
                     | Kind::Vld1 { .. }
                     | Kind::FpArith { .. }
-                    | Kind::FpMove { .. } => 2048,
+                    | Kind::FpMove { .. }
+                    | Kind::Neon { .. } => 2048,
                     _ => 1024,
                 };
                 if debug & 16 == 0 || debug & bit == 0 {
@@ -2720,6 +2975,101 @@ impl Emitter<'_> {
     }
 
     /// VFP's moves (FpMove)
+    /// D[r] (`q` false: in both halves) or Q[r/2] onto the stack, a v128
+    fn neon_load(&mut self, r: u8, q: bool) {
+        self.c32(state::v as i32 + 8 * r as i32);
+        if q {
+            self.b.simd_memory(0x00, 4);
+        }
+        else {
+            self.b
+                .memory_op(crate::wasmgen::wasm_opcodes::OP_I64LOAD, 3, 0);
+            self.b.simd(0x12);
+        }
+    }
+
+    /// Advanced SIMD data processing (Neon): the result into D[d] (the
+    /// v128's low half) or Q[d/2]
+    fn neon(&mut self, form: NeonForm, q: bool, d: u8, n: u8, m: u8, offset: u16) {
+        self.fp_access(offset);
+        self.c32(state::v as i32 + 8 * d as i32);
+        let register = |x: u8| [d, n, m][x as usize];
+        match form {
+            NeonForm::Binary { op, invert_m, test } => {
+                self.neon_load(n, q);
+                self.neon_load(m, q);
+                if invert_m {
+                    self.b.simd(0x4D);
+                }
+                if test {
+                    self.b.simd(0x4E);
+                    self.b.simd_zero();
+                }
+                self.b.simd(op);
+            },
+            NeonForm::Select {
+                first,
+                second,
+                mask,
+            } => {
+                self.neon_load(register(first), q);
+                self.neon_load(register(second), q);
+                self.neon_load(register(mask), q);
+                self.b.simd(0x52);
+            },
+            NeonForm::Shift { op, amount, zero } => {
+                if zero {
+                    self.b.simd_zero();
+                }
+                else {
+                    self.neon_load(m, q);
+                    self.c32(amount as i32);
+                    self.b.simd(op);
+                }
+            },
+            NeonForm::Immediate { value, kind } => {
+                if kind != 0 {
+                    self.neon_load(d, q);
+                }
+                let mut bytes = [0u8; 16];
+                bytes[..8].copy_from_slice(&value.to_le_bytes());
+                bytes[8..].copy_from_slice(&value.to_le_bytes());
+                self.b.const_v128(bytes);
+                match kind {
+                    1 => self.b.simd(0x50),
+                    2 => self.b.simd(0x4E),
+                    _ => {},
+                }
+            },
+            NeonForm::Dup { esize, index } => {
+                self.neon_load(m, false);
+                let (extract, splat) = match esize {
+                    8 => (0x16, 0x0F),
+                    16 => (0x19, 0x10),
+                    _ => (0x1B, 0x11),
+                };
+                self.b.simd_lane(extract, index);
+                self.b.simd(splat);
+            },
+            NeonForm::Shuffle { lanes, of_m } => {
+                self.neon_load(if of_m { m } else { n }, q);
+                self.neon_load(m, q);
+                self.b.simd_shuffle(lanes);
+            },
+            NeonForm::Unary { op } => {
+                self.neon_load(m, q);
+                self.b.simd(op);
+            },
+        }
+        if q {
+            self.b.simd_memory(0x0B, 4);
+        }
+        else {
+            self.b.simd_lane(0x1D, 0);
+            self.b.store_aligned_i64(0);
+        }
+    }
+
     fn fp_move(&mut self, kind: u8, double: bool, d: u8, n: u8, m: u8, offset: u16) {
         use super::T0;
         self.fp_access(offset);
@@ -3124,6 +3474,7 @@ impl Emitter<'_> {
                 cond,
             } => self.when(cond, |e| e.fp_move(kind, double, d, n, m, offset)),
             Kind::It => {},
+            Kind::Neon { form, q, d, n, m } => self.neon(form, q, d, n, m, offset),
             Kind::Helper => self.a32_helper(i.word, i.length, offset),
             Kind::Branch { target, cond, link } => {
                 if cond != 14 {

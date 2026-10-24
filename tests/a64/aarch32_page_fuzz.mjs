@@ -52,12 +52,52 @@ let thumb = false;
 /** an instruction's condition suffix: A32's any, T32's only in an IT block (it()) */
 const cond = () => !thumb && rand(4) === 0 ? pick(CONDS) : "";
 
+/** An Advanced SIMD data processing instruction (Q6.3 part 3): on D or Q
+ * registers its operands from the buffer (VLDR), its result back there
+ * (VSTR: both halves of a Q register), sometimes another D register too */
+function neon_op()
+{
+    const q = rand(2) === 1;
+    const R = () => q ? rand(16) : rand(32);
+    const name = x => (q ? "q" : "d") + x;
+    const [d, n, m] = [R(), R(), R()];
+    const halves = x => q ? [2 * x, 2 * x + 1] : [x];
+    const load = x => halves(x).map(h => `vldr d${h}, [r8, #${8 * rand(128)}]`);
+    const store = x => halves(x).map(h => `vstr d${h}, [r8, #${8 * rand(128)}]`);
+    const size = pick([8, 16, 32]);
+    const shifted = (bits, shifts) => rand(256) * 2 ** pick(shifts) >>> 0;
+    let op;
+    switch(rand(9))
+    {
+        case 0: op = `${pick(["vadd", "vsub"])}.i${pick([8, 16, 32, 64])} ${name(d)}, ${name(n)}, ${name(m)}`; break;
+        case 1: op = `${pick(["vand", "vbic", "vorr", "vorn", "veor", "vbsl", "vbit", "vbif"])} ${name(d)}, ${name(n)}, ${name(m)}`; break;
+        case 2: op = `${pick(["vceq.i", "vtst.", "vcgt.s", "vcgt.u", "vcge.s", "vcge.u", "vmax.s", "vmax.u", "vmin.s", "vmin.u"])}${size} ${name(d)}, ${name(n)}, ${name(m)}`; break;
+        case 3: op = `vmul.i${pick([16, 32])} ${name(d)}, ${name(n)}, ${name(m)}`; break;
+        case 4: {
+            const e = pick([8, 16, 32, 64]);
+            op = rand(2) ? `vshl.i${e} ${name(d)}, ${name(m)}, #${rand(e)}` : `vshr.${pick(["s", "u"])}${e} ${name(d)}, ${name(m)}, #${1 + rand(e)}`;
+            break;
+        }
+        case 5: op = pick([`vmov.i8 ${name(d)}, #${rand(256)}`, `vmov.i16 ${name(d)}, #${shifted(16, [0, 8])}`,
+            `vmov.i32 ${name(d)}, #${shifted(32, [0, 8, 16, 24])}`, `vmvn.i32 ${name(d)}, #${shifted(32, [0, 8, 16, 24])}`,
+            `vorr.i32 ${name(d)}, #${shifted(32, [0, 8, 16, 24])}`, `vbic.i16 ${name(d)}, #${shifted(16, [0, 8])}`,
+            `vmov.i64 ${name(d)}, #0xff00ff0000ffff00`, `vmov.f32 ${name(d)}, #${pick(["1.0", "-2.5", "0.125"])}`,
+            `vmov.i32 ${name(d)}, #0x${rand(256).toString(16)}ff`]); break;
+        case 6: { const e = pick([8, 16, 32]); op = `vdup.${e} ${name(d)}, d${rand(32)}[${rand(64 / e)}]`; break; }
+        case 7: op = rand(2) ? `vext.8 ${name(d)}, ${name(n)}, ${name(m)}, #${rand(q ? 16 : 8)}` :
+            pick([`vrev64.${pick([8, 16, 32])}`, `vrev32.${pick([8, 16])}`, "vrev16.8"]) + ` ${name(d)}, ${name(m)}`; break;
+        default: op = pick(["vmvn", "vcnt.8", `vabs.s${size}`, `vneg.s${size}`]) + ` ${name(d)}, ${name(m)}`; break;
+    }
+    return [...load(n), ...load(m), ...load(d), op, ...store(d), ...(rand(2) ? [`vstr d${rand(32)}, [r8, #${8 * rand(128)}]`] : [])].join("\n    ");
+}
+
 /** One instruction that may run conditionally (in an IT block or with a condition): no branch */
 function plain(c = "")
 {
     const s = c ? (rand(4) === 0 ? "s" : "") : (rand(3) === 0 ? "s" : "");
-    switch(rand(26))
+    switch(rand(28))
     {
+        case 25: case 26: return c ? plain(c) : neon_op();
         case 0: case 1: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, ${r()}${shift()}`;
         case 2: case 3: return `${pick(["add", "adc", "sub", "sbc", "rsb", "and", "orr", "eor", "bic"])}${s}${c} ${r()}, ${r()}, #${IMMS()}`;
         case 4: return `${pick(["mov", "mvn"])}${s}${c} ${r()}, ${r()}${shift()}`;

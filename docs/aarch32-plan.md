@@ -59,10 +59,14 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
   程序：各种数据处理、加载存储、LDM/STM、IT 块、循环、调用与返回、条件 BX、VFP）0 差异；Alpine armv7 的工作负载
   1 核与 4 个 vCPU worker 输出同参考机，13.7 s（解释 207 s）。E——`tests/a64/aarch32_bench.mjs` 把 tests/bench 的整数
   内核同一份 C 编成 A64、A32、T32：几何平均 A32 为 A64 的 1.45 倍时间、T32 1.41 倍（门槛 2 倍）。
-  Q6.3 的 VFP 与 NEON 走帮助调用（正确，未做原生模板）。调试：`a64_page_aarch32` 的 2、3 与 16 加掩码，
-  `a64_page_aarch32_filter`（按页二分）。
+  Q6.3（`63942afb`、`2e7daab2` 与其后一次）：VFP 与 Advanced SIMD 的原生模板——VLDR、VSTR、VLDM、VSTM、VPUSH、
+  VPOP、VLD1/VST1（多个、全部通道），VFP 的 VADD、VSUB、VMUL、VNMUL、VDIV（A64 标量快路径的规则）、VMOV、VABS、VNEG
+  与核心寄存器之间的 VMOV，Advanced SIMD 的数据处理（按位与选择、VADD/VSUB、比较、VMAX/VMIN、整数 VMUL、按立即数的
+  VSHL/VSHR、改造立即数、标量 VDUP、VEXT、VREV、VMVN/VCNT/VABS/VNEG；D 寄存器按 64 位读写，所在 Q 的另一半不动）；
+  其余走帮助调用。门禁：随机程序 0 差异（含这几类）。调试：`a64_page_aarch32` 的 2、3 与 16 加掩码，
+  `a64_page_aarch32_filter`（按页二分），`a64_page_aarch32_trace`（事件环，见 R7.1）。
 
-尚未完成：Q5.2（带 32 位第二架构的 Android，需要第二部分的 R6）、Q6.3 的 VFP/NEON 原生模板。
+尚未完成：Q5.2（带 32 位第二架构的 Android）。
 
 第二部分（`cpu_type: "arm32"`），2026-10-24：
 

@@ -679,7 +679,7 @@ fn shift_immediate(word: u32) -> Result<Flow, Exception> {
 
 /// AdvSIMDExpandImm as QEMU's asimd_imm_const has it: op 1 inverts the
 /// 32-bit forms (VMVN, VBIC), cmode 1110 with op 1 is the byte mask
-fn expand_imm(imm8: u32, cmode: u32, op: u32) -> u64 {
+pub fn expand_imm(imm8: u32, cmode: u32, op: u32) -> u64 {
     let mut imm = imm8;
     match cmode {
         0 | 1 => {},
