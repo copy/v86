@@ -1422,6 +1422,13 @@ const pnext_reads = pnext_table(unmarshal.get("unmarshal_extension_struct"), "un
  */
 function struct_function(mode, source, name, prefix)
 {
+    if(mode === "decode" && source === "writes" && name === "VkClearColorValue")
+    {
+        // (a union the guest writes as its float32: its bits, as each of its
+        // members; the model reads uint32, as Venus's decoder gives it)
+        return { text: `function ${prefix}${name}(r, root)\n{\n    const o = {};\n    o.uint32 = r.u32s(4);\n` +
+            `    o.int32 = new Int32Array(o.uint32.buffer);\n    o.float32 = new Float32Array(o.uint32.buffer);\n    return o;\n}\n`, calls: [] };
+    }
     const fn = (source === "writes" ? reserved : unmarshal).get((source === "writes" ? "reservedmarshal_" : "unmarshal_") + name);
     if(!fn) throw new Error("no function for " + name);
     const t = new Translator(mode, source, name, new Set(), prefix);

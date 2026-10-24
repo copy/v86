@@ -1563,7 +1563,9 @@ function d_VkBufferImageCopy(r, root)
 function d_VkClearColorValue(r, root)
 {
     const o = {};
-    o.float32 = r.f32s(4);
+    o.uint32 = r.u32s(4);
+    o.int32 = new Int32Array(o.uint32.buffer);
+    o.float32 = new Float32Array(o.uint32.buffer);
     return o;
 }
 

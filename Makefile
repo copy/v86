@@ -1302,6 +1302,7 @@ a64-gpu-guest-tests: build/v86-arm64.wasm glbridge
 	for scenario in drm gl resize input; do GPU_SCENARIO=$$scenario node tests/a64/linux_gpu.mjs || exit 1; done
 	for scenario in gltest virgl kms; do GPU_SCENARIO=$$scenario GPU_LEVEL=virgl43-hostmem GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
 	for scenario in venus vkcube; do GPU_SCENARIO=$$scenario GPU_LEVEL=venus GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
+	./tests/devices/virtio_gpu_gfxstream_render.js
 	GPU_SCENARIO=drm GPU_TRANSPORT=mmio node tests/a64/linux_gpu.mjs
 # (P8.2-P8.4: cores in vCPU workers) the litmus tests in all four modes on
 # 2, 4 and 8 cores; the parallel build's page tier against the interpreter
