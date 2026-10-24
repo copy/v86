@@ -330,6 +330,23 @@ const copied = [...vx_memory.values()].find(m => m.length >= 272 && m[16] === pa
 assert.ok(copied, "the guest's bytes, written through the blob, copied on the GPU");
 a = call("vkWaitForFences", { device, fenceCount: 1, pFences: [fence], waitAll: 1, timeout: 0 });
 assert.equal(a.ret, 0, "vkWaitForFences: signaled");
+// a swapchain image of a gralloc buffer: Android's libvulkan binds it with
+// VkNativeBufferANDROID in vkBindImageMemory2's chain and no memory; the
+// image becomes the resource's surface (VX.TEXTURE_IMPORT)
+const GRALLOC_RES = 40;
+assert.equal(command(0x0204, GRALLOC_RES, 2, 67, 2 | 8, 64, 64, 1, 1, 0, 0, 0, 0), OK, "RESOURCE_CREATE_3D, a gralloc buffer");
+a = call("vkCreateImage", { device, pAllocator: null, pImage: 0, pCreateInfo: { sType: 14, pNext: null, flags: 0, imageType: 1, format: 37,
+    extent: { width: 64, height: 64, depth: 1 }, mipLevels: 1, arrayLayers: 1, samples: 1, tiling: 0, usage: 0x10, sharingMode: 0,
+    queueFamilyIndexCount: 0, pQueueFamilyIndices: null, initialLayout: 0 } });
+assert.equal(a.ret, 0, "vkCreateImage");
+const swapchain_image = a.pImage;
+a = call("vkBindImageMemory2", { device, bindInfoCount: 1, pBindInfos: [{ sType: 1000157001, image: swapchain_image, memory: 0, memoryOffset: 0,
+    pNext: { sType: 1000010000, pNext: null, handle: GRALLOC_RES, stride: 64, format: 1, usage: 0, usage2: { consumer: 0, producer: 0 } } }] });
+assert.equal(a.ret, 0, "vkBindImageMemory2 with VkNativeBufferANDROID");
+assert.ok([...vulkan.vk.imports.values()].some(([, resource]) => resource === GRALLOC_RES), "the swapchain image is the gralloc buffer's surface (VX.TEXTURE_IMPORT)");
+errors();
+console.log("PASS: a swapchain image bound to its gralloc buffer");
+
 // vkQueueSignalReleaseImageANDROID's sync file (CREATE_QSRI_EXPORT_VK on ring
 // 0): answered once the queues are idle, here at once
 const before_qsri = used_idx();

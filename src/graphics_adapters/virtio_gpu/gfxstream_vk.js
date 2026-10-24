@@ -268,6 +268,26 @@ GfxstreamVulkan.prototype.run = function(st, name, entry, a)
             a.pImage = this.new_handle();
             this.create_image(st, a);
             return null;
+        case "vkBindImageMemory2":
+        case "vkBindImageMemory2KHR":
+        {
+            // (a swapchain image: Android's libvulkan binds it to its gralloc
+            // buffer with VkNativeBufferANDROID in the bind's chain, no memory)
+            const binds = [];
+            for(const bind of a.pBindInfos || [])
+            {
+                let native = null;
+                for(let c = bind.pNext; c; c = c.pNext) if(c.sType === STYPE_NATIVE_BUFFER_ANDROID) native = c;
+                if(!native) { binds.push(bind); continue; }
+                const ret = this.bind_native(st, a.device, bind.image, native.handle);
+                if(ret !== VK_SUCCESS) { a.ret = ret; return null; }
+            }
+            if(!binds.length) { a.ret = VK_SUCCESS; return null; }
+            const rest = Object.assign({}, a, { bindInfoCount: binds.length, pBindInfos: binds });
+            const wait = this.model(st, "vkBindImageMemory2", rest);
+            a.ret = rest.ret;
+            return wait;
+        }
         case "vkDestroyImage":
         {
             const memory = st.native_images.get(a.image);
@@ -439,24 +459,35 @@ GfxstreamVulkan.prototype.create_image = function(st, a)
     a.pCreateInfo = Object.assign({}, a.pCreateInfo, { pNext: chain[0] || null });
     this.model(st, "vkCreateImage", a);
     if(a.ret !== VK_SUCCESS) return;
-    const q = { device: a.device, image: a.pImage, pMemoryRequirements: {} };
+    a.ret = this.bind_native(st, a.device, a.pImage, native.handle);
+    if(a.ret !== VK_SUCCESS) this.model(st, "vkDestroyImage", { device: a.device, image: a.pImage, pAllocator: null });
+};
+
+/**
+ * An image of a gralloc buffer (VkNativeBufferANDROID, its handle the
+ * virtio-gpu resource): memory imported from the resource, bound to it,
+ * freed with the image
+ * @return {number} the VkResult
+ */
+GfxstreamVulkan.prototype.bind_native = function(st, device, image, resource_id)
+{
+    if(st.native_images.has(image)) return VK_SUCCESS;
+    const q = { device, image, pMemoryRequirements: {} };
     this.model(st, "vkGetImageMemoryRequirements", q);
     const memory = this.new_handle();
-    const alloc = { device: a.device, pAllocator: null, pMemory: memory, pAllocateInfo: { sType: STYPE_MEMORY_ALLOCATE_INFO,
-        pNext: { sType: STYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA, pNext: null, resourceId: native.handle },
+    const alloc = { device, pAllocator: null, pMemory: memory, pAllocateInfo: { sType: STYPE_MEMORY_ALLOCATE_INFO,
+        pNext: { sType: STYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA, pNext: null, resourceId: resource_id },
         allocationSize: q.pMemoryRequirements.size || 1, memoryTypeIndex: MEMORY_DEVICE_LOCAL } };
     this.model(st, "vkAllocateMemory", alloc);
     if(alloc.ret !== VK_SUCCESS)
     {
-        this.error("the gralloc buffer of resource " + native.handle + ": not importable (" + alloc.ret + ")");
-        a.ret = alloc.ret;
-        this.model(st, "vkDestroyImage", { device: a.device, image: a.pImage, pAllocator: null });
-        return;
+        this.error("the gralloc buffer of resource " + resource_id + ": not importable (" + alloc.ret + ")");
+        return alloc.ret;
     }
-    const bind = { device: a.device, image: a.pImage, memory, memoryOffset: 0 };
+    const bind = { device, image, memory, memoryOffset: 0 };
     this.model(st, "vkBindImageMemory", bind);
-    st.native_images.set(a.pImage, memory);
-    a.ret = bind.ret === undefined ? VK_SUCCESS : bind.ret;
+    st.native_images.set(image, memory);
+    return bind.ret === undefined ? VK_SUCCESS : bind.ret;
 };
 
 /**

@@ -507,11 +507,35 @@ if(process.env.A64_ANDROID_GFXSTREAM_TRACE)
         const vulkan = gpu && gpu.gfxstream && gpu.gfxstream.vulkan;
         if(!vulkan) return;
         clearInterval(install);
+        const now = () => ((Date.now() - started) / 1000).toFixed(3);
+        // (the imports of gralloc's resources, what the GPU wrote, the transfers: G3's color buffers)
+        const model = gpu.gfxstream.vk;
+        let imports = 0;
+        const wrote = gpu.virgl.wrote.bind(gpu.virgl), from_host = gpu.virgl.transfer_from_host.bind(gpu.virgl);
+        gpu.virgl.wrote = resource => { if(lines < 200000) fs.writeSync(trace, `${now()} wrote resource ${resource.id}\n`); return wrote(resource); };
+        gpu.virgl.transfer_from_host = (resource, ...rest) => {
+            fs.writeSync(trace, `${now()} TRANSFER_FROM_HOST resource ${resource.id} ${resource.width}x${resource.height} format ${resource.format}\n`);
+            return from_host(resource, ...rest);
+        };
         vulkan.on_command = (name, a) => {
+            if(model.imports.size !== imports)
+            {
+                imports = model.imports.size;
+                fs.writeSync(trace, `${now()} imports ${JSON.stringify([...model.imports.values()].map(([rid, resource]) => rid + ":" + resource))}\n`);
+            }
             if(name.startsWith("vkCmd") || ++lines > 200000) return;
-            const t = ((Date.now() - started) / 1000).toFixed(3);
+            const t = now();
             const ext = name === "vkCreateDevice" || name === "vkCreateInstance" ? " " + JSON.stringify(a.pCreateInfo.ppEnabledExtensionNames) : "";
-            fs.writeSync(trace, `${t} ${name}${a.ret !== undefined ? " ret=" + a.ret : ""}${ext}\n`);
+            let detail = "";
+            if(name === "vkAllocateMemory")
+            {
+                const chain = [];
+                for(let c = a.pAllocateInfo.pNext; c; c = c.pNext) chain.push(c.sType + (c.resourceId !== undefined ? ":" + c.resourceId : ""));
+                detail = ` type=${a.pAllocateInfo.memoryTypeIndex} size=${a.pAllocateInfo.allocationSize} chain=${chain.join(",")} memory=${a.pMemory}`;
+            }
+            else if(name === "vkBindImageMemory") detail = ` image=${a.image} memory=${a.memory}`;
+            else if(name === "vkBindImageMemory2") detail = " " + JSON.stringify((a.pBindInfos || []).map(b => [b.image, b.memory]));
+            fs.writeSync(trace, `${t} ${name}${a.ret !== undefined ? " ret=" + a.ret : ""}${ext}${detail}\n`);
             if(vulkan.stats.last_error !== last_error) { last_error = vulkan.stats.last_error; fs.writeSync(trace, `${t} ERROR ${last_error}\n`); }
         };
     }, 100);
