@@ -1,0 +1,162 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>virtio-gpu: a 3D scanout shown without readbacks</title>
+<div id="screen"><div></div><canvas></canvas></div>
+<pre id="result">RUNNING</pre>
+<script src="../../build/libv86.js"></script>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script>
+// docs/gfxstream-plan.md G4. virtio-gpu at level virgl43 with the graphics
+// proxy: the display adapter's renderer (svga_renderer.js) runs on the
+// compositor's device and has a layer of it. A 3D resource gets its pixels
+// from guest memory (TRANSFER_TO_HOST_3D: a blue left half, a yellow right
+// half), is the scanout and is flushed: the renderer copies it into the
+// layer on the GPU (GX's SURFACE_PRESENT) and the screen shows it, with no
+// readback; SET_SCANOUT 0 takes it away. The device's side of the choice
+// is tests/devices/virtio_gpu_present.js.
+(async () => {
+    const checks = [];
+    const check = (value, message) => { if(!value) throw new Error(message); checks.push(message); };
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    let emulator;
+    try {
+        // hlt forever
+        const floppy = new Uint8Array(1474560);
+        floppy.set([0xfa, 0xf4, 0xeb, 0xfd]);
+        floppy[510] = 0x55;
+        floppy[511] = 0xAA;
+        const container = document.getElementById("screen");
+        emulator = new V86({
+            graphics_adapter: "virtio_gpu", graphics_adapter_test: { level: "virgl43" },
+            wasm_path: "../../build/v86.wasm", memory_size: 64 << 20, vram_size: 16 << 20,
+            bios: { url: "../../bios/seabios.bin" }, vga_bios: { url: "../../bios/vgabios.bin" },
+            fda: { buffer: floppy.buffer }, boot_order: 0x321,
+            screen: { container },
+            disable_keyboard: true, disable_mouse: true, disable_speaker: true,
+            net_device: { type: "none" }, autostart: true,
+            graphics_proxy: true,
+        });
+        await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
+        const bridge = emulator.graphics_proxy.bridge;
+        await bridge.ready;
+        check(!bridge.failed, "graphics initializes");
+        const compositor = bridge.compositor;
+        const gpu = emulator.v86.cpu.devices.graphics_adapter.device["virtio_gpu"];
+        for(let i = 0; i < 100 && !gpu.virgl.direct_present; i++) await sleep(50);
+        check(gpu.virgl.direct_present, "the renderer has the compositor's layer: it shows pictures");
+        const renderer = emulator.adapter_renderer;
+        await renderer.executor.initialize();
+        check(renderer.executor.device === compositor.device, "the renderer and the compositor share one GPUDevice");
+        for(let i = 0; i < 200 && !emulator.screen_adapter.get_text_screen().join("").includes("Booting from Floppy"); i++) await sleep(50);
+        await emulator.stop();
+
+        // The transport (virtio-vga's capabilities in BAR2)
+        const cpu = emulator.v86.cpu, io = cpu.io;
+        const BDF = 0x12 << 3;
+        const pci_read = reg => { io.port_write32(0xcf8, 0x80000000 | BDF << 8 | reg); return io.port_read32(0xcfc) >>> 0; };
+        const pci_read8 = reg => pci_read(reg & ~3) >>> 8 * (reg & 3) & 0xFF;
+        let common = 0, notify = 0;
+        const bar2 = (pci_read(0x18) & ~0xF) >>> 0;
+        for(let at = pci_read8(0x34); at; at = pci_read8(at + 1))
+        {
+            if(pci_read8(at) !== 0x09) continue;
+            const type = pci_read8(at + 3);
+            if(type === 1) common = bar2 + pci_read(at + 8);
+            if(type === 2) notify = bar2 + pci_read(at + 8);
+        }
+        const write32 = (address, value) => { for(let i = 0; i < 4; i++) cpu.write8(address + i, value >>> 8 * i & 0xFF); };
+        const read32 = address => (cpu.read8(address) | cpu.read8(address + 1) << 8 | cpu.read8(address + 2) << 16 | cpu.read8(address + 3) << 24) >>> 0;
+        const w8 = (offset, value) => cpu.write8(common + offset, value);
+        const w16 = (offset, value) => { cpu.write8(common + offset, value & 0xFF); cpu.write8(common + offset + 1, value >> 8); };
+        const QUEUES = [{ size: 0, desc: 0x100000, avail: 0x101000, used: 0x102000, avail_idx: 0 },
+            { size: 0, desc: 0x110000, avail: 0x111000, used: 0x112000, avail_idx: 0 }];
+        w8(20, 0); w8(20, 3);
+        write32(common, 0);
+        const features0 = read32(common + 4);
+        write32(common + 8, 0); write32(common + 12, features0);
+        write32(common + 8, 1); write32(common + 12, 1);
+        w8(20, 11);
+        QUEUES.forEach((q, i) => {
+            w16(22, i);
+            q.size = cpu.read8(common + 24) | cpu.read8(common + 25) << 8;
+            write32(common + 32, q.desc); write32(common + 36, 0);
+            write32(common + 40, q.avail); write32(common + 44, 0);
+            write32(common + 48, q.used); write32(common + 52, 0);
+            emulator.write_memory(new Uint8Array(0x3000), q.desc);
+            w16(28, 1);
+        });
+        w8(20, 15);
+        const REQUEST = 0x200000, REPLY = 0x280000;
+        const command = (type, ...values) => {
+            const out = new Uint32Array(6 + values.length);
+            out[0] = type;
+            out.set(values, 6);
+            const q = QUEUES[0];
+            emulator.write_memory(new Uint8Array(out.buffer), REQUEST);
+            write32(q.desc, REQUEST); write32(q.desc + 4, 0); write32(q.desc + 8, out.byteLength);
+            cpu.write8(q.desc + 12, 1); cpu.write8(q.desc + 14, 1);
+            write32(q.desc + 16, REPLY); write32(q.desc + 20, 0); write32(q.desc + 24, 64);
+            cpu.write8(q.desc + 28, 2);
+            write32(q.avail + 4 + (q.avail_idx % q.size) * 2, 0);
+            q.avail_idx = q.avail_idx + 1 & 0xFFFF;
+            cpu.write8(q.avail + 2, q.avail_idx & 0xFF);
+            cpu.write8(q.avail + 3, q.avail_idx >> 8);
+            cpu.write8(notify, 0);
+            cpu.write8(notify + 1, 0);
+            return read32(REPLY);
+        };
+        const OK = 0x1100;
+        const W = 64, H = 48, PIXELS = 0x300000;
+        // B8G8R8A8: blue on the left, yellow on the right
+        const pixels = new Uint8Array(W * H * 4);
+        for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) pixels.set(x < W / 2 ? [255, 0, 0, 255] : [0, 255, 255, 255], (y * W + x) * 4);
+        emulator.write_memory(pixels, PIXELS);
+        // RESOURCE_CREATE_3D (PIPE_TEXTURE_2D, B8G8R8A8_UNORM, RENDER_TARGET | SCANOUT), ATTACH_BACKING, TRANSFER_TO_HOST_3D
+        check(command(0x0204, 1, 2, 1, 0x2 | 0x40000, W, H, 1, 1, 0, 0, 0, 0) === OK, "RESOURCE_CREATE_3D");
+        check(command(0x0106, 1, 1, PIXELS, 0, W * H * 4, 0) === OK, "ATTACH_BACKING");
+        check(command(0x0205, 0, 0, 0, W, H, 1, 0, 0, 1, 0, W * 4, 0) === OK, "TRANSFER_TO_HOST_3D");
+        await emulator.run();
+        const gx_stats = () => renderer.gx ? { ...renderer.gx.stats } : {};
+        await emulator.stop();
+        check(command(0x0103, 0, 0, W, H, 0, 1) === OK, "SET_SCANOUT");
+        check(command(0x0104, 0, 0, W, H, 1, 0) === OK, "RESOURCE_FLUSH");
+        await emulator.run();
+        await renderer.idle();
+        const before = gx_stats();
+
+        const shot = async () => {
+            const image = emulator.screen_make_screenshot();
+            await image.decode();
+            const capture = document.createElement("canvas");
+            capture.width = image.width;
+            capture.height = image.height;
+            const context = capture.getContext("2d");
+            context.drawImage(image, 0, 0);
+            return (x, y) => [...context.getImageData(x, y, 1, 1).data.slice(0, 3)];
+        };
+        const near = (pixel, rgb) => pixel.every((v, i) => Math.abs(v - rgb[i]) < 8);
+        let pixel;
+        for(let i = 0; i < 60; i++)
+        {
+            await sleep(50);
+            pixel = await shot();
+            if(near(pixel(8, 8), [0, 0, 255]) && near(pixel(W - 8, 8), [255, 255, 0])) break;
+        }
+        check(near(pixel(8, 8), [0, 0, 255]) && near(pixel(W - 8, H - 8), [255, 255, 0]),
+            "the screen shows the 3D resource: " + pixel(8, 8) + " " + pixel(W - 8, H - 8));
+        check(before.presents >= 1 && !before.readbacks, "presented on the GPU, no readback: " + JSON.stringify(before));
+        check(gpu.scanouts[0].direct === 1, "the device: the renderer shows scanout 0");
+
+        // SET_SCANOUT 0: the layer goes
+        await emulator.stop();
+        check(command(0x0103, 0, 0, 0, 0, 0, 0) === OK, "SET_SCANOUT 0");
+        await emulator.run();
+        await renderer.idle();
+        const layer = compositor.layers.find(l => l.name === "display adapter");
+        check(layer && !layer.visible, "the layer hidden");
+        document.getElementById("result").textContent = "PASS\n" + checks.join("\n");
+    } catch(error) {
+        document.getElementById("result").textContent = "FAIL " + (error && error.stack || error) + "\n" + checks.join("\n");
+    }
+})();
+</script>

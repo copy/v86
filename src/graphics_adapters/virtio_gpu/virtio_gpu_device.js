@@ -264,6 +264,9 @@ function Scanout(index)
     this.rgba = null;
     /** @type {Array<number>} the part of it not yet sent: x0, y0, x1, y1 */
     this.dirty = null;
+    /** the resource the renderer shows itself (SURFACE_PRESENT), 0 when the
+     * picture is the device's: `rgba` is then behind the GPU's */
+    this.direct = 0;
 }
 
 Scanout.prototype.add_dirty = function(x0, y0, x1, y1)
@@ -1203,6 +1206,7 @@ VirtioGPU.prototype.set_scanout_blob = function(index, id, x, y, width, height, 
 
 VirtioGPU.prototype.disable_scanout = function(scanout)
 {
+    if(scanout.direct) this.leave_direct(scanout);
     scanout.resource_id = 0;
     scanout.blob = null;
     scanout.width = scanout.height = 0;
@@ -1263,6 +1267,24 @@ VirtioGPU.prototype.flush = function(id, x, y, width, height)
  */
 VirtioGPU.prototype.present = function(scanout, resource, x, y, width, height)
 {
+    const direct = resource.three_d && !(resource.host_newer && resource.data) && this.direct_scanout(scanout);
+    if(scanout.direct && (!direct || scanout.direct !== resource.id))
+    {
+        // (back to the device's picture, or another resource: all of it again)
+        this.leave_direct(scanout);
+        x = 0;
+        y = 0;
+        width = scanout.width;
+        height = scanout.height;
+    }
+    if(direct)
+    {
+        // (the renderer copies it to the page's screen on the GPU: no
+        // readback, docs/gfxstream-plan.md G4)
+        scanout.direct = resource.id;
+        this.virgl.present_surface(/** @type {!Resource3D} */ (resource), scanout.x + x, scanout.y + y, width, height, x, y, scanout.width, scanout.height);
+        return;
+    }
     if(resource.blob)
     {
         // straight from guest memory, a row at a time
@@ -1291,6 +1313,25 @@ VirtioGPU.prototype.present = function(scanout, resource, x, y, width, height)
         return;
     }
     this.convert(scanout, resource, x, y, width, height);
+};
+
+/**
+ * Whether the renderer shows the scanout's 3D picture itself: it can (its
+ * page's compositor), the scanout is the only one, and no cursor is drawn
+ * over the device's picture
+ * @param {!Scanout} scanout
+ */
+VirtioGPU.prototype.direct_scanout = function(scanout)
+{
+    return !!this.virgl && this.virgl.direct_present && !this.cursor.visible &&
+        this.scanouts.every(s => s === scanout || !s.resource_id);
+};
+
+/** The renderer's picture of the scanout goes: the device's shows again */
+VirtioGPU.prototype.leave_direct = function(scanout)
+{
+    scanout.direct = 0;
+    this.virgl.present_surface(null, 0, 0, 0, 0, 0, 0, 0, 0);
 };
 
 /**
@@ -1660,6 +1701,7 @@ VirtioGPU.prototype.cursor_command = function(bytes)
                 return alpha << 24 | (rgba & 0xFF) << 16 | rgba & 0xFF00 | rgba >>> 16 & 0xFF;
             });
             this.cursor.move(x, y, true);
+            this.cursor_shown();
         };
         if(resource.three_d && !(resource.host_newer && resource.data))
         {
@@ -1675,6 +1717,18 @@ VirtioGPU.prototype.cursor_command = function(bytes)
     {
         this.stats.cursor_moves++;
         this.cursor.move(x, y, this.cursor.visible);
+    }
+    this.cursor_shown();
+};
+
+/** A cursor over a picture the renderer shows: the device's picture again, read back */
+VirtioGPU.prototype.cursor_shown = function()
+{
+    if(!this.cursor.visible) return;
+    for(const s of this.scanouts)
+    {
+        const r = s.direct && this.resources.get(s.resource_id);
+        if(r) this.present(s, r, 0, 0, s.width, s.height);
     }
 };
 

@@ -139,7 +139,10 @@ export function Virgl(gpu, renderer, images)
     /** @type {!Set<!Resource3D>} mapped blobs the GPU has written since the
      * device last read them back into their mappings */
     this.written = new Set();
+    /** whether the renderer shows a scanout's picture itself (SURFACE_PRESENT, its "caps") */
+    this.direct_present = false;
     renderer.listen(message => this.receive(message));
+    renderer.post({ "type": "hello" });
 }
 
 Virgl.prototype.warn_once = function(key, text)
@@ -240,9 +243,13 @@ Virgl.prototype.receive = function(message)
                 this.completions.shift().run();
             }
             break;
+        case "caps":
+            this.direct_present = !!message["present"];
+            break;
         case "lost":
             // The renderer is gone: let nothing wait (the guest's next
             // commands draw nothing)
+            this.direct_present = false;
             dbg_log("virgl: the renderer was lost: " + message["reason"], LOG_VGA);
             this.completed = this.submitted;
             for(const answer of this.requests.values()) answer(null, 0);
@@ -422,6 +429,18 @@ Virgl.prototype.transfer_from_host = function(r, box, level, offset, stride, lay
         }
     }
     this.after_work(done);
+};
+
+/**
+ * A scanout's picture shown by the renderer (SURFACE_PRESENT): the
+ * resource's rectangle (x, y, w, h) to (dx, dy) of a screen of width x
+ * height; null takes it away
+ * @param {?Resource3D} r
+ */
+Virgl.prototype.present_surface = function(r, x, y, w, h, dx, dy, width, height)
+{
+    this.gxw.command(GX.SURFACE_PRESENT, r ? [r.id, x, y, w, h, dx, dy, width, height] : [0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    this.flush();
 };
 
 /**

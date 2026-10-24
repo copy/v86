@@ -121,13 +121,19 @@ V86.prototype.create_adapter_renderer = async function(options, host)
         dbg_log("WebGPU: " + e, LOG_VGA);
     }
     if(!adapter || this.destroyed) return null;
+    // (with the graphics proxy's compositor on this page: a layer of it, the
+    // renderer on its device showing scanouts there without readbacks,
+    // docs/gfxstream-plan.md G4; its plugin objects' names are quoted)
+    const compositor = this.device_plugins.map(plugin => plugin["bridge"] && plugin["bridge"]["compositor"]).find(Boolean);
+    const layer = compositor ? compositor["createLayer"]("display adapter") : null;
+    const renderer_options = layer ? { "canvas": layer["canvas"], "executorOptions": { "host": layer["host"] }, "scanoutLayer": layer } : {};
     if(host)
     {
-        this.adapter_renderer = create(host, {});
+        this.adapter_renderer = create(host, renderer_options);
         return host;
     }
     const channel = create_local_channel();
-    this.adapter_renderer = create(channel.host, {});
+    this.adapter_renderer = create(channel.host, renderer_options);
     return channel.device;
 };
 

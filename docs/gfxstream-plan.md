@@ -249,6 +249,14 @@ virtio-gpu 上下文（一个客体进程）可有多个 ASG 环（每个线程�
 
 验收：开机到 system_server 期间没有渲染控制或 gralloc 错误；颜色缓冲的内容可读回比对。
 
+进度（2026-10-24）：完成（客户端合成所需的部分）。官方镜像用 `hwcomposer.mode client`，HWC 经 KMS 翻页、不用
+renderControl，所以 rc 只需进程管道与同步；gralloc（minigbm）的缓冲是 virtio-gpu 资源：`VkNativeBufferANDROID`
+的图像（`vkCreateImage` 的链与 `vkBindImageMemory2` 的链两种形式，`13fc393f`、`fb30efa9`）与 AHB
+（`VkImportColorBufferGOOGLE`）导入为模型绑定到资源的图像；AHB 的格式查询按 dma-buf 回答，`vkCreateDevice` 去掉客体
+或宿主模拟的扩展、提供 `VK_KHR_external_memory_fd`。清除颜色按 uint32 位传（`f060d136`）。
+`tests/devices/virtio_gpu_gfxstream_render.js` 在无头 Chrome 的渲染器上按 vkahb 的步骤清除 AHB 图像与交换链图像并经
+TRANSFER_FROM_HOST_3D 读回。宿主合成（rcCompose）未做：官方模式不需要。
+
 ## 5. G4 显示与合成
 
 - 客户端合成：SurfaceFlinger 用 ANGLE 合成，HWC 经 KMS 翻页；设备已有的 SET_SCANOUT_BLOB 与 flush
@@ -258,6 +266,16 @@ virtio-gpu 上下文（一个客体进程）可有多个 ASG 环（每个线程�
   与测试仍回读。G-31 改写。
 
 验收：桌面与 Launcher3 正确显示；帧时间与 Venus（A9：热中位数 2.3 s）对比并记录。
+
+进度（2026-10-24）：客户端合成完成：SurfaceFlinger 用 ANGLE（gfxstream 的 Vulkan 上，OpenGL ES 3.0）合成，HWC 翻页，
+扫描输出是颜色缓冲（设备的 SET_SCANOUT_BLOB 与 flush 路径）；A9 场景的桌面与 Launcher3 正确（见 G5）。冷启动的帧
+5 帧、中位数 4.95 s（gfxinfo 在 Launcher 的重启后取不到热帧；Venus 的热中位数 2.3 s）。不回读的呈现（G-31 改写）
+完成：页面上有图形代理的合成器时，显示适配器的渲染器（`svga_renderer.js`）建在合成器的设备上并拿到它的一个图层，
+向设备回答 caps；virtio-gpu 对 3D 扫描输出的刷新改发 GX 的 SURFACE_PRESENT，渲染器在 GPU 上把刷新的矩形复制进
+图层（同格式的 copyTextureToTexture），没有回读；有光标或两个显示器时、渲染器做不到时（Node、无合成器）照旧回读，
+SET_SCANOUT 0 时撤下图层。Venus 与 gfxstream 的扫描输出（RESOURCE_CREATE_3D 的颜色缓冲）都走这条路。测试：
+`tests/devices/virtio_gpu_present.js`（设备的选择）、`tests/glbridge/virtio_gpu_present_browser_test.html`（Chrome：
+3D 资源上屏，0 次回读）。
 
 ## 6. G5 Android 集成与验收
 
@@ -272,6 +290,14 @@ virtio-gpu 上下文（一个客体进程）可有多个 ASG 环（每个线程�
 
 验收：两种官方镜像都进入桌面并通过 A9 场景；指标与 Venus 并列记录（冷启动、桌面、帧、应用启动）。
 
+进度（2026-10-24）：官方 Cuttlefish 镜像（15581820，磁盘不改，引导器的 `gpu_mode: "gfxstream"`）在 v86、4 个 vCPU
+Worker、页层、1536 MB 下通过 A9 场景（`A64_ANDROID_SCENARIO=a9 A64_ANDROID_GPU=gfxstream A64_ANDROID_BOOTLOADER=1`）：
+`boot_completed` 1186 s（Venus 1313 s），SELinux enforcing，解锁后 Launcher3（QuickstepLauncher）在前台，
+`GLES: ... ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU GFXStream (v86 WebGPU)), gfxstream-24.2.0), OpenGL ES 3.0.0`，
+触摸打开 Gallery，Wi-Fi 地址与 HTTP（Wi-Fi 关开之后也通），APK 安装 Success、启动 59.9 s，重启后 665 s 再到桌面，
+无应用崩溃。VM 管理器：显示的 Vulkan 可选 gfxstream，Android 的 GPU 档位随之（`55221e2e`）；预设的默认改 gfxstream
+见 android-images-plan I8.1。未做：官方 GSI 在 gfxstream 下、dEQP 抽样、文档的 gfxstream 节。
+
 ## 7. G6 快照、Worker 与多核
 
 - 快照：gfxstream 上下文、环位置、句柄表与颜色缓冲进设备状态；Vulkan 对象沿用模型的“重放 VX 命令”
@@ -279,6 +305,11 @@ virtio-gpu 上下文（一个客体进程）可有多个 ASG 环（每个线程�
 - CPU Worker：渲染器留在页面，设备在 Worker，通道不变；vCPU Worker 下多核同时写环的顺序由客体保证，
   设备侧只按环处理。
 - 验收：A10 的保存与恢复场景（`a64-android-a10`）在 gfxstream 下通过；CPU Worker 与 4 个 vCPU Worker。
+
+进度（2026-10-24）：快照完成（`d78b3747`）：每个上下文的环（未解码的流、先在等待的命令）、RESOURCE_CREATE_3D
+模板、同步号、Vulkan 状态（如 Venus 的 `venus_state.js`：对象、blob、队列、模板、宿主同步序号、原生图像）与进程管道
+进设备状态，模型恢复时重建渲染器对象；保存前环如 Venus 的一样排空。设备测试覆盖两环序列跨快照。4 个 vCPU Worker
+在 G5 的 A9 场景里用过。未做：A10 场景在 gfxstream 下、CPU Worker 下的浏览器运行。
 
 ## 风险与未定项
 

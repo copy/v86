@@ -38,6 +38,10 @@ export const GX = {
     SURFACE_IMPORT: 13,     // sid, D9WG handle
     SURFACE_EXPORT: 14,     // sid, D9WG handle
     CLEAR_RTV_INTEGER: 15,  // cid, render target view, signed, 4 values (DX's clear has floats)
+    // a scanout shown without a readback (docs/gfxstream-plan.md G4): the
+    // surface's rectangle copied on the GPU into the page's screen, at (dx, dy)
+    // of a screen of width x height; sid 0 hides it again
+    SURFACE_PRESENT: 16,    // sid, x, y, w, h, dx, dy, width, height
 };
 
 /** VX batch header magic: "VX10" (Venus's Vulkan, on WebGPU: vx/vx_executor.js) */

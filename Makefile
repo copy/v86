@@ -588,6 +588,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/vmware_svga_video.js
 	./tests/devices/virtio_gpu.js
 	./tests/devices/virtio_gpu_hostmem.js
+	./tests/devices/virtio_gpu_present.js
 	./tests/devices/virtio_gpu_venus.js
 	./tests/devices/venus_protocol.js
 	./tests/devices/virtio_gpu_gfxstream.js
@@ -899,6 +900,7 @@ display-browser-tests: build/cpu-worker.js build/libv86.mjs build/libv86.js buil
 	node tests/glbridge/gl_multipass_browser_runner.js "display_canvas_browser_test.html?worker=1"
 	node tests/glbridge/gl_multipass_browser_runner.js display_text_glyphs_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js display_compositor_browser_test.html
+	node tests/glbridge/gl_multipass_browser_runner.js virtio_gpu_present_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js graphics_vga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_renderer_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_dx_browser_test.html

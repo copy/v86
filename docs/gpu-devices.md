@@ -1634,11 +1634,14 @@ them. Smaller gaps are listed in [gpu-deviations.md](gpu-deviations.md#not-done)
     user-mode driver built from Mesa, with a patched virglrenderer on the
     host), was submitted in 2023, never merged, and does not cover Windows
     8.1.
-- **Scanout from the GPU.** Every 3D present is read back into the device's
-  picture (G-31), and the device draws cursors and the SVGA video overlay over
-  that picture. Showing a 3D scanout straight from its GPU texture in the
-  page's compositor, with a separate cursor plane, is not done; it would save
-  the readback per present.
+- **Scanout from the GPU.** VMware SVGA reads every 3D present back into the
+  device's picture (G-31), and the device draws cursors and the SVGA video
+  overlay over that picture. virtio-gpu shows a 3D scanout straight from its
+  GPU texture when the renderer shares the page's compositor (the graphics
+  proxy): the renderer copies each flushed rectangle into a layer of the
+  compositor (GX's SURFACE_PRESENT, the renderer's "caps" to the device's
+  "hello"); with a cursor shown or two displays on it reads back as before
+  (no separate cursor plane).
 - **Levels and the WebGPU adapter.** A level is chosen by whether a renderer
   exists, not by what the WebGPU adapter offers, and GX adapts to a missing
   feature only in a few places ([Architecture](#architecture), WebGPU
