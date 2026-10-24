@@ -522,7 +522,7 @@ await run("assemble an emulator image, its partitions as disks", async () =>
         const added = cpio_files(boot.initrd.subarray(Math.ceil(e.ramdisk.length / 4) * 4));
         assert.deepEqual([...added.keys()], ["init.ranchu.rc"]);
         assert.match(latin1(added.get("init.ranchu.rc")),
-            /^on boot\n {4}setprop ro.fixture 1\n\n# v64 .*\nservice v64_anr \/system\/bin\/sh -c ".*settings put secure anr_show_background 1; done"\n/);
+            /^on boot\n {4}setprop ro.fixture 1\n\n# v64 .*\nservice v64_anr \/system\/bin\/settings put secure anr_show_background 1\n[^]*on property:sys.boot_completed=1\n {4}start v64_anr\n/);
         assert.equal(boot.clock_rate, 0.1);
         assert.deepEqual(boot.properties, { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "" });
         assert.match(boot.cmdline, /^qemu=1 androidboot.hardware=ranchu console=ttyAMA0 .* android.bootanim=0$/);

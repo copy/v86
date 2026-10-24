@@ -143,7 +143,8 @@ VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 �
   这个 CPU 上超过服务启动的 20 s 超时，被当作后台 ANR 杀掉、重启、再杀，键盘锁永远连不上。修正：设备型号的时钟
   按主机的十分之一走（`cpu_clock.rate` 0.1，协作核：Android 的超时都得到十倍的主机时间，客体的时钟相应落后），
   后台 ANR 只弹框不杀（`Settings.Secure.ANR_SHOW_BACKGROUND`：引导器在 ramdisk 后面追加一个 cpio，替换
-  `init.ranchu.rc`，加一个开机设置它的 shell 服务，`src/android/ramdisk_overlay.js`），ANR 的栈不写
+  `init.ranchu.rc`，加一个 `sys.boot_completed` 时设置它的 shell 服务，`src/android/ramdisk_overlay.js`；按这个时钟
+  速率开机时已没有 ANR，它是给更慢的主机的保险），ANR 的栈不写
   （`dalvik.vm.stack-trace-file` 为空：写所有进程的栈时 ActivityManager 的锁被持有超过 Watchdog 的 60 s）。
   这样桌面（Pixel 启动器、状态栏、导航栏）出来了；测试按 uiautomator 找到 ANR 对话框的 “Wait” 点掉。
   冷启动时间与模拟器 TCG 的对照：SDK 的模拟器（35.4.9）已不能运行 32 位 ARM 镜像（“CPU Architecture 'arm' is not

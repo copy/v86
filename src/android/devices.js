@@ -213,19 +213,21 @@ export const RANCHU_25_ARMEABI_V7A = {
     clock_rate: 0.1,
     // init's additions (src/android/ramdisk_overlay.js): background ANRs
     // shown, not killed (Settings.Secure.ANR_SHOW_BACKGROUND, set by the
-    // shell's settings command once system_server's provider answers), so
-    // that a slow start does not kill SystemUI for good (the script inline:
-    // the shell's domain may not read the ramdisk's own files)
+    // shell's settings command when the boot completes), so that a slow
+    // service start (on a slower host) does not kill SystemUI for good
+    // (init of Android 7.1 takes no quoted arguments)
     init: {
         rc: [
             "# v64 (src/android/devices.js): background ANRs shown, not killed",
-            "service v64_anr /system/bin/sh -c \"until [ $(settings get secure anr_show_background) = 1 ]; " +
-                "do sleep 5; settings put secure anr_show_background 1; done\"",
-            "    class main",
+            "service v64_anr /system/bin/settings put secure anr_show_background 1",
             "    user shell",
             "    group shell",
             "    seclabel u:r:shell:s0",
+            "    disabled",
             "    oneshot",
+            "",
+            "on property:sys.boot_completed=1",
+            "    start v64_anr",
             "",
         ].join("\n"),
     },

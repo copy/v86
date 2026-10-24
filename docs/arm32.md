@@ -53,8 +53,9 @@ stack traces (`dalvik.vm.stack-trace-file` empty): dumping every process took Ac
 60 s on a CPU this slow. Two more of the device model's settings are for this CPU's speed: the machine's clock runs at
 a tenth of the host's (`cpu_clock.rate` 0.1, cooperative cores), so that Android's timeouts (a service's start 20 s, an
 input 5 s, the Watchdog 60 s) get ten times the host time, and background ANRs are shown, not killed
-(`Settings.Secure.ANR_SHOW_BACKGROUND`, set at boot by a service that v64's bootloader adds to `init.ranchu.rc` in a
-second ramdisk archive, `src/android/ramdisk_overlay.js`). Without them SystemUI's start outlasted its timeout, was
+(`Settings.Secure.ANR_SHOW_BACKGROUND`, set when the boot completes by a service that v64's bootloader adds to
+`init.ranchu.rc` in a second ramdisk archive, `src/android/ramdisk_overlay.js`; a safety net for slower hosts: at the
+clock's rate the boot has no ANR). Without them SystemUI's start outlasted its timeout, was
 killed and started again for good, and the screen stayed black: the keyguard's opaque scrim, which PhoneWindowManager
 shows until SystemUI's KeyguardService connects, covered the launcher (SurfaceFlinger itself composed and posted
 frames). The guest's clock lags the host's accordingly. The VM manager imports
