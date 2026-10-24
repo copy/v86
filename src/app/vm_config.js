@@ -5,7 +5,7 @@
 // configuration (config_to_options, with the old page's rules of
 // src/browser/vm_options.js).
 
-import { CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
+import { A64_PROFILES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
 import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, MAX_ARRAY_BUFFER_SIZE_MB, DEFAULT_VGA_MEMORY_SIZE,
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
@@ -60,7 +60,7 @@ export const VERSION = 1;
  * @property {string} modified
  * @property {{type: string, acpi: boolean, hpet: boolean, smbus: boolean, pcie_root_ports: number, boot_order: number,
  *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null}} machine
- * @property {{type: string, cores: number, parallel: boolean, jit: boolean}} cpu
+ * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
  * @property {{mb: number}} memory
  * @property {Disk[]} disks
  * @property {{image: Image | null, disk_error: "stop" | "report"}} cdrom
@@ -162,7 +162,8 @@ export function with_defaults(config)
     c.modified = c.modified ?? c.created;
     section("machine", { type: DEFAULT_FORM.machine_type, acpi: DEFAULT_FORM.acpi, hpet: false, smbus: false, pcie_root_ports: 0,
         boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null });
-    section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true });
+    // (profile: arm64's a64_profile, null the library's default, v2)
+    section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true, profile: null });
     section("memory", { mb: DEFAULT_MEMORY_SIZE });
     c.disks = Array.isArray(c.disks) ? c.disks.map(d => Object.assign({ disk_option: "read_only", disk_error: "stop" }, d)) : [];
     section("cdrom", { image: null, disk_error: "stop" });
@@ -317,6 +318,11 @@ export function validate_config(config)
     int(cpu.cores, "cpu.cores", 1, allowed.max_cores);
     bool(cpu.parallel, "cpu.parallel");
     bool(cpu.jit, "cpu.jit");
+    if(cpu.profile !== null && cpu.profile !== undefined)
+    {
+        if(cpu.type !== "arm64") problem("cpu.profile", "is the arm64 CPU's");
+        else if(!A64_PROFILES.includes(cpu.profile)) problem("cpu.profile", "must be one of " + A64_PROFILES.join(", "));
+    }
 
     int(config.memory.mb, "memory.mb", 16, MAX_MEMORY_SIZE);
     if(config.memory.mb > MAX_HEAP_MEMORY_SIZE && cpu.type === "x86")
@@ -675,6 +681,7 @@ export function config_to_options(config, env)
         settings.cpu_cores = cpu.cores;
         settings.parallel = cpu.parallel;
         settings.cpu_type = cpu.type;
+        if(cpu.type === "arm64" && cpu.profile) settings.a64_profile = cpu.profile;
         settings.machine_type = machine.type;
         if(machine.type === "q35")
         {

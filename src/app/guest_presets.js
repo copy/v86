@@ -142,6 +142,8 @@ export const PRESETS = [
         hardware: c =>
         {
             c.cpu.type = "arm64";
+            // (Alpine's kernel has COMPAT: armhf programs run too)
+            c.cpu.profile = "v3";
             c.machine.type = "virt";
             c.machine.acpi = false;
             c.cpu.cores = 4;

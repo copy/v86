@@ -56,6 +56,12 @@ assert.throws(() => check_machine_options({ machine_type: "pc" }), /machine_type
 assert.throws(() => check_machine_options({ experimental_x64: true }), /experimental_x64 was replaced/);
 console.log("PASS unknown cpu_type and machine_type");
 
+// the arm64 CPU's profile (docs/aarch32-plan.md Q7.2)
+for(const a64_profile of ["v1", "v1.1", "v2", "v3"]) assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", a64_profile }), a64_profile);
+assert.throws(() => check_machine_options({ cpu_type: "arm64", a64_profile: "v4" }), /a64_profile is one of "v1", "v1.1", "v2", "v3", got "v4"/);
+assert.throws(() => check_machine_options({ cpu_type: "x86_64", a64_profile: "v3" }), /a64_profile is an option of machine_type "virt"/);
+console.log("PASS a64_profile");
+
 // PC options on virt
 const pc_options = {
     bzimage: { url: "bzImage" }, multiboot: { url: "x" }, bios: { url: "seabios.bin" }, vga_bios: { url: "vgabios.bin" },

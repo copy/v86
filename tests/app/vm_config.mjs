@@ -182,6 +182,8 @@ const RULES = [
     ["input devices", c => { Object.assign(c, arm64()); c.virt.input = ["mouse"]; }, "virt.input"],
     ["console ports", c => { Object.assign(c, arm64()); c.virt.console_ports = 31; }, "virt.console_ports"],
     ["vsock", c => { Object.assign(c, arm64()); c.virt.vsock = 1; }, "virt.vsock"],
+    ["a profile on a PC", c => { c.cpu.profile = "v3"; }, "cpu.profile"],
+    ["an unknown profile", c => { Object.assign(c, arm64()); c.cpu.profile = "v9"; }, "cpu.profile"],
     ["a GPU slot without pci", c => { Object.assign(c, arm64()); c.virt.gpu_pci_slot = 2; }, "virt.gpu_pci_slot"],
     ["five virtio cards", c => { Object.assign(c, arm64()); c.network = Array(5).fill(c.network[0]); }, "network"],
     ["two cards served", c => { Object.assign(c, arm64()); c.network = [c.network[0], c.network[0]]; }, "network"],
@@ -336,6 +338,11 @@ test("config_to_options: the backends, arm64, a file not chosen yet", () =>
     assert.equal(o.memory_size, 1792 * 1024 * 1024);
     assert.equal(o.extended_memory_size, 256 * 1024 * 1024);
     assert.equal(o.acpi, false);
+    assert.equal(o.a64_profile, undefined, "the library's default profile");
+    assert.deepEqual(check_config(a), []);
+    // (the profile with 32-bit programs: docs/aarch32-plan.md Q7.1)
+    a.cpu.profile = "v3";
+    assert.equal(config_to_options(a, ENV).a64_profile, "v3");
     assert.deepEqual(check_config(a), []);
     const f = new_config();
     f.disks = [disk({ image: { kind: "file", name: "c.img", size: 512, last_modified: 0 } })];

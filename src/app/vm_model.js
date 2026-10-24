@@ -223,6 +223,11 @@ export function change(config, path, value)
         c.machine.type = "i440fx";
         notes.push("Machine: i440fx (the " + value + " CPU's)");
     }
+    if(path === "cpu.type" && value !== "arm64" && c.cpu.profile)
+    {
+        c.cpu.profile = null;
+        notes.push("Instruction sets: the arm64 CPU's profile is off");
+    }
     if(path === "cpu.type" && value === "x86" && c.memory.mb > MAX_HEAP_MEMORY_SIZE)
     {
         c.memory.mb = MAX_HEAP_MEMORY_SIZE;

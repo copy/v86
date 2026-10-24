@@ -559,6 +559,8 @@ export function settings_to_options(settings, env)
             // (the A64 page tier: the library's default is off until its F gate;
             // quoted, as the library reads it, or Closure renames it)
             "jit_switches": settings.disable_jit ? undefined : { "a64_page": 1 },
+            // (the CPU profile: v3 runs 32-bit programs too; the library's default otherwise)
+            "a64_profile": settings.a64_profile,
         } : {
             bios: settings.bios,
             vga_bios: settings.vga_bios,

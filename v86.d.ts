@@ -973,6 +973,18 @@ export interface V86Options {
     cpu_type?: "x86" | "x86_64" | "arm64";
 
     /**
+     * The arm64 CPU's profile (cpu_type "arm64" only; see
+     * [docs/aarch64.md](https://github.com/speedyHKjournalist/v64/blob/master/docs/aarch64.md),
+     * "CPU profile"): "v2", Armv8.0-A with FEAT_PAN, 64-bit programs only;
+     * "v3", v2 and AArch32 at EL0: a 64-bit kernel with COMPAT runs 32-bit
+     * Arm programs (armhf, armeabi-v7a; docs/aarch32-plan.md); "v1.1" and
+     * "v1" are v2 without FEAT_PAN (v1: the 4 KiB granule only). A restored
+     * snapshot takes its own profile.
+     * @default "v2"
+     */
+    a64_profile?: "v1" | "v1.1" | "v2" | "v3";
+
+    /**
      * CPU features beyond the base profile, reported by CPUID: SSSE3, SSE4.1
      * and SSE4.2, by name or as the preset "x86-64-v2" (with
      * cpu_type: "x86_64", what x86-64-v2 requires: RHEL 9, Windows 11 24H2);

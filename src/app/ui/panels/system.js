@@ -8,6 +8,8 @@ import { image_picker } from "../image_picker.js";
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
 export const CPU_LABELS = { x86: "x86 (32-bit, up to SSE3)", x86_64: "x86_64 (64-bit, every instruction set)", arm64: "arm64 (the virt machine)" };
+/** The arm64 CPU's profiles the panel offers (cpu.profile; null is v2, the library's default) */
+export const A64_PROFILE_LABELS = { v2: "Armv8.0-A: 64-bit programs", v3: "Armv8.0-A and 32-bit programs (AArch32 at EL0)" };
 export const MACHINE_LABELS = { i440fx: "i440FX (IDE, PCI)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (arm64, virtio devices)" };
 const BOOT_ORDER_LABELS = { 0: "Automatic (floppy, then hard disk, then CD)", 0x213: "CD, floppy, hard disk", 0x123: "CD, hard disk, floppy",
     0x231: "Floppy, CD, hard disk", 0x321: "Floppy, hard disk, CD", 0x312: "Hard disk, floppy, CD", 0x132: "Hard disk, CD, floppy" };
@@ -108,6 +110,11 @@ export function processor_panel(ctx)
         check_field("Run the cores in host threads where the page allows it (otherwise they take turns)", c.cpu.parallel, value => ctx.set("cpu.parallel", value),
             c.cpu.cores === 1 ? "one core" : undefined),
         check_field("JIT compiler", c.cpu.jit, value => ctx.set("cpu.jit", value)),
+        ...(c.cpu.type === "arm64" ? [
+            select_field("Instruction sets", Object.keys(A64_PROFILE_LABELS), c.cpu.profile || "v2", value => ctx.set("cpu.profile", value === "v2" ? null : value),
+                v => A64_PROFILE_LABELS[v] || v),
+            h("p.note", null, "32-bit programs (armhf, armeabi-v7a) run on a 64-bit kernel with COMPAT; their code is interpreted, slower than 64-bit code."),
+        ] : []),
     ];
 }
 

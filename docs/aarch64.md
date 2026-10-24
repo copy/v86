@@ -22,7 +22,7 @@ does not contain the ARM code (the plan's "Wasm core" section).
 | | |
 | --- | --- |
 | Option | `cpu_type: "arm64"` (machine_type "virt", its default) |
-| Profile | `v86-aarch64-v2` by default since 2026-10-20 (v1.1 and FEAT_PAN), [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) (`a64_profile: "v1.1"`: without PAN; `"v1"`: the 4 KiB granule only) |
+| Profile | `v86-aarch64-v2` by default since 2026-10-20 (v1.1 and FEAT_PAN), [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) (`a64_profile: "v1.1"`: without PAN; `"v1"`: the 4 KiB granule only; `"v3"`: v2 and AArch32 at EL0, 32-bit programs on a 64-bit kernel) |
 | Verified guests | Android 16 (BP4A.251205.006, Cuttlefish's arm64-only phone, GKI 6.12): on 4 cores in workers with the page tier to system_server, adbd over vsock and `sys.boot_completed=1`; the desktop on Venus, touch, Wi-Fi, an APK and a reboot (A9); its desktop saved and restored into a new machine, then input, sound, 30 minutes of monkey and memory pressure with the core services kept, a CTS subset (CTS 16.1_r1's KernelConfig, NativeEncryption, AslrMalloc, FsMgr and Bionic, 3208 tests), and the same userspace on a 16 KiB-page GKI kernel (6.12.93) to the desktop (A10); its GKI kernel with Alpine's initramfs, the virtual-device modules and the probe (P10.6). Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng, hvc0 and -input, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system, all on virtio-mmio and on virtio-pci (the PCI functions as the reference's); s2idle woken by the PL031's alarm and hibernation to a swap disk with the resume after power-on; 3 and 4 GiB of RAM with extended RAM from 4 GiB (a memtest over most of it); in headless Chrome from the source tree, the bundle and the CPU worker; on 2 and 4 cores in vCPU workers (`parallel: true`: the probe, the live stage with snapshots, reboot, poweroff, s2idle, hibernation); Linux 6.18.35 built for 16 and 64 KiB pages (`tools/a64_kernel.mjs`) to a login and through the probe, interpreted and with the page tier, and the guest JITs on them; the androidish kernel (Linux 6.18.35 in GKI's shape: a 39-bit VA, SW_TTBR0_PAN, pseudo-NMIs, KASLR) on 2 and 4 cores, interpreted, with the page tier and in workers, and with 4 GiB of RAM: binderfs's selftest and binder between two cores, userfaultfd, a minimal SELinux policy enforcing (the probe after it), bootconfig, erofs on dm-verity, f2fs with fscrypt across a reboot, zram as swap and PSI's trigger; virtio-console's ports 1-3 (`org.v86.port<N>`, echoed by the host) in every live stage; virtio-gpu: KMS (atomic, planes, cursor, PRIME, explicit sync), kmscube and weston with llvmpipe, virgl (GL 4.3, gltest 0 failures), Venus (vktest, vkcube) on a real GPU through WebGPU, input on weston; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
 | Boot time | The frozen baseline (P9.4, [tests/a64/perf-baseline.json](../tests/a64/perf-baseline.json), release build, medians of 3 sessions on an Apple M-series Mac): Alpine from the ISO to `localhost login:` 34.7 / 39.5 / 40.6 s on 1/2/4 cores with the page tier, 238 / 281 / 362 s interpreted (QEMU TCG: 11 s on 1 core); the initramfs stage through the probe 6.3 / 6.9 / 7.0 s with the page tier, 35.6 / 41.8 / 57.4 s interpreted. On a quiet machine at A4: to login 30 / 39 / 34 s, and on 1 core to login and through the probe 33.1 s, 1.37 times the x86_64 page tier's 24.1 s on the same host (the E level's budget: 3 times) |
 | Sound | virtio-snd (`virtio_sound: true`, P7.5, P12.5): one output stream, PCM in 1 or 2 channels, S16 or S32, 8000 to 48000 Hz, played on the machine's clock to the speaker. Android's audio HAL plays through it (its primary output is tinyalsa's card 0 device 0): tinyplay's WAV reaches the host byte for byte; an AAudio tone through AudioFlinger reaches it at its frequency on QEMU, while on v86 the HAL drops it (below). In the browser the speaker's AudioWorklet plays it (from the CPU worker over its audio port); a page started without a user gesture gets a suspended AudioContext (the autoplay policy), which the first click, key or touch on the page resumes |
@@ -36,7 +36,7 @@ Reference Manual, DDI 0487 issue L.b.
 
 | Advertised | Not advertised |
 | --- | --- |
-| AArch64 at EL0 and EL1; FP and Advanced SIMD (no FP16); AES with 64-bit PMULL, SHA1, SHA-256, CRC32; GICv3 system registers; 2 breakpoints, 2 watchpoints; CSV2 and CSV3; 40-bit physical addresses, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1 has 4 KiB only) | EL2, EL3, AArch32 (planned in [aarch32-plan.md](aarch32-plan.md): EL0 compat as profile v3, and 32-bit kernels as `cpu_type: "arm32"`); LSE, RDM, SHA512, SHA3, SM3/SM4, DotProd, FP16; PAuth, BTI, MTE, SVE, SME; PMU; hardware AF/DBM, PAN, VHE |
+| AArch64 at EL0 and EL1; FP and Advanced SIMD (no FP16); AES with 64-bit PMULL, SHA1, SHA-256, CRC32; GICv3 system registers; 2 breakpoints, 2 watchpoints; CSV2 and CSV3; 40-bit physical addresses, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1 has 4 KiB only); AArch32 at EL0 in v3 (below) | EL2, EL3, AArch32 at EL1 (32-bit kernels: `cpu_type: "arm32"`, planned in [aarch32-plan.md](aarch32-plan.md) part 2); LSE, RDM, SHA512, SHA3, SM3/SM4, DotProd, FP16; PAuth, BTI, MTE, SVE, SME; PMU; hardware AF/DBM, PAN, VHE |
 
 HWCAP is `0x8ff`: `fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid`.
 
@@ -53,6 +53,26 @@ PSTATE.PAN changes need no flush. HWCAP is v1.1's. A snapshot restores as
 its own profile (the machine takes it on), whatever `a64_profile` says.
 `tests/a64/pan.mjs` checks it against QEMU's `-cpu max` (the cortex-a35
 reference has no PAN).
+
+Profile `v3` (`a64_profile: "v3"`, `v86-aarch64-v3`; [aarch32-plan.md](aarch32-plan.md)
+part 1) is v2 and AArch32 at EL0: a 64-bit kernel with COMPAT runs 32-bit
+Arm programs (armhf, armeabi-v7a) as compat tasks. ID_AA64PFR0_EL1.EL0 is 2;
+the AArch32 ID registers are the reference's for an AArch32 at EL0 only, as
+Cortex-A76 reports them (no AArch32 EL1 modes, no SETEND, no SMC). A32 and
+T32 with IT blocks, VFPv4 (no short vectors, no half-precision arithmetic),
+Advanced SIMD with AES, SHA-1, SHA-256 and VMULL.P64, CRC32, CP15's EL0
+registers (TPIDRURW, TPIDRURO, the generic timer, the CP15 barriers), BKPT,
+software step, breakpoints and watchpoints; FPSCR is FPSR and FPCR (Len and
+Stride read 0). The compat HWCAP is `half thumb fastmult vfp edsp neon vfpv3
+tls vfpv4 idiva idivt lpae evtstrm` and HWCAP2 `aes pmull sha1 sha2 crc32`.
+32-bit code is interpreted (the page tier compiles A64 only: about 14 MIPS on
+one core). The instructions are checked against the reference one by one
+(`tests/a64/aarch32_oracle.mjs`, `aarch32_el0.mjs`), Alpine's armv7 programs
+and a 32-bit probe run with the reference's output
+(`A64_PROFILE=v3 A64_WORKLOAD=aarch32 node tests/a64/linux_boot.mjs`). The
+VM manager offers it as "Instruction sets" on arm64 (the Linux preset's
+choice); the deviations from QEMU, all on UNPREDICTABLE encodings, are in the
+plan's progress notes.
 
 The profile's completeness (`node tools/a64_profile_report.mjs --reference --kvm`,
 at `vA7`): all 49 classes of the Arm ARM's encoding index have a status (37

@@ -45,7 +45,10 @@ export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot"
 
 /** Options of the virt machine that the PC machines reject */
 export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
-    "virtio_console_ports", "virtio_gpu_pci_slot"];
+    "virtio_console_ports", "virtio_gpu_pci_slot", "a64_profile"];
+
+/** The arm64 CPU's profiles (a64_profile, src/virt/platform.js); v2 is the default */
+export const A64_PROFILES = ["v1", "v1.1", "v2", "v3"];
 
 /** The display adapters of the virt machine (no VGA) */
 export const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
@@ -125,6 +128,11 @@ export function check_machine_options(options)
         if(transport !== undefined && transport !== "mmio" && transport !== "pci")
         {
             throw new Error("virtio_transport is \"mmio\" (the default) or \"pci\", got " + JSON.stringify(transport));
+        }
+        const profile = options["a64_profile"];
+        if(profile !== undefined && !A64_PROFILES.includes(profile))
+        {
+            throw new Error("a64_profile is one of " + A64_PROFILES.map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
         }
     }
     else
