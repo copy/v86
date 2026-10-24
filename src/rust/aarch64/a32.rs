@@ -966,14 +966,14 @@ pub fn exclusive(
     rt: u32,
     rt2: u32,
     status: u32,
-    rn: u32,
-    address: u64,
+    address: u32,
+    pc: u32,
 ) -> Result<Flow, Exception> {
     let pair = size == 3;
     let i = Inst {
         op: crate::aarch64::decode::Op::Exclusive,
         rd: rt as u8,
-        rn: rn as u8,
+        rn: 0,
         rm: status as u8,
         ra: rt2 as u8,
         sf: false,
@@ -984,7 +984,7 @@ pub fn exclusive(
         amount: 0,
         imm: 0,
     };
-    execute::exclusive(&i, address)
+    execute::exclusive_at(&i, pc as u64, address as u64)
 }
 
 /// LDA*, STL* (size 1, 2, 4): aligned, ordered
@@ -1319,7 +1319,7 @@ fn a32(word: u32, pc: u32) -> Result<Flow, Exception> {
                         a32_multiply(word)
                     }
                     else {
-                        a32_synchronization(word)
+                        a32_synchronization(word, pc)
                     };
                 }
                 return a32_extra_load_store(word, pc);
@@ -1432,7 +1432,7 @@ fn a32_multiply(word: u32) -> Result<Flow, Exception> {
 
 /// The synchronization primitives (bits 27:23 00011, 7:4 1001): the
 /// exclusives and load-acquire/store-release
-fn a32_synchronization(word: u32) -> Result<Flow, Exception> {
+fn a32_synchronization(word: u32, pc: u32) -> Result<Flow, Exception> {
     let size = [2, 3, 0, 1][(word >> 21 & 3) as usize];
     let load = word & 1 << 20 != 0;
     let rn = word >> 16 & 15;
@@ -1454,7 +1454,16 @@ fn a32_synchronization(word: u32) -> Result<Flow, Exception> {
             {
                 return Err(Exception::Undefined);
             }
-            exclusive(load, size, ex_ord == 2, rt, rt + 1, status, rn, address)
+            exclusive(
+                load,
+                size,
+                ex_ord == 2,
+                rt,
+                rt + 1,
+                status,
+                address as u32,
+                pc,
+            )
         },
         // LDA, STL (no doubleword)
         0 => {

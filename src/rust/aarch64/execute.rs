@@ -985,17 +985,23 @@ static mut SPIN: [(u64, u128, u32); crate::isa::MAX_CORES] = [(0, 0, 0); crate::
 const SPIN_YIELD: u32 = 4;
 
 /// LDXR/STXR/LDAXR/STLXR/LDXP/STXP/LDAXP/STLXP
-pub(crate) fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
+fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
+    let rn = i.rn as u32;
+    let base = xr_sp(rn);
+    check_sp(rn, base)?;
+    exclusive_at(i, address, base)
+}
+
+/// An exclusive load or store of `i` (the instruction at `address`) at `base`
+/// (AArch32's: its offset added)
+pub(crate) fn exclusive_at(i: &Inst, address: u64, base: u64) -> Result<Flow, Exception> {
     let rt = i.rd as u32;
     let rt2 = i.ra as u32;
     let rs = i.rm as u32;
-    let rn = i.rn as u32;
     let load = i.sub & 1 != 0;
     let pair = i.sub & 2 != 0;
     let element_log = i.cond as u32;
     let total = (1u32 << element_log) * if pair { 2 } else { 1 };
-    let base = xr_sp(rn);
-    check_sp(rn, base)?;
     if base & (total as u64 - 1) != 0 {
         return Err(alignment(base, !load, Syndrome::NONE));
     }
