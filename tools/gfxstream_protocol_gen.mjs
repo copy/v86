@@ -794,6 +794,8 @@ class Translator
                 {
                     return "(" + this.js(zero(e.l) ? e.r : e.l) + (e.op === "==" ? " == null" : " != null") + ")";
                 }
+                // (C's division of integers truncates: pSampleMask's (samples + 31) / 32 words)
+                if(e.op === "/") return "Math.trunc(" + this.js(e.l) + " / " + this.js(e.r) + ")";
                 return "(" + this.js(e.l) + " " + op + " " + this.js(e.r) + ")";
             }
             case "cond": return "(" + this.js(e.c) + " ? " + this.js(e.t) + " : " + this.js(e.f) + ")";

@@ -222,3 +222,17 @@ assert.deepEqual([a.pPhysicalDeviceCount, a.pPhysicalDevices, a.ret], [1, [0x100
 a = reply("vkCreateImageWithRequirementsGOOGLE", { pImage: 0x2000, pMemoryRequirements: { size: 4096, alignment: 256, memoryTypeBits: 1 }, ret: 0 }, {});
 assert.deepEqual([a.pImage, a.pMemoryRequirements.size, a.ret], [0x2000, 4096, 0]);
 console.log("PASS: commands of both sides");
+
+// A command as Android's ANGLE wrote it (the A9 scenario: SystemUI's
+// pipelines, 4 samples): pSampleMask's (rasterizationSamples + 31) / 32
+// words, C's division of integers; the rest after it read right
+{
+    const payload = unhex(fs.readFileSync(__dirname + "/gfxstream_create_graphics_pipelines.hex", "utf8").trim());
+    const r = new P.GfxReader(payload, 4);
+    const pipelines = by_name.vkCreateGraphicsPipelines[1](r);
+    assert.equal(r.p, payload.length, "vkCreateGraphicsPipelines: all of it read");
+    const multisample = pipelines.pCreateInfos[0].pMultisampleState;
+    assert.equal(multisample.rasterizationSamples, 4);
+    assert.equal(multisample.pSampleMask.length, 1, "one word of sample mask");
+    console.log("PASS: ANGLE's vkCreateGraphicsPipelines (a sample mask of 4 samples)");
+}

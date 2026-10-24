@@ -1030,9 +1030,9 @@ function d_VkShaderModuleCreateInfo(r, root)
     o.pNext = d_pnext(r, root);
     o.flags = r.u32();
     o.codeSize = r.be64();
-    if(((o.codeSize / 4) > 0))
+    if((Math.trunc(o.codeSize / 4) > 0))
     {
-        o.pCode = r.u32s((o.codeSize / 4));
+        o.pCode = r.u32s(Math.trunc(o.codeSize / 4));
     }
     return o;
 }
@@ -6240,7 +6240,7 @@ function e_VkShaderModuleCreateInfo(w, o, root)
     e_pnext(w, o.pNext, root);
     w.u32(o.flags);
     w.be64(o.codeSize);
-    w.u32s(o.pCode, (o.codeSize / 4));
+    w.u32s(o.pCode, Math.trunc(o.codeSize / 4));
 }
 
 function e_VkPipelineLayoutCreateInfo(w, o, root)
@@ -8878,9 +8878,9 @@ function d_VkPipelineMultisampleStateCreateInfo(r, root)
     o.pSampleMask = null;
     if(p0)
     {
-        if((((o.rasterizationSamples + 31) / 32) > 0))
+        if((Math.trunc((o.rasterizationSamples + 31) / 32) > 0))
         {
-            o.pSampleMask = r.u32s(((o.rasterizationSamples + 31) / 32));
+            o.pSampleMask = r.u32s(Math.trunc((o.rasterizationSamples + 31) / 32));
         }
     }
     o.alphaToCoverageEnable = r.u32();

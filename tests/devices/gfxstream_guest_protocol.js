@@ -996,9 +996,9 @@ function ge_VkShaderModuleCreateInfo(w, o, root)
     ge_pnext(w, o.pNext, root);
     w.u32(o.flags);
     w.be64(o.codeSize);
-    if(((o.codeSize / 4) > 0))
+    if((Math.trunc(o.codeSize / 4) > 0))
     {
-        w.u32s(o.pCode, (o.codeSize / 4));
+        w.u32s(o.pCode, Math.trunc(o.codeSize / 4));
     }
 }
 
@@ -5925,7 +5925,7 @@ function gd_VkShaderModuleCreateInfo(r, o, root)
     o.pNext = gd_pnext(r, o.pNext, root);
     o.flags = r.u32();
     o.codeSize = r.be64();
-    o.pCode = r.u32s((o.codeSize / 4));
+    o.pCode = r.u32s(Math.trunc(o.codeSize / 4));
     return o;
 }
 
@@ -9476,9 +9476,9 @@ function ge_VkPipelineMultisampleStateCreateInfo(w, o, root)
     w.ptr(o.pSampleMask != null);
     if(o.pSampleMask != null)
     {
-        if((((o.rasterizationSamples + 31) / 32) > 0))
+        if((Math.trunc((o.rasterizationSamples + 31) / 32) > 0))
         {
-            w.u32s(o.pSampleMask, ((o.rasterizationSamples + 31) / 32));
+            w.u32s(o.pSampleMask, Math.trunc((o.rasterizationSamples + 31) / 32));
         }
     }
     w.u32(o.alphaToCoverageEnable);
