@@ -534,7 +534,11 @@ const C0: usize = 8;
 const C1: usize = 9;
 /// the access cache's EL0 tables, for LDTR and STTR at EL1
 const J0: usize = 10;
-const LOCALS32: usize = 11;
+/// AArch32's operands and results (pagegen::a32)
+const A0: usize = 11;
+const A1: usize = 12;
+const A2: usize = 13;
+const LOCALS32: usize = 14;
 
 struct Emitter<'a> {
     b: WasmBuilder,
@@ -2785,9 +2789,22 @@ impl PageEmitter for Emitter<'_> {
         self.b.br(self.f().exit);
     }
     fn leave_tail(&mut self) {
-        if self.env.chaining {
-            self.chain();
+        if !self.env.chaining {
+            return;
         }
+        if self.env.isa == Isa::T32 {
+            // (T32: not inside an IT block, which the next page's function
+            // knows nothing of: pages::run's rule for entries)
+            self.load32(state::pstate as u32);
+            self.c32(cpu::PSTATE_IT as i32);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.if_void();
+            self.chain();
+            self.b.block_end();
+            return;
+        }
+        self.chain();
     }
     fn exit_tail(&mut self) {
         self.writeback();

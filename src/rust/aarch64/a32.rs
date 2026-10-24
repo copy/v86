@@ -1216,6 +1216,21 @@ fn fetch(address: u64, thumb: bool) -> Result<(u32, u32), Exception> {
 
 // ---- one instruction
 
+/// (diagnostics: crate::aarch64::jit::pages' step and helper counts) an
+/// AArch32 instruction's class: A32's bits 27:20 (768 up), T32's first
+/// halfword's top bits (16-bit 512 up, 32-bit 640 up)
+pub fn step_key(word: u32, length: u32, thumb: bool) -> u32 {
+    if !thumb {
+        768 | word >> 20 & 0xFF
+    }
+    else if length == 2 {
+        512 | word >> 9 & 0x7F
+    }
+    else {
+        640 | word >> 20 & 0x7F
+    }
+}
+
 /// An instruction fetched (`length` 4, or T32's 2 or 4) executed at `pc`
 /// (the page tier's helpers too: crate::aarch64::jit::pages::a32_page_helper)
 #[inline(always)]
@@ -1245,6 +1260,7 @@ pub fn interpret_one(address: u64) -> Flow {
         }
         // (software step's EX: whether the stepped instruction is a load exclusive)
         unsafe { execute::STEPPED_EXCLUSIVE_LOAD = false };
+        unsafe { execute::LAST_STEPPED = (step_key(word, length, thumb), word) };
         execute_fetched(word, length, address as u32, thumb)
     });
     let length = instruction_length();

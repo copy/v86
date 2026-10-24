@@ -51,8 +51,11 @@ extern "C" {
 /// The page tier runs (a64_page; default off until its F gate)
 pub static mut ENABLED: bool = false;
 /// AArch32's code is compiled too (a64_page_aarch32, docs/aarch32-plan.md Q6)
-pub static mut AARCH32: bool = false;
-pub static mut AARCH32_DEBUG: u32 = 0;
+pub static mut AARCH32: bool = true;
+/// (bisecting) the switch's value: 2 helper calls only, 3 native forms only, 16 + a mask
+pub static mut AARCH32_DEBUG: u32 = 1;
+/// (bisecting, a64_page_aarch32_filter) n << 16 | pattern
+pub static mut AARCH32_FILTER: u32 = 0;
 /// Interpreted instructions on a page before it is compiled
 pub static mut HOT: u32 = 2000;
 /// Unserved entries of a published function before its page is recompiled
@@ -752,6 +755,19 @@ fn compile(key: u32, pc: u64) {
         .collect();
     let code_key = key & ((1 << MODE_SHIFT) - 1);
     let mode = key >> MODE_SHIFT;
+    let filter = unsafe { AARCH32_FILTER };
+    if filter != 0 && (mode == MODE_A32 || mode == MODE_T32) {
+        let mask = (1u32 << (filter >> 16)) - 1;
+        if code_key & mask != filter & 0xFFFF & mask {
+            return;
+        }
+        console_log!(
+            "a32 page {:x} key {:x} {}",
+            pc & !0xFFF,
+            code_key,
+            if mode == MODE_T32 { "T32" } else { "A32" }
+        );
+    }
     let bytes = if code_key >= bus::EXTENDED_CODE_KEY {
         unsafe { crate::extended::copy_page(code_key - bus::EXTENDED_CODE_KEY) }
     }
@@ -776,7 +792,9 @@ fn compile(key: u32, pc: u64) {
         pagegen::CompileEnv {
             el1: mode & 1 != 0,
             sp_checked: mode & 2 != 0,
-            chaining: unsafe { CHAINING },
+            // (a64_page_aarch32_filter's bit 15: AArch32's functions do not chain)
+            chaining: unsafe { CHAINING }
+                && !((mode == MODE_A32 || mode == MODE_T32) && filter & 0x8000 != 0),
             neon: unsafe { super::NEON },
             helpers: unsafe { super::HELPERS },
             system: unsafe { super::SYSTEM },
@@ -1249,6 +1267,11 @@ pub fn a64_page_helper(word: u32, pc: u64) -> u32 {
 pub fn a32_page_helper(word: u32, pc: u64, length: u32) -> u32 {
     unsafe { HELPERS += 1 };
     let thumb = cpu::get_pstate() & cpu::PSTATE_T != 0;
+    note_step(
+        HELPED,
+        crate::aarch64::a32::step_key(word, length, thumb),
+        word,
+    );
     match crate::aarch64::a32::execute_fetched(word, length, pc as u32, thumb) {
         Ok(Flow::Next) => {
             crate::core_stats::add_pending(1, 0);

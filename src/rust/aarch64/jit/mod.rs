@@ -14,9 +14,14 @@
 //! - a64_relaxed_fma: the multiply-adds through relaxed SIMD (only where the
 //!   host fuses them; its default is the host's probe)
 //! - a64_page_aarch32: AArch32's code (EL0's A32 and T32) compiled too
-//!   (docs/aarch32-plan.md Q6; default off until its gate); for bisecting,
+//!   (docs/aarch32-plan.md Q6; on since its gate, Q6.4); for bisecting,
 //!   2: helper calls only (the native forms stepped), 3: the native forms
-//!   only (helper calls stepped)
+//!   only (helper calls stepped), 16 + a mask of native kinds run as helper
+//!   calls (32 data processing, 64 MOVW and MOVT, 128 loads and stores, 256
+//!   LDM and STM, 512 multiplies, 1024 extends)
+//! - a64_page_aarch32_filter: (bisecting) n << 16 | pattern: only the
+//!   AArch32 pages whose code key's low n bits are the pattern's are
+//!   compiled, each named on the console
 //! - a64_system: the EL1 system templates, a mask (pagegen::SYSTEM_*): bit 0
 //!   MRS and MSR of SP_EL0, TPIDR_EL1, DAIF, ELR_EL1, SPSR_EL1, ESR_EL1,
 //!   FAR_EL1, MRS DCZID_EL0, MSR DAIFSet and DAIFClr; 1 TLBI; 2 DC ZVA; 3 LDTR
@@ -69,7 +74,7 @@ struct Switch {
     set: fn(u32) -> bool,
 }
 const UNSET: u32 = u32::MAX;
-const SWITCHES: [Switch; 9] = [
+const SWITCHES: [Switch; 10] = [
     Switch {
         name: "a64_page",
         default: 0,
@@ -117,15 +122,21 @@ const SWITCHES: [Switch; 9] = [
     },
     Switch {
         name: "a64_page_aarch32",
-        default: 0,
+        default: 1,
         get: || unsafe { pages::AARCH32 as u32 },
         set: |v| {
-            v <= 3
+            v < 1 << 11
                 && unsafe {
                     pages::AARCH32 = v != 0;
                     pages::AARCH32_DEBUG = v
                 } == ()
         },
+    },
+    Switch {
+        name: "a64_page_aarch32_filter",
+        default: 0,
+        get: || unsafe { pages::AARCH32_FILTER },
+        set: |v| v < 32 << 16 && unsafe { pages::AARCH32_FILTER = v } == (),
     },
     Switch {
         name: "a64_asid_tag",
