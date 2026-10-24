@@ -215,11 +215,12 @@ export const RANCHU_25_ARMEABI_V7A = {
     // shown, not killed (Settings.Secure.ANR_SHOW_BACKGROUND, set by the
     // shell's settings command when the boot completes), so that a slow
     // service start (on a slower host) does not kill SystemUI for good
-    // (init of Android 7.1 takes no quoted arguments)
+    // (init of Android 7.1 takes no quoted arguments; the shell's domain
+    // is entered by /system/bin/sh only)
     init: {
         rc: [
             "# v64 (src/android/devices.js): background ANRs shown, not killed",
-            "service v64_anr /system/bin/settings put secure anr_show_background 1",
+            "service v64_anr /system/bin/sh /system/bin/settings put secure anr_show_background 1",
             "    user shell",
             "    group shell",
             "    seclabel u:r:shell:s0",
