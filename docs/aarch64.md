@@ -236,7 +236,9 @@ official Cuttlefish images on gfxstream pass A9's scenario on v86
 (`A64_ANDROID_GPU=gfxstream A64_ANDROID_BOOTLOADER=1`, 4 vCPU workers):
 boot_completed 1186 s, Launcher3 in front after the unlock, Gallery opened by
 a tap, Wi-Fi and HTTP, an APK installed (Success) and started in 59.9 s, the
-second boot 665 s. The VM manager's Android preset and imported images use
+second boot 665 s; the official GSI over Cuttlefish's vendor (BP4A) passes it
+too: boot_completed 991 s, the APK started in 25.6 s, the second boot 477 s
+(2026-10-25). The VM manager's Android preset and imported images use
 gfxstream by default; the screen shows the scanout straight from the GPU
 when the graphics proxy's compositor is on the page (no readback, G-31).
 

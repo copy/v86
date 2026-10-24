@@ -356,8 +356,8 @@ vendor 由设备树 `/firmware/android/fstab/vendor` 在第一阶段挂载，/da
 | I8.3 | 文档：[vm-manager.md](vm-manager.md)（Android 一节、目录、下载）、[aarch64.md](aarch64.md)（引导器、导入）、vm-manager-plan.md 记录“目录”的新决定；release_gate 增加导入与引导器的级别 | S |
 
 进度（2026-10-24）：I8.1 的代码完成（`949f8fe0`）：Android 16 预设的显示是 virtio-gpu 的 gfxstream、GPU 档位 gfxstream，
-向导不再把导入的包改成 SwiftShader；官方 Cuttlefish zip 在 gfxstream 下通过 A9 场景（gfxstream-plan G5）；官方 GSI 的
-A9 场景待跑。I8.2 不再需要（默认已有 GPU），向导改为说明没有 WebGPU 时选 SwiftShader。I8.3：vm-manager.md 的 Android
+向导不再把导入的包改成 SwiftShader；官方 Cuttlefish zip 在 gfxstream 下通过 A9 场景（gfxstream-plan G5）；官方 GSI（BP4A 加 Cuttlefish 设备包）
+2026-10-25 也通过（`boot_completed` 991 s，重启后 477 s；gfxstream-plan G5 的进度）。I8.2 不再需要（默认已有 GPU），向导改为说明没有 WebGPU 时选 SwiftShader。I8.3：vm-manager.md 的 Android
 一节写了 gfxstream 与模拟器镜像。
 
 ## 兼容范围：第三方系统（LineageOS 等）

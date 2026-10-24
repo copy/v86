@@ -1,6 +1,6 @@
 # gfxstream 实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
+状态：实施中（G0–G6 的进度见各节；2026-10-25 剩 G6 的 A10 场景与浏览器运行、G5 的 dEQP 抽样）。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划为 v64 的 virtio-gpu 增加 gfxstream：Android 模拟器和 Cuttlefish 把客体的 Vulkan（以及
@@ -300,7 +300,13 @@ Worker、页层、1536 MB 下通过 A9 场景（`A64_ANDROID_SCENARIO=a9 A64_AND
 `GLES: ... ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU GFXStream (v86 WebGPU)), gfxstream-24.2.0), OpenGL ES 3.0.0`，
 触摸打开 Gallery，Wi-Fi 地址与 HTTP（Wi-Fi 关开之后也通），APK 安装 Success、启动 59.9 s，重启后 665 s 再到桌面，
 无应用崩溃。VM 管理器：显示的 Vulkan 可选 gfxstream，Android 的 GPU 档位随之（`55221e2e`）；预设的默认改 gfxstream
-见 android-images-plan I8.1。未做：官方 GSI 在 gfxstream 下、dEQP 抽样、文档的 gfxstream 节。
+见 android-images-plan I8.1。
+官方 GSI（`aosp_arm64-exp-BP4A.251205.006`，vendor 为 Cuttlefish 15581820 的，`A64_ANDROID_OUT=build/a64-android/out-gsi-bp4a`）
+2026-10-25 在同样的配置下通过 A9 场景：`boot_completed` 991 s，SELinux enforcing，QuickstepLauncher 在前台，GLES 同上
+（`Virtio-GPU GFXStream (v86 WebGPU)`，OpenGL ES 3.0），Wi-Fi 与 HTTP（关开之后也通），触摸打开 Gallery，APK 安装
+Success、启动 25.6 s，重启后 477 s 再到 `boot_completed`、应用与 /data 都在，无应用崩溃。文档：
+[gpu-devices.md](gpu-devices.md) 的 gfxstream 一节与 [gpu-deviations.md](gpu-deviations.md) 的 G-59 至 G-63。
+未做：dEQP 抽样。
 
 ## 7. G6 快照、Worker 与多核
 
