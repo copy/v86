@@ -210,6 +210,8 @@ const v86_options = () => ({
     kernel: { url: kernel }, initrd: { url: initrd }, cmdline: CMDLINES[stage] + watchdog,
     ...(stage === "live" ? { virtio_disks: [{ buffer: new Uint8Array(fs.readFileSync(media)).buffer, readonly: true }] } : {}),
     ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
+    // (A32_PARALLEL=1: the cores in vCPU workers)
+    ...(process.env.A32_PARALLEL === "1" ? { parallel: true, parallel_wasm_path: ROOT + "build/v86-arm64-parallel.wasm" } : {}),
 });
 
 async function actual()

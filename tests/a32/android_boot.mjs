@@ -75,7 +75,11 @@ const emulator = new V86({
     net_device: { type: "virtio", relay_url: "fetch" },
     // (ranchu's display: the goldfish framebuffer, no display adapter)
     graphics_adapter: "none", screen_adapter: sink,
-    ...(jit ? { jit_switches: { a64_page: 1 } } : {}),
+    // (A32_PARALLEL=1: the cores in vCPU workers)
+    ...(process.env.A32_PARALLEL === "1" ? { parallel: true, parallel_wasm_path: ROOT + "build/v86-arm64-parallel.wasm" } : {}),
+    // (A32_JIT_SWITCHES: more of them, "name=value,...")
+    ...(jit ? { jit_switches: { a64_page: 1, ...Object.fromEntries((process.env.A32_JIT_SWITCHES || "").split(",").filter(Boolean)
+        .map(p => [p.split("=")[0], +p.split("=")[1]])) } } : {}),
 });
 emulator.add_listener("emulator-error", error => { console.error("emulator-error:", error); process.exit(1); });
 let transcript = "";
