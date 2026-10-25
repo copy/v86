@@ -296,8 +296,9 @@ export const STATICS = {
     "aarch64/debug.rs": { ANY_BREAKPOINT: "cache", ANY_WATCHPOINT: "cache" },
     // the GIC (P4.2): distributor, redistributors and CPU interfaces, each
     // core's interrupt request lines
-    // (cores in workers: the GIC's lock, how deep this instance holds it)
-    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine", LOCK: "machine", DEPTH: "scratch" },
+    // (cores in workers: the GIC's lock, how deep this instance holds it;
+    // GIC2: the GICv2 front end's own state, ranchu's and arm32's)
+    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine", LOCK: "machine", DEPTH: "scratch", GIC2: "machine" },
     // the granules of profile v1.1 (P3.4); the TTBR writes and ASID
     // changes (P9.3: counted, a64_asid_tag's auto mode reads their deltas)
     // and each core's last ASID; per core TLBs and the generation the fetch
@@ -328,8 +329,12 @@ export const STATICS = {
         AUTO_TICKS: "cache", AUTO_LAST: "cache", AUTO_SWITCHES: "debug", BOUNCE: "scratch",
         // (the code budget, a64_page_code_mb, and the live functions' Wasm bytes against it)
         CODE_BUDGET_MB: "machine", LIVE_BYTES: "machine",
-        // (diagnostics: the steps, context changes and helpers by instruction class and system register, every core's)
-        STEP_COUNTS: "debug", STEP_WORDS: "debug", SYSREG_COUNTS: "debug", SYS_COUNTS: "debug" },
+        // (diagnostics: the steps, context changes and helpers by instruction class and system register, every core's;
+        // AArch32's helper calls by word, and the a64_page_aarch32_trace switch and its event ring)
+        STEP_COUNTS: "debug", STEP_WORDS: "debug", SYSREG_COUNTS: "debug", SYS_COUNTS: "debug", HELPER_WORDS: "debug",
+        A32_TRACE: "machine", TRACE: "debug", TRACE_AT: "debug",
+        // (a helper that was done but asked the run loop for something: from the call to the function's exit)
+        HELPER_DONE: "scratch" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request
