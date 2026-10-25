@@ -997,9 +997,11 @@ its progress in [gfxstream-plan.md](gfxstream-plan.md).
   `boot_completed` after 1186 s (Venus: 1313 s); the official GSI (BP4A)
   over that vendor after 991 s (2026-10-25); both with the GLES line
   `ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU GFXStream (v86 WebGPU)),
-  gfxstream-24.2.0), OpenGL ES 3.0.0`. The Vulkan commands it sends from
-  its first context to the desktop, with their counts, are listed in
-  gfxstream-protocol.md.
+  gfxstream-24.2.0), OpenGL ES 3.0.0`; A10's scenario after a restore,
+  dEQP's GLES3 sample with Venus's counts and failures, dEQP-VK's API smoke
+  tests, and `vkprobe` and `vkahb` in the unchanged image (2026-10-25). The
+  Vulkan commands it sends from its first context to the desktop, with their
+  counts, are listed in gfxstream-protocol.md.
 - **Debugging** (`tests/a64/android_boot.mjs`, with the sources):
   `A64_ANDROID_GFXSTREAM_TRACE=1` writes each process's Vulkan commands (not
   a command buffer's `vkCmd*`) with their results, and the errors when they
@@ -1950,9 +1952,6 @@ them. Smaller gaps are listed in [gpu-deviations.md](gpu-deviations.md#not-done)
   - host composition: renderControl's `rcCompose`, and every rc command
     but the process pipe; the official mode as v64 boots it composes on the
     client (G-59);
-  - dEQP-VK and dEQP-GLES3 samples on gfxstream (G5);
-  - `tests/a64/android/vkprobe.c` and `vkahb.c` in the official image (G2;
-    the device test `virtio_gpu_gfxstream_render.js` plays vkahb's steps);
   - a run in the browser with the CPU worker (G6);
   - the capset's `virglSupportedFormats` bitmask, announced empty (G-60).
 - **Not tried in a guest.**

@@ -242,7 +242,10 @@ virtio-gpu 上下文（一个客体进程）可有多个 ASG 环（每个线程�
   KHR/EXT 别名走核心命令。capset 不开批量描述符更新，`vkQueueCommitDescriptorSetUpdatesGOOGLE` 不会来。
   设备测试 `tests/devices/virtio_gpu_gfxstream_vk.js` 用客体编码器在环上走一遍：实例、物理设备、设备与队列、带需求的
   缓冲、以 blob 映射的内存（客体写入经 blob 到 GPU 的复制）、刷入的命令缓冲、无回复的提交、导出围栏、两个环按序号。
-- 未做：官方镜像里的 vkprobe/vkahb（G5 的引导之后）；ANB 图像与颜色缓冲导入的细节在 G3。
+- 客体测试（2026-10-25）：官方镜像（磁盘不改）里 `vkprobe` 与 `vkahb`（`make android-venus` 的产物，用系统的 Vulkan
+  加载器，选到 `vulkan.ranchu`；`A64_ANDROID_PROBE` 加 `A64_ANDROID_PUSH`，从 A10 的桌面状态恢复）：一个设备
+  “Virtio-GPU GFXStream (v86 WebGPU)”，Vulkan 1.1.0；AHB 导入、GPU 清除、CPU lock 后逐像素一致，PASS。结果与 Venus 的一致
+  （设备名之外）。ANB 图像与颜色缓冲导入的细节在 G3。
 
 ## 4. G3 渲染控制与颜色缓冲
 
@@ -306,7 +309,11 @@ Worker、页层、1536 MB 下通过 A9 场景（`A64_ANDROID_SCENARIO=a9 A64_AND
 （`Virtio-GPU GFXStream (v86 WebGPU)`，OpenGL ES 3.0），Wi-Fi 与 HTTP（关开之后也通），触摸打开 Gallery，APK 安装
 Success、启动 25.6 s，重启后 477 s 再到 `boot_completed`、应用与 /data 都在，无应用崩溃。文档：
 [gpu-devices.md](gpu-devices.md) 的 gfxstream 一节与 [gpu-deviations.md](gpu-deviations.md) 的 G-59 至 G-63。
-未做：dEQP 抽样。
+dEQP 抽样（2026-10-25，从 A10 的桌面状态恢复，`A64_ANDROID_SCENARIO=deqp`，与 Venus 同一份
+`build/a64-android/deqp-sample` 的 1334 个 GLES3 用例）：通过 1233、不支持 94、失败 5、质量警告 2，与 Venus 的计数相同；
+失败的也是 Venus 的那 5 个（3 个显式 lod 或梯度的阴影查找，2 个 `fbo.invalidate` 之后把多重采样的颜色缓冲 blit 到窗口；
+Venus 上这一组的 8 个 `unbind_blit_msaa_*` 都失败）。dEQP-VK 的 `api.smoke` 6 个、dEQP-EGL 的 `info` 5 个全部通过。
+G5 完成。
 
 ## 7. G6 快照、Worker 与多核
 
