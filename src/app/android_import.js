@@ -118,7 +118,9 @@ function run_worker(message, options)
             if(e.data.error) reject(new Error(e.data.error));
             else resolve(e.data);
         };
-        worker.onerror = e => { end(); reject(new Error("The importer's worker failed: " + (e.message || "it did not start"))); };
+        // (a worker that does not load says nothing more: on a development server, build/android-import-worker.js not built)
+        worker.onerror = e => { end(); reject(new Error("The importer's worker failed: " +
+            (e.message || "it did not start (build/android-import-worker.js: make app builds it)"))); };
         worker.postMessage(message);
     });
 }

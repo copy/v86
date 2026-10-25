@@ -272,11 +272,20 @@ export function open_wizard(options)
                 {
                     a.checks[role] = "checking…";
                     render();
-                    hashes.set(file, await hash_file(file, (done, total) =>
+                    try
                     {
-                        const status = element.querySelector(".drop-zone [data-role=" + role + "]");
-                        if(status) status.textContent = "checking " + Math.floor(done / total * 100) + "%";
-                    }));
+                        hashes.set(file, await hash_file(file, (done, total) =>
+                        {
+                            const status = element.querySelector(".drop-zone [data-role=" + role + "]");
+                            if(status) status.textContent = "checking " + Math.floor(done / total * 100) + "%";
+                        }));
+                    }
+                    catch(e)
+                    {
+                        // (the importer's worker did not run: said, not "checking…" for ever)
+                        a.checks[role] = "could not be checked: " + e.message;
+                        continue;
+                    }
                 }
                 a.checks[role] = hashes.get(file) === part.sha256 ? "ok" : "differs: its SHA-256 is not the catalog's (another build, or a damaged download)";
             }
@@ -505,7 +514,8 @@ export function open_wizard(options)
                         const missing = entry.parts.filter(p => !p.optional && !{ device: a.file, gsi: a.gsi }[p.role]);
                         if(missing.length) return "Still needed: " + missing.map(p => p.name).join(", ");
                         const bad = Object.entries(a.checks).find(([, c]) => c !== "ok");
-                        if(bad) return bad[1] === "checking…" ? "Checking the files…" : "A file is not the catalog's: " + bad[1];
+                        if(bad) return bad[1] === "checking…" ? "Checking the files…" :
+                            bad[1].startsWith("could not") ? "A file " + bad[1] : "A file is not the catalog's: " + bad[1];
                     }
                     return "";
                 }
