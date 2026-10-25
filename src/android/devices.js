@@ -15,6 +15,10 @@ export const CF_ARM64_ONLY_PHONE = {
     id: "cf_arm64_only_phone",
     cpu: "arm64",
     machine: "virt",
+    /** its display (Cuttlefish's phone: 720x1280 at androidboot.lcd_density
+     * 320); the VM manager gives virtio-gpu this size and zooms the screen
+     * to the window, rather than a display the window's size */
+    display: { width: 720, height: 1280 },
     /** the virt machine's PCIe host bridge (high ECAM), under which first
      * stage init looks for the partitions */
     boot_devices: "4010000000.pcie",

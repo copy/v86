@@ -220,7 +220,7 @@ const RULES = [
 function disk(fields) { return Object.assign({ slot: "hda", image: { kind: "url", url: "a.img" }, disk_option: "read_only", disk_error: "stop" }, fields); }
 function floppy(fields) { return Object.assign({ slot: "fda", image: null, disk_option: "read_only" }, fields); }
 function kernel(fields) { return Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, fields); }
-function android(fields) { return Object.assign({ device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" }, fields); }
+function android(fields) { return Object.assign({ device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" }, fields); }
 /** The sections of a valid arm64 machine */
 function arm64()
 {
@@ -239,7 +239,7 @@ test("android: its defaults, a valid Android machine", () =>
 {
     assert.equal(new_config().android, null);
     assert.deepEqual(new_config({ android: { gpu_mode: "swiftshader" } }).android,
-        { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" });
+        { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" });
     assert.deepEqual(validate_config(new_config(Object.assign(arm64(), { android: android(), disks: [disk()] }))), []);
 });
 

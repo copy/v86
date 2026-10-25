@@ -63,10 +63,12 @@ from Google's own images, as Android Studio's AVD manager does
 
 No kernel, initrd or command line is filled in: v64's bootloader reads them
 from the disk's boot partitions at each power on (Settings: **Android**:
-the device model, the GPU, the vendor ramdisk, SELinux, and **Wipe user
-data…**). Imported images draw with their own GPU drivers on virtio-gpu's
+the device model, the GPU, the vendor ramdisk, SELinux, the display, and
+**Wipe user data…**). Imported images draw with their own GPU drivers on virtio-gpu's
 gfxstream (docs/gfxstream-plan.md; the graphics proxy's WebGPU renderer):
-the desktop in about 20 minutes on 4 cores the first time. Without WebGPU,
+the desktop in about 20 minutes on 4 cores the first time (the kernel's
+log in the console's Kernel console; a userdebug image's shell in its
+serial terminal, `androidboot.console` being ttyAMA0). Without WebGPU,
 choose SwiftShader in Settings, Android (the CPU draws: Android starts, its
 desktop is slow). The Cuttlefish phone runs 64-bit apps only (its 64-bit
 zygote, also under a GSI); 32-bit apps need AArch32 and another device
@@ -116,9 +118,19 @@ and floppies in and out, the disks' images), View (full screen, zoom to
 fit, scales, theatre mode, screenshot), Input (the mouse), Tools
 (memory dump, network capture), and Mute. The
 status bar shows the time, speed, disk and network traffic, the display
-mode and the mouse; the drawers hold the serial terminal, the shared
-folder's files and the details. A disk that fails with `disk_error: "stop"`
-pauses the machine and asks: retry, or power off.
+mode and the mouse; the drawers hold the serial terminal, the kernel
+console (a machine with a virtio console: its first port, hvc0, where the
+virt machine's Linux and Android print the kernel's log), the shared
+folder's files and the details. The two consoles keep what was printed
+from power on (the last MiB until the drawer opens), so a drawer opened
+later shows the boot from its start. A disk that fails with
+`disk_error: "stop"` pauses the machine and asks: retry, or power off.
+
+With virtio-gpu the guest's display follows the window (the console tells
+the guest the window's size), except Android's: it has its device model's
+display (Cuttlefish's phone: 720x1280, the size its density is for), the
+screen zoomed to the window; Settings, Android, **Display** gives it the
+window's size instead (a large window makes every frame larger to draw).
 
 **Suspend** saves the machine's state in the browser; it resumes the next
 time it is powered on (if its settings changed since, the console asks

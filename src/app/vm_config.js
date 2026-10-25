@@ -92,9 +92,11 @@ export const VERSION = 2;
  * Venus driver, as tools/a64_android.mjs puts it in odm, with display.vulkan
  * "venus"; gfxstream: the image's own drivers, with display.vulkan
  * "gfxstream"), the vendor ramdisks (debug: Cuttlefish's
- * vendor_ramdisk-debug.img, a file of its own) and SELinux's modes
+ * vendor_ramdisk-debug.img, a file of its own), SELinux's modes and the
+ * display (device: the device model's, the screen zoomed to the window;
+ * window: a display of the window's size, following it)
  * @typedef {{device: string, gpu_mode: "swiftshader" | "venus" | "gfxstream", vendor_ramdisk: "release" | "debug",
- *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive"}} Android
+ *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive", display: "device" | "window"}} Android
  */
 /** the device models (src/android/devices.js): Cuttlefish's phone (arm64 on virt), the emulator images (ranchu) */
 export const ANDROID_DEVICES = Object.keys(ANDROID_DEVICE_MODELS);
@@ -103,9 +105,25 @@ export const ANDROID_GPU_MODES = ["swiftshader", "venus", "gfxstream"];
 export const DISPLAY_VULKAN = ["none", "venus", "gfxstream"];
 export const ANDROID_VENDOR_RAMDISKS = ["release", "debug"];
 export const ANDROID_SELINUX = ["enforcing", "permissive"];
+export const ANDROID_DISPLAYS = ["device", "window"];
 /** an android section's defaults
  * @type {Android} */
-export const ANDROID_DEFAULTS = { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
+export const ANDROID_DEFAULTS = { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing",
+    display: "device" };
+
+/**
+ * The display an Android machine's virtio-gpu gets: its device model's
+ * (android.display "device"), or null when the display follows the window
+ * @param {VMConfig} config
+ * @return {{width: number, height: number} | null}
+ */
+export function android_display(config)
+{
+    const a = config.android;
+    if(!a || a.display === "window") return null;
+    const model = /** @type {any} */ (ANDROID_DEVICE_MODELS)[a.device];
+    return model && model.display || null;
+}
 
 /** The network backends and the old page's relay_url of each */
 export const NETWORK_BACKENDS = ["none", "inbrowser", "relay", "wisp", "fetch"];
@@ -438,6 +456,7 @@ export function validate_config(config)
         if(a.vendor_ramdisk === "debug" && a.debug_ramdisk === null) problem("android.debug_ramdisk", "the debug vendor ramdisk (vendor_ramdisk-debug.img) is a file of its own: choose it");
         if(a.debug_ramdisk !== null) check_image(a.debug_ramdisk, "android.debug_ramdisk", problems);
         one_of(a.selinux, ANDROID_SELINUX, "android.selinux");
+        one_of(a.display, ANDROID_DISPLAYS, "android.display");
         if(config.kernel && (config.kernel.bzimage || config.kernel.initrd || config.kernel.multiboot))
         {
             problem("kernel", "Android's kernel and initrd come from its disk's boot partitions: leave them out");

@@ -191,7 +191,7 @@ export const PRESETS = [
             c.display.adapter = "none";
             c.sound.device = "none";
             c.network = [{ device: "virtio", backend: "fetch", relay_url: "", mtu: 1500, mac_address_translation: false }];
-            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
+            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
         },
     },
     {
@@ -220,7 +220,7 @@ export const PRESETS = [
             c.network = [0, 1, 2].map(i => ({ device: "virtio", backend: i === 2 ? "fetch" : "none", relay_url: "", mtu: 1500, mac_address_translation: false }));
             c.virt = { transport: "pci", input: ["keyboard", "multitouch"], console_ports: 18, vsock: true, gpu_pci_slot: 2 };
             // (the bootloader: the disk's kernel and initrd, bootconfig with Venus's keys)
-            c.android = { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing" };
+            c.android = { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
         },
     },
     {

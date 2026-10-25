@@ -17,8 +17,9 @@
                    7.1 (32-bit) preset, its disk made in the importer's worker, the bootloader giving its kernel, ramdisk and the
                    emulator's disks as partitions; the settings dialog's Android panel (no wipe)
      part=android_console  (local, a few minutes) the official package imported as android_boot does, powered on; once init's
-                   second stage is on hvc0, the console's Kernel console drawer opened: the boot from its start (kept from power on),
-                   then a command typed in it answered by the shell on hvc0
+                   second stage is on hvc0, the machine stopped and the console's Kernel console drawer opened: the log kept from before;
+                   its keys to hvc0; the shell on the serial terminal (androidboot.console ttyAMA0) answering a command typed there;
+                   the display at the device model's 720x1280
      part=android_service  (with the runner's service=1) the package imported into a new image of the disk service (I3.2):
                    its size, and the bootloader reading it from the service
      part=android_cancel  (local) the official zip's import cancelled: the wizard says so, the browser disk made so far is gone
@@ -629,32 +630,39 @@ const parts = {
         let kernel = "";
         emulator.add_listener("virtio-console0-output-bytes", bytes => { kernel = (kernel + String.fromCharCode.apply(null, Array.from(bytes))).slice(-65536); });
         await until(() => /init: init second stage started/.test(kernel), "init's second stage on hvc0", 600000);
-        log(((Date.now() - booted) / 1000).toFixed(0) + " s: init's second stage; the kernel console opened");
+        // (the machine stopped, the drawer opened: what it shows was printed before, kept from power on)
+        await emulator.stop();
+        log(((Date.now() - booted) / 1000).toFixed(0) + " s: init's second stage; stopped, the kernel console opened");
         const c = frame.contentDocument, cw = frame.contentWindow;
         c.querySelector("#drawer_kernel").click();
         const rows = await until(() => c.querySelector(".console-drawer .terminal .xterm-rows"), "the kernel console (xterm)", 30000);
-        // (the boot from its start, printed before the drawer opened: init's first stage loading its modules at the top)
-        const viewport = c.querySelector(".console-drawer .xterm-viewport");
-        viewport.scrollTop = 0;
-        viewport.dispatchEvent(new cw.Event("scroll"));
-        await until(() => /Loaded kernel module/.test(rows.textContent), "the boot's start at the top of the kernel console", 10000);
-        log("kernel console, its top: " + rows.textContent.replace(/\s+/g, " ").trim().slice(0, 120));
-        // (keys typed in it: the shell a userdebug build runs on hvc0)
-        viewport.scrollTop = viewport.scrollHeight;
-        viewport.dispatchEvent(new cw.Event("scroll"));
-        const textarea = c.querySelector(".console-drawer .xterm-helper-textarea");
-        textarea.focus();
-        const type = text => textarea.dispatchEvent(new cw.InputEvent("input", { data: text, inputType: "insertText", bubbles: true }));
+        const shown = await until(() => /\[\s*\d+\.\d+\]/.test(rows.textContent) && rows.textContent.replace(/\s+/g, " ").trim(),
+            "the kernel's log kept from before the drawer opened", 10000);
+        log("kernel console, kept from before: " + shown.slice(0, 160));
+        await emulator.run();
+        // (keys typed in it go to hvc0, which Android only writes: its shell is on the serial port, androidboot.console ttyAMA0)
+        const typed = [];
+        const send = emulator.virtio_console_send;
+        emulator.virtio_console_send = data => { typed.push(data); send.call(emulator, data); };
+        const type_in = (selector, text) => c.querySelector(selector).dispatchEvent(new cw.InputEvent("input", { data: text, inputType: "insertText", bubbles: true }));
+        type_in(".console-drawer .xterm-helper-textarea", "x");
+        check(typed.join("") === "x", "the kernel console's keys to hvc0: " + JSON.stringify(typed));
+        // (the serial terminal: the shell a userdebug build runs there, a command typed and answered)
+        c.querySelector("#drawer_terminal").click();
+        const serial_rows = await until(() => c.querySelector(".console-drawer .terminal .xterm-rows"), "the serial terminal (xterm)", 30000);
         const asked = Date.now();
         let answered = false;
-        while(!answered && Date.now() - asked < 600000)
+        while(!answered && Date.now() - asked < 900000)
         {
-            type("echo v86-$((6*7))");
-            type("\r");
-            answered = await until(() => /v86-42/.test(rows.textContent), "", 20000).catch(() => false);
+            type_in(".console-drawer .xterm-helper-textarea", "echo v86-$((6*7))");
+            type_in(".console-drawer .xterm-helper-textarea", "\r");
+            answered = await until(() => /v86-42/.test(serial_rows.textContent), "", 20000).catch(() => false);
         }
-        check(answered, "the shell's answer in the kernel console: " + rows.textContent.replace(/\s+/g, " ").slice(-300));
-        log("kernel console: typed echo v86-$((6*7)), the shell answered v86-42 (" + ((Date.now() - booted) / 1000).toFixed(0) + " s)");
+        check(answered, "the shell's answer in the serial terminal: " + serial_rows.textContent.replace(/\s+/g, " ").slice(-300));
+        log("serial terminal: typed echo v86-$((6*7)), the shell answered v86-42 (" + ((Date.now() - booted) / 1000).toFixed(0) + " s)");
+        // (the display: the device model's 720x1280, the screen zoomed to the window; not a display of the window's size)
+        await until(() => /Graphics 720×1280/.test(c.body.textContent), "the display at the device's 720×1280", 900000);
+        log("display: 720×1280, the device's (" + ((Date.now() - booted) / 1000).toFixed(0) + " s)");
         await emulator.destroy();
     },
     async service()

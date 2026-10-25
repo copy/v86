@@ -1,13 +1,13 @@
 // @ts-check
 // The settings dialog's Android panel (docs/android-images-plan.md I4.2):
 // v64's bootloader (the device model, the GPU mode, the vendor ramdisk and
-// the debug one's file, SELinux) and wiping the user data of the machine's
+// the debug one's file, SELinux), the display's size, and wiping the user data of the machine's
 // browser disk (Android formats userdata and metadata again at its next boot).
 
 import { h, confirm } from "../dom.js";
 import { image_picker } from "../image_picker.js";
 import { select_field } from "./system.js";
-import { ANDROID_DEVICES, ANDROID_GPU_MODES, ANDROID_VENDOR_RAMDISKS, ANDROID_SELINUX } from "../../vm_config.js";
+import { ANDROID_DEVICES, ANDROID_GPU_MODES, ANDROID_VENDOR_RAMDISKS, ANDROID_SELINUX, ANDROID_DISPLAYS } from "../../vm_config.js";
 import { ANDROID_DEVICES as MODELS } from "../../../android/bootloader.js";
 import { wipe_android_data } from "../../android_import.js";
 import { disk_id } from "../../browser_disks.js";
@@ -77,6 +77,10 @@ export function android_panel(ctx)
             role: "file", image: a.debug_ramdisk, store: ctx.store, on_change: image => set("debug_ramdisk", image) }) : null,
         select_field("SELinux", ANDROID_SELINUX, a.selinux, value => set("selinux", value),
             v => v === "enforcing" ? "Enforcing" : "Permissive (for debugging; a user build ignores it)"),
+        // (the size Android takes at its boot: a phone's, or the window's, which a large window makes slow to draw)
+        select_field("Display", ANDROID_DISPLAYS, a.display, value => set("display", value), v => v === "device" ?
+            "The device's (" + (MODELS[a.device] && MODELS[a.device].display ? MODELS[a.device].display.width + " × " + MODELS[a.device].display.height : "its own") +
+                "), zoomed to the window" : "The window's size, following it (a large window draws slowly)"),
         h("div.field", null, wipe, " ", status),
     ];
 }

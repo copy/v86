@@ -12,7 +12,7 @@
 import { h, replace, confirm, inform, dialog, download, pick_file, ask_text, menu_button, format_size } from "./dom.js";
 import { VMStore } from "../vm_store.js";
 import { read_state, delete_state, write_state, storage_space, state_estimate, machine_digest, hold_machine } from "../vm_state.js";
-import { config_to_options } from "../vm_config.js";
+import { config_to_options, android_display } from "../vm_config.js";
 import { combination_scancodes, COMBINATIONS } from "../keys.js";
 import { DEFAULT_FORM, DEFAULT_GRAPHICS_ADAPTER, settings_to_options } from "../../browser/vm_options.js";
 import { bool_arg, start_settings } from "../../browser/query_compat.js";
@@ -515,8 +515,20 @@ function console_ui(layout, emulator, ctx)
         if(ctx.profile?.mouse_disabled_default || ctx.config?.advanced.mouse_disabled) set_mouse(false);
     });
 
-    // virtio_gpu: the guest's display follows the window
-    if((options.graphics_adapter || DEFAULT_GRAPHICS_ADAPTER) === "virtio_gpu")
+    // virtio_gpu: the guest's display follows the window; Android's is its
+    // device model's (a phone's, unless its settings say the window's), the
+    // screen zoomed to the window: a display of a large window's size made
+    // Android draw every frame of its boot at 2325x1690
+    const fixed_display = ctx.config ? android_display(ctx.config) : null;
+    if(fixed_display)
+    {
+        emulator.add_listener("emulator-ready", () =>
+        {
+            emulator.set_display_size(fixed_display.width, fixed_display.height);
+            set_zoom_to_fit(true);
+        });
+    }
+    else if((options.graphics_adapter || DEFAULT_GRAPHICS_ADAPTER) === "virtio_gpu")
     {
         let timer = 0;
         const displays = options.graphics_adapter_test?.scanouts || 1;
