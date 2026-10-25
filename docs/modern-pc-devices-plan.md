@@ -1,11 +1,12 @@
 # 现代 PC 设备与 UEFI 安全启动实施计划
 
 状态：设计与实施计划，尚未实现。2026-10-03 初稿；2026-10-23 按 master（`c9e1f0e0`）复核，
-改为按实施优先级排列，网卡改为“按机器自动选型、所有目标客体免驱”。
+改为按实施优先级排列，网卡改为“按机器自动选型、所有目标客体免驱”；2026-10-25 按所有者的决定，
+USB 的三种主机控制器（UHCI、EHCI、xHCI）都实现，EHCI 与 xHCI 从按需改为正式阶段 U3、U4。
 
-本计划为 v86 增加现代客体用自带驱动即可工作的设备：e1000 网卡、HD Audio、USB（UHCI、
-HID tablet、镜像 U 盘），然后是 OVMF、TPM 2.0 与 Secure Boot；xHCI、e1000e 和 WebUSB 按需
-扩展。库的默认机器保持不变；新设备是显式选项，由 VM 管理器的系统预设选用
+本计划为 v86 增加现代客体用自带驱动即可工作的设备：e1000 网卡、HD Audio、USB（UHCI、EHCI、
+xHCI 三种主机控制器，HID tablet、镜像 U 盘），然后是 OVMF、TPM 2.0 与 Secure Boot；e1000e 和
+WebUSB 按需扩展。库的默认机器保持不变；新设备是显式选项，由 VM 管理器的系统预设选用
 （[vm-manager.md](vm-manager.md)）。
 
 本计划与 Q35（[q35.md](q35.md)、[ahci.md](ahci.md)、[sata.md](sata.md)）共用平台、PCI、MMIO、
@@ -23,7 +24,8 @@ HID tablet、镜像 U 盘），然后是 OVMF、TPM 2.0 与 Secure Boot；xHCI�
    e1000 从“可并行”升为第一优先级。
 2. **USB 先做 UHCI**：初稿先做 xHCI，但 Windows 7 及更早没有 xHCI 驱动。UHCI 的驱动在 XP
    与 Windows 8.1 中已核对为自带，Linux 也有，实现规模远小于 xHCI；HID tablet 是全速设备，
-   不需要 USB 2/3。xHCI 改为按需。
+   不需要 USB 2/3。xHCI 改为按需。（2026-10-25 所有者改为三种控制器都做：UHCI 仍然最先，随后
+   EHCI（U3）与 xHCI（U4），见第 10 条。）
 3. **HD Audio 提前到第二**：Windows 8.1 与 Vista/7/10 预设现在是 `nic: "none"`、`sound: "none"`
    （[guest_presets.js](../src/app/guest_presets.js) 列为已知问题），网卡和声卡是这批系统最缺的两项。
 4. **“当前分支基础”已过时**：块内精确 MMIO（`mmap_register_range`）、BAR 重定位、总线主控
@@ -43,6 +45,12 @@ HID tablet、镜像 U 盘），然后是 OVMF、TPM 2.0 与 Secure Boot；xHCI�
 9. **界面改动随阶段交付**（所有者要求）：每个阶段在 VM 管理器中的选型、预设、控制台与配置迁移见
    “界面”一节。核对界面代码时发现两个现有问题，也写在那里：声卡选“无”其实只是静音，客体里仍有
    SB16；摘要把 virtio-snd 显示成 “none”。
+10. **UHCI、EHCI、xHCI 都实现**（所有者，2026-10-25）：三者是同一个 USB 设备层上的三种主机控制器，
+    用户（或预设）三选一：`usb.controller` 为 `"uhci"`（USB 1.1）、`"ehci"`（USB 2.0，带 UHCI
+    companion）或 `"xhci"`（USB 3）。顺序为 U1 UHCI → U2 U 盘 → U3 EHCI → U4 xHCI，都在 OVMF 之前：
+    UHCI 最小、覆盖最广，先交付 tablet；EHCI 让 XP 到 Windows 7 的 U 盘有高速；xHCI 是 Windows 8
+    以后与 Linux 的原生栈，也是 Windows 11 机器（C1）的常规配置。xHCI 的中断先用 pci.js 已有的单向量
+    MSI，MSI-X 与 N2 共用、需要时再做。
 
 ## 优先级总览
 
@@ -52,17 +60,19 @@ HID tablet、镜像 U 盘），然后是 OVMF、TPM 2.0 与 Secure Boot；xHCI�
 | 2 | H1 HD Audio | ICH6/ICH9 HDA 与通用输出 codec | Vista 及以后，Linux（不含 XP） | 设备插件句柄；硬件上无（INTx，可选 MSI） | 中 | 同一批预设没有声卡；Vista 以后没有 SB16 驱动 |
 | 3 | U1 USB 核心、UHCI、HID tablet | 不需 pointer lock 或 VMware Tools 的绝对坐标指针 | XP 到 Windows 11（XP、8.1 已核对），Linux | 无 | 中 | UHCI 覆盖 XP 到 11；xHCI 只覆盖 Windows 8 以后 |
 | 4 | U2 镜像 U 盘 | BOT/SCSI，可热插拔 | XP 及以后，Linux | U1 | 中小 | 复用 U1 与 `block_backend.js`；SATA/PCIe 热插拔已有，排在三项缺失设备之后 |
-| 5 | F1 OVMF / UEFI | Shell、GOP、GPT/ESP 冷启动、持久变量 | — | Q35（已完成） | 很大 | Windows 11 与纯 UEFI 镜像的前提；8.1/10 用 SeaBIOS 已能启动 |
-| 6 | T1/T2 TPM 2.0 | CRB 前端与 libtpms 后端；T2 接入 OVMF 度量 | Windows 8 以后（`tpm.inf`），Linux | T1 无；T2 需 F1 | 大 | Windows 11 的前提 |
-| 7 | F2 Secure Boot | 受保护变量与验签正反例 | — | F1；SMM 路线另需 pflash | 大 | 完整安全启动 |
-| 8 | C1 Windows 11 集成 | 固定镜像的安装、运行与安全功能证据 | — | 1–7 | 中 | 汇总验收 |
+| 5 | U3 EHCI（USB 2.0） | ICH9 EHCI 与三个 UHCI companion：高速 U 盘，tablet 交给 companion | XP 到 Windows 11（XP、8.1 已核对），Linux | U1、U2 | 中 | XP、Vista、7 唯一的 USB 2.0 路线（7 没有 xHCI 驱动） |
+| 6 | U4 xHCI（USB 3） | USB 2 与 USB 3 根端口，单向量 MSI；tablet 与超高速 U 盘 | Windows 8 以后（`usbxhci.inf`），Linux | U1、U2；pci.js 的 MSI（已有） | 大 | Windows 8 以后与 Linux 的原生栈，Windows 11 机器的常规配置 |
+| 7 | F1 OVMF / UEFI | Shell、GOP、GPT/ESP 冷启动、持久变量 | — | Q35（已完成） | 很大 | Windows 11 与纯 UEFI 镜像的前提；8.1/10 用 SeaBIOS 已能启动 |
+| 8 | T1/T2 TPM 2.0 | CRB 前端与 libtpms 后端；T2 接入 OVMF 度量 | Windows 8 以后（`tpm.inf`），Linux | T1 无；T2 需 F1 | 大 | Windows 11 的前提 |
+| 9 | F2 Secure Boot | 受保护变量与验签正反例 | — | F1；SMM 路线另需 pflash | 大 | 完整安全启动 |
+| 10 | C1 Windows 11 集成 | 固定镜像的安装、运行与安全功能证据 | — | 1–9 | 中 | 汇总验收 |
 | 可选 | M1 NE2000、SB16 迁成插件 | 内置网卡与声卡改为插件，客体看到的硬件不变 | 与现在相同 | N1、H1（共用句柄已验证） | 中 | 网卡与声卡的结构与显示适配器一致；没有客体可见的收益，不阻塞其他阶段 |
-| 按需 | U3 xHCI（必要时 EHCI） | USB 2/3、更多端口 | Windows 8 以后，Linux | U1，按型号的 MSI/MSI-X | 大 | 只在 UHCI 的吞吐或兼容性不够时 |
 | 按需 | N2 e1000e（82574L） | PCIe 网卡 | 8.1 有；11 中为可移除 FOD | N1，MSI-X | 中 | 只在某个目标镜像缺 82540EM 驱动时 |
-| 按需 | U4 WebUSB | 受限直通 | — | U1 | 中 | 浏览器限制多，不阻塞任何交付 |
+| 按需 | U5 WebUSB | 受限直通 | — | U1 | 中 | 浏览器限制多，不阻塞任何交付 |
 
-1–3 可以并行（1 和 2 共用一次设备插件句柄的抽取，先做的阶段带上它）；每个阶段通过自己的验收
-矩阵后单独发布，不等后面的阶段。OVMF、
+1–3 可以并行（1 和 2 共用一次设备插件句柄的抽取，先做的阶段带上它）；USB 的 3–6 依次进行
+（同一个设备层，U2 的 U 盘是 U3、U4 的吞吐与高速/超高速验收负载），也可以与 1、2 并行；每个阶段
+通过自己的验收矩阵后单独发布，不等后面的阶段。OVMF、
 vTPM 移植和 Windows 驱动身份的小型探测可以提前做，以尽早暴露阻塞（F1 的 fw_cfg 问题就是
 这样找到的）。
 
@@ -74,22 +84,24 @@ flowchart TD
     H1["2 H1 HD Audio"]
     U1["3 U1 USB 核心 + UHCI + HID tablet"]
     U2["4 U2 镜像 U 盘"]
-    F1["5 F1 OVMF / UEFI"]
-    T1["6 T1 TPM 2.0 设备与后端"]
-    T2["6 T2 固件度量与持久化"]
-    F2["7 F2 Secure Boot"]
-    C1["8 C1 Windows 11 集成"]
-    U3["按需 U3 xHCI / EHCI"]
+    U3["5 U3 EHCI + UHCI companion"]
+    U4["6 U4 xHCI"]
+    F1["7 F1 OVMF / UEFI"]
+    T1["8 T1 TPM 2.0 设备与后端"]
+    T2["8 T2 固件度量与持久化"]
+    F2["9 F2 Secure Boot"]
+    C1["10 C1 Windows 11 集成"]
     N2["按需 N2 e1000e"]
-    U4["按需 U4 WebUSB"]
+    U5["按需 U5 WebUSB"]
     M1["可选 M1 NE2000/SB16 迁成插件"]
     P --> N1
     P --> H1
     N1 --> M1
     H1 --> M1
     U1 --> U2
-    U1 --> U3
-    U1 --> U4
+    U2 --> U3
+    U2 --> U4
+    U1 --> U5
     Q --> F1
     F1 --> T2
     T1 --> T2
@@ -97,7 +109,7 @@ flowchart TD
     N1 --> N2
     N1 --> C1
     H1 --> C1
-    U1 --> C1
+    U4 --> C1
     T2 --> C1
     F2 --> C1
 ```
@@ -109,7 +121,7 @@ flowchart TD
 | 入口 | 现状 | 本计划要补的部分 |
 | --- | --- | --- |
 | [x86-64.md](x86-64.md)、`src/rust/x64/` | long mode、36 位物理地址、x64 页层；`cpu_features` 可到 x86-64-v2/v3（SSE4.2、POPCNT、AVX2 等）；Windows 8.1 x64 已到桌面 | Windows 11 目标镜像的 CPUID/MSR/启动日志清单（C1） |
-| [src/pci.js](../src/pci.js) | BAR 探测与重定位（`on_move`）、桥转发、总线主控门控 DMA 与 MSI、单向量 64 位 MSI（`msi_capability`、`msi_notify`；AHCI 与 PCIe root port 在用；地址高 32 位非零时丢弃）、root port 与热插拔 | MSI-X，只在 U3/N2 需要时 |
+| [src/pci.js](../src/pci.js) | BAR 探测与重定位（`on_move`）、桥转发、总线主控门控 DMA 与 MSI、单向量 64 位 MSI（`msi_capability`、`msi_notify`；AHCI 与 PCIe root port 在用；地址高 32 位非零时丢弃）、root port 与热插拔 | MSI-X，只在 N2（或 U4 的后续）需要时 |
 | [src/io.js](../src/io.js) | 128 KiB 粗块之外，`mmap_register_range` 在块内按精确范围分发（小 BAR、芯片组寄存器块） | 新设备直接使用，无需新机制 |
 | [src/cpu.js](../src/cpu.js)、[src/extended_memory.js](../src/extended_memory.js) | `validate_physical_range`、`read_blob_physical`、`write_blob_physical`，跨页与高地址 | 各设备的环、长度与总量上限 |
 | [src/acpi_tables.js](../src/acpi_tables.js)、[src/platform.js](../src/platform.js)、[src/cpu.js](../src/cpu.js) | ACPI 表经 fw_cfg 的 `etc/table-loader`（QEMU 格式）交给固件，按固件写入的 PMBA 生成；fw_cfg 只有 PIO，`FW_CFG_ID` 返回 0 | OVMF 需要的 fw_cfg 修订号与文件（F1）、TPM2 表（T1） |
@@ -142,8 +154,8 @@ new V86({
     cpu_cores: 2,
     net_device: { type: "e1000", relay_url: "..." }, // N1："ne2k" | "virtio" | "e1000"
     audio_device: "hd_audio",                        // H1：单选 "sb16" | "hd_audio" | "none"
-    usb: {                                           // U1、U2
-        controller: "uhci",                          // U3 以后可为 "xhci"
+    usb: {                                           // U1–U4
+        controller: "uhci",                          // U1 "uhci"；U3 "ehci"（带 UHCI companion）；U4 "xhci"
         tablet: true,
         mass_storage: [
             { id: "usb-disk0", image: { url: "usb.img", async: true }, read_only: false },
@@ -216,11 +228,12 @@ U1 的 UHCI 与 USB 设备也可以按同一方式做成插件，在 U1 开始�
 2. DMA 使用 `validate_physical_range`、`read_blob_physical`、`write_blob_physical`，另按设备规则
    检查对齐、长度、链环、地址溢出与总量上限。保留地址高位；超出 36 位总线的地址返回设备
    错误，不回绕到低内存。
-3. 中断：e1000（82540EM）与 UHCI 不提供 MSI，只用 INTx；HDA 可以加 [pci.js](../src/pci.js) 已有的单向量
-   MSI，先以 INTx 验证。MSI-X（table/PBA、mask/pending、多向量）只在 U3/N2 需要时实现。写回
+3. 中断：e1000（82540EM）、UHCI 与 EHCI 不提供 MSI，只用 INTx；HDA 可以加 [pci.js](../src/pci.js) 已有的单向量
+   MSI，先以 INTx 验证；xHCI 的 PCI profile 要求 MSI 或 MSI-X，U4 用已有的单向量 MSI 与一个
+   interrupter。MSI-X（table/PBA、mask/pending、多向量）只在 N2 或 U4 的后续需要时实现。写回
    的描述符或状态必须先于中断可见；不暴露没有实现的 capability。
 4. 设备计时用 [MachineClock](../src/machine_clock.js)：e1000 的 ITR 与延迟定时器、HDA 的 WALLCLK
-   与 DMA 消耗、UHCI 的 1 ms 帧。VM `pause()` 冻结虚拟时钟和设备计时；页面隐藏、静音或权限
+   与 DMA 消耗、UHCI 的 1 ms 帧、EHCI 与 xHCI 的 125 µs 微帧（FRINDEX、MFINDEX）。VM `pause()` 冻结虚拟时钟和设备计时；页面隐藏、静音或权限
    未授予不阻断客体的硬件进度。在途宿主 I/O 可以结束，客体可见的完成按统一的暂停/恢复规则
    提交。每轮处理有预算，描述符环、帧表或 doorbell 不能一次占满页面或 Worker。
 
@@ -284,6 +297,8 @@ schema、固件和后端状态版本，状态槽位在 [state.js](../src/state.j
 | N1 | 网络适配器下拉框加入 e1000（x86）；MTU 字段仍只对 virtio-net 显示 | Windows 8.1、Vista/7/10 预设改为 e1000，删除 “ne2k has no Windows 8.1 driver” | 详情抽屉显示网卡型号 |
 | H1 | 声卡下拉框加入 HD Audio（x86），新增“静音”复选框 | 同一批预设改为 HD Audio，删除 “No sound card” | “静音”按钮沿用；详情显示声卡型号 |
 | U1 | 新增 “USB” 硬件项（可从“添加”菜单加入）：控制器 UHCI、tablet 开关 | XP 到 Windows 11、Linux 的预设默认开启 tablet；Win9x 不开 | “输入”菜单在 USB tablet（绝对坐标）与 PS/2（相对，锁定鼠标）之间切换；状态栏显示当前路径 |
+| U3 | “USB” 项的控制器下拉框加入 “EHCI（USB 2.0，带 UHCI companion）”；只在 x86 机器上列出 | XP、Vista、7 的预设改为 EHCI（U3 的验收通过之后） | 详情抽屉列出每个 USB 设备所在的控制器与速度（12 Mbit/s 的 tablet 在 companion 上，480 Mbit/s 的 U 盘在 EHCI 上） |
+| U4 | 控制器下拉框加入 “xHCI（USB 3）”；选 xHCI 而系统是 Windows 7 及更早时提示“没有自带驱动” | Windows 8.1、10、11 与 Linux x86 的预设改为 xHCI（U4 的验收通过之后）；C1 的 Windows 11 预设用 xHCI | 详情同上（5 Gbit/s 的 U 盘在 USB 3 端口上） |
 | U2 | “USB” 项下列出 U 盘：镜像来源与硬盘相同（URL、本机文件、浏览器磁盘、磁盘服务），只读或读写 | — | “设备”菜单：插入 U 盘镜像、安全弹出、拔出；写回的镜像可下载 |
 | F1 | “机器与固件”面板：固件 SeaBIOS 或 UEFI（与 BIOS 文件选择互斥）；“UEFI 变量恢复出厂设置”按钮 | Windows 11 预设（C1 新增）默认 UEFI | — |
 | T1/T2 | 新增 “TPM” 硬件项（可从“添加”菜单加入）：TPM 2.0（CRB）；“清除 TPM”要确认 | Windows 11 预设带 TPM | — |
@@ -479,7 +494,9 @@ Vista/7/10/11 的 UHCI 驱动在拿到镜像后逐个核对。ARM64 已有 virti
 
 建议新增 `src/usb/`：`uhci.js`（控制器）、`usb_device.js`（设备模型与标准请求）、`hid_tablet.js`、
 `mass_storage.js`（U2）和共享的描述符/常量模块。控制器只处理寄存器、调度、DMA 和端口；设备
-处理标准与类请求；镜像和浏览器适配器属于后端。设备层与控制器无关，U3 的 xHCI/EHCI 直接复用。
+处理标准与类请求；镜像和浏览器适配器属于后端。设备层与控制器无关，U3 的 EHCI、U4 的 xHCI 直接
+复用（`ehci.js`、`xhci.js`）；设备层从一开始就带速度（低速、全速、高速、超高速）与按速度的描述符，
+U1 只用到全速。
 模拟 USB 事务，不实现电气信号。
 
 ### UHCI 控制器
@@ -545,8 +562,8 @@ SYNCHRONIZE CACHE、START STOP UNIT 和防止/允许介质移除。READ/WRITE(16
 容量落实；只实现 READ CAPACITY(10) 时不得虚报超出范围的大盘。覆盖 GET_MAX_LUN、BOT reset、
 endpoint halt 清理、tag/residue、方向/长度不匹配与 phase error 恢复，不把所有失败都返回成功的 CSW。
 
-先在 UHCI 上交付。吞吐由 UHCI 的每帧预算决定：先测 1 GiB 写入校验的耗时，不能接受时再做 U3
-（EHCI 或 xHCI），不突破客体驱动的调度假设去换速度。
+先在 UHCI 上交付。吞吐由 UHCI 的每帧预算决定：记下 1 GiB 写入校验的耗时，作为 U3（EHCI 上的高速）
+与 U4（xHCI 上的超高速）的对照；不突破客体驱动的调度假设去换速度。
 
 热拔出时停止新请求，按策略完成或取消已有请求；只读盘正确拒绝写入。客体弹出与宿主拔出分开
 表示。内存 overlay 的 flush 只保证 overlay 一致性，持久后端（[disk-persistence-plan.md](disk-persistence-plan.md)）
@@ -559,7 +576,109 @@ IDE/AHCI 可写挂载。
 的写入、不误写其他扇区、正确的失败状态和客体恢复流程，不承诺未经 flush 的写入或客体文件系统
 在突发断开后必然完整。USB 启动在固件支持该控制器后单独验收，不能用“操作系统已挂载”代替。
 
-## 5. F1 OVMF / UEFI
+## 5. U3 EHCI（USB 2.0）与 UHCI companion
+
+### 结构
+
+EHCI 只处理高速（480 Mbit/s）设备；全速与低速设备由同一组芯片里的 companion 控制器处理，真实
+芯片组与 QEMU 都是这样配的。`usb.controller: "ehci"` 因此是一组 PCI 功能：ICH9 的 EHCI1
+（`8086:293A`，功能 7）加三个 ICH9 UHCI companion（`8086:2934`、`2935`、`2936`，功能 0–2），每个
+UHCI 两个端口，共六个根端口，与 QEMU 的 `ich9-usb-ehci1` 加 `ich9-usb-uhci1..3`
+（`masterbus=ehci.0,firstport=0/2/4`）相同。Q35 上在 `00:1d.0–7`（QEMU 的位置）；i440FX 上同一组
+功能放在一个空槽位（QEMU 兼容布局里与 QEMU 文档的示例一致）。选 EHCI 时不再有 U1 的单独 UHCI
+（i440FX 上 PIIX3 的 USB 功能）：companion 就是 UHCI，U1 的 `uhci.js` 原样复用，只多 companion 的
+端口归属。中断用 INTx，各功能的中断引脚与 QEMU 相同，经 `_PRT` 与 PIRQ 路由。
+
+自带驱动：XP SP3 与 8.1 的 `usbport.inf` 按类匹配 `PCI\CC_0C0320`（已核对），Vista/7/10/11 拿到
+镜像后核对；Linux 的 `ehci-hcd`/`ehci-pci` 与 companion 的 `uhci-hcd`。
+
+### EHCI 控制器
+
+- **配置空间**：BAR0 为内存空间（能力与操作寄存器；大小按 QEMU 的 hcd-ehci，实施时核对）；`0x60` 的 SBRN 为 `0x20`，`0x61` 的
+  FLADJ，`0x62` 的 PORTWAKECAP；扩展能力 USBLEGSUP（EECP 指向 `0x68`）的 BIOS/OS 拥有信号量与
+  `0x6C` 的 USBLEGCTLSTS 按规范读写，v86 没有 USB legacy SMI，置位 OS 拥有时 BIOS 拥有位立即清掉。
+- **能力寄存器**：CAPLENGTH、HCIVERSION `0x0100`；HCSPARAMS：N_PORTS 6、N_PCC 2、N_CC 3、端口路由
+  规则；HCCPARAMS：64 位寻址（AC64，CTRLDSSEGMENT 生效）、帧表长度固定为 1024、等时调度阈值、EECP。
+- **操作寄存器**：USBCMD（RS、HCRESET、FLS、PSE、ASE、IAAD、ITC）、USBSTS（USBINT、USBERRINT、PCD、
+  FLR、HSE、IAA、HCHalted、Reclamation、PSS、ASS，W1C）、USBINTR、FRINDEX（微帧）、CTRLDSSEGMENT、
+  PERIODICLISTBASE、ASYNCLISTADDR、CONFIGFLAG、PORTSC（CCS/CSC、PED/PEDC、OCA/OCC、FPR、SUSP、PR、
+  LS、PP、PO、PIC、PTC、WKCNNT_E/WKDSCNNT_E/WKOC_E）。
+- **端口路由**：CONFIGFLAG 为 0 时所有端口属于 companion；为 1 后，高速设备经端口复位后由 EHCI
+  使能（PED），全速与低速设备复位后不使能（低速在 LS 位报 K 态），驱动把 PO 置位，端口转给
+  companion，companion 的端口随之报告接入。拔出、所有权回收（PO 清零）与 CONFIGFLAG 清零都要把
+  设备放回正确的一侧，不留两个控制器同时看到的设备。
+- **异步调度**：QH 环（H 位标出环头，用于回收检测）、qTD 链（最多 5 页缓冲、20 KiB、Alternate Next
+  qTD）、QH 的 overlay 区、数据 toggle 控制（DTC）、NAK 计数重装（RL、NakCnt）、高速 bulk OUT 的
+  PING 状态；短包、STALL（Halted）、Babble、Transaction Error 与 CERR 的计数。**Interrupt on Async
+  Advance**（IAAD/IAA）必须精确：驱动摘下 QH 后要等它，才释放内存；在 IAA 之前不能再访问已摘下
+  的 QH。
+- **周期调度**：1024 项帧表，中断端点的 QH 与微帧掩码（S-mask），按微帧轮询。等时（iTD、siTD）与
+  分割事务（split，只用于高速 hub 后面的全速/低速设备）不实现：没有等时设备，全速/低速设备直接
+  交给 companion，不模拟 hub。描述符遇到 iTD/siTD 时按规范跳过并记录，不当成 QH 解析。
+- **时间与预算**：FRINDEX 按 MachineClock 每 125 µs 一个微帧，在 CPU 让出时批量补齐；每个微帧处理
+  的事务与字节有上限；异步调度一轮之内没有进展（同一 H 位 QH 再次到达而无事务）时停止，避免
+  空转。
+- **电源与生命周期**：端口 suspend/resume 与远程唤醒、PCI PM 的 D0/D3、HCRESET 与 companion 的独立
+  复位、快照里在途的 qTD（恢复后重新执行未完成的事务，不重复已完成的）。
+- **固件**：SeaBIOS 在 POST 时驱动 EHCI 与 UHCI（含 USB 启动）；移交时客体经 USBLEGSUP 取得所有权、
+  HCRESET，并清掉 SeaBIOS 留下的调度。
+
+### 设备层的高速部分
+
+设备层加上高速：device qualifier 与 other speed configuration 描述符、按速度的最大包长（EP0 为 64，
+高速 bulk 为 512）、高速中断端点 bInterval 的指数含义、PING。tablet 仍是全速设备，在 EHCI 机器上
+由 companion 驱动；U 盘是高速设备，接在 EHCI 上。
+
+### 验收
+
+Node 构造 QH/qTD/帧表，覆盖 IAA、回收检测、toggle、短包、STALL 与端口归属切换；Alpine x86_64
+（`ehci-pci`、`uhci-hcd`、`usb-storage`、`usbhid`）的 `lsusb -t` 显示 tablet 在 UHCI 上为 12M、U 盘
+在 EHCI 上为 480M，枚举、取消、重插，U2 的 1 GiB 写入校验并与 UHCI 的耗时对照；XP SP3、Windows 7、
+8.1 的设备管理器无错误，U 盘读写与安全弹出；SeaBIOS 从 EHCI 上的 U 盘启动单独验收；快照与 Worker。
+
+## 6. U4 xHCI（USB 3）
+
+### 身份与范围
+
+采用 QEMU `qemu-xhci` 的身份（`1B36:000D`，类 `0C0330`），便于在 QEMU 上取参考：BAR0 为 64 位内存
+空间（16 KiB），4 个 USB 2 根端口与 4 个 USB 3 根端口（两个 Supported Protocol 能力），一个
+interrupter，单向量 MSI（[pci.js](../src/pci.js) 已有）且保留 INTx；不声明 MSI-X，等 N2 或需要多个
+interrupter 时与 N2 一起实现。Windows 用 `usbxhci.inf` 按类匹配（Windows 8 以后；Windows 7 没有自带
+驱动，预设不给 7 选 xHCI），Linux 用 `xhci-pci`/`xhci_hcd`。i440FX 与 Q35（PCIe root port 下或根总线）
+都可用。
+
+首版的固定参数：MaxSlots 32、context 为 32 字节（CSZ 为 0）、页大小 4 KiB、不要求 scratchpad
+（MaxScratchpadBufs 为 0）、64 位寻址（AC64）。不做的：hub、streams、等时传输、USB 3 链路的 U1/U2
+低功耗状态（设备拒绝进入）、调试能力（DbC）。全速/低速设备直接接在 USB 2 端口上（xHCI 没有
+companion）。
+
+| 层次 | 实现范围 |
+| --- | --- |
+| 寄存器 | Capability、Operational、Runtime、Doorbell，复位/启停，CRCR stop/abort、IMAN/IMOD、ERDP.EHB、MFINDEX、PORTSC、Supported Protocol；扩展能力里的 USB Legacy Support（BIOS/OS 拥有信号量，同 EHCI 的做法） |
+| 内存对象 | DCBAA、slot/endpoint/input contexts、command/transfer/event rings、ERST、ERDP |
+| 命令 | Enable/Disable Slot、Address Device（含 BSR）、Configure/Evaluate Context、Reset Device、Stop/Reset Endpoint、Set TR Dequeue Pointer、No-op，以及规范要求的错误完成 |
+| TRB | Link/cycle/toggle、Setup/Data/Status、Normal、Event Data、Immediate Data、短包/错误/停止、IOC、ISP、chain；驱动实际使用的组合均需覆盖 |
+| 端口与电源 | 接入/拔出、power、reset（USB 2 的端口复位与 USB 3 的热复位/温复位）、速度、链路状态、状态变化 W1C、Port Status Change Event；PCI PM capability、D0/D3 与 suspend/resume |
+
+### USB 3 设备
+
+U 盘在 USB 3 端口上作为超高速设备：bcdUSB `0x0300`、EP0 最大包长指数 9、BOS 描述符（SuperSpeed
+USB Device Capability，也给 USB 2 的 LPM 能力填实际支持的值）、每个端点的 SuperSpeed Endpoint
+Companion 描述符（bulk 1024 字节、无 burst 或固定 burst、无 streams）；仍是 BOT，UAS 不在范围内。
+同一个 U 盘接在 USB 2 端口上时是高速设备（U3 的描述符）。tablet 接在 USB 2 端口上，全速。
+
+### 实现顺序与验收
+
+寄存器与 reset → 命令环 → EP0 枚举（USB 2 端口）→ 中断端点（tablet）→ bulk（高速 U 盘）→ USB 3
+端口与超高速 U 盘 → 错误与生命周期（停止/复位端点、拔出、快照）。Transfer Event 指针、剩余长度、
+completion code、环回绕、事件环满和端点停止与规范一致。[Intel xHCI 1.2b，§5.2.8 / §4.17.3](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+
+验收分层：Node 构造 ring/contexts 验证边界、cycle 位与 DMA；在 QEMU 的同一配置（`-device qemu-xhci`、
+`usb-tablet`、`usb-storage`）上取 Linux 的 `lsusb -v`/`lsusb -t` 参考，v86 的输出相同（tablet 12M、U 盘
+5000M）；枚举、取消、重插、U2 的 1 GiB 写入校验并与 UHCI、EHCI 的耗时对照；Windows 8.1、10、11 的
+设备管理器无错误，U 盘读写与安全弹出；SeaBIOS 的 xHCI 驱动与 USB 启动；快照、Worker 与多核。
+
+## 7. F1 OVMF / UEFI
 
 先冻结 edk2 commit、工具链、构建选项、固件大小、CODE/变量布局和 hash。在 QEMU 的匹配平台跑通
 同一构建，形成串口与设备探测参考，再移入 v86。首个探索构建关闭 Secure Boot、SMM 与 TPM，先
@@ -599,7 +718,7 @@ BootOrder、冷/热重启、超过 4 GiB RAM、多核与快照。从固定磁盘
 UEFI profile 初期不声明未经验证的 S3/S4。当前平台的休眠声明和部分 SeaBIOS 唤醒假设需要按
 固件拆分；对应的 OVMF 休眠、唤醒与设备恢复路径单独通过后再开放。
 
-## 6. T1/T2 TPM 2.0
+## 8. T1/T2 TPM 2.0
 
 采用“客体 TPM 接口 + TPM 命令后端 + 每 VM 持久化”的三层结构。优先评估 libtpms 的 Wasm 移植，
 复用其 TPM 2.0 状态机与密码学实现；swtpm/libtpms 的原生组合用于差分测试。不能用只返回 TPM
@@ -636,7 +755,7 @@ TPM 后端覆盖初始化/关机、capability、随机数、PCR read/extend、se
 可信硬件 EK 证书或生产级远程证明。TPM Clear 和替换 VM 身份必须作为显式操作。
 [libtpms 项目](https://github.com/stefanberger/libtpms)、[QEMU TPM 设备与接口说明](https://www.qemu.org/docs/master/specs/tpm.html)
 
-## 7. F2 Secure Boot
+## 9. F2 Secure Boot
 
 在 F1 之后先用测试密钥验证签名启动链，再配置适合目标 Windows/Linux 的受信任证书与 dbx。区分
 SetupMode、UserMode、SecureBoot、PK、KEK、db、dbx；实现认证更新、变量属性、删除/追加、时间戳
@@ -668,7 +787,7 @@ PK/KEK/db/dbx、直接写受保护存储、重放旧认证更新均失败；合�
 `Confirm-SecureBootUEFI`、Linux `mokutil --sb-state` 等核对客体视图，同时验证启动链与 TPM event
 log/PCR 的集成。
 
-## 8. C1 Windows 11 集成、回归与完成定义
+## 10. C1 Windows 11 集成、回归与完成定义
 
 Windows 11 的公开要求包括兼容的 64 位处理器、至少双核、4 GB 内存、64 GB 存储、UEFI / Secure
 Boot capable、TPM 2.0，以及 DirectX 12 / WDDM 2.0 图形。因此完成上述设备不等于满足 Windows 11 的
@@ -685,7 +804,7 @@ Windows 11，避免同时排查 CPU、固件和设备三个层次。
 | 旧机器 | 默认 i440FX + SeaBIOS + PS/2 + SB16 + NE2000/virtio + IDE 的行为、旧预设与旧快照 |
 | 网卡 | 82540EM 在 Windows 7/8.1/10/11 镜像中绑定的 INF 与 Linux e1000；ARM64 virtio-net 回归 |
 | HDA | Vista 及以后镜像的自带驱动矩阵；Linux ALSA |
-| USB | UHCI 上的 tablet 与 U 盘：XP、7、8.1、10、11、Linux |
+| USB | tablet 与 U 盘在三种控制器上：UHCI（XP、7、8.1、10、11、Linux），EHCI 与 companion（XP、7、8.1、10、11、Linux），xHCI（8.1、10、11、Linux） |
 | UEFI | Q35/AHCI、GOP、GPT、4 GiB 以上物理内存、双核及多核 |
 | 浏览器 | 页面执行与 CPU Worker，主流浏览器正式版；WebUSB 单独标记支持的平台 |
 | 生命周期 | pause/resume、warm/cold reset、S5、快照、恢复、热插拔、在途请求和持久化失败；S3/S4 按各固件 profile 单独启用验收 |
@@ -712,8 +831,8 @@ CPU/图形兼容的边界。只出现设备名称、播放一次声音或绕过�
 
 ## 可选与按需阶段
 
-以下阶段不阻塞 1–8：M1 是可选的结构调整，在 N1、H1 之后做；U3、N2、U4 在各自的触发条件出现时
-立项。
+以下阶段不阻塞 1–10：M1 是可选的结构调整，在 N1、H1 之后做；N2、U5 在各自的触发条件出现时
+立项。（初稿的按需阶段“U3 xHCI（必要时 EHCI）”已改为正式阶段 U3 EHCI、U4 xHCI。）
 
 ### M1 NE2000 与 SB16 迁成插件（可选）
 
@@ -786,31 +905,6 @@ CPU/图形兼容的边界。只出现设备名称、播放一次声音或绕过�
    - 部署后在 Pages 预览和站点上各启动一次默认机器，确认两个插件文件返回 200 并带内容哈希版本，再
      恢复一个站点存档，检查声音与网络。
 
-### U3 xHCI（必要时 EHCI）
-
-触发条件：UHCI 上的 U 盘吞吐不可接受，或某个目标需要 USB 3 与原生 xHCI 栈。EHCI 是 USB 2
-高速的较小选项（XP SP3、8.1 已核对自带驱动），按需求二选一或都做。U1 的设备层与 U2 的 BOT
-直接复用。
-
-xHCI 首版选定一个规范 profile 与硬件身份，固定槽位数、root port 数、context 大小和一个
-interrupter；先支持直接连接的 USB 2.0 full/high-speed 设备。支持 xHCI 不代表首版就具备 USB 3.x
-全速率、Hub、streams、等时传输和全部可选能力。xHCI 的 PCI/PCIe profile 要求 MSI 和/或 MSI-X：
-pci.js 已有单向量 MSI，INTx-only 只用于内部 bring-up；不暴露失效的 capability。
-[Intel xHCI 1.2b，§5.2.8 / §4.17.3](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
-
-| 层次 | 实现范围 |
-| --- | --- |
-| 寄存器 | Capability、Operational、Runtime、Doorbell，复位/启停，CRCR stop/abort、IMAN/IMOD、ERDP.EHB、MFINDEX、PORTSC、Supported Protocol |
-| 内存对象 | DCBAA、slot/endpoint/input contexts、scratchpad（仅按声明值要求）、command/transfer/event rings、ERST、ERDP |
-| 命令 | Enable/Disable Slot、Address Device、Configure/Evaluate Context、Reset Device、Stop/Reset Endpoint、Set TR Dequeue Pointer、No-op，以及规范要求的错误完成 |
-| TRB | Link/cycle/toggle、Setup/Data/Status、Normal、Event Data、短包/错误/停止、IOC；驱动实际使用的组合均需覆盖 |
-| 端口与电源 | 接入/拔出、power、reset、速度、状态变化 W1C、Port Status Change Event；PCI PM capability、D0/D3 与 USB2 suspend/resume |
-
-实现顺序：寄存器与 reset → 命令环 → EP0 枚举 → interrupt → bulk → 错误与生命周期。Transfer
-Event 指针、剩余长度、completion code、环回绕、事件队列满和端点停止必须与规范一致。验收分两层：
-Node 构造 ring/contexts 验证边界与 DMA；固定 Linux 内核加载 `xhci_hcd` 后运行 `lsusb -v` 与枚举/
-取消/重插测试，再在 Windows 8.1/10/11 中验证自带驱动。
-
 ### N2 e1000e（82574L）
 
 触发条件：某个目标 Windows 镜像没有 82540EM 的驱动，或需要 PCIe 原生网卡。82574L（`8086:10D3`）
@@ -822,7 +916,7 @@ e1000e 是单独的设备型号与驱动目标，不能只更换 vendor/device I
 PCIe capability、电源状态、MSI/MSI-X、向量和队列语义，按实际实现限制 RSS/多队列，不复用错误的
 e1000 假设。验收与 N1 相同，Linux 用 `e1000e`。
 
-### U4 WebUSB 受限直通
+### U5 WebUSB 受限直通
 
 普通网页 WebUSB 的受保护接口包含 HID（0x03）、Mass Storage（0x08）等类别；浏览器还受到 blocklist、
 设备占用与平台驱动绑定的影响。因此本计划的 tablet 与镜像 U 盘完全由模拟设备提供，不依赖
@@ -851,13 +945,14 @@ WebUSB 没有可通用假设的逐请求取消或物理状态回滚。虚拟取�
 
 | 客体 | 本地是否有 | 用于 |
 | --- | --- | --- |
-| Windows 8.1 x64 | 有：`images/windows8.img`（已安装，测试只读打开）与安装 ISO | N1、H1、U1、U2 的 Windows 验收 |
-| Windows XP SP3 | 有：所有者的 XP 镜像（XP 性能门禁所用）与安装 ISO | U1、U2；NE2000 与 SB16 回归 |
-| Alpine 3.24 x86_64 | 有：`build/x64-linux/` 的 virt/standard ISO | N1、H1、U1、U2 的现代内核 |
+| Windows 8.1 x64 | 有：`images/windows8.img`（已安装，测试只读打开）与安装 ISO | N1、H1、U1–U4 的 Windows 验收 |
+| Windows XP SP3 | 有：所有者的 XP 镜像（XP 性能门禁所用）与安装 ISO | U1–U3；NE2000 与 SB16 回归 |
+| Alpine 3.24 x86_64 | 有：`build/x64-linux/` 的 virt/standard ISO | N1、H1、U1–U4 的现代内核（`uhci-hcd`、`ehci-pci`、`xhci-pci`、`usbhid`、`usb-storage`） |
 | linux4.iso（4.16） | 有：`images/` | N1、H1 的快速客体（内置 e1000、snd-hda-intel；没有 USB 主机驱动） |
 | buildroot-bzimage68 | 有：`images/` | 没有 e1000、USB 主机与 HDA 驱动，不能用于新设备 |
 | Android 16 Cuttlefish | 有：[tools/a64_android.mjs](../tools/a64_android.mjs) 生成的 `build/a64-android/` | virtio-net 回归 |
-| Windows 7（x86、x64）、10、11 | 没有 | 需要所有者提供安装介质或已安装镜像；N1/H1/U1 的 Windows 矩阵与 C1 |
+| Windows 7（x86、x64）、10、11 | 没有 | 需要所有者提供安装介质或已安装镜像；N1/H1/U1–U4 的 Windows 矩阵与 C1 |
+| QEMU 9.2 x86_64 参考 | 有：本机构建的 QEMU（ARM64 计划 A0） | U1–U4 的 Linux 参考：同配置（`piix3-usb-uhci` 或 `ich9-usb-uhci1`、`ich9-usb-ehci1` 加 companion、`qemu-xhci`，`usb-tablet`、`usb-storage`）下的 `lsusb -v`/`-t` |
 
 ## 建议的首批提交
 
@@ -868,14 +963,19 @@ WebUSB 没有可通用假设的逐请求取消或物理状态回滚。虚拟取�
 3. H1：HD Audio 插件与 Node 测试；单选的 `audio_device`；linux4.iso 与 Windows 8.1 验收；预设默认值。
 4. U1：USB 设备核心、UHCI、tablet 与统一输入路由；Alpine、XP 与 Windows 8.1 验收。
 5. U2：BOT/SCSI 与镜像 U 盘的热插拔 API。
-6. F1 探路：fw_cfg 修订号与 `etc/e820`；固定 edk2 构建，在 QEMU 的相同配置上取得串口参考，再在
+6. U3：EHCI 与 ICH9 UHCI companion（端口归属、异步与周期调度、IAA）、设备层的高速部分；Alpine、XP、
+   Windows 7（有镜像时）与 8.1 验收；XP/Vista/7 预设改为 EHCI。
+7. U4：xHCI（命令、传输与事件环，单向量 MSI）、USB 3 端口与超高速 U 盘；QEMU 参考、Alpine 与
+   Windows 8.1 验收；8.1/10/11 与 Linux 预设改为 xHCI。
+8. F1 探路：fw_cfg 修订号与 `etc/e820`；固定 edk2 构建，在 QEMU 的相同配置上取得串口参考，再在
    v86 中以 ROM 方式启动到 Shell。
-7. T1：libtpms 的 Wasm 可行性探测与 CRB 前端。
-8. F1 完整（GOP、GPT/ESP、pflash 持久变量）→ T2 → F2 → C1。
-9. M1（可选）：2、3 完成后先迁 NE2000，再迁 SB16，各自通过 M1 的验收条件后发布。
-10. U3、N2、U4 在各自的触发条件出现时立项。
+9. T1：libtpms 的 Wasm 可行性探测与 CRB 前端。
+10. F1 完整（GOP、GPT/ESP、pflash 持久变量）→ T2 → F2 → C1。
+11. M1（可选）：2、3 完成后先迁 NE2000，再迁 SB16，各自通过 M1 的验收条件后发布。
+12. N2、U5 在各自的触发条件出现时立项。
 
-第 1 项完成后，2–4 可以由独立的工作流并行推进（4 不依赖第 1 项，可以更早开始）。每一项都包含
+第 1 项完成后，2–4 可以由独立的工作流并行推进（4 不依赖第 1 项，可以更早开始；USB 的 4–7 是
+一条线，依次进行）。每一项都包含
 “界面”一节中对应阶段的改动与 `make app-tests` 的用例。
 
 ## 规范与实现参考
@@ -889,6 +989,8 @@ WebUSB 没有可通用假设的逐请求取消或物理状态回滚。虚拟取�
 - [Microsoft inbox 网络驱动说明](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/inbox-network-drivers?view=windows-11)
 - [Intel HD Audio 规范](https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf)、[QEMU intel-hda](https://github.com/qemu/qemu/blob/master/hw/audio/intel-hda.c)、[QEMU hda-codec](https://github.com/qemu/qemu/blob/master/hw/audio/hda-codec.c)
 - Intel UHCI Design Guide 1.1（实施时固定副本与 hash）、[QEMU hcd-uhci](https://github.com/qemu/qemu/blob/master/hw/usb/hcd-uhci.c)、[QEMU dev-hid](https://github.com/qemu/qemu/blob/master/hw/usb/dev-hid.c)、[QEMU dev-storage](https://github.com/qemu/qemu/blob/master/hw/usb/dev-storage.c)
+- Intel EHCI 1.0 规范（实施时固定副本与 hash）、[QEMU hcd-ehci](https://github.com/qemu/qemu/blob/master/hw/usb/hcd-ehci.c)、[QEMU hcd-ehci-pci](https://github.com/qemu/qemu/blob/master/hw/usb/hcd-ehci-pci.c)（ICH9 EHCI 与 companion 的组合）、Linux `drivers/usb/host/ehci-*.c`
+- [QEMU hcd-xhci](https://github.com/qemu/qemu/blob/master/hw/usb/hcd-xhci.c)、[QEMU hcd-xhci-pci](https://github.com/qemu/qemu/blob/master/hw/usb/hcd-xhci-pci.c)、Linux `drivers/usb/host/xhci*.c`、USB 3.2 规范（BOS、SuperSpeed Endpoint Companion）
 - [USB HID 1.11](https://www.usb.org/document-library/device-class-definition-hid-111)、[USB Mass Storage BOT](https://www.usb.org/document-library/mass-storage-bulk-only-10)
 - [Intel xHCI 1.2b](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
 - [WebUSB 规范](https://wicg.github.io/webusb/)
