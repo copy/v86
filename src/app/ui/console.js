@@ -361,6 +361,54 @@ async function resume_choice(config, store, notice)
 }
 
 /**
+ * What a console printed (the serial port, a virtio console), kept from power
+ * on so that its drawer shows all of it when it opens: the last `limit`
+ * bytes until then, everything after
+ * @param {number} limit
+ */
+function console_output(limit)
+{
+    /** @type {Uint8Array[]} */
+    let parts = [];
+    let current = new Uint8Array(4096), used = 0, size = 0;
+    /** @type {((bytes: Uint8Array) => void) | null} */
+    let sink = null;
+    const flush = () =>
+    {
+        if(!used) return;
+        parts.push(current.subarray(0, used));
+        size += used;
+        current = new Uint8Array(4096);
+        used = 0;
+        while(size > limit && parts.length > 1) size -= /** @type {Uint8Array} */ (parts.shift()).length;
+    };
+    return {
+        /** @param {Uint8Array} bytes */
+        push(bytes)
+        {
+            if(sink) { sink(bytes); return; }
+            for(let i = 0; i < bytes.length;)
+            {
+                const n = Math.min(bytes.length - i, current.length - used);
+                current.set(bytes.subarray(i, i + n), used);
+                used += n;
+                i += n;
+                if(used === current.length) flush();
+            }
+        },
+        /** @param {(bytes: Uint8Array) => void} write what was kept, then what comes */
+        attach(write)
+        {
+            flush();
+            for(const part of parts) write(part);
+            parts = [];
+            size = 0;
+            sink = write;
+        },
+    };
+}
+
+/**
  * The running console's controls
  * @param {ReturnType<typeof console_layout>} layout
  * @param {any} emulator
@@ -774,12 +822,50 @@ function console_ui(layout, emulator, ctx)
         ctx.set_status(emulator.is_running() ? "Running" : "Paused");
     };
 
-    // ---- drawers: the serial terminal, the shared folder, the details
+    // ---- drawers: the serial terminal, the kernel console (the first virtio
+    // console: hvc0 of the virt machine's Linux and Android), the shared
+    // folder, the details. The consoles' output is kept from power on (the
+    // last MiB), so a drawer opened later shows the boot from its start.
     let drawer = "";
     let files_tab = !!(ctx.config ? ctx.config.filesystem : ctx.options.filesystem && Object.keys(ctx.options.filesystem).length);
     const details_open = () => drawer === "details";
-    const terminal = h("div.terminal");
-    let terminal_loaded = false;
+    const kernel_console = !!options.virtio_console;
+    const serial_output = console_output(1 << 20), kernel_output = console_output(1 << 20);
+    emulator.add_listener("serial0-output-byte", /** @param {number} byte */ byte => serial_output.push(Uint8Array.of(byte)));
+    if(kernel_console) emulator.add_listener("virtio-console0-output-bytes", /** @param {Uint8Array} bytes */ bytes => kernel_output.push(bytes));
+    const terminal = h("div.terminal"), kernel = h("div.terminal");
+    /** @type {Promise<void> | null} */
+    let xterm_loaded = null;
+    /** @type {Set<HTMLElement>} */
+    const terminals = new Set();
+    /**
+     * An xterm in `element` (once): what the console printed so far, then
+     * what it prints; the keys typed go to `send`
+     * @param {HTMLElement} element
+     * @param {ReturnType<typeof console_output>} output
+     * @param {(text: string) => void} send
+     */
+    const open_terminal = (element, output, send) =>
+    {
+        if(terminals.has(element)) return;
+        terminals.add(element);
+        xterm_loaded = xterm_loaded || new Promise((resolve, reject) =>
+        {
+            const script = document.createElement("script");
+            script.src = "build/xterm.js" + query_append();
+            script.onload = () => resolve(undefined);
+            script.onerror = () => reject(new Error("build/xterm.js did not load"));
+            document.head.append(script);
+        });
+        xterm_loaded.then(() =>
+        {
+            // (a boot's log runs to thousands of lines: xterm keeps 1000 by default)
+            const term = new (/** @type {any} */ (window)).Terminal({ logLevel: "off", convertEol: true, scrollback: 10000 });
+            term.open(element);
+            output.attach(bytes => term.write(bytes));
+            term.onData(/** @param {string} data */ data => send(data));
+        }, error => ctx.set_status(error.message));
+    };
     const details = h("div.details");
     const render_details = () =>
     {
@@ -846,17 +932,12 @@ function console_ui(layout, emulator, ctx)
         layout.drawer.hidden = !drawer;
         layout.root.classList.toggle("with-drawer", !!drawer);
         if(!drawer) { update_toolbar(); return; }
-        const title = { terminal: "Serial terminal", files: "Shared folder", details: "Details" }[drawer];
+        const title = { terminal: "Serial terminal", kernel: "Kernel console", files: "Shared folder", details: "Details" }[drawer];
         replace(layout.drawer, h("header", null, h("h2", null, title), h("button", { type: "button", "aria-label": "Close", onclick: () => open_drawer("") }, "×")),
-            drawer === "terminal" ? terminal : drawer === "files" ? files_panel() : details);
-        if(drawer === "terminal" && !terminal_loaded)
-        {
-            terminal_loaded = true;
-            const script = document.createElement("script");
-            script.src = "build/xterm.js" + query_append();
-            script.onload = () => emulator.set_serial_container_xtermjs(terminal);
-            document.head.append(script);
-        }
+            drawer === "terminal" ? terminal : drawer === "kernel" ? kernel : drawer === "files" ? files_panel() : details);
+        // (the serial port takes bytes: the keys' UTF-8 as characters 0-255)
+        if(drawer === "terminal") open_terminal(terminal, serial_output, data => emulator.serial0_send(String.fromCharCode(...new TextEncoder().encode(data))));
+        if(drawer === "kernel") open_terminal(kernel, kernel_output, data => emulator.virtio_console_send(data));
         if(drawer === "details") render_details();
         update_toolbar();
     };
@@ -970,6 +1051,7 @@ function console_ui(layout, emulator, ctx)
             menu_button("Tools", items.tools, "menu_tools"),
             h("span.toolbar-gap"),
             drawer_button("terminal", "Terminal"),
+            kernel_console ? drawer_button("kernel", "Kernel console") : null,
             files_tab ? drawer_button("files", "Files") : null,
             drawer_button("details", "Details"),
             h("span.console-name", null, ctx.name));

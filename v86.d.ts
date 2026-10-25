@@ -1599,6 +1599,11 @@ export class V86 {
      * @param data
      */
     serial0_send(data: string): void;
+    /**
+     * Send text (as UTF-8) or bytes to the first virtio console port (hvc0 on
+     * the virt machine, the kernel's console there)
+     */
+    virtio_console_send(data: string | Uint8Array): void;
 
     /**
      * Send bytes to a serial port (to be received by the emulated PC).

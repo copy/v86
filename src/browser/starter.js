@@ -2575,6 +2575,16 @@ V86.prototype.serial0_send = function(data)
 };
 
 /**
+ * Send text (as UTF-8) or bytes to the guest's first virtio console port
+ * (hvc0 on the virt machine, the kernel's console there)
+ * @param {string|Uint8Array} data
+ */
+V86.prototype.virtio_console_send = function(data)
+{
+    this.bus.send("virtio-console0-input-bytes", typeof data === "string" ? new TextEncoder().encode(data) : data);
+};
+
+/**
  * A stream socket to a port of the guest's vsock (machine_type "virt" with
  * virtio_vsock; src/virtio_vsock.js): resolves when the guest accepts,
  * rejects when it refuses. The stream has write(bytes), close(), and the
