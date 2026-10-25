@@ -3,13 +3,16 @@
 // src/graphics_adapter.js imports this file directly.
 
 import { GraphicsMachine, register_graphics_adapter } from "../machine.js";
-import { VirtioGPU } from "./virtio_gpu_device.js";
+import { VirtioGPU, host_visible_size } from "./virtio_gpu_device.js";
 
 register_graphics_adapter({
     "name": "virtio_gpu",
     // The VGA BIOS's PCI ROM header must name the device (SeaBIOS checks it)
     "pci_vendor": 0x1AF4,
     "pci_device": 0x1050,
+    // the device memory a pinned level's host visible memory needs (0: the
+    // machine's own amount; the ARM core reserves it after RAM)
+    "device_memory_size": options => host_visible_size((options["test"] || {})["level"] || ""),
     "create": (handle, options) =>
     {
         const test = options["test"] || {};

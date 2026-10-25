@@ -538,7 +538,7 @@ there is no MSI or MSI-X.
 | --- | --- |
 | BAR0 | VRAM: the VGA core's LFB, also viogpudo's frame buffer (`vram_size`: 32 MiB by default, at least 16 MiB; see [Configuration](#configuration)) |
 | BAR2 | The four virtio capabilities in one 128 KiB memory BAR at 0x000, 0x100, 0x200 and 0x300, as on QEMU's virtio-vga (viogpudo maps only memory BARs) |
-| BAR4 | From `virgl43-hostmem`: the host visible memory, 64 MiB (128 MiB at `venus` and `gfxstream`), described by a shared memory capability (shmid 1). It is a 32-bit prefetchable BAR: v86's device memory regions (`mmio_ram`) have 32-bit bases and are decoded only below 4 GiB, so the firmware places BAR4 in the PCI memory window under 4 GiB |
+| BAR4 | From `virgl43-hostmem`: the host visible memory, 64 MiB (128 MiB at `venus`, 256 MiB at `gfxstream`), described by a shared memory capability (shmid 1). It is a 32-bit prefetchable BAR: v86's device memory regions (`mmio_ram`) have 32-bit bases and are decoded only below 4 GiB, so the firmware places BAR4 in the PCI memory window under 4 GiB |
 
 The device shows its VGA core (BIOS, boot loaders, VBE) until the driver
 sends its first control command. After a device reset, by the driver or the
@@ -569,7 +569,7 @@ are virtio-gpu's.
 | `virgl43-blob` | `virgl43`'s, `RESOURCE_BLOB` and `CONTEXT_INIT` | as `virgl43` | none | as `virgl43`, with guest blobs |
 | `virgl43-hostmem` | as `virgl43-blob` | `virgl43`'s and `VIRGL_CAP_ARB_BUFFER_STORAGE` | 64 MiB | as `virgl43`, and `ARB_buffer_storage` |
 | `venus` | as `virgl43-blob` | `virgl43-hostmem`'s and VENUS (4) | 128 MiB | as `virgl43-hostmem`, and Vulkan 1.1 ([Venus](#venus-vulkan)) |
-| `gfxstream` | as `virgl43-blob` | GFXSTREAM_VULKAN (3) and GFXSTREAM_COMPOSER (9) only | 128 MiB | Vulkan 1.1 for gfxstream's guest driver, Android's official images; no virgl contexts ([gfxstream](#gfxstream)) |
+| `gfxstream` | as `virgl43-blob` | GFXSTREAM_VULKAN (3) and GFXSTREAM_COMPOSER (9) only | 256 MiB | Vulkan 1.1 for gfxstream's guest driver, Android's official images; no virgl contexts ([gfxstream](#gfxstream)) |
 
 As on SVGA, a level's features and capsets never change: OpenGL 4.3 came as
 the new level `virgl43`, and `virgl` still declares GLSL 330.
@@ -819,7 +819,8 @@ its progress in [gfxstream-plan.md](gfxstream-plan.md).
   16 preset and imported official images use both by default (949f8fe0).
   A machine has one Vulkan front end: Venus and gfxstream are never declared
   together, so the guest's libvulkan cannot pick the wrong one.
-- **What the level declares**: `venus`'s features and 128 MiB BAR4, but only
+- **What the level declares**: `venus`'s features and a 256 MiB BAR4 (the
+  host visible memory of Cuttlefish's QEMU device, `hostmem=256M`), but only
   gfxstream's capsets: GFXSTREAM_VULKAN (3, 108 bytes) and
   GFXSTREAM_COMPOSER (9, 16 bytes), as rutabaga's gfxstream component offers
   them and as Cuttlefish's QEMU device for the mode has them
@@ -1039,6 +1040,19 @@ its progress in [gfxstream-plan.md](gfxstream-plan.md).
     `VkNativeBufferANDROID` in `VkBindImageMemoryInfo`'s chain and no
     memory. With only `vkCreateImage`'s form handled, the boot animation
     drew into textures of its own and the display stayed black (fb30efa9).
+  - Every guest thread that calls Vulkan has its own ring, a MiB of host
+    visible memory, as long as the thread lives (system_server's binder
+    threads uploading hardware bitmaps, each app's render, ANGLE cleanup
+    and HWUI task threads). With Venus's 128 MiB, 20 minutes into A10's
+    monkey the guest's kernel had no room left
+    (`DRM_VIRTGPU_RESOURCE_CREATE_BLOB failed with No space left on
+    device`), the driver logged "Failed to create virtgpu
+    AddressSpaceStream", and the thread's first Vulkan call dereferenced
+    the missing connection (`GfxStreamConnectionManager::getEncoder` on
+    null): apps and then system_server died (2026-10-25). The level has
+    the reference's 256 MiB since; on ARM the core reserves it after RAM
+    (the plugin's `device_memory_size`). `A64_ANDROID_GPU_DEBUG=1` shows
+    what is mapped (`hostmem=<MiB>/<MiB> in <blobs>`).
 
 ## GX
 
@@ -1939,9 +1953,7 @@ them. Smaller gaps are listed in [gpu-deviations.md](gpu-deviations.md#not-done)
   - dEQP-VK and dEQP-GLES3 samples on gfxstream (G5);
   - `tests/a64/android/vkprobe.c` and `vkahb.c` in the official image (G2;
     the device test `virtio_gpu_gfxstream_render.js` plays vkahb's steps);
-  - A10's save and restore scenario (`A64_ANDROID_SCENARIO=a10`) under
-    gfxstream, and a run in the browser with the CPU worker (G6; device
-    snapshots are tested, and A9's scenario ran with 4 vCPU workers);
+  - a run in the browser with the CPU worker (G6);
   - the capset's `virglSupportedFormats` bitmask, announced empty (G-60).
 - **Not tried in a guest.**
   - VMware's Windows OpenGL ICD, from the same "VMware SVGA 3D" package.

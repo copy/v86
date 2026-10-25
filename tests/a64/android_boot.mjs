@@ -604,6 +604,9 @@ if(process.env.A64_ANDROID_GPU_DEBUG)
                     ` queues=${[...g.vk.queues].map(q => q.pending.length + "p/" + q.inflight + "i").join(",")} waiters=${g.vk.waiters.length}` : "") +
                 ` unknown=${JSON.stringify(g.stats.unknown)} syncs=${JSON.stringify(g.stats.syncs)}` +
                 ` execbuffer=${JSON.stringify(g.stats.execbuffer)} fences=${JSON.stringify(gpu.stats.fences)}` +
+                // (the host visible memory the guest has mapped: its rings and memory, MiB, of the whole)
+                ` hostmem=${([...gpu.mapped.values()].reduce((sum, r) => sum + r.blob_size, 0) / 1048576).toFixed(1)}` +
+                `/${gpu.hostmem_size >> 20} in ${gpu.mapped.size}` +
                 // (the control queue's commands by type, flushes: KMS's scanouts)
                 ` control=${JSON.stringify(gpu.stats.commands)} flushes=${gpu.stats.flushes} gpu-errors=${gpu.stats.errors}/${gpu.stats.last_error.toString(16)}` +
                 (gpu.stats.failed_command ? ` failed=${JSON.stringify(gpu.stats.failed_command.slice(0, 300))}` : ""));

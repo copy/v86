@@ -52,7 +52,8 @@ const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
 
 /**
  * Device memory after RAM, with a display adapter (virtio-gpu's host
- * visible memory, P7.1: at most 128 MiB, Venus's)
+ * visible memory, P7.1: 128 MiB, Venus's; more when the adapter's level
+ * asks for it, its descriptor's device_memory_size: gfxstream's 256 MiB)
  */
 const DEVICE_MEMORY_SIZE = 128 << 20;
 /** Device memory regions start at multiples of this (src/rust/aarch64/bus.rs, a64_device_take_dirty) */
@@ -230,7 +231,9 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(settings.cpu_clock) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
     // The display adapter's plugin descriptor (P7.1: virtio-gpu without VGA); none with graphics_adapter: "none"
     this.graphics_adapter_descriptor = settings.graphics_adapter;
-    this.create_memory(memory_size, this.graphics_adapter_descriptor ? DEVICE_MEMORY_SIZE : 0);
+    const adapter = this.graphics_adapter_descriptor;
+    this.create_memory(memory_size, adapter ? Math.max(DEVICE_MEMORY_SIZE,
+        adapter["device_memory_size"]?.({ "test": settings.graphics_adapter_test }) || 0) : 0);
     this.configure_extended_memory(settings.extended_memory_size || 0, settings.extended_memory_cache);
     this.device_bus = device_bus;
     this.devices = {

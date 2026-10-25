@@ -212,12 +212,28 @@ const BLOB_FLAG_USE_MAPPABLE = 1;
 const MAP_CACHE_CACHED = 1;
 
 /** The host visible memory (BAR4, shared memory region 1), at level hostmem;
- * at level venus, mapped Vulkan memory lives there too */
+ * at level venus, mapped Vulkan memory lives there too; at gfxstream also
+ * each guest thread's ring, a MiB each (Cuttlefish's hostmem=256M: with 128
+ * MiB, 30 minutes of monkey left the guest's kernel without room for new
+ * threads' rings, and their first Vulkan call crashed) */
 const HOST_VISIBLE_SIZE = 64 << 20;
 const VENUS_HOST_VISIBLE_SIZE = 128 << 20;
+const GFXSTREAM_HOST_VISIBLE_SIZE = 256 << 20;
 /** what of it Vulkan's host visible heap says it has (the rest: rings, replies) */
 const VENUS_MEMORY_SIZE = VENUS_HOST_VISIBLE_SIZE - (16 << 20);
 const HOST_VISIBLE_SHMID = 1;
+
+/**
+ * The host visible memory of a level (0: none), the device memory the
+ * machine reserves for it
+ * @param {string} level
+ * @return {number}
+ */
+export function host_visible_size(level)
+{
+    const l = LEVELS[level];
+    return !l || !l.hostmem ? 0 : l.gfxstream ? GFXSTREAM_HOST_VISIBLE_SIZE : l.venus ? VENUS_HOST_VISIBLE_SIZE : HOST_VISIBLE_SIZE;
+}
 const PAGE = 4096;
 
 /**
@@ -397,7 +413,7 @@ export function VirtioGPU(machine, options)
     // read back into it before their fences complete
     this.hostmem_region = -1;
     this.hostmem_backing = 0;
-    this.hostmem_size = LEVELS[this.level].venus || LEVELS[this.level].gfxstream ? VENUS_HOST_VISIBLE_SIZE : HOST_VISIBLE_SIZE;
+    this.hostmem_size = host_visible_size(this.level) || HOST_VISIBLE_SIZE;
     /** @type {Uint32Array} pages written and not yet uploaded, as taken from the core */
     this.hostmem_pending = null;
     /** @type {!Map<number, (!Resource3D|!VenusBlob)>} the mapped blobs, by resource id */

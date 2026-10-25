@@ -1,6 +1,6 @@
 # gfxstream 实施计划
 
-状态：实施中（G0–G6 的进度见各节；2026-10-25 剩 G6 的 A10 场景与浏览器运行、G5 的 dEQP 抽样）。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
+状态：实施中（G0–G6 的进度见各节；2026-10-25 剩 G6 的浏览器运行、G5 的 dEQP 抽样）。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划为 v64 的 virtio-gpu 增加 gfxstream：Android 模拟器和 Cuttlefish 把客体的 Vulkan（以及
@@ -319,7 +319,17 @@ Success、启动 25.6 s，重启后 477 s 再到 `boot_completed`、应用与 /d
 进度（2026-10-24）：快照完成（`d78b3747`）：每个上下文的环（未解码的流、先在等待的命令）、RESOURCE_CREATE_3D
 模板、同步号、Vulkan 状态（如 Venus 的 `venus_state.js`：对象、blob、队列、模板、宿主同步序号、原生图像）与进程管道
 进设备状态，模型恢复时重建渲染器对象；保存前环如 Venus 的一样排空。设备测试覆盖两环序列跨快照。4 个 vCPU Worker
-在 G5 的 A9 场景里用过。未做：A10 场景在 gfxstream 下、CPU Worker 下的浏览器运行。
+在 G5 的 A9 场景里用过。
+A10 场景（2026-10-25，官方 Cuttlefish 镜像，4 个 vCPU Worker）：第一次运行开机到桌面后保存（2141 MiB），第二次恢复到新机器
+后通过：触摸打开 Gallery，输入延迟中位 734 ms，持续帧率 12.6 fps（ANGLE 在 gfxstream 上），tinyplay 的 WAV 逐字节到宿主，
+monkey 30 分钟无崩溃，内存压力下 lmkd 杀掉 2 个进程，system_server、surfaceflinger、zygote64 自始至终同一进程。途中修正：
+- 宿主可见内存从 Venus 的 128 MiB 改为参考机的 256 MiB（Cuttlefish 的 QEMU `hostmem=256M`）：客体每个调用 Vulkan 的线程
+  各有一个 1 MiB 的环，128 MiB 时 monkey 二十分钟后客体内核分不出新的 blob（`No space left on device`），驱动记
+  “Failed to create virtgpu AddressSpaceStream”，线程第一次调用 Vulkan 时解引用空的连接，应用与 system_server 相继崩溃。
+  ARM 核心按插件的 `device_memory_size` 在 RAM 之后留出这块设备内存。这次运行峰值 177 MiB（`A64_ANDROID_GPU_DEBUG=1`
+  的 `hostmem=`）。
+- 场景的 tinyplay 用驱动允许的最大缓冲（320 ms）：默认 85 ms 在帧率步骤卸载应用之后的忙碌里欠载，重启时丢一个周期。
+未做：CPU Worker 下的浏览器运行。
 
 ## 风险与未定项
 

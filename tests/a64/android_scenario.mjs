@@ -484,7 +484,11 @@ export async function a10_scenario(env)
         const card = cards.match(/^\s*(\d+)\s+\[[^\]]*\]:\s*virtio/im)?.[1];
         assert.ok(card !== undefined, "a virtio-snd card: " + JSON.stringify(cards));
         env.sound.reset();
-        const played_out = await adb(`su 0 tinyplay /data/local/tmp/v86-tone.wav -D ${card} -d 0 2>&1`, 600000);
+        // (the largest buffer the kernel's virtio-snd driver allows, 160 ms of
+        // its widest format, 320 ms of this one: tinyplay's 85 ms underran
+        // on v86 while the system still dealt with the frame step's
+        // uninstall, and the restart lost a period, as a card would)
+        const played_out = await adb(`su 0 tinyplay /data/local/tmp/v86-tone.wav -D ${card} -d 0 -p 1920 -n 8 2>&1`, 600000);
         await sleep(3000);
         const played = env.sound.played();
         const at = played.indexOf(tone.subarray(0, 4096));
