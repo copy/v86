@@ -28,7 +28,7 @@ const renderer = {
         if(message["type"] === "hello" || message["type"] === "reset")
         {
             // (as svga_renderer.js does: after the device's listener is up)
-            queueMicrotask(() => to_device({ "type": "caps", "present": present }));
+            globalThis.queueMicrotask(() => to_device({ "type": "caps", "present": present }));
             return;
         }
         if(message["type"] !== "submit") return;
