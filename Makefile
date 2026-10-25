@@ -53,6 +53,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	build/v86-debug.wasm build/libv86.mjs build/v86.wasm build/jit-capacity.bin
 	node tests/rust/bmi.mjs
 	node tests/rust/fma.mjs
+	node tests/rust/cvtpi2ps_x87.mjs
 	node tests/app/vm_config.mjs
 	node tests/app/presets.mjs
 	node tests/app/machine_rules.mjs
@@ -1829,6 +1830,7 @@ bmi-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debu
 .PHONY: fma-tests
 fma-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debug.wasm
 	node tests/rust/fma.mjs
+	node tests/rust/cvtpi2ps_x87.mjs
 	node tests/rust/fma.mjs build/v86-debug.wasm
 	node tests/x64/fma.mjs
 	TEST_RELEASE_BUILD=1 node tests/x64/fma.mjs

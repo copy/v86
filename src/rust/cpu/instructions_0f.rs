@@ -997,13 +997,19 @@ pub unsafe fn instr_0F2A(source: u64, r: i32) -> bool {
     match sse_fp_convert(0x0F2A, r, source as u128) {
         Some(v) => {
             write_xmm_reg128(r, reg128::of_bits(v));
-            transition_fpu_to_mmx();
             true
         },
         None => false,
     }
 }
-pub unsafe fn instr_0F2A_reg(r1: i32, r2: i32) { instr_0F2A(read_mmx64s(r1), r2); }
+pub unsafe fn instr_0F2A_reg(r1: i32, r2: i32) {
+    // (only the MMX register form leaves the x87 for MMX, as CVTPI2PD's; from
+    // memory the x87 stack stays: Need for Speed: Most Wanted's mixer runs x87
+    // code right after CVTPI2PS xmm, m64, and each load overflowed into NaN)
+    if instr_0F2A(read_mmx64s(r1), r2) {
+        transition_fpu_to_mmx();
+    }
+}
 pub unsafe fn instr_0F2A_mem(addr: i32, r: i32) {
     instr_0F2A(return_on_pagefault!(safe_read64s(addr)), r);
 }

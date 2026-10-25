@@ -218,7 +218,8 @@ unsafe fn conversion(d: &Decoded) -> Result<bool, Fault> {
         return Ok(true);
     }
     put_xmm(r, result);
-    if low == 0x2A && !scalar {
+    // (CVTPI2PS/CVTPI2PD: only from an MMX register, not from memory)
+    if low == 0x2A && !scalar && d.rm_register.is_some() {
         cpu::transition_fpu_to_mmx();
     }
     Ok(true)
