@@ -13,9 +13,14 @@ const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "..
 
 process.on("unhandledRejection", exn => { throw exn; });
 
+// (the BIOS at the reset vector: the PICs masked, then HLT with interrupts
+// on, so that the machine's timers run)
+const bios = new Uint8Array(0x10000).fill(0xF4);
+bios.set([0xB0, 0xFF, 0xE6, 0x21, 0xE6, 0xA1, 0xFB, 0xF4, 0xEB, 0xFD], 0xFFF0);
+
 const emulator = new V86({
     graphics_adapter: "bochs_vga",
-    bios: { buffer: new Uint8Array(0x10000).fill(0xF4).buffer },
+    bios: { buffer: bios.buffer },
     hda: { buffer: new ArrayBuffer(1024 * 1024) },
     memory_size: 16 * 1024 * 1024,
     autostart: false,
@@ -78,6 +83,25 @@ for(let i = 0; i < 16; i++) emulator.bus.send("dac-request-data");
 assert.equal(samples.length, 0, "a masked channel delivers no more samples");
 assert.equal(dma.channel_count[5], count, "and its count stays");
 console.log("PASS: masking the channel stops the sound");
+
+// a host that stops asking (an AudioContext waiting for a gesture): the
+// transfer keeps the machine's time on its own, and its samples are dropped
+const sb16 = emulator.v86.cpu.devices.sb16;
+io.port_write8(0x226, 1);
+io.port_write8(0x226, 0);
+program_channel5(0x59, 0x4000, 0, 8192);
+dsp(0xB6, 0x30, 0xFF, 0xFF);
+io.port_write8(0xD4, 0x01);
+samples = [];
+await emulator.run();
+await new Promise(resolve => setTimeout(resolve, 1000));
+await emulator.stop();
+const moved = 0x20000 - sb16.dma_bytes_left;
+assert.ok(moved >= 0x4000 && moved < 0x20000, "the transfer moved on its own: " + moved + " bytes");
+assert.equal(samples.length, 0, "nobody listens: its samples are dropped");
+emulator.bus.send("dac-request-data");
+assert.equal(samples.length, 1024, "a host that asks again gets the samples");
+console.log("PASS: a transfer the host stops asking for keeps the machine's time");
 
 emulator.destroy();
 console.log("Done");
