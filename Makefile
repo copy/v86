@@ -1209,6 +1209,7 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/dtb.mjs
 	node tests/a64/linux_loader.mjs
 	node tests/a64/device_io_reset.mjs
+	node tests/a64/virtio_input_touch.mjs
 	node tests/a64/virtio_blk_disk_image.mjs
 	node tests/a64/virtio_blk_disk_error.mjs
 	node tests/a64/virtio_blk_sector_size.mjs

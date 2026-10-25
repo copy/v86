@@ -345,9 +345,11 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(settings.virtio_input)
     {
         const kinds = Array.isArray(settings.virtio_input) ? settings.virtio_input : ["keyboard", "tablet"];
+        // (a touch screen without a tablet beside it takes the mouse as a finger: Android's preset has no tablet)
+        const mouse_as_touch = !kinds.includes("tablet");
         for(const kind of kinds)
         {
-            add("virtio-" + kind, (transport, pci_id) => new VirtioInput(this, device_bus, kind, transport, pci_id));
+            add("virtio-" + kind, (transport, pci_id) => new VirtioInput(this, device_bus, kind, transport, pci_id, mouse_as_touch));
         }
     }
     // (P10.7: stream sockets to the guest, its adbd's vsock:5555)

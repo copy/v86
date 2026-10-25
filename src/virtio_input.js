@@ -6,7 +6,9 @@
 // (src/browser/mouse.js) and sends EV_ABS (0-0x7FFF), the buttons and
 // REL_WHEEL; and a multi-touch screen, which takes "touch" (the touches on
 // the screen) and sends the slots of the MT protocol (type B: ABS_MT_SLOT,
-// ABS_MT_TRACKING_ID, ABS_MT_POSITION_X/Y) and BTN_TOUCH. Their
+// ABS_MT_TRACKING_ID, ABS_MT_POSITION_X/Y) and BTN_TOUCH, and, with no
+// tablet beside it, the mouse as one finger (as Android's emulator: the
+// left button down touches, moves drag, up lifts it). Their
 // configuration (the select/subsel window: name, IDs, properties, event
 // bits, the axes' ranges) is that of QEMU v9.2.0's virtio-keyboard,
 // virtio-tablet and virtio-multitouch (hw/input/virtio-input-hid.c,
@@ -73,11 +75,12 @@ const u16s = words => new Uint8Array(new Uint16Array(words).buffer);
  * @constructor
  * @param {?} cpu
  * @param {?} bus
- * @param {string} kind "keyboard" or "tablet"
+ * @param {string} kind "keyboard", "tablet" or "multitouch"
  * @param {?} transport the device's transport (src/virtio_mmio.js), or null: on the PCIe host at `pci_id`
  * @param {number=} pci_id
+ * @param {boolean=} mouse_as_touch (multitouch) the mouse as one finger: no tablet takes it
  */
-export function VirtioInput(cpu, bus, kind, transport, pci_id)
+export function VirtioInput(cpu, bus, kind, transport, pci_id, mouse_as_touch)
 {
     dbg_assert(transport || pci_id !== undefined && cpu.devices.pci.generic, "virtio-input: on the virt machine's transports only");
     dbg_assert(kind === "keyboard" || kind === "tablet" || kind === "multitouch");
@@ -190,8 +193,29 @@ export function VirtioInput(cpu, bus, kind, transport, pci_id)
     else
     {
         bus.register("touch", data => this.touch({ touches: data["touches"], width: data["width"], height: data["height"] }), this);
+        if(mouse_as_touch)
+        {
+            /** the mouse on the screen: x, y, the screen's width and height (mouse-absolute) */
+            this.pointer = null;
+            this.pointer_down = false;
+            bus.register("mouse-absolute", data => { this.pointer = data; if(this.pointer_down) this.touch_pointer(); }, this);
+            bus.register("mouse-click", data =>
+            {
+                if(!!data[0] === this.pointer_down) return;
+                this.pointer_down = !!data[0];
+                this.touch_pointer();
+            }, this);
+        }
     }
 }
+
+/** The mouse as a finger: touching while the left button is down, where the mouse is */
+VirtioInput.prototype.touch_pointer = function()
+{
+    const p = this.pointer;
+    if(!p) return;
+    this.touch({ touches: this.pointer_down ? [["mouse", p[0], p[1]]] : [], width: p[2], height: p[3] });
+};
 
 /**
  * The touches on the screen now: [[identifier, x, y], ...], width, height.
