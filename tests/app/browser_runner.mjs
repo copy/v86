@@ -13,7 +13,7 @@
 // _headers): the cores in host threads (vCPU workers).
 //   node tests/app/browser_runner.mjs <page> [query arguments...]
 //   node tests/app/browser_runner.mjs tests/app/store_test.html
-// Needs Chrome (CHROME); TIMEOUT_MS (default 300000).
+// Needs Chrome (CHROME); TIMEOUT_MS (default 300000); BROWSER_DEBUG_PORT (DevTools).
 
 import http from "node:http";
 import fs from "node:fs";
@@ -37,7 +37,14 @@ let query = args.filter(a => a !== "service=1" && a !== "isolated=1").join("&");
 let service, service_dir, service_listeners = null;
 
 const REPORTER = `<script>
+    let logged = 0;
     const reporter = new MutationObserver(() => {
+        // (the page's #log as it grows: an hour-long part says where it is)
+        const log = document.getElementById("log")?.textContent || "";
+        if(log.length < logged) logged = 0;
+        const added = log.slice(logged).replace(/^\\n/, "");
+        logged = log.length;
+        if(added) fetch("/__log", { method: "POST", body: "log: " + added });
         const text = document.getElementById("result")?.textContent || "";
         if(!/^(PASS|FAIL)\\b/.test(text)) return;
         reporter.disconnect();
@@ -175,6 +182,8 @@ server.listen(0, "127.0.0.1", async () =>
     console.log(url);
     browser = spawn(process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", [
         "--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
+        // (BROWSER_DEBUG_PORT: DevTools on that port, to look at a long part while it runs)
+        ...(process.env.BROWSER_DEBUG_PORT ? ["--remote-debugging-port=" + process.env.BROWSER_DEBUG_PORT] : []),
         "--user-data-dir=" + profile, url,
     ], { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";

@@ -21,7 +21,9 @@
      part=android_cancel  (local) the official zip's import cancelled: the wizard says so, the browser disk made so far is gone
      part=android_boot  (local, an hour or more) docs/android-images-plan.md I3's acceptance: the official Cuttlefish images zip
                    (package=<path>, build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip) through the wizard, nothing
-                   else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0); timeout=<minutes> (180);
+                   else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0), then Android's screen in the
+                   graphics proxy's compositor (the preset's gfxstream from the CPU worker, the renderer in the page);
+                   timeout=<minutes> (180);
                    gsi=<path> also drops a GSI (I5.3), entry=<catalog id> the catalog's entry chosen (android16-cuttlefish, or
                    android16-gsi-bp4a with gsi=; "" for another package)
      node tests/app/browser_runner.mjs tests/app/wizard_test.html part=freedos -->
@@ -126,6 +128,44 @@ async function wizard(o)
 }
 
 /** Power on the selected machine: its console in another frame; its emulator */
+/** The colours of the emulator's screenshot (every 97th pixel, up to 1000) */
+async function screen_colours(emulator)
+{
+    const image = emulator.screen_make_screenshot();
+    if(!image) return { colours: 0 };
+    await image.decode().catch(() => {});
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    if(!canvas.width || !canvas.height) return { colours: 0 };
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0);
+    const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    const colours = new Set();
+    for(let i = 0; i < data.length && colours.size < 1000; i += 4 * 97) colours.add(data[i] << 16 | data[i + 1] << 8 | data[i + 2]);
+    return { width: canvas.width, height: canvas.height, colours: colours.size };
+}
+
+/**
+ * Where the display stands on the page: the adapter's renderer (GX's
+ * surfaces, VX), the graphics proxy's compositor and its layers, the
+ * console's canvases (the bundle's own names are compiled: the glbridge
+ * objects are found by their shape)
+ */
+function display_state(frame, emulator)
+{
+    const values = Object.values(emulator).filter(v => v && typeof v === "object");
+    const renderer = values.find(v => "executor" in v && "idle" in v);
+    const plugins = values.find(v => Array.isArray(v) && v.some(p => p && p.bridge));
+    const compositor = plugins && plugins.map(p => p.bridge && p.bridge.compositor).find(Boolean);
+    const canvases = Array.from(frame.contentDocument.querySelectorAll("canvas"), c => c.width + "x" + c.height +
+        (c.offsetParent === null ? " hidden" : ""));
+    return "renderer " + (renderer ? "gx " + (renderer.gx ? renderer.gx.surfaces.size + " surfaces" : "none") + ", vx " + (renderer.vx ? "yes" : "no") : "none") +
+        "; compositor " + (compositor ? (compositor.attached ? "attached" : "detached") + ", layers " +
+            (compositor.layers.map(l => (l.visible ? "shown " : "hidden ") + l.canvas.width + "x" + l.canvas.height).join(" ") || "none") : "none") +
+        "; canvases " + (canvases.join(", ") || "none");
+}
+
 async function power_on()
 {
     w.__opened = undefined;
@@ -532,7 +572,7 @@ const parts = {
         button("Finish", wizard).click();
         await until(() => names().includes(machine), "the imported machine in the library", 1800000);
         log("imported in " + ((Date.now() - import_started) / 1000).toFixed(0) + " s");
-        const { emulator } = await power_on();
+        const { frame, emulator } = await power_on();
         const booted = Date.now();
         let kernel = "";
         const milestones = [["second stage", /init: init second stage started/], ["zygote", /starting service 'zygote'/], ["system_server", /starting service 'system_server'|SystemServer/],
@@ -547,6 +587,24 @@ const parts = {
         await until(() => seen.has("boot_completed") || seen.has("failed"), "sys.boot_completed=1 in the kernel's log", (+args.get("timeout") || 180) * 60000);
         check(!seen.has("failed"), "init rebooted into the bootloader: " + kernel.slice(-1500));
         log("boot_completed " + ((Date.now() - booted) / 1000).toFixed(0) + " s after power on (" + ((Date.now() - started) / 60000).toFixed(1) + " min in all)");
+        // (the preset's GPU, gfxstream: the machine in the CPU worker, the renderer in this page draws what the
+        // guest's GPU drew into the graphics proxy's compositor, the lock screen at least: a screen of the
+        // display's size (the page's, which the guest takes), not the text screen it starts as (720x400)
+        let last = "", noted = 0;
+        const shown = await until(async () =>
+        {
+            const s = await screen_colours(emulator);
+            const what = s.width + "x" + s.height + ", " + s.colours + " colours";
+            if(what !== last && Date.now() - noted > 60000)
+            {
+                log(((Date.now() - booted) / 1000).toFixed(0) + " s: the screen " + what + "; " + display_state(frame, emulator));
+                noted = Date.now();
+            }
+            last = what;
+            return !(s.width === 720 && s.height === 400) && s.colours >= 64 && s;
+        }, "the screen drawn by the guest's GPU (the log has what it showed)", 30 * 60000);
+        log("the screen " + ((Date.now() - booted) / 1000).toFixed(0) + " s after power on: " + shown.width + "x" + shown.height + ", " +
+            shown.colours + " colours (sampled)");
         await emulator.destroy();
     },
     async service()

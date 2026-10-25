@@ -373,6 +373,8 @@ export function VirtioGPU(machine, options)
     // scanouts, not the VGA core, are on screen
     this.active = false;
     this.layout_key = "";
+    /** a new layout went to the display: the next render sends all of the picture */
+    this.layout_all = false;
     /** @type {Uint8ClampedArray} black, for displays that show nothing yet */
     this.blank = null;
     this.serial = 0x0086;
@@ -1761,6 +1763,16 @@ VirtioGPU.prototype.vblank_period = function()
 VirtioGPU.prototype.on_vblank = function()
 {
     this.vga.on_vblank();
+    // (a new layout goes to the display now, not with the next render: a
+    // page still in text mode asks for no frames, and without VGA nothing
+    // else takes it out of it; a 3D scanout shown by the renderer needs the
+    // screen at its size too)
+    if(this.active)
+    {
+        this.place_scanouts();
+        const shown = this.scanouts.filter(s => s.enabled || s.rgba);
+        if(shown.some(s => s.rgba)) this.layout(shown);
+    }
 };
 
 /** @override */
@@ -1777,6 +1789,36 @@ VirtioGPU.prototype.invalidate = function()
     }
 };
 
+/**
+ * The page's picture: the displays side by side (each the size it shows, or
+ * the size the page asked for while it shows nothing). A new layout goes to
+ * the display at once, and the next render sends all of the picture.
+ * @param {!Array<!Scanout>} shown
+ * @return {!Array<!Array<number>>} each display's box: x, y, width, height
+ */
+VirtioGPU.prototype.layout = function(shown)
+{
+    let width = 0, height = 0;
+    const boxes = shown.map(s => {
+        const w = s.rgba ? s.width : s.host_width, h = s.rgba ? s.height : s.host_height;
+        const box = [width, 0, w, h];
+        width += w;
+        height = Math.max(height, h);
+        return box;
+    });
+    const key = boxes.join(";");
+    if(key !== this.layout_key)
+    {
+        this.layout_key = key;
+        this.display.set_mode(true);
+        this.display.set_size_graphical(width, height, width, height, 32);
+        this.cursor.drawn = null;
+        this.layout_all = true;
+        if(!this.blank || this.blank.length < width * height * 4) this.blank = new Uint8ClampedArray(width * height * 4);
+    }
+    return boxes;
+};
+
 /** @override */
 VirtioGPU.prototype.render = function()
 {
@@ -1787,27 +1829,9 @@ VirtioGPU.prototype.render = function()
     }
     this.place_scanouts();
     const shown = this.scanouts.filter(s => s.enabled || s.rgba);
-    // the page's picture: the displays side by side (each the size it shows,
-    // or the size the page asked for while it shows nothing)
-    let width = 0, height = 0;
-    const boxes = shown.map(s => {
-        const w = s.rgba ? s.width : s.host_width, h = s.rgba ? s.height : s.host_height;
-        const box = [width, 0, w, h];
-        width += w;
-        height = Math.max(height, h);
-        return box;
-    });
-    const key = boxes.join(";");
-    let all = false;
-    if(key !== this.layout_key)
-    {
-        this.layout_key = key;
-        this.display.set_mode(true);
-        this.display.set_size_graphical(width, height, width, height, 32);
-        this.cursor.drawn = null;
-        all = true;
-        if(!this.blank || this.blank.length < width * height * 4) this.blank = new Uint8ClampedArray(width * height * 4);
-    }
+    const boxes = this.layout(shown);
+    const all = this.layout_all;
+    this.layout_all = false;
     const layers = [];
     shown.forEach((s, i) => {
         const [bx, by, bw, bh] = boxes[i];

@@ -975,7 +975,15 @@ its progress in [gfxstream-plan.md](gfxstream-plan.md).
   no readback. With the cursor shown, a second display on, or a renderer
   that cannot (node, no compositor), the device reads back as before and
   the layer goes; `SET_SCANOUT` 0 and a reset take it away too (G-31).
-  Venus's 3D scanouts take the same path.
+  Venus's 3D scanouts take the same path. The layer is placed in the
+  screen's pixels, so the screen must have the scanout's size: a new
+  layout (the displays' sizes) goes to the display at the next retrace
+  (`on_vblank`), not only with a render, which the page asks for only once
+  its screen is graphical. Without VGA (the ARM machines) the screen starts
+  as text and nothing else switched it: until 2026-10-25 the page stayed a
+  720x400 text screen, with the renderer's 1100x760 picture clipped to its
+  top left corner (and a 2D scanout never shown at all) unless something
+  asked for a frame (the node harness's screenshots do).
 - **Snapshots** (G6, d78b3747): the device state keeps gfxstream's blobs and
   state where Venus's go (state version 3). For each context: its rings
   (what their streams had not decoded, from the command a ring waited in:
@@ -1947,12 +1955,11 @@ them. Smaller gaps are listed in [gpu-deviations.md](gpu-deviations.md#not-done)
     need OpenGL ES 1 to 3 on the host (the official images' mode runs
     ANGLE in the guest instead), Wayland passthrough to a host compositor,
     and a host kernel GPU driver, none of which a browser has.
-- **gfxstream, not done yet** (the progress notes of
-  [gfxstream-plan.md](gfxstream-plan.md), 2026-10-24):
+- **gfxstream, not done** (outside the plan, which is complete:
+  [gfxstream-plan.md](gfxstream-plan.md), 2026-10-25):
   - host composition: renderControl's `rcCompose`, and every rc command
     but the process pipe; the official mode as v64 boots it composes on the
     client (G-59);
-  - a run in the browser with the CPU worker (G6);
   - the capset's `virglSupportedFormats` bitmask, announced empty (G-60).
 - **Not tried in a guest.**
   - VMware's Windows OpenGL ICD, from the same "VMware SVGA 3D" package.

@@ -1,6 +1,6 @@
 # gfxstream 实施计划
 
-状态：实施中（G0–G6 的进度见各节；2026-10-25 剩 G6 的浏览器运行、G5 的 dEQP 抽样）。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
+状态：完成（2026-10-25；G0–G6 的结果见各节）。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划为 v64 的 virtio-gpu 增加 gfxstream：Android 模拟器和 Cuttlefish 把客体的 Vulkan（以及
@@ -336,7 +336,12 @@ monkey 30 分钟无崩溃，内存压力下 lmkd 杀掉 2 个进程，system_ser
   ARM 核心按插件的 `device_memory_size` 在 RAM 之后留出这块设备内存。这次运行峰值 177 MiB（`A64_ANDROID_GPU_DEBUG=1`
   的 `hostmem=`）。
 - 场景的 tinyplay 用驱动允许的最大缓冲（320 ms）：默认 85 ms 在帧率步骤卸载应用之后的忙碌里欠载，重启时丢一个周期。
-未做：CPU Worker 下的浏览器运行。
+CPU Worker 下的浏览器运行（2026-10-25，`make android-image-browser-tests` 的第一项：无头 Chrome 里经向导导入官方 zip，
+预设的默认：CPU Worker、4 个 vCPU Worker、gfxstream，渲染器在页面）：`boot_completed` 1093 s，之后 59 s 屏幕是 Android
+自己的画面（1100x760，图形代理的合成器里显示适配器的层，取样 421 种颜色）。途中修正：没有 VGA 的机器（ARM）屏幕从文本
+模式开始，而 virtio-gpu 只在 render 里把显示切到图形模式与扫描输出的大小，页面在文本模式下又不要帧：屏幕一直是 720x400
+的文本屏，渲染器 1100x760 的画面被裁成左上角（2D 的扫描输出则根本不显示；node 的测试截图时自己要帧，所以没发现）。现在
+新的布局在下一次场消隐（`on_vblank`）就送到显示（`tests/devices/virtio_gpu_present.js` 的一项）。G6 完成。
 
 ## 风险与未定项
 

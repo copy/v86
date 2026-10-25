@@ -160,6 +160,15 @@ assert.deepEqual(log, [["present", 1, 8, 4, 16, 8, 8, 4, W, H]], "a flush: its r
 assert.equal(gpu.scanouts[0].direct, 1);
 console.log("PASS: a 3D scanout's flushes shown by the renderer, without readbacks");
 
+// The screen takes the scanout's size at the next retrace, with no frame
+// asked for: a page in text mode asks for none (an ARM machine's, no VGA),
+// and the renderer's picture goes over a screen of the scanout's size
+const sizes = [];
+emulator.add_listener("screen-set-size", size => sizes.push(size));
+gpu.on_vblank();
+assert.deepEqual(sizes.at(-1), [W, H, 32], "the screen at the scanout's size: " + JSON.stringify(sizes));
+console.log("PASS: the screen at the scanout's size at the next retrace, no frame asked for");
+
 // a cursor over the picture: the device's picture again (read back), the renderer's goes
 log.length = 0;
 gpu.cursor.visible = true;
