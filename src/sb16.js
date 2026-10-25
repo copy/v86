@@ -1846,7 +1846,12 @@ SB16.prototype.dma_to_dac = function(sample_count)
 
 SB16.prototype.dac_handle_request = function()
 {
-    if(!this.dma_bytes_left || this.dma_paused)
+    // (a masked channel delivers nothing, as the 8237's DREQ is ignored:
+    // Windows XP's driver stops a sound with D9, exit auto-init, and masks
+    // the channel at once; the DSP's block is 128 KiB around a 16 KiB DMA
+    // buffer, so reading on played that buffer again, the sound's last
+    // part up to 8 times, until the block's end)
+    if(!this.dma_bytes_left || this.dma_paused || this.dma.channel_mask[this.dma_channel])
     {
         // No more data to transfer or is paused. Send whatever is in the buffers.
         this.dac_send();

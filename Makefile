@@ -59,6 +59,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	node tests/android/library.mjs
 	./tests/api/disk-options.js
 	./tests/api/sb16-state.js
+	./tests/api/sb16-dma.js
 	./tests/devices/disk_error.mjs
 	./tests/persistence/response_version.mjs
 	./tests/persistence/node_file.mjs
@@ -681,6 +682,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/destroy-during-init.js
 	./tests/api/state.js
 	./tests/api/sb16-state.js
+	./tests/api/sb16-dma.js
 	./tests/api/reset.js
 	./tests/api/floppy.js
 	./tests/api/parallel.js
