@@ -2747,9 +2747,10 @@ CPU.prototype.init = function(settings, device_bus)
 {
     // (the V86 constructor checked the options; this is the x86 CPU, of the
     // PC machines: docs/arm64-virt-android16-plan.md P1.1)
-    if(check_machine_options(settings).machine_type === "virt")
+    const machine_type = check_machine_options(settings).machine_type;
+    if(machine_type === "virt" || machine_type === "ranchu")
     {
-        throw new Error("The x86 CPU does not run machine_type \"virt\"");
+        throw new Error("The x86 CPU does not run machine_type \"" + machine_type + "\"");
     }
     const multicore = (settings.cpu_cores || 1) > 1;
     this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));

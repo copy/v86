@@ -5,7 +5,8 @@
 // and their readers, loads and stores with every addressing mode, pairs,
 // literals, acquire/release), mixed with control flow (forward conditional
 // branches, counted loops, calls, indirect branches) and with forms it steps
-// (CRC32, RBIT, FP moves and arithmetic, exclusives, system register reads).
+// (CRC32, RBIT, FP moves and arithmetic, exclusives and their spins, system
+// register reads).
 // Each program is a function the bare-metal guest (MMU on: A64_MMU) calls
 // ROUNDS times on its registers and a 1 KiB buffer kept across the calls;
 // the registers, NZCV and the buffer at the end must be the same on the
@@ -58,7 +59,7 @@ let label = 0;
 /** One random instruction, or a short sequence (a construct) */
 function instruction(depth)
 {
-    const kind = rand(54);
+    const kind = rand(55);
     const [d, a, b] = same();
     const wide = d.startsWith("x");
     switch(kind)
@@ -233,6 +234,17 @@ function instruction(depth)
             const [f1, f2, f3] = [rand(8), rand(8), rand(8)];
             return `scvtf v${f1}.${t}, v${f1}.${t}\n    scvtf v${f2}.${t}, v${f2}.${t}\n` +
                 `    ${pick(["fadd", "fsub", "fmul", "fdiv", "fmla", "fmls"])} v${f3}.${t}, v${f1}.${t}, v${f2}.${t}`;
+        }
+        case 54: {
+            // a load-exclusive spin (the same value at the same load: a yield from the helper,
+            // P3.9), its result used after it and the register changed before the next one
+            if(depth > 0) return "nop";
+            const n = ++label;
+            const loaded = x();
+            let sum = x();
+            while(sum === loaded) sum = x();
+            return `mov x17, #${6 + rand(6)}\n4${n}:\n    add x16, x8, #${8 * rand(64)}\n    ldxr ${loaded}, [x16]\n` +
+                `    add ${sum}, ${sum}, ${loaded}\n    eor ${loaded}, ${loaded}, #1\n    subs x17, x17, #1\n    b.ne 4${n}b\n    clrex`;
         }
         default: return `${pick(["ubfx", "sbfx"])} ${d}, ${a}, #${rand(wide ? 32 : 16)}, #${1 + rand(wide ? 32 : 16)}`;
     }

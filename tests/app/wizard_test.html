@@ -8,6 +8,28 @@
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
+     part=android  an Android image package (build/android-test-package.zip: tests/android/make_package.mjs) dropped on the
+                   wizard: Cuttlefish's arm64 device, the Android 16 preset with gfxstream (I8.1), a browser disk made in the
+                   importer's worker, the bootloader (src/android/bootloader.js) reading the disk's GPT and boot partitions
+     part=android_gsi  the same package with a GSI (build/android-test-gsi.zip) dropped together; an older GSI refused; the disk's
+                   vbmeta the GSI's (nothing chained)
+     part=android_emulator  an Android Emulator image zip (build/android-test-emulator.zip) dropped on the wizard: the Android
+                   7.1 (32-bit) preset, its disk made in the importer's worker, the bootloader giving its kernel, ramdisk and the
+                   emulator's disks as partitions; the settings dialog's Android panel (no wipe)
+     part=android_console  (local, a few minutes) the official package imported as android_boot does, powered on; once init's
+                   second stage is on hvc0, the machine stopped and the console's Kernel console drawer opened: the log kept from before;
+                   its keys to hvc0; the shell on the serial terminal (androidboot.console ttyAMA0) answering a command typed there;
+                   the display at the device model's 720x1280
+     part=android_service  (with the runner's service=1) the package imported into a new image of the disk service (I3.2):
+                   its size, and the bootloader reading it from the service
+     part=android_cancel  (local) the official zip's import cancelled: the wizard says so, the browser disk made so far is gone
+     part=android_boot  (local, an hour or more) docs/android-images-plan.md I3's acceptance: the official Cuttlefish images zip
+                   (package=<path>, build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip) through the wizard, nothing
+                   else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0), then Android's screen in the
+                   graphics proxy's compositor (the preset's gfxstream from the CPU worker, the renderer in the page);
+                   timeout=<minutes> (180);
+                   gsi=<path> also drops a GSI (I5.3), entry=<catalog id> the catalog's entry chosen (android16-cuttlefish, or
+                   android16-gsi-bp4a with gsi=; "" for another package)
      node tests/app/browser_runner.mjs tests/app/wizard_test.html part=freedos -->
 <style>iframe { width: 1100px; height: 760px; border: 1px solid #888; }</style>
 <pre id="log"></pre>
@@ -110,6 +132,44 @@ async function wizard(o)
 }
 
 /** Power on the selected machine: its console in another frame; its emulator */
+/** The colours of the emulator's screenshot (every 97th pixel, up to 1000) */
+async function screen_colours(emulator)
+{
+    const image = emulator.screen_make_screenshot();
+    if(!image) return { colours: 0 };
+    await image.decode().catch(() => {});
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    if(!canvas.width || !canvas.height) return { colours: 0 };
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0);
+    const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    const colours = new Set();
+    for(let i = 0; i < data.length && colours.size < 1000; i += 4 * 97) colours.add(data[i] << 16 | data[i + 1] << 8 | data[i + 2]);
+    return { width: canvas.width, height: canvas.height, colours: colours.size };
+}
+
+/**
+ * Where the display stands on the page: the adapter's renderer (GX's
+ * surfaces, VX), the graphics proxy's compositor and its layers, the
+ * console's canvases (the bundle's own names are compiled: the glbridge
+ * objects are found by their shape)
+ */
+function display_state(frame, emulator)
+{
+    const values = Object.values(emulator).filter(v => v && typeof v === "object");
+    const renderer = values.find(v => "executor" in v && "idle" in v);
+    const plugins = values.find(v => Array.isArray(v) && v.some(p => p && p.bridge));
+    const compositor = plugins && plugins.map(p => p.bridge && p.bridge.compositor).find(Boolean);
+    const canvases = Array.from(frame.contentDocument.querySelectorAll("canvas"), c => c.width + "x" + c.height +
+        (c.offsetParent === null ? " hidden" : ""));
+    return "renderer " + (renderer ? "gx " + (renderer.gx ? renderer.gx.surfaces.size + " surfaces" : "none") + ", vx " + (renderer.vx ? "yes" : "no") : "none") +
+        "; compositor " + (compositor ? (compositor.attached ? "attached" : "detached") + ", layers " +
+            (compositor.layers.map(l => (l.visible ? "shown " : "hidden ") + l.canvas.width + "x" + l.canvas.height).join(" ") || "none") : "none") +
+        "; canvases " + (canvases.join(", ") || "none");
+}
+
 async function power_on()
 {
     w.__opened = undefined;
@@ -118,6 +178,48 @@ async function power_on()
     const frame = await open_frame(new URL(url, w.location.href).href);
     const emulator = await until(() => frame.contentWindow.v86_console?.emulator, "the console's emulator", 60000);
     return { frame, emulator };
+}
+
+/**
+ * The official package (package=, gsi=, entry= as android_boot's) through the
+ * wizard, nothing else filled in, imported: the machine in the library
+ * @return {Promise<number>} when the files were dropped
+ */
+async function import_android()
+{
+    const urls = ["/" + (args.get("package") || "build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip"),
+        ...(args.get("gsi") ? ["/" + args.get("gsi")] : [])];
+    const entry = args.has("entry") ? args.get("entry") : args.get("gsi") ? "android16-gsi-bp4a" : "android16-cuttlefish";
+    await open_library();
+    $("#new_vm").click();
+    const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+    Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+    (await until(() => wizard.querySelector("input[name=catalog][value='" + entry + "']"), "the catalog's entry " + entry)).click();
+    const started = Date.now();
+    const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+    const files = new w.DataTransfer();
+    for(const url of urls) files.items.add(new w.File([await (await fetch(url)).blob()], url.split("/").pop(), { type: "application/zip" }));
+    input.files = files.files;
+    input.dispatchEvent(new w.Event("change", { bubbles: true }));
+    log("package: " + await until(() => /Cuttlefish arm64 device/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
+        wizard.querySelector(".drop-zone [role=status]").textContent, "the package read", 120000));
+    // (the catalog's SHA-256 checks)
+    await until(() => button("Next", wizard), "the files checked: " + wizard.querySelector(".wizard-status").textContent, 600000);
+    if(entry) log("checked against the catalog's " + entry + " in " + ((Date.now() - started) / 1000).toFixed(0) + " s");
+    button("Next", wizard).click();
+    await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
+    button("Next", wizard).click();
+    const machine = args.get("gsi") ? "Android GSI (official)" : "Android 16 (official)";
+    set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), machine);
+    button("Next", wizard).click();
+    await until(() => wizard.querySelector("input[name=userdata][value='4']:checked"), "the usual userdata");
+    button("Next", wizard).click();
+    log("summary: " + table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary")));
+    const import_started = Date.now();
+    button("Finish", wizard).click();
+    await until(() => names().includes(machine), "the imported machine in the library", 1800000);
+    log("imported in " + ((Date.now() - import_started) / 1000).toFixed(0) + " s");
+    return started;
 }
 
 const parts = {
@@ -231,6 +333,337 @@ const parts = {
         await sleep(500);
         check(!/1024 MB/.test(table_text($(".hardware"))) && JSON.stringify(names()) === before, "Cancel keeps the configuration");
         log("Cancel: the configuration unchanged");
+    },
+    async android()
+    {
+        await open_library();
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        // (the package as a person drops or chooses it: a File in the input)
+        const blob = await (await fetch("/build/android-test-package.zip")).blob();
+        const file = new w.File([blob], "aosp_cf_test-img-1.zip", { type: "application/zip" });
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(file);
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        const status = await until(() => /Cuttlefish arm64 device/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
+            wizard.querySelector(".drop-zone [role=status]").textContent, "the package read");
+        log("package: " + status);
+        // (the catalog's first entry is chosen: this package is not its file)
+        const differs = await until(() => /^differs/.test(wizard.querySelector(".drop-zone td[data-role=device]")?.textContent) &&
+            wizard.querySelector(".drop-zone td[data-role=device]").textContent, "the catalog's check");
+        check(!button("Next", wizard) && /not the catalog's/.test(wizard.querySelector(".wizard-status").textContent), "Next held back: " + wizard.querySelector(".wizard-status").textContent);
+        log("the catalog's entry: " + differs);
+        wizard.querySelector("input[name=catalog][value='']").click();
+        await until(() => button("Next", wizard), "Next, with another package");
+        button("Next", wizard).click();
+        const chosen = await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
+        check(!wizard.querySelector(".preset-detail p.error"), "the preset installs from a package");
+        button("Next", wizard).click();
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android (wizard)");
+        button("Next", wizard).click();
+        (await until(() => wizard.querySelector("input[name=userdata][value='2']"), "the userdata sizes")).click();
+        check(/userdata blank/.test(wizard.querySelector(".wizard-body").textContent), "the disk step says what the disk is");
+        button("Next", wizard).click();
+        const summary = table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary"));
+        check(/Android boot from the first disk \(cf_arm64_only_phone\), gfxstream/.test(summary) && /Hard disk \(hda\) .*read write/.test(summary) &&
+            /Vulkan \(gfxstream\)/.test(summary), "the summary: " + summary);
+        button("Finish", wizard).click();
+        await until(() => names().includes("Android (wizard)"), "the new machine in the library", 120000);
+        const table = table_text($(".hardware"));
+        log("library: " + table.slice(0, 200));
+        // the browser disk: v64's bootloader reads it as the machine will
+        let dir = await w.navigator.storage.getDirectory();
+        for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name);
+        const disks = [];
+        for await (const [name, handle] of dir.entries()) if(name.endsWith(".img")) disks.push(await handle.getFile());
+        const disk = disks.sort((a, b) => b.lastModified - a.lastModified)[0];
+        const { android_bootloader } = await import("/src/android/bootloader.js");
+        const boot = await android_bootloader(async (offset, length) => new Uint8Array(await disk.slice(offset, offset + length).arrayBuffer()), disk.size, { memory_mb: 1536 });
+        check(boot.kernel.length === 8192 && /console=hvc0 earlycon/.test(boot.cmdline) && boot.bootconfig.get("androidboot.hardware.vulkan") === "pastel",
+            "the bootloader on the disk: " + boot.kernel.length + " " + boot.cmdline);
+        log("the browser disk (" + disk.size + " bytes): the bootloader gives " + boot.kernel.length + " bytes of kernel, " + boot.initrd.length + " of initrd, vbmeta " +
+            boot.vbmeta.digest.slice(0, 16) + "…, cmdline " + boot.cmdline);
+        // the settings dialog's Android item: its choices, and Wipe user data
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        dialog.querySelector("li[data-item=android]").click();
+        const panel = await until(() => dialog.querySelector(".settings-panel[aria-label=Android]"), "the Android panel");
+        const gpu = panel.querySelector("select[aria-label=GPU]");
+        check(/gfxstream/.test(gpu.selectedOptions[0].textContent) && !gpu.disabled && gpu.options.length === 2, "the GPU: gfxstream, or SwiftShader");
+        button("Wipe user data…", panel).click();
+        const ask = await until(() => $$("dialog[open]").find(e => /Wipe user data\?/.test(e.textContent)), "the question");
+        button("Wipe", ask).click();
+        const wiped = await until(() => /^Wiped|^Not wiped/.test(panel.querySelector("[role=status]").textContent) && panel.querySelector("[role=status]").textContent, "the wipe");
+        check(/^Wiped: userdata, metadata/.test(wiped), "the wipe: " + wiped);
+        log("settings: Android panel, " + wiped);
+        button("Cancel", dialog).click();
+    },
+    async android_emulator()
+    {
+        await open_library();
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
+        const blob = await (await fetch("/build/android-test-emulator.zip")).blob();
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(new w.File([blob], "armeabi-v7a-25_r18.zip", { type: "application/zip" }));
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        const status = await until(() => /Android Emulator system image/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
+            wizard.querySelector(".drop-zone [role=status]").textContent, "the package read");
+        log("package: " + status);
+        await until(() => button("Next", wizard), "Next");
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector("li[data-preset=android7_arm32][aria-selected=true]"), "the Android 7.1 (32-bit) preset chosen");
+        check(!wizard.querySelector(".preset-detail p.error"), "the preset installs from a package");
+        button("Next", wizard).click();
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android 7 (wizard)");
+        button("Next", wizard).click();
+        const body = await until(() => /Android Emulator's image \(Android 7\.1\.1, API 25, armeabi-v7a/.test(wizard.querySelector(".wizard-body")?.textContent) &&
+            wizard.querySelector(".wizard-body").textContent, "the disk step");
+        check(!wizard.querySelector("input[name=userdata]"), "no userdata sizes: the image's own");
+        log("disk step: " + body.slice(0, 200));
+        button("Next", wizard).click();
+        const summary = table_text(await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary"));
+        check(/Android boot from the first disk \(ranchu_25_armeabi_v7a\), the emulator's disks/.test(summary) && /Hard disk \(hda\) .*read write/.test(summary),
+            "the summary: " + summary);
+        button("Finish", wizard).click();
+        await until(() => names().includes("Android 7 (wizard)"), "the new machine in the library", 120000);
+        const table = table_text($(".hardware"));
+        check(/arm32/.test(table) && /ranchu/.test(table), "the library: " + table.slice(0, 300));
+        let dir = await w.navigator.storage.getDirectory();
+        for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name);
+        const disks = [];
+        for await (const [name, handle] of dir.entries()) if(name.endsWith(".img")) disks.push(await handle.getFile());
+        const disk = disks.sort((a, b) => b.lastModified - a.lastModified)[0];
+        const { android_bootloader } = await import("/src/android/bootloader.js");
+        const boot = await android_bootloader(async (offset, length) => new Uint8Array(await disk.slice(offset, offset + length).arrayBuffer()), disk.size,
+            { device: "ranchu_25_armeabi_v7a", memory_mb: 1024 });
+        check(boot.kernel.length >= 5000 && /androidboot.hardware=ranchu/.test(boot.cmdline) &&
+            boot.disks.map(d => d.name + (d.readonly ? " ro" : "")).join(",") === "system ro,cache,userdata",
+            "the bootloader on the disk: " + boot.kernel.length + " " + boot.cmdline + " " + JSON.stringify(boot.disks));
+        log("the browser disk (" + disk.size + " bytes): " + boot.disks.map(d => d.name + "@" + d.start).join(", "));
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        dialog.querySelector("li[data-item=android]").click();
+        const panel = await until(() => dialog.querySelector(".settings-panel[aria-label=Android]"), "the Android panel");
+        const wipe = Array.from(panel.querySelectorAll("button")).find(b => b.textContent === "Wipe user data…");
+        check(wipe && wipe.disabled && !panel.querySelector("select[aria-label=GPU]"), "the emulator image's panel: no wipe, no GPU");
+        const machine = dialog.querySelector("li[data-item=processor]");
+        machine.click();
+        const cpu = await until(() => dialog.querySelector(".settings-panel select[aria-label=CPU]"), "the CPU");
+        check(/ARM \(32-bit/.test(cpu.selectedOptions[0].textContent), "the CPU: " + cpu.selectedOptions[0].textContent);
+        button("Cancel", dialog).click();
+    },
+    async android_gsi()
+    {
+        await open_library();
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
+        const file = async (url, name) => new w.File([await (await fetch(url)).blob()], name, { type: "application/zip" });
+        const drop = async files =>
+        {
+            const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+            const list = new w.DataTransfer();
+            for(const f of files) list.items.add(f);
+            input.files = list.files;
+            input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        };
+        const device = await file("/build/android-test-package.zip", "aosp_cf_test-img-1.zip");
+        // (an older GSI: refused, said why)
+        await drop([device, await file("/build/android-test-gsi-old.zip", "aosp_arm64-exp-old.zip")]);
+        const refused = await until(() => wizard.querySelector(".drop-zone p.error")?.textContent, "the older GSI refused");
+        check(/older than the device's vendor/.test(refused), "the refusal: " + refused);
+        log("an older GSI: " + refused.slice(0, 120) + "…");
+        // (the GSI of the vendor's version, in a second drop: the device kept)
+        await drop([await file("/build/android-test-gsi.zip", "aosp_arm64-exp-test.zip")]);
+        const status = await until(() => /running the GSI's Android 16/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent) &&
+            wizard.querySelector(".drop-zone [role=status]").textContent, "the device and the GSI read");
+        check(/32-bit ABIs/.test(wizard.querySelector(".drop-zone").textContent), "the note on 32-bit apps");
+        log("package: " + status);
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
+        button("Next", wizard).click();
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android GSI (wizard)");
+        button("Next", wizard).click();
+        (await until(() => wizard.querySelector("input[name=userdata][value='2']"), "the userdata sizes")).click();
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary");
+        button("Finish", wizard).click();
+        await until(() => names().includes("Android GSI (wizard)"), "the new machine in the library", 120000);
+        let dir = await w.navigator.storage.getDirectory();
+        for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name);
+        const disks = [];
+        for await (const [name, handle] of dir.entries()) if(name.endsWith(".img")) disks.push(await handle.getFile());
+        const disk = disks.sort((a, b) => b.lastModified - a.lastModified)[0];
+        const { android_bootloader } = await import("/src/android/bootloader.js");
+        const boot = await android_bootloader(async (offset, length) => new Uint8Array(await disk.slice(offset, offset + length).arrayBuffer()), disk.size, { memory_mb: 1536 });
+        check(boot.vbmeta.chained.length === 0 && boot.vbmeta.size === 256, "the GSI's vbmeta: " + JSON.stringify(boot.vbmeta));
+        log("the browser disk (" + disk.size + " bytes): vbmeta the GSI's alone (" + boot.vbmeta.size + " bytes, nothing chained)");
+    },
+    async android_service()
+    {
+        const service = args.get("service");
+        check(service, "the runner's disk service (service=1)");
+        await open_library();
+        $("#preferences").click();
+        const prefs = await until(() => $("dialog[open]"), "the preferences");
+        set(prefs.querySelector("input[aria-label='Disk service URL']"), service);
+        button("Save", prefs).click();
+        await until(() => $("#service_status").textContent === "Disk service: " + service, "the library using the disk service");
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(new w.File([await (await fetch("/build/android-test-package.zip")).blob()], "aosp_cf_test-img-1.zip", { type: "application/zip" }));
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        await until(() => /Cuttlefish arm64 device/.test(wizard.querySelector(".drop-zone [role=status]")?.textContent), "the package read");
+        await until(() => button("Next", wizard), "Next");
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector("li[data-preset=android16][aria-selected=true]"), "the Android 16 preset chosen");
+        button("Next", wizard).click();
+        set(await until(() => wizard.querySelector("input[aria-label=Name]"), "the name"), "Android on the service");
+        button("Next", wizard).click();
+        (await until(() => wizard.querySelector("input[name=userdata][value='2']"), "the userdata sizes")).click();
+        (await until(() => wizard.querySelector("input[name=location][value=service]:not([disabled])"), "the service as the location")).click();
+        button("Next", wizard).click();
+        await until(() => wizard.querySelector(".wizard-body table.hardware"), "the summary");
+        button("Finish", wizard).click();
+        await until(() => names().includes("Android on the service"), "the new machine in the library", 120000);
+        const listed = await (await fetch("/__service_files")).json();
+        const image = listed.find(f => f.name === "android-on-the-service.img");
+        check(image && image.size > 2 << 30, "the service's image: " + JSON.stringify(listed));
+        const url = service.replace(/\/?$/, "/") + image.name;
+        const { android_bootloader } = await import("/src/android/bootloader.js");
+        const read = async (offset, length) => new Uint8Array(await (await fetch(url, { headers: { Range: "bytes=" + offset + "-" + (offset + length - 1) } })).arrayBuffer());
+        const boot = await android_bootloader(read, image.size, { memory_mb: 1536 });
+        check(boot.kernel.length === 8192 && /console=hvc0/.test(boot.cmdline), "the bootloader on the service's image");
+        check(/read write/.test(table_text($(".hardware"))) && table_text($(".hardware")).includes(image.name), "the machine's disk: " + table_text($(".hardware")));
+        log("the disk service's image " + image.name + " (" + image.size + " bytes): the bootloader gives " + boot.kernel.length + " bytes of kernel, cmdline " + boot.cmdline);
+    },
+    async android_cancel()
+    {
+        await open_library();
+        const disks = async () =>
+        {
+            let dir = await w.navigator.storage.getDirectory();
+            for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name, { create: true });
+            const list = [];
+            for await (const [name] of dir.entries()) if(name.endsWith(".img")) list.push(name);
+            return list;
+        };
+        const before = await disks();
+        $("#new_vm").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        Array.from(wizard.querySelectorAll("input[name=source]")).find(r => r.parentElement.textContent.trim().startsWith("An Android image package")).click();
+        (await until(() => wizard.querySelector("input[name=catalog][value='']"), "the catalog")).click();
+        const input = await until(() => wizard.querySelector("input[aria-label='Android image package']"), "the package's input");
+        const files = new w.DataTransfer();
+        files.items.add(new w.File([await (await fetch("/build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip")).blob()], "aosp_cf_arm64_only_phone-img-15581820.zip"));
+        input.files = files.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        await until(() => button("Next", wizard), "the package read", 120000);
+        for(let i = 0; i < 3; i++) { button("Next", wizard).click(); await sleep(200); }
+        button("Next", wizard).click();
+        await until(() => button("Finish", wizard), "the summary");
+        button("Finish", wizard).click();
+        await until(() => /Importing .*: \d+%/.test(wizard.querySelector(".wizard-status").textContent), "the import going on", 60000);
+        button("Cancel import", wizard).click();
+        await until(() => /cancelled/.test(wizard.querySelector(".wizard-status").textContent), "the import cancelled");
+        check(button("Finish", wizard), "the wizard back to its buttons");
+        await until(async () => JSON.stringify(await disks()) === JSON.stringify(before), "the browser disk made so far deleted", 10000);
+        log("cancelled: " + wizard.querySelector(".wizard-status").textContent + "; the browser disks as before (" + before.length + ")");
+    },
+    async android_boot()
+    {
+        const started = await import_android();
+        const { frame, emulator } = await power_on();
+        const booted = Date.now();
+        let kernel = "";
+        const milestones = [["second stage", /init: init second stage started/], ["zygote", /starting service 'zygote'/], ["system_server", /starting service 'system_server'|SystemServer/],
+            ["boot_completed", /init: processing action \(sys\.boot_completed=1\)/]];
+        const seen = new Set();
+        emulator.add_listener("virtio-console0-output-bytes", bytes =>
+        {
+            kernel = (kernel + String.fromCharCode.apply(null, Array.from(bytes))).slice(-8192);
+            for(const [what, pattern] of milestones) if(!seen.has(what) && pattern.test(kernel)) { seen.add(what); log(((Date.now() - booted) / 1000).toFixed(0) + " s: " + what); }
+            if(/reboot: Restarting system with command 'bootloader'/.test(kernel)) seen.add("failed");
+        });
+        await until(() => seen.has("boot_completed") || seen.has("failed"), "sys.boot_completed=1 in the kernel's log", (+args.get("timeout") || 180) * 60000);
+        check(!seen.has("failed"), "init rebooted into the bootloader: " + kernel.slice(-1500));
+        log("boot_completed " + ((Date.now() - booted) / 1000).toFixed(0) + " s after power on (" + ((Date.now() - started) / 60000).toFixed(1) + " min in all)");
+        // (the preset's GPU, gfxstream: the machine in the CPU worker, the renderer in this page draws what the
+        // guest's GPU drew into the graphics proxy's compositor, the lock screen at least: a screen of the
+        // display's size (the page's, which the guest takes), not the text screen it starts as (720x400)
+        let last = "", noted = 0;
+        const shown = await until(async () =>
+        {
+            const s = await screen_colours(emulator);
+            const what = s.width + "x" + s.height + ", " + s.colours + " colours";
+            if(what !== last && Date.now() - noted > 60000)
+            {
+                log(((Date.now() - booted) / 1000).toFixed(0) + " s: the screen " + what + "; " + display_state(frame, emulator));
+                noted = Date.now();
+            }
+            last = what;
+            return !(s.width === 720 && s.height === 400) && s.colours >= 64 && s;
+        }, "the screen drawn by the guest's GPU (the log has what it showed)", 30 * 60000);
+        log("the screen " + ((Date.now() - booted) / 1000).toFixed(0) + " s after power on: " + shown.width + "x" + shown.height + ", " +
+            shown.colours + " colours (sampled)");
+        await emulator.destroy();
+    },
+    async android_console()
+    {
+        await import_android();
+        const { frame, emulator } = await power_on();
+        const booted = Date.now();
+        let kernel = "";
+        emulator.add_listener("virtio-console0-output-bytes", bytes => { kernel = (kernel + String.fromCharCode.apply(null, Array.from(bytes))).slice(-65536); });
+        await until(() => /init: init second stage started/.test(kernel), "init's second stage on hvc0", 600000);
+        // (the machine stopped, the drawer opened: what it shows was printed before, kept from power on)
+        await emulator.stop();
+        log(((Date.now() - booted) / 1000).toFixed(0) + " s: init's second stage; stopped, the kernel console opened");
+        const c = frame.contentDocument, cw = frame.contentWindow;
+        c.querySelector("#drawer_kernel").click();
+        const rows = await until(() => c.querySelector(".console-drawer .terminal .xterm-rows"), "the kernel console (xterm)", 30000);
+        const shown = await until(() => /\[\s*\d+\.\d+\]/.test(rows.textContent) && rows.textContent.replace(/\s+/g, " ").trim(),
+            "the kernel's log kept from before the drawer opened", 10000);
+        log("kernel console, kept from before: " + shown.slice(0, 160));
+        await emulator.run();
+        // (keys typed in it go to hvc0, which Android only writes: its shell is on the serial port, androidboot.console ttyAMA0)
+        const typed = [];
+        const send = emulator.virtio_console_send;
+        emulator.virtio_console_send = data => { typed.push(data); send.call(emulator, data); };
+        const type_in = (selector, text) => c.querySelector(selector).dispatchEvent(new cw.InputEvent("input", { data: text, inputType: "insertText", bubbles: true }));
+        type_in(".console-drawer .xterm-helper-textarea", "x");
+        check(typed.join("") === "x", "the kernel console's keys to hvc0: " + JSON.stringify(typed));
+        // (the serial terminal: the shell a userdebug build runs there, a command typed and answered)
+        c.querySelector("#drawer_terminal").click();
+        const serial_rows = await until(() => c.querySelector(".console-drawer .terminal .xterm-rows"), "the serial terminal (xterm)", 30000);
+        const asked = Date.now();
+        let answered = false;
+        while(!answered && Date.now() - asked < 900000)
+        {
+            type_in(".console-drawer .xterm-helper-textarea", "echo v86-$((6*7))");
+            type_in(".console-drawer .xterm-helper-textarea", "\r");
+            answered = await until(() => /v86-42/.test(serial_rows.textContent), "", 20000).catch(() => false);
+        }
+        check(answered, "the shell's answer in the serial terminal: " + serial_rows.textContent.replace(/\s+/g, " ").slice(-300));
+        log("serial terminal: typed echo v86-$((6*7)), the shell answered v86-42 (" + ((Date.now() - booted) / 1000).toFixed(0) + " s)");
+        // (the display: the device model's 720x1280, the screen zoomed to the window; not a display of the window's size)
+        await until(() => /Graphics 720×1280/.test(c.body.textContent), "the display at the device's 720×1280", 900000);
+        log("display: 720×1280, the device's (" + ((Date.now() - booted) / 1000).toFixed(0) + " s)");
+        await emulator.destroy();
     },
     async service()
     {

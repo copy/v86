@@ -249,6 +249,18 @@ export const A64_STATE_FIELDS = [
     { name: "a64_jac_epoch", offset: 1344, rust: "u64", size: 8, owner: "scratch", note: "tag bits of the running core's access cache epoch" },
     { name: "a64_jac_base", offset: 1352, rust: "u32", size: 4, owner: "scratch", note: "access cache read table of the running core and EL" },
     { name: "a64_code_base", offset: 1356, rust: "u32", size: 4, owner: "scratch", note: "chaining table of the running core and EL" },
+    // AArch32 at PL1 (cpu_type "arm32", docs/aarch32-plan.md R2): the current
+    // mode's R0-R14 are X0-X14; the banked registers of the modes not current,
+    // the modes' SPSRs, and the CP15 registers without an AArch64 home (DFSR
+    // is ESR_EL1, DFAR and IFAR FAR_EL1's halves, PRRR and NMRR MAIR_EL1's,
+    // the other system registers their AArch64 counterparts)
+    { name: "a32_bank", offset: 1360, rust: "u32", count: 12, size: 48, owner: "core", range: "a32", note: "R13, R14 of USR (and SYS), FIQ, IRQ, SVC, ABT, UND while not current" },
+    { name: "a32_bank_r8", offset: 1408, rust: "u32", count: 10, size: 40, owner: "core", range: "a32", note: "R8-R12 of the modes but FIQ, then FIQ's, while not current" },
+    { name: "a32_spsr", offset: 1448, rust: "u32", count: 5, size: 20, owner: "core", range: "a32", note: "SPSR of FIQ, IRQ, SVC, ABT, UND" },
+    { name: "a32_ttbcr", offset: 1468, rust: "u32", size: 4, owner: "core", range: "a32" },
+    { name: "a32_dacr", offset: 1472, rust: "u32", size: 4, owner: "core", range: "a32" },
+    { name: "a32_ifsr", offset: 1476, rust: "u32", size: 4, owner: "core", range: "a32" },
+    { name: "a32_fpexc", offset: 1480, rust: "u32", size: 4, owner: "core", range: "a32", note: "FPEXC (EN: VFP and Advanced SIMD enabled)" },
 ];
 
 // Every static in src/rust, by file. The check fails on a static that is not
@@ -268,6 +280,9 @@ export const STATICS = {
     // word: valid in every instance), the decoder's mnemonic for the oracle
     // (and UNDEF telemetry; per core: the load-exclusive spin detection,
     // P3.9, and the stepped instruction's EX bit, P3.8)
+    // (AArch32: the executing instruction's length, whether it was an IT)
+    "aarch64/a32.rs": { INSTRUCTION_LENGTH: "scratch" },
+    "aarch64/t32.rs": { IT_JUST_SET: "scratch" },
     "aarch64/execute.rs": { DECODE_CACHE: "cache", UNDEF_COUNTS: "debug", UNDEF_LAST: "debug", UNDEF_NEXT: "debug", SPIN: "core",
         STEPPED_EXCLUSIVE_LOADS: "core", STEPPED_EXCLUSIVE_LOAD: "scratch", STEPPED_CORE: "scratch",
         // (the page tier's step counters: the instruction interpret_one ran last)
@@ -281,8 +296,9 @@ export const STATICS = {
     "aarch64/debug.rs": { ANY_BREAKPOINT: "cache", ANY_WATCHPOINT: "cache" },
     // the GIC (P4.2): distributor, redistributors and CPU interfaces, each
     // core's interrupt request lines
-    // (cores in workers: the GIC's lock, how deep this instance holds it)
-    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine", LOCK: "machine", DEPTH: "scratch" },
+    // (cores in workers: the GIC's lock, how deep this instance holds it;
+    // GIC2: the GICv2 front end's own state, ranchu's and arm32's)
+    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine", LOCK: "machine", DEPTH: "scratch", GIC2: "machine" },
     // the granules of profile v1.1 (P3.4); the TTBR writes and ASID
     // changes (P9.3: counted, a64_asid_tag's auto mode reads their deltas)
     // and each core's last ASID; per core TLBs and the generation the fetch
@@ -306,14 +322,19 @@ export const STATICS = {
     // the code pages' translations, the flow a step asked for
     "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", SYSTEM: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine",
         ASID_TAG_MODE: "machine", EXPLICIT: "machine", NAMES: "machine" },
-    "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
+    "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", AARCH32: "machine", AARCH32_DEBUG: "machine", AARCH32_FILTER: "machine",
+        ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
         CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug", ASIDS: "cache",
         // (a64_asid_tag's auto window, P9.3; the parallel build's bounce slots for unaligned reads, P8.3)
         AUTO_TICKS: "cache", AUTO_LAST: "cache", AUTO_SWITCHES: "debug", BOUNCE: "scratch",
         // (the code budget, a64_page_code_mb, and the live functions' Wasm bytes against it)
         CODE_BUDGET_MB: "machine", LIVE_BYTES: "machine",
-        // (diagnostics: the steps, context changes and helpers by instruction class and system register, every core's)
-        STEP_COUNTS: "debug", STEP_WORDS: "debug", SYSREG_COUNTS: "debug", SYS_COUNTS: "debug" },
+        // (diagnostics: the steps, context changes and helpers by instruction class and system register, every core's;
+        // AArch32's helper calls by word, and the a64_page_aarch32_trace switch and its event ring)
+        STEP_COUNTS: "debug", STEP_WORDS: "debug", SYSREG_COUNTS: "debug", SYS_COUNTS: "debug", HELPER_WORDS: "debug",
+        A32_TRACE: "machine", TRACE: "debug", TRACE_AT: "debug",
+        // (a helper that was done but asked the run loop for something: from the call to the function's exit)
+        HELPER_DONE: "scratch" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request

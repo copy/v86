@@ -12,7 +12,7 @@ import { dbg_log } from "./log.js";
 import { pci_functions } from "./platform.js";
 import { DisplaySource } from "./display.js";
 import { create_adapter_virtio_device } from "./virtio_devices.js";
-import { GRAPHICS_ADAPTERS, MAX_VRAM_SIZE } from "./machine_options.js";
+import { GRAPHICS_ADAPTERS, MAX_VRAM_SIZE, is_arm } from "./machine_options.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -286,7 +286,7 @@ export function GraphicsAdapter(cpu, descriptor, options)
     this.name = descriptor["name"];
 
     /** the virt machine's: no VGA */
-    this.virt = /** @type {?} */ (cpu).cpu_type === "arm64";
+    this.virt = is_arm(/** @type {?} */ (cpu).cpu_type);
     /** The VGA slot: other devices keep their addresses whichever adapter is used (virt: given) */
     this.pci_id = options.pci_id !== undefined ? options.pci_id : pci_functions(cpu.platform).vga;
     /** the virt machine's virtio-mmio slot, if the device is there */

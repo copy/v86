@@ -313,10 +313,11 @@ async function a64_v86_check()
 {
     const directory = a64_runner.build("id-registers", [root + "tests/a64/id_registers.c"]);
     let failed = false;
-    // (v1.1, then v2: its ID registers differ where the profile's v2 entry
-    // says; v2 is the default since 2026-10-21, so v1.1 is asked for)
-    const v2 = a64_profile.v2;
-    for(const [variant, options, changes] of [[a64_profile.profile, { a64_profile: "v1.1" }, {}], [v2.profile, { a64_profile: v2.a64_profile }, v2.id_space]])
+    // (v1.1, then v2 and v3: their ID registers differ where the profile's
+    // entries say; v2 is the default since 2026-10-21, so v1.1 is asked for)
+    const { v2, v3 } = a64_profile;
+    for(const [variant, options, changes] of [[a64_profile.profile, { a64_profile: "v1.1" }, {}], [v2.profile, { a64_profile: v2.a64_profile }, v2.id_space],
+        [v3.profile, { a64_profile: v3.a64_profile }, v3.id_space]])
     {
         for(const [name, cores] of Object.entries(A64_PROFILES))
         {
@@ -329,6 +330,24 @@ async function a64_v86_check()
             for(const line of differences) console.log("  " + line.replace("reference", "v86"));
             failed ||= differences.length > 0;
         }
+    }
+    // v3's AArch32 registers are the reference's but the fields its entry
+    // lists (the reference's registers as --a64-reference saved them)
+    for(const [name, cores] of Object.entries(A64_PROFILES))
+    {
+        const saved = root + `build/a64-linux/qemu-id_registers-${cores}c.txt`;
+        if(!fs.existsSync(saved))
+        {
+            console.log(`${name}: no ${saved} (tools/cpu_contract.mjs --a64-reference): v3 not compared with the reference`);
+            continue;
+        }
+        const aarch32 = key => /^S3_0_C0_C[123]_/.test(key) || key === "S3_0_C0_C4_0";
+        const expected = { ...a64[name], registers: Object.fromEntries(Object.entries({ ...a64[name].registers, ...v3.id_space }).filter(([key]) => aarch32(key))) };
+        const profile = { ...a64_profile, allowed_differences: { cpu: [{ registers: v3.reference_differences.registers }] } };
+        const { problems, tolerated } = a64_compare(profile, expected, a64_parse(fs.readFileSync(saved, "utf8"), cores));
+        console.log(`${name}: the reference's AArch32 registers against ${v3.profile}: ${tolerated.length} allowed differences, ${problems.length} others`);
+        for(const line of problems) console.log("  " + line);
+        failed ||= problems.length > 0;
     }
     return !failed;
 }

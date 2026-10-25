@@ -5,6 +5,12 @@
 // (16 + the slot, as the reference's: QEMU's hw/arm/virt.c create_virtio_devices).
 // The device itself is src/virtio.js's core: the registers map onto the
 // fields of the capabilities it describes for virtio-pci, by name.
+//
+// The legacy transport, version 1 (virtio 1.2 section 4.2.4; the ranchu
+// machine's: Linux 3.10 drives no other): the features without
+// VIRTIO_F_VERSION_1, a queue placed by its page frame number (GuestPageSize,
+// QueueAlign, QueuePFN: the descriptors, the available ring after them, the
+// used ring aligned after that), no QueueReady.
 
 import { dbg_assert } from "./log.js";
 
@@ -12,7 +18,10 @@ const MAGIC = 0x74726976; // "virt"
 const VERSION = 2;
 const VENDOR = 0x554D4551; // "QEMU", as the reference's
 
-// register offsets
+// register offsets (the legacy transport's own: GuestPageSize, QueueAlign, QueuePFN)
+const R_GUEST_PAGE_SIZE = 0x028;
+const R_QUEUE_ALIGN = 0x03C;
+const R_QUEUE_PFN = 0x040;
 const R_MAGIC = 0x000;
 const R_VERSION = 0x004;
 const R_DEVICE_ID = 0x008;
@@ -57,12 +66,19 @@ export function virtio_device_id(pci_device_id)
  * @param {{set_irq: function(number, boolean)}} cpu
  * @param {number} slot 0-31
  * @param {number} intid the slot's interrupt (SPI 16 + slot: INTID 48 + slot)
+ * @param {boolean=} legacy the legacy transport (version 1)
  */
-export function VirtioMmio(cpu, slot, intid)
+export function VirtioMmio(cpu, slot, intid, legacy = false)
 {
     this.cpu = cpu;
     this.slot = slot;
     this.intid = intid;
+    this.legacy = legacy;
+    /** (legacy) the guest's page size, the queues' alignment and page frame numbers */
+    this.guest_page_size = 4096;
+    this.queue_align = 4096;
+    /** @type {!Array<number>} */
+    this.queue_pfn = [];
     /** @type {?Object} the device's core (src/virtio.js VirtIO), once attached */
     this.virtio = null;
     /** @type {!Object<string, {read: function():number, write: function(number)}>} the common fields by name */
@@ -211,10 +227,16 @@ VirtioMmio.prototype.read = function(offset, width)
     switch(offset)
     {
         case R_MAGIC: return MAGIC;
-        case R_VERSION: return VERSION;
+        case R_VERSION: return this.legacy ? 1 : VERSION;
         case R_DEVICE_ID: return virtio_device_id(virtio.device_id);
         case R_VENDOR_ID: return VENDOR;
-        case R_DEVICE_FEATURES: return this.field("device_feature").read() >>> 0;
+        case R_DEVICE_FEATURES:
+        {
+            const features = this.field("device_feature").read() >>> 0;
+            // (a legacy device: not VIRTIO_F_VERSION_1, bit 32)
+            return this.legacy && virtio.device_feature_select === 1 ? (features & ~1) >>> 0 : features;
+        }
+        case R_QUEUE_PFN: return this.legacy ? this.queue_pfn[virtio.queue_select] || 0 : 0;
         case R_DEVICE_FEATURES_SEL: return virtio.device_feature_select;
         case R_QUEUE_NUM_MAX: return queue ? queue.size_supported : 0;
         case R_QUEUE_READY: return queue ? queue.enabled | 0 : 0;
@@ -279,7 +301,38 @@ VirtioMmio.prototype.write = function(offset, width, value)
             virtio.isr_status &= ~value;
             this.update_irq();
             break;
-        case R_STATUS: this.field("device_status").write(value & 0xFF); break;
+        case R_STATUS:
+            this.field("device_status").write(value & 0xFF);
+            // (a legacy driver's reset: the queues' pages too)
+            if(this.legacy && value === 0) this.queue_pfn = [];
+            break;
+        case R_GUEST_PAGE_SIZE: if(this.legacy) this.guest_page_size = value || 4096; break;
+        case R_QUEUE_ALIGN: if(this.legacy) this.queue_align = value || 4096; break;
+        case R_QUEUE_PFN:
+        {
+            if(!this.legacy || !queue) break;
+            this.queue_pfn[virtio.queue_select] = value;
+            if(!value)
+            {
+                if(queue.enabled) queue.reset();
+                break;
+            }
+            // (the split ring in one place: 16 bytes a descriptor; the
+            // available ring's flags, index, ring and used_event; the used ring aligned)
+            const size = queue.size;
+            const desc = value * this.guest_page_size;
+            const avail = desc + 16 * size;
+            const used = Math.ceil((avail + 6 + 2 * size) / this.queue_align) * this.queue_align;
+            const set = (name, address) => {
+                this.field(name + " (low dword)").write(address >>> 0);
+                this.field(name + " (high dword)").write(Math.floor(address / 0x100000000) >>> 0);
+            };
+            set("queue_desc", desc);
+            set("queue_avail", avail);
+            set("queue_used", used);
+            this.field("queue_enable").write(1);
+            break;
+        }
         case R_QUEUE_DESC_LOW: this.field("queue_desc (low dword)").write(value); break;
         case R_QUEUE_DESC_HIGH: this.field("queue_desc (high dword)").write(value); break;
         case R_QUEUE_DRIVER_LOW: this.field("queue_avail (low dword)").write(value); break;
@@ -293,7 +346,7 @@ VirtioMmio.prototype.write = function(offset, width, value)
 /** (snapshots, P5.9) the transport's own registers */
 VirtioMmio.prototype.get_state = function()
 {
-    return [this.slot, this.shm_select, this.level];
+    return [this.slot, this.shm_select, this.level, this.legacy ? [this.guest_page_size, this.queue_align, this.queue_pfn.slice()] : null];
 };
 
 VirtioMmio.prototype.set_state = function(state)
@@ -304,5 +357,6 @@ VirtioMmio.prototype.set_state = function(state)
     }
     this.shm_select = state[1];
     this.level = state[2];
+    if(this.legacy && state[3]) [this.guest_page_size, this.queue_align, this.queue_pfn] = state[3];
     this.cpu.set_irq(this.intid, this.level);
 };

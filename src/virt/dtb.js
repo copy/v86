@@ -126,9 +126,11 @@ export function flatten(root, boot_cpu = 0)
 
 /**
  * The virt machine's tree
+ * (`arm32`: cpu_type "arm32"'s: PSCI's 32-bit function numbers, Cortex-A15
+ * cores, no PCIe, whose ECAM and window are above 4 GiB)
  * @param {{cores: number, memory_size: number, bootargs: (string|undefined),
  *          initrd: ({start: number, end: number}|undefined), rng_seed: (Uint8Array|undefined),
- *          extended: ({base: number, size: number}|undefined)}} m
+ *          extended: ({base: number, size: number}|undefined), arm32: (boolean|undefined)}} m
  * @return {DtNode}
  */
 export function virt_tree(m)
@@ -138,8 +140,10 @@ export function virt_tree(m)
     const gic = 0x8000 + m.cores + 1;
     const spi = (n, type) => [0, n, type];
     const children = [];
+    // (SMC64's function numbers, SMC32's for a 32-bit kernel)
+    const smc = m.arm32 ? 0x84000000 : 0xC4000000;
     children.push(node("psci", [
-        ["migrate", [0xC4000005]], ["cpu_on", [0xC4000003]], ["cpu_off", [0x84000002]], ["cpu_suspend", [0xC4000001]],
+        ["migrate", [smc | 5]], ["cpu_on", [smc | 3]], ["cpu_off", [0x84000002]], ["cpu_suspend", [smc | 1]],
         ["method", "hvc"], ["compatible", ["arm,psci-1.0", "arm,psci-0.2", "arm,psci"]],
     ]));
     children.push(node("memory@" + VIRT_RAM_BASE.toString(16), [
@@ -171,7 +175,7 @@ export function virt_tree(m)
         }
     }
     const high = ([low, high_half]) => high_half * 0x100000000 + low;
-    children.push(node("pcie@" + VIRT_PCIE_MMIO.toString(16), [
+    if(!m.arm32) children.push(node("pcie@" + VIRT_PCIE_MMIO.toString(16), [
         ["interrupt-map-mask", [0x1800, 0, 0, 7]], ["interrupt-map", interrupt_map], ["#interrupt-cells", [1]],
         ["ranges", [
             0x1000000, 0, 0, ...u64(VIRT_PCIE_PIO), ...u64(VIRT_PCIE_PIO_SIZE),
@@ -203,7 +207,7 @@ export function virt_tree(m)
         // (enable-method only with secondary cores to start, as the reference writes it)
         cores.push(node("cpu@" + i, [
             ["phandle", [cpu_phandle(i)]], ["reg", [i]], ...(m.cores > 1 ? [["enable-method", "psci"]] : []),
-            ["compatible", "arm,armv8"], ["device_type", "cpu"],
+            ["compatible", m.arm32 ? "arm,cortex-a15" : "arm,armv8"], ["device_type", "cpu"],
         ]));
     }
     children.push(node("cpus", [["#size-cells", [0]], ["#address-cells", [1]]], [

@@ -817,7 +817,7 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
     }
 }
 
-fn alignment(va: u64, write: bool, _syndrome: Syndrome) -> Exception {
+pub(crate) fn alignment(va: u64, write: bool, _syndrome: Syndrome) -> Exception {
     // (ISV 0, as for every data abort taken to EL1: memory.rs)
     Exception::DataAbort {
         iss: FSC_ALIGNMENT | (write as u32) << 6,
@@ -986,16 +986,22 @@ const SPIN_YIELD: u32 = 4;
 
 /// LDXR/STXR/LDAXR/STLXR/LDXP/STXP/LDAXP/STLXP
 fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
+    let rn = i.rn as u32;
+    let base = xr_sp(rn);
+    check_sp(rn, base)?;
+    exclusive_at(i, address, base)
+}
+
+/// An exclusive load or store of `i` (the instruction at `address`) at `base`
+/// (AArch32's: its offset added)
+pub(crate) fn exclusive_at(i: &Inst, address: u64, base: u64) -> Result<Flow, Exception> {
     let rt = i.rd as u32;
     let rt2 = i.ra as u32;
     let rs = i.rm as u32;
-    let rn = i.rn as u32;
     let load = i.sub & 1 != 0;
     let pair = i.sub & 2 != 0;
     let element_log = i.cond as u32;
     let total = (1u32 << element_log) * if pair { 2 } else { 1 };
-    let base = xr_sp(rn);
-    check_sp(rn, base)?;
     if base & (total as u64 - 1) != 0 {
         return Err(alignment(base, !load, Syndrome::NONE));
     }
@@ -1263,7 +1269,7 @@ fn fetch_at(address: u64) -> Result<u32, Exception> {
 
 /// The stepped instruction was a load-exclusive (ISS.EX of the step exception), per core
 static mut STEPPED_EXCLUSIVE_LOADS: [bool; crate::isa::MAX_CORES] = [false; crate::isa::MAX_CORES];
-static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
+pub(crate) static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
 
 /// (diagnostics, crate::aarch64::jit::pages::a64_step_stat) the class
 /// (step_key) and word of the instruction interpret_one ran last
@@ -1299,6 +1305,14 @@ pub fn interpret_one() -> Flow {
     if stepping && get_pstate() & PSTATE_SS == 0 {
         take_sync(Exception::SoftwareStep(unsafe { STEPPED_EXCLUSIVE_LOAD }));
         return Flow::Set;
+    }
+    // (AArch32 at EL0: its own instructions; docs/aarch32-plan.md)
+    if cpu::aarch32() {
+        let flow = crate::aarch64::a32::interpret_one(address);
+        if stepping && !matches!(flow, Flow::Set | Flow::Retry) {
+            crate::aarch64::debug::step_done();
+        }
+        return flow;
     }
     let result = fetch_at(address).and_then(|word| {
         if unsafe { crate::aarch64::debug::ANY_BREAKPOINT } {

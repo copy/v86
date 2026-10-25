@@ -27,6 +27,35 @@ pub const CTR: u64 = 0x8444_C004;
 pub const CLIDR: u64 = 0x0A20_0023;
 pub const CCSIDR: [u64; 3] = [0x700F_E01A, 0x200F_E01A, 0x703F_E07A];
 
+/// Profile v3's AArch32 ID registers (CRm 1-3, op2 0-7: ID_PFR0, PFR1,
+/// DFR0, AFR0, MMFR0-3; ISAR0-5, MMFR4, ISAR6; MVFR0-2, -, PFR2, DFR1,
+/// MMFR5): the reference's (cortex-a35) for an AArch32 at EL0 only, as
+/// Cortex-A76's: no AArch32 EL1 modes (ID_PFR1.ProgMod 0), no SETEND
+/// (ID_ISAR1.Endian 0, no mixed endianness), no SMC (ID_ISAR4.SMC 0, no EL3)
+pub const AARCH32_ID: [[u64; 8]; 3] = [
+    [
+        0x0000_0131,
+        0x1001_0000,
+        0x0000_0006,
+        0,
+        0x1020_1105,
+        0x4000_0000,
+        0x0126_0000,
+        0x0210_2211,
+    ],
+    [
+        0x0210_1110,
+        0x1311_2110,
+        0x2123_2042,
+        0x0111_2131,
+        0x0001_0142,
+        0x0001_1121,
+        0,
+        0,
+    ],
+    [0x1011_0222, 0x1211_1111, 0x0000_0043, 0, 0, 0, 0, 0],
+];
+
 /// SCTLR_EL1 keeps what is written but the MTE controls (ITFSB, TCF0, TCF,
 /// ATA0, ATA: FEAT_MTE is not in v1), as the reference does; v86 acts on the
 /// bits profile v1 defines
@@ -66,7 +95,9 @@ pub fn read(reg: u32, rt: u32) -> Result<u64, Exception> {
             (0, 5) => Ok(mpidr()),
             (0, 6) => Ok(0),
             (0, _) => Err(Exception::Undefined),
-            (4, 0) => Ok(ID_AA64PFR0),
+            // (EL0: AArch64 and AArch32 in profile v3)
+            (4, 0) => Ok(if cpu::has_aarch32() { ID_AA64PFR0 & !0xF | 2 } else { ID_AA64PFR0 }),
+            (1..=3, _) if cpu::has_aarch32() => Ok(AARCH32_ID[crm as usize - 1][op2 as usize]),
             (5, 0) => Ok(ID_AA64DFR0),
             (6, 0) => Ok(ID_AA64ISAR0),
             (7, 0) => Ok(ID_AA64MMFR0 & !(0xFF << 20) | crate::aarch64::mmu::mmfr0_granules()),
@@ -231,10 +262,17 @@ pub fn write(reg: u32, rt: u32, value: u64) -> Result<(), Exception> {
                 *tcr_el1 = value;
                 crate::aarch64::mmu::regime_changed();
             },
-            // NZCV, SS, IL, DAIF, M; PAN with FEAT_PAN
+            // NZCV, SS, DAIF, M; PAN with FEAT_PAN; in profile v3 AArch32's
+            // Q, IT and GE too, and IL (which v1 and v2 drop, as they always did)
             r if r == key(3, 0, 4, 0, 0) => {
+                let a32 = if cpu::has_aarch32() {
+                    (PSTATE_Q | PSTATE_IT | PSTATE_GE | PSTATE_IL) as u64
+                }
+                else {
+                    0
+                };
                 *spsr_el1 =
-                    value & (0xF060_03FF | if cpu::has_pan() { PSTATE_PAN as u64 } else { 0 })
+                    value & (0xF060_03FF | a32 | if cpu::has_pan() { PSTATE_PAN as u64 } else { 0 })
             },
             r if r == key(3, 0, 4, 2, 3) && cpu::has_pan() => {
                 set_pstate(get_pstate() & !PSTATE_PAN | value as u32 & PSTATE_PAN)

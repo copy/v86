@@ -1,12 +1,14 @@
 // @ts-check
 // The new machine wizard (docs/vm-manager-plan.md "新建虚拟机向导", U3):
 // 1 where the system comes from (a CD, a floppy, an installed hard disk, a
-// kernel and initrd, or later), 2 the system (a preset of
+// kernel and initrd, an Android image package, or later), 2 the system (a preset of
 // src/app/guest_presets.js: all the hardware), 3 the name, 4 the hard disk
 // (a new empty one and where it goes: a browser disk, the disk service,
 // memory), 5 the summary: finish, or customize the hardware in the settings
 // dialog first. The browser disk and the disk service's image are made only
-// when the wizard finishes.
+// when the wizard finishes. An Android image package (docs/android-images-plan.md
+// I3) becomes a browser disk then, in a worker (src/app/android_import.js):
+// its images as they are, booted by v64's bootloader with SwiftShader.
 
 import { h, replace, format_size } from "./dom.js";
 import { image_picker } from "./image_picker.js";
@@ -15,6 +17,9 @@ import { open_settings } from "./settings.js";
 import { PRESETS, preset, preset_config } from "../guest_presets.js";
 import { create_image, list_images, new_image_name } from "../disk_service_client.js";
 import { create_disk } from "../browser_disks.js";
+import { inspect_android_package, import_android_package, import_android_package_to_service, sort_android_files, hash_file, USERDATA_GIB,
+    DEFAULT_USERDATA_GIB } from "../android_import.js";
+import { ANDROID_CATALOG } from "../android_catalog.js";
 import { MAX_ARRAY_BUFFER_SIZE_MB } from "../../browser/vm_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
@@ -26,6 +31,7 @@ const SOURCES = [
     ["floppy", "A floppy image"],
     ["disk", "A hard disk image with the system installed"],
     ["direct", "A kernel and initrd (and the system's CD as a read-only disk)"],
+    ["android", "An Android image package (.zip): Cuttlefish's images (aosp_cf_arm64_only_phone-img-<build>.zip from ci.android.com), and a GSI if wanted"],
     ["later", "Install the system later"],
 ];
 
@@ -54,10 +60,18 @@ export function open_wizard(options)
             location: "browser",
             read_write: false,
             error: "",
+            /** @type {{file: File | null, gsi: File | null, debug_ramdisk: File | null, info: import("../android_import.js").PackageInfo | null, error: string,
+             *     userdata_gib: number, entry: string, checks: Object<string, string>, room?: number | null}} entry: the catalog's (I7), "" for another
+             *     package; checks: each dropped part's against it (ok, checking…, or what differs); room: the site's storage left (null: unknown) */
+            android: { file: null, gsi: null, debug_ramdisk: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB,
+                entry: ANDROID_CATALOG.entries[0].id, checks: {} },
+            progress: "",
+            /** @type {AbortController | null} the import going on (its Cancel) */
+            importing: null,
         };
         const element = /** @type {HTMLDialogElement} */ (h("dialog.wizard-dialog", { "aria-label": "New virtual machine" }));
         const close = value => { element.close(); element.remove(); resolve(value); };
-        element.addEventListener("cancel", e => { e.preventDefault(); close(null); });
+        element.addEventListener("cancel", e => { e.preventDefault(); if(state.importing) state.importing.abort(); else close(null); });
         const steps = ["Source", "System", "Name", "Hard disk", "Summary"];
 
         const unique = name =>
@@ -100,6 +114,15 @@ export function open_wizard(options)
             {
                 config.disks = [{ slot: "hda", image: state.image, disk_option: state.read_write ? "read_write" : "read_only", disk_error: "stop" }];
             }
+            else if(state.source === "android" && state.android.info)
+            {
+                // (its images as they are: their own GPU drivers on gfxstream, the preset's (I8.1); the disk kept and
+                // written; an emulator image's device model its own, the guest drawing)
+                if(config.android && state.android.info.emulator) config.android.device = /** @type {string} */ (state.android.info.device);
+                const size = state.android.info.disk_size(state.android.userdata_gib);
+                config.disks = [{ slot: "hda", image: state.location === "service" ? { kind: "url", url: made || "(created when finished)", size, async: true } :
+                    { kind: "browser", path: made || "(made when finished)", size }, disk_option: "read_write", disk_error: "stop" }];
+            }
             else if(state.disk === "new")
             {
                 const size = state.disk_mb * 1048576;
@@ -114,7 +137,42 @@ export function open_wizard(options)
         {
             state.error = "";
             let url;
-            const new_disk = state.source !== "disk" && state.disk === "new";
+            const new_disk = state.source !== "disk" && state.source !== "android" && state.disk === "new";
+            if(state.source === "android")
+            {
+                const file = /** @type {File} */ (state.android.file);
+                try
+                {
+                    state.progress = "Importing " + file.name + "…";
+                    render();
+                    const started = Date.now();
+                    const progress = (done, total) =>
+                    {
+                        const seconds = (Date.now() - started) / 1000;
+                        const left = done ? seconds * (total - done) / done : 0;
+                        state.progress = "Importing " + file.name + ": " + Math.floor(done / total * 100) + "% (" + format_size(done) + " of " + format_size(total) +
+                            (done && done < total ? ", about " + Math.ceil(left) + " s left" : "") + ")";
+                        const status = element.querySelector(".wizard-status");
+                        if(status) status.textContent = state.progress;
+                    };
+                    state.importing = new AbortController();
+                    render();
+                    const imported = { userdata_gib: state.android.userdata_gib, gsi: state.android.gsi, progress, signal: state.importing.signal };
+                    url = state.location === "service" ?
+                        (await import_android_package_to_service(file, state.name || "android", /** @type {Service} */ (options.service), imported)).url :
+                        (await import_android_package(file, state.name || "Android", Object.assign({ prefs: options.store }, imported))).path;
+                    state.progress = "";
+                    state.importing = null;
+                }
+                catch(e)
+                {
+                    state.progress = "";
+                    state.importing = null;
+                    state.error = e.message === "Cancelled" ? "The import was cancelled" : "The package was not imported: " + e.message;
+                    render();
+                    return;
+                }
+            }
             if(new_disk && state.location === "browser")
             {
                 try
@@ -175,6 +233,7 @@ export function open_wizard(options)
                         render();
                     } }));
             }
+            if(state.source === "android") pickers.push(android_picker());
             if(state.source === "direct")
             {
                 pickers.push(
@@ -190,6 +249,120 @@ export function open_wizard(options)
                         on_change: image => { state.image = image; render(); } }));
             }
             return [h("fieldset", null, h("legend", null, "Where does the system come from?"), radios), pickers];
+        };
+
+        // (the files: chosen or dropped, the device's package and a GSI (in
+        // one go or one after the other), then read: what they are, the disk)
+        // (the dropped parts against the catalog's entry: size, then SHA-256 in
+        // the importer's worker, each file hashed once)
+        const hashes = new WeakMap();
+        const check_parts = async () =>
+        {
+            const a = state.android;
+            const entry = ANDROID_CATALOG.entries.find(e => e.id === a.entry);
+            a.checks = {};
+            if(!entry) return;
+            for(const [role, file] of /** @type {Array<[string, File | null]>} */ ([["device", a.file], ["gsi", a.gsi], ["debug_ramdisk", a.debug_ramdisk]]))
+            {
+                if(!file) continue;
+                const part = entry.parts.find(p => p.role === role);
+                if(!part) { a.checks[role] = "not one of this entry's files"; continue; }
+                if(file.size !== part.size) { a.checks[role] = "differs: " + format_size(file.size) + ", the catalog's " + part.name + " is " + format_size(part.size); continue; }
+                if(!hashes.has(file))
+                {
+                    a.checks[role] = "checking…";
+                    render();
+                    try
+                    {
+                        hashes.set(file, await hash_file(file, (done, total) =>
+                        {
+                            const status = element.querySelector(".drop-zone [data-role=" + role + "]");
+                            if(status) status.textContent = "checking " + Math.floor(done / total * 100) + "%";
+                        }));
+                    }
+                    catch(e)
+                    {
+                        // (the importer's worker did not run: said, not "checking…" for ever)
+                        a.checks[role] = "could not be checked: " + e.message;
+                        continue;
+                    }
+                }
+                a.checks[role] = hashes.get(file) === part.sha256 ? "ok" : "differs: its SHA-256 is not the catalog's (another build, or a damaged download)";
+            }
+            render();
+        };
+        const take_files = async files =>
+        {
+            const a = state.android;
+            Object.assign(a, { info: null, error: "" });
+            render();
+            try
+            {
+                const sorted = await sort_android_files(files);
+                if(sorted.device) a.file = sorted.device;
+                if(sorted.gsi) a.gsi = sorted.gsi;
+                if(sorted.debug_ramdisk) a.debug_ramdisk = sorted.debug_ramdisk;
+                if(!a.file) throw new Error(a.gsi ? "A GSI is a system for a device: add the device's package (a Cuttlefish images zip) too" :
+                    "Add the device's package (a Cuttlefish images zip, or an Android Emulator image zip)");
+                a.info = await inspect_android_package(a.file, a.gsi);
+                // (an emulator image: the preset of its device model, I6)
+                const device = a.info.device;
+                const model = a.info.emulator ? PRESETS.find(p => preset_config(p).android?.device === device) : undefined;
+                choose_preset(model ? model.id : "android16");
+            }
+            catch(e)
+            {
+                a.error = e.message;
+            }
+            render();
+            await check_parts();
+        };
+        /** the catalog (I7): its entries, the chosen one's files and where to download them */
+        const catalog = () =>
+        {
+            const a = state.android;
+            const entry = ANDROID_CATALOG.entries.find(e => e.id === a.entry);
+            const ROLES = { device: "The device's images", gsi: "The GSI (the system)", debug_ramdisk: "The debug vendor ramdisk" };
+            const radios = [...ANDROID_CATALOG.entries.map(e => [e.id, e.title]), ["", "Another package (not in the catalog: no checksums)"]].map(([id, title]) =>
+                h("label.check", null, h("input", { type: "radio", name: "catalog", value: id, checked: a.entry === id,
+                    onchange: () => { a.entry = id; check_parts(); render(); } }), " " + title));
+            return h("fieldset", null, h("legend", null, "From the catalog"), radios, entry ? [
+                h("p", null, h("small.reason", null, entry.notes + " Verified: " + entry.verified + ".")),
+                h("table.hardware.catalog-parts", null, h("tbody", null, entry.parts.map(p => h("tr", null,
+                    h("th", null, ROLES[p.role] + (p.optional ? " (optional: Settings, Android)" : "")),
+                    h("td", null, h("a", { href: p.url, target: "_blank", rel: "noopener" }, p.name), " ", format_size(p.size), " ",
+                        h("a", { href: p.page, target: "_blank", rel: "noopener" }, "(its page)"), h("br"), h("small.reason", null, "SHA-256 " + p.sha256)),
+                    h("td", { "data-role": p.role }, a.checks[p.role] || (p.optional ? "" : "needed"))))))] : null);
+        };
+        const android_picker = () =>
+        {
+            const input = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".zip,application/zip", multiple: true, "aria-label": "Android image package" }));
+            input.addEventListener("change", () => { if(input.files && input.files.length) take_files(Array.from(input.files)); });
+            const a = state.android;
+            const gsi = a.info && a.info.gsi;
+            const zone = h("div.drop-zone", { tabindex: "0" }, catalog(),
+                h("p", null, "Drop the package here, or choose it: ", input),
+                h("p", null, h("small.reason", null, "Download it from ci.android.com yourself (the build's Artifacts: aosp_cf_arm64_only_phone-img-<build>.zip); " +
+                    "to run a Generic System Image on that device, drop the GSI's zip too (developer.android.com's GSI releases, " +
+                    "of the device's Android version or newer). v64 reads them here, nothing is uploaded.")),
+                a.file || a.gsi ? h("p", { role: "status" }, [a.file, a.gsi].filter(Boolean).map(f => f.name + " (" + format_size(f.size) + ")").join(" and ") + ": " +
+                    (a.error ? "" : a.info ? a.info.text + (gsi ? ", running the GSI's Android " + gsi.release + " (" + gsi.fingerprint + ")" : "") +
+                        "; its disk: " + format_size(a.info.disk_size(a.userdata_gib)) : "reading…")) : null,
+                gsi && gsi.abilist32 ? h("p", null, h("small.reason", null, "The GSI lists 32-bit ABIs (" + gsi.abilist32 + "), but this device runs " +
+                    "only the 64-bit zygote: Android starts, 32-bit apps do not run (they need AArch32 and a device with a 32-bit zygote: " +
+                    "docs/aarch32-plan.md).")) : null,
+                a.error ? h("p.error", null, a.error) : null,
+                a.gsi ? h("button", { type: "button", onclick: () => { a.gsi = null; take_files([]); } }, "Without the GSI") : null);
+            zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
+            zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+            zone.addEventListener("drop", e =>
+            {
+                e.preventDefault();
+                zone.classList.remove("over");
+                const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : [];
+                if(files.length) take_files(files);
+            });
+            return zone;
         };
 
         const system_step = () =>
@@ -225,6 +398,52 @@ export function open_wizard(options)
 
         const disk_step = () =>
         {
+            if(state.source === "android")
+            {
+                const info = /** @type {import("../android_import.js").PackageInfo} */ (state.android.info);
+                // (a browser disk takes its whole size at once: the sizes past the site's room are not offered, I4.3)
+                if(state.android.room === undefined)
+                {
+                    state.android.room = null;
+                    navigator.storage?.estimate?.().then(e => { state.android.room = e.quota ? Math.max(0, e.quota - (e.usage || 0)) : null; render(); }).catch(() => {});
+                }
+                const room = state.location === "browser" ? state.android.room : null;
+                const fits = gib => room === null || room === undefined || info.disk_size(gib) <= room;
+                if(!fits(state.android.userdata_gib)) state.android.userdata_gib = USERDATA_GIB.filter(fits).pop() || USERDATA_GIB[0];
+                const sizes = USERDATA_GIB.map(gib => h("label.check", { title: fits(gib) ? "" : "the disk would be " + format_size(info.disk_size(gib)) + ", the site has " +
+                    format_size(/** @type {number} */ (room)) + " more" }, h("input", { type: "radio", name: "userdata", value: String(gib),
+                    checked: state.android.userdata_gib === gib, disabled: !fits(gib), onchange: () => { state.android.userdata_gib = gib; render(); } }),
+                " " + gib + " GiB" + (gib === DEFAULT_USERDATA_GIB ? " (the usual)" : "") + (fits(gib) ? "" : " (no room)")));
+                if(state.location === "memory" || state.location === "service" && !options.service) state.location = "browser";
+                const where = [["browser", "A browser disk: kept in this browser (until its site data is cleared)", false, ""],
+                    ["service", "The disk service: an image file on " + (options.service ? options.service.url : "a disk service") + " (kept)", !options.service,
+                        options.service ? "" : "No disk service: start one (make run starts one), or set it in Preferences"]].map(([value, text, disabled, title]) =>
+                    h("label.check", { title }, h("input", { type: "radio", name: "location", value, checked: state.location === value, disabled,
+                        onchange: () => { state.location = /** @type {string} */ (value); render(); } }), " " + text));
+                if(info.emulator)
+                {
+                    const e = info.emulator;
+                    return [
+                        h("p", null, "A disk made from the Android Emulator's image (Android " + (e.release || "?") + ", API " + e.api + ", " + e.abi +
+                            (e.tag ? ", " + e.tag : "") + "): its kernel, ramdisk, system and userdata as they are, an empty cache. " +
+                            format_size(info.disk_size(0)) + " in all, about " + format_size(info.data_bytes) + " of it written now."),
+                        h("fieldset", null, h("legend", null, "Where it is kept"), where),
+                        state.location === "browser" ? quota_note() : null,
+                        h("p", null, h("small.reason", null, "The " + (e.cpu === "arm32" ? "32-bit ARM CPU" : "arm64 CPU") + " on the ranchu machine boots it; " +
+                            "the guest draws (no host GPU).")),
+                    ];
+                }
+                return [
+                    h("p", null, "A disk made from the package: its images as they are, super shrunk to its partitions (" + format_size(info.super_size) + "), " +
+                        "userdata blank (Android formats it at first boot). " + format_size(info.disk_size(state.android.userdata_gib)) + " in all, about " +
+                        format_size(info.data_bytes) + " of it written now."),
+                    h("fieldset", null, h("legend", null, "Space for apps and data (userdata)"), sizes),
+                    h("fieldset", null, h("legend", null, "Where it is kept"), where),
+                    state.location === "browser" ? quota_note() : null,
+                    h("p", null, h("small.reason", null, "The package boots with its own GPU drivers on gfxstream: the graphics proxy's WebGPU " +
+                        "renderer draws (Settings, Display; without WebGPU choose SwiftShader in Settings, Android: Android starts, its desktop is slow).")),
+                ];
+            }
             if(state.source === "disk")
             {
                 return h("p", null, "The machine starts from the chosen hard disk image" + (state.read_write ? ", written back to the disk service." : ": its changes stay in memory."));
@@ -285,6 +504,21 @@ export function open_wizard(options)
             if(state.step === 0)
             {
                 if(state.source === "direct") return state.direct.bzimage ? "" : "Choose the kernel";
+                if(state.source === "android")
+                {
+                    const a = state.android;
+                    if(!a.info) return a.file && !a.error ? "Reading the package…" : "Choose the package";
+                    const entry = ANDROID_CATALOG.entries.find(e => e.id === a.entry);
+                    if(entry)
+                    {
+                        const missing = entry.parts.filter(p => !p.optional && !{ device: a.file, gsi: a.gsi }[p.role]);
+                        if(missing.length) return "Still needed: " + missing.map(p => p.name).join(", ");
+                        const bad = Object.entries(a.checks).find(([, c]) => c !== "ok");
+                        if(bad) return bad[1] === "checking…" ? "Checking the files…" :
+                            bad[1].startsWith("could not") ? "A file " + bad[1] : "A file is not the catalog's: " + bad[1];
+                    }
+                    return "";
+                }
                 if(state.source !== "later" && !state.image) return "Choose the image";
                 if(state.image && state.image.kind === "url" && !state.image.url) return "Give the image's URL";
             }
@@ -303,12 +537,14 @@ export function open_wizard(options)
                     h("ol.wizard-steps", null, steps.map((s, i) => h("li", { class: i === state.step ? "current" : i < state.step ? "done" : "" }, s)))),
                 h("section.wizard-body", { "aria-label": steps[state.step] }, body),
                 h("footer.wizard-footer", null,
-                    h("span.wizard-status", { role: "status", class: state.error ? "error" : "" }, state.error || blocked),
-                    h("button", { type: "button", onclick: () => close(null) }, "Cancel"),
-                    h("button", { type: "button", disabled: state.step === 0, onclick: () => { state.step--; render(); } }, "Back"),
-                    last ? [h("button", { type: "button", onclick: () => finish(true) }, "Customize hardware…"),
-                        h("button.primary", { type: "button", onclick: () => finish(false) }, "Finish")] :
-                        h("button.primary", { type: "button", disabled: !!blocked, onclick: () => { state.step++; render(); } }, "Next"))));
+                    h("span.wizard-status", { role: "status", class: state.error ? "error" : "" }, state.error || state.progress || blocked),
+                    // (while a package is imported: only its Cancel)
+                    state.importing ? h("button", { type: "button", onclick: () => state.importing && state.importing.abort() }, "Cancel import") : [
+                        h("button", { type: "button", onclick: () => close(null) }, "Cancel"),
+                        h("button", { type: "button", disabled: state.step === 0, onclick: () => { state.step--; render(); } }, "Back"),
+                        last ? [h("button", { type: "button", onclick: () => finish(true) }, "Customize hardware…"),
+                            h("button.primary", { type: "button", onclick: () => finish(false) }, "Finish")] :
+                            h("button.primary", { type: "button", disabled: !!blocked, onclick: () => { state.step++; render(); } }, "Next")])));
         }
 
         document.body.append(element);

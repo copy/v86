@@ -166,6 +166,20 @@ export function Venus(gpu, vk)
     this.last_alive = 0;
 }
 
+/** its capsets, [id, version, size], and their contents (the device's kinds of context) */
+Venus.prototype.capsets = [[CAPSET_VENUS, 0, CAPSET_VENUS_SIZE]];
+/** @param {number} id @return {!Uint8Array} */
+Venus.prototype.capset = function(id)
+{
+    return venus_capset();
+};
+
+/** the bytes [x, x + data.length) of a mapped blob, as the guest wrote them */
+Venus.prototype.upload_blob = function(blob, x, data)
+{
+    this.vk.upload_blob(blob, x, data);
+};
+
 Venus.prototype.reset = function()
 {
     for(const ctx of this.contexts.values())

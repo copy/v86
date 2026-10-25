@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import { PRESETS, preset, preset_config } from "../../src/app/guest_presets.js";
-import { choices, change } from "../../src/app/vm_model.js";
+import { choices, change, fitted } from "../../src/app/vm_model.js";
 import { new_config, validate_config, check_config, config_to_options } from "../../src/app/vm_config.js";
 import { hardware_rows } from "../../src/app/ui/describe.js";
 
@@ -64,25 +64,27 @@ test("the presets' hardware (the plan's table)", () =>
     assert.deepEqual(row("linux64"), ["x86_64", "i440fx", 1024, 2, "virtio_gpu", 8, "virtio", "sb16", true]);
     assert.deepEqual(row("linux_arm64"), ["arm64", "virt", 1024, 4, "virtio_gpu", 8, "virtio", "none", false]);
     assert.deepEqual(row("android16"), ["arm64", "virt", 1536, 4, "virtio_gpu", 8, "virtio+virtio+virtio", "virtio", false]);
+    assert.deepEqual(row("linux_arm32"), ["arm32", "virt", 512, 2, "none", 8, "virtio", "none", false]);
+    assert.deepEqual(row("android7_arm32"), ["arm32", "ranchu", 1024, 2, "none", 8, "virtio", "none", false]);
     assert.equal(preset_config(preset("windowsnt4")).advanced.cpuid_level, 2);
 });
 
-test("Android's options: those of tests/a64/android_boot.mjs", () =>
+test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLOADER=1)", () =>
 {
     const c = preset_config(preset("android16"));
-    c.kernel = { bzimage: { kind: "url", url: "Image" }, initrd: { kind: "url", url: "initrd.img" }, cmdline: "console=hvc0", multiboot: null, from_filesystem: false };
     c.disks = [{ slot: "hda", image: { kind: "url", url: "disk.img", async: true }, disk_option: "read_only", disk_error: "stop" }];
-    const o = config_to_options(c, ENV);
+    let o = config_to_options(c, ENV);
     assert.equal(o.cpu_type, "arm64");
     assert.equal(o.cpu_cores, 4);
     assert.equal(o.memory_size, 1536 << 20);
-    assert.deepEqual(o.kernel, { url: "Image" });
-    assert.deepEqual(o.initrd, { url: "initrd.img" });
-    assert.equal(o.cmdline, "console=hvc0");
+    // (the bootloader: no kernel, initrd or command line of the page's)
+    assert.deepEqual(o.android, { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", selinux: "enforcing", vendor_ramdisk: undefined });
+    assert.equal("kernel" in o || "initrd" in o, false);
+    assert.equal(o.cmdline, undefined);
     assert.equal(o.virtio_transport, "pci");
     assert.deepEqual(o.virtio_disks, [{ url: "disk.img", async: true }]);
     assert.equal(o.graphics_adapter, "virtio_gpu");
-    assert.deepEqual(o.graphics_adapter_test, { level: "venus" });
+    assert.deepEqual(o.graphics_adapter_test, { level: "gfxstream" });
     assert.equal(o.virtio_gpu_pci_slot, 2);
     assert.deepEqual(o.net_device, { type: "virtio", relay_url: "fetch", cors_proxy: undefined, mtu: 1500, count: 3, id: 2 });
     assert.equal(o.virtio_console, true);
@@ -93,13 +95,94 @@ test("Android's options: those of tests/a64/android_boot.mjs", () =>
     assert.equal(o.virtio_sound, true);
     assert.deepEqual(o.jit_switches, { a64_page: 1 });
     assert.deepEqual(check_config(c), []);
+    // (the debug vendor ramdisk, and a command line after the device's)
+    c.android = Object.assign({}, c.android, { vendor_ramdisk: "debug", debug_ramdisk: { kind: "url", url: "vendor_ramdisk-debug.img" } });
+    c.kernel = { bzimage: null, initrd: null, cmdline: "androidboot.x=1", multiboot: null, from_filesystem: false };
+    o = config_to_options(c, ENV);
+    assert.deepEqual(o.android.vendor_ramdisk, { url: "vendor_ramdisk-debug.img" });
+    assert.equal(o.cmdline, "androidboot.x=1");
+    assert.deepEqual(check_config(c), []);
+});
+
+test("Android 7.1's emulator image: the options of tests/a32/android_boot.mjs (A32_ANDROID_DISK=1)", () =>
+{
+    const c = preset_config(preset("android7_arm32"));
+    c.disks = [{ slot: "hda", image: { kind: "url", url: "disk.img", async: true }, disk_option: "read_write", disk_error: "stop" }];
+    const o = config_to_options(c, ENV);
+    assert.equal(o.cpu_type, "arm32");
+    assert.equal(o.machine_type, "ranchu");
+    assert.equal(o.cpu_cores, 2);
+    assert.equal(o.memory_size, 1024 << 20);
+    assert.deepEqual(o.android, { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", selinux: "enforcing", vendor_ramdisk: undefined });
+    assert.equal("kernel" in o || "initrd" in o, false);
+    assert.equal(o.graphics_adapter, "none");
+    assert.deepEqual(o.virtio_disks, [{ url: "disk.img", async: true, disk_option: "read_write" }]);
+    assert.equal(o.net_device.type, "virtio");
+    assert.equal(o.net_device.relay_url, "fetch");
+    assert.equal(o.virtio_transport, undefined);
+    assert.equal(o.virtio_input, undefined);
+    assert.equal(o.a64_profile, undefined);
+    assert.deepEqual(o.jit_switches, { a64_page: 1 });
+    assert.deepEqual(check_config(c), []);
+    // (its device model is ranchu's: Cuttlefish's on ranchu is refused, ranchu's on virt too)
+    assert.ok(problems(Object.assign({}, c, { android: Object.assign({}, c.android, { device: "cf_arm64_only_phone" }) }))
+        .some(p => /boots on the virt machine with the arm64 CPU/.test(p)));
+    let { config, notes } = change(c, "machine.type", "virt");
+    assert.equal(config.android, null);
+    assert.ok(notes.some(n => /ranchu_25_armeabi_v7a boots on the ranchu machine/.test(n)), JSON.stringify(notes));
+    ({ config, notes } = change(c, "cpu.type", "arm64"));
+    assert.equal(config.machine.type, "ranchu");
+    assert.equal(config.android, null);
+    assert.deepEqual(problems(config), []);
+});
+
+test("arm32 and ranchu: what a choice implies", () =>
+{
+    let { config, notes } = change(new_config(), "cpu.type", "arm32");
+    assert.equal(config.machine.type, "virt");
+    assert.ok(notes.some(n => /Machine: virt \(the arm32 CPU's\)/.test(n)), JSON.stringify(notes));
+    ({ config, notes } = change(config, "machine.type", "ranchu"));
+    assert.equal(config.cpu.type, "arm32");
+    assert.equal(config.display.adapter, "none");
+    assert.equal(config.sound.device, "none");
+    assert.ok(notes.some(n => /the emulator's framebuffer/.test(n)), JSON.stringify(notes));
+    assert.deepEqual(problems(config), []);
+    assert.deepEqual(choices(config).graphics_adapters, ["none"]);
+    assert.deepEqual(choices(config).sound_devices, ["none"]);
+    ({ config, notes } = change(config, "memory.mb", 4096));
+    assert.equal(config.memory.mb, 2048);
+    ({ config, notes } = change(config, "cpu.type", "x86"));
+    assert.equal(config.machine.type, "i440fx");
+    ({ config, notes } = change(new_config(), "machine.type", "ranchu"));
+    assert.equal(config.cpu.type, "arm64");
+    assert.deepEqual(problems(config), []);
+});
+
+test("change: Android's bootloader follows the machine and Vulkan", () =>
+{
+    let { config, notes } = change(preset_config(preset("android16")), "display.proxy", false);
+    assert.equal(config.display.vulkan, "none");
+    assert.equal(config.android.gpu_mode, "swiftshader");
+    assert.ok(notes.some(n => /SwiftShader/.test(n)), JSON.stringify(notes));
+    assert.equal(fitted(config).config.android.gpu_mode, "swiftshader");
+    ({ config, notes } = change(preset_config(preset("android16")), "cpu.type", "x86"));
+    assert.equal(config.android, null);
+    assert.ok(notes.some(n => /Android's bootloader off/.test(n)), JSON.stringify(notes));
+    // (Venus for the display: Android's GPU follows)
+    ({ config, notes } = change(preset_config(preset("android16")), "display.vulkan", "venus"));
+    assert.equal(config.android.gpu_mode, "venus");
+    assert.ok(notes.some(n => /Android's GPU: Venus/.test(n)), JSON.stringify(notes));
+    assert.deepEqual(problems(config), []);
+    assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "venus" });
+    assert.equal(config_to_options(config, ENV).android.gpu_mode, "venus");
 });
 
 test("the summary's rows: Android's display and sound", () =>
 {
     const rows = Object.fromEntries(hardware_rows(preset_config(preset("android16"))));
-    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan");
+    assert.equal(rows["Display"], "virtio-gpu, 8 MB, Vulkan (gfxstream)");
     assert.equal(rows["Sound"], "virtio-snd");
+    assert.equal(rows["Android boot"], "from the first disk (cf_arm64_only_phone), gfxstream");
     assert.equal(Object.fromEntries(hardware_rows(preset_config(preset("dos"))))["Sound"], "Sound Blaster 16");
 });
 
@@ -141,19 +224,20 @@ test("change: what a choice implies, and says", () =>
 
 test("change: Vulkan and the graphics proxy", () =>
 {
-    let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", true);
+    let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", "venus");
     assert.equal(config.display.proxy, true);
     assert(notes.some(n => /Graphics proxy: on/.test(n)), notes.join("; "));
     assert.deepEqual(problems(config), []);
     assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "venus" });
     ({ config, notes } = change(config, "display.proxy", false));
-    assert.equal(config.display.vulkan, false);
+    assert.equal(config.display.vulkan, "none");
     assert(notes.some(n => /Vulkan: off/.test(n)), notes.join("; "));
     // (a PC keeps virtio-gpu and its Vulkan; another adapter drops it)
-    ({ config } = change(change(config, "display.vulkan", true).config, "cpu.type", "x86"));
-    assert.equal(config.display.vulkan, true);
+    ({ config } = change(change(config, "display.vulkan", "gfxstream").config, "cpu.type", "x86"));
+    assert.equal(config.display.vulkan, "gfxstream");
+    assert.deepEqual(config_to_options(config, ENV).graphics_adapter_test, { level: "gfxstream" });
     ({ config } = change(config, "display.adapter", "bochs_vga"));
-    assert.equal(config.display.vulkan, false);
+    assert.equal(config.display.vulkan, "none");
     assert.deepEqual(problems(config), []);
 });
 
@@ -204,7 +288,7 @@ test("random sequences of the dialog's choices (5000 changes): every configurati
             () => ["display.vram_mb", pick([1, 8, 16, 64, ch.max_vram])],
             () => ["display.displays", config.display.adapter === "virtio_gpu" ? pick([1, 2, 4]) : 1],
             () => ["display.proxy", pick([true, false])],
-            () => ["display.vulkan", config.display.adapter === "virtio_gpu" && pick([true, false])],
+            () => ["display.vulkan", config.display.adapter === "virtio_gpu" ? pick(["none", "venus", "gfxstream"]) : "none"],
             () => ["network.0.device", pick(ch.net_devices)],
             () => ["network.0.backend", pick(["none", "inbrowser", "fetch"])],
             () => ["sound.device", pick(ch.sound_devices)],

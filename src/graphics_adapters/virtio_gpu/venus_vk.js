@@ -251,6 +251,12 @@ VulkanModel.prototype.destroy_context = function(ctx)
     this.send();
 };
 
+/** whether a command has its handler (gfxstream: an alias's core command) */
+VulkanModel.prototype.handles = function(name)
+{
+    return !!HANDLERS[name];
+};
+
 /**
  * A Vulkan command
  * @param {!Object} ctx

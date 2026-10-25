@@ -7,7 +7,7 @@
 // some options by their quoted names, and they stay quoted here as they were
 // in main.js.
 
-import { CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE } from "../machine_options.js";
+import { CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, is_arm } from "../machine_options.js";
 
 export const DEFAULT_NETWORKING_PROXIES = ["wss://relay.widgetry.org/", "ws://localhost:8080/"];
 export const DEFAULT_MEMORY_SIZE = 128;
@@ -401,9 +401,10 @@ export function apply_form(settings, form, new_query_args, page)
         }
         // the arm64 CPU runs on the virt machine, the x86 CPUs on the PC
         // machines (src/machine_options.js)
-        if((settings.cpu_type === "arm64") !== (settings.machine_type === "virt"))
+        const arm = settings.cpu_type === "arm64" || settings.cpu_type === "arm32";
+        if(arm !== (settings.machine_type === "virt" || settings.machine_type === "ranchu"))
         {
-            settings.machine_type = settings.cpu_type === "arm64" ? "virt" : DEFAULT_MACHINE_TYPE;
+            settings.machine_type = arm ? "virt" : DEFAULT_MACHINE_TYPE;
             updates["machine_type"] = settings.machine_type;
         }
         if(settings.machine_type !== DEFAULT_MACHINE_TYPE) new_query_args.set("machine_type", settings.machine_type);
@@ -421,7 +422,7 @@ export function apply_form(settings, form, new_query_args, page)
 
         // multiple cores are described to the guest through ACPI (MADT);
         // Q35 always has ACPI (virt describes itself with a device tree)
-        if(settings.cpu_type === "arm64")
+        if(is_arm(settings.cpu_type))
         {
             settings.acpi = false;
         }
@@ -438,7 +439,7 @@ export function apply_form(settings, form, new_query_args, page)
 
         const BIOSPATH = "bios/";
 
-        if(settings.cpu_type === "arm64")
+        if(is_arm(settings.cpu_type))
         {
             // (virt: no PC firmware, ACPI, VGA or NE2000)
             settings.acpi = false;
@@ -448,11 +449,11 @@ export function apply_form(settings, form, new_query_args, page)
         {
             settings.bios = { url: BIOSPATH + (page.debug ? "seabios-debug.bin" : "seabios.bin") };
         }
-        if(!settings.vga_bios && settings.cpu_type !== "arm64")
+        if(!settings.vga_bios && !is_arm(settings.cpu_type))
         {
             settings.vga_bios = { url: BIOSPATH + (page.debug ? "vgabios-debug.bin" : "vgabios.bin") };
         }
-        if(settings.use_bochs_bios && settings.cpu_type !== "arm64")
+        if(settings.use_bochs_bios && !is_arm(settings.cpu_type))
         {
             settings.bios = { url: BIOSPATH + "bochs-bios.bin" };
             settings.vga_bios = { url: BIOSPATH + "bochs-vgabios.bin" };
@@ -516,13 +517,13 @@ export function settings_to_options(settings, env)
         "cpu_worker_url": "build/cpu-worker.js" + query_append,
         "ir_tier0": settings["ir_tier0"],
         // (the core of the CPU type: arm64's is a separate build, docs/aarch64.md)
-        wasm_path: "build/" + (settings.cpu_type === "arm64" ? (debug ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") :
+        wasm_path: "build/" + (is_arm(settings.cpu_type) ? (debug ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") :
             debug ? "v86-debug.wasm" : "v86.wasm") + query_append,
         // more than one core: each in a host thread (v86-parallel.wasm) where the
         // page is cross-origin isolated and the host has the threads; otherwise
         // the build above with the cores taking turns (see the runtime infos)
         "parallel": settings.cpu_cores > 1 && settings.parallel ? "auto" : false,
-        "parallel_wasm_path": "build/" + (settings.cpu_type === "arm64" ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm") + query_append,
+        "parallel_wasm_path": "build/" + (is_arm(settings.cpu_type) ? "v86-arm64-parallel.wasm" : "v86-parallel.wasm") + query_append,
         // (the source tree's module entry, unless the bundled CPU worker starts them)
         "vcpu_worker_url": debug && !env.cpu_worker ? undefined : "build/vcpu-worker.js" + query_append,
         "graphics_proxy": env.graphics_proxy,
@@ -530,12 +531,12 @@ export function settings_to_options(settings, env)
             container: env.screen_container,
         },
         net_device: {
-            type: settings.cpu_type === "arm64" ? "virtio" : settings.net_device_type || DEFAULT_NIC_TYPE,
+            type: is_arm(settings.cpu_type) ? "virtio" : settings.net_device_type || DEFAULT_NIC_TYPE,
             relay_url: settings.relay_url,
             cors_proxy: settings.cors_proxy,
             mtu: settings.mtu
         },
-        modem: settings.cpu_type === "arm64" ? undefined : settings.modem,
+        modem: is_arm(settings.cpu_type) ? undefined : settings.modem,
         autostart: true,
 
         memory_size: settings.memory_size,
@@ -549,7 +550,7 @@ export function settings_to_options(settings, env)
         // initrd, the CD-ROM image and the disks as virtio-blk disks (the
         // image read-only), virtio-rng, the keyboard, tablet and touch screen
         // with a display; the PC's firmware, floppies and IDE otherwise
-        ...(settings.cpu_type === "arm64" ? {
+        ...(is_arm(settings.cpu_type) ? {
             kernel: settings.bzimage,
             initrd: settings.initrd,
             virtio_disks: [settings.cdrom && Object.assign({}, settings.cdrom, { readonly: true }), settings.hda, settings.hdb].filter(Boolean),
@@ -559,6 +560,8 @@ export function settings_to_options(settings, env)
             // (the A64 page tier: the library's default is off until its F gate;
             // quoted, as the library reads it, or Closure renames it)
             "jit_switches": settings.disable_jit ? undefined : { "a64_page": 1 },
+            // (the CPU profile: v3 runs 32-bit programs too; the library's default otherwise; arm32's own)
+            "a64_profile": settings.cpu_type === "arm64" ? settings.a64_profile : undefined,
         } : {
             bios: settings.bios,
             vga_bios: settings.vga_bios,
@@ -573,7 +576,7 @@ export function settings_to_options(settings, env)
             cmdline: settings.cmdline,
             bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
         }),
-        acpi: settings.cpu_type !== "arm64" && (settings.acpi || settings.cpu_cores > 1 || settings.machine_type === "q35"),
+        acpi: !is_arm(settings.cpu_type) && (settings.acpi || settings.cpu_cores > 1 || settings.machine_type === "q35"),
         cpu_cores: settings.cpu_cores,
         "cpu_type": settings.cpu_type,
         machine_type: settings.machine_type,
@@ -583,8 +586,8 @@ export function settings_to_options(settings, env)
         // without it, more than one core runs in the interpreter
         experimental_smp_jit: settings.cpu_cores > 1 && !settings.disable_jit,
         disable_jit: settings.disable_jit,
-        "x87_fast_math": settings.cpu_type === "arm64" ? undefined : settings["x87_fast_math"],
-        "x87_jit_cache": settings.cpu_type === "arm64" ? undefined : settings["x87_jit_cache"],
+        "x87_fast_math": is_arm(settings.cpu_type) ? undefined : settings["x87_fast_math"],
+        "x87_jit_cache": is_arm(settings.cpu_type) ? undefined : settings["x87_jit_cache"],
         initial_state: settings.initial_state,
         filesystem: settings.filesystem || {},
         disable_speaker: settings.disable_audio,

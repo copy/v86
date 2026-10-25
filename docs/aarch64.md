@@ -22,7 +22,7 @@ does not contain the ARM code (the plan's "Wasm core" section).
 | | |
 | --- | --- |
 | Option | `cpu_type: "arm64"` (machine_type "virt", its default) |
-| Profile | `v86-aarch64-v2` by default since 2026-10-20 (v1.1 and FEAT_PAN), [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) (`a64_profile: "v1.1"`: without PAN; `"v1"`: the 4 KiB granule only) |
+| Profile | `v86-aarch64-v2` by default since 2026-10-20 (v1.1 and FEAT_PAN), [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) (`a64_profile: "v1.1"`: without PAN; `"v1"`: the 4 KiB granule only; `"v3"`: v2 and AArch32 at EL0, 32-bit programs on a 64-bit kernel) |
 | Verified guests | Android 16 (BP4A.251205.006, Cuttlefish's arm64-only phone, GKI 6.12): on 4 cores in workers with the page tier to system_server, adbd over vsock and `sys.boot_completed=1`; the desktop on Venus, touch, Wi-Fi, an APK and a reboot (A9); its desktop saved and restored into a new machine, then input, sound, 30 minutes of monkey and memory pressure with the core services kept, a CTS subset (CTS 16.1_r1's KernelConfig, NativeEncryption, AslrMalloc, FsMgr and Bionic, 3208 tests), and the same userspace on a 16 KiB-page GKI kernel (6.12.93) to the desktop (A10); its GKI kernel with Alpine's initramfs, the virtual-device modules and the probe (P10.6). Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: from the ISO on virtio-blk to a login, the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives, O_DIRECT), virtio-net, -rng, hvc0 and -input, kpti=1, single-user mode, snapshots, reboot and poweroff, `setup-disk -m sys` onto a disk and the installed system, all on virtio-mmio and on virtio-pci (the PCI functions as the reference's); s2idle woken by the PL031's alarm and hibernation to a swap disk with the resume after power-on; 3 and 4 GiB of RAM with extended RAM from 4 GiB (a memtest over most of it); in headless Chrome from the source tree, the bundle and the CPU worker; on 2 and 4 cores in vCPU workers (`parallel: true`: the probe, the live stage with snapshots, reboot, poweroff, s2idle, hibernation); Linux 6.18.35 built for 16 and 64 KiB pages (`tools/a64_kernel.mjs`) to a login and through the probe, interpreted and with the page tier, and the guest JITs on them; the androidish kernel (Linux 6.18.35 in GKI's shape: a 39-bit VA, SW_TTBR0_PAN, pseudo-NMIs, KASLR) on 2 and 4 cores, interpreted, with the page tier and in workers, and with 4 GiB of RAM: binderfs's selftest and binder between two cores, userfaultfd, a minimal SELinux policy enforcing (the probe after it), bootconfig, erofs on dm-verity, f2fs with fscrypt across a reboot, zram as swap and PSI's trigger; virtio-console's ports 1-3 (`org.v86.port<N>`, echoed by the host) in every live stage; virtio-gpu: KMS (atomic, planes, cursor, PRIME, explicit sync), kmscube and weston with llvmpipe, virgl (GL 4.3, gltest 0 failures), Venus (vktest, vkcube) on a real GPU through WebGPU, input on weston; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
 | Boot time | The frozen baseline (P9.4, [tests/a64/perf-baseline.json](../tests/a64/perf-baseline.json), release build, medians of 3 sessions on an Apple M-series Mac): Alpine from the ISO to `localhost login:` 34.7 / 39.5 / 40.6 s on 1/2/4 cores with the page tier, 238 / 281 / 362 s interpreted (QEMU TCG: 11 s on 1 core); the initramfs stage through the probe 6.3 / 6.9 / 7.0 s with the page tier, 35.6 / 41.8 / 57.4 s interpreted. On a quiet machine at A4: to login 30 / 39 / 34 s, and on 1 core to login and through the probe 33.1 s, 1.37 times the x86_64 page tier's 24.1 s on the same host (the E level's budget: 3 times) |
 | Sound | virtio-snd (`virtio_sound: true`, P7.5, P12.5): one output stream, PCM in 1 or 2 channels, S16 or S32, 8000 to 48000 Hz, played on the machine's clock to the speaker. Android's audio HAL plays through it (its primary output is tinyalsa's card 0 device 0): tinyplay's WAV reaches the host byte for byte; an AAudio tone through AudioFlinger reaches it at its frequency on QEMU, while on v86 the HAL drops it (below). In the browser the speaker's AudioWorklet plays it (from the CPU worker over its audio port); a page started without a user gesture gets a suspended AudioContext (the autoplay policy), which the first click, key or touch on the page resumes |
@@ -36,7 +36,7 @@ Reference Manual, DDI 0487 issue L.b.
 
 | Advertised | Not advertised |
 | --- | --- |
-| AArch64 at EL0 and EL1; FP and Advanced SIMD (no FP16); AES with 64-bit PMULL, SHA1, SHA-256, CRC32; GICv3 system registers; 2 breakpoints, 2 watchpoints; CSV2 and CSV3; 40-bit physical addresses, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1 has 4 KiB only) | EL2, EL3, AArch32 (planned in [aarch32-plan.md](aarch32-plan.md): EL0 compat as profile v3, and 32-bit kernels as `cpu_type: "arm32"`); LSE, RDM, SHA512, SHA3, SM3/SM4, DotProd, FP16; PAuth, BTI, MTE, SVE, SME; PMU; hardware AF/DBM, PAN, VHE |
+| AArch64 at EL0 and EL1; FP and Advanced SIMD (no FP16); AES with 64-bit PMULL, SHA1, SHA-256, CRC32; GICv3 system registers; 2 breakpoints, 2 watchpoints; CSV2 and CSV3; 40-bit physical addresses, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1 has 4 KiB only); AArch32 at EL0 in v3 (below) | EL2, EL3, AArch32 at EL1 (32-bit kernels: `cpu_type: "arm32"`, planned in [aarch32-plan.md](aarch32-plan.md) part 2); LSE, RDM, SHA512, SHA3, SM3/SM4, DotProd, FP16; PAuth, BTI, MTE, SVE, SME; PMU; hardware AF/DBM, PAN, VHE |
 
 HWCAP is `0x8ff`: `fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid`.
 
@@ -53,6 +53,27 @@ PSTATE.PAN changes need no flush. HWCAP is v1.1's. A snapshot restores as
 its own profile (the machine takes it on), whatever `a64_profile` says.
 `tests/a64/pan.mjs` checks it against QEMU's `-cpu max` (the cortex-a35
 reference has no PAN).
+
+Profile `v3` (`a64_profile: "v3"`, `v86-aarch64-v3`; [aarch32-plan.md](aarch32-plan.md)
+part 1) is v2 and AArch32 at EL0: a 64-bit kernel with COMPAT runs 32-bit
+Arm programs (armhf, armeabi-v7a) as compat tasks. ID_AA64PFR0_EL1.EL0 is 2;
+the AArch32 ID registers are the reference's for an AArch32 at EL0 only, as
+Cortex-A76 reports them (no AArch32 EL1 modes, no SETEND, no SMC). A32 and
+T32 with IT blocks, VFPv4 (no short vectors, no half-precision arithmetic),
+Advanced SIMD with AES, SHA-1, SHA-256 and VMULL.P64, CRC32, CP15's EL0
+registers (TPIDRURW, TPIDRURO, the generic timer, the CP15 barriers), BKPT,
+software step, breakpoints and watchpoints; FPSCR is FPSR and FPCR (Len and
+Stride read 0). The compat HWCAP is `half thumb fastmult vfp edsp neon vfpv3
+tls vfpv4 idiva idivt lpae evtstrm` and HWCAP2 `aes pmull sha1 sha2 crc32`.
+The page tier compiles 32-bit code too (`a64_page_aarch32`, below: A32 and
+T32, VFP and Advanced SIMD; T32 about 1.4 times A64's time on the same C
+kernels). The instructions are checked against the reference one by one
+(`tests/a64/aarch32_oracle.mjs`, `aarch32_el0.mjs`), Alpine's armv7 programs
+and a 32-bit probe run with the reference's output
+(`A64_PROFILE=v3 A64_WORKLOAD=aarch32 node tests/a64/linux_boot.mjs`). The
+VM manager offers it as "Instruction sets" on arm64 (the Linux preset's
+choice); the deviations from QEMU, all on UNPREDICTABLE encodings, are in the
+plan's progress notes.
 
 The profile's completeness (`node tools/a64_profile_report.mjs --reference --kvm`,
 at `vA7`): all 49 classes of the Arm ARM's encoding index have a status (37
@@ -87,10 +108,20 @@ macOS.
 
 ## Android 16
 
-Importing official images in the VM manager (v64 booting Android from the
-disk itself, a catalog that tells what to download and where, the files then
-dropped in) is planned in
-[android-images-plan.md](android-images-plan.md).
+v64 boots Android from its disk itself: V86's `android` option
+(`{ device, gpu_mode, selinux, vendor_ramdisk }`, in place of `kernel`,
+`initrd` and `cmdline`) reads the first virtio disk's GPT, the slot's boot,
+init_boot, vendor_boot and vbmeta partitions and those vbmeta chains, and
+gives the kernel, the initrd with bootconfig (the vendor's section, the
+launcher's and bootloader's keys, the vbmeta digest as libavb computes it)
+and the command line (`src/android/bootloader.js`, run where the disk is: in
+the CPU Worker by default). The VM manager imports official images into
+such a disk: Cuttlefish's images zip, and a GSI on that device
+(`src/android/assemble.js`; `node tools/android_import.mjs <zip> <disk.img>
+[--gsi <zip>]` does it in node); see [vm-manager.md](vm-manager.md) and
+[android-images-plan.md](android-images-plan.md). The image formats (boot
+images, LZ4, cpio, bootconfig, sparse, AVB, LP, erofs, GPT, zip) are
+`src/android/`'s, which `tools/a64_android.mjs` uses too.
 
 A8 of the plan (P10). The product is not built here: AOSP builds need an
 x86_64 Linux host. The pinned prebuilt is Cuttlefish's arm64-only phone,
@@ -196,6 +227,37 @@ uniform buffers a stage are fewer than ES 3 needs with ANGLE's own, and
 there is no transform feedback), for SurfaceFlinger and HWUI;
 `A64_ANDROID_GPU=venus` boots `initrd-venus.img`.
 
+The official images need no driver of v64's: virtio-gpu's gfxstream level
+([gfxstream-plan.md](gfxstream-plan.md), [gpu-devices.md](gpu-devices.md))
+speaks the protocol of the image's own Vulkan driver (`vulkan.ranchu`, ANGLE's
+GLES on it, OpenGL ES 3.0), which Cuttlefish's `gfxstream_guest_angle` mode
+selects (bootconfig only: the bootloader's `gpu_mode: "gfxstream"`). The
+official Cuttlefish images on gfxstream pass A9's scenario on v86
+(`A64_ANDROID_GPU=gfxstream A64_ANDROID_BOOTLOADER=1`, 4 vCPU workers):
+boot_completed 1186 s, Launcher3 in front after the unlock, Gallery opened by
+a tap, Wi-Fi and HTTP, an APK installed (Success) and started in 59.9 s, the
+second boot 665 s; the official GSI over Cuttlefish's vendor (BP4A) passes it
+too: boot_completed 991 s, the APK started in 25.6 s, the second boot 477 s
+(2026-10-25). A10's scenario passes on gfxstream as well (the official image,
+its desktop saved and restored into a new machine): input latency 734 ms
+(median), 12.6 fps, the tone byte for byte, 30 minutes of monkey without a
+crash, lmkd's kills, the core services kept. The VM manager's Android preset and imported images use
+gfxstream by default; the screen shows the scanout straight from the GPU
+when the graphics proxy's compositor is on the page (no readback, G-31).
+
+32-bit apps (profile `v3`, [aarch32-plan.md](aarch32-plan.md) Q5.2): Cuttlefish's
+arm64 phone is 64-bit only, so `tools/a64_android.mjs --gsi <zip>
+--zygote64-32` gives its vendor a 32-bit second architecture for a GSI that
+has one (vendor's `ro.zygote=zygote64_32`, vendor's and odm's 32-bit ABI
+lists, vendor's 32-bit boringssl self test left to the system's). An APK
+with only `armeabi-v7a` libraries then installs and runs its library in a
+32-bit process (`A64_ANDROID_SCENARIO=compat32`, with `A64_PROFILE=v3` on
+v86). It gets no window: the vendor has no 32-bit gralloc mapper or graphics
+drivers. On v86 (4 vCPU workers, the page tier) the BP4A GSI so built reaches
+`boot_completed` after 1982 s, both zygotes up, and the library reports a
+32-bit process and the host's floating-point sum (2026-10-25); QEMU's
+cortex-a35 TCG, the reference, after 370 s.
+
 ## Known defects
 
 The G-Alpine list (docs/arm64-virt-android16-plan.md P9.4). Major: a
@@ -214,7 +276,7 @@ declared deviation, a slower path or a documented limit. None is major.
 | Android 16's first boot takes 20-22 minutes on 4 cores in workers (release build: 1192-1325 s, about 4 times QEMU TCG's; mostly APEX decompression and dex2oat, about 100-110 MIPS overall) | minor | within P10.3's budget (P12.3: every metric is; the plan's appendix E, A10); FEAT_PAN is the first candidate for speed |
 | Android's graphics with SwiftShader on v86: Launcher3's first frames take minutes; with animations on, ART's finalizer watchdog killed it (`ReferenceQueueDaemon` timed out on `HardwareRenderer$DestroyContextRunnable`) although `ro.hw_timeout_multiplier` is 50; screenshots lag the window manager by seconds | minor | A9's scenario turns animations off; A9's graphics are Venus's (P11.4) |
 | Android on Venus: frames still take seconds when they are new (Launcher3's all-apps list: about 5 s cold; warm 0.8 s at the median, as QEMU TCG's SwiftShader); a GL app sustains 14 fps | minor | within P10.3's budget (P12.3) |
-| Android on Venus reports OpenGL ES 3.0 since 2026-10-21 (`androidboot.opengles.version=196608`; SwiftShader's 3.1): dEQP's GLES3 sample of 1334 cases from the re-saved `a10-desktop.v7`, 1233 pass, 94 not supported (ASTC, float color buffers, multiview, 8 samples, wide points and lines), 5 fail: shadow lookups with an explicit lod or gradients (compared at level 0, WGSL's only comparison with a level) and two blits of multisampled depth and stencil into the window after an invalidate | minor | [gpu-deviations.md](gpu-deviations.md) G-45 to G-58; the plan's appendix F (F2, F6) |
+| Android on Venus reports OpenGL ES 3.0 since 2026-10-21 (`androidboot.opengles.version=196608`; SwiftShader's 3.1): dEQP's GLES3 sample of 1334 cases from the re-saved `a10-desktop.v7`, 1233 pass, 94 not supported (ASTC, float color buffers, multiview, 8 samples, wide points and lines), 5 fail: shadow lookups with an explicit lod or gradients (compared at level 0, WGSL's only comparison with a level) and the sample's two blits of a multisampled color buffer into the window after an invalidate (`fbo.invalidate.{whole,sub}.unbind_blit_msaa_color`; all 8 `unbind_blit_msaa_*` cases of the group fail). gfxstream gives the same counts and the same 5 failures (2026-10-25) | minor | [gpu-deviations.md](gpu-deviations.md) G-45 to G-58; the plan's appendix F (F2, F6) |
 | UWB's initialisation times out on Cuttlefish without the host's pica (hvc9), and a userdebug build then takes a full bug report: minutes of dumpstate on v86 | minor | A9's scenario turns UWB's device-error bug reports off (`device_config`) |
 | Android's first boot on v86: user 0 unlocks about ten minutes after `sys.boot_completed=1` (the receivers of PRE_BOOT_COMPLETED and BOOT_COMPLETED); SystemUI's SYSTEM_READY can then come before provisioning ends, so it never shows its keyguard while the window manager keeps the keyguard's sleep token, and dismissals do nothing | minor | the scenario waits for `RUNNING_UNLOCKED` and disables the lock screen as soon as adb answers |
 | "DHCP failures" on Android's wlan0 (twice in one run, the network then blocked for five minutes) are IpClient's provisioning deadline, not DHCP: the fetch adapter answers each exchange within a second (`dhcp.log`, DhcpClient's log), but IpClient gives the whole provisioning 18 s from its start (NetworkStack's `ProvisioningConfiguration` default), and on v86 the Wi-Fi thread's pre-DHCP step took 11 s and applying the lease about 3 s | minor | the scenario connects again every two minutes; only an overlay (`config_wifiRemainConnectedAfterIpProvisionTimeout`) or a faster guest avoids it |
@@ -253,7 +315,7 @@ declared deviation, a slower path or a documented limit. None is major.
 | The GKI bridge (P10.6): the GKI kernel, Alpine's initramfs, the 19 virtual-device modules, the probe | `A64_KERNEL=gki [A64_LINUX_QEMU=1] A64_STAGE=initramfs node tests/a64/linux_boot.mjs` | both |
 | Android 16 to system_server and adbd over vsock (P10.7; `A64_ANDROID_WAIT=boot_completed`) | `A64_ANDROID_TARGET=v86 A64_JIT=1 A64_PARALLEL=1 node tests/a64/android_boot.mjs` (`make android-guest-tests`) | v86 |
 | A9's scenario (P11): the desktop, frame times (Launcher3's all-apps list, cold and warm), Wi-Fi, HTTP (v86), touch (v86), an APK, a reboot; on v86 with Venus (`A64_ANDROID_GPU=venus`) | `A64_ANDROID_SCENARIO=a9 node tests/a64/android_boot.mjs` (with the v86 variables above for v86); in `make android-reference-tests` and `make android-guest-tests` | both |
-| A10's scenario (P12.2, P12.3, P12.5): the desktop saved by a first run (`A64_ANDROID_A10_SAVE=<file>`) and restored by a second (`A64_ANDROID_RESTORE_STATE`): a tap, input latency (five taps timed from the touch to the screen's change; QEMU taps through QMP), sustained frame rate (`tests/a64/android/v86frames.c`: a minute of OpenGL ES frames), sound (the card's PCM on the host: tinyplay's WAV byte for byte, `tests/a64/android/v86tone.c`'s AAudio tone through AudioFlinger and the HAL by frequency; QEMU's virtio-sound-pci writes a WAV), 30 minutes of monkey (`A64_ANDROID_A10_MONKEY_MINUTES`), memory pressure until lmkd kills, the core services' pids kept | `A64_ANDROID_SCENARIO=a10 node tests/a64/android_boot.mjs` | both |
+| A10's scenario (P12.2, P12.3, P12.5): the desktop saved by a first run (`A64_ANDROID_A10_SAVE=<file>`) and restored by a second (`A64_ANDROID_RESTORE_STATE`): a tap, input latency (five taps timed from the touch to the screen's change; QEMU taps through QMP), sustained frame rate (`tests/a64/android/v86frames.c`: a minute of OpenGL ES frames), sound (the card's PCM on the host: tinyplay's WAV byte for byte, with a 320 ms buffer, `tests/a64/android/v86tone.c`'s AAudio tone through AudioFlinger and the HAL by frequency; QEMU's virtio-sound-pci writes a WAV), 30 minutes of monkey (`A64_ANDROID_A10_MONKEY_MINUTES`), memory pressure until lmkd kills, the core services' pids kept | `A64_ANDROID_SCENARIO=a10 node tests/a64/android_boot.mjs` | both |
 | Condition variables across snapshots: `tests/a64/android/futex_stress.c` (bionic's mutexes and condition variables as ANGLE's worker pool uses them, and ping-pong pairs; the NDK, static) in Alpine's initramfs on 4 cores in workers with the page tier, saved and restored in place every 3 s (`A64_FUTEX_SNAPSHOT=fresh`: into a new machine; `A64_KERNEL_FILE`: e.g. Android's GKI kernel); any group without progress for 10 s fails it | `node tests/a64/futex_snapshot.mjs` | v86 |
 | Android saved and restored in place at Launcher3's first frames, debugging (`A64_STALL_SNAPSHOTS`, `A64_STALL_DELAY_MS`): what changed during the save, Venus's rings at the capture, rings whose ids would have collided as numbers, and when Launcher3 stops drawing every thread's futex with the memory around it | `node tests/a64/android_restore_stall.mjs` | v86 |
 | Android with 16 KiB pages (P12.1): the materials with a 16K kernel build's GKI kernel and modules (`--page-size 16k`, `build/a64-android/out-16k/`), the guest's page size checked; native APKs whose library is aligned to 4 or 16 KiB, stored in the APK or extracted, installed and started (`A64_ANDROID_SCENARIO=pagesize`, on either page size) | `node tools/a64_android.mjs --page-size 16k`, `A64_ANDROID_PAGE_SIZE=16k A64_ANDROID_SCENARIO=pagesize node tests/a64/android_boot.mjs`; in `make android-reference-tests` and `make android-guest-tests` | both |
@@ -336,6 +398,9 @@ extended RAM goes through the interpreter's path.
 | `a64_system` | 1 | EL1's system templates: MRS and MSR of SP_EL0, TPIDR_EL1, DAIF, ELR_EL1, SPSR_EL1, ESR_EL1 and FAR_EL1, MRS DCZID_EL0, MSR DAIFSet and DAIFClr (an unmask that makes an interrupt deliverable leaves for the run loop), TLBI (in Rust, leaving when the access cache's epoch changed), DC ZVA (through the access cache's write entry), LDTR and STTR (through the access cache's EL0 tables), and with the cores in workers a DSB that steps only while this core's TLB maintenance is pending (0: helpers and steps, as before) |
 | `a64_relaxed_fma` | the host's probe | FMADD and FMLA through relaxed SIMD's fused multiply-add |
 | `a64_asid_tag` | 2 | an access-cache epoch per ASID, so ASID switches keep entries: 1 always, 2 (auto) while the ASIDs change at least 256 times in about 4 million instructions (SW_TTBR0_PAN changes them at every entry from EL0 and around every uaccess), 0 never |
+| `a64_page_aarch32` | 1 | AArch32's code (profile v3's 32-bit processes, A32 and T32) compiled too (docs/aarch32-plan.md Q6): R0-R14 and NZCV stay in memory; branches, returns (LDM, POP and LDR of the PC to the same instruction set), data processing with every shift, MOVW and MOVT, loads and stores (LDRD, STRD, LDM, STM, PUSH, POP), multiplies, extends, CLZ and REV are native, IT blocks of such forms too; so are VFP's loads, stores, arithmetic and moves and Advanced SIMD's VLD1/VST1 (multiple) and data processing (bitwise, VADD, VSUB, compares, VMAX, VMIN, integer VMUL, shifts by an immediate, modified immediates, VDUP, VEXT, VREV, VMVN, VCNT, VABS, VNEG; D registers as their 64 bits); the rest are helper calls (the interpreter's execute: the other VFP and Advanced SIMD forms, the exclusives, the saturating and parallel forms) or steps. 0 interprets it; 2 and 3 (helper calls only, native forms only) and 16 plus a mask of native kinds bisect |
+| `a64_page_aarch32_filter` | 0 | (bisecting) `n << 16 \| pattern`: only the AArch32 pages whose code key's low n bits are the pattern's compile, each named on the console; bit 15: AArch32's functions do not chain |
+| `a64_page_aarch32_trace` | 0 | (debugging) 1: the last 384 events of AArch32's EL0 code (interpreted instructions, helper calls, steps, function entries and exits, exceptions and their returns, each with ITSTATE) printed on the console with the page function's blocks around the PC when an IT instruction is UNDEFINED inside an IT block or an instruction fetch at EL0 takes a permission fault |
 | `a64_page_code_mb` | 160 | the compiled code each core keeps (the Wasm functions' bytes, at least 8 MiB); past it the least recently used pages are evicted. V8 commits about 1.3 times that as native code, and a process has 4 GiB of committed code space: Android's first boot on 4 cores in workers exhausted it without the budget |
 
 `page_tier_stats()` on the ARM CPU (and `jit_stat(1, field)`) gives the

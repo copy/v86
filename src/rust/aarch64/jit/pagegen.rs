@@ -44,6 +44,7 @@ use crate::wasmgen::wasm_builder::{
 use crate::wasmgen::wasm_opcodes as op;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod a32;
 mod neon;
 
 const PAGE: u64 = 4096;
@@ -69,6 +70,17 @@ pub struct CompileEnv {
     pub system: u32,
     /// the host's relaxed SIMD multiply-adds fuse (a64_relaxed_fma, probed by the host)
     pub relaxed_fma: bool,
+    /// the page's instruction set: A64, or AArch32's at EL0 (pagegen::a32)
+    pub isa: Isa,
+}
+
+/// The instruction sets of page functions
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Isa {
+    A64,
+    /// AArch32's (docs/aarch32-plan.md Q6): R0-R14 and NZCV stay in memory
+    A32,
+    T32,
 }
 
 /// A scalar FP form with a native template (P6.3b), from its word
@@ -148,7 +160,13 @@ enum End {
 struct Block {
     start: u16,
     insts: Vec<(u16, Inst)>,
+    /// AArch32's instructions (pagegen::a32), in place of `insts`
+    insts32: Vec<(u16, a32::Inst32)>,
     end: End,
+}
+impl Block {
+    /// the instructions it runs natively or by helpers
+    fn count(&self) -> usize { self.insts.len() + self.insts32.len() }
 }
 
 /// How an instruction ends a block: not (None), or with its targets in the
@@ -441,7 +459,12 @@ fn discover(
             }
         };
         index.insert(start, blocks.len());
-        blocks.push(Block { start, insts, end });
+        blocks.push(Block {
+            start,
+            insts,
+            insts32: Vec::new(),
+            end,
+        });
     }
     (blocks, index)
 }
@@ -469,6 +492,11 @@ fn successors(blocks: &[Block], index: &BTreeMap<u16, usize>) -> Vec<Vec<u32>> {
                     else {
                         to((o as u64).wrapping_add(i.imm));
                     }
+                }
+            }
+            if let Some((o, i)) = b.insts32.last() {
+                for t in a32::targets(i, *o) {
+                    to(t);
                 }
             }
             if let End::Next(o) = b.end {
@@ -506,7 +534,11 @@ const C0: usize = 8;
 const C1: usize = 9;
 /// the access cache's EL0 tables, for LDTR and STTR at EL1
 const J0: usize = 10;
-const LOCALS32: usize = 11;
+/// AArch32's operands and results (pagegen::a32)
+const A0: usize = 11;
+const A1: usize = 12;
+const A2: usize = 13;
+const LOCALS32: usize = 14;
 
 struct Emitter<'a> {
     b: WasmBuilder,
@@ -526,20 +558,52 @@ struct Emitter<'a> {
 /// The state block's fields generated code reads and writes
 fn x_address(n: usize) -> u32 { state::x as u32 + 8 * n as u32 }
 
+/// (debugging, pages::a32_trace_dump) AArch32 discovery's blocks over the
+/// offsets [from, to): each one's start, instructions' kinds and end
+pub fn describe_a32(bytes: &[u8], entries: &[u16], env: CompileEnv, from: u16, to: u16) -> String {
+    let (blocks, _) = a32::discover(bytes, entries, &env);
+    let mut out = String::new();
+    for b in &blocks {
+        let last = b
+            .insts32
+            .last()
+            .map_or(b.start, |&(o, i)| o + i.length as u16);
+        if last < from || b.start >= to {
+            continue;
+        }
+        out += &format!("block {:x}:", b.start);
+        for (o, i) in &b.insts32 {
+            out += &format!(" {:x}={}", o, a32::kind_name(&i.kind));
+        }
+        out += &match b.end {
+            End::Stop => " stop".to_string(),
+            End::StepAt(o) => format!(" step@{:x}", o),
+            End::Next(o) => format!(" next@{:x}", o),
+        };
+        out += "\n";
+    }
+    out
+}
+
 pub fn compile(bytes: &[u8], entries: &[u16], env: CompileEnv, name: String) -> Option<Compiled> {
     let words: Vec<u32> = bytes
         .chunks_exact(4)
         .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
         .collect();
-    let (blocks, index) = discover(&words, entries, &env);
+    let (blocks, index) = if env.isa == Isa::A64 {
+        discover(&words, entries, &env)
+    }
+    else {
+        a32::discover(bytes, entries, &env)
+    };
     if blocks.is_empty() {
         return None;
     }
     let instructions = blocks
         .iter()
-        .map(|b| b.insts.len() as u32 + matches!(b.end, End::StepAt(_)) as u32)
+        .map(|b| b.count() as u32 + matches!(b.end, End::StepAt(_)) as u32)
         .sum();
-    let templated = blocks.iter().map(|b| b.insts.len() as u32).sum();
+    let templated = blocks.iter().map(|b| b.count() as u32).sum();
     let mut served = vec![0u64; 64];
     for &o in index.keys() {
         served[o as usize / 64] |= 1 << (o % 64);
@@ -628,20 +692,30 @@ impl Emitter<'_> {
         self.s(BASE);
     }
     fn load_registers(&mut self) {
-        for i in 0..32 {
-            self.load64(x_address(i));
-            self.s(i);
+        // (AArch32's registers and NZCV stay in memory: pagegen::a32)
+        let a64 = self.env.isa == Isa::A64;
+        if a64 {
+            for i in 0..32 {
+                self.load64(x_address(i));
+                self.s(i);
+            }
         }
         self.load64(state::pc as u32);
         self.s(PC);
-        self.load32(state::nzcv as u32);
-        self.si(NZCV);
+        if a64 {
+            self.load32(state::nzcv as u32);
+            self.si(NZCV);
+        }
         self.load64(state::a64_jac_epoch as u32);
         self.s(EP);
         self.load32(state::a64_jac_base as u32);
         self.si(JAC);
     }
     fn writeback(&mut self) {
+        if self.env.isa != Isa::A64 {
+            self.store64_at(state::pc as u32, PC);
+            return;
+        }
         for i in 0..32 {
             self.store64_at(x_address(i), i);
         }
@@ -1121,8 +1195,15 @@ impl Emitter<'_> {
             },
             SystemRegister::Elr => store64(self, state::elr_el1 as u32, u64::MAX),
             SystemRegister::Spsr => {
+                // (sysregs' mask: in profile v3 AArch32's Q, IT, GE and IL too)
                 let pan = if cpu::has_pan() { cpu::PSTATE_PAN as u64 } else { 0 };
-                store64(self, state::spsr_el1 as u32, 0xF060_03FF | pan)
+                let a32 = if cpu::has_aarch32() {
+                    (cpu::PSTATE_Q | cpu::PSTATE_IT | cpu::PSTATE_GE | cpu::PSTATE_IL) as u64
+                }
+                else {
+                    0
+                };
+                store64(self, state::spsr_el1 as u32, 0xF060_03FF | pan | a32)
             },
             SystemRegister::Esr => store64(self, state::esr_el1 as u32, 0xFFFF_FFFF),
             SystemRegister::Far => store64(self, state::far_el1 as u32, u64::MAX),
@@ -1276,7 +1357,11 @@ impl Emitter<'_> {
 
     /// A helper call (helper): the registers it names and NZCV to memory,
     /// the interpreter's execute, back into their locals; a refusal retries
-    /// the instruction in the interpreter
+    /// the instruction in the interpreter. (The locals are loaded again
+    /// before the result is looked at: a helper that was done but asks the
+    /// run loop for something, a load-exclusive's spin yield, leaves as a
+    /// refusal does (pages::HELPER_DONE), and the leaving writes the locals
+    /// back over what it wrote; after a refusal memory holds what was stored)
     fn helper_call(&mut self, offset: u16, sync: &HelperSync) {
         let mut gprs = sync.gprs.clone();
         gprs.sort_unstable();
@@ -1295,7 +1380,7 @@ impl Emitter<'_> {
             "a64_page_helper",
             Signature::new(&[WasmType::I32, WasmType::I64], &[WasmType::I32]),
         );
-        self.retry_if(offset);
+        self.si(A0);
         for &r in &gprs {
             self.load64(x_address(r as usize));
             self.s(r as usize);
@@ -1304,6 +1389,8 @@ impl Emitter<'_> {
             self.load32(state::nzcv as u32);
             self.si(NZCV);
         }
+        self.gi(A0);
+        self.retry_if(offset);
     }
 
     // ---- scalar FP (P6.3b): the fast path's rules (docs/arm64-virt-android16-plan.md P6)
@@ -2655,14 +2742,17 @@ impl PageEmitter for Emitter<'_> {
         let blocks = self.blocks;
         let block = &blocks[k as usize];
         // (the block's native instructions counted at its entry)
-        if !block.insts.is_empty() {
+        if block.count() != 0 {
             self.gi(N);
-            self.c32(block.insts.len() as i32);
+            self.c32(block.count() as i32);
             self.b.add_i32();
             self.si(N);
         }
         for (offset, i) in &block.insts {
             self.instruction(*offset, i, index);
+        }
+        for (offset, i) in &block.insts32 {
+            self.instruction32(*offset, i, index);
         }
         match block.end {
             End::Stop => {},
@@ -2680,6 +2770,11 @@ impl PageEmitter for Emitter<'_> {
     fn block_start(&self, k: u32) -> u16 { self.blocks[k as usize].start }
     fn leave_to(&mut self, label: Label, target: u64) {
         self.linear(target);
+        // (AArch32's addresses wrap at 4 GiB)
+        if self.env.isa != Isa::A64 {
+            self.c64(0xFFFF_FFFF);
+            self.b.and_i64();
+        }
         self.s(PC);
         self.b.br(label);
     }
@@ -2727,9 +2822,22 @@ impl PageEmitter for Emitter<'_> {
         self.b.br(self.f().exit);
     }
     fn leave_tail(&mut self) {
-        if self.env.chaining {
-            self.chain();
+        if !self.env.chaining {
+            return;
         }
+        if self.env.isa == Isa::T32 {
+            // (T32: not inside an IT block, which the next page's function
+            // knows nothing of: pages::run's rule for entries)
+            self.load32(state::pstate as u32);
+            self.c32(cpu::PSTATE_IT as i32);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.if_void();
+            self.chain();
+            self.b.block_end();
+            return;
+        }
+        self.chain();
     }
     fn exit_tail(&mut self) {
         self.writeback();

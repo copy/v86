@@ -9,7 +9,7 @@
 
 | | |
 | --- | --- |
-| Option | the board of `cpu_type: "arm64"` (`machine_type: "virt"`, its default) |
+| Option | the board of `cpu_type: "arm64"` and `"arm32"` (`machine_type: "virt"`, their default); `"ranchu"`, the Android Emulator's board, below |
 | Devices | GICv3 (no ITS), PL011, PL031, the architected timer, PSCI over HVC, the generic PCIe host bridge (high ECAM, INTx), virtio-blk, -net, -rng, -console, -input (keyboard, tablet, multi-touch) and -gpu (no VGA) on virtio-mmio or virtio-pci |
 | Options | `virtio_disks: [{url or buffer, async, size, id, readonly}]` (or `hda`, `hdb`), `net_device: {type: "virtio"}`, `virtio_rng: true`, `virtio_console: true` (`virtio_console_ports: N`: N console ports), `virtio_input: true` (a keyboard and a tablet) or a list of `"keyboard"`, `"tablet"`, `"multitouch"`, `virtio_vsock: true`, `graphics_adapter: "virtio_gpu"` (`virtio_gpu_pci_slot: n`), `virtio_transport: "mmio"` (the default) or `"pci"` |
 
@@ -178,6 +178,62 @@ From the profile's DTB list (`tests/platform/a64-profile.json`):
   capabilities list differs, the BARs are the same.
 - With extended RAM, there are two memory ranges: one from `0x4000_0000` and one from 4 GiB.
 
+## The 32-bit virt machine
+
+With `cpu_type: "arm32"` ([arm32.md](arm32.md)) the board is the same, in a
+32-bit kernel's view: the device tree's cores are `arm,cortex-a15`, the timer
+`arm,armv7-timer` (its PPIs as a GICv3's), PSCI 0.2's functions their SMC32
+numbers (`0x84000000`), the GICv3 reached through its CP15 interface. RAM is
+below 4 GiB (no extended RAM). QEMU's reference is `virt-9.2,highmem=off` with
+`-cpu cortex-a15` (`tests/a32/runner.mjs`).
+
+## The ranchu machine
+
+`machine_type: "ranchu"` (`src/virt/ranchu.js`, `src/virt/goldfish.js`) is the
+Android Emulator's board, which the SDK's system images are built for
+(docs/aarch32-plan.md R6; the importer: android-images-plan.md I6). It keeps
+the virt machine's RAM, PL011, timer and virtio-mmio slots, and adds the
+emulator's goldfish devices; it has no PCIe host. With `cpu_type: "arm32"`
+its GIC is a GICv2 (the 32-bit `kernel-ranchu`, Linux 3.10, has no GICv3
+driver), with `"arm64"` the virt machine's GICv3.
+
+| Base | Size | Device | SPI |
+| --- | --- | --- | --- |
+| `0x0800_0000` | 64 KiB | GIC distributor (v2 or v3) | |
+| `0x0801_0000` | 64 KiB | GICv2 CPU interface (arm32; arm64: the GICv3's redistributors at `0x080a_0000`) | |
+| `0x0900_0000` | 4 KiB | PL011 | 1 |
+| `0x0901_0000` | 4 KiB | goldfish_fb (arm64 only) | 2 |
+| `0x0902_0000` | 4 KiB | goldfish_battery: AC online, charging, full | 3 |
+| `0x0903_0000` | 4 KiB | goldfish_audio: its buffers consumed in their samples' time, not played | 4 |
+| `0x0904_0000` | 4 KiB | goldfish_events: "qwerty2", the keyboard and a single touch | 5 |
+| `0x0905_0000` | 4 KiB | PL031 | 6 |
+| `0x0a00_0000` | 32 × `0x200` | virtio-mmio, the legacy transport | 16 + n |
+| `0x0a01_0000` | 8 KiB | goldfish_pipe (version 1): qemud's boot-properties, sensors (none), hw-control | 7 |
+| `0x4000_0000` | RAM size | RAM; arm32: its top 2 MiB units the framebuffer | |
+
+- **virtio-mmio** is the legacy transport, version 1 (Linux 3.10 drives no
+  other): VIRTIO_F_VERSION_1 not offered, a queue placed by GuestPageSize,
+  QueueAlign and QueuePFN, no QueueReady; virtio-net's header 10 bytes. The
+  device tree lists the slots from the last one down, where the machine puts
+  its first device: the kernel probes them in that order, the first disk
+  becoming vda as the ramdisk's `fstab.ranchu` wants.
+- **The display.** The 32-bit `kernel-ranchu` has LPAE and no ZONE_DMA, so
+  goldfish_fb's `dma_alloc_coherent` always fails (the emulator shows the host
+  GPU's frames instead). arm32's ranchu gives a `simple-framebuffer`
+  (RGB565, 480 × 800 by default) at the top of RAM, left out of the memory
+  node; gralloc posts to it and the machine shows it at up to 20 frames a
+  second when its bytes changed. `ranchu_display: {width, height, dpi}`
+  changes it.
+- **The boot properties** (qemud's `boot-properties`, set by `qemu-props`):
+  `qemu.sf.lcd_density` (the display's dpi) and `qemu.hw.mainkeys=0`;
+  `ranchu_properties: {name: value}` adds or changes them.
+- **The kernel command line** the emulator gives an image without a host GPU
+  (`ranchu_cmdline`): `qemu=1 androidboot.hardware=ranchu console=ttyAMA0
+  android.checkjni=1 qemu.gles=0 qemu.encrypt=0 qemu.wifi=0 loop.max_part=7`,
+  and `android.bootanim=0` without the boot animation. The console service
+  opens `/dev/console`: the image's SELinux policy labels no ttyAMA device, so
+  no `androidboot.console`.
+
 ## Testing
 
 | What | Command |
@@ -186,5 +242,7 @@ From the profile's DTB list (`tests/platform/a64-profile.json`):
 | Alpine from the ISO on virtio-blk to a login, the probe from its disk, virtio-net, -rng, hvc0, the keyboard's and tablet's events; the PCI functions against the reference's; snapshots at the probe's markers | `A64_STAGE=live [A64_TRANSPORT=pci] [A64_LINUX_SNAPSHOT=1] node tests/a64/linux_boot.mjs` |
 | The PCIe host: ECAM, a 64-bit BAR above and below 4 GiB, decode, reset | `node tests/a64/address_space.mjs` |
 | Alpine on virtio-gpu: the scenarios of `tests/x64/linux_gpu.mjs` (drm, gl, resize, input, gltest, virgl, venus, vkcube) | `GPU_SCENARIO=drm node tests/a64/linux_gpu.mjs` (packages: `node tools/alpine_repo.mjs --arch aarch64`) |
+
+| The ranchu machine's devices through their registers (`cpu_type: "arm32"`) | `node tests/a32/ranchu_devices.mjs` |
 
 The release level R-a64-virt runs them (`tools/release_gate.mjs`).

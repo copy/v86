@@ -9,15 +9,22 @@
 // back to the device as readbacks, and the device shows them on its screens
 // like 2D ones.
 //
+// With options.scanoutLayer (a layer of the page's compositor, whose device
+// it then shares, webgpu_compositor.js) GX's SURFACE_PRESENT copies a
+// scanout's picture into that layer on the GPU: no readback
+// (docs/gfxstream-plan.md G4).
+//
 // Channel messages, device -> renderer:
 //   submit { seq, bytes, stream }   a D9WG batch, or with stream "gx" a GX
 //                           batch, "vx" a VX one (virtio-gpu's Vulkan)
 //   reset  {}               the machine was reset: forget every object
+//   hello  {}               the device asks what the renderer can do
 // renderer -> device:
 //   write  { offset, bytes } into the response region: a query result or a
 //                            readback, tagged with its request id
 //   done   { seq }           the batch has run and its writes were sent
 //   lost   { reason }        the renderer cannot go on
+//   caps   { present }       (to hello and reset) whether SURFACE_PRESENT shows pictures
 (function(global) {
     "use strict";
 
@@ -71,10 +78,32 @@
                 // (a surface goes: VX's commands recorded with it, as images Venus imported, are submitted first)
                 releasing: () => { if (vx) vx.flushEncoder(); },
             };
+            if (layer) peer.present = present;
             gx = new GX.GXExecutor({ device: executor.device, formats: global.V86SVGADXFormats,
                 features: executor.deviceFeatures || {}, peer });
             return gx;
         };
+
+        // The page's screen: a layer of its compositor, the GX surface's
+        // rectangle copied into it (the same format) and shown over the screen
+        const layer = options.scanoutLayer || null;
+        const present = p => {
+            if (!p) {
+                layer.place(0, 0, 0, 0, false);
+                return;
+            }
+            const configuration = layer.context.getConfiguration();
+            if (!configuration || configuration.format !== p.format) {
+                layer.context.configure({ format: p.format });
+                layer.texture = null;
+            }
+            layer.canvas.width = p.width;
+            layer.canvas.height = p.height;
+            p.encoder.copyTextureToTexture({ texture: p.texture, origin: [p.x, p.y, 0] },
+                { texture: layer.context.getCurrentTexture(), origin: [p.dx, p.dy, 0] }, [p.w, p.h, 1]);
+            layer.place(0, 0, p.width, p.height, true);
+        };
+        const caps = () => channel.post({ type: "caps", present: !!layer });
 
         // VX (virtio-gpu's Venus contexts), on the same device
         let vx = null;
@@ -127,8 +156,13 @@
                     });
                     break;
                 }
+                case "hello":
+                    caps();
+                    break;
                 case "reset":
                     ++generation;
+                    if (layer) layer.place(0, 0, 0, 0, false);
+                    caps();
                     queue = queue.then(() => {
                         // (VX first: its images may be GX's surfaces)
                         if (vx) vx.reset();

@@ -23,6 +23,8 @@ export function h(spec, props, ...children)
     {
         if(value === undefined || value === null || value === false) continue;
         if(name.startsWith("on") && typeof value === "function") element.addEventListener(name.slice(2), value);
+        // (added to the spec's classes, not in their place)
+        else if(name === "class") element.classList.add(...String(value).split(/\s+/).filter(Boolean));
         else if(name === "style" && typeof value === "object") Object.assign(element.style, value);
         else if(name === "dataset") Object.assign(element.dataset, value);
         else if(name in element && typeof value !== "string") /** @type {any} */ (element)[name] = value;

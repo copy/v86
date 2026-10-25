@@ -15,8 +15,10 @@
 //   again, the app and a file in /data still there (P11.3);
 // - no service restarting over and over (init's "exited 4 times").
 //
-// Also A10's (a10_scenario, below) and P12.1's native APK record
-// (pagesize_scenario, A64_ANDROID_SCENARIO=pagesize).
+// Also A10's (a10_scenario, below), P12.1's native APK record
+// (pagesize_scenario, A64_ANDROID_SCENARIO=pagesize) and 32-bit apps on
+// arm64 (compat32_scenario, A64_ANDROID_SCENARIO=compat32: the aarch32
+// plan's Q5.2, on tools/a64_android.mjs --build a14).
 import assert from "node:assert/strict";
 import { createHash as create_hash } from "node:crypto";
 import fs from "node:fs";
@@ -482,7 +484,11 @@ export async function a10_scenario(env)
         const card = cards.match(/^\s*(\d+)\s+\[[^\]]*\]:\s*virtio/im)?.[1];
         assert.ok(card !== undefined, "a virtio-snd card: " + JSON.stringify(cards));
         env.sound.reset();
-        const played_out = await adb(`su 0 tinyplay /data/local/tmp/v86-tone.wav -D ${card} -d 0 2>&1`, 600000);
+        // (the largest buffer the kernel's virtio-snd driver allows, 160 ms of
+        // its widest format, 320 ms of this one: tinyplay's 85 ms underran
+        // on v86 while the system still dealt with the frame step's
+        // uninstall, and the restart lost a period, as a card would)
+        const played_out = await adb(`su 0 tinyplay /data/local/tmp/v86-tone.wav -D ${card} -d 0 -p 1920 -n 8 2>&1`, 600000);
         await sleep(3000);
         const played = env.sound.played();
         const at = played.indexOf(tone.subarray(0, 4096));
@@ -710,5 +716,62 @@ export async function pagesize_scenario(env)
         log(`${v.name}: ${JSON.stringify(r).slice(0, 1500)}`);
     }
     assert.match(result["elf16-zip16"].loaded || "", new RegExp(`page_size=${result.page_size}`), "the 16 KiB aligned library runs");
+    return result;
+}
+
+/**
+ * The aarch32 plan's Q5.2 (A64_ANDROID_SCENARIO=compat32, on a build with
+ * a 32-bit second architecture: tools/a64_android.mjs --build a14): the
+ * 32-bit zygote (zygote_secondary, app_process32) running, then an APK
+ * whose only library is armeabi-v7a's (tests/a32/android/v86arm32.c, the
+ * NDK's armv7a target: Thumb-2 and VFP) installed, its primary ABI
+ * armeabi-v7a, started: in the 32-bit process (the 32-bit zygote's child)
+ * the library logs that its pointers are 32 bits and a floating-point sum,
+ * the host's (V86_ARM32_LOADED), then finishes the activity. No window: a
+ * window's buffers need the vendor's gralloc mapper in the process, and an
+ * arm64-only vendor (Cuttlefish's, --zygote64-32) has no 32-bit one
+ * (mapper.minigbm.so), nor 32-bit EGL and Vulkan drivers for hwui. Android
+ * 16 shows its DeprecatedAbiDialog for a 32-bit app; it is dismissed.
+ * @param {!Object} env as a9_scenario's
+ * @return {!Promise<!Object>} what it found
+ */
+export async function compat32_scenario(env)
+{
+    const result = {};
+    const { adb, log } = env;
+    result.zygote = (await adb("getprop ro.zygote")).trim();
+    result.abilist = (await adb("getprop ro.product.cpu.abilist")).trim();
+    result.zygotes = (await adb("ps -A -o PID,NAME | grep -E 'zygote|app_process'")).trim().split("\n").map(l => l.trim());
+    log(`ro.zygote ${result.zygote}, abilist ${result.abilist}, ${JSON.stringify(result.zygotes)}`);
+    assert.match(result.abilist, /armeabi-v7a/, "a 32-bit ABI");
+    assert.ok(result.zygotes.some(l => /\bzygote$/.test(l)), "the 32-bit zygote (zygote_secondary) runs");
+    await prepare_device(adb);
+    await adb("input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; settings put system screen_off_timeout 2147483647");
+    const lib = build_native_lib(4096, "v86arm32", ["-landroid", "-llog", "-lm", "-DV86_FINISH"],
+        { abi: "armeabi-v7a", source: new URL("../a32/android/v86arm32.c", import.meta.url).pathname });
+    const pkg = "org.v86.arm32";
+    await env.push("/data/local/tmp/v86-arm32.apk", build_apk({ label: "v86 arm32", package_name: pkg,
+        native: { name: "v86arm32", lib, extract: true, abi: "armeabi-v7a", software: true } }));
+    result.install = (await adb("pm install -r /data/local/tmp/v86-arm32.apk 2>&1", 600000)).trim();
+    log("install: " + result.install);
+    assert.match(result.install, /^Success/m, "pm install");
+    result.abi = (await adb(`pm dump ${pkg} | grep -m1 primaryCpuAbi`)).trim();
+    await adb("logcat -c");
+    result.start = (await adb(`am start -W -n ${pkg}/android.app.NativeActivity 2>&1`, 600000)).trim();
+    result.dialog = (await adb("dumpsys window 2>&1 | grep -m1 mCurrentFocus")).trim();
+    if(/DeprecatedAbiDialog/.test(result.dialog)) await adb("input keyevent KEYCODE_ENTER; sleep 5");
+    for(let i = 0; i < 30 && !result.loaded; i++)
+    {
+        await sleep(10000);
+        result.loaded = (await adb("logcat -d -s v86arm32:I 2>&1 | grep -o 'V86_ARM32_LOADED.*'")).trim();
+    }
+    result.focus = (await adb("dumpsys window 2>&1 | grep -m1 mCurrentFocus")).trim();
+    result.crash = (await adb(`logcat -d -b crash 2>&1 | grep -A4 'Process: ${pkg}' | cut -c1-200`)).trim().split("\n").filter(Boolean);
+    result.screenshot = await env.screenshot("compat32");
+    log(JSON.stringify(result).slice(0, 2000));
+    assert.match(result.abi, /armeabi-v7a/, "the app's primary ABI");
+    let expected = 0;
+    for(let i = 1; i <= 1000; i++) expected += Math.sqrt(i) / i;
+    assert.equal(result.loaded, `V86_ARM32_LOADED bits=32 sum=${expected.toFixed(6)}`, "the 32-bit library ran in its 32-bit process");
     return result;
 }

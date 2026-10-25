@@ -211,6 +211,37 @@ export async function import_disk(source, label, options = {})
 }
 
 /**
+ * A new browser disk that a worker writes (src/app/android_import.js): its
+ * id and path, the room made; then finish_disk, or delete_disk
+ * @param {number} size
+ * @param {Parameters<typeof make_room>[1]} [prefs]
+ * @return {Promise<{id: string, path: string}>}
+ */
+export async function reserve_disk(size, prefs)
+{
+    await make_room(size, prefs);
+    await disks_directory();
+    const id = new_id();
+    return { id, path: disk_path(id) };
+}
+
+/**
+ * A disk reserve_disk gave, written: its record
+ * @param {string} id
+ * @param {string} label
+ * @param {Object} fields more of the record (source, the package's kind)
+ * @return {Promise<BrowserDisk>}
+ */
+export async function finish_disk(id, label, fields = {})
+{
+    const dir = await disks_directory();
+    const size = (await (await dir.getFileHandle(id + ".img")).getFile()).size;
+    const created = new Date().toISOString();
+    await write_record(dir, id, Object.assign({ uuid: new_id(), generation: 1, size, label, created }, fields));
+    return { id, path: disk_path(id), size, label, created, generation: 1 };
+}
+
+/**
  * A browser disk's image as a File (to export it, or read it)
  * @param {string} id
  * @return {Promise<File>}

@@ -19,8 +19,8 @@ import { fitted } from "./vm_model.js";
  * @property {boolean} verified
  * @property {string} basis the document or test it rests on; for one not verified, the closest verified one
  * @property {Array<"cdrom" | "floppy" | "disk" | "direct" | "android">} install the ways to install it, the usual first:
- *     from a CD or a floppy, an existing hard disk image, a kernel and initrd (and its CD as a read-only disk),
- *     Android's boot materials (tools/a64_android.mjs)
+ *     from a CD or a floppy, an existing hard disk image (Android's: its GPT disk, which its bootloader boots),
+ *     a kernel and initrd (and its CD as a read-only disk), an Android image package (made into a disk)
  * @property {string} install_text
  * @property {number} disk_mb the new empty disk's default size
  * @property {"memory" | "browser" | "service"} disk_location where its new disk goes by default
@@ -142,6 +142,8 @@ export const PRESETS = [
         hardware: c =>
         {
             c.cpu.type = "arm64";
+            // (Alpine's kernel has COMPAT: armhf programs run too)
+            c.cpu.profile = "v3";
             c.machine.type = "virt";
             c.machine.acpi = false;
             c.cpu.cores = 4;
@@ -152,10 +154,52 @@ export const PRESETS = [
         },
     },
     {
+        id: "linux_arm32", name: "Linux (ARM 32-bit)", guest: "linux", verified: true,
+        basis: "Alpine 3.24 armv7 (netboot): docs/aarch32-plan.md R5, tests/a32/linux_boot.mjs",
+        install: ["direct"], install_text: "The netboot kernel and initramfs (vmlinuz-lts, initramfs-lts), its modloop and packages from a disk or the network",
+        disk_mb: 4 * GB, disk_location: "browser", checklist: [],
+        issues: ["Only with the page tier (the JIT on)", "The serial console only: the 32-bit virt machine's display is not verified"],
+        hardware: c =>
+        {
+            c.cpu.type = "arm32";
+            c.machine.type = "virt";
+            c.machine.acpi = false;
+            c.cpu.cores = 2;
+            c.memory.mb = 512 * MB;
+            c.display.adapter = "none";
+            c.network[0].device = "virtio";
+            c.sound.device = "none";
+            c.kernel = { bzimage: null, initrd: null, cmdline: "console=ttyAMA0", multiboot: null, from_filesystem: false };
+        },
+    },
+    {
+        id: "android7_arm32", name: "Android 7.1 (32-bit, emulator image)", guest: "android", verified: true,
+        basis: "the SDK's armeabi-v7a-25_r18 image to boot_completed: docs/aarch32-plan.md R7.1, tests/a32/android_boot.mjs",
+        install: ["android"], install_text: "The Android Emulator's system image zip (system-images/android-25/google_apis/armeabi-v7a, " +
+            "armeabi-v7a-25_r18.zip), made into a disk: its kernel, ramdisk, system, cache and userdata (docs/android-images-plan.md I6)",
+        disk_mb: 4 * GB, disk_location: "browser", checklist: [],
+        issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 7 minutes on 2 cores",
+            "The guest draws with the CPU (no host GPU): a slow desktop",
+            "The guest's clock runs at a tenth of the host's, so that Android's timeouts suit this CPU", "No sound"],
+        hardware: c =>
+        {
+            c.cpu.type = "arm32";
+            c.machine.type = "ranchu";
+            c.machine.acpi = false;
+            c.cpu.cores = 2;
+            c.memory.mb = 1024 * MB;
+            c.display.adapter = "none";
+            c.sound.device = "none";
+            c.network = [{ device: "virtio", backend: "fetch", relay_url: "", mtu: 1500, mac_address_translation: false }];
+            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
+        },
+    },
+    {
         id: "android16", name: "Android 16 (arm64)", guest: "android", verified: true,
-        basis: "boot_completed and the A9 scenario: docs/aarch64.md (graphics: the ARM64 plan's P11.4)",
-        install: ["android"], install_text: "Android's boot materials from tools/a64_android.mjs: kernel, initrd (initrd-venus.img: the GPU through Vulkan), " +
-            "command line, GPT disk",
+        basis: "boot_completed and the A9 scenario on gfxstream with the official images: docs/aarch64.md, docs/gfxstream-plan.md G5",
+        install: ["android", "disk"], install_text: "An Android image package (Cuttlefish's images zip, made into a disk: the image's own GPU " +
+            "drivers on gfxstream), or tools/a64_android.mjs's disk.img: v64's bootloader reads the kernel and initrd from the disk's boot " +
+            "partitions (docs/android-images-plan.md I2, I3)",
 
         disk_mb: 8 * GB, disk_location: "browser", checklist: [],
         issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 20 minutes on 4 cores", "See docs/aarch64.md"],
@@ -167,13 +211,16 @@ export const PRESETS = [
             c.cpu.cores = 4;
             c.memory.mb = 1536 * MB;
             c.display.adapter = "virtio_gpu";
-            // (Venus, as initrd-venus.img's libvulkan wants it: SwiftShader's desktop on initrd.img takes too long to draw)
+            // (gfxstream: the official images' own drivers, vulkan.ranchu and ANGLE; Venus needs
+            // initrd-venus.img's libvulkan; SwiftShader's desktop takes too long to draw)
             c.display.proxy = true;
-            c.display.vulkan = true;
+            c.display.vulkan = "gfxstream";
             c.sound.device = "virtio";
             // (three virtio-net cards, as Cuttlefish's: its Wi-Fi, the third, on the fetch backend)
             c.network = [0, 1, 2].map(i => ({ device: "virtio", backend: i === 2 ? "fetch" : "none", relay_url: "", mtu: 1500, mac_address_translation: false }));
             c.virt = { transport: "pci", input: ["keyboard", "multitouch"], console_ports: 18, vsock: true, gpu_pci_slot: 2 };
+            // (the bootloader: the disk's kernel and initrd, bootconfig with Venus's keys)
+            c.android = { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
         },
     },
     {

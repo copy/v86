@@ -1,6 +1,6 @@
 # gfxstream 实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
+状态：完成（2026-10-25；G0–G6 的结果见各节）。2026-10-23 初稿，基于 `c5debe9a`。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划为 v64 的 virtio-gpu 增加 gfxstream：Android 模拟器和 Cuttlefish 把客体的 Vulkan（以及
@@ -154,6 +154,24 @@ bootconfig 的 GPU 键，不改分区）。
 
 验收：参考宿主进入桌面；轨迹语料与命令清单入库；本计划的未定项（capset 组合、合成方式）定稿。
 
+进度（2026-10-24）：
+- 版本固定与协议：完成，记在 [gfxstream-protocol.md](gfxstream-protocol.md)。Cuttlefish 15581820 的清单给出
+  `device/google/cuttlefish` `4d368849`、mesa `d4b6f1eb`（客体的 gfxstream Vulkan 驱动与传输在 mesa 的
+  `src/gfxstream/guest`，不在 gfxstream 仓库）、gfxstream `7e9d595b`、ANGLE `ff25cbdf`、minigbm `b7c93249`。
+  capset：3 Vulkan、8 GLES、9 composer（字段布局已记）；execbuffer 命令表（CONTEXT_CREATE/PING、同步、
+  RESOURCE_CREATE_3D 等）；一个连接 = 一个 host3d 可映射 blob（ring 加 buffer，按 blobAlignment 对齐），
+  CONTEXT_CREATE 把 ASG 环绑在 blob 上，`asg_ring_storage` 三个 4 KiB 页与 `asg_ring_config` 的字节偏移。
+- 启动器的选择：完成。`gfxstream_guest_angle` 写的 bootconfig（`vulkan=ranchu`、`gltransport=virtio-gpu-asg`、
+  `cpuvulkan.version=0`，其余同 SwiftShader 档）进了设备型号的 `gpu_modes.gfxstream`（`src/android/devices.js`，
+  引导器接受 `gpu_mode: "gfxstream"`，界面在 G5 前不提供）；QEMU 的设备是
+  `virtio-gpu-rutabaga,gfxstream-vulkan=on,x-gfxstream-composer=on,hostmem=256M`。客体里 HWC 带 renderControl
+  编码器（composer capset），GLES 是 ANGLE（没有宿主 GLES）。macOS 上 Cuttlefish 自己的启动器不提供 gfxstream。
+- 参考宿主与轨迹：命令清单完成——官方镜像从第一个 gfxstream 上下文到桌面发出的 Vulkan 命令与次数（v86 上
+  `A64_ANDROID_GFXSTREAM_TRACE=1` 记录）写进 [gfxstream-protocol.md](gfxstream-protocol.md) 的“What the official
+  image sends”。参考宿主（QEMU 的 rutabaga 加 gfxstream 宿主）不做：协议由客体自己的编码器对照（G2 的对照程序与
+  向量）检验，官方镜像在 v86 上到桌面并通过 A9 场景是端到端的检验；macOS 上要另建 Linux 虚拟机、rutabaga、
+  gfxstream 宿主与 lavapipe（A3/A5 记录的 aarch64 崩溃），投入大而不再改变实现。
+
 ## 2. G1 传输与按环围栏
 
 - `virtio_gpu_device.js`：级别 `gfxstream`、capset 声明与内容、CONTEXT_INIT 分派到新的 `gfxstream.js`。
@@ -165,6 +183,23 @@ bootconfig 的 GPU 键，不改分区）。
   按环围栏的完成顺序与快照。
 
 验收：设备测试通过；Venus 的全部设备测试与 Android A9 场景不退化。
+
+设计补充（2026-10-24，读 `virtio_gpu_device.js` 之后）：第一步是设备里**按 capset 的上下文类型表**：每种上下文
+（Venus 的 4，gfxstream 的 3、9）一个处理者，接口是 Venus 已有的那一组（`contexts`、`create_context`、
+`destroy_context`、`create_blob`、`mapped`、`unref_blob`、`submit`、`resubmit`、`timer`、`reset`、
+`get_state`/`set_state`）；设备里现在 35 处直接引用 `this.venus`（建 blob、映射、提交、快照等）改成查上下文所属的
+处理者，blob 的 `venus` 标记改成所属处理者。Venus 的设备测试（`tests/devices/virtio_gpu_venus.js`、
+`venus_protocol.js`）逐字不变即是这一步的门禁。gfxstream 的 ASG blob（blob id 0、host3d、可映射）与 Venus 的共享内存
+blob 同类，映射与脏页的路径可以共用。宿主在空闲时把 `host_state` 置为 `NEED_NOTIFY`（0），客体每次刷新都会 ping
+（[gfxstream-protocol.md](gfxstream-protocol.md)），设备不必在 CPU 的时间片之间轮询环。
+
+进度（2026-10-24）：完成。级别 `gfxstream`、两个 capset（3、9）、上下文类型表、`gfxstream.js` 的传输：一个
+virtio-gpu 上下文（一个客体进程）可有多个 ASG 环（每个线程的流一个，按 blob 的资源号，同宿主的
+`mAddressSpaceHandles`；PING 带资源号选环），每个环各自的流、客户端标志与等待；解码者可回答 `AGAIN`
+（命令排在另一个环的后面，见 G2 的序号），另一个环解码了命令后再试。按环的围栏（`timeline_of`、分环的
+`drain`），同步命令作为上下文时间线上的任务，进程管道（`GLProcessPipe`）。设备测试
+`tests/devices/virtio_gpu_gfxstream.js`；Venus 的设备测试不变，A9 的 Venus 引导（v86、CPU Worker、4 核、
+引导器）`boot_completed` 1313 s，不退化。
 
 ## 3. G2 Vulkan 解码与共用模型
 
@@ -180,6 +215,38 @@ bootconfig 的 GPU 键，不改分区）。
 
 验收：协议向量全部一致；vkprobe、vkahb 在 v64 上通过，结果与 Venus 一致。
 
+进度（2026-10-24）：
+- 生成器与对照：完成。`tools/gfxstream_protocol_gen.mjs` 解析固定版本客体的生成代码（mesa
+  `src/gfxstream/guest/vulkan_enc` 的 `goldfish_vk_reserved_marshaling_guest.cpp`、`goldfish_vk_marshaling_guest.cpp`、
+  `VkEncoder.cpp`，类型取 mesa `include/vulkan` 与客体自己的 `vk_android_native_buffer_gfxstream.h`、
+  `vulkan_gfxstream.h`），按语句翻译：请求的写入变成设备的解码（`d_*`），回复的读取变成设备的编码（`e_*`），
+  `--guest` 另写客体一侧（测试用，`tests/devices/gfxstream_guest_protocol.js`）。356 个命令、1163 个函数；流特性
+  按 virtio-gpu 客体的四个全开折叠成常量。pNext 的大小按 LP64 布局算出（客体只看是否为 0，但写的是 `sizeof`）。
+  对照程序 `tools/gfxstream_oracle`（`build.sh` 把客体的编组 C++ 与桩一起编译）：17 个请求结构由客体自己的
+  `reservedmarshal_*` 写出，解码再编码逐字节一致（指针的存在字统一成 1）；9 个回复由客体的 `unmarshal_*`
+  读回再写出，与写入的一致。向量在 `tests/devices/gfxstream_protocol_vectors.txt`，测试
+  `tests/devices/gfxstream_protocol.js`。
+- 模型：Venus 的 `VulkanModel`（`venus_vk*.js`）本来就只经 `ctx.objects` 与 `ctx.physical_device` 认上下文，处理者
+  吃 C 字段名的对象，gfxstream 直接用它（每个 gfxstream 上下文一份状态作为模型的上下文），不另拆文件；只加了
+  `handles(name)`。Venus 专有的处理者（`*MESA`）留在原处。
+- `gfxstream_vk.js`：完成第一版。顶层命令先读序号（QUEUE_SUBMIT_WITH_COMMANDS：一个进程的命令按序号执行，
+  不论在哪个环；不是下一个就 `AGAIN`），命令完成后才前进。宿主分配句柄（生成器从回复里映射句柄的参数得出每个
+  命令的输出句柄）；物理设备与队列句柄固定。私有命令：`vkCreateImage/BufferWithRequirementsGOOGLE`、
+  `vkQueueSubmitAsync(2)GOOGLE`、`vkQueueWaitIdleAsyncGOOGLE`、`vkQueueFlushCommandsGOOGLE`（客体录好的命令缓冲：
+  操作码、长度、参数，没有序号与句柄，含 `vkBegin/End/ResetCommandBufferAsyncGOOGLE`）、`vkQueueHostSyncGOOGLE`
+  与 `vkCommandBufferHostSyncGOOGLE`（同宿主：最多等 5 s）、`vkAllocateMemory` 的 `VkCreateBlobGOOGLE`（blob id 记到
+  内存，`vkGetBlobGOOGLE` 后客体以该 id 建 HOST3D blob，映射与上传沿用模型的 `export_memory`/`map_memory`/
+  `upload_blob`）、`VkImportColorBufferGOOGLE`/`VkImportBufferGOOGLE`（换成模型的资源导入）、描述符更新模板与
+  `vkUpdateDescriptorSetWithTemplateSized(2)GOOGLE`（按宿主的线性化顺序拆成写入）、`vkGetLinearImageLayout(2)GOOGLE`、
+  交换链的 gralloc 用途、`vkAcquireImageANDROID`；`CREATE_EXPORT_SYNC_VK` 等围栏信号，`CREATE_QSRI_EXPORT_VK` 等队列空闲。
+  KHR/EXT 别名走核心命令。capset 不开批量描述符更新，`vkQueueCommitDescriptorSetUpdatesGOOGLE` 不会来。
+  设备测试 `tests/devices/virtio_gpu_gfxstream_vk.js` 用客体编码器在环上走一遍：实例、物理设备、设备与队列、带需求的
+  缓冲、以 blob 映射的内存（客体写入经 blob 到 GPU 的复制）、刷入的命令缓冲、无回复的提交、导出围栏、两个环按序号。
+- 客体测试（2026-10-25）：官方镜像（磁盘不改）里 `vkprobe` 与 `vkahb`（`make android-venus` 的产物，用系统的 Vulkan
+  加载器，选到 `vulkan.ranchu`；`A64_ANDROID_PROBE` 加 `A64_ANDROID_PUSH`，从 A10 的桌面状态恢复）：一个设备
+  “Virtio-GPU GFXStream (v86 WebGPU)”，Vulkan 1.1.0；AHB 导入、GPU 清除、CPU lock 后逐像素一致，PASS。结果与 Venus 的一致
+  （设备名之外）。ANB 图像与颜色缓冲导入的细节在 G3。
+
 ## 4. G3 渲染控制与颜色缓冲
 
 - `gfxstream_rc.js`：G0 清单里的 rc 命令。颜色缓冲与 virtio-gpu 资源（RESOURCE_CREATE_3D 或 blob）一一
@@ -188,6 +255,14 @@ bootconfig 的 GPU 键，不改分区）。
 - 测试：轨迹回放；官方镜像里 SurfaceFlinger 与 HWUI 的缓冲分配不再报错（logcat 检查）。
 
 验收：开机到 system_server 期间没有渲染控制或 gralloc 错误；颜色缓冲的内容可读回比对。
+
+进度（2026-10-24）：完成（客户端合成所需的部分）。官方镜像用 `hwcomposer.mode client`，HWC 经 KMS 翻页、不用
+renderControl，所以 rc 只需进程管道与同步；gralloc（minigbm）的缓冲是 virtio-gpu 资源：`VkNativeBufferANDROID`
+的图像（`vkCreateImage` 的链与 `vkBindImageMemory2` 的链两种形式，`13fc393f`、`fb30efa9`）与 AHB
+（`VkImportColorBufferGOOGLE`）导入为模型绑定到资源的图像；AHB 的格式查询按 dma-buf 回答，`vkCreateDevice` 去掉客体
+或宿主模拟的扩展、提供 `VK_KHR_external_memory_fd`。清除颜色按 uint32 位传（`f060d136`）。
+`tests/devices/virtio_gpu_gfxstream_render.js` 在无头 Chrome 的渲染器上按 vkahb 的步骤清除 AHB 图像与交换链图像并经
+TRANSFER_FROM_HOST_3D 读回。宿主合成（rcCompose）未做：官方模式不需要。
 
 ## 5. G4 显示与合成
 
@@ -198,6 +273,16 @@ bootconfig 的 GPU 键，不改分区）。
   与测试仍回读。G-31 改写。
 
 验收：桌面与 Launcher3 正确显示；帧时间与 Venus（A9：热中位数 2.3 s）对比并记录。
+
+进度（2026-10-24）：客户端合成完成：SurfaceFlinger 用 ANGLE（gfxstream 的 Vulkan 上，OpenGL ES 3.0）合成，HWC 翻页，
+扫描输出是颜色缓冲（设备的 SET_SCANOUT_BLOB 与 flush 路径）；A9 场景的桌面与 Launcher3 正确（见 G5）。冷启动的帧
+5 帧、中位数 4.95 s（gfxinfo 在 Launcher 的重启后取不到热帧；Venus 的热中位数 2.3 s）。不回读的呈现（G-31 改写）
+完成：页面上有图形代理的合成器时，显示适配器的渲染器（`svga_renderer.js`）建在合成器的设备上并拿到它的一个图层，
+向设备回答 caps；virtio-gpu 对 3D 扫描输出的刷新改发 GX 的 SURFACE_PRESENT，渲染器在 GPU 上把刷新的矩形复制进
+图层（同格式的 copyTextureToTexture），没有回读；有光标或两个显示器时、渲染器做不到时（Node、无合成器）照旧回读，
+SET_SCANOUT 0 时撤下图层。Venus 与 gfxstream 的扫描输出（RESOURCE_CREATE_3D 的颜色缓冲）都走这条路。测试：
+`tests/devices/virtio_gpu_present.js`（设备的选择）、`tests/glbridge/virtio_gpu_present_browser_test.html`（Chrome：
+3D 资源上屏，0 次回读）。
 
 ## 6. G5 Android 集成与验收
 
@@ -212,6 +297,24 @@ bootconfig 的 GPU 键，不改分区）。
 
 验收：两种官方镜像都进入桌面并通过 A9 场景；指标与 Venus 并列记录（冷启动、桌面、帧、应用启动）。
 
+进度（2026-10-24）：官方 Cuttlefish 镜像（15581820，磁盘不改，引导器的 `gpu_mode: "gfxstream"`）在 v86、4 个 vCPU
+Worker、页层、1536 MB 下通过 A9 场景（`A64_ANDROID_SCENARIO=a9 A64_ANDROID_GPU=gfxstream A64_ANDROID_BOOTLOADER=1`）：
+`boot_completed` 1186 s（Venus 1313 s），SELinux enforcing，解锁后 Launcher3（QuickstepLauncher）在前台，
+`GLES: ... ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU GFXStream (v86 WebGPU)), gfxstream-24.2.0), OpenGL ES 3.0.0`，
+触摸打开 Gallery，Wi-Fi 地址与 HTTP（Wi-Fi 关开之后也通），APK 安装 Success、启动 59.9 s，重启后 665 s 再到桌面，
+无应用崩溃。VM 管理器：显示的 Vulkan 可选 gfxstream，Android 的 GPU 档位随之（`55221e2e`）；预设的默认改 gfxstream
+见 android-images-plan I8.1。
+官方 GSI（`aosp_arm64-exp-BP4A.251205.006`，vendor 为 Cuttlefish 15581820 的，`A64_ANDROID_OUT=build/a64-android/out-gsi-bp4a`）
+2026-10-25 在同样的配置下通过 A9 场景：`boot_completed` 991 s，SELinux enforcing，QuickstepLauncher 在前台，GLES 同上
+（`Virtio-GPU GFXStream (v86 WebGPU)`，OpenGL ES 3.0），Wi-Fi 与 HTTP（关开之后也通），触摸打开 Gallery，APK 安装
+Success、启动 25.6 s，重启后 477 s 再到 `boot_completed`、应用与 /data 都在，无应用崩溃。文档：
+[gpu-devices.md](gpu-devices.md) 的 gfxstream 一节与 [gpu-deviations.md](gpu-deviations.md) 的 G-59 至 G-63。
+dEQP 抽样（2026-10-25，从 A10 的桌面状态恢复，`A64_ANDROID_SCENARIO=deqp`，与 Venus 同一份
+`build/a64-android/deqp-sample` 的 1334 个 GLES3 用例）：通过 1233、不支持 94、失败 5、质量警告 2，与 Venus 的计数相同；
+失败的也是 Venus 的那 5 个（3 个显式 lod 或梯度的阴影查找，2 个 `fbo.invalidate` 之后把多重采样的颜色缓冲 blit 到窗口；
+Venus 上这一组的 8 个 `unbind_blit_msaa_*` 都失败）。dEQP-VK 的 `api.smoke` 6 个、dEQP-EGL 的 `info` 5 个全部通过。
+G5 完成。
+
 ## 7. G6 快照、Worker 与多核
 
 - 快照：gfxstream 上下文、环位置、句柄表与颜色缓冲进设备状态；Vulkan 对象沿用模型的“重放 VX 命令”
@@ -219,6 +322,26 @@ bootconfig 的 GPU 键，不改分区）。
 - CPU Worker：渲染器留在页面，设备在 Worker，通道不变；vCPU Worker 下多核同时写环的顺序由客体保证，
   设备侧只按环处理。
 - 验收：A10 的保存与恢复场景（`a64-android-a10`）在 gfxstream 下通过；CPU Worker 与 4 个 vCPU Worker。
+
+进度（2026-10-24）：快照完成（`d78b3747`）：每个上下文的环（未解码的流、先在等待的命令）、RESOURCE_CREATE_3D
+模板、同步号、Vulkan 状态（如 Venus 的 `venus_state.js`：对象、blob、队列、模板、宿主同步序号、原生图像）与进程管道
+进设备状态，模型恢复时重建渲染器对象；保存前环如 Venus 的一样排空。设备测试覆盖两环序列跨快照。4 个 vCPU Worker
+在 G5 的 A9 场景里用过。
+A10 场景（2026-10-25，官方 Cuttlefish 镜像，4 个 vCPU Worker）：第一次运行开机到桌面后保存（2141 MiB），第二次恢复到新机器
+后通过：触摸打开 Gallery，输入延迟中位 734 ms，持续帧率 12.6 fps（ANGLE 在 gfxstream 上），tinyplay 的 WAV 逐字节到宿主，
+monkey 30 分钟无崩溃，内存压力下 lmkd 杀掉 2 个进程，system_server、surfaceflinger、zygote64 自始至终同一进程。途中修正：
+- 宿主可见内存从 Venus 的 128 MiB 改为参考机的 256 MiB（Cuttlefish 的 QEMU `hostmem=256M`）：客体每个调用 Vulkan 的线程
+  各有一个 1 MiB 的环，128 MiB 时 monkey 二十分钟后客体内核分不出新的 blob（`No space left on device`），驱动记
+  “Failed to create virtgpu AddressSpaceStream”，线程第一次调用 Vulkan 时解引用空的连接，应用与 system_server 相继崩溃。
+  ARM 核心按插件的 `device_memory_size` 在 RAM 之后留出这块设备内存。这次运行峰值 177 MiB（`A64_ANDROID_GPU_DEBUG=1`
+  的 `hostmem=`）。
+- 场景的 tinyplay 用驱动允许的最大缓冲（320 ms）：默认 85 ms 在帧率步骤卸载应用之后的忙碌里欠载，重启时丢一个周期。
+CPU Worker 下的浏览器运行（2026-10-25，`make android-image-browser-tests` 的第一项：无头 Chrome 里经向导导入官方 zip，
+预设的默认：CPU Worker、4 个 vCPU Worker、gfxstream，渲染器在页面）：`boot_completed` 1093 s，之后 59 s 屏幕是 Android
+自己的画面（1100x760，图形代理的合成器里显示适配器的层，取样 421 种颜色）。途中修正：没有 VGA 的机器（ARM）屏幕从文本
+模式开始，而 virtio-gpu 只在 render 里把显示切到图形模式与扫描输出的大小，页面在文本模式下又不要帧：屏幕一直是 720x400
+的文本屏，渲染器 1100x760 的画面被裁成左上角（2D 的扫描输出则根本不显示；node 的测试截图时自己要帧，所以没发现）。现在
+新的布局在下一次场消隐（`on_vblank`）就送到显示（`tests/devices/virtio_gpu_present.js` 的一项）。G6 完成。
 
 ## 风险与未定项
 

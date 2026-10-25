@@ -9,9 +9,11 @@
 // service=<url>; GET /__service_files lists its files, GET
 // /__service_file?name=&contains= says whether one has a text and a writer,
 // POST /__service_down and /__service_up take the service away and back.
+// With isolated=1, the pages cross-origin isolated (COOP/COEP, as the site's
+// _headers): the cores in host threads (vCPU workers).
 //   node tests/app/browser_runner.mjs <page> [query arguments...]
 //   node tests/app/browser_runner.mjs tests/app/store_test.html
-// Needs Chrome (CHROME); TIMEOUT_MS (default 300000).
+// Needs Chrome (CHROME); TIMEOUT_MS (default 300000); BROWSER_DEBUG_PORT (DevTools).
 
 import http from "node:http";
 import fs from "node:fs";
@@ -30,11 +32,19 @@ if(!page)
 }
 const args = process.argv.slice(3);
 const with_service = args.includes("service=1");
-let query = args.filter(a => a !== "service=1").join("&");
+const ISOLATION = args.includes("isolated=1") ? { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" } : {};
+let query = args.filter(a => a !== "service=1" && a !== "isolated=1").join("&");
 let service, service_dir, service_listeners = null;
 
 const REPORTER = `<script>
+    let logged = 0;
     const reporter = new MutationObserver(() => {
+        // (the page's #log as it grows: an hour-long part says where it is)
+        const log = document.getElementById("log")?.textContent || "";
+        if(log.length < logged) logged = 0;
+        const added = log.slice(logged).replace(/^\\n/, "");
+        logged = log.length;
+        if(added) fetch("/__log", { method: "POST", body: "log: " + added });
         const text = document.getElementById("result")?.textContent || "";
         if(!/^(PASS|FAIL)\\b/.test(text)) return;
         reporter.disconnect();
@@ -126,13 +136,19 @@ const server = http.createServer((req, res) =>
         const fd = fs.openSync(file, "r");
         try { fs.readSync(fd, part, 0, part.length, first); } finally { fs.closeSync(fd); }
         res.writeHead(206, { "Content-Type": type, "Content-Range": "bytes " + first + "-" + last + "/" + size, "Accept-Ranges": "bytes",
-            "Content-Length": part.length, "Cache-Control": "no-store" });
+            "Content-Length": part.length, "Cache-Control": "no-store", ...ISOLATION });
         res.end(part);
         return;
     }
-    let body = fs.readFileSync(file);
-    if(file.endsWith(".html")) body = Buffer.concat([body, Buffer.from(REPORTER)]);
-    res.writeHead(200, { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "no-store" });
+    if(!file.endsWith(".html"))
+    {
+        // (streamed: a package of a GB)
+        res.writeHead(200, { "Content-Type": type, "Accept-Ranges": "bytes", "Content-Length": size, "Cache-Control": "no-store", ...ISOLATION });
+        fs.createReadStream(file).pipe(res);
+        return;
+    }
+    const body = Buffer.concat([fs.readFileSync(file), Buffer.from(REPORTER)]);
+    res.writeHead(200, { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "no-store", ...ISOLATION });
     res.end(body);
 });
 
@@ -166,6 +182,8 @@ server.listen(0, "127.0.0.1", async () =>
     console.log(url);
     browser = spawn(process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", [
         "--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
+        // (BROWSER_DEBUG_PORT: DevTools on that port, to look at a long part while it runs)
+        ...(process.env.BROWSER_DEBUG_PORT ? ["--remote-debugging-port=" + process.env.BROWSER_DEBUG_PORT] : []),
         "--user-data-dir=" + profile, url,
     ], { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";

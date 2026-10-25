@@ -6,14 +6,24 @@
 // never silently ignored.
 
 /** The guest CPUs (`cpu_type`); the first is the default */
-export const CPU_TYPES = ["x86", "x86_64", "arm64"];
+export const CPU_TYPES = ["x86", "x86_64", "arm64", "arm32"];
+/** The ARM family's CPU types: the ARM core (v86-arm64.wasm) on the virt machine; arm32 is AArch32 throughout (docs/aarch32-plan.md part 2) */
+export const ARM_CPU_TYPES = ["arm64", "arm32"];
+/**
+ * @param {string|undefined} cpu_type
+ * @return {boolean} whether the ARM core runs it
+ */
+export function is_arm(cpu_type) { return ARM_CPU_TYPES.includes(/** @type {string} */ (cpu_type)); }
 
 /**
  * The machines (`machine_type`): "i440fx" (the default with an x86 CPU:
  * i440FX host bridge, PIIX3/4, IDE), "q35" (Q35 MCH, ICH9 LPC with its power
- * management, AHCI; docs/q35.md) and "virt" (the arm64 board, docs/virt.md)
+ * management, AHCI; docs/q35.md), "virt" (the ARM board, docs/virt.md) and
+ * "ranchu" (the Android emulator's ARM board: its SDK images, src/virt/ranchu.js)
  */
-export const MACHINE_TYPES = ["i440fx", "q35", "virt"];
+export const MACHINE_TYPES = ["i440fx", "q35", "virt", "ranchu"];
+/** The ARM CPUs' machines */
+export const ARM_MACHINE_TYPES = ["virt", "ranchu"];
 
 /**
  * The most cores (`cpu_cores`) of the PC machines (src/platform.js): must
@@ -45,7 +55,10 @@ export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot"
 
 /** Options of the virt machine that the PC machines reject */
 export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
-    "virtio_console_ports", "virtio_gpu_pci_slot"];
+    "virtio_console_ports", "virtio_gpu_pci_slot", "a64_profile"];
+
+/** The arm64 CPU's profiles (a64_profile, src/virt/platform.js); v2 is the default */
+export const A64_PROFILES = ["v1", "v1.1", "v2", "v3"];
 
 /** The display adapters of the virt machine (no VGA) */
 export const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
@@ -75,17 +88,22 @@ export function check_machine_options(options)
         throw new Error("Unknown cpu_type " + JSON.stringify(cpu_type) + "; supported: " +
             CPU_TYPES.map(name => "\"" + name + "\"").join(", "));
     }
-    const arm = cpu_type === "arm64";
+    const arm = is_arm(cpu_type);
     const machine_type = options["machine_type"] === undefined ? (arm ? "virt" : "i440fx") : options["machine_type"];
     if(!MACHINE_TYPES.includes(machine_type))
     {
         throw new Error("machine_type must be one of " + MACHINE_TYPES.map(m => "\"" + m + "\"").join(", ") +
             ", got " + JSON.stringify(machine_type));
     }
-    if(arm !== (machine_type === "virt"))
+    for(const name of ["ranchu_display", "ranchu_properties"])
+    {
+        if(options[name] !== undefined && machine_type !== "ranchu") throw new Error(name + " is an option of machine_type \"ranchu\"");
+    }
+    if(arm !== ARM_MACHINE_TYPES.includes(machine_type))
     {
         throw new Error("cpu_type \"" + cpu_type + "\" does not run on machine_type \"" + machine_type + "\": " +
-            (arm ? "the arm64 CPU needs machine_type \"virt\" (the default with it)" : "the virt machine needs cpu_type \"arm64\""));
+            (arm ? "the ARM CPUs need machine_type \"virt\" (the default with them) or \"ranchu\"" :
+                "the " + machine_type + " machine needs cpu_type \"arm64\" or \"arm32\""));
     }
 
     if(arm)
@@ -121,10 +139,28 @@ export function check_machine_options(options)
         {
             throw new Error("virtio_input is true or a list of \"keyboard\", \"tablet\" and \"multitouch\", got " + JSON.stringify(input));
         }
+        // (ranchu: its own framebuffer, no PCIe)
+        if(machine_type === "ranchu" && adapter !== undefined && adapter !== "none" && adapter !== null)
+        {
+            throw new Error("graphics_adapter " + JSON.stringify(adapter) + " is not on machine_type \"ranchu\", which has the emulator's framebuffer");
+        }
+        if(machine_type === "ranchu" && options["virtio_transport"] === "pci")
+        {
+            throw new Error("virtio_transport \"pci\" is not on machine_type \"ranchu\", which has no PCIe host");
+        }
         const transport = options["virtio_transport"];
         if(transport !== undefined && transport !== "mmio" && transport !== "pci")
         {
             throw new Error("virtio_transport is \"mmio\" (the default) or \"pci\", got " + JSON.stringify(transport));
+        }
+        const profile = options["a64_profile"];
+        if(profile !== undefined && cpu_type !== "arm64")
+        {
+            throw new Error("a64_profile is an option of cpu_type \"arm64\"; cpu_type \"arm32\" has its own profile");
+        }
+        if(profile !== undefined && !A64_PROFILES.includes(profile))
+        {
+            throw new Error("a64_profile is one of " + A64_PROFILES.map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
         }
     }
     else
@@ -133,7 +169,7 @@ export function check_machine_options(options)
         {
             if(given(options[name]))
             {
-                throw new Error(name + " is an option of machine_type \"virt\" (cpu_type \"arm64\")");
+                throw new Error(name + " is an option of machine_type \"virt\" (cpu_type \"arm64\" or \"arm32\")");
             }
         }
     }
@@ -155,7 +191,7 @@ export function check_machine_options(options)
  */
 export function allowed_options(cpu_type, machine_type)
 {
-    const virt = machine_type === "virt";
+    const virt = ARM_MACHINE_TYPES.includes(machine_type);
     /** @type {!Object<string, string>} */
     const unavailable = {};
     if(virt)
@@ -167,12 +203,20 @@ export function allowed_options(cpu_type, machine_type)
         unavailable["bios"] = unavailable["vga_bios"] = "the virt machine has no PC firmware (it boots its kernel directly)";
         unavailable["fda"] = unavailable["fdb"] = "the virt machine has no floppy controller";
         unavailable["acpi"] = "the virt machine describes itself with a device tree, not ACPI";
+        if(cpu_type === "arm32")
+        {
+            unavailable["a64_profile"] = "a64_profile is an option of cpu_type \"arm64\"; cpu_type \"arm32\" has its own profile";
+        }
+        if(machine_type === "ranchu")
+        {
+            unavailable["virtio_transport"] = "the ranchu machine has no PCIe host: its virtio devices are on virtio-mmio";
+        }
     }
     else
     {
         for(const name of VIRT_ONLY)
         {
-            unavailable[name] = name + " is an option of the virt machine (cpu_type \"arm64\")";
+            unavailable[name] = name + " is an option of the virt machine (cpu_type \"arm64\" or \"arm32\")";
         }
         if(machine_type !== "q35")
         {
@@ -182,8 +226,8 @@ export function allowed_options(cpu_type, machine_type)
         }
     }
     return {
-        machine_types: cpu_type === "arm64" ? ["virt"] : MACHINE_TYPES.filter(m => m !== "virt"),
-        graphics_adapters: virt ? VIRT_GRAPHICS_ADAPTERS.slice() : GRAPHICS_ADAPTERS.slice(),
+        machine_types: is_arm(cpu_type) ? ARM_MACHINE_TYPES.slice() : MACHINE_TYPES.filter(m => !ARM_MACHINE_TYPES.includes(m)),
+        graphics_adapters: machine_type === "ranchu" ? ["none"] : virt ? VIRT_GRAPHICS_ADAPTERS.slice() : GRAPHICS_ADAPTERS.slice(),
         net_device_types: virt ? VIRT_NET_DEVICE_TYPES.slice() : NET_DEVICE_TYPES.slice(),
         max_cores: MAX_CORES,
         acpi: virt ? "none" : machine_type === "q35" ? "required" : "with_cores",

@@ -42,7 +42,7 @@ pub fn with_elem(x: u128, index: u32, esize: u32, value: u64) -> u128 {
 #[inline(always)]
 pub fn sext(value: u64, esize: u32) -> i64 { ((value << (64 - esize)) as i64) >> (64 - esize) }
 #[inline(always)]
-fn int(value: u64, esize: u32, unsigned: bool) -> i128 {
+pub(crate) fn int(value: u64, esize: u32, unsigned: bool) -> i128 {
     if unsigned {
         value as i128
     }
@@ -83,7 +83,7 @@ pub fn sat(value: i128, esize: u32, unsigned: bool, qc: &mut bool) -> u64 {
 
 /// The shift of SSHL and its kin: `value` << `shift` (a right shift for a
 /// negative one), rounded, saturated or truncated to `esize` bits
-fn shift_by(
+pub(crate) fn shift_by(
     value: i128,
     shift: i64,
     esize: u32,

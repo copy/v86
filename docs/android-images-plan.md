@@ -1,6 +1,9 @@
 # Android 镜像：选镜像就能用与系统目录 实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-23 初稿，基于 `336f0df7`。规模：S 为几天，M 约 1–2 周，
+状态：完成，除 I7 在部署站点上的验收。2026-10-23 初稿，基于 `336f0df7`。2026-10-24：I0.1、I0.2 完成（结果见 §1 之后的“I0 的结果”），
+I1–I5、I7 完成（I3 与 I5 的验收：浏览器里拖入官方 zip，或官方 zip 加 GSI，即开机到 `boot_completed`）；I6 完成
+（模拟器镜像的导入，7.1.1 的 32 位镜像；API 26–28 的 64 位镜像要宿主 GLES，不做）。2026-10-25：I8 完成（官方 Cuttlefish zip 与官方 GSI
+都在 gfxstream 下通过 A9 场景）。只剩 I7 在部署后的站点上的验收（部署由负责人做）；见各节的进度。规模：S 为几天，M 约 1–2 周，
 L 约 3–4 周，XL 超过一个月（与 [ARM64 virt 与 Android 16 计划](arm64-virt-android16-plan.md) 相同）。
 
 本计划让 VM 管理器像 Android Studio 的 AVD 管理器那样使用 Android：用户选一个官方镜像包（从目录里挑，
@@ -166,7 +169,55 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I0.3 | 配额与空间：Chrome、Firefox、Safari 对 OPFS 的名义大小计费与同步访问句柄的支持；super 缩小后的盘大小；最低空间要求 | S |
 | I0.4 | 所有者决定：目录的首批条目（下载方式与 vendor ramdisk 的默认已定，见待决问题） | S |
 
+### I0 的结果（2026-10-24）
+
+**I0.1 包的内容。** 官方 GSI zip（三个都是 `system.img`、`vbmeta.img`、`build.prop` 三个成员，deflate，
+`system.img` 为原始 ext4，不是 sparse；`vbmeta.img` 的标志为 2，即关闭校验，可直接作顶层 vbmeta；
+`build.prop` 在 zip 里，不必读 ext4）：
+
+| GSI | `system.img` | `ro.system.build.version.sdk_full` | 类型 | `abilist32` |
+| --- | --- | --- | --- | --- |
+| `aosp_arm64-exp-BP2A.250605.031.A3-13578795`（Android 16） | 1,958,629,376 | 36.0 | user | `armeabi-v7a,armeabi` |
+| `aosp_arm64-exp-BP4A.251205.006-14401865`（Android 16 QPR2） | 1,889,701,888 | 36.1 | user | `armeabi-v7a,armeabi` |
+| `aosp_arm64-exp-CP3A.260905.010-16176746`（Android 17 QPR1） | 2,072,014,848 | 37.1 | user | `armeabi-v7a,armeabi` |
+
+发布页（2026-10-24）列出了每个 zip 的 sha256（`2171cf0e…`、`4a869a69…` 与下载的文件一致）。Cuttlefish 15581820
+的 super：LP 头 v10.2（Virtual A/B 标志），3 个元数据槽共 6 份相同的副本，16 个逻辑分区、5 个组，已用到
+1.42 GiB（块设备 8 GiB）。
+
+**I0.2 参考引导**（QEMU 9.2 HVF，4 核，1536 MB；`tools/a64_android.mjs` 的 `--release --no-venus` 与 `--gsi`，
+`tests/a64/android_boot.mjs` 的 `A64_ANDROID_OUT`、`A64_ANDROID_CONSOLE=0`）：
+
+| system | vendor ramdisk | 结果 |
+| --- | --- | --- |
+| Cuttlefish 15581820 自带（官方镜像不改，SwiftShader） | release | 19 s 到 `sys.boot_completed` |
+| GSI 16（BP2A，36.0） | debug | init 编译 SELinux 策略失败：debug ramdisk 的 `userdebug_plat_sepolicy.cil` 用了该 GSI 的 secilc 不认识的 policycap `functionfs_seclabel` |
+| GSI 16（BP2A，36.0） | release | init 编译策略失败：vendor 的策略用了 `nlmsg` 权限，该 GSI 的平台策略没有 |
+| GSI 16 QPR2（BP4A，36.1） | debug | 25 s（控制台可用：force_debuggable） |
+| GSI 16 QPR2（BP4A，36.1） | release | 23 s（user 版本没有控制台，从内核日志里 init 的那一行判断） |
+| GSI 17 QPR1（CP3A，37.1） | release | 22 s |
+
+结论：
+
+- **GSI 不能比 vendor 旧。** 导入 GSI 时比较它的 `ro.system.build.version.sdk_full` 与设备包自带 system 的
+  `sdk_full`（Cuttlefish 15581820 为 36.1），GSI 较旧时拒绝并说明原因；较新的（Android 17）可以。I5.3 的验收
+  改用 BP4A，目录首批列 BP4A 与 CP3A。
+- **debug vendor ramdisk 只配同一版本的 system。** 它的 userdebug 策略取代平台策略；GSI 较新时只用 release
+  （I4.2 的设置在 GSI 版本不同时不提供 debug）。
+- **`product_a` 不用删。** GSI 的 `skip_mount.cfg` 让 first stage init 跳过 `/product`（内核日志
+  “Skip mounting mountpoint: /product”）；I5.1 只替换 `system_a`，并以 GSI 的 `vbmeta.img` 作顶层 vbmeta
+  （摘要只算它一个结构，链接的分区不加载）。
+- 官方 Cuttlefish 镜像不改即可开机，I3 的“选 zip 就能开机”没有额外障碍。
+
 ## 2. I1 共用镜像库
+
+完成（2026-10-24，`1e9506c5`、`2c958904`）：`src/android/` 的 `bytes`、`bootimg`、`lz4`、`cpio`、`bootconfig`、
+`sparse`（随机读、按写入解开、流式 `sparse_decoder`）、`avb`、`lp`（读；`lp_parse`/`lp_serialize`、
+`lp_resize`、`lp_remove`、`lp_place`，Cuttlefish 的 6 份元数据原样写回逐字节相同）、`erofs`、`gpt`、`zip`
+（zip64、`DecompressionStream` 流式解压、CRC-32）、`devices`、`boot`。`tools/a64_android.mjs` 改用它们：4K 与
+16K（都带 Venus）的全部产物与 17.5 GB 的 `disk.img` 逐字节不变。单元测试 `tests/android/library.mjs`
+（`make ci-tests`），真实镜像的检查 `tests/android/real_images.mjs`（本地）。浏览器里跑同一套测试留到 I3 的
+组装器测试一起做。xz 与 gzip 的流式解压（第三方 GSI）留到 I5。
 
 | ID | 任务 | 关键位置 | 门禁 | 规模 |
 | --- | --- | --- | --- | --- |
@@ -174,6 +225,16 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I1.2 | `tools/a64_android.mjs` 改用这些模块（node 的 I/O 留在工具里） | 工具 | 4K、16K、Venus 三种产物与 `manifest.json` 的 `results` hash 逐字节不变 | M |
 
 ## 3. I2 引导器
+
+进度（2026-10-24）：I2.2 完成：`src/android/bootloader.js`，V86 的 `android` 选项（`{ device, gpu_mode, selinux,
+vendor_ramdisk }`，vendor_ramdisk 为 debug ramdisk 的文件），在 `starter.js` 的 `done()` 里执行（CPU Worker 下在
+Worker 里；有状态时也执行，供复位重新加载）。从工具的 `disk.img` 得到的内核、`initrd.img`、`initrd-venus.img` 与
+命令行逐字节相同（源码与 `build/libv86.mjs` 都核对过）。I2.1 完成：VM 配置的 `android` 节（`device`、
+`gpu_mode`、`vendor_ramdisk`、`debug_ramdisk`、`selinux`；没有 `slot` 字段，槽位属于设备型号），校验、
+`config_to_options`、`vm_model` 的连带修改与摘要行；`android16` 预设改用它，安装方式为“硬盘镜像”
+（工具的 `disk.img`）。I2.3 完成：`tests/a64/android_boot.mjs` 的 `A64_ANDROID_BOOTLOADER=1`（v64：`android` 选项代替
+kernel、initrd 与 cmdline），Venus 盘、页层与 vCPU Worker，1120 s 到 `sys.boot_completed`（2026-10-24，
+`v86-jit-par-venus-bl-1536m-4c`；以前给内核与 initrd 时 969–1229 s）。
 
 | ID | 任务 | 关键位置 | 门禁 | 规模 |
 | --- | --- | --- | --- | --- |
@@ -192,6 +253,24 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 验收（I3）：用户在向导选官方 `aosp_cf_arm64_only_phone-img-15581820.zip`，不填任何启动参数，虚拟机开机到
 `sys.boot_completed`（SwiftShader 档；桌面的验收在 gfxstream 的 G5 之后，见 I8）。
 
+进度（2026-10-24）：
+
+- I3.1 完成：`src/android/assemble.js`（认包、布局、随 zip 成员解压写盘，super 的写入超出缩小后的大小时检查为零）；
+  node 前端 `tools/android_import.mjs`：官方 `aosp_cf_arm64_only_phone-img-15581820.zip` 约 28 s 写成 6.25 GB 的盘
+  （实际写入 1.7 GB），与 `tools/a64_android.mjs --release --no-venus --shrink-super --userdata-mb 4096` 的盘逐字节
+  相同；这块盘在 QEMU（HVF）上 29 s 到 `boot_completed`，首次开机把空白的 userdata 格式化为 f2fs、metadata 为 ext4。
+  浏览器里在 `build/android-import-worker.js` 中用同步访问句柄写 OPFS。
+- I3.3 完成：向导的来源“An Android image package (.zip)”，拖入或选择文件，页面上读目录与 super 的元数据、说明是什么包；
+  选 Android 16 预设（SwiftShader，不开 Vulkan 与代理），硬盘一步选 userdata（2/4/8/16 GiB，默认 4）、给出盘的大小与写入量，
+  完成时在 Worker 里组装并在状态栏显示进度与剩余时间。`tests/app/wizard_test.html part=android`（小型合成包，
+  `make app-tests`）；`part=android_boot` 是 I3 的验收（官方 zip，开机到 `boot_completed`，本地运行）。
+- I3.2 完成：硬盘一步可选浏览器磁盘或磁盘服务；磁盘服务先建镜像，再由导入器的 Worker 经写入会话写入
+  （`src/android/service_writer.js`：整扇区、每次 4 MiB）。`wizard_test part=android_service`（`service=1`）。
+- **I3 验收通过**（2026-10-24，`wizard_test part=android_boot isolated=1`，无头 Chrome，跨源隔离，4 个 vCPU Worker）：
+  向导里拖入官方 `aosp_cf_arm64_only_phone-img-15581820.zip`（目录的第一项，SHA-256 核对），不填任何启动参数，
+  11 s 导入为 5.8 GB 的浏览器磁盘，开机后 26 s 到 second stage、289 s 到 zygote、**1302 s 到 `sys.boot_completed`**
+  （SwiftShader），全程 21.9 分钟。
+
 ## 5. I4 进度、设置与磁盘大小
 
 | ID | 任务 | 规模 |
@@ -200,13 +279,30 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I4.2 | Android 设置节：设备型号、GPU 档位、vendor ramdisk、SELinux（调试用）；“清除用户数据”（重写 userdata 与 metadata）与“恢复出厂”（重新组装） | S |
 | I4.3 | super 缩到已用加余量（LP 元数据改写）；userdata 大小可选 2、4、8、16 GiB（默认 4 GiB），放不进可用配额的选项不可选；以后用“清除数据并改大小”调整；名义大小与配额的提示 | M |
 
+进度（2026-10-24）：I4.2 完成：设置对话框的“Android”项（`src/app/ui/panels/android.js`：设备型号、GPU 档位（没有 Vulkan 时只有
+SwiftShader）、vendor ramdisk 与 debug ramdisk 的文件、SELinux），“添加硬件”里的“Android boot”；“Wipe user data…”在导入器的
+Worker 里用同步访问句柄把浏览器磁盘上 userdata 与 metadata 的第一个 MiB 清零（下次开机格式化；机器运行时磁盘被占用，
+会说明）。“恢复出厂”（重新组装）要用户再次拖入包，留到 I7 的多文件拖入之后。I4.3 的 super 缩小与 userdata 选择已在 I3
+完成；放不进配额的选项不可选未做。I4.1 现在只是向导状态栏里的进度与剩余时间，没有取消。
+
 ## 6. I5 GSI
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
-| I5.1 | GSI 导入：需要一个设备包（目录里的 Cuttlefish 包，或用户已有的 Android 虚拟机作为来源）；`system_a` 替换、`product_a` 删除、vbmeta 标志，按 I0.2 的结论 | M |
+| I5.1 | GSI 导入：需要一个设备包（目录里的 Cuttlefish 包，或用户已有的 Android 虚拟机作为来源）；`system_a` 替换、GSI 的 `vbmeta.img` 作顶层 vbmeta、版本检查（GSI 的 `sdk_full` 不低于设备包 system 的），按 I0.2 的结论（`product_a` 不删） | M |
 | I5.2 | ABI 检查：读 `system.img` 里的 `build.prop`（erofs 或 ext4 只读查找；ext4 读取器若需要则新写）；`abilist32` 非空而 CPU profile 没有 AArch32 时提示（32 位应用与 `zygote_secondary` 不可用，见 aarch32-plan） | M |
-| I5.3 | 验收：`aosp_arm64-exp-BP2A.250605.031.A3` 在参考与 v64 上开机到桌面（显卡档位同 I3） | S |
+| I5.3 | 验收：`aosp_arm64-exp-BP4A.251205.006`（与设备包同为 16 QPR2；BP2A 比 vendor 旧，不能开机，见 I0 的结果）在参考与 v64 上开机，Android 17 的 CP3A 也开机（显卡档位同 I3） | S |
+
+进度（2026-10-24）：I5.1 完成：`assemble.js` 的 `gsi_package`（`system.img` 原始 ext4、erofs 或 sparse；`vbmeta.img` 须关闭校验；
+`build.prop` 的版本、指纹与 32 位 ABI）与 `cuttlefish_disk` 的 GSI 路径（`system_a` 放进 super 的空闲处、每份元数据都改、再缩小
+super，旧 `system_a` 的数据不写；`vbmeta_a/_b` 用 GSI 的）。版本检查用 vendor_boot 的 ramdisk 里 `prop.default` 的
+`ro.vendor.build.version.sdk_full`（不必解压 erofs：Cuttlefish 的 erofs 文件是 LZ4 压缩的，layout 3）。向导的 Android 来源
+可同时或先后拖入设备包与 GSI，页面上先读出版本与指纹，GSI 较旧时拒绝并说明，GSI 有 32 位 ABI 时提示需要 AArch32
+（I5.2；读 zip 里的 `build.prop`，不读 ext4）。`tools/android_import.mjs --gsi` 与 `tools/a64_android.mjs --gsi --shrink-super
+--userdata-mb 4096` 逐字节相同，这块盘在 QEMU 上 35 s 到 `boot_completed`。
+- **I5.3 验收通过**（2026-10-24，`wizard_test part=android_boot isolated=1 gsi=…BP4A…zip`，无头 Chrome）：目录项
+  `android16-gsi-bp4a`，同时拖入官方 Cuttlefish zip 与 BP4A GSI，两个文件 14 s 核对完 SHA-256，20 s 导入为 7.6 GB 的
+  浏览器磁盘，开机后 33 s 到 second stage、297 s 到 zygote、**1975 s 到 `sys.boot_completed`**（SwiftShader），全程 33.5 分钟。
 
 ## 7. I6 模拟器镜像（AVD 的同一批镜像）
 
@@ -215,6 +311,23 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I6.1 | 导入 SDK 模拟器镜像 zip：`kernel-ranchu`、`ramdisk.img`、`system.img`、`vendor.img`、`userdata.img`、`encryptionkey.img` 按 ranchu 的盘顺序放好；`source.properties` 与 `build.prop` 决定 API 级别、ABI 与 cpu_type | M |
 | I6.2 | 设备型号 `ranchu`（按 API 级别的命令行与属性），机器来自 aarch32-plan R6 | S |
 | I6.3 | 验收：官方 Android 9 的 `arm64-v8a`（API 28）在 arm64 下开机；32 位的 Android 7.1.1 见 aarch32-plan R7 | S |
+
+进度（2026-10-24）：I6.1、I6.2 完成（`150e8f65`）。导入（`src/android/assemble.js` 的 `emulator_disk`）读 zip 的
+`source.properties`，按 API 级别与 ABI 选设备型号（`src/android/devices.js` 的 `RANCHU_DEVICES`），把它的分区按顺序
+做成一块 GPT 盘：镜像原样写入，模拟器自己生成的盘（cache）写一个空的 ext4（`src/android/ext4.js`，任意大小，只写元数据）。
+引导器对这种型号给出内核、ramdisk 与模拟器的命令行，并让盘上的分区成为 ranchu 机器的 virtio 盘
+（`src/android/partition_buffer.js`）。向导、导入 Worker、`tools/android_import.mjs` 与预设 “Android 7.1 (32-bit,
+emulator image)” 都接上了；`A32_ANDROID_DISK=1 node tests/a32/android_boot.mjs` 从导入的盘开机。已有型号：
+`ranchu_25_armeabi_v7a`（Android 7.1.1，cpu_type arm32）。
+
+I6.3 的结论：Android 8.0 起 SurfaceFlinger 必须有 OpenGL ES 2.0（`RenderEngine` 对 1.x 直接中止）。官方 API 27、28 的
+`arm64-v8a` 镜像（`arm64-v8a-27_r02`、`-28_r02`，下载核对过 SHA-1）客体里只有宿主 GPU 用的 `libEGL_emulation`
+与 1.1 的 libagl，没有 7.1 镜像里那种客体 SwiftShader；它们只能靠模拟器的宿主 GLES（goldfish pipe 上的 GLES 编码流）
+显示。aarch32-plan 定下 ranchu 不做宿主 GLES，所以这些镜像在 v64 上起不到 system_server 之后，I6.3 改为以 7.1.1 的
+32 位镜像验收（aarch32-plan R7.1），64 位的模拟器镜像不在本计划内。顺带记下 API 28 镜像的格式（将来做宿主 GLES 时用）：
+system-as-root（system.img、vendor.img 都是 GPT 盘，ext4 在 1 MiB 处，内核要 `skip_initramfs root=/dev/vda1`），
+vendor 由设备树 `/firmware/android/fstab/vendor` 在第一阶段挂载，/data 是 vdc、用 vdd（encryptionkey.img）上的密钥
+强制加密，userdata.img 只有 1 MiB（模拟器在宿主上扩大）。
 
 ## 8. I7 系统目录
 
@@ -228,6 +341,13 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 验收（I7）：在部署的站点上，从目录选“Android 16（Cuttlefish）”，按指引下载官方 zip 并拖入，之后不再需要
 任何操作：校验、组装、建虚拟机与开机自动完成。
 
+进度（2026-10-24）：I7.1–I7.4 完成：目录是随应用打包的 `src/app/android_catalog.js`（不是单独的 JSON：没有额外请求），
+首批三项：Android 16 QPR2（Cuttlefish 15581820，可选的 debug vendor ramdisk）、16 QPR2 GSI（BP4A）与 17 QPR1 GSI（CP3A）
+在该设备上；每个文件有官方页面、直链、大小与 SHA-256。`tools/android_catalog.mjs` 用本地副本（大小与 SHA-256）或
+服务器的大小（HEAD）核对，六个部分全部相符。向导的 Android 来源列出目录与“另一个包”，所选项的文件与下载处；
+拖入的文件先比大小、再在导入器的 Worker 里流式算 SHA-256（有进度，每个文件只算一次），缺哪个、哪个不符逐个说明，
+都对上才能继续。debug vendor ramdisk 按大小认出（不是 zip），在设置的 Android 项里使用。部署站点上的验收待部署后做。
+
 ## 9. I8 GPU 与收尾
 
 | ID | 任务 | 规模 |
@@ -236,13 +356,20 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | I8.2 | gfxstream 之前的界面提示：SwiftShader 档只保证开机，说明桌面需要 GPU 支持 | S |
 | I8.3 | 文档：[vm-manager.md](vm-manager.md)（Android 一节、目录、下载）、[aarch64.md](aarch64.md)（引导器、导入）、vm-manager-plan.md 记录“目录”的新决定；release_gate 增加导入与引导器的级别 | S |
 
+进度（2026-10-24）：I8.1 的代码完成（`949f8fe0`）：Android 16 预设的显示是 virtio-gpu 的 gfxstream、GPU 档位 gfxstream，
+向导不再把导入的包改成 SwiftShader；官方 Cuttlefish zip 在 gfxstream 下通过 A9 场景（gfxstream-plan G5）；官方 GSI（BP4A 加 Cuttlefish 设备包）
+2026-10-25 也通过（`boot_completed` 991 s，重启后 477 s；gfxstream-plan G5 的进度）。I8.2 不再需要（默认已有 GPU），向导改为说明没有 WebGPU 时选 SwiftShader。I8.3 完成：[vm-manager.md](vm-manager.md) 的 Android 一节（目录、
+下载与拖入、导入、gfxstream、模拟器镜像），[aarch64.md](aarch64.md) 的引导器与导入，vm-manager-plan.md 记下“目录”的
+新决定（负责人 2026-10-23 的要求，旧首页的系统按钮仍不恢复），`tools/release_gate.mjs` 的级别 `R-android-images`
+（镜像库、QEMU 上的导入布局、Chrome 里的向导）与 `R-arm32-android`。
+
 ## 兼容范围：第三方系统（LineageOS 等）
 
 导入器认的是**包的格式**，不认发行方，所以第三方系统能否使用取决于它是哪一类：
 
 | 类别 | 例子 | 能否使用 | 条件 |
 | --- | --- | --- | --- |
-| Treble GSI（只有 system） | 社区维护的 LineageOS GSI（LineageOS 官方不发布 GSI）、其他基于 TrebleDroid 的 GSI | 能，走 I5 的 GSI 路径 | arm64；Android 版本与设备包的 vendor 相同（vendor 是 Android 16 时用 Android 16 的 GSI，即 LineageOS 23 一代；旧系统配新 vendor 不受 Treble 保证）；含 32 位用户态或 32 位 binder 的变体需要 AArch32（[aarch32-plan.md](aarch32-plan.md)）；签名不同，按 GSI 的做法关闭 vbmeta 校验 |
+| Treble GSI（只有 system） | 社区维护的 LineageOS GSI（LineageOS 官方不发布 GSI）、其他基于 TrebleDroid 的 GSI | 能，走 I5 的 GSI 路径 | arm64；Android 版本不低于设备包的 vendor（I0.2：16 QPR2 的 vendor 配 16 r1 的 GSI 编译策略失败，配 16 QPR2 与 17 QPR1 的 GSI 能开机；vendor 是 Android 16 QPR2 时用 LineageOS 23.2 一代或更新的）；含 32 位用户态或 32 位 binder 的变体需要 AArch32（[aarch32-plan.md](aarch32-plan.md)）；签名不同，按 GSI 的做法关闭 vbmeta 校验 |
 | Cuttlefish 格式的构建 | 自己从 LineageOS 或 AOSP 源码编的 Cuttlefish arm64 目标 | 能，走 I3 的 Cuttlefish 路径 | 包的布局与官方 Cuttlefish 镜像 zip 相同 |
 | Android 模拟器格式的构建 | 第三方按 SDK 模拟器格式打包的镜像 | 原则上能，走 I6 | 需要 ranchu 机器；只要包内有 `kernel-ranchu`、`ramdisk.img`、`system.img` 等 |
 | 真机的整机刷机包 | 某款手机的 LineageOS（`payload.bin` 的 OTA zip） | 不能 | 内核、vendor 与驱动是那款手机硬件的，不是虚拟设备的 |
@@ -274,7 +401,7 @@ I8 的 gfxstream 默认依赖 gfxstream 计划。
 | --- | --- |
 | 配额按名义大小计费，Android 盘大 | super 缩小、userdata 可选；导入前算出名义大小与实际写入量，不足时先提示 |
 | 用户要自己下载大文件（约 0.9–1.8 GB），可能下错版本或下不完整 | 目录给出确切的文件名、大小与 sha256；拖入后先比大小再流式算 hash，不符时指出是哪个文件、应该是什么 |
-| GSI 与 vendor 的版本搭配（vendor 比 system 新） | I0.2 的参考先验证；目录只列验证过的组合 |
+| GSI 与 vendor 的版本搭配（vendor 比 system 新） | I0.2 已验证：GSI 比 vendor 旧时 init 编译 SELinux 策略失败；导入时比较 `sdk_full` 并拒绝；目录只列验证过的组合 |
 | 浏览器差异（OPFS 同步句柄要 Chromium 108 以上；Firefox、Safari 的配额与性能） | 先保证 Chrome；其他浏览器在 I0.3 核对后标注支持程度 |
 | LP 元数据与 vbmeta 的改写出错导致不能开机 | 共用库对 node 工具与浏览器同一套测试；组装结果与工具产物逐分区比对；参考引导先行 |
 | 官方镜像的许可与再分发 | 默认不镜像，只给官方下载地址；镜像需逐项许可审查与所有者批准 |

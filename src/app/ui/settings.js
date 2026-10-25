@@ -13,6 +13,9 @@ import { describe_image } from "./describe.js";
 import { general_panel, memory_panel, processor_panel, machine_panel, advanced_panel, CPU_LABELS, MACHINE_LABELS } from "./panels/system.js";
 import { disk_panel, cdrom_panel, floppy_panel, direct_boot_panel } from "./panels/storage.js";
 import { network_panel, sound_panel, display_panel, serial_panel, shared_folder_panel, virt_panel } from "./panels/devices.js";
+import { android_panel } from "./panels/android.js";
+import { ANDROID_DEFAULTS } from "../vm_config.js";
+import { RANCHU_DEVICES } from "../../android/devices.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Problem} Problem */
@@ -72,6 +75,8 @@ export function hardware_items(c)
         remove: next => { next.filesystem = null; } });
     if(c.kernel) items.push({ id: "kernel", label: "Direct boot", summary: c.kernel.bzimage ? describe_image(c.kernel.bzimage) : "kernel not chosen", panel: direct_boot_panel,
         remove: next => { next.kernel = null; } });
+    if(c.android) items.push({ id: "android", label: "Android", summary: ({ venus: "Venus", gfxstream: "gfxstream" }[c.android.gpu_mode] || "SwiftShader") +
+        (c.android.vendor_ramdisk === "debug" ? ", debug ramdisk" : ""), panel: android_panel, remove: next => { next.android = null; } });
     if(virt) items.push({ id: "virt", label: "virt devices", summary: c.virt.transport + (c.virt.vsock ? ", vsock" : ""), panel: virt_panel, remove: null });
     items.push({ id: "advanced", label: "Advanced", summary: c.advanced.cpu_worker ? "CPU in a Worker" : "CPU in the page", panel: advanced_panel, remove: null });
     return items;
@@ -93,6 +98,7 @@ export function item_of(path)
         case "cpu": return "processor";
         case "memory": case "machine": case "cdrom": case "sound": case "display": case "serial": case "filesystem": case "virt": case "advanced": return head;
         case "kernel": return "kernel";
+        case "android": return "android";
         case "initial_state": return "advanced";
     }
     return "general";
@@ -105,7 +111,7 @@ export function item_of(path)
  */
 function additions(c)
 {
-    const virt = c.machine.type === "virt";
+    const virt = c.machine.type === "virt", arm = virt || c.machine.type === "ranchu";
     /** @type {Array<[string, (next: VMConfig) => void]>} */
     const list = [];
     if(c.disks.length < 2)
@@ -113,7 +119,7 @@ function additions(c)
         list.push(["Hard disk", next => { next.disks.push({ slot: next.disks.some(d => d.slot === "hda") ? "hdb" : "hda", image: { kind: "empty", size: 512 << 20 },
             disk_option: "read_only", disk_error: "stop" }); }]);
     }
-    if(!virt && c.floppies.length < 2)
+    if(!arm && c.floppies.length < 2)
     {
         list.push(["Floppy drive", next => { next.floppies.push({ slot: next.floppies.some(f => f.slot === "fda") ? "fdb" : "fda", image: null, disk_option: "read_only" }); }]);
     }
@@ -123,6 +129,13 @@ function additions(c)
     }
     if(!c.filesystem) list.push(["Shared folder", next => { next.filesystem = {}; }]);
     if(!c.kernel) list.push(["Direct boot", next => { next.kernel = { bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }; }]);
+    // (Cuttlefish's on the arm64 virt machine, an emulator image's on ranchu)
+    if(virt && c.cpu.type === "arm64" && !c.android) list.push(["Android boot", next => { next.android = Object.assign({}, ANDROID_DEFAULTS); }]);
+    if(c.machine.type === "ranchu" && !c.android)
+    {
+        const model = RANCHU_DEVICES.find(d => d.cpu === c.cpu.type);
+        if(model) list.push(["Android boot", next => { next.android = Object.assign({}, ANDROID_DEFAULTS, { device: model.id }); }]);
+    }
     return list;
 }
 

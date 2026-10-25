@@ -17,6 +17,7 @@ to measure is in [profiling.md](profiling.md).
 | Linux x86_64 (Alpine) | SVGA II | vmwgfx + Mesa svga | OpenGL 4.3 core (SM5), GLES 3.1, KMS |
 | Linux x86_64 (Alpine) | virtio-gpu | virtio_gpu + Mesa virgl (Mesa 25.2) | OpenGL 4.3 core/compat, GLES 3.1, persistent buffer mappings; without virgl (`2d-blob`), scanouts from guest blobs |
 | Linux x86_64 (Alpine) | virtio-gpu (level `venus`) | virtio_gpu + Mesa venus (Mesa 26.1) | Vulkan 1.1: vulkaninfo, transfers, synchronization, mapped memory, graphics, compute, queries, dynamic rendering (`vktest`: same results as lavapipe), vkcube on weston, snapshots |
+| Android 16 arm64 (Cuttlefish's official image) | virtio-gpu (level `gfxstream`) | the image's own: gfxstream's `vulkan.ranchu`, ANGLE, the ranchu HWC | Vulkan 1.1, OpenGL ES 3.0 through ANGLE, SurfaceFlinger composing on the GPU, the A9 scenario, snapshots ([gfxstream](#gfxstream)) |
 
 ## Configuration
 
@@ -82,7 +83,7 @@ each level declares is listed under [VMware SVGA II](#vmware-svga-ii) and
 | Adapter | Levels, lowest first | Need a renderer | Default |
 | --- | --- | --- | --- |
 | `vmware_svga` | `2d`, `2d-full`, `vgpu9`, `gb9`, `dx10`, `dx10.1`, `dx11`, `dx11-full` | `vgpu9` and up | `dx11-full` with a renderer, `2d-full` without |
-| `virtio_gpu` | `2d`, `2d-blob`, `virgl`, `virgl43`, `virgl43-blob`, `virgl43-hostmem`, `venus` | `virgl` and up | `virgl43-hostmem` with a renderer, `2d-blob` without; `venus` only when pinned |
+| `virtio_gpu` | `2d`, `2d-blob`, `virgl`, `virgl43`, `virgl43-blob`, `virgl43-hostmem`, `venus`, `gfxstream` | `virgl` and up | `virgl43-hostmem` with a renderer, `2d-blob` without; `venus` and `gfxstream` only when pinned |
 
 - **The renderer.** The page has one when it has loaded
   `build/glbridge/libv86-webgpu.js` (which defines `V86SVGARenderer`) before
@@ -325,7 +326,10 @@ owns the device.
   at 32 bpp. A Screen Target image the GPU has not changed is read straight
   from its MOB. Cursors, screenshots, snapshots and `BLIT_SCREEN_TO_GMRFB`
   therefore work the same at every level, at the cost of one readback per
-  present (G-31 in [gpu-deviations.md](gpu-deviations.md)).
+  present (G-31 in [gpu-deviations.md](gpu-deviations.md)). The exception
+  (since 2026-10-24) is virtio-gpu with the graphics proxy's compositor on
+  the page: a 3D scanout is copied into a layer of it on the GPU, without a
+  readback (GX's `SURFACE_PRESENT`; [gfxstream](#gfxstream), Display).
 - **One picture.** The device's picture is one rectangle. SVGA Screen Objects
   (and the Screen Targets shown through them) sit where the guest places them
   on its virtual desktop, and the bounding box of all screens is the canvas
@@ -534,7 +538,7 @@ there is no MSI or MSI-X.
 | --- | --- |
 | BAR0 | VRAM: the VGA core's LFB, also viogpudo's frame buffer (`vram_size`: 32 MiB by default, at least 16 MiB; see [Configuration](#configuration)) |
 | BAR2 | The four virtio capabilities in one 128 KiB memory BAR at 0x000, 0x100, 0x200 and 0x300, as on QEMU's virtio-vga (viogpudo maps only memory BARs) |
-| BAR4 | From `virgl43-hostmem`: the host visible memory, 64 MiB (128 MiB at `venus`), described by a shared memory capability (shmid 1). It is a 32-bit prefetchable BAR: v86's device memory regions (`mmio_ram`) have 32-bit bases and are decoded only below 4 GiB, so the firmware places BAR4 in the PCI memory window under 4 GiB |
+| BAR4 | From `virgl43-hostmem`: the host visible memory, 64 MiB (128 MiB at `venus`, 256 MiB at `gfxstream`), described by a shared memory capability (shmid 1). It is a 32-bit prefetchable BAR: v86's device memory regions (`mmio_ram`) have 32-bit bases and are decoded only below 4 GiB, so the firmware places BAR4 in the PCI memory window under 4 GiB |
 
 The device shows its VGA core (BIOS, boot loaders, VBE) until the driver
 sends its first control command. After a device reset, by the driver or the
@@ -565,6 +569,7 @@ are virtio-gpu's.
 | `virgl43-blob` | `virgl43`'s, `RESOURCE_BLOB` and `CONTEXT_INIT` | as `virgl43` | none | as `virgl43`, with guest blobs |
 | `virgl43-hostmem` | as `virgl43-blob` | `virgl43`'s and `VIRGL_CAP_ARB_BUFFER_STORAGE` | 64 MiB | as `virgl43`, and `ARB_buffer_storage` |
 | `venus` | as `virgl43-blob` | `virgl43-hostmem`'s and VENUS (4) | 128 MiB | as `virgl43-hostmem`, and Vulkan 1.1 ([Venus](#venus-vulkan)) |
+| `gfxstream` | as `virgl43-blob` | GFXSTREAM_VULKAN (3) and GFXSTREAM_COMPOSER (9) only | 256 MiB | Vulkan 1.1 for gfxstream's guest driver, Android's official images; no virgl contexts ([gfxstream](#gfxstream)) |
 
 As on SVGA, a level's features and capsets never change: OpenGL 4.3 came as
 the new level `virgl43`, and `virgl` still declares GLSL 330.
@@ -592,7 +597,9 @@ the new level `virgl43`, and `virgl` still declares GLSL 330.
   the host: they are scanned out straight from guest memory
   (`SET_SCANOUT_BLOB`), and cursors can come from them. `CONTEXT_INIT`
   (`virgl43-blob` up, not `2d-blob`) creates contexts of a given capset:
-  virgl's two, and Venus's at `venus`; any other capset is refused.
+  virgl's two, and Venus's at `venus`; at `gfxstream` only gfxstream's two
+  (a context without a capset is gfxstream's there). Any other capset is
+  refused.
 - **virgl** (`virgl` up): the translation is on the device side, the way
   Mesa's svga driver works: gallium state becomes SVGA DX commands for GX
   (`virgl_context.js`), TGSI text becomes VGPU10 tokens (`tgsi.js`,
@@ -782,6 +789,280 @@ keeps the Vulkan objects and answers.
   woken, and the old blobs count as unmapped, so that no GPU read still on
   its way lands in the host visible memory
   (`tests/devices/virtio_gpu_venus.js`, "a snapshot while requests wait").
+
+## gfxstream
+
+Level `gfxstream` is virtio-gpu for the GPU drivers of Android's official
+images (Cuttlefish's, and GSIs over Cuttlefish's vendor), which are not
+changed: gfxstream's Vulkan driver (`vulkan.ranchu`, from mesa's
+`src/gfxstream/guest`), ANGLE's OpenGL ES on it, and the ranchu HWC. Like
+Venus, it is Vulkan's API serialized, decoded by the device and run on the
+same Vulkan model and VX; the transport (ASG rings), the encoding and
+Android's own commands differ. The protocol, as read from the pinned
+sources, is in [gfxstream-protocol.md](gfxstream-protocol.md); the plan and
+its progress in [gfxstream-plan.md](gfxstream-plan.md).
+
+- **Choosing it**: never a default; pin it with `graphics_adapter_test: {
+  level: "gfxstream" }`. The VM manager pins it with the display's
+  `display.vulkan: "gfxstream"` (`"none"`, `"venus"` or `"gfxstream"` since
+  the configuration's version 2, 2026-10-24; version 1's `true` became
+  `"venus"`), which needs virtio-gpu and the graphics proxy
+  (`src/app/vm_config.js`; `virtio_gpu_level` in `src/browser/vm_options.js`).
+  The guest takes its
+  drivers from bootconfig: v64's bootloader with `android.gpu_mode:
+  "gfxstream"` writes `gpu_modes.gfxstream` (`src/android/devices.js`) over
+  SwiftShader's keys, the values of Cuttlefish's `gfxstream_guest_angle`
+  (`vulkan=ranchu`, `gltransport=virtio-gpu-asg`, `cpuvulkan.version=0`,
+  `egl=angle`, gralloc `minigbm`) with `hwcomposer.mode=client` and
+  `opengles.version=196608` (G-59 in [gpu-deviations.md](gpu-deviations.md)).
+  `gpu_mode: "gfxstream"` needs `display.vulkan: "gfxstream"`. The Android
+  16 preset and imported official images use both by default (949f8fe0).
+  A machine has one Vulkan front end: Venus and gfxstream are never declared
+  together, so the guest's libvulkan cannot pick the wrong one.
+- **What the level declares**: `venus`'s features and a 256 MiB BAR4 (the
+  host visible memory of Cuttlefish's QEMU device, `hostmem=256M`), but only
+  gfxstream's capsets: GFXSTREAM_VULKAN (3, 108 bytes) and
+  GFXSTREAM_COMPOSER (9, 16 bytes), as rutabaga's gfxstream component offers
+  them and as Cuttlefish's QEMU device for the mode has them
+  (`gfxstream-vulkan=on,x-gfxstream-composer=on`). There are no virgl
+  capsets and no GFXSTREAM_GLES (8): nothing on the host runs OpenGL ES. A
+  context created without a capset is gfxstream's too. The contents
+  (`Gfxstream.prototype.capset` in `gfxstream.js`) are what gfxstream's host
+  fills in (`fillCaps`): `protocolVersion` 1, `ringSize` 12288 (the ring
+  storage's three pages), `bufferSize` 1 MiB, `blobAlignment` 4096; for
+  Vulkan also `deferredMapping`, `noRenderControlEnc` and
+  `hasTraceAsyncCommand` 1, `colorBufferMemoryIndex` 0 (memory type 0 is
+  the model's device local one), and 0 for `alwaysBlob`, `externalSync`,
+  `vulkanBatchedDescriptorSetUpdate` and the `virglSupportedFormats`
+  bitmask (G-60).
+- **Transport** (`gfxstream.js`): a context is a guest process; each of its
+  threads' connections is an ASG ring in a `HOST3D` blob of blob id 0 (the
+  ring storage and the 1 MiB buffer, `ALIGN(ringSize + bufferSize,
+  blobAlignment)`), which the execbuffer command `CONTEXT_CREATE` names.
+  Rings are kept by the blob's resource id, as gfxstream's host keeps them
+  (`mAddressSpaceHandles`); once the blob is mapped into BAR4 the device
+  writes the ring's config (buffer size, flush interval 4096, transfer mode
+  1). `CONTEXT_PING` (and `CONTEXT_PING_WITH_RESPONSE`, handled alike) names
+  the ring to read: the type 1 transfers on the to-host ring (`{offset,
+  size}` of the buffer; `read_pos` and `host_consumed_pos` move on) and the
+  large transfers (type 3) go into the ring's stream. After the client's
+  flags (4 bytes, unused) come commands of a 32-bit opcode and size, each
+  for the decoder of its range (Vulkan's: 20000–29999 and
+  200000000–299999999); replies go into the from-host ring's view of the
+  buffer. The shared `host_state` is `CAN_CONSUME` while the device reads,
+  `RENDERING` while a command waits for the GPU and `NEED_NOTIFY` otherwise,
+  so the guest pings after each flush; the device's timer only runs again
+  the rings whose streams hold commands not decoded yet. As
+  gfxstream's render thread does, a ring reads again (up to 8 passes) while
+  the guest's write positions moved during its decoding: the guest does not
+  ping a host it saw consuming. A transfer past the buffer or a command
+  shorter than its header sets the ring's `in_error`, which fails the
+  guest's reads and writes.
+- **Execbuffer commands** (`SUBMIT_3D` of a gfxstream context,
+  `virtgpu_gfxstream_protocol.h`): each is read with its own size
+  (`COMMAND_SIZE`); an unknown opcode, or a command past the execbuffer's
+  end, stops the execbuffer (an error in `stats`). Besides `CONTEXT_CREATE`,
+  the pings and the sync commands: `RESOURCE_CREATE_3D`'s template is kept
+  by its blob id and `ACQUIRE_SYNC`'s sync id is kept, neither used yet;
+  `PLACEHOLDER_COMMAND_VK` does nothing.
+- **Fences and sync commands**: a fenced request with `FLAG_INFO_RING_IDX`
+  is answered in the lane of its context's ring (`timeline_of` and `drain`
+  in `virtio_gpu_device.js`, as rutabaga's fence contexts): a waiting fence
+  of one ring does not hold another's, and the other requests stay in one
+  lane in order. The sync commands are tasks on that timeline, which the
+  `SUBMIT_3D`'s answer waits for: `CREATE_EXPORT_SYNC_VK` until its Vulkan
+  fence signals, `CREATE_QSRI_EXPORT_VK` (an image's release,
+  `vkQueueSignalReleaseImageANDROID`) until the context's queues have no
+  work pending or in flight; `CREATE_EXPORT_SYNC`, `CREATE_IMPORT_SYNC` and
+  `CREATE_IMPORT_SYNC_VK` are done at once (G-61). Unlike Venus's waiting
+  submissions they do not stop the device from reading the requests after
+  them; only the answers behind them in their lane wait.
+- **Wire format**: `gfxstream_protocol.js` is generated by
+  `tools/gfxstream_protocol_gen.mjs` from the C++ gfxstream's codegen made
+  for the pinned guest (mesa `src/gfxstream/guest/vulkan_enc`:
+  `goldfish_vk_reserved_marshaling_guest.cpp`,
+  `goldfish_vk_marshaling_guest.cpp` and `VkEncoder.cpp`; the types from
+  mesa's `include/vulkan` and the guest's `vk_android_native_buffer_gfxstream.h`
+  and `vulkan_gfxstream.h`). The guest's request writers
+  (`reservedmarshal_*`) become the device's decoders (`d_*`), its reply
+  readers (`unmarshal_*`) the device's reply encoders (`e_*`): 356 commands
+  in a `COMMANDS` table, with each command's output handles, and
+  `tools/gfxstream_protocol_runtime.js` (the reader and writer: little
+  endian, each value in its C size, presence words, `size_t` and string
+  lengths 8 or 4 bytes big endian) copied in. The four stream features a
+  virtio-gpu guest sets (`ResourceTracker::setupCaps`) are folded as
+  constants, and `pNext` sizes come from the headers' LP64 layout. As
+  Venus's generator, it translates the C statement by statement and stops
+  at a shape it does not know; `--guest` also writes the driver's side
+  (`tests/devices/gfxstream_guest_protocol.js`). The oracle
+  (`tools/gfxstream_oracle/`: `build.sh` compiles `oracle.cpp` with the
+  guest's own marshaling C++ and stub streams) writes 17 request structs
+  with the guest's request writers and reads 9 replies with its reply
+  readers; `tests/devices/gfxstream_protocol_vectors.txt` keeps its output,
+  and `tests/devices/gfxstream_protocol.js` checks that the requests decode
+  and encode again byte for byte (presence words as 1) and that the guest
+  reads the replies as they were written. The sources are those of
+  Cuttlefish 15581820's manifest (AOSP's `platform/external/mesa3d` at
+  `d4b6f1eb`, [gfxstream-protocol.md](gfxstream-protocol.md)), not in the
+  repository. gfxstream promises no protocol version, so a new vendor build
+  means generating again and running the oracle again. To regenerate:
+
+  ```sh
+  node tools/gfxstream_protocol_gen.mjs <mesa>/src/gfxstream/guest/vulkan_enc <mesa>/include/vulkan \
+      src/graphics_adapters/virtio_gpu/gfxstream_protocol.js --guest tests/devices/gfxstream_guest_protocol.js
+  tools/gfxstream_oracle/build.sh <mesa>/src/gfxstream <mesa>/include
+  node tests/devices/gfxstream_protocol.js --oracle build/gfxstream-oracle/oracle
+  ```
+
+- **Vulkan model** (`gfxstream_vk.js`): the streams run on Venus's
+  `VulkanModel` (`venus_vk.js`; its handlers take objects with the C names),
+  one model context per gfxstream context, in the device's own model (its
+  host visible heap 112 MiB, as Venus's). The physical device is Venus's
+  (`venus_device_info.js`: Vulkan 1.1), which the guest's driver calls
+  "Virtio-GPU GFXStream (v86 WebGPU)". Every top-level command starts with
+  the process's sequence number (`QUEUE_SUBMIT_WITH_COMMANDS`): a process's
+  commands run in that order whatever ring they come on, a command whose
+  turn has not come answers `AGAIN` (its ring is decoded again once another
+  ring of the context has decoded a command), and the number moves on when
+  the command is done. Handles are the host's (gfxstream's boxed handles):
+  one counter from 0x1000 for all contexts, the generator naming each
+  command's output handles; a context has one physical device handle, and a
+  queue one handle per device, family and index.
+- **`VK_GOOGLE_gfxstream`**: command buffers are recorded in the guest and
+  arrive whole in `vkQueueFlushCommandsGOOGLE` (opcode, size, parameters; no
+  sequence numbers, no handle; `vkBegin/End/ResetCommandBufferAsyncGOOGLE`
+  inside), then `vkQueueSubmitAsyncGOOGLE` without a reply.
+  `vkCreateImage/BufferWithRequirementsGOOGLE`, `vkQueueSubmitAsync(2)GOOGLE`,
+  `vkQueueWaitIdleAsyncGOOGLE` and `vkFreeMemorySyncGOOGLE` are the model's
+  commands; `vkQueueHostSyncGOOGLE` and `vkCommandBufferHostSyncGOOGLE` keep
+  an encoder's order by their sequence numbers (a queue's waits for the one
+  before it 5 s at most, as gfxstream's host; a command buffer's, inside a
+  flush, does not wait); descriptor update templates and
+  `vkUpdateDescriptorSetWithTemplateSized(2)GOOGLE` become descriptor writes
+  in the host's linearized order; `vkGetLinearImageLayout(2)GOOGLE` answers
+  offset 0 and alignment 1 (the model's linear images); `vkTraceAsyncGOOGLE`
+  and `vkGetSemaphoreGOOGLE` do nothing; `vkMapMemoryIntoAddressSpaceGOOGLE`
+  is refused (the goldfish address space; deferred mapping instead). KHR and
+  EXT aliases run as their core commands. Host visible memory: the guest's
+  `vkAllocateMemory` names a blob id (`VkCreateBlobGOOGLE`); after
+  `vkGetBlobGOOGLE` it makes a `HOST3D` blob of that id, and the memory is
+  exported into BAR4 as Venus's (G-33). Device extensions are the model's
+  and `VK_KHR_external_memory_fd` (G-62).
+- **Android's buffers and renderControl** (G3): minigbm's buffers are
+  virtio-gpu resources (`RESOURCE_CREATE_3D`, GX surfaces), so a colour
+  buffer is the resource itself. An image with `VkNativeBufferANDROID` (the
+  resource id in its handle) in `vkCreateImage`'s chain or in
+  `VkBindImageMemoryInfo`'s (`bind_native`), and memory imported with
+  `VkImportColorBufferGOOGLE` or `VkImportBufferGOOGLE`, become the model's
+  resource imports (`VkImportMemoryResourceInfoMESA`): the image is the
+  resource's GX texture (`VX.TEXTURE_IMPORT`), as Venus's gralloc images
+  (G-63). The official mode as v64 boots it composes on the client
+  (SurfaceFlinger with ANGLE; the ranchu HWC flips through KMS) and sends no
+  renderControl: no rc command is decoded. What its guest library needs is
+  the process pipe: a pipe resource (`RESOURCE_CREATE_3D` of `PIPE_BUFFER`
+  bound `VIRGL_BIND_CUSTOM`, the guest's `VirtioGpuPipeStream`) carried by
+  `TRANSFER_TO_HOST_3D` and `TRANSFER_FROM_HOST_3D`, whose first bytes name
+  the service; `pipe:GLProcessPipe` answers the confirmation with the
+  process's unique id.
+- **Display** (G4, 0e01b951): the scanout is a colour buffer. With the
+  graphics proxy's compositor on the page, the renderer
+  (`svga_renderer.js`) is made on the compositor's device with a layer of
+  it and answers the device's `hello` with `caps`. The device then sends
+  GX's `SURFACE_PRESENT` for a 3D scanout's flushes (the whole scanout
+  first, then each flushed rectangle; `direct_scanout` in
+  `virtio_gpu_device.js`, `present_surface` in `virgl.js`), and the renderer
+  copies the rectangle into the layer on the GPU (`copyTextureToTexture`):
+  no readback. With the cursor shown, a second display on, or a renderer
+  that cannot (node, no compositor), the device reads back as before and
+  the layer goes; `SET_SCANOUT` 0 and a reset take it away too (G-31).
+  Venus's 3D scanouts take the same path. The layer is placed in the
+  screen's pixels, so the screen must have the scanout's size: a new
+  layout (the displays' sizes) goes to the display at the next retrace
+  (`on_vblank`), not only with a render, which the page asks for only once
+  its screen is graphical. Without VGA (the ARM machines) the screen starts
+  as text and nothing else switched it: until 2026-10-25 the page stayed a
+  720x400 text screen, with the renderer's 1100x760 picture clipped to its
+  top left corner (and a 2D scanout never shown at all) unless something
+  asked for a frame (the node harness's screenshots do).
+- **Snapshots** (G6, d78b3747): the device state keeps gfxstream's blobs and
+  state where Venus's go (state version 3). For each context: its rings
+  (what their streams had not decoded, from the command a ring waited in:
+  gfxstream's waits, on queue and device idles, fences, semaphores and query
+  results, can be decoded again), the `RESOURCE_CREATE_3D` templates, the
+  sync id, and the Vulkan state saved as Venus's (`venus_state.js`: the
+  objects, and the context's tables of blobs, queues, templates, host sync
+  order and gralloc images); the model makes the renderer's objects again.
+  Process pipes are saved too (a process keeps its own open). Before a save
+  the rings run until no command waits and the control requests are
+  answered (5 s at most); a submission whose sync commands still wait is
+  saved as those commands and submitted again after the restore. A restored
+  ring with input is decoded again by the device's timer, or once another
+  ring of its context has decoded a command.
+- **Results** (2026-10-24, [aarch64.md](aarch64.md)): the official
+  Cuttlefish image (15581820, its disk unchanged) passes A9's scenario on
+  v86 with 4 vCPU workers (`A64_ANDROID_GPU=gfxstream
+  A64_ANDROID_BOOTLOADER=1 node tests/a64/android_boot.mjs`):
+  `boot_completed` after 1186 s (Venus: 1313 s); the official GSI (BP4A)
+  over that vendor after 991 s (2026-10-25); both with the GLES line
+  `ANGLE (Mesa, Vulkan 1.1.0 (Virtio-GPU GFXStream (v86 WebGPU)),
+  gfxstream-24.2.0), OpenGL ES 3.0.0`; A10's scenario after a restore,
+  dEQP's GLES3 sample with Venus's counts and failures, dEQP-VK's API smoke
+  tests, and `vkprobe` and `vkahb` in the unchanged image (2026-10-25). The
+  Vulkan commands it sends from its first context to the desktop, with their
+  counts, are listed in gfxstream-protocol.md.
+- **Debugging** (`tests/a64/android_boot.mjs`, with the sources):
+  `A64_ANDROID_GFXSTREAM_TRACE=1` writes each process's Vulkan commands (not
+  a command buffer's `vkCmd*`) with their results, and the errors when they
+  change, into the run's `gfxstream-trace.txt`. `A64_ANDROID_GPU_DEBUG=1`
+  prints every 30 s each context's rings (W waiting, B after another ring's
+  command, - idle), the sync commands (given, waited, done), the execbuffer
+  commands by context, the fences answered by lane and the first failed
+  command, takes a screenshot every tenth line, and writes the first
+  commands that did not decode as `gfxstream-undecoded-<n>-<command>.bin`.
+- **Traps** (2026-10-24):
+  - A sync command reads its own words. `CREATE_QSRI_EXPORT_VK` has two,
+    and reading four after every sync opcode threw at the end of an
+    execbuffer: the `SUBMIT_3D` was never answered, the boot animation's
+    release fence never signalled, and the first frame was the last (the
+    next swapchain image's `DRM_IOCTL_VIRTGPU_WAIT` waited for ever;
+    4ca491d1). Since then the device answers a control command it fails on
+    with an error (`stats.failed_command`) instead of dropping it.
+  - A Vulkan command that does not decode is dropped without its reply, and
+    the guest's thread waits for ever (in A9's scenario SystemUI's render
+    thread, NotificationShade's ANR, the tap on Gallery lost). The first
+    four payloads are kept (`stats.undecoded`) for the harness (3581771e).
+  - The generated code divides as C does. `(rasterizationSamples + 31) /
+    32` as JavaScript's division gave 1.09375 words of sample mask for 4
+    samples, and the reader went past the command's end: that was the
+    undecoded `vkCreateGraphicsPipelines` above (cbdf984c). Divisions are
+    truncated; the captured command
+    (`tests/devices/gfxstream_create_graphics_pipelines.hex`) is a test.
+  - `VkClearColorValue` is decoded as the union's bits, which the model
+    reads as uint32 (Venus's decoder gives them so). Read as its float32
+    member, every clear was 0, 0, 0, 0, and vkahb read zeros (f060d136).
+  - Output arrays of structs are decoded whole: the generator once wrote a
+    present array's default for the reply's reads after the request had
+    decoded it, so `vkEnumerateDeviceExtensionProperties` got an empty
+    array; and the count the guest asked for is taken before the model
+    answers into its array, otherwise the answer is `VK_INCOMPLETE` and the
+    guest's driver gives up on the physical device (fc4ed025).
+  - Android's libvulkan creates swapchain images plain and binds them with
+    `VkNativeBufferANDROID` in `VkBindImageMemoryInfo`'s chain and no
+    memory. With only `vkCreateImage`'s form handled, the boot animation
+    drew into textures of its own and the display stayed black (fb30efa9).
+  - Every guest thread that calls Vulkan has its own ring, a MiB of host
+    visible memory, as long as the thread lives (system_server's binder
+    threads uploading hardware bitmaps, each app's render, ANGLE cleanup
+    and HWUI task threads). With Venus's 128 MiB, 20 minutes into A10's
+    monkey the guest's kernel had no room left
+    (`DRM_VIRTGPU_RESOURCE_CREATE_BLOB failed with No space left on
+    device`), the driver logged "Failed to create virtgpu
+    AddressSpaceStream", and the thread's first Vulkan call dereferenced
+    the missing connection (`GfxStreamConnectionManager::getEncoder` on
+    null): apps and then system_server died (2026-10-25). The level has
+    the reference's 256 MiB since; on ARM the core reserves it after RAM
+    (the plugin's `device_memory_size`). `A64_ANDROID_GPU_DEBUG=1` shows
+    what is mapped (`hostmem=<MiB>/<MiB> in <blobs>`).
 
 ## GX
 
@@ -1099,7 +1380,8 @@ plugins](#adapter-plugins)). Then:
   picked the same level and the same number of displays (pin them with
   `graphics_adapter_test: { level, scanouts }`), otherwise the restore fails.
   So a snapshot taken at the 3D default does not restore on a page without a
-  renderer, and a `venus` snapshot needs a machine pinned to `venus`.
+  renderer, and a `venus` snapshot needs a machine pinned to `venus` (a
+  `gfxstream` one to `gfxstream`).
 
 Each device reads every older version of its own state (SVGA 1–6, virtio-gpu
 1–3).
@@ -1144,6 +1426,8 @@ Each device reads every older version of its own state (SVGA 1–6, virtio-gpu
   blobs first; each mapped blob is saved with its flags, its offset in BAR4 and
   the mapping's bytes.
 - **Venus contexts**: see [Venus (Vulkan)](#venus-vulkan).
+- **gfxstream contexts** (rings, process pipes, Vulkan objects): see
+  [gfxstream](#gfxstream).
 
 ## Sources and generated code
 
@@ -1176,9 +1460,13 @@ whole; after `vmware-svga/`, rerun its generators.
 - The guest drivers are not in the repository: VMware Tools 13.1.5 (x64) and
   virtio-win 0.1.240 are downloaded by the user
   ([windows-nt.md](windows-nt.md#54-windows-81-x64-with-vmware-svga-ii-or-virtio-gpu)).
+- gfxstream's guest sources (AOSP's mesa3d at the revision of Cuttlefish
+  15581820's manifest, [gfxstream-protocol.md](gfxstream-protocol.md)) are
+  needed only to generate `gfxstream_protocol.js` and build its oracle; they
+  are not in the repository either.
 
-**Generated code.** SVGA's numbers and Venus's wire format are generated, not
-copied. Generated files say so in their first line and are not edited by
+**Generated code.** SVGA's numbers and Venus's and gfxstream's wire formats
+are generated, not copied. Generated files say so in their first line and are not edited by
 hand.
 
 | Generator | Writes | From |
@@ -1187,6 +1475,7 @@ hand.
 | `tools/gen_svga_formats.js` | `src/graphics_adapters/vmware_svga/svga_formats.js`: block layout of each `SVGA3dSurfaceFormat` | `svga3d_surfacedefs.h` and `svga_constants.js` |
 | `tools/svga_gx_formats.mjs` | GX's format table, put into `libv86-webgpu.js` as `V86SVGADXFormats` by `make glbridge` | `svga_dx_formats.js`, `svga_formats.js` |
 | `tools/venus_protocol_gen.mjs` | `src/graphics_adapters/virtio_gpu/venus_protocol.js`, and with `--guest` `tests/devices/venus_guest_protocol.js` ([Venus](#venus-vulkan)) | Mesa's `src/virtio/venus-protocol` (a Mesa checkout, not in the repository) and `vulkan_core.h` |
+| `tools/gfxstream_protocol_gen.mjs` | `src/graphics_adapters/virtio_gpu/gfxstream_protocol.js`, and with `--guest` `tests/devices/gfxstream_guest_protocol.js` ([gfxstream](#gfxstream)) | the pinned guest's `src/gfxstream/guest/vulkan_enc` and `include/vulkan` (AOSP's mesa3d, not in the repository) |
 
 `tools/build_glbridge.mjs` (`make glbridge`) also embeds Venus's format table
 (`venus_device_info.js`) as `V86VenusFormats` and fails when `vx_executor.js`'s
@@ -1204,7 +1493,7 @@ virtio-gpu numbers are written by hand from `third_party/virgl` and
 | `src/graphics_adapters/` | `machine.js` (`register_graphics_adapter`, `GraphicsMachine`), `vga_core.js` (VGA, Bochs VBE, the frame buffer), `renderer_protocol.js` (GX and VX opcodes, `GXWriter`, the response region) |
 | `bochs_vga/` | `plugin.js`: the VGA core alone |
 | `vmware_svga/` | `svga_device.js` (registers, FIFO, command buffers, IRQ, levels, snapshots), `svga_gmr.js` (GMRs), `svga_gb.js` (MOBs, object tables), `svga_screens.js` (Screen Objects), `svga_cursor.js`, `svga_video.js` (video overlay), `svga3d.js` (legacy and GB 3D, presents), `svga3d_d9wg.js` (D9WG writer), `svga3d_tables.js` (SVGA3D in D3D9 terms, devcaps), `svga3d_dx.js` (DX contexts to GX), `svga_dx_formats.js` (formats and their devcaps), `svga_constants.js` and `svga_formats.js` (generated) |
-| `virtio_gpu/` | `virtio_gpu_device.js` (virtio-gpu, 2D, blobs, host visible memory, levels, snapshots), `edid.js`, `virgl.js` (3D resources, transfers, batches), `virgl_context.js` (virgl commands to SVGA DX), `virgl_caps.js` (capsets, formats), `tgsi.js` and `tgsi_vgpu10.js` (TGSI to VGPU10), `venus.js` (Venus transport), `venus_protocol.js` (generated), `venus_vk.js` with `venus_vk_resources.js`, `venus_vk_commands.js` and `venus_vk_pipeline.js` (the Vulkan model), `venus_device_info.js`, `venus_state.js` (snapshots) |
+| `virtio_gpu/` | `virtio_gpu_device.js` (virtio-gpu, 2D, blobs, host visible memory, levels, snapshots), `edid.js`, `virgl.js` (3D resources, transfers, batches), `virgl_context.js` (virgl commands to SVGA DX), `virgl_caps.js` (capsets, formats), `tgsi.js` and `tgsi_vgpu10.js` (TGSI to VGPU10), `venus.js` (Venus transport), `venus_protocol.js` (generated), `venus_vk.js` with `venus_vk_resources.js`, `venus_vk_commands.js` and `venus_vk_pipeline.js` (the Vulkan model), `venus_device_info.js`, `venus_state.js` (snapshots), `gfxstream.js` (gfxstream's capsets, ASG rings, execbuffer and sync commands, the process pipe, snapshots), `gfxstream_vk.js` (gfxstream's Vulkan on the model), `gfxstream_protocol.js` (generated) |
 | Renderer, `src/browser/glbridge/` | `svga_renderer.js`, `gx/gx_executor.js`, `gx/tessellator.js` (reference), `gx/tessellator_wgsl.js`, `shader_ir/dxbc_frontend.js`, `shader_ir/wgsl_emitter.js`, `vx/vx_executor.js`, `vx/naga/`; from the D3D9 proxy: `webgpu_host.js` and the D3D9 executor (`d3d9-webgpu/`) |
 | Built | `build/v86-bochs-vga.js`, `build/v86-vmware-svga.js`, `build/v86-virtio-gpu.js` (`make graphics-adapters`; the virtio-gpu plugin also contains `svga_cursor.js`, `svga_constants.js` and `svga_dx_formats.js`); `build/glbridge/libv86-webgpu.js` and `build/glbridge/vx_naga.wasm` (`make glbridge`) |
 
@@ -1218,14 +1507,17 @@ so Windows runs serve as acceptance tests.
 | Layer | Where | Run by |
 | --- | --- | --- |
 | Plugin framework: option checks (`graphics_adapter` required, `vram_size` a power of two), a plugin loaded only when named (a missing file is reported with its path), `"none"`, snapshots naming their adapter and refusing another, snapshots from before the plugins, the VGA BIOS's PCI IDs | `tests/devices/graphics_adapter.js` | `make devices-test` |
-| Device units: registers, FIFO, GMR/MOB, command buffers, video overlay, backdoor RPCI, virtqueues, EDID, blobs, host visible memory, the Venus transport (with sync files and a snapshot), snapshots | `tests/devices/vmware_svga*.js`, `tests/devices/virtio_gpu*.js`, `tests/devices/vmware_backdoor.js`, `tests/devices/mmio_ram.js` | `make devices-test` |
+| Device units: registers, FIFO, GMR/MOB, command buffers, video overlay, backdoor RPCI, virtqueues, EDID, blobs, host visible memory, the Venus transport (with sync files and a snapshot), the gfxstream transport (capsets, ASG rings, PING, waiting decoders, the fences of each ring, the process pipe: `virtio_gpu_gfxstream.js`) and its Vulkan streams played with the guest's encoder (two rings in sequence across a snapshot: `virtio_gpu_gfxstream_vk.js`), the choice of scanouts without readbacks (`virtio_gpu_present.js`), snapshots | `tests/devices/vmware_svga*.js`, `tests/devices/virtio_gpu*.js`, `tests/devices/vmware_backdoor.js`, `tests/devices/mmio_ram.js` | `make devices-test` |
 | Venus wire format, against Mesa's C | `tests/devices/venus_protocol.js` | `make devices-test` |
+| gfxstream wire format, against the guest's C++ (and the captured `vkCreateGraphicsPipelines`) | `tests/devices/gfxstream_protocol.js` | `make devices-test` |
+| gfxstream on a real renderer: vkahb's steps (an AHB's and a swapchain image cleared on the GPU, read back with `TRANSFER_FROM_HOST_3D`), a snapshot | `tests/devices/virtio_gpu_gfxstream_render.js` (headless Chrome through `tests/x64/gpu_remote_renderer.mjs`; shares `tests/devices/gfxstream_guest_driver.js` with `virtio_gpu_gfxstream_vk.js`) | `make a64-gpu-guest-tests`, or on its own |
 | virgl shaders: TGSI to VGPU10 to WGSL | `tests/devices/virgl_tgsi.js` on the corpus `tests/gpu/shaders/tgsi/` | `make devices-test` |
 | VGPU10 decoding and WGSL (up to SM5); the tessellator's JavaScript port | `tests/glbridge/dxbc_wgsl_test.js`, `tests/glbridge/tessellator_test.js` | `make test-glbridge` |
-| The SVGA renderer and GX on a real GPU | `tests/glbridge/svga_*_browser_test.html`, `tests/glbridge/tessellator_browser_test.html` | `make display-browser-tests` |
+| The SVGA renderer and GX on a real GPU; a virtio-gpu 3D scanout through the compositor | `tests/glbridge/svga_*_browser_test.html`, `tests/glbridge/tessellator_browser_test.html`, `tests/glbridge/virtio_gpu_present_browser_test.html` | `make display-browser-tests` |
 | The renderer channel across a CPU worker | `tests/glbridge/cpu_worker_svga_browser_test.html` | `make cpu-worker-tests` |
 | VX on WebGPU | `tests/glbridge/vx_transfer_browser_test.html` | the browser runner (no make target) |
 | Linux guests | `tests/x64/linux_gpu.mjs` | by hand |
+| Android 16 on gfxstream (the official image, A9's scenario) | `tests/a64/android_boot.mjs` with `A64_ANDROID_GPU=gfxstream A64_ANDROID_BOOTLOADER=1` | by hand |
 | Windows 8.1 guest | `tests/x64/windows_boot.mjs`, `tools/windows/` | by hand |
 
 CI (`.github/workflows/ci.yml`) runs `make devices-test` and
@@ -1287,6 +1579,11 @@ through a small guest program) and checks the pixels it reads back.
 - **VX**: `vx_transfer_browser_test.html` runs VX batches through the page's
   renderer: memory writes, copies, fills and updates, buffer-image copies of
   WebGPU's pitch and of others, clears, blits, resolves and readbacks.
+- **Scanout without readbacks**: `virtio_gpu_present_browser_test.html` runs
+  virtio-gpu (at `virgl43`) with the graphics proxy: a 3D resource filled
+  from guest memory is the scanout, the renderer copies its flushes into the
+  compositor's layer on the GPU and the screen shows it with no readback;
+  `SET_SCANOUT` 0 takes it away.
 
 ### Linux guests
 
@@ -1634,11 +1931,14 @@ them. Smaller gaps are listed in [gpu-deviations.md](gpu-deviations.md#not-done)
     user-mode driver built from Mesa, with a patched virglrenderer on the
     host), was submitted in 2023, never merged, and does not cover Windows
     8.1.
-- **Scanout from the GPU.** Every 3D present is read back into the device's
-  picture (G-31), and the device draws cursors and the SVGA video overlay over
-  that picture. Showing a 3D scanout straight from its GPU texture in the
-  page's compositor, with a separate cursor plane, is not done; it would save
-  the readback per present.
+- **Scanout from the GPU.** VMware SVGA reads every 3D present back into the
+  device's picture (G-31), and the device draws cursors and the SVGA video
+  overlay over that picture. virtio-gpu shows a 3D scanout straight from its
+  GPU texture when the renderer shares the page's compositor (the graphics
+  proxy): the renderer copies each flushed rectangle into a layer of the
+  compositor (GX's SURFACE_PRESENT, the renderer's "caps" to the device's
+  "hello"); with a cursor shown or two displays on it reads back as before
+  (no separate cursor plane).
 - **Levels and the WebGPU adapter.** A level is chosen by whether a renderer
   exists, not by what the WebGPU adapter offers, and GX adapts to a missing
   feature only in a few places ([Architecture](#architecture), WebGPU
@@ -1649,12 +1949,18 @@ them. Smaller gaps are listed in [gpu-deviations.md](gpu-deviations.md#not-done)
     ARM guests need it. It could be added as an interface layer in front of
     SVGA II's command handling.
   - virtio-gpu declares the capsets VIRGL (1), VIRGL2 (2) and, at level
-    `venus`, VENUS (4). GFXSTREAM_VULKAN (3), CROSS_DOMAIN (5) and DRM (6,
-    native contexts) are not declared: they need Android's gfxstream on the
-    host, Wayland passthrough to a host compositor, and a host kernel GPU
-    driver, none of which a browser has. gfxstream's Vulkan side over the
-    same Vulkan model and VX, for unmodified Android images, is planned:
-    [gfxstream-plan.md](gfxstream-plan.md).
+    `venus`, VENUS (4); at level `gfxstream` only GFXSTREAM_VULKAN (3) and
+    GFXSTREAM_COMPOSER (9) ([gfxstream](#gfxstream)). GFXSTREAM_GLES (8),
+    CROSS_DOMAIN (5) and DRM (6, native contexts) are not declared: they
+    need OpenGL ES 1 to 3 on the host (the official images' mode runs
+    ANGLE in the guest instead), Wayland passthrough to a host compositor,
+    and a host kernel GPU driver, none of which a browser has.
+- **gfxstream, not done** (outside the plan, which is complete:
+  [gfxstream-plan.md](gfxstream-plan.md), 2026-10-25):
+  - host composition: renderControl's `rcCompose`, and every rc command
+    but the process pipe; the official mode as v64 boots it composes on the
+    client (G-59);
+  - the capset's `virglSupportedFormats` bitmask, announced empty (G-60).
 - **Not tried in a guest.**
   - VMware's Windows OpenGL ICD, from the same "VMware SVGA 3D" package.
     Windows acceptance covers D3D9 (3DMark06), D3D10/11 (`d3d11cmp.c`,

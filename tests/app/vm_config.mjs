@@ -87,10 +87,19 @@ test("migrate: missing fields get their defaults, the given ones stay", () =>
     assert.deepEqual(with_defaults(config), config, "with_defaults keeps a whole configuration");
 });
 
+test("migrate: version 1's display.vulkan (a boolean) names Venus", () =>
+{
+    const venus = migrate({ format: FORMAT, version: 1, id: "x", display: { adapter: "virtio_gpu", proxy: true, vulkan: true } });
+    assert.equal(venus.version, VERSION);
+    assert.equal(venus.display.vulkan, "venus");
+    assert.equal(migrate({ format: FORMAT, version: 1, id: "y", display: { vulkan: false } }).display.vulkan, "none");
+    assert.equal(migrate({ format: FORMAT, version: 1, id: "z" }).display.vulkan, "none");
+});
+
 /** Every check: a change of a valid configuration and the field it is reported on */
 const RULES = [
     ["format", c => { c.format = "x"; }, "format"],
-    ["version", c => { c.version = 2; }, "version"],
+    ["version", c => { c.version = 1; }, "version"],
     ["no id", c => { c.id = ""; }, "id"],
     ["no name", c => { c.name = "  "; }, "name"],
     ["a long name", c => { c.name = "x".repeat(201); }, "name"],
@@ -153,8 +162,9 @@ const RULES = [
     ["the state's video memory without a state", c => { c.display.vram_mb = null; }, "display.vram_mb"],
     ["the proxy", c => { c.display.proxy = 1; }, "display.proxy"],
     ["Vulkan", c => { c.display.vulkan = 1; }, "display.vulkan"],
-    ["Vulkan on Bochs VGA", c => { c.display.proxy = true; c.display.vulkan = true; }, "display.vulkan"],
-    ["Vulkan without the proxy", c => { c.display.adapter = "virtio_gpu"; c.display.vulkan = true; }, "display.vulkan"],
+    ["Vulkan of another kind", c => { c.display.adapter = "virtio_gpu"; c.display.proxy = true; c.display.vulkan = "virgl"; }, "display.vulkan"],
+    ["Vulkan on Bochs VGA", c => { c.display.proxy = true; c.display.vulkan = "venus"; }, "display.vulkan"],
+    ["Vulkan without the proxy", c => { c.display.adapter = "virtio_gpu"; c.display.vulkan = "gfxstream"; }, "display.vulkan"],
     ["5 displays", c => { c.display.adapter = "virtio_gpu"; c.display.displays = 5; }, "display.displays"],
     ["2 displays on Bochs VGA", c => { c.display.displays = 2; }, "display.displays"],
     ["two network cards", c => { c.network.push(c.network[0]); }, "network"],
@@ -182,6 +192,8 @@ const RULES = [
     ["input devices", c => { Object.assign(c, arm64()); c.virt.input = ["mouse"]; }, "virt.input"],
     ["console ports", c => { Object.assign(c, arm64()); c.virt.console_ports = 31; }, "virt.console_ports"],
     ["vsock", c => { Object.assign(c, arm64()); c.virt.vsock = 1; }, "virt.vsock"],
+    ["a profile on a PC", c => { c.cpu.profile = "v3"; }, "cpu.profile"],
+    ["an unknown profile", c => { Object.assign(c, arm64()); c.cpu.profile = "v9"; }, "cpu.profile"],
     ["a GPU slot without pci", c => { Object.assign(c, arm64()); c.virt.gpu_pci_slot = 2; }, "virt.gpu_pci_slot"],
     ["five virtio cards", c => { Object.assign(c, arm64()); c.network = Array(5).fill(c.network[0]); }, "network"],
     ["two cards served", c => { Object.assign(c, arm64()); c.network = [c.network[0], c.network[0]]; }, "network"],
@@ -189,11 +201,26 @@ const RULES = [
     ["the mouse", c => { c.advanced.mouse_disabled = 0; }, "advanced.mouse_disabled"],
     ["cpuid_level", c => { c.advanced.cpuid_level = 0; }, "advanced.cpuid_level"],
     ["cpuid_level on virt", c => { Object.assign(c, arm64()); c.advanced.cpuid_level = 2; }, "advanced.cpuid_level"],
+    ["Android on a PC", c => { c.android = android(); c.disks = [disk()]; }, "android"],
+    ["Android's device", c => { Object.assign(c, arm64(), { android: android({ device: "pixel" }), disks: [disk()] }); }, "android.device"],
+    ["Android's GPU mode", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "virgl" }), disks: [disk()] }); }, "android.gpu_mode"],
+    ["Android's gfxstream with Venus", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "gfxstream" }), disks: [disk()] });
+        Object.assign(c.display, { proxy: true, vulkan: "venus" }); }, "android.gpu_mode"],
+    ["Android's Venus without Vulkan", c => { Object.assign(c, arm64(), { android: android({ gpu_mode: "venus" }), disks: [disk()] }); }, "android.gpu_mode"],
+    ["Android's vendor ramdisk", c => { Object.assign(c, arm64(), { android: android({ vendor_ramdisk: "eng" }), disks: [disk()] }); }, "android.vendor_ramdisk"],
+    ["Android's debug ramdisk not chosen", c => { Object.assign(c, arm64(), { android: android({ vendor_ramdisk: "debug" }), disks: [disk()] }); }, "android.debug_ramdisk"],
+    ["Android's debug ramdisk's image", c => { Object.assign(c, arm64(), { android: android({ debug_ramdisk: { kind: "url", url: "" } }), disks: [disk()] }); },
+        "android.debug_ramdisk"],
+    ["Android's SELinux", c => { Object.assign(c, arm64(), { android: android({ selinux: "off" }), disks: [disk()] }); }, "android.selinux"],
+    ["Android with a kernel", c => { Object.assign(c, arm64(), { android: android(), disks: [disk()], kernel: kernel({ bzimage: { kind: "url", url: "Image" } }) }); },
+        "kernel"],
+    ["Android with a CD", c => { Object.assign(c, arm64(), { android: android(), disks: [disk()] }); c.cdrom.image = { kind: "url", url: "a.iso" }; }, "cdrom.image"],
 ];
 
 function disk(fields) { return Object.assign({ slot: "hda", image: { kind: "url", url: "a.img" }, disk_option: "read_only", disk_error: "stop" }, fields); }
 function floppy(fields) { return Object.assign({ slot: "fda", image: null, disk_option: "read_only" }, fields); }
 function kernel(fields) { return Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, fields); }
+function android(fields) { return Object.assign({ device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" }, fields); }
 /** The sections of a valid arm64 machine */
 function arm64()
 {
@@ -207,6 +234,14 @@ function arm64()
 }
 
 test("arm64's sections are valid", () => assert.deepEqual(validate_config(new_config(arm64())), []));
+
+test("android: its defaults, a valid Android machine", () =>
+{
+    assert.equal(new_config().android, null);
+    assert.deepEqual(new_config({ android: { gpu_mode: "swiftshader" } }).android,
+        { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" });
+    assert.deepEqual(validate_config(new_config(Object.assign(arm64(), { android: android(), disks: [disk()] }))), []);
+});
 
 test("a problem does not hide the others (only a bad CPU or machine type does)", () =>
 {
@@ -245,7 +280,7 @@ test("config_to_options: the configuration's fields", () =>
     c.cdrom.image = { kind: "browser", path: "v86/disks/cd.img", size: 2048 };
     c.floppies = [floppy({ image: { kind: "empty", size: 1474560 } })];
     c.kernel = kernel({ bzimage: { kind: "url", url: "k.bin", async: false }, cmdline: "quiet" });
-    c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: true, vulkan: true, displays: 2 };
+    c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: true, vulkan: "venus", displays: 2 };
     c.network = [{ device: "virtio", backend: "fetch", relay_url: "https://cors.invalid/", mtu: 9000, mac_address_translation: true }];
     c.sound.device = "none";
     c.serial = [{ port: 0, attach: "terminal" }, { port: 2, attach: "modem" }];
@@ -315,6 +350,11 @@ test("config_to_options: the backends, arm64, a file not chosen yet", () =>
     assert.equal(o.memory_size, 1792 * 1024 * 1024);
     assert.equal(o.extended_memory_size, 256 * 1024 * 1024);
     assert.equal(o.acpi, false);
+    assert.equal(o.a64_profile, undefined, "the library's default profile");
+    assert.deepEqual(check_config(a), []);
+    // (the profile with 32-bit programs: docs/aarch32-plan.md Q7.1)
+    a.cpu.profile = "v3";
+    assert.equal(config_to_options(a, ENV).a64_profile, "v3");
     assert.deepEqual(check_config(a), []);
     const f = new_config();
     f.disks = [disk({ image: { kind: "file", name: "c.img", size: 512, last_modified: 0 } })];

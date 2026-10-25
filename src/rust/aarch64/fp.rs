@@ -17,9 +17,9 @@ use crate::aarch64::state::{cpacr_el1, fpcr, fpsr};
 /// FPCR's bits that take effect: AHP, DN, FZ, RMode (the trap enables are
 /// RAZ/WI, FZ16 is not in v1)
 pub const FPCR_WRITABLE: u32 = 0x07C0_0000;
-const FPCR_AHP: u32 = 1 << 26;
-const FPCR_DN: u32 = 1 << 25;
-const FPCR_FZ: u32 = 1 << 24;
+pub const FPCR_AHP: u32 = 1 << 26;
+pub const FPCR_DN: u32 = 1 << 25;
+pub const FPCR_FZ: u32 = 1 << 24;
 
 // FPSR's cumulative bits
 pub const FPSR_IOC: u32 = 1 << 0;
@@ -36,6 +36,10 @@ pub fn fpcr_write(value: u64) { unsafe { *fpcr = value as u32 & FPCR_WRITABLE } 
 /// CPACR_EL1.FPEN: whether FP and AdvSIMD instructions trap at this EL
 #[inline]
 pub fn check_access() -> Result<(), Exception> {
+    // (cpu_type arm32: FPEXC.EN too)
+    if cpu::a32_only() && !crate::aarch64::a32_system::fp_enabled() {
+        return Err(Exception::Undefined);
+    }
     let fpen = unsafe { *cpacr_el1 } >> 20 & 3;
     let allowed = match fpen {
         0b01 => cpu::el() == 1,
@@ -161,8 +165,10 @@ pub fn is_denormal<T: Format>(v: u64) -> bool { v & T::EXPONENT == 0 && v & T::M
 
 impl Fp {
     /// The current FPCR, SoftFloat set to its rounding mode
-    pub fn new() -> Fp {
-        let fpcr_value = unsafe { *fpcr };
+    pub fn new() -> Fp { Fp::with(unsafe { *fpcr }) }
+    /// An environment of the given FPCR (AArch32's Advanced SIMD runs on
+    /// the standard FPSCR value: AHP as FPSCR's, DN, FZ, round to nearest)
+    pub fn with(fpcr_value: u32) -> Fp {
         unsafe {
             softfloat_roundingMode = rounding_of(fpcr_value >> 22);
             softfloat_exceptionFlags = 0;
@@ -464,6 +470,21 @@ impl Fp {
         };
         self.flags |= self.take_softfloat();
         r
+    }
+
+    /// FPToFixed to a 16-bit integer (AArch32's VCVT to fixed point): the
+    /// 32-bit conversion saturated again, Invalid Operation alone when it
+    /// saturates; the result in the low 16 bits
+    pub fn to_integer16<T: Format>(&mut self, a: u64, signed: bool, fbits: u32, mode: u8) -> u64 {
+        let before = self.flags;
+        let r = self.to_integer::<T>(a, signed, 32, fbits, mode) as u32;
+        let (value, low, high) =
+            if signed { (r as i32 as i64, -0x8000, 0x7FFF) } else { (r as i64, 0, 0xFFFF) };
+        if value < low || value > high {
+            self.flags = before | FPSR_IOC;
+            return (if value < low { low } else { high }) as u64 & 0xFFFF;
+        }
+        value as u64 & 0xFFFF
     }
 
     /// FixedToFP: a signed or unsigned integer (`int_bits` wide) with `fbits` fraction bits

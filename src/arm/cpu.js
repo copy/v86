@@ -16,7 +16,7 @@ import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtDeviceSpace } from "../virt/io.js";
 import {
-    A64_PROFILES, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
+    A64_PROFILES, ARM32_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
     VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
     VIRT_EXTENDED_RAM_BASE, VIRT_EXTENDED_RAM_END,
 } from "../virt/platform.js";
@@ -24,6 +24,11 @@ import { PCI } from "../pci.js";
 import { ExtendedStore } from "../extended_memory.js";
 import { PL011 } from "../virt/pl011.js";
 import { PL031 } from "../virt/pl031.js";
+import { GoldfishFb, GoldfishEvents, GoldfishBattery, GoldfishAudio, GoldfishPipe } from "../virt/goldfish.js";
+import {
+    RANCHU_DISPLAY, RANCHU_GOLDFISH_AUDIO, RANCHU_GOLDFISH_BATTERY, RANCHU_GOLDFISH_EVENTS, RANCHU_GOLDFISH_FB, RANCHU_GOLDFISH_PIPE,
+    RANCHU_LAYOUT_VERSION, RANCHU_RTC, RANCHU_SPI, ranchu_framebuffer,
+} from "../virt/ranchu.js";
 import { load_linux } from "../virt/loader.js";
 import { VirtioMmio } from "../virtio_mmio.js";
 import { VirtioBlk } from "../virtio_blk.js";
@@ -40,14 +45,15 @@ import { ParallelMachine } from "../parallel/machine.js";
 import { COMMAND_RELOAD, COMMAND_RESET } from "../parallel/control.js";
 
 /** The devices in a snapshot's state[4], in this order */
-const DEVICE_ORDER = ["pl011", "pl031"];
+const DEVICE_ORDER = ["pl011", "pl031", "goldfish_fb", "goldfish_events", "goldfish_battery", "goldfish_audio", "goldfish_pipe"];
 
 /** (src/state.js: one buffer holds at most 2 GiB) */
 const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
 
 /**
  * Device memory after RAM, with a display adapter (virtio-gpu's host
- * visible memory, P7.1: at most 128 MiB, Venus's)
+ * visible memory, P7.1: 128 MiB, Venus's; more when the adapter's level
+ * asks for it, its descriptor's device_memory_size: gfxstream's 256 MiB)
  */
 const DEVICE_MEMORY_SIZE = 128 << 20;
 /** Device memory regions start at multiples of this (src/rust/aarch64/bus.rs, a64_device_take_dirty) */
@@ -192,35 +198,47 @@ A64CPU.prototype.imports = function()
 
 A64CPU.prototype.init = function(settings, device_bus)
 {
-    if(check_machine_options(settings).machine_type !== "virt")
+    const machine_type = check_machine_options(settings).machine_type;
+    if(machine_type !== "virt" && machine_type !== "ranchu")
     {
-        throw new Error("The arm64 CPU runs machine_type \"virt\" only");
+        throw new Error("The ARM CPU runs machine_type \"virt\" or \"ranchu\"");
     }
+    /** "virt", or "ranchu": the Android emulator's board (src/virt/ranchu.js) */
+    this.machine_type = machine_type;
+    const ranchu = machine_type === "ranchu";
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
+    // (cpu_type "arm32": AArch32 throughout, docs/aarch32-plan.md part 2)
+    this.cpu_type = settings["cpu_type"] === "arm32" ? "arm32" : "arm64";
     // the CPU profile (docs/arm64-virt-android16-plan.md, "CPU profile"):
     // v2 (v1.1 and FEAT_PAN, the default since 2026-10-20), v1.1 (the 4, 16
-    // and 64 KiB granules, P8.6), or v1 (4 KiB only)
+    // and 64 KiB granules, P8.6), or v1 (4 KiB only); arm32's own
     const profile = settings["a64_profile"] || "v2";
     if(!Object.prototype.hasOwnProperty.call(A64_PROFILES, profile))
     {
         throw new Error("a64_profile: " + Object.keys(A64_PROFILES).map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
     }
-    this.set_profile(A64_PROFILES[profile][0]);
+    this.set_profile(this.cpu_type === "arm32" ? ARM32_PROFILE[0] : A64_PROFILES[profile][0]);
     // the A64 page tier (J2): synchronous publication (tests), the JIT switches by name
     this.ir_sync_publication = settings["ir_sync_publication"] === true;
     set_jit_switches(this.wm.exports, this.wasm_memory, settings["jit_switches"]);
-    // (the GIC's distributor and redistributors: decoded in the core, P4.2)
+    // (the GIC's distributor and redistributors: decoded in the core, P4.2;
+    // ranchu's with a 32-bit kernel a GICv2's distributor and CPU interface)
+    /** whether the GIC is a GICv2 (ranchu with a 32-bit kernel) */
+    this.gic_v2 = ranchu && this.cpu_type === "arm32";
+    this.wm.exports["a64_gic_set_version"]?.(this.gic_v2 ? 2 : 3);
     if(!this.wm.exports["a64_set_cores"](cores)) throw new Error("the GIC's frames overlap a device");
     if(settings.cpu_clock) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
     // The display adapter's plugin descriptor (P7.1: virtio-gpu without VGA); none with graphics_adapter: "none"
     this.graphics_adapter_descriptor = settings.graphics_adapter;
-    this.create_memory(memory_size, this.graphics_adapter_descriptor ? DEVICE_MEMORY_SIZE : 0);
+    const adapter = this.graphics_adapter_descriptor;
+    this.create_memory(memory_size, adapter ? Math.max(DEVICE_MEMORY_SIZE,
+        adapter["device_memory_size"]?.({ "test": settings.graphics_adapter_test }) || 0) : 0);
     this.configure_extended_memory(settings.extended_memory_size || 0, settings.extended_memory_cache);
     this.device_bus = device_bus;
     this.devices = {
         "pl011": new PL011(this, device_bus),
-        "pl031": new PL031(this),
+        "pl031": ranchu ? new PL031(this, RANCHU_RTC, 32 + RANCHU_SPI.rtc) : new PL031(this),
     };
     // The generic PCIe host bridge (P5.6, P5.10): its configuration through
     // the high ECAM, the BARs in its 32- and 64-bit windows (where no BAR
@@ -228,16 +246,21 @@ A64CPU.prototype.init = function(settings, device_bus)
     // functions share (set_shared_gsi_level)
     /** @type {!Map<number, !Set<number>>} the functions asserting each shared SPI, by INTID */
     this.shared_spi_sources = new Map();
-    const pci = new PCI(/** @type {?} */ (this), { generic: true });
-    this.devices["pci"] = pci;
-    this.io.register_mmio(VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE, pci.ecam_handler());
-    // (the windows: around device memory mapped into them, update_windows)
+    // (ranchu: no PCIe host)
     /** @type {!Array<{base: number, size: number, owners: !Array<number>}>} */
-    this.pcie_windows = [
-        { base: VIRT_PCIE_MMIO, size: VIRT_PCIE_MMIO_SIZE, owners: [] },
-        { base: VIRT_PCIE_MMIO_HIGH[1] * 0x100000000 + VIRT_PCIE_MMIO_HIGH[0], size: VIRT_PCIE_MMIO_HIGH_SIZE, owners: [] },
-    ];
-    this.update_windows();
+    this.pcie_windows = [];
+    if(!ranchu)
+    {
+        const pci = new PCI(/** @type {?} */ (this), { generic: true });
+        this.devices["pci"] = pci;
+        this.io.register_mmio(VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE, pci.ecam_handler());
+        // (the windows: around device memory mapped into them, update_windows)
+        this.pcie_windows = [
+            { base: VIRT_PCIE_MMIO, size: VIRT_PCIE_MMIO_SIZE, owners: [] },
+            { base: VIRT_PCIE_MMIO_HIGH[1] * 0x100000000 + VIRT_PCIE_MMIO_HIGH[0], size: VIRT_PCIE_MMIO_HIGH_SIZE, owners: [] },
+        ];
+        this.update_windows();
+    }
     // The virtio-mmio slots (P5.3): a slot without a device reads as the
     // reference's empty one ("virt", version 2, device ID 0, "QEMU"), which
     // Linux skips; devices take the slots from the last one down, in the
@@ -253,7 +276,7 @@ A64CPU.prototype.init = function(settings, device_bus)
         this.virtio_mmio_slots.push(this.io.register_mmio(VIRT_MMIO + n * VIRT_MMIO_SIZE, VIRT_MMIO_SIZE, {
             name: "virtio-mmio",
             read: (offset, width) => this.virtio_mmio[slot] ? this.virtio_mmio[slot].read(offset, width) :
-                width === 4 ? [0x74726976, 2, 0, 0x554D4551][offset >> 2] ?? 0 : 0,
+                width === 4 ? [0x74726976, ranchu ? 1 : 2, 0, 0x554D4551][offset >> 2] ?? 0 : 0,
             write: (offset, width, value) => { this.virtio_mmio[slot]?.write(offset, width, value); },
         }));
     }
@@ -280,7 +303,7 @@ A64CPU.prototype.init = function(settings, device_bus)
         {
             slot = VIRT_MMIO_COUNT - 1 - this.virtio_devices.length;
             // (SPI 16 + slot, as the reference's)
-            const transport = new VirtioMmio(this, slot, 32 + 16 + slot);
+            const transport = new VirtioMmio(this, slot, 32 + 16 + slot, ranchu);
             this.virtio_mmio[slot] = transport;
             device = create(transport, undefined);
         }
@@ -322,9 +345,11 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(settings.virtio_input)
     {
         const kinds = Array.isArray(settings.virtio_input) ? settings.virtio_input : ["keyboard", "tablet"];
+        // (a touch screen without a tablet beside it takes the mouse as a finger: Android's preset has no tablet)
+        const mouse_as_touch = !kinds.includes("tablet");
         for(const kind of kinds)
         {
-            add("virtio-" + kind, (transport, pci_id) => new VirtioInput(this, device_bus, kind, transport, pci_id));
+            add("virtio-" + kind, (transport, pci_id) => new VirtioInput(this, device_bus, kind, transport, pci_id, mouse_as_touch));
         }
     }
     // (P10.7: stream sockets to the guest, its adbd's vsock:5555)
@@ -338,7 +363,7 @@ A64CPU.prototype.init = function(settings, device_bus)
         this.devices.display = new DisplayHub(device_bus, settings.screen);
         const slot = this.virtio_transport === "pci" ? gpu_slot || pci_slot(this.virtio_devices.length) :
             VIRT_MMIO_COUNT - 1 - this.virtio_devices.length;
-        const transport = this.virtio_transport === "pci" ? null : new VirtioMmio(this, slot, 32 + 16 + slot);
+        const transport = this.virtio_transport === "pci" ? null : new VirtioMmio(this, slot, 32 + 16 + slot, ranchu);
         if(transport) this.virtio_mmio[slot] = transport;
         this.graphics_adapter_slot = slot;
         this.devices.graphics_adapter = new GraphicsAdapter(/** @type {?} */ (this), this.graphics_adapter_descriptor, {
@@ -365,6 +390,25 @@ A64CPU.prototype.init = function(settings, device_bus)
             }
         }
     }
+    // The ranchu machine's goldfish devices (src/virt/goldfish.js): the
+    // framebuffer on a display hub of its own, the events, the battery, the
+    // audio output and the pipe with the boot properties
+    if(ranchu)
+    {
+        this.devices.display = new DisplayHub(device_bus, settings.screen);
+        const display = /** @type {{width: number, height: number, dpi: number}} */ (Object.assign({}, RANCHU_DISPLAY, settings.ranchu_display));
+        // (arm32: a simple-framebuffer, src/virt/goldfish.js)
+        /** @type {?{base: number, size: number, width: number, height: number}} */
+        this.ranchu_framebuffer = this.cpu_type === "arm32" ? ranchu_framebuffer(memory_size, display) : null;
+        this.devices["goldfish_fb"] = new GoldfishFb(this, RANCHU_GOLDFISH_FB, 32 + RANCHU_SPI.fb, display,
+            this.ranchu_framebuffer ? this.ranchu_framebuffer.base : 0);
+        this.devices["goldfish_events"] = new GoldfishEvents(this, device_bus, RANCHU_GOLDFISH_EVENTS, 32 + RANCHU_SPI.events);
+        this.devices["goldfish_battery"] = new GoldfishBattery(this, RANCHU_GOLDFISH_BATTERY);
+        this.devices["goldfish_audio"] = new GoldfishAudio(this, RANCHU_GOLDFISH_AUDIO, 32 + RANCHU_SPI.audio);
+        this.devices["goldfish_pipe"] = new GoldfishPipe(this, RANCHU_GOLDFISH_PIPE, 32 + RANCHU_SPI.pipe, Object.assign({
+            "qemu.sf.lcd_density": String(display.dpi), "qemu.hw.mainkeys": "0",
+        }, settings.ranchu_properties));
+    }
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
     /** @type {Object} what the machine boots, loaded again at a reset */
@@ -385,7 +429,15 @@ A64CPU.prototype.init = function(settings, device_bus)
  */
 A64CPU.prototype.boot = function(entry, x0)
 {
-    this.wm.exports["a64_boot"](entry >>> 0, Math.floor(entry / 0x100000000), x0 >>> 0, Math.floor(x0 / 0x100000000));
+    if(this.cpu_type === "arm32")
+    {
+        // (a 32-bit kernel: SVC mode, r0 0, r1 ~0 (a device tree, not a board), r2 the device tree)
+        this.wm.exports["a32_boot"](entry >>> 0, x0 >>> 0);
+    }
+    else
+    {
+        this.wm.exports["a64_boot"](entry >>> 0, Math.floor(entry / 0x100000000), x0 >>> 0, Math.floor(x0 / 0x100000000));
+    }
     this.boot_entry = entry;
     this.boot_x0 = x0;
     this.booted = true;
@@ -612,7 +664,8 @@ A64CPU.prototype.run_hardware_timers = function(acpi, now)
 {
     const display = this.devices.display ? this.devices.display.timer(now) : 100;
     const sound = this.virtio_sound ? this.virtio_sound.timer(now) : 100;
-    return Math.min(100, display, sound, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);
+    const audio = this.devices["goldfish_audio"] ? this.devices["goldfish_audio"].timer(now) : 100;
+    return Math.min(100, display, sound, audio, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);
 };
 
 /**
@@ -1024,10 +1077,12 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[8] = this.virtio_devices.map(({ slot, name, device }) => [slot, name, device]);
     state[9] = this.virtio_transport;
     // the PCIe host (P5.6): its functions' configuration, the shared SPIs' sources
-    state[10] = this.devices["pci"].get_state();
+    state[10] = this.devices["pci"] ? this.devices["pci"].get_state() : null;
     state[11] = Array.from(this.shared_spi_sources, ([intid, sources]) => [intid, Array.from(sources)]);
     // the display adapter (P7.1; nothing with graphics_adapter: "none")
     state[12] = this.devices.graphics_adapter;
+    // (a GICv2's own state: ranchu with arm32)
+    state[13] = this.gic_v2 ? this.machine_state_bytes(2).slice() : null;
     // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
     state[95] = this.clock.get_state();
     // extended RAM's pages (P8.5: its contents are records of the snapshot stream)
@@ -1053,7 +1108,7 @@ A64CPU.prototype.get_state = function(skip_memory = false)
         state[78] = new Uint8Array(bitmap.get_buffer());
     }
     state[99] = null;
-    state[103] = ["virt", VIRT_LAYOUT_VERSION, this.profile];
+    state[103] = [this.machine_type, this.machine_type === "ranchu" ? RANCHU_LAYOUT_VERSION : VIRT_LAYOUT_VERSION, this.profile];
     return state;
 };
 
@@ -1064,7 +1119,7 @@ A64CPU.prototype.get_state = function(skip_memory = false)
  */
 A64CPU.prototype.set_profile = function(name)
 {
-    const entry = Object.values(A64_PROFILES).find(p => p[0] === name);
+    const entry = [...Object.values(A64_PROFILES), ARM32_PROFILE].find(p => p[0] === name);
     dbg_assert(!!entry, "unknown profile " + name);
     this.profile = name;
     this.wm.exports["a64_set_granules"](entry[1]);
@@ -1076,15 +1131,18 @@ A64CPU.prototype.validate_state = function(state)
 {
     const identity = state[103];
     const machine = identity ? identity[0] : "i440fx";
-    if(machine !== "virt")
+    if(machine !== this.machine_type)
     {
-        throw new Error("The snapshot is from a machine with machine_type: \"" + machine + "\", this one has \"virt\"");
+        throw new Error("The snapshot is from a machine with machine_type: \"" + machine + "\", this one has \"" + this.machine_type + "\"");
     }
     // (a snapshot of another profile restores as that profile, set_state)
-    if(identity[1] !== VIRT_LAYOUT_VERSION || !Object.values(A64_PROFILES).some(p => p[0] === identity[2]))
+    // (arm32's and arm64's profiles are of different CPUs)
+    const profiles = this.cpu_type === "arm32" ? [ARM32_PROFILE] : Object.values(A64_PROFILES);
+    const layout = this.machine_type === "ranchu" ? RANCHU_LAYOUT_VERSION : VIRT_LAYOUT_VERSION;
+    if(identity[1] !== layout || !profiles.some(p => p[0] === identity[2]))
     {
-        throw new Error("The snapshot is from virt layout " + identity[1] + " with CPU profile " + identity[2] +
-            "; this machine is layout " + VIRT_LAYOUT_VERSION + ", " + this.profile);
+        throw new Error("The snapshot is from " + machine + " layout " + identity[1] + " with CPU profile " + identity[2] +
+            "; this machine is layout " + layout + ", " + this.profile);
     }
     if(state[0] !== this.memory_size[0])
     {
@@ -1138,7 +1196,8 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
             ", this machine [" + own + "] on " + this.virtio_transport);
     }
     devices.forEach(([, , device_state], i) => this.virtio_devices[i].device.set_state(device_state));
-    this.devices["pci"].set_state(state[10]);
+    if(this.devices["pci"]) this.devices["pci"].set_state(state[10]);
+    if(this.gic_v2 && state[13]) this.machine_state_bytes(2).set(state[13]);
     this.shared_spi_sources = new Map((state[11] || []).map(([intid, sources]) => [intid, new Set(sources)]));
     this.devices.graphics_adapter && this.devices.graphics_adapter.set_state(state[12]);
     this.wm.exports["a64_restored"]();
@@ -1220,15 +1279,16 @@ A64CPU.prototype.get_diagnostics = function()
         return {
             "pc": worker ? "0x" + (new BigUint64Array(block.buffer, block.byteOffset + STATE_OFFSETS.pc, 1)[0]).toString(16) : this.read_pc(),
             "state": power[psci[core]] === "on" ? ["runnable", "wfi", "wfe", "off"][waiting] : power[psci[core]],
-            "el": word(STATE_OFFSETS.pstate) >> 2 & 3,
+            // (AArch32's modes: User is EL0, the others PL1)
+            "el": word(STATE_OFFSETS.pstate) & 0x10 ? +((word(STATE_OFFSETS.pstate) & 0xF) !== 0) : word(STATE_OFFSETS.pstate) >> 2 & 3,
             "retired_instructions": this.retired_instructions(core),
             "halt_count": worker ? this.parallel.core_counters(core).waits :
                 exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
         };
     });
     return {
-        "cpu_type": "arm64",
-        "machine_type": "virt",
+        "cpu_type": this.cpu_type,
+        "machine_type": this.machine_type,
         "active_core": exports["a64_current_core"](),
         "parallel": this.parallel ? Object.assign(this.parallel.status(), { "machine_core": {
             "tlbi_posted": exports["a64_tlb_ring_stat"](0), "dsb_waits": exports["a64_tlb_ring_stat"](1),
@@ -1280,6 +1340,19 @@ A64CPU.prototype.step_stats = function(top = 20)
     const stat = this.wm.exports["a64_step_stat"];
     if(!stat) return null;
     const result = {};
+    // (AArch32's helper calls by instruction word)
+    const helper_word = this.wm.exports["a32_helper_word"];
+    if(helper_word)
+    {
+        const words = [];
+        for(let i = 0; i < 4096; i++)
+        {
+            const count = helper_word(i, true);
+            if(count) words.push({ "word": "0x" + (helper_word(i, false) >>> 0).toString(16).padStart(8, "0"), "count": count });
+        }
+        words.sort((a, b) => b["count"] - a["count"]);
+        result["helped_words"] = words.slice(0, top);
+    }
     ["stepped", "changed_context", "helped"].forEach((name, kind) => {
         const rows = [];
         for(let key = 0; key < 1024; key++)

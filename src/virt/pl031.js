@@ -24,13 +24,16 @@ const ID = [0x31, 0x10, 0x14, 0x00, 0x0D, 0xF0, 0x05, 0xB1];
 /**
  * @constructor
  * @param {Object} cpu the arm64 CPU (src/arm/cpu.js)
+ * @param {number=} base the virt machine's, or the ranchu machine's
+ * @param {number=} intid
  */
-export function PL031(cpu)
+export function PL031(cpu, base = VIRT_RTC, intid = PL031_INTID)
 {
     this.name = "pl031";
     this.cpu = cpu;
+    this.intid = intid;
     this.reset();
-    this.owner = cpu.io.register_mmio(VIRT_RTC, 0x1000, {
+    this.owner = cpu.io.register_mmio(base, 0x1000, {
         read: (offset, width) => this.read(offset),
         write: (offset, width, value) => this.write(offset, Number(value)),
         name: this.name,
@@ -58,7 +61,7 @@ PL031.prototype.count = function()
 
 PL031.prototype.update = function()
 {
-    this.cpu.set_irq(PL031_INTID, (this.is & this.im) !== 0);
+    this.cpu.set_irq(this.intid, (this.is & this.im) !== 0);
 };
 
 PL031.prototype.set_alarm = function()

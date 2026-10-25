@@ -5,13 +5,14 @@
 // configuration (config_to_options, with the old page's rules of
 // src/browser/vm_options.js).
 
-import { CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
+import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
+import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
 import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, MAX_ARRAY_BUFFER_SIZE_MB, DEFAULT_VGA_MEMORY_SIZE,
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
 
 export const FORMAT = "v86-vm";
-export const VERSION = 1;
+export const VERSION = 2;
 
 /**
  * Where an image is (the plan's 镜像来源): a URL (or a disk service's), a
@@ -60,15 +61,17 @@ export const VERSION = 1;
  * @property {string} modified
  * @property {{type: string, acpi: boolean, hpet: boolean, smbus: boolean, pcie_root_ports: number, boot_order: number,
  *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null}} machine
- * @property {{type: string, cores: number, parallel: boolean, jit: boolean}} cpu
+ * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
  * @property {{mb: number}} memory
  * @property {Disk[]} disks
  * @property {{image: Image | null, disk_error: "stop" | "report"}} cdrom
  * @property {Floppy[]} floppies
  * @property {{bzimage: Image | null, initrd: Image | null, cmdline: string | null, multiboot: Image | null, from_filesystem: boolean} | null} kernel
- * @property {{adapter: string, vram_mb: number | null, proxy: boolean, vulkan: boolean, displays: number}} display vram_mb: null
- *     with an initial_state, whose video memory it is; vulkan: virtio-gpu's Vulkan (Venus contexts), drawn by the
- *     graphics proxy's WebGPU renderer
+ * @property {Android | null} android Android booted from its disk: the kernel and initrd from its boot partitions
+ *     (kernel's cmdline, if any, after the device's)
+ * @property {{adapter: string, vram_mb: number | null, proxy: boolean, vulkan: "none" | "venus" | "gfxstream", displays: number}} display
+ *     vram_mb: null with an initial_state, whose video memory it is; vulkan: virtio-gpu's Vulkan, drawn by the graphics
+ *     proxy's WebGPU renderer: Venus contexts, or gfxstream's (its contexts only: Android's official images)
  * @property {Network[]} network one on the PC machines; up to four virtio-net cards on virt (Android's
  *     three), at most one of them with a backend
  * @property {{device: "sb16" | "virtio" | "none"}} sound virtio: virt's virtio-snd
@@ -83,13 +86,53 @@ export const VERSION = 1;
  * @property {{size: number, time: string, digest: string} | null} suspended the suspended state (U5)
  */
 
+/**
+ * Android's bootloader (docs/android-images-plan.md I2): the device
+ * models of src/android/devices.js, its GPU modes (venus: Android's own
+ * Venus driver, as tools/a64_android.mjs puts it in odm, with display.vulkan
+ * "venus"; gfxstream: the image's own drivers, with display.vulkan
+ * "gfxstream"), the vendor ramdisks (debug: Cuttlefish's
+ * vendor_ramdisk-debug.img, a file of its own), SELinux's modes and the
+ * display (device: the device model's, the screen zoomed to the window;
+ * window: a display of the window's size, following it)
+ * @typedef {{device: string, gpu_mode: "swiftshader" | "venus" | "gfxstream", vendor_ramdisk: "release" | "debug",
+ *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive", display: "device" | "window"}} Android
+ */
+/** the device models (src/android/devices.js): Cuttlefish's phone (arm64 on virt), the emulator images (ranchu) */
+export const ANDROID_DEVICES = Object.keys(ANDROID_DEVICE_MODELS);
+export const ANDROID_GPU_MODES = ["swiftshader", "venus", "gfxstream"];
+/** display.vulkan: none, Venus contexts, gfxstream's */
+export const DISPLAY_VULKAN = ["none", "venus", "gfxstream"];
+export const ANDROID_VENDOR_RAMDISKS = ["release", "debug"];
+export const ANDROID_SELINUX = ["enforcing", "permissive"];
+export const ANDROID_DISPLAYS = ["device", "window"];
+/** an android section's defaults
+ * @type {Android} */
+export const ANDROID_DEFAULTS = { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing",
+    display: "device" };
+
+/**
+ * The display an Android machine's virtio-gpu gets: its device model's
+ * (android.display "device"), or null when the display follows the window
+ * @param {VMConfig} config
+ * @return {{width: number, height: number} | null}
+ */
+export function android_display(config)
+{
+    const a = config.android;
+    if(!a || a.display === "window") return null;
+    const model = /** @type {any} */ (ANDROID_DEVICE_MODELS)[a.device];
+    return model && model.display || null;
+}
+
 /** The network backends and the old page's relay_url of each */
 export const NETWORK_BACKENDS = ["none", "inbrowser", "relay", "wisp", "fetch"];
 /** The boot orders the old page offers (index.html's boot_order) */
 export const BOOT_ORDERS = [0, 0x213, 0x123, 0x231, 0x321, 0x312, 0x132];
-/** The sound devices of the PC machines (virt: virtio, none) */
+/** The sound devices of the PC machines (virt: virtio, none; ranchu: none, its goldfish audio is not played) */
 export const SOUND_DEVICES = ["sb16", "none"];
 const VIRT_SOUND_DEVICES = ["virtio", "none"];
+const RANCHU_SOUND_DEVICES = ["none"];
 /** The virt machine's input devices (virtio_input) */
 const VIRT_INPUTS = ["keyboard", "tablet", "multitouch"];
 /** The virt section of a PC machine, and virt's defaults */
@@ -143,13 +186,15 @@ export function with_defaults(config)
     c.modified = c.modified ?? c.created;
     section("machine", { type: DEFAULT_FORM.machine_type, acpi: DEFAULT_FORM.acpi, hpet: false, smbus: false, pcie_root_ports: 0,
         boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null });
-    section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true });
+    // (profile: arm64's a64_profile, null the library's default, v2)
+    section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true, profile: null });
     section("memory", { mb: DEFAULT_MEMORY_SIZE });
     c.disks = Array.isArray(c.disks) ? c.disks.map(d => Object.assign({ disk_option: "read_only", disk_error: "stop" }, d)) : [];
     section("cdrom", { image: null, disk_error: "stop" });
     c.floppies = Array.isArray(c.floppies) ? c.floppies.map(f => Object.assign({ image: null, disk_option: "read_only" }, f)) : [];
     c.kernel = is_object(c.kernel) ? Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, c.kernel) : null;
-    section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: false, displays: 1 });
+    c.android = is_object(c.android) ? Object.assign({}, ANDROID_DEFAULTS, c.android) : null;
+    section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: "none", displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
     section("sound", { device: "sb16" });
     section("virt", Object.assign({}, VIRT_DEFAULTS));
@@ -171,10 +216,19 @@ function default_network()
 }
 
 /**
- * Each version's change to the next (none yet: version 1 is the first)
+ * Each version's change to the next
  * @type {Object<number, function(any): any>}
  */
-const MIGRATIONS = {};
+const MIGRATIONS = {
+    // 2 (2026-10-24, docs/gfxstream-plan.md G5): display.vulkan names the kind, Venus or gfxstream
+    1: config => {
+        if(is_object(config.display) && typeof config.display.vulkan === "boolean")
+        {
+            config = Object.assign({}, config, { display: Object.assign({}, config.display, { vulkan: config.display.vulkan ? "venus" : "none" }) });
+        }
+        return config;
+    },
+};
 
 /**
  * A stored or imported configuration in the current version: older versions
@@ -287,16 +341,24 @@ export function validate_config(config)
     }
 
     const allowed = allowed_options(cpu.type, machine.type);
-    const virt = machine.type === "virt";
+    // (arm: an ARM board, virt or ranchu; virt: the virt machine's own devices)
+    const arm = ARM_MACHINE_TYPES.includes(machine.type);
+    const virt = machine.type === "virt", ranchu = machine.type === "ranchu";
     if(!allowed.machine_types.includes(machine.type))
     {
-        problem("machine.type", cpu.type === "arm64" ? "the arm64 CPU runs on the virt machine" : "the virt machine needs the arm64 CPU");
+        problem("machine.type", arm ? "the " + machine.type + " machine needs an ARM CPU (arm64 or arm32)" :
+            "the " + cpu.type + " CPU runs on " + allowed.machine_types.join(" or "));
         return problems;
     }
 
     int(cpu.cores, "cpu.cores", 1, allowed.max_cores);
     bool(cpu.parallel, "cpu.parallel");
     bool(cpu.jit, "cpu.jit");
+    if(cpu.profile !== null && cpu.profile !== undefined)
+    {
+        if(cpu.type !== "arm64") problem("cpu.profile", "is the arm64 CPU's");
+        else if(!A64_PROFILES.includes(cpu.profile)) problem("cpu.profile", "must be one of " + A64_PROFILES.join(", "));
+    }
 
     int(config.memory.mb, "memory.mb", 16, MAX_MEMORY_SIZE);
     if(config.memory.mb > MAX_HEAP_MEMORY_SIZE && cpu.type === "x86")
@@ -305,7 +367,7 @@ export function validate_config(config)
     }
 
     bool(machine.acpi, "machine.acpi");
-    if(virt && machine.acpi) problem("machine.acpi", allowed.unavailable["acpi"]);
+    if(arm && machine.acpi) problem("machine.acpi", allowed.unavailable["acpi"]);
     if(allowed.acpi === "required" && !machine.acpi) problem("machine.acpi", "the Q35 machine always has ACPI");
     if(allowed.acpi === "with_cores" && cpu.cores > 1 && !machine.acpi) problem("machine.acpi", "more than one core needs ACPI");
     for(const name of ["hpet", "smbus"])
@@ -321,7 +383,7 @@ export function validate_config(config)
     for(const name of ["bios", "vga_bios"])
     {
         if(machine[name] === null) continue;
-        if(virt) problem("machine." + name, allowed.unavailable[name]);
+        if(arm) problem("machine." + name, allowed.unavailable[name]);
         else check_image(machine[name], "machine." + name, problems);
     }
 
@@ -354,7 +416,7 @@ export function validate_config(config)
     config.floppies.forEach((floppy, i) =>
     {
         const path = "floppies." + i;
-        if(virt) problem(path, allowed.unavailable["fda"]);
+        if(arm) problem(path, allowed.unavailable["fda"]);
         if(floppy.slot !== "fda" && floppy.slot !== "fdb") problem(path + ".slot", "must be fda or fdb");
         else if(floppies.has(floppy.slot)) problem(path + ".slot", floppy.slot + " is given twice");
         floppies.add(floppy.slot);
@@ -372,15 +434,42 @@ export function validate_config(config)
         {
             if(config.kernel[name] !== null) check_image(config.kernel[name], "kernel." + name, problems);
         }
-        if(virt && config.kernel.multiboot) problem("kernel.multiboot", allowed.unavailable["multiboot"]);
+        if(arm && config.kernel.multiboot) problem("kernel.multiboot", allowed.unavailable["multiboot"]);
         if(config.kernel.cmdline !== null && typeof config.kernel.cmdline !== "string") problem("kernel.cmdline", "must be text");
         bool(config.kernel.from_filesystem, "kernel.from_filesystem");
+    }
+
+    if(config.android !== null)
+    {
+        const a = config.android;
+        const one_of = (value, list, path) => { if(!list.includes(value)) problem(path, "must be one of " + list.join(", ")); };
+        one_of(a.device, ANDROID_DEVICES, "android.device");
+        const model = ANDROID_DEVICE_MODELS[a.device];
+        if(model && (model.machine !== machine.type || model.cpu !== cpu.type))
+        {
+            problem("android", model.id + " boots on the " + model.machine + " machine with the " + model.cpu + " CPU");
+        }
+        one_of(a.gpu_mode, ANDROID_GPU_MODES, "android.gpu_mode");
+        if(a.gpu_mode === "venus" && config.display.vulkan !== "venus") problem("android.gpu_mode", "Venus needs virtio-gpu's Venus (display.vulkan)");
+        if(a.gpu_mode === "gfxstream" && config.display.vulkan !== "gfxstream") problem("android.gpu_mode", "gfxstream needs virtio-gpu's gfxstream (display.vulkan)");
+        one_of(a.vendor_ramdisk, ANDROID_VENDOR_RAMDISKS, "android.vendor_ramdisk");
+        if(a.vendor_ramdisk === "debug" && a.debug_ramdisk === null) problem("android.debug_ramdisk", "the debug vendor ramdisk (vendor_ramdisk-debug.img) is a file of its own: choose it");
+        if(a.debug_ramdisk !== null) check_image(a.debug_ramdisk, "android.debug_ramdisk", problems);
+        one_of(a.selinux, ANDROID_SELINUX, "android.selinux");
+        one_of(a.display, ANDROID_DISPLAYS, "android.display");
+        if(config.kernel && (config.kernel.bzimage || config.kernel.initrd || config.kernel.multiboot))
+        {
+            problem("kernel", "Android's kernel and initrd come from its disk's boot partitions: leave them out");
+        }
+        // (its disk, the first hard disk, may come later: without it the start says so, src/browser/starter.js)
+        if(config.cdrom.image !== null) problem("cdrom.image", "Android's disk is the first virtio disk: no CD-ROM");
     }
 
     const display = config.display;
     if(!allowed.graphics_adapters.includes(display.adapter))
     {
-        problem("display.adapter", virt ? "the virt machine has no VGA: virtio-gpu or none" : "must be one of " + allowed.graphics_adapters.join(", "));
+        problem("display.adapter", ranchu ? "the ranchu machine has the emulator's framebuffer: none" :
+            virt ? "the virt machine has no VGA: virtio-gpu or none" : "must be one of " + allowed.graphics_adapters.join(", "));
     }
     if(display.vram_mb === null)
     {
@@ -391,9 +480,9 @@ export function validate_config(config)
         problem("display.vram_mb", "must be a power of two from 1 to " + (MAX_VRAM_SIZE >> 20) + " MB");
     }
     bool(display.proxy, "display.proxy");
-    bool(display.vulkan, "display.vulkan");
-    if(display.vulkan === true && display.adapter !== "virtio_gpu") problem("display.vulkan", "only virtio-gpu has Vulkan");
-    else if(display.vulkan === true && display.proxy !== true) problem("display.vulkan", "needs the graphics proxy, whose WebGPU renderer draws it");
+    if(!DISPLAY_VULKAN.includes(display.vulkan)) problem("display.vulkan", "must be one of " + DISPLAY_VULKAN.join(", "));
+    else if(display.vulkan !== "none" && display.adapter !== "virtio_gpu") problem("display.vulkan", "only virtio-gpu has Vulkan");
+    else if(display.vulkan !== "none" && display.proxy !== true) problem("display.vulkan", "needs the graphics proxy, whose WebGPU renderer draws it");
     int(display.displays, "display.displays", 1, 4);
     if(display.displays > 1 && display.adapter !== "virtio_gpu") problem("display.displays", "only virtio-gpu has more than one display");
 
@@ -416,9 +505,10 @@ export function validate_config(config)
         bool(network.mac_address_translation, path + ".mac_address_translation");
     });
 
-    if(!(virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES).includes(config.sound.device))
+    if(!(ranchu ? RANCHU_SOUND_DEVICES : virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES).includes(config.sound.device))
     {
-        problem("sound.device", virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16 or none (virtio-snd is the virt machine's)");
+        problem("sound.device", ranchu ? "the ranchu machine's sound is not played: none" :
+            virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16 or none (virtio-snd is the virt machine's)");
     }
 
     const v = config.virt;
@@ -455,7 +545,7 @@ export function validate_config(config)
         ports.add(serial.port);
         if(!SERIAL_ATTACH.includes(serial.attach)) problem(path + ".attach", "must be none, terminal or modem");
         if(serial.attach === "modem") modems++;
-        if(serial.attach === "modem" && virt) problem(path + ".attach", allowed.unavailable["modem"]);
+        if(serial.attach === "modem" && arm) problem(path + ".attach", allowed.unavailable["modem"]);
     });
     if(modems > 1) problem("serial", "one modem at most");
 
@@ -478,7 +568,7 @@ export function validate_config(config)
         bool(advanced[name], "advanced." + name);
     }
     if(advanced.cpuid_level !== null) int(advanced.cpuid_level, "advanced.cpuid_level", 1, 0x20);
-    if(virt && advanced.cpuid_level !== null) problem("advanced.cpuid_level", allowed.unavailable["cpuid_level"]);
+    if(arm && advanced.cpuid_level !== null) problem("advanced.cpuid_level", allowed.unavailable["cpuid_level"]);
     return problems;
 }
 
@@ -635,6 +725,7 @@ export function config_to_options(config, env)
         settings.cpu_cores = cpu.cores;
         settings.parallel = cpu.parallel;
         settings.cpu_type = cpu.type;
+        if(cpu.type === "arm64" && cpu.profile) settings.a64_profile = cpu.profile;
         settings.machine_type = machine.type;
         if(machine.type === "q35")
         {
@@ -644,7 +735,7 @@ export function config_to_options(config, env)
         }
         if(display.displays > 1) settings.displays = display.displays;
         // (the device's level, chosen at power-on: a state image has its own)
-        if(display.vulkan) settings.virtio_gpu_level = "venus";
+        if(display.vulkan !== "none") settings.virtio_gpu_level = display.vulkan;
         settings.mtu = network ? network.mtu : DEFAULT_MTU;
     }
     settings.relay_url = relay_url_of(network);
@@ -703,6 +794,17 @@ export function config_to_options(config, env)
             options.net_device.count = config.network.length;
             options.net_device.id = served;
         }
+    }
+    // (Android: its bootloader gives the kernel, initrd and command line;
+    // the kernel section's cmdline goes after the device's)
+    if(config.android)
+    {
+        const a = config.android;
+        options.android = { device: a.device, gpu_mode: a.gpu_mode, selinux: a.selinux,
+            vendor_ramdisk: a.vendor_ramdisk === "debug" ? image(a.debug_ramdisk) : undefined };
+        delete options.kernel;
+        delete options.initrd;
+        options.cmdline = config.kernel && config.kernel.cmdline || undefined;
     }
     return options;
 }

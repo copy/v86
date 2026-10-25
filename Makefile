@@ -56,6 +56,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	node tests/app/vm_config.mjs
 	node tests/app/presets.mjs
 	node tests/app/machine_rules.mjs
+	node tests/android/library.mjs
 	./tests/api/disk-options.js
 	./tests/api/sb16-state.js
 	./tests/devices/disk_error.mjs
@@ -144,7 +145,8 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/loader.js \
+	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/ranchu.js virt/goldfish.js virt/loader.js \
+	   android/bytes.js android/gpt.js android/avb.js android/bootimg.js android/bootconfig.js android/devices.js android/boot.js android/bootloader.js android/partition_buffer.js android/cpio.js android/ramdisk_overlay.js \
 	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
@@ -214,6 +216,8 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 		--js src/graphics_adapters/virtio_gpu/venus_vk_resources.js --js src/graphics_adapters/virtio_gpu/venus_vk_commands.js \
 		--js src/graphics_adapters/virtio_gpu/venus_vk_pipeline.js \
 		--js src/graphics_adapters/virtio_gpu/venus_vk.js --js src/graphics_adapters/virtio_gpu/venus_state.js --js src/graphics_adapters/virtio_gpu/venus.js \
+		--js src/graphics_adapters/virtio_gpu/gfxstream_protocol.js --js src/graphics_adapters/virtio_gpu/gfxstream_vk.js \
+		--js src/graphics_adapters/virtio_gpu/gfxstream.js \
 		--js src/graphics_adapters/virtio_gpu/virtio_gpu_device.js \
 		--js src/graphics_adapters/virtio_gpu/plugin.js
 
@@ -438,7 +442,7 @@ run: browser glbridge build/v86.wasm
 
 # The VM manager as a static site in build/pages (tools/pages_dist.mjs, for
 # Cloudflare Pages: .github/workflows/pages.yml, docs/vm-manager.md)
-PAGES_BUILD=build/v86_app.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js build/xterm.js \
+PAGES_BUILD=build/v86_app.js build/android-import-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js build/xterm.js \
 	build/v86.wasm build/v86-fallback.wasm build/v86-parallel.wasm \
 	build/v86-arm64.wasm build/v86-arm64-fallback.wasm build/v86-arm64-parallel.wasm $(GRAPHICS_ADAPTER_PLUGINS)
 .PHONY: pages
@@ -584,8 +588,12 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/vmware_svga_video.js
 	./tests/devices/virtio_gpu.js
 	./tests/devices/virtio_gpu_hostmem.js
+	./tests/devices/virtio_gpu_present.js
 	./tests/devices/virtio_gpu_venus.js
 	./tests/devices/venus_protocol.js
+	./tests/devices/virtio_gpu_gfxstream.js
+	./tests/devices/virtio_gpu_gfxstream_vk.js
+	./tests/devices/gfxstream_protocol.js
 	./tests/devices/virgl_tgsi.js
 	./tests/devices/vmware_backdoor.js
 	./tests/devices/mmio_ram.js
@@ -716,19 +724,26 @@ disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(
 # outside Closure, bundled by esbuild into build/v86_app.js (build/libv86.mjs
 # stays its own file: index.html's import map names it "v86"), checked by tsc
 # against v86.d.ts. The tools are package.json's devDependencies (npm ci).
-APP_FILES=$(shell find src/app -name '*.js') src/browser/vm_options.js src/browser/query_compat.js \
+APP_FILES=$(shell find src/app -name '*.js') $(wildcard src/android/*.js) src/browser/vm_options.js src/browser/query_compat.js \
 	src/machine_options.js src/disk_options.js
 node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
 	npm ci
 	touch node_modules/.bin/esbuild node_modules/.bin/tsc
 
 .PHONY: app app-check
-app: build/v86_app.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
+app: build/v86_app.js build/android-import-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
 
 build/v86_app.js: $(APP_FILES) node_modules/.bin/esbuild
 	mkdir -p build
 	node_modules/.bin/esbuild src/app/main.js --bundle --format=esm --target=es2022 --minify --sourcemap \
 		--external:v86 --outfile=build/v86_app.js --log-level=warning
+
+# the Android importer's worker (src/app/android_import.js starts it): the
+# image library of src/android/ and a browser disk's sync access handle
+build/android-import-worker.js: src/app/android_import_worker.js $(wildcard src/android/*.js) src/image/sha256.js node_modules/.bin/esbuild
+	mkdir -p build
+	node_modules/.bin/esbuild src/app/android_import_worker.js --bundle --format=esm --target=es2022 --minify --sourcemap \
+		--outfile=build/android-import-worker.js --log-level=warning
 
 app-check: node_modules/.bin/tsc
 	node_modules/.bin/tsc -p tsconfig.json
@@ -757,8 +772,10 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
-	for part in freedos linux arm64 dialog; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
+	node tests/android/make_package.mjs
+	for part in freedos linux arm64 dialog android android_gsi android_emulator; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
+	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main worker=0
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=disk service=1
@@ -883,6 +900,7 @@ display-browser-tests: build/cpu-worker.js build/libv86.mjs build/libv86.js buil
 	node tests/glbridge/gl_multipass_browser_runner.js "display_canvas_browser_test.html?worker=1"
 	node tests/glbridge/gl_multipass_browser_runner.js display_text_glyphs_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js display_compositor_browser_test.html
+	node tests/glbridge/gl_multipass_browser_runner.js virtio_gpu_present_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js graphics_vga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_renderer_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_dx_browser_test.html
@@ -1191,6 +1209,7 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/dtb.mjs
 	node tests/a64/linux_loader.mjs
 	node tests/a64/device_io_reset.mjs
+	node tests/a64/virtio_input_touch.mjs
 	node tests/a64/virtio_blk_disk_image.mjs
 	node tests/a64/virtio_blk_disk_error.mjs
 	node tests/a64/virtio_blk_sector_size.mjs
@@ -1247,6 +1266,44 @@ a64-multicore-guest-tests: build/v86-arm64.wasm
 # and MMU oracles with every instruction compiled (A64_JIT=1, threshold 1;
 # A64_MMU=1: the bare-metal runtime turns the MMU on), the FP oracle with
 # a64_relaxed_fma off and at its default; litmus on the page tier)
+# (docs/aarch32-plan.md: profile v3's AArch32 EL0) the instructions against
+# QEMU's cortex-a35 one by one, the EL0 cases (exits, the debug registers),
+# the cases and random programs on the page tier against the interpreter,
+# the same C as A64, A32 and T32 (Q6.4's gate: 32-bit at most twice A64's
+# time), Alpine armv7's
+# programs on the 64-bit kernel against QEMU's output (the packages:
+# tools/alpine_repo.mjs --arch armv7 --set aarch32), interpreted and compiled
+a32-tests: a32-system-tests build/v86-arm64.wasm
+	node tests/a64/aarch32_oracle.mjs
+	for cases in q1 q3 q4; do A64_AARCH32_CASES=$$cases node tests/a64/aarch32_el0.mjs || exit 1; done
+	A64_AARCH32_DRIVER=debug A64_AARCH32_CASES=qdebug node tests/a64/aarch32_el0.mjs
+	node tests/a64/aarch32_page.mjs
+	for seed in 1 2 3; do node tests/a64/aarch32_page_fuzz.mjs --seed $$seed || exit 1; done
+	node tests/a64/aarch32_bench.mjs --scale 0.3
+	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_JIT=1 A64_JIT_SWITCHES=a64_page_aarch32=1 A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_JIT=1 A64_JIT_SWITCHES=a64_page_aarch32=1 A64_PARALLEL=1 A64_CORES=4 node tests/a64/linux_boot.mjs
+
+# cpu_type "arm32" (docs/arm32.md, docs/aarch32-plan.md part 2): PL1 at
+# bare metal against QEMU's cortex-a15, the ranchu machine's devices, Alpine
+# armv7's initramfs stage on 1/2/4 cores with the page tier (against the
+# reference) and its lifecycle, kvm-unit-tests arm
+a32-system-tests: build/v86-arm64.wasm
+	node tests/a32/baremetal.mjs
+	node tests/a32/ranchu_devices.mjs
+	for cores in 1 2 4; do A32_JIT=1 A32_CORES=$$cores node tests/a32/linux_boot.mjs || exit 1; done
+	A32_STAGE=lifecycle A32_JIT=1 A32_CORES=2 node tests/a32/linux_boot.mjs
+	node tests/kvm-unit-tests/arm32.mjs
+
+# the official Android 7.1.1 emulator image (armeabi-v7a-25_r18.zip in
+# build/a32-android/) on ranchu to sys.boot_completed and the home screen,
+# booted directly and from the imported disk (about 15 minutes each)
+a32-android-tests: build/v86-arm64.wasm
+	A32_ANDROID_APP=1 node tests/a32/android_boot.mjs
+	A32_ANDROID_DISK=1 node tests/a32/android_boot.mjs
+
+.PHONY: a32-system-tests a32-android-tests
+
 a64-page-tier-tests: build/v86-arm64.wasm
 	node tests/a64/page_fuzz.mjs
 	node tests/a64/fma.mjs
@@ -1286,6 +1343,7 @@ a64-gpu-guest-tests: build/v86-arm64.wasm glbridge
 	for scenario in drm gl resize input; do GPU_SCENARIO=$$scenario node tests/a64/linux_gpu.mjs || exit 1; done
 	for scenario in gltest virgl kms; do GPU_SCENARIO=$$scenario GPU_LEVEL=virgl43-hostmem GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
 	for scenario in venus vkcube; do GPU_SCENARIO=$$scenario GPU_LEVEL=venus GPU_RENDERER=chrome node tests/a64/linux_gpu.mjs || exit 1; done
+	./tests/devices/virtio_gpu_gfxstream_render.js
 	GPU_SCENARIO=drm GPU_TRANSPORT=mmio node tests/a64/linux_gpu.mjs
 # (P8.2-P8.4: cores in vCPU workers) the litmus tests in all four modes on
 # 2, 4 and 8 cores; the parallel build's page tier against the interpreter
@@ -1366,6 +1424,31 @@ android-reference-tests: android-materials
 	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=cts node tests/a64/android_boot.mjs
 	A64_ANDROID_TARGET=qemu A64_ANDROID_SCENARIO=pagesize A64_ANDROID_PAGE_SIZE=16k node tests/a64/android_boot.mjs
 	for cores in 1 4; do A64_KERNEL=gki A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+# Official Android images (docs/android-images-plan.md, release level
+# R-android-images): the image library's tests, then (long) the layouts
+# the importer makes booted on QEMU (A64_ANDROID_ACCEL, hvf on this Mac:
+# Cuttlefish as built, super shrunk with blank userdata, the BP4A GSI on
+# it), then (long) the official zip and the GSI through the wizard in
+# headless Chrome to boot_completed. The GSI zips are not downloaded here:
+# build/a64-android/dl/gsi/ (the catalog's, tools/android_catalog.mjs).
+ANDROID_GSI=build/a64-android/dl/gsi/aosp_arm64-exp-BP4A.251205.006-14401865-2171cf0e.zip
+A64_ANDROID_ACCEL?=hvf
+.PHONY: android-image-tests android-image-reference-tests android-image-browser-tests
+android-image-tests:
+	node tests/android/library.mjs
+	node tests/android/real_images.mjs
+	node tools/android_catalog.mjs
+android-image-reference-tests: android-materials
+	node tools/a64_android.mjs --release --no-venus --out build/a64-android/out-official
+	node tools/a64_android.mjs --release --no-venus --shrink-super --userdata-mb 4096 --out build/a64-android/out-official-small
+	node tools/a64_android.mjs --release --gsi $(ANDROID_GSI) --shrink-super --userdata-mb 4096 --out build/a64-android/out-gsi-bp4a-small
+	for out in out-official out-official-small; do A64_ANDROID_ACCEL=$(A64_ANDROID_ACCEL) A64_ANDROID_OUT=build/a64-android/$$out node tests/a64/android_boot.mjs || exit 1; done
+	A64_ANDROID_CONSOLE=0 A64_ANDROID_ACCEL=$(A64_ANDROID_ACCEL) A64_ANDROID_OUT=build/a64-android/out-gsi-bp4a-small node tests/a64/android_boot.mjs
+	node tests/android/real_images.mjs
+android-image-browser-tests: app android-materials
+	TIMEOUT_MS=14400000 node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_boot isolated=1 timeout=220
+	TIMEOUT_MS=14400000 node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_boot isolated=1 timeout=220 gsi=$(ANDROID_GSI)
+	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_cancel
 # (A9's scenario on Venus: the guest's driver in the materials, the renderer in a headless Chrome)
 android-guest-tests: android-venus android-materials build/v86-arm64.wasm build/v86-arm64-parallel.wasm glbridge
 	for cores in 1 4; do A64_KERNEL=gki A64_JIT=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done

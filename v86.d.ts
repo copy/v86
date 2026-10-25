@@ -898,7 +898,7 @@ export interface V86Options {
      * snapshot only restores into an emulator of the same machine type. See
      * docs/q35.md.
      *
-     * "virt" is the machine of cpu_type "arm64" (and its default; see
+     * "virt" is the machine of cpu_type "arm64" and "arm32" (and their default; see
      * docs/virt.md): no PC firmware, chipset or VGA. The PC machines' options
      * (bios, vga_bios, fda, fdb, cdrom, bzimage, multiboot, acpi: true, hpet,
      * smbus, pcie_root_ports, qemu_compatible, uart1-3, parallel1, modem,
@@ -906,9 +906,28 @@ export interface V86Options {
      * as are kernel, dtb, virtio_disks, virtio_rng, virtio_input and
      * virtio_transport on the PC machines, and every
      * other combination of cpu_type and machine_type.
-     * @default "i440fx" ("virt" with cpu_type "arm64")
+     *
+     * "ranchu" is the Android Emulator's board, for cpu_type "arm64" and
+     * "arm32" (docs/virt.md, "The ranchu machine"): the virt machine's RAM,
+     * PL011, timer and virtio-mmio slots (the legacy transport), the
+     * emulator's goldfish devices and its framebuffer (graphics_adapter
+     * "none"), a GICv2 with "arm32"; no PCIe.
+     * @default "i440fx" ("virt" with cpu_type "arm64" or "arm32")
      */
-    machine_type?: "i440fx" | "q35" | "virt";
+    machine_type?: "i440fx" | "q35" | "virt" | "ranchu";
+
+    /**
+     * machine_type "ranchu" only: the display (the framebuffer's size in
+     * pixels, the density the boot properties give)
+     * @default { width: 480, height: 800, dpi: 240 }
+     */
+    ranchu_display?: { width: number; height: number; dpi: number };
+
+    /**
+     * machine_type "ranchu" only: boot properties added to the emulator's
+     * (qemu.sf.lcd_density, qemu.hw.mainkeys), which qemu-props sets
+     */
+    ranchu_properties?: { [name: string]: string };
 
     /**
      * machine_type "q35" only: the number of ICH9 PCI Express root ports
@@ -952,9 +971,11 @@ export interface V86Options {
      * @default 1
      */
     cpu_cores?: number;
-    /** Testing option. All device clocks and TSC share this domain; deterministic mode uses the interpreter. */
+    /** Testing option. All device clocks and TSC share this domain; deterministic mode uses the interpreter.
+     * rate (normal mode, at most 1, cooperative cores): the machine's milliseconds per host millisecond, so that the
+     * guest's timeouts get more host time on a slow CPU (its wall clock lags). */
     cpu_clock?: { mode?: "normal" | "deterministic"; instructions_per_ms?: number;
-        wall_epoch_ms?: number; max_host_delta_ms?: number };
+        wall_epoch_ms?: number; max_host_delta_ms?: number; rate?: number };
     /** Testing option: work budget for each CPU scheduling slice. */
     cpu_quantum?: number;
     /** Testing option: seed for reproducible CPU scheduling. */
@@ -966,11 +987,26 @@ export interface V86Options {
      * (experimental) adds long mode, NX, SYSCALL, CMPXCHG16B, ..., needed by
      * 64-bit operating systems such as Windows 8.1 x64 or x86_64 Linux.
      * "arm64" (experimental, in development: docs/aarch64.md) is an Armv8.0-A
-     * CPU on machine_type "virt", with its own core (v86-arm64.wasm).
+     * CPU on machine_type "virt", with its own core (v86-arm64.wasm);
+     * "arm32" (in development: docs/aarch32-plan.md part 2) the same core in
+     * AArch32 throughout, a 32-bit Arm (ARMv7-A, Cortex-A15-like) CPU for
+     * 32-bit kernels on the same machine.
      * Other values fail at startup.
      * @default "x86"
      */
-    cpu_type?: "x86" | "x86_64" | "arm64";
+    cpu_type?: "x86" | "x86_64" | "arm64" | "arm32";
+
+    /**
+     * The arm64 CPU's profile (cpu_type "arm64" only; see
+     * [docs/aarch64.md](https://github.com/speedyHKjournalist/v64/blob/master/docs/aarch64.md),
+     * "CPU profile"): "v2", Armv8.0-A with FEAT_PAN, 64-bit programs only;
+     * "v3", v2 and AArch32 at EL0: a 64-bit kernel with COMPAT runs 32-bit
+     * Arm programs (armhf, armeabi-v7a; docs/aarch32-plan.md); "v1.1" and
+     * "v1" are v2 without FEAT_PAN (v1: the 4 KiB granule only). A restored
+     * snapshot takes its own profile.
+     * @default "v2"
+     */
+    a64_profile?: "v1" | "v1.1" | "v2" | "v3";
 
     /**
      * CPU features beyond the base profile, reported by CPUID: SSSE3, SSE4.1
@@ -1563,6 +1599,11 @@ export class V86 {
      * @param data
      */
     serial0_send(data: string): void;
+    /**
+     * Send text (as UTF-8) or bytes to the first virtio console port (hvc0 on
+     * the virt machine, the kernel's console there)
+     */
+    virtio_console_send(data: string | Uint8Array): void;
 
     /**
      * Send bytes to a serial port (to be received by the emulated PC).

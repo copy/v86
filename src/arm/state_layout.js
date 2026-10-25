@@ -67,6 +67,13 @@ export const STATE_OFFSETS = {
     a64_jac_epoch: 1344,
     a64_jac_base: 1352,
     a64_code_base: 1356,
+    a32_bank: 1360,
+    a32_bank_r8: 1408,
+    a32_spsr: 1448,
+    a32_ttbcr: 1468,
+    a32_dacr: 1472,
+    a32_ifsr: 1476,
+    a32_fpexc: 1480,
 };
 
 /**
@@ -82,6 +89,7 @@ export const CORE_STATE_RANGES = [
     [1208, 1248],
     [1248, 1312],
     [1312, 1320],
+    [1360, 1484],
 ];
 
 /** [offset, size] of the core state that INIT keeps (the rest takes its reset value) */

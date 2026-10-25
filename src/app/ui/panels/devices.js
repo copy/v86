@@ -6,10 +6,16 @@
 import { h } from "../dom.js";
 import { select_field, check_field, number_field, text_field } from "./system.js";
 import { VIRT_INPUTS } from "../../vm_model.js";
+import { DISPLAY_VULKAN } from "../../vm_config.js";
 
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
 const ADAPTER_LABELS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", none: "None (serial console only)" };
+const VULKAN_LABELS = {
+    none: "None",
+    venus: "Venus (through the graphics proxy; Android's initrd-venus.img, Linux's Mesa)",
+    gfxstream: "gfxstream (through the graphics proxy; Android's official images)",
+};
 const NIC_LABELS = { ne2k: "NE2000 (ne2k)", virtio: "virtio-net", none: "None" };
 const BACKEND_LABELS = { none: "Not connected", inbrowser: "A network in the browser", relay: "A relay (WebSocket)", wisp: "A wisp server", fetch: "fetch (HTTP only)" };
 const SOUND_LABELS = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "None" };
@@ -52,8 +58,8 @@ export function display_panel(ctx)
         d.vram_mb === null ? h("p.note", null, "Video memory: the saved state's") :
             select_field("Video memory", sizes, d.vram_mb, value => ctx.set("display.vram_mb", value), v => v + " MB"),
         check_field("Graphics proxy (WebGPU: Direct3D and OpenGL of the guest)", d.proxy, value => ctx.set("display.proxy", value)),
-        check_field("Vulkan (Venus, through the graphics proxy; Android's initrd-venus.img)", d.vulkan, value => ctx.set("display.vulkan", value),
-            d.adapter === "virtio_gpu" ? undefined : "only virtio-gpu has Vulkan"),
+        select_field("Vulkan", DISPLAY_VULKAN, d.vulkan, value => ctx.set("display.vulkan", value), v => VULKAN_LABELS[v] || v,
+            d.adapter === "virtio_gpu" ? {} : { disabled: true, title: "only virtio-gpu has Vulkan" }),
         select_field("Displays", [1, 2, 3, 4], d.displays, value => ctx.set("display.displays", value), String,
             d.adapter === "virtio_gpu" ? {} : { disabled: true, title: "only virtio-gpu has more than one display" }),
     ];
@@ -62,7 +68,7 @@ export function display_panel(ctx)
 /** @param {PanelContext} ctx */
 export function serial_panel(ctx)
 {
-    const virt = ctx.config.machine.type === "virt";
+    const virt = ctx.config.machine.type === "virt" || ctx.config.machine.type === "ranchu";
     const attach = virt ? ["none", "terminal"] : ["none", "terminal", "modem"];
     return [0, 1, 2, 3].map(port =>
     {

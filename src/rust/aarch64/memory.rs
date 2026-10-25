@@ -82,29 +82,32 @@ pub fn translate(
 ) -> Result<u64, Exception> {
     let sctlr = cpu::sctlr();
     let aligned = va & (size as u64 - 1) == 0;
+    let el0 = unprivileged || cpu::el() == 0;
+    // (a watchpoint fires after translation, before the access; the MMU on or off)
+    let watch = |pa: u64| {
+        if access != Access::Fetch && unsafe { crate::aarch64::debug::ANY_WATCHPOINT } {
+            if let Some(exception) =
+                crate::aarch64::debug::check_watchpoint(va, size, access == Access::Write, el0)
+            {
+                return Err(exception);
+            }
+        }
+        Ok(pa)
+    };
     if sctlr & SCTLR_M == 0 {
         // the MMU off: data accesses are to Device memory (always aligned)
         if access != Access::Fetch && !aligned {
             return Err(abort(access, va, FSC_ALIGNMENT, syndrome));
         }
-        return mmu::mmu_off(va).ok_or_else(|| abort(access, va, FSC_ADDRESS_SIZE_L0, syndrome));
+        let pa =
+            mmu::mmu_off(va).ok_or_else(|| abort(access, va, FSC_ADDRESS_SIZE_L0, syndrome))?;
+        return watch(pa);
     }
     if access != Access::Fetch && sctlr & SCTLR_A != 0 && !aligned {
         return Err(abort(access, va, FSC_ALIGNMENT, syndrome));
     }
-    let el0 = unprivileged || cpu::el() == 0;
     match mmu::translate(va, access, el0, size) {
-        Ok(translation) => {
-            // (a watchpoint fires after translation, before the access)
-            if access != Access::Fetch && unsafe { crate::aarch64::debug::ANY_WATCHPOINT } {
-                if let Some(exception) =
-                    crate::aarch64::debug::check_watchpoint(va, size, access == Access::Write, el0)
-                {
-                    return Err(exception);
-                }
-            }
-            Ok(translation.pa)
-        },
+        Ok(translation) => watch(translation.pa),
         Err(fsc) => Err(abort(access, va, fsc, syndrome)),
     }
 }
@@ -112,6 +115,17 @@ pub fn translate(
 /// Whether [va, va + size) crosses into the next page
 #[inline(always)]
 fn crosses_page(va: u64, size: u32) -> bool { (va & 0xFFF) + size as u64 > 0x1000 }
+
+/// An access across a page is unaligned: with the MMU off (Device memory)
+/// or SCTLR_EL1.A it is an alignment fault, before either page translates
+#[inline]
+fn check_split(va: u64, access: Access, syndrome: Syndrome) -> Result<(), Exception> {
+    let sctlr = cpu::sctlr();
+    if sctlr & SCTLR_M == 0 || sctlr & SCTLR_A != 0 {
+        return Err(abort(access, va, FSC_ALIGNMENT, syndrome));
+    }
+    Ok(())
+}
 
 /// Fetch the instruction at `va`: guest memory only (a fetch from a device
 /// is an external abort, without reading it)
@@ -133,6 +147,7 @@ pub fn fetch(va: u64) -> Result<u32, Exception> {
 pub fn read(va: u64, size: u32, unprivileged: bool, syndrome: Syndrome) -> Result<u64, Exception> {
     if crosses_page(va, size) {
         // (an unaligned access across a page: both pages translate first)
+        check_split(va, Access::Read, syndrome)?;
         let first = 0x1000 - (va & 0xFFF) as u32;
         let pa_low = translate(va, first, Access::Read, unprivileged, syndrome)?;
         let pa_high = translate(
@@ -176,6 +191,7 @@ pub fn prepare_write(
     syndrome: Syndrome,
 ) -> Result<Store, Exception> {
     if crosses_page(va, size) {
+        check_split(va, Access::Write, syndrome)?;
         let first = 0x1000 - (va & 0xFFF) as u32;
         let pa_low = translate(va, first, Access::Write, unprivileged, syndrome)?;
         let pa_high = translate(

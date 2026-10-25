@@ -3,13 +3,15 @@
 // The guest CPU and machine combinations of new V86()
 // (docs/arm64-virt-android16-plan.md P1.1, src/machine_options.js):
 // - cpu_type x86 and x86_64 run on machine_type i440fx (their default) and
-//   q35, cpu_type arm64 on virt (its default); every other combination fails
+//   q35, cpu_type arm64 and arm32 on virt (their default) and ranchu (the
+//   Android emulator's board); every other combination fails
 //   in the constructor, and the x86 CPU's init refuses virt again;
 // - an option of the other family is an error, never ignored: the PC
 //   machines' firmware, disks and chipset options on virt, kernel, dtb,
 //   virtio_disks, virtio_rng, virtio_transport and virtio_input on the PC machines;
 // - virt has no VGA (graphics_adapter "none" or "virtio_gpu"), virtio-net
-//   only, and no ACPI.
+//   only, and no ACPI; ranchu has the emulator's framebuffer (graphics_adapter
+//   "none") and no PCIe (virtio_transport "mmio").
 
 import assert from "node:assert/strict";
 import { CPU_TYPES, MACHINE_TYPES, check_machine_options } from "../../src/machine_options.js";
@@ -17,11 +19,11 @@ import { CPU_TYPES, MACHINE_TYPES, check_machine_options } from "../../src/machi
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
-assert.deepEqual(CPU_TYPES, ["x86", "x86_64", "arm64"]);
-assert.deepEqual(MACHINE_TYPES, ["i440fx", "q35", "virt"]);
+assert.deepEqual(CPU_TYPES, ["x86", "x86_64", "arm64", "arm32"]);
+assert.deepEqual(MACHINE_TYPES, ["i440fx", "q35", "virt", "ranchu"]);
 
 // the matrix
-const runs = { x86: ["i440fx", "q35"], x86_64: ["i440fx", "q35"], arm64: ["virt"] };
+const runs = { x86: ["i440fx", "q35"], x86_64: ["i440fx", "q35"], arm64: ["virt", "ranchu"], arm32: ["virt", "ranchu"] };
 for(const cpu_type of CPU_TYPES)
 {
     for(const machine_type of MACHINE_TYPES)
@@ -45,16 +47,25 @@ console.log("PASS the cpu_type and machine_type matrix");
 assert.deepEqual(check_machine_options({}), { cpu_type: "x86", machine_type: "i440fx" });
 assert.deepEqual(check_machine_options({ cpu_type: "x86_64" }), { cpu_type: "x86_64", machine_type: "i440fx" });
 assert.deepEqual(check_machine_options({ cpu_type: "arm64" }), { cpu_type: "arm64", machine_type: "virt" });
-console.log("PASS defaults: i440fx with x86, virt with arm64");
+assert.deepEqual(check_machine_options({ cpu_type: "arm32" }), { cpu_type: "arm32", machine_type: "virt" });
+console.log("PASS defaults: i440fx with x86, virt with arm64 and arm32");
 
 // unknown names
 for(const cpu_type of ["aarch64", "arm", "x86-64", ""])
 {
-    assert.throws(() => check_machine_options({ cpu_type }), /Unknown cpu_type .*supported: "x86", "x86_64", "arm64"/);
+    assert.throws(() => check_machine_options({ cpu_type }), /Unknown cpu_type .*supported: "x86", "x86_64", "arm64", "arm32"/);
 }
-assert.throws(() => check_machine_options({ machine_type: "pc" }), /machine_type must be one of "i440fx", "q35", "virt"/);
+assert.throws(() => check_machine_options({ machine_type: "pc" }), /machine_type must be one of "i440fx", "q35", "virt", "ranchu"/);
 assert.throws(() => check_machine_options({ experimental_x64: true }), /experimental_x64 was replaced/);
 console.log("PASS unknown cpu_type and machine_type");
+
+// the arm64 CPU's profile (docs/aarch32-plan.md Q7.2)
+for(const a64_profile of ["v1", "v1.1", "v2", "v3"]) assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", a64_profile }), a64_profile);
+// (arm32 has its own profile, arm32-v1)
+assert.throws(() => check_machine_options({ cpu_type: "arm32", a64_profile: "v3" }), /a64_profile is an option of cpu_type "arm64"/);
+assert.throws(() => check_machine_options({ cpu_type: "arm64", a64_profile: "v4" }), /a64_profile is one of "v1", "v1.1", "v2", "v3", got "v4"/);
+assert.throws(() => check_machine_options({ cpu_type: "x86_64", a64_profile: "v3" }), /a64_profile is an option of machine_type "virt"/);
+console.log("PASS a64_profile");
 
 // PC options on virt
 const pc_options = {
@@ -107,7 +118,14 @@ for(const transport of ["mmio", "pci"]) assert.doesNotThrow(() => check_machine_
 assert.throws(() => check_machine_options({ cpu_type: "arm64", virtio_transport: "isa" }), /virtio_transport is "mmio" \(the default\) or "pci"/);
 assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", virtio_input: ["keyboard", "tablet", "multitouch"] }));
 assert.throws(() => check_machine_options({ cpu_type: "arm64", virtio_input: ["joystick"] }), /virtio_input is true or a list/);
-console.log("PASS virt's display, network, disks, cores, virtio transport and input devices");
+// (ranchu: the emulator's framebuffer, virtio-mmio only)
+assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm32", machine_type: "ranchu", graphics_adapter: "none", virtio_transport: "mmio" }));
+assert.throws(() => check_machine_options({ cpu_type: "arm32", machine_type: "ranchu", graphics_adapter: "virtio_gpu" }),
+    /"virtio_gpu" is not on machine_type "ranchu"/);
+assert.throws(() => check_machine_options({ cpu_type: "arm64", machine_type: "ranchu", virtio_transport: "pci" }), /no PCIe host/);
+assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm32", machine_type: "ranchu", ranchu_display: { width: 320, height: 480, dpi: 160 } }));
+assert.throws(() => check_machine_options({ cpu_type: "arm32", ranchu_properties: { a: "b" } }), /ranchu_properties is an option of machine_type "ranchu"/);
+console.log("PASS virt's display, network, disks, cores, virtio transport and input devices; ranchu's");
 
 // the constructor checks, before it loads anything
 assert.throws(() => new V86({ graphics_adapter: "bochs_vga", cpu_type: "arm64", autostart: false }), /"bochs_vga" is not on machine_type "virt"/);

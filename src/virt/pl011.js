@@ -136,9 +136,14 @@ PL011.prototype.read_data = function()
     if(this.read_count === this.read_trigger - 1) this.int_level &= ~INT_RX;
     this.rsr = c >> 8;
     this.update();
-    // (the backlog refills the FIFO as it drains)
-    while(this.backlog.length && this.read_count < this.depth() && !(this.cr & CR_LBE)) this.fifo_put(this.backlog.shift());
+    this.refill();
     return c;
+};
+
+/** The backlog into the FIFO, as far as it has room (as it drains, and after the FIFOs are reset) */
+PL011.prototype.refill = function()
+{
+    while(this.backlog.length && this.read_count < this.depth() && !(this.cr & CR_LBE)) this.fifo_put(this.backlog.shift());
 };
 
 PL011.prototype.read = function(offset, width)
@@ -178,10 +183,13 @@ PL011.prototype.write = function(offset, width, value)
         case UARTIBRD: this.ibrd = value & 0xFFFF; break;
         case UARTFBRD: this.fbrd = value & 0x3F; break;
         case UARTLCR_H:
-            // (enabling or disabling the FIFOs empties them)
+            // (enabling or disabling the FIFOs empties them; what the host
+            // held back while the FIFO was full comes in then: a driver that
+            // set FEN would otherwise never see another byte)
             if((this.lcr ^ value) & LCR_FEN) this.reset_fifos();
             this.lcr = value;
             this.read_trigger = 1;
+            this.refill();
             break;
         case UARTCR: this.cr = value; break;
         case UARTIFLS: this.ifl = value; this.read_trigger = 1; break;

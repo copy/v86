@@ -330,8 +330,8 @@ export function start_vcpu_worker()
         const handle = { exports: null };
         try
         {
-            // (the ARM core's workers: P8.2)
-            await (init["cpu_type"] === "arm64" ? run_vcpu_arm : run_vcpu)(init, post, handle);
+            // (the ARM core's workers: P8.2; arm32's too)
+            await (init["cpu_type"] === "arm64" || init["cpu_type"] === "arm32" ? run_vcpu_arm : run_vcpu)(init, post, handle);
         }
         catch(error)
         {

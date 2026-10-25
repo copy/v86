@@ -11,6 +11,10 @@ export function MachineClock(options)
     this.mode = options["mode"] || "normal";
     this.instructions_per_ms = options["instructions_per_ms"] === undefined ? 100000 : options["instructions_per_ms"];
     this.max_host_delta_ms = options["max_host_delta_ms"] === undefined ? 1000 : options["max_host_delta_ms"];
+    // (normal time: guest milliseconds per host millisecond, at most 1; below
+    // 1 the guest's timeouts get more host time, for a CPU much slower than
+    // the guest's software expects, as Bochs's ips; the wall clock lags)
+    this.rate = options["rate"] === undefined ? 1 : options["rate"];
     this.host_now = options["now"] || (() => performance.now());
     this.wall_epoch_ms = options["wall_epoch_ms"] === undefined ?
         (this.mode === "deterministic" ? 946684800000 : Date.now()) : options["wall_epoch_ms"];
@@ -18,6 +22,7 @@ export function MachineClock(options)
     if(this.mode !== "normal" && this.mode !== "deterministic" ||
         !Number.isFinite(this.instructions_per_ms) || this.instructions_per_ms <= 0 ||
         !Number.isFinite(this.max_host_delta_ms) || this.max_host_delta_ms <= 0 ||
+        !Number.isFinite(this.rate) || this.rate <= 0 || this.rate > 1 ||
         !Number.isFinite(this.wall_epoch_ms) || typeof this.host_now !== "function")
     {
         throw new Error("Invalid machine clock configuration");
@@ -73,7 +78,7 @@ MachineClock.prototype.now = function()
                 this.host_pause_count++;
                 this.discarded_host_ms += delta - this.max_host_delta_ms;
             }
-            this.time_ms += Math.min(delta, this.max_host_delta_ms);
+            this.time_ms += Math.min(delta, this.max_host_delta_ms) * this.rate;
         }
     }
     return this.time_ms;
@@ -136,6 +141,17 @@ MachineClock.prototype.advance_to = function(deadline_ms)
         this.time_ms = deadline_ms;
     }
     return this.now();
+};
+
+/**
+ * The host milliseconds until `ms` of the machine's time have passed (the
+ * run loop's waits)
+ * @param {number} ms
+ * @return {number}
+ */
+MachineClock.prototype.to_host_ms = function(ms)
+{
+    return this.mode === "normal" ? ms / this.rate : ms;
 };
 
 MachineClock.prototype.pause = function()

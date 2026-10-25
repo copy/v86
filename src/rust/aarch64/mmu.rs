@@ -18,11 +18,11 @@ use crate::aarch64::tlb::{
 pub use crate::aarch64::memory::Access;
 
 // fault status codes (DFSC/IFSC), plus the level
-const FSC_ADDRESS_SIZE: u32 = 0x00;
-const FSC_TRANSLATION: u32 = 0x04;
-const FSC_ACCESS_FLAG: u32 = 0x08;
-const FSC_PERMISSION: u32 = 0x0C;
-const FSC_EXTERNAL_WALK: u32 = 0x14;
+pub(crate) const FSC_ADDRESS_SIZE: u32 = 0x00;
+pub(crate) const FSC_TRANSLATION: u32 = 0x04;
+pub(crate) const FSC_ACCESS_FLAG: u32 = 0x08;
+pub(crate) const FSC_PERMISSION: u32 = 0x0C;
+pub(crate) const FSC_EXTERNAL_WALK: u32 = 0x14;
 
 /// The granules the profile has: bit 0 4 KiB, 1 16 KiB, 2 64 KiB (v1: 4 KiB only)
 static mut GRANULES: u32 = 1;
@@ -79,9 +79,13 @@ fn granule_of(select: u64) -> u32 {
     }
 }
 
-/// The current ASID: TTBR1_EL1's if TCR_EL1.A1, else TTBR0_EL1's (8 bits unless TCR_EL1.AS)
+/// The current ASID: TTBR1_EL1's if TCR_EL1.A1, else TTBR0_EL1's (8 bits
+/// unless TCR_EL1.AS; AArch32's regime: crate::aarch64::mmu_a32::asid)
 #[inline(always)]
 pub fn current_asid() -> u16 {
+    if cpu::a32_only() {
+        return crate::aarch64::mmu_a32::asid();
+    }
     unsafe {
         let tcr = *tcr_el1;
         let ttbr = if tcr >> 22 & 1 != 0 { *ttbr1_el1 } else { *ttbr0_el1 };
@@ -109,18 +113,18 @@ fn untagged(va: u64) -> u64 {
 }
 
 /// A successful walk: the leaf for one VA
-struct Leaf {
+pub(crate) struct Leaf {
     /// the physical address of the VA
-    pa: u64,
-    level: u32,
-    size_log: u32,
-    flags: u16,
-    attr: u8,
-    sh: u8,
+    pub pa: u64,
+    pub level: u32,
+    pub size_log: u32,
+    pub flags: u16,
+    pub attr: u8,
+    pub sh: u8,
 }
 
 /// Read a translation table descriptor (RAM only: anything else is an external abort on the walk)
-fn descriptor(pa: u64) -> Option<u64> {
+pub(crate) fn descriptor(pa: u64) -> Option<u64> {
     match crate::aarch64::bus::bus().lookup(pa) {
         crate::aarch64::bus::Lookup::Ram { backing, .. } => Some(unsafe {
             crate::parallel::load64(crate::aarch64::bus::MEM8.add(backing as usize))
@@ -142,9 +146,25 @@ fn mask(bits: u32) -> u64 {
     }
 }
 
+/// A 32-bit descriptor (AArch32's short descriptors)
+pub(crate) fn descriptor32(pa: u64) -> Option<u32> {
+    match crate::aarch64::bus::bus().lookup(pa) {
+        crate::aarch64::bus::Lookup::Ram { backing, .. } => Some(unsafe {
+            crate::parallel::load32(crate::aarch64::bus::MEM8.add(backing as usize))
+        }),
+        crate::aarch64::bus::Lookup::Extended { .. } => {
+            Some(unsafe { crate::aarch64::extended::read(pa, 4) } as u32)
+        },
+        _ => None,
+    }
+}
+
 /// The translation table walk of `va` (AArch64.TranslationTableWalk for the
-/// EL1&0 regime): the leaf, or the fault status code
+/// EL1&0 regime; AArch32's with cpu::a32_only): the leaf, or the fault status code
 fn walk(va: u64) -> Result<Leaf, u32> {
+    if cpu::a32_only() {
+        return crate::aarch64::mmu_a32::walk(va);
+    }
     let tcr = unsafe { *tcr_el1 };
     let select = va >> 55 & 1;
     let (tsz, epd) =
@@ -167,8 +187,6 @@ fn walk(va: u64) -> Result<Leaf, u32> {
         return Err(FSC_TRANSLATION);
     }
     let granule = granule_of(select);
-    let stride = granule - 3;
-    let mut level = 4 - (inputsize - 4) / stride;
     // (the output size: TCR_EL1.IPS bounded by PARange, 40 bits)
     let ps = (tcr >> 32 & 7).min(2);
     let outputsize = [32, 36, 40][ps as usize];
@@ -180,6 +198,23 @@ fn walk(va: u64) -> Result<Leaf, u32> {
             *ttbr1_el1
         }
     };
+    walk_tables(va, inputsize, granule, outputsize, ttbr, false)
+}
+
+/// The walk from the table `ttbr` of a VA of `inputsize` bits, its region
+/// chosen (the long descriptors: AArch64's and, `aarch32`, LPAE's, whose
+/// execution needs read permission at its level, and PL1's no permission
+/// to write at PL0 unless SCTLR.UWXN)
+pub(crate) fn walk_tables(
+    va: u64,
+    inputsize: u32,
+    granule: u32,
+    outputsize: u32,
+    ttbr: u64,
+    aarch32: bool,
+) -> Result<Leaf, u32> {
+    let stride = granule - 3;
+    let mut level = 4 - (inputsize - 4) / stride;
     let mut descaddr = ttbr & mask(48);
     if descaddr >> outputsize != 0 {
         return Err(FSC_ADDRESS_SIZE);
@@ -241,11 +276,23 @@ fn walk(va: u64) -> Result<Leaf, u32> {
         if el0_write {
             flags |= EL0_WRITE;
         }
-        if !uxn && !(wxn && el0_write) {
-            flags |= EL0_EXEC;
+        if aarch32 {
+            // (VMSAv8-32: XN for both, PXN; WXN; UWXN, SCTLR bit 20)
+            let uwxn = unsafe { *sctlr_el1 } >> 20 & 1 != 0;
+            if el0_read && !uxn && !(wxn && el0_write) {
+                flags |= EL0_EXEC;
+            }
+            if !uxn && !pxn && !(wxn && el1_write) && !(uwxn && el0_write) {
+                flags |= EL1_EXEC;
+            }
         }
-        if !(pxn || el0_write) && !(wxn && el1_write) {
-            flags |= EL1_EXEC;
+        else {
+            if !uxn && !(wxn && el0_write) {
+                flags |= EL0_EXEC;
+            }
+            if !(pxn || el0_write) && !(wxn && el1_write) {
+                flags |= EL1_EXEC;
+            }
         }
         if d >> 11 & 1 == 0 {
             flags |= GLOBAL;
@@ -277,6 +324,9 @@ fn entry_of(va: u64) -> Result<Entry, u32> {
     let page = untagged(va) >> 12;
     let asid = current_asid();
     if let Some(entry) = tlb::lookup(page, asid) {
+        if cpu::a32_only() {
+            return crate::aarch64::mmu_a32::with_domain(entry);
+        }
         return Ok(entry);
     }
     let leaf = walk(va)?;
@@ -291,6 +341,9 @@ fn entry_of(va: u64) -> Result<Entry, u32> {
         sh: leaf.sh,
     };
     tlb::insert(page, entry);
+    if cpu::a32_only() {
+        return crate::aarch64::mmu_a32::with_domain(entry);
+    }
     Ok(entry)
 }
 
@@ -313,6 +366,11 @@ pub fn translate(va: u64, access: Access, el0: bool, align: u32) -> Result<Trans
         (Access::Fetch, true) => EL0_EXEC,
     };
     if entry.flags & needed == 0 {
+        if cpu::a32_only() {
+            return Err(
+                FSC_PERMISSION + entry.level as u32 | crate::aarch64::mmu_a32::fault_domain(&entry)
+            );
+        }
         return Err(FSC_PERMISSION + entry.level as u32);
     }
     // (PAN: an EL1 data access to memory EL0 may access, AP[1] set; not

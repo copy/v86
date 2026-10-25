@@ -29,6 +29,7 @@
         SURFACE_DEFINE: 1, SURFACE_DESTROY: 2, SURFACE_UPLOAD: 3, SURFACE_READBACK: 4,
         CONTEXT_DEFINE: 5, CONTEXT_DESTROY: 6, SHADER_CODE: 7, DX: 8, SURFACE_COPY: 9, QUERY_END: 10,
         COTABLE_RESET: 11, SURFACE_STRETCH: 12, SURFACE_IMPORT: 13, SURFACE_EXPORT: 14, CLEAR_RTV_INTEGER: 15,
+        SURFACE_PRESENT: 16,
     };
 
     // SVGA_3D_CMD_DX_* (svga3d_cmd.h)
@@ -271,6 +272,7 @@
                 }
                 case GX.SURFACE_UPLOAD: return this.upload(b);
                 case GX.SURFACE_READBACK: return this.readback(b);
+                case GX.SURFACE_PRESENT: return this.present(b);
                 case GX.CONTEXT_DEFINE: this.contexts.set(b[0], new GXContext(b[0])); return;
                 case GX.CONTEXT_DESTROY: this.contexts.delete(b[0]); return;
                 case GX.SHADER_CODE: return this.shaderCode(b);
@@ -650,6 +652,29 @@ struct Box { x: u32, y: u32, w: u32, pad: u32 }
                     for (let c = 0; c < columns; c++) bytes[row * pitch + c * 4 + 3] = 255;
                 }
             }
+        }
+
+        /**
+         * A surface's rectangle to the page's screen (SURFACE_PRESENT): the
+         * peer's presenter copies it on the GPU, in this encoder's order;
+         * sid 0 takes it away
+         */
+        present(b) {
+            const [sid, x, y, w, h, dx, dy, width, height] = b;
+            if (!this.peer || !this.peer.present) return;
+            if (!sid) return this.peer.present(null);
+            const s = this.surfaces.get(sid);
+            if (!s) return;
+            this.primary(s, false);
+            if (!s.texture || s.samples > 1 || isDepthFormat(s.f.gpu)) {
+                this.warn("present" + s.format, "presenting format " + s.format + " is not supported");
+                return;
+            }
+            this.endPass();
+            this.stats.presents = (this.stats.presents || 0) + 1;
+            this.peer.present({ texture: s.texture, format: s.f.gpu, x, y, w, h, dx, dy, width, height, encoder: this.encoder() });
+            // (submitted now: the compositor composes in a microtask after this)
+            this.flushEncoder();
         }
 
         readback(b) {

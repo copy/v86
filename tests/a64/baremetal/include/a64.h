@@ -48,6 +48,10 @@ void a64_expect(void);
 int a64_caught(struct a64_fault *fault);
 extern uint64_t (*volatile a64_fault_probe)(void);
 
+// Exceptions from EL0 (vectors 8-11 from AArch64, 12-15 from AArch32) go
+// to this handler when it is set; it may change the frame to return elsewhere
+extern void (*volatile a64_lower_handler)(struct a64_frame *frame, uint64_t vector);
+
 void a64_putc(char c);
 void a64_fail(const char *why);
 

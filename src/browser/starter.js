@@ -13,7 +13,7 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { check_machine_options } from "../machine_options.js";
+import { check_machine_options, is_arm } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
 import { NetworkAdapter } from "./network.js";
@@ -38,6 +38,8 @@ import { DiskServiceDisk } from "../disk_service.js";
 import { OpfsDisk, is_opfs_url, opfs_file } from "../opfs_disk.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
+import { android_bootloader, ANDROID_DEVICES } from "../android/bootloader.js";
+import { PartitionBuffer } from "../android/partition_buffer.js";
 import { FS } from "../../lib/filesystem.js";
 
 /**
@@ -119,13 +121,19 @@ V86.prototype.create_adapter_renderer = async function(options, host)
         dbg_log("WebGPU: " + e, LOG_VGA);
     }
     if(!adapter || this.destroyed) return null;
+    // (with the graphics proxy's compositor on this page: a layer of it, the
+    // renderer on its device showing scanouts there without readbacks,
+    // docs/gfxstream-plan.md G4; its plugin objects' names are quoted)
+    const compositor = this.device_plugins.map(plugin => plugin["bridge"] && plugin["bridge"]["compositor"]).find(Boolean);
+    const layer = compositor ? compositor["createLayer"]("display adapter") : null;
+    const renderer_options = layer ? { "canvas": layer["canvas"], "executorOptions": { "host": layer["host"] }, "scanoutLayer": layer } : {};
     if(host)
     {
-        this.adapter_renderer = create(host, {});
+        this.adapter_renderer = create(host, renderer_options);
         return host;
     }
     const channel = create_local_channel();
-    this.adapter_renderer = create(channel.host, {});
+    this.adapter_renderer = create(channel.host, renderer_options);
     return channel.device;
 };
 
@@ -155,7 +163,7 @@ function create_local_channel()
 function check_core(exports, cpu_type, wasm_table)
 {
     const arm = !!exports["isa_aarch64"];
-    if(arm !== (cpu_type === "arm64"))
+    if(arm !== is_arm(cpu_type))
     {
         throw new Error("The Wasm core is the " + (arm ? "ARM" : "x86") + " core (" + (arm ? "v86-arm64.wasm" : "v86.wasm") +
             "), cpu_type is \"" + cpu_type + "\": wasm_path names the wrong file");
@@ -249,7 +257,10 @@ export function V86(options)
     {
         const reason = (options.cpu_cores || 1) <= 1 ? "one core" :
             options.cpu_clock && options.cpu_clock["mode"] === "deterministic" ? "deterministic clock" :
+            options.cpu_clock && options.cpu_clock["rate"] !== undefined && options.cpu_clock["rate"] !== 1 ? "clock rate" :
             parallel_unsupported_reason(options.cpu_cores);
+        // (cores in workers keep the host's time: a clock rate needs cooperative cores)
+        if(reason === "clock rate" && this.parallel_forced) throw new Error("cpu_clock.rate: the cores must be cooperative, not parallel: true");
         if(!reason || this.parallel_forced) this.parallel_requested = true;
         this.parallel_fallback = reason;
     }
@@ -323,7 +334,7 @@ export function V86(options)
                 // the core of the CPU's family (docs/arm64-virt-android16-plan.md
                 // P1.3): the ARM core for arm64, the x86 core otherwise; the
                 // fallback stays in the family
-                const arm = this.cpu_type === "arm64";
+                const arm = is_arm(this.cpu_type);
                 let v86_bin = arm ? (DEBUG ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") : DEBUG ? "v86-debug.wasm" : "v86.wasm";
                 let v86_bin_fallback = arm ? "v86-arm64-fallback.wasm" : "v86-fallback.wasm";
                 // cores in vCPU workers need the relocatable build (src/parallel);
@@ -475,6 +486,22 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         options.virtio_disks = await Promise.all(options.virtio_disks.map((disk, i) => opfs_readable("virtio_disk" + i, disk)));
     }
+    // android: { device, gpu_mode, selinux, vendor_ramdisk }: the kernel,
+    // initrd and command line from the disk (docs/android-images-plan.md I2)
+    if(options.android)
+    {
+        const android = options.android;
+        if(android.device !== undefined && !ANDROID_DEVICES[android.device]) throw new Error("android.device: one of " + Object.keys(ANDROID_DEVICES).join(", "));
+        // (the device's CPU and machine: Cuttlefish's arm64 virt, an emulator image's ranchu)
+        const device = ANDROID_DEVICES[android.device || "cf_arm64_only_phone"];
+        if(this.cpu_type !== device.cpu) throw new Error("android: " + device.id + " needs cpu_type \"" + device.cpu + "\"");
+        if(this.machine_type !== device.machine) throw new Error("android: " + device.id + " needs machine_type \"" + device.machine + "\"");
+        if(options.kernel || options.initrd || options.bzimage) throw new Error("android: the disk's boot partitions give the kernel and initrd (kernel and initrd left out)");
+        if(!options.virtio_disks || !options.virtio_disks.length) throw new Error("android: the disk with the device's partitions is the first of virtio_disks");
+        // (gfxstream: for the gfxstream device's development, docs/gfxstream-plan.md)
+        if(android.gpu_mode !== undefined && !["swiftshader", "venus", "gfxstream"].includes(android.gpu_mode)) throw new Error("android.gpu_mode: swiftshader, venus or gfxstream");
+        if(android.selinux !== undefined && !["enforcing", "permissive"].includes(android.selinux)) throw new Error("android.selinux: enforcing or permissive");
+    }
 
     this.bus.register("emulator-stopped", function()
     {
@@ -592,7 +619,7 @@ V86.prototype.continue_init = async function(emulator, options)
     // TODO: Should be properly fixed in restore_state
     // (the virt machine: only when asked for, since its virtio devices take
     // the virtio-mmio slots in order, as the reference's -device options do)
-    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "none" : "ne2k" };
+    settings.net_device = options.net_device || { type: is_arm(this.cpu_type) ? "none" : "ne2k" };
     // the virt machine's virtio-blk disks (P5.4) and virtio-rng (P5.5)
     // (src/machine_options.js refuses them on the PC machines)
     if(options.virtio_disks) settings.virtio_disks = [];
@@ -606,6 +633,9 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.virtio_sound) settings.virtio_sound = true;
     if(options.virtio_console_ports) settings.virtio_console_ports = options.virtio_console_ports;
     if(options.virtio_gpu_pci_slot) settings.virtio_gpu_pci_slot = options.virtio_gpu_pci_slot;
+    // (the ranchu machine: its framebuffer's size and density, its boot properties, src/virt/ranchu.js)
+    if(options.ranchu_display) settings.ranchu_display = Object.assign({}, options.ranchu_display);
+    if(options.ranchu_properties) settings.ranchu_properties = Object.assign({}, options.ranchu_properties);
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -844,6 +874,10 @@ V86.prototype.continue_init = async function(emulator, options)
             case "dtb":
                 settings.dtb = buffer.buffer;
                 break;
+            // android.vendor_ramdisk (docs/android-images-plan.md I2)
+            case "android_vendor_ramdisk":
+                settings.android_vendor_ramdisk = buffer.buffer;
+                break;
 
             case "bios":
                 settings.bios = buffer.buffer;
@@ -912,7 +946,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         if(name === "bios" || name === "vga_bios" ||
             name === "initial_state" || name === "multiboot" ||
-            name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb")
+            name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb" || name === "android_vendor_ramdisk")
         {
             // Ignore async for these because they must be available before boot.
             // This should make result.buffer available after the object is loaded
@@ -962,6 +996,7 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("initrd", options.initrd);
     add_file("kernel", options.kernel);
     add_file("dtb", options.dtb);
+    add_file("android_vendor_ramdisk", options.android && options.android.vendor_ramdisk);
     // the virt machine's virtio-blk disks: {url or buffer, async, size, id,
     // readonly}; the buffer an ArrayBuffer, a File, or a buffer object of
     // its own (get, set, load), as hda may be
@@ -1182,6 +1217,37 @@ V86.prototype.continue_init = async function(emulator, options)
 
         settings.graphics_adapter = await graphics_adapter;
         settings.graphics_adapter_renderer = await adapter_renderer;
+
+        if(options.android)
+        {
+            // Android's bootloader (docs/android-images-plan.md I2): the
+            // kernel, the initrd with bootconfig and the command line from
+            // the first disk's boot partitions. Also with a state: a reset
+            // loads them again (src/arm/cpu.js)
+            const disk = settings.virtio_disks[0].buffer;
+            const boot = await android_bootloader((offset, length) => new Promise(resolve => disk.get(offset, length, resolve)), disk.byteLength, {
+                device: options.android.device, gpu_mode: options.android.gpu_mode, selinux: options.android.selinux,
+                memory_mb: Math.round((settings.memory_size + (settings.extended_memory_size || 0)) / 1048576),
+                vendor_ramdisk: settings.android_vendor_ramdisk ? new Uint8Array(settings.android_vendor_ramdisk) : undefined,
+            });
+            settings.kernel = boot.kernel.slice().buffer;
+            settings.initrd = boot.initrd.slice().buffer;
+            settings.cmdline = [boot.cmdline, options.cmdline].filter(Boolean).join(" ");
+            // (an emulator image's device: its boot properties, under the options')
+            if(boot.properties) settings.ranchu_properties = Object.assign({}, boot.properties, options.ranchu_properties);
+            // (and its clock rate, with cooperative cores, unless the options set the clock)
+            if(boot.clock_rate && !options.cpu_clock && !this.parallel_requested) settings.cpu_clock = { "rate": boot.clock_rate };
+            if(boot.disks)
+            {
+                // (an emulator image: its disks the partitions, the first
+                // written one keeping the disk's snapshot state)
+                const owner = boot.disks.findIndex(d => !d.readonly);
+                settings.virtio_disks = boot.disks.map((d, i) => ({ buffer: new PartitionBuffer(disk, d, i === owner), id: d.name, readonly: d.readonly }))
+                    .concat(settings.virtio_disks.slice(1));
+            }
+            dbg_log("android: " + settings.kernel.byteLength + " bytes of kernel, " + settings.initrd.byteLength + " of initrd, " +
+                (boot.vbmeta ? "vbmeta " + boot.vbmeta.digest : (boot.disks || []).map(d => d.name).join(", ")) + ", cmdline " + settings.cmdline);
+        }
 
         if(this.destroyed) return;
         this.v86.init(settings);
@@ -1855,7 +1921,7 @@ V86.prototype.get_instruction_counter = function()
     {
         const cpu = this.v86.cpu;
         // (the ARM core counts the instructions each core retired, P0.9)
-        if(cpu.cpu_type === "arm64")
+        if(is_arm(cpu.cpu_type))
         {
             let retired = 0;
             for(let core = 0; core < cpu.cores; core++) retired += cpu.retired_instructions(core);
@@ -2509,6 +2575,16 @@ V86.prototype.serial0_send = function(data)
 };
 
 /**
+ * Send text (as UTF-8) or bytes to the guest's first virtio console port
+ * (hvc0 on the virt machine, the kernel's console there)
+ * @param {string|Uint8Array} data
+ */
+V86.prototype.virtio_console_send = function(data)
+{
+    this.bus.send("virtio-console0-input-bytes", typeof data === "string" ? new TextEncoder().encode(data) : data);
+};
+
+/**
  * A stream socket to a port of the guest's vsock (machine_type "virt" with
  * virtio_vsock; src/virtio_vsock.js): resolves when the guest accepts,
  * rejects when it refuses. The stream has write(bytes), close(), and the
@@ -2857,7 +2933,7 @@ V86.prototype.write_memory = function(blob, offset)
 V86.prototype.read_memory_chunks = async function*(offset, length, chunk_size = 1024 * 1024)
 {
     // (the machine's physical address space: 36 bits on the PC machines, 40 on virt)
-    const limit = this.cpu_type === "arm64" ? 0x10000000000 : 0x1000000000;
+    const limit = is_arm(this.cpu_type) ? 0x10000000000 : 0x1000000000;
     if(!Number.isSafeInteger(offset) || offset < 0 || offset >= limit ||
         !Number.isSafeInteger(length) || length < 0 || offset + length > limit ||
         !Number.isInteger(chunk_size) || chunk_size < 1 || chunk_size > 16 * 1024 * 1024)

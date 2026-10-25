@@ -70,7 +70,25 @@ export function build(name, sources, { cflags = [], optimize = "-O2", general_re
     // (A64_MMU=1: the runtime turns the MMU on, an identity map, before main: see runtime.c)
     compile(runtime + "runtime.c", ["-O2", ...no_fp, ...(+process.env.A64_MMU ? ["-DA64_MMU"] : [])]);
     compile(runtime + "exception.c", ["-O2", "-mgeneral-regs-only"]);
-    for(const source of sources) compile(source, [optimize, ...no_fp, ...cflags]);
+    compile(runtime + "libc.c", ["-O2", ...no_fp]);
+    for(const source of sources)
+    {
+        // (AArch32 code, foo.a32.S: assembled for ARMv8-A AArch32 into a flat
+        // binary that the image carries as foo_a32 .. foo_a32_end, page aligned;
+        // position independent, with .arm and .thumb as it needs)
+        if(source.endsWith(".a32.S"))
+        {
+            const base = path.basename(source, ".a32.S");
+            const object = directory + base + ".a32.o", binary = directory + base + ".a32.bin", wrapper = directory + base + ".a32.wrap.S";
+            run(clang, ["--target=armv8a-none-eabi", "-march=armv8-a+crc+crypto", "-mfpu=crypto-neon-fp-armv8", "-c", "-o", object, source]);
+            run(lld, ["-flavor", "gnu", "-m", "armelf", "--image-base=0", "-Ttext=0", "--oformat=binary", "-o", binary, object]);
+            fs.writeFileSync(wrapper, `    .section .rodata\n    .balign 4096\n    .global ${base}_a32\n${base}_a32:\n    .incbin "${binary}"\n` +
+                `    .global ${base}_a32_end\n${base}_a32_end:\n`);
+            compile(wrapper, []);
+            continue;
+        }
+        compile(source, [optimize, ...no_fp, ...cflags]);
+    }
     const link = ["-flavor", "gnu", "-m", "aarch64elf", "-static", "-T", runtime + "link.ld", ...objects];
     run(lld, [...link, "-o", directory + "guest.elf"]);
     run(lld, [...link, "--oformat=binary", "-o", directory + "guest.bin"]);
@@ -111,11 +129,12 @@ function track(child)
 
 /**
  * Run guest.bin on QEMU until its result block is done (or `timeout` ms)
- * and return parse() of the block
+ * and return parse() of the block (`machine`, `cpu`: other than the
+ * reference's, tests/a32/runner.mjs)
  */
-export async function reference(directory, { cores = 1, memory = 128, timeout = 60000, extra = [] } = {})
+export async function reference(directory, { cores = 1, memory = 128, timeout = 60000, extra = [], machine = QEMU_MACHINE, cpu = QEMU_CPU } = {})
 {
-    const args = ["-machine", QEMU_MACHINE, "-cpu", QEMU_CPU, "-m", memory + "M", "-smp", smp(cores),
+    const args = ["-machine", machine, "-cpu", cpu, "-m", memory + "M", "-smp", smp(cores),
         "-display", "none", "-serial", "file:" + directory + "qemu-serial.txt", "-monitor", "none", "-qmp", "stdio", "-no-reboot", "-no-shutdown",
         "-kernel", directory + "guest.bin", ...extra,
         ...(process.env.A64_QEMU_TRACE ? ["-d", "int,guest_errors", "-D", directory + "qemu.log"] : [])];

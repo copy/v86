@@ -41,8 +41,13 @@
 //   APKs aligned to 4 and 16 KiB fare, android_scenario.mjs), A64_ANDROID_SCENARIO=cts (P12.3's CTS subset, android_cts.mjs;
 //   A64_ANDROID_CTS_MODULES=<module>,... and A64_ANDROID_CTS_FILTER=<module>=<gtest filter>;... to try parts of it),
 //   A64_ANDROID_SCENARIO=deqp (appendix F6: a dEQP subset through CtsDeqpTestCases's APK, android_deqp.mjs;
-//   A64_ANDROID_DEQP=<package>=<prefix>,...;... for other cases),
-//   A64_PROFILE=v1.1 (the CPU profile without FEAT_PAN; v2, the default, has it), TEST_RELEASE_BUILD=1 (build/libv86.mjs)
+//   A64_ANDROID_DEQP=<package>=<prefix>,...;... for other cases), A64_ANDROID_SCENARIO=compat32 (the aarch32
+//   plan's Q5.2: 32-bit apps on tools/a64_android.mjs --build a14's materials, A64_ANDROID_OUT=build/a64-android/out-a14;
+//   on v86 with A64_PROFILE=v3, which has AArch32 at EL0; QEMU's cortex-a35 has it, HVF does not),
+//   A64_PROFILE=v1.1 (the CPU profile without FEAT_PAN; v2, the default, has it), TEST_RELEASE_BUILD=1 (build/libv86.mjs),
+//   A64_ANDROID_BOOTLOADER=1 (v86: the android option, the kernel and initrd from the disk),
+//   A64_ANDROID_OUT=<dir> (tools/a64_android.mjs --out's materials in place of out/ or out-16k/), A64_ANDROID_CONSOLE=0 (QEMU:
+//   a user build, such as a GSI with the release vendor ramdisk, has no console; boot_completed from the kernel's log)
 // Logs: build/a64-android/runs/<tag>/ (kernel.log, logcat.log, console.log, *.png, result.json)
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -55,7 +60,7 @@ import { android_qemu_args, AndroidConsole, qemu_screendump, qmp_connect, qemu_t
 import { createHash as create_hash } from "node:crypto";
 import { qemu_binary } from "./guest_runner.mjs";
 import { AdbClient } from "./adb.mjs";
-import { a9_scenario, a10_scenario, pagesize_scenario, prepare_device, PREPARE_COMMAND, device_prepared } from "./android_scenario.mjs";
+import { a9_scenario, a10_scenario, pagesize_scenario, compat32_scenario, prepare_device, PREPARE_COMMAND, device_prepared } from "./android_scenario.mjs";
 import { cts_scenario } from "./android_cts.mjs";
 import { deqp_scenario } from "./android_deqp.mjs";
 import { PictureSink, save_png } from "../lib/picture_sink.mjs";
@@ -64,7 +69,9 @@ import { create_remote_renderer } from "../x64/gpu_remote_renderer.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
 const page_size = { "": 4096, "4k": 4096, "16k": 16384 }[process.env.A64_ANDROID_PAGE_SIZE || ""];
 assert.ok(page_size, "A64_ANDROID_PAGE_SIZE: 4k or 16k");
-const OUT = ROOT + (page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
+// (A64_ANDROID_OUT=<dir>: another tools/a64_android.mjs output, as --out gave it: --release --no-venus's, --gsi's)
+const OUT = process.env.A64_ANDROID_OUT ? path.resolve(process.env.A64_ANDROID_OUT) + "/" :
+    ROOT + (page_size === 4096 ? "build/a64-android/out/" : "build/a64-android/out-16k/");
 for(const file of ["Image", "initrd.img", "disk.img", "cmdline.txt"])
 {
     assert.ok(fs.existsSync(OUT + file), OUT + file + ` is missing: node tools/a64_android.mjs --download${page_size === 4096 ? "" : " --page-size 16k"}`);
@@ -85,11 +92,19 @@ const plugins = !!+process.env.A64_QEMU_PLUGINS;
 const jit = !!+process.env.A64_JIT;
 const parallel = !!+process.env.A64_PARALLEL;
 const scenario = process.env.A64_ANDROID_SCENARIO || "";
-assert.ok(!scenario || ["a9", "a10", "pagesize", "cts", "deqp"].includes(scenario), "A64_ANDROID_SCENARIO: a9, a10, pagesize, cts or deqp");
+// A64_ANDROID_BOOTLOADER=1 (v86): the android option in place of kernel, initrd and cmdline: v64's
+// bootloader reads them from disk.img (docs/android-images-plan.md I2.3), the vendor ramdisk the tool's
+const bootloader = !!+process.env.A64_ANDROID_BOOTLOADER;
+assert.ok(!bootloader || target === "v86" && page_size === 4096, "A64_ANDROID_BOOTLOADER=1: v86, 4K (the 16K kernel is not on the disk)");
+// A64_ANDROID_CONSOLE=0 (QEMU): no console (a user build's: ro.debuggable=0), boot_completed from the kernel's log
+const use_console = process.env.A64_ANDROID_CONSOLE !== "0";
+assert.ok(use_console || target === "qemu" && !scenario && !process.env.A64_ANDROID_PROBE, "A64_ANDROID_CONSOLE=0: QEMU, no scenario or probes");
+assert.ok(!scenario || ["a9", "a10", "pagesize", "cts", "deqp", "compat32"].includes(scenario), "A64_ANDROID_SCENARIO: a9, a10, pagesize, cts, deqp or compat32");
 assert.ok(!scenario || !plugins, "A64_ANDROID_SCENARIO and A64_QEMU_PLUGINS do not go together");
 const wait_for_boot_completed = target === "qemu" || !!scenario || process.env.A64_ANDROID_WAIT === "boot_completed";
 const tag = (target === "qemu" ? `qemu-${accel}${plugins ? "-plugins" : ""}` : `v86${jit ? "-jit" : ""}${parallel ? "-par" : ""}`) +
-    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}${page_size === 4096 ? "" : "-16k"}-${memory_mb}m-${cores}c`;
+    `${process.env.A64_ANDROID_GPU ? "-" + process.env.A64_ANDROID_GPU : ""}${scenario ? "-" + scenario : ""}${page_size === 4096 ? "" : "-16k"}${bootloader ? "-bl" : ""}-${memory_mb}m-${cores}c` +
+    (process.env.A64_ANDROID_OUT ? "-" + path.basename(OUT) : "");
 const timeout = +process.env.A64_ANDROID_TIMEOUT || (target === "qemu" && !scenario ? (accel === "hvf" ? 600000 : plugins ? 14400000 : 3600000) : 14400000);
 const directory = ROOT + `build/a64-android/runs/${tag}/`;
 fs.mkdirSync(directory, { recursive: true });
@@ -127,6 +142,8 @@ const watch = (name, file) =>
         for(const [milestone, pattern] of MILESTONES) if(marks[milestone] === undefined && pattern.test(window)) mark(milestone);
         const panic = /Kernel panic[^\n]*/.exec(window);
         if(panic) fail(new Error(panic[0]));
+        // (init's fatal errors reboot into the bootloader: an SELinux policy that does not compile, ...)
+        if(/reboot: Restarting system with command 'bootloader'/.test(window)) fail(new Error("the guest rebooted into the bootloader (init failed: kernel.log)"));
         text = window.slice(-512);
     };
 };
@@ -206,6 +223,7 @@ async function run_probes(shell, push, screenshot)
         await push(remote, fs.readFileSync(local));
         console.log(`push: ${local} -> ${remote}`);
     }
+    let probe_number = 0;
     for(const command of fs.readFileSync(probe_file, "utf8").split("\n").filter(line => line.trim() && !line.startsWith("#")))
     {
         if(command.startsWith("@screenshot "))
@@ -217,6 +235,8 @@ async function run_probes(shell, push, screenshot)
         let output;
         try { output = await shell(command, 900000); }
         catch(e) { output = "(error: " + e.message + ")"; }
+        // (the whole output in the run's directory, probe-<n>.txt)
+        fs.writeFileSync(directory + `probe-${++probe_number}.txt`, command + "\n\n" + output);
         console.log(`probe: ${command}\n  ${Date.now() - start} ms, ${output.length} chars: ${JSON.stringify(output.slice(0, 4000))}`);
     }
 }
@@ -228,7 +248,7 @@ async function run_scenario(env, result)
     const cts = env => cts_scenario(env, {
         modules: process.env.A64_ANDROID_CTS_MODULES ? process.env.A64_ANDROID_CTS_MODULES.split(",") : undefined,
         filter: process.env.A64_ANDROID_CTS_FILTER ? Object.fromEntries(process.env.A64_ANDROID_CTS_FILTER.split(";").map(f => f.split(/=(.*)/s).slice(0, 2))) : undefined });
-    const found = await ({ a9: a9_scenario, a10: a10_scenario, pagesize: pagesize_scenario, cts, deqp: deqp_scenario })[scenario]({ ...env,
+    const found = await ({ a9: a9_scenario, a10: a10_scenario, pagesize: pagesize_scenario, cts, deqp: deqp_scenario, compat32: compat32_scenario })[scenario]({ ...env,
         log: text => console.log(`${(elapsed() / 1000).toFixed(0)} s: ${scenario}: ${text}`) });
     result[scenario] = found;
     mark(scenario + "_done");
@@ -282,6 +302,21 @@ if(target === "qemu")
     const terminal = new AndroidConsole(socket);
     try
     {
+        if(!use_console)
+        {
+            // (a user build has no console: boot_completed from init's line in the kernel's log)
+            const qemu_failed = exited.then(code => { throw new Error("QEMU exited " + code); });
+            qemu_failed.catch(() => {});
+            await Promise.race([(async () => { while(marks.boot_completed === undefined) await sleep(1000); })(), failed, qemu_failed,
+                new Promise((_, reject) => setTimeout(() => reject(new Error(`no sys.boot_completed=1 in the kernel's log in ${timeout} ms`)), timeout))]);
+            const result = { tag, console: false, marks, ms: elapsed() };
+            child.kill("SIGKILL");
+            await exited;
+            fs.writeFileSync(directory + "result.json", JSON.stringify(result, null, 2) + "\n");
+            console.log(JSON.stringify(result));
+            console.log(`A64_ANDROID_BOOT_OK ${tag}`);
+            process.exit(0);
+        }
         await terminal.open();
         // (with a scenario, the device's settings from the console as soon as
         // the services take them, as v86 does over adb: on a slow boot the
@@ -312,8 +347,10 @@ if(target === "qemu")
         console.log(`page size ${result.page_size}, kernel ${result.kernel_release}`);
         if(scenario || probe_file)
         {
-            // (Wi-Fi first, from the console: adb reaches the guest through it)
-            await terminal.run("su 0 cmd wifi set-wifi-enabled enabled; sleep 10; su 0 cmd wifi connect-network VirtWifi open", 120000);
+            // (Wi-Fi first, from the console: adb reaches the guest through it;
+            // a user build's GSI has no su, and the shell may run cmd wifi)
+            await terminal.run("S=; command -v su >/dev/null 2>&1 && S='su 0'; " +
+                "$S cmd wifi set-wifi-enabled enabled; sleep 10; $S cmd wifi connect-network VirtWifi open", 120000);
             const tcp = () => new Promise((resolve, reject) => {
                 const s = net.connect(adb_port, "127.0.0.1");
                 s.once("connect", () => {
@@ -415,8 +452,12 @@ const low_mb = Math.min(memory_mb, LOW_LIMIT_MB);
 const sink = new PictureSink();
 // A64_ANDROID_GPU=venus (v86): virtio-gpu's level with Venus, drawn by the
 // renderer in a headless Chrome (tests/x64/gpu_remote_renderer.mjs, GL_CHROME)
+// A64_ANDROID_GPU=gfxstream (v86, A64_ANDROID_BOOTLOADER=1): virtio-gpu's
+// level gfxstream, the image's own driver (vulkan.ranchu: gpu mode
+// gfxstream's bootconfig), docs/gfxstream-plan.md
 const gpu_level = process.env.A64_ANDROID_GPU || "";
-assert.ok(!gpu_level || gpu_level === "venus", "A64_ANDROID_GPU: venus");
+assert.ok(!gpu_level || gpu_level === "venus" || gpu_level === "gfxstream", "A64_ANDROID_GPU: venus or gfxstream");
+assert.ok(gpu_level !== "gfxstream" || bootloader, "A64_ANDROID_GPU=gfxstream: with A64_ANDROID_BOOTLOADER=1");
 // (and tools/a64_android.mjs's initrd-venus.img: libvulkan's driver the odm's vulkan.virtio.so)
 const initrd = gpu_level === "venus" ? "initrd-venus.img" : "initrd.img";
 assert.ok(fs.existsSync(OUT + initrd), OUT + initrd + " is missing: make android-venus, then node tools/a64_android.mjs");
@@ -436,8 +477,10 @@ const emulator = new V86({
     ...(process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {}),
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
-    kernel: { url: OUT + "Image" }, initrd: { url: OUT + initrd },
-    cmdline: fs.readFileSync(OUT + "cmdline.txt", "utf8").trim(),
+    ...(bootloader ? { android: { gpu_mode: gpu_level || "swiftshader",
+        vendor_ramdisk: JSON.parse(fs.readFileSync(OUT + "manifest.json", "utf8")).vendor_ramdisk === "vendor_ramdisk-debug.img" ?
+            { url: ROOT + "build/a64-android/dl/vendor_ramdisk-debug.img" } : undefined } } :
+        { kernel: { url: OUT + "Image" }, initrd: { url: OUT + initrd }, cmdline: fs.readFileSync(OUT + "cmdline.txt", "utf8").trim() }),
     virtio_transport: "pci", virtio_disks: [{ url: OUT + "disk.img", async: true, size: fs.statSync(OUT + "disk.img").size }],
     graphics_adapter: "virtio_gpu", virtio_gpu_pci_slot: 2, screen_adapter: sink,
     ...(remote ? { graphics_adapter_test: { level: gpu_level, renderer: remote.renderer } } : {}),
@@ -456,6 +499,52 @@ emulator.add_listener("emulator-error", error => { console.error("emulator-error
 const loaded = new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
 let sound_bytes = 0;
 emulator.add_listener("virtio-snd-pcm", pcm => { sound_bytes += pcm["bytes"].length; if(sound_chunks) sound_chunks.push(Buffer.from(pcm["bytes"])); });
+// A64_ANDROID_GFXSTREAM_TRACE=1 (with the sources): gfxstream's Vulkan
+// commands (but a command buffer's vkCmd*), each process's, with their
+// results and the stats' errors when they change, into gfxstream-trace.txt
+if(process.env.A64_ANDROID_GFXSTREAM_TRACE)
+{
+    const trace = fs.openSync(directory + "gfxstream-trace.txt", "w"), started = Date.now();
+    let lines = 0, last_error = "";
+    const install = setInterval(() => {
+        const gpu = emulator.v86?.cpu?.devices?.graphics_adapter?.device?.["virtio_gpu"];
+        const vulkan = gpu && gpu.gfxstream && gpu.gfxstream.vulkan;
+        if(!vulkan) return;
+        clearInterval(install);
+        const now = () => ((Date.now() - started) / 1000).toFixed(3);
+        // (the imports of gralloc's resources, what the GPU wrote, the transfers: G3's color buffers)
+        const model = gpu.gfxstream.vk;
+        let imports = 0;
+        const wrote = gpu.virgl.wrote.bind(gpu.virgl), from_host = gpu.virgl.transfer_from_host.bind(gpu.virgl);
+        gpu.virgl.wrote = resource => { if(lines < 200000) fs.writeSync(trace, `${now()} wrote resource ${resource.id}\n`); return wrote(resource); };
+        gpu.virgl.transfer_from_host = (resource, ...rest) => {
+            fs.writeSync(trace, `${now()} TRANSFER_FROM_HOST resource ${resource.id} ${resource.width}x${resource.height} format ${resource.format}\n`);
+            return from_host(resource, ...rest);
+        };
+        vulkan.on_command = (name, a) => {
+            if(model.imports.size !== imports)
+            {
+                imports = model.imports.size;
+                fs.writeSync(trace, `${now()} imports ${JSON.stringify([...model.imports.values()].map(([rid, resource]) => rid + ":" + resource))}\n`);
+            }
+            if(name.startsWith("vkCmd") || ++lines > 200000) return;
+            const t = now();
+            const ext = name === "vkCreateDevice" || name === "vkCreateInstance" ? " " + JSON.stringify(a.pCreateInfo.ppEnabledExtensionNames) : "";
+            let detail = "";
+            if(name === "vkAllocateMemory")
+            {
+                const chain = [];
+                for(let c = a.pAllocateInfo.pNext; c; c = c.pNext) chain.push(c.sType + (c.resourceId !== undefined ? ":" + c.resourceId : ""));
+                detail = ` type=${a.pAllocateInfo.memoryTypeIndex} size=${a.pAllocateInfo.allocationSize} chain=${chain.join(",")} memory=${a.pMemory}`;
+            }
+            else if(name === "vkBindImageMemory") detail = ` image=${a.image} memory=${a.memory}`;
+            else if(name === "vkBindImageMemory2") detail = " " + JSON.stringify((a.pBindInfos || []).map(b => [b.image, b.memory]));
+            fs.writeSync(trace, `${t} ${name}${a.ret !== undefined ? " ret=" + a.ret : ""}${ext}${detail}\n`);
+            if(vulkan.stats.last_error !== last_error) { last_error = vulkan.stats.last_error; fs.writeSync(trace, `${t} ERROR ${last_error}\n`); }
+        };
+    }, 100);
+    install.unref();
+}
 // A64_ANDROID_VENUS_TRACE=1 (with the sources, not the release build): the
 // device's fence commands, with their answers and the fences' state, and its
 // small readbacks (fence feedback slots), into venus-trace.txt
@@ -490,9 +579,39 @@ if(process.env.A64_ANDROID_VENUS_TRACE)
 // device's names): virtio-gpu's control queue and Venus's queues every 30 s
 if(process.env.A64_ANDROID_GPU_DEBUG)
 {
+    let debug_lines = 0;
     setInterval(() => {
         const gpu = emulator.v86?.cpu?.devices?.graphics_adapter?.device?.["virtio_gpu"];
         if(!gpu) return;
+        // (and the display every 5 minutes: what reached it)
+        if(++debug_lines % 10 === 0) try { screenshot("gpu-debug-" + debug_lines / 10); } catch(e) { console.log("gpu-debug: no screenshot: " + e.message); }
+        if(gpu.gfxstream)
+        {
+            // gfxstream: each context's rings (W waiting, B after another ring's command, - idle), Vulkan's stats
+            const g = gpu.gfxstream, v = g.vulkan;
+            // (the commands that did not decode: their payloads into the run's directory)
+            for(const [i, u] of (v ? v.stats.undecoded : []).entries())
+            {
+                const file = `${directory}gfxstream-undecoded-${i}-${u.name}.bin`;
+                if(!fs.existsSync(file)) fs.writeFileSync(file, u.payload);
+            }
+            console.log(`gpu-debug: held=${gpu.held} pending=${gpu.pending.length} gfxstream pings=${g.stats.pings} commands=${g.stats.commands}` +
+                ` errors=${g.stats.errors}${g.stats.last_error ? " last=" + JSON.stringify(g.stats.last_error) : ""}` +
+                ` contexts=${[...g.contexts.values()].map(c => c.capset + ":" + [...c.rings.values()].map(r => r.waiting ? "W" : r.blocked ? "B" : "-").join("")).join(" ")}` +
+                (v ? ` vulkan commands=${v.stats.commands} flushed=${v.stats.flushed} errors=${v.stats.errors}` +
+                    `${v.stats.last_error ? " last=" + JSON.stringify(v.stats.last_error) : ""} unknown=${JSON.stringify(v.stats.unknown)}` +
+                    ` unimplemented=${JSON.stringify(v.stats.unimplemented)} failures=${JSON.stringify(v.stats.failures)}` +
+                    ` queues=${[...g.vk.queues].map(q => q.pending.length + "p/" + q.inflight + "i").join(",")} waiters=${g.vk.waiters.length}` : "") +
+                ` unknown=${JSON.stringify(g.stats.unknown)} syncs=${JSON.stringify(g.stats.syncs)}` +
+                ` execbuffer=${JSON.stringify(g.stats.execbuffer)} fences=${JSON.stringify(gpu.stats.fences)}` +
+                // (the host visible memory the guest has mapped: its rings and memory, MiB, of the whole)
+                ` hostmem=${([...gpu.mapped.values()].reduce((sum, r) => sum + r.blob_size, 0) / 1048576).toFixed(1)}` +
+                `/${gpu.hostmem_size >> 20} in ${gpu.mapped.size}` +
+                // (the control queue's commands by type, flushes: KMS's scanouts)
+                ` control=${JSON.stringify(gpu.stats.commands)} flushes=${gpu.stats.flushes} gpu-errors=${gpu.stats.errors}/${gpu.stats.last_error.toString(16)}` +
+                (gpu.stats.failed_command ? ` failed=${JSON.stringify(gpu.stats.failed_command.slice(0, 300))}` : ""));
+            return;
+        }
         const first = gpu.pending.find(entry => !entry.ready);
         const vk = gpu.venus && gpu.venus.vk;
         console.log(`gpu-debug: held=${gpu.held} pending=${gpu.pending.length} first-waiting=${first ? "0x" + new DataView(first.bytes.buffer, first.bytes.byteOffset).getUint32(0, true).toString(16) : "-"}` +

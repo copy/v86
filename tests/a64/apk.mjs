@@ -32,7 +32,7 @@ const ANDROID_NS = "http://schemas.android.com/apk/res/android";
 const ATTR_IDS = {
     label: 0x01010001, name: 0x01010003, hasCode: 0x0101000c, exported: 0x01010010, value: 0x01010024,
     minSdkVersion: 0x0101020c, versionCode: 0x0101021b, versionName: 0x0101021c, targetSdkVersion: 0x01010270,
-    extractNativeLibs: 0x010104ea,
+    hardwareAccelerated: 0x010102d3, extractNativeLibs: 0x010104ea,
 };
 const TYPE_STRING = 0x03, TYPE_INT_DEC = 0x10, TYPE_INT_BOOLEAN = 0x12;
 
@@ -154,25 +154,32 @@ function signing_key()
     return { key: dir + "key.pem", cert: dir + "cert.pem" };
 }
 
-/** tests/a64/android/<name>.c as lib<name>.so, its LOAD segments aligned
- * to align (4096 or 16384), by the NDK (r26b under ~/Library/Android/sdk/ndk,
- * or $ANDROID_NDK_HOME), linked with libraries */
-export function build_native_lib(align, name = "v86native", libraries = ["-landroid", "-llog"])
+/** the NDK's compiler targets of the ABIs (the 32-bit one's oldest API level) */
+const NDK_TARGETS = { "arm64-v8a": "aarch64-linux-android29", "armeabi-v7a": "armv7a-linux-androideabi21" };
+
+/** tests/a64/android/<name>.c (or source) as lib<name>.so for abi, its LOAD
+ * segments aligned to align (4096 or 16384), by the NDK (r26b under
+ * ~/Library/Android/sdk/ndk, or $ANDROID_NDK_HOME), linked with libraries */
+export function build_native_lib(align, name = "v86native", libraries = ["-landroid", "-llog"],
+    { abi = "arm64-v8a", source = ROOT + `tests/a64/android/${name}.c` } = {})
 {
     const ndk = process.env.ANDROID_NDK_HOME || os.homedir() + "/Library/Android/sdk/ndk/26.1.10909125";
-    const out = ROOT + `build/a64-android/native/lib${name}-${align}.so`;
+    const out = ROOT + `build/a64-android/native/lib${name}-${align}${abi === "arm64-v8a" ? "" : "-" + abi}.so`;
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    const r = spawnSync(ndk + "/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android29-clang",
-        ["-O2", "-Wall", "-shared", "-fPIC", `-Wl,-z,max-page-size=${align}`, ROOT + `tests/a64/android/${name}.c`, ...libraries, "-o", out]);
+    const r = spawnSync(ndk + `/toolchains/llvm/prebuilt/darwin-x86_64/bin/${NDK_TARGETS[abi]}-clang`,
+        ["-O2", "-Wall", "-shared", "-fPIC", `-Wl,-z,max-page-size=${align}`, source, ...libraries, "-o", out]);
     if(r.status !== 0) throw new Error(`${name}.c: ` + r.stderr);
     return fs.readFileSync(out);
 }
 
-/** the APK's bytes */
-export function build_apk({ label = "v86 hello", package_name = APK_PACKAGE, native = null } = {})
+/** the APK's bytes (native.abi: its library's ABI, arm64-v8a if not given;
+ * native.software: its activity not hardware accelerated, no GL in its
+ * process; min_sdk and target_sdk: the versions it asks for) */
+export function build_apk({ label = "v86 hello", package_name = APK_PACKAGE, native = null, min_sdk = 29, target_sdk = 29 } = {})
 {
     const activity = native ?
-        ["activity", { "android:name": "android.app.NativeActivity", "android:label": label, "android:exported": true }, [
+        ["activity", { "android:name": "android.app.NativeActivity", "android:label": label, "android:exported": true,
+            ...(native.software ? { "android:hardwareAccelerated": false } : {}) }, [
             ["meta-data", { "android:name": "android.app.lib_name", "android:value": native.name || "v86native" }, []]]] :
         ["activity", { "android:name": "android.app.Activity", "android:label": label, "android:exported": true }, []];
     activity[2].push(["intent-filter", {}, [
@@ -180,10 +187,10 @@ export function build_apk({ label = "v86 hello", package_name = APK_PACKAGE, nat
         ["category", { "android:name": "android.intent.category.LAUNCHER" }, []],
     ]]);
     const manifest = binary_xml(["manifest", { "package": package_name, "android:versionCode": 1, "android:versionName": "1" }, [
-        ["uses-sdk", { "android:minSdkVersion": 29, "android:targetSdkVersion": 29 }, []],
+        ["uses-sdk", { "android:minSdkVersion": min_sdk, "android:targetSdkVersion": target_sdk }, []],
         ["application", { "android:label": label, "android:hasCode": false, ...(native ? { "android:extractNativeLibs": native.extract } : {}) }, [activity]],
     ]]);
-    const files = [["AndroidManifest.xml", manifest], ...(native ? [[`lib/arm64-v8a/lib${native.name || "v86native"}.so`, native.lib, native.zip_align]] : [])];
+    const files = [["AndroidManifest.xml", manifest], ...(native ? [[`lib/${native.abi || "arm64-v8a"}/lib${native.name || "v86native"}.so`, native.lib, native.zip_align]] : [])];
     // the JAR signature: MANIFEST.MF, CERT.SF, CERT.RSA (PKCS #7, detached)
     const b64 = data => create_hash("sha256").update(data).digest("base64");
     const sections = files.map(([name, data]) => `Name: ${name}\r\nSHA-256-Digest: ${b64(data)}\r\n\r\n`);
