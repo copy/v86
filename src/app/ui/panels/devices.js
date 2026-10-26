@@ -43,7 +43,7 @@ export function network_panel(ctx, index)
     ];
 }
 
-const USB_LABELS = { uhci: "UHCI (USB 1.1)" };
+const USB_LABELS = { uhci: "UHCI (USB 1.1)", ehci: "EHCI (USB 2.0, with UHCI companions)" };
 
 /** @param {PanelContext} ctx */
 export function usb_panel(ctx)

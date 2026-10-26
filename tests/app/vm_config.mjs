@@ -121,7 +121,7 @@ test("migrate: version 3 has no USB (usb null); USB on a PC goes to the usb opti
     assert.deepEqual(config_to_options(c, ENV).usb, { controller: "uhci", tablet: true });
 });
 
-test("USB disks: a port each (with the tablet's), defaults filled in; usb.mass_storage with their images, policies and write protection", () =>
+test("USB disks: a port each (with the tablet's; UHCI two, EHCI six), defaults filled in; usb.mass_storage with their images, policies and write protection", () =>
 {
     const c = new_config();
     c.usb = { controller: "uhci", tablet: true, disks: [{ id: "stick", image: { kind: "url", url: "images/stick.img", size: 1 << 20, async: true } }] };
@@ -136,6 +136,13 @@ test("USB disks: a port each (with the tablet's), defaults filled in; usb.mass_s
     const o = config_to_options(normal, ENV).usb.mass_storage[0];
     assert.equal(o.read_only, true);
     assert.equal(o.image.disk_error, "report");
+    // EHCI: six ports, the tablet's and five disks'
+    normal.usb.controller = "ehci";
+    normal.usb.disks = ["a", "b", "c", "d", "e"].map(usb_disk);
+    assert.deepEqual(validate_config(normal), []);
+    assert.equal(config_to_options(normal, ENV).usb.controller, "ehci");
+    normal.usb.disks.push(usb_disk("f"));
+    assert.deepEqual(validate_config(normal).map(p => p.path), ["usb.disks"]);
     // (an old configuration's usb without disks has none)
     assert.deepEqual(migrate({ format: FORMAT, version: VERSION, id: "x", usb: { controller: "uhci", tablet: true } }).usb.disks, []);
 });

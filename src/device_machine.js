@@ -129,6 +129,18 @@ DeviceMachine.prototype.allocate_io = function(size)
 };
 
 /**
+ * Another function of the device's PCI slot (a device of several, as EHCI
+ * with its companions): a machine of its own for that function's PCI
+ * registration, interrupt and configuration space
+ * @param {number} number 0 to 7
+ * @return {!DeviceMachine}
+ */
+DeviceMachine.prototype.function_machine = function(number)
+{
+    return new DeviceMachine(this.handle["function"](number));
+};
+
+/**
  * Describe the device on the PCI bus. v86 picks the slot. The hooks are
  * src/pci.js's: on_command_change (the command register: memory decode, bus
  * mastering), on_config_restore (a snapshot restored the space),

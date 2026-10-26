@@ -255,7 +255,7 @@ await test("the USB disk on port 1 (no tablet), port 2 empty", () => {
     assert.equal(r16(PORTSC1) & (CCS | PE), CCS | PE);
 });
 
-await test("descriptors: QEMU's USB disk IDs, USB 2.0, 64-byte packets; mass storage, SCSI, Bulk-Only; bulk IN 0x81, OUT 0x02; a serial number", () => {
+await test("descriptors: QEMU's USB disk IDs, USB 2.0, 64-byte packets; mass storage, SCSI, Bulk-Only; bulk IN 0x81, OUT 0x02; a serial number; its high speed", () => {
     const device = control(0, setup(0x80, 6, 0x0100, 0, 18)).data;
     assert.equal(device.length, 18);
     assert.equal(device[2] | device[3] << 8, 0x0200);
@@ -272,7 +272,10 @@ await test("descriptors: QEMU's USB disk IDs, USB 2.0, 64-byte packets; mass sto
     assert.match(serial, /^[0-9A-F]{16}$/);
     const product = new TextDecoder("utf-16le").decode(control(3, setup(0x80, 6, 0x0302, 0x0409, 255), 255).data.subarray(2));
     assert.equal(product, "v86 USB Disk");
-    assert.ok(control(3, setup(0x80, 6, 0x0600, 0, 10)).stalled, "no device qualifier: a full-speed device");
+    // (a high-speed device at full speed: the qualifier and the other speed's configuration are its high speed's)
+    assert.deepEqual(Array.from(control(3, setup(0x80, 6, 0x0600, 0, 10)).data), [10, 6, 0x00, 0x02, 0, 0, 0, 64, 1, 0]);
+    const other = control(3, setup(0x80, 6, 0x0700, 0, 32)).data;
+    assert.deepEqual([other[1], other[22] | other[23] << 8, other[29] | other[30] << 8], [7, 512, 512], "bulk packets of 512 bytes at high speed");
     assert.equal(control(3, setup(0x00, 9, 1, 0, 0)).done, true);
 });
 

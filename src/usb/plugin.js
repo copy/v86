@@ -1,12 +1,15 @@
-// usb: { controller: "uhci", tablet: true, mass_storage } -- a USB host
-// controller and its devices (docs/usb.md, docs/modern-pc-devices-plan.md U1,
-// U2): UHCI (PIIX3's on i440FX, ICH9's on Q35), the HID tablet on its first
-// port, USB disks (disk images, src/usb/mass_storage.js) on the ports after
-// it. Built into build/v86-usb.js; from the source tree, src/device_plugin.js
+// usb: { controller: "uhci" | "ehci", tablet: true, mass_storage } -- a USB
+// host controller and its devices (docs/usb.md, docs/modern-pc-devices-plan.md
+// U1 to U3): UHCI (PIIX3's on i440FX, ICH9's on Q35), or ICH9's EHCI with
+// its three UHCI companions (the plugin's PCI function is the EHCI's, 7;
+// the companions are functions 0 to 2); the HID tablet on the first port,
+// USB disks (disk images, src/usb/mass_storage.js) on the ports after it.
+// Built into build/v86-usb.js; from the source tree, src/device_plugin.js
 // imports this file directly.
 
 import { UsbMachine, register_usb_plugin } from "./machine.js";
-import { PORTS, UHCIController } from "./uhci.js";
+import { COMPANION_IDENTITY, PORTS as UHCI_PORTS, UHCIController } from "./uhci.js";
+import { EHCI_PORTS, EHCIController } from "./ehci.js";
 import { HIDTablet } from "./hid_tablet.js";
 import { MassStorage } from "./mass_storage.js";
 
@@ -15,7 +18,11 @@ register_usb_plugin({
     "create": (handle, options) =>
     {
         const machine = new UsbMachine(handle);
-        const controller = new UHCIController(machine);
+        const ehci = options["controller"] === "ehci";
+        const controller = ehci ?
+            new EHCIController(machine, COMPANION_IDENTITY.map((identity, i) => new UHCIController(machine.function_machine(i), identity, i === 0))) :
+            new UHCIController(machine);
+        const PORTS = ehci ? EHCI_PORTS : UHCI_PORTS;
         const tablet = options["tablet"] ? new HIDTablet(() => machine.now()) : null;
         /**
          * The devices by their IDs: the device, its port (kept while it is
@@ -42,7 +49,7 @@ register_usb_plugin({
             if(typeof id !== "string" || !id) throw new Error("usb: a USB disk needs an id");
             if(devices.has(id)) throw new Error("usb: there is a USB device " + JSON.stringify(id) + " already");
             const port = free_port();
-            if(port < 0) throw new Error("usb: no free port for " + JSON.stringify(id) + " (the UHCI controller has " + PORTS + ")");
+            if(port < 0) throw new Error("usb: no free port for " + JSON.stringify(id) + " (the " + (ehci ? "EHCI" : "UHCI") + " controller has " + PORTS + ")");
             const backend = machine.block_backend(buffer);
             const disk = new MassStorage(backend, { id, read_only });
             disk.on_eject = () => machine.send("usb-disk-ejected", id);
@@ -84,7 +91,16 @@ register_usb_plugin({
             "devices": devices,
             "attach_disk": attach_disk,
             "detach_disk": detach_disk,
-            "reset": () => controller.reset(),
+            // V86.usb_devices: each device's port, whether it is in, the
+            // controller that has it and its speed in Mbit/s
+            "device_list": () => Array.from(devices, ([id, { device, port }]) => ({
+                "id": id,
+                "port": port,
+                "plugged": controller.devices[port] === device,
+                "controller": ehci && controller.owns(port) ? "ehci" : "uhci",
+                "speed": [1.5, 12, 480, 5000][device.speed],
+            })),
+            "reset": () => ehci ? controller.reset_all() : controller.reset(),
             "get_state": () => [controller.get_state(), tablet ? tablet.get_state() : null,
                 Array.from(devices, ([id, { port }]) => controller.devices[port] ? id : null).filter(Boolean),
                 Array.from(devices, ([id, { device, port, backend }]) => backend ? [id, port, device.get_state()] : null).filter(Boolean)],
@@ -92,6 +108,7 @@ register_usb_plugin({
             {
                 controller.set_state(state[0]);
                 const saved_disks = new Map((state[3] || []).map(disk => [disk[0], disk]));
+                const arriving = [];
                 for(const [id, { device, port, backend }] of devices)
                 {
                     const saved = saved_disks.get(id);
@@ -102,12 +119,15 @@ register_usb_plugin({
                     }
                     else
                     {
-                        // a disk the snapshot does not have (there): it arrives now
                         controller.devices[port] = null;
-                        controller.attach(port, device);
+                        arriving.push([port, device]);
                     }
                 }
                 if(tablet && state[1]) tablet.set_state(state[1]);
+                // (EHCI: each device on the side its port's owner had)
+                if(ehci) controller.restore_routing();
+                // a disk the snapshot does not have (there): it arrives now
+                for(const [port, device] of arriving) controller.attach(port, device);
                 // a device the snapshot had that this machine has not: it leaves now
                 for(let port = 0; port < PORTS; port++)
                 {

@@ -10,6 +10,7 @@
 // (writes refused), detached; the disk out of its port and back; an eject
 // ("usb-disk-ejected"); a snapshot.
 // Env: MACHINE (i440fx, q35), CPU_CORES (1), TEST_RELEASE_BUILD, SHOW_LOGS,
+// USB_CONTROLLER (uhci; ehci: the disk at high speed, 480M, on the EHCI),
 // USB_DISK_MB (64: the image; the data written is a quarter of it, at most 32 MiB),
 // USB_WRITE_MB (none: a step that writes that many MiB, 16 MiB of random
 // data again and again, reads them back and checks each copy, with the
@@ -28,6 +29,7 @@ const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const SHOW_LOGS = +process.env.SHOW_LOGS;
 const CPU_CORES = +process.env.CPU_CORES || 1;
 const MACHINE = process.env.MACHINE || "i440fx";
+const CONTROLLER = process.env.USB_CONTROLLER || "uhci";
 const DISK_MB = +process.env.USB_DISK_MB || 64;
 const WRITE_MB = +process.env.USB_WRITE_MB || 0;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
@@ -50,7 +52,7 @@ const emulator = new V86({
     machine_type: MACHINE,
     acpi: true,
     net_device: { type: "none" },
-    usb: { controller: "uhci", tablet: false, mass_storage: [{ id: "stick", image: { buffer: image.buffer } }] },
+    usb: { controller: CONTROLLER, tablet: false, mass_storage: [{ id: "stick", image: { buffer: image.buffer } }] },
     autostart: true,
     log_level: 0,
 });
@@ -127,7 +129,8 @@ async function block_device(gone = false)
         .map(f => ({ name: f[0], vendor: f[1], model: f[2] + " " + f[3], removable: +f[4], sectors: +f[5], ro: +f[6] }));
 }
 
-console.log("Booting Alpine x86_64 with a USB disk of " + DISK_MB + " MiB (" + MACHINE + ", " + CPU_CORES + " core" + (CPU_CORES > 1 ? "s" : "") + ")");
+console.log("Booting Alpine x86_64 with a USB disk of " + DISK_MB + " MiB (" + CONTROLLER + ", " + MACHINE + ", " + CPU_CORES + " core" +
+    (CPU_CORES > 1 ? "s" : "") + ")");
 await wait_serial(/login: $/, "the login prompt", 600000);
 serial = "";
 emulator.serial0_send("root\n");
@@ -139,9 +142,11 @@ await step("usb-storage: the disk is sda, \"v86\" \"USB Disk\", removable, its s
     assert.equal(disks.length, 1, JSON.stringify(disks));
     disk = disks[0];
     assert.deepEqual([disk.vendor, disk.model, disk.removable, disk.sectors, disk.ro], ["v86", "USB Disk", 1, DISK_MB * 2048, 0]);
-    // (the SCSI device's host's parent: the USB interface)
+    // (the SCSI device's host's parent: the USB interface; its device's speed)
     const driver = await command("basename $(readlink /sys/block/" + disk.name + "/device/../../../driver)");
     assert.match(driver, /usb-storage/);
+    const speed = await command("echo SPE''ED $(cat /sys/block/" + disk.name + "/device/../../../../speed)");
+    assert.match(speed, CONTROLLER === "ehci" ? /^SPEED 480$/m : /^SPEED 12$/m);
 });
 
 await step("data written through the disk is in the image, and read back the same (SHA-256 on both sides)", async () => {

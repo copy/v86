@@ -66,6 +66,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	./tests/devices/hd_audio.js
 	./tests/devices/usb.js
 	./tests/devices/usb_storage.js
+	./tests/devices/usb_ehci.js
 	./tests/persistence/response_version.mjs
 	./tests/persistence/node_file.mjs
 	./tests/persistence/disk_service.mjs
@@ -263,7 +264,7 @@ build/v86-usb.js: $(CLOSURE) src/*.js src/usb/*.js
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--output_wrapper ';(function(){%output%}).call(this);' \
-		--js $(USB_COMMON) --js src/usb/usb.js --js src/usb/usb_device.js --js src/usb/hid_tablet.js --js src/usb/mass_storage.js --js src/usb/uhci.js \
+		--js $(USB_COMMON) --js src/usb/usb.js --js src/usb/usb_device.js --js src/usb/hid_tablet.js --js src/usb/mass_storage.js --js src/usb/uhci.js --js src/usb/ehci.js \
 		--js src/usb/machine.js --js src/usb/plugin.js
 
 device-plugins: $(DEVICE_PLUGINS)
@@ -635,20 +636,25 @@ hd-audio-tests: build/v86-debug.wasm build/libv86.mjs
 	CPU_CORES=2 ./tests/devices/hd_audio_guest.mjs
 	TIMEOUT_MS=1500000 node tests/app/browser_runner.mjs tests/devices/hd_audio_browser.html autoplay=1
 
-# USB (docs/usb.md, docs/modern-pc-devices-plan.md U1, U2): the UHCI
-# controller, the HID tablet and USB disks through the controller's
-# registers and schedule, then Alpine x86_64's uhci-hcd, usbhid and
-# usb-storage (i440FX, Q35, two cores). Windows: tests/devices/
+# USB (docs/usb.md, docs/modern-pc-devices-plan.md U1 to U3): UHCI, EHCI,
+# the HID tablet and USB disks through the controllers' registers and
+# schedules, then Alpine x86_64's uhci-hcd, ehci-pci, usbhid and usb-storage
+# (i440FX, Q35, two cores). Windows: tests/devices/
 # usb_windows_xp.mjs, tests/x64/windows_boot.mjs WIN_USB (their images)
 usb-tests: build/v86-debug.wasm build/libv86.mjs build/v86-usb.js
 	./tests/devices/usb.js
 	TEST_RELEASE_BUILD=1 ./tests/devices/usb.js
 	./tests/devices/usb_storage.js
 	TEST_RELEASE_BUILD=1 ./tests/devices/usb_storage.js
+	./tests/devices/usb_ehci.js
+	TEST_RELEASE_BUILD=1 ./tests/devices/usb_ehci.js
 	./tests/devices/usb_guest.mjs
 	MACHINE=q35 CPU_CORES=2 ./tests/devices/usb_guest.mjs
+	USB_CONTROLLER=ehci ./tests/devices/usb_guest.mjs
 	./tests/devices/usb_storage_guest.mjs
 	MACHINE=q35 CPU_CORES=2 ./tests/devices/usb_storage_guest.mjs
+	USB_CONTROLLER=ehci ./tests/devices/usb_storage_guest.mjs
+	USB_CONTROLLER=ehci MACHINE=q35 CPU_CORES=2 ./tests/devices/usb_storage_guest.mjs
 
 .PHONY: usb-tests hd-audio-tests e1000-tests q35-device-tests q35-guest-tests q35-hotplug-tests q35-tests
 q35-tests: acpi-table-tests q35-device-tests q35-guest-tests q35-hotplug-tests

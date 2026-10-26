@@ -1154,14 +1154,16 @@ export interface V86Options {
 
     /**
      * USB on the PC machines (a plugin, build/v86-usb.js beside the bundle): a UHCI controller
-     * (PIIX3's on i440FX at 00:01.2, ICH9's on Q35 at 00:1d.0) and, with `tablet`, a HID tablet on
-     * its first port, an absolute pointer that has the page's pointer while the guest uses it (unless
-     * the pointer is locked: then the PS/2 mouse has it); `mass_storage`: USB disks (disk images as
-     * USB sticks: Bulk-Only Transport, SCSI) on the ports after it. UHCI has 2 ports. See
-     * {@link V86.usb_plug}, {@link V86.usb_attach_disk}.
+     * (PIIX3's on i440FX at 00:01.2, ICH9's on Q35 at 00:1d.0), or "ehci": ICH9's EHCI with its three
+     * UHCI companions (00:1d.0-2 and .7 on Q35, 00:06 on i440FX; high-speed devices on the EHCI, the
+     * others on the companions); with `tablet`, a HID tablet on the first port, an absolute pointer
+     * that has the page's pointer while the guest uses it (unless the pointer is locked: then the PS/2
+     * mouse has it); `mass_storage`: USB disks (disk images as USB sticks: Bulk-Only Transport, SCSI;
+     * high speed on EHCI) on the ports after it. UHCI has 2 ports, EHCI 6. See {@link V86.usb_plug},
+     * {@link V86.usb_attach_disk}.
      */
     usb?: {
-        controller: "uhci";
+        controller: "uhci" | "ehci";
         tablet?: boolean;
         mass_storage?: {
             /** its name for usb_plug and usb_detach_disk ("usb:" + id for disk_buffer and export_disk_image) */
@@ -1589,6 +1591,12 @@ export class V86 {
      * @param plugged in (true) or out
      */
     usb_plug(id: string, plugged: boolean): Promise<void>;
+
+    /**
+     * The USB devices: each one's id, port, whether it is in it, the controller that has it ("ehci",
+     * or "uhci": the UHCI, or one of EHCI's UHCI companions) and its speed in Mbit/s
+     */
+    usb_devices(): Promise<{ id: string; port: number; plugged: boolean; controller: "uhci" | "ehci"; speed: number }[]>;
 
     /**
      * Plug a disk image in as a USB disk (in the first free port): the guest sees it arrive. A

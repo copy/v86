@@ -116,6 +116,8 @@ const parts = {
         config.filesystem = {};
         config.network[0].backend = "inbrowser";
         config.network[0].relay_url = "";
+        // (USB, which DOS leaves alone: EHCI, the tablet on a companion)
+        config.usb = { controller: "ehci", tablet: true, disks: [] };
         if(args.get("worker") === "0") config.advanced.cpu_worker = false;
         await start(config);
         log("MS-DOS 6.22 at its prompt in the console");
@@ -247,6 +249,7 @@ const parts = {
         const details = await until(() => /Instructions/.test($(".console-drawer").textContent) && $(".console-drawer").textContent, "the details");
         check(/Storage \(IDE\)/.test(details) && /Text, 80×25/.test(details), "the details: " + details);
         await until(() => /Execution: 1 core/.test($(".console-drawer").textContent), "the execution note");
+        await until(() => /USB devices: tablet \(port 1, UHCI companion, 12 Mbit\/s\)/.test($(".console-drawer").textContent), "the USB devices");
         $("#drawer_details").click();
         check($(".console-drawer").hidden, "the drawer closed");
         log("Drawers: the serial terminal, the shared folder (hello.txt sent and got), the details");

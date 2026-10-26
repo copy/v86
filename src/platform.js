@@ -73,19 +73,25 @@ export const Q35_ROOT_PORT_SLOT = 0x1C;
  * first after its network card is 00:04.0. The UHCI controller (usb) is
  * ICH9's at 00:1d.0, PIIX3's function 2 of 00:01 on i440FX (QEMU's -usb):
  * SeaBIOS's PCI IRQ routing table, which Windows without ACPI goes by,
- * covers devices 1 to 6 only.
- * @return {{ide: number, acpi_pm: number, vga: number, ne2k: number, lpc: number, ahci: number, hda: number, uhci: number}}
+ * covers devices 1 to 6 only. EHCI (usb.controller "ehci") is function 7 of
+ * a device whose functions 0 to 2 are its UHCI companions: 00:1d as ICH9
+ * and QEMU have it (QEMU's PC too, in its example), v86's PC at 00:06
+ * (inside that table).
+ * @return {{ide: number, acpi_pm: number, vga: number, ne2k: number, lpc: number, ahci: number, hda: number, uhci: number,
+ *     ehci: number}}
  */
 export function pci_functions(platform)
 {
     if(platform && platform.machine === "q35")
     {
         return { ide: -1, acpi_pm: -1, vga: 0x01 << 3, ne2k: 0x02 << 3, lpc: ICH9_LPC_PCI_ID, ahci: ICH9_AHCI_PCI_ID, hda: 0x1B << 3,
-            uhci: 0x1D << 3 };
+            uhci: 0x1D << 3, ehci: 0x1D << 3 | 7 };
     }
     return platform && platform.qemu_compatible ?
-        { ide: 0x01 << 3 | 1, acpi_pm: 0x01 << 3 | 3, vga: 0x02 << 3, ne2k: 0x03 << 3, lpc: -1, ahci: -1, hda: 0x04 << 3, uhci: 0x01 << 3 | 2 } :
-        { ide: 0x1E << 3, acpi_pm: ACPI_PM_PCI_ID, vga: 0x12 << 3, ne2k: 0x05 << 3, lpc: -1, ahci: -1, hda: 0x1B << 3, uhci: 0x01 << 3 | 2 };
+        { ide: 0x01 << 3 | 1, acpi_pm: 0x01 << 3 | 3, vga: 0x02 << 3, ne2k: 0x03 << 3, lpc: -1, ahci: -1, hda: 0x04 << 3, uhci: 0x01 << 3 | 2,
+            ehci: 0x1D << 3 | 7 } :
+        { ide: 0x1E << 3, acpi_pm: ACPI_PM_PCI_ID, vga: 0x12 << 3, ne2k: 0x05 << 3, lpc: -1, ahci: -1, hda: 0x1B << 3, uhci: 0x01 << 3 | 2,
+            ehci: 0x06 << 3 | 7 };
 }
 /** PM I/O block size decoded at PMBA (PCI config 0x40) */
 export const ACPI_PM_LENGTH = 0x40;

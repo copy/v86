@@ -2457,6 +2457,19 @@ V86.prototype.usb_plug = function(id, plugged)
 };
 
 /**
+ * The USB devices: each one's id, port, whether it is in its port, the
+ * controller that has it ("ehci", or "uhci": the UHCI or an EHCI's
+ * companion) and its speed in Mbit/s (12, 480)
+ * @return {!Promise<!Array<{id: string, port: number, plugged: boolean, controller: string, speed: number}>>}
+ */
+V86.prototype.usb_devices = async function()
+{
+    if(this.worker_controller) return this.worker_controller.rpc("usb_devices");
+    const usb = this.v86 && this.v86.cpu.devices.usb;
+    return usb ? usb.device["device_list"]() : [];
+};
+
+/**
  * Plug a disk image into the machine as a USB disk (a USB stick: usb's
  * mass storage, in the first free port of the USB controller). The guest
  * sees it arrive and mounts it. The image is as for the hda option, with

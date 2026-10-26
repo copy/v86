@@ -73,7 +73,7 @@ export function HIDTablet(now)
     this.in_use = false;
     USBDevice.call(this, {
         name: "tablet",
-        speed: SPEED_FULL,
+        speeds: [SPEED_FULL],
         device: device_descriptor({ usb: 0x0110, class: 0, subclass: 0, protocol: 0, max_packet0: 8,
             // (QEMU's tablet's IDs, which drivers know)
             vendor: 0x0627, product: 0x0001, release: 0x0000, manufacturer: 1, product_string: 2, serial: 3, configurations: 1 }),

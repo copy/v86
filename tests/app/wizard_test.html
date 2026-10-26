@@ -317,17 +317,19 @@ const parts = {
         await until(() => item("disk-1"), "a second hard disk");
         log("Add and Remove: a floppy drive added and removed, a second hard disk added");
 
-        // Add USB: UHCI with the tablet; the tablet off
+        // Add USB: UHCI with the tablet; EHCI chosen, the tablet off
         select_text(dialog.querySelector("select[aria-label='Add hardware']"), "USB");
         await until(() => item("usb") && item("usb").classList.contains("selected"), "USB added and chosen");
         const controllers = Array.from(panel().querySelector("select[aria-label=Controller]").options, o => o.textContent);
-        check(JSON.stringify(controllers) === JSON.stringify(["UHCI (USB 1.1)"]), "the USB controllers: " + controllers);
+        check(JSON.stringify(controllers) === JSON.stringify(["UHCI (USB 1.1)", "EHCI (USB 2.0, with UHCI companions)"]), "the USB controllers: " + controllers);
+        select_text(panel().querySelector("select[aria-label=Controller]"), "EHCI");
+        await until(() => /EHCI/.test(item("usb").textContent), "EHCI in the item's summary");
         const tablet = Array.from(panel().querySelectorAll("label.check")).find(l => /^Tablet/.test(l.textContent.trim())).querySelector("input");
-        check(tablet.checked && /UHCI, tablet/.test(item("usb").textContent), "the tablet on: " + item("usb").textContent);
+        check(tablet.checked && /EHCI, tablet/.test(item("usb").textContent), "the tablet on: " + item("usb").textContent);
         tablet.click();
         await until(() => !/tablet/.test(item("usb").textContent), "the tablet off in the item's summary");
         check(!Array.from(dialog.querySelector("select[aria-label='Add hardware']").options, o => o.textContent).includes("USB"), "USB no longer to add");
-        log("USB: added (" + controllers.join(", ") + "), the tablet turned off");
+        log("USB: added (" + controllers.join(", ") + "), EHCI chosen, the tablet turned off");
 
         // Add a USB disk: an empty disk in memory, write protected
         select_text(dialog.querySelector("select[aria-label='Add hardware']"), "USB disk");
@@ -342,7 +344,7 @@ const parts = {
         await until(() => !$("dialog.settings-dialog[open]"), "saved");
         const table = await until(() => /2 cores/.test(table_text($(".hardware"))) && table_text($(".hardware")), "the library showing the saved machine");
         check(/x86, 2 cores/.test(table) && /ACPI/.test(table) && /Hard disk \(hda\) images\/msdos622\.img/.test(table) && /Hard disk \(hdb\)/.test(table) &&
-            /USB UHCI(;|$)/.test(table) && /USB disk \(usb0\) [^;]*write protected/.test(table), "the saved machine: " + table);
+            /USB EHCI(;|$)/.test(table) && /USB disk \(usb0\) [^;]*write protected/.test(table), "the saved machine: " + table);
         log("saved: " + table.slice(0, 160));
 
         // Cancel: nothing changes

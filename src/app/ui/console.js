@@ -949,7 +949,15 @@ function console_ui(layout, emulator, ctx)
             ["USB", options.usb ? options.usb.controller.toUpperCase() + (options.usb.tablet ? ", tablet" : "") : "none"],
         ];
         replace(details, h("table.hardware", null, h("tbody", null, rows.map(([k, v]) => h("tr", null, h("th", null, k), h("td", null, v))))),
-            h("p.note#execution"));
+            h("p.note#usb_devices"), h("p.note#execution"));
+        // (each USB device's controller and speed: EHCI's companions have the full-speed ones)
+        if(options.usb) emulator.usb_devices().then(list =>
+        {
+            const element = details.querySelector("#usb_devices");
+            if(element) element.textContent = "USB devices: " + (list.map(d => d.id + " (port " + (d.port + 1) + ", " +
+                (d.plugged ? (d.controller === "ehci" ? "EHCI" : options.usb.controller === "ehci" ? "UHCI companion" : "UHCI") + ", " + d.speed + " Mbit/s" :
+                    "out of its port") + ")").join("; ") || "none");
+        }, () => {});
         emulator.get_diagnostics().then(diagnostics =>
         {
             const execution = diagnostics && diagnostics.execution;

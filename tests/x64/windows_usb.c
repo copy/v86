@@ -1,8 +1,9 @@
 /* What WIN_USB checks (tests/x64/windows_boot.mjs, tests/devices/
  * usb_windows_xp.mjs, docs/usb.md), 32-bit (XP, and WOW64 on 64-bit
  * Windows), no CRT. USB.TXT beside the program gets the present devices of
- * the UHCI controller (PIIX3's 8086:7020, ICH9's 8086:2934), its root hub
- * and the tablet (0627:0001: the USB device and its HID mouse), "DEVICE id |
+ * the UHCI controller (PIIX3's 8086:7020, ICH9's 8086:2934) or the EHCI
+ * (ICH9's 8086:293A) and its companions (2934 to 2936), the root hubs, and
+ * the tablet (0627:0001: the USB device and its HID mouse), "DEVICE id |
  * name | error=n | service=s | started" (n is the device's Device Manager
  * problem code, 0 when it has none), then "SCREEN w h", "READY", the
  * cursor's position every 300 ms ("POS x y ms", ms the guest's tick count)
@@ -55,8 +56,8 @@ static int starts(const char *s, const char *prefix)
 }
 static void devices(void)
 {
-    static const char *const wanted[] = {"PCI\\VEN_8086&DEV_7020", "PCI\\VEN_8086&DEV_2934", "USB\\ROOT_HUB", "USB\\VID_0627&PID_0001",
-        "HID\\VID_0627&PID_0001", "USB\\VID_46F4&PID_0001", "USBSTOR\\"};
+    static const char *const wanted[] = {"PCI\\VEN_8086&DEV_7020", "PCI\\VEN_8086&DEV_2934", "PCI\\VEN_8086&DEV_2935", "PCI\\VEN_8086&DEV_2936",
+        "PCI\\VEN_8086&DEV_293A", "USB\\ROOT_HUB", "USB\\VID_0627&PID_0001", "HID\\VID_0627&PID_0001", "USB\\VID_46F4&PID_0001", "USBSTOR\\"};
     HDEVINFO set = SetupDiGetClassDevsA(0, 0, 0, DIGCF_ALLCLASSES | DIGCF_PRESENT);
     if(set == INVALID_HANDLE_VALUE) { put("DEVICES error"); flush(); return; }
     SP_DEVINFO_DATA device;

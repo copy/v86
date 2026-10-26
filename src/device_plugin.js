@@ -256,7 +256,38 @@ export function device_handle(cpu, owner)
         "wake": () => cpu.stop_idling(),
         // a disk image the host gave the plugin (a USB disk's): block_handle
         "block_backend": buffer => block_handle(/** @type {!CPU} */ (cpu), buffer),
+        // another function of the device's PCI slot: function_handle
+        "function": number => function_handle(cpu, owner, number),
     };
+}
+
+/**
+ * Another function of a plugin's PCI device (EHCI's UHCI companions,
+ * functions 0 to 2 beside its 7): its own PCI function (register_pci,
+ * interrupt pin, configuration space, bus mastering); the rest is the
+ * machine's, as the device's own handle has it
+ * @param {CPU} cpu
+ * @param {!Object} owner the device's owner (PluginDevice)
+ * @param {number} number the function, 0 to 7
+ * @return {!Object}
+ */
+function function_handle(cpu, owner, number)
+{
+    const sub = {
+        name: owner.name + "." + number,
+        pci_id: owner.pci_id & ~7 | number,
+        pci_device: null,
+        register_pci: description =>
+        {
+            if(sub.pci_device) throw new Error(owner.name + ": PCI function " + number + " registered twice");
+            sub.pci_device = plugin_pci_device(sub, description);
+            // (a reset of the function is the device's)
+            sub.pci_device.reset = () => owner.reset();
+            dbg_log(owner.name + " function " + number + " at PCI " + sub.pci_id.toString(16), LOG_PCI);
+            return cpu.devices.pci.register_device(sub.pci_device);
+        },
+    };
+    return device_handle(cpu, sub);
 }
 
 /**

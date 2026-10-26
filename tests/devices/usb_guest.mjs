@@ -8,7 +8,8 @@
 // 0 to 32767, the buttons, the wheel) at the corners, the centre and a 5x5
 // grid; out of its port and back in, it is enumerated again; a snapshot.
 //
-// MACHINE=q35 (ICH9's UHCI), CPU_CORES=2, SHOW_LOGS=1.
+// MACHINE=q35 (ICH9's UHCI), CPU_CORES=2, SHOW_LOGS=1, USB_CONTROLLER=ehci
+// (EHCI, ehci-pci: the full-speed tablet on its UHCI companion, at 12M).
 
 import assert from "node:assert/strict";
 import url from "node:url";
@@ -22,6 +23,7 @@ const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const SHOW_LOGS = +process.env.SHOW_LOGS;
 const CPU_CORES = +process.env.CPU_CORES || 1;
 const MACHINE = process.env.MACHINE || "i440fx";
+const CONTROLLER = process.env.USB_CONTROLLER || "uhci";
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 const prepared = await prepare_alpine("x86_64-virt");
@@ -41,7 +43,7 @@ const emulator = new V86({
     machine_type: MACHINE,
     acpi: true,
     net_device: { type: "none" },
-    usb: { controller: "uhci", tablet: true },
+    usb: { controller: CONTROLLER, tablet: true },
     autostart: true,
     log_level: 0,
 });
@@ -99,7 +101,7 @@ async function step(name, f)
     console.log("ok - " + name + " (" + ((Date.now() - start) / 1000).toFixed(1) + " s)");
 }
 
-console.log("Booting Alpine x86_64 with a USB tablet (" + MACHINE + ", " + CPU_CORES + " core" + (CPU_CORES > 1 ? "s" : "") + ")");
+console.log("Booting Alpine x86_64 with a USB tablet (" + CONTROLLER + ", " + MACHINE + ", " + CPU_CORES + " core" + (CPU_CORES > 1 ? "s" : "") + ")");
 await wait_serial(/login: $/, "the login prompt", 600000);
 serial = "";
 emulator.serial0_send("root\n");
@@ -121,10 +123,18 @@ await step("uhci-hcd and usbhid: the tablet enumerated (its IDs and product), an
     const ids = await command("cat /sys/bus/usb/devices/*/idVendor /sys/bus/usb/devices/*/idProduct /sys/bus/usb/devices/*/product 2>/dev/null | tr '\\n' ' '");
     assert.match(ids, /0627/);
     assert.match(ids, /v86 USB Tablet/);
-    // (PIIX3's function 2 on i440FX, ICH9's 00:1d.0 on Q35)
-    const slot = MACHINE === "q35" ? "1d.0" : "01.2";
-    const driver = await command("basename $(readlink /sys/bus/pci/devices/0000:00:" + slot + "/driver)");
+    // (PIIX3's function 2 on i440FX, ICH9's 00:1d.0 on Q35; EHCI's first
+    // companion at 00:1d.0 or v86's 00:06.0, the EHCI at function 7)
+    const slot = CONTROLLER === "ehci" ? (MACHINE === "q35" ? "1d" : "06") : MACHINE === "q35" ? "1d.0" : "01.2";
+    const driver = await command("basename $(readlink /sys/bus/pci/devices/0000:00:" + (CONTROLLER === "ehci" ? slot + ".0" : slot) + "/driver)");
     assert.match(driver, /uhci_hcd/);
+    if(CONTROLLER === "ehci")
+    {
+        assert.match(await command("basename $(readlink /sys/bus/pci/devices/0000:00:" + slot + ".7/driver)"), /ehci-pci/);
+        // (the tablet's speed: full, on the companion)
+        assert.match(await command("for d in /sys/bus/usb/devices/*; do [ \"$(cat $d/idVendor 2>/dev/null)\" = 0627 ] && echo SPE''ED $(cat $d/speed); done"),
+            /^SPEED 12$/m);
+    }
     assert.ok(tablet_active, "announced: the PS/2 mouse leaves the pointer to it");
 });
 

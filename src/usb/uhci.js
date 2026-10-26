@@ -1,8 +1,9 @@
 // A UHCI USB 1.1 host controller (Intel's Universal Host Controller
 // Interface, revision 1.1): PIIX3's (8086:7020) on i440FX, ICH9's first
-// (8086:2934) on Q35, as QEMU's piix3-usb-uhci and ich9-usb-uhci1; Windows
-// binds usbport.inf by its class (PCI\CC_0C0300), Linux uhci-hcd. Two root
-// ports, the 32 I/O ports of BAR4, INTx.
+// (8086:2934) on Q35, as QEMU's piix3-usb-uhci and ich9-usb-uhci1, or one of
+// ICH9's three companions of EHCI (ehci.js); Windows binds usbport.inf by
+// its class (PCI\CC_0C0300), Linux uhci-hcd. Two root ports, the 32 I/O
+// ports of BAR4, INTx.
 //
 // While it runs, a frame of 1 ms of the machine clock is processed at a
 // time: the frame list's entry, its queue heads (QH) and transfer
@@ -23,6 +24,8 @@ export const PORTS = 2;
 
 /** The controller of each machine: [device, revision, interrupt pin] */
 const IDENTITY = { "i440fx": [0x7020, 0x01, 4], "q35": [0x2934, 0x03, 1] };
+/** EHCI's companions (functions 0, 1, 2 of its device): ICH9's UHCI1 to 3 */
+export const COMPANION_IDENTITY = [[0x2934, 0x03, 1], [0x2935, 0x03, 2], [0x2936, 0x03, 3]];
 const PCI_VENDOR = 0x8086;
 const PCI_SUBSYSTEM_VENDOR = 0x1AF4, PCI_SUBSYSTEM = 0x1100;
 
@@ -59,9 +62,11 @@ const FRAMES_BEHIND = 100;
 
 /**
  * @constructor
- * @param {!Object} machine the plugin's machine (src/usb/machine.js)
+ * @param {!Object} machine the plugin's machine (src/usb/machine.js), or a function's
+ * @param {Array<number>=} identity [device, revision, interrupt pin] (a companion's); the machine's by default
+ * @param {boolean=} multifunction function 0 of a device of several (EHCI's)
  */
-export function UHCIController(machine)
+export function UHCIController(machine, identity, multifunction)
 {
     this.machine = machine;
     this.name = "uhci";
@@ -73,9 +78,11 @@ export function UHCIController(machine)
     this.reset();
     this.register_ports();
 
-    const [device, revision, pin] = IDENTITY[machine.machine_type] || IDENTITY["i440fx"];
+    const [device, revision, pin] = identity || IDENTITY[machine.machine_type] || IDENTITY["i440fx"];
+    const space = create_pci_space(device, revision, pin, this.io_base);
+    if(multifunction) space[0x0E] = 0x80;
     machine.register_pci({
-        pci_space: create_pci_space(device, revision, pin, this.io_base),
+        pci_space: space,
         pci_bars: [null, null, null, null, { size: IO_SIZE, on_move: undefined }],
         on_command_change: () => { this.update_irq(); },
         on_config_restore: () => {},

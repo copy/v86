@@ -87,7 +87,8 @@
 // endpoints and the time of playing Windows' longest Media WAV to SND.TXT,
 // and "audio" prints what the controller played (X64_WIN_AUDIO: bytes,
 // formats, how many samples were not silent).
-// WIN_USB=1: USB (a UHCI controller with the HID tablet); the tools disk has
+// WIN_USB=1: USB (a UHCI controller with the HID tablet; WIN_USB=ehci: EHCI
+// with its UHCI companions); the tools disk has
 // USB.CMD, which writes the controller's, its root hub's, the tablet's and
 // its HID mouse's devices to USB.TXT and then the cursor's position every
 // 300 ms (tests/x64/windows_usb.c); "pointergrid" walks the page's pointer
@@ -261,7 +262,8 @@ const vm = new V86({
     acpi: true, cpu_cores: cores, autostart: false, log_level: 0,
     net_device: {type: process.env.WIN_NIC || "ne2k", ...(process.env.WIN_NET ? {relay_url: "fetch"} : {})},
     ...(process.env.WIN_AUDIO ? {audio_device: process.env.WIN_AUDIO} : {}),
-    ...(process.env.WIN_USB ? {usb: {controller: "uhci", tablet: true,
+    // (WIN_USB=ehci: EHCI with its companions)
+    ...(process.env.WIN_USB ? {usb: {controller: process.env.WIN_USB === "ehci" ? "ehci" : "uhci", tablet: true,
         ...(usb_disk ? {mass_storage: [{id: "stick", image: {buffer: usb_disk.buffer}}]} : {})}} : {}),
     // WIN_QEMU_COMPATIBLE=1: devices where QEMU, which the image was installed with, had them
     qemu_compatible: !!+process.env.WIN_QEMU_COMPATIBLE,
@@ -1060,6 +1062,8 @@ try
         else if(verb === "password") { await type(password); await enter(); }
         else if(verb === "shot") screenshot(true);
         else if(verb === "file") console.log("X64_WIN_FILE " + argument + "\n" + result_text(argument));
+        // "usbdevices": each USB device's controller and speed (X64_WIN_USB_DEVICES)
+        else if(verb === "usbdevices") console.log("X64_WIN_USB_DEVICES " + JSON.stringify(await vm.usb_devices()));
         else if(verb === "usbdiskfile")
         {
             const bytes = usb_disk && read_fat16(usb_disk, argument);

@@ -32,9 +32,11 @@ settings, rename, export, delete.
   guest's cursor follows the page's without locking the mouse; the Input
   menu's "Lock the mouse" switches to relative movement (the PS/2 mouse) for
   games. USB is an item of the settings (Add, Remove; configuration
-  version 4). USB disks are items too ("USB disk" in Add): a disk image as a
+  version 4), its controller UHCI or EHCI (USB 2.0 with UHCI companions,
+  the XP and 7 presets'). USB disks are items too ("USB disk" in Add): a disk image as a
   USB stick, its source as a hard disk's (read only or written back), write
-  protected or not; a port each (UHCI has two, the tablet takes one). While
+  protected or not; a port each (UHCI has two, EHCI six, the tablet takes
+  one). While
   the machine runs, the Devices menu plugs a file in as a USB disk, unplugs
   one (it warns while the guest has not ejected it) and downloads its
   image.
@@ -131,14 +133,15 @@ Power on opens the machine's console in a new tab (`index.html?vm=<id>`);
 a machine runs in one tab at a time. Its menus: Power (pause, reset, power
 off, suspend, save and power off for disks written back, save a state to a
 file, load one), Keys (Ctrl+Alt+Del and other combinations), Devices (CD
-and floppies in and out, the disks' images), View (full screen, zoom to
+and floppies in and out, USB disks plugged in and out, the disks' images), View (full screen, zoom to
 fit, scales, theatre mode, screenshot), Input (the mouse), Tools
 (memory dump, network capture), and Mute. The
 status bar shows the time, speed, disk and network traffic, the display
 mode and the mouse; the drawers hold the serial terminal, the kernel
 console (a machine with a virtio console: its first port, hvc0, where the
 virt machine's Linux and Android print the kernel's log), the shared
-folder's files and the details. The two consoles keep what was printed
+folder's files and the details (the hardware, each USB device's controller
+and speed). The two consoles keep what was printed
 from power on (the last MiB until the drawer opens), so a drawer opened
 later shows the boot from its start. A disk that fails with
 `disk_error: "stop"` pauses the machine and asks: retry, or power off.

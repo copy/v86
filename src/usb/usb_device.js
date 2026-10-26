@@ -2,16 +2,19 @@
 // configuration, endpoint 0's control transfers (setup, data and status
 // stages, a new SETUP ending one that was under way) with the standard
 // requests, and the other endpoints' transactions, which the device's kind
-// (hid_tablet.js, later mass storage) answers. Halted endpoints STALL until
-// CLEAR_FEATURE(ENDPOINT_HALT). Speeds are the device's: it answers with the
-// descriptors of the speed it is attached at.
+// (hid_tablet.js, mass_storage.js) answers. Halted endpoints STALL until
+// CLEAR_FEATURE(ENDPOINT_HALT). Speeds are the device's: it runs at one of
+// them, the port's (EHCI's high speed, or a UHCI companion's full speed),
+// and answers with that speed's configurations; a device of both describes
+// the other in its device qualifier and other speed configuration.
 
 import {
-    DESCRIPTOR_CONFIGURATION, DESCRIPTOR_DEVICE, DESCRIPTOR_STRING, FEATURE_DEVICE_REMOTE_WAKEUP,
+    DESCRIPTOR_CONFIGURATION, DESCRIPTOR_DEVICE, DESCRIPTOR_DEVICE_QUALIFIER, DESCRIPTOR_OTHER_SPEED, DESCRIPTOR_STRING,
+    FEATURE_DEVICE_REMOTE_WAKEUP,
     FEATURE_ENDPOINT_HALT, LANGUAGES, PID_IN, PID_OUT, PID_SETUP, RECIPIENT_DEVICE, RECIPIENT_ENDPOINT,
     RECIPIENT_INTERFACE, REQUEST_CLEAR_FEATURE, SetupPacket, REQUEST_GET_CONFIGURATION, REQUEST_GET_DESCRIPTOR,
     REQUEST_GET_INTERFACE, REQUEST_GET_STATUS, REQUEST_SET_ADDRESS, REQUEST_SET_CONFIGURATION,
-    REQUEST_SET_FEATURE, REQUEST_SET_INTERFACE, SPEED_FULL, TYPE_STANDARD, USB_NAK, USB_STALL, parse_setup,
+    REQUEST_SET_FEATURE, REQUEST_SET_INTERFACE, SPEED_FULL, SPEED_HIGH, TYPE_STANDARD, USB_NAK, USB_STALL, parse_setup,
     string_descriptor,
 } from "./usb.js";
 
@@ -20,16 +23,18 @@ const STAGE_IDLE = 0, STAGE_DATA_IN = 1, STAGE_DATA_OUT = 2, STAGE_STATUS_IN = 3
 
 /**
  * @constructor
- * @param {{name: string, speed: (number|undefined), device: !Array<number>, configurations: !Array<!Array<number>>,
- *     strings: !Array<string>, endpoints: !Array<number>}} d the device's descriptors: the device
- *     descriptor, each configuration's (with its interfaces and endpoints), the strings (index 1 on), the
+ * @param {{name: string, speeds: (!Array<number>|undefined), device: !Array<number>, configurations: !Array<!Array<number>>,
+ *     high_configurations: (!Array<!Array<number>>|undefined), strings: !Array<string>, endpoints: !Array<number>}} d
+ *     the device's descriptors: the device descriptor, each configuration's (with its interfaces and
+ *     endpoints) at full speed and, for a high-speed device, at high speed; the strings (index 1 on), the
  *     addresses of its endpoints other than 0
  */
 export function USBDevice(d)
 {
     this.name = d.name;
-    /** The speeds the device runs at; its descriptors are for its own */
-    this.speed = d.speed === undefined ? SPEED_FULL : d.speed;
+    /** The speeds the device runs at (full speed, and high), and the one it runs at */
+    this.speeds = d.speeds || [SPEED_FULL];
+    this.speed = this.speeds[0];
     this.descriptors = d;
     this.max_packet0 = d.device[7];
     this.endpoint_addresses = d.endpoints;
@@ -230,7 +235,7 @@ USBDevice.prototype.request = function(setup, data)
         case REQUEST_SET_CONFIGURATION:
         {
             const value = setup.value & 0xFF;
-            if(value && !this.descriptors.configurations.some(c => c[5] === value)) return USB_STALL;
+            if(value && !this.configurations(this.speed).some(c => c[5] === value)) return USB_STALL;
             this.configuration = value;
             this.alternates = [0];
             this.halted.clear();
@@ -262,13 +267,45 @@ USBDevice.prototype.descriptor = function(type, index, language)
         case DESCRIPTOR_DEVICE:
             return this.descriptors.device;
         case DESCRIPTOR_CONFIGURATION:
-            return this.descriptors.configurations[index] || null;
+            return this.configurations(this.speed)[index] || null;
         case DESCRIPTOR_STRING:
             if(index === 0) return LANGUAGES;
             return index <= this.descriptors.strings.length ? string_descriptor(this.descriptors.strings[index - 1]) : null;
+        case DESCRIPTOR_DEVICE_QUALIFIER:
+        {
+            // the device at the other speed (a full-speed only device STALLs it)
+            if(!this.speeds.includes(SPEED_HIGH)) return null;
+            const d = this.descriptors.device;
+            return [10, DESCRIPTOR_DEVICE_QUALIFIER, d[2], d[3], d[4], d[5], d[6], d[7], d[17], 0];
+        }
+        case DESCRIPTOR_OTHER_SPEED:
+        {
+            if(!this.speeds.includes(SPEED_HIGH)) return null;
+            const other = this.configurations(this.speed === SPEED_HIGH ? SPEED_FULL : SPEED_HIGH)[index];
+            return other ? [other[0], DESCRIPTOR_OTHER_SPEED].concat(other.slice(2)) : null;
+        }
     }
-    // (no device qualifier: a full-speed device that has no high speed STALLs it)
     return null;
+};
+
+/**
+ * The configurations' descriptors at a speed
+ * @param {number} speed
+ * @return {!Array<!Array<number>>}
+ */
+USBDevice.prototype.configurations = function(speed)
+{
+    return speed === SPEED_HIGH && this.descriptors.high_configurations ? this.descriptors.high_configurations : this.descriptors.configurations;
+};
+
+/**
+ * The port's speed (EHCI's high speed, or a companion's full speed): the
+ * device runs at it from its next bus reset on
+ * @param {number} speed
+ */
+USBDevice.prototype.set_speed = function(speed)
+{
+    if(this.speeds.includes(speed)) this.speed = speed;
 };
 
 /**
@@ -336,7 +373,7 @@ USBDevice.prototype.get_state = function()
 {
     return [this.address, this.configuration, this.alternates.slice(), +this.remote_wakeup, Array.from(this.halted),
         this.stage, this.setup ? [this.setup.type, this.setup.request, this.setup.value, this.setup.index, this.setup.length] : null,
-        this.control_data, this.control_offset, concat(this.out_data, this.out_length), this.pending_address];
+        this.control_data, this.control_offset, concat(this.out_data, this.out_length), this.pending_address, this.speed];
 };
 
 USBDevice.prototype.set_state = function(state)
@@ -352,4 +389,5 @@ USBDevice.prototype.set_state = function(state)
     this.out_data = state[9].length ? [state[9]] : [];
     this.out_length = state[9].length;
     this.pending_address = state[10];
+    if(state[11] !== undefined) this.speed = state[11];
 };

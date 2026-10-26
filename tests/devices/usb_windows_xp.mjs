@@ -13,7 +13,8 @@
 //
 // Env: XP_IMAGE (retro-gaming-site/windowsxp/windowsxp_multidisk_C_4G.img,
 // opened read only: writes stay in memory), XP_OUT (build/xp-usb: the
-// screenshots), TEST_RELEASE_BUILD, XP_MEMORY_MB (512).
+// screenshots), TEST_RELEASE_BUILD, XP_MEMORY_MB (512), XP_USB_CONTROLLER (uhci;
+// ehci: EHCI with its companions, the USB disk at high speed).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -29,6 +30,7 @@ const image_path = path.resolve(process.env.XP_IMAGE || path.join(site_directory
 const out = path.resolve(process.env.XP_OUT || path.join(root, "build/xp-usb"));
 fs.mkdirSync(out, { recursive: true });
 const image_mtime = fs.statSync(image_path).mtimeMs;
+const CONTROLLER = process.env.XP_USB_CONTROLLER || "uhci";
 const started = performance.now();
 const elapsed = () => Math.round((performance.now() - started) / 1000);
 
@@ -56,7 +58,7 @@ const vm = new V86({
     graphics_adapter: "bochs_vga",
     acpi: false,
     net_device: { type: "none" },
-    usb: { controller: "uhci", tablet: true, mass_storage: [{ id: "stick", image: { buffer: usb_disk.buffer } }] },
+    usb: { controller: CONTROLLER, tablet: true, mass_storage: [{ id: "stick", image: { buffer: usb_disk.buffer } }] },
     autostart: true,
     log_level: 0,
 });
@@ -225,11 +227,14 @@ save("end.png", frame());
 const text = result_text();
 console.log(text.split("\r\n").filter(line => !line.startsWith("POS")).join("\n"));
 const devices = text.split("\r\n").filter(line => line.startsWith("DEVICE"));
-for(const id of ["PCI\\VEN_8086&DEV_7020", "USB\\ROOT_HUB", "USB\\VID_0627&PID_0001", "HID\\VID_0627&PID_0001", "USB\\VID_46F4&PID_0001", "USBSTOR\\DISK"])
+const controllers = CONTROLLER === "ehci" ? ["PCI\\VEN_8086&DEV_293A", "PCI\\VEN_8086&DEV_2934", "PCI\\VEN_8086&DEV_2935", "PCI\\VEN_8086&DEV_2936",
+    "USB\\ROOT_HUB20"] : ["PCI\\VEN_8086&DEV_7020"];
+for(const id of [...controllers, "USB\\ROOT_HUB", "USB\\VID_0627&PID_0001", "HID\\VID_0627&PID_0001", "USB\\VID_46F4&PID_0001", "USBSTOR\\DISK"])
 {
-    const line = devices.find(d => d.startsWith("DEVICE " + id));
-    assert.ok(line, id + " present");
-    assert.match(line, /error=0 .*\| started/, line);
+    // (every one of them: the root hubs of the EHCI and the companions)
+    const lines = devices.filter(d => d.startsWith("DEVICE " + id));
+    assert.ok(lines.length, id + " present");
+    for(const line of lines) assert.match(line, /error=0 .*\| started/, line);
 }
 // the USB disk: its file read, FROMWIN.TXT written into the image
 assert.match(text, /^DISK [D-Z]:\\ v86 USB disk check\r?$/m);
@@ -237,6 +242,12 @@ assert.match(text, /^DISK WRITTEN\r?$/m);
 const written = read_fat16(usb_disk, "FROMWIN.TXT");
 assert.ok(written && Buffer.from(written).toString("ascii").startsWith("written by Windows"), "FROMWIN.TXT in the USB disk's image");
 console.log("USB disk: USBDISK.TXT read, FROMWIN.TXT in the image");
+const usb_devices = await vm.usb_devices();
+console.log("USB devices: " + usb_devices.map(d => d.id + " " + d.controller + " " + d.speed + " Mbit/s").join(", "));
+if(CONTROLLER === "ehci")
+{
+    assert.deepEqual(usb_devices.map(d => [d.id, d.controller, d.speed]), [["tablet", "uhci", 12], ["stick", "ehci", 480]]);
+}
 
 // The positions in order: each point seen (within a pixel), held for at
 // least two samples

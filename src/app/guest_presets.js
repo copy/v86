@@ -35,7 +35,7 @@ const GB = 1024;
 /**
  * A PC's hardware
  * @param {{cpu?: string, memory: number, cores?: number, adapter?: string, vram?: number, nic?: string, sound?: string,
- *     acpi?: boolean, cpuid_level?: number, tablet?: boolean}} h
+ *     acpi?: boolean, cpuid_level?: number, tablet?: boolean, usb?: string}} h
  */
 function pc(h)
 {
@@ -52,8 +52,9 @@ function pc(h)
         if(c.network[0].device === "none") { c.network[0].backend = "none"; c.network[0].relay_url = ""; }
         c.sound.device = h.sound || "sb16";
         if(h.cpuid_level) c.advanced.cpuid_level = h.cpuid_level;
-        // (the USB tablet: an absolute pointer for the systems that have its drivers)
-        c.usb = h.tablet ? { controller: "uhci", tablet: true, disks: [] } : null;
+        // (the USB tablet: an absolute pointer for the systems that have its
+        // drivers; EHCI for the systems before xHCI drivers: XP to 7)
+        c.usb = h.tablet ? { controller: h.usb || "uhci", tablet: true, disks: [] } : null;
     };
 }
 
@@ -110,7 +111,7 @@ export const PRESETS = [
         install: ["cdrom"], install_text: "From the CD", disk_mb: 4 * GB, disk_location: "memory",
         checklist: ["D3D programs such as 3DMark06: d3d9.dll from driver.iso"],
         issues: ["Keep the x86 CPU: x86_64 makes XP use its PAE kernel", "XP's and 2000's ACPI HAL is not verified: one core only"],
-        hardware: pc({ memory: 2048 * MB, vram: 16, tablet: true }),
+        hardware: pc({ memory: 2048 * MB, vram: 16, tablet: true, usb: "ehci" }),
     },
     {
         id: "windows81", name: "Windows 8.1 (x64)", guest: "windows", verified: true,
@@ -122,7 +123,7 @@ export const PRESETS = [
         id: "windows7", name: "Windows Vista / 7 / 10", guest: "windows", verified: false,
         basis: "Windows 8.1's settings; Vista's installation CD only starts, 7 and 10 were never tried",
         install: ["cdrom"], install_text: "From the CD", disk_mb: 32 * GB, disk_location: "service",
-        checklist: WINDOWS_81_CHECKLIST, issues: WINDOWS_81_ISSUES, hardware: pc(WINDOWS_81),
+        checklist: WINDOWS_81_CHECKLIST, issues: WINDOWS_81_ISSUES, hardware: pc(Object.assign({}, WINDOWS_81, { usb: "ehci" })),
     },
     {
         id: "linux", name: "Linux (32-bit)", guest: "linux", verified: true, basis: "Linux 4.16, 6.8, 6.18: docs/multicore.md, docs/acpi.md, docs/q35.md",

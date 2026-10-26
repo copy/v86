@@ -1,7 +1,7 @@
 // A USB disk: a disk image as a USB mass storage device, Bulk-Only Transport
 // (USB Mass Storage Class BOT 1.0) with the SCSI transparent command set
 // (SPC-3, SBC-3): one LUN of 512-byte sectors, removable (as USB sticks
-// are). The host sends a command block wrapper (CBW) on the bulk OUT
+// are), full or high speed (on EHCI). The host sends a command block wrapper (CBW) on the bulk OUT
 // endpoint, the data goes on bulk IN or OUT, and the device ends the command
 // with a command status wrapper (CSW) on bulk IN. The image is the core's
 // block backend (src/block_backend.js, through the plugin's handle): reads a
@@ -11,7 +11,7 @@
 
 import { USBDevice } from "./usb_device.js";
 import {
-    ENDPOINT_BULK, SPEED_FULL, USB_NAK, USB_STALL, configuration_descriptor, device_descriptor, endpoint_descriptor,
+    ENDPOINT_BULK, SPEED_FULL, SPEED_HIGH, USB_NAK, USB_STALL, configuration_descriptor, device_descriptor, endpoint_descriptor,
     interface_descriptor,
 } from "./usb.js";
 
@@ -146,18 +146,21 @@ export function MassStorage(backend, options)
     this.on_eject = null;
     /** a command's host I/O: what completes after a reset or another command does nothing */
     this.epoch = 0;
+    // mass storage, SCSI transparent command set, Bulk-Only Transport; bulk
+    // packets of 64 bytes at full speed, 512 at high speed
+    const configuration = max_packet => configuration_descriptor({ value: 1, attributes: 0x80, max_power: 50, interfaces: 1 }, [
+        interface_descriptor({ number: 0, alternate: 0, endpoints: 2, class: 8, subclass: 6, protocol: 0x50 }),
+        endpoint_descriptor({ address: 0x81, type: ENDPOINT_BULK, max_packet, interval: 0 }),
+        endpoint_descriptor({ address: 0x02, type: ENDPOINT_BULK, max_packet, interval: 0 }),
+    ]);
     USBDevice.call(this, {
         name: options.id,
-        speed: SPEED_FULL,
+        speeds: [SPEED_FULL, SPEED_HIGH],
         device: device_descriptor({ usb: 0x0200, class: 0, subclass: 0, protocol: 0, max_packet0: 64,
             // (QEMU's USB disk's IDs)
             vendor: 0x46F4, product: 0x0001, release: 0x0000, manufacturer: 1, product_string: 2, serial: 3, configurations: 1 }),
-        configurations: [configuration_descriptor({ value: 1, attributes: 0x80, max_power: 50, interfaces: 1 }, [
-            // mass storage, SCSI transparent command set, Bulk-Only Transport
-            interface_descriptor({ number: 0, alternate: 0, endpoints: 2, class: 8, subclass: 6, protocol: 0x50 }),
-            endpoint_descriptor({ address: 0x81, type: ENDPOINT_BULK, max_packet: 64, interval: 0 }),
-            endpoint_descriptor({ address: 0x02, type: ENDPOINT_BULK, max_packet: 64, interval: 0 }),
-        ])],
+        configurations: [configuration(64)],
+        high_configurations: [configuration(512)],
         strings: ["v86", "v86 USB Disk", this.serial],
         endpoints: [0x81, 0x02],
     });
