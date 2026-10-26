@@ -2,7 +2,7 @@
 
 import { dbg_assert } from "./log.js";
 import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
-import { format_mac } from "./ne2k.js";
+import { format_mac } from "./mac_address.js";
 import * as marshall from "../lib/marshall.js";
 
 // For Types Only

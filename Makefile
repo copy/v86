@@ -62,6 +62,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	./tests/api/sb16-state.js
 	./tests/api/sb16-dma.js
 	./tests/devices/disk_error.mjs
+	./tests/devices/e1000.js
 	./tests/persistence/response_version.mjs
 	./tests/persistence/node_file.mjs
 	./tests/persistence/disk_service.mjs
@@ -139,9 +140,9 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 		-C link-args="--import-memory --export-memory --emit-relocs --no-check-features --max-memory=4294967296 --global-base=32768 --export=__heap_base --export=__data_end"
 
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
-	   dma.js pit.js display.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
+	   dma.js pit.js display.js device_plugin.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js mac_address.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
@@ -162,7 +163,14 @@ BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 # works with any bundle, also one compiled in Closure's ADVANCED mode.
 GRAPHICS_ADAPTER_PLUGINS=build/v86-bochs-vga.js build/v86-vmware-svga.js build/v86-virtio-gpu.js
 GRAPHICS_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/bus.js src/display.js \
-	src/graphics_adapters/machine.js src/graphics_adapters/vga_core.js src/graphics_adapters/renderer_protocol.js
+	src/device_machine.js src/graphics_adapters/machine.js src/graphics_adapters/vga_core.js src/graphics_adapters/renderer_protocol.js
+
+# Network card plugins (src/device_plugin.js, net_device.type): the same,
+# loaded when net_device.type names one
+NET_ADAPTER_PLUGINS=build/v86-e1000.js
+NET_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/mac_address.js \
+	src/device_machine.js src/net_adapters/machine.js src/net_adapters/offload.js
+DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS)
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs src/rust/gen/interpreter0f38.rs src/rust/gen/interpreter0f3a.rs \
@@ -223,10 +231,19 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 		--js src/graphics_adapters/virtio_gpu/virtio_gpu_device.js \
 		--js src/graphics_adapters/virtio_gpu/plugin.js
 
-.PHONY: graphics-adapters
+.PHONY: graphics-adapters device-plugins
 graphics-adapters: $(GRAPHICS_ADAPTER_PLUGINS)
 
-build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
+build/v86-e1000.js: $(CLOSURE) src/*.js src/net_adapters/*.js src/net_adapters/e1000/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(NET_ADAPTER_COMMON) --js src/net_adapters/e1000/e1000.js --js src/net_adapters/e1000/plugin.js
+
+device-plugins: $(DEVICE_PLUGINS)
+
+build/libv86.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	java -jar $(CLOSURE) \
@@ -241,7 +258,7 @@ build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.
 		--js $(LIB_FILES)
 	ls -lh build/libv86.js
 
-build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
+build/libv86.mjs: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	java -jar $(CLOSURE) \
@@ -258,7 +275,7 @@ build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*
 		--emit_use_strict=false
 	ls -lh build/libv86.mjs
 
-build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
+build/libv86-debug.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86-debug.js\
@@ -273,7 +290,7 @@ build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/paral
 		--js $(LIB_FILES)
 	ls -lh build/libv86-debug.js
 
-build/libv86-debug.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
+build/libv86-debug.mjs: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86-debug.mjs\
@@ -426,7 +443,7 @@ build/zstddeclib.o: lib/zstd/zstddeclib.c
 
 clean:
 	-rm build/libv86.js
-	-rm $(GRAPHICS_ADAPTER_PLUGINS)
+	-rm $(DEVICE_PLUGINS)
 	-rm build/libv86.mjs
 	-rm build/libv86-debug.js
 	-rm build/libv86-debug.mjs
@@ -446,7 +463,7 @@ run: browser glbridge build/v86.wasm
 # Cloudflare Pages: .github/workflows/pages.yml, docs/vm-manager.md)
 PAGES_BUILD=build/v86_app.js build/android-import-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js build/xterm.js \
 	build/v86.wasm build/v86-fallback.wasm build/v86-parallel.wasm \
-	build/v86-arm64.wasm build/v86-arm64-fallback.wasm build/v86-arm64-parallel.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+	build/v86-arm64.wasm build/v86-arm64-fallback.wasm build/v86-arm64-parallel.wasm $(DEVICE_PLUGINS)
 .PHONY: pages
 pages: $(PAGES_BUILD) glbridge
 	node tools/pages_dist.mjs
@@ -571,7 +588,16 @@ q35-guest-tests: build/v86-debug.wasm
 q35-hotplug-tests: build/v86-debug.wasm
 	./tests/devices/pcie_hotplug.mjs
 
-.PHONY: q35-device-tests q35-guest-tests q35-hotplug-tests q35-tests
+# The e1000 network card (docs/modern-pc-devices-plan.md N1): the plugin's
+# device through its registers (from the source tree and as build/v86-e1000.js),
+# then Linux 4.16's driver on images/linux4.iso, on one core and on two
+e1000-tests: build/v86-debug.wasm build/libv86.mjs
+	./tests/devices/e1000.js
+	TEST_RELEASE_BUILD=1 ./tests/devices/e1000.js
+	./tests/devices/e1000_guest.mjs
+	CPU_CORES=2 ./tests/devices/e1000_guest.mjs
+
+.PHONY: e1000-tests q35-device-tests q35-guest-tests q35-hotplug-tests q35-tests
 q35-tests: acpi-table-tests q35-device-tests q35-guest-tests q35-hotplug-tests
 
 # ACPICA's iasl/acpiexec are used when found on PATH or in IASL/ACPIEXEC
@@ -716,7 +742,7 @@ disk-image-tests: build/v86-debug.wasm
 	./tests/image/guest.mjs
 	./tests/image/sector_size_guest.mjs
 
-disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+disk-image-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(DEVICE_PLUGINS)
 	./tests/image/browser_runner.mjs worker=0
 	./tests/image/browser_runner.mjs worker=1
 
@@ -808,7 +834,7 @@ disk-persistence-tests: build/v86-debug.wasm build/v86-arm64.wasm
 	./tests/persistence/service_machine.mjs
 	./tests/persistence/floppy.mjs
 
-disk-persistence-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(GRAPHICS_ADAPTER_PLUGINS)
+disk-persistence-browser-tests: build/libv86.mjs build/cpu-worker.js build/v86.wasm $(DEVICE_PLUGINS)
 	for worker in 0 1; do for part in d0 d2 close pagehide page; do \
 		./tests/persistence/browser_runner.mjs worker=$$worker part=$$part || exit 1; done; done
 
@@ -864,7 +890,7 @@ sse3-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-fal
 	node tests/rust/sse3.mjs build/v86-debug.wasm
 
 # Keep the worker's public option/event wire names stable across bundles.
-build/cpu-worker.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
+build/cpu-worker.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \

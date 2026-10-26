@@ -16,9 +16,10 @@ const VULKAN_LABELS = {
     venus: "Venus (through the graphics proxy; Android's initrd-venus.img, Linux's Mesa)",
     gfxstream: "gfxstream (through the graphics proxy; Android's official images)",
 };
-const NIC_LABELS = { ne2k: "NE2000 (ne2k)", virtio: "virtio-net", none: "None" };
+/** The cards' names, also in the hardware list and the summary (describe.js) */
+export const NIC_LABELS = { ne2k: "NE2000 (ne2k)", e1000: "Intel PRO/1000 MT (e1000)", virtio: "virtio-net", none: "None" };
 const BACKEND_LABELS = { none: "Not connected", inbrowser: "A network in the browser", relay: "A relay (WebSocket)", wisp: "A wisp server", fetch: "fetch (HTTP only)" };
-const SOUND_LABELS = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "None" };
+export const SOUND_LABELS = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "None" };
 
 /**
  * @param {PanelContext} ctx

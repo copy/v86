@@ -13,11 +13,11 @@ import { pci_functions } from "./platform.js";
 import { DisplaySource } from "./display.js";
 import { create_adapter_virtio_device } from "./virtio_devices.js";
 import { GRAPHICS_ADAPTERS, MAX_VRAM_SIZE, is_arm } from "./machine_options.js";
+import { GRAPHICS_PLUGINS, default_plugin_path, resolve_plugin_path, load_device_plugin, allocate_io_ports,
+    device_handle, plugin_pci_device } from "./device_plugin.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
-
-/* global __dirname, V86_BUNDLE, V86_BUNDLE_URL */
 
 /** Every value graphics_adapter may name */
 const ADAPTERS = GRAPHICS_ADAPTERS;
@@ -25,26 +25,9 @@ const ADAPTERS = GRAPHICS_ADAPTERS;
 // (MAX_VRAM_SIZE, the largest vram_size, is in machine_options.js with the other option rules)
 export { MAX_VRAM_SIZE };
 
-/** The global registry plugin files add their descriptors to */
-const REGISTRY = "V86GraphicsAdapters";
-
-/** Where allocate_io looks for ports (below the virtio_devices pool at 0xE000) */
-const IO_POOL_START = 0xD000;
-const IO_POOL_END = 0xE000;
-
 /** state[52] is [STATE_TAG, STATE_VERSION, adapter name, device state] */
-const STATE_TAG = "graphics_adapter";
+const STATE_TAG = GRAPHICS_PLUGINS.tag;
 const STATE_VERSION = 1;
-
-const NODE = typeof process !== "undefined" && process.versions && process.versions.node;
-
-/**
- * The bundle's own URL: plugins are built beside it. libv86.mjs gets it from
- * its output wrapper (import.meta.url); a classic script in a page (libv86.js)
- * from document.currentScript while it runs
- */
-const BUNDLE_URL = typeof V86_BUNDLE_URL === "string" ? V86_BUNDLE_URL :
-    typeof document !== "undefined" && document.currentScript && document.currentScript.src || "";
 
 /**
  * Check the display options of new V86(): graphics_adapter is required
@@ -98,18 +81,14 @@ export function check_graphics_adapter_options(options)
 }
 
 /**
- * Where a bundle looks for a plugin without graphics_adapter_path: beside
- * the bundle where it knows its own location (a classic script in a page,
- * CommonJS in node), otherwise build/ relative to the page, like wasm_path
+ * Where a bundle looks for a plugin without graphics_adapter_path (see
+ * default_plugin_path)
  * @param {string} name
  * @return {string}
  */
 export function default_graphics_adapter_path(name)
 {
-    const file = "v86-" + name.replace(/_/g, "-") + ".js";
-    if(BUNDLE_URL) return new URL(file, BUNDLE_URL).href;
-    if(NODE && typeof __dirname === "string") return __dirname + "/" + file;
-    return "build/" + file;
+    return default_plugin_path(name);
 }
 
 /**
@@ -119,23 +98,7 @@ export function default_graphics_adapter_path(name)
  */
 export function resolve_graphics_adapter_path(path)
 {
-    if(NODE)
-    {
-        if(/^[a-z]+:/i.test(path)) return path;
-        const absolute = path.startsWith("/") ? path : process["cwd"]() + "/" + path;
-        return "file://" + absolute;
-    }
-    return new URL(path, typeof location !== "undefined" ? location.href : undefined).href;
-}
-
-/**
- * @param {string} name
- * @return {Object|undefined}
- */
-function registered(name)
-{
-    const registry = globalThis[REGISTRY];
-    return registry ? registry[name] : undefined;
+    return resolve_plugin_path(path);
 }
 
 /**
@@ -146,46 +109,8 @@ function registered(name)
  */
 export async function load_graphics_adapter(name, path)
 {
-    let descriptor = registered(name);
-
-    if(!descriptor)
-    {
-        if(typeof V86_BUNDLE === "undefined" && path === undefined)
-        {
-            // From the source tree: the plugin's entry module
-            await import("./graphics_adapters/" + name + "/plugin.js");
-        }
-        else
-        {
-            const url = resolve_graphics_adapter_path(path || default_graphics_adapter_path(name));
-            try
-            {
-                if(typeof importScripts === "function")
-                {
-                    // a classic worker (the CPU worker)
-                    importScripts(url);
-                }
-                else
-                {
-                    await import(url);
-                }
-            }
-            catch(error)
-            {
-                throw new Error("graphics_adapter \"" + name + "\": cannot load " + url +
-                    " (" + (error && error.message || error) + "); set graphics_adapter_path to the plugin file");
-            }
-        }
-
-        descriptor = registered(name);
-        if(!descriptor)
-        {
-            throw new Error("graphics_adapter \"" + name + "\": the plugin file defines no such adapter");
-        }
-    }
-
-    if(descriptor["name"] !== name || typeof descriptor["create"] !== "function" ||
-        !Number.isInteger(descriptor["pci_vendor"]) || !Number.isInteger(descriptor["pci_device"]))
+    const descriptor = await load_device_plugin(GRAPHICS_PLUGINS, name, path, "graphics_adapter_path");
+    if(!Number.isInteger(descriptor["pci_vendor"]) || !Number.isInteger(descriptor["pci_device"]))
     {
         throw new Error("graphics_adapter \"" + name + "\": invalid plugin descriptor");
     }
@@ -350,25 +275,10 @@ GraphicsAdapter.prototype.create_handle = function()
     // handlers come bound to its own device
     const owner = this;
 
-    return {
-        "name": this.name,
-        "wasm_memory": cpu.wasm_memory,
+    return Object.assign(device_handle(cpu, owner), {
         "qemu_compatible": !this.virt && !!cpu.platform.qemu_compatible,
         // (the virt machine: no VGA core, no ROM, no ports)
         "has_vga": !this.virt,
-
-        "register_read": (port, r8, r16, r32) => io.register_read(port, owner, r8, r16, r32),
-        "register_write": (port, w8, w16, w32) => io.register_write(port, owner, w8, w16, w32),
-        "register_write_consecutive": (port, w8_1, w8_2, w8_3, w8_4) =>
-        {
-            if(w8_3) io.register_write_consecutive(port, owner, w8_1, w8_2, w8_3, w8_4);
-            else io.register_write_consecutive(port, owner, w8_1, w8_2);
-        },
-        "mmap_register": (address, size, r8, w8, r32, w32) => io.mmap_register(address, size, r8, w8, r32, w32),
-        // an exact range inside a 128 KiB block (docs/arm64-virt-android16-plan.md P1.7)
-        "mmap_register_range": (address, size, r8, w8, r32, w32) => io.mmap_register_range(address, size, owner, r8, w8, r32, w32),
-        "mmap_unregister_range": (address, size) => io.mmap_unregister_range(address, size, owner),
-        "allocate_io": size => this.allocate_io(size),
 
         "mmio_ram_allocate": size => cpu.mmio_ram_allocate(size),
         "mmio_ram_backing": region => cpu.mmio_ram_backing(region),
@@ -383,23 +293,10 @@ GraphicsAdapter.prototype.create_handle = function()
         "dirty_min_offset": () => cpu.svga_dirty_bitmap_min_offset[0],
         "dirty_max_offset": () => cpu.svga_dirty_bitmap_max_offset[0],
 
-        "register_pci": description => this.register_pci(description),
         // virtio-vga: the adapter's PCI function is a virtio device (the
         // descriptor as for virtio_devices, see create_adapter_virtio_device)
         "create_virtio": descriptor => this.create_virtio(descriptor),
-        "raise_irq": () => cpu.devices.pci.raise_irq(this.pci_id),
-        "lower_irq": () => cpu.devices.pci.lower_irq(this.pci_id),
 
-        "read_physical": (address, length) => cpu.read_blob_physical(address, length),
-        "write_physical": (bytes, address) => cpu.write_blob_physical(bytes, address),
-        // (virtqueues: virtio_gpu's rings in guest memory)
-        "read16_physical": address => cpu.read16_physical(address),
-        "read32_physical": address => cpu.read32_physical(address),
-        "write16_physical": (address, value) => cpu.write16_physical(address, value),
-        "write32_physical": (address, value) => cpu.write32_physical(address, value),
-        "validate_physical_range": (address, length) => cpu.validate_physical_range(address, length),
-
-        "now": () => cpu.clock.now(),
         // The size the page would like the guest's display to have
         // (V86.set_display_size): width, height, the display's index
         "on_host_display_size": handler =>
@@ -437,29 +334,17 @@ GraphicsAdapter.prototype.create_handle = function()
             "add_source": source => hub.add_source(new PluginDisplaySource(source)),
             "add_timer": timer => hub.add_timer(timer),
         },
-    };
+    });
 };
 
 /**
- * A free window of I/O ports for an I/O BAR, aligned to its size: the same
- * one for the same machine configuration, so that snapshots line up. The
- * guest's firmware usually moves it anyway (PCI.set_io_bars).
+ * A free window of I/O ports for an I/O BAR (allocate_io_ports)
  * @param {number} size a power of two
  * @return {number}
  */
 GraphicsAdapter.prototype.allocate_io = function(size)
 {
-    const ports = this.cpu.io.ports;
-    for(let base = IO_POOL_START; base + size <= IO_POOL_END; base += size)
-    {
-        let free = true;
-        for(let port = base; port < base + size && free; port++)
-        {
-            free = !ports[port].device;
-        }
-        if(free) return base;
-    }
-    throw new Error("graphics_adapter \"" + this.name + "\": no free I/O ports");
+    return allocate_io_ports(this.cpu, size, "graphics_adapter \"" + this.name + "\"");
 };
 
 /**
@@ -471,17 +356,7 @@ GraphicsAdapter.prototype.register_pci = function(description)
     {
         throw new Error("graphics_adapter \"" + this.name + "\" registered its PCI function twice");
     }
-    this.pci_device = {
-        name: this.name,
-        pci_id: this.pci_id,
-        pci_space: description["pci_space"],
-        pci_bars: description["pci_bars"].map(bar => bar && {
-            size: bar["size"],
-            on_move: bar["on_move"],
-        }),
-        pci_rom_size: description["pci_rom_size"],
-        pci_rom_address: description["pci_rom_address"],
-    };
+    this.pci_device = plugin_pci_device(this, description);
     this.cpu.devices.pci.register_device(this.pci_device);
 };
 

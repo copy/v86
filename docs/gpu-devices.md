@@ -135,6 +135,14 @@ owns the device.
   the plugin works with. `GraphicsMachine` in `machine.js` wraps it in a typed
   class, so that device code reads like any v86 device, and converts what
   crosses the boundary (port handlers, display layers, the PCI description).
+  Its devices' part (ports and memory maps, PCI, guest memory, the machine
+  clock and timers) is shared with the network card plugins
+  ([networking.md](networking.md), "The e1000 card"): `device_handle` in
+  `src/device_plugin.js`, `DeviceMachine` in `src/device_machine.js`, which
+  `GraphicsMachine` extends; also `mmap_register_range` (an exact range owned
+  by the device), `memory_decoded` and `is_bus_master`, single-vector MSI,
+  `pci_config` (the configuration space's bytes), `add_timer` (run with the
+  machine's timers) and `wake` (a halted machine runs its timers now).
 
 | Group | Members |
 | --- | --- |

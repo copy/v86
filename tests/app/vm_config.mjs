@@ -168,8 +168,9 @@ const RULES = [
     ["5 displays", c => { c.display.adapter = "virtio_gpu"; c.display.displays = 5; }, "display.displays"],
     ["2 displays on Bochs VGA", c => { c.display.displays = 2; }, "display.displays"],
     ["two network cards", c => { c.network.push(c.network[0]); }, "network"],
-    ["a network card", c => { c.network[0].device = "e1000"; }, "network.0.device"],
+    ["a network card", c => { c.network[0].device = "rtl8139"; }, "network.0.device"],
     ["ne2k on virt", c => { Object.assign(c, arm64()); c.network[0].device = "ne2k"; }, "network.0.device"],
+    ["e1000 on virt", c => { Object.assign(c, arm64()); c.network[0].device = "e1000"; }, "network.0.device"],
     ["a backend", c => { c.network[0].backend = "slirp"; }, "network.0.backend"],
     ["a relay's URL", c => { c.network[0].relay_url = "http://relay"; }, "network.0.relay_url"],
     ["a wisp server's URL", c => { c.network[0].backend = "wisp"; c.network[0].relay_url = "wss://x/"; }, "network.0.relay_url"],
@@ -234,6 +235,20 @@ function arm64()
 }
 
 test("arm64's sections are valid", () => assert.deepEqual(validate_config(new_config(arm64())), []));
+
+test("the PC cards: e1000 (a plugin) is valid on i440FX and Q35 and goes to net_device.type", () =>
+{
+    for(const machine of ["i440fx", "q35"])
+    {
+        const c = new_config();
+        c.machine.type = machine;
+        c.machine.acpi = machine === "q35";
+        c.network[0].device = "e1000";
+        assert.deepEqual(validate_config(c), [], machine);
+        assert.deepEqual(check_config(c), [], machine);
+        assert.equal(config_to_options(c, ENV).net_device.type, "e1000", machine);
+    }
+});
 
 test("android: its defaults, a valid Android machine", () =>
 {

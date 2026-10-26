@@ -21,7 +21,7 @@ import { MachineClock } from "./machine_clock.js";
 import { SB16 } from "./sb16.js";
 import { ACPI, acpi_system_states_file } from "./acpi.js";
 import { ACPI_LOADER_FILE, ACPI_RSDP_FILE, ACPI_TABLES_FILE, build_acpi_tables, locate_acpi_tables } from "./acpi_tables.js";
-import { ACPI_PM_BASE_DEFAULT, MACHINE_LAYOUT_VERSION, Platform, check_platform, create_platform } from "./platform.js";
+import { ACPI_PM_BASE_DEFAULT, MACHINE_LAYOUT_VERSION, Platform, check_platform, create_platform, pci_functions } from "./platform.js";
 import { CORE_STATE_RANGES, INIT_PRESERVED, STATE_OFFSETS } from "./state_layout.js";
 import { CPU_FEATURES, CPU_FEATURE_PRESETS } from "./cpu_features.js";
 import { build_jit_defaults, set_jit_switches } from "./jit_switches.js";
@@ -49,6 +49,7 @@ import { HPET } from "./hpet.js";
 import { SMBus } from "./smbus.js";
 import { VirtioNet } from "./virtio_net.js";
 import { GraphicsAdapter, graphics_adapter_of_state, patch_vga_bios_ids } from "./graphics_adapter.js";
+import { PluginDevice, NET_PLUGINS, plugin_of_state } from "./device_plugin.js";
 import { DisplayHub } from "./display.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
 import { create_virtio_devices, get_virtio_devices_state, resolve_virtio_devices_state, set_virtio_devices_state } from "./virtio_devices.js";
@@ -194,6 +195,14 @@ export function CPU(bus, wm, stop_idling)
 
     /** @type {!Object} */
     this.devices = {};
+
+    /**
+     * Device plugins' timers (src/device_plugin.js, add_timer): run with the
+     * machine's other timers, each returns milliseconds until it needs to
+     * run again
+     * @type {!Array<function(number):number>}
+     */
+    this.device_timers = [];
 
     this.instruction_pointer = view(Int32Array, memory, state_base + STATE_OFFSETS.instruction_pointer, 1);
     this.previous_ip = view(Int32Array, memory, state_base + STATE_OFFSETS.previous_ip, 1);
@@ -1263,6 +1272,18 @@ CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from a machine with graphics_adapter: \"" +
             graphics_adapter_of_state(state[52]) + "\", this one has \"none\"");
+    }
+    // the network card: a plugin's slot must be that plugin's; a built-in
+    // card's (the NE2000's own state) is not a plugin's
+    const saved_net = plugin_of_state(NET_PLUGINS, state[59]);
+    if(this.devices.net instanceof PluginDevice)
+    {
+        this.devices.net.check_state(state[59]);
+    }
+    else if(saved_net !== null)
+    {
+        throw new Error("The snapshot is from a machine with net_device: \"" + saved_net +
+            "\", this one has \"" + (this.devices.net ? "ne2k" : this.devices.virtio_net ? "virtio" : "none") + "\"");
     }
     // A remapped snapshot must retain the RAM/MMIO split used when validating
     // its windows. Reject this before changing clocks, RAM, or CPU state.
@@ -2391,6 +2412,10 @@ CPU.prototype.reboot_internal = function(reason, keep_memory)
     {
         this.devices.graphics_adapter.reset();
     }
+    if(this.devices.net instanceof PluginDevice)
+    {
+        this.devices.net.reset();
+    }
 
     if(keep_memory)
     {
@@ -2500,6 +2525,50 @@ CPU.prototype.create_q35_storage = function(settings, device_bus)
         { buffer: settings.cdrom, is_cdrom: true },
     ]);
     this.devices.cdrom = this.devices.ahci.disk_device("cdrom");
+};
+
+/**
+ * A device plugin's timer (src/device_plugin.js, add_timer)
+ * @param {function(number):number} timer
+ */
+CPU.prototype.add_device_timer = function(timer)
+{
+    this.device_timers.push(timer);
+};
+
+/**
+ * The network card of a plugin (net_device.type "e1000"): the PCI slot of
+ * the NE2000 (or the one behind its root port), net0 of the network bus
+ * @param {!Object} settings
+ * @param {BusConnector} bus
+ * @return {!PluginDevice}
+ */
+CPU.prototype.create_net_plugin = function(settings, bus)
+{
+    const id = 0;
+    const pci_id = this.root_port_pci_id("net");
+    return new PluginDevice(this, NET_PLUGINS, settings.net_device_plugin,
+        pci_id !== undefined ? pci_id : pci_functions(this.platform).ne2k, {
+            "net": {
+                "id": id,
+                // a frame to the network; its MAC address to the backend
+                "send": data =>
+                {
+                    bus.send("net" + id + "-send", data);
+                    bus.send("eth-transmit-end", [data.length]);
+                },
+                "set_mac": mac => bus.send("net" + id + "-mac", mac),
+                // frames from the network: the handler returns whether the
+                // card took the frame
+                "on_receive": handler => bus.register("net" + id + "-receive", data =>
+                {
+                    if(handler(data)) bus.send("eth-receive-end", [data.length]);
+                }, this),
+            },
+        }, {
+            "preserve_mac_from_state_image": !!settings.preserve_mac_from_state_image,
+            "mac_address_translation": !!settings.mac_address_translation,
+        });
 };
 
 /**
@@ -3124,6 +3193,12 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.virtio_net = new VirtioNet(this, device_bus, settings.preserve_mac_from_state_image, settings.net_device.mtu,
                 this.root_port_pci_id("net"));
         }
+        else if(settings.net_device_plugin)
+        {
+            // a network card from a plugin (net_device.type "e1000"): where
+            // the NE2000 is, its snapshot in the NE2000's slot (state[59])
+            this.devices.net = this.create_net_plugin(settings, device_bus);
+        }
 
         if(settings.fs9p)
         {
@@ -3720,6 +3795,8 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
     const display_time = this.devices.display.timer(now);
     const hpet_time = this.devices.hpet ? this.devices.hpet.timer(now) : 100;
     const sb16_time = this.devices.sb16 ? this.devices.sb16.timer(now) : 100;
+    let plugin_time = 100;
+    for(const timer of this.device_timers) plugin_time = Math.min(plugin_time, timer(now));
 
     let acpi_time = 100;
     let apic_time = 100;
@@ -3729,7 +3806,7 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
         apic_time = this.apic_timer(now);
     }
 
-    return Math.min(pit_time, rtc_time, display_time, hpet_time, sb16_time, acpi_time, apic_time);
+    return Math.min(pit_time, rtc_time, display_time, hpet_time, sb16_time, plugin_time, acpi_time, apic_time);
 };
 
 CPU.prototype.debug_init = function()

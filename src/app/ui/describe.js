@@ -3,6 +3,7 @@
 // and the hardware table of the library's summary and the settings list.
 
 import { format_size } from "./dom.js";
+import { NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
@@ -10,7 +11,6 @@ import { format_size } from "./dom.js";
 const MACHINES = { i440fx: "i440FX (IDE)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (arm64)" };
 const ADAPTERS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", none: "None (serial console only)" };
 const BACKENDS = { none: "no network", inbrowser: "in the browser", relay: "relay", wisp: "wisp", fetch: "fetch" };
-const SOUND = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "none" };
 
 /**
  * Where an image is, for people
@@ -70,10 +70,10 @@ export function hardware_rows(c)
         (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "") + ({ venus: ", Vulkan (Venus)", gfxstream: ", Vulkan (gfxstream)" }[c.display.vulkan] || "")]);
     for(const network of c.network)
     {
-        rows.push(["Network", network.device === "none" ? "none" : network.device + ", " + (BACKENDS[network.backend] || network.backend) +
+        rows.push(["Network", network.device === "none" ? "none" : (NIC_LABELS[network.device] || network.device) + ", " + (BACKENDS[network.backend] || network.backend) +
             (network.relay_url ? " " + network.relay_url : "")]);
     }
-    rows.push(["Sound", SOUND[c.sound.device] || c.sound.device]);
+    rows.push(["Sound", c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device]);
     for(const serial of c.serial) if(serial.attach !== "none") rows.push(["UART" + serial.port, serial.attach]);
     if(c.filesystem) rows.push(["Shared folder", c.filesystem.baseurl || "in the browser"]);
     return rows;

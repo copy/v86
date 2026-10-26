@@ -46,7 +46,10 @@ export const MAX_VRAM_SIZE = 256 << 20;
 export const GRAPHICS_ADAPTERS = ["bochs_vga", "vmware_svga", "virtio_gpu", "none"];
 
 /** The network cards (net_device.type) of the PC machines */
-export const NET_DEVICE_TYPES = ["ne2k", "virtio", "none"];
+export const NET_DEVICE_TYPES = ["ne2k", "e1000", "virtio", "none"];
+
+/** The network cards that are plugins (src/device_plugin.js): build/v86-<type>.js */
+export const NET_DEVICE_PLUGINS = ["e1000"];
 
 /** Options of the PC machines that the virt machine rejects */
 export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",
@@ -171,6 +174,17 @@ export function check_machine_options(options)
             {
                 throw new Error(name + " is an option of machine_type \"virt\" (cpu_type \"arm64\" or \"arm32\")");
             }
+        }
+        const net = options["net_device"];
+        if(net && net["type"] !== undefined && !NET_DEVICE_TYPES.includes(net["type"]))
+        {
+            throw new Error("Unknown net_device type " + JSON.stringify(net["type"]) + "; supported: " +
+                NET_DEVICE_TYPES.map(type => "\"" + type + "\"").join(", "));
+        }
+        const path = net && net["plugin_path"];
+        if(path !== undefined && (typeof path !== "string" || !path))
+        {
+            throw new Error("net_device.plugin_path must be the path or URL of the plugin file");
         }
     }
     return { cpu_type, machine_type };

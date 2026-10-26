@@ -12,7 +12,7 @@ import { check_config } from "../vm_config.js";
 import { describe_image } from "./describe.js";
 import { general_panel, memory_panel, processor_panel, machine_panel, advanced_panel, CPU_LABELS, MACHINE_LABELS } from "./panels/system.js";
 import { disk_panel, cdrom_panel, floppy_panel, direct_boot_panel } from "./panels/storage.js";
-import { network_panel, sound_panel, display_panel, serial_panel, shared_folder_panel, virt_panel } from "./panels/devices.js";
+import { network_panel, sound_panel, display_panel, serial_panel, shared_folder_panel, virt_panel, NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 import { android_panel } from "./panels/android.js";
 import { ANDROID_DEFAULTS } from "../vm_config.js";
 import { RANCHU_DEVICES } from "../../android/devices.js";
@@ -64,10 +64,11 @@ export function hardware_items(c)
         remove: next => { next.floppies.splice(i, 1); },
     }));
     c.network.forEach((n, i) => items.push({
-        id: "network-" + i, label: "Network adapter" + (c.network.length > 1 ? " " + (i + 1) : ""), summary: n.device === "none" ? "none" : n.device + ", " + n.backend,
+        id: "network-" + i, label: "Network adapter" + (c.network.length > 1 ? " " + (i + 1) : ""), summary: n.device === "none" ? "none" : (NIC_LABELS[n.device] || n.device) + ", " + n.backend,
         panel: ctx => network_panel(ctx, i), remove: c.network.length > 1 ? next => { next.network.splice(i, 1); } : null,
     }));
-    items.push({ id: "sound", label: "Sound card", summary: c.sound.device, panel: sound_panel, remove: null });
+    items.push({ id: "sound", label: "Sound card", summary: c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device,
+        panel: sound_panel, remove: null });
     items.push({ id: "display", label: "Display", summary: c.display.adapter + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : ""), panel: display_panel, remove: null });
     items.push({ id: "serial", label: "Serial ports", summary: c.serial.filter(s => s.attach !== "none").map(s => "UART" + s.port + " " + s.attach).join(", ") || "none",
         panel: serial_panel, remove: null });

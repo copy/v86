@@ -20,7 +20,10 @@ settings, rename, export, delete.
   summary. A preset sets all the hardware; it says whether that setting was
   verified, how the system is installed, the steps after the installation
   and its known problems. "Customize hardware…" opens the settings dialog
-  before the machine is made.
+  before the machine is made. The network card follows the system's own
+  drivers: the NE2000 up to Windows XP and 32-bit Linux, the Intel PRO/1000
+  MT (e1000) for Windows Vista to 8.1, virtio-net for Linux x86_64 and the
+  ARM machines.
 - **Edit settings…** opens the settings dialog: the hardware list (memory,
   processor, machine and firmware, hard disks, CD/DVD, floppies, network
   adapters, sound, display, serial ports, shared folder, direct boot, the

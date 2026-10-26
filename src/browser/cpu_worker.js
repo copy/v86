@@ -3,7 +3,8 @@ import { state_stream_server } from "./state_stream_transport.js";
 // in the worker; this side owns DOM adapters and asynchronous GPU execution.
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
-import { is_arm } from "../machine_options.js";
+import { default_plugin_path } from "../device_plugin.js";
+import { is_arm, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 /**
  * @param {*} f
@@ -78,6 +79,10 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "preserve_mac_from_state_image": o.preserve_mac_from_state_image,
         "mac_address_translation": o.mac_address_translation,
         "net_device": { "type": o.net_device?.type || (is_arm(o["cpu_type"]) ? "virtio" : "ne2k"), "count": o.net_device?.count,
+            // (a plugin card, like the display adapter: the worker loads it from an absolute URL)
+            "plugin_path": NET_DEVICE_PLUGINS.includes(o.net_device?.type) ?
+                new URL(o.net_device.plugin_path || default_plugin_path(o.net_device.type), location.href).href : undefined,
+            "mtu": o.net_device?.mtu,
             ...placement(o.net_device) },
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),

@@ -412,10 +412,18 @@ type V86NetworkDevice =
     {
         /**
          * The type of emulated NIC provided to the guest OS.
-         * Recommended to use `ne2k` for old OSes and `virtio` for modern Linux.
+         * Recommended to use `ne2k` for old OSes, `e1000` (an Intel 82540EM, whose drivers come with
+         * Windows Vista to 11 and Linux) for Windows, and `virtio` for modern Linux. `e1000` is a plugin,
+         * build/v86-e1000.js, loaded beside the bundle (or from `plugin_path`). `none`: no network card.
          * @default "ne2k"
          */
-        type?: "ne2k" | "virtio";
+        type?: "ne2k" | "virtio" | "e1000" | "none";
+
+        /**
+         * Where the plugin of a plugin card (type `e1000`) is, a path or URL
+         * @default build/v86-e1000.js beside the bundle
+         */
+        plugin_path?: string;
 
         /**
          * The network backend URL.

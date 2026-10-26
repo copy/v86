@@ -73,6 +73,14 @@
 // second AHCI controller (Windows has its driver) with a 16 MiB FAT16 disk,
 // in that root port's slot from boot; WIN_AHCI_TRACE=1: its global and port
 // control writes and its configuration writes, as "ahci-write", "ahci-config".
+// WIN_NIC=<net_device.type>: the network card (ne2k; e1000, which Windows 8.1
+// drives with nete1g3e.inf). WIN_NET=1: connected to the fetch backend's
+// network (DHCP, DNS; its HTTP requests answered with 404 here, nothing leaves
+// the machine) with tests/devices/tcp_endpoint.mjs at 192.168.86.1:5000
+// serving 16 MiB of a pattern; the tools disk then has NIC.CMD, which writes
+// the card's device and driver, the DHCP address and an HTTP download's MD5
+// to NIC.TXT ("file NIC.TXT" prints it, X64_WIN_NIC_MD5 is the pattern's).
+// "file <name>": a file of the tools disk, as an X64_WIN_FILE line.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -86,6 +94,7 @@ import {jit_switches_from_env} from "../lib/jit_switches.mjs";
 import {jit_stats_enabled, print_jit_stats} from "../../tools/bench/jit_stats.mjs";
 import {CPU_FEATURES, CPU_FEATURE_PRESETS} from "../../src/cpu_features.js";
 import {site_directory} from "../lib/site.mjs";
+import {tcp_endpoint} from "../devices/tcp_endpoint.mjs";
 import {STATE_OFFSETS} from "../../src/state_layout.js";
 // WIN_CPU_FEATURES: feature names, comma separated, or a preset ("x86-64-v3")
 // (default: cpu_type x86_64 without cpu_features, every released feature;
@@ -118,7 +127,32 @@ const probe64 = build("x86_64-w64-mingw32-gcc", "entry", path.join(out, "PROBE64
 const probe32 = build("i686-w64-mingw32-gcc", "_entry@0", path.join(out, "PROBE32.EXE"));
 const cpuload = build("x86_64-w64-mingw32-gcc", "entry", path.join(out, "CPULOAD.EXE"), "tests/x64/windows_cpuload.c");
 const cpuload32 = build("i686-w64-mingw32-gcc", "_entry@0", path.join(out, "LOAD32.EXE"), "tests/x64/windows_cpuload32.c");
-const tools = new MemoryDisk(make_fat16({"PROBE64.EXE": probe64, "PROBE32.EXE": probe32, "CPULOAD.EXE": cpuload, "LOAD32.EXE": cpuload32}));
+// WIN_NET: what NIC.CMD checks, and the download it makes
+const nic_pattern = new Uint8Array(16 << 20);
+for(let i = 0; i < nic_pattern.length; i++) nic_pattern[i] = (i * 2654435761 >>> 24) ^ i >>> 12;
+const nic_script = [
+    "$ErrorActionPreference = 'Continue'",
+    "Get-WmiObject Win32_PnPEntity | Where-Object { $_.DeviceID -like 'PCI\\VEN_8086&DEV_100E*' } | ForEach-Object {",
+    "    'DEVICE ' + $_.DeviceID + ' | ' + $_.Name + ' | error=' + $_.ConfigManagerErrorCode + ' | service=' + $_.Service }",
+    "Get-WmiObject Win32_PnPSignedDriver | Where-Object { $_.DeviceID -like 'PCI\\VEN_8086&DEV_100E*' } | ForEach-Object {",
+    "    'DRIVER inf=' + $_.InfName + ' version=' + $_.DriverVersion + ' provider=' + $_.DriverProviderName }",
+    "for($i = 0; $i -lt 90; $i++) {",
+    "    $a = @(Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.IPEnabled -and ($_.IPAddress -like '192.168.86.*') })",
+    "    if($a.Count) { break }; Start-Sleep 2 }",
+    "$a | ForEach-Object { 'IP ' + ($_.IPAddress -join ',') + ' dhcp=' + $_.DHCPEnabled + ' server=' + $_.DHCPServer +",
+    "    ' gateway=' + ($_.DefaultIPGateway -join ',') + ' mac=' + $_.MACAddress }",
+    "$file = Join-Path $env:TEMP 'pattern.bin'",
+    "try {",
+    "    $t = Get-Date",
+    "    (New-Object Net.WebClient).DownloadFile('http://192.168.86.1:5000/pattern', $file)",
+    "    $s = ((Get-Date) - $t).TotalSeconds",
+    "    'HTTP md5=' + (Get-FileHash -Algorithm MD5 $file).Hash.ToLower() + ' bytes=' + (Get-Item $file).Length + ' seconds=' + $s",
+    "} catch { 'HTTP error ' + $_ }",
+].join("\r\n") + "\r\n";
+const nic_cmd = "@echo off\r\nset OUT=%~d0\\NIC.TXT\r\necho BEGIN> %OUT%\r\n" +
+    "powershell -NoProfile -ExecutionPolicy Bypass -File %~d0\\NIC.PS1 >> %OUT% 2>&1\r\necho END>> %OUT%\r\n";
+const tools = new MemoryDisk(make_fat16({"PROBE64.EXE": probe64, "PROBE32.EXE": probe32, "CPULOAD.EXE": cpuload, "LOAD32.EXE": cpuload32,
+    ...(process.env.WIN_NET ? {"NIC.CMD": Buffer.from(nic_cmd), "NIC.PS1": Buffer.from(nic_script)} : {})}));
 const source = new ReadOnlyOverlayDisk(image_path);
 // WIN_HDB=<image>: that disk (e.g. retro-gaming-site/game/3dmark06.img) in
 // place of the tools disk, never written either (its writes stay in memory)
@@ -172,7 +206,8 @@ const vm = new V86({
     ...(process.env.WIN_CDROM ? {cdrom: {url: path.resolve(process.env.WIN_CDROM)}} : {}),
     bios: {url: root + "bios/seabios.bin"}, vga_bios: {url: root + "bios/vgabios.bin"},
     hda: source, hdb, memory_size: memory_mb * 1048576, vram_size: 16 << 20,
-    acpi: true, cpu_cores: cores, net_device: {type: "ne2k"}, autostart: false, log_level: 0,
+    acpi: true, cpu_cores: cores, autostart: false, log_level: 0,
+    net_device: {type: process.env.WIN_NIC || "ne2k", ...(process.env.WIN_NET ? {relay_url: "fetch"} : {})},
     // WIN_QEMU_COMPATIBLE=1: devices where QEMU, which the image was installed with, had them
     qemu_compatible: !!+process.env.WIN_QEMU_COMPATIBLE,
     // JIT_SWITCHES (tests/lib/jit_switches.mjs)
@@ -737,6 +772,25 @@ try
 {
     await new Promise((resolve, reject) => { vm.add_listener("emulator-loaded", resolve); vm.add_listener("emulator-error", reject); });
     cpu = vm.v86.cpu;
+    // the screen when the guest resets the machine (a bugcheck's blue
+    // screen, gone once the firmware runs), and the reset at once (the
+    // main loop may be busy signing in)
+    {
+        const note_reset = cpu.note_reset.bind(cpu);
+        cpu.note_reset = reason => {
+            note_reset(reason);
+            event("reset-now", {reason, count: cpu.last_reset && cpu.last_reset.count});
+            screenshot(true);
+        };
+    }
+    if(process.env.WIN_NET)
+    {
+        // (Windows' own HTTP: NCSI, updates; nothing reaches the internet)
+        vm.network_adapter.fetch = () => Promise.resolve(new Response("", {status: 404}));
+        tcp_endpoint(vm, {5000: {serve: () => Buffer.concat([Buffer.from("HTTP/1.0 200 OK\r\nContent-Type: application/octet-stream\r\n" +
+            "Content-Length: " + nic_pattern.length + "\r\n\r\n"), nic_pattern])}});
+        console.log("X64_WIN_NIC_MD5 " + create_hash("md5").update(nic_pattern).digest("hex"));
+    }
     if(+process.env.WIN_AHCI_TRACE && cpu.devices.ahci_test)
     {
         // GHC, and each port's PxIE, PxCMD, PxSCTL; and its configuration
@@ -924,6 +978,7 @@ try
         else if(verb === "space") await press([57, 185]);
         else if(verb === "password") { await type(password); await enter(); }
         else if(verb === "shot") screenshot(true);
+        else if(verb === "file") console.log("X64_WIN_FILE " + argument + "\n" + result_text(argument));
         // the page's size for a display (V86.set_display_size; virtio_gpu tells the guest)
         else if(verb === "display") vm.set_display_size(...argument.split(/\s+/).map(Number));
         // a relative mouse movement (PS/2), in pixels, y up

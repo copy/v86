@@ -5,6 +5,7 @@ import { export_raw } from "./image/export.js";
 import { export_qcow2 } from "./image/qcow2_export.js";
 import { release_disk_holds, drop_disk_holds, check_no_disk_holds } from "./block_backend.js";
 import { disks_to_prepare, prepare_disks } from "./disk_writeback.js";
+import { PluginDevice } from "./device_plugin.js";
 export { V86 } from "./browser/starter.js";
 
 /**
@@ -130,6 +131,8 @@ v86.prototype.destroy = function()
     // (the disk requests held after an I/O error are dropped, as by a power loss)
     drop_disk_holds(this.cpu);
     this.cpu.parallel?.destroy();
+    // (a device plugin's hook: src/device_plugin.js)
+    this.cpu.devices.net instanceof PluginDevice && this.cpu.devices.net.destroy();
     this.cpu.clock.pause();
     this.unregister_yield();
 };

@@ -13,7 +13,8 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { check_machine_options, is_arm } from "../machine_options.js";
+import { NET_PLUGINS, load_device_plugin } from "../device_plugin.js";
+import { check_machine_options, is_arm, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
 import { NetworkAdapter } from "./network.js";
@@ -815,6 +816,11 @@ V86.prototype.continue_init = async function(emulator, options)
     const graphics_adapter = this.graphics_adapter === "none" ? Promise.resolve(undefined) :
         load_graphics_adapter(this.graphics_adapter, options["graphics_adapter_path"]);
     graphics_adapter.catch(() => {});
+    // the network card's plugin (net_device.type "e1000"), likewise
+    const net_type = settings.net_device.type;
+    const net_plugin = NET_DEVICE_PLUGINS.includes(net_type) ?
+        load_device_plugin(NET_PLUGINS, net_type, settings.net_device.plugin_path, "net_device.plugin_path") : Promise.resolve(undefined);
+    net_plugin.catch(() => {});
     const adapter_renderer = this.create_adapter_renderer(options);
 
     // the disks' policies (src/disk_options.js), put on their buffers
@@ -1216,6 +1222,7 @@ V86.prototype.continue_init = async function(emulator, options)
         }
 
         settings.graphics_adapter = await graphics_adapter;
+        settings.net_device_plugin = await net_plugin;
         settings.graphics_adapter_renderer = await adapter_renderer;
 
         if(options.android)
