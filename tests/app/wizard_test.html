@@ -321,7 +321,8 @@ const parts = {
         select_text(dialog.querySelector("select[aria-label='Add hardware']"), "USB");
         await until(() => item("usb") && item("usb").classList.contains("selected"), "USB added and chosen");
         const controllers = Array.from(panel().querySelector("select[aria-label=Controller]").options, o => o.textContent);
-        check(JSON.stringify(controllers) === JSON.stringify(["UHCI (USB 1.1)", "EHCI (USB 2.0, with UHCI companions)"]), "the USB controllers: " + controllers);
+        check(JSON.stringify(controllers) === JSON.stringify(["UHCI (USB 1.1)", "EHCI (USB 2.0, with UHCI companions)", "xHCI (USB 3)"]),
+            "the USB controllers: " + controllers);
         select_text(panel().querySelector("select[aria-label=Controller]"), "EHCI");
         await until(() => /EHCI/.test(item("usb").textContent), "EHCI in the item's summary");
         const tablet = Array.from(panel().querySelectorAll("label.check")).find(l => /^Tablet/.test(l.textContent.trim())).querySelector("input");

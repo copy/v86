@@ -10,7 +10,8 @@
 // (writes refused), detached; the disk out of its port and back; an eject
 // ("usb-disk-ejected"); a snapshot.
 // Env: MACHINE (i440fx, q35), CPU_CORES (1), TEST_RELEASE_BUILD, SHOW_LOGS,
-// USB_CONTROLLER (uhci; ehci: the disk at high speed, 480M, on the EHCI),
+// USB_CONTROLLER (uhci; ehci: the disk at high speed, 480M, on the EHCI;
+// xhci: at SuperSpeed, 5000M, on a USB 3 root port),
 // USB_DISK_MB (64: the image; the data written is a quarter of it, at most 32 MiB),
 // USB_WRITE_MB (none: a step that writes that many MiB, 16 MiB of random
 // data again and again, reads them back and checks each copy, with the
@@ -146,7 +147,7 @@ await step("usb-storage: the disk is sda, \"v86\" \"USB Disk\", removable, its s
     const driver = await command("basename $(readlink /sys/block/" + disk.name + "/device/../../../driver)");
     assert.match(driver, /usb-storage/);
     const speed = await command("echo SPE''ED $(cat /sys/block/" + disk.name + "/device/../../../../speed)");
-    assert.match(speed, CONTROLLER === "ehci" ? /^SPEED 480$/m : /^SPEED 12$/m);
+    assert.match(speed, CONTROLLER === "xhci" ? /^SPEED 5000$/m : CONTROLLER === "ehci" ? /^SPEED 480$/m : /^SPEED 12$/m);
 });
 
 await step("data written through the disk is in the image, and read back the same (SHA-256 on both sides)", async () => {

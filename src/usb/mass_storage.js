@@ -1,7 +1,8 @@
 // A USB disk: a disk image as a USB mass storage device, Bulk-Only Transport
 // (USB Mass Storage Class BOT 1.0) with the SCSI transparent command set
 // (SPC-3, SBC-3): one LUN of 512-byte sectors, removable (as USB sticks
-// are), full or high speed (on EHCI). The host sends a command block wrapper (CBW) on the bulk OUT
+// are), full or high speed (on EHCI), SuperSpeed (on an xHCI USB 3 port).
+// The host sends a command block wrapper (CBW) on the bulk OUT
 // endpoint, the data goes on bulk IN or OUT, and the device ends the command
 // with a command status wrapper (CSW) on bulk IN. The image is the core's
 // block backend (src/block_backend.js, through the plugin's handle): reads a
@@ -11,8 +12,8 @@
 
 import { USBDevice } from "./usb_device.js";
 import {
-    ENDPOINT_BULK, SPEED_FULL, SPEED_HIGH, USB_NAK, USB_STALL, configuration_descriptor, device_descriptor, endpoint_descriptor,
-    interface_descriptor,
+    DESCRIPTOR_BOS, DESCRIPTOR_DEVICE_CAPABILITY, DESCRIPTOR_SS_ENDPOINT_COMPANION, ENDPOINT_BULK, SPEED_FULL, SPEED_HIGH,
+    SPEED_SUPER, USB_NAK, USB_STALL, configuration_descriptor, device_descriptor, endpoint_descriptor, interface_descriptor,
 } from "./usb.js";
 
 const CBW_SIGNATURE = 0x43425355, CSW_SIGNATURE = 0x53425355;
@@ -153,14 +154,31 @@ export function MassStorage(backend, options)
         endpoint_descriptor({ address: 0x81, type: ENDPOINT_BULK, max_packet, interval: 0 }),
         endpoint_descriptor({ address: 0x02, type: ENDPOINT_BULK, max_packet, interval: 0 }),
     ]);
+    // at SuperSpeed: packets of 1024 bytes, each endpoint with its
+    // SuperSpeed companion (no bursts, no streams: Bulk-Only, not UAS)
+    const companion = [6, DESCRIPTOR_SS_ENDPOINT_COMPANION, 0, 0, 0, 0];
+    const super_configuration = configuration_descriptor({ value: 1, attributes: 0x80, max_power: 12, interfaces: 1 }, [
+        interface_descriptor({ number: 0, alternate: 0, endpoints: 2, class: 8, subclass: 6, protocol: 0x50 }),
+        endpoint_descriptor({ address: 0x81, type: ENDPOINT_BULK, max_packet: 1024, interval: 0 }), companion,
+        endpoint_descriptor({ address: 0x02, type: ENDPOINT_BULK, max_packet: 1024, interval: 0 }), companion,
+    ]);
+    // (QEMU's USB disk's IDs)
+    const device = (usb, max_packet0) => device_descriptor({ usb, class: 0, subclass: 0, protocol: 0, max_packet0, vendor: 0x46F4,
+        product: 0x0001, release: 0x0000, manufacturer: 1, product_string: 2, serial: 3, configurations: 1 });
     USBDevice.call(this, {
         name: options.id,
-        speeds: [SPEED_FULL, SPEED_HIGH],
-        device: device_descriptor({ usb: 0x0200, class: 0, subclass: 0, protocol: 0, max_packet0: 64,
-            // (QEMU's USB disk's IDs)
-            vendor: 0x46F4, product: 0x0001, release: 0x0000, manufacturer: 1, product_string: 2, serial: 3, configurations: 1 }),
+        speeds: [SPEED_FULL, SPEED_HIGH, SPEED_SUPER],
+        device: device(0x0200, 64),
         configurations: [configuration(64)],
         high_configurations: [configuration(512)],
+        // USB 3: endpoint 0's packets 2^9; the BOS: a USB 2.0 extension
+        // without LPM, the SuperSpeed capability (full, high and SuperSpeed,
+        // all of it from full speed on, no U1/U2 exit latencies: no U1/U2)
+        super_device: device(0x0300, 9),
+        super_configurations: [super_configuration],
+        bos: [5, DESCRIPTOR_BOS, 22, 0, 2,
+            7, DESCRIPTOR_DEVICE_CAPABILITY, 0x02, 0, 0, 0, 0,
+            10, DESCRIPTOR_DEVICE_CAPABILITY, 0x03, 0, 0x0E, 0x00, 1, 0, 0, 0],
         strings: ["v86", "v86 USB Disk", this.serial],
         endpoints: [0x81, 0x02],
     });

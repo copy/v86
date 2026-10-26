@@ -9,7 +9,8 @@
 // grid; out of its port and back in, it is enumerated again; a snapshot.
 //
 // MACHINE=q35 (ICH9's UHCI), CPU_CORES=2, SHOW_LOGS=1, USB_CONTROLLER=ehci
-// (EHCI, ehci-pci: the full-speed tablet on its UHCI companion, at 12M).
+// (EHCI, ehci-pci: the full-speed tablet on its UHCI companion, at 12M) or
+// xhci (xhci-pci: the tablet on a USB 2 root port, at 12M).
 
 import assert from "node:assert/strict";
 import url from "node:url";
@@ -118,16 +119,22 @@ async function event_device()
 }
 
 let device;
-await step("uhci-hcd and usbhid: the tablet enumerated (its IDs and product), an input device, the pointer the tablet's", async () => {
+await step("the controller's driver and usbhid: the tablet enumerated (its IDs and product), an input device, the pointer the tablet's", async () => {
     device = await event_device();
     const ids = await command("cat /sys/bus/usb/devices/*/idVendor /sys/bus/usb/devices/*/idProduct /sys/bus/usb/devices/*/product 2>/dev/null | tr '\\n' ' '");
     assert.match(ids, /0627/);
     assert.match(ids, /v86 USB Tablet/);
     // (PIIX3's function 2 on i440FX, ICH9's 00:1d.0 on Q35; EHCI's first
-    // companion at 00:1d.0 or v86's 00:06.0, the EHCI at function 7)
+    // companion at 00:1d.0 or v86's 00:06.0, the EHCI at function 7; xHCI at 00:14.0)
     const slot = CONTROLLER === "ehci" ? (MACHINE === "q35" ? "1d" : "06") : MACHINE === "q35" ? "1d.0" : "01.2";
-    const driver = await command("basename $(readlink /sys/bus/pci/devices/0000:00:" + (CONTROLLER === "ehci" ? slot + ".0" : slot) + "/driver)");
-    assert.match(driver, /uhci_hcd/);
+    const driver = await command("basename $(readlink /sys/bus/pci/devices/0000:00:" + (CONTROLLER === "xhci" ? "14.0" :
+        CONTROLLER === "ehci" ? slot + ".0" : slot) + "/driver)");
+    assert.match(driver, CONTROLLER === "xhci" ? /xhci_hcd/ : /uhci_hcd/);
+    if(CONTROLLER === "xhci")
+    {
+        assert.match(await command("for d in /sys/bus/usb/devices/*; do [ \"$(cat $d/idVendor 2>/dev/null)\" = 0627 ] && echo SPE''ED $(cat $d/speed); done"),
+            /^SPEED 12$/m);
+    }
     if(CONTROLLER === "ehci")
     {
         assert.match(await command("basename $(readlink /sys/bus/pci/devices/0000:00:" + slot + ".7/driver)"), /ehci-pci/);

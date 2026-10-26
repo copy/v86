@@ -57,11 +57,11 @@ export const AUDIO_DEVICES = ["sb16", "hd_audio", "none"];
 /** The sound cards that are plugins: build/v86-<name>.js (underscores as dashes) */
 export const AUDIO_DEVICE_PLUGINS = ["hd_audio"];
 
-/** The USB host controllers (usb.controller) of the PC machines: UHCI, EHCI with its UHCI companions */
-export const USB_CONTROLLERS = ["uhci", "ehci"];
+/** The USB host controllers (usb.controller) of the PC machines: UHCI, EHCI with its UHCI companions, xHCI */
+export const USB_CONTROLLERS = ["uhci", "ehci", "xhci"];
 
-/** Their root ports: the tablet and USB disks each take one (there is no hub) */
-export const USB_PORTS = { "uhci": 2, "ehci": 6 };
+/** Their ports: the tablet and USB disks each take one (there is no hub; xHCI's are each a USB 3 and a USB 2 root port) */
+export const USB_PORTS = { "uhci": 2, "ehci": 6, "xhci": 4 };
 
 /** Options of the PC machines that the virt machine rejects */
 export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",

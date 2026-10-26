@@ -71,9 +71,10 @@ test("the presets' hardware (the plan's table)", () =>
     // the USB tablet: XP, Vista to 8.1, Linux; not DOS, Windows 3.x, 9x, NT 4, 2000 or the ARM machines
     const tablet = PRESETS.filter(p => preset_config(p).usb).map(p => p.id);
     assert.deepEqual(tablet, ["windowsxp", "windows81", "windows7", "linux", "linux64"]);
-    assert.deepEqual(preset_config(preset("windows81")).usb, { controller: "uhci", tablet: true, disks: [] });
-    // (EHCI for XP to 7: their drivers have no xHCI)
-    assert.deepEqual(["windowsxp", "windows7"].map(id => preset_config(preset(id)).usb.controller), ["ehci", "ehci"]);
+    assert.deepEqual(preset_config(preset("windows81")).usb, { controller: "xhci", tablet: true, disks: [] });
+    // (xHCI for the systems with its driver; EHCI for XP to 7, whose drivers have none)
+    assert.deepEqual(["windowsxp", "windows7", "windows81", "linux", "linux64"].map(id => preset_config(preset(id)).usb.controller),
+        ["ehci", "ehci", "xhci", "xhci", "xhci"]);
 });
 
 test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLOADER=1)", () =>

@@ -1159,11 +1159,12 @@ export interface V86Options {
      * others on the companions); with `tablet`, a HID tablet on the first port, an absolute pointer
      * that has the page's pointer while the guest uses it (unless the pointer is locked: then the PS/2
      * mouse has it); `mass_storage`: USB disks (disk images as USB sticks: Bulk-Only Transport, SCSI;
-     * high speed on EHCI) on the ports after it. UHCI has 2 ports, EHCI 6. See {@link V86.usb_plug},
+     * high speed on EHCI, SuperSpeed on xHCI) on the ports after it. UHCI has 2 ports, EHCI 6, xHCI 4 (QEMU's
+     * qemu-xhci at 00:14.0; each port a USB 3 and a USB 2 root port). See {@link V86.usb_plug},
      * {@link V86.usb_attach_disk}.
      */
     usb?: {
-        controller: "uhci" | "ehci";
+        controller: "uhci" | "ehci" | "xhci";
         tablet?: boolean;
         mass_storage?: {
             /** its name for usb_plug and usb_detach_disk ("usb:" + id for disk_buffer and export_disk_image) */
@@ -1596,7 +1597,7 @@ export class V86 {
      * The USB devices: each one's id, port, whether it is in it, the controller that has it ("ehci",
      * or "uhci": the UHCI, or one of EHCI's UHCI companions) and its speed in Mbit/s
      */
-    usb_devices(): Promise<{ id: string; port: number; plugged: boolean; controller: "uhci" | "ehci"; speed: number }[]>;
+    usb_devices(): Promise<{ id: string; port: number; plugged: boolean; controller: "uhci" | "ehci" | "xhci"; speed: number }[]>;
 
     /**
      * Plug a disk image in as a USB disk (in the first free port): the guest sees it arrive. A

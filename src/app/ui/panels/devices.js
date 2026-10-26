@@ -43,14 +43,18 @@ export function network_panel(ctx, index)
     ];
 }
 
-const USB_LABELS = { uhci: "UHCI (USB 1.1)", ehci: "EHCI (USB 2.0, with UHCI companions)" };
+const USB_LABELS = { uhci: "UHCI (USB 1.1)", ehci: "EHCI (USB 2.0, with UHCI companions)", xhci: "xHCI (USB 3)" };
 
 /** @param {PanelContext} ctx */
 export function usb_panel(ctx)
 {
     const u = /** @type {{controller: string, tablet: boolean}} */ (ctx.config.usb);
+    // (Windows 7 and earlier: no xHCI driver of their own)
+    const old_windows = ["windows3x", "windows9x", "windowsnt"].includes(ctx.config.guest) || ctx.config.template === "windows7";
     return [
         select_field("Controller", ctx.choices.usb_controllers, u.controller, value => ctx.set("usb.controller", value), v => USB_LABELS[v] || v),
+        u.controller === "xhci" && old_windows ?
+            h("p.note", null, "Windows 7 and earlier have no driver of their own for xHCI (Windows 8 and later have): EHCI works with them.") : null,
         check_field("Tablet (an absolute pointer: the guest's cursor follows the page's, no mouse lock)", u.tablet, value => ctx.set("usb.tablet", value)),
         h("p.note", null, "Lock the mouse (Input menu) for relative movement through the PS/2 mouse, as games need."),
     ];

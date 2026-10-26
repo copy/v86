@@ -1,6 +1,6 @@
 # USB
 
-`usb: { controller: "uhci" | "ehci", tablet: true, mass_storage: [...] }`
+`usb: { controller: "uhci" | "ehci" | "xhci", tablet: true, mass_storage: [...] }`
 gives a PC machine a USB host controller and its devices: the tablet, USB
 disks. It is
 a plugin, `build/v86-usb.js` (loaded beside the bundle, or from
@@ -15,17 +15,22 @@ machine has no USB: its input devices are virtio-input.
 | USB disk | `mass_storage.js` | a disk image as a USB stick: Bulk-Only Transport, SCSI |
 | UHCI | `uhci.js` | the USB 1.1 controller, alone or one of EHCI's companions |
 | EHCI | `ehci.js` | the USB 2.0 controller: the high-speed devices; the others to its companions |
+| xHCI | `xhci.js` | the USB 3 controller: rings and contexts, USB 3 and USB 2 root ports |
 | Plugin | `machine.js`, `plugin.js` | the machine handle with the bus and the disks' block backends, the devices on their ports, `usb_plug`, USB disks attached and detached |
 
 A controller hands a device transactions (SETUP, IN, OUT) for an endpoint;
 the device answers with data, NAK or STALL. There is no electrical
 signalling: the transaction is the unit. The device layer knows nothing of
-the controller, so that UHCI, EHCI and later xHCI (U4 of
+the controller, so that UHCI, EHCI and xHCI (U1 to U4 of
 [modern-pc-devices-plan.md](modern-pc-devices-plan.md)) use the same
-devices. A device has its speeds (the tablet full speed, a USB disk full
-and high) and runs at its port's: the descriptors are that speed's, and a
-device of both describes the other in its device qualifier and other speed
-configuration.
+devices. A device has its speeds (the tablet full speed, a USB disk full,
+high and SuperSpeed) and runs at its port's: the descriptors are that
+speed's; a device of full and high speed describes the other in its device
+qualifier and other speed configuration; at SuperSpeed its device
+descriptor is USB 3's (endpoint 0's packets 2^9 = 512 bytes) and it has a
+BOS (a USB 2.0 extension without LPM, the SuperSpeed capability without
+U1/U2 exit latencies: the host leaves U1/U2 off); it takes SET_SEL and
+SET_ISOCH_DELAY.
 
 ## UHCI
 
@@ -107,6 +112,57 @@ companion: no plugin with UHCI alone takes another place.
 - **Throughput.** Alpine wrote 1 GiB through a USB disk in 29 s (35.3
   MiB/s) and read it in 52 s (19.7 MiB/s): five times UHCI's.
 
+## xHCI
+
+`usb.controller: "xhci"`: QEMU's `qemu-xhci` (`1B36:000D`, class
+0C/03/30, INTA, PM and single-vector MSI capabilities) at 00:14.0, where
+Intel's PCHs have their xHCI (00:05.0 in QEMU's PC layout). Windows 8 and
+later bind `usbxhci.inf` by the class (Windows 7 has no xHCI driver: the
+settings say so), Linux `xhci-pci`. Four physical ports, each a USB 3 root
+port (1 to 4: a SuperSpeed device, at 5 Gbit/s) and a USB 2 one (5 to 8:
+the others; a high-speed device at 480 Mbit/s, the tablet at 12).
+
+- **Registers.** BAR0, 16 KiB of memory (32-bit: v86's PC host bus has no
+  64-bit BARs): the capability registers (32 slots, one interrupter, 8
+  ports, one event ring segment, no scratchpad, 64-bit addresses, 32-byte
+  contexts), the operational registers (USBCMD, USBSTS, PAGESIZE 4 KiB,
+  CRCR, DCBAAP, CONFIG; PORTSC at 0x400), the runtime registers at 0x1000
+  (MFINDEX from the machine clock, the interrupter: IMAN, IMOD, ERSTSZ,
+  ERSTBA, ERDP with EHB), the doorbells at 0x2000, the extended
+  capabilities at 0x3000 (USB legacy support, handed over at once; the two
+  supported protocols).
+- **Ports.** A SuperSpeed device's USB 3 port connects with its link in U0
+  and enabled; the others' USB 2 port connects polling, and a port reset
+  enables it. Changes (connect, reset, link state, warm reset) are W1C bits
+  and Port Status Change Events; suspend (U3) and resume by the link state.
+- **Commands** (doorbell 0, run at once, a Command Completion Event each):
+  Enable and Disable Slot, Address Device (the slot's ID as the device's
+  address; BSR: the default state), Configure Endpoint (add and drop flags,
+  deconfigure), Evaluate Context (exit latency, interrupter, endpoint 0's
+  max packet), Reset Endpoint (a halted one), Stop Endpoint (a TD under way
+  gets a Stopped Transfer Event at its TRB), Set TR Dequeue Pointer, Reset
+  Device, Get Port Bandwidth, No Op; others are TRB errors; a command ring
+  stopped or aborted answers Command Ring Stopped.
+- **Transfers.** A slot's doorbell runs the endpoint's ring: TDs of Normal,
+  Setup, Data, Status, Event Data and No Op TRBs (Link TRBs followed, their
+  toggle cycle), max packet at a time with the device in the slot's port,
+  up to a budget (64 KiB a doorbell, 1 MiB a millisecond); a stopped
+  endpoint runs again. A NAK leaves the TD where it is, tried again each
+  millisecond. Transfer Events as QEMU's: the first TRB with IOC, or with
+  ISP after a short packet (Short Packet and the bytes left), a control
+  transfer's Status stage again, Event Data TRBs with the bytes so far (ED);
+  STALL, babble, no device and DMA errors halt the endpoint at the TD.
+- **Events and interrupts.** The event ring's one segment from ERSTBA,
+  cycle bit by cycle bit; a full ring drops events, its last entry an
+  Event Ring Full Error. An event sets EHB, IP and EINT and interrupts
+  unless EHB was set: an MSI message (IP clears when it is sent) or INTA
+  (IP, IE and INTE); clearing EHB with events left interrupts again.
+- **Not emulated.** Hubs (route strings), streams, isochronous transfers,
+  U1/U2, the debug capability, more interrupters, MSI-X, interrupt
+  moderation, the controller's save and restore state.
+- **Throughput.** Alpine wrote 1 GiB through a USB disk at SuperSpeed in 5
+  s (205 MiB/s) and read it in 32 s (the guest's SHA-256 is most of it).
+
 ## HID tablet
 
 A full-speed HID device (QEMU's tablet's IDs, `0627:0001`, "v86 USB
@@ -184,8 +240,9 @@ a port: UHCI has two, one of them the tablet's.
 
 ## Snapshots
 
-`state[107]`: the controller's registers, which devices are in their ports,
-each device's state (address, configuration, control transfer, the tablet's
+`state[107]`: the controller's registers (EHCI's with its companions'; an
+xHCI's rings, slots, endpoints and the TD each has under way), which
+devices are in their ports, each device's state (address, configuration, control transfer, the tablet's
 pointer, a USB disk's command under way: its phase, the data read ahead,
 the piece being written). `state[108]`: the USB disks' buffers by their ids
 (the guest's writes, as a hard disk's state has them). A snapshot restores
@@ -197,12 +254,16 @@ and the snapshot has not arrives.
 ## Tests
 
 `make usb-tests`: `tests/devices/usb.js`, `tests/devices/usb_storage.js` and
-`tests/devices/usb_ehci.js` drive the controllers through their registers
-and schedules in guest memory (all in ci-tests): the tablet, then a USB
-disk's enumeration, transport, commands, errors, a read-only disk, a disk
-whose reads come later, hot plug and snapshots; then EHCI (the PCI
-functions, the legacy handoff, the ports' owners, the asynchronous and
-periodic schedules, IAA, hot plug, snapshots); `tests/devices/usb_guest.mjs` boots Alpine 3.24 x86_64
+`tests/devices/usb_ehci.js` and `tests/devices/usb_xhci.js` drive the
+controllers through their registers, schedules and rings in guest memory
+(all in ci-tests): the tablet, then a USB disk's enumeration, transport,
+commands, errors, a read-only disk, a disk whose reads come later, hot plug
+and snapshots; EHCI (the PCI functions, the legacy handoff, the ports'
+owners, the asynchronous and periodic schedules, IAA, hot plug,
+snapshots); xHCI (the capabilities, the ports, the commands, control,
+bulk and interrupt transfers at SuperSpeed and full speed, short packets,
+Event Data, STALL and its recovery, Stop Endpoint, the event ring's wrap
+and full ring, MSI, hot plug, snapshots, HCRST); `tests/devices/usb_guest.mjs` boots Alpine 3.24 x86_64
 (`uhci-hcd`, `usbhid`) on i440FX and Q35, one and two cores: the tablet
 enumerated, its events at the corners, the centre and a 5x5 grid exactly
 where the page's pointer was, the buttons, the wheel, out of its port and
@@ -211,7 +272,8 @@ disk seen, data through it checked by SHA-256 on both sides, a FAT file
 system, a read-only disk attached and detached, out of its port and back, a
 snapshot, an eject (`USB_WRITE_MB`: the large write with its times). Both
 take `USB_CONTROLLER=ehci` (`ehci-pci`: the tablet at 12M on a companion,
-the disk at 480M on the EHCI).
+the disk at 480M on the EHCI) and `USB_CONTROLLER=xhci` (`xhci-pci`: the
+tablet at 12M on a USB 2 port, the disk at 5000M on a USB 3 port).
 
 Windows, with their images (not in `usb-tests`):
 `tests/devices/usb_windows_xp.mjs` boots the site's XP (i440FX, IDE, no

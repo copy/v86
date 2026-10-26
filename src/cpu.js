@@ -2655,7 +2655,8 @@ CPU.prototype.create_usb_plugin = function(settings, bus)
     this.usb_disks = new Map((settings.usb_disks || []).map(disk => [disk.id, disk.buffer]));
     // (EHCI: its own function, 7; its companions are the plugin's functions 0 to 2)
     const functions = pci_functions(this.platform);
-    return new PluginDevice(this, USB_PLUGINS, settings.usb_plugin, settings.usb["controller"] === "ehci" ? functions.ehci : functions.uhci, {
+    const controller = settings.usb["controller"];
+    return new PluginDevice(this, USB_PLUGINS, settings.usb_plugin, controller === "ehci" ? functions.ehci : controller === "xhci" ? functions.xhci : functions.uhci, {
         "bus": {
             "register": (name, handler) => bus.register(name, handler, null),
             // to the page and to the other devices (the PS/2 mouse, the

@@ -2458,8 +2458,8 @@ V86.prototype.usb_plug = function(id, plugged)
 
 /**
  * The USB devices: each one's id, port, whether it is in its port, the
- * controller that has it ("ehci", or "uhci": the UHCI or an EHCI's
- * companion) and its speed in Mbit/s (12, 480)
+ * controller that has it ("xhci", "ehci", or "uhci": the UHCI or an EHCI's
+ * companion) and its speed in Mbit/s (12, 480, 5000)
  * @return {!Promise<!Array<{id: string, port: number, plugged: boolean, controller: string, speed: number}>>}
  */
 V86.prototype.usb_devices = async function()

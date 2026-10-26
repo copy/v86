@@ -32,11 +32,13 @@ settings, rename, export, delete.
   guest's cursor follows the page's without locking the mouse; the Input
   menu's "Lock the mouse" switches to relative movement (the PS/2 mouse) for
   games. USB is an item of the settings (Add, Remove; configuration
-  version 4), its controller UHCI or EHCI (USB 2.0 with UHCI companions,
-  the XP and 7 presets'). USB disks are items too ("USB disk" in Add): a disk image as a
+  version 4), its controller UHCI, EHCI (USB 2.0 with UHCI companions,
+  the XP and 7 presets') or xHCI (USB 3, the Windows 8.1 and Linux
+  presets'; the settings note that Windows 7 and earlier have no driver
+  for it). USB disks are items too ("USB disk" in Add): a disk image as a
   USB stick, its source as a hard disk's (read only or written back), write
-  protected or not; a port each (UHCI has two, EHCI six, the tablet takes
-  one). While
+  protected or not; a port each (UHCI has two, EHCI six, xHCI four; the
+  tablet takes one). While
   the machine runs, the Devices menu plugs a file in as a USB disk, unplugs
   one (it warns while the guest has not ejected it) and downloads its
   image.
