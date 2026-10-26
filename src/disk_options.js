@@ -217,7 +217,9 @@ export function check_disk_options(options, also)
     (options.virtio_disks || []).forEach((disk, i) => { if(disk) disks.push(["virtio_disk" + i, disk]); });
     // (usb.mass_storage: "usb:" and the disk's id)
     (options.usb && options.usb.mass_storage || []).forEach(disk => { if(disk && disk.image) disks.push(["usb:" + disk.id, disk.image]); });
-    for(const [name, file] of [["bios", options.bios], ["vga_bios", options.vga_bios], ["initial_state", options.initial_state],
+    const firmware = options.firmware || {};
+    for(const [name, file] of [["bios", options.bios], ["vga_bios", options.vga_bios], ["firmware_code", firmware.code], ["firmware_vars", firmware.vars],
+        ["initial_state", options.initial_state],
         ["multiboot", options.multiboot], ["bzimage", options.bzimage], ["initrd", options.initrd], ["kernel", options.kernel], ["dtb", options.dtb]])
     {
         check_disk_policy(name, file);

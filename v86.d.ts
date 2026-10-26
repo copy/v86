@@ -380,6 +380,8 @@ export interface Event {
     "parallel1-status-input": number;
     /** The guest configured the USB tablet (true) or let it go (false): while it uses it, the tablet has the page's pointer */
     "usb-tablet-active": boolean;
+    /** a byte of the UEFI firmware's debug log (firmware.debug_console) */
+    "debug-console-output-byte": number;
     /** The guest ejected a USB disk's medium (its id): it can be detached now */
     "usb-disk-ejected": string;
     "virtio-console0-output-bytes": Uint8Array;
@@ -667,6 +669,25 @@ export interface V86Options {
      * @see {@link https://github.com/speedyHKjournalist/v64/tree/master/bios} for BIOS images
      */
     vga_bios?: V86Image;
+
+    /**
+     * The machine's firmware, on the PC machines: SeaBIOS (`bios` and `vga_bios`, the default)
+     * or UEFI. UEFI is OVMF, X64 (bios/ovmf-code.fd and bios/ovmf-vars.fd: edk2-stable202408 as
+     * QEMU 9.2.0 ships it, see bios/fetch-ovmf.sh), mapped as flash below 4 GiB: the variable
+     * store, then the code (or `code` alone, an image holding both). It needs cpu_type "x86_64",
+     * acpi: true and, on i440FX, qemu_compatible: true; it takes the place of `bios` and
+     * `vga_bios`. The variables live in RAM for now (no persistence). See docs/uefi.md.
+     */
+    firmware?: {
+        type: "seabios" | "uefi";
+        code?: V86Image;
+        vars?: V86Image;
+        /**
+         * QEMU's debug console at port 0x402: the firmware's debug log, byte by byte, as the
+         * "debug-console-output-byte" event
+         */
+        debug_console?: boolean;
+    };
 
     /**
      * First hard disk

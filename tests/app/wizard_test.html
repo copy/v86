@@ -5,6 +5,8 @@
      part=freedos  the DOS preset from a floppy URL (images/freedos722.img), no hard disk: "Welcome to FreeDOS"
      part=linux    the 32-bit Linux preset from a CD URL (images/linux4.iso), a new disk in memory: the shell's "~%"
      part=arm64    the arm64 Linux preset, direct boot: Alpine's kernel, initrd and ISO (build/a64-linux/): "login:" on the serial console
+     part=uefi     a machine of no preset edited to UEFI (OVMF, Q35) in the settings dialog, powered on: the UEFI Shell's
+                   prompt on the serial console (bios/ovmf-code.fd and ovmf-vars.fd through the CPU worker)
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
@@ -262,6 +264,28 @@ const parts = {
         log("power on: Alpine arm64 boots to \"" + serial.trim().split("\n").pop().trim() + "\"");
         await emulator.destroy();
     },
+    async uefi()
+    {
+        await open_library();
+        await wizard({ source: "Install the system later", urls: {}, preset: "other", name: "UEFI", disk: "none" });
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        const item = id => dialog.querySelector("li[data-item=" + id + "]");
+        const panel = () => dialog.querySelector(".settings-panel");
+        item("machine").click();
+        select_text(panel().querySelector("select[aria-label=Machine]"), "Q35");
+        select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
+        await until(() => /UEFI is OVMF/.test(panel().textContent), "the UEFI note");
+        button("Save", dialog).click();
+        await until(() => !$("dialog.settings-dialog[open]"), "saved");
+        const { emulator } = await power_on();
+        let serial = "";
+        emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+        await until(() => /Shell> /.test(serial.replace(/\x1b\[[0-9;=?]*[A-Za-z]/g, "")), "the UEFI Shell on the serial console", 180000);
+        check(/UEFI Interactive Shell v2\.2/.test(serial), "the Shell's banner");
+        log("power on: OVMF on Q35 to \"Shell>\" on the serial console");
+        await emulator.destroy();
+    },
     async dialog()
     {
         await open_library();
@@ -296,6 +320,19 @@ const parts = {
         item("machine").click();
         const acpi2 = Array.from(panel().querySelectorAll("label.check")).find(l => /^ACPI/.test(l.textContent.trim())).querySelector("input");
         check(acpi2.checked && acpi2.disabled, "two cores: ACPI on and fixed");
+
+        // the firmware: UEFI brings the x86_64 CPU and says what it is; SeaBIOS again
+        const firmwares = Array.from(panel().querySelector("select[aria-label=Firmware]").options, o => o.textContent);
+        check(firmwares.includes("UEFI (OVMF)"), "the firmware: " + firmwares);
+        select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
+        await until(() => /UEFI is OVMF/.test(panel().textContent), "the UEFI note");
+        item("processor").click();
+        check(panel().querySelector("select[aria-label=CPU]").selectedOptions[0].textContent.startsWith("x86_64"), "UEFI: the x86_64 CPU");
+        select_text(panel().querySelector("select[aria-label=CPU]"), "x86 (32-bit");
+        item("machine").click();
+        check(panel().querySelector("select[aria-label=Firmware]").selectedOptions[0].textContent.startsWith("SeaBIOS"),
+            "the x86 CPU: SeaBIOS again");
+        log("Firmware: " + firmwares.join(", ") + "; UEFI chose x86_64, the x86 CPU SeaBIOS again");
 
         // a problem: the disk's URL left empty; Save shows it on the disk's panel
         item("disk-0").click();

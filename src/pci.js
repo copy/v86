@@ -1335,6 +1335,10 @@ PCI.prototype.set_ecam = function(base, size)
     dbg_log("ECAM " + (base === -1 ? "disabled" : "at " + h(base >>> 0, 8) + " size " + h(size)), LOG_PCI);
     this.ecam_base = base;
     this.ecam_size = base === -1 ? 0 : size;
+    // The MCH decodes the window itself, before any BAR: device memory there
+    // (the VGA's frame buffer starts at 0xE0000000, where OVMF puts the
+    // window) waits until the window or the BAR moves
+    this.cpu.mmio_ram_reserve(base === -1 ? 0 : base, this.ecam_size);
 
     if(base !== -1)
     {

@@ -230,6 +230,23 @@ test("change: what a choice implies, and says", () =>
     assert.deepEqual(choice.acpi_fixed && choice.acpi_fixed.value, false);
 });
 
+test("change: UEFI keeps the x86_64 CPU and ACPI, or goes", () =>
+{
+    const uefi = new_config();
+    uefi.cpu.type = "x86_64";
+    uefi.machine.acpi = true;
+    uefi.machine.firmware = "uefi";
+    let { config, notes } = change(uefi, "machine.acpi", false);
+    assert.equal(config.machine.acpi, true);
+    assert.equal(config.machine.firmware, "uefi");
+    assert(notes.some(n => /ACPI on: UEFI needs it/.test(n)), notes.join("; "));
+    ({ config, notes } = change(config, "cpu.type", "x86"));
+    assert.equal(config.machine.firmware, "seabios");
+    assert(notes.some(n => /Firmware: SeaBIOS/.test(n)), notes.join("; "));
+    ({ config } = change(uefi, "cpu.type", "arm64"));
+    assert.equal(config.machine.firmware, "seabios");
+});
+
 test("change: Vulkan and the graphics proxy", () =>
 {
     let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", "venus");

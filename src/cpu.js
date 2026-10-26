@@ -20,6 +20,7 @@ import { MachineClock } from "./machine_clock.js";
 
 import { SB16 } from "./sb16.js";
 import { ACPI, acpi_system_states_file } from "./acpi.js";
+import { build_e820, build_smbios } from "./smbios.js";
 import { ACPI_LOADER_FILE, ACPI_RSDP_FILE, ACPI_TABLES_FILE, build_acpi_tables, locate_acpi_tables } from "./acpi_tables.js";
 import { ACPI_PM_BASE_DEFAULT, MACHINE_LAYOUT_VERSION, Platform, check_platform, create_platform, pci_functions } from "./platform.js";
 import { CORE_STATE_RANGES, INIT_PRESERVED, STATE_OFFSETS } from "./state_layout.js";
@@ -226,6 +227,14 @@ export function CPU(bus, wm, stop_idling)
         main: null,
         vga: null,
     };
+
+    /**
+     * The UEFI firmware (firmware: { type: "uefi" }, docs/uefi.md): its
+     * code and variable store images, the flash at the top of 4 GiB
+     * (an mmio_ram region, -1 until mapped) and the debug console
+     * @type {?{code: !ArrayBuffer, vars: ?ArrayBuffer, flash: number, debug_console: boolean}}
+     */
+    this.firmware = null;
 
     this.instruction_counter = view(Uint32Array, memory, state_base + STATE_OFFSETS.instruction_counter, 1);
 
@@ -789,6 +798,8 @@ CPU.prototype.wasm_patch = function()
     this.mmio_ram_backing = get_import("mmio_ram_backing");
     this.mmio_ram_map = get_import("mmio_ram_map");
     this.mmio_ram_unmap = get_import("mmio_ram_unmap");
+    this.mmio_ram_set_writable = get_import("mmio_ram_set_writable");
+    this.mmio_ram_reserve = get_import("mmio_ram_reserve");
     this.mmio_ram_read8 = get_import("mmio_ram_read8");
     this.mmio_ram_write8 = get_import("mmio_ram_write8");
     this.mmio_ram_mark_dirty = get_import("mmio_ram_mark_dirty");
@@ -3019,6 +3030,15 @@ CPU.prototype.init = function(settings, device_bus)
     // The display adapter plugin's descriptor; none with graphics_adapter: "none"
     this.graphics_adapter_descriptor = settings.graphics_adapter;
     this.bios.vga = settings.vga_bios;
+    if(settings.firmware_code)
+    {
+        this.firmware = {
+            code: settings.firmware_code,
+            vars: settings.firmware_vars || null,
+            flash: -1,
+            debug_console: !!(settings.firmware && settings.firmware["debug_console"]),
+        };
+    }
 
     this.load_bios();
 
@@ -3104,7 +3124,9 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else if(value === FW_CFG_ID)
         {
-            this.fw_value = i32(0);
+            // the traditional interface (bit 0), no DMA: OVMF needs a revision
+            // of at least 1; SeaBIOS only looks at the DMA bit
+            this.fw_value = i32(1);
         }
         else if(value === FW_CFG_RAM_SIZE)
         {
@@ -3232,6 +3254,10 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.rtc = new RTC(this);
         this.fill_cmos(this.devices.rtc, settings);
+        if(this.firmware)
+        {
+            this.add_uefi_fw_cfg_files();
+        }
 
         this.devices.dma = new DMA(this);
 
@@ -3298,6 +3324,13 @@ CPU.prototype.init = function(settings, device_bus)
             {
                 ide_config[0][0] = { buffer: settings.hda };
                 ide_config[0][1] = { buffer: settings.hdb };
+            }
+            else if(this.firmware)
+            {
+                // (the primary channel without drives, as QEMU's PIIX3 has
+                // it: OVMF waits 35 s for BSY to clear on a channel that
+                // reads as an open bus)
+                ide_config[0][0] = { buffer: undefined };
             }
             ide_config[1][0] = { is_cdrom: true, buffer: settings.cdrom };
             this.devices.ide = new IDEController(this, device_bus, ide_config);
@@ -3855,6 +3888,12 @@ CPU.prototype.fill_cmos = function(rtc, settings)
 
 CPU.prototype.load_bios = function()
 {
+    if(this.firmware)
+    {
+        this.load_firmware_flash();
+        return;
+    }
+
     var bios = this.bios.main;
     var vga_bios = this.bios.vga;
 
@@ -3929,6 +3968,66 @@ CPU.prototype.load_bios = function()
         }.bind(this));
 };
 
+/**
+ * The fw_cfg files that OVMF reads besides the ACPI ones (docs/uefi.md):
+ * etc/e820 and the SMBIOS tables, as QEMU has them. Only with the UEFI
+ * firmware: SeaBIOS would prefer etc/e820 to CMOS and build no SMBIOS of its own.
+ */
+CPU.prototype.add_uefi_fw_cfg_files = function()
+{
+    const low_memory = this.low_memory_size;
+    const high_memory = this.memory_size[0] - low_memory + this.extended_pages * 4096;
+    const query = this.wm.exports["cpuid_query"];
+    const cpuid = (leaf, subleaf) => [0, 1, 2, 3].map(register => query(leaf, subleaf, register));
+    const smbios = build_smbios(/** @type {Platform} */ (this.platform), { low_memory, high_memory, cpuid });
+    this.option_roms.push(
+        { name: "etc/e820", data: build_e820(low_memory, high_memory) },
+        { name: "etc/smbios/smbios-anchor", data: smbios.anchor },
+        { name: "etc/smbios/smbios-tables", data: smbios.tables });
+};
+
+/**
+ * The UEFI firmware's flash: the variable store and the code, in this order,
+ * ending at 4 GiB, where the reset vector is (QEMU's pflash units 1 and 0;
+ * a single image holding both, OVMF.fd, is the code alone). Read-only for
+ * now: writes are dropped, so OVMF keeps its variables in RAM. The last
+ * 128 KiB also appear below 1 MiB at 0xE0000, as QEMU's isa-bios alias.
+ */
+CPU.prototype.load_firmware_flash = function()
+{
+    const firmware = this.firmware;
+    const code = new Uint8Array(firmware.code);
+    const vars = firmware.vars ? new Uint8Array(firmware.vars) : new Uint8Array(0);
+    const size = vars.length + code.length;
+    const base = 2 ** 32 - size;
+    if(firmware.flash === -1)
+    {
+        dbg_assert(size % 4096 === 0 && size <= 16 << 20);
+        firmware.flash = this.mmio_ram_allocate(size);
+        dbg_assert(firmware.flash !== -1, "no device memory region for the firmware's flash");
+        const backing = new Uint8Array(this.wasm_memory.buffer, this.mmio_ram_backing(firmware.flash) >>> 0, size);
+        backing.set(vars, 0);
+        backing.set(code, vars.length);
+        this.mmio_ram_set_writable(firmware.flash, false);
+        this.mmio_ram_map(firmware.flash, base | 0);
+        const flash = firmware.flash;
+        // (reads come here only when the region is not decoded)
+        this.io.mmap_register(base, size,
+            addr => this.mmio_ram_read8(flash, addr - base | 0),
+            (addr, value) => {});
+        if(firmware.debug_console)
+        {
+            // QEMU's isa-debugcon at 0x402: OVMF writes its log there once
+            // the port reads as 0xE9
+            this.io.register_read(0x402, this, () => 0xE9);
+            this.io.register_write(0x402, this, value => {
+                this.bus.send("debug-console-output-byte", value);
+            });
+        }
+    }
+    this.write_blob(code.subarray(code.length - 0x20000), 0xE0000);
+};
+
 CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
 {
     const pit_time = this.devices.pit.timer(now, false);
@@ -3959,7 +4058,11 @@ CPU.prototype.debug_init = function()
         // write seabios debug output to console
         var seabios_debug = "";
 
-        this.io.register_write(0x402, this, handle); // seabios
+        // (the UEFI firmware's debug console has the port: load_firmware_flash)
+        if(!this.firmware || !this.firmware.debug_console)
+        {
+            this.io.register_write(0x402, this, handle); // seabios
+        }
         this.io.register_write(0x500, this, handle); // vgabios
     }
 

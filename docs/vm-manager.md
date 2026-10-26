@@ -50,6 +50,10 @@ settings, rename, export, delete.
   CPU makes the machine virt, a second core needs ACPI, more than 2048 MB
   needs x86_64), the dialog makes them and says so. Before saving, the
   whole configuration is checked, and each problem shows on its item.
+  The machine's firmware is SeaBIOS, the Bochs BIOS, an image of your own
+  or UEFI (OVMF, [uefi.md](uefi.md)): UEFI brings the x86_64 CPU and ACPI
+  (another CPU makes it SeaBIOS again), and on i440FX QEMU's device layout;
+  its variables are not kept between runs yet.
 - **Import…** and **Export** read and write `.v86vm.json` files. Files on
   your computer are not part of an export: the console asks for them.
 - **Preferences…** sets the disk service (below). **Browser disks…** lists

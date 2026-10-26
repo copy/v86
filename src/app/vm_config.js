@@ -5,7 +5,7 @@
 // configuration (config_to_options, with the old page's rules of
 // src/browser/vm_options.js).
 
-import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, USB_PORTS, allowed_options,
+import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, FIRMWARE_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, USB_PORTS, allowed_options,
     check_machine_options } from "../machine_options.js";
 import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
@@ -14,6 +14,10 @@ import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZ
 
 export const FORMAT = "v86-vm";
 export const VERSION = 4;
+
+/** The UEFI firmware's images (machine.firmware "uefi"; bios/fetch-ovmf.sh) */
+export const UEFI_CODE_URL = "bios/ovmf-code.fd";
+export const UEFI_VARS_URL = "bios/ovmf-vars.fd";
 
 /**
  * Where an image is (the plan's 镜像来源): a URL (or a disk service's), a
@@ -70,7 +74,8 @@ export const VERSION = 4;
  * @property {string} created
  * @property {string} modified
  * @property {{type: string, acpi: boolean, hpet: boolean, smbus: boolean, pcie_root_ports: number, boot_order: number,
- *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null}} machine
+ *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null, firmware: string}} machine
+ *     (firmware: "seabios", the BIOS images' or SeaBIOS, or "uefi", OVMF: docs/uefi.md)
  * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
  * @property {{mb: number}} memory
  * @property {Disk[]} disks
@@ -198,7 +203,7 @@ export function with_defaults(config)
     c.created = c.created ?? new Date().toISOString();
     c.modified = c.modified ?? c.created;
     section("machine", { type: DEFAULT_FORM.machine_type, acpi: DEFAULT_FORM.acpi, hpet: false, smbus: false, pcie_root_ports: 0,
-        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null });
+        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null, firmware: "seabios" });
     // (profile: arm64's a64_profile, null the library's default, v2)
     section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true, profile: null });
     section("memory", { mb: DEFAULT_MEMORY_SIZE });
@@ -413,7 +418,15 @@ export function validate_config(config)
     {
         if(machine[name] === null) continue;
         if(arm) problem("machine." + name, allowed.unavailable[name]);
+        else if(machine.firmware === "uefi") problem("machine." + name, "UEFI takes the place of the BIOS images");
         else check_image(machine[name], "machine." + name, problems);
+    }
+    if(!FIRMWARE_TYPES.includes(machine.firmware)) problem("machine.firmware", "must be one of " + FIRMWARE_TYPES.join(", "));
+    else if(machine.firmware === "uefi")
+    {
+        if(arm) problem("machine.firmware", allowed.unavailable["firmware"]);
+        else if(cpu.type !== "x86_64") problem("machine.firmware", "UEFI (OVMF) needs the x86_64 CPU");
+        else if(!machine.acpi) problem("machine.firmware", "UEFI needs ACPI");
     }
 
     // the disks (docs/disk-persistence-plan.md: read write needs a source that can be written back)
@@ -855,6 +868,15 @@ export function config_to_options(config, env)
     });
     // (the firmware's boot options, which the old page does not have)
     if(machine.fastboot) options.fastboot = true;
+    // (UEFI, likewise: OVMF in place of the BIOS images; on i440FX with
+    // QEMU's device layout, which OVMF expects)
+    if(machine.firmware === "uefi")
+    {
+        delete options.bios;
+        delete options.vga_bios;
+        options.firmware = { type: "uefi", code: { url: UEFI_CODE_URL }, vars: { url: UEFI_VARS_URL } };
+        if(machine.type === "i440fx") options.qemu_compatible = true;
+    }
     // (USB, likewise)
     if(config.usb && !ARM_MACHINE_TYPES.includes(machine.type))
     {

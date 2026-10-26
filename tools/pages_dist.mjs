@@ -33,6 +33,8 @@ const FILES = [
     "build/v86-arm64.wasm", "build/v86-arm64-fallback.wasm", "build/v86-arm64-parallel.wasm",
     "build/v86-bochs-vga.js", "build/v86-vmware-svga.js", "build/v86-virtio-gpu.js", "build/v86-e1000.js", "build/v86-hd-audio.js", "build/v86-usb.js",
     "bios/seabios.bin", "bios/vgabios.bin", "bios/bochs-bios.bin", "bios/bochs-vgabios.bin",
+    // (the UEFI firmware, docs/uefi.md, with its licenses)
+    "bios/ovmf-code.fd", "bios/ovmf-vars.fd", "bios/OVMF-LICENSES.txt",
     ...graphics.files.map(name => "build/glbridge/" + name), "build/glbridge/manifest.json",
 ];
 

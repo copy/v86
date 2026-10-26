@@ -196,6 +196,12 @@ const RULES = [
     ["bootmenu", c => { c.machine.bootmenu = "x"; }, "machine.bootmenu"],
     ["a BIOS image", c => { c.machine.bios = { kind: "url", url: "" }; }, "machine.bios"],
     ["a BIOS on virt", c => { Object.assign(c, arm64()); c.machine.bios = { kind: "url", url: "b.bin" }; }, "machine.bios"],
+    ["a firmware", c => { c.machine.firmware = "efi"; }, "machine.firmware"],
+    ["UEFI on the x86 CPU", c => { c.machine.firmware = "uefi"; c.machine.acpi = true; }, "machine.firmware"],
+    ["UEFI without ACPI", c => { c.cpu.type = "x86_64"; c.machine.firmware = "uefi"; }, "machine.firmware"],
+    ["UEFI with a BIOS image", c => { c.cpu.type = "x86_64"; c.machine.acpi = true; c.machine.firmware = "uefi"; c.machine.bios = { kind: "url", url: "b.bin" }; },
+        "machine.bios"],
+    ["UEFI on virt", c => { Object.assign(c, arm64()); c.machine.firmware = "uefi"; }, "machine.firmware"],
     ["a disk's slot", c => { c.disks = [disk({ slot: "hdc" })]; }, "disks.0.slot"],
     ["a slot twice", c => { c.disks = [disk(), disk()]; }, "disks.1.slot"],
     ["an image's kind", c => { c.disks = [disk({ image: { kind: "ftp" } })]; }, "disks.0.image"],
@@ -457,6 +463,27 @@ test("config_to_options: the backends, arm64, a file not chosen yet", () =>
     const f = new_config();
     f.disks = [disk({ image: { kind: "file", name: "c.img", size: 512, last_modified: 0 } })];
     assert.throws(() => config_to_options(f, Object.assign({}, ENV, { file: () => undefined })), /c\.img needs to be chosen again/);
+});
+
+test("UEFI: OVMF's images in place of the BIOS images; on i440FX with QEMU's layout; the library accepts both machines", () =>
+{
+    for(const type of ["i440fx", "q35"])
+    {
+        const c = new_config();
+        c.cpu.type = "x86_64";
+        c.machine.type = type;
+        c.machine.acpi = true;
+        c.machine.firmware = "uefi";
+        assert.deepEqual(validate_config(c), []);
+        assert.deepEqual(check_config(c), [], type);
+        const o = config_to_options(c, ENV);
+        assert.deepEqual(o.firmware, { type: "uefi", code: { url: "bios/ovmf-code.fd" }, vars: { url: "bios/ovmf-vars.fd" } });
+        assert.equal(o.bios, undefined);
+        assert.equal(o.vga_bios, undefined);
+        assert.equal(o.qemu_compatible, type === "i440fx" ? true : undefined);
+    }
+    // (migrated: SeaBIOS)
+    assert.equal(with_defaults({ format: FORMAT, version: VERSION, machine: { type: "i440fx" } }).machine.firmware, "seabios");
 });
 
 test("check_config: the library's own checks after validate_config's", () =>

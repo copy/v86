@@ -94,6 +94,8 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
             "mass_storage": o["usb"]["mass_storage"] && o["usb"]["mass_storage"].map(disk =>
                 ({ "id": disk["id"], "image": file(disk["image"]), "read_only": disk["read_only"] })) } : undefined,
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
+        "firmware": o.firmware && { "type": o.firmware.type, "debug_console": o.firmware.debug_console,
+            "code": file(o.firmware.code), "vars": file(o.firmware.vars) },
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),
         // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)

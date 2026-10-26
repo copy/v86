@@ -42,7 +42,7 @@ export function hardware_rows(c)
         ["Memory", c.memory.mb + " MB"],
         ["Processor", c.cpu.type + ", " + c.cpu.cores + (c.cpu.cores === 1 ? " core" : " cores") + (c.cpu.cores > 1 && c.cpu.parallel ? " in parallel" : "") +
             (c.cpu.jit ? "" : ", no JIT")],
-        ["Machine", (MACHINES[c.machine.type] || c.machine.type) + (c.machine.acpi ? ", ACPI" : "")],
+        ["Machine", (MACHINES[c.machine.type] || c.machine.type) + (c.machine.acpi ? ", ACPI" : "") + (c.machine.firmware === "uefi" ? ", UEFI" : "")],
     ];
     for(const disk of c.disks)
     {

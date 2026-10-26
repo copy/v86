@@ -234,7 +234,7 @@ unsafe fn string_instruction_bounded(
             Instruction::Movs => {
                 let (addr, skip) =
                     finish_on_fault!(translate_address_write_and_can_skip_dirty(es + dst));
-                movs_into_mmio_ram = crate::cpu::mmio_ram::contains(addr);
+                movs_into_mmio_ram = crate::cpu::mmio_ram::contains_writable(addr);
                 rep_fast = rep_fast && (!memory::in_mapped_range(addr) || movs_into_mmio_ram);
                 phys_dst = addr;
                 skip_dirty_page = skip;

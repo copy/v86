@@ -377,6 +377,10 @@ export function VGAScreen(machine, vga_memory_size, options)
 
     io.register_write(0x1CF, this, undefined, this.port1CF_write);
     io.register_read(0x1CF, this, undefined, this.port1CF_read);
+    // (the data register's aligned alias, as QEMU decodes it on x86: OVMF's
+    // QemuVideoDxe uses it when the adapter has no MMIO BAR)
+    io.register_write(0x1D0, this, undefined, this.port1CF_write);
+    io.register_read(0x1D0, this, undefined, this.port1CF_read);
 
 
     // The frame buffer is device memory in the Rust core, which the guest

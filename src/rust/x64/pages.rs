@@ -9,6 +9,9 @@
 //! backing page (CPU, DMA, host) retire it through jit::jit_dirty_page.
 //! Code in extended RAM has keys from extended::CODE_KEY_BASE on (the
 //! extended page, whichever frame holds it); extended.rs watches its writes.
+//! Code in read-only device memory (the UEFI firmware's flash) has keys from
+//! DEVICE_KEY_BASE on; mapping changes of device memory retire it
+//! (retire_device_code).
 //! With x64_page_compat32 (docs/jit-unification-plan.md P7.2), 32-bit code
 //! in compatibility mode runs here too: its functions have the key of their
 //! page with COMPAT_KEY, so a page run in both modes has a function for each.
@@ -453,14 +456,62 @@ pub unsafe fn forget_code(core: usize) {
 }
 
 /// The key of the code page at physical `address`: its RAM backing page
-/// number, or (above every such number) its extended page's key.
+/// number, or (above every such number) its extended page's key, or a page
+/// of read-only device memory's.
 unsafe fn code_key(address: u64) -> Option<u32> {
     if physical::plain_ram(address & !4095, 4096) {
         return Some((address >> 12) as u32);
     }
     match jac::ram_backing(address) {
         Some(backing) => Some(backing >> 12),
-        None => extended::code_key(address),
+        None => match extended::code_key(address) {
+            Some(key) => (key < DEVICE_KEY_BASE).then_some(key),
+            None => device_code_key(address),
+        },
+    }
+}
+/// Keys of pages of read-only device memory -- the UEFI firmware's flash,
+/// whose SEC phase runs in place (crate::cpu::mmio_ram) -- in the top 16 MiB
+/// below 4 GiB: from here on, above the extended pages' keys and below the
+/// mode bits. Their functions are compiled from a copy of the page, as an
+/// extended page's; nothing writes such memory while it is read-only.
+const DEVICE_KEY_BASE: u32 = STACK_KEY - (1 << 12);
+const DEVICE_FIRST_PAGE: u64 = 0xFF000;
+unsafe fn device_code_key(address: u64) -> Option<u32> {
+    let page = address >> 12;
+    // (not with cores in workers: x64_page_install checks RAM pages only)
+    if crate::parallel::active()
+        || !(DEVICE_FIRST_PAGE..1 << 20).contains(&page)
+        || !crate::cpu::mmio_ram::read_only_page(page as u32 * 4096)
+    {
+        return None;
+    }
+    Some(DEVICE_KEY_BASE + (page - DEVICE_FIRST_PAGE) as u32)
+}
+/// The bytes of the device memory page of `key` (a physical key), if it is
+/// still mapped and read-only
+unsafe fn device_page_bytes(key: u32) -> Option<Vec<u8>> {
+    let address = (DEVICE_FIRST_PAGE as u32 + (key - DEVICE_KEY_BASE)) * 4096;
+    if !crate::cpu::mmio_ram::read_only_page(address) {
+        return None;
+    }
+    let host = crate::cpu::mmio_ram::read_host(address, 4096)?;
+    Some(std::slice::from_raw_parts(host, 4096).to_vec())
+}
+/// Device memory was mapped, unmapped or made writable: the functions
+/// compiled from it go, and the code translations that led there.
+pub fn retire_device_code() {
+    let r = rt();
+    if !r.functions.iter().any(|f| f.phase != Phase::Dead && is_device(f.page)) {
+        return;
+    }
+    unsafe {
+        CODE_TLB = [[(0, 0, 0, false); CODE_TLB_SIZE]; 8];
+    }
+    for i in 0..r.functions.len() {
+        if is_device(r.functions[i].page) {
+            retire(r, i);
+        }
     }
 }
 /// The key bit of a 32-bit function (P7.2; physical keys are below
@@ -532,7 +583,9 @@ unsafe fn code_mode() -> usize {
         }
     }
 }
+/// Code outside RAM: in an extended page, or in device memory (is_device)
 fn is_extended(page: u32) -> bool { physical_key(page) >= extended::CODE_KEY_BASE }
+fn is_device(page: u32) -> bool { physical_key(page) >= DEVICE_KEY_BASE }
 
 /// Multi-page functions of legacy-mode code (the JIT switch
 /// x64_page_clusters, docs/jit-unification-plan.md P7.3b, as Tier-0's
@@ -1533,7 +1586,13 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
                 .map(|o| (m * 4096) as u16 + o),
         );
     }
-    let bytes = if is_extended(page) {
+    let bytes = if is_device(page) {
+        match device_page_bytes(physical) {
+            Some(bytes) => bytes,
+            None => return miss(),
+        }
+    }
+    else if is_extended(page) {
         extended::copy_page(physical - extended::CODE_KEY_BASE)
     }
     else {
@@ -1692,7 +1751,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
             retire(r, old);
         }
     }
-    if is_extended(page) {
+    if is_extended(page) && !is_device(page) {
         extended::watch_code(physical - extended::CODE_KEY_BASE);
     }
     let reusable = |f: &Function, releases: &Vec<(u32, u64)>| {
@@ -1829,6 +1888,7 @@ fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
         r.by_page.remove(&page);
         // (the page's function in another mode, P7.2, keeps it watched)
         if is_extended(page)
+            && !is_device(page)
             && !MODE_KEYS
                 .iter()
                 .any(|&mode| r.by_page.contains_key(&(physical_key(page) | mode)))

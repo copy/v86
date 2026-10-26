@@ -58,6 +58,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	node tests/app/presets.mjs
 	node tests/app/machine_rules.mjs
 	node tests/android/library.mjs
+	TEST_RELEASE_BUILD=1 ./tests/uefi/shell.mjs
 	./tests/api/disk-options.js
 	./tests/api/sb16-state.js
 	./tests/api/sb16-dma.js
@@ -146,7 +147,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js device_plugin.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
-	   acpi.js acpi_tables.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
+	   acpi.js acpi_tables.js smbios.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
 	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js mac_address.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
@@ -643,6 +644,18 @@ hd-audio-tests: build/v86-debug.wasm build/libv86.mjs
 # usbhid and usb-storage
 # (i440FX, Q35, two cores). Windows: tests/devices/
 # usb_windows_xp.mjs, tests/x64/windows_boot.mjs WIN_USB (their images)
+# The UEFI firmware (docs/uefi.md): OVMF to its Shell, and Alpine from a GPT
+# disk's ESP (macOS: hdiutil), on Q35, i440FX, two cores and the release build
+uefi-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs
+	./tests/uefi/shell.mjs
+	MACHINE=i440fx ./tests/uefi/shell.mjs
+	CPU_CORES=2 ./tests/uefi/shell.mjs
+	TEST_RELEASE_BUILD=1 ./tests/uefi/shell.mjs
+	./tests/uefi/esp_boot.mjs
+	MACHINE=i440fx ./tests/uefi/esp_boot.mjs
+	CPU_CORES=2 ./tests/uefi/esp_boot.mjs
+	TEST_RELEASE_BUILD=1 ./tests/uefi/esp_boot.mjs
+
 usb-tests: build/v86-debug.wasm build/libv86.mjs build/v86-usb.js
 	./tests/devices/usb.js
 	TEST_RELEASE_BUILD=1 ./tests/devices/usb.js
@@ -868,7 +881,7 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
 	node tests/android/make_package.mjs
-	for part in freedos linux arm64 dialog android android_gsi android_emulator; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
+	for part in freedos linux arm64 dialog uefi android android_gsi android_emulator; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
@@ -1919,7 +1932,7 @@ bmi-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debu
 # exact model of tests/rust/sse_fp_model.mjs (release and debug builds), the
 # x64 engine (interpreted, page tier, compatibility-mode Tier-0) against QEMU
 # and the model
-.PHONY: fma-tests
+.PHONY: fma-tests uefi-tests
 fma-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debug.wasm
 	node tests/rust/fma.mjs
 	node tests/rust/cvtpi2ps_x87.mjs

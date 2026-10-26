@@ -2712,12 +2712,15 @@ unsafe fn cache_fetch_page(eip: i32, phys: u32) {
 pub unsafe fn read_imm8s() -> OrPageFault<i32> { return Ok(read_imm8()? << 24 >> 24); }
 
 pub unsafe fn read_imm16() -> OrPageFault<i32> {
-    // Two checks in one comparison:
-    // 1. Did the high 20 bits of eip change
+    // Two checks:
+    // 1. Did the high 20 bits of eip change (last_virt_eip's -1, no page
+    //    cached, has low bits: it must not pass for the page at 0xFFFFF000,
+    //    where firmware runs from flash)
     // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
     // (IA-32e mode: compatibility mode with the fetch page cached only)
     if DISABLE_EIP_TRANSLATION_OPTIMISATION
-        || (*instruction_pointer ^ *last_virt_eip) as u32 > 0xFFE
+        || 0 != *instruction_pointer & !0xFFF ^ *last_virt_eip
+        || *instruction_pointer & 0xFFF > 0xFFE
         || crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0 && *x64_cs_long != 0
     {
         return Ok(read_imm8()? | read_imm8()? << 8);
@@ -2732,7 +2735,8 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
 pub unsafe fn read_imm32s() -> OrPageFault<i32> {
     // Analogue to the above comment
     if DISABLE_EIP_TRANSLATION_OPTIMISATION
-        || (*instruction_pointer ^ *last_virt_eip) as u32 > 0xFFC
+        || 0 != *instruction_pointer & !0xFFF ^ *last_virt_eip
+        || *instruction_pointer & 0xFFF > 0xFFC
         || crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0 && *x64_cs_long != 0
     {
         return Ok(read_imm16()? | read_imm16()? << 16);
@@ -3584,6 +3588,19 @@ unsafe fn still_32_bit_code() -> bool { !crate::x64::state::mode().is_long() }
 // IA-32e mode (compatibility-mode code) paths of the legacy memory and
 // fetch helpers. Out of line and cold, so the 32-bit fast paths stay small
 // enough to be inlined into the interpreter.
+/// Whether an opcode at `phys_addr` (from get_phys_eip) is read through the
+/// bus: a mapped range (VGA, MMIO, firmware flash, the low hole left by RAM
+/// relocated above 4 GiB). With EFER.LMA, get_phys_eip resolves relocated
+/// RAM to its backing, which is plain memory although it lies in the low
+/// hole; what is mapped then is the extended RAM aperture or device memory.
+#[inline(always)]
+unsafe fn fetch_through_bus(phys_addr: u32) -> bool {
+    memory::in_mapped_range(phys_addr)
+        && (crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0
+            || crate::x64::extended::aperture::contains(phys_addr)
+            || crate::cpu::mmio_ram::contains(phys_addr))
+}
+
 #[cold]
 #[inline(never)]
 unsafe fn ia32e_phys_eip() -> OrPageFault<u32> {
@@ -3608,6 +3625,11 @@ unsafe fn ia32e_phys_eip() -> OrPageFault<u32> {
         // nothing compiles from the mapped range)
         Err(_) if crate::x64::extended::contains(address) => {
             Ok(crate::x64::extended::aperture::map(address))
+        },
+        // and code in device memory (the UEFI firmware's flash) from its
+        // address on the legacy bus, likewise
+        Err(_) if address >> 32 == 0 && crate::cpu::mmio_ram::contains(address as u32) => {
+            Ok(address as u32)
         },
         Err(_) => Err(crate::x64::system::raise(crate::x64::memory::Fault::gp())),
     }
@@ -3774,11 +3796,8 @@ unsafe fn jit_run_interpreted(mut phys_addr: u32, budget: u32) {
         let start_eip = *instruction_pointer;
         // A remapped low RAM page is an open bus, never the high RAM backing.
         // Compatibility mode has already resolved a full physical RAM
-        // address, or one of the extended RAM aperture.
-        let opcode = if memory::in_mapped_range(phys_addr)
-            && (crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0
-                || crate::x64::extended::aperture::contains(phys_addr))
-        {
+        // address (fetch_through_bus).
+        let opcode = if fetch_through_bus(phys_addr) {
             memory::fetch8(phys_addr)
         }
         else {
@@ -3873,10 +3892,9 @@ pub unsafe fn run_compat_instruction() {
     crate::cpu::execution::set_irq_deferral(true);
     let fetched = get_phys_eip();
     if let Ok(phys_addr) = fetched {
-        // (as jit_run_interpreted fetches with EFER.LMA)
-        let opcode = if memory::in_mapped_range(phys_addr)
-            && crate::x64::extended::aperture::contains(phys_addr)
-        {
+        // (as jit_run_interpreted fetches: the page tier steps legacy modes
+        // here too)
+        let opcode = if fetch_through_bus(phys_addr) {
             memory::fetch8(phys_addr)
         }
         else {

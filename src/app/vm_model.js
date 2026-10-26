@@ -117,6 +117,20 @@ function fit(c, notes)
     if(allowed.acpi === "none" && c.machine.acpi) { c.machine.acpi = false; note("ACPI off: " + allowed.unavailable["acpi"]); }
     if(allowed.acpi === "required" && !c.machine.acpi) { c.machine.acpi = true; note("ACPI on: the Q35 machine always has it"); }
     if(allowed.acpi === "with_cores" && c.cpu.cores > 1 && !c.machine.acpi) { c.machine.acpi = true; note("ACPI on: more than one core needs it"); }
+    // UEFI: OVMF runs on the x86_64 CPU with ACPI (docs/uefi.md)
+    if(c.machine.firmware === "uefi")
+    {
+        if(arm || c.cpu.type !== "x86_64")
+        {
+            c.machine.firmware = "seabios";
+            note("Firmware: SeaBIOS (UEFI needs the x86_64 CPU on a PC machine)");
+        }
+        else if(!c.machine.acpi)
+        {
+            c.machine.acpi = true;
+            note("ACPI on: UEFI needs it");
+        }
+    }
     if(c.machine.type === "q35") { /* (kept: the Q35 devices are the user's) */ }
     else
     {

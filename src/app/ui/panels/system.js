@@ -14,6 +14,7 @@ export const CPU_LABELS = { x86: "x86 (32-bit, up to SSE3)", x86_64: "x86_64 (64
 export const A64_PROFILE_LABELS = { v2: "Armv8.0-A: 64-bit programs", v3: "Armv8.0-A and 32-bit programs (AArch32 at EL0)" };
 export const MACHINE_LABELS = { i440fx: "i440FX (IDE, PCI)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (ARM, virtio devices)",
     ranchu: "ranchu (the Android Emulator's board)" };
+const FIRMWARE_LABELS = { seabios: "SeaBIOS (the default)", bochs: "Bochs BIOS", custom: "An image of your own", uefi: "UEFI (OVMF)" };
 const BOOT_ORDER_LABELS = { 0: "Automatic (floppy, then hard disk, then CD)", 0x213: "CD, floppy, hard disk", 0x123: "CD, hard disk, floppy",
     0x231: "Floppy, CD, hard disk", 0x321: "Floppy, hard disk, CD", 0x312: "Hard disk, floppy, CD", 0x132: "Hard disk, CD, floppy" };
 
@@ -130,18 +131,29 @@ export function machine_panel(ctx)
     const arm = ARM_MACHINE_TYPES.includes(c.machine.type);
     const q35 = c.machine.type === "q35";
     const bochs = !!(c.machine.bios && c.machine.bios.kind === "url" && c.machine.bios.url === "bios/bochs-bios.bin");
-    const firmware = c.machine.bios === null ? "seabios" : bochs ? "bochs" : "custom";
-    const firmware_field = select_field("Firmware", ["seabios", "bochs", "custom"], firmware, value =>
+    const firmware = c.machine.firmware === "uefi" ? "uefi" : c.machine.bios === null ? "seabios" : bochs ? "bochs" : "custom";
+    const firmware_field = select_field("Firmware", ["seabios", "bochs", "custom", "uefi"], firmware, value =>
     {
         ctx.edit(next =>
         {
-            next.machine.bios = value === "seabios" ? null : value === "bochs" ? { kind: "url", url: "bios/bochs-bios.bin" } : { kind: "url", url: "", async: false };
-            next.machine.vga_bios = value === "bochs" ? { kind: "url", url: "bios/bochs-vgabios.bin" } : value === "seabios" ? null : next.machine.vga_bios;
+            next.machine.firmware = value === "uefi" ? "uefi" : "seabios";
+            next.machine.bios = value === "seabios" || value === "uefi" ? null : value === "bochs" ? { kind: "url", url: "bios/bochs-bios.bin" } :
+                { kind: "url", url: "", async: false };
+            next.machine.vga_bios = value === "bochs" ? { kind: "url", url: "bios/bochs-vgabios.bin" } : value === "seabios" || value === "uefi" ? null :
+                next.machine.vga_bios;
+            // (OVMF is the X64 build: the 64-bit CPU, with ACPI)
+            if(value === "uefi")
+            {
+                next.cpu.type = "x86_64";
+                next.machine.acpi = true;
+            }
         });
-    }, v => ({ seabios: "SeaBIOS (the default)", bochs: "Bochs BIOS", custom: "An image of your own" })[v], arm ? { disabled: true, title: ch.unavailable["bios"] } : {});
+    }, v => FIRMWARE_LABELS[v], arm ? { disabled: true, title: ch.unavailable["bios"] } : {});
     return [
         select_field("Machine", ch.machine_types, c.machine.type, value => ctx.set("machine.type", value), v => MACHINE_LABELS[v] || v),
         firmware_field,
+        !arm && firmware === "uefi" ? h("p.note", null, "UEFI is OVMF (edk2-stable202408, as QEMU ships it) on the x86_64 CPU; " +
+            "on i440FX the devices take QEMU's places. Its variables (boot entries) are not kept between runs yet.") : null,
         !arm && firmware === "custom" ? [
             image_picker({ label: "BIOS image", role: "file", image: c.machine.bios, store: ctx.store, on_change: image => ctx.set("machine.bios", image) }),
             image_picker({ label: "VGA BIOS image", role: "file", optional: true, image: c.machine.vga_bios, store: ctx.store,

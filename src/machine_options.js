@@ -63,10 +63,13 @@ export const USB_CONTROLLERS = ["uhci", "ehci", "xhci"];
 /** Their ports: the tablet and USB disks each take one (there is no hub; xHCI's are each a USB 3 and a USB 2 root port) */
 export const USB_PORTS = { "uhci": 2, "ehci": 6, "xhci": 4 };
 
+/** The firmware of the PC machines (firmware.type): SeaBIOS (bios, vga_bios), the default, or UEFI (OVMF, docs/uefi.md) */
+export const FIRMWARE_TYPES = ["seabios", "uefi"];
+
 /** Options of the PC machines that the virt machine rejects */
 export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",
     "hpet", "smbus", "pcie_root_ports", "qemu_compatible", "uart1", "uart2", "uart3", "parallel1", "modem",
-    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features", "audio_device", "audio_device_path", "usb"];
+    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features", "audio_device", "audio_device_path", "usb", "firmware"];
 
 /** Options of the virt machine that the PC machines reject */
 export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
@@ -244,6 +247,42 @@ export function check_machine_options(options)
                 {
                     throw new Error("usb: the " + usb["controller"].toUpperCase() + " controller has " + ports + " ports, for " +
                         (usb["tablet"] ? "the tablet and " : "") + disks.length + " USB disk" + (disks.length === 1 ? "" : "s"));
+                }
+            }
+        }
+        const firmware = options["firmware"];
+        if(firmware !== undefined && firmware !== null)
+        {
+            if(typeof firmware !== "object" || !FIRMWARE_TYPES.includes(firmware["type"]))
+            {
+                throw new Error("firmware.type must be one of " + FIRMWARE_TYPES.map(name => "\"" + name + "\"").join(", "));
+            }
+            if(firmware["type"] === "uefi")
+            {
+                if(!firmware["code"] || typeof firmware["code"] !== "object")
+                {
+                    throw new Error("firmware: UEFI needs its code image (firmware.code: { url } or { buffer })");
+                }
+                if(firmware["vars"] !== undefined && (!firmware["vars"] || typeof firmware["vars"] !== "object"))
+                {
+                    throw new Error("firmware.vars must be the variable store's image ({ url } or { buffer })");
+                }
+                if(options["bios"] || options["vga_bios"])
+                {
+                    throw new Error("firmware: UEFI takes the place of bios and vga_bios; give one or the other");
+                }
+                if(cpu_type !== "x86_64")
+                {
+                    throw new Error("firmware: the UEFI firmware (OVMF, X64) needs cpu_type \"x86_64\"");
+                }
+                if(!options["acpi"])
+                {
+                    throw new Error("firmware: UEFI needs acpi: true (OVMF installs the machine's ACPI tables)");
+                }
+                if(machine_type === "i440fx" && !options["qemu_compatible"])
+                {
+                    throw new Error("firmware: UEFI on machine_type \"i440fx\" needs qemu_compatible: true " +
+                        "(OVMF expects QEMU's PIIX3/PIIX4 functions at 00:01.0 to 00:01.3)");
                 }
             }
         }

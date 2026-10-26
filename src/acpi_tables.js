@@ -11,8 +11,8 @@
 import { dbg_assert } from "./log.js";
 import {
     ACPI_SCI_IRQ, ACPI_SMI_CMD_PORT, FW_CFG_PORT, ICH9_RCBA_ADDRESS, ICH9_RCBA_SIZE,
-    IOAPIC_ADDRESS, IOAPIC_ID, LAPIC_ADDRESS, PCI_LINK_IRQS, PCI_MMIO_END, RESET_PORT, RESET_VALUE,
-    gpe0_block,
+    IOAPIC_ADDRESS, IOAPIC_ID, LAPIC_ADDRESS, PCI_LINK_IRQS, RESET_PORT, RESET_VALUE,
+    gpe0_block, pci_memory_windows,
 } from "./platform.js";
 import { CMOS_CENTURY } from "./rtc.js";
 import { HPET_ADDRESS, HPET_BLOCK_ID, HPET_SIZE } from "./hpet.js";
@@ -406,7 +406,7 @@ function build_dsdt_body(platform, pm_base)
         res_word_io(0x0000, 0x0CF7),
         res_word_io(0x0D00, 0xFFFF),
         res_dword_memory(0xA0000, 0xBFFFF),
-        res_dword_memory(platform.pci_mmio_start, PCI_MMIO_END));
+        ...pci_memory_windows(platform).map(([first, last]) => res_dword_memory(first, last)));
 
     const sleep_states = sleep_state_packages(platform);
 
@@ -516,8 +516,8 @@ function build_q35_dsdt_body(platform, pm_base)
         res_word_io(0x0000, 0x0CF7),
         res_word_io(0x0D00, 0xFFFF),
         res_dword_memory(0xA0000, 0xBFFFF),
-        // (above the ECAM window)
-        res_dword_memory(platform.pci_mmio_start, PCI_MMIO_END));
+        // (without the ECAM window: above it with SeaBIOS, around it with OVMF)
+        ...pci_memory_windows(platform).map(([first, last]) => res_dword_memory(first, last)));
 
     const processors = platform.apic_ids.map((_, i) => aml_processor("CP" + i.toString(16).toUpperCase().padStart(2, "0"), i));
 

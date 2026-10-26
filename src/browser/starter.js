@@ -629,6 +629,8 @@ V86.prototype.continue_init = async function(emulator, options)
     // the sound card: the Sound Blaster 16 unless audio_device says otherwise
     settings.audio_device = is_arm(this.cpu_type) ? undefined : options.audio_device || "sb16";
     settings.usb = is_arm(this.cpu_type) ? undefined : options.usb || undefined;
+    // the UEFI firmware (docs/uefi.md); its images arrive as firmware_code and firmware_vars
+    settings.firmware = options.firmware && options.firmware.type === "uefi" ? options.firmware : undefined;
     this.usb_enabled = !!settings.usb;
     // (its USB disks' images: usb_disks[i] for mass_storage[i])
     if(settings.usb) settings.usb_disks = [];
@@ -919,6 +921,12 @@ V86.prototype.continue_init = async function(emulator, options)
             case "vga_bios":
                 settings.vga_bios = buffer.buffer;
                 break;
+            case "firmware_code":
+                settings.firmware_code = buffer.buffer;
+                break;
+            case "firmware_vars":
+                settings.firmware_vars = buffer.buffer;
+                break;
             case "initial_state":
                 settings.initial_state = buffer.buffer;
                 break;
@@ -978,7 +986,7 @@ V86.prototype.continue_init = async function(emulator, options)
             return;
         }
 
-        if(name === "bios" || name === "vga_bios" ||
+        if(name === "bios" || name === "vga_bios" || name === "firmware_code" || name === "firmware_vars" ||
             name === "initial_state" || name === "multiboot" ||
             name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb" || name === "android_vendor_ramdisk")
         {
@@ -1019,6 +1027,11 @@ V86.prototype.continue_init = async function(emulator, options)
 
     add_file("bios", options.bios);
     add_file("vga_bios", options.vga_bios);
+    if(settings.firmware)
+    {
+        add_file("firmware_code", options.firmware.code);
+        add_file("firmware_vars", options.firmware.vars);
+    }
     add_file("cdrom", options.cdrom);
     add_file("hda", options.hda);
     add_file("hdb", options.hdb);

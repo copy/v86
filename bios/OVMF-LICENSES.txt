@@ -1,0 +1,843 @@
+==> edk2/License.txt <==
+Copyright (c) 2019, TianoCore and contributors.  All rights reserved.
+
+SPDX-License-Identifier: BSD-2-Clause-Patent
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+Subject to the terms and conditions of this license, each copyright holder
+and contributor hereby grants to those receiving rights under this license
+a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+(except for failure to satisfy the conditions of this license) patent
+license to make, have made, use, offer to sell, sell, import, and otherwise
+transfer this software, where such license applies only to those patent
+claims, already acquired or hereafter acquired, licensable by such copyright
+holder or contributor that are necessarily infringed by:
+
+(a) their Contribution(s) (the licensed copyrights of copyright holders and
+    non-copyrightable additions of contributors, in source or binary form)
+    alone; or
+
+(b) combination of their Contribution(s) with the work of authorship to
+    which such Contribution(s) was added by such copyright holder or
+    contributor, if, at the time the Contribution is added, such addition
+    causes such combination to be necessarily infringed. The patent license
+    shall not apply to any other combinations which include the
+    Contribution.
+
+Except as expressly stated above, no rights or licenses from any copyright
+holder or contributor is granted under this license, whether expressly, by
+implication, estoppel or otherwise.
+
+DISCLAIMER
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+==> edk2/License-History.txt <==
+                              License-History.txt
+                              ===================
+
+This file contains the history of license change and contributor's agreement
+changes.
+
+Unless otherwise noted in a specific file, the EDK2 project is now licensed
+under the terms listed in the License.txt file.  Terms under which Contributions
+made prior to the move to the License.txt formulation are shown below.  Those
+terms require notice of the terms themselves be preserved and presented with the
+contributions.  This file serves that preservation purpose as a matter of
+documenting the history of the project.
+
+Key Dates
+----------
+* August 3, 2017
+
+  Update the TianoCore Contribution Agreement from Version 1.0
+  to Version 1.1 to cover open source documentation associated
+  with the TianoCore project.
+
+  Version 1.0 covers source code files.  Version 1.1 is a
+  backwards compatible extension that adds support for document
+  files in both source form and compiled form.
+
+  References:
+      https://opensource.org/licenses/BSD-2-Clause
+      Complete text of TianoCore Contribution Agreement 1.0 included below
+      Complete text of TianoCore Contribution Agreement 1.1 included below
+
+  Proposals (RFCs):
+      https://lists.01.org/pipermail/edk2-devel/2017-March/008654.html
+
+  TianoCore Bugzilla:
+      https://bugzilla.tianocore.org/show_bug.cgi?id=629
+
+* April 9, 2019
+
+  Replace BSD 2-Clause License with BSD + Patent License removing the need for
+  the TianoCore Contribution Agreement.
+
+  References:
+      https://opensource.org/licenses/BSD-2-Clause
+      Complete text of TianoCore Contribution Agreement 1.0 included below
+      Complete text of TianoCore Contribution Agreement 1.1 included below
+      https://opensource.org/licenses/BSDplusPatent
+
+  Proposals (RFCs):
+      https://lists.01.org/pipermail/edk2-devel/2019-February/036260.html
+      https://lists.01.org/pipermail/edk2-devel/2019-March/037500.html
+
+  TianoCore Bugzilla:
+      https://bugzilla.tianocore.org/show_bug.cgi?id=1373
+
+--------------------------------------------------------------------------------
+License.txt: BSD 2-Clause License
+--------------------------------------------------------------------------------
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in
+      the documentation and/or other materials provided with the
+      distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+    COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Contributions.txt: TianoCore Contribution Agreement 1.1
+--------------------------------------------------------------------------------
+    ======================
+    = Code Contributions =
+    ======================
+
+    To make a contribution to a TianoCore project, follow these steps.
+    1. Create a change description in the format specified below to
+       use in the source control commit log.
+    2. Your commit message must include your "Signed-off-by" signature,
+       and "Contributed-under" message.
+    3. Your "Contributed-under" message explicitly states that the
+       contribution is made under the terms of the specified
+       contribution agreement.  Your "Contributed-under" message
+       must include the name of contribution agreement and version.
+       For example: Contributed-under: TianoCore Contribution Agreement 1.1
+       The "TianoCore Contribution Agreement" is included below in
+       this document.
+    4. Submit your code to the TianoCore project using the process
+       that the project documents on its web page.  If the process is
+       not documented, then submit the code on development email list
+       for the project.
+    5. It is preferred that contributions are submitted using the same
+       copyright license as the base project. When that is not possible,
+       then contributions using the following licenses can be accepted:
+       * BSD (2-clause): http://opensource.org/licenses/BSD-2-Clause
+       * BSD (3-clause): http://opensource.org/licenses/BSD-3-Clause
+       * MIT: http://opensource.org/licenses/MIT
+       * Python-2.0: http://opensource.org/licenses/Python-2.0
+       * Zlib: http://opensource.org/licenses/Zlib
+
+       For documentation:
+       * FreeBSD Documentation License
+         https://www.freebsd.org/copyright/freebsd-doc-license.html
+
+       Contributions of code put into the public domain can also be
+       accepted.
+
+       Contributions using other licenses might be accepted, but further
+       review will be required.
+
+    =====================================================
+    = Change Description / Commit Message / Patch Email =
+    =====================================================
+
+    Your change description should use the standard format for a
+    commit message, and must include your "Signed-off-by" signature
+    and the "Contributed-under" message.
+
+    == Sample Change Description / Commit Message =
+
+    === Start of sample patch email message ===
+
+    From: Contributor Name <contributor@example.com>
+    Subject: [Repository/Branch PATCH] Module: Brief-single-line-summary
+
+    Full-commit-message
+
+    Contributed-under: TianoCore Contribution Agreement 1.1
+    Signed-off-by: Contributor Name <contributor@example.com>
+    ---
+
+    An extra message for the patch email which will not be considered part
+    of the commit message can be added here.
+
+    Patch content inline or attached
+
+    === End of sample patch email message ===
+
+    === Notes for sample patch email ===
+
+    * The first line of commit message is taken from the email's subject
+      line following [Repository/Branch PATCH]. The remaining portion of the
+      commit message is the email's content until the '---' line.
+    * git format-patch is one way to create this format
+
+    === Definitions for sample patch email ===
+
+    * "Repository" is the identifier of the repository the patch applies.
+      This identifier should only be provided for repositories other than
+      'edk2'. For example 'edk2-BuildSpecification' or 'staging'.
+    * "Branch" is the identifier of the branch the patch applies. This
+      identifier should only be provided for branches other than 'edk2/master'.
+      For example 'edk2/UDK2015', 'edk2-BuildSpecification/release/1.27', or
+      'staging/edk2-test'.
+    * "Module" is a short identifier for the affected code or documentation. For
+      example 'MdePkg', 'MdeModulePkg/UsbBusDxe', 'Introduction', or
+      'EDK II INF File Format'.
+    * "Brief-single-line-summary" is a short summary of the change.
+    * The entire first line should be less than ~70 characters.
+    * "Full-commit-message" a verbose multiple line comment describing
+      the change.  Each line should be less than ~70 characters.
+    * "Contributed-under" explicitly states that the contribution is
+      made under the terms of the contribution agreement. This
+      agreement is included below in this document.
+    * "Signed-off-by" is the contributor's signature identifying them
+      by their real/legal name and their email address.
+
+    ========================================
+    = TianoCore Contribution Agreement 1.1 =
+    ========================================
+
+    INTEL CORPORATION ("INTEL") MAKES AVAILABLE SOFTWARE, DOCUMENTATION
+    ("DOCUMENTATION"), INFORMATION AND/OR OTHER MATERIALS FOR USE IN THE
+    TIANOCORE OPEN SOURCE PROJECT (COLLECTIVELY "CONTENT"). USE OF THE CONTENT
+    IS GOVERNED BY THE TERMS AND CONDITIONS OF THIS AGREEMENT BETWEEN YOU AND
+    INTEL AND/OR THE TERMS AND CONDITIONS OF LICENSE AGREEMENTS OR NOTICES
+    INDICATED OR REFERENCED BELOW. BY USING THE CONTENT, YOU AGREE THAT YOUR
+    USE OF THE CONTENT IS GOVERNED BY THIS AGREEMENT AND/OR THE TERMS AND
+    CONDITIONS OF ANY APPLICABLE LICENSE AGREEMENTS OR NOTICES INDICATED OR
+    REFERENCED BELOW. IF YOU DO NOT AGREE TO THE TERMS AND CONDITIONS OF THIS
+    AGREEMENT AND THE TERMS AND CONDITIONS OF ANY APPLICABLE LICENSE
+    AGREEMENTS OR NOTICES INDICATED OR REFERENCED BELOW, THEN YOU MAY NOT
+    USE THE CONTENT.
+
+    Unless otherwise indicated, all Content (except Documentation) made available
+    on the TianoCore site is provided to you under the terms and conditions of the
+    BSD License ("BSD"). A copy of the BSD License is available at
+    http://opensource.org/licenses/bsd-license.php
+    or when applicable, in the associated License.txt file.
+
+    Unless otherwise indicated, all Documentation made available on the
+    TianoCore site is provided to you under the terms and conditions of the
+    FreeBSD Documentation License ("FreeBSD"). A copy of the license is
+    available at https://www.freebsd.org/copyright/freebsd-doc-license.html or,
+    when applicable, in the associated License.txt file.
+
+    Certain other content may be made available under other licenses as
+    indicated in or with such Content (for example, in a License.txt file).
+
+    You accept and agree to the following terms and conditions for Your
+    present and future Contributions submitted to TianoCore site. Except
+    for the license granted to Intel hereunder, You reserve all right,
+    title, and interest in and to Your Contributions.
+
+    == SECTION 1: Definitions ==
+    * "You" or "Contributor" shall mean the copyright owner or legal
+      entity authorized by the copyright owner that is making a
+      Contribution hereunder. All other entities that control, are
+      controlled by, or are under common control with that entity are
+      considered to be a single Contributor. For the purposes of this
+      definition, "control" means (i) the power, direct or indirect, to
+      cause the direction or management of such entity, whether by
+      contract or otherwise, or (ii) ownership of fifty percent (50%)
+      or more of the outstanding shares, or (iii) beneficial ownership
+      of such entity.
+    * "Contribution" shall mean any original work of authorship,
+      including any modifications or additions to an existing work,
+      that is intentionally submitted by You to the TianoCore site for
+      inclusion in, or documentation of, any of the Content. For the
+      purposes of this definition, "submitted" means any form of
+      electronic, verbal, or written communication sent to the
+      TianoCore site or its representatives, including but not limited
+      to communication on electronic mailing lists, source code
+      control systems, and issue tracking systems that are managed by,
+      or on behalf of, the TianoCore site for the purpose of
+      discussing and improving the Content, but excluding
+      communication that is conspicuously marked or otherwise
+      designated in writing by You as "Not a Contribution."
+
+    == SECTION 2: License for Contributions ==
+    * Contributor hereby agrees that redistribution and use of the
+      Contribution in source and binary forms, with or without
+      modification, are permitted provided that the following
+      conditions are met:
+    ** Redistributions of source code must retain the Contributor's
+       copyright notice, this list of conditions and the following
+       disclaimer.
+    ** Redistributions in binary form must reproduce the Contributor's
+       copyright notice, this list of conditions and the following
+       disclaimer in the documentation and/or other materials provided
+       with the distribution.
+    * Disclaimer. None of the names of Contributor, Intel, or the names
+      of their respective contributors may be used to endorse or
+      promote products derived from this software without specific
+      prior written permission.
+    * Contributor grants a license (with the right to sublicense) under
+      claims of Contributor's patents that Contributor can license that
+      are infringed by the Contribution (as delivered by Contributor) to
+      make, use, distribute, sell, offer for sale, and import the
+      Contribution and derivative works thereof solely to the minimum
+      extent necessary for licensee to exercise the granted copyright
+      license; this patent license applies solely to those portions of
+      the Contribution that are unmodified. No hardware per se is
+      licensed.
+    * EXCEPT AS EXPRESSLY SET FORTH IN SECTION 3 BELOW, THE
+      CONTRIBUTION IS PROVIDED BY THE CONTRIBUTOR "AS IS" AND ANY
+      EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+      THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+      PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+      CONTRIBUTOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+      SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+      NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+      LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+      HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+      CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+      OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+      CONTRIBUTION, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+      DAMAGE.
+
+    == SECTION 3: Representations ==
+    * You represent that You are legally entitled to grant the above
+      license. If your employer(s) has rights to intellectual property
+      that You create that includes Your Contributions, You represent
+      that You have received permission to make Contributions on behalf
+      of that employer, that Your employer has waived such rights for
+      Your Contributions.
+    * You represent that each of Your Contributions is Your original
+      creation (see Section 4 for submissions on behalf of others).
+      You represent that Your Contribution submissions include complete
+      details of any third-party license or other restriction
+      (including, but not limited to, related patents and trademarks)
+      of which You are personally aware and which are associated with
+      any part of Your Contributions.
+
+    == SECTION 4: Third Party Contributions ==
+    * Should You wish to submit work that is not Your original creation,
+      You may submit it to TianoCore site separately from any
+      Contribution, identifying the complete details of its source
+      and of any license or other restriction (including, but not
+      limited to, related patents, trademarks, and license agreements)
+      of which You are personally aware, and conspicuously marking the
+      work as "Submitted on behalf of a third-party: [named here]".
+
+    == SECTION 5: Miscellaneous ==
+    * Applicable Laws. Any claims arising under or relating to this
+      Agreement shall be governed by the internal substantive laws of
+      the State of Delaware or federal courts located in Delaware,
+      without regard to principles of conflict of laws.
+    * Language. This Agreement is in the English language only, which
+      language shall be controlling in all respects, and all versions
+      of this Agreement in any other language shall be for accommodation
+      only and shall not be binding. All communications and notices made
+      or given pursuant to this Agreement, and all documentation and
+      support to be provided, unless otherwise noted, shall be in the
+      English language.
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Contributions.txt: TianoCore Contribution Agreement 1.0
+--------------------------------------------------------------------------------
+    ======================
+    = Code Contributions =
+    ======================
+
+    To make a contribution to a TianoCore project, follow these steps.
+    1. Create a change description in the format specified below to
+       use in the source control commit log.
+    2. Your commit message must include your "Signed-off-by" signature,
+       and "Contributed-under" message.
+    3. Your "Contributed-under" message explicitly states that the
+       contribution is made under the terms of the specified
+       contribution agreement.  Your "Contributed-under" message
+       must include the name of contribution agreement and version.
+       For example: Contributed-under: TianoCore Contribution Agreement 1.0
+       The "TianoCore Contribution Agreement" is included below in
+       this document.
+    4. Submit your code to the TianoCore project using the process
+       that the project documents on its web page.  If the process is
+       not documented, then submit the code on development email list
+       for the project.
+    5. It is preferred that contributions are submitted using the same
+       copyright license as the base project. When that is not possible,
+       then contributions using the following licenses can be accepted:
+       * BSD (2-clause): http://opensource.org/licenses/BSD-2-Clause
+       * BSD (3-clause): http://opensource.org/licenses/BSD-3-Clause
+       * MIT: http://opensource.org/licenses/MIT
+       * Python-2.0: http://opensource.org/licenses/Python-2.0
+       * Zlib: http://opensource.org/licenses/Zlib
+
+       Contributions of code put into the public domain can also be
+       accepted.
+
+       Contributions using other licenses might be accepted, but further
+       review will be required.
+
+    =====================================================
+    = Change Description / Commit Message / Patch Email =
+    =====================================================
+
+    Your change description should use the standard format for a
+    commit message, and must include your "Signed-off-by" signature
+    and the "Contributed-under" message.
+
+    == Sample Change Description / Commit Message =
+
+    === Start of sample patch email message ===
+
+    From: Contributor Name <contributor@example.com>
+    Subject: [PATCH] CodeModule: Brief-single-line-summary
+
+    Full-commit-message
+
+    Contributed-under: TianoCore Contribution Agreement 1.0
+    Signed-off-by: Contributor Name <contributor@example.com>
+    ---
+
+    An extra message for the patch email which will not be considered part
+    of the commit message can be added here.
+
+    Patch content inline or attached
+
+    === End of sample patch email message ===
+
+    === Notes for sample patch email ===
+
+    * The first line of commit message is taken from the email's subject
+      line following [PATCH]. The remaining portion of the commit message
+      is the email's content until the '---' line.
+    * git format-patch is one way to create this format
+
+    === Definitions for sample patch email ===
+
+    * "CodeModule" is a short idenfier for the affected code.  For
+      example MdePkg, or MdeModulePkg UsbBusDxe.
+    * "Brief-single-line-summary" is a short summary of the change.
+    * The entire first line should be less than ~70 characters.
+    * "Full-commit-message" a verbose multiple line comment describing
+      the change.  Each line should be less than ~70 characters.
+    * "Contributed-under" explicitely states that the contribution is
+      made under the terms of the contribtion agreement.  This
+      agreement is included below in this document.
+    * "Signed-off-by" is the contributor's signature identifying them
+      by their real/legal name and their email address.
+
+    ========================================
+    = TianoCore Contribution Agreement 1.0 =
+    ========================================
+
+    INTEL CORPORATION ("INTEL") MAKES AVAILABLE SOFTWARE, DOCUMENTATION,
+    INFORMATION AND/OR OTHER MATERIALS FOR USE IN THE TIANOCORE OPEN SOURCE
+    PROJECT (COLLECTIVELY "CONTENT"). USE OF THE CONTENT IS GOVERNED BY THE
+    TERMS AND CONDITIONS OF THIS AGREEMENT BETWEEN YOU AND INTEL AND/OR THE
+    TERMS AND CONDITIONS OF LICENSE AGREEMENTS OR NOTICES INDICATED OR
+    REFERENCED BELOW. BY USING THE CONTENT, YOU AGREE THAT YOUR USE OF THE
+    CONTENT IS GOVERNED BY THIS AGREEMENT AND/OR THE TERMS AND CONDITIONS
+    OF ANY APPLICABLE LICENSE AGREEMENTS OR NOTICES INDICATED OR REFERENCED
+    BELOW. IF YOU DO NOT AGREE TO THE TERMS AND CONDITIONS OF THIS
+    AGREEMENT AND THE TERMS AND CONDITIONS OF ANY APPLICABLE LICENSE
+    AGREEMENTS OR NOTICES INDICATED OR REFERENCED BELOW, THEN YOU MAY NOT
+    USE THE CONTENT.
+
+    Unless otherwise indicated, all Content made available on the TianoCore
+    site is provided to you under the terms and conditions of the BSD
+    License ("BSD"). A copy of the BSD License is available at
+    http://opensource.org/licenses/bsd-license.php
+    or when applicable, in the associated License.txt file.
+
+    Certain other content may be made available under other licenses as
+    indicated in or with such Content. (For example, in a License.txt file.)
+
+    You accept and agree to the following terms and conditions for Your
+    present and future Contributions submitted to TianoCore site. Except
+    for the license granted to Intel hereunder, You reserve all right,
+    title, and interest in and to Your Contributions.
+
+    == SECTION 1: Definitions ==
+    * "You" or "Contributor" shall mean the copyright owner or legal
+      entity authorized by the copyright owner that is making a
+      Contribution hereunder. All other entities that control, are
+      controlled by, or are under common control with that entity are
+      considered to be a single Contributor. For the purposes of this
+      definition, "control" means (i) the power, direct or indirect, to
+      cause the direction or management of such entity, whether by
+      contract or otherwise, or (ii) ownership of fifty percent (50%)
+      or more of the outstanding shares, or (iii) beneficial ownership
+      of such entity.
+    * "Contribution" shall mean any original work of authorship,
+      including any modifications or additions to an existing work,
+      that is intentionally submitted by You to the TinaoCore site for
+      inclusion in, or documentation of, any of the Content. For the
+      purposes of this definition, "submitted" means any form of
+      electronic, verbal, or written communication sent to the
+      TianoCore site or its representatives, including but not limited
+      to communication on electronic mailing lists, source code
+      control systems, and issue tracking systems that are managed by,
+      or on behalf of, the TianoCore site for the purpose of
+      discussing and improving the Content, but excluding
+      communication that is conspicuously marked or otherwise
+      designated in writing by You as "Not a Contribution."
+
+    == SECTION 2: License for Contributions ==
+    * Contributor hereby agrees that redistribution and use of the
+      Contribution in source and binary forms, with or without
+      modification, are permitted provided that the following
+      conditions are met:
+    ** Redistributions of source code must retain the Contributor's
+       copyright notice, this list of conditions and the following
+       disclaimer.
+    ** Redistributions in binary form must reproduce the Contributor's
+       copyright notice, this list of conditions and the following
+       disclaimer in the documentation and/or other materials provided
+       with the distribution.
+    * Disclaimer. None of the names of Contributor, Intel, or the names
+      of their respective contributors may be used to endorse or
+      promote products derived from this software without specific
+      prior written permission.
+    * Contributor grants a license (with the right to sublicense) under
+      claims of Contributor's patents that Contributor can license that
+      are infringed by the Contribution (as delivered by Contributor) to
+      make, use, distribute, sell, offer for sale, and import the
+      Contribution and derivative works thereof solely to the minimum
+      extent necessary for licensee to exercise the granted copyright
+      license; this patent license applies solely to those portions of
+      the Contribution that are unmodified. No hardware per se is
+      licensed.
+    * EXCEPT AS EXPRESSLY SET FORTH IN SECTION 3 BELOW, THE
+      CONTRIBUTION IS PROVIDED BY THE CONTRIBUTOR "AS IS" AND ANY
+      EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+      THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+      PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+      CONTRIBUTOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+      SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+      NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+      LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+      HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+      CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+      OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+      CONTRIBUTION, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+      DAMAGE.
+
+    == SECTION 3: Representations ==
+    * You represent that You are legally entitled to grant the above
+      license. If your employer(s) has rights to intellectual property
+      that You create that includes Your Contributions, You represent
+      that You have received permission to make Contributions on behalf
+      of that employer, that Your employer has waived such rights for
+      Your Contributions.
+    * You represent that each of Your Contributions is Your original
+      creation (see Section 4 for submissions on behalf of others).
+      You represent that Your Contribution submissions include complete
+      details of any third-party license or other restriction
+      (including, but not limited to, related patents and trademarks)
+      of which You are personally aware and which are associated with
+      any part of Your Contributions.
+
+    == SECTION 4: Third Party Contributions ==
+    * Should You wish to submit work that is not Your original creation,
+      You may submit it to TianoCore site separately from any
+      Contribution, identifying the complete details of its source
+      and of any license or other restriction (including, but not
+      limited to, related patents, trademarks, and license agreements)
+      of which You are personally aware, and conspicuously marking the
+      work as "Submitted on behalf of a third-party: [named here]".
+
+    == SECTION 5: Miscellaneous ==
+    * Applicable Laws. Any claims arising under or relating to this
+      Agreement shall be governed by the internal substantive laws of
+      the State of Delaware or federal courts located in Delaware,
+      without regard to principles of conflict of laws.
+    * Language. This Agreement is in the English language only, which
+      language shall be controlling in all respects, and all versions
+      of this Agreement in any other language shall be for accommodation
+      only and shall not be binding. All communications and notices made
+      or given pursuant to this Agreement, and all documentation and
+      support to be provided, unless otherwise noted, shall be in the
+      English language.
+--------------------------------------------------------------------------------
+
+
+==> edk2/OvmfPkg/License.txt <==
+Copyright (c) 2012 - 2019, Intel Corporation. All rights reserved.
+
+SPDX-License-Identifier: BSD-2-Clause-Patent
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+Subject to the terms and conditions of this license, each copyright holder
+and contributor hereby grants to those receiving rights under this license
+a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+(except for failure to satisfy the conditions of this license) patent
+license to make, have made, use, offer to sell, sell, import, and otherwise
+transfer this software, where such license applies only to those patent
+claims, already acquired or hereafter acquired, licensable by such copyright
+holder or contributor that are necessarily infringed by:
+
+(a) their Contribution(s) (the licensed copyrights of copyright holders and
+    non-copyrightable additions of contributors, in source or binary form)
+    alone; or
+
+(b) combination of their Contribution(s) with the work of authorship to
+    which such Contribution(s) was added by such copyright holder or
+    contributor, if, at the time the Contribution is added, such addition
+    causes such combination to be necessarily infringed. The patent license
+    shall not apply to any other combinations which include the
+    Contribution.
+
+Except as expressly stated above, no rights or licenses from any copyright
+holder or contributor is granted under this license, whether expressly, by
+implication, estoppel or otherwise.
+
+DISCLAIMER
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+================================================================================
+
+Some files are subject to the following license, the MIT license. Those files
+are located in:
+- OvmfPkg/Include/IndustryStandard/Xen/
+- OvmfPkg/XenBusDxe/
+
+SPDX-License-Identifier: MIT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+==> edk2/ArmPkg/Library/ArmSoftFloatLib/berkeley-softfloat-3/COPYING.txt <==
+
+License for Berkeley SoftFloat Release 3e
+
+John R. Hauser
+2018 January 20
+
+The following applies to the whole of SoftFloat Release 3e as well as to
+each source file individually.
+
+Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018 The Regents of the
+University of California.  All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+ 1. Redistributions of source code must retain the above copyright notice,
+    this list of conditions, and the following disclaimer.
+
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions, and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+ 3. Neither the name of the University nor the names of its contributors
+    may be used to endorse or promote products derived from this software
+    without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS "AS IS", AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ARE
+DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+==> edk2/CryptoPkg/Library/OpensslLib/openssl/LICENSE <==
+
+  LICENSE ISSUES
+  ==============
+
+  The OpenSSL toolkit stays under a double license, i.e. both the conditions of
+  the OpenSSL License and the original SSLeay license apply to the toolkit.
+  See below for the actual license texts.
+
+  OpenSSL License
+  ---------------
+
+/* ====================================================================
+ * Copyright (c) 1998-2019 The OpenSSL Project.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. All advertising materials mentioning features or use of this
+ *    software must display the following acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
+ *
+ * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For written permission, please contact
+ *    openssl-core@openssl.org.
+ *
+ * 5. Products derived from this software may not be called "OpenSSL"
+ *    nor may "OpenSSL" appear in their names without prior written
+ *    permission of the OpenSSL Project.
+ *
+ * 6. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
+ * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
+ * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * ====================================================================
+ *
+ * This product includes cryptographic software written by Eric Young
+ * (eay@cryptsoft.com).  This product includes software written by Tim
+ * Hudson (tjh@cryptsoft.com).
+ *
+ */
+
+ Original SSLeay License
+ -----------------------
+
+/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+ * All rights reserved.
+ *
+ * This package is an SSL implementation written
+ * by Eric Young (eay@cryptsoft.com).
+ * The implementation was written so as to conform with Netscapes SSL.
+ *
+ * This library is free for commercial and non-commercial use as long as
+ * the following conditions are aheared to.  The following conditions
+ * apply to all code found in this distribution, be it the RC4, RSA,
+ * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
+ * included with this distribution is covered by the same copyright terms
+ * except that the holder is Tim Hudson (tjh@cryptsoft.com).
+ *
+ * Copyright remains Eric Young's, and as such any Copyright notices in
+ * the code are not to be removed.
+ * If this package is used in a product, Eric Young should be given attribution
+ * as the author of the parts of the library used.
+ * This can be in the form of a textual message at program startup or
+ * in documentation (online or textual) provided with the package.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *    "This product includes cryptographic software written by
+ *     Eric Young (eay@cryptsoft.com)"
+ *    The word 'cryptographic' can be left out if the rouines from the library
+ *    being used are not cryptographic related :-).
+ * 4. If you include any Windows specific code (or a derivative thereof) from
+ *    the apps directory (application code) you must include an acknowledgement:
+ *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
+ *
+ * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ * The licence and distribution terms for any publically available version or
+ * derivative of this code cannot be changed.  i.e. this code cannot simply be
+ * copied and put under another distribution licence
+ * [including the GNU Public Licence.]
+ */
+
