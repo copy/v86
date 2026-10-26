@@ -61,6 +61,14 @@ const
     // Number of samples to attempt to retrieve per transfer.
     SB_DMA_BLOCK_SAMPLES = 1024,
 
+    // A host that has not asked for data this long is not listening: the
+    // transfer keeps the machine's time on its own (SB16.prototype.timer).
+    DAC_HOST_TIMEOUT_MS = 250,
+
+    // At most this many blocks per timer call, as a bound on a transfer that
+    // makes no progress (a DMA address outside of memory).
+    DAC_CATCH_UP_BLOCKS = 64,
+
     // Usable DMA channels.
     SB_DMA0 = 0,
     SB_DMA1 = 1,
@@ -166,6 +174,10 @@ export function SB16(cpu, bus)
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
+    // The machine time up to which the transfer has played (-1: none yet),
+    // and the time of the host's last request (SB16.prototype.timer)
+    this.dma_clock = -1;
+    this.dac_request_time = -Infinity;
     this.sampling_rate = 22050;
     bus.send("dac-tell-sampling-rate", this.sampling_rate);
     this.bytes_per_sample = 1;
@@ -287,6 +299,7 @@ SB16.prototype.dsp_reset = function()
     this.dma_buffer_uint8.fill(0);
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
+    this.dma_clock = -1;
 
     this.e2_value = 0xAA;
     this.e2_count = 0;
@@ -396,6 +409,7 @@ SB16.prototype.set_state = function(state)
     this.dma_buffer_uint8 = state[24];
     this.dma_waiting_transfer = state[25];
     this.dma_paused = state[26];
+    this.dma_clock = -1;
     this.sampling_rate_change(state[27]);
     this.bytes_per_sample = state[28];
 
@@ -1785,7 +1799,10 @@ SB16.prototype.dma_on_unmask = function(channel)
     this.bus.send("dac-enable");
 };
 
-SB16.prototype.dma_transfer_next = function()
+/**
+ * @param {boolean=} silent the samples are dropped (SB16.prototype.timer)
+ */
+SB16.prototype.dma_transfer_next = function(silent)
 {
     dbg_log("dma transfering next block", LOG_SB16);
 
@@ -1797,7 +1814,11 @@ SB16.prototype.dma_transfer_next = function()
         dbg_log("dma block transfer " + (error ? "unsuccessful" : "successful"), LOG_SB16);
         if(error) return;
 
-        this.dma_to_dac(samples);
+        if(!silent) this.dma_to_dac(samples);
+        if(this.dma_clock >= 0)
+        {
+            this.dma_clock += samples * 1000 / (this.sampling_rate * (this.dsp_stereo ? 2 : 1));
+        }
         this.dma_bytes_left -= size;
 
         if(!this.dma_bytes_left)
@@ -1846,7 +1867,13 @@ SB16.prototype.dma_to_dac = function(sample_count)
 
 SB16.prototype.dac_handle_request = function()
 {
-    if(!this.dma_bytes_left || this.dma_paused)
+    this.dac_request_time = this.cpu.clock.now();
+    // (a masked channel delivers nothing, as the 8237's DREQ is ignored:
+    // Windows XP's driver stops a sound with D9, exit auto-init, and masks
+    // the channel at once; the DSP's block is 128 KiB around a 16 KiB DMA
+    // buffer, so reading on played that buffer again, the sound's last
+    // part up to 8 times, until the block's end)
+    if(!this.dma_bytes_left || this.dma_paused || this.dma.channel_mask[this.dma_channel])
     {
         // No more data to transfer or is paused. Send whatever is in the buffers.
         this.dac_send();
@@ -1855,6 +1882,49 @@ SB16.prototype.dac_handle_request = function()
     {
         this.dma_transfer_next();
     }
+};
+
+/**
+ * The DMA moves when the host's speaker asks for data ("dac-request-data"),
+ * at the pace of the host's audio. A host that stopped asking -- an
+ * AudioContext still waiting for the page's first gesture, a stalled or
+ * changed audio device, an embedder with no speaker -- froze the guest's play
+ * position, which real hardware never does: Need for Speed: Most Wanted's
+ * sound engine took a few seconds of that for a broken device and restarted
+ * its stream ever after, silent. While the host does not ask, the transfer
+ * keeps the machine's time on its own, its samples dropped (nobody listens).
+ * @param {number} now
+ * @return {number} milliseconds until the next call is needed
+ */
+SB16.prototype.timer = function(now)
+{
+    if(!this.dma_bytes_left || this.dma_paused || this.dma_waiting_transfer ||
+        this.dma.channel_mask[this.dma_channel] || this.dma_clock < 0)
+    {
+        // (a transfer that starts gives the host its time to answer dac-enable)
+        this.dma_clock = now;
+        this.dac_request_time = now;
+        return 100;
+    }
+    // (the host asks: it sets the pace, usually ahead of the clock)
+    const asked = now - this.dac_request_time;
+    if(asked < DAC_HOST_TIMEOUT_MS)
+    {
+        return DAC_HOST_TIMEOUT_MS - asked;
+    }
+    for(let i = 0; i < DAC_CATCH_UP_BLOCKS && this.dma_clock < now; i++)
+    {
+        const before = this.dma_clock;
+        this.dma_transfer_next(true);
+        if(this.dma_clock === before || !this.dma_bytes_left || this.dma_paused ||
+            this.dma.channel_mask[this.dma_channel])
+        {
+            break;
+        }
+    }
+    // (far behind, after a transfer that made no progress: from now on)
+    if(now - this.dma_clock > 1000) this.dma_clock = now;
+    return Math.max(1, this.dma_clock - now);
 };
 
 SB16.prototype.dac_send = function()

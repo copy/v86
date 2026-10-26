@@ -445,13 +445,17 @@ DMA.prototype.address_get_8bit = function(channel)
     var addr = this.channel_addr[channel];
 
     // http://wiki.osdev.org/ISA_DMA#16_bit_issues
+    // (the 16-bit channels count words: the address register drives A1-A16
+    // and the page register A17-A23, its bit 0 unused)
     if(channel >= 5)
     {
-        addr = (addr << 1);
+        addr = (addr << 1) & 0x1FFFF | (this.channel_page[channel] & 0xFE) << 16;
+    }
+    else
+    {
+        addr |= this.channel_page[channel] << 16;
     }
 
-    addr &= 0xFFFF;
-    addr |= this.channel_page[channel] << 16;
     addr |= this.channel_pagehi[channel] << 24;
 
     return addr >>> 0;

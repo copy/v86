@@ -53,12 +53,14 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	build/v86-debug.wasm build/libv86.mjs build/v86.wasm build/jit-capacity.bin
 	node tests/rust/bmi.mjs
 	node tests/rust/fma.mjs
+	node tests/rust/cvtpi2ps_x87.mjs
 	node tests/app/vm_config.mjs
 	node tests/app/presets.mjs
 	node tests/app/machine_rules.mjs
 	node tests/android/library.mjs
 	./tests/api/disk-options.js
 	./tests/api/sb16-state.js
+	./tests/api/sb16-dma.js
 	./tests/devices/disk_error.mjs
 	./tests/persistence/response_version.mjs
 	./tests/persistence/node_file.mjs
@@ -681,6 +683,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/destroy-during-init.js
 	./tests/api/state.js
 	./tests/api/sb16-state.js
+	./tests/api/sb16-dma.js
 	./tests/api/reset.js
 	./tests/api/floppy.js
 	./tests/api/parallel.js
@@ -1827,6 +1830,7 @@ bmi-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debu
 .PHONY: fma-tests
 fma-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debug.wasm
 	node tests/rust/fma.mjs
+	node tests/rust/cvtpi2ps_x87.mjs
 	node tests/rust/fma.mjs build/v86-debug.wasm
 	node tests/x64/fma.mjs
 	TEST_RELEASE_BUILD=1 node tests/x64/fma.mjs

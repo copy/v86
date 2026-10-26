@@ -3719,6 +3719,7 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
     const rtc_time = this.devices.rtc.timer(now, false);
     const display_time = this.devices.display.timer(now);
     const hpet_time = this.devices.hpet ? this.devices.hpet.timer(now) : 100;
+    const sb16_time = this.devices.sb16 ? this.devices.sb16.timer(now) : 100;
 
     let acpi_time = 100;
     let apic_time = 100;
@@ -3728,7 +3729,7 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
         apic_time = this.apic_timer(now);
     }
 
-    return Math.min(pit_time, rtc_time, display_time, hpet_time, acpi_time, apic_time);
+    return Math.min(pit_time, rtc_time, display_time, hpet_time, sb16_time, acpi_time, apic_time);
 };
 
 CPU.prototype.debug_init = function()
