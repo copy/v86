@@ -51,6 +51,10 @@ async function console_tab(id, { prompt = true } = {})
 }
 const type = async (emulator, text) => { await emulator.keyboard_send_text(text + "\n", 20); };
 const screen_has = (emulator, text, timeout = 60000) => emulator.wait_until_vga_screen_contains(text, { timeout_msec: timeout });
+// MS-DOS's prompt once AUTOEXEC.BAT is done (its last program's line, then the
+// prompt at the bottom): the batch file's commands show "C:\>" before, and keys
+// typed while its programs load overflow the BIOS's buffer of 15
+const DOS_PROMPT = [/MSCD001 unit 0$/, "", /^C:\\>$/];
 
 async function main()
 {
@@ -62,7 +66,7 @@ async function main()
 
     // a running machine: a second tab is refused, the library shows it running
     const a = await console_tab(id);
-    check(await screen_has(a.emulator, "C:\\>", 120000), "MS-DOS's prompt");
+    check(await screen_has(a.emulator, DOS_PROMPT, 120000), "MS-DOS's prompt");
     await type(a.emulator, "echo BEFORE-SUSPEND");
     check(await screen_has(a.emulator, "BEFORE-SUSPEND"), "the text before suspending");
     const b = await console_tab(id, { prompt: false });
@@ -123,7 +127,7 @@ async function main()
     log("settings changed after suspending: asked; Discard: a fresh boot, the state gone");
 
     // only the notes changed: resumed without asking
-    check(await screen_has(fresh, "C:\\>", 120000), "the prompt");
+    check(await screen_has(fresh, DOS_PROMPT, 120000), "the prompt");
     await d.menu("menu_power", "menu_suspend");
     await until(() => /Suspended/.test(d.$(".console-status").textContent), "suspended a third time", 120000);
     d.frame.remove();

@@ -302,7 +302,14 @@ export class CPUWorkerController
     flush_screen()
     {
         const s = this.emulator.screen_adapter;
-        for(const [name, args] of this.screen_queue.splice(0)) DISPLAY_SINK_REPLAY[name](s, args);
+        const bus = this.emulator.emulator_bus;
+        for(const [name, args] of this.screen_queue.splice(0))
+        {
+            DISPLAY_SINK_REPLAY[name](s, args);
+            // (the worker does not send this event: here it comes after the
+            // screen has the character, as with the CPU in the page)
+            if(name === "put_char") bus.send("screen-put-char", [args[0], args[1], args[2]]);
+        }
     }
 
     request_frame(full)

@@ -94,6 +94,11 @@ buffer and no display mode, so it is not a display device.
    - Devices call only the hub. The hub forwards each call to the sink
      synchronously and sends the `screen-set-size` / `screen-put-char` bus
      events.
+   - The VGA core sends a text cell only when a write changes its byte, and
+     sends the whole text screen again (after a palette, font, geometry or
+     start address change) once per vblank, however many registers the guest
+     programmed: the VGA BIOS's mode set alone used to send it about 200
+     times.
 4. **DisplaySink and the presenters**: `DisplaySink` is an explicit interface
    (JSDoc `@interface`). `DummyScreenAdapter` is the base class,
    `ANSIScreenAdapter` extends it, and the FLAG constants are shared from
@@ -101,6 +106,10 @@ buffer and no display mode, so it is not a display device.
    worker side sends the calls of one microtask as a batch, and the main thread
    replays them with `DISPLAY_SINK_REPLAY`. Both sides use one method table, and
    Closure checks that the recorder implements every method of the interface.
+   The worker does not send `screen-put-char`: the main thread sends it for
+   each replayed `put_char`, once its presenter has the character. Before any
+   other bus event the worker sends the batch so far, so the page sees the
+   screen as it was when the event happened.
    Each presenter keeps its own text model, which `get_text_screen` reads.
 
    `screen.js` draws text and graphics on the same canvas. Text is rasterized

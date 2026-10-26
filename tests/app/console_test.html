@@ -34,6 +34,10 @@ async function until(condition, what, timeout = 30000)
     }
 }
 function check(condition, what) { if(!condition) throw new Error(what); }
+// MS-DOS's prompt once AUTOEXEC.BAT is done (its last program's line, then the
+// prompt at the bottom): the batch file's commands show "C:\>" before, and keys
+// typed while its programs load overflow the BIOS's buffer of 15
+const DOS_PROMPT = [/MSCD001 unit 0$/, "", /^C:\\>$/];
 
 let frame, w, d, emulator;
 const $ = selector => d.querySelector(selector);
@@ -100,7 +104,7 @@ async function start(config)
         downloads.push([this.download, blobs.get(this.href) || this.href]);
     };
     emulator = await until(() => w.v86_console?.emulator, "the console's emulator", 60000);
-    check(await emulator.wait_until_vga_screen_contains("C:\\>", { timeout_msec: 120000 }), "MS-DOS's prompt");
+    check(await emulator.wait_until_vga_screen_contains(DOS_PROMPT, { timeout_msec: 120000 }), "MS-DOS's prompt");
 }
 async function next_download(what)
 {
@@ -147,7 +151,7 @@ const parts = {
         await sleep(500);
         await menu("menu_keys", "keys_Ctrl_Alt_Del");
         check(await emulator.wait_until_vga_screen_contains("Starting MS-DOS", { timeout_msec: 60000 }), "Ctrl+Alt+Del rebooted DOS");
-        check(await emulator.wait_until_vga_screen_contains("C:\\>", { timeout_msec: 60000 }), "the prompt after the reboot");
+        check(await emulator.wait_until_vga_screen_contains(DOS_PROMPT, { timeout_msec: 60000 }), "the prompt after the reboot");
         log("Keys: Alt+Tab pressed and released, Ctrl+Alt+F1, Ctrl+Alt+Del reboots DOS");
 
         // devices: a CD of files, a floppy, the hda image

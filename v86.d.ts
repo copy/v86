@@ -362,6 +362,12 @@ export interface Event {
     "ide-write-end": [channel_nr: number, byte_count: number, sector_count: number];
     "mouse-enable": boolean;
     "net0-send": Uint8Array;
+    /**
+     * A text cell sent to the screen: one that a write changed, or each cell
+     * when the whole screen is sent again (after a palette, font or mode
+     * change, at most once a frame). With the CPU in a worker it comes once
+     * the page's screen has the character.
+     */
     "screen-put-char": [row: number, col: number, chr: number];
     "screen-set-size": [width: number, height: number, bpp: number];
     "serial0-input": number;

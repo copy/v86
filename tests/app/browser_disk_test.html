@@ -72,6 +72,23 @@ async function open_console(id, { expect_error = false } = {})
 }
 const type = (emulator, text) => emulator.keyboard_send_text(text + "\n", 20);
 const screen = (emulator, pattern, timeout = 120000) => emulator.wait_until_vga_screen_contains(pattern, { timeout_msec: timeout });
+// MS-DOS's prompt once AUTOEXEC.BAT is done (its last program's line, then the
+// prompt at the bottom): the batch file's commands show "C:\>" before, and keys
+// typed while its programs load overflow the BIOS's buffer of 15
+const DOS_PROMPT = [/MSCD001 unit 0$/, "", /^C:\\>$/];
+/** Linux's shell, once it reads the keys: the kernel registers the keyboard
+ * after the first prompt (keys typed before are lost), so an echo until its line comes */
+async function linux_shell(emulator, what)
+{
+    check(await screen(emulator, /^~%/, 240000), what);
+    for(let i = 1; ; i++)
+    {
+        await type(emulator, "echo READY-" + i);
+        // (a line of the screen ends in spaces)
+        if(await screen(emulator, new RegExp("^READY-" + i + " *$"), 5000)) return;
+        check(i < 5, what + " reads the keys");
+    }
+}
 /** a page's error, as the console shows it when the machine does not start */
 async function start_error(c)
 {
@@ -92,7 +109,7 @@ const parts = {
         const disk = await create_disk(32 << 20, "linux disk", store);
         const config = await machine("Linux on a browser disk", linux_vm(disk.path));
         let c = await open_console(config.id);
-        check(await screen(c.emulator, /^~%/, 240000), "Linux's shell");
+        await linux_shell(c.emulator, "Linux's shell");
         await type(c.emulator, "mke2fs -q /dev/sda && mkdir -p /mnt && mount /dev/sda /mnt && echo PERSISTENT > /mnt/note && sync && umount /mnt && echo FORMATTED-OK");
         check(await screen(c.emulator, /^FORMATTED-OK/), "formatted, written, synced");
         await c.power_off();
@@ -100,7 +117,7 @@ const parts = {
         log("Linux formatted the browser disk, wrote /note, synced, powered off; the tab closed");
 
         c = await open_console(config.id);
-        check(await screen(c.emulator, /^~%/, 240000), "Linux's shell again");
+        await linux_shell(c.emulator, "Linux's shell again");
         await type(c.emulator, "mkdir -p /mnt && mount /dev/sda /mnt && cat /mnt/note && echo TIMED > /mnt/timed && sync");
         check(await screen(c.emulator, /^PERSISTENT/), "the file after the tab was closed and opened again");
         log("opened again: /note says PERSISTENT");
@@ -108,7 +125,7 @@ const parts = {
         await sleep(7000);
         c.frame.remove();
         c = await open_console(config.id);
-        check(await screen(c.emulator, /^~%/, 240000), "Linux's shell a third time");
+        await linux_shell(c.emulator, "Linux's shell a third time");
         await type(c.emulator, "mkdir -p /mnt && mount /dev/sda /mnt && cat /mnt/timed");
         check(await screen(c.emulator, /^TIMED/), "the file of the timed flush");
         await c.power_off();
@@ -131,7 +148,7 @@ const parts = {
         log("exported: the same SHA-256");
         const config = await machine("DOS on an imported disk", dos_vm(disk.path));
         const c = await open_console(config.id);
-        check(await screen(c.emulator, "C:\\>", 120000), "MS-DOS's prompt");
+        check(await screen(c.emulator, DOS_PROMPT, 120000), "MS-DOS's prompt");
         await type(c.emulator, "echo IMPORTED-WRITE > C:\\IW.TXT");
         await sleep(1500);
         await c.power_off();
@@ -149,7 +166,7 @@ const parts = {
         await store.put(first);
         const second = await machine("Second", dos_vm(disk.path));
         const a = await open_console(first.id);
-        check(await screen(a.emulator, "C:\\>", 120000), "the first's prompt");
+        check(await screen(a.emulator, DOS_PROMPT, 120000), "the first's prompt");
         const b = await open_console(second.id, { expect_error: true });
         check(/used by another tab/.test(b.text), "the second refused: " + b.text);
         b.frame.remove();
@@ -159,7 +176,7 @@ const parts = {
         await until(() => /Suspended/.test(a.$(".console-status").textContent), "the first suspended", 120000);
         a.frame.remove();
         const c = await open_console(second.id);
-        check(await screen(c.emulator, "C:\\>", 120000), "the second's prompt");
+        check(await screen(c.emulator, DOS_PROMPT, 120000), "the second's prompt");
         await type(c.emulator, "echo SECOND-WROTE > C:\\SW.TXT");
         await sleep(1500);
         await c.power_off();

@@ -140,6 +140,14 @@ export function VGAScreen(machine, vga_memory_size, options)
     this.start_address_latched = 0;
 
     /**
+     * The text screen is sent to the display again at the next vertical
+     * retrace: a mode set or a palette load changes many registers in a row,
+     * and each would otherwise send every character again
+     * @type {boolean}
+     */
+    this.text_redraw_pending = false;
+
+    /**
      * Unimplemented CRTC registers go here
      */
     this.crtc = new Uint8Array(0x19);
@@ -607,6 +615,8 @@ VGAScreen.prototype.redisplay = function()
         this.update_cursor();
     }
     this.complete_redraw();
+    // (now, not at the next vblank: a restored machine may stay stopped)
+    this.flush_text_redraw();
 };
 
 /**
@@ -898,6 +908,8 @@ VGAScreen.prototype.apply_bitmask = function(data_dword, bitmask_dword)
 
 VGAScreen.prototype.text_mode_redraw = function()
 {
+    this.text_redraw_pending = false;
+
     const split_screen_row = this.scan_line_to_screen_row(this.line_compare);
     const row_offset = Math.max(0, (this.offset_register * 2 - this.max_cols) * 2);
     const blink_enabled = this.attribute_mode & 1 << 3;
@@ -934,8 +946,24 @@ VGAScreen.prototype.text_mode_redraw = function()
     }
 };
 
+/** The text screen's redraw that is pending, now */
+VGAScreen.prototype.flush_text_redraw = function()
+{
+    if(this.text_redraw_pending && !this.graphical_mode)
+    {
+        this.text_mode_redraw();
+    }
+};
+
 VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
 {
+    if(this.vga_memory[addr] === value)
+    {
+        // The display has this cell already: scrolling and programs that
+        // draw the whole screen write many bytes that stay the same
+        return;
+    }
+
     this.vga_memory[addr] = value;
 
     const max_cols = Math.max(this.max_cols, this.offset_register * 2);
@@ -1029,7 +1057,7 @@ VGAScreen.prototype.complete_redraw = function()
     }
     else
     {
-        this.text_mode_redraw();
+        this.text_redraw_pending = true;
     }
 };
 
@@ -1202,6 +1230,9 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
     this.max_rows = rows_count;
 
     this.display.set_size_text(cols_count, rows_count);
+    // A new size empties the display's screen, and the rows' layout follows
+    // the geometry (writes of unchanged cells do not send them again)
+    this.text_redraw_pending = true;
 };
 
 VGAScreen.prototype.set_size_graphical = function(width, height, virtual_width, virtual_height, bpp)
@@ -1350,7 +1381,7 @@ VGAScreen.prototype.update_layers = function()
 {
     if(!this.graphical_mode)
     {
-        this.text_mode_redraw();
+        this.text_redraw_pending = true;
     }
 
     if(this.svga_enabled)
@@ -1446,6 +1477,7 @@ VGAScreen.prototype.latch_start_address = function()
 VGAScreen.prototype.invalidate = function()
 {
     this.complete_redraw();
+    this.flush_text_redraw();
 };
 
 /** @override */
@@ -1453,6 +1485,7 @@ VGAScreen.prototype.on_vblank = function()
 {
     this.retrace_pending = true;
     this.latch_start_address();
+    this.flush_text_redraw();
 };
 
 /**

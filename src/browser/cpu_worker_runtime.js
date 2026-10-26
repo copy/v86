@@ -162,6 +162,11 @@ export function start_cpu_worker()
                             audio_send("enabled", audio_enabled && emulator.is_running());
                     }
                     if(name === "emulator-loaded") return;
+                    // The page sends each character's event itself, once its
+                    // screen has the character (CPUWorkerController.flush_screen)
+                    if(name === "screen-put-char") return;
+                    // The screen's changes before an event reach the page before it
+                    if(screen_commands.length) flush_screen();
                     if(name === "download-error") value = { "file_name": value.file_name };
                     // Structured clone snapshots buffers before synchronous guest
                     // execution resumes. PCM buffers are independently owned.
