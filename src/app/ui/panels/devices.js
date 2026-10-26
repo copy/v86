@@ -19,7 +19,7 @@ const VULKAN_LABELS = {
 /** The cards' names, also in the hardware list and the summary (describe.js) */
 export const NIC_LABELS = { ne2k: "NE2000 (ne2k)", e1000: "Intel PRO/1000 MT (e1000)", virtio: "virtio-net", none: "None" };
 const BACKEND_LABELS = { none: "Not connected", inbrowser: "A network in the browser", relay: "A relay (WebSocket)", wisp: "A wisp server", fetch: "fetch (HTTP only)" };
-export const SOUND_LABELS = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "None" };
+export const SOUND_LABELS = { sb16: "Sound Blaster 16", hd_audio: "HD Audio (Intel)", virtio: "virtio-snd", none: "None" };
 
 /**
  * @param {PanelContext} ctx
@@ -46,7 +46,11 @@ export function network_panel(ctx, index)
 /** @param {PanelContext} ctx */
 export function sound_panel(ctx)
 {
-    return [select_field("Sound card", ctx.choices.sound_devices, ctx.config.sound.device, value => ctx.set("sound.device", value), v => SOUND_LABELS[v] || v)];
+    return [
+        select_field("Sound card", ctx.choices.sound_devices, ctx.config.sound.device, value => ctx.set("sound.device", value), v => SOUND_LABELS[v] || v),
+        // (None: the guest has no sound card; Mute: it has one, the page plays nothing)
+        check_field("Mute (the page plays nothing; the guest keeps its sound card)", ctx.config.sound.mute, value => ctx.set("sound.mute", value)),
+    ];
 }
 
 /** @param {PanelContext} ctx */

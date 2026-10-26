@@ -1134,6 +1134,21 @@ export interface V86Options {
     net_device?: V86NetworkDevice;
 
     /**
+     * The sound card of the PC machines: the Sound Blaster 16, an Intel HD Audio controller with a
+     * generic output codec (what Windows Vista to 11 and Linux drive with their own drivers; a plugin,
+     * build/v86-hd-audio.js beside the bundle), or none (the PC speaker stays). The virt machine has
+     * `virtio_sound` instead.
+     * @default "sb16"
+     */
+    audio_device?: "sb16" | "hd_audio" | "none";
+
+    /**
+     * Where the plugin of a plugin sound card (`audio_device: "hd_audio"`) is, a path or URL
+     * @default build/v86-hd-audio.js beside the bundle
+     */
+    audio_device_path?: string;
+
+    /**
      * Enable serial port 1
      * @default false
      */

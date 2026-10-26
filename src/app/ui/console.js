@@ -17,6 +17,7 @@ import { combination_scancodes, COMBINATIONS } from "../keys.js";
 import { DEFAULT_FORM, DEFAULT_GRAPHICS_ADAPTER, settings_to_options } from "../../browser/vm_options.js";
 import { bool_arg, start_settings } from "../../browser/query_compat.js";
 import { DEBUG_PAGE, ON_LOCALHOST, page_env, load_graphics_proxy, create_emulator, query_append } from "../emulator_bridge.js";
+import { NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
@@ -879,6 +880,9 @@ function console_ui(layout, emulator, ctx)
         }, error => ctx.set_status(error.message));
     };
     const details = h("div.details");
+    // (the cards of the options: the library's defaults where they name none)
+    const network_card = options.net_device && options.net_device.type || (virt ? "virtio" : "ne2k");
+    const sound_card = virt ? (options.virtio_sound ? "virtio" : "none") : options.audio_device || "sb16";
     const render_details = () =>
     {
         const rows = [
@@ -889,7 +893,9 @@ function console_ui(layout, emulator, ctx)
             ["Instructions", String(stats.total)],
             ["Storage (" + (virt ? "virtio-blk" : options.machine_type === "q35" ? "AHCI" : "IDE") + ")", format_size(stats.disk_read) + " read, " +
                 format_size(stats.disk_written) + " written" + (stats.disk_busy ? ", busy" : "")],
-            ["Network", format_size(stats.net_in) + " received, " + format_size(stats.net_out) + " sent"],
+            ["Network", (NIC_LABELS[network_card] || network_card) + (network_card === "none" ? "" :
+                ": " + format_size(stats.net_in) + " received, " + format_size(stats.net_out) + " sent")],
+            ["Sound", (SOUND_LABELS[sound_card] || sound_card) + (options.disable_speaker ? ", muted" : "")],
             ["Shared folder", stats.fs_file ? format_size(stats.fs_read) + " read, " + format_size(stats.fs_written) + " written, last " + stats.fs_file : "-"],
             ["Display", stats.mode ? stats.mode + ", " + stats.resolution : "-"],
             ["Mouse", stats.guest_mouse ? "used by the guest" + (stats.absolute_mouse ? " (absolute)" : "") : "not used by the guest"],

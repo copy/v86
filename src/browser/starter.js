@@ -13,8 +13,8 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { NET_PLUGINS, load_device_plugin } from "../device_plugin.js";
-import { check_machine_options, is_arm, NET_DEVICE_PLUGINS } from "../machine_options.js";
+import { AUDIO_PLUGINS, NET_PLUGINS, load_device_plugin } from "../device_plugin.js";
+import { check_machine_options, is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
 import { NetworkAdapter } from "./network.js";
@@ -621,6 +621,8 @@ V86.prototype.continue_init = async function(emulator, options)
     // (the virt machine: only when asked for, since its virtio devices take
     // the virtio-mmio slots in order, as the reference's -device options do)
     settings.net_device = options.net_device || { type: is_arm(this.cpu_type) ? "none" : "ne2k" };
+    // the sound card: the Sound Blaster 16 unless audio_device says otherwise
+    settings.audio_device = is_arm(this.cpu_type) ? undefined : options.audio_device || "sb16";
     // the virt machine's virtio-blk disks (P5.4) and virtio-rng (P5.5)
     // (src/machine_options.js refuses them on the PC machines)
     if(options.virtio_disks) settings.virtio_disks = [];
@@ -821,6 +823,10 @@ V86.prototype.continue_init = async function(emulator, options)
     const net_plugin = NET_DEVICE_PLUGINS.includes(net_type) ?
         load_device_plugin(NET_PLUGINS, net_type, settings.net_device.plugin_path, "net_device.plugin_path") : Promise.resolve(undefined);
     net_plugin.catch(() => {});
+    // and the sound card's (audio_device "hd_audio")
+    const audio_plugin = AUDIO_DEVICE_PLUGINS.includes(settings.audio_device) ?
+        load_device_plugin(AUDIO_PLUGINS, settings.audio_device, options.audio_device_path, "audio_device_path") : Promise.resolve(undefined);
+    audio_plugin.catch(() => {});
     const adapter_renderer = this.create_adapter_renderer(options);
 
     // the disks' policies (src/disk_options.js), put on their buffers
@@ -1223,6 +1229,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         settings.graphics_adapter = await graphics_adapter;
         settings.net_device_plugin = await net_plugin;
+        settings.audio_device_plugin = await audio_plugin;
         settings.graphics_adapter_renderer = await adapter_renderer;
 
         if(options.android)

@@ -96,6 +96,34 @@ test("migrate: version 1's display.vulkan (a boolean) names Venus", () =>
     assert.equal(migrate({ format: FORMAT, version: 1, id: "z" }).display.vulkan, "none");
 });
 
+test("migrate: version 2's PC sound \"none\" (a muted Sound Blaster) stays a muted Sound Blaster", () =>
+{
+    const pc = migrate({ format: FORMAT, version: 2, id: "x", sound: { device: "none" } });
+    assert.equal(pc.version, VERSION);
+    assert.deepEqual(pc.sound, { device: "sb16", mute: true });
+    assert.deepEqual(migrate({ format: FORMAT, version: 2, id: "y", sound: { device: "sb16" } }).sound, { device: "sb16", mute: false });
+    const virt = migrate({ format: FORMAT, version: 2, id: "z", cpu: { type: "arm64" }, machine: { type: "virt" }, display: { adapter: "virtio_gpu" },
+        network: [{ device: "virtio" }], sound: { device: "none" } });
+    assert.deepEqual(virt.sound, { device: "none", mute: false }, "the virt machine's none was no device");
+    assert.deepEqual(validate_config(pc), []);
+});
+
+test("the sound card: audio_device for the PC machines; none keeps the speaker, mute silences the page", () =>
+{
+    const c = new_config();
+    assert.equal(config_to_options(c, ENV).audio_device, undefined, "the library's default, the Sound Blaster");
+    c.sound = { device: "none", mute: false };
+    let o = config_to_options(c, ENV);
+    assert.equal(o.audio_device, "none");
+    assert.ok(!o.disable_speaker, "no sound card, the PC speaker still plays");
+    c.sound = { device: "hd_audio", mute: false };
+    o = config_to_options(c, ENV);
+    assert.equal(o.audio_device, "hd_audio");
+    assert.deepEqual(check_config(c), []);
+    c.sound.mute = true;
+    assert.equal(config_to_options(c, ENV).disable_speaker, true);
+});
+
 /** Every check: a change of a valid configuration and the field it is reported on */
 const RULES = [
     ["format", c => { c.format = "x"; }, "format"],
@@ -178,6 +206,8 @@ const RULES = [
     ["the MTU", c => { c.network[0].mtu = 67; }, "network.0.mtu"],
     ["MAC address translation", c => { c.network[0].mac_address_translation = "x"; }, "network.0.mac_address_translation"],
     ["a sound card", c => { c.sound.device = "gus"; }, "sound.device"],
+    ["mute", c => { c.sound.mute = "yes"; }, "sound.mute"],
+    ["HD Audio on virt", c => { Object.assign(c, arm64()); c.sound.device = "hd_audio"; }, "sound.device"],
     ["a Sound Blaster on virt", c => { Object.assign(c, arm64()); c.sound.device = "sb16"; }, "sound.device"],
     ["a UART", c => { c.serial = [{ port: 4, attach: "none" }]; }, "serial.0.port"],
     ["a UART twice", c => { c.serial = [{ port: 1, attach: "none" }, { port: 1, attach: "none" }]; }, "serial.1.port"],
@@ -297,7 +327,7 @@ test("config_to_options: the configuration's fields", () =>
     c.kernel = kernel({ bzimage: { kind: "url", url: "k.bin", async: false }, cmdline: "quiet" });
     c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: true, vulkan: "venus", displays: 2 };
     c.network = [{ device: "virtio", backend: "fetch", relay_url: "https://cors.invalid/", mtu: 9000, mac_address_translation: true }];
-    c.sound.device = "none";
+    c.sound = { device: "hd_audio", mute: true };
     c.serial = [{ port: 0, attach: "terminal" }, { port: 2, attach: "modem" }];
     c.filesystem = { baseurl: "fs/" };
     c.advanced = { cpu_worker: false, ir_tier0: false, x87_fast_math: true, x87_jit_cache: false, cpuid_level: 7, mouse_disabled: false };
@@ -332,6 +362,7 @@ test("config_to_options: the configuration's fields", () =>
     assert.deepEqual(o.net_device, { type: "virtio", relay_url: "fetch", cors_proxy: "https://cors.invalid/", mtu: 9000 });
     assert.equal(o.mac_address_translation, true);
     assert.equal(o.disable_speaker, true);
+    assert.equal(o.audio_device, "hd_audio");
     assert.deepEqual(o.modem, { uart: 2 });
     assert.deepEqual(o.filesystem, { baseurl: "fs/" });
     assert.equal(o.cpu_worker, false);

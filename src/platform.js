@@ -68,17 +68,20 @@ export const Q35_ROOT_PORT_SLOT = 0x1C;
  * network card at 00:02.0) with the chipset at 00:00.0 and 00:1f.*.
  * Functions a machine does not have are -1.
  * @param {?Platform} platform
- * @return {{ide: number, acpi_pm: number, vga: number, ne2k: number, lpc: number, ahci: number}}
+ * The HD Audio controller (audio_device "hd_audio") is where ICH6 and ICH9
+ * have it, 00:1b.0, as with QEMU's Q35; QEMU's PC has no fixed place, the
+ * first after its network card is 00:04.0.
+ * @return {{ide: number, acpi_pm: number, vga: number, ne2k: number, lpc: number, ahci: number, hda: number}}
  */
 export function pci_functions(platform)
 {
     if(platform && platform.machine === "q35")
     {
-        return { ide: -1, acpi_pm: -1, vga: 0x01 << 3, ne2k: 0x02 << 3, lpc: ICH9_LPC_PCI_ID, ahci: ICH9_AHCI_PCI_ID };
+        return { ide: -1, acpi_pm: -1, vga: 0x01 << 3, ne2k: 0x02 << 3, lpc: ICH9_LPC_PCI_ID, ahci: ICH9_AHCI_PCI_ID, hda: 0x1B << 3 };
     }
     return platform && platform.qemu_compatible ?
-        { ide: 0x01 << 3 | 1, acpi_pm: 0x01 << 3 | 3, vga: 0x02 << 3, ne2k: 0x03 << 3, lpc: -1, ahci: -1 } :
-        { ide: 0x1E << 3, acpi_pm: ACPI_PM_PCI_ID, vga: 0x12 << 3, ne2k: 0x05 << 3, lpc: -1, ahci: -1 };
+        { ide: 0x01 << 3 | 1, acpi_pm: 0x01 << 3 | 3, vga: 0x02 << 3, ne2k: 0x03 << 3, lpc: -1, ahci: -1, hda: 0x04 << 3 } :
+        { ide: 0x1E << 3, acpi_pm: ACPI_PM_PCI_ID, vga: 0x12 << 3, ne2k: 0x05 << 3, lpc: -1, ahci: -1, hda: 0x1B << 3 };
 }
 /** PM I/O block size decoded at PMBA (PCI config 0x40) */
 export const ACPI_PM_LENGTH = 0x40;

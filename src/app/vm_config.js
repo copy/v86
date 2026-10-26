@@ -12,7 +12,7 @@ import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZ
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
 
 export const FORMAT = "v86-vm";
-export const VERSION = 2;
+export const VERSION = 3;
 
 /**
  * Where an image is (the plan's 镜像来源): a URL (or a disk service's), a
@@ -74,7 +74,8 @@ export const VERSION = 2;
  *     proxy's WebGPU renderer: Venus contexts, or gfxstream's (its contexts only: Android's official images)
  * @property {Network[]} network one on the PC machines; up to four virtio-net cards on virt (Android's
  *     three), at most one of them with a backend
- * @property {{device: "sb16" | "virtio" | "none"}} sound virtio: virt's virtio-snd
+ * @property {{device: "sb16" | "hd_audio" | "virtio" | "none", mute: boolean}} sound the sound card (virtio: virt's
+ *     virtio-snd; none: no card, the PC speaker stays) and whether the page plays nothing
  * @property {{transport: "mmio" | "pci", input: string[] | null, console_ports: number, vsock: boolean,
  *     gpu_pci_slot: number | null}} virt the virt machine's devices: input null as the display has them
  *     (keyboard, tablet and touch screen with virtio-gpu); console_ports 0: no virtio console
@@ -130,7 +131,7 @@ export const NETWORK_BACKENDS = ["none", "inbrowser", "relay", "wisp", "fetch"];
 /** The boot orders the old page offers (index.html's boot_order) */
 export const BOOT_ORDERS = [0, 0x213, 0x123, 0x231, 0x321, 0x312, 0x132];
 /** The sound devices of the PC machines (virt: virtio, none; ranchu: none, its goldfish audio is not played) */
-export const SOUND_DEVICES = ["sb16", "none"];
+export const SOUND_DEVICES = ["sb16", "hd_audio", "none"];
 const VIRT_SOUND_DEVICES = ["virtio", "none"];
 const RANCHU_SOUND_DEVICES = ["none"];
 /** The virt machine's input devices (virtio_input) */
@@ -196,7 +197,7 @@ export function with_defaults(config)
     c.android = is_object(c.android) ? Object.assign({}, ANDROID_DEFAULTS, c.android) : null;
     section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: "none", displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
-    section("sound", { device: "sb16" });
+    section("sound", { device: "sb16", mute: false });
     section("virt", Object.assign({}, VIRT_DEFAULTS));
     c.serial = Array.isArray(c.serial) ? c.serial : [{ port: 0, attach: "terminal" }];
     c.filesystem = is_object(c.filesystem) ? c.filesystem : null;
@@ -227,6 +228,15 @@ const MIGRATIONS = {
             config = Object.assign({}, config, { display: Object.assign({}, config.display, { vulkan: config.display.vulkan ? "venus" : "none" }) });
         }
         return config;
+    },
+    // 3 (2026-10-26, docs/modern-pc-devices-plan.md H1): a PC's sound "none"
+    // was the Sound Blaster muted (the guest had one); it stays so, as
+    // sound.mute, and "none" is no sound card from now on
+    2: config => {
+        const sound = is_object(config.sound) ? config.sound : {};
+        const virt = is_object(config.machine) && ARM_MACHINE_TYPES.includes(config.machine.type);
+        const changed = !virt && sound.device === "none" ? { device: "sb16", mute: true } : { mute: false };
+        return Object.assign({}, config, { sound: Object.assign({}, sound, changed) });
     },
 };
 
@@ -508,8 +518,9 @@ export function validate_config(config)
     if(!(ranchu ? RANCHU_SOUND_DEVICES : virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES).includes(config.sound.device))
     {
         problem("sound.device", ranchu ? "the ranchu machine's sound is not played: none" :
-            virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16 or none (virtio-snd is the virt machine's)");
+            virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16, hd_audio or none (virtio-snd is the virt machine's)");
     }
+    bool(config.sound.mute, "sound.mute");
 
     const v = config.virt;
     if(!virt)
@@ -717,6 +728,7 @@ export function config_to_options(config, env)
     settings.vram_size = display.vram_mb === null ? undefined : display.vram_mb * MB;
     settings.boot_order = machine.boot_order || undefined;
     settings.net_device_type = network ? network.device : "none";
+    if(!ARM_MACHINE_TYPES.includes(machine.type)) settings.audio_device = config.sound.device;
     if(modem) settings.modem = { uart: modem.port };
 
     // (as the address's: apply_query_args; a state image has its own machine)
@@ -740,12 +752,16 @@ export function config_to_options(config, env)
     }
     settings.relay_url = relay_url_of(network);
     if(!cpu.jit) settings.disable_jit = true;
-    if(config.sound.device === "none") settings.disable_audio = true;
+    // (muted; a virt machine without virtio-snd has nothing to play either; a
+    // PC without a sound card still has its speaker)
+    const quiet = config.sound.mute || ARM_MACHINE_TYPES.includes(machine.type) && config.sound.device === "none";
+    if(quiet) settings.disable_audio = true;
 
     // (the form, filled in with the configuration's values)
     const form = Object.assign({}, DEFAULT_FORM, {
         relay_url: settings.relay_url,
-        disable_audio: config.sound.device === "none",
+        disable_audio: quiet,
+        audio_device: settings.audio_device || DEFAULT_FORM.audio_device,
         files: {},
         empty_sizes: {},
         urls: {},

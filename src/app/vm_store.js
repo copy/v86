@@ -8,6 +8,7 @@
 // with U5 and U6.
 
 import { migrate, validate_config, new_id } from "./vm_config.js";
+import { machine_digest } from "./vm_state.js";
 
 /** @typedef {import("./vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("./vm_config.js").Image} Image */
@@ -114,7 +115,8 @@ export class VMStore
     {
         const transaction = this.db.transaction(VMS, "readonly");
         const all = await done(transaction.objectStore(VMS).getAll());
-        return all.map(raw => migrate(raw)).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+        const configs = await Promise.all(all.map(raw => this.current(raw)));
+        return configs.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
     }
 
     /**
@@ -124,7 +126,30 @@ export class VMStore
     async get(id)
     {
         const raw = await done(this.db.transaction(VMS, "readonly").objectStore(VMS).get(id));
-        return raw === undefined ? undefined : migrate(raw);
+        return raw === undefined ? undefined : this.current(raw);
+    }
+
+    /**
+     * A stored configuration in the current version (migrate). A suspended
+     * machine's digest (src/app/vm_state.js) is of the configuration as it
+     * was stored; a migration changes the form, not the guest's hardware
+     * (version 3: a PC's sound "none" was a muted Sound Blaster and becomes
+     * one), so where the digest was still right the new form's replaces it,
+     * and the configuration is stored in the new form: otherwise every
+     * suspended machine would say its settings changed
+     * @param {any} raw
+     * @return {Promise<VMConfig>}
+     */
+    async current(raw)
+    {
+        const config = migrate(raw);
+        if(raw.version === config.version || !config.suspended) return config;
+        if(config.suspended.digest !== await machine_digest(raw)) return config;
+        config.suspended = Object.assign({}, config.suspended, { digest: await machine_digest(config) });
+        const transaction = this.db.transaction(VMS, "readwrite");
+        transaction.objectStore(VMS).put(config);
+        await complete(transaction);
+        return config;
     }
 
     /**

@@ -59,7 +59,7 @@ test("the presets' hardware (the plan's table)", () =>
     assert.deepEqual(row("windows98"), ["x86", "i440fx", 256, 1, "bochs_vga", 16, "ne2k", "sb16", false]);
     assert.deepEqual(row("windows95"), ["x86", "i440fx", 64, 1, "bochs_vga", 16, "ne2k", "sb16", false]);
     assert.deepEqual(row("windowsxp"), ["x86", "i440fx", 2048, 1, "bochs_vga", 16, "ne2k", "sb16", false]);
-    assert.deepEqual(row("windows81"), ["x86_64", "i440fx", 2048, 2, "vmware_svga", 16, "e1000", "none", true]);
+    assert.deepEqual(row("windows81"), ["x86_64", "i440fx", 2048, 2, "vmware_svga", 16, "e1000", "hd_audio", true]);
     assert.deepEqual(row("windows7"), row("windows81"), "Vista, 7 and 10: Windows 8.1's hardware");
     assert.deepEqual(row("linux"), ["x86", "i440fx", 512, 1, "bochs_vga", 8, "ne2k", "sb16", true]);
     assert.deepEqual(row("linux64"), ["x86_64", "i440fx", 1024, 2, "virtio_gpu", 8, "virtio", "sb16", true]);

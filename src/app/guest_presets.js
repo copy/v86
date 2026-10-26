@@ -56,7 +56,7 @@ function pc(h)
 }
 
 const WINDOWS_81 = {
-    cpu: "x86_64", memory: 2048 * MB, cores: 2, adapter: "vmware_svga", vram: 16, nic: "e1000", sound: "none", acpi: true,
+    cpu: "x86_64", memory: 2048 * MB, cores: 2, adapter: "vmware_svga", vram: 16, nic: "e1000", sound: "hd_audio", acpi: true,
 };
 const WINDOWS_81_CHECKLIST = [
     "Display driver, one of: VMware Tools 13.1.5's vm3d (install KB2919355 first), or the test-signed viogpudo 0.1.240 (2D only)",
@@ -64,7 +64,6 @@ const WINDOWS_81_CHECKLIST = [
     "Before moving the disk from IDE to Q35 (AHCI), enable storahci",
 ];
 const WINDOWS_81_ISSUES = [
-    "No sound card (HD Audio is in the modern PC devices plan)",
     "Too slow without the JIT (do not turn it off)",
 ];
 

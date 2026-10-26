@@ -304,6 +304,7 @@ function onload()
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
     if(query_args.has("net_device_type")) $("net_device_type").value = query_args.get("net_device_type");
+    if(query_args.has("audio_device")) $("audio_device").value = query_args.get("audio_device");
     if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
     if(query_args.has("modem")) $("modem").value = query_args.get("modem");
 
@@ -649,6 +650,7 @@ function read_form()
         machine_type: $("machine_type").value,
         acpi: $("acpi").checked,
         net_device_type: $("net_device_type").value,
+        audio_device: $("audio_device").value,
         mtu: $("mtu").value,
         modem: $("modem").value,
     };

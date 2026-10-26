@@ -67,7 +67,8 @@ export function hardware_items(c)
         id: "network-" + i, label: "Network adapter" + (c.network.length > 1 ? " " + (i + 1) : ""), summary: n.device === "none" ? "none" : (NIC_LABELS[n.device] || n.device) + ", " + n.backend,
         panel: ctx => network_panel(ctx, i), remove: c.network.length > 1 ? next => { next.network.splice(i, 1); } : null,
     }));
-    items.push({ id: "sound", label: "Sound card", summary: c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device,
+    items.push({ id: "sound", label: "Sound card", summary: (c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device) +
+        (c.sound.mute ? ", muted" : ""),
         panel: sound_panel, remove: null });
     items.push({ id: "display", label: "Display", summary: c.display.adapter + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : ""), panel: display_panel, remove: null });
     items.push({ id: "serial", label: "Serial ports", summary: c.serial.filter(s => s.attach !== "none").map(s => "UART" + s.port + " " + s.attach).join(", ") || "none",

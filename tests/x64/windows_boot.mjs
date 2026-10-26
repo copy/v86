@@ -81,6 +81,12 @@
 // the card's device and driver, the DHCP address and an HTTP download's MD5
 // to NIC.TXT ("file NIC.TXT" prints it, X64_WIN_NIC_MD5 is the pattern's).
 // "file <name>": a file of the tools disk, as an X64_WIN_FILE line.
+// WIN_AUDIO=<audio_device>: the sound card (sb16; hd_audio, which Windows
+// drives with hdaudbus.inf and hdaudio.inf); with hd_audio the tools disk has
+// SND.CMD, which writes the controller's and codec's devices, the audio
+// endpoints and the time of playing Windows' longest Media WAV to SND.TXT,
+// and "audio" prints what the controller played (X64_WIN_AUDIO: bytes,
+// formats, how many samples were not silent).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -149,10 +155,31 @@ const nic_script = [
     "    'HTTP md5=' + (Get-FileHash -Algorithm MD5 $file).Hash.ToLower() + ' bytes=' + (Get-Item $file).Length + ' seconds=' + $s",
     "} catch { 'HTTP error ' + $_ }",
 ].join("\r\n") + "\r\n";
+// WIN_AUDIO=hd_audio: what SND.CMD checks
+const snd_script = [
+    "$ErrorActionPreference = 'Continue'",
+    "Get-WmiObject Win32_PnPEntity | Where-Object { $_.DeviceID -like 'PCI\\VEN_8086&DEV_2668*' -or $_.DeviceID -like 'PCI\\VEN_8086&DEV_293E*' -or",
+    "    $_.DeviceID -like 'HDAUDIO\\*' } | ForEach-Object {",
+    "    'DEVICE ' + $_.DeviceID + ' | ' + $_.Name + ' | error=' + $_.ConfigManagerErrorCode + ' | service=' + $_.Service }",
+    "Get-WmiObject Win32_PnPEntity | Where-Object { $_.DeviceID -like 'SWD\\MMDEVAPI\\*' } | ForEach-Object {",
+    "    'ENDPOINT ' + $_.Name + ' | error=' + $_.ConfigManagerErrorCode }",
+    "Get-Service Audiosrv | ForEach-Object { 'SERVICE ' + $_.Name + ' ' + $_.Status }",
+    "Get-WmiObject Win32_PnPSignedDriver | Where-Object { $_.DeviceID -like 'HDAUDIO\\*' -or $_.DeviceID -like 'PCI\\VEN_8086&DEV_2668*' -or",
+    "    $_.DeviceID -like 'PCI\\VEN_8086&DEV_293E*' } | ForEach-Object { 'DRIVER inf=' + $_.InfName + ' version=' + $_.DriverVersion + ' device=' + $_.DeviceName }",
+    "$wav = Get-ChildItem (Join-Path $env:windir 'Media') -Filter *.wav | Sort-Object Length -Descending | Select-Object -First 1",
+    "try {",
+    "    $t = Get-Date",
+    "    (New-Object Media.SoundPlayer $wav.FullName).PlaySync()",
+    "    'PLAYED ' + $wav.Name + ' bytes=' + $wav.Length + ' seconds=' + ((Get-Date) - $t).TotalSeconds",
+    "} catch { 'PLAY error ' + $_ }",
+].join("\r\n") + "\r\n";
+const snd_cmd = "@echo off\r\nset OUT=%~d0\\SND.TXT\r\necho BEGIN> %OUT%\r\n" +
+    "powershell -NoProfile -ExecutionPolicy Bypass -File %~d0\\SND.PS1 >> %OUT% 2>&1\r\necho END>> %OUT%\r\n";
 const nic_cmd = "@echo off\r\nset OUT=%~d0\\NIC.TXT\r\necho BEGIN> %OUT%\r\n" +
     "powershell -NoProfile -ExecutionPolicy Bypass -File %~d0\\NIC.PS1 >> %OUT% 2>&1\r\necho END>> %OUT%\r\n";
 const tools = new MemoryDisk(make_fat16({"PROBE64.EXE": probe64, "PROBE32.EXE": probe32, "CPULOAD.EXE": cpuload, "LOAD32.EXE": cpuload32,
-    ...(process.env.WIN_NET ? {"NIC.CMD": Buffer.from(nic_cmd), "NIC.PS1": Buffer.from(nic_script)} : {})}));
+    ...(process.env.WIN_NET ? {"NIC.CMD": Buffer.from(nic_cmd), "NIC.PS1": Buffer.from(nic_script)} : {}),
+    ...(process.env.WIN_AUDIO === "hd_audio" ? {"SND.CMD": Buffer.from(snd_cmd), "SND.PS1": Buffer.from(snd_script)} : {})}));
 const source = new ReadOnlyOverlayDisk(image_path);
 // WIN_HDB=<image>: that disk (e.g. retro-gaming-site/game/3dmark06.img) in
 // place of the tools disk, never written either (its writes stay in memory)
@@ -208,6 +235,7 @@ const vm = new V86({
     hda: source, hdb, memory_size: memory_mb * 1048576, vram_size: 16 << 20,
     acpi: true, cpu_cores: cores, autostart: false, log_level: 0,
     net_device: {type: process.env.WIN_NIC || "ne2k", ...(process.env.WIN_NET ? {relay_url: "fetch"} : {})},
+    ...(process.env.WIN_AUDIO ? {audio_device: process.env.WIN_AUDIO} : {}),
     // WIN_QEMU_COMPATIBLE=1: devices where QEMU, which the image was installed with, had them
     qemu_compatible: !!+process.env.WIN_QEMU_COMPATIBLE,
     // JIT_SWITCHES (tests/lib/jit_switches.mjs)
@@ -783,6 +811,18 @@ try
             screenshot(true);
         };
     }
+    // WIN_AUDIO=hd_audio: what the controller played
+    const audio = {bytes: 0, formats: {}, loud: 0};
+    vm.add_listener("hd-audio-pcm", pcm => {
+        for(const chunk of pcm["chunks"])
+        {
+            audio.bytes += chunk.length;
+            audio.formats[pcm["format"].toString(16)] = (audio.formats[pcm["format"].toString(16)] || 0) + chunk.length;
+            const samples = new Int16Array(chunk.buffer, chunk.byteOffset, chunk.length >> 1);
+            for(const sample of samples) if(Math.abs(sample) > 64) audio.loud++;
+        }
+    });
+    report.audio = audio;
     if(process.env.WIN_NET)
     {
         // (Windows' own HTTP: NCSI, updates; nothing reaches the internet)
@@ -979,6 +1019,7 @@ try
         else if(verb === "password") { await type(password); await enter(); }
         else if(verb === "shot") screenshot(true);
         else if(verb === "file") console.log("X64_WIN_FILE " + argument + "\n" + result_text(argument));
+        else if(verb === "audio") console.log("X64_WIN_AUDIO " + JSON.stringify(report.audio));
         // the page's size for a display (V86.set_display_size; virtio_gpu tells the guest)
         else if(verb === "display") vm.set_display_size(...argument.split(/\s+/).map(Number));
         // a relative mouse movement (PS/2), in pixels, y up

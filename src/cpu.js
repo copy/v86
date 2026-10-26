@@ -49,7 +49,7 @@ import { HPET } from "./hpet.js";
 import { SMBus } from "./smbus.js";
 import { VirtioNet } from "./virtio_net.js";
 import { GraphicsAdapter, graphics_adapter_of_state, patch_vga_bios_ids } from "./graphics_adapter.js";
-import { PluginDevice, NET_PLUGINS, plugin_of_state } from "./device_plugin.js";
+import { PluginDevice, AUDIO_PLUGINS, NET_PLUGINS, plugin_of_state } from "./device_plugin.js";
 import { DisplayHub } from "./display.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
 import { create_virtio_devices, get_virtio_devices_state, resolve_virtio_devices_state, set_virtio_devices_state } from "./virtio_devices.js";
@@ -897,7 +897,8 @@ CPU.prototype.get_state = function(skip_memory = false)
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
     state[60] = this.get_state_pic();
-    state[61] = this.devices.sb16;
+    // (the sound card: the SB16's own state, a plugin card's slot, or none)
+    state[61] = this.devices.sb16 || this.devices.audio;
 
     state[62] = this.fw_value;
 
@@ -1285,6 +1286,18 @@ CPU.prototype.validate_state = function(state)
         throw new Error("The snapshot is from a machine with net_device: \"" + saved_net +
             "\", this one has \"" + (this.devices.net ? "ne2k" : this.devices.virtio_net ? "virtio" : "none") + "\"");
     }
+    // the sound card likewise; and the SB16's state only where there is one
+    const saved_audio = plugin_of_state(AUDIO_PLUGINS, state[61]);
+    const audio_device = this.devices.audio ? this.devices.audio.name : this.devices.sb16 ? "sb16" : "none";
+    if(this.devices.audio instanceof PluginDevice)
+    {
+        this.devices.audio.check_state(state[61]);
+    }
+    else if(saved_audio !== null || !this.devices.sb16 !== !state[61])
+    {
+        throw new Error("The snapshot is from a machine with audio_device: \"" + (saved_audio || (state[61] ? "sb16" : "none")) +
+            "\", this one has \"" + audio_device + "\"");
+    }
     // A remapped snapshot must retain the RAM/MMIO split used when validating
     // its windows. Reject this before changing clocks, RAM, or CPU state.
     if(state[97] && state[0] !== this.memory_size[0] &&
@@ -1485,6 +1498,7 @@ CPU.prototype.set_state = function(state, skip_memory = false)
     this.devices.net && this.devices.net.set_state(state[59]);
     this.set_state_pic(state[60]);
     this.devices.sb16 && this.devices.sb16.set_state(state[61]);
+    this.devices.audio && this.devices.audio.set_state(state[61]);
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
     this.devices.uart2 && this.devices.uart2.set_state(state[80]);
@@ -2416,6 +2430,10 @@ CPU.prototype.reboot_internal = function(reason, keep_memory)
     {
         this.devices.net.reset();
     }
+    if(this.devices.audio)
+    {
+        this.devices.audio.reset();
+    }
 
     if(keep_memory)
     {
@@ -2569,6 +2587,27 @@ CPU.prototype.create_net_plugin = function(settings, bus)
             "preserve_mac_from_state_image": !!settings.preserve_mac_from_state_image,
             "mac_address_translation": !!settings.mac_address_translation,
         });
+};
+
+/**
+ * The sound card of a plugin (audio_device "hd_audio"): its slot
+ * (pci_functions), the speaker (the dac-* messages of src/browser/speaker.js)
+ * @param {!Object} settings
+ * @param {BusConnector} bus
+ * @return {!PluginDevice}
+ */
+CPU.prototype.create_audio_plugin = function(settings, bus)
+{
+    return new PluginDevice(this, AUDIO_PLUGINS, settings.audio_device_plugin, pci_functions(this.platform).hda, {
+        "audio": {
+            "send": (left, right) => bus.send("dac-send-data", [left, right]),
+            "set_sampling_rate": rate => bus.send("dac-tell-sampling-rate", rate),
+            "enable": () => bus.send("dac-enable"),
+            "disable": () => bus.send("dac-disable"),
+            // the samples as the stream has them, for tests
+            "pcm": pcm => bus.send("hd-audio-pcm", pcm),
+        },
+    }, {});
 };
 
 /**
@@ -3221,9 +3260,14 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.virtio_balloon = new VirtioBalloon(this, device_bus, this.root_port_pci_id("virtio_balloon"));
         }
 
-        if(true)
+        // the sound card (audio_device): the SB16, a plugin's, or none
+        if(!settings.audio_device || settings.audio_device === "sb16")
         {
             this.devices.sb16 = new SB16(this, device_bus);
+        }
+        else if(settings.audio_device_plugin)
+        {
+            this.devices.audio = this.create_audio_plugin(settings, device_bus);
         }
 
         // Last, so that they get a slot and ports that nothing else uses

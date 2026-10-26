@@ -51,10 +51,16 @@ export const NET_DEVICE_TYPES = ["ne2k", "e1000", "virtio", "none"];
 /** The network cards that are plugins (src/device_plugin.js): build/v86-<type>.js */
 export const NET_DEVICE_PLUGINS = ["e1000"];
 
+/** The sound cards (audio_device) of the PC machines: one or none (the PC speaker is not a sound card) */
+export const AUDIO_DEVICES = ["sb16", "hd_audio", "none"];
+
+/** The sound cards that are plugins: build/v86-<name>.js (underscores as dashes) */
+export const AUDIO_DEVICE_PLUGINS = ["hd_audio"];
+
 /** Options of the PC machines that the virt machine rejects */
 export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",
     "hpet", "smbus", "pcie_root_ports", "qemu_compatible", "uart1", "uart2", "uart3", "parallel1", "modem",
-    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features"];
+    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features", "audio_device", "audio_device_path"];
 
 /** Options of the virt machine that the PC machines reject */
 export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
@@ -186,6 +192,17 @@ export function check_machine_options(options)
         {
             throw new Error("net_device.plugin_path must be the path or URL of the plugin file");
         }
+        const audio = options["audio_device"];
+        if(audio !== undefined && !AUDIO_DEVICES.includes(audio))
+        {
+            throw new Error("Unknown audio_device " + JSON.stringify(audio) + "; supported: " +
+                AUDIO_DEVICES.map(name => "\"" + name + "\"").join(", "));
+        }
+        const audio_path = options["audio_device_path"];
+        if(audio_path !== undefined && (typeof audio_path !== "string" || !audio_path))
+        {
+            throw new Error("audio_device_path must be the path or URL of the plugin file");
+        }
     }
     return { cpu_type, machine_type };
 }
@@ -243,6 +260,8 @@ export function allowed_options(cpu_type, machine_type)
         machine_types: is_arm(cpu_type) ? ARM_MACHINE_TYPES.slice() : MACHINE_TYPES.filter(m => !ARM_MACHINE_TYPES.includes(m)),
         graphics_adapters: machine_type === "ranchu" ? ["none"] : virt ? VIRT_GRAPHICS_ADAPTERS.slice() : GRAPHICS_ADAPTERS.slice(),
         net_device_types: virt ? VIRT_NET_DEVICE_TYPES.slice() : NET_DEVICE_TYPES.slice(),
+        // (the virt machine's sound is virtio_sound)
+        audio_devices: virt ? [] : AUDIO_DEVICES.slice(),
         max_cores: MAX_CORES,
         acpi: virt ? "none" : machine_type === "q35" ? "required" : "with_cores",
         unavailable,

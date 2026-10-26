@@ -73,7 +73,7 @@ export function hardware_rows(c)
         rows.push(["Network", network.device === "none" ? "none" : (NIC_LABELS[network.device] || network.device) + ", " + (BACKENDS[network.backend] || network.backend) +
             (network.relay_url ? " " + network.relay_url : "")]);
     }
-    rows.push(["Sound", c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device]);
+    rows.push(["Sound", (c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device) + (c.sound.mute ? ", muted" : "")]);
     for(const serial of c.serial) if(serial.attach !== "none") rows.push(["UART" + serial.port, serial.attach]);
     if(c.filesystem) rows.push(["Shared folder", c.filesystem.baseurl || "in the browser"]);
     return rows;

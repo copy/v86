@@ -4,7 +4,7 @@ import { state_stream_server } from "./state_stream_transport.js";
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
 import { default_plugin_path } from "../device_plugin.js";
-import { is_arm, NET_DEVICE_PLUGINS } from "../machine_options.js";
+import { is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 /**
  * @param {*} f
@@ -84,6 +84,10 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
                 new URL(o.net_device.plugin_path || default_plugin_path(o.net_device.type), location.href).href : undefined,
             "mtu": o.net_device?.mtu,
             ...placement(o.net_device) },
+        // (a plugin card, as the network card's)
+        "audio_device": o["audio_device"],
+        "audio_device_path": AUDIO_DEVICE_PLUGINS.includes(o["audio_device"]) ?
+            new URL(o["audio_device_path"] || default_plugin_path(o["audio_device"]), location.href).href : undefined,
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),

@@ -10,7 +10,8 @@
 // /__service_file?name=&contains= says whether one has a text and a writer,
 // POST /__service_down and /__service_up take the service away and back.
 // With isolated=1, the pages cross-origin isolated (COOP/COEP, as the site's
-// _headers): the cores in host threads (vCPU workers).
+// _headers): the cores in host threads (vCPU workers). With autoplay=1, audio
+// plays without a user's gesture (pages that measure their output).
 //   node tests/app/browser_runner.mjs <page> [query arguments...]
 //   node tests/app/browser_runner.mjs tests/app/store_test.html
 // Needs Chrome (CHROME); TIMEOUT_MS (default 300000); BROWSER_DEBUG_PORT (DevTools).
@@ -33,7 +34,8 @@ if(!page)
 const args = process.argv.slice(3);
 const with_service = args.includes("service=1");
 const ISOLATION = args.includes("isolated=1") ? { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" } : {};
-let query = args.filter(a => a !== "service=1" && a !== "isolated=1").join("&");
+const AUTOPLAY = args.includes("autoplay=1");
+let query = args.filter(a => a !== "service=1" && a !== "isolated=1" && a !== "autoplay=1").join("&");
 let service, service_dir, service_listeners = null;
 
 const REPORTER = `<script>
@@ -182,6 +184,7 @@ server.listen(0, "127.0.0.1", async () =>
     console.log(url);
     browser = spawn(process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", [
         "--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
+        ...(AUTOPLAY ? ["--autoplay-policy=no-user-gesture-required"] : []),
         // (BROWSER_DEBUG_PORT: DevTools on that port, to look at a long part while it runs)
         ...(process.env.BROWSER_DEBUG_PORT ? ["--remote-debugging-port=" + process.env.BROWSER_DEBUG_PORT] : []),
         "--user-data-dir=" + profile, url,

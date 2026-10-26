@@ -23,7 +23,11 @@ settings, rename, export, delete.
   before the machine is made. The network card follows the system's own
   drivers: the NE2000 up to Windows XP and 32-bit Linux, the Intel PRO/1000
   MT (e1000) for Windows Vista to 8.1, virtio-net for Linux x86_64 and the
-  ARM machines.
+  ARM machines. So does the sound card: the Sound Blaster 16 up to XP, HD
+  Audio for Vista to 8.1 ([sound.md](sound.md)). A sound card of "None" is
+  no card at all (the PC speaker stays); Mute keeps the card and plays
+  nothing. Machines made before 2026-10-26 with the sound "None" had a
+  muted Sound Blaster and keep it (configuration version 3).
 - **Edit settings…** opens the settings dialog: the hardware list (memory,
   processor, machine and firmware, hard disks, CD/DVD, floppies, network
   adapters, sound, display, serial ports, shared folder, direct boot, the

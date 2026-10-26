@@ -10,7 +10,8 @@
 <pre id="result"></pre>
 <script type="module">
 import { VMStore, export_config, import_config, export_file_name, files_to_choose } from "../../src/app/vm_store.js";
-import { new_config } from "../../src/app/vm_config.js";
+import { new_config, VERSION } from "../../src/app/vm_config.js";
+import { machine_digest } from "../../src/app/vm_state.js";
 import { PRESETS, preset_config } from "../../src/app/guest_presets.js";
 
 const DB = "v86-vm-manager-test", DB2 = "v86-vm-manager-test-imported";
@@ -111,6 +112,31 @@ async function phase1()
     upgraded.close();
     await remove_database(OLD);
     log("a version 1 library opens as version 2, its configuration kept, with preferences");
+
+    // a suspended machine of configuration version 2 (its sound "none": a
+    // muted Sound Blaster): migrated, it resumes without "the settings
+    // changed" (its digest is the new form's), stored in the new form
+    {
+        const raw = Object.assign(JSON.parse(JSON.stringify(stored[0])), { id: "suspended-v2", version: 2, sound: { device: "none" } });
+        delete raw.sound.mute;
+        raw.suspended = { size: 1, time: "2026-10-26T00:00:00.000Z", digest: await machine_digest(raw) };
+        const changed = Object.assign(JSON.parse(JSON.stringify(raw)), { id: "changed-v2" });
+        changed.memory = { mb: raw.memory.mb + 64 };
+        const transaction = store.db.transaction("vms", "readwrite");
+        transaction.objectStore("vms").put(raw);
+        transaction.objectStore("vms").put(changed);
+        await new Promise(resolve => transaction.oncomplete = resolve);
+        const migrated = await store.get("suspended-v2");
+        check(migrated.version === VERSION && migrated.sound.device === "sb16" && migrated.sound.mute === true, "the muted Sound Blaster");
+        check(migrated.suspended.digest === await machine_digest(migrated), "the digest of the migrated configuration");
+        const kept = await new Promise(resolve => { const r = store.db.transaction("vms").objectStore("vms").get("suspended-v2"); r.onsuccess = () => resolve(r.result); });
+        check(kept.version === VERSION, "stored in the new form");
+        const other = await store.get("changed-v2");
+        check(other.suspended.digest !== await machine_digest(other), "a digest that was already wrong stays wrong (the settings did change)");
+        await store.delete("suspended-v2");
+        await store.delete("changed-v2");
+        log("a suspended machine of version 2 migrates with its digest; a changed one still says so");
+    }
 
     sessionStorage.setItem("stored", JSON.stringify(stored));
     sessionStorage.setItem("handle_id", handle_id);

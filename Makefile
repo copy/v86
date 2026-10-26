@@ -63,6 +63,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	./tests/api/sb16-dma.js
 	./tests/devices/disk_error.mjs
 	./tests/devices/e1000.js
+	./tests/devices/hd_audio.js
 	./tests/persistence/response_version.mjs
 	./tests/persistence/node_file.mjs
 	./tests/persistence/disk_service.mjs
@@ -170,7 +171,10 @@ GRAPHICS_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/bus.js
 NET_ADAPTER_PLUGINS=build/v86-e1000.js
 NET_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/mac_address.js \
 	src/device_machine.js src/net_adapters/machine.js src/net_adapters/offload.js
-DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS)
+# Sound card plugins (audio_device), likewise
+AUDIO_DEVICE_PLUGINS=build/v86-hd-audio.js
+AUDIO_DEVICE_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_machine.js src/audio_devices/machine.js
+DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS)
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs src/rust/gen/interpreter0f38.rs src/rust/gen/interpreter0f3a.rs \
@@ -240,6 +244,14 @@ build/v86-e1000.js: $(CLOSURE) src/*.js src/net_adapters/*.js src/net_adapters/e
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--output_wrapper ';(function(){%output%}).call(this);' \
 		--js $(NET_ADAPTER_COMMON) --js src/net_adapters/e1000/e1000.js --js src/net_adapters/e1000/plugin.js
+
+build/v86-hd-audio.js: $(CLOSURE) src/*.js src/audio_devices/*.js src/audio_devices/hd_audio/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(AUDIO_DEVICE_COMMON) --js src/audio_devices/hd_audio/codec.js --js src/audio_devices/hd_audio/controller.js \
+		--js src/audio_devices/hd_audio/plugin.js
 
 device-plugins: $(DEVICE_PLUGINS)
 
@@ -597,7 +609,20 @@ e1000-tests: build/v86-debug.wasm build/libv86.mjs
 	./tests/devices/e1000_guest.mjs
 	CPU_CORES=2 ./tests/devices/e1000_guest.mjs
 
-.PHONY: e1000-tests q35-device-tests q35-guest-tests q35-hotplug-tests q35-tests
+# The HD Audio controller (docs/sound.md, docs/modern-pc-devices-plan.md H1):
+# the plugin's device through its registers, then Alpine x86_64's drivers
+# playing through it (i440FX, Q35, two cores; the pinned ISO is downloaded
+# on first use, as for the x64 linux targets), and what headless Chrome plays
+# of it with the CPU worker
+hd-audio-tests: build/v86-debug.wasm build/libv86.mjs
+	./tests/devices/hd_audio.js
+	TEST_RELEASE_BUILD=1 ./tests/devices/hd_audio.js
+	./tests/devices/hd_audio_guest.mjs
+	MACHINE=q35 ./tests/devices/hd_audio_guest.mjs
+	CPU_CORES=2 ./tests/devices/hd_audio_guest.mjs
+	TIMEOUT_MS=1500000 node tests/app/browser_runner.mjs tests/devices/hd_audio_browser.html autoplay=1
+
+.PHONY: hd-audio-tests e1000-tests q35-device-tests q35-guest-tests q35-hotplug-tests q35-tests
 q35-tests: acpi-table-tests q35-device-tests q35-guest-tests q35-hotplug-tests
 
 # ACPICA's iasl/acpiexec are used when found on PATH or in IASL/ACPIEXEC
