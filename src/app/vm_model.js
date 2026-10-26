@@ -53,6 +53,7 @@ export function choices(config)
         graphics_adapters: allowed.graphics_adapters,
         net_devices: allowed.net_device_types,
         sound_devices: ranchu ? RANCHU_SOUND_DEVICES : virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES,
+        usb_controllers: allowed.usb_controllers,
         boot_orders: arm ? [0] : BOOT_ORDERS,
         max_cores: allowed.max_cores,
         /** the most memory in MB: the Wasm heap for the 32-bit CPUs, extended RAM above it for the 64-bit ones */
@@ -194,6 +195,11 @@ function fit(c, notes)
     {
         c.sound.device = "none";
         note("Sound: none" + (ranchu ? " (the ranchu machine's sound is not played)" : virt ? " (the virt machine has no Sound Blaster)" : ""));
+    }
+    if(c.usb && (virt || ranchu))
+    {
+        c.usb = null;
+        note("USB: none (the " + c.machine.type + " machine's input is virtio-input)");
     }
     return c;
 }

@@ -10,6 +10,7 @@
 // docs/modern-pc-devices-plan.md, "设备插件".
 
 import { LOG_PCI } from "./const.js";
+import { BlockBackend, block_drop_holds } from "./block_backend.js";
 import { dbg_log } from "./log.js";
 import { msi_capability } from "./pci.js";
 
@@ -35,8 +36,9 @@ const IO_POOL_END = 0xE000;
 /**
  * The kinds of plugin: the global registry plugin files add their
  * descriptors to, the option that names them (for messages), the directory
- * of their entry modules in the source tree, and their snapshot slot's tag
- * @typedef {{registry: string, option: string, dir: string, tag: string}}
+ * of their entry modules in the source tree (or the entry module itself:
+ * one plugin of the kind), and their snapshot slot's tag
+ * @typedef {{registry: string, option: string, dir: string, tag: string, entry: (string|undefined)}}
  */
 export let PluginKind;
 
@@ -46,6 +48,8 @@ export const GRAPHICS_PLUGINS = { registry: "V86GraphicsAdapters", option: "grap
 export const NET_PLUGINS = { registry: "V86NetAdapters", option: "net_device", dir: "net_adapters", tag: "net_adapter" };
 /** @const @type {PluginKind} */
 export const AUDIO_PLUGINS = { registry: "V86AudioDevices", option: "audio_device", dir: "audio_devices", tag: "audio_device" };
+/** @const @type {PluginKind} the USB controllers and devices: one plugin, "usb" */
+export const USB_PLUGINS = { registry: "V86UsbControllers", option: "usb", dir: "usb", tag: "usb", entry: "./usb/plugin.js" };
 
 /** A plugin slot's snapshot entry: [tag, STATE_VERSION, name, device state] */
 const STATE_VERSION = 1;
@@ -120,7 +124,7 @@ export async function load_device_plugin(kind, name, path, path_option)
         if(typeof V86_BUNDLE === "undefined" && path === undefined)
         {
             // From the source tree: the plugin's entry module
-            await import("./" + kind.dir + "/" + name + "/plugin.js");
+            await import(kind.entry || "./" + kind.dir + "/" + name + "/plugin.js");
         }
         else
         {
@@ -250,6 +254,31 @@ export function device_handle(cpu, owner)
         // a halted machine runs its timers again now rather than when it
         // planned to wake
         "wake": () => cpu.stop_idling(),
+        // a disk image the host gave the plugin (a USB disk's): block_handle
+        "block_backend": buffer => block_handle(/** @type {!CPU} */ (cpu), buffer),
+    };
+}
+
+/**
+ * A disk image for a plugin's device: the core's block backend
+ * (src/block_backend.js) on the image's buffer, by quoted names: reads a
+ * reset cancels, "flush" after the writes before it, I/O a snapshot waits
+ * for, the disk's error policy; "drop" when the device is gone (its requests
+ * held after an error are dropped)
+ * @param {!CPU} cpu
+ * @param {!Object} buffer
+ * @return {!Object}
+ */
+export function block_handle(cpu, buffer)
+{
+    const backend = new BlockBackend(cpu, buffer);
+    return {
+        "byte_length": backend.byte_length,
+        "read": (start, length, callback, on_error) => backend.read(start, length, callback, on_error),
+        "write": (start, data, callback, on_error) => backend.write(start, data, callback, on_error),
+        "flush": (callback, on_error) => backend.when_writes_done(callback, on_error),
+        "reset": () => backend.reset(),
+        "drop": () => block_drop_holds(backend),
     };
 }
 

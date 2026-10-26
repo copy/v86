@@ -74,6 +74,12 @@ export function hardware_rows(c)
             (network.relay_url ? " " + network.relay_url : "")]);
     }
     rows.push(["Sound", (c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device) + (c.sound.mute ? ", muted" : "")]);
+    if(c.usb) rows.push(["USB", c.usb.controller.toUpperCase() + (c.usb.tablet ? ", tablet" : "")]);
+    for(const disk of c.usb ? c.usb.disks : [])
+    {
+        rows.push(["USB disk (" + disk.id + ")", describe_image(disk.image) + (disk.disk_option === "read_write" ? ", read write" : ", read only") +
+            (disk.write_protected ? ", write protected" : "")]);
+    }
     for(const serial of c.serial) if(serial.attach !== "none") rows.push(["UART" + serial.port, serial.attach]);
     if(c.filesystem) rows.push(["Shared folder", c.filesystem.baseurl || "in the browser"]);
     return rows;

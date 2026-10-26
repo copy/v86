@@ -1,7 +1,8 @@
 // @ts-check
 // The settings dialog's panels of the drives (docs/vm-manager-plan.md "设置
-// 对话框"): hard disks (their source, disk_option, disk_error, bus), the
-// CD/DVD drive, floppy drives, direct boot (kernel, initrd, multiboot).
+// 对话框"): hard disks (their source, disk_option, disk_error, bus), USB
+// disks, the CD/DVD drive, floppy drives, direct boot (kernel, initrd,
+// multiboot).
 
 import { h } from "../dom.js";
 import { image_picker } from "../image_picker.js";
@@ -56,6 +57,38 @@ export function disk_panel(ctx, index)
             v => v === "read_only" ? "Kept in memory, the image unchanged (read only)" : "Written back to " + where + " (read write)",
             problem ? { disabled: true, title: problem } : {}),
         select_field("When a read or write fails", ["stop", "report"], disk.disk_error, value => ctx.set("disks." + index + ".disk_error", value),
+            v => v === "stop" ? "Pause the machine and ask (retry or power off)" : "Report it to the guest"),
+    ];
+}
+
+/**
+ * A USB disk (usb.disks[index]): a disk image as a USB stick, its source as
+ * a hard disk's
+ * @param {PanelContext} ctx
+ * @param {number} index
+ */
+export function usb_disk_panel(ctx, index)
+{
+    const usb = /** @type {{tablet: boolean, disks: import("../../vm_config.js").UsbDisk[]}} */ (ctx.config.usb);
+    const disk = usb.disks[index];
+    const path = "usb.disks." + index;
+    const problem = read_write_problem(disk.image);
+    return [
+        h("p.note", null, "A disk image as a USB stick (mass storage, in a port of the USB controller): the guest mounts it as a removable disk. " +
+            "While the machine runs, the Devices menu unplugs it or plugs in another."),
+        image_picker({ label: "Source", role: "disk", image: disk.image, store: ctx.store, service: ctx.service, machine_name: ctx.config.name,
+            on_change: (image, extra) => ctx.edit(next =>
+            {
+                const d = /** @type {any} */ (next.usb).disks[index];
+                d.image = image;
+                if(extra && extra.read_write) d.disk_option = "read_write";
+                if(read_write_problem(image)) d.disk_option = "read_only";
+            }) }),
+        select_field("The guest's changes", ["read_only", "read_write"], disk.disk_option, value => ctx.set(path + ".disk_option", value),
+            v => v === "read_only" ? "Kept in memory, the image unchanged (read only)" : "Written back to the image (read write)",
+            problem ? { disabled: true, title: problem } : {}),
+        check_field("Write protected (the guest can only read it)", disk.write_protected, value => ctx.set(path + ".write_protected", value)),
+        select_field("When a read or write fails", ["stop", "report"], disk.disk_error, value => ctx.set(path + ".disk_error", value),
             v => v === "stop" ? "Pause the machine and ask (retry or power off)" : "Report it to the guest"),
     ];
 }

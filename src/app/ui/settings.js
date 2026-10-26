@@ -11,11 +11,12 @@ import { choices, change, fitted } from "../vm_model.js";
 import { check_config } from "../vm_config.js";
 import { describe_image } from "./describe.js";
 import { general_panel, memory_panel, processor_panel, machine_panel, advanced_panel, CPU_LABELS, MACHINE_LABELS } from "./panels/system.js";
-import { disk_panel, cdrom_panel, floppy_panel, direct_boot_panel } from "./panels/storage.js";
-import { network_panel, sound_panel, display_panel, serial_panel, shared_folder_panel, virt_panel, NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
+import { disk_panel, usb_disk_panel, cdrom_panel, floppy_panel, direct_boot_panel } from "./panels/storage.js";
+import { network_panel, sound_panel, usb_panel, display_panel, serial_panel, shared_folder_panel, virt_panel, NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 import { android_panel } from "./panels/android.js";
 import { ANDROID_DEFAULTS } from "../vm_config.js";
 import { RANCHU_DEVICES } from "../../android/devices.js";
+import { USB_PORTS } from "../../machine_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Problem} Problem */
@@ -70,6 +71,12 @@ export function hardware_items(c)
     items.push({ id: "sound", label: "Sound card", summary: (c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device) +
         (c.sound.mute ? ", muted" : ""),
         panel: sound_panel, remove: null });
+    if(c.usb) items.push({ id: "usb", label: "USB", summary: c.usb.controller.toUpperCase() + (c.usb.tablet ? ", tablet" : ""), panel: usb_panel,
+        remove: next => { next.usb = null; } });
+    (c.usb ? c.usb.disks : []).forEach((disk, i) => items.push({
+        id: "usb-disk-" + i, label: "USB disk (" + disk.id + ")", summary: describe_image(disk.image), panel: ctx => usb_disk_panel(ctx, i),
+        remove: next => { /** @type {any} */ (next.usb).disks.splice(i, 1); },
+    }));
     items.push({ id: "display", label: "Display", summary: c.display.adapter + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : ""), panel: display_panel, remove: null });
     items.push({ id: "serial", label: "Serial ports", summary: c.serial.filter(s => s.attach !== "none").map(s => "UART" + s.port + " " + s.attach).join(", ") || "none",
         panel: serial_panel, remove: null });
@@ -92,13 +99,15 @@ export function hardware_items(c)
 export function item_of(path)
 {
     const [head, index] = path.split(".");
+    // (a USB disk's: usb.disks.<i>)
+    if(head === "usb" && index === "disks" && /^\d+$/.test(path.split(".")[2] || "")) return "usb-disk-" + path.split(".")[2];
     switch(head)
     {
         case "disks": return "disk-" + (index || 0);
         case "floppies": return "floppy-" + (index || 0);
         case "network": return "network-" + (index || 0);
         case "cpu": return "processor";
-        case "memory": case "machine": case "cdrom": case "sound": case "display": case "serial": case "filesystem": case "virt": case "advanced": return head;
+        case "memory": case "machine": case "cdrom": case "sound": case "usb": case "display": case "serial": case "filesystem": case "virt": case "advanced": return head;
         case "kernel": return "kernel";
         case "android": return "android";
         case "initial_state": return "advanced";
@@ -128,6 +137,19 @@ function additions(c)
     if(virt && c.network.length < 4)
     {
         list.push(["Network adapter", next => { next.network.push({ device: "virtio", backend: "none", relay_url: "", mtu: 1500, mac_address_translation: false }); }]);
+    }
+    if(!arm && !c.usb) list.push(["USB", next => { next.usb = { controller: "uhci", tablet: true, disks: [] }; }]);
+    // (a USB disk in a free port: with USB, or with it added for the disk)
+    if(!arm && (!c.usb || c.usb.disks.length + (c.usb.tablet ? 1 : 0) < (USB_PORTS[c.usb.controller] || 0)))
+    {
+        list.push(["USB disk", next =>
+        {
+            if(!next.usb) next.usb = { controller: "uhci", tablet: false, disks: [] };
+            const ids = next.usb.disks.map(d => d.id);
+            let n = 0;
+            while(ids.includes("usb" + n)) n++;
+            next.usb.disks.push({ id: "usb" + n, image: { kind: "empty", size: 64 << 20 }, disk_option: "read_only", disk_error: "stop", write_protected: false });
+        }]);
     }
     if(!c.filesystem) list.push(["Shared folder", next => { next.filesystem = {}; }]);
     if(!c.kernel) list.push(["Direct boot", next => { next.kernel = { bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }; }]);

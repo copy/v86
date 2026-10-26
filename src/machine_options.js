@@ -57,10 +57,16 @@ export const AUDIO_DEVICES = ["sb16", "hd_audio", "none"];
 /** The sound cards that are plugins: build/v86-<name>.js (underscores as dashes) */
 export const AUDIO_DEVICE_PLUGINS = ["hd_audio"];
 
+/** The USB host controllers (usb.controller) of the PC machines */
+export const USB_CONTROLLERS = ["uhci"];
+
+/** Their root ports: the tablet and USB disks each take one (there is no hub) */
+export const USB_PORTS = { "uhci": 2 };
+
 /** Options of the PC machines that the virt machine rejects */
 export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",
     "hpet", "smbus", "pcie_root_ports", "qemu_compatible", "uart1", "uart2", "uart3", "parallel1", "modem",
-    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features", "audio_device", "audio_device_path"];
+    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features", "audio_device", "audio_device_path", "usb"];
 
 /** Options of the virt machine that the PC machines reject */
 export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
@@ -203,6 +209,44 @@ export function check_machine_options(options)
         {
             throw new Error("audio_device_path must be the path or URL of the plugin file");
         }
+        const usb = options["usb"];
+        if(usb !== undefined && usb !== null)
+        {
+            if(typeof usb !== "object" || !USB_CONTROLLERS.includes(usb["controller"]))
+            {
+                throw new Error("usb.controller must be one of " + USB_CONTROLLERS.map(name => "\"" + name + "\"").join(", "));
+            }
+            if(usb["tablet"] !== undefined && typeof usb["tablet"] !== "boolean") throw new Error("usb.tablet must be true or false");
+            if(usb["plugin_path"] !== undefined && (typeof usb["plugin_path"] !== "string" || !usb["plugin_path"]))
+            {
+                throw new Error("usb.plugin_path must be the path or URL of the plugin file");
+            }
+            // USB disks: { id, image, read_only }, each in a port of its own
+            const disks = usb["mass_storage"];
+            if(disks !== undefined)
+            {
+                if(!Array.isArray(disks)) throw new Error("usb.mass_storage must be a list of USB disks ({ id, image, read_only })");
+                const ids = new Set(["tablet"]);
+                for(const disk of disks)
+                {
+                    const id = disk && disk["id"];
+                    if(typeof id !== "string" || !id) throw new Error("usb.mass_storage: each USB disk needs an id (a string)");
+                    if(ids.has(id)) throw new Error("usb.mass_storage: the id " + JSON.stringify(id) + " is taken");
+                    ids.add(id);
+                    if(!disk["image"] || typeof disk["image"] !== "object") throw new Error("usb.mass_storage: " + JSON.stringify(id) + " needs an image");
+                    if(disk["read_only"] !== undefined && typeof disk["read_only"] !== "boolean")
+                    {
+                        throw new Error("usb.mass_storage: read_only of " + JSON.stringify(id) + " must be true or false");
+                    }
+                }
+                const ports = USB_PORTS[usb["controller"]];
+                if(disks.length + (usb["tablet"] ? 1 : 0) > ports)
+                {
+                    throw new Error("usb: the " + usb["controller"].toUpperCase() + " controller has " + ports + " ports, for " +
+                        (usb["tablet"] ? "the tablet and " : "") + disks.length + " USB disk" + (disks.length === 1 ? "" : "s"));
+                }
+            }
+        }
     }
     return { cpu_type, machine_type };
 }
@@ -216,6 +260,7 @@ export function check_machine_options(options)
  * @param {string} cpu_type
  * @param {string} machine_type
  * @return {{machine_types: !Array<string>, graphics_adapters: !Array<string>, net_device_types: !Array<string>,
+ *     audio_devices: !Array<string>, usb_controllers: !Array<string>,
  *     max_cores: number, acpi: string, unavailable: !Object<string, string>}} machine_types: the machines
  *     of the CPU; acpi: "required" (Q35), "with_cores" (needed with more than one core), "none" (virt);
  *     unavailable: the options that do not apply, each with the reason
@@ -262,6 +307,8 @@ export function allowed_options(cpu_type, machine_type)
         net_device_types: virt ? VIRT_NET_DEVICE_TYPES.slice() : NET_DEVICE_TYPES.slice(),
         // (the virt machine's sound is virtio_sound)
         audio_devices: virt ? [] : AUDIO_DEVICES.slice(),
+        // (the virt machine's input is virtio_input)
+        usb_controllers: virt ? [] : USB_CONTROLLERS.slice(),
         max_cores: MAX_CORES,
         acpi: virt ? "none" : machine_type === "q35" ? "required" : "with_cores",
         unavailable,

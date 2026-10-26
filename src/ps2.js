@@ -29,19 +29,45 @@ export function PS2(cpu, bus)
         this.kbd_send_code(code);
     }, this);
 
+    // The pointer goes to one device of the guest: while the guest uses the
+    // USB tablet (usb.tablet), it has the pointer, unless the page locked it
+    // (then the movement is relative, this mouse's)
+    this.pointer_elsewhere = false;
+    this.pointer_locked = false;
+    const route = () =>
+    {
+        const elsewhere = this.usb_tablet_active && !this.pointer_locked;
+        // (buttons held go up when the pointer changes hands)
+        if(elsewhere && !this.pointer_elsewhere && this.have_mouse && this.use_mouse) this.mouse_send_click(false, false, false);
+        this.pointer_elsewhere = elsewhere;
+    };
+    this.usb_tablet_active = false;
+    this.bus.register("usb-tablet-active", function(active)
+    {
+        this.usb_tablet_active = !!active;
+        route();
+    }, this);
+    this.bus.register("mouse-pointer-lock", function(locked)
+    {
+        this.pointer_locked = !!locked;
+        route();
+    }, this);
+
     this.bus.register("mouse-click", function(data)
     {
+        if(this.pointer_elsewhere) return;
         this.mouse_send_click(data[0], data[1], data[2]);
     }, this);
 
     this.bus.register("mouse-delta", function(data)
     {
+        if(this.pointer_elsewhere) return;
         this.mouse_send_delta(data[0], data[1]);
     }, this);
 
     this.bus.register("mouse-wheel", function(data)
     {
-        if(!this.have_mouse || !this.use_mouse || !this.mouse_stream_active())
+        if(!this.have_mouse || !this.use_mouse || !this.mouse_stream_active() || this.pointer_elsewhere)
         {
             return;
         }

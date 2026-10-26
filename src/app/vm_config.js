@@ -5,14 +5,15 @@
 // configuration (config_to_options, with the old page's rules of
 // src/browser/vm_options.js).
 
-import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
+import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, USB_PORTS, allowed_options,
+    check_machine_options } from "../machine_options.js";
 import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
 import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, MAX_ARRAY_BUFFER_SIZE_MB, DEFAULT_VGA_MEMORY_SIZE,
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
 
 export const FORMAT = "v86-vm";
-export const VERSION = 3;
+export const VERSION = 4;
 
 /**
  * Where an image is (the plan's 镜像来源): a URL (or a disk service's), a
@@ -37,6 +38,15 @@ export const VERSION = 3;
  * @property {"fda" | "fdb"} slot
  * @property {Image | null} image
  * @property {"read_only" | "read_write"} disk_option
+ */
+
+/**
+ * @typedef {Object} UsbDisk a disk image as a USB disk (usb.mass_storage)
+ * @property {string} id its name (V86's usb_attach_disk id; "usb:" + id for its image)
+ * @property {Image} image
+ * @property {"read_only" | "read_write"} disk_option the source's policy, as a hard disk's
+ * @property {"stop" | "report"} disk_error
+ * @property {boolean} write_protected the guest sees it read only
  */
 
 /**
@@ -76,6 +86,8 @@ export const VERSION = 3;
  *     three), at most one of them with a backend
  * @property {{device: "sb16" | "hd_audio" | "virtio" | "none", mute: boolean}} sound the sound card (virtio: virt's
  *     virtio-snd; none: no card, the PC speaker stays) and whether the page plays nothing
+ * @property {{controller: "uhci", tablet: boolean, disks: UsbDisk[]} | null} usb a USB controller and its devices (the PC
+ *     machines'): the tablet, USB disks; each in a port of its own
  * @property {{transport: "mmio" | "pci", input: string[] | null, console_ports: number, vsock: boolean,
  *     gpu_pci_slot: number | null}} virt the virt machine's devices: input null as the display has them
  *     (keyboard, tablet and touch screen with virtio-gpu); console_ports 0: no virtio console
@@ -198,6 +210,11 @@ export function with_defaults(config)
     section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: "none", displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
     section("sound", { device: "sb16", mute: false });
+    c.usb = is_object(c.usb) ? Object.assign({ controller: "uhci", tablet: true, disks: [] }, c.usb) : null;
+    if(c.usb && Array.isArray(c.usb.disks))
+    {
+        c.usb.disks = c.usb.disks.map(d => Object.assign({ disk_option: "read_only", disk_error: "stop", write_protected: false }, d));
+    }
     section("virt", Object.assign({}, VIRT_DEFAULTS));
     c.serial = Array.isArray(c.serial) ? c.serial : [{ port: 0, attach: "terminal" }];
     c.filesystem = is_object(c.filesystem) ? c.filesystem : null;
@@ -238,6 +255,8 @@ const MIGRATIONS = {
         const changed = !virt && sound.device === "none" ? { device: "sb16", mute: true } : { mute: false };
         return Object.assign({}, config, { sound: Object.assign({}, sound, changed) });
     },
+    // 4 (2026-10-26, U1): the usb section (none before)
+    3: config => Object.assign({}, config, { usb: null }),
 };
 
 /**
@@ -521,6 +540,52 @@ export function validate_config(config)
             virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16, hd_audio or none (virtio-snd is the virt machine's)");
     }
     bool(config.sound.mute, "sound.mute");
+    if(config.usb !== null)
+    {
+        if(!is_object(config.usb)) problem("usb", "an object or null");
+        else
+        {
+            if(!allowed.usb_controllers.includes(config.usb.controller))
+            {
+                problem("usb.controller", virt ? "the virt machine has no USB (its input is virtio-input)" : "must be one of " + allowed.usb_controllers.join(", "));
+            }
+            bool(config.usb.tablet, "usb.tablet");
+            // USB disks: a port each (the tablet takes one), their images as hard disks'
+            const disks = config.usb.disks === undefined ? [] : config.usb.disks;
+            if(!Array.isArray(disks)) problem("usb.disks", "a list");
+            else
+            {
+                const ids = new Set();
+                disks.forEach((disk, i) =>
+                {
+                    const path = "usb.disks." + i;
+                    if(typeof disk.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(disk.id) || disk.id === "tablet") problem(path + ".id", "letters, digits, - and _");
+                    else if(ids.has(disk.id)) problem(path + ".id", disk.id + " is given twice");
+                    ids.add(disk.id);
+                    check_image(disk.image, path + ".image", problems);
+                    if(!DISK_OPTIONS.includes(disk.disk_option)) problem(path + ".disk_option", "must be read_only or read_write");
+                    if(!DISK_ERRORS.includes(disk.disk_error)) problem(path + ".disk_error", "must be stop or report");
+                    if(disk.disk_option === "read_write" && disk.image && (disk.image.kind === "file" || disk.image.kind === "empty"))
+                    {
+                        problem(path + ".disk_option", disk.image.kind === "file" ?
+                            "a file chosen on this computer can only be read: its changes stay in memory (read write needs a disk service or a browser disk)" :
+                            "an empty disk in memory has nothing to write back to: use a browser disk or a disk service");
+                    }
+                    if(disk.image && disk.image.kind === "empty" && disk.image.size > MAX_ARRAY_BUFFER_SIZE_MB * 1024 * 1024)
+                    {
+                        problem(path + ".image", "an empty disk in memory has at most " + MAX_ARRAY_BUFFER_SIZE_MB + " MB");
+                    }
+                    bool(disk.write_protected, path + ".write_protected");
+                });
+                const ports = USB_PORTS[config.usb.controller];
+                if(ports && disks.length + (config.usb.tablet ? 1 : 0) > ports)
+                {
+                    problem("usb.disks", "the " + config.usb.controller.toUpperCase() + " controller has " + ports + " ports" +
+                        (config.usb.tablet ? ", one of them the tablet's" : ""));
+                }
+            }
+        }
+    }
 
     const v = config.virt;
     if(!virt)
@@ -790,6 +855,21 @@ export function config_to_options(config, env)
     });
     // (the firmware's boot options, which the old page does not have)
     if(machine.fastboot) options.fastboot = true;
+    // (USB, likewise)
+    if(config.usb && !ARM_MACHINE_TYPES.includes(machine.type))
+    {
+        options.usb = { controller: config.usb.controller, tablet: config.usb.tablet };
+        if(config.usb.disks && config.usb.disks.length)
+        {
+            options.usb.mass_storage = config.usb.disks.map(disk =>
+            {
+                const option = image(disk.image);
+                if(disk.disk_option === "read_write") option.disk_option = "read_write";
+                if(disk.disk_error !== "stop") option.disk_error = disk.disk_error;
+                return { id: disk.id, image: option, read_only: disk.write_protected };
+            });
+        }
+    }
     if(machine.bootmenu) options.bootmenu = true;
     // (the virt machine's devices, which the old page does not have either)
     if(machine.type === "virt")

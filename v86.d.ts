@@ -335,7 +335,7 @@ export interface Event {
      * "report" the guest's command ends with the device's error status.
      */
     "disk-error": {
-        /** hda, hdb, cdrom, sata<port>, virtio_disk<n> */
+        /** hda, hdb, cdrom, sata<port>, virtio_disk<n>, usb:<id> */
         disk: string,
         operation: "read" | "write" | "flush",
         offset: number,
@@ -378,6 +378,10 @@ export interface Event {
     "parallel1-data-output": number;
     "parallel1-control-output": number;
     "parallel1-status-input": number;
+    /** The guest configured the USB tablet (true) or let it go (false): while it uses it, the tablet has the page's pointer */
+    "usb-tablet-active": boolean;
+    /** The guest ejected a USB disk's medium (its id): it can be detached now */
+    "usb-disk-ejected": string;
     "virtio-console0-output-bytes": Uint8Array;
     "virtio-console0-input-bytes": Uint8Array;
     "virtio-console0-resize": [cols: number, rows: number];
@@ -1149,6 +1153,28 @@ export interface V86Options {
     audio_device_path?: string;
 
     /**
+     * USB on the PC machines (a plugin, build/v86-usb.js beside the bundle): a UHCI controller
+     * (PIIX3's on i440FX at 00:01.2, ICH9's on Q35 at 00:1d.0) and, with `tablet`, a HID tablet on
+     * its first port, an absolute pointer that has the page's pointer while the guest uses it (unless
+     * the pointer is locked: then the PS/2 mouse has it); `mass_storage`: USB disks (disk images as
+     * USB sticks: Bulk-Only Transport, SCSI) on the ports after it. UHCI has 2 ports. See
+     * {@link V86.usb_plug}, {@link V86.usb_attach_disk}.
+     */
+    usb?: {
+        controller: "uhci";
+        tablet?: boolean;
+        mass_storage?: {
+            /** its name for usb_plug and usb_detach_disk ("usb:" + id for disk_buffer and export_disk_image) */
+            id: string;
+            /** as hda's */
+            image: V86HardDiskImage;
+            /** the guest sees it write protected */
+            read_only?: boolean;
+        }[];
+        plugin_path?: string;
+    };
+
+    /**
      * Enable serial port 1
      * @default false
      */
@@ -1554,6 +1580,33 @@ export class V86 {
      * @param options surprise: pull the card out at once
      */
     detach_pcie_device(port: number, options?: { surprise?: boolean }): Promise<void>;
+
+    /**
+     * Plug a USB device out of its port or back in (the `usb` option's devices: "tablet", a USB
+     * disk's id): the guest sees it leave or arrive. Rejected for a device the machine does not have.
+     *
+     * @param id the device: "tablet" or a USB disk's id
+     * @param plugged in (true) or out
+     */
+    usb_plug(id: string, plugged: boolean): Promise<void>;
+
+    /**
+     * Plug a disk image in as a USB disk (in the first free port): the guest sees it arrive. A
+     * snapshot holds the USB disks in their ports: to restore one taken with a USB disk, attach the
+     * same image with the same id first; otherwise the restored guest sees the disk leave.
+     *
+     * @param id its name (usb_plug, usb_detach_disk; "usb:" + id for disk_buffer and export_disk_image)
+     * @param image as hda's
+     * @param options read_only: the guest sees it write protected
+     */
+    usb_attach_disk(id: string, image: V86HardDiskImage, options?: { read_only?: boolean }): Promise<void>;
+
+    /**
+     * Pull a USB disk out, as a USB stick pulled from its socket: the writes the guest issued before
+     * are in the image (a disk written back is flushed and closed). To let the guest finish first,
+     * eject it in the guest ("usb-disk-ejected").
+     */
+    usb_detach_disk(id: string): Promise<void>;
 
     /**
      * Send a sequence of scan codes to the emulated PS2 controller. A list of

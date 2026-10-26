@@ -139,8 +139,19 @@ export function VMwareMouse(cpu, bus)
     this.rel_dx = 0;
     this.rel_dy = 0;
 
+    // (while the guest uses the USB tablet, the pointer is the tablet's)
+    this.usb_tablet_active = false;
+    this.bus.register("usb-tablet-active", function(active)
+    {
+        this.usb_tablet_active = !!active;
+    }, this);
+
     this.bus.register("mouse-absolute", function(data)
     {
+        if(this.usb_tablet_active)
+        {
+            return;
+        }
         const x = Math.max(0, Math.min(0xFFFF, Math.round(data[0] / data[2] * 0xFFFF)));
         const y = Math.max(0, Math.min(0xFFFF, Math.round(data[1] / data[3] * 0xFFFF)));
         if(x === this.last_x && y === this.last_y)
@@ -180,6 +191,10 @@ export function VMwareMouse(cpu, bus)
 
     this.bus.register("mouse-click", function(data)
     {
+        if(this.usb_tablet_active && !this.host_pointer_locked)
+        {
+            return;
+        }
         this.buttons =
             (data[0] ? BUTTON_LEFT : 0) |
             (data[1] ? BUTTON_MIDDLE : 0) |
@@ -196,6 +211,10 @@ export function VMwareMouse(cpu, bus)
 
     this.bus.register("mouse-wheel", function(data)
     {
+        if(this.usb_tablet_active && !this.host_pointer_locked)
+        {
+            return;
+        }
         if(this.host_pointer_locked)
         {
             this.push_relative(0, 0, -data[0] | 0, false);

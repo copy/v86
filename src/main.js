@@ -134,6 +134,7 @@ v86.prototype.destroy = function()
     // (a device plugin's hook: src/device_plugin.js)
     this.cpu.devices.net instanceof PluginDevice && this.cpu.devices.net.destroy();
     this.cpu.devices.audio && this.cpu.devices.audio.destroy();
+    this.cpu.devices.usb && this.cpu.devices.usb.destroy();
     this.cpu.clock.pause();
     this.unregister_yield();
 };

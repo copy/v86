@@ -64,6 +64,8 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	./tests/devices/disk_error.mjs
 	./tests/devices/e1000.js
 	./tests/devices/hd_audio.js
+	./tests/devices/usb.js
+	./tests/devices/usb_storage.js
 	./tests/persistence/response_version.mjs
 	./tests/persistence/node_file.mjs
 	./tests/persistence/disk_service.mjs
@@ -174,7 +176,10 @@ NET_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/mac_address
 # Sound card plugins (audio_device), likewise
 AUDIO_DEVICE_PLUGINS=build/v86-hd-audio.js
 AUDIO_DEVICE_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_machine.js src/audio_devices/machine.js
-DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS)
+# USB's plugin (usb: its controllers and devices), likewise
+USB_PLUGINS=build/v86-usb.js
+USB_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_machine.js
+DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS) $(USB_PLUGINS)
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs src/rust/gen/interpreter0f38.rs src/rust/gen/interpreter0f3a.rs \
@@ -252,6 +257,14 @@ build/v86-hd-audio.js: $(CLOSURE) src/*.js src/audio_devices/*.js src/audio_devi
 		--output_wrapper ';(function(){%output%}).call(this);' \
 		--js $(AUDIO_DEVICE_COMMON) --js src/audio_devices/hd_audio/codec.js --js src/audio_devices/hd_audio/controller.js \
 		--js src/audio_devices/hd_audio/plugin.js
+
+build/v86-usb.js: $(CLOSURE) src/*.js src/usb/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(USB_COMMON) --js src/usb/usb.js --js src/usb/usb_device.js --js src/usb/hid_tablet.js --js src/usb/mass_storage.js --js src/usb/uhci.js \
+		--js src/usb/machine.js --js src/usb/plugin.js
 
 device-plugins: $(DEVICE_PLUGINS)
 
@@ -622,7 +635,22 @@ hd-audio-tests: build/v86-debug.wasm build/libv86.mjs
 	CPU_CORES=2 ./tests/devices/hd_audio_guest.mjs
 	TIMEOUT_MS=1500000 node tests/app/browser_runner.mjs tests/devices/hd_audio_browser.html autoplay=1
 
-.PHONY: hd-audio-tests e1000-tests q35-device-tests q35-guest-tests q35-hotplug-tests q35-tests
+# USB (docs/usb.md, docs/modern-pc-devices-plan.md U1, U2): the UHCI
+# controller, the HID tablet and USB disks through the controller's
+# registers and schedule, then Alpine x86_64's uhci-hcd, usbhid and
+# usb-storage (i440FX, Q35, two cores). Windows: tests/devices/
+# usb_windows_xp.mjs, tests/x64/windows_boot.mjs WIN_USB (their images)
+usb-tests: build/v86-debug.wasm build/libv86.mjs build/v86-usb.js
+	./tests/devices/usb.js
+	TEST_RELEASE_BUILD=1 ./tests/devices/usb.js
+	./tests/devices/usb_storage.js
+	TEST_RELEASE_BUILD=1 ./tests/devices/usb_storage.js
+	./tests/devices/usb_guest.mjs
+	MACHINE=q35 CPU_CORES=2 ./tests/devices/usb_guest.mjs
+	./tests/devices/usb_storage_guest.mjs
+	MACHINE=q35 CPU_CORES=2 ./tests/devices/usb_storage_guest.mjs
+
+.PHONY: usb-tests hd-audio-tests e1000-tests q35-device-tests q35-guest-tests q35-hotplug-tests q35-tests
 q35-tests: acpi-table-tests q35-device-tests q35-guest-tests q35-hotplug-tests
 
 # ACPICA's iasl/acpiexec are used when found on PATH or in IASL/ACPIEXEC

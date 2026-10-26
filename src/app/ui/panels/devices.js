@@ -43,6 +43,19 @@ export function network_panel(ctx, index)
     ];
 }
 
+const USB_LABELS = { uhci: "UHCI (USB 1.1)" };
+
+/** @param {PanelContext} ctx */
+export function usb_panel(ctx)
+{
+    const u = /** @type {{controller: string, tablet: boolean}} */ (ctx.config.usb);
+    return [
+        select_field("Controller", ctx.choices.usb_controllers, u.controller, value => ctx.set("usb.controller", value), v => USB_LABELS[v] || v),
+        check_field("Tablet (an absolute pointer: the guest's cursor follows the page's, no mouse lock)", u.tablet, value => ctx.set("usb.tablet", value)),
+        h("p.note", null, "Lock the mouse (Input menu) for relative movement through the PS/2 mouse, as games need."),
+    ];
+}
+
 /** @param {PanelContext} ctx */
 export function sound_panel(ctx)
 {

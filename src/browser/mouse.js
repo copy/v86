@@ -44,6 +44,14 @@ export function MouseAdapter(bus, screen_container)
         this.update_cursor();
     }, this);
 
+    // set by the USB tablet (usb.tablet) while the guest uses it
+    this.usb_tablet = false;
+    this.bus.register("usb-tablet-active", function(active)
+    {
+        this.usb_tablet = !!active;
+        this.update_cursor();
+    }, this);
+
     // TODO: Should probably not use bus for this
     this.is_running = false;
     this.bus.register("emulator-stopped", function()
@@ -59,7 +67,8 @@ export function MouseAdapter(bus, screen_container)
     {
         if(screen_container)
         {
-            const hide = this.absolute_mouse && this.enabled && this.emu_enabled;
+            // (the guest draws its own cursor where the host's is)
+            const hide = this.emu_enabled && (this.usb_tablet || this.absolute_mouse && this.enabled);
             screen_container.style.cursor = hide ? "none" : "";
         }
     };

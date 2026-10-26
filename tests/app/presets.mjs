@@ -68,6 +68,10 @@ test("the presets' hardware (the plan's table)", () =>
     assert.deepEqual(row("linux_arm32"), ["arm32", "virt", 512, 2, "none", 8, "virtio", "none", false]);
     assert.deepEqual(row("android7_arm32"), ["arm32", "ranchu", 1024, 2, "none", 8, "virtio", "none", false]);
     assert.equal(preset_config(preset("windowsnt4")).advanced.cpuid_level, 2);
+    // the USB tablet: XP, Vista to 8.1, Linux; not DOS, Windows 3.x, 9x, NT 4, 2000 or the ARM machines
+    const tablet = PRESETS.filter(p => preset_config(p).usb).map(p => p.id);
+    assert.deepEqual(tablet, ["windowsxp", "windows81", "windows7", "linux", "linux64"]);
+    assert.deepEqual(preset_config(preset("windows81")).usb, { controller: "uhci", tablet: true, disks: [] });
 });
 
 test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLOADER=1)", () =>

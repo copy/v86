@@ -87,6 +87,18 @@
 // endpoints and the time of playing Windows' longest Media WAV to SND.TXT,
 // and "audio" prints what the controller played (X64_WIN_AUDIO: bytes,
 // formats, how many samples were not silent).
+// WIN_USB=1: USB (a UHCI controller with the HID tablet); the tools disk has
+// USB.CMD, which writes the controller's, its root hub's, the tablet's and
+// its HID mouse's devices to USB.TXT and then the cursor's position every
+// 300 ms (tests/x64/windows_usb.c); "pointergrid" walks the page's pointer
+// through the corners, the centre and a 5x5 grid of the 1024x768 screen,
+// 2.5 s at each (X64_WIN_POINTER lines), then to (3, 5), where the logging
+// stops. WIN_USB_DISK=1: a USB disk too (a FAT16 image in memory with
+// USBDISK.TXT); USBCHECK.EXE reads that file and writes FROMWIN.TXT, which
+// "usbdiskfile <name>" prints from the image (X64_WIN_USB_DISK_FILE).
+// WIN_USB_TRACE=1: each report the tablet gives the guest (X64_WIN_TABLET_REPORT).
+// "waitfile <name> <text> [seconds]": until a file of the tools disk has the
+// text (USB.CMD writes READY once it logs the cursor, END when done).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -122,10 +134,10 @@ const password = process.env.WIN_USER_PASSWORD || "admin1";
 const memory_mb = +(process.env.WIN_MEMORY_MB || 2048);
 const source_stat = fs.statSync(image_path);
 
-function build(compiler, entry, output, source = "tests/x64/windows_probe.c")
+function build(compiler, entry, output, source = "tests/x64/windows_probe.c", libraries = [])
 {
     const result = spawnSync(compiler, ["-Os", "-nostdlib", "-fno-builtin", "-fno-stack-protector", "-mno-stack-arg-probe",
-        `-Wl,--entry,${entry}`, "-Wl,--subsystem,console", "-o", output, path.join(root, source), "-lkernel32"], {encoding: "utf8"});
+        `-Wl,--entry,${entry}`, "-Wl,--subsystem,console", "-o", output, path.join(root, source), "-lkernel32", ...libraries], {encoding: "utf8"});
     assert.equal(result.status, 0, result.stderr);
     return fs.readFileSync(output);
 }
@@ -175,11 +187,24 @@ const snd_script = [
 ].join("\r\n") + "\r\n";
 const snd_cmd = "@echo off\r\nset OUT=%~d0\\SND.TXT\r\necho BEGIN> %OUT%\r\n" +
     "powershell -NoProfile -ExecutionPolicy Bypass -File %~d0\\SND.PS1 >> %OUT% 2>&1\r\necho END>> %OUT%\r\n";
+// WIN_USB: what USB.CMD checks (tests/x64/windows_usb.c)
+const usb_check = process.env.WIN_USB && build("i686-w64-mingw32-gcc", "_entry@0", path.join(out, "USBCHECK.EXE"), "tests/x64/windows_usb.c",
+    ["-luser32", "-lsetupapi", "-lcfgmgr32"]);
+const usb_cmd = "@echo off\r\nstart %~d0\\USBCHECK.EXE\r\n";
+// WIN_USB_DISK: the USB disk's image (another disk signature and volume
+// serial than the tools disk's)
+const usb_disk = process.env.WIN_USB_DISK ? make_fat16({"USBDISK.TXT": Buffer.from("v86 USB disk check\r\n")}) : null;
+if(usb_disk)
+{
+    new DataView(usb_disk.buffer).setUint32(440, 0x5B2026C3, true);
+    new DataView(usb_disk.buffer).setUint32(63 * 512 + 39, 0x5B2026C3, true);
+}
 const nic_cmd = "@echo off\r\nset OUT=%~d0\\NIC.TXT\r\necho BEGIN> %OUT%\r\n" +
     "powershell -NoProfile -ExecutionPolicy Bypass -File %~d0\\NIC.PS1 >> %OUT% 2>&1\r\necho END>> %OUT%\r\n";
 const tools = new MemoryDisk(make_fat16({"PROBE64.EXE": probe64, "PROBE32.EXE": probe32, "CPULOAD.EXE": cpuload, "LOAD32.EXE": cpuload32,
     ...(process.env.WIN_NET ? {"NIC.CMD": Buffer.from(nic_cmd), "NIC.PS1": Buffer.from(nic_script)} : {}),
-    ...(process.env.WIN_AUDIO === "hd_audio" ? {"SND.CMD": Buffer.from(snd_cmd), "SND.PS1": Buffer.from(snd_script)} : {})}));
+    ...(process.env.WIN_AUDIO === "hd_audio" ? {"SND.CMD": Buffer.from(snd_cmd), "SND.PS1": Buffer.from(snd_script)} : {}),
+    ...(process.env.WIN_USB ? {"USB.CMD": Buffer.from(usb_cmd), "USBCHECK.EXE": usb_check} : {})}));
 const source = new ReadOnlyOverlayDisk(image_path);
 // WIN_HDB=<image>: that disk (e.g. retro-gaming-site/game/3dmark06.img) in
 // place of the tools disk, never written either (its writes stay in memory)
@@ -236,6 +261,8 @@ const vm = new V86({
     acpi: true, cpu_cores: cores, autostart: false, log_level: 0,
     net_device: {type: process.env.WIN_NIC || "ne2k", ...(process.env.WIN_NET ? {relay_url: "fetch"} : {})},
     ...(process.env.WIN_AUDIO ? {audio_device: process.env.WIN_AUDIO} : {}),
+    ...(process.env.WIN_USB ? {usb: {controller: "uhci", tablet: true,
+        ...(usb_disk ? {mass_storage: [{id: "stick", image: {buffer: usb_disk.buffer}}]} : {})}} : {}),
     // WIN_QEMU_COMPATIBLE=1: devices where QEMU, which the image was installed with, had them
     qemu_compatible: !!+process.env.WIN_QEMU_COMPATIBLE,
     // JIT_SWITCHES (tests/lib/jit_switches.mjs)
@@ -811,6 +838,20 @@ try
             screenshot(true);
         };
     }
+    // WIN_USB_TRACE=1: each report the tablet gives the guest
+    // (X64_WIN_TABLET_REPORT buttons x y, the tablet's 0..32767, at s)
+    if(process.env.WIN_USB_TRACE && cpu.devices.usb)
+    {
+        const tablet = cpu.devices.usb.device["tablet"];
+        const data_in = tablet.data_in.bind(tablet);
+        tablet.data_in = (endpoint, max_length) =>
+        {
+            const r = data_in(endpoint, max_length);
+            if(r instanceof Uint8Array) console.log("X64_WIN_TABLET_REPORT " + r[0] + " " + (r[1] | r[2] << 8) + " " + (r[3] | r[4] << 8) + " at " +
+                (performance.now() / 1000).toFixed(2));
+            return r;
+        };
+    }
     // WIN_AUDIO=hd_audio: what the controller played
     const audio = {bytes: 0, formats: {}, loud: 0};
     vm.add_listener("hd-audio-pcm", pcm => {
@@ -1019,7 +1060,36 @@ try
         else if(verb === "password") { await type(password); await enter(); }
         else if(verb === "shot") screenshot(true);
         else if(verb === "file") console.log("X64_WIN_FILE " + argument + "\n" + result_text(argument));
+        else if(verb === "usbdiskfile")
+        {
+            const bytes = usb_disk && read_fat16(usb_disk, argument);
+            console.log("X64_WIN_USB_DISK_FILE " + argument + "\n" + (bytes ? Buffer.from(bytes).toString("ascii") : "(none)"));
+        }
         else if(verb === "audio") console.log("X64_WIN_AUDIO " + JSON.stringify(report.audio));
+        else if(verb === "waitfile")
+        {
+            const [name, text, seconds] = argument.split(" ");
+            for(const limit = performance.now() + 1000 * (+seconds || 600); performance.now() < limit && !result_text(name).includes(text);)
+            {
+                await delay(2000);
+                if(execution_error) throw execution_error;
+                screenshot(false);
+            }
+            event(result_text(name).includes(text) ? "waitfile-found" : "waitfile-timeout", {name, text});
+        }
+        else if(verb === "pointergrid")
+        {
+            const points = [[0, 0], [1023, 0], [0, 767], [1023, 767], [512, 384]];
+            for(let i = 0; i < 5; i++) for(let j = 0; j < 5; j++) points.push([Math.round(i * 1023 / 4), Math.round(j * 767 / 4)]);
+            for(const [x, y] of points)
+            {
+                vm.bus.send("mouse-absolute", [x, y, 1024, 768]);
+                console.log("X64_WIN_POINTER " + x + " " + y + " at " + elapsed() + (process.env.WIN_USB_TRACE ? " (" + (performance.now() / 1000).toFixed(2) + ")" : ""));
+                await delay(2500);
+            }
+            // (USBCHECK.EXE stops logging there)
+            vm.bus.send("mouse-absolute", [3, 5, 1024, 768]);
+        }
         // the page's size for a display (V86.set_display_size; virtio_gpu tells the guest)
         else if(verb === "display") vm.set_display_size(...argument.split(/\s+/).map(Number));
         // a relative mouse movement (PS/2), in pixels, y up

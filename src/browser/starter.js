@@ -13,7 +13,7 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { AUDIO_PLUGINS, NET_PLUGINS, load_device_plugin } from "../device_plugin.js";
+import { AUDIO_PLUGINS, NET_PLUGINS, USB_PLUGINS, load_device_plugin } from "../device_plugin.js";
 import { check_machine_options, is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
@@ -487,6 +487,11 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         options.virtio_disks = await Promise.all(options.virtio_disks.map((disk, i) => opfs_readable("virtio_disk" + i, disk)));
     }
+    if(options.usb && options.usb.mass_storage)
+    {
+        options.usb = Object.assign({}, options.usb, { mass_storage: await Promise.all(options.usb.mass_storage.map(async disk =>
+            Object.assign({}, disk, { image: await opfs_readable("usb:" + disk.id, disk.image) }))) });
+    }
     // android: { device, gpu_mode, selinux, vendor_ramdisk }: the kernel,
     // initrd and command line from the disk (docs/android-images-plan.md I2)
     if(options.android)
@@ -623,6 +628,10 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.net_device = options.net_device || { type: is_arm(this.cpu_type) ? "none" : "ne2k" };
     // the sound card: the Sound Blaster 16 unless audio_device says otherwise
     settings.audio_device = is_arm(this.cpu_type) ? undefined : options.audio_device || "sb16";
+    settings.usb = is_arm(this.cpu_type) ? undefined : options.usb || undefined;
+    this.usb_enabled = !!settings.usb;
+    // (its USB disks' images: usb_disks[i] for mass_storage[i])
+    if(settings.usb) settings.usb_disks = [];
     // the virt machine's virtio-blk disks (P5.4) and virtio-rng (P5.5)
     // (src/machine_options.js refuses them on the PC machines)
     if(options.virtio_disks) settings.virtio_disks = [];
@@ -827,6 +836,10 @@ V86.prototype.continue_init = async function(emulator, options)
     const audio_plugin = AUDIO_DEVICE_PLUGINS.includes(settings.audio_device) ?
         load_device_plugin(AUDIO_PLUGINS, settings.audio_device, options.audio_device_path, "audio_device_path") : Promise.resolve(undefined);
     audio_plugin.catch(() => {});
+    // and USB's (usb: a controller and its devices)
+    const usb_plugin = settings.usb ? load_device_plugin(USB_PLUGINS, "usb", settings.usb["plugin_path"], "usb.plugin_path") :
+        Promise.resolve(undefined);
+    usb_plugin.catch(() => {});
     const adapter_renderer = this.create_adapter_renderer(options);
 
     // the disks' policies (src/disk_options.js), put on their buffers
@@ -850,6 +863,15 @@ V86.prototype.continue_init = async function(emulator, options)
             const i = +name.slice("virtio_disk".length);
             const disk = options.virtio_disks[i];
             settings.virtio_disks[i] = { buffer, id: disk.id, readonly: !!disk.readonly };
+            return;
+        }
+
+        // (usb.mass_storage: "usb:" and the disk's id)
+        if(name.startsWith("usb:"))
+        {
+            const disks = settings.usb.mass_storage;
+            const i = disks.findIndex(disk => "usb:" + disk.id === name);
+            settings.usb_disks[i] = { id: disks[i].id, buffer, read_only: !!disks[i].read_only };
             return;
         }
         switch(name)
@@ -934,7 +956,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         // hard disks in a container format (docs/disk-image-formats-plan.md);
         // without a format, RAW in the buffers of src/buffer.js
-        if(check_image_options(name, file, name === "hda" || name === "hdb" || name.startsWith("virtio_disk")))
+        if(check_image_options(name, file, name === "hda" || name === "hdb" || name.startsWith("virtio_disk") || name.startsWith("usb:")))
         {
             files_to_load.push({
                 name,
@@ -1017,6 +1039,16 @@ V86.prototype.continue_init = async function(emulator, options)
         const own = disk.buffer && disk.buffer.get && disk.buffer.set && disk.buffer.load;
         add_file("virtio_disk" + i, own ? disk.buffer : disk);
     });
+    // USB disks (usb.mass_storage: { id, image, read_only }), the image as hda's
+    if(settings.usb)
+    {
+        for(const disk of settings.usb.mass_storage || [])
+        {
+            const image = disk.image;
+            const own = image.buffer && image.buffer.get && image.buffer.set && image.buffer.load;
+            add_file("usb:" + disk.id, own ? image.buffer : image);
+        }
+    }
 
     if(options.filesystem && options.filesystem.handle9p)
     {
@@ -1230,6 +1262,7 @@ V86.prototype.continue_init = async function(emulator, options)
         settings.graphics_adapter = await graphics_adapter;
         settings.net_device_plugin = await net_plugin;
         settings.audio_device_plugin = await audio_plugin;
+        settings.usb_plugin = await usb_plugin;
         settings.graphics_adapter_renderer = await adapter_renderer;
 
         if(options.android)
@@ -2263,14 +2296,35 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     const ahci = this.v86.cpu.devices.ahci;
     if(!ahci) throw new Error("attach_sata_drive: no AHCI controller (machine_type: \"q35\")");
     if(!file && !cdrom) throw new Error("attach_sata_drive: a disk needs an image");
-    // (its policy, docs/disk-persistence-plan.md: checked with the disks the machine has)
     const name = cdrom ? "cdrom" : "sata" + port;
+    const image = await this.load_attached_disk(name, file, cdrom, "attach_sata_drive");
+    try { ahci.attach(port, { buffer: image, is_cdrom: cdrom }); }
+    catch(error)
+    {
+        this.disk_descriptors = this.disk_descriptors.filter(([disk_name]) => disk_name !== name);
+        throw error;
+    }
+};
+
+/**
+ * The image of a drive attached to the running machine (a SATA drive, a USB
+ * disk), loaded as the disk options' are: written back by its disk_option,
+ * a disk image's container, a whole file, or a buffer; its policy on it
+ * (docs/disk-persistence-plan.md: checked with the disks the machine has)
+ * @param {string} name the disk's name (its policy, errors, sector size)
+ * @param {Object|null} file the image, as for the hda option (null: an empty CD drive)
+ * @param {boolean} cdrom
+ * @param {string} caller
+ * @return {!Promise<?Object>}
+ */
+V86.prototype.load_attached_disk = async function(name, file, cdrom, caller)
+{
     file = await opfs_readable(name, file);
     const policy = check_disk_policy(name, file);
     if(file) check_disk_bindings([[name, file, policy]], this.disk_descriptors);
     let image;
     const writeback = policy.disk_option === "read_write" && !(file.get && file.set && file.load);
-    const disk_image = !writeback && !!check_image_options(cdrom ? "cdrom" : "sata" + port, file, !cdrom);
+    const disk_image = !writeback && !!check_image_options(name, file, !cdrom);
     if(writeback)
     {
         // (written back: src/disk_writeback.js, src/disk_service.js)
@@ -2282,19 +2336,19 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     else if(disk_image)
     {
         // a hard disk in a container format (docs/disk-image-formats-plan.md)
-        image = create_disk_image("sata" + port, /** @type {!Object} */ (file), this.disk_image_settings());
+        image = create_disk_image(name, /** @type {!Object} */ (file), this.disk_image_settings());
         await image.load();
     }
     else if(file && file.url && !file.async)
     {
-        image = new SyncBuffer(await load_whole_file("sata" + port, file.url));
+        image = new SyncBuffer(await load_whole_file(name, file.url));
     }
     else if(file)
     {
         // (a descriptor as for the hda option, or a buffer object of one's own)
         image = await new Promise((resolve, reject) => {
             const buffer = file.get && file.set && file.load ? file : buffer_from_object(file, this.zstd_decompress_worker.bind(this));
-            if(!buffer) throw new Error("attach_sata_drive: not a disk image");
+            if(!buffer) throw new Error(caller + ": not a disk image");
             buffer.onload = () => resolve(buffer);
             Promise.resolve(buffer.load()).catch(reject);
         });
@@ -2302,13 +2356,13 @@ V86.prototype.attach_sata_drive = async function(port, file, options)
     if(image && !cdrom)
     {
         // (a RAW disk's logical sectors; a disk image has its own)
-        if(!disk_image) set_buffer_sector_size("sata" + port, image, file["logical_sector_size"]);
-        // (the disk's CHS geometry comes from its partition table)
-        await new Promise(resolve => image.get_and_cache(0, 512, resolve));
+        if(!disk_image) set_buffer_sector_size(name, image, file["logical_sector_size"]);
+        // (an ATA disk's CHS geometry comes from its partition table)
+        if(typeof image.get_and_cache === "function") await new Promise(resolve => image.get_and_cache(0, 512, resolve));
     }
     set_disk_policy(image, name, policy);
-    ahci.attach(port, { buffer: image, is_cdrom: cdrom });
     if(file) this.disk_descriptors.push([name, file]);
+    return image;
 };
 
 /**
@@ -2375,6 +2429,83 @@ V86.prototype.detach_pcie_device = async function(port, options)
     const surprise = !!(options && options.surprise);
     if(this.worker_controller) return this.worker_controller.detach_pcie_device(port, surprise);
     await root_port_of(this, port, "detach_pcie_device").remove(surprise);
+};
+
+/**
+ * Plug a USB device out of its port or back in (usb's devices: "tablet"):
+ * the guest sees it leave or arrive, as at a socket. Fulfilled once done;
+ * rejected for a device the machine does not have.
+ * @param {string} id
+ * @param {boolean} plugged
+ * @return {!Promise<void>}
+ */
+V86.prototype.usb_plug = function(id, plugged)
+{
+    if(!this.usb_enabled) return Promise.reject(new Error("usb_plug: the machine has no USB (the usb option)"));
+    return new Promise((resolve, reject) =>
+    {
+        const listener = data =>
+        {
+            if(data[0] !== id) return;
+            this.remove_listener("usb-plugged", listener);
+            if(data[2]) reject(new Error("usb_plug: " + data[2]));
+            else resolve();
+        };
+        this.add_listener("usb-plugged", listener);
+        this.bus.send("usb-plug", [id, !!plugged]);
+    });
+};
+
+/**
+ * Plug a disk image into the machine as a USB disk (a USB stick: usb's
+ * mass storage, in the first free port of the USB controller). The guest
+ * sees it arrive and mounts it. The image is as for the hda option, with
+ * disk_option and disk_error; read_only: the guest sees it write protected.
+ *
+ * A snapshot holds the USB disks in their ports: to restore one taken with
+ * a USB disk, attach the same image with the same id first; otherwise the
+ * restored guest sees the disk leave.
+ *
+ * @param {string} id the disk's id (usb_plug, usb_detach_disk, "usb:" + id is its name for disk_buffer)
+ * @param {!Object} file
+ * @param {{read_only: (boolean|undefined)}=} options
+ * @return {!Promise<void>}
+ */
+V86.prototype.usb_attach_disk = async function(id, file, options)
+{
+    const read_only = !!(options && options.read_only);
+    if(this.worker_controller) return this.worker_controller.rpc("usb_attach_disk", [id, encode_worker_file(file), { "read_only": read_only }]);
+    const usb = this.v86.cpu.devices.usb;
+    if(!usb) throw new Error("usb_attach_disk: the machine has no USB (the usb option)");
+    if(typeof id !== "string" || !id || id === "tablet") throw new Error("usb_attach_disk: a USB disk needs an id of its own");
+    if(!file) throw new Error("usb_attach_disk: a USB disk needs an image");
+    const name = "usb:" + id;
+    const image = await this.load_attached_disk(name, file, false, "usb_attach_disk");
+    try { this.v86.cpu.usb_attach_disk(id, image, read_only); }
+    catch(error)
+    {
+        this.disk_descriptors = this.disk_descriptors.filter(([disk_name]) => disk_name !== name);
+        throw error;
+    }
+};
+
+/**
+ * Pull a USB disk out (a surprise removal, as when pulling a USB stick
+ * out): writes the guest issued before are in the image; a disk written
+ * back is flushed and closed. (To let the guest finish first, eject it in
+ * the guest; the "usb-disk-ejected" event tells when the guest ejected it.)
+ * @param {string} id
+ * @return {!Promise<void>}
+ */
+V86.prototype.usb_detach_disk = async function(id)
+{
+    if(this.worker_controller) return this.worker_controller.rpc("usb_detach_disk", [id]);
+    const buffer = this.v86.cpu.usb_detach_disk(id);
+    if(buffer && buffer.writeback && typeof buffer.close === "function")
+    {
+        await new Promise(resolve => buffer.close(error => { if(error) console.error(error.message); resolve(); }));
+    }
+    this.disk_descriptors = this.disk_descriptors.filter(([name]) => name !== "usb:" + id);
 };
 
 /**

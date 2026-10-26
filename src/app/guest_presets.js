@@ -35,7 +35,7 @@ const GB = 1024;
 /**
  * A PC's hardware
  * @param {{cpu?: string, memory: number, cores?: number, adapter?: string, vram?: number, nic?: string, sound?: string,
- *     acpi?: boolean, cpuid_level?: number}} h
+ *     acpi?: boolean, cpuid_level?: number, tablet?: boolean}} h
  */
 function pc(h)
 {
@@ -52,11 +52,13 @@ function pc(h)
         if(c.network[0].device === "none") { c.network[0].backend = "none"; c.network[0].relay_url = ""; }
         c.sound.device = h.sound || "sb16";
         if(h.cpuid_level) c.advanced.cpuid_level = h.cpuid_level;
+        // (the USB tablet: an absolute pointer for the systems that have its drivers)
+        c.usb = h.tablet ? { controller: "uhci", tablet: true, disks: [] } : null;
     };
 }
 
 const WINDOWS_81 = {
-    cpu: "x86_64", memory: 2048 * MB, cores: 2, adapter: "vmware_svga", vram: 16, nic: "e1000", sound: "hd_audio", acpi: true,
+    cpu: "x86_64", memory: 2048 * MB, cores: 2, adapter: "vmware_svga", vram: 16, nic: "e1000", sound: "hd_audio", acpi: true, tablet: true,
 };
 const WINDOWS_81_CHECKLIST = [
     "Display driver, one of: VMware Tools 13.1.5's vm3d (install KB2919355 first), or the test-signed viogpudo 0.1.240 (2D only)",
@@ -108,7 +110,7 @@ export const PRESETS = [
         install: ["cdrom"], install_text: "From the CD", disk_mb: 4 * GB, disk_location: "memory",
         checklist: ["D3D programs such as 3DMark06: d3d9.dll from driver.iso"],
         issues: ["Keep the x86 CPU: x86_64 makes XP use its PAE kernel", "XP's and 2000's ACPI HAL is not verified: one core only"],
-        hardware: pc({ memory: 2048 * MB, vram: 16 }),
+        hardware: pc({ memory: 2048 * MB, vram: 16, tablet: true }),
     },
     {
         id: "windows81", name: "Windows 8.1 (x64)", guest: "windows", verified: true,
@@ -125,12 +127,12 @@ export const PRESETS = [
     {
         id: "linux", name: "Linux (32-bit)", guest: "linux", verified: true, basis: "Linux 4.16, 6.8, 6.18: docs/multicore.md, docs/acpi.md, docs/q35.md",
         install: ["cdrom"], install_text: "From a live or installation CD", disk_mb: 8 * GB, disk_location: "memory", checklist: [], issues: [],
-        hardware: pc({ memory: 512 * MB, acpi: true }),
+        hardware: pc({ memory: 512 * MB, acpi: true, tablet: true }),
     },
     {
         id: "linux64", name: "Linux (x86_64)", guest: "linux", verified: true, basis: "Alpine 3.24: docs/x86-64.md, docs/gpu-devices.md",
         install: ["cdrom"], install_text: "From a live or installation CD", disk_mb: 8 * GB, disk_location: "memory", checklist: [], issues: [],
-        hardware: pc({ cpu: "x86_64", memory: 1024 * MB, cores: 2, adapter: "virtio_gpu", nic: "virtio", acpi: true }),
+        hardware: pc({ cpu: "x86_64", memory: 1024 * MB, cores: 2, adapter: "virtio_gpu", nic: "virtio", acpi: true, tablet: true }),
     },
     {
         id: "linux_arm64", name: "Linux (arm64)", guest: "linux", verified: true, basis: "Alpine 3.24 aarch64: docs/aarch64.md, tests/a64/linux_boot.mjs",

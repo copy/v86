@@ -27,7 +27,17 @@ settings, rename, export, delete.
   Audio for Vista to 8.1 ([sound.md](sound.md)). A sound card of "None" is
   no card at all (the PC speaker stays); Mute keeps the card and plays
   nothing. Machines made before 2026-10-26 with the sound "None" had a
-  muted Sound Blaster and keep it (configuration version 3).
+  muted Sound Blaster and keep it (configuration version 3). The XP, Vista
+  to 8.1 and Linux presets have USB with the tablet ([usb.md](usb.md)): the
+  guest's cursor follows the page's without locking the mouse; the Input
+  menu's "Lock the mouse" switches to relative movement (the PS/2 mouse) for
+  games. USB is an item of the settings (Add, Remove; configuration
+  version 4). USB disks are items too ("USB disk" in Add): a disk image as a
+  USB stick, its source as a hard disk's (read only or written back), write
+  protected or not; a port each (UHCI has two, the tablet takes one). While
+  the machine runs, the Devices menu plugs a file in as a USB disk, unplugs
+  one (it warns while the guest has not ejected it) and downloads its
+  image.
 - **Edit settings…** opens the settings dialog: the hardware list (memory,
   processor, machine and firmware, hard disks, CD/DVD, floppies, network
   adapters, sound, display, serial ports, shared folder, direct boot, the

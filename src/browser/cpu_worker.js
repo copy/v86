@@ -88,6 +88,11 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "audio_device": o["audio_device"],
         "audio_device_path": AUDIO_DEVICE_PLUGINS.includes(o["audio_device"]) ?
             new URL(o["audio_device_path"] || default_plugin_path(o["audio_device"]), location.href).href : undefined,
+        // (USB's plugin, likewise)
+        "usb": o["usb"] ? { "controller": o["usb"]["controller"], "tablet": o["usb"]["tablet"],
+            "plugin_path": new URL(o["usb"]["plugin_path"] || default_plugin_path("usb"), location.href).href,
+            "mass_storage": o["usb"]["mass_storage"] && o["usb"]["mass_storage"].map(disk =>
+                ({ "id": disk["id"], "image": file(disk["image"]), "read_only": disk["read_only"] })) } : undefined,
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),

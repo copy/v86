@@ -316,11 +316,33 @@ const parts = {
         select_text(dialog.querySelector("select[aria-label='Add hardware']"), "Hard disk");
         await until(() => item("disk-1"), "a second hard disk");
         log("Add and Remove: a floppy drive added and removed, a second hard disk added");
+
+        // Add USB: UHCI with the tablet; the tablet off
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "USB");
+        await until(() => item("usb") && item("usb").classList.contains("selected"), "USB added and chosen");
+        const controllers = Array.from(panel().querySelector("select[aria-label=Controller]").options, o => o.textContent);
+        check(JSON.stringify(controllers) === JSON.stringify(["UHCI (USB 1.1)"]), "the USB controllers: " + controllers);
+        const tablet = Array.from(panel().querySelectorAll("label.check")).find(l => /^Tablet/.test(l.textContent.trim())).querySelector("input");
+        check(tablet.checked && /UHCI, tablet/.test(item("usb").textContent), "the tablet on: " + item("usb").textContent);
+        tablet.click();
+        await until(() => !/tablet/.test(item("usb").textContent), "the tablet off in the item's summary");
+        check(!Array.from(dialog.querySelector("select[aria-label='Add hardware']").options, o => o.textContent).includes("USB"), "USB no longer to add");
+        log("USB: added (" + controllers.join(", ") + "), the tablet turned off");
+
+        // Add a USB disk: an empty disk in memory, write protected
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "USB disk");
+        await until(() => item("usb-disk-0") && item("usb-disk-0").classList.contains("selected"), "a USB disk added and chosen");
+        check(/USB disk \(usb0\)/.test(item("usb-disk-0").textContent), "its item: " + item("usb-disk-0").textContent);
+        const protect = Array.from(panel().querySelectorAll("label.check")).find(l => /^Write protected/.test(l.textContent.trim())).querySelector("input");
+        check(!protect.checked, "not write protected at first");
+        protect.click();
+        await until(() => protect.isConnected ? protect.checked : panel().querySelector("label.check input").checked, "write protected");
+        log("USB disk: added (usb0), write protected");
         button("Save", dialog).click();
         await until(() => !$("dialog.settings-dialog[open]"), "saved");
         const table = await until(() => /2 cores/.test(table_text($(".hardware"))) && table_text($(".hardware")), "the library showing the saved machine");
-        check(/x86, 2 cores/.test(table) && /ACPI/.test(table) && /Hard disk \(hda\) images\/msdos622\.img/.test(table) && /Hard disk \(hdb\)/.test(table),
-            "the saved machine: " + table);
+        check(/x86, 2 cores/.test(table) && /ACPI/.test(table) && /Hard disk \(hda\) images\/msdos622\.img/.test(table) && /Hard disk \(hdb\)/.test(table) &&
+            /USB UHCI(;|$)/.test(table) && /USB disk \(usb0\) [^;]*write protected/.test(table), "the saved machine: " + table);
         log("saved: " + table.slice(0, 160));
 
         // Cancel: nothing changes

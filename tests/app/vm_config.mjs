@@ -108,6 +108,38 @@ test("migrate: version 2's PC sound \"none\" (a muted Sound Blaster) stays a mut
     assert.deepEqual(validate_config(pc), []);
 });
 
+test("migrate: version 3 has no USB (usb null); USB on a PC goes to the usb option", () =>
+{
+    const old = migrate({ format: FORMAT, version: 3, id: "x" });
+    assert.equal(old.version, VERSION);
+    assert.equal(old.usb, null);
+    assert.equal(config_to_options(old, ENV).usb, undefined);
+    const c = new_config();
+    c.usb = { controller: "uhci", tablet: true };
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(check_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).usb, { controller: "uhci", tablet: true });
+});
+
+test("USB disks: a port each (with the tablet's), defaults filled in; usb.mass_storage with their images, policies and write protection", () =>
+{
+    const c = new_config();
+    c.usb = { controller: "uhci", tablet: true, disks: [{ id: "stick", image: { kind: "url", url: "images/stick.img", size: 1 << 20, async: true } }] };
+    const normal = migrate(JSON.parse(JSON.stringify(c)));
+    assert.deepEqual(normal.usb.disks[0], { id: "stick", image: c.usb.disks[0].image, disk_option: "read_only", disk_error: "stop", write_protected: false });
+    assert.deepEqual(validate_config(normal), []);
+    assert.deepEqual(check_config(normal), []);
+    assert.deepEqual(config_to_options(normal, ENV).usb, { controller: "uhci", tablet: true,
+        mass_storage: [{ id: "stick", image: { url: "images/stick.img", size: 1 << 20, async: true }, read_only: false }] });
+    normal.usb.disks[0].write_protected = true;
+    normal.usb.disks[0].disk_error = "report";
+    const o = config_to_options(normal, ENV).usb.mass_storage[0];
+    assert.equal(o.read_only, true);
+    assert.equal(o.image.disk_error, "report");
+    // (an old configuration's usb without disks has none)
+    assert.deepEqual(migrate({ format: FORMAT, version: VERSION, id: "x", usb: { controller: "uhci", tablet: true } }).usb.disks, []);
+});
+
 test("the sound card: audio_device for the PC machines; none keeps the speaker, mute silences the page", () =>
 {
     const c = new_config();
@@ -208,6 +240,17 @@ const RULES = [
     ["a sound card", c => { c.sound.device = "gus"; }, "sound.device"],
     ["mute", c => { c.sound.mute = "yes"; }, "sound.mute"],
     ["HD Audio on virt", c => { Object.assign(c, arm64()); c.sound.device = "hd_audio"; }, "sound.device"],
+    ["a USB controller", c => { c.usb = { controller: "ohci", tablet: true }; }, "usb.controller"],
+    ["the tablet", c => { c.usb = { controller: "uhci", tablet: "yes" }; }, "usb.tablet"],
+    ["USB on virt", c => { Object.assign(c, arm64()); c.usb = { controller: "uhci", tablet: true }; }, "usb.controller"],
+    ["a USB disk's id", c => { c.usb = { controller: "uhci", tablet: false, disks: [usb_disk("a b")] }; }, "usb.disks.0.id"],
+    ["a USB disk's id twice", c => { c.usb = { controller: "uhci", tablet: false, disks: [usb_disk("a"), usb_disk("a")] }; }, "usb.disks.1.id"],
+    ["a USB disk named tablet", c => { c.usb = { controller: "uhci", tablet: false, disks: [usb_disk("tablet")] }; }, "usb.disks.0.id"],
+    ["more USB disks than ports", c => { c.usb = { controller: "uhci", tablet: true, disks: [usb_disk("a"), usb_disk("b")] }; }, "usb.disks"],
+    ["a chosen file written back as a USB disk", c => { c.usb = { controller: "uhci", tablet: false,
+        disks: [Object.assign(usb_disk("a"), { image: { kind: "file", name: "x.img", size: 512 }, disk_option: "read_write" })] }; }, "usb.disks.0.disk_option"],
+    ["a USB disk's write protection", c => { c.usb = { controller: "uhci", tablet: false, disks: [Object.assign(usb_disk("a"), { write_protected: 1 })] }; },
+        "usb.disks.0.write_protected"],
     ["a Sound Blaster on virt", c => { Object.assign(c, arm64()); c.sound.device = "sb16"; }, "sound.device"],
     ["a UART", c => { c.serial = [{ port: 4, attach: "none" }]; }, "serial.0.port"],
     ["a UART twice", c => { c.serial = [{ port: 1, attach: "none" }, { port: 1, attach: "none" }]; }, "serial.1.port"],
@@ -252,6 +295,8 @@ function disk(fields) { return Object.assign({ slot: "hda", image: { kind: "url"
 function floppy(fields) { return Object.assign({ slot: "fda", image: null, disk_option: "read_only" }, fields); }
 function kernel(fields) { return Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, fields); }
 function android(fields) { return Object.assign({ device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" }, fields); }
+/** A USB disk of the configuration */
+function usb_disk(id) { return { id, image: { kind: "empty", size: 1 << 20 }, disk_option: "read_only", disk_error: "stop", write_protected: false }; }
 /** The sections of a valid arm64 machine */
 function arm64()
 {

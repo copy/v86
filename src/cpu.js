@@ -1,4 +1,4 @@
-import { check_disk_state, is_writeback_state } from "./disk_writeback.js";
+import { check_disk_state, is_writeback_state, restore_disk_state } from "./disk_writeback.js";
 import { drop_disk_holds } from "./block_backend.js";
 import {
     LOG_CPU, LOG_BIOS,
@@ -49,7 +49,7 @@ import { HPET } from "./hpet.js";
 import { SMBus } from "./smbus.js";
 import { VirtioNet } from "./virtio_net.js";
 import { GraphicsAdapter, graphics_adapter_of_state, patch_vga_bios_ids } from "./graphics_adapter.js";
-import { PluginDevice, AUDIO_PLUGINS, NET_PLUGINS, plugin_of_state } from "./device_plugin.js";
+import { PluginDevice, AUDIO_PLUGINS, NET_PLUGINS, USB_PLUGINS, plugin_of_state } from "./device_plugin.js";
 import { DisplayHub } from "./display.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
 import { create_virtio_devices, get_virtio_devices_state, resolve_virtio_devices_state, set_virtio_devices_state } from "./virtio_devices.js";
@@ -899,6 +899,10 @@ CPU.prototype.get_state = function(skip_memory = false)
     state[60] = this.get_state_pic();
     // (the sound card: the SB16's own state, a plugin card's slot, or none)
     state[61] = this.devices.sb16 || this.devices.audio;
+    // (USB: the plugin's slot, or none; its disks' buffers by their ids:
+    // the guest's writes, as a hard disk's state has them)
+    state[107] = this.devices.usb;
+    state[108] = this.usb_disks ? Array.from(this.usb_disks) : null;
 
     state[62] = this.fw_value;
 
@@ -1298,6 +1302,15 @@ CPU.prototype.validate_state = function(state)
         throw new Error("The snapshot is from a machine with audio_device: \"" + (saved_audio || (state[61] ? "sb16" : "none")) +
             "\", this one has \"" + audio_device + "\"");
     }
+    // USB: both or neither
+    if(this.devices.usb)
+    {
+        this.devices.usb.check_state(state[107]);
+    }
+    else if(plugin_of_state(USB_PLUGINS, state[107]) !== null)
+    {
+        throw new Error("The snapshot is from a machine with usb, this one has none");
+    }
     // A remapped snapshot must retain the RAM/MMIO split used when validating
     // its windows. Reject this before changing clocks, RAM, or CPU state.
     if(state[97] && state[0] !== this.memory_size[0] &&
@@ -1368,6 +1381,12 @@ CPU.prototype.validate_disk_states = function(state)
             if(drive.buffer) check_disk_state(drive.buffer.disk_name || (i ? "fdb" : "fda"), drive.buffer, saved[10]);
             else if(is_writeback_state(saved[10])) throw new Error("The snapshot's floppy " + (i ? "fdb" : "fda") + " was written back; this machine has no disk in that drive");
         });
+    }
+    // (USB disks with the same id; the others leave or arrive, src/usb/plugin.js)
+    for(const [id, saved] of /** @type {!Array<!Array<*>>} */ (state[108] || []))
+    {
+        const buffer = this.usb_disks && this.usb_disks.get(/** @type {string} */ (id));
+        if(buffer) check_disk_state("usb:" + id, buffer, saved);
     }
 };
 
@@ -1499,6 +1518,12 @@ CPU.prototype.set_state = function(state, skip_memory = false)
     this.set_state_pic(state[60]);
     this.devices.sb16 && this.devices.sb16.set_state(state[61]);
     this.devices.audio && this.devices.audio.set_state(state[61]);
+    this.devices.usb && this.devices.usb.set_state(state[107]);
+    for(const [id, saved] of /** @type {!Array<!Array<*>>} */ (state[108] || []))
+    {
+        const buffer = this.usb_disks && this.usb_disks.get(/** @type {string} */ (id));
+        if(buffer && saved) restore_disk_state(buffer, saved);
+    }
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
     this.devices.uart2 && this.devices.uart2.set_state(state[80]);
@@ -2434,6 +2459,10 @@ CPU.prototype.reboot_internal = function(reason, keep_memory)
     {
         this.devices.audio.reset();
     }
+    if(this.devices.usb)
+    {
+        this.devices.usb.reset();
+    }
 
     if(keep_memory)
     {
@@ -2491,13 +2520,15 @@ CPU.prototype.disk_device = function(name)
 CPU.prototype.disk_devices = function()
 {
     const devices = this.devices;
+    // (USB disks: "usb:" and the disk's id)
+    const usb = this.usb_disks ? Array.from(this.usb_disks, ([id, buffer]) => ["usb:" + id, { buffer, sector_size: 512 }]) : [];
     if(devices.ahci)
     {
-        return devices.ahci.disk_devices();
+        return devices.ahci.disk_devices().concat(usb);
     }
     const ide = devices.ide;
     return [["hda", ide?.primary?.master], ["hdb", ide?.primary?.slave],
-        ["cdrom", ide?.secondary?.master], ["secondary_slave", ide?.secondary?.slave]].filter(([, device]) => device);
+        ["cdrom", ide?.secondary?.master], ["secondary_slave", ide?.secondary?.slave]].filter(([, device]) => device).concat(usb);
 };
 
 /**
@@ -2608,6 +2639,63 @@ CPU.prototype.create_audio_plugin = function(settings, bus)
             "pcm": pcm => bus.send("hd-audio-pcm", pcm),
         },
     }, {});
+};
+
+/**
+ * USB (usb: { controller, tablet, mass_storage }): the plugin's controller
+ * in its slot (pci_functions), its devices; the bus for the pointer's
+ * messages; the USB disks' images (settings.usb_disks)
+ * @param {!Object} settings
+ * @param {BusConnector} bus
+ * @return {!PluginDevice}
+ */
+CPU.prototype.create_usb_plugin = function(settings, bus)
+{
+    /** @type {!Map<string, !Object>} the USB disks' buffers by their ids (disk_devices) */
+    this.usb_disks = new Map((settings.usb_disks || []).map(disk => [disk.id, disk.buffer]));
+    return new PluginDevice(this, USB_PLUGINS, settings.usb_plugin, pci_functions(this.platform).uhci, {
+        "bus": {
+            "register": (name, handler) => bus.register(name, handler, null),
+            // to the page and to the other devices (the PS/2 mouse, the
+            // VMware backdoor: "usb-tablet-active")
+            "send": (name, value) =>
+            {
+                bus.send(name, value);
+                bus.pair.send(name, value);
+            },
+        },
+    }, {
+        "controller": settings.usb["controller"],
+        "tablet": !!settings.usb["tablet"],
+        "mass_storage": (settings.usb_disks || []).map(disk => ({ "id": disk.id, "buffer": disk.buffer, "read_only": disk.read_only })),
+    });
+};
+
+/**
+ * A USB disk into the first free port (V86.usb_attach_disk)
+ * @param {string} id
+ * @param {!Object} buffer
+ * @param {boolean} read_only
+ */
+CPU.prototype.usb_attach_disk = function(id, buffer, read_only)
+{
+    if(!this.devices.usb) throw new Error("usb_attach_disk: the machine has no USB (the usb option)");
+    this.devices.usb.device["attach_disk"](id, buffer, read_only);
+    this.usb_disks.set(id, buffer);
+};
+
+/**
+ * A USB disk out of its port and gone (V86.usb_detach_disk)
+ * @param {string} id
+ * @return {!Object} its buffer
+ */
+CPU.prototype.usb_detach_disk = function(id)
+{
+    const buffer = this.usb_disks && this.usb_disks.get(id);
+    if(!buffer) throw new Error("usb_detach_disk: no USB disk " + JSON.stringify(id));
+    this.devices.usb.device["detach_disk"](id);
+    this.usb_disks.delete(id);
+    return buffer;
 };
 
 /**
@@ -3268,6 +3356,12 @@ CPU.prototype.init = function(settings, device_bus)
         else if(settings.audio_device_plugin)
         {
             this.devices.audio = this.create_audio_plugin(settings, device_bus);
+        }
+
+        // USB (usb: a controller and its devices, the plugin's)
+        if(settings.usb_plugin)
+        {
+            this.devices.usb = this.create_usb_plugin(settings, device_bus);
         }
 
         // Last, so that they get a slot and ports that nothing else uses
