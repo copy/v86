@@ -3,7 +3,7 @@ import { state_stream_server } from "./state_stream_transport.js";
 // in the worker; this side owns DOM adapters and asynchronous GPU execution.
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
-import { default_plugin_path } from "../device_plugin.js";
+import { default_plugin_path, default_tpm_wasm_path } from "../device_plugin.js";
 import { is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 /**
@@ -96,6 +96,10 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
         "firmware": o.firmware && { "type": o.firmware.type, "debug_console": o.firmware.debug_console,
             "code": file(o.firmware.code), "vars": file(o.firmware.vars) },
+        // (the TPM's plugin and module: absolute URLs, as the other plugins')
+        "tpm": o.tpm && { "version": o.tpm.version, "interface": o.tpm.interface, "state": file(o.tpm.state),
+            "plugin_path": new URL(o.tpm.plugin_path || default_plugin_path("tpm"), location.href).href,
+            "wasm_path": new URL(o.tpm.wasm_path || default_tpm_wasm_path(), location.href).href },
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),
         // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)

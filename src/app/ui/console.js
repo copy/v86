@@ -12,8 +12,8 @@
 import { h, replace, confirm, inform, dialog, download, pick_file, ask_text, menu_button, format_size } from "./dom.js";
 import { VMStore } from "../vm_store.js";
 import { read_state, delete_state, write_state, storage_space, state_estimate, machine_digest, hold_machine } from "../vm_state.js";
-import { config_to_options, android_display, UEFI_VARS_URL } from "../vm_config.js";
-import { import_disk } from "../browser_disks.js";
+import { config_to_options, android_display, UEFI_VARS_URL, TPM_STATE_SIZE } from "../vm_config.js";
+import { import_disk, create_disk } from "../browser_disks.js";
 import { combination_scancodes, COMBINATIONS } from "../keys.js";
 import { DEFAULT_FORM, DEFAULT_GRAPHICS_ADAPTER, settings_to_options } from "../../browser/vm_options.js";
 import { bool_arg, start_settings } from "../../browser/query_compat.js";
@@ -281,6 +281,22 @@ export async function open_console(root, target)
                 catch(e)
                 {
                     console.warn("The UEFI variable store could not be made (" + e.message + "): the variables stay in memory this time");
+                }
+            }
+            // (a TPM's state, docs/tpm.md: a browser disk of zeros at the first
+            // power-on, a new TPM; written back from then on)
+            if(config.tpm && !config.tpm.state && config.advanced.cpu_worker)
+            {
+                set_status("Making the TPM's state store...");
+                try
+                {
+                    const disk = await create_disk(TPM_STATE_SIZE, config.name + ": TPM");
+                    config.tpm.state = { kind: "browser", path: disk.path, size: disk.size };
+                    await store.put(config);
+                }
+                catch(e)
+                {
+                    console.warn("The TPM's state store could not be made (" + e.message + "): the TPM's state stays in memory this time");
                 }
             }
             if(config.display.proxy) await load_graphics_proxy();

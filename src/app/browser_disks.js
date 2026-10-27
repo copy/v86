@@ -243,18 +243,28 @@ export async function finish_disk(id, label, fields = {})
 
 /**
  * A browser disk's contents replaced by an image's (a UEFI machine's variable
- * store reset to the template, docs/uefi.md): written in place, its
- * generation moved on (snapshots of it before no longer fit). Not while a
- * machine has it open: the browser refuses the write then.
+ * store reset to the template, docs/uefi.md; a TPM's state cleared to zeros,
+ * docs/tpm.md): written in place, its generation moved on (snapshots of it
+ * before no longer fit). Not while a machine has it open: the browser
+ * refuses the write then.
  * @param {string} id
- * @param {string} source a URL
+ * @param {string | Uint8Array<ArrayBuffer>} source a URL, or the bytes
  * @return {Promise<undefined>}
  */
 export async function reset_disk(id, source)
 {
-    const response = await fetch(source);
-    if(!response.ok) throw new Error("The image at " + source + " cannot be read (" + response.status + ")");
-    const bytes = new Uint8Array(await response.arrayBuffer());
+    /** @type {Uint8Array<ArrayBuffer>} */
+    let bytes;
+    if(typeof source === "string")
+    {
+        const response = await fetch(source);
+        if(!response.ok) throw new Error("The image at " + source + " cannot be read (" + response.status + ")");
+        bytes = new Uint8Array(await response.arrayBuffer());
+    }
+    else
+    {
+        bytes = source;
+    }
     if(bytes.length % 512) throw new Error("The image has " + bytes.length + " bytes, not a whole number of 512-byte sectors");
     const dir = await disks_directory();
     let writable;

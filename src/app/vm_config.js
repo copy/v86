@@ -18,6 +18,8 @@ export const VERSION = 4;
 /** The UEFI firmware's images (machine.firmware "uefi"; bios/fetch-ovmf.sh) */
 export const UEFI_CODE_URL = "bios/ovmf-code.fd";
 export const UEFI_VARS_URL = "bios/ovmf-vars.fd";
+/** The TPM's state store (docs/tpm.md, src/tpm/store.js): two slots of 256 KiB */
+export const TPM_STATE_SIZE = 512 * 1024;
 
 /**
  * Where an image is (the plan's 镜像来源): a URL (or a disk service's), a
@@ -78,6 +80,8 @@ export const UEFI_VARS_URL = "bios/ovmf-vars.fd";
  *     uefi_vars: Image | null}} machine
  *     (firmware: "seabios", the BIOS images' or SeaBIOS, or "uefi", OVMF: docs/uefi.md; uefi_vars: its variable
  *     store, a browser disk made from the template at the first power-on, null before and after a reset to it)
+ * @property {{state: Image | null} | null} tpm a TPM 2.0 (docs/tpm.md); its state a browser disk made at the first
+ *     power-on (null before)
  * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
  * @property {{mb: number}} memory
  * @property {Disk[]} disks
@@ -218,6 +222,7 @@ export function with_defaults(config)
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
     section("sound", { device: "sb16", mute: false });
     c.usb = is_object(c.usb) ? Object.assign({ controller: "uhci", tablet: true, disks: [] }, c.usb) : null;
+    c.tpm = is_object(c.tpm) ? Object.assign({ state: null }, c.tpm) : null;
     if(c.usb && Array.isArray(c.usb.disks))
     {
         c.usb.disks = c.usb.disks.map(d => Object.assign({ disk_option: "read_only", disk_error: "stop", write_protected: false }, d));
@@ -560,6 +565,20 @@ export function validate_config(config)
             virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16, hd_audio or none (virtio-snd is the virt machine's)");
     }
     bool(config.sound.mute, "sound.mute");
+    if(config.tpm !== null)
+    {
+        if(!is_object(config.tpm)) problem("tpm", "an object or null");
+        else if(arm) problem("tpm", allowed.unavailable["tpm"]);
+        else
+        {
+            if(!machine.acpi) problem("tpm", "the TPM needs ACPI");
+            if(config.tpm.state !== null)
+            {
+                check_image(config.tpm.state, "tpm.state", problems);
+                if(config.tpm.state.kind !== "browser") problem("tpm.state", "is a browser disk");
+            }
+        }
+    }
     if(config.usb !== null)
     {
         if(!is_object(config.usb)) problem("usb", "an object or null");
@@ -902,6 +921,13 @@ export function config_to_options(config, env)
                 return { id: disk.id, image: option, read_only: disk.write_protected };
             });
         }
+    }
+    // (the TPM, likewise, on the PC machines: its state the machine's browser disk written back, which
+    // needs the CPU Worker; else in memory, a new TPM at each power-on)
+    if(config.tpm && !ARM_MACHINE_TYPES.includes(machine.type))
+    {
+        options.tpm = { version: "2.0" };
+        if(config.tpm.state && advanced.cpu_worker) options.tpm.state = Object.assign(image(config.tpm.state), { disk_option: "read_write" });
     }
     if(machine.bootmenu) options.bootmenu = true;
     // (the virt machine's devices, which the old page does not have either)

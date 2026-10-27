@@ -135,6 +135,7 @@ v86.prototype.destroy = function()
     this.cpu.devices.net instanceof PluginDevice && this.cpu.devices.net.destroy();
     this.cpu.devices.audio && this.cpu.devices.audio.destroy();
     this.cpu.devices.usb && this.cpu.devices.usb.destroy();
+    this.cpu.devices.tpm && this.cpu.devices.tpm.destroy();
     this.cpu.clock.pause();
     this.unregister_yield();
 };

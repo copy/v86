@@ -59,6 +59,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	node tests/app/machine_rules.mjs
 	node tests/android/library.mjs
 	TEST_RELEASE_BUILD=1 ./tests/uefi/shell.mjs
+	TEST_RELEASE_BUILD=1 ./tests/tpm/tpm.mjs
 	./tests/api/disk-options.js
 	./tests/api/sb16-state.js
 	./tests/api/sb16-dma.js
@@ -147,7 +148,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js device_plugin.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
-	   acpi.js acpi_tables.js smbios.js pflash.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
+	   acpi.js acpi_tables.js smbios.js pflash.js tpm/store.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
 	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js mac_address.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
@@ -182,7 +183,9 @@ AUDIO_DEVICE_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_mac
 # USB's plugin (usb: its controllers and devices), likewise
 USB_PLUGINS=build/v86-usb.js
 USB_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_machine.js
-DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS) $(USB_PLUGINS)
+# the TPM's (tpm: docs/tpm.md), with its module (bios/libtpms.wasm, tools/libtpms/build.sh) beside it
+TPM_PLUGINS=build/v86-tpm.js build/libtpms.wasm
+DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS) $(USB_PLUGINS) $(TPM_PLUGINS)
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs src/rust/gen/interpreter0f38.rs src/rust/gen/interpreter0f3a.rs \
@@ -268,6 +271,17 @@ build/v86-usb.js: $(CLOSURE) src/*.js src/usb/*.js
 		--output_wrapper ';(function(){%output%}).call(this);' \
 		--js $(USB_COMMON) --js src/usb/usb.js --js src/usb/usb_device.js --js src/usb/hid_tablet.js --js src/usb/mass_storage.js --js src/usb/uhci.js --js src/usb/ehci.js --js src/usb/xhci.js \
 		--js src/usb/machine.js --js src/usb/plugin.js
+
+build/v86-tpm.js: $(CLOSURE) src/*.js src/tpm/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(USB_COMMON) --js src/tpm/libtpms.js --js src/tpm/crb.js --js src/tpm/store.js --js src/tpm/plugin.js
+
+build/libtpms.wasm: bios/libtpms.wasm
+	mkdir -p build
+	cp $< $@
 
 device-plugins: $(DEVICE_PLUGINS)
 
@@ -644,6 +658,19 @@ hd-audio-tests: build/v86-debug.wasm build/libv86.mjs
 # usbhid and usb-storage
 # (i440FX, Q35, two cores). Windows: tests/devices/
 # usb_windows_xp.mjs, tests/x64/windows_boot.mjs WIN_USB (their images)
+# The TPM 2.0 (docs/tpm.md): the device in Node, Linux's tpm_crb (Alpine's LTS
+# kernel), OVMF's measurements and their event log (macOS: hdiutil makes the ESP)
+tpm-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs build/v86-tpm.js build/libtpms.wasm
+	./tests/tpm/tpm.mjs
+	TEST_RELEASE_BUILD=1 ./tests/tpm/tpm.mjs
+	MACHINE=q35 ./tests/tpm/tpm.mjs
+	./tests/tpm/linux_tpm.mjs
+	MACHINE=q35 CPU_CORES=2 ./tests/tpm/linux_tpm.mjs
+	TEST_RELEASE_BUILD=1 ./tests/tpm/linux_tpm.mjs
+	./tests/tpm/uefi_tpm.mjs
+	MACHINE=i440fx CPU_CORES=2 ./tests/tpm/uefi_tpm.mjs
+	TEST_RELEASE_BUILD=1 ./tests/tpm/uefi_tpm.mjs
+
 # The UEFI firmware (docs/uefi.md): OVMF to its Shell, and Alpine from a GPT
 # disk's ESP (macOS: hdiutil), on Q35, i440FX, two cores and the release build
 uefi-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs
@@ -1936,7 +1963,7 @@ bmi-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debu
 # exact model of tests/rust/sse_fp_model.mjs (release and debug builds), the
 # x64 engine (interpreted, page tier, compatibility-mode Tier-0) against QEMU
 # and the model
-.PHONY: fma-tests uefi-tests
+.PHONY: fma-tests uefi-tests tpm-tests
 fma-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-debug.wasm
 	node tests/rust/fma.mjs
 	node tests/rust/cvtpi2ps_x87.mjs

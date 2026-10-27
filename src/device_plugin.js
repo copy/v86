@@ -50,6 +50,20 @@ export const NET_PLUGINS = { registry: "V86NetAdapters", option: "net_device", d
 export const AUDIO_PLUGINS = { registry: "V86AudioDevices", option: "audio_device", dir: "audio_devices", tag: "audio_device" };
 /** @const @type {PluginKind} the USB controllers and devices: one plugin, "usb" */
 export const USB_PLUGINS = { registry: "V86UsbControllers", option: "usb", dir: "usb", tag: "usb", entry: "./usb/plugin.js" };
+/** @const @type {PluginKind} the TPM 2.0 (docs/tpm.md): one plugin, "tpm" */
+export const TPM_PLUGINS = { registry: "V86TpmDevices", option: "tpm", dir: "tpm", tag: "tpm", entry: "./tpm/plugin.js" };
+
+/**
+ * The TPM's module (build/libtpms.wasm) where tpm.wasm_path does not say:
+ * beside the bundle, as the plugins
+ * @return {string}
+ */
+export function default_tpm_wasm_path()
+{
+    if(BUNDLE_URL) return new URL("libtpms.wasm", BUNDLE_URL).href;
+    if(NODE && typeof __dirname === "string") return __dirname + "/libtpms.wasm";
+    return "build/libtpms.wasm";
+}
 
 /** A plugin slot's snapshot entry: [tag, STATE_VERSION, name, device state] */
 const STATE_VERSION = 1;

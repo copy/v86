@@ -98,6 +98,9 @@
 // USBDISK.TXT); USBCHECK.EXE reads that file and writes FROMWIN.TXT, which
 // "usbdiskfile <name>" prints from the image (X64_WIN_USB_DISK_FILE).
 // WIN_USB_TRACE=1: each report the tablet gives the guest (X64_WIN_TABLET_REPORT).
+// WIN_TPM=1: a TPM 2.0 (docs/tpm.md); USB.CMD lists its device (ACPI\MSFT0101) too.
+// WIN_TPM_TRACE=1: each command the guest sends the TPM, its response code and
+// how long it took (X64_WIN_TPM).
 // "waitfile <name> <text> [seconds]": until a file of the tools disk has the
 // text (USB.CMD writes READY once it logs the cursor, END when done).
 import assert from "node:assert/strict";
@@ -265,6 +268,7 @@ const vm = new V86({
     // (WIN_USB=ehci: EHCI with its companions; xhci)
     ...(process.env.WIN_USB ? {usb: {controller: ["ehci", "xhci"].includes(process.env.WIN_USB) ? process.env.WIN_USB : "uhci", tablet: true,
         ...(usb_disk ? {mass_storage: [{id: "stick", image: {buffer: usb_disk.buffer}}]} : {})}} : {}),
+    ...(process.env.WIN_TPM ? {tpm: {version: "2.0"}} : {}),
     // WIN_QEMU_COMPATIBLE=1: devices where QEMU, which the image was installed with, had them
     qemu_compatible: !!+process.env.WIN_QEMU_COMPATIBLE,
     // JIT_SWITCHES (tests/lib/jit_switches.mjs)
@@ -853,6 +857,15 @@ try
                 (performance.now() / 1000).toFixed(2));
             return r;
         };
+    }
+    // WIN_TPM_TRACE=1: each TPM command (X64_WIN_TPM code response-code
+    // milliseconds at s, a failed one's bytes)
+    if(process.env.WIN_TPM_TRACE && cpu.devices.tpm)
+    {
+        const u32 = (b, at) => (b[at] << 24 | b[at + 1] << 16 | b[at + 2] << 8 | b[at + 3]) >>> 0;
+        cpu.devices.tpm.device["on_command"] = (command, response, ms) =>
+            console.log("X64_WIN_TPM " + u32(command, 6).toString(16) + " " + u32(response, 6).toString(16) + " " + ms.toFixed(1) +
+                " at " + elapsed() + (u32(response, 6) ? " " + Buffer.from(command.subarray(0, 96)).toString("hex") : ""));
     }
     // WIN_AUDIO=hd_audio: what the controller played
     const audio = {bytes: 0, formats: {}, loud: 0};

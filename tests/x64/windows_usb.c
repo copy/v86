@@ -13,7 +13,11 @@
  * the disk, so that the tools disk has it at once (Windows' cache held it
  * for minutes; PowerShell's WMI took minutes too). With a USB disk (U2):
  * its devices (USB\VID_46F4&PID_0001, USBSTOR\...) too, and the file
- * USBDISK.TXT read from the removable drive, FROMWIN.TXT written to it. */
+ * USBDISK.TXT read from the removable drive, FROMWIN.TXT written to it.
+ * With WIN_TPM (docs/tpm.md): the TPM's device (ACPI\MSFT0101) too, and
+ * commands through Windows' TPM Base Services (tbs.dll, Windows 8 and later):
+ * "TPM version=v interface=i", "TPM GetRandom rc=r bytes=n", "TPM
+ * manufacturer m" (or "TPM none rc=r" without a TPM). */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <setupapi.h>
@@ -58,7 +62,8 @@ static int starts(const char *s, const char *prefix)
 static void devices(void)
 {
     static const char *const wanted[] = {"PCI\\VEN_8086&DEV_7020", "PCI\\VEN_8086&DEV_2934", "PCI\\VEN_8086&DEV_2935", "PCI\\VEN_8086&DEV_2936",
-        "PCI\\VEN_8086&DEV_293A", "PCI\\VEN_1B36&DEV_000D", "USB\\ROOT_HUB", "USB\\VID_0627&PID_0001", "HID\\VID_0627&PID_0001", "USB\\VID_46F4&PID_0001", "USBSTOR\\"};
+        "PCI\\VEN_8086&DEV_293A", "PCI\\VEN_1B36&DEV_000D", "USB\\ROOT_HUB", "USB\\VID_0627&PID_0001", "HID\\VID_0627&PID_0001", "USB\\VID_46F4&PID_0001", "USBSTOR\\",
+        "ACPI\\MSFT0101"};
     HDEVINFO set = SetupDiGetClassDevsA(0, 0, 0, DIGCF_ALLCLASSES | DIGCF_PRESENT);
     if(set == INVALID_HANDLE_VALUE) { put("DEVICES error"); flush(); return; }
     SP_DEVINFO_DATA device;
@@ -87,6 +92,70 @@ static void devices(void)
         flush();
     }
     SetupDiDestroyDeviceInfoList(set);
+}
+static void put_hex(unsigned long n)
+{
+    char b[9];
+    for(int i = 7; i >= 0; i--, n >>= 4) b[i] = "0123456789abcdef"[n & 15];
+    b[8] = 0;
+    put(b);
+}
+static unsigned long be32(const BYTE *b) { return (unsigned long)b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3]; }
+/* The TPM through TBS: its device information, then GetRandom and the
+ * manufacturer property (GetCapability) as raw TPM 2.0 commands */
+static void tpm(void)
+{
+    HMODULE tbs = LoadLibraryA("tbs.dll");
+    if(!tbs) return;
+    typedef UINT32 (WINAPI *create_t)(const void *, void **);
+    typedef UINT32 (WINAPI *submit_t)(void *, UINT32, UINT32, const BYTE *, UINT32, BYTE *, UINT32 *);
+    typedef UINT32 (WINAPI *close_t)(void *);
+    typedef UINT32 (WINAPI *info_t)(UINT32, void *);
+    create_t create = (create_t)GetProcAddress(tbs, "Tbsi_Context_Create");
+    submit_t submit = (submit_t)GetProcAddress(tbs, "Tbsip_Submit_Command");
+    close_t close = (close_t)GetProcAddress(tbs, "Tbsip_Context_Close");
+    info_t info = (info_t)GetProcAddress(tbs, "Tbsi_GetDeviceInfo");
+    if(!create || !submit || !close) return;
+    /* TBS_CONTEXT_PARAMS2: version 2, includeTpm20 */
+    UINT32 params[2] = {2, 4};
+    void *context = 0;
+    UINT32 rc = create(params, &context);
+    if(rc) { put("TPM none rc=0x"); put_hex(rc); flush(); return; }
+    if(info)
+    {
+        /* TBS_DEVICE_INFO: structVersion, tpmVersion, tpmInterfaceType, tpmImpRevision */
+        UINT32 device[4] = {0};
+        rc = info(sizeof(device), device);
+        put("TPM version=");
+        put_number(rc ? -1 : (long)device[1]);
+        put(" interface=");
+        put_number(rc ? -1 : (long)device[2]);
+        flush();
+    }
+    static const BYTE get_random[] = {0x80, 0x01, 0, 0, 0, 12, 0, 0, 0x01, 0x7B, 0, 16};
+    BYTE response[256];
+    UINT32 length = sizeof(response);
+    rc = submit(context, 0, 200, get_random, sizeof(get_random), response, &length);
+    put("TPM GetRandom rc=0x");
+    put_hex(rc ? rc : length >= 10 ? be32(response + 6) : 0xFFFFFFFF);
+    put(" bytes=");
+    put_number(!rc && length >= 12 ? (long)(response[10] << 8 | response[11]) : -1);
+    flush();
+    /* GetCapability(TPM_CAP_TPM_PROPERTIES, TPM_PT_MANUFACTURER, 1) */
+    static const BYTE get_manufacturer[] = {0x80, 0x01, 0, 0, 0, 22, 0, 0, 0x01, 0x7A, 0, 0, 0, 6, 0, 0, 0x01, 0x05, 0, 0, 0, 1};
+    length = sizeof(response);
+    rc = submit(context, 0, 200, get_manufacturer, sizeof(get_manufacturer), response, &length);
+    put("TPM manufacturer ");
+    if(!rc && length >= 27 && !be32(response + 6))
+    {
+        /* tag, size, rc, moreData, capability, count, property, value */
+        char name[5] = {0};
+        for(int i = 0; i < 4; i++) name[i] = response[23 + i] >= 0x20 && response[23 + i] < 0x7F ? response[23 + i] : '.';
+        put(name);
+    }
+    else { put("rc=0x"); put_hex(rc ? rc : length >= 10 ? be32(response + 6) : 0xFFFFFFFF); }
+    flush();
+    close(context);
 }
 /* A USB disk (WIN_USB_DISK): the removable drive with USBDISK.TXT on it,
  * "DISK X: <its first line>", then FROMWIN.TXT written there and flushed,
@@ -132,6 +201,7 @@ void WINAPI entry(void)
     for(int i = 0; name[i]; i++) path[n++] = name[i];
     path[n] = 0;
     devices();
+    tpm();
     usb_disk();
     put("SCREEN ");
     put_number(GetSystemMetrics(SM_CXSCREEN));

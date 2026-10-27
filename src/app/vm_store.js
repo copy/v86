@@ -57,7 +57,7 @@ function complete(transaction)
  */
 export function config_images(config)
 {
-    return [config.machine.bios, config.machine.vga_bios, config.machine.uefi_vars,
+    return [config.machine.bios, config.machine.vga_bios, config.machine.uefi_vars, config.tpm && config.tpm.state,
         ...config.disks.map(d => d.image), ...(config.usb ? config.usb.disks.map(d => d.image) : []),
         config.cdrom.image,
         ...config.floppies.map(f => f.image), config.kernel && config.kernel.bzimage, config.kernel && config.kernel.initrd,

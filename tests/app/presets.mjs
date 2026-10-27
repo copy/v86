@@ -247,6 +247,19 @@ test("change: UEFI keeps the x86_64 CPU and ACPI, or goes", () =>
     assert.equal(config.machine.firmware, "seabios");
 });
 
+test("change: the TPM keeps ACPI, or goes with an ARM CPU", () =>
+{
+    const c = new_config();
+    c.machine.acpi = true;
+    c.tpm = { state: null };
+    let { config, notes } = change(c, "machine.acpi", false);
+    assert.equal(config.machine.acpi, true);
+    assert(notes.some(n => /ACPI on: the TPM needs it/.test(n)), notes.join("; "));
+    ({ config, notes } = change(config, "cpu.type", "arm64"));
+    assert.equal(config.tpm, null);
+    assert(notes.some(n => /TPM removed/.test(n)), notes.join("; "));
+});
+
 test("change: Vulkan and the graphics proxy", () =>
 {
     let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", "venus");

@@ -52,6 +52,9 @@ export function ovmf_pci_mmio_start(memory_size)
     const gap = 2 ** 32 - memory_size;
     return 2 ** 32 - 2 ** Math.floor(Math.log2(gap));
 }
+/** The TPM's CRB (docs/tpm.md, src/tpm/crb.js): five localities of 4 KiB */
+export const TPM_CRB_BASE = 0xFED40000;
+export const TPM_CRB_SIZE = 0x5000;
 /** ICH9 root complex register block (LPC config 0xF0), as SeaBIOS programs it */
 export const ICH9_RCBA_ADDRESS = 0xFED1C000;
 export const ICH9_RCBA_SIZE = 0x4000;
@@ -206,6 +209,7 @@ const PARALLEL_PORTS = [
  *     qemu_compatible: boolean,
  *     machine: string,
  *     firmware: string,
+ *     tpm: boolean,
  *     acpi: boolean,
  *     ecam: ?{base: number, size: number},
  *     pm: {length: number, gpe0_offset: number, gpe0_base: number, gpe0_length: number, acpi_enable: number, acpi_disable: number},
@@ -289,6 +293,10 @@ export function create_platform(settings, memory_size)
     {
         throw new Error("cpu_cores > 1 requires acpi: true (it enables the local APICs)");
     }
+    if(settings.tpm && !acpi)
+    {
+        throw new Error("tpm requires acpi: true (the ACPI tables describe the TPM)");
+    }
     if(q35 && memory_size > Q35_ECAM_BASE)
     {
         throw new Error("machine_type \"q35\": RAM below 4 GiB must end below the ECAM window at 0x" + Q35_ECAM_BASE.toString(16));
@@ -371,6 +379,8 @@ export function create_platform(settings, memory_size)
         machine,
         // "seabios" (bios, vga_bios) or "uefi" (firmware: { type: "uefi" })
         firmware: uefi ? "uefi" : "seabios",
+        // a TPM 2.0 (tpm: docs/tpm.md): its device and TPM2 table
+        tpm: !!settings.tpm,
         acpi,
         ecam: q35 ? { base: uefi ? OVMF_Q35_ECAM_BASE : Q35_ECAM_BASE, size: Q35_ECAM_SIZE } : null,
         // The power management block: PIIX4 (PMBA, separate GPE0 block) or

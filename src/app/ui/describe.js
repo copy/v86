@@ -75,6 +75,7 @@ export function hardware_rows(c)
     }
     rows.push(["Sound", (c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device) + (c.sound.mute ? ", muted" : "")]);
     if(c.usb) rows.push(["USB", c.usb.controller.toUpperCase() + (c.usb.tablet ? ", tablet" : "")]);
+    if(c.tpm) rows.push(["TPM", "TPM 2.0 (CRB)"]);
     for(const disk of c.usb ? c.usb.disks : [])
     {
         rows.push(["USB disk (" + disk.id + ")", describe_image(disk.image) + (disk.disk_option === "read_write" ? ", read write" : ", read only") +

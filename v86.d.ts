@@ -679,6 +679,20 @@ export interface V86Options {
      * `vga_bios`. The variable store is CFI flash; with `disk_option: "read_write"` its writes go
      * back into its image, as a disk's (else they stay in memory). See docs/uefi.md.
      */
+    /**
+     * A TPM 2.0 on the PC machines (a plugin, build/v86-tpm.js, with build/libtpms.wasm beside it):
+     * libtpms behind the CRB interface at 0xFED40000, described by the ACPI tables (MSFT0101,
+     * TPM2); it needs acpi: true. `state` keeps the TPM's permanent state (a 512 KiB image; with
+     * disk_option "read_write" written back, else in memory; zeros: a new TPM). See docs/tpm.md.
+     */
+    tpm?: {
+        version?: "2.0";
+        interface?: "crb";
+        state?: V86HardDiskImage;
+        plugin_path?: string;
+        wasm_path?: string;
+    };
+
     firmware?: {
         type: "seabios" | "uefi";
         code?: V86Image;

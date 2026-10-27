@@ -117,6 +117,20 @@ function fit(c, notes)
     if(allowed.acpi === "none" && c.machine.acpi) { c.machine.acpi = false; note("ACPI off: " + allowed.unavailable["acpi"]); }
     if(allowed.acpi === "required" && !c.machine.acpi) { c.machine.acpi = true; note("ACPI on: the Q35 machine always has it"); }
     if(allowed.acpi === "with_cores" && c.cpu.cores > 1 && !c.machine.acpi) { c.machine.acpi = true; note("ACPI on: more than one core needs it"); }
+    // the TPM: on a PC machine, with ACPI (docs/tpm.md)
+    if(c.tpm)
+    {
+        if(arm)
+        {
+            c.tpm = null;
+            note("TPM removed: " + allowed.unavailable["tpm"]);
+        }
+        else if(!c.machine.acpi)
+        {
+            c.machine.acpi = true;
+            note("ACPI on: the TPM needs it");
+        }
+    }
     // UEFI: OVMF runs on the x86_64 CPU with ACPI (docs/uefi.md)
     if(c.machine.firmware === "uefi")
     {

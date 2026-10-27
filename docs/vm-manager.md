@@ -55,6 +55,10 @@ settings, rename, export, delete.
   (another CPU makes it SeaBIOS again), and on i440FX QEMU's device layout;
   its variables are kept in a browser disk of the machine's, made at the first
   power-on; "Reset UEFI variables…" returns them to the firmware's template.
+  A TPM 2.0 ([tpm.md](tpm.md)) is an item of the PC machines ("TPM" in
+  Add; it brings ACPI): its state is a browser disk of the machine's, made
+  at the first power-on, and "Clear TPM…" makes a new TPM of it (keys sealed
+  to the old one are lost, the dialog says so).
 - **Import…** and **Export** read and write `.v86vm.json` files. Files on
   your computer are not part of an export: the console asks for them.
 - **Preferences…** sets the disk service (below). **Browser disks…** lists

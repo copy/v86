@@ -13,7 +13,7 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { AUDIO_PLUGINS, NET_PLUGINS, USB_PLUGINS, load_device_plugin } from "../device_plugin.js";
+import { AUDIO_PLUGINS, NET_PLUGINS, TPM_PLUGINS, USB_PLUGINS, default_tpm_wasm_path, load_device_plugin } from "../device_plugin.js";
 import { check_machine_options, is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
@@ -629,6 +629,7 @@ V86.prototype.continue_init = async function(emulator, options)
     // the sound card: the Sound Blaster 16 unless audio_device says otherwise
     settings.audio_device = is_arm(this.cpu_type) ? undefined : options.audio_device || "sb16";
     settings.usb = is_arm(this.cpu_type) ? undefined : options.usb || undefined;
+    settings.tpm = is_arm(this.cpu_type) ? undefined : options.tpm || undefined;
     // the UEFI firmware (docs/uefi.md); its images arrive as firmware_code and firmware_vars
     settings.firmware = options.firmware && options.firmware.type === "uefi" ? options.firmware : undefined;
     this.usb_enabled = !!settings.usb;
@@ -842,6 +843,10 @@ V86.prototype.continue_init = async function(emulator, options)
     const usb_plugin = settings.usb ? load_device_plugin(USB_PLUGINS, "usb", settings.usb["plugin_path"], "usb.plugin_path") :
         Promise.resolve(undefined);
     usb_plugin.catch(() => {});
+    // and the TPM's (tpm: docs/tpm.md); its module and its state are files (below)
+    const tpm_plugin = settings.tpm ? load_device_plugin(TPM_PLUGINS, "tpm", settings.tpm["plugin_path"], "tpm.plugin_path") :
+        Promise.resolve(undefined);
+    tpm_plugin.catch(() => {});
     const adapter_renderer = this.create_adapter_renderer(options);
 
     // the disks' policies (src/disk_options.js), put on their buffers
@@ -928,6 +933,13 @@ V86.prototype.continue_init = async function(emulator, options)
                 // (a buffer object: src/pflash.js writes into it)
                 settings.firmware_vars = buffer;
                 break;
+            case "tpm_wasm":
+                settings.tpm_wasm = buffer.buffer;
+                break;
+            case "tpm_state":
+                // (a buffer object: src/tpm/store.js writes into it)
+                settings.tpm_state = buffer;
+                break;
             case "initial_state":
                 settings.initial_state = buffer.buffer;
                 break;
@@ -987,7 +999,7 @@ V86.prototype.continue_init = async function(emulator, options)
             return;
         }
 
-        if(name === "bios" || name === "vga_bios" || name === "firmware_code" || name === "firmware_vars" ||
+        if(name === "bios" || name === "vga_bios" || name === "firmware_code" || name === "firmware_vars" || name === "tpm_wasm" || name === "tpm_state" ||
             name === "initial_state" || name === "multiboot" ||
             name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb" || name === "android_vendor_ramdisk")
         {
@@ -1032,6 +1044,14 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         add_file("firmware_code", options.firmware.code);
         add_file("firmware_vars", options.firmware.vars);
+    }
+    if(settings.tpm)
+    {
+        // (beside the bundle unless wasm_path says; in Node a path)
+        let wasm = settings.tpm["wasm_path"] || default_tpm_wasm_path();
+        if(wasm.startsWith("file:")) wasm = decodeURIComponent(new URL(wasm).pathname);
+        add_file("tpm_wasm", { url: wasm });
+        add_file("tpm_state", settings.tpm["state"]);
     }
     add_file("cdrom", options.cdrom);
     add_file("hda", options.hda);
@@ -1277,6 +1297,9 @@ V86.prototype.continue_init = async function(emulator, options)
         settings.net_device_plugin = await net_plugin;
         settings.audio_device_plugin = await audio_plugin;
         settings.usb_plugin = await usb_plugin;
+        settings.tpm_plugin = await tpm_plugin;
+        // (the TPM's module compiled and instantiated before the machine: asynchronous)
+        if(settings.tpm_plugin) settings.tpm_prepared = await settings.tpm_plugin["prepare"]({ "wasm": settings.tpm_wasm });
         settings.graphics_adapter_renderer = await adapter_renderer;
 
         if(options.android)

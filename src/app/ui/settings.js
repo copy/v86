@@ -12,7 +12,7 @@ import { check_config } from "../vm_config.js";
 import { describe_image } from "./describe.js";
 import { general_panel, memory_panel, processor_panel, machine_panel, advanced_panel, CPU_LABELS, MACHINE_LABELS } from "./panels/system.js";
 import { disk_panel, usb_disk_panel, cdrom_panel, floppy_panel, direct_boot_panel } from "./panels/storage.js";
-import { network_panel, sound_panel, usb_panel, display_panel, serial_panel, shared_folder_panel, virt_panel, NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
+import { network_panel, sound_panel, usb_panel, tpm_panel, display_panel, serial_panel, shared_folder_panel, virt_panel, NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 import { android_panel } from "./panels/android.js";
 import { ANDROID_DEFAULTS } from "../vm_config.js";
 import { RANCHU_DEVICES } from "../../android/devices.js";
@@ -77,6 +77,7 @@ export function hardware_items(c)
         id: "usb-disk-" + i, label: "USB disk (" + disk.id + ")", summary: describe_image(disk.image), panel: ctx => usb_disk_panel(ctx, i),
         remove: next => { /** @type {any} */ (next.usb).disks.splice(i, 1); },
     }));
+    if(c.tpm) items.push({ id: "tpm", label: "TPM", summary: "TPM 2.0 (CRB)", panel: tpm_panel, remove: next => { next.tpm = null; } });
     items.push({ id: "display", label: "Display", summary: c.display.adapter + (c.display.vram_mb ? ", " + c.display.vram_mb + " MB" : ""), panel: display_panel, remove: null });
     items.push({ id: "serial", label: "Serial ports", summary: c.serial.filter(s => s.attach !== "none").map(s => "UART" + s.port + " " + s.attach).join(", ") || "none",
         panel: serial_panel, remove: null });
@@ -107,7 +108,7 @@ export function item_of(path)
         case "floppies": return "floppy-" + (index || 0);
         case "network": return "network-" + (index || 0);
         case "cpu": return "processor";
-        case "memory": case "machine": case "cdrom": case "sound": case "usb": case "display": case "serial": case "filesystem": case "virt": case "advanced": return head;
+        case "memory": case "machine": case "cdrom": case "sound": case "usb": case "tpm": case "display": case "serial": case "filesystem": case "virt": case "advanced": return head;
         case "kernel": return "kernel";
         case "android": return "android";
         case "initial_state": return "advanced";
@@ -139,6 +140,8 @@ function additions(c)
         list.push(["Network adapter", next => { next.network.push({ device: "virtio", backend: "none", relay_url: "", mtu: 1500, mac_address_translation: false }); }]);
     }
     if(!arm && !c.usb) list.push(["USB", next => { next.usb = { controller: "uhci", tablet: true, disks: [] }; }]);
+    // (a TPM 2.0: with ACPI, which describes it)
+    if(!arm && !c.tpm) list.push(["TPM", next => { next.tpm = { state: null }; next.machine.acpi = true; }]);
     // (a USB disk in a free port: with USB, or with it added for the disk)
     if(!arm && (!c.usb || c.usb.disks.length + (c.usb.tablet ? 1 : 0) < (USB_PORTS[c.usb.controller] || 0)))
     {

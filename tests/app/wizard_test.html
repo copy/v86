@@ -8,7 +8,8 @@
      part=uefi     a machine of no preset edited to UEFI (OVMF, Q35) in the settings dialog, powered on: the UEFI Shell's
                    prompt on the serial console (bios/ovmf-code.fd through the CPU worker); a variable set in the Shell is
                    there at the next power-on (the machine's variable store, a browser disk written back), and gone after
-                   the settings dialog's "Reset UEFI variables…"
+                   the settings dialog's "Reset UEFI variables…"; with a TPM added there, OVMF's TCG2 protocol at each
+                   power-on (the TPM plugin in the CPU worker, its state a browser disk), after "Clear TPM…" too
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
@@ -278,6 +279,8 @@ const parts = {
         select_text(panel().querySelector("select[aria-label=Machine]"), "Q35");
         select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
         await until(() => /UEFI is OVMF/.test(panel().textContent), "the UEFI note");
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "TPM");
+        await until(() => item("tpm") && item("tpm").classList.contains("selected"), "the TPM added");
         button("Save", dialog).click();
         await until(() => !$("dialog.settings-dialog[open]"), "saved");
         const VARIABLE = "V86Test -guid 2c94c1ab-37b4-4d11-9a3f-5fd77b0d5e8a";
@@ -306,14 +309,21 @@ const parts = {
         // (powered off: the variable store flushed, the machine's lock and the store's handle let go)
         const power_off = async ({ frame, emulator }) => { await emulator.destroy(); frame.remove(); };
 
+        // (OVMF's TCG2 protocol: it found the TPM, through the plugin the CPU worker loaded)
+        const tcg2 = async machine => /^\s*[0-9A-F]+: Tcg2\s*$/m.test(await machine.command("dh -p Tcg2"));
         let machine = await shell();
         log("power on: OVMF on Q35 to \"Shell>\" on the serial console");
+        check(await tcg2(machine), "OVMF's TCG2 protocol: the TPM found");
+        log("the TPM: OVMF's TCG2 protocol installed");
         await machine.command("setvar " + VARIABLE + " -nv -bs -rt =L\"v86\"");
         check(/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable set");
         await power_off(machine);
         machine = await shell();
         check(/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable at the next power-on");
         log("a variable set in the Shell: there at the next power-on");
+        // (a TPM state the plugin refused would leave OVMF without a TPM)
+        check(await tcg2(machine), "the TPM at the next power-on, from its kept state");
+        log("the TPM at the next power-on, from the state the first one kept");
         await power_off(machine);
 
         // (back in the library's tab: it reads the machines again, the variable store the console made)
@@ -329,10 +339,20 @@ const parts = {
         const status = await until(() => /^Reset|^Not reset/.test(again.querySelector(".settings-panel [role=status]").textContent) &&
             again.querySelector(".settings-panel [role=status]").textContent, "the reset");
         check(/^Reset/.test(status), status);
+        again.querySelector("li[data-item=tpm]").click();
+        const clear = await until(() => button("Clear TPM…", again), "Clear TPM… (the state made)");
+        clear.click();
+        const sure = await until(() => $$("dialog[open]").find(e => /Clear the TPM\?/.test(e.textContent)), "the question");
+        button("Clear", sure).click();
+        const cleared = await until(() => /^Cleared|^Not cleared/.test(again.querySelector(".settings-panel [role=status]").textContent) &&
+            again.querySelector(".settings-panel [role=status]").textContent, "the clear");
+        check(/^Cleared/.test(cleared), cleared);
         button("Cancel", again).click();
         machine = await shell();
         check(!/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable gone after the reset");
         log("Reset UEFI variables: the variable gone at the next power-on");
+        check(await tcg2(machine), "a new TPM after Clear TPM…");
+        log("Clear TPM…: a new TPM at the next power-on");
         await power_off(machine);
     },
     async dialog()
@@ -427,6 +447,15 @@ const parts = {
         protect.click();
         await until(() => protect.isConnected ? protect.checked : panel().querySelector("label.check input").checked, "write protected");
         log("USB disk: added (usb0), write protected");
+
+        // Add a TPM: its item, its panel (Clear TPM… waits for the state, made at the first power-on)
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "TPM");
+        await until(() => item("tpm") && item("tpm").classList.contains("selected"), "the TPM added and chosen");
+        check(/TPM 2\.0 \(CRB\)/.test(item("tpm").textContent), "its item: " + item("tpm").textContent);
+        const clear = Array.from(panel().querySelectorAll("button")).find(b => b.textContent === "Clear TPM…");
+        check(clear && clear.disabled, "Clear TPM… disabled before the first power-on");
+        check(!Array.from(dialog.querySelector("select[aria-label='Add hardware']").options, o => o.textContent).includes("TPM"), "TPM no longer to add");
+        log("TPM: added (TPM 2.0, CRB), nothing to clear yet");
         button("Save", dialog).click();
         await until(() => !$("dialog.settings-dialog[open]"), "saved");
         const table = await until(() => /2 cores/.test(table_text($(".hardware"))) && table_text($(".hardware")), "the library showing the saved machine");

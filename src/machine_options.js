@@ -69,7 +69,7 @@ export const FIRMWARE_TYPES = ["seabios", "uefi"];
 /** Options of the PC machines that the virt machine rejects */
 export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot", "bios", "vga_bios", "fda", "fdb", "cdrom",
     "hpet", "smbus", "pcie_root_ports", "qemu_compatible", "uart1", "uart2", "uart3", "parallel1", "modem",
-    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features", "audio_device", "audio_device_path", "usb", "firmware"];
+    "cpuid_level", "x87_fast_math", "x87_jit_cache", "high_memory_size", "cpu_features", "audio_device", "audio_device_path", "usb", "firmware", "tpm"];
 
 /** Options of the virt machine that the PC machines reject */
 export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
@@ -248,6 +248,26 @@ export function check_machine_options(options)
                     throw new Error("usb: the " + usb["controller"].toUpperCase() + " controller has " + ports + " ports, for " +
                         (usb["tablet"] ? "the tablet and " : "") + disks.length + " USB disk" + (disks.length === 1 ? "" : "s"));
                 }
+            }
+        }
+        const tpm = options["tpm"];
+        if(tpm !== undefined && tpm !== null)
+        {
+            if(typeof tpm !== "object" || (tpm["version"] !== undefined && tpm["version"] !== "2.0"))
+            {
+                throw new Error("tpm.version must be \"2.0\" (the TPM 2.0, docs/tpm.md)");
+            }
+            if(tpm["interface"] !== undefined && tpm["interface"] !== "crb")
+            {
+                throw new Error("tpm.interface must be \"crb\" (the Command Response Buffer)");
+            }
+            if(tpm["state"] !== undefined && (!tpm["state"] || typeof tpm["state"] !== "object"))
+            {
+                throw new Error("tpm.state must be the image of the TPM's state ({ url } or { buffer }, disk_option \"read_write\" to keep it)");
+            }
+            for(const name of ["plugin_path", "wasm_path"])
+            {
+                if(tpm[name] !== undefined && (typeof tpm[name] !== "string" || !tpm[name])) throw new Error("tpm." + name + " must be a path or URL");
             }
         }
         const firmware = options["firmware"];

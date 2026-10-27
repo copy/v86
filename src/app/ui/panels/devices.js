@@ -3,10 +3,11 @@
 // 对话框"): network adapters, sound, display, serial ports, the shared
 // folder, the virt machine's devices.
 
-import { h } from "../dom.js";
+import { confirm, h } from "../dom.js";
 import { select_field, check_field, number_field, text_field } from "./system.js";
 import { VIRT_INPUTS } from "../../vm_model.js";
 import { DISPLAY_VULKAN } from "../../vm_config.js";
+import { disk_id, reset_disk } from "../../browser_disks.js";
 
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
@@ -57,6 +58,43 @@ export function usb_panel(ctx)
             h("p.note", null, "Windows 7 and earlier have no driver of their own for xHCI (Windows 8 and later have): EHCI works with them.") : null,
         check_field("Tablet (an absolute pointer: the guest's cursor follows the page's, no mouse lock)", u.tablet, value => ctx.set("usb.tablet", value)),
         h("p.note", null, "Lock the mouse (Input menu) for relative movement through the PS/2 mouse, as games need."),
+    ];
+}
+
+/**
+ * The TPM 2.0 (docs/tpm.md): what it is, and clearing it
+ * @param {PanelContext} ctx
+ */
+export function tpm_panel(ctx)
+{
+    const t = /** @type {{state: any}} */ (ctx.config.tpm);
+    const state = t.state;
+    const status = h("small.reason", { role: "status" });
+    const clear = /** @type {HTMLButtonElement} */ (h("button", { type: "button", disabled: !state || state.kind !== "browser",
+        title: state ? "" : "The TPM's state is made at the first power-on" }, "Clear TPM…"));
+    clear.addEventListener("click", async () =>
+    {
+        if(!state || state.kind !== "browser") return;
+        if(!await confirm("Clear the TPM?", "Its seeds, keys and stored data are deleted, and a new TPM is made at the next power-on: " +
+            "keys sealed to this one (BitLocker's among them) can no longer be unsealed. Have their recovery keys first.", "Clear", true)) return;
+        clear.disabled = true;
+        status.textContent = "Clearing…";
+        try
+        {
+            await reset_disk(disk_id(state.path), new Uint8Array(state.size));
+            status.textContent = "Cleared: a new TPM at the next power-on.";
+        }
+        catch(e)
+        {
+            status.textContent = "Not cleared: " + e.message;
+        }
+        clear.disabled = false;
+    });
+    return [
+        h("p.note", null, "A TPM 2.0 (libtpms in WebAssembly) behind the CRB interface, which Windows 8 and later and Linux drive. " +
+            "Its state (keys, stored data) is kept in a browser disk of the machine's, made at the first power-on (with the CPU in a Worker; " +
+            "otherwise there is a new TPM at each power-on). It is a TPM for software that needs one, not a hardware root of trust."),
+        h("div.field", null, clear, " ", status),
     ];
 }
 

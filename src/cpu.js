@@ -22,7 +22,7 @@ import { SB16 } from "./sb16.js";
 import { ACPI, acpi_system_states_file } from "./acpi.js";
 import { build_e820, build_smbios } from "./smbios.js";
 import { PFlash } from "./pflash.js";
-import { ACPI_LOADER_FILE, ACPI_RSDP_FILE, ACPI_TABLES_FILE, build_acpi_tables, locate_acpi_tables } from "./acpi_tables.js";
+import { ACPI_LOADER_FILE, ACPI_RSDP_FILE, ACPI_TABLES_FILE, TPM_LOG_FILE, build_acpi_tables, locate_acpi_tables } from "./acpi_tables.js";
 import { ACPI_PM_BASE_DEFAULT, MACHINE_LAYOUT_VERSION, Platform, check_platform, create_platform, pci_functions } from "./platform.js";
 import { CORE_STATE_RANGES, INIT_PRESERVED, STATE_OFFSETS } from "./state_layout.js";
 import { CPU_FEATURES, CPU_FEATURE_PRESETS } from "./cpu_features.js";
@@ -51,7 +51,9 @@ import { HPET } from "./hpet.js";
 import { SMBus } from "./smbus.js";
 import { VirtioNet } from "./virtio_net.js";
 import { GraphicsAdapter, graphics_adapter_of_state, patch_vga_bios_ids } from "./graphics_adapter.js";
-import { PluginDevice, AUDIO_PLUGINS, NET_PLUGINS, USB_PLUGINS, plugin_of_state } from "./device_plugin.js";
+import { PluginDevice, AUDIO_PLUGINS, NET_PLUGINS, TPM_PLUGINS, USB_PLUGINS, plugin_of_state } from "./device_plugin.js";
+import { STORE_SIZE as TPM_STORE_SIZE } from "./tpm/store.js";
+import { SyncBuffer } from "./buffer.js";
 import { DisplayHub } from "./display.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
 import { create_virtio_devices, get_virtio_devices_state, resolve_virtio_devices_state, set_virtio_devices_state } from "./virtio_devices.js";
@@ -237,6 +239,9 @@ export function CPU(bus, wm, stop_idling)
      * @type {?{code: !ArrayBuffer, vars: ?Object, code_region: number, pflash: ?PFlash, debug_console: boolean}}
      */
     this.firmware = null;
+
+    /** The TPM's state store (tpm: docs/tpm.md), a buffer object @type {?Object} */
+    this.tpm_store = null;
 
     this.instruction_counter = view(Uint32Array, memory, state_base + STATE_OFFSETS.instruction_counter, 1);
 
@@ -919,6 +924,9 @@ CPU.prototype.get_state = function(skip_memory = false)
     // (the UEFI firmware's variable store: its bytes, or a reference to the
     // store written back, src/pflash.js)
     state[109] = this.firmware && this.firmware.pflash;
+    // (the TPM: the plugin's slot; its store's bytes or reference, as a disk's)
+    state[110] = this.devices.tpm;
+    state[111] = this.devices.tpm ? this.tpm_store : null;
 
     state[62] = this.fw_value;
 
@@ -1327,6 +1335,16 @@ CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from a machine with usb, this one has none");
     }
+    // the TPM: both or neither; its store as a disk's
+    if(this.devices.tpm)
+    {
+        this.devices.tpm.check_state(state[110]);
+        check_disk_state("tpm_state", this.tpm_store, state[111]);
+    }
+    else if(plugin_of_state(TPM_PLUGINS, state[110]) !== null)
+    {
+        throw new Error("The snapshot is from a machine with a TPM, this one has none");
+    }
     // A remapped snapshot must retain the RAM/MMIO split used when validating
     // its windows. Reject this before changing clocks, RAM, or CPU state.
     if(state[97] && state[0] !== this.memory_size[0] &&
@@ -1537,6 +1555,12 @@ CPU.prototype.set_state = function(state, skip_memory = false)
     this.devices.sb16 && this.devices.sb16.set_state(state[61]);
     this.devices.audio && this.devices.audio.set_state(state[61]);
     this.devices.usb && this.devices.usb.set_state(state[107]);
+    // (the TPM's store first: the TPM powers on from it)
+    if(this.devices.tpm)
+    {
+        restore_disk_state(this.tpm_store, state[111]);
+        this.devices.tpm.set_state(state[110]);
+    }
     for(const [id, saved] of /** @type {!Array<!Array<*>>} */ (state[108] || []))
     {
         const buffer = this.usb_disks && this.usb_disks.get(/** @type {string} */ (id));
@@ -2482,6 +2506,10 @@ CPU.prototype.reboot_internal = function(reason, keep_memory)
     {
         this.devices.usb.reset();
     }
+    if(this.devices.tpm)
+    {
+        this.devices.tpm.reset();
+    }
 
     if(keep_memory)
     {
@@ -3234,6 +3262,10 @@ CPU.prototype.init = function(settings, device_bus)
                 { name: ACPI_LOADER_FILE, data: tables.loader },
                 { name: ACPI_RSDP_FILE, data: tables.rsdp },
                 { name: ACPI_TABLES_FILE, data: tables.tables, get_data: () => build_tables().tables });
+            if(tables.tpm_log)
+            {
+                this.option_roms.push({ name: TPM_LOG_FILE, data: tables.tpm_log });
+            }
 
             // Only read by SeaBIOS's fallback builder, if the loader fails:
             // advertise only the sleep states that are implemented
@@ -3407,6 +3439,16 @@ CPU.prototype.init = function(settings, device_bus)
         if(settings.usb_plugin)
         {
             this.devices.usb = this.create_usb_plugin(settings, device_bus);
+        }
+        // the TPM (tpm: docs/tpm.md, the plugin's), its state in a store: a
+        // buffer object, written back or in memory; no PCI function
+        if(settings.tpm_plugin)
+        {
+            this.tpm_store = settings.tpm_state || new SyncBuffer(new ArrayBuffer(TPM_STORE_SIZE));
+            this.devices.tpm = new PluginDevice(this, TPM_PLUGINS, settings.tpm_plugin, -1, {}, {
+                "prepared": settings.tpm_prepared,
+                "state": this.tpm_store,
+            });
         }
 
         // Last, so that they get a slot and ports that nothing else uses

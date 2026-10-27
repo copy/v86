@@ -203,6 +203,9 @@ const RULES = [
         "machine.bios"],
     ["UEFI on virt", c => { Object.assign(c, arm64()); c.machine.firmware = "uefi"; }, "machine.firmware"],
     ["a UEFI variable store of a URL", c => { c.machine.uefi_vars = { kind: "url", url: "v.fd" }; }, "machine.uefi_vars"],
+    ["a TPM without ACPI", c => { c.tpm = { state: null }; }, "tpm"],
+    ["a TPM's state of a URL", c => { c.machine.acpi = true; c.tpm = { state: { kind: "url", url: "t.img" } }; }, "tpm.state"],
+    ["a TPM on virt", c => { Object.assign(c, arm64()); c.tpm = { state: null }; }, "tpm"],
     ["a disk's slot", c => { c.disks = [disk({ slot: "hdc" })]; }, "disks.0.slot"],
     ["a slot twice", c => { c.disks = [disk(), disk()]; }, "disks.1.slot"],
     ["an image's kind", c => { c.disks = [disk({ image: { kind: "ftp" } })]; }, "disks.0.image"],
@@ -495,6 +498,21 @@ test("UEFI: OVMF's images in place of the BIOS images; on i440FX with QEMU's lay
     assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "opfs:v86/disks/vars.img", size: 540672, disk_option: "read_write" });
     c.advanced.cpu_worker = false;
     assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "bios/ovmf-vars.fd" });
+});
+
+test("the TPM: tpm 2.0; its state the machine's browser disk written back, with the CPU Worker; else in memory", () =>
+{
+    const c = new_config();
+    c.machine.acpi = true;
+    c.tpm = { state: null };
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(check_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).tpm, { version: "2.0" });
+    c.tpm.state = { kind: "browser", path: "v86/disks/tpm.img", size: 524288 };
+    assert.deepEqual(config_to_options(c, ENV).tpm, { version: "2.0", state: { url: "opfs:v86/disks/tpm.img", size: 524288, disk_option: "read_write" } });
+    c.advanced.cpu_worker = false;
+    assert.deepEqual(config_to_options(c, ENV).tpm, { version: "2.0" });
+    assert.equal(with_defaults({ format: FORMAT, version: VERSION }).tpm, null);
 });
 
 test("check_config: the library's own checks after validate_config's", () =>
