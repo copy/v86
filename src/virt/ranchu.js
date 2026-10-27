@@ -48,10 +48,12 @@ const u64 = value => [Math.floor(value / 0x100000000), value >>> 0];
 
 /**
  * The kernel command line the emulator gives an SDK image (its
- * android/kernel/kernel_utils's, without host GLES: qemu.gles=0, the guest
- * renders): the hardware's name, the console, no RIL (no android.qemud),
- * no Wi-Fi namespace (eth0 with DHCP), no boot animation when asked
- * @param {{arm32: boolean, bootanim: (boolean|undefined), extra: (string|undefined)}} m
+ * android/kernel/kernel_utils's): the hardware's name, the console, host
+ * GLES or not (qemu.gles=1: the GL libraries are the emulator's, over the
+ * pipe's "opengles", ranchu_gpu "host"; qemu.gles=0: the guest renders),
+ * no RIL (no android.qemud), no Wi-Fi namespace (eth0 with DHCP), no boot
+ * animation when asked
+ * @param {{arm32: boolean, gles: (boolean|undefined), bootanim: (boolean|undefined), extra: (string|undefined)}} m
  * @return {string}
  */
 export function ranchu_cmdline(m)
@@ -60,7 +62,7 @@ export function ranchu_cmdline(m)
     // /dev/console, which the image's SELinux policy lets its shell use: it
     // labels no ttyAMA device)
     return ["qemu=1", "androidboot.hardware=ranchu", "console=ttyAMA0",
-        "android.checkjni=1", "qemu.gles=0", "qemu.encrypt=0", "qemu.wifi=0", "loop.max_part=7",
+        "android.checkjni=1", "qemu.gles=" + (m.gles ? 1 : 0), "qemu.encrypt=0", "qemu.wifi=0", "loop.max_part=7",
         ...(m.bootanim === false ? ["android.bootanim=0"] : []), ...(m.extra ? [m.extra] : [])].join(" ");
 }
 

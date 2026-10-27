@@ -14,12 +14,17 @@
 // - goldfish_battery, goldfish_audio (a buffer empty after its samples' time);
 // - goldfish_pipe: qemud's boot-properties over a channel (the frames, the
 //   wake on read), an unknown service refused, a snapshot closing channels;
+//   with ranchu_gpu "host", the GLES host's services (src/gles/,
+//   docs/gles-proxy-plan.md E1): GLProcessPipe's process id, an
+//   "opengles" connection's replies read in pages, the reader woken, the
+//   process's objects gone with its pipe;
 // - the framebuffer: RGB565 written to the simple-framebuffer reaches the
 //   screen at the next third vblank, and only when it changed;
 // - /cache's empty filesystem (src/android/ext4.js): the superblock, the
 //   group, the root directory and lost+found;
-// - a snapshot of the machine restores (machine type, GICv2 state) and is
-//   refused by the virt machine.
+// - a snapshot of the machine restores (machine type, GICv2 state, the
+//   GLES host's slot) and is refused by the virt machine and by a ranchu
+//   machine without the GLES host.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -28,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { PictureSink } from "../lib/picture_sink.mjs";
 import { make_empty_ext4, ext4_writes } from "../../src/android/ext4.js";
 import { ranchu_cmdline, ranchu_dtb, ranchu_framebuffer, RANCHU_DISPLAY } from "../../src/virt/ranchu.js";
+import { decode_reply, encode_command } from "../../src/gles/gles_wire.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
@@ -70,6 +76,7 @@ const RAM = 0x40000000, MEMORY = 64 << 20;
     const cmdline = ranchu_cmdline({ arm32: true, bootanim: false });
     assert.equal(cmdline, "qemu=1 androidboot.hardware=ranchu console=ttyAMA0 android.checkjni=1 qemu.gles=0 qemu.encrypt=0 qemu.wifi=0 " +
         "loop.max_part=7 android.bootanim=0");
+    assert.match(ranchu_cmdline({ arm32: true, gles: true }), / qemu\.gles=1 /, "ranchu_gpu \"host\"");
     console.log("PASS: the device tree and the command line");
 }
 
@@ -83,7 +90,7 @@ const emulator = new V86({
     wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm",
     virtio_disks: [{ buffer: disk.slice().buffer }], net_device: { type: "none" },
     graphics_adapter: "none", screen_adapter: sink,
-    ranchu_properties: { "ro.test.answer": "42" },
+    ranchu_properties: { "ro.test.answer": "42" }, ranchu_gpu: "host",
 });
 await new Promise((resolve, reject) => {
     emulator.add_listener("emulator-loaded", resolve);
@@ -261,7 +268,7 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
     }
     assert.deepEqual(frames, ["qemu.sf.lcd_density=240", "qemu.hw.mainkeys=0", "ro.test.answer=42", "\0"], "the properties, then the end");
     assert.equal(command(8, 1), 0);
-    assert.equal(command(8, 4, text("pipe:opengles\0")), -1, "an unknown service is refused");
+    assert.equal(command(8, 4, text("pipe:camera\0")), -1, "an unknown service is refused");
     assert.equal(command(8, 2), 0, "CLOSE");
     assert.equal(command(8, 3), -1, "a closed channel is gone");
     // (a snapshot: the channels come back closed)
@@ -271,6 +278,67 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
     assert.equal(pipe.read(0x14), 1, "PIPE_WAKE_CLOSED");
     assert.equal(pipe.read(0x08), 0, "no more wakes");
     console.log("PASS: goldfish_pipe");
+}
+
+// ---- goldfish_pipe: the GLES host's services (ranchu_gpu "host")
+
+{
+    const pipe = cpu.devices.goldfish_pipe;
+    const gles = cpu.devices.gles.device;
+    const BUFFER = RAM + 0x30000;
+    const command = (channel, cmd, bytes, size) => {
+        pipe.write(0x08, channel);
+        if(bytes) cpu.write_blob_physical(bytes, BUFFER);
+        pipe.write(0x0C, size ?? (bytes ? bytes.length : 0));
+        pipe.write(0x10, BUFFER);
+        pipe.write(0x00, cmd);
+        return pipe.read(0x04) | 0;
+    };
+    const text = s => new TextEncoder().encode(s);
+    // the process's id: the library's confirmation (100) answered with a u64
+    assert.equal(command(9, 1), 0);
+    assert.equal(command(9, 4, text("pipe:GLProcessPipe\0")), 19);
+    assert.equal(command(9, 4, new Uint8Array([100, 0, 0, 0])), 4);
+    assert.equal(command(9, 6, null, 8), 8);
+    const puid = new DataView(bytes_at(BUFFER, 8).buffer).getUint32(0, true);
+    assert.ok(puid >= 1);
+    // a connection: the flags, then commands; a reply larger than one read
+    assert.equal(command(10, 1), 0);
+    assert.equal(command(10, 4, text("pipe:opengles\0")), 14);
+    assert.equal(command(10, 6, null, 64), -2, "nothing to read: AGAIN");
+    assert.equal(command(10, 7), 0, "WAKE_ON_READ");
+    const flags_and_puid = new Uint8Array([0, 0, 0, 0, ...encode_command("rcSetPuid", [puid])]);
+    assert.equal(command(10, 4, flags_and_puid), flags_and_puid.length);
+    assert.equal(pipe.read(0x08), 0, "no reply: no wake");
+    assert.equal(command(10, 4, encode_command("rcGetNumConfigs", [4])), 12);
+    assert.equal(pipe.read(0x08), 10, "the reader woken");
+    assert.equal(pipe.read(0x14), 2, "PIPE_WAKE_READ");
+    assert.equal(command(10, 3), 1 | 2, "POLL: readable");
+    assert.equal(command(10, 6, null, 64), 8);
+    const counts = decode_reply("rcGetNumConfigs", [4], bytes_at(BUFFER, 8));
+    const size = (counts.ret + 1) * new DataView(counts.outs[0].slice().buffer).getUint32(0, true) * 4;
+    assert.equal(command(10, 4, encode_command("rcGetConfigs", [size, size])), 16);
+    const reply = new Uint8Array(size + 4);
+    for(let at = 0; at < reply.length;)
+    {
+        const n = command(10, 6, null, Math.min(1024, reply.length - at));
+        assert.ok(n > 0, "the reply in pages");
+        reply.set(bytes_at(BUFFER, n), at);
+        at += n;
+    }
+    assert.equal(command(10, 6, null, 64), -2, "all read");
+    assert.equal(decode_reply("rcGetConfigs", [size, size], reply).ret, counts.ret);
+    // (gralloc's buffer, which the process's end frees)
+    assert.equal(command(10, 4, encode_command("rcCreateColorBuffer", [480, 800, 0x1908])), 20);
+    assert.equal(command(10, 6, null, 4), 4);
+    assert.equal(gles.summary().render_control.color_buffers, 1);
+    assert.equal(command(10, 2), 0, "the connection closed");
+    assert.equal(gles.summary().render_control.color_buffers, 1, "the process still has it");
+    assert.equal(command(9, 2), 0, "the process's pipe closed");
+    assert.equal(gles.summary().render_control.color_buffers, 0);
+    const summary = gles.summary();
+    assert.deepEqual([summary.connections, summary.processes, summary.counts.rcGetConfigs, summary.unknown], [1, 1, 1, {}]);
+    console.log("PASS: goldfish_pipe's GLES services");
 }
 
 // ---- the framebuffer (the simple-framebuffer's scanout)
@@ -359,6 +427,14 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
     await new Promise(resolve => virt.add_listener("emulator-loaded", resolve));
     await assert.rejects(virt.restore_state(state), /machine_type: "ranchu"/, "the virt machine refuses ranchu's snapshot");
     await virt.destroy();
+    const guest = new V86({
+        cpu_type: "arm32", machine_type: "ranchu", memory_size: MEMORY, autostart: false, log_level: 0,
+        wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm", graphics_adapter: "none", net_device: { type: "none" },
+        virtio_disks: [{ buffer: disk.slice().buffer }],
+    });
+    await new Promise(resolve => guest.add_listener("emulator-loaded", resolve));
+    await assert.rejects(guest.restore_state(state), /ranchu_gpu "host"/, "a machine without the GLES host refuses it");
+    await guest.destroy();
     console.log("PASS: snapshots");
 }
 await emulator.destroy();

@@ -111,6 +111,9 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         // (docs/android-images-plan.md I2: the bootloader runs in the worker, beside the disk)
         "android": o.android && { "device": o.android.device, "gpu_mode": o.android.gpu_mode, "selinux": o.android.selinux,
             "vendor_ramdisk": file(o.android.vendor_ramdisk) },
+        // (the ranchu machine's GPU mode; the GLES host's plugin by an absolute URL, as the other plugins')
+        "ranchu_gpu": o.ranchu_gpu,
+        "ranchu_gpu_path": new URL(o.ranchu_gpu_path || default_plugin_path("gles"), location.href).href,
         "virtio_disks": o.virtio_disks && o.virtio_disks.map(disk => Object.assign({}, file(disk), { "readonly": disk.readonly, "id": disk.id })),
         "virtio_rng": o.virtio_rng, "virtio_input": o.virtio_input, "virtio_transport": o.virtio_transport,
         "virtio_vsock": o.virtio_vsock, "virtio_sound": o.virtio_sound, "virtio_console_ports": o.virtio_console_ports, "virtio_gpu_pci_slot": o.virtio_gpu_pci_slot,

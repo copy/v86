@@ -27,6 +27,10 @@
 // over the console (base64), is installed (pm install) and started: its log
 // line and its frame. A32_ANDROID_PROBE: shell commands (";;" between
 // them) whose output is printed after boot or restore.
+// A32_ANDROID_GPU=host: the device model's GPU mode "host" (qemu.gles=1,
+// ranchu_gpu "host": the GLES host, docs/gles-proxy-plan.md); the GLES
+// calls' counts go to the run's gles.json, and an opcode the host does not
+// know, or a command it cannot decode, fails the test (E1: nothing drawn).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -35,7 +39,7 @@ import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 import { make_empty_ext4 } from "../../src/android/ext4.js";
 import { ranchu_cmdline } from "../../src/virt/ranchu.js";
 import { build_apk, build_native_lib } from "../a64/apk.mjs";
-import { RANCHU_25_ARMEABI_V7A } from "../../src/android/devices.js";
+import { RANCHU_25_ARMEABI_V7A, ranchu_gpu_mode } from "../../src/android/devices.js";
 import { ramdisk_overlay } from "../../src/android/ramdisk_overlay.js";
 
 const directory = ROOT + "build/a32-android/";
@@ -53,7 +57,9 @@ const memory_mb = Number(process.env.A32_ANDROID_MEMORY_MB || 1024);
 const timeout = Number(process.env.A32_ANDROID_TIMEOUT || 3600000);
 const jit = process.env.A32_JIT !== "0";
 const from_disk = process.env.A32_ANDROID_DISK === "1";
-const tag = process.env.A32_ANDROID_TAG || `v86-${jit ? "jit-" : ""}${from_disk ? "disk-" : ""}${cores}c`;
+const gpu_mode = process.env.A32_ANDROID_GPU || "guest";
+const gpu = ranchu_gpu_mode(RANCHU_25_ARMEABI_V7A, gpu_mode);
+const tag = process.env.A32_ANDROID_TAG || `v86-${jit ? "jit-" : ""}${from_disk ? "disk-" : ""}${gpu.gles ? "gles-" : ""}${cores}c`;
 const disk = directory + "disk.img";
 if(from_disk && !fs.existsSync(disk))
 {
@@ -65,19 +71,19 @@ fs.mkdirSync(run_directory, { recursive: true });
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const sink = new PictureSink();
-const cmdline = ranchu_cmdline({ arm32: true, bootanim: false, extra: process.env.A32_ANDROID_CMDLINE });
+const cmdline = ranchu_cmdline({ arm32: true, bootanim: false, gles: gpu.gles, extra: process.env.A32_ANDROID_CMDLINE });
 const restore = process.env.A32_ANDROID_RESTORE_STATE, save = process.env.A32_ANDROID_SAVE_STATE;
 const ramdisk = await ramdisk_overlay(new Uint8Array(fs.readFileSync(image + "ramdisk.img")), RANCHU_25_ARMEABI_V7A);
 const emulator = new V86({
     cpu_type: "arm32", machine_type: "ranchu", cpu_cores: cores, memory_size: memory_mb << 20, log_level: 0, autostart: !restore,
     wasm_path: process.env.A32_WASM || ROOT + "build/v86-arm64.wasm",
     ...(from_disk ? {
-        android: { device: "ranchu_25_armeabi_v7a" }, cmdline: process.env.A32_ANDROID_CMDLINE,
+        android: { device: "ranchu_25_armeabi_v7a", gpu_mode }, cmdline: process.env.A32_ANDROID_CMDLINE,
         virtio_disks: [{ url: disk, async: true, size: fs.statSync(disk).size }],
     } : {
         // (the ramdisk with the device model's init additions, as the bootloader gives it)
         kernel: { url: image + "kernel-ranchu" }, initrd: { buffer: ramdisk.buffer.slice(ramdisk.byteOffset, ramdisk.byteOffset + ramdisk.length) }, cmdline,
-        ranchu_properties: RANCHU_25_ARMEABI_V7A.properties,
+        ranchu_properties: Object.assign({}, RANCHU_25_ARMEABI_V7A.properties, gpu.properties), ranchu_gpu: gpu.ranchu_gpu,
         // (the device model's clock rate, as the bootloader hands it over; A32_ANDROID_RATE another)
         ...(process.env.A32_PARALLEL === "1" ? {} : { cpu_clock: { rate: Number(process.env.A32_ANDROID_RATE || RANCHU_25_ARMEABI_V7A.clock_rate) } }),
         virtio_disks: [
@@ -99,7 +105,10 @@ emulator.add_listener("emulator-error", error => { console.error("emulator-error
 let transcript = "";
 emulator.add_listener("serial0-output-byte", byte => { transcript += String.fromCharCode(byte); });
 const log = run_directory + "serial.log";
-const flush = setInterval(() => fs.writeFileSync(log, transcript), 2000);
+// (the GLES host's counts, A32_ANDROID_GPU=host)
+const gles_summary = () => emulator.v86?.cpu?.devices?.gles?.device["summary"]();
+const write_gles = () => { const summary = gles_summary(); if(summary) fs.writeFileSync(run_directory + "gles.json", JSON.stringify(summary, null, 1)); };
+const flush = setInterval(() => { fs.writeFileSync(log, transcript); write_gles(); }, 2000);
 const started = performance.now();
 const seconds = () => ((performance.now() - started) / 1000).toFixed(0);
 const wait = (test, what, limit = timeout) => new Promise((resolve, reject) => {
@@ -244,6 +253,17 @@ try
         await new Promise(resolve => setTimeout(resolve, 20000));
         save_png(sink, run_directory, "app");
     }
+    const gles = gles_summary();
+    if(gles)
+    {
+        write_gles();
+        const calls = Object.values(gles.counts).reduce((n, c) => n + c, 0);
+        console.log(`gles: ${gles.connections} connections, ${gles.processes} processes, ${calls} calls of ${Object.keys(gles.counts).length} kinds; ` +
+            "renderControl " + JSON.stringify(gles.render_control) + "; " + run_directory + "gles.json");
+        assert.deepEqual(gles.unknown, {}, "no opcode the GLES host does not know");
+        assert.deepEqual(gles.malformed, {}, "every command decoded");
+        assert.equal(gles.broken, 0, "no broken stream");
+    }
     console.log(JSON.stringify({ tag, marks, screenshot: shot, cmdline }));
     console.log("A32_ANDROID_BOOT_OK " + tag);
 }
@@ -251,6 +271,7 @@ finally
 {
     clearInterval(flush);
     fs.writeFileSync(log, transcript);
+    write_gles();
     save_png(sink, run_directory, "last");
     await emulator.destroy();
 }

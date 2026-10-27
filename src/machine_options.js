@@ -168,9 +168,14 @@ export function check_machine_options(options)
         throw new Error("machine_type must be one of " + MACHINE_TYPES.map(m => "\"" + m + "\"").join(", ") +
             ", got " + JSON.stringify(machine_type));
     }
-    for(const name of ["ranchu_display", "ranchu_properties"])
+    for(const name of ["ranchu_display", "ranchu_properties", "ranchu_gpu"])
     {
         if(options[name] !== undefined && machine_type !== "ranchu") throw new Error(name + " is an option of machine_type \"ranchu\"");
+    }
+    // (the GPU of the emulator's images: the guest renders, or the GLES host, docs/gles-proxy-plan.md)
+    if(options["ranchu_gpu"] !== undefined && !["guest", "host"].includes(options["ranchu_gpu"]))
+    {
+        throw new Error("ranchu_gpu must be \"guest\" or \"host\", got " + JSON.stringify(options["ranchu_gpu"]));
     }
     if(arm !== ARM_MACHINE_TYPES.includes(machine_type))
     {

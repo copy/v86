@@ -137,6 +137,9 @@ assert.throws(() => check_machine_options({ cpu_type: "arm32", machine_type: "ra
 assert.throws(() => check_machine_options({ cpu_type: "arm64", machine_type: "ranchu", virtio_transport: "pci" }), /no PCIe host/);
 assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm32", machine_type: "ranchu", ranchu_display: { width: 320, height: 480, dpi: 160 } }));
 assert.throws(() => check_machine_options({ cpu_type: "arm32", ranchu_properties: { a: "b" } }), /ranchu_properties is an option of machine_type "ranchu"/);
+assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm32", machine_type: "ranchu", ranchu_gpu: "host" }));
+assert.throws(() => check_machine_options({ cpu_type: "arm32", machine_type: "ranchu", ranchu_gpu: "angle" }), /ranchu_gpu must be "guest" or "host"/);
+assert.throws(() => check_machine_options({ cpu_type: "arm64", ranchu_gpu: "host" }), /ranchu_gpu is an option of machine_type "ranchu"/);
 console.log("PASS virt's display, network, disks, cores, virtio transport and input devices; ranchu's");
 
 // the constructor checks, before it loads anything

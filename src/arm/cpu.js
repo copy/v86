@@ -41,6 +41,7 @@ import { VirtioVsock } from "../virtio_vsock.js";
 import { VirtioSnd } from "../virtio_snd.js";
 import { DisplayHub } from "../display.js";
 import { GraphicsAdapter, graphics_adapter_of_state } from "../graphics_adapter.js";
+import { GLES_PLUGINS, PluginDevice, plugin_of_state } from "../device_plugin.js";
 import { ParallelMachine } from "../parallel/machine.js";
 import { COMMAND_RELOAD, COMMAND_RESET } from "../parallel/control.js";
 
@@ -388,7 +389,8 @@ A64CPU.prototype.init = function(settings, device_bus)
     }
     // The ranchu machine's goldfish devices (src/virt/goldfish.js): the
     // framebuffer on a display hub of its own, the events, the battery, the
-    // audio output and the pipe with the boot properties
+    // audio output and the pipe with the boot properties, and with
+    // ranchu_gpu "host" the GLES host's services (src/gles/plugin.js)
     if(ranchu)
     {
         this.devices.display = new DisplayHub(device_bus, settings.screen);
@@ -401,9 +403,16 @@ A64CPU.prototype.init = function(settings, device_bus)
         this.devices["goldfish_events"] = new GoldfishEvents(this, device_bus, RANCHU_GOLDFISH_EVENTS, 32 + RANCHU_SPI.events);
         this.devices["goldfish_battery"] = new GoldfishBattery(this, RANCHU_GOLDFISH_BATTERY);
         this.devices["goldfish_audio"] = new GoldfishAudio(this, RANCHU_GOLDFISH_AUDIO, 32 + RANCHU_SPI.audio);
+        if(settings.gles_plugin)
+        {
+            this.devices.gles = new PluginDevice(/** @type {?} */ (this), GLES_PLUGINS, settings.gles_plugin, -1, {}, {
+                "display": { "width": display.width, "height": display.height, "dpi": display.dpi },
+            });
+        }
+        const gles = this.devices.gles;
         this.devices["goldfish_pipe"] = new GoldfishPipe(this, RANCHU_GOLDFISH_PIPE, 32 + RANCHU_SPI.pipe, Object.assign({
             "qemu.sf.lcd_density": String(display.dpi), "qemu.hw.mainkeys": "0",
-        }, settings.ranchu_properties));
+        }, settings.ranchu_properties), gles ? (name, wake) => gles.device["service"](name, wake) : undefined);
     }
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
@@ -1079,6 +1088,8 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[12] = this.devices.graphics_adapter;
     // (a GICv2's own state: ranchu with arm32)
     state[13] = this.gic_v2 ? this.machine_state_bytes(2).slice() : null;
+    // the GLES host (ranchu_gpu "host"; a plugin's slot)
+    state[14] = this.devices.gles ? this.devices.gles.get_state() : null;
     // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
     state[95] = this.clock.get_state();
     // extended RAM's pages (P8.5: its contents are records of the snapshot stream)
@@ -1167,6 +1178,14 @@ A64CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from a machine with graphics_adapter: \"" + graphics_adapter_of_state(state[12]) + "\", this one has \"none\"");
     }
+    if(this.devices.gles)
+    {
+        this.devices.gles.check_state(state[14]);
+    }
+    else if(plugin_of_state(GLES_PLUGINS, state[14]) !== null)
+    {
+        throw new Error("The snapshot is from a machine with ranchu_gpu \"host\", this one has \"guest\"");
+    }
 };
 
 A64CPU.prototype.set_state = function(state, skip_memory = false)
@@ -1196,6 +1215,7 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
     if(this.gic_v2 && state[13]) this.machine_state_bytes(2).set(state[13]);
     this.shared_spi_sources = new Map((state[11] || []).map(([intid, sources]) => [intid, new Set(sources)]));
     this.devices.graphics_adapter && this.devices.graphics_adapter.set_state(state[12]);
+    this.devices.gles && this.devices.gles.set_state(state[14]);
     this.wm.exports["a64_restored"]();
     if(!skip_memory && state[77])
     {

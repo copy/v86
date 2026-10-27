@@ -525,8 +525,20 @@ await run("assemble an emulator image, its partitions as disks", async () =>
             /^on boot\n {4}setprop ro.fixture 1\n\n# v64 .*\nservice v64_anr \/system\/bin\/sh \/system\/bin\/settings put secure anr_show_background 1\n[^]*on property:sys.boot_completed=1\n {4}start v64_anr\n/);
         assert.equal(boot.clock_rate, 0.1);
         assert.deepEqual(boot.properties, { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "" });
-        assert.match(boot.cmdline, /^qemu=1 androidboot.hardware=ranchu console=ttyAMA0 .* android.bootanim=0$/);
+        assert.match(boot.cmdline, /^qemu=1 androidboot.hardware=ranchu console=ttyAMA0 .* qemu\.gles=0 .* android.bootanim=0$/);
+        assert.equal(boot.ranchu_gpu, "guest", "no gpu_mode: the guest renders");
         assert.equal(boot.bootconfig, null);
+        // the GPU mode "host" (docs/gles-proxy-plan.md): the GLES host, qemu.gles=1, GLES 2.0's version property
+        const host = await android_bootloader(async (offset, length) => out.slice(offset, offset + length), out.length,
+            { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", memory_mb: 1024 });
+        assert.equal(host.ranchu_gpu, "host");
+        assert.match(host.cmdline, / qemu\.gles=1 /);
+        assert.deepEqual(host.properties, { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "", "ro.opengles.version": "131072" });
+        // (the VM config's default, "swiftshader", is the guest's own rendering here too; Cuttlefish's modes are not ranchu's)
+        assert.equal((await android_bootloader(async (offset, length) => out.slice(offset, offset + length), out.length,
+            { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", memory_mb: 1024 })).ranchu_gpu, "guest");
+        await assert.rejects(android_bootloader(async (offset, length) => out.slice(offset, offset + length), out.length,
+            { device: "ranchu_25_armeabi_v7a", gpu_mode: "venus", memory_mb: 1024 }), /no GPU mode venus \(guest, host\)/);
         assert.deepEqual(boot.disks.map(d => [d.name, d.start, d.size, d.readonly]),
             ["system", "cache", "userdata"].map(name => [name, parts.get(name).start, parts.get(name).size, name === "system"]));
         // a partition as a disk: reads and writes moved by its start; the disk's state once

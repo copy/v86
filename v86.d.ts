@@ -992,6 +992,23 @@ export interface V86Options {
     ranchu_properties?: { [name: string]: string };
 
     /**
+     * machine_type "ranchu" only: the emulator image's GPU (docs/gles-proxy-plan.md).
+     * "guest": the guest renders (the kernel command line's qemu.gles=0);
+     * "host": its GL libraries send GLES over the pipe's "opengles" to the
+     * GLES host, the plugin build/v86-gles.js (qemu.gles=1 on the command
+     * line, ro.opengles.version in ranchu_properties). The android option
+     * sets it from the device model's gpu_mode.
+     * @default "guest"
+     */
+    ranchu_gpu?: "guest" | "host";
+
+    /**
+     * The GLES host's plugin file (ranchu_gpu "host")
+     * @default beside the bundle, v86-gles.js
+     */
+    ranchu_gpu_path?: string;
+
+    /**
      * machine_type "q35" only: the number of ICH9 PCI Express root ports
      * (00:1c.0 and up, 0 to 6). Each is a PCI-to-PCI bridge whose secondary
      * bus can hold a device (pcie_root_port in the options of net_device,

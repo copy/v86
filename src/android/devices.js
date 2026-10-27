@@ -198,6 +198,16 @@ export const RANCHU_25_ARMEABI_V7A = {
     ],
     // (no boot animation: the CPU draws it, which slows the first boot down)
     cmdline: { arm32: true, bootanim: false },
+    // the GPU modes (docs/gles-proxy-plan.md "Android 传输"): "guest" the
+    // CPU renders (qemu.gles=0); "host" the emulator's GL libraries send
+    // GLES to v64's GLES host (ranchu_gpu "host": qemu.gles=1, and the
+    // GLES version the emulator gives API 25 images, ro.opengles.version
+    // 2.0). The low-RAM setting, the boot animation and the clock rate
+    // stay as "guest" has them until E3 measures them with host GLES.
+    gpu_modes: {
+        guest: { ranchu_gpu: "guest", gles: false, properties: {} },
+        host: { ranchu_gpu: "host", gles: true, properties: { "ro.opengles.version": "131072" } },
+    },
     // qemud's boot properties (src/virt/goldfish.js), beyond the machine's:
     // a low-RAM device (ActivityManager.isHighEndGfx false), so that
     // system_server draws its own windows with the CPU. Its GL would be the
@@ -240,3 +250,18 @@ export const RANCHU_25_ARMEABI_V7A = {
 
 /** The emulator images v64 boots, by API level and ABI */
 export const RANCHU_DEVICES = [RANCHU_25_ARMEABI_V7A];
+
+/**
+ * An emulator image's GPU mode: the VM config's android.gpu_mode, "guest"
+ * when it names none (or "swiftshader", the VM config's default, which is
+ * the guest's own rendering here as well)
+ * @param {!Object} device
+ * @param {string|undefined} gpu_mode
+ * @return {{ranchu_gpu: string, gles: boolean, properties: !Object<string, string>}}
+ */
+export function ranchu_gpu_mode(device, gpu_mode)
+{
+    const mode = !gpu_mode || gpu_mode === "swiftshader" ? "guest" : gpu_mode;
+    if(!device.gpu_modes[mode]) throw new Error(`${device.id}: no GPU mode ${gpu_mode} (${Object.keys(device.gpu_modes).join(", ")})`);
+    return device.gpu_modes[mode];
+}

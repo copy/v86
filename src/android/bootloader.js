@@ -10,7 +10,7 @@
 import { gpt_partitions } from "./gpt.js";
 import { vbmeta_struct, AVB_FLAG_VERIFICATION_DISABLED } from "./avb.js";
 import { android_boot } from "./boot.js";
-import { CF_ARM64_ONLY_PHONE, RANCHU_DEVICES } from "./devices.js";
+import { CF_ARM64_ONLY_PHONE, RANCHU_DEVICES, ranchu_gpu_mode } from "./devices.js";
 import { ranchu_cmdline } from "../virt/ranchu.js";
 import { ramdisk_overlay } from "./ramdisk_overlay.js";
 
@@ -24,8 +24,9 @@ export const ANDROID_DEVICES = Object.fromEntries([CF_ARM64_ONLY_PHONE, ...RANCH
  *     vendor_ramdisk: (Uint8Array|undefined)}} options vendor_ramdisk: in
  *     place of the vendor_boot's (Cuttlefish's debug one)
  * @return {!Promise<{kernel: !Uint8Array, initrd: !Uint8Array, cmdline: string, bootconfig: ?Map<string, string>, vbmeta: ?Object,
- *     disks: (!Array<{name: string, start: number, size: number, readonly: boolean}>|undefined)}>}
- *     disks: (an emulator image's) the partitions that are the machine's virtio disks, in order
+ *     disks: (!Array<{name: string, start: number, size: number, readonly: boolean}>|undefined), ranchu_gpu: (string|undefined)}>}
+ *     disks: (an emulator image's) the partitions that are the machine's virtio disks, in order;
+ *     ranchu_gpu: (an emulator image's) its GPU mode's ranchu_gpu
  */
 export async function android_bootloader(read, disk_size, options)
 {
@@ -52,10 +53,13 @@ export async function android_bootloader(read, disk_size, options)
             return p;
         };
         const load = async name => { const p = part(name); return new Uint8Array(await read(p.start, p.size)); };
+        const gpu = ranchu_gpu_mode(device, options.gpu_mode);
         // (a partition is whole sectors: the kernel's and ramdisk's bytes run to their ends, which the kernel ignores)
-        return { kernel: await load("kernel"), initrd: await ramdisk_overlay(await load("ramdisk"), device), cmdline: ranchu_cmdline(device.cmdline),
+        return { kernel: await load("kernel"), initrd: await ramdisk_overlay(await load("ramdisk"), device),
+            cmdline: ranchu_cmdline({ arm32: device.cmdline.arm32, bootanim: device.cmdline.bootanim, gles: gpu.gles }),
             bootconfig: null, vbmeta: null,
-            properties: device.properties || null, clock_rate: device.clock_rate || null,
+            properties: Object.assign({}, device.properties, gpu.properties), clock_rate: device.clock_rate || null,
+            ranchu_gpu: gpu.ranchu_gpu,
             disks: device.partitions.filter(p => p.disk).map(p => ({ name: p.name, start: part(p.name).start, size: part(p.name).size,
                 readonly: p.disk === "read_only" })) };
     }

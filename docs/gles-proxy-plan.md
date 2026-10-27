@@ -1,7 +1,7 @@
 # 共享 GLES 代理实施计划
 
-状态：实施中。2026-10-27 初稿；同日复核：对照镜像、内核与代码核对。E0 已完成（2026-10-27，见“复核结论”的
-“E0 结论”），下一步 E1。
+状态：实施中。2026-10-27 初稿；同日复核：对照镜像、内核与代码核对。E0、E1 已完成（2026-10-27，见“复核结论”的
+“E0 结论”“E1 结论”），下一步 E2。
 
 本计划给 v86 的 ARM 客体加上 OpenGL ES 的 GPU 加速：客体的 GLES 调用编码后交给宿主，在页面上用 WebGPU 执行。
 它服务两类客体，宿主侧只写一次：
@@ -103,9 +103,13 @@
 
 | 位置 | 内容 |
 | --- | --- |
-| `tools/gles/gen.mjs` | 读规格文件，生成：`src/gles/gles_protocol.js`（各调用的操作码、参数布局、方向、长度表达式）、测试用的 JS 编码器、iOS 与 Linux 测试用的 C 编码器 |
-| `src/gles/gles_stream.js` | 一条连接的流：命令头（操作码、总长）、跨读写的拆分、回复的组装、按区间分派 |
-| `src/gles/gles_decoder.js` | 按生成的布局取参数；`in` 指针从流中取，`out` 指针的结果写回回复；返回值 |
+| `tools/gles/gen.mjs` | 读规格文件，生成 `src/gles/gles_protocol.js`（各调用的操作码、参数布局、方向）；E6 再加长度表达式与 iOS、Linux 测试用的 C 编码器 |
+| `src/gles/gles_wire.js` | 按生成的布局取参数（`in` 指针从命令中取，`out` 指针留出回复的位置）、组装回复；测试用的 JS 编码器（`encode_command`、`decode_reply`） |
+| `src/gles/gles_stream.js` | 一条连接的流：客户端标志、命令头（操作码、总长）、跨写入的拼接、按区间分派、回复的顺序（等页面的回复之后的命令先不解码）、未知操作码的计数 |
+| `src/gles/gles_host.js` | 宿主：传输连接的服务 `opengles`（一条连接一个流）与 `GLProcessPipe`（进程号；它关闭时 renderControl 释放该进程的对象），调用统计 |
+| `src/gles/gles_caps.js` | 宿主自己的数：EGL 配置（renderControl 的打包顺序）与 `eglChooseConfig` 的匹配和排序、EGL 与 GL 字符串、实现限制与状态初值 |
+| `src/gles/gles_defaults.js` | E1 的默认回答（名字递增、编译链接成功、帧缓冲完整、查询给限制与初值）；E2 换成 `gles_shadow.js` |
+| `src/gles/plugin.js` | 插件 `build/v86-gles.js` 的入口（种类 `gles`，`V86GlesHosts`）：把服务交给 ranchu 的 goldfish pipe |
 | `src/gles/gles_shadow.js` | 影子状态：GLES 1.1 与 2.0 的可查询状态、错误码、对象名空间（纹理、缓冲、程序、着色器、FBO、渲染缓冲），上下文与共享组；按 GLES 规范新写（“结论”第 4 条） |
 | `src/gles/render_control.js` | renderControl：渲染器与 EGL 的版本和字符串、主机扩展字符串、配置、上下文、窗口表面、颜色缓冲（创建、打开、关闭、更新、读回、绑定为纹理或渲染缓冲）、`rcFBPost`、交换间隔、同步 |
 | `src/gles/gles_batch.js` | GLES 批次：自包含（数据随批次走），与 D9WG、GX 同样的顺序与完成规则 |
@@ -270,7 +274,7 @@ pipe 版本 2。剩下的：
 
 验收：清单与共用方案写进“复核结论”；E1–E6 按清单修正。**2026-10-27 完成**，见“E0 结论”。
 
-### E1 生成器、传输与 renderControl
+### E1 生成器、传输与 renderControl（2026-10-27 完成）
 
 - `tools/gles/gen.mjs` 生成协议表与 JS 编码器；
 - goldfish pipe 的 `opengles`、`GLProcessPipe` 服务与流；
@@ -280,6 +284,23 @@ pipe 版本 2。剩下的：
 
 验收：`qemu.gles=1` 下 Android 7.1 的 `sys.boot_completed` 为 1；没有未知操作码；每种调用的次数统计写进复核
 结论。此时屏幕没有内容，作为预期。
+
+做法（2026-10-27）：
+- **开关**：ranchu 的选项 `ranchu_gpu: "guest" | "host"`（插件路径 `ranchu_gpu_path`），只在 ranchu 上有效。设备模型
+  `ranchu_25_armeabi_v7a` 的 `gpu_modes` 有 `guest` 与 `host`。`host` 给命令行 `qemu.gles=1`、启动属性
+  `ro.opengles.version=131072`；低内存设置、关掉的开机动画与十分之一的时钟照旧，等 E3。Android 引导程序按
+  `android.gpu_mode` 选模式；VM 配置现有的默认值 `"swiftshader"` 在 ranchu 上当作 `guest`，VM 配置的取值留给 E5。
+  页面在引导程序之后才知道模式，所以插件在那时装载；CPU Worker 收到 `ranchu_gpu` 与插件的绝对路径。
+- **插件**：`build/v86-gles.js`（种类 `gles`，注册表 `V86GlesHosts`，快照槽 `state[14]`）。没有这个插件的机器
+  拒绝带它的快照。
+- **goldfish pipe 的服务接口**改成 `write`、`read(max)`、`available`、`close`，回复按块排队，不再展开成数字数组
+  （`rcReadColorBuffer` 这类大回复）；关闭通道、重开同号通道、机器复位时调用服务的 `close`。
+- **renderControl**：72 个命令都有处理。配置 12 个：RGBA8888、RGBX8888、RGB565，各配无深度、16 位深度、24 位深度、
+  24 位深度加 8 位模板，没有多重采样；`EGL_NATIVE_VISUAL_ID` 是 HAL 像素格式（SurfaceFlinger 按它挑）。
+  `eglChooseConfig` 按 EGL 1.4 的匹配与排序规则在宿主上算。同步对象立即发信号；对象按进程（puid）归属，
+  `GLProcessPipe` 关闭时释放。GL 扩展只列 E3、E4 要实现的；不宣告任何 `ANDROID_EMU_*` 特性。
+- **默认回答**（`gles_defaults.js`）只跟踪查询要用的：开关、绑定、视口、缓冲与渲染缓冲的大小、附着、着色器源码。
+- **快照**：E1 不保存连接，恢复后 pipe 的通道是关闭的，客体的 GL 进程会因读写失败退出（E5 处理）。
 
 ### E2 影子状态与批次
 
@@ -496,6 +517,29 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
     `gl_state_layout.js`、`gl_fixed_function.js`。它们是不依赖页面的 UMD 脚本，CPU Worker 里也能运行；
   - CPU 侧的 GLES 宿主是设备插件 `build/v86-gles.js`（插件种类 `gles`，入口 `src/gles/plugin.js`），只在
     `ranchu_gpu: "host"` 时由页面装载，交给机器；它把 `opengles` 与 `GLProcessPipe` 两个服务交给 goldfish pipe。
+
+### E1 结论（2026-10-27）
+
+`A32_ANDROID_GPU=host node tests/a32/android_boot.mjs`（2 个协作核心，页层，时钟十分之一）：
+- `qemu.gles=1` 下 `sys.boot_completed` 在 268 秒为 1（同一测试的 `"guest"` 模式 2026-10-25 约 417 秒；E1 什么也
+  不画，两者还不可比）；之后解锁、按 HOME，焦点是启动器（`NexusLauncherActivity`）。
+- 15 条连接、6 个进程（GLProcessPipe），35201 次调用、75 种；**没有未知操作码，没有解码不了的命令，没有断掉的流**。
+  API 25 的编码器与 gfxstream 固定的规格一致。
+- renderControl（次数）：rcBindTexture 721、rcSetWindowColorBuffer 345、rcFlushWindowColorBuffer 335、rcFBPost 262、
+  rcGetGLString 67、rcCreateColorBuffer 30、rcOpenColorBuffer2 25、rcCloseColorBuffer 24、rcColorBufferCacheFlush 24、
+  rcUpdateColorBuffer 24（共 8.6 MB）、rcReadColorBuffer 23、rcQueryEGLString 20、rcSetPuid 15、rcMakeCurrent 14、
+  rcCreateWindowSurface 10、rcChooseConfig 8、rcGetFBParam 7，其余配置与版本查询各 5，rcDestroyWindowSurface 4。
+  没有 rcCreateClientImage 与同步对象。
+- GLES（按名字合计，前 20）：glBindTexture 6981、glUniformMatrix4fv 3487、glEnableVertexAttribArray 3231、glTexParameteri 2590、
+  glVertexAttribPointerData 2396、glGetError 1829、glDrawArrays 1405、glDisable 1370、glUseProgram 1201、
+  glDisableVertexAttribArray 1049、glUniform1i 910、glUniform1f 907、glUniform4fv 907、glEnable 713、glBindBuffer 614、
+  glViewport 608、glBlendFunc 562、glUniform4f 397、glVertexAttribPointerOffset 362、glFinishRoundTrip 345。
+  着色器 64 个、程序 32 个，glTexImage2D 25、glTexSubImage2D 3，FBO 9 个。
+- **等页面的调用**：rcReadColorBuffer 23 次（gralloc 锁定 GPU 缓冲给 CPU 读：低内存设置下 CPU 画的系统窗口，
+  锁定时读回、解锁时 rcUpdateColorBuffer 上传），glReadPixels 0 次。**只要顺序的**：glFinishRoundTrip 345、
+  rcFlushWindowColorBuffer 335。**影子状态要答的**：glGetError 1829（占有回复调用的大半），glGetUniformLocation 170、
+  glGetProgramiv 128、glGetShaderiv 64、glGetIntegerv 18、glCheckFramebufferStatus 9。E2 的影子状态覆盖这些，
+  启动中就只剩 23 次读回要等页面。
 
 ## 已定（2026-10-27）
 

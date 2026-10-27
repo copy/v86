@@ -46,7 +46,7 @@ bench-same-source: bench-build build/v86.wasm build/libv86.mjs
 # hours (the SIMD suites, avx-tests and the like, stay with the release gate,
 # tools/release_gate.mjs)
 .PHONY: ci-tests
-ci-tests: rust-test test-glbridge app-check platform-contract-tests ios-tests \
+ci-tests: rust-test test-glbridge app-check platform-contract-tests ios-tests gles-tests \
 	acpi-device-tests q35-device-tests jit-switch-tests \
 	cpu-optimization-tests flags-provenance-tests cpu-plan-tests jit-tiers-tests jit-disabled-tests mmx-fast-tests \
 	softfloat-fast-tests x87-fast-math-tests x87-fast-tests x87-jit-cache-tests \
@@ -187,7 +187,9 @@ USB_PLUGINS=build/v86-usb.js
 USB_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_machine.js
 # the TPM's (tpm: docs/tpm.md), with its module (bios/libtpms.wasm, tools/libtpms/build.sh) beside it
 TPM_PLUGINS=build/v86-tpm.js build/libtpms.wasm
-DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS) $(USB_PLUGINS) $(TPM_PLUGINS)
+# the ranchu machine's GLES host (ranchu_gpu "host": docs/gles-proxy-plan.md)
+GLES_PLUGINS=build/v86-gles.js
+DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS) $(USB_PLUGINS) $(TPM_PLUGINS) $(GLES_PLUGINS)
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs src/rust/gen/interpreter0f38.rs src/rust/gen/interpreter0f3a.rs \
@@ -298,6 +300,15 @@ build/v86-tpm.js: $(CLOSURE) src/*.js src/tpm/*.js
 build/libtpms.wasm: bios/libtpms.wasm
 	mkdir -p build
 	cp $< $@
+
+build/v86-gles.js: $(CLOSURE) src/*.js src/gles/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(USB_COMMON) --js src/gles/gles_protocol.js --js src/gles/gles_wire.js --js src/gles/gles_caps.js \
+		--js src/gles/gles_stream.js --js src/gles/render_control.js --js src/gles/gles_defaults.js --js src/gles/gles_host.js \
+		--js src/gles/plugin.js
 
 device-plugins: $(DEVICE_PLUGINS)
 
@@ -2012,3 +2023,12 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 .PHONY: ios-tests
 ios-tests:
 	node tests/ios/tools.mjs
+
+# docs/gles-proxy-plan.md "测试": the GLES host's protocol tables against the
+# pinned specs' shapes, the connection stream, renderControl and E1's
+# default answers (no guest, no page); the plugin builds
+.PHONY: gles-tests
+gles-tests: build/v86-gles.js
+	node tests/gles/protocol.mjs
+	node tests/gles/stream.mjs
+	node tests/gles/render_control.mjs

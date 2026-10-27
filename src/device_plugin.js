@@ -53,6 +53,8 @@ export const AUDIO_PLUGINS = { registry: "V86AudioDevices", option: "audio_devic
 export const USB_PLUGINS = { registry: "V86UsbControllers", option: "usb", dir: "usb", tag: "usb", entry: "./usb/plugin.js" };
 /** @const @type {PluginKind} the TPM 2.0 (docs/tpm.md): one plugin, "tpm" */
 export const TPM_PLUGINS = { registry: "V86TpmDevices", option: "tpm", dir: "tpm", tag: "tpm", entry: "./tpm/plugin.js" };
+/** @const @type {PluginKind} the GLES host of the ranchu machine (docs/gles-proxy-plan.md): one plugin, "gles" */
+export const GLES_PLUGINS = { registry: "V86GlesHosts", option: "ranchu_gpu", dir: "gles", tag: "gles", entry: "./gles/plugin.js" };
 
 /**
  * The TPM's module (build/libtpms.wasm) where tpm.wasm_path does not say:

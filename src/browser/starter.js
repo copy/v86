@@ -13,7 +13,7 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { AUDIO_PLUGINS, NET_PLUGINS, TPM_PLUGINS, USB_PLUGINS, default_tpm_wasm_path, load_device_plugin } from "../device_plugin.js";
+import { AUDIO_PLUGINS, GLES_PLUGINS, NET_PLUGINS, TPM_PLUGINS, USB_PLUGINS, default_tpm_wasm_path, load_device_plugin } from "../device_plugin.js";
 import { check_machine_options, is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
@@ -651,6 +651,7 @@ V86.prototype.continue_init = async function(emulator, options)
     // (the ranchu machine: its framebuffer's size and density, its boot properties, src/virt/ranchu.js)
     if(options.ranchu_display) settings.ranchu_display = Object.assign({}, options.ranchu_display);
     if(options.ranchu_properties) settings.ranchu_properties = Object.assign({}, options.ranchu_properties);
+    if(options.ranchu_gpu) settings.ranchu_gpu = options.ranchu_gpu;
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -1324,6 +1325,8 @@ V86.prototype.continue_init = async function(emulator, options)
             if(boot.properties) settings.ranchu_properties = Object.assign({}, boot.properties, options.ranchu_properties);
             // (and its clock rate, with cooperative cores, unless the options set the clock)
             if(boot.clock_rate && !options.cpu_clock && !this.parallel_requested) settings.cpu_clock = { "rate": boot.clock_rate };
+            // (and its GPU mode, which its command line follows)
+            if(boot.ranchu_gpu) settings.ranchu_gpu = boot.ranchu_gpu;
             if(boot.disks)
             {
                 // (an emulator image: its disks the partitions, the first
@@ -1334,6 +1337,13 @@ V86.prototype.continue_init = async function(emulator, options)
             }
             dbg_log("android: " + settings.kernel.byteLength + " bytes of kernel, " + settings.initrd.byteLength + " of initrd, " +
                 (boot.vbmeta ? "vbmeta " + boot.vbmeta.digest : (boot.disks || []).map(d => d.name).join(", ")) + ", cmdline " + settings.cmdline);
+        }
+
+        // the GLES host's plugin (ranchu_gpu "host", docs/gles-proxy-plan.md):
+        // the machine's GPU mode is known only now, after Android's bootloader
+        if(settings.ranchu_gpu === "host")
+        {
+            settings.gles_plugin = await load_device_plugin(GLES_PLUGINS, "gles", options.ranchu_gpu_path, "ranchu_gpu_path");
         }
 
         if(this.destroyed) return;

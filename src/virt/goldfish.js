@@ -22,8 +22,10 @@
 //   registers): channels the guest opens, named by their first write
 //   ("pipe:<service>\0"); the services are qemud's boot-properties (the
 //   machine's properties, then an empty frame), hw-control and sensors
-//   (accepted: no sensors, every control ignored); any other name is
-//   refused (the guest's open fails, as for a service the emulator lacks).
+//   (accepted: no sensors, every control ignored), and those the machine
+//   adds (the GLES host's "opengles" and "GLProcessPipe": src/gles/,
+//   ranchu_gpu "host"); any other name is refused (the guest's open
+//   fails, as for a service the emulator lacks).
 
 /** Linux's input event types and codes (include/uapi/linux/input-event-codes.h) */
 const EV_SYN = 0;
@@ -634,14 +636,22 @@ const PIPE_WAKE_READ = 2;
 const PIPE_WAKE_WRITE = 4;
 
 /**
+ * A pipe's service: write(bytes) what the guest wrote, read(max) at most
+ * max bytes for the guest (null: none now), available() whether there are
+ * any, close() the guest closed the channel
+ * @typedef {{write: function(!Uint8Array), read: function(number): ?Uint8Array, available: function(): boolean, close: function()}}
+ */
+export let PipeService;
+
+/**
  * A qemud service over a pipe: framed messages (four hex digits of length, then the bytes)
  * @param {function(string): (!Array<string>|undefined)} answer the frames to send back for one received
- * @return {{write: function(!Uint8Array), take: function(): !Array<number>}}
+ * @return {!PipeService}
  */
 function qemud_service(answer)
 {
     let input = new Uint8Array(0);
-    const output = [];
+    let output = new Uint8Array(0);
     return {
         write(bytes)
         {
@@ -649,6 +659,7 @@ function qemud_service(answer)
             joined.set(input);
             joined.set(bytes, input.length);
             input = joined;
+            const frames = [];
             while(input.length >= 4)
             {
                 const length = parseInt(new TextDecoder().decode(input.subarray(0, 4)), 16);
@@ -658,11 +669,26 @@ function qemud_service(answer)
                 for(const frame of answer(message) || [])
                 {
                     const body = new TextEncoder().encode(frame);
-                    output.push(...new TextEncoder().encode(body.length.toString(16).padStart(4, "0")), ...body);
+                    frames.push(...new TextEncoder().encode(body.length.toString(16).padStart(4, "0")), ...body);
                 }
             }
+            if(frames.length)
+            {
+                const joined_output = new Uint8Array(output.length + frames.length);
+                joined_output.set(output);
+                joined_output.set(frames, output.length);
+                output = joined_output;
+            }
         },
-        take() { return output.splice(0, output.length); },
+        read(max)
+        {
+            if(!output.length) return null;
+            const bytes = output.subarray(0, max);
+            output = output.subarray(bytes.length);
+            return bytes;
+        },
+        available() { return output.length > 0; },
+        close() {},
     };
 }
 
@@ -672,13 +698,17 @@ function qemud_service(answer)
  * @param {number} base
  * @param {number} intid
  * @param {!Object<string, string>} properties the boot properties (qemu-props sets them)
+ * @param {(function(string, function()): ?PipeService)=} services the machine's
+ *     other services: a name and the call that wakes the channel's reader
+ *     (bytes became readable later) to the service, or null
  */
-export function GoldfishPipe(cpu, base, intid, properties)
+export function GoldfishPipe(cpu, base, intid, properties, services)
 {
     this.name = "goldfish-pipe";
     this.cpu = cpu;
     this.intid = intid;
     this.properties = properties;
+    this.services = services || (() => null);
     this.reset();
     cpu.io.register_mmio(base, 0x2000, {
         read: offset => this.read(offset),
@@ -694,7 +724,9 @@ GoldfishPipe.prototype.reset = function()
     this.size = 0;
     this.address = 0;
     this.status = 0;
-    /** @type {!Map<number, {name: string, pending: !Array<number>, service: ?Object, readable: !Array<number>, wake_read: boolean, wakes: number}>} */
+    // (the guest's channels go: their services are closed)
+    for(const pipe of this.pipes ? this.pipes.values() : []) if(pipe.service) pipe.service.close();
+    /** @type {!Map<number, {name: string, pending: !Array<number>, service: ?PipeService, wake_read: boolean, wakes: number, closed: boolean}>} */
     this.pipes = new Map();
     this.update_irq();
 };
@@ -709,8 +741,10 @@ GoldfishPipe.prototype.update_irq = function()
 /**
  * The service a pipe's name connects it to, or null
  * @param {string} name
+ * @param {function()} wake
+ * @return {?PipeService}
  */
-GoldfishPipe.prototype.connect = function(name)
+GoldfishPipe.prototype.connect = function(name, wake)
 {
     if(name === "qemud:boot-properties")
     {
@@ -720,7 +754,7 @@ GoldfishPipe.prototype.connect = function(name)
     // (sensors.ranchu: no sensors; lights, vibrator and power: ignored)
     if(name === "qemud:sensors") return qemud_service(message => message === "list-sensors" ? ["0"] : []);
     if(name === "qemud:hw-control") return qemud_service(() => []);
-    return null;
+    return this.services(name, wake);
 };
 
 GoldfishPipe.prototype.read = function(offset)
@@ -783,7 +817,9 @@ GoldfishPipe.prototype.command = function(command)
     const channel = this.channel;
     if(command === CMD_OPEN)
     {
-        this.pipes.set(channel, { name: "", pending: [], service: null, readable: [], wake_read: false, wakes: 0, closed: false });
+        const old = this.pipes.get(channel);
+        if(old && old.service) old.service.close();
+        this.pipes.set(channel, { name: "", pending: [], service: null, wake_read: false, wakes: 0, closed: false });
         return 0;
     }
     const pipe = this.pipes.get(channel);
@@ -791,12 +827,12 @@ GoldfishPipe.prototype.command = function(command)
     switch(command)
     {
         case CMD_CLOSE:
+            if(pipe.service) pipe.service.close();
             this.pipes.delete(channel);
             this.update_irq();
             return 0;
         case CMD_POLL:
-            this.fill(pipe);
-            return (pipe.readable.length ? PIPE_POLL_IN : 0) | PIPE_POLL_OUT | (pipe.closed ? PIPE_POLL_HUP : 0);
+            return (pipe.service && pipe.service.available() ? PIPE_POLL_IN : 0) | PIPE_POLL_OUT | (pipe.closed ? PIPE_POLL_HUP : 0);
         case CMD_WRITE_BUFFER:
         {
             if(pipe.closed) return PIPE_ERROR_IO;
@@ -811,27 +847,26 @@ GoldfishPipe.prototype.command = function(command)
                 if(end < 0) return bytes.length;
                 const name = new TextDecoder().decode(new Uint8Array(pipe.pending)).replace(/^pipe:/, "");
                 pipe.name = name;
-                pipe.service = this.connect(name);
+                pipe.service = this.connect(name, () => this.wake_reader(pipe));
                 if(!pipe.service) return PIPE_ERROR_INVAL;
                 if(end + 1 < bytes.length) pipe.service.write(bytes.subarray(end + 1));
+                this.wake_reader(pipe);
                 return bytes.length;
             }
             pipe.service.write(bytes);
-            this.fill(pipe);
+            this.wake_reader(pipe);
             return bytes.length;
         }
         case CMD_READ_BUFFER:
         {
-            this.fill(pipe);
-            if(!pipe.readable.length) return pipe.closed ? 0 : PIPE_ERROR_AGAIN;
-            const count = Math.min(this.size, pipe.readable.length);
-            const bytes = new Uint8Array(pipe.readable.splice(0, count));
+            const bytes = pipe.service && pipe.service.read(this.size);
+            if(!bytes || !bytes.length) return pipe.closed ? 0 : PIPE_ERROR_AGAIN;
             this.cpu.write_blob_physical(bytes, this.address);
-            return count;
+            return bytes.length;
         }
         case CMD_WAKE_ON_READ:
             pipe.wake_read = true;
-            this.fill(pipe);
+            this.wake_reader(pipe);
             return 0;
         case CMD_WAKE_ON_WRITE:
             // (writes never wait)
@@ -842,11 +877,10 @@ GoldfishPipe.prototype.command = function(command)
     return PIPE_ERROR_INVAL;
 };
 
-/** What the service has for the guest; a waiting reader woken */
-GoldfishPipe.prototype.fill = function(pipe)
+/** A waiting reader woken when the service has bytes for it */
+GoldfishPipe.prototype.wake_reader = function(pipe)
 {
-    if(pipe.service) pipe.readable.push(...pipe.service.take());
-    if(pipe.wake_read && pipe.readable.length)
+    if(pipe.wake_read && pipe.service && pipe.service.available())
     {
         pipe.wake_read = false;
         pipe.wakes |= PIPE_WAKE_READ;
@@ -861,7 +895,7 @@ GoldfishPipe.prototype.set_state = function(channels)
     this.reset();
     for(const channel of channels || [])
     {
-        this.pipes.set(channel, { name: "", pending: [], service: null, readable: [], wake_read: false, wakes: PIPE_WAKE_CLOSED, closed: true });
+        this.pipes.set(channel, { name: "", pending: [], service: null, wake_read: false, wakes: PIPE_WAKE_CLOSED, closed: true });
     }
     this.update_irq();
 };

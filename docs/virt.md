@@ -233,6 +233,11 @@ driver), with `"arm64"` the virt machine's GICv3.
   and `android.bootanim=0` without the boot animation. The console service
   opens `/dev/console`: the image's SELinux policy labels no ttyAMA device, so
   no `androidboot.console`.
+- **The GPU.** `ranchu_gpu: "host"` (the Android device model's `gpu_mode`
+  `"host"`) loads the GLES host (`build/v86-gles.js`, `src/gles/`) and gives
+  the pipe its `opengles` and `GLProcessPipe` services; the command line says
+  `qemu.gles=1`. Work in progress: see [gles-proxy-plan.md](gles-proxy-plan.md)
+  (E1: the calls are decoded and answered, nothing is drawn).
 
 ## Testing
 

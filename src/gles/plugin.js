@@ -1,0 +1,34 @@
+// ranchu_gpu: "host" -- the GLES host (docs/gles-proxy-plan.md): the
+// emulator's GLES protocol decoded on the machine's thread, its services
+// handed to the ranchu machine's goldfish pipe ("opengles",
+// "GLProcessPipe"). Built into build/v86-gles.js; from the source tree,
+// src/device_plugin.js imports this file directly.
+//
+// E1: decoded and counted, nothing drawn (src/gles/gles_host.js). The
+// device's "summary" gives the counts (tests, the plan's review).
+
+import { register_device_plugin } from "../device_machine.js";
+import { GLESHost } from "./gles_host.js";
+
+register_device_plugin("V86GlesHosts", {
+    "name": "gles",
+
+    /**
+     * @param {!Object} handle
+     * @param {!Object} options "display": the screen's width, height and dpi
+     */
+    "create": (handle, options) =>
+    {
+        const display = options["display"];
+        const host = new GLESHost({ width: display["width"], height: display["height"], dpi: display["dpi"] });
+        return {
+            // (a service as src/virt/goldfish.js takes one)
+            "service": (name, wake) => host.service(name, wake),
+            "summary": () => host.summary(),
+            "reset": () => host.reset(),
+            // (E1: nothing kept; the pipe's channels close on restore)
+            "get_state": () => [],
+            "set_state": () => host.reset(),
+        };
+    },
+});
