@@ -312,6 +312,9 @@ export function MouseAdapter(bus, screen_container)
         }
         mouse.bus.send("mouse-click", [left_down, middle_down, right_down]);
         e.preventDefault();
+        /* preventDefault also prevents the default behavior of focusing the window
+           so we have to do that manually so the keys are captured */
+        window.focus();
     }
 
     function mousewheel_handler(e)
