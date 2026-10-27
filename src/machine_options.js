@@ -48,14 +48,14 @@ export const GRAPHICS_ADAPTERS = ["bochs_vga", "vmware_svga", "virtio_gpu", "non
 /** The network cards (net_device.type) of the PC machines */
 export const NET_DEVICE_TYPES = ["ne2k", "e1000", "virtio", "none"];
 
-/** The network cards that are plugins (src/device_plugin.js): build/v86-<type>.js */
-export const NET_DEVICE_PLUGINS = ["e1000"];
+/** The network cards that are plugins (src/device_plugin.js): build/v86-<type>.js; all but virtio-net */
+export const NET_DEVICE_PLUGINS = ["ne2k", "e1000"];
 
 /** The sound cards (audio_device) of the PC machines: one or none (the PC speaker is not a sound card) */
 export const AUDIO_DEVICES = ["sb16", "hd_audio", "none"];
 
-/** The sound cards that are plugins: build/v86-<name>.js (underscores as dashes) */
-export const AUDIO_DEVICE_PLUGINS = ["hd_audio"];
+/** The sound cards that are plugins: build/v86-<name>.js (underscores as dashes); all of them */
+export const AUDIO_DEVICE_PLUGINS = ["sb16", "hd_audio"];
 
 /** The USB host controllers (usb.controller) of the PC machines: UHCI, EHCI with its UHCI companions, xHCI */
 export const USB_CONTROLLERS = ["uhci", "ehci", "xhci"];

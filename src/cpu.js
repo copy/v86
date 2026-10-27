@@ -18,7 +18,6 @@ import { dbg_assert, dbg_log } from "./log.js";
 import { v86 } from "./main.js";
 import { MachineClock } from "./machine_clock.js";
 
-import { SB16 } from "./sb16.js";
 import { ACPI, acpi_system_states_file } from "./acpi.js";
 import { build_e820, build_smbios } from "./smbios.js";
 import { PFlash } from "./pflash.js";
@@ -34,7 +33,6 @@ import { PIT } from "./pit.js";
 import { DMA } from "./dma.js";
 import { UART } from "./uart.js";
 import { ParallelPort } from "./parallel.js";
-import { Ne2k } from "./ne2k.js";
 import { IO } from "./io.js";
 import { VirtioConsole } from "./virtio_console.js";
 import { PCI } from "./pci.js";
@@ -915,8 +913,8 @@ CPU.prototype.get_state = function(skip_memory = false)
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
     state[60] = this.get_state_pic();
-    // (the sound card: the SB16's own state, a plugin card's slot, or none)
-    state[61] = this.devices.sb16 || this.devices.audio;
+    // (the sound card: its plugin's slot, or none)
+    state[61] = this.devices.audio;
     // (USB: the plugin's slot, or none; its disks' buffers by their ids:
     // the guest's writes, as a hard disk's state has them)
     state[107] = this.devices.usb;
@@ -1302,29 +1300,27 @@ CPU.prototype.validate_state = function(state)
         throw new Error("The snapshot is from a machine with graphics_adapter: \"" +
             graphics_adapter_of_state(state[52]) + "\", this one has \"none\"");
     }
-    // the network card: a plugin's slot must be that plugin's; a built-in
-    // card's (the NE2000's own state) is not a plugin's
+    // the network card: its plugin's slot (from before plugins, an untagged
+    // slot is the NE2000's own state, which its plugin reads)
     const saved_net = plugin_of_state(NET_PLUGINS, state[59]);
-    if(this.devices.net instanceof PluginDevice)
+    if(this.devices.net)
     {
         this.devices.net.check_state(state[59]);
     }
     else if(saved_net !== null)
     {
         throw new Error("The snapshot is from a machine with net_device: \"" + saved_net +
-            "\", this one has \"" + (this.devices.net ? "ne2k" : this.devices.virtio_net ? "virtio" : "none") + "\"");
+            "\", this one has \"" + (this.devices.virtio_net ? "virtio" : "none") + "\"");
     }
-    // the sound card likewise; and the SB16's state only where there is one
+    // the sound card likewise (an untagged slot: the SB16's own state)
     const saved_audio = plugin_of_state(AUDIO_PLUGINS, state[61]);
-    const audio_device = this.devices.audio ? this.devices.audio.name : this.devices.sb16 ? "sb16" : "none";
-    if(this.devices.audio instanceof PluginDevice)
+    if(this.devices.audio)
     {
         this.devices.audio.check_state(state[61]);
     }
-    else if(saved_audio !== null || !this.devices.sb16 !== !state[61])
+    else if(saved_audio !== null)
     {
-        throw new Error("The snapshot is from a machine with audio_device: \"" + (saved_audio || (state[61] ? "sb16" : "none")) +
-            "\", this one has \"" + audio_device + "\"");
+        throw new Error("The snapshot is from a machine with audio_device: \"" + saved_audio + "\", this one has \"none\"");
     }
     // USB: both or neither
     if(this.devices.usb)
@@ -1552,7 +1548,6 @@ CPU.prototype.set_state = function(state, skip_memory = false)
     this.devices.pit && this.devices.pit.set_state(state[58]);
     this.devices.net && this.devices.net.set_state(state[59]);
     this.set_state_pic(state[60]);
-    this.devices.sb16 && this.devices.sb16.set_state(state[61]);
     this.devices.audio && this.devices.audio.set_state(state[61]);
     this.devices.usb && this.devices.usb.set_state(state[107]);
     // (the TPM's store first: the TPM powers on from it)
@@ -2494,7 +2489,7 @@ CPU.prototype.reboot_internal = function(reason, keep_memory)
     {
         this.devices.graphics_adapter.reset();
     }
-    if(this.devices.net instanceof PluginDevice)
+    if(this.devices.net)
     {
         this.devices.net.reset();
     }
@@ -2633,8 +2628,8 @@ CPU.prototype.add_device_timer = function(timer)
 };
 
 /**
- * The network card of a plugin (net_device.type "e1000"): the PCI slot of
- * the NE2000 (or the one behind its root port), net0 of the network bus
+ * The network card of a plugin (net_device.type "ne2k", "e1000"): the PCI
+ * slot of the NE2000 (or the one behind its root port), net0 of the network bus
  * @param {!Object} settings
  * @param {BusConnector} bus
  * @return {!PluginDevice}
@@ -2668,15 +2663,17 @@ CPU.prototype.create_net_plugin = function(settings, bus)
 };
 
 /**
- * The sound card of a plugin (audio_device "hd_audio"): its slot
- * (pci_functions), the speaker (the dac-* messages of src/browser/speaker.js)
+ * The sound card of a plugin (audio_device "sb16", "hd_audio"): its slot
+ * (pci_functions; the SB16 is an ISA card, none), the speaker (the dac-*
+ * messages of src/browser/speaker.js)
  * @param {!Object} settings
  * @param {BusConnector} bus
  * @return {!PluginDevice}
  */
 CPU.prototype.create_audio_plugin = function(settings, bus)
 {
-    return new PluginDevice(this, AUDIO_PLUGINS, settings.audio_device_plugin, pci_functions(this.platform).hda, {
+    const isa = settings.audio_device_plugin["name"] === "sb16";
+    return new PluginDevice(this, AUDIO_PLUGINS, settings.audio_device_plugin, isa ? -1 : pci_functions(this.platform).hda, {
         "audio": {
             "send": (left, right) => bus.send("dac-send-data", [left, right]),
             "set_sampling_rate": rate => bus.send("dac-tell-sampling-rate", rate),
@@ -2684,6 +2681,10 @@ CPU.prototype.create_audio_plugin = function(settings, bus)
             "disable": () => bus.send("dac-disable"),
             // the samples as the stream has them, for tests
             "pcm": pcm => bus.send("hd-audio-pcm", pcm),
+            // the speaker's own messages (the SB16's: it answers the
+            // speaker's requests for data, and has a mixer)
+            "bus_send": (name, data, transfer) => bus.send(name, data, transfer),
+            "bus_register": (name, handler) => bus.register(name, handler, this),
         },
     }, {});
 };
@@ -3399,20 +3400,15 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.pit = new PIT(this, device_bus);
 
-        if(settings.net_device.type === "ne2k")
-        {
-            this.devices.net = new Ne2k(this, device_bus, settings.preserve_mac_from_state_image, settings.mac_address_translation,
-                0, this.root_port_pci_id("net"));
-        }
-        else if(settings.net_device.type === "virtio")
+        if(settings.net_device.type === "virtio")
         {
             this.devices.virtio_net = new VirtioNet(this, device_bus, settings.preserve_mac_from_state_image, settings.net_device.mtu,
                 this.root_port_pci_id("net"));
         }
         else if(settings.net_device_plugin)
         {
-            // a network card from a plugin (net_device.type "e1000"): where
-            // the NE2000 is, its snapshot in the NE2000's slot (state[59])
+            // the network card, a plugin's (net_device.type "ne2k", "e1000"):
+            // the NE2000's slot, its snapshot in state[59]
             this.devices.net = this.create_net_plugin(settings, device_bus);
         }
 
@@ -3437,12 +3433,8 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.virtio_balloon = new VirtioBalloon(this, device_bus, this.root_port_pci_id("virtio_balloon"));
         }
 
-        // the sound card (audio_device): the SB16, a plugin's, or none
-        if(!settings.audio_device || settings.audio_device === "sb16")
-        {
-            this.devices.sb16 = new SB16(this, device_bus);
-        }
-        else if(settings.audio_device_plugin)
+        // the sound card (audio_device), a plugin's ("sb16", "hd_audio"), or none
+        if(settings.audio_device_plugin)
         {
             this.devices.audio = this.create_audio_plugin(settings, device_bus);
         }
@@ -4117,7 +4109,6 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
     const rtc_time = this.devices.rtc.timer(now, false);
     const display_time = this.devices.display.timer(now);
     const hpet_time = this.devices.hpet ? this.devices.hpet.timer(now) : 100;
-    const sb16_time = this.devices.sb16 ? this.devices.sb16.timer(now) : 100;
     let plugin_time = 100;
     for(const timer of this.device_timers) plugin_time = Math.min(plugin_time, timer(now));
 
@@ -4129,7 +4120,7 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
         apic_time = this.apic_timer(now);
     }
 
-    return Math.min(pit_time, rtc_time, display_time, hpet_time, sb16_time, plugin_time, acpi_time, apic_time);
+    return Math.min(pit_time, rtc_time, display_time, hpet_time, plugin_time, acpi_time, apic_time);
 };
 
 CPU.prototype.debug_init = function()

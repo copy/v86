@@ -1,4 +1,4 @@
-// A sound card plugin's view of the machine (audio_device "hd_audio"): the
+// A sound card plugin's view of the machine (audio_device "sb16", "hd_audio"): the
 // device handle of src/device_machine.js plus the speaker, the dac-* messages
 // of the bus (src/browser/speaker.js; src/cpu.js, create_audio_plugin).
 // Built into each card's plugin file.
@@ -58,4 +58,26 @@ AudioMachine.prototype.enable_output = function()
 AudioMachine.prototype.disable_output = function()
 {
     this.audio["disable"]();
+};
+
+/**
+ * A message to the speaker (src/browser/speaker.js: dac-*, mixer-*), for a
+ * card that speaks its protocol itself (the SB16)
+ * @param {string} name
+ * @param {*=} data
+ * @param {!Array=} transfer
+ */
+AudioMachine.prototype.bus_send = function(name, data, transfer)
+{
+    this.audio["bus_send"](name, data, transfer);
+};
+
+/**
+ * The speaker's messages to the card (dac-request-data, speaker-has-initialized)
+ * @param {string} name
+ * @param {function(*)} handler
+ */
+AudioMachine.prototype.bus_register = function(name, handler)
+{
+    this.audio["bus_register"](name, handler);
 };

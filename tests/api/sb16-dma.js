@@ -86,7 +86,8 @@ console.log("PASS: masking the channel stops the sound");
 
 // a host that stops asking (an AudioContext waiting for a gesture): the
 // transfer keeps the machine's time on its own, and its samples are dropped
-const sb16 = emulator.v86.cpu.devices.sb16;
+// (the plugin's card: src/audio_devices/sb16/plugin.js)
+const sb16 = emulator.v86.cpu.devices.audio.device["card"];
 io.port_write8(0x226, 1);
 io.port_write8(0x226, 0);
 program_channel5(0x59, 0x4000, 0, 8192);

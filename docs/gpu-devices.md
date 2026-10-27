@@ -146,10 +146,11 @@ owns the device.
 
 | Group | Members |
 | --- | --- |
-| Ports and MMIO | `register_read`, `register_write`, `register_write_consecutive`, `mmap_register`; `allocate_io`: a free I/O window aligned to its size in 0xD000–0xDFFF (below the `virtio_devices` pool), the same for the same configuration so that snapshots line up |
+| Ports and MMIO | `register_read`, `register_write`, `register_read_consecutive`, `register_write_consecutive`, `mmap_register`; `allocate_io`: a free I/O window aligned to its size in 0xD000–0xDFFF (below the `virtio_devices` pool), the same for the same configuration so that snapshots line up |
 | Device memory | `mmio_ram_allocate`, `_backing`, `_map`, `_unmap`, `_read8`, `_write8`, `_mark_dirty`, `_take_dirty`, `_allocate_pixels`, `_fill_pixels`; `dirty_min_offset`, `dirty_max_offset` |
 | PCI and IRQ | `register_pci` (BARs with `on_move`, the ROM BAR), `create_virtio` (virtio-vga, below), `raise_irq`, `lower_irq` |
 | Guest memory | `read_physical`, `write_physical` (`CPU.read_blob_physical`/`write_blob_physical`), 16- and 32-bit `read*_physical`/`write*_physical`, `validate_physical_range` |
+| ISA (the SB16) | `isa_raise_irq`, `isa_lower_irq` (an interrupt line 0 to 15); the 8237: `dma_on_unmask`, `dma_masked`, `dma_write` (a transfer into the plugin's bytes) |
 | Machine | `name`, `now` (the machine clock), `on_host_display_size` (`V86.set_display_size`: width, height, display index), `in_vm86`, `wasm_memory`, `qemu_compatible` |
 | Display hub | `display`: `set_mode`, the text, cursor and font calls, `update_buffer` (layers), `time_since_vblank`, `add_source` (the device as a display source), `add_timer` |
 
@@ -187,8 +188,11 @@ owns the device.
     (underscores become hyphens: `v86-vmware-svga.js`) beside itself when it
     knows where it is (`document.currentScript` for a classic script in a
     page, `import.meta.url` for `libv86.mjs`, `__dirname` for CommonJS in
-    node); else `build/v86-<name>.js` relative to the page. In node a relative
-    path is relative to the working directory.
+    node), with the bundle's own query (a page that loads
+    `libv86.js?v=<revision>` gets `v86-<name>.js?v=<revision>`); else
+    `build/v86-<name>.js` relative to the page. In node a relative path is
+    relative to the working directory. The network and sound card plugins
+    (among them the default NE2000 and SB16) are found the same way.
   - With a CPU worker the page resolves the path to an absolute URL and the
     worker loads the plugin with `importScripts`, so the page needs no device
     code. In parallel mode the device exists only on the machine thread; the

@@ -1,9 +1,9 @@
 // Device plugins: display adapters (src/graphics_adapter.js), network cards
-// (net_device.type "e1000") and sound cards (audio_device "hd_audio") each
-// live in their own file and are loaded only when configured. This is v86's
-// side of what they share: finding and loading a plugin file, the machine
-// handle a plugin works with, the machine's timers, and the plugin's slot in a
-// snapshot. Plugins are not compiled with v86 (an ADVANCED build renames
+// (net_device.type "ne2k", "e1000") and sound cards (audio_device "sb16",
+// "hd_audio") each live in their own file and are loaded only when
+// configured. This is v86's side of what they share: finding and loading a
+// plugin file, the machine handle a plugin works with, the machine's timers,
+// and the plugin's slot in a snapshot. Plugins are not compiled with v86 (an ADVANCED build renames
 // properties), so the handle, the descriptor and the device use quoted names
 // only. src/device_machine.js is the plugin's end of it.
 // See docs/gpu-devices.md, "Adapter plugins", and
@@ -37,17 +37,18 @@ const IO_POOL_END = 0xE000;
  * The kinds of plugin: the global registry plugin files add their
  * descriptors to, the option that names them (for messages), the directory
  * of their entry modules in the source tree (or the entry module itself:
- * one plugin of the kind), and their snapshot slot's tag
- * @typedef {{registry: string, option: string, dir: string, tag: string, entry: (string|undefined)}}
+ * one plugin of the kind), their snapshot slot's tag, and the plugin whose
+ * state an untagged slot is (the device the slot held before plugins)
+ * @typedef {{registry: string, option: string, dir: string, tag: string, entry: (string|undefined), legacy: (string|undefined)}}
  */
 export let PluginKind;
 
 /** @const @type {PluginKind} */
 export const GRAPHICS_PLUGINS = { registry: "V86GraphicsAdapters", option: "graphics_adapter", dir: "graphics_adapters", tag: "graphics_adapter" };
-/** @const @type {PluginKind} */
-export const NET_PLUGINS = { registry: "V86NetAdapters", option: "net_device", dir: "net_adapters", tag: "net_adapter" };
-/** @const @type {PluginKind} */
-export const AUDIO_PLUGINS = { registry: "V86AudioDevices", option: "audio_device", dir: "audio_devices", tag: "audio_device" };
+/** @const @type {PluginKind} (state[59] was the NE2000's own state before it was a plugin) */
+export const NET_PLUGINS = { registry: "V86NetAdapters", option: "net_device", dir: "net_adapters", tag: "net_adapter", legacy: "ne2k" };
+/** @const @type {PluginKind} (state[61] was the SB16's own state before it was a plugin) */
+export const AUDIO_PLUGINS = { registry: "V86AudioDevices", option: "audio_device", dir: "audio_devices", tag: "audio_device", legacy: "sb16" };
 /** @const @type {PluginKind} the USB controllers and devices: one plugin, "usb" */
 export const USB_PLUGINS = { registry: "V86UsbControllers", option: "usb", dir: "usb", tag: "usb", entry: "./usb/plugin.js" };
 /** @const @type {PluginKind} the TPM 2.0 (docs/tpm.md): one plugin, "tpm" */
@@ -60,13 +61,27 @@ export const TPM_PLUGINS = { registry: "V86TpmDevices", option: "tpm", dir: "tpm
  */
 export function default_tpm_wasm_path()
 {
-    if(BUNDLE_URL) return new URL("libtpms.wasm", BUNDLE_URL).href;
+    if(BUNDLE_URL) return beside_bundle("libtpms.wasm");
     if(NODE && typeof __dirname === "string") return __dirname + "/libtpms.wasm";
     return "build/libtpms.wasm";
 }
 
 /** A plugin slot's snapshot entry: [tag, STATE_VERSION, name, device state] */
 const STATE_VERSION = 1;
+
+/**
+ * A file beside the bundle, with the bundle's query: a page that loads
+ * libv86.js?v=<revision> (a version against stale caches) gets the plugins
+ * of that revision as well
+ * @param {string} file
+ * @return {string}
+ */
+function beside_bundle(file)
+{
+    const url = new URL(file, BUNDLE_URL);
+    url.search = new URL(BUNDLE_URL).search;
+    return url.href;
+}
 
 /**
  * The file of a plugin: v86-<name>.js, underscores as dashes
@@ -88,7 +103,7 @@ export function plugin_file(name)
 export function default_plugin_path(name)
 {
     const file = plugin_file(name);
-    if(BUNDLE_URL) return new URL(file, BUNDLE_URL).href;
+    if(BUNDLE_URL) return beside_bundle(file);
     if(NODE && typeof __dirname === "string") return __dirname + "/" + file;
     return "build/" + file;
 }
@@ -227,6 +242,11 @@ export function device_handle(cpu, owner)
             if(w8_3) io.register_write_consecutive(port, owner, w8_1, w8_2, w8_3, w8_4);
             else io.register_write_consecutive(port, owner, w8_1, w8_2);
         },
+        "register_read_consecutive": (port, r8_1, r8_2, r8_3, r8_4) =>
+        {
+            if(r8_3) io.register_read_consecutive(port, owner, r8_1, r8_2, r8_3, r8_4);
+            else io.register_read_consecutive(port, owner, r8_1, r8_2);
+        },
         "mmap_register": (address, size, r8, w8, r32, w32) => io.mmap_register(address, size, r8, w8, r32, w32),
         // an exact range inside a 128 KiB block (docs/arm64-virt-android16-plan.md P1.7)
         "mmap_register_range": (address, size, r8, w8, r32, w32) => io.mmap_register_range(address, size, owner, r8, w8, r32, w32),
@@ -252,6 +272,17 @@ export function device_handle(cpu, owner)
         // device keeps its capabilities' read-only bytes after a write
         "pci_config": () => pci().space_bytes(owner.pci_id),
 
+        // an ISA card's: its interrupt line (0 to 15), the 8237's channels
+        // (a listener for a channel unmasked, whether one is masked, a
+        // transfer to memory into `target` at `start`, the callback the
+        // DMA's: (error, cause, retry))
+        "isa_raise_irq": irq => cpu.device_raise_irq(irq),
+        "isa_lower_irq": irq => cpu.device_lower_irq(irq),
+        "dma_on_unmask": listener => cpu.devices.dma.on_unmask(listener, owner),
+        "dma_masked": channel => cpu.devices.dma.channel_mask[channel] !== 0,
+        "dma_write": (channel, target, start, length, callback) =>
+            cpu.devices.dma.do_write(byte_target(target), start, length, channel, callback),
+
         "read_physical": (address, length) => cpu.read_blob_physical(address, length),
         "write_physical": (bytes, address) => cpu.write_blob_physical(bytes, address),
         "read16_physical": address => cpu.read16_physical(address),
@@ -272,6 +303,25 @@ export function device_handle(cpu, owner)
         "block_backend": buffer => block_handle(/** @type {!CPU} */ (cpu), buffer),
         // another function of the device's PCI slot: function_handle
         "function": number => function_handle(cpu, owner, number),
+    };
+}
+
+/**
+ * A plugin's bytes as the DMA writes into a buffer object (src/buffer.js):
+ * the plugin is not compiled with v86, so it hands over the bytes, not one
+ * of its own buffer objects
+ * @param {!Uint8Array} target
+ * @return {!Object}
+ */
+function byte_target(target)
+{
+    return {
+        byteLength: target.length,
+        set: (start, data, done) =>
+        {
+            target.set(data, start);
+            done();
+        },
     };
 }
 
@@ -435,7 +485,7 @@ PluginDevice.prototype.check_state = function(state)
         throw new Error("The snapshot is from a machine " + (saved === null ? "without " + this.kind.option + " \"" + this.name + "\"" :
             "with " + this.kind.option + ": \"" + saved + "\", this one has \"" + this.name + "\""));
     }
-    if(state[1] !== STATE_VERSION)
+    if(state[0] === this.kind.tag && state[1] !== STATE_VERSION)
     {
         throw new Error("Unsupported " + this.kind.option + " state version " + state[1]);
     }
@@ -445,17 +495,21 @@ PluginDevice.prototype.check_state = function(state)
 PluginDevice.prototype.set_state = function(state)
 {
     this.check_state(state);
-    this.device["set_state"](state[3]);
+    // (an untagged slot: the state of the kind's device before plugins,
+    // which its plugin reads as it is)
+    this.device["set_state"](state[0] === this.kind.tag ? state[3] : state);
 };
 
 /**
  * Which plugin a snapshot's slot belongs to: its name, or null if the slot is
- * not a plugin's (empty, or a built-in device's own state)
+ * empty. An untagged slot is the kind's device before plugins (the NE2000's,
+ * the SB16's).
  * @param {PluginKind} kind
  * @param {*} state
  * @return {?string}
  */
 export function plugin_of_state(kind, state)
 {
-    return Array.isArray(state) && state[0] === kind.tag ? state[2] : null;
+    if(!Array.isArray(state)) return null;
+    return state[0] === kind.tag ? state[2] : kind.legacy || null;
 }

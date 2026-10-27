@@ -6,7 +6,7 @@ the virt machine has virtio-snd (`virtio_sound`, [aarch64.md](aarch64.md)).
 
 | `audio_device` | Device | Guests that drive it themselves |
 | --- | --- | --- |
-| `"sb16"` (default) | Sound Blaster 16 (ISA, `src/sb16.js`) | DOS, Windows 3.x to XP (with their drivers) |
+| `"sb16"` (default) | Sound Blaster 16 (ISA; a plugin, `build/v86-sb16.js`, source in `src/audio_devices/sb16/`) | DOS, Windows 3.x to XP (with their drivers) |
 | `"hd_audio"` | Intel HD Audio controller and a generic output codec (a plugin, `build/v86-hd-audio.js`) | Windows Vista to 11 (`hdaudbus.inf`, `hdaudio.inf`), Linux (`snd-hda-intel`, the generic codec parser) |
 | `"none"` | no sound card (the PC speaker stays) | |
 
@@ -16,11 +16,26 @@ and its Mute checkbox; configuration version 3 turned version 2's PC sound
 `"none"`, which was a muted Sound Blaster, into `sb16` with `mute` set, and
 rewrites a suspended machine's digest for it ([vm-manager.md](vm-manager.md)).
 
-The card's state is `state[61]` of a snapshot: the SB16's own, or the plugin
-card's slot `["audio_device", 1, name, state]` (src/device_plugin.js). A
-snapshot restores only into a machine with the same card; otherwise
-`restore_state` fails before it changes anything ("The snapshot is from a
-machine with audio_device: …").
+Both cards are plugins, loaded beside the bundle (or from
+`audio_device_path`) when the machine is made: the SB16 since stage M1 of
+[modern-pc-devices-plan.md](modern-pc-devices-plan.md), with the ISA part of
+the device handle (its IRQ line, the 8237's channels and fixed ports:
+src/device_plugin.js). A missing plugin file fails the start and names it.
+
+The card's state is `state[61]` of a snapshot, the plugin's slot
+`["audio_device", 1, name, state]` (src/device_plugin.js). In snapshots from
+before M1 (format 6 and the stream's 7) the slot is the SB16's own state,
+untagged, which the SB16 plugin reads as it is. A snapshot restores only into
+a machine with the same card; otherwise `restore_state` fails before it
+changes anything ("The snapshot is from a machine with audio_device: …").
+
+Since M1 snapshots have format 8, streams 9 (src/state.js; single files keep
+even versions, streams odd ones: 7 was already the stream's), so that a v86
+from before refuses them ("Version mismatch") instead of reading a tagged
+slot as the card's registers. A v86 since M1 reads 6 and 8, streams 7 and 9.
+A site that moves to it cannot go back with the saves made since. An
+embedder deploys `build/v86-sb16.js` and `build/v86-ne2k.js` beside its
+libv86 bundle (or names them: `audio_device_path`, `net_device.plugin_path`).
 
 ## The speaker path
 

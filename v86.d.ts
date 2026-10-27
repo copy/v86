@@ -419,15 +419,16 @@ type V86NetworkDevice =
         /**
          * The type of emulated NIC provided to the guest OS.
          * Recommended to use `ne2k` for old OSes, `e1000` (an Intel 82540EM, whose drivers come with
-         * Windows Vista to 11 and Linux) for Windows, and `virtio` for modern Linux. `e1000` is a plugin,
-         * build/v86-e1000.js, loaded beside the bundle (or from `plugin_path`). `none`: no network card.
+         * Windows Vista to 11 and Linux) for Windows, and `virtio` for modern Linux. `ne2k` and `e1000`
+         * are plugins, build/v86-ne2k.js and build/v86-e1000.js, loaded beside the bundle (or from
+         * `plugin_path`). `none`: no network card.
          * @default "ne2k"
          */
         type?: "ne2k" | "virtio" | "e1000" | "none";
 
         /**
-         * Where the plugin of a plugin card (type `e1000`) is, a path or URL
-         * @default build/v86-e1000.js beside the bundle
+         * Where the plugin of the card (type `ne2k`, `e1000`) is, a path or URL
+         * @default build/v86-<type>.js beside the bundle (with the bundle's query, e.g. ?v=<revision>)
          */
         plugin_path?: string;
 
@@ -1181,17 +1182,17 @@ export interface V86Options {
     net_device?: V86NetworkDevice;
 
     /**
-     * The sound card of the PC machines: the Sound Blaster 16, an Intel HD Audio controller with a
-     * generic output codec (what Windows Vista to 11 and Linux drive with their own drivers; a plugin,
-     * build/v86-hd-audio.js beside the bundle), or none (the PC speaker stays). The virt machine has
-     * `virtio_sound` instead.
+     * The sound card of the PC machines: the Sound Blaster 16 (a plugin, build/v86-sb16.js beside
+     * the bundle), an Intel HD Audio controller with a generic output codec (what Windows Vista to 11
+     * and Linux drive with their own drivers; a plugin, build/v86-hd-audio.js), or none (the PC
+     * speaker stays). The virt machine has `virtio_sound` instead.
      * @default "sb16"
      */
     audio_device?: "sb16" | "hd_audio" | "none";
 
     /**
-     * Where the plugin of a plugin sound card (`audio_device: "hd_audio"`) is, a path or URL
-     * @default build/v86-hd-audio.js beside the bundle
+     * Where the plugin of the sound card (`audio_device`: "sb16", "hd_audio") is, a path or URL
+     * @default build/v86-<name>.js beside the bundle (dashes for underscores; with the bundle's query)
      */
     audio_device_path?: string;
 

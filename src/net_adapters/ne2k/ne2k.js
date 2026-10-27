@@ -1,13 +1,16 @@
-import { LOG_NET } from "./const.js";
-import { h, hex_dump } from "./lib.js";
-import { dbg_assert, dbg_log } from "./log.js";
+// net_device.type "ne2k" (the default) -- an NE2000-compatible card, the
+// RTL8029 on PCI: the card DOS, Windows 9x to XP and Linux have drivers for.
+// A plugin since M1 (docs/modern-pc-devices-plan.md): its machine is a
+// NetMachine (src/net_adapters/machine.js); its state is the one the core's
+// NE2000 had, field for field, so that snapshots from before read as they are.
+
+import { LOG_NET } from "../../const.js";
+import { h, hex_dump } from "../../lib.js";
+import { dbg_assert, dbg_log } from "../../log.js";
+import { format_mac, random_mac, translate_mac_address } from "../../mac_address.js";
 
 // For Types Only
-import { CPU } from "./cpu.js";
-import { PCI } from "./pci.js";
-import { BusConnector } from "./bus.js";
-import { pci_functions } from "./platform.js";
-import { format_mac, random_mac, translate_mac_address } from "./mac_address.js";
+import { NetMachine } from "../machine.js";
 
 // http://www.ethernut.de/pdf/8019asds.pdf
 
@@ -109,36 +112,26 @@ function dump_packet(packet, prefix)
 
 /**
  * @constructor
- * @param {CPU} cpu
- * @param {BusConnector} bus
- * @param {Boolean} preserve_mac_from_state_image
- * @param {Boolean} mac_address_translation
- * @param {number} [id=0] id
- * @param {number=} pci_id where the machine puts it (behind a root port), or
- *     its usual slot
+ * @param {NetMachine} machine its PCI function where the machine puts it (its
+ *     usual slot, or behind a root port), net<id> of the network bus
+ * @param {!Object} options "preserve_mac_from_state_image",
+ *     "mac_address_translation"
  */
-export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation, id, pci_id)
+export function Ne2k(machine, options)
 {
-    /** @const @type {CPU} */
-    this.cpu = cpu;
+    /** @const @type {NetMachine} */
+    this.machine = machine;
 
-    /** @const @type {PCI} */
-    this.pci = cpu.devices.pci;
+    this.id = machine.net_id;
+    this.preserve_mac_from_state_image = !!options["preserve_mac_from_state_image"];
+    this.mac_address_translation = !!options["mac_address_translation"];
 
-    this.id = id || 0;
-    this.preserve_mac_from_state_image = preserve_mac_from_state_image;
-    this.mac_address_translation = mac_address_translation;
+    machine.on_receive(data => this.receive(data));
 
-    /** @const @type {BusConnector} */
-    this.bus = bus;
-    this.bus.register("net" + this.id + "-receive", function(data)
-    {
-        this.receive(data);
-    }, this);
-
+    const pci_id = machine.pci_id();
     // (behind a bridge, the I/O BAR starts above the legacy ports, which
     // bridges do not forward)
-    this.port = (pci_id !== undefined && pci_id >= 0x100 ? 0x1300 : 0x300) + 0x100 * this.id;
+    this.port = (pci_id >= 0x100 ? 0x1300 : 0x300) + 0x100 * this.id;
 
     this.name = "ne2k";
 
@@ -152,7 +145,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf4, 0x1a, 0x00, 0x11,
             0x00, 0x00, 0xb8, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
         ];
-        this.pci_id = pci_id !== undefined ? pci_id : this.id === 0 ? pci_functions(cpu.platform).ne2k : (0x07 + this.id) << 3;
+        this.pci_id = pci_id;
         this.pci_bars = [
             {
                 size: 32,
@@ -180,7 +173,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
     // mac address
     this.mac = random_mac();
 
-    this.bus.send("net" + this.id + "-mac", format_mac(this.mac));
+    machine.set_mac(format_mac(this.mac));
 
     // multicast addresses
     this.mar = Uint8Array.of(0xFF, 0xFF, 0xFF, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF);
@@ -209,7 +202,8 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
     this.curpg = START_RX_PAGE;
     this.boundary = START_RX_PAGE;
 
-    var io = cpu.io;
+    // (the machine registers the ports as the I/O bus would, `this` bound)
+    var io = machine;
 
     io.register_read(this.port | E8390_CMD, this, function()
     {
@@ -253,8 +247,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
                 translate_mac_address(data, this.mac_address_in_state, this.mac);
             }
 
-            this.bus.send("net" + this.id + "-send", data);
-            this.bus.send("eth-transmit-end", [data.length]);
+            this.machine.send(data);
             this.cr &= ~4;
             this.do_interrupt(ENISR_TX);
 
@@ -879,7 +872,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
 
     if(use_pci)
     {
-        cpu.devices.pci.register_device(this);
+        machine.register_pci({ pci_space: this.pci_space, pci_bars: this.pci_bars });
     }
 }
 
@@ -940,7 +933,7 @@ Ne2k.prototype.set_state = function(state)
             " guest_os_mac=" + format_mac(this.mac_address_in_state) +
             " real_mac=" + format_mac(this.mac), LOG_NET);
     }
-    this.bus.send("net" + this.id + "-mac", format_mac(this.mac));
+    this.machine.set_mac(format_mac(this.mac));
 };
 
 Ne2k.prototype.do_interrupt = function(ir_mask)
@@ -954,11 +947,11 @@ Ne2k.prototype.update_irq = function()
 {
     if(this.imr & this.isr)
     {
-        this.pci.raise_irq(this.pci_id);
+        this.machine.raise_irq();
     }
     else
     {
-        this.pci.lower_irq(this.pci_id);
+        this.machine.lower_irq();
     }
 };
 
@@ -1063,14 +1056,18 @@ Ne2k.prototype.data_port_read32 = function()
             this.data_port_read() << 16 | this.data_port_read() << 24;
 };
 
+/**
+ * A frame from the network: whether the card took it (it does while started,
+ * also when its filters drop it, as the core's NE2000 counted it)
+ * @param {!Uint8Array} data
+ * @return {boolean}
+ */
 Ne2k.prototype.receive = function(data)
 {
-    // called from the adapter when data is received over the network
-
     if(this.cr & 1)
     {
         // stop bit set
-        return;
+        return false;
     }
 
     if(NE2K_LOG_PACKETS)
@@ -1078,8 +1075,13 @@ Ne2k.prototype.receive = function(data)
         dump_packet(data, "receive");
     }
 
-    this.bus.send("eth-receive-end", [data.length]);
+    this.receive_frame(data);
+    return true;
+};
 
+/** @param {!Uint8Array} data */
+Ne2k.prototype.receive_frame = function(data)
+{
     if(this.rxcr & 0x10)
     {
         // promiscuous

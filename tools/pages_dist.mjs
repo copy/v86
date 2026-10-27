@@ -31,7 +31,7 @@ const FILES = [
     "build/v86_app.js", "build/v86_app.js.map", "build/android-import-worker.js", "build/android-import-worker.js.map", "build/libv86.mjs", "build/cpu-worker.js", "build/vcpu-worker.js", "build/xterm.js",
     "build/v86.wasm", "build/v86-fallback.wasm", "build/v86-parallel.wasm",
     "build/v86-arm64.wasm", "build/v86-arm64-fallback.wasm", "build/v86-arm64-parallel.wasm",
-    "build/v86-bochs-vga.js", "build/v86-vmware-svga.js", "build/v86-virtio-gpu.js", "build/v86-e1000.js", "build/v86-hd-audio.js", "build/v86-usb.js",
+    "build/v86-bochs-vga.js", "build/v86-vmware-svga.js", "build/v86-virtio-gpu.js", "build/v86-ne2k.js", "build/v86-e1000.js", "build/v86-sb16.js", "build/v86-hd-audio.js", "build/v86-usb.js",
     "build/v86-tpm.js", "build/libtpms.wasm", "bios/LIBTPMS-LICENSES.txt",
     "bios/seabios.bin", "bios/vgabios.bin", "bios/bochs-bios.bin", "bios/bochs-vgabios.bin",
     // (the UEFI firmware, docs/uefi.md, with its licenses)

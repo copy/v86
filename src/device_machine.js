@@ -5,7 +5,8 @@
 // crosses the boundary (port handlers, the PCI description) between plugin
 // names and quoted names. Display adapters extend it (GraphicsMachine in
 // src/graphics_adapters/machine.js); network and sound cards use it with
-// their kind's part (NetMachine, AudioMachine).
+// their kind's part (NetMachine, AudioMachine). ISA cards (the SB16) have
+// their interrupt line and the 8237's channels here too.
 
 /**
  * Make a plugin's device known to v86. Plugin files call this when they load.
@@ -79,6 +80,21 @@ DeviceMachine.prototype.register_write_consecutive = function(port, device, w8_1
 {
     this.handle["register_write_consecutive"](port, w8_1.bind(device), w8_2.bind(device),
         w8_3 && w8_3.bind(device), w8_4 && w8_4.bind(device));
+};
+
+/**
+ * Like IO.register_read_consecutive: two (or four) byte ports, wider reads combined
+ * @param {number} port
+ * @param {!Object} device
+ * @param {function():number} r8_1
+ * @param {function():number} r8_2
+ * @param {function():number=} r8_3
+ * @param {function():number=} r8_4
+ */
+DeviceMachine.prototype.register_read_consecutive = function(port, device, r8_1, r8_2, r8_3, r8_4)
+{
+    this.handle["register_read_consecutive"](port, r8_1.bind(device), r8_2.bind(device),
+        r8_3 && r8_3.bind(device), r8_4 && r8_4.bind(device));
 };
 
 /**
@@ -253,6 +269,54 @@ DeviceMachine.prototype.msi_notify = function(cap)
 DeviceMachine.prototype.pci_config = function()
 {
     return this.handle["pci_config"]();
+};
+
+/**
+ * An ISA card's interrupt line (0 to 15): raised
+ * @param {number} irq
+ */
+DeviceMachine.prototype.isa_raise_irq = function(irq)
+{
+    this.handle["isa_raise_irq"](irq);
+};
+
+/** @param {number} irq */
+DeviceMachine.prototype.isa_lower_irq = function(irq)
+{
+    this.handle["isa_lower_irq"](irq);
+};
+
+/**
+ * The 8237 DMA: `listener` is called with a channel when the guest unmasks it
+ * @param {function(number)} listener
+ */
+DeviceMachine.prototype.dma_on_unmask = function(listener)
+{
+    this.handle["dma_on_unmask"](listener);
+};
+
+/**
+ * @param {number} channel
+ * @return {boolean} whether the guest masked the channel (its DREQ is ignored)
+ */
+DeviceMachine.prototype.dma_masked = function(channel)
+{
+    return this.handle["dma_masked"](channel);
+};
+
+/**
+ * A transfer from memory to the device on `channel` (the 8237 programmed by
+ * the guest), into `target` from `start`, at most `length` bytes: the
+ * DMA's callback (error, cause, retry)
+ * @param {number} channel
+ * @param {!Uint8Array} target
+ * @param {number} start
+ * @param {number} length
+ * @param {function(boolean, *=, function()=)} callback
+ */
+DeviceMachine.prototype.dma_write = function(channel, target, start, length, callback)
+{
+    this.handle["dma_write"](channel, target, start, length, callback);
 };
 
 /**

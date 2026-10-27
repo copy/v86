@@ -1,5 +1,5 @@
-// MAC addresses of the network cards (src/ne2k.js, src/virtio_net.js and the
-// card plugins, src/net_adapters/): their notation, a new card's random
+// MAC addresses of the network cards (src/virtio_net.js and the card
+// plugins, src/net_adapters/: the NE2000, the e1000): their notation, a new card's random
 // address, and the translation between the address a restored guest has and
 // the card's own.
 

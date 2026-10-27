@@ -665,9 +665,10 @@ function console_ui(layout, emulator, ctx)
         ctx.set_status("Loading the state ...");
         try
         {
-            // (V7 streams, large machines', are read from the file as needed)
+            // (streams, large machines', are read from the file as needed:
+            // odd versions, 7 and 9; src/state.js)
             const header = new DataView(await file.slice(0, 8).arrayBuffer());
-            const stream = header.byteLength === 8 && header.getUint32(0, true) === 0x86768676 && header.getUint32(4, true) === 7;
+            const stream = header.byteLength === 8 && header.getUint32(0, true) === 0x86768676 && header.getUint32(4, true) % 2 === 1;
             const was_running = emulator.is_running();
             if(was_running) await emulator.stop();
             if(stream) await emulator.restore_state_stream(file);

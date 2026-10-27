@@ -41,6 +41,9 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         { "pcie_root_port": device.pcie_root_port, "pcie_plugged": device.pcie_plugged } : {};
     if(o.wasm_fn || fs?.handle9p) throw new Error("CPU Worker cannot transfer wasm_fn or handle9p callbacks");
     if(o["virtio_devices"]?.length) throw new Error("CPU Worker cannot transfer virtio_devices; their descriptors run on the CPU's thread");
+    // (the defaults of src/browser/starter.js: an NE2000 and an SB16 on the PC machines)
+    const net_type = o.net_device?.type || (is_arm(o["cpu_type"]) ? "virtio" : "ne2k");
+    const audio_device = is_arm(o["cpu_type"]) ? o["audio_device"] : o["audio_device"] || "sb16";
     return {
         "device_plugins": plugins.map(plugin => {
             if(!plugin["worker_script"]) throw new Error("CPU Worker: " + plugin["name"] + " has no worker_script for its device");
@@ -78,16 +81,17 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "modem": o.modem && { "uart": o.modem.uart },
         "preserve_mac_from_state_image": o.preserve_mac_from_state_image,
         "mac_address_translation": o.mac_address_translation,
-        "net_device": { "type": o.net_device?.type || (is_arm(o["cpu_type"]) ? "virtio" : "ne2k"), "count": o.net_device?.count,
-            // (a plugin card, like the display adapter: the worker loads it from an absolute URL)
-            "plugin_path": NET_DEVICE_PLUGINS.includes(o.net_device?.type) ?
-                new URL(o.net_device.plugin_path || default_plugin_path(o.net_device.type), location.href).href : undefined,
+        "net_device": { "type": net_type, "count": o.net_device?.count,
+            // (a plugin card, like the display adapter: the worker loads it
+            // from an absolute URL, the default NE2000's too)
+            "plugin_path": NET_DEVICE_PLUGINS.includes(net_type) ?
+                new URL(o.net_device?.plugin_path || default_plugin_path(net_type), location.href).href : undefined,
             "mtu": o.net_device?.mtu,
             ...placement(o.net_device) },
-        // (a plugin card, as the network card's)
-        "audio_device": o["audio_device"],
-        "audio_device_path": AUDIO_DEVICE_PLUGINS.includes(o["audio_device"]) ?
-            new URL(o["audio_device_path"] || default_plugin_path(o["audio_device"]), location.href).href : undefined,
+        // (a plugin card, as the network card's; the default SB16 on the PC machines)
+        "audio_device": audio_device,
+        "audio_device_path": AUDIO_DEVICE_PLUGINS.includes(audio_device) ?
+            new URL(o["audio_device_path"] || default_plugin_path(audio_device), location.href).href : undefined,
         // (USB's plugin, likewise)
         "usb": o["usb"] ? { "controller": o["usb"]["controller"], "tablet": o["usb"]["tablet"],
             "plugin_path": new URL(o["usb"]["plugin_path"] || default_plugin_path("usb"), location.href).href,

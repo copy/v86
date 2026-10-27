@@ -5,7 +5,7 @@ const vm = require("node:vm");
 (async () => {
     global.DEBUG = false;
     const { SpeakerAdapter } = await import("../../src/browser/speaker.js");
-    const { SB16 } = await import("../../src/sb16.js");
+    const { SB16 } = await import("../../src/audio_devices/sb16/sb16.js");
     const { Bus } = await import("../../src/bus.js");
     let Processor;
     const node = () => ({ gain: { setValueAtTime() {} }, frequency: { setValueAtTime() {} },
@@ -56,7 +56,8 @@ const vm = require("node:vm");
     guest.register("dac-request-data", () => requests++);
     const processor = speaker.dac.node_processor.processor;
     const sb = Object.create(SB16.prototype);
-    sb.bus = guest;
+    // (its machine's speaker messages: the bus, as src/cpu.js's handle has them)
+    sb.machine = { bus_send: (name, data, transfer) => guest.send(name, data, transfer) };
     let cleared = 0;
     sb.dac_buffers = [{ clear() { cleared++; } }, { clear() { cleared++; } }];
     const state = new Array(36).fill(0);

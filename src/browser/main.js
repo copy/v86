@@ -1659,10 +1659,11 @@ function init_ui(profile, settings, emulator)
         button.textContent = "Loading...";
         try
         {
-            // V7 streams (large machines) are read from the file as needed
+            // streams (large machines) are read from the file as needed:
+            // odd versions, 7 and 9 (src/state.js)
             const header = new DataView(await file.slice(0, 8).arrayBuffer());
             const stream = header.byteLength === 8 && header.getUint32(0, true) === 0x86768676 &&
-                header.getUint32(4, true) === 7;
+                header.getUint32(4, true) % 2 === 1;
             const state = stream ? null : await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result);

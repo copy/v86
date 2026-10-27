@@ -64,6 +64,8 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests \
 	./tests/api/sb16-state.js
 	./tests/api/sb16-dma.js
 	./tests/devices/disk_error.mjs
+	./tests/devices/default_cards.js
+	TEST_RELEASE_BUILD=1 ./tests/devices/default_cards.js
 	./tests/devices/e1000.js
 	./tests/devices/hd_audio.js
 	./tests/devices/usb.js
@@ -149,7 +151,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js device_plugin.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js acpi_tables.js smbios.js pflash.js tpm/store.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
-	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js mac_address.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
+	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js mac_address.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
 	   bus.js log.js cpu.js \
@@ -173,12 +175,12 @@ GRAPHICS_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/bus.js
 	src/device_machine.js src/graphics_adapters/machine.js src/graphics_adapters/vga_core.js src/graphics_adapters/renderer_protocol.js
 
 # Network card plugins (src/device_plugin.js, net_device.type): the same,
-# loaded when net_device.type names one
-NET_ADAPTER_PLUGINS=build/v86-e1000.js
+# loaded when net_device.type names one (the NE2000 when it names none)
+NET_ADAPTER_PLUGINS=build/v86-ne2k.js build/v86-e1000.js
 NET_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/mac_address.js \
 	src/device_machine.js src/net_adapters/machine.js src/net_adapters/offload.js
-# Sound card plugins (audio_device), likewise
-AUDIO_DEVICE_PLUGINS=build/v86-hd-audio.js
+# Sound card plugins (audio_device), likewise (the SB16 when it names none)
+AUDIO_DEVICE_PLUGINS=build/v86-sb16.js build/v86-hd-audio.js
 AUDIO_DEVICE_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_machine.js src/audio_devices/machine.js
 # USB's plugin (usb: its controllers and devices), likewise
 USB_PLUGINS=build/v86-usb.js
@@ -249,12 +251,26 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 .PHONY: graphics-adapters device-plugins
 graphics-adapters: $(GRAPHICS_ADAPTER_PLUGINS)
 
+build/v86-ne2k.js: $(CLOSURE) src/*.js src/net_adapters/*.js src/net_adapters/ne2k/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(NET_ADAPTER_COMMON) --js src/net_adapters/ne2k/ne2k.js --js src/net_adapters/ne2k/plugin.js
+
 build/v86-e1000.js: $(CLOSURE) src/*.js src/net_adapters/*.js src/net_adapters/e1000/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--output_wrapper ';(function(){%output%}).call(this);' \
 		--js $(NET_ADAPTER_COMMON) --js src/net_adapters/e1000/e1000.js --js src/net_adapters/e1000/plugin.js
+
+build/v86-sb16.js: $(CLOSURE) src/*.js src/audio_devices/*.js src/audio_devices/sb16/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(AUDIO_DEVICE_COMMON) --js src/audio_devices/sb16/sb16.js --js src/audio_devices/sb16/plugin.js
 
 build/v86-hd-audio.js: $(CLOSURE) src/*.js src/audio_devices/*.js src/audio_devices/hd_audio/*.js
 	mkdir -p build

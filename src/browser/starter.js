@@ -830,12 +830,12 @@ V86.prototype.continue_init = async function(emulator, options)
     const graphics_adapter = this.graphics_adapter === "none" ? Promise.resolve(undefined) :
         load_graphics_adapter(this.graphics_adapter, options["graphics_adapter_path"]);
     graphics_adapter.catch(() => {});
-    // the network card's plugin (net_device.type "e1000"), likewise
+    // the network card's plugin (net_device.type "ne2k", the default, "e1000"), likewise
     const net_type = settings.net_device.type;
     const net_plugin = NET_DEVICE_PLUGINS.includes(net_type) ?
         load_device_plugin(NET_PLUGINS, net_type, settings.net_device.plugin_path, "net_device.plugin_path") : Promise.resolve(undefined);
     net_plugin.catch(() => {});
-    // and the sound card's (audio_device "hd_audio")
+    // and the sound card's (audio_device "sb16", the default, "hd_audio")
     const audio_plugin = AUDIO_DEVICE_PLUGINS.includes(settings.audio_device) ?
         load_device_plugin(AUDIO_PLUGINS, settings.audio_device, options.audio_device_path, "audio_device_path") : Promise.resolve(undefined);
     audio_plugin.catch(() => {});
