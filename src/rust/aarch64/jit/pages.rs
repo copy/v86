@@ -203,10 +203,11 @@ fn mode() -> u32 {
 // ---- the access cache (jitrt::access) and the chaining tables (jitrt::chain)
 
 /// A64's tags: the virtual page below bit 52, the epoch above (with
-/// a64_asid_tag, the ASID's: bind_asid); a tagged pointer (TBI) gets no
-/// entry, since a TLBI by VA names the page untagged; regions: no block
-/// marks them (the TLB decides when a page's invalidation flushes,
-/// tlb::flush_page)
+/// a64_asid_tag, the ASID's: bind_asid); a tagged pointer (TBI: Android's
+/// heap pointers) gets an entry of its own in the untagged page's slot,
+/// which a TLBI by VA (naming the page untagged) clears with it
+/// (tlb_flushed_page); regions: no block marks them (the TLB decides when a
+/// page's invalidation flushes, tlb::flush_page)
 pub const LAYOUT: TagLayout = TagLayout {
     epoch_shift: 52,
     region_shift: 21,
@@ -286,6 +287,9 @@ pub fn tlb_flushed_asid(core: usize, asid: u16) {
 /// TBI applied) for `asid` (and the global ones), or for every ASID (None)
 pub fn tlb_flushed_page(core: usize, page: u64, asid: Option<u16>) {
     let flushed = access(core).invalidate_page(LAYOUT, ENTRIES, page << 12);
+    if flushed.is_none() {
+        forget_tagged(core, page);
+    }
     unsafe { CODE_TLB[core][page as usize & (CODE_TLB_SIZE - 1)].0 = 0 };
     for table in chain(core).0.iter_mut() {
         table.forget_page(LAYOUT, page);
@@ -317,6 +321,24 @@ pub fn tlb_flushed_page(core: usize, page: u64, asid: Option<u16>) {
         unsafe { CODE_TLB[core] = [(0, 0, 0); CODE_TLB_SIZE] };
         for table in chain(core).0.iter_mut() {
             table.clear();
+        }
+    }
+}
+
+/// The current epoch's entries of virtual page `page` under any pointer tag
+/// (TBI: VA bits 63:56, the page number's 51:44) go: they share the
+/// untagged page's slot
+fn forget_tagged(core: usize, page: u64) {
+    const TAG_BITS: u64 = 0xFF << 44;
+    let cache = access(core);
+    let epoch = cache.epoch();
+    for kind in 0..crate::jitrt::access::TABLES {
+        let entry = &mut cache.tables[AccessCache::slot(ENTRIES, kind, page)];
+        if entry.tag != 0
+            && entry.tag >> LAYOUT.epoch_shift == epoch
+            && LAYOUT.page(entry.tag) & !TAG_BITS == page & !TAG_BITS
+        {
+            entry.tag = 0;
         }
     }
 }
@@ -540,6 +562,39 @@ static mut COMPILE_MS: f64 = 0.0;
 
 /// Code retired (a write to code, a reset): a step that sees it changed ends the activation
 static mut CODE_WRITES: u64 = 0;
+
+/// (diagnostics) why the access cache refused a fill (a64_page_stat 120 +
+/// reason): a page crossing (or SCTLR_EL1.A), no translation (a fault, or
+/// none the cache may hold), a write to memory that is not writable RAM, a
+/// write to a page with code, a write to a page a core holds a reservation
+/// in, extended RAM without a frame, not RAM; and an unaligned access the
+/// caller cannot take (filled, refused this once)
+const REFUSED_CROSSING: usize = 0;
+const REFUSED_TRANSLATION: usize = 1;
+const REFUSED_NOT_WRITABLE: usize = 2;
+const REFUSED_WATCHED: usize = 3;
+const REFUSED_RESERVED: usize = 4;
+const REFUSED_EXTENDED: usize = 5;
+const REFUSED_NOT_RAM: usize = 6;
+const REFUSED_UNALIGNED: usize = 7;
+static mut REFUSED: [u64; 8] = [0; 8];
+
+/// (a64_reserved_fill) whether a write entry to a page some core holds a
+/// reservation in is refused also with the cores in workers, where a
+/// store-exclusive compares the value instead (docs/aarch64.md) and the
+/// write entries already filled stay; with four cores the refusals (every
+/// store to an ART lock word's page through the interpreter) cost more
+/// than the reservation they protect
+pub static mut RESERVED_FILL_REFUSED: bool = false;
+/// (a64_step_stats) whether steps and helper calls are counted (a64_step_stat)
+pub static mut STEP_STATS: bool = true;
+/// Steps and helper calls are counted one in STEP_SAMPLE (the counts in
+/// machine memory, which every core writes, scaled up): a count per call
+/// made the cores share the counters' cache lines
+const STEP_SAMPLE: u32 = 64;
+static mut STEP_SAMPLED: u32 = 0;
+#[inline(always)]
+fn refused(reason: usize) { unsafe { REFUSED[reason] += 1 } }
 
 /// A function is retired: its chaining entries and fast entries go
 fn retire(r: &mut Runtime, index: usize) {
@@ -1091,22 +1146,28 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
     let size = kind & 255;
     let write = kind & 0x100 != 0;
     let r = rt();
-    // (the parallel build's atomics need natural alignment: an unaligned
-    // access retries in the interpreter, pagegen::frame)
-    if (address & 0xFFF) + size as u64 > 0x1000
-        || WasmBuilder::ATOMIC_GUEST_MEMORY
-            && size > 1
-            && address & (size.min(8) as u64 - 1) != 0
-            && kind & 0x200 == 0
-    {
+    // (an access across pages, and with SCTLR_EL1.A every access: the
+    // interpreter, which splits it or raises the alignment fault)
+    if (address & 0xFFF) + size as u64 > 0x1000 || cpu::sctlr() & cpu::SCTLR_A != 0 {
         r.stats[ACCESS_REFUSED] += 1;
+        refused(REFUSED_CROSSING);
         return 0;
     }
+    // (the parallel build's atomics need natural alignment: an unaligned
+    // access whose code cannot take an unaligned host (kind bit 9: a plain
+    // store's; reads copy through the bounce slot on a hit) retries in the
+    // interpreter, but the entry is filled, so the next access hits:
+    // pagegen::frame)
+    let unaligned = WasmBuilder::ATOMIC_GUEST_MEMORY
+        && size > 1
+        && address & (size.min(8) as u64 - 1) != 0
+        && kind & 0x200 == 0;
     // (kind bit 11: an unprivileged access at EL1, LDTR/STTR: EL0's permissions and table)
     let el0 = cpu::el() == 0 || kind & 0x800 != 0;
     let Some((pa, _large, global)) = crate::aarch64::mmu::translate_for_cache(address, write, el0)
     else {
         r.stats[ACCESS_REFUSED] += 1;
+        refused(REFUSED_TRANSLATION);
         return 0;
     };
     let host = match bus::bus().lookup(pa) {
@@ -1119,9 +1180,19 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
                 && (!writable
                     || page >= unsafe { bus::DEVICE_START }
                     || crate::aarch64::root::page_watched(page >> 12)
-                    || crate::aarch64::smp::reserved_page(page))
+                    || (unsafe { RESERVED_FILL_REFUSED } || !crate::parallel::active())
+                        && crate::aarch64::smp::reserved_page(page))
             {
                 r.stats[ACCESS_REFUSED] += 1;
+                refused(if !writable || page >= unsafe { bus::DEVICE_START } {
+                    REFUSED_NOT_WRITABLE
+                }
+                else if crate::aarch64::root::page_watched(page >> 12) {
+                    REFUSED_WATCHED
+                }
+                else {
+                    REFUSED_RESERVED
+                });
                 return 0;
             }
             (unsafe { bus::MEM8 } as u32).wrapping_add(page)
@@ -1142,19 +1213,18 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
                 Some(frame) => frame,
                 None => {
                     r.stats[ACCESS_REFUSED] += 1;
+                    refused(REFUSED_EXTENDED);
                     return 0;
                 },
             }
         },
         _ => {
             r.stats[ACCESS_REFUSED] += 1;
+            refused(REFUSED_NOT_RAM);
             return 0;
         },
     };
-    // (a tagged pointer, TBI: no entry, since a TLBI names the page untagged)
-    if ((address << 8) as i64 >> 8) as u64 != address {
-        return host + (address & 0xFFF) as u32;
-    }
+    // (a tagged pointer, TBI, gets an entry too: forget_tagged)
     let core = current_core();
     access(core).fill(LAYOUT, ENTRIES, el0, write, address, host, false, global);
     if global && address >> 55 == 0 && unsafe { super::ASID_TAG } {
@@ -1164,6 +1234,11 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         }
     }
     r.stats[ACCESS_FILLS] += 1;
+    if unaligned {
+        r.stats[ACCESS_REFUSED] += 1;
+        refused(REFUSED_UNALIGNED);
+        return 0;
+    }
     host + (address & 0xFFF) as u32
 }
 
@@ -1287,22 +1362,31 @@ static mut SYSREG_COUNTS: [[u32; 1 << 16]; 3] = [[0; 1 << 16]; 3];
 static mut SYS_COUNTS: [[u32; 1 << 14]; 3] = [[0; 1 << 14]; 3];
 #[inline(always)]
 fn note_step(kind: usize, key: u32, word: u32) {
+    unsafe {
+        if !STEP_STATS {
+            return;
+        }
+        STEP_SAMPLED = STEP_SAMPLED.wrapping_add(1);
+        if STEP_SAMPLED % STEP_SAMPLE != 0 {
+            return;
+        }
+    }
     let index = key as usize & (STEP_KEYS - 1);
     unsafe {
         let counts = &mut *crate::parallel::machine(&raw mut STEP_COUNTS);
-        counts[kind][index] = counts[kind][index].wrapping_add(1);
+        counts[kind][index] = counts[kind][index].wrapping_add(STEP_SAMPLE);
         (*crate::parallel::machine(&raw mut STEP_WORDS))[index] = word;
         // (MRS and MSR (register): which register)
         if word & 0xFFD0_0000 == 0xD510_0000 {
             let reg = (word >> 5 & 0x7FFF | (!word >> 21 & 1) << 15) as usize;
             let counts = &mut *crate::parallel::machine(&raw mut SYSREG_COUNTS);
-            counts[kind][reg] = counts[kind][reg].wrapping_add(1);
+            counts[kind][reg] = counts[kind][reg].wrapping_add(STEP_SAMPLE);
         }
         // (SYS: which operation)
         else if word & 0xFFF8_0000 == 0xD508_0000 {
             let op = (word >> 5 & 0x3FFF) as usize;
             let counts = &mut *crate::parallel::machine(&raw mut SYS_COUNTS);
-            counts[kind][op] = counts[kind][op].wrapping_add(1);
+            counts[kind][op] = counts[kind][op].wrapping_add(STEP_SAMPLE);
         }
     }
 }
@@ -1364,9 +1448,24 @@ pub fn a64_page_tlbi(word: u32, value: u64) -> u32 {
 }
 
 /// (pagegen's MSR DAIF and DAIFClr templates) 1 when an interrupt is now
-/// deliverable: the function leaves for the run loop to take it
+/// deliverable, or a debug exception may be: the function leaves for the
+/// run loop to take it
 #[no_mangle]
-pub fn a64_page_unmasked() -> u32 { interrupt_pending() as u32 }
+pub fn a64_page_unmasked() -> u32 {
+    // (and when clearing PSTATE.D made a debug exception due: a software
+    // step, a breakpoint or a watchpoint, which allowed() keeps compiled
+    // code from)
+    (interrupt_pending()
+        || unsafe {
+            crate::aarch64::debug::ANY_BREAKPOINT || crate::aarch64::debug::ANY_WATCHPOINT
+        }
+        || crate::aarch64::debug::stepping()) as u32
+}
+
+/// The system counter, CNTVCT_EL0 and CNTPCT_EL0 (pagegen's template: the
+/// EL0 checks made)
+#[no_mangle]
+pub fn a64_page_counter() -> u64 { crate::aarch64::timer::counter() }
 
 /// A helper for a page function (pagegen's helper template): the instruction
 /// `word` at `pc` on the state in memory (the registers it names and NZCV
@@ -1491,6 +1590,7 @@ pub fn a64_page_stat(n: u32) -> f64 {
         109 => (unsafe { AUTO_SWITCHES }) as f64,
         110 => (unsafe { super::ASID_TAG }) as u32 as f64,
         111 => (unsafe { LIVE_BYTES }) as f64,
+        120..=127 => (unsafe { REFUSED[n as usize - 120] }) as f64,
         _ => r.stats.get(n as usize).copied().unwrap_or(0) as f64,
     }
 }

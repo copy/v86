@@ -15,7 +15,7 @@ import { ANDROID_CATALOG } from "../src/app/android_catalog.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..") + "/";
 const args = process.argv.slice(2);
-const dirs = [ROOT + "build/a64-android/dl/", ROOT + "build/a64-android/dl/gsi/"];
+const dirs = [ROOT + "build/a64-android/dl/", ROOT + "build/a64-android/dl/gsi/", ROOT + "build/a32-android/"];
 for(let i = 0; i < args.length; i++)
 {
     if(args[i] === "--dir") dirs.push(path.resolve(args[++i]) + "/");

@@ -192,31 +192,10 @@ export const PRESETS = [
         },
     },
     {
-        id: "android7_arm32", name: "Android 7.1 (32-bit, emulator image)", guest: "android", verified: true,
-        basis: "the SDK's armeabi-v7a-25_r18 image to boot_completed: docs/aarch32-plan.md R7.1, tests/a32/android_boot.mjs",
-        install: ["android"], install_text: "The Android Emulator's system image zip (system-images/android-25/google_apis/armeabi-v7a, " +
-            "armeabi-v7a-25_r18.zip), made into a disk: its kernel, ramdisk, system, cache and userdata (docs/android-images-plan.md I6)",
-        disk_mb: 4 * GB, disk_location: "browser", checklist: [],
-        issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 7 minutes on 2 cores",
-            "The guest draws with the CPU (no host GPU): a slow desktop",
-            "The guest's clock runs at a tenth of the host's, so that Android's timeouts suit this CPU", "No sound"],
-        hardware: c =>
-        {
-            c.cpu.type = "arm32";
-            c.machine.type = "ranchu";
-            c.machine.acpi = false;
-            c.cpu.cores = 2;
-            c.memory.mb = 1024 * MB;
-            c.display.adapter = "none";
-            c.sound.device = "none";
-            c.network = [{ device: "virtio", backend: "fetch", relay_url: "", mtu: 1500, mac_address_translation: false }];
-            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
-        },
-    },
-    {
-        id: "android16", name: "Android 16 (arm64)", guest: "android", verified: true,
+        id: "android16", name: "Android (arm64)", guest: "android", verified: true,
         basis: "boot_completed and the A9 scenario on gfxstream with the official images: docs/aarch64.md, docs/gfxstream-plan.md G5",
-        install: ["android", "disk"], install_text: "An Android image package (Cuttlefish's images zip, made into a disk: the image's own GPU " +
+        install: ["android", "disk"], install_text: "Android 16, and 17 as a GSI on that phone: an Android image package (Cuttlefish's images zip, " +
+            "and a GSI's, made into a disk: the image's own GPU " +
             "drivers on gfxstream), or tools/a64_android.mjs's disk.img: v64's bootloader reads the kernel and initrd from the disk's boot " +
             "partitions (docs/android-images-plan.md I2, I3)",
 
@@ -241,6 +220,46 @@ export const PRESETS = [
             // (the bootloader: the disk's kernel and initrd, bootconfig with Venus's keys)
             c.android = { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
         },
+    },
+    {
+        id: "android7_arm32", name: "Android (ARM 32-bit)", guest: "android", verified: true,
+        basis: "the SDK's armeabi-v7a-25_r18 image to boot_completed: docs/aarch32-plan.md R7.1, tests/a32/android_boot.mjs",
+        install: ["android"], install_text: "Android 7.1: the Android Emulator's system image zip (system-images/android-25/google_apis/armeabi-v7a, " +
+            "armeabi-v7a-25_r18.zip), made into a disk: its kernel, ramdisk, system, cache and userdata (docs/android-images-plan.md I6)",
+        disk_mb: 4 * GB, disk_location: "browser", checklist: [],
+        issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 7 minutes on 2 cores",
+            "The guest draws with the CPU (no host GPU): a slow desktop",
+            "The guest's clock runs at a tenth of the host's, so that Android's timeouts suit this CPU", "No sound"],
+        hardware: c =>
+        {
+            c.cpu.type = "arm32";
+            c.machine.type = "ranchu";
+            c.machine.acpi = false;
+            c.cpu.cores = 2;
+            c.memory.mb = 1024 * MB;
+            c.display.adapter = "none";
+            c.sound.device = "none";
+            c.network = [{ device: "virtio", backend: "fetch", relay_url: "", mtu: 1500, mac_address_translation: false }];
+            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
+        },
+    },
+    {
+        id: "android_x86_64", name: "Android (x86_64)", guest: "android", verified: false,
+        basis: "Linux (x86_64)'s hardware (Alpine 3.24: docs/x86-64.md, docs/gpu-devices.md); Android-x86 was never tried here",
+        install: ["cdrom"], install_text: "From Android-x86's 64-bit ISO (android-x86.org, up to Android 9.0): its installer puts it on the hard disk. " +
+            "Google's x86_64 emulator images do not boot (from Android 8.0 they draw only through the emulator's host GLES)",
+        disk_mb: 8 * GB, disk_location: "browser", checklist: ["Install to the hard disk from the ISO's menu (ext4, with GRUB)"],
+        issues: ["Not tried on v64", "Graphics: virtio-gpu's 3D (virgl) or the guest's own software rendering"],
+        hardware: pc({ cpu: "x86_64", memory: 2048 * MB, cores: 2, adapter: "virtio_gpu", nic: "virtio", sound: "hd_audio", acpi: true, tablet: true, usb: "xhci" }),
+    },
+    {
+        id: "android_x86", name: "Android (x86)", guest: "android", verified: false,
+        basis: "Linux (32-bit)'s hardware (docs/multicore.md, docs/acpi.md); Android-x86 was never tried here",
+        install: ["cdrom"], install_text: "From Android-x86's 32-bit ISO (android-x86.org, up to Android 9.0): its installer puts it on the hard disk. " +
+            "Google's x86 emulator images do not boot (from Android 8.0 they draw only through the emulator's host GLES)",
+        disk_mb: 8 * GB, disk_location: "browser", checklist: ["Install to the hard disk from the ISO's menu (ext4, with GRUB)"],
+        issues: ["Not tried on v64", "Graphics: virtio-gpu's 3D (virgl) or the guest's own software rendering"],
+        hardware: pc({ memory: 2048 * MB, cores: 2, adapter: "virtio_gpu", nic: "virtio", sound: "hd_audio", acpi: true, tablet: true, usb: "xhci" }),
     },
     {
         id: "other", name: "Other", guest: "other", verified: false, basis: "the old page's machine without changes",

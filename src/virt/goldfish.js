@@ -271,7 +271,10 @@ export function GoldfishEvents(cpu, bus, base, intid)
 {
     this.name = "goldfish-events";
     this.cpu = cpu;
+    this.bus = bus;
     this.intid = intid;
+    /** @type {boolean|undefined} a driver probed (mouse-enable said) */
+    this.driver = undefined;
     const keys = [];
     for(let k = 1; k < 256; k++) keys.push(k);
     keys.push(...ANDROID_KEYS, BTN_TOUCH);
@@ -311,6 +314,24 @@ GoldfishEvents.prototype.reset = function()
     this.x = 0;
     this.y = 0;
     this.update_irq();
+    this.driver_ready(false);
+};
+
+/**
+ * The guest's driver probes (it selects the pages: the name, the event bits,
+ * the axes) or the machine resets: the page's mouse adapter takes the mouse
+ * and touches over the screen only while a driver runs (src/browser/mouse.js:
+ * "mouse-enable", as the PS/2 controller says for its mouse; ranchu has none).
+ * A touch screen's positions are absolute and it has no cursor of its own
+ * ("absolute-pointer"): the page locks no pointer and keeps the host's cursor.
+ * @param {boolean} ready
+ */
+GoldfishEvents.prototype.driver_ready = function(ready)
+{
+    if(ready === this.driver) return;
+    this.driver = ready;
+    this.bus.send("mouse-enable", ready);
+    this.bus.send("absolute-pointer", [ready, false]);
 };
 
 GoldfishEvents.prototype.update_irq = function()
@@ -340,7 +361,11 @@ GoldfishEvents.prototype.read = function(offset, width)
 
 GoldfishEvents.prototype.write = function(offset, value)
 {
-    if(offset === REG_SET_PAGE) this.page = value >>> 0;
+    if(offset === REG_SET_PAGE)
+    {
+        this.page = value >>> 0;
+        this.driver_ready(true);
+    }
 };
 
 /** @param {!Array<!Array<number>>} events [type, code, value]..., SYN_REPORT after them */
@@ -410,12 +435,15 @@ GoldfishEvents.prototype.tap = function(x, y, width, height)
     this.click([false]);
 };
 
-GoldfishEvents.prototype.get_state = function() { return [this.page, this.queue.slice(), this.tracking_id]; };
+GoldfishEvents.prototype.get_state = function() { return [this.page, this.queue.slice(), this.tracking_id, this.driver]; };
 GoldfishEvents.prototype.set_state = function(state)
 {
     [this.page, this.queue, this.tracking_id] = state;
     this.touching = false;
     this.update_irq();
+    // (older states: a driver that probed left another page selected)
+    this.driver = undefined;
+    this.driver_ready(state[3] ?? this.page !== PAGE_NAME);
 };
 
 // ---- the battery

@@ -348,6 +348,12 @@ vendor 由设备树 `/firmware/android/fstab/vendor` 在第一阶段挂载，/da
 拖入的文件先比大小、再在导入器的 Worker 里流式算 SHA-256（有进度，每个文件只算一次），缺哪个、哪个不符逐个说明，
 都对上才能继续。debug vendor ramdisk 按大小认出（不是 zip），在设置的 Android 项里使用。部署站点上的验收待部署后做。
 
+2026-10-27（所有者）：目录改为每个能在 v64 上开机的 Android 版本一项，新的在前：Android 17（CP3A GSI，加 Cuttlefish
+的 Android 16 手机）、Android 16（Cuttlefish 15581820）、Android 7.1（32 位模拟器镜像 `armeabi-v7a-25_r18`）；16 QPR2
+的 GSI（BP4A）一项去掉（它也要 Cuttlefish 的包，与 Android 16 同版本）。向导不再显示 SHA-256 与“官方页面”链接，
+只列文件的下载链接与大小（哈希仍在目录里，用来核对拖入的文件）。Android 8.0–15 没有能开机的镜像（GSI 只能在同版本或
+更旧的 vendor 上运行；模拟器镜像要宿主 GLES，见 I6.3），1–6 用的是旧的 goldfish 机器，都不列。
+
 ## 9. I8 GPU 与收尾
 
 | ID | 任务 | 规模 |

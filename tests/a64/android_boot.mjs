@@ -833,6 +833,10 @@ try
         const t = jit ? cpu.page_tier_stats() : null;
         result.metrics = { retired, mips: Math.round(total / result.ms / 100) / 10,
             ...(t ? { compiles: t.compiled, compile_ms: Math.round(t.compile_ms), evictions: t.evictions, live_code_mib: Math.round(t.live_code_bytes / 1048576) } : {}),
+            // (core 0's page tier counters in full: its instance's)
+            ...(t ? { page_tier: t, retired_core0: cpu.retired_instructions(0) } : {}),
+            // (the workers' counters: slices, waits, device accesses served by the machine's thread)
+            ...(cpu.parallel ? { parallel: cpu.parallel.status() } : {}),
             // (the instructions the page tier steps, and those of them that end its activations)
             ...(t && cpu.step_stats ? { steps: cpu.step_stats(25) } : {}),
             max_rss_mib: Math.round(process.resourceUsage().maxRSS / 1024),

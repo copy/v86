@@ -16,7 +16,7 @@
 // batch at a time, ended by SYN_REPORT, as the driver offers buffers on the
 // event queue; LED events on the status queue are taken and dropped.
 
-import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
+import { VirtIO, VIRTIO_F_VERSION_1, VIRTIO_STATUS_DRIVER_OK } from "./virtio.js";
 import { dbg_assert } from "./log.js";
 
 // configuration selectors
@@ -85,6 +85,8 @@ export function VirtioInput(cpu, bus, kind, transport, pci_id, mouse_as_touch)
     dbg_assert(transport || pci_id !== undefined && cpu.devices.pci.generic, "virtio-input: on the virt machine's transports only");
     dbg_assert(kind === "keyboard" || kind === "tablet" || kind === "multitouch");
     this.kind = kind;
+    /** it takes the page's mouse (a tablet; a touch screen with no tablet beside it) */
+    this.takes_mouse = kind === "tablet" || kind === "multitouch" && !!mouse_as_touch;
     /** @type {!Map<string, !Uint8Array>} the configuration by select and subsel ("select,subsel") */
     this.config = new Map();
     const name = { "keyboard": "QEMU Virtio Keyboard", "tablet": "QEMU Virtio Tablet", "multitouch": "QEMU Virtio MultiTouch" }[kind];
@@ -151,6 +153,7 @@ export function VirtioInput(cpu, bus, kind, transport, pci_id, mouse_as_touch)
         });
     }
 
+    this.bus = bus;
     /** @type {VirtIO} */
     this.virtio = new VirtIO(cpu,
     {
@@ -163,7 +166,11 @@ export function VirtioInput(cpu, bus, kind, transport, pci_id, mouse_as_touch)
         {
             queues: [{ size_supported: 64, notify_offset: 0 }, { size_supported: 64, notify_offset: 1 }],
             features: [VIRTIO_F_VERSION_1],
-            on_driver_ok: () => this.flush(),
+            on_driver_ok: () =>
+            {
+                this.flush();
+                this.pointer_ready(true);
+            },
         },
         notification:
         {
@@ -175,7 +182,11 @@ export function VirtioInput(cpu, bus, kind, transport, pci_id, mouse_as_touch)
         },
         isr_status: {},
         device_specific: { struct },
-        on_reset: () => { this.pending = []; },
+        on_reset: () =>
+        {
+            this.pending = [];
+            this.pointer_ready(false);
+        },
         transport: transport || undefined,
         pci_id,
     });
@@ -390,6 +401,25 @@ VirtioInput.prototype.reset = function()
     this.virtio.reset();
 };
 
+/**
+ * A pointing device (the tablet, the multi-touch screen) the guest's driver
+ * runs (DRIVER_OK) or no longer runs (a reset): the page's mouse adapter
+ * takes the mouse and touches over the screen only while one does
+ * (src/browser/mouse.js: "mouse-enable", as the PS/2 controller says for its
+ * mouse; the virt machine has none, and without this a MacBook's trackpad
+ * reached no device). The one that takes the mouse says its positions are
+ * absolute ("absolute-pointer"): the page locks no pointer, and a tablet's
+ * guest draws its own cursor (a touch screen beside a tablet leaves the
+ * cursor to the tablet's).
+ * @param {boolean} ready
+ */
+VirtioInput.prototype.pointer_ready = function(ready)
+{
+    if(this.kind === "keyboard") return;
+    this.bus.send("mouse-enable", ready);
+    if(this.takes_mouse) this.bus.send("absolute-pointer", [ready, this.kind === "tablet"]);
+};
+
 VirtioInput.prototype.get_state = function()
 {
     return [this.virtio, this.select, this.subsel, [].concat(...this.pending),
@@ -405,4 +435,6 @@ VirtioInput.prototype.set_state = function(state)
     const flat = state[3] || [];
     for(let i = 0; i + 2 < flat.length; i += 3) this.pending.push([flat[i], flat[i + 1], flat[i + 2]]);
     this.slots = (state[4] || new Array(MT_SLOTS).fill(null)).map(slot => slot && { id: slot[0], x: slot[1], y: slot[2] });
+    // (a state whose driver ran: the page takes the pointer again)
+    if(this.virtio.device_status & VIRTIO_STATUS_DRIVER_OK) this.pointer_ready(true);
 };

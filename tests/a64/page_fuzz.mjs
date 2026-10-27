@@ -164,7 +164,8 @@ function instruction(depth)
             const a1 = rand(8);
             const a2 = (a1 + 1 + rand(7)) % 8;
             const form = pick([`[x16, #${size * rand(4)}]`, `[x16, #${size * rand(4)}]!`, `[x16], #${size * rand(4)}`]);
-            return `add x16, x8, #${16 * rand(32)}\n    ${rand(2) ? "ldp" : "stp"} ${reg}${a1}, ${reg}${a2}, ${form}`;
+            // (aligned, or not: with cores in workers an unaligned store is a plain one)
+            return `add x16, x8, #${rand(2) ? 16 * rand(32) : 256 + rand(256)}\n    ${rand(2) ? "ldp" : "stp"} ${reg}${a1}, ${reg}${a2}, ${form}`;
         }
         case 41: return `${pick(["fmov " + x() + ", d" + rand(8), "umov " + x() + ", v" + rand(8) + ".d[1]", "fmov " + w() + ", s" + rand(8)])}`;
         case 42: return `add x16, x8, #${256 + rand(512)}\n    ${rand(2) ? "ldr" : "str"} q${rand(8)}, [x16, #${16 * (rand(8) - 4)}]!`;

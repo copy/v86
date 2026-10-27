@@ -1322,7 +1322,10 @@ A64CPU.prototype.page_tier_stats = function()
     const result = { "live": stat(100), "code_page_writes": stat(101), "resets": stat(102), "pages_compiled": stat(103),
         "most_compiles": stat(104), "helpers": stat(106), "evictions": stat(107), "compile_ms": stat(108),
         "asid_tag_switches": stat(109), "asid_tag": stat(110), "live_code_bytes": stat(111),
-        "table_free_low": this.wm.exports["jit_wasm_table_free_low"]() };
+        "table_free_low": this.wm.exports["jit_wasm_table_free_low"](),
+        // (diagnostics: why the access cache refused fills, pages.rs REFUSED_*)
+        "refused": { "crossing": stat(120), "translation": stat(121), "not_writable": stat(122), "watched": stat(123),
+            "reserved": stat(124), "extended": stat(125), "not_ram": stat(126), "unaligned": stat(127) } };
     names.forEach((name, i) => { result[name] = stat(i); });
     return result;
 };

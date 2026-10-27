@@ -457,6 +457,13 @@
             // compile option for the same reason the LOD bias does: it changes
             // the WGSL, so it belongs in the shader variant key.
             this.samplerMirrorOnce = this.options.samplerMirrorOnce || null;
+            // D3DRS_SHADEMODE's D3DSHADE_FLAT: the two colour varyings take
+            // the provoking vertex's value, with shaders as without them (as
+            // wined3d's flatshading). A vertex output and the fragment input
+            // at one location must agree, so the caller passes the same flag
+            // to both stages, as the fixed-function ones get it, and keys the
+            // variant on it.
+            this.flatShading = !!this.options.flatShading;
             this.writtenVaryings = new Set();
             this.usesAddress = false;
             this.usesLoopCounter = false;
@@ -491,6 +498,17 @@
 
         emit(text) {
             this.lines.push(" ".repeat(this.indent) + text);
+        }
+
+        // One varying of the inter-stage struct, the same in both stages:
+        // with flat shading the colour slots are flat (texture coordinates
+        // and fog keep interpolating, as in D3D9)
+        varyingDeclaration(slot) {
+            const flat = this.flatShading &&
+                (slot === VARYING_COLOR0 || slot === VARYING_COLOR1);
+            return "    @location(" + slot + ")" +
+                (flat ? " @interpolate(flat)" : "") +
+                " varying" + slot + ": vec4<f32>,";
         }
 
         fresh(prefix) {
@@ -1973,7 +1991,7 @@
             out.push("struct D9VertexOutput {");
             out.push("    @builtin(position) position: vec4<f32>,");
             for (let slot = 0; slot < VARYING_COUNT; ++slot)
-                out.push("    @location(" + slot + ") varying" + slot + ": vec4<f32>,");
+                out.push(this.varyingDeclaration(slot));
             const clipPlaneCount = this.options.clipPlaneCount || 0;
             for (let group = 0; group < Math.ceil(clipPlaneCount / 4); ++group)
                 out.push("    @location(" + (VARYING_COUNT + group) +
@@ -2100,7 +2118,7 @@
             out.push("struct D9PixelInput {");
             out.push("    @builtin(position) position: vec4<f32>,");
             for (let slot = 0; slot < VARYING_COUNT; ++slot)
-                out.push("    @location(" + slot + ") varying" + slot + ": vec4<f32>,");
+                out.push(this.varyingDeclaration(slot));
             const clipPlaneCount = this.options.clipPlaneCount || 0;
             for (let group = 0; group < Math.ceil(clipPlaneCount / 4); ++group)
                 out.push("    @location(" + (VARYING_COUNT + group) +

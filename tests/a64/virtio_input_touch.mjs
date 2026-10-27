@@ -63,6 +63,35 @@ const take = device => device.pending.splice(0).filter(([type]) => type !== EV_S
     emulator.bus.send("mouse-click", [true, false, false]);
     assert.deepEqual(take(device("multitouch")), [], "the touch screen leaves the mouse to the tablet");
     assert.ok(take(device("tablet")).length > 0, "the tablet takes it");
+    // (the page's cursor is the tablet's to hide, whichever driver runs last)
+    const absolute = [];
+    emulator.add_listener("absolute-pointer", state => absolute.push(state));
+    for(const kind of ["multitouch", "tablet"]) device(kind).virtio.device_status = 4;
+    await emulator.restore_state(await emulator.save_state());
+    assert.deepEqual(absolute, [[true, true]], "only the tablet says how the pointer is (the guest draws its cursor)");
     await emulator.destroy();
     console.log("PASS: with a tablet, the tablet takes the mouse");
+}
+
+// the page's mouse adapter (src/browser/mouse.js) takes the mouse and touches
+// over the screen only after "mouse-enable": a pointing device says so while
+// its driver runs (DRIVER_OK; here a state with it restored), and stops on a
+// reset; the keyboard does not (the virt machine has no PS/2 mouse to say it,
+// and a MacBook's trackpad reached no device)
+{
+    const { emulator, device } = await machine(["keyboard", "multitouch"]);
+    const said = [];
+    emulator.add_listener("mouse-enable", enabled => said.push(enabled));
+    const absolute = [];
+    emulator.add_listener("absolute-pointer", state => absolute.push(state));
+    const DRIVER_OK = 4;
+    for(const kind of ["keyboard", "multitouch"]) device(kind).virtio.device_status = DRIVER_OK;
+    await emulator.restore_state(await emulator.save_state());
+    assert.deepEqual(said, [true], "the touch screen's driver runs: the page takes the pointer (not for the keyboard)");
+    assert.deepEqual(absolute, [[true, false]], "absolute positions, no cursor of the guest's: no pointer lock, the host's cursor stays");
+    device("multitouch").virtio.reset();
+    assert.deepEqual(said, [true, false], "a reset: the page leaves the pointer");
+    assert.deepEqual(absolute, [[true, false], [false, false]]);
+    await emulator.destroy();
+    console.log("PASS: a pointing device tells the page when its driver runs (mouse-enable)");
 }

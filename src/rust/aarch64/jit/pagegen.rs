@@ -293,8 +293,8 @@ fn native(i: &Inst, env: &CompileEnv) -> bool {
         Op::DataProc3 => matches!(i.sub, 0..=4 | 10 | 11 | 12),
         // UDIV, SDIV, LSLV, LSRV, ASRV, RORV (CRC32: stepped)
         Op::DataProc2 => matches!(i.sub, 0b000010 | 0b000011 | 0b001000..=0b001011),
-        // REV16, REV32, REV, CLZ, CLS (RBIT: stepped)
-        Op::DataProc1 => matches!(i.sub, 1..=5),
+        // RBIT, REV16, REV32, REV, CLZ, CLS
+        Op::DataProc1 => matches!(i.sub, 0..=5),
         // NOP and the hints that are NOPs here (YIELD, WFE, WFI, SEV, SEVL step)
         Op::Hint => !(1..=5).contains(&i.imm),
         // (DSB with cores in workers: a step, crate::aarch64::tlb::synced;
@@ -319,11 +319,11 @@ fn native(i: &Inst, env: &CompileEnv) -> bool {
         },
         // MSR DAIFSet, DAIFClr at EL1 (a64_system)
         Op::MsrImm => env.system & SYSTEM_REGISTERS != 0 && env.el1 && (i.sub == 1 || i.sub == 2),
-        // TLBI and DC ZVA at EL1 (a64_system)
+        // TLBI at EL1, DC ZVA at EL1 and EL0 (a64_system; at EL0 it checks
+        // SCTLR_EL1.DZE as it runs: bionic's memset zeroes with it)
         Op::Sys => {
-            env.el1
-                && i.sub == 0
-                && (env.system & SYSTEM_TLBI != 0 && tlbi_form(i.imm as u32)
+            i.sub == 0
+                && (env.el1 && env.system & SYSTEM_TLBI != 0 && tlbi_form(i.imm as u32)
                     || env.system & SYSTEM_DC_ZVA != 0 && i.imm as u32 == DC_ZVA)
         },
         _ => false,
@@ -364,16 +364,43 @@ enum SystemRegister {
     /// ESR_EL1 (MSR: the low 32 bits)
     Esr,
     Far,
-    /// DCZID_EL0, read at EL1: BS 4, DZP clear
+    /// DCZID_EL0: BS 4, DZP set at EL0 while SCTLR_EL1.DZE is clear
     Dczid,
+    /// CNTVCT_EL0 (EL0: CNTKCTL_EL1 bit 1) or CNTPCT_EL0 (bit 0), read: the counter
+    Counter(u64),
+    /// CNTFRQ_EL0, read (EL0: CNTKCTL_EL1 bit 0 or 1)
+    Cntfrq,
+    /// TPIDRRO_EL0 (MSR at EL1 only)
+    TpidrRo,
+    /// CONTEXTIDR_EL1 (MSR: the low 32 bits)
+    Contextidr,
+    /// FPCR and FPSR (as FP instructions, CPACR_EL1.FPEN as it runs; MSR:
+    /// the writable bits; compiled FP code reads them as it runs)
+    Fpcr,
+    Fpsr,
 }
 fn system_register(i: &Inst, env: &CompileEnv) -> Option<SystemRegister> {
     use crate::aarch64::sysregs::key;
-    if env.system & SYSTEM_REGISTERS == 0 || !env.el1 {
+    if env.system & SYSTEM_REGISTERS == 0 {
         return None;
     }
     let reg = i.imm as u32;
     let write = i.op == Op::Msr;
+    // (at EL0 too, its checks made as the template runs: the counter that
+    // Android's clock_gettime reads in the vDSO, TPIDRRO_EL0, FPCR and FPSR)
+    let any_el = match reg {
+        r if r == key(3, 3, 14, 0, 2) && !write => Some(SystemRegister::Counter(2)),
+        r if r == key(3, 3, 14, 0, 1) && !write => Some(SystemRegister::Counter(1)),
+        r if r == key(3, 3, 14, 0, 0) && !write => Some(SystemRegister::Cntfrq),
+        r if r == key(3, 3, 0, 0, 7) && !write => Some(SystemRegister::Dczid),
+        r if r == key(3, 3, 13, 0, 3) && (!write || env.el1) => Some(SystemRegister::TpidrRo),
+        r if r == key(3, 3, 4, 4, 0) => Some(SystemRegister::Fpcr),
+        r if r == key(3, 3, 4, 4, 1) => Some(SystemRegister::Fpsr),
+        _ => None,
+    };
+    if any_el.is_some() || !env.el1 {
+        return any_el;
+    }
     Some(match reg {
         r if r == key(3, 0, 4, 1, 0) => SystemRegister::SpEl0,
         r if r == key(3, 0, 13, 0, 4) => SystemRegister::Tpidr1,
@@ -382,7 +409,7 @@ fn system_register(i: &Inst, env: &CompileEnv) -> Option<SystemRegister> {
         r if r == key(3, 0, 4, 0, 0) => SystemRegister::Spsr,
         r if r == key(3, 0, 5, 2, 0) => SystemRegister::Esr,
         r if r == key(3, 0, 6, 0, 0) => SystemRegister::Far,
-        r if r == key(3, 3, 0, 0, 7) && !write => SystemRegister::Dczid,
+        r if r == key(3, 0, 13, 0, 1) => SystemRegister::Contextidr,
         _ => return None,
     })
 }
@@ -520,7 +547,9 @@ const T1: usize = 38;
 const T2: usize = 39;
 const T3: usize = 40;
 const T4: usize = 41;
-const LOCALS64: usize = 42;
+/// a store's value (store_any)
+const SV: usize = 42;
+const LOCALS64: usize = 43;
 // i32 locals
 const N: usize = 0;
 const K: usize = 1;
@@ -538,7 +567,9 @@ const J0: usize = 10;
 const A0: usize = 11;
 const A1: usize = 12;
 const A2: usize = 13;
-const LOCALS32: usize = 14;
+/// a store's host address (store_any)
+const SH: usize = 14;
+const LOCALS32: usize = 15;
 
 struct Emitter<'a> {
     b: WasmBuilder,
@@ -1132,8 +1163,26 @@ impl Emitter<'_> {
             retry,
         );
     }
+    /// As `host_in` for a plain store (STR, STP, the SIMD&FP ones): with
+    /// cores in workers the host may be unaligned, which store_any stores
+    /// to (kind bit 9; LDAR, STLR, the exclusives must fault instead)
+    fn host_store(&mut self, size: u32, offset: u16, slot: u32) {
+        if !WasmBuilder::ATOMIC_GUEST_MEMORY || size == 1 {
+            return self.host_in(size, true, offset, slot);
+        }
+        let (l, abi) = (self.lookup_locals(), Self::access_abi());
+        let retry = self.f().retry;
+        self.inline_lookup(
+            &l,
+            &abi,
+            (size, false),
+            0x300 | slot << 10,
+            offset as u64,
+            retry,
+        );
+    }
     /// Push the value of a system register with an EL1 template (system_register)
-    fn system_read(&mut self, r: SystemRegister) {
+    fn system_read(&mut self, r: SystemRegister, offset: u16) {
         match r {
             SystemRegister::SpEl0 => {
                 // (at EL1h the banked copy, at EL1t the SP)
@@ -1155,8 +1204,54 @@ impl Emitter<'_> {
             SystemRegister::Spsr => self.load64(state::spsr_el1 as u32),
             SystemRegister::Esr => self.load64(state::esr_el1 as u32),
             SystemRegister::Far => self.load64(state::far_el1 as u32),
-            SystemRegister::Dczid => self.c64(4),
+            SystemRegister::Dczid if self.env.el1 => self.c64(4),
+            SystemRegister::Dczid => {
+                // (DZP: SCTLR_EL1.DZE clear)
+                self.load64(state::sctlr_el1 as u32);
+                self.c64(crate::aarch64::cpu::SCTLR_DZE);
+                self.b.and_i64();
+                self.c64(0);
+                self.b.eq_i64();
+                self.b.extend_unsigned_i32_to_i64();
+                self.c64(4);
+                self.b.shl_i64();
+                self.c64(4);
+                self.b.or_i64();
+            },
+            SystemRegister::Counter(enable) => {
+                self.el0_enabled(enable, offset);
+                self.b
+                    .call_signature("a64_page_counter", Signature::new(&[], &[WasmType::I64]));
+            },
+            SystemRegister::Cntfrq => {
+                self.el0_enabled(3, offset);
+                self.load64(state::cntfrq_el0 as u32);
+            },
+            SystemRegister::TpidrRo => self.load64(state::tpidrro_el0 as u32),
+            SystemRegister::Contextidr => self.load64(state::contextidr_el1 as u32),
+            SystemRegister::Fpcr | SystemRegister::Fpsr => {
+                self.fp_check(offset);
+                self.load32(if matches!(r, SystemRegister::Fpcr) {
+                    state::fpcr
+                }
+                else {
+                    state::fpsr
+                } as u32);
+                self.b.extend_unsigned_i32_to_i64();
+            },
         }
+    }
+    /// At EL0, retry (the interpreter's trap) unless CNTKCTL_EL1 has one of `bits`
+    fn el0_enabled(&mut self, bits: u64, offset: u16) {
+        if self.env.el1 {
+            return;
+        }
+        self.load64(state::cntkctl_el1 as u32);
+        self.c64(bits);
+        self.b.and_i64();
+        self.c64(0);
+        self.b.eq_i64();
+        self.retry_if(offset);
     }
     /// MSR of a system register with an EL1 template: X[rt] into it
     fn system_write(&mut self, r: SystemRegister, rt: u8, offset: u16) {
@@ -1207,7 +1302,26 @@ impl Emitter<'_> {
             },
             SystemRegister::Esr => store64(self, state::esr_el1 as u32, 0xFFFF_FFFF),
             SystemRegister::Far => store64(self, state::far_el1 as u32, u64::MAX),
-            SystemRegister::Dczid => unreachable!(),
+            SystemRegister::TpidrRo => store64(self, state::tpidrro_el0 as u32, u64::MAX),
+            SystemRegister::Contextidr => store64(self, state::contextidr_el1 as u32, 0xFFFF_FFFF),
+            SystemRegister::Fpcr | SystemRegister::Fpsr => {
+                self.fp_check(offset);
+                let (at, mask) = if matches!(r, SystemRegister::Fpcr) {
+                    (state::fpcr as u32, crate::aarch64::fp::FPCR_WRITABLE)
+                }
+                else {
+                    (state::fpsr as u32, 0xF800_009F)
+                };
+                self.c32(at as i32);
+                self.xr(rt);
+                self.b.wrap_i64_to_i32();
+                self.c32(mask as i32);
+                self.b.and_i32();
+                self.b.store_aligned_i32(0);
+            },
+            SystemRegister::Dczid | SystemRegister::Counter(_) | SystemRegister::Cntfrq => {
+                unreachable!()
+            },
         }
     }
     /// After a write to PSTATE.DAIF at `offset`: leave for the run loop,
@@ -1337,6 +1451,36 @@ impl Emitter<'_> {
             _ => op::OP_I64LOAD,
         };
         self.b.memory_op(opcode, align, 0);
+    }
+    /// [host, value] -> []: the low `bits` of the value stored at host +
+    /// `offset`, a host of host_store: with cores in workers an unaligned one
+    /// is a plain store, as the interpreter's (an unaligned access is no
+    /// single-copy atomic one; barriers order it as any other)
+    fn store_any(&mut self, bits: u32, offset: u32) {
+        if !WasmBuilder::ATOMIC_GUEST_MEMORY || bits == 8 {
+            return self.b.guest_store_i64_bits(bits, offset);
+        }
+        self.s(SV);
+        self.ti(SH);
+        self.c32(bits as i32 / 8 - 1);
+        self.b.and_i32();
+        self.b.if_void();
+        self.gi(SH);
+        self.g(SV);
+        self.b.memory_op(
+            match bits {
+                16 => op::OP_I64STORE16,
+                32 => op::OP_I64STORE32,
+                _ => op::OP_I64STORE,
+            },
+            op::MEM_NO_ALIGN,
+            offset,
+        );
+        self.b.else_();
+        self.gi(SH);
+        self.g(SV);
+        self.b.guest_store_i64_bits(bits, offset);
+        self.b.block_end();
     }
     /// Store the i64 on the stack (after the host address) as `size_log` bytes
     fn store_value(&mut self, size_log: u32) {
@@ -1940,6 +2084,16 @@ impl Emitter<'_> {
                 }
             },
             Op::Sys if i.imm as u32 == DC_ZVA => {
+                // (at EL0 only while SCTLR_EL1.DZE allows it: else the
+                // interpreter, which traps)
+                if !self.env.el1 {
+                    self.load64(state::sctlr_el1 as u32);
+                    self.c64(crate::aarch64::cpu::SCTLR_DZE);
+                    self.b.and_i64();
+                    self.b.wrap_i64_to_i32();
+                    self.b.eqz_i32();
+                    self.retry_if(offset);
+                }
                 // the 64-byte block (DCZID_EL0's BS 4) zeroed through the
                 // access cache's write entry (a miss, Device memory, a code
                 // or watched page: the interpreter, which faults or marks)
@@ -1970,7 +2124,7 @@ impl Emitter<'_> {
                 self.b.block_end();
             },
             Op::Mrs if system_register(i, &self.env).is_some() => {
-                self.system_read(system_register(i, &self.env).unwrap());
+                self.system_read(system_register(i, &self.env).unwrap(), offset);
                 self.set_x(rd);
             },
             Op::Msr if system_register(i, &self.env).is_some() => {
@@ -2385,6 +2539,25 @@ impl Emitter<'_> {
             e.b.or_i64();
         };
         match i.sub {
+            0 => {
+                // RBIT: bits, pairs and nibbles swapped, then REV (the
+                // swaps stay in 32-bit lanes: a W register's low word)
+                self.xr(rn);
+                swap(self, 1, 0x5555_5555_5555_5555);
+                swap(self, 2, 0x3333_3333_3333_3333);
+                swap(self, 4, 0x0F0F_0F0F_0F0F_0F0F);
+                swap(self, 8, 0x00FF_00FF_00FF_00FF);
+                swap(self, 16, 0x0000_FFFF_0000_FFFF);
+                if sf {
+                    self.c64(32);
+                    self.b.rotr_i64();
+                }
+                else {
+                    self.c64(0xFFFF_FFFF);
+                    self.b.and_i64();
+                }
+                self.set_x(rd);
+            },
             1 => {
                 // REV16
                 self.xr(rn);
@@ -2509,8 +2682,8 @@ impl Emitter<'_> {
         self.gi(host);
         self.load64(at);
         if WasmBuilder::ATOMIC_GUEST_MEMORY {
-            self.b
-                .guest_store_i64_bits(if size_log == 2 { 32 } else { 64 }, 0);
+            // (a host of host_store: maybe unaligned)
+            self.store_any(if size_log == 2 { 32 } else { 64 }, 0);
         }
         else if size_log == 2 {
             self.b.memory_op(op::OP_I64STORE32, 2, 0);
@@ -2522,7 +2695,7 @@ impl Emitter<'_> {
             self.gi(host);
             self.load64(at + 8);
             if WasmBuilder::ATOMIC_GUEST_MEMORY {
-                self.b.guest_store_i64(8);
+                self.store_any(64, 8);
             }
             else {
                 self.b.memory_op(op::OP_I64STORE, 3, 8);
@@ -2567,8 +2740,11 @@ impl Emitter<'_> {
         if i.sub & LS_UNPRIVILEGED != 0 && self.env.el1 {
             self.host_unprivileged(1 << size_log, !load, offset);
         }
+        else if load {
+            self.host(1 << size_log, false, offset);
+        }
         else {
-            self.host(1 << size_log, !load, offset);
+            self.host_store(1 << size_log, offset, 0);
         }
         if simd {
             self.si(C1);
@@ -2583,9 +2759,13 @@ impl Emitter<'_> {
             self.load_value(size_log, i.sub & LS_SIGNED != 0, i.sub & LS_TO_W != 0);
             self.set_x(rt);
         }
-        else {
+        else if i.sub & LS_UNPRIVILEGED != 0 && self.env.el1 {
             self.xr(rt);
             self.store_value(size_log);
+        }
+        else {
+            self.xr(rt);
+            self.store_any(8 << size_log.min(3), 0);
         }
         if writeback {
             if i.shift == MODE_POST {
@@ -2622,13 +2802,23 @@ impl Emitter<'_> {
         let load = i.sub & LS_LOAD != 0;
         self.g(T1);
         self.s(ADDR);
-        self.host(size, !load, offset);
+        if load {
+            self.host(size, false, offset);
+        }
+        else {
+            self.host_store(size, offset, 0);
+        }
         self.si(C1);
         self.g(T1);
         self.c64(size as u64);
         self.b.add_i64();
         self.s(ADDR);
-        self.host_in(size, !load, offset, 1);
+        if load {
+            self.host_in(size, false, offset, 1);
+        }
+        else {
+            self.host_store(size, offset, 1);
+        }
         self.si(HH);
         if simd {
             // (both read before either register is written, as the interpreter)
@@ -2662,10 +2852,10 @@ impl Emitter<'_> {
         else {
             self.gi(C1);
             self.xr(rt);
-            self.store_value(size_log);
+            self.store_any(8 << size_log.min(3), 0);
             self.gi(HH);
             self.xr(rt2);
-            self.store_value(size_log);
+            self.store_any(8 << size_log.min(3), 0);
         }
         if writeback {
             if i.shift == MODE_POST {

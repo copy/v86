@@ -35,8 +35,8 @@
                    else filled in, powered on: init's sys.boot_completed=1 in the kernel's log (hvc0), then Android's screen in the
                    graphics proxy's compositor (the preset's gfxstream from the CPU worker, the renderer in the page);
                    timeout=<minutes> (180);
-                   gsi=<path> also drops a GSI (I5.3), entry=<catalog id> the catalog's entry chosen (android16-cuttlefish, or
-                   android16-gsi-bp4a with gsi=; "" for another package)
+                   gsi=<path> also drops a GSI (I5.3), entry=<catalog id> the catalog's entry chosen (android16-cuttlefish; with
+                   gsi= "", another package: the catalog lists one entry per Android version, android17-gsi-cp3a for the GSI it has)
      node tests/app/browser_runner.mjs tests/app/wizard_test.html part=freedos -->
 <style>iframe { width: 1100px; height: 760px; border: 1px solid #888; }</style>
 <pre id="log"></pre>
@@ -196,7 +196,7 @@ async function import_android()
 {
     const urls = ["/" + (args.get("package") || "build/a64-android/dl/aosp_cf_arm64_only_phone-img-15581820.zip"),
         ...(args.get("gsi") ? ["/" + args.get("gsi")] : [])];
-    const entry = args.has("entry") ? args.get("entry") : args.get("gsi") ? "android16-gsi-bp4a" : "android16-cuttlefish";
+    const entry = args.has("entry") ? args.get("entry") : args.get("gsi") ? "" : "android16-cuttlefish";
     await open_library();
     $("#new_vm").click();
     const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");

@@ -9893,10 +9893,12 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
             const clipPlaneCount = clipMask
                 ? 32 - Math.clz32(clipMask) : 0;
             const clipKey = "_cl" + clipPlaneCount;
-            // D3DRS_SHADEMODE, applied to the two colour varyings of the
-            // fixed-function pipeline. A translated pixel shader is left alone:
-            // its varyings are the vertex shader's declared outputs, and D3D9
-            // does not reinterpolate a shader's outputs by shade mode.
+            // D3DRS_SHADEMODE, applied to the two colour varyings in both
+            // stages, fixed-function or translated (D3D9 flat-shades COLOR0/1
+            // with shaders too, as wined3d's flatshading does). The two
+            // stages have to agree: a vertex output and the fragment input at
+            // one location with different interpolation make the pipeline,
+            // and the frame's command buffer, invalid.
             const flatShading =
                 (rs.get(D3DRS_SHADEMODE) || D3DSHADE_GOURAUD) === D3DSHADE_FLAT;
             // Pre-transformed vertices (a POSITIONT element) skip vertex
@@ -10040,9 +10042,11 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                     }
                 }
                 const pixelVariantKey = alphaTestKey + clipKey + depthKey +
-                    lodBiasKey + mirrorOnceKey + legacySamplerKey;
+                    lodBiasKey + mirrorOnceKey + legacySamplerKey +
+                    (flatShading ? "_flat" : "");
                 if (alphaTest.enabled || clipPlaneCount || depthSamplers.length
-                        || lodBiasKey || mirrorOnceKey || legacySamplerKey) {
+                        || lodBiasKey || mirrorOnceKey || legacySamplerKey ||
+                        flatShading) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
                         variant = shaderPipeline.compileShader(psResource.tokens, {
@@ -10054,6 +10058,7 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                             samplerLodBias,
                             samplerMirrorOnce,
                             legacySamplerTypes,
+                            flatShading,
                         });
                         psResource.variants.set(pixelVariantKey, variant);
                         if (variant.ok) ++this.stats.shaderVariantsTranslated;
@@ -10227,9 +10232,11 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                 const pointKey = drawOptions.pointExpansion
                     ? "|p:" + (drawOptions.pointSprite ? "s" : "q") : "";
                 const variantKey = "b:" + bgra.join(",") + "|c:" +
-                    conversionKey + pointKey + clipKey;
+                    conversionKey + pointKey + clipKey +
+                    (flatShading ? "|flat" : "");
                 const needsVariant = bgra.length || conversionKey.length ||
-                    !!drawOptions.pointExpansion || !!clipPlaneCount;
+                    !!drawOptions.pointExpansion || !!clipPlaneCount ||
+                    flatShading;
                 let variant = vsResource.variants.get(variantKey);
                 if (!variant) {
                     variant = needsVariant
@@ -10237,7 +10244,7 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                             { bgraInputLocations: bgra, inputConversions,
                               pointExpansion: !!drawOptions.pointExpansion,
                               pointSprite: !!drawOptions.pointSprite,
-                              clipPlaneCount })
+                              clipPlaneCount, flatShading })
                         : vsResource.translated;
                     vsResource.variants.set(variantKey, variant);
                     if (needsVariant && variant.ok)

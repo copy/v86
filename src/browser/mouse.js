@@ -44,6 +44,16 @@ export function MouseAdapter(bus, screen_container)
         this.update_cursor();
     }, this);
 
+    // set by an absolute pointing device's driver (the ARM machines' virtio
+    // tablet and touch screens): the guest draws its own cursor (a tablet; a
+    // touch screen has none and the host's stays)
+    this.guest_cursor = false;
+    this.bus.register("absolute-pointer", function(state)
+    {
+        this.guest_cursor = state[0] && state[1];
+        this.update_cursor();
+    }, this);
+
     // set by the USB tablet (usb.tablet) while the guest uses it
     this.usb_tablet = false;
     this.bus.register("usb-tablet-active", function(active)
@@ -68,7 +78,7 @@ export function MouseAdapter(bus, screen_container)
         if(screen_container)
         {
             // (the guest draws its own cursor where the host's is)
-            const hide = this.emu_enabled && (this.usb_tablet || this.absolute_mouse && this.enabled);
+            const hide = this.emu_enabled && (this.usb_tablet || (this.absolute_mouse || this.guest_cursor) && this.enabled);
             screen_container.style.cursor = hide ? "none" : "";
         }
     };

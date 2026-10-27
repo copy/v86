@@ -684,7 +684,7 @@ V86.prototype.continue_init = async function(emulator, options)
     // positions (the guest cursor follows the host cursor), so release it
     // when the guest driver enables absolute positioning
     this.absolute_pointer_enabled = false;
-    this.bus.register("vmware-absolute-mouse", function(enabled)
+    const absolute_pointer = function(enabled)
     {
         if(enabled && !this.absolute_pointer_enabled &&
             typeof document !== "undefined" && document.pointerLockElement)
@@ -692,7 +692,10 @@ V86.prototype.continue_init = async function(emulator, options)
             document.exitPointerLock();
         }
         this.absolute_pointer_enabled = enabled;
-    }, this);
+    };
+    this.bus.register("vmware-absolute-mouse", absolute_pointer, this);
+    // (the ARM machines' virtio tablet and touch screens: [active, the guest's cursor])
+    this.bus.register("absolute-pointer", state => absolute_pointer.call(this, state[0]), this);
 
     if(options["screen_adapter"])
     {

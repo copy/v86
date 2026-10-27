@@ -638,6 +638,49 @@ canvas { width: 640px; height: 480px; }
         if (mismatches.length)
             throw new Error("unexpected stats: " + mismatches.join(", ") +
                 "\n" + JSON.stringify(stats, null, 2));
+
+        // D3DSHADE_FLAT with a translated shader on either side (GTA San
+        // Andreas: its vertex shaders with the fixed-function pixel stage).
+        // The two stages have to declare the colour varyings alike, or
+        // createRenderPipeline fails and the frame's command buffer with it.
+        executor.device.pushErrorScope("validation");
+        const drawShaded = () => command(0x302, u32(deviceHandle, 4, 1, 24, 3,
+            shaderVertices.byteLength, 0, 0),
+            [{ offsetField: 24, data: shaderVertices }]);
+        await executor.submit(batch([
+            command(6, u32(deviceHandle, 0)),
+            command(0x200, u32(deviceHandle, 9, 1, 0)),  // SHADEMODE=FLAT
+            command(0x20E, setFVF(deviceHandle, 0x142, shaderElements)),
+            // vs + fixed-function ps
+            command(0x211, u32(deviceHandle, vertexShaderHandle)),
+            drawShaded(),
+            // vs + ps
+            command(0x212, u32(deviceHandle, pixelShaderHandle)),
+            drawShaded(),
+            // fixed-function vs + ps
+            command(0x211, u32(deviceHandle, 0)),
+            command(0x20E, setFVF(deviceHandle, 0x42, worldElements)),
+            command(0x302, u32(deviceHandle, 4, 1, 16, 3,
+                worldVertices.byteLength, 0, 0),
+                [{ offsetField: 24, data: worldVertices }]),
+            command(0x212, u32(deviceHandle, 0)),
+            command(0x200, u32(deviceHandle, 9, 2, 0)),  // SHADEMODE=GOURAUD
+            command(7, u32(deviceHandle, 0)),
+            command(4, surface(deviceHandle, 640, 480)),
+        ]));
+        const flatValidation = await executor.device.popErrorScope();
+        if (executor.failed) throw executor.failed;
+        if (flatValidation)
+            throw new Error("flat shading with a translated shader: " +
+                flatValidation.message);
+        const flatStats = executor.getStats();
+        if (flatStats.drawCalls !== stats.drawCalls + 3 ||
+                flatStats.droppedDraws !== stats.droppedDraws ||
+                flatStats.shaderCompileErrors !== 0)
+            throw new Error("flat-shaded draws: drawCalls " + stats.drawCalls +
+                " -> " + flatStats.drawCalls + ", droppedDraws " +
+                stats.droppedDraws + " -> " + flatStats.droppedDraws +
+                ", shaderCompileErrors " + flatStats.shaderCompileErrors);
         result.textContent = "PASS\n" + JSON.stringify(stats, null, 2);
         result.dataset.status = "pass";
     } catch (error) {

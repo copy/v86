@@ -43,7 +43,7 @@ test("every preset: a valid configuration the library accepts, with its new disk
         assert(p.verified || p.id === "other" || /never|only starts|not verified/i.test(p.basis), p.id + ": an unverified preset says so");
     }
     const unverified = PRESETS.filter(p => !p.verified).map(p => p.id);
-    assert.deepEqual(unverified, ["windows11", "windows7", "other"]);
+    assert.deepEqual(unverified, ["windows11", "windows7", "android_x86_64", "android_x86", "other"]);
     console.log("    " + PRESETS.length + " presets, not verified: " + unverified.join(", "));
 });
 
@@ -73,10 +73,12 @@ test("the presets' hardware (the plan's table)", () =>
     assert.deepEqual(row("android16"), ["arm64", "virt", 1536, 4, "virtio_gpu", 8, "virtio+virtio+virtio", "virtio", false]);
     assert.deepEqual(row("linux_arm32"), ["arm32", "virt", 512, 2, "none", 8, "virtio", "none", false]);
     assert.deepEqual(row("android7_arm32"), ["arm32", "ranchu", 1024, 2, "none", 8, "virtio", "none", false]);
+    assert.deepEqual(row("android_x86_64"), ["x86_64", "i440fx", 2048, 2, "virtio_gpu", 8, "virtio", "hd_audio", true]);
+    assert.deepEqual(row("android_x86"), ["x86", "i440fx", 2048, 2, "virtio_gpu", 8, "virtio", "hd_audio", true]);
     assert.equal(preset_config(preset("windowsnt4")).advanced.cpuid_level, 2);
-    // the USB tablet: XP, Vista to 8.1, Linux; not DOS, Windows 3.x, 9x, NT 4, 2000 or the ARM machines
+    // the USB tablet: XP, Vista to 8.1, Linux, Android-x86; not DOS, Windows 3.x, 9x, NT 4, 2000 or the ARM machines
     const tablet = PRESETS.filter(p => preset_config(p).usb).map(p => p.id);
-    assert.deepEqual(tablet, ["windowsxp", "windows81", "windows11", "windows7", "linux", "linux64"]);
+    assert.deepEqual(tablet, ["windowsxp", "windows81", "windows11", "windows7", "linux", "linux64", "android_x86_64", "android_x86"]);
     assert.deepEqual(preset_config(preset("windows81")).usb, { controller: "xhci", tablet: true, disks: [] });
     // (xHCI for the systems with its driver; EHCI for XP to 7, whose drivers have none)
     assert.deepEqual(["windowsxp", "windows7", "windows81", "linux", "linux64"].map(id => preset_config(preset(id)).usb.controller),

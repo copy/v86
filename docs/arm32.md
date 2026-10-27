@@ -59,7 +59,7 @@ clock's rate the boot has no ANR). Without them SystemUI's start outlasted its t
 killed and started again for good, and the screen stayed black: the keyguard's opaque scrim, which PhoneWindowManager
 shows until SystemUI's KeyguardService connects, covered the launcher (SurfaceFlinger itself composed and posted
 frames). The guest's clock lags the host's accordingly. The VM manager imports
-the zip into one disk ([android-images-plan.md](android-images-plan.md) I6, the "Android 7.1 (32-bit, emulator image)"
+the zip into one disk ([android-images-plan.md](android-images-plan.md) I6, the "Android (ARM 32-bit)"
 preset): v64's bootloader hands its kernel and ramdisk partitions to the kernel and makes its system, cache and userdata
 partitions the machine's virtio disks (`src/android/partition_buffer.js`).
 
