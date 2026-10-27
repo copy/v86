@@ -43,7 +43,7 @@ test("every preset: a valid configuration the library accepts, with its new disk
         assert(p.verified || p.id === "other" || /never|only starts|not verified/i.test(p.basis), p.id + ": an unverified preset says so");
     }
     const unverified = PRESETS.filter(p => !p.verified).map(p => p.id);
-    assert.deepEqual(unverified, ["windows7", "other"]);
+    assert.deepEqual(unverified, ["windows11", "windows7", "other"]);
     console.log("    " + PRESETS.length + " presets, not verified: " + unverified.join(", "));
 });
 
@@ -61,6 +61,12 @@ test("the presets' hardware (the plan's table)", () =>
     assert.deepEqual(row("windowsxp"), ["x86", "i440fx", 2048, 1, "bochs_vga", 16, "ne2k", "sb16", false]);
     assert.deepEqual(row("windows81"), ["x86_64", "i440fx", 2048, 2, "vmware_svga", 16, "e1000", "hd_audio", true]);
     assert.deepEqual(row("windows7"), row("windows81"), "Vista, 7 and 10: Windows 8.1's hardware");
+    // (Windows 11: Q35 with UEFI, Secure Boot with Microsoft's keys, a TPM 2.0, 4 GiB)
+    assert.deepEqual(row("windows11"), ["x86_64", "q35", 4096, 2, "vmware_svga", 16, "e1000", "hd_audio", true]);
+    const w11 = preset_config(preset("windows11"));
+    assert.deepEqual([w11.machine.firmware, w11.machine.secure_boot, w11.machine.secure_boot_keys, w11.tpm, w11.usb.controller],
+        ["uefi", true, "microsoft", { state: null }, "xhci"]);
+    assert.equal(preset("windows11").disk_mb, 64 * 1024, "Windows 11's 64 GB");
     assert.deepEqual(row("linux"), ["x86", "i440fx", 512, 1, "bochs_vga", 8, "ne2k", "sb16", true]);
     assert.deepEqual(row("linux64"), ["x86_64", "i440fx", 1024, 2, "virtio_gpu", 8, "virtio", "sb16", true]);
     assert.deepEqual(row("linux_arm64"), ["arm64", "virt", 1024, 4, "virtio_gpu", 8, "virtio", "none", false]);
@@ -70,7 +76,7 @@ test("the presets' hardware (the plan's table)", () =>
     assert.equal(preset_config(preset("windowsnt4")).advanced.cpuid_level, 2);
     // the USB tablet: XP, Vista to 8.1, Linux; not DOS, Windows 3.x, 9x, NT 4, 2000 or the ARM machines
     const tablet = PRESETS.filter(p => preset_config(p).usb).map(p => p.id);
-    assert.deepEqual(tablet, ["windowsxp", "windows81", "windows7", "linux", "linux64"]);
+    assert.deepEqual(tablet, ["windowsxp", "windows81", "windows11", "windows7", "linux", "linux64"]);
     assert.deepEqual(preset_config(preset("windows81")).usb, { controller: "xhci", tablet: true, disks: [] });
     // (xHCI for the systems with its driver; EHCI for XP to 7, whose drivers have none)
     assert.deepEqual(["windowsxp", "windows7", "windows81", "linux", "linux64"].map(id => preset_config(preset(id)).usb.controller),

@@ -35,7 +35,8 @@ const GB = 1024;
 /**
  * A PC's hardware
  * @param {{cpu?: string, memory: number, cores?: number, adapter?: string, vram?: number, nic?: string, sound?: string,
- *     acpi?: boolean, cpuid_level?: number, tablet?: boolean, usb?: string}} h
+ *     acpi?: boolean, cpuid_level?: number, tablet?: boolean, usb?: string, q35?: boolean, uefi?: boolean,
+ *     secure_boot?: boolean, tpm?: boolean}} h
  */
 function pc(h)
 {
@@ -55,6 +56,12 @@ function pc(h)
         // (the USB tablet: an absolute pointer for the systems that have its
         // drivers; xHCI for the systems with its driver, EHCI for XP to 7)
         c.usb = h.tablet ? { controller: h.usb || "uhci", tablet: true, disks: [] } : null;
+        // (Windows 11's machine: Q35 with AHCI, UEFI with Secure Boot and
+        // Microsoft's keys, a TPM 2.0: docs/uefi.md, docs/tpm.md)
+        if(h.q35) c.machine.type = "q35";
+        if(h.uefi) c.machine.firmware = "uefi";
+        if(h.secure_boot) Object.assign(c.machine, { secure_boot: true, secure_boot_keys: "microsoft" });
+        if(h.tpm) c.tpm = { state: null };
     };
 }
 
@@ -118,6 +125,17 @@ export const PRESETS = [
         basis: "tests/x64/windows_boot.mjs, docs/windows-nt.md (from an existing image; installing from the CD in v86 is not verified)",
         install: ["disk", "cdrom"], install_text: "An existing hard disk image", disk_mb: 32 * GB, disk_location: "service",
         checklist: WINDOWS_81_CHECKLIST, issues: WINDOWS_81_ISSUES, hardware: pc(WINDOWS_81),
+    },
+    {
+        id: "windows11", name: "Windows 11 (x64)", guest: "windows", verified: false,
+        basis: "Windows 8.1's devices (tests/x64/windows_boot.mjs), its Setup under Secure Boot with Microsoft's keys " +
+            "(tests/uefi/windows_setup.mjs), the TPM 2.0 (docs/tpm.md); Windows 11 itself was never tried here",
+        install: ["cdrom", "disk"], install_text: "From the CD", disk_mb: 64 * GB, disk_location: "service",
+        checklist: WINDOWS_81_CHECKLIST.slice(0, 2), issues: WINDOWS_81_ISSUES.concat([
+            "Windows 11 asks for a supported processor model: v86's is not on Microsoft's list",
+            "No DirectX 12 / WDDM 2.0 display driver",
+        ]),
+        hardware: pc(Object.assign({}, WINDOWS_81, { memory: 4096 * MB, q35: true, uefi: true, secure_boot: true, tpm: true })),
     },
     {
         id: "windows7", name: "Windows Vista / 7 / 10", guest: "windows", verified: false,
