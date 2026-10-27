@@ -970,6 +970,36 @@ for (const [name, entry] of [
     }
 }
 
+// D3DSHADE_FLAT: the same pair compiled flat-shaded. Valid on its own, and
+// the colour slots (only those) flat in both stages, so the pair still links.
+{
+    const pair = [["vertex", CORPUS[0][1]], ["pixel", CORPUS[11][1]]]
+        .map(([kind, tokens]) => [kind, pipeline.compileShader(new Uint32Array(tokens),
+            { flatShading: true })]);
+    for (const [kind, result] of pair) {
+        const name = "flat-shaded " + kind + " shader";
+        if (!result.ok) {
+            failures.push({ name, message: "translation failed: " + result.error });
+            continue;
+        }
+        const file = path.join(directory, "flat_" + kind + ".wgsl");
+        fs.writeFileSync(file, result.wgsl);
+        const run = spawnSync(naga, [file], { encoding: "utf8" });
+        if (run.status !== 0)
+            failures.push({ name, message: (run.stderr || run.stdout || "").trim(),
+                source: result.wgsl });
+        else ++validated;
+        for (let slot = 0; slot < pipeline.VARYING_COUNT; ++slot) {
+            const flat = slot === pipeline.VARYING_COLOR0 || slot === pipeline.VARYING_COLOR1;
+            const declaration = "@location(" + slot + ")" + (flat ? " @interpolate(flat)" : "") +
+                " varying" + slot + ": vec4<f32>,";
+            if (!result.wgsl.includes(declaration))
+                failures.push({ name, message: "expected `" + declaration + "`",
+                    source: result.wgsl });
+        }
+    }
+}
+
 if (failures.length) {
     for (const failure of failures) {
         console.error("FAIL " + failure.name);

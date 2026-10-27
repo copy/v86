@@ -1911,6 +1911,70 @@ await test("D3DSHADE_FLAT stops interpolating the two colour varyings",
     }
 });
 
+await test("D3DSHADE_FLAT: both stages agree whichever of them is a translated shader",
+        async () => {
+    // A vertex output and the fragment input at the same location must have
+    // the same interpolation, or createRenderPipeline fails and the frame's
+    // command buffer with it (GTA San Andreas: its vertex shaders with the
+    // fixed-function pixel stage drew nothing). D3D9 flat-shades COLOR0/1
+    // with shaders too, as wined3d does.
+    const D3DRS_SHADEMODE = 9, D3DSHADE_FLAT = 1, D3DSHADE_GOURAUD = 2;
+    const interpolation = code => {
+        const slots = new Map();
+        for (const match of code.matchAll(
+                /@location\((\d+)\)\s*(@interpolate\([^)]*\))?\s*varying\d+/g))
+            slots.set(+match[1], match[2] || "perspective");
+        return slots;
+    };
+    const elements = [
+        element(0, 0, DECLTYPE.FLOAT3, DECLUSAGE.POSITION),
+        element(0, 12, DECLTYPE.D3DCOLOR, DECLUSAGE.COLOR),
+    ];
+    for (const [label, vertexShader, pixelShader] of [
+            ["vs + fixed-function ps", true, false],
+            ["fixed-function vs + ps", false, true],
+            ["vs + ps", true, true]]) {
+        const { executor, find } = makeExecutor();
+        const vs = shaderCreatePayload(0x40000001, VS_BYTECODE);
+        const ps = shaderCreatePayload(0x40000003, PS_BYTECODE);
+        const draw = shadeMode => [
+            command(OP.SET_RENDER_STATE, u32(DEVICE, D3DRS_SHADEMODE, shadeMode)),
+            command(OP.DRAW_PRIMITIVE, drawPrimitivePayload(4, 0, 1)),
+        ];
+        await executor.submit(buildBatch([
+            command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
+            command(OP.CREATE_BUFFER, createBufferPayload(0x201, 1, 96)),
+            command(OP.CREATE_VERTEX_DECLARATION, declarationPayload(0x301, elements)),
+            command(OP.CREATE_VERTEX_SHADER, vs.payload, vs.blob, vs.blobOffsetField),
+            command(OP.CREATE_PIXEL_SHADER, ps.payload, ps.blob, ps.blobOffsetField),
+            command(OP.SET_VERTEX_DECLARATION, u32(DEVICE, 0x301)),
+            command(OP.SET_STREAM_SOURCE, setStreamSourcePayload(0, 0x201, 16)),
+            ...(vertexShader ? [command(OP.SET_VERTEX_SHADER, u32(DEVICE, 0x40000001))] : []),
+            ...(pixelShader ? [command(OP.SET_PIXEL_SHADER, u32(DEVICE, 0x40000003))] : []),
+            ...draw(D3DSHADE_FLAT),
+            // and back: the same shaders, interpolating again
+            ...draw(D3DSHADE_GOURAUD),
+            command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 640, 480)),
+        ], { present: true }));
+        await executor.idle();
+        assert.equal(executor.stats.droppedDraws, 0, label);
+        const [flat, gouraud] = find("createRenderPipeline").slice(-2).map(call => call[1]);
+        for (const [shading, pipeline] of [["flat", flat], ["gouraud", gouraud]]) {
+            const out = interpolation(pipeline.vertex.module.code);
+            const into = interpolation(pipeline.fragment.module.code);
+            for (const [slot, mode] of into)
+                assert.equal(out.get(slot), mode, label + ", " + shading +
+                    ": location " + slot + " differs between the stages:\n" +
+                    pipeline.vertex.module.code + "\n" + pipeline.fragment.module.code);
+            const expected = shading === "flat" ? "@interpolate(flat)" : "perspective";
+            assert.equal(out.get(0), expected, label + ", " + shading + ": COLOR0");
+            assert.equal(out.get(1), expected, label + ", " + shading + ": COLOR1");
+            assert.equal(out.get(2), "perspective",
+                label + ": texture coordinates keep interpolating");
+        }
+    }
+});
+
 await test("gouraud shading is the default and adds no interpolate attribute",
         async () => {
     const { executor, find } = makeExecutor();
