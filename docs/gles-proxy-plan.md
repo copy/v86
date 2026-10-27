@@ -1,7 +1,7 @@
 # 共享 GLES 代理实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-27 初稿；同日复核：对照镜像、内核与代码核对，E0 的清单大半已经有了答案，
-见“复核结论”。
+状态：实施中。2026-10-27 初稿；同日复核：对照镜像、内核与代码核对。E0 已完成（2026-10-27，见“复核结论”的
+“E0 结论”），下一步 E1。
 
 本计划给 v86 的 ARM 客体加上 OpenGL ES 的 GPU 加速：客体的 GLES 调用编码后交给宿主，在页面上用 WebGPU 执行。
 它服务两类客体，宿主侧只写一次：
@@ -268,7 +268,7 @@ pipe 版本 2。剩下的：
 - 页面执行器要共用 gl-webgpu 的哪些函数（“结论”第 4 条），以及 `v86-gles.js` 插件怎样打包它们：GLSL 前端要能在
   CPU Worker 里运行。
 
-验收：清单与共用方案写进“复核结论”；E1–E6 按清单修正。
+验收：清单与共用方案写进“复核结论”；E1–E6 按清单修正。**2026-10-27 完成**，见“E0 结论”。
 
 ### E1 生成器、传输与 renderControl
 
@@ -458,6 +458,44 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
   - CI 只跑 `make ci-tests`；
   - E1 要给默认回复；
   - E7 的数据要在 gfxstream 模式下重测。
+
+### E0 结论（2026-10-27）
+
+对照 gfxstream 固定的提交 `7e9d595b`（[gfxstream-protocol.md](gfxstream-protocol.md)）与 `armeabi-v7a-25_r18` 的镜像：
+
+- **规格文件**：唯一来源是宿主的 `codegen/gles1`、`codegen/gles2`、`codegen/renderControl`（各自的 `.in`、
+  `.attrib`、`.types`）。
+  - 同一提交的 `guest/renderControl_enc/renderControl.in` 是另一套：有 `*Puid` 的变体，缺命令，顺序也不同，
+    不能用；
+  - renderControl 有 72 个命令，操作码 10000–10071。第一行在上游写作 `GL_ENRTY`，emugen 照样接受，生成器也要
+    接受；
+  - 操作码按 `.in` 中的顺序从 `.attrib` 的 `base_opcode` 起编号。
+- **线格式**（emugen 的 README 与 `api_gen.cpp`）：
+  - 命令头是操作码与总长（各 u32）；
+  - 值参数按 `.types` 的位宽排列（`GLboolean`、`GLubyte` 1 字节，`GLshort` 2 字节，`GLsync`、`uint64_t` 8 字节，
+    其余 4 字节）；
+  - 指针参数：`in` 与 `inout` 是 u32 长度加数据，`out` 只有长度；`DMA` 指针是 8 字节的客体物理地址，只在宿主
+    宣告 GLDMA 时出现；`isLarge` 只改变编码器的写法，字节顺序不变；
+  - 回复依次是各 `out`、`inout` 参数的数据，最后是返回值；宿主不宣告校验和时没有校验和字节。
+- **连接**：开始是一个 u32 的标志字，宿主读了就丢（`host/RenderThread.cpp`）；之后每个命令按操作码区间交给
+  对应的解码器。
+- **`qemu.gles=1` 的启动链**：
+  - 内核命令行的 `qemu.gles=1` 由 init 变成 `ro.kernel.qemu.gles=1`；
+  - `libEGL.so` 的加载器读 `ro.kernel.qemu` 与 `ro.kernel.qemu.gles`，设 `qemu.gles=1`，装载
+    `/system/lib/egl/lib{EGL,GLESv1_CM,GLESv2}_emulation.so`；
+  - `gralloc.ranchu.so` 也读 `ro.kernel.qemu.gles`；
+  - qemud 的启动属性要加上 `ro.opengles.version=131072`（GLES 2.0，模拟器给 API 25 镜像的值），
+    `qemu.sf.lcd_density` 已经有了；`init.ranchu-core.sh` 只管开机动画与 RIL。
+- **主机特性**：2017 年的客体库只认识 `ANDROID_EMU_CHECKSUM_HELPER_v1` 与 `ANDROID_EMU_gles_max_version_*`，
+  它们出现在宿主回答 `rcGetGLString(GL_EXTENSIONS)` 的字符串里。客体库里没有 GLAsyncSwap、GLDMA、GrallocSync
+  的开关，这三项不存在，不用处理。客体库有 `goldfish_dma` 与 `/dev/goldfish_sync` 的代码，内核没有这两个设备。
+- **开关**：库一级的选项是 ranchu 自己的 `ranchu_gpu: "guest" | "host"`，与已有的 `ranchu_display`、
+  `ranchu_properties` 同类。VM 配置的 `android.gpu_mode` 与设备模型的 `gpu_modes` 映射到它，上层不另设开关。
+- **共用与打包**：
+  - 页面上可共用的有 `gl_constants.js`、`gl_shader_translator.js`（预处理、词法、语法、语义与 WGSL 生成）、
+    `gl_state_layout.js`、`gl_fixed_function.js`。它们是不依赖页面的 UMD 脚本，CPU Worker 里也能运行；
+  - CPU 侧的 GLES 宿主是设备插件 `build/v86-gles.js`（插件种类 `gles`，入口 `src/gles/plugin.js`），只在
+    `ranchu_gpu: "host"` 时由页面装载，交给机器；它把 `opengles` 与 `GLProcessPipe` 两个服务交给 goldfish pipe。
 
 ## 已定（2026-10-27）
 
