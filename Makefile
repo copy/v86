@@ -690,6 +690,8 @@ uefi-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs
 	./tests/uefi/secure_boot.mjs
 	CPU_CORES=2 ./tests/uefi/secure_boot.mjs
 	TEST_RELEASE_BUILD=1 ./tests/uefi/secure_boot.mjs
+	TEST_RELEASE_BUILD=1 ./tests/uefi/vars_resilience.mjs
+	SECURE_BOOT=1 TEST_RELEASE_BUILD=1 ./tests/uefi/vars_resilience.mjs
 	./tests/uefi/windows_setup.mjs
 	SECURE_BOOT=1 ./tests/uefi/windows_setup.mjs
 

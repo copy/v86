@@ -295,6 +295,20 @@ Secure Boot on (about 45 s).
 [`tests/x64/smm_entry_state.mjs`](../tests/x64/smm_entry_state.mjs): what an
 SMI handler that enters long mode itself finds (the two fixes above).
 
+[`tests/uefi/vars_resilience.mjs`](../tests/uefi/vars_resilience.mjs): the
+store under failure, where the firmware's variable driver and fault
+tolerant writes do the work and v86's flash has to behave as flash.
+[`tests/uefi/vars_app.c`](../tests/uefi/vars_app.c) writes and checks
+variables; between machines the store is the flash's bytes. A 4 KiB variable
+rewritten (about 8,100 programs and erases) with the power cut at points
+through it: every store boots and holds the old or the new value whole, the
+other variables intact. The store filled until the firmware answers
+EFI_OUT_OF_RESOURCES (about 220 variables of 1 KiB), half of them deleted,
+and the rewrite then needing their space: the firmware reclaims it (about
+800,000 operations, through the fault tolerant write's spare block), and
+the power cut through that leaves consistent stores too. With
+`SECURE_BOOT=1` on the Secure Boot firmware (its driver in SMM).
+
 `MACHINE=i440fx`, `CPU_CORES=2`, `TEST_RELEASE_BUILD=1` for both; `MEMORY_MB=5120`
 for the Shell (extended RAM above 4 GiB); `make
 uefi-tests` runs them all, `make ci-tests` the Shell on the release build.
