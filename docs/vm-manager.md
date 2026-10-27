@@ -75,17 +75,20 @@ The wizard's source **An Android image package** makes an Android machine
 from Google's own images, as Android Studio's AVD manager does
 (docs/android-images-plan.md):
 
-1. Choose a system in the catalog: Android 16 QPR2 on Cuttlefish's phone,
-   or a Generic System Image (Android 16 QPR2, Android 17 QPR1) on that
-   phone. The catalog lists each file to download, its official page and
-   direct link, its size and SHA-256. The site does not host them: download
-   them yourself (ci.android.com: the build's Artifacts tab; GSIs:
-   developer.android.com's GSI releases).
+1. Choose an Android version in the catalog: one entry for each version
+   that boots on v64, newest first. Android 17 (Google's GSI, QPR1, on
+   Cuttlefish's Android 16 phone: two files), Android 16 (QPR2, Cuttlefish's
+   phone), Android 7.1 (32 bits: the Android Emulator's system image). Older
+   GSIs need a vendor of their own version, Android 8.0 to 15's emulator
+   images draw only through the emulator's host GLES, and 1 to 6 used the
+   old goldfish board: none of them boots here. The catalog links each file
+   to download and gives its size; the site does not host them.
 2. Drop the files on the wizard (or choose them). They are read here, never
-   uploaded: what they are, then their SHA-256 against the catalog's.
-   "Another package" takes a Cuttlefish images zip that is not in the
-   catalog, unchecked. A GSI older than the device's vendor is refused (it
-   does not boot).
+   uploaded: what they are, then their SHA-256 against the catalog's (the
+   catalog keeps the hashes; the wizard does not show them). "Another
+   package" takes a Cuttlefish images zip, a GSI or an emulator image that
+   is not in the catalog, unchecked. A GSI older than the device's vendor
+   is refused (it does not boot).
 3. The disk: the images as they are, super shrunk to its partitions,
    userdata of 2, 4 (the usual), 8 or 16 GiB, blank (Android formats it at
    its first boot), kept in the browser or on the disk service. Finish
@@ -106,7 +109,7 @@ zygote, also under a GSI); 32-bit apps need AArch32 and another device
 
 An **Android Emulator system image** zip (the SDK's
 `system-images/android-<api>/<tag>/<abi>` package, as Android Studio
-downloads it; "Another package" in the catalog) makes a machine of the
+downloads it; the catalog's Android 7.1, or "Another package") makes a machine of the
 emulator's board, ranchu (docs/virt.md): v64 knows Android 7.1's
 `armeabi-v7a` image (API 25: the 32-bit ARM CPU, the preset **Android 7.1
 (32-bit, emulator image)**, docs/arm32.md). Its disk holds the image's

@@ -31,7 +31,7 @@ const SOURCES = [
     ["floppy", "A floppy image"],
     ["disk", "A hard disk image with the system installed"],
     ["direct", "A kernel and initrd (and the system's CD as a read-only disk)"],
-    ["android", "An Android image package (.zip): Cuttlefish's images (aosp_cf_arm64_only_phone-img-<build>.zip from ci.android.com), and a GSI if wanted"],
+    ["android", "An Android image package (.zip)"],
     ["later", "Install the system later"],
 ];
 
@@ -64,7 +64,7 @@ export function open_wizard(options)
              *     userdata_gib: number, entry: string, checks: Object<string, string>, room?: number | null}} entry: the catalog's (I7), "" for another
              *     package; checks: each dropped part's against it (ok, checking…, or what differs); room: the site's storage left (null: unknown) */
             android: { file: null, gsi: null, debug_ramdisk: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB,
-                entry: ANDROID_CATALOG.entries[0].id, checks: {} },
+                entry: ANDROID_CATALOG.default_entry, checks: {} },
             progress: "",
             /** @type {AbortController | null} the import going on (its Cancel) */
             importing: null,
@@ -317,21 +317,21 @@ export function open_wizard(options)
             render();
             await check_parts();
         };
-        /** the catalog (I7): its entries, the chosen one's files and where to download them */
+        /** the catalog (I7): one entry per Android version that boots, the chosen one's files and their downloads */
         const catalog = () =>
         {
             const a = state.android;
             const entry = ANDROID_CATALOG.entries.find(e => e.id === a.entry);
-            const ROLES = { device: "The device's images", gsi: "The GSI (the system)", debug_ramdisk: "The debug vendor ramdisk" };
-            const radios = [...ANDROID_CATALOG.entries.map(e => [e.id, e.title]), ["", "Another package (not in the catalog: no checksums)"]].map(([id, title]) =>
+            const ROLES = { device: entry && entry.kind === "emulator" ? "System image" : "Phone images", gsi: "GSI",
+                debug_ramdisk: "Debug vendor ramdisk (optional)" };
+            const radios = [...ANDROID_CATALOG.entries.map(e => [e.id, e.title]), ["", "Another package"]].map(([id, title]) =>
                 h("label.check", null, h("input", { type: "radio", name: "catalog", value: id, checked: a.entry === id,
                     onchange: () => { a.entry = id; check_parts(); render(); } }), " " + title));
-            return h("fieldset", null, h("legend", null, "From the catalog"), radios, entry ? [
-                h("p", null, h("small.reason", null, entry.notes + " Verified: " + entry.verified + ".")),
+            return h("fieldset", null, h("legend", null, "Android version"), radios, entry ? [
+                h("p", null, h("small.reason", null, entry.notes)),
                 h("table.hardware.catalog-parts", null, h("tbody", null, entry.parts.map(p => h("tr", null,
-                    h("th", null, ROLES[p.role] + (p.optional ? " (optional: Settings, Android)" : "")),
-                    h("td", null, h("a", { href: p.url, target: "_blank", rel: "noopener" }, p.name), " ", format_size(p.size), " ",
-                        h("a", { href: p.page, target: "_blank", rel: "noopener" }, "(its page)"), h("br"), h("small.reason", null, "SHA-256 " + p.sha256)),
+                    h("th", null, ROLES[p.role]),
+                    h("td", null, h("a", { href: p.url, target: "_blank", rel: "noopener" }, p.name), " ", format_size(p.size)),
                     h("td", { "data-role": p.role }, a.checks[p.role] || (p.optional ? "" : "needed"))))))] : null);
         };
         const android_picker = () =>
@@ -341,10 +341,8 @@ export function open_wizard(options)
             const a = state.android;
             const gsi = a.info && a.info.gsi;
             const zone = h("div.drop-zone", { tabindex: "0" }, catalog(),
-                h("p", null, "Drop the package here, or choose it: ", input),
-                h("p", null, h("small.reason", null, "Download it from ci.android.com yourself (the build's Artifacts: aosp_cf_arm64_only_phone-img-<build>.zip); " +
-                    "to run a Generic System Image on that device, drop the GSI's zip too (developer.android.com's GSI releases, " +
-                    "of the device's Android version or newer). v64 reads them here, nothing is uploaded.")),
+                h("p", null, "Drop the files here, or choose them: ", input),
+                h("p", null, h("small.reason", null, "Download them with the links above; v64 reads them here, nothing is uploaded.")),
                 a.file || a.gsi ? h("p", { role: "status" }, [a.file, a.gsi].filter(Boolean).map(f => f.name + " (" + format_size(f.size) + ")").join(" and ") + ": " +
                     (a.error ? "" : a.info ? a.info.text + (gsi ? ", running the GSI's Android " + gsi.release + " (" + gsi.fingerprint + ")" : "") +
                         "; its disk: " + format_size(a.info.disk_size(a.userdata_gib)) : "reading…")) : null,
