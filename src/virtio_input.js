@@ -85,6 +85,8 @@ export function VirtioInput(cpu, bus, kind, transport, pci_id, mouse_as_touch)
     dbg_assert(transport || pci_id !== undefined && cpu.devices.pci.generic, "virtio-input: on the virt machine's transports only");
     dbg_assert(kind === "keyboard" || kind === "tablet" || kind === "multitouch");
     this.kind = kind;
+    /** it takes the page's mouse (a tablet; a touch screen with no tablet beside it) */
+    this.takes_mouse = kind === "tablet" || kind === "multitouch" && !!mouse_as_touch;
     /** @type {!Map<string, !Uint8Array>} the configuration by select and subsel ("select,subsel") */
     this.config = new Map();
     const name = { "keyboard": "QEMU Virtio Keyboard", "tablet": "QEMU Virtio Tablet", "multitouch": "QEMU Virtio MultiTouch" }[kind];
@@ -405,15 +407,17 @@ VirtioInput.prototype.reset = function()
  * takes the mouse and touches over the screen only while one does
  * (src/browser/mouse.js: "mouse-enable", as the PS/2 controller says for its
  * mouse; the virt machine has none, and without this a MacBook's trackpad
- * reached no device). Its positions are absolute ("absolute-pointer"): the
- * page locks no pointer, and a tablet's guest draws its own cursor.
+ * reached no device). The one that takes the mouse says its positions are
+ * absolute ("absolute-pointer"): the page locks no pointer, and a tablet's
+ * guest draws its own cursor (a touch screen beside a tablet leaves the
+ * cursor to the tablet's).
  * @param {boolean} ready
  */
 VirtioInput.prototype.pointer_ready = function(ready)
 {
     if(this.kind === "keyboard") return;
     this.bus.send("mouse-enable", ready);
-    this.bus.send("absolute-pointer", [ready, this.kind === "tablet"]);
+    if(this.takes_mouse) this.bus.send("absolute-pointer", [ready, this.kind === "tablet"]);
 };
 
 VirtioInput.prototype.get_state = function()

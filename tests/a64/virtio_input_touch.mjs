@@ -63,6 +63,12 @@ const take = device => device.pending.splice(0).filter(([type]) => type !== EV_S
     emulator.bus.send("mouse-click", [true, false, false]);
     assert.deepEqual(take(device("multitouch")), [], "the touch screen leaves the mouse to the tablet");
     assert.ok(take(device("tablet")).length > 0, "the tablet takes it");
+    // (the page's cursor is the tablet's to hide, whichever driver runs last)
+    const absolute = [];
+    emulator.add_listener("absolute-pointer", state => absolute.push(state));
+    for(const kind of ["multitouch", "tablet"]) device(kind).virtio.device_status = 4;
+    await emulator.restore_state(await emulator.save_state());
+    assert.deepEqual(absolute, [[true, true]], "only the tablet says how the pointer is (the guest draws its cursor)");
     await emulator.destroy();
     console.log("PASS: with a tablet, the tablet takes the mouse");
 }
