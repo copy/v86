@@ -584,6 +584,9 @@ export function disk_buffers(cpu)
     for(const [name, device] of typeof cpu.disk_devices === "function" ? cpu.disk_devices() : []) add(name, device && device.buffer);
     const fdc = cpu.devices && cpu.devices.fdc;
     if(fdc && fdc.drives) fdc.drives.forEach((drive, i) => add(i ? "fdb" : "fda", drive.buffer));
+    // (the UEFI firmware's variable store, src/pflash.js)
+    const pflash = cpu.firmware && cpu.firmware.pflash;
+    if(pflash) add("firmware_vars", pflash.buffer);
     return disks;
 }
 

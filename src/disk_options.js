@@ -26,7 +26,9 @@ export const BACKEND_CONTRACT = ["flush", "close", "mark", "generation", "get_st
  */
 export function disk_kind(name)
 {
-    if(name === "hda" || name === "hdb" || /^sata\d+$/.test(name) || /^virtio_disk\d+$/.test(name) || name.startsWith("usb:")) return "hard_disk";
+    // (the UEFI firmware's variable store is written back as a disk is: docs/uefi.md)
+    if(name === "hda" || name === "hdb" || /^sata\d+$/.test(name) || /^virtio_disk\d+$/.test(name) || name.startsWith("usb:") ||
+        name === "firmware_vars") return "hard_disk";
     if(name === "cdrom") return "cdrom";
     if(name === "fda" || name === "fdb") return "floppy";
     return "other";

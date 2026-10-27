@@ -676,12 +676,13 @@ export interface V86Options {
      * QEMU 9.2.0 ships it, see bios/fetch-ovmf.sh), mapped as flash below 4 GiB: the variable
      * store, then the code (or `code` alone, an image holding both). It needs cpu_type "x86_64",
      * acpi: true and, on i440FX, qemu_compatible: true; it takes the place of `bios` and
-     * `vga_bios`. The variables live in RAM for now (no persistence). See docs/uefi.md.
+     * `vga_bios`. The variable store is CFI flash; with `disk_option: "read_write"` its writes go
+     * back into its image, as a disk's (else they stay in memory). See docs/uefi.md.
      */
     firmware?: {
         type: "seabios" | "uefi";
         code?: V86Image;
-        vars?: V86Image;
+        vars?: V86HardDiskImage;
         /**
          * QEMU's debug console at port 0x402: the firmware's debug log, byte by byte, as the
          * "debug-console-output-byte" event

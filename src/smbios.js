@@ -107,7 +107,7 @@ export function build_smbios(platform, machine)
 
     // type 16: the memory array; type 17: its devices
     const dimms = Math.max(1, Math.ceil(total / DIMM_MAX));
-    const total_kib = total / 1024;
+    const total_kib = Math.ceil(total / 1024);
     structures.push(structure(16, 0x1000, [
         0x01, 0x03, 0x06,       // location (other), use (system memory), error correction (multi-bit ECC, as QEMU)
         ...le(total_kib < 0x80000000 ? total_kib : 0x80000000, 4), // maximum capacity in KiB, or see below
@@ -117,7 +117,8 @@ export function build_smbios(platform, machine)
     ], []));
     for(let i = 0; i < dimms; i++)
     {
-        const size_mib = Math.min(DIMM_MAX, total - i * DIMM_MAX) / 2 ** 20;
+        // (in whole MiB: a 2048 MB x86_64 machine has 2 GiB less 128 KiB of heap RAM)
+        const size_mib = Math.ceil(Math.min(DIMM_MAX, total - i * DIMM_MAX) / 2 ** 20);
         structures.push(structure(17, 0x1100 + i, [
             ...le(0x1000, 2),   // the memory array
             ...le(0xFFFE, 2),   // no memory error information

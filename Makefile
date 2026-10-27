@@ -147,7 +147,7 @@ CARGO_FLAGS_PARALLEL=$(CARGO_FLAGS) -C target-feature=+atomics \
 
 CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   dma.js pit.js display.js device_plugin.js graphics_adapter.js ps2.js rtc.js uart.js parallel.js vmware.js \
-	   acpi.js acpi_tables.js smbios.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
+	   acpi.js acpi_tables.js smbios.js pflash.js platform.js q35.js ahci.js pcie_root_port.js hpet.js smbus.js ich9_tco.js state_layout.js cpu_features.js jit_switches.js iso9660.js \
 	   state.js state_io.js block_backend.js disk_options.js disk_writeback.js disk_service.js opfs_disk.js mac_address.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   virtio_mmio.js virtio_blk.js virtio_rng.js virtio_input.js virtio_vsock.js virtio_snd.js \
 	   virtio_devices.js \
@@ -650,11 +650,15 @@ uefi-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs
 	./tests/uefi/shell.mjs
 	MACHINE=i440fx ./tests/uefi/shell.mjs
 	CPU_CORES=2 ./tests/uefi/shell.mjs
+	MEMORY_MB=5120 ./tests/uefi/shell.mjs
 	TEST_RELEASE_BUILD=1 ./tests/uefi/shell.mjs
+	./tests/uefi/vars.mjs
+	TEST_RELEASE_BUILD=1 ./tests/uefi/vars.mjs
 	./tests/uefi/esp_boot.mjs
 	MACHINE=i440fx ./tests/uefi/esp_boot.mjs
 	CPU_CORES=2 ./tests/uefi/esp_boot.mjs
 	TEST_RELEASE_BUILD=1 ./tests/uefi/esp_boot.mjs
+	./tests/uefi/windows_setup.mjs
 
 usb-tests: build/v86-debug.wasm build/libv86.mjs build/v86-usb.js
 	./tests/devices/usb.js

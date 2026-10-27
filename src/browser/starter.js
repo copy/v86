@@ -925,7 +925,8 @@ V86.prototype.continue_init = async function(emulator, options)
                 settings.firmware_code = buffer.buffer;
                 break;
             case "firmware_vars":
-                settings.firmware_vars = buffer.buffer;
+                // (a buffer object: src/pflash.js writes into it)
+                settings.firmware_vars = buffer;
                 break;
             case "initial_state":
                 settings.initial_state = buffer.buffer;

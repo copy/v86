@@ -43,15 +43,38 @@ the build, OpenSSL among them) are in `bios/OVMF-LICENSES.txt`.
 
 The variable store and the code, in this order, end at 4 GiB: 4 MiB from
 0xFFC00000, where QEMU maps its pflash units 1 and 0; the reset vector is
-the code's last 16 bytes. The memory is device memory
+the code's last 16 bytes. Both are device memory
 ([`src/rust/cpu/mmio_ram.rs`](../src/rust/cpu/mmio_ram.rs)) that is
-read-only: the CPU reads it at memory speed, and writes go to the memory map,
-which drops them. The last 128 KiB of the code also appear at 0xE0000, as
-QEMU's isa-bios alias.
+read-only: the CPU reads it at memory speed, writes go to the memory map.
+The code drops them. The last 128 KiB of the code also appear at 0xE0000,
+as QEMU's isa-bios alias. Given `code` alone (an `OVMF.fd` holding both),
+all of it is read-only: OVMF then keeps its variables in RAM
+(EmuVariableFvbRuntimeDxe).
 
-OVMF tells flash from ROM by writing to it: on ROM it keeps its variables in
-RAM (EmuVariableFvbRuntimeDxe), so for now variables do not outlive the
-machine. Writable variables are CFI flash (to come).
+The variable store is CFI flash, as QEMU's `pflash_cfi01`
+([`src/pflash.js`](../src/pflash.js)): in read array mode the memory; a
+command written takes the store out of the address space, its reads are
+the status register then, until "read array" puts it back. Program a byte
+(0x10, 0x40), erase a 4 KiB block (0x20, 0xD0), clear and read the status
+(0x50, 0x70), the identifiers (0x90), read array (0xFF): what OVMF's
+QemuFlashFvbServices uses ("QemuFlashDetected => FD behaves as FLASH,
+writable"). A reset keeps the bytes and returns to read array mode.
+
+The bytes are in a buffer object that every program and erase updates as
+well. `vars: { url, disk_option: "read_write" }` writes them back as a disk
+is written back ([disk-persistence-plan.md](disk-persistence-plan.md): a local
+file in Node, a browser disk, a disk service's image): the variables
+outlive the machine. Read only (the default) the changes stay in memory.
+A snapshot holds the store's bytes, or for a store written back its
+reference (identity and generation), as for a disk: it restores only onto
+the same store unchanged since (`firmware_vars` in the error otherwise).
+The store is flushed with the disks.
+
+In the VM manager a UEFI machine's store is a browser disk of its own
+(`machine.uefi_vars`), copied from the template at the first power-on and
+written back (with the CPU in a Worker, where the browser's synchronous file
+access is); "Reset UEFI variables…" in the machine panel writes the template
+over it and moves its generation on.
 
 SEC runs in place from the flash in long mode and decompresses the rest of
 the firmware into RAM. The x64 page tier compiles that code: pages of
@@ -156,7 +179,23 @@ media, v86's SMBIOS, the ACPI tables (MCFG at 0xE0000000 on Q35), no BAR
 outside the root bridge's windows, sleep states S0 and S5; a snapshot,
 `reboot` back through the firmware, `poweroff` through S5.
 
-`MACHINE=i440fx`, `CPU_CORES=2`, `TEST_RELEASE_BUILD=1` for both; `make
+[`tests/uefi/vars.mjs`](../tests/uefi/vars.mjs): the variable store kept. A
+copy of the template written back: a variable set in the Shell is in the
+file after the machine is destroyed (with OVMF's BootOrder), and a second
+machine of the file reads it; its own snapshot restores, the first
+machine's does not (the store was written since); read only, the changes
+stay in memory and the file as it was. The Shell test sets a non-volatile
+variable that a reset keeps.
+
+[`tests/uefi/windows_setup.mjs`](../tests/uefi/windows_setup.mjs) (local:
+a Windows 8.1 x64 installer ISO, `WIN_ISO`, read only): OVMF's boot
+manager starts the CD's `\EFI\BOOT\BOOTX64.EFI`, its "Press any key to boot
+from CD or DVD" (graphics only) gets Enter, and Windows Boot Manager,
+winload and Windows PE bring Setup's first page to the screen through GOP
+at 1280x800 (about 60 s).
+
+`MACHINE=i440fx`, `CPU_CORES=2`, `TEST_RELEASE_BUILD=1` for both; `MEMORY_MB=5120`
+for the Shell (extended RAM above 4 GiB); `make
 uefi-tests` runs them all, `make ci-tests` the Shell on the release build.
 The reference is QEMU with the same firmware (the disk on QEMU's SATA:
 `-drive file=build/uefi/alpine-esp.img,format=raw,if=none,id=d0 -device

@@ -53,7 +53,8 @@ settings, rename, export, delete.
   The machine's firmware is SeaBIOS, the Bochs BIOS, an image of your own
   or UEFI (OVMF, [uefi.md](uefi.md)): UEFI brings the x86_64 CPU and ACPI
   (another CPU makes it SeaBIOS again), and on i440FX QEMU's device layout;
-  its variables are not kept between runs yet.
+  its variables are kept in a browser disk of the machine's, made at the first
+  power-on; "Reset UEFI variables…" returns them to the firmware's template.
 - **Import…** and **Export** read and write `.v86vm.json` files. Files on
   your computer are not part of an export: the console asks for them.
 - **Preferences…** sets the disk service (below). **Browser disks…** lists

@@ -202,6 +202,7 @@ const RULES = [
     ["UEFI with a BIOS image", c => { c.cpu.type = "x86_64"; c.machine.acpi = true; c.machine.firmware = "uefi"; c.machine.bios = { kind: "url", url: "b.bin" }; },
         "machine.bios"],
     ["UEFI on virt", c => { Object.assign(c, arm64()); c.machine.firmware = "uefi"; }, "machine.firmware"],
+    ["a UEFI variable store of a URL", c => { c.machine.uefi_vars = { kind: "url", url: "v.fd" }; }, "machine.uefi_vars"],
     ["a disk's slot", c => { c.disks = [disk({ slot: "hdc" })]; }, "disks.0.slot"],
     ["a slot twice", c => { c.disks = [disk(), disk()]; }, "disks.1.slot"],
     ["an image's kind", c => { c.disks = [disk({ image: { kind: "ftp" } })]; }, "disks.0.image"],
@@ -482,8 +483,18 @@ test("UEFI: OVMF's images in place of the BIOS images; on i440FX with QEMU's lay
         assert.equal(o.vga_bios, undefined);
         assert.equal(o.qemu_compatible, type === "i440fx" ? true : undefined);
     }
-    // (migrated: SeaBIOS)
-    assert.equal(with_defaults({ format: FORMAT, version: VERSION, machine: { type: "i440fx" } }).machine.firmware, "seabios");
+    // (migrated: SeaBIOS, no variable store)
+    const migrated = with_defaults({ format: FORMAT, version: VERSION, machine: { type: "i440fx" } }).machine;
+    assert.equal(migrated.firmware, "seabios");
+    assert.equal(migrated.uefi_vars, null);
+    // the machine's variable store: its browser disk written back, with the CPU Worker; else the template
+    const c = new_config();
+    Object.assign(c.cpu, { type: "x86_64" });
+    Object.assign(c.machine, { type: "q35", acpi: true, firmware: "uefi", uefi_vars: { kind: "browser", path: "v86/disks/vars.img", size: 540672 } });
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "opfs:v86/disks/vars.img", size: 540672, disk_option: "read_write" });
+    c.advanced.cpu_worker = false;
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "bios/ovmf-vars.fd" });
 });
 
 test("check_config: the library's own checks after validate_config's", () =>

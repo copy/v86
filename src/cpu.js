@@ -21,6 +21,7 @@ import { MachineClock } from "./machine_clock.js";
 import { SB16 } from "./sb16.js";
 import { ACPI, acpi_system_states_file } from "./acpi.js";
 import { build_e820, build_smbios } from "./smbios.js";
+import { PFlash } from "./pflash.js";
 import { ACPI_LOADER_FILE, ACPI_RSDP_FILE, ACPI_TABLES_FILE, build_acpi_tables, locate_acpi_tables } from "./acpi_tables.js";
 import { ACPI_PM_BASE_DEFAULT, MACHINE_LAYOUT_VERSION, Platform, check_platform, create_platform, pci_functions } from "./platform.js";
 import { CORE_STATE_RANGES, INIT_PRESERVED, STATE_OFFSETS } from "./state_layout.js";
@@ -229,10 +230,11 @@ export function CPU(bus, wm, stop_idling)
     };
 
     /**
-     * The UEFI firmware (firmware: { type: "uefi" }, docs/uefi.md): its
-     * code and variable store images, the flash at the top of 4 GiB
-     * (an mmio_ram region, -1 until mapped) and the debug console
-     * @type {?{code: !ArrayBuffer, vars: ?ArrayBuffer, flash: number, debug_console: boolean}}
+     * The UEFI firmware (firmware: { type: "uefi" }, docs/uefi.md): its code
+     * image, its variable store (a buffer object: src/buffer.js's, or a disk
+     * written back), the flash at the top of 4 GiB (the code's mmio_ram
+     * region, -1 until mapped; the store's pflash) and the debug console
+     * @type {?{code: !ArrayBuffer, vars: ?Object, code_region: number, pflash: ?PFlash, debug_console: boolean}}
      */
     this.firmware = null;
 
@@ -914,6 +916,9 @@ CPU.prototype.get_state = function(skip_memory = false)
     // the guest's writes, as a hard disk's state has them)
     state[107] = this.devices.usb;
     state[108] = this.usb_disks ? Array.from(this.usb_disks) : null;
+    // (the UEFI firmware's variable store: its bytes, or a reference to the
+    // store written back, src/pflash.js)
+    state[109] = this.firmware && this.firmware.pflash;
 
     state[62] = this.fw_value;
 
@@ -1399,6 +1404,8 @@ CPU.prototype.validate_disk_states = function(state)
         const buffer = this.usb_disks && this.usb_disks.get(/** @type {string} */ (id));
         if(buffer) check_disk_state("usb:" + id, buffer, saved);
     }
+    const pflash = this.firmware && this.firmware.pflash;
+    if(pflash && state[109]) check_disk_state("firmware_vars", pflash.buffer, state[109][2]);
 };
 
 CPU.prototype.set_state = function(state, skip_memory = false)
@@ -1535,6 +1542,7 @@ CPU.prototype.set_state = function(state, skip_memory = false)
         const buffer = this.usb_disks && this.usb_disks.get(/** @type {string} */ (id));
         if(buffer && saved) restore_disk_state(buffer, saved);
     }
+    this.firmware && this.firmware.pflash && state[109] && this.firmware.pflash.set_state(state[109]);
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
     this.devices.uart2 && this.devices.uart2.set_state(state[80]);
@@ -3035,7 +3043,8 @@ CPU.prototype.init = function(settings, device_bus)
         this.firmware = {
             code: settings.firmware_code,
             vars: settings.firmware_vars || null,
-            flash: -1,
+            code_region: -1,
+            pflash: null,
             debug_console: !!(settings.firmware && settings.firmware["debug_console"]),
         };
     }
@@ -3988,33 +3997,49 @@ CPU.prototype.add_uefi_fw_cfg_files = function()
 
 /**
  * The UEFI firmware's flash: the variable store and the code, in this order,
- * ending at 4 GiB, where the reset vector is (QEMU's pflash units 1 and 0;
- * a single image holding both, OVMF.fd, is the code alone). Read-only for
- * now: writes are dropped, so OVMF keeps its variables in RAM. The last
- * 128 KiB also appear below 1 MiB at 0xE0000, as QEMU's isa-bios alias.
+ * ending at 4 GiB, where the reset vector is (QEMU's pflash units 1 and 0).
+ * The code is read-only device memory; the variable store is CFI flash
+ * (src/pflash.js) whose writes go to its buffer, written back with
+ * disk_option "read_write". Without a variable store, the code is an image
+ * holding both (OVMF.fd), read-only: OVMF keeps its variables in RAM then.
+ * The last 128 KiB of the code also appear below 1 MiB at 0xE0000, as
+ * QEMU's isa-bios alias. At a reset the store keeps its bytes.
  */
 CPU.prototype.load_firmware_flash = function()
 {
     const firmware = this.firmware;
     const code = new Uint8Array(firmware.code);
-    const vars = firmware.vars ? new Uint8Array(firmware.vars) : new Uint8Array(0);
-    const size = vars.length + code.length;
-    const base = 2 ** 32 - size;
-    if(firmware.flash === -1)
+    if(firmware.code_region === -1)
     {
-        dbg_assert(size % 4096 === 0 && size <= 16 << 20);
-        firmware.flash = this.mmio_ram_allocate(size);
-        dbg_assert(firmware.flash !== -1, "no device memory region for the firmware's flash");
-        const backing = new Uint8Array(this.wasm_memory.buffer, this.mmio_ram_backing(firmware.flash) >>> 0, size);
-        backing.set(vars, 0);
-        backing.set(code, vars.length);
-        this.mmio_ram_set_writable(firmware.flash, false);
-        this.mmio_ram_map(firmware.flash, base | 0);
-        const flash = firmware.flash;
-        // (reads come here only when the region is not decoded)
-        this.io.mmap_register(base, size,
-            addr => this.mmio_ram_read8(flash, addr - base | 0),
-            (addr, value) => {});
+        const vars_size = firmware.vars ? firmware.vars.byteLength : 0;
+        const code_base = 2 ** 32 - code.length;
+        const base = code_base - vars_size;
+        dbg_assert(code.length % 4096 === 0 && vars_size % 4096 === 0 && code.length + vars_size <= 16 << 20, "the firmware's size");
+        firmware.code_region = this.mmio_ram_allocate(code.length);
+        dbg_assert(firmware.code_region !== -1, "no device memory region for the firmware's code");
+        new Uint8Array(this.wasm_memory.buffer, this.mmio_ram_backing(firmware.code_region) >>> 0, code.length).set(code);
+        this.mmio_ram_set_writable(firmware.code_region, false);
+        this.mmio_ram_map(firmware.code_region, code_base | 0);
+        if(vars_size)
+        {
+            const region = this.mmio_ram_allocate(vars_size);
+            dbg_assert(region !== -1, "no device memory region for the variable store");
+            firmware.pflash = new PFlash(this, region, base, /** @type {!Object} */ (firmware.vars));
+        }
+        // The memory map has what device memory does not take: writes, the
+        // store's reads outside read array mode (in blocks of the map's size)
+        const map_base = base & ~(MMAP_BLOCK_SIZE - 1);
+        const pflash = firmware.pflash;
+        this.io.mmap_register(map_base, 2 ** 32 - map_base,
+            addr => {
+                addr >>>= 0;
+                return pflash && addr >= base && addr < code_base ? pflash.read(addr - base) :
+                    addr >= code_base ? code[addr - code_base] : 0xFF;
+            },
+            (addr, value) => {
+                addr >>>= 0;
+                if(pflash && addr >= base && addr < code_base) pflash.write(addr - base, value);
+            });
         if(firmware.debug_console)
         {
             // QEMU's isa-debugcon at 0x402: OVMF writes its log there once
@@ -4024,6 +4049,10 @@ CPU.prototype.load_firmware_flash = function()
                 this.bus.send("debug-console-output-byte", value);
             });
         }
+    }
+    else if(firmware.pflash)
+    {
+        firmware.pflash.reset();
     }
     this.write_blob(code.subarray(code.length - 0x20000), 0xE0000);
 };

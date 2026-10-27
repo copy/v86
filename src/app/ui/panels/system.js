@@ -4,7 +4,10 @@
 
 import { h } from "../dom.js";
 import { image_picker } from "../image_picker.js";
+import { confirm } from "../dom.js";
 import { ARM_MACHINE_TYPES } from "../../../machine_options.js";
+import { disk_id, reset_disk } from "../../browser_disks.js";
+import { UEFI_VARS_URL } from "../../vm_config.js";
 
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
@@ -152,8 +155,7 @@ export function machine_panel(ctx)
     return [
         select_field("Machine", ch.machine_types, c.machine.type, value => ctx.set("machine.type", value), v => MACHINE_LABELS[v] || v),
         firmware_field,
-        !arm && firmware === "uefi" ? h("p.note", null, "UEFI is OVMF (edk2-stable202408, as QEMU ships it) on the x86_64 CPU; " +
-            "on i440FX the devices take QEMU's places. Its variables (boot entries) are not kept between runs yet.") : null,
+        !arm && firmware === "uefi" ? uefi_fields(c) : null,
         !arm && firmware === "custom" ? [
             image_picker({ label: "BIOS image", role: "file", image: c.machine.bios, store: ctx.store, on_change: image => ctx.set("machine.bios", image) }),
             image_picker({ label: "VGA BIOS image", role: "file", optional: true, image: c.machine.vga_bios, store: ctx.store,
@@ -168,6 +170,42 @@ export function machine_panel(ctx)
             arm ? { disabled: true, title: "the " + c.machine.type + " machine boots its kernel" } : {}),
         check_field("Fast boot (no boot menu delay)", c.machine.fastboot, value => ctx.set("machine.fastboot", value), arm ? "no PC firmware" : undefined),
         check_field("Boot menu", c.machine.bootmenu, value => ctx.set("machine.bootmenu", value), arm ? "no PC firmware" : undefined),
+    ];
+}
+
+/**
+ * The UEFI firmware's note and its variable store's reset
+ * @param {PanelContext["config"]} c
+ */
+function uefi_fields(c)
+{
+    const vars = c.machine.uefi_vars;
+    const status = h("small.reason", { role: "status" });
+    const reset = /** @type {HTMLButtonElement} */ (h("button", { type: "button", disabled: !vars || vars.kind !== "browser",
+        title: vars ? "" : "The variable store is made at the first power-on" }, "Reset UEFI variables…"));
+    reset.addEventListener("click", async () =>
+    {
+        if(!vars || vars.kind !== "browser") return;
+        if(!await confirm("Reset UEFI variables?", "The firmware's variables (its boot entries, its settings) go back to the template's; " +
+            "the firmware makes its boot entries again at the next power-on.", "Reset", true)) return;
+        reset.disabled = true;
+        status.textContent = "Resetting…";
+        try
+        {
+            await reset_disk(disk_id(vars.path), UEFI_VARS_URL);
+            status.textContent = "Reset: the template's variables.";
+        }
+        catch(e)
+        {
+            status.textContent = "Not reset: " + e.message;
+        }
+        reset.disabled = false;
+    });
+    return [
+        h("p.note", null, "UEFI is OVMF (edk2-stable202408, as QEMU ships it) on the x86_64 CPU; on i440FX the devices take QEMU's places. " +
+            "Its variables (boot entries, settings) are kept in a browser disk of the machine's, made at the first power-on " +
+            "(with the CPU in a Worker; otherwise they last until the machine is turned off)."),
+        h("div.field", null, reset, " ", status),
     ];
 }
 

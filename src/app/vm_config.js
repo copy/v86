@@ -74,8 +74,10 @@ export const UEFI_VARS_URL = "bios/ovmf-vars.fd";
  * @property {string} created
  * @property {string} modified
  * @property {{type: string, acpi: boolean, hpet: boolean, smbus: boolean, pcie_root_ports: number, boot_order: number,
- *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null, firmware: string}} machine
- *     (firmware: "seabios", the BIOS images' or SeaBIOS, or "uefi", OVMF: docs/uefi.md)
+ *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null, firmware: string,
+ *     uefi_vars: Image | null}} machine
+ *     (firmware: "seabios", the BIOS images' or SeaBIOS, or "uefi", OVMF: docs/uefi.md; uefi_vars: its variable
+ *     store, a browser disk made from the template at the first power-on, null before and after a reset to it)
  * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
  * @property {{mb: number}} memory
  * @property {Disk[]} disks
@@ -203,7 +205,7 @@ export function with_defaults(config)
     c.created = c.created ?? new Date().toISOString();
     c.modified = c.modified ?? c.created;
     section("machine", { type: DEFAULT_FORM.machine_type, acpi: DEFAULT_FORM.acpi, hpet: false, smbus: false, pcie_root_ports: 0,
-        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null, firmware: "seabios" });
+        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null, firmware: "seabios", uefi_vars: null });
     // (profile: arm64's a64_profile, null the library's default, v2)
     section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true, profile: null });
     section("memory", { mb: DEFAULT_MEMORY_SIZE });
@@ -420,6 +422,11 @@ export function validate_config(config)
         if(arm) problem("machine." + name, allowed.unavailable[name]);
         else if(machine.firmware === "uefi") problem("machine." + name, "UEFI takes the place of the BIOS images");
         else check_image(machine[name], "machine." + name, problems);
+    }
+    if(machine.uefi_vars !== null)
+    {
+        check_image(machine.uefi_vars, "machine.uefi_vars", problems);
+        if(machine.uefi_vars.kind !== "browser") problem("machine.uefi_vars", "is a browser disk");
     }
     if(!FIRMWARE_TYPES.includes(machine.firmware)) problem("machine.firmware", "must be one of " + FIRMWARE_TYPES.join(", "));
     else if(machine.firmware === "uefi")
@@ -870,11 +877,15 @@ export function config_to_options(config, env)
     if(machine.fastboot) options.fastboot = true;
     // (UEFI, likewise: OVMF in place of the BIOS images; on i440FX with
     // QEMU's device layout, which OVMF expects)
+    // (the variable store: the machine's browser disk written back, which
+    // needs the CPU Worker; else the template, its changes in memory)
     if(machine.firmware === "uefi")
     {
         delete options.bios;
         delete options.vga_bios;
-        options.firmware = { type: "uefi", code: { url: UEFI_CODE_URL }, vars: { url: UEFI_VARS_URL } };
+        const vars = machine.uefi_vars && advanced.cpu_worker ? Object.assign(image(machine.uefi_vars), { disk_option: "read_write" }) :
+            { url: UEFI_VARS_URL };
+        options.firmware = { type: "uefi", code: { url: UEFI_CODE_URL }, vars };
         if(machine.type === "i440fx") options.qemu_compatible = true;
     }
     // (USB, likewise)

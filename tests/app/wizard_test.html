@@ -6,7 +6,9 @@
      part=linux    the 32-bit Linux preset from a CD URL (images/linux4.iso), a new disk in memory: the shell's "~%"
      part=arm64    the arm64 Linux preset, direct boot: Alpine's kernel, initrd and ISO (build/a64-linux/): "login:" on the serial console
      part=uefi     a machine of no preset edited to UEFI (OVMF, Q35) in the settings dialog, powered on: the UEFI Shell's
-                   prompt on the serial console (bios/ovmf-code.fd and ovmf-vars.fd through the CPU worker)
+                   prompt on the serial console (bios/ovmf-code.fd through the CPU worker); a variable set in the Shell is
+                   there at the next power-on (the machine's variable store, a browser disk written back), and gone after
+                   the settings dialog's "Reset UEFI variables…"
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
@@ -278,13 +280,60 @@ const parts = {
         await until(() => /UEFI is OVMF/.test(panel().textContent), "the UEFI note");
         button("Save", dialog).click();
         await until(() => !$("dialog.settings-dialog[open]"), "saved");
-        const { emulator } = await power_on();
-        let serial = "";
-        emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
-        await until(() => /Shell> /.test(serial.replace(/\x1b\[[0-9;=?]*[A-Za-z]/g, "")), "the UEFI Shell on the serial console", 180000);
-        check(/UEFI Interactive Shell v2\.2/.test(serial), "the Shell's banner");
+        const VARIABLE = "V86Test -guid 2c94c1ab-37b4-4d11-9a3f-5fd77b0d5e8a";
+        // powered on to the Shell: { frame, emulator, command }
+        const shell = async () =>
+        {
+            const { frame, emulator } = await power_on();
+            let serial = "";
+            emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+            const plain = () => serial.replace(/\x1b\[[0-9;=?]*[A-Za-z]/g, "").replace(/\r/g, "");
+            await until(() => /Shell> $/.test(plain()), "the UEFI Shell on the serial console", 180000);
+            check(/UEFI Interactive Shell v2\.2/.test(serial), "the Shell's banner");
+            const command = async text =>
+            {
+                serial = "";
+                for(const chr of text + "\r")
+                {
+                    emulator.serial0_send(chr);
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                }
+                await until(() => /Shell> $/.test(plain()), JSON.stringify(text), 60000);
+                return plain();
+            };
+            return { frame, emulator, command };
+        };
+        // (powered off: the variable store flushed, the machine's lock and the store's handle let go)
+        const power_off = async ({ frame, emulator }) => { await emulator.destroy(); frame.remove(); };
+
+        let machine = await shell();
         log("power on: OVMF on Q35 to \"Shell>\" on the serial console");
-        await emulator.destroy();
+        await machine.command("setvar " + VARIABLE + " -nv -bs -rt =L\"v86\"");
+        check(/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable set");
+        await power_off(machine);
+        machine = await shell();
+        check(/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable at the next power-on");
+        log("a variable set in the Shell: there at the next power-on");
+        await power_off(machine);
+
+        // (back in the library's tab: it reads the machines again, the variable store the console made)
+        w.dispatchEvent(new Event("focus"));
+        await new Promise(resolve => setTimeout(resolve, 500));
+        $("#edit_vm").click();
+        const again = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        again.querySelector("li[data-item=machine]").click();
+        const reset = await until(() => button("Reset UEFI variables…", again), "the reset button");
+        reset.click();
+        const ask = await until(() => $$("dialog[open]").find(e => /Reset UEFI variables\?/.test(e.textContent)), "the question");
+        button("Reset", ask).click();
+        const status = await until(() => /^Reset|^Not reset/.test(again.querySelector(".settings-panel [role=status]").textContent) &&
+            again.querySelector(".settings-panel [role=status]").textContent, "the reset");
+        check(/^Reset/.test(status), status);
+        button("Cancel", again).click();
+        machine = await shell();
+        check(!/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable gone after the reset");
+        log("Reset UEFI variables: the variable gone at the next power-on");
+        await power_off(machine);
     },
     async dialog()
     {
