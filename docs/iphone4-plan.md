@@ -182,7 +182,7 @@ CPU”），以及能用哪些指令。两者混在 `cpu_profile` 里会出现�
 | `src/apple/spi.js`、`multitouch.js` | SPI 控制器，多点触控控制器（Z2 协议） |
 | `src/apple/h2fmi.js`、`cdma.js`、`aes.js` | NAND 控制器与 NAND 芯片模型，DMA 与 AES 引擎 |
 | `src/apple/clcd.js` | 显示控制器与 MIPI DSI、vsync 中断 |
-| `src/apple/gles_device.js` | GL ES 代理的传输设备（见“GPU”） |
+| `src/gles/`（与 Android 共用） | GLES 代理：解码器、影子状态、renderControl、后门传输（见 [gles-proxy-plan.md](gles-proxy-plan.md)） |
 | `tools/ios/` | 主机侧工具（node）：`ipsw.mjs`（img3、AES、LZSS、根文件系统 DMG 解密）、`devicetree.mjs`、`kernel_patch.mjs`、`nand_build.mjs`、`hfsplus.mjs` |
 | `tools/ios/guest/` | 客体侧的 GL ES 代理库与补丁说明（armv7，见“GPU”；与 `tools/windows/` 的客体工具同一做法） |
 
@@ -256,27 +256,73 @@ HFS+ 的系统分区与数据分区。数据分区受数据保护：
 ## GPU
 
 iPhone 4 的 GPU 是 PowerVR SGX535，没有公开文档，硬件级模拟不现实。iOS 的界面合成（Core Animation，iOS 6 中
-在 `backboardd` 里）与游戏都通过 OpenGL ES 1.1/2.0 画图。本计划在 OpenGL ES 这一层代理，与 v86 的 glbridge
-对 D3D 和桌面 OpenGL 的做法相同：
+在 `backboardd` 里）与游戏都通过 OpenGL ES 1.1/2.0 画图。本计划在 OpenGL ES 这一层代理。
 
-1. **客体侧**：一个 armv7 的动态库 `libv86gles.dylib`。
-   - 构建：clang 加 cctools-port 的 ld64，链接用从固件中提取的导出表生成的桩，不需要苹果的 SDK；
-   - 注入方式：`DYLD_INSERT_LIBRARIES`，越狱插件的通用做法，`launchd` 环境中设置，覆盖 `backboardd` 与
-     各应用；
-   - 替换的内容：用 dyld 的 `__interpose` 替换 OpenGL ES 的 C 函数，在构造函数中替换 `EAGLContext` 的
-     Objective-C 方法；
-   - 共享缓存（dyld_shared_cache）不改。
-2. **传输**：SoC 地址空间里一个 v86 自己的 MMIO 设备（`gles_device.js`），设备树中加一个节点给它。命令流的
-   格式参照 glbridge 现有的协议。
-3. **宿主侧**：
-   - GL ES 2.0 的状态与 GLSL ES 由现有的 GL→WebGPU 执行器运行（`src/browser/glbridge/gl-webgpu/`）；
-   - GL ES 1.1 的固定功能翻译成着色器；
-   - Core Animation 使用的苹果私有扩展与 EAGL 的私有接口（IOSurface 作为渲染缓冲、呈现到帧缓冲）逐个实现。
-     清单在 S5 开头由静态分析 QuartzCore、OpenGLES 的导入与调用整理，touchHLE（MPL-2.0，使用前核对）的
-     EAGL 实现可作为语义参考。
-4. **呈现**：合成结果回读到 CLCD 的帧缓冲，与 SVGA 的做法相同。之后可以改成直接送进合成器层，不回读。
-5. **软件渲染**：如果 S0 发现 iOS 6 的 Core Animation 有可用的软件渲染路径，S4 可以先用它点亮主屏幕，GPU
-   代理作为性能与游戏的路线。
+### 与 Android 32 位共用一套 GLES 代理
+
+32 位 Android（`ranchu` 上的 Android 7.1，[arm32.md](arm32.md)）现在用 `qemu.gles=0`，界面由 CPU 绘制。它的
+镜像里自带 Android 模拟器的 GLES 客体栈（2026-10-27 从 `armeabi-v7a-25_r18` 的 `system.img` 核对）：
+- `libEGL_emulation.so`、`libGLESv1_CM_emulation.so`、`libGLESv2_emulation.so`；
+- 编码器 `libGLESv1_enc.so`、`libGLESv2_enc.so`、`lib_renderControl_enc.so`、`libOpenglSystemCommon.so`；
+- `gralloc.ranchu.so`。
+
+它们把 GL 调用编码成 emugl 协议，经 goldfish pipe 的 `opengles` 服务交给宿主。这个协议后来演变成 gfxstream
+的 GLES 协议，今天的 Android 模拟器仍用同一套宿主解码器运行这些老镜像。v86 已经有 gfxstream 的传输与
+按操作码分派解码器的框架（[gfxstream-protocol.md](gfxstream-protocol.md)），但还没有解码任何 renderControl 命令
+（Android 16 的官方模式在客体内合成，不发 renderControl）。renderControl、GLES 的解码器与执行器都要新写。
+
+所以两边共用一个代理：**协议用 gfxstream/emugl 的 GLES 协议**，宿主侧写一次，客体侧各接各的：
+
+```text
+iOS 6（armv7）                                 Android 7.1（armeabi-v7a，ranchu）
+libv86gles.dylib：v86 自己的编码器              镜像自带的编码器与 libEGL_emulation
+  + EAGL / IOSurface 的适配层                     （不改客体的任何文件）
+    │ 用户态后门指令（UDF）与进程内的环            │ goldfish pipe 的 "opengles" 服务
+    └──────────────────┬──────────────────────────────┘
+          gfxstream/emugl 的 GLES 协议：renderControl + GLESv1 + GLESv2 的操作码
+                       │ CPU 侧：解码、按参数的方向与长度读取客体内存、
+                       │ 影子状态回答查询、打成 GLES 批次
+                       │ 渲染器通道的新 stream "gles"
+          页面：GLES 执行器（在现有的 gl-webgpu 执行器上扩展）→ WebGPU
+```
+
+**宿主侧（共用）：**
+- **解码器**：按 gfxstream 源码中 GLES 协议的规格文件（`*.in`、`*.attrib`、`*.types`）生成，与 gfxstream 的
+  Vulkan 部分同样固定在 `gfxstream-protocol.md` 记录的提交上。
+- **renderControl**：在现有实现上补齐上下文、窗口表面、颜色缓冲、`rcFBPost` 等 GLES 需要的调用。
+- **影子状态**：CPU 侧保存一份 GL 状态的影子，`glGetError`、`glGetIntegerv` 等查询由它直接回答，不等页面上
+  的渲染器。只有 `glReadPixels`、`glFinish` 这类必须看 GPU 结果的调用才往返。
+- **执行器**：扩展 `src/browser/glbridge/gl-webgpu/`，三项：
+  - 着色器：在现有的 GLSL 1.20 前端上加 GLSL ES 1.00 的方言（精度限定符等）；
+  - GLES 1.1 的固定功能：复用现有的 `gl_fixed_function.js`；
+  - 压缩纹理：ETC1（Android）用 WebGPU 的 ETC2 特性，没有就解码；PVRTC（iOS 游戏常用）一律解码成 RGBA。
+- **呈现**：颜色缓冲作为显示画面送进合成器层，或者回读到帧缓冲。
+
+**iOS 侧（本计划独有）：**
+- **客体库** `libv86gles.dylib`（armv7）：
+  - 编码器由同一套规格文件生成 C 代码；
+  - 构建：clang 加 cctools-port 的 ld64，链接用从固件导出表生成的桩，不需要苹果的 SDK；
+  - 注入：`DYLD_INSERT_LIBRARIES`（`launchd` 环境中设置，覆盖 `backboardd` 与各应用）；
+  - 替换：用 dyld 的 `__interpose` 替换 OpenGL ES 的 C 函数，在构造函数中替换 `EAGLContext` 的
+    Objective-C 方法；共享缓存（dyld_shared_cache）不改。
+- **EAGL 到 renderControl 的对应**：
+  - `EAGLContext` → `rcCreateContext`；
+  - `renderbufferStorage:fromDrawable:` → 窗口表面加颜色缓冲；
+  - `presentRenderbuffer:` → 交换和呈现；
+  - 共享组（sharegroup）→ 共享上下文。
+- **苹果私有部分**：Core Animation 用到的私有扩展、IOSurface 作为纹理和渲染缓冲，放在 v86 自己的扩展操作码
+  区间里。清单在 S5 开头由静态分析 QuartzCore、OpenGLES 的导入与调用整理，touchHLE（许可证使用前核对）的
+  EAGL 实现可作为语义参考。
+- **传输**：一条用户态的后门指令（约定立即数的 `UDF`）加进程内的环，作用相当于 goldfish pipe。不用 MMIO 设备，
+  因为 iOS 的用户进程没有内核驱动就碰不到设备寄存器。细节见 [gles-proxy-plan.md](gles-proxy-plan.md) 的 “iOS 传输”。
+
+**顺序：先做 Android 32 位，再做 iOS 的 S5。** Android 这边客体完全不用改，是未经修改的真实编码器在驱动宿主侧，
+解码器与执行器的错误能在没有逆向的环境里先找出来。之后 iOS 的 S5 只剩客体库、EAGL 适配和苹果私有部分。
+Android 32 位因此得到 GPU 加速的界面，现在由 CPU 绘制的慢界面（[arm32.md](arm32.md) 的 “Known defects”）也随之
+解决。共用部分的阶段、测试和验收见 [gles-proxy-plan.md](gles-proxy-plan.md)，iOS 的 S5 建立在它的 E0–E6 之上。
+
+**软件渲染**：如果 S0 发现 iOS 6 的 Core Animation 有可用的软件渲染路径，S4 可以先用它点亮主屏幕，GPU 代理
+作为性能与游戏的路线。
 
 SGX 的内核驱动保持加载，但没有硬件：它的 MMIO 读回“空闲”，不产生中断。GPU 驱动初始化失败若导致系统
 不能启动，就在设备树中禁用它的节点，由代理承担全部绘制。
@@ -393,7 +439,11 @@ SGX 的内核驱动保持加载，但没有硬件：它的 MMIO 读回“空闲�
 
 ### S5 GL ES 代理
 
-- 客体库与注入、MMIO 传输、宿主执行器（GL ES 2.0 与 1.1 固定功能）、EAGL 与 IOSurface 的呈现。
+- 前提：共用的 GLES 代理（解码器、影子状态、执行器）已经由 Android 32 位验证过（见“GPU”）。它可以与 S1–S4
+  并行推进。
+- 后门指令、生成的 C 编码器与客体库的传输部分已在 gles-proxy-plan.md 的 E6 完成，并在 Linux armv7 上验证过。
+- 本阶段只做 iOS 独有的部分：客体库的注入、EAGL 到 renderControl 的对应、IOSurface、Core Animation 的私有扩展、
+  PVRTC。
 
 验收：主屏幕显示正确（图标、壁纸、状态栏、Dock）；与真机截图（所有者提供，或公开的 iOS 6.1.3 截图）比较。
 
