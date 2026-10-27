@@ -109,7 +109,7 @@ async function measure(directory, what, kind)
     const started = performance.now();
     const r = arm32 && kind !== "a64" ?
         await actual32(directory, { timeout: +(process.env.A64_BENCH_TIMEOUT || 600000) }) :
-        await actual(directory, { timeout: +(process.env.A64_BENCH_TIMEOUT || 600000), options: { a64_profile: "v3" } });
+        await actual(directory, { timeout: +(process.env.A64_BENCH_TIMEOUT || 600000), options: { cpu_profile: "generic-arm64-compat32" } });
     const ms = performance.now() - started;
     assert.equal(r.status, "ok", `${what}: ${r.status}\n${r.text}`);
     assert.ok(!/an exception/.test(r.text), `${what}: ${r.text}`);

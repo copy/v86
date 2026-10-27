@@ -4,7 +4,7 @@
 
 import { confirm, h } from "../dom.js";
 import { image_picker } from "../image_picker.js";
-import { ARM_MACHINE_TYPES } from "../../../machine_options.js";
+import { ARM_MACHINE_TYPES, DEFAULT_CPU_PROFILES } from "../../../machine_options.js";
 import { disk_id, reset_disk } from "../../browser_disks.js";
 import { uefi_vars_template } from "../../vm_config.js";
 
@@ -12,8 +12,18 @@ import { uefi_vars_template } from "../../vm_config.js";
 
 export const CPU_LABELS = { x86: "x86 (32-bit, up to SSE3)", x86_64: "x86_64 (64-bit, every instruction set)", arm64: "arm64 (64-bit ARM)",
     arm32: "ARM (32-bit, ARMv7-A)" };
-/** The arm64 CPU's profiles the panel offers (cpu.profile; null is v2, the library's default) */
-export const A64_PROFILE_LABELS = { v2: "Armv8.0-A: 64-bit programs", v3: "Armv8.0-A and 32-bit programs (AArch32 at EL0)" };
+/**
+ * The CPU models (cpu.profile; docs/iphone4-plan.md "CPU 型号"): the name the
+ * panel shows, and what the model is for
+ */
+export const CPU_PROFILE_LABELS = {
+    "generic-x86": ["Generic 32-bit x86 (recommended)", "DOS, Windows 3.x to XP, 32-bit Linux"],
+    "generic-x86-64": ["Generic 64-bit x86 (recommended)", "64-bit Windows 8.1 to 11, 64-bit Linux"],
+    "generic-arm64": ["Generic 64-bit ARM (recommended)", "64-bit Linux, Android 16"],
+    "generic-arm64-compat32": ["Generic 64-bit ARM that runs 32-bit programs",
+        "A 64-bit system that runs 32-bit programs too (armhf, armeabi-v7a); their code is interpreted, slower than 64-bit code"],
+    "cortex-a15": ["ARM Cortex-A15 (2011)", "32-bit Linux, Android 7.1"],
+};
 export const MACHINE_LABELS = { i440fx: "i440FX (IDE, PCI)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (ARM, virtio devices)",
     ranchu: "ranchu (the Android Emulator's board)" };
 const FIRMWARE_LABELS = { seabios: "SeaBIOS (the default)", bochs: "Bochs BIOS", custom: "An image of your own", uefi: "UEFI (OVMF)" };
@@ -117,11 +127,10 @@ export function processor_panel(ctx)
         check_field("Run the cores in host threads where the page allows it (otherwise they take turns)", c.cpu.parallel, value => ctx.set("cpu.parallel", value),
             c.cpu.cores === 1 ? "one core" : undefined),
         check_field("JIT compiler", c.cpu.jit, value => ctx.set("cpu.jit", value)),
-        ...(c.cpu.type === "arm64" ? [
-            select_field("Instruction sets", Object.keys(A64_PROFILE_LABELS), c.cpu.profile || "v2", value => ctx.set("cpu.profile", value === "v2" ? null : value),
-                v => A64_PROFILE_LABELS[v] || v),
-            h("p.note", null, "32-bit programs (armhf, armeabi-v7a) run on a 64-bit kernel with COMPAT; their code is interpreted, slower than 64-bit code."),
-        ] : []),
+        // (the CPU model: automatic is the CPU type's default; a real chip only where software checks which CPU it is)
+        select_field("CPU model", ctx.choices.cpu_profiles, c.cpu.profile, value => ctx.set("cpu.profile", value),
+            v => v === null ? "Automatic (the system decides)" : CPU_PROFILE_LABELS[v]?.[0] || v),
+        h("p.note", null, CPU_PROFILE_LABELS[c.cpu.profile || DEFAULT_CPU_PROFILES[c.cpu.type]]?.[1] || ""),
     ];
 }
 

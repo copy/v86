@@ -20,7 +20,7 @@ if(+process.env.A64_AARCH32_REFERENCE_ONLY)
     console.log(expected.text);
     process.exit(0);
 }
-const got = await actual(directory, { options: { a64_profile: "v3" } });
+const got = await actual(directory, { options: { cpu_profile: "generic-arm64-compat32" } });
 const a = expected.text.split("\n"), b = got.text.split("\n");
 for(let i = 0; i < Math.max(a.length, b.length); i++)
 {

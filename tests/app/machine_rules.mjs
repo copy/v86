@@ -14,7 +14,7 @@ import { VIRT_MAX_CORES } from "../../src/virt/platform.js";
 const accepts = options => { try { check_machine_options(options); return true; } catch(e) { return false; } };
 let checks = 0;
 // (a valid value of the options that are not booleans)
-const VALUES = { virtio_input: ["keyboard"], virtio_transport: "pci", a64_profile: "v3", audio_device: "hd_audio",
+const VALUES = { virtio_input: ["keyboard"], virtio_transport: "pci", audio_device: "hd_audio",
     audio_device_path: "build/v86-hd-audio.js", usb: { controller: "uhci", tablet: true }, firmware: { type: "seabios" }, tpm: { version: "2.0" } };
 
 assert.equal(VIRT_MAX_CORES, MAX_CORES, "the virt machine's cores");

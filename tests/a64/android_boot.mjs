@@ -473,8 +473,9 @@ let sound_chunks = null;
 const sound = { reset: () => { sound_chunks = []; }, played: () => { const pcm = Buffer.concat(sound_chunks || []); sound_chunks = null; return pcm; } };
 const emulator = new V86({
     cpu_type: "arm64", cpu_cores: cores, memory_size: low_mb * 1048576, log_level: 0, autostart: !restore_state_file,
-    // (A64_PROFILE: the CPU profile, a64_profile; v2, the default, has FEAT_PAN)
-    ...(process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {}),
+    // (A64_PROFILE: the CPU profile by its short name, as its CPU model; v2, the default, has FEAT_PAN)
+    ...(process.env.A64_PROFILE ? { cpu_profile: { "v1": "generic-arm64-v1", "v1.1": "generic-arm64-v1.1", "v2": "generic-arm64",
+        "v3": "generic-arm64-compat32" }[process.env.A64_PROFILE] } : {}),
     ...(memory_mb > low_mb ? { extended_memory_size: (memory_mb - low_mb) * 1048576 } : {}),
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     ...(bootloader ? { android: { gpu_mode: gpu_level || "swiftshader",

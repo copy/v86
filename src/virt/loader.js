@@ -62,7 +62,7 @@ export function image_placement(image, granules = 1)
     if(page_size > 1 && !(granules & (page_size === 2 ? 2 : 4)))
     {
         throw new Error("kernel: built for " + (page_size === 2 ? 16 : 64) + " KiB pages; the CPU profile does not have that granule " +
-            "(a64_profile: \"v1.1\" and \"v2\" have 16 and 64 KiB)");
+            "(cpu_profile: \"generic-arm64\" and \"generic-arm64-v1.1\" have 16 and 64 KiB)");
     }
     const text_offset = view.getUint32(8, true) + view.getUint32(12, true) * 0x100000000;
     const image_size = view.getUint32(16, true) + view.getUint32(20, true) * 0x100000000;

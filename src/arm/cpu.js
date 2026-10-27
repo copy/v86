@@ -16,7 +16,7 @@ import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtDeviceSpace } from "../virt/io.js";
 import {
-    A64_PROFILES, ARM32_PROFILE, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
+    A64_PROFILES, ARM32_PROFILES, VIRT_LAYOUT_VERSION, VIRT_MMIO, VIRT_MMIO_COUNT, VIRT_MMIO_SIZE, VIRT_PCIE_ECAM_HIGH, VIRT_PCIE_ECAM_SIZE,
     VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE, VIRT_RAM_BASE, virt_machine,
     VIRT_EXTENDED_RAM_BASE, VIRT_EXTENDED_RAM_END,
 } from "../virt/platform.js";
@@ -198,7 +198,7 @@ A64CPU.prototype.imports = function()
 
 A64CPU.prototype.init = function(settings, device_bus)
 {
-    const machine_type = check_machine_options(settings).machine_type;
+    const { machine_type, cpu_profile } = check_machine_options(settings);
     if(machine_type !== "virt" && machine_type !== "ranchu")
     {
         throw new Error("The ARM CPU runs machine_type \"virt\" or \"ranchu\"");
@@ -210,15 +210,11 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.cores = cores;
     // (cpu_type "arm32": AArch32 throughout, docs/aarch32-plan.md part 2)
     this.cpu_type = settings["cpu_type"] === "arm32" ? "arm32" : "arm64";
-    // the CPU profile (docs/arm64-virt-android16-plan.md, "CPU profile"):
-    // v2 (v1.1 and FEAT_PAN, the default since 2026-10-20), v1.1 (the 4, 16
-    // and 64 KiB granules, P8.6), or v1 (4 KiB only); arm32's own
-    const profile = settings["a64_profile"] || "v2";
-    if(!Object.prototype.hasOwnProperty.call(A64_PROFILES, profile))
-    {
-        throw new Error("a64_profile: " + Object.keys(A64_PROFILES).map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
-    }
-    this.set_profile(this.cpu_type === "arm32" ? ARM32_PROFILE[0] : A64_PROFILES[profile][0]);
+    // the CPU model's profile (cpu_profile; docs/arm64-virt-android16-plan.md,
+    // "CPU profile"): generic-arm64 is v2 (v1.1 and FEAT_PAN, the default
+    // since 2026-10-20), -v1.1 the 4, 16 and 64 KiB granules (P8.6), -v1
+    // 4 KiB only, -compat32 v3 (AArch32 at EL0); arm32's own
+    this.set_profile((this.cpu_type === "arm32" ? ARM32_PROFILES : A64_PROFILES)[cpu_profile][0]);
     // the A64 page tier (J2): synchronous publication (tests), the JIT switches by name
     this.ir_sync_publication = settings["ir_sync_publication"] === true;
     set_jit_switches(this.wm.exports, this.wasm_memory, settings["jit_switches"]);
@@ -1119,7 +1115,7 @@ A64CPU.prototype.get_state = function(skip_memory = false)
  */
 A64CPU.prototype.set_profile = function(name)
 {
-    const entry = [...Object.values(A64_PROFILES), ARM32_PROFILE].find(p => p[0] === name);
+    const entry = [...Object.values(A64_PROFILES), ...Object.values(ARM32_PROFILES)].find(p => p[0] === name);
     dbg_assert(!!entry, "unknown profile " + name);
     this.profile = name;
     this.wm.exports["a64_set_granules"](entry[1]);
@@ -1137,7 +1133,7 @@ A64CPU.prototype.validate_state = function(state)
     }
     // (a snapshot of another profile restores as that profile, set_state)
     // (arm32's and arm64's profiles are of different CPUs)
-    const profiles = this.cpu_type === "arm32" ? [ARM32_PROFILE] : Object.values(A64_PROFILES);
+    const profiles = Object.values(this.cpu_type === "arm32" ? ARM32_PROFILES : A64_PROFILES);
     const layout = this.machine_type === "ranchu" ? RANCHU_LAYOUT_VERSION : VIRT_LAYOUT_VERSION;
     if(identity[1] !== layout || !profiles.some(p => p[0] === identity[2]))
     {

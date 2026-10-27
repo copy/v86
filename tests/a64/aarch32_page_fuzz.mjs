@@ -318,11 +318,11 @@ for(let n = 0; n < PROGRAMS; n++)
     const guest = build("aarch32-page-fuzz", [root + "tests/a64/aarch32/fuzz.c", root + "tests/a64/aarch32/el0_run.S", directory + "fuzz.a32.S"],
         { cflags: [`-DSEED=${seed}ULL`, "-DA64_MMU"] });
     delete process.env.A64_JIT;
-    const interpreted = await actual(guest, { options: { a64_profile: "v3" } });
+    const interpreted = await actual(guest, { options: { cpu_profile: "generic-arm64-compat32" } });
     process.env.A64_JIT = "1";
     process.env.A64_JIT_HOT = "1";
     process.env.A64_JIT_SWITCHES = "a64_page_aarch32=" + (process.env.A64_AARCH32_PAGE || "1");
-    const compiled = await actual(guest, { options: { a64_profile: "v3" } });
+    const compiled = await actual(guest, { options: { cpu_profile: "generic-arm64-compat32" } });
     assert.equal(interpreted.status, "ok", `program ${n} (interpreter): ${interpreted.status}\n${interpreted.text}`);
     assert.equal(compiled.status, "ok", `program ${n} (page tier): ${compiled.status}\n${compiled.text}`);
     const t = compiled.page_tier;

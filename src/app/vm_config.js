@@ -5,7 +5,7 @@
 // configuration (config_to_options, with the old page's rules of
 // src/browser/vm_options.js).
 
-import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, FIRMWARE_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, USB_PORTS, allowed_options,
+import { CPU_PROFILES, MACHINE_CPU_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, FIRMWARE_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, USB_PORTS, allowed_options,
     check_machine_options } from "../machine_options.js";
 import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
@@ -96,7 +96,7 @@ export const TPM_STATE_SIZE = 512 * 1024;
  *     when it is made or reset)
  * @property {{state: Image | null} | null} tpm a TPM 2.0 (docs/tpm.md); its state a browser disk made at the first
  *     power-on (null before)
- * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
+ * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: the CPU model, cpu_profile; null the CPU type's default)
  * @property {{mb: number}} memory
  * @property {Disk[]} disks
  * @property {{image: Image | null, disk_error: "stop" | "report"}} cdrom
@@ -225,7 +225,7 @@ export function with_defaults(config)
     section("machine", { type: DEFAULT_FORM.machine_type, acpi: DEFAULT_FORM.acpi, hpet: false, smbus: false, pcie_root_ports: 0,
         boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null, firmware: "seabios", uefi_vars: null,
         secure_boot: false, secure_boot_keys: "microsoft" });
-    // (profile: arm64's a64_profile, null the library's default, v2)
+    // (profile: the CPU model, cpu_profile; null the CPU type's default)
     section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true, profile: null });
     section("memory", { mb: DEFAULT_MEMORY_SIZE });
     c.disks = Array.isArray(c.disks) ? c.disks.map(d => Object.assign({ disk_option: "read_only", disk_error: "stop" }, d)) : [];
@@ -412,8 +412,11 @@ export function validate_config(config)
     bool(cpu.jit, "cpu.jit");
     if(cpu.profile !== null && cpu.profile !== undefined)
     {
-        if(cpu.type !== "arm64") problem("cpu.profile", "is the arm64 CPU's");
-        else if(!A64_PROFILES.includes(cpu.profile)) problem("cpu.profile", "must be one of " + A64_PROFILES.join(", "));
+        const model = Object.prototype.hasOwnProperty.call(CPU_PROFILES, cpu.profile) ? CPU_PROFILES[cpu.profile] : null;
+        const only = MACHINE_CPU_PROFILES[machine.type]?.[cpu.type];
+        if(!model) problem("cpu.profile", "must be one of " + Object.keys(CPU_PROFILES).join(", "));
+        else if(model.cpu_type !== cpu.type) problem("cpu.profile", "is a CPU of type " + model.cpu_type + ", not " + cpu.type);
+        else if(only && !only.includes(cpu.profile)) problem("cpu.profile", "the " + machine.type + " machine takes " + only.join(", "));
     }
 
     int(config.memory.mb, "memory.mb", 16, MAX_MEMORY_SIZE);
@@ -864,7 +867,7 @@ export function config_to_options(config, env)
         settings.cpu_cores = cpu.cores;
         settings.parallel = cpu.parallel;
         settings.cpu_type = cpu.type;
-        if(cpu.type === "arm64" && cpu.profile) settings.a64_profile = cpu.profile;
+        if(cpu.profile) settings.cpu_profile = cpu.profile;
         settings.machine_type = machine.type;
         if(machine.type === "q35")
         {

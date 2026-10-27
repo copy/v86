@@ -16,6 +16,46 @@ export const ARM_CPU_TYPES = ["arm64", "arm32"];
 export function is_arm(cpu_type) { return ARM_CPU_TYPES.includes(/** @type {string} */ (cpu_type)); }
 
 /**
+ * The CPU models (`cpu_profile`, docs/iphone4-plan.md "CPU 型号：统一的
+ * cpu_profile"): which CPU the guest sees. Each runs on one cpu_type, so a
+ * cpu_profile alone picks it. The generic- ones are v86's own (all it
+ * implements), each cpu_type's default; a real chip goes by its model's
+ * name, for software that checks which CPU it runs on. hidden: for the
+ * regression tests against the QEMU references only (the VM manager leaves
+ * them out). The instruction set levels stay with cpu_features.
+ * @type {!Object<string, {cpu_type: string, hidden: (boolean|undefined)}>}
+ */
+export const CPU_PROFILES = {
+    "generic-x86": { cpu_type: "x86" },
+    "generic-x86-64": { cpu_type: "x86_64" },
+    // (src/virt/platform.js: v86-aarch64-v2, with FEAT_PAN; -compat32 is v3, AArch32 at EL0 too)
+    "generic-arm64": { cpu_type: "arm64" },
+    "generic-arm64-compat32": { cpu_type: "arm64" },
+    "generic-arm64-v1": { cpu_type: "arm64", hidden: true },
+    "generic-arm64-v1.1": { cpu_type: "arm64", hidden: true },
+    "cortex-a15": { cpu_type: "arm32" },
+};
+
+/** Each cpu_type's CPU model when cpu_profile is not given */
+export const DEFAULT_CPU_PROFILES = { "x86": "generic-x86", "x86_64": "generic-x86-64", "arm64": "generic-arm64", "arm32": "cortex-a15" };
+
+/** The CPU models a machine takes, where it is choosy: machine_type → cpu_type → models */
+export const MACHINE_CPU_PROFILES = { "ranchu": { "arm32": ["cortex-a15"] } };
+
+/**
+ * The CPU models a page may offer for a CPU type and machine (the hidden ones left out)
+ * @param {string} cpu_type
+ * @param {string=} machine_type
+ * @return {!Array<string>}
+ */
+export function cpu_profiles_of(cpu_type, machine_type)
+{
+    const only = machine_type && MACHINE_CPU_PROFILES[machine_type] && MACHINE_CPU_PROFILES[machine_type][cpu_type];
+    return Object.keys(CPU_PROFILES).filter(name => CPU_PROFILES[name].cpu_type === cpu_type && !CPU_PROFILES[name].hidden &&
+        (!only || only.includes(name)));
+}
+
+/**
  * The machines (`machine_type`): "i440fx" (the default with an x86 CPU:
  * i440FX host bridge, PIIX3/4, IDE), "q35" (Q35 MCH, ICH9 LPC with its power
  * management, AHCI; docs/q35.md), "virt" (the ARM board, docs/virt.md) and
@@ -73,10 +113,7 @@ export const PC_ONLY = ["bzimage", "bzimage_initrd_from_filesystem", "multiboot"
 
 /** Options of the virt machine that the PC machines reject */
 export const VIRT_ONLY = ["kernel", "dtb", "virtio_disks", "virtio_rng", "virtio_transport", "virtio_input", "virtio_vsock",
-    "virtio_console_ports", "virtio_gpu_pci_slot", "a64_profile"];
-
-/** The arm64 CPU's profiles (a64_profile, src/virt/platform.js); v2 is the default */
-export const A64_PROFILES = ["v1", "v1.1", "v2", "v3"];
+    "virtio_console_ports", "virtio_gpu_pci_slot"];
 
 /** The display adapters of the virt machine (no VGA) */
 export const VIRT_GRAPHICS_ADAPTERS = ["none", "virtio_gpu"];
@@ -92,7 +129,7 @@ const given = value => value !== undefined && value !== null && value !== false;
 /**
  * Check the guest CPU, the machine and the options that belong to them
  * @param {!Object} options the options of new V86(), or CPU.init's settings
- * @return {{cpu_type: string, machine_type: string}}
+ * @return {{cpu_type: string, machine_type: string, cpu_profile: string}}
  */
 export function check_machine_options(options)
 {
@@ -100,11 +137,29 @@ export function check_machine_options(options)
     {
         throw new Error("experimental_x64 was replaced by cpu_type: \"x86_64\"");
     }
-    const cpu_type = options["cpu_type"] === undefined ? CPU_TYPES[0] : options["cpu_type"];
+    if(options["a64_profile"] !== undefined)
+    {
+        throw new Error("a64_profile was replaced by cpu_profile: \"generic-arm64\" (a64_profile \"v2\"), " +
+            "\"generic-arm64-compat32\" (\"v3\"), \"generic-arm64-v1.1\", \"generic-arm64-v1\"");
+    }
+    const cpu_profile = options["cpu_profile"];
+    if(cpu_profile !== undefined && !Object.prototype.hasOwnProperty.call(CPU_PROFILES, cpu_profile))
+    {
+        throw new Error("Unknown cpu_profile " + JSON.stringify(cpu_profile) + "; supported: " +
+            Object.keys(CPU_PROFILES).map(name => "\"" + name + "\"").join(", "));
+    }
+    // (a CPU model alone picks its CPU type)
+    const cpu_type = options["cpu_type"] !== undefined ? options["cpu_type"] :
+        cpu_profile !== undefined ? CPU_PROFILES[cpu_profile].cpu_type : CPU_TYPES[0];
     if(!CPU_TYPES.includes(cpu_type))
     {
         throw new Error("Unknown cpu_type " + JSON.stringify(cpu_type) + "; supported: " +
             CPU_TYPES.map(name => "\"" + name + "\"").join(", "));
+    }
+    if(cpu_profile !== undefined && CPU_PROFILES[cpu_profile].cpu_type !== cpu_type)
+    {
+        throw new Error("cpu_profile \"" + cpu_profile + "\" is a CPU of cpu_type \"" + CPU_PROFILES[cpu_profile].cpu_type +
+            "\", not \"" + cpu_type + "\"; cpu_type \"" + cpu_type + "\" has " + cpu_profiles_of(cpu_type).map(name => "\"" + name + "\"").join(", "));
     }
     const arm = is_arm(cpu_type);
     const machine_type = options["machine_type"] === undefined ? (arm ? "virt" : "i440fx") : options["machine_type"];
@@ -122,6 +177,13 @@ export function check_machine_options(options)
         throw new Error("cpu_type \"" + cpu_type + "\" does not run on machine_type \"" + machine_type + "\": " +
             (arm ? "the ARM CPUs need machine_type \"virt\" (the default with them) or \"ranchu\"" :
                 "the " + machine_type + " machine needs cpu_type \"arm64\" or \"arm32\""));
+    }
+    const profile = cpu_profile === undefined ? DEFAULT_CPU_PROFILES[cpu_type] : cpu_profile;
+    const only = MACHINE_CPU_PROFILES[machine_type] && MACHINE_CPU_PROFILES[machine_type][cpu_type];
+    if(only && !only.includes(profile))
+    {
+        throw new Error("machine_type \"" + machine_type + "\" takes cpu_profile " + only.map(name => "\"" + name + "\"").join(", ") +
+            " with cpu_type \"" + cpu_type + "\", got " + JSON.stringify(profile));
     }
 
     if(arm)
@@ -170,15 +232,6 @@ export function check_machine_options(options)
         if(transport !== undefined && transport !== "mmio" && transport !== "pci")
         {
             throw new Error("virtio_transport is \"mmio\" (the default) or \"pci\", got " + JSON.stringify(transport));
-        }
-        const profile = options["a64_profile"];
-        if(profile !== undefined && cpu_type !== "arm64")
-        {
-            throw new Error("a64_profile is an option of cpu_type \"arm64\"; cpu_type \"arm32\" has its own profile");
-        }
-        if(profile !== undefined && !A64_PROFILES.includes(profile))
-        {
-            throw new Error("a64_profile is one of " + A64_PROFILES.map(p => JSON.stringify(p)).join(", ") + ", got " + JSON.stringify(profile));
         }
     }
     else
@@ -323,7 +376,7 @@ export function check_machine_options(options)
             }
         }
     }
-    return { cpu_type, machine_type };
+    return { cpu_type, machine_type, cpu_profile: profile };
 }
 
 /**
@@ -335,10 +388,11 @@ export function check_machine_options(options)
  * @param {string} cpu_type
  * @param {string} machine_type
  * @return {{machine_types: !Array<string>, graphics_adapters: !Array<string>, net_device_types: !Array<string>,
- *     audio_devices: !Array<string>, usb_controllers: !Array<string>,
+ *     audio_devices: !Array<string>, usb_controllers: !Array<string>, cpu_profiles: !Array<string>,
  *     max_cores: number, acpi: string, unavailable: !Object<string, string>}} machine_types: the machines
- *     of the CPU; acpi: "required" (Q35), "with_cores" (needed with more than one core), "none" (virt);
- *     unavailable: the options that do not apply, each with the reason
+ *     of the CPU; cpu_profiles: the CPU models to offer (cpu_profile); acpi: "required" (Q35),
+ *     "with_cores" (needed with more than one core), "none" (virt); unavailable: the options that do
+ *     not apply, each with the reason
  */
 export function allowed_options(cpu_type, machine_type)
 {
@@ -354,10 +408,6 @@ export function allowed_options(cpu_type, machine_type)
         unavailable["bios"] = unavailable["vga_bios"] = "the virt machine has no PC firmware (it boots its kernel directly)";
         unavailable["fda"] = unavailable["fdb"] = "the virt machine has no floppy controller";
         unavailable["acpi"] = "the virt machine describes itself with a device tree, not ACPI";
-        if(cpu_type === "arm32")
-        {
-            unavailable["a64_profile"] = "a64_profile is an option of cpu_type \"arm64\"; cpu_type \"arm32\" has its own profile";
-        }
         if(machine_type === "ranchu")
         {
             unavailable["virtio_transport"] = "the ranchu machine has no PCIe host: its virtio devices are on virtio-mmio";
@@ -384,6 +434,7 @@ export function allowed_options(cpu_type, machine_type)
         audio_devices: virt ? [] : AUDIO_DEVICES.slice(),
         // (the virt machine's input is virtio_input)
         usb_controllers: virt ? [] : USB_CONTROLLERS.slice(),
+        cpu_profiles: cpu_profiles_of(cpu_type, machine_type),
         max_cores: MAX_CORES,
         acpi: virt ? "none" : machine_type === "q35" ? "required" : "with_cores",
         unavailable,

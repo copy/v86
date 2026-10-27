@@ -406,6 +406,14 @@ const parts = {
         select_text(panel().querySelector("select[aria-label=CPU]"), "arm64");
         await until(() => /Machine: virt/.test(dialog.querySelector(".settings-notes").textContent), "the note");
         log("arm64: " + dialog.querySelector(".settings-notes").textContent);
+        // the CPU model: automatic and arm64's own (the regression-only ones left out), with what the chosen one is for
+        const models = () => Array.from(panel().querySelector("select[aria-label='CPU model']").options, o => o.textContent);
+        check(JSON.stringify(models()) === JSON.stringify(["Automatic (the system decides)", "Generic 64-bit ARM (recommended)",
+            "Generic 64-bit ARM that runs 32-bit programs"]), "arm64's CPU models: " + models());
+        check(/64-bit Linux, Android 16/.test(panel().textContent), "automatic: the default model's purpose");
+        select_text(panel().querySelector("select[aria-label='CPU model']"), "Generic 64-bit ARM that runs 32-bit");
+        await until(() => /32-bit programs too/.test(panel().textContent), "the model's purpose");
+        log("arm64's CPU models: " + models().join(", "));
         item("display").click();
         const adapters = Array.from(panel().querySelector("select[aria-label='Display adapter']").options, o => o.textContent);
         check(JSON.stringify(adapters) === JSON.stringify(["None (serial console only)", "virtio-gpu"]), "virt's display adapters: " + adapters);
@@ -418,6 +426,10 @@ const parts = {
         // back to x86, then two cores: ACPI on, fixed
         item("processor").click();
         select_text(panel().querySelector("select[aria-label=CPU]"), "x86 (32-bit");
+        await until(() => /CPU model: automatic/.test(dialog.querySelector(".settings-notes").textContent), "the CPU model's note");
+        check(JSON.stringify(models()) === JSON.stringify(["Automatic (the system decides)", "Generic 32-bit x86 (recommended)"]) &&
+            panel().querySelector("select[aria-label='CPU model']").selectedOptions[0].textContent.startsWith("Automatic"),
+            "x86: its CPU models, the arm64 one dropped: " + models());
         select_text(panel().querySelector("select[aria-label=Cores]"), "2");
         item("machine").click();
         const acpi2 = Array.from(panel().querySelectorAll("label.check")).find(l => /^ACPI/.test(l.textContent.trim())).querySelector("input");

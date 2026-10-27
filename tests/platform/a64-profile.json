@@ -16,7 +16,7 @@
  },
  "v2": {
   "profile": "v86-aarch64-v2",
-  "a64_profile": "v2",
+  "cpu_profile": "generic-arm64",
   "llvm_mattr": "+v8a,+fp-armv8,+neon,+aes,+sha2,+crc,+pan",
   "about": "v1.1 and FEAT_PAN (optional in Armv8.0; docs/arm64-virt-android16-plan.md, profile v2 and appendix F3): PSTATE.PAN, MSR PAN (immediate and register), SPSR_EL1.PAN, SCTLR_EL1.SPAN; no PAN2 (AT S1E1RP/WP) or PAN3 (EPAN). HWCAP is v1.1's (PAN has none). tests/a64/pan.mjs checks it against QEMU's -cpu max",
   "id_space": { "S3_0_C0_C7_1": "0x0000000000100000" },
@@ -24,7 +24,7 @@
  },
  "v3": {
   "profile": "v86-aarch64-v3",
-  "a64_profile": "v3",
+  "cpu_profile": "generic-arm64-compat32",
   "llvm_mattr": "+v8a,+fp-armv8,+neon,+aes,+sha2,+crc,+pan",
   "about": "v2 and AArch32 at EL0 (docs/aarch32-plan.md part 1): A32, T32 with IT blocks, VFPv4 and Advanced SIMD with the crypto instructions, CP15's EL0 registers. The AArch32 ID registers are the reference's (cortex-a35) for an AArch32 at EL0 only, as Cortex-A76 reports them: no AArch32 EL1 modes (ID_PFR1.ProgMod 0), no SETEND (ID_ISAR1.Endian 0: no mixed endianness), no SMC (ID_ISAR4.SMC 0: no EL3). tests/a64/aarch32_oracle.mjs and aarch32_el0.mjs check the instructions against the reference. id_space: v1.1's registers that differ (v2's PAN included)",
   "id_space": {
@@ -575,7 +575,7 @@
     ["FGT", 59, 56, 0],
     ["ECV", 63, 60, 0]
    ],
-   "note": "40-bit PA, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1.1; v1, a64_profile: \"v1\", has 4 KiB only: TGran16 = 0, TGran64 = 0xF), no mixed endianness"
+   "note": "40-bit PA, 16-bit ASIDs, the 4, 16 and 64 KiB granules (v1.1; v1, cpu_profile: \"generic-arm64-v1\", has 4 KiB only: TGran16 = 0, TGran64 = 0xF), no mixed endianness"
   },
   {
    "name": "ID_AA64MMFR1_EL1",

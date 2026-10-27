@@ -14,7 +14,7 @@
 //   "none") and no PCIe (virtio_transport "mmio").
 
 import assert from "node:assert/strict";
-import { CPU_TYPES, MACHINE_TYPES, check_machine_options } from "../../src/machine_options.js";
+import { CPU_TYPES, DEFAULT_CPU_PROFILES, MACHINE_TYPES, check_machine_options } from "../../src/machine_options.js";
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
@@ -31,7 +31,7 @@ for(const cpu_type of CPU_TYPES)
         const options = { cpu_type, machine_type };
         if(runs[cpu_type].includes(machine_type))
         {
-            assert.deepEqual(check_machine_options(options), options);
+            assert.deepEqual(check_machine_options(options), { ...options, cpu_profile: DEFAULT_CPU_PROFILES[cpu_type] });
         }
         else
         {
@@ -44,10 +44,10 @@ for(const cpu_type of CPU_TYPES)
 console.log("PASS the cpu_type and machine_type matrix");
 
 // defaults
-assert.deepEqual(check_machine_options({}), { cpu_type: "x86", machine_type: "i440fx" });
-assert.deepEqual(check_machine_options({ cpu_type: "x86_64" }), { cpu_type: "x86_64", machine_type: "i440fx" });
-assert.deepEqual(check_machine_options({ cpu_type: "arm64" }), { cpu_type: "arm64", machine_type: "virt" });
-assert.deepEqual(check_machine_options({ cpu_type: "arm32" }), { cpu_type: "arm32", machine_type: "virt" });
+assert.deepEqual(check_machine_options({}), { cpu_type: "x86", machine_type: "i440fx", cpu_profile: "generic-x86" });
+assert.deepEqual(check_machine_options({ cpu_type: "x86_64" }), { cpu_type: "x86_64", machine_type: "i440fx", cpu_profile: "generic-x86-64" });
+assert.deepEqual(check_machine_options({ cpu_type: "arm64" }), { cpu_type: "arm64", machine_type: "virt", cpu_profile: "generic-arm64" });
+assert.deepEqual(check_machine_options({ cpu_type: "arm32" }), { cpu_type: "arm32", machine_type: "virt", cpu_profile: "cortex-a15" });
 console.log("PASS defaults: i440fx with x86, virt with arm64 and arm32");
 
 // unknown names
@@ -59,13 +59,25 @@ assert.throws(() => check_machine_options({ machine_type: "pc" }), /machine_type
 assert.throws(() => check_machine_options({ experimental_x64: true }), /experimental_x64 was replaced/);
 console.log("PASS unknown cpu_type and machine_type");
 
-// the arm64 CPU's profile (docs/aarch32-plan.md Q7.2)
-for(const a64_profile of ["v1", "v1.1", "v2", "v3"]) assert.doesNotThrow(() => check_machine_options({ cpu_type: "arm64", a64_profile }), a64_profile);
-// (arm32 has its own profile, arm32-v1)
-assert.throws(() => check_machine_options({ cpu_type: "arm32", a64_profile: "v3" }), /a64_profile is an option of cpu_type "arm64"/);
-assert.throws(() => check_machine_options({ cpu_type: "arm64", a64_profile: "v4" }), /a64_profile is one of "v1", "v1.1", "v2", "v3", got "v4"/);
-assert.throws(() => check_machine_options({ cpu_type: "x86_64", a64_profile: "v3" }), /a64_profile is an option of machine_type "virt"/);
-console.log("PASS a64_profile");
+// the CPU model (cpu_profile, docs/iphone4-plan.md "CPU 型号"; the arm64 profiles of docs/aarch32-plan.md Q7.2)
+for(const cpu_profile of ["generic-arm64-v1", "generic-arm64-v1.1", "generic-arm64", "generic-arm64-compat32"])
+{
+    assert.equal(check_machine_options({ cpu_type: "arm64", cpu_profile }).cpu_profile, cpu_profile);
+}
+assert.equal(check_machine_options({ cpu_type: "arm64" }).cpu_profile, "generic-arm64", "arm64's default");
+assert.equal(check_machine_options({ cpu_type: "arm32" }).cpu_profile, "cortex-a15", "arm32's default");
+assert.equal(check_machine_options({}).cpu_profile, "generic-x86", "the PC's default");
+assert.equal(check_machine_options({ cpu_type: "x86_64" }).cpu_profile, "generic-x86-64");
+// (a model alone picks its CPU type)
+assert.deepEqual(check_machine_options({ cpu_profile: "cortex-a15" }), { cpu_type: "arm32", machine_type: "virt", cpu_profile: "cortex-a15" });
+assert.deepEqual(check_machine_options({ cpu_profile: "generic-x86-64" }), { cpu_type: "x86_64", machine_type: "i440fx", cpu_profile: "generic-x86-64" });
+assert.throws(() => check_machine_options({ cpu_type: "arm32", cpu_profile: "generic-arm64-compat32" }),
+    /cpu_profile "generic-arm64-compat32" is a CPU of cpu_type "arm64", not "arm32"; cpu_type "arm32" has "cortex-a15"/);
+assert.throws(() => check_machine_options({ cpu_type: "x86_64", cpu_profile: "generic-arm64" }), /is a CPU of cpu_type "arm64", not "x86_64"/);
+assert.throws(() => check_machine_options({ cpu_profile: "v3" }), /Unknown cpu_profile "v3"; supported: "generic-x86"/);
+assert.throws(() => check_machine_options({ cpu_type: "arm64", a64_profile: "v3" }), /a64_profile was replaced by cpu_profile/);
+assert.equal(check_machine_options({ cpu_type: "arm32", machine_type: "ranchu", cpu_profile: "cortex-a15" }).cpu_profile, "cortex-a15");
+console.log("PASS cpu_profile");
 
 // PC options on virt
 const pc_options = {

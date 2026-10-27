@@ -9,25 +9,29 @@ export const VIRT_LAYOUT_VERSION = 2;
 /** The CPU profiles' base name: v1; v1.1 adds ".1"; v2 is the default (src/arm/cpu.js) */
 export const A64_PROFILE = "v86-aarch64-v1";
 /**
- * The CPU profiles (docs/arm64-virt-android16-plan.md, "CPU profile") by
- * a64_profile's value: [name, granules (bit 0 4 KiB, 1 16 KiB, 2 64 KiB),
+ * The arm64 CPU's profiles (docs/arm64-virt-android16-plan.md, "CPU profile")
+ * by their CPU model (cpu_profile, src/machine_options.js): [name (the
+ * snapshots record it), granules (bit 0 4 KiB, 1 16 KiB, 2 64 KiB),
  * optional features (bit 0 FEAT_PAN, bit 1 AArch32 at EL0)]
  * @type {!Object<string, !Array>}
  */
 export const A64_PROFILES = {
-    "v1": [A64_PROFILE, 1, 0],
-    "v1.1": [A64_PROFILE + ".1", 7, 0],
-    "v2": ["v86-aarch64-v2", 7, 1],
+    "generic-arm64-v1": [A64_PROFILE, 1, 0],
+    "generic-arm64-v1.1": [A64_PROFILE + ".1", 7, 0],
+    "generic-arm64": ["v86-aarch64-v2", 7, 1],
     // (v2 and 32-bit processes: docs/aarch32-plan.md)
-    "v3": ["v86-aarch64-v3", 7, 3],
+    "generic-arm64-compat32": ["v86-aarch64-v3", 7, 3],
 };
 
 /**
- * cpu_type "arm32"'s profile (docs/aarch32-plan.md part 2): AArch32
- * throughout (feature bit 2), with AArch32's instructions (bit 1); its
- * name, granules (none of AArch64's: the 4 KiB one), features
+ * cpu_type "arm32"'s profiles by their CPU model (docs/aarch32-plan.md part
+ * 2): AArch32 throughout (feature bit 2), with AArch32's instructions (bit
+ * 1); name, granules (none of AArch64's: the 4 KiB one), features
+ * @type {!Object<string, !Array>}
  */
-export const ARM32_PROFILE = ["v86-arm32-v1", 1, 6];
+export const ARM32_PROFILES = {
+    "cortex-a15": ["v86-arm32-v1", 1, 6],
+};
 
 /** Must match MAX_CORES in src/rust/aarch64/isa_hooks.rs */
 export const VIRT_MAX_CORES = 8;

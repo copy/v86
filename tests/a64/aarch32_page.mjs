@@ -17,11 +17,11 @@ for(const cases of (process.env.A64_AARCH32_CASES || "q1,q3,q4").split(","))
     const directory = build("aarch32-page-" + cases, [root + "tests/a64/aarch32/el0.c", root + "tests/a64/aarch32/el0_run.S",
         root + `tests/a64/aarch32/${cases}.a32.S`], { cflags: [`-DCASES=${cases}_a32`, "-DA64_MMU"] });
     delete process.env.A64_JIT;
-    const interpreted = await actual(directory, { options: { a64_profile: "v3" } });
+    const interpreted = await actual(directory, { options: { cpu_profile: "generic-arm64-compat32" } });
     process.env.A64_JIT = "1";
     process.env.A64_JIT_HOT = "1";
     process.env.A64_JIT_SWITCHES = "a64_page_aarch32=" + (process.env.A64_AARCH32_PAGE || "1");
-    const compiled = await actual(directory, { options: { a64_profile: "v3" } });
+    const compiled = await actual(directory, { options: { cpu_profile: "generic-arm64-compat32" } });
     assert.equal(interpreted.status, "ok", cases + " (interpreter): " + interpreted.status);
     assert.equal(compiled.status, "ok", cases + " (page tier): " + compiled.status);
     const a = interpreted.text.split("\n"), b = compiled.text.split("\n");

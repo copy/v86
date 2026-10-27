@@ -673,7 +673,7 @@ fs.writeFileSync(source, lines.join("\n") + "\n" + code.join("\n") + "\n");
 const directory = build("aarch32-oracle", [root + "tests/a64/aarch32/oracle.c", root + "tests/a64/aarch32/el0_run.S", source]);
 const expected = await reference(directory, { timeout: 120000 });
 assert.equal(expected.status, "ok", "QEMU: " + expected.status + "\n" + expected.text.slice(-2000));
-const got = await actual(directory, { options: { a64_profile: "v3" }, timeout: 120000 });
+const got = await actual(directory, { options: { cpu_profile: "generic-arm64-compat32" }, timeout: 120000 });
 const a = expected.text.split("\n"), b = got.text.split("\n");
 const differences = [];
 for(let i = 0; i < cases.length; i++)

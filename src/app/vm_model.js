@@ -7,7 +7,7 @@
 // drops what it does not have), each implication told. A configuration made
 // only through change() passes check_config.
 
-import { ARM_MACHINE_TYPES, CPU_TYPES, MAX_VRAM_SIZE, allowed_options, is_arm } from "../machine_options.js";
+import { ARM_MACHINE_TYPES, CPU_PROFILES, CPU_TYPES, MACHINE_CPU_PROFILES, MAX_VRAM_SIZE, allowed_options, is_arm } from "../machine_options.js";
 import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, Q35_PAGE_DEVICES } from "../browser/vm_options.js";
 import { SOUND_DEVICES, BOOT_ORDERS } from "./vm_config.js";
@@ -49,6 +49,8 @@ export function choices(config)
     const sixty_four = config.cpu.type === "x86_64" || config.cpu.type === "arm64";
     return {
         cpu_types: CPU_TYPES.slice(),
+        /** the CPU models to offer (cpu.profile), null (automatic) first */
+        cpu_profiles: [null, ...allowed.cpu_profiles],
         machine_types: allowed.machine_types,
         graphics_adapters: allowed.graphics_adapters,
         net_devices: allowed.net_device_types,
@@ -111,7 +113,15 @@ function fit(c, notes)
         c.memory.mb = MAX_HEAP_MEMORY_SIZE;
         note("Memory: " + MAX_HEAP_MEMORY_SIZE + " MB (the most of the 32-bit ARM CPU)");
     }
-    if(c.cpu.profile && c.cpu.type !== "arm64") { c.cpu.profile = null; note("Instruction sets: the arm64 CPU's profile is off"); }
+    if(c.cpu.profile)
+    {
+        // (a CPU model of another CPU, one the machine does not take, or no model at all: the default)
+        const model = Object.prototype.hasOwnProperty.call(CPU_PROFILES, c.cpu.profile) ? CPU_PROFILES[c.cpu.profile] : null;
+        const only = MACHINE_CPU_PROFILES[c.machine.type]?.[c.cpu.type];
+        const reason = !model ? "there is no CPU model " + c.cpu.profile : model.cpu_type !== c.cpu.type ? c.cpu.profile + " is not a " + c.cpu.type + " CPU" :
+            only && !only.includes(c.cpu.profile) ? "the " + c.machine.type + " machine takes " + only.join(", ") : "";
+        if(reason) { c.cpu.profile = null; note("CPU model: automatic (" + reason + ")"); }
+    }
 
     // ACPI and the Q35 machine's devices
     if(allowed.acpi === "none" && c.machine.acpi) { c.machine.acpi = false; note("ACPI off: " + allowed.unavailable["acpi"]); }
@@ -290,10 +300,10 @@ export function change(config, path, value)
         c.machine.type = "i440fx";
         notes.push("Machine: i440fx (the " + value + " CPU's)");
     }
-    if(path === "cpu.type" && value !== "arm64" && c.cpu.profile)
+    if(path === "cpu.type" && c.cpu.profile && CPU_PROFILES[c.cpu.profile]?.cpu_type !== value)
     {
         c.cpu.profile = null;
-        notes.push("Instruction sets: the arm64 CPU's profile is off");
+        notes.push("CPU model: automatic (the " + value + " CPU's default)");
     }
     if(path === "cpu.type" && value === "x86" && c.memory.mb > MAX_HEAP_MEMORY_SIZE)
     {

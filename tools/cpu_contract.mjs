@@ -316,8 +316,8 @@ async function a64_v86_check()
     // (v1.1, then v2 and v3: their ID registers differ where the profile's
     // entries say; v2 is the default since 2026-10-21, so v1.1 is asked for)
     const { v2, v3 } = a64_profile;
-    for(const [variant, options, changes] of [[a64_profile.profile, { a64_profile: "v1.1" }, {}], [v2.profile, { a64_profile: v2.a64_profile }, v2.id_space],
-        [v3.profile, { a64_profile: v3.a64_profile }, v3.id_space]])
+    for(const [variant, options, changes] of [[a64_profile.profile, { cpu_profile: "generic-arm64-v1.1" }, {}], [v2.profile, { cpu_profile: v2.cpu_profile }, v2.id_space],
+        [v3.profile, { cpu_profile: v3.cpu_profile }, v3.id_space]])
     {
         for(const [name, cores] of Object.entries(A64_PROFILES))
         {

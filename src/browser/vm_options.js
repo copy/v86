@@ -571,8 +571,6 @@ export function settings_to_options(settings, env)
             // (the A64 page tier: the library's default is off until its F gate;
             // quoted, as the library reads it, or Closure renames it)
             "jit_switches": settings.disable_jit ? undefined : { "a64_page": 1 },
-            // (the CPU profile: v3 runs 32-bit programs too; the library's default otherwise; arm32's own)
-            "a64_profile": settings.cpu_type === "arm64" ? settings.a64_profile : undefined,
         } : {
             bios: settings.bios,
             vga_bios: settings.vga_bios,
@@ -588,6 +586,8 @@ export function settings_to_options(settings, env)
             bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
         }),
         acpi: !is_arm(settings.cpu_type) && (settings.acpi || settings.cpu_cores > 1 || settings.machine_type === "q35"),
+        // (the CPU model: the cpu_type's default when not chosen; generic-arm64-compat32 runs 32-bit programs too)
+        "cpu_profile": settings.cpu_profile || undefined,
         cpu_cores: settings.cpu_cores,
         "cpu_type": settings.cpu_type,
         machine_type: settings.machine_type,

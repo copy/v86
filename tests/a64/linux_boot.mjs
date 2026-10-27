@@ -484,8 +484,11 @@ const jit = !!+process.env.A64_JIT;
 // the soft lockup threshold's 20 s whenever the host is busy. 60 s here; a
 // core that hangs is still reported, or misses the run's deadline)
 const V86_WATCHDOG = !jit && cores > 1 ? " watchdog_thresh=30" : "";
-// A64_PROFILE: the CPU profile (a64_profile: v1, v1.1, v2 with FEAT_PAN, the default, or v3 with AArch32 at EL0)
-const PROFILE_OPTIONS = process.env.A64_PROFILE ? { a64_profile: process.env.A64_PROFILE } : {};
+// A64_PROFILE: the CPU profile by its short name (v86-aarch64-v1, -v1.1, v2
+// with FEAT_PAN, the default, or v3 with AArch32 at EL0), run as its CPU model
+const A64_CPU_PROFILES = { "v1": "generic-arm64-v1", "v1.1": "generic-arm64-v1.1", "v2": "generic-arm64", "v3": "generic-arm64-compat32" };
+assert.ok(!process.env.A64_PROFILE || A64_CPU_PROFILES[process.env.A64_PROFILE], "A64_PROFILE is v1, v1.1, v2 or v3");
+const PROFILE_OPTIONS = process.env.A64_PROFILE ? { cpu_profile: A64_CPU_PROFILES[process.env.A64_PROFILE] } : {};
 const profile_name = process.env.A64_PROFILE || "v2";
 const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
     ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};

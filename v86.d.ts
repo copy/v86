@@ -1059,16 +1059,22 @@ export interface V86Options {
     cpu_type?: "x86" | "x86_64" | "arm64" | "arm32";
 
     /**
-     * The arm64 CPU's profile (cpu_type "arm64" only; see
+     * The CPU model: which CPU the guest sees. Each runs on one cpu_type
+     * (given alone, it picks cpu_type); the generic- ones are v86's own and
+     * each cpu_type's default. "generic-x86" (cpu_type "x86"),
+     * "generic-x86-64" ("x86_64"), "generic-arm64" ("arm64": Armv8.0-A with
+     * FEAT_PAN, 64-bit programs only), "generic-arm64-compat32" (that and
+     * AArch32 at EL0: a 64-bit kernel with COMPAT runs 32-bit Arm programs,
+     * armhf and armeabi-v7a; docs/aarch32-plan.md), "cortex-a15" ("arm32").
+     * "generic-arm64-v1.1" and "generic-arm64-v1" (generic-arm64 without
+     * FEAT_PAN; v1 the 4 KiB granule only) are for regression tests against
+     * QEMU. See
      * [docs/aarch64.md](https://github.com/speedyHKjournalist/v64/blob/master/docs/aarch64.md),
-     * "CPU profile"): "v2", Armv8.0-A with FEAT_PAN, 64-bit programs only;
-     * "v3", v2 and AArch32 at EL0: a 64-bit kernel with COMPAT runs 32-bit
-     * Arm programs (armhf, armeabi-v7a; docs/aarch32-plan.md); "v1.1" and
-     * "v1" are v2 without FEAT_PAN (v1: the 4 KiB granule only). A restored
-     * snapshot takes its own profile.
-     * @default "v2"
+     * "CPU profile". A restored snapshot takes its own model.
+     * @default the cpu_type's generic model ("cortex-a15" for "arm32")
      */
-    a64_profile?: "v1" | "v1.1" | "v2" | "v3";
+    cpu_profile?: "generic-x86" | "generic-x86-64" | "generic-arm64" | "generic-arm64-compat32" | "generic-arm64-v1" | "generic-arm64-v1.1" |
+        "cortex-a15";
 
     /**
      * CPU features beyond the base profile, reported by CPUID: SSSE3, SSE4.1

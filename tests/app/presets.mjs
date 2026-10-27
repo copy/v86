@@ -137,7 +137,7 @@ test("Android 7.1's emulator image: the options of tests/a32/android_boot.mjs (A
     assert.equal(o.net_device.relay_url, "fetch");
     assert.equal(o.virtio_transport, undefined);
     assert.equal(o.virtio_input, undefined);
-    assert.equal(o.a64_profile, undefined);
+    assert.equal(o.cpu_profile, undefined);
     assert.deepEqual(o.jit_switches, { a64_page: 1 });
     assert.deepEqual(check_config(c), []);
     // (its device model is ranchu's: Cuttlefish's on ranchu is refused, ranchu's on virt too)
