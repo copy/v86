@@ -4,8 +4,10 @@
 // "GLProcessPipe"). Built into build/v86-gles.js; from the source tree,
 // src/device_plugin.js imports this file directly.
 //
-// E1: decoded and counted, nothing drawn (src/gles/gles_host.js). The
-// device's "summary" gives the counts (tests, the plan's review).
+// The shadow state answers the guest; GLES batches go to the renderer
+// channel (options "renderer": the page's, stream "gles"). The device's
+// "summary" gives the counts (tests, the plan's review). Built by esbuild,
+// not Closure: it brings gl-webgpu's GLSL front end (CommonJS scripts).
 
 import { register_device_plugin } from "../device_machine.js";
 import { GLESHost } from "./gles_host.js";
@@ -15,12 +17,15 @@ register_device_plugin("V86GlesHosts", {
 
     /**
      * @param {!Object} handle
-     * @param {!Object} options "display": the screen's width, height and dpi
+     * @param {!Object} options "display": the screen's width, height and
+     *     dpi; "renderer": the renderer channel, or null; "present": the
+     *     screen's (RGBA, width, height), for frames read back
      */
     "create": (handle, options) =>
     {
         const display = options["display"];
-        const host = new GLESHost({ width: display["width"], height: display["height"], dpi: display["dpi"] });
+        const host = new GLESHost({ width: display["width"], height: display["height"], dpi: display["dpi"] }, options["renderer"] || null,
+            options["present"]);
         return {
             // (a service as src/virt/goldfish.js takes one)
             "service": (name, wake) => host.service(name, wake),

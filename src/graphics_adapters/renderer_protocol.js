@@ -2,7 +2,8 @@
 // (src/browser/glbridge/svga_renderer.js) share: GX batches (the GX writer
 // and opcodes; gx/gx_executor.js runs them) and the response region the
 // renderer writes answers into (query results, readbacks). vmware_svga and
-// virtio_gpu both write GX.
+// virtio_gpu both write GX; the GLES host (ranchu_gpu "host") writes GLES
+// batches with the same writer.
 
 /** Where the executor writes answers: offsets into a 16 MiB arena whose last
  * 4 MiB are the response region (query slots first, then readbacks) */
@@ -111,6 +112,41 @@ export const VX = {
     SET_STENCIL_WRITE_MASK: 48, // faces, mask
     // the dynamic depth bias (VK_DYNAMIC_STATE_DEPTH_BIAS: GL's glPolygonOffset): a variant per bias
     SET_DEPTH_BIAS: 49,     // constant factor, clamp, slope factor (f32)
+};
+
+/** GLES batch header magic: "GE10" (the GLES host's, src/gles/, docs/gles-proxy-plan.md) */
+export const GLES_MAGIC = 0x30314547;
+
+/**
+ * GLES records (the GLES executor has the same). A command is the guest's
+ * GLESv1 or GLESv2 command as it encoded it (opcode, size, parameters: its
+ * data travels with it), for the connection's current context, with the
+ * answer the CPU side gave (glCreateShader's and glCreateProgram's names);
+ * only calls the shadow state accepted, no queries. renderControl's objects
+ * come as records of their own: what a color buffer, a surface or a
+ * context is, not the guest's reference counting. A read is answered by a
+ * "write" message: the readback header (request id, length, 0, status),
+ * then the pixels, rows packed.
+ */
+export const GLES = {
+    COMMAND: 1,             // connection, answer, byte length, then the command's bytes
+    CONTEXT_CREATE: 2,      // context, config, share group (its first context), API (1 or 2)
+    CONTEXT_DESTROY: 3,     // context
+    SURFACE_CREATE: 4,      // surface, config, width, height
+    SURFACE_DESTROY: 5,     // surface
+    SURFACE_COLOR_BUFFER: 6, // surface, color buffer (rcSetWindowColorBuffer)
+    MAKE_CURRENT: 7,        // connection, context, draw surface, read surface
+    COLOR_BUFFER_CREATE: 8, // color buffer, width, height, internal format
+    COLOR_BUFFER_DESTROY: 9, // color buffer (its last reference went)
+    COLOR_BUFFER_UPDATE: 10, // color buffer, x, y, width, height, format, type, byte length, then the pixels
+    COLOR_BUFFER_READ: 11,  // color buffer, x, y, width, height, format, type, request id
+    COLOR_BUFFER_BIND: 12,  // connection, color buffer, as a texture (1) or a renderbuffer (0) of its context
+    IMAGE_CREATE: 13,       // image, context, target (EGL_GL_TEXTURE_2D_KHR, EGL_NATIVE_BUFFER_ANDROID), texture or color buffer
+    IMAGE_DESTROY: 14,      // image
+    POST: 15,               // color buffer: the screen (rcFBPost)
+    FLUSH_SURFACE: 16,      // surface: what was drawn to it is its color buffer's (rcFlushWindowColorBuffer)
+    READ_PIXELS: 17,        // connection, request id, x, y, width, height, format, type (glReadPixels)
+    CONNECTION_CLOSE: 18,   // connection (nothing is current on it any more)
 };
 
 /**

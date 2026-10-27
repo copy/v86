@@ -1,7 +1,7 @@
 # 共享 GLES 代理实施计划
 
-状态：实施中。2026-10-27 初稿；同日复核：对照镜像、内核与代码核对。E0、E1 已完成（2026-10-27，见“复核结论”的
-“E0 结论”“E1 结论”），下一步 E2。
+状态：实施中。2026-10-27 初稿；同日复核：对照镜像、内核与代码核对。E0、E1、E2 已完成（2026-10-27、28，见“复核结论”的
+“E0 结论”“E1 结论”“E2 结论”），下一步 E3。
 
 本计划给 v86 的 ARM 客体加上 OpenGL ES 的 GPU 加速：客体的 GLES 调用编码后交给宿主，在页面上用 WebGPU 执行。
 它服务两类客体，宿主侧只写一次：
@@ -302,7 +302,7 @@ pipe 版本 2。剩下的：
 - **默认回答**（`gles_defaults.js`）只跟踪查询要用的：开关、绑定、视口、缓冲与渲染缓冲的大小、附着、着色器源码。
 - **快照**：E1 不保存连接，恢复后 pipe 的通道是关闭的，客体的 GL 进程会因读写失败退出（E5 处理）。
 
-### E2 影子状态与批次
+### E2 影子状态与批次（2026-10-28 完成）
 
 - 影子状态与错误语义；CPU 侧的 GLSL ES 前端（语法、语义、链接）；
 - 批次写入器；
@@ -310,6 +310,32 @@ pipe 版本 2。剩下的：
 - 把一次启动的全部批次录成文件，供 E3 离线重放。
 
 验收：单元测试；启动过程中没有任何查询等待页面；录下的批次能在 Node 中解析。
+
+做法（2026-10-28）：
+- **影子状态**（`src/gles/gles_shadow.js`）按 GLES 2.0 规范写：错误码（第一个保留到 `glGetError`）、全部可查询状态与
+  `glGet` 的类型转换（颜色与深度按规范线性映射到整数）、对象名（`glGen` 只保留名字，绑定才成为对象；删除时解除当前
+  上下文的绑定与附着）、纹理的图像与参数（外部纹理的默认值与限制）、缓冲、渲染缓冲、帧缓冲的完整性（深度与模板
+  分开附着报 UNSUPPORTED：WebGPU 只有一个深度模板纹理）、着色器与程序（删除推迟到不再使用）、uniform 的检查与值、
+  顶点属性。帧缓冲与 VAO 属于上下文（ES 3.0 的规则），其余属于共享组。GLES 1.1 的上下文共用对象部分，固定功能的
+  状态在 E4 之前答初值。`call()` 返回答案和“是否交给页面”：被规则拒绝的调用与查询都不进批次。页面上的执行器（E3）
+  对收到的命令运行同一个状态机，名字、绑定与 location 两边一致；`glCreateShader`/`glCreateProgram` 的名字随命令走。
+- **GLSL ES**（`src/gles/glsl_es.js`）：gl-webgpu 的 `gl_shader_translator.js` 加 ES 模式（`es: true`）：
+  `#version 100`、`GL_ES`、ES 的内建常量与输出（一个绘制缓冲、没有 `gl_FragDepth`、没有兼容的内建状态与属性，
+  `gl_DepthRange` 除外）、`samplerExternalOES`（当作 2D 采样器，反射里标出 external）、属性位置从 0 往上分配。
+  顺带修了一个共用的错误：`uniform sampler2D tex[2]` 被当成“混了采样器的结构”拒绝。XP 的 glbridge 测试不变。
+  链接的反射换算成 GL 的视图：活动 attribute/uniform 的 GL 名字（数组带 `[0]`）、大小、类型枚举，以及
+  `glGetUniformLocation` 认的全部名字。ES 的更严格规则（没有隐式转换、默认精度）留给 E4 的 dEQP。
+- **批次**：GLES 记录放在 `renderer_protocol.js`（魔数 `GE10`，用 GX 的写入器）：命令原样带客体编码的字节（数据随命令走）
+  与 CPU 侧的答案；renderControl 的对象用自己的记录（颜色缓冲、表面、上下文、图像的建立与消失，帧的冲刷与投递，
+  读回），不带客体的引用计数。冲刷点：`rcFlushWindowColorBuffer`、`rcFBPost`、`glFinishRoundTrip`/`glFinish`/`glFlush`、
+  同步等待、读回、超过 4 MiB。在途批次超过 2 个时，帧与 `glFinishRoundTrip` 的回复等最老的一个（背压）。
+  `src/gles/gles_batch.js` 读回记录（页面与 Node 共用）。
+- **通道**：`starter.js` 在 `ranchu_gpu: "host"`（或 Android 设备模型的 `gpu_mode: "host"`）时也建页面的渲染器；没有
+  渲染器就启动失败并说明原因。`svga_renderer.js` 增加 stream `"gles"`（执行器在 E3）。Android 的 `gpu_mode` 按设备模型
+  检查（ranchu：guest、host，以及 VM 配置的默认值 swiftshader）。
+- **插件**改用 esbuild 构建（它要打包 CommonJS 的 GLSL 前端）：`build/v86-gles.js` 约 255 KB。
+- **录制**：`tests/gles/lib.mjs` 的 `recording_renderer` 把批次写进文件，`tools/gles/batches.mjs` 读回并按种类统计，
+  `--shaders` 导出着色器语料。
 
 ### E3 执行器与 Android 主屏幕
 
@@ -540,6 +566,15 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
   rcFlushWindowColorBuffer 335。**影子状态要答的**：glGetError 1829（占有回复调用的大半），glGetUniformLocation 170、
   glGetProgramiv 128、glGetShaderiv 64、glGetIntegerv 18、glCheckFramebufferStatus 9。E2 的影子状态覆盖这些，
   启动中就只剩 23 次读回要等页面。
+
+### E2 结论（2026-10-28）
+
+`A32_ANDROID_GPU=host node tests/a32/android_boot.mjs`（录制批次，没有执行器）：
+- `sys.boot_completed` 在 257 秒为 1，之后启动器得到焦点；33870 次调用，没有未知操作码与解不了的命令；
+- 722 个批次、9.2 MB、30439 条记录，`tools/gles/batches.mjs` 全部读回并解码；
+- CPU 侧编译 64 个着色器、链接 32 个程序，全部成功；
+- 等页面的只有 20 次 `rcReadColorBuffer`（读回，不是查询），没有任何查询等待页面；
+- 影子状态拒绝的调用：0（计数里曾把 `glGen*` 当成拒绝，已改）。
 
 ## 已定（2026-10-27）
 

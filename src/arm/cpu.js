@@ -407,6 +407,10 @@ A64CPU.prototype.init = function(settings, device_bus)
         {
             this.devices.gles = new PluginDevice(/** @type {?} */ (this), GLES_PLUGINS, settings.gles_plugin, -1, {}, {
                 "display": { "width": display.width, "height": display.height, "dpi": display.dpi },
+                // (the page's renderer: graphics_adapter is "none" on ranchu, so the channel is the GLES host's)
+                "renderer": settings.graphics_adapter_renderer || null,
+                // (the posted frames the page read back: the framebuffer device shows them)
+                "present": (rgba, width, height) => this.devices["goldfish_fb"].present(rgba, width, height),
             });
         }
         const gles = this.devices.gles;

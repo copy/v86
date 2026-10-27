@@ -21,9 +21,10 @@ export const MAX_COMMAND = 80 << 20;
 
 /**
  * @constructor
- * @param {function(!Object, !Array<*>): *} decode the decoders: a command
- *     ({api, opcode, name, ...}: gles_wire.js) and its arguments (out
- *     pointers to fill) to the return value, or a promise of it
+ * @param {function(!Object, !Array<*>, !Uint8Array): *} decode the
+ *     decoders: a command ({api, opcode, name, ...}: gles_wire.js), its
+ *     arguments (out pointers to fill) and its bytes to the return value, or
+ *     a promise of it
  * @param {function()=} readable called when a reply that waited is there
  */
 export function GLESStream(decode, readable)
@@ -135,7 +136,7 @@ GLESStream.prototype.dispatch = function(bytes)
         this.malformed.set(command.name, (this.malformed.get(command.name) || 0) + 1);
         return;
     }
-    const ret = this.decode(command, args);
+    const ret = this.decode(command, args, bytes);
     if(ret && typeof ret.then === "function")
     {
         this.waiting = true;

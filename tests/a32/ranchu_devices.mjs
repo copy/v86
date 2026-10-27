@@ -34,6 +34,7 @@ import { PictureSink } from "../lib/picture_sink.mjs";
 import { make_empty_ext4, ext4_writes } from "../../src/android/ext4.js";
 import { ranchu_cmdline, ranchu_dtb, ranchu_framebuffer, RANCHU_DISPLAY } from "../../src/virt/ranchu.js";
 import { decode_reply, encode_command } from "../../src/gles/gles_wire.js";
+import { fake_renderer } from "../gles/lib.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
@@ -91,6 +92,8 @@ const emulator = new V86({
     virtio_disks: [{ buffer: disk.slice().buffer }], net_device: { type: "none" },
     graphics_adapter: "none", screen_adapter: sink,
     ranchu_properties: { "ro.test.answer": "42" }, ranchu_gpu: "host",
+    // (the GLES host's renderer: the page's, here one that keeps the batches)
+    graphics_adapter_renderer_channel: fake_renderer(),
 });
 await new Promise((resolve, reject) => {
     emulator.add_listener("emulator-loaded", resolve);

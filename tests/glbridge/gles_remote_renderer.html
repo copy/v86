@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GLES renderer for a Node test</title>
+<pre id="result">RUNNING</pre>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script>
+// The page end of tests/gles/chrome_renderer.mjs: the renderer
+// (V86SVGARenderer, its GLES executor) on this page's GPU, its channel's
+// messages over HTTP (GET /gles/next, POST /gles/reply; five u32s, then the
+// bytes padded to a u32).
+"use strict";
+const KIND = { submit: 1, reset: 2, hello: 3, done: 11, write: 12, frame: 13, lost: 14, caps: 15 };
+let handler = null;
+let outbox = [];
+let sending = null;
+
+function encode(messages)
+{
+    const size = messages.reduce((n, m) => n + 20 + ((m.bytes ? m.bytes.length : 0) + 3 & ~3), 0);
+    const out = new Uint8Array(size), view = new DataView(out.buffer);
+    let at = 0;
+    for(const m of messages)
+    {
+        const length = m.bytes ? m.bytes.length : 0;
+        [m.kind, m.a >>> 0, m.b >>> 0, 0, length].forEach((v, i) => view.setUint32(at + 4 * i, v, true));
+        if(length) out.set(m.bytes, at + 20);
+        at += 20 + (length + 3 & ~3);
+    }
+    return out;
+}
+
+/** the renderer's answers, posted together (in order) */
+function flush()
+{
+    if(sending || !outbox.length) return;
+    const body = encode(outbox);
+    outbox = [];
+    sending = fetch("/gles/reply", { method: "POST", body }).finally(() => { sending = null; flush(); });
+}
+
+const channel = {
+    post(message)
+    {
+        switch(message.type)
+        {
+            case "done": outbox.push({ kind: KIND.done, a: message.seq, b: 0, bytes: null }); break;
+            case "write": outbox.push({ kind: KIND.write, a: message.offset || 0, b: 0, bytes: new Uint8Array(message.bytes) }); break;
+            case "frame": outbox.push({ kind: KIND.frame, a: message.width, b: message.height, bytes: new Uint8Array(message.bytes) }); break;
+            case "lost": outbox.push({ kind: KIND.lost, a: 0, b: 0, bytes: new TextEncoder().encode(String(message.reason)) }); break;
+            case "caps": outbox.push({ kind: KIND.caps, a: message.present ? 1 : 0, b: 0, bytes: null }); break;
+        }
+        queueMicrotask(flush);
+    },
+    listen(h) { handler = h; },
+};
+
+(async () => {
+    try {
+        globalThis.renderer = globalThis.V86SVGARenderer(channel, {});
+        for(;;)
+        {
+            const bytes = new Uint8Array(await (await fetch("/gles/next")).arrayBuffer());
+            const view = new DataView(bytes.buffer);
+            for(let at = 0; at + 20 <= bytes.length;)
+            {
+                const kind = view.getUint32(at, true), a = view.getUint32(at + 4, true), stream = view.getUint32(at + 12, true);
+                const length = view.getUint32(at + 16, true);
+                const body = bytes.slice(at + 20, at + 20 + length);
+                at += 20 + (length + 3 & ~3);
+                if(kind === KIND.submit) handler({ type: "submit", seq: a, bytes: body, stream: stream === 1 ? "gles" : undefined });
+                else if(kind === KIND.reset) handler({ type: "reset" });
+                else if(kind === KIND.hello) handler({ type: "hello" });
+            }
+        }
+    } catch(error) {
+        fetch("/gles/log", { method: "POST", body: String(error && error.stack || error) });
+        document.getElementById("result").textContent = "FAIL " + error;
+    }
+})();
+setInterval(() => {
+    // (WebGPU's validation errors, reported once the device is up)
+    const device = globalThis.renderer && globalThis.renderer.executor.device;
+    if(device && !device.onuncapturederror) device.onuncapturederror = e => fetch("/gles/log", { method: "POST", body: "WebGPU: " + e.error.message });
+    const g = globalThis.renderer && globalThis.renderer.gles;
+    if(g && g.stats.errors.length) fetch("/gles/log", { method: "POST", body: "executor errors: " + JSON.stringify(g.stats.errors.splice(0)) });
+}, 5000);
+</script>

@@ -10,9 +10,10 @@
 // GLProcessPipe closes, what it made and its references go, as gfxstream's
 // cleanupProcGLObjects.
 //
-// E1: the objects' bookkeeping only. Nothing is drawn: a color buffer's
-// update is counted, its read gives zeros, a post is counted (E2 turns them
-// into batches for the page, E3 draws them).
+// What the page needs to know of these comes out through `events` (an
+// object made or gone, a frame flushed or posted, pixels written): the GLES
+// host makes them GLES records (src/gles/gles_host.js). Reads back are the
+// host's: here they give nothing.
 
 import { CONFIGS, CONFIG_ATTRIBUTES, EGL, EGL_STRINGS, choose_configs, gl_string } from "./gles_caps.js";
 
@@ -43,6 +44,8 @@ export let RCConnection;
 export function RenderControl(display)
 {
     this.display = display;
+    /** @type {function(string, ...*)} what happened: "context_create", ... (gles_host.js) */
+    this.events = () => {};
     this.reset();
 }
 
@@ -189,18 +192,21 @@ const HANDLERS = {
     {
         if(!CONFIGS[config] || share && !rc.contexts.has(share) || api < GLES_API_CM || api > 2) return 0;
         const handle = rc.handle();
-        rc.contexts.set(handle, { config, share: share ? rc.contexts.get(share).share || share : 0, api, owner: owner_of(conn) });
+        const group = share ? rc.contexts.get(share).share || share : 0;
+        rc.contexts.set(handle, { config, share: group, api, owner: owner_of(conn) });
+        rc.events("context_create", handle, config, group, api);
         return handle;
     },
-    "rcDestroyContext": (rc, conn, [context]) => { rc.contexts.delete(context); },
+    "rcDestroyContext": (rc, conn, [context]) => { if(rc.contexts.delete(context)) rc.events("context_destroy", context); },
     "rcCreateWindowSurface": (rc, conn, [config, width, height]) =>
     {
         if(!CONFIGS[config]) return 0;
         const handle = rc.handle();
         rc.surfaces.set(handle, { config, width, height, color_buffer: 0, owner: owner_of(conn) });
+        rc.events("surface_create", handle, config, width, height);
         return handle;
     },
-    "rcDestroyWindowSurface": (rc, conn, [surface]) => { rc.surfaces.delete(surface); },
+    "rcDestroyWindowSurface": (rc, conn, [surface]) => { if(rc.surfaces.delete(surface)) rc.events("surface_destroy", surface); },
     "rcCreateColorBuffer": (rc, conn, [width, height, format]) => rc.create_color_buffer(conn, width, height, format, 0),
     "rcCreateColorBufferDMA": (rc, conn, [width, height, format]) => rc.create_color_buffer(conn, width, height, format, 0),
     "rcCreateColorBufferWithHandle": (rc, conn, [width, height, format, handle]) => { rc.create_color_buffer(conn, width, height, format, handle); },
@@ -210,11 +216,13 @@ const HANDLERS = {
     "rcSetWindowColorBuffer": (rc, conn, [surface, color_buffer]) =>
     {
         const s = rc.surfaces.get(surface);
-        if(s && rc.color_buffers.has(color_buffer)) s.color_buffer = color_buffer;
+        if(!s || !rc.color_buffers.has(color_buffer)) return;
+        s.color_buffer = color_buffer;
+        rc.events("surface_color_buffer", surface, color_buffer);
     },
-    "rcFlushWindowColorBuffer": (rc, conn, [surface]) => rc.surfaces.has(surface) ? 0 : -1,
-    "rcFlushWindowColorBufferAsync": () => {},
-    "rcFlushWindowColorBufferAsyncWithFrameNumber": () => {},
+    "rcFlushWindowColorBuffer": (rc, conn, [surface]) => rc.flush_surface(surface) ? 0 : -1,
+    "rcFlushWindowColorBufferAsync": (rc, conn, [surface]) => { rc.flush_surface(surface); },
+    "rcFlushWindowColorBufferAsyncWithFrameNumber": (rc, conn, [surface]) => { rc.flush_surface(surface); },
     "rcMakeCurrent": (rc, conn, [context, draw, read]) => rc.make_current(conn, context, draw, read),
     "rcMakeCurrentAsync": (rc, conn, [context, draw, read]) => { rc.make_current(conn, context, draw, read); },
     "rcFBPost": (rc, conn, [color_buffer]) =>
@@ -222,10 +230,11 @@ const HANDLERS = {
         if(!rc.color_buffers.has(color_buffer)) return;
         rc.posted = color_buffer;
         rc.posts++;
+        rc.events("post", color_buffer);
     },
     "rcFBSetSwapInterval": (rc, conn, [interval]) => { rc.swap_interval = interval; },
-    "rcBindTexture": () => {},
-    "rcBindRenderbuffer": () => {},
+    "rcBindTexture": (rc, conn, [color_buffer]) => { if(rc.color_buffers.has(color_buffer)) rc.events("bind", conn, color_buffer, true); },
+    "rcBindRenderbuffer": (rc, conn, [color_buffer]) => { if(rc.color_buffers.has(color_buffer)) rc.events("bind", conn, color_buffer, false); },
     "rcColorBufferCacheFlush": () => 0,
     // (E1: nothing drawn, zeros read back)
     "rcReadColorBuffer": () => {},
@@ -237,6 +246,7 @@ const HANDLERS = {
         if(!cb) return -1;
         cb.updates++;
         rc.update_bytes += pixels.length;
+        rc.events("color_buffer_update", color_buffer, x, y, width, height, format, type, pixels);
         return 0;
     },
     "rcUpdateColorBufferDMA": () => -1,
@@ -246,9 +256,15 @@ const HANDLERS = {
         if(target === EGL_NATIVE_BUFFER_ANDROID ? !rc.color_buffers.has(buffer) : target !== EGL_GL_TEXTURE_2D_KHR || !rc.contexts.has(context)) return 0;
         const handle = rc.handle();
         rc.images.set(handle, { context, target, buffer, owner: owner_of(conn) });
+        rc.events("image_create", handle, context, target, buffer);
         return handle;
     },
-    "rcDestroyClientImage": (rc, conn, [image]) => rc.images.delete(image) ? 1 : 0,
+    "rcDestroyClientImage": (rc, conn, [image]) =>
+    {
+        if(!rc.images.delete(image)) return 0;
+        rc.events("image_destroy", image);
+        return 1;
+    },
     "rcSelectChecksumHelper": () => {},
     // (fences signal when the commands before them ran: in the order of
     // the channel, so at once here; docs/gles-proxy-plan.md "影子状态")
@@ -333,6 +349,7 @@ RenderControl.prototype.create_color_buffer = function(conn, width, height, form
     if(!width || !height || width > 0x4000 || height > 0x4000) return 0;
     handle = handle || this.handle();
     this.color_buffers.set(handle, { width, height, format, refs: new Map([[owner_of(conn), 1]]), updates: 0 });
+    this.events("color_buffer_create", handle, width, height, format);
     return handle;
 };
 
@@ -356,7 +373,19 @@ RenderControl.prototype.close_color_buffer = function(owner, handle)
     const count = cb.refs.get(from) - 1;
     if(count > 0) cb.refs.set(from, count);
     else cb.refs.delete(from);
-    if(!cb.refs.size) this.color_buffers.delete(handle);
+    if(!cb.refs.size)
+    {
+        this.color_buffers.delete(handle);
+        this.events("color_buffer_destroy", handle);
+    }
+};
+
+/** @param {number} surface @return {boolean} whether there is one: what was drawn to it goes to its color buffer */
+RenderControl.prototype.flush_surface = function(surface)
+{
+    if(!this.surfaces.has(surface)) return false;
+    this.events("flush_surface", surface);
+    return true;
 };
 
 /** @return {number} EGL_TRUE or EGL_FALSE */
@@ -368,6 +397,7 @@ RenderControl.prototype.make_current = function(conn, context, draw, read)
     conn.context = context;
     conn.draw = draw;
     conn.read = read;
+    this.events("make_current", conn, context, draw, read);
     return EGL.TRUE;
 };
 
@@ -377,14 +407,21 @@ RenderControl.prototype.make_current = function(conn, context, draw, read)
  */
 RenderControl.prototype.release = function(owner)
 {
-    for(const map of [this.contexts, this.surfaces, this.images, this.syncs])
+    for(const [map, gone] of [[this.images, "image_destroy"], [this.surfaces, "surface_destroy"], [this.contexts, "context_destroy"], [this.syncs, ""]])
     {
-        map.forEach((object, handle) => { if(object.owner === owner) map.delete(handle); });
+        map.forEach((object, handle) =>
+        {
+            if(object.owner !== owner) return;
+            map.delete(handle);
+            if(gone) this.events(gone, handle);
+        });
     }
     this.color_buffers.forEach((cb, handle) =>
     {
         cb.refs.delete(owner);
-        if(!cb.refs.size) this.color_buffers.delete(handle);
+        if(cb.refs.size) return;
+        this.color_buffers.delete(handle);
+        this.events("color_buffer_destroy", handle);
     });
 };
 

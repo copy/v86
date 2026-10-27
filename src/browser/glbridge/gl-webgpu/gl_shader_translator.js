@@ -100,6 +100,9 @@
         sampler3D: sampler("3D"), samplerCube: sampler("Cube"),
         sampler1DShadow: sampler("1D", true), sampler2DShadow: sampler("2D", true),
         sampler2DRect: sampler("2DRect"), sampler2DRectShadow: sampler("2DRect", true),
+        // GL_OES_EGL_image_external (GLSL ES): a 2D sampler of an EGL image,
+        // which the executor holds as an ordinary 2D texture
+        samplerExternalOES: { kind: "sampler", dim: "2D", shadow: false, name: "samplerExternalOES", external: true },
     };
 
     function sameType(a, b) {
@@ -283,6 +286,12 @@
         "GL_EXT_gpu_shader4",
     ]);
 
+    /* GLSL ES 1.00's (options.es: OpenGL ES 2.0's shaders, src/gles/glsl_es.js) */
+    const ES_EXTENSIONS = new Set([
+        "GL_OES_standard_derivatives",
+        "GL_OES_EGL_image_external",
+    ]);
+
     class Preprocessor {
         constructor(stage, options) {
             this.stage = stage;
@@ -297,6 +306,17 @@
         defineBuiltins() {
             const objectMacro = (name, value) =>
                 this.macros.set(name, { params: null, body: ppTokenize(value) });
+            if (this.options.es) {
+                // GLSL ES 1.00, 3.4: GL_ES, and the fragment stage's highp
+                this.version = 100;
+                objectMacro("__VERSION__", "100");
+                objectMacro("GL_ES", "1");
+                if (this.stage === "fragment") objectMacro("GL_FRAGMENT_PRECISION_HIGH", "1");
+                for (const ext of ES_EXTENSIONS) objectMacro(ext, "1");
+                for (const [name, value] of Object.entries(this.options.defines || {}))
+                    objectMacro(name, String(value));
+                return;
+            }
             objectMacro("__VERSION__", "110");
             objectMacro("GL_ARB_texture_rectangle", "1");
             for (const [name, value] of Object.entries(this.options.defines || {}))
@@ -414,6 +434,8 @@
                 const v = /\s*(\d+)/.exec(rest);
                 if (!v) fail(this.line, "malformed #version");
                 this.version = parseInt(v[1], 10);
+                if (this.options.es && this.version !== 100)
+                    fail(this.line, "#version " + this.version + " is not supported: GLSL ES 1.00 is #version 100");
                 if (this.version > 120) {
                     // Refusing outright turns a shader we might still translate
                     // into a hard failure; the analyzer rejects what it really
@@ -429,11 +451,12 @@
                 const e = /\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_]+)/.exec(rest);
                 if (!e) fail(this.line, "malformed #extension");
                 const [, ext, behavior] = e;
+                const supported = this.options.es ? ES_EXTENSIONS : SUPPORTED_EXTENSIONS;
                 if (behavior === "require" && ext !== "all" &&
-                        !SUPPORTED_EXTENSIONS.has(ext))
+                        !supported.has(ext))
                     fail(this.line, "extension not supported: " + ext);
                 if (behavior === "enable" && ext !== "all" &&
-                        !SUPPORTED_EXTENSIONS.has(ext))
+                        !supported.has(ext))
                     this.warnings.push("extension not supported: " + ext);
                 this.extensions.set(ext, behavior);
                 return;
@@ -736,7 +759,7 @@
         "mat4x2", "mat4x3", "mat4x4",
         "sampler1D", "sampler2D", "sampler3D", "samplerCube",
         "sampler1DShadow", "sampler2DShadow",
-        "sampler2DRect", "sampler2DRectShadow",
+        "sampler2DRect", "sampler2DRectShadow", "samplerExternalOES",
         "lowp", "mediump", "highp", "precision",
     ]);
 
@@ -1940,6 +1963,25 @@
         gl_FragDepth: { type: F.float },
     };
 
+    /* GLSL ES 1.00 (7.4): its constants are OpenGL ES 2.0's limits, which the
+     * GLES host reports (src/gles/gles_caps.js); one draw buffer; no
+     * gl_FragDepth, no compatibility state but gl_DepthRange, no fixed-function
+     * attributes or varyings */
+    const ES_BUILTIN_CONSTANTS = {
+        gl_MaxVertexAttribs: { type: F.int, value: 16 },
+        gl_MaxVertexUniformVectors: { type: F.int, value: 256 },
+        gl_MaxVaryingVectors: { type: F.int, value: 15 },
+        gl_MaxVertexTextureImageUnits: { type: F.int, value: 16 },
+        gl_MaxCombinedTextureImageUnits: { type: F.int, value: 32 },
+        gl_MaxTextureImageUnits: { type: F.int, value: 16 },
+        gl_MaxFragmentUniformVectors: { type: F.int, value: 224 },
+        gl_MaxDrawBuffers: { type: F.int, value: 1 },
+    };
+    const ES_FRAGMENT_BUILTIN_OUTPUTS = {
+        gl_FragColor: { type: F.vec4 },
+        gl_FragData: { type: arrayOf(F.vec4, 1) },
+    };
+
     /* ================================================================== */
     /* Semantic analysis                                                  */
     /* ================================================================== */
@@ -2059,6 +2101,25 @@
 
         declareBuiltins() {
             const g = this.globalScope;
+            if (this.options.es) {
+                for (const [name, info] of Object.entries(ES_BUILTIN_CONSTANTS))
+                    g.names.set(name, { kind: "builtinConst", name, type: info.type,
+                                        value: info.value });
+                g.names.set("gl_DepthRange", { kind: "stateUniform", name: "gl_DepthRange",
+                                               type: STATE_UNIFORMS.gl_DepthRange.type,
+                                               info: STATE_UNIFORMS.gl_DepthRange });
+                const outputs = this.stage === "vertex" ? VERTEX_BUILTIN_OUTPUTS : ES_FRAGMENT_BUILTIN_OUTPUTS;
+                for (const [name, info] of Object.entries(outputs)) {
+                    if (name === "gl_ClipVertex") continue;
+                    g.names.set(name, { kind: "builtinOut", name, type: info.type, info });
+                }
+                if (this.stage === "fragment") {
+                    for (const [name, info] of Object.entries(FRAGMENT_BUILTIN_INPUTS))
+                        g.names.set(name, { kind: "builtinIn", name, type: info.type,
+                                            info });
+                }
+                return;
+            }
             for (const [name, info] of Object.entries(BUILTIN_CONSTANTS))
                 g.names.set(name, { kind: "builtinConst", name, type: info.type,
                                     value: info.value });
@@ -2184,7 +2245,9 @@
             const leafSamplers = [];
             collectSamplerLeaves(name, type, leafSamplers);
             if (leafSamplers.length) {
-                if (leafSamplers.length !== countLeaves(type))
+                // (an array of samplers is one leaf of arraySize elements)
+                const elements = leafSamplers.reduce((n, leaf) => n + Math.max(1, leaf.arraySize), 0);
+                if (elements !== countLeaves(type))
                     fail(line, "a struct mixing samplers with other members is " +
                         "not supported: " + name);
                 for (const leaf of leafSamplers) {
@@ -3299,7 +3362,11 @@
      * aliasing that made this layout famous is only safe when the two never
      * both appear, and here they can.
      */
-    function assignAttributeLocations(usage, bindings) {
+    /* Desktop GL's generic attributes fill from the top, below the
+     * compatibility ones' fixed slots; GLSL ES has none of those, so with
+     * `ascending` (options.es) they take the lowest free locations in
+     * declaration order, as ES drivers commonly do. */
+    function assignAttributeLocations(usage, bindings, ascending) {
         const used = new Set();
         const result = new Map();
         for (const [name, info] of usage.attributes) {
@@ -3322,6 +3389,20 @@
                     " is claimed twice (" + name + ")", 0);
             result.set(name, bound);
             used.add(bound);
+        }
+        if (ascending) {
+            for (const [name, info] of usage.attributes) {
+                if (info.isCompat || result.has(name)) continue;
+                const slots = attributeSlotCount(info.type);
+                let base = 0;
+                while (base + slots <= MAX_VERTEX_ATTRIBUTES && !slotsFree(used, base, slots)) ++base;
+                if (base + slots > MAX_VERTEX_ATTRIBUTES)
+                    throw new GLSLError("out of vertex attribute slots for '" +
+                        name + "'", 0);
+                for (let i = 0; i < slots; ++i) used.add(base + i);
+                result.set(name, base);
+            }
+            return result;
         }
         let next = MAX_VERTEX_ATTRIBUTES - 1;
         for (const [name, info] of usage.attributes) {
@@ -5008,7 +5089,7 @@
 
             /* ---- attributes ---- */
             const bindings = normalizeBindings(opts.bindAttribLocations);
-            const attributes = assignAttributeLocations(vs.usage, bindings);
+            const attributes = assignAttributeLocations(vs.usage, bindings, !!opts.es);
             if (variant.pointSprite) {
                 for (const [name, loc] of attributes) {
                     const info = vs.usage.attributes.get(name);
@@ -5178,6 +5259,7 @@
                 binding: s.binding,
                 dim: s.type.dim,
                 shadow: s.type.shadow,
+                external: !!s.type.external,
                 arraySize: s.arraySize,
                 bindingCount: 2 * Math.max(1, s.arraySize),
             });
@@ -5217,7 +5299,7 @@
         UniformBlockLayout, GLSLError,
         BASIC_TYPES, T, vec, mat, arrayOf, structType, typeToWGSL, sameType,
         COMPAT_ATTRIBUTE_LOCATIONS, COMPAT_ATTRIBUTE_TYPES,
-        STATE_UNIFORMS, BUILTIN_CONSTANTS,
+        STATE_UNIFORMS, BUILTIN_CONSTANTS, ES_BUILTIN_CONSTANTS,
         MAX_INTER_STAGE_SLOTS, MAX_VERTEX_ATTRIBUTES, POINT_CORNER_LOCATION,
         assignAttributeLocations, assignVaryings, hashString, safeName,
     };

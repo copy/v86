@@ -40,6 +40,7 @@ import { OpfsDisk, is_opfs_url, opfs_file } from "../opfs_disk.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { android_bootloader, ANDROID_DEVICES } from "../android/bootloader.js";
+import { ranchu_gpu_mode } from "../android/devices.js";
 import { PartitionBuffer } from "../android/partition_buffer.js";
 import { FS } from "../../lib/filesystem.js";
 
@@ -111,7 +112,7 @@ V86.prototype.create_adapter_renderer = async function(options, host)
     if(remote) return remote;
     const create = globalThis["V86SVGARenderer"];
     const gpu = typeof navigator !== "undefined" && navigator["gpu"];
-    if(this.graphics_adapter !== "vmware_svga" && this.graphics_adapter !== "virtio_gpu" || typeof create !== "function" || !gpu) return null;
+    if(this.graphics_adapter !== "vmware_svga" && this.graphics_adapter !== "virtio_gpu" && !this.gles_host || typeof create !== "function" || !gpu) return null;
     let adapter = null;
     try
     {
@@ -209,6 +210,12 @@ export function V86(options)
     const machine = check_machine_options(options);
     this.cpu_type = machine.cpu_type;
     this.machine_type = machine.machine_type;
+    // the ranchu machine's GLES host (ranchu_gpu "host", or an emulator
+    // image's GPU mode "host"): it needs the page's renderer, as a 3D
+    // display adapter does (docs/gles-proxy-plan.md)
+    const android_device = options.android && ANDROID_DEVICES[options.android.device || "cf_arm64_only_phone"];
+    this.gles_host = options.ranchu_gpu === "host" || !!(android_device && android_device.machine === "ranchu" &&
+        ranchu_gpu_mode(android_device, options.android.gpu_mode).ranchu_gpu === "host");
     // each disk's disk_option and disk_error (docs/disk-persistence-plan.md
     // "启动校验"); the disks, to find an image bound twice (attach_sata_drive)
     /** @type {!Array<!Array<*>>} [name, descriptor] */
@@ -504,8 +511,10 @@ V86.prototype.continue_init = async function(emulator, options)
         if(this.machine_type !== device.machine) throw new Error("android: " + device.id + " needs machine_type \"" + device.machine + "\"");
         if(options.kernel || options.initrd || options.bzimage) throw new Error("android: the disk's boot partitions give the kernel and initrd (kernel and initrd left out)");
         if(!options.virtio_disks || !options.virtio_disks.length) throw new Error("android: the disk with the device's partitions is the first of virtio_disks");
-        // (gfxstream: for the gfxstream device's development, docs/gfxstream-plan.md)
-        if(android.gpu_mode !== undefined && !["swiftshader", "venus", "gfxstream"].includes(android.gpu_mode)) throw new Error("android.gpu_mode: swiftshader, venus or gfxstream");
+        // (gfxstream: for the gfxstream device's development, docs/gfxstream-plan.md;
+        // an emulator image's: guest or host, docs/gles-proxy-plan.md)
+        const gpu_modes = device.machine === "ranchu" ? ["guest", "host", "swiftshader"] : ["swiftshader", "venus", "gfxstream"];
+        if(android.gpu_mode !== undefined && !gpu_modes.includes(android.gpu_mode)) throw new Error("android.gpu_mode: " + gpu_modes.join(", "));
         if(android.selinux !== undefined && !["enforcing", "permissive"].includes(android.selinux)) throw new Error("android.selinux: enforcing or permissive");
     }
 
@@ -1344,6 +1353,12 @@ V86.prototype.continue_init = async function(emulator, options)
         if(settings.ranchu_gpu === "host")
         {
             settings.gles_plugin = await load_device_plugin(GLES_PLUGINS, "gles", options.ranchu_gpu_path, "ranchu_gpu_path");
+            // (no WebGPU, no renderer: say so rather than draw nothing)
+            if(!settings.graphics_adapter_renderer)
+            {
+                throw new Error("ranchu_gpu \"host\": the GLES host draws with the page's WebGPU renderer (libv86-webgpu.js " +
+                    "and a WebGPU adapter), which this page does not have; use \"guest\" (the guest draws)");
+            }
         }
 
         if(this.destroyed) return;

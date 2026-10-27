@@ -14,9 +14,14 @@
 // scanout's picture into that layer on the GPU: no readback
 // (docs/gfxstream-plan.md G4).
 //
+// The ranchu machine's GLES host (docs/gles-proxy-plan.md) sends stream
+// "gles": GLES batches for the GLES executor (V86GLESExecutor, E3), on the
+// same device.
+//
 // Channel messages, device -> renderer:
 //   submit { seq, bytes, stream }   a D9WG batch, or with stream "gx" a GX
-//                           batch, "vx" a VX one (virtio-gpu's Vulkan)
+//                           batch, "vx" a VX one (virtio-gpu's Vulkan),
+//                           "gles" a GLES one
 //   reset  {}               the machine was reset: forget every object
 //   hello  {}               the device asks what the renderer can do
 // renderer -> device:
@@ -25,6 +30,8 @@
 //   done   { seq }           the batch has run and its writes were sent
 //   lost   { reason }        the renderer cannot go on
 //   caps   { present }       (to hello and reset) whether SURFACE_PRESENT shows pictures
+//   frame  { width, height, bytes }  (stream "gles", without a layer) a posted
+//                            color buffer, RGBA rows from the top
 (function(global) {
     "use strict";
 
@@ -118,6 +125,34 @@
             return vx;
         };
 
+        // GLES (the ranchu machine's GLES host), on the same device; until
+        // the page has its executor, a batch's reads fail (the guest reads
+        // zeros) and nothing is drawn
+        let gles = null;
+        const glesExecutor = async () => {
+            if (gles) return gles;
+            const GLES = global.V86GLESExecutor;
+            if (!GLES) return null;
+            if (!executor.device) await executor.initialize();
+            gles = new GLES.GLESExecutor({ device: executor.device, layer, features: executor.deviceFeatures || {} });
+            return gles;
+        };
+        const glesUnanswered = bytes => {
+            // (the records' READ_PIXELS and COLOR_BUFFER_READ: request ids at
+            // dword 3 and dword 9 of their bodies; renderer_protocol.js GLES)
+            const words = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength >> 2);
+            for (let at = 4, i = 0; i < words[3] && at + 1 < words.length; i++) {
+                const op = words[at], request = op === 17 ? words[at + 3] : op === 11 ? words[at + 9] : 0;
+                if (request) {
+                    const answer = new Uint8Array(16);
+                    new DataView(answer.buffer).setUint32(0, request, true);
+                    new DataView(answer.buffer).setUint32(12, 2, true); // RESPONSE_FAILED
+                    channel.post({ type: "write", offset: 0, bytes: answer }, [answer.buffer]);
+                }
+                at += 2 + words[at + 1];
+            }
+        };
+
         channel.listen(message => {
             switch (message.type) {
                 case "submit": {
@@ -125,7 +160,25 @@
                     const stream = message.stream || "d9wg";
                     queue = queue.then(async () => {
                         if (forGeneration !== generation) return;
-                        if (!lost && stream === "vx") {
+                        if (stream === "gles") {
+                            try {
+                                const target = lost ? null : await glesExecutor();
+                                if (target) {
+                                    await target.submit(bytes, { writeResponse: (offset, data) => {
+                                        if (forGeneration !== generation) return;
+                                        const copy = data.slice();
+                                        channel.post({ type: "write", offset, bytes: copy }, [copy.buffer]);
+                                    }, frame: (rgba, width, height) => {
+                                        if (forGeneration !== generation) return;
+                                        channel.post({ type: "frame", width, height, bytes: rgba }, [rgba.buffer]);
+                                    } });
+                                } else {
+                                    glesUnanswered(bytes);
+                                }
+                            } catch (error) {
+                                fail(error && error.stack || error);
+                            }
+                        } else if (!lost && stream === "vx") {
                             try {
                                 const target = await vxExecutor();
                                 await target.submit(bytes, { writeResponse: (offset, data) => {
@@ -165,6 +218,7 @@
                     caps();
                     queue = queue.then(() => {
                         // (VX first: its images may be GX's surfaces)
+                        if (gles) gles.reset();
                         if (vx) vx.reset();
                         if (gx) gx.reset();
                         return executor.resetForReplay();
@@ -177,6 +231,7 @@
             executor,
             get gx() { return gx; },
             get vx() { return vx; },
+            get gles() { return gles; },
             // the batches sent so far have run
             idle: () => queue.then(() => executor.checkpointIdle()),
             destroy() {

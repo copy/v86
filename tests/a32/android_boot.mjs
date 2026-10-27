@@ -29,8 +29,11 @@
 // them) whose output is printed after boot or restore.
 // A32_ANDROID_GPU=host: the device model's GPU mode "host" (qemu.gles=1,
 // ranchu_gpu "host": the GLES host, docs/gles-proxy-plan.md); the GLES
-// calls' counts go to the run's gles.json, and an opcode the host does not
-// know, or a command it cannot decode, fails the test (E1: nothing drawn).
+// calls' counts go to the run's gles.json, its batches to gles-batches.bin
+// (read by tools/gles/batches.mjs), and an opcode the host does not know,
+// or a command it cannot decode, fails the test. A32_ANDROID_RENDERER=chrome:
+// the renderer is a real GPU's (headless Chrome, tests/gles/chrome_renderer.mjs),
+// the screen SurfaceFlinger's frames; otherwise nothing is drawn.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -40,6 +43,8 @@ import { make_empty_ext4 } from "../../src/android/ext4.js";
 import { ranchu_cmdline } from "../../src/virt/ranchu.js";
 import { build_apk, build_native_lib } from "../a64/apk.mjs";
 import { RANCHU_25_ARMEABI_V7A, ranchu_gpu_mode } from "../../src/android/devices.js";
+import { recording_renderer } from "../gles/lib.mjs";
+import { chrome_renderer } from "../gles/chrome_renderer.mjs";
 import { ramdisk_overlay } from "../../src/android/ramdisk_overlay.js";
 
 const directory = ROOT + "build/a32-android/";
@@ -70,6 +75,8 @@ const run_directory = directory + "runs/" + tag + "/";
 fs.mkdirSync(run_directory, { recursive: true });
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+const gles_renderer = !gpu.gles ? null : process.env.A32_ANDROID_RENDERER === "chrome" ?
+    await chrome_renderer({ record: run_directory + "gles-batches.bin" }) : recording_renderer(run_directory + "gles-batches.bin");
 const sink = new PictureSink();
 const cmdline = ranchu_cmdline({ arm32: true, bootanim: false, gles: gpu.gles, extra: process.env.A32_ANDROID_CMDLINE });
 const restore = process.env.A32_ANDROID_RESTORE_STATE, save = process.env.A32_ANDROID_SAVE_STATE;
@@ -93,6 +100,8 @@ const emulator = new V86({
         ],
     }),
     net_device: { type: "virtio", relay_url: "fetch" },
+    // (the GLES host's batches into the run's directory; drawn by Chrome's GPU, or not)
+    ...(gpu.gles ? { graphics_adapter_renderer_channel: gles_renderer } : {}),
     // (ranchu's display: the goldfish framebuffer, no display adapter)
     graphics_adapter: "none", screen_adapter: sink,
     // (A32_PARALLEL=1: the cores in vCPU workers)
@@ -272,6 +281,7 @@ finally
     clearInterval(flush);
     fs.writeFileSync(log, transcript);
     write_gles();
+    if(gles_renderer && gles_renderer.close) gles_renderer.close();
     save_png(sink, run_directory, "last");
     await emulator.destroy();
 }

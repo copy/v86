@@ -240,6 +240,24 @@ GoldfishFb.prototype.render = function(source)
         buffer_x: 0, buffer_y: 0, buffer_width: this.width, buffer_height: this.height }]);
 };
 
+/**
+ * A frame from the GLES host (ranchu_gpu "host": SurfaceFlinger's posts,
+ * read back from the page), RGBA rows from the top, shown in place of the
+ * framebuffer's: its size the display's, or cut to it
+ * @param {!Uint8Array} rgba
+ * @param {number} width
+ * @param {number} height
+ */
+GoldfishFb.prototype.present = function(rgba, width, height)
+{
+    this.frames++;
+    const w = Math.min(width, this.width), h = Math.min(height, this.height);
+    if(w === this.width && h === this.height && width === this.width) this.rgba.set(rgba.subarray(0, this.rgba.length));
+    else for(let y = 0; y < h; y++) this.rgba.set(rgba.subarray(y * width * 4, (y * width + w) * 4), y * this.width * 4);
+    this.hub.update_buffer([{ pixels: { data: this.rgba, width: this.width, height: this.height }, screen_x: 0, screen_y: 0,
+        buffer_x: 0, buffer_y: 0, buffer_width: this.width, buffer_height: this.height }]);
+};
+
 GoldfishFb.prototype.get_state = function()
 {
     return [this.base, this.int_status, this.int_enable, this.blank, this.rotation];

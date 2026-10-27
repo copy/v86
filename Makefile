@@ -301,14 +301,12 @@ build/libtpms.wasm: bios/libtpms.wasm
 	mkdir -p build
 	cp $< $@
 
-build/v86-gles.js: $(CLOSURE) src/*.js src/gles/*.js
+# (esbuild, not Closure: it bundles gl-webgpu's GLSL front end, CommonJS
+# scripts, for the shadow state's compiles and links)
+build/v86-gles.js: src/gles/*.js src/graphics_adapters/renderer_protocol.js src/device_machine.js \
+		src/browser/glbridge/gl-webgpu/gl_shader_translator.js src/browser/glbridge/gl-webgpu/gl_state_layout.js node_modules/.bin/esbuild
 	mkdir -p build
-	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
-		--compilation_level SIMPLE --jscomp_off=missingProperties \
-		--output_wrapper ';(function(){%output%}).call(this);' \
-		--js $(USB_COMMON) --js src/gles/gles_protocol.js --js src/gles/gles_wire.js --js src/gles/gles_caps.js \
-		--js src/gles/gles_stream.js --js src/gles/render_control.js --js src/gles/gles_defaults.js --js src/gles/gles_host.js \
-		--js src/gles/plugin.js
+	node_modules/.bin/esbuild src/gles/plugin.js --bundle --format=iife --target=es2020 --minify --legal-comments=none --outfile=$@
 
 device-plugins: $(DEVICE_PLUGINS)
 
@@ -2025,10 +2023,13 @@ ios-tests:
 	node tests/ios/tools.mjs
 
 # docs/gles-proxy-plan.md "测试": the GLES host's protocol tables against the
-# pinned specs' shapes, the connection stream, renderControl and E1's
-# default answers (no guest, no page); the plugin builds
+# pinned specs' shapes, the connection stream, renderControl, the shadow
+# state against GLES 2.0's rules, the batches (no guest, no page); the
+# plugin builds
 .PHONY: gles-tests
 gles-tests: build/v86-gles.js
 	node tests/gles/protocol.mjs
 	node tests/gles/stream.mjs
 	node tests/gles/render_control.mjs
+	node tests/gles/shadow.mjs
+	node tests/gles/batch.mjs
