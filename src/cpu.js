@@ -1,4 +1,4 @@
-import { check_disk_state, is_writeback_state } from "./disk_writeback.js";
+import { check_disk_state, is_writeback_state, restore_disk_state } from "./disk_writeback.js";
 import { drop_disk_holds } from "./block_backend.js";
 import {
     LOG_CPU, LOG_BIOS,
@@ -18,10 +18,11 @@ import { dbg_assert, dbg_log } from "./log.js";
 import { v86 } from "./main.js";
 import { MachineClock } from "./machine_clock.js";
 
-import { SB16 } from "./sb16.js";
 import { ACPI, acpi_system_states_file } from "./acpi.js";
-import { ACPI_LOADER_FILE, ACPI_RSDP_FILE, ACPI_TABLES_FILE, build_acpi_tables, locate_acpi_tables } from "./acpi_tables.js";
-import { ACPI_PM_BASE_DEFAULT, MACHINE_LAYOUT_VERSION, Platform, check_platform, create_platform } from "./platform.js";
+import { build_e820, build_smbios } from "./smbios.js";
+import { PFlash } from "./pflash.js";
+import { ACPI_LOADER_FILE, ACPI_RSDP_FILE, ACPI_TABLES_FILE, TPM_LOG_FILE, build_acpi_tables, locate_acpi_tables } from "./acpi_tables.js";
+import { ACPI_PM_BASE_DEFAULT, MACHINE_LAYOUT_VERSION, Platform, check_platform, create_platform, pci_functions } from "./platform.js";
 import { CORE_STATE_RANGES, INIT_PRESERVED, STATE_OFFSETS } from "./state_layout.js";
 import { CPU_FEATURES, CPU_FEATURE_PRESETS } from "./cpu_features.js";
 import { build_jit_defaults, set_jit_switches } from "./jit_switches.js";
@@ -32,7 +33,6 @@ import { PIT } from "./pit.js";
 import { DMA } from "./dma.js";
 import { UART } from "./uart.js";
 import { ParallelPort } from "./parallel.js";
-import { Ne2k } from "./ne2k.js";
 import { IO } from "./io.js";
 import { VirtioConsole } from "./virtio_console.js";
 import { PCI } from "./pci.js";
@@ -49,6 +49,9 @@ import { HPET } from "./hpet.js";
 import { SMBus } from "./smbus.js";
 import { VirtioNet } from "./virtio_net.js";
 import { GraphicsAdapter, graphics_adapter_of_state, patch_vga_bios_ids } from "./graphics_adapter.js";
+import { PluginDevice, AUDIO_PLUGINS, NET_PLUGINS, TPM_PLUGINS, USB_PLUGINS, plugin_of_state } from "./device_plugin.js";
+import { STORE_SIZE as TPM_STORE_SIZE } from "./tpm/store.js";
+import { SyncBuffer } from "./buffer.js";
 import { DisplayHub } from "./display.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
 import { create_virtio_devices, get_virtio_devices_state, resolve_virtio_devices_state, set_virtio_devices_state } from "./virtio_devices.js";
@@ -195,6 +198,14 @@ export function CPU(bus, wm, stop_idling)
     /** @type {!Object} */
     this.devices = {};
 
+    /**
+     * Device plugins' timers (src/device_plugin.js, add_timer): run with the
+     * machine's other timers, each returns milliseconds until it needs to
+     * run again
+     * @type {!Array<function(number):number>}
+     */
+    this.device_timers = [];
+
     this.instruction_pointer = view(Int32Array, memory, state_base + STATE_OFFSETS.instruction_pointer, 1);
     this.previous_ip = view(Int32Array, memory, state_base + STATE_OFFSETS.previous_ip, 1);
 
@@ -217,6 +228,18 @@ export function CPU(bus, wm, stop_idling)
         main: null,
         vga: null,
     };
+
+    /**
+     * The UEFI firmware (firmware: { type: "uefi" }, docs/uefi.md): its code
+     * image, its variable store (a buffer object: src/buffer.js's, or a disk
+     * written back), the flash at the top of 4 GiB (the code's mmio_ram
+     * region, -1 until mapped; the store's pflash) and the debug console
+     * @type {?{code: !ArrayBuffer, vars: ?Object, code_region: number, pflash: ?PFlash, debug_console: boolean, secure_boot: boolean}}
+     */
+    this.firmware = null;
+
+    /** The TPM's state store (tpm: docs/tpm.md), a buffer object @type {?Object} */
+    this.tpm_store = null;
 
     this.instruction_counter = view(Uint32Array, memory, state_base + STATE_OFFSETS.instruction_counter, 1);
 
@@ -780,6 +803,8 @@ CPU.prototype.wasm_patch = function()
     this.mmio_ram_backing = get_import("mmio_ram_backing");
     this.mmio_ram_map = get_import("mmio_ram_map");
     this.mmio_ram_unmap = get_import("mmio_ram_unmap");
+    this.mmio_ram_set_writable = get_import("mmio_ram_set_writable");
+    this.mmio_ram_reserve = get_import("mmio_ram_reserve");
     this.mmio_ram_read8 = get_import("mmio_ram_read8");
     this.mmio_ram_write8 = get_import("mmio_ram_write8");
     this.mmio_ram_mark_dirty = get_import("mmio_ram_mark_dirty");
@@ -888,7 +913,18 @@ CPU.prototype.get_state = function(skip_memory = false)
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
     state[60] = this.get_state_pic();
-    state[61] = this.devices.sb16;
+    // (the sound card: its plugin's slot, or none)
+    state[61] = this.devices.audio;
+    // (USB: the plugin's slot, or none; its disks' buffers by their ids:
+    // the guest's writes, as a hard disk's state has them)
+    state[107] = this.devices.usb;
+    state[108] = this.usb_disks ? Array.from(this.usb_disks) : null;
+    // (the UEFI firmware's variable store: its bytes, or a reference to the
+    // store written back, src/pflash.js)
+    state[109] = this.firmware && this.firmware.pflash;
+    // (the TPM: the plugin's slot; its store's bytes or reference, as a disk's)
+    state[110] = this.devices.tpm;
+    state[111] = this.devices.tpm ? this.tpm_store : null;
 
     state[62] = this.fw_value;
 
@@ -1264,6 +1300,47 @@ CPU.prototype.validate_state = function(state)
         throw new Error("The snapshot is from a machine with graphics_adapter: \"" +
             graphics_adapter_of_state(state[52]) + "\", this one has \"none\"");
     }
+    // the network card: its plugin's slot (from before plugins, an untagged
+    // slot is the NE2000's own state, which its plugin reads)
+    const saved_net = plugin_of_state(NET_PLUGINS, state[59]);
+    if(this.devices.net)
+    {
+        this.devices.net.check_state(state[59]);
+    }
+    else if(saved_net !== null)
+    {
+        throw new Error("The snapshot is from a machine with net_device: \"" + saved_net +
+            "\", this one has \"" + (this.devices.virtio_net ? "virtio" : "none") + "\"");
+    }
+    // the sound card likewise (an untagged slot: the SB16's own state)
+    const saved_audio = plugin_of_state(AUDIO_PLUGINS, state[61]);
+    if(this.devices.audio)
+    {
+        this.devices.audio.check_state(state[61]);
+    }
+    else if(saved_audio !== null)
+    {
+        throw new Error("The snapshot is from a machine with audio_device: \"" + saved_audio + "\", this one has \"none\"");
+    }
+    // USB: both or neither
+    if(this.devices.usb)
+    {
+        this.devices.usb.check_state(state[107]);
+    }
+    else if(plugin_of_state(USB_PLUGINS, state[107]) !== null)
+    {
+        throw new Error("The snapshot is from a machine with usb, this one has none");
+    }
+    // the TPM: both or neither; its store as a disk's
+    if(this.devices.tpm)
+    {
+        this.devices.tpm.check_state(state[110]);
+        check_disk_state("tpm_state", this.tpm_store, state[111]);
+    }
+    else if(plugin_of_state(TPM_PLUGINS, state[110]) !== null)
+    {
+        throw new Error("The snapshot is from a machine with a TPM, this one has none");
+    }
     // A remapped snapshot must retain the RAM/MMIO split used when validating
     // its windows. Reject this before changing clocks, RAM, or CPU state.
     if(state[97] && state[0] !== this.memory_size[0] &&
@@ -1335,6 +1412,14 @@ CPU.prototype.validate_disk_states = function(state)
             else if(is_writeback_state(saved[10])) throw new Error("The snapshot's floppy " + (i ? "fdb" : "fda") + " was written back; this machine has no disk in that drive");
         });
     }
+    // (USB disks with the same id; the others leave or arrive, src/usb/plugin.js)
+    for(const [id, saved] of /** @type {!Array<!Array<*>>} */ (state[108] || []))
+    {
+        const buffer = this.usb_disks && this.usb_disks.get(/** @type {string} */ (id));
+        if(buffer) check_disk_state("usb:" + id, buffer, saved);
+    }
+    const pflash = this.firmware && this.firmware.pflash;
+    if(pflash && state[109]) check_disk_state("firmware_vars", pflash.buffer, state[109][2]);
 };
 
 CPU.prototype.set_state = function(state, skip_memory = false)
@@ -1463,7 +1548,20 @@ CPU.prototype.set_state = function(state, skip_memory = false)
     this.devices.pit && this.devices.pit.set_state(state[58]);
     this.devices.net && this.devices.net.set_state(state[59]);
     this.set_state_pic(state[60]);
-    this.devices.sb16 && this.devices.sb16.set_state(state[61]);
+    this.devices.audio && this.devices.audio.set_state(state[61]);
+    this.devices.usb && this.devices.usb.set_state(state[107]);
+    // (the TPM's store first: the TPM powers on from it)
+    if(this.devices.tpm)
+    {
+        restore_disk_state(this.tpm_store, state[111]);
+        this.devices.tpm.set_state(state[110]);
+    }
+    for(const [id, saved] of /** @type {!Array<!Array<*>>} */ (state[108] || []))
+    {
+        const buffer = this.usb_disks && this.usb_disks.get(/** @type {string} */ (id));
+        if(buffer && saved) restore_disk_state(buffer, saved);
+    }
+    this.firmware && this.firmware.pflash && state[109] && this.firmware.pflash.set_state(state[109]);
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
     this.devices.uart2 && this.devices.uart2.set_state(state[80]);
@@ -2391,6 +2489,22 @@ CPU.prototype.reboot_internal = function(reason, keep_memory)
     {
         this.devices.graphics_adapter.reset();
     }
+    if(this.devices.net)
+    {
+        this.devices.net.reset();
+    }
+    if(this.devices.audio)
+    {
+        this.devices.audio.reset();
+    }
+    if(this.devices.usb)
+    {
+        this.devices.usb.reset();
+    }
+    if(this.devices.tpm)
+    {
+        this.devices.tpm.reset();
+    }
 
     if(keep_memory)
     {
@@ -2448,13 +2562,15 @@ CPU.prototype.disk_device = function(name)
 CPU.prototype.disk_devices = function()
 {
     const devices = this.devices;
+    // (USB disks: "usb:" and the disk's id)
+    const usb = this.usb_disks ? Array.from(this.usb_disks, ([id, buffer]) => ["usb:" + id, { buffer, sector_size: 512 }]) : [];
     if(devices.ahci)
     {
-        return devices.ahci.disk_devices();
+        return devices.ahci.disk_devices().concat(usb);
     }
     const ide = devices.ide;
     return [["hda", ide?.primary?.master], ["hdb", ide?.primary?.slave],
-        ["cdrom", ide?.secondary?.master], ["secondary_slave", ide?.secondary?.slave]].filter(([, device]) => device);
+        ["cdrom", ide?.secondary?.master], ["secondary_slave", ide?.secondary?.slave]].filter(([, device]) => device).concat(usb);
 };
 
 /**
@@ -2500,6 +2616,137 @@ CPU.prototype.create_q35_storage = function(settings, device_bus)
         { buffer: settings.cdrom, is_cdrom: true },
     ]);
     this.devices.cdrom = this.devices.ahci.disk_device("cdrom");
+};
+
+/**
+ * A device plugin's timer (src/device_plugin.js, add_timer)
+ * @param {function(number):number} timer
+ */
+CPU.prototype.add_device_timer = function(timer)
+{
+    this.device_timers.push(timer);
+};
+
+/**
+ * The network card of a plugin (net_device.type "ne2k", "e1000"): the PCI
+ * slot of the NE2000 (or the one behind its root port), net0 of the network bus
+ * @param {!Object} settings
+ * @param {BusConnector} bus
+ * @return {!PluginDevice}
+ */
+CPU.prototype.create_net_plugin = function(settings, bus)
+{
+    const id = 0;
+    const pci_id = this.root_port_pci_id("net");
+    return new PluginDevice(this, NET_PLUGINS, settings.net_device_plugin,
+        pci_id !== undefined ? pci_id : pci_functions(this.platform).ne2k, {
+            "net": {
+                "id": id,
+                // a frame to the network; its MAC address to the backend
+                "send": data =>
+                {
+                    bus.send("net" + id + "-send", data);
+                    bus.send("eth-transmit-end", [data.length]);
+                },
+                "set_mac": mac => bus.send("net" + id + "-mac", mac),
+                // frames from the network: the handler returns whether the
+                // card took the frame
+                "on_receive": handler => bus.register("net" + id + "-receive", data =>
+                {
+                    if(handler(data)) bus.send("eth-receive-end", [data.length]);
+                }, this),
+            },
+        }, {
+            "preserve_mac_from_state_image": !!settings.preserve_mac_from_state_image,
+            "mac_address_translation": !!settings.mac_address_translation,
+        });
+};
+
+/**
+ * The sound card of a plugin (audio_device "sb16", "hd_audio"): its slot
+ * (pci_functions; the SB16 is an ISA card, none), the speaker (the dac-*
+ * messages of src/browser/speaker.js)
+ * @param {!Object} settings
+ * @param {BusConnector} bus
+ * @return {!PluginDevice}
+ */
+CPU.prototype.create_audio_plugin = function(settings, bus)
+{
+    const isa = settings.audio_device_plugin["name"] === "sb16";
+    return new PluginDevice(this, AUDIO_PLUGINS, settings.audio_device_plugin, isa ? -1 : pci_functions(this.platform).hda, {
+        "audio": {
+            "send": (left, right) => bus.send("dac-send-data", [left, right]),
+            "set_sampling_rate": rate => bus.send("dac-tell-sampling-rate", rate),
+            "enable": () => bus.send("dac-enable"),
+            "disable": () => bus.send("dac-disable"),
+            // the samples as the stream has them, for tests
+            "pcm": pcm => bus.send("hd-audio-pcm", pcm),
+            // the speaker's own messages (the SB16's: it answers the
+            // speaker's requests for data, and has a mixer)
+            "bus_send": (name, data, transfer) => bus.send(name, data, transfer),
+            "bus_register": (name, handler) => bus.register(name, handler, this),
+        },
+    }, {});
+};
+
+/**
+ * USB (usb: { controller, tablet, mass_storage }): the plugin's controller
+ * in its slot (pci_functions), its devices; the bus for the pointer's
+ * messages; the USB disks' images (settings.usb_disks)
+ * @param {!Object} settings
+ * @param {BusConnector} bus
+ * @return {!PluginDevice}
+ */
+CPU.prototype.create_usb_plugin = function(settings, bus)
+{
+    /** @type {!Map<string, !Object>} the USB disks' buffers by their ids (disk_devices) */
+    this.usb_disks = new Map((settings.usb_disks || []).map(disk => [disk.id, disk.buffer]));
+    // (EHCI: its own function, 7; its companions are the plugin's functions 0 to 2)
+    const functions = pci_functions(this.platform);
+    const controller = settings.usb["controller"];
+    return new PluginDevice(this, USB_PLUGINS, settings.usb_plugin, controller === "ehci" ? functions.ehci : controller === "xhci" ? functions.xhci : functions.uhci, {
+        "bus": {
+            "register": (name, handler) => bus.register(name, handler, null),
+            // to the page and to the other devices (the PS/2 mouse, the
+            // VMware backdoor: "usb-tablet-active")
+            "send": (name, value) =>
+            {
+                bus.send(name, value);
+                bus.pair.send(name, value);
+            },
+        },
+    }, {
+        "controller": settings.usb["controller"],
+        "tablet": !!settings.usb["tablet"],
+        "mass_storage": (settings.usb_disks || []).map(disk => ({ "id": disk.id, "buffer": disk.buffer, "read_only": disk.read_only })),
+    });
+};
+
+/**
+ * A USB disk into the first free port (V86.usb_attach_disk)
+ * @param {string} id
+ * @param {!Object} buffer
+ * @param {boolean} read_only
+ */
+CPU.prototype.usb_attach_disk = function(id, buffer, read_only)
+{
+    if(!this.devices.usb) throw new Error("usb_attach_disk: the machine has no USB (the usb option)");
+    this.devices.usb.device["attach_disk"](id, buffer, read_only);
+    this.usb_disks.set(id, buffer);
+};
+
+/**
+ * A USB disk out of its port and gone (V86.usb_detach_disk)
+ * @param {string} id
+ * @return {!Object} its buffer
+ */
+CPU.prototype.usb_detach_disk = function(id)
+{
+    const buffer = this.usb_disks && this.usb_disks.get(id);
+    if(!buffer) throw new Error("usb_detach_disk: no USB disk " + JSON.stringify(id));
+    this.devices.usb.device["detach_disk"](id);
+    this.usb_disks.delete(id);
+    return buffer;
 };
 
 /**
@@ -2643,7 +2890,13 @@ CPU.prototype.clear_extended_memory = function()
     this.extended_store.clear();
 };
 
-CPU.prototype.create_memory = function(size, minimum_size)
+/**
+ * @param {number} size
+ * @param {number} minimum_size
+ * @param {number=} granularity the size is a multiple of it: the memory map's
+ *     blocks, or larger (a power of two)
+ */
+CPU.prototype.create_memory = function(size, minimum_size, granularity = MMAP_BLOCK_SIZE)
 {
     // e.g. `2048 << 20` is negative: reject it instead of silently using the minimum
     if(!(size >= 0))
@@ -2651,8 +2904,9 @@ CPU.prototype.create_memory = function(size, minimum_size)
         throw new Error("memory_size must be a non-negative number of bytes, got " + size);
     }
     // The size is kept in 32 bits and RAM lives in wasm32 memory: at most
-    // 2 GiB - 128 KiB. (A multiple of 4 GiB used to wrap to 0 bytes here.)
-    const max_size = Math.pow(2, 31) - MMAP_BLOCK_SIZE;
+    // 2 GiB - 128 KiB (- 1 MiB in whole MiB). (A multiple of 4 GiB used to
+    // wrap to 0 bytes here.)
+    const max_size = Math.pow(2, 31) - granularity;
     if(size < minimum_size)
     {
         size = minimum_size;
@@ -2660,7 +2914,7 @@ CPU.prototype.create_memory = function(size, minimum_size)
     }
     else if(size > max_size)
     {
-        // (2 GiB itself only loses the last 128 KiB: not worth a warning)
+        // (2 GiB itself only loses the last 128 KiB, or MiB: not worth a warning)
         if(size > Math.pow(2, 31))
         {
             console.warn("memory_size of " + Math.round(size / (1 << 20)) + " MB exceeds the maximum; using " +
@@ -2669,9 +2923,9 @@ CPU.prototype.create_memory = function(size, minimum_size)
         size = max_size;
     }
 
-    size = ((size - 1) | (MMAP_BLOCK_SIZE - 1)) + 1 | 0;
+    size = ((size - 1) | (granularity - 1)) + 1 | 0;
     dbg_assert((size | 0) > 0);
-    dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0);
+    dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0 && (size & granularity - 1) === 0);
 
     console.assert(this.memory_size[0] === 0, "Expected uninitialised memory");
 
@@ -2787,6 +3041,9 @@ CPU.prototype.init = function(settings, device_bus)
     this.create_memory(
         settings.memory_size || 64 * 1024 * 1024,
         settings.initrd ? 64 * 1024 * 1024 : 1024 * 1024,
+        // (UEFI: whole MiB, as QEMU's machines have; OVMF's SMM build places
+        // TSEG below the top of RAM in MiB)
+        settings.firmware_code ? 1 << 20 : MMAP_BLOCK_SIZE,
     );
 
     this.platform = create_platform(settings, this.memory_size[0]);
@@ -2820,6 +3077,18 @@ CPU.prototype.init = function(settings, device_bus)
     // The display adapter plugin's descriptor; none with graphics_adapter: "none"
     this.graphics_adapter_descriptor = settings.graphics_adapter;
     this.bios.vga = settings.vga_bios;
+    if(settings.firmware_code)
+    {
+        this.firmware = {
+            code: settings.firmware_code,
+            vars: settings.firmware_vars || null,
+            code_region: -1,
+            pflash: null,
+            debug_console: !!(settings.firmware && settings.firmware["debug_console"]),
+            // (the Secure Boot build: its variable store written only in SMM)
+            secure_boot: !!(settings.firmware && settings.firmware["secure_boot"]),
+        };
+    }
 
     this.load_bios();
 
@@ -2905,7 +3174,9 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else if(value === FW_CFG_ID)
         {
-            this.fw_value = i32(0);
+            // the traditional interface (bit 0), no DMA: OVMF needs a revision
+            // of at least 1; SeaBIOS only looks at the DMA bit
+            this.fw_value = i32(1);
         }
         else if(value === FW_CFG_RAM_SIZE)
         {
@@ -3004,6 +3275,10 @@ CPU.prototype.init = function(settings, device_bus)
                 { name: ACPI_LOADER_FILE, data: tables.loader },
                 { name: ACPI_RSDP_FILE, data: tables.rsdp },
                 { name: ACPI_TABLES_FILE, data: tables.tables, get_data: () => build_tables().tables });
+            if(tables.tpm_log)
+            {
+                this.option_roms.push({ name: TPM_LOG_FILE, data: tables.tpm_log });
+            }
 
             // Only read by SeaBIOS's fallback builder, if the loader fails:
             // advertise only the sleep states that are implemented
@@ -3033,6 +3308,10 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.rtc = new RTC(this);
         this.fill_cmos(this.devices.rtc, settings);
+        if(this.firmware)
+        {
+            this.add_uefi_fw_cfg_files();
+        }
 
         this.devices.dma = new DMA(this);
 
@@ -3100,6 +3379,13 @@ CPU.prototype.init = function(settings, device_bus)
                 ide_config[0][0] = { buffer: settings.hda };
                 ide_config[0][1] = { buffer: settings.hdb };
             }
+            else if(this.firmware)
+            {
+                // (the primary channel without drives, as QEMU's PIIX3 has
+                // it: OVMF waits 35 s for BSY to clear on a channel that
+                // reads as an open bus)
+                ide_config[0][0] = { buffer: undefined };
+            }
             ide_config[1][0] = { is_cdrom: true, buffer: settings.cdrom };
             this.devices.ide = new IDEController(this, device_bus, ide_config);
             this.devices.cdrom = this.devices.ide.secondary.master;
@@ -3114,15 +3400,16 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.pit = new PIT(this, device_bus);
 
-        if(settings.net_device.type === "ne2k")
-        {
-            this.devices.net = new Ne2k(this, device_bus, settings.preserve_mac_from_state_image, settings.mac_address_translation,
-                0, this.root_port_pci_id("net"));
-        }
-        else if(settings.net_device.type === "virtio")
+        if(settings.net_device.type === "virtio")
         {
             this.devices.virtio_net = new VirtioNet(this, device_bus, settings.preserve_mac_from_state_image, settings.net_device.mtu,
                 this.root_port_pci_id("net"));
+        }
+        else if(settings.net_device_plugin)
+        {
+            // the network card, a plugin's (net_device.type "ne2k", "e1000"):
+            // the NE2000's slot, its snapshot in state[59]
+            this.devices.net = this.create_net_plugin(settings, device_bus);
         }
 
         if(settings.fs9p)
@@ -3146,9 +3433,26 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.virtio_balloon = new VirtioBalloon(this, device_bus, this.root_port_pci_id("virtio_balloon"));
         }
 
-        if(true)
+        // the sound card (audio_device), a plugin's ("sb16", "hd_audio"), or none
+        if(settings.audio_device_plugin)
         {
-            this.devices.sb16 = new SB16(this, device_bus);
+            this.devices.audio = this.create_audio_plugin(settings, device_bus);
+        }
+
+        // USB (usb: a controller and its devices, the plugin's)
+        if(settings.usb_plugin)
+        {
+            this.devices.usb = this.create_usb_plugin(settings, device_bus);
+        }
+        // the TPM (tpm: docs/tpm.md, the plugin's), its state in a store: a
+        // buffer object, written back or in memory; no PCI function
+        if(settings.tpm_plugin)
+        {
+            this.tpm_store = settings.tpm_state || new SyncBuffer(new ArrayBuffer(TPM_STORE_SIZE));
+            this.devices.tpm = new PluginDevice(this, TPM_PLUGINS, settings.tpm_plugin, -1, {}, {
+                "prepared": settings.tpm_prepared,
+                "state": this.tpm_store,
+            });
         }
 
         // Last, so that they get a slot and ports that nothing else uses
@@ -3639,6 +3943,12 @@ CPU.prototype.fill_cmos = function(rtc, settings)
 
 CPU.prototype.load_bios = function()
 {
+    if(this.firmware)
+    {
+        this.load_firmware_flash();
+        return;
+    }
+
     var bios = this.bios.main;
     var vga_bios = this.bios.vga;
 
@@ -3713,13 +4023,94 @@ CPU.prototype.load_bios = function()
         }.bind(this));
 };
 
+/**
+ * The fw_cfg files that OVMF reads besides the ACPI ones (docs/uefi.md):
+ * etc/e820 and the SMBIOS tables, as QEMU has them. Only with the UEFI
+ * firmware: SeaBIOS would prefer etc/e820 to CMOS and build no SMBIOS of its own.
+ */
+CPU.prototype.add_uefi_fw_cfg_files = function()
+{
+    const low_memory = this.low_memory_size;
+    const high_memory = this.memory_size[0] - low_memory + this.extended_pages * 4096;
+    const query = this.wm.exports["cpuid_query"];
+    const cpuid = (leaf, subleaf) => [0, 1, 2, 3].map(register => query(leaf, subleaf, register));
+    const smbios = build_smbios(/** @type {Platform} */ (this.platform), { low_memory, high_memory, cpuid });
+    this.option_roms.push(
+        { name: "etc/e820", data: build_e820(low_memory, high_memory) },
+        { name: "etc/smbios/smbios-anchor", data: smbios.anchor },
+        { name: "etc/smbios/smbios-tables", data: smbios.tables });
+};
+
+/**
+ * The UEFI firmware's flash: the variable store and the code, in this order,
+ * ending at 4 GiB, where the reset vector is (QEMU's pflash units 1 and 0).
+ * The code is read-only device memory; the variable store is CFI flash
+ * (src/pflash.js) whose writes go to its buffer, written back with
+ * disk_option "read_write". Without a variable store, the code is an image
+ * holding both (OVMF.fd), read-only: OVMF keeps its variables in RAM then.
+ * The last 128 KiB of the code also appear below 1 MiB at 0xE0000, as
+ * QEMU's isa-bios alias. At a reset the store keeps its bytes.
+ */
+CPU.prototype.load_firmware_flash = function()
+{
+    const firmware = this.firmware;
+    const code = new Uint8Array(firmware.code);
+    if(firmware.code_region === -1)
+    {
+        const vars_size = firmware.vars ? firmware.vars.byteLength : 0;
+        const code_base = 2 ** 32 - code.length;
+        const base = code_base - vars_size;
+        dbg_assert(code.length % 4096 === 0 && vars_size % 4096 === 0 && code.length + vars_size <= 16 << 20, "the firmware's size");
+        firmware.code_region = this.mmio_ram_allocate(code.length);
+        dbg_assert(firmware.code_region !== -1, "no device memory region for the firmware's code");
+        new Uint8Array(this.wasm_memory.buffer, this.mmio_ram_backing(firmware.code_region) >>> 0, code.length).set(code);
+        this.mmio_ram_set_writable(firmware.code_region, false);
+        this.mmio_ram_map(firmware.code_region, code_base | 0);
+        if(vars_size)
+        {
+            const region = this.mmio_ram_allocate(vars_size);
+            dbg_assert(region !== -1, "no device memory region for the variable store");
+            firmware.pflash = new PFlash(this, region, base, /** @type {!Object} */ (firmware.vars), firmware.secure_boot);
+        }
+        // The memory map has what device memory does not take: writes, the
+        // store's reads outside read array mode (in blocks of the map's size)
+        const map_base = base & ~(MMAP_BLOCK_SIZE - 1);
+        const pflash = firmware.pflash;
+        this.io.mmap_register(map_base, 2 ** 32 - map_base,
+            addr => {
+                addr >>>= 0;
+                return pflash && addr >= base && addr < code_base ? pflash.read(addr - base) :
+                    addr >= code_base ? code[addr - code_base] : 0xFF;
+            },
+            (addr, value) => {
+                addr >>>= 0;
+                if(pflash && addr >= base && addr < code_base) pflash.write(addr - base, value);
+            });
+        if(firmware.debug_console)
+        {
+            // QEMU's isa-debugcon at 0x402: OVMF writes its log there once
+            // the port reads as 0xE9
+            this.io.register_read(0x402, this, () => 0xE9);
+            this.io.register_write(0x402, this, value => {
+                this.bus.send("debug-console-output-byte", value);
+            });
+        }
+    }
+    else if(firmware.pflash)
+    {
+        firmware.pflash.reset();
+    }
+    this.write_blob(code.subarray(code.length - 0x20000), 0xE0000);
+};
+
 CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
 {
     const pit_time = this.devices.pit.timer(now, false);
     const rtc_time = this.devices.rtc.timer(now, false);
     const display_time = this.devices.display.timer(now);
     const hpet_time = this.devices.hpet ? this.devices.hpet.timer(now) : 100;
-    const sb16_time = this.devices.sb16 ? this.devices.sb16.timer(now) : 100;
+    let plugin_time = 100;
+    for(const timer of this.device_timers) plugin_time = Math.min(plugin_time, timer(now));
 
     let acpi_time = 100;
     let apic_time = 100;
@@ -3729,7 +4120,7 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
         apic_time = this.apic_timer(now);
     }
 
-    return Math.min(pit_time, rtc_time, display_time, hpet_time, sb16_time, acpi_time, apic_time);
+    return Math.min(pit_time, rtc_time, display_time, hpet_time, plugin_time, acpi_time, apic_time);
 };
 
 CPU.prototype.debug_init = function()
@@ -3741,7 +4132,11 @@ CPU.prototype.debug_init = function()
         // write seabios debug output to console
         var seabios_debug = "";
 
-        this.io.register_write(0x402, this, handle); // seabios
+        // (the UEFI firmware's debug console has the port: load_firmware_flash)
+        if(!this.firmware || !this.firmware.debug_console)
+        {
+            this.io.register_write(0x402, this, handle); // seabios
+        }
         this.io.register_write(0x500, this, handle); // vgabios
     }
 

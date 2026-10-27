@@ -4,7 +4,15 @@ import { dbg_assert, dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 import { check_no_disk_holds } from "./block_backend.js";
 
-const STATE_VERSION = 6;
+// Version 8 (and the stream's 9): the NE2000 and the SB16 are plugins
+// (docs/modern-pc-devices-plan.md M1), their slots tagged. Versions 6 and 7,
+// from before, are read too: their untagged state[59] and state[61] are the
+// NE2000's and the SB16's own states, which their plugins read as they are
+// (src/device_plugin.js). An older v86 refuses 8 and 9 ("Version mismatch")
+// rather than read the tagged slots as registers. Single files have even
+// versions, streams odd ones (pages tell them apart by the header).
+const STATE_VERSION = 8;
+const STATE_VERSIONS_READ = [6, STATE_VERSION];
 const STATE_MAGIC = 0x86768676|0;
 const STATE_INDEX_MAGIC = 0;
 const STATE_INDEX_VERSION = 1;
@@ -232,7 +240,7 @@ export function restore_state(cpu, state)
             throw new StateLoadError("Invalid header: " + h(header_block[STATE_INDEX_MAGIC] >>> 0));
         }
 
-        if(header_block[STATE_INDEX_VERSION] !== STATE_VERSION)
+        if(!STATE_VERSIONS_READ.includes(header_block[STATE_INDEX_VERSION]))
         {
             throw new StateLoadError(
                     "Version mismatch: dump=" + header_block[STATE_INDEX_VERSION] +
@@ -346,11 +354,14 @@ export function restore_state(cpu, state)
     }
 }
 
-// V7 is a stream of a small manifest and independently checked records. RAM is
+// V7 (header versions 7 and, since M1, 9: see STATE_VERSION) is a stream of
+// a small manifest and independently checked records. RAM is
 // packed directly from backing pages into one reusable-size record, never into
 // the V6 packed_memory allocation. Guest physical addresses are only metadata.
 export const STATE_STREAM_CHUNK_SIZE = 1024 * 1024;
-const STREAM_VERSION = 7;
+const STREAM_VERSION = 9;
+/** (7: before M1, see STATE_VERSION) */
+const STREAM_VERSIONS_READ = [7, STREAM_VERSION];
 const STREAM_HEADER_SIZE = 32;
 const STREAM_RECORD_SIZE = 20;
 const STREAM_RAM_CHUNK = STATE_STREAM_CHUNK_SIZE - 4096;
@@ -588,7 +599,7 @@ export async function restore_state_stream(cpu, input)
     const source = state_stream_source(input);
     const header = await stream_read(source, 0, STREAM_HEADER_SIZE);
     const words = new DataView(header.buffer, header.byteOffset, header.byteLength);
-    if(words.getUint32(0, true) !== (STATE_MAGIC >>> 0) || words.getUint32(4, true) !== STREAM_VERSION ||
+    if(words.getUint32(0, true) !== (STATE_MAGIC >>> 0) || !STREAM_VERSIONS_READ.includes(words.getUint32(4, true)) ||
         words.getUint32(8, true) !== STATE_STREAM_CHUNK_SIZE) stream_error("header/version");
     const info_size = words.getUint32(12, true), buffer_count = words.getUint32(16, true);
     const memory_size = words.getUint32(20, true), packed_size = words.getUint32(24, true);

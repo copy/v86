@@ -270,6 +270,9 @@ export function start_cpu_worker()
         "get_cdrom_state": () => emulator.get_cdrom_state(),
         "attach_sata_drive": (port, file, options) => emulator.attach_sata_drive(port, file || null, options),
         "detach_sata_drive": port => emulator.detach_sata_drive(port),
+        "usb_attach_disk": (id, file, options) => emulator.usb_attach_disk(id, file, options),
+        "usb_devices": () => emulator.usb_devices(),
+        "usb_detach_disk": id => emulator.usb_detach_disk(id),
         "attach_pcie_device": port => emulator.attach_pcie_device(port),
         // (answered once the removal started: one through the attention
         // button waits for the guest, and the commands after it must not;

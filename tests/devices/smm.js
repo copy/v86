@@ -8,7 +8,7 @@
 // back), an SMI in SMM (latched until RSM), SMIs from the local APIC (an IPI,
 // an MSI), snapshots (also in SMM), TSEG (all ones outside SMM, RAM in it;
 // QEMU's extended TSEG), high SMRAM (H_SMRAME, also with SMBASE there),
-// D_CLS, the auto HALT restart field and D_LCK. Then the x86-64 CPU profile:
+// D_CLS, the auto HALT restart field, D_LCK and the LPC's SMI_LOCK. Then the x86-64 CPU profile:
 // SeaBIOS with QEMU's 64-bit save area. (An SMI in long mode:
 // tests/x64/smm_long_mode.mjs.)
 
@@ -342,6 +342,32 @@ test("D_LCK: D_OPEN, G_SMRAME, D_LCK and ESMRAMC locked until a reset", () => {
     assert.equal(pci().config_read(0, MCH_SMRAM, 1), 0x02, "a reset unlocks it");
     assert.equal(pci().config_read(0, MCH_ESMRAMC, 1), 0x38);
     assert.equal(cpu.read32s(TOP - (1 << 20)) >>> 0, 0xCAFEF0A5, "no TSEG");
+});
+
+test("GEN_PMCON_1.SMI_LOCK: set until a reset; under it SMI_EN.GBL_SMI_EN does not clear", () => {
+    // (the LPC bridge 00:1f.0; SMI_EN at PMBASE + 0x30: OVMF's SmmControl2Dxe checks this)
+    const LPC = 0x1F << 3, GEN_PMCON_1 = 0xA0, SMI_LOCK = 0x10;
+    // (the PM block decoded at SeaBIOS's PMBASE: a reset turns it off)
+    const decode = () => { pci().config_write(LPC, 0x40, 4, 0x601); pci().config_write(LPC, 0x44, 1, 0x80); };
+    decode();
+    const smi_en_port = 0x600 + 0x30;
+    const smi_en = () => cpu.io.port_read32(smi_en_port) >>> 0;
+    const before = smi_en();
+    cpu.io.port_write32(smi_en_port, before & ~1);
+    assert.equal(smi_en() & 1, 0, "without the lock GBL_SMI_EN clears");
+    cpu.io.port_write32(smi_en_port, before | 1);
+    pci().config_write(LPC, GEN_PMCON_1, 2, SMI_LOCK);
+    cpu.io.port_write32(smi_en_port, (before | 1) & ~(1 | 1 << 5));
+    assert.equal(smi_en() & 1, 1, "GBL_SMI_EN stays");
+    assert.equal(smi_en() & 1 << 5, 0, "the other bits are written (APMC_EN)");
+    pci().config_write(LPC, GEN_PMCON_1, 2, 0);
+    assert.equal(pci().config_read(LPC, GEN_PMCON_1, 2) & SMI_LOCK, SMI_LOCK, "SMI_LOCK stays");
+    cpu.devices.q35.reset();
+    assert.equal(pci().config_read(LPC, GEN_PMCON_1, 2) & SMI_LOCK, 0, "a reset clears it");
+    decode();
+    cpu.io.port_write32(smi_en_port, before & ~1);
+    assert.equal(smi_en() & 1, 0, "and GBL_SMI_EN clears again");
+    cpu.io.port_write32(smi_en_port, before);
 });
 
 emulator.destroy();

@@ -335,7 +335,7 @@ export interface Event {
      * "report" the guest's command ends with the device's error status.
      */
     "disk-error": {
-        /** hda, hdb, cdrom, sata<port>, virtio_disk<n> */
+        /** hda, hdb, cdrom, sata<port>, virtio_disk<n>, usb:<id> */
         disk: string,
         operation: "read" | "write" | "flush",
         offset: number,
@@ -378,6 +378,12 @@ export interface Event {
     "parallel1-data-output": number;
     "parallel1-control-output": number;
     "parallel1-status-input": number;
+    /** The guest configured the USB tablet (true) or let it go (false): while it uses it, the tablet has the page's pointer */
+    "usb-tablet-active": boolean;
+    /** a byte of the UEFI firmware's debug log (firmware.debug_console) */
+    "debug-console-output-byte": number;
+    /** The guest ejected a USB disk's medium (its id): it can be detached now */
+    "usb-disk-ejected": string;
     "virtio-console0-output-bytes": Uint8Array;
     "virtio-console0-input-bytes": Uint8Array;
     "virtio-console0-resize": [cols: number, rows: number];
@@ -412,10 +418,19 @@ type V86NetworkDevice =
     {
         /**
          * The type of emulated NIC provided to the guest OS.
-         * Recommended to use `ne2k` for old OSes and `virtio` for modern Linux.
+         * Recommended to use `ne2k` for old OSes, `e1000` (an Intel 82540EM, whose drivers come with
+         * Windows Vista to 11 and Linux) for Windows, and `virtio` for modern Linux. `ne2k` and `e1000`
+         * are plugins, build/v86-ne2k.js and build/v86-e1000.js, loaded beside the bundle (or from
+         * `plugin_path`). `none`: no network card.
          * @default "ne2k"
          */
-        type?: "ne2k" | "virtio";
+        type?: "ne2k" | "virtio" | "e1000" | "none";
+
+        /**
+         * Where the plugin of the card (type `ne2k`, `e1000`) is, a path or URL
+         * @default build/v86-<type>.js beside the bundle (with the bundle's query, e.g. ?v=<revision>)
+         */
+        plugin_path?: string;
 
         /**
          * The network backend URL.
@@ -655,6 +670,47 @@ export interface V86Options {
      * @see {@link https://github.com/speedyHKjournalist/v64/tree/master/bios} for BIOS images
      */
     vga_bios?: V86Image;
+
+    /**
+     * The machine's firmware, on the PC machines: SeaBIOS (`bios` and `vga_bios`, the default)
+     * or UEFI. UEFI is OVMF, X64 (bios/ovmf-code.fd and bios/ovmf-vars.fd: edk2-stable202408 as
+     * QEMU 9.2.0 ships it, see bios/fetch-ovmf.sh), mapped as flash below 4 GiB: the variable
+     * store, then the code (or `code` alone, an image holding both). It needs cpu_type "x86_64",
+     * acpi: true and, on i440FX, qemu_compatible: true; it takes the place of `bios` and
+     * `vga_bios`. The variable store is CFI flash; with `disk_option: "read_write"` its writes go
+     * back into its image, as a disk's (else they stay in memory). See docs/uefi.md.
+     */
+    firmware?: {
+        type: "seabios" | "uefi";
+        code?: V86Image;
+        vars?: V86HardDiskImage;
+        /**
+         * The firmware is a Secure Boot build that keeps its variables in SMM (edk2's
+         * SMM_REQUIRE: bios/ovmf-secure-code.fd): the variable store is written only by code in
+         * SMM, as QEMU's pflash with secure=on. It needs machine_type "q35" and `vars`. Whether
+         * Secure Boot is on is the variable store's: the keys enrolled in it (docs/uefi.md).
+         */
+        secure_boot?: boolean;
+        /**
+         * QEMU's debug console at port 0x402: the firmware's debug log, byte by byte, as the
+         * "debug-console-output-byte" event
+         */
+        debug_console?: boolean;
+    };
+
+    /**
+     * A TPM 2.0 on the PC machines (a plugin, build/v86-tpm.js, with build/libtpms.wasm beside it):
+     * libtpms behind the CRB interface at 0xFED40000, described by the ACPI tables (MSFT0101,
+     * TPM2); it needs acpi: true. `state` keeps the TPM's permanent state (a 512 KiB image; with
+     * disk_option "read_write" written back, else in memory; zeros: a new TPM). See docs/tpm.md.
+     */
+    tpm?: {
+        version?: "2.0";
+        interface?: "crb";
+        state?: V86HardDiskImage;
+        plugin_path?: string;
+        wasm_path?: string;
+    };
 
     /**
      * First hard disk
@@ -1126,6 +1182,46 @@ export interface V86Options {
     net_device?: V86NetworkDevice;
 
     /**
+     * The sound card of the PC machines: the Sound Blaster 16 (a plugin, build/v86-sb16.js beside
+     * the bundle), an Intel HD Audio controller with a generic output codec (what Windows Vista to 11
+     * and Linux drive with their own drivers; a plugin, build/v86-hd-audio.js), or none (the PC
+     * speaker stays). The virt machine has `virtio_sound` instead.
+     * @default "sb16"
+     */
+    audio_device?: "sb16" | "hd_audio" | "none";
+
+    /**
+     * Where the plugin of the sound card (`audio_device`: "sb16", "hd_audio") is, a path or URL
+     * @default build/v86-<name>.js beside the bundle (dashes for underscores; with the bundle's query)
+     */
+    audio_device_path?: string;
+
+    /**
+     * USB on the PC machines (a plugin, build/v86-usb.js beside the bundle): a UHCI controller
+     * (PIIX3's on i440FX at 00:01.2, ICH9's on Q35 at 00:1d.0), or "ehci": ICH9's EHCI with its three
+     * UHCI companions (00:1d.0-2 and .7 on Q35, 00:06 on i440FX; high-speed devices on the EHCI, the
+     * others on the companions); with `tablet`, a HID tablet on the first port, an absolute pointer
+     * that has the page's pointer while the guest uses it (unless the pointer is locked: then the PS/2
+     * mouse has it); `mass_storage`: USB disks (disk images as USB sticks: Bulk-Only Transport, SCSI;
+     * high speed on EHCI, SuperSpeed on xHCI) on the ports after it. UHCI has 2 ports, EHCI 6, xHCI 4 (QEMU's
+     * qemu-xhci at 00:14.0; each port a USB 3 and a USB 2 root port). See {@link V86.usb_plug},
+     * {@link V86.usb_attach_disk}.
+     */
+    usb?: {
+        controller: "uhci" | "ehci" | "xhci";
+        tablet?: boolean;
+        mass_storage?: {
+            /** its name for usb_plug and usb_detach_disk ("usb:" + id for disk_buffer and export_disk_image) */
+            id: string;
+            /** as hda's */
+            image: V86HardDiskImage;
+            /** the guest sees it write protected */
+            read_only?: boolean;
+        }[];
+        plugin_path?: string;
+    };
+
+    /**
      * Enable serial port 1
      * @default false
      */
@@ -1531,6 +1627,39 @@ export class V86 {
      * @param options surprise: pull the card out at once
      */
     detach_pcie_device(port: number, options?: { surprise?: boolean }): Promise<void>;
+
+    /**
+     * Plug a USB device out of its port or back in (the `usb` option's devices: "tablet", a USB
+     * disk's id): the guest sees it leave or arrive. Rejected for a device the machine does not have.
+     *
+     * @param id the device: "tablet" or a USB disk's id
+     * @param plugged in (true) or out
+     */
+    usb_plug(id: string, plugged: boolean): Promise<void>;
+
+    /**
+     * The USB devices: each one's id, port, whether it is in it, the controller that has it ("ehci",
+     * or "uhci": the UHCI, or one of EHCI's UHCI companions) and its speed in Mbit/s
+     */
+    usb_devices(): Promise<{ id: string; port: number; plugged: boolean; controller: "uhci" | "ehci" | "xhci"; speed: number }[]>;
+
+    /**
+     * Plug a disk image in as a USB disk (in the first free port): the guest sees it arrive. A
+     * snapshot holds the USB disks in their ports: to restore one taken with a USB disk, attach the
+     * same image with the same id first; otherwise the restored guest sees the disk leave.
+     *
+     * @param id its name (usb_plug, usb_detach_disk; "usb:" + id for disk_buffer and export_disk_image)
+     * @param image as hda's
+     * @param options read_only: the guest sees it write protected
+     */
+    usb_attach_disk(id: string, image: V86HardDiskImage, options?: { read_only?: boolean }): Promise<void>;
+
+    /**
+     * Pull a USB disk out, as a USB stick pulled from its socket: the writes the guest issued before
+     * are in the image (a disk written back is flushed and closed). To let the guest finish first,
+     * eject it in the guest ("usb-disk-ejected").
+     */
+    usb_detach_disk(id: string): Promise<void>;
 
     /**
      * Send a sequence of scan codes to the emulated PS2 controller. A list of

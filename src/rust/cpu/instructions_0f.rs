@@ -283,6 +283,10 @@ unsafe fn lgdt(addr: i32, mask: i32) {
     let offset = return_on_pagefault!(safe_read32s(addr + 2));
     *gdtr_size = size;
     *gdtr_offset = offset & mask;
+    // (outside 64-bit mode the base is 32 bits, zero-extended: the upper half
+    // a long mode OS left must go, or OVMF's SMI entry, which loads its GDT
+    // in 32-bit code, then enables long mode with the OS's upper half)
+    *x64_gdtr_base_hi = 0;
 }
 #[no_mangle]
 pub unsafe fn instr16_0F01_2_mem(addr: i32) { lgdt(addr, 0xFFFFFF); }
@@ -303,6 +307,8 @@ unsafe fn lidt(addr: i32, mask: i32) {
     let offset = return_on_pagefault!(safe_read32s(addr + 2));
     *idtr_size = size;
     *idtr_offset = offset & mask;
+    // (zero-extended, as lgdt's)
+    *x64_idtr_base_hi = 0;
 }
 #[no_mangle]
 pub unsafe fn instr16_0F01_3_mem(addr: i32) { lidt(addr, 0xFFFFFF); }
@@ -3613,6 +3619,21 @@ pub unsafe fn instr_0FA2() {
     write_reg32(ECX, ecx);
     write_reg32(EDX, edx);
     write_reg32(EBX, ebx);
+}
+/// What CPUID returns for `leaf` and `subleaf` on the current core, register
+/// `register` (0 EAX, 1 EBX, 2 ECX, 3 EDX): for tables the host builds before
+/// the guest runs (src/smbios.js). The general registers are left as they were.
+#[no_mangle]
+pub unsafe fn cpuid_query(leaf: u32, subleaf: u32, register: u32) -> u32 {
+    let saved = [EAX, EBX, ECX, EDX].map(|r| read_reg32(r));
+    write_reg32(EAX, leaf as i32);
+    write_reg32(ECX, subleaf as i32);
+    instr_0FA2();
+    let result = read_reg32([EAX, EBX, ECX, EDX][register as usize & 3]) as u32;
+    for (r, value) in [EAX, EBX, ECX, EDX].into_iter().zip(saved) {
+        write_reg32(r, value);
+    }
+    result
 }
 pub unsafe fn instr16_0FA3_reg(r1: i32, r2: i32) { bt_reg(read_reg16(r1), read_reg16(r2) & 15); }
 pub unsafe fn instr16_0FA3_mem(addr: i32, r: i32) { bt_mem(addr, read_reg16(r) << 16 >> 16); }

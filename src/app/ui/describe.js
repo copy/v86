@@ -3,6 +3,7 @@
 // and the hardware table of the library's summary and the settings list.
 
 import { format_size } from "./dom.js";
+import { NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
@@ -10,7 +11,6 @@ import { format_size } from "./dom.js";
 const MACHINES = { i440fx: "i440FX (IDE)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (arm64)" };
 const ADAPTERS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", none: "None (serial console only)" };
 const BACKENDS = { none: "no network", inbrowser: "in the browser", relay: "relay", wisp: "wisp", fetch: "fetch" };
-const SOUND = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "none" };
 
 /**
  * Where an image is, for people
@@ -42,7 +42,8 @@ export function hardware_rows(c)
         ["Memory", c.memory.mb + " MB"],
         ["Processor", c.cpu.type + ", " + c.cpu.cores + (c.cpu.cores === 1 ? " core" : " cores") + (c.cpu.cores > 1 && c.cpu.parallel ? " in parallel" : "") +
             (c.cpu.jit ? "" : ", no JIT")],
-        ["Machine", (MACHINES[c.machine.type] || c.machine.type) + (c.machine.acpi ? ", ACPI" : "")],
+        ["Machine", (MACHINES[c.machine.type] || c.machine.type) + (c.machine.acpi ? ", ACPI" : "") + (c.machine.firmware === "uefi" ? ", UEFI" : "") +
+            (c.machine.firmware === "uefi" && c.machine.secure_boot ? ", Secure Boot" : "")],
     ];
     for(const disk of c.disks)
     {
@@ -70,10 +71,17 @@ export function hardware_rows(c)
         (c.display.displays > 1 ? ", " + c.display.displays + " displays" : "") + ({ venus: ", Vulkan (Venus)", gfxstream: ", Vulkan (gfxstream)" }[c.display.vulkan] || "")]);
     for(const network of c.network)
     {
-        rows.push(["Network", network.device === "none" ? "none" : network.device + ", " + (BACKENDS[network.backend] || network.backend) +
+        rows.push(["Network", network.device === "none" ? "none" : (NIC_LABELS[network.device] || network.device) + ", " + (BACKENDS[network.backend] || network.backend) +
             (network.relay_url ? " " + network.relay_url : "")]);
     }
-    rows.push(["Sound", SOUND[c.sound.device] || c.sound.device]);
+    rows.push(["Sound", (c.sound.device === "none" ? "none" : SOUND_LABELS[c.sound.device] || c.sound.device) + (c.sound.mute ? ", muted" : "")]);
+    if(c.usb) rows.push(["USB", c.usb.controller.toUpperCase() + (c.usb.tablet ? ", tablet" : "")]);
+    if(c.tpm) rows.push(["TPM", "TPM 2.0 (CRB)"]);
+    for(const disk of c.usb ? c.usb.disks : [])
+    {
+        rows.push(["USB disk (" + disk.id + ")", describe_image(disk.image) + (disk.disk_option === "read_write" ? ", read write" : ", read only") +
+            (disk.write_protected ? ", write protected" : "")]);
+    }
     for(const serial of c.serial) if(serial.attach !== "none") rows.push(["UART" + serial.port, serial.attach]);
     if(c.filesystem) rows.push(["Shared folder", c.filesystem.baseurl || "in the browser"]);
     return rows;

@@ -9,7 +9,7 @@ On the most basic level, networking in v86 is comprised of two components:
 * an emulation of the guest's [Network Interface Controller](https://en.wikipedia.org/wiki/Network_interface_controller) (NIC), and
 * a network backend which passes ethernet frames between the NIC and a virtual and/or physical [ethernet network](https://en.wikipedia.org/wiki/Ethernet).
 
-There are two **NIC emulations** supported by v86 to chose from, either **`ne2k`** (NE2000/RTL8390-compatible NIC) or **`virtio`** ([VirtIO](http://wiki.osdev.org/Virtio)-compatible device). The right choice simply depends on the driver support in the guest OS, older OSes like FreeDOS only support NE2000, more modern ones usually support VirtIO. In case both are supported by the guest OS it's recommended to try VirtIO first and only fall back to NE2000 if that fails. In some cases it will also be necessary to manually load a driver or similar to activate the NIC and/or networking in the guest OS, yet modern systems usually auto-detect an available NIC during installation and when booting.
+There are three **NIC emulations** supported by v86 to chose from (`net_device.type`): **`ne2k`** (NE2000/RTL8029-compatible NIC, the default), **`e1000`** (an Intel 82540EM, PRO/1000 MT Desktop, see [below](#the-e1000-card)) or **`virtio`** ([VirtIO](http://wiki.osdev.org/Virtio)-compatible device); `none` leaves the machine without one. The NE2000 and the e1000 are plugins, `build/v86-ne2k.js` and `build/v86-e1000.js`, loaded beside the bundle (or from `net_device.plugin_path`); their state is a snapshot's `state[59]`, where snapshots from before the NE2000 was a plugin (format 6, the stream's 7) have its own state, which its plugin reads; snapshots since then (format 8, the stream's 9) do not open in a v86 from before ([sound.md](sound.md)). The right choice simply depends on the driver support in the guest OS: older OSes like FreeDOS, Windows 9x and XP have NE2000 drivers, Windows Vista to 11 drive the e1000 with their own drivers, Linux has all three. On Linux it's recommended to try VirtIO first. ARM64 machines have virtio-net only. In some cases it will also be necessary to manually load a driver or similar to activate the NIC and/or networking in the guest OS, yet modern systems usually auto-detect an available NIC during installation and when booting.
 
 There are also several **network backends** to chose from which emulate the network that the virtual NIC is connected to, they differ in their requirements and in the degree of network access and services provided to guests. Some provide only limited network access, others full access to a physical network which may include a gateway to the Internet. Backends may require a specific type of proxy server to operate.
 
@@ -175,7 +175,7 @@ When restoring a state image, v86 randomises the restored guest's MAC address to
   randomised MAC address in outgoing packets (and vice-versa for incoming
   packets). This mechanism currently only supports the ethernet, ipv4, dhcp and
   arp protcols. See `translate_mac_address` in
-  [`src/ne2k.js`](../src/ne2k.js). This is
+  [`src/mac_address.js`](../src/mac_address.js). This is
   currently used in Windows, ReactOS and SerenityOS profiles.
 - Some OSes don't cache the MAC address when the driver loads and therefore
   don't need any of the above workarounds. This seems to be the case for Haiku,
@@ -183,6 +183,52 @@ When restoring a state image, v86 randomises the restored guest's MAC address to
 
 Note that the same applies to IP addresses, so a DHCP client should only be run
 after the state has been loaded.
+
+The e1000 follows the same options. Without either, the card keeps its new
+address in its EEPROM and receive address 0 (where the guest had the card's
+own address there), as the NE2000 does with its station address.
+
+### The e1000 card
+
+`net_device: { type: "e1000" }` is an Intel 82540EM (`8086:100E`, subsystem
+`8086:001E`), the card Windows Vista to 11 (`nete1g3e.inf`) and Linux
+(`e1000.ko`) drive without installing anything. It is a plugin like the display
+adapters ([gpu-devices.md](gpu-devices.md), "Adapter plugins"):
+`build/v86-e1000.js`, loaded beside the bundle when the card is chosen, or from
+`net_device.plugin_path`; the source is in
+[`src/net_adapters/e1000/`](../src/net_adapters/e1000/). It takes the NE2000's
+PCI slot (00:05.0, or 00:03.0 with `qemu_compatible`, or behind a
+`pcie_root_port`) and its place in a snapshot.
+
+What it has: the 128 KiB register BAR and the IOADDR/IODATA I/O BAR; INTA, PCI
+power management, no MSI; the EEPROM (EERD and Microwire, checksum 0xBABA)
+and the Marvell 88E1011 PHY over MDIC, auto-negotiation and link interrupts;
+transmit with legacy and context/data descriptors, IP/TCP/UDP checksum
+insertion, TSO and VLAN tags; receive with the address, multicast, broadcast,
+promiscuous and VLAN filters, buffers of 256 bytes to 16 KiB across
+descriptors, the FCS (unless SECRC), IPv4/TCP/UDP checksum checks, VLAN tag
+stripping and a 48 KiB FIFO for frames that find no free descriptor
+(RNBC; MPC and RXO when it is full); interrupt throttling (ITR) and the
+receive and transmit delay timers (RDTR, RADV, TIDV, TADV) on the machine
+clock; the statistics registers. Not emulated: flow control frames, wake-up
+and manageability (the registers keep what is written), the 82544 and later
+cards' extensions.
+
+Windows 8.1 x64 (Q35, two cores, `tests/x64/windows_boot.mjs` with
+`WIN_NIC=e1000 WIN_NET=1`) binds `nete1g3e.inf` 8.4.13.0 (service E1G60,
+ConfigManagerErrorCode 0) at first boot, gets its address by DHCP and
+downloads 16 MiB over HTTP, checked by MD5 (1.3 MiB/s).
+
+Tests: `make e1000-tests` (the device through its registers,
+[`tests/devices/e1000.js`](../tests/devices/e1000.js); Linux 4.16 from
+`images/linux4.iso` on one and two cores,
+[`tests/devices/e1000_guest.mjs`](../tests/devices/e1000_guest.mjs)). With a
+TCP endpoint that keeps a window in flight
+([`tests/devices/tcp_endpoint.mjs`](../tests/devices/tcp_endpoint.mjs)), Linux
+receives about 9 MiB/s on one core (virtio-net: the same; the NE2000: 0.15
+MiB/s). The fake network's own TCP (the `fetch` and `wisp` backends) has one
+segment in flight and waits for each acknowledgement, which a guest delays:
+through it any card receives a few dozen segments per second.
 
 ### NodeJS
 

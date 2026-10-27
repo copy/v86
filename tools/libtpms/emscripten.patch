@@ -1,0 +1,11 @@
+--- a/src/tpm2/TpmProfile_Common.h
++++ b/src/tpm2/TpmProfile_Common.h
+@@ -89,7 +89,7 @@
+ #else
+ # include <endian.h>
+ #endif
+-#if defined __linux__ || defined __CYGWIN__ || defined __gnu_hurd__
++#if defined __linux__ || defined __CYGWIN__ || defined __gnu_hurd__ || defined __EMSCRIPTEN__
+  #if __BYTE_ORDER == __LITTLE_ENDIAN
+   #define  BIG_ENDIAN_TPM       NO
+  #endif

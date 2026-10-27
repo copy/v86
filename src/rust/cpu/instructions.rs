@@ -2469,7 +2469,9 @@ pub unsafe fn instr32_FF_2_helper(data: i32) {
     // call near
     let cs = get_seg_cs();
     return_on_pagefault!(push32(get_real_eip()));
-    dbg_assert!(*is_32 || data < 0x10000);
+    // (16-bit code goes above 64 KiB only where CS's limit allows: SMM's
+    // entry state, big real mode)
+    dbg_assert!(*is_32 || data < 0x10000 || *segment_limits.offset(CS as isize) > 0xFFFF);
     *instruction_pointer = cs + data;
 }
 pub unsafe fn instr32_FF_2_mem(addr: i32) {
@@ -2495,8 +2497,8 @@ pub unsafe fn instr32_FF_3_mem(addr: i32) {
 }
 
 pub unsafe fn instr32_FF_4_helper(data: i32) {
-    // jmp near
-    dbg_assert!(*is_32 || data < 0x10000);
+    // jmp near (above 64 KiB in 16-bit code: see instr32_FF_2_helper)
+    dbg_assert!(*is_32 || data < 0x10000 || *segment_limits.offset(CS as isize) > 0xFFFF);
     *instruction_pointer = get_seg_cs() + data;
 }
 pub unsafe fn instr32_FF_4_mem(addr: i32) {

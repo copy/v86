@@ -396,6 +396,16 @@ pub unsafe fn smm_enter() -> bool {
     }
     *is_32 = false;
     *stack_size_32 = false;
+    // The general registers' upper halves are undefined in SMM's 32-bit
+    // modes; processors zero-extend 32-bit writes, which v86 leaves to the
+    // halves kept apart (x64_gpr_hi). Handlers count on it: OVMF's SMI entry
+    // sets ESP in 32-bit code, then pushes in 64-bit mode. The save map has
+    // the whole registers for RSM.
+    if long {
+        for i in 0..16 {
+            *x64_gpr_hi.offset(i) = 0;
+        }
+    }
     x64::write_rip(0x8000);
     x64::write_previous_rip(0x8000);
     entered_mode();
@@ -425,7 +435,8 @@ struct Restored {
 unsafe fn restore_32(area: SaveArea) -> Restored {
     let new_cr0 = area.read32(0x7FFC) as i32;
     *cr = new_cr0 | CR0_ET;
-    *cr.offset(3) = area.read32(0x7FF8) as i32;
+    // (32 bits, zero-extended)
+    x64::write_cr_raw(3, area.read32(0x7FF8) as u64);
     *cr.offset(4) = area.read32(0x7F14) as i32;
 
     *flags = area.read32(0x7FF4) as i32 & FLAGS_MASK | FLAGS_DEFAULT;
@@ -450,9 +461,10 @@ unsafe fn restore_32(area: SaveArea) -> Restored {
         area.read32(0x7F7C),
         area.read32(0x7F78),
     );
-    *gdtr_offset = area.read32(0x7F74) as i32;
+    // (32-bit bases, zero-extended)
+    x64::write_gdtr_base(area.read32(0x7F74) as u64);
     *gdtr_size = area.read32(0x7F70) as i32;
-    *idtr_offset = area.read32(0x7F58) as i32;
+    x64::write_idtr_base(area.read32(0x7F58) as u64);
     *idtr_size = area.read32(0x7F54) as i32;
 
     for segment in [ES, CS, SS, DS, FS, GS] {

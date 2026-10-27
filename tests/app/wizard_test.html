@@ -5,6 +5,13 @@
      part=freedos  the DOS preset from a floppy URL (images/freedos722.img), no hard disk: "Welcome to FreeDOS"
      part=linux    the 32-bit Linux preset from a CD URL (images/linux4.iso), a new disk in memory: the shell's "~%"
      part=arm64    the arm64 Linux preset, direct boot: Alpine's kernel, initrd and ISO (build/a64-linux/): "login:" on the serial console
+     part=uefi     a machine of no preset edited to UEFI (OVMF, Q35) in the settings dialog, powered on: the UEFI Shell's
+                   prompt on the serial console (bios/ovmf-code.fd through the CPU worker); a variable set in the Shell is
+                   there at the next power-on (the machine's variable store, a browser disk written back), and gone after
+                   the settings dialog's "Reset UEFI variables…"; with a TPM added there, OVMF's TCG2 protocol at each
+                   power-on (the TPM plugin in the CPU worker, its state a browser disk), after "Clear TPM…" too
+     part=secure_boot  a machine of no preset edited to UEFI on Q35 with Secure Boot (Microsoft's keys): the library's summary; powered
+                   on through the CPU worker, the Secure Boot firmware's boot manager on the serial console (no bootable device)
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
@@ -262,6 +269,125 @@ const parts = {
         log("power on: Alpine arm64 boots to \"" + serial.trim().split("\n").pop().trim() + "\"");
         await emulator.destroy();
     },
+    async uefi()
+    {
+        await open_library();
+        await wizard({ source: "Install the system later", urls: {}, preset: "other", name: "UEFI", disk: "none" });
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        const item = id => dialog.querySelector("li[data-item=" + id + "]");
+        const panel = () => dialog.querySelector(".settings-panel");
+        item("machine").click();
+        select_text(panel().querySelector("select[aria-label=Machine]"), "Q35");
+        select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
+        await until(() => /UEFI is OVMF/.test(panel().textContent), "the UEFI note");
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "TPM");
+        await until(() => item("tpm") && item("tpm").classList.contains("selected"), "the TPM added");
+        button("Save", dialog).click();
+        await until(() => !$("dialog.settings-dialog[open]"), "saved");
+        const VARIABLE = "V86Test -guid 2c94c1ab-37b4-4d11-9a3f-5fd77b0d5e8a";
+        // powered on to the Shell: { frame, emulator, command }
+        const shell = async () =>
+        {
+            const { frame, emulator } = await power_on();
+            let serial = "";
+            emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+            const plain = () => serial.replace(/\x1b\[[0-9;=?]*[A-Za-z]/g, "").replace(/\r/g, "");
+            await until(() => /Shell> $/.test(plain()), "the UEFI Shell on the serial console", 180000);
+            check(/UEFI Interactive Shell v2\.2/.test(serial), "the Shell's banner");
+            const command = async text =>
+            {
+                serial = "";
+                for(const chr of text + "\r")
+                {
+                    emulator.serial0_send(chr);
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                }
+                await until(() => /Shell> $/.test(plain()), JSON.stringify(text), 60000);
+                return plain();
+            };
+            return { frame, emulator, command };
+        };
+        // (powered off: the variable store flushed, the machine's lock and the store's handle let go)
+        const power_off = async ({ frame, emulator }) => { await emulator.destroy(); frame.remove(); };
+
+        // (OVMF's TCG2 protocol: it found the TPM, through the plugin the CPU worker loaded)
+        const tcg2 = async machine => /^\s*[0-9A-F]+: Tcg2\s*$/m.test(await machine.command("dh -p Tcg2"));
+        let machine = await shell();
+        log("power on: OVMF on Q35 to \"Shell>\" on the serial console");
+        check(await tcg2(machine), "OVMF's TCG2 protocol: the TPM found");
+        log("the TPM: OVMF's TCG2 protocol installed");
+        await machine.command("setvar " + VARIABLE + " -nv -bs -rt =L\"v86\"");
+        check(/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable set");
+        await power_off(machine);
+        machine = await shell();
+        check(/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable at the next power-on");
+        log("a variable set in the Shell: there at the next power-on");
+        // (a TPM state the plugin refused would leave OVMF without a TPM)
+        check(await tcg2(machine), "the TPM at the next power-on, from its kept state");
+        log("the TPM at the next power-on, from the state the first one kept");
+        await power_off(machine);
+
+        // (back in the library's tab: it reads the machines again, the variable store the console made)
+        w.dispatchEvent(new Event("focus"));
+        await new Promise(resolve => setTimeout(resolve, 500));
+        $("#edit_vm").click();
+        const again = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        again.querySelector("li[data-item=machine]").click();
+        const reset = await until(() => button("Reset UEFI variables…", again), "the reset button");
+        reset.click();
+        const ask = await until(() => $$("dialog[open]").find(e => /Reset UEFI variables\?/.test(e.textContent)), "the question");
+        button("Reset", ask).click();
+        const status = await until(() => /^Reset|^Not reset/.test(again.querySelector(".settings-panel [role=status]").textContent) &&
+            again.querySelector(".settings-panel [role=status]").textContent, "the reset");
+        check(/^Reset/.test(status), status);
+        again.querySelector("li[data-item=tpm]").click();
+        const clear = await until(() => button("Clear TPM…", again), "Clear TPM… (the state made)");
+        clear.click();
+        const sure = await until(() => $$("dialog[open]").find(e => /Clear the TPM\?/.test(e.textContent)), "the question");
+        button("Clear", sure).click();
+        const cleared = await until(() => /^Cleared|^Not cleared/.test(again.querySelector(".settings-panel [role=status]").textContent) &&
+            again.querySelector(".settings-panel [role=status]").textContent, "the clear");
+        check(/^Cleared/.test(cleared), cleared);
+        button("Cancel", again).click();
+        machine = await shell();
+        check(!/76 00 38 00 36 00/.test(await machine.command("setvar " + VARIABLE)), "the variable gone after the reset");
+        log("Reset UEFI variables: the variable gone at the next power-on");
+        check(await tcg2(machine), "a new TPM after Clear TPM…");
+        log("Clear TPM…: a new TPM at the next power-on");
+        await power_off(machine);
+    },
+    async secure_boot()
+    {
+        await open_library();
+        await wizard({ source: "Install the system later", urls: {}, preset: "other", name: "Secure Boot", disk: "none" });
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        const panel = () => dialog.querySelector(".settings-panel");
+        dialog.querySelector("li[data-item=machine]").click();
+        select_text(panel().querySelector("select[aria-label=Machine]"), "Q35");
+        select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
+        const box = await until(() => Array.from(panel().querySelectorAll("label.check")).find(l => /^Secure Boot/.test(l.textContent.trim())),
+            "the Secure Boot switch");
+        check(!box.querySelector("input").disabled, "Secure Boot available on Q35");
+        box.querySelector("input").click();
+        const keys = await until(() => panel().querySelector("select[aria-label='Secure Boot keys']"), "the keys");
+        check(/^Microsoft/.test(keys.selectedOptions[0].textContent), "Microsoft's keys by default: " + keys.selectedOptions[0].textContent);
+        button("Save", dialog).click();
+        await until(() => !$("dialog.settings-dialog[open]"), "saved");
+        await until(() => /Secure Boot/.test(table_text($(".hardware"))), "the library showing Secure Boot");
+        log("Secure Boot: on Q35 with UEFI, Microsoft's keys");
+
+        // powered on (the Secure Boot firmware, its store's flash SMM's, through the CPU worker): no disk, the boot manager says so
+        const { frame, emulator } = await power_on();
+        let serial = "";
+        emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+        const plain = () => serial.replace(/\x1b\[[0-9;=?]*[A-Za-z]/g, "").replace(/\r/g, "");
+        await until(() => /BdsDxe: No bootable option or device was found/.test(plain()), "the boot manager on the serial console", 180000);
+        log("power on: the Secure Boot firmware's boot manager (no bootable device)");
+        await emulator.destroy();
+        frame.remove();
+    },
     async dialog()
     {
         await open_library();
@@ -297,6 +423,22 @@ const parts = {
         const acpi2 = Array.from(panel().querySelectorAll("label.check")).find(l => /^ACPI/.test(l.textContent.trim())).querySelector("input");
         check(acpi2.checked && acpi2.disabled, "two cores: ACPI on and fixed");
 
+        // the firmware: UEFI brings the x86_64 CPU and says what it is; SeaBIOS again
+        const firmwares = Array.from(panel().querySelector("select[aria-label=Firmware]").options, o => o.textContent);
+        check(firmwares.includes("UEFI (OVMF)"), "the firmware: " + firmwares);
+        select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
+        await until(() => /UEFI is OVMF/.test(panel().textContent), "the UEFI note");
+        // (Secure Boot only on Q35: its firmware runs in SMM)
+        const secure_boot = Array.from(panel().querySelectorAll("label.check")).find(l => /^Secure Boot/.test(l.textContent.trim()));
+        check(secure_boot && secure_boot.querySelector("input").disabled && /Q35/.test(secure_boot.textContent), "Secure Boot: on Q35 only");
+        item("processor").click();
+        check(panel().querySelector("select[aria-label=CPU]").selectedOptions[0].textContent.startsWith("x86_64"), "UEFI: the x86_64 CPU");
+        select_text(panel().querySelector("select[aria-label=CPU]"), "x86 (32-bit");
+        item("machine").click();
+        check(panel().querySelector("select[aria-label=Firmware]").selectedOptions[0].textContent.startsWith("SeaBIOS"),
+            "the x86 CPU: SeaBIOS again");
+        log("Firmware: " + firmwares.join(", ") + "; UEFI chose x86_64, the x86 CPU SeaBIOS again");
+
         // a problem: the disk's URL left empty; Save shows it on the disk's panel
         item("disk-0").click();
         select_text(panel().querySelector("select[aria-label='Source: source']"), "An image on the web");
@@ -316,11 +458,45 @@ const parts = {
         select_text(dialog.querySelector("select[aria-label='Add hardware']"), "Hard disk");
         await until(() => item("disk-1"), "a second hard disk");
         log("Add and Remove: a floppy drive added and removed, a second hard disk added");
+
+        // Add USB: UHCI with the tablet; EHCI chosen, the tablet off
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "USB");
+        await until(() => item("usb") && item("usb").classList.contains("selected"), "USB added and chosen");
+        const controllers = Array.from(panel().querySelector("select[aria-label=Controller]").options, o => o.textContent);
+        check(JSON.stringify(controllers) === JSON.stringify(["UHCI (USB 1.1)", "EHCI (USB 2.0, with UHCI companions)", "xHCI (USB 3)"]),
+            "the USB controllers: " + controllers);
+        select_text(panel().querySelector("select[aria-label=Controller]"), "EHCI");
+        await until(() => /EHCI/.test(item("usb").textContent), "EHCI in the item's summary");
+        const tablet = Array.from(panel().querySelectorAll("label.check")).find(l => /^Tablet/.test(l.textContent.trim())).querySelector("input");
+        check(tablet.checked && /EHCI, tablet/.test(item("usb").textContent), "the tablet on: " + item("usb").textContent);
+        tablet.click();
+        await until(() => !/tablet/.test(item("usb").textContent), "the tablet off in the item's summary");
+        check(!Array.from(dialog.querySelector("select[aria-label='Add hardware']").options, o => o.textContent).includes("USB"), "USB no longer to add");
+        log("USB: added (" + controllers.join(", ") + "), EHCI chosen, the tablet turned off");
+
+        // Add a USB disk: an empty disk in memory, write protected
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "USB disk");
+        await until(() => item("usb-disk-0") && item("usb-disk-0").classList.contains("selected"), "a USB disk added and chosen");
+        check(/USB disk \(usb0\)/.test(item("usb-disk-0").textContent), "its item: " + item("usb-disk-0").textContent);
+        const protect = Array.from(panel().querySelectorAll("label.check")).find(l => /^Write protected/.test(l.textContent.trim())).querySelector("input");
+        check(!protect.checked, "not write protected at first");
+        protect.click();
+        await until(() => protect.isConnected ? protect.checked : panel().querySelector("label.check input").checked, "write protected");
+        log("USB disk: added (usb0), write protected");
+
+        // Add a TPM: its item, its panel (Clear TPM… waits for the state, made at the first power-on)
+        select_text(dialog.querySelector("select[aria-label='Add hardware']"), "TPM");
+        await until(() => item("tpm") && item("tpm").classList.contains("selected"), "the TPM added and chosen");
+        check(/TPM 2\.0 \(CRB\)/.test(item("tpm").textContent), "its item: " + item("tpm").textContent);
+        const clear = Array.from(panel().querySelectorAll("button")).find(b => b.textContent === "Clear TPM…");
+        check(clear && clear.disabled, "Clear TPM… disabled before the first power-on");
+        check(!Array.from(dialog.querySelector("select[aria-label='Add hardware']").options, o => o.textContent).includes("TPM"), "TPM no longer to add");
+        log("TPM: added (TPM 2.0, CRB), nothing to clear yet");
         button("Save", dialog).click();
         await until(() => !$("dialog.settings-dialog[open]"), "saved");
         const table = await until(() => /2 cores/.test(table_text($(".hardware"))) && table_text($(".hardware")), "the library showing the saved machine");
-        check(/x86, 2 cores/.test(table) && /ACPI/.test(table) && /Hard disk \(hda\) images\/msdos622\.img/.test(table) && /Hard disk \(hdb\)/.test(table),
-            "the saved machine: " + table);
+        check(/x86, 2 cores/.test(table) && /ACPI/.test(table) && /Hard disk \(hda\) images\/msdos622\.img/.test(table) && /Hard disk \(hdb\)/.test(table) &&
+            /USB EHCI(;|$)/.test(table) && /USB disk \(usb0\) [^;]*write protected/.test(table), "the saved machine: " + table);
         log("saved: " + table.slice(0, 160));
 
         // Cancel: nothing changes

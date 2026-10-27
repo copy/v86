@@ -39,6 +39,22 @@ export const MACHINE_LAYOUT_VERSION = 1;
 export const Q35_ECAM_BASE = 0xB0000000;
 export const Q35_ECAM_SIZE = 0x10000000;
 export const Q35_PCI_MMIO_START = Q35_ECAM_BASE + Q35_ECAM_SIZE;
+/**
+ * The UEFI firmware (OVMF, docs/uefi.md) has its own layout: Q35's ECAM at
+ * its PcdPciExpressBaseAddress, PCI memory from its Uc32Base (4 GiB less
+ * the largest power of two that fits between RAM and 4 GiB) up to the ECAM
+ * on Q35, up to 0xFC000000 on i440FX (OvmfPkg PlatformInitLib)
+ */
+export const OVMF_Q35_ECAM_BASE = 0xE0000000;
+/** @param {number} memory_size RAM below 4 GiB */
+export function ovmf_pci_mmio_start(memory_size)
+{
+    const gap = 2 ** 32 - memory_size;
+    return 2 ** 32 - 2 ** Math.floor(Math.log2(gap));
+}
+/** The TPM's CRB (docs/tpm.md, src/tpm/crb.js): five localities of 4 KiB */
+export const TPM_CRB_BASE = 0xFED40000;
+export const TPM_CRB_SIZE = 0x5000;
 /** ICH9 root complex register block (LPC config 0xF0), as SeaBIOS programs it */
 export const ICH9_RCBA_ADDRESS = 0xFED1C000;
 export const ICH9_RCBA_SIZE = 0x4000;
@@ -68,18 +84,50 @@ export const Q35_ROOT_PORT_SLOT = 0x1C;
  * network card at 00:02.0) with the chipset at 00:00.0 and 00:1f.*.
  * Functions a machine does not have are -1.
  * @param {?Platform} platform
- * @return {{ide: number, acpi_pm: number, vga: number, ne2k: number, lpc: number, ahci: number}}
+ * The HD Audio controller (audio_device "hd_audio") is where ICH6 and ICH9
+ * have it, 00:1b.0, as with QEMU's Q35; QEMU's PC has no fixed place, the
+ * first after its network card is 00:04.0. The UHCI controller (usb) is
+ * ICH9's at 00:1d.0, PIIX3's function 2 of 00:01 on i440FX (QEMU's -usb):
+ * SeaBIOS's PCI IRQ routing table, which Windows without ACPI goes by,
+ * covers devices 1 to 6 only. EHCI (usb.controller "ehci") is function 7 of
+ * a device whose functions 0 to 2 are its UHCI companions: 00:1d as ICH9
+ * and QEMU have it (QEMU's PC too, in its example), v86's PC at 00:06
+ * (inside that table). xHCI ("xhci") is at 00:14.0, where Intel's PCHs
+ * have it (QEMU's PC: 00:05.0, the first slot after its sound card).
+ * @return {{ide: number, acpi_pm: number, vga: number, ne2k: number, lpc: number, ahci: number, hda: number, uhci: number,
+ *     ehci: number, xhci: number}}
  */
 export function pci_functions(platform)
 {
     if(platform && platform.machine === "q35")
     {
-        return { ide: -1, acpi_pm: -1, vga: 0x01 << 3, ne2k: 0x02 << 3, lpc: ICH9_LPC_PCI_ID, ahci: ICH9_AHCI_PCI_ID };
+        return { ide: -1, acpi_pm: -1, vga: 0x01 << 3, ne2k: 0x02 << 3, lpc: ICH9_LPC_PCI_ID, ahci: ICH9_AHCI_PCI_ID, hda: 0x1B << 3,
+            uhci: 0x1D << 3, ehci: 0x1D << 3 | 7, xhci: 0x14 << 3 };
     }
     return platform && platform.qemu_compatible ?
-        { ide: 0x01 << 3 | 1, acpi_pm: 0x01 << 3 | 3, vga: 0x02 << 3, ne2k: 0x03 << 3, lpc: -1, ahci: -1 } :
-        { ide: 0x1E << 3, acpi_pm: ACPI_PM_PCI_ID, vga: 0x12 << 3, ne2k: 0x05 << 3, lpc: -1, ahci: -1 };
+        { ide: 0x01 << 3 | 1, acpi_pm: 0x01 << 3 | 3, vga: 0x02 << 3, ne2k: 0x03 << 3, lpc: -1, ahci: -1, hda: 0x04 << 3, uhci: 0x01 << 3 | 2,
+            ehci: 0x1D << 3 | 7, xhci: 0x05 << 3 } :
+        { ide: 0x1E << 3, acpi_pm: ACPI_PM_PCI_ID, vga: 0x12 << 3, ne2k: 0x05 << 3, lpc: -1, ahci: -1, hda: 0x1B << 3, uhci: 0x01 << 3 | 2,
+            ehci: 0x06 << 3 | 7, xhci: 0x14 << 3 };
 }
+/**
+ * The root bridge's 32-bit PCI memory windows, [first, last] each: from
+ * pci_mmio_start to PCI_MMIO_END, less the ECAM window where it lies inside
+ * (OVMF's Q35 layout)
+ * @param {Platform} platform
+ * @return {!Array<!Array<number>>}
+ */
+export function pci_memory_windows(platform)
+{
+    const start = platform.pci_mmio_start;
+    const ecam = platform.ecam;
+    if(!ecam || ecam.base + ecam.size <= start || ecam.base > PCI_MMIO_END)
+    {
+        return [[start, PCI_MMIO_END]];
+    }
+    return [[start, ecam.base - 1], [ecam.base + ecam.size, PCI_MMIO_END]].filter(([first, last]) => first <= last);
+}
+
 /** PM I/O block size decoded at PMBA (PCI config 0x40) */
 export const ACPI_PM_LENGTH = 0x40;
 /**
@@ -129,6 +177,8 @@ export const ACPI_SLEEP_STATES = [
  * docs/q35.md); the encodings match the i440FX ones.
  */
 const Q35_SLEEP_STATES = ACPI_SLEEP_STATES.map(s => ({ state: s.state, slp_typ: s.slp_typ, supported: s.state === 5 }));
+/** With the UEFI firmware, likewise on both machines: OVMF's S3 resume and its S4 path are not verified yet */
+const UEFI_SLEEP_STATES = Q35_SLEEP_STATES;
 
 /**
  * Legacy devices at fixed resources. `when` names the setting that enables an
@@ -158,6 +208,8 @@ const PARALLEL_PORTS = [
  *     parallel_ports: !Array<{index: number, port: number, irq: number}>,
  *     qemu_compatible: boolean,
  *     machine: string,
+ *     firmware: string,
+ *     tpm: boolean,
  *     acpi: boolean,
  *     ecam: ?{base: number, size: number},
  *     pm: {length: number, gpe0_offset: number, gpe0_base: number, gpe0_length: number, acpi_enable: number, acpi_disable: number},
@@ -241,6 +293,10 @@ export function create_platform(settings, memory_size)
     {
         throw new Error("cpu_cores > 1 requires acpi: true (it enables the local APICs)");
     }
+    if(settings.tpm && !acpi)
+    {
+        throw new Error("tpm requires acpi: true (the ACPI tables describe the TPM)");
+    }
     if(q35 && memory_size > Q35_ECAM_BASE)
     {
         throw new Error("machine_type \"q35\": RAM below 4 GiB must end below the ECAM window at 0x" + Q35_ECAM_BASE.toString(16));
@@ -293,8 +349,12 @@ export function create_platform(settings, memory_size)
     }
 
     // i440FX: the PCI memory window starts at the first 256 MiB boundary above
-    // RAM. Q35: above the ECAM window, where SeaBIOS allocates the BARs.
-    const pci_mmio_start = q35 ? Q35_PCI_MMIO_START : Math.ceil(memory_size / 0x10000000) * 0x10000000;
+    // RAM (OVMF allocates at or above it too). Q35: above the ECAM window,
+    // where SeaBIOS allocates the BARs; with UEFI where OVMF does, below its
+    // ECAM window (which the tables leave out of the PCI window)
+    const uefi = !!settings.firmware && settings.firmware.type === "uefi";
+    const pci_mmio_start = q35 ? (uefi ? ovmf_pci_mmio_start(memory_size) : Q35_PCI_MMIO_START) :
+        Math.ceil(memory_size / 0x10000000) * 0x10000000;
 
     const platform = {
         cores,
@@ -317,8 +377,12 @@ export function create_platform(settings, memory_size)
         // identities (subsystem, drive names)
         qemu_compatible: !!settings.qemu_compatible,
         machine,
+        // "seabios" (bios, vga_bios) or "uefi" (firmware: { type: "uefi" })
+        firmware: uefi ? "uefi" : "seabios",
+        // a TPM 2.0 (tpm: docs/tpm.md): its device and TPM2 table
+        tpm: !!settings.tpm,
         acpi,
-        ecam: q35 ? { base: Q35_ECAM_BASE, size: Q35_ECAM_SIZE } : null,
+        ecam: q35 ? { base: uefi ? OVMF_Q35_ECAM_BASE : Q35_ECAM_BASE, size: Q35_ECAM_SIZE } : null,
         // The power management block: PIIX4 (PMBA, separate GPE0 block) or
         // ICH9 (PMBASE, GPE0 inside the block). gpe0_base is absolute for
         // PIIX4; ICH9's is pm_base + gpe0_offset (gpe0_block).
@@ -327,7 +391,7 @@ export function create_platform(settings, memory_size)
               acpi_enable: ICH9_ACPI_ENABLE, acpi_disable: ICH9_ACPI_DISABLE } :
             { length: ACPI_PM_LENGTH, gpe0_offset: -1, gpe0_base: ACPI_GPE0_BASE, gpe0_length: ACPI_GPE0_LENGTH,
               acpi_enable: ACPI_ENABLE, acpi_disable: ACPI_DISABLE },
-        sleep_states: q35 ? Q35_SLEEP_STATES : ACPI_SLEEP_STATES,
+        sleep_states: uefi ? UEFI_SLEEP_STATES : q35 ? Q35_SLEEP_STATES : ACPI_SLEEP_STATES,
         reserved_pci_slots: q35 ? Q35_CHIPSET_SLOTS.concat(root_ports ? [Q35_ROOT_PORT_SLOT] : []) : [],
         // the root ports at 00:1c.0 and up; behind port n is the bus that
         // pci_ids number n + 1
@@ -425,6 +489,6 @@ export function check_platform(platform, pm_base)
 
     dbg_assert(platform.cores >= 1 && platform.apic_ids.length === platform.cores);
     dbg_assert(platform.pci_mmio_start <= 0xE0000000, "RAM overlaps the PCI memory window");
-    dbg_assert(!platform.ecam || platform.memory_size <= platform.ecam.base &&
-        platform.ecam.base + platform.ecam.size <= platform.pci_mmio_start, "ECAM overlaps RAM or the PCI memory window");
+    dbg_assert(!platform.ecam || platform.memory_size <= platform.ecam.base && platform.memory_size <= platform.pci_mmio_start,
+        "ECAM or the PCI memory window overlaps RAM");
 }

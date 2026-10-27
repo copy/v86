@@ -11,8 +11,8 @@
 import { dbg_assert } from "./log.js";
 import {
     ACPI_SCI_IRQ, ACPI_SMI_CMD_PORT, FW_CFG_PORT, ICH9_RCBA_ADDRESS, ICH9_RCBA_SIZE,
-    IOAPIC_ADDRESS, IOAPIC_ID, LAPIC_ADDRESS, PCI_LINK_IRQS, PCI_MMIO_END, RESET_PORT, RESET_VALUE,
-    gpe0_block,
+    IOAPIC_ADDRESS, IOAPIC_ID, LAPIC_ADDRESS, PCI_LINK_IRQS, RESET_PORT, RESET_VALUE, TPM_CRB_BASE, TPM_CRB_SIZE,
+    gpe0_block, pci_memory_windows,
 } from "./platform.js";
 import { CMOS_CENTURY } from "./rtc.js";
 import { HPET_ADDRESS, HPET_BLOCK_ID, HPET_SIZE } from "./hpet.js";
@@ -26,6 +26,11 @@ const CREATOR_ID = "V86 ";
 export const ACPI_TABLES_FILE = "etc/acpi/tables";
 export const ACPI_RSDP_FILE = "etc/acpi/rsdp";
 export const ACPI_LOADER_FILE = "etc/table-loader";
+/** The TPM's event log area (QEMU's name and size): the TPM2 table points to it */
+export const TPM_LOG_FILE = "etc/tpm/log";
+const TPM_LOG_SIZE = 0x10000;
+/** The TPM2 table's log area address (LASA), which the table loader fills in */
+const TPM2_LASA = 68;
 
 // ---------------------------------------------------------------------------
 // AML encoding. Every helper returns an array of bytes.
@@ -263,6 +268,8 @@ const res_word_bus = (min, max) => res_word_space(2, 0, min, max);
 const res_word_io = (min, max) => res_word_space(1, 0x03, min, max);
 /** 32-bit fixed memory range, read/write (reserved by a motherboard device) */
 const res_memory32_fixed = (base, length) => [0x86, 9, 0, 1].concat(le(base, 4), le(length, 4));
+/** A string: StringPrefix, ASCII, NUL */
+const aml_string = text => [0x0D, ...Array.from(text, c => c.charCodeAt(0)), 0];
 /** Cacheable read/write memory window */
 const res_dword_memory = (min, max) =>
     [0x87, 23, 0, 0, 0x0C, 0x03].concat(le(0, 4), le(min, 4), le(max, 4), le(0, 4), le(max - min + 1 >>> 0, 4));
@@ -336,6 +343,21 @@ function isa_devices_of(platform)
 }
 
 /**
+ * The TPM's device, when the machine has one (docs/tpm.md)
+ * @param {Platform} platform
+ * @return {!Array<!Array<number>>}
+ */
+function tpm_devices(platform)
+{
+    // (TCG ACPI Specification: MSFT0101, which Windows' tpm.inf and Linux's
+    // tpm_crb bind; the TPM2 table tells the interface, CRB)
+    return platform.tpm ? [aml_device("TPM",
+        aml_name_decl("_HID", aml_string("MSFT0101")),
+        aml_name_decl("_STA", aml_int(0x0F)),
+        aml_name_decl("_CRS", aml_resources(res_memory32_fixed(TPM_CRB_BASE, TPM_CRB_SIZE))))] : [];
+}
+
+/**
  * \_Sx packages of the sleep states the machine advertises
  * @param {Platform} platform
  * @return {!Array<!Array<number>>}
@@ -406,7 +428,7 @@ function build_dsdt_body(platform, pm_base)
         res_word_io(0x0000, 0x0CF7),
         res_word_io(0x0D00, 0xFFFF),
         res_dword_memory(0xA0000, 0xBFFFF),
-        res_dword_memory(platform.pci_mmio_start, PCI_MMIO_END));
+        ...pci_memory_windows(platform).map(([first, last]) => res_dword_memory(first, last)));
 
     const sleep_states = sleep_state_packages(platform);
 
@@ -440,6 +462,7 @@ function build_dsdt_body(platform, pm_base)
                 aml_if(aml_lless(aml_arg(0), aml_int(0x80)), aml_store(aml_arg(0), aml_name("PRRI"))),
                 aml_return(aml_name("PRR0"))),
             ...links,
+            ...tpm_devices(platform),
             ...processors),
         ...sleep_states,
     ]);
@@ -516,8 +539,8 @@ function build_q35_dsdt_body(platform, pm_base)
         res_word_io(0x0000, 0x0CF7),
         res_word_io(0x0D00, 0xFFFF),
         res_dword_memory(0xA0000, 0xBFFFF),
-        // (above the ECAM window)
-        res_dword_memory(platform.pci_mmio_start, PCI_MMIO_END));
+        // (without the ECAM window: above it with SeaBIOS, around it with OVMF)
+        ...pci_memory_windows(platform).map(([first, last]) => res_dword_memory(first, last)));
 
     const processors = platform.apic_ids.map((_, i) => aml_processor("CP" + i.toString(16).toUpperCase().padStart(2, "0"), i));
 
@@ -573,6 +596,7 @@ function build_q35_dsdt_body(platform, pm_base)
                 aml_name_decl("_HID", aml_eisa_id("PNP0C01")),
                 aml_name_decl("_UID", aml_int(2)),
                 aml_name_decl("_CRS", aml_resources(res_memory32_fixed(platform.ecam.base, platform.ecam.size)))),
+            ...tpm_devices(platform),
             ...processors),
         ...sleep_state_packages(platform),
     ]);
@@ -745,6 +769,21 @@ function build_hpet()
 }
 
 /**
+ * TPM2 (TCG ACPI Specification 1.3, revision 4): a client platform's TPM 2.0
+ * started through its CRB (start method 7), the control area's address; no
+ * start method parameters; the log area (etc/tpm/log, its address filled in
+ * by the table loader), where SeaBIOS logs what it measures (and without
+ * which it leaves the TPM alone)
+ */
+function build_tpm2()
+{
+    const body = [].concat(le(0, 2), le(0, 2), le(TPM_CRB_BASE + 0x40, 8), le(7, 4),
+        new Array(12).fill(0), le(TPM_LOG_SIZE, 4), le(0, 8));
+    dbg_assert(36 + body.length === TPM2_LASA + 8);
+    return table("TPM2", 4, "V86TPM2", body);
+}
+
+/**
  * PCI Express memory-mapped configuration space (PCI Firmware 3.3, 4.1.2):
  * one allocation, segment 0, buses 0 to the last one of the ECAM window
  * @param {Platform} platform
@@ -795,7 +834,7 @@ const loader_add_checksum = (file, offset, start, length) =>
  * the checksums.
  * @param {Platform} platform
  * @param {number} pm_base PM I/O base as programmed in PMBA
- * @return {{ tables: !Uint8Array, rsdp: !Uint8Array, loader: !Uint8Array,
+ * @return {{ tables: !Uint8Array, rsdp: !Uint8Array, loader: !Uint8Array, tpm_log: ?Uint8Array,
  *            layout: !Object<string, {offset: number, length: number}> }}
  */
 export function build_acpi_tables(platform, pm_base)
@@ -807,6 +846,7 @@ export function build_acpi_tables(platform, pm_base)
         ["APIC", build_madt(platform)],
         ...platform.ecam ? [["MCFG", build_mcfg(platform)]] : [],
         ...platform.hpet ? [["HPET", build_hpet()]] : [],
+        ...platform.tpm ? [["TPM2", build_tpm2()]] : [],
     ];
 
     // RSDT and XSDT list every table except FACS and DSDT (the FADT points to those)
@@ -859,6 +899,11 @@ export function build_acpi_tables(platform, pm_base)
         ...listed.map((_, i) => loader_add_pointer(T, T, xsdt_offset + 36 + 8 * i, 8)),
         loader_add_pointer(ACPI_RSDP_FILE, T, 16, 4),
         loader_add_pointer(ACPI_RSDP_FILE, T, 24, 8),
+        // (the TPM's log area, in reserved memory as the tables are)
+        ...platform.tpm ? [
+            loader_allocate(TPM_LOG_FILE, 64, ZONE_HIGH),
+            loader_add_pointer(T, TPM_LOG_FILE, layout["TPM2"].offset + TPM2_LASA, 8),
+        ] : [],
         // Checksums last: they cover the patched pointers
         ...parts.filter(([name]) => name !== "FACS").map(([name]) =>
             loader_add_checksum(T, layout[name].offset + 9, layout[name].offset, layout[name].length)),
@@ -866,7 +911,7 @@ export function build_acpi_tables(platform, pm_base)
         loader_add_checksum(ACPI_RSDP_FILE, 32, 0, 36),
     ];
 
-    return { tables, rsdp, loader: Uint8Array.from(flat(commands)), layout };
+    return { tables, rsdp, loader: Uint8Array.from(flat(commands)), tpm_log: platform.tpm ? new Uint8Array(TPM_LOG_SIZE) : null, layout };
 }
 
 /**

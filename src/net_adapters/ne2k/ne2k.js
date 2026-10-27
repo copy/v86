@@ -1,12 +1,16 @@
-import { LOG_NET } from "./const.js";
-import { h, hex_dump } from "./lib.js";
-import { dbg_assert, dbg_log } from "./log.js";
+// net_device.type "ne2k" (the default) -- an NE2000-compatible card, the
+// RTL8029 on PCI: the card DOS, Windows 9x to XP and Linux have drivers for.
+// A plugin since M1 (docs/modern-pc-devices-plan.md): its machine is a
+// NetMachine (src/net_adapters/machine.js); its state is the one the core's
+// NE2000 had, field for field, so that snapshots from before read as they are.
+
+import { LOG_NET } from "../../const.js";
+import { h, hex_dump } from "../../lib.js";
+import { dbg_assert, dbg_log } from "../../log.js";
+import { format_mac, random_mac, translate_mac_address } from "../../mac_address.js";
 
 // For Types Only
-import { CPU } from "./cpu.js";
-import { PCI } from "./pci.js";
-import { BusConnector } from "./bus.js";
-import { pci_functions } from "./platform.js";
+import { NetMachine } from "../machine.js";
 
 // http://www.ethernut.de/pdf/8019asds.pdf
 
@@ -64,188 +68,6 @@ const START_RX_PAGE = 0x40 + 12;
 const STOP_PAGE = 0x80;
 
 
-// Search and replace MAC addresses in ethernet, arp and dhcp packets.
-// Used after restoring an OS from memory dump, so that multiple instances of
-// that OS can run at the same time with different external MAC addresses.
-// Crude but seems to work.
-function translate_mac_address(packet, search_mac, replacement_mac)
-{
-    if(packet[0] === search_mac[0] &&
-       packet[1] === search_mac[1] &&
-       packet[2] === search_mac[2] &&
-       packet[3] === search_mac[3] &&
-       packet[4] === search_mac[4] &&
-       packet[5] === search_mac[5])
-    {
-        dbg_log("Replace mac in eth destination field", LOG_NET);
-
-        packet[0] = replacement_mac[0];
-        packet[1] = replacement_mac[1];
-        packet[2] = replacement_mac[2];
-        packet[3] = replacement_mac[3];
-        packet[4] = replacement_mac[4];
-        packet[5] = replacement_mac[5];
-    }
-
-    if(packet[6 + 0] === search_mac[0] &&
-       packet[6 + 1] === search_mac[1] &&
-       packet[6 + 2] === search_mac[2] &&
-       packet[6 + 3] === search_mac[3] &&
-       packet[6 + 4] === search_mac[4] &&
-       packet[6 + 5] === search_mac[5])
-    {
-        dbg_log("Replace mac in eth source field", LOG_NET);
-
-        packet[6 + 0] = replacement_mac[0];
-        packet[6 + 1] = replacement_mac[1];
-        packet[6 + 2] = replacement_mac[2];
-        packet[6 + 3] = replacement_mac[3];
-        packet[6 + 4] = replacement_mac[4];
-        packet[6 + 5] = replacement_mac[5];
-    }
-
-    const ethertype = packet[12] << 8 | packet[13];
-
-    if(ethertype === 0x0800)
-    {
-        // ipv4
-        const ipv4_packet = packet.subarray(14);
-        const ipv4_version = ipv4_packet[0] >> 4;
-
-        if(ipv4_version !== 4)
-        {
-            dbg_log("Expected ipv4.version==4 but got: " + ipv4_version, LOG_NET);
-            return;
-        }
-
-        const ipv4_ihl = ipv4_packet[0] & 0xF;
-        dbg_assert(ipv4_ihl === 5, "TODO: ihl!=5");
-
-        const ipv4_proto = ipv4_packet[9];
-        if(ipv4_proto === 0x11)
-        {
-            // udp
-            const udp_packet = ipv4_packet.subarray(5 * 4);
-            const source_port = udp_packet[0] << 8 | udp_packet[1];
-            const destination_port = udp_packet[2] << 8 | udp_packet[3];
-            const checksum = udp_packet[6] << 8 | udp_packet[7];
-
-            dbg_log("udp srcport=" + source_port + " dstport=" + destination_port + " checksum=" + h(checksum, 4), LOG_NET);
-
-            if(source_port === 67 || destination_port === 67)
-            {
-                // dhcp
-                const dhcp_packet = udp_packet.subarray(8);
-                const dhcp_magic = dhcp_packet[0xEC] << 24 | dhcp_packet[0xED] << 16 | dhcp_packet[0xEE] << 8 | dhcp_packet[0xEF];
-
-                if(dhcp_magic !== 0x63825363)
-                {
-                    dbg_log("dhcp packet didn't match magic: " + h(dhcp_magic, 8));
-                    return;
-                }
-
-                if(dhcp_packet[28 + 0] === search_mac[0] &&
-                   dhcp_packet[28 + 1] === search_mac[1] &&
-                   dhcp_packet[28 + 2] === search_mac[2] &&
-                   dhcp_packet[28 + 3] === search_mac[3] &&
-                   dhcp_packet[28 + 4] === search_mac[4] &&
-                   dhcp_packet[28 + 5] === search_mac[5])
-                {
-                    dbg_log("Replace mac in dhcp.chaddr", LOG_NET);
-
-                    dhcp_packet[28 + 0] = replacement_mac[0];
-                    dhcp_packet[28 + 1] = replacement_mac[1];
-                    dhcp_packet[28 + 2] = replacement_mac[2];
-                    dhcp_packet[28 + 3] = replacement_mac[3];
-                    dhcp_packet[28 + 4] = replacement_mac[4];
-                    dhcp_packet[28 + 5] = replacement_mac[5];
-
-                    udp_packet[6] = udp_packet[7] = 0; // zero udp checksum
-                }
-
-                let offset = 0xF0;
-                while(offset < dhcp_packet.length)
-                {
-                    const dhcp_option_type = dhcp_packet[offset++];
-
-                    if(dhcp_option_type === 0xFF)
-                    {
-                        break;
-                    }
-
-                    const length = dhcp_packet[offset++];
-
-                    if(dhcp_option_type === 0x3D && // client identifier
-                       dhcp_packet[offset + 0] === 0x01 && // ethernet
-                       dhcp_packet[offset + 1] === search_mac[0] &&
-                       dhcp_packet[offset + 2] === search_mac[1] &&
-                       dhcp_packet[offset + 3] === search_mac[2] &&
-                       dhcp_packet[offset + 4] === search_mac[3] &&
-                       dhcp_packet[offset + 5] === search_mac[4] &&
-                       dhcp_packet[offset + 6] === search_mac[5])
-                    {
-                        dbg_log("Replace mac in dhcp.clientidentifier", LOG_NET);
-
-                        dhcp_packet[offset + 1] = replacement_mac[0];
-                        dhcp_packet[offset + 2] = replacement_mac[1];
-                        dhcp_packet[offset + 3] = replacement_mac[2];
-                        dhcp_packet[offset + 4] = replacement_mac[3];
-                        dhcp_packet[offset + 5] = replacement_mac[4];
-                        dhcp_packet[offset + 6] = replacement_mac[5];
-
-                        udp_packet[6] = udp_packet[7] = 0; // zero udp checksum
-                    }
-
-                    offset += length;
-                }
-            }
-        }
-        else
-        {
-            // tcp, ...
-        }
-    }
-    else if(ethertype === 0x0806)
-    {
-        // arp
-        const arp_packet = packet.subarray(14);
-        dbg_log("arp oper=" + arp_packet[7] + " " + format_mac(arp_packet.subarray(8, 8+6)) + " " + format_mac(arp_packet.subarray(18, 18+6)), LOG_NET);
-
-        if(arp_packet[8 + 0] === search_mac[0] &&
-           arp_packet[8 + 1] === search_mac[1] &&
-           arp_packet[8 + 2] === search_mac[2] &&
-           arp_packet[8 + 3] === search_mac[3] &&
-           arp_packet[8 + 4] === search_mac[4] &&
-           arp_packet[8 + 5] === search_mac[5])
-        {
-            dbg_log("Replace mac in arp.sha", LOG_NET);
-
-            arp_packet[8 + 0] = replacement_mac[0];
-            arp_packet[8 + 1] = replacement_mac[1];
-            arp_packet[8 + 2] = replacement_mac[2];
-            arp_packet[8 + 3] = replacement_mac[3];
-            arp_packet[8 + 4] = replacement_mac[4];
-            arp_packet[8 + 5] = replacement_mac[5];
-        }
-    }
-    else
-    {
-        // TODO: ipv6, ...
-    }
-}
-
-export function format_mac(mac)
-{
-    return [
-        mac[0].toString(16).padStart(2, "0"),
-        mac[1].toString(16).padStart(2, "0"),
-        mac[2].toString(16).padStart(2, "0"),
-        mac[3].toString(16).padStart(2, "0"),
-        mac[4].toString(16).padStart(2, "0"),
-        mac[5].toString(16).padStart(2, "0"),
-    ].join(":");
-}
-
 function dump_packet(packet, prefix)
 {
     const ethertype = packet[12] << 8 | packet[13] << 0;
@@ -290,36 +112,26 @@ function dump_packet(packet, prefix)
 
 /**
  * @constructor
- * @param {CPU} cpu
- * @param {BusConnector} bus
- * @param {Boolean} preserve_mac_from_state_image
- * @param {Boolean} mac_address_translation
- * @param {number} [id=0] id
- * @param {number=} pci_id where the machine puts it (behind a root port), or
- *     its usual slot
+ * @param {NetMachine} machine its PCI function where the machine puts it (its
+ *     usual slot, or behind a root port), net<id> of the network bus
+ * @param {!Object} options "preserve_mac_from_state_image",
+ *     "mac_address_translation"
  */
-export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation, id, pci_id)
+export function Ne2k(machine, options)
 {
-    /** @const @type {CPU} */
-    this.cpu = cpu;
+    /** @const @type {NetMachine} */
+    this.machine = machine;
 
-    /** @const @type {PCI} */
-    this.pci = cpu.devices.pci;
+    this.id = machine.net_id;
+    this.preserve_mac_from_state_image = !!options["preserve_mac_from_state_image"];
+    this.mac_address_translation = !!options["mac_address_translation"];
 
-    this.id = id || 0;
-    this.preserve_mac_from_state_image = preserve_mac_from_state_image;
-    this.mac_address_translation = mac_address_translation;
+    machine.on_receive(data => this.receive(data));
 
-    /** @const @type {BusConnector} */
-    this.bus = bus;
-    this.bus.register("net" + this.id + "-receive", function(data)
-    {
-        this.receive(data);
-    }, this);
-
+    const pci_id = machine.pci_id();
     // (behind a bridge, the I/O BAR starts above the legacy ports, which
     // bridges do not forward)
-    this.port = (pci_id !== undefined && pci_id >= 0x100 ? 0x1300 : 0x300) + 0x100 * this.id;
+    this.port = (pci_id >= 0x100 ? 0x1300 : 0x300) + 0x100 * this.id;
 
     this.name = "ne2k";
 
@@ -333,7 +145,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf4, 0x1a, 0x00, 0x11,
             0x00, 0x00, 0xb8, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
         ];
-        this.pci_id = pci_id !== undefined ? pci_id : this.id === 0 ? pci_functions(cpu.platform).ne2k : (0x07 + this.id) << 3;
+        this.pci_id = pci_id;
         this.pci_bars = [
             {
                 size: 32,
@@ -359,14 +171,9 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
     this.tsr = 1;
 
     // mac address
-    this.mac = new Uint8Array([
-        0x00, 0x22, 0x15,
-        Math.random() * 255 | 0,
-        Math.random() * 255 | 0,
-        Math.random() * 255 | 0,
-    ]);
+    this.mac = random_mac();
 
-    this.bus.send("net" + this.id + "-mac", format_mac(this.mac));
+    machine.set_mac(format_mac(this.mac));
 
     // multicast addresses
     this.mar = Uint8Array.of(0xFF, 0xFF, 0xFF, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF);
@@ -395,7 +202,8 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
     this.curpg = START_RX_PAGE;
     this.boundary = START_RX_PAGE;
 
-    var io = cpu.io;
+    // (the machine registers the ports as the I/O bus would, `this` bound)
+    var io = machine;
 
     io.register_read(this.port | E8390_CMD, this, function()
     {
@@ -439,8 +247,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
                 translate_mac_address(data, this.mac_address_in_state, this.mac);
             }
 
-            this.bus.send("net" + this.id + "-send", data);
-            this.bus.send("eth-transmit-end", [data.length]);
+            this.machine.send(data);
             this.cr &= ~4;
             this.do_interrupt(ENISR_TX);
 
@@ -1065,7 +872,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
 
     if(use_pci)
     {
-        cpu.devices.pci.register_device(this);
+        machine.register_pci({ pci_space: this.pci_space, pci_bars: this.pci_bars });
     }
 }
 
@@ -1126,7 +933,7 @@ Ne2k.prototype.set_state = function(state)
             " guest_os_mac=" + format_mac(this.mac_address_in_state) +
             " real_mac=" + format_mac(this.mac), LOG_NET);
     }
-    this.bus.send("net" + this.id + "-mac", format_mac(this.mac));
+    this.machine.set_mac(format_mac(this.mac));
 };
 
 Ne2k.prototype.do_interrupt = function(ir_mask)
@@ -1140,11 +947,11 @@ Ne2k.prototype.update_irq = function()
 {
     if(this.imr & this.isr)
     {
-        this.pci.raise_irq(this.pci_id);
+        this.machine.raise_irq();
     }
     else
     {
-        this.pci.lower_irq(this.pci_id);
+        this.machine.lower_irq();
     }
 };
 
@@ -1249,14 +1056,18 @@ Ne2k.prototype.data_port_read32 = function()
             this.data_port_read() << 16 | this.data_port_read() << 24;
 };
 
+/**
+ * A frame from the network: whether the card took it (it does while started,
+ * also when its filters drop it, as the core's NE2000 counted it)
+ * @param {!Uint8Array} data
+ * @return {boolean}
+ */
 Ne2k.prototype.receive = function(data)
 {
-    // called from the adapter when data is received over the network
-
     if(this.cr & 1)
     {
         // stop bit set
-        return;
+        return false;
     }
 
     if(NE2K_LOG_PACKETS)
@@ -1264,8 +1075,13 @@ Ne2k.prototype.receive = function(data)
         dump_packet(data, "receive");
     }
 
-    this.bus.send("eth-receive-end", [data.length]);
+    this.receive_frame(data);
+    return true;
+};
 
+/** @param {!Uint8Array} data */
+Ne2k.prototype.receive_frame = function(data)
+{
     if(this.rxcr & 0x10)
     {
         // promiscuous

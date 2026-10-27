@@ -39,7 +39,8 @@ assert.equal(rate, 44100);
 const state = await emulator.save_state();
 
 set_sampling_rate(11025);
-const sb16 = emulator.v86.cpu.devices.sb16;
+// (the plugin's card: src/audio_devices/sb16/plugin.js)
+const sb16 = emulator.v86.cpu.devices.audio.device["card"];
 sb16.dac_buffers[0].push(0.5);
 sb16.dac_buffers[1].push(0.5);
 

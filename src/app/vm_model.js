@@ -53,6 +53,7 @@ export function choices(config)
         graphics_adapters: allowed.graphics_adapters,
         net_devices: allowed.net_device_types,
         sound_devices: ranchu ? RANCHU_SOUND_DEVICES : virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES,
+        usb_controllers: allowed.usb_controllers,
         boot_orders: arm ? [0] : BOOT_ORDERS,
         max_cores: allowed.max_cores,
         /** the most memory in MB: the Wasm heap for the 32-bit CPUs, extended RAM above it for the 64-bit ones */
@@ -116,6 +117,40 @@ function fit(c, notes)
     if(allowed.acpi === "none" && c.machine.acpi) { c.machine.acpi = false; note("ACPI off: " + allowed.unavailable["acpi"]); }
     if(allowed.acpi === "required" && !c.machine.acpi) { c.machine.acpi = true; note("ACPI on: the Q35 machine always has it"); }
     if(allowed.acpi === "with_cores" && c.cpu.cores > 1 && !c.machine.acpi) { c.machine.acpi = true; note("ACPI on: more than one core needs it"); }
+    // the TPM: on a PC machine, with ACPI (docs/tpm.md)
+    if(c.tpm)
+    {
+        if(arm)
+        {
+            c.tpm = null;
+            note("TPM removed: " + allowed.unavailable["tpm"]);
+        }
+        else if(!c.machine.acpi)
+        {
+            c.machine.acpi = true;
+            note("ACPI on: the TPM needs it");
+        }
+    }
+    // UEFI: OVMF runs on the x86_64 CPU with ACPI (docs/uefi.md)
+    if(c.machine.firmware === "uefi")
+    {
+        if(arm || c.cpu.type !== "x86_64")
+        {
+            c.machine.firmware = "seabios";
+            note("Firmware: SeaBIOS (UEFI needs the x86_64 CPU on a PC machine)");
+        }
+        else if(!c.machine.acpi)
+        {
+            c.machine.acpi = true;
+            note("ACPI on: UEFI needs it");
+        }
+    }
+    // Secure Boot: the Secure Boot firmware runs in SMM, on Q35 (docs/uefi.md)
+    if(c.machine.secure_boot && (c.machine.firmware !== "uefi" || c.machine.type !== "q35"))
+    {
+        c.machine.secure_boot = false;
+        note("Secure Boot off: it needs UEFI on the Q35 machine");
+    }
     if(c.machine.type === "q35") { /* (kept: the Q35 devices are the user's) */ }
     else
     {
@@ -194,6 +229,11 @@ function fit(c, notes)
     {
         c.sound.device = "none";
         note("Sound: none" + (ranchu ? " (the ranchu machine's sound is not played)" : virt ? " (the virt machine has no Sound Blaster)" : ""));
+    }
+    if(c.usb && (virt || ranchu))
+    {
+        c.usb = null;
+        note("USB: none (the " + c.machine.type + " machine's input is virtio-input)");
     }
     return c;
 }

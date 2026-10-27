@@ -8,7 +8,7 @@
 // when attach_sata_drive attaches a drive), before anything is loaded.
 //
 // A disk's buffer carries its policy for src/block_backend.js: disk_name
-// (hda, hdb, sata<port>, cdrom, virtio_disk<n>) and disk_error.
+// (hda, hdb, sata<port>, cdrom, virtio_disk<n>, usb:<id>) and disk_error.
 
 /** what disk_option may be */
 export const DISK_OPTIONS = ["read_only", "read_write"];
@@ -26,7 +26,10 @@ export const BACKEND_CONTRACT = ["flush", "close", "mark", "generation", "get_st
  */
 export function disk_kind(name)
 {
-    if(name === "hda" || name === "hdb" || /^sata\d+$/.test(name) || /^virtio_disk\d+$/.test(name)) return "hard_disk";
+    // (the UEFI firmware's variable store and the TPM's state are written
+    // back as a disk is: docs/uefi.md, docs/tpm.md)
+    if(name === "hda" || name === "hdb" || /^sata\d+$/.test(name) || /^virtio_disk\d+$/.test(name) || name.startsWith("usb:") ||
+        name === "firmware_vars" || name === "tpm_state") return "hard_disk";
     if(name === "cdrom") return "cdrom";
     if(name === "fda" || name === "fdb") return "floppy";
     return "other";
@@ -125,7 +128,7 @@ export function check_disk_policy(name, file)
     {
         if(kind === "other" || kind === "cdrom")
         {
-            throw config_error(name + ": disk_option is for disks (hda, hdb, fda, fdb, SATA drives, virtio_disks), not " + name);
+            throw config_error(name + ": disk_option is for disks (hda, hdb, fda, fdb, SATA drives, virtio_disks, USB disks), not " + name);
         }
         if(!DISK_OPTIONS.includes(option))
         {
@@ -215,7 +218,13 @@ export function check_disk_options(options, also)
     const disks = [["hda", options.hda], ["hdb", options.hdb], ["cdrom", options.cdrom], ["fda", options.fda], ["fdb", options.fdb]]
         .filter(([, file]) => file);
     (options.virtio_disks || []).forEach((disk, i) => { if(disk) disks.push(["virtio_disk" + i, disk]); });
-    for(const [name, file] of [["bios", options.bios], ["vga_bios", options.vga_bios], ["initial_state", options.initial_state],
+    // (usb.mass_storage: "usb:" and the disk's id)
+    (options.usb && options.usb.mass_storage || []).forEach(disk => { if(disk && disk.image) disks.push(["usb:" + disk.id, disk.image]); });
+    const firmware = options.firmware || {};
+    const tpm = options.tpm || {};
+    for(const [name, file] of [["bios", options.bios], ["vga_bios", options.vga_bios], ["firmware_code", firmware.code], ["firmware_vars", firmware.vars],
+        ["tpm_state", tpm.state],
+        ["initial_state", options.initial_state],
         ["multiboot", options.multiboot], ["bzimage", options.bzimage], ["initrd", options.initrd], ["kernel", options.kernel], ["dtb", options.dtb]])
     {
         check_disk_policy(name, file);

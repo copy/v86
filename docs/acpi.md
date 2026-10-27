@@ -30,7 +30,8 @@ not implement. So v86 builds its own tables in
 [`src/acpi_tables.js`](../src/acpi_tables.js), which contains a small AML
 encoder. It hands them to the firmware through the same fw_cfg interface QEMU
 uses: `etc/acpi/tables`, `etc/acpi/rsdp`, `etc/table-loader` and
-`etc/system-states`. SeaBIOS (pinned to `rel-1.16.2`, ROM unchanged) allocates
+`etc/system-states` (with a TPM also `etc/tpm/log`, the TPM2 table's log
+area: [tpm.md](tpm.md)). SeaBIOS (pinned to `rel-1.16.2`, ROM unchanged) allocates
 memory, patches the pointers, computes the checksums and places the RSDP. v86
 never patches guest memory after boot and never edits the ROM binary.
 

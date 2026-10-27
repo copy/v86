@@ -1,0 +1,196 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>HD Audio in the browser</title>
+<!-- What the page plays of the HD Audio controller (docs/sound.md, docs/modern-pc-devices-plan.md H1), in
+     headless Chrome with the CPU worker: Alpine x86_64 plays 20 s of a 1 kHz tone (tests/devices/hd_audio_play.c
+     "tone", which switches the Master controls on); an analyser on the page's output measures it every 50 ms.
+     The machine is paused for 2 s in the middle: the tone stops and goes on, its 20 s of machine time all
+     heard, without gaps. Needs build/hd-audio/player.tar (tests/devices/hd_audio_guest.mjs makes it) and the
+     Alpine ISO in build/x64-linux/.
+     node tests/app/browser_runner.mjs tests/devices/hd_audio_browser.html autoplay=1 -->
+<pre id="log"></pre>
+<pre id="result"></pre>
+<div id="screen_container" style="display: none"><div></div><canvas></canvas></div>
+<script type="module">
+import { V86 } from "../../build/libv86.mjs";
+
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+function check(condition, what) { if(!condition) throw new Error(what); }
+
+// the page's output: an analyser beside each connection to a destination
+const analysers = [];
+const connect = AudioNode.prototype.connect;
+AudioNode.prototype.connect = function(target, ...rest)
+{
+    if(target instanceof AudioDestinationNode)
+    {
+        const analyser = this.context.createAnalyser();
+        analyser.fftSize = 2048;
+        connect.call(this, analyser);
+        analysers.push(analyser);
+    }
+    return connect.call(this, target, ...rest);
+};
+const buffer = new Float32Array(2048);
+const spectrum = new Float32Array(1024);
+/** The output's strongest frequency (Hz) */
+function frequency()
+{
+    const analyser = analysers[0];
+    analyser.getFloatFrequencyData(spectrum);
+    let best = 1;
+    for(let i = 2; i < spectrum.length; i++) if(spectrum[i] > spectrum[best]) best = i;
+    return best * analyser.context.sampleRate / analyser.fftSize;
+}
+function level()
+{
+    let peak = 0;
+    for(const analyser of analysers)
+    {
+        analyser.getFloatTimeDomainData(buffer);
+        let sum = 0;
+        for(const v of buffer) sum += v * v;
+        peak = Math.max(peak, Math.sqrt(sum / buffer.length));
+    }
+    return peak;
+}
+
+async function main()
+{
+    const ALPINE = "/build/x64-linux/";
+    const emulator = new V86({
+        wasm_path: "/build/v86.wasm",
+        cpu_worker: true,
+        cpu_worker_url: "/build/cpu-worker.js",
+        graphics_adapter: "bochs_vga",
+        screen_container: document.getElementById("screen_container"),
+        bios: { url: "/bios/seabios.bin" },
+        vga_bios: { url: "/bios/vgabios.bin" },
+        bzimage: { url: ALPINE + "boot/vmlinuz-virt" },
+        initrd: { url: ALPINE + "boot/initramfs-virt" },
+        cdrom: { url: ALPINE + "alpine-virt-3.24.0-x86_64.iso", async: true },
+        hda: { url: "/build/hd-audio/player.tar" },
+        cmdline: "console=ttyS0,115200 loglevel=4 nokaslr modules=loop,squashfs,sd-mod,usb-storage",
+        memory_size: 512 * 1024 * 1024,
+        cpu_type: "x86_64",
+        acpi: true,
+        audio_device: "hd_audio",
+        net_device: { type: "none" },
+        disable_keyboard: true,
+        disable_mouse: true,
+        autostart: true,
+    });
+    let serial = "";
+    emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+    // (what the controller played, and when it arrived here)
+    const produced = [];
+    emulator.add_listener("hd-audio-pcm", pcm => produced.push({ at: Date.now(), bytes: pcm["chunks"].reduce((n, c) => n + c.byteLength, 0) }));
+    const until = async (pattern, what, timeout) =>
+    {
+        const end = Date.now() + timeout;
+        while(!pattern.test(serial))
+        {
+            if(Date.now() > end) throw new Error("timed out: " + what + "\n" + serial.slice(-1500));
+            await sleep(100);
+        }
+    };
+    const PROMPT = /:~# (\x1b\[6n)?$/;
+    const command = async (line, timeout = 120000) => { serial = ""; emulator.serial0_send(line + "\n"); await until(PROMPT, line, timeout); return serial; };
+
+    await until(/login: $/, "the login prompt", 900000);
+    serial = "";
+    emulator.serial0_send("root\n");
+    await until(PROMPT, "the shell", 120000);
+    await command("for i in $(seq 30); do [ -e /dev/snd/pcmC0D0p ] && break; sleep 1; done; tar -xf /dev/sda -C /tmp");
+    const context = analysers[0] && analysers[0].context;
+    log("Alpine's shell; the audio context: " + (context ? context.state + ", " + context.sampleRate + " Hz" : "none") +
+        ", " + analysers.length + " output(s)");
+    check(analysers.length, "the speaker's output");
+
+    serial = "";
+    emulator.serial0_send("/tmp/hd_audio_play 48000 20 tone\n");
+    // the level every 50 ms, until the player is done; a pause of 2 s once the tone is on for 8 s
+    const levels = [];
+    let loud_since = 0, paused = null;
+    const start = Date.now();
+    while(!/PCM_DONE|PCM_FAIL/.test(serial) && Date.now() - start < 300000)
+    {
+        await sleep(50);
+        const value = level();
+        levels.push({ at: Date.now() - start, value, running: emulator.is_running(), frequency: value > 0.05 ? frequency() : 0 });
+        if(value > 0.05 && !loud_since) loud_since = Date.now();
+        if(loud_since && !paused && Date.now() - loud_since > 8000)
+        {
+            paused = { at: Date.now() - start };
+            await emulator.stop();
+            // (the level while paused too)
+            for(const end = Date.now() + 2000; Date.now() < end;)
+            {
+                await sleep(50);
+                levels.push({ at: Date.now() - start, value: level(), running: false, state: analysers[0].context.state });
+            }
+            paused.end = Date.now() - start;
+            emulator.run();
+        }
+    }
+    await until(PROMPT, "the player's end", 60000);
+    // (what the page still plays after the controller is done)
+    const done_at = Date.now() - start;
+    for(const end = Date.now() + 5000; Date.now() < end;)
+    {
+        await sleep(50);
+        levels.push({ at: Date.now() - start, value: level(), running: true, frequency: 0, tail: true });
+    }
+    const timeline = [];
+    for(let t = 0; t < levels[levels.length - 1].at; t += 500)
+    {
+        const bucket = levels.filter(l => l.at >= t && l.at < t + 500);
+        timeline.push(bucket.length ? (bucket.filter(l => l.value > 0.05).length * 9 / bucket.length).toFixed(0) : "-");
+    }
+    log("loudness per 0.5 s (0-9): " + timeline.join("") + "; paused " + (paused.at / 1000).toFixed(1) + "-" +
+        (paused.end / 1000).toFixed(1) + " s, the player done at " + (done_at / 1000).toFixed(1) + " s");
+    const done = serial.match(/PCM_DONE rate=\d+ frames=(\d+)/);
+    check(done && +done[1] === 960000, "the player: " + serial.slice(-300));
+
+    // (the tone's windows: from the first loud one to the last)
+    const loud = levels.filter(l => l.value > 0.05 && !l.tail);
+    const first = loud[0].at, last = loud[loud.length - 1].at;
+    const during = levels.filter(l => l.at >= first && l.at <= last);
+    // (the speaker suspends the audio context while the machine is stopped:
+    // nothing plays, the analyser keeps its last data)
+    const in_pause = during.filter(l => l.at > paused.at + 300 && l.at < paused.end);
+    const playing = during.filter(l => !(l.at > paused.at && l.at < paused.end + 300));
+    const gaps = playing.filter(l => l.value <= 0.05).length;
+    const heard = loud.filter(l => l.running).length * 50 / 1000;
+    const tail = levels.filter(l => l.tail && l.value > 0.05).length * 50 / 1000;
+    log("the tone from " + (first / 1000).toFixed(1) + " s to " + (last / 1000).toFixed(1) + " s: " + heard.toFixed(1) +
+        " s heard, level " + (loud.reduce((s, l) => s + l.value, 0) / loud.length).toFixed(3) + ", " + gaps + " quiet windows of " +
+        playing.length + " while playing; paused " + ((paused.end - paused.at) / 1000).toFixed(1) + " s: " +
+        in_pause.filter(l => l.state !== "suspended" && l.value > 0.05).length + " loud windows of " + in_pause.length +
+        " (the context " + [...new Set(in_pause.map(l => l.state))].join(", ") + "); " + tail.toFixed(2) + " s after the player's end");
+    const pause_start = start + paused.at, pause_end = start + paused.end;
+    const during_pause = produced.filter(p => p.at > pause_start + 300 && p.at < pause_end).reduce((n, p) => n + p.bytes, 0);
+    const first_pcm = produced.find(p => p.at >= start), total = produced.filter(p => p.at >= start).reduce((n, p) => n + p.bytes, 0);
+    log("the controller: " + total + " bytes from " + ((first_pcm.at - start) / 1000).toFixed(1) + " s to " +
+        ((produced[produced.length - 1].at - start) / 1000).toFixed(1) + " s, " + during_pause + " bytes while paused");
+    const per_second = [];
+    for(let t = 0; t < 23; t++)
+    {
+        per_second.push(Math.round(produced.filter(p => p.at >= start + t * 1000 && p.at < start + t * 1000 + 1000).reduce((n, p) => n + p.bytes, 0) / 4 / 100) / 10);
+    }
+    log("the controller's frames per second (k): " + per_second.join(" "));
+
+    const frequencies = loud.map(l => l.frequency).filter(Boolean).sort((a, b) => a - b);
+    log("the tone's frequency: " + frequencies[frequencies.length >> 1].toFixed(0) + " Hz (median)");
+    check(in_pause.length >= 20 && in_pause.every(l => l.state === "suspended" || l.value <= 0.05), "silence while the machine is paused");
+    check(tail < 1, "what the page has queued: " + tail.toFixed(2) + " s");
+    check(gaps <= playing.length * 0.02, "no gaps while playing: " + gaps);
+    check(heard > 18.5 && heard < 21.5, "20 s of tone heard: " + heard.toFixed(1));
+    await emulator.destroy();
+}
+
+main().then(() => { document.getElementById("result").textContent = "PASS"; },
+    error => { document.getElementById("result").textContent = "FAIL: " + (error && error.stack || error); });
+</script>

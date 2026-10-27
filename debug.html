@@ -220,6 +220,7 @@
                 <td>
                     <select id="net_device_type">
                         <option value="ne2k">ne2k</option>
+                        <option value="e1000">e1000 (Intel PRO/1000 MT)</option>
                         <option value="virtio">virtio</option>
                         <option value="none">none</option>
                     </select>
@@ -251,6 +252,17 @@
 
             <tr>
                 <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
+                <td><label for="audio_device">Sound card</label></td>
+                <td>
+                    <select id="audio_device">
+                        <option value="sb16">Sound Blaster 16</option>
+                        <option value="hd_audio">HD Audio (Intel)</option>
+                        <option value="none">none</option>
+                    </select>
+                </td>
             </tr>
 
             <tr>

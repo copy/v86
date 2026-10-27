@@ -14,7 +14,8 @@ import { VIRT_MAX_CORES } from "../../src/virt/platform.js";
 const accepts = options => { try { check_machine_options(options); return true; } catch(e) { return false; } };
 let checks = 0;
 // (a valid value of the options that are not booleans)
-const VALUES = { virtio_input: ["keyboard"], virtio_transport: "pci", a64_profile: "v3" };
+const VALUES = { virtio_input: ["keyboard"], virtio_transport: "pci", a64_profile: "v3", audio_device: "hd_audio",
+    audio_device_path: "build/v86-hd-audio.js", usb: { controller: "uhci", tablet: true }, firmware: { type: "seabios" }, tpm: { version: "2.0" } };
 
 assert.equal(VIRT_MAX_CORES, MAX_CORES, "the virt machine's cores");
 for(const cpu_type of CPU_TYPES)
@@ -71,5 +72,22 @@ for(const cpu_type of CPU_TYPES)
             assert.equal(allowed.acpi, "none");
         }
     }
+}
+// UEFI (docs/uefi.md): the x86_64 CPU with ACPI, its code image, no BIOS
+// images; on i440FX QEMU's layout
+const uefi = { type: "uefi", code: { url: "c.fd" } };
+for(const [options, accepted] of [
+    [{ cpu_type: "x86_64", machine_type: "q35", acpi: true, firmware: uefi }, true],
+    [{ cpu_type: "x86_64", machine_type: "i440fx", acpi: true, qemu_compatible: true, firmware: uefi }, true],
+    [{ cpu_type: "x86_64", machine_type: "i440fx", acpi: true, firmware: uefi }, false],
+    [{ cpu_type: "x86", machine_type: "q35", acpi: true, firmware: uefi }, false],
+    [{ cpu_type: "x86_64", machine_type: "q35", firmware: uefi }, false],
+    [{ cpu_type: "x86_64", machine_type: "q35", acpi: true, firmware: { type: "uefi" } }, false],
+    [{ cpu_type: "x86_64", machine_type: "q35", acpi: true, firmware: uefi, bios: { url: "b.bin" } }, false],
+    [{ cpu_type: "arm64", machine_type: "virt", firmware: uefi }, false],
+])
+{
+    assert.equal(accepts(options), accepted, JSON.stringify(options));
+    checks++;
 }
 console.log("PASS: " + checks + " checks of allowed_options");

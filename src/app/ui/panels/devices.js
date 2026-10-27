@@ -3,10 +3,11 @@
 // 对话框"): network adapters, sound, display, serial ports, the shared
 // folder, the virt machine's devices.
 
-import { h } from "../dom.js";
+import { confirm, h } from "../dom.js";
 import { select_field, check_field, number_field, text_field } from "./system.js";
 import { VIRT_INPUTS } from "../../vm_model.js";
 import { DISPLAY_VULKAN } from "../../vm_config.js";
+import { disk_id, reset_disk } from "../../browser_disks.js";
 
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
@@ -16,9 +17,10 @@ const VULKAN_LABELS = {
     venus: "Venus (through the graphics proxy; Android's initrd-venus.img, Linux's Mesa)",
     gfxstream: "gfxstream (through the graphics proxy; Android's official images)",
 };
-const NIC_LABELS = { ne2k: "NE2000 (ne2k)", virtio: "virtio-net", none: "None" };
+/** The cards' names, also in the hardware list and the summary (describe.js) */
+export const NIC_LABELS = { ne2k: "NE2000 (ne2k)", e1000: "Intel PRO/1000 MT (e1000)", virtio: "virtio-net", none: "None" };
 const BACKEND_LABELS = { none: "Not connected", inbrowser: "A network in the browser", relay: "A relay (WebSocket)", wisp: "A wisp server", fetch: "fetch (HTTP only)" };
-const SOUND_LABELS = { sb16: "Sound Blaster 16", virtio: "virtio-snd", none: "None" };
+export const SOUND_LABELS = { sb16: "Sound Blaster 16", hd_audio: "HD Audio (Intel)", virtio: "virtio-snd", none: "None" };
 
 /**
  * @param {PanelContext} ctx
@@ -42,10 +44,68 @@ export function network_panel(ctx, index)
     ];
 }
 
+const USB_LABELS = { uhci: "UHCI (USB 1.1)", ehci: "EHCI (USB 2.0, with UHCI companions)", xhci: "xHCI (USB 3)" };
+
+/** @param {PanelContext} ctx */
+export function usb_panel(ctx)
+{
+    const u = /** @type {{controller: string, tablet: boolean}} */ (ctx.config.usb);
+    // (Windows 7 and earlier: no xHCI driver of their own)
+    const old_windows = ["windows3x", "windows9x", "windowsnt"].includes(ctx.config.guest) || ctx.config.template === "windows7";
+    return [
+        select_field("Controller", ctx.choices.usb_controllers, u.controller, value => ctx.set("usb.controller", value), v => USB_LABELS[v] || v),
+        u.controller === "xhci" && old_windows ?
+            h("p.note", null, "Windows 7 and earlier have no driver of their own for xHCI (Windows 8 and later have): EHCI works with them.") : null,
+        check_field("Tablet (an absolute pointer: the guest's cursor follows the page's, no mouse lock)", u.tablet, value => ctx.set("usb.tablet", value)),
+        h("p.note", null, "Lock the mouse (Input menu) for relative movement through the PS/2 mouse, as games need."),
+    ];
+}
+
+/**
+ * The TPM 2.0 (docs/tpm.md): what it is, and clearing it
+ * @param {PanelContext} ctx
+ */
+export function tpm_panel(ctx)
+{
+    const t = /** @type {{state: any}} */ (ctx.config.tpm);
+    const state = t.state;
+    const status = h("small.reason", { role: "status" });
+    const clear = /** @type {HTMLButtonElement} */ (h("button", { type: "button", disabled: !state || state.kind !== "browser",
+        title: state ? "" : "The TPM's state is made at the first power-on" }, "Clear TPM…"));
+    clear.addEventListener("click", async () =>
+    {
+        if(!state || state.kind !== "browser") return;
+        if(!await confirm("Clear the TPM?", "Its seeds, keys and stored data are deleted, and a new TPM is made at the next power-on: " +
+            "keys sealed to this one (BitLocker's among them) can no longer be unsealed. Have their recovery keys first.", "Clear", true)) return;
+        clear.disabled = true;
+        status.textContent = "Clearing…";
+        try
+        {
+            await reset_disk(disk_id(state.path), new Uint8Array(state.size));
+            status.textContent = "Cleared: a new TPM at the next power-on.";
+        }
+        catch(e)
+        {
+            status.textContent = "Not cleared: " + e.message;
+        }
+        clear.disabled = false;
+    });
+    return [
+        h("p.note", null, "A TPM 2.0 (libtpms in WebAssembly) behind the CRB interface, which Windows 8 and later and Linux drive. " +
+            "Its state (keys, stored data) is kept in a browser disk of the machine's, made at the first power-on (with the CPU in a Worker; " +
+            "otherwise there is a new TPM at each power-on). It is a TPM for software that needs one, not a hardware root of trust."),
+        h("div.field", null, clear, " ", status),
+    ];
+}
+
 /** @param {PanelContext} ctx */
 export function sound_panel(ctx)
 {
-    return [select_field("Sound card", ctx.choices.sound_devices, ctx.config.sound.device, value => ctx.set("sound.device", value), v => SOUND_LABELS[v] || v)];
+    return [
+        select_field("Sound card", ctx.choices.sound_devices, ctx.config.sound.device, value => ctx.set("sound.device", value), v => SOUND_LABELS[v] || v),
+        // (None: the guest has no sound card; Mute: it has one, the page plays nothing)
+        check_field("Mute (the page plays nothing; the guest keeps its sound card)", ctx.config.sound.mute, value => ctx.set("sound.mute", value)),
+    ];
 }
 
 /** @param {PanelContext} ctx */

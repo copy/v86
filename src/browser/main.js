@@ -304,6 +304,7 @@ function onload()
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
     if(query_args.has("net_device_type")) $("net_device_type").value = query_args.get("net_device_type");
+    if(query_args.has("audio_device")) $("audio_device").value = query_args.get("audio_device");
     if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
     if(query_args.has("modem")) $("modem").value = query_args.get("modem");
 
@@ -649,6 +650,7 @@ function read_form()
         machine_type: $("machine_type").value,
         acpi: $("acpi").checked,
         net_device_type: $("net_device_type").value,
+        audio_device: $("audio_device").value,
         mtu: $("mtu").value,
         modem: $("modem").value,
     };
@@ -1657,10 +1659,11 @@ function init_ui(profile, settings, emulator)
         button.textContent = "Loading...";
         try
         {
-            // V7 streams (large machines) are read from the file as needed
+            // streams (large machines) are read from the file as needed:
+            // odd versions, 7 and 9 (src/state.js)
             const header = new DataView(await file.slice(0, 8).arrayBuffer());
             const stream = header.byteLength === 8 && header.getUint32(0, true) === 0x86768676 &&
-                header.getUint32(4, true) === 7;
+                header.getUint32(4, true) % 2 === 1;
             const state = stream ? null : await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result);

@@ -1,10 +1,12 @@
 //! Device memory in the guest's physical address space: plain wasm memory
 //! that a device owns -- the VGA core's frame buffer (every display adapter),
-//! VMware SVGA's command FIFO, virtio-gpu's host visible memory -- decoded
-//! where the device's PCI memory BAR currently is. The guest reads and writes
+//! VMware SVGA's command FIFO, virtio-gpu's host visible memory, the UEFI
+//! firmware's flash -- decoded where the device's PCI memory BAR currently is
+//! (the flash: below 4 GiB). The guest reads and writes
 //! it at memory speed; each region keeps a bitmap of the 4 KiB pages written
 //! since its device last took them, and can convert those pages into an RGBA
-//! picture for the screen.
+//! picture for the screen. A read-only region (the flash in its read mode)
+//! leaves writes to the memory map's handlers.
 //!
 //! Regions are page aligned and a whole number of pages, so an access that
 //! does not cross a page boundary is entirely inside one region or outside all
@@ -20,7 +22,7 @@ use crate::parallel;
 use std::alloc;
 use std::ptr;
 
-pub const MAX_REGIONS: usize = 4;
+pub const MAX_REGIONS: usize = 6;
 const PAGE_SIZE: u32 = 4096;
 
 #[derive(Clone, Copy)]
@@ -29,6 +31,12 @@ pub struct Region {
     pub base: u32,
     pub size: u32,
     pub mapped: bool,
+    /// The device asked for it at `base` (mmio_ram_map): it is mapped there
+    /// whenever that is possible (see mmio_ram_reserve)
+    pub requested: bool,
+    /// Writes reach the memory; otherwise they go to the memory map
+    /// (crate::cpu::memory's ext::mmap_write*)
+    pub writable: bool,
     /// The memory itself, in the wasm heap
     pub backing: *mut u8,
     /// One bit per page, written since the device last took them
@@ -40,6 +48,8 @@ const EMPTY: Region = Region {
     base: 0,
     size: 0,
     mapped: false,
+    requested: false,
+    writable: true,
     backing: ptr::null_mut(),
     dirty: ptr::null_mut(),
     dirty_words: 0,
@@ -52,13 +62,16 @@ struct Table {
     pixels: [Vec<u32>; MAX_REGIONS],
     /// Bitmap words taken from a region (mmio_ram_take_dirty)
     taken: [Vec<u64>; MAX_REGIONS],
+    /// [start, end) that the chipset decodes before any device (mmio_ram_reserve)
+    reserved: (u32, u32),
 }
 
 const NEW_TABLE: Table = Table {
     regions: [EMPTY; MAX_REGIONS],
     count: 0,
-    pixels: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
-    taken: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+    pixels: [const { Vec::new() }; MAX_REGIONS],
+    taken: [const { Vec::new() }; MAX_REGIONS],
+    reserved: (0, 0),
 };
 
 #[cfg(not(test))]
@@ -98,6 +111,18 @@ pub fn find(address: u32, bytes: u32) -> Option<&'static Region> {
 #[inline]
 pub fn contains(address: u32) -> bool { find(address, 1).is_some() }
 
+/// Whether the page at `address` (page aligned) is in a mapped read-only
+/// region: its bytes do not change while that holds (mmio_ram_map,
+/// mmio_ram_unmap and mmio_ram_set_writable retire code compiled from it)
+#[inline]
+pub fn read_only_page(address: u32) -> bool {
+    find(address, PAGE_SIZE).map_or(false, |r| !r.writable)
+}
+
+/// Whether a mapped region decodes `address` and takes writes
+#[inline]
+pub fn contains_writable(address: u32) -> bool { find(address, 1).map_or(false, |r| r.writable) }
+
 /// The memory behind [address, address + bytes) of a region, for reading
 #[inline]
 pub unsafe fn read_host(address: u32, bytes: u32) -> Option<*mut u8> {
@@ -106,10 +131,10 @@ pub unsafe fn read_host(address: u32, bytes: u32) -> Option<*mut u8> {
 }
 
 /// The memory behind [address, address + bytes) of a region, for writing:
-/// the pages it touches are marked written
+/// the pages it touches are marked written. None for a read-only region.
 #[inline]
 pub unsafe fn write_host(address: u32, bytes: u32) -> Option<*mut u8> {
-    let region = find(address, bytes)?;
+    let region = find(address, bytes).filter(|r| r.writable)?;
     let offset = address - region.base;
     let last = offset + bytes.max(1) - 1;
     for page in offset / PAGE_SIZE..=last / PAGE_SIZE {
@@ -184,6 +209,8 @@ pub unsafe fn mmio_ram_allocate(size: u32) -> i32 {
         base: 0,
         size,
         mapped: false,
+        requested: false,
+        writable: true,
         backing,
         dirty,
         dirty_words,
@@ -209,32 +236,70 @@ unsafe fn free_for_devices(base: u32, size: u32) -> bool {
 #[cfg(test)]
 unsafe fn free_for_devices(base: u32, _size: u32) -> bool { base >= 0x100000 }
 
+/// Whether a region of `size` bytes can be decoded at `base`: in the 32-bit
+/// space, page aligned, free for devices and outside the reserved window
+unsafe fn decodable(base: u32, size: u32) -> bool {
+    let (start, end) = table().reserved;
+    base as u64 + size as u64 <= 1 << 32
+        && base % PAGE_SIZE == 0
+        && free_for_devices(base, size)
+        && (base as u64 + size as u64 <= start as u64 || base >= end)
+}
+
 /// Decode the region at guest physical `base` (page aligned), for example
 /// where the guest has just moved its BAR. Anywhere it cannot be decoded
-/// (see free_for_devices), it is unmapped instead.
+/// (see decodable), it is not mapped until that changes.
 #[no_mangle]
 pub unsafe fn mmio_ram_map(id: u32, base: u32) {
     let Some(region) = region(id)
     else {
         return;
     };
-    if base as u64 + region.size as u64 > 1 << 32
-        || base % PAGE_SIZE != 0
-        || !free_for_devices(base, region.size)
-    {
+    region.base = base;
+    region.requested = true;
+    region.mapped = decodable(base, region.size);
+    if !region.mapped {
         dbg_log!(
             "mmio_ram_map: region {} cannot be decoded at {:x}",
             id,
             base
         );
-        region.mapped = false;
     }
-    else {
-        region.base = base;
-        region.mapped = true;
-    }
-    // x64 page functions may hold direct translations of the old place
+    // x64 page functions may hold direct translations of the old place, and
+    // code compiled from it
     crate::x64::jac::flush_all();
+    crate::x64::pages::retire_device_code();
+}
+
+/// The chipset decodes [base, base + size) itself, before the PCI bus:
+/// Q35's ECAM (PCIEXBAR). No region is decoded there; a region the window
+/// moves away from is decoded at its base again. Size 0: no such window.
+#[no_mangle]
+pub unsafe fn mmio_ram_reserve(base: u32, size: u32) {
+    let table = table();
+    table.reserved = (
+        base,
+        if size == 0 { base } else { base.saturating_add(size) },
+    );
+    for region in table.regions[..table.count].iter_mut() {
+        if region.requested {
+            region.mapped = decodable(region.base, region.size);
+        }
+    }
+    crate::x64::jac::flush_all();
+    crate::x64::pages::retire_device_code();
+}
+
+/// Let writes reach the region's memory, or leave them to the memory map
+#[no_mangle]
+pub unsafe fn mmio_ram_set_writable(id: u32, writable: bool) {
+    if let Some(region) = region(id) {
+        region.writable = writable;
+        // x64 page functions may hold direct write translations, and code
+        // compiled from read-only memory
+        crate::x64::jac::flush_all();
+        crate::x64::pages::retire_device_code();
+    }
 }
 
 /// Stop decoding the region anywhere (its memory is kept)
@@ -242,7 +307,9 @@ pub unsafe fn mmio_ram_map(id: u32, base: u32) {
 pub unsafe fn mmio_ram_unmap(id: u32) {
     if let Some(region) = region(id) {
         region.mapped = false;
+        region.requested = false;
         crate::x64::jac::flush_all();
+        crate::x64::pages::retire_device_code();
     }
 }
 
@@ -426,6 +493,55 @@ mod tests {
     unsafe fn reset() {
         let table = table();
         table.count = 0;
+        table.reserved = (0, 0);
+    }
+
+    #[test]
+    fn read_only_regions_leave_writes_to_the_memory_map() {
+        unsafe {
+            reset();
+            // (the firmware's flash)
+            let flash = mmio_ram_allocate(4 * 4096) as u32;
+            mmio_ram_map(flash, 0xFFFF_C000);
+            mmio_ram_set_writable(flash, false);
+            assert!(read_host(0xFFFF_F000, 4).is_some());
+            assert!(write_host(0xFFFF_F000, 4).is_none());
+            assert!(read_only_page(0xFFFF_F000));
+            assert!(contains(0xFFFF_F000) && !contains_writable(0xFFFF_F000));
+            mmio_ram_set_writable(flash, true);
+            assert!(write_host(0xFFFF_F000, 4).is_some());
+            assert!(!read_only_page(0xFFFF_F000));
+        }
+    }
+
+    #[test]
+    fn nothing_is_decoded_in_the_reserved_window() {
+        unsafe {
+            reset();
+            // a frame buffer where the chipset puts its ECAM window: not
+            // decoded while the window is there, back once it moved away
+            let id = mmio_ram_allocate(64 * 4096) as u32;
+            mmio_ram_map(id, 0xE000_0000);
+            mmio_ram_reserve(0xE000_0000, 0x1000_0000);
+            assert!(!contains(0xE000_0000));
+            mmio_ram_reserve(0, 0);
+            assert!(contains(0xE000_0000));
+            // moved into the window: waits; moved out of it: decoded at once
+            mmio_ram_reserve(0xE000_0000, 0x1000_0000);
+            mmio_ram_map(id, 0xE800_0000);
+            assert!(!contains(0xE800_0000));
+            mmio_ram_map(id, 0x8000_0000);
+            assert!(contains(0x8000_0000));
+            // (a window ending at 4 GiB, and one just below the region)
+            mmio_ram_reserve(0xF000_0000, 0x1000_0000);
+            assert!(contains(0x8000_0000));
+            mmio_ram_reserve(0x7000_0000, 0x1000_0000);
+            assert!(contains(0x8000_0000));
+            // unmapped by its device: whatever the window does
+            mmio_ram_unmap(id);
+            mmio_ram_reserve(0, 0);
+            assert!(!contains(0x8000_0000));
+        }
     }
 
     #[test]

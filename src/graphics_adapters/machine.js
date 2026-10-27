@@ -1,13 +1,11 @@
-// The display adapter's view of the machine (plugin side). v86 hands a plugin
-// a handle whose names are all quoted, because the plugin is not compiled with
-// v86 (src/graphics_adapter.js builds it). This wraps the handle in a typed
-// class, so that the device code reads like any other v86 device, and
-// converts what crosses the boundary (port handlers, display layers, the PCI
-// description) between plugin names and quoted names.
+// The display adapter's view of the machine (plugin side). The machine
+// handle's common part (ports, memory maps, PCI, guest memory, the clock) is
+// src/device_machine.js; this adds device memory (mmio_ram), virtio-vga and
+// the display hub, and converts display layers between plugin names and
+// quoted names. v86's side is src/graphics_adapter.js.
 // See docs/gpu-devices.md, "Adapter plugins".
 
-/** The global registry plugins add their descriptors to */
-const REGISTRY = "V86GraphicsAdapters";
+import { DeviceMachine, register_device_plugin } from "../device_machine.js";
 
 /**
  * Make a display adapter known to v86. Plugin files call this when they load.
@@ -15,8 +13,7 @@ const REGISTRY = "V86GraphicsAdapters";
  */
 export function register_graphics_adapter(descriptor)
 {
-    const registry = globalThis[REGISTRY] || (globalThis[REGISTRY] = {});
-    registry[descriptor["name"]] = descriptor;
+    register_device_plugin("V86GraphicsAdapters", descriptor);
 }
 
 /**
@@ -177,20 +174,12 @@ GraphicsDisplay.prototype.add_source = function(source)
 
 /**
  * @constructor
+ * @extends {DeviceMachine}
  * @param {!Object} handle the quoted machine handle from src/graphics_adapter.js
  */
 export function GraphicsMachine(handle)
 {
-    this.handle = handle;
-
-    /** @const @type {string} */
-    this.name = handle["name"];
-
-    /** @const @type {!WebAssembly.Memory} */
-    this.wasm_memory = handle["wasm_memory"];
-
-    /** @const @type {boolean} */
-    this.qemu_compatible = !!handle["qemu_compatible"];
+    DeviceMachine.call(this, handle);
 
     /** @const @type {boolean} whether the machine has a VGA (not the virt machine: no legacy VGA, ROM or ports) */
     this.has_vga = handle["has_vga"] !== false;
@@ -198,71 +187,8 @@ export function GraphicsMachine(handle)
     /** @const */
     this.display = new GraphicsDisplay(handle["display"]);
 }
-
-/**
- * Like IO.register_read; the handlers are called with `device` as this
- * @param {number} port
- * @param {!Object} device
- * @param {function(number):number=} r8
- * @param {function(number):number=} r16
- * @param {function(number):number=} r32
- */
-GraphicsMachine.prototype.register_read = function(port, device, r8, r16, r32)
-{
-    this.handle["register_read"](port, r8 && r8.bind(device), r16 && r16.bind(device), r32 && r32.bind(device));
-};
-
-/**
- * Like IO.register_write
- * @param {number} port
- * @param {!Object} device
- * @param {function(number)=} w8
- * @param {function(number)=} w16
- * @param {function(number)=} w32
- */
-GraphicsMachine.prototype.register_write = function(port, device, w8, w16, w32)
-{
-    this.handle["register_write"](port, w8 && w8.bind(device), w16 && w16.bind(device), w32 && w32.bind(device));
-};
-
-/**
- * Like IO.register_write_consecutive: two (or four) byte ports, wider writes split
- * @param {number} port
- * @param {!Object} device
- * @param {function(number)} w8_1
- * @param {function(number)} w8_2
- * @param {function(number)=} w8_3
- * @param {function(number)=} w8_4
- */
-GraphicsMachine.prototype.register_write_consecutive = function(port, device, w8_1, w8_2, w8_3, w8_4)
-{
-    this.handle["register_write_consecutive"](port, w8_1.bind(device), w8_2.bind(device),
-        w8_3 && w8_3.bind(device), w8_4 && w8_4.bind(device));
-};
-
-/**
- * Like IO.mmap_register
- * @param {number} address
- * @param {number} size
- * @param {function(number):number} read8
- * @param {function(number, number)} write8
- * @param {function(number):number=} read32
- * @param {function(number, number)=} write32
- */
-GraphicsMachine.prototype.mmap_register = function(address, size, read8, write8, read32, write32)
-{
-    this.handle["mmap_register"](address, size, read8, write8, read32, write32);
-};
-
-/**
- * A free window of I/O ports for an I/O BAR
- * @param {number} size a power of two
- * @return {number} its first port
- */
-GraphicsMachine.prototype.allocate_io = function(size)
-{
-    return this.handle["allocate_io"](size);
-};
+GraphicsMachine.prototype = Object.create(DeviceMachine.prototype);
+GraphicsMachine.prototype.constructor = GraphicsMachine;
 
 /**
  * Device memory (src/rust/cpu/mmio_ram.rs)
@@ -371,25 +297,6 @@ GraphicsMachine.prototype.dirty_max_offset = function()
 };
 
 /**
- * Describe the device on the PCI bus. v86 picks the slot (the VGA slot).
- * @param {{
- *     pci_space: !Array<number>,
- *     pci_bars: !Array<?{size: number, on_move: (function(number)|undefined)}>,
- *     pci_rom_size: (number|undefined),
- *     pci_rom_address: (number|undefined),
- * }} description
- */
-GraphicsMachine.prototype.register_pci = function(description)
-{
-    this.handle["register_pci"]({
-        "pci_space": description.pci_space,
-        "pci_bars": description.pci_bars.map(bar => bar && { "size": bar.size, "on_move": bar.on_move }),
-        "pci_rom_size": description.pci_rom_size,
-        "pci_rom_address": description.pci_rom_address,
-    });
-};
-
-/**
  * Make the device's PCI function a virtio device (virtio-vga), in place of
  * register_pci. The descriptor uses quoted names, as for the virtio_devices
  * option, with "class_code", "revision", "bars" and "capability_bar"
@@ -410,88 +317,6 @@ GraphicsMachine.prototype.create_virtio = function(descriptor)
 GraphicsMachine.prototype.on_host_display_size = function(handler)
 {
     this.handle["on_host_display_size"](handler);
-};
-
-GraphicsMachine.prototype.raise_irq = function()
-{
-    this.handle["raise_irq"]();
-};
-
-GraphicsMachine.prototype.lower_irq = function()
-{
-    this.handle["lower_irq"]();
-};
-
-/**
- * Guest physical memory, including RAM above 4 GiB
- * @param {number} address
- * @param {number} length
- * @return {!Uint8Array}
- */
-GraphicsMachine.prototype.read_physical = function(address, length)
-{
-    return this.handle["read_physical"](address, length);
-};
-
-/**
- * @param {!Uint8Array} bytes
- * @param {number} address
- */
-GraphicsMachine.prototype.write_physical = function(bytes, address)
-{
-    this.handle["write_physical"](bytes, address);
-};
-
-/**
- * @param {number} address
- * @return {number}
- */
-GraphicsMachine.prototype.read16_physical = function(address)
-{
-    return this.handle["read16_physical"](address);
-};
-
-/**
- * @param {number} address
- * @return {number}
- */
-GraphicsMachine.prototype.read32_physical = function(address)
-{
-    return this.handle["read32_physical"](address);
-};
-
-/**
- * @param {number} address
- * @param {number} value
- */
-GraphicsMachine.prototype.write16_physical = function(address, value)
-{
-    this.handle["write16_physical"](address, value);
-};
-
-/**
- * @param {number} address
- * @param {number} value
- */
-GraphicsMachine.prototype.write32_physical = function(address, value)
-{
-    this.handle["write32_physical"](address, value);
-};
-
-/**
- * @param {number} address
- * @param {number} length
- * @return {boolean}
- */
-GraphicsMachine.prototype.validate_physical_range = function(address, length)
-{
-    return this.handle["validate_physical_range"](address, length);
-};
-
-/** @return {number} the machine clock, in milliseconds */
-GraphicsMachine.prototype.now = function()
-{
-    return this.handle["now"]();
 };
 
 /** @return {boolean} whether the CPU runs a virtual 8086 task (Win9x DOS boxes) */

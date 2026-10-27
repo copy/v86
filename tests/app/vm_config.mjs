@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { DEFAULT_FORM, settings_to_options } from "../../src/browser/vm_options.js";
 import { start_settings } from "../../src/browser/query_compat.js";
-import { FORMAT, VERSION, new_config, with_defaults, migrate, validate_config, check_config, config_to_options } from "../../src/app/vm_config.js";
+import { FORMAT, VERSION, new_config, with_defaults, migrate, validate_config, check_config, config_to_options, uefi_vars_template } from "../../src/app/vm_config.js";
 import { PRESETS, preset_config } from "../../src/app/guest_presets.js";
 
 let passed = 0;
@@ -96,6 +96,73 @@ test("migrate: version 1's display.vulkan (a boolean) names Venus", () =>
     assert.equal(migrate({ format: FORMAT, version: 1, id: "z" }).display.vulkan, "none");
 });
 
+test("migrate: version 2's PC sound \"none\" (a muted Sound Blaster) stays a muted Sound Blaster", () =>
+{
+    const pc = migrate({ format: FORMAT, version: 2, id: "x", sound: { device: "none" } });
+    assert.equal(pc.version, VERSION);
+    assert.deepEqual(pc.sound, { device: "sb16", mute: true });
+    assert.deepEqual(migrate({ format: FORMAT, version: 2, id: "y", sound: { device: "sb16" } }).sound, { device: "sb16", mute: false });
+    const virt = migrate({ format: FORMAT, version: 2, id: "z", cpu: { type: "arm64" }, machine: { type: "virt" }, display: { adapter: "virtio_gpu" },
+        network: [{ device: "virtio" }], sound: { device: "none" } });
+    assert.deepEqual(virt.sound, { device: "none", mute: false }, "the virt machine's none was no device");
+    assert.deepEqual(validate_config(pc), []);
+});
+
+test("migrate: version 3 has no USB (usb null); USB on a PC goes to the usb option", () =>
+{
+    const old = migrate({ format: FORMAT, version: 3, id: "x" });
+    assert.equal(old.version, VERSION);
+    assert.equal(old.usb, null);
+    assert.equal(config_to_options(old, ENV).usb, undefined);
+    const c = new_config();
+    c.usb = { controller: "uhci", tablet: true };
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(check_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).usb, { controller: "uhci", tablet: true });
+});
+
+test("USB disks: a port each (with the tablet's; UHCI two, EHCI six), defaults filled in; usb.mass_storage with their images, policies and write protection", () =>
+{
+    const c = new_config();
+    c.usb = { controller: "uhci", tablet: true, disks: [{ id: "stick", image: { kind: "url", url: "images/stick.img", size: 1 << 20, async: true } }] };
+    const normal = migrate(JSON.parse(JSON.stringify(c)));
+    assert.deepEqual(normal.usb.disks[0], { id: "stick", image: c.usb.disks[0].image, disk_option: "read_only", disk_error: "stop", write_protected: false });
+    assert.deepEqual(validate_config(normal), []);
+    assert.deepEqual(check_config(normal), []);
+    assert.deepEqual(config_to_options(normal, ENV).usb, { controller: "uhci", tablet: true,
+        mass_storage: [{ id: "stick", image: { url: "images/stick.img", size: 1 << 20, async: true }, read_only: false }] });
+    normal.usb.disks[0].write_protected = true;
+    normal.usb.disks[0].disk_error = "report";
+    const o = config_to_options(normal, ENV).usb.mass_storage[0];
+    assert.equal(o.read_only, true);
+    assert.equal(o.image.disk_error, "report");
+    // EHCI: six ports, the tablet's and five disks'
+    normal.usb.controller = "ehci";
+    normal.usb.disks = ["a", "b", "c", "d", "e"].map(usb_disk);
+    assert.deepEqual(validate_config(normal), []);
+    assert.equal(config_to_options(normal, ENV).usb.controller, "ehci");
+    normal.usb.disks.push(usb_disk("f"));
+    assert.deepEqual(validate_config(normal).map(p => p.path), ["usb.disks"]);
+    // (an old configuration's usb without disks has none)
+    assert.deepEqual(migrate({ format: FORMAT, version: VERSION, id: "x", usb: { controller: "uhci", tablet: true } }).usb.disks, []);
+});
+
+test("the sound card: audio_device for the PC machines; none keeps the speaker, mute silences the page", () =>
+{
+    const c = new_config();
+    assert.equal(config_to_options(c, ENV).audio_device, undefined, "the library's default, the Sound Blaster");
+    c.sound = { device: "none", mute: false };
+    let o = config_to_options(c, ENV);
+    assert.equal(o.audio_device, "none");
+    assert.ok(!o.disable_speaker, "no sound card, the PC speaker still plays");
+    c.sound = { device: "hd_audio", mute: false };
+    o = config_to_options(c, ENV);
+    assert.equal(o.audio_device, "hd_audio");
+    assert.deepEqual(check_config(c), []);
+    c.sound.mute = true;
+    assert.equal(config_to_options(c, ENV).disable_speaker, true);
+});
+
 /** Every check: a change of a valid configuration and the field it is reported on */
 const RULES = [
     ["format", c => { c.format = "x"; }, "format"],
@@ -129,6 +196,20 @@ const RULES = [
     ["bootmenu", c => { c.machine.bootmenu = "x"; }, "machine.bootmenu"],
     ["a BIOS image", c => { c.machine.bios = { kind: "url", url: "" }; }, "machine.bios"],
     ["a BIOS on virt", c => { Object.assign(c, arm64()); c.machine.bios = { kind: "url", url: "b.bin" }; }, "machine.bios"],
+    ["a firmware", c => { c.machine.firmware = "efi"; }, "machine.firmware"],
+    ["UEFI on the x86 CPU", c => { c.machine.firmware = "uefi"; c.machine.acpi = true; }, "machine.firmware"],
+    ["UEFI without ACPI", c => { c.cpu.type = "x86_64"; c.machine.firmware = "uefi"; }, "machine.firmware"],
+    ["UEFI with a BIOS image", c => { c.cpu.type = "x86_64"; c.machine.acpi = true; c.machine.firmware = "uefi"; c.machine.bios = { kind: "url", url: "b.bin" }; },
+        "machine.bios"],
+    ["UEFI on virt", c => { Object.assign(c, arm64()); c.machine.firmware = "uefi"; }, "machine.firmware"],
+    ["a UEFI variable store of a URL", c => { c.machine.uefi_vars = { kind: "url", url: "v.fd" }; }, "machine.uefi_vars"],
+    ["Secure Boot with SeaBIOS", c => { c.machine.type = "q35"; c.machine.secure_boot = true; }, "machine.secure_boot"],
+    ["Secure Boot on i440FX", c => { c.cpu.type = "x86_64"; c.machine.acpi = true; c.machine.firmware = "uefi"; c.machine.secure_boot = true; },
+        "machine.secure_boot"],
+    ["Secure Boot keys of no kind", c => { c.machine.secure_boot_keys = "mine"; }, "machine.secure_boot_keys"],
+    ["a TPM without ACPI", c => { c.tpm = { state: null }; }, "tpm"],
+    ["a TPM's state of a URL", c => { c.machine.acpi = true; c.tpm = { state: { kind: "url", url: "t.img" } }; }, "tpm.state"],
+    ["a TPM on virt", c => { Object.assign(c, arm64()); c.tpm = { state: null }; }, "tpm"],
     ["a disk's slot", c => { c.disks = [disk({ slot: "hdc" })]; }, "disks.0.slot"],
     ["a slot twice", c => { c.disks = [disk(), disk()]; }, "disks.1.slot"],
     ["an image's kind", c => { c.disks = [disk({ image: { kind: "ftp" } })]; }, "disks.0.image"],
@@ -168,8 +249,9 @@ const RULES = [
     ["5 displays", c => { c.display.adapter = "virtio_gpu"; c.display.displays = 5; }, "display.displays"],
     ["2 displays on Bochs VGA", c => { c.display.displays = 2; }, "display.displays"],
     ["two network cards", c => { c.network.push(c.network[0]); }, "network"],
-    ["a network card", c => { c.network[0].device = "e1000"; }, "network.0.device"],
+    ["a network card", c => { c.network[0].device = "rtl8139"; }, "network.0.device"],
     ["ne2k on virt", c => { Object.assign(c, arm64()); c.network[0].device = "ne2k"; }, "network.0.device"],
+    ["e1000 on virt", c => { Object.assign(c, arm64()); c.network[0].device = "e1000"; }, "network.0.device"],
     ["a backend", c => { c.network[0].backend = "slirp"; }, "network.0.backend"],
     ["a relay's URL", c => { c.network[0].relay_url = "http://relay"; }, "network.0.relay_url"],
     ["a wisp server's URL", c => { c.network[0].backend = "wisp"; c.network[0].relay_url = "wss://x/"; }, "network.0.relay_url"],
@@ -177,6 +259,19 @@ const RULES = [
     ["the MTU", c => { c.network[0].mtu = 67; }, "network.0.mtu"],
     ["MAC address translation", c => { c.network[0].mac_address_translation = "x"; }, "network.0.mac_address_translation"],
     ["a sound card", c => { c.sound.device = "gus"; }, "sound.device"],
+    ["mute", c => { c.sound.mute = "yes"; }, "sound.mute"],
+    ["HD Audio on virt", c => { Object.assign(c, arm64()); c.sound.device = "hd_audio"; }, "sound.device"],
+    ["a USB controller", c => { c.usb = { controller: "ohci", tablet: true }; }, "usb.controller"],
+    ["the tablet", c => { c.usb = { controller: "uhci", tablet: "yes" }; }, "usb.tablet"],
+    ["USB on virt", c => { Object.assign(c, arm64()); c.usb = { controller: "uhci", tablet: true }; }, "usb.controller"],
+    ["a USB disk's id", c => { c.usb = { controller: "uhci", tablet: false, disks: [usb_disk("a b")] }; }, "usb.disks.0.id"],
+    ["a USB disk's id twice", c => { c.usb = { controller: "uhci", tablet: false, disks: [usb_disk("a"), usb_disk("a")] }; }, "usb.disks.1.id"],
+    ["a USB disk named tablet", c => { c.usb = { controller: "uhci", tablet: false, disks: [usb_disk("tablet")] }; }, "usb.disks.0.id"],
+    ["more USB disks than ports", c => { c.usb = { controller: "uhci", tablet: true, disks: [usb_disk("a"), usb_disk("b")] }; }, "usb.disks"],
+    ["a chosen file written back as a USB disk", c => { c.usb = { controller: "uhci", tablet: false,
+        disks: [Object.assign(usb_disk("a"), { image: { kind: "file", name: "x.img", size: 512 }, disk_option: "read_write" })] }; }, "usb.disks.0.disk_option"],
+    ["a USB disk's write protection", c => { c.usb = { controller: "uhci", tablet: false, disks: [Object.assign(usb_disk("a"), { write_protected: 1 })] }; },
+        "usb.disks.0.write_protected"],
     ["a Sound Blaster on virt", c => { Object.assign(c, arm64()); c.sound.device = "sb16"; }, "sound.device"],
     ["a UART", c => { c.serial = [{ port: 4, attach: "none" }]; }, "serial.0.port"],
     ["a UART twice", c => { c.serial = [{ port: 1, attach: "none" }, { port: 1, attach: "none" }]; }, "serial.1.port"],
@@ -221,6 +316,8 @@ function disk(fields) { return Object.assign({ slot: "hda", image: { kind: "url"
 function floppy(fields) { return Object.assign({ slot: "fda", image: null, disk_option: "read_only" }, fields); }
 function kernel(fields) { return Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, fields); }
 function android(fields) { return Object.assign({ device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" }, fields); }
+/** A USB disk of the configuration */
+function usb_disk(id) { return { id, image: { kind: "empty", size: 1 << 20 }, disk_option: "read_only", disk_error: "stop", write_protected: false }; }
 /** The sections of a valid arm64 machine */
 function arm64()
 {
@@ -234,6 +331,20 @@ function arm64()
 }
 
 test("arm64's sections are valid", () => assert.deepEqual(validate_config(new_config(arm64())), []));
+
+test("the PC cards: e1000 (a plugin) is valid on i440FX and Q35 and goes to net_device.type", () =>
+{
+    for(const machine of ["i440fx", "q35"])
+    {
+        const c = new_config();
+        c.machine.type = machine;
+        c.machine.acpi = machine === "q35";
+        c.network[0].device = "e1000";
+        assert.deepEqual(validate_config(c), [], machine);
+        assert.deepEqual(check_config(c), [], machine);
+        assert.equal(config_to_options(c, ENV).net_device.type, "e1000", machine);
+    }
+});
 
 test("android: its defaults, a valid Android machine", () =>
 {
@@ -282,7 +393,7 @@ test("config_to_options: the configuration's fields", () =>
     c.kernel = kernel({ bzimage: { kind: "url", url: "k.bin", async: false }, cmdline: "quiet" });
     c.display = { adapter: "virtio_gpu", vram_mb: 32, proxy: true, vulkan: "venus", displays: 2 };
     c.network = [{ device: "virtio", backend: "fetch", relay_url: "https://cors.invalid/", mtu: 9000, mac_address_translation: true }];
-    c.sound.device = "none";
+    c.sound = { device: "hd_audio", mute: true };
     c.serial = [{ port: 0, attach: "terminal" }, { port: 2, attach: "modem" }];
     c.filesystem = { baseurl: "fs/" };
     c.advanced = { cpu_worker: false, ir_tier0: false, x87_fast_math: true, x87_jit_cache: false, cpuid_level: 7, mouse_disabled: false };
@@ -317,6 +428,7 @@ test("config_to_options: the configuration's fields", () =>
     assert.deepEqual(o.net_device, { type: "virtio", relay_url: "fetch", cors_proxy: "https://cors.invalid/", mtu: 9000 });
     assert.equal(o.mac_address_translation, true);
     assert.equal(o.disable_speaker, true);
+    assert.equal(o.audio_device, "hd_audio");
     assert.deepEqual(o.modem, { uart: 2 });
     assert.deepEqual(o.filesystem, { baseurl: "fs/" });
     assert.equal(o.cpu_worker, false);
@@ -359,6 +471,72 @@ test("config_to_options: the backends, arm64, a file not chosen yet", () =>
     const f = new_config();
     f.disks = [disk({ image: { kind: "file", name: "c.img", size: 512, last_modified: 0 } })];
     assert.throws(() => config_to_options(f, Object.assign({}, ENV, { file: () => undefined })), /c\.img needs to be chosen again/);
+});
+
+test("UEFI: OVMF's images in place of the BIOS images; on i440FX with QEMU's layout; the library accepts both machines", () =>
+{
+    for(const type of ["i440fx", "q35"])
+    {
+        const c = new_config();
+        c.cpu.type = "x86_64";
+        c.machine.type = type;
+        c.machine.acpi = true;
+        c.machine.firmware = "uefi";
+        assert.deepEqual(validate_config(c), []);
+        assert.deepEqual(check_config(c), [], type);
+        const o = config_to_options(c, ENV);
+        assert.deepEqual(o.firmware, { type: "uefi", code: { url: "bios/ovmf-code.fd" }, vars: { url: "bios/ovmf-vars.fd" } });
+        assert.equal(o.bios, undefined);
+        assert.equal(o.vga_bios, undefined);
+        assert.equal(o.qemu_compatible, type === "i440fx" ? true : undefined);
+    }
+    // (migrated: SeaBIOS, no variable store)
+    const migrated = with_defaults({ format: FORMAT, version: VERSION, machine: { type: "i440fx" } }).machine;
+    assert.equal(migrated.firmware, "seabios");
+    assert.equal(migrated.uefi_vars, null);
+    // the machine's variable store: its browser disk written back, with the CPU Worker; else the template
+    const c = new_config();
+    Object.assign(c.cpu, { type: "x86_64" });
+    Object.assign(c.machine, { type: "q35", acpi: true, firmware: "uefi", uefi_vars: { kind: "browser", path: "v86/disks/vars.img", size: 540672 } });
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "opfs:v86/disks/vars.img", size: 540672, disk_option: "read_write" });
+    c.advanced.cpu_worker = false;
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "bios/ovmf-vars.fd" });
+});
+
+test("Secure Boot: the Secure Boot firmware on Q35; a new store's keys Microsoft's or none; the library accepts it", () =>
+{
+    const c = new_config();
+    c.cpu.type = "x86_64";
+    Object.assign(c.machine, { type: "q35", acpi: true, firmware: "uefi", secure_boot: true });
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(check_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).firmware,
+        { type: "uefi", secure_boot: true, code: { url: "bios/ovmf-secure-code.fd" }, vars: { url: "bios/ovmf-vars-ms.fd" } });
+    assert.equal(uefi_vars_template(c.machine), "bios/ovmf-vars-ms.fd");
+    c.machine.secure_boot_keys = "none";
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "bios/ovmf-vars.fd" });
+    // (the machine's store: its own keys, whatever the template)
+    c.machine.uefi_vars = { kind: "browser", path: "v86/disks/vars.img", size: 540672 };
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "opfs:v86/disks/vars.img", size: 540672, disk_option: "read_write" });
+    const migrated = with_defaults({ format: FORMAT, version: VERSION, machine: { type: "q35" } }).machine;
+    assert.equal(migrated.secure_boot, false);
+    assert.equal(migrated.secure_boot_keys, "microsoft");
+});
+
+test("the TPM: tpm 2.0; its state the machine's browser disk written back, with the CPU Worker; else in memory", () =>
+{
+    const c = new_config();
+    c.machine.acpi = true;
+    c.tpm = { state: null };
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(check_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).tpm, { version: "2.0" });
+    c.tpm.state = { kind: "browser", path: "v86/disks/tpm.img", size: 524288 };
+    assert.deepEqual(config_to_options(c, ENV).tpm, { version: "2.0", state: { url: "opfs:v86/disks/tpm.img", size: 524288, disk_option: "read_write" } });
+    c.advanced.cpu_worker = false;
+    assert.deepEqual(config_to_options(c, ENV).tpm, { version: "2.0" });
+    assert.equal(with_defaults({ format: FORMAT, version: VERSION }).tpm, null);
 });
 
 test("check_config: the library's own checks after validate_config's", () =>

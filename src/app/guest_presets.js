@@ -35,7 +35,8 @@ const GB = 1024;
 /**
  * A PC's hardware
  * @param {{cpu?: string, memory: number, cores?: number, adapter?: string, vram?: number, nic?: string, sound?: string,
- *     acpi?: boolean, cpuid_level?: number}} h
+ *     acpi?: boolean, cpuid_level?: number, tablet?: boolean, usb?: string, q35?: boolean, uefi?: boolean,
+ *     secure_boot?: boolean, tpm?: boolean}} h
  */
 function pc(h)
 {
@@ -52,11 +53,20 @@ function pc(h)
         if(c.network[0].device === "none") { c.network[0].backend = "none"; c.network[0].relay_url = ""; }
         c.sound.device = h.sound || "sb16";
         if(h.cpuid_level) c.advanced.cpuid_level = h.cpuid_level;
+        // (the USB tablet: an absolute pointer for the systems that have its
+        // drivers; xHCI for the systems with its driver, EHCI for XP to 7)
+        c.usb = h.tablet ? { controller: h.usb || "uhci", tablet: true, disks: [] } : null;
+        // (Windows 11's machine: Q35 with AHCI, UEFI with Secure Boot and
+        // Microsoft's keys, a TPM 2.0: docs/uefi.md, docs/tpm.md)
+        if(h.q35) c.machine.type = "q35";
+        if(h.uefi) c.machine.firmware = "uefi";
+        if(h.secure_boot) Object.assign(c.machine, { secure_boot: true, secure_boot_keys: "microsoft" });
+        if(h.tpm) c.tpm = { state: null };
     };
 }
 
 const WINDOWS_81 = {
-    cpu: "x86_64", memory: 2048 * MB, cores: 2, adapter: "vmware_svga", vram: 16, nic: "none", sound: "none", acpi: true,
+    cpu: "x86_64", memory: 2048 * MB, cores: 2, adapter: "vmware_svga", vram: 16, nic: "e1000", sound: "hd_audio", acpi: true, tablet: true, usb: "xhci",
 };
 const WINDOWS_81_CHECKLIST = [
     "Display driver, one of: VMware Tools 13.1.5's vm3d (install KB2919355 first), or the test-signed viogpudo 0.1.240 (2D only)",
@@ -64,8 +74,6 @@ const WINDOWS_81_CHECKLIST = [
     "Before moving the disk from IDE to Q35 (AHCI), enable storahci",
 ];
 const WINDOWS_81_ISSUES = [
-    "ne2k has no Windows 8.1 driver; virtio-net's driver is not verified",
-    "No sound card (HD Audio is in the modern PC devices plan)",
     "Too slow without the JIT (do not turn it off)",
 ];
 
@@ -110,7 +118,7 @@ export const PRESETS = [
         install: ["cdrom"], install_text: "From the CD", disk_mb: 4 * GB, disk_location: "memory",
         checklist: ["D3D programs such as 3DMark06: d3d9.dll from driver.iso"],
         issues: ["Keep the x86 CPU: x86_64 makes XP use its PAE kernel", "XP's and 2000's ACPI HAL is not verified: one core only"],
-        hardware: pc({ memory: 2048 * MB, vram: 16 }),
+        hardware: pc({ memory: 2048 * MB, vram: 16, tablet: true, usb: "ehci" }),
     },
     {
         id: "windows81", name: "Windows 8.1 (x64)", guest: "windows", verified: true,
@@ -119,20 +127,31 @@ export const PRESETS = [
         checklist: WINDOWS_81_CHECKLIST, issues: WINDOWS_81_ISSUES, hardware: pc(WINDOWS_81),
     },
     {
+        id: "windows11", name: "Windows 11 (x64)", guest: "windows", verified: false,
+        basis: "Windows 8.1's devices (tests/x64/windows_boot.mjs), its Setup under Secure Boot with Microsoft's keys " +
+            "(tests/uefi/windows_setup.mjs), the TPM 2.0 (docs/tpm.md); Windows 11 itself was never tried here",
+        install: ["cdrom", "disk"], install_text: "From the CD", disk_mb: 64 * GB, disk_location: "service",
+        checklist: WINDOWS_81_CHECKLIST.slice(0, 2), issues: WINDOWS_81_ISSUES.concat([
+            "Windows 11 asks for a supported processor model: v86's is not on Microsoft's list",
+            "No DirectX 12 / WDDM 2.0 display driver",
+        ]),
+        hardware: pc(Object.assign({}, WINDOWS_81, { memory: 4096 * MB, q35: true, uefi: true, secure_boot: true, tpm: true })),
+    },
+    {
         id: "windows7", name: "Windows Vista / 7 / 10", guest: "windows", verified: false,
         basis: "Windows 8.1's settings; Vista's installation CD only starts, 7 and 10 were never tried",
         install: ["cdrom"], install_text: "From the CD", disk_mb: 32 * GB, disk_location: "service",
-        checklist: WINDOWS_81_CHECKLIST, issues: WINDOWS_81_ISSUES, hardware: pc(WINDOWS_81),
+        checklist: WINDOWS_81_CHECKLIST, issues: WINDOWS_81_ISSUES, hardware: pc(Object.assign({}, WINDOWS_81, { usb: "ehci" })),
     },
     {
         id: "linux", name: "Linux (32-bit)", guest: "linux", verified: true, basis: "Linux 4.16, 6.8, 6.18: docs/multicore.md, docs/acpi.md, docs/q35.md",
         install: ["cdrom"], install_text: "From a live or installation CD", disk_mb: 8 * GB, disk_location: "memory", checklist: [], issues: [],
-        hardware: pc({ memory: 512 * MB, acpi: true }),
+        hardware: pc({ memory: 512 * MB, acpi: true, tablet: true, usb: "xhci" }),
     },
     {
         id: "linux64", name: "Linux (x86_64)", guest: "linux", verified: true, basis: "Alpine 3.24: docs/x86-64.md, docs/gpu-devices.md",
         install: ["cdrom"], install_text: "From a live or installation CD", disk_mb: 8 * GB, disk_location: "memory", checklist: [], issues: [],
-        hardware: pc({ cpu: "x86_64", memory: 1024 * MB, cores: 2, adapter: "virtio_gpu", nic: "virtio", acpi: true }),
+        hardware: pc({ cpu: "x86_64", memory: 1024 * MB, cores: 2, adapter: "virtio_gpu", nic: "virtio", acpi: true, tablet: true, usb: "xhci" }),
     },
     {
         id: "linux_arm64", name: "Linux (arm64)", guest: "linux", verified: true, basis: "Alpine 3.24 aarch64: docs/aarch64.md, tests/a64/linux_boot.mjs",

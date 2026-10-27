@@ -65,9 +65,10 @@ export function gpt_layout(list, align = 1 << 20)
 
 /**
  * The protective MBR, primary and backup GPT for partitions [{ name,
- * start, size }] (bytes) as writes
+ * start, size }] (bytes) as writes; a partition's type is Linux filesystem
+ * data unless it has its own (an EFI System Partition's, for docs/uefi.md)
  * @param {number} disk_size
- * @param {!Array<{name: string, start: number, size: number}>} partitions
+ * @param {!Array<{name: string, start: number, size: number, type: (string|undefined)}>} partitions
  * @return {!Array<{offset: number, bytes: !Uint8Array}>}
  */
 export function gpt_writes(disk_size, partitions)
@@ -77,7 +78,7 @@ export function gpt_writes(disk_size, partitions)
     partitions.forEach((p, i) =>
     {
         const e = i * ENTRY_SIZE;
-        entries.set(guid_bytes(LINUX_FILESYSTEM), e);
+        entries.set(guid_bytes(p.type || LINUX_FILESYSTEM), e);
         entries.set(guid_bytes(name_guid(p.name)), e + 16);
         // (whole sectors: a size that is not ends in its last sector)
         if(p.start % SECTOR) throw new Error("GPT: " + p.name + " starts within a sector");

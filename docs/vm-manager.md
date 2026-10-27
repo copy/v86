@@ -20,7 +20,28 @@ settings, rename, export, delete.
   summary. A preset sets all the hardware; it says whether that setting was
   verified, how the system is installed, the steps after the installation
   and its known problems. "Customize hardware…" opens the settings dialog
-  before the machine is made.
+  before the machine is made. The network card follows the system's own
+  drivers: the NE2000 up to Windows XP and 32-bit Linux, the Intel PRO/1000
+  MT (e1000) for Windows Vista to 8.1, virtio-net for Linux x86_64 and the
+  ARM machines. So does the sound card: the Sound Blaster 16 up to XP, HD
+  Audio for Vista to 8.1 ([sound.md](sound.md)). A sound card of "None" is
+  no card at all (the PC speaker stays); Mute keeps the card and plays
+  nothing. Machines made before 2026-10-26 with the sound "None" had a
+  muted Sound Blaster and keep it (configuration version 3). The XP, Vista
+  to 8.1 and Linux presets have USB with the tablet ([usb.md](usb.md)): the
+  guest's cursor follows the page's without locking the mouse; the Input
+  menu's "Lock the mouse" switches to relative movement (the PS/2 mouse) for
+  games. USB is an item of the settings (Add, Remove; configuration
+  version 4), its controller UHCI, EHCI (USB 2.0 with UHCI companions,
+  the XP and 7 presets') or xHCI (USB 3, the Windows 8.1 and Linux
+  presets'; the settings note that Windows 7 and earlier have no driver
+  for it). USB disks are items too ("USB disk" in Add): a disk image as a
+  USB stick, its source as a hard disk's (read only or written back), write
+  protected or not; a port each (UHCI has two, EHCI six, xHCI four; the
+  tablet takes one). While
+  the machine runs, the Devices menu plugs a file in as a USB disk, unplugs
+  one (it warns while the guest has not ejected it) and downloads its
+  image.
 - **Edit settings…** opens the settings dialog: the hardware list (memory,
   processor, machine and firmware, hard disks, CD/DVD, floppies, network
   adapters, sound, display, serial ports, shared folder, direct boot, the
@@ -29,6 +50,15 @@ settings, rename, export, delete.
   CPU makes the machine virt, a second core needs ACPI, more than 2048 MB
   needs x86_64), the dialog makes them and says so. Before saving, the
   whole configuration is checked, and each problem shows on its item.
+  The machine's firmware is SeaBIOS, the Bochs BIOS, an image of your own
+  or UEFI (OVMF, [uefi.md](uefi.md)): UEFI brings the x86_64 CPU and ACPI
+  (another CPU makes it SeaBIOS again), and on i440FX QEMU's device layout;
+  its variables are kept in a browser disk of the machine's, made at the first
+  power-on; "Reset UEFI variables…" returns them to the firmware's template.
+  A TPM 2.0 ([tpm.md](tpm.md)) is an item of the PC machines ("TPM" in
+  Add; it brings ACPI): its state is a browser disk of the machine's, made
+  at the first power-on, and "Clear TPM…" makes a new TPM of it (keys sealed
+  to the old one are lost, the dialog says so).
 - **Import…** and **Export** read and write `.v86vm.json` files. Files on
   your computer are not part of an export: the console asks for them.
 - **Preferences…** sets the disk service (below). **Browser disks…** lists
@@ -114,14 +144,15 @@ Power on opens the machine's console in a new tab (`index.html?vm=<id>`);
 a machine runs in one tab at a time. Its menus: Power (pause, reset, power
 off, suspend, save and power off for disks written back, save a state to a
 file, load one), Keys (Ctrl+Alt+Del and other combinations), Devices (CD
-and floppies in and out, the disks' images), View (full screen, zoom to
+and floppies in and out, USB disks plugged in and out, the disks' images), View (full screen, zoom to
 fit, scales, theatre mode, screenshot), Input (the mouse), Tools
 (memory dump, network capture), and Mute. The
 status bar shows the time, speed, disk and network traffic, the display
 mode and the mouse; the drawers hold the serial terminal, the kernel
 console (a machine with a virtio console: its first port, hvc0, where the
 virt machine's Linux and Android print the kernel's log), the shared
-folder's files and the details. The two consoles keep what was printed
+folder's files and the details (the hardware, each USB device's controller
+and speed). The two consoles keep what was printed
 from power on (the last MiB until the drawer opens), so a drawer opened
 later shows the boot from its start. A disk that fails with
 `disk_error: "stop"` pauses the machine and asks: retry, or power off.

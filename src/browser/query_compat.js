@@ -175,6 +175,7 @@ export function apply_query_args(settings, query_args)
         settings.acpi = query_args.has("acpi") ? bool_arg(query_args.get("acpi")) : settings.acpi;
         settings.use_bochs_bios = query_args.get("bios") === "bochs";
         settings.net_device_type = query_args.get("net_device_type") || settings.net_device_type;
+        settings.audio_device = query_args.get("audio_device") || settings.audio_device;
         settings.mtu = parseInt(query_args.get("mtu"), 10) || undefined;
     }
 

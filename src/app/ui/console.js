@@ -12,11 +12,14 @@
 import { h, replace, confirm, inform, dialog, download, pick_file, ask_text, menu_button, format_size } from "./dom.js";
 import { VMStore } from "../vm_store.js";
 import { read_state, delete_state, write_state, storage_space, state_estimate, machine_digest, hold_machine } from "../vm_state.js";
-import { config_to_options, android_display } from "../vm_config.js";
+import { config_to_options, android_display, uefi_vars_template, TPM_STATE_SIZE } from "../vm_config.js";
+import { import_disk, create_disk } from "../browser_disks.js";
 import { combination_scancodes, COMBINATIONS } from "../keys.js";
 import { DEFAULT_FORM, DEFAULT_GRAPHICS_ADAPTER, settings_to_options } from "../../browser/vm_options.js";
 import { bool_arg, start_settings } from "../../browser/query_compat.js";
 import { DEBUG_PAGE, ON_LOCALHOST, page_env, load_graphics_proxy, create_emulator, query_append } from "../emulator_bridge.js";
+import { NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
+import { USB_PORTS } from "../../machine_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
@@ -121,7 +124,8 @@ async function resolve_files(config, store, notice)
 {
     /** @type {Map<Image, File>} */
     const files = new Map();
-    const images = [config.machine.bios, config.machine.vga_bios, ...config.disks.map(d => d.image), config.cdrom.image,
+    const images = [config.machine.bios, config.machine.vga_bios, ...config.disks.map(d => d.image), ...(config.usb ? config.usb.disks.map(d => d.image) : []),
+        config.cdrom.image,
         ...config.floppies.map(f => f.image), config.kernel?.bzimage, config.kernel?.initrd, config.kernel?.multiboot, config.initial_state];
     for(const image of images)
     {
@@ -263,6 +267,39 @@ export async function open_console(root, target)
                 if(resume !== "resume") config = await store.get(config.id);
             }
             const files = await resolve_files(config, store, layout.notice);
+            // (a UEFI machine's variable store, docs/uefi.md: a browser disk
+            // made from the template at its first power-on, written back;
+            // with Secure Boot and Microsoft's keys, the template with them)
+            if(config.machine.firmware === "uefi" && !config.machine.uefi_vars && config.advanced.cpu_worker)
+            {
+                set_status("Making the UEFI variable store...");
+                try
+                {
+                    const disk = await import_disk(uefi_vars_template(config.machine), config.name + ": UEFI variables");
+                    config.machine.uefi_vars = { kind: "browser", path: disk.path, size: disk.size };
+                    await store.put(config);
+                }
+                catch(e)
+                {
+                    console.warn("The UEFI variable store could not be made (" + e.message + "): the variables stay in memory this time");
+                }
+            }
+            // (a TPM's state, docs/tpm.md: a browser disk of zeros at the first
+            // power-on, a new TPM; written back from then on)
+            if(config.tpm && !config.tpm.state && config.advanced.cpu_worker)
+            {
+                set_status("Making the TPM's state store...");
+                try
+                {
+                    const disk = await create_disk(TPM_STATE_SIZE, config.name + ": TPM");
+                    config.tpm.state = { kind: "browser", path: disk.path, size: disk.size };
+                    await store.put(config);
+                }
+                catch(e)
+                {
+                    console.warn("The TPM's state store could not be made (" + e.message + "): the TPM's state stays in memory this time");
+                }
+            }
             if(config.display.proxy) await load_graphics_proxy();
             options = config_to_options(config, Object.assign(page_env(layout.screen_container, config.display.proxy, on_proxy_error),
                 { file: image => files.get(image) }));
@@ -428,7 +465,7 @@ function console_ui(layout, emulator, ctx)
     // ---- the status bar
     const stats = { started: 0, running_ms: 0, last_tick: 0, last_counter: 0, total: 0, ips: 0,
         disk_read: 0, disk_written: 0, disk_busy: false, net_in: 0, net_out: 0, fs_read: 0, fs_written: 0, fs_file: "",
-        mode: "", resolution: "", guest_mouse: false, absolute_mouse: false, mouse_enabled: true };
+        mode: "", resolution: "", guest_mouse: false, absolute_mouse: false, usb_tablet: false, pointer_locked: false, mouse_enabled: true };
     const status_parts = {
         state: h("span.status-state"), time: h("span"), speed: h("span"), disk: h("span"), network: h("span"), display: h("span"), mouse: h("span"),
     };
@@ -442,7 +479,9 @@ function console_ui(layout, emulator, ctx)
             format_size(stats.disk_read) + " read, " + format_size(stats.disk_written) + " written" : "";
         status_parts.network.textContent = stats.net_in || stats.net_out ? "Network " + format_size(stats.net_in) + " in, " + format_size(stats.net_out) + " out" : "";
         status_parts.display.textContent = stats.mode ? stats.mode + " " + stats.resolution : "";
-        status_parts.mouse.textContent = !stats.mouse_enabled ? "Mouse off" : stats.guest_mouse ? "Mouse: the guest's" + (stats.absolute_mouse ? " (absolute)" : "") : "";
+        status_parts.mouse.textContent = !stats.mouse_enabled ? "Mouse off" :
+            stats.usb_tablet && !stats.pointer_locked ? "Mouse: USB tablet (absolute)" :
+            stats.guest_mouse ? "Mouse: the guest's" + (stats.pointer_locked ? " (PS/2, locked)" : stats.absolute_mouse ? " (absolute)" : "") : "";
         if(details_open()) render_details();
     };
     ctx.set_renderer(render);
@@ -489,6 +528,9 @@ function console_ui(layout, emulator, ctx)
     emulator.add_listener("9p-write-end", args => { stats.fs_written += args[1]; stats.fs_file = args[0]; });
     emulator.add_listener("mouse-enable", enabled => { stats.guest_mouse = enabled; render(); });
     emulator.add_listener("vmware-absolute-mouse", enabled => { stats.absolute_mouse = enabled; });
+    // (the USB tablet: the pointer absolute while the guest uses it; locked, the PS/2 mouse's)
+    emulator.add_listener("usb-tablet-active", active => { stats.usb_tablet = active; render(); });
+    document.addEventListener("pointerlockchange", () => { stats.pointer_locked = !!document.pointerLockElement; render(); });
     emulator.add_listener("screen-set-size", args =>
     {
         const [width, height, bpp] = args;
@@ -623,9 +665,10 @@ function console_ui(layout, emulator, ctx)
         ctx.set_status("Loading the state ...");
         try
         {
-            // (V7 streams, large machines', are read from the file as needed)
+            // (streams, large machines', are read from the file as needed:
+            // odd versions, 7 and 9; src/state.js)
             const header = new DataView(await file.slice(0, 8).arrayBuffer());
-            const stream = header.byteLength === 8 && header.getUint32(0, true) === 0x86768676 && header.getUint32(4, true) === 7;
+            const stream = header.byteLength === 8 && header.getUint32(0, true) === 0x86768676 && header.getUint32(4, true) % 2 === 1;
             const was_running = emulator.is_running();
             if(was_running) await emulator.stop();
             if(stream) await emulator.restore_state_stream(file);
@@ -677,6 +720,45 @@ function console_ui(layout, emulator, ctx)
         if(files.length === 1 && /\.(iso(9660|img)?|cdr)$/i.test(files[0].name)) await emulator.set_cdrom({ buffer: files[0] });
         else await emulator.set_cdrom_files(await Promise.all(files.map(async file => ({ name: file.name, contents: new Uint8Array(await file.arrayBuffer()) }))));
     };
+    // USB disks: the configuration's and those plugged in since (their ids);
+    // the guest's eject tells that one can be unplugged
+    const usb_disks = options.usb ? (options.usb.mass_storage || []).map(disk => disk.id) : [];
+    const usb_free = () => options.usb ? (USB_PORTS[options.usb.controller] || 0) - (options.usb.tablet ? 1 : 0) - usb_disks.length : 0;
+    const usb_ejected = new Set();
+    emulator.add_listener("usb-disk-ejected", id =>
+    {
+        usb_ejected.add(id);
+        ctx.set_status("The guest ejected the USB disk " + id + ": it can be unplugged");
+    });
+    const insert_usb_disk = async () =>
+    {
+        const file = await pick_file("");
+        if(!file) return;
+        let n = 0;
+        while(usb_disks.includes("usb" + n)) n++;
+        const id = "usb" + n;
+        try
+        {
+            await emulator.usb_attach_disk(id, { buffer: file });
+            usb_disks.push(id);
+        }
+        catch(error) { await inform("The USB disk was not plugged in", error.message); }
+    };
+    const unplug_usb_disk = async id =>
+    {
+        if(!usb_ejected.has(id) && !await confirm("Unplug the USB disk " + id + "?", "The guest has not ejected it: what it has not written to it " +
+            "yet is lost, and its file system may need a check. (Eject it in the guest first: \"Safely Remove Hardware\", eject.)", "Unplug", true))
+        {
+            return;
+        }
+        try
+        {
+            await emulator.usb_detach_disk(id);
+            usb_disks.splice(usb_disks.indexOf(id), 1);
+            usb_ejected.delete(id);
+        }
+        catch(error) { await inform("The USB disk was not unplugged", error.message); }
+    };
     const get_disk_image = async name =>
     {
         ctx.set_status("Reading " + name + " ...");
@@ -691,7 +773,7 @@ function console_ui(layout, emulator, ctx)
             {
                 const parts = [];
                 await emulator.export_disk_image(name, { write: chunk => { parts.push(chunk.slice()); } });
-                download(parts, tag + "-" + name + (name === "cdrom" ? ".iso" : ".img"));
+                download(parts, tag + "-" + name.replace(":", "-") + (name === "cdrom" ? ".iso" : ".img"));
             }
         }
         catch(error)
@@ -770,7 +852,7 @@ function console_ui(layout, emulator, ctx)
     layout.screen_container.addEventListener("click", e =>
     {
         // (a guest that follows the host's cursor needs no lock; the menu's Lock mouse is still there for games)
-        if(mouse_enabled && stats.guest_mouse && !stats.absolute_mouse) emulator.lock_mouse();
+        if(mouse_enabled && stats.guest_mouse && !stats.absolute_mouse && !stats.usb_tablet) emulator.lock_mouse();
         if(window.getSelection()?.isCollapsed)
         {
             layout.phone_keyboard.style.top = window.scrollY + e.clientY + 20 + "px";
@@ -879,6 +961,9 @@ function console_ui(layout, emulator, ctx)
         }, error => ctx.set_status(error.message));
     };
     const details = h("div.details");
+    // (the cards of the options: the library's defaults where they name none)
+    const network_card = options.net_device && options.net_device.type || (virt ? "virtio" : "ne2k");
+    const sound_card = virt ? (options.virtio_sound ? "virtio" : "none") : options.audio_device || "sb16";
     const render_details = () =>
     {
         const rows = [
@@ -889,13 +974,25 @@ function console_ui(layout, emulator, ctx)
             ["Instructions", String(stats.total)],
             ["Storage (" + (virt ? "virtio-blk" : options.machine_type === "q35" ? "AHCI" : "IDE") + ")", format_size(stats.disk_read) + " read, " +
                 format_size(stats.disk_written) + " written" + (stats.disk_busy ? ", busy" : "")],
-            ["Network", format_size(stats.net_in) + " received, " + format_size(stats.net_out) + " sent"],
+            ["Network", (NIC_LABELS[network_card] || network_card) + (network_card === "none" ? "" :
+                ": " + format_size(stats.net_in) + " received, " + format_size(stats.net_out) + " sent")],
+            ["Sound", (SOUND_LABELS[sound_card] || sound_card) + (options.disable_speaker ? ", muted" : "")],
             ["Shared folder", stats.fs_file ? format_size(stats.fs_read) + " read, " + format_size(stats.fs_written) + " written, last " + stats.fs_file : "-"],
             ["Display", stats.mode ? stats.mode + ", " + stats.resolution : "-"],
-            ["Mouse", stats.guest_mouse ? "used by the guest" + (stats.absolute_mouse ? " (absolute)" : "") : "not used by the guest"],
+            ["Mouse", stats.usb_tablet ? "the USB tablet (absolute)" + (stats.pointer_locked ? "; locked: PS/2" : "") :
+                stats.guest_mouse ? "used by the guest" + (stats.absolute_mouse ? " (absolute)" : "") : "not used by the guest"],
+            ["USB", options.usb ? options.usb.controller.toUpperCase() + (options.usb.tablet ? ", tablet" : "") : "none"],
         ];
         replace(details, h("table.hardware", null, h("tbody", null, rows.map(([k, v]) => h("tr", null, h("th", null, k), h("td", null, v))))),
-            h("p.note#execution"));
+            h("p.note#usb_devices"), h("p.note#execution"));
+        // (each USB device's controller and speed: EHCI's companions have the full-speed ones)
+        if(options.usb) emulator.usb_devices().then(list =>
+        {
+            const element = details.querySelector("#usb_devices");
+            if(element) element.textContent = "USB devices: " + (list.map(d => d.id + " (port " + (d.port + 1) + ", " +
+                (d.plugged ? (d.controller === "ehci" ? "EHCI" : options.usb.controller === "ehci" ? "UHCI companion" : "UHCI") + ", " + d.speed + " Mbit/s" :
+                    "out of its port") + ")").join("; ") || "none");
+        }, () => {});
         emulator.get_diagnostics().then(diagnostics =>
         {
             const execution = diagnostics && diagnostics.execution;
@@ -1026,8 +1123,15 @@ function console_ui(layout, emulator, ctx)
                 { label: "Floppy B: insert…", id: "devices_insert_fdb", action: () => insert_floppy("fdb") },
                 { label: "Floppy B: eject", id: "devices_eject_fdb", action: () => emulator.eject_fdb() },
             ] : []),
+            ...(options.usb && !virt ? [
+                "-",
+                ...(usb_free() > 0 ? [{ label: "USB disk: plug in an image…", id: "devices_usb_insert", action: insert_usb_disk }] : []),
+                ...usb_disks.map(id => ({ label: "USB disk " + id + ": unplug" + (usb_ejected.has(id) ? " (ejected)" : "…"), id: "devices_usb_unplug_" + id,
+                    action: () => unplug_usb_disk(id) })),
+            ] : []),
             "-",
-            ...disks.concat(virt ? [] : ["fda", "fdb"]).map(name => ({ label: "Download the " + name + " image", id: "devices_get_" + name, action: () => get_disk_image(name) })),
+            ...disks.concat(usb_disks.map(id => "usb:" + id), virt ? [] : ["fda", "fdb"]).map(name => ({ label: "Download the " + name + " image",
+                id: "devices_get_" + name.replace(":", "_"), action: () => get_disk_image(name) })),
         ],
         view: () => [
             { label: "Full screen", id: "view_fullscreen", action: () => emulator.screen_go_fullscreen() },

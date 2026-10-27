@@ -1196,6 +1196,18 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     }
 };
 
+/**
+ * The device's signature in the command block registers, as after a reset
+ * ([ATA8-ACS] 4.3): a packet device's in LBA mid and high
+ */
+IDEInterface.prototype.set_signature = function()
+{
+    this.sector_count_reg = 1;
+    this.lba_low_reg = 1;
+    this.lba_mid_reg = this.is_atapi ? ATAPI_SIGNATURE_LO : 0;
+    this.lba_high_reg = this.is_atapi ? ATAPI_SIGNATURE_HI : 0;
+};
+
 IDEInterface.prototype.device_reset = function()
 {
     if(this.is_atapi)
@@ -1390,14 +1402,18 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC:
-            // the behaviour of this command is independent of the selected device
+            // the behaviour of this command is independent of the selected device;
+            // each device present then has its signature in the command block
+            // registers (OVMF tells a hard disk from a CD drive by it)
             this.channel.master.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.channel.master.error_reg = 0x01;    // Master drive passed, slave drive passed or not present
+            if(this.channel.master.drive_connected) this.channel.master.set_signature();
             this.channel.master.push_irq();
             if(this.channel.slave && this.channel.slave.drive_connected)
             {
                 this.channel.slave.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
                 this.channel.slave.error_reg = 0x01; // Slave drive passed
+                this.channel.slave.set_signature();
                 this.channel.slave.push_irq();
             }
             break;

@@ -31,6 +31,8 @@ export const DEFAULT_GRAPHICS_ADAPTER = "bochs_vga";
 export const DEFAULT_BOOT_ORDER = 0;
 export const DEFAULT_MTU = 1500;
 export const DEFAULT_NIC_TYPE = "ne2k";
+/** The sound card (audio_device) of the PC machines */
+export const DEFAULT_AUDIO_DEVICE = "sb16";
 
 /** The largest empty hard disk in MB (an ArrayBuffer) */
 export const MAX_ARRAY_BUFFER_SIZE_MB = 2000;
@@ -70,6 +72,7 @@ export const DEFAULT_FORM = {
     net_device_type: DEFAULT_NIC_TYPE,
     mtu: String(DEFAULT_MTU),
     modem: "none",
+    audio_device: DEFAULT_AUDIO_DEVICE,
 };
 
 /**
@@ -161,6 +164,7 @@ export function profile_settings(profile, settings)
     settings.vram_size = profile.vram_size;
     settings.boot_order = profile.boot_order;
     settings.net_device_type = profile.net_device_type;
+    settings.audio_device = profile.audio_device;
     settings.modem = profile.modem;
 }
 
@@ -466,6 +470,13 @@ export function apply_form(settings, form, new_query_args, page)
         }
         if(settings.net_device_type !== DEFAULT_NIC_TYPE) new_query_args.set("net_device_type", settings.net_device_type);
 
+        const audio_device = form.audio_device || DEFAULT_AUDIO_DEVICE;
+        if(!settings.audio_device || audio_device !== DEFAULT_AUDIO_DEVICE)
+        {
+            settings.audio_device = audio_device;
+        }
+        if(settings.audio_device !== DEFAULT_AUDIO_DEVICE) new_query_args.set("audio_device", settings.audio_device);
+
         const mtu = parseInt(form.mtu, 10) || DEFAULT_MTU;
         if(!settings.mtu || mtu !== DEFAULT_MTU)
         {
@@ -591,6 +602,9 @@ export function settings_to_options(settings, env)
         initial_state: settings.initial_state,
         filesystem: settings.filesystem || {},
         disable_speaker: settings.disable_audio,
+        // (the library's default is the SB16; the virt machine has virtio_sound)
+        audio_device: is_arm(settings.cpu_type) || !settings.audio_device || settings.audio_device === DEFAULT_AUDIO_DEVICE ?
+            undefined : settings.audio_device,
         mac_address_translation: settings.mac_address_translation,
         cpuid_level: settings.cpuid_level,
     };

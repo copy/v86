@@ -5,14 +5,33 @@
 // configuration (config_to_options, with the old page's rules of
 // src/browser/vm_options.js).
 
-import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, allowed_options, check_machine_options } from "../machine_options.js";
+import { A64_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, FIRMWARE_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, USB_PORTS, allowed_options,
+    check_machine_options } from "../machine_options.js";
 import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
 import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, MAX_ARRAY_BUFFER_SIZE_MB, DEFAULT_VGA_MEMORY_SIZE,
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
 
 export const FORMAT = "v86-vm";
-export const VERSION = 2;
+export const VERSION = 4;
+
+/** The UEFI firmware's images (machine.firmware "uefi"; bios/fetch-ovmf.sh) */
+export const UEFI_CODE_URL = "bios/ovmf-code.fd";
+export const UEFI_VARS_URL = "bios/ovmf-vars.fd";
+/** With Secure Boot (machine.secure_boot, docs/uefi.md): the build whose variables are SMM's; Microsoft's keys enrolled */
+export const UEFI_SECURE_CODE_URL = "bios/ovmf-secure-code.fd";
+export const UEFI_MS_VARS_URL = "bios/ovmf-vars-ms.fd";
+/** machine.secure_boot_keys: the keys a new variable store has */
+export const SECURE_BOOT_KEYS = ["microsoft", "none"];
+
+/**
+ * The variable store's template for a machine: Microsoft's keys with Secure
+ * Boot and those keys, else none (Setup Mode)
+ * @param {{secure_boot: boolean, secure_boot_keys: string}} machine
+ */
+export const uefi_vars_template = machine => machine.secure_boot && machine.secure_boot_keys === "microsoft" ? UEFI_MS_VARS_URL : UEFI_VARS_URL;
+/** The TPM's state store (docs/tpm.md, src/tpm/store.js): two slots of 256 KiB */
+export const TPM_STATE_SIZE = 512 * 1024;
 
 /**
  * Where an image is (the plan's 镜像来源): a URL (or a disk service's), a
@@ -40,6 +59,15 @@ export const VERSION = 2;
  */
 
 /**
+ * @typedef {Object} UsbDisk a disk image as a USB disk (usb.mass_storage)
+ * @property {string} id its name (V86's usb_attach_disk id; "usb:" + id for its image)
+ * @property {Image} image
+ * @property {"read_only" | "read_write"} disk_option the source's policy, as a hard disk's
+ * @property {"stop" | "report"} disk_error
+ * @property {boolean} write_protected the guest sees it read only
+ */
+
+/**
  * @typedef {Object} Network
  * @property {string} device ne2k, virtio or none
  * @property {"none" | "inbrowser" | "relay" | "wisp" | "fetch"} backend
@@ -60,7 +88,14 @@ export const VERSION = 2;
  * @property {string} created
  * @property {string} modified
  * @property {{type: string, acpi: boolean, hpet: boolean, smbus: boolean, pcie_root_ports: number, boot_order: number,
- *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null}} machine
+ *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null, firmware: string,
+ *     uefi_vars: Image | null, secure_boot: boolean, secure_boot_keys: string}} machine
+ *     (firmware: "seabios", the BIOS images' or SeaBIOS, or "uefi", OVMF: docs/uefi.md; uefi_vars: its variable
+ *     store, a browser disk made from the template at the first power-on, null before and after a reset to it;
+ *     secure_boot: the Secure Boot firmware (Q35); secure_boot_keys: "microsoft" or "none", the keys a store gets
+ *     when it is made or reset)
+ * @property {{state: Image | null} | null} tpm a TPM 2.0 (docs/tpm.md); its state a browser disk made at the first
+ *     power-on (null before)
  * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
  * @property {{mb: number}} memory
  * @property {Disk[]} disks
@@ -74,7 +109,10 @@ export const VERSION = 2;
  *     proxy's WebGPU renderer: Venus contexts, or gfxstream's (its contexts only: Android's official images)
  * @property {Network[]} network one on the PC machines; up to four virtio-net cards on virt (Android's
  *     three), at most one of them with a backend
- * @property {{device: "sb16" | "virtio" | "none"}} sound virtio: virt's virtio-snd
+ * @property {{device: "sb16" | "hd_audio" | "virtio" | "none", mute: boolean}} sound the sound card (virtio: virt's
+ *     virtio-snd; none: no card, the PC speaker stays) and whether the page plays nothing
+ * @property {{controller: "uhci", tablet: boolean, disks: UsbDisk[]} | null} usb a USB controller and its devices (the PC
+ *     machines'): the tablet, USB disks; each in a port of its own
  * @property {{transport: "mmio" | "pci", input: string[] | null, console_ports: number, vsock: boolean,
  *     gpu_pci_slot: number | null}} virt the virt machine's devices: input null as the display has them
  *     (keyboard, tablet and touch screen with virtio-gpu); console_ports 0: no virtio console
@@ -130,7 +168,7 @@ export const NETWORK_BACKENDS = ["none", "inbrowser", "relay", "wisp", "fetch"];
 /** The boot orders the old page offers (index.html's boot_order) */
 export const BOOT_ORDERS = [0, 0x213, 0x123, 0x231, 0x321, 0x312, 0x132];
 /** The sound devices of the PC machines (virt: virtio, none; ranchu: none, its goldfish audio is not played) */
-export const SOUND_DEVICES = ["sb16", "none"];
+export const SOUND_DEVICES = ["sb16", "hd_audio", "none"];
 const VIRT_SOUND_DEVICES = ["virtio", "none"];
 const RANCHU_SOUND_DEVICES = ["none"];
 /** The virt machine's input devices (virtio_input) */
@@ -185,7 +223,8 @@ export function with_defaults(config)
     c.created = c.created ?? new Date().toISOString();
     c.modified = c.modified ?? c.created;
     section("machine", { type: DEFAULT_FORM.machine_type, acpi: DEFAULT_FORM.acpi, hpet: false, smbus: false, pcie_root_ports: 0,
-        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null });
+        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null, firmware: "seabios", uefi_vars: null,
+        secure_boot: false, secure_boot_keys: "microsoft" });
     // (profile: arm64's a64_profile, null the library's default, v2)
     section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true, profile: null });
     section("memory", { mb: DEFAULT_MEMORY_SIZE });
@@ -196,7 +235,13 @@ export function with_defaults(config)
     c.android = is_object(c.android) ? Object.assign({}, ANDROID_DEFAULTS, c.android) : null;
     section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: "none", displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
-    section("sound", { device: "sb16" });
+    section("sound", { device: "sb16", mute: false });
+    c.usb = is_object(c.usb) ? Object.assign({ controller: "uhci", tablet: true, disks: [] }, c.usb) : null;
+    c.tpm = is_object(c.tpm) ? Object.assign({ state: null }, c.tpm) : null;
+    if(c.usb && Array.isArray(c.usb.disks))
+    {
+        c.usb.disks = c.usb.disks.map(d => Object.assign({ disk_option: "read_only", disk_error: "stop", write_protected: false }, d));
+    }
     section("virt", Object.assign({}, VIRT_DEFAULTS));
     c.serial = Array.isArray(c.serial) ? c.serial : [{ port: 0, attach: "terminal" }];
     c.filesystem = is_object(c.filesystem) ? c.filesystem : null;
@@ -228,6 +273,17 @@ const MIGRATIONS = {
         }
         return config;
     },
+    // 3 (2026-10-26, docs/modern-pc-devices-plan.md H1): a PC's sound "none"
+    // was the Sound Blaster muted (the guest had one); it stays so, as
+    // sound.mute, and "none" is no sound card from now on
+    2: config => {
+        const sound = is_object(config.sound) ? config.sound : {};
+        const virt = is_object(config.machine) && ARM_MACHINE_TYPES.includes(config.machine.type);
+        const changed = !virt && sound.device === "none" ? { device: "sb16", mute: true } : { mute: false };
+        return Object.assign({}, config, { sound: Object.assign({}, sound, changed) });
+    },
+    // 4 (2026-10-26, U1): the usb section (none before)
+    3: config => Object.assign({}, config, { usb: null }),
 };
 
 /**
@@ -384,8 +440,29 @@ export function validate_config(config)
     {
         if(machine[name] === null) continue;
         if(arm) problem("machine." + name, allowed.unavailable[name]);
+        else if(machine.firmware === "uefi") problem("machine." + name, "UEFI takes the place of the BIOS images");
         else check_image(machine[name], "machine." + name, problems);
     }
+    if(machine.uefi_vars !== null)
+    {
+        check_image(machine.uefi_vars, "machine.uefi_vars", problems);
+        if(machine.uefi_vars.kind !== "browser") problem("machine.uefi_vars", "is a browser disk");
+    }
+    if(!FIRMWARE_TYPES.includes(machine.firmware)) problem("machine.firmware", "must be one of " + FIRMWARE_TYPES.join(", "));
+    else if(machine.firmware === "uefi")
+    {
+        if(arm) problem("machine.firmware", allowed.unavailable["firmware"]);
+        else if(cpu.type !== "x86_64") problem("machine.firmware", "UEFI (OVMF) needs the x86_64 CPU");
+        else if(!machine.acpi) problem("machine.firmware", "UEFI needs ACPI");
+    }
+    bool(machine.secure_boot, "machine.secure_boot");
+    if(machine.secure_boot === true)
+    {
+        // (the Secure Boot firmware keeps its variables in SMM: Q35's)
+        if(machine.firmware !== "uefi") problem("machine.secure_boot", "Secure Boot needs UEFI");
+        else if(machine.type !== "q35") problem("machine.secure_boot", "Secure Boot needs the Q35 machine (its firmware runs in SMM)");
+    }
+    if(!SECURE_BOOT_KEYS.includes(machine.secure_boot_keys)) problem("machine.secure_boot_keys", "must be one of " + SECURE_BOOT_KEYS.join(", "));
 
     // the disks (docs/disk-persistence-plan.md: read write needs a source that can be written back)
     const slots = new Set();
@@ -508,7 +585,68 @@ export function validate_config(config)
     if(!(ranchu ? RANCHU_SOUND_DEVICES : virt ? VIRT_SOUND_DEVICES : SOUND_DEVICES).includes(config.sound.device))
     {
         problem("sound.device", ranchu ? "the ranchu machine's sound is not played: none" :
-            virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16 or none (virtio-snd is the virt machine's)");
+            virt ? "the virt machine has virtio-snd or none (no Sound Blaster)" : "must be sb16, hd_audio or none (virtio-snd is the virt machine's)");
+    }
+    bool(config.sound.mute, "sound.mute");
+    if(config.tpm !== null)
+    {
+        if(!is_object(config.tpm)) problem("tpm", "an object or null");
+        else if(arm) problem("tpm", allowed.unavailable["tpm"]);
+        else
+        {
+            if(!machine.acpi) problem("tpm", "the TPM needs ACPI");
+            if(config.tpm.state !== null)
+            {
+                check_image(config.tpm.state, "tpm.state", problems);
+                if(config.tpm.state.kind !== "browser") problem("tpm.state", "is a browser disk");
+            }
+        }
+    }
+    if(config.usb !== null)
+    {
+        if(!is_object(config.usb)) problem("usb", "an object or null");
+        else
+        {
+            if(!allowed.usb_controllers.includes(config.usb.controller))
+            {
+                problem("usb.controller", virt ? "the virt machine has no USB (its input is virtio-input)" : "must be one of " + allowed.usb_controllers.join(", "));
+            }
+            bool(config.usb.tablet, "usb.tablet");
+            // USB disks: a port each (the tablet takes one), their images as hard disks'
+            const disks = config.usb.disks === undefined ? [] : config.usb.disks;
+            if(!Array.isArray(disks)) problem("usb.disks", "a list");
+            else
+            {
+                const ids = new Set();
+                disks.forEach((disk, i) =>
+                {
+                    const path = "usb.disks." + i;
+                    if(typeof disk.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(disk.id) || disk.id === "tablet") problem(path + ".id", "letters, digits, - and _");
+                    else if(ids.has(disk.id)) problem(path + ".id", disk.id + " is given twice");
+                    ids.add(disk.id);
+                    check_image(disk.image, path + ".image", problems);
+                    if(!DISK_OPTIONS.includes(disk.disk_option)) problem(path + ".disk_option", "must be read_only or read_write");
+                    if(!DISK_ERRORS.includes(disk.disk_error)) problem(path + ".disk_error", "must be stop or report");
+                    if(disk.disk_option === "read_write" && disk.image && (disk.image.kind === "file" || disk.image.kind === "empty"))
+                    {
+                        problem(path + ".disk_option", disk.image.kind === "file" ?
+                            "a file chosen on this computer can only be read: its changes stay in memory (read write needs a disk service or a browser disk)" :
+                            "an empty disk in memory has nothing to write back to: use a browser disk or a disk service");
+                    }
+                    if(disk.image && disk.image.kind === "empty" && disk.image.size > MAX_ARRAY_BUFFER_SIZE_MB * 1024 * 1024)
+                    {
+                        problem(path + ".image", "an empty disk in memory has at most " + MAX_ARRAY_BUFFER_SIZE_MB + " MB");
+                    }
+                    bool(disk.write_protected, path + ".write_protected");
+                });
+                const ports = USB_PORTS[config.usb.controller];
+                if(ports && disks.length + (config.usb.tablet ? 1 : 0) > ports)
+                {
+                    problem("usb.disks", "the " + config.usb.controller.toUpperCase() + " controller has " + ports + " ports" +
+                        (config.usb.tablet ? ", one of them the tablet's" : ""));
+                }
+            }
+        }
     }
 
     const v = config.virt;
@@ -717,6 +855,7 @@ export function config_to_options(config, env)
     settings.vram_size = display.vram_mb === null ? undefined : display.vram_mb * MB;
     settings.boot_order = machine.boot_order || undefined;
     settings.net_device_type = network ? network.device : "none";
+    if(!ARM_MACHINE_TYPES.includes(machine.type)) settings.audio_device = config.sound.device;
     if(modem) settings.modem = { uart: modem.port };
 
     // (as the address's: apply_query_args; a state image has its own machine)
@@ -740,12 +879,16 @@ export function config_to_options(config, env)
     }
     settings.relay_url = relay_url_of(network);
     if(!cpu.jit) settings.disable_jit = true;
-    if(config.sound.device === "none") settings.disable_audio = true;
+    // (muted; a virt machine without virtio-snd has nothing to play either; a
+    // PC without a sound card still has its speaker)
+    const quiet = config.sound.mute || ARM_MACHINE_TYPES.includes(machine.type) && config.sound.device === "none";
+    if(quiet) settings.disable_audio = true;
 
     // (the form, filled in with the configuration's values)
     const form = Object.assign({}, DEFAULT_FORM, {
         relay_url: settings.relay_url,
-        disable_audio: config.sound.device === "none",
+        disable_audio: quiet,
+        audio_device: settings.audio_device || DEFAULT_FORM.audio_device,
         files: {},
         empty_sizes: {},
         urls: {},
@@ -774,6 +917,42 @@ export function config_to_options(config, env)
     });
     // (the firmware's boot options, which the old page does not have)
     if(machine.fastboot) options.fastboot = true;
+    // (UEFI, likewise: OVMF in place of the BIOS images; on i440FX with
+    // QEMU's device layout, which OVMF expects)
+    // (the variable store: the machine's browser disk written back, which
+    // needs the CPU Worker; else the template, its changes in memory)
+    if(machine.firmware === "uefi")
+    {
+        delete options.bios;
+        delete options.vga_bios;
+        const vars = machine.uefi_vars && advanced.cpu_worker ? Object.assign(image(machine.uefi_vars), { disk_option: "read_write" }) :
+            { url: uefi_vars_template(machine) };
+        options.firmware = machine.secure_boot ? { type: "uefi", secure_boot: true, code: { url: UEFI_SECURE_CODE_URL }, vars } :
+            { type: "uefi", code: { url: UEFI_CODE_URL }, vars };
+        if(machine.type === "i440fx") options.qemu_compatible = true;
+    }
+    // (USB, likewise)
+    if(config.usb && !ARM_MACHINE_TYPES.includes(machine.type))
+    {
+        options.usb = { controller: config.usb.controller, tablet: config.usb.tablet };
+        if(config.usb.disks && config.usb.disks.length)
+        {
+            options.usb.mass_storage = config.usb.disks.map(disk =>
+            {
+                const option = image(disk.image);
+                if(disk.disk_option === "read_write") option.disk_option = "read_write";
+                if(disk.disk_error !== "stop") option.disk_error = disk.disk_error;
+                return { id: disk.id, image: option, read_only: disk.write_protected };
+            });
+        }
+    }
+    // (the TPM, likewise, on the PC machines: its state the machine's browser disk written back, which
+    // needs the CPU Worker; else in memory, a new TPM at each power-on)
+    if(config.tpm && !ARM_MACHINE_TYPES.includes(machine.type))
+    {
+        options.tpm = { version: "2.0" };
+        if(config.tpm.state && advanced.cpu_worker) options.tpm.state = Object.assign(image(config.tpm.state), { disk_option: "read_write" });
+    }
     if(machine.bootmenu) options.bootmenu = true;
     // (the virt machine's devices, which the old page does not have either)
     if(machine.type === "virt")

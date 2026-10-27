@@ -43,7 +43,7 @@ test("every preset: a valid configuration the library accepts, with its new disk
         assert(p.verified || p.id === "other" || /never|only starts|not verified/i.test(p.basis), p.id + ": an unverified preset says so");
     }
     const unverified = PRESETS.filter(p => !p.verified).map(p => p.id);
-    assert.deepEqual(unverified, ["windows7", "other"]);
+    assert.deepEqual(unverified, ["windows11", "windows7", "other"]);
     console.log("    " + PRESETS.length + " presets, not verified: " + unverified.join(", "));
 });
 
@@ -59,7 +59,14 @@ test("the presets' hardware (the plan's table)", () =>
     assert.deepEqual(row("windows98"), ["x86", "i440fx", 256, 1, "bochs_vga", 16, "ne2k", "sb16", false]);
     assert.deepEqual(row("windows95"), ["x86", "i440fx", 64, 1, "bochs_vga", 16, "ne2k", "sb16", false]);
     assert.deepEqual(row("windowsxp"), ["x86", "i440fx", 2048, 1, "bochs_vga", 16, "ne2k", "sb16", false]);
-    assert.deepEqual(row("windows81"), ["x86_64", "i440fx", 2048, 2, "vmware_svga", 16, "none", "none", true]);
+    assert.deepEqual(row("windows81"), ["x86_64", "i440fx", 2048, 2, "vmware_svga", 16, "e1000", "hd_audio", true]);
+    assert.deepEqual(row("windows7"), row("windows81"), "Vista, 7 and 10: Windows 8.1's hardware");
+    // (Windows 11: Q35 with UEFI, Secure Boot with Microsoft's keys, a TPM 2.0, 4 GiB)
+    assert.deepEqual(row("windows11"), ["x86_64", "q35", 4096, 2, "vmware_svga", 16, "e1000", "hd_audio", true]);
+    const w11 = preset_config(preset("windows11"));
+    assert.deepEqual([w11.machine.firmware, w11.machine.secure_boot, w11.machine.secure_boot_keys, w11.tpm, w11.usb.controller],
+        ["uefi", true, "microsoft", { state: null }, "xhci"]);
+    assert.equal(preset("windows11").disk_mb, 64 * 1024, "Windows 11's 64 GB");
     assert.deepEqual(row("linux"), ["x86", "i440fx", 512, 1, "bochs_vga", 8, "ne2k", "sb16", true]);
     assert.deepEqual(row("linux64"), ["x86_64", "i440fx", 1024, 2, "virtio_gpu", 8, "virtio", "sb16", true]);
     assert.deepEqual(row("linux_arm64"), ["arm64", "virt", 1024, 4, "virtio_gpu", 8, "virtio", "none", false]);
@@ -67,6 +74,13 @@ test("the presets' hardware (the plan's table)", () =>
     assert.deepEqual(row("linux_arm32"), ["arm32", "virt", 512, 2, "none", 8, "virtio", "none", false]);
     assert.deepEqual(row("android7_arm32"), ["arm32", "ranchu", 1024, 2, "none", 8, "virtio", "none", false]);
     assert.equal(preset_config(preset("windowsnt4")).advanced.cpuid_level, 2);
+    // the USB tablet: XP, Vista to 8.1, Linux; not DOS, Windows 3.x, 9x, NT 4, 2000 or the ARM machines
+    const tablet = PRESETS.filter(p => preset_config(p).usb).map(p => p.id);
+    assert.deepEqual(tablet, ["windowsxp", "windows81", "windows11", "windows7", "linux", "linux64"]);
+    assert.deepEqual(preset_config(preset("windows81")).usb, { controller: "xhci", tablet: true, disks: [] });
+    // (xHCI for the systems with its driver; EHCI for XP to 7, whose drivers have none)
+    assert.deepEqual(["windowsxp", "windows7", "windows81", "linux", "linux64"].map(id => preset_config(preset(id)).usb.controller),
+        ["ehci", "ehci", "xhci", "xhci", "xhci"]);
 });
 
 test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLOADER=1)", () =>
@@ -222,6 +236,52 @@ test("change: what a choice implies, and says", () =>
     assert.deepEqual(choice.acpi_fixed && choice.acpi_fixed.value, false);
 });
 
+test("change: UEFI keeps the x86_64 CPU and ACPI, or goes", () =>
+{
+    const uefi = new_config();
+    uefi.cpu.type = "x86_64";
+    uefi.machine.acpi = true;
+    uefi.machine.firmware = "uefi";
+    let { config, notes } = change(uefi, "machine.acpi", false);
+    assert.equal(config.machine.acpi, true);
+    assert.equal(config.machine.firmware, "uefi");
+    assert(notes.some(n => /ACPI on: UEFI needs it/.test(n)), notes.join("; "));
+    ({ config, notes } = change(config, "cpu.type", "x86"));
+    assert.equal(config.machine.firmware, "seabios");
+    assert(notes.some(n => /Firmware: SeaBIOS/.test(n)), notes.join("; "));
+    ({ config } = change(uefi, "cpu.type", "arm64"));
+    assert.equal(config.machine.firmware, "seabios");
+});
+
+test("change: Secure Boot keeps UEFI on Q35, or goes", () =>
+{
+    const c = new_config();
+    c.cpu.type = "x86_64";
+    Object.assign(c.machine, { type: "q35", acpi: true, firmware: "uefi", secure_boot: true });
+    let { config, notes } = change(c, "machine.type", "i440fx");
+    assert.equal(config.machine.secure_boot, false);
+    assert(notes.some(n => /Secure Boot off/.test(n)), notes.join("; "));
+    ({ config, notes } = change(c, "cpu.type", "x86"));
+    assert.equal(config.machine.firmware, "seabios");
+    assert.equal(config.machine.secure_boot, false);
+    ({ config } = change(c, "machine.secure_boot_keys", "none"));
+    assert.equal(config.machine.secure_boot, true);
+    assert.equal(config.machine.secure_boot_keys, "none");
+});
+
+test("change: the TPM keeps ACPI, or goes with an ARM CPU", () =>
+{
+    const c = new_config();
+    c.machine.acpi = true;
+    c.tpm = { state: null };
+    let { config, notes } = change(c, "machine.acpi", false);
+    assert.equal(config.machine.acpi, true);
+    assert(notes.some(n => /ACPI on: the TPM needs it/.test(n)), notes.join("; "));
+    ({ config, notes } = change(config, "cpu.type", "arm64"));
+    assert.equal(config.tpm, null);
+    assert(notes.some(n => /TPM removed/.test(n)), notes.join("; "));
+});
+
 test("change: Vulkan and the graphics proxy", () =>
 {
     let { config, notes } = change(change(new_config(), "cpu.type", "arm64").config, "display.vulkan", "venus");
@@ -298,6 +358,8 @@ test("random sequences of the dialog's choices (5000 changes): every configurati
             () => ch.acpi_fixed ? ["machine.acpi", ch.acpi_fixed.value] : ["machine.acpi", pick([true, false])],
             () => config.machine.type === "q35" ? [pick(["machine.hpet", "machine.smbus"]), pick([true, false])] : ["cpu.jit", pick([true, false])],
             () => config.machine.type === "q35" ? ["machine.pcie_root_ports", random(7)] : ["cpu.parallel", pick([true, false])],
+            () => ["machine.firmware", pick(["seabios", "uefi"])],
+            () => config.machine.firmware === "uefi" ? ["machine.secure_boot", pick([true, false])] : ["machine.secure_boot_keys", pick(["microsoft", "none"])],
         ];
         const [path, value] = pick(moves)();
         config = change(config, path, value).config;
