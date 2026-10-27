@@ -3261,7 +3261,10 @@ pub unsafe fn set_cr3(mut cr3: i32) -> bool {
         cr3 &= !0b111111100111;
         dbg_assert!(cr3 & 0xFFF == 0, "TODO");
     }
-    *cr.offset(3) = cr3;
+    // (outside long mode a 32-bit value, zero-extended: the upper half a long
+    // mode OS left must go, or OVMF's SMI entry, which sets CR3 in 16-bit
+    // code, walks from the OS's page tables once it enables paging)
+    crate::x64::state::write_cr_raw(3, cr3 as u32 as u64);
     clear_tlb();
     true
 }

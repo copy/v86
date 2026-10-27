@@ -15,6 +15,7 @@
 // manager and winload are verified against db (Windows Production PCA 2011)
 // and dbx before they run.
 //
+// MEMORY_MB=4096: RAM above 4 GiB too (extended RAM; Windows 11's 4 GB).
 // WIN_ISO=<path> (default retro-gaming-site/windows8/windows81_full.iso
 // beside the checkout), SHOW_SCREEN=<file.png>, TEST_RELEASE_BUILD=1.
 
@@ -40,6 +41,7 @@ if(!fs.existsSync(ISO))
 }
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const SECURE_BOOT = +process.env.SECURE_BOOT;
+const MEMORY_MB = +process.env.MEMORY_MB || 2048;
 
 const emulator = new V86({
     firmware: SECURE_BOOT ? {
@@ -54,7 +56,8 @@ const emulator = new V86({
         vars: { url: ROOT + "bios/ovmf-vars.fd" },
     },
     cdrom: new ReadOnlyOverlayDisk(ISO),
-    memory_size: 2048 * 1024 * 1024,
+    memory_size: Math.min(MEMORY_MB, 2048) * 1024 * 1024,
+    extended_memory_size: Math.max(MEMORY_MB - 2048, 0) * 1024 * 1024 || undefined,
     graphics_adapter: "bochs_vga",
     cpu_type: "x86_64",
     machine_type: "q35",
@@ -120,7 +123,7 @@ const until = async (condition, what, timeout_ms, poll = 1000) =>
     }
 };
 
-console.log("Booting " + path.basename(ISO) + " through OVMF (Q35, 2048 MB" + (SECURE_BOOT ? ", Secure Boot" : "") + ")");
+console.log("Booting " + path.basename(ISO) + " through OVMF (Q35, " + MEMORY_MB + " MB" + (SECURE_BOOT ? ", Secure Boot" : "") + ")");
 await until(() => /BdsDxe: starting Boot\d+ "UEFI v86 ATAPI CD-ROM"/.test(plain(serial)), "the boot manager starting the CD", 180000, 200);
 console.log("ok - the boot manager starts the CD's loader (" + elapsed() + ")");
 // "Press any key to boot from CD or DVD": on the graphics console only

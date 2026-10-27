@@ -435,7 +435,8 @@ struct Restored {
 unsafe fn restore_32(area: SaveArea) -> Restored {
     let new_cr0 = area.read32(0x7FFC) as i32;
     *cr = new_cr0 | CR0_ET;
-    *cr.offset(3) = area.read32(0x7FF8) as i32;
+    // (32 bits, zero-extended)
+    x64::write_cr_raw(3, area.read32(0x7FF8) as u64);
     *cr.offset(4) = area.read32(0x7F14) as i32;
 
     *flags = area.read32(0x7FF4) as i32 & FLAGS_MASK | FLAGS_DEFAULT;

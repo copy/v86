@@ -213,11 +213,13 @@ What OVMF reads besides what SeaBIOS does, from its debug log:
 - **Compatibility mode in device memory.** `ia32e_phys_eip` raised #GP for
   code outside RAM and extended RAM; code in device memory (the flash) runs
   from its address on the legacy bus.
-- **LGDT and LIDT outside 64-bit mode** load a 32-bit base, zero-extended;
-  v86 kept the upper half a long mode OS had left. OVMF's SMI entry loads its
-  GDT in 16-bit code, then enables long mode: with Linux's upper half its far
-  jump read the GDT from nowhere (a triple fault at the first SMI from
-  Linux). The 32-bit SMM state save map's RSM zero-extends them too.
+- **LGDT, LIDT and MOV to CR3 outside 64-bit mode** load 32 bits,
+  zero-extended; v86 kept the upper halves a long mode OS had left. OVMF's
+  SMI entry loads its GDT and CR3 in 16-bit code, then enables long mode:
+  with Linux's upper half its far jump read the GDT from nowhere (a triple
+  fault at the first SMI from Linux), and with page tables above 4 GiB (an
+  OS with 1 GiB or more of extended RAM) its walk started from the OS's
+  CR3. The 32-bit SMM state save map's RSM zero-extends them too.
 - **The registers' upper halves on SMM entry.** v86 keeps the 64-bit
   registers' upper halves apart and leaves them in 32-bit code (they are
   undefined there); processors zero-extend 32-bit writes, and OVMF's SMI
@@ -272,7 +274,8 @@ at 1280x800 (about 60 s).
 With `SECURE_BOOT=1` the same through the Secure Boot firmware with
 Microsoft's keys: Windows' boot manager and winload verified against db
 (Windows Production PCA 2011) and dbx, Setup's first page as before (about
-65 s).
+65 s); `MEMORY_MB=4096` with RAM above 4 GiB as well (Windows 11's 4 GB;
+about 75 s).
 
 [`tests/uefi/secure_boot.mjs`](../tests/uefi/secure_boot.mjs): the Secure
 Boot firmware with a store of test keys (PK, KEK, db, and an image's hash in
