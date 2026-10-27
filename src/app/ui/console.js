@@ -528,6 +528,8 @@ function console_ui(layout, emulator, ctx)
     emulator.add_listener("9p-write-end", args => { stats.fs_written += args[1]; stats.fs_file = args[0]; });
     emulator.add_listener("mouse-enable", enabled => { stats.guest_mouse = enabled; render(); });
     emulator.add_listener("vmware-absolute-mouse", enabled => { stats.absolute_mouse = enabled; });
+    // (the ARM machines' virtio tablet and touch screens: [active, the guest's cursor])
+    emulator.add_listener("absolute-pointer", state => { stats.absolute_mouse = state[0]; render(); });
     // (the USB tablet: the pointer absolute while the guest uses it; locked, the PS/2 mouse's)
     emulator.add_listener("usb-tablet-active", active => { stats.usb_tablet = active; render(); });
     document.addEventListener("pointerlockchange", () => { stats.pointer_locked = !!document.pointerLockElement; render(); });

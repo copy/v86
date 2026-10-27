@@ -163,6 +163,8 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
     const events = cpu.devices.goldfish_events;
     const said = [];
     emulator.add_listener("mouse-enable", enabled => said.push(enabled));
+    const absolute = [];
+    emulator.add_listener("absolute-pointer", state => absolute.push(state));
     const page = (n) => {
         events.write(0x00, n);
         const length = events.read(0x04, 4);
@@ -170,6 +172,7 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
     };
     assert.equal(new TextDecoder().decode(page(0)), "qwerty2");
     assert.deepEqual(said, [true], "the driver probes: the page takes the pointer (once)");
+    assert.deepEqual(absolute, [[true, false]], "a touch screen: absolute, the host's cursor stays");
     const bit = (bytes, n) => (bytes[n >> 3] >> (n & 7) & 1) === 1;
     const types = page(0x10000);
     assert.ok(bit(types, 0) && bit(types, 1) && bit(types, 3), "EV_SYN, EV_KEY, EV_ABS");

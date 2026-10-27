@@ -405,12 +405,15 @@ VirtioInput.prototype.reset = function()
  * takes the mouse and touches over the screen only while one does
  * (src/browser/mouse.js: "mouse-enable", as the PS/2 controller says for its
  * mouse; the virt machine has none, and without this a MacBook's trackpad
- * reached no device)
+ * reached no device). Its positions are absolute ("absolute-pointer"): the
+ * page locks no pointer, and a tablet's guest draws its own cursor.
  * @param {boolean} ready
  */
 VirtioInput.prototype.pointer_ready = function(ready)
 {
-    if(this.kind !== "keyboard") this.bus.send("mouse-enable", ready);
+    if(this.kind === "keyboard") return;
+    this.bus.send("mouse-enable", ready);
+    this.bus.send("absolute-pointer", [ready, this.kind === "tablet"]);
 };
 
 VirtioInput.prototype.get_state = function()

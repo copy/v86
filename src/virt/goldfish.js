@@ -321,7 +321,9 @@ GoldfishEvents.prototype.reset = function()
  * The guest's driver probes (it selects the pages: the name, the event bits,
  * the axes) or the machine resets: the page's mouse adapter takes the mouse
  * and touches over the screen only while a driver runs (src/browser/mouse.js:
- * "mouse-enable", as the PS/2 controller says for its mouse; ranchu has none)
+ * "mouse-enable", as the PS/2 controller says for its mouse; ranchu has none).
+ * A touch screen's positions are absolute and it has no cursor of its own
+ * ("absolute-pointer"): the page locks no pointer and keeps the host's cursor.
  * @param {boolean} ready
  */
 GoldfishEvents.prototype.driver_ready = function(ready)
@@ -329,6 +331,7 @@ GoldfishEvents.prototype.driver_ready = function(ready)
     if(ready === this.driver) return;
     this.driver = ready;
     this.bus.send("mouse-enable", ready);
+    this.bus.send("absolute-pointer", [ready, false]);
 };
 
 GoldfishEvents.prototype.update_irq = function()

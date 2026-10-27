@@ -1222,6 +1222,12 @@ function init_ui(profile, settings, emulator)
         os_uses_absolute_mouse = is_enabled;
     });
 
+    // (the ARM machines' virtio tablet and touch screens: [active, the guest's cursor])
+    emulator.add_listener("absolute-pointer", function(state)
+    {
+        os_uses_absolute_mouse = state[0];
+    });
+
     emulator.add_listener("screen-set-size", function(args)
     {
         const [w, h, bpp] = args;
