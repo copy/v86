@@ -74,8 +74,33 @@ pub fn aes_round(state: u128, key: u128, decrypt: bool) -> u128 {
     from_bytes(output)
 }
 
-/// AESMC (MixColumns) or AESIMC (InvMixColumns)
+/// AESMC (MixColumns) or AESIMC (InvMixColumns), the four columns (the
+/// 32-bit lanes) at once: forward, each byte is a ^ t ^ xtime(a ^ a'), t
+/// the column's bytes xored and a' the next byte in it; the inverse first
+/// adds xtime(xtime(a ^ a'')), a'' the byte two on (FIPS-197 5.3.3's
+/// factorisation of InvMixColumns)
 pub fn aes_mix(state: u128, inverse: bool) -> u128 {
+    const LOW_BITS: u128 = 0x0101_0101_0101_0101_0101_0101_0101_0101;
+    // each byte times x in GF(2^8)
+    let xtime = |x: u128| (x << 1) & !(LOW_BITS * 0x01) ^ (x >> 7 & LOW_BITS) * 0x1B;
+    // each 32-bit lane's bytes rotated by `bytes` toward the low one
+    let rotate = |x: u128, bytes: u32| {
+        let (right, left) = (8 * bytes, 32 - 8 * bytes);
+        let lanes = |m: u32| u128::from(m) * 0x0000_0001_0000_0001_0000_0001_0000_0001;
+        (x >> right) & lanes(u32::MAX >> right) | (x << left) & lanes(u32::MAX << left)
+    };
+    let mut a = state;
+    if inverse {
+        a ^= xtime(xtime(a ^ rotate(a, 2)));
+    }
+    let next = rotate(a, 1);
+    let t = a ^ next ^ rotate(a, 2) ^ rotate(a, 3);
+    a ^ t ^ xtime(a ^ next)
+}
+
+/// (tests) aes_mix as the Arm ARM's pseudocode writes it, byte by byte
+#[cfg(test)]
+fn aes_mix_reference(state: u128, inverse: bool) -> u128 {
     let input = bytes(state);
     let m: [u8; 4] = if inverse { [14, 11, 13, 9] } else { [2, 3, 1, 1] };
     let mut output = [0u8; 16];
@@ -264,5 +289,22 @@ mod tests {
         );
         assert_eq!(aes_mix(mixed, true), after);
         assert_eq!(aes_round(aes_round(state, 0, false), 0, true), state);
+    }
+
+    #[test]
+    fn aes_mix_matches_reference() {
+        let mut x = 0x9E37_79B9_7F4A_7C15_F39C_C060_5CED_C834u128;
+        for _ in 0..10000 {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            for inverse in [false, true] {
+                assert_eq!(
+                    aes_mix(x, inverse),
+                    aes_mix_reference(x, inverse),
+                    "{x:032x} {inverse}"
+                );
+            }
+        }
     }
 }

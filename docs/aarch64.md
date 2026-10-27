@@ -353,9 +353,12 @@ stops them at safe points for snapshots, resets and pauses.
   (`crate::parallel::code`): a store to such a page retires their code, and
   an installation waits until the others have marked the page.
 - Memory model: guest accesses are sequentially consistent Wasm atomics in
-  the parallel build (interpreter and page tier; an unaligned access retries
-  in the interpreter), DMB and ISB a fence, DSB a single step while cores run
-  in workers.
+  the parallel build (interpreter and page tier), DMB and ISB a fence, DSB a
+  single step while cores run in workers. An unaligned access is no
+  single-copy atomic one in the architecture, and a plain one here: compiled
+  code copies an unaligned read to an aligned buffer and stores unaligned
+  (STR, STP and the SIMD&FP ones) without atomics; LDAR, STLR and the
+  exclusives fault in the interpreter as the architecture says.
 
 Deviations, all allowed by the architecture or by the plan:
 
@@ -383,7 +386,12 @@ a fast path (round to nearest, no flush to zero, FPSR.IXC already set,
 ordinary operands and results), everything else calls the interpreter's
 execute for that one instruction (a helper) or single-steps. Code is keyed
 by its physical page and the mode (EL, SP alignment checks); the access
-cache is per core and EL, filled from the TLB and flushed with it. A page
+cache is per core and EL, filled from the TLB and flushed with it. A
+tagged pointer (TBI: Android's heap pointers carry 0xB4 in their top byte)
+has entries of its own, in the untagged page's slot, which a TLBI by VA
+clears with the untagged one; an unaligned access the code cannot take
+fills its entry and retries once; with SCTLR_EL1.A nothing is filled (the
+interpreter raises the alignment faults). A page
 of extended RAM is cached as its frame, which then stays resident until
 the run loop's next safe point retires the access caches (when half the
 frames are held, or none is free), as on x86; with the cores in workers
@@ -395,12 +403,14 @@ extended RAM goes through the interpreter's path.
 | `a64_page_hot` | 2000 | interpreted instructions on a page before it is compiled |
 | `a64_neon` | 1 | the FP and AdvSIMD templates |
 | `a64_helpers` | 1 | helper calls (0: single steps) |
-| `a64_system` | 1 | EL1's system templates: MRS and MSR of SP_EL0, TPIDR_EL1, DAIF, ELR_EL1, SPSR_EL1, ESR_EL1 and FAR_EL1, MRS DCZID_EL0, MSR DAIFSet and DAIFClr (an unmask that makes an interrupt deliverable leaves for the run loop), TLBI (in Rust, leaving when the access cache's epoch changed), DC ZVA (through the access cache's write entry), LDTR and STTR (through the access cache's EL0 tables), and with the cores in workers a DSB that steps only while this core's TLB maintenance is pending (0: helpers and steps, as before) |
+| `a64_system` | 31 | the system templates (a mask): EL1's MRS and MSR of SP_EL0, TPIDR_EL1, DAIF, ELR_EL1, SPSR_EL1, ESR_EL1, FAR_EL1 and CONTEXTIDR_EL1, MSR of TPIDRRO_EL0; at EL1 and EL0, MRS of CNTVCT_EL0 and CNTPCT_EL0 (the counter: Android's clock_gettime reads it in the vDSO), CNTFRQ_EL0, DCZID_EL0 and TPIDRRO_EL0, MRS and MSR of FPCR and FPSR (EL0's checks, CNTKCTL_EL1, SCTLR_EL1.DZE and CPACR_EL1.FPEN, made as they run); MSR DAIFSet and DAIFClr (an unmask that makes an interrupt deliverable leaves for the run loop), TLBI (in Rust, leaving when the access cache's epoch changed), DC ZVA at EL1 and EL0 (through the access cache's write entry; at EL0 while SCTLR_EL1.DZE is set: bionic's memset zeroes with it), LDTR and STTR (through the access cache's EL0 tables), and with the cores in workers a DSB that steps only while this core's TLB maintenance is pending (0: helpers and steps, as before) |
 | `a64_relaxed_fma` | the host's probe | FMADD and FMLA through relaxed SIMD's fused multiply-add |
 | `a64_asid_tag` | 2 | an access-cache epoch per ASID, so ASID switches keep entries: 1 always, 2 (auto) while the ASIDs change at least 256 times in about 4 million instructions (SW_TTBR0_PAN changes them at every entry from EL0 and around every uaccess), 0 never |
 | `a64_page_aarch32` | 1 | AArch32's code (profile v3's 32-bit processes, A32 and T32) compiled too (docs/aarch32-plan.md Q6): R0-R14 and NZCV stay in memory; branches, returns (LDM, POP and LDR of the PC to the same instruction set), data processing with every shift, MOVW and MOVT, loads and stores (LDRD, STRD, LDM, STM, PUSH, POP), multiplies, extends, CLZ and REV are native, IT blocks of such forms too; so are VFP's loads, stores, arithmetic and moves and Advanced SIMD's VLD1/VST1 (multiple) and data processing (bitwise, VADD, VSUB, compares, VMAX, VMIN, integer VMUL, shifts by an immediate, modified immediates, VDUP, VEXT, VREV, VMVN, VCNT, VABS, VNEG; D registers as their 64 bits); the rest are helper calls (the interpreter's execute: the other VFP and Advanced SIMD forms, the exclusives, the saturating and parallel forms) or steps. 0 interprets it; 2 and 3 (helper calls only, native forms only) and 16 plus a mask of native kinds bisect |
 | `a64_page_aarch32_filter` | 0 | (bisecting) `n << 16 \| pattern`: only the AArch32 pages whose code key's low n bits are the pattern's compile, each named on the console; bit 15: AArch32's functions do not chain |
 | `a64_page_aarch32_trace` | 0 | (debugging) 1: the last 384 events of AArch32's EL0 code (interpreted instructions, helper calls, steps, function entries and exits, exceptions and their returns, each with ITSTATE) printed on the console with the page function's blocks around the PC when an IT instruction is UNDEFINED inside an IT block or an instruction fetch at EL0 takes a permission fault |
+| `a64_reserved_fill` | 0 | 1: with the cores in workers too, no write entries are filled in pages some core holds a reservation in (as with cooperative cores, where it is needed); 0: they are, since a store-exclusive compares the value anyway and the entries filled before stay: refusing sent every store to an ART lock word's page through the interpreter |
+| `a64_step_stats` | 1 | `step_stats()`'s counters, sampled (one step or helper call in 64 counted 64 times: every core writes them; 0: none are kept) |
 | `a64_page_code_mb` | 160 | the compiled code each core keeps (the Wasm functions' bytes, at least 8 MiB); past it the least recently used pages are evicted. V8 commits about 1.3 times that as native code, and a process has 4 GiB of committed code space: Android's first boot on 4 cores in workers exhausted it without the budget |
 
 `page_tier_stats()` on the ARM CPU (and `jit_stat(1, field)`) gives the
