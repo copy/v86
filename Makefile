@@ -46,7 +46,7 @@ bench-same-source: bench-build build/v86.wasm build/libv86.mjs
 # hours (the SIMD suites, avx-tests and the like, stay with the release gate,
 # tools/release_gate.mjs)
 .PHONY: ci-tests
-ci-tests: rust-test test-glbridge app-check platform-contract-tests \
+ci-tests: rust-test test-glbridge app-check platform-contract-tests ios-tests \
 	acpi-device-tests q35-device-tests jit-switch-tests \
 	cpu-optimization-tests flags-provenance-tests cpu-plan-tests jit-tiers-tests jit-disabled-tests mmx-fast-tests \
 	softfloat-fast-tests x87-fast-math-tests x87-fast-tests x87-jit-cache-tests \
@@ -2006,3 +2006,9 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 	node tests/rust/sse_faults.mjs build/v86-debug.wasm
 
 .PHONY: isa-forms isa-forms-check isa-hot-forms decode-rules-tests xsave-tests ssse3-tests
+
+# docs/iphone4-plan.md "测试": the iOS firmware tools on samples the tests
+# make themselves (made-up keys, no Apple files)
+.PHONY: ios-tests
+ios-tests:
+	node tests/ios/tools.mjs
