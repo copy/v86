@@ -3069,29 +3069,18 @@ V86.prototype.wait_until_vga_screen_contains = async function(expected, options)
         return true;
     };
 
-    // Read the whole screen again after any change: a mode set resizes the
-    // text screen through transient sizes (80x256 while the VGA BIOS programs
-    // the CRTC), so rows that changed earlier may no longer exist
-    let screen_changed = false;
-    const on_screen_change = () => { screen_changed = true; };
-    this.add_listener("screen-put-char", on_screen_change);
-    this.add_listener("screen-set-size", on_screen_change);
-
+    // Read the whole screen every 100 ms, not only after an event that says it
+    // changed: no event may follow the last change (the screen of a CPU in a
+    // worker comes in batches of its own), and a mode set resizes the text
+    // screen through transient sizes (80x256 while the VGA BIOS programs the
+    // CRTC), so rows that changed earlier may no longer exist
     let succeeded = screen_contains_expected();
     const end = timeout_msec ? performance.now() + timeout_msec : 0;
     while(!succeeded && (!end || performance.now() < end))
     {
         await new Promise(resolve => setTimeout(resolve, 100));
-
-        if(screen_changed)
-        {
-            screen_changed = false;
-            succeeded = screen_contains_expected();
-        }
+        succeeded = screen_contains_expected();
     }
-
-    this.remove_listener("screen-put-char", on_screen_change);
-    this.remove_listener("screen-set-size", on_screen_change);
     return succeeded;
 };
 
