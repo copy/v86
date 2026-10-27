@@ -16,7 +16,8 @@ settings, rename, export, delete.
 - **New virtual machine…** opens the wizard: where the system comes from (a
   CD or floppy image, an installed hard disk image, a kernel and initrd, an
   Android image package (below), or later), the system (a preset: DOS, Windows 3.x to 8.1, Linux 32-bit,
-  x86_64, arm64 and ARM 32-bit, Android 16, Android 7.1 (32-bit), or other), the name, the hard disk, and a
+  x86_64, arm64 and ARM 32-bit, Android arm64, ARM 32-bit, x86_64 and x86 (the last two not verified: Android-x86's
+  ISOs, never tried here), or other), the name, the hard disk, and a
   summary. A preset sets all the hardware; it says whether that setting was
   verified, how the system is installed, the steps after the installation
   and its known problems. "Customize hardware…" opens the settings dialog
@@ -111,8 +112,8 @@ An **Android Emulator system image** zip (the SDK's
 `system-images/android-<api>/<tag>/<abi>` package, as Android Studio
 downloads it; the catalog's Android 7.1, or "Another package") makes a machine of the
 emulator's board, ranchu (docs/virt.md): v64 knows Android 7.1's
-`armeabi-v7a` image (API 25: the 32-bit ARM CPU, the preset **Android 7.1
-(32-bit, emulator image)**, docs/arm32.md). Its disk holds the image's
+`armeabi-v7a` image (API 25: the 32-bit ARM CPU, the preset **Android (ARM
+32-bit)**, docs/arm32.md). Its disk holds the image's
 kernel, ramdisk, system and userdata as they are and an empty cache; the
 bootloader gives the kernel and ramdisk and makes the other partitions the
 machine's disks. The guest draws (no host GPU); its user data is the
