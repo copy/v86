@@ -12,7 +12,7 @@
 import { h, replace, confirm, inform, dialog, download, pick_file, ask_text, menu_button, format_size } from "./dom.js";
 import { VMStore } from "../vm_store.js";
 import { read_state, delete_state, write_state, storage_space, state_estimate, machine_digest, hold_machine } from "../vm_state.js";
-import { config_to_options, android_display, UEFI_VARS_URL, TPM_STATE_SIZE } from "../vm_config.js";
+import { config_to_options, android_display, uefi_vars_template, TPM_STATE_SIZE } from "../vm_config.js";
 import { import_disk, create_disk } from "../browser_disks.js";
 import { combination_scancodes, COMBINATIONS } from "../keys.js";
 import { DEFAULT_FORM, DEFAULT_GRAPHICS_ADAPTER, settings_to_options } from "../../browser/vm_options.js";
@@ -268,13 +268,14 @@ export async function open_console(root, target)
             }
             const files = await resolve_files(config, store, layout.notice);
             // (a UEFI machine's variable store, docs/uefi.md: a browser disk
-            // made from the template at its first power-on, written back)
+            // made from the template at its first power-on, written back;
+            // with Secure Boot and Microsoft's keys, the template with them)
             if(config.machine.firmware === "uefi" && !config.machine.uefi_vars && config.advanced.cpu_worker)
             {
                 set_status("Making the UEFI variable store...");
                 try
                 {
-                    const disk = await import_disk(UEFI_VARS_URL, config.name + ": UEFI variables");
+                    const disk = await import_disk(uefi_vars_template(config.machine), config.name + ": UEFI variables");
                     config.machine.uefi_vars = { kind: "browser", path: disk.path, size: disk.size };
                     await store.put(config);
                 }

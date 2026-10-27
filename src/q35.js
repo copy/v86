@@ -55,6 +55,8 @@ const LPC_PIRQA_ROUT = 0x60;        // PIRQA..D
 const LPC_SIRQ_CNTL = 0x64;
 const LPC_PIRQE_ROUT = 0x68;        // PIRQE..H
 const LPC_PIRQ_ROUT_DISABLED = 0x80;
+const LPC_GEN_PMCON_1 = 0xA0;
+const GEN_PMCON_1_SMI_LOCK = 0x10;  // set once until reset: SMI_EN.GBL_SMI_EN read-only
 const LPC_RCBA = 0xF0;              // bits 31:14 base, bit 0 enable
 
 // Chipset configuration registers in the RCBA block
@@ -118,6 +120,7 @@ export function Q35(cpu)
         on_config_restore: () => {
             this.update_pm_decode();
             this.update_rcba();
+            this.smi_lock = (this.lpc_space8[LPC_GEN_PMCON_1] & GEN_PMCON_1_SMI_LOCK) !== 0;
         },
     };
     /** @const @type {!Int32Array} */
@@ -159,7 +162,9 @@ Q35.prototype.reset = function()
     lpc.fill(LPC_PIRQ_ROUT_DISABLED, LPC_PIRQA_ROUT, LPC_PIRQA_ROUT + 4);
     lpc.fill(LPC_PIRQ_ROUT_DISABLED, LPC_PIRQE_ROUT, LPC_PIRQE_ROUT + 4);
     lpc[LPC_SIRQ_CNTL] = 0x10;
-    lpc.fill(0, 0xA0, 0xA8); // GEN_PMCON_1..3, GEN_PMCON_LOCK
+    lpc.fill(0, LPC_GEN_PMCON_1, LPC_GEN_PMCON_1 + 8); // GEN_PMCON_1..3, GEN_PMCON_LOCK
+    /** GEN_PMCON_1.SMI_LOCK: SMI_EN.GBL_SMI_EN cannot be cleared */
+    this.smi_lock = false;
     this.lpc_space[LPC_RCBA >> 2] = 0;
 
     this.rcba.fill(0);
@@ -315,6 +320,13 @@ Q35.prototype.lpc_config_written = function(offset, size)
     if(touches(offset, size, LPC_RCBA, LPC_RCBA + 4))
     {
         this.update_rcba();
+    }
+    if(touches(offset, size, LPC_GEN_PMCON_1, LPC_GEN_PMCON_1 + 1))
+    {
+        // SMI_LOCK stays set until the platform's reset (OVMF sets it, then
+        // checks that GBL_SMI_EN no longer clears)
+        if(this.smi_lock) this.lpc_space8[LPC_GEN_PMCON_1] |= GEN_PMCON_1_SMI_LOCK;
+        this.smi_lock = (this.lpc_space8[LPC_GEN_PMCON_1] & GEN_PMCON_1_SMI_LOCK) !== 0;
     }
 };
 

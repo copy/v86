@@ -10,6 +10,11 @@
 // most of the screen, the dialog's title bar and its Next button. A local
 // test: the ISO is not part of the repository (about 90 s to Setup).
 //
+// SECURE_BOOT=1: the Secure Boot firmware with Microsoft's keys
+// (bios/ovmf-secure-code.fd, bios/ovmf-vars-ms.fd: docs/uefi.md): the boot
+// manager and winload are verified against db (Windows Production PCA 2011)
+// and dbx before they run.
+//
 // WIN_ISO=<path> (default retro-gaming-site/windows8/windows81_full.iso
 // beside the checkout), SHOW_SCREEN=<file.png>, TEST_RELEASE_BUILD=1.
 
@@ -34,9 +39,16 @@ if(!fs.existsSync(ISO))
     process.exit(0);
 }
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+const SECURE_BOOT = +process.env.SECURE_BOOT;
 
 const emulator = new V86({
-    firmware: {
+    firmware: SECURE_BOOT ? {
+        type: "uefi",
+        code: { url: ROOT + "bios/ovmf-secure-code.fd" },
+        vars: { url: ROOT + "bios/ovmf-vars-ms.fd" },
+        secure_boot: true,
+        debug_console: true,
+    } : {
         type: "uefi",
         code: { url: ROOT + "bios/ovmf-code.fd" },
         vars: { url: ROOT + "bios/ovmf-vars.fd" },
@@ -54,8 +66,9 @@ const emulator = new V86({
 await new Promise(resolve => emulator.add_listener("emulator-ready", resolve));
 const cpu = emulator.v86.cpu;
 
-let serial = "";
+let serial = "", debug_log = "";
 emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+emulator.add_listener("debug-console-output-byte", byte => { debug_log += String.fromCharCode(byte); });
 const plain = text => text.replace(/\x1b\[[0-9;=?]*[A-Za-z]/g, "").replace(/\r/g, "");
 
 /** The screen as RGB rows, or null in text mode */
@@ -107,7 +120,7 @@ const until = async (condition, what, timeout_ms, poll = 1000) =>
     }
 };
 
-console.log("Booting " + path.basename(ISO) + " through OVMF (Q35, 2048 MB)");
+console.log("Booting " + path.basename(ISO) + " through OVMF (Q35, 2048 MB" + (SECURE_BOOT ? ", Secure Boot" : "") + ")");
 await until(() => /BdsDxe: starting Boot\d+ "UEFI v86 ATAPI CD-ROM"/.test(plain(serial)), "the boot manager starting the CD", 180000, 200);
 console.log("ok - the boot manager starts the CD's loader (" + elapsed() + ")");
 // "Press any key to boot from CD or DVD": on the graphics console only
@@ -119,6 +132,13 @@ for(let i = 0; i < 8; i++)
 await until(() => setup_page(screen()), "Windows Setup's first page", 900000, 2000);
 console.log("ok - Windows Setup's first page at 1280x800 through GOP (" + elapsed() + ")");
 assert.doesNotMatch(plain(serial), /failed to start Boot\d+ "UEFI v86 ATAPI CD-ROM"/);
+if(SECURE_BOOT)
+{
+    // (User Mode, Secure Boot on; nothing refused on the way)
+    assert.match(debug_log, /Variable SetupMode is 0\r?\nVariable SecureBoot is 1/);
+    assert.doesNotMatch(debug_log, /DxeImageVerificationLib: Image is (not signed|signed but)/);
+    console.log("ok - with Secure Boot on: Windows' loaders verified against db and dbx");
+}
 if(process.env.SHOW_SCREEN) save_png(screen(), process.env.SHOW_SCREEN);
 
 await emulator.destroy();

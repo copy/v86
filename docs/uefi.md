@@ -4,7 +4,8 @@
 place of SeaBIOS: OVMF, the X64 build of edk2's virtual machine firmware, as
 QEMU runs it. It needs `cpu_type: "x86_64"`, `acpi: true` and, on i440FX,
 `qemu_compatible: true` (below); it takes the place of `bios` and
-`vga_bios`. Stage F1 of [modern-pc-devices-plan.md](modern-pc-devices-plan.md).
+`vga_bios`. Stages F1 and F2 (Secure Boot, below) of
+[modern-pc-devices-plan.md](modern-pc-devices-plan.md).
 
 ```js
 new V86({
@@ -35,6 +36,13 @@ and checks them:
 | --- | --- | --- |
 | `ovmf-code.fd` | 3568 KiB (0x37C000) | `33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a` |
 | `ovmf-vars.fd` | 528 KiB (0x84000) | `5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e` |
+| `ovmf-secure-code.fd` | 3568 KiB | `32807682a9e5c0e2d192ecb6077941d4be8bcfa6b9cd6e60830c3a9f48c0555a` |
+| `ovmf-vars-ms.fd` | 528 KiB | `939b65c9cde1c802fa5fee66c76e83b9da3ad0bc27c17d03a9a6da9f710e6253` |
+
+`ovmf-secure-code.fd` is the tarball's `edk2-x86_64-secure-code.fd`, the same
+build with `SECURE_BOOT_ENABLE` and `SMM_REQUIRE` (no Shell); it uses the
+same template. `ovmf-vars-ms.fd` is that template with Microsoft's keys
+enrolled (Secure Boot, below).
 
 Their licenses (edk2's BSD-2-Clause-Patent and those of the libraries in
 the build, OpenSSL among them) are in `bios/OVMF-LICENSES.txt`.
@@ -83,6 +91,62 @@ read-only device memory in the top 16 MiB have their own keys
 compiled from a copy of the page, retired when device memory is mapped,
 unmapped or made writable. Interpreted, SEC took about 4 minutes (541
 million instructions); compiled, the Shell is reached in about 10 s.
+
+## Secure Boot
+
+`firmware: { type: "uefi", secure_boot: true, code: { url:
+"bios/ovmf-secure-code.fd" }, vars }` on Q35: the Secure Boot build, whose
+variable services run in SMM (QEMU's `-machine q35,smm=on` with
+`-global driver=cfi.pflash01,property=secure,value=on`, the usual pairing).
+The firmware verifies every image it loads (UEFI drivers, boot loaders, the
+images they load through it) against `db` and `dbx`, and every update of
+`PK`, `KEK`, `db` and `dbx` against the key above it (time-based
+authenticated variables, PKCS #7): all in edk2's code, in SMM. v86 provides
+what that needs and what QEMU provides:
+
+- **SMM** (Q35, [q35.md](q35.md)): TSEG (QEMU's extended TSEG, 16 MiB),
+  SMBASE relocation, SMIs through the APM port and the local APIC.
+- **A store only SMM writes.** With `secure_boot` the variable store's flash
+  takes writes only from a core in SMM; outside it they are dropped and reads
+  see the array (`secure` in [`src/pflash.js`](../src/pflash.js); QEMU fails
+  such writes with MEMTX_ERROR). The keys in the store decide what boots: code
+  outside SMM, the OS's among it, cannot write them past the firmware's
+  checks.
+- **SMI_LOCK.** ICH9's GEN_PMCON_1 bit 4: once set, SMI_EN.GBL_SMI_EN no
+  longer clears, until a reset. OVMF sets it and stops if GBL_SMI_EN still
+  clears ("failed to lock down GBL_SMI_EN").
+- **RAM in whole MiB.** OVMF's SMM build places TSEG at the top of low RAM
+  and asserts that it is MiB aligned; with UEFI the RAM below 2 GiB is
+  rounded to whole MiB (2047 MiB at most, where SeaBIOS machines have 2 GiB
+  less 128 KiB).
+
+Whether Secure Boot is on is the store's: with a PK enrolled the firmware is
+in User Mode and SecureBoot is 1; the empty template leaves it in Setup Mode
+(SecureBoot 0, nothing verified). `bios/ovmf-vars-ms.fd` has Microsoft's keys
+([`bios/make-ovmf-vars-ms.sh`](../bios/make-ovmf-vars-ms.sh) makes it from
+microsoft/secureboot_objects at a pinned commit, each file checked;
+[`tools/uefi_vars.mjs`](../tools/uefi_vars.mjs) writes them as edk2's
+authenticated variables; their license is in
+`bios/SECUREBOOT-OBJECTS-LICENSE.txt`):
+
+| Variable | Contents |
+| --- | --- |
+| PK | Windows OEM Devices PK: the platform key Microsoft gives OEM devices. v86 holds no private key: nothing here can change KEK but Microsoft's signed KEK updates (for this PK, `KEKUpdate_Microsoft_PK3d8660c0.bin`) |
+| KEK | Microsoft Corporation KEK CA 2011, KEK 2K CA 2023 |
+| db | Microsoft Windows Production PCA 2011, Windows UEFI CA 2023 (Windows), Microsoft Corporation UEFI CA 2011, Microsoft UEFI CA 2023 (third-party loaders: shim), Microsoft Option ROM UEFI CA 2023 |
+| dbx | the 443 SHA-256 hashes of Microsoft's dbx update (`DBXUpdate.bin`, amd64) |
+
+The time of each is zero, so that any signed update is later; Microsoft's
+updates append (dbx, db) or are signed for the PK (KEK). As every vendor's
+store, it grows old: Windows applies Microsoft's later dbx and db updates
+itself, through the firmware's checks; a newer store for new machines is
+the script again with a later commit.
+
+The trust boundary is the page's, as for the TPM ([tpm.md](tpm.md)): the
+host and whoever holds the store's image can change the keys (the
+firmware trusts its flash); a snapshot or the image's earlier bytes roll
+back dbx and the authenticated variables' times. Secure Boot here protects
+the guest from code inside the guest, not from the host.
 
 ## The fw_cfg contract
 
@@ -149,6 +213,16 @@ What OVMF reads besides what SeaBIOS does, from its debug log:
 - **Compatibility mode in device memory.** `ia32e_phys_eip` raised #GP for
   code outside RAM and extended RAM; code in device memory (the flash) runs
   from its address on the legacy bus.
+- **LGDT and LIDT outside 64-bit mode** load a 32-bit base, zero-extended;
+  v86 kept the upper half a long mode OS had left. OVMF's SMI entry loads its
+  GDT in 16-bit code, then enables long mode: with Linux's upper half its far
+  jump read the GDT from nowhere (a triple fault at the first SMI from
+  Linux). The 32-bit SMM state save map's RSM zero-extends them too.
+- **The registers' upper halves on SMM entry.** v86 keeps the 64-bit
+  registers' upper halves apart and leaves them in 32-bit code (they are
+  undefined there); processors zero-extend 32-bit writes, and OVMF's SMI
+  entry sets ESP in 32-bit code, then pushes in 64-bit mode. SMM entry clears
+  them (the 64-bit save map has the whole registers for RSM).
 
 ## Differences from QEMU
 
@@ -159,6 +233,7 @@ What OVMF reads besides what SeaBIOS does, from its debug log:
 | stdvga MMIO BAR with EDID | port I/O, no EDID | OVMF's default resolution instead of EDID's 1280x800 |
 | `etc/e820` reserves 0xFEFFC000 (KVM's TSS) | no reserved entry | none |
 | S3 advertised on i440FX | S5 only | no suspend to RAM under UEFI for now |
+| SMI broadcast negotiated over fw_cfg (`etc/smi/*`, a DMA write) | not offered | an SMI reaches the core that raised it; OVMF's relaxed AP sync (PcdCpuSmmSyncMode 1) does not wait for the others, and sends them SMI IPIs after 100 ms when it needs them |
 
 ## Tests
 
@@ -193,6 +268,32 @@ manager starts the CD's `\EFI\BOOT\BOOTX64.EFI`, its "Press any key to boot
 from CD or DVD" (graphics only) gets Enter, and Windows Boot Manager,
 winload and Windows PE bring Setup's first page to the screen through GOP
 at 1280x800 (about 60 s).
+
+With `SECURE_BOOT=1` the same through the Secure Boot firmware with
+Microsoft's keys: Windows' boot manager and winload verified against db
+(Windows Production PCA 2011) and dbx, Setup's first page as before (about
+65 s).
+
+[`tests/uefi/secure_boot.mjs`](../tests/uefi/secure_boot.mjs): the Secure
+Boot firmware with a store of test keys (PK, KEK, db, and an image's hash in
+dbx), made for the test with their private keys
+([`tests/lib/authenticode.mjs`](../tests/lib/authenticode.mjs): openssl
+makes the keys; Authenticode signatures of PE images and signed variable
+updates in JavaScript), on an ESP that
+[`tests/lib/fat.mjs`](../tests/lib/fat.mjs) builds in memory.
+[`tests/uefi/sb_app.c`](../tests/uefi/sb_app.c), signed, is the boot
+loader; it reports what the firmware does: images signed with the db key
+load; unsigned, changed after signing, signed with another key, revoked in
+dbx and signed with a key not yet in db are refused (EFI_ACCESS_DENIED, the
+debug log's reason); a db without signature, a PK signed by KEK and a dbx
+signed by another key are refused (EFI_SECURITY_VIOLATION); a direct flash
+write does nothing; a db append signed by KEK is taken and the new key's
+image then loads; a db replacement at T2 is taken, the same again and one
+at T1 are refused. After a cold reset the store is as left (in the flash's
+bytes too), and Alpine's kernel, signed with the db key, boots and reports
+Secure Boot on (about 45 s).
+[`tests/x64/smm_entry_state.mjs`](../tests/x64/smm_entry_state.mjs): what an
+SMI handler that enters long mode itself finds (the two fixes above).
 
 `MACHINE=i440fx`, `CPU_CORES=2`, `TEST_RELEASE_BUILD=1` for both; `MEMORY_MB=5120`
 for the Shell (extended RAM above 4 GiB); `make

@@ -247,6 +247,22 @@ test("change: UEFI keeps the x86_64 CPU and ACPI, or goes", () =>
     assert.equal(config.machine.firmware, "seabios");
 });
 
+test("change: Secure Boot keeps UEFI on Q35, or goes", () =>
+{
+    const c = new_config();
+    c.cpu.type = "x86_64";
+    Object.assign(c.machine, { type: "q35", acpi: true, firmware: "uefi", secure_boot: true });
+    let { config, notes } = change(c, "machine.type", "i440fx");
+    assert.equal(config.machine.secure_boot, false);
+    assert(notes.some(n => /Secure Boot off/.test(n)), notes.join("; "));
+    ({ config, notes } = change(c, "cpu.type", "x86"));
+    assert.equal(config.machine.firmware, "seabios");
+    assert.equal(config.machine.secure_boot, false);
+    ({ config } = change(c, "machine.secure_boot_keys", "none"));
+    assert.equal(config.machine.secure_boot, true);
+    assert.equal(config.machine.secure_boot_keys, "none");
+});
+
 test("change: the TPM keeps ACPI, or goes with an ARM CPU", () =>
 {
     const c = new_config();
@@ -336,6 +352,8 @@ test("random sequences of the dialog's choices (5000 changes): every configurati
             () => ch.acpi_fixed ? ["machine.acpi", ch.acpi_fixed.value] : ["machine.acpi", pick([true, false])],
             () => config.machine.type === "q35" ? [pick(["machine.hpet", "machine.smbus"]), pick([true, false])] : ["cpu.jit", pick([true, false])],
             () => config.machine.type === "q35" ? ["machine.pcie_root_ports", random(7)] : ["cpu.parallel", pick([true, false])],
+            () => ["machine.firmware", pick(["seabios", "uefi"])],
+            () => config.machine.firmware === "uefi" ? ["machine.secure_boot", pick([true, false])] : ["machine.secure_boot_keys", pick(["microsoft", "none"])],
         ];
         const [path, value] = pick(moves)();
         config = change(config, path, value).config;

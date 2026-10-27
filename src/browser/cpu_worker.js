@@ -94,7 +94,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
             "mass_storage": o["usb"]["mass_storage"] && o["usb"]["mass_storage"].map(disk =>
                 ({ "id": disk["id"], "image": file(disk["image"]), "read_only": disk["read_only"] })) } : undefined,
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
-        "firmware": o.firmware && { "type": o.firmware.type, "debug_console": o.firmware.debug_console,
+        "firmware": o.firmware && { "type": o.firmware.type, "debug_console": o.firmware.debug_console, "secure_boot": o.firmware.secure_boot,
             "code": file(o.firmware.code), "vars": file(o.firmware.vars) },
         // (the TPM's plugin and module: absolute URLs, as the other plugins')
         "tpm": o.tpm && { "version": o.tpm.version, "interface": o.tpm.interface, "state": file(o.tpm.state),

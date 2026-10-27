@@ -145,6 +145,12 @@ function fit(c, notes)
             note("ACPI on: UEFI needs it");
         }
     }
+    // Secure Boot: the Secure Boot firmware runs in SMM, on Q35 (docs/uefi.md)
+    if(c.machine.secure_boot && (c.machine.firmware !== "uefi" || c.machine.type !== "q35"))
+    {
+        c.machine.secure_boot = false;
+        note("Secure Boot off: it needs UEFI on the Q35 machine");
+    }
     if(c.machine.type === "q35") { /* (kept: the Q35 devices are the user's) */ }
     else
     {

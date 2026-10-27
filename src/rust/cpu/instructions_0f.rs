@@ -283,6 +283,10 @@ unsafe fn lgdt(addr: i32, mask: i32) {
     let offset = return_on_pagefault!(safe_read32s(addr + 2));
     *gdtr_size = size;
     *gdtr_offset = offset & mask;
+    // (outside 64-bit mode the base is 32 bits, zero-extended: the upper half
+    // a long mode OS left must go, or OVMF's SMI entry, which loads its GDT
+    // in 32-bit code, then enables long mode with the OS's upper half)
+    *x64_gdtr_base_hi = 0;
 }
 #[no_mangle]
 pub unsafe fn instr16_0F01_2_mem(addr: i32) { lgdt(addr, 0xFFFFFF); }
@@ -303,6 +307,8 @@ unsafe fn lidt(addr: i32, mask: i32) {
     let offset = return_on_pagefault!(safe_read32s(addr + 2));
     *idtr_size = size;
     *idtr_offset = offset & mask;
+    // (zero-extended, as lgdt's)
+    *x64_idtr_base_hi = 0;
 }
 #[no_mangle]
 pub unsafe fn instr16_0F01_3_mem(addr: i32) { lidt(addr, 0xFFFFFF); }

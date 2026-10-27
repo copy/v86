@@ -236,7 +236,7 @@ export function CPU(bus, wm, stop_idling)
      * image, its variable store (a buffer object: src/buffer.js's, or a disk
      * written back), the flash at the top of 4 GiB (the code's mmio_ram
      * region, -1 until mapped; the store's pflash) and the debug console
-     * @type {?{code: !ArrayBuffer, vars: ?Object, code_region: number, pflash: ?PFlash, debug_console: boolean}}
+     * @type {?{code: !ArrayBuffer, vars: ?Object, code_region: number, pflash: ?PFlash, debug_console: boolean, secure_boot: boolean}}
      */
     this.firmware = null;
 
@@ -2889,7 +2889,13 @@ CPU.prototype.clear_extended_memory = function()
     this.extended_store.clear();
 };
 
-CPU.prototype.create_memory = function(size, minimum_size)
+/**
+ * @param {number} size
+ * @param {number} minimum_size
+ * @param {number=} granularity the size is a multiple of it: the memory map's
+ *     blocks, or larger (a power of two)
+ */
+CPU.prototype.create_memory = function(size, minimum_size, granularity = MMAP_BLOCK_SIZE)
 {
     // e.g. `2048 << 20` is negative: reject it instead of silently using the minimum
     if(!(size >= 0))
@@ -2897,8 +2903,9 @@ CPU.prototype.create_memory = function(size, minimum_size)
         throw new Error("memory_size must be a non-negative number of bytes, got " + size);
     }
     // The size is kept in 32 bits and RAM lives in wasm32 memory: at most
-    // 2 GiB - 128 KiB. (A multiple of 4 GiB used to wrap to 0 bytes here.)
-    const max_size = Math.pow(2, 31) - MMAP_BLOCK_SIZE;
+    // 2 GiB - 128 KiB (- 1 MiB in whole MiB). (A multiple of 4 GiB used to
+    // wrap to 0 bytes here.)
+    const max_size = Math.pow(2, 31) - granularity;
     if(size < minimum_size)
     {
         size = minimum_size;
@@ -2906,7 +2913,7 @@ CPU.prototype.create_memory = function(size, minimum_size)
     }
     else if(size > max_size)
     {
-        // (2 GiB itself only loses the last 128 KiB: not worth a warning)
+        // (2 GiB itself only loses the last 128 KiB, or MiB: not worth a warning)
         if(size > Math.pow(2, 31))
         {
             console.warn("memory_size of " + Math.round(size / (1 << 20)) + " MB exceeds the maximum; using " +
@@ -2915,9 +2922,9 @@ CPU.prototype.create_memory = function(size, minimum_size)
         size = max_size;
     }
 
-    size = ((size - 1) | (MMAP_BLOCK_SIZE - 1)) + 1 | 0;
+    size = ((size - 1) | (granularity - 1)) + 1 | 0;
     dbg_assert((size | 0) > 0);
-    dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0);
+    dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0 && (size & granularity - 1) === 0);
 
     console.assert(this.memory_size[0] === 0, "Expected uninitialised memory");
 
@@ -3033,6 +3040,9 @@ CPU.prototype.init = function(settings, device_bus)
     this.create_memory(
         settings.memory_size || 64 * 1024 * 1024,
         settings.initrd ? 64 * 1024 * 1024 : 1024 * 1024,
+        // (UEFI: whole MiB, as QEMU's machines have; OVMF's SMM build places
+        // TSEG below the top of RAM in MiB)
+        settings.firmware_code ? 1 << 20 : MMAP_BLOCK_SIZE,
     );
 
     this.platform = create_platform(settings, this.memory_size[0]);
@@ -3074,6 +3084,8 @@ CPU.prototype.init = function(settings, device_bus)
             code_region: -1,
             pflash: null,
             debug_console: !!(settings.firmware && settings.firmware["debug_console"]),
+            // (the Secure Boot build: its variable store written only in SMM)
+            secure_boot: !!(settings.firmware && settings.firmware["secure_boot"]),
         };
     }
 
@@ -4066,7 +4078,7 @@ CPU.prototype.load_firmware_flash = function()
         {
             const region = this.mmio_ram_allocate(vars_size);
             dbg_assert(region !== -1, "no device memory region for the variable store");
-            firmware.pflash = new PFlash(this, region, base, /** @type {!Object} */ (firmware.vars));
+            firmware.pflash = new PFlash(this, region, base, /** @type {!Object} */ (firmware.vars), firmware.secure_boot);
         }
         // The memory map has what device memory does not take: writes, the
         // store's reads outside read array mode (in blocks of the map's size)

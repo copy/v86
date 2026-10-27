@@ -11,6 +11,11 @@
 // register, 0x70 read it, 0x90 read the identifiers, 0xFF read array. The
 // status register: 0x80 ready, 0x20 erase error, 0x10 program error.
 //
+// The Secure Boot firmware's store (secure, QEMU's pflash with secure=on) is
+// the SMM's: outside SMM writes are dropped and reads see the array, so that
+// only the firmware's SMM code changes variables (the store holds the keys
+// that decide what boots).
+//
 // The bytes are kept in a buffer object (src/buffer.js's SyncBuffer, or a
 // disk written back: src/disk_writeback.js, src/opfs_disk.js), which every
 // program and erase also updates: a variable store written back outlives the
@@ -49,10 +54,14 @@ const ID_DEVICE = 0x18;
  * @param {number} region the mmio_ram region of the store
  * @param {number} base its guest physical address
  * @param {!Object} buffer its bytes: get, set (synchronous), byteLength
+ * @param {boolean=} secure written only in SMM
  */
-export function PFlash(cpu, region, base, buffer)
+export function PFlash(cpu, region, base, buffer, secure = false)
 {
     this.cpu = cpu;
+    this.secure = secure;
+    /** Writes dropped outside SMM (diagnostics) */
+    this.refused_writes = 0;
     this.region = region;
     this.base = base;
     this.buffer = buffer;
@@ -105,6 +114,11 @@ PFlash.prototype.enter = function(command)
  */
 PFlash.prototype.read = function(offset)
 {
+    // (outside SMM a secure store reads as its array, whatever mode SMM left it in)
+    if(this.secure && !this.cpu.smm_active())
+    {
+        return this.array_byte(offset);
+    }
     switch(this.command)
     {
         case 0:
@@ -131,6 +145,14 @@ PFlash.prototype.array_byte = function(offset)
  */
 PFlash.prototype.write = function(offset, value)
 {
+    if(this.secure && !this.cpu.smm_active())
+    {
+        if(this.refused_writes++ === 0)
+        {
+            dbg_log("pflash: a write outside SMM to the Secure Boot firmware's variable store, dropped", LOG_BIOS);
+        }
+        return;
+    }
     value &= 0xFF;
     switch(this.command)
     {

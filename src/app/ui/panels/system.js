@@ -2,12 +2,11 @@
 // The settings dialog's panels of the machine itself (docs/vm-manager-plan.md
 // "设置对话框"): general, memory, processor, machine and firmware, advanced.
 
-import { h } from "../dom.js";
+import { confirm, h } from "../dom.js";
 import { image_picker } from "../image_picker.js";
-import { confirm } from "../dom.js";
 import { ARM_MACHINE_TYPES } from "../../../machine_options.js";
 import { disk_id, reset_disk } from "../../browser_disks.js";
-import { UEFI_VARS_URL } from "../../vm_config.js";
+import { uefi_vars_template } from "../../vm_config.js";
 
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
@@ -155,7 +154,7 @@ export function machine_panel(ctx)
     return [
         select_field("Machine", ch.machine_types, c.machine.type, value => ctx.set("machine.type", value), v => MACHINE_LABELS[v] || v),
         firmware_field,
-        !arm && firmware === "uefi" ? uefi_fields(c) : null,
+        !arm && firmware === "uefi" ? uefi_fields(ctx) : null,
         !arm && firmware === "custom" ? [
             image_picker({ label: "BIOS image", role: "file", image: c.machine.bios, store: ctx.store, on_change: image => ctx.set("machine.bios", image) }),
             image_picker({ label: "VGA BIOS image", role: "file", optional: true, image: c.machine.vga_bios, store: ctx.store,
@@ -173,27 +172,35 @@ export function machine_panel(ctx)
     ];
 }
 
+const SECURE_BOOT_KEY_LABELS = {
+    microsoft: "Microsoft's (Windows; Linux through shim)",
+    none: "None: Setup Mode (enroll your own)",
+};
+
 /**
- * The UEFI firmware's note and its variable store's reset
- * @param {PanelContext["config"]} c
+ * The UEFI firmware's note, Secure Boot and the variable store's reset
+ * @param {PanelContext} ctx
  */
-function uefi_fields(c)
+function uefi_fields(ctx)
 {
+    const c = ctx.config;
     const vars = c.machine.uefi_vars;
+    const q35 = c.machine.type === "q35";
     const status = h("small.reason", { role: "status" });
     const reset = /** @type {HTMLButtonElement} */ (h("button", { type: "button", disabled: !vars || vars.kind !== "browser",
         title: vars ? "" : "The variable store is made at the first power-on" }, "Reset UEFI variables…"));
     reset.addEventListener("click", async () =>
     {
         if(!vars || vars.kind !== "browser") return;
-        if(!await confirm("Reset UEFI variables?", "The firmware's variables (its boot entries, its settings) go back to the template's; " +
-            "the firmware makes its boot entries again at the next power-on.", "Reset", true)) return;
+        const keys = c.machine.secure_boot && c.machine.secure_boot_keys === "microsoft" ? "Microsoft's Secure Boot keys" : "no Secure Boot keys";
+        if(!await confirm("Reset UEFI variables?", "The firmware's variables (its boot entries, its settings) go back to the template's, " +
+            "with " + keys + "; the firmware makes its boot entries again at the next power-on.", "Reset", true)) return;
         reset.disabled = true;
         status.textContent = "Resetting…";
         try
         {
-            await reset_disk(disk_id(vars.path), UEFI_VARS_URL);
-            status.textContent = "Reset: the template's variables.";
+            await reset_disk(disk_id(vars.path), uefi_vars_template(c.machine));
+            status.textContent = "Reset: the template's variables, " + keys + ".";
         }
         catch(e)
         {
@@ -205,6 +212,15 @@ function uefi_fields(c)
         h("p.note", null, "UEFI is OVMF (edk2-stable202408, as QEMU ships it) on the x86_64 CPU; on i440FX the devices take QEMU's places. " +
             "Its variables (boot entries, settings) are kept in a browser disk of the machine's, made at the first power-on " +
             "(with the CPU in a Worker; otherwise they last until the machine is turned off)."),
+        check_field("Secure Boot", c.machine.secure_boot, value => ctx.set("machine.secure_boot", value),
+            q35 ? undefined : "Secure Boot needs the Q35 machine (its firmware runs in SMM)"),
+        c.machine.secure_boot ? [
+            select_field("Secure Boot keys", Object.keys(SECURE_BOOT_KEY_LABELS), c.machine.secure_boot_keys,
+                value => ctx.set("machine.secure_boot_keys", value), v => SECURE_BOOT_KEY_LABELS[v]),
+            h("p.note", null, "The firmware loads only what the keys allow, and only its own code in SMM changes them. " +
+                "The keys are enrolled when the variable store is made (the first power-on) or reset: after changing Secure Boot " +
+                "or its keys, Reset UEFI variables… enrolls them."),
+        ] : null,
         h("div.field", null, reset, " ", status),
     ];
 }

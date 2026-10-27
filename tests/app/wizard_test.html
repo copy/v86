@@ -10,6 +10,8 @@
                    there at the next power-on (the machine's variable store, a browser disk written back), and gone after
                    the settings dialog's "Reset UEFI variables…"; with a TPM added there, OVMF's TCG2 protocol at each
                    power-on (the TPM plugin in the CPU worker, its state a browser disk), after "Clear TPM…" too
+     part=secure_boot  a machine of no preset edited to UEFI on Q35 with Secure Boot (Microsoft's keys): the library's summary; powered
+                   on through the CPU worker, the Secure Boot firmware's boot manager on the serial console (no bootable device)
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
@@ -355,6 +357,37 @@ const parts = {
         log("Clear TPM…: a new TPM at the next power-on");
         await power_off(machine);
     },
+    async secure_boot()
+    {
+        await open_library();
+        await wizard({ source: "Install the system later", urls: {}, preset: "other", name: "Secure Boot", disk: "none" });
+        $("#edit_vm").click();
+        const dialog = await until(() => $("dialog.settings-dialog[open]"), "the settings dialog");
+        const panel = () => dialog.querySelector(".settings-panel");
+        dialog.querySelector("li[data-item=machine]").click();
+        select_text(panel().querySelector("select[aria-label=Machine]"), "Q35");
+        select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
+        const box = await until(() => Array.from(panel().querySelectorAll("label.check")).find(l => /^Secure Boot/.test(l.textContent.trim())),
+            "the Secure Boot switch");
+        check(!box.querySelector("input").disabled, "Secure Boot available on Q35");
+        box.querySelector("input").click();
+        const keys = await until(() => panel().querySelector("select[aria-label='Secure Boot keys']"), "the keys");
+        check(/^Microsoft/.test(keys.selectedOptions[0].textContent), "Microsoft's keys by default: " + keys.selectedOptions[0].textContent);
+        button("Save", dialog).click();
+        await until(() => !$("dialog.settings-dialog[open]"), "saved");
+        await until(() => /Secure Boot/.test(table_text($(".hardware"))), "the library showing Secure Boot");
+        log("Secure Boot: on Q35 with UEFI, Microsoft's keys");
+
+        // powered on (the Secure Boot firmware, its store's flash SMM's, through the CPU worker): no disk, the boot manager says so
+        const { frame, emulator } = await power_on();
+        let serial = "";
+        emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
+        const plain = () => serial.replace(/\x1b\[[0-9;=?]*[A-Za-z]/g, "").replace(/\r/g, "");
+        await until(() => /BdsDxe: No bootable option or device was found/.test(plain()), "the boot manager on the serial console", 180000);
+        log("power on: the Secure Boot firmware's boot manager (no bootable device)");
+        await emulator.destroy();
+        frame.remove();
+    },
     async dialog()
     {
         await open_library();
@@ -395,6 +428,9 @@ const parts = {
         check(firmwares.includes("UEFI (OVMF)"), "the firmware: " + firmwares);
         select_text(panel().querySelector("select[aria-label=Firmware]"), "UEFI (OVMF)");
         await until(() => /UEFI is OVMF/.test(panel().textContent), "the UEFI note");
+        // (Secure Boot only on Q35: its firmware runs in SMM)
+        const secure_boot = Array.from(panel().querySelectorAll("label.check")).find(l => /^Secure Boot/.test(l.textContent.trim()));
+        check(secure_boot && secure_boot.querySelector("input").disabled && /Q35/.test(secure_boot.textContent), "Secure Boot: on Q35 only");
         item("processor").click();
         check(panel().querySelector("select[aria-label=CPU]").selectedOptions[0].textContent.startsWith("x86_64"), "UEFI: the x86_64 CPU");
         select_text(panel().querySelector("select[aria-label=CPU]"), "x86 (32-bit");

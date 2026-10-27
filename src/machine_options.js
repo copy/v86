@@ -304,6 +304,22 @@ export function check_machine_options(options)
                     throw new Error("firmware: UEFI on machine_type \"i440fx\" needs qemu_compatible: true " +
                         "(OVMF expects QEMU's PIIX3/PIIX4 functions at 00:01.0 to 00:01.3)");
                 }
+                if(firmware["secure_boot"] !== undefined && typeof firmware["secure_boot"] !== "boolean")
+                {
+                    throw new Error("firmware.secure_boot must be a boolean");
+                }
+                if(firmware["secure_boot"])
+                {
+                    // (the Secure Boot build keeps its variables in SMM: Q35's SMRAM)
+                    if(machine_type !== "q35")
+                    {
+                        throw new Error("firmware.secure_boot needs machine_type \"q35\" (the firmware runs its variable services in SMM)");
+                    }
+                    if(!firmware["vars"])
+                    {
+                        throw new Error("firmware.secure_boot needs the variable store (firmware.vars)");
+                    }
+                }
             }
         }
     }

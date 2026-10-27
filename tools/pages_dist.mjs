@@ -36,6 +36,7 @@ const FILES = [
     "bios/seabios.bin", "bios/vgabios.bin", "bios/bochs-bios.bin", "bios/bochs-vgabios.bin",
     // (the UEFI firmware, docs/uefi.md, with its licenses)
     "bios/ovmf-code.fd", "bios/ovmf-vars.fd", "bios/OVMF-LICENSES.txt",
+    "bios/ovmf-secure-code.fd", "bios/ovmf-vars-ms.fd", "bios/SECUREBOOT-OBJECTS-LICENSE.txt",
     ...graphics.files.map(name => "build/glbridge/" + name), "build/glbridge/manifest.json",
 ];
 

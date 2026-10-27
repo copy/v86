@@ -18,6 +18,18 @@ export const VERSION = 4;
 /** The UEFI firmware's images (machine.firmware "uefi"; bios/fetch-ovmf.sh) */
 export const UEFI_CODE_URL = "bios/ovmf-code.fd";
 export const UEFI_VARS_URL = "bios/ovmf-vars.fd";
+/** With Secure Boot (machine.secure_boot, docs/uefi.md): the build whose variables are SMM's; Microsoft's keys enrolled */
+export const UEFI_SECURE_CODE_URL = "bios/ovmf-secure-code.fd";
+export const UEFI_MS_VARS_URL = "bios/ovmf-vars-ms.fd";
+/** machine.secure_boot_keys: the keys a new variable store has */
+export const SECURE_BOOT_KEYS = ["microsoft", "none"];
+
+/**
+ * The variable store's template for a machine: Microsoft's keys with Secure
+ * Boot and those keys, else none (Setup Mode)
+ * @param {{secure_boot: boolean, secure_boot_keys: string}} machine
+ */
+export const uefi_vars_template = machine => machine.secure_boot && machine.secure_boot_keys === "microsoft" ? UEFI_MS_VARS_URL : UEFI_VARS_URL;
 /** The TPM's state store (docs/tpm.md, src/tpm/store.js): two slots of 256 KiB */
 export const TPM_STATE_SIZE = 512 * 1024;
 
@@ -77,9 +89,11 @@ export const TPM_STATE_SIZE = 512 * 1024;
  * @property {string} modified
  * @property {{type: string, acpi: boolean, hpet: boolean, smbus: boolean, pcie_root_ports: number, boot_order: number,
  *     fastboot: boolean, bootmenu: boolean, bios: Image | null, vga_bios: Image | null, firmware: string,
- *     uefi_vars: Image | null}} machine
+ *     uefi_vars: Image | null, secure_boot: boolean, secure_boot_keys: string}} machine
  *     (firmware: "seabios", the BIOS images' or SeaBIOS, or "uefi", OVMF: docs/uefi.md; uefi_vars: its variable
- *     store, a browser disk made from the template at the first power-on, null before and after a reset to it)
+ *     store, a browser disk made from the template at the first power-on, null before and after a reset to it;
+ *     secure_boot: the Secure Boot firmware (Q35); secure_boot_keys: "microsoft" or "none", the keys a store gets
+ *     when it is made or reset)
  * @property {{state: Image | null} | null} tpm a TPM 2.0 (docs/tpm.md); its state a browser disk made at the first
  *     power-on (null before)
  * @property {{type: string, cores: number, parallel: boolean, jit: boolean, profile: (string|null)}} cpu (profile: arm64's a64_profile, null the default)
@@ -209,7 +223,8 @@ export function with_defaults(config)
     c.created = c.created ?? new Date().toISOString();
     c.modified = c.modified ?? c.created;
     section("machine", { type: DEFAULT_FORM.machine_type, acpi: DEFAULT_FORM.acpi, hpet: false, smbus: false, pcie_root_ports: 0,
-        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null, firmware: "seabios", uefi_vars: null });
+        boot_order: 0, fastboot: false, bootmenu: false, bios: null, vga_bios: null, firmware: "seabios", uefi_vars: null,
+        secure_boot: false, secure_boot_keys: "microsoft" });
     // (profile: arm64's a64_profile, null the library's default, v2)
     section("cpu", { type: DEFAULT_FORM.cpu_type, cores: 1, parallel: DEFAULT_FORM.parallel, jit: true, profile: null });
     section("memory", { mb: DEFAULT_MEMORY_SIZE });
@@ -440,6 +455,14 @@ export function validate_config(config)
         else if(cpu.type !== "x86_64") problem("machine.firmware", "UEFI (OVMF) needs the x86_64 CPU");
         else if(!machine.acpi) problem("machine.firmware", "UEFI needs ACPI");
     }
+    bool(machine.secure_boot, "machine.secure_boot");
+    if(machine.secure_boot === true)
+    {
+        // (the Secure Boot firmware keeps its variables in SMM: Q35's)
+        if(machine.firmware !== "uefi") problem("machine.secure_boot", "Secure Boot needs UEFI");
+        else if(machine.type !== "q35") problem("machine.secure_boot", "Secure Boot needs the Q35 machine (its firmware runs in SMM)");
+    }
+    if(!SECURE_BOOT_KEYS.includes(machine.secure_boot_keys)) problem("machine.secure_boot_keys", "must be one of " + SECURE_BOOT_KEYS.join(", "));
 
     // the disks (docs/disk-persistence-plan.md: read write needs a source that can be written back)
     const slots = new Set();
@@ -903,8 +926,9 @@ export function config_to_options(config, env)
         delete options.bios;
         delete options.vga_bios;
         const vars = machine.uefi_vars && advanced.cpu_worker ? Object.assign(image(machine.uefi_vars), { disk_option: "read_write" }) :
-            { url: UEFI_VARS_URL };
-        options.firmware = { type: "uefi", code: { url: UEFI_CODE_URL }, vars };
+            { url: uefi_vars_template(machine) };
+        options.firmware = machine.secure_boot ? { type: "uefi", secure_boot: true, code: { url: UEFI_SECURE_CODE_URL }, vars } :
+            { type: "uefi", code: { url: UEFI_CODE_URL }, vars };
         if(machine.type === "i440fx") options.qemu_compatible = true;
     }
     // (USB, likewise)

@@ -679,6 +679,24 @@ export interface V86Options {
      * `vga_bios`. The variable store is CFI flash; with `disk_option: "read_write"` its writes go
      * back into its image, as a disk's (else they stay in memory). See docs/uefi.md.
      */
+    firmware?: {
+        type: "seabios" | "uefi";
+        code?: V86Image;
+        vars?: V86HardDiskImage;
+        /**
+         * The firmware is a Secure Boot build that keeps its variables in SMM (edk2's
+         * SMM_REQUIRE: bios/ovmf-secure-code.fd): the variable store is written only by code in
+         * SMM, as QEMU's pflash with secure=on. It needs machine_type "q35" and `vars`. Whether
+         * Secure Boot is on is the variable store's: the keys enrolled in it (docs/uefi.md).
+         */
+        secure_boot?: boolean;
+        /**
+         * QEMU's debug console at port 0x402: the firmware's debug log, byte by byte, as the
+         * "debug-console-output-byte" event
+         */
+        debug_console?: boolean;
+    };
+
     /**
      * A TPM 2.0 on the PC machines (a plugin, build/v86-tpm.js, with build/libtpms.wasm beside it):
      * libtpms behind the CRB interface at 0xFED40000, described by the ACPI tables (MSFT0101,
@@ -691,17 +709,6 @@ export interface V86Options {
         state?: V86HardDiskImage;
         plugin_path?: string;
         wasm_path?: string;
-    };
-
-    firmware?: {
-        type: "seabios" | "uefi";
-        code?: V86Image;
-        vars?: V86HardDiskImage;
-        /**
-         * QEMU's debug console at port 0x402: the firmware's debug log, byte by byte, as the
-         * "debug-console-output-byte" event
-         */
-        debug_console?: boolean;
     };
 
     /**

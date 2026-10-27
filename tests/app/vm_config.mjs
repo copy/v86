@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { DEFAULT_FORM, settings_to_options } from "../../src/browser/vm_options.js";
 import { start_settings } from "../../src/browser/query_compat.js";
-import { FORMAT, VERSION, new_config, with_defaults, migrate, validate_config, check_config, config_to_options } from "../../src/app/vm_config.js";
+import { FORMAT, VERSION, new_config, with_defaults, migrate, validate_config, check_config, config_to_options, uefi_vars_template } from "../../src/app/vm_config.js";
 import { PRESETS, preset_config } from "../../src/app/guest_presets.js";
 
 let passed = 0;
@@ -203,6 +203,10 @@ const RULES = [
         "machine.bios"],
     ["UEFI on virt", c => { Object.assign(c, arm64()); c.machine.firmware = "uefi"; }, "machine.firmware"],
     ["a UEFI variable store of a URL", c => { c.machine.uefi_vars = { kind: "url", url: "v.fd" }; }, "machine.uefi_vars"],
+    ["Secure Boot with SeaBIOS", c => { c.machine.type = "q35"; c.machine.secure_boot = true; }, "machine.secure_boot"],
+    ["Secure Boot on i440FX", c => { c.cpu.type = "x86_64"; c.machine.acpi = true; c.machine.firmware = "uefi"; c.machine.secure_boot = true; },
+        "machine.secure_boot"],
+    ["Secure Boot keys of no kind", c => { c.machine.secure_boot_keys = "mine"; }, "machine.secure_boot_keys"],
     ["a TPM without ACPI", c => { c.tpm = { state: null }; }, "tpm"],
     ["a TPM's state of a URL", c => { c.machine.acpi = true; c.tpm = { state: { kind: "url", url: "t.img" } }; }, "tpm.state"],
     ["a TPM on virt", c => { Object.assign(c, arm64()); c.tpm = { state: null }; }, "tpm"],
@@ -498,6 +502,26 @@ test("UEFI: OVMF's images in place of the BIOS images; on i440FX with QEMU's lay
     assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "opfs:v86/disks/vars.img", size: 540672, disk_option: "read_write" });
     c.advanced.cpu_worker = false;
     assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "bios/ovmf-vars.fd" });
+});
+
+test("Secure Boot: the Secure Boot firmware on Q35; a new store's keys Microsoft's or none; the library accepts it", () =>
+{
+    const c = new_config();
+    c.cpu.type = "x86_64";
+    Object.assign(c.machine, { type: "q35", acpi: true, firmware: "uefi", secure_boot: true });
+    assert.deepEqual(validate_config(c), []);
+    assert.deepEqual(check_config(c), []);
+    assert.deepEqual(config_to_options(c, ENV).firmware,
+        { type: "uefi", secure_boot: true, code: { url: "bios/ovmf-secure-code.fd" }, vars: { url: "bios/ovmf-vars-ms.fd" } });
+    assert.equal(uefi_vars_template(c.machine), "bios/ovmf-vars-ms.fd");
+    c.machine.secure_boot_keys = "none";
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "bios/ovmf-vars.fd" });
+    // (the machine's store: its own keys, whatever the template)
+    c.machine.uefi_vars = { kind: "browser", path: "v86/disks/vars.img", size: 540672 };
+    assert.deepEqual(config_to_options(c, ENV).firmware.vars, { url: "opfs:v86/disks/vars.img", size: 540672, disk_option: "read_write" });
+    const migrated = with_defaults({ format: FORMAT, version: VERSION, machine: { type: "q35" } }).machine;
+    assert.equal(migrated.secure_boot, false);
+    assert.equal(migrated.secure_boot_keys, "microsoft");
 });
 
 test("the TPM: tpm 2.0; its state the machine's browser disk written back, with the CPU Worker; else in memory", () =>

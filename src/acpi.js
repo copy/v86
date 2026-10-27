@@ -455,6 +455,9 @@ ACPI.prototype.pm_write_ich9 = function(offset, byte)
     else if(offset >= ICH9_PM_SMI_EN && offset < ICH9_PM_SMI_EN + 4)
     {
         const shift = (offset - ICH9_PM_SMI_EN) << 3;
+        // (GEN_PMCON_1.SMI_LOCK: GBL_SMI_EN, bit 0, keeps its value)
+        const q35 = this.cpu.devices.q35;
+        if(shift === 0 && q35 && q35.smi_lock) byte = byte & ~1 | this.smi_en & 1;
         this.smi_en = (this.smi_en & ~(0xFF << shift) | byte << shift) >>> 0;
     }
     else if(offset >= ICH9_PM_SMI_STS && offset < ICH9_PM_SMI_STS + 4)

@@ -672,7 +672,9 @@ tpm-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs build/v86-tpm.js
 	TEST_RELEASE_BUILD=1 ./tests/tpm/uefi_tpm.mjs
 
 # The UEFI firmware (docs/uefi.md): OVMF to its Shell, and Alpine from a GPT
-# disk's ESP (macOS: hdiutil), on Q35, i440FX, two cores and the release build
+# disk's ESP (macOS: hdiutil), on Q35, i440FX, two cores and the release build;
+# Secure Boot with test keys (x86_64-w64-mingw32-gcc, openssl); Windows Setup
+# (a local installer ISO), also under Secure Boot with Microsoft's keys
 uefi-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs
 	./tests/uefi/shell.mjs
 	MACHINE=i440fx ./tests/uefi/shell.mjs
@@ -685,7 +687,11 @@ uefi-tests: build/v86-debug.wasm build/v86.wasm build/libv86.mjs
 	MACHINE=i440fx ./tests/uefi/esp_boot.mjs
 	CPU_CORES=2 ./tests/uefi/esp_boot.mjs
 	TEST_RELEASE_BUILD=1 ./tests/uefi/esp_boot.mjs
+	./tests/uefi/secure_boot.mjs
+	CPU_CORES=2 ./tests/uefi/secure_boot.mjs
+	TEST_RELEASE_BUILD=1 ./tests/uefi/secure_boot.mjs
 	./tests/uefi/windows_setup.mjs
+	SECURE_BOOT=1 ./tests/uefi/windows_setup.mjs
 
 usb-tests: build/v86-debug.wasm build/libv86.mjs build/v86-usb.js
 	./tests/devices/usb.js
@@ -912,7 +918,7 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=app_debug.html
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
 	node tests/android/make_package.mjs
-	for part in freedos linux arm64 dialog uefi android android_gsi android_emulator; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
+	for part in freedos linux arm64 dialog uefi secure_boot android android_gsi android_emulator; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
@@ -1632,6 +1638,7 @@ x64-system-tests: build/v86-debug.wasm
 	node tests/x64/system_oracle.mjs
 	node tests/x64/irq_boundary.mjs
 	node tests/x64/smm_long_mode.mjs
+	node tests/x64/smm_entry_state.mjs
 	node tests/x64/triple_fault.mjs
 	node tests/x64/direct_loader.mjs
 	node tests/x64/profile_options.mjs

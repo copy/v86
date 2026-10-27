@@ -502,7 +502,11 @@ unsafe fn device_page_bytes(key: u32) -> Option<Vec<u8>> {
 /// compiled from it go, and the code translations that led there.
 pub fn retire_device_code() {
     let r = rt();
-    if !r.functions.iter().any(|f| f.phase != Phase::Dead && is_device(f.page)) {
+    if !r
+        .functions
+        .iter()
+        .any(|f| f.phase != Phase::Dead && is_device(f.page))
+    {
         return;
     }
     unsafe {
