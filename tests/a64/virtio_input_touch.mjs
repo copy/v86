@@ -66,3 +66,22 @@ const take = device => device.pending.splice(0).filter(([type]) => type !== EV_S
     await emulator.destroy();
     console.log("PASS: with a tablet, the tablet takes the mouse");
 }
+
+// the page's mouse adapter (src/browser/mouse.js) takes the mouse and touches
+// over the screen only after "mouse-enable": a pointing device says so while
+// its driver runs (DRIVER_OK; here a state with it restored), and stops on a
+// reset; the keyboard does not (the virt machine has no PS/2 mouse to say it,
+// and a MacBook's trackpad reached no device)
+{
+    const { emulator, device } = await machine(["keyboard", "multitouch"]);
+    const said = [];
+    emulator.add_listener("mouse-enable", enabled => said.push(enabled));
+    const DRIVER_OK = 4;
+    for(const kind of ["keyboard", "multitouch"]) device(kind).virtio.device_status = DRIVER_OK;
+    await emulator.restore_state(await emulator.save_state());
+    assert.deepEqual(said, [true], "the touch screen's driver runs: the page takes the pointer (not for the keyboard)");
+    device("multitouch").virtio.reset();
+    assert.deepEqual(said, [true, false], "a reset: the page leaves the pointer");
+    await emulator.destroy();
+    console.log("PASS: a pointing device tells the page when its driver runs (mouse-enable)");
+}

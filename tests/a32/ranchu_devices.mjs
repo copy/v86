@@ -161,12 +161,15 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
 
 {
     const events = cpu.devices.goldfish_events;
+    const said = [];
+    emulator.add_listener("mouse-enable", enabled => said.push(enabled));
     const page = (n) => {
         events.write(0x00, n);
         const length = events.read(0x04, 4);
         return Uint8Array.from({ length }, (_, i) => events.read(0x08 + i, 1));
     };
     assert.equal(new TextDecoder().decode(page(0)), "qwerty2");
+    assert.deepEqual(said, [true], "the driver probes: the page takes the pointer (once)");
     const bit = (bytes, n) => (bytes[n >> 3] >> (n & 7) & 1) === 1;
     const types = page(0x10000);
     assert.ok(bit(types, 0) && bit(types, 1) && bit(types, 3), "EV_SYN, EV_KEY, EV_ABS");
@@ -193,6 +196,9 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
         [3, 0x2F, 0], [3, 0x39, 1], [3, 0x35, x], [3, 0x36, y], [1, 0x14A, 1], [3, 0, x], [3, 1, y], [0, 0, 0],
         [3, 0x2F, 0], [3, 0x39, -1], [1, 0x14A, 0], [0, 0, 0],
     ], "a touch down and up");
+    events.reset();
+    assert.deepEqual(said, [true, false], "a reset: no driver takes the pointer");
+    page(0x10000);
     console.log("PASS: goldfish_events");
 }
 
@@ -338,8 +344,11 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
 
 {
     const state = await emulator.save_state();
+    const said = [];
+    emulator.add_listener("mouse-enable", enabled => said.push(enabled));
     await emulator.restore_state(state);
     assert.equal(cpu.devices.goldfish_fb.read(0x00), 480);
+    assert.deepEqual(said, [true], "goldfish_events' driver ran: the page takes the pointer again");
     const virt = new V86({
         cpu_type: "arm32", memory_size: MEMORY, autostart: false, log_level: 0,
         wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm", graphics_adapter: "none", net_device: { type: "none" },
