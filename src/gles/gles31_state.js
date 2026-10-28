@@ -21,6 +21,7 @@
 // - Indirect draws (the AEMU forms: the parameters with the command, or
 //   in the draw indirect buffer), robustness's reset status and sized reads.
 
+import { GL_STATE } from "./gles_caps.js";
 import { GL3, LIMITS3, SLOT } from "./gles3_state.js";
 import { format_info, image_bytes3 } from "./gles_formats3.js";
 
@@ -934,6 +935,62 @@ const STATE32 = new Map([
     // texture buffers (no entry point reaches them: their limits are the minimums)
     [0x8C2B, [65536]], [0x919F, [256]], [0x8C2C, [0]], [0x8C2A, [0]],
 ]);
+/**
+ * The limits of glslang's built-in constants (gl_Max*) and of its checks,
+ * by glslangValidator's names: what glGet answers (gles_caps.js's GL_STATE,
+ * LIMITS3, LIMITS31, STATE32), GLSL ES 3.x's; GLSL ES 1.00's
+ * gl_MaxDrawBuffers is 1 (GLES 2.0 has no EXT_draw_buffers here)
+ * @param {number} version the shader's GLSL ES version
+ * @return {!Object<string, number>}
+ */
+export function glslang_limits(version)
+{
+    return version < 300 ? GLSLANG_LIMITS_100 : GLSLANG_LIMITS_3;
+}
+
+const GLSLANG_LIMITS_3 = (() =>
+{
+    const L = LIMITS3, M = LIMITS31, one = pname => (GL_STATE.get(pname) || STATE32.get(pname))[0];
+    return {
+        "MaxVertexAttribs": one(0x8869), "MaxVertexUniformVectors": one(0x8DFB), "MaxVaryingVectors": one(0x8DFC),
+        "MaxFragmentUniformVectors": one(0x8DFD), "MaxCombinedTextureImageUnits": one(0x8B4D), "MaxVertexTextureImageUnits": one(0x8B4C),
+        "MaxTextureImageUnits": one(0x8872), "MaxDrawBuffers": L.MAX_DRAW_BUFFERS,
+        "MaxVertexOutputVectors": L.MAX_VERTEX_OUTPUT_COMPONENTS / 4, "MaxFragmentInputVectors": L.MAX_FRAGMENT_INPUT_COMPONENTS / 4,
+        "MaxVertexOutputComponents": L.MAX_VERTEX_OUTPUT_COMPONENTS, "MaxFragmentInputComponents": L.MAX_FRAGMENT_INPUT_COMPONENTS,
+        "MaxVertexUniformComponents": L.MAX_VERTEX_UNIFORM_COMPONENTS, "MaxFragmentUniformComponents": L.MAX_FRAGMENT_UNIFORM_COMPONENTS,
+        "MaxVaryingComponents": L.MAX_VARYING_COMPONENTS, "MinProgramTexelOffset": L.MIN_PROGRAM_TEXEL_OFFSET,
+        "MaxProgramTexelOffset": L.MAX_PROGRAM_TEXEL_OFFSET, "MaxSamples": L.MAX_SAMPLES,
+        "MaxTransformFeedbackInterleavedComponents": L.MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS,
+        "MaxTransformFeedbackBuffers": L.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
+        // GLES 3.1's
+        "MaxComputeWorkGroupCountX": M.MAX_COMPUTE_WORK_GROUP_COUNT[0], "MaxComputeWorkGroupCountY": M.MAX_COMPUTE_WORK_GROUP_COUNT[1],
+        "MaxComputeWorkGroupCountZ": M.MAX_COMPUTE_WORK_GROUP_COUNT[2], "MaxComputeWorkGroupSizeX": M.MAX_COMPUTE_WORK_GROUP_SIZE[0],
+        "MaxComputeWorkGroupSizeY": M.MAX_COMPUTE_WORK_GROUP_SIZE[1], "MaxComputeWorkGroupSizeZ": M.MAX_COMPUTE_WORK_GROUP_SIZE[2],
+        "MaxComputeUniformComponents": M.MAX_COMPUTE_UNIFORM_COMPONENTS, "MaxComputeTextureImageUnits": M.MAX_COMPUTE_TEXTURE_IMAGE_UNITS,
+        "MaxComputeImageUniforms": M.MAX_COMPUTE_IMAGE_UNIFORMS, "MaxComputeAtomicCounters": M.MAX_COMPUTE_ATOMIC_COUNTERS,
+        "MaxComputeAtomicCounterBuffers": M.MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS, "MaxVertexAtomicCounters": M.MAX_VERTEX_ATOMIC_COUNTERS,
+        "MaxFragmentAtomicCounters": M.MAX_FRAGMENT_ATOMIC_COUNTERS, "MaxCombinedAtomicCounters": M.MAX_COMBINED_ATOMIC_COUNTERS,
+        "MaxAtomicCounterBindings": M.MAX_ATOMIC_COUNTER_BUFFER_BINDINGS, "MaxVertexAtomicCounterBuffers": M.MAX_VERTEX_ATOMIC_COUNTER_BUFFERS,
+        "MaxFragmentAtomicCounterBuffers": M.MAX_FRAGMENT_ATOMIC_COUNTER_BUFFERS, "MaxCombinedAtomicCounterBuffers": M.MAX_COMBINED_ATOMIC_COUNTER_BUFFERS,
+        "MaxAtomicCounterBufferSize": M.MAX_ATOMIC_COUNTER_BUFFER_SIZE, "MaxImageUnits": M.MAX_IMAGE_UNITS,
+        "MaxVertexImageUniforms": M.MAX_VERTEX_IMAGE_UNIFORMS, "MaxFragmentImageUniforms": M.MAX_FRAGMENT_IMAGE_UNIFORMS,
+        "MaxCombinedImageUniforms": M.MAX_COMBINED_IMAGE_UNIFORMS, "MaxCombinedShaderOutputResources": M.MAX_COMBINED_SHADER_OUTPUT_RESOURCES,
+        // GLES 3.2's (STATE32): geometry, tessellation
+        "MaxGeometryUniformComponents": one(0x8DDF), "MaxGeometryInputComponents": one(0x9123), "MaxGeometryOutputComponents": one(0x9124),
+        "MaxGeometryOutputVertices": one(0x8DE0), "MaxGeometryTotalOutputComponents": one(0x8DE1), "MaxGeometryTextureImageUnits": one(0x8C29),
+        "MaxGeometryAtomicCounterBuffers": one(0x92CF), "MaxGeometryAtomicCounters": one(0x92D5), "MaxGeometryImageUniforms": one(0x90CD),
+        "MaxPatchVertices": one(0x8E7D), "MaxTessGenLevel": one(0x8E7E), "MaxTessControlUniformComponents": one(0x8E7F),
+        "MaxTessEvaluationUniformComponents": one(0x8E80), "MaxTessControlTextureImageUnits": one(0x8E81),
+        "MaxTessEvaluationTextureImageUnits": one(0x8E82), "MaxTessControlOutputComponents": one(0x8E83), "MaxTessPatchComponents": one(0x8E84),
+        "MaxTessControlTotalOutputComponents": one(0x8E85), "MaxTessEvaluationOutputComponents": one(0x8E86),
+        "MaxTessControlInputComponents": one(0x886C), "MaxTessEvaluationInputComponents": one(0x886D),
+        "MaxTessControlAtomicCounterBuffers": one(0x92CD), "MaxTessEvaluationAtomicCounterBuffers": one(0x92CE),
+        "MaxTessControlAtomicCounters": one(0x92D3), "MaxTessEvaluationAtomicCounters": one(0x92D4),
+        "MaxTessControlImageUniforms": one(0x90CB), "MaxTessEvaluationImageUniforms": one(0x90CC),
+    };
+})();
+const GLSLANG_LIMITS_100 = Object.assign({}, GLSLANG_LIMITS_3, { "MaxDrawBuffers": 1 });
+
 /** GLES 3.2's float state */
 export const FLOAT_STATE32 = new Set([0x92BE, 0x9381, 0x9382, 0x8C37, 0x8E5B, 0x8E5C]);
 

@@ -25,7 +25,7 @@ import { STAGE_OF_GL_TYPE } from "./glslang.js";
 import { es3_rules, glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
 import { ADVANCED_EQUATIONS, INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
-import { FLOAT_STATE32, extend_context31, gles31_handlers, state_value31 } from "./gles31_state.js";
+import { FLOAT_STATE32, extend_context31, gles31_handlers, glslang_limits, state_value31 } from "./gles31_state.js";
 import { EXTENSIONS_3 } from "./gles_caps.js";
 import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
 import { format_info as SIZED_INFO } from "./gles_formats3.js";
@@ -311,6 +311,7 @@ GLESShadow.prototype.compile = function(source, type, es100)
     if(version >= 300 || es100)
     {
         if(!this.glslang) return { ok: true, log: "", glslang: true, stage };
+        this.glslang.set_limits(glslang_limits(version));
         const checked = this.glslang.check_shader(STAGE_OF_GL_TYPE.get(type), source);
         // (what GLSL ES refuses and glslang's relaxed check does not: an #extension after the code, reserved words)
         const refused = checked.ok ? es3_rules(source) : null;
@@ -345,6 +346,7 @@ GLESShadow.prototype.link = function(program, shaders)
     if(!this.glslang) return failed("ERROR: no link of this program came with the batch");
     if(shaders.some(s => !s.compiled || !s.compiled.glslang)) return failed("ERROR: the shaders' versions differ");
     if(shaders.some(s => !s.compiled.ok)) return failed("ERROR: a shader is not compiled");
+    this.glslang.set_limits(glslang_limits(glsl_version(shaders[0].compiled_source)));
     const info = link_glslang_program(this.glslang, shaders.map(s => ({ stage: s.compiled.stage, source: s.compiled_source })),
         { bindings: new Map(program.bindings), separable: !!program.separable, limits: GLSLANG_LIMITS, tf: program.tf_request || null });
     if(info.ok) this.last_link = info;

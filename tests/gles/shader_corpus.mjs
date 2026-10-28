@@ -21,7 +21,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { compile_glslang, create_glslang, STAGE } from "../../src/gles/glslang.js";
 import { link_glslang_program } from "../../src/gles/glsl_program.js";
-import { es3_rules } from "../../src/gles/glsl_es_rewrite.js";
+import { es3_rules, glsl_version } from "../../src/gles/glsl_es_rewrite.js";
+import { glslang_limits } from "../../src/gles/gles31_state.js";
 import { zip_entries, zip_read } from "../../src/android/zip.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
@@ -253,7 +254,8 @@ function run_program(label, shaders, expect, known)
     stats.programs++;
     // the check pass, shader by shader then linked: what dEQP expects
     const t0 = performance.now();
-    // (with the GLSL ES rules the shadow adds to glslang's check, gles_shadow.js's compile)
+    // (with the GLSL ES rules the shadow adds to glslang's check and its limits, gles_shadow.js's compile)
+    glslang.set_limits(glslang_limits(glsl_version(shaders[0].source)));
     const compiled = shaders.map(s =>
     {
         const checked = glslang.check_shader(STAGE[s.stage], s.source);

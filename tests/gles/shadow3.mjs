@@ -427,5 +427,28 @@ async function setup(max_version, api)
     await call("gles2:glShaderString", late, cstring(late_source), late_source.length + 1);
     await call("gles2:glCompileShader", late);
     assert.deepEqual(i32s((await call("gles2:glGetShaderiv", late, 0x8B81, 4)).outs[0]), [0], "an #extension after code: not compiled");
-    console.log("PASS: GLSL ES 1.00 through glslang: overloads of built-ins, unused attributes, a one-element array; a late #extension");
+    // (the built-in constants are glGet's answers: an array sized -1 when one differs does not compile)
+    const compiles = async (type, source) =>
+    {
+        const shader = (await call("gles2:glCreateShader", type)).ret;
+        await call("gles2:glShaderString", shader, cstring(source), source.length + 1);
+        await call("gles2:glCompileShader", shader);
+        return i32s((await call("gles2:glGetShaderiv", shader, 0x8B81, 4)).outs[0])[0];
+    };
+    const sized = (version, test) => `${version}float a[${test} ? 1 : -1]; void main() { gl_Position = vec4(a[0]); }`;
+    for(const [name, pname] of [["gl_MaxVertexAttribs", 0x8869], ["gl_MaxVertexUniformVectors", 0x8DFB], ["gl_MaxVaryingVectors", 0x8DFC],
+        ["gl_MaxFragmentUniformVectors", 0x8DFD], ["gl_MaxCombinedTextureImageUnits", 0x8B4D], ["gl_MaxVertexTextureImageUnits", 0x8B4C],
+        ["gl_MaxTextureImageUnits", 0x8872]])
+    {
+        const value = i32s((await call("gles2:glGetIntegerv", pname, 4)).outs[0])[0];
+        assert.equal(await compiles(0x8B31, sized("", `${name} == ${value}`)), 1, `GLSL ES 1.00's ${name} is ${value}`);
+        // (GLSL ES 3.00 has no gl_MaxVaryingVectors: its outputs' and inputs' instead)
+        if(pname !== 0x8DFC) assert.equal(await compiles(0x8B31, sized("#version 300 es\n", `${name} == ${value}`)), 1, `GLSL ES 3.00's ${name} is ${value}`);
+    }
+    assert.equal(await compiles(0x8B31, sized("", "gl_MaxDrawBuffers == 1")), 1, "GLSL ES 1.00's gl_MaxDrawBuffers: 1");
+    assert.equal(await compiles(0x8B31, sized("#version 300 es\n", "gl_MaxDrawBuffers == 4 && gl_MaxVertexOutputVectors == 16 && " +
+        "gl_MaxFragmentInputVectors == 15 && gl_MinProgramTexelOffset == -8 && gl_MaxProgramTexelOffset == 7")), 1, "GLSL ES 3.00's");
+    assert.equal(await compiles(0x8B31, sized("", "gl_MaxVertexTextureImageUnits == 32")), 0, "glslang's own default is not");
+    console.log("PASS: GLSL ES 1.00 through glslang: overloads of built-ins, unused attributes, a one-element array; a late #extension; " +
+        "the built-in constants");
 }

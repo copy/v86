@@ -45,6 +45,8 @@ export function Glslang()
     this.exports = {};
     /** what glslang printed (it should print nothing) */
     this.printed = "";
+    /** @type {Object<string, number>} the limits set last */
+    this.limits = null;
 }
 
 /** @return {!Uint8Array} the module's memory as it is (it may grow) */
@@ -114,6 +116,8 @@ Glslang.prototype.output = function()
  */
 Glslang.prototype.set_limits = function(limits)
 {
+    if(limits === this.limits) return;
+    this.limits = limits;
     const text = Object.entries(limits).map(([name, value]) => name + " " + value).join("\n") + "\n";
     this.with_bytes(new TextEncoder().encode(text + "\0"), pointer => this.exports["v86_glslang_limits"](pointer));
 };
