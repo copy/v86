@@ -1192,7 +1192,8 @@ const HANDLERS = {
         if(target !== GL.RENDERBUFFER) { fail(c, GL.INVALID_ENUM); return; }
         const rb = c.group.renderbuffers.get(c.renderbuffer);
         if(!rb) { fail(c, GL.INVALID_OPERATION); return; }
-        const bits = rb.width ? (RENDERBUFFER_FORMATS.get(rb.format) || { bits: [0, 0, 0, 0, 0, 0] }).bits : [0, 0, 0, 0, 0, 0];
+        // (GLES 2.0's formats, else GLES 3.0's sized ones)
+        const bits = rb.width ? (RENDERBUFFER_FORMATS.get(rb.format) || SIZED_INFO(rb.format) || { bits: [0, 0, 0, 0, 0, 0] }).bits : [0, 0, 0, 0, 0, 0];
         const values = { 0x8D42: rb.width, 0x8D43: rb.height, 0x8D44: rb.format, 0x8D50: bits[0], 0x8D51: bits[1], 0x8D52: bits[2],
             0x8D53: bits[3], 0x8D54: bits[4], 0x8D55: bits[5] };
         if(!(pname in values)) { fail(c, GL.INVALID_ENUM); return; }

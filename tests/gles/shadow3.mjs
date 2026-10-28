@@ -332,6 +332,27 @@ async function setup(max_version, api)
         "SAMPLE_BUFFERS and SAMPLES of a multisampled framebuffer");
     await call("gles2:glBindFramebuffer", 0x8D40, 0);
     assert.equal(await error(), 0);
+    // (a buffer deleted is unbound from the bound vertex array alone; a cube map face's attachment answers its target;
+    // a renderbuffer of GLES 3.0's sized formats its sizes)
+    const two_vaos = i32s((await call("gles2:glGenVertexArrays", 2, 8)).outs[0]);
+    const kept = i32s((await call("gles2:glGenBuffers", 1, 4)).outs[0])[0];
+    await call("gles2:glBindVertexArray", two_vaos[1]);
+    await call("gles2:glBindBuffer", 0x8893, kept);
+    await call("gles2:glBindVertexArray", two_vaos[0]);
+    await call("gles2:glDeleteBuffers", 1, new Uint8Array(new Int32Array([kept]).buffer));
+    await call("gles2:glBindVertexArray", two_vaos[1]);
+    assert.deepEqual(i32s((await call("gles2:glGetIntegerv", 0x8895, 4)).outs[0]), [kept], "another vertex array keeps a deleted buffer's name");
+    await call("gles2:glBindVertexArray", 0);
+    await call("gles2:glBindTexture", 0x8513, 920);
+    await call("gles2:glTexStorage2D", 0x8513, 1, 0x8058, 4, 4);
+    await call("gles2:glBindFramebuffer", 0x8D40, 921);
+    await call("gles2:glFramebufferTexture2D", 0x8D40, 0x8CE0, 0x8515, 920, 0);
+    assert.deepEqual(i32s((await call("gles2:glGetFramebufferAttachmentParameteriv", 0x8D40, 0x8CE0, 0x8CD3, 4)).outs[0]), [0x8515], "the face POSITIVE_X");
+    await call("gles2:glBindFramebuffer", 0x8D40, 0);
+    await call("gles2:glBindRenderbuffer", 0x8D41, 922);
+    await call("gles2:glRenderbufferStorage", 0x8D41, 0x8229, 4, 4);
+    assert.deepEqual(i32s((await call("gles2:glGetRenderbufferParameteriv", 0x8D41, 0x8D50, 4)).outs[0]), [8], "R8's RENDERBUFFER_RED_SIZE");
+    assert.equal(await error(), 0);
     // (a stencil mask is unsigned, a level of detail rounded by an integer query)
     await call("gles2:glStencilFunc", 0x0207, 0, 0xFFFFFFFF);
     assert.deepEqual(Array.from(new Float32Array((await call("gles2:glGetFloatv", 0x0B93, 4)).outs[0].slice().buffer)), [4294967296], "STENCIL_VALUE_MASK as a float");

@@ -811,7 +811,9 @@ export function gles3_handlers(h)
                 c.group.reserved.buffer.delete(name);
                 if(!c.group.buffers.delete(name)) continue;
                 for(const target of BUFFER_TARGETS.keys()) if(buffer_binding(c, target) === name) set_buffer_binding(c, target, 0);
-                for(const vao of [c.default_vao, ...c.vaos.values()])
+                // (the bound vertex array's bindings alone: another keeps the name, GLES 3.0 2.10)
+                const vao = c.vao ? c.vaos.get(c.vao) : c.default_vao;
+                if(vao)
                 {
                     for(const a of vao.attribs) if(a.buffer === name) a.buffer = 0;
                     if(vao.element_array_buffer === name) vao.element_array_buffer = 0;
@@ -2122,7 +2124,12 @@ export function gles3_handlers(h)
         if(a.type === GL.TEXTURE)
         {
             if(pname === 0x8CD2) return a.level;
-            if(pname === 0x8CD3) return a.face ? GL.TEXTURE_CUBE_MAP_POSITIVE_X + a.face : 0;
+            if(pname === 0x8CD3)
+            {
+                // (a cube map's face, POSITIVE_X's too; NONE for any other texture)
+                const texture = c.group.textures.get(a.name);
+                return texture && texture.target === GL.TEXTURE_CUBE_MAP ? GL.TEXTURE_CUBE_MAP_POSITIVE_X + a.face : 0;
+            }
             if(pname === 0x8CD4) return a.layer || 0;
         }
         const image = attachment_image(c, a);
