@@ -49,8 +49,9 @@ const STRIP_END = 0xFFFFFFFF;
 
 /** The texture slot (gles3_state.js's SLOT) of a sampler type, and each slot's target */
 const SAMPLER_SLOT = new Map([[0x8B5E, 0], [0x8B62, 0], [0x8DCA, 0], [0x8DD2, 0], [0x8B60, 1], [0x8DC5, 1], [0x8DCC, 1], [0x8DD4, 1],
-    [0x8D66, 2], [0x8B5F, 3], [0x8DCB, 3], [0x8DD3, 3], [0x8DC1, 4], [0x8DC4, 4], [0x8DCF, 4], [0x8DD7, 4], [0x9108, 5], [0x9109, 5], [0x910A, 5]]);
-const SLOT_TARGET = [GL3.TEXTURE_2D, GL3.TEXTURE_CUBE_MAP, GL3.TEXTURE_EXTERNAL_OES, GL3.TEXTURE_3D, GL3.TEXTURE_2D_ARRAY, 0x9100];
+    [0x8D66, 2], [0x8B5F, 3], [0x8DCB, 3], [0x8DD3, 3], [0x8DC1, 4], [0x8DC4, 4], [0x8DCF, 4], [0x8DD7, 4], [0x9108, 5], [0x9109, 5], [0x910A, 5],
+    [0x900C, 6], [0x900D, 6], [0x900E, 6], [0x900F, 6]]);
+const SLOT_TARGET = [GL3.TEXTURE_2D, GL3.TEXTURE_CUBE_MAP, GL3.TEXTURE_EXTERNAL_OES, GL3.TEXTURE_3D, GL3.TEXTURE_2D_ARRAY, 0x9100, 0x9009];
 /** What a texture unit samples with nothing bound */
 const NO_SAMPLER = { min_filter: NEAREST, mag_filter: NEAREST, wrap_s: 0x812F, wrap_t: 0x812F, wrap_r: 0x812F, compare_func: 0x0203 };
 /** Vulkan's address modes (vx_naga's int_wraps): repeat 0, mirrored repeat 1, clamp to edge 2 */
@@ -565,7 +566,8 @@ export const GLES3 = {
     gpu_texture3(texture)
     {
         const cube = texture.target === GL3.TEXTURE_CUBE_MAP, three = texture.target === GL3.TEXTURE_3D;
-        const array = texture.target === GL3.TEXTURE_2D_ARRAY;
+        // (GLES 3.2's cube map arrays: their layer-faces a 2D array's layers)
+        const array = texture.target === GL3.TEXTURE_2D_ARRAY || texture.target === 0x9009;
         let first = -1, base = null;
         for(let level = 0; level < 32 && !base; level++)
         {
@@ -579,7 +581,7 @@ export const GLES3 = {
         const internal = image_internal(base);
         const compressed = COMPRESSED_FORMATS.get(internal);
         const info = format_info(internal);
-        const native = compressed && this.device.features && this.device.features.has("texture-compression-etc2");
+        const native = compressed && this.device.features && this.device.features.has(compressed.astc ? "texture-compression-astc" : "texture-compression-etc2");
         const format = compressed ? (native ? compressed.webgpu : COLOR_FORMAT) : info ? info.webgpu : COLOR_FORMAT;
         const width = base.width, height = base.height;
         const depth = three || array ? Math.max(1, base.depth || 1) : cube ? 6 : 1;
@@ -599,7 +601,8 @@ export const GLES3 = {
         const created = this.device.createTexture({ label: "GL texture", size: [width, height, depth], dimension: three ? "3d" : "2d", format,
             mipLevelCount: samples > 1 ? 1 : levels, sampleCount: samples, usage });
         const gpu = { es3: true, texture: created, format, width, height, depth, first, levels: samples > 1 ? 1 : levels, three, cube, array, samples,
-            storage, views: new Map(), block: native ? 4 : 1, block_bytes: native ? compressed.block_bytes : 0, destroy: () => created.destroy() };
+            storage, views: new Map(), block: native ? compressed.block_width : 1, block_height: native ? compressed.block_height : 1,
+            block_bytes: native ? compressed.block_bytes : 0, destroy: () => created.destroy() };
         if(old && old.texture)
         {
             // (the levels that keep their size: a level given below the others, a chain made longer)
@@ -613,7 +616,7 @@ export const GLES3 = {
                     if(to < 0 || to >= levels || Math.max(1, width >> to) !== w || Math.max(1, height >> to) !== h) continue;
                     const d = old.three ? Math.max(1, old.depth >> mip) : old.depth;
                     if(d !== (three ? Math.max(1, depth >> to) : depth)) continue;
-                    if(gpu.block > 1 && (w % 4 || h % 4)) continue;
+                    if(gpu.block > 1 && (w % gpu.block || h % gpu.block_height)) continue;
                     this.encoder.copyTextureToTexture({ texture: old.texture, mipLevel: mip }, { texture: created, mipLevel: to }, [w, h, d]);
                 }
             }
@@ -636,9 +639,9 @@ export const GLES3 = {
         const mip_depth = gpu.three ? Math.max(1, gpu.depth >> mip) : gpu.depth;
         const [x, y, z] = origin, [w, h, d] = size;
         if(x + w > mip_width || y + h > mip_height || z + d > mip_depth || !w || !h || !d) return false;
-        const block = gpu.block;
+        const block = gpu.block, block_height = gpu.block_height || 1;
         const texel = block > 1 ? gpu.block_bytes : TEXEL_BYTES[gpu.format];
-        const columns = Math.ceil(w / block), rows = Math.ceil(h / block);
+        const columns = Math.ceil(w / block), rows = Math.ceil(h / block_height);
         const row = columns * texel, stride = Math.ceil(row / 256) * 256;
         this.end_pass();
         const staging = this.device.createBuffer({ label: "GLES upload", size: Math.max(4, stride * rows * d), usage: B.COPY_SRC, mappedAtCreation: true });
@@ -651,7 +654,7 @@ export const GLES3 = {
         }
         staging.unmap();
         this.encoder.copyBufferToTexture({ buffer: staging, bytesPerRow: stride, rowsPerImage: rows },
-            { texture: gpu.texture, mipLevel: mip, origin: [x, y, z] }, [columns * block, rows * block, d]);
+            { texture: gpu.texture, mipLevel: mip, origin: [x, y, z] }, [columns * block, rows * block_height, d]);
         this.staging.push(staging);
         this.stats.uploads++;
         return true;
@@ -735,8 +738,8 @@ export const GLES3 = {
             this.upload3(gpu, level, [x, y, layer], [width, height, depth], data);
             return;
         }
-        // (without WebGPU's ETC2: ETC1's blocks decoded; the others' not yet)
-        if(internal !== 0x8D64 && internal !== 0x9274) return void this.note3("ETC2/EAC without texture-compression-etc2: not yet");
+        // (without WebGPU's ETC2: ETC1's blocks decoded; the others' not yet, nor ASTC without its feature)
+        if(internal !== 0x8D64 && internal !== 0x9274) return void this.note3("ETC2/EAC or ASTC without WebGPU's compression feature");
         const blocks = Math.ceil(width / 4) * Math.ceil(height / 4) * 8;
         for(let k = 0; k < depth; k++)
         {
@@ -970,11 +973,11 @@ export const GLES3 = {
         {
             const width = Math.max(1, gpu.width >> mip), height = Math.max(1, gpu.height >> mip);
             const layers = gpu.three ? Math.max(1, gpu.depth >> mip) : gpu.depth;
-            const columns = Math.ceil(width / gpu.block), rows = Math.ceil(height / gpu.block);
+            const columns = Math.ceil(width / gpu.block), rows = Math.ceil(height / (gpu.block_height || 1));
             for(let layer = 0; layer < layers; layer++)
             {
                 reads.push({ owner: t, texture: gpu.texture, level: mip, gl_level: mip + gpu.first, layer, width, height, row: columns * texel, rows,
-                    extent: [columns * gpu.block, rows * gpu.block, 1] });
+                    extent: [columns * gpu.block, rows * (gpu.block_height || 1), 1] });
             }
         }
     },
@@ -2400,7 +2403,7 @@ export const GLES3 = {
         if(mip < 0 || mip + count > gpu.levels) return fallback();
         const aspect = gpu.format.includes("stencil") && gpu.format !== "stencil8" ? "depth-only" : "all";
         const dimension = tex.dimension;
-        if((dimension === "3d") !== three || dimension === "cube" && !cube) return fallback();
+        if((dimension === "3d") !== three || dimension === "cube" && !cube || dimension === "cube-array" && !(gpu.array && gpu.depth % 6 === 0)) return fallback();
         // (TEXTURE_SWIZZLE_*: the view's, with WebGPU's texture-component-swizzle)
         let swizzle = (texture.swizzle || [0x1903, 0x1904, 0x1905, 0x1906]).map(v => ({ 0x1903: "r", 0x1904: "g", 0x1905: "b", 0x1906: "a", 0: "0", 1: "1" })[v]).join("");
         if(swizzle !== "rgba" && !this.device.features.has("texture-component-swizzle"))

@@ -927,6 +927,7 @@ export function state_value31(shadow, c, pname)
         case 0x92C1: return [c.buffers.atomic_counter];
         case 0x825A: return [c.program_pipeline];
         case 0x9104: return [c.textures[c.active_texture][SLOT.TEXTURE_2D_MULTISAMPLE]];
+        case 0x900A: return c.version >= 32 ? [c.textures[c.active_texture][SLOT.TEXTURE_CUBE_MAP_ARRAY]] : null;
         case 0x8E51: return [c.enabled.has(0x8E51) ? 1 : 0];
     }
     return null;

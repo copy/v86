@@ -11,7 +11,7 @@
 // `gpu_newer` says the page wrote it since (transform feedback, copies,
 // pack buffers), which the CPU side then asks the page for (L3).
 
-import { COMPRESSED_FORMATS, COMPRESSED_TEXTURE_FORMATS_3, F, SIZED_FORMATS, compressed_bytes, component_type, format_info, image_bytes3,
+import { COMPRESSED_FORMATS, COMPRESSED_TEXTURE_FORMATS_3, COMPRESSED_TEXTURE_FORMATS_32, F, SIZED_FORMATS, compressed_bytes, component_type, format_info, image_bytes3,
     pixel_bytes, renderable, tex_image_format } from "./gles_formats3.js";
 
 export const GL3 = {
@@ -53,7 +53,12 @@ const MAX_LEVELS_2D = Math.log2(LIMITS3.MAX_TEXTURE_SIZE) + 1;
 const MAX_LEVELS_3D = Math.log2(LIMITS3.MAX_3D_TEXTURE_SIZE) + 1;
 
 /** Texture binding slots of a unit: GLES 2.0's three, then 3.0's (gles_shadow.js texture_slot) */
-export const SLOT = { TEXTURE_2D: 0, TEXTURE_CUBE_MAP: 1, TEXTURE_EXTERNAL_OES: 2, TEXTURE_3D: 3, TEXTURE_2D_ARRAY: 4, TEXTURE_2D_MULTISAMPLE: 5 };
+export const SLOT = { TEXTURE_2D: 0, TEXTURE_CUBE_MAP: 1, TEXTURE_EXTERNAL_OES: 2, TEXTURE_3D: 3, TEXTURE_2D_ARRAY: 4, TEXTURE_2D_MULTISAMPLE: 5,
+    TEXTURE_CUBE_MAP_ARRAY: 6 };
+/** GLES 3.2's cube map arrays */
+const TEXTURE_CUBE_MAP_ARRAY = 0x9009;
+/** @return {boolean} whether a target is of layers (2D arrays; GLES 3.2's cube map arrays, their layer-faces) */
+const layered = (c, target) => target === GL3.TEXTURE_2D_ARRAY || target === TEXTURE_CUBE_MAP_ARRAY && c.version >= 32;
 
 const BUFFER_TARGETS = new Map([[GL3.ARRAY_BUFFER, "array"], [GL3.ELEMENT_ARRAY_BUFFER, "element"], [GL3.COPY_READ_BUFFER, "copy_read"],
     [GL3.COPY_WRITE_BUFFER, "copy_write"], [GL3.PIXEL_PACK_BUFFER, "pixel_pack"], [GL3.PIXEL_UNPACK_BUFFER, "pixel_unpack"],
@@ -110,7 +115,7 @@ function new_sampler()
 /** A GLES 3.0 context's state beyond GLES 2.0's (tables 6.2 to 6.37) */
 export function extend_context3(c)
 {
-    c.textures = Array.from({ length: MAX_UNITS }, () => [0, 0, 0, 0, 0, 0]);
+    c.textures = Array.from({ length: MAX_UNITS }, () => [0, 0, 0, 0, 0, 0, 0]);
     c.samplers = new Array(MAX_UNITS).fill(0);
     c.buffers = { copy_read: 0, copy_write: 0, pixel_pack: 0, pixel_unpack: 0, transform_feedback: 0, uniform: 0,
         shader_storage: 0, atomic_counter: 0, dispatch_indirect: 0, draw_indirect: 0 };
@@ -235,7 +240,8 @@ export function gles3_handlers(h)
 
     const target_slot = (target, c) => target === GL.TEXTURE_2D ? SLOT.TEXTURE_2D : target === GL.TEXTURE_CUBE_MAP ? SLOT.TEXTURE_CUBE_MAP :
         target === GL.TEXTURE_EXTERNAL_OES ? SLOT.TEXTURE_EXTERNAL_OES : target === GL.TEXTURE_3D ? SLOT.TEXTURE_3D :
-        target === GL.TEXTURE_2D_ARRAY ? SLOT.TEXTURE_2D_ARRAY : target === 0x9100 && c.version >= 31 ? SLOT.TEXTURE_2D_MULTISAMPLE : -1;
+        target === GL.TEXTURE_2D_ARRAY ? SLOT.TEXTURE_2D_ARRAY : target === 0x9100 && c.version >= 31 ? SLOT.TEXTURE_2D_MULTISAMPLE :
+        target === TEXTURE_CUBE_MAP_ARRAY && c.version >= 32 ? SLOT.TEXTURE_CUBE_MAP_ARRAY : -1;
     /** The texture bound to a target of the active unit (the default one for name 0), or null with the error set */
     const bound_texture3 = (c, target) =>
     {
@@ -287,8 +293,9 @@ export function gles3_handlers(h)
         const max = target === GL.TEXTURE_3D ? LIMITS3.MAX_3D_TEXTURE_SIZE : LIMITS3.MAX_TEXTURE_SIZE;
         if(level < 0 || level > max_level_of(target) || width < 0 || height < 0 || depth < 0 || border !== 0 ||
             width > max >> level || height > max >> level ||
-            (target === GL.TEXTURE_3D ? depth > max >> level : target === GL.TEXTURE_2D_ARRAY ? depth > LIMITS3.MAX_ARRAY_TEXTURE_LAYERS : false) ||
-            target !== GL.TEXTURE_2D && target !== GL.TEXTURE_3D && target !== GL.TEXTURE_2D_ARRAY && width !== height)
+            (target === GL.TEXTURE_3D ? depth > max >> level : layered(c, target) ? depth > LIMITS3.MAX_ARRAY_TEXTURE_LAYERS : false) ||
+            target !== GL.TEXTURE_2D && target !== GL.TEXTURE_3D && target !== GL.TEXTURE_2D_ARRAY && width !== height ||
+            target === TEXTURE_CUBE_MAP_ARRAY && depth % 6)
         {
             fail(c, GL.INVALID_VALUE);
             return false;
@@ -304,7 +311,7 @@ export function gles3_handlers(h)
         let texture, face;
         if(three)
         {
-            if(target !== GL.TEXTURE_3D && target !== GL.TEXTURE_2D_ARRAY) return fail(c, GL.INVALID_ENUM);
+            if(target !== GL.TEXTURE_3D && !layered(c, target)) return fail(c, GL.INVALID_ENUM);
             texture = bound_texture3(c, target);
             face = 0;
         }
@@ -335,7 +342,7 @@ export function gles3_handlers(h)
         let texture, face;
         if(three)
         {
-            if(target !== GL.TEXTURE_3D && target !== GL.TEXTURE_2D_ARRAY) return fail(c, GL.INVALID_ENUM);
+            if(target !== GL.TEXTURE_3D && !layered(c, target)) return fail(c, GL.INVALID_ENUM);
             texture = bound_texture3(c, target);
             face = 0;
         }
@@ -370,7 +377,8 @@ export function gles3_handlers(h)
         if(width < 1 || height < 1 || depth < 1 || levels < 1) return fail(c, GL.INVALID_VALUE);
         const max = target === GL.TEXTURE_3D ? LIMITS3.MAX_3D_TEXTURE_SIZE : LIMITS3.MAX_TEXTURE_SIZE;
         if(width > max || height > max || (target === GL.TEXTURE_3D && depth > max) ||
-            (target === GL.TEXTURE_2D_ARRAY && depth > LIMITS3.MAX_ARRAY_TEXTURE_LAYERS) || target === GL.TEXTURE_CUBE_MAP && width !== height)
+            (layered(c, target) && depth > LIMITS3.MAX_ARRAY_TEXTURE_LAYERS) || (target === GL.TEXTURE_CUBE_MAP || target === TEXTURE_CUBE_MAP_ARRAY) && width !== height ||
+            target === TEXTURE_CUBE_MAP_ARRAY && depth % 6)
         {
             return fail(c, GL.INVALID_VALUE);
         }
@@ -402,7 +410,7 @@ export function gles3_handlers(h)
             [args[0], args[1], args[2], args[3], args[4], 1, args[5], args[6], args[7]];
         const offset = typeof data === "number" ? data : undefined;
         const face = three ? 0 : face_of(target);
-        if(three ? target !== GL.TEXTURE_2D_ARRAY && target !== GL.TEXTURE_3D : face < 0) return fail(c, GL.INVALID_ENUM);
+        if(three ? !layered(c, target) && target !== GL.TEXTURE_3D : face < 0) return fail(c, GL.INVALID_ENUM);
         const texture = bound_texture3(c, three ? target : target === GL.TEXTURE_2D ? GL.TEXTURE_2D : GL.TEXTURE_CUBE_MAP);
         if(!texture) return REFUSED;
         if(!COMPRESSED_FORMATS.has(internalformat)) return fail(c, GL.INVALID_ENUM);
@@ -421,15 +429,16 @@ export function gles3_handlers(h)
         const [target, level, x, y, z, width, height, depth, format, size] = three ? args :
             [args[0], args[1], args[2], args[3], 0, args[4], args[5], 1, args[6], args[7]];
         const face = three ? 0 : face_of(target);
-        if(three ? target !== GL.TEXTURE_2D_ARRAY && target !== GL.TEXTURE_3D : face < 0) return fail(c, GL.INVALID_ENUM);
+        if(three ? !layered(c, target) && target !== GL.TEXTURE_3D : face < 0) return fail(c, GL.INVALID_ENUM);
         const texture = bound_texture3(c, three ? target : target === GL.TEXTURE_2D ? GL.TEXTURE_2D : GL.TEXTURE_CUBE_MAP);
         if(!texture) return REFUSED;
         if(!COMPRESSED_FORMATS.has(format)) return fail(c, GL.INVALID_ENUM);
         if(level < 0 || x < 0 || y < 0 || z < 0 || width < 0 || height < 0 || depth < 0) return fail(c, GL.INVALID_VALUE);
         const image = texture.images.get(image_key(face, level));
         if(!image || !image.compressed || image.internal !== format || format === 0x8D64) return fail(c, GL.INVALID_OPERATION);
-        if(x % 4 || y % 4 || x + width > image.width || y + height > image.height || z + depth > image.depth ||
-            width % 4 && x + width !== image.width || height % 4 && y + height !== image.height)
+        const { block_width: bw, block_height: bh } = COMPRESSED_FORMATS.get(format);
+        if(x % bw || y % bh || x + width > image.width || y + height > image.height || z + depth > image.depth ||
+            width % bw && x + width !== image.width || height % bh && y + height !== image.height)
         {
             return fail(c, GL.INVALID_OPERATION);
         }
@@ -467,7 +476,7 @@ export function gles3_handlers(h)
         const texture = c.group.textures.get(a.name);
         const image = texture && texture.images.get(image_key(a.face, a.level));
         if(!image || !image.width || !image.height) return null;
-        if((texture.target === GL.TEXTURE_3D || texture.target === GL.TEXTURE_2D_ARRAY) && a.layer >= (image.depth || 1)) return null;
+        if((texture.target === GL.TEXTURE_3D || layered(c, texture.target)) && a.layer >= (image.depth || 1)) return null;
         return { width: image.width, height: image.height, samples: image.samples || 0,
             info: image.compressed ? null : format_info(image.internal || image.format) || h.renderbuffer_info(image.format) };
     };
@@ -1034,7 +1043,7 @@ export function gles3_handlers(h)
         },
         "glTexStorage3D": (shadow, c, [target, levels, internalformat, width, height, depth]) =>
         {
-            if(target !== GL.TEXTURE_3D && target !== GL.TEXTURE_2D_ARRAY) return fail(c, GL.INVALID_ENUM);
+            if(target !== GL.TEXTURE_3D && !layered(c, target)) return fail(c, GL.INVALID_ENUM);
             return tex_storage(shadow, c, target, levels, internalformat, width, height, depth);
         },
         "glCompressedTexImage2D": (shadow, c, args) => compressed_image(shadow, c, false, args),
@@ -1068,7 +1077,7 @@ export function gles3_handlers(h)
             copy_sub(shadow, c, target, level, xoffset, yoffset, zoffset, width, height, true),
         "glGenerateMipmap": (shadow, c, [target]) =>
         {
-            if(![GL.TEXTURE_2D, GL.TEXTURE_CUBE_MAP, GL.TEXTURE_3D, GL.TEXTURE_2D_ARRAY].includes(target)) return fail(c, GL.INVALID_ENUM);
+            if(![GL.TEXTURE_2D, GL.TEXTURE_CUBE_MAP, GL.TEXTURE_3D, GL.TEXTURE_2D_ARRAY].includes(target) && !layered(c, target)) return fail(c, GL.INVALID_ENUM);
             const texture = bound_texture3(c, target);
             if(!texture) return REFUSED;
             const base_level = Math.min(texture.base_level || 0, 31);
@@ -1244,7 +1253,7 @@ export function gles3_handlers(h)
             if(!fbo) return fail(c, GL.INVALID_OPERATION);
             if(!name) { attach(fbo, attachment, null); return undefined; }
             const texture = c.group.textures.get(name);
-            if(!texture || texture.target !== GL.TEXTURE_3D && texture.target !== GL.TEXTURE_2D_ARRAY) return fail(c, GL.INVALID_OPERATION);
+            if(!texture || texture.target !== GL.TEXTURE_3D && !layered(c, texture.target)) return fail(c, GL.INVALID_OPERATION);
             const max_layer = texture.target === GL.TEXTURE_3D ? LIMITS3.MAX_3D_TEXTURE_SIZE : LIMITS3.MAX_ARRAY_TEXTURE_LAYERS;
             if(layer < 0 || layer >= max_layer || level < 0 || level > max_level_of(texture.target)) return fail(c, GL.INVALID_VALUE);
             attach(fbo, attachment, { type: GL.TEXTURE, name, level, face: 0, layer });
@@ -1692,7 +1701,7 @@ export function gles3_handlers(h)
         "glGetCompressedTextureFormats": (shadow, c, [count, formats]) =>
         {
             query(shadow);
-            put(formats, COMPRESSED_TEXTURE_FORMATS_3, "i", "i");
+            put(formats, c.version >= 32 ? COMPRESSED_TEXTURE_FORMATS_32 : COMPRESSED_TEXTURE_FORMATS_3, "i", "i");
         },
     };
 
@@ -1858,7 +1867,7 @@ export function gles3_handlers(h)
         let texture, face;
         if(three)
         {
-            if(target !== GL.TEXTURE_3D && target !== GL.TEXTURE_2D_ARRAY) return fail(c, GL.INVALID_ENUM);
+            if(target !== GL.TEXTURE_3D && !layered(c, target)) return fail(c, GL.INVALID_ENUM);
             texture = bound_texture3(c, target);
             face = 0;
         }
@@ -2143,8 +2152,9 @@ export function state_value3(shadow, c, pname)
         case 0x8D69: return [c.enabled.has(0x8D69) ? 1 : 0];
         case 0x8B8B: return [c.hints.get(0x8B8B)];
         case 0x84E8: return [L.MAX_TEXTURE_SIZE]; // GL_MAX_RENDERBUFFER_SIZE
-        case 0x86A2: return [COMPRESSED_TEXTURE_FORMATS_3.length];
-        case 0x86A3: return COMPRESSED_TEXTURE_FORMATS_3;
+        // (GLES 3.2's: ASTC's too)
+        case 0x86A2: return [(c.version >= 32 ? COMPRESSED_TEXTURE_FORMATS_32 : COMPRESSED_TEXTURE_FORMATS_3).length];
+        case 0x86A3: return c.version >= 32 ? COMPRESSED_TEXTURE_FORMATS_32 : COMPRESSED_TEXTURE_FORMATS_3;
         case 0x8B9A: case 0x8B9B: // GL_IMPLEMENTATION_COLOR_READ_TYPE, _FORMAT
         {
             const info = shadow.read_info3(c);

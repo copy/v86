@@ -131,12 +131,21 @@ const COMPRESSED = [
     [0x9278, "COMPRESSED_RGBA8_ETC2_EAC", 16, 4, "etc2-rgba8unorm"], [0x9279, "COMPRESSED_SRGB8_ALPHA8_ETC2_EAC", 16, 4, "etc2-rgba8unorm-srgb"],
     [0x8D64, "ETC1_RGB8_OES", 8, 3, "etc2-rgb8unorm"],
 ];
-/** @type {!Map<number, {name: string, block_bytes: number, channels: number, webgpu: string}>} */
-export const COMPRESSED_FORMATS = new Map(COMPRESSED.map(([value, name, block_bytes, channels, webgpu]) =>
-    [value, { name, block_bytes, channels, webgpu }]));
+/** GLES 3.2's ASTC (LDR): [value, block width, block height], the sRGB ones 0x20 after; 16 bytes a block */
+const ASTC = [[0x93B0, 4, 4], [0x93B1, 5, 4], [0x93B2, 5, 5], [0x93B3, 6, 5], [0x93B4, 6, 6], [0x93B5, 8, 5], [0x93B6, 8, 6], [0x93B7, 8, 8],
+    [0x93B8, 10, 5], [0x93B9, 10, 6], [0x93BA, 10, 8], [0x93BB, 10, 10], [0x93BC, 12, 10], [0x93BD, 12, 12]];
+/** @type {!Map<number, {name: string, block_bytes: number, channels: number, webgpu: string, block_width: number, block_height: number}>} */
+export const COMPRESSED_FORMATS = new Map([
+    ...COMPRESSED.map(([value, name, block_bytes, channels, webgpu]) => [value, { name, block_bytes, channels, webgpu, block_width: 4, block_height: 4 }]),
+    ...ASTC.flatMap(([value, w, h]) => [false, true].map(srgb => [value + (srgb ? 0x20 : 0), {
+        name: (srgb ? "COMPRESSED_SRGB8_ALPHA8_ASTC_" : "COMPRESSED_RGBA_ASTC_") + w + "x" + h, block_bytes: 16, channels: 4,
+        webgpu: "astc-" + w + "x" + h + "-unorm" + (srgb ? "-srgb" : ""), block_width: w, block_height: h, astc: true }])),
+]);
 
 /** GLES 3.0's GL_COMPRESSED_TEXTURE_FORMATS: ETC2 and EAC, and ETC1 */
 export const COMPRESSED_TEXTURE_FORMATS_3 = COMPRESSED.map(c => c[0]);
+/** GLES 3.2's: ASTC's too */
+export const COMPRESSED_TEXTURE_FORMATS_32 = [...COMPRESSED_FORMATS.keys()];
 
 /** @param {number} internalformat @return {?FormatInfo} a sized format's, or a legacy one's */
 export function format_info(internalformat)
@@ -214,7 +223,7 @@ export function compressed_bytes(internalformat, width, height, depth)
 {
     const c = COMPRESSED_FORMATS.get(internalformat);
     if(!c) return -1;
-    return Math.ceil(width / 4) * Math.ceil(height / 4) * c.block_bytes * depth;
+    return Math.ceil(width / c.block_width) * Math.ceil(height / c.block_height) * c.block_bytes * depth;
 }
 
 /**

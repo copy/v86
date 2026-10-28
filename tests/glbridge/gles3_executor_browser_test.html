@@ -32,7 +32,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
 (async () => {
     try {
         const adapter = await navigator.gpu.requestAdapter();
-        const optional = ["texture-compression-etc2", "texture-component-swizzle"].filter(f => adapter.features.has(f));
+        const optional = ["texture-compression-etc2", "texture-compression-astc", "texture-component-swizzle"].filter(f => adapter.features.has(f));
         const device = await adapter.requestDevice({ requiredFeatures: optional });
         checks.push("the adapter's optional features: " + optional.join(", "));
         const errors = [];
@@ -799,6 +799,58 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(near(pixel(window, W, 4, 4), [255, 128, 0, 255]) && near(pixel(window, W, 0, 0), [0, 0, 0, 255]),
             "a pipeline of separable programs: the vertex program's scale, the fragment program's color");
         gl("glBindProgramPipeline", 0);
+        gl("glBindVertexArray", 0);
+        record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
+        current = 1;
+
+        // ---- GLES 3.2: a cube map array's layer, an ASTC block (a void extent: one color)
+        record(GLES.CONTEXT_CREATE, 7, 3, 0, 32);
+        record(GLES.MAKE_CURRENT, 1, 7, 2, 2);
+        cpu.create_context(7, 32, 0);
+        cpu.make_current(7, { width: W, height: W, config: CONFIGS[3] });
+        current = 7;
+        names.clear();
+        const cubes32 = program(`#version 320 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 320 es
+            precision mediump float;
+            uniform mediump samplerCubeArray cubes;
+            uniform sampler2D astc;
+            uniform int which;
+            out vec4 o;
+            void main() { o = which == 0 ? texture(cubes, vec4(1.0, 0.0, 0.0, 1.0)) : texture(astc, vec2(0.5)); }`);
+        const vao32 = gen("VertexArrays");
+        gl("glBindVertexArray", vao32);
+        const quad32 = gen("Buffers");
+        gl("glBindBuffer", 0x8892, quad32);
+        gl("glBufferData", 0x8892, full.length, full, 0x88E4);
+        gl("glEnableVertexAttribArray", 0);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        const cube_array = next_texture++;
+        gl("glActiveTexture", 0x84C0);
+        gl("glBindTexture", 0x9009, cube_array);
+        // (two cubes of 1 by 1: layer-face 6 + face is cube 1's face; +X of cube 1 blue, the rest red)
+        const faces = new Uint8Array(12 * 4);
+        for(let i = 0; i < 12; i++) faces.set(i === 6 ? [0, 0, 255, 255] : [255, 0, 0, 255], 4 * i);
+        gl("glTexImage3D", 0x9009, 0, 0x8058, 1, 1, 12, 0, 0x1908, 0x1401, faces);
+        gl("glTexParameteri", 0x9009, 0x2801, 0x2600);
+        gl("glUniform1i", cubes32.at("cubes"), 0);
+        gl("glUniform1i", cubes32.at("which"), 0);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 0, 255, 255]), "a cube map array's cube 1, +X");
+        const astc = next_texture++;
+        gl("glActiveTexture", 0x84C1);
+        gl("glBindTexture", 0x0DE1, astc);
+        gl("glCompressedTexImage2D", 0x0DE1, 0, 0x93B0, 4, 4, 0, 16,
+            new Uint8Array([0xFC, 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0xFF, 0xFF]));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glActiveTexture", 0x84C0);
+        gl("glUniform1i", cubes32.at("astc"), 1);
+        gl("glUniform1i", cubes32.at("which"), 1);
+        gl("glDrawArrays", 5, 0, 4);
+        if(device.features.has("texture-compression-astc")) {
+            check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 0, 0, 255]), "an ASTC 4x4 block");
+        }
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;
