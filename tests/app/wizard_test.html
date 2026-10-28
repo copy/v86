@@ -641,7 +641,11 @@ const parts = {
         dialog.querySelector("li[data-item=android]").click();
         const panel = await until(() => dialog.querySelector(".settings-panel[aria-label=Android]"), "the Android panel");
         const wipe = Array.from(panel.querySelectorAll("button")).find(b => b.textContent === "Wipe user data…");
-        check(wipe && wipe.disabled && !panel.querySelector("select[aria-label=GPU]"), "the emulator image's panel: no wipe, no GPU");
+        // (no wipe; the GPU: the host's or the guest's CPU; the GLES version the host's GPU announces, 3.1 by default)
+        const gpu = panel.querySelector("select[aria-label=GPU]"), gles = panel.querySelector("select[aria-label='GLES version']");
+        const chosen = select => select && select.options[select.selectedIndex].textContent;
+        check(wipe && wipe.disabled && gpu && gpu.options.length === 2 && /host's GPU/.test(chosen(gpu)) && /^GLES 3\.1/.test(chosen(gles)),
+            "the emulator image's panel: no wipe; the GPU, the GLES version: " + chosen(gpu) + " / " + chosen(gles));
         const machine = dialog.querySelector("li[data-item=processor]");
         machine.click();
         const cpu = await until(() => dialog.querySelector(".settings-panel select[aria-label=CPU]"), "the CPU");
