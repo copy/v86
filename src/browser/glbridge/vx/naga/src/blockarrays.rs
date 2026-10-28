@@ -124,7 +124,7 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
         if length < 1 || !own_bindings && (length > ELEMENTS_A_BINDING || binding > LAST_BINDING) {
             continue;
         }
-        arrays.push((w[2], pointer[2], array[2], length, set, binding, own_bindings));
+        arrays.push((w[2], pointer[2], array[2], length, set, binding, own_bindings, w[1], pointer[3]));
     }
     if arrays.is_empty() {
         return words.to_vec();
@@ -175,7 +175,7 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
     let mut annotations: Vec<Vec<u32>> = Vec::new();
     let mut elements: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
     let mut pointers: BTreeMap<(u32, u32), u32> = types.values().filter(|w| op(w) == OP_TYPE_POINTER && w.len() >= 4).map(|w| ((w[2], w[3]), w[1])).collect();
-    for &(var, class, block, length, set, binding, own_bindings) in &arrays {
+    for &(var, class, block, length, set, binding, own_bindings, ..) in &arrays {
         let pointer = match pointers.get(&(class, block)) {
             Some(&p) => p,
             None => {
@@ -201,6 +201,20 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
         }
         elements.insert(var, list);
     }
+    // the arrays' pointer and array types where nothing else names them (an array of blocks with an unsized array, which
+    // naga refuses to declare at all)
+    const OP_NAME: u32 = 5;
+    let naming = |w: &[u32]| matches!(op(w), OP_NAME | OP_DECORATE);
+    let variables: BTreeSet<u32> = arrays.iter().map(|a| a.0).collect();
+    let dead_pointers: BTreeSet<u32> = arrays.iter().map(|a| a.7).filter(|&p| !instructions.iter().any(|w| {
+        let defines = op(w) == OP_TYPE_POINTER && w[1] == p || op(w) == OP_VARIABLE && w.len() >= 3 && variables.contains(&w[2]);
+        !defines && !naming(w) && w[1..].contains(&p)
+    })).collect();
+    let dead_arrays: BTreeSet<u32> = arrays.iter().filter(|a| dead_pointers.contains(&a.7)).map(|a| a.8).filter(|&t| !instructions.iter().any(|w| {
+        let defines = op(w) == OP_TYPE_ARRAY && w[1] == t || op(w) == OP_TYPE_POINTER && dead_pointers.contains(&w[1]);
+        !defines && !naming(w) && w[1..].contains(&t)
+    })).collect();
+    let dead = |id: u32| dead_pointers.contains(&id) || dead_arrays.contains(&id);
     let first_global = instructions.iter().position(|w| matches!(op(w), 19..=39 | 41..=52 | OP_VARIABLE)).unwrap_or(first_function);
     let mut out = words[..5].to_vec();
     for (i, w) in instructions.iter().enumerate() {
@@ -215,8 +229,8 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
             }
         }
         let o = op(w);
-        // the arrays' variables and their decorations go, and the marker
-        if marker(w) {
+        // the arrays' variables and their decorations go, and the marker, and the types nothing names
+        if marker(w) || matches!(o, OP_TYPE_POINTER | OP_TYPE_ARRAY) && dead(w[1]) || naming(w) && w.len() >= 2 && dead(w[1]) {
             continue;
         }
         if o == OP_VARIABLE && w.len() >= 3 && elements.contains_key(&w[2]) || o == OP_DECORATE && w.len() >= 2 && elements.contains_key(&w[1]) {
