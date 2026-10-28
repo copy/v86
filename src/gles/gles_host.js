@@ -33,6 +33,7 @@
 // the page and gives it that state back ("gles_restore"), on whatever
 // renderer the machine has now. No graphics journal is replayed.
 
+import { pack_program } from "./glsl_program.js";
 import { GLESStream } from "./gles_stream.js";
 import { RenderControl } from "./render_control.js";
 import { CONFIGS } from "./gles_caps.js";
@@ -53,8 +54,10 @@ export const MAX_IN_FLIGHT = 2;
  * @param {function(!Uint8Array, number, number)=} present the screen's
  *     (the frames the page reads back when it shows them nowhere itself)
  */
-export function GLESHost(display, renderer, present)
+export function GLESHost(display, renderer, present, options)
 {
+    /** glslang (the plugin's prepare) and the highest version announced (docs/gles3-plan.md) */
+    this.options = options || {};
     /** the screen: a posted frame read back (RGBA rows from the top) */
     this.present = present || (() => {});
     this.rc = new RenderControl(display);
@@ -68,7 +71,9 @@ export function GLESHost(display, renderer, present)
 GLESHost.prototype.reset = function()
 {
     this.rc.reset();
+    this.rc.max_version = { "3.0": 30, "3.1": 31, "3.2": 32 }[this.options.max_version] || 20;
     this.shadow = new GLESShadow(this.rc);
+    this.shadow.glslang = this.options.glslang || null;
     this.writer = new GXWriter(GLES_MAGIC);
     this.next_connection = 1;
     this.next_puid = 1;
@@ -200,6 +205,13 @@ GLESHost.prototype.gl_call = function(conn, command, args, bytes)
         this.record(GLES.READ_PIXELS, [conn.id, request.id, x, y, width, height, format, type]);
         this.flush();
         return request.done;
+    }
+    // (a link through glslang: its result first, which the page links with)
+    if(keep && command.name === "glLinkProgram" && this.shadow.last_link)
+    {
+        const packed = pack_program(this.shadow.last_link);
+        this.record(GLES.PROGRAM_LINK, [conn.id, args[0] >>> 0, packed.length], packed);
+        this.shadow.last_link = null;
     }
     if(keep) this.record(GLES.COMMAND, [conn.id, ret >>> 0, bytes.length], bytes);
     else if(!is_query(command.name))

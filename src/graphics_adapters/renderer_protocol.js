@@ -147,6 +147,8 @@ export const GLES = {
     FLUSH_SURFACE: 16,      // surface: what was drawn to it is its color buffer's (rcFlushWindowColorBuffer)
     READ_PIXELS: 17,        // connection, request id, x, y, width, height, format, type (glReadPixels)
     CONNECTION_CLOSE: 18,   // connection (nothing is current on it any more)
+    PROGRAM_LINK: 19,       // connection, program, byte length, then the link's result (glsl_program.js's pack_program):
+                            // before its glLinkProgram, which the page then links with it (it has no glslang)
 };
 
 /**

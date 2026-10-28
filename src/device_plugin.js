@@ -68,6 +68,18 @@ export function default_tpm_wasm_path()
     return "build/libtpms.wasm";
 }
 
+/**
+ * The GLES host's GLSL ES compiler (build/glslang.wasm, docs/gles3-plan.md)
+ * where gles_glslang_path does not say: beside the bundle, as the plugins
+ * @return {string}
+ */
+export function default_glslang_wasm_path()
+{
+    if(BUNDLE_URL) return beside_bundle("glslang.wasm");
+    if(NODE && typeof __dirname === "string") return __dirname + "/glslang.wasm";
+    return "build/glslang.wasm";
+}
+
 /** A plugin slot's snapshot entry: [tag, STATE_VERSION, name, device state] */
 const STATE_VERSION = 1;
 

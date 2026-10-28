@@ -326,3 +326,65 @@ export function link_glslang_program(glslang, shaders, options)
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,
         bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size };
 }
+
+/** What of a link's result the page needs (it has no glslang): the GL view, the bindings, the SPIR-V */
+const PACKED_FIELDS = ["ok", "log", "attributes", "uniforms", "blocks", "storage_blocks", "bindings", "local_size", "default_block_size"];
+
+/**
+ * A link's result as bytes (GLES.PROGRAM_LINK's): a u32 JSON length, the
+ * JSON, padding to 4, then each stage's u32 word count and words
+ * @param {!Object} info link_glslang_program's
+ * @return {!Uint8Array}
+ */
+export function pack_program(info)
+{
+    const json = new TextEncoder().encode(JSON.stringify(Object.assign(Object.fromEntries(PACKED_FIELDS.map(f => [f, info[f]])),
+        { stages: info.spirv.map(m => [m.stage, m.model]) })));
+    const head = 4 + (json.length + 3 & ~3);
+    const bytes = new Uint8Array(head + info.spirv.reduce((n, m) => n + 4 + 4 * m.words.length, 0));
+    const view = new DataView(bytes.buffer);
+    view.setUint32(0, json.length, true);
+    bytes.set(json, 4);
+    let at = head;
+    for(const m of info.spirv)
+    {
+        view.setUint32(at, m.words.length, true);
+        bytes.set(new Uint8Array(m.words.buffer, m.words.byteOffset, m.words.byteLength), at + 4);
+        at += 4 + 4 * m.words.length;
+    }
+    return bytes;
+}
+
+/**
+ * pack_program's bytes as the result again (the locations' maps made anew)
+ * @param {!Uint8Array} bytes
+ * @return {!Object}
+ */
+export function unpack_program(bytes)
+{
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const length = view.getUint32(0, true);
+    const info = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + length)));
+    let at = 4 + (length + 3 & ~3);
+    info.spirv = info.stages.map(([stage, model]) =>
+    {
+        const count = view.getUint32(at, true);
+        const words = new Uint32Array(bytes.slice(at + 4, at + 4 + 4 * count).buffer);
+        at += 4 + 4 * count;
+        return { stage, model, words };
+    });
+    delete info.stages;
+    info.locations = new Map();
+    info.by_location = [];
+    for(const u of info.uniforms)
+    {
+        if(u.location < 0) continue;
+        info.locations.set(u.base, u.location);
+        for(let i = 0; i < u.size; i++)
+        {
+            if(u.size > 1 || u.name !== u.base) info.locations.set(u.base + "[" + i + "]", u.location + i);
+            info.by_location[u.location + i] = { uniform: u, element: i };
+        }
+    }
+    return info;
+}

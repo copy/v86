@@ -435,6 +435,9 @@ A64CPU.prototype.init = function(settings, device_bus)
                 "renderer": settings.graphics_adapter_renderer || null,
                 // (the posted frames the page read back: the framebuffer device shows them)
                 "present": (rgba, width, height) => this.devices["goldfish_fb"].present(rgba, width, height),
+                // (its plugin's prepare: glslang, docs/gles3-plan.md)
+                "prepared": settings.gles_prepared || null,
+                "max_version": settings.ranchu_gles_version || "2.0",
             });
         }
         const gles = this.devices.gles;
@@ -451,6 +454,8 @@ A64CPU.prototype.init = function(settings, device_bus)
             "display": { "width": 800, "height": 600, "dpi": 160 },
             "renderer": settings.graphics_adapter_renderer || null,
             "present": () => {},
+            "prepared": settings.gles_prepared || null,
+            "max_version": settings.ranchu_gles_version || "2.0",
         });
         const gles = this.devices.gles;
         this.devices.backdoor = new BackdoorA32(this, (name, wake, ...saved) => gles.device["service"](name, wake, ...saved));

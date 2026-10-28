@@ -31,6 +31,7 @@ import { ff_inputs, ff_signature, ff_snapshot, unit_texture } from "./gles1_draw
 import { UNITS } from "../gles1_state.js";
 import { SHADOW_CLASSES } from "../gles_shadow.js";
 import { pack, shadow_skip, unpack } from "../gles_snapshot.js";
+import { unpack_program } from "../glsl_program.js";
 
 const U = globalThis.GPUTextureUsage || { COPY_SRC: 1, COPY_DST: 2, TEXTURE_BINDING: 4, STORAGE_BINDING: 8, RENDER_ATTACHMENT: 16 };
 const B = globalThis.GPUBufferUsage || { MAP_READ: 1, MAP_WRITE: 2, COPY_SRC: 4, COPY_DST: 8, INDEX: 16, VERTEX: 32, UNIFORM: 64 };
@@ -238,6 +239,15 @@ GLESExecutor.prototype.run = function(record)
             return undefined;
         }
         case "CONNECTION_CLOSE": this.conns.delete(record.conn); return undefined;
+        case "PROGRAM_LINK":
+        {
+            // (glslang's link of a program, for the glLinkProgram after it: the page has no glslang)
+            const conn = this.conns.get(record.conn);
+            const c = conn && this.shadow.context(conn.context);
+            const program = c && c.group.objects.get(record.program);
+            if(program && program.kind === "program") program.provided = unpack_program(record.bytes);
+            return undefined;
+        }
         case "COLOR_BUFFER_CREATE":
         {
             const texture = this.device.createTexture({ label: "color buffer " + record.color_buffer, size: [record.width, record.height],

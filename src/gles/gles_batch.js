@@ -27,6 +27,7 @@ export const GLES_FIELDS = {
     FLUSH_SURFACE: ["surface"],
     READ_PIXELS: ["conn", "request", "x", "y", "width", "height", "format", "type"],
     CONNECTION_CLOSE: ["conn"],
+    PROGRAM_LINK: ["conn", "program", "length"],
 };
 
 /** Record names by opcode */
@@ -63,7 +64,7 @@ export function read_gles_batch(bytes, decode)
         if(!fields || at + 2 + body > words.length || body < fields.length) throw new Error(`GLES batch: record ${i}: op ${op}, ${body} dwords`);
         const record = { op, name };
         fields.forEach((field, j) => { record[field] = words[at + 2 + j]; });
-        const length = name === "COMMAND" || name === "COLOR_BUFFER_UPDATE" ? record.length : 0;
+        const length = name === "COMMAND" || name === "COLOR_BUFFER_UPDATE" || name === "PROGRAM_LINK" ? record.length : 0;
         if(length)
         {
             const start = (at + 2 + fields.length) * 4;

@@ -1003,6 +1003,20 @@ export interface V86Options {
     ranchu_gpu?: "guest" | "host";
 
     /**
+     * machine_type "ranchu", ranchu_gpu "host": the highest OpenGL ES version
+     * the GLES host announces (ANDROID_EMU_gles_max_version_*; the guest's
+     * contexts and ro.opengles.version follow it; docs/gles3-plan.md)
+     * @default "2.0"
+     */
+    ranchu_gles_version?: "2.0" | "3.0" | "3.1" | "3.2";
+
+    /**
+     * The GLES host's GLSL ES compiler (glslang, ranchu_gpu "host")
+     * @default beside the bundle, glslang.wasm
+     */
+    gles_glslang_path?: string;
+
+    /**
      * The GLES host's plugin file (ranchu_gpu "host", gles_backdoor)
      * @default beside the bundle, v86-gles.js
      */

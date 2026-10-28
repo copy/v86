@@ -147,7 +147,7 @@ const HANDLERS = {
         const text = EGL_STRINGS.get(name);
         return text === undefined ? 0 : string_reply(text, buffer);
     },
-    "rcGetGLString": (rc, conn, [name, buffer]) => string_reply(gl_string(name, rc.current_api(conn)), buffer),
+    "rcGetGLString": (rc, conn, [name, buffer]) => string_reply(gl_string(name, rc.current_api(conn), rc.max_version), buffer),
     "rcGetNumConfigs": (rc, conn, [num_attribs]) =>
     {
         put_u32s(num_attribs, [CONFIG_ATTRIBUTES.length]);
@@ -190,11 +190,15 @@ const HANDLERS = {
     },
     "rcCreateContext": (rc, conn, [config, share, api]) =>
     {
-        if(!CONFIGS[config] || share && !rc.contexts.has(share) || api < GLES_API_CM || api > 2) return 0;
+        // (the guest asks 3 for GLES 3.0, 4 for 3.1 and 3.2: such a context is
+        // the highest version announced, which EGL allows; its "api" is that
+        // version, 30 to 32, past GLES 1.1's 1 and 2.0's 2)
+        if(!CONFIGS[config] || share && !rc.contexts.has(share) || api < GLES_API_CM || api > (rc.max_version >= 30 ? 4 : 2)) return 0;
+        const level = api >= 3 ? rc.max_version : api;
         const handle = rc.handle();
         const group = share ? rc.contexts.get(share).share || share : 0;
-        rc.contexts.set(handle, { config, share: group, api, owner: owner_of(conn) });
-        rc.events("context_create", handle, config, group, api);
+        rc.contexts.set(handle, { config, share: group, api: level, owner: owner_of(conn) });
+        rc.events("context_create", handle, config, group, level);
         return handle;
     },
     "rcDestroyContext": (rc, conn, [context]) => { if(rc.contexts.delete(context)) rc.events("context_destroy", context); },

@@ -13,7 +13,8 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
-import { AUDIO_PLUGINS, GLES_PLUGINS, NET_PLUGINS, TPM_PLUGINS, USB_PLUGINS, default_tpm_wasm_path, load_device_plugin } from "../device_plugin.js";
+import { AUDIO_PLUGINS, GLES_PLUGINS, NET_PLUGINS, TPM_PLUGINS, USB_PLUGINS, default_glslang_wasm_path, default_tpm_wasm_path,
+    load_device_plugin } from "../device_plugin.js";
 import { check_machine_options, is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
@@ -663,6 +664,7 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.ranchu_display) settings.ranchu_display = Object.assign({}, options.ranchu_display);
     if(options.ranchu_properties) settings.ranchu_properties = Object.assign({}, options.ranchu_properties);
     if(options.ranchu_gpu) settings.ranchu_gpu = options.ranchu_gpu;
+    if(options.ranchu_gles_version) settings.ranchu_gles_version = options.ranchu_gles_version;
     // (arm32's GLES backdoor: the GLES host's services for user code, src/arm/backdoor_a32.js)
     if(options.gles_backdoor) settings.gles_backdoor = true;
 
@@ -1357,6 +1359,12 @@ V86.prototype.continue_init = async function(emulator, options)
         if(settings.ranchu_gpu === "host" || settings.gles_backdoor)
         {
             settings.gles_plugin = await load_device_plugin(GLES_PLUGINS, "gles", options.ranchu_gpu_path, "ranchu_gpu_path");
+            // (its GLSL ES compiler, glslang: GLSL ES 3.x's shaders; docs/gles3-plan.md)
+            if(settings.gles_plugin["prepare"])
+            {
+                const glslang = await load_whole_file("gles_glslang_path", options.gles_glslang_path || default_glslang_wasm_path());
+                settings.gles_prepared = await settings.gles_plugin["prepare"]({ "glslang": glslang });
+            }
             // (no WebGPU, no renderer: say so rather than draw nothing)
             if(!settings.graphics_adapter_renderer)
             {

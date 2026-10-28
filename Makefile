@@ -188,7 +188,8 @@ USB_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/device_machine.js
 # the TPM's (tpm: docs/tpm.md), with its module (bios/libtpms.wasm, tools/libtpms/build.sh) beside it
 TPM_PLUGINS=build/v86-tpm.js build/libtpms.wasm
 # the ranchu machine's GLES host (ranchu_gpu "host": docs/gles-proxy-plan.md)
-GLES_PLUGINS=build/v86-gles.js
+# the GLES host's, with its GLSL ES compiler (bios/glslang.wasm, tools/glslang/build.sh) beside it
+GLES_PLUGINS=build/v86-gles.js build/glslang.wasm
 DEVICE_PLUGINS=$(GRAPHICS_ADAPTER_PLUGINS) $(NET_ADAPTER_PLUGINS) $(AUDIO_DEVICE_PLUGINS) $(USB_PLUGINS) $(TPM_PLUGINS) $(GLES_PLUGINS)
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
@@ -296,6 +297,10 @@ build/v86-tpm.js: $(CLOSURE) src/*.js src/tpm/*.js
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--output_wrapper ';(function(){%output%}).call(this);' \
 		--js $(USB_COMMON) --js src/tpm/libtpms.js --js src/tpm/crb.js --js src/tpm/store.js --js src/tpm/plugin.js
+
+build/glslang.wasm: bios/glslang.wasm
+	mkdir -p build
+	cp bios/glslang.wasm $@
 
 build/libtpms.wasm: bios/libtpms.wasm
 	mkdir -p build
@@ -2030,11 +2035,12 @@ ios-tests:
 # state against GLES 2.0's rules, the batches (no guest, no page); the
 # plugin builds
 .PHONY: gles-tests
-gles-tests: build/v86-gles.js
+gles-tests: build/v86-gles.js build/glslang.wasm
 	node tests/gles/protocol.mjs
 	node tests/gles/stream.mjs
 	node tests/gles/render_control.mjs
 	node tests/gles/shadow.mjs
+	node tests/gles/shadow3.mjs
 	node tests/gles/batch.mjs
 	node tests/gles/snapshot.mjs
 	node tests/gles/shader_corpus.mjs

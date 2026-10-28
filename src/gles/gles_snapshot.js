@@ -130,7 +130,10 @@ export function unpack(packed, classes = {})
  */
 export function shadow_skip(key, owner)
 {
-    return key === "gpu" || owner.kind === "shader" && key === "compiled" || owner.kind === "program" && key === "info";
+    // (a program glslang linked keeps its result where nothing can link it
+    // again: on the page; the CPU side links it again, as the rest)
+    return key === "gpu" || owner.kind === "shader" && key === "compiled" ||
+        owner.kind === "program" && key === "info" && !(owner.link && owner.link.glslang && owner.keep_info);
 }
 
 /**
@@ -138,7 +141,7 @@ export function shadow_skip(key, owner)
  * (after unpack)
  * @param {!Map<*, {objects: !Map<number, !Object>}>} groups the shadow's share groups
  */
-export function relink(groups)
+export function relink(groups, shadow)
 {
     const cache = new Map();
     const compiled = (source, stage) =>
@@ -154,7 +157,16 @@ export function relink(groups)
             if(object.kind === "shader")
             {
                 object.compiled = object.compiled_source === null || object.compiled_source === undefined ? null :
+                    shadow ? shadow.compile(object.compiled_source, object.type) :
                     compiled(object.compiled_source, object.type === 0x8B31 ? "vertex" : "fragment");
+            }
+            else if(object.kind === "program" && object.link && object.link.glslang)
+            {
+                // (glslang's: linked again on the CPU side; the page kept its result)
+                if(object.info) continue;
+                const shaders = object.link.shaders.map(([type, source]) => ({ type, compiled_source: source,
+                    compiled: shadow.compile(source, type) }));
+                object.info = shadow.link(object, shaders);
             }
             else if(object.kind === "program")
             {

@@ -156,24 +156,36 @@ const EXTENSIONS = {
     2: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_compressed_ETC1_RGB8_texture", "GL_OES_element_index_uint",
         "GL_OES_depth24", "GL_OES_packed_depth_stencil", "GL_OES_rgb8_rgba8", "GL_OES_texture_npot", "GL_OES_standard_derivatives",
         "GL_EXT_texture_format_BGRA8888"],
+    // (GLES 3.x: what 3.0 does not have of the above, docs/gles3-plan.md)
+    3: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_EGL_image_external_essl3", "GL_OES_compressed_ETC1_RGB8_texture",
+        "GL_EXT_texture_format_BGRA8888"],
 };
 
 /**
  * What rcGetGLString answers: the strings of the connection's current
- * context's API (1: GLES 1.1, 2: GLES 2.0; none current: 2.0's)
+ * context's API (1: GLES 1.1, 2: GLES 2.0, 30 to 32: GLES 3.0 to 3.2;
+ * none current: 2.0's). The extensions end with the host's feature string
+ * of the highest version announced (ANDROID_EMU_gles_max_version_3_*),
+ * which the guest's libraries look for there (docs/gles3-plan.md).
  * @param {number} name
  * @param {number} api
+ * @param {number=} max_version 20 to 32
  * @return {string} "" for a name it does not know
  */
-export function gl_string(name, api)
+export function gl_string(name, api, max_version)
 {
+    const es3 = api >= 30;
     switch(name)
     {
         case GL_VENDOR: return "v86";
         case GL_RENDERER: return "v86 GLES (WebGPU)";
-        case GL_VERSION: return api === 1 ? "OpenGL ES-CM 1.1 v86" : "OpenGL ES 2.0 v86";
-        case GL_EXTENSIONS: return EXTENSIONS[api === 1 ? 1 : 2].join(" ") + " ";
-        case GL_SHADING_LANGUAGE_VERSION: return api === 1 ? "" : "OpenGL ES GLSL ES 1.00";
+        case GL_VERSION: return api === 1 ? "OpenGL ES-CM 1.1 v86" : es3 ? "OpenGL ES " + (api / 10).toFixed(1) + " v86" : "OpenGL ES 2.0 v86";
+        case GL_EXTENSIONS:
+        {
+            const feature = max_version >= 30 ? "ANDROID_EMU_gles_max_version_" + (max_version / 10).toFixed(1).replace(".", "_") + " " : "";
+            return EXTENSIONS[api === 1 ? 1 : es3 ? 3 : 2].join(" ") + " " + feature;
+        }
+        case GL_SHADING_LANGUAGE_VERSION: return api === 1 ? "" : es3 ? "OpenGL ES GLSL ES " + (api / 10).toFixed(2) : "OpenGL ES GLSL ES 1.00";
     }
     return "";
 }

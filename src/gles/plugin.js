@@ -11,9 +11,18 @@
 
 import { register_device_plugin } from "../device_machine.js";
 import { GLESHost } from "./gles_host.js";
+import { compile_glslang, create_glslang } from "./glslang.js";
 
 register_device_plugin("V86GlesHosts", {
     "name": "gles",
+
+    /**
+     * Before the machine: glslang compiled and instantiated (asynchronous;
+     * docs/gles3-plan.md)
+     * @param {!Object} options "glslang": build/glslang.wasm's bytes
+     * @return {!Promise<?Object>}
+     */
+    "prepare": async options => options["glslang"] ? create_glslang(await compile_glslang(options["glslang"])) : null,
 
     /**
      * @param {!Object} handle
@@ -25,7 +34,7 @@ register_device_plugin("V86GlesHosts", {
     {
         const display = options["display"];
         const host = new GLESHost({ width: display["width"], height: display["height"], dpi: display["dpi"] }, options["renderer"] || null,
-            options["present"]);
+            options["present"], { glslang: options["prepared"] || null, max_version: options["max_version"] || "2.0" });
         return {
             // (a service as src/virt/goldfish.js takes one; with a snapshot's state of it)
             "service": (name, wake, saved) => host.service(name, wake, saved),

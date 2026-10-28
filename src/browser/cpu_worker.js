@@ -3,7 +3,7 @@ import { state_stream_server } from "./state_stream_transport.js";
 // in the worker; this side owns DOM adapters and asynchronous GPU execution.
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
-import { default_plugin_path, default_tpm_wasm_path } from "../device_plugin.js";
+import { default_glslang_wasm_path, default_plugin_path, default_tpm_wasm_path } from "../device_plugin.js";
 import { is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 /**
@@ -114,6 +114,8 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         // (the ranchu machine's GPU mode; the GLES host's plugin by an absolute URL, as the other plugins')
         "ranchu_gpu": o.ranchu_gpu,
         "ranchu_gpu_path": new URL(o.ranchu_gpu_path || default_plugin_path("gles"), location.href).href,
+        "gles_glslang_path": new URL(o.gles_glslang_path || default_glslang_wasm_path(), location.href).href,
+        "ranchu_gles_version": o.ranchu_gles_version,
         "gles_backdoor": o.gles_backdoor,
         "virtio_disks": o.virtio_disks && o.virtio_disks.map(disk => Object.assign({}, file(disk), { "readonly": disk.readonly, "id": disk.id })),
         "virtio_rng": o.virtio_rng, "virtio_input": o.virtio_input, "virtio_transport": o.virtio_transport,

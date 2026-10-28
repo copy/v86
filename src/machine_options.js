@@ -168,7 +168,7 @@ export function check_machine_options(options)
         throw new Error("machine_type must be one of " + MACHINE_TYPES.map(m => "\"" + m + "\"").join(", ") +
             ", got " + JSON.stringify(machine_type));
     }
-    for(const name of ["ranchu_display", "ranchu_properties", "ranchu_gpu"])
+    for(const name of ["ranchu_display", "ranchu_properties", "ranchu_gpu", "ranchu_gles_version"])
     {
         if(options[name] !== undefined && machine_type !== "ranchu") throw new Error(name + " is an option of machine_type \"ranchu\"");
     }
@@ -176,6 +176,11 @@ export function check_machine_options(options)
     if(options["ranchu_gpu"] !== undefined && !["guest", "host"].includes(options["ranchu_gpu"]))
     {
         throw new Error("ranchu_gpu must be \"guest\" or \"host\", got " + JSON.stringify(options["ranchu_gpu"]));
+    }
+    // (the highest GLES version the GLES host announces, docs/gles3-plan.md)
+    if(options["ranchu_gles_version"] !== undefined && !["2.0", "3.0", "3.1", "3.2"].includes(options["ranchu_gles_version"]))
+    {
+        throw new Error("ranchu_gles_version must be \"2.0\", \"3.0\", \"3.1\" or \"3.2\", got " + JSON.stringify(options["ranchu_gles_version"]));
     }
     // (the GLES backdoor of arm32's user code, docs/gles-proxy-plan.md "iOS 传输": the iOS machine's, the virt machine's in tests)
     if(options["gles_backdoor"] !== undefined && typeof options["gles_backdoor"] !== "boolean")
