@@ -183,8 +183,11 @@ void json_reflection(std::string& out, glslang::TProgram& program)
     out += ']';
 }
 
+// (IntermediateIO: the inputs of the program's first stage and the outputs of its last, GL's PROGRAM_INPUT and _OUTPUT;
+// without it, the vertex stage's and the fragment stage's only, none of a separable fragment or vertex program)
 const int CHECK_REFLECTION = EShReflectionBasicArraySuffix | EShReflectionStrictArraySuffix | EShReflectionSeparateBuffers |
-    EShReflectionAllBlockVariables | EShReflectionUnwrapIOBlocks | EShReflectionSharedStd140SSBO | EShReflectionSharedStd140UBO;
+    EShReflectionAllBlockVariables | EShReflectionUnwrapIOBlocks | EShReflectionSharedStd140SSBO | EShReflectionSharedStd140UBO |
+    EShReflectionIntermediateIO;
 
 /** A shader of the check pass: GL ES at its own version, no SPIR-V */
 std::unique_ptr<glslang::TShader> check_shader(const Source& source, bool& ok)

@@ -212,6 +212,37 @@ export function link_glslang_program(glslang, shaders, options)
         return empty("ERROR: internal compiler error: " + (e && e.message || e));
     }
     if(!code.ok) return empty("ERROR: internal compiler error (SPIR-V): " + code.log);
+    // transform feedback of array elements and struct members ("v[1]",
+    // "s.a"): the last stage before the fragment shader copies each into an
+    // output of its own after its main (_v86_xfb<i>, captured whole)
+    const parts = options.tf ? options.tf.names.filter(n => /[[.]/.test(n) && !n.startsWith("gl_")) : [];
+    if(parts.length)
+    {
+        let index = shaders.length - 1;
+        while(index >= 0 && (shaders[index].stage === "fragment" || shaders[index].stage === "compute")) index--;
+        const module = index >= 0 && code.modules.find(x => x.stage === STAGE[shaders[index].stage]);
+        const m = module && parse_spirv(new Uint32Array(module.words));
+        const explicit = /\blayout\s*\([^)]*\blocation\b[^)]*\)\s*(?:(?:flat|smooth|centroid|highp|mediump|lowp|invariant)\s+)*out\b/.test(shaders[index].source);
+        let source = rewritten[index].source.replace(/\bmain\b(?=\s*\()/g, "_v86_main");
+        let copies = "";
+        for(const [i, name] of parts.entries())
+        {
+            const type = m && element_type(m, renamed(name, renames));
+            if(!type) return empty("ERROR: transform feedback varying " + name + " is not an output of the vertex shader");
+            source += `\n${explicit ? `layout(location = ${15 - i}) ` : ""}${type.integer ? "flat " : ""}out highp ${type.glsl} _v86_xfb${i};`;
+            copies += ` _v86_xfb${i} = ${renamed(name, renames)};`;
+        }
+        rewritten[index] = Object.assign({}, rewritten[index], { source: source + "\nvoid main() { _v86_main();" + copies + " }\n" });
+        try
+        {
+            code = glslang.program_spirv(shaders.map((s, i) => ({ stage: STAGE[s.stage], source: rewritten[i].source })), flags);
+        }
+        catch(e)
+        {
+            return empty("ERROR: internal compiler error: " + (e && e.message || e));
+        }
+        if(!code.ok) return empty("ERROR: transform feedback varyings " + parts.join(", ") + ": " + code.log);
+    }
     const refused = link_rules(code.modules, shaders, !!options.separable);
     if(refused) return empty(refused);
 
@@ -418,7 +449,10 @@ export function link_glslang_program(glslang, shaders, options)
         let components = 0;
         for(const name of options.tf.names)
         {
-            const v = m && varying_of(m, renamed(name, renames), name);
+            // (an element or member: its copy's output)
+            const variable = parts.includes(name) ? "_v86_xfb" + parts.indexOf(name) : renamed(name, renames);
+            const v = m && varying_of(m, variable, name);
+            if(v) v.variable = variable;
             if(!v) return empty("ERROR: transform feedback varying " + name + " is not an output of the vertex shader");
             if(tf_varyings.some(x => x.name === name)) return empty("ERROR: transform feedback varying " + name + " is named twice");
             components += v.components * v.size;
@@ -432,7 +466,7 @@ export function link_glslang_program(glslang, shaders, options)
         let offset = 0;
         last.words = add_xfb(last.words, tf_varyings.map((v, i) =>
         {
-            const capture = { name: v.name.startsWith("gl_") ? v.name : renamed(v.name, renames), buffer: interleaved ? 0 : i,
+            const capture = { name: v.name.startsWith("gl_") ? v.name : v.variable, buffer: interleaved ? 0 : i,
                 offset: interleaved ? offset : 0, stride: interleaved ? stride : v.bytes };
             offset += v.bytes;
             return capture;
@@ -696,6 +730,50 @@ function link_rules(modules, shaders, separable)
 const GL_OF = { float: [0x1406, 0x8B50, 0x8B51, 0x8B52], int: [0x1404, 0x8B53, 0x8B54, 0x8B55], uint: [0x1405, 0x8DC6, 0x8DC7, 0x8DC8],
     bool: [0x8B56, 0x8B57, 0x8B58, 0x8B59] };
 const GL_MATRICES = { 2: { 2: 0x8B5A, 3: 0x8B65, 4: 0x8B66 }, 3: { 2: 0x8B67, 3: 0x8B5B, 4: 0x8B68 }, 4: { 2: 0x8B69, 3: 0x8B6A, 4: 0x8B5C } };
+
+/**
+ * The GLSL type of an output's element or member ("v[1]", "s.a", "s[2].b"
+ * by the code pass's names), and whether it is an integer's, or null
+ * @return {?{glsl: string, integer: boolean}}
+ */
+function element_type(m, path)
+{
+    const steps = path.match(/^\w+|\[\d+\]|\.\w+/g);
+    if(!steps || steps.join("") !== path) return null;
+    const v = m.variables.find(x => x.storage === STORAGE.Output && variable_name(m, x) === steps[0] && !is_builtin(m, x));
+    if(!v) return null;
+    let id = m.types.get(v.type).pointee;
+    for(const step of steps.slice(1))
+    {
+        const t = m.types.get(id);
+        if(step[0] === "[")
+        {
+            if(!t || t.kind !== "array" || +step.slice(1, -1) >= array_length(m, t)) return null;
+            id = t.element;
+        }
+        else
+        {
+            const member = t && t.kind === "struct" ? (m.member_names.get(id) || []).indexOf(step.slice(1)) : -1;
+            if(member < 0) return null;
+            id = t.members[member];
+        }
+    }
+    const t = m.types.get(id);
+    const scalar = s => s.kind === "float" ? "" : s.signed ? "i" : "u";
+    if(t.kind === "matrix")
+    {
+        const column = m.types.get(t.column);
+        return { glsl: t.columns === column.size ? `mat${t.columns}` : `mat${t.columns}x${column.size}`, integer: false };
+    }
+    if(t.kind === "vector")
+    {
+        const s = m.types.get(t.component);
+        return s.kind === "bool" ? null : { glsl: `${scalar(s)}vec${t.size}`, integer: s.kind === "int" };
+    }
+    if(t.kind === "float") return { glsl: "float", integer: false };
+    if(t.kind === "int") return { glsl: t.signed ? "int" : "uint", integer: true };
+    return null;
+}
 
 /** An output of a module as a transform feedback varying (type, size, components, bytes), or null */
 function varying_of(m, name, gl_name)

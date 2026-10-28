@@ -806,6 +806,8 @@ export function gles3_handlers(h)
         },
         "glGetIntegeri_v": (shadow, c, [target, index, data]) => { query(shadow); indexed(c, target, index, data, false); },
         "glGetInteger64i_v": (shadow, c, [target, index, data]) => { query(shadow); indexed(c, target, index, data, true); },
+        // (GLES 3.1's; its own targets are gles31_state.js's, GLES 3.0's these)
+        "glGetBooleani_v": (shadow, c, [target, index, data]) => { query(shadow); indexed(c, target, index, data, "b"); },
 
         // ---- buffers
         "glBindBuffer": (shadow, c, [target, name]) =>
@@ -1522,6 +1524,8 @@ export function gles3_handlers(h)
             if(!program) return -1;
             if(!program.info || !program.info.ok) { fail(c, GL.INVALID_OPERATION); return -1; }
             const text = text_of(name);
+            // (a fragment shader's outputs: a separable program of another stage reflects its own)
+            if(program.info.spirv && !program.info.spirv.some(m => m.stage === "fragment")) return -1;
             const outputs = program.info.reflection && program.info.reflection.outputs || program.info.outputs || [];
             const o = outputs.find(x => x.name === text || x.name === text + "[0]" || x.name.replace(/\[0\]$/, "") === text.replace(/\[\d+\]$/, ""));
             if(!o) return -1;
@@ -1806,6 +1810,7 @@ export function gles3_handlers(h)
         return undefined;
     }
 
+    /** @param {boolean|string} wide 64-bit integers, or "b" booleans */
     function indexed(c, target, index, data, wide)
     {
         let list, field;
@@ -1821,7 +1826,8 @@ export function gles3_handlers(h)
         }
         if(index >= list.length) { fail(c, GL.INVALID_VALUE); return; }
         const value = list[index][field];
-        if(wide) put64(data, [value]);
+        if(wide === "b") put(data, [value], "b", "b");
+        else if(wide) put64(data, [value]);
         else put(data, [value], "i", "i");
     }
 

@@ -177,6 +177,25 @@ function Context(api, group)
     }
 }
 
+/**
+ * A linked program's uniform values before any glUniform*: a sampler's or
+ * image's layout(binding), its unit (an array's elements the units after
+ * it); the others 0
+ * @param {?Object} info the link's
+ * @return {!Map<number, !Array<number>>}
+ */
+function initial_values(info)
+{
+    const values = new Map();
+    if(!info || !info.ok) return values;
+    for(const u of info.uniforms)
+    {
+        if(u.opaque !== "sampler" && u.opaque !== "image" || !(u.binding > 0) || u.location < 0) continue;
+        for(let e = 0; e < u.size; e++) values.set(u.location + e, [u.binding + e]);
+    }
+    return values;
+}
+
 /** @param {number} target @return {number} the binding slot of a texture target, -1 for none */
 function texture_slot(target)
 {
@@ -1430,7 +1449,7 @@ const HANDLERS = {
             shadow.stats.link_failed++;
             if(shadow.stats.failures.length < 8) shadow.stats.failures.push(program.info.log);
         }
-        program.values = new Map();
+        program.values = initial_values(program.info);
     },
     "glValidateProgram": (shadow, c, [p]) =>
     {
@@ -1578,7 +1597,7 @@ const GLES3_HANDLERS = gles3_handlers({
 });
 
 /** GLES 3.1's handlers (gles31_state.js) over GLES 3.0's */
-const GLES31_HANDLERS = gles31_handlers({ fail, query, put, put_text, i32s, f32s, text_of, REFUSED, base: HANDLERS }, GLES3_HANDLERS);
+const GLES31_HANDLERS = gles31_handlers({ fail, query, put, put_text, i32s, f32s, text_of, REFUSED, base: HANDLERS, initial_values }, GLES3_HANDLERS);
 
 /** GL_EXTENSIONS of a GLES 3.x context, as glGetStringi counts them */
 GLESShadow.prototype.extensions3 = function()

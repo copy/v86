@@ -171,6 +171,11 @@ function resources(program, iface)
                 // one of no declared size (glslang's top level 0) has an ARRAY_SIZE of 0, glslang's the elements used)
                 const own_array = /^(?:\w+\.)?\w+\[0\]$/.test(array_name(v.name, v.size));
                 const unsized = own_array && v.topLevelArraySize === 0;
+                // (a top-level member that is no array (a struct): a top level of 1, stride 0; the name after an instance's block's)
+                const block = (reflection.bufferBlocks || [])[v.index];
+                const prefix = block ? block.name.replace(/\[\d+\]$/, "") + "." : "";
+                const top_array = /^\w+\[/.test(prefix && v.name.startsWith(prefix) ? v.name.slice(prefix.length) : v.name);
+                const top_level = own_array || !top_array;
                 // (a matrix's stride, which glslang does not reflect: its columns' (rows' if row major) vectors in the block's
                 // packing; shared and packed blocks are std430's, glsl_es_rewrite.js std_blocks)
                 const matrix = MATRICES[v.type];
@@ -179,7 +184,7 @@ function resources(program, iface)
                 return { name: array_name(v.name, v.size), props: Object.assign({
                     0x92FA: v.type, 0x92FB: unsized ? 0 : Math.max(0, v.size), 0x92FC: v.offset, 0x92FD: v.index, 0x92FE: v.arrayStride || 0,
                     0x92FF: v.matrixStride || matrix_stride, 0x9300: v.rowMajor && matrix ? 1 : 0,
-                    0x930C: own_array || v.topLevelArraySize === undefined ? 1 : v.topLevelArraySize, 0x930D: own_array ? 0 : v.topLevelArrayStride || 0,
+                    0x930C: top_level || v.topLevelArraySize === undefined ? 1 : v.topLevelArraySize, 0x930D: top_level ? 0 : v.topLevelArrayStride || 0,
                 }, stages(v.stages || 0)) };
             });
         case INTERFACES.PROGRAM_INPUT:
@@ -187,8 +192,12 @@ function resources(program, iface)
                 .map(i => ({ name: array_name(i.name, i.size), props: Object.assign({ 0x92FA: i.type, 0x92FB: Math.max(1, i.size),
                     0x930E: i.builtIn ? -1 : (info.attributes.find(a => a.name === i.name) || { location: i.location }).location }, stages(i.stages || 0)) }));
         case INTERFACES.PROGRAM_OUTPUT:
+        {
+            // (the last stage's: a fragment shader's outputs have locations, assigned at the link; another stage's, their own or -1)
+            const fragment = !info.spirv || info.spirv.some(m => m.stage === "fragment");
             return (reflection.outputs || []).map(o => ({ name: array_name(o.name, o.size), props: Object.assign({ 0x92FA: o.type,
-                0x92FB: Math.max(1, o.size), 0x930E: o.builtIn ? -1 : Math.max(0, o.location) }, stages(o.stages || 0)) }));
+                0x92FB: Math.max(1, o.size), 0x930E: o.builtIn ? -1 : fragment ? Math.max(0, o.location) : o.location }, stages(o.stages || 0)) }));
+        }
         case INTERFACES.TRANSFORM_FEEDBACK_VARYING:
             return (info.tf_varyings || []).map(v => ({ name: v.name, props: { 0x92FA: v.type, 0x92FB: v.size } }));
         case INTERFACES.ATOMIC_COUNTER_BUFFER:
@@ -228,7 +237,7 @@ function atomic_buffers(info)
  */
 export function gles31_handlers(h, H3)
 {
-    const { fail, query, put, put_text, i32s, f32s, text_of, REFUSED, base } = h;
+    const { fail, query, put, put_text, i32s, f32s, text_of, REFUSED, base, initial_values } = h;
     const { bound_buffer3, generated, new_buffer, current_tf, program_of, put64, get_attrib3, status_of } = H3.helpers;
     const GL = GL3;
 
@@ -324,8 +333,7 @@ export function gles31_handlers(h, H3)
             case 0x91BF: value = index < 3 ? [LIMITS31.MAX_COMPUTE_WORK_GROUP_SIZE[index]] : (fail(c, GL.INVALID_VALUE), null); break;
             case 0x8E52: value = index < 1 ? [c.sample_mask | 0] : (fail(c, GL.INVALID_VALUE), null); break;
             default:
-                if(as === "b") { fail(c, GL.INVALID_ENUM); return; }
-                H3[as === "64" ? "glGetInteger64i_v" : "glGetIntegeri_v"](shadow, c, [target, index, data]);
+                H3[as === "64" ? "glGetInteger64i_v" : as === "b" ? "glGetBooleani_v" : "glGetIntegeri_v"](shadow, c, [target, index, data]);
                 return;
         }
         if(!value) return;
@@ -462,6 +470,7 @@ export function gles31_handlers(h, H3)
                 { ok: false, log: compiled.log, attributes: [], uniforms: [], locations: new Map(), by_location: [], reflection: null };
             program.link = { vs: null, fs: null, bindings: [], glslang: true, shaders: [[type, source]], separable: true, tf: null };
             program.keep_info = !shadow.glslang;
+            program.values = initial_values(program.info);
             return name;
         },
 
