@@ -76,6 +76,12 @@ const MIN_FILTERS = new Set([GL3.NEAREST, GL3.LINEAR, GL3.NEAREST_MIPMAP_NEAREST
     GL3.LINEAR_MIPMAP_LINEAR]);
 const SWIZZLES = new Set([0x1903, 0x1904, 0x1905, 0x1906, 0, 1]);
 const MODES = new Set([0, 1, 2, 3, 4, 5, 6]);
+/** GLES 3.2's: lines and triangles with adjacency (a geometry shader's; without one the adjacent vertices are left out) */
+const ADJACENCY_MODES = new Set([0xA, 0xB, 0xC, 0xD]);
+/** whether a context of its version draws the mode */
+const mode_ok = (c, mode) => MODES.has(mode) || c.version >= 32 && ADJACENCY_MODES.has(mode);
+/** the modes a geometry shader of each input type takes (GLES 3.2 11.3.4.1) */
+const GEOMETRY_MODES = new Map([[0x0000, [0]], [0x0001, [1, 2, 3]], [0x0004, [4, 5, 6]], [0x000A, [0xA, 0xB]], [0x000C, [0xC, 0xD]]]);
 const INDEX_TYPES = new Set([0x1401, 0x1403, 0x1405]);
 const QUERY_TARGETS = new Set([GL3.ANY_SAMPLES_PASSED, GL3.ANY_SAMPLES_PASSED_CONSERVATIVE, GL3.TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN]);
 
@@ -578,11 +584,22 @@ export function gles3_handlers(h)
         return true;
     };
 
+    /** The draw's geometry shader's layout (link_glslang_program's `geometry`), or null */
+    const geometry_of = c =>
+    {
+        const pipeline = !c.program && c.program_pipelines && c.program_pipelines.get(c.program_pipeline);
+        const program = c.group.objects.get(c.program || pipeline && pipeline.stages[4]);
+        return program && program.info && program.info.ok && program.info.geometry || null;
+    };
+
     /** A draw's checks: mode, counts, the framebuffer, transform feedback */
     const draw_checks = (shadow, c, mode, count, instances, elements, type) =>
     {
-        if(!MODES.has(mode) || elements && !INDEX_TYPES.has(type)) return fail(c, GL.INVALID_ENUM);
+        if(!mode_ok(c, mode) || elements && !INDEX_TYPES.has(type)) return fail(c, GL.INVALID_ENUM);
         if(count < 0 || instances < 0) return fail(c, GL.INVALID_VALUE);
+        // (a geometry shader takes the modes of its input type)
+        const geometry = c.version >= 32 ? geometry_of(c) : null;
+        if(geometry && !(GEOMETRY_MODES.get(geometry.input) || []).includes(mode)) return fail(c, GL.INVALID_OPERATION);
         if(!complete(c, false)) return REFUSED;
         if(!tf_draw(shadow, c, mode, count, instances, elements)) return REFUSED;
         const occlusion = [GL.ANY_SAMPLES_PASSED, GL.ANY_SAMPLES_PASSED_CONSERVATIVE].map(t => c.active_queries.get(t)).filter(Boolean);
@@ -941,12 +958,12 @@ export function gles3_handlers(h)
         // ---- drawing
         "glDrawArrays": (shadow, c, [mode, first, count]) =>
         {
-            if(first < 0) return MODES.has(mode) ? fail(c, GL.INVALID_VALUE) : fail(c, GL.INVALID_ENUM);
+            if(first < 0) return mode_ok(c, mode) ? fail(c, GL.INVALID_VALUE) : fail(c, GL.INVALID_ENUM);
             return draw_checks(shadow, c, mode, count, 1, false);
         },
         "glDrawArraysInstanced": (shadow, c, [mode, first, count, instances]) =>
         {
-            if(first < 0) return MODES.has(mode) ? fail(c, GL.INVALID_VALUE) : fail(c, GL.INVALID_ENUM);
+            if(first < 0) return mode_ok(c, mode) ? fail(c, GL.INVALID_VALUE) : fail(c, GL.INVALID_ENUM);
             return draw_checks(shadow, c, mode, count, instances, false);
         },
         "glDrawElementsOffset": (shadow, c, [mode, count, type]) => elements3(shadow, c, mode, count, type, 1, true),
@@ -1791,7 +1808,7 @@ export function gles3_handlers(h)
 
     function elements3(shadow, c, mode, count, type, instances, from_buffer)
     {
-        if(!MODES.has(mode) || !INDEX_TYPES.has(type)) return fail(c, GL.INVALID_ENUM);
+        if(!mode_ok(c, mode) || !INDEX_TYPES.has(type)) return fail(c, GL.INVALID_ENUM);
         if(count < 0 || instances < 0) return fail(c, GL.INVALID_VALUE);
         if(from_buffer && !c.element_array_buffer) return fail(c, GL.INVALID_OPERATION);
         const buffer = c.group.buffers.get(c.element_array_buffer);

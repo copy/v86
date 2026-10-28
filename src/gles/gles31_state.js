@@ -350,7 +350,9 @@ export function gles31_handlers(h, H3)
         "glIsEnabled": (shadow, c, [cap]) => { if(!own_cap(c, cap)) return H3["glIsEnabled"](shadow, c, [cap]); query(shadow); return c.enabled.has(cap) ? 1 : 0; },
         "glCreateShader": (shadow, c, [type]) =>
         {
-            if(type !== GL31.COMPUTE_SHADER) return base["glCreateShader"](shadow, c, [type]);
+            // (GLES 3.2's geometry and tessellation shaders too)
+            const own = type === GL31.COMPUTE_SHADER || c.version >= 32 && STAGES32.includes(type);
+            if(!own) return base["glCreateShader"](shadow, c, [type]);
             const name = shadow.given_name || c.group.fresh("object", c.group.objects);
             c.group.objects.set(name, { kind: "shader", type, source: null, compiled: null, compiled_source: null, deleted: false, attached: 0 });
             return name;
@@ -366,13 +368,20 @@ export function gles31_handlers(h, H3)
         },
         "glGetProgramiv": (shadow, c, [p, pname, params]) =>
         {
-            // (GLES 3.1's: PROGRAM_SEPARABLE, ACTIVE_ATOMIC_COUNTER_BUFFERS, COMPUTE_WORK_GROUP_SIZE (a program linked with no compute stage: INVALID_OPERATION))
-            if(![GL31.PROGRAM_SEPARABLE, 0x92D9, 0x8267].includes(pname)) return H3["glGetProgramiv"](shadow, c, [p, pname, params]);
+            // (GLES 3.1's: PROGRAM_SEPARABLE, ACTIVE_ATOMIC_COUNTER_BUFFERS, COMPUTE_WORK_GROUP_SIZE (a program linked with no compute stage: INVALID_OPERATION);
+            // GLES 3.2's geometry layout (none linked: INVALID_OPERATION))
+            const geometry = c.version >= 32 && GEOMETRY_QUERIES.has(pname);
+            if(![GL31.PROGRAM_SEPARABLE, 0x92D9, 0x8267].includes(pname) && !geometry) return H3["glGetProgramiv"](shadow, c, [p, pname, params]);
             query(shadow);
             const program = program_of(c, p);
             if(!program) return undefined;
             const info = program.info && program.info.ok ? program.info : null;
-            if(pname === GL31.PROGRAM_SEPARABLE) put(params, [program.separable ? 1 : 0], "i", "i");
+            if(geometry)
+            {
+                if(!info || !info.geometry) return void fail(c, GL.INVALID_OPERATION);
+                put(params, [info.geometry[GEOMETRY_QUERIES.get(pname)]], "i", "i");
+            }
+            else if(pname === GL31.PROGRAM_SEPARABLE) put(params, [program.separable ? 1 : 0], "i", "i");
             else if(pname === 0x92D9) put(params, [info ? new Set(info.uniforms.filter(u => u.opaque === "atomic").map(u => u.binding)).size : 0], "i", "i");
             else if(!info || !(info.local_size && info.local_size.some(Boolean))) fail(c, GL.INVALID_OPERATION);
             else put(params, info.local_size.slice(0, 3), "i", "i");
@@ -657,9 +666,8 @@ export function gles31_handlers(h, H3)
         },
         "glUseProgramStages": (shadow, c, [name, stages, p]) =>
         {
-            if(stages !== GL31.ALL_BARRIER_BITS && stages & ~(GL31.VERTEX_SHADER_BIT | GL31.FRAGMENT_SHADER_BIT | GL31.COMPUTE_SHADER_BIT)) {
-                return fail(c, GL.INVALID_VALUE);
-            }
+            const bits = [GL31.VERTEX_SHADER_BIT, GL31.FRAGMENT_SHADER_BIT, GL31.COMPUTE_SHADER_BIT, ...(c.version >= 32 ? STAGE_BITS32 : [])];
+            if(stages !== GL31.ALL_BARRIER_BITS && stages & ~bits.reduce((m, b) => m | b, 0)) return fail(c, GL.INVALID_VALUE);
             const pipeline = pipeline_of(shadow, c, name, true);
             if(!pipeline) return fail(c, GL.INVALID_OPERATION);
             if(p)
@@ -668,7 +676,7 @@ export function gles31_handlers(h, H3)
                 if(!program) return REFUSED;
                 if(!program.separable || !program.info || !program.info.ok) return fail(c, GL.INVALID_OPERATION);
             }
-            for(const bit of [GL31.VERTEX_SHADER_BIT, GL31.FRAGMENT_SHADER_BIT, GL31.COMPUTE_SHADER_BIT]) if(stages & bit) pipeline.stages[bit] = p;
+            for(const bit of bits) if(stages & bit) pipeline.stages[bit] = p;
             return undefined;
         },
         "glActiveShaderProgram": (shadow, c, [name, p]) =>
@@ -694,6 +702,8 @@ export function gles31_handlers(h, H3)
             if(!pipeline) { fail(c, GL.INVALID_OPERATION); return; }
             const values = { 0x8259: pipeline.active, 0x8B31: pipeline.stages[GL31.VERTEX_SHADER_BIT] || 0, 0x8B30: pipeline.stages[GL31.FRAGMENT_SHADER_BIT] || 0,
                 0x91B9: pipeline.stages[GL31.COMPUTE_SHADER_BIT] || 0, 0x8B84: pipeline.log ? pipeline.log.length + 1 : 0, 0x8B83: pipeline.valid ? 1 : 0 };
+            // (GLES 3.2's stages: geometry, tessellation control and evaluation)
+            if(c.version >= 32) STAGES32.forEach((type, i) => { values[type] = pipeline.stages[STAGE_BITS32[i]] || 0; });
             if(!(pname in values)) { fail(c, GL.INVALID_ENUM); return; }
             put(params, [values[pname]], "i", "i");
         },
@@ -888,6 +898,12 @@ export function gles31_handlers(h, H3)
     void bound_buffer3;
     return H;
 }
+
+/** GLES 3.2's shader types: geometry, tessellation control, tessellation evaluation; their pipeline stage bits */
+const STAGES32 = [0x8DD9, 0x8E88, 0x8E87];
+const STAGE_BITS32 = [0x4, 0x8, 0x10];
+/** glGetProgramiv's geometry layout: GEOMETRY_LINKED_VERTICES_OUT, _INPUT_TYPE, _OUTPUT_TYPE, GEOMETRY_SHADER_INVOCATIONS */
+const GEOMETRY_QUERIES = new Map([[0x8916, "vertices"], [0x8917, "input"], [0x8918, "output"], [0x887F, "invocations"]]);
 
 /**
  * GLES 3.2's state beyond 3.1's (tables 21.2 to 21.58): KHR_debug's initial

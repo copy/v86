@@ -294,11 +294,48 @@ fn component(s: u32, a: &str, bytes: u32, kind: char) -> String {
     }
 }
 
+/// The components of a value of type `ty` named `name` from `location`, a
+/// location each scalar, vector or matrix column: (expression, kind,
+/// location, component); how many locations they take
+fn location_scalars(module: &naga::Module, ty: Handle<naga::Type>, name: &str, location: u32, out: &mut Vec<(String, ScalarKind, u32, u32)>) -> Option<u32> {
+    match module.types[ty].inner {
+        TypeInner::Scalar(s) => {
+            out.push((String::from(name), s.kind, location, 0));
+            Some(1)
+        },
+        TypeInner::Vector { size, scalar } => {
+            for i in 0..size as u32 {
+                out.push((format!("{}[{}]", name, i), scalar.kind, location, i));
+            }
+            Some(1)
+        },
+        TypeInner::Matrix { columns, rows, scalar } => {
+            for c in 0..columns as u32 {
+                for r in 0..rows as u32 {
+                    out.push((format!("{}[{}][{}]", name, c, r), scalar.kind, location + c, r));
+                }
+            }
+            Some(columns as u32)
+        },
+        TypeInner::Array { base, size: naga::ArraySize::Constant(n), .. } => {
+            let mut used = 0;
+            for i in 0..n.get() {
+                used += location_scalars(module, base, &format!("{}[{}]", name, i), location + used, out)?;
+            }
+            Some(used)
+        },
+        _ => None,
+    }
+}
+
 /// The compute shader for a vertex shader that captures (naga's module of
 /// it, its SPIR-V's captures and strides), with the pipeline's vertex input;
-/// the WGSL to append to the module's own (which `module` becomes)
-pub fn compute_shader(module: &mut naga::Module, captures: &[Capture], strides: [u32; 4], attributes: &[Attribute], slots: &[Slot], group: u32)
-    -> Result<String, String> {
+/// the WGSL to append to the module's own (which `module` becomes) and the
+/// buffers' strides. `all`: every output captured into buffer 0 instead, a
+/// record a vertex as a geometry shader reads it (geometry.rs: the position
+/// at word 0, the point size at 4, location l at 8 + 4l)
+pub fn compute_shader(module: &mut naga::Module, captures: &[Capture], strides: [u32; 4], attributes: &[Attribute], slots: &[Slot], group: u32,
+    all: bool) -> Result<(String, [u32; 4]), String> {
     let entry = module.entry_points.iter().position(|e| e.stage == naga::ShaderStage::Vertex).ok_or("no vertex entry point")?;
     // the entry point's copy, an ordinary function
     let mut function = module.entry_points[entry].function.clone();
@@ -341,7 +378,7 @@ pub fn compute_shader(module: &mut naga::Module, captures: &[Capture], strides: 
             fn vx_byte{s}(a: u32) -> u32 {{ return (vx_vb{s}[a >> 2u] >> ((a & 3u) * 8u)) & 0xFFu; }}\n",
             g = group, b = 961 + s, s = s));
     }
-    let mut used_buffers: Vec<u32> = captures.iter().map(|c| c.buffer).collect();
+    let mut used_buffers: Vec<u32> = if all { vec![0] } else { captures.iter().map(|c| c.buffer).collect() };
     used_buffers.sort_unstable();
     used_buffers.dedup();
     for &b in &used_buffers {
@@ -384,6 +421,38 @@ pub fn compute_shader(module: &mut naga::Module, captures: &[Capture], strides: 
         call.push(format!("v{}", i));
     }
     wgsl.push_str(&format!("    let o = vx_vs({});\n    let at = vx_xfb_p.first_capture + n;\n", call.join(", ")));
+    if all {
+        // (each output's words: as geometry.rs reads them)
+        let mut writes: Vec<(String, ScalarKind, u32)> = Vec::new();
+        let mut last = 0u32;
+        for (i, m) in members.iter().enumerate() {
+            let name = format!("o.vx_o{}m", i);
+            match m.binding {
+                Some(Binding::BuiltIn(BuiltIn::Position { .. })) => {
+                    for k in 0..4 {
+                        writes.push((format!("{}[{}]", name, k), ScalarKind::Float, k));
+                    }
+                },
+                Some(Binding::BuiltIn(BuiltIn::PointSize)) => writes.push((name, ScalarKind::Float, 4)),
+                Some(Binding::Location { location, .. }) => {
+                    let mut parts = Vec::new();
+                    let used = location_scalars(module, m.ty, &name, location, &mut parts).ok_or("an output of a type not done")?;
+                    last = last.max(location + used);
+                    for (expr, kind, l, k) in parts {
+                        writes.push((expr, kind, 8 + 4 * l + k));
+                    }
+                },
+                _ => {},
+            }
+        }
+        let stride = 4 * (8 + 4 * last);
+        for (expr, kind, word) in writes {
+            let value = if kind == ScalarKind::Uint { expr } else { format!("bitcast<u32>({})", expr) };
+            wgsl.push_str(&format!("    vx_xfb0[vx_xfb_p.offsets[0] / 4u + at * {}u + {}u] = {};\n", stride / 4, word, value));
+        }
+        wgsl.push_str("}\n");
+        return Ok((wgsl, [stride, 0, 0, 0]));
+    }
     for c in captures {
         let member = members.iter().position(|m| match (&m.binding, c.output) {
             (Some(Binding::Location { location, .. }), Output::Location(l)) => *location == l,
@@ -404,5 +473,5 @@ pub fn compute_shader(module: &mut naga::Module, captures: &[Capture], strides: 
     }
     wgsl.push_str("}\n");
     let _ = VectorSize::Bi;
-    Ok(wgsl)
+    Ok((wgsl, strides))
 }

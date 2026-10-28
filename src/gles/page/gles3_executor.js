@@ -288,6 +288,77 @@ function index_list(indices, mode, restart)
     return { list: new Uint32Array(out), low, high, topology: TOPOLOGY[mode], strip };
 }
 
+/** Vertices an input primitive of each mode (GLES 3.2 11.3.4.1: a geometry shader's input) */
+const PRIMITIVE_VERTICES = { 0: 1, 1: 2, 2: 2, 3: 2, 4: 3, 5: 3, 6: 3, 0xA: 4, 0xB: 4, 0xC: 6, 0xD: 6 };
+
+/**
+ * A draw's primitives as a geometry shader takes them (GLES 3.2 10.1 and
+ * table 10.1 for strips with adjacency): `per` vertices each, the adjacent
+ * ones in their places; a restart index ends a strip, loop or fan
+ * @param {!ArrayLike<number>} indices the draw's vertices in order
+ * @param {number} restart the restart index, -1 for none
+ * @return {{vertices: !Uint32Array, per: number}}
+ */
+function primitives_of(indices, mode, restart)
+{
+    const per = PRIMITIVE_VERTICES[mode];
+    const out = [];
+    const piece = v =>
+    {
+        const n = v.length;
+        switch(mode)
+        {
+            case 0: case 1: case 4: case 0xA: case 0xC:
+                for(let i = 0; i + per <= n; i += per) for(let k = 0; k < per; k++) out.push(v[i + k]);
+                break;
+            case 3: for(let i = 0; i + 1 < n; i++) out.push(v[i], v[i + 1]); break;
+            case 2: if(n >= 2) for(let i = 0; i < n; i++) out.push(v[i], v[(i + 1) % n]); break;
+            case 5: for(let i = 0; i + 2 < n; i++) i % 2 ? out.push(v[i + 1], v[i], v[i + 2]) : out.push(v[i], v[i + 1], v[i + 2]); break;
+            case 6: for(let i = 1; i + 1 < n; i++) out.push(v[0], v[i], v[i + 1]); break;
+            case 0xB: for(let i = 1; i + 2 < n; i++) out.push(v[i - 1], v[i], v[i + 1], v[i + 2]); break;
+            case 0xD:
+            {
+                // (1-based as the table: the triangle's vertices and each edge's adjacent one, in the shader's order)
+                const m = n >= 6 ? n - 4 >> 1 : 0;
+                const at = k => v[k - 1];
+                for(let i = 0; i < m; i++)
+                {
+                    const last = i === m - 1, even = i % 2 === 0;
+                    const [a, b, c] = even ? [2 * i + 1, 2 * i + 3, 2 * i + 5] : [2 * i + 3, 2 * i + 1, 2 * i + 5];
+                    const ab = i === 0 ? 2 : 2 * i - 1;
+                    const bc = even ? (last ? 2 * i + 6 : 2 * i + 7) : 2 * i + 4;
+                    const ca = even ? 2 * i + 4 : (last ? 2 * i + 6 : 2 * i + 7);
+                    out.push(at(a), at(ab), at(b), at(bc), at(c), at(ca));
+                }
+                break;
+            }
+        }
+    };
+    let start = 0;
+    for(let i = 0; i <= indices.length; i++)
+    {
+        if(i === indices.length || indices[i] === restart)
+        {
+            piece(Array.prototype.slice.call(indices, start, i));
+            start = i + 1;
+        }
+    }
+    return { vertices: new Uint32Array(out), per };
+}
+
+/** A fragment entry point's inputs: location to their attributes (interpolation) */
+function fragment_inputs(wgsl)
+{
+    const inputs = new Map();
+    const at = wgsl.indexOf("@fragment");
+    const signature = at < 0 ? null : /\(([^{]*)\)\s*(?:->[^{]*)?\{/.exec(wgsl.slice(at));
+    for(const m of signature ? signature[1].matchAll(/@location\((\d+)\)\s*((?:@\w+(?:\([^)]*\))?\s*)*)\w+\s*:/g) : [])
+    {
+        inputs.set(+m[1], m[2].trim());
+    }
+    return inputs;
+}
+
 export const GLES3 = {
     // ---- vx_naga
 
@@ -435,7 +506,7 @@ export const GLES3 = {
         if(ts.some(t => t.error)) return this.note3("vx_naga: " + ts.find(t => t.error).error.slice(0, 160));
         shaders = {
             vertex: { module: this.module3(ts[0].wgsl), entry: ts[0].entries[0].name },
-            fragment: { module: this.module3(ts[1].wgsl), entry: ts[1].entries[0].name },
+            fragment: { module: this.module3(ts[1].wgsl), entry: ts[1].entries[0].name, wgsl: ts[1].wgsl },
             bindings: this.bindings3([[ts[0], 1, stages.vertex], [ts[1], 2, stages.fragment]]),
             outputs: fragment_outputs(ts[1].wgsl),
         };
@@ -1593,6 +1664,22 @@ export const GLES3 = {
         if(!target) return;
         const shaders = this.program3(c, stages, target);
         if(!shaders) return;
+        // (GLES 3.2: a geometry shader's draw; lines and triangles with adjacency drawn without one, the adjacent vertices left out)
+        if(stages.vertex.info.geometry && stages.vertex === stages.fragment)
+        {
+            if(indirect) return void this.note3("an indirect draw of a geometry shader");
+            return void this.geometry_draw3(c, stages.vertex, shaders, target, mode, first, count, elements, instances, base_vertex);
+        }
+        if(mode >= 0xA)
+        {
+            const drawn = !indirect && this.draw_vertices3(c, first, count, elements, base_vertex);
+            if(!drawn) return void (indirect && this.note3("an indirect draw with adjacency"));
+            const { vertices, per } = primitives_of(drawn.indices, mode, drawn.restart);
+            const keep = per === 4 ? [1, 2] : [0, 2, 4];
+            const list = new Uint32Array(vertices.length / per * keep.length);
+            for(let p = 0, k = 0; p < vertices.length; p += per) for(const i of keep) list[k++] = vertices[p + i];
+            return void this.draw3(c, per === 4 ? 1 : 4, 0, list.length, { type: 0x1405, bytes: new Uint8Array(list.buffer) }, instances);
+        }
         const plan = this.vertex_plan3(c, this.inputs3(stages.vertex), indirect ? 1 : instances);
         if(!plan) return;
         if(indirect && (plan.cpu.length || mode === 2 || mode === 6 || elements && INDEX_BYTES[elements.type] < 2)) {
@@ -1650,8 +1737,7 @@ export const GLES3 = {
         if(!elements && !indirect) this.capture3(c, stages.vertex, group, vertex, mode, first, count, instances, rebase);
         // (rasterizer discard: what transform feedback captured, nothing drawn)
         if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
-        const [vx, vy, vw, vh] = c.viewport;
-        if(vw <= 0 || vh <= 0) return;
+        if(c.viewport[2] <= 0 || c.viewport[3] <= 0) return;
         let index_buffer = null;
         if(list)
         {
@@ -1661,23 +1747,8 @@ export const GLES3 = {
             this.staging.push(index_buffer);
         }
         const strip_format = strip && (list || direct) ? (direct ? direct.format : "uint32") : undefined;
-        const occlusion = this.occlusion_query3(c);
-        for(const face of this.stencil_faces3(c, target, mode))
+        this.render3(c, target, shaders, vertex, group, topology, strip_format, mode, pass =>
         {
-            const pipeline = this.pipeline3(c, shaders, vertex, group, topology, strip_format, target, face);
-            if(!pipeline) return;
-            const pass = this.begin_pass3(target, null, !!occlusion);
-
-            pass.setPipeline(pipeline);
-            for(const g of group.groups) pass.setBindGroup(g.index, this.device.createBindGroup({ layout: g.layout, entries: g.resources }));
-            vertex.slots.forEach((s, i) => pass.setVertexBuffer(i, s.gpu, s.offset));
-            pass.setViewport(vx, vy, vw, vh, Math.min(c.depth_range[0], c.depth_range[1]), Math.max(c.depth_range[0], c.depth_range[1]));
-            if(!this.apply_scissor(pass, c, target)) return;
-            pass.setBlendConstant({ r: c.blend_color[0], g: c.blend_color[1], b: c.blend_color[2], a: c.blend_color[3] });
-            if(c.enabled.has(STENCIL_TEST)) pass.setStencilReference(c.stencil_func[face === undefined ? 0 : face][1] & 0xFF);
-            const o = occlusion && this.occlusion3();
-            const query = o && o.owners.length < 4096 ? o.owners.push(occlusion) - 1 : -1;
-            if(query >= 0) pass.beginOcclusionQuery(query);
             if(indirect)
             {
                 const parameters = this.gpu_buffer(indirect.buffer).buffer;
@@ -1699,9 +1770,214 @@ export const GLES3 = {
                 pass.drawIndexed(count, instances, 0, base_vertex);
             }
             else pass.draw(count, instances, rebase ? 0 : first, 0);
+        });
+    },
+
+    /**
+     * A draw's render passes (one a stencil face where they differ): the
+     * pipeline, the resources, vertex buffers, viewport, scissor, the blend
+     * and stencil references, the occlusion query; `draw` draws in the pass
+     * @param {function(!GPURenderPassEncoder)} draw
+     */
+    render3(c, target, shaders, vertex, group, topology, strip_format, mode, draw)
+    {
+        const [vx, vy, vw, vh] = c.viewport;
+        const occlusion = this.occlusion_query3(c);
+        for(const face of this.stencil_faces3(c, target, mode))
+        {
+            const pipeline = this.pipeline3(c, shaders, vertex, group, topology, strip_format, target, face);
+            if(!pipeline) return;
+            const pass = this.begin_pass3(target, null, !!occlusion);
+
+            pass.setPipeline(pipeline);
+            for(const g of group.groups) pass.setBindGroup(g.index, this.device.createBindGroup({ layout: g.layout, entries: g.resources }));
+            vertex.slots.forEach((s, i) => pass.setVertexBuffer(i, s.gpu, s.offset));
+            pass.setViewport(vx, vy, vw, vh, Math.min(c.depth_range[0], c.depth_range[1]), Math.max(c.depth_range[0], c.depth_range[1]));
+            if(!this.apply_scissor(pass, c, target)) return;
+            pass.setBlendConstant({ r: c.blend_color[0], g: c.blend_color[1], b: c.blend_color[2], a: c.blend_color[3] });
+            if(c.enabled.has(STENCIL_TEST)) pass.setStencilReference(c.stencil_func[face === undefined ? 0 : face][1] & 0xFF);
+            const o = occlusion && this.occlusion3();
+            const query = o && o.owners.length < 4096 ? o.owners.push(occlusion) - 1 : -1;
+            if(query >= 0) pass.beginOcclusionQuery(query);
+            draw(pass);
             if(query >= 0) pass.endOcclusionQuery();
         }
         this.stats.draws++;
+    },
+
+    /**
+     * A draw's vertices in order (its indices, a base vertex added but not to
+     * the restart index), from client memory or the element buffer's bytes
+     * @return {?{indices: !Uint32Array, restart: number}} (restart: the restart index, -1 for none)
+     */
+    draw_vertices3(c, first, count, elements, base_vertex)
+    {
+        if(!elements) return { indices: Uint32Array.from({ length: count }, (_, i) => first + i), restart: -1 };
+        const size = INDEX_BYTES[elements.type];
+        const buffer = elements.bytes ? null : c.group.buffers.get(c.element_array_buffer);
+        const source = elements.bytes || buffer && (buffer.gpu_newer ? null : cpu_bytes(buffer));
+        if(!size || !source) return this.note3("indices the GPU wrote, converted");
+        const offset = elements.bytes ? 0 : elements.offset;
+        if(offset + count * size > source.length) return null;
+        const view = new DataView(source.buffer, source.byteOffset + offset, count * size);
+        const restart = c.enabled.has(RESTART) ? (size === 1 ? 0xFF : size === 2 ? 0xFFFF : 0xFFFFFFFF) : -1;
+        const indices = new Uint32Array(count);
+        for(let i = 0; i < count; i++)
+        {
+            const v = size === 1 ? view.getUint8(i) : size === 2 ? view.getUint16(2 * i, true) : view.getUint32(4 * i, true);
+            indices[i] = v === restart ? v : v + base_vertex;
+        }
+        return { indices, restart };
+    },
+
+    // ---- geometry shaders (GLES 3.2; vx_naga's geometry.rs)
+
+    /** A program's geometry shader through vx_naga (cached with the program's GPU side), or null (noted) */
+    geometry3(program)
+    {
+        const gpu = this.program_gpu(program);
+        if(gpu.geometry !== undefined) return gpu.geometry;
+        gpu.geometry = null;
+        const m = program.info.spirv.find(x => x.stage === "geometry");
+        if(!m || !this.naga.vx_translate_geometry) return this.note3("a geometry shader vx_naga cannot translate");
+        const naga = this.naga;
+        const bytes = new Uint8Array(m.words.buffer, m.words.byteOffset, m.words.byteLength);
+        const input = naga.vx_alloc(bytes.length);
+        new Uint8Array(naga.memory.buffer, input, bytes.length).set(bytes);
+        let out;
+        try
+        {
+            out = naga.vx_translate_geometry(input, bytes.length, 1, 0, 0);
+        }
+        finally
+        {
+            naga.vx_free(input, bytes.length);
+        }
+        const length = new DataView(naga.memory.buffer).getUint32(out, true);
+        const t = JSON.parse(new TextDecoder().decode(new Uint8Array(naga.memory.buffer, out + 4, length)));
+        naga.vx_free(out, length + 4);
+        if(t.error) return this.note3("vx_naga's geometry shader: " + t.error.slice(0, 160));
+        gpu.geometry = { translation: t, layout: t.geometry, passes: new Map(), pipelines: new Map(),
+            module: this.device.createShaderModule({ label: "GLES 3 geometry", code: "diagnostic(off, derivative_uniformity);\n" + t.wgsl }) };
+        return gpu.geometry;
+    },
+
+    /**
+     * The vertex shader that passes a geometry shader's list on to the
+     * fragment shader: the record's position in WebGPU's clip space (GL's
+     * depth halved, Y flipped as vx_naga's), each output the fragment shader
+     * reads at its location with the fragment input's interpolation; the
+     * list's vertex attributes
+     */
+    pass_shader3(g, shaders)
+    {
+        const key = this.id_of(shaders.fragment.module);
+        let pass = g.passes.get(key);
+        if(pass) return pass;
+        const inputs = fragment_inputs(shaders.fragment.wgsl);
+        const scalar = { f: "f32", i: "i32", u: "u32" };
+        const outputs = g.layout.outputs.filter(o => inputs.has(o[0]));
+        const type = o => o[2] === 1 ? scalar[o[1]] : "vec" + o[2] + "<" + scalar[o[1]] + ">";
+        const code = "struct VxPassOut {\n    @builtin(position) position: vec4<f32>,\n" +
+            outputs.map((o, i) => `    @location(${o[0]}) ${inputs.get(o[0])} o${i}: ${type(o)},\n`).join("") + "}\n" +
+            "@vertex fn vx_pass(@location(0) p: vec4<f32>" + outputs.map((o, i) => `, @location(${i + 1}) a${i}: ${type(o)}`).join("") + ") -> VxPassOut {\n" +
+            "    var o: VxPassOut;\n    o.position = vec4<f32>(p.x, -p.y, (p.z + p.w) * 0.5, p.w);\n" +
+            outputs.map((o, i) => `    o.o${i} = a${i};\n`).join("") + "    return o;\n}\n";
+        const format = o => ({ f: "float32", i: "sint32", u: "uint32" })[o[1]] + (o[2] > 1 ? "x" + o[2] : "");
+        pass = { module: this.device.createShaderModule({ label: "GLES 3 geometry pass", code }), attributes: [{ shaderLocation: 0, offset: 0, format: "float32x4" },
+            ...outputs.map((o, i) => ({ shaderLocation: i + 1, offset: 4 * (8 + 4 * o[0]), format: format(o) }))] };
+        g.passes.set(key, pass);
+        return pass;
+    },
+
+    /**
+     * A draw of a program with a geometry shader: the draw's primitives
+     * assembled on the CPU; the vertex shader run as a compute shader over
+     * the vertices they use, every output captured (xfb3's `all`); the
+     * geometry shader as one, an invocation an input primitive and
+     * invocation, into a list of primitives; the list drawn through the pass
+     * shader with the fragment shader
+     */
+    geometry_draw3(c, program, shaders, target, mode, first, count, elements, instances, base_vertex)
+    {
+        if(count <= 0 || instances <= 0) return;
+        const g = this.geometry3(program);
+        if(!g) return;
+        const tf = c.tfs && c.tfs.get(c.tf);
+        if(tf && tf.active && !tf.paused) this.note3("transform feedback of a geometry shader's output");
+        const drawn = this.draw_vertices3(c, first, count, elements, base_vertex);
+        if(!drawn) return;
+        const { vertices, per } = primitives_of(drawn.indices, mode, drawn.restart);
+        if(per !== g.layout.input || !vertices.length) return;
+        let low = Infinity, high = -1;
+        for(const v of vertices) { if(v < low) low = v; if(v > high) high = v; }
+        if(high - low >= 1 << 24) return void this.note3("a vertex range past 2^24");
+        const plan = this.vertex_plan3(c, this.inputs3(program), instances);
+        if(!plan) return;
+        const vcount = high - low + 1, rebase = plan.cpu_vertex;
+        const vertex = this.vertex_buffers3(c, plan, { low, high, rebase, instances, indexed: false, first: low, count: vcount });
+        if(!vertex) return;
+        const capture = this.xfb3(program, vertex, true);
+        if(!capture) return;
+        // (the resources: the fragment shader's, and the vertex and geometry shaders' seen by compute shaders too)
+        const merged = new Map(shaders.bindings.map(b => [b.group + ":" + b.binding, Object.assign({}, b, { visibility: b.visibility | (b.visibility & 1 ? 4 : 0) })]));
+        for(const b of this.bindings3([[g.translation, 4, program]]))
+        {
+            const key = b.group + ":" + b.binding;
+            if(merged.has(key)) merged.get(key).visibility |= 4;
+            else merged.set(key, b);
+        }
+        const group = this.bind_groups3(c, [...merged.values()].sort((a, b) => a.group - b.group || a.binding - b.binding), target);
+        if(!group) return;
+        const layout = g.layout;
+        const prims = vertices.length / per, total = prims * instances, invocations = total * layout.invocations;
+        const record = capture.xfb.strides[0], out_record = 4 * layout.stride;
+        const sizes = [vcount * instances * record, invocations * layout.max_vertices * out_record, invocations * layout.list * out_record];
+        const most = this.device.limits ? Math.min(this.device.limits.maxStorageBufferBindingSize, this.device.limits.maxBufferSize) : 1 << 27;
+        if(sizes.some(n => n > most) || Math.ceil(invocations / 64) > 65535) return void this.note3("a geometry shader's draw too large");
+        const [records, emitted, list] = sizes.map((n, i) => this.device.createBuffer({ label: "GLES geometry", size: Math.max(16, align4(n)),
+            usage: B.STORAGE | (i === 2 ? B.VERTEX : 0) }));
+        this.staging.push(records, emitted, list);
+        this.capture_pass3(capture, group, vertex, rebase ? 0 : low, vcount, instances, [records]);
+        // the primitives' records: each instance's after the last's
+        const ids = new Uint32Array(Math.max(4, vertices.length * instances));
+        for(let i = 0; i < instances; i++) for(let k = 0; k < vertices.length; k++) ids[i * vertices.length + k] = i * vcount + vertices[k] - low;
+        const ids_buffer = this.device.createBuffer({ label: "GLES geometry primitives", size: ids.byteLength, usage: B.STORAGE, mappedAtCreation: true });
+        new Uint32Array(ids_buffer.getMappedRange()).set(ids);
+        ids_buffer.unmap();
+        this.staging.push(ids_buffer);
+        const own = [{ binding: 960, visibility: 4, buffer: { type: "uniform" } }, { binding: 961, visibility: 4, buffer: { type: "read-only-storage" } },
+            { binding: 962, visibility: 4, buffer: { type: "read-only-storage" } }, { binding: 963, visibility: 4, buffer: { type: "storage" } },
+            { binding: 964, visibility: 4, buffer: { type: "storage" } }];
+        const key = group.key;
+        let p = g.pipelines.get(key);
+        if(!p)
+        {
+            const layouts = [group.groups[0].layout, this.device.createBindGroupLayout({ entries: own })];
+            p = { layouts, pipeline: this.device.createComputePipeline({ label: "GLES 3 geometry", layout: this.device.createPipelineLayout({ bindGroupLayouts: layouts }),
+                compute: { module: g.module, entryPoint: "vx_geometry" } }) };
+            g.pipelines.set(key, p);
+        }
+        const params = new Uint32Array([total, record / 4, prims, 0]);
+        this.end_pass();
+        const pass = this.encoder.beginComputePass({ label: "GLES 3 geometry" });
+        pass.setPipeline(p.pipeline);
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: p.layouts[0], entries: group.groups[0].resources }));
+        pass.setBindGroup(1, this.device.createBindGroup({ layout: p.layouts[1], entries: [{ binding: 960, resource: { buffer: this.uniform_buffer(params.buffer) } },
+            ...[records, ids_buffer, emitted, list].map((buffer, i) => ({ binding: 961 + i, resource: { buffer } }))] }));
+        pass.dispatchWorkgroups(Math.ceil(invocations / 64));
+        pass.end();
+        this.stats.geometry = (this.stats.geometry || 0) + 1;
+        // the list drawn
+        if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
+        if(c.viewport[2] <= 0 || c.viewport[3] <= 0) return;
+        const through = this.pass_shader3(g, shaders);
+        const pass_shaders = { vertex: { module: through.module, entry: "vx_pass" }, fragment: shaders.fragment, outputs: shaders.outputs,
+            id: this.id_of(through.module) + ":" + this.id_of(shaders.fragment.module) };
+        const list_vertex = { slots: [{ gpu: list, offset: 0, stride: out_record, step: "vertex", attributes: through.attributes }],
+            key: "g" + out_record + ":" + JSON.stringify(through.attributes) };
+        const topology = ["point-list", "line-list", "triangle-list"][layout.output];
+        this.render3(c, target, pass_shaders, list_vertex, group, topology, undefined, [0, 1, 4][layout.output], pass => pass.draw(invocations * layout.list));
     },
 
     /** The stencil faces a draw is made of (gles_executor.js's stencil_faces, with the target's depth format) */
@@ -2007,13 +2283,15 @@ export const GLES3 = {
      * shader run a vertex an invocation, reading the vertex buffers as
      * storage) for the program and the draw's vertex buffers, or null
      */
-    xfb3(program, vertex)
+    xfb3(program, vertex, all = false)
     {
         const gpu = this.program_gpu(program);
         gpu.xfb = gpu.xfb || new Map();
-        if(gpu.xfb.has(vertex.key)) return gpu.xfb.get(vertex.key);
+        const key = (all ? "all:" : "") + vertex.key;
+        if(gpu.xfb.has(key)) return gpu.xfb.get(key);
         let entry = null;
-        const desc = [1, 0];
+        // (the group of its own resources, 1; bit 31: every output captured, a geometry shader's input)
+        const desc = [all ? 0x80000001 : 1, 0];
         vertex.slots.forEach((s, slot) =>
         {
             for(const a of s.attributes)
@@ -2037,8 +2315,47 @@ export const GLES3 = {
                     bindings: new Set(t.entries[0].bindings.filter(b => b[0] === 0).map(b => b[1])), xfb: t.xfb, pipelines: new Map() };
             }
         }
-        gpu.xfb.set(vertex.key, entry);
+        gpu.xfb.set(key, entry);
         return entry;
+    },
+
+    /**
+     * A capture's compute pass (xfb3's entry): `vertex_count` vertices from
+     * `first_vertex` of each of the instances into the scratch buffers
+     * (one a transform feedback buffer the shader writes)
+     */
+    capture_pass3(entry, group, vertex, first_vertex, vertex_count, instances, scratch)
+    {
+        const { buffers, slots } = entry.xfb;
+        const own = group.groups[0].entries.filter(e => entry.bindings.has(e.binding)).map(e => Object.assign({}, e, { visibility: 4 }));
+        const capture = [{ binding: 960, visibility: 4, buffer: { type: "uniform" } },
+            ...slots.map(s => ({ binding: 961 + s, visibility: 4, buffer: { type: "read-only-storage" } })),
+            ...buffers.map(b => ({ binding: 970 + b, visibility: 4, buffer: { type: "storage" } }))];
+        const key = JSON.stringify(own) + JSON.stringify(capture);
+        let p = entry.pipelines.get(key);
+        if(!p)
+        {
+            const layouts = [this.device.createBindGroupLayout({ entries: own }), this.device.createBindGroupLayout({ entries: capture })];
+            p = { layouts, pipeline: this.device.createComputePipeline({ label: "GLES 3 capture",
+                layout: this.device.createPipelineLayout({ bindGroupLayouts: layouts }), compute: { module: entry.module, entryPoint: "vx_xfb" } }) };
+            entry.pipelines.set(key, p);
+        }
+        // (VxXfbParams: first vertex, vertices an instance, first instance, instances, first capture, the vertices captured,
+        // pads, the buffers' offsets, each slot's offset)
+        const total = vertex_count * instances;
+        const params = new Uint32Array(20);
+        params.set([first_vertex, vertex_count, 0, instances, 0, total]);
+        vertex.slots.forEach((s, slot) => { params[12 + slot] = s.offset; });
+        const resources = [{ binding: 960, resource: { buffer: this.uniform_buffer(params.buffer) } },
+            ...slots.map(s => ({ binding: 961 + s, resource: { buffer: vertex.slots[s].gpu } })),
+            ...buffers.map((b, i) => ({ binding: 970 + b, resource: { buffer: scratch[i] } }))];
+        this.end_pass();
+        const pass = this.encoder.beginComputePass({ label: "GLES 3 capture" });
+        pass.setPipeline(p.pipeline);
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: p.layouts[0], entries: group.groups[0].resources.filter(r => entry.bindings.has(r.binding)) }));
+        pass.setBindGroup(1, this.device.createBindGroup({ layout: p.layouts[1], entries: resources }));
+        pass.dispatchWorkgroups(Math.ceil(total / 64));
+        pass.end();
     },
 
     /**
@@ -2056,38 +2373,11 @@ export const GLES3 = {
         if(!total) return;
         const entry = this.xfb3(program, vertex);
         if(!entry) return;
-        const { buffers, strides, slots } = entry.xfb;
-        const own = group.groups[0].entries.filter(e => entry.bindings.has(e.binding)).map(e => Object.assign({}, e, { visibility: 4 }));
-        const capture = [{ binding: 960, visibility: 4, buffer: { type: "uniform" } },
-            ...slots.map(s => ({ binding: 961 + s, visibility: 4, buffer: { type: "read-only-storage" } })),
-            ...buffers.map(b => ({ binding: 970 + b, visibility: 4, buffer: { type: "storage" } }))];
-        const key = JSON.stringify(own) + JSON.stringify(capture);
-        let p = entry.pipelines.get(key);
-        if(!p)
-        {
-            const layouts = [this.device.createBindGroupLayout({ entries: own }), this.device.createBindGroupLayout({ entries: capture })];
-            p = { layouts, pipeline: this.device.createComputePipeline({ label: "GLES 3 capture",
-                layout: this.device.createPipelineLayout({ bindGroupLayouts: layouts }), compute: { module: entry.module, entryPoint: "vx_xfb" } }) };
-            entry.pipelines.set(key, p);
-        }
-        // (VxXfbParams: first vertex, vertices an instance, first instance, instances, first capture, the vertices captured,
-        // pads, the buffers' offsets, each slot's offset)
-        const params = new Uint32Array(20);
-        params.set([rebase ? 0 : first, each, 0, instances, 0, total]);
-        vertex.slots.forEach((s, slot) => { params[12 + slot] = s.offset; });
+        const { buffers, strides } = entry.xfb;
         const scratch = buffers.map(b => this.device.createBuffer({ label: "GLES capture", size: Math.max(16, align4(total * strides[b])),
             usage: B.STORAGE | B.COPY_SRC }));
         this.staging.push(...scratch);
-        const resources = [{ binding: 960, resource: { buffer: this.uniform_buffer(params.buffer) } },
-            ...slots.map(s => ({ binding: 961 + s, resource: { buffer: vertex.slots[s].gpu } })),
-            ...buffers.map((b, i) => ({ binding: 970 + b, resource: { buffer: scratch[i] } }))];
-        this.end_pass();
-        const pass = this.encoder.beginComputePass({ label: "GLES 3 capture" });
-        pass.setPipeline(p.pipeline);
-        pass.setBindGroup(0, this.device.createBindGroup({ layout: p.layouts[0], entries: group.groups[0].resources.filter(r => entry.bindings.has(r.binding)) }));
-        pass.setBindGroup(1, this.device.createBindGroup({ layout: p.layouts[1], entries: resources }));
-        pass.dispatchWorkgroups(Math.ceil(total / 64));
-        pass.end();
+        this.capture_pass3(entry, group, vertex, rebase ? 0 : first, each, instances, scratch);
         buffers.forEach((b, i) =>
         {
             const binding = tf.bindings[b];

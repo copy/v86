@@ -356,9 +356,40 @@ export function link_glslang_program(glslang, shaders, options)
         }));
     }
 
+    const geometry_module = spirv.find(m => m.stage === "geometry");
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,
         bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size, tf_varyings,
-        tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs };
+        tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs, geometry: geometry_module ? geometry_layout(geometry_module.words) : null };
+}
+
+/**
+ * A geometry shader's layout from its SPIR-V's execution modes, as GL's
+ * program queries answer it: the input and output primitive types (GL's
+ * enums), max_vertices and invocations
+ * @param {!Uint32Array} words
+ * @return {{input: number, output: number, vertices: number, invocations: number}}
+ */
+export function geometry_layout(words)
+{
+    const layout = { input: 0x0004, output: 0x0005, vertices: 0, invocations: 1 };
+    const INPUT = { 19: 0x0000, 20: 0x0001, 21: 0x000A, 22: 0x0004, 23: 0x000C };
+    const OUTPUT = { 27: 0x0000, 28: 0x0003, 29: 0x0005 };
+    for(let at = 5; at < words.length;)
+    {
+        const count = words[at] >>> 16;
+        if(!count) break;
+        // (OpExecutionMode: the entry point, the mode, its operand)
+        if((words[at] & 0xFFFF) === 16 && count >= 3)
+        {
+            const mode = words[at + 2];
+            if(mode in INPUT) layout.input = INPUT[mode];
+            else if(mode in OUTPUT) layout.output = OUTPUT[mode];
+            else if(mode === 26) layout.vertices = words[at + 3];
+            else if(mode === 0) layout.invocations = words[at + 3];
+        }
+        at += count;
+    }
+    return layout;
 }
 
 /** SPIR-V's numeric types as GL's: the base's enums of 1 to 4 components, matrices by [columns][rows] */
@@ -391,7 +422,7 @@ function varying_of(m, name, gl_name)
 
 /** What of a link's result the page needs (it has no glslang): the GL view, the bindings, the SPIR-V */
 const PACKED_FIELDS = ["ok", "log", "attributes", "uniforms", "blocks", "storage_blocks", "bindings", "local_size", "default_block_size",
-    "tf_varyings", "tf_mode", "outputs"];
+    "tf_varyings", "tf_mode", "outputs", "geometry"];
 
 /**
  * A link's result as bytes (GLES.PROGRAM_LINK's): a u32 JSON length, the

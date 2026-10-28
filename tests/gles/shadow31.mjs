@@ -232,4 +232,32 @@ void text;
     assert.equal((await call32("gles2:glIsEnabled", 0x8C36)).ret, 1, "GL_SAMPLE_SHADING");
     assert.equal((await call32("gles2:glGetError")).ret, 0);
     console.log("PASS: GLES 3.2's state");
+
+    // a geometry shader: its program's layout, the draws' modes it takes, adjacency
+    const shader32 = async (type, source) =>
+    {
+        const name = (await call32("gles2:glCreateShader", type)).ret;
+        await call32("gles2:glShaderString", name, cstring(source), source.length + 1);
+        await call32("gles2:glCompileShader", name);
+        return name;
+    };
+    const p = (await call32("gles2:glCreateProgram")).ret;
+    await call32("gles2:glAttachShader", p, await shader32(0x8B31, "#version 320 es\nin vec4 position;\nvoid main() { gl_Position = position; }"));
+    await call32("gles2:glAttachShader", p, await shader32(0x8DD9, "#version 320 es\nlayout(lines_adjacency, invocations = 3) in;\n" +
+        "layout(line_strip, max_vertices = 2) out;\nvoid main() { gl_Position = gl_in[1].gl_Position; EmitVertex(); gl_Position = gl_in[2].gl_Position; EmitVertex(); }"));
+    await call32("gles2:glAttachShader", p, await shader32(0x8B30, "#version 320 es\nprecision mediump float;\nout vec4 o;\nvoid main() { o = vec4(1.0); }"));
+    await call32("gles2:glLinkProgram", p);
+    const program_ints = async pname => i32s((await call32("gles2:glGetProgramiv", p, pname, 4)).outs[0])[0];
+    assert.equal(await program_ints(0x8B82), 1, "a program of a geometry shader links");
+    assert.deepEqual([await program_ints(0x8917), await program_ints(0x8918), await program_ints(0x8916), await program_ints(0x887F)],
+        [0x000A, 0x0003, 2, 3], "GL_GEOMETRY_LINKED_INPUT_TYPE, _OUTPUT_TYPE, _VERTICES_OUT, GL_GEOMETRY_SHADER_INVOCATIONS");
+    await call32("gles2:glUseProgram", p);
+    await call32("gles2:glDrawArrays", 0x0004, 0, 3);
+    assert.equal((await call32("gles2:glGetError")).ret, 0x0502, "triangles to a shader of lines with adjacency: INVALID_OPERATION");
+    await call32("gles2:glDrawArrays", 0x000B, 0, 5);
+    assert.equal((await call32("gles2:glGetError")).ret, 0, "a line strip with adjacency");
+    await call32("gles2:glUseProgram", 0);
+    await call32("gles2:glDrawArrays", 0x000F, 0, 3);
+    assert.equal((await call32("gles2:glGetError")).ret, 0x0500, "no such mode: INVALID_ENUM");
+    console.log("PASS: GLES 3.2's geometry shaders");
 }

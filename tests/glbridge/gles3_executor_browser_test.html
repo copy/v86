@@ -853,6 +853,86 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         if(device.features.has("texture-compression-astc")) {
             check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 0, 0, 255]), "an ASTC 4x4 block");
         }
+        // geometry shaders: points made quads, colored by gl_PrimitiveIDIn; a triangle cut in two by two invocations
+        const geometry_program = (vs_text, gs_text, fs_text) => {
+            const vs = shader_name++, gs = shader_name++, fs = shader_name++, p = shader_name++;
+            for(const [name, type, source] of [[vs, 0x8B31, vs_text], [gs, 0x8DD9, gs_text], [fs, 0x8B30, fs_text]]) {
+                call("glCreateShader", name, [type]);
+                gl("glShaderString", name, text(source), source.length + 1);
+                gl("glCompileShader", name);
+            }
+            call("glCreateProgram", p, []);
+            for(const name of [vs, gs, fs]) gl("glAttachShader", p, name);
+            gl("glLinkProgram", p);
+            const info = cpu.context(current).group.objects.get(p).info;
+            check(info && info.ok, "linked: " + (info && info.log));
+            checks.pop();
+            gl("glUseProgram", p);
+            return { name: p, at: uniform => info.locations.get(uniform) };
+        };
+        const sprites = geometry_program(`#version 320 es
+            layout(location = 0) in vec2 position;
+            out float v_size;
+            void main() { v_size = 0.4; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 320 es
+            layout(points) in;
+            layout(triangle_strip, max_vertices = 4) out;
+            in float v_size[];
+            flat out int g_id;
+            uniform float scale;
+            void main() {
+                for (int i = 0; i < 4; i++) {
+                    vec2 corner = vec2(i % 2 == 0 ? -1.0 : 1.0, i < 2 ? -1.0 : 1.0) * v_size[0] * scale;
+                    g_id = gl_PrimitiveIDIn;
+                    gl_Position = gl_in[0].gl_Position + vec4(corner, 0.0, 0.0);
+                    EmitVertex();
+                }
+            }`, `#version 320 es
+            precision mediump float;
+            flat in int g_id;
+            out vec4 o;
+            void main() { o = g_id == 0 ? vec4(1.0, 0.0, 0.0, 1.0) : vec4(0.0, 1.0, 0.0, 1.0); }`);
+        gl("glUniform1f", sprites.at("scale"), 1);
+        const points32 = gen("Buffers");
+        gl("glBindBuffer", 0x8892, points32);
+        const two_points = floats([-0.5, -0.5, 0.5, 0.5]);
+        gl("glBufferData", 0x8892, two_points.length, two_points, 0x88E4);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 0, 0, 2);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 2, 2), [255, 0, 0, 255]) && near(pixel(window, W, 5, 5), [0, 255, 0, 255]) &&
+            near(pixel(window, W, 2, 5), [0, 0, 0, 255]), "a geometry shader: points made quads, gl_PrimitiveIDIn's colors");
+        const halves = geometry_program(`#version 320 es
+            layout(location = 0) in vec2 position;
+            out vec4 v_color;
+            void main() { v_color = vec4(0.0, 0.0, 1.0, 1.0); gl_Position = vec4(position, 0.0, 1.0); }`, `#version 320 es
+            layout(triangles, invocations = 2) in;
+            layout(triangle_strip, max_vertices = 4) out;
+            in vec4 v_color[];
+            out vec4 g_color;
+            void main() {
+                // (the input's bounds: invocation 0 the left half, 1 the right, of another color)
+                float x0 = gl_InvocationID == 0 ? -1.0 : 0.0;
+                for (int i = 0; i < 4; i++) {
+                    g_color = gl_InvocationID == 0 ? v_color[0] : vec4(1.0, 1.0, 0.0, 1.0);
+                    gl_Position = vec4(x0 + (i % 2 == 0 ? 0.0 : 1.0), i < 2 ? -1.0 : 1.0, gl_in[i % 3].gl_Position.z, 1.0);
+                    EmitVertex();
+                }
+                EndPrimitive();
+            }`, `#version 320 es
+            precision mediump float;
+            in vec4 g_color;
+            out vec4 o;
+            void main() { o = g_color; }`);
+        void halves;
+        gl("glBindBuffer", 0x8892, quad32);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 4, 0, 3);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 4), [0, 0, 255, 255]) && near(pixel(window, W, 6, 4), [255, 255, 0, 255]),
+            "a geometry shader's two invocations, a strip each");
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;
@@ -887,6 +967,11 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         record(GLES.MAKE_CURRENT, 1, 7, 2, 2);
         current = 7;
         gl("glBindVertexArray", vao32);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 4, 0, 3);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 4), [0, 0, 255, 255]) && near(pixel(window, W, 6, 4), [255, 255, 0, 255]), "restored: a geometry shader's program");
+        gl("glUseProgram", cubes32.name);
         gl("glUniform1i", cubes32.at("which"), 0);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 0, 255, 255]), "restored: a cube map array's cube 1, +X");

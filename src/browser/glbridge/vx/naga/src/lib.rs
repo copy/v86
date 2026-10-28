@@ -31,6 +31,9 @@
 //!   clip space has Y down, WebGPU's up)
 //! - a vertex shader's gl_PointSize is dropped (WGSL has none: WebGPU's
 //!   points are one pixel); a capturing draw's compute shader keeps it
+//! - a geometry shader becomes a compute shader (geometry.rs:
+//!   vx_translate_geometry), a vertex shader's capture of every output its
+//!   input (xfb.rs)
 //!
 //! It answers in JSON: the WGSL, and per entry point the bindings it uses
 //! and their kind; the overrides (specialization constants) by id.
@@ -49,6 +52,7 @@ mod blockarrays;
 mod cubes;
 mod fetches;
 mod depth;
+mod geometry;
 mod split;
 mod subpass;
 mod switches;
@@ -287,7 +291,7 @@ pub fn passes_for_debugging(bytes: &[u8]) -> Vec<u8> {
 }
 
 /// SPIR-V (bytes) to the JSON answer
-pub fn translate(bytes: &[u8], options: &Options) -> Result<String, String> { translate_with(bytes, options, None) }
+pub fn translate(bytes: &[u8], options: &Options) -> Result<String, String> { translate_with(bytes, options, Mode::Shader) }
 
 /// What a capturing draw's compute shader needs (xfb.rs): the pipeline's
 /// vertex input and the group of its own resources
@@ -295,6 +299,17 @@ pub struct XfbInput {
     pub attributes: Vec<xfb::Attribute>,
     pub slots: Vec<xfb::Slot>,
     pub group: u32,
+    /// every output captured into buffer 0 as a geometry shader's input
+    /// record (geometry.rs) rather than those the SPIR-V decorates
+    pub all: bool,
+}
+
+/// What translate_with makes: a stage's shader, a capturing draw's compute
+/// shader, or a geometry shader's compute shader (its resources' group)
+enum Mode<'a> {
+    Shader,
+    Xfb(&'a XfbInput),
+    Geometry(u32),
 }
 
 /// Struct members whose offsets are not WGSL's own layout's (std140's: a
@@ -392,13 +407,23 @@ fn explicit_layout(module: &naga::Module, wgsl: &mut String) {
 }
 
 /// The compute shader of a capturing draw (vx_translate_xfb), as JSON
-pub fn translate_xfb(bytes: &[u8], options: &Options, input: &XfbInput) -> Result<String, String> { translate_with(bytes, options, Some(input)) }
+pub fn translate_xfb(bytes: &[u8], options: &Options, input: &XfbInput) -> Result<String, String> { translate_with(bytes, options, Mode::Xfb(input)) }
 
-fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>) -> Result<String, String> {
+/// The compute shader of a geometry shader (geometry.rs), its own resources in `group`, as JSON
+pub fn translate_geometry(bytes: &[u8], options: &Options, group: u32) -> Result<String, String> { translate_with(bytes, options, Mode::Geometry(group)) }
+
+fn translate_with(bytes: &[u8], options: &Options, mode: Mode) -> Result<String, String> {
     if bytes.len() % 4 != 0 || bytes.len() < 20 {
         return Err(String::from("not SPIR-V: not whole words"));
     }
     let words: Vec<u32> = bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+    let (words, geometry) = match mode {
+        Mode::Geometry(_) => {
+            let (words, g) = geometry::prepare(&words)?;
+            (words, Some(g))
+        },
+        _ => (words, None),
+    };
     let mut sampled = Vec::new();
     let words = passes(&words, &options.int_wraps, &mut sampled);
     // (transform feedback's: read by xfb::captures, naga refuses them)
@@ -413,14 +438,27 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
     // (transform feedback: the compute shader of a capturing draw, xfb.rs)
     let mut appended = String::new();
     let mut capture_json = String::new();
-    if let Some(input) = xfb_input {
-        let (captures, strides) = xfb::captures(&words).ok_or("the vertex shader captures nothing")?;
-        appended = xfb::compute_shader(&mut module, &captures, strides, &input.attributes, &input.slots, input.group)?;
-        let mut buffers: Vec<u32> = captures.iter().map(|c| c.buffer).collect();
-        buffers.sort_unstable();
-        buffers.dedup();
+    let mut finished = None;
+    if let Mode::Xfb(input) = mode {
+        let (captures, strides, buffers) = if input.all {
+            (Vec::new(), [0; 4], vec![0])
+        }
+        else {
+            let (captures, strides) = xfb::captures(&words).ok_or("the vertex shader captures nothing")?;
+            let mut buffers: Vec<u32> = captures.iter().map(|c| c.buffer).collect();
+            buffers.sort_unstable();
+            buffers.dedup();
+            (captures, strides, buffers)
+        };
+        let (wgsl, strides) = xfb::compute_shader(&mut module, &captures, strides, &input.attributes, &input.slots, input.group, input.all)?;
+        appended = wgsl;
         capture_json = format!(",\"xfb\":{{\"strides\":[{},{},{},{}],\"buffers\":{:?},\"slots\":{:?}}}", strides[0], strides[1], strides[2], strides[3],
             buffers, { let mut s: Vec<u32> = input.attributes.iter().map(|a| a.slot).collect(); s.sort_unstable(); s.dedup(); s });
+    }
+    else if let (Mode::Geometry(group), Some(g)) = (&mode, &geometry) {
+        let f = geometry::finish(&mut module, g, *group)?;
+        capture_json = format!(",\"geometry\":{}", f.json);
+        finished = Some(f);
     }
     else if xfb::captures(&words).is_some() {
         capture_json = String::from(",\"captures\":true");
@@ -457,6 +495,10 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
     let mut wgsl = naga::back::wgsl::write_string(&module, &info, naga::back::wgsl::WriterFlags::empty())
         .map_err(|e| format!("WGSL: {:?}", e))?;
     explicit_layout(&module, &mut wgsl);
+    if let Some(f) = &finished {
+        geometry::replace_stubs(&mut wgsl, f)?;
+        appended = f.appended.clone();
+    }
     wgsl.push_str(&appended);
 
     let mut layouter = naga::proc::Layouter::default();
@@ -464,6 +506,25 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
     let mut json = String::from("{\"wgsl\":");
     json.push_str(&quote(&wgsl));
     json.push_str(",\"entries\":[");
+    if finished.is_some() {
+        // (vx_geometry: the resources the shader's function uses, and the group the caller gave)
+        let (handle, _) = module.functions.iter().find(|(_, f)| f.name.as_deref() == Some(geometry::MAIN)).ok_or("the geometry shader's function is gone")?;
+        let uses = &info[handle];
+        json.push_str("{\"name\":\"vx_geometry\",\"stage\":\"compute\",\"workgroup\":[64,1,1],\"flat\":false,\"bindings\":[");
+        let mut first = true;
+        for (h, var) in module.global_variables.iter() {
+            let Some(binding) = var.binding else { continue };
+            if uses[h].is_empty() { continue; }
+            if !first { json.push(','); }
+            first = false;
+            let size = match var.space {
+                AddressSpace::Uniform | AddressSpace::Storage { .. } if laid => layouter[var.ty].size,
+                _ => 0,
+            };
+            json.push_str(&format!("[{},{},\"{}\",{}]", binding.group, binding.binding, kind(&module, var), size));
+        }
+        json.push_str("]}");
+    }
     for (index, entry) in module.entry_points.iter().enumerate() {
         if index > 0 { json.push(','); }
         let stage = match entry.stage {
@@ -564,7 +625,32 @@ pub unsafe extern "C" fn vx_translate_xfb(ptr: *const u8, len: usize, immediates
     let slots = (0..next()).map(|_| xfb::Slot { slot: next(), stride: next(), instance: next() != 0 }).collect();
     let options = Options { immediates_group, immediates_binding, keep_coordinate_space: true, storage_uniforms, drop_frag_depth: false, reverse_depth: false, gl_depth: false,
         int_wraps: Vec::new() };
-    let answer = match translate_with(bytes, &options, Some(&XfbInput { attributes, slots, group })) {
+    // (the group's bit 31: every output captured, a geometry shader's input, XfbInput::all)
+    let (group, all) = (group & 0x7FFF_FFFF, group & 0x8000_0000 != 0);
+    let answer = match translate_with(bytes, &options, Mode::Xfb(&XfbInput { attributes, slots, group, all })) {
+        Ok(json) => json,
+        Err(error) => format!("{{\"error\":{}}}", quote(&error)),
+    };
+    let out = vx_alloc(answer.len() + 4);
+    core::ptr::copy_nonoverlapping((answer.len() as u32).to_le_bytes().as_ptr(), out, 4);
+    core::ptr::copy_nonoverlapping(answer.as_ptr(), out.add(4), answer.len());
+    out
+}
+
+/// The compute shader of the geometry shader in `ptr` (`len` bytes, its
+/// clip space kept), its own resources in `group` (geometry.rs)
+///
+/// # Safety
+/// as vx_translate's
+#[no_mangle]
+pub unsafe extern "C" fn vx_translate_geometry(ptr: *const u8, len: usize, group: u32, wraps: *const u32, wrap_count: usize) -> *mut u8 {
+    let bytes = core::slice::from_raw_parts(ptr, len);
+    let int_wraps = if wraps.is_null() || wrap_count == 0 { Vec::new() } else {
+        core::slice::from_raw_parts(wraps, wrap_count * 2).chunks_exact(2).map(|p| (p[0], p[1])).collect()
+    };
+    let options = Options { immediates_group: 0, immediates_binding: 0, keep_coordinate_space: true, storage_uniforms: Vec::new(), drop_frag_depth: false,
+        reverse_depth: false, gl_depth: false, int_wraps };
+    let answer = match translate_geometry(bytes, &options, group) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),
     };
