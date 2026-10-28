@@ -2863,7 +2863,7 @@ export const GLES3 = {
     {
         const binding = program.info.bindings.find(x => x.binding === b && x.kind === "sampler");
         const values = binding && binding.location >= 0 ? program.values.get(binding.location + e) : null;
-        const unit = Math.max(0, Math.min(31, values ? values[0] : 0));
+        const unit = Math.max(0, Math.min(c.textures.length - 1, values ? values[0] : 0));
         const slot = binding && SAMPLER_SLOT.has(binding.type) ? SAMPLER_SLOT.get(binding.type) : 0;
         const name = c.textures[unit][slot];
         const texture = name ? c.group.textures.get(name) : c.defaults ? c.defaults.get(SLOT_TARGET[slot]) : null;

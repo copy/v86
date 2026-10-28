@@ -18,6 +18,10 @@
 //!   column, a struct or array holding such members (the padding of a
 //!   vector stays as it was).
 //!
+//! An unsized array (a storage block's last member) of such matrices or
+//! elements is done over the same way, its length (OpArrayLength) the
+//! same: its elements stay as far apart.
+//!
 //! Arrays of scalars and 2-component vectors 16 bytes apart (std140's
 //! `float a[4]`, `vec2 b[2]`; WGSL's are 4 and 8 apart, and naga writes
 //! them so) are done over the same way, as column major "matrices" whose
@@ -46,6 +50,7 @@ const OP_VARIABLE: u32 = 59;
 const OP_LOAD: u32 = 61;
 const OP_STORE: u32 = 62;
 const OP_ACCESS_CHAIN: u32 = 65;
+const OP_ARRAY_LENGTH: u32 = 68;
 const OP_IN_BOUNDS_ACCESS_CHAIN: u32 = 66;
 const OP_DECORATE: u32 = 71;
 const OP_MEMBER_DECORATE: u32 = 72;
@@ -259,9 +264,13 @@ impl Lowering {
         id
     }
 
-    fn array(&mut self, element: u32, length: u32, stride: u32) -> u32 {
+    /// An array type of `length` (a constant's id), or a runtime array for None
+    fn array(&mut self, element: u32, length: Option<u32>, stride: u32) -> u32 {
         let id = self.fresh();
-        let w = instruction(OP_TYPE_ARRAY, &[id, element, length]);
+        let w = match length {
+            Some(length) => instruction(OP_TYPE_ARRAY, &[id, element, length]),
+            None => instruction(OP_TYPE_RUNTIME_ARRAY, &[id, element]),
+        };
         self.new_globals.push(w.clone());
         self.types.insert(id, w);
         self.new_annotations.push(instruction(OP_DECORATE, &[id, DECORATION_ARRAY_STRIDE, stride]));
@@ -280,7 +289,7 @@ impl Lowering {
         let row_major = self.member_decoration(s, m, DECORATION_ROW_MAJOR).is_some();
         let mut wrappers = Vec::new();
         let mut ty = member_type;
-        while self.type_op(ty) == OP_TYPE_ARRAY {
+        while matches!(self.type_op(ty), OP_TYPE_ARRAY | OP_TYPE_RUNTIME_ARRAY) {
             wrappers.push(ty);
             ty = self.types[&ty][2];
         }
@@ -308,12 +317,12 @@ impl Lowering {
         let vectors = if row_major { rows } else { columns };
         let vector = self.vector(float, components);
         let length = self.constant(vectors);
-        let stored = self.array(vector, length, stride);
+        let stored = self.array(vector, Some(length), stride);
         // the arrays around it, innermost first
         let mut wrapper_storage = Vec::new();
         let mut inner = stored;
         for &w in wrappers.iter().rev() {
-            let (length, stride) = (self.types[&w][3], self.array_stride(w).unwrap_or(0));
+            let (length, stride) = (self.types[&w].get(3).copied(), self.array_stride(w).unwrap_or(0));
             inner = self.array(inner, length, stride);
             wrapper_storage.push(inner);
         }
@@ -329,11 +338,11 @@ impl Lowering {
         // the arrays around the innermost one
         let mut wrappers = Vec::new();
         let mut ty = member_type;
-        while self.type_op(ty) == OP_TYPE_ARRAY && self.type_op(self.types[&ty][2]) == OP_TYPE_ARRAY {
+        while matches!(self.type_op(ty), OP_TYPE_ARRAY | OP_TYPE_RUNTIME_ARRAY) && self.type_op(self.types[&ty][2]) == OP_TYPE_ARRAY {
             wrappers.push(ty);
             ty = self.types[&ty][2];
         }
-        if self.type_op(ty) != OP_TYPE_ARRAY || self.array_stride(ty) != Some(16) {
+        if !matches!(self.type_op(ty), OP_TYPE_ARRAY | OP_TYPE_RUNTIME_ARRAY) || self.array_stride(ty) != Some(16) {
             return None;
         }
         let element = self.types[&ty][2];
@@ -345,13 +354,18 @@ impl Lowering {
         if !matches!(self.type_op(scalar), OP_TYPE_INT | OP_TYPE_FLOAT) || self.types[&scalar][2] != 32 || wrappers.iter().any(|&w| self.array_stride(w).is_none()) {
             return None;
         }
-        let columns = self.constant_value(self.types[&ty][3])?;
+        // (a runtime array's elements: none to load or store whole)
+        let length = self.types[&ty].get(3).copied();
+        let columns = match length {
+            Some(l) => self.constant_value(l)?,
+            None => 0,
+        };
         let vector = self.vector(scalar, 4);
-        let stored = self.array(vector, self.types[&ty][3], 16);
+        let stored = self.array(vector, length, 16);
         let mut wrapper_storage = Vec::new();
         let mut inner = stored;
         for &w in wrappers.iter().rev() {
-            let (length, stride) = (self.types[&w][3], self.array_stride(w).unwrap_or(0));
+            let (length, stride) = (self.types[&w].get(3).copied(), self.array_stride(w).unwrap_or(0));
             inner = self.array(inner, length, stride);
             wrapper_storage.push(inner);
         }
@@ -503,6 +517,8 @@ impl Lowering {
                     let info = ptrs[&w[3]].clone();
                     self.load(w[1], w[2], w[3], &info, &mut body)?;
                 },
+                // (an unsized array's length: its copy's, the elements as far apart)
+                OP_ARRAY_LENGTH if w.len() == 5 && matches!(ptrs.get(&w[3]), Some(Ptr::Copied { .. })) => body.push(w.clone()),
                 OP_STORE if w.len() >= 3 && ptrs.contains_key(&w[1]) && !ptrs.contains_key(&w[2]) => {
                     if w.len() > 3 && w[3] != 0 && w[3] != 2 {
                         return None;
@@ -745,7 +761,7 @@ impl Lowering {
     fn store_member(&mut self, pointer: u32, b: usize, depth: usize, class: u32, object: u32, body: &mut Vec<Vec<u32>>) -> Option<()> {
         let bad = self.bads[b].clone();
         if depth < bad.wrappers.len() {
-            let length = self.constant_value(self.types[&bad.wrappers[depth]][3])?;
+            let length = self.types[&bad.wrappers[depth]].get(3).copied().and_then(|l| self.constant_value(l))?;
             let p = { let s = self.member_storage(b, depth + 1); self.pointer(class, s) };
             let element = self.member_value(b, depth + 1);
             for i in 0..length {
@@ -823,7 +839,7 @@ impl Lowering {
     fn load_member(&mut self, pointer: u32, b: usize, depth: usize, class: u32, result: u32, body: &mut Vec<Vec<u32>>) -> Option<()> {
         let bad = self.bads[b].clone();
         if depth < bad.wrappers.len() {
-            let length = self.constant_value(self.types[&bad.wrappers[depth]][3])?;
+            let length = self.types[&bad.wrappers[depth]].get(3).copied().and_then(|l| self.constant_value(l))?;
             let p = { let s = self.member_storage(b, depth + 1); self.pointer(class, s) };
             let mut parts = Vec::new();
             for i in 0..length {
@@ -911,6 +927,12 @@ impl Lowering {
                 }
             }
         }
+        // (the pointer types the variables had, to the types now without their layout: gone where nothing else names them,
+        // naga refuses a Uniform pointer to a struct of an unsized array that is no block any more)
+        let named = |id: u32, declarations: &[Vec<u32>]| declarations.iter().any(|w| !(Lowering::op(w) == OP_TYPE_POINTER && w[1] == id) && w[1..].contains(&id))
+            || body.iter().any(|w| w[1..].contains(&id));
+        let dead: BTreeSet<u32> = redirect.keys().copied().filter(|&id| !named(id, &declarations)).collect();
+        declarations.retain(|w| !(Lowering::op(w) == OP_TYPE_POINTER && dead.contains(&w[1])));
         let original = declarations.len();
         declarations.extend(self.new_globals.iter().cloned());
         let defined = |w: &[u32]| -> Option<u32> {

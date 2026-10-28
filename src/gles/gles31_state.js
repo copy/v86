@@ -278,6 +278,7 @@ export function gles31_handlers(h, H3)
     /** A draw of GLES 3.1: 3.0's checks, then what it writes */
     const draw31 = handler => (shadow, c, args) =>
     {
+        if(pipeline_refused(c)) return fail(c, GL.INVALID_OPERATION);
         const r = handler(shadow, c, args);
         if(r !== REFUSED) written(c, [stage_program(c, GL31.VERTEX_SHADER_BIT), stage_program(c, GL31.FRAGMENT_SHADER_BIT)]);
         return r;
@@ -288,7 +289,7 @@ export function gles31_handlers(h, H3)
         if(![0, 1, 2, 3, 4, 5, 6].includes(mode) || elements && ![0x1401, 0x1403, 0x1405].includes(type)) return fail(c, GL.INVALID_ENUM);
         if(!c.vao) return fail(c, GL.INVALID_OPERATION);
         if(elements && !c.element_array_buffer) return fail(c, GL.INVALID_OPERATION);
-        if(current_tf(c).active && !current_tf(c).paused) return fail(c, GL.INVALID_OPERATION);
+        if(current_tf(c).active && !current_tf(c).paused || pipeline_refused(c)) return fail(c, GL.INVALID_OPERATION);
         if(offset !== undefined)
         {
             const buffer = c.group.buffers.get(c.buffers.draw_indirect);
@@ -384,8 +385,17 @@ export function gles31_handlers(h, H3)
         }
         return pipeline || null;
     };
-    /** glValidateProgramPipeline's rules (GLES 3.1 7.4.1): stages of separable, linked programs, vertex with fragment */
-    const validate = (c, pipeline) =>
+    /**
+     * What makes a pipeline invalid by glValidateProgramPipeline's rules
+     * (GLES 3.1 7.4.1, 7.4.2): stages of separable, linked programs, vertex
+     * with fragment, and their interfaces matching: each fragment shader
+     * input a vertex shader output, by location where it has one, else by
+     * name, a location on both or neither, of one type, size and
+     * interpolation (the programs' reflections; one of a snapshot from
+     * before they had the vertex program's outputs is not checked)
+     * @return {string} "" for none
+     */
+    const pipeline_problem = (c, pipeline) =>
     {
         const programs = Object.entries(pipeline.stages).filter(([, p]) => p).map(([bit, p]) => [+bit, c.group.objects.get(p)]);
         const problem = !programs.length ? "no program" :
@@ -393,9 +403,32 @@ export function gles31_handlers(h, H3)
             programs.some(([, p]) => !p.separable) ? "a program is not separable" :
             !!pipeline.stages[GL31.VERTEX_SHADER_BIT] !== !!pipeline.stages[GL31.FRAGMENT_SHADER_BIT] && !pipeline.stages[GL31.COMPUTE_SHADER_BIT] ?
                 "a vertex shader without a fragment shader, or the other way" : "";
+        const vertex = pipeline.stages[GL31.VERTEX_SHADER_BIT], fragment = pipeline.stages[GL31.FRAGMENT_SHADER_BIT];
+        if(problem || !vertex || !fragment || vertex === fragment) return problem;
+        const all_outputs = (c.group.objects.get(vertex).info.reflection || {}).outputs || [];
+        if(!all_outputs.length) return "";
+        const outputs = all_outputs.filter(o => !o.builtIn);
+        for(const i of ((c.group.objects.get(fragment).info.reflection || {}).inputs || []).filter(x => !x.builtIn))
+        {
+            const o = i.location >= 0 ? outputs.find(x => x.location === i.location) : outputs.find(x => x.name === i.name);
+            if(!o) return "the fragment shader's input " + i.name + " is no output of the vertex shader";
+            if(o.location >= 0 !== i.location >= 0) return "the fragment shader's input " + i.name + " has a location, the output not, or the other way";
+            if(o.type !== i.type || o.size !== i.size || !!o.flat !== !!i.flat) return "the fragment shader's input " + i.name + " and its output differ";
+        }
+        return "";
+    };
+    const validate = (c, pipeline) =>
+    {
+        const problem = pipeline_problem(c, pipeline);
         pipeline.valid = !problem;
         pipeline.log = problem;
         return !problem;
+    };
+    /** A draw's pipeline, when there is no current program: INVALID_OPERATION if it is not valid (GLES 3.1 11.1.3.11) */
+    const pipeline_refused = c =>
+    {
+        const pipeline = !c.program && c.program_pipeline && c.program_pipelines.get(c.program_pipeline);
+        return !!pipeline && !!pipeline_problem(c, pipeline);
     };
 
     const H = {
