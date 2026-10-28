@@ -966,6 +966,38 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glActiveTexture", 0x84C0);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 0, 255]), "a multisampled texture's sample, fetched");
+        // GLSL ES 3.10's extended integer functions (helpers of plain arithmetic: naga reads none of their SPIR-V), read as integers
+        const extended = program(`#version 310 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 310 es
+            precision highp float;
+            uniform highp uint a, b;
+            uniform highp int x, y, which;
+            layout(location = 0) out highp uvec4 o;
+            void main() {
+                if(which == 0) { uint c, hi, lo; uint s = uaddCarry(a, 2u, c); umulExtended(a, b, hi, lo); o = uvec4(s, c, hi, lo); }
+                else { int hi, lo; uint br; imulExtended(x, y, hi, lo); uint d = usubBorrow(2u, b, br); o = uvec4(uint(hi), uint(lo), d, br); }
+            }`);
+        const extended_fbo = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, extended_fbo);
+        const extended_texture = texture(3, 0x0DE1);
+        gl("glTexStorage2D", 0x0DE1, 1, 0x8D70, 1, 1);
+        gl("glFramebufferTexture2D", 0x8D40, 0x8CE0, 0x0DE1, extended_texture, 0);
+        gl("glActiveTexture", 0x84C0);
+        gl("glUniform1ui", extended.at("a"), 0xFFFFFFFF);
+        gl("glUniform1ui", extended.at("b"), 0xFFFFFFFF);
+        gl("glUniform1i", extended.at("x"), -2);
+        gl("glUniform1i", extended.at("y"), 3);
+        const integers = [];
+        for(const which of [0, 1])
+        {
+            gl("glUniform1i", extended.at("which"), which);
+            gl("glDrawArrays", 5, 0, 4);
+            integers.push(...new Uint32Array((await read_as(0, 0, 1, 1, 0x8D99, 0x1405)).slice().buffer));
+        }
+        gl("glBindFramebuffer", 0x8D40, 0);
+        check(integers.map(v => v.toString(16)).join() === "1,1,fffffffe,1,ffffffff,fffffffa,3,1",
+            "uaddCarry, umulExtended, imulExtended, usubBorrow: " + integers.map(v => v.toString(16)));
         // a depth and stencil texture sampled as its stencil (DEPTH_STENCIL_TEXTURE_MODE STENCIL_INDEX): the upload's stencil values
         const stencil31 = texture(2, 0x0DE1);
         gl("glTexImage2D", 0x0DE1, 0, 0x88F0, 2, 2, 0, 0x84F9, 0x84FA, new Uint8Array(new Uint32Array([0x80000042, 0x80000042, 0x80000042, 0x80000042]).buffer));

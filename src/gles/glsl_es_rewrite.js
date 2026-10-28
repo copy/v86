@@ -195,6 +195,42 @@ function rewrite_blend(tokens)
 
 const SAMPLE_FUNCTIONS = new Set(["gl_SamplePosition", "interpolateAtCentroid", "interpolateAtSample", "interpolateAtOffset"]);
 
+/**
+ * GLSL ES 3.10's extended integer functions, whose SPIR-V (OpIAddCarry,
+ * OpISubBorrow, OpUMulExtended, OpSMulExtended) naga does not read: calls
+ * to these instead, of plain integer arithmetic (the 32 by 32 bit products
+ * from 16-bit halves), for each scalar and vector size
+ */
+const EXTENDED_FUNCTIONS = new Set(["uaddCarry", "usubBorrow", "umulExtended", "imulExtended"]);
+
+function extended_helpers(uses)
+{
+    let text = "";
+    for(const n of ["", "2", "3", "4"])
+    {
+        const u = n ? "uvec" + n : "uint", i = n ? "ivec" + n : "int";
+        const below = (a, b) => n ? `${u}(lessThan(${a}, ${b}))` : `(${a} < ${b} ? 1u : 0u)`;
+        if(uses.has("uaddCarry")) text += `highp ${u} _v86_uaddCarry(highp ${u} a, highp ${u} b, out highp ${u} carry) { highp ${u} s = a + b; carry = ${below("s", "a")}; return s; }\n`;
+        if(uses.has("usubBorrow")) text += `highp ${u} _v86_usubBorrow(highp ${u} a, highp ${u} b, out highp ${u} borrow) { borrow = ${below("a", "b")}; return a - b; }\n`;
+        if(uses.has("umulExtended") || uses.has("imulExtended"))
+        {
+            text += `void _v86_umulExtended(highp ${u} x, highp ${u} y, out highp ${u} msb, out highp ${u} lsb) { ` +
+                `highp ${u} xl = x & 0xFFFFu, xh = x >> 16u, yl = y & 0xFFFFu, yh = y >> 16u; ` +
+                `highp ${u} ll = xl * yl, lh = xl * yh, hl = xh * yl; ` +
+                `highp ${u} mid = (ll >> 16u) + (lh & 0xFFFFu) + (hl & 0xFFFFu); ` +
+                `msb = xh * yh + (lh >> 16u) + (hl >> 16u) + (mid >> 16u); lsb = x * y; }\n`;
+        }
+        if(uses.has("imulExtended"))
+        {
+            // (the signed product's high word: the unsigned one's less each negative operand's other)
+            const negative = (a, b) => n ? `${u}(lessThan(${a}, ${i}(0))) * ${u}(${b})` : `(${a} < 0 ? ${u}(${b}) : 0u)`;
+            text += `void _v86_imulExtended(highp ${i} x, highp ${i} y, out highp ${i} msb, out highp ${i} lsb) { highp ${u} m, l; ` +
+                `_v86_umulExtended(${u}(x), ${u}(y), m, l); m -= ${negative("x", "y")} + ${negative("y", "x")}; msb = ${i}(m); lsb = ${i}(l); }\n`;
+        }
+    }
+    return text;
+}
+
 /** The functions that stand in for the sample functions `uses` names */
 function sample_helpers(uses)
 {
@@ -469,6 +505,7 @@ export function rewrite_for_spirv(source, stage, limits)
     // (where the sample functions' helpers go: after the #version and #extension lines)
     let directives_end = -1;
     const sample_uses = new Set();
+    const extended_uses = new Set();
     if(es100) mark_overloads(tokens);
     for(let i = 0; i < tokens.length; i++)
     {
@@ -531,6 +568,12 @@ export function rewrite_for_spirv(source, stage, limits)
             return;
         }
         if(name === "samplerExternalOES") t.text = "sampler2D";
+        if(!es100 && EXTENDED_FUNCTIONS.has(name))
+        {
+            extended_uses.add(name);
+            t.text = "_v86_" + name;
+            return;
+        }
         if(stage === "fragment" && !es100 && SAMPLE_FUNCTIONS.has(name))
         {
             sample_uses.add(name);
@@ -552,10 +595,10 @@ export function rewrite_for_spirv(source, stage, limits)
     const blend = stage === "fragment" && !es100 && tokens.some(t => t.kind === "name" && /^blend_support_/.test(t.text)) ? rewrite_blend(tokens) : null;
     let text = tokens.map(t => t.text).join("");
     if(blend) text += "\n" + blend;
-    if(sample_uses.size && directives_end >= 0)
+    if((sample_uses.size || extended_uses.size) && directives_end >= 0)
     {
         const at = tokens.slice(0, directives_end).reduce((n, t) => n + t.text.length, 0);
-        text = text.slice(0, at) + "\n" + sample_helpers(sample_uses) + text.slice(at);
+        text = text.slice(0, at) + "\n" + sample_helpers(sample_uses) + extended_helpers(extended_uses) + text.slice(at);
     }
     if(es100)
     {
