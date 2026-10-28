@@ -389,9 +389,9 @@ export function gles31_handlers(h, H3)
      * What makes a pipeline invalid by glValidateProgramPipeline's rules
      * (GLES 3.1 7.4.1, 7.4.2): stages of separable, linked programs, vertex
      * with fragment, and their interfaces matching: each fragment shader
-     * input a vertex shader output, by location where it has one, else by
-     * name, a location on both or neither, of one type, size and
-     * interpolation (the programs' reflections; one of a snapshot from
+     * input a vertex shader output and each output an input, by location
+     * where it has one, else by name, a location on both or neither, of one
+     * type, size and interpolation (the programs' reflections; one of a snapshot from
      * before they had the vertex program's outputs is not checked)
      * @return {string} "" for none
      */
@@ -408,14 +408,18 @@ export function gles31_handlers(h, H3)
         const all_outputs = (c.group.objects.get(vertex).info.reflection || {}).outputs || [];
         if(!all_outputs.length) return "";
         const outputs = all_outputs.filter(o => !o.builtIn);
-        for(const i of ((c.group.objects.get(fragment).info.reflection || {}).inputs || []).filter(x => !x.builtIn))
+        const inputs = ((c.group.objects.get(fragment).info.reflection || {}).inputs || []).filter(x => !x.builtIn);
+        const match = (x, list) => x.location >= 0 ? list.find(y => y.location === x.location) : list.find(y => y.name === x.name);
+        for(const i of inputs)
         {
-            const o = i.location >= 0 ? outputs.find(x => x.location === i.location) : outputs.find(x => x.name === i.name);
+            const o = match(i, outputs);
             if(!o) return "the fragment shader's input " + i.name + " is no output of the vertex shader";
             if(o.location >= 0 !== i.location >= 0) return "the fragment shader's input " + i.name + " has a location, the output not, or the other way";
             if(o.type !== i.type || o.size !== i.size || !!o.flat !== !!i.flat) return "the fragment shader's input " + i.name + " and its output differ";
         }
-        return "";
+        // (GLES 3.1's separable interfaces match exactly: an output no input reads too)
+        const unread = outputs.find(o => !match(o, inputs));
+        return unread ? "the vertex shader's output " + unread.name + " is no input of the fragment shader" : "";
     };
     const validate = (c, pipeline) =>
     {

@@ -143,23 +143,27 @@ export function link_glslang_program(glslang, shaders, options)
     }
     // layout(location) on uniforms: GL refuses two at one location even
     // when they are not active, which the reflection leaves out
-    const declared = new Map();
+    // (an array of arrays' dimensions: its inner arrays' locations after the
+    // first's, glslang reflects each at the array's)
+    const declared = new Map(), dimensions = new Map();
     for(const s of shaders)
     {
-        const pattern = /layout\s*\(([^)]*)\)\s*uniform\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+(\w+)\s*(?:\[\s*(\d+)\s*\])?/g;
+        const pattern = /(?:layout\s*\(([^)]*)\)\s*uniform|uniform\s+layout\s*\(([^)]*)\))\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+(\w+)\s*((?:\[\s*\d+\s*\])*)/g;
         for(let m; (m = pattern.exec(s.source));)
         {
-            const at = /\blocation\s*=\s*(\d+)/.exec(m[1]);
+            const at = /\blocation\s*=\s*(\d+)/.exec(m[1] || m[2]);
             if(!at) continue;
-            const location = +at[1], size = m[3] ? +m[3] : 1;
+            const dims = (m[4].match(/\d+/g) || []).map(Number);
+            dimensions.set(m[3], dims);
+            const location = +at[1], size = dims.reduce((n, d) => n * d, 1);
             for(let i = 0; i < size; i++)
             {
                 const owner = declared.get(location + i);
-                if(owner !== undefined && owner !== m[2] + "[" + i + "]")
+                if(owner !== undefined && owner !== m[3] + "[" + i + "]")
                 {
                     return empty("ERROR: uniform location " + (location + i) + " is used by two uniforms");
                 }
-                declared.set(location + i, m[2] + "[" + i + "]");
+                declared.set(location + i, m[3] + "[" + i + "]");
             }
         }
     }
@@ -170,6 +174,9 @@ export function link_glslang_program(glslang, shaders, options)
     {
         if(u.explicit_location < 0) continue;
         u.location = u.explicit_location;
+        const dims = dimensions.get(u.name.replace(/\[.*$/, ""));
+        const indices = (u.name.match(/\[\d+\]/g) || []).map(x => +x.slice(1, -1));
+        if(dims && indices.length > 1 && indices.length === dims.length) u.location += indices.reduce((n, index, k) => n * dims[k] + index, 0);
         for(let i = 0; i < u.size; i++)
         {
             // (two uniforms at one location: a link error, which glslang leaves to GL)
