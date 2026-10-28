@@ -306,6 +306,32 @@ async function setup(max_version, api)
     await call("gles2:glBindFramebuffer", 0x8D40, 0);
     await call("gles2:glBindVertexArray", 905);
     assert.equal(await error(), 0x0502, "an unused vertex array name: INVALID_OPERATION");
+    // (errors dEQP-GLES3's negative_api expects of these: a 3D texture of depth's format, a depth of 0, an unpack buffer's
+    // offset not a whole number of the type's datums, a level past the largest; SAMPLES of a multisampled framebuffer)
+    const tex3d = 910, tex_array = 911, unpack = 912;
+    await call("gles2:glBindTexture", 0x806F, tex3d);
+    await call("gles2:glTexImage3D", 0x806F, 0, 0x84F9, 1, 1, 1, 0, 0x84F9, 0x84FA, null);
+    assert.equal(await error(), 0x0502, "TexImage3D of TEXTURE_3D and DEPTH_STENCIL: INVALID_OPERATION");
+    await call("gles2:glTexStorage3D", 0x806F, 1, 0x8058, 4, 4, 0);
+    assert.equal(await error(), 0x0501, "TexStorage3D of depth 0: INVALID_VALUE");
+    await call("gles2:glBindTexture", 0x0DE1, 913);
+    await call("gles2:glTexStorage2D", 0x0DE1, 1, 0x8056, 4, 4);
+    await call("gles2:glBindBuffer", 0x88EC, unpack);
+    await call("gles2:glBufferData", 0x88EC, 64, null, 0x88E4);
+    await call("gles2:glTexSubImage2DOffsetAEMU", 0x0DE1, 0, 0, 0, 4, 4, 0x1908, 0x8033, 3);
+    assert.equal(await error(), 0x0502, "an unpack buffer's offset of 3 for 16-bit datums: INVALID_OPERATION");
+    await call("gles2:glBindBuffer", 0x88EC, 0);
+    await call("gles2:glBindTexture", 0x8C1A, tex_array);
+    await call("gles2:glCompressedTexSubImage3D", 0x8C1A, 13, 0, 0, 0, 0, 0, 0, 0x9278, 0, null);
+    assert.equal(await error(), 0x0501, "CompressedTexSubImage3D of level 13: INVALID_VALUE");
+    await call("gles2:glBindRenderbuffer", 0x8D41, 914);
+    await call("gles2:glRenderbufferStorageMultisample", 0x8D41, 4, 0x8058, 4, 4);
+    await call("gles2:glBindFramebuffer", 0x8D40, 915);
+    await call("gles2:glFramebufferRenderbuffer", 0x8D40, 0x8CE0, 0x8D41, 914);
+    assert.deepEqual([i32s((await call("gles2:glGetIntegerv", 0x80A8, 4)).outs[0])[0], i32s((await call("gles2:glGetIntegerv", 0x80A9, 4)).outs[0])[0]], [1, 4],
+        "SAMPLE_BUFFERS and SAMPLES of a multisampled framebuffer");
+    await call("gles2:glBindFramebuffer", 0x8D40, 0);
+    assert.equal(await error(), 0);
     // (GLES 3.0 takes SRC_ALPHA_SATURATE as a destination factor too; GLES 2.0 as a source's alone)
     await call("gles2:glBlendFuncSeparate", 0x0305, 0x0308, 0x0303, 0x0308);
     assert.equal(await error(), 0, "SRC_ALPHA_SATURATE as a destination factor");

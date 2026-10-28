@@ -72,6 +72,9 @@ const target_ok = (c, target) => BUFFER_TARGETS.has(target) && (c.version >= 31 
 const USAGES3 = new Set([0x88E0, 0x88E1, 0x88E2, 0x88E4, 0x88E5, 0x88E6, 0x88E8, 0x88E9, 0x88EA]);
 const COMPARE_FUNCS = new Set([0x0200, 0x0201, 0x0202, 0x0203, 0x0204, 0x0205, 0x0206, 0x0207]);
 const WRAPS = new Set([GL3.REPEAT, GL3.CLAMP_TO_EDGE, GL3.MIRRORED_REPEAT]);
+/** The bytes of a pixel transfer type's datum (a packed type's whole), for an unpack buffer's offset */
+const DATUM_BYTES = { 0x1400: 1, 0x1401: 1, 0x1402: 2, 0x1403: 2, 0x1404: 4, 0x1405: 4, 0x1406: 4, 0x140B: 2, 0x8D61: 2, 0x8033: 2, 0x8034: 2,
+    0x8363: 2, 0x8368: 4, 0x8C3B: 4, 0x8C3E: 4, 0x84FA: 4, 0x8DAD: 8 };
 /** GLES 3.2's CLAMP_TO_BORDER and TEXTURE_BORDER_COLOR */
 const CLAMP_TO_BORDER = 0x812D, TEXTURE_BORDER_COLOR = 0x1004;
 /** GLES 3.1's DEPTH_STENCIL_TEXTURE_MODE (DEPTH_COMPONENT or STENCIL_INDEX) */
@@ -299,7 +302,7 @@ export function gles3_handlers(h)
      * forms) from the pixel unpack buffer: @return {boolean} whether it is
      * there, else the error is set
      */
-    const source_ok = (c, needed, bytes, offset) =>
+    const source_ok = (c, needed, bytes, offset, type) =>
     {
         if(offset === undefined)
         {
@@ -310,6 +313,8 @@ export function gles3_handlers(h)
         const buffer = c.group.buffers.get(c.buffers.pixel_unpack);
         if(!buffer) { fail(c, GL.INVALID_OPERATION); return false; }
         if(buffer.mapped || offset < 0 || offset + needed > buffer.size) { fail(c, GL.INVALID_OPERATION); return false; }
+        // (the offset a whole number of the type's datums: GLES 3.0 3.7.1)
+        if(type !== undefined && offset % (DATUM_BYTES[type] || 1)) { fail(c, GL.INVALID_OPERATION); return false; }
         return true;
     };
     const max_level_of = target => target === GL.TEXTURE_3D ? MAX_LEVELS_3D - 1 : MAX_LEVELS_2D - 1;
@@ -348,6 +353,8 @@ export function gles3_handlers(h)
             texture = bound_texture3(c, target === GL.TEXTURE_2D ? GL.TEXTURE_2D : GL.TEXTURE_CUBE_MAP);
         }
         if(!texture) return REFUSED;
+        // (a 3D texture of depth: refused as INVALID_OPERATION before the format's checks, dEQP's negative_api.texture.teximage3d)
+        if(three && target === GL.TEXTURE_3D && (format === 0x1902 || format === 0x84F9)) return fail(c, GL.INVALID_OPERATION);
         const f = tex_image_format(internalformat, format, type);
         if(f.error) return fail(c, f.error);
         const info = format_info(f.internal);
@@ -355,7 +362,7 @@ export function gles3_handlers(h)
         if(!size_ok(c, target, level, width, height, depth, border)) return REFUSED;
         if(texture.immutable) return fail(c, GL.INVALID_OPERATION);
         const needed = image_bytes3(width, height, depth, format, type, unpack_store(c));
-        if(!source_ok(c, needed, offset === undefined ? data : null, offset)) return REFUSED;
+        if(!source_ok(c, needed, offset === undefined ? data : null, offset, type)) return REFUSED;
         texture.images.set(image_key(face, level), { width, height, depth, format, type, internal: f.internal, compressed: false });
         return undefined;
     };
@@ -386,7 +393,7 @@ export function gles3_handlers(h)
         if(x + width > image.width || y + height > image.height || z + depth > (image.depth || 1)) return fail(c, GL.INVALID_VALUE);
         if(tex_image_format(image.internal || image.format, format, type).error) return fail(c, GL.INVALID_OPERATION);
         const needed = image_bytes3(width, height, depth, format, type, unpack_store(c));
-        if(!source_ok(c, needed, offset === undefined ? data : null, offset)) return REFUSED;
+        if(!source_ok(c, needed, offset === undefined ? data : null, offset, type)) return REFUSED;
         return undefined;
     };
     /** glTexStorage2D/3D */
@@ -399,7 +406,7 @@ export function gles3_handlers(h)
         const info = SIZED_FORMATS.get(internalformat);
         const compressed = COMPRESSED_FORMATS.get(internalformat);
         if(!info && !compressed) return fail(c, GL.INVALID_ENUM);
-        depth = depth || 1;
+        if(depth === undefined) depth = 1;
         if(width < 1 || height < 1 || depth < 1 || levels < 1) return fail(c, GL.INVALID_VALUE);
         const max = target === GL.TEXTURE_3D ? LIMITS3.MAX_3D_TEXTURE_SIZE : LIMITS3.MAX_TEXTURE_SIZE;
         if(width > max || height > max || (target === GL.TEXTURE_3D && depth > max) ||
@@ -459,7 +466,7 @@ export function gles3_handlers(h)
         const texture = bound_texture3(c, three ? target : target === GL.TEXTURE_2D ? GL.TEXTURE_2D : GL.TEXTURE_CUBE_MAP);
         if(!texture) return REFUSED;
         if(!COMPRESSED_FORMATS.has(format)) return fail(c, GL.INVALID_ENUM);
-        if(level < 0 || x < 0 || y < 0 || z < 0 || width < 0 || height < 0 || depth < 0) return fail(c, GL.INVALID_VALUE);
+        if(level < 0 || level > max_level_of(target) || x < 0 || y < 0 || z < 0 || width < 0 || height < 0 || depth < 0) return fail(c, GL.INVALID_VALUE);
         const image = texture.images.get(image_key(face, level));
         if(!image || !image.compressed || image.internal !== format || format === 0x8D64) return fail(c, GL.INVALID_OPERATION);
         const { block_width: bw, block_height: bh } = COMPRESSED_FORMATS.get(format);
@@ -2165,6 +2172,19 @@ export function state_value3(shadow, c, pname)
     const fbo = c.framebuffer && c.framebuffers.get(c.framebuffer);
     switch(pname)
     {
+        case 0x80A8: case 0x80A9: // GL_SAMPLE_BUFFERS, GL_SAMPLES: the bound framebuffer's (the default one's: GL_STATE's)
+        {
+            if(!fbo) return null;
+            let samples = 0;
+            for(const a of fbo.attachments.values())
+            {
+                const rb = a.type === 0x8D41 ? c.group.renderbuffers.get(a.name) : null; // (GL_RENDERBUFFER)
+                const texture = a.type === 0x8D41 ? null : c.group.textures.get(a.name);
+                const image = texture && texture.images.get(a.face * 32 + a.level);
+                samples = Math.max(samples, rb ? rb.samples || 0 : image ? image.samples || 0 : 0);
+            }
+            return [pname === 0x80A9 ? samples : samples > 0 ? 1 : 0];
+        }
         case 0x821B: return [3]; // GL_MAJOR_VERSION
         case 0x821C: return [c.version % 10]; // GL_MINOR_VERSION
         case 0x821D: return [shadow.extensions3(c).length]; // GL_NUM_EXTENSIONS
