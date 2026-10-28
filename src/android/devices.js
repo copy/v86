@@ -275,5 +275,6 @@ export function ranchu_gpu_mode(device, gpu_mode, gles_version)
     if(!m.gles) return m;
     const version = gles_version || DEFAULT_GLES_VERSION;
     if(!GLES_VERSIONS[version]) throw new Error(`${device.id}: no GLES version ${version} (${Object.keys(GLES_VERSIONS).join(", ")})`);
-    return Object.assign({}, m, { gles_version: version, properties: Object.assign({}, m.properties, { "ro.opengles.version": GLES_VERSIONS[version] }) });
+    return /** @type {{ranchu_gpu: string, gles: boolean, gles_version: (string|undefined), properties: !Object<string, string>}} */ (
+        Object.assign({}, m, { gles_version: version, properties: Object.assign({}, m.properties, { "ro.opengles.version": GLES_VERSIONS[version] }) }));
 }
