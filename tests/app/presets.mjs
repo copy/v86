@@ -129,7 +129,7 @@ test("Android 7.1's emulator image: the options of tests/a32/android_boot.mjs (A
     assert.equal(o.machine_type, "ranchu");
     assert.equal(o.cpu_cores, 2);
     assert.equal(o.memory_size, 1024 << 20);
-    assert.deepEqual(o.android, { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", selinux: "enforcing", vendor_ramdisk: undefined, gles_version: "3.0" });
+    assert.deepEqual(o.android, { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", selinux: "enforcing", vendor_ramdisk: undefined, gles_version: "3.1" });
     assert.equal("kernel" in o || "initrd" in o, false);
     assert.equal(o.graphics_adapter, "none");
     assert.deepEqual(o.virtio_disks, [{ url: "disk.img", async: true, disk_option: "read_write" }]);

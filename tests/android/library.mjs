@@ -529,13 +529,13 @@ await run("assemble an emulator image, its partitions as disks", async () =>
         assert.equal(boot.ranchu_gpu, "guest", "no gpu_mode: the guest renders");
         assert.equal(boot.bootconfig, null);
         // the GPU mode "host" (docs/gles-proxy-plan.md): the GLES host, qemu.gles=1, the default GLES version's property
-        // (3.0, docs/gles3-plan.md), or the one given
+        // (3.1, docs/gles3-plan.md), or the one given
         const host = await android_bootloader(async (offset, length) => out.slice(offset, offset + length), out.length,
             { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", memory_mb: 1024 });
         assert.equal(host.ranchu_gpu, "host");
         assert.match(host.cmdline, / qemu\.gles=1 /);
-        assert.deepEqual(host.properties, { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "", "ro.opengles.version": "196608" });
-        assert.equal(host.gles_version, "3.0");
+        assert.deepEqual(host.properties, { "ro.config.low_ram": "true", "dalvik.vm.stack-trace-file": "", "ro.opengles.version": "196609" });
+        assert.equal(host.gles_version, "3.1");
         const host32 = await android_bootloader(async (offset, length) => out.slice(offset, offset + length), out.length,
             { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", memory_mb: 1024, gles_version: "3.2" });
         assert.equal(host32.properties["ro.opengles.version"], "196610");

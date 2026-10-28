@@ -630,6 +630,12 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
 **L6 结论（2026-10-28）：完成**（`28e76316`、`6d879a24`、`00a5bb9d`、`eaf9801f`、`7eacf3c6`、`31823aef`、`7ff6dda7`）。
 线上能到的 3.2 都做了：
 
+- **客体能用到的**（同日自建 APK 在 3.2 宿主上探测，`df0ac8e5`）：Android 7.1 的 GLES 库自己检查枚举，只认到 3.1：几何与细分着色器的
+  `glCreateShader`、立方体贴图数组的 `glBindTexture` 在客体里就被拒（`INVALID_ENUM`，宿主收不到）；`TEXTURE_BORDER_COLOR`
+  到了宿主、颜色也设上了，但库报 `INVALID_ENUM`。客体能用的是高级混合、`CLAMP_TO_BORDER`、GLSL ES 3.20 的着色器（采样变量）与
+  ASTC。几何、细分与立方体贴图数组在宿主上做好了、浏览器测试覆盖，但这个客体用不上（留给库更新的客体）。所以默认宣告 3.1
+  （“已定”第 6 条），G-68 写明。
+
 - **立方体贴图数组与 ASTC**：`cube-array` 视图；ASTC 在设备有 `texture-compression-astc` 时直传（这台 Mac 有）。3.2 的
   状态值、上限与开关照规范的最小值回答（KHR_debug 的初值；它的入口不在线上）。
 - **几何着色器**：vx_naga 的 `geometry.rs` 把几何阶段的 SPIR-V 改成计算着色器（输入输出成私有变量，`EmitVertex`、
@@ -682,7 +688,7 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
   存，恢复后丢失）；glslang 的程序在恢复时按链接时的绑定、可分离与变换反馈变量重新链接。`snapshot.mjs` 有 3.1 宿主的
   往返，浏览器测试有页面上 3.x 上下文的往返（缓冲、遮挡、立方体贴图数组、程序管线、几何程序）。
 - **界面**：VM 配置的 `android.gles_version`（2.0 到 3.2，默认 `DEFAULT_GLES_VERSION`，只在 `"host"` 时传给模拟器），
-  Android 面板的选择与摘要；`make app-tests` 的配置与预设测试。默认仍是 3.0：3.1、3.2 等 L5 的 dEQP-GLES31 跑完再定。
+  Android 面板的选择与摘要；`make app-tests` 的配置与预设测试。默认是 3.1（见“已定”第 6 条），3.2 可选。
 - **性能**（这台 M1 Pro，`gles_replay_stats_browser_test.html` 重放录下的批次）：
   - 3.0 的开机（glslang 路线）：649 批、13.4 MB，页面 733 ms（每批 1.1 ms，最慢 58 ms）；1679 次绘制、19 条管线、
     27 次 vx_naga 翻译共 29 ms；客户端数组在 CPU 上组装 2439 次、索引列表 743 次（hwui 用客户端数组）。
@@ -739,10 +745,13 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
 4. **后端**：扩展 E3 的执行器，直接生成 WGSL；着色器先验证 glslang → SPIR-V → vx_naga，验证不通过再退回 GX 路线
    （附录 B）。所有者问过两条路线的性能差别，答复见“性能预期”。
 5. **L7 的帧率**：不下载游戏或基准程序，用自建 APK（`tests/a32/android/v86gles.c`）里的一个 ES 3.0 场景。
+6. **默认版本**：宿主默认宣告 3.1，3.2 可选（`android.gles_version`）。2026-10-28 自建 APK 的探测表明 Android 7.1 的 GLES
+   库自己拒掉几何与细分着色器、立方体贴图数组（宿主根本收不到），边框颜色报错；宣告 3.2 只会让以 3.2 核心为前提的程序
+   （dEQP-GLES31）去试这些然后失败（gpu-deviations 的 G-68）。所有者同意默认 3.1、可选 3.2。
 
 ## 待定（有默认值，所有者可改）
 
-1. **`ranchu_gles_version` 的默认值**：取已验收的最高版本。L6 之后是 `"3.2"`。
+1. **`ranchu_gles_version` 的默认值**：已定为 `"3.1"`（见“已定”第 6 条）。
 2. **glslang 的来源**：固定一个上游的发布版，源码下载到 `build/`，下载前征得同意。wasm 是在 CI 里构建还是检入，L1
    决定。
 3. **CTS 的用例表**：`gles3-master.txt`、`gles31-master.txt`，按字节范围从已用过的 CTS 7.1_r29 包里取，下载前征得

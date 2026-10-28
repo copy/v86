@@ -254,8 +254,12 @@ export const RANCHU_DEVICES = [RANCHU_25_ARMEABI_V7A];
 /** GLES versions as Android's ro.opengles.version (the major version << 16 | the minor) */
 export const GLES_VERSIONS = { "2.0": "131072", "3.0": "196608", "3.1": "196609", "3.2": "196610" };
 
-/** The GLES version a GLES host announces where nothing says (docs/gles3-plan.md L4) */
-export const DEFAULT_GLES_VERSION = "3.0";
+/**
+ * The GLES version a GLES host announces where nothing says: 3.1, the
+ * highest Android 7.1's library goes (3.2 is offered, of which the
+ * library passes on part: gpu-deviations.md G-68; docs/gles3-plan.md)
+ */
+export const DEFAULT_GLES_VERSION = "3.1";
 
 /**
  * An emulator image's GPU mode: the VM config's android.gpu_mode, "guest"

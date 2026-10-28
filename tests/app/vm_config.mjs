@@ -317,7 +317,7 @@ function disk(fields) { return Object.assign({ slot: "hda", image: { kind: "url"
 function floppy(fields) { return Object.assign({ slot: "fda", image: null, disk_option: "read_only" }, fields); }
 function kernel(fields) { return Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, fields); }
 function android(fields) { return Object.assign({ device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device",
-    gles_version: "3.0" }, fields); }
+    gles_version: "3.1" }, fields); }
 /** A USB disk of the configuration */
 function usb_disk(id) { return { id, image: { kind: "empty", size: 1 << 20 }, disk_option: "read_only", disk_error: "stop", write_protected: false }; }
 /** The sections of a valid arm64 machine */
@@ -353,7 +353,7 @@ test("android: its defaults, a valid Android machine", () =>
     assert.equal(new_config().android, null);
     assert.deepEqual(new_config({ android: { gpu_mode: "swiftshader" } }).android,
         { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device",
-            gles_version: "3.0" });
+            gles_version: "3.1" });
     assert.deepEqual(validate_config(new_config(Object.assign(arm64(), { android: android(), disks: [disk()] }))), []);
 });
 

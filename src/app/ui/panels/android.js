@@ -27,8 +27,8 @@ const GPU = {
 const GLES = {
     "2.0": "GLES 2.0",
     "3.0": "GLES 3.0",
-    "3.1": "GLES 3.1 (compute, storage buffers, images)",
-    "3.2": "GLES 3.2 (geometry and tessellation shaders; what Android 7.1's GLES library can reach)",
+    "3.1": "GLES 3.1 (compute, storage buffers, images; the default)",
+    "3.2": "GLES 3.2 (advanced blending, border clamping; Android 7.1's GLES library refuses geometry and tessellation shaders)",
 };
 const RAMDISKS = {
     release: "The device's own (release: adb asks on the screen)",

@@ -1085,7 +1085,7 @@ adapters' renderer channel and page: the GLES host (`build/v86-gles.js`, on the 
 its shadow state and sends GLES batches (`renderer_protocol.js`'s `GLES` records, magic `GE10`) as stream `"gles"`;
 `svga_renderer.js` runs them on its WebGPU device with the GLES executor (`src/gles/page/`, bundled into
 `libv86-webgpu.js`), answers reads with `write` and shows posted frames in the compositor's layer, or hands them back
-as `frame` messages. The host announces GLES 3.0 by default (`android.gles_version`: 2.0 to 3.2). With glslang
+as `frame` messages. The host announces GLES 3.1 by default (`android.gles_version`: 2.0 to 3.2; of 3.2, Android 7.1's library passes on part, G-68). With glslang
 (`bios/glslang.wasm`) every GLSL ES version, 1.00 included, is checked and compiled to SPIR-V on the machine's thread
 and linked there; the link goes to the page in the batch (`PROGRAM_LINK`), whose ES 3.x executor
 (`gles3_executor.js`) translates each stage with vx_naga (the Venus executor's translator, `vx_naga.wasm`). WebGPU's
