@@ -15,7 +15,7 @@
 // (ProgramInfo), with `spirv`, `blocks` and `bindings` added.
 
 import { STAGE } from "./glslang.js";
-import { rewrite_for_spirv } from "./glsl_es_rewrite.js";
+import { BLEND_DESTINATION, blend_support, rewrite_for_spirv } from "./glsl_es_rewrite.js";
 import { DECORATION, EXECUTION_MODEL, STORAGE, add_xfb, block_layout, get_decoration, is_builtin, location_count, parse_spirv,
     set_decoration, variable_name } from "./spirv_patch.js";
 
@@ -237,7 +237,9 @@ export function link_glslang_program(glslang, shaders, options)
         const binding = image ? next_image++ : next_sampler++;
         opaque.set(name, binding);
         bindings.push({ binding, kind: image ? "image" : "sampler", location, size: at && gl === at.uniform.base ? at.uniform.size : 1,
-            type: at ? at.uniform.type : 0, unit: at && image ? at.uniform.binding : undefined });
+            type: at ? at.uniform.type : 0, unit: at && image ? at.uniform.binding : undefined,
+            // (the draw's destination, an advanced blend's: glsl_es_rewrite.js's)
+            ...(gl === BLEND_DESTINATION ? { blend_destination: true } : {}) });
         return binding;
     };
     blocks.forEach((b, i) => bindings.push({ binding: BINDING.UNIFORM_BLOCKS + i, kind: "uniform_block", block: i, size: b.size }));
@@ -378,7 +380,7 @@ export function link_glslang_program(glslang, shaders, options)
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,
         bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size, tf_varyings,
         tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs, geometry: geometry_module ? geometry_layout(geometry_module.words) : null,
-        unused_inputs };
+        unused_inputs, blend_support: shaders.filter(s => s.stage === "fragment").flatMap(s => blend_support(s.source)) };
 }
 
 /**
@@ -441,7 +443,7 @@ function varying_of(m, name, gl_name)
 
 /** What of a link's result the page needs (it has no glslang): the GL view, the bindings, the SPIR-V */
 const PACKED_FIELDS = ["ok", "log", "attributes", "uniforms", "blocks", "storage_blocks", "bindings", "local_size", "default_block_size",
-    "tf_varyings", "tf_mode", "outputs", "geometry", "unused_inputs"];
+    "tf_varyings", "tf_mode", "outputs", "geometry", "unused_inputs", "blend_support"];
 
 /**
  * A link's result as bytes (GLES.PROGRAM_LINK's): a u32 JSON length, the

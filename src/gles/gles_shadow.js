@@ -24,7 +24,7 @@ import { compile_shader, link_program } from "./glsl_es.js";
 import { STAGE_OF_GL_TYPE } from "./glslang.js";
 import { glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
-import { INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
+import { ADVANCED_EQUATIONS, INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
 import { FLOAT_STATE32, extend_context31, gles31_handlers, state_value31 } from "./gles31_state.js";
 import { EXTENSIONS_3 } from "./gles_caps.js";
 import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
@@ -38,6 +38,10 @@ const MAX_VIEWPORT = MAX_SIZE;
 const MAX_LEVEL = Math.log2(MAX_SIZE);
 
 const BLEND_EQUATIONS = new Set([0x8006, 0x800A, 0x800B]);
+/** GLES 3.0's MIN and MAX; GLES 3.2's advanced equations (KHR_blend_equation_advanced: glBlendEquation's, not the separate one's) */
+const BLEND_MINMAX = new Set([0x8007, 0x8008]);
+const equation_ok = (c, mode, advanced) => BLEND_EQUATIONS.has(mode) || c.version >= 30 && BLEND_MINMAX.has(mode) ||
+    advanced && c.version >= 32 && ADVANCED_EQUATIONS.includes(mode);
 const BLEND_FACTORS = new Set([0, 1, 0x0300, 0x0301, 0x0302, 0x0303, 0x0304, 0x0305, 0x0306, 0x0307, 0x8001, 0x8002, 0x8003, 0x8004]);
 const SRC_ALPHA_SATURATE = 0x0308;
 const COMPARE_FUNCS = new Set([0x0200, 0x0201, 0x0202, 0x0203, 0x0204, 0x0205, 0x0206, 0x0207]);
@@ -889,12 +893,12 @@ const HANDLERS = {
     "glBlendColor": (shadow, c, rgba) => { c.blend_color = rgba.map(v => Math.fround(Math.min(1, Math.max(0, v)))); },
     "glBlendEquation": (shadow, c, [mode]) =>
     {
-        if(!BLEND_EQUATIONS.has(mode)) return fail(c, GL.INVALID_ENUM);
+        if(!equation_ok(c, mode, true)) return fail(c, GL.INVALID_ENUM);
         c.blend_equation = [mode, mode];
     },
     "glBlendEquationSeparate": (shadow, c, [rgb, alpha]) =>
     {
-        if(!BLEND_EQUATIONS.has(rgb) || !BLEND_EQUATIONS.has(alpha)) return fail(c, GL.INVALID_ENUM);
+        if(!equation_ok(c, rgb, false) || !equation_ok(c, alpha, false)) return fail(c, GL.INVALID_ENUM);
         c.blend_equation = [rgb, alpha];
     },
     "glBlendFunc": (shadow, c, [src, dst]) =>

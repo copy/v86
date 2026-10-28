@@ -26,7 +26,7 @@
 
 import { COMPRESSED_FORMATS, F, format_info, tex_image_format } from "../gles_formats3.js";
 import { GL3 } from "../gles3_state.js";
-import { SAMPLES_CONSTANT } from "../glsl_es_rewrite.js";
+import { ADVANCED_BLEND, BLEND_CONSTANT, SAMPLES_CONSTANT } from "../glsl_es_rewrite.js";
 import { BINDING, gl_type } from "../glsl_program.js";
 import { DRAWN_DEPTH, RENDERABLE, TEXEL_BYTES, decode_texels, depth_values, from_half, pack_pixels, to_texels, unpack_image } from "./gles3_pixels.js";
 import { decode_etc1 } from "./gles_textures.js";
@@ -57,6 +57,10 @@ const SLOT_TARGET = [GL3.TEXTURE_2D, GL3.TEXTURE_CUBE_MAP, GL3.TEXTURE_EXTERNAL_
 const NO_SAMPLER = { min_filter: NEAREST, mag_filter: NEAREST, wrap_s: 0x812F, wrap_t: 0x812F, wrap_r: 0x812F, compare_func: 0x0203 };
 /** Vulkan's address modes (vx_naga's int_wraps): repeat 0, mirrored repeat 1, clamp to edge 2 */
 const VK_WRAP = { 0x2901: 0, 0x8370: 1, 0x812F: 2, 0x812D: 3 };
+/** GLES 3.2's advanced blend equations: their index (glsl_es_rewrite.js's BLEND_CONSTANT) */
+const ADVANCED_INDEX = new Map(ADVANCED_BLEND.map(([e], i) => [e, i]));
+/** The advanced blend equation's index a draw blends by, or -1 */
+const advanced_blend = c => c.version >= 32 && c.enabled.has(BLEND) && ADVANCED_INDEX.has(c.blend_equation[0]) ? ADVANCED_INDEX.get(c.blend_equation[0]) : -1;
 /** vx_naga's border.rs: a border color component's entry in the wraps list */
 const BORDER_COLOR = 0x80000000;
 
@@ -528,7 +532,8 @@ export const GLES3 = {
             vertex: { module: this.module3(matched_interpolation(ts[0].wgsl, fragment_inputs(ts[1].wgsl))), entry: ts[0].entries[0].name },
             fragment: { module: this.module3(ts[1].wgsl), entry: ts[1].entries[0].name, wgsl: ts[1].wgsl,
                 // (the sample count, specialization constant 71: glsl_es_rewrite.js's sample functions)
-                samples_constant: (ts[1].overrides || []).some(o => o[0] === SAMPLES_CONSTANT) },
+                samples_constant: (ts[1].overrides || []).some(o => o[0] === SAMPLES_CONSTANT),
+                blend_constant: (ts[1].overrides || []).some(o => o[0] === BLEND_CONSTANT) },
             bindings: this.bindings3([[ts[0], 1, stages.vertex], [ts[1], 2, stages.fragment]]),
             outputs: fragment_outputs(ts[1].wgsl),
         };
@@ -1686,6 +1691,7 @@ export const GLES3 = {
         if(c.enabled.has(CULL_FACE) && c.cull_face === 0x0408 && mode >= 4) return;
         const target = this.target3(c);
         if(!target) return;
+        this.blend_destination3(c, target);
         const shaders = this.program3(c, stages, target);
         if(!shaders) return;
         // (GLES 3.2: a geometry shader's draw; lines and triangles with adjacency drawn without one, the adjacent vertices left out)
@@ -1830,6 +1836,28 @@ export const GLES3 = {
             if(query >= 0) pass.endOcclusionQuery();
         }
         this.stats.draws++;
+    },
+
+    /**
+     * An advanced blend's destination (GLES 3.2): the draw's color target
+     * copied before it, which the fragment shader reads and blends with
+     * (glsl_es_rewrite.js), in `blend_dst3`; null for a draw that does not
+     * blend so
+     */
+    blend_destination3(c, target)
+    {
+        this.blend_dst3 = null;
+        if(advanced_blend(c) < 0) return;
+        const color = target.colors[0];
+        if(!color || color.unwritten) return;
+        if(color.samples > 1) return void this.note3("an advanced blend into a multisampled target");
+        const copy = this.device.createTexture({ label: "GLES blend destination", size: [target.width, target.height], format: color.format,
+            usage: U.TEXTURE_BINDING | U.COPY_DST });
+        this.end_pass();
+        this.encoder.copyTextureToTexture({ texture: color.texture, mipLevel: color.mip, origin: [0, 0, color.layer || 0] }, { texture: copy },
+            [target.width, target.height, 1]);
+        this.staging.push(copy);
+        this.blend_dst3 = { view: copy.createView(), format: color.format };
     },
 
     /**
@@ -2557,6 +2585,15 @@ export const GLES3 = {
         {
             const key = this.id_of(program) + ":" + b.group + ":" + spirv + ":" + e;
             let sampling = samplings.get(key);
+            const destination = !sampling && program.info.bindings.some(x => x.binding === spirv && x.kind === "sampler" && x.blend_destination);
+            if(destination)
+            {
+                // (an advanced blend's destination, texelFetch's: the draw's copy, or a texel of zeros)
+                const tex = texture_type(declarations.get(b.group + ":" + (binding & ~1)));
+                const view = this.blend_dst3 ? this.blend_dst3.view : this.fallback3(tex).view;
+                sampling = { view, sample_type: "float", filtering: false, state: NO_SAMPLER, tex };
+                samplings.set(key, sampling);
+            }
             if(!sampling)
             {
                 const unit = this.texture_unit3(c, program, spirv, e);
@@ -2867,7 +2904,9 @@ export const GLES3 = {
     /** The pipeline for the program, the vertex buffers, the resources, the state and the target */
     pipeline3(c, shaders, vertex, group, topology, strip_format, target, face)
     {
-        const blend = c.enabled.has(BLEND);
+        // (an advanced equation: the fragment shader blends, glsl_es_rewrite.js's; its index the constant)
+        const advanced = shaders.fragment.blend_constant ? advanced_blend(c) : -1;
+        const blend = c.enabled.has(BLEND) && advanced < 0;
         const depth_test = c.enabled.has(DEPTH_TEST), stencil_test = c.enabled.has(STENCIL_TEST);
         const cull = face === 0 ? "back" : face === 1 ? "front" : c.enabled.has(CULL_FACE) ? (c.cull_face === 0x0404 ? "front" : "back") : "none";
         const masks = face === undefined ? 0 : face;
@@ -2875,7 +2914,7 @@ export const GLES3 = {
         const key = ["3", shaders.id, vertex.key, group.key, topology, strip_format || "", c.front_face, cull, masks,
             target.colors.map(a => a ? a.format + (a.unwritten ? "!" : "") : "-").join(","), target.alpha ? "a" : "x", depth_format, target.samples,
             c.enabled.has(0x8E51) ? c.sample_mask : "-", c.enabled.has(0x809E) ? "c" : "-",
-            blend ? c.blend_func.join(",") + "/" + c.blend_equation.join(",") : "-", c.color_mask.join(""),
+            blend ? c.blend_func.join(",") + "/" + c.blend_equation.join(",") : advanced >= 0 ? "advanced" + advanced : "-", c.color_mask.join(""),
             depth_test ? c.depth_func + ":" + c.depth_mask : "-",
             stencil_test ? JSON.stringify([c.stencil_func, c.stencil_op, c.stencil_writemask]) : "-",
             c.enabled.has(POLYGON_OFFSET_FILL) ? c.polygon_offset.join(",") : "-"].join("|");
@@ -2899,7 +2938,8 @@ export const GLES3 = {
             vertex: { module: shaders.vertex.module, entryPoint: shaders.vertex.entry,
                 buffers: vertex.slots.map(s => ({ arrayStride: s.stride, stepMode: s.step, attributes: s.attributes })) },
             fragment: { module: shaders.fragment.module, entryPoint: shaders.fragment.entry, targets,
-                ...(shaders.fragment.samples_constant ? { constants: { [SAMPLES_CONSTANT]: target.samples } } : {}) },
+                constants: Object.assign({}, shaders.fragment.samples_constant ? { [SAMPLES_CONSTANT]: target.samples } : {},
+                    shaders.fragment.blend_constant ? { [BLEND_CONSTANT]: Math.max(0, advanced) } : {}) },
             // (the Y flip reverses the winding: GL's CCW is WebGPU's CW)
             primitive: { topology, frontFace: c.front_face === 0x0901 ? "cw" : "ccw", cullMode: cull, ...(strip_format ? { stripIndexFormat: strip_format } : {}) },
             // (the sample mask, GLES 3.1's; alpha to coverage, of multisampled targets)

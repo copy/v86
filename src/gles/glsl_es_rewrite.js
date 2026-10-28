@@ -24,7 +24,13 @@
 //   functions of gl_SampleID, the samples' standard positions (the sample
 //   count specialization constant 71, the page's: 4, or 1 with a position of
 //   0.5) and derivatives (an offset's value as the interpolant's plane at
-//   the fragment's center gives it).
+//   the fragment's center gives it);
+// - a fragment shader that declares advanced blend equations' support
+//   (layout(blend_support_*) out;, GLES 3.2's KHR_blend_equation_advanced):
+//   its color output a variable, blended in the shader with the draw's
+//   destination (the sampler _v86_dst, a copy the page makes) by the
+//   equation of specialization constant 72, the page's; the page's
+//   pipeline does not blend.
 
 /** 1.00's texture functions (and extensions') as 3.00's */
 const TEXTURE_FUNCTIONS = new Map([
@@ -64,6 +70,129 @@ const SUFFIX = "_v86";
 
 /** The specialization constant of the draw's sample count (gles3_executor.js's pipeline3) */
 export const SAMPLES_CONSTANT = 71;
+/** The specialization constant of the draw's advanced blend equation (its index in ADVANCED_BLEND), and its destination's sampler */
+export const BLEND_CONSTANT = 72;
+export const BLEND_DESTINATION = "_v86_dst";
+/** KHR_blend_equation_advanced's equations: the enums, the layout qualifiers' names */
+export const ADVANCED_BLEND = [[0x9294, "multiply"], [0x9295, "screen"], [0x9296, "overlay"], [0x9297, "darken"], [0x9298, "lighten"],
+    [0x9299, "colordodge"], [0x929A, "colorburn"], [0x929B, "hardlight"], [0x929C, "softlight"], [0x929E, "difference"], [0x92A0, "exclusion"],
+    [0x92AD, "hsl_hue"], [0x92AE, "hsl_saturation"], [0x92AF, "hsl_color"], [0x92B0, "hsl_luminosity"]];
+
+/** The equations a fragment shader's layout(blend_support_*) out; qualifiers declare (their enums) */
+export function blend_support(source)
+{
+    const equations = new Set();
+    for(const m of source.matchAll(/\blayout\s*\(([^)]*)\)\s*out\s*;/g))
+    {
+        for(const name of m[1].matchAll(/\bblend_support_(\w+)/g))
+        {
+            for(const [e, n] of ADVANCED_BLEND) if(name[1] === n || name[1] === "all_equations") equations.add(e);
+        }
+    }
+    return [...equations];
+}
+
+/** KHR_blend_equation_advanced's equations (its section 3.8.x) in GLSL: f(), the HSL functions, the coverage terms */
+const BLEND_FUNCTIONS = `
+uniform highp sampler2D ${BLEND_DESTINATION};
+layout(constant_id = ${BLEND_CONSTANT}) const int _v86_equation = 0;
+highp float _v86_lum(highp vec3 c) { return dot(c, vec3(0.30, 0.59, 0.11)); }
+highp vec3 _v86_clip(highp vec3 c) {
+    highp float l = _v86_lum(c), n = min(min(c.r, c.g), c.b), x = max(max(c.r, c.g), c.b);
+    if (n < 0.0) c = l + ((c - l) * l) / (l - n);
+    if (x > 1.0) c = l + ((c - l) * (1.0 - l)) / (x - l);
+    return c;
+}
+highp vec3 _v86_setlum(highp vec3 base, highp vec3 lum) { return _v86_clip(base + (_v86_lum(lum) - _v86_lum(base))); }
+highp float _v86_sat(highp vec3 c) { return max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b); }
+highp vec3 _v86_setsatlum(highp vec3 base, highp vec3 sat, highp vec3 lum) {
+    highp float s = _v86_sat(base);
+    highp vec3 c = s > 0.0 ? (base - min(min(base.r, base.g), base.b)) * _v86_sat(sat) / s : vec3(0.0);
+    return _v86_setlum(c, lum);
+}
+highp float _v86_f(int e, highp float s, highp float d) {
+    if (e == 0) return s * d;
+    if (e == 1) return s + d - s * d;
+    if (e == 2) return d <= 0.5 ? 2.0 * s * d : 1.0 - 2.0 * (1.0 - s) * (1.0 - d);
+    if (e == 3) return min(s, d);
+    if (e == 4) return max(s, d);
+    if (e == 5) return d <= 0.0 ? 0.0 : s >= 1.0 ? 1.0 : min(1.0, d / (1.0 - s));
+    if (e == 6) return d >= 1.0 ? 1.0 : s <= 0.0 ? 0.0 : 1.0 - min(1.0, (1.0 - d) / s);
+    if (e == 7) return s <= 0.5 ? 2.0 * s * d : 1.0 - 2.0 * (1.0 - s) * (1.0 - d);
+    if (e == 8) return s <= 0.5 ? d - (1.0 - 2.0 * s) * d * (1.0 - d) :
+        d <= 0.25 ? d + (2.0 * s - 1.0) * d * ((16.0 * d - 12.0) * d + 3.0) : d + (2.0 * s - 1.0) * (sqrt(d) - d);
+    if (e == 9) return abs(d - s);
+    return s + d - 2.0 * s * d;
+}
+highp vec4 _v86_blend(highp vec4 src, highp vec4 dst) {
+    int e = _v86_equation;
+    src = clamp(src, 0.0, 1.0);
+    highp vec3 cs = src.a == 0.0 ? vec3(0.0) : src.rgb / src.a, cd = dst.a == 0.0 ? vec3(0.0) : dst.rgb / dst.a;
+    highp vec3 f;
+    if (e <= 10) f = vec3(_v86_f(e, cs.r, cd.r), _v86_f(e, cs.g, cd.g), _v86_f(e, cs.b, cd.b));
+    else if (e == 11) f = _v86_setsatlum(cs, cd, cd);
+    else if (e == 12) f = _v86_setsatlum(cd, cs, cd);
+    else if (e == 13) f = _v86_setlum(cs, cd);
+    else f = _v86_setlum(cd, cs);
+    highp float p0 = src.a * dst.a, p1 = src.a * (1.0 - dst.a), p2 = dst.a * (1.0 - src.a);
+    return vec4(f * p0 + cs * p1 + cd * p2, p0 + p1 + p2);
+}
+`;
+
+/**
+ * A blend_support fragment shader's tokens rewritten (see above): the
+ * qualifier statements gone, the first output declaration's layout and
+ * `out` gone (a variable), main renamed; the text to append, or null when
+ * it has no output to blend
+ */
+function rewrite_blend(tokens)
+{
+    const significant = tokens.map((t, i) => i).filter(i => !["space", "comment", "newline"].includes(tokens[i].kind));
+    let brace = 0, paren = 0, start = 0, output = null;
+    for(let k = 0; k < significant.length; k++)
+    {
+        const t = tokens[significant[k]];
+        if(t.text === "{") brace++;
+        else if(t.text === "}") { if(--brace === 0) start = k + 1; continue; }
+        else if(t.text === "(") paren++;
+        else if(t.text === ")") paren--;
+        if(brace === 0 && paren === 0 && t.kind === "name" && t.text === "main" && tokens[significant[k + 1]] && tokens[significant[k + 1]].text === "(")
+        {
+            t.text = "_v86_main";
+        }
+        if(brace !== 0 || paren !== 0 || t.text !== ";") continue;
+        const statement = significant.slice(start, k + 1).map(i => tokens[i]);
+        start = k + 1;
+        const words = statement.map(x => x.text);
+        if(!words.includes("out")) continue;
+        if(words.some(w => /^blend_support_/.test(w)))
+        {
+            for(const x of statement) x.text = "";
+            continue;
+        }
+        if(output) continue;
+        // (the output: its layout and out gone; its name the last before ; or [)
+        const end = words.indexOf("[") >= 0 ? words.indexOf("[") : words.length - 1;
+        output = words[end - 1];
+        const layout = words.indexOf("layout");
+        if(layout >= 0)
+        {
+            let depth = 0;
+            for(let j = layout; j < statement.length; j++)
+            {
+                const x = statement[j].text;
+                statement[j].text = "";
+                if(x === "(") depth++;
+                else if(x === ")" && --depth === 0) break;
+            }
+        }
+        statement[words.indexOf("out")].text = "";
+    }
+    if(!output) return null;
+    return BLEND_FUNCTIONS + "layout(location = 0) out highp vec4 _v86_color;\n" +
+        `void main() { _v86_main(); _v86_color = _v86_blend(${output}, texelFetch(${BLEND_DESTINATION}, ivec2(gl_FragCoord.xy), 0)); }\n`;
+}
+
 const SAMPLE_FUNCTIONS = new Set(["gl_SamplePosition", "interpolateAtCentroid", "interpolateAtSample", "interpolateAtOffset"]);
 
 /** The functions that stand in for the sample functions `uses` names */
@@ -268,7 +397,9 @@ export function rewrite_for_spirv(source, stage, limits)
         else if(name === "gl_MaxVaryingVectors") t.text = String(limits.maxVaryingVectors);
     }
 
+    const blend = stage === "fragment" && !es100 && tokens.some(t => t.kind === "name" && /^blend_support_/.test(t.text)) ? rewrite_blend(tokens) : null;
     let text = tokens.map(t => t.text).join("");
+    if(blend) text += "\n" + blend;
     if(sample_uses.size && directives_end >= 0)
     {
         const at = tokens.slice(0, directives_end).reduce((n, t) => n + t.text.length, 0);

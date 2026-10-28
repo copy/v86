@@ -278,4 +278,30 @@ void text;
     assert.deepEqual(i32s((await call32("gles2:glGetSamplerParameteriv", sampler32, 0x1004, 16)).outs[0]), [0x7FFFFFFF, 0, 0, 0x7FFFFFFF]);
     assert.equal((await call32("gles2:glGetError")).ret, 0);
     console.log("PASS: GLES 3.2's clamp to border");
+
+    // blend equations: MIN and MAX (GLES 3.0's); the advanced ones glBlendEquation's alone, a draw by one the fragment shader's declared
+    await call32("gles2:glBlendEquation", 0x8007);
+    assert.equal((await call32("gles2:glGetError")).ret, 0, "GL_MIN");
+    await call32("gles2:glBlendEquationSeparate", 0x9294, 0x8006);
+    assert.equal((await call32("gles2:glGetError")).ret, 0x0500, "an advanced equation, separate: INVALID_ENUM");
+    await call32("gles2:glBlendEquation", 0x9294);
+    assert.deepEqual(i32s((await call32("gles2:glGetIntegerv", 0x8009, 4)).outs[0]), [0x9294], "GL_BLEND_EQUATION_RGB: MULTIPLY_KHR");
+    const blending = async declared =>
+    {
+        const program = (await call32("gles2:glCreateProgram")).ret;
+        await call32("gles2:glAttachShader", program, await shader32(0x8B31, "#version 320 es\nin vec4 p;\nvoid main() { gl_Position = p; }"));
+        await call32("gles2:glAttachShader", program, await shader32(0x8B30, "#version 320 es\nprecision mediump float;\n" + declared +
+            "out vec4 o;\nvoid main() { o = vec4(1.0); }"));
+        await call32("gles2:glLinkProgram", program);
+        await call32("gles2:glUseProgram", program);
+        await call32("gles2:glDrawArrays", 4, 0, 3);
+        return (await call32("gles2:glGetError")).ret;
+    };
+    await call32("gles2:glEnable", 0x0BE2);
+    assert.equal(await blending(""), 0x0502, "a fragment shader without blend_support_multiply: INVALID_OPERATION");
+    assert.equal(await blending("layout(blend_support_all_equations) out;\n"), 0, "blend_support_all_equations");
+    await call32("gles2:glDisable", 0x0BE2);
+    await call32("gles2:glBlendEquation", 0x8006);
+    await call32("gles2:glUseProgram", 0);
+    console.log("PASS: GLES 3.2's blend equations");
 }

@@ -990,6 +990,26 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glDrawArrays", 5, 0, 4);
         window = await read_pixels(0, 0, W, W);
         check(near(pixel(window, W, 1, 4), [0, 255, 0, 255]) && near(pixel(window, W, 6, 4), [255, 0, 0, 255]), "clamp to border: the border's green left of u 0");
+        // advanced blend equations: MULTIPLY and SCREEN of (1, 0.5, 0, 1) over (0.5, 1, 1, 1)
+        const advanced = program(`#version 320 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 320 es
+            precision mediump float;
+            layout(blend_support_multiply, blend_support_screen) out;
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(1.0, 0.5, 0.0, 1.0); }`);
+        void advanced;
+        gl("glEnable", 0x0BE2);
+        for(const [equation, expected, what] of [[0x9294, [128, 128, 0, 255], "MULTIPLY"], [0x9295, [255, 255, 255, 255], "SCREEN"]]) {
+            gl("glClearColor", 0.5, 1, 1, 1);
+            gl("glClear", 0x4000);
+            gl("glBlendEquation", equation);
+            gl("glDrawArrays", 5, 0, 4);
+            const got = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+            check(near(got, expected), "an advanced blend equation: " + what + " " + got);
+        }
+        gl("glBlendEquation", 0x8006);
+        gl("glDisable", 0x0BE2);
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;

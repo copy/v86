@@ -86,6 +86,9 @@ const MIN_FILTERS = new Set([GL3.NEAREST, GL3.LINEAR, GL3.NEAREST_MIPMAP_NEAREST
     GL3.LINEAR_MIPMAP_LINEAR]);
 const SWIZZLES = new Set([0x1903, 0x1904, 0x1905, 0x1906, 0, 1]);
 const MODES = new Set([0, 1, 2, 3, 4, 5, 6]);
+/** GLES 3.2's advanced blend equations (KHR_blend_equation_advanced's), in the order of BLEND_SUPPORT's names */
+export const ADVANCED_EQUATIONS = [0x9294, 0x9295, 0x9296, 0x9297, 0x9298, 0x9299, 0x929A, 0x929B, 0x929C, 0x929E, 0x92A0, 0x92AD, 0x92AE,
+    0x92AF, 0x92B0];
 /** GLES 3.2's: lines and triangles with adjacency (a geometry shader's; without one the adjacent vertices are left out) */
 const ADJACENCY_MODES = new Set([0xA, 0xB, 0xC, 0xD]);
 /** whether a context of its version draws the mode */
@@ -610,6 +613,16 @@ export function gles3_handlers(h)
         // (a geometry shader takes the modes of its input type)
         const geometry = c.version >= 32 ? geometry_of(c) : null;
         if(geometry && !(GEOMETRY_MODES.get(geometry.input) || []).includes(mode)) return fail(c, GL.INVALID_OPERATION);
+        // (an advanced blend equation: one draw buffer, a fragment shader that declares the equation's support)
+        if(c.version >= 32 && c.enabled.has(0x0BE2) && ADVANCED_EQUATIONS.includes(c.blend_equation[0]))
+        {
+            const fbo = c.framebuffer && c.framebuffers.get(c.framebuffer);
+            if(fbo && fbo.draw_buffers.slice(1).some(b => b !== GL.NONE)) return fail(c, GL.INVALID_OPERATION);
+            const pipeline = !c.program && c.program_pipelines && c.program_pipelines.get(c.program_pipeline);
+            const fragment = c.group.objects.get(c.program || pipeline && pipeline.stages[2]);
+            const support = fragment && fragment.info && fragment.info.blend_support || [];
+            if(!support.includes(c.blend_equation[0])) return fail(c, GL.INVALID_OPERATION);
+        }
         if(!complete(c, false)) return REFUSED;
         if(!tf_draw(shadow, c, mode, count, instances, elements)) return REFUSED;
         const occlusion = [GL.ANY_SAMPLES_PASSED, GL.ANY_SAMPLES_PASSED_CONSERVATIVE].map(t => c.active_queries.get(t)).filter(Boolean);
