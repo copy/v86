@@ -668,8 +668,9 @@ try
         // a video: Gallery's player, the frame's middle green (YV12 from the decoder, RGB from gralloc);
         // the GLES test app closed first (its frame has green in it)
         await ask("am force-stop org.v86.gles; input keyevent 3", "A32_VIDEO_CLEAN", 600000);
-        // (YouTube's native code stops on an instruction the arm32 core lacks, SIGILL, again and again:
-        // its "keeps stopping" dialogs would cover the video and the games; not GLES)
+        // (YouTube's native code died of SIGILL again and again on T32's LDM.W of one register until the
+        // arm32 core transferred it: its "keeps stopping" dialogs covered the video and the games. It
+        // launches and stays up now; still disabled until a media run without this line passes)
         await ask("su 0 pm disable com.google.android.youtube", "A32_NO_YOUTUBE", 900000);
         // (Gallery's player opens the file itself: its storage permission, which nothing has granted yet, as Gallery
         // asks for it when it is opened from the launcher; the games' immersive mode without its first-time overlay,

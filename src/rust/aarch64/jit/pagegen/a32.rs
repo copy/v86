@@ -1774,10 +1774,11 @@ fn t32_native32(hw1: u32, hw2: u32, rn: u8, rd: u8, rt: u8, rm: u8, s: bool) -> 
         return t32_data(hw1 >> 5 & 15, s, rd, rn, Operand::Reg { rm, kind, amount });
     }
     if hw1 >> 9 == 0b1110100 && hw1 & 1 << 6 == 0 {
-        // LDM, STM (IA, DB): two registers at least, neither SP nor the PC
+        // LDM, STM (IA, DB): one register at least (one as the interpreter
+        // takes it, t32_block_transfer), neither SP nor the PC
         let mode = hw1 >> 7 & 3;
         let list = hw2 as u16;
-        if !(mode == 1 || mode == 2) || list.count_ones() < 2 || list & 0xA000 != 0 {
+        if !(mode == 1 || mode == 2) || list == 0 || list & 0xA000 != 0 {
             return None;
         }
         return multiple(

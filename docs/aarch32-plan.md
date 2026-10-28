@@ -63,6 +63,10 @@ QEMU 0 差异；q1、q3、q4、qdebug 的退出与 QEMU 相同；v2 的 fp、sim
 （寄存器列表越过 D31、以 PC 为基址、同一寄存器的 VTRN/VUZP/VZIP、PC 或 SP 作核心寄存器的 VMOV、负的定点小数位数）；
 FPSCR.Len、Stride 读 0（QEMU 保存它们，非 0 时 VFP 运算 UNDEF）；VLDR.16 无 FEAT_FP16 时 UNDEF（QEMU 执行）；
 VLDM/VSTM 中途出错时什么都不写（QEMU 写了前面的部分）；EL0 的 CP14 访问 UNDEF（未实现调试通信通道）。
+2026-10-28 起唯一的例外：T32 的 LDM/STM（编码 T2，IA 与 DB）只列一个寄存器时（CONSTRAINED UNPREDICTABLE）传送该寄存器，
+与 Cortex-A 及 Android 模拟器的旧 QEMU 相同（QEMU 9.2 UNDEF；Android 7.1 的 YouTube 执行 `LDM.W R8!, {R0}`，原先
+SIGILL）；解释器与页层一致，`tests/a64/aarch32_unpredictable.mjs` 按期望值检查（不对照 QEMU），空列表、含 SP、
+写回且基址在列表中、STM 含 PC 仍 UNDEF。
 
 - **Q7（`f7f822d8`）**：`a64_profile` 成为公开选项（`v86.d.ts`、`src/machine_options.js`），VM 管理器处理器面板的
   “Instruction sets”（arm64 下 v1、v1.1、v2、v3），Linux arm64 预设用 v3；[aarch64.md](aarch64.md) 的 v3 一节。

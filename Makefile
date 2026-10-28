@@ -1451,6 +1451,7 @@ a64-multicore-guest-tests: build/v86-arm64.wasm
 # (docs/aarch32-plan.md: profile v3's AArch32 EL0) the instructions against
 # QEMU's cortex-a35 one by one, the EL0 cases (exits, the debug registers),
 # the cases and random programs on the page tier against the interpreter,
+# v86's CONSTRAINED UNPREDICTABLE choices against their values (QEMU's differ),
 # the same C as A64, A32 and T32 (Q6.4's gate: 32-bit at most twice A64's
 # time), Alpine armv7's
 # programs on the 64-bit kernel against QEMU's output (the packages:
@@ -1461,6 +1462,7 @@ a32-tests: a32-system-tests build/v86-arm64.wasm
 	A64_AARCH32_DRIVER=debug A64_AARCH32_CASES=qdebug node tests/a64/aarch32_el0.mjs
 	node tests/a64/aarch32_page.mjs
 	for seed in 1 2 3; do node tests/a64/aarch32_page_fuzz.mjs --seed $$seed || exit 1; done
+	node tests/a64/aarch32_unpredictable.mjs
 	node tests/a64/aarch32_bench.mjs --scale 0.3
 	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_PROFILE=v3 A64_WORKLOAD=aarch32 A64_JIT=1 A64_JIT_SWITCHES=a64_page_aarch32=1 A64_CORES=1 node tests/a64/linux_boot.mjs

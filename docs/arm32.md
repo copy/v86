@@ -37,7 +37,11 @@ Emulator's board.
 - QEMU's A15 has no EL2, so the banked forms of MRS and MSR are UNDEFINED there; v86 runs them as ARMv8's AArch32 PL1 does.
 - QEMU's TTBCR keeps only N without LPAE (PD0 and PD1, which stop table walks, have no effect); v86 has them.
 - QEMU raises no alignment fault for an unaligned access to Device memory with short descriptors; v86 does.
-- An UNPREDICTABLE encoding is UNDEFINED in v86 (part 1's rule).
+- An UNPREDICTABLE encoding is UNDEFINED in v86 (part 1's rule), with one exception: T32's `LDM` and `STM` (encoding
+  T2, `.W`, IA and DB) of one register transfer it, which is one of the behaviours the Arm ARM permits for this
+  CONSTRAINED UNPREDICTABLE case. Cortex-A cores and the Android emulator's QEMU do the same, and Android 7.1's YouTube
+  runs `LDM.W R8!, {R0}`. QEMU 9.2 takes them as UNDEFINED, so `tests/a64/aarch32_unpredictable.mjs` checks them
+  against expected values instead of against QEMU.
 
 ## Android 7.1 (the emulator image)
 

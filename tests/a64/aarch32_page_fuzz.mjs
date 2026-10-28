@@ -159,8 +159,9 @@ function plain(c = "")
         }
         case 18: { const t = pick([0, 2, 4, 6]); return `${rand(2) ? "ldrd" : "strd"}${c} r${t}, r${t + 1}, [r8, #${8 * rand(32)}]`; }
         case 19: {
-            // (T32's LDM and STM of one register are UNPREDICTABLE: v86 UNDEFs them)
-            const list = distinct(2 + rand(4)).join(", ");
+            // (T32's LDM and STM of one register are CONSTRAINED UNPREDICTABLE:
+            // v86 transfers it; the assembler makes LDM IA! and STMDB! of one LDR and STR)
+            const list = distinct(1 + rand(5)).join(", ");
             return `add${c} r12, r8, #${16 * rand(64)}\n    ${pick(["ldm", "stm", "ldmdb", "stmdb"])}${c} r12${rand(2) ? "!" : ""}, {${list}}`;
         }
         case 20: return `${pick(["qadd", "qsub", "uadd8", "usub16", "sadd16", "uhadd8", "sel"])}${c} ${r()}, ${r()}, ${r()}`;

@@ -525,8 +525,11 @@ fn t32_block_transfer(hw1: u32, hw2: u32, pc: u32) -> Result<Flow, Exception> {
         }
         return crate::aarch64::a32_system::srs(p, u, w, list & 31);
     }
-    if op == 0 || op == 3 || rn == 15 || list.count_ones() < 2 || list & 1 << 13 != 0 {
-        // (SRS, RFE: UNDEFINED at EL0; one register, SP in the list: UNPREDICTABLE)
+    if op == 0 || op == 3 || rn == 15 || list == 0 || list & 1 << 13 != 0 {
+        // (SRS, RFE: UNDEFINED at EL0; no register, SP in the list: UNPREDICTABLE.
+        // One register is CONSTRAINED UNPREDICTABLE: it is transferred, as
+        // Cortex-A cores and the Android emulator's QEMU do, where QEMU 9.2
+        // takes it as UNDEFINED; Android 7.1's YouTube runs LDM.W R8!, {R0})
         return Err(Exception::Undefined);
     }
     if l && list & 0xC000 == 0xC000 || !l && list & 0x8000 != 0 || w && list & 1 << rn != 0 {
