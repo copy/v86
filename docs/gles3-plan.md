@@ -1,6 +1,7 @@
 # GLES 3.x 执行器计划（3.0、3.1 与 3.2）
 
-状态：实施中。2026-10-28 写，同日所有者定了范围、做法与后端（见“已定”）。L0–L3 已完成（见各自的结论）。前提是
+状态：实施中。2026-10-28 写，同日所有者定了范围、做法与后端（见“已定”）。L0–L3 与 L6 已完成（见各自的结论）；L4、L5
+的代码已提交，验收（dEQP-GLES3、GLES31 与自建 APK）还在跑；L7 做了快照。前提是
 [gles-proxy-plan.md](gles-proxy-plan.md) 的 E0–E6，以 `a17140ed` 为基线：E3–E6 的代码已提交，验收还没跑完。
 
 本计划把 ranchu 的 GLES 宿主（`ranchu_gpu: "host"`）从 GLES 2.0 扩到 3.2，涉及三处：CPU 侧的影子状态、着色器编译、
@@ -625,6 +626,38 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
 - 自建 APK 加几何与细分的场景。
 
 粗估：5–7k 行，其中 naga pass 3–4k。
+
+**L6 结论（2026-10-28）：完成**（`28e76316`、`6d879a24`、`00a5bb9d`、`eaf9801f`、`7eacf3c6`、`31823aef`、`7ff6dda7`）。
+线上能到的 3.2 都做了：
+
+- **立方体贴图数组与 ASTC**：`cube-array` 视图；ASTC 在设备有 `texture-compression-astc` 时直传（这台 Mac 有）。3.2 的
+  状态值、上限与开关照规范的最小值回答（KHR_debug 的初值；它的入口不在线上）。
+- **几何着色器**：vx_naga 的 `geometry.rs` 把几何阶段的 SPIR-V 改成计算着色器（输入输出成私有变量，`EmitVertex`、
+  `EndPrimitive` 成函数调用），一个输入图元与调用一个 invocation，条带写成列表（GL 的引发顶点放在第一个，WebGPU 的
+  `flat` 取第一个），没写满的槽在裁剪体外；列表经生成的直通顶点着色器与片段着色器画。顶点着色器先当计算着色器跑，
+  全部输出写进记录（`xfb.rs` 的 `all` 模式）。图元在 CPU 上组装，带邻接的线与三角形按表 10.1；没有几何着色器时
+  丢掉邻接顶点再画。
+- **细分**：`tessellation.rs` 把控制着色器改成一个 patch 一个工作组（输出在工作组内存，`barrier()` 是带工作组内存的
+  工作组屏障），评估着色器一个点一个调用；中间是 GX 的 D3D11 细分器（`tessellator_wgsl.js`），评估用间接分派，画用
+  间接的带索引绘制。线上没有 `glPatchParameteri`，patch 固定为 GL 默认的 3 个顶点。GL 的 `equal_spacing` 对应 D3D 的
+  integer 划分，GL 的顶点顺序与 D3D 的相反（测试里剔除背面核对了）。
+- **采样变量与多重采样插值**：`gl_SampleMask(In)` 的类型（`samplemask.rs`）；centroid 与 sample 插值（`sampling.rs`：
+  naga 的前端在没有插值修饰时把它们改成中心；页面让顶点输出的插值跟片段输入一致）；`gl_SamplePosition` 与
+  `interpolateAt*` 在代码那一遍改写成 `gl_SampleID`、标准 4x 位置（样本数是特化常量 71，管线给）与导数。
+  `glMinSampleShading` 不在线上，`GL_SAMPLE_SHADING` 开着也没有效果。
+- **边框颜色**：`border.rs` 在 `split` 之后给夹到边框的浮点采样加一个选择：坐标在边框轴上出了 [0, 1) 就取边框色。边框色
+  与轴作为翻译的常量经 wraps 列表传（Vulkan 的 clamp to border 写在轴的半字节里，颜色带标记），翻译按状态缓存。最近
+  过滤准确，线性过滤在边上不与边框色混合。
+- **高级混合**：代码那一遍改写声明了 `blend_support_*` 的片段着色器：颜色输出变成变量，在着色器里按方程（特化常量
+  72）与绘制前拷出的目标（`_v86_dst`）混合，管线不混合。每次绘制拷一次，所以一次绘制内重叠的图元用的是绘制前的目标
+  （非 coherent 扩展允许的结果）；线上没有 `glBlendBarrier`，绘制之间也不需要。顺带修了 3.0 的 `MIN`/`MAX`（之前被拒）。
+- **够不到的**（线上没有入口，见 gpu-deviations 的 G-68）：按目标的混合与写入遮罩、纹理缓冲、`*BaseVertex` 绘制、分层
+  帧缓冲（`glFramebufferTexture`）、`glTexStorage3DMultisample`、`glCopyImageSubData`、KHR_debug 的入口、
+  `glPrimitiveBoundingBox`。
+- **测试**：`gles3_executor_browser_test.html` 69 项（加了几何、细分、采样变量、边框、高级混合与快照恢复后的几何程序），
+  `shadow31.mjs` 覆盖 3.2 的程序查询、模式与错误。VX 的 Venus 语料（748 个着色器、1391 条管线）不变。
+- **还没做**：细分之后的几何着色器、几何与细分输出的变换反馈、可分离程序里的几何与细分阶段、patch 的间接绘制、
+  `gl_Layer`、片段的 `gl_PrimitiveID`。dEQP-GLES31 中 3.2 的组等 L5 的那次运行。
 
 ### L7 快照、性能、界面与文档
 
