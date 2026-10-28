@@ -678,10 +678,27 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
     `glCreateProgram` 报 `GL_INVALID_OPERATION`）。那个会话查明这次的 dEQP-GLES2 其实跑在 3.x 上下文上：客体的 EGL 按
     主机宣布的最高版本建 GLES 2.0 上下文，3.0 成为默认之后，ES2 的用例都走 3.x 的影子与执行器；FBO 的两个是 3.x 拒绝
     没有 glGen 过的名字（GLES 仍然允许绑定时创建），NPOT 的两个是 3.x 上下文的扩展串里少了 ES2 的扩展，都在 fb1075c2
-    修好，随机着色器 5 个还在查。其余 15 个是已知的：G-70 混合 4 个、随机片段操作与交互 8 个、
+    修好；随机着色器 5 个是 ES 1.00 改写内建函数重载时，把全局初始值里的 `log2(...)` 当成了用户的重载（aeaa68f6）。
+    这 9 个加上子集里全部 `fbo.*` 与 `texture.completeness.*`（59 个，`runs/v86-gles-deqp8/`，ios6 240a84e1）重跑：
+    9 个都过，其余不变。并进整套的结果，子集是 **2022/2039（99.2%）**；剩下 17 个都是上面列出的已知失败。其余 15 个是已知的：G-70 混合 4 个、随机片段操作与交互 8 个、
     RGB 加 16 位深度的 FBO 清除、深度范围比较、宽点的裁剪（G-64）。
-- **没做的**：Replica Island 与 Shattered Pixel Dungeon 两个游戏；EGL 的同步、多上下文共享与 YUV 外部纹理的专门检查
-  （启动与 dEQP 里用到的部分已经工作）。
+- **EGL**：自建 APK 加了 EGL 场景（`v86gles.c` 的 `egl_scenes`）：交换间隔 0 与 1、`eglCreateSyncKHR` 的栅栏等到
+  `EGL_CONDITION_SATISFIED_KHR` 与 `EGL_SIGNALED_KHR`、32×32 的 pbuffer 清成黄色、一个上下文建的纹理在同一共享组的另一个
+  上下文里采样，都通过。
+- **视频与游戏**（`A32_ANDROID_MEDIA=1`：两个 F-Droid 的游戏与一段 ffmpeg 生成的绿色 H.264 片段放在第四块盘上，
+  `runs/v86-gles-media11/`）：
+  - 视频：Gallery 的播放器显示出绿色画面（软件解码器的 YV12 经 gralloc 转成 RGB 再交给 GLES 主机）。起初是
+    “Can't play this video”：播放器自己打开文件，而 Gallery 还没有存储权限（从桌面打开时它才会请求）；测试先 `pm grant`。
+  - Replica Island（GLES 1）：它的对话框与菜单是 Android 视图，测试用 uiautomator 找按钮点击（“Leave it this way”、
+    “Rock on!”、开始、中等难度），进入第一关，片头字幕在关卡上滚动，之后是 Wanda 的对话；一分钟约 220 帧、
+    6.6 万次 GLES 调用。
+  - Shattered Pixel Dungeon（libGDX，GLES 2）：进入地牢，点地块角色就走（撞上锁着的门，提示没有钥匙）；一分钟约
+    230 帧、8 万次 GLES 调用。下地牢前故事画面的 Continue 从来不响应触摸点击（关卡早已生成好，按钮已启用；旁边的
+    折叠箭头与地牢里的点击都正常），按键松开同样算 Continue，测试用回车通过；原因在游戏一侧，没有再查。
+  - 两个游戏都没有声音：这台机器没有音频输出，游戏的 AudioTrack 与 MediaPlayer 报错后照常运行。系统按
+    `interpret-only` 安装应用，代码靠 JIT。
+  - 这些运行顺带找到并修好一个测试工具的问题：`tests/app/browser_runner.mjs` 被外部停掉时不关它的 Chrome，
+    两次停掉的 Android 页面测试在后台跑了五个多小时，机器负载到 58，那段时间的运行都慢了一倍以上。
 
 ### E5 结论（2026-10-28）
 

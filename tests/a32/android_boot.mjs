@@ -215,15 +215,18 @@ if(process.env.A32_ANDROID_MEDIA === "1")
         // setup's "Leave it this way", the news' "Rock on!", Start, the middle difficulty, then the first
         // conversation; playing: its game activity, or the conversations it opens over the level, the arrow keys
         // (the control scheme it picks for the emulator's keyboard). Shattered Pixel Dungeon draws everything
-        // itself: "Enter the Dungeon", the warrior, Start, the story's Continue (again: it answers only once the
-        // level is made, minutes on the slowed clock; a tap there in the level walks))
+        // itself: "Enter the Dungeon", the warrior, Start, the story's Continue (four times: it shows once the
+        // level is made, but has never answered a tap here), the story's fold arrow (it hides the text: taps do
+        // reach the scene), a tap that brings the text back, and Enter (a key's release is Continue too: into the
+        // level, where taps walk); {key} set-1 scancodes)
         { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk",
             steps: [{ view: 'text="Leave it this way"', at: [90, 225] }, { view: 'text="Rock on!"', at: [90, 365] },
                 { view: 'resource-id="[^"]*startButton"' }, { view: 'resource-id="[^"]*kidsButton"' }, [240, 400]],
             playing: /AndouKun|ConversationDialogActivity/, keys: true,
             url: "https://f-droid.org/archive/com.replica.replicaisland_14.apk", sha256: "35d900fabe6bbc05899c3fcc0fb5926a5a901d807889d0d111b34a1e87d7acde" },
         { name: "shatteredpixeldungeon", package: "com.shatteredpixel.shatteredpixeldungeon", file: "shatteredpixeldungeon_921.apk",
-            steps: [[240, 750], [40, 770], [240, 700], [240, 565], [240, 565], [240, 565], [240, 565]], threads: true,
+            steps: [[240, 750], [40, 770], [240, 700], [240, 565], [240, 565], [240, 565], [240, 565], [370, 570], [240, 400],
+                { key: [0x1C, 0x9C] }], log: true,
             url: "https://f-droid.org/repo/com.shatteredpixel.shatteredpixeldungeon_921.apk", sha256: "dbd8205680e89758babf608212a1fb3f498f732118b1e3c0b9fd33bf67486a99" },
     ];
     const root = run_directory + "media-disk/";
@@ -733,19 +736,21 @@ try
                     console.log(`game ${game.name} step ${i + 1}: ${step.view} ` + (m ? "found" : at ? "not found, tapped at " + at : "not found"));
                 }
                 if(at) events.tap(at[0], at[1], fb.width, fb.height);
+                for(const code of step.key || []) events.scancode(code);
                 await new Promise(resolve => setTimeout(resolve, 45000));
                 await dismiss_dialogs();
                 save_png(sink, run_directory, `${game.name}-step${i + 1}`);
             }
-            // (threads: the game's warnings and its Java threads after the steps, what its loading waits on)
-            if(game.threads)
+            // (log: the game's warnings after the steps, and the compile filter its code got)
+            if(game.log)
             {
                 const pid = (await ask(`pidof ${game.package}`, "A32_GAME_PID", 600000)).match(/\n\s*(\d+)/)?.[1];
                 if(pid)
                 {
-                    console.log(`game ${game.name} log: ` + await ask(`logcat -d -v brief '*:W' | grep -E '\\( *${pid}\\)' | tail -25`, "A32_GAME_LOG", 600000));
-                    console.log(`game ${game.name} threads: ` + await ask(`su 0 kill -3 ${pid}; sleep 15; su 0 grep -E -A 6 ` +
-                        `'^"(main|GLThread|Thread-)' /data/anr/traces.txt | head -80`, "A32_GAME_THREADS", 900000));
+                    // (its own report of a slow level, "waited more than 10 seconds on levelgen", among them; the
+                    // sound's errors left out: this machine has no audio output)
+                    console.log(`game ${game.name} log: ` + await ask(`getprop pm.dexopt.install; logcat -d -v brief '*:W' | ` +
+                        `grep -E '\\( *${pid}\\)' | grep -v -E 'AudioTrack|SoundPool|AndroidMusic' | head -40`, "A32_GAME_LOG", 600000));
                 }
             }
             const frames_before = fb.frames, calls_before = Object.values(gles_summary()?.counts || {}).reduce((n, c) => n + c, 0);
