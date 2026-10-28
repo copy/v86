@@ -1091,6 +1091,17 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glClear", 0x4000);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [64, 128, 191, 255]), "struct varyings: a mat2's, a flat int's");
+        // the negation of unsigned integers: two's complement
+        const negated = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision mediump float;
+            uniform highp uint u;
+            out vec4 o;
+            void main() { highp uvec2 r = -uvec2(u, 2u * u); o = vec4(r.x == 0xFFFFFFFFu ? 1.0 : 0.0, r.y == 0xFFFFFFFEu ? 1.0 : 0.0, 0.0, 1.0); }`);
+        gl("glUniform1ui", negated.at("u"), 1);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 0, 255]), "an unsigned negation: two's complement");
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;

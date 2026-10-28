@@ -4,7 +4,8 @@
 //!
 //! What it changes on the way:
 //! - combined image samplers become an image and a sampler (split.rs)
-//! - NaN and infinity tests become bit tests (relational.rs: WGSL has none)
+//! - NaN and infinity tests become bit tests (relational.rs: WGSL has none);
+//!   negations of unsigned integers subtractions from zero (negate.rs)
 //! - samples of integer images become fetches (intsample.rs: WGSL samples
 //!   float textures only); samples of images clamped to the border choose
 //!   the border color outside the image (border.rs)
@@ -52,6 +53,7 @@ mod io;
 mod layers;
 mod layout;
 mod math;
+mod negate;
 mod relational;
 mod remap;
 mod blockarrays;
@@ -270,8 +272,9 @@ fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
 /// `sampled`: the integer images it made fetches of)
 fn passes(words: &[u32], wraps: &[(u32, u32)], sampled: &mut Vec<u32>) -> Vec<u32> {
     let skip = std::env::var("VX_SKIP").unwrap_or_default();
-    let list: [(&str, fn(&[u32]) -> Vec<u32>); 9] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
-        ("relational", relational::lower), ("fetches", fetches::lower), ("layout", layout::lower), ("atomics", atomics::values), ("structio", structio::lower)];
+    let list: [(&str, fn(&[u32]) -> Vec<u32>); 10] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
+        ("relational", relational::lower), ("fetches", fetches::lower), ("layout", layout::lower), ("atomics", atomics::values), ("structio", structio::lower),
+        ("negate", negate::lower)];
     let mut words = words.to_vec();
     for (name, pass) in list {
         // (clamp to border after split: the images' own loads, border.rs)
