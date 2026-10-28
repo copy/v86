@@ -928,7 +928,8 @@ const HANDLERS = {
     {
         const t = image_target(c, target);
         if(!t) return REFUSED;
-        if(level < 0 || xoffset < 0 || yoffset < 0 || width < 0 || height < 0) return fail(c, GL.INVALID_VALUE);
+        // (a level above log2 of the largest size: INVALID_VALUE, before whether it has an image)
+        if(level < 0 || level > MAX_LEVEL || xoffset < 0 || yoffset < 0 || width < 0 || height < 0) return fail(c, GL.INVALID_VALUE);
         const image = t.texture.images.get(t.face * 32 + level);
         if(!image || image.compressed) return fail(c, GL.INVALID_OPERATION);
         if(xoffset + width > image.width || yoffset + height > image.height) return fail(c, GL.INVALID_VALUE);

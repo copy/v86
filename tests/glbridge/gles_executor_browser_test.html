@@ -252,6 +252,66 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(frames.length === 1 && frames[0].width === W && frames[0].rgba.length === W * W * 4, "a post is a frame");
         check(near(pixel(frames[0].rgba, W, 0, W - 1), Array.from(bytes.subarray(0, 4))), "the frame from the top: the image's row 0 at its bottom");
 
+        // ---- a cube map: 2 by 2 faces of distinct texels, sampled by direction
+        // (GLES 2.0 table 3.21: +X sc = -rz, tc = -ry; the texel (s, t) from row t)
+        {
+            const cvs = "attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }";
+            const cfs = "precision mediump float; uniform samplerCube cube; uniform vec3 dir; void main() { gl_FragColor = textureCube(cube, dir); }";
+            const v = created("glCreateShader", 90, 0x8B31), f = created("glCreateShader", 91, 0x8B30);
+            gl("glShaderString", v, text(cvs), cvs.length + 1);
+            gl("glShaderString", f, text(cfs), cfs.length + 1);
+            gl("glCompileShader", v);
+            gl("glCompileShader", f);
+            const p = created("glCreateProgram", 92);
+            gl("glAttachShader", p, v);
+            gl("glAttachShader", p, f);
+            gl("glBindAttribLocation", p, 0, text("position"));
+            gl("glLinkProgram", p);
+            gl("glUseProgram", p);
+            gl("glActiveTexture", 0x84C0 + 3);
+            gl("glBindTexture", 0x8513, 93);
+            gl("glTexParameteri", 0x8513, 0x2801, 0x2600);
+            gl("glTexParameteri", 0x8513, 0x2800, 0x2600);
+            // (face f's texel (s, t): red 40 * f + 10 * (2 * t + s), green 100 + t, blue s;
+            // uploaded -X first, as dEQP's tcu::CubeFace order: +X is not the first face given)
+            for(const face of [1, 0, 3, 2, 5, 4])
+            {
+                const texels = new Uint8Array(16);
+                for(let t = 0; t < 2; t++) for(let s0 = 0; s0 < 2; s0++) texels.set([40 * face + 10 * (2 * t + s0), 100 + t, s0 * 200, 255], (t * 2 + s0) * 4);
+                gl("glTexImage2D", 0x8515 + face, 0, 0x1908, 2, 2, 0, 0x1908, 0x1401, texels);
+            }
+            // (sampler unit 3: the program's locations, dir 0 then cube 1, as the shadow gives them)
+            gl("glUniform1i", 1, 3);
+            gl("glDisable", 0x0BE2);
+            gl("glDisable", 0x0B71);
+            gl("glBindBuffer", 0x8892, 0);
+            gl("glDisableVertexAttribArray", 1);
+            gl("glEnableVertexAttribArray", 0);
+            gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, floats([-1, -1, 3, -1, -1, 3]), 24);
+            const probe = async (dir, face, s0, t) =>
+            {
+                gl("glUniform3f", 0, ...dir);
+                gl("glDrawArrays", 4, 0, 3);
+                const got = pixel(await read_pixels(0, 0, W, W), W, 4, 4);
+                const want = [40 * face + 10 * (2 * t + s0), 100 + t, s0 * 200, 255];
+                check(near(got, want), `cube: direction ${dir} samples face ${face}'s texel (${s0}, ${t}): got ${got}, want ${want}`);
+            };
+            // (+X: s from -rz, t from -ry; -X: s from rz, t from -ry; +Y: s from rx, t from rz;
+            //  -Y: s from rx, t from -rz; +Z: s from rx, t from -ry; -Z: s from -rx, t from -ry)
+            await probe([1, -0.5, -0.5], 0, 1, 1);
+            await probe([1, 0.5, 0.5], 0, 0, 0);
+            await probe([-1, -0.5, 0.5], 1, 1, 1);
+            await probe([0.5, 1, 0.5], 2, 1, 1);
+            await probe([0.5, -1, -0.5], 3, 1, 1);
+            await probe([0.5, -0.5, 1], 4, 1, 1);
+            await probe([-0.5, -0.5, -1], 5, 1, 1);
+            // (the arrays as the sections after this one expect them: the quad's buffer)
+            gl("glActiveTexture", 0x84C0);
+            gl("glBindBuffer", 0x8892, 30);
+            gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 16, 0);
+            gl("glEnableVertexAttribArray", 1);
+        }
+
         // ---- GLES 1.1: the fixed function
         const gl1 = (name, ...args) => {
             const bytes = encode_command("gles1:" + name, args);

@@ -364,9 +364,11 @@ function bound(c, target)
  */
 GLESExecutor.prototype.gpu_texture = function(texture)
 {
-    const base = texture.images.get(0);
-    if(!base || !base.width || !base.height) return null;
     const cube = texture.target === GL.TEXTURE_CUBE_MAP;
+    // (a cube map's size from whichever face's level 0 came first: dEQP gives -X before +X)
+    const base = cube ? [0, 1, 2, 3, 4, 5].map(face => texture.images.get(face * 32)).find(image => image && image.width) :
+        texture.images.get(0);
+    if(!base || !base.width || !base.height) return null;
     const levels = Math.floor(Math.log2(Math.max(base.width, base.height))) + 1;
     const gpu = texture.gpu;
     if(gpu && gpu.width === base.width && gpu.height === base.height && gpu.cube === cube) return gpu;
@@ -1238,6 +1240,16 @@ GLESExecutor.prototype.texture_view = function(texture, cube, drawn_to)
     }
     const gpu = this.gpu_texture(texture);
     if(!gpu || gpu.texture === drawn_to) return fallback();
+    // (cube complete: six square faces of one size and format at level 0)
+    const first = [0, 1, 2, 3, 4, 5].map(face => texture.images.get(face * 32)).find(Boolean);
+    if(gpu.cube && (gpu.width !== gpu.height || [0, 1, 2, 3, 4, 5].some(face =>
+    {
+        const i = texture.images.get(face * 32);
+        return !i || i.width !== gpu.width || i.height !== gpu.height || i.format !== first.format;
+    })))
+    {
+        return fallback();
+    }
     // completeness: a mipmapped filter needs every level
     const mipmapped = texture.min_filter !== GL.NEAREST && texture.min_filter !== GL.LINEAR;
     let levels = 1;
@@ -1249,7 +1261,8 @@ GLESExecutor.prototype.texture_view = function(texture, cube, drawn_to)
             for(let face = 0; face < (gpu.cube ? 6 : 1); face++)
             {
                 const image = texture.images.get(face * 32 + levels);
-                if(!image || image.width !== w || image.height !== h) return fallback();
+                // (every level of the same format as level 0's)
+                if(!image || image.width !== w || image.height !== h || image.format !== first.format) return fallback();
             }
         }
     }

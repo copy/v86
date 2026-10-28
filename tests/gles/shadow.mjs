@@ -102,6 +102,9 @@ const sent = () => { host.flush(); return renderer.records().filter(r => r.name 
     assert.equal((await call("gles2:glIsTexture", names[0])).ret, 0, "generated, not yet an object");
     await call("gles2:glBindTexture", GL.TEXTURE_2D, names[0]);
     assert.equal((await call("gles2:glIsTexture", names[0])).ret, 1);
+    // (glCopyTexSubImage2D: a level above log2 of the largest size is INVALID_VALUE, not "no image")
+    await call("gles2:glCopyTexSubImage2D", GL.TEXTURE_2D, 13, 0, 0, 0, 0, 1, 1);
+    assert.equal(await error(), GL.INVALID_VALUE);
     await call("gles2:glBindTexture", GL.TEXTURE_CUBE_MAP, names[0]);
     assert.equal(await error(), GL.INVALID_OPERATION, "a texture keeps its first target");
     const rgba = new Uint8Array(16 * 16 * 4);
