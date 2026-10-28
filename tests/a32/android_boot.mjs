@@ -824,8 +824,9 @@ try
             for(const c of chunk.cases) if(!(c in results)) results[c] = "NotRun";
             const counts = {};
             for(const c of chunk.cases) counts[results[c]] = (counts[results[c]] || 0) + 1;
+            // (the instrumentation's last words when it stopped early: a crash, or cases it never began)
             console.log(`${chunk.name}: ${JSON.stringify(counts)} (${((performance.now() - started_deqp) / 1000).toFixed(0)} s)` +
-                (/INSTRUMENTATION_FAILED|Process crashed|Exception=/.test(run) ? " " + run.replace(/\s+/g, " ").slice(-300) : ""));
+                (/INSTRUMENTATION_FAILED|Process crashed|Exception=/.test(run) || counts.NotRun ? " " + run.replace(/\s+/g, " ").slice(-600) : ""));
             // (a run that ran nothing: its tester's crash, if any, from the log)
             if(chunk.cases.every(c => results[c] === "NotRun"))
             {
