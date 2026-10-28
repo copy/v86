@@ -5,7 +5,8 @@
 //! What it changes on the way:
 //! - combined image samplers become an image and a sampler (split.rs)
 //! - NaN and infinity tests become bit tests (relational.rs: WGSL has none);
-//!   negations of unsigned integers subtractions from zero (negate.rs)
+//!   negations of unsigned integers subtractions from zero, GLSL's `%` of
+//!   signed integers WGSL's (negate.rs)
 //! - samples of integer images become fetches (intsample.rs: WGSL samples
 //!   float textures only); samples of images clamped to the border choose
 //!   the border color outside the image (border.rs)

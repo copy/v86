@@ -1098,10 +1098,15 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             precision mediump float;
             uniform highp uint u;
             out vec4 o;
-            void main() { highp uvec2 r = -uvec2(u, 2u * u); o = vec4(r.x == 0xFFFFFFFFu ? 1.0 : 0.0, r.y == 0xFFFFFFFEu ? 1.0 : 0.0, 0.0, 1.0); }`);
+            void main() {
+                highp uvec2 r = -uvec2(u, 2u * u);
+                // (and % of signed integers, of a vector by a scalar)
+                ivec3 m = ivec3(7, 9, 11) % int(u + 3u);
+                o = vec4(r.x == 0xFFFFFFFFu ? 1.0 : 0.0, r.y == 0xFFFFFFFEu ? 1.0 : 0.0, m == ivec3(3, 1, 3) ? 1.0 : 0.0, 1.0);
+            }`);
         gl("glUniform1ui", negated.at("u"), 1);
         gl("glDrawArrays", 5, 0, 4);
-        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 0, 255]), "an unsigned negation: two's complement");
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 255, 255]), "an unsigned negation: two's complement; ivec3 % int");
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;

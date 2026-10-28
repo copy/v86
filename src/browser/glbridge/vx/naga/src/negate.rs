@@ -1,8 +1,13 @@
-//! Negation of unsigned integers (GLSL's `-v` of a uint or uvec, which is
-//! two's complement): glslang writes OpSNegate of the unsigned type, which
-//! naga refuses (`InvalidUnaryOperandType(Negate)`: WGSL negates signed
-//! integers and floats only). It becomes OpISub from a null (zero) constant
-//! of the type, declared before the first function.
+//! Integer operations naga cannot read as glslang writes them:
+//! - negation of unsigned integers (GLSL's `-v` of a uint or uvec, which is
+//!   two's complement): OpSNegate of the unsigned type, which naga refuses
+//!   (`InvalidUnaryOperandType(Negate)`: WGSL negates signed integers and
+//!   floats only), becomes OpISub from a null (zero) constant of the type,
+//!   declared before the first function;
+//! - GLSL's `%` of signed integers: OpSMod, which naga lowers through
+//!   floor (refused for integers), becomes OpSRem, WGSL's `%`: the two
+//!   differ only for negative operands, whose result GLSL ES leaves
+//!   undefined.
 
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -13,6 +18,8 @@ const OP_CONSTANT_NULL: u32 = 46;
 const OP_FUNCTION: u32 = 54;
 const OP_S_NEGATE: u32 = 126;
 const OP_I_SUB: u32 = 130;
+const OP_S_REM: u32 = 138;
+const OP_S_MOD: u32 = 139;
 
 fn instruction(op: u32, operands: &[u32]) -> Vec<u32> {
     let mut out = Vec::with_capacity(operands.len() + 1);
@@ -45,7 +52,14 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
         };
         types.get(&scalar).is_some_and(|t| op(t) == OP_TYPE_INT && t.len() >= 4 && t[3] == 0)
     };
-    if !instructions.iter().any(|w| op(w) == OP_S_NEGATE && w.len() == 4 && unsigned(w[1])) {
+    let integer = |ty: u32| {
+        let scalar = match types.get(&ty) {
+            Some(t) if op(t) == OP_TYPE_VECTOR => t[2],
+            _ => ty,
+        };
+        types.get(&scalar).is_some_and(|t| op(t) == OP_TYPE_INT)
+    };
+    if !instructions.iter().any(|w| op(w) == OP_S_NEGATE && w.len() == 4 && unsigned(w[1]) || op(w) == OP_S_MOD && w.len() == 5 && integer(w[1])) {
         return words.to_vec();
     }
     let mut bound = words[3];
@@ -61,6 +75,9 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
                 id
             });
             body.push(instruction(OP_I_SUB, &[w[1], w[2], zero, w[3]]));
+        }
+        else if op(w) == OP_S_MOD && w.len() == 5 && integer(w[1]) {
+            body.push(instruction(OP_S_REM, &w[1..]));
         }
         else {
             body.push(w.to_vec());
