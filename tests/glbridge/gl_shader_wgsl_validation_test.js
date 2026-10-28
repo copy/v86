@@ -278,6 +278,20 @@ checkProgramES("es_non_uniform_sampling_and_in_params",
     "  }\n" +
     "  gl_FragColor = c + texture2D(tex, tc);\n}");
 
+checkProgramES("es_matrix_componentwise",
+    "attribute vec4 pos;\nvoid main(void) { gl_Position = pos; }",
+    "precision mediump float;\nuniform mat3 a;\nuniform mat3 b;\nuniform float s;\n" +
+    "const mat2 c = mat2(1.0);\nconst mat2 d = mat2(1.0, 2.0, 3.0, 4.0);\n" +
+    "void main(void) {\n" +
+    "  mat3 r = a + s; r = s - r; r = r / b; r = -r; r = r / s; r = s / r;\n" +
+    "  mat2 q = c + d; q = -c; q = c / d; q++; --q; q += 1.0; q /= d;\n" +
+    "  gl_FragColor = vec4(r[0], 1.0) + vec4(q[0], q[1]);\n}");
+
+checkProgramES("es_struct_with_struct_array",
+    "attribute vec4 pos;\nvoid main(void) { gl_Position = pos; }",
+    "precision mediump float;\nstruct L { vec3 c; float k; };\nstruct S { L l[2]; vec2 p; };\n" +
+    "uniform S s;\nvoid main(void) { gl_FragColor = vec4(s.l[1].c * s.l[0].k, s.p.x); }");
+
 // These shaders bypass the GLSL translator, so exercise them directly too.
 // A syntax error here otherwise appears only when CopyTexImage, mipmap, or a
 // scaling framebuffer blit first runs on a real adapter.

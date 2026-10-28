@@ -3279,6 +3279,14 @@
                     cursor = fieldOffset + this.structSizeBytes(field.type);
                     continue;
                 }
+                if (field.type.kind === "array" && field.type.elem.kind === "struct") {
+                    const elemSize = this.structSizeBytes(field.type.elem);
+                    for (let i = 0; i < field.type.size; ++i)
+                        this.placeStructLeaves(path + "[" + i + "]", expr + "[" + i + "]",
+                            field.type.elem, fieldOffset + i * elemSize);
+                    cursor = fieldOffset + elemSize * field.type.size;
+                    continue;
+                }
                 if (field.type.kind === "array") {
                     const storage = uniformArrayElementFor(field.type.elem);
                     if (!storage)
@@ -3316,6 +3324,8 @@
                 cursor = roundUp(cursor, 16);
                 if (field.type.kind === "struct")
                     cursor += this.structSizeBytes(field.type);
+                else if (field.type.kind === "array" && field.type.elem.kind === "struct")
+                    cursor += this.structSizeBytes(field.type.elem) * field.type.size;
                 else if (field.type.kind === "array") {
                     const storage = uniformArrayElementFor(field.type.elem);
                     cursor += storage.strideBytes * field.type.size;
@@ -3347,6 +3357,10 @@
                 if (field.type.kind === "struct") {
                     wgslType = this.declareStruct(field.type);
                     size = this.structSizeBytes(field.type);
+                } else if (field.type.kind === "array" && field.type.elem.kind === "struct") {
+                    wgslType = "array<" + this.declareStruct(field.type.elem) + ", " +
+                        field.type.size + ">";
+                    size = this.structSizeBytes(field.type.elem) * field.type.size;
                 } else if (field.type.kind === "array") {
                     const storage = uniformArrayElementFor(field.type.elem);
                     wgslType = "array<" + storage.wgsl + ", " + field.type.size + ">";
@@ -4328,6 +4342,21 @@
                 if (lt.kind === "scalar") left = typeToWGSL(rt) + "(" + left + ")";
                 else right = typeToWGSL(lt) + "(" + right + ")";
             }
+            // WGSL has a matrix beside a scalar for * only, and matrices
+            // divide by nothing: the rest is done column by column
+            const matrix = lt.kind === "matrix" ? lt : rt.kind === "matrix" ? rt : null;
+            if (matrix && (op === "+" || op === "-" || op === "/") &&
+                    (lt.kind === "scalar" || rt.kind === "scalar" || op === "/")) {
+                const a = this.temp(), b = this.temp();
+                pre.push("let " + a + " = " + left + ";");
+                pre.push("let " + b + " = " + right + ";");
+                const columns = [];
+                for (let c = 0; c < matrix.cols; ++c) {
+                    columns.push("(" + (lt.kind === "matrix" ? a + "[" + c + "]" : a) + " " + op + " " +
+                        (rt.kind === "matrix" ? b + "[" + c + "]" : b) + ")");
+                }
+                return typeToWGSL(matrix) + "(" + columns.join(", ") + ")";
+            }
             return "(" + left + " " + op + " " + right + ")";
         }
 
@@ -4337,7 +4366,9 @@
                 const one = baseOf(node.type) === "int" ? "1" : "1.0";
                 const delta = node.op === "++" ? " + " : " - ";
                 const isVector = node.type.kind !== "scalar";
-                const rhs = isVector ?
+                const rhs = node.type.kind === "matrix" ?
+                    this.binaryText(delta.trim(), target.read, node.type, one, T.float, pre) :
+                    isVector ?
                     target.read + delta + typeToWGSL(node.type) + "(" + one + ")" :
                     target.read + delta + one;
                 if (node.prefix) {
@@ -4351,6 +4382,8 @@
             }
             const operand = this.genExpr(node.operand, pre);
             if (node.op === "+") return "(" + operand + ")";
+            // (WGSL negates no matrix)
+            if (node.op === "-" && node.type.kind === "matrix") return "(" + operand + " * -1.0)";
             return "(" + node.op + "(" + operand + "))";
         }
 
