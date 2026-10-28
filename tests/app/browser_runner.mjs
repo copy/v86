@@ -171,6 +171,9 @@ function finish(code)
     else remove();
 }
 
+// (the runner stopped from outside: its Chrome stopped too, not left running the page's machine)
+for(const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => { finish(1); process.exit(1); });
+
 server.listen(0, "127.0.0.1", async () =>
 {
     const origin = "http://127.0.0.1:" + server.address().port;

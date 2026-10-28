@@ -159,13 +159,17 @@ if(process.env.A32_ANDROID_MEDIA === "1")
     assert.ok(!deqp, "A32_ANDROID_MEDIA and A32_ANDROID_DEQP both want the fourth disk");
     const apks = ROOT + "build/a32-android/apks/";
     const games = [
-        // (steps: [x, y] taps in the screen's pixels, each with a screenshot after it: into the game. Replica Island
-        // in landscape, its picture turned on the portrait screen: the control setup's "Leave it this way", the
-        // news' "Rock on!", the menu's Start, the middle difficulty, the first conversation; playing: its game
-        // activity, the arrow keys (the control scheme it picks for the emulator's keyboard). Shattered Pixel
-        // Dungeon: "Enter the Dungeon", the warrior, Start, the story's window)
+        // (steps, each with a screenshot after it: into the game. [x, y] a tap in the screen's pixels; {view} the
+        // view uiautomator finds by that pattern (its text or resource id) tapped, wherever the app's slow start
+        // left it ({at} the tap when it finds none). Replica Island's menus are views, in landscape: the control
+        // setup's "Leave it this way", the news' "Rock on!", Start, the middle difficulty, then the first
+        // conversation in its GL view; playing: its game activity, the arrow keys (the control scheme it picks for
+        // the emulator's keyboard). Shattered Pixel Dungeon draws everything itself: "Enter the Dungeon", the
+        // warrior, Start, the story's window)
         { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk",
-            steps: [[90, 225], [90, 365], [195, 370], [115, 370], [240, 400]], playing: /AndouKun/, keys: true,
+            steps: [{ view: 'text="Leave it this way"', at: [90, 225] }, { view: 'text="Rock on!"', at: [90, 365] },
+                { view: 'resource-id="[^"]*startButton"' }, { view: 'resource-id="[^"]*kidsButton"' }, [240, 400]],
+            playing: /AndouKun/, keys: true,
             url: "https://f-droid.org/archive/com.replica.replicaisland_14.apk", sha256: "35d900fabe6bbc05899c3fcc0fb5926a5a901d807889d0d111b34a1e87d7acde" },
         { name: "shatteredpixeldungeon", package: "com.shatteredpixel.shatteredpixeldungeon", file: "shatteredpixeldungeon_921.apk",
             steps: [[240, 750], [40, 770], [240, 700], [240, 400]],
@@ -334,7 +338,17 @@ try
     {
         console.log(`probe (home): ${command}\n` + (await ask(command, "A32_PROBE", 600000)).split("\n").slice(1).join("\n").slice(0, 8000));
     }
-    const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS", 600000)).match(/mCurrentFocus=\S+ \S+ ([^}]+)\}/)?.[1] || "";
+    const focus = async () =>
+    {
+        // (between two windows there is none: asked again)
+        for(let i = 0; i < 3; i++)
+        {
+            const now = (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS", 600000)).match(/mCurrentFocus=\S+ \S+ ([^}]+)\}/)?.[1];
+            if(now) return now;
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+        return "";
+    };
     // (background ANRs are shown, not killed: their dialogs' Wait, found by uiautomator)
     const dismiss_dialogs = async () =>
     {
@@ -622,9 +636,20 @@ try
             await dismiss_dialogs();
             save_png(sink, run_directory, game.name + "-start");
             const events = emulator.v86.cpu.devices.goldfish_events;
-            for(const [i, [x, y]] of game.steps.entries())
+            for(const [i, step] of game.steps.entries())
             {
-                events.tap(x, y, fb.width, fb.height);
+                let at = Array.isArray(step) ? step : null;
+                if(step.view)
+                {
+                    // (uiautomator's bounds are the rotated screen's, as input tap's)
+                    const view = await ask("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; grep -o -E '<node [^>]*>' " +
+                        `/data/local/tmp/ui.xml | grep -E '${step.view}' | grep -o -E 'bounds="[^"]*"' | head -1`, "A32_UI_STEP", 900000);
+                    const m = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(view);
+                    if(m) await ask(`input tap ${(+m[1] + +m[3]) >> 1} ${(+m[2] + +m[4]) >> 1}`, "A32_TAP", 600000);
+                    else at = step.at || null;
+                    console.log(`game ${game.name} step ${i + 1}: ${step.view} ` + (m ? "found" : at ? "not found, tapped at " + at : "not found"));
+                }
+                if(at) events.tap(at[0], at[1], fb.width, fb.height);
                 await new Promise(resolve => setTimeout(resolve, 45000));
                 await dismiss_dialogs();
                 save_png(sink, run_directory, `${game.name}-step${i + 1}`);
