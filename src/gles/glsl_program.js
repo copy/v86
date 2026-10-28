@@ -130,7 +130,8 @@ export function link_glslang_program(glslang, shaders, options)
     {
         const t = gl_type(u.type);
         const size = Math.max(1, u.size);
-        const row_major = !!u.rowMajor;
+        // (a matrix's alone: GL's UNIFORM_IS_ROW_MAJOR of any other uniform is false, in a row_major block too)
+        const row_major = !!u.rowMajor && !!t.columns;
         const matrix_stride = !t.columns ? 0 : u.packing === "std430" ? ((row_major ? t.columns : t.rows) === 2 ? 8 : 16) : 16;
         uniforms.push({
             name: u.name, base: base_name(u.name), size, type: u.type, location: -1, explicit_location: u.location,
