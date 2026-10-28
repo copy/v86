@@ -1100,6 +1100,7 @@ export function gles3_handlers(h)
             {
                 if(!name) continue;
                 c.group.reserved.texture.delete(name);
+                const texture = c.group.textures.get(name);
                 if(!c.group.textures.delete(name)) continue;
                 for(const unit of c.textures) for(let i = 0; i < unit.length; i++) if(unit[i] === name) unit[i] = 0;
                 for(const fbo of c.framebuffers.values())
@@ -1108,6 +1109,7 @@ export function gles3_handlers(h)
                     for(const [attachment, a] of fbo.attachments) if(a.type === GL.TEXTURE && a.name === name) fbo.attachments.delete(attachment);
                 }
                 h.detach(c, GL.TEXTURE, name);
+                h.keep_orphan(c, GL.TEXTURE, c.group.textures, name, texture);
             }
             return undefined;
         },

@@ -14,10 +14,14 @@
 // The result has the shape glsl_es.js's link_program gives the shadow
 // (ProgramInfo), with `spirv`, `blocks` and `bindings` added.
 
+import { GL_STATE } from "./gles_caps.js";
 import { STAGE } from "./glslang.js";
 import { BLEND_DESTINATION, blend_support, block_packings, glsl_version, rewrite_for_spirv, std_blocks } from "./glsl_es_rewrite.js";
 import { DECORATION, EXECUTION_MODEL, OP, STORAGE, add_xfb, array_length, block_layout, get_decoration, innermost, is_builtin, location_count, parse_spirv,
     set_decoration, variable_name } from "./spirv_patch.js";
+
+/** GL_MAX_VERTEX_ATTRIBS */
+const MAX_VERTEX_ATTRIBS = GL_STATE.get(0x8869)[0];
 
 export const BINDING = { DEFAULT_BLOCK: 0, SAMPLERS: 1, UNIFORM_BLOCKS: 17, STORAGE_BLOCKS: 42, ATOMIC_COUNTERS: 60, IMAGES: 70 };
 
@@ -121,6 +125,8 @@ export function link_glslang_program(glslang, shaders, options)
         a.location = location;
         take(location, n);
     }
+    // (GL_MAX_VERTEX_ATTRIBS, a link error past it)
+    if([...used].some(location => location >= MAX_VERTEX_ATTRIBS)) return empty("ERROR: the vertex shader's inputs need more than " + MAX_VERTEX_ATTRIBS + " locations");
 
     // the uniforms GL lists: the default block's, the blocks' members, the opaque ones
     const blocks = check.uniformBlocks.map((b, index) => ({ name: b.name, index, size: b.size, binding: element_binding(check.uniformBlocks, b),

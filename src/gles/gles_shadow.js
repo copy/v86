@@ -584,6 +584,27 @@ function detach(context, type, name)
     for(const [attachment, a] of fbo.attachments) if(a.type === type && a.name === name) fbo.attachments.delete(attachment);
 }
 
+/**
+ * A texture or renderbuffer deleted while framebuffers that are not bound
+ * have it attached (GL keeps it for them; a new object of its name is
+ * another): theirs, under a name of its own past those glGen gives
+ * @param {!Map<number, !Object>} objects the group's of its kind
+ */
+function keep_orphan(context, type, objects, name, object)
+{
+    let orphan = 0;
+    for(const fbo of context.framebuffers.values())
+    {
+        for(const a of fbo.attachments.values())
+        {
+            if(a.type !== type || a.name !== name) continue;
+            if(!orphan) orphan = context.group.next_orphan = (context.group.next_orphan || 0x40000000) + 1;
+            a.name = orphan;
+        }
+    }
+    if(orphan) objects.set(orphan, object);
+}
+
 // ---- glGet
 
 /**
@@ -1199,9 +1220,11 @@ const HANDLERS = {
         {
             if(!name) continue;
             c.group.reserved.renderbuffer.delete(name);
+            const renderbuffer = c.group.renderbuffers.get(name);
             if(!c.group.renderbuffers.delete(name)) continue;
             if(c.renderbuffer === name) c.renderbuffer = 0;
             detach(c, GL.RENDERBUFFER, name);
+            keep_orphan(c, GL.RENDERBUFFER, c.group.renderbuffers, name, renderbuffer);
         }
     },
     "glIsRenderbuffer": (shadow, c, [name]) => { query(shadow); return c.group.renderbuffers.has(name) ? 1 : 0; },
@@ -1583,7 +1606,7 @@ const FRAMEBUFFER_STATUS3 = { fn: null };
 /** GLES 3.x's handlers (gles3_state.js) over GLES 2.0's */
 const GLES3_HANDLERS = gles3_handlers({
     fail, query, put, put_text, i32s, f32s, text_of, REFUSED, base: HANDLERS, framebuffer_status3: FRAMEBUFFER_STATUS3, new_texture,
-    detach, state_kind: pname => STATE_KIND.get(pname) || (INT64_STATE.has(pname) ? "i" : "i"),
+    detach, keep_orphan, state_kind: pname => STATE_KIND.get(pname) || (INT64_STATE.has(pname) ? "i" : "i"),
     // (the default framebuffer's: the draw surface's configuration)
     framebuffer_bits: c => GLESShadow.prototype.framebuffer_bits.call(null, { framebuffer: 0, surface: c.surface }),
     extensions: () => EXTENSIONS_3,

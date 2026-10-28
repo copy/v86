@@ -821,6 +821,30 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         await run();
         const parts_got = Array.from(new Float32Array(answers.get(parts_id).slice().buffer)).join();
         check(parts_got === [-3, -3, -1, 7, 9, -3, -1, 7, -3, 9, 3, 7].join(), "an array element and a struct member captured: " + parts_got);
+        // a flat varying captured: in GL's order, drawn with GL's provoking vertex (the last) as without transform feedback
+        const flat_tf = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            flat out uint id;
+            void main() { id = uint(gl_VertexID) + 1u; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision mediump float;
+            flat in uint id;
+            out vec4 o;
+            void main() { o = vec4(float(id) / 4.0, 0.0, 0.0, 1.0); }`, ["id"]);
+        void flat_tf;
+        gl("glBindBuffer", 0x8C8E, parts_feedback);
+        gl("glBufferData", 0x8C8E, 12, null, 0x88E8);
+        gl("glBindBufferBase", 0x8C8E, 0, parts_feedback);
+        gl("glClear", 0x4000);
+        gl("glBeginTransformFeedback", 4);
+        gl("glDrawArrays", 4, 0, 3);
+        gl("glEndTransformFeedback");
+        const flat_pixel = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+        const flat_id = request++;
+        record(GLES.BUFFER_READ, 1, flat_id, parts_feedback, 0, 12);
+        await run();
+        const flat_got = Array.from(new Uint32Array(answers.get(flat_id).slice().buffer)).join();
+        check(flat_got === "1,2,3" && near(flat_pixel, [191, 0, 0, 255]), "a flat varying captured in GL's order, drawn with the last vertex's: " +
+            flat_got + " / " + flat_pixel);
         gl("glBindBufferBase", 0x8C8E, 0, feedback);
         gl("glUseProgram", flat.name);
         gl("glBindBuffer", 0x8892, feedback);
@@ -1239,6 +1263,20 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glActiveTexture", 0x84C0);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0x42, 0, 0, 255]), "a depth and stencil texture's stencil, sampled (STENCIL_INDEX)");
+        // a rectangle of its stencil replaced (WebGPU copies whole levels' stencil only: through a buffer patched by a compute pass)
+        gl("glActiveTexture", 0x84C2);
+        gl("glTexSubImage2D", 0x0DE1, 0, 1, 1, 1, 1, 0x84F9, 0x84FA, new Uint8Array(new Uint32Array([0x80000017]).buffer));
+        gl("glActiveTexture", 0x84C0);
+        const fetched_stencil31 = program(`#version 310 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 310 es
+            precision mediump float;
+            uniform highp usampler2D stencil;
+            out vec4 o;
+            void main() { o = vec4(float(texelFetch(stencil, ivec2(1, 1), 0).r) / 255.0, float(texelFetch(stencil, ivec2(0, 1), 0).r) / 255.0, 0.0, 1.0); }`);
+        gl("glUniform1i", fetched_stencil31.at("stencil"), 2);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0x17, 0x42, 0, 255]), "a rectangle of a depth and stencil texture's stencil replaced");
         // a pipeline of two separable programs, one made by glCreateShaderProgramv, their uniforms by glProgramUniform
         const separable_vs = `#version 310 es
             layout(location = 0) in vec2 position;

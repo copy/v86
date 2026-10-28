@@ -1109,17 +1109,74 @@ export const GLES3 = {
             pass.draw(3);
             pass.end();
         }
-        if(stencil && values.stencil)
+        if(stencil && values.stencil) this.stencil_image3(gpu, mip, origin, size, values.stencil);
+    },
+
+    /**
+     * Stencil values into a rectangle of a depth stencil texture's level:
+     * WebGPU copies the stencil aspect of whole levels (layers) only, so a
+     * rectangle of less goes through a buffer of the levels' stencil, the
+     * rectangle's bytes set in it by a compute pass, copied back whole
+     */
+    stencil_image3(gpu, mip, origin, size, stencil)
+    {
+        const [x, y, z] = origin, [w, h, d] = size;
+        const width = Math.max(1, gpu.width >> mip), height = Math.max(1, gpu.height >> mip);
+        const whole = x === 0 && y === 0 && w === width && h === height;
+        const stride = Math.ceil((whole ? w : width) / 256) * 256;
+        const rows = whole ? h : height;
+        const level = { texture: gpu.texture, mipLevel: mip, origin: [0, 0, z], aspect: "stencil-only" };
+        if(whole)
         {
-            const stride = Math.ceil(w / 256) * 256;
             const staging = this.device.createBuffer({ label: "GLES stencil upload", size: stride * h * d, usage: B.COPY_SRC, mappedAtCreation: true });
             const mapped = new Uint8Array(staging.getMappedRange());
-            for(let k = 0; k < h * d; k++) mapped.set(values.stencil.subarray(k * w, k * w + w), k * stride);
+            for(let k = 0; k < h * d; k++) mapped.set(stencil.subarray(k * w, k * w + w), k * stride);
             staging.unmap();
-            this.encoder.copyBufferToTexture({ buffer: staging, bytesPerRow: stride, rowsPerImage: h },
-                { texture: gpu.texture, mipLevel: mip, origin: [x, y, z], aspect: "stencil-only" }, [w, h, d]);
             this.staging.push(staging);
+            this.encoder.copyBufferToTexture({ buffer: staging, bytesPerRow: stride, rowsPerImage: h }, level, [w, h, d]);
+            return;
         }
+        const levels = this.device.createBuffer({ label: "GLES stencil levels", size: stride * rows * d, usage: B.STORAGE | B.COPY_SRC | B.COPY_DST });
+        const values = this.device.createBuffer({ label: "GLES stencil values", size: Math.max(16, align4(w * h * d)), usage: B.STORAGE, mappedAtCreation: true });
+        new Uint8Array(values.getMappedRange()).set(stencil.subarray(0, w * h * d));
+        values.unmap();
+        this.staging.push(levels, values);
+        if(!this.stencil_patch3)
+        {
+            const module = this.device.createShaderModule({ code: `
+                @group(0) @binding(0) var<storage, read_write> levels : array<u32>;
+                @group(0) @binding(1) var<storage, read> values : array<u32>;
+                @group(0) @binding(2) var<uniform> p : array<vec4<u32>, 2>;
+                @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id : vec3<u32>) {
+                    // p[0]: x, y, w, h; p[1]: stride, rows, the words
+                    if(id.x >= p[1].z) { return; }
+                    var word = levels[id.x];
+                    for(var b = 0u; b < 4u; b++) {
+                        let at = id.x * 4u + b;
+                        let layer = at / (p[1].x * p[1].y);
+                        let row = at % (p[1].x * p[1].y) / p[1].x;
+                        let column = at % p[1].x;
+                        if(column >= p[0].x && column < p[0].x + p[0].z && row >= p[0].y && row < p[0].y + p[0].w) {
+                            let i = (layer * p[0].w + row - p[0].y) * p[0].z + column - p[0].x;
+                            let value = (values[i / 4u] >> (i % 4u * 8u)) & 0xFFu;
+                            word = (word & ~(0xFFu << (b * 8u))) | (value << (b * 8u));
+                        }
+                    }
+                    levels[id.x] = word;
+                }` });
+            this.stencil_patch3 = this.device.createComputePipeline({ label: "GLES stencil patch", layout: "auto", compute: { module, entryPoint: "main" } });
+        }
+        const words = stride * rows * d / 4;
+        const parameters = this.uniform_buffer(new Uint32Array([x, y, w, h, stride, rows, words, 0]).buffer);
+        this.end_pass();
+        this.encoder.copyTextureToBuffer(level, { buffer: levels, bytesPerRow: stride, rowsPerImage: rows }, [width, height, d]);
+        const pass = this.encoder.beginComputePass({ label: "GLES stencil patch" });
+        pass.setPipeline(this.stencil_patch3);
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: this.stencil_patch3.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: levels } },
+            { binding: 1, resource: { buffer: values } }, { binding: 2, resource: { buffer: parameters } }] }));
+        pass.dispatchWorkgroups(Math.ceil(words / 64));
+        pass.end();
+        this.encoder.copyBufferToTexture({ buffer: levels, bytesPerRow: stride, rowsPerImage: rows }, level, [width, height, d]);
     },
 
     /**
@@ -1898,11 +1955,23 @@ export const GLES3 = {
             return void this.draw3(c, per === 4 ? 1 : 4, 0, list.length, { type: 0x1405, bytes: new Uint8Array(list.buffer) }, instances);
         }
         // (GL's provoking vertex is a primitive's last, WebGPU's its first: a draw with flat varyings as a list whose primitives
-        // start with their last vertex, a rotation that keeps triangles' winding; G-17's. Not of a draw transform feedback
-        // captures, whose order is GL's, nor an indirect one: G-77)
+        // start with their last vertex, a rotation that keeps triangles' winding; G-17's. A draw transform feedback captures
+        // captures first as it is, in GL's order, without drawing; not an indirect draw: G-77)
         const tf = c.tfs && c.tfs.get(c.tf);
-        if(!indirect && !(elements && elements.provoking) && mode >= 1 && mode <= 6 && shaders.flat && !(tf && tf.active && !tf.paused))
+        if(!indirect && !(elements && elements.provoking) && mode >= 1 && mode <= 6 && shaders.flat && !this.capture_only3)
         {
+            if(tf && tf.active && !tf.paused && !elements)
+            {
+                this.capture_only3 = true;
+                try
+                {
+                    this.draw3(c, mode, first, count, elements, instances, base_vertex, indirect);
+                }
+                finally
+                {
+                    this.capture_only3 = false;
+                }
+            }
             const drawn = this.draw_vertices3(c, first, count, elements, base_vertex);
             if(drawn)
             {
@@ -1974,8 +2043,8 @@ export const GLES3 = {
         const group = this.bind_groups3(c, shaders.bindings, target);
         if(!group) return;
         if(!elements && !indirect) this.capture3(c, stages.vertex, group, vertex, mode, first, count, instances, rebase);
-        // (rasterizer discard: what transform feedback captured, nothing drawn)
-        if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
+        // (rasterizer discard: what transform feedback captured, nothing drawn; a capture before a reordered draw, the same)
+        if(c.enabled.has(GL3.RASTERIZER_DISCARD) || this.capture_only3) return;
         if(c.viewport[2] <= 0 || c.viewport[3] <= 0) return;
         let index_buffer = null;
         if(list)
