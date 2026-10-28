@@ -159,11 +159,16 @@ if(process.env.A32_ANDROID_MEDIA === "1")
     assert.ok(!deqp, "A32_ANDROID_MEDIA and A32_ANDROID_DEQP both want the fourth disk");
     const apks = ROOT + "build/a32-android/apks/";
     const games = [
-        // (steps: [x, y] taps in the screen's pixels, each with a screenshot after it: into the game)
-        { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk", steps: [[200, 360], [240, 400], [240, 400]],
+        // (steps: [x, y] taps in the screen's pixels, each with a screenshot after it: into the game. Replica Island
+        // in landscape, its picture turned on the portrait screen: the control setup's "Leave it this way", the
+        // news' "Rock on!", the menu's Start, the middle difficulty, the first conversation; playing: its game
+        // activity, the arrow keys (the control scheme it picks for the emulator's keyboard). Shattered Pixel
+        // Dungeon: "Enter the Dungeon", the warrior, Start, the story's window)
+        { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk",
+            steps: [[90, 225], [90, 365], [195, 370], [115, 370], [240, 400]], playing: /AndouKun/, keys: true,
             url: "https://f-droid.org/archive/com.replica.replicaisland_14.apk", sha256: "35d900fabe6bbc05899c3fcc0fb5926a5a901d807889d0d111b34a1e87d7acde" },
         { name: "shatteredpixeldungeon", package: "com.shatteredpixel.shatteredpixeldungeon", file: "shatteredpixeldungeon_921.apk",
-            steps: [[240, 750], [240, 750], [240, 400]],
+            steps: [[240, 750], [40, 770], [240, 700], [240, 400]],
             url: "https://f-droid.org/repo/com.shatteredpixel.shatteredpixeldungeon_921.apk", sha256: "dbd8205680e89758babf608212a1fb3f498f732118b1e3c0b9fd33bf67486a99" },
     ];
     const root = run_directory + "media-disk/";
@@ -566,6 +571,11 @@ try
         // (YouTube's native code stops on an instruction the arm32 core lacks, SIGILL, again and again:
         // its "keeps stopping" dialogs would cover the video and the games; not GLES)
         await ask("su 0 pm disable com.google.android.youtube", "A32_NO_YOUTUBE", 900000);
+        // (Gallery's player opens the file itself: its storage permission, which nothing has granted yet, as Gallery
+        // asks for it when it is opened from the launcher; the games' immersive mode without its first-time overlay,
+        // which takes their touches)
+        await ask("pm grant com.android.gallery3d android.permission.READ_EXTERNAL_STORAGE; " +
+            "settings put secure immersive_mode_confirmations confirmed", "A32_MEDIA_SETUP", 900000);
         await dismiss_dialogs();
         console.log("video: " + (await ask("am start -a android.intent.action.VIEW -d file:///sdcard/green.mp4 -t video/mp4 " +
             "-n com.android.gallery3d/.app.MovieActivity", "A32_VIDEO", 900000)).replace(/\s+/g, " ").slice(-160));
@@ -597,8 +607,8 @@ try
         if(green() < 20)
         {
             media_failures.push("the video's frame is shown (green)");
-            console.log("video log: " + await ask("ls -l /sdcard/green.mp4; logcat -d -v brief -b main -b system -b crash '*:W' | " +
-                "grep -i -E 'media|codec|omx|avc|video|gallery|stagefright|nuplayer|extractor|DEBUG|Fatal|signal' | tail -40", "A32_VIDEO_LOG", 600000));
+            console.log("video log: " + await ask("logcat -d -v brief -s VideoView:W MediaPlayer:W NuPlayer:W NuPlayerDriver:W " +
+                "ACodec:W MediaCodec:W OMXNodeInstance:W SoftAVC:W | grep -v -E '[[:space:]]at [a-z]' | head -30", "A32_VIDEO_LOG", 600000));
         }
         await ask("input keyevent 4; input keyevent 3", "A32_VIDEO_HOME", 600000);
         // the games: installed, started, a minute of taps and swipes, still running and drawing
@@ -623,6 +633,13 @@ try
             const play_until = performance.now() + 60000;
             for(let i = 0; performance.now() < play_until; i++)
             {
+                // (a game played with keys: the right arrow held a second, the up arrow tapped)
+                if(game.keys)
+                {
+                    for(const code of [0xE0, 0x4D]) events.scancode(code);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    for(const code of [0xE0, 0xCD, 0xE0, 0x48, 0xE0, 0xC8]) events.scancode(code);
+                }
                 // (taps across the middle, then a swipe)
                 if(i % 4 === 3)
                 {
@@ -641,10 +658,11 @@ try
                 (running ? "running, pid " + running[1] : "not running"));
             save_png(sink, run_directory, game.name + "-play");
             assert.ok(running, game.name + " still runs after a minute");
+            if(game.playing && !game.playing.test(now)) media_failures.push(game.name + " plays: " + now);
             assert.ok(calls > 0 && fb.frames > frames_before, game.name + " draws");
             await ask(`am force-stop ${game.package}; input keyevent 3`, "A32_GAME_STOP", 600000);
         }
-        assert.deepEqual(media_failures, [], "the video");
+        assert.deepEqual(media_failures, [], "the video and the games");
     }
     if(deqp)
     {
