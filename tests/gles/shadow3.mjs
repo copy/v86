@@ -127,3 +127,226 @@ async function setup(max_version, api)
     void c;
     console.log("PASS: GLSL ES 3.00 through glslang; the link in the batch");
 }
+
+// ---- GLES 3.0's state, queries and errors (GLES 3.0's tables 6.x and the commands' errors)
+{
+    const { call, c } = await setup("3.0", 3);
+    const error = async () => (await call("gles2:glGetError")).ret;
+    const get_i = async (pname, n = 1) => i32s((await call("gles2:glGetIntegerv", pname, 4 * n)).outs[0]);
+    const gen = async (command, n = 1) => i32s((await call("gles2:" + command, n, 4 * n)).outs[0]);
+    const ints = values => new Uint8Array(new Int32Array(values).buffer);
+    const GL = { TEXTURE_2D: 0x0DE1, TEXTURE_3D: 0x806F, TEXTURE_2D_ARRAY: 0x8C1A, RGBA: 0x1908, RGBA8: 0x8058, UNSIGNED_BYTE: 0x1401,
+        R32F: 0x822E, RED: 0x1903, FLOAT: 0x1406, RGBA32UI: 0x8D70, RGBA_INTEGER: 0x8D99, UNSIGNED_INT: 0x1405, FRAMEBUFFER: 0x8D40,
+        DRAW_FRAMEBUFFER: 0x8CA9, READ_FRAMEBUFFER: 0x8CA8, RENDERBUFFER: 0x8D41, COLOR_ATTACHMENT0: 0x8CE0, DEPTH_ATTACHMENT: 0x8D00,
+        STENCIL_ATTACHMENT: 0x8D20, DEPTH_STENCIL_ATTACHMENT: 0x821A, DEPTH24_STENCIL8: 0x88F0, DEPTH_COMPONENT16: 0x81A5,
+        STENCIL_INDEX8: 0x8D48, ARRAY_BUFFER: 0x8892, ELEMENT_ARRAY_BUFFER: 0x8893, UNIFORM_BUFFER: 0x8A11, COPY_READ: 0x8F36,
+        COPY_WRITE: 0x8F37, STATIC_DRAW: 0x88E4, DYNAMIC_READ: 0x88E9 };
+
+    assert.deepEqual(await get_i(0x821B), [3], "GL_MAJOR_VERSION");
+    assert.deepEqual(await get_i(0x821C), [0], "GL_MINOR_VERSION");
+    assert.deepEqual(await get_i(0x8D57), [4], "GL_MAX_SAMPLES");
+    assert.deepEqual(await get_i(0x8CDF), [4], "GL_MAX_COLOR_ATTACHMENTS");
+    assert.deepEqual(await get_i(0x8D6B), [0x7FFFFFFF], "GL_MAX_ELEMENT_INDEX through glGetIntegerv: clamped");
+    const i64 = Array.from(new BigInt64Array((await call("gles2:glGetInteger64v", 0x8D6B, 8)).outs[0].slice().buffer));
+    assert.deepEqual(i64, [0xFFFFFFFFn], "and its 64 bits through glGetInteger64v");
+    assert.deepEqual(await get_i(0x8825), [0x0405], "GL_DRAW_BUFFER0 of the default framebuffer: GL_BACK");
+    assert.equal(await error(), 0);
+
+    // vertex array objects keep the attributes and the element buffer
+    const [b1, b2] = await gen("glGenBuffers", 2);
+    const [vao] = await gen("glGenVertexArrays");
+    await call("gles2:glBindBuffer", GL.ELEMENT_ARRAY_BUFFER, b1);
+    await call("gles2:glBindVertexArray", vao);
+    assert.deepEqual(await get_i(0x8895), [0], "a new vertex array has no element buffer");
+    await call("gles2:glBindBuffer", GL.ELEMENT_ARRAY_BUFFER, b2);
+    await call("gles2:glEnableVertexAttribArray", 3);
+    await call("gles2:glBindVertexArray", 0);
+    assert.deepEqual(await get_i(0x8895), [b1], "the default one's came back");
+    await call("gles2:glBindVertexArray", vao);
+    assert.deepEqual(await get_i(0x8895), [b2], "and the vertex array's");
+    assert.deepEqual(i32s((await call("gles2:glGetVertexAttribiv", 3, 0x8622, 4)).outs[0]), [1], "its enabled attribute");
+    await call("gles2:glBindVertexArray", 0);
+    assert.deepEqual(i32s((await call("gles2:glGetVertexAttribiv", 3, 0x8622, 4)).outs[0]), [0], "not the default one's");
+    await call("gles2:glBindVertexArray", 12345);
+    assert.equal(await error(), 0x0502, "binding a name glGenVertexArrays did not give: INVALID_OPERATION");
+
+    // buffers: targets, copies, mapping answers from the CPU side's bytes
+    c.group; // (the share group holds buffers)
+    await call("gles2:glBindBuffer", GL.COPY_READ, b1);
+    await call("gles2:glBufferData", GL.COPY_READ, 8, ints([7, 9]), GL.STATIC_DRAW);
+    await call("gles2:glBindBuffer", GL.COPY_WRITE, b2);
+    await call("gles2:glBufferData", GL.COPY_WRITE, 8, null, GL.DYNAMIC_READ);
+    assert.equal(await error(), 0);
+    await call("gles2:glCopyBufferSubData", GL.COPY_READ, GL.COPY_WRITE, 0, 4, 4);
+    const mapped = (await call("gles2:glMapBufferRangeAEMU", GL.COPY_WRITE, 0, 8, 1, 8)).outs[0];
+    assert.deepEqual(i32s(mapped), [0, 7], "glMapBufferRange(READ) answers the copy's bytes");
+    await call("gles2:glMapBufferRangeAEMU", GL.COPY_WRITE, 0, 8, 1, 8);
+    assert.equal(await error(), 0x0502, "mapping a mapped buffer: INVALID_OPERATION");
+    await call("gles2:glUnmapBufferAEMU", GL.COPY_WRITE, 0, 8, 1, ints([0, 0]), 1);
+    await call("gles2:glMapBufferRangeAEMU", GL.COPY_WRITE, 0, 8, 2 | 4, 8);
+    await call("gles2:glUnmapBufferAEMU", GL.COPY_WRITE, 0, 8, 2 | 4, ints([5, 6]), 1);
+    assert.deepEqual(i32s((await call("gles2:glMapBufferRangeAEMU", GL.COPY_WRITE, 0, 8, 1, 8)).outs[0]), [5, 6], "what a write mapping wrote");
+    await call("gles2:glUnmapBufferAEMU", GL.COPY_WRITE, 0, 8, 1, ints([0, 0]), 1);
+    await call("gles2:glMapBufferRangeAEMU", GL.COPY_WRITE, 0, 8, 1 | 4, 8);
+    assert.equal(await error(), 0x0502, "READ with INVALIDATE: INVALID_OPERATION");
+
+    // indexed uniform buffer bindings
+    await call("gles2:glBindBufferRange", GL.UNIFORM_BUFFER, 2, b1, 256, 4);
+    assert.deepEqual(i32s((await call("gles2:glGetIntegeri_v", 0x8A28, 2, 4)).outs[0]), [b1], "GL_UNIFORM_BUFFER_BINDING[2]");
+    assert.deepEqual(i32s((await call("gles2:glGetIntegeri_v", 0x8A29, 2, 4)).outs[0]), [256], "its start");
+    await call("gles2:glBindBufferRange", GL.UNIFORM_BUFFER, 2, b1, 4, 4);
+    assert.equal(await error(), 0x0501, "an offset not GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT's multiple: INVALID_VALUE");
+
+    // textures: 3D, arrays, storage, sized formats, parameters
+    const [t3, ta, t2] = await gen("glGenTextures", 3);
+    await call("gles2:glBindTexture", GL.TEXTURE_3D, t3);
+    await call("gles2:glTexImage3D", GL.TEXTURE_3D, 0, GL.RGBA8, 4, 4, 4, 0, GL.RGBA, GL.UNSIGNED_BYTE, new Uint8Array(256));
+    assert.equal(await error(), 0, "a 3D texture's image");
+    await call("gles2:glTexImage3D", GL.TEXTURE_3D, 0, GL.RGBA8, 4, 4, 4, 0, GL.RGBA, GL.FLOAT, null);
+    assert.equal(await error(), 0x0502, "RGBA8 of floats: INVALID_OPERATION");
+    await call("gles2:glBindTexture", GL.TEXTURE_2D_ARRAY, ta);
+    await call("gles2:glTexStorage3D", GL.TEXTURE_2D_ARRAY, 3, GL.R32F, 8, 8, 2);
+    assert.equal(await error(), 0);
+    const tex_i = async (target, pname) => i32s((await call("gles2:glGetTexParameteriv", target, pname, 4)).outs[0])[0];
+    assert.equal(await tex_i(GL.TEXTURE_2D_ARRAY, 0x912F), 1, "GL_TEXTURE_IMMUTABLE_FORMAT");
+    assert.equal(await tex_i(GL.TEXTURE_2D_ARRAY, 0x82DF), 3, "GL_TEXTURE_IMMUTABLE_LEVELS");
+    await call("gles2:glTexImage3D", GL.TEXTURE_2D_ARRAY, 0, GL.R32F, 8, 8, 2, 0, GL.RED, GL.FLOAT, null);
+    assert.equal(await error(), 0x0502, "an immutable texture's image: INVALID_OPERATION");
+    await call("gles2:glTexStorage3D", GL.TEXTURE_2D_ARRAY, 5, GL.R32F, 8, 8, 2);
+    assert.equal(await error(), 0x0502, "more levels than log2(8) + 1: INVALID_OPERATION");
+    await call("gles2:glBindTexture", GL.TEXTURE_2D, t2);
+    await call("gles2:glTexParameteri", GL.TEXTURE_2D, 0x8E42, 0x1906);
+    await call("gles2:glTexParameteri", GL.TEXTURE_2D, 0x813C, 2);
+    assert.equal(await tex_i(GL.TEXTURE_2D, 0x8E42), 0x1906, "GL_TEXTURE_SWIZZLE_R");
+    assert.equal(await tex_i(GL.TEXTURE_2D, 0x813C), 2, "GL_TEXTURE_BASE_LEVEL");
+    await call("gles2:glTexParameteri", GL.TEXTURE_2D, 0x813C, -1);
+    assert.equal(await error(), 0x0501, "a negative base level: INVALID_VALUE");
+
+    // samplers
+    const [s1] = i32s((await call("gles2:glGenSamplers", 1, 4)).outs[0]);
+    await call("gles2:glBindSampler", 3, s1);
+    await call("gles2:glSamplerParameteri", s1, 0x2802, 0x812F);
+    assert.deepEqual(i32s((await call("gles2:glGetSamplerParameteriv", s1, 0x2802, 4)).outs[0]), [0x812F], "a sampler's wrap");
+    await call("gles2:glActiveTexture", 0x84C3);
+    assert.deepEqual(await get_i(0x8919), [s1], "GL_SAMPLER_BINDING of unit 3");
+    await call("gles2:glSamplerParameteri", s1, 0x813C, 1);
+    assert.equal(await error(), 0x0500, "a texture's own parameter on a sampler: INVALID_ENUM");
+
+    // framebuffers: draw and read, GLES 3.0's completeness
+    const [fbo] = await gen("glGenFramebuffers");
+    const [rb_color, rb_depth] = await gen("glGenRenderbuffers", 2);
+    await call("gles2:glBindFramebuffer", GL.DRAW_FRAMEBUFFER, fbo);
+    assert.deepEqual(await get_i(0x8CA6), [fbo], "GL_DRAW_FRAMEBUFFER_BINDING");
+    assert.deepEqual(await get_i(0x8CAA), [0], "GL_READ_FRAMEBUFFER_BINDING stays");
+    const status = async target => (await call("gles2:glCheckFramebufferStatus", target)).ret;
+    assert.equal(await status(GL.DRAW_FRAMEBUFFER), 0x8CD7, "no attachment: INCOMPLETE_MISSING_ATTACHMENT");
+    await call("gles2:glBindRenderbuffer", GL.RENDERBUFFER, rb_color);
+    await call("gles2:glRenderbufferStorage", GL.RENDERBUFFER, GL.RGBA8, 16, 16);
+    await call("gles2:glFramebufferRenderbuffer", GL.DRAW_FRAMEBUFFER, GL.COLOR_ATTACHMENT0 + 1, GL.RENDERBUFFER, rb_color);
+    await call("gles2:glBindRenderbuffer", GL.RENDERBUFFER, rb_depth);
+    await call("gles2:glRenderbufferStorage", GL.RENDERBUFFER, GL.DEPTH24_STENCIL8, 32, 32);
+    await call("gles2:glFramebufferRenderbuffer", GL.DRAW_FRAMEBUFFER, GL.DEPTH_STENCIL_ATTACHMENT, GL.RENDERBUFFER, rb_depth);
+    assert.equal(await status(GL.DRAW_FRAMEBUFFER), 0x8CD5, "complete: sizes may differ in GLES 3.0");
+    const attachment_i = async (attachment, pname) =>
+        i32s((await call("gles2:glGetFramebufferAttachmentParameteriv", GL.DRAW_FRAMEBUFFER, attachment, pname, 4)).outs[0])[0];
+    assert.equal(await attachment_i(GL.STENCIL_ATTACHMENT, 0x8CD1), rb_depth, "DEPTH_STENCIL_ATTACHMENT attached both");
+    assert.equal(await attachment_i(GL.COLOR_ATTACHMENT0 + 1, 0x8215), 8, "GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE");
+    assert.equal(await attachment_i(GL.COLOR_ATTACHMENT0 + 1, 0x8211), 0x8C17, "GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE");
+    await call("gles2:glDrawBuffers", 2, ints([0, GL.COLOR_ATTACHMENT0 + 1]));
+    assert.deepEqual([...await get_i(0x8825), ...await get_i(0x8826)], [0, GL.COLOR_ATTACHMENT0 + 1], "GL_DRAW_BUFFER0 and 1");
+    await call("gles2:glDrawBuffers", 1, ints([GL.COLOR_ATTACHMENT0 + 1]));
+    assert.equal(await error(), 0x0502, "COLOR_ATTACHMENT1 as draw buffer 0: INVALID_OPERATION");
+    const [rb_stencil] = await gen("glGenRenderbuffers");
+    await call("gles2:glBindRenderbuffer", GL.RENDERBUFFER, rb_stencil);
+    await call("gles2:glRenderbufferStorage", GL.RENDERBUFFER, GL.STENCIL_INDEX8, 32, 32);
+    await call("gles2:glFramebufferRenderbuffer", GL.DRAW_FRAMEBUFFER, GL.STENCIL_ATTACHMENT, GL.RENDERBUFFER, rb_stencil);
+    assert.equal(await status(GL.DRAW_FRAMEBUFFER), 0x8CDD, "depth and stencil as two images: UNSUPPORTED");
+    await call("gles2:glRenderbufferStorageMultisample", GL.RENDERBUFFER, 4, GL.RGBA32UI, 8, 8);
+    assert.equal(await error(), 0x0502, "an integer format multisampled: INVALID_OPERATION");
+    await call("gles2:glRenderbufferStorageMultisample", GL.RENDERBUFFER, 4, GL.RGBA8, 8, 8);
+    assert.deepEqual(i32s((await call("gles2:glGetRenderbufferParameteriv", GL.RENDERBUFFER, 0x8CAB, 4)).outs[0]), [4], "GL_RENDERBUFFER_SAMPLES");
+    await call("gles2:glBindFramebuffer", GL.FRAMEBUFFER, 0);
+    await call("gles2:glBlitFramebuffer", 0, 0, 1, 1, 0, 0, 1, 1, 0x0100, 0x2601);
+    assert.equal(await error(), 0x0502, "a linear blit of depth: INVALID_OPERATION");
+    await call("gles2:glClearBufferfv", 0x1800, 4, ints([0, 0, 0, 0]));
+    assert.equal(await error(), 0x0501, "clearing draw buffer 4 of 4: INVALID_VALUE");
+
+    // queries and syncs
+    const [q] = await gen("glGenQueries");
+    await call("gles2:glBeginQuery", 0x8C2F, q);
+    await call("gles2:glBeginQuery", 0x8D6A, q);
+    assert.equal(await error(), 0x0502, "two occlusion queries at once: INVALID_OPERATION");
+    assert.deepEqual(i32s((await call("gles2:glGetQueryiv", 0x8C2F, 0x8865, 4)).outs[0]), [q], "GL_CURRENT_QUERY");
+    await call("gles2:glDrawArrays", 4, 0, 3);
+    await call("gles2:glEndQuery", 0x8C2F);
+    assert.deepEqual(i32s((await call("gles2:glGetQueryObjectuiv", q, 0x8867, 4)).outs[0]), [1], "GL_QUERY_RESULT_AVAILABLE");
+    const sync = (await call("gles2:glFenceSyncAEMU", 0x9117, 0)).ret;
+    assert.ok(sync > 0, "a fence");
+    assert.equal((await call("gles2:glClientWaitSyncAEMU", sync, 0, 0)).ret, 0x911A, "GL_ALREADY_SIGNALED");
+    assert.equal((await call("gles2:glIsSyncAEMU", sync)).ret, 1);
+    await call("gles2:glDeleteSyncAEMU", sync);
+    assert.equal((await call("gles2:glIsSyncAEMU", sync)).ret, 0);
+    assert.equal(await error(), 0);
+    console.log("PASS: GLES 3.0's state: vertex arrays, buffers, textures, samplers, framebuffers, queries, syncs");
+}
+
+// ---- GLES 3.0's programs: uniform blocks, unsigned and non-square uniforms, transform feedback's varyings
+{
+    const { call } = await setup("3.0", 3);
+    const error = async () => (await call("gles2:glGetError")).ret;
+    const shader = async (type, source) =>
+    {
+        const name = (await call("gles2:glCreateShader", type)).ret;
+        await call("gles2:glShaderString", name, cstring(source), source.length + 1);
+        await call("gles2:glCompileShader", name);
+        return name;
+    };
+    const vs = await shader(0x8B31, "#version 300 es\nlayout(std140) uniform Light { vec4 color; mat3 m; float k[2]; } light;\n" +
+        "uniform uint count;\nuniform mat2x3 tm;\nin vec4 pos;\nout vec3 v;\nflat out uint n;\n" +
+        "void main() { v = light.m * light.color.rgb * light.k[1] + tm * vec2(1.0); n = count; gl_Position = pos; }");
+    const fs_ = await shader(0x8B30, "#version 300 es\nprecision mediump float;\nin vec3 v;\nflat in uint n;\nout vec4 c;\n" +
+        "void main() { c = vec4(v, float(n)); }");
+    const program = (await call("gles2:glCreateProgram")).ret;
+    await call("gles2:glAttachShader", program, vs);
+    await call("gles2:glAttachShader", program, fs_);
+    await call("gles2:glTransformFeedbackVaryingsAEMU", program, 2, cstring("v;gl_Position;"), 16, 0x8C8C);
+    await call("gles2:glLinkProgram", program);
+    assert.equal(i32s((await call("gles2:glGetProgramiv", program, 0x8B82, 4)).outs[0])[0], 1, "linked");
+    const block = (await call("gles2:glGetUniformBlockIndex", program, cstring("Light"))).ret;
+    assert.equal(block, 0, "glGetUniformBlockIndex");
+    const block_iv = async pname => i32s((await call("gles2:glGetActiveUniformBlockiv", program, block, pname, 64)).outs[0]);
+    assert.equal((await block_iv(0x8A40))[0], 96, "GL_UNIFORM_BLOCK_DATA_SIZE: std140's vec4, mat3, float[2]");
+    assert.equal((await block_iv(0x8A42))[0], 3, "three active uniforms in it");
+    const indices = i32s((await call("gles2:glGetUniformIndicesAEMU", program, 2, cstring("Light.m;Light.k[0]"), 18, 8)).outs[0]);
+    assert.ok(indices.every(i => i >= 0), "glGetUniformIndices");
+    const offsets = i32s((await call("gles2:glGetActiveUniformsiv", program, 2, new Uint8Array(new Int32Array(indices).buffer), 0x8A3B, 8)).outs[0]);
+    assert.deepEqual(offsets, [16, 64], "std140 offsets: mat3 at 16, the float array at 64");
+    const strides = i32s((await call("gles2:glGetActiveUniformsiv", program, 2, new Uint8Array(new Int32Array(indices).buffer), 0x8A3C, 8)).outs[0]);
+    assert.deepEqual(strides, [0, 16], "the array's stride 16");
+    await call("gles2:glUniformBlockBinding", program, block, 5);
+    assert.equal((await block_iv(0x8A3F))[0], 5, "GL_UNIFORM_BLOCK_BINDING");
+
+    await call("gles2:glUseProgram", program);
+    const count = (await call("gles2:glGetUniformLocation", program, cstring("count"))).ret;
+    const tm = (await call("gles2:glGetUniformLocation", program, cstring("tm"))).ret;
+    await call("gles2:glUniform1ui", count, 0xFFFFFFF0);
+    assert.deepEqual(Array.from(new Uint32Array((await call("gles2:glGetUniformuiv", program, count, 4)).outs[0].slice().buffer)), [0xFFFFFFF0],
+        "glUniform1ui and glGetUniformuiv");
+    await call("gles2:glUniform1i", count, 3);
+    assert.equal(await error(), 0x0502, "glUniform1i on a uint: INVALID_OPERATION");
+    await call("gles2:glUniformMatrix2x3fv", tm, 1, 0, new Uint8Array(new Float32Array([1, 2, 3, 4, 5, 6]).buffer));
+    assert.equal(await error(), 0);
+    await call("gles2:glUniformMatrix3x2fv", tm, 1, 0, new Uint8Array(new Float32Array([1, 2, 3, 4, 5, 6]).buffer));
+    assert.equal(await error(), 0x0502, "a 3x2 matrix into a 2x3: INVALID_OPERATION");
+
+    assert.deepEqual(i32s((await call("gles2:glGetProgramiv", program, 0x8C83, 4)).outs[0]), [2], "GL_TRANSFORM_FEEDBACK_VARYINGS");
+    const varying = await call("gles2:glGetTransformFeedbackVarying", program, 0, 16, 4, 4, 4, 16);
+    assert.deepEqual([text(varying.outs[3]), i32s(varying.outs[2])[0], i32s(varying.outs[1])[0]], ["v", 0x8B51, 1], "varying 0: v, vec3");
+    const bad = (await call("gles2:glCreateProgram")).ret;
+    await call("gles2:glAttachShader", bad, vs);
+    await call("gles2:glAttachShader", bad, fs_);
+    await call("gles2:glTransformFeedbackVaryingsAEMU", bad, 1, cstring("nothing;"), 9, 0x8C8C);
+    await call("gles2:glLinkProgram", bad);
+    assert.equal(i32s((await call("gles2:glGetProgramiv", bad, 0x8B82, 4)).outs[0])[0], 0, "a varying the shader lacks: no link");
+    console.log("PASS: GLES 3.0's programs: uniform blocks, uint and 2x3 uniforms, transform feedback's varyings");
+}

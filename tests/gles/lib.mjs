@@ -86,8 +86,12 @@ export function client(host)
         {
             service.write(encode_command(name, args));
             await settle();
-            // (a reply that waits for the page: until it is there)
-            while(has_reply(command_of_name(name)) && !service.available()) await settle();
+            // (a reply that waits for the page: until it is there, or a broken stream's none)
+            for(let tries = 0; has_reply(command_of_name(name)) && !service.available(); tries++)
+            {
+                if(tries > 20000) throw new Error(name + ": no reply (" + JSON.stringify(host.summary().malformed) + ")");
+                await settle();
+            }
             const parts = [];
             for(let bytes; (bytes = service.read(1 << 20));) parts.push(bytes.slice());
             const reply = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));

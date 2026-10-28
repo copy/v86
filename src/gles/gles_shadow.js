@@ -24,7 +24,10 @@ import { compile_shader, link_program } from "./glsl_es.js";
 import { STAGE_OF_GL_TYPE } from "./glslang.js";
 import { glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
+import { INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
+import { EXTENSIONS_3 } from "./gles_caps.js";
 import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
+import { format_info as SIZED_INFO } from "./gles_formats3.js";
 import { relink } from "./gles_snapshot.js";
 
 const MAX_ATTRIBS = 16;
@@ -150,6 +153,11 @@ function Context(api, group)
     this.attribs = Array.from({ length: MAX_ATTRIBS }, new_attrib);
     /** GLES 1.1's fixed-function state (src/gles/gles1_state.js) */
     this.ff = api === 1 ? new_ff_state() : null;
+    if(this.api === 3)
+    {
+        extend_group3(group);
+        extend_context3(this);
+    }
 }
 
 /** @param {number} target @return {number} the binding slot of a texture target, -1 for none */
@@ -319,7 +327,7 @@ GLESShadow.prototype.link = function(program, shaders)
     if(shaders.some(s => !s.compiled || !s.compiled.glslang)) return failed("ERROR: the shaders' versions differ");
     if(shaders.some(s => !s.compiled.ok)) return failed("ERROR: a shader is not compiled");
     const info = link_glslang_program(this.glslang, shaders.map(s => ({ stage: s.compiled.stage, source: s.compiled_source })),
-        { bindings: new Map(program.bindings), separable: !!program.separable, limits: GLSLANG_LIMITS });
+        { bindings: new Map(program.bindings), separable: !!program.separable, limits: GLSLANG_LIMITS, tf: program.tf_request || null });
     if(info.ok) this.last_link = info;
     return info;
 };
@@ -404,7 +412,8 @@ GLESShadow.prototype.call = function(handle, command, args)
     const context = this.contexts.get(handle);
     if(!context) return { ret: 0, keep: false };
     const name = command.name, base = name.replace(/OES$/, "");
-    const handler = context.api === 1 && (GLES1_HANDLERS[name] || GLES1_HANDLERS[base]) || HANDLERS[name] || HANDLERS[base];
+    const handler = context.api === 1 && (GLES1_HANDLERS[name] || GLES1_HANDLERS[base]) ||
+        context.api === 3 && (GLES3_HANDLERS[name] || GLES3_HANDLERS[base]) || HANDLERS[name] || HANDLERS[base];
     this.keep = true;
     if(!handler)
     {
@@ -456,6 +465,7 @@ GLESShadow.prototype.attachment_image = function(context, a)
  */
 GLESShadow.prototype.framebuffer_status = function(context)
 {
+    if(context.api === 3) return FRAMEBUFFER_STATUS3.fn(context, context.framebuffer);
     if(!context.framebuffer) return GL.FRAMEBUFFER_COMPLETE;
     const fbo = context.framebuffers.get(context.framebuffer);
     let size = null, any = false;
@@ -528,6 +538,12 @@ function detach(context, type, name)
 GLESShadow.prototype.state_value = function(context, pname)
 {
     const c = context;
+    if(c.api === 3)
+    {
+        const value = state_value3(this, c, pname);
+        if(value) return value;
+        if(this.read_error3) { this.read_error3 = false; return null; }
+    }
     switch(pname)
     {
         case 0x0BA2: return c.viewport;
@@ -598,8 +614,10 @@ function get(as)
         query(shadow);
         const own = c.api === 1 ? gles1_state_value(c, pname) : null;
         if(own) return put(params, own[0], as, own[1]);
-        const value = shadow.state_value(c, pname);
+        let value = shadow.state_value(c, pname);
         if(!value) return fail(c, GL.INVALID_ENUM);
+        // (GLES 3.0's 64-bit state through a 32-bit glGet: clamped)
+        if(INT64_STATE.has(pname) && as !== "f") value = value.map(v => Math.min(v, 0x7FFFFFFF));
         put(params, value, as, STATE_KIND.get(pname) || "i");
         return undefined;
     };
@@ -1497,6 +1515,47 @@ const HANDLERS = {
  * are glEnableClientState's (glIsEnabled answers both)
  */
 const GLES1_HANDLERS = gles1_handlers(fail, query);
+
+/** GLES 3.0's status of a framebuffer (gles3_state.js sets fn) */
+const FRAMEBUFFER_STATUS3 = { fn: null };
+
+/** GLES 3.x's handlers (gles3_state.js) over GLES 2.0's */
+const GLES3_HANDLERS = gles3_handlers({
+    fail, query, put, put_text, i32s, f32s, text_of, REFUSED, base: HANDLERS, framebuffer_status3: FRAMEBUFFER_STATUS3, new_texture,
+    detach, state_kind: pname => STATE_KIND.get(pname) || (INT64_STATE.has(pname) ? "i" : "i"),
+    // (the default framebuffer's: the draw surface's configuration)
+    framebuffer_bits: c => GLESShadow.prototype.framebuffer_bits.call(null, { framebuffer: 0, surface: c.surface }),
+    extensions: () => EXTENSIONS_3,
+    renderbuffer_info: format =>
+    {
+        const r = RENDERBUFFER_FORMATS.get(format);
+        if(!r) return null;
+        return { kind: r.depth && r.stencil ? "depth_stencil" : r.depth ? "depth" : r.stencil ? "stencil" : "unorm", bits: r.bits,
+            value: format, format: r.color ? (r.bits[3] ? 0x1908 : 0x1907) : 0, types: [0x1401], renderable: true, sized: true };
+    },
+});
+
+/** GL_EXTENSIONS of a GLES 3.x context, as glGetStringi counts them */
+GLESShadow.prototype.extensions3 = function()
+{
+    return EXTENSIONS_3;
+};
+
+/** GL_IMPLEMENTATION_COLOR_READ_FORMAT and _TYPE of the read buffer, or null for none */
+GLESShadow.prototype.read_info3 = function(c)
+{
+    if(!c.read_framebuffer) return [c.default_read_buffer === 0 ? 0x1908 : 0x1908, 0x1401];
+    const fbo = c.framebuffers.get(c.read_framebuffer);
+    const a = fbo.attachments.get(fbo.read_buffer);
+    if(!a) return null;
+    const rb = a.type === GL.RENDERBUFFER ? c.group.renderbuffers.get(a.name) : null;
+    const texture = a.type === GL.RENDERBUFFER ? null : c.group.textures.get(a.name);
+    const image = texture && texture.images.get(a.face * 32 + a.level);
+    const format = rb ? rb.format : image ? image.internal || image.format : 0;
+    const info = SIZED_INFO(format);
+    if(!info || !info.types) return [0x1908, 0x1401];
+    return [info.format, info.types[info.types.length > 1 && info.types[0] === 0x1401 ? 1 : 0]];
+};
 for(const [name, enable] of [["glEnable", true], ["glDisable", false]])
 {
     GLES1_HANDLERS[name] = (shadow, c, [cap]) =>

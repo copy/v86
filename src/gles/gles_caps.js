@@ -161,6 +161,9 @@ const EXTENSIONS = {
         "GL_EXT_texture_format_BGRA8888"],
 };
 
+/** GL_EXTENSIONS of GLES 3.x's contexts, as glGetStringi counts them */
+export const EXTENSIONS_3 = EXTENSIONS[3];
+
 /**
  * What rcGetGLString answers: the strings of the connection's current
  * context's API (1: GLES 1.1, 2: GLES 2.0, 30 to 32: GLES 3.0 to 3.2;

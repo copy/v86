@@ -74,6 +74,8 @@ GLESHost.prototype.reset = function()
     this.rc.max_version = { "3.0": 30, "3.1": 31, "3.2": 32 }[this.options.max_version] || 20;
     this.shadow = new GLESShadow(this.rc);
     this.shadow.glslang = this.options.glslang || null;
+    // (buffers' bytes on the CPU side: glMapBufferRange's answers, docs/gles3-plan.md)
+    this.shadow.keep_bytes = true;
     this.writer = new GXWriter(GLES_MAGIC);
     this.next_connection = 1;
     this.next_puid = 1;

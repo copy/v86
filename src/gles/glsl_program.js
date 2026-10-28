@@ -323,12 +323,62 @@ export function link_glslang_program(glslang, shaders, options)
         spirv.push({ stage: STAGE_NAME[stage], words, model: MODEL_OF_STAGE[stage] });
     }
 
+    // transform feedback's varyings: outputs of the last stage before the
+    // fragment shader, whole (or gl_Position, gl_PointSize)
+    let tf_varyings = [];
+    if(options.tf && options.tf.names.length)
+    {
+        const last = spirv.filter(m => m.stage !== "fragment" && m.stage !== "compute").pop();
+        const m = last && parse_spirv(last.words);
+        let components = 0;
+        for(const name of options.tf.names)
+        {
+            const v = m && varying_of(m, renamed(name, renames), name);
+            if(!v) return empty("ERROR: transform feedback varying " + name + " is not an output of the vertex shader");
+            if(tf_varyings.some(x => x.name === name)) return empty("ERROR: transform feedback varying " + name + " is named twice");
+            components += v.components * v.size;
+            if(options.tf.mode === 0x8C8D && v.components * v.size > 4) return empty("ERROR: " + name + " has too many components to capture alone");
+            tf_varyings.push(v);
+        }
+        if(options.tf.mode === 0x8C8C && components > 64) return empty("ERROR: too many components to capture interleaved");
+    }
+
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,
-        bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size };
+        bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size, tf_varyings,
+        tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs };
+}
+
+/** SPIR-V's numeric types as GL's: the base's enums of 1 to 4 components, matrices by [columns][rows] */
+const GL_OF = { float: [0x1406, 0x8B50, 0x8B51, 0x8B52], int: [0x1404, 0x8B53, 0x8B54, 0x8B55], uint: [0x1405, 0x8DC6, 0x8DC7, 0x8DC8],
+    bool: [0x8B56, 0x8B57, 0x8B58, 0x8B59] };
+const GL_MATRICES = { 2: { 2: 0x8B5A, 3: 0x8B65, 4: 0x8B66 }, 3: { 2: 0x8B67, 3: 0x8B5B, 4: 0x8B68 }, 4: { 2: 0x8B69, 3: 0x8B6A, 4: 0x8B5C } };
+
+/** An output of a module as a transform feedback varying (type, size, components, bytes), or null */
+function varying_of(m, name, gl_name)
+{
+    const builtin = { gl_Position: [0x8B52, 4], gl_PointSize: [0x1406, 1] }[gl_name];
+    if(builtin) return { name: gl_name, type: builtin[0], size: 1, components: builtin[1], bytes: 4 * builtin[1] };
+    const v = m.variables.find(x => x.storage === STORAGE.Output && variable_name(m, x) === name && !is_builtin(m, x));
+    if(!v) return null;
+    let t = m.types.get(m.types.get(v.type).pointee), size = 1;
+    if(t.kind === "array") { size = m.constants.get(t.length_id) || 1; t = m.types.get(t.element); }
+    const scalar = id => { const s = m.types.get(id); return s.kind === "float" ? "float" : s.kind === "bool" ? "bool" : s.signed ? "int" : "uint"; };
+    let type, components;
+    if(t.kind === "matrix")
+    {
+        const column = m.types.get(t.column);
+        type = GL_MATRICES[t.columns][column.size];
+        components = t.columns * column.size;
+    }
+    else if(t.kind === "vector") { type = GL_OF[scalar(t.component)][t.size - 1]; components = t.size; }
+    else if(t.kind === "struct") return null;
+    else { type = GL_OF[t.kind === "float" ? "float" : t.kind === "bool" ? "bool" : t.signed ? "int" : "uint"][0]; components = 1; }
+    return { name: gl_name, type, size, components, bytes: 4 * components * size };
 }
 
 /** What of a link's result the page needs (it has no glslang): the GL view, the bindings, the SPIR-V */
-const PACKED_FIELDS = ["ok", "log", "attributes", "uniforms", "blocks", "storage_blocks", "bindings", "local_size", "default_block_size"];
+const PACKED_FIELDS = ["ok", "log", "attributes", "uniforms", "blocks", "storage_blocks", "bindings", "local_size", "default_block_size",
+    "tf_varyings", "tf_mode", "outputs"];
 
 /**
  * A link's result as bytes (GLES.PROGRAM_LINK's): a u32 JSON length, the
