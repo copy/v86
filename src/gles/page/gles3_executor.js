@@ -555,6 +555,8 @@ export const GLES3 = {
         if(ts.some(t => t.error)) return this.note3("vx_naga: " + ts.find(t => t.error).error.slice(0, 160));
         shaders = {
             vertex: { module: this.module3(matched_interpolation(ts[0].wgsl, fragment_inputs(ts[1].wgsl))), entry: ts[0].entries[0].name },
+            // (flat inputs: draws reorder their primitives for GL's provoking vertex, draw3)
+            flat: [...fragment_inputs(ts[1].wgsl).values()].some(i => /\bflat\b/.test(i)),
             fragment: { module: this.module3(ts[1].wgsl), entry: ts[1].entries[0].name, wgsl: ts[1].wgsl,
                 // (the sample count, specialization constant 71: glsl_es_rewrite.js's sample functions)
                 samples_constant: (ts[1].overrides || []).some(o => o[0] === SAMPLES_CONSTANT),
@@ -1818,7 +1820,8 @@ export const GLES3 = {
 
     /**
      * A draw of a GLES 3.x context
-     * @param {?{type: number, bytes: (Uint8Array|undefined), offset: (number|undefined)}} elements
+     * @param {?{type: number, bytes: (Uint8Array|undefined), offset: (number|undefined), provoking: (boolean|undefined)}} elements
+     *     (provoking: a list already ordered for GL's provoking vertex)
      * @param {number=} base_vertex added to each index (GLES 3.1's indirect draws of elements)
      * @param {?{buffer: !Object, offset: number}=} indirect the draw's parameters in a buffer the GPU wrote (GLES 3.1):
      *     the GPU reads them, where the draw's arrays and indices can be bound as they are
@@ -1856,6 +1859,26 @@ export const GLES3 = {
             const list = new Uint32Array(vertices.length / per * keep.length);
             for(let p = 0, k = 0; p < vertices.length; p += per) for(const i of keep) list[k++] = vertices[p + i];
             return void this.draw3(c, per === 4 ? 1 : 4, 0, list.length, { type: 0x1405, bytes: new Uint8Array(list.buffer) }, instances);
+        }
+        // (GL's provoking vertex is a primitive's last, WebGPU's its first: a draw with flat varyings as a list whose primitives
+        // start with their last vertex, a rotation that keeps triangles' winding; G-17's. Not of a draw transform feedback
+        // captures, whose order is GL's, nor an indirect one: G-77)
+        const tf = c.tfs && c.tfs.get(c.tf);
+        if(!indirect && !(elements && elements.provoking) && mode >= 1 && mode <= 6 && shaders.flat && !(tf && tf.active && !tf.paused))
+        {
+            const drawn = this.draw_vertices3(c, first, count, elements, base_vertex);
+            if(drawn)
+            {
+                const { vertices, per } = primitives_of(drawn.indices, mode, drawn.restart);
+                if(!vertices.length) return;
+                const list = new Uint32Array(vertices.length);
+                for(let p = 0; p < vertices.length; p += per)
+                {
+                    list[p] = vertices[p + per - 1];
+                    for(let k = 0; k + 1 < per; k++) list[p + 1 + k] = vertices[p + k];
+                }
+                return void this.draw3(c, per === 2 ? 1 : 4, 0, list.length, { type: 0x1405, bytes: new Uint8Array(list.buffer), provoking: true }, instances);
+            }
         }
         const plan = this.vertex_plan3(c, this.inputs3(stages.vertex), indirect ? 1 : instances);
         if(!plan) return;

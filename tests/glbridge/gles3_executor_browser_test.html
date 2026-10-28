@@ -412,6 +412,29 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glDrawArrays", 5, 0, 4);
         const instance_pixel = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
         check(near(instance_pixel, [255, 64, 191, 255]), "a uniform block's instance array beside a sampler: " + instance_pixel);
+        // a flat varying takes the primitive's last vertex's value (GL's provoking vertex; WebGPU's is the first): blue
+        const flat_program = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec4 color;
+            flat out vec4 c;
+            void main() { c = color; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision highp float;
+            flat in vec4 c;
+            out vec4 o;
+            void main() { o = c; }`);
+        void flat_program;
+        const big_triangle = floats([-1, -1, 3, -1, -1, 3]);
+        const corner_colors = floats([1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1]);
+        gl("glBindBuffer", 0x8892, 0);
+        gl("glEnableVertexAttribArray", 0);
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, big_triangle, big_triangle.length);
+        gl("glEnableVertexAttribArray", 1);
+        gl("glVertexAttribPointerData", 1, 4, 0x1406, 0, 0, corner_colors, corner_colors.length);
+        gl("glDrawArrays", 4, 0, 3);
+        const provoked = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+        gl("glDisableVertexAttribArray", 1);
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, full, full.length);
+        check(near(provoked, [0, 0, 255, 255]), "a flat varying, the last vertex's: " + provoked);
         // RASTERIZER_DISCARD: clears ignored too
         gl("glEnable", 0x8C89);
         gl("glClearColor", 1, 0, 0, 1);
@@ -419,7 +442,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glClearBufferfv", 0x1800, 0, floats([1, 0, 0, 1]));
         gl("glDisable", 0x8C89);
         const discarded = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
-        check(near(discarded, instance_pixel), "clears ignored while RASTERIZER_DISCARD is on: " + discarded);
+        check(near(discarded, provoked), "clears ignored while RASTERIZER_DISCARD is on: " + discarded);
         check(near(stencil_alone, [0, 255, 0, 0]) && near(pixel(blit_window, W, 1, 3), [0, 0, 255, 255]) && near(pixel(blit_window, W, 6, 3), [0, 255, 0, 0]),
             "the depth test passes with the stencil attached alone; a blit's pixels from outside its source left alone: " +
             [stencil_alone, pixel(blit_window, W, 1, 3), pixel(blit_window, W, 6, 3)].join(" / "));
