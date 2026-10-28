@@ -707,8 +707,12 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.ranchu_display) settings.ranchu_display = Object.assign({}, options.ranchu_display);
     if(options.ranchu_properties) settings.ranchu_properties = Object.assign({}, options.ranchu_properties);
     if(options.ranchu_gpu) settings.ranchu_gpu = options.ranchu_gpu;
-    // (the GLES host's version: the options', an emulator image's (the bootloader's, below), else GLES 3.0)
-    settings.ranchu_gles_version = options.ranchu_gles_version || DEFAULT_GLES_VERSION;
+    // (the GLES host's version: the options', an emulator image's (the bootloader's, below), else GLES 3.0; the ranchu
+    // machine's option alone: another machine given it is refused, check_machine_options)
+    if(settings.machine_type === "ranchu" || options.ranchu_gles_version !== undefined)
+    {
+        settings.ranchu_gles_version = options.ranchu_gles_version || DEFAULT_GLES_VERSION;
+    }
     // (arm32's GLES backdoor: the GLES host's services for user code, src/arm/backdoor_a32.js)
     if(options.gles_backdoor) settings.gles_backdoor = true;
 
