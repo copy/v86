@@ -2022,7 +2022,8 @@ export function gles3_handlers(h)
             return void put(params, as === "f" ? color : color.map(border_int), as, as === "f" ? "f" : "i");
         }
         if(!(pname in values)) { fail(c, GL.INVALID_ENUM); return; }
-        put(params, [values[pname]], as, as === "f" ? "f" : "i");
+        // (the levels of detail are floats: an integer query rounds them, as the sampler's do)
+        put(params, [as === "i" && (pname === 0x813A || pname === 0x813B) ? round(values[pname]) : values[pname]], as, as === "f" ? "f" : "i");
     }
 
     function sampler_parameter(shadow, c, s, pname, params, float, vector = false)

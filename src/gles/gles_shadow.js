@@ -589,8 +589,9 @@ GLESShadow.prototype.state_value = function(context, pname)
         case 0x0B91: return [c.clear_stencil];
         case 0x0C23: return c.color_mask;
         case 0x0B72: return [c.depth_mask];
-        case 0x0B98: return [c.stencil_writemask[0]];
-        case 0x8CA5: return [c.stencil_writemask[1]];
+        // (the masks are unsigned: a float or 64-bit query of all bits set is 4294967295)
+        case 0x0B98: return [c.stencil_writemask[0] >>> 0];
+        case 0x8CA5: return [c.stencil_writemask[1] >>> 0];
         case 0x80C9: return [c.blend_func[0]];
         case 0x80C8: return [c.blend_func[1]];
         case 0x80CB: return [c.blend_func[2]];
@@ -603,10 +604,10 @@ GLESShadow.prototype.state_value = function(context, pname)
         case 0x0B74: return [c.depth_func];
         case 0x0B92: return [c.stencil_func[0][0]];
         case 0x0B97: return [c.stencil_func[0][1]];
-        case 0x0B93: return [c.stencil_func[0][2]];
+        case 0x0B93: return [c.stencil_func[0][2] >>> 0];
         case 0x8800: return [c.stencil_func[1][0]];
         case 0x8CA3: return [c.stencil_func[1][1]];
-        case 0x8CA4: return [c.stencil_func[1][2]];
+        case 0x8CA4: return [c.stencil_func[1][2] >>> 0];
         case 0x0B94: return [c.stencil_op[0][0]];
         case 0x0B95: return [c.stencil_op[0][1]];
         case 0x0B96: return [c.stencil_op[0][2]];

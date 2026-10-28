@@ -332,6 +332,11 @@ async function setup(max_version, api)
         "SAMPLE_BUFFERS and SAMPLES of a multisampled framebuffer");
     await call("gles2:glBindFramebuffer", 0x8D40, 0);
     assert.equal(await error(), 0);
+    // (a stencil mask is unsigned, a level of detail rounded by an integer query)
+    await call("gles2:glStencilFunc", 0x0207, 0, 0xFFFFFFFF);
+    assert.deepEqual(Array.from(new Float32Array((await call("gles2:glGetFloatv", 0x0B93, 4)).outs[0].slice().buffer)), [4294967296], "STENCIL_VALUE_MASK as a float");
+    await call("gles2:glTexParameterf", 0x0DE1, 0x813A, -74.75);
+    assert.deepEqual(i32s((await call("gles2:glGetTexParameteriv", 0x0DE1, 0x813A, 4)).outs[0]), [-75], "TEXTURE_MIN_LOD rounded");
     // (GLES 3.0 takes SRC_ALPHA_SATURATE as a destination factor too; GLES 2.0 as a source's alone)
     await call("gles2:glBlendFuncSeparate", 0x0305, 0x0308, 0x0303, 0x0308);
     assert.equal(await error(), 0, "SRC_ALPHA_SATURATE as a destination factor");
