@@ -143,27 +143,29 @@ export function link_glslang_program(glslang, shaders, options)
     }
     // layout(location) on uniforms: GL refuses two at one location even
     // when they are not active, which the reflection leaves out
-    // (an array of arrays' dimensions: its inner arrays' locations after the
-    // first's, glslang reflects each at the array's)
-    const declared = new Map(), dimensions = new Map();
+    // (the declarations with a location: glslang reflects none for a
+    // struct's members, nor for a uniform with one in one stage only, and
+    // each inner array of an array of arrays at the array's)
+    const declared = new Map(), located = new Map();
+    const structs = struct_declarations(shaders);
     for(const s of shaders)
     {
-        const pattern = /(?:layout\s*\(([^)]*)\)\s*uniform|uniform\s+layout\s*\(([^)]*)\))\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+(\w+)\s*((?:\[\s*\d+\s*\])*)/g;
+        const pattern = /(?:layout\s*\(([^)]*)\)\s*uniform|uniform\s+layout\s*\(([^)]*)\))\s+(?:(?:lowp|mediump|highp)\s+)?(\w+)\s+(\w+)\s*((?:\[\s*\d+\s*\])*)/g;
         for(let m; (m = pattern.exec(s.source));)
         {
             const at = /\blocation\s*=\s*(\d+)/.exec(m[1] || m[2]);
             if(!at) continue;
-            const dims = (m[4].match(/\d+/g) || []).map(Number);
-            dimensions.set(m[3], dims);
-            const location = +at[1], size = dims.reduce((n, d) => n * d, 1);
+            const dims = (m[5].match(/\d+/g) || []).map(Number);
+            const location = +at[1], size = dims.reduce((n, d) => n * d, 1) * uniform_locations(m[3], structs);
+            located.set(m[4], { location, type: m[3], dims });
             for(let i = 0; i < size; i++)
             {
                 const owner = declared.get(location + i);
-                if(owner !== undefined && owner !== m[3] + "[" + i + "]")
+                if(owner !== undefined && owner !== m[4] + "[" + i + "]")
                 {
                     return empty("ERROR: uniform location " + (location + i) + " is used by two uniforms");
                 }
-                declared.set(location + i, m[3] + "[" + i + "]");
+                declared.set(location + i, m[4] + "[" + i + "]");
             }
         }
     }
@@ -172,11 +174,11 @@ export function link_glslang_program(glslang, shaders, options)
     const default_uniforms = uniforms.filter(u => u.block_index < 0 && u.opaque !== "atomic");
     for(const u of default_uniforms)
     {
+        const declaration = located.get(u.name.replace(/[[.].*$/, ""));
+        const offset = declaration ? location_offset(declaration, u.name, structs) : -1;
+        if(offset >= 0) u.explicit_location = declaration.location + offset;
         if(u.explicit_location < 0) continue;
         u.location = u.explicit_location;
-        const dims = dimensions.get(u.name.replace(/\[.*$/, ""));
-        const indices = (u.name.match(/\[\d+\]/g) || []).map(x => +x.slice(1, -1));
-        if(dims && indices.length > 1 && indices.length === dims.length) u.location += indices.reduce((n, index, k) => n * dims[k] + index, 0);
         for(let i = 0; i < u.size; i++)
         {
             // (two uniforms at one location: a link error, which glslang leaves to GL)
@@ -861,6 +863,75 @@ function consecutive_elements(words)
     out.set(marker, at);
     out.set(words.subarray(at), at + marker.length);
     return out;
+}
+
+/**
+ * The shaders' struct declarations: each one's members (type, name,
+ * array dimensions) in order
+ * @return {!Map<string, !Array<{type: string, name: string, dims: !Array<number>}>>}
+ */
+function struct_declarations(shaders)
+{
+    const structs = new Map();
+    for(const s of shaders)
+    {
+        const source = s.source.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "");
+        for(const m of source.matchAll(/\bstruct\s+(\w+)\s*\{([^}]*)\}/g))
+        {
+            const members = [];
+            for(const declaration of m[2].split(";"))
+            {
+                const words = declaration.replace(/\b(?:lowp|mediump|highp)\b/g, "").trim().match(/^(\w+)\s+([\s\S]+)$/);
+                if(!words) continue;
+                for(const d of words[2].split(","))
+                {
+                    const one = /^\s*(\w+)\s*((?:\[\s*\d+\s*\])*)\s*$/.exec(d);
+                    if(one) members.push({ type: words[1], name: one[1], dims: (one[2].match(/\d+/g) || []).map(Number) });
+                }
+            }
+            structs.set(m[1], members);
+        }
+    }
+    return structs;
+}
+
+/** The uniform locations a value of a type takes: a basic type's one, a struct's its members' */
+function uniform_locations(type, structs)
+{
+    const members = structs.get(type);
+    if(!members) return 1;
+    return members.reduce((n, m) => n + m.dims.reduce((k, d) => k * d, 1) * uniform_locations(m.type, structs), 0);
+}
+
+/**
+ * A reflected uniform's location past its declaration's ("s.b[1]", "a[2][0]"):
+ * the elements and members before it, in order; -1 where the declarations
+ * do not say
+ * @param {{type: string, dims: !Array<number>}} declaration
+ * @return {number}
+ */
+function location_offset(declaration, name, structs)
+{
+    const steps = name.match(/^\w+|\[\d+\]|\.\w+/g);
+    if(!steps || steps.join("") !== name) return -1;
+    let type = declaration.type, dims = declaration.dims, offset = 0;
+    for(const step of steps.slice(1))
+    {
+        if(step[0] === "[")
+        {
+            if(!dims.length) return -1;
+            offset += +step.slice(1, -1) * dims.slice(1).reduce((n, d) => n * d, 1) * uniform_locations(type, structs);
+            dims = dims.slice(1);
+            continue;
+        }
+        const members = structs.get(type);
+        const at = members ? members.findIndex(m => m.name === step.slice(1)) : -1;
+        if(at < 0 || dims.length) return -1;
+        for(const m of members.slice(0, at)) offset += m.dims.reduce((n, d) => n * d, 1) * uniform_locations(m.type, structs);
+        type = members[at].type;
+        dims = members[at].dims;
+    }
+    return offset;
 }
 
 /**
