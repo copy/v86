@@ -452,7 +452,11 @@ export const GLES3 = {
         let t = gpu.translations.get(key);
         if(!t)
         {
+            // (the stats' translations and their time: vx_naga's work, cached by the program, stage, flags and wraps)
+            const start = performance.now();
             t = this.translate_spirv(program.info.spirv[index].words, flags, wraps);
+            this.stats.translations = (this.stats.translations || 0) + 1;
+            this.stats.translate_ms = (this.stats.translate_ms || 0) + performance.now() - start;
             gpu.translations.set(key, t);
         }
         return t;
@@ -1750,6 +1754,7 @@ export const GLES3 = {
                 const restart_index = size === 1 ? 0xFF : size === 2 ? 0xFFFF : 0xFFFFFFFF;
                 if(base_vertex) for(let i = 0; i < count; i++) if(!c.enabled.has(RESTART) || indices[i] !== restart_index) indices[i] += base_vertex;
                 const r = index_list(indices, mode, c.enabled.has(RESTART) ? (size === 1 ? 0xFF : size === 2 ? 0xFFFF : 0xFFFFFFFF) : -1);
+                this.stats.index_lists = (this.stats.index_lists || 0) + 1;
                 if(!r || !r.list.length) return;
                 ({ list, low, high, topology, strip } = r);
                 rebase = true;
@@ -1758,6 +1763,7 @@ export const GLES3 = {
         else if(fan_or_loop)
         {
             const r = index_list(Uint32Array.from({ length: count }, (_, i) => first + i), mode, -1);
+            this.stats.index_lists = (this.stats.index_lists || 0) + 1;
             if(!r || !r.list.length) return;
             ({ list, low, high, topology, strip } = r);
             rebase = true;
@@ -2345,6 +2351,8 @@ export const GLES3 = {
                 offset += components * 4;
             }
             slots.push({ gpu: this.vertex_data3(words), offset: 0, stride, step, attributes });
+            // (the stats' vertex arrays assembled on the CPU: client arrays, formats WebGPU lacks)
+            this.stats.cpu_arrays = (this.stats.cpu_arrays || 0) + list.length;
         }
         if(plan.constants.length)
         {
