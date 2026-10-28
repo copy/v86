@@ -32,33 +32,18 @@ import { UNITS } from "../gles1_state.js";
 import { SHADOW_CLASSES } from "../gles_shadow.js";
 import { pack, shadow_skip, unpack } from "../gles_snapshot.js";
 import { unpack_program } from "../glsl_program.js";
+import { B, COLOR_FORMAT, COMPARE, STENCIL_OPS, U, WRAPS, align4, blend_component } from "./gles_gpu_tables.js";
+import { GLES3 } from "./gles3_executor.js";
 
-const U = globalThis.GPUTextureUsage || { COPY_SRC: 1, COPY_DST: 2, TEXTURE_BINDING: 4, STORAGE_BINDING: 8, RENDER_ATTACHMENT: 16 };
-const B = globalThis.GPUBufferUsage || { MAP_READ: 1, MAP_WRITE: 2, COPY_SRC: 4, COPY_DST: 8, INDEX: 16, VERTEX: 32, UNIFORM: 64 };
-const COLOR_FORMAT = "rgba8unorm";
 const TEXTURE_USAGE = U.TEXTURE_BINDING | U.COPY_DST | U.COPY_SRC | U.RENDER_ATTACHMENT;
 const READBACK_HEADER = 16;
 
-const BLEND_FACTORS = {
-    0: "zero", 1: "one", 0x0300: "src", 0x0301: "one-minus-src", 0x0302: "src-alpha", 0x0303: "one-minus-src-alpha",
-    0x0304: "dst-alpha", 0x0305: "one-minus-dst-alpha", 0x0306: "dst", 0x0307: "one-minus-dst", 0x0308: "src-alpha-saturated",
-    0x8001: "constant", 0x8002: "one-minus-constant", 0x8003: "constant", 0x8004: "one-minus-constant",
-};
-const BLEND_OPS = { 0x8006: "add", 0x800A: "subtract", 0x800B: "reverse-subtract" };
-const COMPARE = { 0x0200: "never", 0x0201: "less", 0x0202: "equal", 0x0203: "less-equal", 0x0204: "greater", 0x0205: "not-equal",
-    0x0206: "greater-equal", 0x0207: "always" };
-const STENCIL_OPS = { 0: "zero", 0x1E00: "keep", 0x1E01: "replace", 0x1E02: "increment-clamp", 0x1E03: "decrement-clamp",
-    0x150A: "invert", 0x8507: "increment-wrap", 0x8508: "decrement-wrap" };
-const WRAPS = { [GL.REPEAT]: "repeat", [GL.CLAMP_TO_EDGE]: "clamp-to-edge", [GL.MIRRORED_REPEAT]: "mirror-repeat" };
 const DEPTH_FORMATS = {
     [GL.DEPTH_COMPONENT16]: "depth16unorm", [GL.DEPTH_COMPONENT24_OES]: "depth24plus", [GL.STENCIL_INDEX8]: "stencil8",
     [GL.DEPTH24_STENCIL8_OES]: "depth24plus-stencil8",
 };
 /** The vertex types: their bytes and how they read */
 const TYPE_BYTES = { [GL.BYTE]: 1, [GL.UNSIGNED_BYTE]: 1, [GL.SHORT]: 2, [GL.UNSIGNED_SHORT]: 2, [GL.FLOAT]: 4, [GL.FIXED]: 4, [GL.HALF_FLOAT_OES]: 2 };
-
-/** @param {number} n @return {number} n rounded up to a multiple of 4 */
-const align4 = n => n + 3 & ~3;
 
 /** IEEE half to a float */
 function half_to_float(h)
@@ -130,6 +115,10 @@ GLESExecutor.prototype.reset = function()
     // what the shadow state asks of renderControl: images and color buffers
     this.rc = { images: new Map(), color_buffers: new Map() };
     this.shadow = new GLESShadow(this.rc);
+    // (GLES 3.0's buffers keep their bytes here too: the GPU buffers' source, gles3_executor.js)
+    this.shadow.keep_bytes = true;
+    // (names the CPU side made with glGen*, which it keeps to itself, are made here)
+    this.shadow.trusted = true;
     /** @type {!Map<number, {context: number, draw: number, read: number}>} */
     this.conns = new Map();
     /** @type {!Map<number, {config: number, width: number, height: number, color_buffer: number, texture: ?GPUTexture, depth: ?GPUTexture, depth_format: string}>} */
@@ -159,6 +148,18 @@ GLESExecutor.prototype.submit = async function(bytes, sink)
 {
     const records = read_gles_batch(bytes, true);
     this.stats.batches++;
+    // (glslang's programs draw through vx_naga: loaded before the batch with the first link)
+    if(!this.naga && records.some(r => r.name === "PROGRAM_LINK"))
+    {
+        try
+        {
+            await this.load_naga();
+        }
+        catch(error)
+        {
+            if(this.stats.errors.length < 20) this.stats.errors.push("vx_naga: " + (error && error.message || error));
+        }
+    }
     this.encoder = this.device.createCommandEncoder({ label: "GLES batch" });
     this.reads = [];
     this.staging = [];
@@ -318,10 +319,15 @@ GLESExecutor.prototype.command = function(record)
     this.shadow.given_name = 0;
     if(!keep)
     {
+        // (what the CPU side took and this shadow refuses: the two disagree)
         this.stats.refused++;
+        const by = this.stats.refused_by = this.stats.refused_by || {};
+        const key = name + ":0x" + c.error.toString(16);
+        if(key in by || Object.keys(by).length < 20) by[key] = (by[key] || 0) + 1;
         return;
     }
     for(const object of gone) if(object.gpu && object.gpu.destroy && ![...objects.values()].includes(object)) this.staging.push(object.gpu);
+    if(c.api === 3 && this.command3(c, name, args)) return undefined;
     switch(name)
     {
         case "glTexImage2D": return this.tex_image(c, args, false);
@@ -546,16 +552,7 @@ GLESExecutor.prototype.renderbuffer_storage = function(c)
  */
 GLESExecutor.prototype.target_of = function(c)
 {
-    if(!c.framebuffer)
-    {
-        const surface = c.surface && [...this.surfaces.values()].find(s => s.width === c.surface.width && s.height === c.surface.height &&
-            CONFIGS[s.config] === c.surface.config && this.current_surface_of(c) === s);
-        const s = surface || this.current_surface_of(c);
-        if(!s) return null;
-        this.surface_textures(s);
-        return { color: s.texture, color_view: s.view, depth: s.depth_view, depth_format: s.depth_format, width: s.width, height: s.height,
-            key: "s" + s.id, alpha: CONFIGS[s.config][CONFIG_ATTRIBUTES.indexOf(EGL.ALPHA_SIZE)] > 0 };
-    }
+    if(!c.framebuffer) return this.surface_target(c);
     const fbo = c.framebuffers.get(c.framebuffer);
     const view_of = a =>
     {
@@ -582,6 +579,18 @@ GLESExecutor.prototype.target_of = function(c)
     return { color: color ? color.texture : null, color_view: color ? view(color) : null, depth: depth ? view(depth) : null,
         depth_format: depth ? depth.format : "", width, height, alpha: true,
         key: "f" + (color ? this.id_of(color.texture) + ":" + color.level + ":" + color.layer : "-") + "/" + (depth ? this.id_of(depth.texture) : "-") };
+};
+
+/** The context's window surface as a target_of's */
+GLESExecutor.prototype.surface_target = function(c)
+{
+    const surface = c.surface && [...this.surfaces.values()].find(s => s.width === c.surface.width && s.height === c.surface.height &&
+        CONFIGS[s.config] === c.surface.config && this.current_surface_of(c) === s);
+    const s = surface || this.current_surface_of(c);
+    if(!s) return null;
+    this.surface_textures(s);
+    return { color: s.texture, color_view: s.view, depth: s.depth_view, depth_format: s.depth_format, width: s.width, height: s.height,
+        key: "s" + s.id, alpha: CONFIGS[s.config][CONFIG_ATTRIBUTES.indexOf(EGL.ALPHA_SIZE)] > 0 };
 };
 
 /** A stable id of a GPU object (pass and bind group keys) */
@@ -1135,8 +1144,8 @@ GLESExecutor.prototype.pipeline = function(c, program, shaders, layout, topology
         })) },
         fragment: { module: shaders.fragment, entryPoint: "fs_main", targets: target.color_view ? [{ format: COLOR_FORMAT, writeMask: write_mask,
             blend: blend ? {
-                color: { srcFactor: BLEND_FACTORS[c.blend_func[0]], dstFactor: BLEND_FACTORS[c.blend_func[1]], operation: BLEND_OPS[c.blend_equation[0]] },
-                alpha: { srcFactor: BLEND_FACTORS[c.blend_func[2]], dstFactor: BLEND_FACTORS[c.blend_func[3]], operation: BLEND_OPS[c.blend_equation[1]] },
+                color: blend_component(c.blend_equation[0], c.blend_func[0], c.blend_func[1]),
+                alpha: blend_component(c.blend_equation[1], c.blend_func[2], c.blend_func[3]),
             } : undefined }] : [] },
         // (the translator's Y flip reverses the winding: GL's CCW is WebGPU's CW)
         primitive: { topology, frontFace: c.front_face === 0x0901 ? "cw" : "ccw", cullMode: cull,
@@ -1331,6 +1340,8 @@ GLESExecutor.prototype.sampler = function(texture)
     return sampler;
 };
 
+Object.assign(GLESExecutor.prototype, GLES3);
+
 // ---- surfaces, posts, reads
 
 /** A window surface's frame into its color buffer (flipped: memory order) */
@@ -1431,7 +1442,13 @@ GLESExecutor.prototype.read_pixels = function(record)
 {
     const conn = this.conns.get(record.conn);
     const c = conn && this.shadow.context(conn.context);
-    const target = c && this.target_of(c);
+    const target = c && (c.api === 3 ? this.read_target3(c) : this.target_of(c));
+    if(c && c.api === 3 && target)
+    {
+        // (GLES 3.0: the read buffer, of RGBA8 for now: L3's second part reads the others)
+        if(!target.format.startsWith("rgba8unorm") || target.samples > 1) return this.answer_failed(record.request);
+        target.color = target.texture;
+    }
     if(!target || !target.color) return this.answer_failed(record.request);
     const x0 = Math.max(0, record.x), y0 = Math.max(0, record.y);
     const x1 = Math.min(target.width, record.x + record.width), y1 = Math.min(target.height, record.y + record.height);
@@ -1447,16 +1464,16 @@ GLESExecutor.prototype.read_pixels = function(record)
             full.set(rgba.subarray(y * w * 4, (y + 1) * w * 4), ((y + y0 - record.y) * record.width + (x0 - record.x)) * 4);
         }
         this.answer(sink, record.request, pack_rgba8(full, record.width, record.height, alignment));
-    });
+    }, target.mip || 0, target.layer || 0);
 };
 
 /** A rectangle of a texture copied for reading once the batch has run */
-GLESExecutor.prototype.read_texture = function(texture, x, y, width, height, flip, done)
+GLESExecutor.prototype.read_texture = function(texture, x, y, width, height, flip, done, mip = 0, layer = 0)
 {
     this.end_pass();
     const stride = Math.ceil(width * 4 / 256) * 256;
     const buffer = this.device.createBuffer({ size: stride * height, usage: B.COPY_DST | B.MAP_READ });
-    this.encoder.copyTextureToBuffer({ texture, origin: [x, y, 0] }, { buffer, bytesPerRow: stride, rowsPerImage: height }, [width, height, 1]);
+    this.encoder.copyTextureToBuffer({ texture, mipLevel: mip, origin: [x, y, layer] }, { buffer, bytesPerRow: stride, rowsPerImage: height }, [width, height, 1]);
     this.reads.push({ buffer, stride, width, height, flip, done });
 };
 

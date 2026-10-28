@@ -1082,6 +1082,7 @@ display-browser-tests: build/cpu-worker.js build/libv86.mjs build/libv86.js buil
 	node tests/glbridge/gl_multipass_browser_runner.js graphics_vga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_renderer_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js gles_executor_browser_test.html
+	node tests/glbridge/gl_multipass_browser_runner.js gles3_executor_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js gles_shader_browser_test.html
 	node tests/gles/chrome_renderer_test.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js svga_dx_browser_test.html

@@ -1,0 +1,380 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GLES executor: GLES 3.0 on WebGPU</title>
+<pre id="result">RUNNING</pre>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+// The GLES executor's GLES 3.0 draws (src/gles/page/gles3_executor.js;
+// docs/gles3-plan.md L3) on a real GPU: a GLES 3.0 context's commands
+// encoded as the guest's, run first through a CPU side's shadow state with
+// glslang (as gles_host.js does: a link's result goes to the page before
+// its glLinkProgram), then as batches on the executor, pixels read back:
+// - a vertex array object, an instanced array, a uniform block, a matrix
+//   uniform, integer attributes, GL's depth range (a negative z drawn);
+// - textures: R8, RGBA16F from floats, a 2D array's layer, an unsigned
+//   integer texture fetched, a sampler object's filter over the texture's;
+// - two draw buffers, glClearBufferfv, glReadBuffer;
+// - a depth texture drawn to and sampled by a shadow sampler;
+// - indices: a strip with restarts from client memory and from a buffer,
+//   a fan from a buffer.
+import { encode_command } from "../../src/gles/gles_wire.js";
+import { GLES, GLES_MAGIC, GXWriter } from "../../src/graphics_adapters/renderer_protocol.js";
+import { GLESShadow } from "../../src/gles/gles_shadow.js";
+import { compile_glslang, create_glslang } from "../../src/gles/glslang.js";
+import { pack_program } from "../../src/gles/glsl_program.js";
+import { read_gles_batch } from "../../src/gles/gles_batch.js";
+import { CONFIGS } from "../../src/gles/gles_caps.js";
+
+const result = document.getElementById("result");
+const checks = [];
+const check = (value, message) => { if(!value) throw new Error(message); checks.push(message); };
+
+(async () => {
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice({ requiredFeatures: adapter.features.has("texture-compression-etc2") ? ["texture-compression-etc2"] : [] });
+        const errors = [];
+        device.onuncapturederror = e => { console.error(e.error.message); errors.push(e.error.message); };
+        const executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
+        globalThis.glesExecutor = executor;
+        globalThis.webgpuErrors = errors;
+
+        // the CPU side: a shadow state with glslang, as the GLES host's
+        const glslang = await create_glslang(await compile_glslang(new Uint8Array(await (await fetch("../../bios/glslang.wasm")).arrayBuffer())));
+        const cpu = new GLESShadow({ images: new Map(), color_buffers: new Map(), max_version: 30 });
+        cpu.glslang = glslang;
+        cpu.keep_bytes = true;
+
+        let writer = new GXWriter(GLES_MAGIC);
+        let request = 1;
+        const answers = new Map();
+        const call = (name, ret, args) => {
+            const bytes = encode_command("gles2:" + name, args);
+            const one = new GXWriter(GLES_MAGIC);
+            one.command(GLES.COMMAND, [1, ret, bytes.length], bytes);
+            const [r] = read_gles_batch(one.finish(), true);
+            cpu.given_name = ret;
+            const { keep } = cpu.call(1, r.command, r.args);
+            cpu.given_name = 0;
+            if(keep && name === "glLinkProgram" && cpu.last_link) {
+                const packed = pack_program(cpu.last_link);
+                writer.command(GLES.PROGRAM_LINK, [1, args[0], packed.length], packed);
+                cpu.last_link = null;
+            }
+            // (what only asks or names stays on the CPU side, as gles_host.js's is_query)
+            const error = cpu.context(1).error;
+            check(keep || /^gl(Get|Is|Gen)/.test(name) && !error, name + " is taken (error 0x" + (error || 0).toString(16) + ")");
+            checks.pop();
+            if(keep) writer.command(GLES.COMMAND, [1, ret, bytes.length], bytes);
+        };
+        const gl = (name, ...args) => call(name, 0, args);
+        const record = (op, ...dwords) => writer.command(op, dwords);
+        const run = async () => {
+            const bytes = writer.finish();
+            await executor.submit(bytes, {
+                writeResponse: (offset, data) => {
+                    const view = new DataView(data.buffer, data.byteOffset);
+                    answers.set(view.getUint32(0, true), view.getUint32(12, true) === 1 ? data.slice(16) : null);
+                },
+            });
+            await device.queue.onSubmittedWorkDone();
+            check(!executor.stats.errors.length, "no executor errors: " + executor.stats.errors.join("; "));
+            checks.pop();
+        };
+        const read_pixels = async (x, y, w, h) => {
+            const id = request++;
+            record(GLES.READ_PIXELS, 1, id, x, y, w, h, 0x1908, 0x1401);
+            await run();
+            return answers.get(id);
+        };
+        const pixel = (rgba, w, x, y) => { globalThis.lastPixels = Array.from(rgba || []); return Array.from(rgba.subarray((y * w + x) * 4, (y * w + x) * 4 + 4)); };
+        const near = (a, b, tolerance = 3) => a.every((v, i) => Math.abs(v - b[i]) <= tolerance);
+        const text = s => new TextEncoder().encode(s + "\0");
+        const floats = values => new Uint8Array(new Float32Array(values).buffer);
+        const ints = values => new Uint8Array(new Int32Array(values).buffer);
+        // (glGen*'s names: each kind's from 1, as both shadows make them)
+        const names = new Map();
+        const gen = kind => { const name = (names.get(kind) || 0) + 1; names.set(kind, name); gl("glGen" + kind, 1, 4); return name; };
+        let shader_name = 100;
+        const program = (vs_text, fs_text) => {
+            const vs = shader_name++, fs = shader_name++, p = shader_name++;
+            call("glCreateShader", vs, [0x8B31]);
+            call("glCreateShader", fs, [0x8B30]);
+            gl("glShaderString", vs, text(vs_text), vs_text.length + 1);
+            gl("glShaderString", fs, text(fs_text), fs_text.length + 1);
+            gl("glCompileShader", vs);
+            gl("glCompileShader", fs);
+            call("glCreateProgram", p, []);
+            gl("glAttachShader", p, vs);
+            gl("glAttachShader", p, fs);
+            gl("glLinkProgram", p);
+            const info = cpu.context(1).group.objects.get(p).info;
+            check(info && info.ok, "linked: " + (info && info.log));
+            checks.pop();
+            gl("glUseProgram", p);
+            return { name: p, at: uniform => info.locations.get(uniform) };
+        };
+
+        // a GLES 3.0 context on an 8 by 8 window (RGBA8888, depth 24, stencil 8: config 3)
+        const W = 8;
+        record(GLES.CONTEXT_CREATE, 1, 3, 0, 30);
+        record(GLES.SURFACE_CREATE, 2, 3, W, W);
+        record(GLES.COLOR_BUFFER_CREATE, 3, W, W, 0x1908);
+        record(GLES.SURFACE_COLOR_BUFFER, 2, 3);
+        record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
+        cpu.create_context(1, 30, 0);
+        cpu.make_current(1, { width: W, height: W, config: CONFIGS[3] });
+
+        // ---- a vertex array object; an instanced array; a uniform block; GL's depth
+        const quads = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec4 color;
+            layout(location = 2) in vec2 offset;
+            layout(location = 3) in ivec2 code;
+            uniform mat2 scale;
+            uniform float depth;
+            out vec4 v_color;
+            flat out ivec2 v_code;
+            void main() { v_color = color; v_code = code; gl_Position = vec4(scale * position + offset, depth, 1.0); }`, `#version 300 es
+            precision mediump float;
+            layout(std140) uniform Tint { vec4 tint; float gain; };
+            in vec4 v_color;
+            flat in ivec2 v_code;
+            out vec4 o;
+            void main() { o = v_color * tint * gain; if(v_code.x == 7 && v_code.y == -2) o.b = 1.0; }`);
+        const vao = gen("VertexArrays");
+        gl("glBindVertexArray", vao);
+        const vertices = gen("Buffers");
+        gl("glBindBuffer", 0x8892, vertices);
+        // (a strip: position, color, a byte code each)
+        const strip = new ArrayBuffer(4 * 28), sv = new DataView(strip);
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, y], i) => {
+            [x, y, 1, 0.5, 0, 1].forEach((v, k) => sv.setFloat32(i * 28 + 4 * k, v, true));
+            sv.setInt8(i * 28 + 24, 7);
+            sv.setInt8(i * 28 + 25, -2);
+        });
+        gl("glBufferData", 0x8892, strip.byteLength, new Uint8Array(strip), 0x88E4);
+        gl("glEnableVertexAttribArray", 0);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 28, 0);
+        gl("glEnableVertexAttribArray", 1);
+        gl("glVertexAttribPointerOffset", 1, 4, 0x1406, 0, 28, 8);
+        gl("glEnableVertexAttribArray", 3);
+        gl("glVertexAttribIPointerOffsetAEMU", 3, 2, 0x1400, 28, 24);
+        const instances = gen("Buffers");
+        gl("glBindBuffer", 0x8892, instances);
+        gl("glBufferData", 0x8892, 16, floats([-0.5, 0, 0.5, 0]), 0x88E4);
+        gl("glEnableVertexAttribArray", 2);
+        gl("glVertexAttribPointerOffset", 2, 2, 0x1406, 0, 0, 0);
+        gl("glVertexAttribDivisor", 2, 1);
+        const ubo = gen("Buffers");
+        gl("glBindBuffer", 0x8A11, ubo);
+        gl("glBufferData", 0x8A11, 32, floats([0.5, 1, 1, 1, 2, 0, 0, 0]), 0x88E4);
+        gl("glBindBufferBase", 0x8A11, 0, ubo);
+        gl("glUniformMatrix2fv", quads.at("scale"), 1, 0, floats([0.25, 0, 0, 0.25]));
+        gl("glUniform1f", quads.at("depth"), 0);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000 | 0x0100);
+        gl("glDrawArraysInstanced", 5, 0, 4, 2);
+        let window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 2, 4), [255, 255, 255, 255]), "instance 0: the vertex array's color through the uniform block, the integer attribute's blue");
+        check(near(pixel(window, W, 6, 4), [255, 255, 255, 255]) && near(pixel(window, W, 4, 4), [0, 0, 0, 255]), "instance 1 by its divisor, nothing between");
+
+        // GL's depth: z -0.5 is drawn (WebGPU's own range would clip it), z 0.8 behind z 0.5 fails the test
+        gl("glUniformMatrix2fv", quads.at("scale"), 1, 0, floats([4, 0, 0, 4]));
+        gl("glEnable", 0x0B71);
+        gl("glClear", 0x4000 | 0x0100);
+        gl("glUniform1f", quads.at("depth"), 0.5);
+        gl("glBufferSubData", 0x8A11, 0, 16, floats([1, 0, 0, 0.5]));
+        gl("glDrawArrays", 5, 0, 4);
+        gl("glUniform1f", quads.at("depth"), 0.8);
+        gl("glBufferSubData", 0x8A11, 0, 16, floats([0, 1, 0, 0.5]));
+        gl("glDrawArrays", 5, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [255, 0, 255, 255]), "z 0.8 behind z 0.5: still the first draw (a buffer's new bytes reached the GPU)");
+        gl("glUniform1f", quads.at("depth"), -0.5);
+        gl("glDrawArrays", 5, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [0, 255, 255, 255]), "z -0.5 in front, drawn: GL's clip space depth");
+        gl("glDisable", 0x0B71);
+        gl("glBindVertexArray", 0);
+
+        // ---- textures
+        const textured = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            out vec2 uv;
+            void main() { uv = position * 0.5 + 0.5; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision highp float;
+            uniform sampler2D red;
+            uniform sampler2D half_floats;
+            uniform mediump sampler2DArray layers;
+            uniform highp usampler2D counts;
+            uniform int which;
+            in vec2 uv;
+            out vec4 o;
+            void main() {
+                if(which == 0) o = vec4(texture(red, uv).r, 0.0, 0.0, 1.0);
+                else if(which == 1) o = texture(half_floats, uv);
+                else if(which == 2) o = texture(layers, vec3(uv, 1.0));
+                else o = vec4(float(texelFetch(counts, ivec2(0, 0), 0).r) / 255.0, 0.0, 0.0, 1.0);
+            }`);
+        const full = floats([-1, -1, 1, -1, -1, 1, 1, 1]);
+        gl("glEnableVertexAttribArray", 0);
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, full, full.length);
+        gl("glDisableVertexAttribArray", 1);
+        gl("glDisableVertexAttribArray", 2);
+        gl("glDisableVertexAttribArray", 3);
+        let next_texture = 1;
+        const texture = (unit, target) => { const t = next_texture++; gl("glActiveTexture", 0x84C0 + unit); gl("glBindTexture", target, t); return t; };
+        // R8 (2 by 1: 255, 0), nearest; a sampler object on unit 0 makes it linear
+        texture(0, 0x0DE1);
+        gl("glPixelStorei", 0x0CF5, 1);
+        gl("glTexImage2D", 0x0DE1, 0, 0x8229, 2, 1, 0, 0x1903, 0x1401, new Uint8Array([255, 0]));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2802, 0x812F);
+        gl("glUniform1i", textured.at("red"), 0);
+        // RGBA16F from floats
+        texture(1, 0x0DE1);
+        gl("glTexImage2D", 0x0DE1, 0, 0x881A, 1, 1, 0, 0x1908, 0x1406, floats([0.25, 0.5, 0.75, 1]));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glUniform1i", textured.at("half_floats"), 1);
+        // a 2D array of two layers, RGBA8
+        texture(2, 0x8C1A);
+        gl("glTexImage3D", 0x8C1A, 0, 0x8058, 1, 1, 2, 0, 0x1908, 0x1401, new Uint8Array([255, 0, 0, 255, 0, 0, 255, 255]));
+        gl("glTexParameteri", 0x8C1A, 0x2801, 0x2600);
+        gl("glUniform1i", textured.at("layers"), 2);
+        // R32UI, fetched
+        texture(3, 0x0DE1);
+        gl("glTexImage2D", 0x0DE1, 0, 0x8236, 1, 1, 0, 0x8D94, 0x1405, ints([128]));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        gl("glUniform1i", textured.at("counts"), 3);
+        const which = async (n, x = 3, y = 4) => {
+            gl("glUniform1i", textured.at("which"), n);
+            gl("glDrawArrays", 5, 0, 4);
+            return pixel(await read_pixels(0, 0, W, W), W, x, y);
+        };
+        check(near(await which(0, 1), [255, 0, 0, 255]) && near(await which(0, 6), [0, 0, 0, 255]), "R8, nearest");
+        const sampler = gen("Samplers");
+        gl("glBindSampler", 0, sampler);
+        gl("glSamplerParameteri", sampler, 0x2801, 0x2601);
+        gl("glSamplerParameteri", sampler, 0x2800, 0x2601);
+        gl("glSamplerParameteri", sampler, 0x2802, 0x812F);
+        const mid = await which(0, 4);
+        check(mid[0] > 64 && mid[0] < 192, "a sampler object's linear filter over the texture's nearest: " + mid);
+        gl("glBindSampler", 0, 0);
+        check(near(await which(1), [64, 128, 191, 255]), "RGBA16F from floats");
+        check(near(await which(2), [0, 0, 255, 255]), "a 2D array's layer 1");
+        check(near(await which(3), [128, 0, 0, 255]), "an unsigned integer texture, fetched");
+
+        // ---- two draw buffers
+        const mrt = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision mediump float;
+            layout(location = 0) out vec4 first;
+            layout(location = 1) out vec4 second;
+            void main() { first = vec4(1.0, 0.0, 0.0, 1.0); second = vec4(0.0, 1.0, 0.0, 1.0); }`);
+        void mrt;
+        const fbo = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, fbo);
+        const targets = [texture(4, 0x0DE1), texture(5, 0x0DE1)];
+        for(const [i, t] of targets.entries()) {
+            gl("glActiveTexture", 0x84C4 + i);
+            gl("glTexStorage2D", 0x0DE1, 1, 0x8058, 4, 4);
+            gl("glFramebufferTexture2D", 0x8D40, 0x8CE0 + i, 0x0DE1, t, 0);
+        }
+        gl("glDrawBuffers", 2, ints([0x8CE0, 0x8CE1]));
+        gl("glViewport", 0, 0, 4, 4);
+        gl("glDrawArrays", 5, 0, 4);
+        gl("glReadBuffer", 0x8CE1);
+        check(near(pixel(await read_pixels(0, 0, 4, 4), 4, 1, 1), [0, 255, 0, 255]), "draw buffer 1: the second output");
+        gl("glClearBufferfv", 0x1800, 1, floats([0, 0, 1, 1]));
+        check(near(pixel(await read_pixels(0, 0, 4, 4), 4, 1, 1), [0, 0, 255, 255]), "glClearBufferfv on draw buffer 1");
+        gl("glReadBuffer", 0x8CE0);
+        check(near(pixel(await read_pixels(0, 0, 4, 4), 4, 1, 1), [255, 0, 0, 255]), "draw buffer 0 kept its red");
+
+        // ---- a depth texture: drawn to, sampled by a shadow sampler
+        const depth_fbo = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, depth_fbo);
+        const depth_texture = texture(6, 0x0DE1);
+        gl("glTexImage2D", 0x0DE1, 0, 0x81A6, 4, 4, 0, 0x1902, 0x1405, null);
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        gl("glFramebufferTexture2D", 0x8D40, 0x8D00, 0x0DE1, depth_texture, 0);
+        gl("glDrawBuffers", 1, ints([0]));
+        gl("glReadBuffer", 0);
+        gl("glEnable", 0x0B71);
+        gl("glClear", 0x0100);
+        gl("glUseProgram", mrt.name);
+        gl("glDrawArrays", 5, 0, 4);
+        gl("glDisable", 0x0B71);
+        gl("glTexParameteri", 0x0DE1, 0x884C, 0x884E);
+        gl("glTexParameteri", 0x0DE1, 0x884D, 0x0203);
+        gl("glBindFramebuffer", 0x8D40, 0);
+        gl("glViewport", 0, 0, W, W);
+        const shadowed = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            out vec2 uv;
+            void main() { uv = position * 0.5 + 0.5; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision highp float;
+            uniform highp sampler2DShadow depths;
+            uniform float reference;
+            in vec2 uv;
+            out vec4 o;
+            void main() { o = vec4(texture(depths, vec3(uv, reference)), 0.0, 0.0, 1.0); }`);
+        gl("glUniform1i", shadowed.at("depths"), 6);
+        gl("glUniform1f", shadowed.at("reference"), 0.25);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 0, 0, 255]), "a shadow sampler: 0.25 <= the depth drawn (0.5)");
+        gl("glUniform1f", shadowed.at("reference"), 0.75);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 0, 0, 255]), "a shadow sampler: 0.75 is not");
+
+        // ---- indices: restarts, fans
+        const flat = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision mediump float;
+            out vec4 o;
+            void main() { o = vec4(1.0, 1.0, 0.0, 1.0); }`);
+        void flat;
+        // two quads: x -1 to -0.5 and 0.5 to 1, a strip each
+        const two = floats([-1, -1, -0.5, -1, -1, 1, -0.5, 1, 0.5, -1, 1, -1, 0.5, 1, 1, 1]);
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, two, two.length);
+        gl("glEnable", 0x8D69);
+        const restarted = new Uint8Array(new Uint16Array([0, 1, 2, 3, 0xFFFF, 4, 5, 6, 7]).buffer);
+        gl("glClear", 0x4000);
+        gl("glDrawElementsData", 5, 9, 0x1403, restarted, restarted.length);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 0, 4), [255, 255, 0, 255]) && near(pixel(window, W, 7, 4), [255, 255, 0, 255]) &&
+            near(pixel(window, W, 4, 4), [0, 0, 0, 255]), "a strip restarted, from client memory");
+        const elements = gen("Buffers");
+        const positions = gen("Buffers");
+        gl("glBindBuffer", 0x8892, positions);
+        gl("glBufferData", 0x8892, two.length, two, 0x88E4);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        gl("glBindBuffer", 0x8893, elements);
+        gl("glBufferData", 0x8893, restarted.length + 2, new Uint8Array([0, 0, ...restarted]), 0x88E4);
+        gl("glClear", 0x4000);
+        gl("glDrawElementsOffset", 5, 9, 0x1403, 2);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 0, 4), [255, 255, 0, 255]) && near(pixel(window, W, 7, 4), [255, 255, 0, 255]) &&
+            near(pixel(window, W, 4, 4), [0, 0, 0, 255]), "a strip restarted, from an element buffer as it is");
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 6, 4, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 7, 1), [255, 255, 0, 255]) && near(pixel(window, W, 0, 1), [0, 0, 0, 255]), "a fan from a buffer, from vertex 4");
+
+        check(!errors.length, "no WebGPU validation errors: " + errors.join("; "));
+        check(!executor.stats.gles3, "nothing GLES 3.0's left out: " + JSON.stringify(executor.stats.gles3));
+        check(!executor.stats.refused, "the page's shadow took what the CPU side took: " + JSON.stringify(executor.stats.refused_by));
+        result.textContent = "PASS " + checks.length + " checks\n" + checks.join("\n");
+    } catch(error) {
+        const executor = globalThis.glesExecutor;
+        result.textContent = "FAIL " + (error && error.stack || error) + "\nlast: " + JSON.stringify(globalThis.lastPixels || null) +
+            "\nstats: " + JSON.stringify(executor && executor.stats) + "\nwebgpu: " + JSON.stringify(globalThis.webgpuErrors || []) +
+            "\npassed: " + checks.join("\n");
+    }
+})();
+</script>

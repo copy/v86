@@ -15,7 +15,7 @@ fn main() {
         slots: vec![vx_naga::xfb::Slot { slot: 0, stride: 8, instance: false }, vx_naga::xfb::Slot { slot: 1, stride: 8, instance: false }],
         group,
     };
-    let options = vx_naga::Options { immediates_group: 3, immediates_binding: 998, keep_coordinate_space: true, storage_uniforms: Vec::new(), drop_frag_depth: false, reverse_depth: false, int_wraps: Vec::new() };
+    let options = vx_naga::Options { immediates_group: 3, immediates_binding: 998, keep_coordinate_space: true, storage_uniforms: Vec::new(), drop_frag_depth: false, reverse_depth: false, gl_depth: false, int_wraps: Vec::new() };
     match vx_naga::translate_xfb(&bytes, &options, &input) {
         Ok(json) => println!("{}", json),
         Err(e) => { eprintln!("error: {}", e); std::process::exit(1); }

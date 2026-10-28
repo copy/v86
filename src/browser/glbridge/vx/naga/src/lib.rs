@@ -77,6 +77,8 @@ pub struct Options {
     /// depths reversed): depth.rs
     pub drop_frag_depth: bool,
     pub reverse_depth: bool,
+    /// GL's clip space: a vertex shader's depth from -w to w made WebGPU's 0 to w (depth.rs; the GLES host)
+    pub gl_depth: bool,
     /// The address modes of the samplers of integer images (whose samples
     /// are fetches, intsample.rs), by their group and WGSL binding
     /// (`group << 16 | binding`): VkSamplerAddressMode u | v << 4 | w << 8;
@@ -427,6 +429,9 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
     if options.drop_frag_depth {
         depth::drop_frag_depth(&mut module);
     }
+    if options.gl_depth {
+        depth::gl_depth(&mut module);
+    }
     if options.reverse_depth {
         depth::reverse_depth(&mut module);
     }
@@ -556,7 +561,7 @@ pub unsafe extern "C" fn vx_translate_xfb(ptr: *const u8, len: usize, immediates
     let group = next();
     let attributes = (0..next()).map(|_| xfb::Attribute { location: next(), slot: next(), format: next(), offset: next() }).collect();
     let slots = (0..next()).map(|_| xfb::Slot { slot: next(), stride: next(), instance: next() != 0 }).collect();
-    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: true, storage_uniforms, drop_frag_depth: false, reverse_depth: false,
+    let options = Options { immediates_group, immediates_binding, keep_coordinate_space: true, storage_uniforms, drop_frag_depth: false, reverse_depth: false, gl_depth: false,
         int_wraps: Vec::new() };
     let answer = match translate_with(bytes, &options, Some(&XfbInput { attributes, slots, group })) {
         Ok(json) => json,
@@ -582,7 +587,7 @@ pub unsafe extern "C" fn vx_translate(ptr: *const u8, len: usize, immediates_gro
         core::slice::from_raw_parts(wraps, wrap_count * 2).chunks_exact(2).map(|p| (p[0], p[1])).collect()
     };
     let options = Options { immediates_group, immediates_binding, keep_coordinate_space: flags & 1 != 0, storage_uniforms,
-        drop_frag_depth: flags & 2 != 0, reverse_depth: flags & 4 != 0, int_wraps };
+        drop_frag_depth: flags & 2 != 0, reverse_depth: flags & 4 != 0, gl_depth: flags & 8 != 0, int_wraps };
     let answer = match translate(bytes, &options) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),

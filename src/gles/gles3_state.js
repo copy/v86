@@ -203,6 +203,12 @@ export function gles3_handlers(h)
         else if(which === "element") c.element_array_buffer = name;
         else c.buffers[which] = name;
     };
+    /**
+     * Whether a name was made by glGen*: those calls are the CPU side's
+     * alone (queries), so the page's shadow (`trusted`) takes the names the
+     * CPU side accepted as made
+     */
+    const generated = (shadow, made, name) => shadow.trusted || made.has(name);
     const new_buffer = () => ({ size: 0, usage: 0x88E4, mapped: null, bytes: null, gpu_newer: false });
     /** whether the buffer is bound for transform feedback while one is active (writes to it are errors then) */
     const tf_bound_active = (c, name) =>
@@ -713,7 +719,7 @@ export function gles3_handlers(h)
             if(!BUFFER_TARGETS.has(target)) return fail(c, GL.INVALID_ENUM);
             if(name && !c.group.buffers.has(name))
             {
-                if(c.version >= 30 && !c.group.reserved.buffer.has(name)) return fail(c, GL.INVALID_OPERATION);
+                if(c.version >= 30 && !generated(shadow, c.group.reserved.buffer, name)) return fail(c, GL.INVALID_OPERATION);
                 c.group.buffers.set(name, new_buffer());
             }
             set_buffer_binding(c, target, name);
@@ -837,8 +843,8 @@ export function gles3_handlers(h)
             else to.gpu_newer = to.gpu_newer || from.gpu_newer;
             return undefined;
         },
-        "glBindBufferRange": (shadow, c, [target, index, buffer, offset, size]) => bind_buffer_indexed(c, target, index, buffer, offset, size, true),
-        "glBindBufferBase": (shadow, c, [target, index, buffer]) => bind_buffer_indexed(c, target, index, buffer, 0, 0, false),
+        "glBindBufferRange": (shadow, c, [target, index, buffer, offset, size]) => bind_buffer_indexed(shadow, c, target, index, buffer, offset, size, true),
+        "glBindBufferBase": (shadow, c, [target, index, buffer]) => bind_buffer_indexed(shadow, c, target, index, buffer, 0, 0, false),
 
         // ---- vertex arrays and attributes
         "glGenVertexArrays": gen3("vao", c => c.vaos),
@@ -846,7 +852,7 @@ export function gles3_handlers(h)
         {
             if(name && !c.vaos.has(name))
             {
-                if(!c.reserved3.vao.has(name)) return fail(c, GL.INVALID_OPERATION);
+                if(!generated(shadow, c.reserved3.vao, name)) return fail(c, GL.INVALID_OPERATION);
                 c.vaos.set(name, new_vao());
             }
             const vao = name ? c.vaos.get(name) : c.default_vao;
@@ -1110,14 +1116,18 @@ export function gles3_handlers(h)
         "glBindSampler": (shadow, c, [unit, name]) =>
         {
             if(unit >= MAX_UNITS) return fail(c, GL.INVALID_VALUE);
-            if(name && !c.group.samplers.has(name)) return fail(c, GL.INVALID_OPERATION);
+            if(name && !c.group.samplers.has(name))
+            {
+                if(!shadow.trusted) return fail(c, GL.INVALID_OPERATION);
+                c.group.samplers.set(name, new_sampler());
+            }
             c.samplers[unit] = name;
             return undefined;
         },
-        "glSamplerParameterf": (shadow, c, [s, pname, param]) => sampler_parameter(c, s, pname, [param], true),
-        "glSamplerParameteri": (shadow, c, [s, pname, param]) => sampler_parameter(c, s, pname, [param], false),
-        "glSamplerParameterfv": (shadow, c, [s, pname, params]) => sampler_parameter(c, s, pname, f32s(params), true),
-        "glSamplerParameteriv": (shadow, c, [s, pname, params]) => sampler_parameter(c, s, pname, i32s(params), false),
+        "glSamplerParameterf": (shadow, c, [s, pname, param]) => sampler_parameter(shadow, c, s, pname, [param], true),
+        "glSamplerParameteri": (shadow, c, [s, pname, param]) => sampler_parameter(shadow, c, s, pname, [param], false),
+        "glSamplerParameterfv": (shadow, c, [s, pname, params]) => sampler_parameter(shadow, c, s, pname, f32s(params), true),
+        "glSamplerParameteriv": (shadow, c, [s, pname, params]) => sampler_parameter(shadow, c, s, pname, i32s(params), false),
         "glGetSamplerParameterfv": (shadow, c, [s, pname, params]) => get_sampler_parameter(shadow, c, s, pname, params, "f"),
         "glGetSamplerParameteriv": (shadow, c, [s, pname, params]) => get_sampler_parameter(shadow, c, s, pname, params, "i"),
 
@@ -1155,7 +1165,7 @@ export function gles3_handlers(h)
             if(framebuffer_of(c, target) < 0) return fail(c, GL.INVALID_ENUM);
             if(name && !c.framebuffers.has(name))
             {
-                if(!c.reserved_framebuffers.has(name)) return fail(c, GL.INVALID_OPERATION);
+                if(!generated(shadow, c.reserved_framebuffers, name)) return fail(c, GL.INVALID_OPERATION);
                 c.framebuffers.set(name, Object.assign(new_framebuffer3(), { name }));
             }
             if(target !== GL.READ_FRAMEBUFFER) c.framebuffer = name;
@@ -1500,7 +1510,7 @@ export function gles3_handlers(h)
             if(tf.active && !tf.paused) return fail(c, GL.INVALID_OPERATION);
             if(name && !c.tfs.has(name))
             {
-                if(!c.reserved3.tf.has(name)) return fail(c, GL.INVALID_OPERATION);
+                if(!generated(shadow, c.reserved3.tf, name)) return fail(c, GL.INVALID_OPERATION);
                 c.tfs.set(name, new_tf());
             }
             c.tf = name;
@@ -1578,7 +1588,7 @@ export function gles3_handlers(h)
             {
                 return fail(c, GL.INVALID_OPERATION);
             }
-            if(!name || !c.queries.has(name) && !c.reserved3.query.has(name)) return fail(c, GL.INVALID_OPERATION);
+            if(!name || !c.queries.has(name) && !generated(shadow, c.reserved3.query, name)) return fail(c, GL.INVALID_OPERATION);
             const q = c.queries.get(name);
             if(q && q.target !== target) return fail(c, GL.INVALID_OPERATION);
             if([...c.active_queries.values()].includes(name)) return fail(c, GL.INVALID_OPERATION);
@@ -1671,7 +1681,7 @@ export function gles3_handlers(h)
 
     // ---- the helpers above use
 
-    function bind_buffer_indexed(c, target, index, name, offset, size, range)
+    function bind_buffer_indexed(shadow, c, target, index, name, offset, size, range)
     {
         if(target !== GL.UNIFORM_BUFFER && target !== GL.TRANSFORM_FEEDBACK_BUFFER) return fail(c, GL.INVALID_ENUM);
         const tf = current_tf(c);
@@ -1683,7 +1693,7 @@ export function gles3_handlers(h)
         if(target === GL.TRANSFORM_FEEDBACK_BUFFER && tf.active) return fail(c, GL.INVALID_OPERATION);
         if(name && !c.group.buffers.has(name))
         {
-            if(!c.group.reserved.buffer.has(name)) return fail(c, GL.INVALID_OPERATION);
+            if(!generated(shadow, c.group.reserved.buffer, name)) return fail(c, GL.INVALID_OPERATION);
             c.group.buffers.set(name, new_buffer());
         }
         const list = target === GL.UNIFORM_BUFFER ? c.uniform_bindings : tf.bindings;
@@ -1919,8 +1929,9 @@ export function gles3_handlers(h)
         put(params, [values[pname]], as, as === "f" ? "f" : "i");
     }
 
-    function sampler_parameter(c, s, pname, params, float)
+    function sampler_parameter(shadow, c, s, pname, params, float)
     {
+        if(s && shadow.trusted && !c.group.samplers.has(s)) c.group.samplers.set(s, new_sampler());
         const sampler = c.group.samplers.get(s);
         if(!sampler) return fail(c, GL.INVALID_OPERATION);
         const value = params[0];
