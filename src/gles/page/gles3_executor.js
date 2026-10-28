@@ -24,7 +24,7 @@
 // - The draw framebuffer's draw buffers are the pass's color attachments (of
 //   their own formats), multisampled renderbuffers 4 samples.
 
-import { COMPRESSED_FORMATS, F, format_info } from "../gles_formats3.js";
+import { COMPRESSED_FORMATS, F, format_info, tex_image_format } from "../gles_formats3.js";
 import { GL3 } from "../gles3_state.js";
 import { BINDING, gl_type } from "../glsl_program.js";
 import { DRAWN_DEPTH, RENDERABLE, TEXEL_BYTES, decode_texels, depth_values, from_half, pack_pixels, to_texels, unpack_image } from "./gles3_pixels.js";
@@ -74,6 +74,26 @@ const INT_2_10_10_10_REV = 0x8D9F, UNSIGNED_INT_2_10_10_10_REV = 0x8368;
 const packed_attribute = type => type === INT_2_10_10_10_REV || type === UNSIGNED_INT_2_10_10_10_REV;
 /** The vertex formats of CPU-assembled attributes, by the shader's input kind */
 const CPU_FORMAT = { f: "float32", i: "sint32", u: "uint32" };
+
+/** GLES 2.0's unsized images of OES_texture_float, _half_float and OES_depth_texture as sized formats */
+const UNSIZED_EXTENSIONS = { [F.RGBA]: { [F.FLOAT]: 0x8814, [F.HALF_FLOAT_OES]: 0x881A }, [F.RGB]: { [F.FLOAT]: 0x8815, [F.HALF_FLOAT_OES]: 0x881B },
+    [F.DEPTH_COMPONENT]: { [F.UNSIGNED_SHORT]: 0x81A5, [F.UNSIGNED_INT]: 0x81A6 }, [F.DEPTH_STENCIL]: { [F.UNSIGNED_INT_24_8]: 0x88F0 } };
+
+/**
+ * An image's format as a sized one (or a legacy or compressed one): GLES
+ * 3.0's images say it (`internal`), GLES 2.0's have their format and type
+ */
+function image_internal(image)
+{
+    if(image.internal) return image.internal;
+    const own = UNSIZED_EXTENSIONS[image.format] && UNSIZED_EXTENSIONS[image.format][image.type];
+    if(own) return own;
+    const sized = tex_image_format(image.format, image.format, image.type);
+    return sized.error ? image.format : sized.internal;
+}
+
+/** The pixel store's state a GLES 2.0 context lacks */
+const NO_STORE = { row_length: 0, image_height: 0, skip_pixels: 0, skip_rows: 0, skip_images: 0 };
 
 /** @return {?Uint8Array} a buffer's bytes on the page (GLES 3.0's `bytes`, GLES 2.0's `data`) */
 const cpu_bytes = buffer => buffer.bytes || buffer.data || null;
@@ -179,6 +199,9 @@ function spirv_binding(binding)
     if(binding >= ELEMENTS && binding < ELEMENTS_END) return { b: binding - ELEMENTS >> 5, e: binding - ELEMENTS >> 1 & 15 };
     return { b: binding >> 1, e: 0 };
 }
+
+/** The framebuffer a context reads (GLES 2.0's: the one it draws to) */
+const read_framebuffer = c => c.read_framebuffer === undefined ? c.framebuffer : c.read_framebuffer;
 
 /** A WebGPU format's kind for shader outputs and blending */
 function format_kind(format)
@@ -522,7 +545,7 @@ export const GLES3 = {
             }
         }
         if(!base) return null;
-        const internal = base.internal || base.format;
+        const internal = image_internal(base);
         const compressed = COMPRESSED_FORMATS.get(internal);
         const info = format_info(internal);
         const native = compressed && this.device.features && this.device.features.has("texture-compression-etc2");
@@ -639,10 +662,11 @@ export const GLES3 = {
             data = cpu_bytes(pbo) && cpu_bytes(pbo).subarray(data);
         }
         if(!data) return;
-        const info = format_info(image.internal || image.format);
+        const info = format_info(image_internal(image));
         if(!info) return;
-        const store = { alignment: c.unpack_alignment, row_length: c.unpack.row_length, image_height: c.unpack.image_height,
-            skip_pixels: c.unpack.skip_pixels, skip_rows: c.unpack.skip_rows, skip_images: c.unpack.skip_images };
+        const unpack = c.unpack || NO_STORE;
+        const store = { alignment: c.unpack_alignment, row_length: unpack.row_length, image_height: unpack.image_height,
+            skip_pixels: unpack.skip_pixels, skip_rows: unpack.skip_rows, skip_images: unpack.skip_images };
         const tight = unpack_image(data, width, height, depth, format, type, store, three);
         const texels = to_texels(tight, width * height * depth, format, type, info);
         if(!texels) return void this.depth_image3(gpu, level, [x, y, three ? z : face], [width, height, depth],
@@ -669,7 +693,7 @@ export const GLES3 = {
         }
         if(!data) return;
         const image = texture.images.get((three ? 0 : face) * 32 + level);
-        const internal = image ? image.internal : 0;
+        const internal = image ? image_internal(image) : 0;
         const layer = three ? z : face;
         if(gpu.block > 1)
         {
@@ -705,7 +729,7 @@ export const GLES3 = {
         const [dx, dy] = [xoffset + sx - x, yoffset + sy - y];
         // (the level's own format: what GLES 3.0 table 3.15 keeps of the source's channels)
         const image = texture.images.get((gpu.three || gpu.array ? 0 : face) * 32 + level);
-        const info = image && format_info(image.internal || image.format);
+        const info = image && format_info(image_internal(image));
         const map = info && copy_map(info);
         if(!map && source.format === gpu.format)
         {
@@ -877,6 +901,12 @@ export const GLES3 = {
         if(!rb) return;
         if(rb.gpu) this.staging.push(rb.gpu);
         rb.gpu = null;
+        this.make_renderbuffer3(rb);
+    },
+
+    /** A renderbuffer's texture, of its format and samples */
+    make_renderbuffer3(rb)
+    {
         if(!rb.width || !rb.height || rb.image) return;
         const info = format_info(rb.format);
         const format = info ? info.webgpu : RENDERBUFFER_WEBGPU[rb.format] || COLOR_FORMAT;
@@ -884,7 +914,63 @@ export const GLES3 = {
         const samples = rb.samples > 1 ? 4 : 1;
         const texture = this.device.createTexture({ label: "GL renderbuffer", size: [rb.width, rb.height], format, sampleCount: samples,
             usage: U.RENDER_ATTACHMENT | U.TEXTURE_BINDING | (samples === 1 ? U.COPY_SRC | U.COPY_DST : 0) });
-        rb.gpu = { texture, format, samples, view: texture.createView(), destroy: () => texture.destroy() };
+        rb.gpu = { es3: true, texture, format, samples, view: texture.createView(), destroy: () => texture.destroy() };
+    },
+
+    // ---- snapshots (L7's; the textures' and renderbuffers' contents)
+
+    /**
+     * A texture's levels and layers as save() reads them: rows of texels
+     * (of blocks for a compressed format); the depth formats WebGPU copies
+     * nothing out of are left out (they read as undefined after a restore)
+     */
+    save_texture3(t, reads)
+    {
+        const gpu = t.gpu;
+        if(DRAWN_DEPTH.has(gpu.format) || gpu.format === "stencil8") return;
+        t.saved = [];
+        t.saved3 = true;
+        const texel = gpu.block > 1 ? gpu.block_bytes : TEXEL_BYTES[gpu.format];
+        for(let mip = 0; mip < gpu.levels; mip++)
+        {
+            const width = Math.max(1, gpu.width >> mip), height = Math.max(1, gpu.height >> mip);
+            const layers = gpu.three ? Math.max(1, gpu.depth >> mip) : gpu.depth;
+            const columns = Math.ceil(width / gpu.block), rows = Math.ceil(height / gpu.block);
+            for(let layer = 0; layer < layers; layer++)
+            {
+                reads.push({ owner: t, texture: gpu.texture, level: mip, gl_level: mip + gpu.first, layer, width, height, row: columns * texel, rows,
+                    extent: [columns * gpu.block, rows * gpu.block, 1] });
+            }
+        }
+    },
+
+    /** A texture's saved levels and layers put back (save_texture3's) */
+    restore_texture3(t)
+    {
+        const gpu = this.gpu_texture3(t);
+        for(const [level, layer, width, height, bytes] of gpu ? t.saved : []) this.upload3(gpu, level, [0, 0, layer], [width, height, 1], bytes);
+    },
+
+    /** A renderbuffer of one sample and a color or depth16 format: its texels */
+    save_renderbuffer3(rb, reads)
+    {
+        rb.saved3 = true;
+        const texel = TEXEL_BYTES[rb.gpu.format];
+        if(rb.gpu.samples > 1 || !texel || DRAWN_DEPTH.has(rb.gpu.format) || rb.gpu.format === "stencil8") return;
+        rb.saved = [];
+        reads.push({ owner: rb, texture: rb.gpu.texture, level: 0, layer: 0, width: rb.width, height: rb.height, row: rb.width * texel, rows: rb.height });
+    },
+
+    restore_renderbuffer3(rb)
+    {
+        this.make_renderbuffer3(rb);
+        for(const [, , width, height, bytes] of rb.gpu ? rb.saved || [] : [])
+        {
+            this.upload3({ texture: rb.gpu.texture, format: rb.gpu.format, first: 0, levels: 1, width, height, depth: 1, three: false, block: 1 }, 0,
+                [0, 0, 0], [width, height, 1], bytes);
+        }
+        delete rb.saved;
+        delete rb.saved3;
     },
 
     // ---- what is drawn to and read from
@@ -959,27 +1045,27 @@ export const GLES3 = {
     /** What glReadPixels and the copies read: the read framebuffer's read buffer, or null */
     read_target3(c)
     {
-        if(!c.read_framebuffer)
+        if(!read_framebuffer(c))
         {
             if(c.default_read_buffer === GL3.NONE) return null;
             const t = this.surface_target(c);
             return t && t.color ? { texture: t.color, format: COLOR_FORMAT, mip: 0, layer: 0, samples: 1, width: t.width, height: t.height } : null;
         }
-        const fbo = c.framebuffers.get(c.read_framebuffer);
+        const fbo = c.framebuffers.get(read_framebuffer(c));
         if(!fbo || fbo.read_buffer === GL3.NONE) return null;
-        return this.attachment3(c, fbo.attachments.get(fbo.read_buffer));
+        return this.attachment3(c, fbo.attachments.get(fbo.read_buffer === undefined ? GL3.COLOR_ATTACHMENT0 : fbo.read_buffer));
     },
 
     /** The read framebuffer's depth (or depth and stencil) attachment */
     read_depth3(c)
     {
-        if(!c.read_framebuffer)
+        if(!read_framebuffer(c))
         {
             const t = this.surface_target(c);
             return t && t.depth ? { texture: t.depth_texture, view: t.depth, format: t.depth_format, mip: 0, layer: 0, samples: 1, width: t.width,
                 height: t.height } : null;
         }
-        const fbo = c.framebuffers.get(c.read_framebuffer);
+        const fbo = c.framebuffers.get(read_framebuffer(c));
         return fbo ? this.attachment3(c, fbo.attachments.get(GL3.DEPTH_ATTACHMENT)) || this.attachment3(c, fbo.attachments.get(GL3.STENCIL_ATTACHMENT)) : null;
     },
 
@@ -1159,13 +1245,14 @@ export const GLES3 = {
     {
         const source = this.read_target3(c);
         if(!source || source.samples > 1 || !TEXEL_BYTES[source.format] || format_kind(source.format) === "depth") return false;
-        const store = { alignment: c.pack_alignment, row_length: c.pack.row_length, skip_pixels: c.pack.skip_pixels, skip_rows: c.pack.skip_rows };
+        const pack = c.pack || NO_STORE;
+        const store = { alignment: c.pack_alignment, row_length: pack.row_length, skip_pixels: pack.skip_pixels, skip_rows: pack.skip_rows };
         const x0 = Math.max(0, record.x), y0 = Math.max(0, record.y);
         const x1 = Math.min(source.width, record.x + record.width), y1 = Math.min(source.height, record.y + record.height);
-        const pack = values => pack_pixels(values, record.width, record.height, record.format, record.type, store);
+        const packed = values => pack_pixels(values, record.width, record.height, record.format, record.type, store);
         if(x1 <= x0 || y1 <= y0)
         {
-            this.reads.push({ buffer: null, done: (_, sink) => done(pack(new Float64Array(record.width * record.height * 4)), sink) });
+            this.reads.push({ buffer: null, done: (_, sink) => done(packed(new Float64Array(record.width * record.height * 4)), sink) });
             return true;
         }
         this.read_texture(source.texture, x0, y0, x1 - x0, y1 - y0, false, (raw, sink) =>
@@ -1178,7 +1265,7 @@ export const GLES3 = {
             {
                 values.set(decoded.subarray(y * w * 4, (y + 1) * w * 4), ((y + y0 - record.y) * record.width + (x0 - record.x)) * 4);
             }
-            done(pack(values), sink);
+            done(packed(values), sink);
         }, source.mip, source.layer, TEXEL_BYTES[source.format]);
         return true;
     },
@@ -1235,6 +1322,7 @@ export const GLES3 = {
     /** The key of the context's occlusion query in progress, or null */
     occlusion_key3(c)
     {
+        if(!c.active_queries) return null;
         const name = c.active_queries.get(GL3.ANY_SAMPLES_PASSED) || c.active_queries.get(GL3.ANY_SAMPLES_PASSED_CONSERVATIVE);
         return name ? this.id_of(c) + ":" + name : null;
     },
@@ -1758,7 +1846,7 @@ export const GLES3 = {
      */
     capture3(c, program, group, vertex, mode, first, count, instances, rebase)
     {
-        const tf = c.tfs.get(c.tf);
+        const tf = c.tfs && c.tfs.get(c.tf);
         if(!tf || !tf.active || tf.paused) return;
         const per = mode === 0 ? 1 : mode === 1 ? 2 : 3;
         const each = Math.floor(count / per) * per, total = each * instances;
@@ -2018,7 +2106,7 @@ export const GLES3 = {
         if(texture.immutable) base = Math.min(base, texture.immutable_levels - 1);
         const first = texture.images.get(base);
         if(!first || !first.width || !first.height) return fallback();
-        const internal = first.internal || first.format;
+        const internal = image_internal(first);
         const info = format_info(internal);
         const kind = info ? info.kind : "unorm";
         const depth = kind === "depth" || kind === "depth_stencil";
@@ -2035,7 +2123,7 @@ export const GLES3 = {
             for(let face = 0; face < (cube ? 6 : 1); face++)
             {
                 const image = texture.images.get(face * 32 + level);
-                if(!image || image.width !== w || image.height !== h || (image.depth || 1) !== d || (image.internal || image.format) !== internal) return fallback();
+                if(!image || image.width !== w || image.height !== h || (image.depth || 1) !== d || image_internal(image) !== internal) return fallback();
             }
         }
         const compare = depth && state.compare_mode === COMPARE_REF_TO_TEXTURE;
@@ -2210,11 +2298,14 @@ export const GLES3 = {
             case "glGenerateMipmap": this.generate_mipmap3(c, args[0]); return true;
             case "glBufferData":
             {
+                // (GLES 2.0's shadow keeps no bytes: the executor's own, `data`)
+                if(c.api === 2) this.buffer_data(c, args, false);
                 const buffer = this.buffer_of3(c, args[0]);
                 if(buffer) buffer.dirty = [0, buffer.size];
                 return true;
             }
             case "glBufferSubData":
+                if(c.api === 2) this.buffer_data(c, args, true);
                 this.buffer_written(this.buffer_of3(c, args[0]), args[1], args[2], args[3]);
                 return true;
             case "glUnmapBufferAEMU":

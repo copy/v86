@@ -296,7 +296,9 @@ GLESHost.prototype.on_event = function(kind, args)
     {
         case "context_create":
         {
-            const [context, config, share, api] = args;
+            const [context, config, share, requested] = args;
+            // (a GLES 2.0 context of a host with glslang: GLSL ES 1.00 through it, drawn as GLES 3.x's: api 20, Context's glslang)
+            const api = requested === 2 && this.shadow.glslang ? 20 : requested;
             this.shadow.create_context(context, api, share);
             this.record(GLES.CONTEXT_CREATE, [context, config, share, api]);
             break;

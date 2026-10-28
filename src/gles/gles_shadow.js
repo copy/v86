@@ -107,8 +107,15 @@ function new_attrib()
 function Context(api, group)
 {
     /** 1, 2, or 3 for any GLES 3.x; `version` says which (11, 20, 30, 31, 32) */
-    this.api = api >= 30 ? 3 : api;
+    this.api = api >= 30 ? 3 : api === 20 ? 2 : api;
     this.version = api >= 30 ? api : api === 1 ? 11 : 20;
+    /**
+     * GLSL ES 1.00 through glslang, the program drawn on the page as GLES
+     * 3.x's (api 20: a GLES 2.0 context of a host that has glslang;
+     * docs/gles3-plan.md L3); a GLES 2.0 context of api 2 has gl-webgpu's
+     * front end
+     */
+    this.glslang = api === 20 || api >= 30;
     this.group = group;
     this.error = GL.NO_ERROR;
     /** @type {?{width: number, height: number, config: !Array<number>}} */
@@ -265,10 +272,9 @@ export function GLESShadow(rc)
     this.handlers = HANDLERS;
     /** shaders compiled and programs linked; the logs of the first failures */
     this.stats = { compiled: 0, compile_failed: 0, linked: 0, link_failed: 0, failures: [], compile_ms: 0 };
-    /** @type {?Object} glslang (src/gles/glslang.js), on the CPU side: GLSL ES 3.x's shaders, and
-     *  1.00's with glslang_es100 (docs/gles3-plan.md); the page has none and takes links from the batch */
+    /** @type {?Object} glslang (src/gles/glslang.js), on the CPU side: GLSL ES 3.x's shaders, and 1.00's in
+     *  contexts of glslang's (Context's `glslang`); the page has none and takes links from the batch */
     this.glslang = null;
-    this.glslang_es100 = false;
     /** the last glLinkProgram's result through glslang (gles_host.js sends it to the page) */
     this.last_link = null;
 }
@@ -283,16 +289,18 @@ function stage_of(type)
 }
 
 /**
- * A shader compiled: GLSL ES 3.x (and 1.00 with glslang_es100) by glslang's
- * check pass, else gl-webgpu's front end; on the page, a 3.x shader is not
- * compiled at all: its program's link comes with the batch
+ * A shader compiled: GLSL ES 3.x (and 1.00 where `es100`: a context of
+ * glslang's) by glslang's check pass, else gl-webgpu's front end; on the
+ * page, such a shader is not compiled at all: its program's link comes with
+ * the batch
+ * @param {boolean=} es100 GLSL ES 1.00 through glslang too
  * @return {!Object} {ok, log, ...}
  */
-GLESShadow.prototype.compile = function(source, type)
+GLESShadow.prototype.compile = function(source, type, es100)
 {
     const version = glsl_version(source);
     const stage = stage_of(type);
-    if(version >= 300 || this.glslang_es100 && this.glslang)
+    if(version >= 300 || es100)
     {
         if(!this.glslang) return { ok: true, log: "", glslang: true, stage };
         const checked = this.glslang.check_shader(STAGE_OF_GL_TYPE.get(type), source);
@@ -363,6 +371,8 @@ GLESShadow.prototype.create_context = function(handle, api, share)
     group.contexts++;
     const context = new Context(api, group);
     context.group_id = group_id;
+    // (the group's shaders compile as its contexts' do: a snapshot's relink)
+    if(context.glslang) group.glslang = true;
     this.contexts.set(handle, context);
 };
 
@@ -1307,7 +1317,7 @@ const HANDLERS = {
         // (the source compiled: a snapshot compiles it again, gles_snapshot.js)
         shader.compiled_source = shader.source || "";
         const start = performance.now();
-        shader.compiled = shadow.compile(shader.compiled_source, shader.type);
+        shader.compiled = shadow.compile(shader.compiled_source, shader.type, c.glslang);
         shadow.stats.compile_ms += performance.now() - start;
         shadow.stats.compiled++;
         if(!shader.compiled.ok)

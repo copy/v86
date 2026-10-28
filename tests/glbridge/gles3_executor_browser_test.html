@@ -37,7 +37,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         checks.push("the adapter's optional features: " + optional.join(", "));
         const errors = [];
         device.onuncapturederror = e => { console.error(e.error.message); errors.push(e.error.message); };
-        const executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
+        let executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
         globalThis.glesExecutor = executor;
         globalThis.webgpuErrors = errors;
 
@@ -50,13 +50,14 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         let writer = new GXWriter(GLES_MAGIC);
         let request = 1;
         const answers = new Map();
+        let current = 1;
         const call = (name, ret, args) => {
             const bytes = encode_command("gles2:" + name, args);
             const one = new GXWriter(GLES_MAGIC);
             one.command(GLES.COMMAND, [1, ret, bytes.length], bytes);
             const [r] = read_gles_batch(one.finish(), true);
             cpu.given_name = ret;
-            const { keep } = cpu.call(1, r.command, r.args);
+            const { keep } = cpu.call(current, r.command, r.args);
             cpu.given_name = 0;
             if(keep && name === "glLinkProgram" && cpu.last_link) {
                 const packed = pack_program(cpu.last_link);
@@ -64,7 +65,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
                 cpu.last_link = null;
             }
             // (what only asks or names stays on the CPU side, as gles_host.js's is_query)
-            const error = cpu.context(1).error;
+            const error = cpu.context(current).error;
             check(keep || /^gl(Get|Is|Gen)/.test(name) && !error, name + " is taken (error 0x" + (error || 0).toString(16) + ")");
             checks.pop();
             if(keep) writer.command(GLES.COMMAND, [1, ret, bytes.length], bytes);
@@ -111,11 +112,11 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             gl("glAttachShader", p, fs);
             if(varyings) gl("glTransformFeedbackVaryingsAEMU", p, varyings.length, text(varyings.join(";")), varyings.join(";").length + 1, 0x8C8C);
             gl("glLinkProgram", p);
-            const info = cpu.context(1).group.objects.get(p).info;
+            const info = cpu.context(current).group.objects.get(p).info;
             check(info && info.ok, "linked: " + (info && info.log));
             checks.pop();
             gl("glUseProgram", p);
-            return { name: p, at: uniform => info.locations.get(uniform) };
+            return { name: p, at: uniform => info.locations.get(uniform), attribute: a => info.attributes.find(x => x.name === a).location };
         };
 
         // a GLES 3.0 context on an 8 by 8 window (RGBA8888, depth 24, stencil 8: config 3)
@@ -581,6 +582,53 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         };
         check(await occlusion(0x0207) === 1, "an occlusion query: samples passed");
         check(await occlusion(0x0200) === 0, "an occlusion query: none passed (GL_NEVER), though it drew");
+
+        // ---- a GLES 2.0 context of a host with glslang (api 20): GLSL ES 1.00 through glslang, drawn as GLES 3.x's
+        record(GLES.CONTEXT_CREATE, 5, 3, 0, 20);
+        record(GLES.MAKE_CURRENT, 1, 5, 2, 2);
+        cpu.create_context(5, 20, 0);
+        cpu.make_current(5, { width: W, height: W, config: CONFIGS[3] });
+        current = 5;
+        const es2 = program(`attribute vec2 position; attribute vec4 color; varying vec4 v; varying vec2 uv; uniform mat4 m;
+            void main() { v = color; uv = position * 0.5 + 0.5; gl_Position = m * vec4(position, 0.0, 1.0); }`, `precision mediump float;
+            varying vec4 v; varying vec2 uv; uniform sampler2D tex; uniform int which;
+            void main() { gl_FragColor = which == 0 ? v : texture2D(tex, uv); }`);
+        gl("glUniformMatrix4fv", es2.at("m"), 1, 0, floats([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]));
+        gl("glEnableVertexAttribArray", es2.attribute("position"));
+        gl("glVertexAttribPointerData", es2.attribute("position"), 2, 0x1406, 0, 0, full, full.length);
+        gl("glVertexAttrib4f", es2.attribute("color"), 0.2, 0.4, 0.6, 1);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [51, 102, 153, 255]), "GLES 2.0 through glslang: an attribute's current value");
+        const es2_textures = [
+            ["LUMINANCE", [0x1909, 0x1909, 0x1401, new Uint8Array([100])], [100, 100, 100, 255]],
+            ["RGB 565", [0x1907, 0x1907, 0x8363, new Uint8Array(new Uint16Array([0xF800]).buffer)], [255, 0, 0, 255]],
+            ["RGBA 4444", [0x1908, 0x1908, 0x8033, new Uint8Array(new Uint16Array([0x0F0F]).buffer)], [0, 255, 0, 255]],
+        ];
+        gl("glUniform1i", es2.at("which"), 1);
+        for(const [what, [internal, format, type, data], expected] of es2_textures) {
+            gl("glBindTexture", 0x0DE1, 40 + es2_textures.findIndex(t => t[0] === what));
+            gl("glTexImage2D", 0x0DE1, 0, internal, 1, 1, 0, format, type, data);
+            gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+            gl("glDrawArrays", 5, 0, 4);
+            check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), expected), "GLES 2.0 through glslang: " + what);
+        }
+        gl("glBindTexture", 0x0DE1, 50);
+        gl("glCompressedTexImage2D", 0x0DE1, 0, 0x8D64, 4, 4, 0, 8, new Uint8Array([0xF8, 0, 0, 0x02, 0, 0, 0, 0]));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 2, 2, 255]), "GLES 2.0 through glslang: ETC1");
+        // a snapshot of it, restored on a new executor: the texture's block, the program's link kept
+        const es2_saved = await executor.save();
+        executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
+        executor.restore(es2_saved);
+        globalThis.glesExecutor = executor;
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 2, 2, 255]), "restored: GLES 2.0 through glslang, an ETC1 texture and its program");
+        record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
+        current = 1;
 
         check(!errors.length, "no WebGPU validation errors: " + errors.join("; "));
         check(!executor.stats.gles3, "nothing GLES 3.0's left out: " + JSON.stringify(executor.stats.gles3));

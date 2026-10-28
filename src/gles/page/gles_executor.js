@@ -148,8 +148,8 @@ GLESExecutor.prototype.submit = async function(bytes, sink)
 {
     const records = read_gles_batch(bytes, true);
     this.stats.batches++;
-    // (glslang's programs draw through vx_naga: loaded before the batch with the first link)
-    if(!this.naga && records.some(r => r.name === "PROGRAM_LINK"))
+    // (glslang's programs draw through vx_naga: loaded before the batch with the first link, or the first after a restore)
+    if(!this.naga && (records.some(r => r.name === "PROGRAM_LINK") || [...this.shadow.contexts.values()].some(c => c.glslang)))
     {
         try
         {
@@ -333,7 +333,8 @@ GLESExecutor.prototype.command = function(record)
         return;
     }
     for(const object of gone) if(object.gpu && object.gpu.destroy && ![...objects.values()].includes(object)) this.staging.push(object.gpu);
-    if(c.api === 3 && this.command3(c, name, args)) return undefined;
+    // (GLES 3.x's, and GLES 2.0's of a host with glslang: gles3_executor.js)
+    if(c.glslang && this.command3(c, name, args)) return undefined;
     switch(name)
     {
         case "glTexImage2D": return this.tex_image(c, args, false);
@@ -1448,7 +1449,7 @@ GLESExecutor.prototype.read_pixels = function(record)
 {
     const conn = this.conns.get(record.conn);
     const c = conn && this.shadow.context(conn.context);
-    if(c && c.api === 3) return this.read_pixels3(c, record);
+    if(c && c.glslang) return this.read_pixels3(c, record);
     const target = c && this.target_of(c);
     if(!target || !target.color) return this.answer_failed(record.request);
     const x0 = Math.max(0, record.x), y0 = Math.max(0, record.y);
@@ -1535,34 +1536,50 @@ GLESExecutor.prototype.save = async function()
     };
     for(const cb of this.rc.color_buffers.values()) read(cb, cb.texture, 1, 1, cb.width, cb.height);
     for(const s of this.surfaces.values()) if(s.texture) read(s, s.texture, 1, 1, s.width, s.height);
-    for(const t of all_textures(this.shadow)) if(t.gpu && t.gpu.texture) read(t, t.gpu.texture, t.gpu.levels, t.gpu.cube ? 6 : 1, t.gpu.width, t.gpu.height);
+    for(const t of all_textures(this.shadow))
+    {
+        // (GLES 3.x's textures, and GLES 2.0's through glslang: their own formats, layers and blocks, gles3_executor.js)
+        if(t.gpu && t.gpu.es3) this.save_texture3(t, reads);
+        else if(t.gpu && t.gpu.texture) read(t, t.gpu.texture, t.gpu.levels, t.gpu.cube ? 6 : 1, t.gpu.width, t.gpu.height);
+    }
     for(const group of this.shadow.groups.values())
     {
-        for(const rb of group.renderbuffers.values()) if(rb.gpu && rb.gpu.format === COLOR_FORMAT) read(rb, rb.gpu.texture, 1, 1, rb.width, rb.height);
+        for(const rb of group.renderbuffers.values())
+        {
+            if(rb.gpu && rb.gpu.es3) this.save_renderbuffer3(rb, reads);
+            else if(rb.gpu && rb.gpu.format === COLOR_FORMAT) read(rb, rb.gpu.texture, 1, 1, rb.width, rb.height);
+        }
     }
     const encoder = this.device.createCommandEncoder({ label: "GLES save" });
     for(const r of reads)
     {
-        r.stride = Math.ceil(r.width * 4 / 256) * 256;
-        r.buffer = this.device.createBuffer({ size: r.stride * r.height, usage: B.COPY_DST | B.MAP_READ });
+        // (rows of texels, 4 bytes unless the read says: `row` bytes a row of blocks, `rows` of them)
+        r.row = r.row || r.width * 4;
+        r.rows = r.rows || r.height;
+        r.stride = Math.ceil(r.row / 256) * 256;
+        r.buffer = this.device.createBuffer({ size: r.stride * r.rows, usage: B.COPY_DST | B.MAP_READ });
         encoder.copyTextureToBuffer({ texture: r.texture, mipLevel: r.level, origin: [0, 0, r.layer] },
-            { buffer: r.buffer, bytesPerRow: r.stride, rowsPerImage: r.height }, [r.width, r.height, 1]);
+            { buffer: r.buffer, bytesPerRow: r.stride, rowsPerImage: r.rows }, r.extent || [r.width, r.height, 1]);
     }
     this.device.queue.submit([encoder.finish()]);
     for(const r of reads)
     {
         await r.buffer.mapAsync(globalThis.GPUMapMode ? globalThis.GPUMapMode.READ : 1);
         const mapped = new Uint8Array(r.buffer.getMappedRange());
-        const rgba = new Uint8Array(r.width * r.height * 4);
-        for(let y = 0; y < r.height; y++) rgba.set(mapped.subarray(y * r.stride, y * r.stride + r.width * 4), y * r.width * 4);
+        const rgba = new Uint8Array(r.row * r.rows);
+        for(let y = 0; y < r.rows; y++) rgba.set(mapped.subarray(y * r.stride, y * r.stride + r.row), y * r.row);
         r.buffer.unmap();
         r.buffer.destroy();
-        r.owner.saved.push([r.level, r.layer, r.width, r.height, rgba]);
+        r.owner.saved.push([r.gl_level === undefined ? r.level : r.gl_level, r.layer, r.width, r.height, rgba]);
     }
     const state = { shadow: this.shadow.get_state(), rc: this.rc, conns: this.conns, surfaces: this.surfaces, posted: this.posted };
     // (the GPU's objects are left out: instances of no class the packing knows, and the textures' "gpu")
     const packed = pack(state, { classes: SHADOW_CLASSES, skip: shadow_skip });
-    for(const r of reads) delete r.owner.saved;
+    for(const r of reads)
+    {
+        delete r.owner.saved;
+        delete r.owner.saved3;
+    }
     return packed;
 };
 
@@ -1606,9 +1623,14 @@ GLESExecutor.prototype.restore = function(packed)
     {
         if(!t.saved) continue;
         t.gpu = null;
-        const gpu = this.gpu_texture(t);
-        if(gpu) put(t, gpu.texture);
+        if(t.saved3) this.restore_texture3(t);
+        else
+        {
+            const gpu = this.gpu_texture(t);
+            if(gpu) put(t, gpu.texture);
+        }
         delete t.saved;
+        delete t.saved3;
     }
     for(const group of this.shadow.groups.values())
     {
@@ -1616,6 +1638,11 @@ GLESExecutor.prototype.restore = function(packed)
         {
             rb.gpu = null;
             if(!rb.width || !rb.height || rb.image) continue;
+            if(rb.saved3)
+            {
+                this.restore_renderbuffer3(rb);
+                continue;
+            }
             const format = DEPTH_FORMATS[rb.format] || COLOR_FORMAT;
             const texture = this.device.createTexture({ label: "GL renderbuffer", size: [rb.width, rb.height], format,
                 usage: U.RENDER_ATTACHMENT | U.COPY_SRC | U.COPY_DST | (format === COLOR_FORMAT ? U.TEXTURE_BINDING : 0) });
