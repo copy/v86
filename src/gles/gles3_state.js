@@ -92,7 +92,9 @@ export const ADVANCED_EQUATIONS = [0x9294, 0x9295, 0x9296, 0x9297, 0x9298, 0x929
 /** GLES 3.2's: lines and triangles with adjacency (a geometry shader's; without one the adjacent vertices are left out) */
 const ADJACENCY_MODES = new Set([0xA, 0xB, 0xC, 0xD]);
 /** whether a context of its version draws the mode */
-const mode_ok = (c, mode) => MODES.has(mode) || c.version >= 32 && ADJACENCY_MODES.has(mode);
+const mode_ok = (c, mode) => MODES.has(mode) || c.version >= 32 && (ADJACENCY_MODES.has(mode) || mode === PATCHES);
+/** GLES 3.2's PATCHES: tessellation's */
+const PATCHES = 0xE;
 /** the modes a geometry shader of each input type takes (GLES 3.2 11.3.4.1) */
 const GEOMETRY_MODES = new Map([[0x0000, [0]], [0x0001, [1, 2, 3]], [0x0004, [4, 5, 6]], [0x000A, [0xA, 0xB]], [0x000C, [0xC, 0xD]]]);
 const INDEX_TYPES = new Set([0x1401, 0x1403, 0x1405]);
@@ -604,14 +606,23 @@ export function gles3_handlers(h)
         const program = c.group.objects.get(c.program || pipeline && pipeline.stages[4]);
         return program && program.info && program.info.ok && program.info.geometry || null;
     };
+    /** Whether the draw has a tessellation evaluation shader (link_glslang_program's `tessellation`) */
+    const tessellates = c =>
+    {
+        const pipeline = !c.program && c.program_pipelines && c.program_pipelines.get(c.program_pipeline);
+        const program = c.group.objects.get(c.program || pipeline && pipeline.stages[0x10]);
+        return !!(program && program.info && program.info.ok && program.info.tessellation && program.info.tessellation.evaluation);
+    };
 
     /** A draw's checks: mode, counts, the framebuffer, transform feedback */
     const draw_checks = (shadow, c, mode, count, instances, elements, type) =>
     {
         if(!mode_ok(c, mode) || elements && !INDEX_TYPES.has(type)) return fail(c, GL.INVALID_ENUM);
         if(count < 0 || instances < 0) return fail(c, GL.INVALID_VALUE);
-        // (a geometry shader takes the modes of its input type)
-        const geometry = c.version >= 32 ? geometry_of(c) : null;
+        // (tessellation takes patches, and only it; a geometry shader the modes of its input type, after tessellation its output's)
+        const tessellation = c.version >= 32 && tessellates(c);
+        if(tessellation !== (mode === PATCHES)) return fail(c, GL.INVALID_OPERATION);
+        const geometry = c.version >= 32 && !tessellation ? geometry_of(c) : null;
         if(geometry && !(GEOMETRY_MODES.get(geometry.input) || []).includes(mode)) return fail(c, GL.INVALID_OPERATION);
         // (an advanced blend equation: one draw buffer, a fragment shader that declares the equation's support)
         if(c.version >= 32 && c.enabled.has(0x0BE2) && ADVANCED_EQUATIONS.includes(c.blend_equation[0]))

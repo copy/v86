@@ -304,4 +304,27 @@ void text;
     await call32("gles2:glBlendEquation", 0x8006);
     await call32("gles2:glUseProgram", 0);
     console.log("PASS: GLES 3.2's blend equations");
+
+    // tessellation: the program's layout; patches its draws', and only its
+    const tessellation = (await call32("gles2:glCreateProgram")).ret;
+    await call32("gles2:glAttachShader", tessellation, await shader32(0x8B31, "#version 320 es\nin vec4 p;\nvoid main() { gl_Position = p; }"));
+    await call32("gles2:glAttachShader", tessellation, await shader32(0x8E88, "#version 320 es\nlayout(vertices = 4) out;\n" +
+        "void main() { gl_out[gl_InvocationID].gl_Position = gl_in[0].gl_Position; gl_TessLevelOuter[0] = 2.0; }"));
+    await call32("gles2:glAttachShader", tessellation, await shader32(0x8E87, "#version 320 es\nlayout(quads, fractional_odd_spacing, cw, point_mode) in;\n" +
+        "void main() { gl_Position = gl_in[0].gl_Position; }"));
+    await call32("gles2:glAttachShader", tessellation, await shader32(0x8B30, "#version 320 es\nprecision mediump float;\nout vec4 o;\nvoid main() { o = vec4(1.0); }"));
+    await call32("gles2:glLinkProgram", tessellation);
+    const tess_ints = async pname => i32s((await call32("gles2:glGetProgramiv", tessellation, pname, 4)).outs[0])[0];
+    assert.equal(await tess_ints(0x8B82), 1, "a program of tessellation shaders links");
+    assert.deepEqual([await tess_ints(0x8E75), await tess_ints(0x8E76), await tess_ints(0x8E77), await tess_ints(0x8E78), await tess_ints(0x8E79)],
+        [4, 0x0007, 0x8E7B, 0x0900, 1], "TESS_CONTROL_OUTPUT_VERTICES, TESS_GEN_MODE, _SPACING, _VERTEX_ORDER, _POINT_MODE");
+    await call32("gles2:glUseProgram", tessellation);
+    await call32("gles2:glDrawArrays", 4, 0, 3);
+    assert.equal((await call32("gles2:glGetError")).ret, 0x0502, "triangles to tessellation: INVALID_OPERATION");
+    await call32("gles2:glDrawArrays", 0xE, 0, 3);
+    assert.equal((await call32("gles2:glGetError")).ret, 0, "patches");
+    await call32("gles2:glUseProgram", 0);
+    await call32("gles2:glDrawArrays", 0xE, 0, 3);
+    assert.equal((await call32("gles2:glGetError")).ret, 0x0502, "patches without tessellation: INVALID_OPERATION");
+    console.log("PASS: GLES 3.2's tessellation");
 }

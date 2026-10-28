@@ -377,10 +377,44 @@ export function link_glslang_program(glslang, shaders, options)
     }
 
     const geometry_module = spirv.find(m => m.stage === "geometry");
+    const tessellation_modules = spirv.filter(m => m.stage === "tess_control" || m.stage === "tess_evaluation");
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,
         bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size, tf_varyings,
         tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs, geometry: geometry_module ? geometry_layout(geometry_module.words) : null,
-        unused_inputs, blend_support: shaders.filter(s => s.stage === "fragment").flatMap(s => blend_support(s.source)) };
+        unused_inputs, blend_support: shaders.filter(s => s.stage === "fragment").flatMap(s => blend_support(s.source)),
+        tessellation: tessellation_modules.length ? tessellation_layout(tessellation_modules) : null };
+}
+
+/**
+ * The tessellation shaders' layout from their SPIR-V's execution modes, as
+ * GL's program queries answer it: the control shader's output vertices
+ * (0 without one), the evaluation shader's mode, spacing, vertex order and
+ * point mode (0 without one)
+ * @param {!Array<{stage: string, words: !Uint32Array}>} modules
+ */
+export function tessellation_layout(modules)
+{
+    const layout = { control: false, evaluation: false, vertices: 0, mode: 0, spacing: 0x0202, order: 0x0901, point_mode: 0 };
+    const MODES = { 22: ["mode", 0x0004], 24: ["mode", 0x0007], 25: ["mode", 0x8E7A], 1: ["spacing", 0x0202], 2: ["spacing", 0x8E7C],
+        3: ["spacing", 0x8E7B], 4: ["order", 0x0900], 5: ["order", 0x0901], 10: ["point_mode", 1] };
+    for(const m of modules)
+    {
+        layout[m.stage === "tess_control" ? "control" : "evaluation"] = true;
+        const words = m.words;
+        for(let at = 5; at < words.length;)
+        {
+            const count = words[at] >>> 16;
+            if(!count) break;
+            if((words[at] & 0xFFFF) === 16 && count >= 3)
+            {
+                const mode = words[at + 2];
+                if(mode === 26) layout.vertices = words[at + 3];
+                else if(m.stage === "tess_evaluation" && mode in MODES) layout[MODES[mode][0]] = MODES[mode][1];
+            }
+            at += count;
+        }
+    }
+    return layout;
 }
 
 /**
@@ -443,7 +477,7 @@ function varying_of(m, name, gl_name)
 
 /** What of a link's result the page needs (it has no glslang): the GL view, the bindings, the SPIR-V */
 const PACKED_FIELDS = ["ok", "log", "attributes", "uniforms", "blocks", "storage_blocks", "bindings", "local_size", "default_block_size",
-    "tf_varyings", "tf_mode", "outputs", "geometry", "unused_inputs", "blend_support"];
+    "tf_varyings", "tf_mode", "outputs", "geometry", "unused_inputs", "blend_support", "tessellation"];
 
 /**
  * A link's result as bytes (GLES.PROGRAM_LINK's): a u32 JSON length, the

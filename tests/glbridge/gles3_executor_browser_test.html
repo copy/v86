@@ -1010,6 +1010,68 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         }
         gl("glBlendEquation", 0x8006);
         gl("glDisable", 0x0BE2);
+        // tessellation: a patch of 3 over the window, the control shader's colors and patch output, back faces culled (the
+        // winding counterclockwise as the patch's); an outer level of 0 discards the patch
+        const tess_shader = (type, source) => {
+            const name = shader_name++;
+            call("glCreateShader", name, [type]);
+            gl("glShaderString", name, text(source), source.length + 1);
+            gl("glCompileShader", name);
+            return name;
+        };
+        const tessellated = shader_name++;
+        const tess_shaders = [tess_shader(0x8B31, `#version 320 es
+            layout(location = 0) in vec2 position;
+            out vec4 v_color;
+            void main() { v_color = vec4(1.0, 0.0, 0.0, 1.0); gl_Position = vec4(position, 0.0, 1.0); }`), tess_shader(0x8E88, `#version 320 es
+            layout(vertices = 3) out;
+            in vec4 v_color[];
+            out vec4 c_color[];
+            patch out vec4 p_tint;
+            uniform float level;
+            void main() {
+                c_color[gl_InvocationID] = v_color[gl_InvocationID];
+                gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+                if (gl_InvocationID == 0) {
+                    gl_TessLevelOuter[0] = level; gl_TessLevelOuter[1] = level; gl_TessLevelOuter[2] = level; gl_TessLevelInner[0] = level;
+                    p_tint = vec4(0.0, 0.5, 0.0, 0.0);
+                }
+            }`), tess_shader(0x8E87, `#version 320 es
+            layout(triangles, equal_spacing, ccw) in;
+            in vec4 c_color[];
+            patch in vec4 p_tint;
+            out vec4 e_color;
+            void main() {
+                e_color = c_color[0] * gl_TessCoord.x + c_color[1] * gl_TessCoord.y + c_color[2] * gl_TessCoord.z + p_tint;
+                gl_Position = gl_in[0].gl_Position * gl_TessCoord.x + gl_in[1].gl_Position * gl_TessCoord.y + gl_in[2].gl_Position * gl_TessCoord.z;
+            }`), tess_shader(0x8B30, `#version 320 es
+            precision mediump float;
+            in vec4 e_color;
+            out vec4 o;
+            void main() { o = e_color; }`)];
+        call("glCreateProgram", tessellated, []);
+        for(const name of tess_shaders) gl("glAttachShader", tessellated, name);
+        gl("glLinkProgram", tessellated);
+        const tess_info = cpu.context(current).group.objects.get(tessellated).info;
+        check(tess_info && tess_info.ok, "a program of tessellation shaders links: " + (tess_info && tess_info.log));
+        gl("glUseProgram", tessellated);
+        const patch32 = gen("Buffers");
+        gl("glBindBuffer", 0x8892, patch32);
+        const patch_vertices = floats([-1, -1, 3, -1, -1, 3]);
+        gl("glBufferData", 0x8892, patch_vertices.length, patch_vertices, 0x88E4);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        gl("glEnable", 0x0B44);
+        for(const [level, expected, what] of [[4, [255, 128, 0, 255], "tessellated, culled as the patch's winding"], [0, [0, 0, 0, 255], "an outer level of 0: no patch"]]) {
+            gl("glUniform1f", tess_info.locations.get("level"), level);
+            gl("glClearColor", 0, 0, 0, 1);
+            gl("glClear", 0x4000);
+            gl("glDrawArrays", 0xE, 0, 3);
+            const got = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+            check(near(got, expected), "tessellation: " + what + ": " + got);
+        }
+        gl("glDisable", 0x0B44);
+        gl("glBindBuffer", 0x8892, quad32);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;

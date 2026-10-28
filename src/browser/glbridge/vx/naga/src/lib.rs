@@ -37,7 +37,8 @@
 //!   naga's front end drops are put back (sampling.rs)
 //! - a geometry shader becomes a compute shader (geometry.rs:
 //!   vx_translate_geometry), a vertex shader's capture of every output its
-//!   input (xfb.rs)
+//!   input (xfb.rs); so do the tessellation shaders (tessellation.rs:
+//!   vx_translate_tessellation)
 //!
 //! It answers in JSON: the WGSL, and per entry point the bindings it uses
 //! and their kind; the overrides (specialization constants) by id.
@@ -59,6 +60,7 @@ mod fetches;
 mod depth;
 mod geometry;
 mod samplemask;
+mod tessellation;
 mod sampling;
 mod split;
 mod subpass;
@@ -321,6 +323,7 @@ enum Mode<'a> {
     Shader,
     Xfb(&'a XfbInput),
     Geometry(u32),
+    Tessellation(tessellation::Stage, u32),
 }
 
 /// Struct members whose offsets are not WGSL's own layout's (std140's: a
@@ -423,6 +426,12 @@ pub fn translate_xfb(bytes: &[u8], options: &Options, input: &XfbInput) -> Resul
 /// The compute shader of a geometry shader (geometry.rs), its own resources in `group`, as JSON
 pub fn translate_geometry(bytes: &[u8], options: &Options, group: u32) -> Result<String, String> { translate_with(bytes, options, Mode::Geometry(group)) }
 
+/// The compute shader of a tessellation control (`control`) or evaluation shader (tessellation.rs), as JSON
+pub fn translate_tessellation(bytes: &[u8], options: &Options, control: bool, group: u32) -> Result<String, String> {
+    let stage = if control { tessellation::Stage::Control } else { tessellation::Stage::Evaluation };
+    translate_with(bytes, options, Mode::Tessellation(stage, group))
+}
+
 fn translate_with(bytes: &[u8], options: &Options, mode: Mode) -> Result<String, String> {
     if bytes.len() % 4 != 0 || bytes.len() < 20 {
         return Err(String::from("not SPIR-V: not whole words"));
@@ -432,6 +441,13 @@ fn translate_with(bytes: &[u8], options: &Options, mode: Mode) -> Result<String,
         Mode::Geometry(_) => {
             let (words, g) = geometry::prepare(&words)?;
             (words, Some(g))
+        },
+        _ => (words, None),
+    };
+    let (words, tess) = match mode {
+        Mode::Tessellation(stage, _) => {
+            let (words, t) = tessellation::prepare(&words, stage)?;
+            (words, Some(t))
         },
         _ => (words, None),
     };
@@ -472,6 +488,11 @@ fn translate_with(bytes: &[u8], options: &Options, mode: Mode) -> Result<String,
         let f = geometry::finish(&mut module, g, *group)?;
         capture_json = format!(",\"geometry\":{}", f.json);
         finished = Some(f);
+    }
+    else if let (Mode::Tessellation(_, group), Some(t)) = (&mode, &tess) {
+        let f = tessellation::finish(&mut module, t, *group)?;
+        capture_json = format!(",\"tessellation\":{}", f.json);
+        appended = f.appended;
     }
     else if xfb::captures(&words).is_some() {
         capture_json = String::from(",\"captures\":true");
@@ -519,11 +540,18 @@ fn translate_with(bytes: &[u8], options: &Options, mode: Mode) -> Result<String,
     let mut json = String::from("{\"wgsl\":");
     json.push_str(&quote(&wgsl));
     json.push_str(",\"entries\":[");
-    if finished.is_some() {
-        // (vx_geometry: the resources the shader's function uses, and the group the caller gave)
-        let (handle, _) = module.functions.iter().find(|(_, f)| f.name.as_deref() == Some(geometry::MAIN)).ok_or("the geometry shader's function is gone")?;
+    // (a geometry or tessellation shader's compute entry point: the resources its function uses, and the group the caller gave)
+    let own_entry = if finished.is_some() { Some((geometry::MAIN, "vx_geometry")) } else {
+        match tess.as_ref().and_then(|t| t.stage) {
+            Some(tessellation::Stage::Control) => Some((tessellation::CONTROL_MAIN, "vx_tess_control")),
+            Some(tessellation::Stage::Evaluation) => Some((tessellation::EVALUATION_MAIN, "vx_tess_eval")),
+            None => None,
+        }
+    };
+    if let Some((main, entry_name)) = own_entry {
+        let (handle, _) = module.functions.iter().find(|(_, f)| f.name.as_deref() == Some(main)).ok_or("the shader's function is gone")?;
         let uses = &info[handle];
-        json.push_str("{\"name\":\"vx_geometry\",\"stage\":\"compute\",\"workgroup\":[64,1,1],\"flat\":false,\"bindings\":[");
+        json.push_str(&format!("{{\"name\":\"{}\",\"stage\":\"compute\",\"workgroup\":[64,1,1],\"flat\":false,\"bindings\":[", entry_name));
         let mut first = true;
         for (h, var) in module.global_variables.iter() {
             let Some(binding) = var.binding else { continue };
@@ -664,6 +692,27 @@ pub unsafe extern "C" fn vx_translate_geometry(ptr: *const u8, len: usize, group
     let options = Options { immediates_group: 0, immediates_binding: 0, keep_coordinate_space: true, storage_uniforms: Vec::new(), drop_frag_depth: false,
         reverse_depth: false, gl_depth: false, int_wraps };
     let answer = match translate_geometry(bytes, &options, group) {
+        Ok(json) => json,
+        Err(error) => format!("{{\"error\":{}}}", quote(&error)),
+    };
+    let out = vx_alloc(answer.len() + 4);
+    core::ptr::copy_nonoverlapping((answer.len() as u32).to_le_bytes().as_ptr(), out, 4);
+    core::ptr::copy_nonoverlapping(answer.as_ptr(), out.add(4), answer.len());
+    out
+}
+
+/// The compute shader of the tessellation control (`control` 1) or
+/// evaluation shader in `ptr` (`len` bytes), its own resources in `group`
+/// (tessellation.rs)
+///
+/// # Safety
+/// as vx_translate's
+#[no_mangle]
+pub unsafe extern "C" fn vx_translate_tessellation(ptr: *const u8, len: usize, control: u32, group: u32) -> *mut u8 {
+    let bytes = core::slice::from_raw_parts(ptr, len);
+    let options = Options { immediates_group: 0, immediates_binding: 0, keep_coordinate_space: true, storage_uniforms: Vec::new(), drop_frag_depth: false,
+        reverse_depth: false, gl_depth: false, int_wraps: Vec::new() };
+    let answer = match translate_tessellation(bytes, &options, control != 0, group) {
         Ok(json) => json,
         Err(error) => format!("{{\"error\":{}}}", quote(&error)),
     };

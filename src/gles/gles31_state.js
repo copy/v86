@@ -370,8 +370,8 @@ export function gles31_handlers(h, H3)
         {
             // (GLES 3.1's: PROGRAM_SEPARABLE, ACTIVE_ATOMIC_COUNTER_BUFFERS, COMPUTE_WORK_GROUP_SIZE (a program linked with no compute stage: INVALID_OPERATION);
             // GLES 3.2's geometry layout (none linked: INVALID_OPERATION))
-            const geometry = c.version >= 32 && GEOMETRY_QUERIES.has(pname);
-            if(![GL31.PROGRAM_SEPARABLE, 0x92D9, 0x8267].includes(pname) && !geometry) return H3["glGetProgramiv"](shadow, c, [p, pname, params]);
+            const geometry = c.version >= 32 && GEOMETRY_QUERIES.has(pname), tessellation = c.version >= 32 && TESSELLATION_QUERIES.has(pname);
+            if(![GL31.PROGRAM_SEPARABLE, 0x92D9, 0x8267].includes(pname) && !geometry && !tessellation) return H3["glGetProgramiv"](shadow, c, [p, pname, params]);
             query(shadow);
             const program = program_of(c, p);
             if(!program) return undefined;
@@ -380,6 +380,13 @@ export function gles31_handlers(h, H3)
             {
                 if(!info || !info.geometry) return void fail(c, GL.INVALID_OPERATION);
                 put(params, [info.geometry[GEOMETRY_QUERIES.get(pname)]], "i", "i");
+            }
+            else if(tessellation)
+            {
+                // (the control shader's output vertices of a program with one, the rest of a program with an evaluation shader)
+                const t = info && info.tessellation;
+                if(!t || !(pname === 0x8E75 ? t.control : t.evaluation)) return void fail(c, GL.INVALID_OPERATION);
+                put(params, [t[TESSELLATION_QUERIES.get(pname)]], "i", "i");
             }
             else if(pname === GL31.PROGRAM_SEPARABLE) put(params, [program.separable ? 1 : 0], "i", "i");
             else if(pname === 0x92D9) put(params, [info ? new Set(info.uniforms.filter(u => u.opaque === "atomic").map(u => u.binding)).size : 0], "i", "i");
@@ -904,6 +911,8 @@ const STAGES32 = [0x8DD9, 0x8E88, 0x8E87];
 const STAGE_BITS32 = [0x4, 0x8, 0x10];
 /** glGetProgramiv's geometry layout: GEOMETRY_LINKED_VERTICES_OUT, _INPUT_TYPE, _OUTPUT_TYPE, GEOMETRY_SHADER_INVOCATIONS */
 const GEOMETRY_QUERIES = new Map([[0x8916, "vertices"], [0x8917, "input"], [0x8918, "output"], [0x887F, "invocations"]]);
+/** glGetProgramiv's tessellation layout: TESS_CONTROL_OUTPUT_VERTICES, TESS_GEN_MODE, _SPACING, _VERTEX_ORDER, _POINT_MODE */
+const TESSELLATION_QUERIES = new Map([[0x8E75, "vertices"], [0x8E76, "mode"], [0x8E77, "spacing"], [0x8E78, "order"], [0x8E79, "point_mode"]]);
 
 /**
  * GLES 3.2's state beyond 3.1's (tables 21.2 to 21.58): KHR_debug's initial

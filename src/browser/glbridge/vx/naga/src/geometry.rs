@@ -87,7 +87,7 @@ fn output_name(location: u32) -> String { format!("vx_go{}x", location) }
 fn builtin_name(builtin: u32, output: bool) -> String { format!("vx_gb{}{}x", builtin, if output { "o" } else { "i" }) }
 const PER_VERTEX_IN: &str = "vx_gpvix";
 const PER_VERTEX_OUT: &str = "vx_gpvox";
-fn member_name(index: usize) -> String { format!("vx_m{}x", index) }
+pub(crate) fn member_name(index: usize) -> String { format!("vx_m{}x", index) }
 
 /// What `prepare` read of the geometry shader
 #[derive(Clone, Debug, Default)]
@@ -109,7 +109,7 @@ pub struct Geometry {
     builtins: Vec<(u32, bool)>,
 }
 
-fn string_words(text: &str) -> Vec<u32> {
+pub(crate) fn string_words(text: &str) -> Vec<u32> {
     let mut bytes = text.as_bytes().to_vec();
     bytes.push(0);
     while bytes.len() % 4 != 0 {
@@ -118,7 +118,7 @@ fn string_words(text: &str) -> Vec<u32> {
     bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect()
 }
 
-fn instruction(op: u32, operands: &[u32]) -> Vec<u32> {
+pub(crate) fn instruction(op: u32, operands: &[u32]) -> Vec<u32> {
     let mut out = Vec::with_capacity(operands.len() + 1);
     out.push((operands.len() as u32 + 1) << 16 | op);
     out.extend_from_slice(operands);
@@ -126,7 +126,7 @@ fn instruction(op: u32, operands: &[u32]) -> Vec<u32> {
 }
 
 /// The words of a literal string at the start of `w`: how many
-fn string_length(w: &[u32]) -> usize {
+pub(crate) fn string_length(w: &[u32]) -> usize {
     w.iter().position(|word| word.to_le_bytes().contains(&0)).map_or(w.len(), |i| i + 1)
 }
 
@@ -340,15 +340,15 @@ pub fn prepare(words: &[u32]) -> Result<(Vec<u32>, Geometry), String> {
 
 /// A scalar or vector of an input or output, at its location: its WGSL
 /// access (from the variable's), kind and components
-struct Leaf {
-    access: String,
-    location: u32,
-    kind: ScalarKind,
-    components: u32,
+pub(crate) struct Leaf {
+    pub(crate) access: String,
+    pub(crate) location: u32,
+    pub(crate) kind: ScalarKind,
+    pub(crate) components: u32,
 }
 
 /// The leaves of a value of type `ty` (`access`), from `location`; how many locations they take
-fn leaves(module: &naga::Module, ty: naga::Handle<naga::Type>, access: &str, location: u32, out: &mut Vec<Leaf>) -> Result<u32, String> {
+pub(crate) fn leaves(module: &naga::Module, ty: naga::Handle<naga::Type>, access: &str, location: u32, out: &mut Vec<Leaf>) -> Result<u32, String> {
     match module.types[ty].inner {
         TypeInner::Scalar(s) => {
             out.push(Leaf { access: String::from(access), location, kind: s.kind, components: 1 });
@@ -391,10 +391,10 @@ fn scalar_name(kind: ScalarKind) -> &'static str {
     }
 }
 
-/// A leaf's value read from words `base + k` (a WGSL expression)
-fn load(kind: ScalarKind, components: u32, base: &str) -> String {
+/// A leaf's value read from words `base + k` (a WGSL expression) of `buffer`
+pub(crate) fn load_from(buffer: &str, kind: ScalarKind, components: u32, base: &str) -> String {
     let one = |k: u32| {
-        let word = format!("vx_gs_in[{} + {}u]", base, k);
+        let word = format!("{}[{} + {}u]", buffer, base, k);
         match kind {
             ScalarKind::Sint => format!("bitcast<i32>({})", word),
             ScalarKind::Uint => word,
@@ -409,8 +409,10 @@ fn load(kind: ScalarKind, components: u32, base: &str) -> String {
     format!("vec{}<{}>({})", components, scalar_name(kind), parts.join(", "))
 }
 
+fn load(kind: ScalarKind, components: u32, base: &str) -> String { load_from("vx_gs_in", kind, components, base) }
+
 /// A component of a leaf as a word
-fn store(kind: ScalarKind, value: &str) -> String {
+pub(crate) fn store(kind: ScalarKind, value: &str) -> String {
     match kind {
         ScalarKind::Uint => String::from(value),
         ScalarKind::Bool => format!("select(0u, 1u, {})", value),

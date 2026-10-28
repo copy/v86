@@ -298,6 +298,9 @@ function index_list(indices, mode, restart)
     return { list: new Uint32Array(out), low, high, topology: TOPOLOGY[mode], strip };
 }
 
+/** GLES 3.2's PATCHES, and the vertices a patch (GL's default PATCH_VERTICES: glPatchParameteri is not on the guest's wire) */
+const PATCHES = 0xE, PATCH_VERTICES = 3;
+
 /** Vertices an input primitive of each mode (GLES 3.2 11.3.4.1: a geometry shader's input) */
 const PRIMITIVE_VERTICES = { 0: 1, 1: 2, 2: 2, 3: 2, 4: 3, 5: 3, 6: 3, 0xA: 4, 0xB: 4, 0xC: 6, 0xD: 6 };
 
@@ -1694,7 +1697,14 @@ export const GLES3 = {
         this.blend_destination3(c, target);
         const shaders = this.program3(c, stages, target);
         if(!shaders) return;
-        // (GLES 3.2: a geometry shader's draw; lines and triangles with adjacency drawn without one, the adjacent vertices left out)
+        // (GLES 3.2: a draw of patches, its tessellation shaders'; a geometry shader's; lines and triangles with adjacency drawn
+        // without one, the adjacent vertices left out)
+        if(mode === PATCHES)
+        {
+            if(indirect) return void this.note3("an indirect draw of patches");
+            if(stages.vertex !== stages.fragment) return void this.note3("a pipeline's tessellation shaders");
+            return void this.tessellation_draw3(c, stages.vertex, shaders, target, first, count, elements, instances, base_vertex);
+        }
         if(stages.vertex.info.geometry && stages.vertex === stages.fragment)
         {
             if(indirect) return void this.note3("an indirect draw of a geometry shader");
@@ -1887,22 +1897,17 @@ export const GLES3 = {
 
     // ---- geometry shaders (GLES 3.2; vx_naga's geometry.rs)
 
-    /** A program's geometry shader through vx_naga (cached with the program's GPU side), or null (noted) */
-    geometry3(program)
+    /** vx_naga's JSON answer of `call` (input, its length) with the SPIR-V words in its memory */
+    naga_json3(words, call)
     {
-        const gpu = this.program_gpu(program);
-        if(gpu.geometry !== undefined) return gpu.geometry;
-        gpu.geometry = null;
-        const m = program.info.spirv.find(x => x.stage === "geometry");
-        if(!m || !this.naga.vx_translate_geometry) return this.note3("a geometry shader vx_naga cannot translate");
         const naga = this.naga;
-        const bytes = new Uint8Array(m.words.buffer, m.words.byteOffset, m.words.byteLength);
+        const bytes = new Uint8Array(words.buffer, words.byteOffset, words.byteLength);
         const input = naga.vx_alloc(bytes.length);
         new Uint8Array(naga.memory.buffer, input, bytes.length).set(bytes);
         let out;
         try
         {
-            out = naga.vx_translate_geometry(input, bytes.length, 1, 0, 0);
+            out = call(input, bytes.length);
         }
         finally
         {
@@ -1911,6 +1916,18 @@ export const GLES3 = {
         const length = new DataView(naga.memory.buffer).getUint32(out, true);
         const t = JSON.parse(new TextDecoder().decode(new Uint8Array(naga.memory.buffer, out + 4, length)));
         naga.vx_free(out, length + 4);
+        return t;
+    },
+
+    /** A program's geometry shader through vx_naga (cached with the program's GPU side), or null (noted) */
+    geometry3(program)
+    {
+        const gpu = this.program_gpu(program);
+        if(gpu.geometry !== undefined) return gpu.geometry;
+        gpu.geometry = null;
+        const m = program.info.spirv.find(x => x.stage === "geometry");
+        if(!m || !this.naga.vx_translate_geometry) return this.note3("a geometry shader vx_naga cannot translate");
+        const t = this.naga_json3(m.words, (input, length) => this.naga.vx_translate_geometry(input, length, 1, 0, 0));
         if(t.error) return this.note3("vx_naga's geometry shader: " + t.error.slice(0, 160));
         gpu.geometry = { translation: t, layout: t.geometry, passes: new Map(), pipelines: new Map(),
             module: this.device.createShaderModule({ label: "GLES 3 geometry", code: "diagnostic(off, derivative_uniformity);\n" + t.wgsl }) };
@@ -1945,6 +1962,213 @@ export const GLES3 = {
         return pass;
     },
 
+    /** The largest buffer a compute pass binds */
+    most3()
+    {
+        return this.device.limits ? Math.min(this.device.limits.maxStorageBufferBindingSize, this.device.limits.maxBufferSize) : 1 << 27;
+    },
+
+    /**
+     * The resources of a draw whose stages run as compute shaders too (a
+     * geometry or tessellation shader's): the fragment shader's, the vertex
+     * shader's seen by compute shaders as well, and the translations'
+     */
+    stages_group3(c, program, shaders, translations, target)
+    {
+        const merged = new Map(shaders.bindings.map(b => [b.group + ":" + b.binding, Object.assign({}, b, { visibility: b.visibility | (b.visibility & 1 ? 4 : 0) })]));
+        for(const b of this.bindings3(translations.map(t => [t, 4, program])))
+        {
+            const key = b.group + ":" + b.binding;
+            if(merged.has(key)) merged.get(key).visibility |= 4;
+            else merged.set(key, b);
+        }
+        return this.bind_groups3(c, [...merged.values()].sort((a, b) => a.group - b.group || a.binding - b.binding), target);
+    },
+
+    /**
+     * The vertex shader run as a compute shader over the vertices a draw's
+     * primitives or patches use, every output captured (xfb3's `all`): the
+     * records, a record's bytes, and each primitive's vertices' record
+     * indices (each instance's after the last's), in a buffer
+     * @param {!Uint32Array} vertices the primitives' vertices in order
+     * @return {?{records: !GPUBuffer, record: number, ids_buffer: !GPUBuffer}}
+     */
+    vertex_records3(c, program, group, vertices, instances)
+    {
+        let low = Infinity, high = -1;
+        for(const v of vertices) { if(v < low) low = v; if(v > high) high = v; }
+        if(high - low >= 1 << 24) return this.note3("a vertex range past 2^24");
+        const plan = this.vertex_plan3(c, this.inputs3(program), instances);
+        if(!plan) return null;
+        const vcount = high - low + 1, rebase = plan.cpu_vertex;
+        const vertex = this.vertex_buffers3(c, plan, { low, high, rebase, instances, indexed: false, first: low, count: vcount });
+        if(!vertex) return null;
+        const capture = this.xfb3(program, vertex, true);
+        if(!capture) return null;
+        const record = capture.xfb.strides[0];
+        if(vcount * instances * record > this.most3()) return this.note3("a draw's vertex records too large");
+        const records = this.device.createBuffer({ label: "GLES vertex records", size: Math.max(16, align4(vcount * instances * record)), usage: B.STORAGE });
+        this.staging.push(records);
+        this.capture_pass3(capture, group, vertex, rebase ? 0 : low, vcount, instances, [records]);
+        const ids = new Uint32Array(Math.max(4, vertices.length * instances));
+        for(let i = 0; i < instances; i++) for(let k = 0; k < vertices.length; k++) ids[i * vertices.length + k] = i * vcount + vertices[k] - low;
+        const ids_buffer = this.device.createBuffer({ label: "GLES primitives' vertices", size: ids.byteLength, usage: B.STORAGE, mappedAtCreation: true });
+        new Uint32Array(ids_buffer.getMappedRange()).set(ids);
+        ids_buffer.unmap();
+        this.staging.push(ids_buffer);
+        return { records, record, ids_buffer };
+    },
+
+    /** A program's tessellation shaders through vx_naga (cached with the program's GPU side), or null (noted) */
+    tessellation3(program)
+    {
+        const gpu = this.program_gpu(program);
+        if(gpu.tessellation !== undefined) return gpu.tessellation;
+        gpu.tessellation = null;
+        const stage = name => program.info.spirv.find(x => x.stage === name);
+        const control = stage("tess_control"), evaluation = stage("tess_evaluation");
+        if(!control || !evaluation) return this.note3("patches without tessellation shaders");
+        if(!this.naga.vx_translate_tessellation) return this.note3("tessellation shaders vx_naga cannot translate");
+        const [tc, te] = [[control, 1], [evaluation, 0]].map(([m, is_control]) =>
+            this.naga_json3(m.words, (input, length) => this.naga.vx_translate_tessellation(input, length, is_control, 1)));
+        const failed = [tc, te].find(t => t.error);
+        if(failed) return this.note3("vx_naga's tessellation shader: " + failed.error.slice(0, 160));
+        const module = t => this.device.createShaderModule({ label: "GLES 3 tessellation", code: "diagnostic(off, derivative_uniformity);\n" + t.wgsl });
+        gpu.tessellation = { tc, te, control: module(tc), evaluation: module(te), pipelines: new Map(),
+            // (pass_shader3's: the evaluation shader's outputs as a geometry shader's)
+            pass: { layout: te.tessellation, passes: new Map() } };
+        return gpu.tessellation;
+    },
+
+    /** GX's tessellator (tessellator_wgsl.js): its count, scan and generate pipelines, made once */
+    tessellator3()
+    {
+        if(this.tessellator) return this.tessellator;
+        // (a script of the page's WebGPU bundle before this one: tools/build_glbridge.mjs)
+        const module = this.device.createShaderModule({ label: "GLES tessellator", code: globalThis["V86TessellatorWGSL"].TESSELLATOR_WGSL });
+        const layout = this.device.createBindGroupLayout({ entries: [
+            { binding: 0, visibility: 4, buffer: { type: "uniform" } },
+            { binding: 1, visibility: 4, buffer: { type: "read-only-storage" } },
+            ...[2, 3, 4, 5, 6].map(binding => ({ binding, visibility: 4, buffer: { type: "storage" } })),
+        ] });
+        const pipeline_layout = this.device.createPipelineLayout({ bindGroupLayouts: [layout] });
+        const make = entryPoint => this.device.createComputePipeline({ label: "GLES tessellator " + entryPoint, layout: pipeline_layout,
+            compute: { module, entryPoint } });
+        this.tessellator = { layout, count: make("count"), scan: make("scan"), generate: make("generate") };
+        return this.tessellator;
+    },
+
+    /** A compute pipeline of a stage's module and entry point: the draw's resources in group 0, its own in group 1 (`own`'s entries) */
+    stage_pipeline3(cache, group, module, entry, own)
+    {
+        const key = entry + ":" + group.key;
+        let p = cache.get(key);
+        if(!p)
+        {
+            const layouts = [group.groups[0].layout, this.device.createBindGroupLayout({ entries: own })];
+            p = { layouts, pipeline: this.device.createComputePipeline({ label: "GLES 3 " + entry, layout: this.device.createPipelineLayout({ bindGroupLayouts: layouts }),
+                compute: { module, entryPoint: entry } }) };
+            cache.set(key, p);
+        }
+        return p;
+    },
+
+    /**
+     * A draw of patches (GLES 3.2's tessellation; the guest's wire has no
+     * glPatchParameteri: 3 vertices a patch): the vertex shader as a
+     * compute shader over the patches' vertices; the control shader a
+     * workgroup a patch (vx_naga's tessellation.rs); GX's tessellator (its
+     * counts, their sums and the indirect arguments, the points and
+     * indices); the evaluation shader an invocation a point (an indirect
+     * dispatch); the points drawn by the indices (an indirect draw) through
+     * the pass shader with the fragment shader
+     */
+    tessellation_draw3(c, program, shaders, target, first, count, elements, instances, base_vertex)
+    {
+        if(count <= 0 || instances <= 0) return;
+        const t = this.tessellation3(program);
+        if(!t) return;
+        const tf = c.tfs && c.tfs.get(c.tf);
+        if(tf && tf.active && !tf.paused) this.note3("transform feedback of tessellation's output");
+        if(program.info.geometry) this.note3("a geometry shader after tessellation: left out");
+        const drawn = this.draw_vertices3(c, first, count, elements, base_vertex);
+        if(!drawn) return;
+        const per = PATCH_VERTICES;
+        const per_instance = Math.floor(drawn.indices.length / per);
+        if(!per_instance) return;
+        const vertices = drawn.indices.subarray(0, per_instance * per);
+        const group = this.stages_group3(c, program, shaders, [t.tc, t.te], target);
+        if(!group) return;
+        const control = t.tc.tessellation, evaluation = t.te.tessellation;
+        const total = per_instance * instances;
+        // (room for what the tessellator makes, at the largest level: GX's bounds)
+        const points_most = Math.min(total * 65 * 66, 1 << 18), indices_most = Math.min(total * (6 * 64 * 64 + 12 * 64), 3 << 19);
+        const sizes = [total * control.vertices * control.cp_stride * 4, total * control.patch_stride * 4, points_most * evaluation.stride * 4,
+            points_most * 16, indices_most * 4];
+        if(sizes.some(n => n > this.most3()) || total > 65535 * 65535) return void this.note3("a draw of patches too large");
+        const captured = this.vertex_records3(c, program, group, vertices, instances);
+        if(!captured) return;
+        const buffer = (size, usage) => { const b = this.device.createBuffer({ label: "GLES tessellation", size: Math.max(32, align4(size)), usage }); this.staging.push(b); return b; };
+        const control_points = buffer(sizes[0], B.STORAGE), patches = buffer(sizes[1], B.STORAGE), vertices_out = buffer(sizes[2], B.STORAGE | B.VERTEX);
+        const points = buffer(sizes[3], B.STORAGE), indices = buffer(sizes[4], B.STORAGE | B.INDEX);
+        const counts = buffer(total * 8, B.STORAGE), offsets = buffer(total * 8, B.STORAGE);
+        const args = buffer(32, B.STORAGE | B.INDIRECT | B.COPY_SRC), draw_args = buffer(32, B.INDIRECT | B.COPY_DST);
+        const read = { buffer: { type: "read-only-storage" } }, write = { buffer: { type: "storage" } }, uniform = { buffer: { type: "uniform" } };
+        const entries = list => list.map((resource, i) => ({ binding: 960 + i, resource: resource.buffer ? resource : { buffer: resource } }));
+        const layout_of = list => list.map((type, i) => Object.assign({ binding: 960 + i, visibility: 4 }, type));
+        const tc = this.stage_pipeline3(t.pipelines, group, t.control, "vx_tess_control", layout_of([uniform, read, read, write, write]));
+        const te = this.stage_pipeline3(t.pipelines, group, t.evaluation, "vx_tess_eval", layout_of([uniform, read, read, read, read, write]));
+        const tess = this.tessellator3();
+        const group0 = layout => this.device.createBindGroup({ layout, entries: group.groups[0].resources });
+        this.end_pass();
+        const pass = this.encoder.beginComputePass({ label: "GLES 3 tessellation" });
+        // the control shader: a workgroup a patch
+        pass.setPipeline(tc.pipeline);
+        pass.setBindGroup(0, group0(tc.layouts[0]));
+        pass.setBindGroup(1, this.device.createBindGroup({ layout: tc.layouts[1], entries: entries([
+            { buffer: this.uniform_buffer(new Uint32Array([total, captured.record / 4, per, per_instance, evaluation.domain, 0, 0, 0]).buffer) },
+            captured.records, captured.ids_buffer, control_points, patches]) }));
+        pass.dispatchWorkgroups(Math.min(total, 65535), Math.ceil(total / 65535));
+        // the tessellator: counts, sums, points and indices
+        const groups = Math.ceil(total / 64);
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: tess.layout, entries: [
+            { buffer: this.uniform_buffer(new Uint32Array([total, evaluation.domain, evaluation.spacing, evaluation.primitive, control.patch_stride / 4, 0,
+                points_most, indices_most]).buffer) },
+            { buffer: patches }, { buffer: counts }, { buffer: offsets }, { buffer: points }, { buffer: indices }, { buffer: args },
+        ].map((resource, binding) => ({ binding, resource })) }));
+        for(const [pipeline, n] of [[tess.count, groups], [tess.scan, 1], [tess.generate, groups]])
+        {
+            pass.setPipeline(pipeline);
+            pass.dispatchWorkgroups(Math.min(n, 65535), Math.ceil(n / 65535));
+        }
+        pass.end();
+        // the evaluation shader: an invocation a point (the dispatch the scan wrote: a pass of its own)
+        const evaluate = this.encoder.beginComputePass({ label: "GLES 3 tessellation evaluation" });
+        evaluate.setPipeline(te.pipeline);
+        evaluate.setBindGroup(0, group0(te.layouts[0]));
+        evaluate.setBindGroup(1, this.device.createBindGroup({ layout: te.layouts[1], entries: entries([
+            { buffer: this.uniform_buffer(new Uint32Array([per_instance, control.cp_stride, control.patch_stride, control.vertices, evaluation.domain, 0, 0, 0]).buffer) },
+            control_points, patches, points, args, vertices_out]) }));
+        evaluate.dispatchWorkgroupsIndirect(args, 0);
+        evaluate.end();
+        // (the draw's arguments: the scan's index count, one instance, the first instance 0, which indirect-first-instance would want otherwise)
+        this.encoder.copyBufferToBuffer(args, 12, draw_args, 0, 16);
+        this.stats.tessellation = (this.stats.tessellation || 0) + 1;
+        if(c.enabled.has(GL3.RASTERIZER_DISCARD) || c.viewport[2] <= 0 || c.viewport[3] <= 0) return;
+        const through = this.pass_shader3(t.pass, shaders);
+        const pass_shaders = { vertex: { module: through.module, entry: "vx_pass" }, fragment: shaders.fragment, outputs: shaders.outputs,
+            id: this.id_of(through.module) + ":" + this.id_of(shaders.fragment.module) };
+        const stride = 4 * evaluation.stride;
+        const list_vertex = { slots: [{ gpu: vertices_out, offset: 0, stride, step: "vertex", attributes: through.attributes }],
+            key: "t" + stride + ":" + JSON.stringify(through.attributes) };
+        const topology = ["point-list", "point-list", "line-list", "triangle-list", "triangle-list"][evaluation.primitive];
+        this.render3(c, target, pass_shaders, list_vertex, group, topology, undefined, [0, 0, 1, 4, 4][evaluation.primitive], render =>
+        {
+            render.setIndexBuffer(indices, "uint32");
+            render.drawIndexedIndirect(draw_args, 0);
+        });
+    },
+
     /**
      * A draw of a program with a geometry shader: the draw's primitives
      * assembled on the CPU; the vertex shader run as a compute shader over
@@ -1964,43 +2188,19 @@ export const GLES3 = {
         if(!drawn) return;
         const { vertices, per } = primitives_of(drawn.indices, mode, drawn.restart);
         if(per !== g.layout.input || !vertices.length) return;
-        let low = Infinity, high = -1;
-        for(const v of vertices) { if(v < low) low = v; if(v > high) high = v; }
-        if(high - low >= 1 << 24) return void this.note3("a vertex range past 2^24");
-        const plan = this.vertex_plan3(c, this.inputs3(program), instances);
-        if(!plan) return;
-        const vcount = high - low + 1, rebase = plan.cpu_vertex;
-        const vertex = this.vertex_buffers3(c, plan, { low, high, rebase, instances, indexed: false, first: low, count: vcount });
-        if(!vertex) return;
-        const capture = this.xfb3(program, vertex, true);
-        if(!capture) return;
-        // (the resources: the fragment shader's, and the vertex and geometry shaders' seen by compute shaders too)
-        const merged = new Map(shaders.bindings.map(b => [b.group + ":" + b.binding, Object.assign({}, b, { visibility: b.visibility | (b.visibility & 1 ? 4 : 0) })]));
-        for(const b of this.bindings3([[g.translation, 4, program]]))
-        {
-            const key = b.group + ":" + b.binding;
-            if(merged.has(key)) merged.get(key).visibility |= 4;
-            else merged.set(key, b);
-        }
-        const group = this.bind_groups3(c, [...merged.values()].sort((a, b) => a.group - b.group || a.binding - b.binding), target);
+        const group = this.stages_group3(c, program, shaders, [g.translation], target);
         if(!group) return;
         const layout = g.layout;
         const prims = vertices.length / per, total = prims * instances, invocations = total * layout.invocations;
-        const record = capture.xfb.strides[0], out_record = 4 * layout.stride;
-        const sizes = [vcount * instances * record, invocations * layout.max_vertices * out_record, invocations * layout.list * out_record];
-        const most = this.device.limits ? Math.min(this.device.limits.maxStorageBufferBindingSize, this.device.limits.maxBufferSize) : 1 << 27;
-        if(sizes.some(n => n > most) || Math.ceil(invocations / 64) > 65535) return void this.note3("a geometry shader's draw too large");
-        const [records, emitted, list] = sizes.map((n, i) => this.device.createBuffer({ label: "GLES geometry", size: Math.max(16, align4(n)),
-            usage: B.STORAGE | (i === 2 ? B.VERTEX : 0) }));
-        this.staging.push(records, emitted, list);
-        this.capture_pass3(capture, group, vertex, rebase ? 0 : low, vcount, instances, [records]);
-        // the primitives' records: each instance's after the last's
-        const ids = new Uint32Array(Math.max(4, vertices.length * instances));
-        for(let i = 0; i < instances; i++) for(let k = 0; k < vertices.length; k++) ids[i * vertices.length + k] = i * vcount + vertices[k] - low;
-        const ids_buffer = this.device.createBuffer({ label: "GLES geometry primitives", size: ids.byteLength, usage: B.STORAGE, mappedAtCreation: true });
-        new Uint32Array(ids_buffer.getMappedRange()).set(ids);
-        ids_buffer.unmap();
-        this.staging.push(ids_buffer);
+        const out_record = 4 * layout.stride;
+        const sizes = [invocations * layout.max_vertices * out_record, invocations * layout.list * out_record];
+        if(sizes.some(n => n > this.most3()) || Math.ceil(invocations / 64) > 65535) return void this.note3("a geometry shader's draw too large");
+        const captured = this.vertex_records3(c, program, group, vertices, instances);
+        if(!captured) return;
+        const { records, record, ids_buffer } = captured;
+        const [emitted, list] = sizes.map((n, i) => this.device.createBuffer({ label: "GLES geometry", size: Math.max(16, align4(n)),
+            usage: B.STORAGE | (i === 1 ? B.VERTEX : 0) }));
+        this.staging.push(emitted, list);
         const own = [{ binding: 960, visibility: 4, buffer: { type: "uniform" } }, { binding: 961, visibility: 4, buffer: { type: "read-only-storage" } },
             { binding: 962, visibility: 4, buffer: { type: "read-only-storage" } }, { binding: 963, visibility: 4, buffer: { type: "storage" } },
             { binding: 964, visibility: 4, buffer: { type: "storage" } }];
