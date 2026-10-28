@@ -3,7 +3,8 @@
 // headless Chrome's renderer page): a window cleared green with a
 // scissored red corner, its frame flushed into its color buffer and posted,
 // the frame read back (rows from the top: the red corner, GL's bottom left,
-// at the frame's bottom left), a color buffer read with its pixels.
+// at the frame's bottom left), a color buffer read with its pixels; a
+// snapshot's page state over the bridge and back.
 import assert from "node:assert/strict";
 import { GLESHost } from "../../src/gles/gles_host.js";
 import { chrome_renderer } from "./chrome_renderer.mjs";
@@ -35,7 +36,16 @@ try
     const f = frames[0];
     const at = (x, y) => Array.from(f.rgba.subarray((y * f.width + x) * 4, (y * f.width + x) * 4 + 4));
     assert.deepEqual([f.width, f.height, at(0, 7), at(0, 0), at(7, 7)], [8, 8, [255, 0, 0, 255], [0, 255, 0, 255], [0, 255, 0, 255]]);
-    console.log("PASS: the GLES host on a real GPU (" + JSON.stringify(renderer.stats) + ")");
+    // a snapshot over the bridge (E5): the page's state fetched, the page
+    // reset and given it back; the color buffer reads as before
+    await host.prepare_save();
+    const state = host.get_state();
+    assert.ok(state[2] && state[2][1].length > 0, "the page's state, with the GPU's contents");
+    host.set_state(state);
+    const back = await call("rcReadColorBuffer", buffer, 0, 0, 8, 8, 0x1908, 0x1401, 256);
+    const px = (x, y) => Array.from(back.outs[0].subarray((y * 8 + x) * 4, (y * 8 + x) * 4 + 4));
+    assert.deepEqual([px(0, 7), px(0, 0), px(7, 7)], [[255, 0, 0, 255], [0, 255, 0, 255], [0, 255, 0, 255]], "restored: the color buffer's picture");
+    console.log("PASS: the GLES host on a real GPU, a snapshot round trip (" + JSON.stringify(renderer.stats) + ")");
 }
 finally
 {

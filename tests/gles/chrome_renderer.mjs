@@ -4,7 +4,9 @@
 // executor) and the channel's messages cross over HTTP: the page long-polls
 // GET /gles/next for what the device posts, POSTs /gles/reply with the
 // renderer's answers. Each message is five u32s (kind, two values, the
-// stream, the byte length), then its bytes padded to a u32.
+// stream, the byte length), then its bytes padded to a u32. A snapshot's
+// GLES state ([json, buffers], src/gles/gles_snapshot.js) crosses as one
+// byte string (encode_state).
 //
 // chrome_renderer({ record }) resolves to the channel once the page is up;
 // with `record` every batch also goes into that file (as recording_renderer
@@ -19,7 +21,47 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 /** message kinds: the device's, then the renderer's */
-export const KIND = { submit: 1, reset: 2, hello: 3, done: 11, write: 12, frame: 13, lost: 14, caps: 15 };
+export const KIND = { submit: 1, reset: 2, hello: 3, gles_save: 4, gles_restore: 5, done: 11, write: 12, frame: 13, lost: 14, caps: 15,
+    gles_saved: 16 };
+
+/** A packed state ([json, buffers]) as bytes: the JSON's length and UTF-8, the count, each buffer's length and bytes */
+export function encode_state([json, buffers])
+{
+    const text = new TextEncoder().encode(json);
+    const out = new Uint8Array(8 + text.length + buffers.reduce((n, b) => n + 4 + b.length, 0));
+    const view = new DataView(out.buffer);
+    view.setUint32(0, text.length, true);
+    out.set(text, 4);
+    let at = 4 + text.length;
+    view.setUint32(at, buffers.length, true);
+    at += 4;
+    for(const b of buffers)
+    {
+        view.setUint32(at, b.length, true);
+        out.set(b, at + 4);
+        at += 4 + b.length;
+    }
+    return out;
+}
+
+/** @param {!Uint8Array} bytes encode_state's @return {!Array<*>} [json, buffers] */
+export function decode_state(bytes)
+{
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const length = view.getUint32(0, true);
+    const json = new TextDecoder().decode(bytes.subarray(4, 4 + length));
+    let at = 4 + length;
+    const count = view.getUint32(at, true);
+    at += 4;
+    const buffers = [];
+    for(let i = 0; i < count; i++)
+    {
+        const n = view.getUint32(at, true);
+        buffers.push(bytes.slice(at + 4, at + 4 + n));
+        at += 4 + n;
+    }
+    return [json, buffers];
+}
 
 /** @param {!Array<{kind: number, a: number, b: number, stream: number, bytes: ?Uint8Array}>} messages @return {!Uint8Array} */
 export function encode_messages(messages)
@@ -101,6 +143,7 @@ export async function chrome_renderer(options = {})
                         case KIND.frame: stats.frames++; listener({ type: "frame", width: m.a, height: m.b, bytes: m.bytes }); break;
                         case KIND.lost: listener({ type: "lost", reason: new TextDecoder().decode(m.bytes) }); break;
                         case KIND.caps: listener({ type: "caps", present: !!m.a }); break;
+                        case KIND.gles_saved: listener({ type: "gles_saved", id: m.a, state: m.b ? decode_state(m.bytes) : null }); break;
                     }
                 }
             });
@@ -163,6 +206,8 @@ export async function chrome_renderer(options = {})
                     break;
                 case "reset": queue({ kind: KIND.reset, a: 0, b: 0, bytes: null }); break;
                 case "hello": queue({ kind: KIND.hello, a: 0, b: 0, bytes: null }); break;
+                case "gles_save": queue({ kind: KIND.gles_save, a: message.id, b: 0, bytes: null }); break;
+                case "gles_restore": queue({ kind: KIND.gles_restore, a: 0, b: 0, bytes: encode_state(message.state) }); break;
             }
         },
         close()

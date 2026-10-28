@@ -7,9 +7,46 @@
 // The page end of tests/gles/chrome_renderer.mjs: the renderer
 // (V86SVGARenderer, its GLES executor) on this page's GPU, its channel's
 // messages over HTTP (GET /gles/next, POST /gles/reply; five u32s, then the
-// bytes padded to a u32).
+// bytes padded to a u32; a snapshot's GLES state as tests/gles/chrome_renderer.mjs's encode_state).
 "use strict";
-const KIND = { submit: 1, reset: 2, hello: 3, done: 11, write: 12, frame: 13, lost: 14, caps: 15 };
+const KIND = { submit: 1, reset: 2, hello: 3, gles_save: 4, gles_restore: 5, done: 11, write: 12, frame: 13, lost: 14, caps: 15, gles_saved: 16 };
+
+function encode_state([json, buffers])
+{
+    const text = new TextEncoder().encode(json);
+    const out = new Uint8Array(8 + text.length + buffers.reduce((n, b) => n + 4 + b.length, 0));
+    const view = new DataView(out.buffer);
+    view.setUint32(0, text.length, true);
+    out.set(text, 4);
+    let at = 4 + text.length;
+    view.setUint32(at, buffers.length, true);
+    at += 4;
+    for(const b of buffers)
+    {
+        view.setUint32(at, b.length, true);
+        out.set(b, at + 4);
+        at += 4 + b.length;
+    }
+    return out;
+}
+
+function decode_state(bytes)
+{
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const length = view.getUint32(0, true);
+    const json = new TextDecoder().decode(bytes.subarray(4, 4 + length));
+    let at = 4 + length;
+    const count = view.getUint32(at, true);
+    at += 4;
+    const buffers = [];
+    for(let i = 0; i < count; i++)
+    {
+        const n = view.getUint32(at, true);
+        buffers.push(bytes.slice(at + 4, at + 4 + n));
+        at += 4 + n;
+    }
+    return [json, buffers];
+}
 let handler = null;
 let outbox = [];
 let sending = null;
@@ -48,6 +85,9 @@ const channel = {
             case "frame": outbox.push({ kind: KIND.frame, a: message.width, b: message.height, bytes: new Uint8Array(message.bytes) }); break;
             case "lost": outbox.push({ kind: KIND.lost, a: 0, b: 0, bytes: new TextEncoder().encode(String(message.reason)) }); break;
             case "caps": outbox.push({ kind: KIND.caps, a: message.present ? 1 : 0, b: 0, bytes: null }); break;
+            case "gles_saved":
+                outbox.push({ kind: KIND.gles_saved, a: message.id, b: message.state ? 1 : 0, bytes: message.state ? encode_state(message.state) : null });
+                break;
         }
         queueMicrotask(flush);
     },
@@ -70,6 +110,8 @@ const channel = {
                 if(kind === KIND.submit) handler({ type: "submit", seq: a, bytes: body, stream: stream === 1 ? "gles" : undefined });
                 else if(kind === KIND.reset) handler({ type: "reset" });
                 else if(kind === KIND.hello) handler({ type: "hello" });
+                else if(kind === KIND.gles_save) handler({ type: "gles_save", id: a });
+                else if(kind === KIND.gles_restore) handler({ type: "gles_restore", state: decode_state(body) });
             }
         }
     } catch(error) {

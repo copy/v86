@@ -423,9 +423,16 @@ GLESHost.prototype.prepare_save = async function()
     this.page_state = null;
     if(this.lost) return;
     const id = this.next_request++;
+    // (a page that does not answer within a minute: the snapshot goes without its contents)
     this.page_state = await new Promise(resolve =>
     {
-        this.saves.set(id, resolve);
+        const timer = setTimeout(() =>
+        {
+            this.saves.delete(id);
+            console.warn("GLES: the page did not give its state for the snapshot; its textures and color buffers are not kept");
+            resolve(null);
+        }, 60000);
+        this.saves.set(id, state => { clearTimeout(timer); resolve(state); });
         this.renderer.post({ "type": "gles_save", "id": id });
     });
 };

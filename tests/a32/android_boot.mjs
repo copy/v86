@@ -435,10 +435,11 @@ try
         {
             const command_line = `--deqp-caselist-file=/sdcard/deqp-cases.txt --deqp-gl-config-name=rgba8888d24s8ms0 --deqp-surface-type=window ` +
                 `--deqp-screen-rotation=unspecified --deqp-log-images=disable --deqp-log-shader-sources=disable --deqp-watchdog=enable`;
-            await ask(`cp /data/local/tmp/${chunk.name} /sdcard/deqp-cases.txt; rm -f /sdcard/deqp.qpa`, "A32_DEQP_CASES", 600000);
+            // (the console's shell has no access to /sdcard, which the tester reads and writes: as root)
+            await ask(`su 0 sh -c 'cp /data/local/tmp/${chunk.name} /sdcard/deqp-cases.txt; rm -f /sdcard/deqp.qpa'`, "A32_DEQP_CASES", 600000);
             const run = await ask(`am instrument -w -e deqpLogFileName /sdcard/deqp.qpa -e deqpCmdLine "${command_line}" -e deqpLogData false ` +
                 `com.drawelements.deqp/com.drawelements.deqp.testercore.DeqpInstrumentation`, "A32_DEQP_RUN", 7200000);
-            const log = await ask("grep -E '^#beginTestCaseResult|StatusCode=|^#endTestCaseResult|^#terminateTestCaseResult' /sdcard/deqp.qpa",
+            const log = await ask("su 0 grep -E '^#beginTestCaseResult|StatusCode=|^#endTestCaseResult|^#terminateTestCaseResult' /sdcard/deqp.qpa",
                 "A32_DEQP_LOG", 1200000);
             let current = null;
             for(const line of log.split("\n"))
@@ -454,7 +455,13 @@ try
             const counts = {};
             for(const c of chunk.cases) counts[results[c]] = (counts[results[c]] || 0) + 1;
             console.log(`${chunk.name}: ${JSON.stringify(counts)} (${((performance.now() - started_deqp) / 1000).toFixed(0)} s)` +
-                (/INSTRUMENTATION_FAILED|Process crashed/.test(run) ? " " + run.replace(/\s+/g, " ").slice(-300) : ""));
+                (/INSTRUMENTATION_FAILED|Process crashed|Exception=/.test(run) ? " " + run.replace(/\s+/g, " ").slice(-300) : ""));
+            // (a run that ran nothing: its tester's crash, if any, from the log)
+            if(chunk.cases.every(c => results[c] === "NotRun"))
+            {
+                console.log((await ask("logcat -d -v brief -b crash -b main '*:E' | grep -i -E 'deqp|drawelements|Fatal|backtrace|#0[0-9] pc' | tail -25",
+                    "A32_DEQP_CRASH", 600000)).replace(/\r/g, "").split("\n").slice(1).join("\n").slice(0, 3000));
+            }
             fs.writeFileSync(run_directory + "deqp.json", JSON.stringify(results, null, 1));
         }
         const by_status = {};

@@ -621,6 +621,22 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
 - 等页面的只有 20 次 `rcReadColorBuffer`（读回，不是查询），没有任何查询等待页面；
 - 影子状态拒绝的调用：0（计数里曾把 `glGen*` 当成拒绝，已改）。
 
+### E3 结论（2026-10-28）
+
+`A32_ANDROID_GPU=host A32_ANDROID_RENDERER=chrome node tests/a32/android_boot.mjs`（无头 Chrome 的 WebGPU 画）：
+- `sys.boot_completed` 在 247–333 秒（机器上同时跑几个模拟器时偏慢）；同一时期客体模式是 449 秒（单独跑）到 705 秒；
+- 主屏幕由主机 GPU 合成：状态栏、启动器、图标与文字、导航栏、通知栏与快速设置都对；E2 录下的一次启动在浏览器里重放，
+  与实时画面逐像素相同；
+- **壁纸**：8 次主机模式的启动里只有 1 次画出了默认壁纸（颜色、位置都对），其余是黑的。黑的那几次 SurfaceFlinger 的
+  `ImageWallpaper` 层可见、不透明、没有被盖住，但从没收到过缓冲（1×1，`activeBuffer` 空）；壁纸引擎重建后没再画
+  （`mBackgroundWidth=-1`），WindowManager 却记为已画（`HAS_DRAWN`）。壁纸的像素到过主机（一次完整的
+  `rcUpdateColorBuffer`）。看起来是 Android 壁纸服务在启动时的竞争，不是 GLES 的绘制路径；客体模式只跑成一次，
+  不能说它那边不会发生。记为已知缺陷。壁纸层的位置有约 0.9 像素的偏移（最左一列黑），真 GPU 按像素中心光栅化也如此。
+- **设备设置**：去掉 `ro.config.low_ram` 并打开开机动画（`A32_ANDROID_PROPS="ro.config.low_ram=" A32_ANDROID_BOOTANIM=1`）
+  启动 281 秒，没有进程崩溃，空闲内存 643 MB。系统界面改走 hwui 的 GL 后，滑动设置与通知栏的帧率反而从 5.6 降到 3.6
+  帧每秒（同样的画面，这个 CPU 上软件绘制加上传比 GL 路径便宜）。所以保留低内存设置，开机动画也不默认打开；机器
+  时钟的放慢照旧。
+
 ### E7 的测量（2026-10-28）
 
 按 E7 一节的方法，在 gfxstream 模式下测：从 `build/a64-android/a10-desktop-gfxstream.v7`（官方镜像的桌面）恢复，
