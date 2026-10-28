@@ -596,6 +596,29 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
 - 自建 APK 的点全对；
 - 每个失败归类：修掉，或者记为偏差。
 
+**L4 结论（2026-10-28）：完成**。dEQP 子集在 Android 7.1 上跑（`A32_ANDROID_DEQP_SUITE=gles3`，宿主宣告 3.0；客体的 EGL 不带
+`EGL_KHR_create_context`，测试脚本给 system.img 的副本打补丁）：
+
+- **dEQP-GLES3 子集**（5649 例：`state_query`、`negative_api` 全部，其余 functional 每九取一，加 5 个 EGL 的 info）：支持的
+  5354 例中 5300 例通过（99.0%）；`state_query` 与 `negative_api` 1224 例中 1219 例（99.6%）；没有崩溃，没有挂起。分三次跑：
+  `v86-gles3-deqp`（前 1650 例，笔记本睡眠打断）、`v86-gles3-deqp2`（其余，用 `A32_ANDROID_DEQP_RESUME` 接着跑）、
+  `v86-gles3-deqp3`（之前失败的 341 例用最新代码重跑）。
+- **dEQP-GLES2 子集**（E4，同一个 3.x 执行器：客体的 EGL 把 2.0 上下文建成宣告的最高版本）：2039 例中 2022 例（99.2%），比
+  L0 的基线好。
+- **自建 APK**：GLES 1.1、2.0、3.0、3.1 的场景全对（`v86-gles31-app2`、`v86-gles31-app3`）。
+- **这一阶段跑出来并修掉的**（每个都有测试）：glslang 的上限从没设过（`gl_Max*` 都是 glslang 的默认）；6 字节的索引缓冲没上
+  GPU；2.0 上下文其实是 3.x 的（未生成名字的绑定、2.0 的扩展名单）；1.00 的 overload 误判；`DEPTH_STENCIL_TEXTURE_MODE`
+  与模板采样；整数纹理的 REPEAT（取模成了余数）；`textureSize` 的 lod；Metal 编译器的 `atan2(y, 0)` 与 `tanh`；非整块的 ETC2/EAC
+  （GPU 解码）；shared 与 packed 的 uniform 块（glslang 按 std430 反射）；有实例名与实例数组的块没有绑定；RGB 格式的 alpha；只接
+  模板的深度模板缓冲；越界的 blit；目标因子 `SRC_ALPHA_SATURATE`；丢弃光栅化时的清除；GL 的引发顶点（flat 变量取最后一个顶点）；
+  `negative_api` 的错误码；模板掩码与 LOD 的查询换算。
+- **剩下的 54 例**：
+  - 偏差：常量颜色与常量 alpha 混用（G-70，10 例）；阴影采样的显式 LOD 与梯度（G-76，5 例）；宽点（G-64，1 例）；
+  - `ubo.random` 20 例与 4 例实例数组的块（std140 的复杂布局：数组、嵌套结构、行主序矩阵的报告与读取，未查）；
+  - `fragment_ops` 的随机与交互用例 5 例、`fbo` 的多重采样与深度模板 blit 3 例、`rasterization` 的多重采样点 1 例（未查）；
+  - `state_query` 5 例（渲染缓冲的分量大小、立方体面的附着、`glGetInteger64v` 的元素缓冲绑定、变换反馈的起点与大小：在
+    Node 里照 dEQP 的调用答得对，可能是客体库自己记账的值，未查）。
+
 ### L5 ES 3.1
 
 - **内容**：影子（`gles31_state.js`）与执行器的计算、SSBO、图像、原子计数器、间接绘制、可分离程序与程序管线、
