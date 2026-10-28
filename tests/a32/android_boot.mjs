@@ -159,9 +159,11 @@ if(process.env.A32_ANDROID_MEDIA === "1")
     assert.ok(!deqp, "A32_ANDROID_MEDIA and A32_ANDROID_DEQP both want the fourth disk");
     const apks = ROOT + "build/a32-android/apks/";
     const games = [
-        { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk",
+        // (steps: [x, y] taps in the screen's pixels, each with a screenshot after it: into the game)
+        { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk", steps: [[200, 360], [240, 400], [240, 400]],
             url: "https://f-droid.org/archive/com.replica.replicaisland_14.apk", sha256: "35d900fabe6bbc05899c3fcc0fb5926a5a901d807889d0d111b34a1e87d7acde" },
         { name: "shatteredpixeldungeon", package: "com.shatteredpixel.shatteredpixeldungeon", file: "shatteredpixeldungeon_921.apk",
+            steps: [[240, 750], [240, 750], [240, 400]],
             url: "https://f-droid.org/repo/com.shatteredpixel.shatteredpixeldungeon_921.apk", sha256: "dbd8205680e89758babf608212a1fb3f498f732118b1e3c0b9fd33bf67486a99" },
     ];
     const root = run_directory + "media-disk/";
@@ -331,10 +333,11 @@ try
     // (background ANRs are shown, not killed: their dialogs' Wait, found by uiautomator)
     const dismiss_dialogs = async () =>
     {
-        for(let i = 0; i < 8 && /Not Responding/.test(await focus()); i++)
+        for(let i = 0; i < 8 && /Not Responding|Application Error/.test(await focus()); i++)
         {
-            const dump = await ask("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; grep -o 'text=\"Wait\"[^>]*bounds=\"[^\"]*\"' /data/local/tmp/ui.xml",
-                "A32_UI", 900000);
+            // (an ANR's Wait; a crash's "Close app")
+            const dump = await ask("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; " +
+                "grep -o -E 'text=\"(Wait|Close app|OK)\"[^>]*bounds=\"[^\"]*\"' /data/local/tmp/ui.xml | head -1", "A32_UI", 900000);
             const m = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(dump);
             if(!m) break;
             await ask(`input tap ${(+m[1] + +m[3]) >> 1} ${(+m[2] + +m[4]) >> 1}`, "A32_TAP", 600000);
@@ -396,9 +399,13 @@ try
             events.click([false]);
             await new Promise(resolve => setTimeout(resolve, settle));
         };
-        // (a scroll: one swipe up inside the list, the list's rows moved)
+        // (a scroll: Android's own swipe up inside the list, 1 s of the guest's
+        // time; the harness's swipes are 50 ms of it at the slowed clock,
+        // which Android takes for other gestures), the list's rows moved
+        await dismiss_dialogs();
         const before_scroll = sink.rgba.slice();
-        await swipe(fb.height * 0.75, fb.height * 0.35, 30000);
+        await ask(`input swipe ${fb.width / 2} ${fb.height * 0.75 | 0} ${fb.width / 2} ${fb.height * 0.35 | 0} 1000`, "A32_SCROLL", 900000);
+        await new Promise(resolve => setTimeout(resolve, 20000));
         let moved = 0;
         for(let i = 0; i < sink.rgba.length; i += 4) if(sink.rgba[i] !== before_scroll[i] || sink.rgba[i + 1] !== before_scroll[i + 1]) moved++;
         console.log(`scroll: ${(100 * moved / (sink.rgba.length / 4)).toFixed(1)}% of the pixels changed`);
@@ -553,7 +560,12 @@ try
             const out = await ask(`su 0 sh -c '${step}' 2>&1`, "A32_MEDIA_COPY", 900000);
             if(/denied|No such|failed|Invalid/i.test(out)) console.log("media copy: " + out.replace(/\s+/g, " ").slice(-300));
         }
-        // a video: Gallery's player, the frame's middle green (YV12 from the decoder, RGB from gralloc)
+        // a video: Gallery's player, the frame's middle green (YV12 from the decoder, RGB from gralloc);
+        // the GLES test app closed first (its frame has green in it)
+        await ask("am force-stop org.v86.gles; input keyevent 3", "A32_VIDEO_CLEAN", 600000);
+        // (YouTube's native code stops on an instruction the arm32 core lacks, SIGILL, again and again:
+        // its "keeps stopping" dialogs would cover the video and the games; not GLES)
+        await ask("su 0 pm disable com.google.android.youtube", "A32_NO_YOUTUBE", 900000);
         await dismiss_dialogs();
         console.log("video: " + (await ask("am start -a android.intent.action.VIEW -d file:///sdcard/green.mp4 -t video/mp4 " +
             "-n com.android.gallery3d/.app.MovieActivity", "A32_VIDEO", 900000)).replace(/\s+/g, " ").slice(-160));
@@ -571,9 +583,15 @@ try
             return n;
         };
         const video_by = performance.now() + 600000;
-        while(green() < 20 && performance.now() < video_by) await new Promise(resolve => setTimeout(resolve, 5000));
-        console.log(`video: ${green()} green samples; focus ${await focus()}; frames ${fb.frames}`);
+        while(green() < 20 && performance.now() < video_by)
+        {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            await dismiss_dialogs();
+        }
+        const player = await focus();
+        console.log(`video: ${green()} green samples; focus ${player}; frames ${fb.frames}`);
         save_png(sink, run_directory, "video");
+        assert.match(player, /MovieActivity/, "Gallery's player has the focus");
         assert.ok(green() >= 20, "the video's frame is shown (green)");
         await ask("input keyevent 4; input keyevent 3", "A32_VIDEO_HOME", 600000);
         // the games: installed, started, a minute of taps and swipes, still running and drawing
@@ -587,6 +605,13 @@ try
             await dismiss_dialogs();
             save_png(sink, run_directory, game.name + "-start");
             const events = emulator.v86.cpu.devices.goldfish_events;
+            for(const [i, [x, y]] of game.steps.entries())
+            {
+                events.tap(x, y, fb.width, fb.height);
+                await new Promise(resolve => setTimeout(resolve, 45000));
+                await dismiss_dialogs();
+                save_png(sink, run_directory, `${game.name}-step${i + 1}`);
+            }
             const frames_before = fb.frames, calls_before = Object.values(gles_summary()?.counts || {}).reduce((n, c) => n + c, 0);
             const play_until = performance.now() + 60000;
             for(let i = 0; performance.now() < play_until; i++)

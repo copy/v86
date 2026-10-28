@@ -39,8 +39,9 @@ function check(condition, what) { if(!condition) throw new Error(what); }
     {
         const config = preset_config(preset("android7_arm32"));
         config.name = "Android 7.1 (GLES test)";
+        // (read_only: the guest's writes stay in memory; read_write would need a disk service)
         config.disks = [{ slot: "hda", image: { kind: "url", url: "/build/a32-android/disk.img", async: true },
-            disk_option: "read_write", disk_error: "stop" }];
+            disk_option: "read_only", disk_error: "stop" }];
         if(args.get("worker") === "0") config.advanced.cpu_worker = false;
         check(config.android.gpu_mode === "host", "the preset's GPU is the host's: " + config.android.gpu_mode);
         const store = await VMStore.open();
@@ -53,8 +54,19 @@ function check(condition, what) { if(!condition) throw new Error(what); }
         const w = frame.contentWindow;
         const emulator = await until(() => w.v86_console?.emulator, "the console's emulator", 120000);
         log("emulator up (" + (config.advanced.cpu_worker ? "CPU Worker" : "CPU in the page") + "), " + seconds());
-        let serial = "";
-        emulator.add_listener("serial0-output-byte", byte => { serial = (serial + String.fromCharCode(byte)).slice(-20000); });
+        let serial = "", serial_bytes = 0;
+        emulator.add_listener("serial0-output-byte", byte => { serial_bytes++; serial = (serial + String.fromCharCode(byte)).slice(-20000); });
+        // (progress every minute: the console's last line, the guest's instructions, the page's GLES executor)
+        const progress = setInterval(() =>
+        {
+            const g = emulator.adapter_renderer && emulator.adapter_renderer.gles;
+            const last = serial.split("\n").map(l => l.trim()).filter(Boolean).slice(-1)[0] || "";
+            const doc = frame.contentDocument;
+            const status = [".console-status", ".console-notice"].map(q => doc.querySelector(q)).filter(Boolean)
+                .map(e => e.textContent.trim()).filter(Boolean).join(" | ");
+            log(seconds() + ": console \"" + status.slice(0, 200) + "\"; serial " + serial_bytes + " bytes, last \"" + last.slice(0, 100) + "\"; instructions " +
+                emulator.get_instruction_counter() + "; gles " + (g ? JSON.stringify({ batches: g.stats.batches, draws: g.stats.draws, posts: g.stats.posts }) : "none"));
+        }, 60000);
         // (the console's shell, then sys.boot_completed, asked now and then: a computed answer)
         let tick = 0;
         await until(() =>
@@ -64,8 +76,9 @@ function check(condition, what) { if(!condition) throw new Error(what); }
             return false;
         }, "sys.boot_completed", 1500000);
         log("boot completed, " + seconds());
-        // (the launcher's frames: the page's executor, then the screen)
-        await sleep(60000);
+        clearInterval(progress);
+        // (the screen woken, the keyguard dismissed, home: as tests/a32/android_boot.mjs; until then the display is dark)
+        emulator.serial0_send("input keyevent 224; sleep 2; wm dismiss-keyguard; sleep 2; input keyevent 3\n");
         const renderer = emulator.adapter_renderer;
         check(renderer && renderer.gles, "the page has the GLES executor");
         const stats = renderer.gles.stats;
@@ -74,17 +87,31 @@ function check(condition, what) { if(!condition) throw new Error(what); }
         check(stats.errors.length === 0, "no executor errors: " + stats.errors.join("; "));
         // (frames as a layer of the screen's compositor, not read back: the executor has the layer)
         check(renderer.gles.layer, "the posted frames go to a layer of the screen's compositor");
-        const image = emulator.screen_make_screenshot();
-        await new Promise(resolve => { if(image.complete) resolve(); else image.onload = resolve; });
-        const shot = document.createElement("canvas");
-        shot.width = image.width;
-        shot.height = image.height;
-        const context = shot.getContext("2d");
-        context.drawImage(image, 0, 0);
-        const pixels = context.getImageData(0, 0, shot.width, shot.height).data;
-        const colors = new Set();
-        for(let i = 0; i < pixels.length; i += 4 * 97) colors.add(pixels[i] << 16 | pixels[i + 1] << 8 | pixels[i + 2]);
-        log("screen " + shot.width + "x" + shot.height + ", " + colors.size + " colors");
+        // (the screen through the console's screenshot: the compositor's picture, the layer in it; until it has Android's colors)
+        let shot, pixels, colors;
+        await until(async () =>
+        {
+            const image = emulator.screen_make_screenshot();
+            await new Promise(resolve => { if(image.complete) resolve(); else image.onload = resolve; });
+            shot = document.createElement("canvas");
+            shot.width = image.width;
+            shot.height = image.height;
+            const context = shot.getContext("2d");
+            context.drawImage(image, 0, 0);
+            pixels = context.getImageData(0, 0, shot.width, shot.height).data;
+            colors = new Set();
+            for(let i = 0; i < pixels.length; i += 4 * 97) colors.add(pixels[i] << 16 | pixels[i + 1] << 8 | pixels[i + 2]);
+            return colors.size > 20;
+        }, "the home screen on the screen", 600000).catch(() => {});
+        log("screen " + shot.width + "x" + shot.height + ", " + colors.size + " colors; first pixel " + Array.from(pixels.subarray(0, 4)));
+        // (the compositor's view: device, scanout, layers)
+        const compositor = emulator.gles_compositor;
+        log("compositor: " + (compositor ? JSON.stringify({ same_device: compositor.device === renderer.gles.device,
+            scanout: !!compositor.scanout, size: [compositor.canvas.width, compositor.canvas.height], stats: compositor.stats,
+            layers: compositor.layers.map(l => ({ name: l.name, visible: l.visible, texture: !!l.texture, same: l.textureDevice === compositor.device,
+                place: [l.x, l.y, l.width, l.height] })) }) : "none"));
+        // (the picture itself, for the report: a data URL in the log)
+        log("screenshot " + shot.toDataURL("image/png"));
         check(shot.width === 480 && shot.height === 800, "the screen is the device's 480 by 800");
         check(colors.size > 20, "the screen shows Android's picture");
         document.getElementById("result").textContent = "PASS " + lines.join("; ");
