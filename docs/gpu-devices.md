@@ -1078,16 +1078,24 @@ its progress in [gfxstream-plan.md](gfxstream-plan.md).
 
 ## GLES (the ranchu machine)
 
-Not a display adapter: Android 7.1's emulator image on the ranchu machine sends GLES 2.0 and 1.1 over the goldfish
-pipe ([arm32.md](arm32.md#the-hosts-gpu-gpu_mode-host), [gles-proxy-plan.md](gles-proxy-plan.md)). It shares the
+Not a display adapter: Android 7.1's emulator image on the ranchu machine sends GLES 1.1, 2.0 and 3.x over the
+goldfish pipe ([arm32.md](arm32.md#the-hosts-gpu-gpu_mode-host), [gles-proxy-plan.md](gles-proxy-plan.md),
+[gles3-plan.md](gles3-plan.md)). It shares the
 adapters' renderer channel and page: the GLES host (`build/v86-gles.js`, on the machine's thread) answers queries from
 its shadow state and sends GLES batches (`renderer_protocol.js`'s `GLES` records, magic `GE10`) as stream `"gles"`;
 `svga_renderer.js` runs them on its WebGPU device with the GLES executor (`src/gles/page/`, bundled into
 `libv86-webgpu.js`), answers reads with `write` and shows posted frames in the compositor's layer, or hands them back
-as `frame` messages. GLSL ES goes through gl-webgpu's translator in its ES mode and GLES 1.1's fixed function through
-gl-webgpu's generator, the same code as the XP OpenGL path. For snapshots the host asks the page for the executor's
-state (`gles_save`, the GPU's contents read back) and gives it back after a reset (`gles_restore`). Deviations:
-[G-64 to G-69](gpu-deviations.md#gles-the-ranchu-machines-gles-host).
+as `frame` messages. The host announces GLES 3.0 by default (`android.gles_version`: 2.0 to 3.2). With glslang
+(`bios/glslang.wasm`) every GLSL ES version, 1.00 included, is checked and compiled to SPIR-V on the machine's thread
+and linked there; the link goes to the page in the batch (`PROGRAM_LINK`), whose ES 3.x executor
+(`gles3_executor.js`) translates each stage with vx_naga (the Venus executor's translator, `vx_naga.wasm`). WebGPU's
+missing stages run as compute shaders: transform feedback, geometry shaders and tessellation (vx_naga's `xfb.rs`,
+`geometry.rs`, `tessellation.rs`, the latter around GX's tessellator); maps of buffers the GPU wrote and occlusion
+results are read back on demand (`BUFFER_READ`, `QUERY_READ`). Without glslang, GLSL ES 1.00 goes through gl-webgpu's
+translator in its ES mode; GLES 1.1's fixed function goes through gl-webgpu's generator, the same code as the XP
+OpenGL path. For snapshots the host asks the page for the executor's state (`gles_save`, the GPU's contents read
+back) and gives it back after a reset (`gles_restore`). Deviations:
+[G-64 to G-75](gpu-deviations.md#gles-the-ranchu-machines-gles-host).
 
 ## GX
 

@@ -66,8 +66,10 @@ partitions the machine's virtio disks (`src/android/partition_buffer.js`).
 ### The host's GPU (`gpu_mode: "host"`)
 
 With the device model's `gpu_mode: "host"` (`ranchu_gpu: "host"`; the VM manager's default where the page has WebGPU)
-the image runs as the emulator runs it with a host GPU: `qemu.gles=1`, its EGL and GLES libraries encode GLES 2.0 and
-1.1 into the goldfish pipe's `opengles` service, gralloc's buffers are the host's color buffers, and SurfaceFlinger
+the image runs as the emulator runs it with a host GPU: `qemu.gles=1`, its EGL and GLES libraries encode GLES 1.1, 2.0
+and 3.x (the device model's `gles_version`, the VM manager's `android.gles_version`: 2.0, 3.0 (the default), 3.1 or 3.2,
+announced to the guest and in `ro.opengles.version`; [gles3-plan.md](gles3-plan.md)) into the goldfish pipe's
+`opengles` service, gralloc's buffers are the host's color buffers, and SurfaceFlinger
 composes with GLES. The GLES host ([gles-proxy-plan.md](gles-proxy-plan.md), the plugin `build/v86-gles.js`) answers
 every query from its shadow state on the machine's thread and sends the rest in batches to the page's WebGPU renderer
 (the display adapters' renderer channel, `svga_renderer.js`'s stream `"gles"`), whose GLES executor draws them; a
@@ -95,9 +97,10 @@ draw it), no sound (goldfish_audio's buffers are consumed in time, not played), 
 | kvm-unit-tests arm (`tests/kvm-unit-tests/build.sh arm`) | `node tests/kvm-unit-tests/arm32.mjs` | both |
 | The ranchu machine's devices through their registers: the device tree, virtio-mmio's legacy transport with virtio-blk, goldfish_events, _battery, _audio, _pipe (qemud's boot properties), the framebuffer, `/cache`'s file system, snapshots | `node tests/a32/ranchu_devices.mjs` | v86 |
 | Android 7.1.1 to `sys.boot_completed`, the screen woken and unlocked, the home screen; `A32_ANDROID_APP=1`: a tap on the hotseat opens an app, a 32-bit APK (`tests/a32/android/v86arm32.c`, sent over the console) is installed and draws a frame (`A32_ANDROID_DISK=1`: the imported disk through the bootloader; `A32_ANDROID_SAVE_STATE`, `A32_ANDROID_RESTORE_STATE`; `A32_ANDROID_LOGCAT=1`; `A32_ANDROID_PROBE`: shell commands) | `node tests/a32/android_boot.mjs` | v86 |
-| The host's GPU (`A32_ANDROID_GPU=host`; `A32_ANDROID_RENDERER=chrome`: drawn by headless Chrome's WebGPU, otherwise the batches are recorded): `A32_ANDROID_GLES_APP=1` the GLES 2.0 and 1.1 test app (`tests/a32/android/v86gles.c`), `A32_ANDROID_DEQP=1` the dEQP subset of CTS 7.1, `A32_ANDROID_SCREEN` a screen and its frame rate while swiped | `node tests/a32/android_boot.mjs` | v86 |
+| The host's GPU (`A32_ANDROID_GPU=host`; `A32_ANDROID_RENDERER=chrome`: drawn by headless Chrome's WebGPU, otherwise the batches are recorded; `A32_ANDROID_GLES_VERSION` the version announced): `A32_ANDROID_GLES_APP=1` the GLES 1.1, 2.0 and 3.x test app (`tests/a32/android/v86gles.c`), `A32_ANDROID_DEQP=1` the dEQP subset of CTS 7.1 (`A32_ANDROID_DEQP_SUITE`: `gles2`, `gles3` or `gles31`; the GLES 3.x suites boot a copy of system.img whose EGL names `EGL_KHR_create_context`, which dEQP wants), `A32_ANDROID_SCREEN` a screen and its frame rate while swiped | `node tests/a32/android_boot.mjs` | v86 |
 | The GLES host's parts: the wire format, streams, renderControl, the shadow state, batches, snapshots | `make gles-tests` | Node |
 | The GLES executor on a real GPU (draws, textures, FBOs, GLES 1.1, a snapshot round trip) | `node tests/glbridge/gl_multipass_browser_runner.js gles_executor_browser_test.html` | Chrome |
+| The GLES 3.x executor on a real GPU (GLES 3.0 to 3.2: vertex arrays, formats, transform feedback, compute, geometry, tessellation, sample variables, border clamp, advanced blend, snapshots) | `node tests/glbridge/gl_multipass_browser_runner.js gles3_executor_browser_test.html` | Chrome |
 | The emulator image's import: the disk, the bootloader, partitions as disks (`tests/android/library.mjs`); the wizard (`part=android_emulator`) | `make app-tests` | — |
 
 `make a32-system-tests` runs these but the Android boot (`make a32-android-tests`); `make a32-tests` runs them with part 1's AArch32 EL0 tests.
