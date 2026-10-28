@@ -286,6 +286,16 @@ function tokenize(source)
     return tokens;
 }
 
+/** GLSL ES 3.x's reserved words glslang takes as names (3.00 3.7) */
+const RESERVED_300 = new Set(["image1DShadow", "image2DShadow", "image1DArrayShadow", "image2DArrayShadow"]);
+
+/** A reserved word of GLSL ES 3.x the source uses (one glslang takes), or null */
+export function reserved_word(source)
+{
+    const t = tokenize(source).find(t => t.kind === "name" && RESERVED_300.has(t.text));
+    return t ? t.text : null;
+}
+
 /**
  * Whether an #extension directive comes after a token that is not the
  * preprocessor's, which GLSL ES (3.00 3.4, 1.00 3.4) refuses and glslang
@@ -315,6 +325,20 @@ export function extension_after_code(source)
         code = true;
     }
     return false;
+}
+
+/**
+ * The rules of GLSL ES 3.x glslang's relaxed check lets through (an
+ * #extension after the code, the reserved image shadow types): the error
+ * a compile gives, or null
+ * @param {string} source
+ */
+export function es3_rules(source)
+{
+    if(glsl_version(source) < 300) return null;
+    if(extension_after_code(source)) return "ERROR: '#extension' : must occur before any non-preprocessor tokens\n";
+    const reserved = reserved_word(source);
+    return reserved ? "ERROR: '" + reserved + "' : Reserved word.\n" : null;
 }
 
 /** @return {number} the shader's #version (100 when it has none) */
