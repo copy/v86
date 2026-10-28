@@ -22,7 +22,7 @@
 //   in the draw indirect buffer), robustness's reset status and sized reads.
 
 import { GL_STATE } from "./gles_caps.js";
-import { GL3, LIMITS3, SLOT } from "./gles3_state.js";
+import { GL3, LIMITS3, MAX_UNITS, SLOT } from "./gles3_state.js";
 import { format_info, image_bytes3 } from "./gles_formats3.js";
 
 export const GL31 = {
@@ -959,12 +959,15 @@ const STATE32 = new Map([
  * The limits of glslang's built-in constants (gl_Max*) and of its checks,
  * by glslangValidator's names: what glGet answers (gles_caps.js's GL_STATE,
  * LIMITS3, LIMITS31, STATE32), GLSL ES 3.x's; GLSL ES 1.00's
- * gl_MaxDrawBuffers is 1 (GLES 2.0 has no EXT_draw_buffers here)
+ * gl_MaxDrawBuffers is 1 (GLES 2.0 has no EXT_draw_buffers here); a
+ * GLES 2.0 context's are GLES 2.0's where GLES 3.x raised them
  * @param {number} version the shader's GLSL ES version
+ * @param {boolean=} es2 a GLES 2.0 context's
  * @return {!Object<string, number>}
  */
-export function glslang_limits(version)
+export function glslang_limits(version, es2)
 {
+    if(es2) return version < 300 ? GLSLANG_LIMITS_ES2_100 : GLSLANG_LIMITS_ES2_3;
     return version < 300 ? GLSLANG_LIMITS_100 : GLSLANG_LIMITS_3;
 }
 
@@ -973,7 +976,7 @@ const GLSLANG_LIMITS_3 = (() =>
     const L = LIMITS3, M = LIMITS31, one = pname => (GL_STATE.get(pname) || STATE32.get(pname))[0];
     return {
         "MaxVertexAttribs": one(0x8869), "MaxVertexUniformVectors": one(0x8DFB), "MaxVaryingVectors": one(0x8DFC),
-        "MaxFragmentUniformVectors": one(0x8DFD), "MaxCombinedTextureImageUnits": one(0x8B4D), "MaxVertexTextureImageUnits": one(0x8B4C),
+        "MaxFragmentUniformVectors": L.MAX_FRAGMENT_UNIFORM_COMPONENTS / 4, "MaxCombinedTextureImageUnits": MAX_UNITS, "MaxVertexTextureImageUnits": one(0x8B4C),
         "MaxTextureImageUnits": one(0x8872), "MaxDrawBuffers": L.MAX_DRAW_BUFFERS,
         "MaxVertexOutputVectors": L.MAX_VERTEX_OUTPUT_COMPONENTS / 4, "MaxFragmentInputVectors": L.MAX_FRAGMENT_INPUT_COMPONENTS / 4,
         "MaxVertexOutputComponents": L.MAX_VERTEX_OUTPUT_COMPONENTS, "MaxFragmentInputComponents": L.MAX_FRAGMENT_INPUT_COMPONENTS,
@@ -1010,6 +1013,10 @@ const GLSLANG_LIMITS_3 = (() =>
     };
 })();
 const GLSLANG_LIMITS_100 = Object.assign({}, GLSLANG_LIMITS_3, { "MaxDrawBuffers": 1 });
+/** A GLES 2.0 context's (api 20: GLES 2.0's limits, GL_STATE's, where 3.x raised them) */
+const ES2_LIMITS = { "MaxFragmentUniformVectors": GL_STATE.get(0x8DFD)[0], "MaxCombinedTextureImageUnits": GL_STATE.get(0x8B4D)[0] };
+const GLSLANG_LIMITS_ES2_100 = Object.assign({}, GLSLANG_LIMITS_100, ES2_LIMITS);
+const GLSLANG_LIMITS_ES2_3 = Object.assign({}, GLSLANG_LIMITS_3, ES2_LIMITS);
 
 /** GLES 3.2's float state */
 export const FLOAT_STATE32 = new Set([0x92BE, 0x9381, 0x9382, 0x8C37, 0x8E5B, 0x8E5C]);

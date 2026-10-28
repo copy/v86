@@ -39,15 +39,17 @@ export const GL3 = {
 /** The limits GLES 3.x's contexts answer (WebGPU's defaults bound them; docs/gles3-plan.md "限制") */
 export const LIMITS3 = {
     MAX_3D_TEXTURE_SIZE: 2048, MAX_ARRAY_TEXTURE_LAYERS: 256, MAX_COLOR_ATTACHMENTS: 4, MAX_DRAW_BUFFERS: 4, MAX_SAMPLES: 4,
-    MAX_UNIFORM_BUFFER_BINDINGS: 24, MAX_UNIFORM_BLOCK_SIZE: 16384, MAX_VERTEX_UNIFORM_BLOCKS: 12, MAX_FRAGMENT_UNIFORM_BLOCKS: 12,
+    MAX_UNIFORM_BUFFER_BINDINGS: 36, MAX_UNIFORM_BLOCK_SIZE: 16384, MAX_VERTEX_UNIFORM_BLOCKS: 12, MAX_FRAGMENT_UNIFORM_BLOCKS: 12,
     MAX_COMBINED_UNIFORM_BLOCKS: 24, MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS: 4, MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS: 64,
     MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS: 4, MAX_VERTEX_OUTPUT_COMPONENTS: 64, MAX_FRAGMENT_INPUT_COMPONENTS: 60,
-    MAX_VERTEX_UNIFORM_COMPONENTS: 1024, MAX_FRAGMENT_UNIFORM_COMPONENTS: 896, MAX_VARYING_COMPONENTS: 60,
+    MAX_VERTEX_UNIFORM_COMPONENTS: 1024, MAX_FRAGMENT_UNIFORM_COMPONENTS: 1024, MAX_VARYING_COMPONENTS: 60,
     UNIFORM_BUFFER_OFFSET_ALIGNMENT: 256, MAX_ELEMENT_INDEX: 0xFFFFFFFF, MAX_PROGRAM_TEXEL_OFFSET: 7, MIN_PROGRAM_TEXEL_OFFSET: -8,
     MAX_TEXTURE_LOD_BIAS: 2, MAX_TEXTURE_SIZE: 4096,
 };
 
-const MAX_UNITS = 32;
+export const MAX_UNITS = 48;
+/** The sampler states among the texture parameters: filters, wraps, LODs, comparison, the border color (GLES 3.2's) */
+const SAMPLER_STATES = new Set([0x2801, 0x2800, 0x2802, 0x2803, 0x8072, 0x813A, 0x813B, 0x884C, 0x884D, 0x1004]);
 const MAX_ATTRIBS = 16;
 const MAX_LEVELS_2D = Math.log2(LIMITS3.MAX_TEXTURE_SIZE) + 1;
 const MAX_LEVELS_3D = Math.log2(LIMITS3.MAX_3D_TEXTURE_SIZE) + 1;
@@ -139,6 +141,17 @@ function new_sampler()
 }
 
 /** A GLES 3.0 context's state beyond GLES 2.0's (tables 6.2 to 6.37) */
+/**
+ * A context a snapshot brought back from when the limits were lower: its
+ * texture units and uniform buffer binding points as many as now
+ */
+export function pad_context3(c)
+{
+    while(c.textures.length < MAX_UNITS) c.textures.push([0, 0, 0, 0, 0, 0, 0]);
+    while(c.samplers.length < MAX_UNITS) c.samplers.push(0);
+    while(c.uniform_bindings.length < LIMITS3.MAX_UNIFORM_BUFFER_BINDINGS) c.uniform_bindings.push({ buffer: 0, offset: 0, size: 0 });
+}
+
 export function extend_context3(c)
 {
     c.textures = Array.from({ length: MAX_UNITS }, () => [0, 0, 0, 0, 0, 0, 0]);
@@ -1238,7 +1251,9 @@ export function gles3_handlers(h)
         "glGetInternalformativ": (shadow, c, [target, internalformat, pname, size, params]) =>
         {
             query(shadow);
-            if(target !== GL.RENDERBUFFER || pname !== 0x80A9 && pname !== 0x9380) { fail(c, GL.INVALID_ENUM); return; }
+            // (GLES 3.1's multisampled textures, 3.2's arrays: the renderbuffers' counts)
+            const textures = c.version >= 31 && target === 0x9100 || c.version >= 32 && target === 0x9102;
+            if(target !== GL.RENDERBUFFER && !textures || pname !== 0x80A9 && pname !== 0x9380) { fail(c, GL.INVALID_ENUM); return; }
             const info = format_info(internalformat) || (internalformat === 0x8D48 ? { kind: "stencil" } : null);
             if(!info || !(info.kind === "stencil" || renderable(info, c.color_buffer_float))) { fail(c, GL.INVALID_ENUM); return; }
             if(size < 0) { fail(c, GL.INVALID_VALUE); return; }
@@ -1954,6 +1969,12 @@ export function gles3_handlers(h)
         const value = params[0];
         const integer = float ? Math.round(value) : value;
         const external = target === GL.TEXTURE_EXTERNAL_OES;
+        // (GLES 3.1's multisampled textures (3.2's arrays): no sampler state, the base level 0)
+        if(target === 0x9100 || target === 0x9102)
+        {
+            if(SAMPLER_STATES.has(pname)) return fail(c, GL.INVALID_ENUM);
+            if(pname === 0x813C && integer !== 0) return fail(c, GL.INVALID_OPERATION);
+        }
         switch(pname)
         {
             case 0x2801: // GL_TEXTURE_MIN_FILTER
@@ -2195,6 +2216,9 @@ export function state_value3(shadow, c, pname)
             }
             return [pname === 0x80A9 ? samples : samples > 0 ? 1 : 0];
         }
+        // (GLES 3.1's minimums, which GLES 3.0's contexts have too: GL_STATE's are GLES 2.0's)
+        case 0x8B4D: return [MAX_UNITS]; // GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS
+        case 0x8DFD: return [L.MAX_FRAGMENT_UNIFORM_COMPONENTS / 4]; // GL_MAX_FRAGMENT_UNIFORM_VECTORS
         case 0x821B: return [3]; // GL_MAJOR_VERSION
         case 0x821C: return [c.version % 10]; // GL_MINOR_VERSION
         case 0x821D: return [shadow.extensions3(c).length]; // GL_NUM_EXTENSIONS

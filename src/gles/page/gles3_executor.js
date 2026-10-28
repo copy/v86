@@ -751,7 +751,8 @@ export const GLES3 = {
         if(RENDERABLE.has(format) && alpha_less(internal, format)) this.alpha_one3(created, samples > 1 ? 1 : levels, depth, three);
         const gpu = { es3: true, texture: created, format, width, height, depth, first, levels: samples > 1 ? 1 : levels, three, cube, array, samples,
             storage, views: new Map(), block: native ? compressed.block_width : 1, block_height: native ? compressed.block_height : 1,
-            block_bytes: native ? compressed.block_bytes : 0, decode: decoded ? compressed : null, destroy: () => created.destroy() };
+            block_bytes: native ? compressed.block_bytes : 0, decode: decoded ? compressed : null, proxies: null,
+            destroy: () => { created.destroy(); for(const proxy of gpu.proxies ? gpu.proxies.values() : []) proxy.texture.destroy(); } };
         if(old && old.texture)
         {
             // (the levels that keep their size: a level given below the others, a chain made longer)
@@ -2621,7 +2622,10 @@ export const GLES3 = {
         }
         if(t.error) return void this.note3("vx_naga: " + t.error.slice(0, 160));
         const module = this.module3(t.wgsl);
+        // (the images' copies back to their textures, image_proxy3's: after the pass)
+        const image_writes = this.image_writes3 = [];
         const group = this.bind_groups3(c, this.bindings3([[t, 4, program]]), { textures: new Set() });
+        this.image_writes3 = null;
         if(!group) return;
         this.computes3 = this.computes3 || new Map();
         const key = this.id_of(module) + "|" + group.key;
@@ -2649,6 +2653,7 @@ export const GLES3 = {
         if(parameters) pass.dispatchWorkgroupsIndirect(parameters.buffer, indirect.offset);
         else pass.dispatchWorkgroups(groups[0], groups[1], groups[2]);
         pass.end();
+        for(const write of image_writes) write();
         this.stats.dispatches = (this.stats.dispatches || 0) + 1;
     },
 
@@ -3045,11 +3050,16 @@ export const GLES3 = {
         const u = c.image_units && c.image_units[unit];
         const texture = u && u.texture ? c.group.textures.get(u.texture) : null;
         const gpu = texture && this.gpu_texture3(texture);
-        if(!gpu || gpu.format !== format || !gpu.storage)
+        // (a texture of another format, or a 3D texture's layer as a 2D image: a copy, image_proxy3's)
+        const proxy = gpu && (gpu.format !== format || !gpu.storage || gpu.three && dimension === "2d") ?
+            this.image_proxy3(gpu, u, format, dimension, access) : null;
+        if(proxy) return { entry, resource: proxy };
+        if(!gpu || gpu.format !== format || !gpu.storage || gpu.three && dimension === "2d")
         {
-            if(gpu) this.note3("an image unit's format other than its texture's");
+            if(gpu) this.note3("an image unit's texture of a format or size the image cannot take");
+            // (one each for reading and for writing: a dispatch may bind both, which WebGPU refuses of one texture)
             this.empty_images3 = this.empty_images3 || new Map();
-            const key = format + ":" + dimension;
+            const key = format + ":" + dimension + ":" + (access === "read-only" ? "read" : "write");
             let view = this.empty_images3.get(key);
             if(!view)
             {
@@ -3069,6 +3079,56 @@ export const GLES3 = {
             gpu.views.set(key, view);
         }
         return { entry, resource: view };
+    },
+
+    /**
+     * An image unit's level (its layer, or all of them for a layered unit)
+     * where the texture cannot be the image itself: another format of the
+     * same texel size (GL reinterprets the bits, WebGPU views no other
+     * format), a 3D texture's layer as a 2D image (WebGPU views no 2D
+     * slice), a format WebGPU stores no texels of. A texture of the image's
+     * format and size gets the texels (through a buffer: the bits as they
+     * are) before the pass, and gives them back after it unless the image
+     * is read-only (image_writes3, dispatch3's)
+     * @return {?GPUTextureView} null where the sizes differ
+     */
+    image_proxy3(gpu, u, format, dimension, access)
+    {
+        const texel = TEXEL_BYTES[format];
+        const mip = u.level - gpu.first;
+        if(!texel || TEXEL_BYTES[gpu.format] !== texel || gpu.samples > 1 || gpu.block > 1 || mip < 0 || mip >= gpu.levels) return null;
+        const width = Math.max(1, gpu.width >> mip), height = Math.max(1, gpu.height >> mip);
+        const layers = gpu.three ? Math.max(1, gpu.depth >> mip) : gpu.depth;
+        const first = dimension === "2d" ? u.layer : 0, count = dimension === "2d" ? 1 : layers;
+        if(first + count > layers) return null;
+        gpu.proxies = gpu.proxies || new Map();
+        const key = format + ":" + dimension + ":" + mip + ":" + first;
+        let proxy = gpu.proxies.get(key);
+        if(!proxy)
+        {
+            const created = this.device.createTexture({ label: "GLES image proxy", size: [width, height, count], dimension: dimension === "3d" ? "3d" : "2d",
+                format, usage: U.STORAGE_BINDING | U.COPY_SRC | U.COPY_DST });
+            proxy = { texture: created, view: created.createView({ dimension }) };
+            gpu.proxies.set(key, proxy);
+        }
+        const bytes_per_row = Math.ceil(width * texel / 256) * 256;
+        const buffer = this.device.createBuffer({ label: "GLES image proxy copy", size: bytes_per_row * height * count, usage: B.COPY_SRC | B.COPY_DST });
+        this.staging.push(buffer);
+        const layout = { buffer, bytesPerRow: bytes_per_row, rowsPerImage: height };
+        const size = [width, height, count];
+        const own = { texture: gpu.texture, mipLevel: mip, origin: [0, 0, first] };
+        this.end_pass();
+        this.encoder.copyTextureToBuffer(own, layout, size);
+        this.encoder.copyBufferToTexture(layout, { texture: proxy.texture }, size);
+        if(access !== "read-only" && this.image_writes3)
+        {
+            this.image_writes3.push(() =>
+            {
+                this.encoder.copyTextureToBuffer({ texture: proxy.texture }, layout, size);
+                this.encoder.copyBufferToTexture(layout, own, size);
+            });
+        }
+        return proxy.view;
     },
 
     /** The default uniform block's buffer: the program's values by their offsets (made again when they change) */

@@ -50,6 +50,7 @@ extern crate alloc;
 
 mod atomics;
 mod counters;
+mod imagecubes;
 mod intsample;
 mod io;
 mod layers;
@@ -275,7 +276,7 @@ fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
 /// `sampled`: the integer images it made fetches of)
 fn passes(words: &[u32], wraps: &[(u32, u32)], sampled: &mut Vec<u32>) -> Vec<u32> {
     let skip = std::env::var("VX_SKIP").unwrap_or_default();
-    let list: [(&str, fn(&[u32]) -> Vec<u32>); 11] = [("blockarrays", blockarrays::lower), ("counters", counters::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
+    let list: [(&str, fn(&[u32]) -> Vec<u32>); 12] = [("blockarrays", blockarrays::lower), ("counters", counters::lower), ("imagecubes", imagecubes::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
         ("relational", relational::lower), ("fetches", fetches::lower), ("layout", layout::lower), ("atomics", atomics::values), ("structio", structio::lower),
         ("negate", negate::lower)];
     let mut words = words.to_vec();

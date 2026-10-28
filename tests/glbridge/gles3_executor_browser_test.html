@@ -945,6 +945,67 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         const passed31 = new Uint32Array((await read_buffer(results31, 768)).slice().buffer);
         check([passed31[3], passed31[64 + 3], passed31[128 + 3]].join() === "6,18,24", "indirect dispatches of uploaded parameters: " +
             [passed31[3], passed31[64 + 3], passed31[128 + 3]].join());
+        // images WebGPU has no storage view of: a cube's faces (a 2D array), a texture of another format of the
+        // same texel size (a copy of its bits), a 3D texture's layer as a 2D image (a copy of the layer)
+        const image_out31 = gen("Buffers");
+        gl("glBindBuffer", 0x90D2, image_out31);
+        gl("glBufferData", 0x90D2, 64, null, 0x88E8);
+        gl("glBindBufferBase", 0x90D2, 0, image_out31);
+        const cube31 = next_texture++;
+        gl("glBindTexture", 0x8513, cube31);
+        gl("glTexStorage2D", 0x8513, 1, 0x8D7C, 2, 2);
+        compute(`#version 310 es
+            layout(local_size_x = 2, local_size_y = 2, local_size_z = 6) in;
+            layout(rgba8ui, binding = 0) writeonly uniform highp uimageCube faces;
+            void main() { ivec3 p = ivec3(gl_LocalInvocationID); imageStore(faces, p, uvec4(uint(p.z * 10 + p.x), uint(p.y), 0u, 1u)); }`);
+        gl("glBindImageTexture", 0, cube31, 0, 1, 0, 0x88B9, 0x8D7C);
+        gl("glDispatchCompute", 1, 1, 1);
+        gl("glMemoryBarrier", 0x20);
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(rgba8ui, binding = 0) readonly uniform highp uimageCube faces;
+            layout(std430, binding = 0) buffer Out { uvec4 a; uvec4 b; ivec2 size; } o;
+            void main() { o.a = imageLoad(faces, ivec3(1, 0, 3)); o.b = imageLoad(faces, ivec3(0, 1, 5)); o.size = imageSize(faces); }`);
+        gl("glBindImageTexture", 0, cube31, 0, 1, 0, 0x88B8, 0x8D7C);
+        gl("glDispatchCompute", 1, 1, 1);
+        const cube_read31 = Array.from(new Uint32Array((await read_buffer(image_out31, 40)).slice().buffer)).join();
+        check(cube_read31 === "31,0,0,1,50,1,0,1,2,2", "a cube image's faces stored and loaded, its size: " + cube_read31);
+        const r32ui31 = next_texture++;
+        gl("glBindTexture", 0x0DE1, r32ui31);
+        gl("glTexStorage2D", 0x0DE1, 1, 0x8236, 1, 1);
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(rgba8ui, binding = 0) writeonly uniform highp uimage2D bytes;
+            void main() { imageStore(bytes, ivec2(0), uvec4(1u, 2u, 3u, 4u)); }`);
+        gl("glBindImageTexture", 0, r32ui31, 0, 0, 0, 0x88B9, 0x8D7C);
+        gl("glDispatchCompute", 1, 1, 1);
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(r32ui, binding = 0) readonly uniform highp uimage2D word;
+            layout(std430, binding = 0) buffer Out { uint value; } o;
+            void main() { o.value = imageLoad(word, ivec2(0)).x; }`);
+        gl("glBindImageTexture", 0, r32ui31, 0, 0, 0, 0x88B8, 0x8236);
+        gl("glDispatchCompute", 1, 1, 1);
+        const word31 = new Uint32Array((await read_buffer(image_out31, 4)).slice().buffer)[0];
+        check(word31 === 0x04030201, "an R32UI texture written as an RGBA8UI image: " + word31.toString(16));
+        const volume31 = next_texture++;
+        gl("glBindTexture", 0x806F, volume31);
+        gl("glTexStorage3D", 0x806F, 1, 0x8D7C, 2, 2, 2);
+        compute(`#version 310 es
+            layout(local_size_x = 2, local_size_y = 2) in;
+            layout(rgba8ui, binding = 0) writeonly uniform highp uimage2D layer;
+            void main() { imageStore(layer, ivec2(gl_LocalInvocationID.xy), uvec4(7u, gl_LocalInvocationID.xy, 1u)); }`);
+        gl("glBindImageTexture", 0, volume31, 0, 0, 1, 0x88B9, 0x8D7C);
+        gl("glDispatchCompute", 1, 1, 1);
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(rgba8ui, binding = 0) readonly uniform highp uimage3D volume;
+            layout(std430, binding = 0) buffer Out { uvec4 a; uvec4 b; } o;
+            void main() { o.a = imageLoad(volume, ivec3(1, 0, 1)); o.b = imageLoad(volume, ivec3(1, 0, 0)); }`);
+        gl("glBindImageTexture", 0, volume31, 0, 1, 0, 0x88B8, 0x8D7C);
+        gl("glDispatchCompute", 1, 1, 1);
+        const volume_read31 = Array.from(new Uint32Array((await read_buffer(image_out31, 32)).slice().buffer)).join();
+        check(volume_read31 === "7,1,0,1,0,0,0,0", "a 3D texture's layer 1 written as a 2D image: " + volume_read31);
         // an image written by a dispatch, sampled by a draw
         const image31 = next_texture++;
         gl("glActiveTexture", 0x84C0);

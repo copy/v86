@@ -404,7 +404,7 @@ export function link_glslang_program(glslang, shaders, options)
         }
         void arrayed_inputs;
         previous = outputs;
-        readable_blocks(words, m);
+        naga_decorations(words, m);
         spirv.push({ stage: STAGE_NAME[stage], words, model: MODEL_OF_STAGE[stage] });
     }
 
@@ -768,27 +768,35 @@ function element_binding(list, b)
 }
 
 /**
- * writeonly storage blocks (NonReadable on their members or variables),
- * which naga refuses: readable (the decoration RelaxedPrecision, which it
- * ignores; a shader GL took never reads them)
+ * Decorations naga refuses or writes as WGSL that is not, the decoration
+ * RelaxedPrecision in their place (which it ignores):
+ * - writeonly storage blocks (NonReadable on their members or variables),
+ *   which naga refuses: readable (a shader GL took never reads them);
+ * - coherent and volatile variables (buffers, images), which naga writes
+ *   as @coherent and @volatile: WebGPU's storage is coherent within a
+ *   dispatch, its barriers order it
  * @param {!Uint32Array} words
  * @param {!Object} m parse_spirv's
  */
-function readable_blocks(words, m)
+function naga_decorations(words, m)
 {
-    const NON_READABLE = 25, RELAXED_PRECISION = 0;
-    const blocks = new Set(), variables = new Set();
+    const NON_READABLE = 25, COHERENT = 23, VOLATILE = 21, RELAXED_PRECISION = 0;
+    const blocks = new Set(), buffers = new Set(), variables = new Set(m.variables.map(v => v.id));
     for(const v of m.variables)
     {
         if(v.storage !== STORAGE.StorageBuffer && v.storage !== STORAGE.Uniform) continue;
-        variables.add(v.id);
+        buffers.add(v.id);
         blocks.add(innermost(m, m.types.get(v.type).pointee));
     }
     for(let at = 5; at < words.length;)
     {
         const count = words[at] >>> 16, op = words[at] & 0xFFFF;
         if(!count) break;
-        if(op === OP.Decorate && count === 3 && words[at + 2] === NON_READABLE && variables.has(words[at + 1])) words[at + 2] = RELAXED_PRECISION;
+        if(op === OP.Decorate && count === 3 && (words[at + 2] === NON_READABLE && buffers.has(words[at + 1]) ||
+            (words[at + 2] === COHERENT || words[at + 2] === VOLATILE) && variables.has(words[at + 1])))
+        {
+            words[at + 2] = RELAXED_PRECISION;
+        }
         if(op === OP.MemberDecorate && count === 4 && words[at + 3] === NON_READABLE && blocks.has(words[at + 1])) words[at + 3] = RELAXED_PRECISION;
         at += count;
     }

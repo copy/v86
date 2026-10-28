@@ -157,7 +157,7 @@ export function relink(groups, shadow)
             if(object.kind === "shader")
             {
                 object.compiled = object.compiled_source === null || object.compiled_source === undefined ? null :
-                    shadow ? shadow.compile(object.compiled_source, object.type, !!group.glslang) :
+                    shadow ? shadow.compile(object.compiled_source, object.type, !!group.glslang, !!group.es2) :
                     compiled(object.compiled_source, object.type === 0x8B31 ? "vertex" : "fragment");
             }
             else if(object.kind === "program" && object.link && object.link.glslang)
@@ -166,8 +166,8 @@ export function relink(groups, shadow)
                 if(object.info) continue;
                 const link = object.link;
                 const shaders = link.shaders.map(([type, source]) => ({ type, compiled_source: source,
-                    compiled: shadow.compile(source, type, true) }));
-                object.info = shadow.link({ bindings: link.bindings, separable: !!link.separable, tf_request: link.tf || null }, shaders);
+                    compiled: shadow.compile(source, type, true, !!group.es2) }));
+                object.info = shadow.link({ bindings: link.bindings, separable: !!link.separable, tf_request: link.tf || null }, shaders, !!group.es2);
             }
             else if(object.kind === "program")
             {

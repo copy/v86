@@ -24,7 +24,7 @@ import { compile_shader, link_program } from "./glsl_es.js";
 import { STAGE_OF_GL_TYPE } from "./glslang.js";
 import { es3_rules, glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
-import { ADVANCED_EQUATIONS, INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
+import { ADVANCED_EQUATIONS, INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, pad_context3, state_value3 } from "./gles3_state.js";
 import { FLOAT_STATE32, extend_context31, gles31_handlers, glslang_limits, state_value31 } from "./gles31_state.js";
 import { EXTENSIONS_3 } from "./gles_caps.js";
 import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
@@ -306,16 +306,17 @@ function stage_of(type)
  * page, such a shader is not compiled at all: its program's link comes with
  * the batch
  * @param {boolean=} es100 GLSL ES 1.00 through glslang too
+ * @param {boolean=} es2 a GLES 2.0 context's (GLES 2.0's limits)
  * @return {!Object} {ok, log, ...}
  */
-GLESShadow.prototype.compile = function(source, type, es100)
+GLESShadow.prototype.compile = function(source, type, es100, es2)
 {
     const version = glsl_version(source);
     const stage = stage_of(type);
     if(version >= 300 || es100)
     {
         if(!this.glslang) return { ok: true, log: "", glslang: true, stage };
-        this.glslang.set_limits(glslang_limits(version));
+        this.glslang.set_limits(glslang_limits(version, es2));
         const checked = this.glslang.check_shader(STAGE_OF_GL_TYPE.get(type), source);
         // (what GLSL ES refuses and glslang's relaxed check does not: an #extension after the code, reserved words)
         const refused = checked.ok ? es3_rules(source) : null;
@@ -329,9 +330,10 @@ GLESShadow.prototype.compile = function(source, type, es100)
  * A program's shaders linked
  * @param {!Object} program
  * @param {!Array<!Object>} shaders the attached ones
+ * @param {boolean=} es2 a GLES 2.0 context's (GLES 2.0's limits)
  * @return {!Object} ProgramInfo
  */
-GLESShadow.prototype.link = function(program, shaders)
+GLESShadow.prototype.link = function(program, shaders, es2)
 {
     this.last_link = null;
     if(!shaders.some(s => s.compiled && s.compiled.glslang))
@@ -350,7 +352,7 @@ GLESShadow.prototype.link = function(program, shaders)
     if(!this.glslang) return failed("ERROR: no link of this program came with the batch");
     if(shaders.some(s => !s.compiled || !s.compiled.glslang)) return failed("ERROR: the shaders' versions differ");
     if(shaders.some(s => !s.compiled.ok)) return failed("ERROR: a shader is not compiled");
-    this.glslang.set_limits(glslang_limits(glsl_version(shaders[0].compiled_source)));
+    this.glslang.set_limits(glslang_limits(glsl_version(shaders[0].compiled_source), es2));
     const info = link_glslang_program(this.glslang, shaders.map(s => ({ stage: s.compiled.stage, source: s.compiled_source })),
         { bindings: new Map(program.bindings), separable: !!program.separable, limits: GLSLANG_LIMITS, tf: program.tf_request || null });
     if(info.ok) this.last_link = info;
@@ -372,6 +374,7 @@ GLESShadow.prototype.set_state = function(state)
     this.contexts = state.contexts;
     this.groups = state.groups;
     this.stats = state.stats;
+    for(const c of this.contexts.values()) if(c && c.version >= 30 && c.textures && c.uniform_bindings) pad_context3(c);
     relink(this.groups, this);
 };
 
@@ -390,6 +393,7 @@ GLESShadow.prototype.create_context = function(handle, api, share)
     context.group_id = group_id;
     // (the group's shaders compile as its contexts' do: a snapshot's relink)
     if(context.glslang) group.glslang = true;
+    if(context.glslang && context.api === 2) group.es2 = true;
     this.contexts.set(handle, context);
 };
 
@@ -1339,7 +1343,7 @@ const HANDLERS = {
         // (the source compiled: a snapshot compiles it again, gles_snapshot.js)
         shader.compiled_source = shader.source || "";
         const start = performance.now();
-        shader.compiled = shadow.compile(shader.compiled_source, shader.type, c.glslang);
+        shader.compiled = shadow.compile(shader.compiled_source, shader.type, c.glslang, c.api === 2);
         shadow.stats.compile_ms += performance.now() - start;
         shadow.stats.compiled++;
         if(!shader.compiled.ok)
@@ -1401,7 +1405,7 @@ const HANDLERS = {
         const shader = type => shaders.find(s => s.type === type);
         const vs = shader(GL.VERTEX_SHADER), fs = shader(GL.FRAGMENT_SHADER);
         const start = performance.now();
-        program.info = shadow.link(program, shaders);
+        program.info = shadow.link(program, shaders, c.api === 2);
         shadow.stats.compile_ms += performance.now() - start;
         // (what was linked: a snapshot links it again)
         program.link = { vs: vs && vs.compiled ? vs.compiled_source : null, fs: fs && fs.compiled ? fs.compiled_source : null,

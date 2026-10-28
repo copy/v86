@@ -25,6 +25,9 @@
 //   count specialization constant 71, the page's: 4, or 1 with a position of
 //   0.5) and derivatives (an offset's value as the interpolant's plane at
 //   the fragment's center gives it);
+// - a fragment shader's gl_HelperInvocation (GLSL ES 3.20's), which naga
+//   cannot read: false (a helper invocation writes nothing; what differs is
+//   a derivative of a value that depends on it);
 // - a fragment shader that declares advanced blend equations' support
 //   (layout(blend_support_*) out;, GLES 3.2's KHR_blend_equation_advanced):
 //   its color output a variable, blended in the shader with the draw's
@@ -572,6 +575,11 @@ export function rewrite_for_spirv(source, stage, limits)
         {
             extended_uses.add(name);
             t.text = "_v86_" + name;
+            return;
+        }
+        if(stage === "fragment" && name === "gl_HelperInvocation")
+        {
+            t.text = "false";
             return;
         }
         if(stage === "fragment" && !es100 && SAMPLE_FUNCTIONS.has(name))
