@@ -64,6 +64,7 @@ mod fetches;
 mod depth;
 mod geometry;
 mod samplemask;
+mod sizes;
 mod tessellation;
 mod sampling;
 mod split;
@@ -282,7 +283,10 @@ fn passes(words: &[u32], wraps: &[(u32, u32)], sampled: &mut Vec<u32>) -> Vec<u3
         if name == "coordinates" && !skip.split(',').any(|s| s == "border") {
             words = border::lower(&words, wraps);
         }
-        // (intsample after subpass)
+        // (intsample after subpass; sizes before it: the shader's own size queries, not intsample's)
+        if name == "relational" && !skip.split(',').any(|s| s == "sizes") {
+            words = sizes::lower(&words);
+        }
         if name == "relational" && !skip.split(',').any(|s| s == "intsample") {
             words = intsample::lower(&words, wraps, sampled);
         }

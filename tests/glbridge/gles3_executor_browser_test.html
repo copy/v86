@@ -270,6 +270,68 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(near(await which(1), [64, 128, 191, 255]), "RGBA16F from floats");
         check(near(await which(2), [0, 0, 255, 255]), "a 2D array's layer 1");
         check(near(await which(3), [128, 0, 0, 255]), "an unsigned integer texture, fetched");
+        // an integer texture sampled (texture(), not texelFetch) by both stages, its sampler's REPEAT: coordinate -0.6 of
+        // four texels is texel -3, wrapped to 1 (20): not the clamped 0 (10), nor a remainder's -3 (out of the image)
+        texture(4, 0x0DE1);
+        gl("glTexImage2D", 0x0DE1, 0, 0x8236, 4, 1, 0, 0x8D94, 0x1405, ints([10, 20, 30, 40]));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        // (and a 2D array's layer 1: 50 to 80)
+        texture(5, 0x8C1A);
+        gl("glTexImage3D", 0x8C1A, 0, 0x8236, 4, 1, 2, 0, 0x8D94, 0x1405, ints([10, 20, 30, 40, 50, 60, 70, 80]));
+        gl("glTexParameteri", 0x8C1A, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x8C1A, 0x2800, 0x2600);
+        const repeated = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            uniform highp usampler2D u;
+            out float from_vertex;
+            void main() { from_vertex = float(texture(u, vec2(-0.6, 0.5)).r); gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision highp float;
+            uniform highp usampler2D u;
+            uniform highp usampler2DArray ua;
+            in float from_vertex;
+            out vec4 o;
+            void main() { o = vec4(float(texture(u, vec2(-0.6, 0.5)).r) / 255.0, from_vertex / 255.0, float(texture(ua, vec3(-0.6, 0.5, 1.0)).r) / 255.0, 1.0); }`);
+        gl("glUniform1i", repeated.at("u"), 4);
+        gl("glUniform1i", repeated.at("ua"), 5);
+        gl("glDrawArrays", 5, 0, 4);
+        const repeat_pixel = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+        check(near(repeat_pixel, [20, 20, 60, 255]), "integer textures sampled where their samplers repeat, in both stages, a 2D array's too: " + repeat_pixel);
+        gl("glUseProgram", textured.name);
+        // textureSize of a level past the base where the filter takes no mipmaps (the view holds the base alone): 8 by 4 at lod 2 is 2 by 1
+        texture(6, 0x0DE1);
+        for(let level = 0; level < 4; level++) gl("glTexImage2D", 0x0DE1, level, 0x8058, 8 >> level, Math.max(1, 4 >> level), 0, 0x1908, 0x1401, null);
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        const sized = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            uniform highp sampler2D s;
+            uniform int lod;
+            out vec4 size_color;
+            void main() { size_color = vec4(vec2(textureSize(s, lod)) / 255.0, 0.0, 1.0); gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision highp float;
+            in vec4 size_color;
+            out vec4 o;
+            void main() { o = size_color; }`);
+        gl("glUniform1i", sized.at("s"), 6);
+        gl("glUniform1i", sized.at("lod"), 2);
+        gl("glDrawArrays", 5, 0, 4);
+        const size_pixel = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+        check(near(size_pixel, [2, 1, 0, 255]), "textureSize of level 2 with a filter of no mipmaps: " + size_pixel);
+        // atan(y, 0) and tanh past 10, which Chrome's Metal compiler gets wrong: pi/2 (its half, 200 of 255) and 1
+        const guarded = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision highp float;
+            uniform float y, x, t;
+            out vec4 o;
+            void main() { vec2 a = atan(vec2(y, -y), vec2(x, x)); o = vec4(a.x / 3.14159265, tanh(t), (a.y / -3.14159265) * tanh(vec2(-t, t)).y, 1.0); }`);
+        gl("glUniform1f", guarded.at("y"), 1);
+        gl("glUniform1f", guarded.at("x"), 0);
+        gl("glUniform1f", guarded.at("t"), 50);
+        gl("glDrawArrays", 5, 0, 4);
+        const guard_pixel = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+        check(near(guard_pixel, [128, 255, 128, 255]), "atan(±1, 0) of vectors is ±pi/2, tanh(50) is 1: " + guard_pixel);
+        gl("glUseProgram", textured.name);
 
         const flat = program(`#version 300 es
             layout(location = 0) in vec2 position;
@@ -784,6 +846,24 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glActiveTexture", 0x84C0);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 0, 255]), "a multisampled texture's sample, fetched");
+        // a depth and stencil texture sampled as its stencil (DEPTH_STENCIL_TEXTURE_MODE STENCIL_INDEX): the upload's stencil values
+        const stencil31 = texture(2, 0x0DE1);
+        gl("glTexImage2D", 0x0DE1, 0, 0x88F0, 2, 2, 0, 0x84F9, 0x84FA, new Uint8Array(new Uint32Array([0x80000042, 0x80000042, 0x80000042, 0x80000042]).buffer));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x90EA, 0x1901);
+        void stencil31;
+        const stenciled31 = program(`#version 310 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 310 es
+            precision mediump float;
+            uniform highp usampler2D stencil;
+            out vec4 o;
+            void main() { o = vec4(float(texture(stencil, vec2(0.5)).r) / 255.0, 0.0, 0.0, 1.0); }`);
+        gl("glUniform1i", stenciled31.at("stencil"), 2);
+        gl("glActiveTexture", 0x84C0);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0x42, 0, 0, 255]), "a depth and stencil texture's stencil, sampled (STENCIL_INDEX)");
         // a pipeline of two separable programs, one made by glCreateShaderProgramv, their uniforms by glProgramUniform
         const separable_vs = `#version 310 es
             layout(location = 0) in vec2 position;

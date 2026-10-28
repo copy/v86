@@ -48,7 +48,7 @@ const GLSL_LENGTH: u32 = 66;
 const OP_IMAGE_QUERY_LEVELS: u32 = 106;
 const OP_DPDX: u32 = 207;
 const OP_I_MUL: u32 = 132;
-const OP_S_MOD: u32 = 139;
+const OP_S_REM: u32 = 138;
 const OP_S_LESS_THAN: u32 = 177;
 const OP_SELECT: u32 = 169;
 const OP_TYPE_BOOL: u32 = 20;
@@ -444,15 +444,23 @@ pub fn lower(words: &[u32], wraps: &[(u32, u32)], fetched: &mut Vec<u32>) -> Vec
                 }
                 let size_k = pass.fresh();
                 body.push(instruction(OP_COMPOSITE_EXTRACT, &[int, size_k, size_xy, k]));
+                // (a floored modulo, never negative, of remainders: ((a % b) + b) % b; naga refuses OpSMod of
+                // integers, and negate.rs makes a shader's own OpSMod the remainder)
+                let floored = |pass: &mut Pass, body: &mut Vec<Vec<u32>>, a: u32, b: u32| {
+                    let (r, shifted, m) = (pass.fresh(), pass.fresh(), pass.fresh());
+                    body.push(instruction(OP_S_REM, &[int, r, a, b]));
+                    body.push(instruction(OP_I_ADD, &[int, shifted, r, b]));
+                    body.push(instruction(OP_S_REM, &[int, m, shifted, b]));
+                    m
+                };
                 if mode(k) == 0 {
-                    let wrapped = pass.fresh();
-                    body.push(instruction(OP_S_MOD, &[int, wrapped, part, size_k]));
+                    let wrapped = floored(&mut pass, &mut body, part, size_k);
                     parts.push(wrapped);
                     continue;
                 }
-                let (twice, folded, back, last_k, under, mirrored) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh());
+                let (twice, back, last_k, under, mirrored) = (pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh(), pass.fresh());
                 body.push(instruction(OP_I_MUL, &[int, twice, size_k, two1]));
-                body.push(instruction(OP_S_MOD, &[int, folded, part, twice]));
+                let folded = floored(&mut pass, &mut body, part, twice);
                 body.push(instruction(OP_I_SUB, &[int, last_k, twice, one1]));
                 body.push(instruction(OP_I_SUB, &[int, back, last_k, folded]));
                 body.push(instruction(OP_S_LESS_THAN, &[boolean, under, folded, size_k]));

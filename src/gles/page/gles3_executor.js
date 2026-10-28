@@ -44,6 +44,8 @@ const NEAREST = 0x2600, LINEAR = 0x2601, NEAREST_MIPMAP_NEAREST = 0x2700;
 const RESTART = 0x8D69, CULL_FACE = 0x0B44, BLEND = 0x0BE2, DEPTH_TEST = 0x0B71, STENCIL_TEST = 0x0B90, SCISSOR_TEST = 0x0C11;
 const POLYGON_OFFSET_FILL = 0x8037;
 const COMPARE_REF_TO_TEXTURE = 0x884E;
+/** GLES 3.1's DEPTH_STENCIL_TEXTURE_MODE: the stencil of a depth and stencil texture sampled */
+const STENCIL_INDEX = 0x1901;
 const TOPOLOGY = ["point-list", "line-list", "line-list", "line-strip", "triangle-list", "triangle-strip", "triangle-list"];
 const INDEX_BYTES = { 0x1401: 1, 0x1403: 2, 0x1405: 4 };
 const STRIP_END = 0xFFFFFFFF;
@@ -993,14 +995,13 @@ export const GLES3 = {
     /**
      * A depth image's values written by a draw (WebGPU copies no buffer into
      * depth24plus or depth32float): the depths as an r32float texture, each
-     * layer drawn with frag_depth. Stencil values are not written (WebGPU
-     * writes none).
+     * layer drawn with frag_depth; the stencil values copied into the
+     * stencil aspect (WebGPU copies into stencil8's)
      */
     depth_image3(gpu, level, origin, size, values)
     {
         const mip = level - gpu.first;
         if(mip < 0 || mip >= gpu.levels) return;
-        if(values.stencil && values.stencil.some(Boolean)) this.note3("a depth and stencil image's stencil values (not written)");
         const [x, y, z] = origin, [w, h, d] = size;
         const source = this.device.createTexture({ label: "GLES depth image", size: [w, h, d], format: "r32float", usage: U.TEXTURE_BINDING | U.COPY_DST });
         this.device.queue.writeTexture({ texture: source }, values.depth, { bytesPerRow: w * 4, rowsPerImage: h }, [w, h, d]);
@@ -1040,6 +1041,17 @@ export const GLES3 = {
             pass.setScissorRect(x, y, w, h);
             pass.draw(3);
             pass.end();
+        }
+        if(stencil && values.stencil)
+        {
+            const stride = Math.ceil(w / 256) * 256;
+            const staging = this.device.createBuffer({ label: "GLES stencil upload", size: stride * h * d, usage: B.COPY_SRC, mappedAtCreation: true });
+            const mapped = new Uint8Array(staging.getMappedRange());
+            for(let k = 0; k < h * d; k++) mapped.set(values.stencil.subarray(k * w, k * w + w), k * stride);
+            staging.unmap();
+            this.encoder.copyBufferToTexture({ buffer: staging, bytesPerRow: stride, rowsPerImage: h },
+                { texture: gpu.texture, mipLevel: mip, origin: [x, y, z], aspect: "stencil-only" }, [w, h, d]);
+            this.staging.push(staging);
         }
     },
 
@@ -3004,7 +3016,9 @@ export const GLES3 = {
         const internal = image_internal(first);
         const info = format_info(internal);
         const kind = info ? info.kind : "unorm";
-        const depth = kind === "depth" || kind === "depth_stencil";
+        // (GLES 3.1's DEPTH_STENCIL_TEXTURE_MODE STENCIL_INDEX: a depth and stencil texture's stencil, unsigned integers)
+        const stencil = kind === "depth_stencil" && texture.depth_stencil_mode === STENCIL_INDEX;
+        const depth = !stencil && (kind === "depth" || kind === "depth_stencil");
         const mipmapped = state.min_filter !== NEAREST && state.min_filter !== LINEAR;
         const max_level = texture.max_level === undefined ? 1000 : texture.max_level;
         const chain = base + Math.floor(Math.log2(Math.max(first.width, first.height, three ? first.depth || 1 : 1)));
@@ -3022,18 +3036,18 @@ export const GLES3 = {
             }
         }
         const compare = depth && state.compare_mode === COMPARE_REF_TO_TEXTURE;
-        const filterable = !info || info.filterable || compare;
+        const filterable = !stencil && (!info || info.filterable || compare);
         const linear = state.mag_filter !== NEAREST || state.min_filter !== NEAREST && state.min_filter !== NEAREST_MIPMAP_NEAREST;
         if(!filterable && linear) return fallback();
         let sample_type;
         if(tex.sample === "depth") sample_type = depth ? "depth" : null;
         else if(tex.sample === "sint") sample_type = kind === "int" ? "sint" : null;
-        else if(tex.sample === "uint") sample_type = kind === "uint" ? "uint" : null;
+        else if(tex.sample === "uint") sample_type = kind === "uint" || stencil ? "uint" : null;
         else sample_type = kind === "int" || kind === "uint" ? null : depth || !filterable || info && !info.filterable ? "unfilterable-float" : "float";
         if(!sample_type) return fallback();
         const mip = base - gpu.first, count = top - base + 1;
         if(mip < 0 || mip + count > gpu.levels) return fallback();
-        const aspect = gpu.format.includes("stencil") && gpu.format !== "stencil8" ? "depth-only" : "all";
+        const aspect = stencil ? "stencil-only" : gpu.format.includes("stencil") && gpu.format !== "stencil8" ? "depth-only" : "all";
         const dimension = tex.dimension;
         if((dimension === "3d") !== three || dimension === "cube" && !cube || dimension === "cube-array" && !(gpu.array && gpu.depth % 6 === 0)) return fallback();
         // (TEXTURE_SWIZZLE_*: the view's, with WebGPU's texture-component-swizzle)

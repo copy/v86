@@ -74,6 +74,8 @@ const COMPARE_FUNCS = new Set([0x0200, 0x0201, 0x0202, 0x0203, 0x0204, 0x0205, 0
 const WRAPS = new Set([GL3.REPEAT, GL3.CLAMP_TO_EDGE, GL3.MIRRORED_REPEAT]);
 /** GLES 3.2's CLAMP_TO_BORDER and TEXTURE_BORDER_COLOR */
 const CLAMP_TO_BORDER = 0x812D, TEXTURE_BORDER_COLOR = 0x1004;
+/** GLES 3.1's DEPTH_STENCIL_TEXTURE_MODE (DEPTH_COMPONENT or STENCIL_INDEX) */
+const DEPTH_STENCIL_TEXTURE_MODE = 0x90EA;
 const wrap_ok = (c, wrap) => WRAPS.has(wrap) || c.version >= 32 && wrap === CLAMP_TO_BORDER;
 /**
  * A border color as glTexParameteriv or glSamplerParameteriv gives it:
@@ -1983,6 +1985,12 @@ export function gles3_handlers(h)
                 if(c.version < 32 || !vector || external) return fail(c, GL.INVALID_ENUM);
                 texture.border_color = border_color(params, float);
                 return undefined;
+            case DEPTH_STENCIL_TEXTURE_MODE:
+                // (GLES 3.1's: a depth and stencil texture sampled as its depth or its stencil; dEQP's state reset sets it)
+                if(c.version < 31) return fail(c, GL.INVALID_ENUM);
+                if(integer !== 0x1902 && integer !== 0x1901) return fail(c, GL.INVALID_ENUM);
+                texture.depth_stencil_mode = integer;
+                return undefined;
         }
         return fail(c, GL.INVALID_ENUM);
     }
@@ -2000,6 +2008,7 @@ export function gles3_handlers(h)
             0x884D: texture.compare_func || 0x0203, 0x8E42: swizzle[0], 0x8E43: swizzle[1], 0x8E44: swizzle[2], 0x8E45: swizzle[3],
             0x912F: texture.immutable ? 1 : 0, 0x82DF: texture.immutable_levels || 0 };
         if(target === GL.TEXTURE_EXTERNAL_OES) values[0x8D68] = 1; // GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES
+        if(c.version >= 31) values[DEPTH_STENCIL_TEXTURE_MODE] = texture.depth_stencil_mode || 0x1902;
         if(pname === TEXTURE_BORDER_COLOR && c.version >= 32)
         {
             const color = texture.border_color || [0, 0, 0, 0];
