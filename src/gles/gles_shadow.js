@@ -44,6 +44,10 @@ const equation_ok = (c, mode, advanced) => BLEND_EQUATIONS.has(mode) || c.versio
     advanced && c.version >= 32 && ADVANCED_EQUATIONS.includes(mode);
 const BLEND_FACTORS = new Set([0, 1, 0x0300, 0x0301, 0x0302, 0x0303, 0x0304, 0x0305, 0x0306, 0x0307, 0x8001, 0x8002, 0x8003, 0x8004]);
 const SRC_ALPHA_SATURATE = 0x0308;
+/** @return {boolean} whether a blend factor is a source's (SRC_ALPHA_SATURATE too) */
+const source_factor = f => BLEND_FACTORS.has(f) || f === SRC_ALPHA_SATURATE;
+/** @return {boolean} whether a blend factor is a destination's: SRC_ALPHA_SATURATE too from GLES 3.0 on (GLES 2.0: sources' alone) */
+const destination_factor = (c, f) => BLEND_FACTORS.has(f) || f === SRC_ALPHA_SATURATE && c.version >= 30;
 const COMPARE_FUNCS = new Set([0x0200, 0x0201, 0x0202, 0x0203, 0x0204, 0x0205, 0x0206, 0x0207]);
 const STENCIL_OPS = new Set([0, 0x1E00, 0x1E01, 0x1E02, 0x1E03, 0x150A, 0x8507, 0x8508]);
 const FACES = new Set([0x0404, 0x0405, 0x0408]);
@@ -908,13 +912,14 @@ const HANDLERS = {
     },
     "glBlendFunc": (shadow, c, [src, dst]) =>
     {
-        if(!BLEND_FACTORS.has(src) && src !== SRC_ALPHA_SATURATE || !BLEND_FACTORS.has(dst)) return fail(c, GL.INVALID_ENUM);
+        if(!source_factor(src) || !destination_factor(c, dst)) return fail(c, GL.INVALID_ENUM);
         c.blend_func = [src, dst, src, dst];
     },
     "glBlendFuncSeparate": (shadow, c, [src_rgb, dst_rgb, src_alpha, dst_alpha]) =>
     {
-        const src = f => BLEND_FACTORS.has(f) || f === SRC_ALPHA_SATURATE;
-        if(!src(src_rgb) || !src(src_alpha) || !BLEND_FACTORS.has(dst_rgb) || !BLEND_FACTORS.has(dst_alpha)) return fail(c, GL.INVALID_ENUM);
+        if(!source_factor(src_rgb) || !source_factor(src_alpha) || !destination_factor(c, dst_rgb) || !destination_factor(c, dst_alpha)) {
+            return fail(c, GL.INVALID_ENUM);
+        }
         c.blend_func = [src_rgb, dst_rgb, src_alpha, dst_alpha];
     },
     "glDepthFunc": (shadow, c, [func]) =>

@@ -50,6 +50,16 @@ const COMPARE_REF_TO_TEXTURE = 0x884E;
  * halves, the rest 8 bits a channel
  */
 const decoded_format = compressed => compressed.webgpu.endsWith("-srgb") ? "rgba8unorm-srgb" : compressed.webgpu.startsWith("eac-") ? "rgba16float" : "rgba8unorm";
+/**
+ * Whether a color format GL reads with alpha 1 (RGB8, RGB565: none of its
+ * own) is kept in a WebGPU format with an alpha (rgba8unorm): such a texture
+ * starts with alpha 1 and draws, clears and blits leave its alpha alone
+ */
+const alpha_less = (internal, webgpu) =>
+{
+    const info = format_info(internal);
+    return !!info && info.bits[3] === 0 && info.bits[0] > 0 && info.kind !== "depth" && info.kind !== "depth_stencil" && /^(rgba|bgra)/.test(webgpu);
+};
 /** GLES 3.1's DEPTH_STENCIL_TEXTURE_MODE: the stencil of a depth and stencil texture sampled */
 const STENCIL_INDEX = 0x1901;
 const TOPOLOGY = ["point-list", "line-list", "line-list", "line-strip", "triangle-list", "triangle-strip", "triangle-list"];
@@ -723,6 +733,7 @@ export const GLES3 = {
             (storage ? U.STORAGE_BINDING : 0);
         const created = this.device.createTexture({ label: "GL texture", size: [width, height, depth], dimension: three ? "3d" : "2d", format,
             mipLevelCount: samples > 1 ? 1 : levels, sampleCount: samples, usage });
+        if(RENDERABLE.has(format) && alpha_less(internal, format)) this.alpha_one3(created, samples > 1 ? 1 : levels, depth, three);
         const gpu = { es3: true, texture: created, format, width, height, depth, first, levels: samples > 1 ? 1 : levels, three, cube, array, samples,
             storage, views: new Map(), block: native ? compressed.block_width : 1, block_height: native ? compressed.block_height : 1,
             block_bytes: native ? compressed.block_bytes : 0, decode: decoded ? compressed : null, destroy: () => created.destroy() };
@@ -898,7 +909,8 @@ export const GLES3 = {
         const image = texture.images.get((gpu.three || gpu.array ? 0 : face) * 32 + level);
         const info = image && format_info(image_internal(image));
         const map = info && copy_map(info);
-        if(!map && source.format === gpu.format)
+        const no_alpha = !!image && alpha_less(image_internal(image), gpu.format);
+        if(!map && source.format === gpu.format && (!no_alpha || source.no_alpha))
         {
             this.end_pass();
             this.encoder.copyTextureToTexture({ texture: source.texture, mipLevel: source.mip, origin: [sx, sy, source.layer] },
@@ -908,7 +920,7 @@ export const GLES3 = {
         if(!RENDERABLE.has(gpu.format)) return void this.note3("a copy into a texture WebGPU draws no " + gpu.format + " to");
         const view = gpu.three ? gpu.texture.createView({ dimension: "3d", baseMipLevel: mip, mipLevelCount: 1 }) :
             gpu.texture.createView({ dimension: "2d", baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
-        const dest = { texture: gpu.texture, view, format: gpu.format, mip, layer, depth_slice: gpu.three ? layer : undefined };
+        const dest = { texture: gpu.texture, view, format: gpu.format, mip, layer, depth_slice: gpu.three ? layer : undefined, no_alpha };
         this.blit3(source, dest, { src: [sx, sy, sx + w, sy + h], dst: [dx, dy, dx + w, dy + h], rect: [dx, dy, w, h], linear: false, map }, false);
     },
 
@@ -1150,6 +1162,27 @@ export const GLES3 = {
         const texture = this.device.createTexture({ label: "GL renderbuffer", size: [rb.width, rb.height], format, sampleCount: samples,
             usage: U.RENDER_ATTACHMENT | U.TEXTURE_BINDING | (samples === 1 ? U.COPY_SRC | U.COPY_DST : 0) });
         rb.gpu = { es3: true, texture, format, samples, view: texture.createView(), destroy: () => texture.destroy() };
+        if(alpha_less(rb.format, format)) this.alpha_one3(texture, 1, 1, false);
+    },
+
+    /**
+     * A new texture of a format GL reads with alpha 1 (alpha_less): every
+     * level and layer cleared to (0, 0, 0, 1), draws leaving alpha alone after
+     */
+    alpha_one3(texture, levels, layers, three)
+    {
+        this.end_pass();
+        for(let mip = 0; mip < levels; mip++)
+        {
+            const count = three ? Math.max(1, layers >> mip) : layers;
+            for(let layer = 0; layer < count; layer++)
+            {
+                const view = three ? texture.createView({ dimension: "3d", baseMipLevel: mip, mipLevelCount: 1 }) :
+                    texture.createView({ dimension: "2d", baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
+                this.encoder.beginRenderPass({ colorAttachments: [Object.assign({ view, loadOp: "clear", clearValue: { r: 0, g: 0, b: 0, a: 1 }, storeOp: "store" },
+                    three ? { depthSlice: layer } : {})] }).end();
+            }
+        }
     },
 
     // ---- snapshots (L7's; the textures' and renderbuffers' contents)
@@ -1261,7 +1294,7 @@ export const GLES3 = {
             if(rb && rb.image) return color_buffer(this.image_texture(rb.image));
             if(!rb || !rb.gpu) return null;
             return { texture: rb.gpu.texture, view: rb.gpu.view, format: rb.gpu.format, mip: 0, layer: 0, samples: rb.gpu.samples, width: rb.width,
-                height: rb.height };
+                height: rb.height, no_alpha: alpha_less(rb.format, rb.gpu.format) };
         }
         const texture = c.group.textures.get(a.name);
         const image = texture && texture.images.get(a.face * 32 + a.level);
@@ -1281,7 +1314,7 @@ export const GLES3 = {
             gpu.views.set(key, view);
         }
         return { texture: gpu.texture, view, format: gpu.format, mip, layer, depth_slice: gpu.three ? layer : undefined, samples: gpu.samples || 1,
-            width: Math.max(1, gpu.width >> mip), height: Math.max(1, gpu.height >> mip) };
+            width: Math.max(1, gpu.width >> mip), height: Math.max(1, gpu.height >> mip), no_alpha: !!image && alpha_less(image_internal(image), gpu.format) };
     },
 
     /**
@@ -1306,6 +1339,8 @@ export const GLES3 = {
         const colors = (fbo.draw_buffers || [GL3.COLOR_ATTACHMENT0]).map(b => b === GL3.NONE ? null : this.attachment3(c, fbo.attachments.get(b)));
         while(colors.length && !colors[colors.length - 1]) colors.pop();
         const depth = this.attachment3(c, fbo.attachments.get(GL3.DEPTH_ATTACHMENT)) || this.attachment3(c, fbo.attachments.get(GL3.STENCIL_ATTACHMENT));
+        // (a depth and stencil image attached at one point alone: the framebuffer has no buffer of the other, whose test passes)
+        if(depth) Object.assign(depth, { gl_depth: !!fbo.attachments.get(GL3.DEPTH_ATTACHMENT), gl_stencil: !!fbo.attachments.get(GL3.STENCIL_ATTACHMENT) });
         const all = [...colors.filter(Boolean), ...depth ? [depth] : []];
         if(!all.length)
         {
@@ -1340,7 +1375,7 @@ export const GLES3 = {
         {
             if(c.default_read_buffer === GL3.NONE) return null;
             const t = this.surface_target(c);
-            return t && t.color ? { texture: t.color, format: COLOR_FORMAT, mip: 0, layer: 0, samples: 1, width: t.width, height: t.height } : null;
+            return t && t.color ? { texture: t.color, format: COLOR_FORMAT, mip: 0, layer: 0, samples: 1, width: t.width, height: t.height, no_alpha: t.alpha === false } : null;
         }
         const fbo = c.framebuffers.get(read_framebuffer(c));
         if(!fbo || fbo.read_buffer === GL3.NONE) return null;
@@ -1416,7 +1451,9 @@ export const GLES3 = {
     {
         const [sx0, sy0, sx1, sy1] = blit.src, [dx0, dy0, dx1, dy1] = blit.dst, [x, y, w, h] = blit.rect;
         const three = source.texture.dimension === "3d";
-        if(!depth && !blit.map && source.format === dest.format && source.samples === 1 && sx1 - sx0 === dx1 - dx0 && sy1 - sy0 === dy1 - dy0 && sx1 > sx0 && sy1 > sy0 &&
+        // (a copy when nothing changes, but alpha into a target GL reads with alpha 1)
+        if(!depth && !blit.map && source.format === dest.format && source.samples === 1 && (!dest.no_alpha || source.no_alpha) &&
+            sx1 - sx0 === dx1 - dx0 && sy1 - sy0 === dy1 - dy0 && sx1 > sx0 && sy1 > sy0 &&
             x === dx0 && y === dy0 && w === dx1 - dx0 && h === dy1 - dy0 && sx0 >= 0 && sy0 >= 0 && sx1 <= source.width && sy1 <= source.height && dest.texture)
         {
             this.end_pass();
@@ -1430,7 +1467,8 @@ export const GLES3 = {
         const scalar = { f: "f32", i: "i32", u: "u32" }[kind] || "f32";
         const ms = source.samples > 1;
         const linear = blit.linear && kind === "f" && !source.format.includes("32float") && !ms;
-        const key = ["blit3", source.format, three ? 3 : 2, ms ? "m" : "", linear ? "l" : "n", depth ? dest.format : dest.format + ":" + out_kind].join("|");
+        const key = ["blit3", source.format, three ? 3 : 2, ms ? "m" : "", linear ? "l" : "n", depth ? dest.format : dest.format + ":" + out_kind,
+            dest.no_alpha ? "~" : ""].join("|");
         this.blit_pipelines3 = this.blit_pipelines3 || new Map();
         let entry = this.blit_pipelines3.get(key);
         if(!entry)
@@ -1453,6 +1491,8 @@ export const GLES3 = {
                 }
                 @fragment fn fs(@builtin(position) q : vec4<f32>) -> ${depth ? "@builtin(frag_depth) f32" : "@location(0) " + out_type} {
                     let c = p.src0 + (q.xy - p.dst0) * p.scale;
+                    // (a destination pixel whose source is outside the source rectangle's image: left as it is)
+                    if(any(c < vec2<f32>(0.0)) || any(c >= p.size)) { discard; }
                     let k = clamp(vec2<i32>(floor(c)), vec2<i32>(0), vec2<i32>(p.size) - vec2<i32>(1));
                     ${depth ? "return " + value + ";" : out_kind === "f" ? "return p.m * vec4<f32>(" + value + ") + p.b;" : "return " + out_type + "(" + value + ");"}
                 }`;
@@ -1463,7 +1503,7 @@ export const GLES3 = {
                     linear ? "float" : "unfilterable-float", viewDimension: three ? "3d" : "2d", multisampled: ms } },
                 ...linear ? [{ binding: 2, visibility: 2, sampler: { type: "filtering" } }] : []] });
             const descriptor = { label: "GLES 3 blit", layout: this.device.createPipelineLayout({ bindGroupLayouts: [group] }),
-                vertex: { module, entryPoint: "vs" }, fragment: { module, entryPoint: "fs", targets: depth ? [] : [{ format: dest.format }] },
+                vertex: { module, entryPoint: "vs" }, fragment: { module, entryPoint: "fs", targets: depth ? [] : [{ format: dest.format, writeMask: dest.no_alpha ? 7 : 15 }] },
                 primitive: { topology: "triangle-list" } };
             if(depth) descriptor.depthStencil = { format: dest.format, depthWriteEnabled: true, depthCompare: "always" };
             entry = { pipeline: this.device.createRenderPipeline(descriptor), group,
@@ -1575,7 +1615,7 @@ export const GLES3 = {
             if(!a) return null;
             const value = clear && clear.colors && clear.colors[i];
             return Object.assign({ view: a.view, storeOp: "store", loadOp: value ? "clear" : "load" },
-                value ? { clearValue: { r: value[0], g: value[1], b: value[2], a: value[3] } } : {},
+                value ? { clearValue: { r: value[0], g: value[1], b: value[2], a: a.no_alpha ? 1 : value[3] } } : {},
                 a.depth_slice !== undefined ? { depthSlice: a.depth_slice } : {});
         });
         const descriptor = { label: "GLES 3 pass", colorAttachments: colors };
@@ -1700,7 +1740,8 @@ export const GLES3 = {
      */
     clear_target3(c, target, want)
     {
-        const has = format => target.depth && (format === "depth" ? target.depth.format !== "stencil8" : target.depth.format.includes("stencil"));
+        const has = format => target.depth && (format === "depth" ? target.depth.format !== "stencil8" && target.depth.gl_depth !== false :
+            target.depth.format.includes("stencil") && target.depth.gl_stencil !== false);
         const depth = want.depth !== undefined && c.depth_mask && has("depth") ? Math.min(1, Math.max(0, want.depth)) : undefined;
         const stencil = want.stencil !== undefined && has("stencil") ? want.stencil & 0xFF : undefined;
         const colors = want.colors.map((v, i) => v && target.colors[i] ? (target.alpha ? v : [v[0], v[1], v[2], 1]) : null);
@@ -1739,7 +1780,7 @@ export const GLES3 = {
             const module = this.device.createShaderModule({ label: "GLES 3 clear", code });
             const descriptor = {
                 label: "GLES 3 clear", layout: "auto", vertex: { module, entryPoint: "vs" },
-                fragment: { module, entryPoint: "fs", targets: target.colors.map((a, i) => a ? { format: a.format, writeMask: colors[i] ? mask : 0 } : null) },
+                fragment: { module, entryPoint: "fs", targets: target.colors.map((a, i) => a ? { format: a.format, writeMask: colors[i] ? mask & (a.no_alpha ? 7 : 15) : 0 } : null) },
                 primitive: { topology: "triangle-list" }, multisample: { count: target.samples },
             };
             if(target.depth)
@@ -3207,12 +3248,13 @@ export const GLES3 = {
         // (an advanced equation: the fragment shader blends, glsl_es_rewrite.js's; its index the constant)
         const advanced = shaders.fragment.blend_constant ? advanced_blend(c) : -1;
         const blend = c.enabled.has(BLEND) && advanced < 0;
-        const depth_test = c.enabled.has(DEPTH_TEST), stencil_test = c.enabled.has(STENCIL_TEST);
+        const depth_test = c.enabled.has(DEPTH_TEST) && !(target.depth && target.depth.gl_depth === false);
+        const stencil_test = c.enabled.has(STENCIL_TEST) && !(target.depth && target.depth.gl_stencil === false);
         const cull = face === 0 ? "back" : face === 1 ? "front" : c.enabled.has(CULL_FACE) ? (c.cull_face === 0x0404 ? "front" : "back") : "none";
         const masks = face === undefined ? 0 : face;
         const depth_format = target.depth ? target.depth.format : "";
         const key = ["3", shaders.id, vertex.key, group.key, topology, strip_format || "", c.front_face, cull, masks,
-            target.colors.map(a => a ? a.format + (a.unwritten ? "!" : "") : "-").join(","), target.alpha ? "a" : "x", depth_format, target.samples,
+            target.colors.map(a => a ? a.format + (a.unwritten ? "!" : "") + (a.no_alpha ? "~" : "") : "-").join(","), target.alpha ? "a" : "x", depth_format, target.samples,
             c.enabled.has(0x8E51) ? c.sample_mask : "-", c.enabled.has(0x809E) ? "c" : "-",
             blend ? c.blend_func.join(",") + "/" + c.blend_equation.join(",") : advanced >= 0 ? "advanced" + advanced : "-", c.color_mask.join(""),
             depth_test ? c.depth_func + ":" + c.depth_mask : "-",
@@ -3228,7 +3270,7 @@ export const GLES3 = {
             const output = shaders.outputs.get(i);
             const kind = format_kind(a.format);
             const fits = !a.unwritten && output && (kind === "f" ? !/[iu]32/.test(output) : output.includes(kind === "i" ? "i32" : "u32"));
-            return { format: a.format, writeMask: fits ? write_mask : 0, blend: blend && fits && blendable(a.format) ? {
+            return { format: a.format, writeMask: fits ? write_mask & (a.no_alpha ? 7 : 15) : 0, blend: blend && fits && blendable(a.format) ? {
                 color: blend_component(c.blend_equation[0], c.blend_func[0], c.blend_func[1]),
                 alpha: blend_component(c.blend_equation[1], c.blend_func[2], c.blend_func[3]),
             } : undefined };

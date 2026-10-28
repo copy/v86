@@ -306,6 +306,9 @@ async function setup(max_version, api)
     await call("gles2:glBindFramebuffer", 0x8D40, 0);
     await call("gles2:glBindVertexArray", 905);
     assert.equal(await error(), 0x0502, "an unused vertex array name: INVALID_OPERATION");
+    // (GLES 3.0 takes SRC_ALPHA_SATURATE as a destination factor too; GLES 2.0 as a source's alone)
+    await call("gles2:glBlendFuncSeparate", 0x0305, 0x0308, 0x0303, 0x0308);
+    assert.equal(await error(), 0, "SRC_ALPHA_SATURATE as a destination factor");
     console.log("PASS: GLES 3.0's state: vertex arrays, buffers, textures, samplers, framebuffers, queries, syncs; unused names bound");
 }
 
