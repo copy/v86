@@ -175,9 +175,11 @@ const EXTENSIONS = {
     2: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_compressed_ETC1_RGB8_texture", "GL_OES_element_index_uint",
         "GL_OES_depth24", "GL_OES_packed_depth_stencil", "GL_OES_rgb8_rgba8", "GL_OES_texture_npot", "GL_OES_standard_derivatives",
         "GL_EXT_texture_format_BGRA8888"],
-    // (GLES 3.x: what 3.0 does not have of the above, docs/gles3-plan.md)
+    // (GLES 3.x: GLES 2.0's, those 3.0 has in its core too: the guest's EGL makes a GLES 2.0 context one of the
+    // highest version announced, and GLES 2.0 programs, dEQP-GLES2 among them, look for them; docs/gles3-plan.md)
     3: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_EGL_image_external_essl3", "GL_OES_compressed_ETC1_RGB8_texture",
-        "GL_EXT_texture_format_BGRA8888"],
+        "GL_OES_element_index_uint", "GL_OES_depth24", "GL_OES_packed_depth_stencil", "GL_OES_rgb8_rgba8", "GL_OES_texture_npot",
+        "GL_OES_standard_derivatives", "GL_EXT_texture_format_BGRA8888"],
 };
 
 /** GL_EXTENSIONS of GLES 3.x's contexts, as glGetStringi counts them */

@@ -54,6 +54,9 @@ async function setup(max_version, api)
         assert.equal(await s.gl_string(GL_SHADING_LANGUAGE_VERSION), "OpenGL ES GLSL ES " + (number / 10).toFixed(2));
         assert.ok((await s.gl_string(GL_EXTENSIONS)).includes("ANDROID_EMU_gles_max_version_" + max.replace(".", "_")),
             max + ": the host feature string the guest's libraries look for");
+        // (GLES 2.0's extensions that 3.0 has in core: the guest's EGL makes GLES 2.0 contexts 3.x ones)
+        const extensions = (await s.gl_string(GL_EXTENSIONS)).split(" ");
+        for(const e of ["GL_OES_texture_npot", "GL_OES_element_index_uint", "GL_OES_standard_derivatives", "GL_OES_depth24"]) assert.ok(extensions.includes(e), max + ": " + e);
     }
     const four = await setup("3.2", 4);
     assert.equal(four.c.version, 32, "the guest asks 4 for 3.1 and 3.2");
@@ -287,7 +290,23 @@ async function setup(max_version, api)
     await call("gles2:glDeleteSyncAEMU", sync);
     assert.equal((await call("gles2:glIsSyncAEMU", sync)).ret, 0);
     assert.equal(await error(), 0);
-    console.log("PASS: GLES 3.0's state: vertex arrays, buffers, textures, samplers, framebuffers, queries, syncs");
+    // (an unused name bound makes a buffer, texture, framebuffer or renderbuffer, as in GLES 2.0: the guest's
+    // EGL makes GLES 2.0's contexts the host's highest version, and dEQP-GLES2 binds names it never generated;
+    // a vertex array's must be generated)
+    await call("gles2:glBindBuffer", 0x8892, 900);
+    await call("gles2:glBindBufferBase", 0x8A11, 0, 901);
+    await call("gles2:glBindTexture", 0x0DE1, 902);
+    await call("gles2:glBindFramebuffer", 0x8D40, 903);
+    await call("gles2:glBindRenderbuffer", 0x8D41, 904);
+    await call("gles2:glRenderbufferStorage", 0x8D41, 0x8058, 4, 4);
+    await call("gles2:glFramebufferRenderbuffer", 0x8D40, 0x8CE0, 0x8D41, 904);
+    assert.equal(await error(), 0, "unused names bound");
+    assert.deepEqual(i32s((await call("gles2:glGetFramebufferAttachmentParameteriv", 0x8D40, 0x8CE0, 0x8CD1, 4)).outs[0]), [904]);
+    assert.equal((await call("gles2:glIsFramebuffer", 903)).ret, 1);
+    await call("gles2:glBindFramebuffer", 0x8D40, 0);
+    await call("gles2:glBindVertexArray", 905);
+    assert.equal(await error(), 0x0502, "an unused vertex array name: INVALID_OPERATION");
+    console.log("PASS: GLES 3.0's state: vertex arrays, buffers, textures, samplers, framebuffers, queries, syncs; unused names bound");
 }
 
 // ---- GLES 3.0's programs: uniform blocks, unsigned and non-square uniforms, transform feedback's varyings

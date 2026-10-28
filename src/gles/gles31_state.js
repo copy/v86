@@ -297,11 +297,8 @@ export function gles31_handlers(h, H3)
         if(index >= list.length) return fail(c, GL.INVALID_VALUE);
         if(range && name && (size <= 0 || offset < 0)) return fail(c, GL.INVALID_VALUE);
         if(range && name && (storage ? offset % LIMITS31.SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT : offset % 4)) return fail(c, GL.INVALID_VALUE);
-        if(name && !c.group.buffers.has(name))
-        {
-            if(!generated(shadow, c.group.reserved.buffer, name)) return fail(c, GL.INVALID_OPERATION);
-            c.group.buffers.set(name, new_buffer());
-        }
+        // (an unused name makes a buffer, as glBindBufferBase's other targets do; glBindVertexBuffer's must be generated)
+        if(name && !c.group.buffers.has(name)) c.group.buffers.set(name, new_buffer());
         list[index] = { buffer: name, offset: range ? offset : 0, size: range ? size : 0 };
         c.buffers[storage ? "shader_storage" : "atomic_counter"] = name;
         return undefined;

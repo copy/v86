@@ -239,7 +239,10 @@ export function gles3_handlers(h)
     /**
      * Whether a name was made by glGen*: those calls are the CPU side's
      * alone (queries), so the page's shadow (`trusted`) takes the names the
-     * CPU side accepted as made
+     * CPU side accepted as made. GLES 3.x wants it of vertex arrays,
+     * transform feedbacks, queries, samplers and program pipelines; a
+     * buffer, texture, framebuffer or renderbuffer is still made by binding
+     * an unused name (GLES 2.0's rule, which 3.x keeps)
      */
     const generated = (shadow, made, name) => shadow.trusted || made.has(name);
     const new_buffer = () => ({ size: 0, usage: 0x88E4, mapped: null, bytes: null, gpu_newer: false });
@@ -786,11 +789,7 @@ export function gles3_handlers(h)
         "glBindBuffer": (shadow, c, [target, name]) =>
         {
             if(!target_ok(c, target)) return fail(c, GL.INVALID_ENUM);
-            if(name && !c.group.buffers.has(name))
-            {
-                if(c.version >= 30 && !generated(shadow, c.group.reserved.buffer, name)) return fail(c, GL.INVALID_OPERATION);
-                c.group.buffers.set(name, new_buffer());
-            }
+            if(name && !c.group.buffers.has(name)) c.group.buffers.set(name, new_buffer());
             set_buffer_binding(c, target, name);
             return undefined;
         },
@@ -1240,11 +1239,7 @@ export function gles3_handlers(h)
         "glBindFramebuffer": (shadow, c, [target, name]) =>
         {
             if(framebuffer_of(c, target) < 0) return fail(c, GL.INVALID_ENUM);
-            if(name && !c.framebuffers.has(name))
-            {
-                if(!generated(shadow, c.reserved_framebuffers, name)) return fail(c, GL.INVALID_OPERATION);
-                c.framebuffers.set(name, Object.assign(new_framebuffer3(), { name }));
-            }
+            if(name && !c.framebuffers.has(name)) c.framebuffers.set(name, Object.assign(new_framebuffer3(), { name }));
             if(target !== GL.READ_FRAMEBUFFER) c.framebuffer = name;
             if(target !== GL.DRAW_FRAMEBUFFER) c.read_framebuffer = name;
             return undefined;
@@ -1769,11 +1764,7 @@ export function gles3_handlers(h)
         if(target === GL.UNIFORM_BUFFER && range && name && offset % LIMITS3.UNIFORM_BUFFER_OFFSET_ALIGNMENT) return fail(c, GL.INVALID_VALUE);
         if(target === GL.TRANSFORM_FEEDBACK_BUFFER && range && name && (offset % 4 || size % 4)) return fail(c, GL.INVALID_VALUE);
         if(target === GL.TRANSFORM_FEEDBACK_BUFFER && tf.active) return fail(c, GL.INVALID_OPERATION);
-        if(name && !c.group.buffers.has(name))
-        {
-            if(!generated(shadow, c.group.reserved.buffer, name)) return fail(c, GL.INVALID_OPERATION);
-            c.group.buffers.set(name, new_buffer());
-        }
+        if(name && !c.group.buffers.has(name)) c.group.buffers.set(name, new_buffer());
         const list = target === GL.UNIFORM_BUFFER ? c.uniform_bindings : tf.bindings;
         list[index] = { buffer: name, offset: range ? offset : 0, size: range ? size : 0 };
         if(target === GL.UNIFORM_BUFFER) c.buffers.uniform = name;
