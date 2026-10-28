@@ -449,10 +449,114 @@ export function geometry_layout(words)
     return layout;
 }
 
+/** The precisions GLSL ES gives a type when the shader declares none (4.5.4): float has none in a fragment shader */
+const DEFAULT_PRECISIONS = { vertex: { float: "highp", int: "highp", sampler2D: "lowp", samplerCube: "lowp" },
+    fragment: { int: "mediump", sampler2D: "lowp", samplerCube: "lowp" } };
+
 /**
- * The link errors of GLSL ES that glslang's relaxed link leaves out (not
- * uniforms of other precisions in two stages: the SPIR-V has no precision
- * on the default block's members):
+ * A shader's default block uniforms' precisions, a leaf's path to its
+ * precision (GLSL ES: a qualifier of its own, else the default in effect
+ * where it, or its struct's member, is declared); the SPIR-V does not keep
+ * them. Blocks and the types without precision (bool) are left out.
+ * @param {string} source
+ * @param {string} stage
+ * @return {!Map<string, string>}
+ */
+export function uniform_precisions(source, stage)
+{
+    const text = source.replace(/\/\*[^]*?\*\//g, " ").replace(/\/\/[^\n]*/g, "").replace(/^\s*#[^\n]*/gm, "");
+    const tokens = text.match(/[A-Za-z_][A-Za-z0-9_]*|\d+|[^\s\w]/g) || [];
+    const defaults = Object.assign({}, DEFAULT_PRECISIONS[stage] || {});
+    const QUALIFIERS = new Set(["lowp", "mediump", "highp"]);
+    const category = type => /^(float|vec\d|mat\d(x\d)?)$/.test(type) ? "float" : /^(int|uint|[iu]vec\d)$/.test(type) ? "int" : type;
+    const structs = new Map();
+    const out = new Map();
+    let i = 0;
+    /** a struct's body from tokens[i] ("{"): its members [{name, type, precision}], i after "}" */
+    const struct_body = () =>
+    {
+        const members = [];
+        i++;
+        while(i < tokens.length && tokens[i] !== "}")
+        {
+            let precision = null;
+            if(QUALIFIERS.has(tokens[i])) precision = tokens[i++];
+            let type = tokens[i++];
+            if(type === "struct")
+            {
+                const name = tokens[i] !== "{" ? tokens[i++] : null;
+                const nested = struct_body();
+                if(name) structs.set(name, nested);
+                type = { members: nested };
+            }
+            while(i < tokens.length && tokens[i] !== ";")
+            {
+                const name = tokens[i++];
+                while(tokens[i] === "[") { while(tokens[i] !== "]") i++; i++; }
+                members.push({ name, type, precision: precision || (typeof type === "string" ? defaults[category(type)] || null : null) });
+                if(tokens[i] === ",") i++;
+            }
+            i++;
+        }
+        i++;
+        return members;
+    };
+    const leaves = (path, type, precision) =>
+    {
+        const members = typeof type === "object" ? type.members : structs.get(type);
+        if(members) for(const m of members) leaves(path + "." + m.name, m.type, m.precision);
+        else if(type !== "bool" && !/^bvec/.test(type) && precision) out.set(path, precision);
+    };
+    let depth = 0;
+    while(i < tokens.length)
+    {
+        const t = tokens[i];
+        if(t === "{") { depth++; i++; continue; }
+        if(t === "}") { depth--; i++; continue; }
+        if(depth > 0) { i++; continue; }
+        if(t === "precision" && QUALIFIERS.has(tokens[i + 1]))
+        {
+            defaults[category(tokens[i + 2])] = tokens[i + 1];
+            i += 3;
+            continue;
+        }
+        if(t === "struct" && tokens[i + 2] === "{")
+        {
+            const name = tokens[i + 1];
+            i += 2;
+            structs.set(name, struct_body());
+            continue;
+        }
+        if(t !== "uniform") { i++; continue; }
+        i++;
+        if(tokens[i] === "layout") { while(tokens[i] !== ")") i++; i++; }
+        let precision = null;
+        if(QUALIFIERS.has(tokens[i])) precision = tokens[i++];
+        let type = tokens[i++];
+        if(type === "struct")
+        {
+            const name = tokens[i] !== "{" ? tokens[i++] : null;
+            const members = struct_body();
+            if(name) structs.set(name, members);
+            type = { members };
+        }
+        else if(tokens[i] === "{") { depth++; i++; continue; }
+        while(i < tokens.length && tokens[i] !== ";")
+        {
+            const name = tokens[i++];
+            while(tokens[i] === "[") { while(tokens[i] !== "]") i++; i++; }
+            leaves(name, type, precision || (typeof type === "string" ? defaults[category(type)] || null : null));
+            if(tokens[i] === ",") i++;
+            else if(tokens[i] !== ";") i++;
+        }
+        i++;
+    }
+    return out;
+}
+
+/**
+ * The link errors of GLSL ES that glslang's relaxed link leaves out:
+ * - a uniform of other precisions in two stages (uniform_precisions);
  * - an input the next stage uses that the stage before it does not write
  *   (not in a separable program: a pipeline's stages are checked apart);
  * - in GLSL ES 3.00, an input of other interpolation (flat, noperspective)
@@ -463,6 +567,15 @@ export function geometry_layout(words)
  */
 function link_rules(modules, shaders, separable)
 {
+    const precisions = new Map();
+    for(const shader of shaders)
+    {
+        for(const [path, precision] of uniform_precisions(shader.source, shader.stage))
+        {
+            if(precisions.has(path) && precisions.get(path) !== precision) return "ERROR: Linking: precision of uniform " + path + " differs between shaders";
+            precisions.set(path, precision);
+        }
+    }
     if(separable) return null;
     const parsed = modules.map(module => { const words = new Uint32Array(module.words); return { stage: module.stage, words, m: parse_spirv(words) }; })
         .sort((a, b) => a.stage - b.stage);
