@@ -313,7 +313,9 @@ export function link_glslang_program(glslang, shaders, options)
                 }
                 if(binding !== undefined)
                 {
-                    set_decoration(words, m, v.id, DECORATION.DescriptorSet, 0);
+                    // (a separable program's fragment stage in set 1: a pipeline's vertex and fragment programs each have a set,
+                    // their default blocks the same binding)
+                    set_decoration(words, m, v.id, DECORATION.DescriptorSet, options.separable && stage === STAGE.fragment ? 1 : 0);
                     set_decoration(words, m, v.id, DECORATION.Binding, binding);
                 }
             }

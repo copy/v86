@@ -49,12 +49,16 @@ const STRIP_END = 0xFFFFFFFF;
 
 /** The texture slot (gles3_state.js's SLOT) of a sampler type, and each slot's target */
 const SAMPLER_SLOT = new Map([[0x8B5E, 0], [0x8B62, 0], [0x8DCA, 0], [0x8DD2, 0], [0x8B60, 1], [0x8DC5, 1], [0x8DCC, 1], [0x8DD4, 1],
-    [0x8D66, 2], [0x8B5F, 3], [0x8DCB, 3], [0x8DD3, 3], [0x8DC1, 4], [0x8DC4, 4], [0x8DCF, 4], [0x8DD7, 4]]);
-const SLOT_TARGET = [GL3.TEXTURE_2D, GL3.TEXTURE_CUBE_MAP, GL3.TEXTURE_EXTERNAL_OES, GL3.TEXTURE_3D, GL3.TEXTURE_2D_ARRAY];
+    [0x8D66, 2], [0x8B5F, 3], [0x8DCB, 3], [0x8DD3, 3], [0x8DC1, 4], [0x8DC4, 4], [0x8DCF, 4], [0x8DD7, 4], [0x9108, 5], [0x9109, 5], [0x910A, 5]]);
+const SLOT_TARGET = [GL3.TEXTURE_2D, GL3.TEXTURE_CUBE_MAP, GL3.TEXTURE_EXTERNAL_OES, GL3.TEXTURE_3D, GL3.TEXTURE_2D_ARRAY, 0x9100];
 /** What a texture unit samples with nothing bound */
 const NO_SAMPLER = { min_filter: NEAREST, mag_filter: NEAREST, wrap_s: 0x812F, wrap_t: 0x812F, wrap_r: 0x812F, compare_func: 0x0203 };
 /** Vulkan's address modes (vx_naga's int_wraps): repeat 0, mirrored repeat 1, clamp to edge 2 */
 const VK_WRAP = { 0x2901: 0, 0x8370: 1, 0x812F: 2 };
+
+/** WebGPU's storage texture formats (GLES 3.1's image formats as WebGPU has them) */
+const STORAGE_FORMATS = new Set(["rgba8unorm", "rgba8snorm", "rgba8uint", "rgba8sint", "rgba16uint", "rgba16sint", "rgba16float", "r32uint", "r32sint",
+    "r32float", "rg32uint", "rg32sint", "rg32float", "rgba32uint", "rgba32sint", "rgba32float"]);
 
 /** The renderbuffer formats that are no sized texture format */
 const RENDERBUFFER_WEBGPU = { 0x8D48: "stencil8", 0x81A7: "depth32float" };
@@ -166,7 +170,7 @@ function wgsl_declarations(wgsl)
     const declarations = new Map();
     for(const m of wgsl.matchAll(/@group\((\d+)\)\s*@binding\((\d+)\)\s*var(?:<[^>]*>)?\s+\w+\s*:\s*([^;]+);/g))
     {
-        if(+m[1] === 0) declarations.set(+m[2], m[3].trim());
+        declarations.set(m[1] + ":" + m[2], m[3].trim());
     }
     return declarations;
 }
@@ -357,54 +361,81 @@ export const GLES3 = {
         return t;
     },
 
-    /**
-     * A program's shader modules for a draw: its fragment depth output kept
-     * only with a depth attachment, its integer textures' fetches by their
-     * samplers' wraps
-     * @return {?{vertex: !Object, fragment: !Object, bindings: !Array<!Object>, outputs: !Map<number, string>, id: string}}
-     */
-    program3(c, program, target)
+    /** A shader module of WGSL (cached by its code) */
+    module3(code)
     {
-        if(!this.naga) return this.note3("vx_naga not loaded");
-        const spirv = program.info.spirv;
-        const v = spirv.findIndex(m => m.stage === "vertex"), f = spirv.findIndex(m => m.stage === "fragment");
-        if(v < 0 || f < 0) return this.note3("a program without a vertex or fragment shader");
-        const fragment_flags = target.depth ? 0 : NO_DEPTH;
-        let ts = [this.translation3(program, v, GL_DEPTH, []), this.translation3(program, f, fragment_flags, [])];
-        const failed = ts.find(t => t.error);
-        if(failed) return this.note3("vx_naga: " + failed.error.slice(0, 160));
-        const fetched = [...new Set([...ts[0].intsamples || [], ...ts[1].intsamples || []])];
-        const wraps = fetched.length ? this.int_wraps3(c, program, fetched) : [];
-        const gpu = this.program_gpu(program);
-        const key = fragment_flags + ":" + wraps.flat().join(",");
-        let shaders = gpu.shaders.get(key);
-        if(shaders) return shaders;
-        if(wraps.length) ts = [this.translation3(program, v, GL_DEPTH, wraps), this.translation3(program, f, fragment_flags, wraps)];
-        if(ts.some(t => t.error)) return this.note3("vx_naga: " + ts.find(t => t.error).error.slice(0, 160));
-        const module = code =>
-        {
-            let m = this.shaders.get(code);
-            if(!m) this.shaders.set(code, m = this.device.createShaderModule({ label: "GLES 3 program", code: "diagnostic(off, derivative_uniformity);\n" + code }));
-            return m;
-        };
-        // the bindings both stages use, with their WGSL types and which stages see them
+        let m = this.shaders.get(code);
+        if(!m) this.shaders.set(code, m = this.device.createShaderModule({ label: "GLES 3 program", code: "diagnostic(off, derivative_uniformity);\n" + code }));
+        return m;
+    },
+
+    /**
+     * The programs of a draw's stages: the current program for both, or the
+     * bound pipeline's (GLES 3.1's separable programs), or null
+     * @return {?{vertex: !Object, fragment: !Object}}
+     */
+    stages3(c)
+    {
+        const ok = p => p && p.kind === "program" && p.info && p.info.ok && p.info.spirv ? p : null;
+        if(c.program) return ok(c.group.objects.get(c.program)) && { vertex: c.group.objects.get(c.program), fragment: c.group.objects.get(c.program) };
+        const pipeline = c.program_pipelines && c.program_pipelines.get(c.program_pipeline);
+        if(!pipeline) return null;
+        const vertex = ok(c.group.objects.get(pipeline.stages[1])), fragment = ok(c.group.objects.get(pipeline.stages[2]));
+        return vertex && fragment ? { vertex, fragment } : null;
+    },
+
+    /**
+     * The bindings translations use: by group and binding, with their WGSL
+     * types, the stages that see them (`visibility`) and the program whose
+     * state they bind
+     * @param {!Array<!Array<*>>} list [translation, visibility, program]
+     */
+    bindings3(list)
+    {
         const bindings = new Map();
-        ts.forEach((t, stage) =>
+        for(const [t, visibility, program] of list)
         {
             const declarations = wgsl_declarations(t.wgsl);
             for(const [group, binding, kind, size] of t.entries[0].bindings)
             {
-                if(group !== 0) continue;
-                const b = bindings.get(binding) || { binding, kind, size: 0, visibility: 0, type: declarations.get(binding) };
+                const key = group + ":" + binding;
+                const b = bindings.get(key) || { group, binding, kind, size: 0, visibility: 0, type: declarations.get(key), program };
                 b.size = Math.max(b.size, size);
-                b.visibility |= stage === 0 ? 1 : 2;
-                bindings.set(binding, b);
+                b.visibility |= visibility;
+                bindings.set(key, b);
             }
-        });
+        }
+        return [...bindings.values()].sort((a, b) => a.group - b.group || a.binding - b.binding);
+    },
+
+    /**
+     * The shader modules of a draw's stages (one program's, or a pipeline's):
+     * the fragment depth output kept only with a depth attachment, integer
+     * textures fetched by their samplers' wraps
+     * @param {{vertex: !Object, fragment: !Object}} stages stages3's
+     * @return {?{vertex: !Object, fragment: !Object, bindings: !Array<!Object>, outputs: !Map<number, string>, id: string}}
+     */
+    program3(c, stages, target)
+    {
+        if(!this.naga) return this.note3("vx_naga not loaded");
+        const v = stages.vertex.info.spirv.findIndex(m => m.stage === "vertex"), f = stages.fragment.info.spirv.findIndex(m => m.stage === "fragment");
+        if(v < 0 || f < 0) return this.note3("a program without a vertex or fragment shader");
+        const fragment_flags = target.depth ? 0 : NO_DEPTH;
+        const translate = (vw, fw) => [this.translation3(stages.vertex, v, GL_DEPTH, vw), this.translation3(stages.fragment, f, fragment_flags, fw)];
+        let ts = translate([], []);
+        const failed = ts.find(t => t.error);
+        if(failed) return this.note3("vx_naga: " + failed.error.slice(0, 160));
+        const wraps = ts.map((t, i) => t.intsamples && t.intsamples.length ? this.int_wraps3(c, i ? stages.fragment : stages.vertex, t.intsamples) : []);
+        const gpu = this.program_gpu(stages.vertex);
+        const key = this.id_of(stages.fragment) + ":" + fragment_flags + ":" + wraps.map(w => w.flat().join(",")).join("/");
+        let shaders = gpu.shaders.get(key);
+        if(shaders) return shaders;
+        if(wraps.some(w => w.length)) ts = translate(wraps[0], wraps[1]);
+        if(ts.some(t => t.error)) return this.note3("vx_naga: " + ts.find(t => t.error).error.slice(0, 160));
         shaders = {
-            vertex: { module: module(ts[0].wgsl), entry: ts[0].entries[0].name },
-            fragment: { module: module(ts[1].wgsl), entry: ts[1].entries[0].name },
-            bindings: [...bindings.values()].sort((a, b) => a.binding - b.binding),
+            vertex: { module: this.module3(ts[0].wgsl), entry: ts[0].entries[0].name },
+            fragment: { module: this.module3(ts[1].wgsl), entry: ts[1].entries[0].name },
+            bindings: this.bindings3([[ts[0], 1, stages.vertex], [ts[1], 2, stages.fragment]]),
             outputs: fragment_outputs(ts[1].wgsl),
         };
         shaders.id = this.id_of(shaders.vertex.module) + ":" + this.id_of(shaders.fragment.module);
@@ -554,21 +585,25 @@ export const GLES3 = {
         const depth = three || array ? Math.max(1, base.depth || 1) : cube ? 6 : 1;
         const largest = Math.max(width, height, three ? depth : 1);
         const levels = texture.immutable ? Math.max(1, texture.immutable_levels - first) : Math.floor(Math.log2(largest)) + 1;
+        // (GLES 3.1: a multisampled texture's 4 samples; an immutable texture of a storage format is an image's too)
+        const samples = base.samples > 1 ? 4 : 1;
+        const storage = samples === 1 && !!texture.immutable && STORAGE_FORMATS.has(format);
         const old = texture.gpu;
         if(old && old.es3 && old.format === format && old.width === width && old.height === height && old.depth === depth && old.first === first &&
-            old.levels >= levels)
+            old.levels >= levels && old.samples === samples && old.storage === storage)
         {
             return old;
         }
-        const usage = U.TEXTURE_BINDING | U.COPY_DST | U.COPY_SRC | (RENDERABLE.has(format) ? U.RENDER_ATTACHMENT : 0);
+        const usage = U.TEXTURE_BINDING | (samples > 1 ? 0 : U.COPY_DST | U.COPY_SRC) | (RENDERABLE.has(format) ? U.RENDER_ATTACHMENT : 0) |
+            (storage ? U.STORAGE_BINDING : 0);
         const created = this.device.createTexture({ label: "GL texture", size: [width, height, depth], dimension: three ? "3d" : "2d", format,
-            mipLevelCount: levels, usage });
-        const gpu = { es3: true, texture: created, format, width, height, depth, first, levels, three, cube, array, views: new Map(),
-            block: native ? 4 : 1, block_bytes: native ? compressed.block_bytes : 0, destroy: () => created.destroy() };
+            mipLevelCount: samples > 1 ? 1 : levels, sampleCount: samples, usage });
+        const gpu = { es3: true, texture: created, format, width, height, depth, first, levels: samples > 1 ? 1 : levels, three, cube, array, samples,
+            storage, views: new Map(), block: native ? 4 : 1, block_bytes: native ? compressed.block_bytes : 0, destroy: () => created.destroy() };
         if(old && old.texture)
         {
             // (the levels that keep their size: a level given below the others, a chain made longer)
-            if(old.es3 && old.format === format && !DRAWN_DEPTH.has(format) && format !== "stencil8")
+            if(old.es3 && old.format === format && !DRAWN_DEPTH.has(format) && format !== "stencil8" && samples === 1 && old.samples === 1)
             {
                 this.end_pass();
                 for(let mip = 0; mip < old.levels; mip++)
@@ -1006,7 +1041,7 @@ export const GLES3 = {
                 gpu.texture.createView({ dimension: "2d", baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
             gpu.views.set(key, view);
         }
-        return { texture: gpu.texture, view, format: gpu.format, mip, layer, depth_slice: gpu.three ? layer : undefined, samples: 1,
+        return { texture: gpu.texture, view, format: gpu.format, mip, layer, depth_slice: gpu.three ? layer : undefined, samples: gpu.samples || 1,
             width: Math.max(1, gpu.width >> mip), height: Math.max(1, gpu.height >> mip) };
     },
 
@@ -1033,7 +1068,24 @@ export const GLES3 = {
         while(colors.length && !colors[colors.length - 1]) colors.pop();
         const depth = this.attachment3(c, fbo.attachments.get(GL3.DEPTH_ATTACHMENT)) || this.attachment3(c, fbo.attachments.get(GL3.STENCIL_ATTACHMENT));
         const all = [...colors.filter(Boolean), ...depth ? [depth] : []];
-        if(!all.length) return null;
+        if(!all.length)
+        {
+            // (GLES 3.1: no attachments, a default size; a pass has one: a color attachment nothing is written to)
+            if(!(fbo.default_width > 0 && fbo.default_height > 0)) return null;
+            const samples = fbo.default_samples > 0 ? 4 : 1;
+            const size = fbo.default_width + "x" + fbo.default_height + "x" + samples;
+            this.empty_targets3 = this.empty_targets3 || new Map();
+            let empty = this.empty_targets3.get(size);
+            if(!empty)
+            {
+                const texture = this.device.createTexture({ label: "GLES no attachments", size: [fbo.default_width, fbo.default_height], format: "r8unorm",
+                    sampleCount: samples, usage: U.RENDER_ATTACHMENT });
+                empty = { texture, view: texture.createView(), format: "r8unorm", mip: 0, layer: 0, samples, width: fbo.default_width,
+                    height: fbo.default_height, unwritten: true };
+                this.empty_targets3.set(size, empty);
+            }
+            return { colors: [empty], depth: null, width: empty.width, height: empty.height, samples, alpha: true, key: "3:empty:" + size, textures: new Set() };
+        }
         const { width, height, samples } = all[0];
         if(all.some(a => a.width !== width || a.height !== height)) return this.note3("attachments of different sizes");
         if(all.some(a => a.samples !== samples)) return this.note3("attachments of different samples");
@@ -1484,19 +1536,25 @@ export const GLES3 = {
     /**
      * A draw of a GLES 3.x context
      * @param {?{type: number, bytes: (Uint8Array|undefined), offset: (number|undefined)}} elements
+     * @param {number=} base_vertex added to each index (GLES 3.1's indirect draws of elements)
+     * @param {?{buffer: !Object, offset: number}=} indirect the draw's parameters in a buffer the GPU wrote (GLES 3.1):
+     *     the GPU reads them, where the draw's arrays and indices can be bound as they are
      */
-    draw3(c, mode, first, count, elements, instances)
+    draw3(c, mode, first, count, elements, instances, base_vertex = 0, indirect = null)
     {
-        if(count <= 0 || instances <= 0) return;
-        const program = c.group.objects.get(c.program);
-        if(!program || !program.info || !program.info.ok || !program.info.spirv) return;
+        if(!indirect && (count <= 0 || instances <= 0)) return;
+        const stages = this.stages3(c);
+        if(!stages) return;
         if(c.enabled.has(CULL_FACE) && c.cull_face === 0x0408 && mode >= 4) return;
         const target = this.target3(c);
         if(!target) return;
-        const shaders = this.program3(c, program, target);
+        const shaders = this.program3(c, stages, target);
         if(!shaders) return;
-        const plan = this.vertex_plan3(c, this.inputs3(program), instances);
+        const plan = this.vertex_plan3(c, this.inputs3(stages.vertex), indirect ? 1 : instances);
         if(!plan) return;
+        if(indirect && (plan.cpu.length || mode === 2 || mode === 6 || elements && INDEX_BYTES[elements.type] < 2)) {
+            return void this.note3("an indirect draw whose arrays or indices are converted");
+        }
         // the indices: the element buffer's as they are where they can be, else a list from the vertex range's first
         let list = null, low = 0, high = -1, rebase = false, topology = TOPOLOGY[mode], strip = mode === 3 || mode === 5, direct = null;
         const fan_or_loop = mode === 2 || mode === 6;
@@ -1505,9 +1563,9 @@ export const GLES3 = {
             const size = INDEX_BYTES[elements.type];
             const buffer = elements.bytes ? null : c.group.buffers.get(c.element_array_buffer);
             if(!size || !elements.bytes && !buffer) return;
-            if(buffer && !fan_or_loop && !plan.cpu_vertex && size > 1 && elements.offset % size === 0)
+            if(buffer && !fan_or_loop && !plan.cpu_vertex && size > 1 && (indirect || elements.offset % size === 0))
             {
-                direct = { buffer: this.gpu_buffer(buffer).buffer, format: size === 2 ? "uint16" : "uint32", offset: elements.offset };
+                direct = { buffer: this.gpu_buffer(buffer).buffer, format: size === 2 ? "uint16" : "uint32", offset: indirect ? 0 : elements.offset };
             }
             else
             {
@@ -1518,6 +1576,9 @@ export const GLES3 = {
                 const view = new DataView(source.buffer, source.byteOffset + offset, count * size);
                 const indices = new Uint32Array(count);
                 for(let i = 0; i < count; i++) indices[i] = size === 1 ? view.getUint8(i) : size === 2 ? view.getUint16(2 * i, true) : view.getUint32(4 * i, true);
+                // (a base vertex: GLES 3.1's indirect draws; the restart index stays one)
+                const restart_index = size === 1 ? 0xFF : size === 2 ? 0xFFFF : 0xFFFFFFFF;
+                if(base_vertex) for(let i = 0; i < count; i++) if(!c.enabled.has(RESTART) || indices[i] !== restart_index) indices[i] += base_vertex;
                 const r = index_list(indices, mode, c.enabled.has(RESTART) ? (size === 1 ? 0xFF : size === 2 ? 0xFFFF : 0xFFFFFFFF) : -1);
                 if(!r || !r.list.length) return;
                 ({ list, low, high, topology, strip } = r);
@@ -1538,11 +1599,12 @@ export const GLES3 = {
             rebase = true;
         }
         if(rebase && high - low >= 1 << 24) return void this.note3("a vertex range past 2^24");
-        const vertex = this.vertex_buffers3(c, plan, { low, high, rebase, instances, indexed: !!(list || direct), first, count });
+        const vertex = this.vertex_buffers3(c, plan, { low, high, rebase, instances: indirect ? 0 : instances, indexed: !!(list || direct || indirect), first,
+            count });
         if(!vertex) return;
-        const group = this.bind_group3(c, program, shaders, target);
+        const group = this.bind_groups3(c, shaders.bindings, target);
         if(!group) return;
-        if(!elements) this.capture3(c, program, group, vertex, mode, first, count, instances, rebase);
+        if(!elements && !indirect) this.capture3(c, stages.vertex, group, vertex, mode, first, count, instances, rebase);
         // (rasterizer discard: what transform feedback captured, nothing drawn)
         if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
         const [vx, vy, vw, vh] = c.viewport;
@@ -1564,7 +1626,7 @@ export const GLES3 = {
             const pass = this.begin_pass3(target, null, !!occlusion);
 
             pass.setPipeline(pipeline);
-            pass.setBindGroup(0, this.device.createBindGroup({ layout: group.layout, entries: group.resources }));
+            for(const g of group.groups) pass.setBindGroup(g.index, this.device.createBindGroup({ layout: g.layout, entries: g.resources }));
             vertex.slots.forEach((s, i) => pass.setVertexBuffer(i, s.gpu, s.offset));
             pass.setViewport(vx, vy, vw, vh, Math.min(c.depth_range[0], c.depth_range[1]), Math.max(c.depth_range[0], c.depth_range[1]));
             if(!this.apply_scissor(pass, c, target)) return;
@@ -1573,7 +1635,17 @@ export const GLES3 = {
             const o = occlusion && this.occlusion3();
             const query = o && o.owners.length < 4096 ? o.owners.push(occlusion) - 1 : -1;
             if(query >= 0) pass.beginOcclusionQuery(query);
-            if(index_buffer)
+            if(indirect)
+            {
+                const parameters = this.gpu_buffer(indirect.buffer).buffer;
+                if(direct)
+                {
+                    pass.setIndexBuffer(direct.buffer, direct.format, 0);
+                    pass.drawIndexedIndirect(parameters, indirect.offset);
+                }
+                else pass.drawIndirect(parameters, indirect.offset);
+            }
+            else if(index_buffer)
             {
                 pass.setIndexBuffer(index_buffer, "uint32");
                 pass.drawIndexed(list.length, instances);
@@ -1581,7 +1653,7 @@ export const GLES3 = {
             else if(direct)
             {
                 pass.setIndexBuffer(direct.buffer, direct.format, direct.offset);
-                pass.drawIndexed(count, instances);
+                pass.drawIndexed(count, instances, 0, base_vertex);
             }
             else pass.draw(count, instances, rebase ? 0 : first, 0);
             if(query >= 0) pass.endOcclusionQuery();
@@ -1772,6 +1844,94 @@ export const GLES3 = {
         return out;
     },
 
+    // ---- compute (GLES 3.1)
+
+    /**
+     * glDispatchCompute(Indirect): the compute program's shader through
+     * vx_naga, its resources, a compute pass (between render passes: what it
+     * writes is there for the draws after it)
+     * @param {?Array<number>} groups the work groups, or null for `indirect`'s
+     * @param {?{buffer: !Object, offset: number}} indirect the dispatch indirect buffer's parameters
+     */
+    dispatch3(c, groups, indirect)
+    {
+        const pipeline_object = !c.program && c.program_pipelines && c.program_pipelines.get(c.program_pipeline);
+        const program = c.group.objects.get(c.program || pipeline_object && pipeline_object.stages[0x20]);
+        if(!program || !program.info || !program.info.ok || !program.info.spirv) return;
+        if(!this.naga) return void this.note3("vx_naga not loaded");
+        const index = program.info.spirv.findIndex(m => m.stage === "compute");
+        if(index < 0) return;
+        let t = this.translation3(program, index, 0, []);
+        if(!t.error && t.intsamples && t.intsamples.length)
+        {
+            const wraps = this.int_wraps3(c, program, t.intsamples);
+            if(wraps.length) t = this.translation3(program, index, 0, wraps);
+        }
+        if(t.error) return void this.note3("vx_naga: " + t.error.slice(0, 160));
+        const module = this.module3(t.wgsl);
+        const group = this.bind_groups3(c, this.bindings3([[t, 4, program]]), { textures: new Set() });
+        if(!group) return;
+        this.computes3 = this.computes3 || new Map();
+        const key = this.id_of(module) + "|" + group.key;
+        let pipeline = this.computes3.get(key);
+        if(!pipeline)
+        {
+            try
+            {
+                pipeline = this.device.createComputePipeline({ label: "GLES 3 compute", layout: group.pipeline_layout,
+                    compute: { module, entryPoint: t.entries[0].name } });
+            }
+            catch(error)
+            {
+                if(this.stats.errors.length < 20) this.stats.errors.push("compute pipeline: " + error.message);
+                return;
+            }
+            this.computes3.set(key, pipeline);
+        }
+        this.end_pass();
+        const pass = this.encoder.beginComputePass({ label: "GLES 3 dispatch" });
+        pass.setPipeline(pipeline);
+        for(const g of group.groups) pass.setBindGroup(g.index, this.device.createBindGroup({ layout: g.layout, entries: g.resources }));
+        if(indirect) pass.dispatchWorkgroupsIndirect(this.gpu_buffer(indirect.buffer).buffer, indirect.offset);
+        else pass.dispatchWorkgroups(groups[0], groups[1], groups[2]);
+        pass.end();
+        this.stats.dispatches = (this.stats.dispatches || 0) + 1;
+    },
+
+    /**
+     * An indirect draw (GLES 3.1): its parameters with the command, or in the
+     * draw indirect buffer: read there where the CPU side has them, else the
+     * GPU's (a buffer a dispatch wrote)
+     * @param {?Uint8Array} data the parameters, the Data forms'
+     */
+    draw_indirect3(c, mode, type, data, offset)
+    {
+        const elements = type !== 0;
+        const words = 4 + (elements ? 1 : 0);
+        let parameters = null;
+        if(data && data.length >= 4 * words) parameters = new DataView(data.buffer, data.byteOffset, 4 * words);
+        const buffer = !data ? c.group.buffers.get(c.buffers.draw_indirect) : null;
+        if(buffer && !buffer.gpu_newer && cpu_bytes(buffer) && offset + 4 * words <= cpu_bytes(buffer).length)
+        {
+            const bytes = cpu_bytes(buffer);
+            parameters = new DataView(bytes.buffer, bytes.byteOffset + offset, 4 * words);
+        }
+        if(!parameters)
+        {
+            if(!buffer) return;
+            if(elements) this.draw3(c, mode, 0, 0, { type, offset: 0 }, 0, 0, { buffer, offset });
+            else this.draw3(c, mode, 0, 0, null, 0, 0, { buffer, offset });
+            return;
+        }
+        const count = parameters.getUint32(0, true), instances = parameters.getUint32(4, true);
+        if(elements)
+        {
+            const first_index = parameters.getUint32(8, true), base_vertex = parameters.getInt32(12, true);
+            this.draw3(c, mode, 0, count, { type, offset: first_index * INDEX_BYTES[type] }, instances, base_vertex);
+        }
+        else this.draw3(c, mode, parameters.getUint32(8, true), count, null, instances);
+    },
+
     // ---- transform feedback
 
     /** vx_naga's capture translation of SPIR-V words (vx_translate_xfb) for a vertex layout's words */
@@ -1854,7 +2014,7 @@ export const GLES3 = {
         const entry = this.xfb3(program, vertex);
         if(!entry) return;
         const { buffers, strides, slots } = entry.xfb;
-        const own = group.entries.filter(e => entry.bindings.has(e.binding)).map(e => Object.assign({}, e, { visibility: 4 }));
+        const own = group.groups[0].entries.filter(e => entry.bindings.has(e.binding)).map(e => Object.assign({}, e, { visibility: 4 }));
         const capture = [{ binding: 960, visibility: 4, buffer: { type: "uniform" } },
             ...slots.map(s => ({ binding: 961 + s, visibility: 4, buffer: { type: "read-only-storage" } })),
             ...buffers.map(b => ({ binding: 970 + b, visibility: 4, buffer: { type: "storage" } }))];
@@ -1881,7 +2041,7 @@ export const GLES3 = {
         this.end_pass();
         const pass = this.encoder.beginComputePass({ label: "GLES 3 capture" });
         pass.setPipeline(p.pipeline);
-        pass.setBindGroup(0, this.device.createBindGroup({ layout: p.layouts[0], entries: group.resources.filter(r => entry.bindings.has(r.binding)) }));
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: p.layouts[0], entries: group.groups[0].resources.filter(r => entry.bindings.has(r.binding)) }));
         pass.setBindGroup(1, this.device.createBindGroup({ layout: p.layouts[1], entries: resources }));
         pass.dispatchWorkgroups(Math.ceil(total / 64));
         pass.end();
@@ -1954,69 +2114,157 @@ export const GLES3 = {
     },
 
     /**
-     * The draw's bind group 0: the default uniform block, the samplers'
-     * textures and samplers, the uniform blocks
-     * @return {?{layout: !GPUBindGroupLayout, resources: !Array<!Object>, key: string}}
+     * A draw's or a dispatch's bind groups: each binding's resource by its
+     * kind and its program's state (the default uniform block, samplers'
+     * textures and samplers, uniform blocks, storage blocks, atomic counter
+     * buffers, image units), the layouts by the resources' types
+     * @param {!Array<!Object>} bindings bindings3's
+     * @return {?{groups: !Array<{index: number, layout: !GPUBindGroupLayout, entries: !Array<!Object>, resources: !Array<!Object>}>,
+     *     pipeline_layout: !GPUPipelineLayout, key: string}}
      */
-    bind_group3(c, program, shaders, target)
+    bind_groups3(c, bindings, target)
     {
-        const entries = [], resources = [];
+        const by_group = new Map();
         const samplings = new Map();
-        const declarations = new Map(shaders.bindings.map(b => [b.binding, b.type]));
-        for(const b of shaders.bindings)
+        const declarations = new Map(bindings.map(b => [b.group + ":" + b.binding, b.type]));
+        for(const b of bindings)
         {
-            const { binding, kind, visibility } = b;
-            const buffer_type = kind === "uniform" ? "uniform" : kind === "storage" ? "read-only-storage" : "storage";
-            if(binding === 0)
-            {
-                entries.push({ binding, visibility, buffer: { type: buffer_type } });
-                resources.push({ binding, resource: { buffer: this.default_block3(program, b.size) } });
-                continue;
-            }
-            const { b: spirv, e } = spirv_binding(binding);
-            if(spirv >= BINDING.SAMPLERS && spirv < BINDING.UNIFORM_BLOCKS)
-            {
-                const key = spirv + ":" + e;
-                let sampling = samplings.get(key);
-                if(!sampling)
-                {
-                    const unit = this.texture_unit3(c, program, spirv, e);
-                    const tex = texture_type(declarations.get(binding & ~1));
-                    sampling = Object.assign(this.texture_view3(unit.texture, unit.state, tex, target), { state: unit.state, tex });
-                    samplings.set(key, sampling);
-                }
-                if(kind.startsWith("texture"))
-                {
-                    entries.push({ binding, visibility, texture: { sampleType: sampling.sample_type, viewDimension: sampling.tex.dimension,
-                        multisampled: sampling.tex.multisampled } });
-                    resources.push({ binding, resource: sampling.view });
-                }
-                else
-                {
-                    const comparison = kind === "sampler-comparison";
-                    entries.push({ binding, visibility, sampler: { type: comparison ? "comparison" : sampling.filtering ? "filtering" : "non-filtering" } });
-                    resources.push({ binding, resource: this.sampler3(sampling.state, sampling.filtering, comparison) });
-                }
-                continue;
-            }
-            if(spirv >= BINDING.UNIFORM_BLOCKS && spirv < BINDING.STORAGE_BLOCKS && kind !== "storage-rw")
-            {
-                entries.push({ binding, visibility, buffer: { type: buffer_type } });
-                resources.push({ binding, resource: this.block3(c, program, spirv - BINDING.UNIFORM_BLOCKS + e, b.size) });
-                continue;
-            }
-            return this.note3("a binding of " + kind + " (L5)");
+            if(!by_group.has(b.group)) by_group.set(b.group, { entries: [], resources: [] });
+            const got = this.binding3(c, b, target, samplings, declarations);
+            if(!got) return null;
+            by_group.get(b.group).entries.push(Object.assign({ binding: b.binding, visibility: b.visibility }, got.entry));
+            by_group.get(b.group).resources.push({ binding: b.binding, resource: got.resource });
         }
-        const key = JSON.stringify(entries);
+        // (the groups up to the last one used; one used by no stage has no entries)
+        const count = by_group.size ? Math.max(...by_group.keys()) + 1 : 1;
         this.layouts3 = this.layouts3 || new Map();
-        let layout = this.layouts3.get(key);
-        if(!layout)
+        const layout_of = entries =>
         {
-            const group = this.device.createBindGroupLayout({ label: "GLES 3 resources", entries });
-            layout = { group, pipeline: this.device.createPipelineLayout({ bindGroupLayouts: [group] }), id: this.layouts3.size + 1 };
-            this.layouts3.set(key, layout);
+            const key = JSON.stringify(entries);
+            let layout = this.layouts3.get(key);
+            if(!layout) this.layouts3.set(key, layout = { group: this.device.createBindGroupLayout({ label: "GLES 3 resources", entries }),
+                id: this.layouts3.size + 1 });
+            return layout;
+        };
+        const groups = [];
+        for(let index = 0; index < count; index++)
+        {
+            const g = by_group.get(index) || { entries: [], resources: [] };
+            const layout = layout_of(g.entries);
+            groups.push({ index, layout: layout.group, entries: g.entries, resources: g.resources, id: layout.id });
         }
-        return { layout: layout.group, pipeline_layout: layout.pipeline, entries, resources, key: String(layout.id) };
+        const key = groups.map(g => g.id).join(".");
+        this.pipeline_layouts3 = this.pipeline_layouts3 || new Map();
+        let pipeline_layout = this.pipeline_layouts3.get(key);
+        if(!pipeline_layout) this.pipeline_layouts3.set(key, pipeline_layout = this.device.createPipelineLayout({ bindGroupLayouts: groups.map(g => g.layout) }));
+        return { groups, pipeline_layout, key };
+    },
+
+    /** One binding's layout entry (without its binding and visibility) and resource, or null (noted) */
+    binding3(c, b, target, samplings, declarations)
+    {
+        const { binding, kind, program } = b;
+        const buffer_type = kind === "uniform" ? "uniform" : kind === "storage" ? "read-only-storage" : "storage";
+        if(binding === 0) return { entry: { buffer: { type: buffer_type } }, resource: { buffer: this.default_block3(program, b.size) } };
+        const { b: spirv, e } = spirv_binding(binding);
+        if(spirv >= BINDING.SAMPLERS && spirv < BINDING.UNIFORM_BLOCKS)
+        {
+            const key = this.id_of(program) + ":" + b.group + ":" + spirv + ":" + e;
+            let sampling = samplings.get(key);
+            if(!sampling)
+            {
+                const unit = this.texture_unit3(c, program, spirv, e);
+                const tex = texture_type(declarations.get(b.group + ":" + (binding & ~1)));
+                sampling = Object.assign(this.texture_view3(unit.texture, unit.state, tex, target), { state: unit.state, tex });
+                samplings.set(key, sampling);
+            }
+            if(kind.startsWith("texture"))
+            {
+                return { entry: { texture: { sampleType: sampling.sample_type, viewDimension: sampling.tex.dimension, multisampled: sampling.tex.multisampled } },
+                    resource: sampling.view };
+            }
+            const comparison = kind === "sampler-comparison";
+            return { entry: { sampler: { type: comparison ? "comparison" : sampling.filtering ? "filtering" : "non-filtering" } },
+                resource: this.sampler3(sampling.state, sampling.filtering, comparison) };
+        }
+        if(spirv >= BINDING.UNIFORM_BLOCKS && spirv < BINDING.STORAGE_BLOCKS && kind !== "storage-rw")
+        {
+            return { entry: { buffer: { type: buffer_type } }, resource: this.block3(c, program, spirv - BINDING.UNIFORM_BLOCKS + e, b.size) };
+        }
+        if(spirv >= BINDING.STORAGE_BLOCKS && spirv < BINDING.ATOMIC_COUNTERS)
+        {
+            const block = (program.info.storage_blocks || [])[spirv - BINDING.STORAGE_BLOCKS + e];
+            return { entry: { buffer: { type: buffer_type } }, resource: this.storage3(c, c.storage_bindings, block ? block.binding : 0, b.size) };
+        }
+        if(spirv >= BINDING.ATOMIC_COUNTERS && spirv < BINDING.IMAGES)
+        {
+            return { entry: { buffer: { type: "storage" } }, resource: this.storage3(c, c.atomic_bindings, spirv - BINDING.ATOMIC_COUNTERS, b.size) };
+        }
+        if(spirv >= BINDING.IMAGES && kind === "storage-texture")
+        {
+            const image = program.info.bindings.find(x => x.binding === spirv && x.kind === "image");
+            return this.image3(c, (image && image.unit || 0) + e, declarations.get(b.group + ":" + binding));
+        }
+        return this.note3("a binding of " + kind);
+    },
+
+    /**
+     * A storage block's or an atomic counter buffer's range: what its binding
+     * point holds (zeros, written to nowhere, for nothing or too little)
+     * @param {!Array<{buffer: number, offset: number, size: number}>} points the context's binding points of the kind
+     */
+    storage3(c, points, point, size)
+    {
+        const zeros = () => ({ buffer: this.zeros3(size), offset: 0, size: Math.max(16, align4(size)) });
+        const b = points ? points[point] : null;
+        const buffer = b && b.buffer ? c.group.buffers.get(b.buffer) : null;
+        if(!buffer || !buffer.size) return zeros();
+        const gpu = this.gpu_buffer(buffer);
+        let length = b.size ? Math.min(b.size, buffer.size - b.offset) : buffer.size - b.offset;
+        length = align4(Math.max(length, size));
+        if(b.offset % 256 || b.offset + length > gpu.size) return zeros();
+        return { buffer: gpu.buffer, offset: b.offset, size: length };
+    },
+
+    /**
+     * An image unit's texture as a storage texture of the WGSL type's
+     * format, access and dimension: the unit's level, its layer unless it is
+     * bound layered; a texture of another format binds a texture of nothing
+     */
+    image3(c, unit, type)
+    {
+        const m = /^texture_storage_(2d_array|2d|3d)<(\w+),\s*(\w+)>/.exec(type || "");
+        if(!m) return this.note3("an image of a WGSL type " + type);
+        const dimension = m[1].replace("_", "-"), format = m[2];
+        const access = { read: "read-only", write: "write-only", read_write: "read-write" }[m[3]];
+        const entry = { storageTexture: { access, format, viewDimension: dimension } };
+        const u = c.image_units && c.image_units[unit];
+        const texture = u && u.texture ? c.group.textures.get(u.texture) : null;
+        const gpu = texture && this.gpu_texture3(texture);
+        if(!gpu || gpu.format !== format || !gpu.storage)
+        {
+            if(gpu) this.note3("an image unit's format other than its texture's");
+            this.empty_images3 = this.empty_images3 || new Map();
+            const key = format + ":" + dimension;
+            let view = this.empty_images3.get(key);
+            if(!view)
+            {
+                const empty = this.device.createTexture({ label: "GLES empty image", size: [1, 1, 1], dimension: dimension === "3d" ? "3d" : "2d", format,
+                    usage: U.STORAGE_BINDING });
+                this.empty_images3.set(key, view = empty.createView({ dimension }));
+            }
+            return { entry, resource: view };
+        }
+        const mip = Math.max(0, u.level - gpu.first);
+        const key = "image:" + dimension + ":" + mip + ":" + (u.layered ? "all" : u.layer);
+        let view = gpu.views.get(key);
+        if(!view)
+        {
+            view = gpu.texture.createView({ dimension, baseMipLevel: mip, mipLevelCount: 1,
+                ...(dimension === "2d" ? { baseArrayLayer: gpu.three ? 0 : u.layer, arrayLayerCount: 1 } : {}) });
+            gpu.views.set(key, view);
+        }
+        return { entry, resource: view };
     },
 
     /** The default uniform block's buffer: the program's values by their offsets (made again when they change) */
@@ -2101,6 +2349,18 @@ export const GLES3 = {
         }
         const gpu = this.gpu_texture3(texture);
         if(!gpu || target.textures.has(gpu.texture)) return fallback();
+        if(tex.multisampled !== (gpu.samples > 1)) return fallback();
+        if(tex.multisampled)
+        {
+            // (GLES 3.1's multisampled textures: texelFetch of a sample, no sampler state)
+            const kind = format_kind(gpu.format);
+            const sample_type = kind === "depth" ? (tex.sample === "depth" ? "depth" : "unfilterable-float") : kind === "i" ? "sint" : kind === "u" ? "uint" :
+                "unfilterable-float";
+            if((tex.sample === "sint") !== (kind === "i") || (tex.sample === "uint") !== (kind === "u")) return fallback();
+            let view = gpu.views.get("ms");
+            if(!view) gpu.views.set("ms", view = gpu.texture.createView({ dimension: "2d", aspect: gpu.format.includes("stencil") ? "depth-only" : "all" }));
+            return { view, sample_type, filtering: false };
+        }
         const three = gpu.three, cube = gpu.cube;
         let base = texture.base_level || 0;
         if(texture.immutable) base = Math.min(base, texture.immutable_levels - 1);
@@ -2162,10 +2422,26 @@ export const GLES3 = {
     /** What an incomplete texture samples as, of the WGSL type's dimension and kind: (0, 0, 0, 1) */
     fallback3(tex)
     {
-        const key = tex.dimension + ":" + tex.sample;
+        const key = tex.dimension + ":" + tex.sample + (tex.multisampled ? ":ms" : "");
         this.fallbacks3 = this.fallbacks3 || new Map();
         let fallback = this.fallbacks3.get(key);
         if(fallback) return fallback;
+        if(tex.multisampled)
+        {
+            // (4 samples, cleared by a pass of its own: no copy reaches a multisampled texture)
+            const depth = tex.sample === "depth";
+            const format = depth ? "depth16unorm" : tex.sample === "sint" ? "rgba8sint" : tex.sample === "uint" ? "rgba8uint" : COLOR_FORMAT;
+            const texture = this.device.createTexture({ label: "GLES incomplete texture", size: [1, 1], format, sampleCount: 4,
+                usage: U.TEXTURE_BINDING | U.RENDER_ATTACHMENT });
+            const view = texture.createView();
+            const encoder = this.device.createCommandEncoder();
+            encoder.beginRenderPass(depth ? { colorAttachments: [], depthStencilAttachment: { view, depthLoadOp: "clear", depthClearValue: 0, depthStoreOp: "store" } } :
+                { colorAttachments: [{ view, loadOp: "clear", clearValue: { r: 0, g: 0, b: 0, a: 1 }, storeOp: "store" }] }).end();
+            this.device.queue.submit([encoder.finish()]);
+            fallback = { view, sample_type: tex.sample === "float" ? "unfilterable-float" : tex.sample, filtering: false };
+            this.fallbacks3.set(key, fallback);
+            return fallback;
+        }
         const format = tex.sample === "depth" ? "depth16unorm" : tex.sample === "sint" ? "rgba8sint" : tex.sample === "uint" ? "rgba8uint" : COLOR_FORMAT;
         const layers = tex.dimension === "cube" ? 6 : 1;
         const texture = this.device.createTexture({ label: "GLES incomplete texture", size: [1, 1, layers], dimension: tex.dimension === "3d" ? "3d" : "2d",
@@ -2211,7 +2487,8 @@ export const GLES3 = {
         const masks = face === undefined ? 0 : face;
         const depth_format = target.depth ? target.depth.format : "";
         const key = ["3", shaders.id, vertex.key, group.key, topology, strip_format || "", c.front_face, cull, masks,
-            target.colors.map(a => a ? a.format : "-").join(","), target.alpha ? "a" : "x", depth_format, target.samples,
+            target.colors.map(a => a ? a.format + (a.unwritten ? "!" : "") : "-").join(","), target.alpha ? "a" : "x", depth_format, target.samples,
+            c.enabled.has(0x8E51) ? c.sample_mask : "-", c.enabled.has(0x809E) ? "c" : "-",
             blend ? c.blend_func.join(",") + "/" + c.blend_equation.join(",") : "-", c.color_mask.join(""),
             depth_test ? c.depth_func + ":" + c.depth_mask : "-",
             stencil_test ? JSON.stringify([c.stencil_func, c.stencil_op, c.stencil_writemask]) : "-",
@@ -2225,7 +2502,7 @@ export const GLES3 = {
             // (an output the shader lacks or of another kind: nothing written, GL leaves it undefined)
             const output = shaders.outputs.get(i);
             const kind = format_kind(a.format);
-            const fits = output && (kind === "f" ? !/[iu]32/.test(output) : output.includes(kind === "i" ? "i32" : "u32"));
+            const fits = !a.unwritten && output && (kind === "f" ? !/[iu]32/.test(output) : output.includes(kind === "i" ? "i32" : "u32"));
             return { format: a.format, writeMask: fits ? write_mask : 0, blend: blend && fits && blendable(a.format) ? {
                 color: blend_component(c.blend_equation[0], c.blend_func[0], c.blend_func[1]),
                 alpha: blend_component(c.blend_equation[1], c.blend_func[2], c.blend_func[3]),
@@ -2238,7 +2515,9 @@ export const GLES3 = {
             fragment: { module: shaders.fragment.module, entryPoint: shaders.fragment.entry, targets },
             // (the Y flip reverses the winding: GL's CCW is WebGPU's CW)
             primitive: { topology, frontFace: c.front_face === 0x0901 ? "cw" : "ccw", cullMode: cull, ...(strip_format ? { stripIndexFormat: strip_format } : {}) },
-            multisample: { count: target.samples },
+            // (the sample mask, GLES 3.1's; alpha to coverage, of multisampled targets)
+            multisample: { count: target.samples, mask: c.enabled.has(0x8E51) ? c.sample_mask >>> 0 : 0xFFFFFFFF,
+                alphaToCoverageEnabled: c.enabled.has(0x809E) && target.samples > 1 && shaders.outputs.has(0) },
         };
         if(target.depth)
         {
@@ -2362,15 +2641,25 @@ export const GLES3 = {
             case "glDrawElementsInstancedOffsetAEMU": this.draw3(c, args[0], 0, args[1], { type: args[2], offset: args[3] }, args[4]); return true;
             case "glDrawRangeElementsDataAEMU": this.draw3(c, args[0], 0, args[3], { type: args[4], bytes: args[5] }, 1); return true;
             case "glDrawRangeElementsOffsetAEMU": this.draw3(c, args[0], 0, args[3], { type: args[4], offset: args[5] }, 1); return true;
+            // (GLES 3.1)
+            case "glDispatchCompute": this.dispatch3(c, args, null); return true;
+            case "glDispatchComputeIndirect": this.dispatch3(c, null, { buffer: c.group.buffers.get(c.buffers.dispatch_indirect), offset: args[0] }); return true;
+            case "glMemoryBarrier": case "glMemoryBarrierByRegion": this.end_pass(); return true;
+            case "glDrawArraysIndirectDataAEMU": this.draw_indirect3(c, args[0], 0, args[1], 0); return true;
+            case "glDrawArraysIndirectOffsetAEMU": this.draw_indirect3(c, args[0], 0, null, args[1]); return true;
+            case "glDrawElementsIndirectDataAEMU": this.draw_indirect3(c, args[0], args[1], args[2], 0); return true;
+            case "glDrawElementsIndirectOffsetAEMU": this.draw_indirect3(c, args[0], args[1], null, args[2]); return true;
         }
         if(name === "glBeginQuery" && (args[0] === GL3.ANY_SAMPLES_PASSED || args[0] === GL3.ANY_SAMPLES_PASSED_CONSERVATIVE))
         {
             this.occlusion3().results.set(this.id_of(c) + ":" + args[1], 0);
             return true;
         }
-        if(/^glUniform(?!BlockBinding)/.test(name))
+        if(/^gl(Program)?Uniform(?!BlockBinding)/.test(name))
         {
-            const program = c.group.objects.get(c.program);
+            // (glProgramUniform*'s program; glUniform*'s: the current one, else the bound pipeline's active one)
+            const pipeline = !c.program && c.program_pipelines && c.program_pipelines.get(c.program_pipeline);
+            const program = c.group.objects.get(name.startsWith("glProgram") ? args[0] : c.program || pipeline && pipeline.active);
             if(program) program.values_version = (program.values_version || 0) + 1;
             return true;
         }

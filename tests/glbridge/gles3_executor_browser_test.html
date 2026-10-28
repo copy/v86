@@ -59,9 +59,9 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             cpu.given_name = ret;
             const { keep } = cpu.call(current, r.command, r.args);
             cpu.given_name = 0;
-            if(keep && name === "glLinkProgram" && cpu.last_link) {
+            if(keep && (name === "glLinkProgram" || name === "glCreateShaderProgramvAEMU") && cpu.last_link) {
                 const packed = pack_program(cpu.last_link);
-                writer.command(GLES.PROGRAM_LINK, [1, args[0], packed.length], packed);
+                writer.command(GLES.PROGRAM_LINK, [1, name === "glLinkProgram" ? args[0] : ret, packed.length], packed);
                 cpu.last_link = null;
             }
             // (what only asks or names stays on the CPU side, as gles_host.js's is_query)
@@ -643,6 +643,163 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glClear", 0x4000);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 2, 2, 255]), "restored: GLES 2.0 through glslang, an ETC1 texture and its program");
+        record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
+        current = 1;
+
+        // ---- GLES 3.1: compute, storage, atomic counters, images, indirect draws, multisampled textures, separable programs
+        record(GLES.CONTEXT_CREATE, 6, 3, 0, 31);
+        record(GLES.MAKE_CURRENT, 1, 6, 2, 2);
+        cpu.create_context(6, 31, 0);
+        cpu.make_current(6, { width: W, height: W, config: CONFIGS[3] });
+        current = 6;
+        names.clear();
+        const compute = source => {
+            const sh = shader_name++, p = shader_name++;
+            call("glCreateShader", sh, [0x91B9]);
+            gl("glShaderString", sh, text(source), source.length + 1);
+            gl("glCompileShader", sh);
+            call("glCreateProgram", p, []);
+            gl("glAttachShader", p, sh);
+            gl("glLinkProgram", p);
+            const info = cpu.context(6).group.objects.get(p).info;
+            check(info && info.ok, "a compute program links: " + (info && info.log));
+            checks.pop();
+            gl("glUseProgram", p);
+            return p;
+        };
+        const read_buffer = async (buffer, length) => {
+            const id = request++;
+            record(GLES.BUFFER_READ, 1, id, buffer, 0, length);
+            await run();
+            return answers.get(id);
+        };
+        // a storage buffer written by a dispatch; an atomic counter
+        compute(`#version 310 es
+            layout(local_size_x = 4) in;
+            layout(std430, binding = 0) buffer Data { uint values[]; };
+            layout(binding = 0, offset = 0) uniform atomic_uint counter;
+            void main() { values[gl_GlobalInvocationID.x] = gl_GlobalInvocationID.x * 2u; atomicCounterIncrement(counter); }`);
+        const data31 = gen("Buffers"), counter31 = gen("Buffers");
+        gl("glBindBuffer", 0x90D2, data31);
+        gl("glBufferData", 0x90D2, 32, null, 0x88E8);
+        gl("glBindBufferBase", 0x90D2, 0, data31);
+        gl("glBindBuffer", 0x92C0, counter31);
+        gl("glBufferData", 0x92C0, 4, ints([5]), 0x88E8);
+        gl("glBindBufferBase", 0x92C0, 0, counter31);
+        gl("glDispatchCompute", 2, 1, 1);
+        check(Array.from(new Uint32Array((await read_buffer(data31, 32)).slice().buffer)).join() === "0,2,4,6,8,10,12,14", "a dispatch's storage buffer");
+        check(new Uint32Array((await read_buffer(counter31, 4)).slice().buffer)[0] === 13, "an atomic counter incremented 8 times from 5");
+        // an image written by a dispatch, sampled by a draw
+        const image31 = next_texture++;
+        gl("glActiveTexture", 0x84C0);
+        gl("glBindTexture", 0x0DE1, image31);
+        gl("glTexStorage2D", 0x0DE1, 1, 0x8058, 4, 4);
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        compute(`#version 310 es
+            layout(local_size_x = 4, local_size_y = 4) in;
+            layout(rgba8, binding = 0) writeonly uniform highp image2D target;
+            void main() { imageStore(target, ivec2(gl_GlobalInvocationID.xy), vec4(0.0, 1.0, 0.5, 1.0)); }`);
+        gl("glBindImageTexture", 0, image31, 0, 0, 0, 0x88B9, 0x8058);
+        gl("glDispatchCompute", 1, 1, 1);
+        gl("glMemoryBarrier", 0x20);
+        const sampled31 = program(`#version 310 es
+            layout(location = 0) in vec2 position;
+            out vec2 uv;
+            void main() { uv = position * 0.5 + 0.5; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 310 es
+            precision mediump float;
+            uniform sampler2D image;
+            in vec2 uv;
+            out vec4 o;
+            void main() { o = texture(image, uv); }`);
+        gl("glUniform1i", sampled31.at("image"), 0);
+        const vao31 = gen("VertexArrays");
+        gl("glBindVertexArray", vao31);
+        const quad31 = gen("Buffers");
+        gl("glBindBuffer", 0x8892, quad31);
+        gl("glBufferData", 0x8892, full.length, full, 0x88E4);
+        // (GLES 3.1's vertex attribute binding)
+        gl("glVertexAttribFormat", 0, 2, 0x1406, 0, 0);
+        gl("glVertexAttribBinding", 0, 3);
+        gl("glBindVertexBuffer", 3, quad31, 0, 8);
+        gl("glEnableVertexAttribArray", 0);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 255, 128, 255]), "an image a dispatch stored, sampled; a vertex buffer binding point");
+        // an indirect draw whose parameters a dispatch wrote (the GPU reads them), and one with them in the command
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 1) buffer Command { uint count; uint instances; uint first; uint reserved; };
+            void main() { count = 4u; instances = 1u; first = 0u; reserved = 0u; }`);
+        const command31 = gen("Buffers");
+        gl("glBindBuffer", 0x90D2, command31);
+        gl("glBufferData", 0x90D2, 16, null, 0x88E8);
+        gl("glBindBufferBase", 0x90D2, 1, command31);
+        gl("glDispatchCompute", 1, 1, 1);
+        gl("glMemoryBarrier", 0x100);
+        const flat31 = program(`#version 310 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 310 es
+            precision mediump float;
+            uniform vec4 color;
+            out vec4 o;
+            void main() { o = color; }`);
+        gl("glUniform4f", flat31.at("color"), 1, 0, 1, 1);
+        gl("glBindBuffer", 0x8F3F, command31);
+        gl("glClear", 0x4000);
+        gl("glDrawArraysIndirectOffsetAEMU", 5, 0);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 0, 255, 255]), "an indirect draw of the parameters a dispatch wrote");
+        gl("glUniform4f", flat31.at("color"), 0, 1, 1, 1);
+        gl("glDrawArraysIndirectDataAEMU", 5, ints([4, 1, 0, 0]), 16);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 255, 255, 255]), "an indirect draw of the command's parameters");
+        // a multisampled texture drawn to, its sample fetched
+        const ms31 = next_texture++;
+        gl("glBindTexture", 0x9100, ms31);
+        gl("glTexStorage2DMultisample", 0x9100, 4, 0x8058, 4, 4, 1);
+        const ms_fbo31 = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, ms_fbo31);
+        gl("glFramebufferTexture2D", 0x8D40, 0x8CE0, 0x9100, ms31, 0);
+        gl("glClearBufferfv", 0x1800, 0, floats([1, 1, 0, 1]));
+        gl("glBindFramebuffer", 0x8D40, 0);
+        const fetched31 = program(`#version 310 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 310 es
+            precision mediump float;
+            uniform mediump sampler2DMS samples;
+            out vec4 o;
+            void main() { o = texelFetch(samples, ivec2(1, 1), 2); }`);
+        gl("glUniform1i", fetched31.at("samples"), 1);
+        gl("glActiveTexture", 0x84C1);
+        gl("glBindTexture", 0x9100, ms31);
+        gl("glActiveTexture", 0x84C0);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 0, 255]), "a multisampled texture's sample, fetched");
+        // a pipeline of two separable programs, one made by glCreateShaderProgramv, their uniforms by glProgramUniform
+        const separable_vs = `#version 310 es
+            layout(location = 0) in vec2 position;
+            uniform float scale;
+            void main() { gl_Position = vec4(position * scale, 0.0, 1.0); }`;
+        const separable_fs = `#version 310 es
+            precision mediump float;
+            uniform vec4 color;
+            layout(location = 0) out vec4 o;
+            void main() { o = color; }`;
+        call("glCreateShaderProgramvAEMU", 300, [0x8B31, 1, text(separable_vs), separable_vs.length + 1]);
+        call("glCreateShaderProgramvAEMU", 301, [0x8B30, 1, text(separable_fs), separable_fs.length + 1]);
+        const at = (p, uniform) => cpu.context(6).group.objects.get(p).info.locations.get(uniform);
+        const pipeline31 = gen("ProgramPipelines");
+        gl("glUseProgram", 0);
+        gl("glBindProgramPipeline", pipeline31);
+        gl("glUseProgramStages", pipeline31, 1, 300);
+        gl("glUseProgramStages", pipeline31, 2, 301);
+        gl("glProgramUniform1f", 300, at(300, "scale"), 0.5);
+        gl("glProgramUniform4f", 301, at(301, "color"), 1, 0.5, 0, 1);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 5, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 4, 4), [255, 128, 0, 255]) && near(pixel(window, W, 0, 0), [0, 0, 0, 255]),
+            "a pipeline of separable programs: the vertex program's scale, the fragment program's color");
+        gl("glBindProgramPipeline", 0);
+        gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;
 

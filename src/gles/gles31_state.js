@@ -342,6 +342,10 @@ export function gles31_handlers(h, H3)
     };
 
     const H = {
+        // (GLES 3.1's capability: the sample mask)
+        "glEnable": (shadow, c, [cap]) => cap === 0x8E51 ? void c.enabled.add(cap) : H3["glEnable"](shadow, c, [cap]),
+        "glDisable": (shadow, c, [cap]) => cap === 0x8E51 ? void c.enabled.delete(cap) : H3["glDisable"](shadow, c, [cap]),
+        "glIsEnabled": (shadow, c, [cap]) => { if(cap !== 0x8E51) return H3["glIsEnabled"](shadow, c, [cap]); query(shadow); return c.enabled.has(cap) ? 1 : 0; },
         "glCreateShader": (shadow, c, [type]) =>
         {
             if(type !== GL31.COMPUTE_SHADER) return base["glCreateShader"](shadow, c, [type]);
@@ -551,6 +555,26 @@ export function gles31_handlers(h, H3)
         },
         "glGetTexLevelParameteriv": (shadow, c, args) => tex_level_parameter(shadow, c, args, "i"),
         "glGetTexLevelParameterfv": (shadow, c, args) => tex_level_parameter(shadow, c, args, "f"),
+
+        "glFramebufferTexture2D": (shadow, c, [target, attachment, textarget, name, level]) =>
+        {
+            // (GLES 3.1: a multisampled texture's level 0 too)
+            if(textarget !== GL31.TEXTURE_2D_MULTISAMPLE) return H3["glFramebufferTexture2D"](shadow, c, [target, attachment, textarget, name, level]);
+            const fb = target === GL.READ_FRAMEBUFFER ? c.read_framebuffer : target === GL.FRAMEBUFFER || target === GL.DRAW_FRAMEBUFFER ? c.framebuffer : -1;
+            if(fb < 0) return fail(c, GL.INVALID_ENUM);
+            const fbo = c.framebuffers.get(fb);
+            if(!fbo) return fail(c, GL.INVALID_OPERATION);
+            const texture = name ? c.group.textures.get(name) : null;
+            if(name && (!texture || texture.target !== GL31.TEXTURE_2D_MULTISAMPLE)) return fail(c, GL.INVALID_OPERATION);
+            if(name && level !== 0) return fail(c, GL.INVALID_VALUE);
+            const points = attachment === 0x821A ? [GL.DEPTH_ATTACHMENT, GL.STENCIL_ATTACHMENT] : [attachment];
+            for(const point of points)
+            {
+                if(name) fbo.attachments.set(point, { type: GL.TEXTURE, name, level: 0, face: 0, layer: 0 });
+                else fbo.attachments.delete(point);
+            }
+            return undefined;
+        },
 
         // ---- framebuffers without attachments
         "glFramebufferParameteri": (shadow, c, [target, pname, param]) =>

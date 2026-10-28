@@ -468,7 +468,7 @@ export function gles3_handlers(h)
         const image = texture && texture.images.get(image_key(a.face, a.level));
         if(!image || !image.width || !image.height) return null;
         if((texture.target === GL.TEXTURE_3D || texture.target === GL.TEXTURE_2D_ARRAY) && a.layer >= (image.depth || 1)) return null;
-        return { width: image.width, height: image.height, samples: 0,
+        return { width: image.width, height: image.height, samples: image.samples || 0,
             info: image.compressed ? null : format_info(image.internal || image.format) || h.renderbuffer_info(image.format) };
     };
     /** A framebuffer's status by GLES 3.0's rules (4.4.4) */

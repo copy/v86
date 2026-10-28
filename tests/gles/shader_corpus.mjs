@@ -199,7 +199,7 @@ function specialize(c)
 
 // ---- this file's own cases: GLSL ES 3.10 and 3.20 that dEQP's library does not cover
 const OWN = [
-    { name: "own.compute_ssbo_atomics_images", expect: "pass", known: "vx_naga: atomic counters' operations (L5)", shaders: [{ stage: "compute", source: `#version 310 es
+    { name: "own.compute_ssbo_atomics_images", expect: "pass", shaders: [{ stage: "compute", source: `#version 310 es
 layout(local_size_x = 8, local_size_y = 4) in;
 layout(std430, binding = 1) buffer B { uint n; int m; float v[]; } b;
 layout(binding = 0) uniform atomic_uint counter;
@@ -339,6 +339,6 @@ if(option("--wgsl")) fs.writeFileSync(option("--wgsl"), JSON.stringify(wgsl_out)
 fs.rmSync(scratch, { recursive: true, force: true });
 // (what L1 reached, docs/gles3-plan.md: a fall below it is a regression)
 const deqp_programs = stats.programs - OWN.length;
-const regressed = own_failures || stats.wgsl_errors || deqp_programs > 0 && (stats.agree < 0.98 * stats.programs || stats.naga_errors > 3);
-if(regressed) console.log("FAIL: below L1's results (own cases, 98% agreement with dEQP, 3 vx_naga errors, no WGSL errors)");
+const regressed = own_failures || stats.wgsl_errors || deqp_programs > 0 && (stats.agree < 0.98 * stats.programs || stats.naga_errors > 2);
+if(regressed) console.log("FAIL: below L5's results (own cases, 98% agreement with dEQP, 2 vx_naga errors, no WGSL errors)");
 process.exit(regressed ? 1 : 0);
