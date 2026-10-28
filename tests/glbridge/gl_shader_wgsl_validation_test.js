@@ -216,6 +216,68 @@ checkProgram("mrt",
     "  gl_FragData[1] = vec4(0.0, 1.0, 0.0, 1.0);\n" +
     "  gl_FragDepth = 0.5;\n}");
 
+/* ---- operators WGSL takes differently (desktop: GLSL ES 1.00 reserves the
+ * integer ones) ---- */
+
+checkProgram("integer_operators",
+    "attribute vec4 pos;\nvoid main(void) { gl_Position = pos; }",
+    "uniform int k;\nuniform ivec2 v;\n" +
+    "void main(void) {\n" +
+    "  ivec2 a = v & k;\n" +
+    "  ivec2 b = k | v;\n" +
+    "  int s = k << k;\n" +
+    "  ivec2 c = v >> k;\n" +
+    "  ivec2 d = v << v;\n" +
+    "  a ^= k;\n" +
+    "  s >>= 2;\n" +
+    "  gl_FragColor = vec4(vec2(a + b + c + d), float(s), float(~k));\n}");
+
+/* ---- GLSL ES 1.00 (the GLES host's dialect) ---- */
+
+function checkProgramES(label, vsSource, fsSource) {
+    const vs = t.compileShader(vsSource, "vertex", { es: true });
+    const fs2 = t.compileShader(fsSource, "fragment", { es: true });
+    if (!vs.ok || !fs2.ok) {
+        failures.push([label, (vs.ok ? "" : "vertex: " + vs.log) +
+            (fs2.ok ? "" : " fragment: " + fs2.log)]);
+        return;
+    }
+    const program = t.linkProgram(vs, fs2, { es: true });
+    if (!program.ok) { failures.push([label, "link: " + program.log]); return; }
+    const vertexError = validate(label + ".vert", program.wgslVertex);
+    const fragmentError = validate(label + ".frag", program.wgslFragment);
+    if (vertexError || fragmentError)
+        failures.push([label, (vertexError || "") + (fragmentError || "")]);
+    else ++passed;
+}
+
+checkProgramES("es_equality",
+    "attribute vec4 pos;\nvarying vec2 tc;\n" +
+    "void main(void) { tc = pos.xy; gl_Position = pos; }",
+    "precision mediump float;\n" +
+    "struct S { vec2 a; mat2 m; };\n" +
+    "uniform S s0;\nuniform S s1;\nuniform mat3 m0;\nuniform mat3 m1;\n" +
+    "uniform ivec3 i0;\nvarying vec2 tc;\n" +
+    "void main(void) {\n" +
+    "  bool e = tc == vec2(0.5) || m0 != m1 || s0 == s1 || i0 == ivec3(1, 2, 3);\n" +
+    "  gl_FragColor = e ? vec4(1.0) : vec4(0.0);\n}");
+
+checkProgramES("es_non_uniform_sampling_and_in_params",
+    "attribute vec4 pos;\nvarying vec2 tc;\n" +
+    "void main(void) { tc = pos.xy; gl_Position = pos; }",
+    "precision mediump float;\n" +
+    "uniform sampler2D tex;\nuniform samplerCube cube;\nvarying vec2 tc;\n" +
+    "vec4 look(vec2 c) { c = c * 2.0; return texture2D(tex, c); }\n" +
+    "void main(void) {\n" +
+    "  vec4 c = vec4(0.0);\n" +
+    "  if (tc.x > 0.5) { c = look(tc); }\n" +
+    "  if (tc.y > 0.5) { gl_FragColor = c; return; }\n" +
+    "  for (int i = 0; i < 4; i++) {\n" +
+    "    if (tc.x > float(i) * 0.25) break;\n" +
+    "    c += textureCube(cube, vec3(tc, 1.0));\n" +
+    "  }\n" +
+    "  gl_FragColor = c + texture2D(tex, tc);\n}");
+
 // These shaders bypass the GLSL translator, so exercise them directly too.
 // A syntax error here otherwise appears only when CopyTexImage, mipmap, or a
 // scaling framebuffer blit first runs on a real adapter.

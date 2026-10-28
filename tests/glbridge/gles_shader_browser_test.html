@@ -1,0 +1,95 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GLSL to WGSL through Chrome's Tint</title>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script type="module">
+// The shader translator's output checked by Chrome's own WGSL compiler
+// (createShaderModule, getCompilationInfo). naga, which
+// gl_shader_wgsl_validation_test.js uses, does not check the fragment
+// stage's uniformity; Tint does, and refuses a derivative in non-uniform
+// control flow unless the module turns derivative_uniformity off
+// (docs/gles3-plan.md L0). The cases are the four that failed before:
+// a sample in a varying-dependent if, in a function called from one, after
+// an early return under a varying condition, and in a loop after a
+// varying-dependent break; with a write to an `in` parameter and the
+// equality and integer operators WGSL takes differently.
+const result = document.getElementById("result");
+const checks = [];
+const check = (value, message) => { if(!value) throw new Error(message); checks.push(message); };
+const T = globalThis.GLShaderTranslator;
+
+const VS = "attribute vec4 pos;\nvarying vec2 tc;\nvoid main(void) { tc = pos.xy; gl_Position = pos; }";
+const ES_CASES = {
+    "a sample in a varying-dependent if":
+        "precision mediump float;\nuniform sampler2D tex;\nvarying vec2 tc;\n" +
+        "void main(void) {\n  vec4 c = vec4(0.0);\n  if (tc.x > 0.5) { c = texture2D(tex, tc); }\n  gl_FragColor = c;\n}",
+    "a sample in a function called from one, which writes its in parameter":
+        "precision mediump float;\nuniform sampler2D tex;\nvarying vec2 tc;\n" +
+        "vec4 look(vec2 c) { c = c * 2.0; return texture2D(tex, c); }\n" +
+        "void main(void) {\n  vec4 c = vec4(0.0);\n  if (tc.y > 0.5) { c = look(tc); }\n  gl_FragColor = c;\n}",
+    "a sample after an early return":
+        "precision mediump float;\nuniform sampler2D tex;\nvarying vec2 tc;\n" +
+        "void main(void) {\n  if (tc.x > 0.5) { gl_FragColor = vec4(1.0); return; }\n  gl_FragColor = texture2D(tex, tc);\n}",
+    "a sample in a loop after a break":
+        "precision mediump float;\nuniform samplerCube cube;\nvarying vec2 tc;\n" +
+        "void main(void) {\n  vec4 c = vec4(0.0);\n  for (int i = 0; i < 4; i++) {\n" +
+        "    if (tc.x > float(i) * 0.25) break;\n    c += textureCube(cube, vec3(tc, 1.0));\n  }\n  gl_FragColor = c;\n}",
+    "equality of vectors, matrices and structs":
+        "precision mediump float;\nstruct S { vec2 a; mat2 m; };\nuniform S s0;\nuniform S s1;\n" +
+        "uniform mat3 m0;\nuniform mat3 m1;\nvarying vec2 tc;\n" +
+        "void main(void) {\n  bool e = tc == vec2(0.5) || m0 != m1 || s0 == s1;\n  gl_FragColor = e ? vec4(1.0) : vec4(0.0);\n}",
+};
+const DESKTOP_CASES = {
+    "integer operators beside vectors, shifts":
+        "uniform int k;\nuniform ivec2 v;\n" +
+        "void main(void) {\n  ivec2 a = v & k;\n  int s = k << k;\n  ivec2 c = v >> k;\n  a ^= k;\n" +
+        "  gl_FragColor = vec4(vec2(a + c), float(s), 1.0);\n}",
+};
+const ES_REFUSED = {
+    "'%' in GLSL ES 1.00": "precision mediump float;\nuniform int k;\nvoid main(void) { gl_FragColor = vec4(float(k % 2)); }",
+    "'&' in GLSL ES 1.00": "precision mediump float;\nuniform int k;\nvoid main(void) { gl_FragColor = vec4(float(k & 1)); }",
+};
+
+async function compiles(device, wgsl)
+{
+    const module = device.createShaderModule({ code: wgsl });
+    const info = await module.getCompilationInfo();
+    return info.messages.filter(m => m.type === "error").map(m => m.lineNum + ": " + m.message);
+}
+
+(async () => {
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+        const link = (vs, fs, es) => {
+            const v = T.compileShader(vs, "vertex", { es });
+            const f = T.compileShader(fs, "fragment", { es });
+            if(!v.ok || !f.ok) throw new Error("compile: " + v.log + f.log);
+            const p = T.linkProgram(v, f, { es });
+            if(!p.ok) throw new Error("link: " + p.log);
+            return p;
+        };
+        for(const [label, fs] of Object.entries(ES_CASES))
+        {
+            const p = link(VS, fs, true);
+            const errors = [...await compiles(device, p.wgslVertex), ...await compiles(device, p.wgslFragment)];
+            check(!errors.length, "ES: " + label + (errors.length ? ": " + errors.join("; ") : ""));
+        }
+        for(const [label, fs] of Object.entries(DESKTOP_CASES))
+        {
+            const p = link(VS, fs, false);
+            const errors = [...await compiles(device, p.wgslVertex), ...await compiles(device, p.wgslFragment)];
+            check(!errors.length, "desktop: " + label + (errors.length ? ": " + errors.join("; ") : ""));
+        }
+        for(const [label, fs] of Object.entries(ES_REFUSED))
+        {
+            check(!T.compileShader(fs, "fragment", { es: true }).ok, "refused: " + label);
+        }
+        result.textContent = "PASS " + checks.length + " checks\n" + checks.join("\n");
+    } catch(error) {
+        result.textContent = "FAIL " + (error && error.stack || error) + "\npassed: " + checks.join("\n");
+    }
+})();
+</script>
