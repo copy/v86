@@ -656,7 +656,15 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
   - 执行器约 26 个：混合同时用常量颜色与常量 alpha 5 个（G-70）、宽点 1 个（G-64），其余是随机片段操作与交互、
     纹理随机规格、带剪裁的清除、深度范围比较、RGB 加 16 位深度的 FBO 清除，图像比较失败，还没定位（需要 dEQP 的日志
     图像）。
-  - 97% 的总目标还没有达到。结果在 `build/a32-android/runs/v86-gles-deqp3/`（`deqp.json`、`deqp-details.json`）。
+  - 结果在 `build/a32-android/runs/v86-gles-deqp3/`（`deqp.json`、`deqp-details.json`）。
+  - **改走 glslang 之后**（GLES 3.x 会话的 L3/L4：GLES 2 上下文也由 `gles3_executor.js` 与 glslang 编译，同一个子集）：
+    2034 个支持的用例通过 1980 个（**97.3%**），97% 的总目标达到；`state_query` 372/372、`negative_api` 183/183、
+    `dEQP-EGL.info` 5/5。修好 127 个（`shaders.random` 84、`preprocessor` 10、`uniform_api` 11 等），回退 38 个，
+    都在新执行器里，已交给 GLES 3.x 会话：用 `CONSTANT_ALPHA` 的混合 22 个（没照 G-70 把常量的 alpha 放进四个
+    通道；随机片段操作与交互的 5 个多半也是）、着色器用到而没有启用数组的属性 8 个左右（WebGPU 报顶点状态缺槽，管线无效）、嵌套结构数组的 uniform、
+    一个内建函数重载的链接、`depth_range.write` 2 个、`draw_elements.triangles.single_attribute`。两条路径都失败的
+    18 个：常量颜色加常量 alpha 混合 4 个（G-70）、随机片段操作与交互 9 个、RGB 加 16 位深度的 FBO 清除、深度范围
+    比较各 1 个、FBO 完整性的 QualityWarning 3 个（规范允许）。结果在 `build/a32-android/runs/v86-gles-deqp4/`。
 - **没做的**：Replica Island 与 Shattered Pixel Dungeon 两个游戏；EGL 的同步、多上下文共享与 YUV 外部纹理的专门检查
   （启动与 dEQP 里用到的部分已经工作）。
 
@@ -681,7 +689,17 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
   滑动只有 0.83 帧每秒（客体时间走得快，定时器、闹钟与超时按十倍触发，界面分到的 CPU 更少）。所以十分之一的时钟
   保留；30 帧每秒要的是快得多的客体 CPU，不是 GPU 这一侧。
 - **界面**：VM 管理器的 Android 7.1 有了“GPU”设置项（主机 / 客体），预设默认主机；`tests/app/presets.mjs` 增加用例，
-  类型检查通过。浏览器里从管理器启动主机模式还没有实测（需要导入的镜像）。
+  类型检查通过。浏览器里实测（`tests/app/android_gles_test.html`，`TIMEOUT_MS=2400000 node tests/app/browser_runner.mjs
+  tests/app/android_gles_test.html webgpu=1`，导入的镜像按 URL 只读打开）：从管理器启动“Android (ARM 32-bit)”，CPU 在
+  Worker 里约 120 MIPS，303 秒到 `boot_completed`，唤醒并回到主屏幕后屏幕就是启动器。这次实测找出一个已有的错误：
+  Chrome 的 `DecompressionStream` 把 ramdisk 分区里 gzip 流之后的零当作垃圾报错，读到的块缺了归档的末尾，
+  `init.ranchu.rc` 不在里面，管理器根本启动不了 Android 7.1（Node 的实现给了全部数据，所以 Node 的测试一直没发现）；
+  `ramdisk_overlay.js` 改用 `src/virt/inflate.js`。另外 Makefile 里几个包的依赖漏了 `src/android/*.js`。
+- **呈现**：没有图形代理时，GLES 主机自己用一个合成器接管屏幕的画布（同代理的做法，`V86.gles_screen_compositor`），
+  `rcFBPost` 把颜色缓冲拷进合成器的一层，不再每帧读回；没有 WebGPU 就退回 2D 画布与读回。上面的浏览器实测走的就是
+  这条路（执行器与合成器同一设备，层可见、全屏）。
+- **pipe 版本 2**：滑动设置时 goldfish pipe 每秒约 4700 次寄存器访问、470 次写与 460 次读，客体同时每秒执行约 8900 万条
+  指令；即使每次访问都算一次陷入，也只占机器时间的百分之一左右，pipe 版本 2 能省下的不到 1%，所以不做。
 
 ### E7 的测量（2026-10-28）
 

@@ -591,8 +591,15 @@ try
         const player = await focus();
         console.log(`video: ${green()} green samples; focus ${player}; frames ${fb.frames}`);
         save_png(sink, run_directory, "video");
-        assert.match(player, /MovieActivity/, "Gallery's player has the focus");
-        assert.ok(green() >= 20, "the video's frame is shown (green)");
+        // (checked after the games: a video that does not play leaves them to be tried; its log first)
+        const media_failures = [];
+        if(!/MovieActivity/.test(player)) media_failures.push("Gallery's player has the focus: " + player);
+        if(green() < 20)
+        {
+            media_failures.push("the video's frame is shown (green)");
+            console.log("video log: " + await ask("ls -l /sdcard/green.mp4; logcat -d -v brief -b main -b system -b crash '*:W' | " +
+                "grep -i -E 'media|codec|omx|avc|video|gallery|stagefright|nuplayer|extractor|DEBUG|Fatal|signal' | tail -40", "A32_VIDEO_LOG", 600000));
+        }
         await ask("input keyevent 4; input keyevent 3", "A32_VIDEO_HOME", 600000);
         // the games: installed, started, a minute of taps and swipes, still running and drawing
         for(const game of media.games)
@@ -637,6 +644,7 @@ try
             assert.ok(calls > 0 && fb.frames > frames_before, game.name + " draws");
             await ask(`am force-stop ${game.package}; input keyevent 3`, "A32_GAME_STOP", 600000);
         }
+        assert.deepEqual(media_failures, [], "the video");
     }
     if(deqp)
     {
