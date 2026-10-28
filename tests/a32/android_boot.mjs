@@ -624,6 +624,9 @@ try
             assert.match(log, /V86_GLES counter 18 glerror=0/, "an atomic counter incremented 8 times from 10, mapped");
             expect("computed", [[0, 255, 0]]);
         }
+        // (GLES 3.2's reach through the guest's library, where the host announces it: printed)
+        const reach = /V86_GLES gles32 .*/.exec(log);
+        if(reach) console.log("gles app: " + reach[0].replace(/^V86_GLES /, ""));
         // GLES 3.0's frame rate (docs/gles3-plan.md L7), one instanced draw a frame ("fps") and a draw a cube
         // ("fpsdraws"): the middle cube drawn (not the clear color), the frames in the guest's time; the host's
         // frame rate that time at the clock's rate (a tenth of the host's)

@@ -714,6 +714,31 @@ static void* run(void* argument)
         GLint minor = 0;
         glGetIntegerv(GL_MINOR_VERSION, &minor);
         if(minor >= 1) gles31_scenes();
+        // (GLES 3.2's reach through the guest's library: each step's GL error, the host's or the library's own)
+        if(minor >= 2)
+        {
+            while(glGetError()) {}
+            GLuint geometry = glCreateShader(0x8DD9);
+            GLenum geometry_error = glGetError();
+            GLuint tess = glCreateShader(0x8E88);
+            GLenum tess_error = glGetError();
+            GLuint texture;
+            glGenTextures(1, &texture);
+            glBindTexture(0x9009, texture);
+            GLenum cube_array_error = glGetError();
+            glBindTexture(0x9009, 0);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            const GLfloat border[] = { 1, 0, 0, 1 };
+            glTexParameterfv(GL_TEXTURE_2D, 0x1004, border);
+            GLenum border_error = glGetError();
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812D);
+            GLenum clamp_error = glGetError();
+            glBlendEquation(0x9294);
+            GLenum advanced_error = glGetError();
+            glBlendEquation(GL_FUNC_ADD);
+            LOG("V86_GLES gles32 geometry=%u/%x tess=%u/%x cube_array=%x border=%x clamp_to_border=%x advanced_blend=%x",
+                geometry, geometry_error, tess, tess_error, cube_array_error, border_error, clamp_error, advanced_error);
+        }
         fps_scene();
     }
     else LOG("V86_GLES gles3 none: %x", eglGetError());
