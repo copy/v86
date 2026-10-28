@@ -732,10 +732,12 @@ export function GoldfishPipe(cpu, base, intid, properties, services)
     this.intid = intid;
     this.properties = properties;
     this.services = services || (() => null);
+    /** register accesses and the bytes moved, by command (diagnostics: the cost of pipe v1's traps) */
+    this.stats = { mmio: 0, writes: 0, reads: 0, bytes_written: 0, bytes_read: 0 };
     this.reset();
     cpu.io.register_mmio(base, 0x2000, {
-        read: offset => this.read(offset),
-        write: (offset, width, value) => this.write(offset, Number(value)),
+        read: offset => { this.stats.mmio++; return this.read(offset); },
+        write: (offset, width, value) => { this.stats.mmio++; this.write(offset, Number(value)); },
         name: this.name,
     });
 }
@@ -878,6 +880,8 @@ GoldfishPipe.prototype.command = function(command)
                 return bytes.length;
             }
             pipe.service.write(bytes);
+            this.stats.writes++;
+            this.stats.bytes_written += bytes.length;
             this.wake_reader(pipe);
             return bytes.length;
         }
@@ -886,6 +890,8 @@ GoldfishPipe.prototype.command = function(command)
             const bytes = pipe.service && pipe.service.read(this.size);
             if(!bytes || !bytes.length) return pipe.closed ? 0 : PIPE_ERROR_AGAIN;
             this.cpu.write_blob_physical(bytes, this.address);
+            this.stats.reads++;
+            this.stats.bytes_read += bytes.length;
             return bytes.length;
         }
         case CMD_WAKE_ON_READ:

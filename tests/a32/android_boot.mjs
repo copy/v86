@@ -31,7 +31,8 @@
 // am start's arguments (-a android.settings.SETTINGS): after the home
 // screen the activity is started and its screen taken (screen.png), then
 // swiped up and down for a minute: the frames a second the screen shows
-// (A32_ANDROID_RATE_AFTER=<rate>: the clock's rate changed first).
+// (A32_ANDROID_RATE_AFTER=<rate>: the clock's rate changed first;
+// A32_ANDROID_PROBE_SCREEN: shell commands run with it up).
 // A32_ANDROID_GPU=host: the device model's GPU mode "host" (qemu.gles=1,
 // ranchu_gpu "host": the GLES host, docs/gles-proxy-plan.md); the GLES
 // calls' counts go to the run's gles.json, its batches to gles-batches.bin
@@ -41,7 +42,8 @@
 // the screen SurfaceFlinger's frames; otherwise nothing is drawn.
 // A32_ANDROID_PROPS="name=value,...": boot properties changed (an empty
 // value removes one: "ro.config.low_ram="); A32_ANDROID_BOOTANIM=1: the boot
-// animation on (both for the files' boot, not A32_ANDROID_DISK).
+// animation on (both for the files' boot, not A32_ANDROID_DISK);
+// A32_ANDROID_BOOT_SHOTS=1: a screenshot every 20 s until the boot completes.
 // A32_ANDROID_GLES_APP=1 (with A32_ANDROID_GPU=host): after the home screen,
 // tests/a32/android/v86gles.c's APK (GLES 2.0 and 1.1 scenes read back with
 // glReadPixels: docs/gles-proxy-plan.md E4) is installed and started, and
@@ -52,7 +54,12 @@
 // instrumentation in chunks (the results from its status lines); the subset (docs/gles-proxy-plan.md E4): every
 // state_query and negative_api case, dEQP-EGL.info, and every ninth other
 // functional case (A32_ANDROID_DEQP_STEP another; A32_ANDROID_DEQP_FILTER a
-// pattern of cases to keep); each case's status into the run's deqp.json.
+// pattern of cases to keep; A32_ANDROID_DEQP_IMAGES=1 the log with its images
+// in the instrumentation's output, kept); each case's status into the run's deqp.json.
+// A32_ANDROID_MEDIA=1 (with A32_ANDROID_GPU=host): Replica Island (GLES 1)
+// and Shattered Pixel Dungeon (libGDX, GLES 2) from F-Droid on a fourth
+// disk, each played for a minute; a green H.264 clip in Gallery's player
+// (the decoder's YUV frames, converted by gralloc).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -135,6 +142,46 @@ if(process.env.A32_ANDROID_DEQP === "1")
     deqp = { image, chunks };
     console.log(`dEQP: ${cases["dEQP-GLES2"].length} GLES 2 and ${cases["dEQP-EGL"].length} EGL cases in ${chunks.length} runs`);
 }
+// A32_ANDROID_MEDIA=1: two open-source games from F-Droid (Replica Island
+// 1.4, archive; Shattered Pixel Dungeon 4.0.2, F-Droid's build) and a green
+// H.264 clip (ffmpeg) on a fourth virtio disk, as dEQP's
+let media = null;
+if(process.env.A32_ANDROID_MEDIA === "1")
+{
+    assert.ok(!deqp, "A32_ANDROID_MEDIA and A32_ANDROID_DEQP both want the fourth disk");
+    const apks = ROOT + "build/a32-android/apks/";
+    const games = [
+        { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk",
+            url: "https://f-droid.org/archive/com.replica.replicaisland_14.apk", sha256: "35d900fabe6bbc05899c3fcc0fb5926a5a901d807889d0d111b34a1e87d7acde" },
+        { name: "shatteredpixeldungeon", package: "com.shatteredpixel.shatteredpixeldungeon", file: "shatteredpixeldungeon_921.apk",
+            url: "https://f-droid.org/repo/com.shatteredpixel.shatteredpixeldungeon_921.apk", sha256: "dbd8205680e89758babf608212a1fb3f498f732118b1e3c0b9fd33bf67486a99" },
+    ];
+    const root = run_directory + "media-disk/";
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.mkdirSync(root, { recursive: true });
+    for(const game of games)
+    {
+        if(!fs.existsSync(apks + game.file))
+        {
+            fs.mkdirSync(apks, { recursive: true });
+            const response = await fetch(game.url);
+            assert.equal(response.status, 200, game.url);
+            fs.writeFileSync(apks + game.file, Buffer.from(await response.arrayBuffer()));
+        }
+        const { createHash: create_hash } = await import("node:crypto");
+        assert.equal(create_hash("sha256").update(fs.readFileSync(apks + game.file)).digest("hex"), game.sha256, game.file);
+        fs.copyFileSync(apks + game.file, root + game.name + ".apk");
+    }
+    // (3 s of green, 176 by 144, H.264 baseline: the software decoder's YUV frames through gralloc)
+    const clip = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=0x00FF00:s=176x144:d=3:r=15", "-c:v", "libx264",
+        "-profile:v", "baseline", "-pix_fmt", "yuv420p", root + "green.mp4"], { encoding: "utf8" });
+    assert.equal(clip.status, 0, clip.stderr);
+    const image = run_directory + "media.img";
+    fs.rmSync(image, { force: true });
+    const made = spawnSync("/opt/homebrew/opt/e2fsprogs/sbin/mke2fs", ["-q", "-t", "ext2", "-b", "4096", "-d", root, image, "96M"], { encoding: "utf8" });
+    assert.equal(made.status, 0, made.stderr);
+    media = { image, games };
+}
 const ramdisk = await ramdisk_overlay(new Uint8Array(fs.readFileSync(image + "ramdisk.img")), RANCHU_25_ARMEABI_V7A);
 const emulator = new V86({
     cpu_type: "arm32", machine_type: "ranchu", cpu_cores: cores, memory_size: memory_mb << 20, log_level: 0, autostart: !restore,
@@ -154,6 +201,7 @@ const emulator = new V86({
             { url: image + "userdata.img", async: true, size: fs.statSync(image + "userdata.img").size },
             // (dEQP's disk: vdd)
             ...(deqp ? [{ url: deqp.image, async: true, size: fs.statSync(deqp.image).size, readonly: true }] : []),
+            ...(media ? [{ url: media.image, async: true, size: fs.statSync(media.image).size, readonly: true }] : []),
         ],
     }),
     net_device: { type: "virtio", relay_url: "fetch" },
@@ -204,6 +252,10 @@ try
     }
     else
     {
+        // (A32_ANDROID_BOOT_SHOTS=1: the screen every 20 s until the boot completes: the boot animation)
+        let shot_number = 0;
+        const boot_shots = process.env.A32_ANDROID_BOOT_SHOTS === "1" ?
+            setInterval(() => save_png(sink, run_directory, "boot-" + String(++shot_number).padStart(2, "0")), 20000) : null;
         await wait(() => /Freeing unused kernel memory/.test(transcript), "the kernel's init");
         mark("kernel");
         await wait(() => /init: .*(starting|Starting) service|init: .*console/.test(transcript) || /\n[^\n]*[$#] $/.test(transcript), "Android's init");
@@ -226,6 +278,7 @@ try
             return false;
         }, "sys.boot_completed");
         mark("boot_completed");
+        if(boot_shots) clearInterval(boot_shots);
         // (the launcher's first frames)
         await new Promise(resolve => setTimeout(resolve, 20000));
         save_png(sink, run_directory, "boot-completed");
@@ -293,15 +346,37 @@ try
         await dismiss_dialogs();
         const started = await ask("am start -W " + process.env.A32_ANDROID_SCREEN, "A32_SCREEN", 900000);
         console.log("screen: " + started.replace(/\s+/g, " ").slice(-200));
-        await new Promise(resolve => setTimeout(resolve, 60000));
-        await dismiss_dialogs();
-        await new Promise(resolve => setTimeout(resolve, 20000));
-        console.log("screen focus: " + await focus() + "; frames " + fb.frames);
+        // (until the screen below its app bar has content: more than a few
+        // colors in the middle rows; the guest's clock is slow, a list loads
+        // late; at most ten minutes)
+        const colors = () =>
+        {
+            const seen = new Set();
+            for(let y = Math.round(fb.height * 0.2); y < fb.height * 0.85; y += 4)
+            {
+                for(let x = 0; x < fb.width; x += 4)
+                {
+                    const at = (y * sink.width + x) * 4;
+                    seen.add(sink.rgba[at] << 16 | sink.rgba[at + 1] << 8 | sink.rgba[at + 2]);
+                }
+            }
+            return seen.size;
+        };
+        const loaded_by = performance.now() + 600000;
+        while(colors() < 16 && performance.now() < loaded_by)
+        {
+            await new Promise(resolve => setTimeout(resolve, 15000));
+            await dismiss_dialogs();
+        }
+        console.log("screen focus: " + await focus() + "; frames " + fb.frames + "; " + colors() + " colors");
         save_png(sink, run_directory, "screen");
-        // (the frames a scrolled list draws: swipes up and down for a minute,
-        // the screen's frames counted, in the host's seconds)
+        // (A32_ANDROID_PROBE_SCREEN: shell commands with the activity up)
+        for(const command of (process.env.A32_ANDROID_PROBE_SCREEN || "").split(";;").filter(c => c.trim()))
+        {
+            console.log(`probe (screen): ${command}\n` + (await ask(command, "A32_PROBE", 900000)).split("\n").slice(1).join("\n").slice(0, 8000));
+        }
         const events = emulator.v86.cpu.devices.goldfish_events;
-        const swipe = async (y0, y1) =>
+        const swipe = async (y0, y1, settle = 2500) =>
         {
             events.absolute([fb.width / 2, y0, fb.width, fb.height]);
             events.click([true]);
@@ -311,15 +386,31 @@ try
                 events.absolute([fb.width / 2, y0 + (y1 - y0) * i / 10, fb.width, fb.height]);
             }
             events.click([false]);
-            await new Promise(resolve => setTimeout(resolve, 2500));
+            await new Promise(resolve => setTimeout(resolve, settle));
         };
+        // (a scroll: one swipe up inside the list, the list's rows moved)
+        const before_scroll = sink.rgba.slice();
+        await swipe(fb.height * 0.75, fb.height * 0.35, 30000);
+        let moved = 0;
+        for(let i = 0; i < sink.rgba.length; i += 4) if(sink.rgba[i] !== before_scroll[i] || sink.rgba[i + 1] !== before_scroll[i + 1]) moved++;
+        console.log(`scroll: ${(100 * moved / (sink.rgba.length / 4)).toFixed(1)}% of the pixels changed`);
+        save_png(sink, run_directory, "screen-scrolled-once");
+        // (the frames a scrolled list draws: swipes up and down inside it for
+        // a minute, the screen's frames counted, in the host's seconds)
+        const pipe = emulator.v86.cpu.devices.goldfish_pipe, pipe_before = { ...pipe.stats };
+        const instructions_before = emulator.get_instruction_counter();
         const frames_before = fb.frames, gles_before = gles_summary(), fps_start = performance.now();
-        for(let i = 0; i < 12; i++) await swipe(i % 2 ? fb.height * 0.3 : fb.height * 0.8, i % 2 ? fb.height * 0.8 : fb.height * 0.3);
+        for(let i = 0; i < 12; i++) await swipe(i % 2 ? fb.height * 0.35 : fb.height * 0.75, i % 2 ? fb.height * 0.75 : fb.height * 0.35);
         const fps_seconds = (performance.now() - fps_start) / 1000;
         const gles_after = gles_summary();
         console.log(`fps: ${((fb.frames - frames_before) / fps_seconds).toFixed(2)} frames a second over ${fps_seconds.toFixed(0)} s of swipes` +
             (gles_after ? `; GLES host ${(gles_after.batches.cpu_ms - gles_before.batches.cpu_ms).toFixed(0)} ms of CPU, ` +
                 `${gles_after.batches.batches - gles_before.batches.batches} batches, ${((gles_after.batches.bytes - gles_before.batches.bytes) / 1048576).toFixed(1)} MiB` : ""));
+        // (the pipe's traps and transfers in that time: what pipe v2 would save)
+        const delta = name => pipe.stats[name] - pipe_before[name];
+        console.log(`pipe: ${(delta("mmio") / fps_seconds).toFixed(0)} register accesses a second, ${(delta("writes") / fps_seconds).toFixed(0)} writes ` +
+            `(${(delta("bytes_written") / fps_seconds / 1024).toFixed(0)} KiB/s) and ${(delta("reads") / fps_seconds).toFixed(0)} reads a second; ` +
+            `${(((emulator.get_instruction_counter() - instructions_before + 0x100000000) % 0x100000000) / fps_seconds / 1e6).toFixed(1)} M guest instructions a second`);
         save_png(sink, run_directory, "screen-scrolled");
         await ask("input keyevent 3", "A32_SCREEN_HOME", 600000);
     }
@@ -420,8 +511,85 @@ try
         expect("gles1", [[255, 128, 0], [0, 255, 0]]);
         expect("light", [[128, 128, 128]]);
         expect("drawtex", [[0, 0, 255], [128, 128, 128]]);
+        // EGL: both swap intervals taken, a fence signaled (EGL_CONDITION_SATISFIED_KHR, EGL_SIGNALED_KHR),
+        // a pbuffer cleared, a texture of a share group sampled in its other context
+        const egl = /V86_GLES egl intervals=(\d+),(\d+) sync=(\d+) wait=(\w+) status=(\w+)/.exec(log);
+        assert.ok(egl, "the EGL scene");
+        assert.deepEqual(egl.slice(1), ["1", "1", "1", "30f6", "30f2"], "swap intervals, the fence");
+        expect("pbuffer", [[255, 255, 0]]);
+        expect("shared", [[255, 0, 255]]);
         save_png(sink, run_directory, "gles-app");
         console.log("gles app: every scene as GLES draws it");
+    }
+    if(media)
+    {
+        // the disk's files in as root, given to the shell (as dEQP's)
+        for(const step of ["mkdir -p /data/local/tmp/media-disk", "mount -t ext2 -o ro /dev/block/vdd /data/local/tmp/media-disk",
+            "cp /data/local/tmp/media-disk/*.apk /data/local/tmp/", "cp /data/local/tmp/media-disk/green.mp4 /sdcard/green.mp4",
+            "umount /data/local/tmp/media-disk", "chown shell:shell /data/local/tmp/*.apk", "chmod 644 /data/local/tmp/*.apk"])
+        {
+            const out = await ask(`su 0 sh -c '${step}' 2>&1`, "A32_MEDIA_COPY", 900000);
+            if(/denied|No such|failed|Invalid/i.test(out)) console.log("media copy: " + out.replace(/\s+/g, " ").slice(-300));
+        }
+        // a video: Gallery's player, the frame's middle green (YV12 from the decoder, RGB from gralloc)
+        await dismiss_dialogs();
+        console.log("video: " + (await ask("am start -a android.intent.action.VIEW -d file:///sdcard/green.mp4 -t video/mp4 " +
+            "-n com.android.gallery3d/.app.MovieActivity", "A32_VIDEO", 900000)).replace(/\s+/g, " ").slice(-160));
+        const green = () =>
+        {
+            let n = 0;
+            for(let y = fb.height * 0.3 | 0; y < fb.height * 0.7; y += 8)
+            {
+                for(let x = fb.width * 0.2 | 0; x < fb.width * 0.8; x += 8)
+                {
+                    const at = (y * sink.width + x) * 4;
+                    if(sink.rgba[at + 1] > 200 && sink.rgba[at] < 80 && sink.rgba[at + 2] < 80) n++;
+                }
+            }
+            return n;
+        };
+        const video_by = performance.now() + 600000;
+        while(green() < 20 && performance.now() < video_by) await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log(`video: ${green()} green samples; focus ${await focus()}; frames ${fb.frames}`);
+        save_png(sink, run_directory, "video");
+        assert.ok(green() >= 20, "the video's frame is shown (green)");
+        await ask("input keyevent 4; input keyevent 3", "A32_VIDEO_HOME", 600000);
+        // the games: installed, started, a minute of taps and swipes, still running and drawing
+        for(const game of media.games)
+        {
+            const installed = await ask(`pm install -r -g /data/local/tmp/${game.name}.apk`, "A32_GAME_INSTALL", 1800000);
+            assert.match(installed, /Success/, game.name + " installed");
+            await dismiss_dialogs();
+            await ask(`monkey -p ${game.package} -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1`, "A32_GAME_START", 900000);
+            await new Promise(resolve => setTimeout(resolve, 120000));
+            await dismiss_dialogs();
+            save_png(sink, run_directory, game.name + "-start");
+            const events = emulator.v86.cpu.devices.goldfish_events;
+            const frames_before = fb.frames, calls_before = Object.values(gles_summary()?.counts || {}).reduce((n, c) => n + c, 0);
+            const play_until = performance.now() + 60000;
+            for(let i = 0; performance.now() < play_until; i++)
+            {
+                // (taps across the middle, then a swipe)
+                if(i % 4 === 3)
+                {
+                    events.absolute([fb.width * 0.3, fb.height * 0.5, fb.width, fb.height]);
+                    events.click([true]);
+                    for(let k = 1; k <= 8; k++) { await new Promise(r => setTimeout(r, 60)); events.absolute([fb.width * (0.3 + 0.05 * k), fb.height * 0.5, fb.width, fb.height]); }
+                    events.click([false]);
+                }
+                else events.tap(fb.width * (0.3 + 0.2 * (i % 3)), fb.height * (0.45 + 0.1 * (i % 2)), fb.width, fb.height);
+                await new Promise(resolve => setTimeout(resolve, 4000));
+            }
+            const running = (await ask(`pidof ${game.package}`, "A32_GAME_PID", 600000)).match(/\n\s*(\d+)/);
+            const now = await focus();
+            const calls = Object.values(gles_summary()?.counts || {}).reduce((n, c) => n + c, 0) - calls_before;
+            console.log(`game ${game.name}: focus ${now}; ${fb.frames - frames_before} frames and ${calls} GLES calls in the minute; ` +
+                (running ? "running, pid " + running[1] : "not running"));
+            save_png(sink, run_directory, game.name + "-play");
+            assert.ok(running, game.name + " still runs after a minute");
+            assert.ok(calls > 0 && fb.frames > frames_before, game.name + " draws");
+            await ask(`am force-stop ${game.package}; input keyevent 3`, "A32_GAME_STOP", 600000);
+        }
     }
     if(deqp)
     {
@@ -441,12 +609,15 @@ try
         const started_deqp = performance.now();
         for(const chunk of deqp.chunks)
         {
+            // (A32_ANDROID_DEQP_IMAGES=1: the log's images too, its data in the instrumentation's output, kept in deqp-run-<n>.txt)
+            const images = process.env.A32_ANDROID_DEQP_IMAGES === "1";
             const command_line = `--deqp-caselist-file=/sdcard/deqp-cases.txt --deqp-gl-config-name=rgba8888d24s8ms0 --deqp-surface-type=window ` +
-                `--deqp-screen-rotation=unspecified --deqp-log-images=disable --deqp-log-shader-sources=disable --deqp-watchdog=enable`;
+                `--deqp-screen-rotation=unspecified --deqp-log-images=${images ? "enable" : "disable"} --deqp-log-shader-sources=disable --deqp-watchdog=enable`;
             // (the console's shell has no access to /sdcard, which the tester reads and writes: as root)
             await ask(`su 0 sh -c 'cp /data/local/tmp/${chunk.name} /sdcard/deqp-cases.txt'`, "A32_DEQP_CASES", 600000);
-            const run = await ask(`am instrument -w -e deqpLogFileName /sdcard/deqp.qpa -e deqpCmdLine "${command_line}" -e deqpLogData false ` +
+            const run = await ask(`am instrument -w -e deqpLogFileName /sdcard/deqp.qpa -e deqpCmdLine "${command_line}" -e deqpLogData ${images} ` +
                 `com.drawelements.deqp/com.drawelements.deqp.testercore.DeqpInstrumentation`, "A32_DEQP_RUN", 7200000);
+            if(images) fs.writeFileSync(run_directory + `deqp-run-${chunk.name}`, run);
             // (the results: the instrumentation's status lines, as CTS's runner reads them; no log file is written)
             let current = null;
             for(const line of run.replace(/\r/g, "").split("\n"))

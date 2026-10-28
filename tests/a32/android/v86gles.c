@@ -6,11 +6,13 @@
 // over a blended triangle; render to a texture through a framebuffer, then
 // sampled; an ETC1 texture; GLES 1.1: glOrthof with a vertex array and the
 // current color, a texture modulated by a color array, a directional light,
-// glDrawTexiOES.
+// glDrawTexiOES; EGL: swap intervals, a fence sync, a pbuffer surface, a
+// texture shared between two contexts.
 #define GL_GLEXT_PROTOTYPES
 #include <android/log.h>
 #include <android/native_activity.h>
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
@@ -219,12 +221,71 @@ static void gles1_scenes(void)
     eglSwapBuffers(display, surface);
 }
 
+/** EGL: swap intervals, a fence, a pbuffer surface, a texture made in one context and sampled in another of its share group */
+static void egl_scenes(EGLContext context2)
+{
+    PFNEGLCREATESYNCKHRPROC create_sync = (PFNEGLCREATESYNCKHRPROC)eglGetProcAddress("eglCreateSyncKHR");
+    PFNEGLCLIENTWAITSYNCKHRPROC wait_sync = (PFNEGLCLIENTWAITSYNCKHRPROC)eglGetProcAddress("eglClientWaitSyncKHR");
+    PFNEGLGETSYNCATTRIBKHRPROC sync_attrib = (PFNEGLGETSYNCATTRIBKHRPROC)eglGetProcAddress("eglGetSyncAttribKHR");
+    PFNEGLDESTROYSYNCKHRPROC destroy_sync = (PFNEGLDESTROYSYNCKHRPROC)eglGetProcAddress("eglDestroySyncKHR");
+    eglMakeCurrent(display, surface, surface, context2);
+    EGLBoolean interval0 = eglSwapInterval(display, 0), interval1 = eglSwapInterval(display, 1);
+    glClearColor(0, 0, 1, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    EGLSyncKHR sync = create_sync ? create_sync(display, EGL_SYNC_FENCE_KHR, 0) : EGL_NO_SYNC_KHR;
+    EGLint waited = 0, status = 0;
+    if(sync != EGL_NO_SYNC_KHR)
+    {
+        waited = wait_sync(display, sync, EGL_SYNC_FLUSH_COMMANDS_BIT_KHR, 1000000000ull);
+        sync_attrib(display, sync, EGL_SYNC_STATUS_KHR, &status);
+        destroy_sync(display, sync);
+    }
+    LOG("V86_GLES egl intervals=%d,%d sync=%d wait=%x status=%x", interval0, interval1, sync != EGL_NO_SYNC_KHR, waited, status);
+    // a 32 by 32 pbuffer, cleared yellow
+    const EGLint pbuffer_attributes[] = { EGL_WIDTH, 32, EGL_HEIGHT, 32, EGL_NONE };
+    EGLSurface pbuffer = eglCreatePbufferSurface(display, config, pbuffer_attributes);
+    eglMakeCurrent(display, pbuffer, pbuffer, context2);
+    glViewport(0, 0, 32, 32);
+    glClearColor(1, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    int pbuffer_points[] = { 16, 16 };
+    report("pbuffer", pbuffer_points, 1);
+    // a magenta texture made in context2, sampled in context3 (context2's share group)
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    const unsigned char magenta[] = { 255, 0, 255, 255 };
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, magenta);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFinish();
+    const EGLint version2[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+    EGLContext context3 = eglCreateContext(display, config, context2, version2);
+    eglMakeCurrent(display, pbuffer, pbuffer, context3);
+    glViewport(0, 0, 32, 32);
+    GLuint program = glCreateProgram();
+    glAttachShader(program, compile(GL_VERTEX_SHADER, "attribute vec2 p; void main() { gl_Position = vec4(p, 0.0, 1.0); }"));
+    glAttachShader(program, compile(GL_FRAGMENT_SHADER, "precision mediump float; uniform sampler2D t; void main() { gl_FragColor = texture2D(t, vec2(0.5)); }"));
+    glBindAttribLocation(program, 0, "p");
+    glLinkProgram(program);
+    glUseProgram(program);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    const float triangle[] = { -1, -1, 3, -1, -1, 3 };
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, triangle);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    report("shared", pbuffer_points, 1);
+    eglMakeCurrent(display, surface, surface, context2);
+    eglDestroyContext(display, context3);
+    eglDestroySurface(display, pbuffer);
+}
+
 static void* run(void* argument)
 {
     ANativeWindow* window = (ANativeWindow*)argument;
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     eglInitialize(display, 0, 0);
-    const EGLint attributes[] = { EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT | EGL_OPENGL_ES_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8,
+    const EGLint attributes[] = { EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT | EGL_OPENGL_ES_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8, EGL_DEPTH_SIZE, 16, EGL_NONE };
     EGLint count = 0;
     eglChooseConfig(display, attributes, &config, 1, &count);
@@ -242,6 +303,7 @@ static void* run(void* argument)
     eglMakeCurrent(display, surface, surface, context1);
     LOG("V86_GLES gles1 %s", glGetString(GL_VERSION));
     gles1_scenes();
+    egl_scenes(context2);
     LOG("V86_GLES_DONE");
     return 0;
 }
