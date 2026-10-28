@@ -409,7 +409,8 @@ export function gles31_handlers(h, H3)
         if(!all_outputs.length) return "";
         const outputs = all_outputs.filter(o => !o.builtIn);
         const inputs = ((c.group.objects.get(fragment).info.reflection || {}).inputs || []).filter(x => !x.builtIn);
-        const match = (x, list) => x.location >= 0 ? list.find(y => y.location === x.location) : list.find(y => y.name === x.name);
+        // (by location where there is one, by name between two without)
+        const match = (x, list) => x.location >= 0 ? list.find(y => y.location === x.location) : list.find(y => y.name === x.name && !(y.location >= 0));
         for(const i of inputs)
         {
             const o = match(i, outputs);
