@@ -1362,8 +1362,18 @@ V86.prototype.continue_init = async function(emulator, options)
             // (its GLSL ES compiler, glslang: GLSL ES 3.x's shaders; docs/gles3-plan.md)
             if(settings.gles_plugin["prepare"])
             {
-                const glslang = await load_whole_file("gles_glslang_path", options.gles_glslang_path || default_glslang_wasm_path());
-                settings.gles_prepared = await settings.gles_plugin["prepare"]({ "glslang": glslang });
+                let glslang = null;
+                try
+                {
+                    glslang = await load_whole_file("gles_glslang_path", options.gles_glslang_path || default_glslang_wasm_path());
+                }
+                catch(error)
+                {
+                    // (GLES 2.0's shaders need no glslang: without it, a GLES 3.x the options ask for is the error)
+                    if((settings.ranchu_gles_version || "2.0") !== "2.0") throw error;
+                    console.warn(error.message + ": the GLES host offers GLES 2.0 alone");
+                }
+                if(glslang) settings.gles_prepared = await settings.gles_plugin["prepare"]({ "glslang": glslang });
             }
             // (no WebGPU, no renderer: say so rather than draw nothing)
             if(!settings.graphics_adapter_renderer)
