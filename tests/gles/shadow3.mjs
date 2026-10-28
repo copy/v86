@@ -412,6 +412,11 @@ async function setup(max_version, api)
         "precision mediump float; int step(float i, float j, int a) { return -a; }\n" +
         "void main() { gl_FragColor = vec4(float(step(0.0, 1.0, 2)), step(0.5, 1.0), 0.0, 1.0); }");
     assert.ok(overload.ok, "an overload of step links: " + overload.log);
+    // (a built-in called in a global's initializer, its argument in parentheses: a call, not the user's overload;
+    // dEQP-GLES2 random.all_features)
+    const global_call = link("attribute vec4 p; float b = exp(log2((float(5))) - 1.0); const float c = sqrt((4.0));\n" +
+        "void main() { gl_Position = p * b * c; }", "precision mediump float; void main() { gl_FragColor = vec4(1.0); }");
+    assert.ok(global_call.ok, "built-ins called in globals' initializers: " + global_call.log);
     // (unused attributes: locations of their own, not one glBindAttribLocation gave a used one)
     const unused = link("attribute vec4 a_coords; attribute vec4 a_position; attribute mat2 a_m; void main() { gl_Position = a_position; }",
         "precision mediump float; void main() { gl_FragColor = vec4(1.0); }", new Map([["a_position", 1]]));

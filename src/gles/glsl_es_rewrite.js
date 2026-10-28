@@ -237,7 +237,8 @@ const BUILTINS_100 = new Map(Object.entries({
 function mark_overloads(tokens)
 {
     const significant = tokens.map((t, i) => i).filter(i => !["space", "comment", "newline"].includes(tokens[i].kind));
-    // each name followed by "(": its argument count, and whether it is at file scope
+    // each name followed by "(": its argument count, and whether it is a declaration (at file scope, after its
+    // return type: a call in a global's initializer is at file scope too, after an operator, "=", "(" or ",")
     const uses = [];
     let depth = 0;
     for(let k = 0; k < significant.length; k++)
@@ -250,15 +251,17 @@ function mark_overloads(tokens)
         for(let j = k + 1; j < significant.length; j++)
         {
             const x = tokens[significant[j]].text;
+            // (anything inside the list but a lone `void` is an argument: `log2((x))` has one)
+            if(level >= 1 && x !== ")" && !(level === 1 && x === "void")) empty = false;
             if(x === "(" || x === "[") level++;
             else if(x === ")" || x === "]") { if(--level === 0) break; }
             else if(level === 1 && x === ",") count++;
-            else if(level === 1 && x !== "void") empty = false;
         }
-        uses.push({ token: t, arity: empty ? 0 : count + 1, file_scope: depth === 0 });
+        const before = k > 0 ? tokens[significant[k - 1]] : null;
+        uses.push({ token: t, arity: empty ? 0 : count + 1, declaration: depth === 0 && !!before && before.kind === "name" });
     }
     const own = new Map();
-    for(const u of uses) if(u.file_scope) own.set(u.token.text, (own.get(u.token.text) || new Set()).add(u.arity));
+    for(const u of uses) if(u.declaration) own.set(u.token.text, (own.get(u.token.text) || new Set()).add(u.arity));
     for(const u of uses)
     {
         const arities = own.get(u.token.text);
