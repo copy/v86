@@ -25,7 +25,7 @@ import { STAGE_OF_GL_TYPE } from "./glslang.js";
 import { glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
 import { INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
-import { extend_context31, gles31_handlers, state_value31 } from "./gles31_state.js";
+import { FLOAT_STATE32, extend_context31, gles31_handlers, state_value31 } from "./gles31_state.js";
 import { EXTENSIONS_3 } from "./gles_caps.js";
 import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
 import { format_info as SIZED_INFO } from "./gles_formats3.js";
@@ -252,6 +252,8 @@ const STATE_KIND = new Map([
     [0x0B70, "n"], [0x0B21, "f"], [0x8038, "f"], [0x2A00, "f"], [0x80AA, "f"], [0x0C22, "n"], [0x0B73, "n"], [0x8005, "n"],
     [0x846D, "f"], [0x846E, "f"], [0x0B12, "f"], [0x0B22, "f"],
     [0x0C23, "b"], [0x0B72, "b"], [0x80AB, "b"], [0x8DFA, "b"],
+    // (GLES 3.2's: gles31_state.js's FLOAT_STATE32)
+    ...[...FLOAT_STATE32].map(pname => [pname, "f"]),
 ]);
 
 /**

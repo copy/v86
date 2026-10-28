@@ -207,3 +207,24 @@ void text;
     assert.equal(renderer.records().filter(r => r.name === "READ_PIXELS").length, before + 1, "the page reads them");
     console.log("PASS: EXT_robustness");
 }
+
+// ---- GLES 3.2's state: KHR_debug's initial values, the stages' limits, the bounding box, sample shading
+{
+    const renderer32 = fake_renderer();
+    const host32 = new GLESHost(DISPLAY, renderer32, undefined, { glslang, max_version: "3.2" });
+    const { call: call32 } = await client(host32).connect();
+    const context32 = (await call32("rcCreateContext", 3, 0, 4)).ret;
+    const surface32 = (await call32("rcCreateWindowSurface", 3, 320, 240)).ret;
+    await call32("rcMakeCurrent", context32, surface32, surface32);
+    const get = async pname => i32s((await call32("gles2:glGetIntegerv", pname, 32)).outs[0]).slice(0, 1)[0];
+    assert.equal(host32.shadow.context(context32).version, 32);
+    assert.equal(await get(0x8DE0), 256, "GL_MAX_GEOMETRY_OUTPUT_VERTICES");
+    assert.equal(await get(0x8E7D), 32, "GL_MAX_PATCH_VERTICES");
+    assert.equal(await get(0x82E8), 256, "GL_MAX_LABEL_LENGTH");
+    const box = new Float32Array((await call32("gles2:glGetFloatv", 0x92BE, 32)).outs[0].slice().buffer);
+    assert.deepEqual(Array.from(box), [-1, -1, -1, 1, 1, 1, 1, 1], "GL_PRIMITIVE_BOUNDING_BOX");
+    await call32("gles2:glEnable", 0x8C36);
+    assert.equal((await call32("gles2:glIsEnabled", 0x8C36)).ret, 1, "GL_SAMPLE_SHADING");
+    assert.equal((await call32("gles2:glGetError")).ret, 0);
+    console.log("PASS: GLES 3.2's state");
+}

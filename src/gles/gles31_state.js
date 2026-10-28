@@ -283,6 +283,8 @@ export function gles31_handlers(h, H3)
         else if(as === "b") put(data, value.map(v => v ? 1 : 0), "b", "b");
         else put(data, value, "i", "i");
     };
+    /** The capabilities GLES 3.1 and 3.2 add */
+    const own_cap = (c, cap) => cap === 0x8E51 || c.version >= 32 && (cap === 0x8C36 || cap === 0x92E0 || cap === 0x8242);
     /** What a 3.1 helper answers for what is 3.0's */
     const NOT_HERE = Symbol("GLES 3.0's");
     /** glBindBufferRange/Base of GLES 3.1's indexed targets (storage, atomic counters), else NOT_HERE */
@@ -342,10 +344,10 @@ export function gles31_handlers(h, H3)
     };
 
     const H = {
-        // (GLES 3.1's capability: the sample mask)
-        "glEnable": (shadow, c, [cap]) => cap === 0x8E51 ? void c.enabled.add(cap) : H3["glEnable"](shadow, c, [cap]),
-        "glDisable": (shadow, c, [cap]) => cap === 0x8E51 ? void c.enabled.delete(cap) : H3["glDisable"](shadow, c, [cap]),
-        "glIsEnabled": (shadow, c, [cap]) => { if(cap !== 0x8E51) return H3["glIsEnabled"](shadow, c, [cap]); query(shadow); return c.enabled.has(cap) ? 1 : 0; },
+        // (GLES 3.1's capability: the sample mask; GLES 3.2's: sample shading, KHR_debug's output)
+        "glEnable": (shadow, c, [cap]) => own_cap(c, cap) ? void c.enabled.add(cap) : H3["glEnable"](shadow, c, [cap]),
+        "glDisable": (shadow, c, [cap]) => own_cap(c, cap) ? void c.enabled.delete(cap) : H3["glDisable"](shadow, c, [cap]),
+        "glIsEnabled": (shadow, c, [cap]) => { if(!own_cap(c, cap)) return H3["glIsEnabled"](shadow, c, [cap]); query(shadow); return c.enabled.has(cap) ? 1 : 0; },
         "glCreateShader": (shadow, c, [type]) =>
         {
             if(type !== GL31.COMPUTE_SHADER) return base["glCreateShader"](shadow, c, [type]);
@@ -873,10 +875,35 @@ export function gles31_handlers(h, H3)
     return H;
 }
 
+/**
+ * GLES 3.2's state beyond 3.1's (tables 21.2 to 21.58): KHR_debug's initial
+ * values and limits (its entry points are not on the guest's wire), the
+ * geometry and tessellation stages' limits (the specification's minimums),
+ * robustness, the bounding box, sample shading's
+ */
+const STATE32 = new Map([
+    [0x821E, [0]], [0x9143, [1024]], [0x9144, [1]], [0x9145, [0]], [0x8243, [0]], [0x826C, [64]], [0x826D, [1]], [0x82E8, [256]],
+    [0x92BE, [-1, -1, -1, 1, 1, 1, 1, 1]], [0x9381, [1, 1]], [0x9382, [1]], [0x8C37, [0]], [0x8256, [0x8261]], [0x90F3, [0]], [0x9317, [256]],
+    [0x825E, [0x8E4E]], [0x8E5D, [4]], [0x8E5B, [-0.5]], [0x8E5C, [0.5]], [0x8E72, [3]],
+    // geometry
+    [0x8DDF, [1024]], [0x8A2C, [12]], [0x9123, [64]], [0x9124, [64]], [0x8DE0, [256]], [0x8DE1, [1024]], [0x8C29, [16]], [0x8E5A, [32]],
+    [0x92CF, [0]], [0x92D5, [0]], [0x90CD, [0]], [0x90D7, [0]], [0x8A32, [1024 + 12 * 4096]],
+    // tessellation
+    [0x8E7D, [32]], [0x8E7E, [64]], [0x8E7F, [1024]], [0x8E80, [1024]], [0x8E81, [16]], [0x8E82, [16]], [0x8E83, [64]], [0x8E84, [120]],
+    [0x8E85, [2048]], [0x8E86, [64]], [0x8E89, [12]], [0x8E8A, [12]], [0x886C, [64]], [0x886D, [64]], [0x92CD, [0]], [0x92CE, [0]],
+    [0x92D3, [0]], [0x92D4, [0]], [0x90CB, [0]], [0x90CC, [0]], [0x90D8, [0]], [0x90D9, [0]], [0x8E1E, [1024 + 12 * 4096]], [0x8E1F, [1024 + 12 * 4096]],
+    // texture buffers (no entry point reaches them: their limits are the minimums)
+    [0x8C2B, [65536]], [0x919F, [256]], [0x8C2C, [0]], [0x8C2A, [0]],
+]);
+/** GLES 3.2's float state */
+export const FLOAT_STATE32 = new Set([0x92BE, 0x9381, 0x9382, 0x8C37, 0x8E5B, 0x8E5C]);
+
 /** GLES 3.1's state values (glGet*), null for one not GLES 3.1's (then GLES 3.0's) */
 export function state_value31(shadow, c, pname)
 {
     const L = LIMITS31;
+    if(c.version >= 32 && STATE32.has(pname)) return STATE32.get(pname);
+    if(c.version >= 32 && (pname === 0x92E0 || pname === 0x8242 || pname === 0x8C36)) return [c.enabled.has(pname) ? 1 : 0];
     switch(pname)
     {
         case 0x90DB: return [L.MAX_COMPUTE_SHADER_STORAGE_BLOCKS];
