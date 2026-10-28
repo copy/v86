@@ -236,3 +236,138 @@ export function depth_values(tight, count, format, type)
     }
     return { depth, stencil };
 }
+
+/** An unsigned float of 5 exponent bits and `bits` mantissa bits */
+function from_ufloat(v, bits)
+{
+    const e = v >> bits & 31, m = v & (1 << bits) - 1;
+    if(e === 0) return m * 2 ** -14 / (1 << bits);
+    if(e === 31) return m ? NaN : Infinity;
+    return (1 + m / (1 << bits)) * 2 ** (e - 15);
+}
+
+/**
+ * Texels of a WebGPU color format as four values each (normalized ones as
+ * GL reads them, from 0 or -1 to 1; integers as they are; a missing
+ * channel 0, alpha 1)
+ * @param {!Uint8Array} raw tight texels
+ * @return {!Float64Array}
+ */
+export function decode_texels(raw, count, format)
+{
+    const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+    const out = new Float64Array(count * 4);
+    const texel = TEXEL_BYTES[format];
+    const channels = format.startsWith("rgba") ? 4 : format.startsWith("rg") && !format.startsWith("rgb") ? 2 : 1;
+    const size = texel / channels;
+    const kind = format.includes("uint") ? "u" : format.includes("sint") ? "i" : format.includes("float") ? "f" : format.includes("snorm") ? "s" : "n";
+    for(let i = 0; i < count; i++)
+    {
+        const at = i * texel, o = i * 4;
+        out[o + 3] = 1;
+        if(format === "rgb10a2unorm" || format === "rgb10a2uint")
+        {
+            const v = view.getUint32(at, true);
+            const parts = [v & 1023, v >>> 10 & 1023, v >>> 20 & 1023, v >>> 30];
+            for(let k = 0; k < 4; k++) out[o + k] = format === "rgb10a2uint" ? parts[k] : parts[k] / (k === 3 ? 3 : 1023);
+            continue;
+        }
+        if(format === "rg11b10ufloat")
+        {
+            const v = view.getUint32(at, true);
+            out[o] = from_ufloat(v & 2047, 6);
+            out[o + 1] = from_ufloat(v >>> 11 & 2047, 6);
+            out[o + 2] = from_ufloat(v >>> 22, 5);
+            continue;
+        }
+        if(format === "rgb9e5ufloat")
+        {
+            const v = view.getUint32(at, true);
+            const scale = 2 ** ((v >>> 27) - 15 - 9);
+            out[o] = (v & 511) * scale;
+            out[o + 1] = (v >>> 9 & 511) * scale;
+            out[o + 2] = (v >>> 18 & 511) * scale;
+            continue;
+        }
+        for(let k = 0; k < channels; k++)
+        {
+            const p = at + k * size;
+            let value;
+            if(kind === "f") value = size === 2 ? from_half(view.getUint16(p, true)) : view.getFloat32(p, true);
+            else if(size === 1) value = kind === "i" || kind === "s" ? view.getInt8(p) : view.getUint8(p);
+            else if(size === 2) value = kind === "i" || kind === "s" ? view.getInt16(p, true) : view.getUint16(p, true);
+            else value = kind === "i" ? view.getInt32(p, true) : view.getUint32(p, true);
+            if(kind === "n") value /= 2 ** (8 * size) - 1;
+            else if(kind === "s") value = Math.max(-1, value / (2 ** (8 * size - 1) - 1));
+            out[o + k] = value;
+        }
+    }
+    return out;
+}
+
+/**
+ * Four values a pixel (decode_texels') as client memory holds them by
+ * glReadPixels' format and type and the pack state (GLES 3.0, 4.3.2): rows
+ * of row_length (or width) pixels aligned, after the skips; the bytes the
+ * read does not write stay zero
+ * @param {{alignment: number, row_length: number, skip_pixels: number, skip_rows: number}} store
+ * @return {!Uint8Array}
+ */
+export function pack_pixels(values, width, height, format, type, store)
+{
+    const pixel = pixel_bytes(format, type);
+    const row = Math.ceil((store.row_length > 0 ? store.row_length : width) * pixel / store.alignment) * store.alignment;
+    const start = store.skip_rows * row + store.skip_pixels * pixel;
+    const out = new Uint8Array(width && height ? start + (height - 1) * row + width * pixel : 0);
+    const view = new DataView(out.buffer);
+    const order = { [F.RED]: [0], [F.RED_INTEGER]: [0], [F.RG]: [0, 1], [F.RG_INTEGER]: [0, 1], [F.RGB]: [0, 1, 2], [F.RGB_INTEGER]: [0, 1, 2],
+        [F.RGBA]: [0, 1, 2, 3], [F.RGBA_INTEGER]: [0, 1, 2, 3], [F.ALPHA]: [3], [F.LUMINANCE]: [0], [F.LUMINANCE_ALPHA]: [0, 3],
+        [F.BGRA_EXT]: [2, 1, 0, 3] }[format] || [0, 1, 2, 3];
+    const integer = format === F.RED_INTEGER || format === F.RG_INTEGER || format === F.RGB_INTEGER || format === F.RGBA_INTEGER;
+    const clamp = (v, low) => Math.min(1, Math.max(low, v));
+    const unorm = (v, bits) => Math.round(clamp(v, 0) * (2 ** bits - 1));
+    for(let y = 0; y < height; y++)
+    {
+        for(let x = 0; x < width; x++)
+        {
+            const v = values.subarray((y * width + x) * 4, (y * width + x) * 4 + 4);
+            const at = start + y * row + x * pixel;
+            switch(type)
+            {
+                case F.UNSIGNED_SHORT_5_6_5: view.setUint16(at, unorm(v[0], 5) << 11 | unorm(v[1], 6) << 5 | unorm(v[2], 5), true); continue;
+                case F.UNSIGNED_SHORT_4_4_4_4:
+                    view.setUint16(at, unorm(v[0], 4) << 12 | unorm(v[1], 4) << 8 | unorm(v[2], 4) << 4 | unorm(v[3], 4), true);
+                    continue;
+                case F.UNSIGNED_SHORT_5_5_5_1:
+                    view.setUint16(at, unorm(v[0], 5) << 11 | unorm(v[1], 5) << 6 | unorm(v[2], 5) << 1 | unorm(v[3], 1), true);
+                    continue;
+                case F.UNSIGNED_INT_2_10_10_10_REV:
+                {
+                    const p = integer ? v.map((c, k) => Math.min(k === 3 ? 3 : 1023, Math.max(0, c))) : v.map((c, k) => unorm(c, k === 3 ? 2 : 10));
+                    view.setUint32(at, (p[0] | p[1] << 10 | p[2] << 20 | p[3] << 30) >>> 0, true);
+                    continue;
+                }
+                case F.UNSIGNED_INT_10F_11F_11F_REV:
+                    view.setUint32(at, (to_ufloat(v[0], 6) | to_ufloat(v[1], 6) << 11 | to_ufloat(v[2], 5) << 22) >>> 0, true);
+                    continue;
+                case F.UNSIGNED_INT_5_9_9_9_REV: view.setUint32(at, to_rgb9e5(v[0], v[1], v[2]), true); continue;
+            }
+            order.forEach((channel, k) =>
+            {
+                const c = v[channel];
+                switch(type)
+                {
+                    case F.UNSIGNED_BYTE: view.setUint8(at + k, integer ? c : unorm(c, 8)); break;
+                    case F.BYTE: view.setInt8(at + k, integer ? c : Math.round(clamp(c, -1) * 127)); break;
+                    case F.UNSIGNED_SHORT: view.setUint16(at + 2 * k, integer ? c : unorm(c, 16), true); break;
+                    case F.SHORT: view.setInt16(at + 2 * k, integer ? c : Math.round(clamp(c, -1) * 32767), true); break;
+                    case F.UNSIGNED_INT: view.setUint32(at + 4 * k, integer ? c >>> 0 : unorm(c, 32), true); break;
+                    case F.INT: view.setInt32(at + 4 * k, integer ? c | 0 : Math.round(clamp(c, -1) * 2147483647), true); break;
+                    case F.HALF_FLOAT: case F.HALF_FLOAT_OES: view.setUint16(at + 2 * k, to_half(c), true); break;
+                    case F.FLOAT: view.setFloat32(at + 4 * k, c, true); break;
+                }
+            });
+        }
+    }
+    return out;
+}

@@ -267,6 +267,14 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(near(await which(2), [0, 0, 255, 255]), "a 2D array's layer 1");
         check(near(await which(3), [128, 0, 0, 255]), "an unsigned integer texture, fetched");
 
+        const flat = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision mediump float;
+            out vec4 o;
+            void main() { o = vec4(1.0, 1.0, 0.0, 1.0); }`);
+        gl("glUseProgram", textured.name);
+
         // ---- two draw buffers
         const mrt = program(`#version 300 es
             layout(location = 0) in vec2 position;
@@ -293,6 +301,92 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(near(pixel(await read_pixels(0, 0, 4, 4), 4, 1, 1), [0, 0, 255, 255]), "glClearBufferfv on draw buffer 1");
         gl("glReadBuffer", 0x8CE0);
         check(near(pixel(await read_pixels(0, 0, 4, 4), 4, 1, 1), [255, 0, 0, 255]), "draw buffer 0 kept its red");
+
+        // ---- reads of other formats: R32UI, RGB10_A2, sRGB
+        const read_as = async (x, y, w, h, format, type) => {
+            const id = request++;
+            record(GLES.READ_PIXELS, 1, id, x, y, w, h, format, type);
+            await run();
+            return answers.get(id);
+        };
+        const formats_fbo = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, formats_fbo);
+        gl("glDrawBuffers", 1, ints([0x8CE0]));
+        gl("glReadBuffer", 0x8CE0);
+        const attach = (internal) => {
+            const t = texture(7, 0x0DE1);
+            gl("glTexStorage2D", 0x0DE1, 1, internal, 4, 4);
+            gl("glFramebufferTexture2D", 0x8D40, 0x8CE0, 0x0DE1, t, 0);
+            return t;
+        };
+        attach(0x8236);
+        gl("glClearBufferuiv", 0x1800, 0, ints([12345, 0, 0, 0]));
+        let raw = await read_as(0, 0, 1, 1, 0x8D99, 0x1405);
+        check(Array.from(new Uint32Array(raw.slice().buffer)).join() === "12345,0,0,1", "R32UI read as RGBA_INTEGER, UNSIGNED_INT: " + Array.from(new Uint32Array(raw.slice().buffer)));
+        attach(0x8059);
+        gl("glClearBufferfv", 0x1800, 0, floats([1, 0.5, 0, 1]));
+        raw = await read_as(0, 0, 1, 1, 0x1908, 0x8368);
+        const packed = new Uint32Array(raw.slice().buffer)[0];
+        check((packed & 1023) === 1023 && Math.abs((packed >>> 10 & 1023) - 511.5) < 2 && (packed >>> 20 & 1023) === 0 && packed >>> 30 === 3,
+            "RGB10_A2 read as UNSIGNED_INT_2_10_10_10_REV");
+        attach(0x8C43);
+        gl("glClearBufferfv", 0x1800, 0, floats([0.5, 0.5, 0.5, 1]));
+        check(near(pixel(await read_pixels(0, 0, 4, 4), 4, 2, 2), [188, 188, 188, 255]), "SRGB8_ALPHA8: 0.5 stored encoded");
+        gl("glBindFramebuffer", 0x8D40, 0);
+
+        // ---- blits: scaled and flipped, a multisampled resolve, depth
+        const blit_source = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, blit_source);
+        attach(0x8058);
+        gl("glEnable", 0x0C11);
+        gl("glScissor", 0, 0, 2, 4);
+        gl("glClearBufferfv", 0x1800, 0, floats([1, 0, 0, 1]));
+        gl("glScissor", 2, 0, 2, 4);
+        gl("glClearBufferfv", 0x1800, 0, floats([0, 1, 0, 1]));
+        gl("glDisable", 0x0C11);
+        gl("glBindFramebuffer", 0x8CA9, 0);
+        gl("glBlitFramebuffer", 0, 0, 4, 4, W, 0, 0, W, 0x4000, 0x2600);
+        gl("glBindFramebuffer", 0x8D40, 0);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [0, 255, 0, 255]) && near(pixel(window, W, 6, 6), [255, 0, 0, 255]), "a blit scaled by 2 and flipped in x");
+        const ms = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, ms);
+        const rb = gen("Renderbuffers");
+        gl("glBindRenderbuffer", 0x8D41, rb);
+        gl("glRenderbufferStorageMultisample", 0x8D41, 4, 0x8058, W, W);
+        gl("glFramebufferRenderbuffer", 0x8D40, 0x8CE0, 0x8D41, rb);
+        gl("glViewport", 0, 0, W, W);
+        gl("glUseProgram", flat.name);
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, full, full.length);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 5, 0, 4);
+        gl("glBindFramebuffer", 0x8CA9, 0);
+        gl("glBlitFramebuffer", 0, 0, W, W, 0, 0, W, W, 0x4000, 0x2600);
+        gl("glBindFramebuffer", 0x8D40, 0);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 0, 255]), "a multisampled renderbuffer drawn, resolved by a blit");
+        const depth_source = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, depth_source);
+        const ds = texture(7, 0x0DE1);
+        gl("glTexStorage2D", 0x0DE1, 1, 0x88F0, W, W);
+        gl("glFramebufferTexture2D", 0x8D40, 0x821A, 0x0DE1, ds, 0);
+        gl("glDrawBuffers", 1, ints([0]));
+        gl("glReadBuffer", 0);
+        gl("glClearBufferfi", 0x84F9, 0, 0.75, 0);
+        gl("glBindFramebuffer", 0x8D40, 0);
+        gl("glClearDepthf", 0);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000 | 0x0100);
+        gl("glClearDepthf", 1);
+        gl("glBindFramebuffer", 0x8CA8, depth_source);
+        gl("glBlitFramebuffer", 0, 0, W, W, 0, 0, W, W, 0x0100, 0x2600);
+        gl("glBindFramebuffer", 0x8D40, 0);
+        gl("glEnable", 0x0B71);
+        gl("glDepthFunc", 0x0201);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 255, 0, 255]), "a blit's depth (0.75, over a cleared 0) behind z 0 (0.5)");
+        gl("glDisable", 0x0B71);
+        gl("glUseProgram", textured.name);
 
         // ---- a depth texture: drawn to, sampled by a shadow sampler
         const depth_fbo = gen("Framebuffers");
@@ -332,13 +426,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 0, 0, 255]), "a shadow sampler: 0.75 is not");
 
         // ---- indices: restarts, fans
-        const flat = program(`#version 300 es
-            layout(location = 0) in vec2 position;
-            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
-            precision mediump float;
-            out vec4 o;
-            void main() { o = vec4(1.0, 1.0, 0.0, 1.0); }`);
-        void flat;
+        gl("glUseProgram", flat.name);
         // two quads: x -1 to -0.5 and 0.5 to 1, a strip each
         const two = floats([-1, -1, -0.5, -1, -1, 1, -0.5, 1, 0.5, -1, 1, -1, 0.5, 1, 1, 1]);
         gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, two, two.length);

@@ -27,7 +27,7 @@
 import { COMPRESSED_FORMATS, format_info } from "../gles_formats3.js";
 import { GL3 } from "../gles3_state.js";
 import { BINDING, gl_type } from "../glsl_program.js";
-import { DRAWN_DEPTH, RENDERABLE, TEXEL_BYTES, from_half, to_texels, unpack_image } from "./gles3_pixels.js";
+import { DRAWN_DEPTH, RENDERABLE, TEXEL_BYTES, decode_texels, from_half, pack_pixels, to_texels, unpack_image } from "./gles3_pixels.js";
 import { decode_etc1 } from "./gles_textures.js";
 import { B, COLOR_FORMAT, COMPARE, STENCIL_OPS, U, WRAPS, align4, blend_component } from "./gles_gpu_tables.js";
 
@@ -694,13 +694,13 @@ export const GLES3 = {
             for(let mip = base + 1; mip < gpu.levels; mip++)
             {
                 const view = m => gpu.texture.createView({ dimension: "2d", baseMipLevel: m, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
-                this.blit3(view(mip - 1), view(mip), gpu.format);
+                this.downsample3(view(mip - 1), view(mip), gpu.format);
             }
         }
     },
 
     /** A full-size draw of one view into another of the format (filtered linearly) */
-    blit3(source, target, format)
+    downsample3(source, target, format)
     {
         this.blits3 = this.blits3 || new Map();
         let blit = this.blits3.get(format);
@@ -799,7 +799,8 @@ export const GLES3 = {
             if(!t) return null;
             const color = c.default_draw_buffer === GL3.NONE ? null :
                 { texture: t.color, view: t.color_view, format: COLOR_FORMAT, mip: 0, layer: 0, samples: 1, width: t.width, height: t.height };
-            return { colors: color ? [color] : [], depth: t.depth ? { view: t.depth, format: t.depth_format, texture: null } : null, width: t.width,
+            return { colors: color ? [color] : [], depth: t.depth ? { view: t.depth, format: t.depth_format, texture: t.depth_texture, mip: 0, layer: 0,
+                samples: 1, width: t.width, height: t.height } : null, width: t.width,
                 height: t.height, samples: 1, alpha: t.alpha, key: t.key + (color ? "" : "n"), textures: new Set([t.color]) };
         }
         const fbo = c.framebuffers.get(c.framebuffer);
@@ -829,6 +830,174 @@ export const GLES3 = {
         const fbo = c.framebuffers.get(c.read_framebuffer);
         if(!fbo || fbo.read_buffer === GL3.NONE) return null;
         return this.attachment3(c, fbo.attachments.get(fbo.read_buffer));
+    },
+
+    /** The read framebuffer's depth (or depth and stencil) attachment */
+    read_depth3(c)
+    {
+        if(!c.read_framebuffer)
+        {
+            const t = this.surface_target(c);
+            return t && t.depth ? { texture: t.depth_texture, view: t.depth, format: t.depth_format, mip: 0, layer: 0, samples: 1, width: t.width,
+                height: t.height } : null;
+        }
+        const fbo = c.framebuffers.get(c.read_framebuffer);
+        return fbo ? this.attachment3(c, fbo.attachments.get(GL3.DEPTH_ATTACHMENT)) || this.attachment3(c, fbo.attachments.get(GL3.STENCIL_ATTACHMENT)) : null;
+    },
+
+    /**
+     * glBlitFramebuffer: the read buffer into each draw buffer, the depth
+     * buffer into the depth buffer (frag_depth); a multisampled source
+     * resolved first; what keeps size, format and place a copy. The stencil
+     * buffer is not copied (WebGPU writes no stencil values, gpu-deviations.md).
+     */
+    blit_framebuffer3(c, [sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, mask, filter])
+    {
+        const target = this.target3(c);
+        if(!target) return;
+        let [x0, y0, x1, y1] = [Math.min(dx0, dx1), Math.min(dy0, dy1), Math.max(dx0, dx1), Math.max(dy0, dy1)];
+        if(c.enabled.has(SCISSOR_TEST))
+        {
+            const [x, y, w, h] = c.scissor;
+            [x0, y0, x1, y1] = [Math.max(x0, x), Math.max(y0, y), Math.min(x1, x + w), Math.min(y1, y + h)];
+        }
+        [x0, y0, x1, y1] = [Math.max(0, x0), Math.max(0, y0), Math.min(target.width, x1), Math.min(target.height, y1)];
+        if(x1 <= x0 || y1 <= y0 || sx0 === sx1 || sy0 === sy1 || dx0 === dx1 || dy0 === dy1) return;
+        const blit = { src: [sx0, sy0, sx1, sy1], dst: [dx0, dy0, dx1, dy1], rect: [x0, y0, x1 - x0, y1 - y0], linear: filter === LINEAR };
+        if(mask & 0x4000)
+        {
+            let source = this.read_target3(c);
+            if(source && source.samples > 1) source = this.resolve3(source);
+            for(const a of source ? target.colors : []) if(a) this.blit3(source, a, blit, false);
+        }
+        if(mask & 0x0100 && target.depth && target.depth.format !== "stencil8")
+        {
+            const source = this.read_depth3(c);
+            if(source && source.format !== "stencil8") this.blit3(source, target.depth, Object.assign({}, blit, { linear: false }), true);
+        }
+        if(mask & 0x0400) this.note3("glBlitFramebuffer's stencil (not copied)");
+    },
+
+    /** A multisampled color attachment resolved into a texture of its own (gone after the batch) */
+    resolve3(source)
+    {
+        if(format_kind(source.format) !== "f") return this.note3("a multisampled integer read buffer resolved");
+        this.end_pass();
+        const texture = this.device.createTexture({ label: "GLES resolve", size: [source.width, source.height], format: source.format,
+            usage: U.RENDER_ATTACHMENT | U.TEXTURE_BINDING | U.COPY_SRC });
+        const pass = this.encoder.beginRenderPass({ colorAttachments: [{ view: source.view, resolveTarget: texture.createView(), loadOp: "load", storeOp: "store" }] });
+        pass.end();
+        this.staging.push(texture);
+        return { texture, view: texture.createView(), format: source.format, mip: 0, layer: 0, samples: 1, width: source.width, height: source.height };
+    },
+
+    /**
+     * One blit of a source image into a destination attachment: a copy when
+     * nothing scales, flips, clips or converts, else a draw sampling the
+     * source (GL's mapping of destination pixel centers into the source)
+     * @param {{src: !Array<number>, dst: !Array<number>, rect: !Array<number>, linear: boolean}} blit
+     */
+    blit3(source, dest, blit, depth)
+    {
+        const [sx0, sy0, sx1, sy1] = blit.src, [dx0, dy0, dx1, dy1] = blit.dst, [x, y, w, h] = blit.rect;
+        const three = source.texture.dimension === "3d";
+        if(!depth && source.format === dest.format && source.samples === 1 && sx1 - sx0 === dx1 - dx0 && sy1 - sy0 === dy1 - dy0 && sx1 > sx0 && sy1 > sy0 &&
+            x === dx0 && y === dy0 && w === dx1 - dx0 && h === dy1 - dy0 && sx0 >= 0 && sy0 >= 0 && sx1 <= source.width && sy1 <= source.height && dest.texture)
+        {
+            this.end_pass();
+            this.encoder.copyTextureToTexture({ texture: source.texture, mipLevel: source.mip, origin: [sx0, sy0, source.layer] },
+                { texture: dest.texture, mipLevel: dest.mip, origin: [dx0, dy0, dest.layer] }, [w, h, 1]);
+            return;
+        }
+        const kind = format_kind(source.format);
+        const out_kind = depth ? "depth" : format_kind(dest.format);
+        if(!depth && kind === "depth") return;
+        const scalar = { f: "f32", i: "i32", u: "u32" }[kind] || "f32";
+        const ms = source.samples > 1;
+        const linear = blit.linear && kind === "f" && !source.format.includes("32float") && !ms;
+        const key = ["blit3", source.format, three ? 3 : 2, ms ? "m" : "", linear ? "l" : "n", depth ? dest.format : dest.format + ":" + out_kind].join("|");
+        this.blit_pipelines3 = this.blit_pipelines3 || new Map();
+        let entry = this.blit_pipelines3.get(key);
+        if(!entry)
+        {
+            const texture = kind === "depth" ? (ms ? "texture_depth_multisampled_2d" : "texture_depth_2d") : (three ? "texture_3d<" : "texture_2d<") + scalar + ">";
+            const at = three ? "vec3<i32>(k, i32(p.layer))" : "k";
+            const fetch = ms ? "textureLoad(t, k, 0)" : "textureLoad(t, " + at + ", 0)";
+            const sample = three ? "textureSampleLevel(t, s, vec3<f32>(c / p.size, (p.layer + 0.5) / p.depth), 0.0)" : "textureSampleLevel(t, s, c / p.size, 0.0)";
+            const out_type = { f: "vec4<f32>", i: "vec4<i32>", u: "vec4<u32>" }[out_kind];
+            const value = kind === "depth" ? fetch : linear ? sample : fetch;
+            const code = `
+                struct P { src0 : vec2<f32>, scale : vec2<f32>, dst0 : vec2<f32>, size : vec2<f32>, layer : f32, depth : f32 };
+                @group(0) @binding(0) var<uniform> p : P;
+                @group(0) @binding(1) var t : ${texture};
+                ${linear ? "@group(0) @binding(2) var s : sampler;" : ""}
+                @vertex fn vs(@builtin(vertex_index) i : u32) -> @builtin(position) vec4<f32> {
+                    let v = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+                    return vec4<f32>(v[i], 0.0, 1.0);
+                }
+                @fragment fn fs(@builtin(position) q : vec4<f32>) -> ${depth ? "@builtin(frag_depth) f32" : "@location(0) " + out_type} {
+                    let c = p.src0 + (q.xy - p.dst0) * p.scale;
+                    let k = clamp(vec2<i32>(floor(c)), vec2<i32>(0), vec2<i32>(p.size) - vec2<i32>(1));
+                    ${depth ? "return " + value + ";" : "return " + out_type + "(" + value + ");"}
+                }`;
+            const module = this.device.createShaderModule({ label: "GLES 3 blit", code });
+            const group = this.device.createBindGroupLayout({ entries: [
+                { binding: 0, visibility: 2, buffer: { type: "uniform" } },
+                { binding: 1, visibility: 2, texture: { sampleType: kind === "depth" ? "depth" : kind === "i" ? "sint" : kind === "u" ? "uint" :
+                    linear ? "float" : "unfilterable-float", viewDimension: three ? "3d" : "2d", multisampled: ms } },
+                ...linear ? [{ binding: 2, visibility: 2, sampler: { type: "filtering" } }] : []] });
+            const descriptor = { label: "GLES 3 blit", layout: this.device.createPipelineLayout({ bindGroupLayouts: [group] }),
+                vertex: { module, entryPoint: "vs" }, fragment: { module, entryPoint: "fs", targets: depth ? [] : [{ format: dest.format }] },
+                primitive: { topology: "triangle-list" } };
+            if(depth) descriptor.depthStencil = { format: dest.format, depthWriteEnabled: true, depthCompare: "always" };
+            entry = { pipeline: this.device.createRenderPipeline(descriptor), group,
+                sampler: linear ? this.device.createSampler({ magFilter: "linear", minFilter: "linear" }) : null };
+            this.blit_pipelines3.set(key, entry);
+        }
+        const uniforms = new Float32Array([sx0, sy0, (sx1 - sx0) / (dx1 - dx0), (sy1 - sy0) / (dy1 - dy0), dx0, dy0, source.width, source.height,
+            source.layer || 0, three ? Math.max(1, source.texture.depthOrArrayLayers >> source.mip) : 1, 0, 0]);
+        const view = three ? source.texture.createView({ dimension: "3d", baseMipLevel: source.mip, mipLevelCount: 1 }) :
+            source.texture.createView({ dimension: "2d", baseMipLevel: source.mip, mipLevelCount: 1, baseArrayLayer: source.layer, arrayLayerCount: 1,
+                aspect: kind === "depth" && source.format.includes("stencil") ? "depth-only" : "all" });
+        this.end_pass();
+        const pass = this.encoder.beginRenderPass(depth ? { colorAttachments: [], depthStencilAttachment: Object.assign({ view: dest.view,
+            depthLoadOp: "load", depthStoreOp: "store" }, dest.format.includes("stencil") ? { stencilLoadOp: "load", stencilStoreOp: "store" } : {}) } :
+            { colorAttachments: [Object.assign({ view: dest.view, loadOp: "load", storeOp: "store" }, dest.depth_slice !== undefined ? { depthSlice: dest.depth_slice } : {})] });
+        pass.setPipeline(entry.pipeline);
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: entry.group, entries: [
+            { binding: 0, resource: { buffer: this.uniform_buffer(uniforms.buffer) } }, { binding: 1, resource: view },
+            ...entry.sampler ? [{ binding: 2, resource: entry.sampler }] : []] }));
+        pass.setScissorRect(x, y, w, h);
+        pass.draw(3);
+        pass.end();
+    },
+
+    /**
+     * glReadPixels of a GLES 3.x context: the read buffer's texels, decoded
+     * and packed by the call's format and type and the pack state (taken
+     * now: later commands of the batch may change it)
+     */
+    read_pixels3(c, record)
+    {
+        const source = this.read_target3(c);
+        if(!source || source.samples > 1 || !TEXEL_BYTES[source.format] || format_kind(source.format) === "depth") return this.answer_failed(record.request);
+        const store = { alignment: c.pack_alignment, row_length: c.pack.row_length, skip_pixels: c.pack.skip_pixels, skip_rows: c.pack.skip_rows };
+        const x0 = Math.max(0, record.x), y0 = Math.max(0, record.y);
+        const x1 = Math.min(source.width, record.x + record.width), y1 = Math.min(source.height, record.y + record.height);
+        const pack = values => pack_pixels(values, record.width, record.height, record.format, record.type, store);
+        if(x1 <= x0 || y1 <= y0) return this.answer(null, record.request, pack(new Float64Array(record.width * record.height * 4)), true);
+        return this.read_texture(source.texture, x0, y0, x1 - x0, y1 - y0, false, (raw, sink) =>
+        {
+            // (the part outside the read buffer: zeros)
+            const w = x1 - x0;
+            const decoded = decode_texels(raw, w * (y1 - y0), source.format);
+            const values = new Float64Array(record.width * record.height * 4);
+            for(let y = 0; y < y1 - y0; y++)
+            {
+                values.set(decoded.subarray(y * w * 4, (y + 1) * w * 4), ((y + y0 - record.y) * record.width + (x0 - record.x)) * 4);
+            }
+            this.answer(sink, record.request, pack(values));
+        }, source.mip, source.layer, TEXEL_BYTES[source.format]);
     },
 
     /** The render pass on a target (the open one if it is the same); `clear`: {colors (values by draw buffer), depth, stencil} */
@@ -1677,6 +1846,7 @@ export const GLES3 = {
             case "glVertexAttribIPointerDataAEMU": c.attribs[args[0]].data = args[4]; return true;
             case "glVertexAttribPointerOffset": case "glVertexAttribIPointerOffsetAEMU": c.attribs[args[0]].data = null; return true;
             case "glClear": this.clear3(c, args[0]); return true;
+            case "glBlitFramebuffer": this.blit_framebuffer3(c, args); return true;
             case "glClearBufferiv": case "glClearBufferuiv": case "glClearBufferfv": case "glClearBufferfi": this.clear_buffer3(c, name, args); return true;
             case "glDrawArrays": this.draw3(c, args[0], args[1], args[2], null, 1); return true;
             case "glDrawArraysInstanced": this.draw3(c, args[0], args[1], args[2], null, args[3]); return true;

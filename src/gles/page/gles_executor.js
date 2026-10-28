@@ -194,11 +194,14 @@ GLESExecutor.prototype.submit = async function(bytes, sink)
         }
         await read.buffer.mapAsync(globalThis.GPUMapMode ? globalThis.GPUMapMode.READ : 1);
         const mapped = new Uint8Array(read.buffer.getMappedRange());
-        const rows = new Uint8Array(read.width * read.height * 4);
-        for(let y = 0; y < read.height; y++)
+        // (rows of texels, or a buffer's bytes as they are: `bytes`)
+        const row = read.bytes || read.width * (read.texel || 4);
+        const rows = new Uint8Array(row * (read.bytes ? 1 : read.height));
+        if(read.bytes) rows.set(mapped.subarray(read.skip || 0, (read.skip || 0) + read.bytes));
+        else for(let y = 0; y < read.height; y++)
         {
             const from = read.flip ? read.height - 1 - y : y;
-            rows.set(mapped.subarray(from * read.stride, from * read.stride + read.width * 4), y * read.width * 4);
+            rows.set(mapped.subarray(from * read.stride, from * read.stride + row), y * row);
         }
         read.buffer.unmap();
         read.buffer.destroy();
@@ -589,8 +592,8 @@ GLESExecutor.prototype.surface_target = function(c)
     const s = surface || this.current_surface_of(c);
     if(!s) return null;
     this.surface_textures(s);
-    return { color: s.texture, color_view: s.view, depth: s.depth_view, depth_format: s.depth_format, width: s.width, height: s.height,
-        key: "s" + s.id, alpha: CONFIGS[s.config][CONFIG_ATTRIBUTES.indexOf(EGL.ALPHA_SIZE)] > 0 };
+    return { color: s.texture, color_view: s.view, depth: s.depth_view, depth_format: s.depth_format, depth_texture: s.depth, width: s.width,
+        height: s.height, key: "s" + s.id, alpha: CONFIGS[s.config][CONFIG_ATTRIBUTES.indexOf(EGL.ALPHA_SIZE)] > 0 };
 };
 
 /** A stable id of a GPU object (pass and bind group keys) */
@@ -1442,13 +1445,8 @@ GLESExecutor.prototype.read_pixels = function(record)
 {
     const conn = this.conns.get(record.conn);
     const c = conn && this.shadow.context(conn.context);
-    const target = c && (c.api === 3 ? this.read_target3(c) : this.target_of(c));
-    if(c && c.api === 3 && target)
-    {
-        // (GLES 3.0: the read buffer, of RGBA8 for now: L3's second part reads the others)
-        if(!target.format.startsWith("rgba8unorm") || target.samples > 1) return this.answer_failed(record.request);
-        target.color = target.texture;
-    }
+    if(c && c.api === 3) return this.read_pixels3(c, record);
+    const target = c && this.target_of(c);
     if(!target || !target.color) return this.answer_failed(record.request);
     const x0 = Math.max(0, record.x), y0 = Math.max(0, record.y);
     const x1 = Math.min(target.width, record.x + record.width), y1 = Math.min(target.height, record.y + record.height);
@@ -1464,17 +1462,17 @@ GLESExecutor.prototype.read_pixels = function(record)
             full.set(rgba.subarray(y * w * 4, (y + 1) * w * 4), ((y + y0 - record.y) * record.width + (x0 - record.x)) * 4);
         }
         this.answer(sink, record.request, pack_rgba8(full, record.width, record.height, alignment));
-    }, target.mip || 0, target.layer || 0);
+    });
 };
 
 /** A rectangle of a texture copied for reading once the batch has run */
-GLESExecutor.prototype.read_texture = function(texture, x, y, width, height, flip, done, mip = 0, layer = 0)
+GLESExecutor.prototype.read_texture = function(texture, x, y, width, height, flip, done, mip = 0, layer = 0, texel = 4)
 {
     this.end_pass();
-    const stride = Math.ceil(width * 4 / 256) * 256;
+    const stride = Math.ceil(width * texel / 256) * 256;
     const buffer = this.device.createBuffer({ size: stride * height, usage: B.COPY_DST | B.MAP_READ });
     this.encoder.copyTextureToBuffer({ texture, mipLevel: mip, origin: [x, y, layer] }, { buffer, bytesPerRow: stride, rowsPerImage: height }, [width, height, 1]);
-    this.reads.push({ buffer, stride, width, height, flip, done });
+    this.reads.push({ buffer, stride, width, height, flip, done, texel });
 };
 
 /** A read's answer: the readback header (id, length, 0, status OK), then the bytes */
