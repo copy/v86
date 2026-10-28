@@ -17,7 +17,14 @@
 // - a 1.00 shader's overloads of built-in functions (1.00 has them, 3.00
 //   refuses them): the uses of the name with as many arguments as one of
 //   the user's and none of the built-in's get a suffix (those of the same
-//   count as a built-in's stay: 3.00 refuses the shader).
+//   count as a built-in's stay: 3.00 refuses the shader);
+// - a fragment shader's gl_SamplePosition and interpolateAtCentroid,
+//   interpolateAtSample and interpolateAtOffset (GLSL ES 3.20's, OES_sample_variables'
+//   and OES_shader_multisample_interpolation's), which naga cannot read:
+//   functions of gl_SampleID, the samples' standard positions (the sample
+//   count specialization constant 71, the page's: 4, or 1 with a position of
+//   0.5) and derivatives (an offset's value as the interpolant's plane at
+//   the fragment's center gives it).
 
 /** 1.00's texture functions (and extensions') as 3.00's */
 const TEXTURE_FUNCTIONS = new Map([
@@ -54,6 +61,34 @@ const VULKAN_NAMES = new Set((
 ).split(" "));
 
 const SUFFIX = "_v86";
+
+/** The specialization constant of the draw's sample count (gles3_executor.js's pipeline3) */
+export const SAMPLES_CONSTANT = 71;
+const SAMPLE_FUNCTIONS = new Set(["gl_SamplePosition", "interpolateAtCentroid", "interpolateAtSample", "interpolateAtOffset"]);
+
+/** The functions that stand in for the sample functions `uses` names */
+function sample_helpers(uses)
+{
+    let text = "";
+    if(uses.has("gl_SamplePosition") || uses.has("interpolateAtSample"))
+    {
+        text += `layout(constant_id = ${SAMPLES_CONSTANT}) const int _v86_samples = 4;\n` +
+            // (the constant through a variable: a comparison of it would be an OpSpecConstantOp, which naga cannot read)
+            "highp vec2 _v86_sample_offset(int i) { int n = _v86_samples; return n == 1 ? vec2(0.0) : (i == 0 ? vec2(0.375, 0.125) : i == 1 ? vec2(0.875, 0.375) : " +
+            "i == 2 ? vec2(0.125, 0.625) : vec2(0.625, 0.875)) - 0.5; }\n";
+    }
+    if(uses.has("gl_SamplePosition")) text += "highp vec2 _v86_SamplePosition() { return _v86_sample_offset(gl_SampleID) + 0.5; }\n";
+    for(const type of ["float", "vec2", "vec3", "vec4"])
+    {
+        if(uses.has("interpolateAtCentroid")) text += `highp ${type} _v86_interpolateAtCentroid(highp ${type} x) { return x; }\n`;
+        if(uses.has("interpolateAtOffset") || uses.has("interpolateAtSample"))
+        {
+            text += `highp ${type} _v86_interpolateAtOffset(highp ${type} x, highp vec2 o) { return x + dFdx(x) * o.x + dFdy(x) * o.y; }\n`;
+        }
+        if(uses.has("interpolateAtSample")) text += `highp ${type} _v86_interpolateAtSample(highp ${type} x, int i) { return _v86_interpolateAtOffset(x, _v86_sample_offset(i)); }\n`;
+    }
+    return text;
+}
 
 /** GLSL ES 1.00's built-in functions: their argument counts */
 const BUILTINS_100 = new Map(Object.entries({
@@ -150,6 +185,9 @@ export function rewrite_for_spirv(source, stage, limits)
     };
     let frag_color = false, frag_data = false, at_line_start = true;
     let version_line_end = -1;
+    // (where the sample functions' helpers go: after the #version and #extension lines)
+    let directives_end = -1;
+    const sample_uses = new Set();
     if(es100) mark_overloads(tokens);
     for(let i = 0; i < tokens.length; i++)
     {
@@ -164,6 +202,7 @@ export function rewrite_for_spirv(source, stage, limits)
             const directive = tokens[j] && tokens[j].text;
             let end = j;
             while(end < tokens.length && tokens[end].kind !== "newline") end++;
+            if(directive === "version" || directive === "extension") directives_end = end;
             if(directive === "version")
             {
                 if(es100) for(let k = i; k < end; k++) tokens[k].text = k === i ? "#version 300 es" : "";
@@ -211,6 +250,12 @@ export function rewrite_for_spirv(source, stage, limits)
             return;
         }
         if(name === "samplerExternalOES") t.text = "sampler2D";
+        if(stage === "fragment" && !es100 && SAMPLE_FUNCTIONS.has(name))
+        {
+            sample_uses.add(name);
+            t.text = name === "gl_SamplePosition" ? "_v86_SamplePosition()" : "_v86_" + name;
+            return;
+        }
         if(!es100) return;
         if(t.overload) t.text = rename(name);
         else if(TEXTURE_FUNCTIONS.has(name)) t.text = TEXTURE_FUNCTIONS.get(name);
@@ -224,6 +269,11 @@ export function rewrite_for_spirv(source, stage, limits)
     }
 
     let text = tokens.map(t => t.text).join("");
+    if(sample_uses.size && directives_end >= 0)
+    {
+        const at = tokens.slice(0, directives_end).reduce((n, t) => n + t.text.length, 0);
+        text = text.slice(0, at) + "\n" + sample_helpers(sample_uses) + text.slice(at);
+    }
     if(es100)
     {
         const outputs = (frag_color ? "layout(location = 0) out mediump vec4 _v86_FragColor; " : "") +

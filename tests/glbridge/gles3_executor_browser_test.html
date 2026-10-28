@@ -925,7 +925,6 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             in vec4 g_color;
             out vec4 o;
             void main() { o = g_color; }`);
-        void halves;
         gl("glBindBuffer", 0x8892, quad32);
         gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
         gl("glClear", 0x4000);
@@ -933,6 +932,40 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         window = await read_pixels(0, 0, W, W);
         check(near(pixel(window, W, 1, 4), [0, 0, 255, 255]) && near(pixel(window, W, 6, 4), [255, 255, 0, 255]),
             "a geometry shader's two invocations, a strip each");
+        // sample variables: a 4x renderbuffer's samples colored by gl_SampleID and gl_SamplePosition, one sample by gl_SampleMask
+        const per_sample = program(`#version 320 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 320 es
+            precision highp float;
+            uniform int masked;
+            out vec4 o;
+            void main() {
+                o = vec4(float(gl_SampleID) / 3.0, gl_SamplePosition.x, gl_SamplePosition.y, 1.0);
+                if (masked == 1) { o = vec4(1.0); gl_SampleMask[0] = 1; }
+            }`);
+        const ms32 = gen("Framebuffers");
+        gl("glBindFramebuffer", 0x8D40, ms32);
+        const rb32 = gen("Renderbuffers");
+        gl("glBindRenderbuffer", 0x8D41, rb32);
+        gl("glRenderbufferStorageMultisample", 0x8D41, 4, 0x8058, W, W);
+        gl("glFramebufferRenderbuffer", 0x8D40, 0x8CE0, 0x8D41, rb32);
+        gl("glBindBuffer", 0x8892, quad32);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        const resolved = async masked => {
+            gl("glBindFramebuffer", 0x8D40, ms32);
+            gl("glUniform1i", per_sample.at("masked"), masked);
+            gl("glClearColor", 0, 0, 0, 1);
+            gl("glClear", 0x4000);
+            gl("glDrawArrays", 5, 0, 4);
+            gl("glBindFramebuffer", 0x8CA9, 0);
+            gl("glBlitFramebuffer", 0, 0, W, W, 0, 0, W, W, 0x4000, 0x2600);
+            gl("glBindFramebuffer", 0x8D40, 0);
+            return pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+        };
+        const averaged = await resolved(0);
+        check(near(averaged, [128, 128, 128, 255], 4), "per-sample shading: gl_SampleID and gl_SamplePosition averaged: " + averaged);
+        const one = await resolved(1);
+        check(near(one, [64, 64, 64, 255], 4), "gl_SampleMask: one sample of four written: " + one);
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;
@@ -967,6 +1000,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         record(GLES.MAKE_CURRENT, 1, 7, 2, 2);
         current = 7;
         gl("glBindVertexArray", vao32);
+        gl("glUseProgram", halves.name);
         gl("glClear", 0x4000);
         gl("glDrawArrays", 4, 0, 3);
         window = await read_pixels(0, 0, W, W);

@@ -31,6 +31,9 @@
 //!   clip space has Y down, WebGPU's up)
 //! - a vertex shader's gl_PointSize is dropped (WGSL has none: WebGPU's
 //!   points are one pixel); a capturing draw's compute shader keeps it
+//! - gl_SampleMask and gl_SampleMaskIn, GLSL's int arrays, become WGSL's
+//!   u32 sample mask (samplemask.rs); centroid and sample interpolation
+//!   naga's front end drops are put back (sampling.rs)
 //! - a geometry shader becomes a compute shader (geometry.rs:
 //!   vx_translate_geometry), a vertex shader's capture of every output its
 //!   input (xfb.rs)
@@ -53,6 +56,8 @@ mod cubes;
 mod fetches;
 mod depth;
 mod geometry;
+mod samplemask;
+mod sampling;
 mod split;
 mod subpass;
 mod switches;
@@ -430,7 +435,9 @@ fn translate_with(bytes: &[u8], options: &Options, mode: Mode) -> Result<String,
     let data: Vec<u8> = xfb::strip(&words).iter().flat_map(|w| w.to_le_bytes()).collect();
     let spv = naga::front::spv::Options { adjust_coordinate_space: !options.keep_coordinate_space, strict_capabilities: false, block_ctx_dump_prefix: None };
     let mut module = naga::front::spv::parse_u8_slice(&data, &spv).map_err(|e| format!("SPIR-V: {:?}", e))?;
+    sampling::restore(&mut module, &sampling::read(&words));
     layers::lower(&mut module);
+    samplemask::lower(&mut module);
     cubes::lower(&mut module);
     math::lower(&mut module);
     switches::lower(&mut module);

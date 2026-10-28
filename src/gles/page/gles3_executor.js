@@ -26,6 +26,7 @@
 
 import { COMPRESSED_FORMATS, F, format_info, tex_image_format } from "../gles_formats3.js";
 import { GL3 } from "../gles3_state.js";
+import { SAMPLES_CONSTANT } from "../glsl_es_rewrite.js";
 import { BINDING, gl_type } from "../glsl_program.js";
 import { DRAWN_DEPTH, RENDERABLE, TEXEL_BYTES, decode_texels, depth_values, from_half, pack_pixels, to_texels, unpack_image } from "./gles3_pixels.js";
 import { decode_etc1 } from "./gles_textures.js";
@@ -349,6 +350,18 @@ function primitives_of(indices, mode, restart)
     return { vertices: new Uint32Array(out), per };
 }
 
+/**
+ * A vertex shader's WGSL with its outputs' interpolation the fragment
+ * inputs' at their locations: WebGPU wants them the same, GLSL ES 3.10
+ * lets centroid and sample differ between the stages
+ */
+function matched_interpolation(vertex_wgsl, inputs)
+{
+    // (the output struct's members: lines of their own; the entry point's inputs are on its line)
+    return vertex_wgsl.replace(/^(\s+@location\((\d+)\)\s*)(?:@interpolate\([^)]*\)\s*)?/gm,
+        (all, head, location) => inputs.has(+location) ? head + (inputs.get(+location) ? inputs.get(+location) + " " : "") : all);
+}
+
 /** A fragment entry point's inputs: location to their attributes (interpolation) */
 function fragment_inputs(wgsl)
 {
@@ -508,8 +521,10 @@ export const GLES3 = {
         if(wraps.some(w => w.length)) ts = translate(wraps[0], wraps[1]);
         if(ts.some(t => t.error)) return this.note3("vx_naga: " + ts.find(t => t.error).error.slice(0, 160));
         shaders = {
-            vertex: { module: this.module3(ts[0].wgsl), entry: ts[0].entries[0].name },
-            fragment: { module: this.module3(ts[1].wgsl), entry: ts[1].entries[0].name, wgsl: ts[1].wgsl },
+            vertex: { module: this.module3(matched_interpolation(ts[0].wgsl, fragment_inputs(ts[1].wgsl))), entry: ts[0].entries[0].name },
+            fragment: { module: this.module3(ts[1].wgsl), entry: ts[1].entries[0].name, wgsl: ts[1].wgsl,
+                // (the sample count, specialization constant 71: glsl_es_rewrite.js's sample functions)
+                samples_constant: (ts[1].overrides || []).some(o => o[0] === SAMPLES_CONSTANT) },
             bindings: this.bindings3([[ts[0], 1, stages.vertex], [ts[1], 2, stages.fragment]]),
             outputs: fragment_outputs(ts[1].wgsl),
         };
@@ -2853,7 +2868,8 @@ export const GLES3 = {
             label: "GLES 3 pipeline", layout: group.pipeline_layout,
             vertex: { module: shaders.vertex.module, entryPoint: shaders.vertex.entry,
                 buffers: vertex.slots.map(s => ({ arrayStride: s.stride, stepMode: s.step, attributes: s.attributes })) },
-            fragment: { module: shaders.fragment.module, entryPoint: shaders.fragment.entry, targets },
+            fragment: { module: shaders.fragment.module, entryPoint: shaders.fragment.entry, targets,
+                ...(shaders.fragment.samples_constant ? { constants: { [SAMPLES_CONSTANT]: target.samples } } : {}) },
             // (the Y flip reverses the winding: GL's CCW is WebGPU's CW)
             primitive: { topology, frontFace: c.front_face === 0x0901 ? "cw" : "ccw", cullMode: cull, ...(strip_format ? { stripIndexFormat: strip_format } : {}) },
             // (the sample mask, GLES 3.1's; alpha to coverage, of multisampled targets)
