@@ -4,7 +4,12 @@
 // executor) and the channel's messages cross over HTTP: the page long-polls
 // GET /gles/next for what the device posts, POSTs /gles/reply with the
 // renderer's answers. Each message is five u32s (kind, two values, the
-// stream, the byte length), then its bytes padded to a u32. A snapshot's
+// stream, the byte length), then its bytes padded to a u32. Both are
+// numbered so that a request a suspend (the laptop's sleep) breaks is
+// asked again without losing or repeating anything: the page asks
+// /gles/next?got=<the answers it has read> and gets the last answer again
+// when that one never arrived, and posts /gles/reply?n=<its number>, which
+// is taken once. A snapshot's
 // GLES state ([json, buffers], src/gles/gles_snapshot.js) crosses as one
 // byte string (encode_state).
 //
@@ -103,16 +108,27 @@ export async function chrome_renderer(options = {})
     let listener = () => {};
     const outbox = [];
     let waiting = null;
-    const stats = { submitted: 0, bytes: 0, frames: 0, writes: 0, done: 0 };
+    // (the answers to /gles/next handed out and the last one's bytes; the last reply taken)
+    let sent = 0, last = Buffer.alloc(0), replied = 0;
+    // (lose_answers(): the next answer each way lost, its connection broken)
+    const lose = { next: false, reply: false };
+    const stats = { submitted: 0, bytes: 0, frames: 0, writes: 0, done: 0, resent: 0, repeated: 0 };
     if(options.record) fs.writeFileSync(options.record, new Uint8Array(0));
     let ready;
     const up = new Promise(resolve => { ready = resolve; });
+    const answer = (res, body) =>
+    {
+        sent++;
+        last = body;
+        if(lose.next) { lose.next = false; res.socket.destroy(); return; }
+        res.end(body);
+    };
     const send_waiting = () =>
     {
         if(!waiting || !outbox.length) return;
         const res = waiting;
         waiting = null;
-        res.end(Buffer.from(encode_messages(outbox.splice(0))));
+        answer(res, Buffer.from(encode_messages(outbox.splice(0))));
     };
     const server = http.createServer((req, res) =>
     {
@@ -120,20 +136,33 @@ export async function chrome_renderer(options = {})
         if(url.pathname === "/gles/next")
         {
             ready();
+            // (a request the page gave up on: its answer, if any, is the one sent again below)
             if(waiting) waiting.end(Buffer.alloc(0));
+            waiting = null;
+            if(Number(url.searchParams.get("got") ?? sent) < sent)
+            {
+                stats.resent++;
+                res.end(last);
+                return;
+            }
             waiting = res;
             send_waiting();
             // (an empty answer now and then: the page asks again)
-            setTimeout(() => { if(waiting === res) { waiting = null; res.end(Buffer.alloc(0)); } }, 15000);
+            setTimeout(() => { if(waiting === res) { waiting = null; answer(res, Buffer.alloc(0)); } }, 15000);
             return;
         }
         if(url.pathname === "/gles/reply" && req.method === "POST")
         {
             const chunks = [];
+            const n = Number(url.searchParams.get("n") || 0);
             req.on("data", d => chunks.push(d));
             req.on("end", () =>
             {
-                res.end("OK");
+                if(lose.reply) { lose.reply = false; res.socket.destroy(); }
+                else res.end("OK");
+                // (a reply posted again after a broken request: taken already)
+                if(n && n <= replied) { stats.repeated++; return; }
+                if(n) replied = n;
                 for(const m of decode_messages(new Uint8Array(Buffer.concat(chunks))))
                 {
                     switch(m.kind)
@@ -210,6 +239,8 @@ export async function chrome_renderer(options = {})
                 case "gles_restore": queue({ kind: KIND.gles_restore, a: 0, b: 0, bytes: encode_state(message.state) }); break;
             }
         },
+        /** the next answer to the page and the next to its reply lost, as a suspend loses them (tests) */
+        lose_answers() { lose.next = lose.reply = true; },
         close()
         {
             browser.kill();

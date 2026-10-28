@@ -4,7 +4,8 @@
 // scissored red corner, its frame flushed into its color buffer and posted,
 // the frame read back (rows from the top: the red corner, GL's bottom left,
 // at the frame's bottom left), a color buffer read with its pixels; a
-// snapshot's page state over the bridge and back.
+// snapshot's page state over the bridge and back; a read whose answers
+// both ways are lost on the way (a suspend breaks the requests) asked again.
 import assert from "node:assert/strict";
 import { GLESHost } from "../../src/gles/gles_host.js";
 import { chrome_renderer } from "./chrome_renderer.mjs";
@@ -45,6 +46,12 @@ try
     const back = await call("rcReadColorBuffer", buffer, 0, 0, 8, 8, 0x1908, 0x1401, 256);
     const px = (x, y) => Array.from(back.outs[0].subarray((y * 8 + x) * 4, (y * 8 + x) * 4 + 4));
     assert.deepEqual([px(0, 7), px(0, 0), px(7, 7)], [[255, 0, 0, 255], [0, 255, 0, 255], [0, 255, 0, 255]], "restored: the color buffer's picture");
+    // the device's batch and the page's reply each lost once: the page asks
+    // for the batch again and posts its reply again, which is taken once
+    renderer.lose_answers();
+    const lost = await call("rcReadColorBuffer", buffer, 0, 7, 1, 1, 0x1908, 0x1401, 4);
+    assert.deepEqual(Array.from(lost.outs[0]), [255, 0, 0, 255], "read after the lost answers");
+    assert.ok(renderer.stats.resent >= 1 && renderer.stats.repeated >= 1, "the batch sent again, the reply posted again: " + JSON.stringify(renderer.stats));
     console.log("PASS: the GLES host on a real GPU, a snapshot round trip (" + JSON.stringify(renderer.stats) + ")");
 }
 finally

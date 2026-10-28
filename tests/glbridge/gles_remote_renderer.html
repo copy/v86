@@ -8,6 +8,8 @@
 // (V86SVGARenderer, its GLES executor) on this page's GPU, its channel's
 // messages over HTTP (GET /gles/next, POST /gles/reply; five u32s, then the
 // bytes padded to a u32; a snapshot's GLES state as tests/gles/chrome_renderer.mjs's encode_state).
+// A request that fails (a suspend breaks them all) is made again: the
+// answers read so far go with /gles/next, a reply's number with /gles/reply.
 "use strict";
 const KIND = { submit: 1, reset: 2, hello: 3, gles_save: 4, gles_restore: 5, done: 11, write: 12, frame: 13, lost: 14, caps: 15, gles_saved: 16 };
 
@@ -50,6 +52,14 @@ function decode_state(bytes)
 let handler = null;
 let outbox = [];
 let sending = null;
+let replies = 0;
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/** a line on the test's console (lost if the server is out of reach) */
+function log(text)
+{
+    fetch("/gles/log", { method: "POST", body: text }).catch(() => {});
+}
 
 function encode(messages)
 {
@@ -72,7 +82,10 @@ function flush()
     if(sending || !outbox.length) return;
     const body = encode(outbox);
     outbox = [];
-    sending = fetch("/gles/reply", { method: "POST", body }).finally(() => { sending = null; flush(); });
+    const n = ++replies;
+    const post = () => fetch("/gles/reply?n=" + n, { method: "POST", body }).then(response => { if(!response.ok) throw new Error("HTTP " + response.status); })
+        .catch(error => { log("reply " + n + " again after " + error); return pause(1000).then(post); });
+    sending = post().finally(() => { sending = null; flush(); });
 }
 
 const channel = {
@@ -97,9 +110,14 @@ const channel = {
 (async () => {
     try {
         globalThis.renderer = globalThis.V86SVGARenderer(channel, {});
-        for(;;)
+        for(let got = 0; ; got++)
         {
-            const bytes = new Uint8Array(await (await fetch("/gles/next")).arrayBuffer());
+            let bytes;
+            for(;;)
+            {
+                try { bytes = new Uint8Array(await (await fetch("/gles/next?got=" + got)).arrayBuffer()); break; }
+                catch(error) { log("next again after " + error); await pause(1000); }
+            }
             const view = new DataView(bytes.buffer);
             for(let at = 0; at + 20 <= bytes.length;)
             {
@@ -115,15 +133,15 @@ const channel = {
             }
         }
     } catch(error) {
-        fetch("/gles/log", { method: "POST", body: String(error && error.stack || error) });
+        log(String(error && error.stack || error));
         document.getElementById("result").textContent = "FAIL " + error;
     }
 })();
 setInterval(() => {
     // (WebGPU's validation errors, reported once the device is up)
     const device = globalThis.renderer && globalThis.renderer.executor.device;
-    if(device && !device.onuncapturederror) device.onuncapturederror = e => fetch("/gles/log", { method: "POST", body: "WebGPU: " + e.error.message });
+    if(device && !device.onuncapturederror) device.onuncapturederror = e => log("WebGPU: " + e.error.message);
     const g = globalThis.renderer && globalThis.renderer.gles;
-    if(g && g.stats.errors.length) fetch("/gles/log", { method: "POST", body: "executor errors: " + JSON.stringify(g.stats.errors.splice(0)) });
+    if(g && g.stats.errors.length) log("executor errors: " + JSON.stringify(g.stats.errors.splice(0)));
 }, 5000);
 </script>
