@@ -364,6 +364,20 @@ export function gles31_handlers(h, H3)
             program.separable = !!value;
             return undefined;
         },
+        "glGetProgramiv": (shadow, c, [p, pname, params]) =>
+        {
+            // (GLES 3.1's: PROGRAM_SEPARABLE, ACTIVE_ATOMIC_COUNTER_BUFFERS, COMPUTE_WORK_GROUP_SIZE (a program linked with no compute stage: INVALID_OPERATION))
+            if(![GL31.PROGRAM_SEPARABLE, 0x92D9, 0x8267].includes(pname)) return H3["glGetProgramiv"](shadow, c, [p, pname, params]);
+            query(shadow);
+            const program = program_of(c, p);
+            if(!program) return undefined;
+            const info = program.info && program.info.ok ? program.info : null;
+            if(pname === GL31.PROGRAM_SEPARABLE) put(params, [program.separable ? 1 : 0], "i", "i");
+            else if(pname === 0x92D9) put(params, [info ? new Set(info.uniforms.filter(u => u.opaque === "atomic").map(u => u.binding)).size : 0], "i", "i");
+            else if(!info || !(info.local_size && info.local_size.some(Boolean))) fail(c, GL.INVALID_OPERATION);
+            else put(params, info.local_size.slice(0, 3), "i", "i");
+            return undefined;
+        },
         "glCreateShaderProgramvAEMU": (shadow, c, [type, count, packed]) =>
         {
             // (glCreateShaderProgramv, GLES 3.1 7.3: the strings compiled, a separable program linked of the shader, which
@@ -383,7 +397,7 @@ export function gles31_handlers(h, H3)
             }
             program.info = compiled.ok ? shadow.link(program, [{ type, compiled, compiled_source: source }]) :
                 { ok: false, log: compiled.log, attributes: [], uniforms: [], locations: new Map(), by_location: [], reflection: null };
-            program.link = { vs: null, fs: null, bindings: [], glslang: true, shaders: [[type, source]] };
+            program.link = { vs: null, fs: null, bindings: [], glslang: true, shaders: [[type, source]], separable: true, tf: null };
             program.keep_info = !shadow.glslang;
             return name;
         },

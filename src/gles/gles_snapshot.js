@@ -162,11 +162,12 @@ export function relink(groups, shadow)
             }
             else if(object.kind === "program" && object.link && object.link.glslang)
             {
-                // (glslang's: linked again on the CPU side; the page kept its result)
+                // (glslang's: linked again on the CPU side as it was linked, not as the program is now; the page kept its result)
                 if(object.info) continue;
-                const shaders = object.link.shaders.map(([type, source]) => ({ type, compiled_source: source,
+                const link = object.link;
+                const shaders = link.shaders.map(([type, source]) => ({ type, compiled_source: source,
                     compiled: shadow.compile(source, type, true) }));
-                object.info = shadow.link(object, shaders);
+                object.info = shadow.link({ bindings: link.bindings, separable: !!link.separable, tf_request: link.tf || null }, shaders);
             }
             else if(object.kind === "program")
             {

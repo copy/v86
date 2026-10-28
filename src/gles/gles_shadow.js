@@ -1393,6 +1393,8 @@ const HANDLERS = {
         {
             program.link.glslang = true;
             program.link.shaders = shaders.map(s => [s.type, s.compiled_source]);
+            program.link.separable = !!program.separable;
+            program.link.tf = program.tf_request || null;
             // (the page cannot link it again: its snapshot keeps the result)
             program.keep_info = !shadow.glslang;
         }

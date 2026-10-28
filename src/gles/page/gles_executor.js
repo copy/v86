@@ -1518,8 +1518,9 @@ function all_textures(shadow)
  * executor's objects, and the GPU's contents read back into them (their
  * `saved`: [level, layer, width, height, RGBA]): the color buffers, the
  * window surfaces' own textures, the textures' levels, the color
- * renderbuffers. A depth or stencil buffer's contents are not kept (WebGPU
- * cannot copy depth24plus out); they read as cleared after a restore.
+ * renderbuffers; the buffers the GPU wrote (their bytes). A depth or
+ * stencil buffer's contents are not kept (WebGPU cannot copy depth24plus
+ * out); they read as cleared after a restore.
  * @return {!Promise<!Array<*>>} [json, buffers] (gles_snapshot.js)
  */
 GLESExecutor.prototype.save = async function()
@@ -1553,6 +1554,7 @@ GLESExecutor.prototype.save = async function()
         }
     }
     const encoder = this.device.createCommandEncoder({ label: "GLES save" });
+    const buffer_reads = this.save_buffers3(encoder);
     for(const r of reads)
     {
         // (rows of texels, 4 bytes unless the read says: `row` bytes a row of blocks, `rows` of them)
@@ -1574,6 +1576,7 @@ GLESExecutor.prototype.save = async function()
         r.buffer.destroy();
         r.owner.saved.push([r.gl_level === undefined ? r.level : r.gl_level, r.layer, r.width, r.height, rgba]);
     }
+    await this.saved_buffers3(buffer_reads);
     const state = { shadow: this.shadow.get_state(), rc: this.rc, conns: this.conns, surfaces: this.surfaces, posted: this.posted };
     // (the GPU's objects are left out: instances of no class the packing knows, and the textures' "gpu")
     const packed = pack(state, { classes: SHADOW_CLASSES, skip: shadow_skip });

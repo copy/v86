@@ -55,6 +55,8 @@ console.log("PASS: a GLES 3.1 context and its limits");
     const compute = await program([[0x91B9, "#version 310 es\nlayout(local_size_x = 4) in;\n" +
         "layout(std430, binding = 0) buffer Data { uint values[]; };\nvoid main() { values[gl_GlobalInvocationID.x] = gl_GlobalInvocationID.x * 2u; }"]]);
     assert.equal(await linked(compute), 1, "a compute program links");
+    assert.deepEqual(await ints("glGetProgramiv", compute, 0x8267, 12), [4, 1, 1], "GL_COMPUTE_WORK_GROUP_SIZE");
+    assert.deepEqual(await ints("glGetProgramiv", compute, 0x8258, 4), [0], "GL_PROGRAM_SEPARABLE: not");
     await call("gles2:glDispatchCompute", 1, 1, 1);
     assert.equal(await error(), 0x0502, "no current program: INVALID_OPERATION");
     await call("gles2:glUseProgram", compute);
@@ -127,6 +129,9 @@ const fs_ = "#version 310 es\nprecision mediump float;\nuniform vec4 color;\nlay
 {
     const vertex = await program([[0x8B31, vs]], true), fragment = await program([[0x8B30, fs_]], true);
     assert.equal(await linked(vertex), 1, "a separable vertex program");
+    assert.deepEqual(await ints("glGetProgramiv", vertex, 0x8258, 4), [1], "GL_PROGRAM_SEPARABLE");
+    await call("gles2:glGetProgramiv", vertex, 0x8267, 12);
+    assert.equal(await error(), 0x0502, "GL_COMPUTE_WORK_GROUP_SIZE of no compute stage: INVALID_OPERATION");
     assert.equal(await linked(fragment), 1, "a separable fragment program");
     const pipeline = await gen("ProgramPipelines");
     await call("gles2:glUseProgram", 0);

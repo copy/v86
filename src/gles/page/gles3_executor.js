@@ -960,12 +960,13 @@ export const GLES3 = {
     /**
      * A texture's levels and layers as save() reads them: rows of texels
      * (of blocks for a compressed format); the depth formats WebGPU copies
-     * nothing out of are left out (they read as undefined after a restore)
+     * nothing out of, and multisampled textures (nothing copies them), are
+     * left out (they read as undefined after a restore)
      */
     save_texture3(t, reads)
     {
         const gpu = t.gpu;
-        if(DRAWN_DEPTH.has(gpu.format) || gpu.format === "stencil8") return;
+        if(gpu.samples > 1 || DRAWN_DEPTH.has(gpu.format) || gpu.format === "stencil8") return;
         t.saved = [];
         t.saved3 = true;
         const texel = gpu.block > 1 ? gpu.block_bytes : TEXEL_BYTES[gpu.format];
@@ -1009,6 +1010,44 @@ export const GLES3 = {
         }
         delete rb.saved;
         delete rb.saved3;
+    },
+
+    /**
+     * The buffers the GPU wrote (`gpu_newer`: storage writes, transform
+     * feedback, copies, pack buffers) copied out in save's encoder: their
+     * bytes become the shadow's, which a restore's GPU buffer starts from
+     * (gpu_buffer)
+     * @return {!Array<!Object>} the reads, for saved_buffers3 once submitted
+     */
+    save_buffers3(encoder)
+    {
+        const reads = [];
+        for(const group of this.shadow.groups.values())
+        {
+            for(const buffer of group.buffers.values())
+            {
+                if(!buffer.gpu || !buffer.gpu_newer || !buffer.size) continue;
+                const size = Math.min(buffer.gpu.size, align4(buffer.size));
+                const read = this.device.createBuffer({ label: "GLES buffer save", size, usage: B.COPY_DST | B.MAP_READ });
+                encoder.copyBufferToBuffer(buffer.gpu.buffer, 0, read, 0, size);
+                reads.push({ buffer, read, size });
+            }
+        }
+        return reads;
+    },
+
+    /** save_buffers3's reads, once submitted: the buffers' bytes */
+    async saved_buffers3(reads)
+    {
+        for(const { buffer, read, size } of reads)
+        {
+            await read.mapAsync(globalThis.GPUMapMode ? globalThis.GPUMapMode.READ : 1);
+            const bytes = new Uint8Array(buffer.size);
+            bytes.set(new Uint8Array(read.getMappedRange()).subarray(0, Math.min(size, buffer.size)));
+            buffer.bytes = bytes;
+            read.unmap();
+            read.destroy();
+        }
     },
 
     // ---- what is drawn to and read from
@@ -1364,22 +1403,23 @@ export const GLES3 = {
 
     /**
      * The batch's occlusion queries: a WebGPU query a draw while a GL one is
-     * active (`owners`: the GL query's key each), summed at the batch's end
-     * into `results` (whether any sample passed)
+     * active (`owners`: the GL query each, the shadow's object), summed at
+     * the batch's end into the GL query's `passed` (whether any sample did;
+     * a snapshot keeps it with the shadow)
      */
     occlusion3()
     {
         if(!this.occlusion) this.occlusion = { set: this.device.createQuerySet({ label: "GLES occlusion", type: "occlusion", count: 4096 }), owners: [],
-            results: new Map(), answers: [] };
+            answers: [] };
         return this.occlusion;
     },
 
-    /** The key of the context's occlusion query in progress, or null */
-    occlusion_key3(c)
+    /** The context's occlusion query in progress (the shadow's object; begun again, a new one), or null */
+    occlusion_query3(c)
     {
         if(!c.active_queries) return null;
         const name = c.active_queries.get(GL3.ANY_SAMPLES_PASSED) || c.active_queries.get(GL3.ANY_SAMPLES_PASSED_CONSERVATIVE);
-        return name ? this.id_of(c) + ":" + name : null;
+        return name && c.queries.get(name) || null;
     },
 
     /** The batch's end: the occlusion queries resolved and summed, then the results asked for answered */
@@ -1402,12 +1442,12 @@ export const GLES3 = {
             this.staging.push(resolved);
             this.reads.push({ buffer: read, bytes: 8 * owners.length, done: bytes =>
             {
-                owners.forEach((key, i) => { if(bytes.subarray(8 * i, 8 * i + 8).some(Boolean)) o.results.set(key, 1); });
+                owners.forEach((query, i) => { if(bytes.subarray(8 * i, 8 * i + 8).some(Boolean)) query.passed = 1; });
             } });
         }
-        for(const { request, key } of o.answers)
+        for(const { request, query } of o.answers)
         {
-            this.reads.push({ buffer: null, done: (_, sink) => this.answer(sink, request, new Uint8Array(new Uint32Array([o.results.get(key) || 0]).buffer)) });
+            this.reads.push({ buffer: null, done: (_, sink) => this.answer(sink, request, new Uint8Array(new Uint32Array([query && query.passed || 0]).buffer)) });
         }
         o.answers = [];
     },
@@ -1418,7 +1458,7 @@ export const GLES3 = {
         const conn = this.conns.get(record.conn);
         const c = conn && this.shadow.context(conn.context);
         if(!c) return this.answer_failed(record.request);
-        this.occlusion3().answers.push({ request: record.request, key: this.id_of(c) + ":" + record.query });
+        this.occlusion3().answers.push({ request: record.request, query: c.queries ? c.queries.get(record.query) : null });
         return undefined;
     },
 
@@ -1621,7 +1661,7 @@ export const GLES3 = {
             this.staging.push(index_buffer);
         }
         const strip_format = strip && (list || direct) ? (direct ? direct.format : "uint32") : undefined;
-        const occlusion = this.occlusion_key3(c);
+        const occlusion = this.occlusion_query3(c);
         for(const face of this.stencil_faces3(c, target, mode))
         {
             const pipeline = this.pipeline3(c, shaders, vertex, group, topology, strip_format, target, face);
@@ -2652,11 +2692,6 @@ export const GLES3 = {
             case "glDrawArraysIndirectOffsetAEMU": this.draw_indirect3(c, args[0], 0, null, args[1]); return true;
             case "glDrawElementsIndirectDataAEMU": this.draw_indirect3(c, args[0], args[1], args[2], 0); return true;
             case "glDrawElementsIndirectOffsetAEMU": this.draw_indirect3(c, args[0], args[1], null, args[2]); return true;
-        }
-        if(name === "glBeginQuery" && (args[0] === GL3.ANY_SAMPLES_PASSED || args[0] === GL3.ANY_SAMPLES_PASSED_CONSERVATIVE))
-        {
-            this.occlusion3().results.set(this.id_of(c) + ":" + args[1], 0);
-            return true;
         }
         if(/^gl(Program)?Uniform(?!BlockBinding)/.test(name))
         {

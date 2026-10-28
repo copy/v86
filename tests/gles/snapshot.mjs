@@ -8,12 +8,20 @@
 //   program's uniforms, a texture, the viewport), the bytes of a command not
 //   whole yet; the page reset and given its state back; new handles go on
 //   from the old ones;
+// - a GLES 3.1 context's objects (vertex arrays and their binding points,
+//   samplers, queries, storage bindings, program pipelines, glslang's
+//   programs linked again as they were linked, a buffer the GPU wrote)
+//   restored on a new host with glslang;
 // - prepare_save answers the calls that wait for the page first: the reply
 //   is kept for the guest to read after the restore;
 // - the goldfish pipe keeps its channels with their services' state; a
 //   snapshot of the old kind (channels only) closes them.
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { GLESHost } from "../../src/gles/gles_host.js";
+import { compile_glslang, create_glslang } from "../../src/gles/glslang.js";
 import { pack, unpack } from "../../src/gles/gles_snapshot.js";
 import { GoldfishPipe } from "../../src/virt/goldfish.js";
 import { decode_reply, encode_command } from "../../src/gles/gles_wire.js";
@@ -171,6 +179,109 @@ function caller(service)
     assert.ok(names.includes("FLUSH_SURFACE"), names.join());
     assert.equal(host2.summary().connections, 1);
     console.log("ok - a host and its connection restored on a new host");
+}
+
+// ---- a GLES 3.1 context's objects restored on a new host
+
+{
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
+    const glslang = await create_glslang(await compile_glslang(fs.readFileSync(root + "bios/glslang.wasm")));
+    const host = new GLESHost(DISPLAY, fake_renderer(), undefined, { glslang, max_version: "3.1" });
+    const guest = client(host);
+    const conn = await guest.connect();
+    const call = conn.call;
+    const ints = async (name, ...args) => i32s((await call("gles2:" + name, ...args)).outs[0]);
+    const gen = async kind => (await ints("glGen" + kind, 1, 4))[0];
+    const context = (await call("rcCreateContext", 3, 0, 4)).ret;
+    const surface = (await call("rcCreateWindowSurface", 3, 64, 64)).ret;
+    await call("rcMakeCurrent", context, surface, surface);
+    const shader = async (type, source) =>
+    {
+        const name = (await call("gles2:glCreateShader", type)).ret;
+        await call("gles2:glShaderString", name, cstring(source), source.length + 1);
+        await call("gles2:glCompileShader", name);
+        return name;
+    };
+    // (a vertex array of a binding point)
+    const vao = await gen("VertexArrays");
+    await call("gles2:glBindVertexArray", vao);
+    const quad = await gen("Buffers");
+    await call("gles2:glBindBuffer", 0x8892, quad);
+    await call("gles2:glBufferData", 0x8892, 32, null, 0x88E4);
+    await call("gles2:glVertexAttribFormat", 0, 2, 0x1406, 0, 4);
+    await call("gles2:glVertexAttribBinding", 0, 3);
+    await call("gles2:glBindVertexBuffer", 3, quad, 0, 8);
+    // (a sampler on unit 1)
+    const sampler = await gen("Samplers");
+    await call("gles2:glActiveTexture", 0x84C1);
+    await call("gles2:glBindSampler", 1, sampler);
+    await call("gles2:glSamplerParameteri", sampler, 0x2801, 0x2600);
+    // (a compute program's dispatch writes a storage buffer: the GPU's then)
+    const compute = (await call("gles2:glCreateProgram")).ret;
+    await call("gles2:glAttachShader", compute, await shader(0x91B9, "#version 310 es\nlayout(local_size_x = 4) in;\n" +
+        "layout(std430, binding = 2) buffer Data { uint values[]; };\nvoid main() { values[gl_GlobalInvocationID.x] = 1u; }"));
+    await call("gles2:glLinkProgram", compute);
+    await call("gles2:glUseProgram", compute);
+    const data = await gen("Buffers");
+    await call("gles2:glBindBuffer", 0x90D2, data);
+    await call("gles2:glBufferData", 0x90D2, 16, null, 0x88E8);
+    await call("gles2:glBindBufferBase", 0x90D2, 2, data);
+    await call("gles2:glDispatchCompute", 1, 1, 1);
+    await call("gles2:glUseProgram", 0);
+    // (a program of one varying captured, then asked for two: it keeps what it linked)
+    const captured = (await call("gles2:glCreateProgram")).ret;
+    await call("gles2:glAttachShader", captured, await shader(GL.VERTEX_SHADER,
+        "#version 300 es\nin vec4 position;\nout vec4 v;\nvoid main() { v = position; gl_Position = position; }"));
+    await call("gles2:glAttachShader", captured, await shader(GL.FRAGMENT_SHADER,
+        "#version 300 es\nprecision mediump float;\nin vec4 v;\nout vec4 o;\nvoid main() { o = v; }"));
+    await call("gles2:glTransformFeedbackVaryingsAEMU", captured, 1, cstring("v;"), 3, 0x8C8C);
+    await call("gles2:glLinkProgram", captured);
+    await call("gles2:glTransformFeedbackVaryingsAEMU", captured, 2, cstring("v;gl_Position;"), 16, 0x8C8C);
+    // (a pipeline of a separable program, its uniform set by glProgramUniform; an occlusion query)
+    const fs_source = "#version 310 es\nprecision mediump float;\nuniform vec4 color;\nlayout(location = 0) out vec4 o;\nvoid main() { o = color; }";
+    const separable = (await call("gles2:glCreateShaderProgramvAEMU", 0x8B30, 1, cstring(fs_source), fs_source.length + 1)).ret;
+    const color = (await call("gles2:glGetUniformLocation", separable, cstring("color"))).ret;
+    await call("gles2:glProgramUniform4f", separable, color, 1, 0.5, 0, 1);
+    const pipeline = await gen("ProgramPipelines");
+    await call("gles2:glBindProgramPipeline", pipeline);
+    await call("gles2:glUseProgramStages", pipeline, 2, separable);
+    const query = await gen("Queries");
+    await call("gles2:glBeginQuery", 0x8C2F, query);
+    await call("gles2:glEndQuery", 0x8C2F);
+    assert.equal((await call("gles2:glGetError")).ret, 0);
+
+    await host.prepare_save();
+    const connection_state = conn.service.get_state();
+    const process_state = guest.process_pipe.get_state();
+    const state = host.get_state();
+    snapshot_safe(state, "host");
+    const renderer2 = fake_renderer();
+    const host2 = new GLESHost(DISPLAY, renderer2, undefined, { glslang, max_version: "3.1" });
+    const service = host2.service("opengles", () => {}, connection_state);
+    host2.service("GLProcessPipe", () => {}, process_state);
+    host2.set_state(state);
+    const call2 = caller(service);
+    const ints2 = async (name, ...args) => i32s((await call2("gles2:" + name, ...args)).outs[0]);
+    assert.deepEqual(await ints2("glGetIntegerv", 0x821C, 4), [1], "GLES 3.1 still");
+    assert.deepEqual(await ints2("glGetIntegerv", 0x85B5, 4), [vao], "the vertex array bound");
+    assert.deepEqual(await ints2("glGetVertexAttribiv", 0, 0x82D4, 4), [3], "its attribute's binding point");
+    assert.deepEqual(await ints2("glGetVertexAttribiv", 0, 0x82D5, 4), [4], "its relative offset");
+    assert.deepEqual(await ints2("glGetIntegeri_v", 0x8F4F, 3, 4), [quad], "the binding point's buffer");
+    assert.deepEqual(await ints2("glGetIntegerv", 0x8919, 4), [sampler], "the sampler on the active unit (1)");
+    assert.deepEqual(await ints2("glGetSamplerParameteriv", sampler, 0x2801, 4), [0x2600], "its filter");
+    assert.deepEqual(await ints2("glGetIntegeri_v", 0x90D3, 2, 4), [data], "the storage binding");
+    assert.deepEqual(await ints2("glGetProgramiv", compute, GL.LINK_STATUS, 4), [1], "the compute program, linked again");
+    assert.deepEqual(await ints2("glGetProgramiv", captured, 0x8C83, 4), [1], "the captured program: the one varying it linked");
+    assert.deepEqual(await ints2("glGetProgramiv", separable, 0x8258, 4), [1], "glCreateShaderProgramv's: separable");
+    assert.equal((await call2("gles2:glGetUniformLocation", separable, cstring("color"))).ret, color);
+    assert.deepEqual(f32s((await call2("gles2:glGetUniformfv", separable, color, 16)).outs[0]), [1, 0.5, 0, 1], "its uniform");
+    assert.deepEqual(await ints2("glGetProgramPipelineiv", pipeline, GL.FRAGMENT_SHADER, 4), [separable], "the pipeline's fragment program");
+    assert.equal((await call2("gles2:glIsQuery", query)).ret, 1, "the query");
+    // (the storage buffer is still the GPU's: its map asks the page)
+    await call2("gles2:glMapBufferRangeAEMU", 0x90D2, 0, 16, 1, 16);
+    assert.ok(renderer2.records().some(r => r.name === "BUFFER_READ" && r.buffer === data), "the buffer the GPU wrote, read from the page");
+    assert.equal((await call2("gles2:glGetError")).ret, 0);
+    console.log("ok - a GLES 3.1 context's objects restored on a new host");
 }
 
 // ---- prepare_save answers what waits
