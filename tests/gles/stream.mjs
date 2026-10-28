@@ -6,7 +6,8 @@
 //   order; what the guest wrote meanwhile is decoded after it;
 // - an opcode of no range is counted and skipped, so is a command whose
 //   parameters do not fill it; a size below 8 breaks the stream;
-// - reading the replies in pieces of any size.
+// - reading the replies in pieces of any size;
+// - a decoder that throws: the call answered with zeros, counted.
 import assert from "node:assert/strict";
 import { GLESStream } from "../../src/gles/gles_stream.js";
 import { decode_reply, encode_command } from "../../src/gles/gles_wire.js";
@@ -170,4 +171,23 @@ function run(split)
         assert.ok(outs[0].every(b => b === 0xAB));
     }
     console.log("PASS: replies read in pieces");
+}
+
+// a decoder that fails: the call is answered with zeros and counted, the stream goes on
+{
+    const stream = new GLESStream(command =>
+    {
+        if(command.name === "rcGetFBParam") throw new TypeError("a bug in a decoder");
+        return 7;
+    });
+    const warn = console.warn;
+    console.warn = () => {};
+    stream.write(join([FLAGS, encode_command("rcGetFBParam", [1]), encode_command("rcGetRendererVersion", [])]));
+    console.warn = warn;
+    const reply = stream.read(1 << 20);
+    assert.equal(decode_reply("rcGetFBParam", [1], reply.subarray(0, 4)).ret, 0, "the failed call: zeros");
+    assert.equal(decode_reply("rcGetRendererVersion", [], reply.subarray(4)).ret, 7, "the next call answered");
+    assert.deepEqual([...stream.failed], [["rcGetFBParam", 1]]);
+    assert.equal(stream.broken, false);
+    console.log("ok - a decoder's fault answers zeros");
 }

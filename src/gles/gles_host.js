@@ -78,6 +78,7 @@ GLESHost.prototype.reset = function()
     this.closed_counts = new Map();
     this.closed_unknown = new Map();
     this.closed_malformed = new Map();
+    this.closed_failed = new Map();
     this.connections = 0;
     this.processes = 0;
     this.submitted = 0;
@@ -139,6 +140,7 @@ GLESHost.prototype.connect = function(wake, saved)
             add_counts(this.closed_counts, stream.counts);
             add_counts(this.closed_unknown, stream.unknown);
             add_counts(this.closed_malformed, stream.malformed);
+            add_counts(this.closed_failed, stream.failed);
             this.rc.disconnect(conn);
             this.record(GLES.CONNECTION_CLOSE, [conn.id]);
         },
@@ -448,7 +450,7 @@ GLESHost.prototype.get_state = function()
         shadow: this.shadow.get_state(),
         next_connection: this.next_connection, next_puid: this.next_puid, connections: this.connections, processes: this.processes,
         closed_counts: this.closed_counts, closed_unknown: this.closed_unknown, closed_malformed: this.closed_malformed,
-        stats: this.stats, refused: this.refused,
+        closed_failed: this.closed_failed, stats: this.stats, refused: this.refused,
     }, { classes: SHADOW_CLASSES, skip: shadow_skip });
     const page = this.page_state;
     this.page_state = null;
@@ -470,9 +472,9 @@ GLESHost.prototype.set_state = function(state)
     Object.assign(this.rc, saved.rc);
     this.shadow.set_state(saved.shadow);
     for(const key of ["next_connection", "next_puid", "connections", "processes", "closed_counts", "closed_unknown", "closed_malformed",
-        "stats", "refused"])
+        "closed_failed", "stats", "refused"])
     {
-        this[key] = saved[key];
+        if(saved[key] !== undefined) this[key] = saved[key];
     }
     if(state[2] && !this.lost) this.renderer.post({ "type": "gles_restore", "state": state[2] });
 };
@@ -492,8 +494,10 @@ GLESHost.prototype.summary = function()
 {
     const counts = new Map(this.closed_counts), unknown = new Map(this.closed_unknown), malformed = new Map(this.closed_malformed);
     let dropped_bytes = 0, broken = 0;
+    const failed = new Map(this.closed_failed);
     for(const stream of this.streams)
     {
+        add_counts(failed, stream.failed);
         add_counts(counts, stream.counts);
         add_counts(unknown, stream.unknown);
         add_counts(malformed, stream.malformed);
@@ -503,7 +507,7 @@ GLESHost.prototype.summary = function()
     const sorted = map => Object.fromEntries([...map].sort((a, b) => b[1] - a[1]));
     return {
         connections: this.connections, open_connections: this.streams.size, processes: this.processes,
-        counts: sorted(counts), unknown: sorted(unknown), malformed: sorted(malformed), broken, dropped_bytes,
+        counts: sorted(counts), unknown: sorted(unknown), malformed: sorted(malformed), failed: sorted(failed), broken, dropped_bytes,
         render_control: this.rc.summary(), batches: Object.assign({ submitted: this.submitted, completed: this.completed }, this.stats),
         shaders: this.shadow.stats, refused: sorted(this.refused),
     };

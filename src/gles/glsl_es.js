@@ -25,7 +25,16 @@ function translator()
  */
 export function compile_shader(source, stage)
 {
-    const result = translator().compileShader(source, stage, { es: true });
+    // (a fault of the front end itself is the shader's error, never the machine's)
+    let result;
+    try
+    {
+        result = translator().compileShader(source, stage, { es: true });
+    }
+    catch(e)
+    {
+        return { ok: false, log: "ERROR: internal compiler error: " + (e && e.message || e), result: null };
+    }
     return { ok: result.ok, log: result.log, result };
 }
 
@@ -58,7 +67,15 @@ export function link_program(vs, fs, bindings)
     const empty = log => ({ ok: false, log, attributes: [], uniforms: [], locations: new Map(), by_location: [], reflection: null });
     if(!vs || !fs) return empty("ERROR: a program needs a vertex and a fragment shader");
     if(!vs.ok || !fs.ok) return empty("ERROR: " + (!vs.ok ? "the vertex" : "the fragment") + " shader is not compiled");
-    const linked = translator().linkProgram(vs.result, fs.result, { es: true, bindAttribLocations: bindings });
+    let linked;
+    try
+    {
+        linked = translator().linkProgram(vs.result, fs.result, { es: true, bindAttribLocations: bindings });
+    }
+    catch(e)
+    {
+        return empty("ERROR: internal linker error: " + (e && e.message || e));
+    }
     if(!linked.ok) return empty(linked.log);
     const reflection = linked.reflection;
     const attributes = reflection.attributes.map(a => ({ name: a.name, size: 1, type: GLSL_TYPES[a.glslType], location: a.location }));

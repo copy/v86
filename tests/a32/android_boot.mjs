@@ -30,7 +30,8 @@
 // after the home screen's screenshot). A32_ANDROID_SCREEN:
 // am start's arguments (-a android.settings.SETTINGS): after the home
 // screen the activity is started and its screen taken (screen.png), then
-// swiped up and down for a minute: the frames a second the screen shows.
+// swiped up and down for a minute: the frames a second the screen shows
+// (A32_ANDROID_RATE_AFTER=<rate>: the clock's rate changed first).
 // A32_ANDROID_GPU=host: the device model's GPU mode "host" (qemu.gles=1,
 // ranchu_gpu "host": the GLES host, docs/gles-proxy-plan.md); the GLES
 // calls' counts go to the run's gles.json, its batches to gles-batches.bin
@@ -48,7 +49,7 @@
 // A32_ANDROID_DEQP=1 (with A32_ANDROID_GPU=host): dEQP-GLES2 and dEQP-EGL
 // from CTS 7.1_r29 (tools/a32_cts.mjs fetches them) on a fourth virtio disk
 // (ext2, mke2fs -d), copied in with su, installed, run by its
-// instrumentation in chunks; the subset (docs/gles-proxy-plan.md E4): every
+// instrumentation in chunks (the results from its status lines); the subset (docs/gles-proxy-plan.md E4): every
 // state_query and negative_api case, dEQP-EGL.info, and every ninth other
 // functional case (A32_ANDROID_DEQP_STEP another; A32_ANDROID_DEQP_FILTER a
 // pattern of cases to keep); each case's status into the run's deqp.json.
@@ -280,6 +281,13 @@ try
     };
     // (A32_ANDROID_SCREEN: an activity started, its screen taken: the same
     // picture in both GPU modes, docs/gles-proxy-plan.md E3's comparison)
+    // (A32_ANDROID_RATE_AFTER: the machine clock's rate from here on, e.g. 1
+    // after a boot at the device model's tenth: how fast the screen can go)
+    if(process.env.A32_ANDROID_RATE_AFTER)
+    {
+        emulator.v86.cpu.clock.rate = Number(process.env.A32_ANDROID_RATE_AFTER);
+        console.log("clock rate now " + emulator.v86.cpu.clock.rate);
+    }
     if(process.env.A32_ANDROID_SCREEN)
     {
         await dismiss_dialogs();
@@ -429,27 +437,28 @@ try
         console.log(await ask("ls -l /data/local/tmp | head", "A32_DEQP_LS", 600000));
         const installed = await ask("pm install -r -g /data/local/tmp/deqp.apk", "A32_DEQP_INSTALL", 1800000);
         assert.match(installed, /Success/, "dEQP installed");
-        const results = {};
+        const results = {}, details_of = {};
         const started_deqp = performance.now();
         for(const chunk of deqp.chunks)
         {
             const command_line = `--deqp-caselist-file=/sdcard/deqp-cases.txt --deqp-gl-config-name=rgba8888d24s8ms0 --deqp-surface-type=window ` +
                 `--deqp-screen-rotation=unspecified --deqp-log-images=disable --deqp-log-shader-sources=disable --deqp-watchdog=enable`;
             // (the console's shell has no access to /sdcard, which the tester reads and writes: as root)
-            await ask(`su 0 sh -c 'cp /data/local/tmp/${chunk.name} /sdcard/deqp-cases.txt; rm -f /sdcard/deqp.qpa'`, "A32_DEQP_CASES", 600000);
+            await ask(`su 0 sh -c 'cp /data/local/tmp/${chunk.name} /sdcard/deqp-cases.txt'`, "A32_DEQP_CASES", 600000);
             const run = await ask(`am instrument -w -e deqpLogFileName /sdcard/deqp.qpa -e deqpCmdLine "${command_line}" -e deqpLogData false ` +
                 `com.drawelements.deqp/com.drawelements.deqp.testercore.DeqpInstrumentation`, "A32_DEQP_RUN", 7200000);
-            const log = await ask("su 0 grep -E '^#beginTestCaseResult|StatusCode=|^#endTestCaseResult|^#terminateTestCaseResult' /sdcard/deqp.qpa",
-                "A32_DEQP_LOG", 1200000);
+            // (the results: the instrumentation's status lines, as CTS's runner reads them; no log file is written)
             let current = null;
-            for(const line of log.split("\n"))
+            for(const line of run.replace(/\r/g, "").split("\n"))
             {
-                const begin = /^#beginTestCaseResult (\S+)/.exec(line);
+                const begin = /dEQP-BeginTestCase-TestCasePath=(\S+)/.exec(line);
                 if(begin) { current = begin[1]; results[current] = "Crash"; continue; }
-                const status = /StatusCode="(\w+)"/.exec(line);
-                if(status && current) results[current] = status[1];
-                const terminated = /^#terminateTestCaseResult (\w+)/.exec(line);
-                if(terminated && current) results[current] = terminated[1];
+                const code = /dEQP-TestCaseResult-Code=(\w+)/.exec(line);
+                if(code && current) results[current] = code[1];
+                const terminated = /dEQP-TerminateTestCase-Reason=(.*)/.exec(line);
+                if(terminated && current) results[current] = "Terminated";
+                const details = /dEQP-TestCaseResult-Details=(.*)/.exec(line);
+                if(details && current && results[current] !== "Pass") details_of[current] = details[1].slice(0, 200);
             }
             for(const c of chunk.cases) if(!(c in results)) results[c] = "NotRun";
             const counts = {};
@@ -463,6 +472,7 @@ try
                     "A32_DEQP_CRASH", 600000)).replace(/\r/g, "").split("\n").slice(1).join("\n").slice(0, 3000));
             }
             fs.writeFileSync(run_directory + "deqp.json", JSON.stringify(results, null, 1));
+            fs.writeFileSync(run_directory + "deqp-details.json", JSON.stringify(details_of, null, 1));
         }
         const by_status = {};
         for(const status of Object.values(results)) by_status[status] = (by_status[status] || 0) + 1;

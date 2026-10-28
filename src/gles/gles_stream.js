@@ -52,6 +52,8 @@ export function GLESStream(decode, readable)
     this.unknown = new Map();
     /** @type {!Map<string, number>} commands whose parameters did not fill them */
     this.malformed = new Map();
+    /** @type {!Map<string, number>} commands whose decoder failed (answered with zeros) */
+    this.failed = new Map();
     this.dropped_bytes = 0;
 }
 
@@ -136,7 +138,18 @@ GLESStream.prototype.dispatch = function(bytes)
         this.malformed.set(command.name, (this.malformed.get(command.name) || 0) + 1);
         return;
     }
-    const ret = this.decode(command, args, bytes);
+    // (a fault of a decoder: the call is answered with zeros, counted, the stream goes on)
+    let ret;
+    try
+    {
+        ret = this.decode(command, args, bytes);
+    }
+    catch(e)
+    {
+        if(!this.failed.has(command.name)) console.warn("GLES stream: " + command.name + " failed: " + (e && e.stack || e));
+        this.failed.set(command.name, (this.failed.get(command.name) || 0) + 1);
+        ret = 0;
+    }
     if(ret && typeof ret.then === "function")
     {
         this.waiting = true;
@@ -219,7 +232,7 @@ GLESStream.prototype.get_state = function()
         flags: this.flags, header: this.header.slice(), header_fill: this.header_fill,
         command: this.command && this.command.slice(0, this.command_fill), command_size: this.command ? this.command.length : 0,
         output, broken: this.broken, dropped_bytes: this.dropped_bytes,
-        counts: this.counts, unknown: this.unknown, malformed: this.malformed, waiting: this.waiting || this.backlog.length > 0,
+        counts: this.counts, unknown: this.unknown, malformed: this.malformed, failed: this.failed, waiting: this.waiting || this.backlog.length > 0,
     };
 };
 
@@ -244,6 +257,7 @@ GLESStream.prototype.set_state = function(state)
     this.counts = state.counts;
     this.unknown = state.unknown;
     this.malformed = state.malformed;
+    this.failed = state.failed || new Map();
     // (a call that waited when the snapshot was taken has no answer: the
     // connection cannot go on, as one whose commands could not be found)
     if(state.waiting)

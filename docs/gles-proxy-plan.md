@@ -632,6 +632,9 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
   （`mBackgroundWidth=-1`），WindowManager 却记为已画（`HAS_DRAWN`）。壁纸的像素到过主机（一次完整的
   `rcUpdateColorBuffer`）。看起来是 Android 壁纸服务在启动时的竞争，不是 GLES 的绘制路径；客体模式只跑成一次，
   不能说它那边不会发生。记为已知缺陷。壁纸层的位置有约 0.9 像素的偏移（最左一列黑），真 GPU 按像素中心光栅化也如此。
+- **与客体模式比较**（`A32_ANDROID_SCREEN="-a android.settings.SETTINGS"`，同一个设置界面，列表都还没载入）：状态栏
+  以下的结构相似度 0.9997（应用栏 0.9997，导航栏 0.9998；状态栏只差时钟）。颜色上客体模式偏紫：它经过 16 位的帧缓冲，
+  Material 的灰 224 量化成 RGB565 再展开正好是 231、227、231；主机模式是准确的 8 位颜色。
 - **设备设置**：去掉 `ro.config.low_ram` 并打开开机动画（`A32_ANDROID_PROPS="ro.config.low_ram=" A32_ANDROID_BOOTANIM=1`）
   启动 281 秒，没有进程崩溃，空闲内存 643 MB。系统界面改走 hwui 的 GL 后，滑动设置与通知栏的帧率反而从 5.6 降到 3.6
   帧每秒（同样的画面，这个 CPU 上软件绘制加上传比 GL 路径便宜）。所以保留低内存设置，开机动画也不默认打开；机器
