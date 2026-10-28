@@ -195,3 +195,15 @@ const fs_ = "#version 310 es\nprecision mediump float;\nuniform vec4 color;\nlay
     console.log("PASS: glCreateShaderProgramv");
 }
 void text;
+
+// ---- EXT_robustness: no reset; glReadnPixelsEXT reads as glReadPixels, its buffer's size checked
+{
+    assert.equal((await call("gles2:glGetGraphicsResetStatusEXT")).ret, 0, "GL_NO_ERROR: never reset");
+    await call("gles2:glReadnPixelsEXT", 0, 0, 2, 2, 0x1908, 0x1401, 15, 16);
+    assert.equal(await error(), 0x0502, "a buffer too small: INVALID_OPERATION");
+    const before = renderer.records().filter(r => r.name === "READ_PIXELS").length;
+    await call("gles2:glReadnPixelsEXT", 0, 0, 2, 2, 0x1908, 0x1401, 16, 16);
+    assert.equal(await error(), 0);
+    assert.equal(renderer.records().filter(r => r.name === "READ_PIXELS").length, before + 1, "the page reads them");
+    console.log("PASS: EXT_robustness");
+}

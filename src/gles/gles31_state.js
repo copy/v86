@@ -22,7 +22,7 @@
 //   in the draw indirect buffer), robustness's reset status and sized reads.
 
 import { GL3, LIMITS3, SLOT } from "./gles3_state.js";
-import { format_info } from "./gles_formats3.js";
+import { format_info, image_bytes3 } from "./gles_formats3.js";
 
 export const GL31 = {
     SHADER_STORAGE_BUFFER: 0x90D2, ATOMIC_COUNTER_BUFFER: 0x92C0, DISPATCH_INDIRECT_BUFFER: 0x90EE, DRAW_INDIRECT_BUFFER: 0x8F3F,
@@ -769,6 +769,16 @@ export function gles31_handlers(h, H3)
 
         // ---- robustness (EXT_robustness): no context is ever lost
         "glGetGraphicsResetStatusEXT": shadow => { query(shadow); return 0; },
+        "glReadnPixelsEXT": (shadow, c, [x, y, width, height, format, type, size]) =>
+        {
+            const r = H3["glReadPixels"](shadow, c, [x, y, width, height, format, type]);
+            if(r === REFUSED) return r;
+            // (the bytes glReadPixels would write by the pack state: more than bufSize is an error)
+            const needed = image_bytes3(width, height, 1, format, type, { alignment: c.pack_alignment, row_length: c.pack.row_length, image_height: 0,
+                skip_pixels: c.pack.skip_pixels, skip_rows: c.pack.skip_rows, skip_images: 0 });
+            if(needed > size) return fail(c, GL.INVALID_OPERATION);
+            return r;
+        },
         "glGetnUniformfvEXT": (shadow, c, [p, location, size, params]) => H3["glGetUniformfv"](shadow, c, [p, location, params]),
         "glGetnUniformivEXT": (shadow, c, [p, location, size, params]) => H3["glGetUniformiv"](shadow, c, [p, location, params]),
     };

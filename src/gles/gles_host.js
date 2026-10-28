@@ -199,10 +199,11 @@ function is_query(name)
 GLESHost.prototype.gl_call = function(conn, command, args, bytes)
 {
     const { ret, keep } = this.shadow.call(conn.context, command, args);
-    if(command.name === "glReadPixels")
+    if(command.name === "glReadPixels" || command.name === "glReadnPixelsEXT")
     {
         if(!keep) return ret;
-        const [x, y, width, height, format, type, pixels] = args;
+        // (EXT_robustness's: its buffer's size before the pixels)
+        const [x, y, width, height, format, type, pixels] = command.name === "glReadPixels" ? args : [...args.slice(0, 6), args[7]];
         const request = this.request(pixels);
         this.record(GLES.READ_PIXELS, [conn.id, request.id, x, y, width, height, format, type]);
         this.flush();
