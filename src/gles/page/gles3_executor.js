@@ -233,6 +233,29 @@ function spirv_binding(binding)
     return { b: binding >> 1, e: 0 };
 }
 
+/**
+ * Whether a dispatch's bind groups bind a buffer range or an image view to
+ * write and also name it in another binding (GLSL's aliased buffers and
+ * images, which WebGPU refuses in a dispatch)
+ */
+function writable_aliases(group)
+{
+    const ranges = [], views = [];
+    for(const g of group.groups)
+    {
+        g.entries.forEach((entry, i) =>
+        {
+            const resource = g.resources[i].resource;
+            if(entry.buffer && entry.buffer.type !== "uniform") ranges.push({ resource, writable: entry.buffer.type === "storage" });
+            if(entry.storageTexture) views.push({ resource, writable: entry.storageTexture.access !== "read-only" });
+        });
+    }
+    const overlap = (a, b) => a.resource.buffer === b.resource.buffer && a.resource.offset < b.resource.offset + b.resource.size &&
+        b.resource.offset < a.resource.offset + a.resource.size;
+    return ranges.some((a, i) => ranges.some((b, k) => k > i && (a.writable || b.writable) && overlap(a, b))) ||
+        views.some((a, i) => views.some((b, k) => k > i && (a.writable || b.writable) && a.resource === b.resource));
+}
+
 /** The framebuffer a context reads (GLES 2.0's: the one it draws to) */
 const read_framebuffer = c => c.read_framebuffer === undefined ? c.framebuffer : c.read_framebuffer;
 
@@ -687,16 +710,16 @@ export const GLES3 = {
         return this.zero_buffer;
     },
 
-    /** A buffer of at least `size` bytes that writes go to and nothing reads (an unbound storage block's or atomic counters') */
+    /**
+     * A buffer of at least `size` bytes that writes go to and nothing reads
+     * (an unbound storage block's or atomic counters'), one of its own each:
+     * WebGPU refuses two writable bindings of one buffer's range
+     */
     discard3(size)
     {
-        size = Math.max(256, Math.ceil(size / 256) * 256);
-        if(!this.discard_buffer || this.discard_buffer.size < size)
-        {
-            if(this.discard_buffer) this.staging.push(this.discard_buffer);
-            this.discard_buffer = this.device.createBuffer({ label: "GLES discarded writes", size, usage: B.STORAGE });
-        }
-        return this.discard_buffer;
+        const buffer = this.device.createBuffer({ label: "GLES discarded writes", size: Math.max(16, align4(size)), usage: B.STORAGE });
+        this.staging.push(buffer);
+        return buffer;
     },
 
     // ---- textures
@@ -2627,6 +2650,8 @@ export const GLES3 = {
         const group = this.bind_groups3(c, this.bindings3([[t, 4, program]]), { textures: new Set() });
         this.image_writes3 = null;
         if(!group) return;
+        // (WebGPU refuses it, and with it the batch: gpu-deviations.md G-78)
+        if(writable_aliases(group)) return void this.note3("a dispatch writing a buffer range or an image two bindings name");
         this.computes3 = this.computes3 || new Map();
         const key = this.id_of(module) + "|" + group.key;
         let pipeline = this.computes3.get(key);
@@ -3057,15 +3082,17 @@ export const GLES3 = {
         if(!gpu || gpu.format !== format || !gpu.storage || gpu.three && dimension === "2d")
         {
             if(gpu) this.note3("an image unit's texture of a format or size the image cannot take");
-            // (one each for reading and for writing: a dispatch may bind both, which WebGPU refuses of one texture)
+            // (one to read for all, one of its own each to write: WebGPU refuses a texture bound to write with another binding)
             this.empty_images3 = this.empty_images3 || new Map();
-            const key = format + ":" + dimension + ":" + (access === "read-only" ? "read" : "write");
-            let view = this.empty_images3.get(key);
+            const key = format + ":" + dimension;
+            let view = access === "read-only" ? this.empty_images3.get(key) : null;
             if(!view)
             {
                 const empty = this.device.createTexture({ label: "GLES empty image", size: [1, 1, 1], dimension: dimension === "3d" ? "3d" : "2d", format,
                     usage: U.STORAGE_BINDING });
-                this.empty_images3.set(key, view = empty.createView({ dimension }));
+                view = empty.createView({ dimension });
+                if(access === "read-only") this.empty_images3.set(key, view);
+                else this.staging.push(empty);
             }
             return { entry, resource: view };
         }
