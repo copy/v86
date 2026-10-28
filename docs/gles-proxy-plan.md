@@ -478,6 +478,8 @@ GLSL ES 前端扩到 3.0（uniform 缓冲、多渲染目标、实例化、变换
 另外，API 25 的编码器已经带 GLES 3 的命令（“复核结论”）。GLES 3.0 的执行器一旦做出来，宿主宣告
 `ANDROID_EMU_gles_max_version_3_0` 后 Android 7.1 的应用也能用上，评估收益时两边一起算。
 
+2026-10-28：GLES 3.0–3.2 的执行器另立计划，见 [gles3-plan.md](gles3-plan.md)。
+
 ## 测试
 
 | 层 | 位置 | 运行方式 |
@@ -618,6 +620,25 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
 - CPU 侧编译 64 个着色器、链接 32 个程序，全部成功；
 - 等页面的只有 20 次 `rcReadColorBuffer`（读回，不是查询），没有任何查询等待页面；
 - 影子状态拒绝的调用：0（计数里曾把 `glGen*` 当成拒绝，已改）。
+
+### E7 的测量（2026-10-28）
+
+按 E7 一节的方法，在 gfxstream 模式下测：从 `build/a64-android/a10-desktop-gfxstream.v7`（官方镜像的桌面）恢复，
+`A64_PARALLEL=1 A64_JIT=1`，客体里 `su 0 simpleperf record -e cpu-clock -a`，工作负载是冷启动设置
+（`am start -W -S`，TotalTime 103 秒）、在设置里上下滑动、回到桌面、左右滑动，共 289 秒、149.5 万个样本：
+
+| 范围 | ANGLE（`libGLESv2_angle.so`、`libEGL_angle.so`）与 Vulkan 驱动（`vulkan.ranchu.so`、`libvulkan.so`） | 其他 |
+| --- | --- | --- |
+| 全系统 | 约 1.5% | 内核 57.8%、libc 9.5%、ART 8.1%、simpleperf 自身 5.7% |
+| `RenderThread`（hwui 发 GL 的线程） | 约 29%（ANGLE 23.6%、vulkan.ranchu 4.7%） | 内核 30.6%、hwui 22.7%、libc 10.8% |
+| 界面相关的全部线程（设置的主线程、`RenderThread`、SurfaceFlinger、SystemUI、启动器） | 约 11% | |
+
+着色器编译（ANGLE 的 GLSL 解析与翻译：`yyparse`、`sh::` 的遍历）只占几百到一千多个样本，不到 0.1%。SurfaceFlinger
+里没有 ANGLE：它的合成走 HWC（`composer3-service.ranchu`）。
+
+结论：按 E7 一节的标准（ANGLE、Vulkan 驱动与着色器编译占帧时间三成以上才做），这些数不够：发 GL 的线程里约三成，
+整个界面的工作里约一成，编译几乎为零；界面慢主要在内核、ART 与 libc（客体 CPU 的速度）。原始报告在 E7 运行目录的
+`probe-*.txt`（`build/a64-android/runs/v86-jit-par-gfxstream-bl-1536m-4c-out-official/`）。
 
 ## 已定（2026-10-27）
 

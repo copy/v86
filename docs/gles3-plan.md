@@ -1,0 +1,594 @@
+# GLES 3.x 执行器计划（3.0、3.1 与 3.2）
+
+状态：计划，2026-10-28 写。同日所有者定了范围、做法与后端（见“已定”），还没开始实施。前提是
+[gles-proxy-plan.md](gles-proxy-plan.md) 的 E0–E6，以 `a17140ed` 为基线：E3–E6 的代码已提交，验收还没跑完。
+
+本计划把 ranchu 的 GLES 宿主（`ranchu_gpu: "host"`）从 GLES 2.0 扩到 3.2，涉及三处：CPU 侧的影子状态、着色器编译、
+页面上的执行器。客体仍是 Android 7.1（`armeabi-v7a-25_r18`），一个文件都不改。阶段记作 L0–L7，与
+gles-proxy-plan 的 E 阶段区分。
+
+## 现状（2026-10-28 核对）
+
+### 客体能发什么
+
+- **客体认识 3.2。**
+  - `libOpenglSystemCommon.so` 与 `libEGL_emulation.so` 认识 `ANDROID_EMU_gles_max_version_2`、`_3_0`、`_3_1`、`_3_2`；
+  - 宿主在 `rcGetGLString(GL_EXTENSIONS)` 里宣告哪一个，EGL 就按它建上下文，并检查请求的版本（“no ES 3.1 support”、
+    “no ES 3.2 support”）；
+  - `libGLESv2_enc.so` 自己会加 `GL_OES_EGL_image_external_essl3`。
+- **编码器只到 ES 3.1。**
+  - `libGLESv2_emulation.so` 的函数表有 797 项，最后是 ES 3.1 的 `glGetTexLevelParameteriv` 与 `GL_EXT_robustness` 的
+    四个函数；
+  - ES 3.2 新增的入口一个也没有：`glPatchParameteri`、`glFramebufferTexture`、`glTexStorage3DMultisample`、
+    `glCopyImageSubData`、三个 `*BaseVertex` 绘制、`glMinSampleShading`、`glBlendBarrier`、`glPrimitiveBoundingBox`、
+    `glTexBuffer*`、`glEnablei`/`glBlendFunci` 一族、`glGetnUniform*`、KHR_debug；
+  - 平台的分发库 `libGLESv3.so` 有这些符号，但调用只落到 “called unimplemented OpenGL ES API” 的桩上。
+- **gfxstream 的协议本身也只到这里。**
+  - 固定的 `codegen/gles2/gles2.in` 在 ES 3.1 之后，只多了 `GL_OES/EXT_texture_buffer` 与
+    `GL_EXT_draw_buffers_indexed` 的入口和几个 AEMU 命令，API 25 的编码器一个都不发；
+  - 宿主的 `gles32_only.entries` 只给宿主自己的翻译库用。模拟器宣告 3.2 时，线上同样没有 3.2 的命令。
+- **命令数**（`src/gles/gles_protocol.js`）：
+
+  | 部分 | 命令 | 其中有回复的 |
+  | --- | --- | --- |
+  | ES 2.0 | 208 | |
+  | ES 3.0 | 130 | 39 |
+  | ES 3.1 与 robustness | 82 | 23 |
+  | 之后（API 25 不发） | 19 | |
+
+- **宿主宣告 3.x 后才出现的 emugl 命令**：
+  - 缓冲映射：`glMapBufferRangeAEMU`（宿主把当前内容放进回复）、`glUnmapBufferAEMU`、
+    `glFlushMappedBufferRangeAEMU`（客体写的字节随命令来）；
+  - PBO：`glReadPixelsOffsetAEMU`、`glTex(Sub)Image2D/3DOffsetAEMU`、`glCompressedTex(Sub)Image2D/3DOffsetAEMU`，
+    数据在绑定的 PBO 里；
+  - 绘制：`glVertexAttribIPointerData/OffsetAEMU`、`glDrawElementsInstancedData/OffsetAEMU`、
+    `glDrawRangeElementsData/OffsetAEMU`、`glDraw*IndirectData/OffsetAEMU`；
+  - 其他：`glGetUniformIndicesAEMU`、`glTransformFeedbackVaryingsAEMU`、`glFenceSyncAEMU` 一族、
+    `glCreateShaderProgramvAEMU`。
+- **`rcCreateContext` 的版本参数**：今天的 gfxstream 客体对 3.1 与 3.2 都发 4（`guest/egl/egl.cpp`），宿主按自己
+  宣告的最高版本建上下文。2017 年的客体发什么，L4 记日志核对。
+
+### 宿主现在有什么
+
+- **影子状态**：`src/gles/gles_shadow.js`（1549 行）与 `gles1_state.js`，覆盖 GLES 2.0 与 1.1。FBO 已按 ES 3.0 的
+  规则属于上下文。
+- **页面执行器**：`src/gles/page/gles_executor.js`（1561 行），只有 ES 2.0：
+  - 每次绘制在 CPU 上把顶点组装成 f32、把索引组装成 u32；
+  - 颜色纹理一律 `rgba8unorm`（gpu-deviations 的 G-67）；
+  - 一个颜色目标、一个 uniform 块，只绑 2D、立方体与外部纹理。
+- **宿主 CPU 的开销**（E2、E3 的录制，`gles.json` 的 `stats.cpu_ms`）：
+  - 每次调用 11–23 µs；
+  - 一次开机约 0.5 s，相对约 260 s 的开机时间约占 0.2%；
+  - CPU 侧编译一个 ES 1.00 着色器约 0.5 ms。
+- **dEQP-GLES2 还没有基线**：E4 的那次运行（`runs/v86-gles-deqp/deqp.json`）1950 个用例全是 NotRun。
+- **着色器**：`gl_shader_translator.js` 的 ES 模式（GLSL ES 1.00）。它是手写前端，没有 IR，直接生成 WGSL。
+  2026-10-28 的评估（附录 A）：
+  - 扩到 3.00 约 3.5–4.5k 行，到 3.20 共 11–14k 行。它按名字把 varying 打包成 f32 槽，uniform 只有一种私有布局；
+    原子类型、可分离程序、几何与细分的降级都和这个设计冲突，不宜扩过 3.00。
+  - 已有的错误今天就影响 ES 2.0，XP 的桌面 GL 与它共用同一份代码：
+    - 非一致控制流里的采样被写成 `textureSampleGrad` 加 `dpdx`，Chrome 的 Tint 拒绝，浏览器里复现了 4 种情形。
+      VX 与 GX 都加了 `diagnostic(off, derivative_uniformity)`，它没加。
+    - 向量 `==`、`ivec & int`、以变量作移位量时，生成的 WGSL naga 不收。
+    - 写 `in` 参数被拒。
+
+### 能复用的
+
+- **`vx_naga`**（`src/browser/glbridge/vx/naga/`）：naga 30 的 spv-in → wgsl-out，加 4.6k 行 pass；
+  `build/glbridge/vx_naga.wasm` 1.4 MB，已随图形代理加载。
+  - 已有的转换：组合采样器拆开（`split.rs`）；整数纹理的采样改成取值（`intsample.rs`、`cubes.rs`）；std140 的二行
+    矩阵与行主序（`layout.rs`）；矩阵与数组的输入输出（`io.rs`）；switch 的贯穿；isnan/isinf；数组纹理的层数；
+    超过 12 个的 uniform 缓冲改成只读存储；变换反馈（`xfb.rs`：顶点着色器重跑成计算着色器）。
+  - ANGLE 的 SPIR-V 走它，在 dEQP-GLES3 抽样中 1334 个用例通过 1233 个（arm64 附录 F）。
+  - naga 的 SPIR-V 前端只认顶点、片段、计算（和 task、mesh）几种执行模型，不读几何与细分阶段
+    （`front/spv/mod.rs` 的 `parse_entry_point`）。
+- **GX**（`src/browser/glbridge/gx/`）：
+  - 几何着色器、曲面细分、流输出、顶点拉取的做法；
+  - `tessellator_wgsl.js`：D3D11 参考细分器的 WGSL 版，有 count、scan、generate 三个入口，自带绑定。
+- **VX**：swizzle 拷贝、深度读取拷贝（`vx_executor.js` 的 `copyMode`）。
+- **glslang**（2026-10-28 对照上游源码）：
+  - `-R`（`setEnvInputVulkanRulesRelaxed`）把按 OpenGL 写的 GLSL 编成 Vulkan 的 SPIR-V：
+    - 默认 uniform 打包进一个块（`--set-default-uniform-block`，`setGlobalUniformBlockName/Set/Binding`）；
+    - `atomic_uint` 进存储块（`--set-atomic-counter-block`）；
+  - `--auto-map-bindings`、`--auto-map-locations`，上游注明后者“fragile, not cross stage”；
+  - `TProgram::buildReflection` 给反射；
+  - **生成 SPIR-V 时 ES 版本必须 ≥ 310**（`DeduceVersionProfile`：“ES shaders for SPIR-V require version 310 or
+    higher”）。宽松模式也一样；`setOverrideVersion` 在这项检查之前生效。不生成 SPIR-V 时，它按真实版本做 ES 的
+    全部检查。
+- **emsdk**（emcc 6.0.0）已在 `../emsdk`。
+
+### WebGPU 与 ES 3.x 的差距
+
+| ES 3.x 要的 | WebGPU | 做法 |
+| --- | --- | --- |
+| 3 分量格式（RGB8、RGB16F、RGB32I…）、打包格式、LUMINANCE/ALPHA | 没有 | 展开存放（RGB 存成 RGBA，alpha 用写入遮罩保持 1），L/A/LA 用 swizzle 拷贝 |
+| 纹理 swizzle（3.0） | 没有 | VX 的 swizzle 拷贝：内容或 swizzle 变时重画一份 |
+| ETC2/EAC（3.0 必须）、ASTC（3.2 必须） | 可选特性 `texture-compression-etc2`、`-astc` | 有就直传，没有就在页面上解码 |
+| 边框颜色（3.2） | 没有 | 着色器里判断坐标（线性过滤时近似） |
+| 整数纹理的 `texture()` | 只能取值 | `intsample.rs`，把寻址方式作为选项传入 |
+| 变换反馈；顶点阶段写存储 | 顶点阶段不能写存储 | `xfb.rs` |
+| 几何、细分（3.2） | 没有这些阶段 | 计算着色器，照 GX 的做法 |
+| 多重采样 | 只有 1 或 4 个采样，没有多重采样数组 | 原生 4x；`sampler2DMSArray` 不做 |
+| 实例除数大于 1、3 分量的 8/16 位属性、未对齐的偏移与步长、`GL_FIXED` | 顶点格式与对齐不收 | 计算着色器转成临时缓冲 |
+| flat 取最后一个顶点 | WebGPU 取第一个 | 有 flat varying 的绘制重排索引，照 GX |
+| 图元重启 | strip 总是在全 1 索引处重启，list 不重启 | 对上 ES 的固定索引重启；关掉重启而索引里有全 1 时有偏差，与 GX 相同 |
+| 图像原子（3.2） | core 没有 | 偏差 |
+| `interpolateAtCentroid/Sample/Offset`（3.2） | WGSL 没有 | 用导数近似，记为偏差 |
+| 高级混合（3.2） | 不能读帧缓冲 | 绘制前拷贝目标，在片段着色器里混合 |
+| 片段着色器写 SSBO 的绘制，后面又把同一缓冲当顶点或 uniform | 一个 pass 内的用法不能冲突 | 在冲突处结束 render pass |
+
+点与线的宽度沿用 G-64、G-65。深度与模板分开附着仍报 `GL_FRAMEBUFFER_UNSUPPORTED`（G-66）。
+
+## 结论
+
+1. **执行器沿 E3 扩展，直接生成 WGSL。** ES 1.1、2.0、3.x 共用一个影子状态和一个执行器。不走 virgl→GX；
+   附录 B 是退路。
+2. **ES 3.x 的着色器走 glslang → SPIR-V → vx_naga → WGSL。**
+   - CPU 侧（插件 `v86-gles.js`）带 glslang 的 wasm，跑两遍：
+     - **第一遍**按着色器的真实版本（100、300、310、320 es），不生成 SPIR-V。它给出编译与链接的错误和 info log，
+       以及 GL 视角的反射：活动的 attribute、uniform、uniform 块、缓冲变量、程序的输入输出，各自的类型与数组大小。
+       `glGetShaderiv`、`glGetProgramiv`、`glGetActiveUniform*`、`glGetProgramResource*` 都由它回答。
+     - **第二遍**在链接成功后，按宽松的 Vulkan 规则生成 SPIR-V。300 es 覆盖成 310 es，第一遍已按 300 检查过。
+       location 与 binding 由宿主按 GL 的规则定（输入输出按链接时配对的名字给 location，uniform、采样器、块给
+       binding），写进 SPIR-V 的 `OpDecorate`，不依赖 `--auto-map-locations`。变换反馈的 varying 同样写成
+       `XfbBuffer`、`XfbStride`、`Offset`，加上 `Xfb` 执行模式。
+   - SPIR-V 随链接的记录进批次。页面不跑 glslang，执行器里的影子状态直接用 CPU 侧给的链接结果。
+   - 页面用 vx_naga 把 SPIR-V 变成 WGSL，选项按管线来：深度输出、整数采样器的寻址方式、改成存储的 uniform 缓冲、
+     变换反馈的计算版本。
+   - **GLSL ES 1.00** 走哪条由 L1 的数据决定。目标是也走 glslang：用现有前端的语法树打印成 310 es（重命名用户
+     标识符，换掉 1.00 的内建），执行器就只剩一种着色器模型。做不到就留在现有翻译器，执行器按程序区分两种模型
+     （ES 不允许 1.00 与 3.x 的着色器链接在一起）。
+   - GLES 1.1 的固定功能仍由 `gl_fixed_function.js` 生成 WGSL，E4 的做法不变。
+3. **先验证（L1）再动执行器。** 要验证的有：宽松模式在 GL 语义下能不能用（默认 uniform、location、反射、跨阶段
+   配对），wasm 的大小与编译耗时，vx_naga 与 Tint 收不收。不通过就转附录 B 的 GX 路线；L0 与 L2（影子状态）两条
+   路线都用得上。
+4. **影子状态仍是 CPU 侧的权威。** ES 3.x 的查询照样不等页面，只多三类等页面的调用：
+   - `glMapBufferRangeAEMU` 读一个 GPU 写过的缓冲（变换反馈、计算、`glCopyBufferSubData`、PBO 读回之后）。CPU 侧
+     给每个缓冲留一份镜像和一个“GPU 较新”的标记，镜像是最新的就直接回复；
+   - `glGetQueryObjectuiv` 取遮挡查询的 `GL_QUERY_RESULT`。`GL_QUERY_RESULT_AVAILABLE` 按已完成的批次回答，不等。
+     变换反馈的图元数由 CPU 侧自己算：它知道每次绘制的图元数和缓冲的容量，而 ES 不允许在变换反馈时间接绘制；
+   - `glReadnPixelsEXT`，同 `glReadPixels`。
+5. **数据放到 GPU 上。** 每个 GL 缓冲对应一个 GPU 缓冲，CPU 侧另有镜像。顶点按 WebGPU 能收的布局直接取，收不了的
+   先用计算着色器转换。纹理按大小格式（sized internal format）选 WebGPU 格式，不再一律 RGBA8。
+6. **几何与细分在计算着色器里跑，照 GX：**
+   - 顶点着色器以计算方式运行，顶点由它自己拉取，用 `xfb.rs` 的拉取；
+   - 几何着色器每个输入图元跑一次，写下记录，再间接绘制；
+   - 细分用 GX 的 WGSL 细分器；
+   - naga 不读这两种阶段，所以先在 SPIR-V 上做小改动：执行模型改成 GLCompute，输入输出改成 Private，
+     `OpEmitVertex`/`OpEndPrimitive` 改成调用占位函数。然后由 vx_naga 的新 pass 接上存储缓冲，方式同 `xfb.rs`。
+7. **分阶段宣告版本。** 每个阶段验收后，才宣告对应的 `ANDROID_EMU_gles_max_version_*` 和 `ro.opengles.version`
+   （3.0 = 196608，3.1 = 196609，3.2 = 196610）。ranchu 的选项 `ranchu_gles_version`（`"2.0"` | `"3.0"` | `"3.1"` |
+   `"3.2"`）限制宣告的最高版本，默认取已验收的最高版本。vx_naga 的新 pass 都由选项打开，VX 不受影响。
+
+### 性能预期
+
+两条路线比较时的结论（2026-10-28）：
+- **日常界面**：瓶颈是模拟的客体 CPU。宿主每次调用 11–23 µs；ES 3.x 的状态多了，也还在这个量级。
+- **着色器编译**：直接生成 WGSL，体积小、变体少，管线建得比 GX 的寄存器机风格快，这是新画面首帧卡顿的主要来源。
+  CPU 侧多了 glslang 的两遍编译，L1 测量；目标是一个典型的 300 es 着色器 ≤ 5 ms。
+- **多重采样**：用 WebGPU 原生的 4x，片段着色器每像素跑一次。GX 是超采样，要跑 4 次。
+- **顶点**：GPU 缓冲加上原生的顶点获取，取代 E3 每次绘制在 CPU 上组装顶点；大网格的绘制会快得多。
+- **几何与细分**：只能用计算着色器模拟，开销与 GX 相同。
+
+## 范围（已定，2026-10-28）
+
+- **ES 3.0、3.1 完整。**
+- **ES 3.2 只做现有操作码能表达的部分：**
+  - GLSL ES 3.20 的全部着色器阶段：几何、细分控制、细分求值。客体没有 `glPatchParameteri`，patch 的顶点数固定为
+    默认的 3；
+  - 立方体贴图数组、ASTC（LDR）、`GL_CLAMP_TO_BORDER` 与边框颜色；
+  - 高级混合（KHR_blend_equation_advanced，非一致版本）；
+  - 采样着色：`GL_SAMPLE_SHADING` 的开关、`sample` 限定符、`gl_SampleID`、`gl_SamplePosition`、`gl_SampleMaskIn`、
+    `gl_SampleMask`。客体没有 `glMinSampleShading`，最小比例保持 0；
+  - `GL_EXT_robustness` 的四个函数；
+  - KHR_debug 的可查询状态（入口不在线上，只答初值与限制）；
+  - `GL_EXT_draw_buffers_indexed`：API 25 不发，但规格有操作码，执行器的代价小，所以做。
+- **宣告 `ANDROID_EMU_gles_max_version_3_2`。** 够不到的 3.2 入口记为偏差（gpu-deviations 的 GLES 一节）：客体调用
+  只落到桩上，什么也不发生。
+- **不做：**
+  - 纹理缓冲：客体没有入口，WebGPU 也没有；
+  - 多重采样数组纹理；
+  - 分层渲染：`glFramebufferTexture` 不在线上；
+  - 图像原子：记为偏差；
+  - KHR_debug 的回调，以及 `glCopyImageSubData` 等不在线上的入口。
+
+## 架构
+
+```text
+=== guest: Android 7.1 (libGLESv2_enc, 2017) ==================================
+ GLES 2.0 / 3.0 / 3.1 commands (+ AEMU), goldfish pipe "opengles"
+=== CPU side: build/v86-gles.js ================================================
+ stream → decoder → shadow state (gles_shadow.js + gles3_state.js + gles31_state.js)
+   answers glGet*/glIs*/errors, program interface, maps (mirror), TF counts
+ shaders: #version 300/310/320 es → glslang.wasm
+   pass 1: validate + link + GL reflection (real version)
+   pass 2: SPIR-V (relaxed Vulkan rules), locations/bindings/xfb written by the host
+ batch writer → renderer stream "gles" (commands + answers + SPIR-V at link)
+=== page: libv86-webgpu.js =====================================================
+ gles_executor.js runs the same state machine (link results from the batch)
+   programs: SPIR-V → vx_naga.wasm (GLES options) → WGSL → pipelines (cached)
+   buffers on the GPU, vertex conversion, formats, samplers, MRT, MSAA 4x
+   TF (xfb.rs), compute, images, SSBOs, indirect, queries, blits
+   GS / tessellation as compute (SPIR-V patch + naga pass + GX's tessellator)
+ color buffers, window surfaces, rcFBPost as in E3
+```
+
+### 模块
+
+| 位置 | 内容 |
+| --- | --- |
+| `tools/glslang/build.mjs` | 用 emsdk 把固定提交的 glslang 编成 `build/glslang.wasm` 加一个小的 C 接口（编译、链接、反射、生成 SPIR-V），只开要用的部分 |
+| `src/gles/glslang.js` | CPU 侧的封装：两遍编译、GL 规则的 location 与 binding 分配、写 SPIR-V 的装饰；反射换成 GL 的视图（名字、类型枚举、数组大小、块与成员的偏移和步长） |
+| `src/gles/glsl_es.js` | 按 `#version` 选路：1.00 走现有前端（或 L1 定的 310 打印），3.x 走 glslang |
+| `src/gles/gles3_state.js` | ES 3.0 的影子：VAO、采样器对象、查询、变换反馈对象、同步、不可变纹理与大小格式、3D 与数组纹理、PBO、缓冲映射与镜像、索引绑定（UBO、TF）、`glGetInteger64v`、`glGetIntegeri_v`、`glGetStringi`、`glGetInternalformativ`、程序接口、MRT 与读缓冲、`glClearBuffer*`、`glBlitFramebuffer` 与 `glInvalidate*` 的检查 |
+| `src/gles/gles31_state.js` | ES 3.1 与 3.2 的影子：计算、SSBO、图像、原子计数器、间接绘制、程序管线与可分离程序、顶点属性绑定、多重采样纹理、帧缓冲默认参数、`glGetProgramResource*`、`glGetTexLevelParameter*`、robustness，以及 3.2 的状态（立方体数组、边框颜色、采样着色、高级混合、按目标的混合与遮罩、KHR_debug 的查询值） |
+| `src/gles/gles_formats.js`、`gles_caps.js` | ES 3.0 表 3.13 与 3.16 的大小格式（可渲染、可过滤、可读回）；各版本的字符串、扩展与限制 |
+| `src/gles/page/gles_programs.js` | SPIR-V → vx_naga → WGSL，管线与变体的缓存，绑定的布局 |
+| `src/gles/page/gles_buffers.js` | GPU 缓冲、映射的读回、`glCopyBufferSubData`、PBO 的上传与读回 |
+| `src/gles/page/gles_vertex.js` | 顶点输入：直接取或转换；索引：8 位、扇形与线环、重启、flat 的重排；间接绘制的参数 |
+| `src/gles/page/gles_textures.js` | 格式映射与展开，ETC2/EAC 与 ASTC 的解码（没有对应特性时），swizzle 拷贝 |
+| `src/gles/page/gles_passes.js` | MRT、多重采样与解析、blit、清除、查询，render pass 的切分 |
+| `src/gles/page/gles_compute.js` | 计算、图像、SSBO、原子计数器、屏障 |
+| `src/gles/page/gles_stages.js` | 几何与细分：顶点的计算版本、几何记录、细分器（GX 的 `tessellator_wgsl.js`）、间接绘制 |
+| `src/browser/glbridge/vx/naga/src/` | 新 pass，都由选项打开：`stages.rs`（几何与细分接存储缓冲）、`border.rs`（边框颜色）、`blend.rs`（高级混合）、`sample.rs`（采样变量与 `interpolateAt*`），以及 SPIR-V 的预处理（几何与细分的执行模型） |
+| `src/browser/glbridge/webgpu_host.js` | 可选特性加上 `texture-compression-etc2` 与 `texture-compression-astc` |
+
+## 设计细节
+
+### 着色器的数据流
+
+- **`glCompileShader`**：第一遍按真实版本解析，回答 `GL_COMPILE_STATUS` 与 info log，保存源码。
+- **`glLinkProgram`**：
+  1. 第一遍重新解析各阶段并按 GL 的规则链接：接口配对、限制、变换反馈的 varying 是否存在。
+  2. 由反射建立程序的 GL 视图：
+     - uniform 的 location：先取 `layout(location)`，其余按反射顺序分配；
+     - attribute 的 location：先取 `glBindAttribLocation` 与 `layout(location)`，其余由宿主分配；
+     - 片段输出：`glBindFragDataLocation` 是桌面 GL 的，ES 只有 `layout(location)` 与单输出的默认值；
+     - uniform 块与缓冲块的索引、大小、成员。
+  3. 第二遍生成每个阶段的 SPIR-V，再按名字（`OpName`）把 location、binding、DescriptorSet 与 Xfb 的装饰改成上一步
+     定的值。
+- **默认 uniform**：宽松模式把它们放进 `gl_DefaultUniformBlock`，偏移来自反射。影子状态为每个程序保存这个块的
+  字节映像：`glUniform*` 按 location 写字节，批次带上改过的范围，页面每次绘制用一个环形的 uniform 缓冲取当前映像。
+- **采样器**：采样器 uniform 的值是纹理单元，可以随时改。所以绑定在绘制时才定：SPIR-V 的 binding 取该单元当前的
+  纹理，再加上绑定的采样器对象或纹理自己的参数。
+- **块**：uniform 块的 binding 点由 `glUniformBlockBinding` 指定。绘制时，按 binding 点取 `glBindBufferRange` 的
+  缓冲与范围（偏移对齐报 256）。SSBO（`layout(binding)`）、原子计数器（宽松模式下成了存储块）、图像
+  （`glBindImageTexture` 的单元）同理。
+- **页面**：vx_naga 的结果按 SPIR-V 的散列与选项缓存。选项来自绘制的状态：有没有深度附着、整数采样器的寻址方式、
+  哪些 uniform 缓冲超出 12 个而要改成存储。
+
+### 顶点与索引
+
+- **直接取**：布局合法就直接从 GPU 缓冲取，即格式存在、偏移与步长对齐、步长不超过 2048、除数是 0 或 1。
+- **转换**：其余情况由计算着色器转进临时缓冲：3 分量的 8/16 位、`GL_FIXED`、未对齐、除数大于 1（按实例展开）。
+  客户端数组（数据随命令来）先上传到临时缓冲。
+- **索引**：
+  - 8 位索引扩成 16 位；
+  - 扇形与线环生成索引：索引在 CPU 侧可知时（客户端数组或镜像最新）在 CPU 上生成，否则用计算着色器；
+  - 有 flat varying 的绘制，按 GL 的最后一个顶点重排索引；
+  - 间接绘制直接交给 WebGPU。要转换或扇形的间接绘制，用计算着色器生成参数（GX 不画这类绘制，这里要画）。
+- `gl_VertexID`、`gl_InstanceID` 对应 WGSL 的 `vertex_index`、`instance_index`，两者都包含起始值，与 GL 一致。
+
+### 纹理、采样器与格式
+
+- **格式表**：ES 3.0 的大小格式逐个映射到 WebGPU。没有 3 分量格式时展开存放。32F 不可过滤（ES 3.0 的规定），有
+  `float32-filterable` 时才宣告 `GL_OES_texture_float_linear`。
+- **纹理参数**：
+  - 不可变纹理（`glTexStorage*`）；
+  - `BASE_LEVEL`、`MAX_LEVEL` 用视图的级别范围；
+  - `MIN_LOD`、`MAX_LOD` 用采样器的 `lodMinClamp`、`lodMaxClamp`；
+  - `COMPARE_MODE` 为比较采样器加深度视图；
+  - `DEPTH_STENCIL_TEXTURE_MODE`（3.1）为只含模板的视图；
+  - 采样器对象优先于纹理自己的参数。
+- **swizzle 与 L/A/LA**：用 swizzle 拷贝，按内容的版本缓存。
+- **压缩格式**：
+  - ETC1、ETC2/EAC：有 `texture-compression-etc2` 就直传，否则在页面上解码（ETC1 的解码器已有）；
+  - ASTC：有 `texture-compression-astc` 就直传，否则解码。解码器自己写，或把参考解码器编成 wasm，L6 决定。
+- **其他纹理**：3D、2D 数组、立方体数组；4x 多重采样纹理（3.1）。
+- **读回**：`glReadPixels` 按 ES 3.0 的格式与类型组合转换，包括 `GL_IMPLEMENTATION_COLOR_READ_FORMAT/TYPE`。
+
+### 帧缓冲与绘制
+
+- **目标**：MRT 报 4 个，即 ES 3.0 的最小值。8 个 RGBA32F 会超过 WebGPU 每采样 32 字节的限制；之后要提高再测。
+- **清除**：`glDrawBuffers`、`glReadBuffer`；`glClearBuffer*` 按目标的类型（浮点、整数、深度、模板）清除。
+- **`glBlitFramebuffer`**：着色器拷贝，可以缩放、过滤、翻转；深度写 `frag_depth`；1:1 的多重采样解析用
+  `resolveTarget`。模板做不到，每位一遍的模板写入代价太高，记为偏差。
+- **多重采样**：多重采样的渲染缓冲是原生 4x。`glGetMultisamplefv` 答 WebGPU 4x 的标准位置。
+- **其他**：`glInvalidate(Sub)Framebuffer` 用作 `storeOp: "discard"` 的提示。没有附着的帧缓冲（3.1）用一个写入遮罩为
+  0 的占位目标。sRGB 格式直接用 WebGPU 的 `-srgb` 格式。
+- **render pass 的切分**：一个 pass 内的用法冲突时结束 pass，例如前面写过的存储缓冲又被当作顶点或 uniform 读。
+  `glMemoryBarrier` 也结束 pass。
+
+### 变换反馈、查询与同步
+
+- **变换反馈**：用 `xfb.rs` 的计算预跑，写进 TF 缓冲，再照常绘制（`GL_RASTERIZER_DISCARD` 时不画）。暂停与继续
+  记在 CPU 侧的偏移里。
+- **遮挡查询**：一个 GL 查询可能跨几个 render pass，每个 pass 用 WebGPU 的遮挡查询，结果相加；`ANY_SAMPLES_PASSED`
+  与 `_CONSERVATIVE` 都按“和大于 0”。
+- **同步对象**：只要顺序，同 E2。
+
+### ES 3.1
+
+- **计算**：`glDispatchCompute`，以及读间接缓冲的 `glDispatchComputeIndirect`。
+- **SSBO 与原子**：SSBO 用 WGSL 的 `atomic<T>`，有符号的原子最小值、最大值照常用 `atomicMin/Max<i32>`（GX 有这项
+  偏差，这里没有）。
+- **图像**：用存储纹理。ES 3.1 的图像格式与读写规则（只有 r32f/i/ui 可以读写）与 WebGPU core 一致；分层绑定用数组
+  视图。
+- **可分离程序与程序管线**：每个阶段单独生成 SPIR-V，阶段之间按 location 配对；管线对象在影子状态里。
+- **顶点属性绑定**：`glVertexAttribFormat`/`glBindVertexBuffer` 是 3.1 的模型，3.0 的调用在影子里改写成它。
+- **限制**：顶点阶段报 0 个 SSBO、图像与原子计数器，这是 ES 3.1 的最小值，也是 WebGPU 顶点阶段不能写存储的原因。
+
+### ES 3.2
+
+- **几何着色器**：顶点着色器的计算版本把记录写进缓冲，几何着色器每个输入图元（和实例）跑一次，写出至多
+  `max_vertices` 个顶点，带计数；然后一次计算把条带展开成列表，写间接参数，再画。
+- **曲面细分**：细分控制每个 patch 跑一次，写输出与细分因子；接 GX 的细分器（count、scan、generate）；细分求值每个
+  生成的点跑一次；再画。细分后接几何着色器（GX 没有）也要支持。
+- **高级混合**：用了高级方程的绘制，先把目标的对应区域拷成纹理；片段着色器读它，按方程混合，再关掉固定混合写出。
+  一次绘制内图元重叠时结果不定，非一致版本的规范本来就允许这样。
+- **边框颜色**：只在用到 `CLAMP_TO_BORDER` 的采样上，在着色器里判断坐标；最近过滤时准确，线性过滤时近似。
+- **采样变量**：`gl_SampleID`、`gl_SampleMaskIn`、`gl_SampleMask` 对应 WGSL 的内建；`gl_SamplePosition` 按 4x 的标准
+  位置计算；`sample` 限定符对应 `@interpolate(..., sample)`；`interpolateAt*` 用导数近似。
+- **立方体贴图数组**：用 WebGPU 的 `cube-array` 视图。
+- **按目标的混合与写入遮罩**：WebGPU 的每个颜色目标各有一组。
+
+### 限制
+
+CPU 侧在页面有设备之前就要回答 `glGet*`，所以限制是固定值，取 WebGPU 的默认限制能保证的数，不看适配器：
+
+| 限制 | 值 | 依据 |
+| --- | --- | --- |
+| `MAX_TEXTURE_SIZE`、`MAX_CUBE_MAP_TEXTURE_SIZE` | 4096 | 沿用；ES 3.0 最小 2048 |
+| `MAX_3D_TEXTURE_SIZE`、`MAX_ARRAY_TEXTURE_LAYERS` | 2048、256 | WebGPU 默认 |
+| `MAX_VERTEX_UNIFORM_BLOCKS`、`MAX_FRAGMENT_UNIFORM_BLOCKS` | 12 | ES 最小值；加上默认块的第 13 个由 vx_naga 改成只读存储 |
+| `MAX_UNIFORM_BLOCK_SIZE` | 16384 | ES 最小值；WebGPU 默认 65536 |
+| `MAX_DRAW_BUFFERS`、`MAX_COLOR_ATTACHMENTS` | 4 | 见上文 |
+| `MAX_SAMPLES` | 4 | WebGPU |
+| `MAX_VARYING_VECTORS`、输出与输入分量 | 15、60、60 | 16 个 location 留一个余量；`io.rs` 把矩阵和数组拆开后可能超出，见“风险” |
+| `MAX_TRANSFORM_FEEDBACK_*` | 64、4、4 | ES 最小值 |
+| `MAX_COMPUTE_WORK_GROUP_SIZE`、调用数、共享内存 | (128, 128, 64)、128、16384 | ES 最小值，都在 WebGPU 默认之内 |
+| `MAX_COMPUTE_SHADER_STORAGE_BLOCKS`、`MAX_COMPUTE_IMAGE_UNIFORMS` | 4、4 | ES 最小值；WebGPU 默认 8、4 |
+| `MAX_GEOMETRY_*`、`MAX_TESS_*`、`MAX_PATCH_VERTICES` | ES 3.2 的最小值 | 计算着色器里做，不受渲染阶段的限制约束 |
+
+## 阶段
+
+### L0 准备
+
+- **修共用翻译器的已知错误**（现状一节列出的那些）：加 `diagnostic(off, derivative_uniformity)`，不再用
+  `dpdx`/`textureSampleGrad` 的写法；修向量 `==`、整数位运算的广播、移位量、写 `in` 参数。
+- **补 ES 模式的测试**：`tests/glbridge/` 加 `es: true` 的用例。浏览器测试用 Tint（`getCompilationInfo`）检查，因为
+  naga 不检查片段阶段的一致性。
+- **跑一次 E4 的 dEQP-GLES2 子集**，记下基线。之前那次全是 NotRun，要先查明原因；之后各阶段都按这个数检查不回退。
+- **取用例表**：从同一个 CTS 7.1_r29 包里，用 `tools/a32_cts.mjs` 按字节范围取 `gles3-master.txt` 与
+  `gles31-master.txt`。下载前征得所有者同意。
+
+验收：
+- `make test-glbridge`，以及 XP 的 Cube 2 语料全部通过；
+- 新的 ES 用例经 Tint 验证；
+- dEQP-GLES2 的基线写进本计划。
+
+粗估：约 0.5k 行。
+
+### L1 着色器的验证
+
+- `tools/glslang/build.mjs`：固定一个 glslang 的发布版（下载前征得同意），用 emsdk 编成 wasm，测大小。
+- `src/gles/glslang.js` 的最小版：两遍编译、location 与 binding 的分配、写 SPIR-V 的装饰、GL 视角的反射。
+- **语料**：
+  - Android 7.1 开机时的 64 个着色器（E2 的 `--shaders` 导出）；
+  - dEQP-GLES3、GLES31 的 `shaders.*` 各组抽样，从用例的源码里取；
+  - 手写的 3.10 与 3.20 用例：计算、SSBO、图像、原子计数器、几何、细分。
+- **每个着色器的检查**：
+  - 第一遍的结果与 dEQP 的期望一致：合法的能编译，非法的被拒；
+  - 第二遍的 SPIR-V 经 vx_naga 得到 WGSL，经 naga 与 Tint 验证；
+  - 反射与 GL 的期望一致：名字、类型、数组大小、块的布局、location；
+  - 跨阶段的 location 配对正确。
+- **测量**：每个着色器的两遍耗时（CPU Worker 里），wasm 的装载时间与大小。
+- **GLSL ES 1.00**：试用现有前端打印 310 es，对开机语料与 dEQP-GLES2 的 `shaders.*` 抽样比较：输出相同，或者
+  像素一致。
+- **几何与细分的可行性**：一个几何着色器和一对细分着色器的 SPIR-V 经预处理后被 naga 读进，pass 的雏形能生成
+  合法的计算着色器。
+
+验收（全部满足才继续，否则转附录 B）：
+- 语料的 99% 以上走完整条路并通过 Tint；剩下的每个都有原因，而且不是 glslang 或宽松模式的根本限制；
+- 反射能回答 GL 的全部程序查询；
+- 一个典型的 300 es 着色器两遍合计 ≤ 5 ms；wasm 不超过 4 MB；
+- 1.00 的走法定下来；
+- 结论写进本计划的“L1 结论”。
+
+粗估：1.5–2.5k 行，加语料与测试。
+
+### L2 ES 3.0 的影子状态
+
+- `gles3_state.js` 与改动的 `gles_shadow.js`、`gles_formats.js`、`gles_caps.js`：
+  - 上下文的版本：2.0 上下文里，ES 3.0 的入口按 GL 的规则报错；
+  - 模块表里 ES 3.0 的全部状态与查询；AEMU 命令；
+  - 缓冲的镜像与“GPU 较新”的标记；
+  - 变换反馈的计数；
+  - 等页面的三类调用（结论第 4 条）。
+- `glslang.js` 接进 `compile_shader`/`link_program`：3.x 走 glslang，SPIR-V 进链接的记录。
+- 快照（`gles_snapshot.js`）加入新的对象。着色器按 E5 的做法，恢复时从源码重新编译。
+
+验收：
+- `tests/gles/shadow3.mjs`：对照 ES 3.0 规范的状态表与错误；
+- 录下的 ES 3.0 批次在 Node 里能解码；
+- 2.0 的测试不变。
+
+粗估：3–4k 行。
+
+### L3 ES 3.0 的执行器
+
+页面的执行器按“设计细节”扩展：
+- 缓冲上 GPU，顶点的直接取与转换，索引；
+- 格式表、采样器对象、swizzle 拷贝、ETC2/EAC；
+- 3D 与数组纹理；
+- MRT、多重采样与 blit、清除与读回、PBO；
+- 变换反馈、查询；
+- vx_naga 的 GLES 选项与程序缓存。
+
+E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
+
+验收：
+- `tests/glbridge/gles_executor_browser_test.html` 加入 ES 3.0 的场景，每个都与参考像素比较：整数纹理、MRT、UBO、
+  实例化、变换反馈、3D 与数组纹理、多重采样解析、PBO、sRGB；
+- ES 2.0 的场景与 E3 录下的开机批次重放不变。
+
+粗估：4–6k 行。
+
+### L4 ES 3.0 的验收与宣告
+
+- **宣告**：宿主宣告 `ANDROID_EMU_gles_max_version_3_0`，启动属性 `ro.opengles.version=196608`，
+  `ranchu_gles_version` 默认 `"3.0"`。
+- **核对**：
+  - `rcCreateContext` 的版本参数（见“现状”的“客体能发什么”）；
+  - SurfaceFlinger 与 hwui 用哪个版本的上下文；
+  - 开机时间与开机的批次数和 E3 相比。
+- **dEQP-GLES3 子集**（`A32_ANDROID_DEQP`，用例表换成 `gles3-master.txt`），组成照 E4：
+  - `state_query` 与 `negative_api` 全部收入；
+  - 其余的 functional 每九个取一个；
+  - 不收性能、压力与 `flush_finish`。
+- **自建 APK**：`tests/a32/android/v86gles.c` 加 ES 3.0 的场景，用 `glReadPixels` 读点检查。
+
+验收：
+- 开机正常；
+- dEQP-GLES3 子集在支持的用例中通过 ≥ 97%，`state_query` 与 `negative_api` ≥ 99%，没有崩溃或挂起；
+- dEQP-GLES2 不比 L0 的基线差；
+- 自建 APK 的点全对；
+- 每个失败归类：修掉，或者记为偏差。
+
+### L5 ES 3.1
+
+- **内容**：影子（`gles31_state.js`）与执行器的计算、SSBO、图像、原子计数器、间接绘制、可分离程序与程序管线、
+  顶点属性绑定、多重采样纹理、纹理 gather、没有附着的帧缓冲、`glGetTexLevelParameter*`、robustness。
+- **宣告**：宿主宣告 `_3_1` 与 196609。
+
+验收：
+- dEQP-GLES31 子集的 ES 3.1 部分（只用到 3.2 扩展的组除外），目标同 L4；
+- dEQP-GLES3 与 GLES2 不回退；
+- 自建 APK 加计算与 SSBO 的场景。
+
+粗估：3–4k 行。
+
+### L6 ES 3.2（线上能到的）
+
+- **几何与细分**：SPIR-V 预处理加 `stages.rs`；顶点的计算版本；几何的记录与绘制；GX 细分器的接入；细分接几何。
+- **其余**：ASTC（直传或解码）、立方体贴图数组、边框颜色（`border.rs`）、高级混合（`blend.rs`）、采样着色与采样
+  变量（`sample.rs`）、按目标的混合与遮罩、KHR_debug 的查询值。
+- **宣告**：宿主宣告 `_3_2` 与 196610，`GL_VERSION` 为 `OpenGL ES 3.2 v86`，`GL_SHADING_LANGUAGE_VERSION` 为
+  `OpenGL ES GLSL ES 3.20`。
+- **偏差**：够不到的入口与 WebGPU 做不到的，写进 gpu-deviations（改 G-68，新增条目）。
+
+验收：
+- dEQP-GLES31 子集中 3.2 的组（`geometry_shading`、`tessellation`、`texture.border_clamp`、`blend_equation_advanced`、
+  `sample_shading`、`sample_variables`、`texture.texture_cube_map_array` 等）：每个失败要么修掉，要么归到偏差，而且
+  原因写明是客体缺入口还是 WebGPU 做不到；
+- 其余组不回退；
+- 自建 APK 加几何与细分的场景。
+
+粗估：5–7k 行，其中 naga pass 3–4k。
+
+### L7 快照、性能、界面与文档
+
+- **快照**：GPU 缓冲读回，3D、数组与多重采样纹理（多重采样的内容不保存，恢复后为已清除，同 G-69 的深度），查询与
+  变换反馈的状态，程序管线。
+- **性能**：
+  - CPU 侧：glslang 的耗时、影子状态每次调用的耗时（`stats.cpu_ms`）；
+  - 页面：管线与 vx_naga 的缓存命中、顶点转换的次数；
+  - 一个 ES 3.0 的游戏或基准程序的帧率。具体程序 L4 选，开源而且有 armeabi-v7a 构建，下载前征得同意。
+- **界面**：VM 配置加 `android.gles_version`（模拟器镜像在 `"host"` 模式下才有），默认取已验收的最高版本；设置面板
+  与摘要随之更新；`make app-tests` 加用例。
+- **文档**：[arm32.md](arm32.md)、[gpu-devices.md](gpu-devices.md) 的 GLES 一节、[gpu-deviations.md](gpu-deviations.md)。
+
+验收：
+- 快照往返后画面与状态一致；
+- 性能数据写进文档。
+
+## 测试
+
+| 层 | 位置 | 运行方式 |
+| --- | --- | --- |
+| 共用翻译器的 ES 模式 | `tests/glbridge/` 的新用例（Tint 在浏览器测试里） | `make test-glbridge`、`make display-browser-tests` |
+| glslang 的两遍、反射、location 与装饰 | `tests/gles/glslang.mjs` | `make gles-tests` |
+| 着色器语料：glslang → vx_naga → WGSL，经 naga 验证 | `tests/gles/shader_corpus.mjs` | `make gles-tests`（naga 不在时跳过，同现有做法） |
+| 同一语料经 Tint 验证 | `tests/glbridge/gles_shader_browser_test.html` | `make display-browser-tests` |
+| ES 3.0/3.1/3.2 的影子状态 | `tests/gles/shadow3.mjs`、`shadow31.mjs` | `make gles-tests` |
+| 执行器的场景与像素 | `tests/glbridge/gles_executor_browser_test.html` | `make display-browser-tests` |
+| vx_naga 的新 pass；VX 不变 | `src/browser/glbridge/vx/naga` 的单元测试，加上现有的 VX 语料 | `cargo test`，以及 `make test-glbridge` |
+| Android 7.1：开机、dEQP-GLES2/3/31 子集、自建 APK | `tests/a32/android_boot.mjs` 及其 `A32_ANDROID_*` 开关 | 手动 |
+
+`make gles-tests` 已经在 `make ci-tests` 里，新的测试跟着它进 CI。glslang 的 wasm 要像 `vx_naga.wasm` 一样在 CI 里
+构建，或者作为固定的构建产物检入；L1 决定用哪种。
+
+## 风险
+
+| 风险 | 影响 | 对策 |
+| --- | --- | --- |
+| glslang 的宽松模式不合 GL 的语义（默认 uniform 的布局、location、反射的名字） | 着色器路线不成立 | L1 先验证；不成立就转附录 B，影子状态照用 |
+| 300 es 覆盖成 310 es 时语义有差别（310 新增的关键字、内建与用户标识符冲突） | 合法的 300 着色器在第二遍失败 | 第一遍按 300 检查；第二遍之前重命名冲突的标识符；语料覆盖 |
+| GLSL ES 1.00 打印成 310 有差错 | ES 2.0 回退 | L1 的比较；不行就保留现有翻译器，执行器支持两种模型 |
+| glslang 的 wasm 大、编译慢 | 插件变大，新画面卡顿 | L1 测量；只编需要的部分；只在 `ranchu_gpu: "host"` 时装载 |
+| varying 打包：GL 按分量计数，`io.rs` 拆开后每个数组元素占一个 location | 合法的着色器超出 WebGPU 的 16 个 location | vx_naga 加一个打包 pass，或者把限制报低；dEQP 的 varying 上限用例检验 |
+| naga 不读几何与细分的 SPIR-V | 3.2 的主要部分做不了 | L1 做可行性；SPIR-V 预处理加 naga pass；不行就在 glslang 之前改写源码 |
+| 缓冲映射要等页面 | 读取 GPU 结果的应用卡顿 | 镜像是最新的就不等；只在 GPU 写过之后等 |
+| 宣告 3.2 后，客体调用够不到的入口 | 应用走到桩上，画面不对 | 记为偏差；`ranchu_gles_version` 可以把宣告压回 3.1 |
+| vx_naga 的改动影响 VX | Android 16 的 Venus 与 gfxstream 回退 | 新 pass 都由选项打开；VX 的语料与 dEQP 抽样作为回归 |
+| 执行器的改动影响已有的 ES 2.0 | Android 7.1 的界面回退 | E3 的批次重放与开机截图，加上 dEQP-GLES2 基线 |
+
+## 已定（2026-10-28）
+
+1. **范围**：ES 3.0、3.1 完整；3.2 只做现有操作码能表达的部分；宣告 3_2，缺的 3.2 入口记为偏差。所有者选的是
+   “3.0+3.1 全做，3.2 做线上能到的”。
+2. **先写计划**，审过再逐步实施。
+3. **E3–E6 的改动**先提交成 `ios6` 上的基线，即 `a17140ed`。
+4. **后端**：扩展 E3 的执行器，直接生成 WGSL；着色器先验证 glslang → SPIR-V → vx_naga，验证不通过再退回 GX 路线
+   （附录 B）。所有者问过两条路线的性能差别，答复见“性能预期”。
+
+## 待定（有默认值，所有者可改）
+
+1. **`ranchu_gles_version` 的默认值**：取已验收的最高版本。L6 之后是 `"3.2"`。
+2. **glslang 的来源**：固定一个上游的发布版，源码下载到 `build/`，下载前征得同意。wasm 是在 CI 里构建还是检入，L1
+   决定。
+3. **CTS 的用例表**：`gles3-master.txt`、`gles31-master.txt`，按字节范围从已用过的 CTS 7.1_r29 包里取，下载前征得
+   同意。
+4. **GLSL ES 1.00 也走 glslang**：由 L1 的数据决定，默认“是”。
+
+## 附录 A：翻译器的评估（2026-10-28）
+
+`gl_shader_translator.js`（5308 行）对照 GLSL ES 3.00、3.10、3.20 的逐项结论。探测用 naga 30 与 Chrome 的 Tint 跑
+真实输出，没有改仓库。
+
+- **有的**：非方阵矩阵、`transpose`/`outerProduct`、整数的 `abs`/`sign`/`min`/`max`/`clamp`、十六进制字面量、整数的位
+  运算与 `%`、`sampler3D` 与 `sampler2DShadow`、`invariant`。
+- **部分有的**：`gl_FragDepth`（ES 模式丢掉）、`.length()`（被拒）、数组赋值（有）与数组比较（没有）、全局的
+  `in`/`out`（能解析，但悄悄变成私有全局变量）。
+- **3.00 没有的**：`uint` 与 `u` 后缀、`layout(...)`、`flat`/`smooth`、`switch`、数组构造、多个片段输出、整数的属性
+  与 varying、`texture()` 一族与 `textureSize`、`sampler2DArray`、`samplerCubeShadow`、`isampler*`/`usampler*`、
+  uniform 块、`gl_VertexID`/`gl_InstanceID`、变换反馈。
+- **3.10 与 3.20 的内容一项都没有。**
+- **它的设计**：
+  - 每个程序在链接时生成一次 WGSL，只有 `vs_main` 与 `fs_main`；
+  - uniform 都在一个私有的 `GLUniforms` 块里，每个成员按 16 字节对齐，不是 std140；
+  - varying 按名字贪心地打包进最多 16 个 `vec4<f32>`。
+- **估计**：扩到 3.00 加 3.5–4.5k 行；3.10 再加 3–3.5k；3.20（几何与细分降级成计算）再加 4.5–6k；执行器另计。重写
+  一个前端到 3.2 要 16–20k 行，并不更省。
+- **建议**：先修已有的错误；不往 3.00 以上扩；3.x 先验证 glslang 接 vx_naga（被本计划采纳）。
+
+## 附录 B：退路（virgl → GX）
+
+L1 不通过时采用。CPU 侧做两件事：
+- 把 GL ES 的状态翻成 virgl（Gallium）的命令，交给一个内嵌的 `Virgl` 设备侧（`src/graphics_adapters/virtio_gpu/
+  virgl.js`）。它管资源、传输、快照与呈现，吃 virgl 的命令字，产出 GX 批次；
+- 自己写 GLSL ES → TGSI 的后端，接 `tgsi_vgpu10.js`。
+
+页面只跑 GX。
+
+- **现成的**：几何、细分、流输出、计算、UAV、顶点拉取、多重采样（超采样）、间接绘制、查询，Linux 客体靠它们跑
+  GL 4.3 与 GLES 3.1。
+- **要补的**：
+  - GX 缺的 3.2 部分：ASTC、高级混合、边框颜色、`imageSize`、细分后接几何、`interpolateAt*`、有符号的原子最小值和
+    最大值。补上后 Linux 的 virgl 也能报 GLES 3.2；
+  - ES 2.0 与 1.1 也迁过去，E3 的页面执行器在新路径达到同样效果后退役。
+- **代价**：
+  - GLSL ES → TGSI 的编译器是这条路最大、最险的一块；
+  - GX 的 WGSL 是寄存器机风格，体积大、变体多，管线编译更慢；
+  - 多重采样是超采样。
+
+L0 与 L2 在两条路线上都用得上。
