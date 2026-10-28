@@ -1,7 +1,7 @@
 # GLES 3.x 执行器计划（3.0、3.1 与 3.2）
 
-状态：实施中。2026-10-28 写，同日所有者定了范围、做法与后端（见“已定”）。L0–L3 与 L6 已完成（见各自的结论）；L4、L5
-的代码已提交，验收（dEQP-GLES3、GLES31 与自建 APK）还在跑；L7 做了快照。前提是
+状态：完成。2026-10-28 写，同日所有者定了范围、做法与后端（见“已定”）。L0–L7 都已完成（见各自的结论）：
+dEQP-GLES3 子集 99.5%、GLES31 子集 99.4%、GLES2 子集 99.2%（宿主宣告 3.1，2026-10-29）；默认宣告 3.1，可选 3.2。前提是
 [gles-proxy-plan.md](gles-proxy-plan.md) 的 E0–E6，以 `a17140ed` 为基线：E3–E6 的代码已提交，验收还没跑完。
 
 本计划把 ranchu 的 GLES 宿主（`ranchu_gpu: "host"`）从 GLES 2.0 扩到 3.2，涉及三处：CPU 侧的影子状态、着色器编译、
@@ -633,6 +633,51 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
 - 自建 APK 加计算与 SSBO 的场景。
 
 粗估：3–4k 行。
+
+**L5 结论（2026-10-29）：完成**（`35c69fb5`、`b4c6cd9f`、`6a45c0b8`、`0b64fc67`、`ce19e76d`、`e5945656`、
+`bfdaefbf`、`6764a1cc`、`96faef9e`、`3997f4e6`、`7ea99cd5`）。宿主宣告 3.1（3.2 的宣告让 dEQP 去试客体库拒绝的几何与细分，见 G-68），
+`A32_ANDROID_DEQP_SUITE=gles31`，组成照 L4（`state_query` 全收，其余 functional 每九取一），5254 例：
+
+- **dEQP-GLES31 子集**：支持的 1924 例中 1913 例通过（99.4%）；`state_query` 599 例全过；负面用例 57 例中 56 例。先整跑一遍
+  （`v86-gles31-deqp3`，旧代码，中途停下：间接调度的上传在打开的计算通道里做，整批命令作废，后面的结果都不可信），再用
+  `A32_ANDROID_DEQP_RESUME` 接着跑（`v86-gles31-deqp4`），之后每修一轮只重跑没过的（`deqp5` 到 `deqp10`，带完整日志）。
+- **两例让客体的 dEQP 进程退出**，没算在里面（用 `A32_ANDROID_DEQP_FILTER` 排除，否则同一批后面的用例都不跑）：
+  `atomic_counter.layout.default_offset_set.get_dec.8_counters_5_calls_1000_threads`（读回约 480 KB 的结果缓冲时进程没了：
+  第五次 map 没有对应的 unmap；宿主没有报错，客体的日志没有崩溃转储）与
+  `debug.negative_coverage.get_error.buffer.invalidate_sub_framebuffer`（同样没有转储）。都是客体一侧的问题，未查。
+- **这一阶段跑出来并修掉的**（每个都有浏览器或 Node 的测试）：
+  - 原子计数器：glslang 不反射偏移（从代码那一遍的 `gl_AtomicCounterBlock_N` 取），宽松规则下的 `atomicCounterDecrement`
+    是 uint 减 int（开隐式转换），naga 把不从 0 开始或倒序的偏移排错（vx_naga `counters.rs` 摊成一个 uint 数组）；
+    `GL_OFFSET` 答成 -1，dEQP 从映射的前一个字节读出 447；绑定点只有一个（dEQP 绑在 1）。
+  - SSBO：块的实例数组只在 SPIR-V 绑定 19 以内拆开（VX 的编码，WebGPU 只有 1000 个绑定），之后的存储块与 uniform 块数组都
+    没拆（GLES 的模块打 `OpModuleProcessed` 标记，元素 e 用绑定 b + e）；拆开后留下的数组类型 naga 拒绝声明；`layout.rs`
+    只做了读，写 std140 的 16 字节元素与行主序矩阵的模块原样交给 naga（现在逐分量写，留着补齐的字节）；不定长数组；
+    `MATRIX_STRIDE`（glslang 不反射）、只给矩阵的 `IS_ROW_MAJOR`、不定长数组的 `ARRAY_SIZE` 0、顶层成员的
+    `TOP_LEVEL_ARRAY_SIZE`/`STRIDE`；`writeonly` 块（naga 拒绝 NonReadable）。
+  - 执行器：在打开的通道里上传间接参数，整批作废；`glBufferData` 不认 3.1 的目标，GPU 副本留着旧字节；没有绑定的可写存储
+    写进了大家读的全零缓冲；采样器单元卡在 31；同一调度里对同一资源的可写别名（G-79）。
+  - 图像：立方体图像（`imagecubes.rs`，面当二维数组的层）；格式重解释与 3D 纹理的一层当二维图像（代理纹理，拷进拷回）；
+    naga 写的 `@coherent`/`@volatile`；`gl_HelperInvocation`（naga 不认，取 false，G-78）。
+  - 程序：可分离程序的输入与输出（glslang 加 `EShReflectionIntermediateIO`，重新链接了 `bios/glslang.wasm`）；程序管线校验
+    两个方向都对接口；采样器与图像的 `layout(binding)`；变换反馈抓数组元素与结构成员（在 `main` 之后拷到自己的输出）；
+    `uniform_location`：数组的数组、结构成员与只在一个阶段声明的位置（glslang 都不给）。
+  - 其余：`bitCount`/`findLSB`/`findMSB` 的结果类型（`negate.rs`）；3.1 的最小限制（48 个纹理单元、1024 个片段 uniform
+    分量、36 个 uniform 缓冲绑定点）；`glGetBooleani_v`；多重采样纹理的参数；`VERTEX_BINDING_STRIDE` 的初值。
+- **剩下的 11 例**：
+  - 偏差：同一调度里对同一资源的可写别名（G-79，2 例）；采样数一律 4（G-80，1 例）；
+  - `ssbo.layout` 7 例：带不定长数组的结构的实例数组 3 例（翻译得出，执行结果不对，未查）、`random` 4 例（其一是 dEQP
+    要的 `BlockE` 不在反射里）；
+  - `ubo.random` 1 例：std140 嵌套结构里的 `mat4x2 mA[3][3]`，两个阶段都翻译得出，没有 WebGPU 错误，像素全错，未查。
+- **自建 APK**：3.1 的计算与 SSBO 场景在 L4 已加且全对。
+- **回归**（宿主宣告 3.1，GLES3 与 GLES2 的上下文都是 3.1 的）：
+  - dEQP-GLES3 子集：支持的 5384 例中 5359 例通过（99.5%，L4 是 99.0%）；`state_query` 与 `negative_api` 1224 例全过；
+    和 L4 比没有新的失败。整跑（`v86-gles3-l5-regress`）先跑出 40 例新的失败，修在 `7ea99cd5` 后重跑
+    （`v86-gles3-l5-regress2`）：带 flat 变量又被变换反馈抓的绘制没按 GL 的引发顶点画（G-77，dEQP 比较抓与不抓的两张图）；
+    删掉的纹理还挂在没绑定的帧缓冲上时，同名的新纹理被画进去（现在留作孤儿）；深度模板纹理的模板写一个矩形
+    （WebGPU 只拷整层，现在经缓冲由计算通道改）；顶点输入超过 16 个位置的链接（现在报错）。剩下 25 例：G-70 10 例、
+    G-76 5 例、G-64 1 例，其余是 L4 已列的 `fragment_ops`、`fbo`、`ubo.random` 与 `rasterization`。
+  - dEQP-GLES2 子集：2039 例中 2023 例（99.2%），比 L4 多修好 10 例；整跑里唯一新的失败
+    （`fbo.render.color.mix_tex2d_rgba_depth_component16`）单独重跑通过。
 
 ### L6 ES 3.2（线上能到的）
 
