@@ -1701,9 +1701,10 @@ export const GLES3 = {
 
     // ---- clears
 
-    /** glClear: every draw buffer, the depth and stencil buffers */
+    /** glClear: every draw buffer, the depth and stencil buffers (none while RASTERIZER_DISCARD is on) */
     clear3(c, mask)
     {
+        if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
         const target = this.target3(c);
         if(!target) return;
         const color = c.clear_color.slice();
@@ -1711,9 +1712,10 @@ export const GLES3 = {
             depth: mask & 0x0100 ? c.clear_depth : undefined, stencil: mask & 0x0400 ? c.clear_stencil : undefined });
     },
 
-    /** glClearBuffer{iv,uiv,fv,fi} */
+    /** glClearBuffer{iv,uiv,fv,fi} (none while RASTERIZER_DISCARD is on) */
     clear_buffer3(c, name, args)
     {
+        if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
         const target = this.target3(c);
         if(!target) return;
         const [buffer, drawbuffer, value] = args;
