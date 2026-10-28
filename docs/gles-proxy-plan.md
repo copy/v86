@@ -668,8 +668,18 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
   - GLES 3.x 会话修了回退（3337e95d 等）之后，38 个回退用例带图像重跑（`A32_ANDROID_DEQP_FILTER` 与
     `A32_ANDROID_DEQP_IMAGES=1`，`runs/v86-gles-deqp6/`）：36 个通过。剩下两个已交给那个会话：
     `max_vertex_texture_image_units_vertex`（着色器里的常量不等于查询到的 16，glslang 的资源上限多半还是它的默认值）、
-    `draw_elements.triangles.single_attribute`（三次迭代都整张黑，参考是一个白三角形）。把这次重跑算进去，子集约
-    2016/2034（99.1%）；整套没有重跑。
+    `draw_elements.triangles.single_attribute`（三次迭代都整张黑，参考是一个白三角形）。那个会话随后修好了这两个：
+    glslang 的资源上限从没设置过（着色器里的 `gl_Max*` 都是 glslang 的默认值，现在按 glGet 的回答设），6 字节的
+    索引缓冲上传时补不齐整字被拒（现在补零）。
+  - **最终**（ios6 的 f48fdcc7，整个子集重跑，`runs/v86-gles-deqp7/`）：2039 个支持的用例通过 2013 个（**98.7%**），
+    `state_query`、`negative_api`、`dEQP-EGL.info` 仍然全过。比上一次完整运行修好 44 个，新失败 11 个：其中 2 个是
+    G-70（常量的 alpha 放进四个通道之后，混用常量颜色的组合反过来失败），另外 9 个是新代码的回退，已交给 GLES 3.x
+    会话（`shaders.random.all_features` 5 个编译失败、NPOT 加 REPEAT 的纹理完整性 2 个、FBO 附件查询、一个
+    `glCreateProgram` 报 `GL_INVALID_OPERATION`）。那个会话查明这次的 dEQP-GLES2 其实跑在 3.x 上下文上：客体的 EGL 按
+    主机宣布的最高版本建 GLES 2.0 上下文，3.0 成为默认之后，ES2 的用例都走 3.x 的影子与执行器；FBO 的两个是 3.x 拒绝
+    没有 glGen 过的名字（GLES 仍然允许绑定时创建），NPOT 的两个是 3.x 上下文的扩展串里少了 ES2 的扩展，都在 fb1075c2
+    修好，随机着色器 5 个还在查。其余 15 个是已知的：G-70 混合 4 个、随机片段操作与交互 8 个、
+    RGB 加 16 位深度的 FBO 清除、深度范围比较、宽点的裁剪（G-64）。
 - **没做的**：Replica Island 与 Shattered Pixel Dungeon 两个游戏；EGL 的同步、多上下文共享与 YUV 外部纹理的专门检查
   （启动与 dEQP 里用到的部分已经工作）。
 

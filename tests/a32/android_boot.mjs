@@ -215,14 +215,15 @@ if(process.env.A32_ANDROID_MEDIA === "1")
         // setup's "Leave it this way", the news' "Rock on!", Start, the middle difficulty, then the first
         // conversation; playing: its game activity, or the conversations it opens over the level, the arrow keys
         // (the control scheme it picks for the emulator's keyboard). Shattered Pixel Dungeon draws everything
-        // itself: "Enter the Dungeon", the warrior, Start, the story's Continue)
+        // itself: "Enter the Dungeon", the warrior, Start, the story's Continue (again: it answers only once the
+        // level is made, minutes on the slowed clock; a tap there in the level walks))
         { name: "replicaisland", package: "com.replica.replicaisland", file: "replicaisland_14.apk",
             steps: [{ view: 'text="Leave it this way"', at: [90, 225] }, { view: 'text="Rock on!"', at: [90, 365] },
                 { view: 'resource-id="[^"]*startButton"' }, { view: 'resource-id="[^"]*kidsButton"' }, [240, 400]],
             playing: /AndouKun|ConversationDialogActivity/, keys: true,
             url: "https://f-droid.org/archive/com.replica.replicaisland_14.apk", sha256: "35d900fabe6bbc05899c3fcc0fb5926a5a901d807889d0d111b34a1e87d7acde" },
         { name: "shatteredpixeldungeon", package: "com.shatteredpixel.shatteredpixeldungeon", file: "shatteredpixeldungeon_921.apk",
-            steps: [[240, 750], [40, 770], [240, 700], [240, 565]],
+            steps: [[240, 750], [40, 770], [240, 700], [240, 565], [240, 565], [240, 565], [240, 565]], threads: true,
             url: "https://f-droid.org/repo/com.shatteredpixel.shatteredpixeldungeon_921.apk", sha256: "dbd8205680e89758babf608212a1fb3f498f732118b1e3c0b9fd33bf67486a99" },
     ];
     const root = run_directory + "media-disk/";
@@ -732,6 +733,17 @@ try
                 await new Promise(resolve => setTimeout(resolve, 45000));
                 await dismiss_dialogs();
                 save_png(sink, run_directory, `${game.name}-step${i + 1}`);
+            }
+            // (threads: the game's warnings and its Java threads after the steps, what its loading waits on)
+            if(game.threads)
+            {
+                const pid = (await ask(`pidof ${game.package}`, "A32_GAME_PID", 600000)).match(/\n\s*(\d+)/)?.[1];
+                if(pid)
+                {
+                    console.log(`game ${game.name} log: ` + await ask(`logcat -d -v brief '*:W' | grep -E '\\( *${pid}\\)' | tail -25`, "A32_GAME_LOG", 600000));
+                    console.log(`game ${game.name} threads: ` + await ask(`su 0 kill -3 ${pid}; sleep 15; su 0 grep -E -A 6 ` +
+                        `'^"(main|GLThread|Thread-)' /data/anr/traces.txt | head -80`, "A32_GAME_THREADS", 900000));
+                }
             }
             const frames_before = fb.frames, calls_before = Object.values(gles_summary()?.counts || {}).reduce((n, c) => n + c, 0);
             const play_until = performance.now() + 60000;
