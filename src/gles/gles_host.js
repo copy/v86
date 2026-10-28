@@ -188,7 +188,8 @@ GLESHost.prototype.process_pipe = function(saved)
 /** Whether a call only asks (or only names: glGen*): the shadow state answers it, nothing for the page */
 function is_query(name)
 {
-    return /^gl(Get|Is|Gen|CheckFramebufferStatus|FinishRoundTrip)/.test(name);
+    // (glMapBufferRangeAEMU's answer is the bytes: the page never sees it, the unmap brings what was written)
+    return /^gl(Get|Is|Gen|CheckFramebufferStatus|FinishRoundTrip|MapBufferRangeAEMU)/.test(name);
 }
 
 /**
