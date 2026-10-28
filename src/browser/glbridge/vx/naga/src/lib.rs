@@ -6,7 +6,8 @@
 //! - combined image samplers become an image and a sampler (split.rs)
 //! - NaN and infinity tests become bit tests (relational.rs: WGSL has none)
 //! - samples of integer images become fetches (intsample.rs: WGSL samples
-//!   float textures only)
+//!   float textures only); samples of images clamped to the border choose
+//!   the border color outside the image (border.rs)
 //! - input attachments become textures read at the fragment's position
 //!   (subpass.rs)
 //! - matrices of laid out blocks naga cannot read (std140's 2-row ones, row
@@ -52,6 +53,7 @@ mod math;
 mod relational;
 mod remap;
 mod blockarrays;
+mod border;
 mod cubes;
 mod fetches;
 mod depth;
@@ -268,6 +270,10 @@ fn passes(words: &[u32], wraps: &[(u32, u32)], sampled: &mut Vec<u32>) -> Vec<u3
         ("relational", relational::lower), ("fetches", fetches::lower), ("layout", layout::lower), ("atomics", atomics::values)];
     let mut words = words.to_vec();
     for (name, pass) in list {
+        // (clamp to border after split: the images' own loads, border.rs)
+        if name == "coordinates" && !skip.split(',').any(|s| s == "border") {
+            words = border::lower(&words, wraps);
+        }
         // (intsample after subpass)
         if name == "relational" && !skip.split(',').any(|s| s == "intsample") {
             words = intsample::lower(&words, wraps, sampled);

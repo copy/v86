@@ -260,4 +260,22 @@ void text;
     await call32("gles2:glDrawArrays", 0x000F, 0, 3);
     assert.equal((await call32("gles2:glGetError")).ret, 0x0500, "no such mode: INVALID_ENUM");
     console.log("PASS: GLES 3.2's geometry shaders");
+
+    // clamp to border: the wrap and the color, a texture's and a sampler's; the scalar calls refused
+    const tex32 = i32s((await call32("gles2:glGenTextures", 1, 4)).outs[0])[0];
+    await call32("gles2:glBindTexture", 0x0DE1, tex32);
+    await call32("gles2:glTexParameteri", 0x0DE1, 0x2802, 0x812D);
+    assert.equal((await call32("gles2:glGetError")).ret, 0, "GL_CLAMP_TO_BORDER");
+    await call32("gles2:glTexParameterfv", 0x0DE1, 0x1004, new Uint8Array(new Float32Array([0.25, 0.5, 0.75, 1]).buffer));
+    assert.deepEqual(Array.from(new Float32Array((await call32("gles2:glGetTexParameterfv", 0x0DE1, 0x1004, 16)).outs[0].slice().buffer)),
+        [0.25, 0.5, 0.75, 1], "GL_TEXTURE_BORDER_COLOR");
+    await call32("gles2:glTexParameterf", 0x0DE1, 0x1004, 1);
+    assert.equal((await call32("gles2:glGetError")).ret, 0x0500, "a border color of one value: INVALID_ENUM");
+    const sampler32 = i32s((await call32("gles2:glGenSamplers", 1, 4)).outs[0])[0];
+    await call32("gles2:glSamplerParameteriv", sampler32, 0x1004, new Uint8Array(new Int32Array([0x7FFFFFFF, 0, 0, 0x7FFFFFFF]).buffer));
+    const color = Array.from(new Float32Array((await call32("gles2:glGetSamplerParameterfv", sampler32, 0x1004, 16)).outs[0].slice().buffer));
+    assert.ok(color[0] === 1 && Math.abs(color[1]) < 1e-6 && color[3] === 1, "an integer border color, normalized: " + color);
+    assert.deepEqual(i32s((await call32("gles2:glGetSamplerParameteriv", sampler32, 0x1004, 16)).outs[0]), [0x7FFFFFFF, 0, 0, 0x7FFFFFFF]);
+    assert.equal((await call32("gles2:glGetError")).ret, 0);
+    console.log("PASS: GLES 3.2's clamp to border");
 }

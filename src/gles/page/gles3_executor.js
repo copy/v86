@@ -56,7 +56,9 @@ const SLOT_TARGET = [GL3.TEXTURE_2D, GL3.TEXTURE_CUBE_MAP, GL3.TEXTURE_EXTERNAL_
 /** What a texture unit samples with nothing bound */
 const NO_SAMPLER = { min_filter: NEAREST, mag_filter: NEAREST, wrap_s: 0x812F, wrap_t: 0x812F, wrap_r: 0x812F, compare_func: 0x0203 };
 /** Vulkan's address modes (vx_naga's int_wraps): repeat 0, mirrored repeat 1, clamp to edge 2 */
-const VK_WRAP = { 0x2901: 0, 0x8370: 1, 0x812F: 2 };
+const VK_WRAP = { 0x2901: 0, 0x8370: 1, 0x812F: 2, 0x812D: 3 };
+/** vx_naga's border.rs: a border color component's entry in the wraps list */
+const BORDER_COLOR = 0x80000000;
 
 /** WebGPU's storage texture formats (GLES 3.1's image formats as WebGPU has them) */
 const STORAGE_FORMATS = new Set(["rgba8unorm", "rgba8snorm", "rgba8uint", "rgba8sint", "rgba16uint", "rgba16sint", "rgba16float", "r32uint", "r32sint",
@@ -510,15 +512,17 @@ export const GLES3 = {
         if(v < 0 || f < 0) return this.note3("a program without a vertex or fragment shader");
         const fragment_flags = target.depth ? 0 : NO_DEPTH;
         const translate = (vw, fw) => [this.translation3(stages.vertex, v, GL_DEPTH, vw), this.translation3(stages.fragment, f, fragment_flags, fw)];
-        let ts = translate([], []);
+        // (the samplers that clamp to the border: their axes and colors, the translations' constants)
+        const borders = [this.border_wraps3(c, stages.vertex, 0), this.border_wraps3(c, stages.fragment, stages.fragment.separable ? 1 : 0)];
+        let ts = translate(borders[0], borders[1]);
         const failed = ts.find(t => t.error);
         if(failed) return this.note3("vx_naga: " + failed.error.slice(0, 160));
         const wraps = ts.map((t, i) => t.intsamples && t.intsamples.length ? this.int_wraps3(c, i ? stages.fragment : stages.vertex, t.intsamples) : []);
         const gpu = this.program_gpu(stages.vertex);
-        const key = this.id_of(stages.fragment) + ":" + fragment_flags + ":" + wraps.map(w => w.flat().join(",")).join("/");
+        const key = this.id_of(stages.fragment) + ":" + fragment_flags + ":" + wraps.concat(borders).map(w => w.flat().join(",")).join("/");
         let shaders = gpu.shaders.get(key);
         if(shaders) return shaders;
-        if(wraps.some(w => w.length)) ts = translate(wraps[0], wraps[1]);
+        if(wraps.some(w => w.length)) ts = translate(wraps[0].concat(borders[0]), wraps[1].concat(borders[1]));
         if(ts.some(t => t.error)) return this.note3("vx_naga: " + ts.find(t => t.error).error.slice(0, 160));
         shaders = {
             vertex: { module: this.module3(matched_interpolation(ts[0].wgsl, fragment_inputs(ts[1].wgsl))), entry: ts[0].entries[0].name },
@@ -2452,6 +2456,32 @@ export const GLES3 = {
         const texture = name ? c.group.textures.get(name) : c.defaults ? c.defaults.get(SLOT_TARGET[slot]) : null;
         const sampler = c.samplers && c.samplers[unit] ? c.group.samplers.get(c.samplers[unit]) : null;
         return { texture: texture || null, state: sampler || texture || NO_SAMPLER };
+    },
+
+    /**
+     * The program's samplers that clamp to the border (GLES 3.2), as
+     * vx_naga's border.rs takes them in the wraps list: [image key, address
+     * modes], and each border color component [BORDER_COLOR | k << 24 | key, its bits]
+     */
+    border_wraps3(c, program, group)
+    {
+        const entries = [];
+        if(c.version < 32) return entries;
+        const mode = w => w in VK_WRAP ? VK_WRAP[w] : 0;
+        for(const binding of program.info.bindings)
+        {
+            if(binding.kind !== "sampler") continue;
+            for(let e = 0; e < Math.max(1, binding.size); e++)
+            {
+                const { state } = this.texture_unit3(c, program, binding.binding, e);
+                if(state.wrap_s !== 0x812D && state.wrap_t !== 0x812D && state.wrap_r !== 0x812D) continue;
+                const key = group << 16 | (e ? ELEMENTS + 2 * (16 * binding.binding + e) : 2 * binding.binding);
+                entries.push([key, mode(state.wrap_s) | mode(state.wrap_t) << 4 | mode(state.wrap_r || 0x2901) << 8]);
+                const bits = new Uint32Array(new Float32Array(state.border_color || [0, 0, 0, 0]).buffer);
+                bits.forEach((b, k) => entries.push([(BORDER_COLOR | k << 24 | key) >>> 0, b]));
+            }
+        }
+        return entries;
     },
 
     /** The wraps of the samplers of a program's integer textures (vx_naga's int_wraps: [group << 16 | binding, modes]) */

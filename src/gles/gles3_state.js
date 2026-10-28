@@ -72,6 +72,16 @@ const target_ok = (c, target) => BUFFER_TARGETS.has(target) && (c.version >= 31 
 const USAGES3 = new Set([0x88E0, 0x88E1, 0x88E2, 0x88E4, 0x88E5, 0x88E6, 0x88E8, 0x88E9, 0x88EA]);
 const COMPARE_FUNCS = new Set([0x0200, 0x0201, 0x0202, 0x0203, 0x0204, 0x0205, 0x0206, 0x0207]);
 const WRAPS = new Set([GL3.REPEAT, GL3.CLAMP_TO_EDGE, GL3.MIRRORED_REPEAT]);
+/** GLES 3.2's CLAMP_TO_BORDER and TEXTURE_BORDER_COLOR */
+const CLAMP_TO_BORDER = 0x812D, TEXTURE_BORDER_COLOR = 0x1004;
+const wrap_ok = (c, wrap) => WRAPS.has(wrap) || c.version >= 32 && wrap === CLAMP_TO_BORDER;
+/**
+ * A border color as glTexParameteriv or glSamplerParameteriv gives it:
+ * signed normalized (GLES 3.2 8.10's conversion), else as it is
+ */
+const border_color = (params, float) => [0, 1, 2, 3].map(k => k >= params.length ? 0 : float ? Math.fround(params[k]) : Math.fround((2 * params[k] + 1) / 4294967295));
+/** A border color component as glGetTexParameteriv answers it */
+const border_int = v => Math.max(-2147483648, Math.min(2147483647, Math.round((v * 4294967295 - 1) / 2)));
 const MIN_FILTERS = new Set([GL3.NEAREST, GL3.LINEAR, GL3.NEAREST_MIPMAP_NEAREST, GL3.LINEAR_MIPMAP_NEAREST, GL3.NEAREST_MIPMAP_LINEAR,
     GL3.LINEAR_MIPMAP_LINEAR]);
 const SWIZZLES = new Set([0x1903, 0x1904, 0x1905, 0x1906, 0, 1]);
@@ -1127,8 +1137,8 @@ export function gles3_handlers(h)
         },
         "glTexParameterf": (shadow, c, [target, pname, param]) => tex_parameter3(shadow, c, target, pname, [param], true),
         "glTexParameteri": (shadow, c, [target, pname, param]) => tex_parameter3(shadow, c, target, pname, [param], false),
-        "glTexParameterfv": (shadow, c, [target, pname, params]) => tex_parameter3(shadow, c, target, pname, f32s(params), true),
-        "glTexParameteriv": (shadow, c, [target, pname, params]) => tex_parameter3(shadow, c, target, pname, i32s(params), false),
+        "glTexParameterfv": (shadow, c, [target, pname, params]) => tex_parameter3(shadow, c, target, pname, f32s(params), true, true),
+        "glTexParameteriv": (shadow, c, [target, pname, params]) => tex_parameter3(shadow, c, target, pname, i32s(params), false, true),
         "glGetTexParameteriv": (shadow, c, [target, pname, params]) => get_tex_parameter3(shadow, c, target, pname, params, "i"),
         "glGetTexParameterfv": (shadow, c, [target, pname, params]) => get_tex_parameter3(shadow, c, target, pname, params, "f"),
 
@@ -1169,8 +1179,8 @@ export function gles3_handlers(h)
         },
         "glSamplerParameterf": (shadow, c, [s, pname, param]) => sampler_parameter(shadow, c, s, pname, [param], true),
         "glSamplerParameteri": (shadow, c, [s, pname, param]) => sampler_parameter(shadow, c, s, pname, [param], false),
-        "glSamplerParameterfv": (shadow, c, [s, pname, params]) => sampler_parameter(shadow, c, s, pname, f32s(params), true),
-        "glSamplerParameteriv": (shadow, c, [s, pname, params]) => sampler_parameter(shadow, c, s, pname, i32s(params), false),
+        "glSamplerParameterfv": (shadow, c, [s, pname, params]) => sampler_parameter(shadow, c, s, pname, f32s(params), true, true),
+        "glSamplerParameteriv": (shadow, c, [s, pname, params]) => sampler_parameter(shadow, c, s, pname, i32s(params), false, true),
         "glGetSamplerParameterfv": (shadow, c, [s, pname, params]) => get_sampler_parameter(shadow, c, s, pname, params, "f"),
         "glGetSamplerParameteriv": (shadow, c, [s, pname, params]) => get_sampler_parameter(shadow, c, s, pname, params, "i"),
 
@@ -1908,7 +1918,8 @@ export function gles3_handlers(h)
         return undefined;
     }
 
-    function tex_parameter3(shadow, c, target, pname, params, float)
+    /** @param {boolean=} vector glTexParameter*v's (TEXTURE_BORDER_COLOR is theirs alone) */
+    function tex_parameter3(shadow, c, target, pname, params, float, vector = false)
     {
         const texture = bound_texture3(c, target);
         if(!texture) return REFUSED;
@@ -1926,7 +1937,7 @@ export function gles3_handlers(h)
                 texture.mag_filter = integer;
                 return undefined;
             case 0x2802: case 0x2803: case 0x8072: // wrap s, t, r
-                if(!WRAPS.has(integer) || external && integer !== GL.CLAMP_TO_EDGE) return fail(c, GL.INVALID_ENUM);
+                if(!wrap_ok(c, integer) || external && integer !== GL.CLAMP_TO_EDGE) return fail(c, GL.INVALID_ENUM);
                 texture[{ 0x2802: "wrap_s", 0x2803: "wrap_t", 0x8072: "wrap_r" }[pname]] = integer;
                 return undefined;
             case 0x813A: texture.min_lod = Math.fround(value); return undefined;
@@ -1952,6 +1963,11 @@ export function gles3_handlers(h)
                 texture.swizzle = texture.swizzle || [0x1903, 0x1904, 0x1905, 0x1906];
                 texture.swizzle[pname - 0x8E42] = integer;
                 return undefined;
+            case TEXTURE_BORDER_COLOR:
+                // (the scalar calls take none, an external texture none; the guest's encoder may send fewer than four: the rest 0)
+                if(c.version < 32 || !vector || external) return fail(c, GL.INVALID_ENUM);
+                texture.border_color = border_color(params, float);
+                return undefined;
         }
         return fail(c, GL.INVALID_ENUM);
     }
@@ -1969,11 +1985,16 @@ export function gles3_handlers(h)
             0x884D: texture.compare_func || 0x0203, 0x8E42: swizzle[0], 0x8E43: swizzle[1], 0x8E44: swizzle[2], 0x8E45: swizzle[3],
             0x912F: texture.immutable ? 1 : 0, 0x82DF: texture.immutable_levels || 0 };
         if(target === GL.TEXTURE_EXTERNAL_OES) values[0x8D68] = 1; // GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES
+        if(pname === TEXTURE_BORDER_COLOR && c.version >= 32)
+        {
+            const color = texture.border_color || [0, 0, 0, 0];
+            return void put(params, as === "f" ? color : color.map(border_int), as, as === "f" ? "f" : "i");
+        }
         if(!(pname in values)) { fail(c, GL.INVALID_ENUM); return; }
         put(params, [values[pname]], as, as === "f" ? "f" : "i");
     }
 
-    function sampler_parameter(shadow, c, s, pname, params, float)
+    function sampler_parameter(shadow, c, s, pname, params, float, vector = false)
     {
         if(s && shadow.trusted && !c.group.samplers.has(s)) c.group.samplers.set(s, new_sampler());
         const sampler = c.group.samplers.get(s);
@@ -1985,8 +2006,12 @@ export function gles3_handlers(h)
             case 0x2801: if(!MIN_FILTERS.has(integer)) return fail(c, GL.INVALID_ENUM); sampler.min_filter = integer; return undefined;
             case 0x2800: if(integer !== GL.NEAREST && integer !== GL.LINEAR) return fail(c, GL.INVALID_ENUM); sampler.mag_filter = integer; return undefined;
             case 0x2802: case 0x2803: case 0x8072:
-                if(!WRAPS.has(integer)) return fail(c, GL.INVALID_ENUM);
+                if(!wrap_ok(c, integer)) return fail(c, GL.INVALID_ENUM);
                 sampler[{ 0x2802: "wrap_s", 0x2803: "wrap_t", 0x8072: "wrap_r" }[pname]] = integer;
+                return undefined;
+            case TEXTURE_BORDER_COLOR:
+                if(c.version < 32 || !vector) return fail(c, GL.INVALID_ENUM);
+                sampler.border_color = border_color(params, float);
                 return undefined;
             case 0x813A: sampler.min_lod = Math.fround(value); return undefined;
             case 0x813B: sampler.max_lod = Math.fround(value); return undefined;
@@ -2003,6 +2028,11 @@ export function gles3_handlers(h)
         if(!sampler) { fail(c, GL.INVALID_OPERATION); return; }
         const values = { 0x2801: sampler.min_filter, 0x2800: sampler.mag_filter, 0x2802: sampler.wrap_s, 0x2803: sampler.wrap_t,
             0x8072: sampler.wrap_r, 0x813A: sampler.min_lod, 0x813B: sampler.max_lod, 0x884C: sampler.compare_mode, 0x884D: sampler.compare_func };
+        if(pname === TEXTURE_BORDER_COLOR && c.version >= 32)
+        {
+            const color = sampler.border_color || [0, 0, 0, 0];
+            return void put(params, as === "f" ? color : color.map(border_int), as, as === "f" ? "f" : "i");
+        }
         if(!(pname in values)) { fail(c, GL.INVALID_ENUM); return; }
         put(params, [as === "i" && (pname === 0x813A || pname === 0x813B) ? round(values[pname]) : values[pname]], as, as === "f" ? "f" : "i");
     }

@@ -18,7 +18,8 @@ export const COMPARE = { 0x0200: "never", 0x0201: "less", 0x0202: "equal", 0x020
     0x0206: "greater-equal", 0x0207: "always" };
 export const STENCIL_OPS = { 0: "zero", 0x1E00: "keep", 0x1E01: "replace", 0x1E02: "increment-clamp", 0x1E03: "decrement-clamp",
     0x150A: "invert", 0x8507: "increment-wrap", 0x8508: "decrement-wrap" };
-export const WRAPS = { 0x2901: "repeat", 0x812F: "clamp-to-edge", 0x8370: "mirror-repeat" };
+/** (GLES 3.2's clamp to border: the edge's, the shader choosing the border color outside the image: vx_naga's border.rs) */
+export const WRAPS = { 0x2901: "repeat", 0x812F: "clamp-to-edge", 0x8370: "mirror-repeat", 0x812D: "clamp-to-edge" };
 
 /** @param {number} n @return {number} n rounded up to a multiple of 4 */
 export const align4 = n => n + 3 & ~3;

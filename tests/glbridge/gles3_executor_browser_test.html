@@ -966,6 +966,30 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(near(averaged, [128, 128, 128, 255], 4), "per-sample shading: gl_SampleID and gl_SamplePosition averaged: " + averaged);
         const one = await resolved(1);
         check(near(one, [64, 64, 64, 255], 4), "gl_SampleMask: one sample of four written: " + one);
+        // clamp to border: a red texture whose S clamps to a green border, sampled from u -1 to 1
+        const bordered = program(`#version 320 es
+            layout(location = 0) in vec2 position;
+            out vec2 uv;
+            void main() { uv = vec2(position.x, 0.5); gl_Position = vec4(position, 0.0, 1.0); }`, `#version 320 es
+            precision mediump float;
+            uniform sampler2D tex;
+            in vec2 uv;
+            out vec4 o;
+            void main() { o = texture(tex, uv); }`);
+        const border_texture = next_texture++;
+        gl("glActiveTexture", 0x84C0);
+        gl("glBindTexture", 0x0DE1, border_texture);
+        gl("glTexImage2D", 0x0DE1, 0, 0x8058, 1, 1, 0, 0x1908, 0x1401, new Uint8Array([255, 0, 0, 255]));
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2802, 0x812D);
+        gl("glTexParameterfv", 0x0DE1, 0x1004, floats([0, 1, 0, 1]));
+        gl("glUniform1i", bordered.at("tex"), 0);
+        gl("glBindBuffer", 0x8892, quad32);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 5, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 4), [0, 255, 0, 255]) && near(pixel(window, W, 6, 4), [255, 0, 0, 255]), "clamp to border: the border's green left of u 0");
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;
