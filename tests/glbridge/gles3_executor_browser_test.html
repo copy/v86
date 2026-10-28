@@ -908,6 +908,43 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glDispatchCompute", 2, 1, 1);
         check(Array.from(new Uint32Array((await read_buffer(data31, 32)).slice().buffer)).join() === "0,2,4,6,8,10,12,14", "a dispatch's storage buffer");
         check(new Uint32Array((await read_buffer(counter31, 4)).slice().buffer)[0] === 13, "an atomic counter incremented 8 times from 5");
+        // atomic counters at their layout offsets: past 0, in reverse order, an array's elements by a dynamic index; a decrement
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(binding = 0, offset = 12) uniform atomic_uint first;
+            layout(binding = 0, offset = 4) uniform atomic_uint second;
+            layout(binding = 0, offset = 16) uniform atomic_uint row[2];
+            void main() { atomicCounterIncrement(first); atomicCounterDecrement(second); atomicCounterIncrement(row[gl_GlobalInvocationID.x]); }`);
+        gl("glBindBuffer", 0x92C0, counter31);
+        gl("glBufferData", 0x92C0, 24, ints([0, 10, 0, 20, 30, 40]), 0x88E8);
+        gl("glDispatchCompute", 2, 1, 1);
+        const counters31 = Array.from(new Uint32Array((await read_buffer(counter31, 24)).slice().buffer)).join();
+        check(counters31 === "0,8,0,22,31,41", "atomic counters at their offsets (past 0, in reverse order, an array's by a dynamic index), decremented: " +
+            counters31);
+        // indirect dispatches of parameters the guest uploaded, each command's results in a range of one buffer (dEQP's upload_buffer)
+        compute(`#version 310 es
+            layout(local_size_x = 3, local_size_y = 1, local_size_z = 2) in;
+            layout(binding = 0, std430) buffer Result { uvec3 expectedGroupCount; coherent uint numPassed; } result;
+            void main() { if(all(equal(result.expectedGroupCount, gl_NumWorkGroups))) atomicAdd(result.numPassed, 1u); }`);
+        const commands31 = gen("Buffers"), results31 = gen("Buffers");
+        const command_words = new Int32Array(256);
+        command_words.set([1, 1, 1], 0);
+        command_words.set([1, 1, 4], 13);
+        command_words.set([1, 3, 1], 26);
+        gl("glBindBuffer", 0x90EE, commands31);
+        gl("glBufferData", 0x90EE, 1024, new Uint8Array(command_words.buffer), 0x88E4);
+        const result_words = new Int32Array(64 * 3);
+        [[1, 1, 1], [1, 3, 1], [1, 1, 4]].forEach((g, i) => result_words.set(g, 64 * i));
+        gl("glBindBuffer", 0x90D2, results31);
+        gl("glBufferData", 0x90D2, 768, new Uint8Array(result_words.buffer), 0x88E5);
+        [0, 104, 52].forEach((offset, i) =>
+        {
+            gl("glBindBufferRange", 0x90D2, 0, results31, 256 * i, 256);
+            gl("glDispatchComputeIndirect", offset);
+        });
+        const passed31 = new Uint32Array((await read_buffer(results31, 768)).slice().buffer);
+        check([passed31[3], passed31[64 + 3], passed31[128 + 3]].join() === "6,18,24", "indirect dispatches of uploaded parameters: " +
+            [passed31[3], passed31[64 + 3], passed31[128 + 3]].join());
         // an image written by a dispatch, sampled by a draw
         const image31 = next_texture++;
         gl("glActiveTexture", 0x84C0);
@@ -969,6 +1006,22 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glUniform4f", flat31.at("color"), 0, 1, 1, 1);
         gl("glDrawArraysIndirectDataAEMU", 5, ints([4, 1, 0, 0]), 16);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 255, 255, 255]), "an indirect draw of the command's parameters");
+        // an instance array of uniform blocks with a binding: its elements at the binding points after it
+        const block_array31 = program(`#version 310 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 310 es
+            precision mediump float;
+            layout(std140, binding = 1) uniform Block { vec4 color; } blocks[2];
+            out vec4 o;
+            void main() { o = blocks[1].color; }`);
+        void block_array31;
+        const block_colors31 = gen("Buffers");
+        gl("glBindBuffer", 0x8A11, block_colors31);
+        gl("glBufferData", 0x8A11, 512, new Uint8Array(new Float32Array([1, 0, 0, 1, ...new Array(60).fill(0), 0, 0, 1, 1]).buffer), 0x88E4);
+        gl("glBindBufferRange", 0x8A11, 1, block_colors31, 0, 16);
+        gl("glBindBufferRange", 0x8A11, 2, block_colors31, 256, 16);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 0, 255, 255]), "an array of uniform blocks: element 1 at the binding after the array's");
         // a multisampled texture drawn to, its sample fetched
         const ms31 = next_texture++;
         gl("glBindTexture", 0x9100, ms31);

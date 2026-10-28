@@ -4,7 +4,7 @@
 // the locations of the interface (by GL's rules and names, across stages)
 // and the bindings of the resources, which glslang maps per stage.
 
-const OP = {
+export const OP = {
     Name: 5, MemberName: 6, EntryPoint: 15, ExecutionMode: 16, TypeBool: 20, TypeInt: 21, TypeFloat: 22, TypeVector: 23,
     TypeMatrix: 24, TypeImage: 25, TypeSampler: 26, TypeSampledImage: 27, TypeArray: 28, TypeRuntimeArray: 29,
     TypeStruct: 30, TypePointer: 32, Constant: 43, Variable: 59, Decorate: 71, MemberDecorate: 72,

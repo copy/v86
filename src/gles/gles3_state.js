@@ -1462,9 +1462,11 @@ export function gles3_handlers(h)
             const uniforms = program.info && program.info.ok ? program.info.uniforms : [];
             const list = i32s(indices).slice(0, count);
             if(list.some(i => i < 0 || i >= uniforms.length)) { fail(c, GL.INVALID_VALUE); return; }
+            // (the offsets and strides of uniforms in buffers: blocks' members, atomic counters)
+            const in_buffer = u => u.block_index >= 0 || u.opaque === "atomic";
             const field = { 0x8A37: u => u.type, 0x8A38: u => u.size, 0x8A39: u => u.name.length + 1, 0x8A3A: u => u.block_index,
-                0x8A3B: u => u.block_index < 0 ? -1 : u.offset, 0x8A3C: u => u.block_index < 0 ? -1 : u.size > 1 || u.name.endsWith("]") ? u.array_stride : 0,
-                0x8A3D: u => u.block_index < 0 ? -1 : u.columns ? u.matrix_stride : 0, 0x8A3E: u => u.row_major ? 1 : 0 }[pname];
+                0x8A3B: u => in_buffer(u) ? u.offset : -1, 0x8A3C: u => !in_buffer(u) ? -1 : u.size > 1 || u.name.endsWith("]") ? u.array_stride : 0,
+                0x8A3D: u => !in_buffer(u) ? -1 : u.columns ? u.matrix_stride : 0, 0x8A3E: u => u.row_major ? 1 : 0 }[pname];
             if(!field) { fail(c, GL.INVALID_ENUM); return; }
             put(params, list.map(i => field(uniforms[i])), "i", "i");
         },

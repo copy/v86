@@ -119,11 +119,19 @@ function resources(program, iface)
     switch(iface)
     {
         case INTERFACES.UNIFORM:
-            return info.uniforms.map(u => ({ name: array_name(u.name, u.size), props: Object.assign({
-                0x92FA: u.type, 0x92FB: u.size, 0x92FC: u.block_index >= 0 ? u.offset : -1, 0x92FD: u.block_index,
-                0x92FE: u.block_index >= 0 ? u.array_stride || 0 : -1, 0x92FF: u.block_index >= 0 ? u.matrix_stride || 0 : -1,
-                0x9300: u.row_major ? 1 : 0, 0x9301: u.opaque === "atomic" ? 0 : -1, 0x930E: u.block_index >= 0 || u.opaque === "atomic" ? -1 : u.location,
-            }, stages(u.stages)) }));
+        {
+            // (the offsets and strides of uniforms in buffers: blocks' members, atomic counters, theirs in their buffers)
+            const counter_buffers = [...atomic_buffers(info).keys()];
+            return info.uniforms.map(u =>
+            {
+                const atomic = u.opaque === "atomic", in_buffer = u.block_index >= 0 || atomic;
+                return { name: array_name(u.name, u.size), props: Object.assign({
+                    0x92FA: u.type, 0x92FB: u.size, 0x92FC: in_buffer ? u.offset : -1, 0x92FD: u.block_index,
+                    0x92FE: in_buffer ? u.array_stride || 0 : -1, 0x92FF: in_buffer ? u.matrix_stride || 0 : -1,
+                    0x9300: u.row_major ? 1 : 0, 0x9301: atomic ? counter_buffers.indexOf(u.binding) : -1, 0x930E: in_buffer ? -1 : u.location,
+                }, stages(u.stages)) };
+            });
+        }
         case INTERFACES.UNIFORM_BLOCK:
             return (info.blocks || []).map((b, i) => ({ name: b.name, props: Object.assign({
                 0x9302: program.block_bindings ? program.block_bindings[i] : b.binding, 0x9303: b.size, 0x9304: b.members.length, 0x9305: b.members,
@@ -137,11 +145,17 @@ function resources(program, iface)
                     0x9304: members.length, 0x9305: members }, stages(block.stages || 0)) };
             });
         case INTERFACES.BUFFER_VARIABLE:
-            return (reflection.bufferVariables || []).map(v => ({ name: array_name(v.name, v.size), props: Object.assign({
-                0x92FA: v.type, 0x92FB: Math.max(0, v.size), 0x92FC: v.offset, 0x92FD: v.index, 0x92FE: v.arrayStride || 0,
-                0x92FF: v.matrixStride || 0, 0x9300: v.rowMajor ? 1 : 0, 0x930C: v.topLevelArraySize === undefined ? 1 : v.topLevelArraySize,
-                0x930D: v.topLevelArrayStride || 0,
-            }, stages(v.stages || 0)) }));
+            return (reflection.bufferVariables || []).map(v =>
+            {
+                // (a block member that is an array of scalars, vectors or matrices is the variable's own array, ARRAY_SIZE and
+                // ARRAY_STRIDE; glslang gives it as the top level's too, dEQP's reference layout a top level of 1 and stride 0)
+                const own_array = /^(?:\w+\.)?\w+\[0\]$/.test(array_name(v.name, v.size));
+                return { name: array_name(v.name, v.size), props: Object.assign({
+                    0x92FA: v.type, 0x92FB: Math.max(0, v.size), 0x92FC: v.offset, 0x92FD: v.index, 0x92FE: v.arrayStride || 0,
+                    0x92FF: v.matrixStride || 0, 0x9300: v.rowMajor ? 1 : 0,
+                    0x930C: own_array || v.topLevelArraySize === undefined ? 1 : v.topLevelArraySize, 0x930D: own_array ? 0 : v.topLevelArrayStride || 0,
+                }, stages(v.stages || 0)) };
+            });
         case INTERFACES.PROGRAM_INPUT:
             return (reflection.inputs || []).filter(i => i.stages & (info.spirv && info.spirv.some(m => m.stage === "vertex") ? 1 : 1 << 4))
                 .map(i => ({ name: array_name(i.name, i.size), props: Object.assign({ 0x92FA: i.type, 0x92FB: Math.max(1, i.size),
@@ -152,22 +166,31 @@ function resources(program, iface)
         case INTERFACES.TRANSFORM_FEEDBACK_VARYING:
             return (info.tf_varyings || []).map(v => ({ name: v.name, props: { 0x92FA: v.type, 0x92FB: v.size } }));
         case INTERFACES.ATOMIC_COUNTER_BUFFER:
-        {
-            const buffers = new Map();
-            info.uniforms.forEach((u, k) =>
-            {
-                if(u.opaque !== "atomic") return;
-                if(!buffers.has(u.binding)) buffers.set(u.binding, { members: [], size: 0, stages: 0 });
-                const b = buffers.get(u.binding);
-                b.members.push(k);
-                b.size = Math.max(b.size, (u.offset || 0) + 4 * u.size);
-                b.stages |= u.stages;
-            });
-            return [...buffers].map(([binding, b]) => ({ name: "", props: Object.assign({ 0x9302: binding, 0x9303: b.size, 0x9304: b.members.length,
-                0x9305: b.members }, stages(b.stages)) }));
-        }
+            return [...atomic_buffers(info)].map(([binding, b]) => ({ name: "", props: Object.assign({ 0x9302: binding, 0x9303: b.size,
+                0x9304: b.members.length, 0x9305: b.members }, stages(b.stages)) }));
     }
     return null;
+}
+
+/**
+ * A program's atomic counter buffers, in the order of their first counters
+ * among the uniforms: each one's binding, counters (uniform indices),
+ * stages and size (the declared counters', glsl_program.js's)
+ * @return {!Map<number, {members: !Array<number>, size: number, stages: number}>}
+ */
+function atomic_buffers(info)
+{
+    const buffers = new Map();
+    info.uniforms.forEach((u, k) =>
+    {
+        if(u.opaque !== "atomic") return;
+        if(!buffers.has(u.binding)) buffers.set(u.binding, { members: [], size: (info.counter_buffers || {})[u.binding] || 0, stages: 0 });
+        const b = buffers.get(u.binding);
+        b.members.push(k);
+        b.size = Math.max(b.size, Math.max(0, u.offset) + 4 * u.size);
+        b.stages |= u.stages;
+    });
+    return buffers;
 }
 
 /**

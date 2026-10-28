@@ -595,10 +595,14 @@ export function rewrite_for_spirv(source, stage, limits)
     const blend = stage === "fragment" && !es100 && tokens.some(t => t.kind === "name" && /^blend_support_/.test(t.text)) ? rewrite_blend(tokens) : null;
     let text = tokens.map(t => t.text).join("");
     if(blend) text += "\n" + blend;
-    if((sample_uses.size || extended_uses.size) && directives_end >= 0)
+    // (glslang's relaxed rules write atomicCounterDecrement(c) as atomicAdd(c, -1) - 1, a uint minus an int: GLSL ES
+    // refuses it without the implicit conversions, which change nothing the check pass accepted)
+    const conversions = version >= 310 && tokens.some(t => t.kind === "name" && t.text === "atomicCounterDecrement") ?
+        "#extension GL_EXT_shader_implicit_conversions : enable\n" : "";
+    if((sample_uses.size || extended_uses.size || conversions) && directives_end >= 0)
     {
         const at = tokens.slice(0, directives_end).reduce((n, t) => n + t.text.length, 0);
-        text = text.slice(0, at) + "\n" + sample_helpers(sample_uses) + extended_helpers(extended_uses) + text.slice(at);
+        text = text.slice(0, at) + "\n" + conversions + sample_helpers(sample_uses) + extended_helpers(extended_uses) + text.slice(at);
     }
     if(es100)
     {

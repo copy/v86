@@ -665,11 +665,12 @@ export const GLES3 = {
         buffer.dirty = buffer.dirty ? [Math.min(buffer.dirty[0], offset), Math.max(buffer.dirty[1], offset + length)] : [offset, offset + length];
     },
 
-    /** The buffer bound to a target (GLES 3.0's targets) */
+    /** The buffer bound to a target (GLES 3.0's targets and 3.1's) */
     buffer_of3(c, target)
     {
         const which = { 0x8892: "array", 0x8893: "element", 0x8F36: "copy_read", 0x8F37: "copy_write", 0x88EB: "pixel_pack", 0x88EC: "pixel_unpack",
-            0x8C8E: "transform_feedback", 0x8A11: "uniform" }[target];
+            0x8C8E: "transform_feedback", 0x8A11: "uniform", 0x90D2: "shader_storage", 0x92C0: "atomic_counter", 0x90EE: "dispatch_indirect",
+            0x8F3F: "draw_indirect" }[target];
         const name = which === "array" ? c.array_buffer : which === "element" ? c.element_array_buffer : which ? c.buffers[which] : 0;
         return name ? c.group.buffers.get(name) || null : null;
     },
@@ -684,6 +685,18 @@ export const GLES3 = {
             this.zero_buffer = this.device.createBuffer({ label: "GLES zeros", size, usage: B.UNIFORM | B.STORAGE | B.VERTEX });
         }
         return this.zero_buffer;
+    },
+
+    /** A buffer of at least `size` bytes that writes go to and nothing reads (an unbound storage block's or atomic counters') */
+    discard3(size)
+    {
+        size = Math.max(256, Math.ceil(size / 256) * 256);
+        if(!this.discard_buffer || this.discard_buffer.size < size)
+        {
+            if(this.discard_buffer) this.staging.push(this.discard_buffer);
+            this.discard_buffer = this.device.createBuffer({ label: "GLES discarded writes", size, usage: B.STORAGE });
+        }
+        return this.discard_buffer;
     },
 
     // ---- textures
@@ -1949,11 +1962,12 @@ export const GLES3 = {
             this.staging.push(index_buffer);
         }
         const strip_format = strip && (list || direct) ? (direct ? direct.format : "uint32") : undefined;
+        // (the parameters' GPU buffer before the pass: its bytes may go up first)
+        const parameters = indirect && this.gpu_buffer(indirect.buffer).buffer;
         this.render3(c, target, shaders, vertex, group, topology, strip_format, mode, pass =>
         {
             if(indirect)
             {
-                const parameters = this.gpu_buffer(indirect.buffer).buffer;
                 if(direct)
                 {
                     pass.setIndexBuffer(direct.buffer, direct.format, 0);
@@ -2626,11 +2640,13 @@ export const GLES3 = {
             }
             this.computes3.set(key, pipeline);
         }
+        // (the parameters' GPU buffer before the pass: its bytes may go up first)
+        const parameters = indirect && this.gpu_buffer(indirect.buffer);
         this.end_pass();
         const pass = this.encoder.beginComputePass({ label: "GLES 3 dispatch" });
         pass.setPipeline(pipeline);
         for(const g of group.groups) pass.setBindGroup(g.index, this.device.createBindGroup({ layout: g.layout, entries: g.resources }));
-        if(indirect) pass.dispatchWorkgroupsIndirect(this.gpu_buffer(indirect.buffer).buffer, indirect.offset);
+        if(parameters) pass.dispatchWorkgroupsIndirect(parameters.buffer, indirect.offset);
         else pass.dispatchWorkgroups(groups[0], groups[1], groups[2]);
         pass.end();
         this.stats.dispatches = (this.stats.dispatches || 0) + 1;
@@ -2981,11 +2997,11 @@ export const GLES3 = {
         if(spirv >= BINDING.STORAGE_BLOCKS && spirv < BINDING.ATOMIC_COUNTERS)
         {
             const block = (program.info.storage_blocks || [])[spirv - BINDING.STORAGE_BLOCKS + e];
-            return { entry: { buffer: { type: buffer_type } }, resource: this.storage3(c, c.storage_bindings, block ? block.binding : 0, b.size) };
+            return { entry: { buffer: { type: buffer_type } }, resource: this.storage3(c, c.storage_bindings, block ? block.binding : 0, b.size, buffer_type === "storage") };
         }
         if(spirv >= BINDING.ATOMIC_COUNTERS && spirv < BINDING.IMAGES)
         {
-            return { entry: { buffer: { type: "storage" } }, resource: this.storage3(c, c.atomic_bindings, spirv - BINDING.ATOMIC_COUNTERS, b.size) };
+            return { entry: { buffer: { type: "storage" } }, resource: this.storage3(c, c.atomic_bindings, spirv - BINDING.ATOMIC_COUNTERS, b.size, true) };
         }
         if(spirv >= BINDING.IMAGES && kind === "storage-texture")
         {
@@ -2997,12 +3013,13 @@ export const GLES3 = {
 
     /**
      * A storage block's or an atomic counter buffer's range: what its binding
-     * point holds (zeros, written to nowhere, for nothing or too little)
+     * point holds (for nothing or too little: zeros to read, or a buffer
+     * nothing reads to write)
      * @param {!Array<{buffer: number, offset: number, size: number}>} points the context's binding points of the kind
      */
-    storage3(c, points, point, size)
+    storage3(c, points, point, size, writable)
     {
-        const zeros = () => ({ buffer: this.zeros3(size), offset: 0, size: Math.max(16, align4(size)) });
+        const zeros = () => ({ buffer: writable ? this.discard3(size) : this.zeros3(size), offset: 0, size: Math.max(16, align4(size)) });
         const b = points ? points[point] : null;
         const buffer = b && b.buffer ? c.group.buffers.get(b.buffer) : null;
         if(!buffer || !buffer.size) return zeros();

@@ -16,7 +16,7 @@
 
 import { STAGE } from "./glslang.js";
 import { BLEND_DESTINATION, blend_support, block_packings, glsl_version, rewrite_for_spirv, std_blocks } from "./glsl_es_rewrite.js";
-import { DECORATION, EXECUTION_MODEL, STORAGE, add_xfb, block_layout, get_decoration, innermost, is_builtin, location_count, parse_spirv,
+import { DECORATION, EXECUTION_MODEL, OP, STORAGE, add_xfb, array_length, block_layout, get_decoration, innermost, is_builtin, location_count, parse_spirv,
     set_decoration, variable_name } from "./spirv_patch.js";
 
 export const BINDING = { DEFAULT_BLOCK: 0, SAMPLERS: 1, UNIFORM_BLOCKS: 17, STORAGE_BLOCKS: 42, ATOMIC_COUNTERS: 60, IMAGES: 70 };
@@ -123,7 +123,7 @@ export function link_glslang_program(glslang, shaders, options)
     }
 
     // the uniforms GL lists: the default block's, the blocks' members, the opaque ones
-    const blocks = check.uniformBlocks.map((b, index) => ({ name: b.name, index, size: b.size, binding: b.binding >= 0 ? b.binding : 0,
+    const blocks = check.uniformBlocks.map((b, index) => ({ name: b.name, index, size: b.size, binding: element_binding(check.uniformBlocks, b),
         stages: b.stages, members: [] }));
     const uniforms = [];
     for(const u of check.uniforms)
@@ -234,6 +234,49 @@ export function link_glslang_program(glslang, shaders, options)
         u.array_stride = leaf.array_stride;
         u.matrix_stride = leaf.matrix_stride;
     }
+    // the atomic counters' offsets (their layout(offset)s, which the check
+    // pass's reflection leaves out): their members' in the code pass's
+    // gl_AtomicCounterBlock_<binding>, an array's element by its indices and
+    // the arrays' strides; each binding's buffer size, the declared counters'
+    const counters = new Map();
+    const counter_buffers = new Map();
+    for(const module of code.modules)
+    {
+        const words = new Uint32Array(module.words);
+        const m = parse_spirv(words);
+        for(const [id, name] of m.names)
+        {
+            const t = m.types.get(id);
+            const binding = /^gl_AtomicCounterBlock_(\d+)$/.exec(name);
+            if(!binding || !t || t.kind !== "struct") continue;
+            const names = m.member_names.get(id) || [];
+            t.members.forEach((member, i) =>
+            {
+                const d = m.member_decorations.get(id);
+                const at = d && d.get(i) && d.get(i).get(DECORATION.Offset);
+                const offset = at === undefined || at < 0 ? 0 : words[at];
+                const strides = [];
+                let count = 1;
+                for(let e = member; m.types.get(e) && m.types.get(e).kind === "array"; e = m.types.get(e).element)
+                {
+                    strides.push(get_decoration(words, m, e, DECORATION.ArrayStride) || 4);
+                    count *= array_length(m, m.types.get(e));
+                }
+                counters.set(binding[1] + ":" + names[i], { offset, strides });
+                counter_buffers.set(+binding[1], Math.max(counter_buffers.get(+binding[1]) || 0, offset + 4 * count));
+            });
+        }
+    }
+    for(const u of uniforms)
+    {
+        if(u.opaque !== "atomic") continue;
+        const parts = /^(\w+)((?:\[\d+\])*)$/.exec(u.name);
+        const counter = parts && counters.get(u.binding + ":" + renamed(parts[1], renames));
+        if(!counter) continue;
+        const indices = (parts[2].match(/\d+/g) || []).map(Number);
+        u.offset = indices.reduce((offset, index, k) => offset + index * (counter.strides[k] || 4), counter.offset);
+        u.array_stride = counter.strides.length ? counter.strides[counter.strides.length - 1] : 0;
+    }
 
     // the resources' bindings
     const bindings = [{ binding: BINDING.DEFAULT_BLOCK, kind: "default", size: default_block >= 0 ? code.uniformBlocks[default_block].size : 0 }];
@@ -258,7 +301,7 @@ export function link_glslang_program(glslang, shaders, options)
         return binding;
     };
     blocks.forEach((b, i) => bindings.push({ binding: BINDING.UNIFORM_BLOCKS + i, kind: "uniform_block", block: i, size: b.size }));
-    const storage_blocks = check.bufferBlocks.map((b, index) => ({ name: b.name, index, size: b.size, binding: b.binding >= 0 ? b.binding : 0 }));
+    const storage_blocks = check.bufferBlocks.map((b, index) => ({ name: b.name, index, size: b.size, binding: element_binding(check.bufferBlocks, b) }));
     storage_blocks.forEach((b, i) => bindings.push({ binding: BINDING.STORAGE_BLOCKS + i, kind: "storage_block", block: i, size: b.size }));
 
     // each stage's SPIR-V with them; the vertex inputs GL does not list
@@ -361,6 +404,7 @@ export function link_glslang_program(glslang, shaders, options)
         }
         void arrayed_inputs;
         previous = outputs;
+        readable_blocks(words, m);
         spirv.push({ stage: STAGE_NAME[stage], words, model: MODEL_OF_STAGE[stage] });
     }
 
@@ -399,6 +443,7 @@ export function link_glslang_program(glslang, shaders, options)
     const tessellation_modules = spirv.filter(m => m.stage === "tess_control" || m.stage === "tess_evaluation");
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,
         bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size, tf_varyings,
+        counter_buffers: Object.fromEntries(counter_buffers),
         tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs, geometry: geometry_module ? geometry_layout(geometry_module.words) : null,
         unused_inputs, blend_support: shaders.filter(s => s.stage === "fragment").flatMap(s => blend_support(s.source)),
         tessellation: tessellation_modules.length ? tessellation_layout(tessellation_modules) : null };
@@ -702,6 +747,51 @@ export function pack_program(info)
         at += 4 + 4 * m.words.length;
     }
     return bytes;
+}
+
+/**
+ * A block's binding point: its layout(binding)'s (or 0); an instance
+ * array's element, the array's plus the element's index (glslang reflects
+ * each element with the array's), its place among the elements for an
+ * array of arrays
+ * @param {!Array<{name: string, binding: number}>} list the reflection's blocks of its kind
+ * @param {{name: string, binding: number}} b
+ */
+function element_binding(list, b)
+{
+    if(b.binding < 0) return 0;
+    const parts = /^([^[]+)((?:\[\d+\])+)$/.exec(b.name);
+    if(!parts) return b.binding;
+    const indices = parts[2].match(/\d+/g);
+    if(indices.length === 1) return b.binding + +indices[0];
+    return b.binding + list.filter(x => x.name.startsWith(parts[1] + "[")).indexOf(b);
+}
+
+/**
+ * writeonly storage blocks (NonReadable on their members or variables),
+ * which naga refuses: readable (the decoration RelaxedPrecision, which it
+ * ignores; a shader GL took never reads them)
+ * @param {!Uint32Array} words
+ * @param {!Object} m parse_spirv's
+ */
+function readable_blocks(words, m)
+{
+    const NON_READABLE = 25, RELAXED_PRECISION = 0;
+    const blocks = new Set(), variables = new Set();
+    for(const v of m.variables)
+    {
+        if(v.storage !== STORAGE.StorageBuffer && v.storage !== STORAGE.Uniform) continue;
+        variables.add(v.id);
+        blocks.add(innermost(m, m.types.get(v.type).pointee));
+    }
+    for(let at = 5; at < words.length;)
+    {
+        const count = words[at] >>> 16, op = words[at] & 0xFFFF;
+        if(!count) break;
+        if(op === OP.Decorate && count === 3 && words[at + 2] === NON_READABLE && variables.has(words[at + 1])) words[at + 2] = RELAXED_PRECISION;
+        if(op === OP.MemberDecorate && count === 4 && words[at + 3] === NON_READABLE && blocks.has(words[at + 1])) words[at + 3] = RELAXED_PRECISION;
+        at += count;
+    }
 }
 
 /**
