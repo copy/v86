@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GLES executor: a recorded run timed</title>
+<pre id="result">RUNNING</pre>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+// A recorded run's GLES batches (tests/a32/android_boot.mjs's
+// gles-batches.bin: each batch a u32 length, then the batch) replayed on a
+// fresh GLES executor in order, as the page runs them (gles_replay_browser_test.html
+// keeps their frames; this one keeps nothing): the time they take
+// on this GPU and the executor's stats (translations and their time,
+// pipelines, vertex arrays and index lists assembled on the CPU), for
+// docs/gles3-plan.md L7. ?file=<the recording, from the repository's root>.
+// PASS when no batch failed and WebGPU reported no error.
+const result = document.getElementById("result");
+(async () => {
+    try {
+        const file = new URLSearchParams(location.search).get("file") || "build/a32-android/runs/v86-gles3-boot/gles-batches.bin";
+        const adapter = await navigator.gpu.requestAdapter();
+        const optional = ["texture-compression-etc2", "texture-compression-astc", "texture-component-swizzle"].filter(f => adapter.features.has(f));
+        const device = await adapter.requestDevice({ requiredFeatures: optional });
+        const errors = [];
+        device.onuncapturederror = e => errors.push(e.error.message);
+        const executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
+        const bytes = new Uint8Array(await (await fetch("../../" + file)).arrayBuffer());
+        const sink = { writeResponse() {} };
+        let at = 0, batches = 0, slowest = 0;
+        const start = performance.now();
+        while(at + 4 <= bytes.length) {
+            const length = new DataView(bytes.buffer, at, 4).getUint32(0, true);
+            const t = performance.now();
+            await executor.submit(bytes.slice(at + 4, at + 4 + length), sink);
+            slowest = Math.max(slowest, performance.now() - t);
+            at += 4 + length;
+            batches++;
+        }
+        await device.queue.onSubmittedWorkDone();
+        const ms = performance.now() - start;
+        const s = executor.stats;
+        const summary = { file, batches, bytes: bytes.length, ms: Math.round(ms), per_batch_ms: +(ms / batches).toFixed(2), slowest_batch_ms: Math.round(slowest),
+            draws: s.draws, pipelines: s.pipelines, translations: s.translations || 0, translate_ms: Math.round(s.translate_ms || 0),
+            cpu_arrays: s.cpu_arrays || 0, index_lists: s.index_lists || 0, uploads: s.uploads, posts: s.posts, refused: s.refused, gles3: s.gles3 || {} };
+        if(s.errors.length || errors.length) throw new Error("errors: " + s.errors.concat(errors).slice(0, 5).join("; "));
+        result.textContent = "PASS " + JSON.stringify(summary);
+    } catch(e) {
+        result.textContent = "FAIL " + (e.stack || e);
+    }
+})();
+</script>
