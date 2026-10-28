@@ -2315,11 +2315,9 @@ export const GLES3 = {
                 return true;
             }
             case "glFlushMappedBufferRangeAEMU":
-            {
-                const buffer = this.buffer_of3(c, args[0]);
-                if(buffer && buffer.mapped) this.buffer_written(buffer, buffer.mapped.offset + args[1], args[2], args[4]);
+                // (the buffer's offset: gfxstream's decoder's)
+                this.buffer_written(this.buffer_of3(c, args[0]), args[1], args[2], args[4]);
                 return true;
-            }
             case "glCopyBufferSubData":
             {
                 const [read_target, write_target, read_offset, write_offset, size] = args;

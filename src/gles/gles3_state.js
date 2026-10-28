@@ -810,13 +810,14 @@ export function gles3_handlers(h)
             if(!BUFFER_TARGETS.has(target)) return fail(c, GL.INVALID_ENUM);
             const buffer = bound_buffer3(c, target);
             if(!buffer) return REFUSED;
-            if(!buffer.mapped) return fail(c, GL.INVALID_OPERATION);
-            const m = buffer.mapped;
+            // (the mapping and its bytes come with the command, as gfxstream's decoder takes them: the page's shadow,
+            // which never sees glMapBufferRangeAEMU (a query), takes them so)
+            if(!buffer.mapped && !shadow.trusted) return fail(c, GL.INVALID_OPERATION);
             buffer.mapped = null;
             const bytes = bytes_of(shadow, buffer);
-            if(bytes && guest_buffer && m.access & GL.MAP_WRITE_BIT && !(m.access & GL.MAP_FLUSH_EXPLICIT_BIT))
+            if(bytes && guest_buffer && access & GL.MAP_WRITE_BIT && !(access & GL.MAP_FLUSH_EXPLICIT_BIT) && offset >= 0 && offset + length <= buffer.size)
             {
-                bytes.set(guest_buffer.subarray(0, m.length), m.offset);
+                bytes.set(guest_buffer.subarray(0, length), offset);
             }
             if(out_res && out_res.size) out_res.data[0] = 1;
             return undefined;
@@ -826,11 +827,15 @@ export function gles3_handlers(h)
             if(!BUFFER_TARGETS.has(target)) return fail(c, GL.INVALID_ENUM);
             const buffer = bound_buffer3(c, target);
             if(!buffer) return REFUSED;
+            // (`offset` is the buffer's, not the mapping's: the encoder adds the mapping's, gfxstream's decoder says)
             const m = buffer.mapped;
-            if(!m || !(m.access & GL.MAP_FLUSH_EXPLICIT_BIT)) return fail(c, GL.INVALID_OPERATION);
-            if(offset < 0 || length < 0 || offset + length > m.length) return fail(c, GL.INVALID_VALUE);
+            if(!shadow.trusted)
+            {
+                if(!m || !(m.access & GL.MAP_FLUSH_EXPLICIT_BIT)) return fail(c, GL.INVALID_OPERATION);
+                if(offset < m.offset || length < 0 || offset + length > m.offset + m.length) return fail(c, GL.INVALID_VALUE);
+            }
             const bytes = bytes_of(shadow, buffer);
-            if(bytes && guest_buffer) bytes.set(guest_buffer.subarray(0, length), m.offset + offset);
+            if(bytes && guest_buffer && offset >= 0 && offset + length <= buffer.size) bytes.set(guest_buffer.subarray(0, length), offset);
             return undefined;
         },
         "glCopyBufferSubData": (shadow, c, [read_target, write_target, read_offset, write_offset, size]) =>

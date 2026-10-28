@@ -66,7 +66,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             }
             // (what only asks or names stays on the CPU side, as gles_host.js's is_query)
             const error = cpu.context(current).error;
-            check(keep || /^gl(Get|Is|Gen)/.test(name) && !error, name + " is taken (error 0x" + (error || 0).toString(16) + ")");
+            check(keep || /^gl(Get|Is|Gen|MapBufferRange)/.test(name) && !error, name + " is taken (error 0x" + (error || 0).toString(16) + ")");
             checks.pop();
             if(keep) writer.command(GLES.COMMAND, [1, ret, bytes.length], bytes);
         };
@@ -483,6 +483,22 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glUniform1i", volume.at("which"), 1);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [51, 51, 51, 255]), "glCopyTexImage2D into LUMINANCE: red as luminance, alpha 1");
+        // a pixel unpack buffer written through a mapping, as hwui's glyphs: the map stays on the CPU side (a query),
+        // its bytes come with the unmap; then an image from it at an offset, with a row length
+        const unpack = gen("Buffers");
+        gl("glBindBuffer", 0x88EC, unpack);
+        gl("glBufferData", 0x88EC, 16, null, 0x88E8);
+        gl("glMapBufferRangeAEMU", 0x88EC, 0, 16, 3, 16);
+        gl("glUnmapBufferAEMU", 0x88EC, 0, 16, 3, new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 200, 200, 0, 0, 200, 200, 0, 0]), 4);
+        texture(9, 0x0DE1);
+        gl("glTexImage2D", 0x0DE1, 0, 0x1909, 2, 2, 0, 0x1909, 0x1401, null);
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glPixelStorei", 0x0CF2, 4);
+        gl("glTexSubImage2DOffsetAEMU", 0x0DE1, 0, 0, 0, 2, 2, 0x1909, 0x1401, 8);
+        gl("glPixelStorei", 0x0CF2, 0);
+        gl("glBindBuffer", 0x88EC, 0);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [200, 200, 200, 255]), "an unpack buffer's mapped bytes (the unmap's), uploaded from it");
         // an ETC2 RGB8 block (differential, red 31 + 2): WebGPU's when the device has it, else decoded
         texture(9, 0x0DE1);
         gl("glCompressedTexImage2D", 0x0DE1, 0, 0x9274, 4, 4, 0, 8, new Uint8Array([0xF8, 0, 0, 0x02, 0, 0, 0, 0]));
