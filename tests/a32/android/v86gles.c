@@ -12,18 +12,26 @@
 // colored by a uniform block, two draw buffers and glClearBufferfv, an
 // unsigned integer buffer read as integers, transform feedback mapped, a 3D
 // texture's layer, a multisampled renderbuffer resolved by a blit, and a
-// read into a pixel pack buffer mapped.
+// read into a pixel pack buffer mapped. GLES 3.1 (L5), with a host that
+// announces it: a compute shader's storage buffer and atomic counter mapped,
+// an image a dispatch stored sampled by a draw, an indirect draw of
+// parameters a dispatch wrote. Last, GLES 3.0's frame rate (L7): 49 lit,
+// textured cubes drawn and swapped (interval 0) frame after frame, in one
+// instanced draw and in a draw each, logged as "V86_GLES <fps|fpsdraws>
+// frames=<n> draws=<a frame's> guest_ms=<the guest clock's time>".
 #define GL_GLEXT_PROTOTYPES
 #include <android/log.h>
 #include <android/native_activity.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <GLES3/gl3.h>
+#include <GLES3/gl31.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 
 #define LOG(...) __android_log_print(ANDROID_LOG_INFO, "v86gles", __VA_ARGS__)
 
@@ -303,6 +311,248 @@ static void gles3_scenes(void)
     eglSwapBuffers(display, surface);
 }
 
+static GLuint link_compute(const char* source)
+{
+    GLuint program = glCreateProgram();
+    glAttachShader(program, compile(GL_COMPUTE_SHADER, source));
+    glLinkProgram(program);
+    GLint ok = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &ok);
+    if(!ok) LOG("V86_GLES compute link failed");
+    glUseProgram(program);
+    return program;
+}
+
+/** out = a * b, column-major 4x4 */
+static void multiply(float* out, const float* a, const float* b)
+{
+    float r[16];
+    for(int column = 0; column < 4; column++)
+        for(int row = 0; row < 4; row++)
+        {
+            r[column * 4 + row] = 0;
+            for(int k = 0; k < 4; k++) r[column * 4 + row] += a[k * 4 + row] * b[column * 4 + k];
+        }
+    memcpy(out, r, sizeof r);
+}
+
+static double guest_ms(void)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec * 1000.0 + t.tv_nsec / 1e6;
+}
+
+/**
+ * Frames of the cubes (fps_scene's) swapped one after another: five to warm
+ * up (the pipelines), then up to 100 frames or 5 s of the guest's clock
+ * timed; one instanced draw a frame, or (`separate`) a draw a cube, the
+ * offset a constant attribute. The last frame drawn again, unswapped, for a
+ * pixel of the middle cube.
+ */
+static void timed_frames(const char* name, float* frame, const float* offsets, int separate)
+{
+    int frames = 0;
+    double start = 0, now = 0;
+    if(separate) glDisableVertexAttribArray(3);
+    for(int i = 0; ; i++)
+    {
+        // the model: about y, then about x
+        const float a = i * 0.05f, b = i * 0.035f;
+        const float ry[16] = { cosf(a), 0, -sinf(a), 0, 0, 1, 0, 0, sinf(a), 0, cosf(a), 0, 0, 0, 0, 1 };
+        const float rx[16] = { 1, 0, 0, 0, 0, cosf(b), sinf(b), 0, 0, -sinf(b), cosf(b), 0, 0, 0, 0, 1 };
+        multiply(frame + 16, ry, rx);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, 36 * sizeof(float), frame);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        if(!separate) glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0, 49);
+        else for(int k = 0; k < 49; k++)
+        {
+            glVertexAttrib3fv(3, offsets + 3 * k);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
+        }
+        now = guest_ms();
+        if(i == 5) start = now;
+        if(i > 5 && (frames >= 100 || now - start >= 5000)) break;
+        eglSwapBuffers(display, surface);
+        if(i >= 5) frames++;
+    }
+    int middle[] = { width / 2, height / 2 };
+    report(name, middle, 1);
+    LOG("V86_GLES %s frames=%d draws=%d guest_ms=%.1f", name, frames, separate ? 49 : 1, now - start);
+    if(separate) glEnableVertexAttribArray(3);
+}
+
+// GLES 3.0's frame rate (docs/gles3-plan.md L7): 7x7 cubes from a vertex
+// array object (interleaved positions, normals and coordinates, an index
+// buffer, an offset a cube), their rotation in a uniform block written every
+// frame, a mipmapped texture through a sampler object, a depth test; swapped
+// at interval 0, so as fast as the guest and the host draw them, not at
+// vsync's pace (the host lets the guest be at most two frames ahead):
+// instanced, one draw a frame ("fps"), then a draw a cube ("fpsdraws").
+static void fps_scene(void)
+{
+    const char* block = "layout(std140) uniform Frame { mat4 view_projection; mat4 model; vec4 light; };\n";
+    char vs[1024], fs[1024];
+    snprintf(vs, sizeof vs, "#version 300 es\n%s"
+        "layout(location = 0) in vec3 p; layout(location = 1) in vec3 n; layout(location = 2) in vec2 uv; layout(location = 3) in vec3 offset;\n"
+        "out vec3 v_normal; out vec2 v_uv;\n"
+        "void main() { v_normal = mat3(model) * n; v_uv = uv; gl_Position = view_projection * (model * vec4(p * 0.3, 1.0) + vec4(offset, 0.0)); }", block);
+    snprintf(fs, sizeof fs, "#version 300 es\nprecision mediump float;\n%s"
+        "uniform sampler2D tex; in vec3 v_normal; in vec2 v_uv; out vec4 o;\n"
+        "void main() { float d = max(dot(normalize(v_normal), light.xyz), 0.0) * 0.8 + 0.2; o = vec4(texture(tex, v_uv).rgb * d, 1.0); }", block);
+    GLuint program = link(vs, fs, 0);
+    // a cube: 4 vertices a face (position, normal, coordinates), 2 triangles
+    float vertices[24 * 8];
+    GLushort indices[36];
+    for(int face = 0; face < 6; face++)
+    {
+        const int axis = face / 2, u = (axis + 1) % 3, v = (axis + 2) % 3;
+        const float sign = face % 2 ? 1 : -1;
+        for(int corner = 0; corner < 4; corner++)
+        {
+            float* x = vertices + (face * 4 + corner) * 8;
+            const int i = corner & 1, j = corner >> 1;
+            memset(x, 0, 8 * sizeof(float));
+            x[axis] = sign;
+            x[u] = 2 * i - 1;
+            x[v] = 2 * j - 1;
+            x[3 + axis] = sign;
+            x[6] = i;
+            x[7] = j;
+        }
+        const GLushort order[] = { 0, 1, 2, 2, 1, 3 };
+        for(int k = 0; k < 6; k++) indices[face * 6 + k] = face * 4 + order[k];
+    }
+    float offsets[49 * 3];
+    for(int k = 0; k < 49; k++)
+    {
+        offsets[3 * k] = (k % 7 - 3) * 0.5f;
+        offsets[3 * k + 1] = (k / 7 - 3) * 0.5f;
+        offsets[3 * k + 2] = 0;
+    }
+    GLuint vao, buffers[4], texture, sampler;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(4, buffers);
+    glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof vertices, vertices, GL_STATIC_DRAW);
+    for(int a = 0; a < 3; a++)
+    {
+        glEnableVertexAttribArray(a);
+        glVertexAttribPointer(a, a == 2 ? 2 : 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (const void*)(a * 3 * sizeof(float)));
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, buffers[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof offsets, offsets, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribDivisor(3, 1);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[2]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof indices, indices, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, buffers[3]);
+    glBufferData(GL_UNIFORM_BUFFER, 36 * sizeof(float), 0, GL_DYNAMIC_DRAW);
+    glUniformBlockBinding(program, glGetUniformBlockIndex(program, "Frame"), 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, buffers[3]);
+    // an orange and white checkerboard, mipmapped, sampled trilinear
+    static unsigned char texels[64 * 64 * 4];
+    for(int y = 0; y < 64; y++)
+        for(int x = 0; x < 64; x++)
+        {
+            const int white = (x / 8 + y / 8) % 2;
+            unsigned char* t = texels + (y * 64 + x) * 4;
+            t[0] = 255; t[1] = white ? 255 : 128; t[2] = white ? 255 : 0; t[3] = 255;
+        }
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexStorage2D(GL_TEXTURE_2D, 7, GL_RGBA8, 64, 64);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_UNSIGNED_BYTE, texels);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glGenSamplers(1, &sampler);
+    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindSampler(0, sampler);
+    glUniform1i(glGetUniformLocation(program, "tex"), 0);
+    // a perspective of 60 degrees, the cubes 6 away
+    const float f = 1 / tanf(3.14159265f / 6), aspect = (float)width / height, near = 0.1f, far = 20;
+    const float projection[16] = { f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, 2 * far * near / (near - far), 0 };
+    const float view[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -6, 1 };
+    float frame[36];
+    multiply(frame, projection, view);
+    frame[32] = 0.3f; frame[33] = 0.5f; frame[34] = 0.81f; frame[35] = 0;
+    glViewport(0, 0, width, height);
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.1f, 0.1f, 0.2f, 1);
+    eglSwapInterval(display, 0);
+    timed_frames("fps", frame, offsets, 0);
+    timed_frames("fpsdraws", frame, offsets, 1);
+    eglSwapInterval(display, 1);
+    glDisable(GL_DEPTH_TEST);
+    glBindSampler(0, 0);
+    glBindVertexArray(0);
+}
+
+static void gles31_scenes(void)
+{
+    GLuint buffers[3], vao, image;
+    glGenBuffers(3, buffers);
+    // a storage buffer and an atomic counter, a dispatch of two groups of four
+    link_compute("#version 310 es\nlayout(local_size_x = 4) in;\nlayout(std430, binding = 0) buffer Data { uint values[]; };\n"
+        "layout(binding = 0, offset = 0) uniform atomic_uint counter;\n"
+        "void main() { values[gl_GlobalInvocationID.x] = gl_GlobalInvocationID.x * 3u; atomicCounterIncrement(counter); }");
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 32, 0, GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[0]);
+    const GLuint start = 10;
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, buffers[1]);
+    glBufferData(GL_ATOMIC_COUNTER_BUFFER, 4, &start, GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, buffers[1]);
+    glDispatchCompute(2, 1, 1);
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+    const GLuint* values = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, 32, GL_MAP_READ_BIT);
+    if(values) LOG("V86_GLES storage %u,%u,%u,%u,%u,%u,%u,%u glerror=%x", values[0], values[1], values[2], values[3], values[4], values[5], values[6],
+        values[7], glGetError());
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    const GLuint* counted = glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, 4, GL_MAP_READ_BIT);
+    if(counted) LOG("V86_GLES counter %u glerror=%x", counted[0], glGetError());
+    glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+
+    // an image a dispatch stored (green), and an indirect draw's parameters a dispatch wrote, drawn sampling it
+    glGenTextures(1, &image);
+    glBindTexture(GL_TEXTURE_2D, image);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 8, 8);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    link_compute("#version 310 es\nlayout(local_size_x = 8, local_size_y = 8) in;\nlayout(rgba8, binding = 0) writeonly uniform highp image2D target;\n"
+        "layout(std430, binding = 1) buffer Command { uint count; uint instances; uint first; uint reserved; };\n"
+        "void main() { imageStore(target, ivec2(gl_GlobalInvocationID.xy), vec4(0.0, 1.0, 0.0, 1.0));\n"
+        "  if(gl_LocalInvocationIndex == 0u) { count = 4u; instances = 1u; first = 0u; reserved = 0u; } }");
+    glBindImageTexture(0, image, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[2]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 16, 0, GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[2]);
+    glDispatchCompute(1, 1, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
+    link("#version 310 es\nlayout(location = 0) in vec2 p; out vec2 uv; void main() { uv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }",
+        "#version 310 es\nprecision mediump float; uniform sampler2D t; in vec2 uv; out vec4 o; void main() { o = texture(t, uv); }", 0);
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    GLuint quad;
+    glGenBuffers(1, &quad);
+    const float corners[] = { -1, -1, 1, -1, -1, 1, 1, 1 };
+    glBindBuffer(GL_ARRAY_BUFFER, quad);
+    glBufferData(GL_ARRAY_BUFFER, sizeof corners, corners, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffers[2]);
+    glViewport(0, 0, width, height);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDrawArraysIndirect(GL_TRIANGLE_STRIP, 0);
+    int center[] = { width / 2, height / 2 };
+    report("computed", center, 1);
+    eglSwapBuffers(display, surface);
+}
+
 static void gles1_scenes(void)
 {
     glViewport(0, 0, width, height);
@@ -461,6 +711,10 @@ static void* run(void* argument)
     {
         LOG("V86_GLES gles3 %s / %s", glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
         gles3_scenes();
+        GLint minor = 0;
+        glGetIntegerv(GL_MINOR_VERSION, &minor);
+        if(minor >= 1) gles31_scenes();
+        fps_scene();
     }
     else LOG("V86_GLES gles3 none: %x", eglGetError());
     LOG("V86_GLES_DONE");

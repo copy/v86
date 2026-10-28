@@ -57,7 +57,9 @@
 // pattern of cases to keep; A32_ANDROID_DEQP_IMAGES=1 the log with its images
 // in the instrumentation's output, kept); each case's status into the run's deqp.json.
 // A32_ANDROID_DEQP_SUITE=gles3 (or gles31): that suite's case list in GLES 2's
-// place (docs/gles3-plan.md L4). A32_ANDROID_GLES_VERSION: the GLES version
+// place (docs/gles3-plan.md L4). A32_ANDROID_DEQP_RESUME: an earlier run's
+// deqp.json, whose passed and unsupported cases are not run again (the rest,
+// failures among them, are); the run's deqp.json has both. A32_ANDROID_GLES_VERSION: the GLES version
 // the host announces (src/android/devices.js's default otherwise).
 // A32_ANDROID_MEDIA=1 (with A32_ANDROID_GPU=host): Replica Island (GLES 1)
 // and Shattered Pixel Dungeon (libGDX, GLES 2) from F-Droid on a fourth
@@ -117,8 +119,49 @@ for(const pair of (process.env.A32_ANDROID_PROPS || "").split(",").filter(Boolea
     else delete properties[name];
 }
 const restore = process.env.A32_ANDROID_RESTORE_STATE, save = process.env.A32_ANDROID_SAVE_STATE;
+
+/**
+ * A copy of system.img (a clone: APFS shares its blocks) whose
+ * libEGL_emulation names EGL_KHR_create_context: dEQP wants the name for a
+ * GLES 3.x context. The guest's EGL takes the extension's attributes (the
+ * major and minor versions, "no ES 3.1 support") but its extension string is
+ * a constant without the name; the name goes over the native sync
+ * extensions' names after the constant, which it uses only with a host that
+ * announces native sync (ours does not).
+ * @return {string} the copy's path
+ */
+function create_context_system(source, target)
+{
+    const constant = "EGL_ANDROID_image_native_buffer EGL_KHR_fence_sync EGL_KHR_image_base EGL_KHR_gl_texture_2d_image ";
+    const old = Buffer.from(constant + "\0EGL_ANDROID_native_fence_sync \0EGL_KHR_wait_sync \0", "latin1");
+    const patched = Buffer.alloc(old.length);
+    Buffer.from(constant + "EGL_KHR_create_context ", "latin1").copy(patched);
+    if(fs.existsSync(target) && fs.statSync(target).mtimeMs >= fs.statSync(source).mtimeMs) return target;
+    const partial = target + ".partial";
+    fs.copyFileSync(source, partial, fs.constants.COPYFILE_FICLONE);
+    const fd = fs.openSync(partial, "r+");
+    const chunk = Buffer.alloc(64 << 20);
+    let found = 0;
+    for(let at = 0; ; at += chunk.length - old.length)
+    {
+        const n = fs.readSync(fd, chunk, 0, chunk.length, at);
+        for(let i = chunk.subarray(0, n).indexOf(old); i >= 0; i = chunk.subarray(0, n).indexOf(old, i + 1))
+        {
+            fs.writeSync(fd, patched, 0, patched.length, at + i);
+            found++;
+        }
+        if(n < chunk.length) break;
+    }
+    fs.closeSync(fd);
+    assert.ok(found > 0, "libEGL_emulation's extension string in system.img");
+    fs.renameSync(partial, target);
+    return target;
+}
+
 // (dEQP: its files on an ext2 disk of their own, and the cases to run)
 let deqp = null;
+/** The dEQP results a resumed run does not run again */
+const DEQP_DONE = new Set(["Pass", "NotSupported", "QualityWarning", "CompatibilityWarning"]);
 if(process.env.A32_ANDROID_DEQP === "1")
 {
     const { fetch_files, DEQP_FILES } = await import("../../tools/a32_cts.mjs");
@@ -131,8 +174,12 @@ if(process.env.A32_ANDROID_DEQP === "1")
     const all = fs.readFileSync(list, "utf8").split("\n").filter(Boolean);
     const sampled = all.filter((c, i) => /\.(state_query|negative_api)\./.test(c) || c.startsWith(prefix + ".info.") ||
         c.startsWith(prefix + ".functional.") && i % step === 0);
-    const cases = { [prefix]: sampled.filter(c => filter.test(c)),
-        "dEQP-EGL": fs.readFileSync(egl, "utf8").split("\n").filter(c => c.startsWith("dEQP-EGL.info.") && filter.test(c)) };
+    // (A32_ANDROID_DEQP_RESUME: an earlier run's results; its passed and unsupported cases kept, not run)
+    const earlier = process.env.A32_ANDROID_DEQP_RESUME ? JSON.parse(fs.readFileSync(process.env.A32_ANDROID_DEQP_RESUME, "utf8")) : {};
+    const kept = Object.fromEntries(Object.entries(earlier).filter(([, status]) => DEQP_DONE.has(status)));
+    const keep = c => filter.test(c) && !(c in kept);
+    const cases = { [prefix]: sampled.filter(keep),
+        "dEQP-EGL": fs.readFileSync(egl, "utf8").split("\n").filter(c => c.startsWith("dEQP-EGL.info.") && keep(c)) };
     const root = run_directory + "deqp-disk/";
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
@@ -147,8 +194,11 @@ if(process.env.A32_ANDROID_DEQP === "1")
     fs.rmSync(image, { force: true });
     const made = spawnSync("/opt/homebrew/opt/e2fsprogs/sbin/mke2fs", ["-q", "-t", "ext2", "-b", "4096", "-d", root, image, "160M"], { encoding: "utf8" });
     assert.equal(made.status, 0, made.stderr);
-    deqp = { image, chunks };
-    console.log(`dEQP: ${cases[prefix].length} ${prefix} and ${cases["dEQP-EGL"].length} EGL cases in ${chunks.length} runs`);
+    // (GLES 3.x's suites: EGL_KHR_create_context named, create_context_system)
+    deqp = { image, chunks, kept, system: suite === "gles2" ? null : create_context_system(directory + "armeabi-v7a/system.img",
+        directory + "system-egl-create-context.img") };
+    console.log(`dEQP: ${cases[prefix].length} ${prefix} and ${cases["dEQP-EGL"].length} EGL cases in ${chunks.length} runs` +
+        (Object.keys(kept).length ? `, ${Object.keys(kept).length} kept from ${process.env.A32_ANDROID_DEQP_RESUME}` : ""));
 }
 // A32_ANDROID_MEDIA=1: two open-source games from F-Droid (Replica Island
 // 1.4, archive; Shattered Pixel Dungeon 4.0.2, F-Droid's build) and a green
@@ -215,7 +265,7 @@ const emulator = new V86({
         // (the device model's clock rate, as the bootloader hands it over; A32_ANDROID_RATE another)
         ...(process.env.A32_PARALLEL === "1" ? {} : { cpu_clock: { rate: Number(process.env.A32_ANDROID_RATE || RANCHU_25_ARMEABI_V7A.clock_rate) } }),
         virtio_disks: [
-            { url: image + "system.img", async: true, size: fs.statSync(image + "system.img").size, readonly: true },
+            { url: deqp && deqp.system || image + "system.img", async: true, size: fs.statSync(image + "system.img").size, readonly: true },
             { buffer: make_empty_ext4(64 << 20, "cache", 1595289711).buffer },
             { url: image + "userdata.img", async: true, size: fs.statSync(image + "userdata.img").size },
             // (dEQP's disk: vdd)
@@ -506,7 +556,7 @@ try
     }
     if(process.env.A32_ANDROID_GLES_APP === "1")
     {
-        const lib = build_native_lib(4096, "v86gles", ["-landroid", "-llog", "-lEGL", "-lGLESv2", "-lGLESv1_CM"],
+        const lib = build_native_lib(4096, "v86gles", ["-landroid", "-llog", "-lm", "-lEGL", "-lGLESv3", "-lGLESv2", "-lGLESv1_CM"],
             { abi: "armeabi-v7a", source: ROOT + "tests/a32/android/v86gles.c" });
         const apk = build_apk({ label: "v86 gles", package_name: "org.v86.gles", min_sdk: 21, target_sdk: 25,
             native: { name: "v86gles", lib, extract: true, abi: "armeabi-v7a" } });
@@ -565,6 +615,35 @@ try
             expect("volume", [[0, 0, 255]]);
             expect("resolve", [[255, 0, 255]]);
             assert.match(log, /V86_GLES pack 255,0,255,255 glerror=0/, "a read into a pixel pack buffer, mapped");
+        }
+        // GLES 3.1's (L5) where the host announces it
+        if(gpu.gles_version === "3.1" || gpu.gles_version === "3.2")
+        {
+            assert.match(log, /V86_GLES storage 0,3,6,9,12,15,18,21 glerror=0/, "a dispatch's storage buffer, mapped");
+            assert.match(log, /V86_GLES counter 18 glerror=0/, "an atomic counter incremented 8 times from 10, mapped");
+            expect("computed", [[0, 255, 0]]);
+        }
+        // GLES 3.0's frame rate (docs/gles3-plan.md L7), one instanced draw a frame ("fps") and a draw a cube
+        // ("fpsdraws"): the middle cube drawn (not the clear color), the frames in the guest's time; the host's
+        // frame rate that time at the clock's rate (a tenth of the host's)
+        if(gpu.gles_version !== "2.0")
+        {
+            const rate = Number(process.env.A32_ANDROID_RATE || RANCHU_25_ARMEABI_V7A.clock_rate);
+            const clear = [26, 26, 51];
+            const timed = [];
+            for(const name of ["fps", "fpsdraws"])
+            {
+                assert.ok(scenes[name] && scenes[name].error === "0", "the frame rate scene " + name);
+                assert.ok(scenes[name].pixels[0].some((v, i) => Math.abs(v - clear[i]) > 10), name + ": the middle cube: " + scenes[name].pixels[0]);
+                const m = new RegExp(`V86_GLES ${name} frames=(\\d+) draws=(\\d+) guest_ms=([\\d.]+)`).exec(log);
+                assert.ok(m && +m[1] > 0, name + ": frames timed");
+                const result = { name, draws: +m[2], frames: +m[1], guest_ms: +m[3], guest_fps: +m[1] / (+m[3] / 1000) };
+                result.host_fps = result.guest_fps * rate;
+                timed.push(result);
+                console.log(`gles app: GLES 3.0 scene, ${result.draws} draw(s) a frame: ${result.frames} frames, ` +
+                    `${result.guest_fps.toFixed(1)} fps of the guest's clock, ${result.host_fps.toFixed(2)} fps of the host's`);
+            }
+            fs.writeFileSync(run_directory + "fps.json", JSON.stringify({ clock_rate: rate, timed }, null, 1));
         }
         save_png(sink, run_directory, "gles-app");
         console.log("gles app: every scene as GLES draws it");
@@ -701,9 +780,10 @@ try
             if(/denied|No such|failed|Invalid/i.test(out)) console.log("dEQP copy: " + out.replace(/\s+/g, " ").slice(-300));
         }
         console.log(await ask("ls -l /data/local/tmp | head", "A32_DEQP_LS", 600000));
-        const installed = await ask("pm install -r -g /data/local/tmp/deqp.apk", "A32_DEQP_INSTALL", 1800000);
+        // (A32_ANDROID_DEQP_INSTALL_MS: the install's time, dex2oat's; 30 minutes, more on a loaded host)
+        const installed = await ask("pm install -r -g /data/local/tmp/deqp.apk", "A32_DEQP_INSTALL", Number(process.env.A32_ANDROID_DEQP_INSTALL_MS || 1800000));
         assert.match(installed, /Success/, "dEQP installed");
-        const results = {}, details_of = {};
+        const results = Object.assign({}, deqp.kept), details_of = {};
         const started_deqp = performance.now();
         for(const chunk of deqp.chunks)
         {
