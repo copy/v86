@@ -53,11 +53,17 @@ const MAX_LEVELS_2D = Math.log2(LIMITS3.MAX_TEXTURE_SIZE) + 1;
 const MAX_LEVELS_3D = Math.log2(LIMITS3.MAX_3D_TEXTURE_SIZE) + 1;
 
 /** Texture binding slots of a unit: GLES 2.0's three, then 3.0's (gles_shadow.js texture_slot) */
-export const SLOT = { TEXTURE_2D: 0, TEXTURE_CUBE_MAP: 1, TEXTURE_EXTERNAL_OES: 2, TEXTURE_3D: 3, TEXTURE_2D_ARRAY: 4 };
+export const SLOT = { TEXTURE_2D: 0, TEXTURE_CUBE_MAP: 1, TEXTURE_EXTERNAL_OES: 2, TEXTURE_3D: 3, TEXTURE_2D_ARRAY: 4, TEXTURE_2D_MULTISAMPLE: 5 };
 
 const BUFFER_TARGETS = new Map([[GL3.ARRAY_BUFFER, "array"], [GL3.ELEMENT_ARRAY_BUFFER, "element"], [GL3.COPY_READ_BUFFER, "copy_read"],
     [GL3.COPY_WRITE_BUFFER, "copy_write"], [GL3.PIXEL_PACK_BUFFER, "pixel_pack"], [GL3.PIXEL_UNPACK_BUFFER, "pixel_unpack"],
-    [GL3.TRANSFORM_FEEDBACK_BUFFER, "transform_feedback"], [GL3.UNIFORM_BUFFER, "uniform"]]);
+    [GL3.TRANSFORM_FEEDBACK_BUFFER, "transform_feedback"], [GL3.UNIFORM_BUFFER, "uniform"],
+    // (GLES 3.1's: gles31_state.js)
+    [0x90D2, "shader_storage"], [0x92C0, "atomic_counter"], [0x90EE, "dispatch_indirect"], [0x8F3F, "draw_indirect"]]);
+/** The buffer targets only GLES 3.1 has */
+const TARGETS31 = new Set([0x90D2, 0x92C0, 0x90EE, 0x8F3F]);
+/** @return {boolean} whether a context of its version has the buffer target */
+const target_ok = (c, target) => BUFFER_TARGETS.has(target) && (c.version >= 31 || !TARGETS31.has(target));
 const USAGES3 = new Set([0x88E0, 0x88E1, 0x88E2, 0x88E4, 0x88E5, 0x88E6, 0x88E8, 0x88E9, 0x88EA]);
 const COMPARE_FUNCS = new Set([0x0200, 0x0201, 0x0202, 0x0203, 0x0204, 0x0205, 0x0206, 0x0207]);
 const WRAPS = new Set([GL3.REPEAT, GL3.CLAMP_TO_EDGE, GL3.MIRRORED_REPEAT]);
@@ -104,9 +110,10 @@ function new_sampler()
 /** A GLES 3.0 context's state beyond GLES 2.0's (tables 6.2 to 6.37) */
 export function extend_context3(c)
 {
-    c.textures = Array.from({ length: MAX_UNITS }, () => [0, 0, 0, 0, 0]);
+    c.textures = Array.from({ length: MAX_UNITS }, () => [0, 0, 0, 0, 0, 0]);
     c.samplers = new Array(MAX_UNITS).fill(0);
-    c.buffers = { copy_read: 0, copy_write: 0, pixel_pack: 0, pixel_unpack: 0, transform_feedback: 0, uniform: 0 };
+    c.buffers = { copy_read: 0, copy_write: 0, pixel_pack: 0, pixel_unpack: 0, transform_feedback: 0, uniform: 0,
+        shader_storage: 0, atomic_counter: 0, dispatch_indirect: 0, draw_indirect: 0 };
     c.uniform_bindings = Array.from({ length: LIMITS3.MAX_UNIFORM_BUFFER_BINDINGS }, () => ({ buffer: 0, offset: 0, size: 0 }));
     c.default_vao = new_vao();
     c.attribs = c.default_vao.attribs;
@@ -226,13 +233,13 @@ export function gles3_handlers(h)
 
     // ---- textures
 
-    const target_slot = target => target === GL.TEXTURE_2D ? SLOT.TEXTURE_2D : target === GL.TEXTURE_CUBE_MAP ? SLOT.TEXTURE_CUBE_MAP :
+    const target_slot = (target, c) => target === GL.TEXTURE_2D ? SLOT.TEXTURE_2D : target === GL.TEXTURE_CUBE_MAP ? SLOT.TEXTURE_CUBE_MAP :
         target === GL.TEXTURE_EXTERNAL_OES ? SLOT.TEXTURE_EXTERNAL_OES : target === GL.TEXTURE_3D ? SLOT.TEXTURE_3D :
-        target === GL.TEXTURE_2D_ARRAY ? SLOT.TEXTURE_2D_ARRAY : -1;
+        target === GL.TEXTURE_2D_ARRAY ? SLOT.TEXTURE_2D_ARRAY : target === 0x9100 && c.version >= 31 ? SLOT.TEXTURE_2D_MULTISAMPLE : -1;
     /** The texture bound to a target of the active unit (the default one for name 0), or null with the error set */
     const bound_texture3 = (c, target) =>
     {
-        const slot = target_slot(target);
+        const slot = target_slot(target, c);
         if(slot < 0) { fail(c, GL.INVALID_ENUM); return null; }
         const name = c.textures[c.active_texture][slot];
         let texture = c.group.textures.get(name);
@@ -485,7 +492,8 @@ export function gles3_handlers(h)
             samples = image.samples;
             any = true;
         }
-        if(!any) return GL.INCOMPLETE_MISSING_ATTACHMENT;
+        // (GLES 3.1: none, with a default width and height: a framebuffer drawn to without attachments)
+        if(!any) return c.version >= 31 && fbo.default_width > 0 && fbo.default_height > 0 ? GL.FRAMEBUFFER_COMPLETE : GL.INCOMPLETE_MISSING_ATTACHMENT;
         const depth = fbo.attachments.get(GL.DEPTH_ATTACHMENT), stencil = fbo.attachments.get(GL.STENCIL_ATTACHMENT);
         if(depth && stencil && (depth.type !== stencil.type || depth.name !== stencil.name || depth.level !== stencil.level ||
             depth.face !== stencil.face || depth.layer !== stencil.layer))
@@ -716,7 +724,7 @@ export function gles3_handlers(h)
         // ---- buffers
         "glBindBuffer": (shadow, c, [target, name]) =>
         {
-            if(!BUFFER_TARGETS.has(target)) return fail(c, GL.INVALID_ENUM);
+            if(!target_ok(c, target)) return fail(c, GL.INVALID_ENUM);
             if(name && !c.group.buffers.has(name))
             {
                 if(c.version >= 30 && !generated(shadow, c.group.reserved.buffer, name)) return fail(c, GL.INVALID_OPERATION);
@@ -746,7 +754,7 @@ export function gles3_handlers(h)
         },
         "glBufferData": (shadow, c, [target, size, data, usage]) =>
         {
-            if(!BUFFER_TARGETS.has(target) || !USAGES3.has(usage)) return fail(c, GL.INVALID_ENUM);
+            if(!target_ok(c, target) || !USAGES3.has(usage)) return fail(c, GL.INVALID_ENUM);
             if(size < 0) return fail(c, GL.INVALID_VALUE);
             const buffer = bound_buffer3(c, target);
             if(!buffer) return REFUSED;
@@ -761,7 +769,7 @@ export function gles3_handlers(h)
         },
         "glBufferSubData": (shadow, c, [target, offset, size, data]) =>
         {
-            if(!BUFFER_TARGETS.has(target)) return fail(c, GL.INVALID_ENUM);
+            if(!target_ok(c, target)) return fail(c, GL.INVALID_ENUM);
             const buffer = bound_buffer3(c, target);
             if(!buffer) return REFUSED;
             if(offset < 0 || size < 0 || offset + size > buffer.size) return fail(c, GL.INVALID_VALUE);
@@ -773,7 +781,7 @@ export function gles3_handlers(h)
         "glGetBufferParameteriv": (shadow, c, [target, pname, params]) =>
         {
             query(shadow);
-            if(!BUFFER_TARGETS.has(target)) { fail(c, GL.INVALID_ENUM); return; }
+            if(!target_ok(c, target)) { fail(c, GL.INVALID_ENUM); return; }
             const buffer = bound_buffer3(c, target);
             if(!buffer) return;
             const m = buffer.mapped;
@@ -785,7 +793,7 @@ export function gles3_handlers(h)
         "glMapBufferRangeAEMU": (shadow, c, [target, offset, length, access, mapped]) =>
         {
             query(shadow);
-            if(!BUFFER_TARGETS.has(target)) { fail(c, GL.INVALID_ENUM); return; }
+            if(!target_ok(c, target)) { fail(c, GL.INVALID_ENUM); return; }
             const buffer = bound_buffer3(c, target);
             if(!buffer) return;
             if(offset < 0 || length < 0 || offset + length > buffer.size || access & ~0x3F) { fail(c, GL.INVALID_VALUE); return; }
@@ -807,7 +815,7 @@ export function gles3_handlers(h)
         },
         "glUnmapBufferAEMU": (shadow, c, [target, offset, length, access, guest_buffer, out_res]) =>
         {
-            if(!BUFFER_TARGETS.has(target)) return fail(c, GL.INVALID_ENUM);
+            if(!target_ok(c, target)) return fail(c, GL.INVALID_ENUM);
             const buffer = bound_buffer3(c, target);
             if(!buffer) return REFUSED;
             // (the mapping and its bytes come with the command, as gfxstream's decoder takes them: the page's shadow,
@@ -824,7 +832,7 @@ export function gles3_handlers(h)
         },
         "glFlushMappedBufferRangeAEMU": (shadow, c, [target, offset, length, access, guest_buffer]) =>
         {
-            if(!BUFFER_TARGETS.has(target)) return fail(c, GL.INVALID_ENUM);
+            if(!target_ok(c, target)) return fail(c, GL.INVALID_ENUM);
             const buffer = bound_buffer3(c, target);
             if(!buffer) return REFUSED;
             // (`offset` is the buffer's, not the mapping's: the encoder adds the mapping's, gfxstream's decoder says)
@@ -840,7 +848,7 @@ export function gles3_handlers(h)
         },
         "glCopyBufferSubData": (shadow, c, [read_target, write_target, read_offset, write_offset, size]) =>
         {
-            if(!BUFFER_TARGETS.has(read_target) || !BUFFER_TARGETS.has(write_target)) return fail(c, GL.INVALID_ENUM);
+            if(!target_ok(c, read_target) || !target_ok(c, write_target)) return fail(c, GL.INVALID_ENUM);
             const from = bound_buffer3(c, read_target), to = from && bound_buffer3(c, write_target);
             if(!to) return REFUSED;
             if(read_offset < 0 || write_offset < 0 || size < 0 || read_offset + size > from.size || write_offset + size > to.size) return fail(c, GL.INVALID_VALUE);
@@ -982,7 +990,7 @@ export function gles3_handlers(h)
         },
         "glBindTexture": (shadow, c, [target, name]) =>
         {
-            const slot = target_slot(target);
+            const slot = target_slot(target, c);
             if(slot < 0) return fail(c, GL.INVALID_ENUM);
             if(name)
             {
@@ -2058,6 +2066,9 @@ export function gles3_handlers(h)
         return undefined;
     }
 
+    // (what gles31_state.js's handlers build on: not a command's name)
+    H.helpers = { target_ok, buffer_binding, set_buffer_binding, bound_buffer3, generated, new_buffer, current_tf, program_of, status_of, complete,
+        uniform3, bound_texture3, attachment_image, draw_checks, tf_bound_active, put64, get_attrib3, attrib3, bytes_of };
     return H;
 }
 

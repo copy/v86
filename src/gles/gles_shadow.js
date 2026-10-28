@@ -25,6 +25,7 @@ import { STAGE_OF_GL_TYPE } from "./glslang.js";
 import { glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
 import { INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
+import { extend_context31, gles31_handlers, state_value31 } from "./gles31_state.js";
 import { EXTENSIONS_3 } from "./gles_caps.js";
 import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
 import { format_info as SIZED_INFO } from "./gles_formats3.js";
@@ -164,6 +165,7 @@ function Context(api, group)
     {
         extend_group3(group);
         extend_context3(this);
+        if(this.version >= 31) extend_context31(this);
     }
 }
 
@@ -423,6 +425,7 @@ GLESShadow.prototype.call = function(handle, command, args)
     if(!context) return { ret: 0, keep: false };
     const name = command.name, base = name.replace(/OES$/, "");
     const handler = context.api === 1 && (GLES1_HANDLERS[name] || GLES1_HANDLERS[base]) ||
+        context.version >= 31 && (GLES31_HANDLERS[name] || GLES31_HANDLERS[base]) ||
         context.api === 3 && (GLES3_HANDLERS[name] || GLES3_HANDLERS[base]) || HANDLERS[name] || HANDLERS[base];
     this.keep = true;
     if(!handler)
@@ -550,7 +553,7 @@ GLESShadow.prototype.state_value = function(context, pname)
     const c = context;
     if(c.api === 3)
     {
-        const value = state_value3(this, c, pname);
+        const value = c.version >= 31 && state_value31(this, c, pname) || state_value3(this, c, pname);
         if(value) return value;
         if(this.read_error3) { this.read_error3 = false; return null; }
     }
@@ -1544,6 +1547,9 @@ const GLES3_HANDLERS = gles3_handlers({
             value: format, format: r.color ? (r.bits[3] ? 0x1908 : 0x1907) : 0, types: [0x1401], renderable: true, sized: true };
     },
 });
+
+/** GLES 3.1's handlers (gles31_state.js) over GLES 3.0's */
+const GLES31_HANDLERS = gles31_handlers({ fail, query, put, put_text, i32s, f32s, text_of, REFUSED, base: HANDLERS }, GLES3_HANDLERS);
 
 /** GL_EXTENSIONS of a GLES 3.x context, as glGetStringi counts them */
 GLESShadow.prototype.extensions3 = function()

@@ -251,6 +251,8 @@ GLESExecutor.prototype.run = function(record)
             const c = conn && this.shadow.context(conn.context);
             const program = c && c.group.objects.get(record.program);
             if(program && program.kind === "program") program.provided = unpack_program(record.bytes);
+            // (glCreateShaderProgramv's: its program is made by the command after, which takes it)
+            else if(c) (this.shadow.pending_links = this.shadow.pending_links || new Map()).set(record.program, unpack_program(record.bytes));
             return undefined;
         }
         case "COLOR_BUFFER_CREATE":
@@ -320,7 +322,7 @@ GLESExecutor.prototype.command = function(record)
     const objects = name === "glDeleteTextures" ? c.group.textures : name === "glDeleteRenderbuffers" ? c.group.renderbuffers :
         name === "glDeleteBuffers" ? c.group.buffers : null;
     const gone = before ? [...before].map(n => objects.get(n)).filter(Boolean) : [];
-    this.shadow.given_name = name === "glCreateShader" || name === "glCreateProgram" ? record.ret : 0;
+    this.shadow.given_name = name === "glCreateShader" || name === "glCreateProgram" || name === "glCreateShaderProgramvAEMU" ? record.ret : 0;
     const { keep } = this.shadow.call(context, record.command, args);
     this.shadow.given_name = 0;
     if(!keep)

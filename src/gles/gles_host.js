@@ -233,10 +233,10 @@ GLESHost.prototype.gl_call = function(conn, command, args, bytes)
         return request.done.then(() => { query.result = new DataView(params.data.buffer, params.data.byteOffset).getUint32(0, true) ? 1 : 0; query.answered = true; });
     }
     // (a link through glslang: its result first, which the page links with)
-    if(keep && command.name === "glLinkProgram" && this.shadow.last_link)
+    if(keep && (command.name === "glLinkProgram" || command.name === "glCreateShaderProgramvAEMU") && this.shadow.last_link)
     {
         const packed = pack_program(this.shadow.last_link);
-        this.record(GLES.PROGRAM_LINK, [conn.id, args[0] >>> 0, packed.length], packed);
+        this.record(GLES.PROGRAM_LINK, [conn.id, (command.name === "glLinkProgram" ? args[0] : ret) >>> 0, packed.length], packed);
         this.shadow.last_link = null;
     }
     if(keep) this.record(GLES.COMMAND, [conn.id, ret >>> 0, bytes.length], bytes);
