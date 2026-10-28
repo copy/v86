@@ -1,6 +1,6 @@
 # GLES 3.x 执行器计划（3.0、3.1 与 3.2）
 
-状态：实施中。2026-10-28 写，同日所有者定了范围、做法与后端（见“已定”）。L0、L1 已完成（见各自的结论）。前提是
+状态：实施中。2026-10-28 写，同日所有者定了范围、做法与后端（见“已定”）。L0–L3 已完成（见各自的结论）。前提是
 [gles-proxy-plan.md](gles-proxy-plan.md) 的 E0–E6，以 `a17140ed` 为基线：E3–E6 的代码已提交，验收还没跑完。
 
 本计划把 ranchu 的 GLES 宿主（`ranchu_gpu: "host"`）从 GLES 2.0 扩到 3.2，涉及三处：CPU 侧的影子状态、着色器编译、
@@ -498,6 +498,23 @@ CPU 侧在页面有设备之前就要回答 `glGet*`，所以限制是固定值�
 
 粗估：3–4k 行。
 
+**L2 结论（2026-10-28）：完成**（`7ba3106e`、`6d240bb3`，页面的影子在 L3 补了一处）。
+
+- **版本**：`rcCreateContext` 的版本参数 3 起建 3.x 上下文（记录里的 api 为 30–32），`ranchu_gles_version` 选宣告
+  的最高版本；`rcGetGLString` 按它回答版本串与 `ANDROID_EMU_gles_max_version_3_x`。
+- **状态**：`src/gles/gles3_state.js`（约 2.1k 行）按 ES 3.0 规范的状态表写：顶点数组对象、缓冲的全部目标与 AEMU 的
+  映射命令、3D 与数组纹理、不可变纹理、采样器对象、ES 3.0 的帧缓冲完整性与读写缓冲、uniform 块、变换反馈、查询、
+  同步对象、`glGetStringi`、`glGetInternalformativ`。2.0 上下文仍用 `gles_shadow.js` 自己的处理函数。
+- **着色器**：3.x 的着色器在 CPU 侧过 glslang，链接结果（`glsl_program.js` 的 `pack_program`）以 `GLES.PROGRAM_LINK`
+  记录先于它的 `glLinkProgram` 进批次；页面没有 glslang，照这份结果链接。快照里页面保留这类程序的结果，CPU 侧从
+  源码重新链接。
+- **缓冲的镜像**：CPU 侧保留缓冲的字节（`keep_bytes`），页面写过的缓冲标“GPU 较新”（变换反馈、拷贝、打包缓冲）；
+  这样的缓冲被映射时由页面回答（L3 的 `BUFFER_READ`）。
+- **L3 发现并补上的**：`glGen*` 是查询，只在 CPU 侧，页面从没见过这些名字。ES 3.0 绑定没生成过的名字是错误，页面的
+  影子因此拒绝了全部缓冲、顶点数组、帧缓冲、变换反馈、查询与采样器的绑定。现在页面的影子是 `trusted`：CPU 侧接受
+  了的名字视为已生成。
+- 验收：`tests/gles/shadow3.mjs` 通过，2.0 的测试不变。
+
 ### L3 ES 3.0 的执行器
 
 页面的执行器按“设计细节”扩展：
@@ -516,6 +533,46 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
 - ES 2.0 的场景与 E3 录下的开机批次重放不变。
 
 粗估：4–6k 行。
+
+**L3 结论（2026-10-28）：完成**（`f80f5dcb`、`c391bfa2`、`348cdcf8`、`02dac8f6`、`e5310dfd`；`src/gles/page/gles3_executor.js`
+约 2.4k 行，`gles3_pixels.js` 约 0.4k 行）。
+
+- **着色器**：每个阶段的 SPIR-V 经 vx_naga 转成 WGSL，带新增的 `gl_depth` 选项（z 变成 (z + w) / 2，位置单独作为结果
+  也照办）和旧翻译器同样的 Y 翻转，所以帧缓冲第 0 行仍是 GL 的最底一行。没有深度附着时去掉片段的深度输出；整数纹理的
+  采样改成读取，带上采样器的寻址方式。绑定组按 WGSL 的声明与绑到的纹理定类型（可过滤与否、深度、整数），不用 `auto`。
+- **缓冲**：每个缓冲第一次用到时建 GPU 缓冲，从 CPU 侧的字节同步（脏区间）；GPU 较新的缓冲直接收客体的写入。
+- **顶点**：WebGPU 有格式、对齐也合法的数组直接从缓冲取，同一缓冲、步长与步进的属性合用一个槽；其余在 CPU 上组装
+  （客户端数组、3 分量与打包类型、除数大于 1）。当前值放进一个步长为 0 的缓冲。索引能直接用就直接用元素缓冲，否则
+  在 CPU 上生成列表：扇形与线环、8 位索引、固定的重启索引（条带用 0xFFFFFFFF 重启，列表在重启处结束图元）。
+- **纹理**：按大小格式的 WebGPU 格式存放，一个 GPU 纹理放下从最低的那一级起的全部级别；ES 3.0 的完整性（基础与最大
+  级别、立方体、不可过滤格式的过滤器）不满足时采样 (0, 0, 0, 1)。上传按 ES 3.0 的像素存储参数解包再转成 WebGPU 的
+  纹素（`gles3_pixels.js`）。深度格式中 WebGPU 不允许拷入的（depth24plus、depth32float）由绘制写入。ETC2/EAC 在设备
+  有 `texture-compression-etc2` 时直传（这台 Mac 有），否则只解码 ETC1 子集。swizzle 用 `texture-component-swizzle`
+  的视图（这台 Mac 有）。3D 纹理的 mipmap 逐层绘制。
+- **帧缓冲**：绘制缓冲各是一个颜色附着，带各自的格式；多重采样渲染缓冲为 4x。`glClear`/`glClearBuffer*` 不受限时用
+  pass 的清除，否则画一个四边形。`glBlitFramebuffer`：不缩放、不翻转、不裁剪、格式相同时拷贝，否则绘制；多重采样
+  先解析；深度经 `frag_depth`。`glCopyTex*Image` 换格式时走同一个绘制，带 ES 3.0 表 3.15 的通道规则。
+- **读回**：`glReadPixels` 读读缓冲的原始纹素，按调用的格式、类型与打包参数转换；读进打包缓冲的在批次结束后写入，
+  同一批次里随后的映射会叠上这些字节。
+- **变换反馈**：链接时给被捕获的输出加 VK_EXT_transform_feedback 的装饰（`spirv_patch.js` 的 `add_xfb`），绘制前用
+  vx_naga 的 `xfb.rs` 把顶点着色器当计算着色器跑一遍，写进暂存缓冲，再拷到绑定的缓冲里影子已经计数的位置。
+- **映射与查询的回读**：映射 GPU 较新的缓冲（不作废内容时），宿主向页面要字节（`GLES.BUFFER_READ`）；遮挡查询每次
+  绘制用一个 WebGPU 遮挡查询，批次末汇总，宿主读结果时向页面要（`GLES.QUERY_READ`，画过的查询才要，只要一次）。
+- **ES 2.0**：宿主有 glslang 时，2.0 上下文的记录是 api 20（`Context` 的 `glslang`），ES 1.00 着色器也过 glslang，
+  页面按 3.x 的路径画。没有 glslang.wasm 时仍是 api 2，用旧翻译器；GLES 1.1 仍用固定功能的路径。因此“E3 的 CPU
+  组装路径”还在，删不掉：1.1 与没有 glslang 的宿主都用它。
+- **快照**：新路径的纹理按自己的格式、层与压缩块读回，再经 `gpu_texture3`/`upload3` 放回；渲染缓冲按格式与采样数
+  重建。depth24plus 与多重采样的内容不保留（同 E5）。GPU 较新的缓冲在快照里取的是 CPU 侧的字节（L7）。
+- **测试**：`tests/glbridge/gles3_executor_browser_test.html` 43 项（`make display-browser-tests`），覆盖本阶段验收的
+  各项：整数纹理、MRT、UBO、实例化、变换反馈、3D 与数组纹理、多重采样解析、PBO、sRGB，另有深度采样、blit、遮挡
+  查询、ETC2、swizzle、api 20 的 2.0 上下文与它的快照。`gles_executor_browser_test.html`（api 2，旧路径）75 项不变；
+  `shadow3.mjs` 覆盖宿主的映射与查询回读。E3 录下的开机批次重放留到 L4 与开机一起核对。
+- **偏差**（写进 gpu-deviations.md 时一起整理，L7）：
+  - `glBlitFramebuffer` 不拷模板（WebGPU 不能写模板值）；带数据的深度模板图像不写模板值；
+  - 打包缓冲中行之间的填充与跳过的字节被写成 0（GL 保留原值）；
+  - 由 GPU 写过的缓冲作解包源（`glTexImage*` 从 PBO）还不支持，计在 `stats.gles3`；
+  - 没有 `texture-compression-etc2` 的设备只能解 ETC1 子集；没有 `texture-component-swizzle` 的设备不做 swizzle；
+  - 一个阶段超过 12 个 uniform 缓冲（12 个块加默认块）时，WebGPU 的默认限制不够，改成只读存储的那一步还没做。
 
 ### L4 ES 3.0 的验收与宣告
 
