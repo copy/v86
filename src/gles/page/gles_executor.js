@@ -807,33 +807,59 @@ GLESExecutor.prototype.draw = function(c, mode, first, count, elements)
     if(!shaders) return;
     const layout = ff ? this.ff_layout(c, ff.generated, low, vertices) : this.vertex_layout(c, program, low, vertices);
     if(!layout) return;
-    const pipeline = this.pipeline(c, program, shaders, layout, topology, target, !!list);
-    if(!pipeline) return;
-    const pass = this.begin_pass(target, null);
-    pass.setPipeline(pipeline);
-    const groups = ff ? this.ff_bind_groups(c, ff, pipeline, target, c.viewport) : this.bind_groups(c, program, shaders, pipeline, target);
-    for(const [index, group] of groups) pass.setBindGroup(index, group);
-    layout.buffers.forEach((buffer, slot) => pass.setVertexBuffer(slot, buffer));
     const [vx, vy, vw, vh] = c.viewport;
     if(vw <= 0 || vh <= 0) return;
-    pass.setViewport(vx, vy, vw, vh, Math.min(c.depth_range[0], c.depth_range[1]), Math.max(c.depth_range[0], c.depth_range[1]));
-    if(!this.apply_scissor(pass, c, target)) return;
-    pass.setBlendConstant(c.blend_func.some(f => f === 0x8003 || f === 0x8004) ?
-        { r: c.blend_color[3], g: c.blend_color[3], b: c.blend_color[3], a: c.blend_color[3] } :
-        { r: c.blend_color[0], g: c.blend_color[1], b: c.blend_color[2], a: c.blend_color[3] });
-    if(c.enabled.has(0x0B90)) pass.setStencilReference(c.stencil_func[0][1] & 0xFF);
+    let index_buffer = null;
     if(list)
     {
         const data = new Uint32Array(list);
-        const buffer = this.device.createBuffer({ size: align4(data.byteLength), usage: B.INDEX, mappedAtCreation: true });
-        new Uint32Array(buffer.getMappedRange()).set(data);
-        buffer.unmap();
-        this.staging.push(buffer);
-        pass.setIndexBuffer(buffer, "uint32");
-        pass.drawIndexed(index_count);
+        index_buffer = this.device.createBuffer({ size: align4(data.byteLength), usage: B.INDEX, mappedAtCreation: true });
+        new Uint32Array(index_buffer.getMappedRange()).set(data);
+        index_buffer.unmap();
+        this.staging.push(index_buffer);
     }
-    else pass.draw(count);
+    for(const face of this.stencil_faces(c, target, mode))
+    {
+        const pipeline = this.pipeline(c, program, shaders, layout, topology, target, !!list, face);
+        if(!pipeline) return;
+        const pass = this.begin_pass(target, null);
+        pass.setPipeline(pipeline);
+        const groups = ff ? this.ff_bind_groups(c, ff, pipeline, target, c.viewport) : this.bind_groups(c, program, shaders, pipeline, target);
+        for(const [index, group] of groups) pass.setBindGroup(index, group);
+        layout.buffers.forEach((buffer, slot) => pass.setVertexBuffer(slot, buffer));
+        pass.setViewport(vx, vy, vw, vh, Math.min(c.depth_range[0], c.depth_range[1]), Math.max(c.depth_range[0], c.depth_range[1]));
+        if(!this.apply_scissor(pass, c, target)) return;
+        pass.setBlendConstant(c.blend_func.some(f => f === 0x8003 || f === 0x8004) ?
+            { r: c.blend_color[3], g: c.blend_color[3], b: c.blend_color[3], a: c.blend_color[3] } :
+            { r: c.blend_color[0], g: c.blend_color[1], b: c.blend_color[2], a: c.blend_color[3] });
+        if(c.enabled.has(0x0B90)) pass.setStencilReference(c.stencil_func[face === undefined ? 0 : face][1] & 0xFF);
+        if(index_buffer)
+        {
+            pass.setIndexBuffer(index_buffer, "uint32");
+            pass.drawIndexed(index_count);
+        }
+        else pass.draw(count);
+    }
     this.stats.draws++;
+};
+
+/**
+ * The faces a draw is made of for the stencil test: WebGPU has one
+ * reference and one pair of masks for both faces, GL each face its own;
+ * when they differ, a draw of triangles goes twice, culled to each face,
+ * with that face's (undefined: one draw, the front face's, as for points
+ * and lines, which are front-facing)
+ * @return {!Array<(number|undefined)>} 0 the front faces, 1 the back faces
+ */
+GLESExecutor.prototype.stencil_faces = function(c, target, mode)
+{
+    if(!c.enabled.has(0x0B90) || !target.depth || !target.depth_format.includes("stencil") || mode < GL.TRIANGLES) return [undefined];
+    const same = c.stencil_func[0][1] === c.stencil_func[1][1] && c.stencil_func[0][2] === c.stencil_func[1][2] &&
+        c.stencil_writemask[0] === c.stencil_writemask[1];
+    if(same) return [undefined];
+    // (culling leaves one face: its own state)
+    if(c.enabled.has(0x0B44)) return c.cull_face === 0x0404 ? [1] : [0];
+    return [0, 1];
 };
 
 /**
@@ -1085,12 +1111,14 @@ GLESExecutor.prototype.attribute_values = function(c, a, low, vertices, componen
 };
 
 /** The pipeline for the program, the vertex layout, the state and the target */
-GLESExecutor.prototype.pipeline = function(c, program, shaders, layout, topology, target, indexed)
+GLESExecutor.prototype.pipeline = function(c, program, shaders, layout, topology, target, indexed, face)
 {
     const blend = c.enabled.has(0x0BE2);
     const depth_test = c.enabled.has(0x0B71), stencil_test = c.enabled.has(0x0B90);
-    const cull = c.enabled.has(0x0B44) ? (c.cull_face === 0x0404 ? "front" : "back") : "none";
-    const key = [this.id_of(shaders.vertex), this.id_of(shaders.fragment), layout.key, topology, indexed ? 1 : 0, c.front_face, cull,
+    // (one face's draw, stencil_faces: the other culled, that face's masks)
+    const cull = face === 0 ? "back" : face === 1 ? "front" : c.enabled.has(0x0B44) ? (c.cull_face === 0x0404 ? "front" : "back") : "none";
+    const masks = face === undefined ? 0 : face;
+    const key = [this.id_of(shaders.vertex), this.id_of(shaders.fragment), layout.key, topology, indexed ? 1 : 0, c.front_face, cull, masks,
         target.color_view ? (target.alpha ? "a" : "x") : "-", target.depth_format,
         blend ? c.blend_func.join(",") + "/" + c.blend_equation.join(",") : "-", c.color_mask.join(""),
         depth_test ? c.depth_func + ":" + c.depth_mask : "-",
@@ -1117,12 +1145,12 @@ GLESExecutor.prototype.pipeline = function(c, program, shaders, layout, topology
     if(target.depth)
     {
         const stencil = target.depth_format.includes("stencil");
-        const face = i => ({ compare: COMPARE[c.stencil_func[i][0]], failOp: STENCIL_OPS[c.stencil_op[i][0]],
+        const face_state = i => ({ compare: COMPARE[c.stencil_func[i][0]], failOp: STENCIL_OPS[c.stencil_op[i][0]],
             depthFailOp: STENCIL_OPS[c.stencil_op[i][1]], passOp: STENCIL_OPS[c.stencil_op[i][2]] });
         descriptor.depthStencil = Object.assign({ format: target.depth_format },
             target.depth_format !== "stencil8" ? { depthWriteEnabled: depth_test && !!c.depth_mask, depthCompare: depth_test ? COMPARE[c.depth_func] : "always" } : {},
-            stencil && stencil_test ? { stencilFront: face(0), stencilBack: face(1), stencilReadMask: c.stencil_func[0][2] & 0xFF,
-                stencilWriteMask: c.stencil_writemask[0] & 0xFF } : {},
+            stencil && stencil_test ? { stencilFront: face_state(0), stencilBack: face_state(1), stencilReadMask: c.stencil_func[masks][2] & 0xFF,
+                stencilWriteMask: c.stencil_writemask[masks] & 0xFF } : {},
             c.enabled.has(0x8037) && target.depth_format !== "stencil8" ? { depthBias: Math.round(c.polygon_offset[1]), depthBiasSlopeScale: c.polygon_offset[0] } : {});
     }
     try

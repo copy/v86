@@ -252,6 +252,39 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(frames.length === 1 && frames[0].width === W && frames[0].rgba.length === W * W * 4, "a post is a frame");
         check(near(pixel(frames[0].rgba, W, 0, W - 1), Array.from(bytes.subarray(0, 4))), "the frame from the top: the image's row 0 at its bottom");
 
+        // ---- separate stencil state for the two faces (glStencilFuncSeparate:
+        // WebGPU has one reference, so a draw goes once per face)
+        {
+            gl("glUseProgram", program);
+            gl("glUniform1f", 1, 0);
+            gl("glDisableVertexAttribArray", 1);
+            gl("glClearStencil", 0);
+            gl("glClearColor", 0, 0, 0, 1);
+            gl("glClear", 0x4000 | 0x0400);
+            gl("glEnable", 0x0B90);
+            gl("glStencilFuncSeparate", 0x0404, 0x0207, 1, 0xFF);   // front: ALWAYS, ref 1
+            gl("glStencilFuncSeparate", 0x0405, 0x0207, 2, 0xFF);   // back: ALWAYS, ref 2
+            gl("glStencilOp", 0x1E00, 0x1E00, 0x1E01);             // REPLACE on pass
+            // (the left half counter-clockwise: front; the right half clockwise: back)
+            gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, floats([-1, -1, 0, -1, -1, 1, 0, -1, 0, 1, -1, 1, 0.01, -1, 0.01, 1, 1, -1, 1, -1, 0.01, 1, 1, 1]), 96);
+            gl("glUniform4f", 0, 0, 0, 1, 1);
+            gl("glDrawArrays", 4, 0, 12);
+            // (then what the stencil holds: red where 1, green where 2)
+            gl("glStencilFunc", 0x0202, 1, 0xFF);
+            gl("glStencilOp", 0x1E00, 0x1E00, 0x1E00);
+            gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, floats([-1, -1, 3, -1, -1, 3]), 24);
+            gl("glUniform4f", 0, 1, 0, 0, 1);
+            gl("glDrawArrays", 4, 0, 3);
+            gl("glStencilFunc", 0x0202, 2, 0xFF);
+            gl("glUniform4f", 0, 0, 1, 0, 1);
+            gl("glDrawArrays", 4, 0, 3);
+            gl("glDisable", 0x0B90);
+            window = await read_pixels(0, 0, W, W);
+            check(near(pixel(window, W, 1, 4), [255, 0, 0, 255]) && near(pixel(window, W, 6, 4), [0, 255, 0, 255]),
+                "separate stencil: the front faces wrote 1, the back faces 2");
+            gl("glEnableVertexAttribArray", 1);
+        }
+
         // ---- a cube map: 2 by 2 faces of distinct texels, sampled by direction
         // (GLES 2.0 table 3.21: +X sc = -rz, tc = -ry; the texel (s, t) from row t)
         {
