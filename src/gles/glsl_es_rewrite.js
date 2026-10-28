@@ -286,6 +286,37 @@ function tokenize(source)
     return tokens;
 }
 
+/**
+ * Whether an #extension directive comes after a token that is not the
+ * preprocessor's, which GLSL ES (3.00 3.4, 1.00 3.4) refuses and glslang
+ * takes
+ * @param {string} source
+ */
+export function extension_after_code(source)
+{
+    let code = false, line_start = true;
+    const tokens = tokenize(source);
+    for(let i = 0; i < tokens.length; i++)
+    {
+        const t = tokens[i];
+        if(t.kind === "newline") { line_start = true; continue; }
+        if(t.kind === "space" || t.kind === "comment") continue;
+        if(line_start && t.text === "#")
+        {
+            let j = i + 1;
+            while(j < tokens.length && tokens[j].kind === "space") j++;
+            if(code && tokens[j] && tokens[j].text === "extension") return true;
+            while(i < tokens.length && tokens[i].kind !== "newline") i++;
+            i--;
+            line_start = false;
+            continue;
+        }
+        line_start = false;
+        code = true;
+    }
+    return false;
+}
+
 /** @return {number} the shader's #version (100 when it has none) */
 export function glsl_version(source)
 {

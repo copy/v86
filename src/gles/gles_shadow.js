@@ -22,7 +22,7 @@ import { GL, CAPS_1, CAPS_2, RENDERBUFFER_FORMATS, etc1_bytes, image_bytes, texe
 import { CONFIG_ATTRIBUTES, COMPRESSED_TEXTURE_FORMATS, EGL, GL_STATE, MAX_SIZE } from "./gles_caps.js";
 import { compile_shader, link_program } from "./glsl_es.js";
 import { STAGE_OF_GL_TYPE } from "./glslang.js";
-import { glsl_version } from "./glsl_es_rewrite.js";
+import { extension_after_code, glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
 import { ADVANCED_EQUATIONS, INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, state_value3 } from "./gles3_state.js";
 import { FLOAT_STATE32, extend_context31, gles31_handlers, state_value31 } from "./gles31_state.js";
@@ -312,6 +312,11 @@ GLESShadow.prototype.compile = function(source, type, es100)
     {
         if(!this.glslang) return { ok: true, log: "", glslang: true, stage };
         const checked = this.glslang.check_shader(STAGE_OF_GL_TYPE.get(type), source);
+        // (an #extension after the shader's code: GLSL ES refuses it, glslang's relaxed check does not)
+        if(checked.ok && version >= 300 && extension_after_code(source))
+        {
+            return { ok: false, log: "ERROR: '#extension' : must occur before any non-preprocessor tokens\n", glslang: true, stage };
+        }
         return { ok: checked.ok, log: checked.log, glslang: true, stage };
     }
     return compile_shader(source, stage);

@@ -1072,6 +1072,25 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glDisable", 0x0B44);
         gl("glBindBuffer", 0x8892, quad32);
         gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 0, 0);
+        // struct varyings: a struct of a mat2, a flat struct of an int
+        const structs = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            struct S { mediump mat2 a; };
+            struct T { mediump int b; };
+            out S s;
+            flat out T t;
+            void main() { s.a = mat2(0.25, 0.5, 0.75, 1.0); t.b = 3; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision mediump float;
+            struct S { mediump mat2 a; };
+            struct T { mediump int b; };
+            in S s;
+            flat in T t;
+            out vec4 o;
+            void main() { o = vec4(s.a[0][0], s.a[0][1], s.a[1][0], t.b == 3 ? 1.0 : 0.0); }`);
+        void structs;
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [64, 128, 191, 255]), "struct varyings: a mat2's, a flat int's");
         gl("glBindVertexArray", 0);
         record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
         current = 1;

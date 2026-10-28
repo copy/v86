@@ -13,7 +13,8 @@
 //! - matrices of laid out blocks naga cannot read (std140's 2-row ones, row
 //!   major ones) become arrays of vectors (layout.rs)
 //! - entry point inputs and outputs of matrices, arrays and structs at a
-//!   location become their vectors at consecutive locations (io.rs)
+//!   location become their vectors at consecutive locations (io.rs; a struct
+//!   output's members get their locations first, structio.rs)
 //! - an array image's size has its layer count (layers.rs: naga's SPIR-V
 //!   front end leaves it out)
 //! - outer products become matrices of columns, modf's and frexp's results
@@ -63,6 +64,7 @@ mod samplemask;
 mod tessellation;
 mod sampling;
 mod split;
+mod structio;
 mod subpass;
 mod switches;
 pub mod xfb;
@@ -268,8 +270,8 @@ fn validate(module: &naga::Module) -> Result<naga::valid::ModuleInfo, String> {
 /// `sampled`: the integer images it made fetches of)
 fn passes(words: &[u32], wraps: &[(u32, u32)], sampled: &mut Vec<u32>) -> Vec<u32> {
     let skip = std::env::var("VX_SKIP").unwrap_or_default();
-    let list: [(&str, fn(&[u32]) -> Vec<u32>); 8] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
-        ("relational", relational::lower), ("fetches", fetches::lower), ("layout", layout::lower), ("atomics", atomics::values)];
+    let list: [(&str, fn(&[u32]) -> Vec<u32>); 9] = [("blockarrays", blockarrays::lower), ("split", split::split), ("coordinates", intsample::coordinate_types), ("subpass", subpass::lower),
+        ("relational", relational::lower), ("fetches", fetches::lower), ("layout", layout::lower), ("atomics", atomics::values), ("structio", structio::lower)];
     let mut words = words.to_vec();
     for (name, pass) in list {
         // (clamp to border after split: the images' own loads, border.rs)

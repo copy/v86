@@ -421,5 +421,11 @@ async function setup(max_version, api)
     const location = (await call("gles2:glGetUniformLocation", program, cstring("t[1].b"))).ret;
     await call("gles2:glUniform2fv", location, 2, new Uint8Array(new Float32Array([1, 2, 3, 4]).buffer));
     assert.equal((await call("gles2:glGetError")).ret, 0, "glUniform2fv of 2 into t[1].b");
-    console.log("PASS: GLSL ES 1.00 through glslang: overloads of built-ins, unused attributes, a one-element array");
+    // (GLSL ES 3.00: an #extension after the shader's code does not compile)
+    const late = (await call("gles2:glCreateShader", 0x8B31)).ret;
+    const late_source = "#version 300 es\nprecision mediump float;\n#extension GL_OES_EGL_image_external : enable\nvoid main() { gl_Position = vec4(0.0); }";
+    await call("gles2:glShaderString", late, cstring(late_source), late_source.length + 1);
+    await call("gles2:glCompileShader", late);
+    assert.deepEqual(i32s((await call("gles2:glGetShaderiv", late, 0x8B81, 4)).outs[0]), [0], "an #extension after code: not compiled");
+    console.log("PASS: GLSL ES 1.00 through glslang: overloads of built-ins, unused attributes, a one-element array; a late #extension");
 }
