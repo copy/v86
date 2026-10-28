@@ -665,6 +665,11 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
     一个内建函数重载的链接、`depth_range.write` 2 个、`draw_elements.triangles.single_attribute`。两条路径都失败的
     18 个：常量颜色加常量 alpha 混合 4 个（G-70）、随机片段操作与交互 9 个、RGB 加 16 位深度的 FBO 清除、深度范围
     比较各 1 个、FBO 完整性的 QualityWarning 3 个（规范允许）。结果在 `build/a32-android/runs/v86-gles-deqp4/`。
+  - GLES 3.x 会话修了回退（3337e95d 等）之后，38 个回退用例带图像重跑（`A32_ANDROID_DEQP_FILTER` 与
+    `A32_ANDROID_DEQP_IMAGES=1`，`runs/v86-gles-deqp6/`）：36 个通过。剩下两个已交给那个会话：
+    `max_vertex_texture_image_units_vertex`（着色器里的常量不等于查询到的 16，glslang 的资源上限多半还是它的默认值）、
+    `draw_elements.triangles.single_attribute`（三次迭代都整张黑，参考是一个白三角形）。把这次重跑算进去，子集约
+    2016/2034（99.1%）；整套没有重跑。
 - **没做的**：Replica Island 与 Shattered Pixel Dungeon 两个游戏；EGL 的同步、多上下文共享与 YUV 外部纹理的专门检查
   （启动与 dEQP 里用到的部分已经工作）。
 
