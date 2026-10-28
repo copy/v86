@@ -234,3 +234,65 @@ export function block_layout(words, m, block_name)
     walk(block[0], "", 0, 0, false);
     return leaves;
 }
+
+/**
+ * Transform feedback's decorations (VK_EXT_transform_feedback's, which
+ * vx_naga's xfb.rs reads): the TransformFeedback capability, the entry
+ * point's Xfb mode, and each captured output's XfbBuffer, XfbStride and
+ * Offset (a gl_PerVertex member's on the member)
+ * @param {!Uint32Array} words
+ * @param {!Array<{name: string, buffer: number, offset: number, stride: number}>} captures by variable name, or gl_Position, gl_PointSize
+ * @return {!Uint32Array} the module with them
+ */
+export function add_xfb(words, captures)
+{
+    const m = parse_spirv(words);
+    const decorations = [];
+    const instruction = (op, ...operands) => [(operands.length + 1) << 16 | op, ...operands];
+    for(const c of captures)
+    {
+        const builtin = { gl_Position: 0, gl_PointSize: 1 }[c.name];
+        if(builtin !== undefined)
+        {
+            for(const v of m.variables.filter(x => x.storage === STORAGE.Output))
+            {
+                const type = m.types.get(v.type).pointee;
+                const members = m.member_decorations.get(type);
+                const member = members && [...members].find(([, d]) => d.has(DECORATION.BuiltIn) && words[d.get(DECORATION.BuiltIn)] === builtin);
+                if(member)
+                {
+                    decorations.push(instruction(OP.MemberDecorate, type, member[0], DECORATION.Offset, c.offset),
+                        instruction(OP.MemberDecorate, type, member[0], DECORATION.XfbBuffer, c.buffer),
+                        instruction(OP.MemberDecorate, type, member[0], DECORATION.XfbStride, c.stride));
+                }
+                else if(get_decoration(words, m, v.id, DECORATION.BuiltIn) === builtin)
+                {
+                    decorations.push(instruction(OP.Decorate, v.id, DECORATION.Offset, c.offset), instruction(OP.Decorate, v.id, DECORATION.XfbBuffer, c.buffer),
+                        instruction(OP.Decorate, v.id, DECORATION.XfbStride, c.stride));
+                }
+            }
+            continue;
+        }
+        const v = m.variables.find(x => x.storage === STORAGE.Output && variable_name(m, x) === c.name && !is_builtin(m, x));
+        if(!v) continue;
+        decorations.push(instruction(OP.Decorate, v.id, DECORATION.XfbBuffer, c.buffer), instruction(OP.Decorate, v.id, DECORATION.XfbStride, c.stride),
+            instruction(OP.Decorate, v.id, DECORATION.Offset, c.offset));
+    }
+    // (the capability first; the mode after the entry points and modes; the decorations after the others)
+    let modes = 5, debug = 5, annotations = 5;
+    for(let at = 5; at < words.length;)
+    {
+        const count = words[at] >>> 16, op = words[at] & 0xFFFF;
+        if(!count) break;
+        if(op === OP.EntryPoint || op === OP.ExecutionMode || op === 17 || op === 10 || op === 11 || op === 14) modes = at + count;
+        if(op >= 3 && op <= 7 || op === 330) debug = at + count;
+        if(op === OP.Decorate || op === OP.MemberDecorate || op === 332 || op === 333) annotations = at + count;
+        at += count;
+    }
+    annotations = Math.max(annotations, debug, modes);
+    const head = Array.from(words.subarray(0, modes));
+    const mode = m.entry ? instruction(OP.ExecutionMode, m.entry.id, 11) : [];
+    const out = [...head.slice(0, 5), ...instruction(17, 53), ...head.slice(5), ...mode, ...words.subarray(modes, annotations), ...decorations.flat(),
+        ...words.subarray(annotations)];
+    return new Uint32Array(out);
+}

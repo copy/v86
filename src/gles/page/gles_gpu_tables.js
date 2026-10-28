@@ -3,7 +3,7 @@
 
 export const U = globalThis.GPUTextureUsage || { COPY_SRC: 1, COPY_DST: 2, TEXTURE_BINDING: 4, STORAGE_BINDING: 8, RENDER_ATTACHMENT: 16 };
 export const B = globalThis.GPUBufferUsage || { MAP_READ: 1, MAP_WRITE: 2, COPY_SRC: 4, COPY_DST: 8, INDEX: 16, VERTEX: 32, UNIFORM: 64,
-    STORAGE: 128, INDIRECT: 256 };
+    STORAGE: 128, INDIRECT: 256, QUERY_RESOLVE: 512 };
 /** The format of color buffers, window surfaces and GLES 2.0's textures */
 export const COLOR_FORMAT = "rgba8unorm";
 

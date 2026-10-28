@@ -149,6 +149,8 @@ export const GLES = {
     CONNECTION_CLOSE: 18,   // connection (nothing is current on it any more)
     PROGRAM_LINK: 19,       // connection, program, byte length, then the link's result (glsl_program.js's pack_program):
                             // before its glLinkProgram, which the page then links with it (it has no glslang)
+    BUFFER_READ: 20,        // connection, request id, buffer, offset, length: a buffer's bytes the GPU wrote (glMapBufferRange's)
+    QUERY_READ: 21,         // connection, request id, query: an occlusion query's result (a u32: whether a sample passed)
 };
 
 /**

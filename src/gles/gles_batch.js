@@ -28,6 +28,8 @@ export const GLES_FIELDS = {
     READ_PIXELS: ["conn", "request", "x", "y", "width", "height", "format", "type"],
     CONNECTION_CLOSE: ["conn"],
     PROGRAM_LINK: ["conn", "program", "length"],
+    BUFFER_READ: ["conn", "request", "buffer", "offset", "length"],
+    QUERY_READ: ["conn", "request", "query"],
 };
 
 /** Record names by opcode */

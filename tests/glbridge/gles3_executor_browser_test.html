@@ -96,7 +96,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         const names = new Map();
         const gen = kind => { const name = (names.get(kind) || 0) + 1; names.set(kind, name); gl("glGen" + kind, 1, 4); return name; };
         let shader_name = 100;
-        const program = (vs_text, fs_text) => {
+        const program = (vs_text, fs_text, varyings) => {
             const vs = shader_name++, fs = shader_name++, p = shader_name++;
             call("glCreateShader", vs, [0x8B31]);
             call("glCreateShader", fs, [0x8B30]);
@@ -107,6 +107,7 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             call("glCreateProgram", p, []);
             gl("glAttachShader", p, vs);
             gl("glAttachShader", p, fs);
+            if(varyings) gl("glTransformFeedbackVaryingsAEMU", p, varyings.length, text(varyings.join(";")), varyings.join(";").length + 1, 0x8C8C);
             gl("glLinkProgram", p);
             const info = cpu.context(1).group.objects.get(p).info;
             check(info && info.ok, "linked: " + (info && info.log));
@@ -453,6 +454,59 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glDrawArrays", 6, 4, 4);
         window = await read_pixels(0, 0, W, W);
         check(near(pixel(window, W, 7, 1), [255, 255, 0, 255]) && near(pixel(window, W, 0, 1), [0, 0, 0, 255]), "a fan from a buffer, from vertex 4");
+
+        // ---- transform feedback: captured, drawn from, read back
+        gl("glDisable", 0x8D69);
+        const captured = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            out vec4 moved;
+            out float doubled;
+            void main() { moved = vec4(position, 1.0, 2.0); doubled = position.x * 2.0; gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision mediump float;
+            in vec4 moved;
+            out vec4 o;
+            void main() { o = vec4(0.0, 1.0, 1.0, 1.0); }`, ["moved", "doubled"]);
+        void captured;
+        const feedback = gen("Buffers");
+        gl("glBindBuffer", 0x8C8E, feedback);
+        gl("glBufferData", 0x8C8E, 60, null, 0x88E8);
+        gl("glBindBufferBase", 0x8C8E, 0, feedback);
+        gl("glBindBuffer", 0x8892, 0);
+        const big = floats([-1, -1, 3, -1, -1, 3]);
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, big, big.length);
+        gl("glEnable", 0x8C89);
+        gl("glBeginTransformFeedback", 4);
+        gl("glDrawArrays", 4, 0, 3);
+        gl("glEndTransformFeedback");
+        gl("glDisable", 0x8C89);
+        const id = request++;
+        record(GLES.BUFFER_READ, 1, id, feedback, 0, 60);
+        await run();
+        const got = Array.from(new Float32Array(answers.get(id).slice().buffer));
+        check(got.join() === [-1, -1, 1, 2, -2, 3, -1, 1, 2, 6, -1, 3, 1, 2, -2].join(), "captured, interleaved, read back: " + got);
+        gl("glUseProgram", flat.name);
+        gl("glBindBuffer", 0x8892, feedback);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 20, 0);
+        gl("glClear", 0x4000);
+        gl("glDrawArrays", 4, 0, 3);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 5, 5), [255, 255, 0, 255]), "the captured buffer drawn from");
+
+        // ---- occlusion queries: a draw that passes, one the depth test fails entirely
+        const occlusion = async (depth_func) => {
+            const q = gen("Queries");
+            gl("glEnable", 0x0B71);
+            gl("glDepthFunc", depth_func);
+            gl("glBeginQuery", 0x8C2F, q);
+            gl("glDrawArrays", 4, 0, 3);
+            gl("glEndQuery", 0x8C2F);
+            gl("glDisable", 0x0B71);
+            const id = request++;
+            record(GLES.QUERY_READ, 1, id, q);
+            await run();
+            return new Uint32Array(answers.get(id).slice().buffer)[0];
+        };
+        check(await occlusion(0x0207) === 1, "an occlusion query: samples passed");
+        check(await occlusion(0x0200) === 0, "an occlusion query: none passed (GL_NEVER), though it drew");
 
         check(!errors.length, "no WebGPU validation errors: " + errors.join("; "));
         check(!executor.stats.gles3, "nothing GLES 3.0's left out: " + JSON.stringify(executor.stats.gles3));

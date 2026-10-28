@@ -16,7 +16,7 @@
 
 import { STAGE } from "./glslang.js";
 import { rewrite_for_spirv } from "./glsl_es_rewrite.js";
-import { DECORATION, EXECUTION_MODEL, STORAGE, block_layout, get_decoration, is_builtin, location_count, parse_spirv,
+import { DECORATION, EXECUTION_MODEL, STORAGE, add_xfb, block_layout, get_decoration, is_builtin, location_count, parse_spirv,
     set_decoration, variable_name } from "./spirv_patch.js";
 
 export const BINDING = { DEFAULT_BLOCK: 0, SAMPLERS: 1, UNIFORM_BLOCKS: 17, STORAGE_BLOCKS: 42, ATOMIC_COUNTERS: 60, IMAGES: 70 };
@@ -341,6 +341,17 @@ export function link_glslang_program(glslang, shaders, options)
             tf_varyings.push(v);
         }
         if(options.tf.mode === 0x8C8C && components > 64) return empty("ERROR: too many components to capture interleaved");
+        // (the decorations the page's capture reads: interleaved into buffer 0, else each into its own)
+        const interleaved = options.tf.mode === 0x8C8C;
+        const stride = tf_varyings.reduce((n, v) => n + v.bytes, 0);
+        let offset = 0;
+        last.words = add_xfb(last.words, tf_varyings.map((v, i) =>
+        {
+            const capture = { name: v.name.startsWith("gl_") ? v.name : renamed(v.name, renames), buffer: interleaved ? 0 : i,
+                offset: interleaved ? offset : 0, stride: interleaved ? stride : v.bytes };
+            offset += v.bytes;
+            return capture;
+        }));
     }
 
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,

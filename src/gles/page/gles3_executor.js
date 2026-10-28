@@ -59,6 +59,14 @@ const VK_WRAP = { 0x2901: 0, 0x8370: 1, 0x812F: 2 };
 /** The renderbuffer formats that are no sized texture format */
 const RENDERBUFFER_WEBGPU = { 0x8D48: "stencil8", 0x81A7: "depth32float" };
 
+/** WebGPU's vertex formats as VkFormats (vx_naga's xfb.rs reads vertex buffers by them) */
+const VK_FORMAT = {
+    "float32": 100, "float32x2": 103, "float32x3": 106, "float32x4": 109, "sint32": 99, "sint32x2": 102, "sint32x3": 105, "sint32x4": 108,
+    "uint32": 98, "uint32x2": 101, "uint32x3": 104, "uint32x4": 107, "unorm8x2": 16, "snorm8x2": 17, "uint8x2": 20, "sint8x2": 21,
+    "unorm8x4": 37, "snorm8x4": 38, "uint8x4": 41, "sint8x4": 42, "unorm16x2": 77, "snorm16x2": 78, "uint16x2": 81, "sint16x2": 82,
+    "float16x2": 83, "unorm16x4": 91, "snorm16x4": 92, "uint16x4": 95, "sint16x4": 96, "float16x4": 97,
+};
+
 /** Vertex attribute types: their bytes */
 const TYPE_BYTES = { 0x1400: 1, 0x1401: 1, 0x1402: 2, 0x1403: 2, 0x1404: 4, 0x1405: 4, 0x1406: 4, 0x140C: 4, 0x140B: 2, 0x8D61: 2, 0x8D9F: 4,
     0x8368: 4 };
@@ -336,7 +344,7 @@ export const GLES3 = {
         const module = code =>
         {
             let m = this.shaders.get(code);
-            if(!m) this.shaders.set(code, m = this.device.createShaderModule({ label: "GLES 3 program", code }));
+            if(!m) this.shaders.set(code, m = this.device.createShaderModule({ label: "GLES 3 program", code: "diagnostic(off, derivative_uniformity);\n" + code }));
             return m;
         };
         // the bindings both stages use, with their WGSL types and which stages see them
@@ -404,8 +412,9 @@ export const GLES3 = {
                 }
                 this.staging.push(gpu.buffer);
             }
+            // (a first GPU buffer starts as the CPU side's bytes: nothing on the GPU is newer yet)
+            if(!gpu || !buffer.gpu_newer) buffer.dirty = [0, buffer.size];
             buffer.gpu = gpu = { buffer: created, size, destroy: () => created.destroy() };
-            if(!buffer.gpu_newer) buffer.dirty = [0, buffer.size];
         }
         if(buffer.dirty)
         {
@@ -1000,10 +1009,14 @@ export const GLES3 = {
         }, source.mip, source.layer, TEXEL_BYTES[source.format]);
     },
 
-    /** The render pass on a target (the open one if it is the same); `clear`: {colors (values by draw buffer), depth, stencil} */
-    begin_pass3(target, clear)
+    /**
+     * The render pass on a target (the open one if it is the same);
+     * `clear`: {colors (values by draw buffer), depth, stencil};
+     * `occlusion`: the pass counts samples (the batch's occlusion queries)
+     */
+    begin_pass3(target, clear, occlusion)
     {
-        if(this.pass && this.pass_target === target.key && !clear) return this.pass;
+        if(this.pass && this.pass_target === target.key && !clear && (!occlusion || this.pass_occlusion)) return this.pass;
         this.end_pass();
         const colors = target.colors.map((a, i) =>
         {
@@ -1024,9 +1037,69 @@ export const GLES3 = {
                 has_stencil ? { stencilLoadOp: clear && clear.stencil !== undefined ? "clear" : "load", stencilStoreOp: "store",
                     stencilClearValue: clear && clear.stencil !== undefined ? clear.stencil : 0 } : {});
         }
+        if(occlusion) descriptor.occlusionQuerySet = this.occlusion3().set;
         this.pass = this.encoder.beginRenderPass(descriptor);
         this.pass_target = target.key;
+        this.pass_occlusion = !!occlusion;
         return this.pass;
+    },
+
+    // ---- occlusion queries
+
+    /**
+     * The batch's occlusion queries: a WebGPU query a draw while a GL one is
+     * active (`owners`: the GL query's key each), summed at the batch's end
+     * into `results` (whether any sample passed)
+     */
+    occlusion3()
+    {
+        if(!this.occlusion) this.occlusion = { set: this.device.createQuerySet({ label: "GLES occlusion", type: "occlusion", count: 4096 }), owners: [],
+            results: new Map(), answers: [] };
+        return this.occlusion;
+    },
+
+    /** The key of the context's occlusion query in progress, or null */
+    occlusion_key3(c)
+    {
+        const name = c.active_queries.get(GL3.ANY_SAMPLES_PASSED) || c.active_queries.get(GL3.ANY_SAMPLES_PASSED_CONSERVATIVE);
+        return name ? this.id_of(c) + ":" + name : null;
+    },
+
+    /** The batch's end: the occlusion queries resolved and summed, then the results asked for answered */
+    batch_end3()
+    {
+        const o = this.occlusion;
+        if(!o || !o.owners.length && !o.answers.length) return;
+        const owners = o.owners;
+        o.owners = [];
+        if(owners.length)
+        {
+            this.end_pass();
+            const resolved = this.device.createBuffer({ label: "GLES occlusion", size: 8 * owners.length, usage: B.QUERY_RESOLVE | B.COPY_SRC });
+            const read = this.device.createBuffer({ label: "GLES occlusion read", size: 8 * owners.length, usage: B.COPY_DST | B.MAP_READ });
+            this.encoder.resolveQuerySet(o.set, 0, owners.length, resolved, 0);
+            this.encoder.copyBufferToBuffer(resolved, 0, read, 0, 8 * owners.length);
+            this.staging.push(resolved);
+            this.reads.push({ buffer: read, bytes: 8 * owners.length, done: bytes =>
+            {
+                owners.forEach((key, i) => { if(bytes.subarray(8 * i, 8 * i + 8).some(Boolean)) o.results.set(key, 1); });
+            } });
+        }
+        for(const { request, key } of o.answers)
+        {
+            this.reads.push({ buffer: null, done: (_, sink) => this.answer(sink, request, new Uint8Array(new Uint32Array([o.results.get(key) || 0]).buffer)) });
+        }
+        o.answers = [];
+    },
+
+    /** QUERY_READ: an occlusion query's result, after the batch's own draws are counted */
+    query_read3(record)
+    {
+        const conn = this.conns.get(record.conn);
+        const c = conn && this.shadow.context(conn.context);
+        if(!c) return this.answer_failed(record.request);
+        this.occlusion3().answers.push({ request: record.request, key: this.id_of(c) + ":" + record.query });
+        return undefined;
     },
 
     // ---- clears
@@ -1150,8 +1223,6 @@ export const GLES3 = {
     draw3(c, mode, first, count, elements, instances)
     {
         if(count <= 0 || instances <= 0) return;
-        // (rasterizer discard: transform feedback's alone, L3's second part)
-        if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
         const program = c.group.objects.get(c.program);
         if(!program || !program.info || !program.info.ok || !program.info.spirv) return;
         if(c.enabled.has(CULL_FACE) && c.cull_face === 0x0408 && mode >= 4) return;
@@ -1206,6 +1277,9 @@ export const GLES3 = {
         if(!vertex) return;
         const group = this.bind_group3(c, program, shaders, target);
         if(!group) return;
+        if(!elements) this.capture3(c, program, group, vertex, mode, first, count, instances, rebase);
+        // (rasterizer discard: what transform feedback captured, nothing drawn)
+        if(c.enabled.has(GL3.RASTERIZER_DISCARD)) return;
         const [vx, vy, vw, vh] = c.viewport;
         if(vw <= 0 || vh <= 0) return;
         let index_buffer = null;
@@ -1217,11 +1291,13 @@ export const GLES3 = {
             this.staging.push(index_buffer);
         }
         const strip_format = strip && (list || direct) ? (direct ? direct.format : "uint32") : undefined;
+        const occlusion = this.occlusion_key3(c);
         for(const face of this.stencil_faces3(c, target, mode))
         {
             const pipeline = this.pipeline3(c, shaders, vertex, group, topology, strip_format, target, face);
             if(!pipeline) return;
-            const pass = this.begin_pass3(target, null);
+            const pass = this.begin_pass3(target, null, !!occlusion);
+
             pass.setPipeline(pipeline);
             pass.setBindGroup(0, this.device.createBindGroup({ layout: group.layout, entries: group.resources }));
             vertex.slots.forEach((s, i) => pass.setVertexBuffer(i, s.gpu, s.offset));
@@ -1229,6 +1305,9 @@ export const GLES3 = {
             if(!this.apply_scissor(pass, c, target)) return;
             pass.setBlendConstant({ r: c.blend_color[0], g: c.blend_color[1], b: c.blend_color[2], a: c.blend_color[3] });
             if(c.enabled.has(STENCIL_TEST)) pass.setStencilReference(c.stencil_func[face === undefined ? 0 : face][1] & 0xFF);
+            const o = occlusion && this.occlusion3();
+            const query = o && o.owners.length < 4096 ? o.owners.push(occlusion) - 1 : -1;
+            if(query >= 0) pass.beginOcclusionQuery(query);
             if(index_buffer)
             {
                 pass.setIndexBuffer(index_buffer, "uint32");
@@ -1240,6 +1319,7 @@ export const GLES3 = {
                 pass.drawIndexed(count, instances);
             }
             else pass.draw(count, instances, rebase ? 0 : first, 0);
+            if(query >= 0) pass.endOcclusionQuery();
         }
         this.stats.draws++;
     },
@@ -1375,7 +1455,8 @@ export const GLES3 = {
     /** A vertex buffer holding the words */
     vertex_data3(words)
     {
-        const buffer = this.device.createBuffer({ label: "GLES vertices", size: Math.max(16, words.byteLength), usage: B.VERTEX, mappedAtCreation: true });
+        const buffer = this.device.createBuffer({ label: "GLES vertices", size: Math.max(16, words.byteLength), usage: B.VERTEX | B.STORAGE,
+            mappedAtCreation: true });
         new Uint32Array(buffer.getMappedRange(), 0, words.length).set(words);
         buffer.unmap();
         this.staging.push(buffer);
@@ -1424,6 +1505,148 @@ export const GLES3 = {
             }
         }
         return out;
+    },
+
+    // ---- transform feedback
+
+    /** vx_naga's capture translation of SPIR-V words (vx_translate_xfb) for a vertex layout's words */
+    translate_xfb_spirv(words, desc)
+    {
+        const naga = this.naga;
+        const bytes = new Uint8Array(words.buffer, words.byteOffset, words.byteLength);
+        const input = naga.vx_alloc(bytes.length);
+        new Uint8Array(naga.memory.buffer, input, bytes.length).set(bytes);
+        const list = naga.vx_alloc(desc.length * 4);
+        new Uint32Array(naga.memory.buffer, list, desc.length).set(desc);
+        let out;
+        try
+        {
+            out = naga.vx_translate_xfb(input, bytes.length, 1, 0, 0, 0, list, desc.length);
+        }
+        finally
+        {
+            naga.vx_free(input, bytes.length);
+            naga.vx_free(list, desc.length * 4);
+        }
+        const length = new DataView(naga.memory.buffer).getUint32(out, true);
+        const json = new TextDecoder().decode(new Uint8Array(naga.memory.buffer, out + 4, length));
+        naga.vx_free(out, length + 4);
+        return JSON.parse(json);
+    },
+
+    /**
+     * The compute shader of a capturing draw (vx_naga's xfb.rs: the vertex
+     * shader run a vertex an invocation, reading the vertex buffers as
+     * storage) for the program and the draw's vertex buffers, or null
+     */
+    xfb3(program, vertex)
+    {
+        const gpu = this.program_gpu(program);
+        gpu.xfb = gpu.xfb || new Map();
+        if(gpu.xfb.has(vertex.key)) return gpu.xfb.get(vertex.key);
+        let entry = null;
+        const desc = [1, 0];
+        vertex.slots.forEach((s, slot) =>
+        {
+            for(const a of s.attributes)
+            {
+                desc.push(a.shaderLocation, slot, VK_FORMAT[a.format] || 0, a.offset);
+                desc[1]++;
+            }
+        });
+        desc.push(vertex.slots.length);
+        vertex.slots.forEach((s, slot) => desc.push(slot, s.stride, s.step === "instance" ? 1 : 0));
+        const v = program.info.spirv.find(m => m.stage === "vertex");
+        if(vertex.slots.some(s => s.attributes.some(a => !VK_FORMAT[a.format]))) this.note3("a captured vertex array of a packed type");
+        else
+        {
+            const t = this.translate_xfb_spirv(v.words, desc);
+            if(t.error) this.note3("vx_naga's capture: " + t.error.slice(0, 160));
+            else if(!t.xfb) this.note3("a capture of no varying");
+            else
+            {
+                entry = { module: this.device.createShaderModule({ label: "GLES 3 capture", code: "diagnostic(off, derivative_uniformity);\n" + t.wgsl }),
+                    bindings: new Set(t.entries[0].bindings.filter(b => b[0] === 0).map(b => b[1])), xfb: t.xfb, pipelines: new Map() };
+            }
+        }
+        gpu.xfb.set(vertex.key, entry);
+        return entry;
+    },
+
+    /**
+     * A draw's vertices captured while transform feedback is active (not
+     * paused): the vertex shader run as a compute shader into scratch
+     * buffers, copied after what the bound buffers hold already (the
+     * shadow counted the draw's vertices into the feedback's)
+     */
+    capture3(c, program, group, vertex, mode, first, count, instances, rebase)
+    {
+        const tf = c.tfs.get(c.tf);
+        if(!tf || !tf.active || tf.paused) return;
+        const per = mode === 0 ? 1 : mode === 1 ? 2 : 3;
+        const each = Math.floor(count / per) * per, total = each * instances;
+        if(!total) return;
+        const entry = this.xfb3(program, vertex);
+        if(!entry) return;
+        const { buffers, strides, slots } = entry.xfb;
+        const own = group.entries.filter(e => entry.bindings.has(e.binding)).map(e => Object.assign({}, e, { visibility: 4 }));
+        const capture = [{ binding: 960, visibility: 4, buffer: { type: "uniform" } },
+            ...slots.map(s => ({ binding: 961 + s, visibility: 4, buffer: { type: "read-only-storage" } })),
+            ...buffers.map(b => ({ binding: 970 + b, visibility: 4, buffer: { type: "storage" } }))];
+        const key = JSON.stringify(own) + JSON.stringify(capture);
+        let p = entry.pipelines.get(key);
+        if(!p)
+        {
+            const layouts = [this.device.createBindGroupLayout({ entries: own }), this.device.createBindGroupLayout({ entries: capture })];
+            p = { layouts, pipeline: this.device.createComputePipeline({ label: "GLES 3 capture",
+                layout: this.device.createPipelineLayout({ bindGroupLayouts: layouts }), compute: { module: entry.module, entryPoint: "vx_xfb" } }) };
+            entry.pipelines.set(key, p);
+        }
+        // (VxXfbParams: first vertex, vertices an instance, first instance, instances, first capture, the vertices captured,
+        // pads, the buffers' offsets, each slot's offset)
+        const params = new Uint32Array(20);
+        params.set([rebase ? 0 : first, each, 0, instances, 0, total]);
+        vertex.slots.forEach((s, slot) => { params[12 + slot] = s.offset; });
+        const scratch = buffers.map(b => this.device.createBuffer({ label: "GLES capture", size: Math.max(16, align4(total * strides[b])),
+            usage: B.STORAGE | B.COPY_SRC }));
+        this.staging.push(...scratch);
+        const resources = [{ binding: 960, resource: { buffer: this.uniform_buffer(params.buffer) } },
+            ...slots.map(s => ({ binding: 961 + s, resource: { buffer: vertex.slots[s].gpu } })),
+            ...buffers.map((b, i) => ({ binding: 970 + b, resource: { buffer: scratch[i] } }))];
+        this.end_pass();
+        const pass = this.encoder.beginComputePass({ label: "GLES 3 capture" });
+        pass.setPipeline(p.pipeline);
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: p.layouts[0], entries: group.resources.filter(r => entry.bindings.has(r.binding)) }));
+        pass.setBindGroup(1, this.device.createBindGroup({ layout: p.layouts[1], entries: resources }));
+        pass.dispatchWorkgroups(Math.ceil(total / 64));
+        pass.end();
+        buffers.forEach((b, i) =>
+        {
+            const binding = tf.bindings[b];
+            const buffer = binding && c.group.buffers.get(binding.buffer);
+            if(!buffer) return;
+            const gpu = this.gpu_buffer(buffer);
+            const at = binding.offset + (tf.vertices[b] - total) * strides[b];
+            const bytes = Math.min(total * strides[b], gpu.size - at);
+            if(at >= 0 && bytes > 0) this.encoder.copyBufferToBuffer(scratch[i], 0, gpu.buffer, at, bytes);
+        });
+        this.stats.captures = (this.stats.captures || 0) + 1;
+    },
+
+    /** BUFFER_READ: a buffer's bytes (a map of one the GPU wrote) read back for the CPU side */
+    buffer_read3(record)
+    {
+        const conn = this.conns.get(record.conn);
+        const c = conn && this.shadow.context(conn.context);
+        const buffer = c && c.group.buffers.get(record.buffer);
+        if(!buffer || record.offset + record.length > buffer.size) return this.answer_failed(record.request);
+        const gpu = this.gpu_buffer(buffer);
+        const low = record.offset & ~3, high = align4(record.offset + record.length);
+        this.end_pass();
+        const read = this.device.createBuffer({ label: "GLES buffer read", size: Math.max(4, high - low), usage: B.COPY_DST | B.MAP_READ });
+        if(high > low) this.encoder.copyBufferToBuffer(gpu.buffer, low, read, 0, high - low);
+        this.reads.push({ buffer: read, bytes: record.length, skip: record.offset - low, done: (bytes, sink) => this.answer(sink, record.request, bytes) });
+        return undefined;
     },
 
     // ---- bind groups
@@ -1519,7 +1742,7 @@ export const GLES3 = {
             layout = { group, pipeline: this.device.createPipelineLayout({ bindGroupLayouts: [group] }), id: this.layouts3.size + 1 };
             this.layouts3.set(key, layout);
         }
-        return { layout: layout.group, pipeline_layout: layout.pipeline, resources, key: String(layout.id) };
+        return { layout: layout.group, pipeline_layout: layout.pipeline, entries, resources, key: String(layout.id) };
     },
 
     /** The default uniform block's buffer: the program's values by their offsets (made again when they change) */
@@ -1856,6 +2079,11 @@ export const GLES3 = {
             case "glDrawElementsInstancedOffsetAEMU": this.draw3(c, args[0], 0, args[1], { type: args[2], offset: args[3] }, args[4]); return true;
             case "glDrawRangeElementsDataAEMU": this.draw3(c, args[0], 0, args[3], { type: args[4], bytes: args[5] }, 1); return true;
             case "glDrawRangeElementsOffsetAEMU": this.draw3(c, args[0], 0, args[3], { type: args[4], offset: args[5] }, 1); return true;
+        }
+        if(name === "glBeginQuery" && (args[0] === GL3.ANY_SAMPLES_PASSED || args[0] === GL3.ANY_SAMPLES_PASSED_CONSERVATIVE))
+        {
+            this.occlusion3().results.set(this.id_of(c) + ":" + args[1], 0);
+            return true;
         }
         if(/^glUniform(?!BlockBinding)/.test(name))
         {

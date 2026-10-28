@@ -208,6 +208,30 @@ GLESHost.prototype.gl_call = function(conn, command, args, bytes)
         this.flush();
         return request.done;
     }
+    // (a map of a buffer the page wrote: its bytes from the page, into the guest's and the CPU side's copy)
+    if(command.name === "glMapBufferRangeAEMU" && this.shadow.stale_map)
+    {
+        const stale = this.shadow.stale_map;
+        this.shadow.stale_map = null;
+        const mapped = args[4];
+        if(!mapped || !mapped.size) return ret;
+        const request = this.request(mapped);
+        this.record(GLES.BUFFER_READ, [conn.id, request.id, stale.name, stale.offset, stale.length]);
+        this.flush();
+        return request.done.then(() => { stale.bytes.set(mapped.data.subarray(0, Math.min(stale.length, mapped.size)), stale.offset); });
+    }
+    // (an occlusion query's result: the page's)
+    if(command.name === "glGetQueryObjectuiv" && this.shadow.query_read)
+    {
+        const { name, query } = this.shadow.query_read;
+        this.shadow.query_read = null;
+        const params = args[2];
+        if(!params || params.size < 4) return ret;
+        const request = this.request(params);
+        this.record(GLES.QUERY_READ, [conn.id, request.id, name]);
+        this.flush();
+        return request.done.then(() => { query.result = new DataView(params.data.buffer, params.data.byteOffset).getUint32(0, true) ? 1 : 0; query.answered = true; });
+    }
     // (a link through glslang: its result first, which the page links with)
     if(keep && command.name === "glLinkProgram" && this.shadow.last_link)
     {

@@ -292,7 +292,7 @@ async function setup(max_version, api)
 
 // ---- GLES 3.0's programs: uniform blocks, unsigned and non-square uniforms, transform feedback's varyings
 {
-    const { call } = await setup("3.0", 3);
+    const { call, renderer } = await setup("3.0", 3);
     const error = async () => (await call("gles2:glGetError")).ret;
     const shader = async (type, source) =>
     {
@@ -348,5 +348,38 @@ async function setup(max_version, api)
     await call("gles2:glTransformFeedbackVaryingsAEMU", bad, 1, cstring("nothing;"), 9, 0x8C8C);
     await call("gles2:glLinkProgram", bad);
     assert.equal(i32s((await call("gles2:glGetProgramiv", bad, 0x8B82, 4)).outs[0])[0], 0, "a varying the shader lacks: no link");
+
+    // a buffer transform feedback wrote: its map's bytes are the page's (BUFFER_READ), unless the map invalidates them
+    const feedback = i32s((await call("gles2:glGenBuffers", 1, 4)).outs[0])[0];
+    await call("gles2:glBindBuffer", 0x8C8E, feedback);
+    await call("gles2:glBufferData", 0x8C8E, 84, null, 0x88E1);
+    await call("gles2:glBindBufferBase", 0x8C8E, 0, feedback);
+    await call("gles2:glBeginTransformFeedback", 4);
+    await call("gles2:glDrawArrays", 4, 0, 3);
+    await call("gles2:glEndTransformFeedback");
+    assert.equal(await error(), 0, "a capture of a triangle");
+    const reads = () => renderer.records().filter(r => r.name === "BUFFER_READ");
+    const mapped = (await call("gles2:glMapBufferRangeAEMU", 0x8C8E, 8, 76, 1, 76)).outs[0];
+    const read = reads().at(-1);
+    assert.ok(read && read.buffer === feedback && read.offset === 8 && read.length === 76, "glMapBufferRange of it asks the page");
+    assert.ok(mapped.every(b => b === (read.request & 0xFF)), "the page's bytes mapped");
+    await call("gles2:glUnmapBufferAEMU", 0x8C8E, 8, 76, 1, null, 4);
+    await call("gles2:glMapBufferRangeAEMU", 0x8C8E, 0, 84, 2 | 8, 84);
+    assert.equal(reads().length, 1, "a map that invalidates the buffer asks nothing");
+    await call("gles2:glUnmapBufferAEMU", 0x8C8E, 0, 84, 2 | 8, new Uint8Array(84), 4);
+
+    // occlusion queries: the page's result for one that drew (asked once), none for one that did not
+    const queries = i32s((await call("gles2:glGenQueries", 2, 8)).outs[0]);
+    const asked = () => renderer.records().filter(r => r.name === "QUERY_READ");
+    await call("gles2:glBeginQuery", 0x8C2F, queries[0]);
+    await call("gles2:glEndQuery", 0x8C2F);
+    assert.equal(i32s((await call("gles2:glGetQueryObjectuiv", queries[0], 0x8866, 4)).outs[0])[0], 0, "nothing drawn: 0");
+    assert.equal(asked().length, 0, "and the page not asked");
+    await call("gles2:glBeginQuery", 0x8C2F, queries[1]);
+    await call("gles2:glDrawArrays", 4, 0, 3);
+    await call("gles2:glEndQuery", 0x8C2F);
+    await call("gles2:glGetQueryObjectuiv", queries[1], 0x8866, 4);
+    await call("gles2:glGetQueryObjectuiv", queries[1], 0x8866, 4);
+    assert.ok(asked().length === 1 && asked()[0].query === queries[1], "a query that drew: the page asked, once");
     console.log("PASS: GLES 3.0's programs: uniform blocks, uint and 2x3 uniforms, transform feedback's varyings");
 }

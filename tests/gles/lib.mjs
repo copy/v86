@@ -44,8 +44,8 @@ export function fake_renderer(options = {})
                 const message = pending.shift();
                 for(const record of read_gles_batch(message.bytes))
                 {
-                    if(record.name !== "READ_PIXELS" && record.name !== "COLOR_BUFFER_READ") continue;
-                    const size = record.width * record.height * 4;
+                    if(!["READ_PIXELS", "COLOR_BUFFER_READ", "BUFFER_READ", "QUERY_READ"].includes(record.name)) continue;
+                    const size = record.name === "BUFFER_READ" ? record.length : record.name === "QUERY_READ" ? 4 : record.width * record.height * 4;
                     const bytes = new Uint8Array(READBACK_HEADER_BYTES + size);
                     const view = new DataView(bytes.buffer);
                     view.setUint32(0, record.request, true);

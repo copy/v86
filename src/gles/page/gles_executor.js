@@ -176,6 +176,7 @@ GLESExecutor.prototype.submit = async function(bytes, sink)
             if(this.stats.errors.length < 20) this.stats.errors.push((record.command ? record.command.name : record.name) + ": " + (error && error.message || error));
         }
     }
+    this.batch_end3();
     this.end_pass();
     this.device.queue.submit([this.encoder.finish()]);
     this.encoder = null;
@@ -296,6 +297,8 @@ GLESExecutor.prototype.run = function(record)
         case "FLUSH_SURFACE": return this.flush_surface(record.surface);
         case "POST": return this.post(record.color_buffer);
         case "READ_PIXELS": return this.read_pixels(record);
+        case "BUFFER_READ": return this.buffer_read3(record);
+        case "QUERY_READ": return this.query_read3(record);
     }
     return undefined;
 };

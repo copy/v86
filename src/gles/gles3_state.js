@@ -797,10 +797,13 @@ export function gles3_handlers(h)
                 return;
             }
             buffer.mapped = { offset, length, access };
-            // (the mapped bytes: the CPU side's copy; one the page wrote since comes from it, L3)
+            // (the mapped bytes: the CPU side's copy; of a buffer the page wrote since, the page's: the host asks for them, stale_map)
             const bytes = bytes_of(shadow, buffer);
             if(bytes && mapped && mapped.size) mapped.data.set(bytes.subarray(offset, offset + Math.min(length, mapped.size)));
-            if(buffer.gpu_newer) shadow.stats.stale_maps = (shadow.stats.stale_maps || 0) + 1;
+            if(buffer.gpu_newer && bytes && !(access & (GL.MAP_INVALIDATE_RANGE_BIT | GL.MAP_INVALIDATE_BUFFER_BIT)))
+            {
+                shadow.stale_map = { name: buffer_binding(c, target), offset, length, bytes };
+            }
         },
         "glUnmapBufferAEMU": (shadow, c, [target, offset, length, access, guest_buffer, out_res]) =>
         {
@@ -1604,7 +1607,7 @@ export function gles3_handlers(h)
             c.active_queries.delete(target);
             const q = c.queries.get(name);
             q.ended = true;
-            // (occlusion: whether anything was drawn, until the page answers (L3); the CPU side counts feedback's primitives)
+            // (occlusion: nothing drawn is 0, else the page answers, query_read; the CPU side counts feedback's primitives)
             if(target !== GL.TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN) q.result = q.drawn ? 1 : 0;
             q.available = true;
             return undefined;
@@ -1622,6 +1625,7 @@ export function gles3_handlers(h)
             const q = c.queries.get(name);
             if(!q || !q.ended || [...c.active_queries.values()].includes(name)) { fail(c, GL.INVALID_OPERATION); return; }
             put(params, [pname === 0x8867 ? (q.available ? 1 : 0) : q.result], "i", "i");
+            if(pname === 0x8866 && q.target !== GL.TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN && q.drawn && !q.answered) shadow.query_read = { name, query: q };
         },
 
         // ---- sync objects (GLES 3.0's own, not EGL's: done in order, as renderControl's)
