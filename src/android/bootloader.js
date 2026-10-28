@@ -53,13 +53,13 @@ export async function android_bootloader(read, disk_size, options)
             return p;
         };
         const load = async name => { const p = part(name); return new Uint8Array(await read(p.start, p.size)); };
-        const gpu = ranchu_gpu_mode(device, options.gpu_mode);
+        const gpu = ranchu_gpu_mode(device, options.gpu_mode, options.gles_version);
         // (a partition is whole sectors: the kernel's and ramdisk's bytes run to their ends, which the kernel ignores)
         return { kernel: await load("kernel"), initrd: await ramdisk_overlay(await load("ramdisk"), device),
             cmdline: ranchu_cmdline({ arm32: device.cmdline.arm32, bootanim: device.cmdline.bootanim, gles: gpu.gles }),
             bootconfig: null, vbmeta: null,
             properties: Object.assign({}, device.properties, gpu.properties), clock_rate: device.clock_rate || null,
-            ranchu_gpu: gpu.ranchu_gpu,
+            ranchu_gpu: gpu.ranchu_gpu, gles_version: gpu.gles_version,
             disks: device.partitions.filter(p => p.disk).map(p => ({ name: p.name, start: part(p.name).start, size: part(p.name).size,
                 readonly: p.disk === "read_only" })) };
     }

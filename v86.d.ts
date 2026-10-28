@@ -1005,8 +1005,9 @@ export interface V86Options {
     /**
      * machine_type "ranchu", ranchu_gpu "host": the highest OpenGL ES version
      * the GLES host announces (ANDROID_EMU_gles_max_version_*; the guest's
-     * contexts and ro.opengles.version follow it; docs/gles3-plan.md)
-     * @default "2.0"
+     * contexts and ro.opengles.version follow it; docs/gles3-plan.md); an
+     * emulator image's android.gles_version where this is not given
+     * @default "3.0"
      */
     ranchu_gles_version?: "2.0" | "3.0" | "3.1" | "3.2";
 

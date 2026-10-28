@@ -70,6 +70,24 @@ for(const [r, g, b, a, visual] of [[8, 8, 8, 8, HAL_PIXEL_FORMAT.RGBA_8888], [8,
     }
 }
 
+/**
+ * The configurations as a host of the GLES version answers them: GLES 3.x's
+ * add EGL_OPENGL_ES3_BIT_KHR to EGL_RENDERABLE_TYPE and EGL_CONFORMANT (an
+ * application asks for it to make a GLES 3 context, dEQP-GLES3 too)
+ * @param {number} max_version 20, or 30 to 32
+ * @return {!Array<!Array<number>>}
+ */
+export function configs_for(max_version)
+{
+    if(max_version < 30) return CONFIGS;
+    if(!configs_for.es3)
+    {
+        const types = [CONFIG_ATTRIBUTES.indexOf(EGL.RENDERABLE_TYPE), CONFIG_ATTRIBUTES.indexOf(EGL.CONFORMANT)];
+        configs_for.es3 = CONFIGS.map(config => config.map((value, i) => types.includes(i) ? value | EGL.OPENGL_ES3_BIT : value));
+    }
+    return configs_for.es3;
+}
+
 /** How eglChooseConfig compares an attribute (EGL 1.4, table 3.4): the default value and the rule */
 const MATCH = new Map([
     [EGL.BUFFER_SIZE, [0, "atleast"]], [EGL.RED_SIZE, [0, "atleast"]], [EGL.GREEN_SIZE, [0, "atleast"]],
@@ -89,19 +107,20 @@ const MATCH = new Map([
 ]);
 
 /**
- * eglChooseConfig on CONFIGS (EGL 1.4, 3.4.1.2): the matching
+ * eglChooseConfig on the configurations (EGL 1.4, 3.4.1.2): the matching
  * configurations' indices in EGL's sort order. Attributes EGL ignores
  * (EGL_MAX_PBUFFER_*, EGL_NATIVE_VISUAL_ID) and unknown ones are ignored.
  * @param {!Array<number>} attribs pairs, up to EGL_NONE
+ * @param {!Array<!Array<number>>=} configs configs_for's, CONFIGS unless given
  * @return {!Array<number>}
  */
-export function choose_configs(attribs)
+export function choose_configs(attribs, configs = CONFIGS)
 {
     const wanted = new Map([...MATCH].map(([attribute, [value]]) => [attribute, value]));
     for(let i = 0; i + 1 < attribs.length && attribs[i] !== EGL.NONE; i += 2) if(MATCH.has(attribs[i])) wanted.set(attribs[i], attribs[i + 1]);
-    const value_of = (config, attribute) => CONFIGS[config][CONFIG_ATTRIBUTES.indexOf(attribute)];
+    const value_of = (config, attribute) => configs[config][CONFIG_ATTRIBUTES.indexOf(attribute)];
     const matching = [];
-    CONFIGS.forEach((config, index) =>
+    configs.forEach((config, index) =>
     {
         for(const [attribute, value] of wanted)
         {

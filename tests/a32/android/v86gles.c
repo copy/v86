@@ -7,13 +7,18 @@
 // sampled; an ETC1 texture; GLES 1.1: glOrthof with a vertex array and the
 // current color, a texture modulated by a color array, a directional light,
 // glDrawTexiOES; EGL: swap intervals, a fence sync, a pbuffer surface, a
-// texture shared between two contexts.
+// texture shared between two contexts. GLES 3.0 (docs/gles3-plan.md L4), with
+// a host that announces it: instanced quads from a vertex array object
+// colored by a uniform block, two draw buffers and glClearBufferfv, an
+// unsigned integer buffer read as integers, transform feedback mapped, a 3D
+// texture's layer, a multisampled renderbuffer resolved by a blit, and a
+// read into a pixel pack buffer mapped.
 #define GL_GLEXT_PROTOTYPES
 #include <android/log.h>
 #include <android/native_activity.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <GLES2/gl2.h>
+#include <GLES3/gl3.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #include <stdio.h>
@@ -150,6 +155,151 @@ static void gles2_scenes(void)
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     int etc1_points[] = { width / 2, height / 2 };
     report("etc1", etc1_points, 1);
+    eglSwapBuffers(display, surface);
+}
+
+static GLuint link(const char* vs, const char* fs, const char* varying)
+{
+    GLuint program = glCreateProgram();
+    glAttachShader(program, compile(GL_VERTEX_SHADER, vs));
+    glAttachShader(program, compile(GL_FRAGMENT_SHADER, fs));
+    if(varying) glTransformFeedbackVaryings(program, 1, &varying, GL_INTERLEAVED_ATTRIBS);
+    glLinkProgram(program);
+    GLint ok = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &ok);
+    if(!ok)
+    {
+        char log[512];
+        glGetProgramInfoLog(program, sizeof log, 0, log);
+        LOG("V86_GLES link failed: %s", log);
+    }
+    glUseProgram(program);
+    return program;
+}
+
+static void gles3_scenes(void)
+{
+    glViewport(0, 0, width, height);
+    // two quads, an instance each (the offset's divisor 1), the uniform block's color
+    GLuint flat = link("#version 300 es\nlayout(location = 0) in vec2 p; layout(location = 1) in vec2 offset;\n"
+        "void main() { gl_Position = vec4(p * 0.25 + offset, 0.0, 1.0); }",
+        "#version 300 es\nprecision mediump float; layout(std140) uniform Colors { vec4 color; }; out vec4 o;\nvoid main() { o = color; }", 0);
+    GLuint vao, buffers[6];
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(6, buffers);
+    const float quad[] = { -1, -1, 1, -1, -1, 1, 1, 1 };
+    glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof quad, quad, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    const float offsets[] = { -0.5f, 0, 0.5f, 0 };
+    glBindBuffer(GL_ARRAY_BUFFER, buffers[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof offsets, offsets, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribDivisor(1, 1);
+    const float color[] = { 1, 0.5f, 0, 1 };
+    glBindBuffer(GL_UNIFORM_BUFFER, buffers[2]);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof color, color, GL_STATIC_DRAW);
+    glUniformBlockBinding(flat, glGetUniformBlockIndex(flat, "Colors"), 1);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, buffers[2]);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, 2);
+    int instanced_points[] = { width / 4, height / 2, width * 3 / 4, height / 2, width / 2, height / 2 };
+    report("instanced", instanced_points, 3);
+
+    // two draw buffers: red and blue, then the second cleared green
+    link("#version 300 es\nlayout(location = 0) in vec2 p; void main() { gl_Position = vec4(p, 0.0, 1.0); }",
+        "#version 300 es\nprecision mediump float; layout(location = 0) out vec4 a; layout(location = 1) out vec4 b;\n"
+        "void main() { a = vec4(1.0, 0.0, 0.0, 1.0); b = vec4(0.0, 0.0, 1.0, 1.0); }", 0);
+    GLuint textures[4], framebuffers[3];
+    glGenTextures(4, textures);
+    glGenFramebuffers(3, framebuffers);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[0]);
+    for(int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, textures[i]);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 16, 16);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, textures[i], 0);
+    }
+    const GLenum draw[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, draw);
+    glViewport(0, 0, 16, 16);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    int middle[] = { 8, 8 };
+    glReadBuffer(GL_COLOR_ATTACHMENT1);
+    report("mrt1", middle, 1);
+    const float green[] = { 0, 1, 0, 1 };
+    glClearBufferfv(GL_COLOR, 1, green);
+    report("mrtclear", middle, 1);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    report("mrt0", middle, 1);
+
+    // an unsigned integer color buffer, cleared and read as integers
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[1]);
+    glBindTexture(GL_TEXTURE_2D, textures[2]);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, 4, 4);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[2], 0);
+    const GLuint big[] = { 4000000000u, 0, 0, 0 };
+    glClearBufferuiv(GL_COLOR, 0, big);
+    GLuint value[4] = { 0 };
+    glReadPixels(0, 0, 1, 1, GL_RGBA_INTEGER, GL_UNSIGNED_INT, value);
+    LOG("V86_GLES integer %u,%u,%u,%u glerror=%x", value[0], value[1], value[2], value[3], glGetError());
+
+    // transform feedback: three points' positions doubled, mapped
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, width, height);
+    link("#version 300 es\nlayout(location = 0) in vec2 p; out vec2 doubled; void main() { doubled = p * 2.0; gl_Position = vec4(p, 0.0, 1.0); }",
+        "#version 300 es\nprecision mediump float; out vec4 o; void main() { o = vec4(1.0); }", "doubled");
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, buffers[3]);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, 24, 0, GL_STREAM_READ);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, buffers[3]);
+    glEnable(GL_RASTERIZER_DISCARD);
+    glBeginTransformFeedback(GL_POINTS);
+    glDrawArrays(GL_POINTS, 0, 3);
+    glEndTransformFeedback();
+    glDisable(GL_RASTERIZER_DISCARD);
+    const float* captured = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 24, GL_MAP_READ_BIT);
+    if(captured) LOG("V86_GLES feedback %g,%g,%g,%g,%g,%g glerror=%x", captured[0], captured[1], captured[2], captured[3], captured[4], captured[5], glGetError());
+    glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+
+    // a 3D texture of two layers (red, blue), sampled at the second
+    link("#version 300 es\nlayout(location = 0) in vec2 p; out vec2 uv; void main() { uv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }",
+        "#version 300 es\nprecision mediump float; uniform mediump sampler3D volume; in vec2 uv; out vec4 o;\n"
+        "void main() { o = texture(volume, vec3(uv, 0.75)); }", 0);
+    glBindTexture(GL_TEXTURE_3D, textures[3]);
+    const unsigned char layers[] = { 255, 0, 0, 255, 0, 0, 255, 255 };
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA8, 1, 1, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, layers);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    int center[] = { width / 2, height / 2 };
+    report("volume", center, 1);
+
+    // a multisampled renderbuffer cleared magenta, resolved into the window's corner by a blit
+    GLuint renderbuffer;
+    glGenRenderbuffers(1, &renderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_RGBA8, 16, 16);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[2]);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, renderbuffer);
+    glClearColor(1, 0, 1, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, 16, 16, 0, 0, 16, 16, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    report("resolve", middle, 1);
+
+    // that pixel into a pixel pack buffer, mapped
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, buffers[4]);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 4, 0, GL_STREAM_READ);
+    glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    const unsigned char* packed = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, 4, GL_MAP_READ_BIT);
+    if(packed) LOG("V86_GLES pack %d,%d,%d,%d glerror=%x", packed[0], packed[1], packed[2], packed[3], glGetError());
+    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     eglSwapBuffers(display, surface);
 }
 
@@ -304,6 +454,15 @@ static void* run(void* argument)
     LOG("V86_GLES gles1 %s", glGetString(GL_VERSION));
     gles1_scenes();
     egl_scenes(context2);
+    // (GLES 3.0: when the host announces it)
+    const EGLint version3[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+    EGLContext context3 = eglCreateContext(display, config, EGL_NO_CONTEXT, version3);
+    if(context3 != EGL_NO_CONTEXT && eglMakeCurrent(display, surface, surface, context3))
+    {
+        LOG("V86_GLES gles3 %s / %s", glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
+        gles3_scenes();
+    }
+    else LOG("V86_GLES gles3 none: %x", eglGetError());
     LOG("V86_GLES_DONE");
     return 0;
 }

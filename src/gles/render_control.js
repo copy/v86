@@ -15,7 +15,7 @@
 // host makes them GLES records (src/gles/gles_host.js). Reads back are the
 // host's: here they give nothing.
 
-import { CONFIGS, CONFIG_ATTRIBUTES, EGL, EGL_STRINGS, choose_configs, gl_string } from "./gles_caps.js";
+import { CONFIGS, CONFIG_ATTRIBUTES, EGL, EGL_STRINGS, choose_configs, configs_for, gl_string } from "./gles_caps.js";
 
 /** rcGetFBParam's parameters (gfxstream's host/FrameBuffer.h) */
 const FB_WIDTH = 1;
@@ -158,7 +158,7 @@ const HANDLERS = {
     {
         const needed = (CONFIGS.length + 1) * CONFIG_ATTRIBUTES.length * 4;
         if(buffer.size < needed) return -needed;
-        put_u32s(buffer, [...CONFIG_ATTRIBUTES, ...CONFIGS.flat()]);
+        put_u32s(buffer, [...CONFIG_ATTRIBUTES, ...configs_for(rc.max_version).flat()]);
         return CONFIGS.length;
     },
     "rcChooseConfig": (rc, conn, [attribs, attribs_size, configs, configs_size]) =>
@@ -166,7 +166,7 @@ const HANDLERS = {
         const view = attribs && new DataView(attribs.buffer, attribs.byteOffset, attribs.byteLength);
         const list = [];
         for(let at = 0; view && at + 4 <= view.byteLength; at += 4) list.push(view.getInt32(at, true));
-        const chosen = choose_configs(list);
+        const chosen = choose_configs(list, configs_for(rc.max_version));
         // (with room for some, as many as fit; without, how many there are)
         if(configs && configs_size > 0)
         {

@@ -45,7 +45,7 @@
 // animation on (both for the files' boot, not A32_ANDROID_DISK);
 // A32_ANDROID_BOOT_SHOTS=1: a screenshot every 20 s until the boot completes.
 // A32_ANDROID_GLES_APP=1 (with A32_ANDROID_GPU=host): after the home screen,
-// tests/a32/android/v86gles.c's APK (GLES 2.0 and 1.1 scenes read back with
+// tests/a32/android/v86gles.c's APK (GLES 2.0, 1.1 and 3.0 scenes read back with
 // glReadPixels: docs/gles-proxy-plan.md E4) is installed and started, and
 // the pixels it logs are checked against GLES's rules.
 // A32_ANDROID_DEQP=1 (with A32_ANDROID_GPU=host): dEQP-GLES2 and dEQP-EGL
@@ -56,6 +56,9 @@
 // functional case (A32_ANDROID_DEQP_STEP another; A32_ANDROID_DEQP_FILTER a
 // pattern of cases to keep; A32_ANDROID_DEQP_IMAGES=1 the log with its images
 // in the instrumentation's output, kept); each case's status into the run's deqp.json.
+// A32_ANDROID_DEQP_SUITE=gles3 (or gles31): that suite's case list in GLES 2's
+// place (docs/gles3-plan.md L4). A32_ANDROID_GLES_VERSION: the GLES version
+// the host announces (src/android/devices.js's default otherwise).
 // A32_ANDROID_MEDIA=1 (with A32_ANDROID_GPU=host): Replica Island (GLES 1)
 // and Shattered Pixel Dungeon (libGDX, GLES 2) from F-Droid on a fourth
 // disk, each played for a minute; a green H.264 clip in Gallery's player
@@ -89,7 +92,8 @@ const timeout = Number(process.env.A32_ANDROID_TIMEOUT || 3600000);
 const jit = process.env.A32_JIT !== "0";
 const from_disk = process.env.A32_ANDROID_DISK === "1";
 const gpu_mode = process.env.A32_ANDROID_GPU || "guest";
-const gpu = ranchu_gpu_mode(RANCHU_25_ARMEABI_V7A, gpu_mode);
+// (A32_ANDROID_GLES_VERSION: the version the GLES host announces, the device model's default unless given)
+const gpu = ranchu_gpu_mode(RANCHU_25_ARMEABI_V7A, gpu_mode, process.env.A32_ANDROID_GLES_VERSION);
 const tag = process.env.A32_ANDROID_TAG || `v86-${jit ? "jit-" : ""}${from_disk ? "disk-" : ""}${gpu.gles ? "gles-" : ""}${cores}c`;
 const disk = directory + "disk.img";
 if(from_disk && !fs.existsSync(disk))
@@ -118,12 +122,16 @@ let deqp = null;
 if(process.env.A32_ANDROID_DEQP === "1")
 {
     const { fetch_files, DEQP_FILES } = await import("../../tools/a32_cts.mjs");
-    const [apk, gles2, egl] = await fetch_files(DEQP_FILES, true);
+    // (A32_ANDROID_DEQP_SUITE: gles2, or gles3 / gles31 (docs/gles3-plan.md L4): its case list instead of GLES 2's)
+    const suite = process.env.A32_ANDROID_DEQP_SUITE || "gles2";
+    const [apk, list, egl] = await fetch_files([DEQP_FILES[0], suite + "-master.txt", ...DEQP_FILES.slice(2)], true);
+    const prefix = "dEQP-" + suite.toUpperCase();
     const step = Number(process.env.A32_ANDROID_DEQP_STEP || 9);
     const filter = new RegExp(process.env.A32_ANDROID_DEQP_FILTER || ".");
-    const all = fs.readFileSync(gles2, "utf8").split("\n").filter(Boolean);
-    const sampled = all.filter((c, i) => /\.(state_query|negative_api)\./.test(c) || /^dEQP-GLES2\.(info|functional)\./.test(c) && i % step === 0);
-    const cases = { "dEQP-GLES2": sampled.filter(c => filter.test(c)),
+    const all = fs.readFileSync(list, "utf8").split("\n").filter(Boolean);
+    const sampled = all.filter((c, i) => /\.(state_query|negative_api)\./.test(c) || c.startsWith(prefix + ".info.") ||
+        c.startsWith(prefix + ".functional.") && i % step === 0);
+    const cases = { [prefix]: sampled.filter(c => filter.test(c)),
         "dEQP-EGL": fs.readFileSync(egl, "utf8").split("\n").filter(c => c.startsWith("dEQP-EGL.info.") && filter.test(c)) };
     const root = run_directory + "deqp-disk/";
     fs.rmSync(root, { recursive: true, force: true });
@@ -140,7 +148,7 @@ if(process.env.A32_ANDROID_DEQP === "1")
     const made = spawnSync("/opt/homebrew/opt/e2fsprogs/sbin/mke2fs", ["-q", "-t", "ext2", "-b", "4096", "-d", root, image, "160M"], { encoding: "utf8" });
     assert.equal(made.status, 0, made.stderr);
     deqp = { image, chunks };
-    console.log(`dEQP: ${cases["dEQP-GLES2"].length} GLES 2 and ${cases["dEQP-EGL"].length} EGL cases in ${chunks.length} runs`);
+    console.log(`dEQP: ${cases[prefix].length} ${prefix} and ${cases["dEQP-EGL"].length} EGL cases in ${chunks.length} runs`);
 }
 // A32_ANDROID_MEDIA=1: two open-source games from F-Droid (Replica Island
 // 1.4, archive; Shattered Pixel Dungeon 4.0.2, F-Droid's build) and a green
@@ -192,7 +200,7 @@ const emulator = new V86({
     } : {
         // (the ramdisk with the device model's init additions, as the bootloader gives it)
         kernel: { url: image + "kernel-ranchu" }, initrd: { buffer: ramdisk.buffer.slice(ramdisk.byteOffset, ramdisk.byteOffset + ramdisk.length) }, cmdline,
-        ranchu_properties: properties, ranchu_gpu: gpu.ranchu_gpu,
+        ranchu_properties: properties, ranchu_gpu: gpu.ranchu_gpu, ...(gpu.gles_version ? { ranchu_gles_version: gpu.gles_version } : {}),
         // (the device model's clock rate, as the bootloader hands it over; A32_ANDROID_RATE another)
         ...(process.env.A32_PARALLEL === "1" ? {} : { cpu_clock: { rate: Number(process.env.A32_ANDROID_RATE || RANCHU_25_ARMEABI_V7A.clock_rate) } }),
         virtio_disks: [
@@ -518,6 +526,20 @@ try
         assert.deepEqual(egl.slice(1), ["1", "1", "1", "30f6", "30f2"], "swap intervals, the fence");
         expect("pbuffer", [[255, 255, 0]]);
         expect("shared", [[255, 0, 255]]);
+        // GLES 3.0's scenes (docs/gles3-plan.md L4) where the host announces it
+        if(gpu.gles_version !== "2.0")
+        {
+            assert.match(log, /V86_GLES gles3 OpenGL ES 3\./, "a GLES 3 context");
+            expect("instanced", [[255, 128, 0], [255, 128, 0], [0, 0, 0]]);
+            expect("mrt1", [[0, 0, 255]]);
+            expect("mrtclear", [[0, 255, 0]]);
+            expect("mrt0", [[255, 0, 0]]);
+            assert.match(log, /V86_GLES integer 4000000000,0,0,1 glerror=0/, "an unsigned integer buffer read as integers");
+            assert.match(log, /V86_GLES feedback -2,-2,2,-2,-2,2 glerror=0/, "transform feedback, mapped");
+            expect("volume", [[0, 0, 255]]);
+            expect("resolve", [[255, 0, 255]]);
+            assert.match(log, /V86_GLES pack 255,0,255,255 glerror=0/, "a read into a pixel pack buffer, mapped");
+        }
         save_png(sink, run_directory, "gles-app");
         console.log("gles app: every scene as GLES draws it");
     }

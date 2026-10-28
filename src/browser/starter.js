@@ -41,7 +41,7 @@ import { OpfsDisk, is_opfs_url, opfs_file } from "../opfs_disk.js";
 // (for types only)
 import { PCIeRootPort } from "../pcie_root_port.js";
 import { android_bootloader, ANDROID_DEVICES } from "../android/bootloader.js";
-import { ranchu_gpu_mode } from "../android/devices.js";
+import { DEFAULT_GLES_VERSION, GLES_VERSIONS, ranchu_gpu_mode } from "../android/devices.js";
 import { PartitionBuffer } from "../android/partition_buffer.js";
 import { FS } from "../../lib/filesystem.js";
 
@@ -561,6 +561,7 @@ V86.prototype.continue_init = async function(emulator, options)
         const gpu_modes = device.machine === "ranchu" ? ["guest", "host", "swiftshader"] : ["swiftshader", "venus", "gfxstream"];
         if(android.gpu_mode !== undefined && !gpu_modes.includes(android.gpu_mode)) throw new Error("android.gpu_mode: " + gpu_modes.join(", "));
         if(android.selinux !== undefined && !["enforcing", "permissive"].includes(android.selinux)) throw new Error("android.selinux: enforcing or permissive");
+        if(android.gles_version !== undefined && !GLES_VERSIONS[android.gles_version]) throw new Error("android.gles_version: " + Object.keys(GLES_VERSIONS).join(", "));
     }
 
     this.bus.register("emulator-stopped", function()
@@ -706,7 +707,8 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.ranchu_display) settings.ranchu_display = Object.assign({}, options.ranchu_display);
     if(options.ranchu_properties) settings.ranchu_properties = Object.assign({}, options.ranchu_properties);
     if(options.ranchu_gpu) settings.ranchu_gpu = options.ranchu_gpu;
-    if(options.ranchu_gles_version) settings.ranchu_gles_version = options.ranchu_gles_version;
+    // (the GLES host's version: the options', an emulator image's (the bootloader's, below), else GLES 3.0)
+    settings.ranchu_gles_version = options.ranchu_gles_version || DEFAULT_GLES_VERSION;
     // (arm32's GLES backdoor: the GLES host's services for user code, src/arm/backdoor_a32.js)
     if(options.gles_backdoor) settings.gles_backdoor = true;
 
@@ -1371,7 +1373,8 @@ V86.prototype.continue_init = async function(emulator, options)
             // loads them again (src/arm/cpu.js)
             const disk = settings.virtio_disks[0].buffer;
             const boot = await android_bootloader((offset, length) => new Promise(resolve => disk.get(offset, length, resolve)), disk.byteLength, {
-                device: options.android.device, gpu_mode: options.android.gpu_mode, selinux: options.android.selinux,
+                device: options.android.device, gpu_mode: options.android.gpu_mode, gles_version: options.ranchu_gles_version || options.android.gles_version,
+                selinux: options.android.selinux,
                 memory_mb: Math.round((settings.memory_size + (settings.extended_memory_size || 0)) / 1048576),
                 vendor_ramdisk: settings.android_vendor_ramdisk ? new Uint8Array(settings.android_vendor_ramdisk) : undefined,
             });
@@ -1384,6 +1387,7 @@ V86.prototype.continue_init = async function(emulator, options)
             if(boot.clock_rate && !options.cpu_clock && !this.parallel_requested) settings.cpu_clock = { "rate": boot.clock_rate };
             // (and its GPU mode, which its command line follows)
             if(boot.ranchu_gpu) settings.ranchu_gpu = boot.ranchu_gpu;
+            if(boot.gles_version) settings.ranchu_gles_version = boot.gles_version;
             if(boot.disks)
             {
                 // (an emulator image: its disks the partitions, the first
@@ -1411,9 +1415,12 @@ V86.prototype.continue_init = async function(emulator, options)
                 }
                 catch(error)
                 {
-                    // (GLES 2.0's shaders need no glslang: without it, a GLES 3.x the options ask for is the error)
-                    if((settings.ranchu_gles_version || "2.0") !== "2.0") throw error;
-                    console.warn(error.message + ": the GLES host offers GLES 2.0 alone");
+                    // (Node in the source tree, build/glslang.wasm not made: the repository's own)
+                    const node = typeof process !== "undefined" && process.versions && process.versions.node;
+                    if(node && !options.gles_glslang_path) glslang = await load_whole_file("gles_glslang_path", "bios/glslang.wasm").catch(() => null);
+                    // (GLES 2.0's shaders need no glslang: without it, a GLES 3.x is the error)
+                    if(!glslang && settings.ranchu_gles_version !== "2.0") throw error;
+                    if(!glslang) console.warn(error.message + ": the GLES host offers GLES 2.0 alone");
                 }
                 if(glslang) settings.gles_prepared = await settings.gles_plugin["prepare"]({ "glslang": glslang });
             }
