@@ -15,7 +15,7 @@
 // (ProgramInfo), with `spirv`, `blocks` and `bindings` added.
 
 import { STAGE } from "./glslang.js";
-import { BLEND_DESTINATION, blend_support, rewrite_for_spirv } from "./glsl_es_rewrite.js";
+import { BLEND_DESTINATION, blend_support, glsl_version, rewrite_for_spirv } from "./glsl_es_rewrite.js";
 import { DECORATION, EXECUTION_MODEL, STORAGE, add_xfb, block_layout, get_decoration, is_builtin, location_count, parse_spirv,
     set_decoration, variable_name } from "./spirv_patch.js";
 
@@ -199,6 +199,8 @@ export function link_glslang_program(glslang, shaders, options)
         return empty("ERROR: internal compiler error: " + (e && e.message || e));
     }
     if(!code.ok) return empty("ERROR: internal compiler error (SPIR-V): " + code.log);
+    const refused = link_rules(code.modules, shaders, !!options.separable);
+    if(refused) return empty(refused);
 
     // the default block's layout: each uniform's offset and strides in it,
     // from the SPIR-V (the code pass's reflection differs from it); the
@@ -445,6 +447,72 @@ export function geometry_layout(words)
         at += count;
     }
     return layout;
+}
+
+/**
+ * The link errors of GLSL ES that glslang's relaxed link leaves out (not
+ * uniforms of other precisions in two stages: the SPIR-V has no precision
+ * on the default block's members):
+ * - an input the next stage uses that the stage before it does not write
+ *   (not in a separable program: a pipeline's stages are checked apart);
+ * - in GLSL ES 3.00, an input of other interpolation (flat, noperspective)
+ *   than its output (3.10 lets them differ)
+ * @param {!Array<{stage: number, words: !Array<number>}>} modules the code pass's
+ * @param {!Array<{stage: string, source: string}>} shaders
+ * @return {?string} the link's error
+ */
+function link_rules(modules, shaders, separable)
+{
+    if(separable) return null;
+    const parsed = modules.map(module => { const words = new Uint32Array(module.words); return { stage: module.stage, words, m: parse_spirv(words) }; })
+        .sort((a, b) => a.stage - b.stage);
+    const FLAT = 14, NO_PERSPECTIVE = 13;
+    // each stage's inputs against the outputs of the stage before it
+    const decorated = (m, id, d) => !!(m.decorations.get(id) && m.decorations.get(id).has(d));
+    // (an interface block matches by its block's name, not its instance's)
+    const interface_name = (m, v) =>
+    {
+        let id = m.types.get(v.type).pointee;
+        while(m.types.get(id) && m.types.get(id).kind === "array") id = m.types.get(id).element;
+        return m.types.get(id) && m.types.get(id).kind === "struct" && decorated(m, id, DECORATION.Block) ? "block " + m.names.get(id) : variable_name(m, v);
+    };
+    for(let k = 1; k < parsed.length; k++)
+    {
+        const before = parsed[k - 1], after = parsed[k];
+        if(after.stage === STAGE.compute) continue;
+        const outputs = new Map(before.m.variables.filter(v => v.storage === STORAGE.Output && !is_builtin(before.m, v)).map(v => [interface_name(before.m, v), v]));
+        // (what the stage's code reads: loads, access chains, the interpolation functions)
+        const used = new Set();
+        const words = after.words;
+        let in_functions = false;
+        for(let at = 5; at < words.length;)
+        {
+            const count = words[at] >>> 16, op = words[at] & 0xFFFF;
+            if(!count) break;
+            if(op === 54) in_functions = true;
+            if(in_functions && (op === 61 || op === 65 || op === 66) && count >= 4) used.add(words[at + 3]);
+            if(in_functions && op === 12 && count >= 6) used.add(words[at + 5]);
+            at += count;
+        }
+        const es300 = [before, after].every(x => shaders.some(s => STAGE[s.stage] === x.stage && glsl_version(s.source) === 300));
+        for(const v of after.m.variables)
+        {
+            if(v.storage !== STORAGE.Input || is_builtin(after.m, v)) continue;
+            const name = interface_name(after.m, v);
+            const output = outputs.get(name);
+            if(!output)
+            {
+                if(used.has(v.id)) return "ERROR: Linking " + STAGE_NAME[after.stage] + " stage: input " + name + " is not written by the " + STAGE_NAME[before.stage] + " stage";
+                continue;
+            }
+            if(es300 && (decorated(before.m, output.id, FLAT) !== decorated(after.m, v.id, FLAT) ||
+                decorated(before.m, output.id, NO_PERSPECTIVE) !== decorated(after.m, v.id, NO_PERSPECTIVE)))
+            {
+                return "ERROR: Linking " + STAGE_NAME[after.stage] + " stage: interpolation of " + name + " differs from the " + STAGE_NAME[before.stage] + " stage's";
+            }
+        }
+    }
+    return null;
 }
 
 /** SPIR-V's numeric types as GL's: the base's enums of 1 to 4 components, matrices by [columns][rows] */
