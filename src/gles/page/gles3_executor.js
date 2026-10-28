@@ -44,6 +44,12 @@ const NEAREST = 0x2600, LINEAR = 0x2601, NEAREST_MIPMAP_NEAREST = 0x2700;
 const RESTART = 0x8D69, CULL_FACE = 0x0B44, BLEND = 0x0BE2, DEPTH_TEST = 0x0B71, STENCIL_TEST = 0x0B90, SCISSOR_TEST = 0x0C11;
 const POLYGON_OFFSET_FILL = 0x8037;
 const COMPARE_REF_TO_TEXTURE = 0x884E;
+/**
+ * The format a compressed texture of blocks WebGPU will not take (not whole
+ * blocks) is decoded into: sRGB's, EAC's 11 signed or unsigned bits in
+ * halves, the rest 8 bits a channel
+ */
+const decoded_format = compressed => compressed.webgpu.endsWith("-srgb") ? "rgba8unorm-srgb" : compressed.webgpu.startsWith("eac-") ? "rgba16float" : "rgba8unorm";
 /** GLES 3.1's DEPTH_STENCIL_TEXTURE_MODE: the stencil of a depth and stencil texture sampled */
 const STENCIL_INDEX = 0x1901;
 const TOPOLOGY = ["point-list", "line-list", "line-list", "line-strip", "triangle-list", "triangle-strip", "triangle-list"];
@@ -694,9 +700,13 @@ export const GLES3 = {
         const internal = image_internal(base);
         const compressed = COMPRESSED_FORMATS.get(internal);
         const info = format_info(internal);
-        const native = compressed && this.device.features && this.device.features.has(compressed.astc ? "texture-compression-astc" : "texture-compression-etc2");
-        const format = compressed ? (native ? compressed.webgpu : COLOR_FORMAT) : info ? info.webgpu : COLOR_FORMAT;
         const width = base.width, height = base.height;
+        const feature = compressed && this.device.features && this.device.features.has(compressed.astc ? "texture-compression-astc" : "texture-compression-etc2");
+        // (WebGPU's compressed textures are whole blocks: one of another size is its blocks decoded by the GPU, decode_compressed3)
+        const whole = compressed && width % compressed.block_width === 0 && height % compressed.block_height === 0;
+        const native = feature && whole;
+        const decoded = feature && !whole ? decoded_format(compressed) : null;
+        const format = compressed ? (native ? compressed.webgpu : decoded || COLOR_FORMAT) : info ? info.webgpu : COLOR_FORMAT;
         const depth = three || array ? Math.max(1, base.depth || 1) : cube ? 6 : 1;
         const largest = Math.max(width, height, three ? depth : 1);
         const levels = texture.immutable ? Math.max(1, texture.immutable_levels - first) : Math.floor(Math.log2(largest)) + 1;
@@ -715,7 +725,7 @@ export const GLES3 = {
             mipLevelCount: samples > 1 ? 1 : levels, sampleCount: samples, usage });
         const gpu = { es3: true, texture: created, format, width, height, depth, first, levels: samples > 1 ? 1 : levels, three, cube, array, samples,
             storage, views: new Map(), block: native ? compressed.block_width : 1, block_height: native ? compressed.block_height : 1,
-            block_bytes: native ? compressed.block_bytes : 0, destroy: () => created.destroy() };
+            block_bytes: native ? compressed.block_bytes : 0, decode: decoded ? compressed : null, destroy: () => created.destroy() };
         if(old && old.texture)
         {
             // (the levels that keep their size: a level given below the others, a chain made longer)
@@ -849,6 +859,12 @@ export const GLES3 = {
         if(gpu.block > 1)
         {
             this.upload3(gpu, level, [x, y, layer], [width, height, depth], data);
+            return;
+        }
+        if(gpu.decode)
+        {
+            const blocks = Math.ceil(width / gpu.decode.block_width) * Math.ceil(height / gpu.decode.block_height) * gpu.decode.block_bytes;
+            for(let k = 0; k < depth; k++) this.decode_compressed3(gpu, level, [x, y, layer + k], [width, height], data.subarray(k * blocks, (k + 1) * blocks));
             return;
         }
         // (without WebGPU's ETC2: ETC1's blocks decoded; the others' not yet, nor ASTC without its feature)
@@ -1053,6 +1069,64 @@ export const GLES3 = {
                 { texture: gpu.texture, mipLevel: mip, origin: [x, y, z], aspect: "stencil-only" }, [w, h, d]);
             this.staging.push(staging);
         }
+    },
+
+    /**
+     * A compressed image's blocks into a texture of their decoded format
+     * (WebGPU makes compressed textures of whole blocks alone): the blocks
+     * into a compressed texture of whole blocks, its texels drawn into the
+     * level's rectangle by textureLoad
+     * @param {!Array<number>} origin x, y and the layer, face or slice
+     * @param {!Array<number>} size width and height
+     */
+    decode_compressed3(gpu, level, origin, size, data)
+    {
+        const mip = level - gpu.first;
+        if(mip < 0 || mip >= gpu.levels) return;
+        const c = gpu.decode, [x, y, layer] = origin, [w, h] = size;
+        if(!w || !h) return;
+        const columns = Math.ceil(w / c.block_width), rows = Math.ceil(h / c.block_height);
+        const row = columns * c.block_bytes, stride = Math.ceil(row / 256) * 256;
+        const blocks = this.device.createTexture({ label: "GLES compressed blocks", size: [columns * c.block_width, rows * c.block_height], format: c.webgpu,
+            usage: U.TEXTURE_BINDING | U.COPY_DST });
+        this.staging.push(blocks);
+        this.end_pass();
+        const staging = this.device.createBuffer({ label: "GLES compressed upload", size: Math.max(4, stride * rows), usage: B.COPY_SRC, mappedAtCreation: true });
+        const mapped = new Uint8Array(staging.getMappedRange());
+        for(let k = 0; k < rows && k * row < data.length; k++) mapped.set(data.subarray(k * row, Math.min(data.length, (k + 1) * row)), k * stride);
+        staging.unmap();
+        this.staging.push(staging);
+        this.encoder.copyBufferToTexture({ buffer: staging, bytesPerRow: stride, rowsPerImage: rows }, { texture: blocks }, [columns * c.block_width, rows * c.block_height, 1]);
+        this.blits3 = this.blits3 || new Map();
+        const key = "decode:" + gpu.format;
+        let decode = this.blits3.get(key);
+        if(!decode)
+        {
+            const module = this.device.createShaderModule({ code: `
+                @group(0) @binding(0) var t : texture_2d<f32>;
+                @group(0) @binding(1) var<uniform> p : vec4<i32>;
+                @vertex fn vs(@builtin(vertex_index) i : u32) -> @builtin(position) vec4<f32> {
+                    let v = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+                    return vec4<f32>(v[i], 0.0, 1.0);
+                }
+                @fragment fn fs(@builtin(position) q : vec4<f32>) -> @location(0) vec4<f32> {
+                    return textureLoad(t, vec2<i32>(q.xy) - p.xy, 0);
+                }` });
+            const group = this.device.createBindGroupLayout({ entries: [{ binding: 0, visibility: 2, texture: { sampleType: "unfilterable-float" } },
+                { binding: 1, visibility: 2, buffer: { type: "uniform" } }] });
+            decode = { group, pipeline: this.device.createRenderPipeline({ label: "GLES 3 compressed decode", layout: this.device.createPipelineLayout({ bindGroupLayouts: [group] }),
+                vertex: { module, entryPoint: "vs" }, fragment: { module, entryPoint: "fs", targets: [{ format: gpu.format }] }, primitive: { topology: "triangle-list" } }) };
+            this.blits3.set(key, decode);
+        }
+        const view = gpu.texture.createView({ dimension: "2d", baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
+        const pass = this.encoder.beginRenderPass({ colorAttachments: [{ view, loadOp: "load", storeOp: "store" }] });
+        pass.setPipeline(decode.pipeline);
+        pass.setBindGroup(0, this.device.createBindGroup({ layout: decode.group, entries: [{ binding: 0, resource: blocks.createView() },
+            { binding: 1, resource: { buffer: this.uniform_buffer(new Int32Array([x, y, 0, 0]).buffer) } }] }));
+        pass.setScissorRect(x, y, w, h);
+        pass.draw(3);
+        pass.end();
+        this.stats.uploads++;
     },
 
     /** glRenderbufferStorage(Multisample): a texture of the format (4 samples for any multisampled one) */

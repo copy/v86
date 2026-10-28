@@ -567,6 +567,10 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
         gl("glDrawArrays", 5, 0, 4);
         check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 2, 2, 255]), "an ETC2 RGB8 block");
+        // 5 by 5 texels of ETC2 RGB8 (2 by 2 blocks, all that one): not whole blocks, WebGPU will not take them; decoded by the GPU
+        gl("glCompressedTexImage2D", 0x0DE1, 0, 0x9274, 5, 5, 0, 32, new Uint8Array(Array.from({ length: 4 }, () => [0xF8, 0, 0, 0x02, 0, 0, 0, 0]).flat()));
+        gl("glDrawArrays", 5, 0, 4);
+        check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 2, 2, 255]), "5 by 5 texels of ETC2 RGB8, decoded");
         // TEXTURE_SWIZZLE_R/G/B/A: (green, red, one, zero)
         gl("glTexParameteri", 0x0DE1, 0x8E42, 0x1904);
         gl("glTexParameteri", 0x0DE1, 0x8E43, 0x1903);
