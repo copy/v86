@@ -139,7 +139,8 @@ export function is_builtin(m, v)
     return !!members && [...members.values()].some(member => member.has(DECORATION.BuiltIn));
 }
 
-function innermost(m, id)
+/** @return {number} the type an array type is an array of, arrays of arrays too (the id itself for any other) */
+export function innermost(m, id)
 {
     let t = m.types.get(id);
     while(t && t.kind === "array") { id = t.element; t = m.types.get(id); }

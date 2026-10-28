@@ -289,6 +289,100 @@ function tokenize(source)
     return tokens;
 }
 
+/**
+ * A GLSL ES 3.x source whose shared and packed interface blocks are std140
+ * (uniform blocks) or std430 (buffer blocks), the default layouts too:
+ * GLSL ES lets an implementation choose those layouts, glslang's reflection
+ * packs them as std430 while the page reads uniform blocks as std140; the
+ * offsets, strides and the code then agree. The defaults go after the
+ * #version and #extension lines.
+ * @param {string} source
+ * @return {string}
+ */
+export function std_blocks(source)
+{
+    const version = glsl_version(source);
+    if(version < 300) return source;
+    const tokens = tokenize(source);
+    const significant = tokens.map((t, i) => i).filter(i => !["space", "comment", "newline"].includes(tokens[i].kind));
+    const QUALIFIERS = new Set(["readonly", "writeonly", "coherent", "volatile", "restrict", "highp", "mediump", "lowp"]);
+    for(let k = 0; k < significant.length; k++)
+    {
+        if(tokens[significant[k]].text !== "layout" || !tokens[significant[k + 1]] || tokens[significant[k + 1]].text !== "(") continue;
+        let close = k + 2;
+        while(close < significant.length && tokens[significant[close]].text !== ")") close++;
+        // (what the layout qualifies: the storage after it)
+        let after = close + 1;
+        while(after < significant.length && QUALIFIERS.has(tokens[significant[after]].text)) after++;
+        const storage = tokens[significant[after]] && tokens[significant[after]].text;
+        const layout = storage === "uniform" ? "std140" : storage === "buffer" ? "std430" : null;
+        if(!layout) continue;
+        for(let j = k + 2; j < close; j++)
+        {
+            const t = tokens[significant[j]];
+            if(t.kind === "name" && (t.text === "shared" || t.text === "packed")) t.text = layout;
+        }
+    }
+    // (after the last #version or #extension line)
+    let end = 0, at_line_start = true;
+    for(let i = 0; i < tokens.length; i++)
+    {
+        const t = tokens[i];
+        if(t.kind === "newline") { at_line_start = true; continue; }
+        if(t.kind === "space" || t.kind === "comment") continue;
+        if(at_line_start && t.text === "#")
+        {
+            const name = tokens.slice(i + 1).find(x => x.kind !== "space");
+            let j = i;
+            while(j < tokens.length && tokens[j].kind !== "newline") j++;
+            if(name && (name.text === "version" || name.text === "extension")) end = j + 1;
+            i = j - 1;
+            continue;
+        }
+        at_line_start = false;
+    }
+    const before = tokens.slice(0, end).map(t => t.text).join(""), rest = tokens.slice(end).map(t => t.text).join("");
+    const defaults = "layout(std140) uniform;\n" + (version >= 310 ? "layout(std430) buffer;\n" : "");
+    return before + (before && !before.endsWith("\n") ? "\n" : "") + defaults + rest;
+}
+
+/**
+ * Each interface block's packing as its source gives it (std_blocks makes
+ * shared and packed std140, so a link compares them first): the layout's
+ * shared, packed, std140 or std430, else the default a `layout(...)
+ * uniform;` statement before it set, else shared
+ * @param {string} source
+ * @return {!Map<string, string>} by "uniform:Name" or "buffer:Name"
+ */
+export function block_packings(source)
+{
+    const packings = new Map();
+    if(glsl_version(source) < 300) return packings;
+    const tokens = tokenize(source).filter(t => !["space", "comment", "newline"].includes(t.kind));
+    const PACKINGS = new Set(["shared", "packed", "std140", "std430"]);
+    const QUALIFIERS = new Set(["readonly", "writeonly", "coherent", "volatile", "restrict", "highp", "mediump", "lowp"]);
+    const defaults = { uniform: "shared", buffer: "shared" };
+    for(let k = 0; k < tokens.length; k++)
+    {
+        let packing = null, at = k;
+        if(tokens[k].text === "layout" && tokens[k + 1] && tokens[k + 1].text === "(")
+        {
+            at = k + 2;
+            while(at < tokens.length && tokens[at].text !== ")") { if(PACKINGS.has(tokens[at].text)) packing = tokens[at].text; at++; }
+            at++;
+        }
+        else if(tokens[k].text !== "uniform" && tokens[k].text !== "buffer") continue;
+        while(at < tokens.length && QUALIFIERS.has(tokens[at].text)) at++;
+        const storage = tokens[at] && tokens[at].text;
+        if(storage !== "uniform" && storage !== "buffer") { k = at - 1; continue; }
+        const next = tokens[at + 1];
+        if(next && next.text === ";") { if(packing) defaults[storage] = packing; }
+        else if(next && next.kind === "name" && tokens[at + 2] && tokens[at + 2].text === "{") packings.set(storage + ":" + next.text, packing || defaults[storage]);
+        k = at;
+    }
+    return packings;
+}
+
 /** GLSL ES 3.x's reserved words glslang takes as names (3.00 3.7) */
 const RESERVED_300 = new Set(["image1DShadow", "image2DShadow", "image1DArrayShadow", "image2DArrayShadow"]);
 

@@ -15,8 +15,8 @@
 // (ProgramInfo), with `spirv`, `blocks` and `bindings` added.
 
 import { STAGE } from "./glslang.js";
-import { BLEND_DESTINATION, blend_support, glsl_version, rewrite_for_spirv } from "./glsl_es_rewrite.js";
-import { DECORATION, EXECUTION_MODEL, STORAGE, add_xfb, block_layout, get_decoration, is_builtin, location_count, parse_spirv,
+import { BLEND_DESTINATION, blend_support, block_packings, glsl_version, rewrite_for_spirv, std_blocks } from "./glsl_es_rewrite.js";
+import { DECORATION, EXECUTION_MODEL, STORAGE, add_xfb, block_layout, get_decoration, innermost, is_builtin, location_count, parse_spirv,
     set_decoration, variable_name } from "./spirv_patch.js";
 
 export const BINDING = { DEFAULT_BLOCK: 0, SAMPLERS: 1, UNIFORM_BLOCKS: 17, STORAGE_BLOCKS: 42, ATOMIC_COUNTERS: 60, IMAGES: 70 };
@@ -76,6 +76,18 @@ export function link_glslang_program(glslang, shaders, options)
     const empty = log => ({ ok: false, log, attributes: [], uniforms: [], locations: new Map(), by_location: [], reflection: null,
         blocks: [], bindings: [], spirv: [] });
     const flags = options.separable ? 1 : 0;
+    // (a block of other packings in two stages: refused before std_blocks makes shared and packed one)
+    const packings = new Map();
+    for(const s of shaders)
+    {
+        for(const [block, packing] of block_packings(s.source))
+        {
+            if(packings.has(block) && packings.get(block) !== packing) return empty("ERROR: Linking: the layouts of block " + block.split(":")[1] + " differ");
+            packings.set(block, packing);
+        }
+    }
+    // (shared and packed blocks as std140 and std430: the reflection's offsets, the code's and the page's agree)
+    shaders = shaders.map(s => Object.assign({}, s, { source: std_blocks(s.source) }));
     let check;
     try
     {
@@ -328,8 +340,12 @@ export function link_glslang_program(glslang, shaders, options)
                 }
                 else
                 {
-                    const block = blocks.findIndex(b => renamed(b.name, renames) === name || b.name === name);
-                    const storage = storage_blocks.findIndex(b => renamed(b.name, renames) === name || b.name === name);
+                    // (a block's variable by its instance's name or its block's; an instance array's, its first element: GL lists
+                    // "B[0]", "B[1]"..., the array's elements a binding each from the first's)
+                    const type_name = m.names.get(innermost(m, m.types.get(v.type).pointee)) || "";
+                    const of = b => [name, type_name].some(n => n && [b.name, renamed(b.name, renames)].some(x => x === n || x === n + "[0]"));
+                    const block = blocks.findIndex(of);
+                    const storage = storage_blocks.findIndex(of);
                     if(block >= 0) binding = BINDING.UNIFORM_BLOCKS + block;
                     else if(storage >= 0) binding = BINDING.STORAGE_BLOCKS + storage;
                 }
@@ -529,6 +545,8 @@ export function uniform_precisions(source, stage)
         }
         if(t !== "uniform") { i++; continue; }
         i++;
+        // (a default layout's statement, `layout(std140) uniform;`: no uniform)
+        if(tokens[i] === ";") { i++; continue; }
         if(tokens[i] === "layout") { while(tokens[i] !== ")") i++; i++; }
         let precision = null;
         if(QUALIFIERS.has(tokens[i])) precision = tokens[i++];

@@ -384,6 +384,34 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glBindFramebuffer", 0x8CA8, rgba_fbo);
         const blit_window = await read_pixels(0, 0, W, W);
         gl("glBindFramebuffer", 0x8D40, 0);
+        // a uniform block's instance array (two blocks, a binding point each) beside a sampler, in a shared layout (std140 here)
+        const block_instances = program(`#version 300 es
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }`, `#version 300 es
+            precision highp float;
+            layout(shared) uniform Tint { mediump mat2 m; float f; vec4 color; } tints[2];
+            uniform sampler2D red;
+            out vec4 o;
+            void main() { o = vec4(texture(red, vec2(0.25, 0.5)).r * tints[1].color.r, tints[0].color.g * tints[1].f, tints[1].m[1].y, 1.0); }`);
+        const tint_buffer = gen("Buffers");
+        gl("glBindBuffer", 0x8A11, tint_buffer);
+        // (std140: m at 0, columns 16 apart; f at 32; color at 48; a block 64 bytes, the second at 256)
+        const tints = new Float32Array(64 + 16);
+        tints.set([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], 0);
+        tints.set([0, 0.5, 0, 0], 48 / 4);
+        tints.set([0, 0, 0, 0, 0, 0.75, 0, 0, 0.5, 0, 0, 0, 1, 0, 0, 0], 256 / 4);
+        gl("glBufferData", 0x8A11, tints.byteLength, new Uint8Array(tints.buffer), 0x88E4);
+        // (Tint[0] and Tint[1]: blocks 0 and 1)
+        gl("glUniformBlockBinding", block_instances.name, 0, 2);
+        gl("glUniformBlockBinding", block_instances.name, 1, 3);
+        gl("glBindBufferRange", 0x8A11, 2, tint_buffer, 0, 64);
+        gl("glBindBufferRange", 0x8A11, 3, tint_buffer, 256, 64);
+        gl("glUniform1i", block_instances.at("red"), 0);
+        gl("glActiveTexture", 0x84C0);
+        gl("glBindTexture", 0x0DE1, 1);
+        gl("glDrawArrays", 5, 0, 4);
+        const instance_pixel = pixel(await read_pixels(0, 0, W, W), W, 3, 3);
+        check(near(instance_pixel, [255, 64, 191, 255]), "a uniform block's instance array beside a sampler: " + instance_pixel);
         check(near(stencil_alone, [0, 255, 0, 0]) && near(pixel(blit_window, W, 1, 3), [0, 0, 255, 255]) && near(pixel(blit_window, W, 6, 3), [0, 255, 0, 0]),
             "the depth test passes with the stencil attached alone; a blit's pixels from outside its source left alone: " +
             [stencil_alone, pixel(blit_window, W, 1, 3), pixel(blit_window, W, 6, 3)].join(" / "));
