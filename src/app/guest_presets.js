@@ -7,6 +7,7 @@
 // windows-nt.md, multicore.md, x86-64.md, gpu-devices.md, aarch64.md).
 
 import { new_config } from "./vm_config.js";
+import { DEFAULT_GLES_VERSION } from "../android/devices.js";
 import { fitted } from "./vm_model.js";
 
 /** @typedef {import("./vm_config.js").VMConfig} VMConfig */
@@ -218,7 +219,8 @@ export const PRESETS = [
             c.network = [0, 1, 2].map(i => ({ device: "virtio", backend: i === 2 ? "fetch" : "none", relay_url: "", mtu: 1500, mac_address_translation: false }));
             c.virt = { transport: "pci", input: ["keyboard", "multitouch"], console_ports: 18, vsock: true, gpu_pci_slot: 2 };
             // (the bootloader: the disk's kernel and initrd, bootconfig with Venus's keys)
-            c.android = { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
+            c.android = { device: "cf_arm64_only_phone", gpu_mode: "gfxstream", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device",
+                gles_version: DEFAULT_GLES_VERSION };
         },
     },
     {
@@ -241,7 +243,8 @@ export const PRESETS = [
             c.sound.device = "none";
             c.network = [{ device: "virtio", backend: "fetch", relay_url: "", mtu: 1500, mac_address_translation: false }];
             // (the host's GPU draws its GLES: the CPU when the page has no WebGPU, src/app/ui/console.js)
-            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
+            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device",
+                gles_version: DEFAULT_GLES_VERSION };
         },
     },
     {

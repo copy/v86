@@ -8,6 +8,7 @@
 import { CPU_PROFILES, MACHINE_CPU_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, FIRMWARE_TYPES, MACHINE_TYPES, MAX_VRAM_SIZE, Q35_ROOT_PORTS_MAX, USB_PORTS, allowed_options,
     check_machine_options } from "../machine_options.js";
 import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
+import { DEFAULT_GLES_VERSION, GLES_VERSIONS } from "../android/devices.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
 import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, MAX_ARRAY_BUFFER_SIZE_MB, DEFAULT_VGA_MEMORY_SIZE,
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
@@ -136,7 +137,7 @@ export const TPM_STATE_SIZE = 512 * 1024;
  * display (device: the device model's, the screen zoomed to the window;
  * window: a display of the window's size, following it)
  * @typedef {{device: string, gpu_mode: "swiftshader" | "venus" | "gfxstream" | "host" | "guest", vendor_ramdisk: "release" | "debug",
- *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive", display: "device" | "window"}} Android
+ *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive", display: "device" | "window", gles_version: string}} Android
  */
 /** the device models (src/android/devices.js): Cuttlefish's phone (arm64 on virt), the emulator images (ranchu) */
 export const ANDROID_DEVICES = Object.keys(ANDROID_DEVICE_MODELS);
@@ -148,10 +149,12 @@ export const DISPLAY_VULKAN = ["none", "venus", "gfxstream"];
 export const ANDROID_VENDOR_RAMDISKS = ["release", "debug"];
 export const ANDROID_SELINUX = ["enforcing", "permissive"];
 export const ANDROID_DISPLAYS = ["device", "window"];
+/** the GLES version an emulator image announces on the host's GPU (docs/gles3-plan.md) */
+export const ANDROID_GLES_VERSIONS = Object.keys(GLES_VERSIONS);
 /** an android section's defaults
  * @type {Android} */
 export const ANDROID_DEFAULTS = { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing",
-    display: "device" };
+    display: "device", gles_version: DEFAULT_GLES_VERSION };
 
 /**
  * The display an Android machine's virtio-gpu gets: its device model's
@@ -541,6 +544,7 @@ export function validate_config(config)
         if(a.debug_ramdisk !== null) check_image(a.debug_ramdisk, "android.debug_ramdisk", problems);
         one_of(a.selinux, ANDROID_SELINUX, "android.selinux");
         one_of(a.display, ANDROID_DISPLAYS, "android.display");
+        one_of(a.gles_version, ANDROID_GLES_VERSIONS, "android.gles_version");
         if(config.kernel && (config.kernel.bzimage || config.kernel.initrd || config.kernel.multiboot))
         {
             problem("kernel", "Android's kernel and initrd come from its disk's boot partitions: leave them out");
@@ -987,7 +991,9 @@ export function config_to_options(config, env)
     {
         const a = config.android;
         options.android = { device: a.device, gpu_mode: a.gpu_mode, selinux: a.selinux,
-            vendor_ramdisk: a.vendor_ramdisk === "debug" ? image(a.debug_ramdisk) : undefined };
+            vendor_ramdisk: a.vendor_ramdisk === "debug" ? image(a.debug_ramdisk) : undefined,
+            // (an emulator image on the host's GPU: the GLES version its host announces)
+            gles_version: a.gpu_mode === "host" ? a.gles_version : undefined };
         delete options.kernel;
         delete options.initrd;
         options.cmdline = config.kernel && config.kernel.cmdline || undefined;
