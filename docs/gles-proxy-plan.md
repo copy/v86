@@ -640,6 +640,26 @@ CI 只跑 eslint、构建与 `make ci-tests`：`make gles-tests` 加进 `ci-test
   帧每秒（同样的画面，这个 CPU 上软件绘制加上传比 GL 路径便宜）。所以保留低内存设置，开机动画也不默认打开；机器
   时钟的放慢照旧。
 
+### E4 结论（2026-10-28）
+
+- **自建 APK**：`A32_ANDROID_GLES_APP=1` 的七个场景（GLES 2.0 的清除、绘制、FBO、ETC1，GLES 1.1 的固定功能、光照、
+  `draw_texture`）在主机 GPU 上与 GL 的规则一致。`draw_texture` 起初差在测试本身：纹理的放大过滤默认是 LINEAR，加
+  REPEAT 在裁剪矩形边上混进了红色，真 GPU 也如此；测试改用 NEAREST。
+- **dEQP**（`A32_ANDROID_DEQP=1`，CTS 7.1_r29 的子集：全部 `state_query` 与 `negative_api`、`dEQP-EGL.info`，其余
+  functional 每九个取一个；ios6 的 adad9d79 加上 GLES 3.x 会话的 L1/L2）：2033 个支持的用例通过 1890 个（93.0%），
+  没有崩溃或挂起；第一次完整运行是 88.9%。
+  - `state_query` 372/372、`negative_api` 183/183：影子状态达到 99% 的目标；
+  - 修掉的：立方体贴图先给 -X 面时丢面（约 20 个）、完整性按格式判断、`glCopyTexSubImage2D` 的级别检查、正反面不同的
+    模板参考值与掩码（WebGPU 只有一组：分两次画，15 个）、前端异常不再打断机器；
+  - 剩下 143 个失败里约 117 个在 GLSL 前端（`shaders.random` 84、`uniform_api` 里结构中的采样器 11、`preprocessor` 等
+    ES 严格性 18、`invariance` 2），归 GLES 3.x 计划的 L3（ES 1.00 改走 glslang）；
+  - 执行器约 26 个：混合同时用常量颜色与常量 alpha 5 个（G-70）、宽点 1 个（G-64），其余是随机片段操作与交互、
+    纹理随机规格、带剪裁的清除、深度范围比较、RGB 加 16 位深度的 FBO 清除，图像比较失败，还没定位（需要 dEQP 的日志
+    图像）。
+  - 97% 的总目标还没有达到。结果在 `build/a32-android/runs/v86-gles-deqp3/`（`deqp.json`、`deqp-details.json`）。
+- **没做的**：Replica Island 与 Shattered Pixel Dungeon 两个游戏；EGL 的同步、多上下文共享与 YUV 外部纹理的专门检查
+  （启动与 dEQP 里用到的部分已经工作）。
+
 ### E5 结论（2026-10-28）
 
 - **快照**：主机模式启动后保存（`A32_ANDROID_SAVE_STATE`，1.17 GB），在新的进程与新的 Chrome 渲染器上恢复

@@ -88,6 +88,7 @@ Android emulator's host GPU: what Android 7.1's GLES gets that differs from the 
 | G-67 | Texture formats | Every color texture and color buffer is `rgba8unorm`; 565, 4444, 5551, `LUMINANCE`, `LUMINANCE_ALPHA`, `ALPHA` and BGRA are converted when uploaded, ETC1 decoded | Reads give the 8-bit values; no compressed format besides ETC1 |
 | G-68 | GLES versions and host features | GLES 2.0 and 1.1; no `ANDROID_EMU_*` host feature strings (no checksums, native sync, DMA or GLES 3) | The guest's HostConnection logs "Unrecognized GLES max version string" once per connection and takes GLES 2 |
 | G-69 | Snapshots | Color buffers, window surfaces, textures and color renderbuffers are read back into the snapshot | Depth and stencil contents are not kept (WebGPU cannot copy `depth24plus` out): cleared after a restore |
+| G-70 | Constant color and constant alpha together | WebGPU's one blend constant: the color when only `CONSTANT_COLOR` factors are used, the alpha in all four channels when only `CONSTANT_ALPHA` ones are | A blend that mixes `CONSTANT_COLOR` and `CONSTANT_ALPHA` factors gets the alpha's constant for both (dEQP-GLES2 `fragment_ops.blend`: 5 cases) |
 
 ## Not done
 
