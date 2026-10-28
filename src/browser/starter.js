@@ -127,7 +127,12 @@ V86.prototype.create_adapter_renderer = async function(options, host)
     // (with the graphics proxy's compositor on this page: a layer of it, the
     // renderer on its device showing scanouts there without readbacks,
     // docs/gfxstream-plan.md G4; its plugin objects' names are quoted)
-    const compositor = this.device_plugins.map(plugin => plugin["bridge"] && plugin["bridge"]["compositor"]).find(Boolean);
+    let compositor = this.device_plugins.map(plugin => plugin["bridge"] && plugin["bridge"]["compositor"]).find(Boolean);
+    // (the ranchu machine's GLES host without the graphics proxy: a
+    // compositor of its own takes over the screen canvas, as the proxy's
+    // does, so that a posted frame is a layer over the screen and is not read
+    // back, docs/gles-proxy-plan.md E5; the 2D canvas again if it cannot start)
+    if(!compositor && this.gles_host) compositor = await this.gles_screen_compositor();
     const layer = compositor ? compositor["createLayer"]("display adapter") : null;
     const renderer_options = layer ? { "canvas": layer["canvas"], "executorOptions": { "host": layer["host"] }, "scanoutLayer": layer } : {};
     if(host)
@@ -138,6 +143,41 @@ V86.prototype.create_adapter_renderer = async function(options, host)
     const channel = create_local_channel();
     this.adapter_renderer = create(channel.host, renderer_options);
     return channel.device;
+};
+
+/**
+ * A WebGPU compositor of the screen canvas for the GLES host's frames
+ * (create_adapter_renderer), when the page has the compositor
+ * (libv86-webgpu.js) and a browser screen; null otherwise or if it fails
+ * @return {!Promise<Object>}
+ */
+V86.prototype.gles_screen_compositor = async function()
+{
+    const Compositor = globalThis["V86WebGPUCompositor"], hosts = globalThis["V86GPUHost"];
+    const screen_adapter = this.screen_adapter;
+    if(typeof Compositor !== "function" || !hosts || !screen_adapter || !screen_adapter.claim_canvas) return null;
+    const canvas = screen_adapter.claim_canvas("webgpu");
+    const compositor = new Compositor(canvas);
+    try
+    {
+        compositor["useHost"](hosts["acquire"](canvas, undefined));
+        await compositor["attach"](hosts["acquire"](canvas, undefined));
+    }
+    catch(e)
+    {
+        dbg_log("GLES: the screen's compositor did not start (" + e + "): frames are read back", LOG_VGA);
+        compositor["destroy"]();
+        screen_adapter.use_canvas2d();
+        return null;
+    }
+    if(this.destroyed)
+    {
+        compositor["destroy"]();
+        return null;
+    }
+    screen_adapter.set_backend(compositor);
+    this.gles_compositor = compositor;
+    return compositor;
 };
 
 /**
@@ -233,6 +273,8 @@ export function V86(options)
     this.device_plugins = this["graphics_proxy"] ? [this["graphics_proxy"]] : [];
     /** the display adapter's 3D renderer on this page (create_adapter_renderer) */
     this.adapter_renderer = null;
+    /** the GLES host's own compositor of the screen (gles_screen_compositor), or null */
+    this.gles_compositor = null;
     this.plugins_ready = [];
 
     // the page goes away: the sessions of the disks written back to a disk
@@ -1764,6 +1806,7 @@ V86.prototype.destroy = async function()
         plugin["destroy"] && await plugin["destroy"]();
     }
     this.adapter_renderer && this.adapter_renderer["destroy"]();
+    this.gles_compositor && this.gles_compositor["destroy"]();
     this.v86 && this.v86.destroy();
     this.keyboard_adapter && this.keyboard_adapter.destroy();
     this.network_adapter && this.network_adapter.destroy();

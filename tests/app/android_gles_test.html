@@ -1,0 +1,97 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VM manager: Android 7.1 on the host's GPU</title>
+<!-- The VM manager starting the "Android (ARM 32-bit)" preset with its default GPU, the host's (docs/gles-proxy-plan.md E5):
+     the imported emulator image (tools/android_import.mjs's build/a32-android/disk.img, by URL), the CPU in its Worker,
+     the GLES host's plugin there and the renderer on this page's WebGPU. Passes when Android's boot completes (asked
+     over the serial console), the page's GLES executor drew and posted frames into a layer of the screen's compositor
+     (not read back), and the screen shows them.
+     TIMEOUT_MS=1800000 node tests/app/browser_runner.mjs tests/app/android_gles_test.html webgpu=1 [worker=0] -->
+<style>iframe { width: 600px; height: 1000px; border: 1px solid #888; }</style>
+<pre id="log"></pre>
+<pre id="result"></pre>
+<script type="module">
+import { VMStore } from "../../src/app/vm_store.js";
+import { preset, preset_config } from "../../src/app/guest_presets.js";
+
+const args = new URLSearchParams(location.search);
+const lines = [];
+const log = text => { lines.push(text); document.getElementById("log").textContent = lines.join("\n"); };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(condition, what, timeout)
+{
+    const end = Date.now() + timeout;
+    for(;;)
+    {
+        const value = await condition();
+        if(value) return value;
+        if(Date.now() > end) throw new Error("timed out: " + what);
+        await sleep(1000);
+    }
+}
+function check(condition, what) { if(!condition) throw new Error(what); }
+
+(async () =>
+{
+    const started = Date.now();
+    const seconds = () => Math.round((Date.now() - started) / 1000) + " s";
+    try
+    {
+        const config = preset_config(preset("android7_arm32"));
+        config.name = "Android 7.1 (GLES test)";
+        config.disks = [{ slot: "hda", image: { kind: "url", url: "/build/a32-android/disk.img", async: true },
+            disk_option: "read_write", disk_error: "stop" }];
+        if(args.get("worker") === "0") config.advanced.cpu_worker = false;
+        check(config.android.gpu_mode === "host", "the preset's GPU is the host's: " + config.android.gpu_mode);
+        const store = await VMStore.open();
+        const stored = await store.put(config);
+        store.close();
+        const frame = document.createElement("iframe");
+        frame.src = "/index.html?vm=" + stored.id;
+        document.body.append(frame);
+        await new Promise(resolve => frame.onload = resolve);
+        const w = frame.contentWindow;
+        const emulator = await until(() => w.v86_console?.emulator, "the console's emulator", 120000);
+        log("emulator up (" + (config.advanced.cpu_worker ? "CPU Worker" : "CPU in the page") + "), " + seconds());
+        let serial = "";
+        emulator.add_listener("serial0-output-byte", byte => { serial = (serial + String.fromCharCode(byte)).slice(-20000); });
+        // (the console's shell, then sys.boot_completed, asked now and then: a computed answer)
+        let tick = 0;
+        await until(() =>
+        {
+            if(/A32_BOOT_1_X/.test(serial)) return true;
+            if(tick++ % 30 === 0) emulator.serial0_send("\necho A32_BOOT_$(getprop sys.boot_completed)_X\n");
+            return false;
+        }, "sys.boot_completed", 1500000);
+        log("boot completed, " + seconds());
+        // (the launcher's frames: the page's executor, then the screen)
+        await sleep(60000);
+        const renderer = emulator.adapter_renderer;
+        check(renderer && renderer.gles, "the page has the GLES executor");
+        const stats = renderer.gles.stats;
+        log("executor: " + JSON.stringify({ batches: stats.batches, draws: stats.draws, posts: stats.posts, errors: stats.errors.length }));
+        check(stats.draws > 100 && stats.posts > 10, "the executor drew and posted frames");
+        check(stats.errors.length === 0, "no executor errors: " + stats.errors.join("; "));
+        // (frames as a layer of the screen's compositor, not read back: the executor has the layer)
+        check(renderer.gles.layer, "the posted frames go to a layer of the screen's compositor");
+        const image = emulator.screen_make_screenshot();
+        await new Promise(resolve => { if(image.complete) resolve(); else image.onload = resolve; });
+        const shot = document.createElement("canvas");
+        shot.width = image.width;
+        shot.height = image.height;
+        const context = shot.getContext("2d");
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, shot.width, shot.height).data;
+        const colors = new Set();
+        for(let i = 0; i < pixels.length; i += 4 * 97) colors.add(pixels[i] << 16 | pixels[i + 1] << 8 | pixels[i + 2]);
+        log("screen " + shot.width + "x" + shot.height + ", " + colors.size + " colors");
+        check(shot.width === 480 && shot.height === 800, "the screen is the device's 480 by 800");
+        check(colors.size > 20, "the screen shows Android's picture");
+        document.getElementById("result").textContent = "PASS " + lines.join("; ");
+    }
+    catch(error)
+    {
+        document.getElementById("result").textContent = "FAIL " + (error && error.stack || error) + "\n" + lines.join("\n");
+    }
+})();
+</script>

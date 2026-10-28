@@ -35,7 +35,9 @@ const args = process.argv.slice(3);
 const with_service = args.includes("service=1");
 const ISOLATION = args.includes("isolated=1") ? { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" } : {};
 const AUTOPLAY = args.includes("autoplay=1");
-let query = args.filter(a => a !== "service=1" && a !== "isolated=1" && a !== "autoplay=1").join("&");
+// (webgpu=1: WebGPU on in headless Chrome, as tests/gles/chrome_renderer.mjs has it, and no throttling of a long run's timers)
+const WEBGPU = args.includes("webgpu=1");
+let query = args.filter(a => a !== "service=1" && a !== "isolated=1" && a !== "autoplay=1" && a !== "webgpu=1").join("&");
 let service, service_dir, service_listeners = null;
 
 const REPORTER = `<script>
@@ -185,6 +187,7 @@ server.listen(0, "127.0.0.1", async () =>
     browser = spawn(process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", [
         "--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
         ...(AUTOPLAY ? ["--autoplay-policy=no-user-gesture-required"] : []),
+        ...(WEBGPU ? ["--enable-unsafe-webgpu", "--disable-background-timer-throttling", "--disable-renderer-backgrounding"] : []),
         // (BROWSER_DEBUG_PORT: DevTools on that port, to look at a long part while it runs)
         ...(process.env.BROWSER_DEBUG_PORT ? ["--remote-debugging-port=" + process.env.BROWSER_DEBUG_PORT] : []),
         "--user-data-dir=" + profile, url,
