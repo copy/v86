@@ -2037,3 +2037,4 @@ gles-tests: build/v86-gles.js
 	node tests/gles/shadow.mjs
 	node tests/gles/batch.mjs
 	node tests/gles/snapshot.mjs
+	node tests/gles/shader_corpus.mjs

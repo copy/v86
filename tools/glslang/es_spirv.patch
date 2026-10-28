@@ -1,0 +1,39 @@
+--- a/glslang/MachineIndependent/ShaderLang.cpp
++++ b/glslang/MachineIndependent/ShaderLang.cpp
+@@ -666,7 +666,9 @@
+     if (spvVersion.spv != 0) {
+         switch (profile) {
+         case EEsProfile:
+-            if (version < 310) {
++            // v86: OpenGL ES 2.0's and 3.0's shaders for Vulkan's relaxed
++            // rules (the GLES host checks them at their own version first)
++            if (version < 310 && !spvVersion.vulkanRelaxed) {
+                 correct = false;
+                 infoSink.info.message(EPrefixError, "#version: ES shaders for SPIR-V require version 310 or higher");
+                 version = 310;
+--- a/glslang/MachineIndependent/Initialize.cpp
++++ b/glslang/MachineIndependent/Initialize.cpp
+@@ -5546,8 +5546,9 @@
+             "\n");
+     }
+ 
+-    // GL_EXT_shader_tile_image
+-    if (spvVersion.vulkan > 0) {
++    // GL_EXT_shader_tile_image (v86: not below 310 es, which has no uint or
++    // attachment types; es_spirv.patch lets those versions reach here)
++    if (spvVersion.vulkan > 0 && (profile != EEsProfile || version >= 310)) {
+         stageBuiltins[EShLangFragment].append(
+             "lowp uint stencilAttachmentReadEXT();"
+             "lowp uint stencilAttachmentReadEXT(int);"
+--- a/glslang/MachineIndependent/ParseContextBase.cpp
++++ b/glslang/MachineIndependent/ParseContextBase.cpp
+@@ -646,6 +646,9 @@
+         blockQualifier.storage = EvqUniform;
+         TType blockType(new TTypeList, *NewPoolTString(getGlobalUniformBlockName()), blockQualifier);
+         setUniformBlockDefaults(blockType);
++        // v86: std140, which WGSL's uniform address space takes (arrays of
++        // scalars 16 bytes apart), not the std430 Vulkan's relaxed rules give
++        blockType.getQualifier().layoutPacking = ElpStd140;
+         globalUniformBlock = new TVariable(NewPoolTString(""), blockType, true);
+         firstNewMember = 0;
+     }

@@ -1,6 +1,6 @@
 # GLES 3.x 执行器计划（3.0、3.1 与 3.2）
 
-状态：计划，2026-10-28 写。同日所有者定了范围、做法与后端（见“已定”），还没开始实施。前提是
+状态：实施中。2026-10-28 写，同日所有者定了范围、做法与后端（见“已定”）。L0、L1 已完成（见各自的结论）。前提是
 [gles-proxy-plan.md](gles-proxy-plan.md) 的 E0–E6，以 `a17140ed` 为基线：E3–E6 的代码已提交，验收还没跑完。
 
 本计划把 ranchu 的 GLES 宿主（`ranchu_gpu: "host"`）从 GLES 2.0 扩到 3.2，涉及三处：CPU 侧的影子状态、着色器编译、
@@ -368,6 +368,28 @@ CPU 侧在页面有设备之前就要回答 `glGet*`，所以限制是固定值�
 
 粗估：约 0.5k 行。
 
+**L0 结论（2026-10-28）：**
+- 共用翻译器（`0057be1d`、`34c2c349`）：
+  - 每个模块关掉 `derivative_uniformity`，非一致控制流里的采样默认照常写 `textureSample`（XP 的执行器仍要 `"grad"`）；
+  - 向量、矩阵、结构与数组的 `==`/`!=` 合成一个 bool；整数位运算里的标量扩成向量；移位量转成 u32；`in` 参数可以写；
+  - GLSL ES 1.00 拒绝它保留的 `%`、`&`、`|`、`^`、`<<`、`>>`、`~`；
+  - 矩阵与标量的 `+`、`-`、`/`、矩阵相除、矩阵取负与自增按列做；uniform 结构里的结构数组能排布局（dEQP 的
+    `shaders.discard` 曾在这里让链接抛异常）；
+  - `TRANSLATOR_REVISION` 2。
+- 测试：
+  - `tests/glbridge/gles_shader_browser_test.html` 用 Chrome 的 Tint 检查四种非一致控制流、写 `in` 参数与各种运算，
+    已加进 `make display-browser-tests`；
+  - `gl_shader_wgsl_validation_test.js` 加了 ES 用例；
+  - XP 的 OpenGL 浏览器测试与 Cube 2 语料照旧通过。
+- **dEQP-GLES2 基线**（另一个会话跑的，ios6 `b1328cb2`，含 `0057be1d`）：
+  - 支持的 2032 个用例中通过 1807 个（88.9%，含 3 个 QualityWarning），失败 225，NotSupported 15，没有崩溃；
+  - `state_query` 372/372 全过；
+  - 翻译器一侧的失败：`shaders.random` 85、`shaders.matrix` 35（`34c2c349` 修了生成错误）、`uniform_api` 14、
+    `preprocessor` 10、其余各 1–4 个；
+  - 执行器一侧的失败：`fragment_ops` 38、`texture` 23，由那个会话处理；
+  - 结果在 `build/wt-m10/build/a32-android/runs/v86-gles-deqp/deqp.json` 与 `deqp-details.json`。
+- 用例表 `gles3-master.txt`、`gles31-master.txt` 已取到 `build/a32-android/cts/`。
+
 ### L1 着色器的验证
 
 - `tools/glslang/build.mjs`：固定一个 glslang 的发布版（下载前征得同意），用 emsdk 编成 wasm，测大小。
@@ -395,6 +417,68 @@ CPU 侧在页面有设备之前就要回答 `glGet*`，所以限制是固定值�
 - 结论写进本计划的“L1 结论”。
 
 粗估：1.5–2.5k 行，加语料与测试。
+
+**L1 结论（2026-10-28）：验证通过，继续直接生成 WGSL 的路线。**
+
+- **glslang**：16.6.0，`tools/glslang/build.sh` 用 emsdk 编成 `bios/glslang.wasm`，2.0 MB，独立 wasm，只要几个 WASI 的
+  桩。接口在 `tools/glslang/v86_glslang.cpp`，JS 一侧是 `src/gles/glslang.js`。补丁 `tools/glslang/es_spirv.patch`
+  改了三处：
+  - 宽松的 Vulkan 规则下允许 ES 低于 310 生成 SPIR-V；
+  - 低于 310 es 时不加 tile image 的内建（它们用到 `uint`）；
+  - 默认 uniform 块写明 std140（glslang 本来就是这个默认值，补丁写死它）。
+- **两遍**：
+  - **检查遍**按着色器的真实版本，不生成 SPIR-V。`glCompileShader` 的那一遍还单独链接一次这个阶段：ES 每个阶段只有一个
+    着色器，`gl_FragColor` 与 `gl_FragData` 同用、函数没有函数体这类错误，GL 报在编译时；
+  - **代码遍**用宽松的 Vulkan 规则生成 SPIR-V 1.0。
+- **ES 1.00**：在代码遍之前用词法改写成 300 es（`src/gles/glsl_es_rewrite.js`），不再由 glslang 的补丁支持：
+  - 改写的内容：`attribute`/`varying`、`gl_FragColor`/`gl_FragData` 改成输出，1.00 的纹理函数与扩展的同名函数、
+    `gl_FragDepthEXT`、`samplerExternalOES`、`gl_MaxVaryingVectors`、`#extension` 行，以及片段输入上的 `invariant`；
+  - 与 3.00（及 Vulkan GLSL）关键字或内建同名的用户名字加后缀，改名表随结果走；
+  - 已知缺口：1.00 允许重载内建函数，函数体内的局部变量可以遮住参数，3.00 两样都不允许。dEQP-GLES2 中受影响的有
+    6 个用例，真实着色器里有 1 个（重载 `step`）。
+- **GL 的视图**（`src/gles/glsl_program.js`）：
+  - 产出影子状态现有的 `ProgramInfo` 形状，另加 `spirv`、`blocks`、`bindings`；
+  - attribute 的 location 先取 `layout(location)`，再取 `glBindAttribLocation`，都没有就取最低的空位；
+  - uniform 的 location 先取显式的。两个 uniform 用同一个显式 location 时链接失败，不活动的也算（glslang 不查）；
+  - 默认块的偏移与步长**从 SPIR-V 的装饰读**：glslang 对代码遍的反射给出的默认块偏移与它写进 SPIR-V 的不一样。
+- **接口**（`src/gles/spirv_patch.js` 改 SPIR-V 的装饰）：
+  - 顶点输入用 attribute 的 location；
+  - 前一阶段的输出与后一阶段的输入按名字取同一个 location（着色器自己写了 location 时照它的）；
+  - 资源都在组 0：默认块 0，采样器从 1 起，uniform 块从 17，存储块从 42，原子计数器从 60，图像从 70。采样器与图像按
+    SPIR-V 的变量一个一个给绑定：结构里的采样器数组在 SPIR-V 里是每个元素一个变量。
+- **vx_naga** 新增两处，VX 也受益：
+  - `math.rs`：标量的 `normalize`/`reflect`/`refract`/`faceforward` 改用 `vec2(x, 0)` 计算，取 `.x`；
+  - `lib.rs` 的 `explicit_layout`：naga 30 的 WGSL 写出器不写 `@size`/`@align`，偏移不是自然布局的结构成员丢了位置。
+    现在补 `@size`；结构作为数组元素时，按数组的步长定结构的大小。没有这一条，std140 的嵌套结构读错字节（或者在
+    uniform 缓冲里被拒）。
+- **语料**（`tests/gles/shader_corpus.mjs`，已加进 `make gles-tests`，结果低于下面的数就失败）：
+  - **dEQP 的着色器库**（CTS 7.1 APK 里 gles2、gles3、gles31 的 `.test`，模板按 dEQP 的做法简化填充）：
+    - 4643 个用例，590 个跳过（可分离管线、我们不宣告的扩展、顶点阶段为 0 的限制），7286 个程序；
+    - 检查遍与 dEQP 的期望一致 7162 个（98.3%）。不一致的 124 个大多是简化模板的偏差，真正的差别有三类：
+      - 3.00 的保留字里有 8 个 glslang 接受了（`image1DShadow` 等）；
+      - 约 20 个应当链接失败的跨阶段规则 glslang 不查（uniform 在两个阶段的精度不同等）；
+      - `fragdata`：dEQP 期望 `gl_FragColor` 与 `gl_FragData` 同用是编译错误，单阶段链接之后已经一致；
+    - 4939 个程序链接成功，生成 10096 个 SPIR-V 模块。其中 219 个是几何或细分着色器，naga 不读，留待 L6；
+    - 其余 9877 个里 vx_naga 失败 3 个：`missing_returns` 用例，naga 报 `ExpressionAlreadyInScope`。
+  - **真实着色器**（三次 Android 7.1 录制中导出：开机、自建 APK、dEQP-GLES2 运行）：
+    - 1440 个，检查遍接受 1374 个；
+    - 只有 glslang 拒绝的 15 个，大多是旧翻译器错放的非法着色器；只有旧翻译器拒绝的 29 个，glslang 接受；
+    - 1373 个生成 WGSL，失败 1 个（上面的 `step` 重载）。
+  - **WGSL 全部合法**：两套语料共 11247 个 WGSL 模块经 naga 验证，并在 Chrome 中经 Tint 验证
+    （`gles_shader_browser_test.html?corpus=build/gles-shader-corpus.json`），一个都没被拒。
+- **耗时与大小**（Node 中测）：
+  - 真实着色器每个两遍合计中位 1.2 ms，p95 2.2 ms；第一次用到某个版本与阶段时约 70 ms，是 glslang 建内建表；
+  - dEQP 程序的检查遍平均 0.5 ms，代码遍平均 1.1 ms；
+  - 达到 ≤ 5 ms 的目标。
+- **几何与细分可行**：
+  - 一个几何着色器的 SPIR-V 做了这些改动后，naga 能读进来并写出合法的计算着色器：执行模型改成 GLCompute，
+    `Geometry` 能力改成 `Shader`，去掉几何的执行模式与入口的接口列表，Input/Output 改成 Private，去掉 Location 与
+    BuiltIn 装饰，`OpEmitVertex`/`OpEndPrimitive` 先去掉；
+  - L6 要做的：`EmitVertex` 换成调用占位函数，再加一个 naga pass 接上记录缓冲（同 `xfb.rs`）。
+- **留给后面的**：
+  - 计算着色器里原子计数器的操作 naga 报 `InvalidAtomic`（L5）；
+  - 检查遍不查的跨阶段规则（L2 在 `glsl_program.js` 里补）；
+  - 执行器还没有用到这条路（L2、L3）。
 
 ### L2 ES 3.0 的影子状态
 

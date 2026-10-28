@@ -294,6 +294,100 @@ pub struct XfbInput {
     pub group: u32,
 }
 
+/// Struct members whose offsets are not WGSL's own layout's (std140's: a
+/// struct or array member 16-aligned, a struct's size rounded to 16) get a
+/// `@size` that puts the next one where the module says: naga's WGSL writer
+/// writes no layout attributes, and the shader would read the wrong bytes
+/// (or, in a uniform buffer, be refused). The structs are written in the
+/// type arena's order, the predeclared ones left out, as naga's writer does.
+fn explicit_layout(module: &naga::Module, wgsl: &mut String) {
+    let mut layouter = naga::proc::Layouter::default();
+    if layouter.update(module.to_ctx()).is_err() {
+        return;
+    }
+    let predeclared: Vec<naga::Handle<naga::Type>> = module.special_types.predeclared_types.values().copied().collect();
+    // a struct in an array whose stride is more than the struct's size (std140
+    // rounds a struct's size to 16): WGSL has no array stride, so the struct's
+    // own size becomes the stride
+    let mut spans: alloc::collections::BTreeMap<naga::Handle<naga::Type>, u32> = alloc::collections::BTreeMap::new();
+    for (_, ty) in module.types.iter() {
+        if let TypeInner::Array { base, stride, .. } = ty.inner {
+            if let TypeInner::Struct { span, .. } = module.types[base].inner {
+                if stride > span {
+                    spans.insert(base, stride);
+                }
+            }
+        }
+    }
+    // for each struct written: the member indices to give a size, and the sizes
+    let mut sizes: Vec<Vec<(usize, u32)>> = Vec::new();
+    for (handle, ty) in module.types.iter() {
+        let TypeInner::Struct { ref members, span } = ty.inner else { continue };
+        let span = spans.get(&handle).copied().unwrap_or(span);
+        if predeclared.contains(&handle) || Some(handle) == module.special_types.external_texture_params
+            || Some(handle) == module.special_types.external_texture_transfer_function {
+            continue;
+        }
+        let mut list = Vec::new();
+        let alignment = members.iter().map(|m| layouter[m.ty].alignment.round_up(1)).max().unwrap_or(1);
+        for (i, member) in members.iter().enumerate() {
+            let layout = layouter[member.ty];
+            let natural_end = member.offset + layout.size;
+            let next = members.get(i + 1).map(|n| n.offset);
+            let target_end = match next {
+                Some(offset) => {
+                    // (where the next member goes without a size: its alignment after this one's end)
+                    if layouter[members[i + 1].ty].alignment.round_up(natural_end) == offset { continue; }
+                    offset
+                }
+                None => {
+                    if span == (natural_end + alignment - 1) / alignment * alignment { continue; }
+                    span
+                }
+            };
+            if target_end > natural_end {
+                list.push((i, target_end - member.offset));
+            }
+        }
+        sizes.push(list);
+    }
+    if sizes.iter().all(|l| l.is_empty()) {
+        return;
+    }
+    // the written structs, in order: a line "struct name {", members a line each, "}"
+    let mut out = String::with_capacity(wgsl.len() + 64);
+    let mut which = 0usize;
+    let mut member: Option<usize> = None;
+    for line in wgsl.split_inclusive('\n') {
+        if member.is_none() && line.starts_with("struct ") && line.trim_end().ends_with('{') {
+            member = Some(0);
+            out.push_str(line);
+            continue;
+        }
+        if let Some(index) = member {
+            if line.trim_start().starts_with('}') {
+                member = None;
+                which += 1;
+                out.push_str(line);
+                continue;
+            }
+            if let Some(list) = sizes.get(which) {
+                if let Some(&(_, size)) = list.iter().find(|&&(i, _)| i == index) {
+                    let indent = line.len() - line.trim_start().len();
+                    out.push_str(&line[..indent]);
+                    out.push_str(&format!("@size({}) ", size));
+                    out.push_str(&line[indent..]);
+                    member = Some(index + 1);
+                    continue;
+                }
+            }
+            member = Some(index + 1);
+        }
+        out.push_str(line);
+    }
+    *wgsl = out;
+}
+
 /// The compute shader of a capturing draw (vx_translate_xfb), as JSON
 pub fn translate_xfb(bytes: &[u8], options: &Options, input: &XfbInput) -> Result<String, String> { translate_with(bytes, options, Some(input)) }
 
@@ -356,6 +450,7 @@ fn translate_with(bytes: &[u8], options: &Options, xfb_input: Option<&XfbInput>)
     let info = validate(&module)?;
     let mut wgsl = naga::back::wgsl::write_string(&module, &info, naga::back::wgsl::WriterFlags::empty())
         .map_err(|e| format!("WGSL: {:?}", e))?;
+    explicit_layout(&module, &mut wgsl);
     wgsl.push_str(&appended);
 
     let mut layouter = naga::proc::Layouter::default();

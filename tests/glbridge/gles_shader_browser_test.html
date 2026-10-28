@@ -59,10 +59,28 @@ async function compiles(device, wgsl)
     return info.messages.filter(m => m.type === "error").map(m => m.lineNum + ": " + m.message);
 }
 
+// ?corpus=<file>: the WGSL tests/gles/shader_corpus.mjs --wgsl wrote (the
+// GLES host's glslang and vx_naga path), every module compiled here too
+const corpus = new URLSearchParams(location.search).get("corpus");
+
 (async () => {
     try {
         const adapter = await navigator.gpu.requestAdapter();
         const device = await adapter.requestDevice();
+        if(corpus)
+        {
+            const modules = await (await fetch("../../" + corpus)).json();
+            const failed = [];
+            for(const m of modules)
+            {
+                const errors = await compiles(device, m.wgsl);
+                if(errors.length) failed.push(m.label + ": " + errors.slice(0, 2).join("; "));
+            }
+            check(!failed.length, modules.length + " corpus modules, " + failed.length + " refused by Tint" +
+                (failed.length ? ":\n" + failed.slice(0, 20).join("\n") : ""));
+            result.textContent = "PASS " + checks.length + " checks\n" + checks.join("\n");
+            return;
+        }
         const link = (vs, fs, es) => {
             const v = T.compileShader(vs, "vertex", { es });
             const f = T.compileShader(fs, "fragment", { es });

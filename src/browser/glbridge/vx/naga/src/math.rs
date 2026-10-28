@@ -4,7 +4,9 @@
 //!   before it (remap.rs);
 //! - modf's and frexp's results (GLSL.std.450's ModfStruct, FrexpStruct):
 //!   their result structs registered as naga's special types, which its
-//!   front end leaves out.
+//!   front end leaves out;
+//! - normalize, reflect, refract and faceforward of scalars (GLSL has
+//!   them, WGSL only of vectors): of `vec2(x, 0)` each, their `.x`.
 
 use alloc::vec::Vec;
 use naga::{BinaryOperator, Expression, Function, Handle, MathFunction, Span, Type, TypeInner, VectorSize};
@@ -53,6 +55,64 @@ fn fix(module: &mut naga::Module, function: &mut Function) {
     }
 }
 
+/// Normalize, Reflect, Refract and FaceForward of scalars as of 2-vectors with a 0 second component
+fn scalars(module: &mut naga::Module, function: &mut Function) {
+    const VECTOR_ONLY: [MathFunction; 4] = [MathFunction::Normalize, MathFunction::Reflect, MathFunction::Refract, MathFunction::FaceForward];
+    let found: Vec<(Handle<Expression>, MathFunction, Handle<Expression>, Option<Handle<Expression>>, Option<Handle<Expression>>)> =
+        function.expressions.iter().filter_map(|(h, e)| match *e {
+            Expression::Math { fun, arg, arg1, arg2, .. } if VECTOR_ONLY.contains(&fun) => Some((h, fun, arg, arg1, arg2)),
+            _ => None,
+        }).collect();
+    if found.is_empty() {
+        return;
+    }
+    // (each expression's type on its own: naga's typifier stops at the first it
+    // cannot resolve, which is the very scalar normalize this is for)
+    let mut resolutions: Vec<Option<naga::proc::TypeResolution>> = Vec::new();
+    {
+        let ctx = naga::proc::ResolveContext::with_locals(module, &function.local_variables, &function.arguments);
+        for (_, e) in function.expressions.iter() {
+            let r = ctx.resolve(e, |p| resolutions[p.index()].as_ref().ok_or(naga::proc::ResolveError::InvalidAccess { expr: p, indexed: false }));
+            resolutions.push(r.ok());
+        }
+    }
+    let scalar_of: Vec<Option<naga::Scalar>> = found.iter().map(|&(_, _, arg, _, _)| match resolutions[arg.index()] {
+        Some(ref r) => match *r.inner_with(&module.types) { TypeInner::Scalar(s) => Some(s), _ => None },
+        None => None,
+    }).collect();
+    if scalar_of.iter().all(|s| s.is_none()) {
+        return;
+    }
+    // (the literals before an expression that no emit range holds)
+    let Some((first, _)) = function.expressions.iter().find(|(_, e)| matches!(e, Expression::Literal(_) | Expression::Constant(_)
+        | Expression::GlobalVariable(_) | Expression::FunctionArgument(_) | Expression::LocalVariable(_) | Expression::ZeroValue(_))) else { return };
+    let mut f = function.clone();
+    let mut moves = Vec::new();
+    for (&(h, fun, arg, arg1, arg2), scalar) in found.iter().zip(&scalar_of) {
+        let Some(scalar) = *scalar else { continue };
+        let ty = module.types.insert(Type { name: None, inner: TypeInner::Vector { size: VectorSize::Bi, scalar } }, Span::UNDEFINED);
+        let zero = f.expressions.append(Expression::Literal(naga::Literal::F32(0.0)), Span::UNDEFINED);
+        moves.push((zero, first));
+        let mut wrap = |x: Handle<Expression>| {
+            let c = f.expressions.append(Expression::Compose { ty, components: alloc::vec![x, zero] }, Span::UNDEFINED);
+            moves.push((c, h));
+            c
+        };
+        let (a, a1, a2) = match fun {
+            MathFunction::Normalize => (wrap(arg), None, None),
+            MathFunction::Reflect => (wrap(arg), arg1.map(&mut wrap), None),
+            MathFunction::Refract => (wrap(arg), arg1.map(&mut wrap), arg2),
+            _ => (wrap(arg), arg1.map(&mut wrap), arg2.map(&mut wrap)),
+        };
+        let math = f.expressions.append(Expression::Math { fun, arg: a, arg1: a1, arg2: a2, arg3: None }, Span::UNDEFINED);
+        moves.push((math, h));
+        f.expressions[h] = Expression::AccessIndex { base: math, index: 0 };
+    }
+    if crate::remap::place(&mut f, &moves) {
+        *function = f;
+    }
+}
+
 /// The module's outer products made matrices of columns, and modf's and frexp's result types registered
 pub fn lower(module: &mut naga::Module) {
     let any = |f: &Function, which: &[MathFunction]| f.expressions.iter().any(|(_, e)| matches!(e, Expression::Math { fun, .. } if which.contains(fun)));
@@ -68,11 +128,14 @@ pub fn lower(module: &mut naga::Module) {
     for h in handles {
         let mut f = core::mem::take(&mut module.functions[h]);
         fix(module, &mut f);
+        scalars(module, &mut f);
         module.functions[h] = f;
     }
     for e in 0..module.entry_points.len() {
         let mut f = core::mem::take(&mut module.entry_points[e].function);
         fix(module, &mut f);
+        scalars(module, &mut f);
         module.entry_points[e].function = f;
     }
 }
+
