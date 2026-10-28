@@ -600,23 +600,27 @@ export const GLES3 = {
             const [low, high] = buffer.dirty;
             buffer.dirty = null;
             const bytes = cpu_bytes(buffer);
-            if(bytes && high > low) this.write_gpu_buffer(gpu.buffer, low, high - low, bytes, low);
+            if(bytes && high > low) this.write_gpu_buffer(gpu.buffer, low, high - low, bytes, low, buffer.size);
         }
         return gpu;
     },
 
     /**
      * Bytes into a GPU buffer, in order with the draws (a staging buffer
-     * copied in the encoder); the range widened to whole words from `source`
+     * copied in the encoder); the range widened to whole words from
+     * `source`, and past the GL buffer's end (a size not a whole number of
+     * words: a 6-byte index buffer) with zeros
      * @param {!Uint8Array} source holds the bytes, `at` the first's index
+     * @param {number} end the GL buffer's size
      */
-    write_gpu_buffer(target, offset, length, source, at)
+    write_gpu_buffer(target, offset, length, source, at, end)
     {
         const low = offset & ~3, high = align4(offset + length);
-        if(at - (offset - low) < 0 || at + length + (high - offset - length) > source.length) return this.note3("an unaligned buffer write");
+        const before = offset - low, after = offset + length >= end ? 0 : high - offset - length;
+        if(at - before < 0 || at + length + after > source.length) return this.note3("an unaligned buffer write");
         this.end_pass();
         const staging = this.device.createBuffer({ label: "GLES buffer upload", size: Math.max(4, high - low), usage: B.COPY_SRC, mappedAtCreation: true });
-        new Uint8Array(staging.getMappedRange()).set(source.subarray(at - (offset - low), at - (offset - low) + high - low));
+        new Uint8Array(staging.getMappedRange()).set(source.subarray(at - before, at + length + after));
         staging.unmap();
         this.encoder.copyBufferToBuffer(staging, 0, target, low, high - low);
         this.staging.push(staging);
@@ -634,7 +638,7 @@ export const GLES3 = {
         if(buffer.gpu_newer)
         {
             const gpu = this.gpu_buffer(buffer);
-            if(data) this.write_gpu_buffer(gpu.buffer, offset, length, data, 0);
+            if(data) this.write_gpu_buffer(gpu.buffer, offset, length, data, 0, buffer.size);
             return;
         }
         if(!buffer.gpu) return;

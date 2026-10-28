@@ -545,6 +545,16 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         gl("glDrawArrays", 6, 4, 4);
         window = await read_pixels(0, 0, W, W);
         check(near(pixel(window, W, 7, 1), [255, 255, 0, 255]) && near(pixel(window, W, 0, 1), [0, 0, 0, 255]), "a fan from a buffer, from vertex 4");
+        // (an element buffer of 6 bytes, not a whole number of words: its GPU copy padded past its end)
+        const six = gen("Buffers");
+        gl("glBindBuffer", 0x8893, six);
+        const triangle = new Uint8Array(new Uint16Array([0, 1, 2]).buffer);
+        gl("glBufferData", 0x8893, triangle.length, triangle, 0x88E4);
+        gl("glClear", 0x4000);
+        gl("glDrawElementsOffset", 4, 3, 0x1403, 0);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 0, 4), [255, 255, 0, 255]) && near(pixel(window, W, 4, 4), [0, 0, 0, 255]) &&
+            near(pixel(window, W, 7, 4), [0, 0, 0, 255]), "a triangle from an element buffer of 6 bytes");
 
         // ---- transform feedback: captured, drawn from, read back
         gl("glDisable", 0x8D69);
