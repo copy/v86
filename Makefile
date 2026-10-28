@@ -157,7 +157,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/ranchu.js virt/goldfish.js virt/loader.js \
+	   arm/state_layout.js arm/cpu.js arm/backdoor_a32.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/ranchu.js virt/goldfish.js virt/loader.js \
 	   android/bytes.js android/gpt.js android/avb.js android/bootimg.js android/bootconfig.js android/devices.js android/boot.js android/bootloader.js android/partition_buffer.js android/cpio.js android/ramdisk_overlay.js \
 	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js
 LIB_FILES=9p.js filesystem.js marshall.js
@@ -1076,6 +1076,8 @@ display-browser-tests: build/cpu-worker.js build/libv86.mjs build/libv86.js buil
 	node tests/glbridge/gl_multipass_browser_runner.js virtio_gpu_present_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js graphics_vga_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_renderer_browser_test.html
+	node tests/glbridge/gl_multipass_browser_runner.js gles_executor_browser_test.html
+	node tests/gles/chrome_renderer_test.mjs
 	node tests/glbridge/gl_multipass_browser_runner.js svga_dx_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_share_browser_test.html
 	node tests/glbridge/gl_multipass_browser_runner.js svga_fixed_function_browser_test.html
@@ -2033,3 +2035,4 @@ gles-tests: build/v86-gles.js
 	node tests/gles/render_control.mjs
 	node tests/gles/shadow.mjs
 	node tests/gles/batch.mjs
+	node tests/gles/snapshot.mjs

@@ -1076,6 +1076,19 @@ its progress in [gfxstream-plan.md](gfxstream-plan.md).
     (the plugin's `device_memory_size`). `A64_ANDROID_GPU_DEBUG=1` shows
     what is mapped (`hostmem=<MiB>/<MiB> in <blobs>`).
 
+## GLES (the ranchu machine)
+
+Not a display adapter: Android 7.1's emulator image on the ranchu machine sends GLES 2.0 and 1.1 over the goldfish
+pipe ([arm32.md](arm32.md#the-hosts-gpu-gpu_mode-host), [gles-proxy-plan.md](gles-proxy-plan.md)). It shares the
+adapters' renderer channel and page: the GLES host (`build/v86-gles.js`, on the machine's thread) answers queries from
+its shadow state and sends GLES batches (`renderer_protocol.js`'s `GLES` records, magic `GE10`) as stream `"gles"`;
+`svga_renderer.js` runs them on its WebGPU device with the GLES executor (`src/gles/page/`, bundled into
+`libv86-webgpu.js`), answers reads with `write` and shows posted frames in the compositor's layer, or hands them back
+as `frame` messages. GLSL ES goes through gl-webgpu's translator in its ES mode and GLES 1.1's fixed function through
+gl-webgpu's generator, the same code as the XP OpenGL path. For snapshots the host asks the page for the executor's
+state (`gles_save`, the GPU's contents read back) and gives it back after a reset (`gles_restore`). Deviations:
+[G-64 to G-69](gpu-deviations.md#gles-the-ranchu-machines-gles-host).
+
 ## GX
 
 GX (`src/browser/glbridge/gx/gx_executor.js`) is the WebGPU backend of the DX

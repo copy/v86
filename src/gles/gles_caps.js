@@ -151,7 +151,7 @@ const GL_SHADING_LANGUAGE_VERSION = 0x8B8C;
 const EXTENSIONS = {
     1: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_compressed_ETC1_RGB8_texture", "GL_OES_element_index_uint",
         "GL_OES_framebuffer_object", "GL_OES_depth24", "GL_OES_packed_depth_stencil", "GL_OES_rgb8_rgba8", "GL_OES_texture_npot",
-        "GL_OES_blend_func_separate", "GL_OES_blend_equation_separate", "GL_OES_blend_subtract", "GL_OES_texture_cube_map",
+        "GL_OES_blend_func_separate", "GL_OES_blend_equation_separate", "GL_OES_blend_subtract",
         "GL_OES_draw_texture", "GL_OES_point_sprite", "GL_OES_point_size_array", "GL_EXT_texture_format_BGRA8888"],
     2: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_compressed_ETC1_RGB8_texture", "GL_OES_element_index_uint",
         "GL_OES_depth24", "GL_OES_packed_depth_stencil", "GL_OES_rgb8_rgba8", "GL_OES_texture_npot", "GL_OES_standard_derivatives",

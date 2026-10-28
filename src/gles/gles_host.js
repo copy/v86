@@ -24,13 +24,20 @@
 // (glReadPixels, rcReadColorBuffer) wait for the page's data. Without a
 // renderer (or one lost), batches go nowhere and reads give zeros.
 //
-// A snapshot keeps nothing: the pipe's channels close on restore (E5 keeps
-// the connections).
+// A snapshot (E5) keeps renderControl's objects, the shadow state and
+// each connection (its context and surfaces, the bytes of a command not
+// whole yet, the replies not read: the pipe's channel keeps its service's
+// state, src/virt/goldfish.js); prepare_save first answers every call that
+// waits for the page, then fetches the page's state (the executor's
+// objects and the GPU's contents, read back: "gles_save"). A restore resets
+// the page and gives it that state back ("gles_restore"), on whatever
+// renderer the machine has now. No graphics journal is replayed.
 
 import { GLESStream } from "./gles_stream.js";
 import { RenderControl } from "./render_control.js";
-import { GLESShadow } from "./gles_shadow.js";
 import { CONFIGS } from "./gles_caps.js";
+import { GLESShadow, SHADOW_CLASSES } from "./gles_shadow.js";
+import { pack, shadow_skip, unpack } from "./gles_snapshot.js";
 import { GLES, GLES_MAGIC, GXWriter, READBACK_HEADER_BYTES, RESPONSE_OK } from "../graphics_adapters/renderer_protocol.js";
 
 /** A batch this large is sent at once */
@@ -81,8 +88,11 @@ GLESHost.prototype.reset = function()
     /** @type {!Map<number, function(?Uint8Array)>} */
     this.requests = new Map();
     this.lost = !this.renderer;
+    /** @type {!Map<number, function(*)>} the page's states asked for (prepare_save) */
+    this.saves = new Map();
+    this.page_state = null;
     /** what went to the page, and what waited for it */
-    this.stats = { batches: 0, bytes: 0, records: 0, refused: 0, reads: 0, throttled: 0, frames: 0 };
+    this.stats = { batches: 0, bytes: 0, records: 0, refused: 0, reads: 0, throttled: 0, frames: 0, cpu_ms: 0 };
     /** @type {!Map<string, number>} refused calls by name and the error they left */
     this.refused = new Map();
     if(this.renderer) this.renderer.post({ "type": "reset" });
@@ -92,23 +102,32 @@ GLESHost.prototype.reset = function()
  * A service of a name, or null for one the host does not have
  * @param {string} name
  * @param {function()} wake
- * @return {?Object} {write, read, available, close}
+ * @param {*=} saved the service's state in a snapshot (its get_state's)
+ * @return {?Object} {write, read, available, close, get_state}
  */
-GLESHost.prototype.service = function(name, wake)
+GLESHost.prototype.service = function(name, wake, saved)
 {
-    if(name === "opengles") return this.connect(wake);
-    if(name === "GLProcessPipe") return this.process_pipe();
+    if(name === "opengles") return this.connect(wake, saved);
+    if(name === "GLProcessPipe") return this.process_pipe(saved);
     return null;
 };
 
-/** @param {function()} wake @return {!Object} a connection's service */
-GLESHost.prototype.connect = function(wake)
+/** @param {function()} wake @param {*=} saved @return {!Object} a connection's service */
+GLESHost.prototype.connect = function(wake, saved)
 {
-    const conn = { id: this.next_connection++, puid: null, context: 0, draw: 0, read: 0 };
-    const stream = new GLESStream((command, args, bytes) => command.api === "rc" ? this.rc_call(conn, command, args) :
-        this.gl_call(conn, command, args, bytes), wake);
+    const state = saved ? unpack(saved) : null;
+    const conn = state ? state.conn : { id: this.next_connection++, puid: null, context: 0, draw: 0, read: 0 };
+    const stream = new GLESStream((command, args, bytes) =>
+    {
+        // (the host's own time on the machine's thread: E5's measure)
+        const start = performance.now();
+        const ret = command.api === "rc" ? this.rc_call(conn, command, args) : this.gl_call(conn, command, args, bytes);
+        this.stats.cpu_ms += performance.now() - start;
+        return ret;
+    }, wake);
+    if(state) stream.set_state(state.stream);
+    else this.connections++;
     this.streams.add(stream);
-    this.connections++;
     return {
         write: bytes => stream.write(bytes),
         read: max => stream.read(max),
@@ -123,15 +142,18 @@ GLESHost.prototype.connect = function(wake)
             this.rc.disconnect(conn);
             this.record(GLES.CONNECTION_CLOSE, [conn.id]);
         },
+        get_state: () => pack({ conn, stream: stream.get_state() }),
     };
 };
 
-/** @return {!Object} a process pipe's service */
-GLESHost.prototype.process_pipe = function()
+/** @param {*=} saved @return {!Object} a process pipe's service */
+GLESHost.prototype.process_pipe = function(saved)
 {
     let puid = null, reply = null;
-    this.processes++;
+    if(saved) [puid, reply] = saved;
+    else this.processes++;
     return {
+        get_state: () => [puid, reply && reply.slice()],
         write: bytes =>
         {
             // (the confirmation, once: the reply is the process's id, a u64)
@@ -354,6 +376,13 @@ GLESHost.prototype.receive = function(message)
             this.stats.frames++;
             this.present(message["bytes"], message["width"], message["height"]);
             break;
+        case "gles_saved":
+        {
+            const answer = this.saves.get(message["id"]);
+            this.saves.delete(message["id"]);
+            if(answer) answer(message["state"] || null);
+            break;
+        }
         case "done":
             this.completed = Math.max(this.completed, message["seq"]);
             while(this.completions.length && this.completions[0].seq <= this.completed) this.completions.shift().run();
@@ -365,9 +394,80 @@ GLESHost.prototype.receive = function(message)
             this.completed = this.submitted;
             for(const answer of this.requests.values()) answer(null);
             this.requests.clear();
+            for(const answer of this.saves.values()) answer(null);
+            this.saves.clear();
             while(this.completions.length) this.completions.shift().run();
             break;
     }
+};
+
+// ---- snapshots
+
+/**
+ * Before a save (the machine stopped): every call that waits for the page
+ * answered (the batches run, the reads back, what the streams held after
+ * them decoded), then the page's state fetched
+ * @return {!Promise<undefined>}
+ */
+GLESHost.prototype.prepare_save = async function()
+{
+    for(;;)
+    {
+        this.flush();
+        const busy = this.requests.size > 0 || this.completed < this.submitted || [...this.streams].some(s => s.waiting || s.backlog.length);
+        if(!busy) break;
+        if(this.completed < this.submitted) await new Promise(resolve => this.completions.push({ seq: this.submitted, run: resolve }));
+        // (the answers' promises, and the streams' commands after them)
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    this.page_state = null;
+    if(this.lost) return;
+    const id = this.next_request++;
+    this.page_state = await new Promise(resolve =>
+    {
+        this.saves.set(id, resolve);
+        this.renderer.post({ "type": "gles_save", "id": id });
+    });
+};
+
+/** @return {!Array<*>} a snapshot's: the version, the host's state packed, the page's (prepare_save's, or null) */
+GLESHost.prototype.get_state = function()
+{
+    const rc = this.rc;
+    const state = pack({
+        rc: { next_handle: rc.next_handle, contexts: rc.contexts, surfaces: rc.surfaces, color_buffers: rc.color_buffers, images: rc.images,
+            syncs: rc.syncs, displays: rc.displays, buffers: rc.buffers, posted: rc.posted, posts: rc.posts, swap_interval: rc.swap_interval,
+            update_bytes: rc.update_bytes },
+        shadow: this.shadow.get_state(),
+        next_connection: this.next_connection, next_puid: this.next_puid, connections: this.connections, processes: this.processes,
+        closed_counts: this.closed_counts, closed_unknown: this.closed_unknown, closed_malformed: this.closed_malformed,
+        stats: this.stats, refused: this.refused,
+    }, { classes: SHADOW_CLASSES, skip: shadow_skip });
+    const page = this.page_state;
+    this.page_state = null;
+    return [1, state, page];
+};
+
+/**
+ * A snapshot's state (the connections came back with the pipe's channels,
+ * src/virt/goldfish.js, before this): the page reset and given its state
+ * @param {!Array<*>} state get_state's; [] from a snapshot of E1 (nothing kept)
+ */
+GLESHost.prototype.set_state = function(state)
+{
+    const streams = this.streams;
+    this.reset();
+    if(!state || state[0] !== 1) return;
+    this.streams = streams;
+    const saved = unpack(state[1], SHADOW_CLASSES);
+    Object.assign(this.rc, saved.rc);
+    this.shadow.set_state(saved.shadow);
+    for(const key of ["next_connection", "next_puid", "connections", "processes", "closed_counts", "closed_unknown", "closed_malformed",
+        "stats", "refused"])
+    {
+        this[key] = saved[key];
+    }
+    if(state[2] && !this.lost) this.renderer.post({ "type": "gles_restore", "state": state[2] });
 };
 
 /** @param {!Map} into @param {!Map} from */

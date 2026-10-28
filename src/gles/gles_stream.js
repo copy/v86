@@ -203,3 +203,52 @@ GLESStream.prototype.close = function()
     this.output = [];
     this.output_bytes = 0;
 };
+
+/**
+ * What a snapshot keeps (gles_snapshot.js's packing): the bytes of a
+ * header or command not whole yet, the replies not read; nothing may wait
+ * (the GLES host's prepare_save answered every call first)
+ * @return {!Object}
+ */
+GLESStream.prototype.get_state = function()
+{
+    const output = new Uint8Array(this.output_bytes);
+    let at = 0;
+    for(const chunk of this.output) { output.set(chunk, at); at += chunk.length; }
+    return {
+        flags: this.flags, header: this.header.slice(), header_fill: this.header_fill,
+        command: this.command && this.command.slice(0, this.command_fill), command_size: this.command ? this.command.length : 0,
+        output, broken: this.broken, dropped_bytes: this.dropped_bytes,
+        counts: this.counts, unknown: this.unknown, malformed: this.malformed, waiting: this.waiting || this.backlog.length > 0,
+    };
+};
+
+/** @param {!Object} state get_state's */
+GLESStream.prototype.set_state = function(state)
+{
+    this.flags = state.flags;
+    this.header.set(state.header);
+    this.header_fill = state.header_fill;
+    this.command = null;
+    this.command_fill = 0;
+    if(state.command_size)
+    {
+        this.command = new Uint8Array(state.command_size);
+        this.command.set(state.command);
+        this.command_fill = state.command.length;
+    }
+    this.output = state.output.length ? [state.output] : [];
+    this.output_bytes = state.output.length;
+    this.broken = state.broken;
+    this.dropped_bytes = state.dropped_bytes;
+    this.counts = state.counts;
+    this.unknown = state.unknown;
+    this.malformed = state.malformed;
+    // (a call that waited when the snapshot was taken has no answer: the
+    // connection cannot go on, as one whose commands could not be found)
+    if(state.waiting)
+    {
+        this.broken = true;
+        console.warn("GLES stream: the snapshot was taken while a call waited for the page: the connection is dropped");
+    }
+};

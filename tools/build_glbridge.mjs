@@ -36,6 +36,25 @@ const formats = "globalThis.V86SVGADXFormats = " + JSON.stringify(gx_formats()) 
         if(theirs[name] !== op) throw new Error("vx_executor.js: VX." + name + " is " + theirs[name] + ", renderer_protocol.js says " + op);
     }
 }
+// The GLES executor (src/gles/page/, ES modules; docs/gles-proxy-plan.md E3),
+// bundled by esbuild after the scripts: its GLSL front end is theirs (the two
+// scripts' imports stand for nothing here)
+{
+    const esbuild = await import("esbuild");
+    const scripts = new Set(["gl_state_layout.js", "gl_shader_translator.js"]);
+    const built = await esbuild.build({
+        entryPoints: [fileURLToPath(new URL("src/gles/page/entry.js", root))], bundle: true, write: false, format: "iife",
+        target: "es2020", legalComments: "none",
+        plugins: [{ name: "glbridge-scripts", setup(build)
+        {
+            build.onResolve({ filter: /gl-webgpu\/gl_(state_layout|shader_translator)\.js$/ }, args =>
+                scripts.has(args.path.split("/").pop()) ? { path: args.path, namespace: "glbridge-script" } : undefined);
+            build.onLoad({ filter: /.*/, namespace: "glbridge-script" }, () => ({ contents: "", loader: "js" }));
+        } }],
+    });
+    contents.splice(files.indexOf("svga_renderer.js"), 0, built.outputFiles[0].text);
+    files.splice(files.indexOf("svga_renderer.js"), 0, "gles_executor (src/gles/page)");
+}
 const worker = await read_file(new URL("d3d9-webgpu/d3d9_shader_worker.js", source), "utf8");
 const journal_worker = await read_file(new URL("graphics_journal_worker.js", source), "utf8");
 // The device half alone, for the CPU worker (importScripts)

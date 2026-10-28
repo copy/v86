@@ -25,6 +25,7 @@ import { ExtendedStore } from "../extended_memory.js";
 import { PL011 } from "../virt/pl011.js";
 import { PL031 } from "../virt/pl031.js";
 import { GoldfishFb, GoldfishEvents, GoldfishBattery, GoldfishAudio, GoldfishPipe } from "../virt/goldfish.js";
+import { BackdoorA32, BACKDOOR_NOT_HANDLED } from "./backdoor_a32.js";
 import {
     RANCHU_DISPLAY, RANCHU_GOLDFISH_AUDIO, RANCHU_GOLDFISH_BATTERY, RANCHU_GOLDFISH_EVENTS, RANCHU_GOLDFISH_FB, RANCHU_GOLDFISH_PIPE,
     RANCHU_LAYOUT_VERSION, RANCHU_RTC, RANCHU_SPI, ranchu_framebuffer,
@@ -194,7 +195,30 @@ A64CPU.prototype.imports = function()
     return {
         "a64_mmio_read": (owner, offset, width) => this.io.mmio_read(owner, offset, width),
         "a64_mmio_write": (owner, offset, width, value) => this.io.mmio_write(owner, offset, width, value),
+        "a32_backdoor": (r0, r1, r2, r3) => this.backdoor_call(r0, r1, r2, r3),
     };
+};
+
+/**
+ * (env.a32_backdoor) A GLES backdoor call of user code (src/arm/backdoor_a32.js):
+ * r0's answer, or BACKDOOR_NOT_HANDLED without the backdoor
+ * @return {number}
+ */
+A64CPU.prototype.backdoor_call = function(r0, r1, r2, r3)
+{
+    return this.devices.backdoor ? this.devices.backdoor.call(r0 >>> 0, r1 >>> 0, r2 >>> 0, r3 >>> 0) : BACKDOOR_NOT_HANDLED;
+};
+
+/**
+ * The physical address of a user address for a read or a write, as the
+ * running core translates it; -1: not mapped for that access
+ * @param {number} address
+ * @param {boolean} write
+ * @return {number}
+ */
+A64CPU.prototype.translate_user = function(address, write)
+{
+    return this.wm.exports["a32_backdoor_translate"](address >>> 0, write);
 };
 
 A64CPU.prototype.init = function(settings, device_bus)
@@ -416,7 +440,20 @@ A64CPU.prototype.init = function(settings, device_bus)
         const gles = this.devices.gles;
         this.devices["goldfish_pipe"] = new GoldfishPipe(this, RANCHU_GOLDFISH_PIPE, 32 + RANCHU_SPI.pipe, Object.assign({
             "qemu.sf.lcd_density": String(display.dpi), "qemu.hw.mainkeys": "0",
-        }, settings.ranchu_properties), gles ? (name, wake) => gles.device["service"](name, wake) : undefined);
+        }, settings.ranchu_properties), gles ? (name, wake, ...saved) => gles.device["service"](name, wake, ...saved) : undefined);
+    }
+    // arm32's GLES backdoor (gles_backdoor: docs/gles-proxy-plan.md "iOS 传输"):
+    // the GLES host's services for user code, no screen of its own (its
+    // posts are not shown; the test reads its pixels back)
+    if(settings.gles_backdoor && settings.gles_plugin)
+    {
+        this.devices.gles = this.devices.gles || new PluginDevice(/** @type {?} */ (this), GLES_PLUGINS, settings.gles_plugin, -1, {}, {
+            "display": { "width": 800, "height": 600, "dpi": 160 },
+            "renderer": settings.graphics_adapter_renderer || null,
+            "present": () => {},
+        });
+        const gles = this.devices.gles;
+        this.devices.backdoor = new BackdoorA32(this, (name, wake, ...saved) => gles.device["service"](name, wake, ...saved));
     }
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
@@ -1094,6 +1131,8 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[13] = this.gic_v2 ? this.machine_state_bytes(2).slice() : null;
     // the GLES host (ranchu_gpu "host"; a plugin's slot)
     state[14] = this.devices.gles ? this.devices.gles.get_state() : null;
+    // the GLES backdoor's connections (gles_backdoor)
+    state[15] = this.devices.backdoor ? this.devices.backdoor.get_state() : null;
     // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
     state[95] = this.clock.get_state();
     // extended RAM's pages (P8.5: its contents are records of the snapshot stream)
@@ -1219,6 +1258,8 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
     if(this.gic_v2 && state[13]) this.machine_state_bytes(2).set(state[13]);
     this.shared_spi_sources = new Map((state[11] || []).map(([intid, sources]) => [intid, new Set(sources)]));
     this.devices.graphics_adapter && this.devices.graphics_adapter.set_state(state[12]);
+    // (the backdoor's connections before the GLES host's state, as the pipe's channels)
+    if(this.devices.backdoor) this.devices.backdoor.set_state(state[15] || [1, []]);
     this.devices.gles && this.devices.gles.set_state(state[14]);
     this.wm.exports["a64_restored"]();
     if(!skip_memory && state[77])

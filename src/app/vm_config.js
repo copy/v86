@@ -129,16 +129,20 @@ export const TPM_STATE_SIZE = 512 * 1024;
  * models of src/android/devices.js, its GPU modes (venus: Android's own
  * Venus driver, as tools/a64_android.mjs puts it in odm, with display.vulkan
  * "venus"; gfxstream: the image's own drivers, with display.vulkan
- * "gfxstream"), the vendor ramdisks (debug: Cuttlefish's
+ * "gfxstream"; an emulator image's own two, docs/gles-proxy-plan.md E5:
+ * host, its GLES drawn by the page's WebGPU, and guest, the CPU draws, as
+ * swiftshader does there), the vendor ramdisks (debug: Cuttlefish's
  * vendor_ramdisk-debug.img, a file of its own), SELinux's modes and the
  * display (device: the device model's, the screen zoomed to the window;
  * window: a display of the window's size, following it)
- * @typedef {{device: string, gpu_mode: "swiftshader" | "venus" | "gfxstream", vendor_ramdisk: "release" | "debug",
+ * @typedef {{device: string, gpu_mode: "swiftshader" | "venus" | "gfxstream" | "host" | "guest", vendor_ramdisk: "release" | "debug",
  *     debug_ramdisk: Image | null, selinux: "enforcing" | "permissive", display: "device" | "window"}} Android
  */
 /** the device models (src/android/devices.js): Cuttlefish's phone (arm64 on virt), the emulator images (ranchu) */
 export const ANDROID_DEVICES = Object.keys(ANDROID_DEVICE_MODELS);
 export const ANDROID_GPU_MODES = ["swiftshader", "venus", "gfxstream"];
+/** an emulator image's (the ranchu machine's): the host's GPU, the guest's CPU ("swiftshader" is "guest" there) */
+export const RANCHU_GPU_MODES = ["host", "guest"];
 /** display.vulkan: none, Venus contexts, gfxstream's */
 export const DISPLAY_VULKAN = ["none", "venus", "gfxstream"];
 export const ANDROID_VENDOR_RAMDISKS = ["release", "debug"];
@@ -529,7 +533,7 @@ export function validate_config(config)
         {
             problem("android", model.id + " boots on the " + model.machine + " machine with the " + model.cpu + " CPU");
         }
-        one_of(a.gpu_mode, ANDROID_GPU_MODES, "android.gpu_mode");
+        one_of(a.gpu_mode, model && model.machine === "ranchu" ? RANCHU_GPU_MODES.concat("swiftshader") : ANDROID_GPU_MODES, "android.gpu_mode");
         if(a.gpu_mode === "venus" && config.display.vulkan !== "venus") problem("android.gpu_mode", "Venus needs virtio-gpu's Venus (display.vulkan)");
         if(a.gpu_mode === "gfxstream" && config.display.vulkan !== "gfxstream") problem("android.gpu_mode", "gfxstream needs virtio-gpu's gfxstream (display.vulkan)");
         one_of(a.vendor_ramdisk, ANDROID_VENDOR_RAMDISKS, "android.vendor_ramdisk");

@@ -24,6 +24,9 @@
 //                           "gles" a GLES one
 //   reset  {}               the machine was reset: forget every object
 //   hello  {}               the device asks what the renderer can do
+//   gles_save { id }        (the GLES host, before a snapshot) the GLES
+//                           executor's state, with the GPU's contents
+//   gles_restore { state }  (after a reset) a snapshot's GLES state back
 // renderer -> device:
 //   write  { offset, bytes } into the response region: a query result or a
 //                            readback, tagged with its request id
@@ -32,6 +35,7 @@
 //   caps   { present }       (to hello and reset) whether SURFACE_PRESENT shows pictures
 //   frame  { width, height, bytes }  (stream "gles", without a layer) a posted
 //                            color buffer, RGBA rows from the top
+//   gles_saved { id, state } gles_save's answer (null: no GLES executor yet)
 (function(global) {
     "use strict";
 
@@ -212,6 +216,33 @@
                 case "hello":
                     caps();
                     break;
+                case "gles_save": {
+                    // (after the batches sent before it)
+                    const id = message.id;
+                    queue = queue.then(async () => {
+                        let state = null;
+                        try {
+                            if (gles && !lost) state = await gles.save();
+                        } catch (error) {
+                            console.warn("GLES: the page's state could not be saved: " + (error && error.message || error));
+                        }
+                        channel.post({ type: "gles_saved", id, state }, state ? state[1].map(b => b.buffer) : []);
+                    });
+                    break;
+                }
+                case "gles_restore": {
+                    const state = message.state, forGeneration = generation;
+                    queue = queue.then(async () => {
+                        if (forGeneration !== generation || lost) return;
+                        try {
+                            const target = await glesExecutor();
+                            if (target) target.restore(state);
+                        } catch (error) {
+                            fail(error && error.stack || error);
+                        }
+                    });
+                    break;
+                }
                 case "reset":
                     ++generation;
                     if (layer) layer.place(0, 0, 0, 0, false);

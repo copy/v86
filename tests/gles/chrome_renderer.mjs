@@ -132,6 +132,9 @@ export async function chrome_renderer(options = {})
     ], { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
     browser.stderr.on("data", d => { stderr = (stderr + d).slice(-4000); });
+    // (Chrome goes with the test, however it ends)
+    process.once("exit", () => browser.kill());
+    for(const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => { browser.kill(); process.exit(128 + (signal === "SIGINT" ? 2 : 15)); });
     const timer = setTimeout(() => ready(new Error("Chrome's renderer page did not start\n" + stderr)), options.timeout || 30000);
     const started = await up;
     clearTimeout(timer);

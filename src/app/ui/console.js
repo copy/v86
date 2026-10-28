@@ -301,8 +301,26 @@ export async function open_console(root, target)
                 }
             }
             if(config.display.proxy) await load_graphics_proxy();
+            // (an emulator image's GLES on the host's GPU, docs/gles-proxy-plan.md
+            // E5: the WebGPU renderer's bundle; without WebGPU the guest's CPU
+            // draws, this start only: a suspended machine resumes with its own)
+            let android_gpu = null;
+            if(config.android && config.android.gpu_mode === "host" && !config.display.proxy)
+            {
+                try
+                {
+                    await load_graphics_proxy();
+                }
+                catch(e)
+                {
+                    if(resume === "resume") throw e;
+                    android_gpu = "guest";
+                    set_status("The guest's CPU draws Android (" + e.message + ")");
+                }
+            }
             options = config_to_options(config, Object.assign(page_env(layout.screen_container, config.display.proxy, on_proxy_error),
                 { file: image => files.get(image) }));
+            if(android_gpu) options.android.gpu_mode = android_gpu;
         }
         else
         {

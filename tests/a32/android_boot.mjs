@@ -26,7 +26,11 @@
 // APK (tests/a32/android/v86arm32.c as armeabi-v7a, tests/a64/apk.mjs) goes
 // over the console (base64), is installed (pm install) and started: its log
 // line and its frame. A32_ANDROID_PROBE: shell commands (";;" between
-// them) whose output is printed after boot or restore.
+// them) whose output is printed after boot or restore (A32_ANDROID_PROBE_HOME:
+// after the home screen's screenshot). A32_ANDROID_SCREEN:
+// am start's arguments (-a android.settings.SETTINGS): after the home
+// screen the activity is started and its screen taken (screen.png), then
+// swiped up and down for a minute: the frames a second the screen shows.
 // A32_ANDROID_GPU=host: the device model's GPU mode "host" (qemu.gles=1,
 // ranchu_gpu "host": the GLES host, docs/gles-proxy-plan.md); the GLES
 // calls' counts go to the run's gles.json, its batches to gles-batches.bin
@@ -34,6 +38,20 @@
 // or a command it cannot decode, fails the test. A32_ANDROID_RENDERER=chrome:
 // the renderer is a real GPU's (headless Chrome, tests/gles/chrome_renderer.mjs),
 // the screen SurfaceFlinger's frames; otherwise nothing is drawn.
+// A32_ANDROID_PROPS="name=value,...": boot properties changed (an empty
+// value removes one: "ro.config.low_ram="); A32_ANDROID_BOOTANIM=1: the boot
+// animation on (both for the files' boot, not A32_ANDROID_DISK).
+// A32_ANDROID_GLES_APP=1 (with A32_ANDROID_GPU=host): after the home screen,
+// tests/a32/android/v86gles.c's APK (GLES 2.0 and 1.1 scenes read back with
+// glReadPixels: docs/gles-proxy-plan.md E4) is installed and started, and
+// the pixels it logs are checked against GLES's rules.
+// A32_ANDROID_DEQP=1 (with A32_ANDROID_GPU=host): dEQP-GLES2 and dEQP-EGL
+// from CTS 7.1_r29 (tools/a32_cts.mjs fetches them) on a fourth virtio disk
+// (ext2, mke2fs -d), copied in with su, installed, run by its
+// instrumentation in chunks; the subset (docs/gles-proxy-plan.md E4): every
+// state_query and negative_api case, dEQP-EGL.info, and every ninth other
+// functional case (A32_ANDROID_DEQP_STEP another; A32_ANDROID_DEQP_FILTER a
+// pattern of cases to keep); each case's status into the run's deqp.json.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -78,8 +96,44 @@ const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv
 const gles_renderer = !gpu.gles ? null : process.env.A32_ANDROID_RENDERER === "chrome" ?
     await chrome_renderer({ record: run_directory + "gles-batches.bin" }) : recording_renderer(run_directory + "gles-batches.bin");
 const sink = new PictureSink();
-const cmdline = ranchu_cmdline({ arm32: true, bootanim: false, gles: gpu.gles, extra: process.env.A32_ANDROID_CMDLINE });
+const cmdline = ranchu_cmdline({ arm32: true, bootanim: process.env.A32_ANDROID_BOOTANIM === "1", gles: gpu.gles, extra: process.env.A32_ANDROID_CMDLINE });
+const properties = Object.assign({}, RANCHU_25_ARMEABI_V7A.properties, gpu.properties);
+for(const pair of (process.env.A32_ANDROID_PROPS || "").split(",").filter(Boolean))
+{
+    const [name, value] = [pair.slice(0, pair.indexOf("=")), pair.slice(pair.indexOf("=") + 1)];
+    if(value) properties[name] = value;
+    else delete properties[name];
+}
 const restore = process.env.A32_ANDROID_RESTORE_STATE, save = process.env.A32_ANDROID_SAVE_STATE;
+// (dEQP: its files on an ext2 disk of their own, and the cases to run)
+let deqp = null;
+if(process.env.A32_ANDROID_DEQP === "1")
+{
+    const { fetch_files, DEQP_FILES } = await import("../../tools/a32_cts.mjs");
+    const [apk, gles2, egl] = await fetch_files(DEQP_FILES, true);
+    const step = Number(process.env.A32_ANDROID_DEQP_STEP || 9);
+    const filter = new RegExp(process.env.A32_ANDROID_DEQP_FILTER || ".");
+    const all = fs.readFileSync(gles2, "utf8").split("\n").filter(Boolean);
+    const sampled = all.filter((c, i) => /\.(state_query|negative_api)\./.test(c) || /^dEQP-GLES2\.(info|functional)\./.test(c) && i % step === 0);
+    const cases = { "dEQP-GLES2": sampled.filter(c => filter.test(c)),
+        "dEQP-EGL": fs.readFileSync(egl, "utf8").split("\n").filter(c => c.startsWith("dEQP-EGL.info.") && filter.test(c)) };
+    const root = run_directory + "deqp-disk/";
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.mkdirSync(root, { recursive: true });
+    fs.copyFileSync(apk, root + "deqp.apk");
+    const chunks = [];
+    for(const [pkg, list] of Object.entries(cases))
+    {
+        for(let i = 0; i < list.length; i += 150) chunks.push({ pkg, cases: list.slice(i, i + 150), name: `${pkg}-${chunks.length}.txt` });
+    }
+    for(const chunk of chunks) fs.writeFileSync(root + chunk.name, chunk.cases.join("\n") + "\n");
+    const image = run_directory + "deqp.img";
+    fs.rmSync(image, { force: true });
+    const made = spawnSync("/opt/homebrew/opt/e2fsprogs/sbin/mke2fs", ["-q", "-t", "ext2", "-b", "4096", "-d", root, image, "160M"], { encoding: "utf8" });
+    assert.equal(made.status, 0, made.stderr);
+    deqp = { image, chunks };
+    console.log(`dEQP: ${cases["dEQP-GLES2"].length} GLES 2 and ${cases["dEQP-EGL"].length} EGL cases in ${chunks.length} runs`);
+}
 const ramdisk = await ramdisk_overlay(new Uint8Array(fs.readFileSync(image + "ramdisk.img")), RANCHU_25_ARMEABI_V7A);
 const emulator = new V86({
     cpu_type: "arm32", machine_type: "ranchu", cpu_cores: cores, memory_size: memory_mb << 20, log_level: 0, autostart: !restore,
@@ -90,13 +144,15 @@ const emulator = new V86({
     } : {
         // (the ramdisk with the device model's init additions, as the bootloader gives it)
         kernel: { url: image + "kernel-ranchu" }, initrd: { buffer: ramdisk.buffer.slice(ramdisk.byteOffset, ramdisk.byteOffset + ramdisk.length) }, cmdline,
-        ranchu_properties: Object.assign({}, RANCHU_25_ARMEABI_V7A.properties, gpu.properties), ranchu_gpu: gpu.ranchu_gpu,
+        ranchu_properties: properties, ranchu_gpu: gpu.ranchu_gpu,
         // (the device model's clock rate, as the bootloader hands it over; A32_ANDROID_RATE another)
         ...(process.env.A32_PARALLEL === "1" ? {} : { cpu_clock: { rate: Number(process.env.A32_ANDROID_RATE || RANCHU_25_ARMEABI_V7A.clock_rate) } }),
         virtio_disks: [
             { url: image + "system.img", async: true, size: fs.statSync(image + "system.img").size, readonly: true },
             { buffer: make_empty_ext4(64 << 20, "cache", 1595289711).buffer },
             { url: image + "userdata.img", async: true, size: fs.statSync(image + "userdata.img").size },
+            // (dEQP's disk: vdd)
+            ...(deqp ? [{ url: deqp.image, async: true, size: fs.statSync(deqp.image).size, readonly: true }] : []),
         ],
     }),
     net_device: { type: "virtio", relay_url: "fetch" },
@@ -204,21 +260,63 @@ try
     const after = await ask("dumpsys window | grep -E 'mCurrentFocus|mShowingLockscreen'", "A32_AFTER", 600000);
     console.log("after: " + after.replace(/\s+/g, " ").slice(0, 400) + "; frames " + fb.frames);
     const shot = save_png(sink, run_directory, "home");
+    // (A32_ANDROID_PROBE_HOME: likewise, with the home screen up)
+    for(const command of (process.env.A32_ANDROID_PROBE_HOME || "").split(";;").filter(c => c.trim()))
+    {
+        console.log(`probe (home): ${command}\n` + (await ask(command, "A32_PROBE", 600000)).split("\n").slice(1).join("\n").slice(0, 8000));
+    }
+    const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS", 600000)).match(/mCurrentFocus=\S+ \S+ ([^}]+)\}/)?.[1] || "";
+    // (background ANRs are shown, not killed: their dialogs' Wait, found by uiautomator)
+    const dismiss_dialogs = async () =>
+    {
+        for(let i = 0; i < 8 && /Not Responding/.test(await focus()); i++)
+        {
+            const dump = await ask("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; grep -o 'text=\"Wait\"[^>]*bounds=\"[^\"]*\"' /data/local/tmp/ui.xml",
+                "A32_UI", 900000);
+            const m = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(dump);
+            if(!m) break;
+            await ask(`input tap ${(+m[1] + +m[3]) >> 1} ${(+m[2] + +m[4]) >> 1}`, "A32_TAP", 600000);
+        }
+    };
+    // (A32_ANDROID_SCREEN: an activity started, its screen taken: the same
+    // picture in both GPU modes, docs/gles-proxy-plan.md E3's comparison)
+    if(process.env.A32_ANDROID_SCREEN)
+    {
+        await dismiss_dialogs();
+        const started = await ask("am start -W " + process.env.A32_ANDROID_SCREEN, "A32_SCREEN", 900000);
+        console.log("screen: " + started.replace(/\s+/g, " ").slice(-200));
+        await new Promise(resolve => setTimeout(resolve, 60000));
+        await dismiss_dialogs();
+        await new Promise(resolve => setTimeout(resolve, 20000));
+        console.log("screen focus: " + await focus() + "; frames " + fb.frames);
+        save_png(sink, run_directory, "screen");
+        // (the frames a scrolled list draws: swipes up and down for a minute,
+        // the screen's frames counted, in the host's seconds)
+        const events = emulator.v86.cpu.devices.goldfish_events;
+        const swipe = async (y0, y1) =>
+        {
+            events.absolute([fb.width / 2, y0, fb.width, fb.height]);
+            events.click([true]);
+            for(let i = 1; i <= 10; i++)
+            {
+                await new Promise(resolve => setTimeout(resolve, 50));
+                events.absolute([fb.width / 2, y0 + (y1 - y0) * i / 10, fb.width, fb.height]);
+            }
+            events.click([false]);
+            await new Promise(resolve => setTimeout(resolve, 2500));
+        };
+        const frames_before = fb.frames, gles_before = gles_summary(), fps_start = performance.now();
+        for(let i = 0; i < 12; i++) await swipe(i % 2 ? fb.height * 0.3 : fb.height * 0.8, i % 2 ? fb.height * 0.8 : fb.height * 0.3);
+        const fps_seconds = (performance.now() - fps_start) / 1000;
+        const gles_after = gles_summary();
+        console.log(`fps: ${((fb.frames - frames_before) / fps_seconds).toFixed(2)} frames a second over ${fps_seconds.toFixed(0)} s of swipes` +
+            (gles_after ? `; GLES host ${(gles_after.batches.cpu_ms - gles_before.batches.cpu_ms).toFixed(0)} ms of CPU, ` +
+                `${gles_after.batches.batches - gles_before.batches.batches} batches, ${((gles_after.batches.bytes - gles_before.batches.bytes) / 1048576).toFixed(1)} MiB` : ""));
+        save_png(sink, run_directory, "screen-scrolled");
+        await ask("input keyevent 3", "A32_SCREEN_HOME", 600000);
+    }
     if(process.env.A32_ANDROID_APP === "1")
     {
-        const focus = async () => (await ask("dumpsys window | grep mCurrentFocus", "A32_FOCUS", 600000)).match(/mCurrentFocus=\S+ \S+ ([^}]+)\}/)?.[1] || "";
-        // (background ANRs are shown, not killed: their dialogs' Wait, found by uiautomator)
-        const dismiss_dialogs = async () =>
-        {
-            for(let i = 0; i < 8 && /Not Responding/.test(await focus()); i++)
-            {
-                const dump = await ask("uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; grep -o 'text=\"Wait\"[^>]*bounds=\"[^\"]*\"' /data/local/tmp/ui.xml",
-                    "A32_UI", 900000);
-                const m = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(dump);
-                if(!m) break;
-                await ask(`input tap ${(+m[1] + +m[3]) >> 1} ${(+m[2] + +m[4]) >> 1}`, "A32_TAP", 600000);
-            }
-        };
         await dismiss_dialogs();
         // a touch: the hotseat's icons, from the left, until one opens its app
         const home = await focus();
@@ -272,6 +370,98 @@ try
         assert.deepEqual(gles.unknown, {}, "no opcode the GLES host does not know");
         assert.deepEqual(gles.malformed, {}, "every command decoded");
         assert.equal(gles.broken, 0, "no broken stream");
+    }
+    if(process.env.A32_ANDROID_GLES_APP === "1")
+    {
+        const lib = build_native_lib(4096, "v86gles", ["-landroid", "-llog", "-lEGL", "-lGLESv2", "-lGLESv1_CM"],
+            { abi: "armeabi-v7a", source: ROOT + "tests/a32/android/v86gles.c" });
+        const apk = build_apk({ label: "v86 gles", package_name: "org.v86.gles", min_sdk: 21, target_sdk: 25,
+            native: { name: "v86gles", lib, extract: true, abi: "armeabi-v7a" } });
+        const text = apk.toString("base64");
+        await ask("rm -f /data/local/tmp/gles.b64", "A32_RM", 600000);
+        for(let at = 0; at < text.length; at += 768) await ask(`echo ${text.slice(at, at + 768)} >> /data/local/tmp/gles.b64`, "A32_PUT", 600000);
+        const installed = await ask("base64 -d /data/local/tmp/gles.b64 > /data/local/tmp/gles.apk && pm install -r /data/local/tmp/gles.apk", "A32_INSTALL", 900000);
+        assert.match(installed, /Success/, "pm install");
+        await ask("logcat -c; am start -n org.v86.gles/android.app.NativeActivity", "A32_START", 900000);
+        let log = "";
+        for(let i = 0; i < 60 && !/V86_GLES_DONE/.test(log); i++)
+        {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            log = await ask("logcat -d -s v86gles:I", "A32_GLES_LOG", 600000);
+        }
+        console.log(log.split("\n").filter(l => /V86_GLES/.test(l)).join("\n"));
+        assert.match(log, /V86_GLES_DONE/, "the GLES app finished");
+        // each scene's pixels: GL's rows (y from the bottom), RGB within 3
+        const scenes = {};
+        for(const m of log.matchAll(/V86_GLES (\w+)((?: \d+,\d+=\d+,\d+,\d+,\d+)+) glerror=(\w+)/g))
+        {
+            scenes[m[1]] = { error: m[3], pixels: [...m[2].matchAll(/(\d+),(\d+)=(\d+),(\d+),(\d+),(\d+)/g)].map(p => p.slice(3, 6).map(Number)) };
+        }
+        const expect = (scene, colors) =>
+        {
+            const got = scenes[scene];
+            assert.ok(got, "scene " + scene);
+            assert.equal(got.error, "0", scene + ": no GL error");
+            colors.forEach((color, i) => assert.ok(color.every((v, j) => Math.abs(v - got.pixels[i][j]) <= 3),
+                `${scene} pixel ${i}: ${got.pixels[i]} is not ${color}`));
+        };
+        expect("clear", [[0, 255, 0], [255, 0, 0]]);
+        expect("draw", [[128, 0, 128], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 255], [255, 0, 0]]);
+        expect("fbo", [[0, 255, 255], [255, 255, 0], [255, 255, 0]]);
+        expect("etc1", [[138, 138, 138]]);
+        expect("gles1", [[255, 128, 0], [0, 255, 0]]);
+        expect("light", [[128, 128, 128]]);
+        expect("drawtex", [[0, 0, 255], [128, 128, 128]]);
+        save_png(sink, run_directory, "gles-app");
+        console.log("gles app: every scene as GLES draws it");
+    }
+    if(deqp)
+    {
+        // copied in as root (the shell cannot read another filesystem's files), installed, run
+        // (each step on its own: the files then belong to the shell, which pm install's reads need)
+        for(const step of ["mkdir -p /data/local/tmp/deqp-disk", "mount -t ext2 -o ro /dev/block/vdd /data/local/tmp/deqp-disk",
+            "cp /data/local/tmp/deqp-disk/deqp.apk /data/local/tmp/deqp-disk/dEQP-* /data/local/tmp/", "umount /data/local/tmp/deqp-disk",
+            "chown shell:shell /data/local/tmp/deqp.apk /data/local/tmp/dEQP-*", "chmod 644 /data/local/tmp/deqp.apk /data/local/tmp/dEQP-*"])
+        {
+            const out = await ask(`su 0 sh -c '${step}' 2>&1`, "A32_DEQP_COPY", 900000);
+            if(/denied|No such|failed|Invalid/i.test(out)) console.log("dEQP copy: " + out.replace(/\s+/g, " ").slice(-300));
+        }
+        console.log(await ask("ls -l /data/local/tmp | head", "A32_DEQP_LS", 600000));
+        const installed = await ask("pm install -r -g /data/local/tmp/deqp.apk", "A32_DEQP_INSTALL", 1800000);
+        assert.match(installed, /Success/, "dEQP installed");
+        const results = {};
+        const started_deqp = performance.now();
+        for(const chunk of deqp.chunks)
+        {
+            const command_line = `--deqp-caselist-file=/sdcard/deqp-cases.txt --deqp-gl-config-name=rgba8888d24s8ms0 --deqp-surface-type=window ` +
+                `--deqp-screen-rotation=unspecified --deqp-log-images=disable --deqp-log-shader-sources=disable --deqp-watchdog=enable`;
+            await ask(`cp /data/local/tmp/${chunk.name} /sdcard/deqp-cases.txt; rm -f /sdcard/deqp.qpa`, "A32_DEQP_CASES", 600000);
+            const run = await ask(`am instrument -w -e deqpLogFileName /sdcard/deqp.qpa -e deqpCmdLine "${command_line}" -e deqpLogData false ` +
+                `com.drawelements.deqp/com.drawelements.deqp.testercore.DeqpInstrumentation`, "A32_DEQP_RUN", 7200000);
+            const log = await ask("grep -E '^#beginTestCaseResult|StatusCode=|^#endTestCaseResult|^#terminateTestCaseResult' /sdcard/deqp.qpa",
+                "A32_DEQP_LOG", 1200000);
+            let current = null;
+            for(const line of log.split("\n"))
+            {
+                const begin = /^#beginTestCaseResult (\S+)/.exec(line);
+                if(begin) { current = begin[1]; results[current] = "Crash"; continue; }
+                const status = /StatusCode="(\w+)"/.exec(line);
+                if(status && current) results[current] = status[1];
+                const terminated = /^#terminateTestCaseResult (\w+)/.exec(line);
+                if(terminated && current) results[current] = terminated[1];
+            }
+            for(const c of chunk.cases) if(!(c in results)) results[c] = "NotRun";
+            const counts = {};
+            for(const c of chunk.cases) counts[results[c]] = (counts[results[c]] || 0) + 1;
+            console.log(`${chunk.name}: ${JSON.stringify(counts)} (${((performance.now() - started_deqp) / 1000).toFixed(0)} s)` +
+                (/INSTRUMENTATION_FAILED|Process crashed/.test(run) ? " " + run.replace(/\s+/g, " ").slice(-300) : ""));
+            fs.writeFileSync(run_directory + "deqp.json", JSON.stringify(results, null, 1));
+        }
+        const by_status = {};
+        for(const status of Object.values(results)) by_status[status] = (by_status[status] || 0) + 1;
+        const supported = Object.values(results).filter(s => s !== "NotSupported").length;
+        const passed = Object.values(results).filter(s => s === "Pass" || s === "QualityWarning" || s === "CompatibilityWarning").length;
+        console.log(`dEQP: ${JSON.stringify(by_status)}; ${passed} of ${supported} supported cases pass (${(100 * passed / supported).toFixed(1)}%)`);
     }
     console.log(JSON.stringify({ tag, marks, screenshot: shot, cmdline }));
     console.log("A32_ANDROID_BOOT_OK " + tag);

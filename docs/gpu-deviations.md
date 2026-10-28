@@ -75,6 +75,20 @@ G-63 are gfxstream's own.
 | G-62 | gfxstream's device extensions | The model's (Venus's, `venus_device_info.js`) and `VK_KHR_external_memory_fd`, which the guest's driver wants before it offers Android hardware buffers (`HOST_EXTENSIONS` in `gfxstream_vk.js`); `vkCreateDevice` leaves out the extensions the model lacks (ones the guest's driver or gfxstream's host emulate), `VK_KHR_external_memory_fd` among them | `VK_KHR_external_memory_fd` is listed but implemented by nothing (the guest's hardware buffers go through colour buffer imports, G-63); a device asked for an extension the model lacks is made without it (counted in `stats.unimplemented`) |
 | G-63 | gfxstream: Android's buffers | minigbm's buffers are virtio-gpu resources (`RESOURCE_CREATE_3D`, GX surfaces). `VkNativeBufferANDROID` images (in `vkCreateImage`'s chain or at `vkBindImageMemory2`) and `VkImportColorBufferGOOGLE`/`VkImportBufferGOOGLE` memory are the model's resource imports (G-43); AHB format queries are answered as the model's dma-buf ones, with AHB's external memory bits; the swapchain's gralloc usage is `HW_RENDER` and `HW_TEXTURE`; `vkAcquireImageANDROID` signals its semaphore and fence at once | As G-43: every imported resource counts as written by every submission |
 
+## GLES (the ranchu machine's GLES host)
+
+The ranchu machine's GLES host ([gles-proxy-plan.md](gles-proxy-plan.md), `ranchu_gpu: "host"`) stands in for the
+Android emulator's host GPU: what Android 7.1's GLES gets that differs from the emulator on a real GPU.
+
+| Id | Topic | How it is done | Difference from the emulator |
+| --- | --- | --- | --- |
+| G-64 | Points | WebGPU's point list | One pixel each: `gl_PointSize`, `glPointSize`, the point parameters and point sprites' size are not applied |
+| G-65 | Line width | WebGPU's lines | One pixel wide: `glLineWidth` is kept and answered, not applied |
+| G-66 | Depth and stencil apart | A framebuffer with depth and stencil attached as two images is `GL_FRAMEBUFFER_UNSUPPORTED` | WebGPU has one depth-stencil texture; a packed `DEPTH24_STENCIL8_OES` buffer attached to both works |
+| G-67 | Texture formats | Every color texture and color buffer is `rgba8unorm`; 565, 4444, 5551, `LUMINANCE`, `LUMINANCE_ALPHA`, `ALPHA` and BGRA are converted when uploaded, ETC1 decoded | Reads give the 8-bit values; no compressed format besides ETC1 |
+| G-68 | GLES versions and host features | GLES 2.0 and 1.1; no `ANDROID_EMU_*` host feature strings (no checksums, native sync, DMA or GLES 3) | The guest's HostConnection logs "Unrecognized GLES max version string" once per connection and takes GLES 2 |
+| G-69 | Snapshots | Color buffers, window surfaces, textures and color renderbuffers are read back into the snapshot | Depth and stencil contents are not kept (WebGPU cannot copy `depth24plus` out): cleared after a restore |
+
 ## Not done
 
 | Topic | State |

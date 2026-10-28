@@ -656,21 +656,25 @@ const PIPE_WAKE_WRITE = 4;
 /**
  * A pipe's service: write(bytes) what the guest wrote, read(max) at most
  * max bytes for the guest (null: none now), available() whether there are
- * any, close() the guest closed the channel
- * @typedef {{write: function(!Uint8Array), read: function(number): ?Uint8Array, available: function(): boolean, close: function()}}
+ * any, close() the guest closed the channel; get_state() what a snapshot
+ * keeps of it (without one, its channel is closed at the restore)
+ * @typedef {{write: function(!Uint8Array), read: function(number): ?Uint8Array, available: function(): boolean, close: function(),
+ *     get_state: (function(): *|undefined)}}
  */
 export let PipeService;
 
 /**
  * A qemud service over a pipe: framed messages (four hex digits of length, then the bytes)
  * @param {function(string): (!Array<string>|undefined)} answer the frames to send back for one received
+ * @param {*=} saved its state in a snapshot
  * @return {!PipeService}
  */
-function qemud_service(answer)
+function qemud_service(answer, saved)
 {
-    let input = new Uint8Array(0);
-    let output = new Uint8Array(0);
+    let input = saved ? saved[0] : new Uint8Array(0);
+    let output = saved ? saved[1] : new Uint8Array(0);
     return {
+        get_state: () => [input.slice(), output.slice()],
         write(bytes)
         {
             const joined = new Uint8Array(input.length + bytes.length);
@@ -716,9 +720,10 @@ function qemud_service(answer)
  * @param {number} base
  * @param {number} intid
  * @param {!Object<string, string>} properties the boot properties (qemu-props sets them)
- * @param {(function(string, function()): ?PipeService)=} services the machine's
- *     other services: a name and the call that wakes the channel's reader
- *     (bytes became readable later) to the service, or null
+ * @param {(function(string, function(), *=): ?PipeService)=} services the machine's
+ *     other services: a name, the call that wakes the channel's reader
+ *     (bytes became readable later) and at a restore the service's state,
+ *     to the service, or null
  */
 export function GoldfishPipe(cpu, base, intid, properties, services)
 {
@@ -760,19 +765,20 @@ GoldfishPipe.prototype.update_irq = function()
  * The service a pipe's name connects it to, or null
  * @param {string} name
  * @param {function()} wake
+ * @param {*=} saved the service's state in a snapshot
  * @return {?PipeService}
  */
-GoldfishPipe.prototype.connect = function(name, wake)
+GoldfishPipe.prototype.connect = function(name, wake, saved)
 {
     if(name === "qemud:boot-properties")
     {
         return qemud_service(message => message === "list" ?
-            [...Object.entries(this.properties).map(([key, value]) => key + "=" + value), "\0"] : []);
+            [...Object.entries(this.properties).map(([key, value]) => key + "=" + value), "\0"] : [], saved);
     }
     // (sensors.ranchu: no sensors; lights, vibrator and power: ignored)
-    if(name === "qemud:sensors") return qemud_service(message => message === "list-sensors" ? ["0"] : []);
-    if(name === "qemud:hw-control") return qemud_service(() => []);
-    return this.services(name, wake);
+    if(name === "qemud:sensors") return qemud_service(message => message === "list-sensors" ? ["0"] : [], saved);
+    if(name === "qemud:hw-control") return qemud_service(() => [], saved);
+    return this.services(name, wake, saved);
 };
 
 GoldfishPipe.prototype.read = function(offset)
@@ -906,14 +912,36 @@ GoldfishPipe.prototype.wake_reader = function(pipe)
     }
 };
 
-// (a snapshot keeps no channels: the services' clients see their pipes closed)
-GoldfishPipe.prototype.get_state = function() { return [...this.pipes.keys()]; };
-GoldfishPipe.prototype.set_state = function(channels)
+// A snapshot keeps each channel with its service's state (docs/gles-proxy-plan.md
+// E5); a channel whose service keeps none is closed at the restore (its client
+// sees its pipe closed), as every channel was before (a list of channels)
+const PIPE_STATE_VERSION = 2;
+
+GoldfishPipe.prototype.get_state = function()
+{
+    return [PIPE_STATE_VERSION, [...this.pipes].map(([channel, p]) => [channel, p.name, new Uint8Array(p.pending), p.wake_read, p.wakes, p.closed,
+        p.service && p.service.get_state ? p.service.get_state() : null])];
+};
+
+GoldfishPipe.prototype.set_state = function(state)
 {
     this.reset();
-    for(const channel of channels || [])
+    const saved = state && state[0] === PIPE_STATE_VERSION && Array.isArray(state[1]) ? state[1] :
+        (state || []).map(channel => [channel, "", null, false, PIPE_WAKE_CLOSED, true, null]);
+    for(const [channel, name, pending, wake_read, wakes, closed, service_state] of saved)
     {
-        this.pipes.set(channel, { name: "", pending: [], service: null, wake_read: false, wakes: PIPE_WAKE_CLOSED, closed: true });
+        // (a channel whose name is not whole yet goes on with its bytes)
+        const pipe = { name, pending: pending ? [...pending] : [], service: null, wake_read, wakes, closed };
+        if(name && !closed)
+        {
+            pipe.service = service_state === null ? null : this.connect(name, () => this.wake_reader(pipe), service_state);
+            if(!pipe.service)
+            {
+                pipe.closed = true;
+                pipe.wakes |= PIPE_WAKE_CLOSED;
+            }
+        }
+        this.pipes.set(channel, pipe);
     }
     this.update_irq();
 };

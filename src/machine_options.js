@@ -177,6 +177,15 @@ export function check_machine_options(options)
     {
         throw new Error("ranchu_gpu must be \"guest\" or \"host\", got " + JSON.stringify(options["ranchu_gpu"]));
     }
+    // (the GLES backdoor of arm32's user code, docs/gles-proxy-plan.md "iOS 传输": the iOS machine's, the virt machine's in tests)
+    if(options["gles_backdoor"] !== undefined && typeof options["gles_backdoor"] !== "boolean")
+    {
+        throw new Error("gles_backdoor must be a boolean, got " + JSON.stringify(options["gles_backdoor"]));
+    }
+    if(options["gles_backdoor"] && (cpu_type !== "arm32" || machine_type !== "virt"))
+    {
+        throw new Error("gles_backdoor is an option of cpu_type \"arm32\" on machine_type \"virt\"");
+    }
     if(arm !== ARM_MACHINE_TYPES.includes(machine_type))
     {
         throw new Error("cpu_type \"" + cpu_type + "\" does not run on machine_type \"" + machine_type + "\": " +

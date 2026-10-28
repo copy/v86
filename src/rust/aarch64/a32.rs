@@ -1339,7 +1339,9 @@ pub fn execute_fetched(word: u32, length: u32, pc: u32, thumb: bool) -> Result<F
 pub fn interpret_one(address: u64) -> Flow {
     let thumb = thumb();
     unsafe { INSTRUCTION_LENGTH = if thumb { 2 } else { 4 } };
+    let mut fetched = 0;
     let result = fetch(address, thumb).and_then(|(word, length)| {
+        fetched = word;
         unsafe { INSTRUCTION_LENGTH = length };
         if unsafe { crate::aarch64::jit::pages::A32_TRACE } && crate::aarch64::cpu::el() == 0 {
             crate::aarch64::jit::pages::a32_trace(1, address as u32, word);
@@ -1384,6 +1386,15 @@ pub fn interpret_one(address: u64) -> Flow {
             }
             take_sync(exception);
             Flow::Set
+        },
+        // (the GLES backdoor's UDF: a call, answered in r0, crate::aarch64::backdoor)
+        Err(Exception::Undefined) if crate::aarch64::backdoor::call(fetched, length, thumb) => {
+            crate::core_stats::add_pending(1, 0);
+            set_pc((address as u32).wrapping_add(length) as u64);
+            if thumb {
+                crate::aarch64::t32::it_advance();
+            }
+            Flow::Next
         },
         Err(exception) => {
             take_sync(exception);

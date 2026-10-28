@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GLES executor: a recorded boot replayed</title>
+<pre id="result">RUNNING</pre>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+// A boot's GLES batches as the GLES host sent them (tests/a32/android_boot.mjs
+// with A32_ANDROID_GPU=host records them: each a u32 length, then the batch),
+// run through the GLES executor on a real GPU (docs/gles-proxy-plan.md E3).
+// Every post's frame is kept; the last one, and every tenth, go to
+// build/browser-test-output/ as PNGs (gles-replay-<n>.png). PASS: every
+// batch ran without the executor's or WebGPU's errors, and a frame was posted.
+// ?batches=<path from the repository's root>
+const result = document.getElementById("result");
+const params = new URLSearchParams(location.search);
+
+/** RGBA rows from the top as a PNG */
+async function png(rgba, width, height)
+{
+    const canvas = new OffscreenCanvas(width, height);
+    canvas.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
+    return new Uint8Array(await (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer());
+}
+const save = (name, bytes) => fetch("/__test_file?name=" + name, { method: "POST", body: bytes });
+
+(async () => {
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+        const errors = [];
+        device.onuncapturederror = e => { if(errors.length < 20) errors.push(e.error.message); };
+        const executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
+        const bytes = new Uint8Array(await (await fetch("../../" + params.get("batches"))).arrayBuffer());
+        const frames = [];
+        let at = 0, batches = 0;
+        const started = performance.now();
+        while(at < bytes.length)
+        {
+            const length = new DataView(bytes.buffer, at, 4).getUint32(0, true);
+            await executor.submit(bytes.slice(at + 4, at + 4 + length), {
+                writeResponse: () => {},
+                frame: (rgba, width, height) => frames.push({ rgba, width, height, batch: batches }),
+            });
+            at += 4 + length;
+            batches++;
+        }
+        await device.queue.onSubmittedWorkDone();
+        const ms = performance.now() - started;
+        for(let i = 0; i < frames.length; i++)
+        {
+            if(i % 10 && i !== frames.length - 1) continue;
+            const f = frames[i];
+            await save(`gles-replay-${i === frames.length - 1 ? "last" : i}.png`, await png(f.rgba, f.width, f.height));
+        }
+        const stats = JSON.stringify(executor.stats);
+        const ok = !executor.stats.errors.length && !errors.length && frames.length;
+        result.textContent = (ok ? "PASS " : "FAIL ") + `${batches} batches, ${frames.length} frames in ${ms.toFixed(0)} ms\n${stats}\n` +
+            errors.join("\n");
+    } catch(error) {
+        result.textContent = "FAIL " + (error && error.stack || error);
+    }
+})();
+</script>

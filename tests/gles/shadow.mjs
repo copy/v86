@@ -369,3 +369,92 @@ const sent = () => { host.flush(); return renderer.records().filter(r => r.name 
     void send;
     console.log("PASS: GLES 1.1");
 }
+
+// ---- GLES 1.1's fixed-function state
+
+{
+    const context1 = (await call("rcCreateContext", 3, 0, 1)).ret;
+    await call("rcMakeCurrent", context1, surface, surface);
+    const e1 = async () => (await call("gles1:glGetError")).ret;
+    const getf = async (pname, n) => f32s((await call("gles1:glGetFloatv", pname, 4 * n)).outs[0]);
+    // matrices: the stacks' depths and their errors
+    assert.deepEqual(await getf(0x0BA6, 16), [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], "GL_MODELVIEW_MATRIX: the identity");
+    await call("gles1:glTranslatef", 1, 2, 3);
+    await call("gles1:glScalef", 2, 2, 2);
+    assert.deepEqual(await getf(0x0BA6, 16), [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 1, 2, 3, 1], "translate, then scale");
+    await call("gles1:glMatrixMode", 0x1701);
+    await call("gles1:glPushMatrix");
+    await call("gles1:glPushMatrix");
+    assert.equal(await e1(), 0x0503, "GL_STACK_OVERFLOW: the projection stack holds 2");
+    await call("gles1:glPopMatrix");
+    await call("gles1:glPopMatrix");
+    assert.equal(await e1(), 0x0504, "GL_STACK_UNDERFLOW");
+    await call("gles1:glOrthof", 0, 1, 0, 1, 1, 1);
+    assert.equal(await e1(), 0x0501, "an orthographic projection with near = far");
+    await call("gles1:glFrustumx", -65536, 65536, -65536, 65536, 65536, 10 * 65536);
+    const frustum = await getf(0x0BA7, 16);
+    assert.ok(Math.abs(frustum[0] - 1) < 1e-6 && frustum[11] === -1, "glFrustumx: 16.16 arguments");
+    await call("gles1:glMatrixMode", 0x1234);
+    assert.equal(await e1(), 0x0500);
+    await call("gles1:glMatrixMode", 0x1700);
+    // a light's position in eye coordinates: the modelview when it was set
+    await call("gles1:glLoadIdentity");
+    await call("gles1:glTranslatef", 0, 0, -5);
+    await call("gles1:glLightfv", 0x4001, 0x1203, floats([1, 0, 0, 1]));
+    assert.deepEqual(f32s((await call("gles1:glGetLightfv", 0x4001, 0x1203, 16)).outs[0]), [1, 0, -5, 1]);
+    await call("gles1:glLightf", 0x4001, 0x1206, 120);
+    assert.equal(await e1(), 0x0501, "a spot cutoff of 120 degrees");
+    assert.deepEqual(f32s((await call("gles1:glGetLightfv", 0x4000, 0x1201, 16)).outs[0]), [1, 1, 1, 1], "light 0's diffuse: white");
+    assert.deepEqual(f32s((await call("gles1:glGetLightfv", 0x4001, 0x1201, 16)).outs[0]), [0, 0, 0, 1], "the others': black");
+    // the material: front and back together
+    await call("gles1:glMaterialfv", 0x0404, 0x1201, floats([1, 0, 0, 1]));
+    assert.equal(await e1(), 0x0500, "GLES 1.1 sets both faces only");
+    await call("gles1:glMaterialx", 0x0408, 0x1601, 64 * 65536);
+    assert.deepEqual(f32s((await call("gles1:glGetMaterialfv", 0x0405, 0x1601, 4)).outs[0]), [64], "GL_SHININESS by its 16.16");
+    // texture environments: per unit, enums as themselves in the fixed form
+    await call("gles1:glActiveTexture", 0x84C1);
+    await call("gles1:glTexEnvx", 0x2300, 0x2200, 0x8570);
+    assert.deepEqual(i32s((await call("gles1:glGetTexEnviv", 0x2300, 0x2200, 4)).outs[0]), [0x8570], "unit 1: GL_COMBINE");
+    await call("gles1:glActiveTexture", 0x84C0);
+    assert.deepEqual(i32s((await call("gles1:glGetTexEnviv", 0x2300, 0x2200, 4)).outs[0]), [0x2100], "unit 0: GL_MODULATE still");
+    await call("gles1:glTexEnvi", 0x2300, 0x8573, 3);
+    assert.equal(await e1(), 0x0501, "GL_RGB_SCALE: 1, 2 or 4");
+    // fog, the alpha test, the shade model
+    await call("gles1:glFogx", 0x0B65, 0x2601);
+    await call("gles1:glFogf", 0x0B62, -1);
+    assert.equal(await e1(), 0x0501, "a negative fog density");
+    assert.deepEqual(i32s((await call("gles1:glGetIntegerv", 0x0B65, 4)).outs[0]), [0x2601], "GL_FOG_MODE: GL_LINEAR");
+    await call("gles1:glAlphaFunc", 0x0204, 2);
+    assert.deepEqual(await getf(0x0BC2, 1), [1], "the alpha reference clamped to 1");
+    await call("gles1:glShadeModel", 0x1D00);
+    assert.deepEqual(i32s((await call("gles1:glGetIntegerv", 0x0B54, 4)).outs[0]), [0x1D00]);
+    // a clip plane in eye coordinates: the inverse modelview's
+    await call("gles1:glClipPlanef", 0x3000, floats([0, 0, 1, 0]));
+    assert.deepEqual(f32s((await call("gles1:glGetClipPlanef", 0x3000, 16)).outs[0]), [0, 0, 1, 5], "z = 0 in object space is z = -5 in eye space");
+    // client arrays: glEnableClientState's, not glEnable's; their pointers
+    await call("gles1:glEnable", 0x8074);
+    assert.equal(await e1(), 0x0500, "GL_VERTEX_ARRAY is not glEnable's");
+    await call("gles1:glEnableClientState", 0x8074);
+    assert.equal((await call("gles1:glIsEnabled", 0x8074)).ret, 1);
+    await call("gles1:glVertexPointerData", 1, 0x1406, 0, floats([0, 0]), 8);
+    assert.equal(await e1(), 0x0501, "a vertex array of size 1");
+    await call("gles1:glColorPointerData", 3, 0x1401, 0, new Uint8Array(3), 3);
+    assert.equal(await e1(), 0x0501, "a color array of size 3");
+    await call("gles1:glClientActiveTexture", 0x84C1);
+    await call("gles1:glTexCoordPointerOffset", 2, 0x140C, 8, 0);
+    assert.deepEqual(i32s((await call("gles1:glGetIntegerv", 0x8088, 4)).outs[0]), [2], "unit 1's texture coordinates: size 2");
+    assert.deepEqual(i32s((await call("gles1:glGetIntegerv", 0x84E1, 4)).outs[0]), [0x84C1], "GL_CLIENT_ACTIVE_TEXTURE");
+    // the texture enable is per unit
+    await call("gles1:glEnable", 0x0DE1);
+    await call("gles1:glActiveTexture", 0x84C1);
+    assert.equal((await call("gles1:glIsEnabled", 0x0DE1)).ret, 0, "GL_TEXTURE_2D off on unit 1");
+    await call("gles1:glActiveTexture", 0x84C0);
+    assert.equal((await call("gles1:glIsEnabled", 0x0DE1)).ret, 1, "on on unit 0");
+    // the current values; draw_texture's checks
+    await call("gles1:glColor4ub", 255, 0, 51, 255);
+    assert.deepEqual(await getf(0x0B00, 4), [1, 0, 0.2, 1].map(Math.fround));
+    await call("gles1:glDrawTexiOES", 0, 0, 0, 0, 4);
+    assert.equal(await e1(), 0x0501, "a draw_texture rectangle of width 0");
+    assert.equal(await e1(), 0);
+    console.log("PASS: GLES 1.1's fixed-function state");
+}

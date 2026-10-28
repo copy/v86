@@ -274,8 +274,15 @@ const bytes_at = (address, length) => cpu.read_blob_physical(address, length);
     assert.equal(command(8, 4, text("pipe:camera\0")), -1, "an unknown service is refused");
     assert.equal(command(8, 2), 0, "CLOSE");
     assert.equal(command(8, 3), -1, "a closed channel is gone");
-    // (a snapshot: the channels come back closed)
+    // (a snapshot: the channels come back with their services' state,
+    // docs/gles-proxy-plan.md E5; one of the old kind, channels only, closed)
     pipe.set_state(pipe.get_state());
+    assert.equal(levels.get(SPI(7)) || false, false, "no wakes");
+    assert.equal(command(7, 3), 2, "POLL: writable, nothing to read");
+    assert.equal(command(7, 4, text("0004list")), 8, "the service goes on");
+    assert.equal(command(7, 3), 1 | 2, "readable again");
+    assert.ok(command(7, 6, null, 4096) > 0);
+    pipe.set_state([7]);
     assert.equal(levels.get(SPI(7)), true);
     assert.equal(pipe.read(0x08), 7);
     assert.equal(pipe.read(0x14), 1, "PIPE_WAKE_CLOSED");

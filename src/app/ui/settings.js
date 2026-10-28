@@ -85,7 +85,8 @@ export function hardware_items(c)
         remove: next => { next.filesystem = null; } });
     if(c.kernel) items.push({ id: "kernel", label: "Direct boot", summary: c.kernel.bzimage ? describe_image(c.kernel.bzimage) : "kernel not chosen", panel: direct_boot_panel,
         remove: next => { next.kernel = null; } });
-    if(c.android) items.push({ id: "android", label: "Android", summary: ({ venus: "Venus", gfxstream: "gfxstream" }[c.android.gpu_mode] || "SwiftShader") +
+    if(c.android) items.push({ id: "android", label: "Android", summary: ({ venus: "Venus", gfxstream: "gfxstream", host: "host GPU", guest: "CPU" }[c.android.gpu_mode] ||
+        (/^ranchu_/.test(c.android.device) ? "CPU" : "SwiftShader")) +
         (c.android.vendor_ramdisk === "debug" ? ", debug ramdisk" : ""), panel: android_panel, remove: next => { next.android = null; } });
     if(virt) items.push({ id: "virt", label: "virt devices", summary: c.virt.transport + (c.virt.vsock ? ", vsock" : ""), panel: virt_panel, remove: null });
     items.push({ id: "advanced", label: "Advanced", summary: c.advanced.cpu_worker ? "CPU in a Worker" : "CPU in the page", panel: advanced_panel, remove: null });

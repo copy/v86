@@ -228,7 +228,7 @@ export const PRESETS = [
             "armeabi-v7a-25_r18.zip), made into a disk: its kernel, ramdisk, system, cache and userdata (docs/android-images-plan.md I6)",
         disk_mb: 4 * GB, disk_location: "browser", checklist: [],
         issues: ["Only with the page tier, in the CPU Worker", "The first boot takes about 7 minutes on 2 cores",
-            "The guest draws with the CPU (no host GPU): a slow desktop",
+            "The host's GPU draws through WebGPU (docs/gles-proxy-plan.md); without WebGPU the guest's CPU draws, slowly",
             "The guest's clock runs at a tenth of the host's, so that Android's timeouts suit this CPU", "No sound"],
         hardware: c =>
         {
@@ -240,7 +240,8 @@ export const PRESETS = [
             c.display.adapter = "none";
             c.sound.device = "none";
             c.network = [{ device: "virtio", backend: "fetch", relay_url: "", mtu: 1500, mac_address_translation: false }];
-            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
+            // (the host's GPU draws its GLES: the CPU when the page has no WebGPU, src/app/ui/console.js)
+            c.android = { device: "ranchu_25_armeabi_v7a", gpu_mode: "host", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing", display: "device" };
         },
     },
     {

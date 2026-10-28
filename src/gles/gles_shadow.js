@@ -21,6 +21,8 @@
 import { GL, CAPS_1, CAPS_2, RENDERBUFFER_FORMATS, etc1_bytes, image_bytes, texel_bytes, texture_format_error, texture_kind } from "./gles_formats.js";
 import { CONFIG_ATTRIBUTES, COMPRESSED_TEXTURE_FORMATS, EGL, GL_STATE, MAX_SIZE } from "./gles_caps.js";
 import { compile_shader, link_program } from "./glsl_es.js";
+import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
+import { relink } from "./gles_snapshot.js";
 
 const MAX_ATTRIBS = 16;
 const MAX_UNITS = 32;
@@ -138,6 +140,8 @@ function Context(api, group)
     this.renderbuffer = 0;
     this.program = 0;
     this.attribs = Array.from({ length: MAX_ATTRIBS }, new_attrib);
+    /** GLES 1.1's fixed-function state (src/gles/gles1_state.js) */
+    this.ff = api === 1 ? new_ff_state() : null;
 }
 
 /** @param {number} target @return {number} the binding slot of a texture target, -1 for none */
@@ -241,9 +245,29 @@ export function GLESShadow(rc)
     this.keep = true;
     /** the name glCreateShader or glCreateProgram gives (the page's: the CPU side's answer), 0: a fresh one */
     this.given_name = 0;
+    /** the commands both versions share (GLES 1.1's fixed forms call them) */
+    this.handlers = HANDLERS;
     /** shaders compiled and programs linked; the logs of the first failures */
-    this.stats = { compiled: 0, compile_failed: 0, linked: 0, link_failed: 0, failures: [] };
+    this.stats = { compiled: 0, compile_failed: 0, linked: 0, link_failed: 0, failures: [], compile_ms: 0 };
 }
+
+/** The classes of the shadow's objects, for a snapshot's packing (gles_snapshot.js) */
+export const SHADOW_CLASSES = { "ShareGroup": ShareGroup.prototype, "Context": Context.prototype };
+
+/** What a snapshot keeps (packed with SHADOW_CLASSES and shadow_skip, gles_snapshot.js) */
+GLESShadow.prototype.get_state = function()
+{
+    return { contexts: this.contexts, groups: this.groups, stats: this.stats };
+};
+
+/** @param {{contexts: !Map, groups: !Map, stats: !Object}} state get_state's, unpacked */
+GLESShadow.prototype.set_state = function(state)
+{
+    this.contexts = state.contexts;
+    this.groups = state.groups;
+    this.stats = state.stats;
+    relink(this.groups);
+};
 
 /**
  * @param {number} handle
@@ -306,7 +330,8 @@ GLESShadow.prototype.call = function(handle, command, args)
 {
     const context = this.contexts.get(handle);
     if(!context) return { ret: 0, keep: false };
-    const handler = HANDLERS[command.name] || HANDLERS[command.name.replace(/OES$/, "")];
+    const name = command.name, base = name.replace(/OES$/, "");
+    const handler = context.api === 1 && (GLES1_HANDLERS[name] || GLES1_HANDLERS[base]) || HANDLERS[name] || HANDLERS[base];
     this.keep = true;
     if(!handler)
     {
@@ -498,9 +523,12 @@ function get(as)
     return (shadow, c, [pname, params]) =>
     {
         query(shadow);
+        const own = c.api === 1 ? gles1_state_value(c, pname) : null;
+        if(own) return put(params, own[0], as, own[1]);
         const value = shadow.state_value(c, pname);
         if(!value) return fail(c, GL.INVALID_ENUM);
         put(params, value, as, STATE_KIND.get(pname) || "i");
+        return undefined;
     };
 }
 
@@ -1164,7 +1192,7 @@ const HANDLERS = {
     {
         if(type !== GL.VERTEX_SHADER && type !== GL.FRAGMENT_SHADER) { fail(c, GL.INVALID_ENUM); return 0; }
         const name = shadow.given_name || c.group.fresh("object", c.group.objects);
-        c.group.objects.set(name, { kind: "shader", type, source: null, compiled: null, deleted: false, attached: 0 });
+        c.group.objects.set(name, { kind: "shader", type, source: null, compiled: null, compiled_source: null, deleted: false, attached: 0 });
         return name;
     },
     "glCreateProgram": (shadow, c) =>
@@ -1184,7 +1212,11 @@ const HANDLERS = {
     {
         const shader = object_of(c, name, "shader");
         if(!shader) return REFUSED;
-        shader.compiled = compile_shader(shader.source || "", shader.type === GL.VERTEX_SHADER ? "vertex" : "fragment");
+        // (the source compiled: a snapshot compiles it again, gles_snapshot.js)
+        shader.compiled_source = shader.source || "";
+        const start = performance.now();
+        shader.compiled = compile_shader(shader.compiled_source, shader.type === GL.VERTEX_SHADER ? "vertex" : "fragment");
+        shadow.stats.compile_ms += performance.now() - start;
         shadow.stats.compiled++;
         if(!shader.compiled.ok)
         {
@@ -1243,7 +1275,12 @@ const HANDLERS = {
         if(!program) return REFUSED;
         const shader = type => [...program.shaders].map(s => c.group.objects.get(s)).find(s => s.type === type);
         const vs = shader(GL.VERTEX_SHADER), fs = shader(GL.FRAGMENT_SHADER);
+        const start = performance.now();
         program.info = link_program(vs && vs.compiled, fs && fs.compiled, new Map(program.bindings));
+        shadow.stats.compile_ms += performance.now() - start;
+        // (what was linked: a snapshot links it again)
+        program.link = { vs: vs && vs.compiled ? vs.compiled_source : null, fs: fs && fs.compiled ? fs.compiled_source : null,
+            bindings: [...program.bindings] };
         program.linked_once = true;
         shadow.stats.linked++;
         if(!program.info.ok)
@@ -1370,6 +1407,32 @@ const HANDLERS = {
     // (no binary formats: GL_NUM_SHADER_BINARY_FORMATS is 0)
     "glShaderBinary": (shadow, c) => fail(c, GL.INVALID_ENUM),
     "glUnmapBufferOES": shadow => { query(shadow); return 1; },
+};
+
+/**
+ * GLES 1.1's commands (src/gles/gles1_state.js), and the shared ones whose
+ * rules differ: glEnable's texture targets are per unit, its client arrays
+ * are glEnableClientState's (glIsEnabled answers both)
+ */
+const GLES1_HANDLERS = gles1_handlers(fail, query);
+for(const [name, enable] of [["glEnable", true], ["glDisable", false]])
+{
+    GLES1_HANDLERS[name] = (shadow, c, [cap]) =>
+    {
+        if(cap === GL.TEXTURE_2D || cap === GL.TEXTURE_EXTERNAL_OES)
+        {
+            c.ff.texture_enabled[c.active_texture][cap] = enable;
+            return undefined;
+        }
+        if(CLIENT_ARRAYS[cap]) return fail(c, GL.INVALID_ENUM);
+        return HANDLERS[name](shadow, c, [cap]);
+    };
+}
+GLES1_HANDLERS["glIsEnabled"] = (shadow, c, [cap]) =>
+{
+    const own = gles1_state_value(c, cap);
+    if(own && own[1] === "b") { query(shadow); return own[0][0] ? 1 : 0; }
+    return HANDLERS["glIsEnabled"](shadow, c, [cap]);
 };
 
 /** A draw of elements' checks; `indices` whether there are any (a buffer bound or the data sent) */

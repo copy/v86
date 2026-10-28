@@ -116,7 +116,8 @@
 | `src/virt/goldfish.js` | goldfish pipe 新增两个服务：`opengles`（连接开始的客户端标志，之后是流；回复可读时唤醒客体），`GLProcessPipe`（进程号，逻辑与 gfxstream 已有的进程管道共用） |
 | `src/gles/backdoor_a32.js` | iOS 与 Linux 测试用的传输：用户态后门指令与进程内的环 |
 | `src/rust/aarch64/a32.rs` | 选项开启时，PL0 的两条后门 `UDF` 不进未定义指令异常，而是调用 JS 的后门处理；页层把它们当作步进，不编进原生代码 |
-| `src/browser/glbridge/gl-webgpu/` | 新增 `gles_executor.js`（批次 → WebGPU，调用共用的函数）、`gles_textures.js`（ETC1、PVRTC 的解码与 ETC2 直传）；`gl_shader_translator.js` 增加 GLSL ES 1.00 方言；`gl_executor.js` 原则上不动 |
+| `src/gles/page/` | 页面上的 GLES 执行器（E3）：`gles_executor.js`（批次 → WebGPU，运行同一个影子状态机）、`gles_textures.js`（格式展开成 RGBA8、ETC1 解码；PVRTC 在 iOS 时加）；`tools/build_glbridge.mjs` 用 esbuild 把它们打进 `libv86-webgpu.js`，GLSL 前端用包里已有的那份。ES 模块，所以不放在 `src/browser/glbridge/`（那里是 CommonJS 脚本） |
+| `src/browser/glbridge/gl-webgpu/` | `gl_shader_translator.js` 增加 GLSL ES 1.00 方言（E2）；`gl_executor.js` 不动 |
 | `src/browser/glbridge/svga_renderer.js` | 渲染器增加 stream `"gles"` |
 | `src/virt/ranchu.js`、`src/android/devices.js`、`src/apple/` | 机器拿到渲染器通道（现在只有显示适配器插件有，这两台机器的 `graphics_adapter` 是 `"none"`）；ranchu 的 GPU 模式，见“Android 传输”中的“启用” |
 
@@ -349,6 +350,21 @@ pipe 版本 2。剩下的：
 - 截图与 `"guest"` 模式（`qemu.gles=0`）的软件绘制结果做结构相似度比较（字体与抗锯齿允许差异）；
 - E2 录下的批次在浏览器测试中重放，像素与参考一致。
 
+做法（2026-10-28）：
+- **执行器**（`src/gles/page/gles_executor.js`，打进 `libv86-webgpu.js`）对收到的命令跑同一个影子状态机，再做 GPU 的
+  部分：纹理（整条 mip 链，第 0 级换尺寸时重建并拷回已有级别）、缓冲（字节留在页面）、渲染缓冲、FBO、绘制（顶点在
+  CPU 上组装成 f32，索引成 u32，扇形与线环展开）、着色器（链接时的 WGSL，按入口可达的绑定建布局，同
+  `gl_executor.js` 的 `collectReachableWgslBindings`）、清除（带遮罩与剪裁时画一个四边形）、混合、深度与模板。
+  采样正被渲染的纹理（反馈回路）时换成占位纹理。GPU 对象的销毁推迟到批次提交之后。
+- **方向**：GL 的绘制保留翻译器的翻转（行 0 是 GL 的底行）；颜色缓冲按 Android 的内存顺序（行 0 在上）。窗口表面画进
+  自己的纹理，`rcFlushWindowColorBuffer` 时翻转拷进颜色缓冲（同 gfxstream 的 pbuffer）。`rcBindTexture` 的纹理、EGL
+  图像的纹理直接采样或写入颜色缓冲本身，所以图集上传（`glTexSubImage2D`）落在颜色缓冲里。
+- **呈现**：有合成器层时 `rcFBPost` 把颜色缓冲拷进层；否则读回（同时只读一帧，最新的赢）交给 CPU 侧，ranchu 的帧缓冲
+  设备显示它。
+- **重放**：`tests/glbridge/gles_replay_browser_test.html?batches=<录制>` 在浏览器里重放一次启动的批次并存下每帧。
+- **真 GPU 的启动**：`A32_ANDROID_RENDERER=chrome` 让 `android_boot.mjs` 的渲染器通道连到无头 Chrome 的 WebGPU
+  （`tests/gles/chrome_renderer.mjs`），截图就是 SurfaceFlinger 的帧。
+
 ### E4 GLES 1.1 与兼容性
 
 - GLESv1 解码与固定功能；
@@ -379,6 +395,18 @@ pipe 版本 2。剩下的：
   - 两个游戏的版本固定在 F-Droid 上支持 API 25 与 armeabi-v7a 的构建，E0 核对。下载前征得所有者同意。
   - 验收：自建 APK 的像素与参考一致；两个游戏能进入游戏画面并操作一分钟。
 
+做法（2026-10-28）：
+- **GLES 1.1**：固定功能的状态在影子里（`src/gles/gles1_state.js`：矩阵栈、光照与材质、纹理环境与 combine、雾、点、
+  裁剪平面、客户端数组、`draw_texture` 的裁剪矩形，以及它们的查询与错误）。页面（`src/gles/page/gles1_draw.js`）把它
+  换成 gl-webgpu 固定功能生成器的签名与状态块（XP 路径的 `gl_fixed_function.js` 与 `gl_state_layout.js`，原样共用），
+  顶点来自客户端数组或当前值；`glDrawTex*OES` 画屏幕对齐的矩形。GLES 1.1 的扩展串去掉了没实现的 `GL_OES_texture_cube_map`。
+- **自建 APK**（`tests/a32/android/v86gles.c`，`A32_ANDROID_GLES_APP=1`）：NativeActivity 在一个窗口表面上先后用
+  GLES 2.0 与 1.1 的上下文画清除、三角与扇形、FBO、ETC1、固定功能的颜色与纹理、光照、`draw_texture`，每个场景用
+  `glReadPixels` 读几个点写进日志，测试按 GL 的规则核对。
+- **dEQP**（`A32_ANDROID_DEQP=1`）：`tools/a32_cts.mjs` 按字节范围只取 CTS 7.1_r29 里 dEQP 的 APK 与用例表；子集是全部
+  `state_query` 与 `negative_api`、`dEQP-EGL.info`，以及其余 functional 每九个取一个，放在第四块 virtio 盘（ext2）上，
+  `su` 拷进 `/data/local/tmp` 后安装，由它的 instrumentation 分批运行，结果写进 `deqp.json`。
+
 ### E5 性能、快照与界面
 
 - **性能**：批次大小、在途批次的上限、影子状态覆盖率、上传路径、pipe 版本 2（镜像的内核已经支持）；
@@ -394,6 +422,21 @@ pipe 版本 2。剩下的：
   [gpu-deviations.md](gpu-deviations.md)。
 
 验收：快照往返后画面与状态一致；性能报告写进文档。
+
+做法（2026-10-28）：
+- **快照**（`src/gles/gles_snapshot.js`）：影子状态与 renderControl 的对象按 JSON 加类型化数组打包（Map、Set、共享的
+  对象、类的原型、`undefined` 与 JSON 没有的数都保留），编译过的着色器与链接过的程序不存，存它们编译和链接时的源码，
+  恢复时重新编译链接（答案相同）。`prepare_save`（机器已停）先答完所有等页面的调用（批次跑完、读回到达、流里排着的命令
+  解完），再向页面要状态（`gles_save`）：执行器把颜色缓冲、窗口表面、纹理各级与颜色渲染缓冲读回，连同自己的影子状态
+  打包。goldfish pipe 的通道带着服务的状态进快照（流里没凑齐的命令、没读走的回复；qemud 服务的缓冲），旧格式的快照照旧
+  关闭通道。恢复时通道先回来，GLES 主机的槽在后，页面先 reset 再 `gles_restore`。深度与模板内容不存（WebGPU 拷不出
+  `depth24plus`），恢复后读作已清除。快照时仍有调用在等页面（没经过 `prepare_save` 的保存）的连接恢复后断开。
+- **界面**：VM 配置的 `android.gpu_mode` 对模拟器镜像取 `"host"`、`"guest"`（旧配置的 `"swiftshader"` 等于 `"guest"`），
+  Cuttlefish 仍是 SwiftShader、Venus、gfxstream；两类设备之间切换时按设备改回合法值并提示。Android 7.1 的预设用
+  `"host"`；启动时页面没有 WebGPU 就这一次用 `"guest"` 并在状态栏说明（从快照恢复则报错：快照是主机模式的）。
+  设置面板、摘要与说明随之更新。
+- **测量**：GLES 主机记下自己在机器线程上的时间（`stats.cpu_ms`）与着色器编译时间（`shaders.compile_ms`）；
+  `A32_ANDROID_SCREEN` 打开一个界面截图并上下滑动一分钟，按宿主的秒数报帧率。
 
 ### E6 iOS 传输与客体库的公共部分
 

@@ -190,7 +190,9 @@ const DISPLAY = { width: 480, height: 800, dpi: 240 };
     assert.equal(device.summary().counts.rcGetFBParam, 1);
     service.close();
     device.set_state(device.get_state());
-    assert.equal(device.summary().connections, 0);
+    // (the count of connections made is kept; none is open)
+    assert.equal(device.summary().connections, 1);
+    assert.equal(device.summary().open_connections, 0);
     assert.ok(renderer.messages.includes("hello") && renderer.messages.includes("reset"));
     console.log("PASS: build/v86-gles.js");
 }

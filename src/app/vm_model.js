@@ -13,7 +13,7 @@ import { MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, Q35_PAGE_DEVICES } from "../brow
 import { SOUND_DEVICES, BOOT_ORDERS } from "./vm_config.js";
 
 /** Android's GPU modes and display.vulkan's kinds, as the notes name them */
-const GPU_NAMES = { swiftshader: "SwiftShader", venus: "Venus", gfxstream: "gfxstream", none: "none" };
+const GPU_NAMES = { swiftshader: "SwiftShader", venus: "Venus", gfxstream: "gfxstream", host: "the host's GPU", guest: "the guest's CPU", none: "none" };
 
 /** @typedef {import("./vm_config.js").VMConfig} VMConfig */
 
@@ -206,7 +206,17 @@ function fit(c, notes)
         c.android = null;
         note("Android's bootloader off: " + model.id + " boots on the " + model.machine + " machine with the " + model.cpu + " CPU");
     }
-    if(c.android && c.android.gpu_mode !== "swiftshader" && c.display.vulkan !== c.android.gpu_mode)
+    // (the device kind's GPU modes: an emulator image draws with the
+    // host's GPU or the guest's CPU, Cuttlefish with SwiftShader, Venus or gfxstream)
+    const ranchu_gpu = ["host", "guest", "swiftshader"];
+    if(c.android && model && (model.machine === "ranchu") !== ranchu_gpu.includes(c.android.gpu_mode) && c.android.gpu_mode !== "swiftshader")
+    {
+        const was = c.android.gpu_mode;
+        c.android.gpu_mode = model.machine === "ranchu" ? "guest" : "swiftshader";
+        note("Android's GPU: " + GPU_NAMES[c.android.gpu_mode] + " (" + model.id + " has no " + GPU_NAMES[was] + ")");
+    }
+    // (an emulator image's GPU modes are its own: the display's Vulkan is not theirs)
+    if(c.android && model && model.machine !== "ranchu" && c.android.gpu_mode !== "swiftshader" && c.display.vulkan !== c.android.gpu_mode)
     {
         const was = c.android.gpu_mode;
         c.android.gpu_mode = c.display.vulkan === "none" ? "swiftshader" : c.display.vulkan;

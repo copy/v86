@@ -10,7 +10,8 @@ import { READBACK_HEADER_BYTES, RESPONSE_OK } from "../../src/graphics_adapters/
 /**
  * A renderer channel: `batches` the submitted batches' bytes; with `manual`
  * nothing is answered until run(); reads are answered with bytes of the
- * request id's value
+ * request id's value; a snapshot's page state (gles_save) is
+ * ["page state <n>", []], and the states given back are `restored`
  * @param {{manual: (boolean|undefined)}=} options
  */
 export function fake_renderer(options = {})
@@ -18,10 +19,17 @@ export function fake_renderer(options = {})
     let listener = null;
     const pending = [];
     const channel = {
-        batches: [], messages: [],
+        batches: [], messages: [], restored: [], saves: 0,
         post(message)
         {
             channel.messages.push(message.type);
+            if(message.type === "gles_save")
+            {
+                const id = message.id, n = ++channel.saves;
+                setTimeout(() => listener({ type: "gles_saved", id, state: ["page state " + n, []] }), 0);
+                return;
+            }
+            if(message.type === "gles_restore") channel.restored.push(message.state);
             if(message.type !== "submit") return;
             channel.batches.push(message.bytes);
             pending.push(message);

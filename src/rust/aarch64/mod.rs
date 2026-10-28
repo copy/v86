@@ -8,6 +8,7 @@ pub mod a32;
 pub mod a32_fp;
 pub mod a32_simd;
 pub mod a32_system;
+pub mod backdoor;
 pub mod bus;
 pub mod cpu;
 pub mod crypto;

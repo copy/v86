@@ -214,7 +214,7 @@ export function V86(options)
     // image's GPU mode "host"): it needs the page's renderer, as a 3D
     // display adapter does (docs/gles-proxy-plan.md)
     const android_device = options.android && ANDROID_DEVICES[options.android.device || "cf_arm64_only_phone"];
-    this.gles_host = options.ranchu_gpu === "host" || !!(android_device && android_device.machine === "ranchu" &&
+    this.gles_host = options.ranchu_gpu === "host" || !!options.gles_backdoor || !!(android_device && android_device.machine === "ranchu" &&
         ranchu_gpu_mode(android_device, options.android.gpu_mode).ranchu_gpu === "host");
     // each disk's disk_option and disk_error (docs/disk-persistence-plan.md
     // "启动校验"); the disks, to find an image bound twice (attach_sata_drive)
@@ -322,6 +322,8 @@ export function V86(options)
         // the ARM core: device registers of the virt machine (src/virt/io.js)
         "a64_mmio_read": (owner, offset, width) => cpu.io.mmio_read(owner, offset, width),
         "a64_mmio_write": (owner, offset, width, value) => { cpu.io.mmio_write(owner, offset, width, value); },
+        // the arm32 GLES backdoor's calls (src/arm/backdoor_a32.js): r0 to r3, the answer for r0
+        "a32_backdoor": (r0, r1, r2, r3) => cpu.backdoor_call(r0, r1, r2, r3),
         // extended RAM pages (src/extended_memory.js)
         "extended_load": (page, pointer) => { cpu.extended_store.load(page, wasm_memory, pointer); },
         "extended_store": (page, pointer) => { cpu.extended_store.store(page, wasm_memory, pointer); },
@@ -661,6 +663,8 @@ V86.prototype.continue_init = async function(emulator, options)
     if(options.ranchu_display) settings.ranchu_display = Object.assign({}, options.ranchu_display);
     if(options.ranchu_properties) settings.ranchu_properties = Object.assign({}, options.ranchu_properties);
     if(options.ranchu_gpu) settings.ranchu_gpu = options.ranchu_gpu;
+    // (arm32's GLES backdoor: the GLES host's services for user code, src/arm/backdoor_a32.js)
+    if(options.gles_backdoor) settings.gles_backdoor = true;
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -1348,16 +1352,17 @@ V86.prototype.continue_init = async function(emulator, options)
                 (boot.vbmeta ? "vbmeta " + boot.vbmeta.digest : (boot.disks || []).map(d => d.name).join(", ")) + ", cmdline " + settings.cmdline);
         }
 
-        // the GLES host's plugin (ranchu_gpu "host", docs/gles-proxy-plan.md):
+        // the GLES host's plugin (ranchu_gpu "host", gles_backdoor; docs/gles-proxy-plan.md):
         // the machine's GPU mode is known only now, after Android's bootloader
-        if(settings.ranchu_gpu === "host")
+        if(settings.ranchu_gpu === "host" || settings.gles_backdoor)
         {
             settings.gles_plugin = await load_device_plugin(GLES_PLUGINS, "gles", options.ranchu_gpu_path, "ranchu_gpu_path");
             // (no WebGPU, no renderer: say so rather than draw nothing)
             if(!settings.graphics_adapter_renderer)
             {
-                throw new Error("ranchu_gpu \"host\": the GLES host draws with the page's WebGPU renderer (libv86-webgpu.js " +
-                    "and a WebGPU adapter), which this page does not have; use \"guest\" (the guest draws)");
+                throw new Error((settings.gles_backdoor ? "gles_backdoor" : "ranchu_gpu \"host\"") + ": the GLES host draws with the page's " +
+                    "WebGPU renderer (libv86-webgpu.js and a WebGPU adapter), which this page does not have" +
+                    (settings.gles_backdoor ? "" : "; use \"guest\" (the guest draws)"));
             }
         }
 
@@ -1887,7 +1892,7 @@ V86.prototype.save_state = async function()
     dbg_assert(arguments.length === 0);
     if(!this.device_plugins.length && !this.adapter_host_state()) return this.v86.save_state();
     return this.with_device_state(async () => {
-        if(this.adapter_host_state()) await this.v86.cpu.devices.graphics_adapter.prepare_save();
+        await this.prepare_host_state();
         return this.save_with_plugins(() => this.v86.save_state());
     }, true);
 };
@@ -1903,7 +1908,7 @@ V86.prototype.save_state_stream = async function(write)
     if(this.worker_controller) return this.worker_controller.state_stream("save", write);
     if(!this.device_plugins.length && !this.adapter_host_state()) return this.v86.save_state_stream(write);
     return this.with_device_state(async () => {
-        if(this.adapter_host_state()) await this.v86.cpu.devices.graphics_adapter.prepare_save();
+        await this.prepare_host_state();
         return this.save_with_plugins(() => this.v86.save_state_stream(write));
     }, true);
 };
@@ -1922,13 +1927,30 @@ V86.prototype.restore_state_stream = async function(source)
 };
 
 /**
- * Whether the display adapter keeps state on the GPU that a snapshot fetches
+ * Whether the display adapter, or the ranchu machine's GLES host, keeps
+ * state on the GPU that a snapshot fetches
  * @return {boolean}
  */
 V86.prototype.adapter_host_state = function()
 {
-    const adapter = this.v86 && this.v86.cpu.devices.graphics_adapter;
-    return !!adapter && adapter.has_host_state();
+    const devices = this.v86 && this.v86.cpu.devices;
+    const adapter = devices && devices.graphics_adapter;
+    return !!adapter && adapter.has_host_state() || !!(devices && devices.gles);
+};
+
+/**
+ * Before a save: the GPU's state the display adapter and the GLES host
+ * keep fetched (their prepare_save)
+ * @return {!Promise<undefined>}
+ */
+V86.prototype.prepare_host_state = async function()
+{
+    if(!this.adapter_host_state()) return;
+    const devices = this.v86.cpu.devices;
+    const adapter = devices.graphics_adapter;
+    if(adapter && adapter.has_host_state()) await adapter.prepare_save();
+    const prepare = devices.gles && devices.gles.device["prepare_save"];
+    if(prepare) await prepare();
 };
 
 /**

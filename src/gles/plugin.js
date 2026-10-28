@@ -27,13 +27,15 @@ register_device_plugin("V86GlesHosts", {
         const host = new GLESHost({ width: display["width"], height: display["height"], dpi: display["dpi"] }, options["renderer"] || null,
             options["present"]);
         return {
-            // (a service as src/virt/goldfish.js takes one)
-            "service": (name, wake) => host.service(name, wake),
+            // (a service as src/virt/goldfish.js takes one; with a snapshot's state of it)
+            "service": (name, wake, saved) => host.service(name, wake, saved),
             "summary": () => host.summary(),
             "reset": () => host.reset(),
-            // (E1: nothing kept; the pipe's channels close on restore)
-            "get_state": () => [],
-            "set_state": () => host.reset(),
+            // (E5: the calls waiting for the page answered, the page's state fetched;
+            // then the snapshot's slot, restored after the pipe's channels)
+            "prepare_save": () => host.prepare_save(),
+            "get_state": () => host.get_state(),
+            "set_state": state => host.set_state(state),
         };
     },
 });

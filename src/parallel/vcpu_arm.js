@@ -107,6 +107,9 @@ export async function run_vcpu_arm(init, post, handle)
         },
         "jit_publish": (client, id, slot, pointer, length) => cpu.jit_publish(client, id, slot, pointer, length),
         "jit_clear_func": index => cpu.jit_clear_func(index),
+        // (the GLES backdoor needs the calling core's page tables: the cores
+        // are cooperative where it is used; here its UDF stays undefined)
+        "a32_backdoor": () => -0x80000000,
         "parallel_notify": address => { Atomics.notify(new Int32Array(memory.buffer), address >>> 2); },
         // the machine's extended RAM store (src/extended_memory.js)
         "extended_load": (page, pointer) => { extended.load(page, memory, pointer); },

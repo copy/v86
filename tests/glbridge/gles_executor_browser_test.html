@@ -1,0 +1,371 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GLES executor: GLES batches on WebGPU</title>
+<pre id="result">RUNNING</pre>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+// The GLES executor (src/gles/page/gles_executor.js; docs/gles-proxy-plan.md
+// E3) on a real GPU, fed batches as the GLES host writes them (the guest's
+// commands encoded by gles_wire.js's encoder), its pixels read back:
+// - clears, the scissor and the orientations: GL's rows from the bottom in
+//   what is drawn to, color buffers in memory order (row 0 the top) after
+//   rcFlushWindowColorBuffer;
+// - draws from client arrays and buffers, fans; uniforms;
+// - textures: RGB with an unpack alignment of 1, LUMINANCE, ETC1, mipmaps;
+//   render to a texture through a framebuffer, glReadPixels from it and from
+//   the window; blending, the depth test;
+// - color buffers written and read back as they are; an EGL image of one
+//   sampled through samplerExternalOES; a post handed over as a frame;
+// - GLES 1.1's fixed function, draw_texture;
+// - an empty glReadPixels answered;
+// - a snapshot (E5): the executor's state saved (the GPU's contents read
+//   back) and restored on a new executor: the window's and a color buffer's
+//   pictures, textures (one rendered to), a buffer's bytes, programs linked
+//   again, an EGL image, GLES 1.1's state.
+import { encode_command } from "../../src/gles/gles_wire.js";
+import { GLES, GLES_MAGIC, GXWriter } from "../../src/graphics_adapters/renderer_protocol.js";
+
+const result = document.getElementById("result");
+const checks = [];
+const check = (value, message) => { if(!value) throw new Error(message); checks.push(message); };
+
+(async () => {
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+        device.onuncapturederror = e => { console.error(e.error.message); errors.push(e.error.message); };
+        const errors = [];
+        let executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
+        globalThis.glesExecutor = executor;
+        globalThis.webgpuErrors = errors;
+
+        // a batch being written, and its answers
+        let writer = new GXWriter(GLES_MAGIC);
+        let request = 1;
+        const answers = new Map(), frames = [];
+        const gl = (name, ...args) => {
+            const bytes = encode_command("gles2:" + name, args);
+            writer.command(GLES.COMMAND, [1, 0, bytes.length], bytes);
+        };
+        const created = (name, ret, ...args) => {
+            const bytes = encode_command("gles2:" + name, args);
+            writer.command(GLES.COMMAND, [1, ret, bytes.length], bytes);
+            return ret;
+        };
+        const record = (op, ...dwords) => writer.command(op, dwords);
+        const run = async () => {
+            const bytes = writer.finish();
+            await executor.submit(bytes, {
+                writeResponse: (offset, data) => {
+                    const view = new DataView(data.buffer, data.byteOffset);
+                    answers.set(view.getUint32(0, true), view.getUint32(12, true) === 1 ? data.slice(16) : null);
+                },
+                frame: (rgba, width, height) => frames.push({ rgba, width, height }),
+            });
+            await device.queue.onSubmittedWorkDone();
+            check(!executor.stats.errors.length, "no executor errors: " + executor.stats.errors.join("; "));
+        };
+        const read_color_buffer = async (handle, w, h) => {
+            const id = request++;
+            record(GLES.COLOR_BUFFER_READ, handle, 0, 0, w, h, 0x1908, 0x1401, id);
+            await run();
+            return answers.get(id);
+        };
+        const read_pixels = async (x, y, w, h) => {
+            const id = request++;
+            record(GLES.READ_PIXELS, 1, id, x, y, w, h, 0x1908, 0x1401);
+            await run();
+            return answers.get(id);
+        };
+        const pixel = (rgba, w, x, y) => { globalThis.lastPixels = Array.from(rgba); return Array.from(rgba.subarray((y * w + x) * 4, (y * w + x) * 4 + 4)); };
+        const near = (a, b, tolerance = 2) => a.every((v, i) => Math.abs(v - b[i]) <= tolerance);
+        const text = s => new TextEncoder().encode(s + "\0");
+        const floats = values => new Uint8Array(new Float32Array(values).buffer);
+
+        // a GLES 2.0 context on an 8 by 8 window (RGBA8888, depth 24, stencil 8: config 3) with its color buffer
+        const W = 8;
+        record(GLES.CONTEXT_CREATE, 1, 3, 0, 2);
+        record(GLES.SURFACE_CREATE, 2, 3, W, W);
+        record(GLES.COLOR_BUFFER_CREATE, 3, W, W, 0x1908);
+        record(GLES.SURFACE_COLOR_BUFFER, 2, 3);
+        record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
+
+        // ---- clears, the scissor, the orientations
+        gl("glClearColor", 1, 0, 0, 1);
+        gl("glClear", 0x4000);
+        gl("glEnable", 0x0C11);
+        gl("glScissor", 0, 0, W, W / 2);       // GL's bottom half
+        gl("glClearColor", 0, 1, 0, 1);
+        gl("glClear", 0x4000);
+        gl("glDisable", 0x0C11);
+        record(GLES.FLUSH_SURFACE, 2);
+        let rgba = await read_color_buffer(3, W, W);
+        check(near(pixel(rgba, W, 0, 0), [255, 0, 0, 255]), "the color buffer's row 0 is the top: red");
+        check(near(pixel(rgba, W, 0, W - 1), [0, 255, 0, 255]), "its last row the bottom: the scissored green");
+        let window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 0, 0), [0, 255, 0, 255]), "glReadPixels' row 0 is GL's bottom: green");
+
+        // ---- a program; a triangle from a client array; a fan from a buffer
+        const vs = created("glCreateShader", 10, 0x8B31), fs = created("glCreateShader", 11, 0x8B30);
+        const vs_text = "attribute vec2 position; attribute vec2 uv; varying vec2 v_uv; void main() { v_uv = uv; gl_Position = vec4(position, 0.0, 1.0); }";
+        const fs_text = "precision mediump float; uniform vec4 color; uniform sampler2D tex; uniform float mix_tex; varying vec2 v_uv; " +
+            "void main() { gl_FragColor = mix(color, texture2D(tex, v_uv), mix_tex); }";
+        gl("glShaderString", vs, text(vs_text), vs_text.length + 1);
+        gl("glShaderString", fs, text(fs_text), fs_text.length + 1);
+        gl("glCompileShader", vs);
+        gl("glCompileShader", fs);
+        const program = created("glCreateProgram", 12);
+        gl("glAttachShader", program, vs);
+        gl("glAttachShader", program, fs);
+        gl("glBindAttribLocation", program, 0, text("position"));
+        gl("glBindAttribLocation", program, 1, text("uv"));
+        gl("glLinkProgram", program);
+        gl("glUseProgram", program);
+        // (the locations the shadow state gives: color 0, mix_tex 1, tex 2)
+        gl("glUniform4f", 0, 0, 0, 1, 1);
+        gl("glUniform1f", 1, 0);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000 | 0x0100);
+        // the left half: a triangle, client data (tight, from the first vertex)
+        gl("glEnableVertexAttribArray", 0);
+        const tri = [-1, -1, 0, -1, -1, 3];
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, floats(tri), 24);
+        gl("glVertexAttrib2f", 1, 0, 0);
+        gl("glDrawArrays", 4, 0, 3);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [0, 0, 255, 255]) && near(pixel(window, W, 1, 6), [0, 0, 255, 255]), "the left half drawn blue");
+        check(near(pixel(window, W, 6, 1), [0, 0, 0, 255]), "the right half clear");
+
+        // a texture: 2 by 2 RGB, unpack alignment 1 (rows of 6 bytes), nearest
+        gl("glPixelStorei", 0x0CF5, 1);
+        gl("glBindTexture", 0x0DE1, 20);
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        // (row 0, t = 0: red, green; row 1: blue, white)
+        gl("glTexImage2D", 0x0DE1, 0, 0x1907, 2, 2, 0, 0x1907, 0x1401, new Uint8Array([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255]));
+        gl("glUniform1i", 2, 0);
+        gl("glUniform1f", 1, 1);
+        // a full-window fan from a buffer: position and uv interleaved
+        gl("glBindBuffer", 0x8892, 30);
+        const quad = [-1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1, -1, 1, 0, 1];
+        gl("glBufferData", 0x8892, 64, floats(quad), 0x88E4);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 16, 0);
+        gl("glEnableVertexAttribArray", 1);
+        gl("glVertexAttribPointerOffset", 1, 2, 0x1406, 0, 16, 8);
+        gl("glDrawArrays", 6, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [255, 0, 0, 255]), "texture row 0 (t = 0) at GL's bottom left: red");
+        check(near(pixel(window, W, 6, 1), [0, 255, 0, 255]), "bottom right: green");
+        check(near(pixel(window, W, 1, 6), [0, 0, 255, 255]), "top left: blue");
+        record(GLES.FLUSH_SURFACE, 2);
+        rgba = await read_color_buffer(3, W, W);
+        check(near(pixel(rgba, W, 1, 0), [0, 0, 255, 255]), "in the color buffer, flipped: blue at the top left");
+
+        // LUMINANCE: (L, L, L, 1); ETC1: a block decoded
+        gl("glTexImage2D", 0x0DE1, 0, 0x1909, 1, 1, 0, 0x1909, 0x1401, new Uint8Array([100]));
+        gl("glDrawArrays", 6, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 3, 3), [100, 100, 100, 255]), "a luminance texel");
+        // (individual mode: colors 8 << 4 | 8 = 136 each, table 0, every pixel's index 0: +2)
+        gl("glCompressedTexImage2D", 0x0DE1, 0, 0x8D64, 4, 4, 0, 8, new Uint8Array([0x88, 0x88, 0x88, 0x00, 0, 0, 0, 0]));
+        gl("glDrawArrays", 6, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 3, 3), [138, 138, 138, 255]), "an ETC1 block decoded");
+
+        // ---- render to a texture; read it; sample it
+        gl("glBindTexture", 0x0DE1, 21);
+        gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        gl("glTexImage2D", 0x0DE1, 0, 0x1908, 4, 4, 0, 0x1908, 0x1401, null);
+        gl("glBindFramebuffer", 0x8D40, 40);
+        gl("glFramebufferTexture2D", 0x8D40, 0x8CE0, 0x0DE1, 21, 0);
+        gl("glViewport", 0, 0, 4, 4);
+        gl("glClearColor", 1, 1, 0, 1);
+        gl("glClear", 0x4000);
+        gl("glUniform1f", 1, 0);
+        gl("glUniform4f", 0, 0, 1, 1, 1);
+        gl("glDisableVertexAttribArray", 1);
+        gl("glVertexAttribPointerData", 0, 2, 0x1406, 0, 0, floats(tri), 24);
+        gl("glDrawArrays", 4, 0, 3);
+        const fbo = await read_pixels(0, 0, 4, 4);
+        check(near(pixel(fbo, 4, 0, 0), [0, 255, 255, 255]) && near(pixel(fbo, 4, 3, 0), [255, 255, 0, 255]), "the framebuffer's pixels, GL's rows");
+        gl("glBindFramebuffer", 0x8D40, 0);
+        gl("glViewport", 0, 0, W, W);
+        gl("glBindTexture", 0x0DE1, 21);
+        gl("glUniform1f", 1, 1);
+        gl("glEnableVertexAttribArray", 1);
+        gl("glVertexAttribPointerOffset", 0, 2, 0x1406, 0, 16, 0);
+        gl("glDrawArrays", 6, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 0, 0), [0, 255, 255, 255]) && near(pixel(window, W, 7, 0), [255, 255, 0, 255]), "the rendered texture, the same way up");
+
+        // ---- blending, the depth test
+        gl("glUniform1f", 1, 0);
+        gl("glClearColor", 0, 0, 0, 1);
+        gl("glClear", 0x4000 | 0x0100);
+        gl("glEnable", 0x0BE2);
+        gl("glBlendFunc", 0x0302, 0x0303);
+        gl("glUniform4f", 0, 1, 1, 1, 0.5);
+        gl("glDrawArrays", 6, 0, 4);
+        gl("glDisable", 0x0BE2);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 4, 4), [128, 128, 128, 191], 3), "half white over black (alpha blended too: 0.75)");
+        gl("glEnable", 0x0B71);
+        gl("glUniform4f", 0, 1, 0, 0, 1);
+        gl("glDrawArrays", 6, 0, 4);  // z 0: drawn (depth was 1)
+        gl("glUniform4f", 0, 0, 1, 0, 1);
+        gl("glDrawArrays", 6, 0, 4);  // z 0 again: GL_LESS fails
+        gl("glDisable", 0x0B71);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 4, 4), [255, 0, 0, 255]), "the depth test kept the first");
+
+        // ---- color buffers as they are; an EGL image of one
+        const bytes = new Uint8Array(4 * 4 * 4).map((_, i) => i * 3);
+        record(GLES.COLOR_BUFFER_CREATE, 50, 4, 4, 0x1908);
+        writer.command(GLES.COLOR_BUFFER_UPDATE, [50, 0, 0, 4, 4, 0x1908, 0x1401, bytes.length], bytes);
+        const back = await read_color_buffer(50, 4, 4);
+        check(back.every((v, i) => v === bytes[i]), "a color buffer reads back what was written");
+        record(GLES.IMAGE_CREATE, 60, 0, 0x3140, 50);
+        const ext_text = "#extension GL_OES_EGL_image_external : require\nprecision mediump float; uniform samplerExternalOES tex; varying vec2 v_uv; " +
+            "void main() { gl_FragColor = texture2D(tex, v_uv); }";
+        const efs = created("glCreateShader", 13, 0x8B30);
+        gl("glShaderString", efs, text(ext_text), ext_text.length + 1);
+        gl("glCompileShader", efs);
+        const ep = created("glCreateProgram", 14);
+        gl("glAttachShader", ep, vs);
+        gl("glAttachShader", ep, efs);
+        gl("glBindAttribLocation", ep, 0, text("position"));
+        gl("glBindAttribLocation", ep, 1, text("uv"));
+        gl("glLinkProgram", ep);
+        gl("glUseProgram", ep);
+        gl("glBindTexture", 0x8D65, 22);
+        gl("glEGLImageTargetTexture2DOES", 0x8D65, 60);
+        gl("glDrawArrays", 6, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        // (the color buffer's row 0 sampled at t = 0: GL's bottom row of the window)
+        check(near(pixel(window, W, 0, 0), Array.from(bytes.subarray(0, 4))), "an EGL image's color buffer sampled as it is");
+
+        // ---- a post
+        record(GLES.FLUSH_SURFACE, 2);
+        record(GLES.POST, 3);
+        await run();
+        check(frames.length === 1 && frames[0].width === W && frames[0].rgba.length === W * W * 4, "a post is a frame");
+        check(near(pixel(frames[0].rgba, W, 0, W - 1), Array.from(bytes.subarray(0, 4))), "the frame from the top: the image's row 0 at its bottom");
+
+        // ---- GLES 1.1: the fixed function
+        const gl1 = (name, ...args) => {
+            const bytes = encode_command("gles1:" + name, args);
+            writer.command(GLES.COMMAND, [1, 0, bytes.length], bytes);
+        };
+        record(GLES.CONTEXT_CREATE, 70, 3, 0, 1);
+        record(GLES.MAKE_CURRENT, 1, 70, 2, 2);
+        gl1("glClearColor", 0, 0, 0, 1);
+        gl1("glClear", 0x4000 | 0x0100);
+        gl1("glMatrixMode", 0x1701);
+        gl1("glLoadIdentity");
+        gl1("glOrthof", 0, W, 0, W, -1, 1);
+        gl1("glMatrixMode", 0x1700);
+        gl1("glLoadIdentity");
+        // the left half, from a client array, the current color
+        gl1("glColor4f", 1, 0.5, 0, 1);
+        gl1("glEnableClientState", 0x8074);
+        gl1("glVertexPointerData", 2, 0x1406, 0, floats([0, 0, W / 2, 0, W / 2, W, 0, 0, W / 2, W, 0, W]), 48);
+        gl1("glDrawArrays", 4, 0, 6);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [255, 128, 0, 255]) && near(pixel(window, W, 6, 6), [0, 0, 0, 255]), "GLES 1.1: glOrthof, a client array, the current color");
+        // a texture, MODULATE with a color array (unsigned bytes, normalized), GL_TEXTURE_2D on unit 0
+        gl1("glBindTexture", 0x0DE1, 80);
+        gl1("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl1("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        gl1("glTexImage2D", 0x0DE1, 0, 0x1908, 1, 1, 0, 0x1908, 0x1401, new Uint8Array([255, 255, 255, 255]));
+        gl1("glEnable", 0x0DE1);
+        gl1("glEnableClientState", 0x8076);
+        gl1("glColorPointerData", 4, 0x1401, 0, new Uint8Array(24).map((_, i) => [0, 255, 0, 255][i % 4]), 24);
+        gl1("glEnableClientState", 0x8078);
+        gl1("glTexCoordPointerData", 0, 2, 0x1406, 0, floats(new Array(12).fill(0.5)), 48);
+        gl1("glTranslatef", W / 2, 0, 0);
+        gl1("glDrawArrays", 4, 0, 6);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 6, 2), [0, 255, 0, 255]) && near(pixel(window, W, 1, 1), [255, 128, 0, 255]), "a texture modulated by a color array, translated");
+        // a light: directional, along +z, a white material's diffuse
+        gl1("glDisable", 0x0DE1);
+        gl1("glDisableClientState", 0x8076);
+        gl1("glDisableClientState", 0x8078);
+        gl1("glLoadIdentity");
+        gl1("glEnable", 0x0B50);
+        gl1("glEnable", 0x4000);
+        gl1("glLightfv", 0x4000, 0x1203, floats([0, 0, 1, 0]));
+        gl1("glMaterialfv", 0x0408, 0x1201, floats([0.5, 0.5, 0.5, 1]));
+        gl1("glMaterialfv", 0x0408, 0x1200, floats([0, 0, 0, 1]));
+        gl1("glLightModelfv", 0x0B53, floats([0, 0, 0, 1]));
+        gl1("glNormal3f", 0, 0, 1);
+        gl1("glDrawArrays", 4, 0, 6);
+        gl1("glDisable", 0x0B50);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [128, 128, 128, 255], 3), "lit by one light: the material's diffuse");
+        // draw_texture: the texture's crop rectangle at a window rectangle
+        gl1("glBindTexture", 0x0DE1, 81);
+        gl1("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+        gl1("glTexParameteri", 0x0DE1, 0x2800, 0x2600);
+        gl1("glTexImage2D", 0x0DE1, 0, 0x1907, 2, 1, 0, 0x1907, 0x1401, new Uint8Array([255, 0, 0, 0, 0, 255]));
+        gl1("glTexParameteriv", 0x0DE1, 0x8B9D, new Uint8Array(new Int32Array([1, 0, 1, 1]).buffer));
+        gl1("glEnable", 0x0DE1);
+        gl1("glColor4f", 1, 1, 1, 1);
+        gl1("glTexEnvi", 0x2300, 0x2200, 0x1E01);
+        gl1("glDrawTexiOES", 4, 4, 0, 4, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 6, 6), [0, 0, 255, 255]) && near(pixel(window, W, 1, 1), [128, 128, 128, 255], 3), "glDrawTexiOES: the crop rectangle's texel at the window rectangle");
+
+        // ---- points: one pixel each (WebGPU's point list)
+        gl1("glDisable", 0x0DE1);
+        gl1("glClear", 0x4000);
+        gl1("glColor4f", 0, 1, 0, 1);
+        gl1("glVertexPointerData", 2, 0x1406, 0, floats([4.5, 4.5]), 8);
+        gl1("glDrawArrays", 0, 0, 1);
+        gl1("glEnable", 0x0DE1);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 4, 4), [0, 255, 0, 255]) && near(pixel(window, W, 1, 1), [0, 0, 0, 255]), "a point: its pixel");
+
+        // ---- an empty read is answered (no rows to copy)
+        const empty = await read_pixels(0, 0, 0, 0);
+        check(empty && empty.length === 0, "an empty glReadPixels is answered");
+
+        // ---- a snapshot: saved, restored on a new executor
+        const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => v === b[i]);
+        const window_before = await read_pixels(0, 0, W, W);
+        const cb_before = await read_color_buffer(3, W, W);
+        const saved = await executor.save();
+        check(typeof saved[0] === "string" && saved[1].length > 0, "a snapshot's page state: " + saved[0].length + " bytes of JSON, " +
+            saved[1].length + " contents");
+        executor = new globalThis.V86GLESExecutor.GLESExecutor({ device, layer: null });
+        executor.restore(saved);
+        check(same(await read_pixels(0, 0, W, W), window_before), "restored: the window surface's picture");
+        check(same(await read_color_buffer(3, W, W), cb_before), "restored: a color buffer's picture");
+        gl1("glClear", 0x4000);
+        gl1("glDrawTexiOES", 4, 4, 0, 4, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 6, 6), [0, 0, 255, 255]) && near(pixel(window, W, 1, 1), [0, 0, 0, 255]),
+            "restored: GLES 1.1's texture, crop rectangle and environment");
+        record(GLES.MAKE_CURRENT, 1, 1, 2, 2);
+        gl("glUseProgram", program);
+        gl("glBindTexture", 0x0DE1, 21);
+        gl("glUniform1f", 1, 1);
+        gl("glDrawArrays", 6, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 0, 0), [0, 255, 255, 255]) && near(pixel(window, W, 7, 0), [255, 255, 0, 255]),
+            "restored: a program linked again, a buffer's bytes, a texture rendered to");
+        gl("glUseProgram", ep);
+        gl("glDrawArrays", 6, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 0, 0), Array.from(bytes.subarray(0, 4))), "restored: an EGL image's color buffer");
+
+        check(!errors.length, "no WebGPU validation errors: " + errors.join("; "));
+        result.textContent = "PASS " + checks.length + " checks\n" + checks.join("\n");
+    } catch(error) {
+        const executor = globalThis.glesExecutor;
+        result.textContent = "FAIL " + (error && error.stack || error) + "\nlast: " + JSON.stringify(globalThis.lastPixels || null) +
+            "\nstats: " + JSON.stringify(executor && executor.stats) + "\nwebgpu: " + JSON.stringify(globalThis.webgpuErrors || []) +
+            "\npassed: " + checks.join("\n");
+    }
+})();
+</script>

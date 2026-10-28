@@ -1003,10 +1003,20 @@ export interface V86Options {
     ranchu_gpu?: "guest" | "host";
 
     /**
-     * The GLES host's plugin file (ranchu_gpu "host")
+     * The GLES host's plugin file (ranchu_gpu "host", gles_backdoor)
      * @default beside the bundle, v86-gles.js
      */
     ranchu_gpu_path?: string;
+
+    /**
+     * cpu_type "arm32" on machine_type "virt" only: the GLES backdoor of user
+     * code (docs/gles-proxy-plan.md "iOS 传输"): UDF #0x8664 at PL0 with r0's
+     * top half 0x8664 calls the GLES host's services ("opengles",
+     * "GLProcessPipe"), which the plugin build/v86-gles.js gives, drawn by
+     * the page's WebGPU renderer. Off: those UDFs are undefined instructions.
+     * @default false
+     */
+    gles_backdoor?: boolean;
 
     /**
      * machine_type "q35" only: the number of ICH9 PCI Express root ports
