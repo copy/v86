@@ -55,7 +55,7 @@
 // state_query and negative_api case, dEQP-EGL.info, and every ninth other
 // functional case (A32_ANDROID_DEQP_STEP another; A32_ANDROID_DEQP_FILTER a
 // pattern of cases to keep; A32_ANDROID_DEQP_IMAGES=1 the log with its images
-// in the instrumentation's output, kept); each case's status into the run's deqp.json.
+// and shader sources in the instrumentation's output, kept); each case's status into the run's deqp.json.
 // A32_ANDROID_DEQP_SUITE=gles3 (or gles31): that suite's case list in GLES 2's
 // place (docs/gles3-plan.md L4). A32_ANDROID_DEQP_RESUME: an earlier run's
 // deqp.json, whose passed and unsupported cases are not run again (the rest,
@@ -787,10 +787,10 @@ try
         const started_deqp = performance.now();
         for(const chunk of deqp.chunks)
         {
-            // (A32_ANDROID_DEQP_IMAGES=1: the log's images too, its data in the instrumentation's output, kept in deqp-run-<n>.txt)
+            // (A32_ANDROID_DEQP_IMAGES=1: the log's images and shader sources too, its data in the instrumentation's output, kept in deqp-run-<n>.txt)
             const images = process.env.A32_ANDROID_DEQP_IMAGES === "1";
             const command_line = `--deqp-caselist-file=/sdcard/deqp-cases.txt --deqp-gl-config-name=rgba8888d24s8ms0 --deqp-surface-type=window ` +
-                `--deqp-screen-rotation=unspecified --deqp-log-images=${images ? "enable" : "disable"} --deqp-log-shader-sources=disable --deqp-watchdog=enable`;
+                `--deqp-screen-rotation=unspecified --deqp-log-images=${images ? "enable" : "disable"} --deqp-log-shader-sources=${images ? "enable" : "disable"} --deqp-watchdog=enable`;
             // (the console's shell has no access to /sdcard, which the tester reads and writes: as root)
             await ask(`su 0 sh -c 'cp /data/local/tmp/${chunk.name} /sdcard/deqp-cases.txt'`, "A32_DEQP_CASES", 600000);
             const run = await ask(`am instrument -w -e deqpLogFileName /sdcard/deqp.qpa -e deqpCmdLine "${command_line}" -e deqpLogData ${images} ` +
