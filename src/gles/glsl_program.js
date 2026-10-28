@@ -405,7 +405,7 @@ export function link_glslang_program(glslang, shaders, options)
         void arrayed_inputs;
         previous = outputs;
         naga_decorations(words, m);
-        spirv.push({ stage: STAGE_NAME[stage], words, model: MODEL_OF_STAGE[stage] });
+        spirv.push({ stage: STAGE_NAME[stage], words: consecutive_elements(words), model: MODEL_OF_STAGE[stage] });
     }
 
     // transform feedback's varyings: outputs of the last stage before the
@@ -747,6 +747,35 @@ export function pack_program(info)
         at += 4 + 4 * m.words.length;
     }
     return bytes;
+}
+
+/**
+ * The module marked for vx_naga's blockarrays.rs (its CONSECUTIVE): an
+ * instance array's elements have SPIR-V bindings of their own here, the
+ * array's plus the index (BINDING's ranges, a block each), which its
+ * elements' variables take (any binding, any length)
+ * @param {!Uint32Array} words
+ * @return {!Uint32Array}
+ */
+function consecutive_elements(words)
+{
+    const text = new TextEncoder().encode("vx consecutive block elements");
+    const marker = new Uint32Array(1 + (text.length >> 2) + 1);
+    new Uint8Array(marker.buffer).set(text, 4);
+    marker[0] = marker.length << 16 | 330; // OpModuleProcessed
+    // (with the debug instructions: before the first annotation, type, constant or variable)
+    let at = 5;
+    while(at < words.length)
+    {
+        const op = words[at] & 0xFFFF;
+        if(op >= 71 && op <= 75 || op === 332 || op >= 19 && op <= 59) break;
+        at += words[at] >>> 16 || 1;
+    }
+    const out = new Uint32Array(words.length + marker.length);
+    out.set(words.subarray(0, at));
+    out.set(marker, at);
+    out.set(words.subarray(at), at + marker.length);
+    return out;
 }
 
 /**

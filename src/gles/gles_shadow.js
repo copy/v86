@@ -25,7 +25,7 @@ import { STAGE_OF_GL_TYPE } from "./glslang.js";
 import { es3_rules, glsl_version } from "./glsl_es_rewrite.js";
 import { link_glslang_program } from "./glsl_program.js";
 import { ADVANCED_EQUATIONS, INT64_STATE, extend_context3, extend_group3, gles3_handlers, new_framebuffer3, pad_context3, state_value3 } from "./gles3_state.js";
-import { FLOAT_STATE32, extend_context31, gles31_handlers, glslang_limits, state_value31 } from "./gles31_state.js";
+import { FLOAT_STATE32, extend_context31, gles31_handlers, glslang_limits, pad_context31, state_value31 } from "./gles31_state.js";
 import { EXTENSIONS_3 } from "./gles_caps.js";
 import { CLIENT_ARRAYS, gles1_handlers, gles1_state_value, new_ff_state } from "./gles1_state.js";
 import { format_info as SIZED_INFO } from "./gles_formats3.js";
@@ -374,7 +374,11 @@ GLESShadow.prototype.set_state = function(state)
     this.contexts = state.contexts;
     this.groups = state.groups;
     this.stats = state.stats;
-    for(const c of this.contexts.values()) if(c && c.version >= 30 && c.textures && c.uniform_bindings) pad_context3(c);
+    for(const c of this.contexts.values())
+    {
+        if(c && c.version >= 30 && c.textures && c.uniform_bindings) pad_context3(c);
+        if(c && c.version >= 31 && c.storage_bindings && c.atomic_bindings) pad_context31(c);
+    }
     relink(this.groups, this);
 };
 

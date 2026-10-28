@@ -9,6 +9,11 @@
 //! used other than by access chains, or of a binding past 19, is left as it
 //! was (GLSL ES 3.0 indexes them with constant expressions only). This runs
 //! before split.rs, which splits the combined elements as any other.
+//!
+//! A module marked by `OpModuleProcessed` CONSECUTIVE (the GLES host's,
+//! glsl_program.js, whose bindings give each element of a block array a
+//! binding of its own, the array's plus the index) has its arrays of
+//! blocks' elements at those bindings, of any binding and length.
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
@@ -18,6 +23,9 @@ pub const ELEMENT_BINDING: u32 = 0x20000;
 /// The elements an array can have, and the largest binding of one
 pub const ELEMENTS_A_BINDING: u32 = 16;
 const LAST_BINDING: u32 = 19;
+/// The marker of modules whose block arrays' elements have consecutive bindings
+pub const CONSECUTIVE: &[u8] = b"vx consecutive block elements";
+const OP_MODULE_PROCESSED: u32 = 330;
 
 const OP_TYPE_IMAGE: u32 = 25;
 const OP_TYPE_SAMPLER: u32 = 26;
@@ -87,7 +95,9 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
     let blocks: Vec<u32> = instructions.iter().filter(|w| op(w) == OP_DECORATE && w.len() >= 3 && matches!(w[2], DECORATION_BLOCK | DECORATION_BUFFER_BLOCK))
         .map(|w| w[1]).collect();
     let decoration = |id: u32, d: u32| instructions.iter().find(|w| op(w) == OP_DECORATE && w.len() >= 4 && w[1] == id && w[2] == d).map(|w| w[3]);
-    // the variables of arrays of blocks: (variable, its class, the block, the length, set, binding)
+    let marker = |w: &[u32]| op(w) == OP_MODULE_PROCESSED && w[1..].iter().flat_map(|x| x.to_le_bytes()).take_while(|&b| b != 0).eq(CONSECUTIVE.iter().copied());
+    let consecutive = instructions.iter().any(|w| marker(w));
+    // the variables of arrays of blocks: (variable, its class, the block, the length, set, binding, its elements' bindings consecutive)
     let mut arrays = Vec::new();
     for w in &instructions {
         if op(w) != OP_VARIABLE || w.len() < 4 {
@@ -110,10 +120,11 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
         else {
             continue;
         };
-        if length < 1 || length > ELEMENTS_A_BINDING || binding > LAST_BINDING {
+        let own_bindings = block && consecutive;
+        if length < 1 || !own_bindings && (length > ELEMENTS_A_BINDING || binding > LAST_BINDING) {
             continue;
         }
-        arrays.push((w[2], pointer[2], array[2], length, set, binding));
+        arrays.push((w[2], pointer[2], array[2], length, set, binding, own_bindings));
     }
     if arrays.is_empty() {
         return words.to_vec();
@@ -164,7 +175,7 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
     let mut annotations: Vec<Vec<u32>> = Vec::new();
     let mut elements: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
     let mut pointers: BTreeMap<(u32, u32), u32> = types.values().filter(|w| op(w) == OP_TYPE_POINTER && w.len() >= 4).map(|w| ((w[2], w[3]), w[1])).collect();
-    for &(var, class, block, length, set, binding) in &arrays {
+    for &(var, class, block, length, set, binding, own_bindings) in &arrays {
         let pointer = match pointers.get(&(class, block)) {
             Some(&p) => p,
             None => {
@@ -184,7 +195,8 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
             let id = fresh();
             declarations.push(instruction(OP_VARIABLE, &[pointer, id, class]));
             annotations.push(instruction(OP_DECORATE, &[id, DECORATION_DESCRIPTOR_SET, set]));
-            annotations.push(instruction(OP_DECORATE, &[id, DECORATION_BINDING, if e == 0 { binding } else { ELEMENT_BINDING + ELEMENTS_A_BINDING * binding + e }]));
+            let element_binding = if e == 0 { binding } else if own_bindings { binding + e } else { ELEMENT_BINDING + ELEMENTS_A_BINDING * binding + e };
+            annotations.push(instruction(OP_DECORATE, &[id, DECORATION_BINDING, element_binding]));
             list.push(id);
         }
         elements.insert(var, list);
@@ -203,7 +215,10 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
             }
         }
         let o = op(w);
-        // the arrays' variables and their decorations go
+        // the arrays' variables and their decorations go, and the marker
+        if marker(w) {
+            continue;
+        }
         if o == OP_VARIABLE && w.len() >= 3 && elements.contains_key(&w[2]) || o == OP_DECORATE && w.len() >= 2 && elements.contains_key(&w[1]) {
             continue;
         }

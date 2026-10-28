@@ -31,7 +31,10 @@ export const GL31 = {
     READ_WRITE: 0x88BA, ALL_BARRIER_BITS: 0xFFFFFFFF, VERTEX_SHADER_BIT: 1, FRAGMENT_SHADER_BIT: 2, COMPUTE_SHADER_BIT: 0x20,
 };
 
-/** The limits GLES 3.1's contexts answer: the specification's minimums, within WebGPU's defaults (docs/gles3-plan.md "限制") */
+/**
+ * The limits GLES 3.1's contexts answer: the specification's minimums, within WebGPU's defaults (docs/gles3-plan.md "限制");
+ * more binding points of storage blocks and atomic counters (dEQP-GLES31 binds counters at 1, six blocks of instance arrays)
+ */
 export const LIMITS31 = {
     MAX_COMPUTE_WORK_GROUP_COUNT: [65535, 65535, 65535], MAX_COMPUTE_WORK_GROUP_SIZE: [128, 128, 64], MAX_COMPUTE_WORK_GROUP_INVOCATIONS: 128,
     MAX_COMPUTE_SHARED_MEMORY_SIZE: 16384, MAX_COMPUTE_UNIFORM_BLOCKS: 12, MAX_COMPUTE_TEXTURE_IMAGE_UNITS: 16, MAX_COMPUTE_UNIFORM_COMPONENTS: 1024,
@@ -39,9 +42,9 @@ export const LIMITS31 = {
     MAX_UNIFORM_LOCATIONS: 1024, MAX_FRAMEBUFFER_WIDTH: 4096, MAX_FRAMEBUFFER_HEIGHT: 4096, MAX_FRAMEBUFFER_SAMPLES: 4,
     MAX_VERTEX_ATOMIC_COUNTER_BUFFERS: 0, MAX_FRAGMENT_ATOMIC_COUNTER_BUFFERS: 0, MAX_COMBINED_ATOMIC_COUNTER_BUFFERS: 1,
     MAX_VERTEX_ATOMIC_COUNTERS: 0, MAX_FRAGMENT_ATOMIC_COUNTERS: 0, MAX_COMBINED_ATOMIC_COUNTERS: 8, MAX_ATOMIC_COUNTER_BUFFER_SIZE: 32,
-    MAX_ATOMIC_COUNTER_BUFFER_BINDINGS: 1, MAX_VERTEX_IMAGE_UNIFORMS: 0, MAX_FRAGMENT_IMAGE_UNIFORMS: 0, MAX_COMBINED_IMAGE_UNIFORMS: 4,
+    MAX_ATOMIC_COUNTER_BUFFER_BINDINGS: 4, MAX_VERTEX_IMAGE_UNIFORMS: 0, MAX_FRAGMENT_IMAGE_UNIFORMS: 0, MAX_COMBINED_IMAGE_UNIFORMS: 4,
     MAX_IMAGE_UNITS: 4, MAX_VERTEX_SHADER_STORAGE_BLOCKS: 0, MAX_FRAGMENT_SHADER_STORAGE_BLOCKS: 0, MAX_COMBINED_SHADER_STORAGE_BLOCKS: 4,
-    MAX_SHADER_STORAGE_BUFFER_BINDINGS: 4, MAX_SHADER_STORAGE_BLOCK_SIZE: 1 << 27, SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT: 256,
+    MAX_SHADER_STORAGE_BUFFER_BINDINGS: 8, MAX_SHADER_STORAGE_BLOCK_SIZE: 1 << 27, SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT: 256,
     MAX_COMBINED_SHADER_OUTPUT_RESOURCES: 4, MAX_VERTEX_ATTRIB_RELATIVE_OFFSET: 2047, MAX_VERTEX_ATTRIB_BINDINGS: 16,
     MAX_VERTEX_ATTRIB_STRIDE: 2048, MAX_SAMPLE_MASK_WORDS: 1, MAX_COLOR_TEXTURE_SAMPLES: 4, MAX_DEPTH_TEXTURE_SAMPLES: 4,
     MAX_INTEGER_SAMPLES: 4, MIN_PROGRAM_TEXTURE_GATHER_OFFSET: -8, MAX_PROGRAM_TEXTURE_GATHER_OFFSET: 7,
@@ -54,6 +57,13 @@ const SAMPLE_POSITIONS_4 = [[0.375, 0.125], [0.875, 0.375], [0.125, 0.625], [0.6
 const MAX_ATTRIBS = 16;
 
 /** A GLES 3.1 context's state beyond GLES 3.0's (tables 20.2 to 20.53's additions) */
+/** A GLES 3.1 context a snapshot brought back from when there were fewer binding points: as many as now */
+export function pad_context31(c)
+{
+    while(c.storage_bindings.length < LIMITS31.MAX_SHADER_STORAGE_BUFFER_BINDINGS) c.storage_bindings.push({ buffer: 0, offset: 0, size: 0 });
+    while(c.atomic_bindings.length < LIMITS31.MAX_ATOMIC_COUNTER_BUFFER_BINDINGS) c.atomic_bindings.push({ buffer: 0, offset: 0, size: 0 });
+}
+
 export function extend_context31(c)
 {
     const bindings = n => Array.from({ length: n }, () => ({ buffer: 0, offset: 0, size: 0 }));
@@ -74,11 +84,17 @@ function vertex_bindings(c)
     const vao = c.vao ? c.vaos.get(c.vao) : c.default_vao;
     if(!vao.bindings)
     {
-        // (each attribute's own binding point, as GLES 3.0's calls leave them)
-        vao.bindings = vao.attribs.map(a => ({ buffer: a.buffer, offset: a.offset, stride: a.stride, divisor: a.divisor }));
+        // (each attribute's own binding point, as GLES 3.0's calls leave them: a tight one's stride its element's, 16 at first)
+        vao.bindings = vao.attribs.map(a => ({ buffer: a.buffer, offset: a.offset, stride: a.stride || element_bytes(a), divisor: a.divisor }));
         vao.attribs.forEach((a, i) => { a.binding = i; a.relative_offset = 0; });
     }
     return vao.bindings;
+}
+
+/** The bytes of an attribute's element (its tight stride) */
+function element_bytes(a)
+{
+    return a.type === 0x8368 || a.type === 0x8D9F ? 4 : a.size * ({ 0x1400: 1, 0x1401: 1, 0x1402: 2, 0x1403: 2, 0x140B: 2, 0x8D61: 2 }[a.type] || 4);
 }
 
 /** The attributes of a binding point: their buffer, offset, stride and divisor as GLES 3.0's handlers and the executor read them */
@@ -100,6 +116,9 @@ function follow_binding(c, index)
 /** GLES 3.1's names of the program interfaces (glGetProgramInterfaceiv) */
 const INTERFACES = { UNIFORM: 0x92E1, UNIFORM_BLOCK: 0x92E2, PROGRAM_INPUT: 0x92E3, PROGRAM_OUTPUT: 0x92E4, BUFFER_VARIABLE: 0x92E5,
     SHADER_STORAGE_BLOCK: 0x92E6, ATOMIC_COUNTER_BUFFER: 0x92C0, TRANSFORM_FEEDBACK_VARYING: 0x92F4 };
+/** GL's matrix types: their columns and rows */
+const MATRICES = { 0x8B5A: [2, 2], 0x8B5B: [3, 3], 0x8B5C: [4, 4], 0x8B65: [2, 3], 0x8B66: [2, 4], 0x8B67: [3, 2], 0x8B68: [3, 4], 0x8B69: [4, 2],
+    0x8B6A: [4, 3] };
 /** glslang's stage bits (STAGE: vertex 0, fragment 4, compute 5) of REFERENCED_BY_*_SHADER */
 const REFERENCED = { 0x9306: 1 << 0, 0x930A: 1 << 4, 0x930B: 1 << 5 };
 
@@ -148,11 +167,18 @@ function resources(program, iface)
             return (reflection.bufferVariables || []).map(v =>
             {
                 // (a block member that is an array of scalars, vectors or matrices is the variable's own array, ARRAY_SIZE and
-                // ARRAY_STRIDE; glslang gives it as the top level's too, dEQP's reference layout a top level of 1 and stride 0)
+                // ARRAY_STRIDE; glslang gives it as the top level's too, dEQP's reference layout a top level of 1 and stride 0;
+                // one of no declared size (glslang's top level 0) has an ARRAY_SIZE of 0, glslang's the elements used)
                 const own_array = /^(?:\w+\.)?\w+\[0\]$/.test(array_name(v.name, v.size));
+                const unsized = own_array && v.topLevelArraySize === 0;
+                // (a matrix's stride, which glslang does not reflect: its columns' (rows' if row major) vectors in the block's
+                // packing; shared and packed blocks are std430's, glsl_es_rewrite.js std_blocks)
+                const matrix = MATRICES[v.type];
+                const vector = matrix ? (v.rowMajor ? matrix[0] : matrix[1]) : 0;
+                const matrix_stride = !matrix ? 0 : v.packing === "std140" || vector > 2 ? 16 : 8;
                 return { name: array_name(v.name, v.size), props: Object.assign({
-                    0x92FA: v.type, 0x92FB: Math.max(0, v.size), 0x92FC: v.offset, 0x92FD: v.index, 0x92FE: v.arrayStride || 0,
-                    0x92FF: v.matrixStride || 0, 0x9300: v.rowMajor ? 1 : 0,
+                    0x92FA: v.type, 0x92FB: unsized ? 0 : Math.max(0, v.size), 0x92FC: v.offset, 0x92FD: v.index, 0x92FE: v.arrayStride || 0,
+                    0x92FF: v.matrixStride || matrix_stride, 0x9300: v.rowMajor && matrix ? 1 : 0,
                     0x930C: own_array || v.topLevelArraySize === undefined ? 1 : v.topLevelArraySize, 0x930D: own_array ? 0 : v.topLevelArrayStride || 0,
                 }, stages(v.stages || 0)) };
             });
@@ -862,7 +888,7 @@ export function gles31_handlers(h, H3)
         const index = args[0];
         const a = c.attribs[index];
         const bindings = vertex_bindings(c);
-        const element = a.type === 0x8368 || a.type === 0x8D9F ? 4 : a.size * ({ 0x1400: 1, 0x1401: 1, 0x1402: 2, 0x1403: 2, 0x140B: 2, 0x8D61: 2 }[a.type] || 4);
+        const element = element_bytes(a);
         Object.assign(bindings[index], { buffer: a.buffer, offset: a.offset, stride: a.stride || element });
         a.binding = index;
         a.relative_offset = 0;

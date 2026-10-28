@@ -830,8 +830,14 @@ export function gles3_handlers(h)
                 {
                     for(const a of vao.attribs) if(a.buffer === name) a.buffer = 0;
                     if(vao.element_array_buffer === name) vao.element_array_buffer = 0;
+                    // (GLES 3.1's vertex buffer binding points)
+                    for(const b of vao.bindings || []) if(b.buffer === name) b.buffer = 0;
                 }
-                for(const b of c.uniform_bindings) if(b.buffer === name) Object.assign(b, { buffer: 0, offset: 0, size: 0 });
+                // (the indexed binding points: uniform blocks', GLES 3.1's storage blocks' and atomic counters')
+                for(const b of [...c.uniform_bindings, ...c.storage_bindings || [], ...c.atomic_bindings || []])
+                {
+                    if(b.buffer === name) Object.assign(b, { buffer: 0, offset: 0, size: 0 });
+                }
                 for(const b of current_tf(c).bindings) if(b.buffer === name) Object.assign(b, { buffer: 0, offset: 0, size: 0 });
             }
             return undefined;

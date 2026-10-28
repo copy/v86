@@ -945,6 +945,32 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         const passed31 = new Uint32Array((await read_buffer(results31, 768)).slice().buffer);
         check([passed31[3], passed31[64 + 3], passed31[128 + 3]].join() === "6,18,24", "indirect dispatches of uploaded parameters: " +
             [passed31[3], passed31[64 + 3], passed31[128 + 3]].join());
+        // an instance array of storage blocks, its elements at the binding points after the array's, each a range of one buffer
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(shared, binding = 0) buffer Block { highp ivec4 var; } block[3];
+            layout(binding = 0) uniform atomic_uint ac_numPassed;
+            void main() {
+                bool ok = block[0].var == ivec4(-7, 9, -5, 6) && block[1].var == ivec4(3, 4, 2, -3) && block[2].var == ivec4(-3, -3, -5, -5);
+                if(ok) atomicCounterIncrement(ac_numPassed);
+                block[0].var = ivec4(5, -9, 5, -6); block[1].var = ivec4(-2, -4, 1, -9); block[2].var = ivec4(7, 3, 6, 8);
+            }`);
+        const blocks31 = gen("Buffers");
+        const block_words = new Int32Array(192);
+        block_words.set([-7, 9, -5, 6], 0);
+        block_words.set([3, 4, 2, -3], 64);
+        block_words.set([-3, -3, -5, -5], 128);
+        gl("glBindBuffer", 0x90D2, blocks31);
+        gl("glBufferData", 0x90D2, 768, new Uint8Array(block_words.buffer), 0x88E8);
+        for(let i = 0; i < 3; i++) gl("glBindBufferRange", 0x90D2, i, blocks31, 256 * i, 16);
+        gl("glBindBuffer", 0x92C0, counter31);
+        gl("glBufferData", 0x92C0, 4, ints([0]), 0x88E8);
+        gl("glBindBufferBase", 0x92C0, 0, counter31);
+        gl("glDispatchCompute", 1, 1, 1);
+        const block_read31 = new Int32Array((await read_buffer(blocks31, 768)).slice().buffer);
+        const passed_blocks31 = new Uint32Array((await read_buffer(counter31, 4)).slice().buffer)[0];
+        const blocks_seen31 = [passed_blocks31, ...block_read31.slice(0, 4), ...block_read31.slice(64, 68), ...block_read31.slice(128, 132)].join();
+        check(blocks_seen31 === "1,5,-9,5,-6,-2,-4,1,-9,7,3,6,8", "an instance array of storage blocks read and written: " + blocks_seen31);
         // images WebGPU has no storage view of: a cube's faces (a 2D array), a texture of another format of the
         // same texel size (a copy of its bits), a 3D texture's layer as a 2D image (a copy of the layer)
         const image_out31 = gen("Buffers");
