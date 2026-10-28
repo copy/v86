@@ -64,6 +64,11 @@
         "texture-compression-bc-sliced-3d",
         // D3D11's typed UAVs of B8G8R8A8
         "bgra8unorm-storage",
+        // GLES 3.0's ETC2 and EAC, GLES 3.2's ASTC (the GLES executor, src/gles/page/gles3_executor.js)
+        "texture-compression-etc2",
+        "texture-compression-astc",
+        // GLES 3.0's TEXTURE_SWIZZLE_*
+        "texture-component-swizzle",
     ];
 
     // Limits raised to what the adapter allows: D3D10 has 8 render targets
