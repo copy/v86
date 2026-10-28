@@ -97,6 +97,9 @@ function image_internal(image)
     return sized.error ? image.format : sized.internal;
 }
 
+/** An unused vertex input's attribute (glsl_program.js's unused_inputs): its array disabled, its value (0, 0, 0, 1) */
+const UNUSED_INPUT = { enabled: false, current: [0, 0, 0, 1] };
+
 /** The pixel store's state a GLES 2.0 context lacks */
 const NO_STORE = { row_length: 0, image_height: 0, skip_pixels: 0, skip_rows: 0, skip_images: 0 };
 
@@ -532,6 +535,8 @@ export const GLES3 = {
                 for(let k = 0; k < columns; k++) inputs.push({ location: a.location + e * columns + k, kind, components });
             }
         }
+        // (the inputs GL does not list, unused: (0, 0, 0, 1) at the locations the link gave them)
+        for(const u of program.info.unused_inputs || []) inputs.push(Object.assign({ unused: true }, u));
         return gpu.inputs = inputs;
     },
 
@@ -1794,7 +1799,10 @@ export const GLES3 = {
             vertex.slots.forEach((s, i) => pass.setVertexBuffer(i, s.gpu, s.offset));
             pass.setViewport(vx, vy, vw, vh, Math.min(c.depth_range[0], c.depth_range[1]), Math.max(c.depth_range[0], c.depth_range[1]));
             if(!this.apply_scissor(pass, c, target)) return;
-            pass.setBlendConstant({ r: c.blend_color[0], g: c.blend_color[1], b: c.blend_color[2], a: c.blend_color[3] });
+            // (CONSTANT_ALPHA's factors are WebGPU's constant ones of the alpha in every channel: G-70)
+            pass.setBlendConstant(c.blend_func.some(f => f === 0x8003 || f === 0x8004) ?
+                { r: c.blend_color[3], g: c.blend_color[3], b: c.blend_color[3], a: c.blend_color[3] } :
+                { r: c.blend_color[0], g: c.blend_color[1], b: c.blend_color[2], a: c.blend_color[3] });
             if(c.enabled.has(STENCIL_TEST)) pass.setStencilReference(c.stencil_func[face === undefined ? 0 : face][1] & 0xFF);
             const o = occlusion && this.occlusion3();
             const query = o && o.owners.length < 4096 ? o.owners.push(occlusion) - 1 : -1;
@@ -1997,7 +2005,7 @@ export const GLES3 = {
         const direct = [], cpu = [], constants = [];
         for(const input of inputs)
         {
-            const a = c.attribs[input.location];
+            const a = input.unused ? UNUSED_INPUT : c.attribs[input.location];
             if(!a) return this.note3("an input past the attributes");
             if(!a.enabled)
             {

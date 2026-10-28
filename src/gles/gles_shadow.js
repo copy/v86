@@ -707,7 +707,8 @@ function uniform_at(c, location, count)
     if(location === -1) return null;
     const at = program.info.by_location[location];
     if(!at) return fail(c, GL.INVALID_OPERATION);
-    if(count > 1 && at.uniform.size === 1) return fail(c, GL.INVALID_OPERATION);
+    // (an array of one active element is still an array: its name ends in [0], the rest of the count is ignored)
+    if(count > 1 && at.uniform.size === 1 && at.uniform.name === at.uniform.base) return fail(c, GL.INVALID_OPERATION);
     return { program, at };
 }
 

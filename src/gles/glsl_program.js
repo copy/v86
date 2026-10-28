@@ -244,8 +244,10 @@ export function link_glslang_program(glslang, shaders, options)
     const storage_blocks = check.bufferBlocks.map((b, index) => ({ name: b.name, index, size: b.size, binding: b.binding >= 0 ? b.binding : 0 }));
     storage_blocks.forEach((b, i) => bindings.push({ binding: BINDING.STORAGE_BLOCKS + i, kind: "storage_block", block: i, size: b.size }));
 
-    // each stage's SPIR-V with them
+    // each stage's SPIR-V with them; the vertex inputs GL does not list
+    // (unused: the draw gives them (0, 0, 0, 1)) at locations of their own
     const spirv = [];
+    const unused_inputs = [];
     const stages = code.modules.map(m => m.stage).sort((a, b) => a - b);
     /** @type {!Map<string, number>} the previous stage's outputs' locations, by name */
     let previous = null;
@@ -275,6 +277,22 @@ export function link_glslang_program(glslang, shaders, options)
                     const gl = [...renames].find(([, to]) => to === name);
                     const a = attributes.find(x => x.name === (gl ? gl[0] : name));
                     if(a) set_decoration(words, m, v.id, DECORATION.Location, a.location);
+                    else
+                    {
+                        const pointee = m.types.get(v.type).pointee;
+                        const n = location_count(m, pointee);
+                        let location = 0;
+                        while([...Array(n).keys()].some(k => used.has(location + k))) location++;
+                        take(location, n);
+                        set_decoration(words, m, v.id, DECORATION.Location, location);
+                        // (each location's: a matrix's columns, an array's elements)
+                        let t = m.types.get(pointee);
+                        while(t && t.kind === "array") t = m.types.get(t.element);
+                        if(t && t.kind === "matrix") t = m.types.get(t.column);
+                        const scalar = t && t.kind === "vector" ? m.types.get(t.component) : t;
+                        const kind = scalar && scalar.kind === "int" ? (scalar.signed ? "i" : "u") : "f";
+                        for(let k = 0; k < n; k++) unused_inputs.push({ location: location + k, kind, components: t && t.kind === "vector" ? t.size : 1 });
+                    }
                 }
                 else if(!explicit_io && previous && previous.has(name))
                 {
@@ -359,7 +377,8 @@ export function link_glslang_program(glslang, shaders, options)
     const geometry_module = spirv.find(m => m.stage === "geometry");
     return { ok: true, log: check.log, attributes, uniforms, locations, by_location, reflection: check, blocks, storage_blocks,
         bindings, spirv, renames, local_size: check.localSize, default_block_size: bindings[0].size, tf_varyings,
-        tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs, geometry: geometry_module ? geometry_layout(geometry_module.words) : null };
+        tf_mode: options.tf ? options.tf.mode : 0x8C8C, outputs: check.outputs, geometry: geometry_module ? geometry_layout(geometry_module.words) : null,
+        unused_inputs };
 }
 
 /**
@@ -422,7 +441,7 @@ function varying_of(m, name, gl_name)
 
 /** What of a link's result the page needs (it has no glslang): the GL view, the bindings, the SPIR-V */
 const PACKED_FIELDS = ["ok", "log", "attributes", "uniforms", "blocks", "storage_blocks", "bindings", "local_size", "default_block_size",
-    "tf_varyings", "tf_mode", "outputs", "geometry"];
+    "tf_varyings", "tf_mode", "outputs", "geometry", "unused_inputs"];
 
 /**
  * A link's result as bytes (GLES.PROGRAM_LINK's): a u32 JSON length, the

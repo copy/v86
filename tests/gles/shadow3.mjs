@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { GLESHost } from "../../src/gles/gles_host.js";
 import { GLESShadow } from "../../src/gles/gles_shadow.js";
 import { compile_glslang, create_glslang } from "../../src/gles/glslang.js";
-import { unpack_program } from "../../src/gles/glsl_program.js";
+import { link_glslang_program, unpack_program } from "../../src/gles/glsl_program.js";
 import { client, cstring, fake_renderer, i32s, text } from "./lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
@@ -382,4 +382,44 @@ async function setup(max_version, api)
     await call("gles2:glGetQueryObjectuiv", queries[1], 0x8866, 4);
     assert.ok(asked().length === 1 && asked()[0].query === queries[1], "a query that drew: the page asked, once");
     console.log("PASS: GLES 3.0's programs: uniform blocks, uint and 2x3 uniforms, transform feedback's varyings");
+}
+
+// ---- GLSL ES 1.00 through glslang: what 3.00 reads differently
+{
+    const link = (vs, fs, bindings = new Map()) => link_glslang_program(glslang, [{ stage: "vertex", source: vs }, { stage: "fragment", source: fs }],
+        { bindings, separable: false });
+    // (a user overload of a built-in, which 1.00 allows: its calls the user's, step's own the built-in's)
+    const overload = link("attribute vec4 p; void main() { gl_Position = p; }",
+        "precision mediump float; int step(float i, float j, int a) { return -a; }\n" +
+        "void main() { gl_FragColor = vec4(float(step(0.0, 1.0, 2)), step(0.5, 1.0), 0.0, 1.0); }");
+    assert.ok(overload.ok, "an overload of step links: " + overload.log);
+    // (unused attributes: locations of their own, not one glBindAttribLocation gave a used one)
+    const unused = link("attribute vec4 a_coords; attribute vec4 a_position; attribute mat2 a_m; void main() { gl_Position = a_position; }",
+        "precision mediump float; void main() { gl_FragColor = vec4(1.0); }", new Map([["a_position", 1]]));
+    assert.ok(unused.ok, unused.log);
+    assert.deepEqual(unused.attributes.map(a => [a.name, a.location]), [["a_position", 1]]);
+    const locations = unused.unused_inputs.map(u => u.location);
+    assert.ok(!locations.includes(1) && new Set(locations).size === 3, "the unused inputs' locations: " + locations);
+    assert.deepEqual(unused.unused_inputs.map(u => u.components), [4, 2, 2], "a vec4, a mat2's two columns");
+    // (a struct's array of one active element is still an array: a count past it is ignored, not refused)
+    const nested = link("attribute vec4 p; struct T { float a; vec2 b[2]; }; uniform T t[2]; varying vec2 v; void main() { v = t[1].b[0]; gl_Position = p; }",
+        "precision mediump float; varying vec2 v; void main() { gl_FragColor = vec4(v, 0.0, 1.0); }");
+    const b = nested.uniforms.find(u => u.base === "t[1].b");
+    assert.ok(b && b.size === 1 && b.name === "t[1].b[0]", JSON.stringify(nested.uniforms.map(u => u.name)));
+    const { call } = await setup("3.0", 2);
+    const program = (await call("gles2:glCreateProgram")).ret;
+    for(const [type, source] of [[0x8B31, "attribute vec4 p; struct T { float a; vec2 b[2]; }; uniform T t[2]; varying vec2 v; " +
+        "void main() { v = t[1].b[0]; gl_Position = p; }"], [0x8B30, "precision mediump float; varying vec2 v; void main() { gl_FragColor = vec4(v, 0.0, 1.0); }"]])
+    {
+        const shader = (await call("gles2:glCreateShader", type)).ret;
+        await call("gles2:glShaderString", shader, cstring(source), source.length + 1);
+        await call("gles2:glCompileShader", shader);
+        await call("gles2:glAttachShader", program, shader);
+    }
+    await call("gles2:glLinkProgram", program);
+    await call("gles2:glUseProgram", program);
+    const location = (await call("gles2:glGetUniformLocation", program, cstring("t[1].b"))).ret;
+    await call("gles2:glUniform2fv", location, 2, new Uint8Array(new Float32Array([1, 2, 3, 4]).buffer));
+    assert.equal((await call("gles2:glGetError")).ret, 0, "glUniform2fv of 2 into t[1].b");
+    console.log("PASS: GLSL ES 1.00 through glslang: overloads of built-ins, unused attributes, a one-element array");
 }

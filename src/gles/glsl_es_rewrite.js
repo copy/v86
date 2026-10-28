@@ -13,7 +13,11 @@
 //   #extension lines go;
 // - user names that are keywords or built-in functions there (3.00's to a
 //   1.00 shader; Vulkan GLSL's separate texture and sampler types to any)
-//   get a suffix: `renames` maps the new names back to GL's.
+//   get a suffix: `renames` maps the new names back to GL's;
+// - a 1.00 shader's overloads of built-in functions (1.00 has them, 3.00
+//   refuses them): the uses of the name with as many arguments as one of
+//   the user's and none of the built-in's get a suffix (those of the same
+//   count as a built-in's stay: 3.00 refuses the shader).
 
 /** 1.00's texture functions (and extensions') as 3.00's */
 const TEXTURE_FUNCTIONS = new Map([
@@ -50,6 +54,53 @@ const VULKAN_NAMES = new Set((
 ).split(" "));
 
 const SUFFIX = "_v86";
+
+/** GLSL ES 1.00's built-in functions: their argument counts */
+const BUILTINS_100 = new Map(Object.entries({
+    radians: [1], degrees: [1], sin: [1], cos: [1], tan: [1], asin: [1], acos: [1], atan: [1, 2], pow: [2], exp: [1], log: [1], exp2: [1],
+    log2: [1], sqrt: [1], inversesqrt: [1], abs: [1], sign: [1], floor: [1], ceil: [1], fract: [1], mod: [2], min: [2], max: [2], clamp: [3],
+    mix: [3], step: [2], smoothstep: [3], length: [1], distance: [2], dot: [2], cross: [2], normalize: [1], faceforward: [3], reflect: [2],
+    refract: [3], matrixCompMult: [2], lessThan: [2], lessThanEqual: [2], greaterThan: [2], greaterThanEqual: [2], equal: [2], notEqual: [2],
+    any: [1], all: [1], not: [1], dFdx: [1], dFdy: [1], fwidth: [1],
+}));
+
+/**
+ * The tokens that name a 1.00 shader's own overloads of built-in functions
+ * (a function of a built-in's name declared outside any function), marked
+ * `overload`: those followed by an argument list of a count the user's
+ * declarations have and the built-in has not
+ */
+function mark_overloads(tokens)
+{
+    const significant = tokens.map((t, i) => i).filter(i => !["space", "comment", "newline"].includes(tokens[i].kind));
+    // each name followed by "(": its argument count, and whether it is at file scope
+    const uses = [];
+    let depth = 0;
+    for(let k = 0; k < significant.length; k++)
+    {
+        const t = tokens[significant[k]];
+        if(t.text === "{") depth++;
+        else if(t.text === "}") depth--;
+        if(t.kind !== "name" || !BUILTINS_100.has(t.text) || !tokens[significant[k + 1]] || tokens[significant[k + 1]].text !== "(") continue;
+        let level = 0, count = 0, empty = true;
+        for(let j = k + 1; j < significant.length; j++)
+        {
+            const x = tokens[significant[j]].text;
+            if(x === "(" || x === "[") level++;
+            else if(x === ")" || x === "]") { if(--level === 0) break; }
+            else if(level === 1 && x === ",") count++;
+            else if(level === 1 && x !== "void") empty = false;
+        }
+        uses.push({ token: t, arity: empty ? 0 : count + 1, file_scope: depth === 0 });
+    }
+    const own = new Map();
+    for(const u of uses) if(u.file_scope) own.set(u.token.text, (own.get(u.token.text) || new Set()).add(u.arity));
+    for(const u of uses)
+    {
+        const arities = own.get(u.token.text);
+        if(arities && arities.has(u.arity) && !BUILTINS_100.get(u.token.text).includes(u.arity)) u.token.overload = true;
+    }
+}
 
 /**
  * The source's tokens: identifiers, numbers and everything else, comments
@@ -99,6 +150,7 @@ export function rewrite_for_spirv(source, stage, limits)
     };
     let frag_color = false, frag_data = false, at_line_start = true;
     let version_line_end = -1;
+    if(es100) mark_overloads(tokens);
     for(let i = 0; i < tokens.length; i++)
     {
         const t = tokens[i];
@@ -160,7 +212,8 @@ export function rewrite_for_spirv(source, stage, limits)
         }
         if(name === "samplerExternalOES") t.text = "sampler2D";
         if(!es100) return;
-        if(TEXTURE_FUNCTIONS.has(name)) t.text = TEXTURE_FUNCTIONS.get(name);
+        if(t.overload) t.text = rename(name);
+        else if(TEXTURE_FUNCTIONS.has(name)) t.text = TEXTURE_FUNCTIONS.get(name);
         else if(ES300_NAMES.has(name)) t.text = rename(name);
         else if(name === "attribute") t.text = "in";
         else if(name === "varying") t.text = stage === "vertex" ? "out" : "in";
