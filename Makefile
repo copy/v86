@@ -330,7 +330,7 @@ build/libv86.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm
 		--js $(LIB_FILES)
 	ls -lh build/libv86.js
 
-build/libv86.mjs: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
+build/libv86.mjs: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/android/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	java -jar $(CLOSURE) \
@@ -362,7 +362,7 @@ build/libv86-debug.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js s
 		--js $(LIB_FILES)
 	ls -lh build/libv86-debug.js
 
-build/libv86-debug.mjs: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js lib/*.js src/browser/*.js
+build/libv86-debug.mjs: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/android/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86-debug.mjs\
@@ -1039,7 +1039,7 @@ sse3-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-fal
 	node tests/rust/sse3.mjs build/v86-debug.wasm
 
 # Keep the worker's public option/event wire names stable across bundles.
-build/cpu-worker.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
+build/cpu-worker.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/android/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
@@ -1048,7 +1048,7 @@ build/cpu-worker.js: $(DEVICE_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src
 
 # The vCPU workers of the host-parallel build (src/parallel/vcpu.js), paired
 # with v86-parallel.wasm: `parallel: true` loads both next to the bundles
-build/vcpu-worker.js: $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/browser/*.js lib/*.js
+build/vcpu-worker.js: $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/image/*.js src/android/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \

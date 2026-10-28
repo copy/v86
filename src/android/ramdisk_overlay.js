@@ -7,32 +7,10 @@
 
 import { concat, bytes_of, latin1 } from "./bytes.js";
 import { cpio_files, cpio_newc } from "./cpio.js";
-
-/**
- * A gzip stream's data (a partition's: the zeros after the stream, which
- * DecompressionStream calls junk, end it)
- * @param {!Uint8Array} bytes gzip
- * @return {!Promise<!Uint8Array>}
- */
-async function gunzip(bytes)
-{
-    const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip")).getReader();
-    const chunks = [];
-    try
-    {
-        for(;;)
-        {
-            const { done, value } = await reader.read();
-            if(done) break;
-            chunks.push(value);
-        }
-    }
-    catch(e)
-    {
-        if(!chunks.length) throw e;
-    }
-    return concat(chunks);
-}
+// (the deflate stream decoded to its end: a partition's zeros after it are
+// ignored; DecompressionStream calls them junk, and Chrome's then dropped the
+// archive's last part, init.ranchu.rc with it)
+import { gunzip } from "../virt/inflate.js";
 
 /**
  * The ramdisk with the device model's additions (`device.init`: `{ rc:
@@ -46,7 +24,7 @@ export async function ramdisk_overlay(ramdisk, device)
 {
     const init = device.init;
     if(!init) return ramdisk;
-    const files = cpio_files(await gunzip(ramdisk));
+    const files = cpio_files(gunzip(ramdisk));
     const rc_file = init.rc_file || "init.ranchu.rc";
     const rc = files.get(rc_file);
     if(!rc) throw new Error(`android: the ramdisk has no ${rc_file}`);
