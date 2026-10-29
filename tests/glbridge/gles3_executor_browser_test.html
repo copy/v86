@@ -200,6 +200,17 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         window = await read_pixels(0, 0, W, W);
         check(near(pixel(window, W, 1, 1), [0, 255, 255, 255]), "z -0.5 in front, drawn: GL's clip space depth");
         gl("glDisable", 0x0B71);
+        // a disabled attribute's current value: the context's, set while another vertex array was bound (GLES 3.0 table 6.6)
+        gl("glBindVertexArray", 0);
+        gl("glVertexAttrib4f", 1, 1, 0.25, 0, 1);
+        gl("glBindVertexArray", vao);
+        gl("glDisableVertexAttribArray", 1);
+        gl("glUniform1f", quads.at("depth"), 0);
+        gl("glDrawArrays", 5, 0, 4);
+        window = await read_pixels(0, 0, W, W);
+        check(near(pixel(window, W, 1, 1), [0, 128, 255, 255]), "a disabled attribute's current value set under another vertex array: " +
+            pixel(window, W, 1, 1));
+        gl("glEnableVertexAttribArray", 1);
         gl("glBindVertexArray", 0);
 
         // ---- textures
@@ -1047,6 +1058,26 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         const unsized_seen = [...[0, 64, 128].map(i => new Uint32Array(unsized_read.slice().buffer)[i]),
             ...new Float32Array(unsized_read.slice().buffer).slice(116, 120)].join();
         check(unsized_seen === "1,3,2,11,22,33,5", "an instance array of storage blocks with unsized arrays of structs: lengths, a store: " + unsized_seen);
+        // ranges shorter than their blocks' WGSL size (an unsized array of no elements): the members still the buffer's, a whole
+        // buffer of 16 bytes and 16 bytes at the end of one (the GPU buffer grown to the binding's least size, G-81)
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Short { highp vec4 a; highp float e[]; } s;
+            layout(std430, binding = 1) buffer Tail { highp vec4 a; highp float e[]; } t;
+            void main() { s.a = s.a * 2.0; t.a = t.a + vec4(10.0); }`);
+        const short31 = gen("Buffers"), tail31 = gen("Buffers");
+        gl("glBindBuffer", 0x90D2, short31);
+        gl("glBufferData", 0x90D2, 16, floats([1, 2, 3, 4]), 0x88E8);
+        gl("glBindBufferBase", 0x90D2, 0, short31);
+        const tail_floats = new Float32Array(68);
+        tail_floats.set([5, 6, 7, 8], 64);
+        gl("glBindBuffer", 0x90D2, tail31);
+        gl("glBufferData", 0x90D2, 272, new Uint8Array(tail_floats.buffer), 0x88E8);
+        gl("glBindBufferRange", 0x90D2, 1, tail31, 256, 16);
+        gl("glDispatchCompute", 1, 1, 1);
+        const short_seen = [...new Float32Array((await read_buffer(short31, 16)).slice().buffer),
+            ...new Float32Array((await read_buffer(tail31, 272)).slice().buffer).slice(64)].join();
+        check(short_seen === "2,4,6,8,15,16,17,18", "storage ranges shorter than their blocks' WGSL size: " + short_seen);
         // stores into std140 arrays of 16-byte elements (their padding kept) and row major matrices (rows 8 bytes apart in std430)
         compute(`#version 310 es
             layout(local_size_x = 1) in;

@@ -173,6 +173,18 @@ async function setup(max_version, api)
     assert.deepEqual(i32s((await call("gles2:glGetVertexAttribiv", 3, 0x8622, 4)).outs[0]), [0], "not the default one's");
     await call("gles2:glBindVertexArray", 12345);
     assert.equal(await error(), 0x0502, "binding a name glGenVertexArrays did not give: INVALID_OPERATION");
+    // current values: the context's, whichever form set them last (a float form after an integer one: dEQP-GLES3
+    // state_query.shader.current_vertex_attrib_float_to_int after _int and _uint), the same under another vertex array
+    await call("gles2:glVertexAttribI4i", 5, -3, 4, 5, 6);
+    await call("gles2:glVertexAttrib4f", 5, 2.5, -7.25, 63999.5, 1);
+    assert.deepEqual(i32s((await call("gles2:glGetVertexAttribiv", 5, 0x8626, 16)).outs[0]), [3, -7, 64000, 1],
+        "GL_CURRENT_VERTEX_ATTRIB of a float form after an integer one, rounded");
+    await call("gles2:glBindVertexArray", vao);
+    assert.deepEqual(Array.from(new Float32Array((await call("gles2:glGetVertexAttribfv", 5, 0x8626, 16)).outs[0].slice().buffer)),
+        [2.5, -7.25, 63999.5, 1], "and under another vertex array");
+    await call("gles2:glVertexAttrib2fv", 5, new Uint8Array(new Float32Array([-1.5, 8]).buffer));
+    assert.deepEqual(i32s((await call("gles2:glGetVertexAttribiv", 5, 0x8626, 16)).outs[0]), [-1, 8, 0, 1], "glVertexAttrib2fv's, z 0 and w 1");
+    await call("gles2:glBindVertexArray", 0);
 
     // buffers: targets, copies, mapping answers from the CPU side's bytes
     c.group; // (the share group holds buffers)

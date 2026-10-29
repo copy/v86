@@ -708,10 +708,22 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
     客体的绘制全是空的（紧跟着的 `default_vertex_attrib` 9 例）。改动前也有：L4 的 `v86-gles3-deqp2`、`deqp3` 一样是
     flush_finish 后 9 例全错。这次四次里丢了两次，改动前的代码两次没丢；两边 flush_finish 的 WGSL 一样。渲染页
     （`gles_remote_renderer.html`）现在把设备丢失的原因写进日志。没有恢复丢失的设备。
-  - `state_query.shader.current_vertex_attrib_float_to_int`：L4 的 `deqp2` 与 L5 的 `v86-gles3-l5-regress` 也失败过，
-    其余各次都过，未查。
-- **没做**：执行器给存储块绑的范围比 WGSL 类型的最小大小短时（最后一个成员是长度为 0 的不定长数组），`storage3` 绑一块
-  全零（写进丢弃的缓冲），不是 GL 的结果；这次的用例里没有碰上。
+  - `state_query.shader.current_vertex_attrib_float_to_int`：不是偶然，整跑里它前面是 `_int`、`_uint`（同一个 dEQP 进程），
+    单独重跑才过。见下一条。
+- **当前值属于上下文**（GLES 3.0 表 6.6）：3.x 上下文里 `glVertexAttribI4*` 记进上下文的当前值，浮点的 `glVertexAttrib*f`
+  却用的是 GLES 2.0 的处理，只改顶点数组里的那份，查询先看上下文的，于是答出前面整数形式的值。现在浮点形式也记进上下文
+  （`gles3_state.js`）。页上的绘制同样只看绑着的顶点数组：在别的顶点数组下设的当前值，换了顶点数组就没了，现在取上下文的
+  （`gles3_executor.js` 的 `vertex_plan3`）。测试：`shadow3.mjs`（整数形式之后的浮点形式，换顶点数组后再查），
+  `gles3_executor_browser_test.html`（关掉的属性取另一个顶点数组下设的当前值来画）。
+- **比 WGSL 类型的最小大小短的范围**（最后一个成员是长度为 0 的不定长数组，或范围停在最后一个元素的补齐里）：存储块与
+  uniform 块原来都绑一块全零（写进丢弃的缓冲）；现在照最小大小绑缓冲本身的内存，范围在缓冲末尾时把 GPU 缓冲加长
+  （`storage3`、`block3`，偏差 G-81：这时的 `length()` 数的是那个大小放得下的元素）。测试：浏览器测试的整个 16 字节的
+  缓冲与缓冲末尾 16 字节的范围。
+- **这两处之后的重跑**：dEQP-GLES3 的 `ubo`、`state_query`、`default_vertex_attrib`、`vertex_arrays`、`draw`、`instanced`、
+  `attribute_location`（抽样，`state_query` 全收，`v86-gles3-fix7`）1344 例全过，`current_vertex_attrib_float_to_int` 紧跟在
+  `_int`、`_uint` 后面也过；dEQP-GLES31 的 `ssbo`、`ubo`、`compute`、`atomic_counter`、`synchronization`、`image_load_store`、
+  `draw_indirect`、`layout_binding`、`program_uniform`、`shaders.opaque_type_indexing`（抽样，`v86-gles31-fix8`、`fix9`）
+  只剩 G-79 的 2 例，不抽样的 743 例全过。
 
 ### L6 ES 3.2（线上能到的）
 

@@ -760,6 +760,18 @@ export function gles3_handlers(h)
         for(let i = 0; i < values.length && 8 * i + 8 <= out.size; i++) out.view.setBigInt64(8 * i, BigInt(Math.trunc(values[i])), true);
     };
 
+    /**
+     * A float form of glVertexAttrib: GLES 2.0's, and the value the
+     * context's current one (attrib_current's), which a query answers
+     * before the vertex array's: else a value an integer form set earlier
+     */
+    const float_attrib = name => (shadow, c, args) =>
+    {
+        const r = base[name](shadow, c, args);
+        if(args[0] < MAX_ATTRIBS) attrib_current(c, args[0], c.attribs[args[0]].current, "f");
+        return r;
+    };
+
     // ---- the handlers
     const H = {
         // ---- state
@@ -1012,6 +1024,14 @@ export function gles3_handlers(h)
             c.attribs[index].divisor = divisor >>> 0;
             return undefined;
         },
+        "glVertexAttrib1f": float_attrib("glVertexAttrib1f"),
+        "glVertexAttrib2f": float_attrib("glVertexAttrib2f"),
+        "glVertexAttrib3f": float_attrib("glVertexAttrib3f"),
+        "glVertexAttrib4f": float_attrib("glVertexAttrib4f"),
+        "glVertexAttrib1fv": float_attrib("glVertexAttrib1fv"),
+        "glVertexAttrib2fv": float_attrib("glVertexAttrib2fv"),
+        "glVertexAttrib3fv": float_attrib("glVertexAttrib3fv"),
+        "glVertexAttrib4fv": float_attrib("glVertexAttrib4fv"),
         "glVertexAttribI4i": (shadow, c, [index, ...v]) => attrib_current(c, index, v, "i"),
         "glVertexAttribI4ui": (shadow, c, [index, ...v]) => attrib_current(c, index, v.map(x => x >>> 0), "ui"),
         "glVertexAttribI4iv": (shadow, c, [index, v]) => attrib_current(c, index, i32s(v).slice(0, 4), "i"),

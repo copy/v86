@@ -616,10 +616,14 @@ export const GLES3 = {
 
     // ---- buffers
 
-    /** A GL buffer's GPU buffer, the CPU side's changes copied in first */
-    gpu_buffer(buffer)
+    /**
+     * A GL buffer's GPU buffer, the CPU side's changes copied in first
+     * @param {number=} minimum the bytes it holds at least (a binding's
+     *     least size past the GL buffer's end)
+     */
+    gpu_buffer(buffer, minimum = 0)
     {
-        const size = Math.max(16, Math.ceil(buffer.size / 16) * 16);
+        const size = Math.max(16, Math.ceil(Math.max(buffer.size, minimum) / 16) * 16);
         let gpu = buffer.gpu;
         if(!gpu || gpu.size < size)
         {
@@ -2525,7 +2529,9 @@ export const GLES3 = {
             if(!a) return this.note3("an input past the attributes");
             if(!a.enabled)
             {
-                constants.push({ input, a });
+                // (its current value: the context's, not the vertex array's, GLES 3.0 table 6.6)
+                const current = !input.unused && c.current_values && c.current_values[input.location];
+                constants.push({ input, a: current ? { current: current.values } : a });
                 continue;
             }
             const step = a.divisor ? "instance" : "vertex";
@@ -3112,8 +3118,10 @@ export const GLES3 = {
 
     /**
      * A storage block's or an atomic counter buffer's range: what its binding
-     * point holds (for nothing or too little: zeros to read, or a buffer
-     * nothing reads to write)
+     * point holds (for nothing: zeros to read, or a buffer nothing reads to
+     * write); a range shorter than the binding's least size (its WGSL
+     * type's: an unsized array of no elements, the padding after the last)
+     * is that size, of the buffer's memory after it (G-81)
      * @param {!Array<{buffer: number, offset: number, size: number}>} points the context's binding points of the kind
      */
     storage3(c, points, point, size, writable)
@@ -3121,11 +3129,10 @@ export const GLES3 = {
         const zeros = () => ({ buffer: writable ? this.discard3(size) : this.zeros3(size), offset: 0, size: Math.max(16, align4(size)) });
         const b = points ? points[point] : null;
         const buffer = b && b.buffer ? c.group.buffers.get(b.buffer) : null;
-        if(!buffer || !buffer.size) return zeros();
-        const gpu = this.gpu_buffer(buffer);
+        if(!buffer || !buffer.size || b.offset % 256 || b.offset >= buffer.size) return zeros();
         let length = b.size ? Math.min(b.size, buffer.size - b.offset) : buffer.size - b.offset;
         length = align4(Math.max(length, size));
-        if(b.offset % 256 || b.offset + length > gpu.size) return zeros();
+        const gpu = this.gpu_buffer(buffer, b.offset + length);
         return { buffer: gpu.buffer, offset: b.offset, size: length };
     },
 
@@ -3273,7 +3280,7 @@ export const GLES3 = {
         return buffer;
     },
 
-    /** A uniform block's buffer range: what its binding point holds (zeros for nothing, or too little) */
+    /** A uniform block's buffer range: what its binding point holds (zeros for nothing; at least the block's WGSL size) */
     block3(c, program, index, size)
     {
         const block = program.info.blocks[index];
@@ -3281,13 +3288,13 @@ export const GLES3 = {
         const b = c.uniform_bindings[point];
         const buffer = b && b.buffer ? c.group.buffers.get(b.buffer) : null;
         const zeros = () => ({ buffer: this.zeros3(size), offset: 0, size: Math.max(16, align4(size)) });
-        if(!buffer || !buffer.size) return zeros();
-        const gpu = this.gpu_buffer(buffer);
-        const offset = b.offset;
+        const offset = b ? b.offset : 0;
+        if(!buffer || !buffer.size || offset % 256 || offset >= buffer.size) return zeros();
+        // (a range shorter than the block's WGSL size: that size, of the buffer's memory after it, as storage3's)
         let length = b.size ? Math.min(b.size, buffer.size - offset) : buffer.size - offset;
-        length = Math.max(length, size);
-        if(offset % 256 || offset + length > gpu.size) return zeros();
-        return { buffer: gpu.buffer, offset, size: Math.min(align4(length), gpu.size - offset) };
+        length = align4(Math.max(length, size));
+        const gpu = this.gpu_buffer(buffer, offset + length);
+        return { buffer: gpu.buffer, offset, size: length };
     },
 
     /**
