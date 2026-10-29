@@ -38,6 +38,7 @@ const OP_FUNCTION: u32 = 54;
 const OP_FUNCTION_CALL: u32 = 57;
 const OP_VARIABLE: u32 = 59;
 const OP_LOAD: u32 = 61;
+const OP_ARRAY_LENGTH: u32 = 68;
 const OP_ACCESS_CHAIN: u32 = 65;
 const OP_IN_BOUNDS_ACCESS_CHAIN: u32 = 66;
 const OP_DECORATE: u32 = 71;
@@ -48,7 +49,7 @@ const DECORATION_DESCRIPTOR_SET: u32 = 34;
 
 /// Whether word i of an instruction of this opcode is a literal, not an id
 /// (the ones a function's code has that might equal one by chance)
-fn literal(op: u32, i: usize) -> bool {
+pub(crate) fn literal(op: u32, i: usize) -> bool {
     match op {
         8 | 317 => true,                       // OpLine, OpNoLine
         12 => i == 4,                          // OpExtInst's instruction
@@ -60,10 +61,32 @@ fn literal(op: u32, i: usize) -> bool {
         87 | 88 | 91 | 92 | 95 | 98 => i == 5, // image operands' masks
         89 | 90 | 93 | 94 | 96 | 97 => i == 6,
         99 => i == 4,
+        59 => i == 3,                          // OpVariable's storage class
         246 => i >= 3,                         // OpLoopMerge's controls
         247 => i == 2,                         // OpSelectionMerge's
         250 => i >= 4,                         // OpBranchConditional's weights
         _ => false,
+    }
+}
+
+/// Whether an instruction names `id` among its operands: its ids, not its
+/// literals (a member's offset, a constant's value, a pointer's storage
+/// class, an entry point's name), and nothing for debug names, decorations
+/// and the module's settings, which keep no type declared (layout.rs's too)
+pub(crate) fn names(w: &[u32], id: u32) -> bool {
+    let at = |i: usize| w.get(i) == Some(&id);
+    match w[0] & 0xFFFF {
+        2..=11 | 14 | 16 | 17 | 19..=22 | 26 | 71..=74 | 330..=332 => false,
+        // (OpEntryPoint: its function, and its interface after the name's words)
+        15 => {
+            let name_end = w.iter().skip(3).position(|x| x.to_le_bytes().contains(&0)).map_or(w.len(), |p| p + 4);
+            at(2) || w.iter().skip(name_end).any(|&x| x == id)
+        },
+        23..=25 | 27 | 29 => at(2),
+        32 => at(3),
+        43 | 50 => at(1),
+        52 => at(1) || w.iter().skip(4).any(|&x| x == id),
+        _ => w.iter().enumerate().skip(1).any(|(i, &x)| x == id && !literal(w[0] & 0xFFFF, i)),
     }
 }
 
@@ -136,7 +159,7 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
     }
     // every use of such a variable: an access chain with a constant first
     // index (the elements used); a chain of that index alone is the
-    // element's variable, which only loads and calls may then use
+    // element's variable, which only loads, calls and array lengths may then use
     let first_function = instructions.iter().position(|w| op(w) == OP_FUNCTION).unwrap_or(instructions.len());
     let mut used_elements: BTreeSet<(u32, u32)> = BTreeSet::new();
     let mut whole: BTreeMap<u32, (u32, u32)> = BTreeMap::new();
@@ -154,9 +177,9 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
                 }
             }
         }
-        // (a load's pointer, a call's arguments, a chain's own result or base)
+        // (a load's pointer, an array length's structure, a call's arguments, a chain's own result or base)
         let allowed = |i: usize| match op(w) {
-            OP_LOAD => i == 3,
+            OP_LOAD | OP_ARRAY_LENGTH => i == 3,
             OP_FUNCTION_CALL => i >= 4,
             OP_ACCESS_CHAIN | OP_IN_BOUNDS_ACCESS_CHAIN => i == 2 || i == 3,
             _ => false,
@@ -208,11 +231,11 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
     let variables: BTreeSet<u32> = arrays.iter().map(|a| a.0).collect();
     let dead_pointers: BTreeSet<u32> = arrays.iter().map(|a| a.7).filter(|&p| !instructions.iter().any(|w| {
         let defines = op(w) == OP_TYPE_POINTER && w[1] == p || op(w) == OP_VARIABLE && w.len() >= 3 && variables.contains(&w[2]);
-        !defines && !naming(w) && w[1..].contains(&p)
+        !defines && names(w, p)
     })).collect();
     let dead_arrays: BTreeSet<u32> = arrays.iter().filter(|a| dead_pointers.contains(&a.7)).map(|a| a.8).filter(|&t| !instructions.iter().any(|w| {
         let defines = op(w) == OP_TYPE_ARRAY && w[1] == t || op(w) == OP_TYPE_POINTER && dead_pointers.contains(&w[1]);
-        !defines && !naming(w) && w[1..].contains(&t)
+        !defines && names(w, t)
     })).collect();
     let dead = |id: u32| dead_pointers.contains(&id) || dead_arrays.contains(&id);
     let first_global = instructions.iter().position(|w| matches!(op(w), 19..=39 | 41..=52 | OP_VARIABLE)).unwrap_or(first_function);
@@ -261,7 +284,7 @@ pub fn lower(words: &[u32]) -> Vec<u32> {
                 continue;
             }
         }
-        if o == OP_LOAD && w.len() >= 4 {
+        if matches!(o, OP_LOAD | OP_ARRAY_LENGTH) && w.len() >= 4 {
             if let Some(v) = element_of(w[3]) {
                 let mut l = w.to_vec();
                 l[3] = v;

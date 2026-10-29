@@ -333,34 +333,51 @@ function tokenize(source)
  * (uniform blocks) or std430 (buffer blocks), the default layouts too:
  * GLSL ES lets an implementation choose those layouts, glslang's reflection
  * packs them as std430 while the page reads uniform blocks as std140; the
- * offsets, strides and the code then agree. The defaults go after the
- * #version and #extension lines.
+ * offsets, strides and the code then agree. Each block's packing is written
+ * on the block (glslang's reflection packs arrays in a block's structs as
+ * std430 where a default statement gave the block std140); the defaults go
+ * after the #version and #extension lines.
  * @param {string} source
+ * @param {boolean=} buffers false: buffer blocks' packings as they are
+ *     (glslang's reflection packs shared and packed ones as std430 and, as
+ *     GL, keeps a shared one nothing uses)
  * @return {string}
  */
-export function std_blocks(source)
+export function std_blocks(source, buffers = true)
 {
     const version = glsl_version(source);
     if(version < 300) return source;
     const tokens = tokenize(source);
     const significant = tokens.map((t, i) => i).filter(i => !["space", "comment", "newline"].includes(tokens[i].kind));
+    const at_k = k => tokens[significant[k]] || { text: "", kind: "" };
     const QUALIFIERS = new Set(["readonly", "writeonly", "coherent", "volatile", "restrict", "highp", "mediump", "lowp"]);
+    const PACKINGS = new Set(["shared", "packed", "std140", "std430"]);
+    const packing_of = (storage, packing) => storage === "uniform" ? (packing === "std430" ? packing : "std140") :
+        buffers && (packing === "shared" || packing === "packed") ? "std430" : packing;
+    const defaults = { uniform: "shared", buffer: "shared" };
     for(let k = 0; k < significant.length; k++)
     {
-        if(tokens[significant[k]].text !== "layout" || !tokens[significant[k + 1]] || tokens[significant[k + 1]].text !== "(") continue;
-        let close = k + 2;
-        while(close < significant.length && tokens[significant[close]].text !== ")") close++;
-        // (what the layout qualifies: the storage after it)
-        let after = close + 1;
-        while(after < significant.length && QUALIFIERS.has(tokens[significant[after]].text)) after++;
-        const storage = tokens[significant[after]] && tokens[significant[after]].text;
-        const layout = storage === "uniform" ? "std140" : storage === "buffer" ? "std430" : null;
-        if(!layout) continue;
-        for(let j = k + 2; j < close; j++)
+        // (a declaration of uniform or buffer storage: its layout, qualifiers, the storage, then ";" for a default, a block's name and "{")
+        let open = -1, close = -1, storage_at = k;
+        if(at_k(k).text === "layout" && at_k(k + 1).text === "(")
         {
-            const t = tokens[significant[j]];
-            if(t.kind === "name" && (t.text === "shared" || t.text === "packed")) t.text = layout;
+            open = k + 1;
+            close = open;
+            while(close < significant.length && at_k(close).text !== ")") close++;
+            storage_at = close + 1;
         }
+        else if(at_k(k).text !== "uniform" && at_k(k).text !== "buffer") continue;
+        while(storage_at < significant.length && QUALIFIERS.has(at_k(storage_at).text)) storage_at++;
+        const storage = at_k(storage_at).text;
+        if(storage !== "uniform" && storage !== "buffer") continue;
+        let given = null;
+        for(let j = open + 1; open >= 0 && j < close; j++) if(at_k(j).kind === "name" && PACKINGS.has(at_k(j).text)) given = at_k(j);
+        const block = at_k(storage_at + 1).kind === "name" && at_k(storage_at + 2).text === "{";
+        if(at_k(storage_at + 1).text === ";" && given) defaults[storage] = given.text;
+        if(given) given.text = packing_of(storage, given.text);
+        else if(block && open >= 0) at_k(open).text = "(" + packing_of(storage, defaults[storage]) + ", ";
+        else if(block) at_k(storage_at).text = "layout(" + packing_of(storage, defaults[storage]) + ") " + storage;
+        k = storage_at;
     }
     // (after the last #version or #extension line)
     let end = 0, at_line_start = true;
@@ -381,8 +398,8 @@ export function std_blocks(source)
         at_line_start = false;
     }
     const before = tokens.slice(0, end).map(t => t.text).join(""), rest = tokens.slice(end).map(t => t.text).join("");
-    const defaults = "layout(std140) uniform;\n" + (version >= 310 ? "layout(std430) buffer;\n" : "");
-    return before + (before && !before.endsWith("\n") ? "\n" : "") + defaults + rest;
+    const statements = "layout(std140) uniform;\n" + (version >= 310 && buffers ? "layout(std430) buffer;\n" : "");
+    return before + (before && !before.endsWith("\n") ? "\n" : "") + statements + rest;
 }
 
 /**

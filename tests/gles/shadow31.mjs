@@ -165,6 +165,61 @@ const fs_ = "#version 310 es\nprecision mediump float;\nuniform vec4 color;\nlay
     console.log("PASS: separable programs, a pipeline, glProgramUniform, the program interface");
 }
 
+// ---- block instance arrays: each element lists the array's variables (dEQP sizes an element's buffer by its unsized array's
+// stride); a shared buffer block nothing uses stays active, a packed one does not
+{
+    const compute = await program([[0x91B9, `#version 310 es
+layout(local_size_x = 1) in;
+struct S { highp uvec2 a; mediump vec3 c; };
+layout(std430, binding = 0) buffer Block { lowp vec2 u; S s[]; } block[3];
+layout(shared, binding = 3) buffer Unused { highp ivec2 l[]; };
+layout(packed, binding = 4) buffer Packed { highp int k[]; };
+layout(std140, binding = 1) uniform Values { highp vec4 v; } values[2];
+void main() { block[0].u = values[1].v.xy; block[2].s[1].a = uvec2(1u); }`]]);
+    assert.equal(await linked(compute), 1, "a compute program of block instance arrays links");
+    const index = async (iface, name) => (await call("gles2:glGetProgramResourceIndex", compute, iface, cstring(name))).ret >>> 0;
+    const props = async (iface, i, list, n) => i32s((await call("gles2:glGetProgramResourceiv", compute, iface, i, list.length,
+        new Uint8Array(new Int32Array(list).buffer), n, 4, 4 * n)).outs[1]);
+    assert.deepEqual(await ints("glGetProgramInterfaceiv", compute, 0x92E6, 0x92F5, 4), [4], "four storage blocks: Block[0..2], Unused");
+    const variables = await props(0x92E6, await index(0x92E6, "Block[0]"), [0x9304, 0x9305], 4);
+    assert.equal(variables[0], 3, "Block[0]'s variables: u, s[0].a, s[0].c");
+    for(const element of ["Block[1]", "Block[2]"])
+    {
+        assert.deepEqual(await props(0x92E6, await index(0x92E6, element), [0x9304, 0x9305], 4), variables, element + "'s variables, Block[0]'s");
+    }
+    const unused = await index(0x92E6, "Unused");
+    assert.notEqual(unused, 0xFFFFFFFF, "a shared block nothing uses is active");
+    assert.deepEqual(await props(0x92E6, unused, [0x9302, 0x9304], 2), [3, 1], "its binding and variable");
+    assert.equal(await index(0x92E6, "Packed"), 0xFFFFFFFF, "a packed block nothing uses is not");
+    assert.notEqual(await index(0x92E5, "l[0]"), 0xFFFFFFFF, "the shared block's variable");
+    const uniforms = await props(0x92E2, await index(0x92E2, "Values[0]"), [0x9304, 0x9305], 2);
+    assert.deepEqual(await props(0x92E2, await index(0x92E2, "Values[1]"), [0x9304, 0x9305], 2), uniforms, "Values[1]'s uniforms, Values[0]'s");
+    assert.deepEqual(await ints("glGetActiveUniformBlockiv", compute, await index(0x92E2, "Values[1]"), 0x8A42, 4), [1],
+        "GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS of Values[1]");
+    assert.equal(await error(), 0);
+    // (a buffer block std140 from a default statement: its struct's arrays and matrices at std140's offsets, as glslang's reflection
+    // gives only blocks that name std140; an array of arrays of matrices in a uniform block's struct the same, dEQP-GLES31
+    // ubo.random.all_shared_buffer.37)
+    const std140 = await program([[0x91B9, `#version 310 es
+layout(local_size_x = 1) in;
+layout(std140) buffer;
+struct S { highp mat3x2 m[2]; float f; };
+buffer B { S s; float g; };
+struct T { highp mat4x2 mA[3][3]; highp uvec4 mB; };
+layout(column_major) uniform U { mediump uvec3 a; T t; };
+void main() { g = s.m[1][2].y + s.f + t.mA[2][1][3].x + float(t.mB.x); }`]]);
+    assert.equal(await linked(std140), 1, "a program of std140 structs links");
+    const std140_props = async (iface, name, list) => i32s((await call("gles2:glGetProgramResourceiv", std140, iface,
+        (await call("gles2:glGetProgramResourceIndex", std140, iface, cstring(name))).ret, list.length, new Uint8Array(new Int32Array(list).buffer),
+        list.length, 4, 4 * list.length)).outs[1]);
+    assert.deepEqual(await std140_props(0x92E5, "s.m[0]", [0x92FC, 0x92FE, 0x92FF]), [0, 48, 16], "a struct's mat3x2[2] in a std140 buffer block");
+    assert.deepEqual([(await std140_props(0x92E5, "s.f", [0x92FC]))[0], (await std140_props(0x92E5, "g", [0x92FC]))[0]], [96, 112], "the members after it");
+    assert.deepEqual(await std140_props(0x92E1, "t.mA[1][0]", [0x92FC, 0x92FE]), [208, 64], "a struct's mat4x2[3][3] in a shared uniform block");
+    assert.deepEqual(await std140_props(0x92E1, "t.mB", [0x92FC]), [592], "the member after it");
+    assert.equal(await error(), 0);
+    console.log("PASS: block instance arrays' variables, an unused shared block, std140 structs");
+}
+
 // ---- multisampled textures, framebuffers without attachments
 {
     const texture = await gen("Textures");

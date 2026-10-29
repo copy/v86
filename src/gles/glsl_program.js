@@ -55,6 +55,12 @@ const STAGE_NAME = ["vertex", "tess_control", "tess_evaluation", "geometry", "fr
 const MODEL_OF_STAGE = [EXECUTION_MODEL.Vertex, EXECUTION_MODEL.TessellationControl, EXECUTION_MODEL.TessellationEvaluation,
     EXECUTION_MODEL.Geometry, EXECUTION_MODEL.Fragment, EXECUTION_MODEL.GLCompute];
 
+/** @param {string} name a block's ("B[1]", "B[0][2]") @return {string} its instance array's ("B") */
+function instance_array_name(name)
+{
+    return name.replace(/(?:\[\d+\])+$/, "");
+}
+
 /** @param {string} name GL's ("a[0].b") @param {!Map<string, string>} renames @return {string} the code pass's */
 function renamed(name, renames)
 {
@@ -90,12 +96,14 @@ export function link_glslang_program(glslang, shaders, options)
             packings.set(block, packing);
         }
     }
-    // (shared and packed blocks as std140 and std430: the reflection's offsets, the code's and the page's agree)
+    // (shared and packed blocks as std140 and std430: the reflection's offsets, the code's and the page's agree; the check
+    // pass's buffer blocks as they are, so that a shared one nothing uses stays active)
+    const check_sources = shaders.map(s => std_blocks(s.source, false));
     shaders = shaders.map(s => Object.assign({}, s, { source: std_blocks(s.source) }));
     let check;
     try
     {
-        check = glslang.check_program(shaders.map(s => ({ stage: STAGE[s.stage], source: s.source })), flags);
+        check = glslang.check_program(shaders.map((s, i) => ({ stage: STAGE[s.stage], source: check_sources[i] })), flags);
     }
     catch(e)
     {
@@ -146,6 +154,12 @@ export function link_glslang_program(glslang, shaders, options)
             array_stride: u.arrayStride, matrix_stride, row_major, binding: u.binding, stages: u.stages,
         });
         if(u.index >= 0 && blocks[u.index]) blocks[u.index].members.push(uniforms.length - 1);
+    }
+    // (an instance array's elements each have the array's members, which glslang gives its first element)
+    for(const b of blocks)
+    {
+        const first = blocks.find(x => instance_array_name(x.name) === instance_array_name(b.name));
+        if(first !== b && !b.members.length) b.members = first.members.slice();
     }
     // layout(location) on uniforms: GL refuses two at one location even
     // when they are not active, which the reflection leaves out

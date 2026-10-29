@@ -156,13 +156,20 @@ function resources(program, iface)
                 0x9302: program.block_bindings ? program.block_bindings[i] : b.binding, 0x9303: b.size, 0x9304: b.members.length, 0x9305: b.members,
             }, stages(b.stages)) }));
         case INTERFACES.SHADER_STORAGE_BLOCK:
+        {
+            // (an instance array's elements each have the array's variables, which glslang gives its first element)
+            const blocks = reflection.bufferBlocks || [];
+            const array_of = k => blocks[k] ? blocks[k].name.replace(/(?:\[\d+\])+$/, "") : null;
             return (info.storage_blocks || []).map((b, i) =>
             {
-                const members = (reflection.bufferVariables || []).map((v, k) => [v, k]).filter(([v]) => v.index === i).map(([, k]) => k);
-                const block = (reflection.bufferBlocks || [])[i] || {};
+                const element = !!blocks[i] && blocks[i].name.endsWith("]");
+                const members = (reflection.bufferVariables || []).map((v, k) => [v, k])
+                    .filter(([v]) => v.index === i || element && array_of(v.index) === array_of(i)).map(([, k]) => k);
+                const block = blocks[i] || {};
                 return { name: b.name, props: Object.assign({ 0x9302: program.storage_bindings ? program.storage_bindings[i] : b.binding, 0x9303: b.size,
                     0x9304: members.length, 0x9305: members }, stages(block.stages || 0)) };
             });
+        }
         case INTERFACES.BUFFER_VARIABLE:
             return (reflection.bufferVariables || []).map(v =>
             {

@@ -1025,6 +1025,28 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         const passed_blocks31 = new Uint32Array((await read_buffer(counter31, 4)).slice().buffer)[0];
         const blocks_seen31 = [passed_blocks31, ...block_read31.slice(0, 4), ...block_read31.slice(64, 68), ...block_read31.slice(128, 132)].join();
         check(blocks_seen31 === "1,5,-9,5,-6,-2,-4,1,-9,7,3,6,8", "an instance array of storage blocks read and written: " + blocks_seen31);
+        // one whose last member is an unsized array of struct arrays: each element's range its own length (vx_naga's blockarrays.rs
+        // drops the array's types, which naga refuses, and gives length() the element's variable)
+        compute(`#version 310 es
+            layout(local_size_x = 1) in;
+            struct S { highp ivec3 a; highp vec4 c; };
+            layout(std430, binding = 0) buffer Block { highp uint u; highp vec4 v; S s[][2]; } block[3];
+            void main() {
+                block[0].u = uint(block[0].s.length()); block[1].u = uint(block[1].s.length()); block[2].u = uint(block[2].s.length());
+                block[1].s[2][1].c = block[1].v + vec4(block[2].s[0][0].a, 1.0);
+            }`);
+        const unsized31 = gen("Buffers");
+        const unsized_words = new Int32Array(192);
+        unsized_words.set(new Int32Array(new Float32Array([1, 2, 3, 4]).buffer), 64 + 4);
+        unsized_words.set([10, 20, 30], 128 + 8);
+        gl("glBindBuffer", 0x90D2, unsized31);
+        gl("glBufferData", 0x90D2, 768, new Uint8Array(unsized_words.buffer), 0x88E8);
+        [1, 3, 2].forEach((n, i) => gl("glBindBufferRange", 0x90D2, i, unsized31, 256 * i, 32 + 64 * n));
+        gl("glDispatchCompute", 1, 1, 1);
+        const unsized_read = await read_buffer(unsized31, 768);
+        const unsized_seen = [...[0, 64, 128].map(i => new Uint32Array(unsized_read.slice().buffer)[i]),
+            ...new Float32Array(unsized_read.slice().buffer).slice(116, 120)].join();
+        check(unsized_seen === "1,3,2,11,22,33,5", "an instance array of storage blocks with unsized arrays of structs: lengths, a store: " + unsized_seen);
         // stores into std140 arrays of 16-byte elements (their padding kept) and row major matrices (rows 8 bytes apart in std430)
         compute(`#version 310 es
             layout(local_size_x = 1) in;

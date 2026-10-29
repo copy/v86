@@ -36,6 +36,8 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
+use crate::blockarrays::names;
+
 const OP_TYPE_INT: u32 = 21;
 const OP_TYPE_FLOAT: u32 = 22;
 const OP_TYPE_VECTOR: u32 = 23;
@@ -929,8 +931,8 @@ impl Lowering {
         }
         // (the pointer types the variables had, to the types now without their layout: gone where nothing else names them,
         // naga refuses a Uniform pointer to a struct of an unsized array that is no block any more)
-        let named = |id: u32, declarations: &[Vec<u32>]| declarations.iter().any(|w| !(Lowering::op(w) == OP_TYPE_POINTER && w[1] == id) && w[1..].contains(&id))
-            || body.iter().any(|w| w[1..].contains(&id));
+        let named = |id: u32, declarations: &[Vec<u32>]| declarations.iter().any(|w| !(Lowering::op(w) == OP_TYPE_POINTER && w[1] == id) && names(w, id))
+            || body.iter().any(|w| names(w, id));
         let dead: BTreeSet<u32> = redirect.keys().copied().filter(|&id| !named(id, &declarations)).collect();
         declarations.retain(|w| !(Lowering::op(w) == OP_TYPE_POINTER && dead.contains(&w[1])));
         let original = declarations.len();

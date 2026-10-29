@@ -13,6 +13,7 @@ import { GLESHost } from "../../src/gles/gles_host.js";
 import { GLESShadow } from "../../src/gles/gles_shadow.js";
 import { compile_glslang, create_glslang } from "../../src/gles/glslang.js";
 import { link_glslang_program, unpack_program } from "../../src/gles/glsl_program.js";
+import { block_layout, parse_spirv } from "../../src/gles/spirv_patch.js";
 import { client, cstring, fake_renderer, i32s, text } from "./lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..") + "/";
@@ -456,6 +457,34 @@ async function setup(max_version, api)
     await call("gles2:glGetQueryObjectuiv", queries[1], 0x8866, 4);
     assert.ok(asked().length === 1 && asked()[0].query === queries[1], "a query that drew: the page asked, once");
     console.log("PASS: GLES 3.0's programs: uniform blocks, uint and 2x3 uniforms, transform feedback's varyings");
+}
+
+// ---- uniform blocks without a packing of their own (shared, std140 from a default statement): their structs' arrays and
+// matrices at std140's offsets too, which glslang's reflection gives only blocks that name std140 (dEQP-GLES3 ubo.random.nested_structs.22)
+{
+    const vs = `#version 300 es
+struct sB { highp mat4x2 mA[3]; highp uvec4 mB; };
+struct sC { mediump uvec3 mA; sB mC; };
+struct sA { mediump vec3 mA; highp mat2x3 mB; lowp mat2x3 mC; };
+layout(column_major) uniform BlockC { sC d; mediump vec2 e; };
+layout(std140) uniform;
+layout(row_major) uniform BlockB { sA b; } blockB;
+in vec4 p;
+void main() { gl_Position = p + vec4(d.mC.mA[2][3], float(d.mC.mB.x), e) + vec4(blockB.b.mC[1], 1.0); }`;
+    const info = link_glslang_program(glslang, [{ stage: "vertex", source: vs },
+        { stage: "fragment", source: "#version 300 es\nprecision mediump float;\nout vec4 o;\nvoid main() { o = vec4(1.0); }" }], {});
+    assert.ok(info.ok, info.log);
+    const at = name => { const u = info.uniforms.find(x => x.name === name); return [u.offset, u.array_stride, u.matrix_stride]; };
+    assert.deepEqual(["d.mC.mA[0]", "d.mC.mB", "e"].map(at), [[16, 64, 16], [208, 0, 0], [224, 0, 0]],
+        "a shared block's struct: mat4x2's 64-byte elements, the members after them");
+    assert.deepEqual(["BlockB.b.mB", "BlockB.b.mC"].map(at), [[16, 0, 16], [64, 0, 16]], "a default std140 block's struct: row major mat2x3s 48 bytes each");
+    // (the code's offsets, the SPIR-V's)
+    const words = new Uint32Array(info.spirv.find(m => m.stage === "vertex").words);
+    for(const [block, prefix] of [["BlockC", ""], ["BlockB", "BlockB."]])
+    {
+        for(const [name, leaf] of block_layout(words, parse_spirv(words), block)) assert.equal(at(prefix + name)[0], leaf.offset, name + ": the code's offset");
+    }
+    console.log("PASS: uniform blocks of the default packing: their structs at std140's offsets");
 }
 
 // ---- GLSL ES 1.00 through glslang: what 3.00 reads differently

@@ -679,6 +679,40 @@ E3 的 CPU 组装路径在 ES 2.0 的测试全部转到新路径之后删掉。
   - dEQP-GLES2 子集：2039 例中 2023 例（99.2%），比 L4 多修好 10 例；整跑里唯一新的失败
     （`fbo.render.color.mix_tex2d_rgba_depth_component16`）单独重跑通过。
 
+**L5 之后（2026-10-29）**：上面没查的 8 例（GLES31 的 `ssbo.layout` 7 例、`ubo.random.all_shared_buffer.37`，加上 GLES3 的
+`ubo.random.nested_structs.22`）查完并修掉；扩大重跑（`ssbo.layout` 的实例数组与 `random` 全部、`ubo.random` 全部，不抽样）
+又找出同一类的 10 例，也修掉了。都是反射与代码对不上，或 vx_naga 把留下的类型交给 naga：
+- **块的实例数组**：glslang 只把缓冲变量（uniform 块的 uniform）挂在数组的第一个元素上，`Block[1]`、`Block[2]` 的
+  `ACTIVE_VARIABLES` 是空的。dEQP 照每个元素自己的变量找不定长数组的步长来定缓冲大小，后两个元素的缓冲于是只放得下
+  一个元素（不定长结构数组的实例数组 3 例，`random` 3 例）。现在每个元素都列出数组的变量（`gles31_state.js`、
+  `glsl_program.js`）。
+- **没用到的 shared 缓冲块**：GL 里它照样是活的，但 `std_blocks` 把它改成 std430 之后，glslang 的
+  `EShReflectionSharedStd140SSBO` 只管 std140 与 shared，反射里就没有它（dEQP 要的 `BlockE`，`random.nested_structs_arrays.8`）。
+  检查那一遍现在拿缓冲块原来的布局（glslang 的反射把 shared 与 packed 按 std430 排，和代码那一遍一样）。
+- **默认语句给的 std140**：块自己不写布局、靠 `layout(std140) uniform;` 时，glslang 的反射把块里结构的数组与矩阵按 std430
+  排（`mat4x2 mA[3][3]` 的步长 32、行主序的 `mat2x3` 24 字节），代码那一遍的 SPIR-V 却是 std140 的。dEQP 照反射写数据，
+  着色器读到的全错（`ubo.random.all_shared_buffer.37` 与 GLES3 的 `nested_structs.22`）。`std_blocks` 现在把布局写到每个块上。
+- **vx_naga 留下的类型**：`blockarrays.rs` 拆开块数组、`layout.rs` 换掉块的类型之后，判断原来的指针与数组类型还有没有人用时
+  连字面量也算了进去（成员偏移 16、整数类型的宽度 32 恰好等于指针类型的 id），留下的 `array<Block, 3>` 或指向不定长结构的
+  Uniform 指针 naga 拒绝声明，整个着色器建不起来；哪个着色器碰上只看 id 怎么排。现在两处都只看 id 的位置（`names()`）。
+  这让 `2_level_unsized_struct_array.*_instance_array` 8 例与 `random.nested_structs.3`、`nested_structs_instance_arrays.19`
+  失败（后一例在早先的整跑里过了，L5 后面的改动让 id 换了位置）。元素的 `length()`（`OpArrayLength`）也让块数组整个不拆，
+  现在照拆。
+- **测试**：`tests/gles/shadow31.mjs`（实例数组每个元素的变量、没用到的 shared 块、std140 缓冲块与 uniform 块里结构的偏移）、
+  `shadow3.mjs`（默认布局的 uniform 块，偏移与 SPIR-V 的一致）、`shader_corpus.mjs` 自己的 4 例（在改之前的 vx_naga 上都
+  建不起来）、`gles3_executor_browser_test.html`（不定长结构数组的实例数组：各元素的长度与写入）。
+- **重跑**：dEQP-GLES31 子集整跑（`v86-gles31-fix3`）支持的 1929 例中 1926 例通过（99.8%），剩下 G-79 2 例、G-80 1 例；
+  不抽样的 743 例全过（`v86-gles31-fix4`）。dEQP-GLES3 子集（宿主宣告 3.1，`v86-gles3-fix5`）5349/5384，`nested_structs.22`
+  通过；比 L5 多出的 11 例失败都是早就有的时有时无的问题，单独重跑（`v86-gles3-ff2`，同样 12 例同样次序）全过：
+  - `flush_finish.flush` 压 GPU（标定到 556 次绘制、每个像素 1024 次 `sin`）时 Chrome 的 WebGPU 设备有时丢失，之后这个
+    客体的绘制全是空的（紧跟着的 `default_vertex_attrib` 9 例）。改动前也有：L4 的 `v86-gles3-deqp2`、`deqp3` 一样是
+    flush_finish 后 9 例全错。这次四次里丢了两次，改动前的代码两次没丢；两边 flush_finish 的 WGSL 一样。渲染页
+    （`gles_remote_renderer.html`）现在把设备丢失的原因写进日志。没有恢复丢失的设备。
+  - `state_query.shader.current_vertex_attrib_float_to_int`：L4 的 `deqp2` 与 L5 的 `v86-gles3-l5-regress` 也失败过，
+    其余各次都过，未查。
+- **没做**：执行器给存储块绑的范围比 WGSL 类型的最小大小短时（最后一个成员是长度为 0 的不定长数组），`storage3` 绑一块
+  全零（写进丢弃的缓冲），不是 GL 的结果；这次的用例里没有碰上。
+
 ### L6 ES 3.2（线上能到的）
 
 - **几何与细分**：SPIR-V 预处理加 `stages.rs`；顶点的计算版本；几何的记录与绘制；GX 细分器的接入；细分接几何。

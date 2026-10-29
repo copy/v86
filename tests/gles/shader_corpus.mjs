@@ -236,6 +236,22 @@ in vec2 tc;
 layout(location = 0) out vec4 c0;
 layout(location = 1) out uvec4 c1;
 void main() { c0 = texture(arr, vec3(tc, 1.0)); c1 = texelFetch(utex, vid, 0) + uvec4(textureSize(utex, 0), 0, 0); }` }] },
+    // (instance arrays of storage blocks whose last member is an unsized array of structs, arrays or matrices: element 1's block
+    // alone, the split array's types gone although a member's offset is the pointer type's id, dEQP-GLES31
+    // ssbo.layout.unsized_struct_array and 2_level_unsized_struct_array's *_instance_array)
+    ...["S s[];", "S s[][2];", "mat2x4 s[][2];"].map((member, i) => ({ name: "own.ssbo_instance_array_unsized_" + i, expect: "pass", shaders: [
+        { stage: "compute", source: `#version 310 es
+layout(local_size_x = 1) in;
+struct S { highp ivec3 a; highp vec4 c; };
+layout(std430, binding = 0) buffer Block { lowp uint u; mediump vec4 v; ${member} } b[3];
+void main() { b[1].u = uint(b[1].s.length()); }` }] })),
+    // (an unused storage block of an unsized array of row major matrices, which layout.rs lays out again: the old pointer type gone
+    // although the int type's width is its id, dEQP-GLES31 ssbo.layout.random.nested_structs.3)
+    { name: "own.ssbo_unused_row_major_unsized", expect: "pass", shaders: [{ stage: "compute", source: `#version 310 es
+layout(local_size_x = 1) in;
+layout(row_major, binding = 0) buffer BlockB { highp mat3x2 a[]; };
+layout(binding = 0) uniform atomic_uint ac_numPassed;
+void main() { bool allOk = true; if(allOk) atomicCounterIncrement(ac_numPassed); }` }] },
     { name: "own.es320_geometry", expect: "pass", shaders: [
         { stage: "vertex", source: "#version 320 es\nin vec4 pos;\nout vec2 tc;\nvoid main(){ tc = pos.xy; gl_Position = pos; }" },
         { stage: "geometry", source: "#version 320 es\nlayout(triangles) in;\nlayout(triangle_strip, max_vertices=3) out;\nin vec2 tc[];\nout vec2 gtc;\nvoid main(){ for(int i=0;i<3;i++){ gtc = tc[i]; gl_Position = gl_in[i].gl_Position; EmitVertex(); } EndPrimitive(); }" },

@@ -138,9 +138,13 @@ const channel = {
     }
 })();
 setInterval(() => {
-    // (WebGPU's validation errors, reported once the device is up)
+    // (WebGPU's validation errors and a lost device's reason, reported once the device is up)
     const device = globalThis.renderer && globalThis.renderer.executor.device;
-    if(device && !device.onuncapturederror) device.onuncapturederror = e => log("WebGPU: " + e.error.message);
+    if(device && !device.onuncapturederror)
+    {
+        device.onuncapturederror = e => log("WebGPU: " + e.error.message);
+        device.lost.then(info => log("WebGPU device lost (" + info.reason + "): " + info.message));
+    }
     const g = globalThis.renderer && globalThis.renderer.gles;
     if(g && g.stats.errors.length) log("executor errors: " + JSON.stringify(g.stats.errors.splice(0)));
 }, 5000);
