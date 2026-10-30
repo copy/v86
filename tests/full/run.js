@@ -278,11 +278,10 @@ if(cluster.isPrimary)
             name: "Windows 98",
             skip_if_disk_image_missing: true,
             hda: root_path + "/images/windows98.img",
-            timeout: 60,
+            timeout: 120,
             expect_graphical_mode: true,
             expect_graphical_size: [640, 480],
             expect_mouse_registered: true,
-            failure_allowed: true,
         },
         {
             // image created in qemu (regression test for https://github.com/copy/v86/issues/1556, fixed in 058809d1)
