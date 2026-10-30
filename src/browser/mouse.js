@@ -312,6 +312,13 @@ export function MouseAdapter(bus, screen_container)
         }
         mouse.bus.send("mouse-click", [left_down, middle_down, right_down]);
         e.preventDefault();
+
+        if(down)
+        {
+            // preventDefault also prevents the default behavior of focusing the window
+            // (relevant when embedded in an iframe), so do it manually to capture the keys
+            window.focus();
+        }
     }
 
     function mousewheel_handler(e)
