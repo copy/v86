@@ -11,6 +11,7 @@ const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 const TEST_NAME = process.env.TEST_NAME;
+const TEST_START_FROM = process.env.TEST_START_FROM;
 const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 const LOG_LEVEL = +process.env.LOG_LEVEL || 0;
 const DISABLE_JIT = +process.env.DISABLE_JIT;
@@ -1357,6 +1358,19 @@ if(cluster.isPrimary)
             expect_mouse_registered: true,
         },
     ];
+
+    if(TEST_START_FROM)
+    {
+        const start_index = tests.findIndex(test => test.name === TEST_START_FROM);
+
+        if(start_index === -1)
+        {
+            console.error("No test named " + JSON.stringify(TEST_START_FROM));
+            process.exit(1);
+        }
+
+        tests = tests.slice(start_index);
+    }
 
     if(TEST_NAME)
     {

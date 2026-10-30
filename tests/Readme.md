@@ -23,3 +23,4 @@ The following environmental variables are respected by most tests if applicable:
 - `MAX_PARALLEL_TESTS=n`: Maximum number of tests to run in parallel. Defaults
   to the number of cores in your system or less.
 - `TEST_NAME="…"`: Run only the specified test (only expect, full, nasm)
+- `TEST_START_FROM="…"`: Skip all tests before the specified test (only full)
