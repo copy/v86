@@ -171,12 +171,24 @@ pub unsafe fn instr16_16() {
 }
 pub unsafe fn instr32_16() { return_on_pagefault!(push32_sreg(SS)) }
 
+/// Run the next instruction without checking for interrupts in between
+/// (used by sti, mov ss and pop ss)
+unsafe fn run_next_instruction_with_interrupts_inhibited() {
+    dbg_assert!(!in_jit);
+    *prefixes = 0;
+    *previous_ip = *instruction_pointer;
+    *instruction_counter += 1;
+    let opcode = return_on_pagefault!(read_imm8());
+    run_instruction(opcode | (is_osize_32() as i32) << 8);
+}
+
 #[no_mangle]
 pub unsafe fn instr16_17() {
     if !switch_seg(SS, return_on_pagefault!(safe_read16(get_stack_pointer(0)))) {
         return;
     }
     adjust_stack_reg(2);
+    run_next_instruction_with_interrupts_inhibited();
 }
 #[no_mangle]
 pub unsafe fn instr32_17() {
@@ -187,6 +199,7 @@ pub unsafe fn instr32_17() {
         return;
     }
     adjust_stack_reg(4);
+    run_next_instruction_with_interrupts_inhibited();
 }
 
 pub unsafe fn instr_18_mem(addr: i32, r: i32) { safe_read_write8(addr, &|x| sbb8(x, read_reg8(r))) }
@@ -917,6 +930,9 @@ pub unsafe fn instr_8E_mem(addr: i32, r: i32) {
         if !switch_seg(r, return_on_pagefault!(safe_read16(addr))) {
             return;
         }
+        if r == SS {
+            run_next_instruction_with_interrupts_inhibited();
+        }
     }
     else {
         dbg_log!("mov sreg #ud");
@@ -926,7 +942,12 @@ pub unsafe fn instr_8E_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_8E_reg(r1: i32, r: i32) {
     if r == ES || r == SS || r == DS || r == FS || r == GS {
-        switch_seg(r, read_reg16(r1));
+        if !switch_seg(r, read_reg16(r1)) {
+            return;
+        }
+        if r == SS {
+            run_next_instruction_with_interrupts_inhibited();
+        }
     }
     else {
         dbg_log!("mov sreg #ud");
@@ -2325,13 +2346,15 @@ pub unsafe fn instr_FA() {
 }
 
 #[no_mangle]
-pub unsafe fn instr_FB_without_fault() -> bool {
+pub unsafe fn instr_FB() {
     // sti
     if !*protected_mode
         || if 0 != *flags & FLAG_VM { getiopl() == 3 } else { getiopl() >= *cpl as i32 }
     {
+        if *flags & FLAG_INTERRUPT != 0 {
+            return;
+        }
         *flags |= FLAG_INTERRUPT;
-        return true;
     }
     else if false
         && getiopl() < 3
@@ -2344,25 +2367,15 @@ pub unsafe fn instr_FB_without_fault() -> bool {
         }
     {
         *flags |= FLAG_VIF;
-        return true;
     }
     else {
         dbg_log!("sti #gp");
-        return false;
-    };
-}
-pub unsafe fn instr_FB() {
-    if !instr_FB_without_fault() {
         trigger_gp(0);
+        return;
     }
-    else {
-        *prefixes = 0;
-        *previous_ip = *instruction_pointer;
-        *instruction_counter += 1;
-        run_instruction(return_on_pagefault!(read_imm8()) | (is_osize_32() as i32) << 8);
 
-        handle_irqs();
-    }
+    run_next_instruction_with_interrupts_inhibited();
+    handle_irqs();
 }
 
 pub unsafe fn instr_FC() {

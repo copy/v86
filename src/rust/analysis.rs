@@ -15,12 +15,12 @@ pub enum AnalysisType {
         is_32: bool,
         condition: Option<u8>,
     },
-    STI,
 }
 
 pub struct Analysis {
     pub no_next_instruction: bool,
     pub absolute_jump: bool,
+    pub inhibits_interrupts: bool,
     pub ty: AnalysisType,
 }
 
@@ -28,6 +28,7 @@ pub fn analyze_step(mut cpu: &mut CpuContext) -> Analysis {
     let mut analysis = Analysis {
         no_next_instruction: false,
         absolute_jump: false,
+        inhibits_interrupts: false,
         ty: AnalysisType::Normal,
     };
     cpu.prefixes = 0;

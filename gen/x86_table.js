@@ -54,13 +54,14 @@ const TESTS_ASSUME_INTEL = false;
 // custom: will callback jit to generate custom code
 // block_boundary: may change eip in a way not handled by the jit
 // no_next_instruction: jit will stop analysing after instruction (e.g., unconditional jump, ret)
+// inhibits_interrupts: forces execution of the next instruction without checking for interrupts (sti, pop ss, mov ss)
 const encodings = [
     { opcode: 0x06, os: 1, custom: 1 },
     { opcode: 0x07, os: 1, skip: 1, block_boundary: 1 }, // pop es: block_boundary since it uses non-raising cpu exceptions
     { opcode: 0x0E, os: 1, custom: 1 },
     { opcode: 0x0F, os: 1, prefix: 1 },
     { opcode: 0x16, os: 1, custom: 1 },
-    { opcode: 0x17, block_boundary: 1, os: 1, skip: 1 }, // pop ss
+    { opcode: 0x17, block_boundary: 1, inhibits_interrupts: 1, os: 1, custom: 1, skip: 1 }, // pop ss
     { opcode: 0x1E, os: 1, custom: 1 },
     { opcode: 0x1F, block_boundary: 1, os: 1, skip: 1 }, // pop ds
     { opcode: 0x26, prefix: 1 },
@@ -111,7 +112,7 @@ const encodings = [
 
     { opcode: 0x8C, os: 1, e: 1, custom: 1, skip: 1 }, // mov reg, sreg
     { opcode: 0x8D, reg_ud: 1, os: 1, e: 1, custom_modrm_resolve: 1, custom: 1 }, // lea
-    { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1 }, // mov sreg
+    { opcode: 0x8E, block_boundary: 1, inhibits_interrupts: 1, e: 1, custom: 1, skip: 1 }, // mov sreg
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, custom_modrm_resolve: 1, custom: 1, block_boundary: 1 }, // pop r/m
 
     { opcode: 0x90, custom: 1 },
@@ -325,8 +326,7 @@ const encodings = [
     { opcode: 0xF8, custom: 1 },
     { opcode: 0xF9, custom: 1 },
     { opcode: 0xFA, custom: 1, skip: 1 },
-    // STI: Note: Has special handling in jit in order to call handle_irqs safely
-    { opcode: 0xFB, custom: 1, custom_sti: 1, skip: 1 },
+    { opcode: 0xFB, block_boundary: 1, inhibits_interrupts: 1, custom: 1, skip: 1 }, // sti
     { opcode: 0xFC, custom: 1 },
     { opcode: 0xFD, custom: 1 },
 

@@ -257,7 +257,6 @@ pub struct BasicBlock {
     pub end_addr: u32,
     pub is_entry_block: bool,
     pub ty: BasicBlockType,
-    pub has_sti: bool,
     pub number_of_instructions: u32,
 }
 
@@ -557,7 +556,6 @@ fn jit_find_basic_blocks(
             end_addr: 0,
             ty: BasicBlockType::Exit,
             is_entry_block: false,
-            has_sti: false,
             number_of_instructions: 0,
         };
         loop {
@@ -573,51 +571,23 @@ fn jit_find_basic_blocks(
             dbg_assert!(Page::page_of(current_address) == Page::page_of(addr_before_instruction));
             let current_virt_addr = to_visit & !0xFFF | current_address as i32 & 0xFFF;
 
-            if analysis.ty == AnalysisType::STI && is_near_end_of_page(current_address) {
-                // cut off before the STI so that it is handled by interpreted mode
-                profiler::stat_increment(stat::COMPILE_CUT_OFF_AT_END_OF_PAGE);
-                break;
-            }
-
             current_block.number_of_instructions += 1;
             current_block.last_instruction_addr = addr_before_instruction;
             current_block.end_addr = current_address;
 
             match analysis.ty {
-                AnalysisType::Normal | AnalysisType::STI => {
+                AnalysisType::Normal => {
                     dbg_assert!(has_next_instruction);
                     dbg_assert!(!analysis.absolute_jump);
 
-                    if current_block.has_sti {
-                        // Convert next instruction after STI (i.e., the current instruction) into block boundary
-
-                        marked_as_entry.insert(current_virt_addr);
-                        to_visit_stack.push(current_virt_addr);
-
+                    if basic_blocks.contains_key(&current_address) {
+                        dbg_assert!(!is_near_end_of_page(current_address));
+                        current_block.ty = BasicBlockType::Normal {
+                            next_block_addr: Some(current_address),
+                            jump_offset: 0,
+                            jump_offset_is_32: true,
+                        };
                         break;
-                    }
-
-                    if analysis.ty == AnalysisType::STI {
-                        dbg_assert!(
-                            !is_near_end_of_page(current_address),
-                            "should be handled above"
-                        );
-
-                        current_block.has_sti = true;
-                    }
-                    else {
-                        // Only split non-STI blocks (one instruction needs to run after STI before
-                        // handle_irqs may be called)
-
-                        if basic_blocks.contains_key(&current_address) {
-                            dbg_assert!(!is_near_end_of_page(current_address));
-                            current_block.ty = BasicBlockType::Normal {
-                                next_block_addr: Some(current_address),
-                                jump_offset: 0,
-                                jump_offset_is_32: true,
-                            };
-                            break;
-                        }
                     }
                 },
                 AnalysisType::Jump {
@@ -705,7 +675,19 @@ fn jit_find_basic_blocks(
                 AnalysisType::BlockBoundary => {
                     // a block boundary but not a jump, get out
 
-                    if has_next_instruction {
+                    if analysis.inhibits_interrupts {
+                        dbg_assert!(has_next_instruction);
+                        if !is_near_end_of_page(current_address) {
+                            let next_analysis = analysis::analyze_step(&mut cpu);
+                            dbg_assert!(Page::page_of(cpu.eip) == Page::page_of(current_address));
+                            if !next_analysis.no_next_instruction {
+                                let next_virt_addr = to_visit & !0xFFF | cpu.eip as i32 & 0xFFF;
+                                marked_as_entry.insert(next_virt_addr);
+                                to_visit_stack.push(next_virt_addr);
+                            }
+                        }
+                    }
+                    else if has_next_instruction {
                         // block boundary, but execution will eventually come back
                         // to the next instruction. Create a new basic block
                         // starting at the next instruction and register it as an
@@ -728,15 +710,11 @@ fn jit_find_basic_blocks(
             }
         }
 
-        if current_block.number_of_instructions == 0 {
-            // Empty basic block, don't insert (only happens when STI is found near end of page)
-            continue;
-        }
+        dbg_assert!(current_block.number_of_instructions > 0);
 
         let previous_block = basic_blocks
             .range(..current_block.addr)
             .next_back()
-            .filter(|(_, previous_block)| !previous_block.has_sti)
             .map(|(_, previous_block)| previous_block);
 
         if let Some(previous_block) = previous_block {
@@ -768,7 +746,7 @@ fn jit_find_basic_blocks(
         }
     }
 
-    // delete edges pointing to blocks that were dropped (currently only due to STI near the end of a page)
+    // delete edges pointing to blocks that were dropped (e.g. jump targets near the end of a page)
     let known_addresses: HashSet<u32> = basic_blocks.keys().copied().collect();
     for block in basic_blocks.values_mut() {
         match &mut block.ty {
@@ -1330,59 +1308,6 @@ fn jit_generate_module(
             Work::WasmStructure(WasmStructure::BasicBlock(addr)) => {
                 let block = basic_blocks.get(&addr).unwrap();
                 jit_generate_basic_block(ctx, block);
-
-                if block.has_sti {
-                    match block.ty {
-                        BasicBlockType::ConditionalJump {
-                            condition,
-                            jump_offset,
-                            jump_offset_is_32,
-                            ..
-                        } => {
-                            codegen::gen_set_eip_low_bits(
-                                ctx.builder,
-                                block.end_addr as i32 & 0xFFF,
-                            );
-                            codegen::gen_condition_fn(ctx, condition);
-                            ctx.builder.if_void();
-                            if jump_offset_is_32 {
-                                codegen::gen_relative_jump(ctx.builder, jump_offset);
-                            }
-                            else {
-                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                            }
-                            ctx.builder.block_end();
-                        },
-                        BasicBlockType::Normal {
-                            jump_offset,
-                            jump_offset_is_32,
-                            ..
-                        } => {
-                            if jump_offset_is_32 {
-                                codegen::gen_set_eip_low_bits_and_jump_rel32(
-                                    ctx.builder,
-                                    block.end_addr as i32 & 0xFFF,
-                                    jump_offset,
-                                );
-                            }
-                            else {
-                                codegen::gen_set_eip_low_bits(
-                                    ctx.builder,
-                                    block.end_addr as i32 & 0xFFF,
-                                );
-                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                            }
-                        },
-                        BasicBlockType::Exit => {},
-                        BasicBlockType::AbsoluteEip => {},
-                    };
-                    codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-                    codegen::gen_move_registers_from_locals_to_memory(ctx);
-                    codegen::gen_fn0_const(ctx.builder, "handle_irqs");
-                    codegen::gen_update_instruction_counter(ctx);
-                    ctx.builder.return_();
-                    continue;
-                }
 
                 match &block.ty {
                     BasicBlockType::Exit => {

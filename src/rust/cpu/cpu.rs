@@ -334,6 +334,10 @@ pub static mut valid_tlb_entries_count: i32 = 0;
 
 pub static mut in_jit: bool = false;
 
+#[cfg(debug_assertions)]
+#[no_mangle]
+pub unsafe fn debug_clear_in_jit() { in_jit = false; }
+
 pub enum JitExitReason {
     None,
     CpuException { code: i32, error_code: Option<i32> },

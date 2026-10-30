@@ -20,6 +20,8 @@
   (type $t18 (func (param i32 i64 i32)))
   (type $t19 (func (param i32 i64 i32) (result i32)))
   (type $t20 (func (param i32 i64 i64 i32) (result i32)))
+  (import "e" "debug_clear_in_jit" (func $e.debug_clear_in_jit (type $t0)))
+  (import "e" "instr_FB" (func $e.instr_FB (type $t0)))
   (import "e" "exit_jit" (func $e.exit_jit (type $t0)))
   (import "e" "m" (memory {normalised output}))
   (func $f (export "f") (type $t1) (param $p0 i32)
@@ -64,16 +66,76 @@
               (i32.add
                 (get_local $l8)
                 (i32.const 1)))
+            (set_local $l8
+              (i32.add
+                (get_local $l8)
+                (i32.const 1)))
+            (i32.store
+              (i32.const 560)
+              (i32.or
+                (i32.and
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const -4096))
+                (i32.const 4079)))
             (i32.store
               (i32.const 556)
-              (i32.add
-                (i32.or
-                  (i32.and
-                    (i32.load
-                      (i32.const 556))
-                    (i32.const -4096))
-                  (i32.const 5))
-                (i32.const 4074)))
+              (i32.or
+                (i32.and
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const -4096))
+                (i32.const 4080)))
+            (i32.store
+              (i32.const 64)
+              (get_local $l0))
+            (i32.store
+              (i32.const 68)
+              (get_local $l1))
+            (i32.store
+              (i32.const 72)
+              (get_local $l2))
+            (i32.store
+              (i32.const 76)
+              (get_local $l3))
+            (i32.store
+              (i32.const 80)
+              (get_local $l4))
+            (i32.store
+              (i32.const 84)
+              (get_local $l5))
+            (i32.store
+              (i32.const 88)
+              (get_local $l6))
+            (i32.store
+              (i32.const 92)
+              (get_local $l7))
+            (call $e.debug_clear_in_jit)
+            (call $e.instr_FB)
+            (set_local $l0
+              (i32.load
+                (i32.const 64)))
+            (set_local $l1
+              (i32.load
+                (i32.const 68)))
+            (set_local $l2
+              (i32.load
+                (i32.const 72)))
+            (set_local $l3
+              (i32.load
+                (i32.const 76)))
+            (set_local $l4
+              (i32.load
+                (i32.const 80)))
+            (set_local $l5
+              (i32.load
+                (i32.const 84)))
+            (set_local $l6
+              (i32.load
+                (i32.const 88)))
+            (set_local $l7
+              (i32.load
+                (i32.const 92)))
             (br $B0))
           (unreachable)))
       (i32.store

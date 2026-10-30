@@ -1,11 +1,9 @@
 BITS 32
 
-    ; jmp target is at page offset 0xFEF.
-    ; follow_jump records an edge to 0x1FEF (0xFEF < 0xFF0, passes the
-    ; is_near_end_of_page guard). When that block is compiled, STI is the
-    ; first instruction and post-STI lands at 0x1FF0 (= is_near_end_of_page),
-    ; so the block is dropped with 0 instructions. The edge remains, making
-    ; scc::visit dereference a missing graph key and unwrap() on None.
+    ; jmp target is at page offset 0xFEF, which passes the is_near_end_of_page
+    ; guard, but the instruction after sti is at 0xFF0, which doesn't. The block
+    ; must still be created (sti is a block boundary) and no entry point may be
+    ; registered for the instruction after sti.
     jmp .sti_at_fef
 
     times 0xFEF - ($ - $$) db 0x90

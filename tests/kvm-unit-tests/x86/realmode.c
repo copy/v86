@@ -852,6 +852,71 @@ static void test_sti_inhibit(void)
 	report("sti inhibit", ~0, 1);
 }
 
+static void test_ss_inhibit(void)
+{
+    // https://github.com/copy/v86/issues/1631
+
+	static const u8 handler_code[] = {
+		0x50,                         /* push ax */
+		0xb0, 0x20,                   /* mov al, 0x20 */
+		0xe6, 0x20,                   /* out 0x20, al */
+		0xfe, 0x06, 0x00, 0x11,       /* inc byte [0x1100] */
+		0x58,                         /* pop ax */
+		0xcf,                         /* iret */
+	};
+	u8 master_mask = inb(0x21);
+	u32 *counter = (u32 *)0x1100;
+	const u32 iterations = 300000;
+	int i;
+
+	*(u32 *)(0x09 * 4) = 0x1000; /* IRQ 1 handler */
+	for (i = 0; i < sizeof(handler_code); i++)
+		((u8 *)0x1000)[i] = handler_code[i];
+	outb(master_mask & ~(1 << 1), 0x21);
+
+	MK_INSN(pop_ss_inhibit, "1: pushw %ss\n\t"
+				"cli\n\t"
+				"movb $1, %al\n\t"
+				"outb %al, %dx\n\t" /* Set IRQ1 */
+				"decb %al\n\t"
+				"outb %al, %dx\n\t" /* Clear IRQ1 */
+				"sti\n\t"
+				"popw %ss\n\t"
+				"movb %al, 0x1100\n\t"
+				"addl 0x1100, %ebx\n\t"
+				"decl %esi\n\t"
+				"jnz 1b\n\t"
+				"cli\n\t");
+
+	MK_INSN(mov_ss_inhibit, "movw %ss, %cx\n\t"
+				"1: cli\n\t"
+				"movb $1, %al\n\t"
+				"outb %al, %dx\n\t" /* Set IRQ1 */
+				"decb %al\n\t"
+				"outb %al, %dx\n\t" /* Clear IRQ1 */
+				"sti\n\t"
+				"movw %cx, %ss\n\t"
+				"movb %al, 0x1100\n\t"
+				"addl 0x1100, %ebx\n\t"
+				"decl %esi\n\t"
+				"jnz 1b\n\t"
+				"cli\n\t");
+
+	init_inregs(&(struct regs){ .edx = 0x2001, .esi = iterations });
+	*counter = 0;
+	exec_in_big_real_mode(&insn_pop_ss_inhibit);
+	report("pop ss inhibit", R_AX | R_BX | R_SI,
+	       outregs.ebx == iterations);
+
+	init_inregs(&(struct regs){ .edx = 0x2001, .esi = iterations });
+	*counter = 0;
+	exec_in_big_real_mode(&insn_mov_ss_inhibit);
+	report("mov ss inhibit", R_AX | R_BX | R_CX | R_SI,
+	       outregs.ebx == iterations);
+
+	outb(master_mask, 0x21);
+}
+
 static void test_imul(void)
 {
 	MK_INSN(imul8_1, "mov $2, %al\n\t"
@@ -1803,6 +1868,7 @@ void realmode_start(void)
 	test_iret();
 	test_int();
 	test_sti_inhibit();
+	test_ss_inhibit();
 	test_imul();
 	test_mul();
 	test_div();

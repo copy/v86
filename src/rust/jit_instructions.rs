@@ -2510,6 +2510,19 @@ pub fn instr16_06_jit(ctx: &mut JitContext) {
 }
 pub fn instr32_06_jit(ctx: &mut JitContext) { codegen::gen_push32_sreg(ctx, regs::ES) }
 
+pub fn instr16_17_jit(ctx: &mut JitContext) {
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_debug_clear_in_jit(ctx.builder);
+    codegen::gen_fn0_const(ctx.builder, "instr16_17");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+}
+pub fn instr32_17_jit(ctx: &mut JitContext) {
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_debug_clear_in_jit(ctx.builder);
+    codegen::gen_fn0_const(ctx.builder, "instr32_17");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+}
+
 pub fn instr16_0E_jit(ctx: &mut JitContext) {
     codegen::gen_get_sreg(ctx, regs::CS);
     let sreg = ctx.builder.set_new_local();
@@ -2987,6 +3000,24 @@ pub fn instr32_8C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
         codegen::gen_get_sreg(ctx, r2);
         codegen::gen_set_reg32(ctx, r1);
     }
+}
+
+pub fn instr_8E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    if r == SS as u32 {
+        codegen::gen_debug_clear_in_jit(ctx.builder);
+    }
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_modrm_fn1(ctx.builder, "instr_8E_mem", r);
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+}
+pub fn instr_8E_reg_jit(ctx: &mut JitContext, r1: u32, r: u32) {
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    if r == SS as u32 {
+        codegen::gen_debug_clear_in_jit(ctx.builder);
+    }
+    codegen::gen_fn2_const(ctx.builder, "instr_8E_reg", r1, r);
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 
 pub fn instr16_8D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, reg: u32) {
@@ -4257,12 +4288,10 @@ pub fn instr_FA_jit(ctx: &mut JitContext) {
 }
 
 pub fn instr_FB_jit(ctx: &mut JitContext) {
-    ctx.builder.call_fn0_ret("instr_FB_without_fault");
-    ctx.builder.eqz_i32();
-    ctx.builder.if_void();
-    codegen::gen_trigger_gp(ctx, 0);
-    ctx.builder.block_end();
-    // handle_irqs is specially handled in jit to be called one instruction after this one
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_debug_clear_in_jit(ctx.builder);
+    codegen::gen_fn0_const(ctx.builder, "instr_FB");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 
 pub fn instr_FC_jit(ctx: &mut JitContext) {

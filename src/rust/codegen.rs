@@ -78,17 +78,6 @@ pub fn gen_set_eip_low_bits_and_jump_rel32(builder: &mut WasmBuilder, low_bits: 
     builder.store_aligned_i32(0);
 }
 
-pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
-    // add n to instruction_pointer
-    if n != 0 {
-        builder.const_i32(global_pointers::instruction_pointer as i32);
-        gen_get_eip(builder);
-        builder.const_i32(n);
-        builder.add_i32();
-        builder.store_aligned_i32(0);
-    }
-}
-
 pub fn gen_page_switch_check(
     ctx: &mut JitContext,
     next_block_addr: u32,
@@ -2706,5 +2695,11 @@ pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::st
 pub fn gen_debug_track_jit_exit(builder: &mut WasmBuilder, address: u32) {
     if cfg!(feature = "profiler") {
         gen_fn1_const(builder, "track_jit_exit", address);
+    }
+}
+
+pub fn gen_debug_clear_in_jit(builder: &mut WasmBuilder) {
+    if cfg!(debug_assertions) {
+        gen_fn0_const(builder, "debug_clear_in_jit");
     }
 }
