@@ -26,6 +26,8 @@ process.on("unhandledRejection", exn => { throw exn; });
 const VERBOSE = false;
 const LOG_SCREEN = false;
 
+// slightly bumped from the default because under load some profiles don't handle keyboard events quick enough
+const TYPING_DELAY = 50;
 
 var root_path = __dirname + "/../..";
 
@@ -828,7 +830,7 @@ if(cluster.isPrimary)
         {
             name: "Haiku state image",
             skip_if_disk_image_missing: true,
-            timeout: 60,
+            timeout: 90,
             memory_size: 512 * 1024 * 1024,
             hda: root_path + "/images/haiku-v5.img",
             state: root_path + "/images/haiku_state-v5.bin.zst",
@@ -899,13 +901,13 @@ if(cluster.isPrimary)
             memory_size: 512 * 1024 * 1024,
             acpi: true,
             net_device: { type: "virtio" },
-            timeout: 60,
+            timeout: 90,
             hda: root_path + "/images/reactos-v3.img",
             state: root_path + "/images/reactos_state-v3.bin.zst",
             actions: [
                 { after: 5 * 1000, run: [0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB] }, // meta+r
                 { after: 10 * 1000, run: "cmd\n" },
-                { after: 15 * 1000, run: "echo it works > COM1\n" },
+                { after: 30 * 1000, run: "echo it works > COM1\n" },
             ],
             expected_serial_text: [
                 "it works",
@@ -1575,6 +1577,17 @@ function run_test(test, done)
 
     var test_start = Date.now();
 
+    var keyboard_queue = Promise.resolve();
+    function send_action(action)
+    {
+        keyboard_queue = keyboard_queue.then(function()
+        {
+            if(VERBOSE) console.error("Sending '%s'", action.run);
+            if(typeof action.run[0] === "string") return emulator.keyboard_send_text(action.run, TYPING_DELAY);
+            else return emulator.keyboard_send_scancodes(action.run, TYPING_DELAY);
+        });
+    }
+
     var timeout_seconds = test.timeout * TIMEOUT_EXTRA_FACTOR;
     var timeout = setTimeout(check_test_done, (timeout_seconds + 1) * 1000);
     var timeouts = [timeout];
@@ -1718,13 +1731,7 @@ function run_test(test, done)
             {
                 var action = on_text.shift();
 
-                timeouts.push(
-                    setTimeout(() => {
-                        if(VERBOSE) console.error("Sending '%s'", action.run);
-                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
-                        else emulator.keyboard_send_scancodes(action.run, 10);
-                    }, action.after || 0)
-                );
+                timeouts.push(setTimeout(() => send_action(action), action.after || 0));
             }
         }
     });
@@ -1774,13 +1781,10 @@ function run_test(test, done)
         }
         else
         {
-            timeouts.push(
-                setTimeout(() => {
-                    if(VERBOSE) console.error("Sending '%s'", action.run);
-                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
-                    else emulator.keyboard_send_scancodes(action.run, 10);
-                }, action.after || 0)
-            );
+            emulator.add_listener("emulator-loaded", () =>
+            {
+                timeouts.push(setTimeout(() => send_action(action), action.after || 0));
+            });
         }
     });
 }
