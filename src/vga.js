@@ -117,6 +117,12 @@ export function VGAScreen(cpu, bus, screen, vga_memory_size)
     this.virtual_height = 0;
 
     /**
+     * Bits per pixel of the current graphical mode, as last reported to the screen
+     * @type {number}
+     */
+    this.screen_bpp = 0;
+
+    /**
      * The rectangular fragments of the image buffer, and their destination
      * locations, to be drawn every screen_fill_buffer during VGA modes.
      * @type {Array<Object<string, number>>}
@@ -535,6 +541,7 @@ VGAScreen.prototype.set_state = function(state)
     // Ensure set_size_graphical/set_size_graphical_text will update
     this.screen_width = 0;
     this.screen_height = 0;
+    this.screen_bpp = 0;
 
     if(this.graphical_mode)
     {
@@ -1162,7 +1169,8 @@ VGAScreen.prototype.set_size_graphical = function(width, height, virtual_width, 
         this.screen_width !== width ||
         this.screen_height !== height ||
         this.virtual_width !== virtual_width ||
-        this.virtual_height !== virtual_height;
+        this.virtual_height !== virtual_height ||
+        this.screen_bpp !== bpp;
 
     if(needs_update)
     {
@@ -1170,6 +1178,7 @@ VGAScreen.prototype.set_size_graphical = function(width, height, virtual_width, 
         this.screen_height = height;
         this.virtual_width = virtual_width;
         this.virtual_height = virtual_height;
+        this.screen_bpp = bpp;
 
         if(typeof ImageData !== "undefined")
         {
