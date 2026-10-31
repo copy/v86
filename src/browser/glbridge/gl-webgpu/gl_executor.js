@@ -4903,25 +4903,25 @@
         textureIsComplete(texture) {
             if (!texture || !texture.levels.length) return false;
             const layers = texture.kind === "Cube" ? 6 : 1;
-            const base = texture.levels[0] && texture.levels[0][0];
-            if (!base) return false;
-            const mipmapped = isMipmapFilter(texture.sampler.minFilter);
-            const levelCount = mipmapped ?
-                fullMipLevelCount(base.width, base.height, base.depth) : 1;
+            const first = texture.sampler.baseLevel, maximum = texture.sampler.maxLevel;
+            const base = texture.levels[0] && texture.levels[0][first];
+            if (!base || !base.width || !base.height || !(base.depth || 1) ||
+                    isMipmapFilter(texture.sampler.minFilter) && maximum < first) return false;
+            const last = isMipmapFilter(texture.sampler.minFilter) ?
+                Math.min(maximum, first + fullMipLevelCount(base.width, base.height, base.depth) - 1) : first;
             for (let layer = 0; layer < layers; ++layer) {
                 const list = texture.levels[layer];
                 if (!list) return false;
-                for (let level = 0; level < levelCount; ++level) {
-                    const slot = list[level];
-                    if (!slot) return false;
-                    if (slot.gpuFormat !== base.gpuFormat) return false;
-                    if (slot.width !== Math.max(1, base.width >> level) ||
-                            slot.height !== Math.max(1, base.height >> level))
-                        return false;
+                for (let level = first; level <= last; ++level) {
+                    const slot = list[level], relative = level - first;
+                    if (!slot || slot.gpuFormat !== base.gpuFormat || slot.base !== base.base) return false;
+                    if (slot.width !== Math.max(1, base.width >> relative) ||
+                            slot.height !== Math.max(1, base.height >> relative) ||
+                            texture.kind === "3D" && slot.depth !== Math.max(1, base.depth >> relative)) return false;
                 }
-                if (texture.kind === "Cube" &&
-                        (base.width !== base.height)) return false;
+                if (texture.kind === "Cube" && base.width !== base.height) return false;
             }
+            texture.baseFormat = base.base;
             return true;
         },
 
@@ -4929,17 +4929,29 @@
          * the shape changed. */
         ensureTextureUploaded(texture) {
             if (!texture) return null;
-            const base = texture.levels[0] && texture.levels[0][0];
-            if (!base) return null;
-            const layers = texture.kind === "Cube" ? 6 : 1;
-            const mipmapped = isMipmapFilter(texture.sampler.minFilter);
-            const levelCount = mipmapped ?
-                Math.min(fullMipLevelCount(base.width, base.height, base.depth),
-                    (texture.levels[0] || []).length) : 1;
+            let anchor = texture.levels[0] && texture.levels[0][texture.sampler.baseLevel], anchorLevel = texture.sampler.baseLevel;
+            if (!anchor || !anchor.width || !anchor.height) {
+                anchor = null;
+                for (const list of texture.levels) if (list) for (let level = 0; level < list.length; ++level) {
+                    const slot = list[level];
+                    if (slot && slot.width && slot.height && (!anchor || level < anchorLevel)) { anchor = slot; anchorLevel = level; }
+                }
+            }
+            if (!anchor) return null;
+            const scale = 2 ** anchorLevel, layers = texture.kind === "Cube" ? 6 : 1;
+            const zero = texture.levels.find(list => list && list[0]?.width && list[0]?.height)?.[0];
+            const compatibleZero = zero && Math.max(1, zero.width >> anchorLevel) === anchor.width &&
+                Math.max(1, zero.height >> anchorLevel) === anchor.height &&
+                (texture.kind !== "3D" || Math.max(1, zero.depth >> anchorLevel) === anchor.depth);
+            const base = { ...anchor, width: compatibleZero ? zero.width : anchor.width * scale,
+                height: texture.kind === "1D" ? 1 : compatibleZero ? zero.height : anchor.height * scale,
+                depth: texture.kind === "3D" ? compatibleZero ? zero.depth : anchor.depth * scale : 1 };
+            // Authored images exist independently of the sampling filter. A
+            // non-mipmap sampler can still attach/read level 2 through an FBO.
+            const authoredLevels = Math.max(1, ...texture.levels.map(list => list ? list.length : 0));
             const wanted = {
-                width: base.width, height: base.height,
-                depth: texture.kind === "3D" ? base.depth : 1,
-                layers, levelCount: Math.max(1, levelCount),
+                width: base.width, height: base.height, depth: base.depth,
+                layers, levelCount: Math.min(fullMipLevelCount(base.width, base.height, base.depth), authoredLevels),
                 format: base.gpuFormat,
             };
             const shapeChanged = !texture.gpuTexture ||
@@ -5031,7 +5043,8 @@
                 const list = texture.levels[layer] || [];
                 for (let level = 0; level < wanted.levelCount; ++level) {
                     const slot = list[level];
-                    if (!slot || !slot.pixels) continue;
+                    if (!slot || !slot.pixels || slot.gpuFormat !== wanted.format ||
+                            slot.width !== Math.max(1, wanted.width >> level) || slot.height !== Math.max(1, wanted.height >> level)) continue;
                     if (shapeChanged || full.has(layer + ":" + level))
                         this.writeTextureLevel(texture, slot, level, layer);
                 }
