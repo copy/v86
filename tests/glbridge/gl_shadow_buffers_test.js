@@ -4,6 +4,7 @@ const { GLShadow } = require("../../src/browser/glbridge/gl-webgpu/gl_shadow.js"
 require("../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js");
 require("../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js");
 require("../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js");
+require("../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js");
 const P = require("../../src/browser/glbridge/gl-webgpu/gl_protocol.js");
 const { GLStream, GL } = require("./gl_stream_builder.js");
 const tests = [], test = (name, fn) => tests.push({ name, fn });
@@ -171,6 +172,35 @@ test("buffer mapping is shared CPU state with atomic errors, pointer queries, re
     s.process(new GLStream().makeCurrent(2, 0, 0, 64, 64, 2, 1).call("BIND_BUFFER", GL.ARRAY_BUFFER, 7)
         .makeCurrent(1, 0, 0, 64, 64, 1, 1).names(P.GLFN.DELETE_BUFFERS, [7]).makeCurrent(2, 0, 0, 64, 64, 2, 1).bytes());
     assert.equal(s.boundBuffer(GL.ARRAY_BUFFER).mapped, true); assert.equal(s.boundBuffer(GL.ARRAY_BUFFER).pointer, 0xFEDCBA98);
+});
+
+test("encoding selectors retain the captured VBO after another context deletes and reuses its name", () => {
+    const s = new GLShadow();s.process(scene().call("BIND_BUFFER",GL.ARRAY_BUFFER,7)
+        .bufferData(GL.ARRAY_BUFFER,4,GL.STATIC_DRAW,new Uint8Array([1,2,3,4]))
+        .record(P.GLFN.VERTEX_POINTER_VBO,P.encodeRecord("VERTEX_POINTER_VBO",{size:3,type:GL.FLOAT,stride:0,offset:0}))
+        .call("BIND_BUFFER",GL.ARRAY_BUFFER,9).bufferData(GL.ARRAY_BUFFER,4,GL.STATIC_DRAW,new Uint8Array([22,22,22,22]))
+        .makeCurrent(2,0,0,64,64,2,1).names(P.GLFN.DELETE_BUFFERS,[7]).call("BIND_BUFFER",GL.ARRAY_BUFFER,7)
+        .bufferData(GL.ARRAY_BUFFER,4,GL.STATIC_DRAW,new Uint8Array([9,8,7,6])).makeCurrent(1,0,0,64,64,1,1).bytes());
+    const stream = new GLStream(), old = operation(stream,"QUERY_BUFFER_DATA",{target:GL.VERTEX_ARRAY,buffer:0,offset:0,size:4,range_size:4,data_size:4},4),
+        fresh = operation(stream,"QUERY_BUFFER_DATA",{target:GL.ARRAY_BUFFER,buffer:7,offset:0,size:4,range_size:4,data_size:4},4);
+    s.process(stream.bytes());assert.deepEqual(old().data,[1,2,3,4]);assert.deepEqual(fresh().data,[9,8,7,6]);
+    assert.equal(s.current.error,0);
+});
+test("named encoding reads validate the CPU store without rebinding or trusting guest mirrors", () => {
+    const s = new GLShadow();s.process(scene().call("BIND_BUFFER",GL.ARRAY_BUFFER,7)
+        .bufferData(GL.ARRAY_BUFFER,8,GL.STATIC_DRAW,new Uint8Array([1,2,3,4,5,6,7,8]))
+        .call("BIND_BUFFER",GL.ARRAY_BUFFER,9).bufferData(GL.ARRAY_BUFFER,4,GL.STATIC_DRAW,new Uint8Array([9,9,9,9])).bytes());
+    const binding = s.boundBuffer(GL.ARRAY_BUFFER);
+    const read = (buffer, offset, size, range_size = size) => {
+        const stream = new GLStream(), result = operation(stream,"QUERY_BUFFER_DATA",{target:GL.ARRAY_BUFFER,buffer,offset,size,range_size,data_size:Math.max(size,0)},Math.max(size,0));
+        s.current.error=0;s.process(stream.bytes());assert.equal(s.boundBuffer(GL.ARRAY_BUFFER),binding);return result();
+    };
+    assert.deepEqual(read(7,2,3).data,[3,4,5]);assert.deepEqual(read(9,1,2).data,[9,9]);
+    assert.equal(read(7,7,2).error,GL.INVALID_VALUE);assert.equal(read(7,0,1,9).error,GL.INVALID_VALUE);
+    assert.equal(read(17,0,1).error,GL.INVALID_OPERATION);
+    s.current.group.buffers.get(7).mapped=true;assert.equal(read(7,0,1).error,GL.INVALID_OPERATION);
+    s.current.group.buffers.get(7).mapped=false;s.process(new GLStream().names(P.GLFN.DELETE_BUFFERS,[7]).bytes());
+    assert.equal(read(7,0,1).error,GL.INVALID_OPERATION);assert.deepEqual([...binding.data],[9,9,9,9]);
 });
 
 (async () => { for (const { name, fn } of tests) { try { await fn(); console.log("ok   " + name); }

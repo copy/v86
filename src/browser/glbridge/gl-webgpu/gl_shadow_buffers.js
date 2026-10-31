@@ -108,8 +108,22 @@
                 this.answered(name, view, offset, P.C.V86GL_SYNC_QUERY_STATUS_FAILED);
             };
             if (!this.current || this.current.state.begin) return fail(GL.INVALID_OPERATION);
-            if (!targets.has(r.target)) return fail(GL.INVALID_ENUM);
-            const buffer = this.boundBuffer(r.target); if (!buffer) return fail(GL.INVALID_OPERATION);
+            let buffer;
+            if (targets.has(r.target)) {
+                buffer = name === "QUERY_BUFFER_DATA" && r.buffer ? this.current.group.buffers.get(r.buffer) : this.boundBuffer(r.target);
+            } else if (name === "QUERY_BUFFER_DATA") {
+                // Read the captured object, including a deleted VBO retained
+                // by another context or a client attribute stack. Names may
+                // already identify a new object by the time it is encoded.
+                const arrays = this.current.state.arrays, keys = new Map([[GL.VERTEX_ARRAY,"vertex"],[GL.NORMAL_ARRAY,"normal"],
+                    [GL.COLOR_ARRAY,"color"],[GL.INDEX_ARRAY,"index"],[GL.EDGE_FLAG_ARRAY,"edgeFlag"],
+                    [GL.SECONDARY_COLOR_ARRAY_EXT,"secondaryColor"],[GL.FOG_COORDINATE_ARRAY_EXT,"fogCoord"]]);
+                const array = r.target === GL.TEXTURE_COORD_ARRAY ? arrays?.texCoord?.[r.buffer] :
+                    r.target === GL.VERTEX_ATTRIB_ARRAY_POINTER ? arrays?.generic?.[r.buffer] : arrays?.[keys.get(r.target)];
+                if (!array) return fail(GL.INVALID_ENUM);
+                buffer = this.current.group.bufferObjects.get(array.bufferId);
+            } else return fail(GL.INVALID_ENUM);
+            if (!buffer || !buffer.created) return fail(GL.INVALID_OPERATION);
             if (name === "QUERY_BUFFER_DATA") {
                 if (r.offset < 0 || r.size < 0 || r.range_size < r.size || r.offset + r.range_size > buffer.size ||
                     r.size > r.data_size || r.data_size > size - header) return fail(GL.INVALID_VALUE);

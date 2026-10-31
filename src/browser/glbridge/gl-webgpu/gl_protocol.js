@@ -245,7 +245,7 @@
         ["PRIORITIZE_TEXTURES", 221, null, "i:count"], // then count pairs of u32 name, f32 priority
         // A CPU link failure preserves the previously installed executable.
         ["PROGRAM_LINK_FAILED", 222, "ProgramLinkFailed", "u"],
-        ["QUERY_BUFFER_DATA", 223, null, "u:target i:offset i:size i:range_size u:status u:data_size u:error u:reserved"],
+        ["QUERY_BUFFER_DATA", 223, null, "u:target i:offset i:size i:range_size u:status u:data_size u:error u:buffer"],
         ["QUERY_BUFFER_MAP", 224, null, "u:target u:access u:pointer u:status u:error u:reserved"],
         ["QUERY_BUFFER_UNMAP", 225, null, "u:target u:status u:result u:error"],
         ["INDEX_POINTER_VBO", 226, null, "i:size u:type i:stride u:offset"],

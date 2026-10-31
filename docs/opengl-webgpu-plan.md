@@ -1058,6 +1058,12 @@ game.exe
 > - 110 组核心 Node、47 组站点检查、实际链接 GPU 页、普通/诊断 DLL（831 导出）通过。继续 F1 的编码暂存及其余缓存清理，尚未宣布 F1/F 完成。
 
 - **F1 删除客体影子和缓存。** 只保留 WGL 和编码需要的状态；每个 `glGet*`、`glGetError` 经 IOCTL 由影子回答；`glCopyTexImage` 不再同步读回再上传。
+
+> **F1B 完成（2026-10-31）：资源表与缓冲区镜像清理。**
+>
+> - 纹理像素/参数、FBO/renderbuffer 和 occlusion query 的客体表及查询回退删除；资源名字由 CPU 分配，buffer 上传不再更新客体镜像。MapBuffer 只保留实际映射所需的返回内存。混合客户端/VBO 编码用分批 CPU 读取和短期稳定的暂存指针；查询不改变绑定。
+> - QUERY_BUFFER_DATA 原保留字改为 buffer 选择器；普通 target 可按绑定/名字读取，客户端数组 target 按 CPU 捕获的对象身份读取。因此共享上下文删除再重用名字，以及 client attribute 栈保留旧对象时仍读取原来的 VBO。RECT proxy 也在读取客户端指针前处理。
+> - 110 组核心、48 组站点实际 ABI、48 页 GPU、普通/诊断 DLL（831 导出）通过，`glbufferencoding` 变异 6/6。继续清理固定管线状态和 F2 编码；F1/F 尚未整体完成。
 - **F2 编码：**
   - 立即模式合并成顶点块；
   - 客户端数组只拷贝 `[min, max]`，超出 `end` 的索引照画（S2-34）；

@@ -59,6 +59,14 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glbufferencoding: { floor: 1, node: ["gl_shadow_buffers_test.js"], pages: [], list: [
+        ["named VBO read uses current binding", G + "gl_shadow_buffers.js", 'name === "QUERY_BUFFER_DATA" && r.buffer ?', 'false ?'],
+        ["array read uses public names instead of retained identity", G + "gl_shadow_buffers.js", 'buffer = this.current.group.bufferObjects.get(array.bufferId);', 'buffer = this.current.group.buffers.get(array.bufferId);'],
+        ["array read uses unrelated current binding", G + "gl_shadow_buffers.js", 'buffer = this.current.group.bufferObjects.get(array.bufferId);', 'buffer = this.boundBuffer(GL.ARRAY_BUFFER);'],
+        ["buffer read omits whole-range bounds", G + "gl_shadow_buffers.js", 'r.offset + r.range_size > buffer.size ||', ''],
+        ["encoding reads allow mapped buffers", G + "gl_shadow_buffers.js", 'if (buffer.mapped) return fail(GL.INVALID_OPERATION);\n                if (r.size)', 'if (r.size)'],
+        ["encoding reads ignore offset", G + "gl_shadow_buffers.js", 'buffer.data.subarray(r.offset, r.offset + r.size)', 'buffer.data.subarray(0, r.size)'],
+    ] },
     glprogramlink: { floor: 1, node: ["gl_program_link_test.js", "gl_sync_answers_test.js"], pages: ["gl_program_link_browser_test.html"], list: [
         ["guest device skips GPU validation", "src/browser/glbridge/v86gl_device.js", 'if (shadow) shadow.requireGPUProgramValidation = true;', 'if (shadow) shadow.requireGPUProgramValidation = false;'],
         ["backend errors treated as successful link", G + "gl_executor.js", 'notify(!messages.length, messages.join("\\n").slice(0, 65536));', 'notify(true, messages.join("\\n").slice(0, 65536));'],
