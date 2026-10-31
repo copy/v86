@@ -5708,7 +5708,7 @@
         COMPAT_ATTRIBUTE_LOCATIONS, COMPAT_ATTRIBUTE_TYPES,
         STATE_UNIFORMS, BUILTIN_CONSTANTS, ES_BUILTIN_CONSTANTS,
         MAX_INTER_STAGE_SLOTS, MAX_VERTEX_ATTRIBUTES, POINT_CORNER_LOCATION,
-        assignAttributeLocations, assignVaryings, hashString, safeName,
+        assignAttributeLocations, assignVaryings, hashString, safeName, logicOpExpression,
     };
     global.GLShaderTranslator = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;

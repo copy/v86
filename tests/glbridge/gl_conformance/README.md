@@ -80,3 +80,11 @@ The raw pixel page explicitly enables `gl_renderer_diagnostics.js` to inspect it
 #### Integer pipeline identity (D2)
 
 `gl_cache_keys_test.js` forces every bucket hash to collide and still requires exact descriptor identity. `gl_pipeline_keys_test.js` forces source-hash collisions while checking CPU program/link generations, sharing/name reuse, effective stencil state, dynamic references, colour masks and sample counts. `gl_pipeline_keys_browser_test.html` verifies the corresponding red/blue and stencil pixels on WebGPU in both memory modes. Runtime keys and fixed-function signatures are integer handles backed by complete integer vectors; descriptor fields are collected automatically. Shader modules retain full source equality; source hashes cannot substitute for an object's identity.
+
+E2A adds arb_pipeline: nine scalar grammar probes and twelve full-image
+pipeline cases. Scalar selectors are required even for inline constants by
+ARB_fragment_program's grammar; Apple accepts the bare scalar POW probe,
+whereas validation follows the grammar and Mesa. Each logic-op tile uses an
+explicit scissor so native guardband rasterization cannot touch adjacent
+tiles. All twelve images, including both MRT images, agree byte for byte
+between Apple GL and Mesa before comparison with WebGPU.

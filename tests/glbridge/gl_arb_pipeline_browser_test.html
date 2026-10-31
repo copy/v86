@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Resolved program interfaces</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_program_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_polygon_clip.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_single_sample.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_bind_layouts.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="../../src/browser/glbridge/graphics_journal.js"></script>
+<script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
+<script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="gl_selection_cases.js"></script>
+<script src="gl_evaluator_cases.js"></script>
+<script src="gl_arb_pipeline_cases.js"></script>
+<script>
+(async()=>{
+ "use strict";const {GLStream,GL}=GLTestStream,P=GLProtocol,check=(ok,message)=>{if(!ok)throw new Error(message);};
+ try{
+  const reference=await(await fetch("gl_conformance/arb_pipeline_reference.json")).json();
+  for(const copied of [false,true]){
+   const cpu=new V86GLShadow.GLShadow(),gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();cpu.setCapabilities(gpu.capabilities());gpu.options.writeGuestMemory=(at,bytes,metadata)=>metadata.memory.set(bytes,at+metadata.baseOffset);
+   for(const [i,name] of GLARBPipelineCases.names.entries()){
+    const s=GLARBPipelineCases.scene(new GLStream().makeCurrent(100+i,0,0,16,16,100+i,100+i),i,GL),read=s.readPixels(0,0,16,16,GL.RGBA,GL.UNSIGNED_BYTE,1024);const second=i===11?s.call("READ_BUFFER",GL.COLOR_ATTACHMENT0+1).readPixels(0,0,16,16,GL.RGBA,GL.UNSIGNED_BYTE,1024):null,memory=s.bytes();
+    for(const segment of cpu.process(memory)||[{offset:0,length:memory.length}]){const bytes=segment.bytes||memory.subarray(segment.offset,segment.offset+segment.length);gpu.submit(copied?bytes.slice():bytes,{memory,baseOffset:segment.bytes?0:segment.offset});}
+    await gpu.idle();check(!cpu.current.error,name+" CPU "+cpu.current.error);check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length,name+" GPU "+JSON.stringify(gpu.gpuErrors.errors.slice(0,2))+" host "+JSON.stringify(gpu.hostErrors));check(!gpu.stats.refusals,name+" refusals "+gpu.stats.refusals);
+    check(read.view.getUint32(P.F.READ_PIXELS.status,true)===1,name+" read status");const expected=reference.cases.find(c=>c.name===name);check(!expected.error,"native error "+name);const bytes=Uint8Array.from(expected.rgba.match(/../g),s=>parseInt(s,16)),pixels=read.bytes.subarray(P.RECORDS.READ_PIXELS.size);for(let k=0;k<bytes.length;k++)check(pixels[k]===bytes[k],name+" mode "+copied+" byte "+k+": "+pixels[k]+" != native "+bytes[k]);
+    if(second){const native=Uint8Array.from(expected.rgba1.match(/../g),s=>parseInt(s,16)),pixels=second.bytes.subarray(P.RECORDS.READ_PIXELS.size);for(let k=0;k<native.length;k++)check(pixels[k]===native[k],name+" second target "+k+": "+pixels[k]+" != "+native[k]);}
+   }
+  }
+  document.getElementById("result").textContent="PASS ARB pairs/mixed fixed vertex: 16 logic ops, point replacement and alpha tests match native pixels in both modes";
+ }catch(error){document.getElementById("result").textContent="FAIL "+String(error.stack||error);}
+})();
+</script>

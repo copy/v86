@@ -91,7 +91,7 @@ END`, "fixed_fragment_outputs", {
 
 test("constants in instructions, ranges and relative addressing assemble (review S2-48)", () => {
     const fragment = compile("!!ARBfp1.0\nTEMP t;\nMUL t, fragment.color, 2.0;\n" +
-        "MAD_SAT t, t, {0.5, 0.25}, -1.0;\nPOW t.x, 0.25, 0.5;\nMOV result.color, t;\nEND\n", "inline_constants");
+        "MAD_SAT t, t, {0.5, 0.25}, -1.0;\nPOW t.x, {0.25}.x, {0.5}.x;\nMOV result.color, t;\nEND\n", "inline_constants");
     assert.match(fragment.wgsl, /vec4<f32>\(2(\.0)?, 2(\.0)?, 2(\.0)?, 2(\.0)?\)/, "a scalar is all four components");
     assert.match(fragment.wgsl, /vec4<f32>\(0\.5, 0\.25, 0(\.0)?, 1(\.0)?\)/, "a short vector is filled with 0 and 1");
     const vertex = compile(TRANSFORM.replace("MOV result.color, vertex.color;",
@@ -178,7 +178,7 @@ test("LIT and LOG emit their helper rather than an approximation", () => {
     const result = compile(`!!ARBvp1.0
 TEMP r0;
 LIT r0, vertex.position;
-LOG r0, vertex.position;
+LOG r0, vertex.position.x;
 MOV result.position, r0;
 END`, "lit_log");
     assert.ok(result.wgsl.indexOf("fn arbLit") >= 0);
@@ -188,9 +188,9 @@ END`, "lit_log");
 test("scalar instructions read only the x component", () => {
     const result = compile(`!!ARBvp1.0
 TEMP r0;
-RCP r0, vertex.position;
-RSQ r0, r0;
-POW r0, r0, r0;
+RCP r0, vertex.position.x;
+RSQ r0, r0.x;
+POW r0, r0.x, r0.x;
 MOV result.position, r0;
 END`, "scalar");
     assert.ok(result.wgsl.indexOf("1.0 / ") >= 0);

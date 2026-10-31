@@ -1405,7 +1405,7 @@ test("one colour output goes to every draw buffer; an unwritten one keeps its co
         .call("ENABLE", GL.FRAGMENT_PROGRAM_ARB).call("ENABLE", GL.VERTEX_PROGRAM_ARB);
     run(executor, immediateTriangle(stream));
     assert.deepStrictEqual(targets(log.draws[0]), [0xF, 0xF]);
-    assert.match(log.draws[0].pipeline.descriptor.fragment.module.code, /out\.color1 = out\.color0;/);
+    assert.match(log.draws[0].pipeline.descriptor.fragment.module.code, /out\.color1 = color0;/);
 
     ({ executor, log } = newExecutor());
     stream = glslProgram(twoDrawBuffers(), "void main(void) { gl_FragData[0] = vec4(1.0); }\n");

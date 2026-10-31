@@ -3032,24 +3032,6 @@
      * new string -- found the first program's pipeline). The length rides
      * along with the hash to make a collision a non-event.
      */
-    /*
-     * An ARB fragment program's result.color goes to every draw buffer
-     * (ARB_draw_buffers without its option, review S1-2f): its one colour
-     * output, color0, is copied to the others.
-     */
-    function broadcastColor(wgsl, targets) {
-        if (targets <= 1) return wgsl;
-        const field = "    @location(0) color0 : vec4<f32>,\n";
-        if (!wgsl.includes(field) || !wgsl.includes("    return out;\n"))
-            throw new Error("the fragment stage has no single colour output to broadcast");
-        let fields = field, copies = "";
-        for (let i = 1; i < targets; ++i) {
-            fields += "    @location(" + i + ") color" + i + " : vec4<f32>,\n";
-            copies += "    out.color" + i + " = out.color0;\n";
-        }
-        return wgsl.replace(field, fields).replace("    return out;\n", copies + "    return out;\n");
-    }
-
     // A fragment program's texture bindings, by the targets its instructions name
     function arbProgramTextures(fragment) {
         return fragment.compiled.reflection.textures.map(entry => {
@@ -8270,6 +8252,7 @@ ${depthWrite}
                     (ALPHA_TEST_NAMES[s.alphaFunc.func] || "always") : "always",
                 clipPlaneCount, clipPlaneMask,
                 pointSprite: !!this.drawingExpandedPoints,
+                pointCoordReplace: s.enabled.has(GL.POINT_SPRITE) ? s.textureUnits.flatMap((unit, i) => unit.env.pointSprite ? [i] : []) : [],
                 depthClamp: s.enabled.has(GL.DEPTH_CLAMP),
                 pointRasterRounded: !s.enabled.has(GL.POINT_SPRITE) && !(s.enabled.has(GL.MULTISAMPLE) && !s.drawFramebuffer && this.windowSamples() > 1),
                 // gl_PointSize counts only under VERTEX_PROGRAM_POINT_SIZE
@@ -8297,11 +8280,6 @@ ${depthWrite}
             const vertexOn = s.enabled.has(GL.VERTEX_PROGRAM_ARB);
             const fragmentOn = s.enabled.has(GL.FRAGMENT_PROGRAM_ARB);
             if (!vertexOn && !fragmentOn) return null;
-            if (s.enabled.has(GL.COLOR_LOGIC_OP)) {
-                this.refuse("draw", "colour logic operations cannot be injected " +
-                    "into an ARB assembly fragment program", { op: s.logicOp }, 0);
-                return null;
-            }
             const vertex = vertexOn ? this.arbProgramFor(GL.VERTEX_PROGRAM_ARB) : null;
             const fragment = fragmentOn ?
                 this.arbProgramFor(GL.FRAGMENT_PROGRAM_ARB) : null;
@@ -8323,6 +8301,7 @@ ${depthWrite}
             const stateFields = [...new Set([
                 ...vertex.compiled.reflection.stateFields,
                 ...fragment.compiled.reflection.stateFields,
+                ...(this.currentVariant().alphaTest !== "always" && this.currentVariant().alphaTest !== "never" ? ["alphaRef"] : []),
                 ...(this.drawingExpandedPoints ? ["pointParams", "viewportParams"] : []),
                 ...(this.currentVariant().clipPlaneCount && vertex.compiled.reflection.positionInvariant ? ["modelview", "clipPlanes"] : [])])];
             const compiledVertex = this.arbVariant(vertex, stateFields);
@@ -8334,7 +8313,7 @@ ${depthWrite}
                 key: "arb" + this.pairKey(compiledVertex, compiledFragment, compiledVertex.wgsl,
                     compiledFragment.wgsl) + (targets > 1 ? "x" + targets : ""),
                 wgslVertex: compiledVertex.wgsl,
-                wgslFragment: broadcastColor(compiledFragment.wgsl, targets),
+                wgslFragment: compiledFragment.wgsl,
                 stateFields,
                 stateFloats: stateLayout.buildLayout(stateFields).floats,
                 uniformBytes: arbProgram.MAX_PROGRAM_PARAMETERS * 4 * 4 * 2,
@@ -8400,7 +8379,7 @@ ${depthWrite}
                 key: "ff-arb-fp:" + this.pairKey(fixed, compiledFragment, fixed.wgslVertex, compiledFragment.wgsl) +
                     (targets > 1 ? "x" + targets : ""),
                 wgslVertex: fixed.wgslVertex,
-                wgslFragment: broadcastColor(compiledFragment.wgsl, targets),
+                wgslFragment: compiledFragment.wgsl,
                 stateFields: fixed.stateFields,
                 stateFloats: fixed.stateFloats,
                 uniformBytes: arbProgram.MAX_PROGRAM_PARAMETERS * 4 * 4 * 2,

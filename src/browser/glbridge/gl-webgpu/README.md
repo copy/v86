@@ -14,7 +14,6 @@ acceptance are still stages F6/G.
 
 | Id | Behavior | Evidence / scope |
 | --- | --- | --- |
-| D-01 | ARB assembly with color logic operations is refused by the ordinary ARB draw path. | `arbShaders`; remaining ARB work is E2. Fixed/GLSL logic and the single-sample-to-MSAA composite use ordered destination copies. |
 | D-05 | Filled primitives apply user planes with fragment discard. Line/point polygon modes geometrically clip complete vertex outputs first. | `gl_clip_planes_*`, `gl_polygon_clip_*`. Fill clipping can differ in multisample edge coverage/early depth behavior. All six planes are stored and evaluated; non-invariant ARB vertex programs disable user clipping as the extension specifies. |
 | D-07 | Occlusion reports a visible predicate as a saturated count, rather than the precise number of passed samples. | WebGPU guarantees visibility, not a GL sample count; query lifetime/availability and generation reuse are tested. |
 | D-14 | Drawables are RGBA; color-index rendering is unavailable. | CPU index state/queries are retained; framebuffer format queries report RGBA. |
