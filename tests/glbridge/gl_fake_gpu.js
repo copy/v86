@@ -232,7 +232,7 @@ class FakeDevice {
         return sampler;
     }
     createShaderModule(descriptor) {
-        const module = { code: descriptor.code };
+        const module = { code: descriptor.code, getCompilationInfo: async () => ({messages: []}) };
         this.log.modules.push(module);
         return module;
     }

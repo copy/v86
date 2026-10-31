@@ -1035,6 +1035,12 @@ game.exe
   - 固定顶点 + ARB 片段程序（D-18、S2-50），开着裁剪平面和点扩展的 ARB 顶点 + 固定片段；
   - `OPTION ARB_fog_*`、`VERTEX_PROGRAM_TWO_SIDE`、`VERTEX_PROGRAM_POINT_SIZE`；
   - S3 中的 LIT NaN、RECT 与 SHADOW 目标。
+> **E3 / 阶段 E 完成（2026-10-31）：运行时链接校验与原子安装。**
+>
+> - 实际客体设备在 glslang 检查之后暂停 CPU 命令流；页面为候选程序的 VS/FS 调用真实 `getCompilationInfo`，通过后才发布 CPU 链接成功并安装同一份候选。内置记录 254 的校验/提交/取消受对象、链接、arena 和资源代际保护，客体不能伪造。
+> - 编译错误、异常、取消均保留此前安装的程序与 uniform；后端失败日志和状态跨 CPU/GPU 冷热存档恢复。共享设备 error scope 在等待前弹出。链接续传后 GPU 回答的 arena 偏移也有端到端回归。
+> - `gl_program_link_test.js`、`gl_program_link_browser_test.html` 覆盖两种传输、实际 Tint 拒绝、旧程序像素、初始化值、取消及陈旧回复；110 组 Node、48 页 GPU、8 项共享 GLES、47 组站点检查和构建通过；`glprogramlink` 变异 10/10。
+
 - **E3 运行时校验：** 链接时对生成的 WGSL 调用 `getCompilationInfo`，失败就把链接状态报为 FALSE 并给出日志。
 - **风险：** 中。共用文件的改动要跑 GLES 的 dEQP 子集。
 - **验证：**

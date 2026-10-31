@@ -59,7 +59,8 @@
     const typeOf = type => TYPES.get(type) || ["i", 1, 1];
     const objectError = (group, name, shader) => (shader ? group.shaders : group.programs).has(name) ? 0 :
         (shader ? group.programs : group.shaders).has(name) ? GL.INVALID_OPERATION : GL.INVALID_VALUE;
-    GLShadow.rules({ [GLFN.RESOLVED_PROGRAM_INTERFACE]: () => GL.INVALID_OPERATION, [GLFN.PROGRAM_LINK_FAILED]: () => GL.INVALID_OPERATION });
+    GLShadow.rules({ [GLFN.RESOLVED_PROGRAM_INTERFACE]: () => GL.INVALID_OPERATION, [GLFN.PROGRAM_LINK_FAILED]: () => GL.INVALID_OPERATION,
+        [GLFN.PROGRAM_LINK_VALIDATION]: () => GL.INVALID_OPERATION });
     function rule(name, check) {
         GLShadow.rules({ [GLFN[name]]: (shadow, bytes, view, offset, size) => {
             if (shadow.current.state && shadow.current.state.begin) return GL.INVALID_OPERATION;
@@ -265,6 +266,7 @@
         const shaders = [...program.attached].map(name => group.shaders.get(name)).filter(Boolean);
         program.linkInput = { generation: ++program.linkGeneration, shaders: shaders.map(s => ({ type: s.type, compileSource: s.compileSource })),
             bindings: [...program.bindings] };
+        program.backendLinkFailure = null;
         program.linked = null;
         program.validated = false;
         program.validation = null;
@@ -277,6 +279,8 @@
         if (program.linked) return program.linked;
         if (!program.linkInput) return { ok: false, log: "", uniforms: [], attributes: [], byLocation: new Map() };
         const failed = log => ({ ok: false, log, uniforms: [], attributes: [], byLocation: new Map() });
+        if (program.backendLinkFailure?.generation === program.linkInput.generation)
+            return program.linked = failed(program.backendLinkFailure.log);
         if (this.glslangFailure) return program.linked = failed(this.glslangFailure);
         if (!this.prepareGlslang()) return null;
         const shaders = program.linkInput.shaders;
@@ -696,11 +700,48 @@
         [GLFN.QUERY_UNIFORM]: "queryUniform",
     });
 
+    function validationRecord(job, operation, data = new Uint8Array()) {
+        return record(GLFN.PROGRAM_LINK_VALIDATION, [protocol.encodeRecord("PROGRAM_LINK_VALIDATION", {
+            operation, job: job.id, program: job.program.name, object_id: job.program.objectId,
+            link_generation: job.generation, data_size: data.length,
+        }), data]);
+    }
+    function restoreExecutable(program, previous) {
+        for (const name of ["installed", "values", "executableInput", "executableGeneration"]) program[name] = previous[name];
+        program.resetValues = false;
+    }
+    proto.completeProgramLink = function(message) {
+        const job = this.programLinkJobs?.get(message.job);
+        if (!job || this.cpuBarrier?.token !== job.token || message.program !== job.program.name || message.object_id !== job.program.objectId ||
+                message.link_generation !== job.generation || typeof message.ok !== "boolean") return false;
+        this.programLinkJobs.delete(job.id);
+        const program = job.program, current = job.group.programs.get(program.name) === program && program.linkGeneration === job.generation;
+        const ok = current && message.ok;
+        if (ok) {
+            program.linked = job.linked;
+            for (const name of ["installed", "values", "executableInput", "executableGeneration"]) program[name] = job.candidate[name];
+            program.resetValues = false;
+        } else if (current) {
+            const log = "ERROR: GPU program link: " + String(message.log || "validation failed").slice(0, 65536);
+            program.backendLinkFailure = { generation: job.generation, log };
+            program.linked = { ok: false, log, uniforms: [], attributes: [], byLocation: new Map() };
+        }
+        const commands = [validationRecord(job, ok ? 1 : 2)];
+        if (!ok && current) commands.push(record(GLFN.PROGRAM_LINK_FAILED, [protocol.encodeArgs("PROGRAM_LINK_FAILED", [program.name])]));
+        this.resumeCPU(job.token, commands);
+        return true;
+    };
+
     // The objects, in snapshots: what was compiled and linked, and the
     // uniforms' values (glslang runs again when an answer needs it)
     GLShadow.part({
         routeRecord(shadow, fn, bytes, view, offset, size) {
             if (fn !== GLFN.LINK_PROGRAM || !shadow.current) return;
+            if (shadow.requireGPUProgramValidation && shadow.nextProgramLinkJob >= 0xFFFFFFFF) return { error: GL.OUT_OF_MEMORY };
+            const original = shadow.current.group.programs.get(view.getUint32(offset, true));
+            if (original) shadow.linkedProgram(original);
+            const previous = original && { installed: original.installed, values: original.values,
+                executableInput: original.executableInput, executableGeneration: original.executableGeneration };
             const error = shadow.dispatch(fn, bytes, view, offset, size); if (error) return { error };
             const program = shadow.current.group.programs.get(view.getUint32(offset, true)), linked = program.linked;
             if (!linked) return { commands: [record(fn, [bytes.subarray(offset, offset + size)])] };
@@ -711,9 +752,17 @@
             const entry = (row, kind) => ({ name: row.name, location_kind: kind, location: row.location, value_type: row.type, value_count: row.size });
             const entries = [...linked.attributes.filter(a => a.location >= 0).map(a => entry(a, C.V86GL_LOCATION_KIND_ATTRIB)),
                 ...linked.uniforms.filter(u => u.location >= 0).map(u => entry(u, C.V86GL_LOCATION_KIND_UNIFORM))];
+            const resolved = protocol.encodeProgramInterface({ program: program.name, object_id: program.objectId, link_generation: program.executableGeneration }, entries,
+                [...program.values].map(([location, values]) => ({location, values})));
+            if (shadow.requireGPUProgramValidation) {
+                const id = ++shadow.nextProgramLinkJob, job = { id, token: {kind: "program-link", id}, program, group: shadow.current.group,
+                    generation: program.linkGeneration, linked, candidate: { installed: program.installed, values: program.values,
+                        executableInput: program.executableInput, executableGeneration: program.executableGeneration } };
+                restoreExecutable(program, previous);shadow.programLinkJobs.set(id, job);shadow.blockCPU(job.token);
+                return { commands: [validationRecord(job, 0, resolved)] };
+            }
             return { commands: [record(fn, [bytes.subarray(offset, offset + size)]), record(GLFN.RESOLVED_PROGRAM_INTERFACE,
-                [protocol.encodeProgramInterface({ program: program.name, object_id: program.objectId, link_generation: program.executableGeneration }, entries,
-                    [...program.values].map(([location, values]) => ({location, values})))])] };
+                [resolved])] };
         },
         forwardOpcode(shadow, fn, bytes, view, offset, size) {
             if (fn !== GLFN.LINK_PROGRAM || !shadow.current || size < 4) return;
@@ -732,6 +781,15 @@
             group.shaders = new Map();
             group.programs = new Map();
         },
+        reset(shadow) {shadow.programLinkJobs = new Map();shadow.nextProgramLinkJob ||= 0;},
+        cancelCPU(shadow) {
+            for (const job of shadow.programLinkJobs.values()) {
+                const log = "ERROR: GPU program link validation cancelled";
+                job.program.backendLinkFailure = {generation: job.generation, log};
+                job.program.linked = {ok: false, log, uniforms: [], attributes: [], byLocation: new Map()};
+            }
+            shadow.programLinkJobs.clear();
+        },
         destroy(shadow, context) {
             for (const program of context.group.programs.values()) shadow.collectProgram(context.group, program);
         },
@@ -741,7 +799,7 @@
                 nextProgramObjectId: group.nextProgramObjectId,
                 shaders: [...group.shaders.values()].map(s => [s.name, s.type, s.source, s.compileSource, s.deleted]),
                 programs: [...group.programs.values()].map(p => [p.name, [...p.attached], [...p.bindings], p.linkInput,
-                    p.validated, p.deleted, [...p.values], p.executableInput, p.resetValues, p.validation, p.objectId, p.linkGeneration, p.executableGeneration]),
+                    p.validated, p.deleted, [...p.values], p.executableInput, p.resetValues, p.validation, p.objectId, p.linkGeneration, p.executableGeneration, p.backendLinkFailure || null]),
             }));
         },
         setState(shadow, state) {
@@ -751,11 +809,11 @@
                 group.nextProgramObjectId = saved.nextProgramObjectId || 1;
                 for (const [name, type, source, compileSource, deleted] of saved.shaders)
                     group.shaders.set(name, { name, type, source, compileSource, compiled: null, deleted });
-                for (const [name, attached, bindings, linkInput, validated, deleted, values, executableInput, resetValues, validation, objectId, linkGeneration, executableGeneration] of saved.programs)
+                for (const [name, attached, bindings, linkInput, validated, deleted, values, executableInput, resetValues, validation, objectId, linkGeneration, executableGeneration, backendLinkFailure] of saved.programs)
                     group.programs.set(name, { name, attached: new Set(attached), bindings: new Map(bindings), linkInput,
                         objectId: objectId || group.nextProgramObjectId++, linkGeneration: linkGeneration || linkInput?.generation || 0, executableGeneration: executableGeneration || executableInput?.generation || 0,
                         linked: null, executableInput: executableInput || null, resetValues: !!resetValues,
-                        validated, validation: validation || null, installed: null, deleted, values: new Map(values) });
+                        validated, validation: validation || null, installed: null, deleted, values: new Map(values), backendLinkFailure: backendLinkFailure || null });
             }
         },
     });

@@ -278,7 +278,7 @@
                     if (message.generated && inline !== false) throw new Error("CPU-generated graphics records cannot write inline guest replies");
                     if (inline && lease !== inlineLease) return;
                     const data = channel.remote ? new Uint8Array(bytes).slice() : bytes;
-                    channel.post({ type: "write", generation, offset, bytes: data,
+                    channel.post({ type: "write", generation, offset: offset + (inline ? message.inlineOffset || 0 : 0), bytes: data,
                         ...(inline ? { inlineId: message.id } : {}) },
                         channel.remote ? [data.buffer] : undefined);
                 },
@@ -287,6 +287,10 @@
                     const values = result.values && new Float32Array(result.values);
                     channel.post({ type: "gl_vertex_result", generation, job: result.job, first: result.first, error: result.error, values },
                         channel.remote && values ? [values.buffer] : undefined);
+                },
+                onProgramLink: result => {
+                    if (batchEpoch !== epoch || bridge.destroyed) return;
+                    channel.post({ type: "gl_program_link_result", generation, ...result });
                 },
             };
             const pushAccepted = () => {

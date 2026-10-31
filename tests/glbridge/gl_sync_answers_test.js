@@ -73,7 +73,14 @@ async function guestAnswers(remote) {
     const device = createV86GLDevice(deviceEnd);
     device.init(handle);
 
-    const { host } = createFakeHost();
+    const { host, device: fakeGPU } = createFakeHost();
+    let backendChecks = 0;
+    const createModule = fakeGPU.createShaderModule.bind(fakeGPU);
+    fakeGPU.createShaderModule = descriptor => {
+        const module = createModule(descriptor);
+        module.getCompilationInfo = async () => {++backendChecks;return {messages: []};};
+        return module;
+    };
     const executor = new GLWebGPUExecutor(null, { host });
     await executor.initialize();
     const plugin = V86GraphicsProxy({ glslang: readFileSync(join(__dirname, "../../bios/glslang.wasm")), createBridge: () => {
@@ -194,6 +201,7 @@ async function guestAnswers(remote) {
         SYNC_STATUS_OK, "enable queries are also synchronous in worker mode");
     await plugin.idle();
     await executor.idle();
+    assert.ok(backendChecks >= 2, "the actual device validates both generated stages before answering link status");
     const view = new DataView(memory.buffer, ARENA + HEADER);
     const answer = (at, value) => view.getUint32(at, true) === SYNC_STATUS_OK ? value() : "status " + view.getUint32(at, true);
     return {

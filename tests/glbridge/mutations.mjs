@@ -59,6 +59,18 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glprogramlink: { floor: 1, node: ["gl_program_link_test.js", "gl_sync_answers_test.js"], pages: ["gl_program_link_browser_test.html"], list: [
+        ["guest device skips GPU validation", "src/browser/glbridge/v86gl_device.js", 'if (shadow) shadow.requireGPUProgramValidation = true;', 'if (shadow) shadow.requireGPUProgramValidation = false;'],
+        ["backend errors treated as successful link", G + "gl_executor.js", 'notify(!messages.length, messages.join("\\n").slice(0, 65536));', 'notify(true, messages.join("\\n").slice(0, 65536));'],
+        ["fragment compilation info skipped", G + "gl_executor.js", 'inspect(job.prepared.link.wgslFragment, "fragment")', 'Promise.resolve({messages: []})'],
+        ["CPU ignores program object identity", G + "gl_shadow_glsl.js", 'message.object_id !== job.program.objectId', 'false'],
+        ["CPU ignores link generation", G + "gl_shadow_glsl.js", 'message.link_generation !== job.generation', 'false'],
+        ["pending candidate replaces old executable", G + "gl_shadow_glsl.js", 'restoreExecutable(program, previous);shadow.programLinkJobs.set(id, job);', 'shadow.programLinkJobs.set(id, job);'],
+        ["backend failure lost on restore", G + "gl_shadow_glsl.js", 'backendLinkFailure: backendLinkFailure || null', 'backendLinkFailure: null'],
+        ["cancel leaves pending shader jobs", G + "gl_shadow_glsl.js", 'shadow.programLinkJobs.clear();', ''],
+        ["successful link drops uniform defaults", G + "gl_executor.js", 'if (resolved) this.adoptProgramInterface(program, resolved, false);', ''],
+        ["continuation GPU replies use wrong arena offset", "src/browser/glbridge/graphics_proxy.js", 'offset: offset + (inline ? message.inlineOffset || 0 : 0)', 'offset'],
+    ] },
     glrectangle: { floor: 1, node: ["gl_rectangle_test.js", "gl_arb_generated_test.js"], pages: ["gl_rectangle_browser_test.html", "gl_arb_corpus_browser_test.html"], list: [
         ["RECT minification uses the 2D default", G + "gl_texture_parameters.js", 'values[GL.TEXTURE_MIN_FILTER] = [GL.LINEAR];', 'values[GL.TEXTURE_MIN_FILTER] = [GL.NEAREST_MIPMAP_LINEAR];'],
         ["RECT wrapping uses the 2D default", G + "gl_texture_parameters.js", 'values[p] = [GL.CLAMP_TO_EDGE];', 'values[p] = [GL.REPEAT];'],

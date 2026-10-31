@@ -278,6 +278,7 @@
         ["RESOLVED_PROGRAM_INTERFACE", 251, null, "u:program u:object_id u:link_generation u:entry_count u:data_size u:initializer_count"],
         ["INDEX_STATE", 252, null, "u:operation u:mask d:value"],
         ["ACTIVE_STENCIL_FACE", 253, "ActiveStencilFaceEXT", "u"],
+        ["PROGRAM_LINK_VALIDATION", 254, null, "u:operation u:job u:program u:object_id u:link_generation u:data_size"],
     ];
 
     // Composite records' optional headers and repeated elements. The common

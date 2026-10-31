@@ -1790,7 +1790,7 @@
             this.args = new Float64Array(32);
             this.resources = new gpuHost.GPUResourceRegistry();
             const maps = ["pipelineCache", "bindGroupCache", "samplerCache", "moduleCache",
-                "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
+                "pendingProgramLinks", "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
                 "accumPipelineCache", "accumClearPipelineCache", "clearPipelineCache", "colorCopyPipelines",
                 "mipmapPipelines", "colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",
                 "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "lineShaderCache", "polygonClipCaptureCache", "polygonClipRenderCache", "singleSampleShaderCache", "singleSamplePipelines", "pointCircleShaderCache", "explicitGroupLayouts", "explicitPipelineLayouts", "explicitShaderLayouts"];
@@ -3626,29 +3626,12 @@
                 shader.stage, { ...this.options.translator, library: true });
         });
         define("LINK_PROGRAM", function(a) { this.linkProgram(a[0] >>> 0); });
+        define("PROGRAM_LINK_VALIDATION", function(a, bytes, view, offset, size, metadata) {
+            this.validateProgramLink(view, offset, size, metadata);
+        });
         define("RESOLVED_PROGRAM_INTERFACE", function(a, bytes, view, offset, size) {
             const r = protocol.decodeProgramInterface(view, offset, size), program = this.current.shareGroup.programs.get(r.program);
-            if (!program || !program.linked) return;
-            const attributes = new Map(r.entries.filter(entry => entry.location_kind === LOCATION_KIND_ATTRIB).map(entry => [entry.name, entry.location]));
-            program.adoptedAttribLocations = attributes;
-            program.cpuObjectId = r.object_id; program.cpuLinkGeneration = r.link_generation;
-            const link = this.linkVariant(program, {});
-            if (!link.ok) throw new GLStreamError("CPU program interface could not be installed: " + link.log);
-            program.link = link; program.variants.clear();
-            for (const entry of r.entries) if (entry.location_kind === protocol.C.V86GL_LOCATION_KIND_UNIFORM)
-                this.adoptLocation(entry.location_kind, r.program, entry.name, entry.location);
-            for (const initial of r.initializers) {
-                const entry = program.uniformByLocation.get(initial.location);
-                if (!entry?.uniform) continue;
-                const uniform = entry.uniform, base = uniform.offsetBytes + entry.element * uniform.arrayStrideBytes,
-                    matrix = uniform.kind === "matrix", rows = matrix ? uniform.rows : uniform.components;
-                for (let i = 0; i < initial.values.length; ++i) {
-                    const at = (base + (matrix ? Math.floor(i / rows) * uniform.matrixColumnStrideBytes + i % rows * 4 : i * 4)) / 4;
-                    if (uniform.baseType === "float") program.uniformFloats[at] = initial.values[i];
-                    else program.uniformInts[at] = uniform.baseType === "bool" ? +!!initial.values[i] : initial.values[i];
-                }
-            }
-            ++program.serial;
+            if (program?.linked) this.adoptProgramInterface(program, r);
         });
         define("PROGRAM_LINK_FAILED", function(a) {
             const program = this.current.shareGroup.programs.get(a[0] >>> 0);
@@ -5599,32 +5582,82 @@
             }
         },
 
-        linkProgram(name) {
-            const program = this.current.shareGroup.programs.get(name);
-            if (!program)
-                return this.refuse("glLinkProgram", "unknown program", { name },
-                    GL.INVALID_VALUE);
-            program.linked = false;
-            program.log = "";
-            program.validateLog = "program is not validated";
-            const candidate = createProgram(name);
+        validateProgramLink(view, offset, size, metadata) {
+            const name = "PROGRAM_LINK_VALIDATION", r = protocol.decodeRecord(name, view, offset), header = protocol.RECORDS[name].size;
+            if (!r.job || !r.object_id || !r.link_generation || r.data_size !== size - header || r.data_size > 4 * 1024 * 1024 || r.operation > 2)
+                throw new GLStreamError("invalid GPU program validation record");
+            if (r.operation) {
+                const job = this.pendingProgramLinks.get(r.job);
+                if (!job) return;
+                if (job.program.name !== r.program || job.resolved.object_id !== r.object_id || job.resolved.link_generation !== r.link_generation || r.data_size)
+                    throw new GLStreamError("mismatched GPU program validation commit");
+                this.pendingProgramLinks.delete(r.job);
+                if (r.operation === 1) {
+                    if (!job.ready || job.context !== this.current || job.context.shareGroup.programs.get(r.program) !== job.program || job.epoch !== this.resources.generation)
+                        throw new GLStreamError("stale GPU program validation commit");
+                    this.installProgramLink(job.program, job.prepared, job.resolved);
+                }
+                return;
+            }
+            const resolved = protocol.decodeProgramInterface(view, offset + header, r.data_size), program = this.current.shareGroup.programs.get(r.program);
+            if (typeof metadata?.onProgramLink !== "function") throw new GLStreamError("GPU program validation has no CPU result channel");
+            if (!program || resolved.program !== r.program || resolved.object_id !== r.object_id || resolved.link_generation !== r.link_generation || this.pendingProgramLinks.has(r.job))
+                throw new GLStreamError("mismatched GPU program validation request");
+            const job = { program, resolved, context: this.current, epoch: this.resources.generation, ready: false };
+            this.pendingProgramLinks.set(r.job, job);
+            const notify = (ok, log) => {
+                if (metadata?.isMemoryValid && !metadata.isMemoryValid()) {this.pendingProgramLinks.delete(r.job);return;}
+                metadata.onProgramLink({ job: r.job, program: r.program, object_id: r.object_id, link_generation: r.link_generation, ok, log });
+            };
+            const inspect = (code, stage) => {
+                this.device.pushErrorScope("validation");let module, thrown;
+                try {module = this.moduleCache.get(code) || this.device.createShaderModule({ code });} catch (error) {thrown = String(error);}
+                // Pop before awaiting: other frontends share this device.
+                const scope = this.device.popErrorScope();
+                return Promise.all([scope, Promise.resolve().then(() => thrown ? null : module.getCompilationInfo())]).then(([error, info]) => {
+                    const messages = (info?.messages || []).filter(message => message.type === "error").map(message => stage + ":" + (message.lineNum || 0) + ": " + message.message);
+                    if (thrown || error) messages.push(stage + ": " + (thrown || error.message));
+                    return { code, module, messages };
+                });
+            };
+            let task;
+            task = Promise.resolve().then(async () => {
+                if (job.context !== this.current || job.epoch !== this.resources.generation) {notify(false, "GPU context changed before validation");return;}
+                job.prepared = this.prepareProgramLink(program, resolved);
+                if (!job.prepared.link) {notify(false, job.prepared.log);return;}
+                const modules = await Promise.all([inspect(job.prepared.link.wgslVertex, "vertex"), inspect(job.prepared.link.wgslFragment, "fragment")]);
+                if (this.pendingProgramLinks.get(r.job) !== job || job.epoch !== this.resources.generation) {notify(false, "GPU resource generation changed");return;}
+                const messages = modules.flatMap(module => module.messages);
+                if (!messages.length) {
+                    job.ready = true;
+                    for (const result of modules) {
+                        if (this.moduleCache.size >= 512) this.moduleCache.delete(this.moduleCache.keys().next().value);
+                        this.moduleCache.set(result.code, result.module);
+                    }
+                }
+                notify(!messages.length, messages.join("\n").slice(0, 65536));
+            }).catch(error => notify(false, String(error.stack || error).slice(0, 65536))).finally(() => this.pendingReadbacks.delete(task));
+            this.pendingReadbacks.add(task);
+        },
+
+        prepareProgramLink(program, resolved) {
+            const candidate = createProgram(program.name);
             candidate.cacheOwner = program;
             candidate.bindAttribLocations = new Map(program.bindAttribLocations);
+            if (resolved) candidate.adoptedAttribLocations = new Map(resolved.entries.filter(entry => entry.location_kind === LOCATION_KIND_ATTRIB).map(entry => [entry.name, entry.location]));
             const units = { vertex: [], fragment: [] };
             for (const shaderName of program.shaders) {
                 const shader = this.current.shareGroup.shaders.get(shaderName);
                 if (!shader) continue;
                 if (!shader.compiled || !shader.compiled.ok) {
-                    program.log = shader.compiled ? shader.compiled.log : "ERROR: a shader is not compiled";
-                    return;
+                    return { log: shader.compiled ? shader.compiled.log : "ERROR: a shader is not compiled" };
                 }
                 units[shader.stage].push(shader.compiled);
             }
             for (const stage of ["vertex", "fragment"]) if (units[stage].length)
                 candidate.compiled[stage] = translator.linkShaderUnits(units[stage], stage, this.options.translator || {});
             if (!candidate.compiled.vertex && !candidate.compiled.fragment) {
-                program.log = "ERROR: no shaders attached";
-                return;
+                return { log: "ERROR: no shaders attached" };
             }
             // The base link (no pipeline variant) settles the uniform layout
             // and the reflection, which every variant then shares -- so
@@ -5632,18 +5665,55 @@
             // variant a later draw happens to need.
             const link = this.linkVariant(candidate, {});
             if (!link.ok) {
-                program.log = link.log;
-                return;
+                return { log: link.log };
             }
-            program.compiled = candidate.compiled;
+            return { candidate, link };
+        },
+
+        installProgramLink(program, prepared, resolved) {
+            program.compiled = prepared.candidate.compiled;
             program.variants.clear();
-            program.adoptedAttribLocations.clear();
-            program.link = link;
-            program.linked = true;
-            program.log = link.log;
-            this.buildUniformStorage(program, link.reflection);
+            program.adoptedAttribLocations = new Map(prepared.candidate.adoptedAttribLocations);
+            program.link = prepared.link;program.linked = true;program.log = prepared.link.log;
+            program.validateLog = "program is not validated";
+            this.buildUniformStorage(program, prepared.link.reflection);
             ++program.serial;
-            program.executableGeneration = (program.executableGeneration || 0) + 1;
+            program.executableGeneration = resolved?.link_generation || (program.executableGeneration || 0) + 1;
+            if (resolved) this.adoptProgramInterface(program, resolved, false);
+        },
+
+        linkProgram(name) {
+            const program = this.current.shareGroup.programs.get(name);
+            if (!program) return this.refuse("glLinkProgram", "unknown program", { name }, GL.INVALID_VALUE);
+            program.linked = false;program.log = "";program.validateLog = "program is not validated";
+            const prepared = this.prepareProgramLink(program);
+            if (!prepared.link) {program.log = prepared.log;return;}
+            this.installProgramLink(program, prepared);
+        },
+
+        adoptProgramInterface(program, r, relink = true) {
+            const attributes = new Map(r.entries.filter(entry => entry.location_kind === LOCATION_KIND_ATTRIB).map(entry => [entry.name, entry.location]));
+            program.adoptedAttribLocations = attributes;
+            program.cpuObjectId = r.object_id; program.cpuLinkGeneration = r.link_generation;
+            if (relink) {
+                const link = this.linkVariant(program, {});
+                if (!link.ok) throw new GLStreamError("CPU program interface could not be installed: " + link.log);
+                program.link = link; program.variants.clear();
+            }
+            for (const entry of r.entries) if (entry.location_kind === protocol.C.V86GL_LOCATION_KIND_UNIFORM)
+                this.adoptLocation(entry.location_kind, r.program, entry.name, entry.location);
+            for (const initial of r.initializers) {
+                const entry = program.uniformByLocation.get(initial.location);
+                if (!entry?.uniform) continue;
+                const uniform = entry.uniform, base = uniform.offsetBytes + entry.element * uniform.arrayStrideBytes,
+                    matrix = uniform.kind === "matrix", rows = matrix ? uniform.rows : uniform.components;
+                for (let i = 0; i < initial.values.length; ++i) {
+                    const at = (base + (matrix ? Math.floor(i / rows) * uniform.matrixColumnStrideBytes + i % rows * 4 : i * 4)) / 4;
+                    if (uniform.baseType === "float") program.uniformFloats[at] = initial.values[i];
+                    else program.uniformInts[at] = uniform.baseType === "bool" ? +!!initial.values[i] : initial.values[i];
+                }
+            }
+            ++program.serial;
         },
 
         variantKeyFor(variant) {

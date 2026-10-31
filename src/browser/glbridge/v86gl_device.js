@@ -64,6 +64,9 @@
     function createV86GLDevice(channel) {
         const remote = !!channel.remote;
         const shadow = global.V86GLShadow ? new global.V86GLShadow.GLShadow() : null;
+        // Standalone shadow tests can check GLSL without a GPU. The guest's
+        // device always waits for the real renderer before publishing a link.
+        if (shadow) shadow.requireGPUProgramValidation = true;
         let dev = null;
         let arenaAddress = 0;
         let arenaBytes = 0;
@@ -95,6 +98,7 @@
                 frameId: metadata.frameId, flags: metadata.generated || shadow.cpuBarrier || !metadata.root ? 0 : metadata.flags,
                 commandCount: metadata.commandCount, descAddr: arenaAddress, descLen: bytes.length + HEADER_BYTES,
                 batchAddr: metadata.generated ? 0 : arenaAddress + HEADER_BYTES + offset,
+                inlineOffset: metadata.generated ? 0 : offset,
                 responseBase: arenaBytes - RESPONSE_AREA_BYTES - HEADER_BYTES - (metadata.generated ? 0 : offset),
                 submitCount: metadata.submitCount, bytes, ...(segments ? { segments } : {}) }, remote && bytes.buffer.byteLength ? [bytes.buffer] : undefined);
         };
@@ -158,6 +162,10 @@
                 case "gl_vertex_result":
                     if (message.generation === arenaGeneration && arenaBytes && shadow?.completeVertexCapture)
                         shadow.completeVertexCapture(message);
+                    break;
+                case "gl_program_link_result":
+                    if (message.generation === arenaGeneration && arenaBytes && shadow?.completeProgramLink)
+                        shadow.completeProgramLink(message);
                     break;
                 case "capabilities":
                     // (a restored snapshot's stand: the guest was told those)

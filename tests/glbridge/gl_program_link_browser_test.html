@@ -1,0 +1,108 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Atomic WGSL program link status</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_program_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_polygon_clip.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_single_sample.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_bind_layouts.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="gl_program_link_harness.js"></script>
+<script>
+(async () => {
+    "use strict";
+    const {GLStream, GL} = GLTestStream, P = GLProtocol, check = (ok,message) => {if (!ok) throw new Error(message);};
+    try {
+        const compiler = await WebAssembly.compile(await (await fetch("../../bios/glslang.wasm")).arrayBuffer());
+        for (const copied of [false,true]) {
+            const cpu = new V86GLShadow.GLShadow();
+            let gpu = new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});
+            await gpu.initialize();cpu.setCapabilities(gpu.capabilities());cpu.setGlslang(new V86GLGlslang.Glslang(compiler));
+            let wire = GLProgramLinkHarness.connect(cpu,gpu,copied);
+            const s = new GLStream().makeCurrent(1,0,0,16,16,1,1).call("CREATE_PROGRAM",1)
+                .call("CREATE_SHADER",2,GL.VERTEX_SHADER).shaderSource(2,"void main(){gl_Position=gl_Vertex;}").call("COMPILE_SHADER",2)
+                .call("CREATE_SHADER",3,GL.FRAGMENT_SHADER).shaderSource(3,"#version 120\nuniform float value=0.25;void main(){gl_FragColor=vec4(value,0.5,0.75,1.0);}").call("COMPILE_SHADER",3)
+                .call("ATTACH_SHADER",1,2).call("ATTACH_SHADER",1,3).call("LINK_PROGRAM",1);
+            const q = s.queryObjectiv(P.C.V86GL_OBJECT_KIND_PROGRAM,1,GL.LINK_STATUS);await wire.send(s);
+            check(q.view.getInt32(P.F.QUERY_OBJECT_IV.value,true)===1,"real Tint link succeeds");
+            const c = cpu.current.group.programs.get(1), location = c.linked.uniforms.find(u=>u.name==="value").location;
+            await wire.send(new GLStream().call("USE_PROGRAM",1).uniformfv(location,1,1,[1]));
+            const draw = async () => {
+                const stream = new GLStream().call("CLEAR_COLOR",0,0,0,0).call("CLEAR",GL.COLOR_BUFFER_BIT)
+                    .call("BEGIN",GL.TRIANGLES).call("VERTEX3F",-1,-1,0).call("VERTEX3F",3,-1,0).call("VERTEX3F",-1,3,0).call("END");
+                const read = stream.readPixels(0,0,16,16,GL.RGBA,GL.UNSIGNED_BYTE,1024);await wire.send(stream);
+                check(read.view.getUint32(P.F.READ_PIXELS.status,true)===1,"pixel readback completed");
+                const pixels = read.bytes.subarray(P.RECORDS.READ_PIXELS.size);
+                for (let i=0;i<pixels.length;i+=4) check(pixels[i]===255&&pixels[i+1]===128&&pixels[i+2]===191&&pixels[i+3]===255,"old executable pixels at "+i);
+            };
+            await draw();
+            const original = gpu.prepareProgramLink;
+            gpu.prepareProgramLink = function(program,resolved) {
+                const prepared = original.call(this,program,resolved);
+                prepared.link = {...prepared.link,wgslFragment:prepared.link.wgslFragment+"\nthis_is_invalid_wgsl"};return prepared;
+            };
+            const failed = new GLStream().call("LINK_PROGRAM",1), status = failed.queryObjectiv(P.C.V86GL_OBJECT_KIND_PROGRAM,1,GL.LINK_STATUS), log = failed.queryObjectLog(P.C.V86GL_OBJECT_KIND_PROGRAM,1,1024);
+            await wire.send(failed);gpu.prepareProgramLink = original;
+            check(status.view.getInt32(P.F.QUERY_OBJECT_IV.value,true)===0,"actual Tint failure reaches CPU link status");
+            check(new TextDecoder().decode(log.bytes.subarray(24)).includes("fragment:"),"actual Tint diagnostic reaches CPU log");
+            check(!cpu.cpuBarrier&&c.linked.ok===false,"failure releases guest barrier");await draw();
+            const cpuState = JSON.parse(JSON.stringify(cpu.getState())), archive = await gpu.saveSnapshot();
+            for (const cold of [false,true]) {
+                cpu.setState(cpuState);cpu.setGlslang(new V86GLGlslang.Glslang(compiler));
+                if (cold) {gpu.resetForReplay();gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();}
+                await gpu.restoreSnapshot(archive);wire=GLProgramLinkHarness.connect(cpu,gpu,copied);
+                const query = new GLStream(), saved = query.queryObjectiv(P.C.V86GL_OBJECT_KIND_PROGRAM,1,GL.LINK_STATUS);await wire.send(query);
+                check(saved.view.getInt32(P.F.QUERY_OBJECT_IV.value,true)===0,"snapshot retains backend failure");await draw();
+            }
+            check(!gpu.hostErrors.length&&!gpu.gpuErrors.errors.length,"expected rejected module stayed inside validation scope");
+            await wire.send(new GLStream().call("LINK_PROGRAM",1));check(cpu.current.group.programs.get(1).linked.ok,"fresh successful relink recovers");gpu.resetForReplay();
+        }
+        document.getElementById("result").textContent="PASS real Tint link/diagnostics, failed relink pixels and hot/cold CPU+GPU snapshots in both transports";
+    } catch (error) {document.getElementById("result").textContent="FAIL "+error.stack;}
+})();
+</script>

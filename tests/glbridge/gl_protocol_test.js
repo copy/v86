@@ -60,7 +60,7 @@ test("the generated headers compile, and a wrong offset assert fails the build",
 
 test("the header has every opcode and the name table every name", () => {
     const { protocol, names } = generate();
-    assert.equal(P.OPCODES.length, 253);
+    assert.equal(P.OPCODES.length, 254);
     for (const [name, value] of P.OPCODES) {
         assert.ok(protocol.includes("    GLFN_" + name + " = " + value), name);
         assert.ok(names.includes("[" + value + "] = \"" + name + "\""), name);

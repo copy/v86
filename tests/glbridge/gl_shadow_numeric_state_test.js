@@ -7,14 +7,23 @@ const { createV86GLDevice } = require("../../src/browser/glbridge/v86gl_device.j
 require("../../src/browser/glbridge/gl-webgpu/gl_glslang.js");
 const caps = require("../../src/browser/glbridge/gl-webgpu/gl_caps.js");
 const { GLStream, GL } = require("./gl_stream_builder.js");
+const {GLWebGPUExecutor} = require("../../src/browser/glbridge/gl-webgpu/gl_executor.js");
+const {createFakeHost} = require("./gl_fake_gpu.js");
 const P = require("../../src/browser/glbridge/gl-webgpu/gl_protocol.js");
 const wasm = new WebAssembly.Module(fs.readFileSync(path.join(__dirname, "../../bios/glslang.wasm")));
 const values = [-0, NaN, Infinity, -Infinity], ENV = P.C.V86GL_PROGRAM_PARAMETER_ENV;
-function fixture(remote) {
+async function fixture(remote) {
     const address = 0x100000, size = 16 * 1024 * 1024, memory = new Uint8Array(size), queue = [];
     let listen, reply;
+    const {host} = createFakeHost(), gpu = new GLWebGPUExecutor(null,{host,strict:true});await gpu.initialize();
     const device = createV86GLDevice({ remote, listen: handler => { listen = handler; }, post: message => {
-        if (message.type === "batch") listen({ type: "done", id: message.id });
+        if (message.type === "batch") {
+            for (const segment of message.segments || [{offset:0,length:message.bytes.length}]) {
+                const bytes = segment.bytes || message.bytes.subarray(segment.offset,segment.offset+segment.length);
+                gpu.submit(remote ? bytes.slice() : bytes,{onProgramLink: result => listen({type:"gl_program_link_result",generation:message.generation,...result})});
+            }
+            listen({ type: "done", id: message.id });
+        }
     } });
     device.init({ is_feature_negotiated: () => true, has_request: () => !!queue.length, pop_request: () => queue.shift(),
         flush() {}, needs_reset() { throw new Error("unexpected device reset"); }, is_ram: () => true,
@@ -27,10 +36,11 @@ function fixture(remote) {
     };
     listen({ type: "available", value: true }); listen({ type: "capabilities", value: caps.capabilities({}, {}) });
     listen({ type: "glslang", module: wasm }); request([1, address, 0, size, 0, 0]);
-    return { device, run(s) {
+    return { device, async run(s) {
         const bytes = s.bytes(), header = new DataView(memory.buffer);
         header.setUint32(0, 0x324C4756, true); header.setUint32(4, 1, true); header.setUint32(20, bytes.length, true);
         memory.set(bytes, 32); request([2, 0, 0, 32 + bytes.length, 0, 0]);
+        await gpu.idle();
         s.buffer.set(memory.subarray(32, 32 + bytes.length));
     } };
 }
@@ -46,8 +56,9 @@ function check(q, expected) {
     const n = record.view.getUint32(P.F[name].count, true); assert.equal(n, expected.length);
     assert.deepEqual(Array.from({ length: n }, (_, i) => record.view.getFloat64(P.RECORDS[name].size + i * 8, true)), expected);
 }
+(async () => {
 for (const remote of [false, true]) {
-    const { device, run } = fixture(remote), setup = new GLStream().makeCurrent(1, 0, 0, 64, 64, 1, 1);
+    const { device, run } = await fixture(remote), setup = new GLStream().makeCurrent(1, 0, 0, 64, 64, 1, 1);
     setup.call("NORMAL3F", -0, Infinity, -Infinity).call("FOG_COORDF", NaN)
         .call("MULTI_TEX_COORD4F", GL.TEXTURE0 + 3, ...values).call("ACTIVE_TEXTURE", GL.TEXTURE0 + 3)
         .call("POLYGON_OFFSET", NaN, Infinity).call("VERTEX_ATTRIB4F", 2, ...values)
@@ -58,13 +69,13 @@ for (const remote of [false, true]) {
         .call("COMPILE_SHADER", 11).call("ATTACH_SHADER", 10, 11).call("CREATE_SHADER", 12, GL.FRAGMENT_SHADER)
         .shaderSource(12, "uniform vec4 u;void main(){gl_FragColor=u;}").call("COMPILE_SHADER", 12).call("ATTACH_SHADER", 10, 12)
         .call("LINK_PROGRAM", 10).call("USE_PROGRAM", 10);
-    const location = setup.queryLocation(P.C.V86GL_LOCATION_KIND_UNIFORM, 10, "u", 16); run(setup);
+    const location = setup.queryLocation(P.C.V86GL_LOCATION_KIND_UNIFORM, 10, "u", 16); await run(setup);
     const loc = location.view.getInt32(P.F.QUERY_LOCATION.result, true); assert.ok(loc >= 0);
     const push = new GLStream().uniformfv(loc, 4, 1, values).call("PUSH_ATTRIB", 1 | 0x8 | 0x40 | 0x40000)
         .call("NORMAL3F", 1, 2, 3).call("FOG_COORDF", 0).call("VERTEX_ATTRIB4F", 2, 1, 2, 3, 4)
         .call("MULTI_TEX_COORD4F", GL.TEXTURE0 + 3, 1, 2, 3, 4).call("POLYGON_OFFSET", 0, 0)
         .call("MATERIALFV", GL.FRONT, GL.DIFFUSE, 4, 1, 1, 1, 1).call("TEX_ENVF", GL.TEXTURE_FILTER_CONTROL, GL.TEXTURE_LOD_BIAS, 0);
-    run(push);
+    await run(push);
     const snapshot = JSON.parse(JSON.stringify(device.get_state()));
     assert.match(snapshot[6], /\$v86glNumber/);
     device.set_state(snapshot);
@@ -76,7 +87,7 @@ for (const remote of [false, true]) {
     const attrib = query(pop, GL.CURRENT_VERTEX_ATTRIB, { query_kind: P.C.V86GL_PARAMETER_VERTEX_ATTRIB, target: 2 });
     const material = query(pop, GL.DIFFUSE, { query_kind: P.C.V86GL_PARAMETER_MATERIAL, target: GL.FRONT });
     const bias = query(pop, GL.TEXTURE_LOD_BIAS, { query_kind: P.C.V86GL_PARAMETER_TEX_ENV, target: GL.TEXTURE_FILTER_CONTROL });
-    const arb = pop.queryProgramParameterARB(ENV, GL.VERTEX_PROGRAM_ARB, 3), uniform = pop.queryUniform(10, loc, 1, 16); run(pop);
+    const arb = pop.queryProgramParameterARB(ENV, GL.VERTEX_PROGRAM_ARB, 3), uniform = pop.queryUniform(10, loc, 1, 16); await run(pop);
     check(normal, [-0, Infinity, -Infinity]); check(fog, [NaN]); check(coords, values); check(offset, [NaN]); check(units, [Infinity]);
     check(attrib, values); check(material, values); check(bias, [Infinity]);
     assert.equal(arb.view.getUint32(P.F.QUERY_PROGRAM_PARAMETER_FV_ARB.status, true), 1);
@@ -102,3 +113,5 @@ const copied = GLShadow.clone({ values, typed: Float32Array.from(values), map: n
 assert.deepEqual(copied.values, values); assert.deepEqual(Array.from(copied.typed), values);
 assert.notEqual(copied.map.get(1), values); assert.equal(copied.set.has(Infinity), true);
 console.log("gl_shadow_numeric_state_test: special floats survive attribute stacks, uniform queries, legacy snapshots and actual device JSON restore in both modes (passed)");
+
+})().catch(error => {console.error(error);process.exitCode=1;});

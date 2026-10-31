@@ -332,6 +332,7 @@
                 responseBase: event.responseBase,
                 writeGuestMemory: event.writeGuestMemory,
                 onVertexCapture: event.onVertexCapture,
+                onProgramLink: event.onProgramLink,
                 isMemoryValid: event.isMemoryValid,
                 isInlineMemoryValid: event.isInlineMemoryValid,
                 graphicsGeneration: this.memoryGeneration,
