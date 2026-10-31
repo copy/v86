@@ -1621,6 +1621,7 @@
             target: 0,
             levels: [],            // per level: {width, height, depth, bytes, format}
             gpuTexture: null,
+            storageTextures: new Set(),
             gpuFormat: "rgba8unorm",
             baseFormat: "RGBA",
             width: 0, height: 0, depth: 1, layers: 1,
@@ -2001,6 +2002,8 @@
                 // Include deleted objects retained by another context or FBO.
                 for (const texture of group.textureImages.values()) {
                     texture.gpuTexture = null; texture.depthColor = null;
+                    texture.storageTextures = new Set();
+                    for (const list of texture.levels) for (const slot of list || []) if (slot) slot.storage = null;
                     texture.viewCache.clear(); texture.dirty = true;
                 }
                 for (const buffer of group.bufferObjects.values()) buffer.gpuBuffer = null;
@@ -2210,8 +2213,10 @@
                 const live = [...this.contexts.values()].some(context =>
                     context.shareGroup === group);
                 if (!live) {
-                    for (const texture of group.textureImages.values())
-                        this.retire(texture.gpuTexture);
+                    for (const texture of group.textureImages.values()) {
+                        for (const resource of new Set([texture.gpuTexture, ...(texture.storageTextures || [])])) this.retire(resource);
+                        if (texture.depthColor) this.retire(texture.depthColor.texture);
+                    }
                     for (const buffer of group.bufferObjects.values()) {
                         this.invalidateVertexConversions(buffer);
                         this.retire(buffer.gpuBuffer);
@@ -4658,7 +4663,7 @@
                 for (const fbo of group.sharedFramebuffers.values()) for (const r of [...fbo.color, fbo.depth, fbo.stencil]) if (r) live.add(r.imageId);
                 for (const pool of [group.textureImages, group.renderbufferImages])
                     for (const [id, image] of pool) if ((image.deleted || !image.name) && !live.has(id)) {
-                        this.retire(image.gpuTexture);
+                        for (const resource of new Set([image.gpuTexture, ...(image.storageTextures || [])])) this.retire(resource);
                         if (image.depthColor) this.retire(image.depthColor.texture);
                         pool.delete(id);
                     }
@@ -4916,6 +4921,7 @@
         storeLevel(texture, kind, level, face, slot) {
             const layer = kind === "Cube" ? face : 0;
             if (!texture.levels[layer]) texture.levels[layer] = [];
+            slot.storage = null;
             texture.levels[layer][level] = slot;
             texture.kind = kind;
             texture.baseFormat = slot.base;
@@ -4966,8 +4972,101 @@
             return true;
         },
 
-        /* Rebuilds the GPUTexture from the authored levels when anything about
-         * the shape changed. */
+        // GL images have independent formats and sizes. The sampling chain
+        // is one allocation, but an incompatible attachment keeps its own
+        // storage until a compatible chain needs those texels again.
+        textureStorage(texture, slot, level, layer) {
+            if (!texture.gpuTexture || level >= texture.gpuLevels || layer >= texture.gpuLayers ||
+                    slot.gpuFormat !== texture.allocatedFormat ||
+                    slot.width !== Math.max(1, texture.gpuWidth >> level) ||
+                    slot.height !== Math.max(1, texture.gpuHeight >> level) ||
+                    texture.kind === "3D" && slot.depth !== Math.max(1, texture.gpuDepth >> level)) return null;
+            return { texture: texture.gpuTexture, mipLevel: level, layer: texture.kind === "3D" ? 0 : layer };
+        },
+
+        adoptTextureStorage(texture) {
+            const resources = texture.storageTextures || (texture.storageTextures = new Set());
+            if (texture.gpuTexture) resources.add(texture.gpuTexture);
+            // Old checkpoints predate per-image locations. A newly defined
+            // image has storage:null, and must never inherit replaced texels.
+            for (let layer = 0; layer < texture.levels.length; ++layer) {
+                const list = texture.levels[layer] || [];
+                for (let level = 0; level < list.length; ++level) {
+                    const slot = list[level];
+                    if (slot && slot.storage === undefined) slot.storage = this.textureStorage(texture, slot, level, layer);
+                }
+            }
+        },
+
+        collectTextureStorage(texture) {
+            const live = new Set([texture.gpuTexture]);
+            for (const list of texture.levels) for (const slot of list || []) if (slot?.storage) live.add(slot.storage.texture);
+            for (const context of this.contexts.values()) if (context.textureRead?.imageId === texture.imageId &&
+                    context.shareGroup.textureImages.get(texture.imageId) === texture) live.add(context.textureRead.source?.texture);
+            for (const resource of texture.storageTextures || []) if (!live.has(resource)) {
+                this.retire(resource);texture.storageTextures.delete(resource);
+            }
+        },
+
+        createTextureStorage(texture, slot) {
+            const resource = this.createGPUTexture({ label: "GL image " + texture.name,
+                size: { width: slot.width, height: slot.height, depthOrArrayLayers: texture.kind === "3D" ? slot.depth : 1 },
+                dimension: texture.kind === "3D" ? "3d" : "2d", mipLevelCount: 1, format: slot.gpuFormat,
+                usage: TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_COPY_DST |
+                    (slot.compressed ? 0 : TEXTURE_USAGE_RENDER_ATTACHMENT) });
+            (texture.storageTextures || (texture.storageTextures = new Set())).add(resource);
+            return { texture: resource, mipLevel: 0, layer: 0 };
+        },
+
+        copyTextureImage(texture, slot, source, destination) {
+            this.endPass();
+            this.ensureEncoder().copyTextureToTexture({ texture: source.texture, mipLevel: source.mipLevel,
+                origin: { x: 0, y: 0, z: source.layer } }, { texture: destination.texture, mipLevel: destination.mipLevel,
+                origin: { x: 0, y: 0, z: destination.layer } }, {
+                width: slot.compressed ? alignUp(slot.width, 4) : slot.width,
+                height: slot.compressed ? alignUp(slot.height, 4) : slot.height,
+                depthOrArrayLayers: texture.kind === "3D" ? slot.depth : 1 });
+            ++this.recordedOps;
+        },
+
+        syncTextureImage(texture, slot, level, layer, preferred, fresh = false) {
+            const source = slot.storage, destination = preferred || source || this.createTextureStorage(texture, slot),
+                key = layer + ":" + level, full = texture.fullUploads?.has(key),
+                changed = !source || source.texture !== destination.texture || source.mipLevel !== destination.mipLevel || source.layer !== destination.layer;
+            if (slot.pixels && (!source || full)) this.writeTextureLevel(texture, slot, level, layer, destination);
+            else if (changed) {
+                if (source) this.copyTextureImage(texture, slot, source, destination);
+                else if (!fresh && preferred) {
+                    // TexImage(NULL) replaces an old image with zero storage;
+                    // copying a fresh allocation avoids a giant CPU zero array.
+                    const zero = this.createTextureStorage(texture, slot);this.copyTextureImage(texture, slot, zero, destination);
+                }
+            }
+            for (const region of texture.regions || []) {
+                if (region.layer !== layer || region.level !== level || slot.pixels && (!source || full)) continue;
+                if (slot.gpuFormat === "depth32float") this.writeDepthTexels(destination.texture, destination.mipLevel, destination.layer,
+                    region.x, region.y, region.width, region.height, region.pixels);
+                else this.uploadTexture({ texture: destination.texture, mipLevel: destination.mipLevel,
+                    origin: { x: region.x, y: region.y, z: texture.kind === "3D" ? region.z : destination.layer } }, region.pixels,
+                { offset: 0, bytesPerRow: region.width * region.bytesPerTexel, rowsPerImage: region.height },
+                { width: region.width, height: region.height, depthOrArrayLayers: region.depth });
+            }
+            slot.storage = destination;
+            texture.fullUploads?.delete(key);
+            if (texture.regions) texture.regions = texture.regions.filter(r => r.layer !== layer || r.level !== level);
+            return destination;
+        },
+
+        ensureTextureImage(texture, level, layer) {
+            if (!texture) return null;
+            if (!texture.gpuTexture) this.ensureTextureUploaded(texture);
+            this.adoptTextureStorage(texture);
+            const slot = texture.levels[layer]?.[level];
+            if (!slot || !slot.width || !slot.height) return null;
+            const location = this.syncTextureImage(texture, slot, level, layer, this.textureStorage(texture, slot, level, layer));
+            this.collectTextureStorage(texture);return location;
+        },
+
         ensureTextureUploaded(texture) {
             if (!texture) return null;
             let anchor = texture.levels[0] && texture.levels[0][texture.sampler.baseLevel], anchorLevel = texture.sampler.baseLevel;
@@ -4987,157 +5086,51 @@
             const base = { ...anchor, width: compatibleZero ? zero.width : anchor.width * scale,
                 height: texture.kind === "1D" ? 1 : compatibleZero ? zero.height : anchor.height * scale,
                 depth: texture.kind === "3D" ? compatibleZero ? zero.depth : anchor.depth * scale : 1 };
-            // Authored images exist independently of the sampling filter. A
-            // non-mipmap sampler can still attach/read level 2 through an FBO.
-            const authoredLevels = Math.max(1, ...texture.levels.map(list => list ? list.length : 0));
-            const wanted = {
-                width: base.width, height: base.height, depth: base.depth,
-                layers, levelCount: Math.min(fullMipLevelCount(base.width, base.height, base.depth), authoredLevels),
-                format: base.gpuFormat,
-            };
-            const shapeChanged = !texture.gpuTexture ||
-                texture.gpuWidth !== wanted.width ||
-                texture.gpuHeight !== wanted.height ||
-                texture.gpuDepth !== wanted.depth ||
-                texture.gpuLayers !== wanted.layers ||
-                texture.gpuLevels !== wanted.levelCount ||
+            const authoredLevels = Math.max(1, ...Array.from(texture.levels, list => list ? list.length : 0));
+            const wanted = { width: base.width, height: base.height, depth: base.depth,
+                layers, levelCount: Math.min(fullMipLevelCount(base.width, base.height, base.depth), authoredLevels), format: base.gpuFormat };
+            const shapeChanged = !texture.gpuTexture || texture.gpuWidth !== wanted.width || texture.gpuHeight !== wanted.height ||
+                texture.gpuDepth !== wanted.depth || texture.gpuLayers !== wanted.layers || texture.gpuLevels !== wanted.levelCount ||
                 texture.allocatedFormat !== wanted.format;
+            texture.gpuFormat = wanted.format;
             if (!shapeChanged && !texture.dirty) return texture.gpuTexture;
-
+            this.adoptTextureStorage(texture);
             if (shapeChanged) {
-                const oldTexture = texture.gpuTexture;
-                const oldWidth = texture.gpuWidth || 0;
-                const oldHeight = texture.gpuHeight || 0;
-                const oldDepth = texture.gpuDepth || 1;
-                const oldLayers = texture.gpuLayers || 1;
-                const oldLevels = texture.gpuLevels || 0;
-                const oldFormat = texture.allocatedFormat;
                 texture.viewCache.clear();
-                const dimension = texture.kind === "3D" ? "3d" : "2d";
-                // BC formats are sampled/copied block data; WebGPU does not
-                // make them color-renderable.  Giving every GL texture
-                // RENDER_ATTACHMENT used to invalidate ordinary DXT textures
-                // as soon as Cube 2 sampled them while rendering an envmap.
-                // CopyTexImage/FBO paths already reject compressed levels, so
-                // only uncompressed textures need the attachment capability.
-                const usage = TEXTURE_USAGE_TEXTURE_BINDING |
-                    TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_COPY_SRC |
-                    (base.compressed ? 0 : TEXTURE_USAGE_RENDER_ATTACHMENT);
-                texture.gpuTexture = this.createGPUTexture({
-                    label: "GL texture " + texture.name,
-                    size: {
-                        width: wanted.width, height: wanted.height,
-                        depthOrArrayLayers: texture.kind === "3D" ?
-                            wanted.depth : wanted.layers,
-                    },
-                    dimension,
-                    mipLevelCount: wanted.levelCount,
-                    format: wanted.format,
-                    usage,
-                });
-                texture.gpuWidth = wanted.width;
-                texture.gpuHeight = wanted.height;
-                texture.gpuDepth = wanted.depth;
-                texture.gpuLayers = wanted.layers;
-                texture.gpuLevels = wanted.levelCount;
-                texture.gpuFormat = wanted.format;
-                texture.allocatedFormat = wanted.format;
-
-                // A level produced by CopyTexImage/FBO rendering has no CPU
-                // shadow.  Growing the texture to add mip levels must preserve
-                // those GPU-authored texels before the old allocation retires.
-                if (oldTexture && oldFormat === wanted.format &&
-                        oldWidth === wanted.width && oldHeight === wanted.height &&
-                        oldDepth === wanted.depth) {
-                    this.endPass();
-                    const encoder = this.ensureEncoder();
-                    const copyLevels = Math.min(oldLevels, wanted.levelCount);
-                    const copyLayers = Math.min(oldLayers, wanted.layers);
-                    for (let layer = 0; layer < copyLayers; ++layer) {
-                        const list = texture.levels[layer] || [];
-                        for (let level = 0; level < copyLevels; ++level) {
-                            const slot = list[level];
-                            if (!slot || slot.pixels) continue;
-                            encoder.copyTextureToTexture(
-                                { texture: oldTexture, mipLevel: level,
-                                  origin: { x: 0, y: 0,
-                                    z: texture.kind === "3D" ? 0 : layer } },
-                                { texture: texture.gpuTexture, mipLevel: level,
-                                  origin: { x: 0, y: 0,
-                                    z: texture.kind === "3D" ? 0 : layer } },
-                                { width: Math.max(1, wanted.width >> level),
-                                  height: Math.max(1, wanted.height >> level),
-                                  depthOrArrayLayers: texture.kind === "3D" ?
-                                    Math.max(1, wanted.depth >> level) : 1 });
-                        }
-                    }
-                }
-                this.retire(oldTexture);
+                texture.gpuTexture = this.createGPUTexture({ label: "GL texture " + texture.name,
+                    size: { width: wanted.width, height: wanted.height, depthOrArrayLayers: texture.kind === "3D" ? wanted.depth : wanted.layers },
+                    dimension: texture.kind === "3D" ? "3d" : "2d", mipLevelCount: wanted.levelCount, format: wanted.format,
+                    usage: TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_COPY_SRC |
+                        (base.compressed ? 0 : TEXTURE_USAGE_RENDER_ATTACHMENT) });
+                texture.storageTextures.add(texture.gpuTexture);
+                texture.gpuWidth = wanted.width;texture.gpuHeight = wanted.height;texture.gpuDepth = wanted.depth;
+                texture.gpuLayers = wanted.layers;texture.gpuLevels = wanted.levelCount;
+                texture.gpuFormat = wanted.format;texture.allocatedFormat = wanted.format;
             }
-
-            // A new allocation takes every CPU copy; an existing one only
-            // the levels and rectangles that changed, so texels the GPU wrote
-            // (rendering, copies, mipmap generation) are not overwritten by
-            // an older CPU copy (review S2-25)
-            const full = texture.fullUploads || new Set();
-            for (let layer = 0; layer < layers; ++layer) {
+            const hadChanges = shapeChanged || texture.fullUploads?.size || texture.regions?.length;
+            for (let layer = 0; layer < texture.levels.length; ++layer) {
                 const list = texture.levels[layer] || [];
-                for (let level = 0; level < wanted.levelCount; ++level) {
-                    const slot = list[level];
-                    if (!slot || !slot.pixels || slot.gpuFormat !== wanted.format ||
-                            slot.width !== Math.max(1, wanted.width >> level) || slot.height !== Math.max(1, wanted.height >> level)) continue;
-                    if (shapeChanged || full.has(layer + ":" + level))
-                        this.writeTextureLevel(texture, slot, level, layer);
+                for (let level = 0; level < list.length; ++level) {
+                    const slot = list[level];if (!slot || !slot.width || !slot.height) continue;
+                    const preferred = this.textureStorage(texture, slot, level, layer);
+                    this.syncTextureImage(texture, slot, level, layer, preferred, shapeChanged && !!preferred);
                 }
             }
-            for (const region of texture.regions || []) {
-                const slot = (texture.levels[region.layer] || [])[region.level];
-                if (!slot || region.level >= wanted.levelCount) continue;
-                if (slot.pixels && (shapeChanged || full.has(region.layer + ":" + region.level))) continue;
-                if (texture.gpuFormat === "depth32float") {
-                    this.writeDepthTexels(texture.gpuTexture, region.level, region.layer, region.x, region.y,
-                        region.width, region.height, region.pixels);
-                    continue;
-                }
-                this.uploadTexture({ texture: texture.gpuTexture, mipLevel: region.level,
-                    origin: { x: region.x, y: region.y, z: texture.kind === "3D" ? region.z : region.layer } },
-                region.pixels, { offset: 0, bytesPerRow: region.width * region.bytesPerTexel,
-                    rowsPerImage: region.height },
-                { width: region.width, height: region.height, depthOrArrayLayers: region.depth });
-            }
-            // (a depth texture's colour copy follows its writes, depthColorView)
-            if (shapeChanged || full.size || (texture.regions && texture.regions.length))
-                texture.depthGeneration = (texture.depthGeneration || 0) + 1;
-            texture.fullUploads = null;
-            texture.regions = null;
-            texture.dirty = false;
-            return texture.gpuTexture;
+            if (hadChanges) texture.depthGeneration = (texture.depthGeneration || 0) + 1;
+            texture.fullUploads = null;texture.regions = null;texture.dirty = false;
+            this.collectTextureStorage(texture);return texture.gpuTexture;
         },
 
-        writeTextureLevel(texture, slot, level, layer) {
-            if (texture.gpuFormat === "depth32float")
-                return this.writeDepthTexels(texture.gpuTexture, level, layer, 0, 0,
-                    slot.width, slot.height, slot.pixels);
-            const bytesPerRow = slot.compressed ?
-                Math.ceil(slot.width / 4) * slot.blockBytes :
-                slot.width * (slot.bytesPerTexel || 4);
-            const rowsPerImage = slot.compressed ?
-                Math.ceil(slot.height / 4) : slot.height;
-            const origin = texture.kind === "3D" ?
-                { x: 0, y: 0, z: 0 } : { x: 0, y: 0, z: layer };
-            this.uploadTexture(
-                { texture: texture.gpuTexture, mipLevel: level, origin },
-                slot.pixels,
-                { offset: 0, bytesPerRow, rowsPerImage },
-                {
-                    // WebGPU expresses BC copies in complete physical blocks.
-                    // The logical 2x2 and 1x1 tail mips still occupy one 4x4
-                    // block, so their copy extent must be rounded up even
-                    // though the texture's logical mip size remains smaller.
+        writeTextureLevel(texture, slot, level, layer, destination = { texture: texture.gpuTexture, mipLevel: level, layer }) {
+            if (slot.gpuFormat === "depth32float") return this.writeDepthTexels(destination.texture, destination.mipLevel, destination.layer,
+                0, 0, slot.width, slot.height, slot.pixels);
+            const bytesPerRow = slot.compressed ? Math.ceil(slot.width / 4) * slot.blockBytes : slot.width * (slot.bytesPerTexel || 4),
+                rowsPerImage = slot.compressed ? Math.ceil(slot.height / 4) : slot.height;
+            this.uploadTexture({ texture: destination.texture, mipLevel: destination.mipLevel, origin: { x: 0, y: 0, z: destination.layer } },
+                slot.pixels, { offset: 0, bytesPerRow, rowsPerImage }, {
                     width: slot.compressed ? alignUp(slot.width, 4) : slot.width,
                     height: slot.compressed ? alignUp(slot.height, 4) : slot.height,
-                    depthOrArrayLayers: texture.kind === "3D" ? slot.depth : 1,
-                });
+                    depthOrArrayLayers: texture.kind === "3D" ? slot.depth : 1 });
         },
 
         /*
@@ -5232,7 +5225,7 @@
                         downsampleBoxStorage(source, width, height, depth) : null;
                     const slot = {
                         width, height, depth, gpuFormat: base.gpuFormat,
-                        base: base.base, compressed: false, pixels,
+                        base: base.base, compressed: false, pixels, storage: null,
                         bytesPerTexel: base.bytesPerTexel || 4,
                         componentType: base.componentType || "u8",
                         componentCount: base.componentCount || 4,
@@ -6795,6 +6788,8 @@
             // A stencil-only FBO therefore still needs to supply that view.
             const depthRecord = fbo.depth || fbo.stencil;
             const depth = depthRecord ? this.resolveAttachment(depthRecord) : null;
+            const size = [...fbo.color, fbo.depth, fbo.stencil].map(record => this.attachmentSize(record)).find(Boolean);
+            if (size) { fbo.width = size.width;fbo.height = size.height; }
             return {
                 color,
                 depth: depth ? depth.view : null,
@@ -6808,22 +6803,20 @@
             if (attachment.kind === "texture") {
                 const texture = this.imageFor(attachment);
                 if (!texture) return null;
-                const gpuTexture = this.ensureTextureUploaded(texture);
-                if (!gpuTexture) return null;
-                // what is drawn into it is the level's content from now on
-                const slot = this.levelSlot(texture, texture.kind, attachment.level,
-                    texture.kind === "Cube" ? attachment.layer : 0);
+                const layer = texture.kind === "Cube" ? attachment.layer : 0,
+                    location = this.ensureTextureImage(texture, attachment.level, layer);
+                if (!location) return null;
+                const slot = this.levelSlot(texture, texture.kind, attachment.level, layer);
                 if (write) {
                     if (slot && !slot.compressed) slot.pixels = null;
                     texture.depthGeneration = (texture.depthGeneration || 0) + 1;
                 }
+                const slice = texture.kind === "3D" ? attachment.layer : location.layer;
                 return {
-                    view: this.attachmentView(texture, gpuTexture, attachment.level, attachment.layer),
-                    format: texture.gpuFormat,
-                    texture: gpuTexture,
-                    depthSlice: texture.kind === "3D" ? attachment.layer : undefined,
-                    mipLevel: attachment.level,
-                    origin: { x: 0, y: 0, z: attachment.layer },
+                    view: this.attachmentView(texture, location.texture, location.mipLevel, slice),
+                    format: slot.gpuFormat, texture: location.texture,
+                    depthSlice: texture.kind === "3D" ? slice : undefined,
+                    mipLevel: location.mipLevel, origin: { x: 0, y: 0, z: slice },
                 };
             }
             const rb = this.imageFor(attachment);
@@ -7040,8 +7033,8 @@
                 this.encoder = null;
                 this.recordedOps = 0;
                 this.pendingVertexBuffers = new WeakSet();
-                this.releaseRetired();
             }
+            this.releaseRetired();
             if (resolved) this.readQueryResults(resolved, frameValid);
         },
 
@@ -8725,7 +8718,9 @@ ${fragmentCode}`;
 
         textureViewFor(object, item) {
             if (!object || !this.textureIsComplete(object)) return this.fallbackViewFor(item);
-            const depth = /^depth/.test(object.gpuFormat);
+            const gpuTexture = this.ensureTextureUploaded(object);
+            if (!gpuTexture) return this.fallbackViewFor(item);
+            const depth = /^depth/.test(object.allocatedFormat);
             if (depth && !item.shadow) return this.depthColorView(object, item) || this.fallbackViewFor(item);
             if (!depth && item.shadow) {
                 // GL's results are undefined; WebGPU binds no colour texture
@@ -8734,8 +8729,6 @@ ${fragmentCode}`;
                     { format: object.gpuFormat });
                 return this.fallbackViewFor(item);
             }
-            const gpuTexture = this.ensureTextureUploaded(object);
-            if (!gpuTexture) return this.fallbackViewFor(item);
             const kind = item.target === "Cube" || object.kind === "Cube" ?
                 "cube" : (object.kind === "3D" ? "3d" : "2d");
             const key = kind + ":" + object.sampler.baseLevel + ":" +
@@ -9757,8 +9750,7 @@ struct BlitParams {
             if (!record) return null;
             if (record.kind === "texture") {
                 const texture = this.imageFor(record);
-                const slot = texture && texture.levels[record.layer] &&
-                    texture.levels[record.layer][record.level];
+                const slot = texture && texture.levels[texture.kind === "Cube" ? record.layer : 0]?.[record.level];
                 return slot ? { width: slot.width, height: slot.height } : null;
             }
             const rb = this.imageFor(record);
@@ -9769,8 +9761,7 @@ struct BlitParams {
             if (!record) return null;
             if (record.kind === "texture") {
                 const texture = this.imageFor(record);
-                const slot = texture && texture.levels[record.layer] &&
-                    texture.levels[record.layer][record.level];
+                const slot = texture && texture.levels[texture.kind === "Cube" ? record.layer : 0]?.[record.level];
                 return slot ? slot.gpuFormat : null;
             }
             const rb = this.imageFor(record);
@@ -10017,19 +10008,13 @@ struct BlitParams {
             if (!record) return null;
             if (record.kind === "texture") {
                 const texture = this.imageFor(record);
-                const gpuTexture = this.ensureTextureUploaded(texture);
-                return gpuTexture ? { texture: gpuTexture,
-                    format: texture.gpuFormat,
-                    mipLevel: record.level, layer: record.layer,
-                    // ReadPixels copies a 3D z-slice directly. Such a texture
-                    // cannot have a 2D/array view; no view is needed for copy.
-                    view: texture.kind === "3D" ? undefined : gpuTexture.createView({
-                        dimension: "2d", baseMipLevel: record.level,
-                        mipLevelCount: 1, baseArrayLayer: record.layer,
-                        arrayLayerCount: 1,
-                    }),
-                    width: Math.max(1, texture.gpuWidth >> record.level),
-                    height: Math.max(1, texture.gpuHeight >> record.level) } : null;
+                const location = this.ensureTextureImage(texture, record.level, texture.kind === "Cube" ? record.layer : 0),
+                    slot = texture.levels[texture.kind === "Cube" ? record.layer : 0]?.[record.level],
+                    layer = texture.kind === "3D" ? record.layer : location?.layer;
+                return location ? { texture: location.texture, format: slot.gpuFormat,
+                    mipLevel: location.mipLevel, layer,
+                    view: texture.kind === "3D" ? undefined : this.attachmentView(texture, location.texture, location.mipLevel, layer),
+                    width: slot.width, height: slot.height } : null;
             }
             const rb = this.imageFor(record);
             return rb && rb.gpuTexture ? { texture: rb.gpuTexture,
@@ -10065,14 +10050,9 @@ struct BlitParams {
                 // with a zero-filled CPU shadow.
                 pixels: null, bytesPerTexel, componentType, componentCount: 4,
             });
-            this.ensureTextureUploaded(texture);
-            // Framebuffer row y is GL's row y after the clip-space flip, so the
-            // copy is direct rather than mirrored.
-            const view = texture.gpuTexture.createView({
-                dimension: "2d", baseMipLevel: level, mipLevelCount: 1,
-                baseArrayLayer: CUBE_FACE_INDEX[target] || 0,
-                arrayLayerCount: 1,
-            });
+            const location = this.ensureTextureImage(texture, level, CUBE_FACE_INDEX[target] || 0);
+            if (!location) return;
+            const view = this.attachmentView(texture, location.texture, location.mipLevel, location.layer);
             this.copyColorTexture(source, { view, format: storage.gpu, base: storage.base },
                 x, y, 0, 0, width, height, "clear");
         },
@@ -10097,9 +10077,9 @@ struct BlitParams {
                 return this.refuse("glCopyTexSubImage",
                     "the destination format cannot receive a colour copy",
                     { target, format: slot.gpuFormat }, GL.INVALID_OPERATION);
-            const gpuTexture = this.ensureTextureUploaded(texture);
-            if (!gpuTexture) return;
-            const view = this.attachmentView(texture, gpuTexture, level, kind === "3D" ? zoffset : layer);
+            const location = this.ensureTextureImage(texture, level, layer);
+            if (!location) return;
+            const view = this.attachmentView(texture, location.texture, location.mipLevel, kind === "3D" ? zoffset : location.layer);
             if (this.copyColorTexture(source,
                     { view, format: slot.gpuFormat, base: slot.base, depthSlice: kind === "3D" ? zoffset : undefined }, x, y,
                     xoffset, yoffset, width, height, "load")) {
@@ -10132,10 +10112,10 @@ struct BlitParams {
                 if (r.status !== SYNC_STATUS_OK || !r.ticket) return;
                 const texture = this.boundTexture(r.target), kind = this.textureTargetKind(r.target);
                 const face = CUBE_FACE_INDEX[r.target] || 0, slot = texture && this.levelSlot(texture, kind, r.level, face);
-                const gpu = slot && !slot.compressedPixels && !slot.pixels && this.ensureTextureUploaded(texture);
-                state.textureRead = { ...r, imageId: texture?.imageId, slot, pack: this.packState(), source: gpu && {
-                    texture: gpu, format: texture.gpuFormat, width: r.width, height: r.height,
-                    mipLevel: r.level, layer: face, forceDepthConversion: true,
+                const location = slot && !slot.compressedPixels && !slot.pixels && this.ensureTextureImage(texture, r.level, face);
+                state.textureRead = { ...r, imageId: texture?.imageId, slot, pack: this.packState(), source: location && {
+                    texture: location.texture, format: slot.gpuFormat, width: r.width, height: r.height,
+                    mipLevel: location.mipLevel, layer: location.layer, forceDepthConversion: true,
                 } };
                 return;
             }
