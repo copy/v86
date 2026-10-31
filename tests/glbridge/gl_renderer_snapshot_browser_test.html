@@ -55,6 +55,7 @@
 <script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
 <script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
 <script src="gl_stream_builder.js"></script>
+<script src="gl_partial_update_cases.js"></script>
 <script src="gl_selection_cases.js"></script>
 <script src="gl_evaluator_cases.js"></script>
 <script>
@@ -123,6 +124,17 @@
             await submit(new GLStream().call("CLEAR_COLOR", 0, 0, 0, 1).call("CLEAR", GL.COLOR_BUFFER_BIT)); await submit(quad());
             await readPixel([204, 51, 102, 255]); await submit(new GLStream().call("END_QUERY", GL.SAMPLES_PASSED));
             check(!gpu.hostErrors.length && !gpu.gpuErrors.errors.length && !gpu.stats.refusals, "renderer failure");
+        }
+        const packed = GLPartialUpdateCases.scene(new GLStream().makeCurrent(1, 0, 0, 16, 16, 55, 55), "ragged_colors")
+            .pointerVBO("COLOR_POINTER_VBO", 3, GL.UNSIGNED_BYTE, 12, 8).call("DRAW_ARRAYS_DIRECT", GL.TRIANGLES, 0, 3);
+        await submit(packed);await readPixel([255, 255, 0, 255]);check(gpu.convertedVertexCache.size > 0, "packed color has a derived conversion");
+        const convertedSave = await gpu.saveSnapshot();
+        for (const cold of [false, true]) {
+            if (cold) {gpu = new GLWebGPUExecutorModule.GLWebGPUExecutor(canvas, { strict: true });await gpu.initialize();bridge = bridgeFor(gpu);}
+            await gpu.restoreSnapshot(convertedSave);
+            check(gpu.current.shareGroup.buffers.get(1).convertedAttributes.size === 0 && gpu.convertedVertexCache.size === 0, "derived conversion is rebuilt after restore");
+            await submit(new GLStream().call("DRAW_ARRAYS_DIRECT", GL.TRIANGLES, 0, 3));await readPixel([255, 255, 0, 255]);
+            check(gpu.convertedVertexCache.size > 0 && !gpu.hostErrors.length && !gpu.gpuErrors.errors.length, "packed draw after checkpoint");
         }
         document.getElementById("result").textContent = "PASS -- live GPU texture contents replace GL draw history; hot/cold checkpoints retain linked shaders, queries and subsequent textured draws";
     } catch (error) { document.getElementById("result").textContent = "FAIL " + (error.stack || error); }

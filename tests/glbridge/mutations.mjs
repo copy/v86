@@ -59,6 +59,10 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glsnapshotderived: { floor: 1, node: ["gl_renderer_snapshot_test.js"], pages: ["gl_renderer_snapshot_browser_test.html"], list: [
+        ["checkpoint retains derived vertex conversions", G + "gl_renderer_snapshot.js",
+            "\"variants\", \"viewCache\", \"convertedAttributes\"", "\"variants\", \"viewCache\""],
+    ] },
     glcachebounds: { floor: 0.9, node: ["gl_cache_bounds_test.js"], pages: ["gl_cache_bounds_browser_test.html"], list: [
         ["shader module cache is unbounded", G + "gl_executor.js",
             "if (this.moduleCache.size >= 512)", "if (false)"],

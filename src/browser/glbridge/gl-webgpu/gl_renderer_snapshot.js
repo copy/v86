@@ -8,7 +8,7 @@
     const fields = ["shareGroups", "contexts", "nextContextId", "nextShareGroupId", "nextUniformLocation", "current", "framebuffers", "queries", "activeQuery",
         "surface", "drawables", "currentDrawable", "backBuffer", "backBufferWidth", "backBufferHeight", "backBufferFormat", "depthTarget", "depthWidth", "depthHeight", "depthSamples",
         "multisampleTarget", "multisampleWidth", "multisampleHeight", "multisampleFormat", "accumBuffer", "frontDrawn", "pendingClear"];
-    const caches = new Set(["variants", "viewCache"]), views = new Set(["currentView", "nextView", "backBufferView", "depthTargetView", "multisampleView"]);
+    const caches = new Set(["variants", "viewCache", "convertedAttributes"]), views = new Set(["currentView", "nextView", "backBufferView", "depthTargetView", "multisampleView"]);
     function project(object) {
         return Object.fromEntries(Object.entries(object).filter(([key]) => !views.has(key) &&
             !(object.textureUnits && object.stacks && ["error", "errorQueue", "arbErrorString", "arbErrorPosition"].includes(key))).map(([key, value]) =>

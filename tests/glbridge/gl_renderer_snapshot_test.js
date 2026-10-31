@@ -35,6 +35,16 @@ const assert = require("node:assert/strict"), { GLWebGPUExecutor } = require("..
     await assert.rejects(gpu.restoreSnapshot(codec.encode(bad)), /Invalid GL renderer checkpoint/); assert.equal(gpu.current, restored, "invalid archive leaves live state installed");
     const again = await gpu.saveSnapshot(), other = new GLWebGPUExecutor(null, { host, strict: true, rendererTestDiagnostics: true }); await other.initialize(); await other.restoreSnapshot(again);
     assert.equal(other.current.shareGroup.programs.get(other.current.currentProgram).linked, true); assert.equal(other.current.activeQuery, null);
+    const converted = new GLWebGPUExecutor(null, { host, strict: true, rendererTestDiagnostics: false });await converted.initialize();
+    converted.submit(new GLStream().makeCurrent(1, 0, 0, 16, 16, 1, 1).call("BIND_BUFFER", GL.ARRAY_BUFFER, 1).bytes(), {});
+    converted.bufferData(GL.ARRAY_BUFFER, 9, GL.STATIC_DRAW, new Uint8Array([127, 0, 129, 0, 127, 0, 0, 0, 127]));
+    const buffer = converted.bufferFor(GL.ARRAY_BUFFER), layout = { type: GL.BYTE, size: 3, stride: 3, offset: 0 }, old = converted.convertVertexAttribute(buffer, layout, 3, true),
+        checkpoint = await converted.saveSnapshot(), images = snapshot.inspect(checkpoint).resources;
+    assert.equal(images.length, 1);assert.ok(images.every(r => !r.descriptor.label.startsWith("GL converted attribute")), "only original VBO storage is persistent");
+    await converted.restoreSnapshot(checkpoint);const restoredBuffer = converted.bufferFor(GL.ARRAY_BUFFER);
+    assert.equal(restoredBuffer.convertedAttributes.size, 0);assert.equal(converted.convertedVertexCache.size, 0);assert.equal(converted.convertedVertexBytes, 0);
+    const rebuilt = converted.convertVertexAttribute(restoredBuffer, layout, 3, true);assert.notEqual(rebuilt, old);
+    assert.deepEqual([...new Float32Array(rebuilt.storage)], [1, 0, -1, 0, 1, 0, 0, 0, 1]);assert.equal(converted.convertedVertexBytes, 36);
     assert.equal(gpu.hostErrors.length, 0); assert.equal(other.hostErrors.length, 0);
     console.log("gl_renderer_snapshot_test: linked renderer graphs, shared identities, matrix stacks, active query continuation, cold restore and invalid archive ownership passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });
