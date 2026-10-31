@@ -1808,7 +1808,7 @@
                 fallbackSampler: null, fallbackComparisonSampler: null, activeOcclusionQuerySet: null,
                 logicTargetTextures: () => [], logicTargetViews: () => [], uploadPages: () => [], retired: () => [],
                 pendingVertexBuffers: () => new WeakSet(), recordedOps: 0, bufferUpdateBytes: 0, vertexCursor: 0, uniformCursor: 0,
-                convertedVertexBytes: 0, nextQuerySlot: 0, pendingQueries: () => [], passHasOcclusionQuerySet: false,
+                convertedVertexBytes: 0, indexExpansionBytes: 0, nextQuerySlot: 0, pendingQueries: () => [], passHasOcclusionQuerySet: false,
             });
             this.bindLayoutKeys = new CacheKeys();this.resources.register("bind layout keys", () => this.bindLayoutKeys.clearKeys());
             this.targetKeys = new CacheKeys();
@@ -5651,14 +5651,16 @@
         },
 
         variantKeyFor(variant) {
+            if (this.variantKeys.entryCount >= 2048) this.variantKeys.clearKeys(true);
             return this.variantKeys.key(variant);
         },
         codeKey(vertex, fragment) {
+            if (this.shaderCodeKeys.entryCount >= 512) this.shaderCodeKeys.clearKeys(true);
             return this.shaderCodeKeys.key([vertex, fragment]);
         },
         pairKey(first, second, vertex, fragment) {
             let keys = this.compiledPairKeys.get(first);
-            if (!keys) this.compiledPairKeys.set(first, keys = new Map());
+            if (!keys) this.compiledPairKeys.set(first, keys = new WeakMap());
             let key = keys.get(second);
             if (key === undefined) keys.set(second, key = this.codeKey(vertex, fragment));
             return key;
@@ -5687,6 +5689,7 @@
             // (the bindings are part of the key: a relink with others
             // assigns other locations)
             const owner = program.cacheOwner || program;
+            if (this.shaderCache.size >= 512) {this.shaderCache.clear();this.linkKeys.clearKeys();}
             const key = this.linkKeys.key([
                 this.linkKeys.reference(owner), owner.cpuObjectId || 0, owner.cpuLinkGeneration || 0,
                 this.linkKeys.reference(program.compiled.vertex), this.linkKeys.reference(program.compiled.fragment),
@@ -6702,9 +6705,12 @@
             let cached = this.indexExpansionCache.get(key);
             if (!cached) {
                 cached = expandIndices(mode, count, 0, flat);
-                if (this.indexExpansionCache.size > 4096)
-                    this.indexExpansionCache.clear();
-                this.indexExpansionCache.set(key, cached);
+                if (this.indexExpansionCache.size >= 4096 || (this.indexExpansionBytes || 0) + cached.byteLength > 16 * 1024 * 1024) {
+                    this.indexExpansionCache.clear();this.indexExpansionBytes = 0;
+                }
+                if (cached.byteLength <= 16 * 1024 * 1024) {
+                    this.indexExpansionCache.set(key, cached);this.indexExpansionBytes = (this.indexExpansionBytes || 0) + cached.byteLength;
+                }
             }
             return cached;
         },
@@ -8332,7 +8338,7 @@ ${depthWrite}
             if (this.current.enabled.has(GL.VERTEX_PROGRAM_ARB) && !this.arbProgramFor(GL.VERTEX_PROGRAM_ARB)?.compiled.reflection.positionInvariant) {
                 variant.clipPlaneCount = 0;variant.clipPlaneMask = 0;
             }
-            const key = this.variantKeys.key(["arb-state", stateFields, variant]);
+            const key = this.variantKeyFor(["arb-state", stateFields, variant]);
             program.variants = program.variants || new Map();
             let compiled = program.variants.get(key);
             if (!compiled) {
@@ -8343,6 +8349,7 @@ ${depthWrite}
                         GL.INVALID_OPERATION);
                     return null;
                 }
+                if (program.variants.size >= 128) program.variants.delete(program.variants.keys().next().value);
                 program.variants.set(key, compiled);
             }
             return compiled;
@@ -8370,6 +8377,7 @@ ${depthWrite}
             if (!fixed) {
                 fixed = fixedFunction.generate(signature);
                 this.ffCache = this.ffCache || new Map();
+                if (this.ffCache.size >= 512) this.ffCache.delete(this.ffCache.keys().next().value);
                 this.ffCache.set(fixedKey, fixed);
             }
             const compiledFragment = this.arbVariant(fragment, fixed.stateFields);
@@ -8410,11 +8418,12 @@ ${depthWrite}
             if (!fixed) {
                 fixed = fixedFunction.generate(signature);
                 this.ffCache = this.ffCache || new Map();
+                if (this.ffCache.size >= 512) this.ffCache.delete(this.ffCache.keys().next().value);
                 this.ffCache.set(fixedKey, fixed);
             }
 
             const forcedTexCoords = fixed.textures.map(entry => entry.unit);
-            const variantKey = this.variantKeys.key([fixed.key, forcedTexCoords, variant]);
+            const variantKey = this.variantKeyFor([fixed.key, forcedTexCoords, variant]);
             vertex.variants = vertex.variants || new Map();
             let compiledVertex = vertex.variants.get(variantKey);
             if (!compiledVertex) {
@@ -8430,6 +8439,7 @@ ${depthWrite}
                         GL.INVALID_OPERATION);
                     return null;
                 }
+                if (vertex.variants.size >= 128) vertex.variants.delete(vertex.variants.keys().next().value);
                 vertex.variants.set(variantKey, compiledVertex);
             }
 
@@ -8456,7 +8466,7 @@ ${depthWrite}
             const variant = this.currentVariant();
             if (program) {
                 const mixed = !program.compiled.vertex || !program.compiled.fragment;
-                const key = this.variantKeys.key([variant, mixed ? this.mixedGLSLSignature(program, variant) : null]);
+                const key = this.variantKeyFor([variant, mixed ? this.mixedGLSLSignature(program, variant) : null]);
                 let entry = program.variants.get(key);
                 if (!entry) {
                     const link = this.linkVariant(program, variant);
@@ -8467,6 +8477,7 @@ ${depthWrite}
                         return null;
                     }
                     entry = { link, key };
+                    if (program.variants.size >= 128) program.variants.delete(program.variants.keys().next().value);
                     program.variants.set(key, entry);
                 }
                 if (!entry.codeKey) entry.codeKey = this.codeKey(entry.link.wgslVertex, entry.link.wgslFragment);
@@ -8489,6 +8500,7 @@ ${depthWrite}
             if (!generated) {
                 generated = fixedFunction.generate(signature);
                 this.ffCache = this.ffCache || new Map();
+                if (this.ffCache.size >= 512) this.ffCache.delete(this.ffCache.keys().next().value);
                 this.ffCache.set(key, generated);
             }
             return {
@@ -8793,6 +8805,8 @@ ${depthWrite}
         renderPipelineKey(cache, descriptor, identity = []) {
             let keys = this.pipelineKeyTables.get(cache);
             if (!keys) {keys = new CacheKeys();this.pipelineKeyTables.set(cache, keys);}
+            const limit = cache === this.pipelineCache ? 4096 : 256;
+            if (keys.entryCount >= limit) {cache.clear();keys.clearKeys();}
             if (descriptor.layout && typeof descriptor.layout === "object") keys.reference(descriptor.layout);
             keys.reference(descriptor.vertex.module);
             if (descriptor.fragment) keys.reference(descriptor.fragment.module);
@@ -8812,6 +8826,7 @@ ${depthWrite}
         shaderModule(wgsl) {
             let module = this.moduleCache.get(wgsl);
             if (!module) {
+                if (this.moduleCache.size >= 512) this.moduleCache.delete(this.moduleCache.keys().next().value);
                 module = this.device.createShaderModule({ code: wgsl });
                 this.moduleCache.set(wgsl, module);
             }
@@ -9158,15 +9173,11 @@ ${depthWrite}
             }
             const kind = item.target === "Cube" || object.kind === "Cube" ?
                 "cube" : (object.kind === "3D" ? "3d" : "2d");
-            const key = kind + ":" + object.sampler.baseLevel + ":" +
-                object.sampler.maxLevel;
+            const baseMipLevel = clamp(object.sampler.baseLevel, 0, object.gpuLevels - 1),
+                mipLevelCount = isMipmapFilter(object.sampler.minFilter) ? clamp(object.sampler.maxLevel - baseMipLevel + 1, 1, object.gpuLevels - baseMipLevel) : 1,
+                key = kind + ":" + baseMipLevel + ":" + mipLevelCount;
             let view = object.viewCache.get(key);
             if (!view) {
-                const baseMipLevel = clamp(object.sampler.baseLevel, 0,
-                    object.gpuLevels - 1);
-                const mipLevelCount = isMipmapFilter(object.sampler.minFilter) ? clamp(
-                    object.sampler.maxLevel - baseMipLevel + 1, 1,
-                    object.gpuLevels - baseMipLevel) : 1;
                 view = gpuTexture.createView({
                     dimension: kind,
                     baseMipLevel, mipLevelCount,
@@ -9188,6 +9199,7 @@ ${depthWrite}
             ].join("|");
             let gpuSampler = this.samplerCache.get(key);
             if (!gpuSampler) {
+                if (this.samplerCache.size >= 512) this.samplerCache.delete(this.samplerCache.keys().next().value);
                 const minLinear = sampler.minFilter === GL.LINEAR ||
                     sampler.minFilter === GL.LINEAR_MIPMAP_NEAREST ||
                     sampler.minFilter === GL.LINEAR_MIPMAP_LINEAR;

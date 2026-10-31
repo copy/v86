@@ -11,6 +11,7 @@
             });
             this.atoms = new Map();this.references = new WeakMap();this.buckets = new Map();
             this.nextAtom = 1;this.nextReference = 1;this.nextKey = 1;
+            this.entryCount = 0;
         }
         reference(object) {
             let id = this.references.get(object);
@@ -49,11 +50,15 @@
             for (const entry of bucket) if (entry.words.length === words.length && entry.words.every((v, i) => v === words[i])) return entry.id;
             if (this.nextKey > 0xFFFFFFFF) throw new Error("GL cache key space exhausted");
             const id = this.nextKey++;
+            ++this.entryCount;
             bucket.push({ id, words: Uint32Array.from(words) });this.buckets.set(hash, bucket);
             return id;
         }
-        clearKeys() {
-            this.buckets.clear();this.nextKey = 1;
+        clearKeys(preserveIds = false) {
+            this.buckets.clear();this.atoms.clear();this.nextAtom = 1;this.entryCount = 0;
+            // Compiler variant IDs can outlive the lookup table in a live
+            // program; trimming that table must never recycle their IDs.
+            if (!preserveIds) this.nextKey = 1;
         }
     }
     const api = { CacheKeys };
