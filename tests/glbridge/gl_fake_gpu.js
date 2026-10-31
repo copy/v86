@@ -147,6 +147,11 @@ class FakeEncoder {
     copyTextureToBuffer(...args) { this.copies.push(["t2b", ...args]); }
     copyBufferToTexture(source, destination, size) {
         for (const problem of rules.textureCopyProblems({}, destination, size)) this.device.rejectWith(problem);
+        const format = destination.texture?.descriptor?.format || "rgba8unorm";
+        const bytes = /^bc/.test(format) ? size.width / 4 * (size.height || 1) / 4 * (format.startsWith("bc1-") ? 8 : 16) :
+            size.width * (size.height || 1) * (format.startsWith("rgba32") ? 16 : format.startsWith("rgba16") ? 8 :
+                format.startsWith("r8") || format === "stencil8" ? 1 : format === "depth16unorm" ? 2 : 4);
+        this.log.textureWrites.push({ destination, layout: source, size, byteLength: bytes * (size.depthOrArrayLayers || 1), ordered: true });
         this.copies.push(["b2t", source, destination, size]);
     }
     copyBufferToBuffer(...args) { this.copies.push(["b2b", ...args]); }

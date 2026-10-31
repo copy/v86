@@ -1856,6 +1856,42 @@
         createGPUTexture(descriptor) { return this.resources.track(this.device.createTexture(descriptor)); }
         createGPUQuerySet(descriptor) { return this.resources.track(this.device.createQuerySet(descriptor)); }
 
+        uploadTexture(destination, data, layout, size) {
+            // Queue writes execute before an unsubmitted encoder. Once draws
+            // exist, an upload belongs at this exact point in their stream.
+            if (!this.encoder) return this.device.queue.writeTexture(destination, data, layout, size);
+            const format = destination.texture.format || destination.texture.descriptor?.format || "";
+            // Depth buffer copies require a whole subresource. Let the queue
+            // stage this format after submitting older draws, without imposing
+            // an oversized temporary GPUBuffer on a large depth image.
+            if (format === "depth16unorm") {
+                this.flushFrame();return this.device.queue.writeTexture(destination, data, layout, size);
+            }
+            const block = /^bc/.test(format) ? 4 : 1;
+            const rows = Math.ceil((size.height || 1) / block), layers = size.depthOrArrayLayers || 1;
+            const rowBytes = layout.bytesPerRow, pitch = alignUp(rowBytes, 256);
+            const sourceRows = layout.rowsPerImage || rows, offset = layout.offset || 0;
+            const source = new Uint8Array(data.buffer || data, data.byteOffset || 0, data.byteLength);
+            const rowsPerChunk = Math.max(1, Math.floor(4 * 1024 * 1024 / pitch));
+            this.endPass();
+            for (let z = 0; z < layers; ++z) for (let first = 0; first < rows; first += rowsPerChunk) {
+                const count = Math.min(rows - first, rowsPerChunk);
+                const upload = this.createGPUBuffer({ label: "GL ordered texture upload", size: Math.max(4, pitch * count),
+                    usage: BUFFER_USAGE_COPY_SRC, mappedAtCreation: true });
+                const mapped = new Uint8Array(upload.getMappedRange());
+                for (let y = 0; y < count; ++y) {
+                    const at = offset + (z * sourceRows + first + y) * rowBytes;
+                    mapped.set(source.subarray(at, at + rowBytes), y * pitch);
+                }
+                upload.unmap();
+                const origin = destination.origin || { x: 0, y: 0, z: 0 };
+                this.ensureEncoder().copyBufferToTexture({ buffer: upload, bytesPerRow: pitch, rowsPerImage: count },
+                    { ...destination, origin: { x: origin.x || 0, y: (origin.y || 0) + first * block, z: (origin.z || 0) + z } },
+                    { width: size.width, height: count * block, depthOrArrayLayers: 1 });
+                this.retire(upload);++this.recordedOps;
+            }
+        }
+
         // What every draw needs, on a new device (the tests' fake device too)
         createDeviceResources() {
             this.uniformRing = this.createGPUBuffer({
@@ -1880,7 +1916,7 @@
             // GL samples an incomplete texture as opaque black, not white:
             // the D3D9 path's white fallback would make missing textures
             // invisible instead of obvious.
-            this.device.queue.writeTexture({ texture: this.fallbackTexture },
+            this.uploadTexture({ texture: this.fallbackTexture },
                 new Uint8Array([0, 0, 0, 255]),
                 { bytesPerRow: 4, rowsPerImage: 1 },
                 { width: 1, height: 1, depthOrArrayLayers: 1 });
@@ -2311,7 +2347,7 @@
                     if (AUTOMIPMAP_OPS.has(fn)) this.autoTextureMipmap(view, offset, size);
                     // Non-draw upload users (blits, pixel rectangles) also
                     // retire pages only once their complete GL command is encoded.
-                    if (this.retireUploadPages()) this.flushFrame();
+                    if (this.retireUploadPages() || this.recordedOps >= this.flushThreshold) this.flushFrame();
                 } catch (error) {
                     if (error instanceof GLStreamError) {
                         /*
@@ -5063,7 +5099,7 @@
                         region.width, region.height, region.pixels);
                     continue;
                 }
-                this.device.queue.writeTexture({ texture: texture.gpuTexture, mipLevel: region.level,
+                this.uploadTexture({ texture: texture.gpuTexture, mipLevel: region.level,
                     origin: { x: region.x, y: region.y, z: texture.kind === "3D" ? region.z : region.layer } },
                 region.pixels, { offset: 0, bytesPerRow: region.width * region.bytesPerTexel,
                     rowsPerImage: region.height },
@@ -5089,7 +5125,7 @@
                 Math.ceil(slot.height / 4) : slot.height;
             const origin = texture.kind === "3D" ?
                 { x: 0, y: 0, z: 0 } : { x: 0, y: 0, z: layer };
-            this.device.queue.writeTexture(
+            this.uploadTexture(
                 { texture: texture.gpuTexture, mipLevel: level, origin },
                 slot.pixels,
                 { offset: 0, bytesPerRow, rowsPerImage },
@@ -5114,7 +5150,7 @@
             const staging = this.createGPUTexture({ label: "GL depth upload",
                 size: { width, height, depthOrArrayLayers: 1 }, format: "r32float",
                 usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
-            this.device.queue.writeTexture({ texture: staging }, pixels,
+            this.uploadTexture({ texture: staging }, pixels,
                 { offset: 0, bytesPerRow: width * 4, rowsPerImage: height },
                 { width, height, depthOrArrayLayers: 1 });
             if (!this.depthUploadPipeline) {
@@ -8620,7 +8656,7 @@ ${fragmentCode}`;
             if (!item.shadow) {
                 const black = new Uint8Array(4 * layers);
                 for (let i = 3; i < black.length; i += 4) black[i] = 255;
-                this.device.queue.writeTexture({ texture }, black, { bytesPerRow: 4, rowsPerImage: 1 },
+                this.uploadTexture({ texture }, black, { bytesPerRow: 4, rowsPerImage: 1 },
                     { width: 1, height: 1, depthOrArrayLayers: layers });
             }
             view = texture.createView({ dimension });
@@ -10609,7 +10645,7 @@ struct BlitParams {
                 size: { width, height, depthOrArrayLayers: 1 }, format: depth ? "r32float" : "r8uint",
                 usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING,
             });
-            this.device.queue.writeTexture({ texture }, pixels, { bytesPerRow: width * (depth ? 4 : 1),
+            this.uploadTexture({ texture }, pixels, { bytesPerRow: width * (depth ? 4 : 1),
                 rowsPerImage: height }, { width, height, depthOrArrayLayers: 1 });
             this.drawValueTexture(depth ? "depth" : "stencil", texture, width, height,
                 this.current.current.rasterPos[0], this.current.current.rasterPos[1]);
@@ -10900,7 +10936,7 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
                 format: "rgba8unorm",
                 usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING,
             });
-            this.device.queue.writeTexture({ texture }, rgba,
+            this.uploadTexture({ texture }, rgba,
                 { bytesPerRow: width * 4, rowsPerImage: height },
                 { width, height, depthOrArrayLayers: 1 });
             this.drawPixelTexture(texture, texture.createView(), width, height,

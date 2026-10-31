@@ -795,6 +795,13 @@ game.exe
 > - 修正 S2-26 审查中的 FBO 自动生成说法：FBO 渲染本身不触发 GENERATE_MIPMAP，必须显式生成；测试验证自动标志打开时渲染后仍保留旧 mip（[EXT_framebuffer_object issue 52](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_framebuffer_object.txt)）。
 > - 86 组 Node、25 页 GPU、构建/ESLint、6/6 新错误注入通过；Mesa 全档为 66 项作业/60 个像素场景。继续 D4 上传顺序、异构级别资源与可编程采样/几何等剩余工作。
 
+> **D4 上传顺序子阶段（2026-10-31）：完成，D4 其余项目继续。**
+>
+> - 已存在编码器时，纹理上传改为同一命令流中的 staging copy，结束旧 pass 后再上传，防止 queue.writeTexture 提前覆盖旧绘制要采样的内容。尚无命令时保留队列快速路径；depth16 先提交旧命令再使用队列，满足深度子资源复制限制。
+> - 行间距按 256 字节对齐，逐层/逐块上传，每个暂存缓冲上限 4 MiB，提交后释放。覆盖源 offset、rowsPerImage、立方体层、压缩物理块及跨块行偏移；非绘制命令也检查提交阈值。
+> - 七类原生 Apple/Mesa 像素完全一致：CPU/FBO 2D、3D、cube、BC1、depth16/depth32 的旧绘制→更新→新绘制。实际 GPU 在两种模式下通过；87 组 Node、26 页 GPU、构建和相关 ESLint 通过，7/7 新错误注入被发现。Mesa 档案更新为 67 项任务与 60 个像素场景。
+> - 继续异构 mip 图像存储、可编程几何和采样边框等 D4 余项；尚未宣布 D4 整体完成。
+
 > **D4 状态（2026-10-29）：基本完成。** GL 参照场景从 22 通过 / 32 失败到 56 通过 / 5 个已知失败（全是 ARB 程序，属阶段 E2）；新增三个严格场景（宽线与线点画、深度/模板像素、深度纹理当颜色读）。每一项都有执行器测试和被杀死的变异。
 >
 > - **S1-2：** a–k 完成。j：深度纹理不带比较采样时，用按 `DEPTH_TEXTURE_MODE` 生成的颜色副本（深度变化后重做）；同时修了深度纹理在 GPU 上根本传不上去的问题（WebGPU 不允许 `writeTexture` 写 depth32float，改为画 `frag_depth`）。l 属阶段 E。

@@ -871,3 +871,8 @@ S1-5、S2-24、S2-29 的资源/pass 归属已由统一注册表和附件键实�
 ### D4 mip 触发与范围核对（2026-10-31）
 
 S2-26 中“FBO 渲染应触发自动生成”不符合 EXT_framebuffer_object issue 52：自动触发来自 gl{Copy}Tex{Sub}Image，FBO 渲染需要 GenerateMipmap。已加原生与 GPU 读回确认旧 mip 保留。手动生成到 q、自动生成到 p，且以 BASE_LEVEL 为源；页面已与 C3 的 CPU 元数据保持一致，GPU 深度也可生成。26 项原生记录保留 Apple 非零基级颜色生成和 Mesa 自动 MAX_LEVEL 截断的差异；仅三个命名 Mesa 结果按 GL 2.1 §3.8.8 与 issue 68 的 p 规则核对。详见计划 D4 mip 子阶段与 gl_mipmap_ranges_* 测试。
+
+
+### D4 纹理上传顺序验证（2026-10-31）
+
+已记录但尚未提交的绘制可能被 queue.writeTexture 更新越过。执行器现在在已有编码器时将更新复制插入命令流；尚无编码器保留队列快速路径，depth16 先提交旧工作再更新。七项 Apple/Mesa 原生记录与实际 GPU 两种模式的旧/新纹理像素一致，另覆盖 4 MiB 分块、256 字节行距、源 offset/层距与延迟释放。87 组 Node、26 页 GPU、7/7 错误注入通过；测试见 gl_texture_upload_order_*。异构级别仍待后续子阶段。

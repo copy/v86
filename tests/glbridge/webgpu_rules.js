@@ -201,6 +201,9 @@ function textureCopyProblems(source, destination, size) {
         const three = d.dimension === "3d";
         const dims = [Math.max(1, d.size.width >> level), Math.max(1, (d.size.height || 1) >> level),
             three ? Math.max(1, (d.size.depthOrArrayLayers || 1) >> level) : d.size.depthOrArrayLayers || 1];
+        if (/^bc/.test(d.format || "")) {
+            dims[0] = Math.ceil(dims[0] / 4) * 4;dims[1] = Math.ceil(dims[1] / 4) * 4;
+        }
         const origin = [o.x || 0, o.y || 0, o.z || 0];
         for (let i = 0; i < 3; ++i)
             if (origin[i] < 0 || origin[i] + extent[i] > dims[i])
