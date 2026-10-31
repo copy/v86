@@ -4,6 +4,8 @@
 基线：v86 `e92fd4f0`（`ios6` 分支；`gl-webgpu/` 中只有 `gl_shader_translator.js` 与 `master` 不同，多了 GLES 3.x L0 的 240 行），retro-gaming-site `43c4d1e`。日期 2026-10-29。
 性质：本文保留修复前的审查基线，已提交；当前修复进度和验收结果见 [`opengl-webgpu-plan.md`](opengl-webgpu-plan.md)。它是 [`d3d-webgpu-review.md`](d3d-webgpu-review.md) 的姊妹篇。两条路径共用 `v86gl.sys`、`v86gl_device.js`、`graphics_proxy.js`、`v86_network_bridge.js` 和 `webgpu_host.js`，交叉问题在文中注明。
 
+2026-10-31：阶段 C 的 CPU 权威迁移及退出检查已完成。S1-1 已用真实 XP 冷启动、新驱动/DLL、GLSL 探针和 Cube 2 worker Complex 地图验证修复（超过 100 万次绘制、233 次链接，无宿主或 GPU 校验错误）。本文原始复现保留；D/E/F/G 的剩余工作仍按计划推进。
+
 ## 0. 结论摘要
 
 1. **站点默认配置下，OpenGL 的同步查询全部失效。** ✅

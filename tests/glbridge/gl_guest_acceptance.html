@@ -1,0 +1,93 @@
+<!doctype html><meta charset="utf-8"><title>GL guest acceptance</title>
+<style>body{background:#182026;color:#eee}#screen_container canvas{image-rendering:pixelated}#log{white-space:pre-wrap}</style>
+<div id="screen_container"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas></canvas></div>
+<pre id="log"></pre><pre id="result"></pre>
+<script src="../../build/libv86.js"></script><script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+const params = new URLSearchParams(location.search), mode = params.get("worker") !== "0";
+const log = text => document.querySelector("#log").textContent += text + "\n";
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const output = async (name, data) => fetch("/__test_file?name=" + name, {method:"POST",body:data});
+let serial = "", serialLine = "";
+window.vm = new V86({
+    memory_size: 512 << 20, vram_size: 16 << 20, graphics_adapter: "bochs_vga",
+    graphics_adapter_path: "/build/v86-bochs-vga.js", graphics_proxy: true,
+    cpu_worker: mode, cpu_worker_url: "/build/cpu-worker.js", wasm_path: "/build/v86.wasm",
+    bios: {url:"/bios/seabios.bin"}, vga_bios:{url:"/bios/vgabios.bin"},
+    hda:{url:"/build/gl-guest/site/windowsxp/windowsxp_multidisk_C_4G.img",async:true,size:4294967296},
+    hdb:{url:"/build/gl-guest/site/game/cube2.img",async:true,size:3221225472},
+    cdrom:{url:"/build/gl-guest/tools.iso"},
+    screen_container:document.querySelector("#screen_container"), acpi:false,
+    net_device:{type:"none"},boot_order:0x213,autostart:true,audio:false,
+});
+vm.add_listener("serial0-output-byte", value => {
+    const c = String.fromCharCode(value); serial += c;
+    if(c === "\n") { log(serialLine.replace(/\r/g,"")); serialLine=""; } else serialLine += c;
+});
+const errors = [];
+const originalError = console.error;
+console.error = (...args) => {errors.push(args.map(x=>typeof x==="object"?JSON.stringify(x):String(x)).join(" "));originalError(...args);};
+const codes = {};
+for(const [letters, scans] of [["1234567890",[2,3,4,5,6,7,8,9,10,11]],["qwertyuiop",[16,17,18,19,20,21,22,23,24,25]],["asdfghjkl",[30,31,32,33,34,35,36,37,38]],["zxcvbnm",[44,45,46,47,48,49,50]]])
+    [...letters].forEach((letter,i)=>codes[letter]=scans[i]);
+Object.assign(codes,{" ":57,".":52,"/":53,"\\":43,"-":12,">":52});
+async function type(text) {
+    for(const letter of text) {
+        const c=letter.toLowerCase(), shifted=letter===":"||letter===">", scan=letter===":"?39:codes[c];
+        if(!scan) throw new Error("unknown key " + letter);
+        await vm.keyboard_send_scancodes(shifted?[42,scan,scan|128,170]:[scan,scan|128],30); await delay(60);
+    }
+}
+window.runSetup = async () => {
+    for(let i=0;i<4;i++) {await vm.keyboard_send_scancodes([1,129],30);await delay(1000);}
+    // XP may ask to restart after cancelling its hardware wizard. Its
+    // default button is Yes; Tab selects No.
+    await vm.keyboard_send_scancodes([15,143,28,156],30);await delay(2000);
+    await vm.keyboard_send_scancodes([0xE0,0x5B,19,147,0xE0,0xDB],30); await delay(1500);
+    await type("cmd /k e:\\setup.cmd"); await vm.keyboard_send_scancodes([28,156],30); log("setup command entered");
+};
+async function screenshot(name) {
+    const canvas=document.querySelector("#screen_container canvas");
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve)); if(blob) await output(name,blob);
+}
+try {
+    await new Promise(resolve=>vm.add_listener("emulator-ready",resolve)); log("guest ready, worker="+mode);
+    const started=Date.now();
+    // Cold XP boot and its hardware wizard settle before Win+R.
+    await delay(Number(params.get("boot_ms")||150000));
+    await screenshot("gl-guest-desktop.png");
+    await runSetup();
+    let samples=0, sawDraws=false, mapRequested=false;
+    for(let i=0;i<40;i++) {
+        await delay(15000);
+        const gpu=vm.graphics_proxy.bridge?.glExecutor;
+        const stats=gpu?.stats || {};
+        log(JSON.stringify({seconds:Math.round((Date.now()-started)/1000),stats,contexts:gpu?.contexts?.size,pipelines:gpu?.pipelineCache?.size,errors:errors.slice(-3)}));
+        await screenshot("gl-guest-current.png");
+        await output("gl-guest-serial.txt",serial);await output("gl-guest-errors.json",JSON.stringify(errors));
+        if(serial.includes("GL_ACCEPT_SETUP_FAILED")||serial.includes("FAIL ")) throw new Error("guest setup or GL probe failed");
+        // The installer launches the game only when the current-DLL probe
+        // exits successfully. Distinguish Cube's asset/shader load from the
+        // probe's one triangle, then request the same map used for C's exit.
+        if(!mapRequested && stats.draws>1000 && stats.shaderLinks>100 && stats.textureUploads>100) {
+            await vm.keyboard_send_scancodes([20,148],30);await delay(1000);
+            await vm.keyboard_send_text("/map complex",120);await vm.keyboard_send_scancodes([28,156],30);
+            mapRequested=true;log("Complex map requested");
+        }
+        if(mapRequested && stats.textureUploads>1000 && stats.shaderLinks>200 && stats.draws>10000) {
+            sawDraws=true;if(++samples>=4) break;
+        }
+    }
+    
+    if(!sawDraws) throw new Error("Cube 2 did not render");
+    const gpu=vm.graphics_proxy.bridge.glExecutor;
+    if(errors.length || gpu.hostErrors.length || gpu.stats.refusals || gpu.stats.pipelinesRejected || gpu.stats.framesRejected)
+        throw new Error("host/validation errors: "+errors.slice(-3).join("\n"));
+    await screenshot("cube2-"+(mode?"worker":"local")+"-complex.png");
+    await output("cube2-"+(mode?"worker":"local")+"-evidence.json",JSON.stringify({worker:mode,stats:gpu.stats,hostErrors:gpu.hostErrors,map:"complex"}));
+    document.querySelector("#result").textContent="PASS guest CPU queries/compile/link and Cube 2 rendering; worker="+mode;
+} catch(error) {
+    await screenshot("gl-guest-failure.png");
+    document.querySelector("#result").textContent="FAIL "+error.stack;
+}
+</script>

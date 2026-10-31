@@ -68,6 +68,20 @@ let browser, timeout;
 const server = http.createServer((req, res) =>
 {
     const address = new URL(req.url, "http://localhost");
+    if(req.method === "POST" && address.pathname === "/__test_file")
+    {
+        const name = path.basename(address.searchParams.get("name") || "file");
+        const chunks = [];
+        req.on("data", data => chunks.push(data));
+        req.on("end", () =>
+        {
+            const directory = path.join(root, "build/browser-test-output");
+            fs.mkdirSync(directory, { recursive: true });
+            fs.writeFileSync(path.join(directory, name), Buffer.concat(chunks));
+            res.end("OK");
+        });
+        return;
+    }
     if(address.pathname === "/__service_file")
     {
         const name = path.basename(address.searchParams.get("name") || "");
