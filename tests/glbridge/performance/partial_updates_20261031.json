@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-31",
+  "baselineCommit": "9d3fce16",
+  "method": "Same local Chrome WebGPU harness, sequential candidate and baseline; CPU shadow process + executor submit + flush timed, GPU completion outside timer; 3 warm-up and 15 measured frames, 64 draws/frame, each followed by a 4-byte update in a 256 KiB VBO. Controlled microbenchmark, not game trace acceptance.",
+  "baseline": [
+    {
+      "workload": "subrange_after_draw",
+      "drawsPerFrame": 64,
+      "bufferBytes": 262144,
+      "updateBytes": 4,
+      "frames": 15,
+      "medianMs": 8.400000035762787,
+      "p95Ms": 10.300000011920929,
+      "renamedBuffers": 1152,
+      "stagedUpdates": 0,
+      "stagedBytes": 0
+    }
+  ],
+  "candidate": [
+    {
+      "workload": "subrange_after_draw",
+      "drawsPerFrame": 64,
+      "bufferBytes": 262144,
+      "updateBytes": 4,
+      "frames": 15,
+      "medianMs": 2.899999976158142,
+      "p95Ms": 4.300000011920929,
+      "renamedBuffers": 0,
+      "stagedUpdates": 1152,
+      "stagedBytes": 4608
+    }
+  ],
+  "medianChangePercent": -65.48,
+  "notes": [
+    "Counts cover all 18 frames. Baseline uploads a whole 256 KiB buffer 1152 times; candidate stages 4608 bytes. Logic copy fixtures restrict 16x16 destinations to 5x4 and 4x4 regions, including four-sample center coverage."
+  ],
+  "candidateSourceHashes": {
+    "src/browser/glbridge/gl-webgpu/gl_executor.js": "9abd6becb823932ad29c31771bd1c027613538a0b7256fc1c9d63ba1442c7b89"
+  },
+  "harnessHashes": {
+    "tests/glbridge/gl_partial_update_browser_test.html": "bcd650644876a1556c43de4a21939da65fc7a20342488704867a5d88535123cc",
+    "tests/glbridge/gl_partial_update_cases.js": "c03a92c79d7fd2ed28333f6d61be68e679ad46734915565179210f5c775d0834"
+  }
+}

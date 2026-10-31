@@ -2091,17 +2091,18 @@ test("VBO subdata preserves storage referenced by an unsubmitted draw", () => {
     const writeCount = log.bufferWrites.filter(w => w.buffer === original).length;
     executor.bufferSubData(GL.ARRAY_BUFFER, 0,
         new Uint8Array(new Float32Array([2, 2, 2]).buffer));
-    assert.notStrictEqual(buffer.gpuBuffer, original,
-        "queue.writeBuffer precedes submission, so pending draws need the old storage");
+    assert.strictEqual(buffer.gpuBuffer, original, "partial updates retain VBO storage");
     assert.strictEqual(log.bufferWrites.filter(w => w.buffer === original).length,
-        writeCount, "old geometry is never overwritten before its draw executes");
-    assert.strictEqual(original.destroyed, false, "retire only after submission");
-    const replacement = buffer.gpuBuffer;
+        writeCount, "queued writes cannot overwrite earlier encoded geometry");
+    const first = log.encoders.flatMap(e => e.copies).filter(c => c[0] === "b2b").at(-1);
+    assert.equal(first[4], 0);assert.equal(first[5], 12);assert.equal(first[3], original);
     executor.bufferSubData(GL.ARRAY_BUFFER, 12, new Uint8Array([1, 2, 3, 4]));
-    assert.strictEqual(buffer.gpuBuffer, replacement,
-        "storage not yet used by a draw can still be updated in place");
+    assert.strictEqual(buffer.gpuBuffer, original);
+    const second = log.encoders.flatMap(e => e.copies).filter(c => c[0] === "b2b").at(-1);
+    assert.equal(second[4], 12);assert.equal(second[5], 4);
     executor.flushFrame();
-    assert.strictEqual(original.destroyed, true);
+    assert.strictEqual(original.destroyed, false, "live VBO storage survives submission");
+    assert.equal(first[1].destroyed, true);assert.equal(second[1].destroyed, true);
 });
 
 test("odd-sized VBO data and subdata retain their final bytes", () => {
@@ -2904,7 +2905,7 @@ test("only incompatible VBO attributes are converted and unchanged draws reuse t
 });
 
 test("VBO and direct EBO mutations preserve already encoded draw snapshots", () => {
-    const { executor } = newExecutor();
+    const { executor, log } = newExecutor();
     normalVBOScene(executor);
     executor.drawFromBuffers(GL.TRIANGLES, 0, 3,
         { type: GL.UNSIGNED_SHORT, bufferOffset: 2 });
@@ -2915,7 +2916,9 @@ test("VBO and direct EBO mutations preserve already encoded draw snapshots", () 
     executor.bufferSubData(GL.ARRAY_BUFFER, 12, new Uint8Array([0, 127, 0]));
     executor.bufferSubData(GL.ELEMENT_ARRAY_BUFFER, 2,
         new Uint8Array(new Uint16Array([2, 1, 0]).buffer));
-    assert.notStrictEqual(oldIndex, eb.gpuBuffer);
+    assert.strictEqual(oldIndex, eb.gpuBuffer);
+    const update = log.encoders.flatMap(e => e.copies).filter(c => c[0] === "b2b" && c[3] === oldIndex).at(-1);
+    assert.equal(update[4], 0);assert.equal(update[5], 8);
     assert.deepStrictEqual(Array.from(new Uint16Array(oldIndex.storage, 2, 3)), [0, 1, 2]);
     assert.strictEqual(oldNormal.destroyed, false);
     executor.drawFromBuffers(GL.TRIANGLES, 0, 3,
@@ -2925,7 +2928,7 @@ test("VBO and direct EBO mutations preserve already encoded draw snapshots", () 
     assert.deepStrictEqual(Array.from(new Float32Array(nextNormal.storage, 0, 3)), [0, 1, 0]);
     executor.flushFrame();
     assert.strictEqual(oldNormal.destroyed, true);
-    assert.strictEqual(oldIndex.destroyed, true);
+    assert.strictEqual(oldIndex.destroyed, false);
     run(executor, new GLStream().names(GLFN.DELETE_BUFFERS, [10]));
     assert.strictEqual(executor.convertedVertexBytes, 0);
     assert.strictEqual(executor.convertedVertexCache.size, 0);

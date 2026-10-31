@@ -1807,7 +1807,7 @@
                 uniformRing: null, vertexRing: null, fallbackTexture: null, fallbackView: null,
                 fallbackSampler: null, fallbackComparisonSampler: null, activeOcclusionQuerySet: null,
                 logicTargetTextures: () => [], logicTargetViews: () => [], uploadPages: () => [], retired: () => [],
-                pendingVertexBuffers: () => new WeakSet(), recordedOps: 0, vertexCursor: 0, uniformCursor: 0,
+                pendingVertexBuffers: () => new WeakSet(), recordedOps: 0, bufferUpdateBytes: 0, vertexCursor: 0, uniformCursor: 0,
                 convertedVertexBytes: 0, nextQuerySlot: 0, pendingQueries: () => [], passHasOcclusionQuerySet: false,
             });
             this.bindLayoutKeys = new CacheKeys();this.resources.register("bind layout keys", () => this.bindLayoutKeys.clearKeys());
@@ -5432,17 +5432,10 @@
             if (offset + data.byteLength > buffer.shadow.byteLength)
                 return this.refuse("glBufferSubData", "update is out of range",
                     { offset, size: data.byteLength }, GL.INVALID_VALUE);
+            if (!data.byteLength) return;
             this.invalidateVertexConversions(buffer);
             buffer.shadow.set(data, offset);
             if (buffer.gpuBuffer) {
-                // Queue writes execute before a command buffer submitted later,
-                // even if its draw was encoded first. Rename live storage so a
-                // dynamic model update cannot change already-recorded geometry.
-                // No pass/occlusion-query split is needed for this copy-on-write.
-                if (this.pendingVertexBuffers.has(buffer.gpuBuffer)) {
-                    this.replaceBufferStorage(buffer);
-                    return;
-                }
                 // writeBuffer wants 4-byte alignment at both ends; a ragged
                 // update is widened to the enclosing aligned span, which is
                 // safe because the shadow copy holds the true contents.
@@ -5451,6 +5444,20 @@
                 const clampedEnd = Math.min(end, buffer.shadow.byteLength);
                 const span = end - start;
                 if (span > 0) {
+                    // Encode an update after earlier draws instead of renaming
+                    // and uploading the whole VBO. Queue writes would run before
+                    // those draws, so only unused storage can use that shortcut.
+                    if (this.pendingVertexBuffers.has(buffer.gpuBuffer)) {
+                        this.endPass();
+                        for (let at = 0; at < span; at += 4 * 1024 * 1024) {
+                            const size = Math.min(4 * 1024 * 1024, span - at), upload = this.createGPUBuffer({ label: "GL ordered buffer update", size, usage: BUFFER_USAGE_COPY_SRC, mappedAtCreation: true });
+                            new Uint8Array(upload.getMappedRange()).set(buffer.shadow.subarray(start + at, Math.min(start + at + size, clampedEnd)));upload.unmap();
+                            this.ensureEncoder().copyBufferToBuffer(upload, 0, buffer.gpuBuffer, start + at, size);
+                            this.retire(upload);++this.recordedOps;this.bufferUpdateBytes = (this.bufferUpdateBytes || 0) + size;
+                            if (this.bufferUpdateBytes >= 4 * 1024 * 1024 || this.recordedOps >= this.flushThreshold) this.flushFrame();
+                        }
+                        return;
+                    }
                     if (end <= buffer.shadow.byteLength) {
                         this.device.queue.writeBuffer(buffer.gpuBuffer, start,
                             buffer.shadow, start, span);
@@ -7089,7 +7096,7 @@
                     }, () => false);
                 }
                 this.encoder = null;
-                this.recordedOps = 0;
+                this.recordedOps = 0;this.bufferUpdateBytes = 0;
                 this.pendingVertexBuffers = new WeakSet();
             }
             this.releaseRetired();
@@ -7421,7 +7428,7 @@ ${depthWrite}
                     compute.setPipeline(pipeline);compute.setBindGroup(0, this.cachedBindGroup(pipeline, 0, [
                         { binding: 0, resource: { buffer: meta } }, { binding: 1, resource: depth.createView() }, { binding: 2, resource: { buffer: info } }]));
                     compute.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(length / 8));compute.end();++this.recordedOps;this.retire(info);leased.delete(info);
-                    if (logic) this.copySingleSampleLogic(targets, logicColors);
+                    if (logic) this.copySingleSampleLogic(targets, logicColors, primitive, y, length);
                     for (const [side, number] of [["front", 1], ["back", 2]]) {
                         const style = this.createGPUBuffer({ size: 16, usage: BUFFER_USAGE_UNIFORM, mappedAtCreation: true });
                         new Uint32Array(style.getMappedRange()).set([width, y, length, number]);style.unmap();leased.add(style);
@@ -7444,12 +7451,14 @@ ${depthWrite}
             }
         },
 
-        copySingleSampleLogic(targets, copies) {
+        copySingleSampleLogic(targets, copies, request, y = 0, rows = targets.height) {
             this.endPass();const code = singleSample.copy(copies), module = this.shaderModule(code), descriptor = { label: "GL per-sample logic copy", layout: "auto",
                 vertex: { module, entryPoint: "vs_main" }, fragment: { module, entryPoint: "fs_main", targets: copies.map(target => target ? { format: target.format } : null) },
                 primitive: { topology: "triangle-list" }, multisample: { count: targets.sampleCount } }, key = this.renderPipelineKey(this.singleSamplePipelines, descriptor),
                 pipeline = this.singleSamplePipelines.get(key) || this.createPipeline(this.singleSamplePipelines, key, descriptor);
-            const pass = this.ensureEncoder().beginRenderPass({ label: "GL copy individual logic samples", colorAttachments: copies.map(target => target ? { view: target.view, loadOp: "clear", storeOp: "store" } : null) });
+            const pass = this.ensureEncoder().beginRenderPass({ label: "GL copy individual logic samples", colorAttachments: copies.map(target => target ? { view: target.view, loadOp: "load", storeOp: "store" } : null) }),
+                rect = this.logicCopyRect(targets, request), top = Math.max(y, rect.y), bottom = Math.min(y + rows, rect.y + rect.height);
+            pass.setScissorRect(rect.x, top, rect.width, Math.max(0, bottom - top));
             pass.setPipeline(pipeline);pass.setBindGroup(0, this.cachedBindGroup(pipeline, 0, targets.color.flatMap((target, i) => target ? [{ binding: i, resource: target.view }] : [])));pass.draw(3);pass.end();++this.recordedOps;
         },
 
@@ -7535,7 +7544,7 @@ ${depthWrite}
                 capture.outputs = shaders.colorTargets || 1;
             }
             if (!this.singleSampleCapture && s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY &&
-                    !this.prepareLogicOpTargets()) return;
+                    !this.prepareLogicOpTargets(request)) return;
             if (!this.ensurePass()) {
                 this.refuse("draw", "no render target is bound", {},
                     GL.INVALID_FRAMEBUFFER_OPERATION);
@@ -7621,8 +7630,8 @@ ${depthWrite}
                 const sx = clamp(s.scissor.x, 0, width);
                 const sy = clamp(s.scissor.y, 0, height);
                 pass.setScissorRect(sx, sy,
-                    Math.max(0, Math.min(s.scissor.width, width - sx)),
-                    Math.max(0, Math.min(s.scissor.height, height - sy)));
+                    Math.max(0, Math.min(s.scissor.x + s.scissor.width, width) - sx),
+                    Math.max(0, Math.min(s.scissor.y + s.scissor.height, height) - sy));
             } else {
                 pass.setScissorRect(0, 0, width, height);
             }
@@ -7653,7 +7662,20 @@ ${depthWrite}
             return usesAlpha && !usesColor ? { r: a, g: a, b: a, a } : { r, g, b, a };
         },
 
-        prepareLogicOpTargets() {
+        logicCopyRect(targets, request) {
+            const s = this.current, vp = s.viewport;
+            // Filled polygons are clipped to their viewport. Expanded points
+            // and lines can extend beyond it, including program point sizes.
+            const viewport = request && isPolygonPrimitive(request.mode) && !request.linesExpanded && !request.clipped,
+                clip = s.enabled.has(GL.SCISSOR_TEST) && s.scissor.set ? s.scissor : { x: 0, y: 0, width: targets.width, height: targets.height },
+                x = clamp(Math.max(clip.x, viewport ? vp.x : 0), 0, targets.width),
+                y = clamp(Math.max(clip.y, viewport ? vp.y : 0), 0, targets.height),
+                right = Math.min(clip.x + clip.width, viewport ? vp.x + vp.width : targets.width, targets.width),
+                bottom = Math.min(clip.y + clip.height, viewport ? vp.y + vp.height : targets.height, targets.height);
+            return { x, y, width: Math.max(0, right - x), height: Math.max(0, bottom - y) };
+        },
+
+        prepareLogicOpTargets(request) {
             // Consume a pending loadOp clear before taking the destination
             // snapshot, then continue in a second pass that samples only the
             // copy. Sampling the live attachment would be a WebGPU feedback
@@ -7669,6 +7691,7 @@ ${depthWrite}
             if (!targets) return false;
             const width = Math.max(1, targets.width);
             const height = Math.max(1, targets.height);
+            const rect = this.logicCopyRect(targets, request);
             this.logicTargetTextures = this.logicTargetTextures || [];
             this.logicTargetViews = [];
             const encoder = this.ensureEncoder();
@@ -7692,12 +7715,13 @@ ${depthWrite}
                     copy.glLogicKey = key;
                     this.logicTargetTextures[i] = copy;
                 }
-                encoder.copyTextureToTexture({
+                const origin = source.origin || { x: 0, y: 0, z: 0 };
+                if (rect.width && rect.height) encoder.copyTextureToTexture({
                     texture: source.texture,
                     mipLevel: source.mipLevel || 0,
-                    origin: source.origin || { x: 0, y: 0, z: 0 },
-                }, { texture: copy },
-                { width, height, depthOrArrayLayers: 1 });
+                    origin: { x: (origin.x || 0) + rect.x, y: (origin.y || 0) + rect.y, z: origin.z || 0 },
+                }, { texture: copy, origin: { x: rect.x, y: rect.y, z: 0 } },
+                { width: rect.width, height: rect.height, depthOrArrayLayers: 1 });
                 const view = copy.createView();
                 if (!fallbackView) fallbackView = view;
                 this.logicTargetViews.push(view);
@@ -11597,8 +11621,8 @@ ${outputWrites}
                 const x = clamp(s.scissor.x, 0, targets.width);
                 const y = clamp(s.scissor.y, 0, targets.height);
                 pass.setScissorRect(x, y,
-                    Math.max(0, Math.min(s.scissor.width, targets.width - x)),
-                    Math.max(0, Math.min(s.scissor.height, targets.height - y)));
+                    Math.max(0, Math.min(s.scissor.x + s.scissor.width, targets.width) - x),
+                    Math.max(0, Math.min(s.scissor.y + s.scissor.height, targets.height) - y));
             } else {
                 pass.setScissorRect(0, 0, targets.width, targets.height);
             }
