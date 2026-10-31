@@ -38,3 +38,8 @@ D-13 finish wait, D-15 depth/stencil pixel operations, D-16 line stipple and
 D-18 fixed vertex/ARB fragment pairing have dedicated acceptance fixtures.
 Driver differences used by those fixtures are recorded in the plan, rather than
 silently widening all pixel tolerances.
+
+
+## Actual-game replay repeatability
+
+The D5 Warcraft III recording has 14 positions whose RGBA differs across repeated replays of the same pre-D5 executor on this host. Their cause remains unidentified. The performance comparison requires every other pixel to be exact and permits only RGBA tuples observed at each such position in the baseline repeats; current runs introduce no additional values. Positions, tuples, hashes and raw frame times are retained in `tests/glbridge/performance/game_traces_20261031.json`. This is an observed replay limitation, with a strict comparison-policy test and reproducible game capture harness; it is not an assertion of native pixel equivalence for the game.
