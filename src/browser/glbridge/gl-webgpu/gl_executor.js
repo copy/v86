@@ -3629,6 +3629,9 @@
         define("PROGRAM_LINK_VALIDATION", function(a, bytes, view, offset, size, metadata) {
             this.validateProgramLink(view, offset, size, metadata);
         });
+        define("UPLOAD_CHUNK", function() {
+            this.refuse("UPLOAD_CHUNK", "CPU upload assembly was bypassed");
+        });
         define("RESOLVED_PROGRAM_INTERFACE", function(a, bytes, view, offset, size) {
             const r = protocol.decodeProgramInterface(view, offset, size), program = this.current.shareGroup.programs.get(r.program);
             if (program?.linked) this.adoptProgramInterface(program, r);

@@ -279,6 +279,7 @@
         ["INDEX_STATE", 252, null, "u:operation u:mask d:value"],
         ["ACTIVE_STENCIL_FACE", 253, "ActiveStencilFaceEXT", "u"],
         ["PROGRAM_LINK_VALIDATION", 254, null, "u:operation u:job u:program u:object_id u:link_generation u:data_size"],
+        ["UPLOAD_CHUNK", 255, null, "u:token u:opcode u:total_size u:offset u:data_size"],
     ];
 
     // Composite records' optional headers and repeated elements. The common
@@ -335,6 +336,7 @@
         ["V86GL_CAPS_PROFILE_GL21_FBO_FFP", 4],
         ["V86GL_CAPS_PROFILE_GL21", 5],
         ["V86GL_EXTENDED_RECORD_SIZE", 0xFFFF, "a record size of this is followed by a u32 size"],
+        ["V86GL_MAX_UPLOAD_BYTES", 256 * 1024 * 1024, "bounded CPU assembly of an upload larger than the arena"],
         // CPU validation replaces only the opcode of a rejected GL record.
         // Keep its size/payload so every inline response retains its address.
         // 0x8eoo: e = GL error - 0x500 (0..6), oo = original opcode (1..255).

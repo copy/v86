@@ -25,6 +25,12 @@
     const OK = C.V86GL_SYNC_QUERY_STATUS_OK;
     const PENDING = C.V86GL_SYNC_QUERY_STATUS_PENDING;
     const EXTENDED_RECORD_SIZE = C.V86GL_EXTENDED_RECORD_SIZE;
+    const UPLOAD_NAMES = new Set(("BUFFER_DATA BUFFER_SUB_DATA SHADER_SOURCE PROGRAM_STRING_ARB UNIFORM_FV UNIFORM_IV UNIFORM_MATRIX_FV UNIFORM_MATRIX_RECT_FV " +
+        "TEX_IMAGE_1D TEX_IMAGE_2D TEX_IMAGE_3D TEX_SUB_IMAGE_1D TEX_SUB_IMAGE_2D TEX_SUB_IMAGE_3D " +
+        "COMPRESSED_TEX_IMAGE_1D COMPRESSED_TEX_IMAGE_2D COMPRESSED_TEX_IMAGE_3D " +
+        "COMPRESSED_TEX_SUB_IMAGE_1D COMPRESSED_TEX_SUB_IMAGE_2D COMPRESSED_TEX_SUB_IMAGE_3D " +
+        "DRAW_ARRAYS DRAW_ARRAYS_GL2 DRAW_ELEMENTS DRAW_ELEMENTS_GL2 BITMAP DRAW_PIXELS MAP_EVALUATOR PIXEL_MAPFV PIXEL_MAPUIV PIXEL_MAPUSV").split(" "));
+    const uploadHash = bytes => { let hash = 2166136261;for (const value of bytes) hash = Math.imul(hash ^ value, 16777619);return hash >>> 0; };
 
     // record code -> method; the parts add theirs
     const HANDLERS = new Map();
@@ -242,6 +248,8 @@
                     routed = { error: GL.INVALID_OPERATION };
                 } else if (!this.current && fn < 0xFF00 && !name?.startsWith("QUERY_")) {
                     routed = { commands: [] };
+                } else if (fn === GLFN.UPLOAD_CHUNK) {
+                    routed = this.uploadChunk(bytes, view, offset, size);
                 } else for (const part of PARTS) if (part.routeRecord) {
                     routed = part.routeRecord(this, fn, bytes, view, offset, size);
                     if (routed !== undefined) break;
@@ -290,6 +298,40 @@
         expand(bytes) {
             const segments = this.process(bytes, this.batchMetadata && { ...this.batchMetadata, generated: true, root: false, offset: 0 });
             return segments ? segments.map(segment => segment.bytes || bytes.subarray(segment.offset, segment.offset + segment.length)) : [bytes];
+        }
+
+        // Only the complete immutable original enters GL validation and list
+        // compilation. Partial transport data cannot redefine live storage.
+        uploadChunk(bytes, view, offset, size) {
+            const c = this.current, r = protocol.decodeRecord("UPLOAD_CHUNK", view, offset), header = RECORDS.UPLOAD_CHUNK.size;
+            const fail = error => { if (c) c.upload = null;return { error }; };
+            if (!c || !r.token || !UPLOAD_NAMES.has(protocol.NAME_BY_OPCODE[r.opcode]) || !r.total_size || !r.data_size ||
+                size !== header + r.data_size || r.offset + r.data_size > r.total_size) return fail(GL.INVALID_OPERATION);
+            if (r.total_size > C.V86GL_MAX_UPLOAD_BYTES) return fail(GL.OUT_OF_MEMORY);
+            const data = bytes.subarray(offset + header, offset + size), last = c.completedUpload;
+            if (last?.token === r.token) return last.opcode === r.opcode && last.total_size === r.total_size &&
+                last.offset === r.offset && last.data_size === r.data_size && last.hash === uploadHash(data) ? { commands: [] } : fail(GL.INVALID_OPERATION);
+            let upload = c.upload;
+            if (!r.offset && upload?.token !== r.token) {
+                c.upload = null;
+                const allocated = [...this.contexts.values()].reduce((sum, context) => sum + (context.upload?.total_size || 0), 0);
+                if (allocated + r.total_size > C.V86GL_MAX_UPLOAD_BYTES) return fail(GL.OUT_OF_MEMORY);
+                try {
+                    const record = new Uint8Array(8 + r.total_size), v = new DataView(record.buffer);
+                    v.setUint16(0, r.opcode, true);v.setUint16(2, EXTENDED_RECORD_SIZE, true);v.setUint32(4, r.total_size, true);
+                    c.upload = upload = { token: r.token, opcode: r.opcode, total_size: r.total_size, received: 0, record };
+                } catch (_) { return fail(GL.OUT_OF_MEMORY); }
+            }
+            if (!upload || upload.token !== r.token || upload.opcode !== r.opcode || upload.total_size !== r.total_size) return fail(GL.INVALID_OPERATION);
+            if (r.offset < upload.received) {
+                if (r.offset + r.data_size > upload.received || !data.every((v, i) => v === upload.record[8 + r.offset + i])) return fail(GL.INVALID_OPERATION);
+                return { commands: [] };
+            }
+            if (r.offset !== upload.received) return fail(GL.INVALID_OPERATION);
+            upload.record.set(data, 8 + r.offset);upload.received += data.length;
+            if (upload.received < upload.total_size) return { commands: [] };
+            c.upload = null;c.completedUpload = { ...r, hash: uploadHash(data) };
+            return { commands: this.expand(upload.record) };
         }
 
         dispatch(fn, bytes, view, offset, size, validateOnly = false) {
@@ -491,6 +533,8 @@
                 nextGroup: this.nextGroup,
                 contexts: [...this.contexts.values()].map(c => ({ key: c.key, id: c.id, group: c.group.key,
                     program: c.program, error: c.error, capsProfile: c.capsProfile || 0,
+                    ...(c.completedUpload ? { completedUpload: { ...c.completedUpload } } : {}),
+                    ...(c.upload ? { upload: { ...c.upload, record: Array.from(c.upload.record.subarray(0, 8 + c.upload.received)) } } : {}),
                     ...(c.capsStrings ? { capsStrings: { ...c.capsStrings } } : {}) })),
                 current: this.current ? this.current.key : null,
             };
@@ -510,6 +554,18 @@
                 context.program = c.program || 0;
                 context.error = c.error || 0;
                 context.capsProfile = c.capsProfile || 0;
+                if (c.completedUpload) context.completedUpload = { ...c.completedUpload };
+                if (c.upload) {
+                    const u = c.upload;
+                    if (!u.token || !UPLOAD_NAMES.has(protocol.NAME_BY_OPCODE[u.opcode]) || !Number.isInteger(u.total_size) || u.total_size < 1 || u.total_size > C.V86GL_MAX_UPLOAD_BYTES ||
+                        !Number.isInteger(u.received) || u.received < 1 || u.received >= u.total_size || u.record.length !== u.received + 8)
+                        throw new Error("Invalid GL upload checkpoint");
+                    const allocated = [...this.contexts.values()].reduce((sum, item) => sum + (item.upload?.total_size || 0), 0);
+                    if (allocated + u.total_size > C.V86GL_MAX_UPLOAD_BYTES) throw new Error("Invalid GL upload checkpoint budget");
+                    const record = new Uint8Array(8 + u.total_size), v = new DataView(record.buffer);
+                    v.setUint16(0, u.opcode, true);v.setUint16(2, EXTENDED_RECORD_SIZE, true);v.setUint32(4, u.total_size, true);
+                    record.set(u.record.slice(8), 8);context.upload = { ...u, record };
+                }
                 if (c.capsStrings) context.capsStrings = { ...c.capsStrings };
             }
             this.current = state.current ? this.contexts.get(state.current) || null : null;

@@ -59,6 +59,16 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    gluploadchunks: { floor: 1, node: ["gl_upload_chunks_test.js"], pages: ["gl_upload_chunks_browser_test.html"], list: [
+        ["partial upload executes prematurely", G + "gl_shadow.js", 'if (upload.received < upload.total_size) return { commands: [] };', 'if (false) return { commands: [] };'],
+        ["upload holes are accepted", G + "gl_shadow.js", 'if (r.offset !== upload.received) return fail(GL.INVALID_OPERATION);', 'void r.offset;'],
+        ["changed retries are accepted", G + "gl_shadow.js", '!data.every((v, i) => v === upload.record[8 + r.offset + i])', 'false'],
+        ["completed upload is executed twice", G + "gl_shadow.js", 'if (last?.token === r.token)', 'if (false)'],
+        ["in-flight uploads exceed combined budget", G + "gl_shadow.js", 'if (allocated + r.total_size > C.V86GL_MAX_UPLOAD_BYTES) return fail(GL.OUT_OF_MEMORY);', 'void allocated;'],
+        ["queries can be fragmented", G + "gl_shadow.js", '!UPLOAD_NAMES.has(protocol.NAME_BY_OPCODE[r.opcode])', 'false'],
+        ["partial upload snapshot loses bytes", G + "gl_shadow.js", 'record.set(u.record.slice(8), 8);', 'record.fill(0);'],
+        ["completed upload never executes", G + "gl_shadow.js", 'return { commands: this.expand(upload.record) };', 'return { commands: [] };'],
+    ] },
     glarraynormalization: { floor: 1, node: [], pages: ["gl_array_normalization_browser_test.html"], list: [
         ["signed byte uses modern SNORM zero", G + "gl_client_arrays.js", '(2 * v + 1) / 255', 'Math.max(v / 127, -1)'],
         ["signed short uses modern SNORM zero", G + "gl_client_arrays.js", '(2 * v + 1) / 65535', 'Math.max(v / 32767, -1)'],
