@@ -9,8 +9,9 @@ pixel/query results. See [architecture](../../../../docs/glbridge.md) and the
 
 These are explicit limits, rather than native-conformance passes. The S3 audit
 keeps both Apple and Mesa raw results; its browser test separately checks the
-current implementation's named differences. Guest deployment and application
-acceptance are still stages F6/G.
+current implementation's named differences. Installed guest versions and the
+application matrix, package corrections and timing limits are recorded in the
+[C–G acceptance report](../../../../docs/opengl-webgpu-acceptance.md).
 
 | Id | Behavior | Evidence / scope |
 | --- | --- | --- |

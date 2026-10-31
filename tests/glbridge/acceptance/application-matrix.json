@@ -1,0 +1,868 @@
+{
+  "version": 1,
+  "date": "2026-11-01",
+  "revision": "8523858ab36865e264c6",
+  "baselineRevision": "6a5eb14d73549ecd56fe",
+  "baseline": "retro-gaming-site e0b52c0 F6 shipped host assets",
+  "method": "Serial full-VM cold restore, exact stopped composed RGBA, 64 resumed frames, ABBA from the same snapshot (21 warmup + 64 measured frames per run), then a second real program in the same VM. Timing summaries average the two run medians; raw samples are retained.",
+  "scope": "Application rendering smoke and explicit engine feature counters; this is not every GLView checkbox, full dEQP, or native conformance. Package corrections and test-only map provenance are documented in docs/opengl-webgpu-acceptance.md.",
+  "timingRepetitions": [
+    {
+      "evidence": "quake3-worker-first.json",
+      "sha256": "2c5cad08de4d9cc36436cc602a4efc372a58eca5ec0316935d16758c1fb33a10"
+    }
+  ],
+  "regression": {
+    "coreGroups": 115,
+    "gpuPages": 55,
+    "sharedGlesGroups": 9,
+    "behaviorSuites": 94,
+    "records": 257,
+    "mutationFamilies": 44,
+    "mutants": 802,
+    "killed": 792,
+    "survivors": [
+      {
+        "family": "glclipplanes",
+        "label": "fixed clip equation forces eye w to one"
+      },
+      {
+        "family": "gl",
+        "label": "Selection/feedback: change resolved raster colour"
+      },
+      {
+        "family": "gl",
+        "label": "Display list pixels: create an invalid 2D view for 3D slice reads"
+      },
+      {
+        "family": "gl",
+        "label": "GLSL struct arrays: read widened member storage as a GLSL value"
+      },
+      {
+        "family": "gl",
+        "label": "CPU GLSL samplers: ignore CPU link failure in the renderer"
+      },
+      {
+        "family": "gl",
+        "label": "ARB LIT diffuse not clamped"
+      },
+      {
+        "family": "gl",
+        "label": "pipelines keyed by program name"
+      },
+      {
+        "family": "gl",
+        "label": "the LOD bias is not applied"
+      },
+      {
+        "family": "gl",
+        "label": "a single-buffered window draws into its back buffer"
+      },
+      {
+        "family": "gl",
+        "label": "the border factor ignores the half texel"
+      }
+    ]
+  },
+  "inputsSha256": "4afe708598b234e9e83cb86d83c5b76a79dbad1758fa71b2f1677ab825702601",
+  "records": [
+    {
+      "name": "gl-final-glview-local",
+      "program": "glview",
+      "application": "GLView 2.6.0",
+      "worker": false,
+      "evidence": "gl-final-glview-local.json",
+      "evidenceSha256": "c0d78b53c9516a312912fd3f892218ecbaf04eb46511a3262003bc8ea825db3a",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-glview-local-before.png",
+          "sha256": "3d1afa34619af29767be458252d630aeca750240c15162ea7fc01897370cf6e4"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-glview-local-restored.png",
+          "sha256": "3d1afa34619af29767be458252d630aeca750240c15162ea7fc01897370cf6e4"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-glview-local-resumed.png",
+          "sha256": "bb249cba2bd0805eb5ac261d9b4da9c952ee9a11c669a09dd9d17a19c1b85d09"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-glview-local-second-program.png",
+          "sha256": "3fa7d1d0785572e33242e927cc5ec7234a6fa9524105ee201f58389cf17c7acc"
+        }
+      ],
+      "snapshotBytes": 297213781,
+      "pixelSha256": "91ec8e15e2dc599dc771f6f1fbfb92f9605b8a8db9fa0fdce95da5db20f44abf",
+      "secondProgram": "wined3d",
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 16.68250000476837,
+          "executorCpuMedianMs": 0.45249998569488525
+        },
+        "candidate": {
+          "frameMedianMs": 16.662499994039536,
+          "executorCpuMedianMs": 0.4624999761581421
+        }
+      }
+    },
+    {
+      "name": "gl-final-glview-worker",
+      "program": "glview",
+      "application": "GLView 2.6.0",
+      "worker": true,
+      "evidence": "gl-final-glview-worker.json",
+      "evidenceSha256": "ce55705dac49a710da293f65b870cee9486fb3c29bf450ca1983ddde4d87b9b5",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-glview-worker-before.png",
+          "sha256": "c7483f31e21293e00c5dd6650174baa0d7068577323c30d9df65bab940566c11"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-glview-worker-restored.png",
+          "sha256": "c7483f31e21293e00c5dd6650174baa0d7068577323c30d9df65bab940566c11"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-glview-worker-resumed.png",
+          "sha256": "27d58e5dd459688085bd5ebc866370fbca5c34dd2a41532893f437d4324a0776"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-glview-worker-second-program.png",
+          "sha256": "71673d385528a32a87008891257ee536846fdcd3ca9f3693e0264a24f6c106ea"
+        }
+      ],
+      "snapshotBytes": 255353115,
+      "pixelSha256": "a34ec2cc4830fc9ce8c4370031a990e5dcd353f1e900ee7c66b74699360fe231",
+      "secondProgram": "wined3d",
+      "observations": {
+        "opcodes": {
+          "QUERY_GL_STRING": 93,
+          "QUERY_STATE": 42,
+          "QUERY_NAMES": 7,
+          "CREATE_PROGRAM": 2,
+          "CREATE_SHADER": 4,
+          "SHADER_SOURCE": 4,
+          "COMPILE_SHADER": 4,
+          "QUERY_PARAMETER": 20,
+          "QUERY_OBJECT_IV": 12,
+          "ATTACH_SHADER": 4,
+          "PROGRAM_LINK_VALIDATION": 4,
+          "DELETE_SHADER": 4,
+          "QUERY_LOCATION": 7,
+          "GEN_TEXTURES": 1,
+          "BIND_TEXTURE": 237,
+          "TEX_PARAMETERI": 9,
+          "TEX_IMAGE_2D": 3,
+          "TEX_ENVF": 1,
+          "ENABLE": 4,
+          "SHADE_MODEL": 1,
+          "CLEAR_COLOR": 1,
+          "CLEAR_DEPTH": 1,
+          "DEPTH_FUNC": 1,
+          "HINT": 1,
+          "LIGHTFV": 3,
+          "VIEWPORT": 1,
+          "MATRIX_MODE": 236,
+          "LOAD_IDENTITY": 236,
+          "FRUSTUM": 1,
+          "CLEAR": 234,
+          "TRANSLATEF": 234,
+          "ROTATEF": 702,
+          "BEGIN": 234,
+          "IMMEDIATE_VERTEX_BLOCK": 234,
+          "NORMAL3F": 1404,
+          "TEX_COORD2F": 5616,
+          "END": 234
+        },
+        "depthReadbacks": 0,
+        "stencilEnables": 0,
+        "arbEnables": 0,
+        "depthRanges": []
+      },
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 16.672500014305115,
+          "executorCpuMedianMs": 0.5425000190734863
+        },
+        "candidate": {
+          "frameMedianMs": 16.64500004053116,
+          "executorCpuMedianMs": 0.5624999403953552
+        }
+      }
+    },
+    {
+      "name": "gl-final-warcraft3-local",
+      "program": "warcraft3",
+      "application": "Warcraft III",
+      "worker": false,
+      "evidence": "gl-final-warcraft3-local.json",
+      "evidenceSha256": "7072ef291c6ed8645534e0c7a4936eafe8483f96ee67579ed90db8cd085484af",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-local-before.png",
+          "sha256": "8755f605568615513a22f9f95c3073763fc9e311f813211d2c72bdf05e17e21b"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-local-restored.png",
+          "sha256": "8755f605568615513a22f9f95c3073763fc9e311f813211d2c72bdf05e17e21b"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-local-resumed.png",
+          "sha256": "a480d9336657fe225ec1f991d87c9931e1da0c9bed1d429ccad344a31c4d35c1"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-local-second-program.png",
+          "sha256": "bef8c21f72bd4b99b17c0c715fa8555ae6432afb74a93abbcbbddae510545e5a"
+        }
+      ],
+      "snapshotBytes": 489920176,
+      "pixelSha256": "aa68dc2eece5d670c9235b74d031dfc89b6b8e98a2cbea9439b38aabb5e27f94",
+      "secondProgram": "wined3d",
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 133.37999999523163,
+          "executorCpuMedianMs": 23.247500002384186
+        },
+        "candidate": {
+          "frameMedianMs": 133.54249998927116,
+          "executorCpuMedianMs": 23.504999697208405
+        }
+      }
+    },
+    {
+      "name": "gl-final-warcraft3-worker",
+      "program": "warcraft3",
+      "application": "Warcraft III",
+      "worker": true,
+      "evidence": "gl-final-warcraft3-worker.json",
+      "evidenceSha256": "300d0360e1d7e3ad5f49af02c5af46bf63680fc6a1da11d3457f7a71cac07d34",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-worker-before.png",
+          "sha256": "65ff50674fd364e8180f9de409086dec2a2bf99bcb9e01dee9e22b457babcd00"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-worker-restored.png",
+          "sha256": "65ff50674fd364e8180f9de409086dec2a2bf99bcb9e01dee9e22b457babcd00"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-worker-resumed.png",
+          "sha256": "04f5abc8f68e5e2e46d037d76fb69a9d01bbbecc9edc439f27e744eae6b21833"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-warcraft3-worker-second-program.png",
+          "sha256": "725e779a1a958158bba8d542263b21d9f29963c82c8a050e62b0eaf535f4748b"
+        }
+      ],
+      "snapshotBytes": 449014580,
+      "pixelSha256": "7eeaea6d0dd562bc5d1127358ae652bbf77eabd19351f5c8b83d48ad1e148bd1",
+      "secondProgram": "wined3d",
+      "observations": {
+        "opcodes": {
+          "QUERY_GL_STRING": 10,
+          "QUERY_STATE": 2,
+          "MATRIX_MODE": 35432,
+          "LOAD_MATRIXF": 35432,
+          "LIGHT_MODELFV": 2,
+          "LIGHTFV": 77613,
+          "DISABLE": 29430,
+          "LIGHTF": 48,
+          "FOGI": 2,
+          "FOGF": 404,
+          "FOGFV": 134,
+          "ENABLE": 32714,
+          "DEPTH_FUNC": 601,
+          "DEPTH_MASK": 2129,
+          "DRAW_BUFFER": 2,
+          "ENABLE_CLIENT_STATE": 49801,
+          "TEX_GENI": 4,
+          "COLOR_MATERIAL": 2,
+          "MATERIALFV": 6652,
+          "VIEWPORT": 1128,
+          "DEPTH_RANGE": 1128,
+          "SCISSOR": 1128,
+          "CLEAR_COLOR": 240,
+          "CLEAR": 240,
+          "FINISH": 238,
+          "QUERY_NAMES": 1174,
+          "GEN_TEXTURES": 1174,
+          "BIND_TEXTURE": 12077,
+          "TEX_PARAMETERI": 12728,
+          "PIXEL_STOREI": 5196,
+          "TEX_IMAGE_2D": 3188,
+          "ACTIVE_TEXTURE": 71348,
+          "CLIENT_ACTIVE_TEXTURE": 71348,
+          "VERTEX_POINTER_VBO": 20319,
+          "NORMAL_POINTER_VBO": 14809,
+          "DISABLE_CLIENT_STATE": 49267,
+          "TEX_COORD_POINTER_VBO": 20319,
+          "QUERY_ARRAY_LOCK": 40638,
+          "TEX_ENVI": 8895,
+          "BLEND_FUNC": 7462,
+          "ALPHA_FUNC": 7462,
+          "DRAW_ELEMENTS": 22960,
+          "DELETE_TEXTURES": 93,
+          "NORMAL3F": 5510,
+          "COLOR_POINTER_VBO": 5776,
+          "TEX_SUB_IMAGE_2D": 2008
+        },
+        "depthReadbacks": 0,
+        "stencilEnables": 0,
+        "arbEnables": 0,
+        "depthRanges": [
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 133.79000002145767,
+          "executorCpuMedianMs": 28.664999544620514
+        },
+        "candidate": {
+          "frameMedianMs": 133.88250002264977,
+          "executorCpuMedianMs": 29.182499825954437
+        }
+      }
+    },
+    {
+      "name": "gl-final-cube2-local",
+      "program": "cube2",
+      "application": "Cube 2",
+      "worker": false,
+      "evidence": "gl-final-cube2-local.json",
+      "evidenceSha256": "215216cb5427e62777b9432a150ca11bc212c2623bf8a2ec2b0f78306ffe7432",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-cube2-local-before.png",
+          "sha256": "3aa73bafba00e5042ee6f0073609c3b2c99a9d1e45f42a4110907263258e974b"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-cube2-local-restored.png",
+          "sha256": "3aa73bafba00e5042ee6f0073609c3b2c99a9d1e45f42a4110907263258e974b"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-cube2-local-resumed.png",
+          "sha256": "e0c142458fda73eddc83d64a762dd7542ad884cbd185a187364e15efec8d7b99"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-cube2-local-second-program.png",
+          "sha256": "28ee8eac3bccbbc477ed479520b567a56a58f13f4804a9bf20dd28dac8f46ea3"
+        }
+      ],
+      "snapshotBytes": 549730925,
+      "pixelSha256": "f6662843a4e0f313a6ba8d3b2ac3ea8583d5bd6c417cfea961ce5f84e3518862",
+      "secondProgram": "wined3d",
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 46.05000001192093,
+          "executorCpuMedianMs": 18.582500278949738
+        },
+        "candidate": {
+          "frameMedianMs": 46.814999997615814,
+          "executorCpuMedianMs": 18.772500306367874
+        }
+      }
+    },
+    {
+      "name": "gl-final-cube2-worker",
+      "program": "cube2",
+      "application": "Cube 2",
+      "worker": true,
+      "evidence": "gl-final-cube2-worker.json",
+      "evidenceSha256": "a3a23f1c15743d8d4122493b061959532174a72142e6697a902b70cfc6b72536",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-cube2-worker-before.png",
+          "sha256": "bce7ef055dd9b37f9afc281d8e0dc9b4ef8f01538fb9a4d2b3e9934dd18fc504"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-cube2-worker-restored.png",
+          "sha256": "bce7ef055dd9b37f9afc281d8e0dc9b4ef8f01538fb9a4d2b3e9934dd18fc504"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-cube2-worker-resumed.png",
+          "sha256": "c723b23f57666855e305fe851865366ec7efc5a1a7e655dcaafd567530887c60"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-cube2-worker-second-program.png",
+          "sha256": "b7afd0d558488c931308415a2974ce69a29be9df1b2d497b273e0dc9ff901205"
+        }
+      ],
+      "snapshotBytes": 548357663,
+      "pixelSha256": "b7a8914bf6155562b2f27f7b300950e4ef1e22887ce833d3284fe7d888f92246",
+      "secondProgram": "wined3d",
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 60.252499997615814,
+          "executorCpuMedianMs": 17.569999903440475
+        },
+        "candidate": {
+          "frameMedianMs": 59.217500030994415,
+          "executorCpuMedianMs": 16.994999825954437
+        }
+      }
+    },
+    {
+      "name": "gl-final-quake3-local",
+      "program": "quake3",
+      "application": "Tremulous GPP1 (Quake 3 engine)",
+      "worker": false,
+      "evidence": "gl-final-quake3-local.json",
+      "evidenceSha256": "4c9856716c5ed35f9d4530dee7958fc36352e71bc25cad3a23b0db218b4f4f54",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-quake3-local-before.png",
+          "sha256": "5cdab1e748f59b73121dd570607fcdb8a1a552f4468932d19aa02bb928a48b06"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-quake3-local-restored.png",
+          "sha256": "5cdab1e748f59b73121dd570607fcdb8a1a552f4468932d19aa02bb928a48b06"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-quake3-local-resumed.png",
+          "sha256": "6a84e5480b3c56b1d7e1550afaeb99bd26a56f237360d2da6ac81e35f0db854b"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-quake3-local-second-program.png",
+          "sha256": "46d5ff20fe5a7a49ec52f30cc72b9c4626203c3c943028c280aaf34b4e4d77e9"
+        }
+      ],
+      "snapshotBytes": 649980134,
+      "pixelSha256": "d0edeef2339c21b5458459889ae91b7654302f1955dbb4609ffd6ee419213ee8",
+      "secondProgram": "wined3d",
+      "observations": {
+        "opcodes": {
+          "QUERY_GL_STRING": 6,
+          "QUERY_STATE": 1364,
+          "CLEAR_DEPTH": 3,
+          "CULL_FACE": 3379,
+          "COLOR4F": 2168,
+          "ACTIVE_TEXTURE": 48502,
+          "CLIENT_ACTIVE_TEXTURE": 48502,
+          "TEX_ENVF": 2,
+          "DISABLE": 29677,
+          "ENABLE": 32869,
+          "SHADE_MODEL": 3,
+          "DEPTH_FUNC": 443,
+          "ENABLE_CLIENT_STATE": 133091,
+          "POLYGON_MODE": 3,
+          "DEPTH_MASK": 6415,
+          "BIND_TEXTURE": 43580,
+          "TEX_IMAGE_2D": 2952,
+          "TEX_PARAMETERF": 2486,
+          "QUERY_ERROR": 621,
+          "TEX_PARAMETERFV": 3,
+          "COLOR_MASK": 2725,
+          "DRAW_BUFFER": 383,
+          "VIEWPORT": 383,
+          "SCISSOR": 383,
+          "MATRIX_MODE": 1026,
+          "LOAD_IDENTITY": 683,
+          "ORTHO": 171,
+          "BLEND_FUNC": 4457,
+          "COLOR_POINTER_VBO": 43478,
+          "TEX_COORD_POINTER_VBO": 67712,
+          "VERTEX_POINTER_VBO": 34928,
+          "QUERY_ARRAY_LOCK": 69855,
+          "DRAW_ELEMENTS": 43227,
+          "FINISH": 173,
+          "DELETE_TEXTURES": 150,
+          "CLEAR": 343,
+          "BEGIN": 370358,
+          "IMMEDIATE_VERTEX_BLOCK": 370358,
+          "TEX_COORD2F": 49826,
+          "END": 370358,
+          "LOAD_MATRIXF": 6073,
+          "DEPTH_RANGE": 326,
+          "PUSH_MATRIX": 381,
+          "TRANSLATEF": 121,
+          "POP_MATRIX": 381,
+          "DISABLE_CLIENT_STATE": 60900,
+          "STENCIL_FUNC_SEPARATE": 3406,
+          "ALPHA_FUNC": 254,
+          "STENCIL_OP_SEPARATE": 5448,
+          "READ_PIXELS": 130
+        },
+        "depthReadbacks": 130,
+        "stencilEnables": 1703,
+        "arbEnables": 0,
+        "depthRanges": [
+          [
+            1,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            0.3
+          ]
+        ]
+      },
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 33.34499999880791,
+          "executorCpuMedianMs": 5.202500015497208
+        },
+        "candidate": {
+          "frameMedianMs": 33.35249999165535,
+          "executorCpuMedianMs": 5.32000008225441
+        }
+      }
+    },
+    {
+      "name": "gl-final-quake3-worker",
+      "program": "quake3",
+      "application": "Tremulous GPP1 (Quake 3 engine)",
+      "worker": true,
+      "evidence": "gl-final-quake3-worker.json",
+      "evidenceSha256": "b027d9005a3ae3cb155134113d8b299886296188b596cb025f3e0e1262d5d415",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-quake3-worker-before.png",
+          "sha256": "58ea67703b8d7c4e4d771208f7921ab54b198f0f24a02859f6dd29d243c82214"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-quake3-worker-restored.png",
+          "sha256": "58ea67703b8d7c4e4d771208f7921ab54b198f0f24a02859f6dd29d243c82214"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-quake3-worker-resumed.png",
+          "sha256": "7e1a799eb4d488247919af561a4753584a59c1d42593058c4b60c9cb9d1d7b0c"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-quake3-worker-second-program.png",
+          "sha256": "2f24e4a5d7bd8f1761613b45fd41fa4ae4afac2e9fedf65d1447f4fdb399f008"
+        }
+      ],
+      "snapshotBytes": 651015477,
+      "pixelSha256": "5d254d9986c4923edccb98815d506742fadf913f357539dea4a9ebe4657b2738",
+      "secondProgram": "wined3d",
+      "observations": {
+        "opcodes": {
+          "QUERY_GL_STRING": 6,
+          "QUERY_STATE": 1359,
+          "CLEAR_DEPTH": 3,
+          "CULL_FACE": 3757,
+          "COLOR4F": 2551,
+          "ACTIVE_TEXTURE": 67542,
+          "CLIENT_ACTIVE_TEXTURE": 67542,
+          "TEX_ENVF": 2,
+          "DISABLE": 41533,
+          "ENABLE": 44907,
+          "SHADE_MODEL": 3,
+          "DEPTH_FUNC": 831,
+          "ENABLE_CLIENT_STATE": 176617,
+          "POLYGON_MODE": 3,
+          "DEPTH_MASK": 9146,
+          "BIND_TEXTURE": 59911,
+          "TEX_IMAGE_2D": 2952,
+          "TEX_PARAMETERF": 2486,
+          "QUERY_ERROR": 621,
+          "TEX_PARAMETERFV": 3,
+          "COLOR_MASK": 2715,
+          "DRAW_BUFFER": 577,
+          "VIEWPORT": 577,
+          "SCISSOR": 577,
+          "MATRIX_MODE": 1802,
+          "LOAD_IDENTITY": 1265,
+          "ORTHO": 365,
+          "BLEND_FUNC": 6404,
+          "COLOR_POINTER_VBO": 56305,
+          "TEX_COORD_POINTER_VBO": 90059,
+          "VERTEX_POINTER_VBO": 45807,
+          "QUERY_ARRAY_LOCK": 91613,
+          "DRAW_ELEMENTS": 55860,
+          "FINISH": 367,
+          "DELETE_TEXTURES": 150,
+          "CLEAR": 537,
+          "BEGIN": 368258,
+          "IMMEDIATE_VERTEX_BLOCK": 368258,
+          "TEX_COORD2F": 49826,
+          "END": 368258,
+          "LOAD_MATRIXF": 7040,
+          "DEPTH_RANGE": 714,
+          "PUSH_MATRIX": 769,
+          "TRANSLATEF": 121,
+          "POP_MATRIX": 769,
+          "DISABLE_CLIENT_STATE": 81500,
+          "STENCIL_FUNC_SEPARATE": 3784,
+          "ALPHA_FUNC": 253,
+          "STENCIL_OP_SEPARATE": 5428,
+          "READ_PIXELS": 324
+        },
+        "depthReadbacks": 324,
+        "stencilEnables": 1892,
+        "arbEnables": 0,
+        "depthRanges": [
+          [
+            1,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            0.3
+          ]
+        ]
+      },
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 34.46750000119209,
+          "executorCpuMedianMs": 6.77000018954277
+        },
+        "candidate": {
+          "frameMedianMs": 34.5174999833107,
+          "executorCpuMedianMs": 6.839999616146088
+        }
+      }
+    },
+    {
+      "name": "gl-final-wined3d-local",
+      "program": "wined3d",
+      "application": "WineD3D 1.7.52 / D3D8 cube",
+      "worker": false,
+      "evidence": "gl-final-wined3d-local.json",
+      "evidenceSha256": "476a3f561046e7e0dee2181834ae9e1760f79d4181ad77b331f948e06a7b5c23",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-local-before.png",
+          "sha256": "96a91ef11a405967088642d5bcc84500c40bc393c581fc12106d1ff3b223ad8d"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-local-restored.png",
+          "sha256": "96a91ef11a405967088642d5bcc84500c40bc393c581fc12106d1ff3b223ad8d"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-local-resumed.png",
+          "sha256": "efc3f77aa58172349b441a39aaf2dd17916d02244fe3ac8a6fcbb9d0cf7b35dd"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-local-second-program.png",
+          "sha256": "f986ed694cdb074ed5127053c565bb68889899bc6ea9e3e7fa5d813239a5f6f3"
+        }
+      ],
+      "snapshotBytes": 299116077,
+      "pixelSha256": "f401b38afcf73cdd180a763101f01cec1f122617d668959d2f447b68a9ec2177",
+      "secondProgram": "cube2",
+      "observations": {
+        "opcodes": {
+          "QUERY_GL_STRING": 4,
+          "QUERY_PARAMETER": 4,
+          "QUERY_STATE": 9,
+          "QUERY_ERROR": 2856,
+          "QUERY_NAMES": 28,
+          "GEN_TEXTURES": 26,
+          "BIND_TEXTURE": 30,
+          "TEX_IMAGE_2D": 58,
+          "DELETE_TEXTURES": 1,
+          "LIGHT_MODELI": 3,
+          "TEX_ENVF": 2,
+          "PIXEL_STOREI": 4,
+          "ACTIVE_TEXTURE": 64,
+          "TEX_ENVI": 55,
+          "TEX_IMAGE_3D": 8,
+          "DISABLE": 649,
+          "ENABLE": 194,
+          "STENCIL_FUNC_SEPARATE": 2,
+          "STENCIL_MASK_SEPARATE": 8,
+          "STENCIL_OP_SEPARATE": 2,
+          "CLEAR_STENCIL": 1,
+          "DEPTH_MASK": 379,
+          "CLEAR_DEPTH": 190,
+          "COLOR_MASK": 379,
+          "CLEAR_COLOR": 190,
+          "SCISSOR": 379,
+          "CLEAR": 190,
+          "TEX_PARAMETERI": 5,
+          "TEX_SUB_IMAGE_2D": 1,
+          "GEN_BUFFERS": 2,
+          "BIND_BUFFER": 6,
+          "BUFFER_DATA": 2,
+          "BUFFER_SUB_DATA": 2,
+          "QUERY_BUFFER_DATA": 1,
+          "QUERY_BUFFER_MAP": 1,
+          "QUERY_BUFFER_UNMAP": 1,
+          "POLYGON_MODE": 1,
+          "SHADE_MODEL": 1,
+          "DEPTH_FUNC": 1,
+          "MATERIALFV": 4,
+          "FOGFV": 2,
+          "FOGF": 2,
+          "TEX_ENVFV": 8,
+          "LIGHT_MODELFV": 1,
+          "POINT_PARAMETERFV": 1,
+          "POINT_SIZE": 1,
+          "POINT_PARAMETERF": 2,
+          "BLEND_EQUATION": 1,
+          "BLEND_COLOR": 1,
+          "COLOR_MATERIAL": 1,
+          "MATRIX_MODE": 206,
+          "LOAD_MATRIXF": 206,
+          "VERTEX_POINTER_VBO": 1,
+          "ENABLE_CLIENT_STATE": 3,
+          "NORMAL3F": 1,
+          "COLOR_POINTER_VBO": 1,
+          "SECONDARY_COLOR3F": 1,
+          "CLIENT_ACTIVE_TEXTURE": 1,
+          "TEX_COORD_POINTER_VBO": 1,
+          "MULTI_TEX_COORD4F": 7,
+          "DEPTH_RANGE": 1,
+          "VIEWPORT": 1,
+          "PUSH_MATRIX": 6,
+          "CLIP_PLANE": 6,
+          "POP_MATRIX": 6,
+          "FRONT_FACE": 1,
+          "DRAW_ELEMENTS_DIRECT": 189,
+          "FLUSH": 189
+        },
+        "depthReadbacks": 0,
+        "stencilEnables": 0,
+        "arbEnables": 0,
+        "depthRanges": [
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 49.98750001192093,
+          "executorCpuMedianMs": 0.739999920129776
+        },
+        "candidate": {
+          "frameMedianMs": 49.9825000166893,
+          "executorCpuMedianMs": 0.7699999213218689
+        }
+      }
+    },
+    {
+      "name": "gl-final-wined3d-worker",
+      "program": "wined3d",
+      "application": "WineD3D 1.7.52 / D3D8 cube",
+      "worker": true,
+      "evidence": "gl-final-wined3d-worker.json",
+      "evidenceSha256": "5281610886990a85e399a2f715afa2cbc949e207bbe7587b46a225663d74beca",
+      "screenshots": [
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-worker-before.png",
+          "sha256": "e112209c8ea119c8b0aade19d886a2f25962937f3af8cdcdfa52457adb20ff87"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-worker-restored.png",
+          "sha256": "e112209c8ea119c8b0aade19d886a2f25962937f3af8cdcdfa52457adb20ff87"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-worker-resumed.png",
+          "sha256": "f020d35e7cb2dc6debdddd708542671facd31942e48722f2d1570716bbc5f940"
+        },
+        {
+          "path": "build/browser-test-output/gl-final-wined3d-worker-second-program.png",
+          "sha256": "4cf5214585c48afcf9e88fdf67085a96261784b5dfd527202e11c4b72a23c950"
+        }
+      ],
+      "snapshotBytes": 256851513,
+      "pixelSha256": "ab93d007359a38d388d2e7f1b0eb1eeca369885a8bcfc0e8a3dc04d2bcfde135",
+      "secondProgram": "cube2",
+      "observations": {
+        "opcodes": {
+          "QUERY_GL_STRING": 4,
+          "QUERY_PARAMETER": 4,
+          "QUERY_STATE": 9,
+          "QUERY_ERROR": 2284,
+          "QUERY_NAMES": 28,
+          "GEN_TEXTURES": 26,
+          "BIND_TEXTURE": 30,
+          "TEX_IMAGE_2D": 58,
+          "DELETE_TEXTURES": 1,
+          "LIGHT_MODELI": 3,
+          "TEX_ENVF": 2,
+          "PIXEL_STOREI": 4,
+          "ACTIVE_TEXTURE": 64,
+          "TEX_ENVI": 55,
+          "TEX_IMAGE_3D": 8,
+          "DISABLE": 517,
+          "ENABLE": 150,
+          "STENCIL_FUNC_SEPARATE": 2,
+          "STENCIL_MASK_SEPARATE": 8,
+          "STENCIL_OP_SEPARATE": 2,
+          "CLEAR_STENCIL": 1,
+          "DEPTH_MASK": 291,
+          "CLEAR_DEPTH": 146,
+          "COLOR_MASK": 291,
+          "CLEAR_COLOR": 146,
+          "SCISSOR": 291,
+          "CLEAR": 146,
+          "TEX_PARAMETERI": 5,
+          "TEX_SUB_IMAGE_2D": 1,
+          "GEN_BUFFERS": 2,
+          "BIND_BUFFER": 6,
+          "BUFFER_DATA": 2,
+          "BUFFER_SUB_DATA": 2,
+          "QUERY_BUFFER_DATA": 1,
+          "QUERY_BUFFER_MAP": 1,
+          "QUERY_BUFFER_UNMAP": 1,
+          "POLYGON_MODE": 1,
+          "SHADE_MODEL": 1,
+          "DEPTH_FUNC": 1,
+          "MATERIALFV": 4,
+          "FOGFV": 2,
+          "FOGF": 2,
+          "TEX_ENVFV": 8,
+          "LIGHT_MODELFV": 1,
+          "POINT_PARAMETERFV": 1,
+          "POINT_SIZE": 1,
+          "POINT_PARAMETERF": 2,
+          "BLEND_EQUATION": 1,
+          "BLEND_COLOR": 1,
+          "COLOR_MATERIAL": 1,
+          "MATRIX_MODE": 162,
+          "LOAD_MATRIXF": 162,
+          "VERTEX_POINTER_VBO": 1,
+          "ENABLE_CLIENT_STATE": 3,
+          "NORMAL3F": 1,
+          "COLOR_POINTER_VBO": 1,
+          "SECONDARY_COLOR3F": 1,
+          "CLIENT_ACTIVE_TEXTURE": 1,
+          "TEX_COORD_POINTER_VBO": 1,
+          "MULTI_TEX_COORD4F": 7,
+          "DEPTH_RANGE": 1,
+          "VIEWPORT": 1,
+          "PUSH_MATRIX": 6,
+          "CLIP_PLANE": 6,
+          "POP_MATRIX": 6,
+          "FRONT_FACE": 1,
+          "DRAW_ELEMENTS_DIRECT": 145,
+          "FLUSH": 145
+        },
+        "depthReadbacks": 0,
+        "stencilEnables": 0,
+        "arbEnables": 0,
+        "depthRanges": [
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "timings": {
+        "baseline": {
+          "frameMedianMs": 58.1700000166893,
+          "executorCpuMedianMs": 0.997499942779541
+        },
+        "candidate": {
+          "frameMedianMs": 57.969999969005585,
+          "executorCpuMedianMs": 0.9450000524520874
+        }
+      }
+    }
+  ]
+}

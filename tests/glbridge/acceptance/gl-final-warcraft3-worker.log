@@ -1,0 +1,32 @@
+http://127.0.0.1:61965/tests/glbridge/gl_final_acceptance.html?program=warcraft3&worker=1&boot_ms=60000
+[page] log: cold boot warcraft3, worker=true
+
+[page] log: launch requested
+
+[page] log: {"seconds":10,"contexts":0,"stats":{"batches":14,"commands":122,"draws":0,"immediateBatches":0,"pipelines":2,"bindGroups":3,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":0,"uniformWrites":0,"clearDraws":3,"textureUploads":0,"textureBytes":0,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":20,"contexts":1,"stats":{"batches":145,"commands":2618,"draws":1,"immediateBatches":0,"pipelines":3,"bindGroups":7,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":1,"uniformWrites":1,"clearDraws":5,"textureUploads":721,"textureBytes":19782544,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":30,"contexts":1,"stats":{"batches":5127,"commands":96878,"draws":1970,"immediateBatches":0,"pipelines":8,"bindGroups":1323,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":1970,"uniformWrites":1150,"clearDraws":89,"textureUploads":2286,"textureBytes":48012880,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":40,"contexts":1,"stats":{"batches":9624,"commands":189996,"draws":4057,"immediateBatches":0,"pipelines":9,"bindGroups":2737,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":4057,"uniformWrites":2395,"clearDraws":172,"textureUploads":3163,"textureBytes":71985304,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":50,"contexts":1,"stats":{"batches":42271,"commands":657849,"draws":22942,"immediateBatches":0,"pipelines":26,"bindGroups":7975,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":22942,"uniformWrites":9427,"clearDraws":240,"textureUploads":5195,"textureBytes":72677100,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: saving complete CPU/RAM/devices/disks/graphics state
+
+[page] log: cold restoring 449014580 bytes into a new VM
+
+[page] log: paired timing: candidate
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: candidate
+
+[page] log: warcraft3 exited; fresh wined3d rendered in the same VM
+
+[page] log: cold restore has exact pixels and resumed 64 frames
+
+PASS complete VM cold restore and resumed application: warcraft3 worker=true

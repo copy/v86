@@ -20,7 +20,7 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync as exec_file_sync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { create_disk_service } from "../../tools/disk-service.mjs";
 
@@ -64,10 +64,52 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "v86-app-browser-"));
 let browser, timeout;
+// Optional coordination with another test owned by the caller. The page can
+// pause only this fixed PID, never choose a process through request input.
+const timing_pid = Number(process.env.PAUSE_TEST_PID || 0);
+if(timing_pid && (!Number.isInteger(timing_pid) || timing_pid <= 1 || timing_pid === process.pid)) throw new Error("Invalid PAUSE_TEST_PID");
+let timing_paused = false;
+function timing_pause(paused)
+{
+    if(!timing_pid || timing_paused === paused) return;
+    try {
+        // A long matrix can outlive the mutation runner. Do not signal a
+        // recycled PID belonging to a different process.
+        const command = exec_file_sync("ps", ["-p", String(timing_pid), "-o", "command="], { encoding: "utf8" });
+        if(!command.includes("tests/glbridge/mutations.mjs")) { timing_paused = false;return; }
+        process.kill(timing_pid, paused ? "SIGSTOP" : "SIGCONT");timing_paused = paused;
+    }
+    catch(error) { if(error.code !== "ESRCH" && error.status !== 1) throw error;timing_paused = false; }
+}
+async function timing_quiet()
+{
+    const started = Date.now();
+    while(timing_paused)
+    {
+        const children = exec_file_sync("ps", ["-axo", "ppid=,stat="], { encoding: "utf8" }).trim().split("\n");
+        if(!children.some(line => { const [parent, status] = line.trim().split(/\s+/);return +parent === timing_pid && !status.startsWith("Z"); })) break;
+        if(Date.now() - started > 60000) throw new Error("in-flight mutation child did not settle");
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+}
 
 const server = http.createServer((req, res) =>
 {
     const address = new URL(req.url, "http://localhost");
+    if(req.method === "POST" && ["/__timing_begin", "/__timing_end"].includes(address.pathname))
+    {
+        try
+        {
+            const paused = address.pathname === "/__timing_begin";timing_pause(paused);
+            // Let a child already spawned by the stopped test settle. The
+            // benchmark also discards its first 21 frames before measuring.
+            if(paused && timing_paused) timing_quiet().then(() => res.end("OK"), error => { timing_pause(false);res.writeHead(500).end(String(error)); });
+            else res.end("OK");
+        }
+        catch(error) { res.writeHead(500).end(String(error)); }
+        return;
+    }
     if(req.method === "POST" && address.pathname === "/__test_file")
     {
         const name = path.basename(address.searchParams.get("name") || "file");
@@ -172,6 +214,7 @@ const server = http.createServer((req, res) =>
 
 function finish(code)
 {
+    timing_pause(false);
     clearTimeout(timeout);
     server.close();
     if(service) service.close();

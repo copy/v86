@@ -1,0 +1,30 @@
+http://127.0.0.1:51046/tests/glbridge/gl_final_acceptance.html?program=cube2&worker=1&boot_ms=60000
+[page] log: cold boot cube2, worker=true
+
+[page] log: launch requested
+
+[page] log: {"seconds":10,"contexts":1,"stats":{"batches":2464,"commands":6334,"draws":272,"immediateBatches":0,"pipelines":9,"bindGroups":263,"shaderLinks":113,"shaderCacheHits":0,"uniformStampHits":125,"uniformByteChecks":414,"uniformWrites":381,"clearDraws":0,"textureUploads":198,"textureBytes":9038532,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":20,"contexts":1,"stats":{"batches":2992,"commands":71806,"draws":15056,"immediateBatches":0,"pipelines":9,"bindGroups":7655,"shaderLinks":113,"shaderCacheHits":0,"uniformStampHits":12269,"uniformByteChecks":17310,"uniformWrites":14109,"clearDraws":0,"textureUploads":198,"textureBytes":9038532,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":30,"contexts":1,"stats":{"batches":5077,"commands":95444,"draws":19291,"immediateBatches":0,"pipelines":9,"bindGroups":9885,"shaderLinks":193,"shaderCacheHits":0,"uniformStampHits":15626,"uniformByteChecks":22288,"uniformWrites":18065,"clearDraws":0,"textureUploads":443,"textureBytes":20725748,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":40,"contexts":1,"stats":{"batches":9569,"commands":241560,"draws":57269,"immediateBatches":0,"pipelines":36,"bindGroups":21078,"shaderLinks":235,"shaderCacheHits":0,"uniformStampHits":48465,"uniformByteChecks":62236,"uniformWrites":24880,"clearDraws":158,"textureUploads":1323,"textureBytes":60462420,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: saving complete CPU/RAM/devices/disks/graphics state
+
+[page] log: cold restoring 548357663 bytes into a new VM
+
+[page] log: paired timing: candidate
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: candidate
+
+[page] log: cube2 exited; fresh wined3d rendered in the same VM
+
+[page] log: cold restore has exact pixels and resumed 64 frames
+
+PASS complete VM cold restore and resumed application: cube2 worker=true

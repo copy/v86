@@ -1,0 +1,24 @@
+http://127.0.0.1:61633/tests/glbridge/gl_final_acceptance.html?program=wined3d&worker=1&boot_ms=60000
+[page] log: cold boot wined3d, worker=true
+
+[page] log: launch requested
+
+[page] log: {"seconds":10,"contexts":1,"stats":{"batches":4768,"commands":5421,"draws":145,"immediateBatches":0,"pipelines":4,"bindGroups":435,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":145,"uniformWrites":145,"clearDraws":146,"textureUploads":67,"textureBytes":256,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: saving complete CPU/RAM/devices/disks/graphics state
+
+[page] log: cold restoring 256851513 bytes into a new VM
+
+[page] log: paired timing: candidate
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: candidate
+
+[page] log: wined3d exited; fresh cube2 rendered in the same VM
+
+[page] log: cold restore has exact pixels and resumed 64 frames
+
+PASS complete VM cold restore and resumed application: wined3d worker=true

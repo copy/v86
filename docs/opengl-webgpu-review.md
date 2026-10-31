@@ -1,5 +1,7 @@
 # OpenGL 代理 → WebGPU 代码审查与重构建议
 
+> **C–G 最终复核（2026-11-01）：完成。** CPU 权威迁移、渲染/着色器修复、客体/WGL 与本地镜像部署已分阶段提交；G 的 10 项实际程序本地/worker 整机冷恢复、持续帧、进程切换和配对测量通过。115 组核心、55 个 GPU 页面、9 组共享 GLES；257 个记录实际行为覆盖；完整变异门禁 792/802，各族达到原门槛。当前范围、保留差异、GLView 两处资源修正、Quake 3 引擎测试地图和帧时间复测见[最终验收记录](opengl-webgpu-acceptance.md)。下面的原始审查及中间复核保留历史，不作为当前状态说明。
+
 > **E2 退出复核（2026-10-31）**：RECT/SHADOWRECT 从独立 CPU 状态到 GPU 的固定/ARB/GLSL 采样、复制更新、FBO 和资源恢复均已验证；10 个执行 Wine 原始生成函数的输出和 10 个真实 cgc 输出通过 Naga、真实 GPU 编译及完整像素，与两原生驱动一致。语料保留输入、命令、哈希与许可证。矩形错误的两个原生/规范差异见计划，未作为原生全过项；E3 继续处理运行时链接失败回报。
 
 
@@ -13,7 +15,7 @@
 基线：v86 `e92fd4f0`（`ios6` 分支；`gl-webgpu/` 中只有 `gl_shader_translator.js` 与 `master` 不同，多了 GLES 3.x L0 的 240 行），retro-gaming-site `43c4d1e`。日期 2026-10-29。
 性质：本文保留修复前的审查基线，已提交；当前修复进度和验收结果见 [`opengl-webgpu-plan.md`](opengl-webgpu-plan.md)。它是 [`d3d-webgpu-review.md`](d3d-webgpu-review.md) 的姊妹篇。两条路径共用 `v86gl.sys`、`v86gl_device.js`、`graphics_proxy.js`、`v86_network_bridge.js` 和 `webgpu_host.js`，交叉问题在文中注明。
 
-2026-10-31：阶段 C 的 CPU 权威迁移及退出检查已完成。S1-1 已用真实 XP 冷启动、新驱动/DLL、GLSL 探针和 Cube 2 worker Complex 地图验证修复（超过 100 万次绘制、233 次链接，无宿主或 GPU 校验错误）。本文原始复现保留；D/E/F/G 的剩余工作仍按计划推进。
+2026-10-31 的 C 退出记录：S1-1 已用真实 XP 冷启动、新驱动/DLL、GLSL 探针和 Cube 2 worker Complex 地图验证修复（超过 100 万次绘制、233 次链接，无宿主或 GPU 校验错误）。后续 D/E/F/G 结果见顶部最终复核和验收记录。
 
 ## 0. 结论摘要
 

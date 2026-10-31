@@ -1,0 +1,51 @@
+{
+  "packages": [
+    {
+      "file": "GLview-2.60.download",
+      "source": "https://www.realtech-vr.com/glview-download/",
+      "bytes": 481709,
+      "sha256": "6e24afa4c622bd3c8378989764dfe0724b698f3ceabe02d45d8ad560b7509d84"
+    },
+    {
+      "file": "WineD3D-1.7.52.zip",
+      "source": "WineD3D for Windows 1.7.52; included README.txt identifies the MinGW prebuilt distribution",
+      "bytes": 1801746,
+      "sha256": "dd94b1f49a8a8dfd30ae8525b951f45ff3ca89590424bef1fda9c103c4f75c47"
+    },
+    {
+      "file": "tremulous-1.1.0-installer.exe",
+      "source": "https://downloads.sourceforge.net/project/tremulous/tremulous/1.1/tremulous-1.1.0-installer.exe",
+      "bytes": 100274858,
+      "sha256": "951436849d66086c7146c322bddb29f4dc5c5a02750f7dfd41ffca026e44b349"
+    },
+    {
+      "file": "tremulous-gpp1-installer.exe",
+      "source": "https://downloads.sourceforge.net/project/tremulous/tremulous/gpp/tremulous-gpp1-installer.exe",
+      "bytes": 5328509,
+      "sha256": "d67e69854ed3153e32edd89269f7ac9b42ac6e71e662fe39797721409f2e3597"
+    }
+  ],
+  "extractedSources": [
+    {
+      "file": "tremulous-source/tremulous-1.1.0-src/src/renderer/tr_surface.c",
+      "sha256": "3079867ef2718d29676f00d2a80248afe635e0df6a066e31019cdf2b10e87113"
+    },
+    {
+      "file": "tremulous-gpp-source/tremulous-ggp1-src/src/renderer/tr_surface.c",
+      "sha256": "f917696ccde506eb4b5c99ca7cf5f83aff6b42758af49f163990b953f48585ab"
+    },
+    {
+      "file": "tremulous-gpp-source/tremulous-ggp1-src/src/renderer/tr_flares.c",
+      "sha256": "a4942d540a8ccdddeec8ca90bd8dc33bb6ff8ce0c75013477b4d506dafda3c24"
+    },
+    {
+      "file": "tremulous-gpp-source/tremulous-ggp1-src/src/game/g_cmds.c",
+      "sha256": "82f223970fcb43a52db8c21230e75b596989897c9b902847c0c47a9c60aba137"
+    },
+    {
+      "file": "wined3d/README.txt",
+      "sha256": "4139ea5f81d97bced76852614ccfbec655e5b63513fd280c05bcdf06698d919a"
+    }
+  ],
+  "note": "Original packages and extracted sources are retained locally. No third-party binary or map package is redistributed in this evidence directory."
+}

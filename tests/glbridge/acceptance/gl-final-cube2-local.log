@@ -1,0 +1,28 @@
+http://127.0.0.1:50827/tests/glbridge/gl_final_acceptance.html?program=cube2&worker=0&boot_ms=60000
+[page] log: cold boot cube2, worker=false
+
+[page] log: launch requested
+
+[page] log: {"seconds":10,"contexts":1,"stats":{"batches":2628,"commands":26670,"draws":4864,"immediateBatches":0,"pipelines":9,"bindGroups":2559,"shaderLinks":113,"shaderCacheHits":0,"uniformStampHits":3897,"uniformByteChecks":5662,"uniformWrites":4645,"clearDraws":0,"textureUploads":198,"textureBytes":9038532,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":20,"contexts":1,"stats":{"batches":4244,"commands":49073,"draws":9111,"immediateBatches":0,"pipelines":9,"bindGroups":4765,"shaderLinks":173,"shaderCacheHits":0,"uniformStampHits":7282,"uniformByteChecks":10634,"uniformWrites":8588,"clearDraws":0,"textureUploads":324,"textureBytes":18650460,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":30,"contexts":1,"stats":{"batches":8923,"commands":211327,"draws":57979,"immediateBatches":0,"pipelines":37,"bindGroups":16129,"shaderLinks":235,"shaderCacheHits":0,"uniformStampHits":50968,"uniformByteChecks":61846,"uniformWrites":15465,"clearDraws":160,"textureUploads":1323,"textureBytes":60462420,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: saving complete CPU/RAM/devices/disks/graphics state
+
+[page] log: cold restoring 549730925 bytes into a new VM
+
+[page] log: paired timing: candidate
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: candidate
+
+[page] log: cube2 exited; fresh wined3d rendered in the same VM
+
+[page] log: cold restore has exact pixels and resumed 64 frames
+
+PASS complete VM cold restore and resumed application: cube2 worker=false

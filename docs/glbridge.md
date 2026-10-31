@@ -109,13 +109,15 @@ sh glbridge/d3d9proxy/build.sh
 
 The following games and applications have been tested with the graphics proxy:
 
-- **OpenGL:** GLView 2.6.0, Warcraft III (OpenGL mode), Cube 2 Sauerbraten.
+- **OpenGL:** GLView 2.6.0, Warcraft III (OpenGL mode), Cube 2 Sauerbraten,
+  Tremulous GPP1 (Quake 3 engine), and the D3D8 textured cube through guest
+  WineD3D 1.7.52. The [C–G acceptance record](opengl-webgpu-acceptance.md)
+  describes both CPU modes, full-VM cold restore, process switching, paired
+  timings, the two GLView shader corrections and the test-only ATCS flare map.
 - **DirectDraw:** 3DMark 99 MAX, Diablo II.
 - **Direct3D 7:** 3DMark 2000.
 - **Direct3D 8:** 3DMark 2001 SE, MapleStory v083.
 - **Direct3D 9:** 3DMark06, KartRider, Warcraft III, Grand Theft Auto: San Andreas, Need for Speed: Most Wanted (2005).
-
-![Graphics proxy test screenshot](3dmark06_result.png)
 
 ## 7. Save and restore graphics state
 

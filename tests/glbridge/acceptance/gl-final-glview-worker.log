@@ -1,0 +1,24 @@
+http://127.0.0.1:61824/tests/glbridge/gl_final_acceptance.html?program=glview&worker=1&boot_ms=60000
+[page] log: cold boot glview, worker=true
+
+[page] log: launch requested
+
+[page] log: {"seconds":10,"contexts":1,"stats":{"batches":6926,"commands":10459,"draws":232,"immediateBatches":232,"pipelines":2,"bindGroups":464,"shaderLinks":2,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":232,"uniformWrites":232,"clearDraws":0,"textureUploads":3,"textureBytes":589824,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: saving complete CPU/RAM/devices/disks/graphics state
+
+[page] log: cold restoring 255353115 bytes into a new VM
+
+[page] log: paired timing: candidate
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: candidate
+
+[page] log: glview exited; fresh wined3d rendered in the same VM
+
+[page] log: cold restore has exact pixels and resumed 64 frames
+
+PASS complete VM cold restore and resumed application: glview worker=true

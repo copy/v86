@@ -1,0 +1,36 @@
+http://127.0.0.1:61432/tests/glbridge/gl_final_acceptance.html?program=quake3&worker=1&boot_ms=60000
+[page] log: cold boot quake3, worker=true
+
+[page] log: launch requested
+
+[page] log: {"seconds":10,"contexts":1,"stats":{"batches":551,"commands":2510,"draws":3,"immediateBatches":0,"pipelines":2,"bindGroups":4,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":3,"uniformWrites":2,"clearDraws":0,"textureUploads":376,"textureBytes":25715996,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":20,"contexts":1,"stats":{"batches":26864,"commands":110711,"draws":7213,"immediateBatches":1234,"pipelines":13,"bindGroups":3934,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":7213,"uniformWrites":398,"clearDraws":32,"textureUploads":2952,"textureBytes":104596028,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":30,"contexts":1,"stats":{"batches":206357,"commands":537599,"draws":64285,"immediateBatches":39701,"pipelines":23,"bindGroups":15270,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":64285,"uniformWrites":1565,"clearDraws":141,"textureUploads":2952,"textureBytes":104596028,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":40,"contexts":1,"stats":{"batches":566227,"commands":965537,"draws":184598,"immediateBatches":155492,"pipelines":23,"bindGroups":19222,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":184598,"uniformWrites":3271,"clearDraws":179,"textureUploads":2952,"textureBytes":104596028,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":50,"contexts":1,"stats":{"batches":932683,"commands":1406215,"draws":307243,"immediateBatches":273241,"pipelines":24,"bindGroups":23558,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":307243,"uniformWrites":5065,"clearDraws":223,"textureUploads":2952,"textureBytes":104596028,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":60,"contexts":1,"stats":{"batches":1208665,"commands":1775157,"draws":400637,"immediateBatches":360685,"pipelines":24,"bindGroups":29158,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":400637,"uniformWrites":6885,"clearDraws":293,"textureUploads":2952,"textureBytes":104596028,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: {"seconds":70,"contexts":1,"stats":{"batches":1271334,"commands":2125638,"draws":428150,"immediateBatches":370930,"pipelines":24,"bindGroups":46133,"shaderLinks":0,"shaderCacheHits":0,"uniformStampHits":0,"uniformByteChecks":428150,"uniformWrites":9900,"clearDraws":557,"textureUploads":2952,"textureBytes":104596028,"refusals":0,"refusalsByOp":{},"expandedIndices":0,"dxtDecodes":0,"nonUniformSamples":0,"pipelinesRejected":0,"framesRejected":0,"hostErrors":0}}
+
+[page] log: saving complete CPU/RAM/devices/disks/graphics state
+
+[page] log: cold restoring 648883063 bytes into a new VM
+
+[page] log: paired timing: candidate
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: baseline
+
+[page] log: paired timing: candidate
+
+[page] log: quake3 exited; fresh wined3d rendered in the same VM
+
+[page] log: cold restore has exact pixels and resumed 64 frames
+
+PASS complete VM cold restore and resumed application: quake3 worker=true

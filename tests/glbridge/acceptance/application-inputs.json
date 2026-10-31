@@ -1,0 +1,232 @@
+{
+  "q3": {
+    "application": "Tremulous GPP1 (Quake 3 engine)",
+    "scene": {
+      "map": "atcs",
+      "sourcePakSha256": "b7954af8bab55d13b7282552c6286539d48bbc9102d657bb3e67fe668a9af258",
+      "originalBspSha256": "51dcdb0def38db0f1ce13cf7badb14456113c95e18c3dcc4b1d46d663055ab05",
+      "bspSha256": "f9a618d6c9209d0ed0ab6690e104e01f66241231e3cdd00d046cccc05525c699",
+      "pk3Sha256": "28b7eb42580f162b57df67a694fcd5e39b4945b2ce2840b057100217866b4958",
+      "surface": 2778,
+      "originalShader": "textures/atcs/eq2_trimv_12b",
+      "spawn": [
+        1792,
+        448,
+        24
+      ],
+      "origin": [
+        1920,
+        448,
+        120
+      ],
+      "normal": [
+        -1,
+        0,
+        0
+      ],
+      "color": [
+        1,
+        0.75,
+        0.25
+      ],
+      "camera": [
+        1792,
+        448,
+        72,
+        0
+      ],
+      "scope": "One planar surface becomes a flare; separate test-only pk3. Stock engine, source map, collision and remaining map bytes unchanged."
+    }
+  },
+  "glview_fixes": [
+    {
+      "name": "simple.frag",
+      "original": "dcf8ab20c5acfe8f452901f51ef6ccde5abf7ad112ea62aff921d83710cec53f",
+      "corrected": "2143cc72ae11ee89d9889e85219a1f5e48ab483406db3b8b63b17e2d310272b2",
+      "change": "Remove one extraneous function-ending semicolon; original GLSL 1.10 is rejected by Apple OpenGL and glslang. EXE/DLL unchanged."
+    },
+    {
+      "name": "simple.vert",
+      "original": "5be05e620360f4fca903554f80df39635d92e63726b1f3a78df1c2ef2c9b1176",
+      "corrected": "e41f59696152a09656b180164203d032ef356e984eb53d02996196153e6f7dfc",
+      "change": "Remove one extraneous function-ending semicolon; original GLSL 1.10 is rejected by Apple OpenGL and glslang. EXE/DLL unchanged."
+    }
+  ],
+  "images": {
+    "xp": 4294967296,
+    "cube2": 3221225472,
+    "warcraft3": 2634022912
+  },
+  "files": [
+    {
+      "name": "WINECUBE.EXE",
+      "size": 22338,
+      "sha256": "29bb0586f70e456d527bde7df51e188e3d46e1d2147161d579d65429125da1dd"
+    },
+    {
+      "name": "GLVIEWUI.EXE",
+      "size": 12576,
+      "sha256": "a4a5a5202a407d1a70c4c4d2539f1d774b021e59b65b0b3130683a57430953ad"
+    },
+    {
+      "name": "OPENGL32.DLL",
+      "size": 145408,
+      "sha256": "4bffb949270e19d263289e46bbc01cb8eae49fe048e13260d06e0625cabdd71f"
+    },
+    {
+      "name": "D3D8.DLL",
+      "size": 263432,
+      "sha256": "6724bf7cbe2545f5e2a9e63957c10c44f81d7c6b35124ea96fe8e1071ce11e2d"
+    },
+    {
+      "name": "WINED3D.DLL",
+      "size": 1423151,
+      "sha256": "114b0df1cc6f6f67353f364c4aebf41d7c14bb4e6a4c5e9178ae83f33675de8e"
+    },
+    {
+      "name": "LIBWINE.DLL",
+      "size": 1807957,
+      "sha256": "22129ce0cce4f5f99a8644f37886fe5c474c159aa9b25a18bffde10bd6a80446"
+    },
+    {
+      "name": "glview.exe",
+      "size": 778240,
+      "sha256": "713c023c46b1e2019a75eaf3ac9d0c1a814ed47089118aa2f09d6fc487585c70"
+    },
+    {
+      "name": "infogl.dll",
+      "size": 180224,
+      "sha256": "4a6e9cbc3348c0d597c52c39b6d299fa07026e919f35af55609e2ff4e65c0d5b"
+    },
+    {
+      "name": "glview.ini",
+      "size": 6,
+      "sha256": "b7ac465e08c508640f7dd0c661aa780c17b687c479e3fbfd1591743549317e60"
+    },
+    {
+      "name": "en.lng",
+      "size": 8036,
+      "sha256": "688a87bb623adf5ae43d439db580968236883b139b61d2b12f5f454285de8494"
+    },
+    {
+      "name": "simple.frag",
+      "size": 86,
+      "sha256": "2143cc72ae11ee89d9889e85219a1f5e48ab483406db3b8b63b17e2d310272b2"
+    },
+    {
+      "name": "simple.vert",
+      "size": 140,
+      "sha256": "e41f59696152a09656b180164203d032ef356e984eb53d02996196153e6f7dfc"
+    },
+    {
+      "name": "simple_arb.vp",
+      "size": 413,
+      "sha256": "ebddfa08047b54c2c8b6d700b84c2d6eb4b3f18719af5fee5b9a91f5bdd851ef"
+    },
+    {
+      "name": "bump.frag",
+      "size": 2139,
+      "sha256": "b591081c53c73dbf96e81b2e789f9062d7512edf08720b62e48b094ad117b5d7"
+    },
+    {
+      "name": "bump.vert",
+      "size": 597,
+      "sha256": "9205815f9a6c73bbcc3311443ea04bc28417787fd47ea6d7b8e9e6f8c87949d8"
+    },
+    {
+      "name": "bump_arb.vp",
+      "size": 1100,
+      "sha256": "f3aed334faececbd6d064633378e2a0e80f9cadd1bd77deef3e7dcaea9a8ff71"
+    },
+    {
+      "name": "tweak.xml",
+      "size": 1617,
+      "sha256": "774e11213286048dee7511692887649ba45b3af835214c8317940c534a7d4b78"
+    },
+    {
+      "name": "TREM.EXE",
+      "size": 1638912,
+      "sha256": "900b0402c3a1e0c866906e9b83a0cdda3823514af4302829f4b7127c385fe77c"
+    },
+    {
+      "name": "SDL.DLL",
+      "size": 329216,
+      "sha256": "9c793753f68e995c5948d6d7ef296f7f62d072a8f3cb5a1513db3f3162f26059"
+    },
+    {
+      "name": "TBASE.PK3",
+      "size": 44925864,
+      "sha256": "3db7a7ddf96d5ec87b64fd694459157bbe2ff0e014460ee964683302605115c0"
+    },
+    {
+      "name": "TMAP.PK3",
+      "size": 3678004,
+      "sha256": "b7954af8bab55d13b7282552c6286539d48bbc9102d657bb3e67fe668a9af258"
+    },
+    {
+      "name": "TVMS.PK3",
+      "size": 362322,
+      "sha256": "dc09998d0fbf3ebbd51d39de7f9bcdcae699d128a3faceebd0a68915665aaff5"
+    },
+    {
+      "name": "GPDATA.PK3",
+      "size": 464273,
+      "sha256": "5100a010741ea0de1184299973dc2fb63eb4d70e9025179d672c4bb5c0311197"
+    },
+    {
+      "name": "GPVMS.PK3",
+      "size": 425985,
+      "sha256": "aa99b0c674cb8913aa5df5049dbb8a6cb546c3eb2de5389deed2b9e1d26c9f2a"
+    },
+    {
+      "name": "TFLARE.PK3",
+      "size": 2566300,
+      "sha256": "28b7eb42580f162b57df67a694fcd5e39b4945b2ce2840b057100217866b4958"
+    },
+    {
+      "name": "GLSCENE.CFG",
+      "size": 112,
+      "sha256": "f76e16e83edaa0622580359a336464209818c9c5f6976e9a4dd84f553f66361a"
+    },
+    {
+      "name": "CUBE2.CMD",
+      "size": 119,
+      "sha256": "0580b50e44a48061164dbe55a9bc3de97484e6c0bee8d0aad3cd7332f42de6aa"
+    },
+    {
+      "name": "WAR3.CMD",
+      "size": 114,
+      "sha256": "b54274ab0b47b38b535f9afadada28d3a91f8d2b5753ac3a27974c65e9ffdacb"
+    },
+    {
+      "name": "WINE.CMD",
+      "size": 348,
+      "sha256": "76faee31bc37cda0c293d11303ee87f0de317dc423d42460daa77bb48095a920"
+    },
+    {
+      "name": "GLVIEW.CMD",
+      "size": 750,
+      "sha256": "58235c931a274ffaf44371d433378b6c7f371d453ccd6d018713a0a3f5f271b7"
+    },
+    {
+      "name": "QUAKE3.CMD",
+      "size": 954,
+      "sha256": "1ddbcf3d85cf098c39ecd3c8a7e1a3f2cea2a96b4e12fa1416469d5c13df0ab7"
+    }
+  ],
+  "sourceImages": [
+    {
+      "name": "windowsxp/windowsxp_multidisk_C_4G.img",
+      "mtimeMs": 1793475426754.0452
+    },
+    {
+      "name": "game/cube2.img",
+      "mtimeMs": 1793475431217.0298
+    },
+    {
+      "name": "game/warcraft3.img",
+      "mtimeMs": 1793475795295.9666
+    }
+  ],
+  "proxy": "4bffb949270e19d263289e46bbc01cb8eae49fe048e13260d06e0625cabdd71f"
+}

@@ -1,0 +1,1 @@
+{"status":"PASS","details":"PASS exact last-presented red frame and unfinished blue back frame survive hot/cold GPU checkpoints"}

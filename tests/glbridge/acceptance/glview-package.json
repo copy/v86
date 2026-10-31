@@ -1,0 +1,50 @@
+{
+  "program": "GLView 2.6.0 author download, retrieved for 2026-11-01 acceptance",
+  "source": "https://www.realtech-vr.com/glview-download/",
+  "download": "https://www.realtech-vr.com/download/2166/",
+  "binaryHashes": {
+    "glview.exe": "713c023c46b1e2019a75eaf3ac9d0c1a814ed47089118aa2f09d6fc487585c70",
+    "infogl.dll": "4a6e9cbc3348c0d597c52c39b6d299fa07026e919f35af55609e2ff4e65c0d5b"
+  },
+  "corrections": [
+    {
+      "name": "simple.vert",
+      "originalSha256": "5be05e620360f4fca903554f80df39635d92e63726b1f3a78df1c2ef2c9b1176",
+      "correctedSha256": "e41f59696152a09656b180164203d032ef356e984eb53d02996196153e6f7dfc",
+      "removedBytes": 1
+    },
+    {
+      "name": "simple.frag",
+      "originalSha256": "dcf8ab20c5acfe8f452901f51ef6ccde5abf7ad112ea62aff921d83710cec53f",
+      "correctedSha256": "2143cc72ae11ee89d9889e85219a1f5e48ab483406db3b8b63b17e2d310272b2",
+      "removedBytes": 1
+    }
+  ],
+  "nativeApple": {
+    "original": "build/gl-acceptance-assets/glview/simple.vert: 0 ERROR: 0:8: ';' : syntax error: syntax error\n\nbuild/gl-acceptance-assets/glview/simple.frag: 0 ERROR: 0:6: ';' : syntax error: syntax error\n\n",
+    "corrected": "/private/tmp/glview-simple.vert: 1 \n/private/tmp/glview-simple.frag: 1 \n"
+  },
+  "scope": "Unmodified EXE/DLL, two extraneous function-ending semicolons removed from external GLSL 1.10 assets. Original package preserved. No compiler validation is bypassed.",
+  "glslang": {
+    "simple.vert": {
+      "original": {
+        "ok": false,
+        "log": "ERROR: 0:8: 'extraneous semicolon' : not supported for this version or the enabled extensions \nERROR: 1 compilation errors.  No code generated.\n\n"
+      },
+      "corrected": {
+        "ok": true,
+        "log": ""
+      }
+    },
+    "simple.frag": {
+      "original": {
+        "ok": false,
+        "log": "ERROR: 0:6: 'extraneous semicolon' : not supported for this version or the enabled extensions \nERROR: 1 compilation errors.  No code generated.\n\n"
+      },
+      "corrected": {
+        "ok": true,
+        "log": ""
+      }
+    }
+  }
+}

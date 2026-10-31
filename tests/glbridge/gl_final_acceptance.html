@@ -1,0 +1,74 @@
+<!doctype html><meta charset="utf-8"><title>GL final XP acceptance</title>
+<style>body{background:#182026;color:#eee}#log{white-space:pre-wrap}</style>
+<div id="screen_container"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas></canvas></div><pre id="log"></pre><pre id="result"></pre>
+<script src="../../build/libv86.js"></script><script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script src="gl_final_benchmark.js"></script>
+<script type="module">
+const params=new URLSearchParams(location.search),program=params.get("program")||"cube2",worker=params.get("worker")!=="0",prefix="gl-final-"+program+"-"+(worker?"worker":"local");
+const input=await(await fetch("/build/gl-final/inputs.json")).json(),delay=ms=>new Promise(resolve=>setTimeout(resolve,ms)),log=text=>document.querySelector("#log").textContent+=text+"\n";
+const output=async(name,data)=>{const response=await fetch("/__test_file?name="+name,{method:"POST",body:data});if(!response.ok)throw new Error("cannot save "+name);};
+const errors=[],originalError=console.error;console.error=(...args)=>{errors.push(args.map(String).join(" "));originalError(...args);};
+let observeApplication=true;
+const observations={opcodes:{},depthReadbacks:0,stencilEnables:0,arbEnables:0,depthRanges:[]};window.glObservations=observations;
+function options(){return {memory_size:512<<20,vram_size:16<<20,graphics_adapter:"bochs_vga",graphics_adapter_path:"/build/v86-bochs-vga.js",graphics_proxy:true,cpu_worker:worker,cpu_worker_url:"/build/cpu-worker.js",wasm_path:"/build/v86.wasm",bios:{url:"/bios/seabios.bin"},vga_bios:{url:"/bios/vgabios.bin"},hda:{url:"/build/gl-final/site/windowsxp/windowsxp_multidisk_C_4G.img",async:true,size:input.images.xp},hdb:{url:"/build/gl-final/site/game/"+(program==="warcraft3"?"warcraft3":"cube2")+".img",async:true,size:input.images[program==="warcraft3"?"warcraft3":"cube2"]},cdrom:{url:"/build/gl-final/tools.iso"},screen_container:document.querySelector("#screen_container"),acpi:false,net_device:{type:"none"},boot_order:0x213,autostart:false,disable_speaker:true};}
+async function create(){window.vm=new V86(options());await new Promise(resolve=>vm.add_listener("emulator-ready",resolve));
+ if(observeApplication){const gpu=vm.graphics_proxy.bridge.glExecutor,dispatch=gpu.dispatch,P=GLProtocol;gpu.dispatch=function(fn,bytes,view,offset,...rest){const name=P.NAME_BY_OPCODE[fn];if(name){observations.opcodes[name]=(observations.opcodes[name]||0)+1;if(name==="READ_PIXELS"&&view.getUint32(offset+P.F.READ_PIXELS.format,true)===0x1902)++observations.depthReadbacks;if(name==="ENABLE"){const cap=view.getUint32(offset,true);if(cap===0x0B90)++observations.stencilEnables;if(cap===0x8620||cap===0x8804)++observations.arbEnables;}if(name==="DEPTH_RANGE"){const pair=[view.getFloat64(offset,true),view.getFloat64(offset+8,true)];if(!observations.depthRanges.some(r=>r[0]===pair[0]&&r[1]===pair[1]))observations.depthRanges.push(pair);}}return dispatch.call(this,fn,bytes,view,offset,...rest);};}
+}
+async function screenshot(suffix){const blob=await new Promise(resolve=>document.querySelector("#screen_container canvas").toBlob(resolve));if(blob)await output(prefix+"-"+suffix+".png",blob);}
+async function refreshScanout(){
+ const compositor=vm.graphics_proxy.bridge.compositor;
+ // The first request may join a worker frame already in flight. A second
+ // full request observes stopped RAM rather than a stale queued title bar.
+ for(let round=0;round<2;round++){const uploads=compositor.stats.uploads;vm.screen_adapter.screen_fill_buffer(true);for(let i=0;i<100&&compositor.stats.uploads===uploads;i++)await delay(20);if(compositor.stats.uploads===uploads)throw new Error("stopped VGA scanout did not refresh");}
+}
+window.command=async text=>{await vm.keyboard_send_scancodes([0xE0,0x5B,19,147,0xE0,0xDB],30);await delay(1200);await vm.keyboard_send_text(text,90);await vm.keyboard_send_scancodes([28,156],30);};
+async function pixels(){const bridge=vm.graphics_proxy.bridge;await bridge.waitForIdle(false);const image=bridge.makeScreenshot();if(!image)throw new Error("missing graphics screenshot");await image.decode();const canvas=document.createElement("canvas");canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;const ctx=canvas.getContext("2d");ctx.drawImage(image,0,0);const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;return {width:canvas.width,height:canvas.height,sha256:Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",data)),x=>x.toString(16).padStart(2,"0")).join("")};}
+function check(){const gpu=vm.graphics_proxy.bridge.glExecutor;if(errors.length||gpu.hostErrors.length||gpu.stats.refusals||gpu.stats.pipelinesRejected||gpu.stats.framesRejected)throw new Error("host validation errors: "+JSON.stringify({errors,host:gpu.hostErrors,stats:gpu.stats}));return gpu;}
+async function secondProgram(){
+ const processName={cube2:"sauerbraten.exe",warcraft3:"War3.exe",wined3d:"WINECUBE.EXE",quake3:"TREM.EXE",glview:"glview.exe"}[program];
+ await vm.run();await command("cmd /c taskkill /f /im "+processName);
+ for(let i=0;i<30&&check().contexts.size;i++)await delay(500);
+ if(check().contexts.size)throw new Error("first program retained live GL contexts after process termination");
+ const second=program==="wined3d"?"cube2":"wined3d",before={...check().stats};
+ await command("cmd /k e:\\"+(second==="cube2"?"cube2":"wine")+".cmd");
+ let ready=false;
+ for(let i=0;i<90;i++){await delay(1000);const gpu=check();if(gpu.contexts.size&&gpu.stats.draws-before.draws>(second==="cube2"?1000:60)&&gpu.stats.textureUploads>before.textureUploads){ready=true;break;}}
+ if(!ready)throw new Error("second real program did not render: "+second);
+ await vm.stop();await screenshot("second-program");log(program+" exited; fresh "+second+" rendered in the same VM");
+ return {second,previousContextsReleased:true,before,after:{...check().stats}};
+}
+async function frames(count){const gpu=check(),previous=gpu.options.onSurface;const times=[];let last=performance.now(),finish,fail;const done=new Promise((a,b)=>{finish=a;fail=b;});gpu.options.onSurface=(surface,reason)=>{if(previous)previous(surface,reason);if(reason==="swap"){const now=performance.now();times.push(now-last);last=now;if(times.length>=count)finish();}};const timer=setTimeout(()=>fail(new Error("timed out waiting for "+count+" frames")),180000);try{await vm.run();await done;}finally{clearTimeout(timer);await vm.stop();gpu.options.onSurface=previous;}return times.slice(1);}
+window.finalCheckpoint=async()=>{
+ await vm.stop();const gpu=check();await gpu.idle();await refreshScanout();const before=await pixels(),stats={...gpu.stats},contexts=gpu.contexts.size;
+ log("saving complete CPU/RAM/devices/disks/graphics state");const parts=[];await vm.save_state_stream(chunk=>parts.push(chunk.slice()));const saved=new Blob(parts);parts.length=0;window.glFinalSaved=saved;
+ await screenshot("before");log("cold restoring "+saved.size+" bytes into a new VM");await vm.destroy();await create();await vm.restore_state_stream(saved);await vm.stop();
+ // ScreenAdapter refreshes the restored VGA scanout on a host animation
+ // frame even while the CPU is stopped. Include it before comparing the
+ // composed desktop/window, without advancing the guest's timeline.
+ await refreshScanout();
+ const after=await pixels();if(JSON.stringify(before)!==JSON.stringify(after))throw new Error("full-VM restored pixels differ: "+JSON.stringify({before,after}));if(check().contexts.size!==contexts)throw new Error("restored GL contexts differ");
+ await screenshot("restored");const times=await frames(65);check();await screenshot("resumed");
+ const sorted=times.slice().sort((a,b)=>a-b),evidence={program,application:program==="quake3"?input.q3.application:program,worker,revision:globalThis.V86GL_BUILD_REVISION,proxy:input.proxy,fullVM:{format:"stream-v"+new DataView(await saved.slice(0,8).arrayBuffer()).getUint32(4,true),bytes:saved.size,cold:true,before,after,contexts},frames:times.length,frameMs:{median:sorted[Math.floor(sorted.length/2)],p95:sorted[Math.floor(sorted.length*.95)],samples:times},beforeStats:stats,afterStats:check().stats,errors};
+ evidence.observations=JSON.parse(JSON.stringify(observations));observeApplication=false;
+ if(params.get("benchmark")!=="0")evidence.comparison=await GLFinalBenchmark.compare(saved,create,log);
+ if(params.get("sequence")!=="0")evidence.sequence=await secondProgram();
+ await output(prefix+".json",JSON.stringify(evidence));log("cold restore has exact pixels and resumed "+times.length+" frames");return evidence;
+};
+try{
+ await create();await vm.run();log("cold boot "+program+", worker="+worker);await delay(Number(params.get("boot_ms")||150000));await screenshot("desktop");
+ for(let i=0;i<4;i++){await vm.keyboard_send_scancodes([1,129],30);await delay(1000);}await vm.keyboard_send_scancodes([15,143,28,156],30);await delay(2000);
+ await command("cmd /k e:\\"+({cube2:"cube2",warcraft3:"war3",wined3d:"wine",glview:"glview",quake3:"quake3",installq3:"q3demo"}[program])+ (program==="installq3"?".exe":".cmd"));log("launch requested");
+ if(params.get("manual")==="1"){log("manual UI preparation; call finalCheckpoint() when the real scene is ready");}
+ else{
+  let ready=false,map=program!=="cube2";
+  for(let i=0;i<80;i++){await delay(10000);const gpu=vm.graphics_proxy.bridge.glExecutor,s=gpu.stats;log(JSON.stringify({seconds:(i+1)*10,contexts:gpu.contexts.size,stats:s}));await screenshot("current");check();
+   if(program==="warcraft3"&&!gpu.contexts.size&&i<10)await vm.keyboard_send_scancodes([1,129],30);
+   if(!map&&s.draws>1000&&s.shaderLinks>100&&s.textureUploads>100){await vm.keyboard_send_scancodes([20,148],30);await delay(1000);await vm.keyboard_send_text("/map complex",120);await vm.keyboard_send_scancodes([28,156],30);map=true;}
+   ready=map&&s.draws>(program==="glview"?30:program==="wined3d"?100:10000)&&s.textureUploads>(program==="cube2"?1000:(program==="wined3d"||program==="glview")?0:50)&&(program!=="cube2"||s.shaderLinks>200);
+   if(program==="quake3")ready=ready&&observations.depthReadbacks>0&&observations.stencilEnables>0&&observations.depthRanges.some(r=>r[0]===0&&r[1]>0&&r[1]<1);
+   if(ready)break;
+  }
+  if(!ready)throw new Error("real application scene not reached");await finalCheckpoint();document.querySelector("#result").textContent="PASS complete VM cold restore and resumed application: "+program+" worker="+worker;
+ }
+}catch(error){await screenshot("failure");await output(prefix+"-failure.json",JSON.stringify({error:error.stack,errors,stats:vm?.graphics_proxy?.bridge?.glExecutor?.stats}));document.querySelector("#result").textContent="FAIL "+error.stack;}
+</script>
