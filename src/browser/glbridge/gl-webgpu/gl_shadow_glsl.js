@@ -348,7 +348,16 @@
             for (let k = 0; k < n; ++k) used.add(base + k);
             attribute.location = base;
         }
-        if (program.resetValues) program.values = new Map();
+        if (program.resetValues) {
+            program.values = new Map();
+            for (const uniform of linked.uniforms) {
+                const values = result.initializers?.[uniform.name];
+                if (!values || uniform.location < 0) continue;
+                const [, columns, rows] = typeOf(uniform.type), width = columns * rows;
+                for (let i = 0; i < uniform.size; ++i) if (values.length >= (i + 1) * width)
+                    program.values.set(uniform.location + i, values.slice(i * width, (i + 1) * width));
+            }
+        }
         program.resetValues = false;
         program.executableInput = program.linkInput;
         program.executableGeneration = program.linkInput.generation || 1;
@@ -703,7 +712,8 @@
             const entries = [...linked.attributes.filter(a => a.location >= 0).map(a => entry(a, C.V86GL_LOCATION_KIND_ATTRIB)),
                 ...linked.uniforms.filter(u => u.location >= 0).map(u => entry(u, C.V86GL_LOCATION_KIND_UNIFORM))];
             return { commands: [record(fn, [bytes.subarray(offset, offset + size)]), record(GLFN.RESOLVED_PROGRAM_INTERFACE,
-                [protocol.encodeProgramInterface({ program: program.name, object_id: program.objectId, link_generation: program.executableGeneration }, entries)])] };
+                [protocol.encodeProgramInterface({ program: program.name, object_id: program.objectId, link_generation: program.executableGeneration }, entries,
+                    [...program.values].map(([location, values]) => ({location, values})))])] };
         },
         forwardOpcode(shadow, fn, bytes, view, offset, size) {
             if (fn !== GLFN.LINK_PROGRAM || !shadow.current || size < 4) return;

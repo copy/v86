@@ -58,8 +58,8 @@ try {
     const linked = t.linkProgram(unit(["float shared; float helper(); void main(){float x=helper();gl_Position=vec4(x+shared);}",
         "float shared=0.5;float helper(){shared+=0.25;return shared;}"], "vertex"), t.compileShader("void main(){gl_FragColor=vec4(1.0);}", "fragment"));
     assert.ok(linked.ok, linked.log);
-    assert.equal(linked.wgslVertex.match(/var<private> shared_ /g).length, 1, "one storage cell for a shared global");
-    assert.match(linked.wgslVertex, /shared_ = 0\.5/);
+    assert.equal(linked.wgslVertex.split("var<private> " + t.safeName("shared") + " ").length - 1, 1, "one storage cell for a shared global");
+    assert.ok(linked.wgslVertex.includes(t.safeName("shared") + " = 0.5"));
     const library = t.compileShader("vec4 helper(){return vec4(1.0);}", "vertex", { library: true });
     assert.ok(library.ok, library.log);
     assert.equal(t.linkProgram(library, t.compileShader("void main(){gl_FragColor=vec4(1.0);}", "fragment")).ok, false);

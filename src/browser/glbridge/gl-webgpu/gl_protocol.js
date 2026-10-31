@@ -275,7 +275,7 @@
         ["EVAL_MESH", 248, null, "u:dimensions u:mode i:indices[4]"],
         ["QUERY_EVALUATOR", 249, null, "u:pname u:value_kind u:status u:count u:data_size u:error u:target u:reserved"],
         ["RESOLVED_EVAL_VERTEX", 250, null, "f:position[4] f:color[4] f:normal[4] f:texcoord[4]"],
-        ["RESOLVED_PROGRAM_INTERFACE", 251, null, "u:program u:object_id u:link_generation u:entry_count u:data_size u:reserved"],
+        ["RESOLVED_PROGRAM_INTERFACE", 251, null, "u:program u:object_id u:link_generation u:entry_count u:data_size u:initializer_count"],
         ["INDEX_STATE", 252, null, "u:operation u:mask d:value"],
         ["ACTIVE_STENCIL_FACE", 253, "ActiveStencilFaceEXT", "u"],
     ];
@@ -524,14 +524,20 @@
         return bytes;
     }
 
-    function encodeProgramInterface(fields, entries) {
+    function encodeProgramInterface(fields, entries, initializers = []) {
         const text = new TextEncoder(), rows = entries.map(entry => ({ entry, name: text.encode(entry.name) })), header = RECORDS.RESOLVED_PROGRAM_INTERFACE.size,
-            dataSize = rows.reduce((sum, row) => sum + RECORDS.PROGRAM_INTERFACE_ENTRY.size + Math.ceil(row.name.length / 4) * 4, 0), bytes = new Uint8Array(header + dataSize);
-        bytes.set(encodeRecord("RESOLVED_PROGRAM_INTERFACE", { ...fields, entry_count: rows.length, data_size: dataSize }));
+            dataSize = rows.reduce((sum, row) => sum + RECORDS.PROGRAM_INTERFACE_ENTRY.size + Math.ceil(row.name.length / 4) * 4, 0) +
+                initializers.reduce((sum, row) => sum + 8 + row.values.length * 8, 0), bytes = new Uint8Array(header + dataSize);
+        bytes.set(encodeRecord("RESOLVED_PROGRAM_INTERFACE", { ...fields, entry_count: rows.length, data_size: dataSize, initializer_count: initializers.length }));
         let at = header;
         for (const { entry, name } of rows) {
             bytes.set(encodeRecord("PROGRAM_INTERFACE_ENTRY", { ...entry, name_length: name.length }), at); at += RECORDS.PROGRAM_INTERFACE_ENTRY.size;
             bytes.set(name, at); at += Math.ceil(name.length / 4) * 4;
+        }
+        const view = new DataView(bytes.buffer);
+        for (const row of initializers) {
+            view.setInt32(at, row.location, true);view.setUint32(at + 4, row.values.length, true);at += 8;
+            for (const value of row.values) {view.setFloat64(at, value, true);at += 8;}
         }
         return bytes;
     }
@@ -539,8 +545,8 @@
     function decodeProgramInterface(view, offset, size) {
         const header = RECORDS.RESOLVED_PROGRAM_INTERFACE.size, rowSize = RECORDS.PROGRAM_INTERFACE_ENTRY.size;
         if (size < header) throw new Error("short GL program interface");
-        const r = decodeRecord("RESOLVED_PROGRAM_INTERFACE", view, offset), entries = [], text = new TextDecoder("utf-8", { fatal: true });
-        if (!r.object_id || !r.link_generation || r.entry_count > 32768 || r.data_size !== size - header) throw new Error("invalid GL program interface header");
+        const r = decodeRecord("RESOLVED_PROGRAM_INTERFACE", view, offset), entries = [], initializers = [], text = new TextDecoder("utf-8", { fatal: true });
+        if (!r.object_id || !r.link_generation || r.entry_count > 32768 || r.initializer_count > 32768 || r.data_size !== size - header) throw new Error("invalid GL program interface header");
         let at = offset + header;
         for (let i = 0; i < r.entry_count; ++i) {
             if (at + rowSize > offset + size) throw new Error("short GL program interface entry");
@@ -550,8 +556,16 @@
             entry.name = text.decode(new Uint8Array(view.buffer, view.byteOffset + at, entry.name_length));
             at += Math.ceil(entry.name_length / 4) * 4; entries.push(entry);
         }
+        for (let i = 0; i < r.initializer_count; ++i) {
+            if (at + 8 > offset + size) throw new Error("short GL uniform initializer");
+            const location = view.getInt32(at, true), count = view.getUint32(at + 4, true);at += 8;
+            if (location < 0 || count < 1 || count > 16 || at + count * 8 > offset + size) throw new Error("invalid GL uniform initializer");
+            const values = [];
+            for (let k = 0; k < count; ++k) {values.push(view.getFloat64(at, true));at += 8;}
+            initializers.push({location, values});
+        }
         if (at !== offset + size) throw new Error("invalid GL program interface span");
-        return { ...r, entries };
+        return { ...r, entries, initializers };
     }
 
     function isRejected(opcode) {

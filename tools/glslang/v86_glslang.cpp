@@ -27,6 +27,9 @@
 #include <functional>
 #include <memory>
 #include <map>
+#include <cmath>
+#include <sstream>
+#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -379,6 +382,53 @@ void desktop_global_initializers(glslang::TShader& shader)
     }
 }
 
+// Preserve desktop uniform defaults as values, independently of code generation.
+void json_desktop_initializers(std::string& out, std::vector<std::unique_ptr<glslang::TShader>>& shaders)
+{
+    class Defaults : public glslang::TIntermTraverser {
+    public:
+        std::map<std::string, std::vector<double>> values;
+        void visitSymbol(glslang::TIntermSymbol* symbol) override {
+            if(symbol->getQualifier().storage != glslang::EvqUniform || !symbol->getConstArray().size()) return;
+            int at = 0;flatten(symbol->getName().c_str(), symbol->getType(), symbol->getConstArray(), at);
+        }
+        void flatten(const std::string& name, const glslang::TType& type, const glslang::TConstUnionArray& data, int& at) {
+            if(type.isArray()) {
+                glslang::TType element(type, 0);
+                if(element.isStruct()) {
+                    for(int i = 0; i < type.getOuterArraySize(); ++i) flatten(name + "[" + std::to_string(i) + "]", element, data, at);
+                    return;
+                }
+            } else if(type.isStruct()) {
+                for(const auto& member : *type.getStruct()) flatten(name + "." + member.type->getFieldName().c_str(), *member.type, data, at);
+                return;
+            }
+            std::vector<double> row;
+            for(int i = 0; i < type.computeNumComponents() && at < data.size(); ++i, ++at) {
+                const auto& value = data[at];double number = 0;
+                switch(value.getType()) {
+                case glslang::EbtBool: number = value.getBConst();break;
+                case glslang::EbtInt: number = value.getIConst();break;
+                case glslang::EbtUint: number = value.getUConst();break;
+                default: number = value.getDConst();break;
+                }
+                row.push_back(std::isfinite(number) ? number : 0);
+            }
+            values[name] = row;
+        }
+    } defaults;
+    for(auto& shader : shaders) shader->getIntermediate()->getTreeRoot()->traverse(&defaults);
+    out += ",\"initializers\":{";bool first = true;
+    for(const auto& entry : defaults.values) {
+        if(!first) out += ',';first = false;json_string(out, entry.first);out += ":[";
+        for(size_t i = 0; i < entry.second.size(); ++i) {
+            if(i) out += ',';std::ostringstream number;number << std::setprecision(17) << entry.second[i];out += number.str();
+        }
+        out += ']';
+    }
+    out += '}';
+}
+
 /** Desktop GLSL's limits, as v86_glslang_limits sets the ES ones */
 __attribute__((export_name("v86_glslang_desktop_limits")))
 void v86_glslang_desktop_limits(char* config)
@@ -434,6 +484,7 @@ int v86_glslang_desktop_link(const uint8_t* packed, uint32_t length)
     output += ",\"log\":";
     json_string(output, log);
     if(ok && program.buildReflection(CHECK_REFLECTION)) json_reflection(output, program);
+    if(ok) json_desktop_initializers(output, shaders);
     output += '}';
     return ok ? 1 : 0;
 }

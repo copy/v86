@@ -1,5 +1,8 @@
 # OpenGL 代理 → WebGPU 代码审查与重构建议
 
+> **E1 修复复核（2026-10-31）**：S2-40 的标识符逃逸、uniform 存储/值类型分离、常量算术生成，以及 S2-41 的数组语法、兼容声明、shadow bias 和 uniform 初值已修复。27 对新编译回归经 Naga；21 对经真实 Tint，18 个有定义的场景完整像素同时匹配 Apple GL、Mesa；两种传输模式均通过，新增变异 16/16。初值由 CPU glslang 导出，覆盖查询、存档、重链和页面存储；运行时编译失败回报仍由 E3 完成。原审查的 `filter` 例子并非合法 GLSL 1.20（glslang 报保留字），新语料使用合法的 target/self/type 等；下方原始问题记录保留历史。
+
+
 审查对象：Windows XP 客体的 `opengl32.dll` 代理（OpenGL 1.1–2.1 + WGL），以及宿主的 `gl-webgpu` 执行器、GLSL/ARB 翻译器和固定管线生成器。
 基线：v86 `e92fd4f0`（`ios6` 分支；`gl-webgpu/` 中只有 `gl_shader_translator.js` 与 `master` 不同，多了 GLES 3.x L0 的 240 行），retro-gaming-site `43c4d1e`。日期 2026-10-29。
 性质：本文保留修复前的审查基线，已提交；当前修复进度和验收结果见 [`opengl-webgpu-plan.md`](opengl-webgpu-plan.md)。它是 [`d3d-webgpu-review.md`](d3d-webgpu-review.md) 的姊妹篇。两条路径共用 `v86gl.sys`、`v86gl_device.js`、`graphics_proxy.js`、`v86_network_bridge.js` 和 `webgpu_host.js`，交叉问题在文中注明。

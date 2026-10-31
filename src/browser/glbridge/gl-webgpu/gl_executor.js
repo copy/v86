@@ -3654,6 +3654,18 @@
             program.link = link; program.variants.clear();
             for (const entry of r.entries) if (entry.location_kind === protocol.C.V86GL_LOCATION_KIND_UNIFORM)
                 this.adoptLocation(entry.location_kind, r.program, entry.name, entry.location);
+            for (const initial of r.initializers) {
+                const entry = program.uniformByLocation.get(initial.location);
+                if (!entry?.uniform) continue;
+                const uniform = entry.uniform, base = uniform.offsetBytes + entry.element * uniform.arrayStrideBytes,
+                    matrix = uniform.kind === "matrix", rows = matrix ? uniform.rows : uniform.components;
+                for (let i = 0; i < initial.values.length; ++i) {
+                    const at = (base + (matrix ? Math.floor(i / rows) * uniform.matrixColumnStrideBytes + i % rows * 4 : i * 4)) / 4;
+                    if (uniform.baseType === "float") program.uniformFloats[at] = initial.values[i];
+                    else program.uniformInts[at] = uniform.baseType === "bool" ? +!!initial.values[i] : initial.values[i];
+                }
+            }
+            ++program.serial;
         });
         define("PROGRAM_LINK_FAILED", function(a) {
             const program = this.current.shareGroup.programs.get(a[0] >>> 0);

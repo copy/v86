@@ -28,7 +28,7 @@
     const stateLayout = (typeof require === "function" && typeof module !== "undefined") ?
         require("./gl_state_layout.js") : global.GLStateLayout;
 
-    const TRANSLATOR_REVISION = 6;
+    const TRANSLATOR_REVISION = 7;
 
     // A capture invocation runs the actual vertex program, with the same
     // uniforms and textures as a draw. Keep GL clip coordinates for the CPU
@@ -177,7 +177,7 @@
         case "array":
             return "array<" + typeToWGSL(t.elem) + ", " + t.size + ">";
         case "struct":
-            return t.name;
+            return safeName(t.name);
         default:
             throw new Error("no WGSL type for " + t.kind);
         }
@@ -910,6 +910,7 @@
             this.structs = new Map();   // name -> type, so the statement parser
                                         // can tell a declaration from an
                                         // expression that starts with an ident
+            this.constants = Object.create(null);
         }
 
         peek(offset) { return this.tokens[this.pos + (offset || 0)]; }
@@ -966,6 +967,12 @@
 
             const line = this.line;
             const qualifiers = this.parseQualifiers();
+            if (qualifiers.invariant && !qualifiers.storage && this.peek().type === "ident") {
+                const names = [this.expectIdent()];
+                while (this.accept(",")) names.push(this.expectIdent());
+                this.expect(";");
+                return { kind: "InvariantDecl", names, line };
+            }
 
             // struct S { ... } [name];
             if (this.at("struct")) {
@@ -994,6 +1001,10 @@
 
             if (this.at(";")) { this.next(); return null; }  // bare type spec
             const declarators = this.parseDeclaratorList(type);
+            if (qualifiers.storage === "const") for (const d of declarators) if (d.init) {
+                const value = foldConstantInt(d.init, this.constants);
+                if (value !== null) this.constants[d.name] = value;
+            }
             this.expect(";");
             return { kind: "VarDecl", qualifiers, type, declarators, line };
         }
@@ -1097,7 +1108,7 @@
          * here and defers anything else. */
         parseConstantIndex() {
             const expr = this.parseAssignment();
-            const value = foldConstantInt(expr);
+            const value = foldConstantInt(expr, this.constants);
             if (value === null)
                 fail(this.line, "array size must be an integral constant expression");
             if (value <= 0) fail(this.line, "array size must be positive");
@@ -1138,6 +1149,7 @@
         parseBlock() {
             const line = this.line;
             this.expect("{");
+            const previous = this.constants;this.constants = Object.create(previous);
             const stmts = [];
             while (!this.at("}")) {
                 if (this.peek().type === "eof") fail(line, "unterminated block");
@@ -1145,6 +1157,7 @@
                 if (s) stmts.push(s);
             }
             this.expect("}");
+            this.constants = previous;
             return { kind: "Block", stmts, line };
         }
 
@@ -1230,6 +1243,10 @@
             }
             const type = this.parseTypeSpecifier();
             const declarators = this.parseDeclaratorList(type);
+            if (qualifiers.storage === "const") for (const d of declarators) if (d.init) {
+                const value = foldConstantInt(d.init, this.constants);
+                if (value !== null) this.constants[d.name] = value;
+            }
             this.expect(";");
             return { kind: "VarDecl", qualifiers, type, declarators, line };
         }
@@ -1374,6 +1391,9 @@
                     const line = t.line;
                     this.next();
                     const name = this.expectIdent();
+                    if (name === "length" && this.accept("(")) {
+                        this.expect(")");expr = { kind: "ArrayLength", object: expr, line };continue;
+                    }
                     expr = { kind: "Field", object: expr, name, line };
                     continue;
                 }
@@ -1406,9 +1426,15 @@
             // Constructors read as calls whose callee names a type.
             if (t.type === "keyword" && BASIC_TYPES[t.value]) {
                 this.next();
+                let constructType = BASIC_TYPES[t.value];
+                if (this.accept("[")) {
+                    const size = this.at("]") ? -1 : this.parseConstantIndex();
+                    this.expect("]");constructType = arrayOf(constructType, size);
+                }
                 const args = this.parseArguments();
+                if (constructType.kind === "array" && constructType.size < 0) constructType = arrayOf(constructType.elem, args.length);
                 return { kind: "Call", callee: t.value, args,
-                         constructType: BASIC_TYPES[t.value], line: t.line };
+                         constructType, line: t.line };
             }
             if (t.type === "ident") {
                 this.next();
@@ -1447,7 +1473,7 @@
         switch (expr.kind) {
         case "IntLit": return expr.value;
         case "Ident": {
-            if (env && Object.prototype.hasOwnProperty.call(env, expr.name)) {
+            if (env && expr.name in env) {
                 const v = env[expr.name];
                 return typeof v === "number" ? (v | 0) : null;
             }
@@ -1743,10 +1769,12 @@
         textureLookup({ name: "shadow1D", samplerType: F.sampler1DShadow, coordType: F.vec3, bias: true });
         textureLookup({ name: "shadow1DLod", samplerType: F.sampler1DShadow, coordType: F.vec3, lod: true });
         textureLookup({ name: "shadow1DProj", samplerType: F.sampler1DShadow, coordType: F.vec4, proj: true });
+        textureLookup({ name: "shadow1DProj", samplerType: F.sampler1DShadow, coordType: F.vec4, proj: true, bias: true });
         textureLookup({ name: "shadow2D", samplerType: F.sampler2DShadow, coordType: F.vec3 });
         textureLookup({ name: "shadow2D", samplerType: F.sampler2DShadow, coordType: F.vec3, bias: true });
         textureLookup({ name: "shadow2DLod", samplerType: F.sampler2DShadow, coordType: F.vec3, lod: true });
         textureLookup({ name: "shadow2DProj", samplerType: F.sampler2DShadow, coordType: F.vec4, proj: true });
+        textureLookup({ name: "shadow2DProj", samplerType: F.sampler2DShadow, coordType: F.vec4, proj: true, bias: true });
         textureLookup({ name: "shadow2DProjLod", samplerType: F.sampler2DShadow, coordType: F.vec4, proj: true, lod: true });
         textureLookup({ name: "shadow2DRect", samplerType: F.sampler2DRectShadow, coordType: F.vec3 });
         textureLookup({ name: "shadow2DRectProj", samplerType: F.sampler2DRectShadow, coordType: F.vec4, proj: true });
@@ -2133,6 +2161,13 @@
             for (const decl of this.ast.decls) {
                 switch (decl.kind) {
                 case "StructDecl": break;      // the parser already interned it
+                case "InvariantDecl":
+                    for (const name of decl.names) {
+                        const symbol = this.globalScope.lookup(name);
+                        if (!symbol) fail(decl.line, "unknown invariant '" + name + "'");
+                        symbol.invariant = true;
+                    }
+                    break;
                 case "VarDecl": this.globalVarDecl(decl); break;
                 case "FunctionProto": break;
                 case "FunctionDef": this.functionBody(decl); break;
@@ -2244,6 +2279,11 @@
                         "' is not supported; give it an explicit size");
                 }
                 const existing = this.globalScope.names.get(d.name);
+                if (existing && ["compatVaryingIn", "compatVaryingOut"].includes(existing.kind) && storage === "varying") {
+                    if (type.kind !== "array" || existing.type.kind !== "array" || !sameType(type.elem, existing.type.elem) || type.size > existing.type.size)
+                        fail(d.line, "incompatible built-in varying redeclaration");
+                    existing.type = type;d.symbol = existing;continue;
+                }
                 if (existing && existing.kind !== "builtinConst")
                     fail(d.line, "'" + d.name + "' is already declared");
 
@@ -2292,9 +2332,6 @@
             if (leafSamplers.length) {
                 // (an array of samplers is one leaf of arraySize elements)
                 const elements = leafSamplers.reduce((n, leaf) => n + Math.max(1, leaf.arraySize), 0);
-                if (elements !== countLeaves(type))
-                    fail(line, "a struct mixing samplers with other members is " +
-                        "not supported: " + name);
                 for (const leaf of leafSamplers) {
                     this.usage.samplers.push({
                         name: leaf.path, type: leaf.type,
@@ -2303,7 +2340,7 @@
                     });
                 }
                 this.usage.uniformByName.set(name, { name, type, sampler: true });
-                return;
+                if (elements === countLeaves(type)) return;
             }
             const entry = { name, type };
             this.usage.uniforms.push(entry);
@@ -2483,6 +2520,10 @@
             case "Index": return this.index(node);
             case "Field": return this.field(node);
             case "Call": return this.call(node);
+            case "ArrayLength":
+                this.expr(node.object);
+                if (node.object.type.kind !== "array") fail(node.line, ".length() requires an array");
+                node.value = node.object.type.size;node.nonUniform = false;return T.int;
             default:
                 fail(node.line, "unsupported expression " + node.kind);
             }
@@ -3015,6 +3056,11 @@
                 target.fields.forEach((f, i) => this.coerce(args[i], f.type, node.line));
                 return target;
             }
+            if (target.kind === "array") {
+                if (args.length !== target.size) fail(node.line, "array constructor size mismatch");
+                for (const arg of args) this.coerce(arg, target.elem, node.line);
+                return target;
+            }
             if (target.kind === "scalar") {
                 if (args.length !== 1)
                     fail(node.line, target.name + "() takes one argument");
@@ -3208,7 +3254,7 @@
          * to read it: `read` for a plain value, `readIndexed` for an array. */
         add(name, type) {
             const offset = roundUp(this.cursor, 16);
-            const wgslName = "u_" + name;
+            const wgslName = "u_" + safeName(name);
             const descriptor = this.place(name, wgslName, type, offset);
             this.cursor = offset + descriptor.sizeBytes;
             this.members.push({
@@ -3290,9 +3336,10 @@
         placeStructLeaves(glslPath, wgslExpr, type, offset) {
             let cursor = offset;
             for (const field of type.fields) {
+                if (field.type.kind === "sampler" || field.type.kind === "array" && field.type.elem.kind === "sampler") continue;
                 const fieldOffset = roundUp(cursor, 16);
                 const path = glslPath + "." + field.name;
-                const expr = wgslExpr + "." + field.name;
+                const expr = wgslExpr + "." + safeName(field.name);
                 if (field.type.kind === "struct") {
                     this.placeStructLeaves(path, expr, field.type, fieldOffset);
                     cursor = fieldOffset + this.structSizeBytes(field.type);
@@ -3340,6 +3387,7 @@
         structSizeBytes(type) {
             let cursor = 0;
             for (const field of type.fields) {
+                if (field.type.kind === "sampler" || field.type.kind === "array" && field.type.elem.kind === "sampler") continue;
                 cursor = roundUp(cursor, 16);
                 if (field.type.kind === "struct")
                     cursor += this.structSizeBytes(field.type);
@@ -3355,22 +3403,15 @@
             return roundUp(cursor, 16);
         }
 
-        /*
-         * A uniform struct keeps the user's own type name.
-         *
-         * Declaring a separate padded twin was the obvious design and the wrong
-         * one: WGSL types are nominal, so `f(lights[0])` then fails to match a
-         * parameter declared with the GLSL struct. Emitting one type -- the
-         * user's, with @align/@size on its members -- means a uniform struct and
-         * a local of the same GLSL type really are the same WGSL type. The
-         * padding costs a few bytes on locals and nothing else.
-         */
+        // Uniform storage has padding, widened arrays and integer booleans.
+        // Explicit value conversion preserves ordinary GLSL struct/array types.
         declareStruct(type) {
             if (this.structNames.has(type.name)) return this.structNames.get(type.name);
-            const wgslName = safeName(type.name);
+            const wgslName = "vgl_storage_" + safeName(type.name);
             this.structNames.set(type.name, wgslName);
             const lines = ["struct " + wgslName + " {"];
             for (const field of type.fields) {
+                if (field.type.kind === "sampler" || field.type.kind === "array" && field.type.elem.kind === "sampler") continue;
                 let wgslType;
                 let size;
                 if (field.type.kind === "struct") {
@@ -3389,7 +3430,7 @@
                     size = roundUp(naturalSizeBytes(field.type), 16);
                 }
                 lines.push("    @align(16) @size(" + size + ") " +
-                    field.name + " : " + wgslType + ",");
+                    safeName(field.name) + " : " + wgslType + ",");
             }
             lines.push("}");
             this.structs.push(lines.join("\n"));
@@ -3638,26 +3679,71 @@
     /* Code generation                                                    */
     /* ================================================================== */
 
+    // WGSL keyword/builtin namespace (Naga 30; W3C WGSL keyword summary).
+    // Escape the escape prefix too: two different GLSL names never collapse.
     const WGSL_RESERVED = new Set([
-        "shared",
-        "alias", "break", "case", "const", "const_assert", "continue",
-        "continuing", "default", "diagnostic", "discard", "else", "enable",
-        "false", "fn", "for", "if", "let", "loop", "override", "requires",
-        "return", "struct", "switch", "true", "var", "while",
-        "array", "atomic", "bool", "f16", "f32", "i32", "mat2x2", "mat2x3",
-        "mat2x4", "mat3x2", "mat3x3", "mat3x4", "mat4x2", "mat4x3", "mat4x4",
-        "ptr", "sampler", "sampler_comparison", "texture_1d", "texture_2d",
-        "texture_2d_array", "texture_3d", "texture_cube", "texture_cube_array",
-        "texture_depth_2d", "u32", "vec2", "vec3", "vec4",
-        "glState", "glUniforms",
+        "alias", "break", "case", "const", "const_assert", "continue", "continuing", "default",
+        "diagnostic", "discard", "else", "enable", "false", "fn", "for", "if",
+        "let", "loop", "override", "requires", "return", "struct", "switch", "true",
+        "var", "while", "NULL", "Self", "abstract", "active", "alignas", "alignof",
+        "as", "asm", "asm_fragment", "async", "attribute", "auto", "await", "become",
+        "cast", "catch", "class", "co_await", "co_return", "co_yield", "coherent", "column_major",
+        "common", "compile", "compile_fragment", "concept", "const_cast", "consteval", "constexpr", "constinit",
+        "crate", "debugger", "decltype", "delete", "demote", "demote_to_helper", "do", "dynamic_cast",
+        "enum", "explicit", "export", "extends", "extern", "external", "fallthrough", "filter",
+        "final", "finally", "friend", "from", "fxgroup", "get", "goto", "groupshared",
+        "highp", "impl", "implements", "import", "inline", "instanceof", "interface", "layout",
+        "lowp", "macro", "macro_rules", "match", "mediump", "meta", "mod", "module",
+        "move", "mut", "mutable", "namespace", "new", "nil", "noexcept", "noinline",
+        "nointerpolation", "non_coherent", "noncoherent", "noperspective", "null", "nullptr", "of", "operator",
+        "package", "packoffset", "partition", "pass", "patch", "pixelfragment", "precise", "precision",
+        "premerge", "priv", "protected", "pub", "public", "readonly", "ref", "regardless",
+        "register", "reinterpret_cast", "require", "resource", "restrict", "self", "set", "shared",
+        "sizeof", "smooth", "snorm", "static", "static_assert", "static_cast", "std", "subroutine",
+        "super", "target", "template", "this", "thread_local", "throw", "trait", "try",
+        "type", "typedef", "typeid", "typename", "typeof", "union", "unless", "unorm",
+        "unsafe", "unsized", "use", "using", "varying", "virtual", "volatile", "wgsl",
+        "where", "with", "writeonly", "yield", "bool", "i32", "u32", "f32",
+        "f16", "array", "atomic", "vec2", "vec3", "vec4", "mat2x2", "mat2x3",
+        "mat2x4", "mat3x2", "mat3x3", "mat3x4", "mat4x2", "mat4x3", "mat4x4", "ptr",
+        "sampler", "sampler_comparison", "texture_1d", "texture_2d", "texture_2d_array", "texture_3d", "texture_cube", "texture_cube_array",
+        "texture_multisampled_2d", "texture_depth_multisampled_2d", "texture_external", "texture_storage_1d", "texture_storage_2d", "texture_storage_2d_array", "texture_storage_3d", "texture_depth_2d",
+        "texture_depth_2d_array", "texture_depth_cube", "texture_depth_cube_array", "read", "write", "read_write", "function", "private",
+        "workgroup", "uniform", "storage", "rgba8unorm", "rgba8snorm", "rgba8uint", "rgba8sint", "rgba16unorm",
+        "rgba16snorm", "rgba16uint", "rgba16sint", "rgba16float", "rg8unorm", "rg8snorm", "rg8uint", "rg8sint",
+        "rg16unorm", "rg16snorm", "rg16uint", "rg16sint", "rg16float", "r32uint", "r32sint", "r32float",
+        "rg32uint", "rg32sint", "rg32float", "rgba32uint", "rgba32sint", "rgba32float", "bgra8unorm", "r8unorm",
+        "r8snorm", "r8uint", "r8sint", "r16unorm", "r16snorm", "r16uint", "r16sint", "r16float",
+        "rgb10a2unorm", "rgb10a2uint", "rg11b10ufloat", "bitcast", "all", "any", "select", "arrayLength",
+        "abs", "acos", "acosh", "asin", "asinh", "atan", "atanh", "atan2",
+        "ceil", "clamp", "cos", "cosh", "countLeadingZeros", "countOneBits", "countTrailingZeros", "cross",
+        "degrees", "determinant", "distance", "dot", "dot4U8Packed", "dot4I8Packed", "exp", "exp2",
+        "extractBits", "faceForward", "firstLeadingBit", "firstTrailingBit", "floor", "fma", "fract", "frexp",
+        "insertBits", "inverseSqrt", "ldexp", "length", "log", "log2", "max", "min",
+        "mix", "modf", "normalize", "pow", "quantizeToF16", "radians", "reflect", "refract",
+        "reverseBits", "round", "saturate", "sign", "sin", "sinh", "smoothstep", "sqrt",
+        "step", "tan", "tanh", "transpose", "trunc", "dpdx", "dpdxCoarse", "dpdxFine",
+        "dpdy", "dpdyCoarse", "dpdyFine", "fwidth", "fwidthCoarse", "fwidthFine", "textureDimensions", "textureGather",
+        "textureGatherCompare", "textureLoad", "textureNumLayers", "textureNumLevels", "textureNumSamples", "textureSample", "textureSampleBias", "textureSampleCompare",
+        "textureSampleCompareLevel", "textureSampleGrad", "textureSampleLevel", "textureSampleBaseClampToEdge", "textureStore", "atomicLoad", "atomicStore", "atomicAdd",
+        "atomicSub", "atomicMax", "atomicMin", "atomicAnd", "atomicOr", "atomicXor", "atomicExchange", "atomicCompareExchangeWeak",
+        "pack4x8snorm", "pack4x8unorm", "pack4xI8", "pack4xU8", "pack4xI8Clamp", "pack4xU8Clamp", "pack2x16snorm", "pack2x16unorm",
+        "pack2x16float", "unpack4x8snorm", "unpack4x8unorm", "unpack4xI8", "unpack4xU8", "unpack2x16snorm", "unpack2x16unorm", "unpack2x16float",
+        "storageBarrier", "textureBarrier", "workgroupBarrier", "workgroupUniformLoad", "subgroupAdd", "subgroupExclusiveAdd", "subgroupInclusiveAdd", "subgroupAll",
+        "subgroupAnd", "subgroupAny", "subgroupBallot", "subgroupBroadcast", "subgroupBroadcastFirst", "subgroupElect", "subgroupMax", "subgroupMin",
+        "subgroupMul", "subgroupExclusiveMul", "subgroupInclusiveMul", "subgroupOr", "subgroupShuffle", "subgroupShuffleDown", "subgroupShuffleUp", "subgroupShuffleXor",
+        "subgroupXor", "quadBroadcast", "quadSwapDiagonal", "quadSwapX", "quadSwapY", "i64", "u64", "f64",
+        "push_constant", "r64uint", "glState", "glUniforms", "fsin", "vsin", "out",
     ]);
 
     function safeName(name) {
-        return WGSL_RESERVED.has(name) ? name + "_" : name;
+        if (!WGSL_RESERVED.has(name) && !["GLState", "GLUniforms", "VSIn", "VSOut", "FSIn", "FSOut"].includes(name) &&
+                !/^(?:__|vgl_|glsl_|_t[0-9]|[uts]_|u_at_|gl_sampler_index_)/.test(name) && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return name;
+        return "vgl_" + Array.from(name, c => c.charCodeAt(0).toString(16)).join("_");
     }
 
     function floatLiteral(value) {
-        if (!isFinite(value))
+        if (!isFinite(Math.fround(value)))
             return value > 0 ? "3.4028235e38" : (value < 0 ? "-3.4028235e38" : "0.0");
         if (Number.isInteger(value) && Math.abs(value) < 1e15)
             return value.toFixed(1);
@@ -3772,11 +3858,7 @@
 
         emitUserStructs() {
             const seen = new Set();
-            // Anything the uniform block already declared is emitted there,
-            // with its alignment attributes; emitting it again would be a
-            // duplicate definition of the same name.
-            for (const name of this.iface.uniformLayout.structNames.keys())
-                seen.add(name);
+            // Value structs are distinct from the padded, integer-backed storage twins.
             const emitStruct = type => {
                 if (seen.has(type.name)) return;
                 seen.add(type.name);
@@ -3786,7 +3868,7 @@
                         emitStruct(f.type.elem);
                 this.emit("struct " + safeName(type.name) + " {");
                 ++this.indent;
-                for (const f of type.fields)
+                for (const f of type.fields) if (f.type.kind !== "sampler" && !(f.type.kind === "array" && f.type.elem.kind === "sampler"))
                     this.emit(safeName(f.name) + " : " + typeToWGSL(f.type) + ",");
                 --this.indent;
                 this.emit("}");
@@ -4190,12 +4272,31 @@
          * and swizzle assignment (WGSL allows `v.x = e` but not `v.xy = e`).
          */
         genExpr(node, pre, targetType, asStatement) {
-            let text = this.genExprInner(node, pre, asStatement);
+            let text = this.rootsAtUniform(node) && node.type.kind !== "sampler" ?
+                this.uniformRead(node, pre) : this.genExprInner(node, pre, asStatement);
             const conv = targetType && !sameType(node.type, targetType) ?
                 targetType : node.convertTo;
             if (conv && !sameType(node.type, conv))
                 text = typeToWGSL(conv) + "(" + text + ")";
             return text;
+        }
+
+        uniformRead(node, pre) {
+            const access = n => {
+                if (n.kind === "Ident") return "glUniforms.u_" + safeName(n.symbol.name);
+                if (n.kind === "Field") return access(n.object) + "." + safeName(n.name);
+                return access(n.object) + "[" + this.genExpr(n.index, pre) + "]";
+            };
+            const convert = (type, expr, element) => {
+                if (type.kind === "struct") return typeToWGSL(type) + "(" + type.fields.map(f =>
+                    convert(f.type, expr + "." + safeName(f.name), false)).join(", ") + ")";
+                if (type.kind === "array") return typeToWGSL(type) + "(" + Array.from({length: type.size}, (_, i) =>
+                    convert(type.elem, expr + "[" + i + "]", true)).join(", ") + ")";
+                return (element ? uniformArrayElementFor(type) : uniformStorageFor(type)).read(expr);
+            };
+            // A GLSL swizzle acts on the converted value, not widened storage.
+            if (node.kind === "Field" && node.swizzle !== undefined) return this.genField(node, pre);
+            return convert(node.type, access(node), node.kind === "Index" && node.object.type.kind === "array");
         }
 
         genExprInner(node, pre, asStatement) {
@@ -4211,6 +4312,7 @@
             case "Assign": return this.genAssign(node, pre, asStatement);
             case "Conditional": return this.genConditional(node, pre);
             case "Call": return this.genCall(node, pre);
+            case "ArrayLength": this.genExpr(node.object, pre);return String(node.value);
             case "Sequence": {
                 const text = this.genExpr(node.left, pre, null, true);
                 if (text) pre.push("    ".repeat(0) + text + ";");
@@ -4339,7 +4441,10 @@
                 return tmp;
             }
             const left = this.genExpr(node.left, pre, node.left.convertTo);
-            const right = this.genExpr(node.right, pre, node.right.convertTo);
+            let right = this.genExpr(node.right, pre, node.right.convertTo);
+            if ((node.op === "/" || node.op === "%") && isConstantFoldable(node.right)) {
+                const tmp = this.temp();pre.push("var " + tmp + " : " + typeToWGSL(node.right.convertTo || node.right.type) + " = " + right + ";");right = tmp;
+            }
             if (node.op === "^^")
                 return "((" + left + ") != (" + right + "))";
             return this.binaryText(node.op, left, node.left.convertTo || node.left.type,
@@ -4525,6 +4630,12 @@
                 const args = node.args.map((a, i) =>
                     a.type.kind === "sampler" ? "" :
                     this.genExpr(a, pre, a.convertTo));
+                // Defer arithmetic whose GL result may be undefined to runtime.
+                if (!node.resolved.texture) node.args.forEach((arg, i) => {
+                    if (isConstantFoldable(arg)) {
+                        const tmp = this.temp();pre.push("var " + tmp + " : " + typeToWGSL(arg.convertTo || arg.type) + " = " + args[i] + ";");args[i] = tmp;
+                    }
+                });
                 return node.resolved.emit(args, node, this.emitContext(node, pre));
             }
             const overload = node.resolved;
@@ -4589,6 +4700,8 @@
                 return safeName(target.name) + "(" +
                     node.args.map((a, i) =>
                         this.genExpr(a, pre, target.fields[i].type)).join(", ") + ")";
+
+            if (target.kind === "array") return typeToWGSL(target) + "(" + node.args.map(a => this.genExpr(a, pre, target.elem)).join(", ") + ")";
 
             if (target.kind === "scalar")
                 return typeToWGSL(target) + "(" + scalarize(args[0]) + ")";
@@ -4671,6 +4784,15 @@
         }
 
         samplerPair(argNode) {
+            const path = node => {
+                if (node.kind === "Ident" && node.symbol?.kind === "uniform") return node.symbol.name;
+                if (node.kind === "Field") {const parent = path(node.object);return parent && parent + "." + node.name;}
+                if (node.kind === "Index" && node.constIndex !== null && node.constIndex !== undefined) {const parent = path(node.object);return parent && parent + "[" + node.constIndex + "]";}
+                return null;
+            };
+            const uniformPath = path(argNode), resource = this.iface.samplers.find(s => s.name === uniformPath);
+            if (resource) return { texture: "t_" + resource.wgslName, sampler: "s_" + resource.wgslName,
+                index: resource.binding / 2 + "u", dim: argNode.type.dim, shadow: argNode.type.shadow };
             if (argNode.kind === "Index") {
                 const base = argNode.object;
                 if (base.kind !== "Ident")
@@ -5106,7 +5228,7 @@
         case "Unary": return expr.op !== "++" && expr.op !== "--" &&
             isConstantFoldable(expr.operand);
         case "Binary":
-            return isConstantFoldable(expr.left) && isConstantFoldable(expr.right);
+            return expr.op !== "/" && expr.op !== "%" && isConstantFoldable(expr.left) && isConstantFoldable(expr.right);
         case "Call":
             return !!expr.constructType && expr.args.every(isConstantFoldable);
         case "Ident":
@@ -5332,7 +5454,7 @@
                     }
                     const entry = {
                         name: s.name,
-                        wgslName: safeName(s.name.replace(/[.\[\]]/g, "_")),
+                        wgslName: safeName(s.name),
                         type: s.type, arraySize: s.arraySize,
                         binding: bindingCursor,
                     };
