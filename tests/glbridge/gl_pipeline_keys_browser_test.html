@@ -1,0 +1,104 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Resolved program interfaces</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="../../src/browser/glbridge/graphics_journal.js"></script>
+<script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
+<script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="gl_selection_cases.js"></script>
+<script src="gl_evaluator_cases.js"></script>
+<script>
+(async () => {
+    "use strict";
+    const P=GLProtocol, {GLStream,GL}=GLTestStream, check=(ok,message)=>{if(!ok)throw new Error(message);};
+    const vertex="#version 120\nuniform float bias;void main(){gl_Position=gl_Vertex+vec4(bias,0,0,0);}",
+        red="#version 120\nvoid main(){gl_FragColor=vec4(1.0,0.0,0.0,1.0);}",blue=red.replace("1.0,0.0,0.0","0.0,0.0,1.0");
+    const build=s=>s.call("CREATE_PROGRAM",5).call("CREATE_SHADER",1,GL.VERTEX_SHADER).shaderSource(1,vertex).call("COMPILE_SHADER",1).call("ATTACH_SHADER",5,1)
+        .call("CREATE_SHADER",2,GL.FRAGMENT_SHADER).shaderSource(2,red).call("COMPILE_SHADER",2).call("ATTACH_SHADER",5,2).call("LINK_PROGRAM",5).call("USE_PROGRAM",5);
+    const original=GLShaderTranslator.hashString;GLShaderTranslator.hashString=()=>0;
+    try {
+        const compiler=new V86GLGlslang.Glslang(await WebAssembly.compile(await(await fetch("../../bios/glslang.wasm")).arrayBuffer()));
+        for(const copied of [false,true]) {
+            const cpu=new V86GLShadow.GLShadow(),gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();
+            cpu.setCapabilities(gpu.capabilities());cpu.setGlslang(compiler);
+            gpu.options.writeGuestMemory=(offset,data,metadata)=>metadata.guestBytes.set(data,offset+(metadata.originalOffset||0));
+            const submit=async s=>{
+                const bytes=s.bytes(),segments=cpu.process(bytes);
+                for(const segment of segments||[{offset:0,length:bytes.length}]) {
+                    const part=segment.bytes||bytes.subarray(segment.offset,segment.offset+segment.length);
+                    gpu.submit(copied?part.slice():part,{guestBytes:bytes,originalOffset:segment.bytes?0:segment.offset});
+                }
+                await gpu.idle();
+            };
+            const draw=async(expected,label)=>{
+                const s=new GLStream().call("CLEAR_COLOR",0,0,0,1).call("CLEAR",GL.COLOR_BUFFER_BIT).call("BEGIN",GL.TRIANGLES)
+                    .call("VERTEX3F",-1,-1,0).call("VERTEX3F",3,-1,0).call("VERTEX3F",-1,3,0).call("END"),pixels=s.readPixels(8,8,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);
+                await submit(s);check(pixels.view.getUint32(P.F.READ_PIXELS.status,true)===1,label+" readback");
+                const rgba=Array.from(pixels.bytes.subarray(P.RECORDS.READ_PIXELS.size));check(expected.every((x,i)=>Math.abs(x-rgba[i])<=1),label+": "+rgba);
+            };
+            await submit(build(new GLStream().makeCurrent(1,0,0,16,16,1,1)));await draw([255,0,0,255],"initial red");
+            const pipelines=gpu.pipelineCache.size;
+            await submit(new GLStream().call("STENCIL_FUNC",GL.NEVER,2,0x55).call("STENCIL_OP",GL.REPLACE,GL.REPLACE,GL.REPLACE));
+            await draw([255,0,0,255],"disabled stencil ignores remembered functions");check(gpu.pipelineCache.size===pipelines,"disabled state must reuse descriptor");
+            await submit(new GLStream().call("ENABLE",GL.STENCIL_TEST));await draw([0,0,0,255],"enabled NEVER rejects fragments");
+            await submit(new GLStream().call("DISABLE",GL.STENCIL_TEST));await draw([255,0,0,255],"disable reuses always/keep");
+            await submit(new GLStream().shaderSource(2,blue).call("COMPILE_SHADER",2).call("LINK_PROGRAM",5));await draw([0,0,255,255],"hash collision cannot alias changed source");
+            const beforeRelink=gpu.pipelineCache.size;await submit(new GLStream().call("LINK_PROGRAM",5));await draw([0,0,255,255],"successful relink");
+            check(gpu.pipelineCache.size>beforeRelink,"CPU link generation participates in identity");
+            await submit(new GLStream().shaderSource(2,"void main(){broken;}").call("COMPILE_SHADER",2).call("LINK_PROGRAM",5));await draw([0,0,255,255],"failed relink keeps installed code");
+            await submit(build(new GLStream().makeCurrent(2,0,0,16,16,2,2)));await draw([255,0,0,255],"same name in another share group");
+            for(const key of gpu.pipelineCache.keys())check(typeof key==="number","pipeline keys are integers");
+            check(cpu.current.error===0&&gpu.stats.refusals===0&&gpu.hostErrors.length===0&&gpu.gpuErrors.errors.length===0,"CPU/renderer/validation errors");
+            gpu.finishFrame(false);await gpu.idle();
+        }
+        document.getElementById("result").textContent="PASS integer pipeline descriptors: forced hash collisions, disabled stencil, CPU program/link identity and failed relinks in both modes";
+    } catch(error) {document.getElementById("result").textContent="FAIL "+error.stack;}
+    finally {GLShaderTranslator.hashString=original;}
+})();
+</script>

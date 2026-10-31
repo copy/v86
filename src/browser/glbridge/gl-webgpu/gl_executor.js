@@ -14,6 +14,7 @@
         typeof module !== "undefined") ? require : null;
     const protocol = nodeRequire ? nodeRequire("./gl_protocol.js") : global.GLProtocol;
     const glCaps = nodeRequire ? nodeRequire("./gl_caps.js") : global.GLCaps;
+    const { CacheKeys } = nodeRequire ? nodeRequire("./gl_cache_keys.js") : global.GLCacheKeys;
     const constants = nodeRequire ? nodeRequire("./gl_constants.js") :
         global.GLWGConstants;
     const stateLayout = nodeRequire ? nodeRequire("./gl_state_layout.js") :
@@ -1707,6 +1708,9 @@
             this.queries = new Map();
 
             this.pipelineCache = new Map();
+            this.pipelineKeys = new CacheKeys();this.linkKeys = new CacheKeys();this.variantKeys = new CacheKeys();
+            this.shaderCodeKeys = new CacheKeys();this.compiledPairKeys = new WeakMap();
+            this.pipelineKeyTables = new WeakMap();this.pipelineKeyTables.set(this.pipelineCache, this.pipelineKeys);
             this.bindGroupCache = new Map();
             // keys of bind groups WebGPU rejected; the cache itself is
             // cleared every frame
@@ -2967,21 +2971,6 @@
      * new string -- found the first program's pipeline). The length rides
      * along with the hash to make a collision a non-event.
      */
-    function codeKey(vertex, fragment) {
-        const text = vertex + "\n---\n" + fragment;
-        return translator.hashString(text).toString(16) + ":" + text.length;
-    }
-
-    // codeKey once per pair of compiled objects (the ARB paths ask every draw)
-    const codeKeys = new WeakMap();
-    function pairKey(first, second, vertex, fragment) {
-        let keys = codeKeys.get(first);
-        if (!keys) codeKeys.set(first, keys = new Map());
-        let key = keys.get(second);
-        if (key === undefined) keys.set(second, key = codeKey(vertex, fragment));
-        return key;
-    }
-
     /*
      * An ARB fragment program's result.color goes to every draw buffer
      * (ARB_draw_buffers without its option, review S1-2f): its one colour
@@ -3598,10 +3587,10 @@
             if (!program || !program.linked) return;
             const attributes = new Map(r.entries.filter(entry => entry.location_kind === LOCATION_KIND_ATTRIB).map(entry => [entry.name, entry.location]));
             program.adoptedAttribLocations = attributes;
+            program.cpuObjectId = r.object_id; program.cpuLinkGeneration = r.link_generation;
             const link = this.linkVariant(program, {});
             if (!link.ok) throw new GLStreamError("CPU program interface could not be installed: " + link.log);
             program.link = link; program.variants.clear();
-            program.cpuObjectId = r.object_id; program.cpuLinkGeneration = r.link_generation;
             for (const entry of r.entries) if (entry.location_kind === protocol.C.V86GL_LOCATION_KIND_UNIFORM)
                 this.adoptLocation(entry.location_kind, r.program, entry.name, entry.location);
         });
@@ -5494,6 +5483,7 @@
             program.log = "";
             program.validateLog = "program is not validated";
             const candidate = createProgram(name);
+            candidate.cacheOwner = program;
             candidate.bindAttribLocations = new Map(program.bindAttribLocations);
             const units = { vertex: [], fragment: [] };
             for (const shaderName of program.shaders) {
@@ -5528,18 +5518,21 @@
             program.log = link.log;
             this.buildUniformStorage(program, link.reflection);
             ++program.serial;
+            program.executableGeneration = (program.executableGeneration || 0) + 1;
         },
 
         variantKeyFor(variant) {
-            return [variant.alphaTest || "-", variant.clipPlaneCount || 0,
-                    variant.pointSprite ? "p" : "-",
-                    variant.pointCoordLowerLeft ? "l" : "u",
-                    variant.polygonStipple ? "s" : "-",
-                    "o" + (variant.logicOp || 0).toString(16),
-                    variant.twoSided ? "2" : "-",
-                    variant.flatShading ? "f" : "-",
-                    variant.programPointSize ? "z" : "-",
-                    variant.colorTargets || 1].join("|");
+            return this.variantKeys.key(variant);
+        },
+        codeKey(vertex, fragment) {
+            return this.shaderCodeKeys.key([vertex, fragment]);
+        },
+        pairKey(first, second, vertex, fragment) {
+            let keys = this.compiledPairKeys.get(first);
+            if (!keys) this.compiledPairKeys.set(first, keys = new Map());
+            let key = keys.get(second);
+            if (key === undefined) keys.set(second, key = this.codeKey(vertex, fragment));
+            return key;
         },
 
         // The application's bindings, and over them the locations the guest
@@ -5563,11 +5556,12 @@
             }
             // (the bindings are part of the key: a relink with others
             // assigns other locations)
-            const key = translator.hashString(
-                program.name + "|" + this.variantKeyFor(variant) + "|" +
-                (program.compiled.vertex.sourceHash >>> 0) + "|" +
-                (program.compiled.fragment.sourceHash >>> 0) + "|" +
-                [...bindings].sort((x, y) => x[0] < y[0] ? -1 : 1).join(";")).toString(16);
+            const owner = program.cacheOwner || program;
+            const key = this.linkKeys.key([
+                this.linkKeys.reference(owner), owner.cpuObjectId || 0, owner.cpuLinkGeneration || 0,
+                this.linkKeys.reference(program.compiled.vertex), this.linkKeys.reference(program.compiled.fragment),
+                variant, [...bindings].sort((x, y) => x[0] < y[0] ? -1 : 1),
+            ]);
             const cached = this.shaderCache.get(key);
             if (cached) {
                 ++this.stats.shaderCacheHits;
@@ -7128,16 +7122,7 @@
 
         clearPipeline(targets, clearColor, clearDepth, clearStencil) {
             const s = this.current;
-            const colorFormats = targets.color.map(target => target ?
-                target.format : "-").join(",");
-            const key = [colorFormats, targets.depthFormat || "-",
-                clearColor ? s.colorMask.map(v => v ? 1 : 0).join("") : "-",
-                clearDepth ? 1 : 0, clearStencil ?
-                    (s.stencil.front.writeMask >>> 0) : 0,
-                [...s.clearColor], s.clearDepth, targets.sampleCount || 1].join("|");
             this.clearPipelineCache = this.clearPipelineCache || new Map();
-            let pipeline = this.clearPipelineCache.get(key);
-            if (pipeline) return pipeline;
             const colorFields = clearColor ? targets.color.map((target, i) =>
                 target ? "    @location(" + i + ") color" + i +
                     " : vec4<f32>," : "").join("\n") : "";
@@ -7199,6 +7184,9 @@ ${fragmentCode}`;
                     } : {}),
                 };
             }
+            const key = this.renderPipelineKey(this.clearPipelineCache, descriptor);
+            let pipeline = this.clearPipelineCache.get(key);
+            if (pipeline) return pipeline;
             try {
                 pipeline = this.device.createRenderPipeline(descriptor);
             } catch (error) {
@@ -7856,7 +7844,7 @@ ${fragmentCode}`;
             const targets = this.colorTargetCount();
             return {
                 kind: "arb",
-                key: "arb" + pairKey(compiledVertex, compiledFragment, compiledVertex.wgsl,
+                key: "arb" + this.pairKey(compiledVertex, compiledFragment, compiledVertex.wgsl,
                     compiledFragment.wgsl) + (targets > 1 ? "x" + targets : ""),
                 wgslVertex: compiledVertex.wgsl,
                 wgslFragment: broadcastColor(compiledFragment.wgsl, targets),
@@ -7915,7 +7903,7 @@ ${fragmentCode}`;
             const targets = this.colorTargetCount();
             return {
                 kind: "arb",
-                key: "ff-arb-fp:" + pairKey(fixed, compiledFragment, fixed.wgslVertex, compiledFragment.wgsl) +
+                key: "ff-arb-fp:" + this.pairKey(fixed, compiledFragment, fixed.wgslVertex, compiledFragment.wgsl) +
                     (targets > 1 ? "x" + targets : ""),
                 wgslVertex: fixed.wgslVertex,
                 wgslFragment: broadcastColor(compiledFragment.wgsl, targets),
@@ -7955,7 +7943,7 @@ ${fragmentCode}`;
             }
 
             const forcedTexCoords = fixed.textures.map(entry => entry.unit);
-            const variantKey = fixed.key + "|tc=" + forcedTexCoords.join(",");
+            const variantKey = this.variantKeys.key([fixed.key, forcedTexCoords]);
             vertex.variants = vertex.variants || new Map();
             let compiledVertex = vertex.variants.get(variantKey);
             if (!compiledVertex) {
@@ -7975,7 +7963,7 @@ ${fragmentCode}`;
 
             return {
                 kind: "arb",
-                key: "arb-vp-ff:" + pairKey(compiledVertex, fixed, compiledVertex.wgsl, fixed.wgslFragment),
+                key: "arb-vp-ff:" + this.pairKey(compiledVertex, fixed, compiledVertex.wgsl, fixed.wgslFragment),
                 wgslVertex: compiledVertex.wgsl,
                 wgslFragment: fixed.wgslFragment,
                 stateFields: fixed.stateFields,
@@ -7996,7 +7984,7 @@ ${fragmentCode}`;
             const variant = this.currentVariant();
             if (program) {
                 const mixed = !program.compiled.vertex || !program.compiled.fragment;
-                const key = this.variantKeyFor(variant) + (mixed ? "|" + fixedFunction.signatureKey(this.mixedGLSLSignature(program, variant)) : "");
+                const key = this.variantKeys.key([variant, mixed ? this.mixedGLSLSignature(program, variant) : null]);
                 let entry = program.variants.get(key);
                 if (!entry) {
                     const link = this.linkVariant(program, variant);
@@ -8009,7 +7997,7 @@ ${fragmentCode}`;
                     entry = { link, key };
                     program.variants.set(key, entry);
                 }
-                if (!entry.codeKey) entry.codeKey = codeKey(entry.link.wgslVertex, entry.link.wgslFragment);
+                if (!entry.codeKey) entry.codeKey = this.codeKey(entry.link.wgslVertex, entry.link.wgslFragment);
                 return {
                     kind: "program", key: "p" + entry.codeKey,
                     program,
@@ -8231,34 +8219,6 @@ ${fragmentCode}`;
                 isPolygonPrimitive(request.mode) && !quads;
             // a point's or line's quad is not a face (review S2-18: it was culled)
             const cullMode = quads ? "none" : this.gpuCullMode(s);
-            const layoutKey = request.buffers.map(b =>
-                b.stride + ":" + (b.stepMode || "vertex") + "@" + b.attributes.map(a =>
-                    a.location + ":" + a.format + ":" + a.offset).join(",")).join("|");
-            const signature = [
-                shaders.key,
-                layoutKey,
-                request.expandedPoints ? "triangle-list" : topology,
-                strip && index ? "u32" : "-",
-                this.gpuFrontFace(s), cullMode,
-                s.enabled.has(GL.DEPTH_TEST) ? s.depthFunc : "off",
-                s.depthMask ? 1 : 0,
-                s.enabled.has(GL.STENCIL_TEST) ? stencilKey(s) : "off",
-                s.enabled.has(GL.COLOR_LOGIC_OP) ?
-                    "logic:" + s.logicOp.toString(16) :
-                    (s.enabled.has(GL.BLEND) ? blendKey(s) : "off"),
-                s.colorMask.map(v => v ? 1 : 0).join(""),
-                fillOffset ? polygonOffsetKey(s) : "-",
-                samples, alphaToCoverage ? "a2c" : "-",
-                sampleCoverageMask(s, samples),
-                targets ? targets.color.map(c => c ? c.format : "-").join(",") : "-",
-                targets ? (targets.depthFormat || "-") : "-",
-                s.enabled.has(GL.DEPTH_CLAMP) ? "clamp" : "-",
-                reversedDepthRange(s) ? "zflip" : "-",
-            ].join("|");
-
-            let pipeline = this.pipelineCache.get(signature);
-            if (pipeline) return pipeline.glRejected ? null : pipeline;
-
             const vertexModule = this.shaderModule(reversedDepthRange(s) ?
                 flipDepth(shaders.wgslVertex) : shaders.wgslVertex);
             const fragmentModule = this.shaderModule(shaders.wgslFragment);
@@ -8318,6 +8278,20 @@ ${fragmentCode}`;
                 };
             }
 
+            // The complete descriptor supplies every GPU pipeline field. Module
+            // references and CPU object/link identities are opaque integers.
+            const identity = shaders.kind === "program" ? [
+                this.pipelineKeys.reference(shaders.program), shaders.program.cpuObjectId || 0,
+                shaders.program.cpuLinkGeneration || 0, shaders.program.executableGeneration || 0,
+            ] : shaders.kind === "arb" ? [
+                shaders.arbVertex ? this.pipelineKeys.reference(shaders.arbVertex) : 0,
+                shaders.arbFragment ? this.pipelineKeys.reference(shaders.arbFragment) : 0,
+            ] : [];
+            if (this.pipelineCache.size > 4096) {this.pipelineCache.clear();this.pipelineKeys.clearKeys();}
+            const signature = this.renderPipelineKey(this.pipelineCache, descriptor, identity);
+            let pipeline = this.pipelineCache.get(signature);
+            if (pipeline) return pipeline.glRejected ? null : pipeline;
+
             // A rejected pipeline stays cached, marked, so its draws are
             // skipped instead of creating it again every frame
             const created = this.gpuErrors.scoped("render pipeline",
@@ -8329,12 +8303,19 @@ ${fragmentCode}`;
                 ++this.stats.pipelinesRejected;
             });
             ++this.stats.pipelines;
-            if (this.pipelineCache.size > 4096) this.pipelineCache.clear();
             this.pipelineCache.set(signature, pipeline);
             pipeline.glShaders = shaders;
             pipeline.glActiveBindings = activeShaderBindings(
                 shaders.wgslVertex, shaders.wgslFragment);
             return pipeline;
+        },
+
+        renderPipelineKey(cache, descriptor, identity = []) {
+            let keys = this.pipelineKeyTables.get(cache);
+            if (!keys) {keys = new CacheKeys();this.pipelineKeyTables.set(cache, keys);}
+            keys.reference(descriptor.vertex.module);
+            if (descriptor.fragment) keys.reference(descriptor.fragment.module);
+            return keys.key([descriptor, identity]);
         },
 
         // 32-bit float targets blend only with float32-blendable; without it
@@ -8521,9 +8502,7 @@ ${fragmentCode}`;
 
         depthColorPipeline(format, mode) {
             this.depthColorPipelines = this.depthColorPipelines || new Map();
-            const key = format + "|" + mode;
-            let pipeline = this.depthColorPipelines.get(key);
-            if (pipeline) return pipeline;
+
             // GL 2.1 section 3.8.14: the depth as LUMINANCE, INTENSITY or ALPHA
             const value = mode === GL.INTENSITY ? "vec4<f32>(d)" : mode === GL.ALPHA ?
                 "vec4<f32>(0.0, 0.0, 0.0, d)" : "vec4<f32>(d, d, d, 1.0)";
@@ -8537,11 +8516,15 @@ ${fragmentCode}`;
     let d = textureLoad(depthTexture, vec2<i32>(p.xy), 0);
     return ${value};
 }`);
-            pipeline = this.gpuErrors.scoped("depth texture as colour",
-                () => this.device.createRenderPipeline({ label: "GL depth texture as colour", layout: "auto",
+            const descriptor = { label: "GL depth texture as colour", layout: "auto",
                     vertex: { module, entryPoint: "vs_main" },
                     fragment: { module, entryPoint: "fs_main", targets: [{ format }] },
-                    primitive: { topology: "triangle-list" } }), { key }).object;
+                    primitive: { topology: "triangle-list" } };
+            const key = this.renderPipelineKey(this.depthColorPipelines, descriptor);
+            let pipeline = this.depthColorPipelines.get(key);
+            if (pipeline) return pipeline;
+            pipeline = this.gpuErrors.scoped("depth texture as colour",
+                () => this.device.createRenderPipeline(descriptor), { key }).object;
             this.depthColorPipelines.set(key, pipeline);
             return pipeline;
         },
@@ -8767,22 +8750,6 @@ ${fragmentCode}`;
         return true;
     }
 
-    function stencilKey(s) {
-        const f = s.stencil.front, b = s.stencil.back;
-        return [f.func, f.valueMask, f.writeMask, f.fail, f.zfail, f.zpass,
-                b.func, b.valueMask, b.writeMask, b.fail, b.zfail, b.zpass].join(",");
-    }
-
-    function blendKey(s) {
-        const b = s.blend;
-        return [b.srcRGB, b.dstRGB, b.srcAlpha, b.dstAlpha,
-                b.equationRGB, b.equationAlpha].join(",");
-    }
-
-    function polygonOffsetKey(s) {
-        return s.polygonOffset.factor + ":" + s.polygonOffset.units;
-    }
-
     function gpuBlendState(s) {
         const b = s.blend;
         // GL's MIN and MAX ignore the factors; WebGPU requires them to be ONE
@@ -8805,6 +8772,11 @@ ${fragmentCode}`;
      * divergence is reported once -- deviation D-02.
      */
     function gpuStencilState(s) {
+        if (!s.enabled.has(GL.STENCIL_TEST)) {
+            const disabled = { compare: "always", failOp: "keep", depthFailOp: "keep", passOp: "keep" };
+            return { stencilFront: disabled, stencilBack: disabled, stencilReadMask: 0xFFFFFFFF, stencilWriteMask: 0 };
+        }
+
         const f = s.stencil.front, b = s.stencil.back;
         const face = state => ({
             compare: COMPARE_FUNCTIONS[state.func] || "always",
@@ -9291,18 +9263,20 @@ struct BlitParams {
 
         colorCopyPipeline(format, base) {
             this.colorCopyPipelines = this.colorCopyPipelines || new Map();
-            const key = format + "|" + (COPY_COMPONENTS[base] ? base : "RGBA");
-            let pipeline = this.colorCopyPipelines.get(key);
-            if (pipeline) return pipeline;
+
             const module = this.shaderModule(colorCopyWGSL(base));
-            try {
-                pipeline = this.device.createRenderPipeline({
+            const descriptor = {
                     label: "GL colour format copy", layout: "auto",
                     vertex: { module, entryPoint: "vs_main" },
                     fragment: { module, entryPoint: "fs_main",
                                 targets: [{ format }] },
                     primitive: { topology: "triangle-list" },
-                });
+                };
+            const key = this.renderPipelineKey(this.colorCopyPipelines, descriptor);
+            let pipeline = this.colorCopyPipelines.get(key);
+            if (pipeline) return pipeline;
+            try {
+                pipeline = this.device.createRenderPipeline(descriptor);
             } catch (error) {
                 this.refuse("glCopyTexImage", "copy target is not renderable",
                     { format, message: String(error) }, GL.INVALID_OPERATION);
@@ -9314,41 +9288,45 @@ struct BlitParams {
 
         mipmapPipeline(format) {
             this.mipmapPipelines = this.mipmapPipelines || new Map();
-            let pipeline = this.mipmapPipelines.get(format);
-            if (pipeline) return pipeline;
             const module = this.shaderModule(MIPMAP_WGSL);
-            try {
-                pipeline = this.device.createRenderPipeline({
+            const descriptor = {
                     label: "GL mipmap generator", layout: "auto",
                     vertex: { module, entryPoint: "vs_main" },
                     fragment: { module, entryPoint: "fs_main",
                                 targets: [{ format }] },
                     primitive: { topology: "triangle-list" },
-                });
+                };
+            const key = this.renderPipelineKey(this.mipmapPipelines, descriptor);
+            let pipeline = this.mipmapPipelines.get(key);
+            if (pipeline) return pipeline;
+            try {
+                pipeline = this.device.createRenderPipeline(descriptor);
             } catch (error) {
                 this.refuse("glGenerateMipmap", "texture format is not renderable",
                     { format, message: String(error) }, GL.INVALID_OPERATION);
                 return null;
             }
-            this.mipmapPipelines.set(format, pipeline);
+            this.mipmapPipelines.set(key, pipeline);
             return pipeline;
         },
 
         colorBlitPipeline(format, samples = 1) {
             this.colorBlitPipelines = this.colorBlitPipelines || new Map();
-            const key = format + "|" + samples;
-            let pipeline = this.colorBlitPipelines.get(key);
-            if (pipeline) return pipeline;
+
             const module = this.shaderModule(COLOR_BLIT_WGSL);
-            try {
-                pipeline = this.device.createRenderPipeline({
+            const descriptor = {
                     label: "GL colour blit", layout: "auto",
                     vertex: { module, entryPoint: "vs_main" },
                     fragment: { module, entryPoint: "fs_main",
                                 targets: [{ format }] },
                     primitive: { topology: "triangle-list" },
                     multisample: { count: samples },
-                });
+                };
+            const key = this.renderPipelineKey(this.colorBlitPipelines, descriptor);
+            let pipeline = this.colorBlitPipelines.get(key);
+            if (pipeline) return pipeline;
+            try {
+                pipeline = this.device.createRenderPipeline(descriptor);
             } catch (error) {
                 this.refuse("glBlitFramebuffer", "blit target is not renderable",
                     { format, message: String(error) }, GL.INVALID_OPERATION);
@@ -10528,13 +10506,7 @@ struct BlitParams {
             const colorMask = (s.colorMask[0] ? 1 : 0) | (s.colorMask[1] ? 2 : 0) |
                 (s.colorMask[2] ? 4 : 0) | (s.colorMask[3] ? 8 : 0);
             const stencilMask = s.stencil.front.writeMask & 0xff;
-            const key = [kind, bit, targets.color.map(c => c ? c.format : "-").join(","), targets.depthFormat,
-                targets.sampleCount || 1, depth ? [s.enabled.has(GL.DEPTH_TEST) ? s.depthFunc : "off",
-                    s.depthMask ? 1 : 0, s.enabled.has(GL.STENCIL_TEST) ? stencilKey(s) : "off",
-                    s.enabled.has(GL.BLEND) ? blendKey(s) : "off", colorMask].join(",") : stencilMask].join("|");
             this.valuePipelineCache = this.valuePipelineCache || new Map();
-            let pipeline = this.valuePipelineCache.get(key);
-            if (pipeline) return pipeline;
             const outputs = targets.color.map((target, i) => target && depth ?
                 "    @location(" + i + ") color" + i + " : vec4<f32>," : "").join("\n");
             const code = `
@@ -10585,6 +10557,9 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
                     stencilWriteMask: bit < 0 ? stencilMask : (1 << bit) & stencilMask,
                 },
             };
+            const key = this.renderPipelineKey(this.valuePipelineCache, descriptor);
+            let pipeline = this.valuePipelineCache.get(key);
+            if (pipeline) return pipeline;
             pipeline = this.gpuErrors.scoped("pixel values pipeline",
                 () => this.device.createRenderPipeline(descriptor), { key }).object;
             this.valuePipelineCache.set(key, pipeline);
@@ -10794,17 +10769,7 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
             if (!targets) return null;
             const alpha = s.enabled.has(GL.ALPHA_TEST) ?
                 (ALPHA_TEST_NAMES[s.alphaFunc.func] || "always") : "always";
-            const key = [discardZeroAlpha ? 1 : 0, alpha, s.alphaFunc.ref,
-                s.enabled.has(GL.DEPTH_TEST) ? s.depthFunc : "off",
-                s.depthMask ? 1 : 0,
-                s.enabled.has(GL.STENCIL_TEST) ? stencilKey(s) : "off",
-                s.enabled.has(GL.BLEND) ? blendKey(s) : "off",
-                s.colorMask.map(v => v ? 1 : 0).join(""),
-                targets.color.map(c => c ? c.format : "-").join(","),
-                targets.depthFormat || "-", targets.sampleCount || 1].join("|");
             this.pixelPipelineCache = this.pixelPipelineCache || new Map();
-            let pipeline = this.pixelPipelineCache.get(key);
-            if (pipeline) return pipeline;
             const conditions = [];
             if (discardZeroAlpha) conditions.push("color.a <= 0.0");
             if (alpha === "never") conditions.push("true");
@@ -10865,10 +10830,12 @@ ${outputWrites}
                     depthWriteEnabled: !!(s.enabled.has(GL.DEPTH_TEST) && s.depthMask),
                     depthCompare: s.enabled.has(GL.DEPTH_TEST) ?
                         (COMPARE_FUNCTIONS[s.depthFunc] || "less") : "always",
-                    ...(targets.depthFormat.indexOf("stencil") >= 0 &&
-                        s.enabled.has(GL.STENCIL_TEST) ? gpuStencilState(s) : {}),
+                    ...(targets.depthFormat.indexOf("stencil") >= 0 ? gpuStencilState(s) : {}),
                 };
             }
+            const key = this.renderPipelineKey(this.pixelPipelineCache, descriptor);
+            let pipeline = this.pixelPipelineCache.get(key);
+            if (pipeline) return pipeline;
             try {
                 pipeline = this.device.createRenderPipeline(descriptor);
             } catch (error) {
@@ -10978,11 +10945,8 @@ ${outputWrites}
         accumPipeline(op, targetFormat, samples) {
             this.accumPipelineCache = this.accumPipelineCache || new Map();
             const returning = op === 0x0102;
-            const mask = returning ? this.current.colorMask.map(v => v ? 1 : 0)
-                .join("") : "1111";
-            const key = op + "|" + targetFormat + "|" + mask + "|" + samples;
-            let pipeline = this.accumPipelineCache.get(key);
-            if (pipeline) return pipeline;
+
+
             const expression = {
                 0x0100: "oldAccum + framebuffer * params.value.x",
                 0x0101: "framebuffer * params.value.x",
@@ -11012,8 +10976,7 @@ struct Params { value : vec4<f32>, }
                 (this.current.colorMask[1] ? 2 : 0) |
                 (this.current.colorMask[2] ? 4 : 0) |
                 (this.current.colorMask[3] ? 8 : 0) : 15;
-            try {
-                pipeline = this.device.createRenderPipeline({
+            const descriptor = {
                     label: "GL accumulation pipeline",
                     layout: "auto",
                     vertex: { module, entryPoint: "vs_main" },
@@ -11021,7 +10984,12 @@ struct Params { value : vec4<f32>, }
                         targets: [{ format: targetFormat, writeMask }] },
                     primitive: { topology: "triangle-list" },
                     multisample: { count: samples },
-                });
+                };
+            const key = this.renderPipelineKey(this.accumPipelineCache, descriptor);
+            let pipeline = this.accumPipelineCache.get(key);
+            if (pipeline) return pipeline;
+            try {
+                pipeline = this.device.createRenderPipeline(descriptor);
             } catch (error) {
                 this.refuse("glAccum", "could not create accumulation pipeline",
                     { message: String(error) }, GL.INVALID_OPERATION);
@@ -11034,10 +11002,8 @@ struct Params { value : vec4<f32>, }
         accumClearPipeline() {
             const color = Array.from(this.current.clearAccum)
                 .map(value => Number(value).toPrecision(9));
-            const key = color.join(",");
+
             this.accumClearPipelineCache = this.accumClearPipelineCache || new Map();
-            let pipeline = this.accumClearPipelineCache.get(key);
-            if (pipeline) return pipeline;
             const code = `
 @vertex fn vs_main(@builtin(vertex_index) i : u32) -> @builtin(position) vec4<f32> {
     let x = f32((i << 1u) & 2u) * 2.0 - 1.0;
@@ -11048,13 +11014,17 @@ struct Params { value : vec4<f32>, }
     return vec4<f32>(${color.join(", ")});
 }`;
             const module = this.shaderModule(code);
-            pipeline = this.device.createRenderPipeline({
+            const descriptor = {
                 label: "GL accumulation clear pipeline", layout: "auto",
                 vertex: { module, entryPoint: "vs_main" },
                 fragment: { module, entryPoint: "fs_main",
                     targets: [{ format: "rgba16float" }] },
                 primitive: { topology: "triangle-list" },
-            });
+            };
+            const key = this.renderPipelineKey(this.accumClearPipelineCache, descriptor);
+            let pipeline = this.accumClearPipelineCache.get(key);
+            if (pipeline) return pipeline;
+            pipeline = this.device.createRenderPipeline(descriptor);
             this.accumClearPipelineCache.set(key, pipeline);
             return pipeline;
         },

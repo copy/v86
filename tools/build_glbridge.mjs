@@ -14,7 +14,7 @@ const files = [
     "d3d9-webgpu/ddraw_ops.js", "gl-webgpu/gl_protocol.js",
     "gl-webgpu/gl_constants.js", "gl-webgpu/gl_caps.js", "gl-webgpu/gl_glslang.js", "gl-webgpu/gl_math.js", "gl-webgpu/gl_client_arrays.js", "gl-webgpu/gl_image_formats.js", "gl-webgpu/gl_texture_parameters.js", "gl-webgpu/gl_framebuffer_state.js", "gl-webgpu/gl_pixel_maps.js", "gl-webgpu/gl_shadow.js",
     "gl-webgpu/gl_shadow_glsl.js", "gl-webgpu/gl_shadow_objects.js", "gl-webgpu/gl_shadow_state.js", "gl-webgpu/gl_shadow_raster.js", "gl-webgpu/gl_shadow_fixed.js", "gl-webgpu/gl_shadow_misc.js", "gl-webgpu/gl_shadow_rasterpos.js", "gl-webgpu/gl_shadow_pixelmaps.js", "gl-webgpu/gl_shadow_stipple.js", "gl-webgpu/gl_shadow_images.js", "gl-webgpu/gl_shadow_textures.js", "gl-webgpu/gl_shadow_buffers.js", "gl-webgpu/gl_shadow_arrays.js", "gl-webgpu/gl_shadow_names.js", "gl-webgpu/gl_shadow_queries.js", "gl-webgpu/gl_list_arrays.js", "gl-webgpu/gl_shadow_lists.js", "gl-webgpu/gl_shadow_stencil_ext.js", "gl-webgpu/gl_shadow_render.js", "gl-webgpu/gl_select_geometry.js", "gl-webgpu/gl_shadow_select.js", "gl-webgpu/gl_shadow_evaluators.js", "gl-webgpu/gl_state_layout.js",
-    "gl-webgpu/gl_shader_translator.js", "gl-webgpu/gl_fixed_function.js",
+    "gl-webgpu/gl_shader_translator.js", "gl-webgpu/gl_cache_keys.js", "gl-webgpu/gl_fixed_function.js",
     "gl-webgpu/gl_arb_program.js", "gl-webgpu/gl_shadow_arb.js", "gl-webgpu/gl_snapshot_codec.js", "gl-webgpu/gl_gpu_snapshot.js", "gl-webgpu/gl_renderer_snapshot.js", "gl-webgpu/gl_executor.js",
     "graphics_journal.js", "v86_network_bridge.js", "webgpu_compositor.js", "v86gl_device.js", "graphics_proxy.js",
     "shader_ir/dxbc_frontend.js", "shader_ir/wgsl_emitter.js", "gx/tessellator_wgsl.js", "gx/gx_executor.js",

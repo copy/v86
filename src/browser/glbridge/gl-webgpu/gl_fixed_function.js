@@ -26,6 +26,8 @@
     const translator = (typeof require === "function" && typeof module !== "undefined") ?
         require("./gl_shader_translator.js") : global.GLShaderTranslator;
 
+    const { CacheKeys } = global.GLCacheKeys || require("./gl_cache_keys.js");
+    const signatureKeys = new CacheKeys();
     const FIXED_FUNCTION_REVISION = 3;
 
     const MAX_TEXTURE_UNITS = stateLayout.MAX_TEXTURE_UNITS;
@@ -202,8 +204,7 @@
     }
 
     function signatureKey(sig) {
-        return "ff" + FIXED_FUNCTION_REVISION + ":" +
-            JSON.stringify(normalizeSignature(sig));
+        return signatureKeys.key([FIXED_FUNCTION_REVISION, normalizeSignature(sig)]);
     }
 
     /* ================================================================== */
@@ -1392,7 +1393,7 @@
 
         return {
             signature: sig,
-            key: "ff" + FIXED_FUNCTION_REVISION + ":" + JSON.stringify(sig),
+            key: signatureKeys.key([FIXED_FUNCTION_REVISION, sig]),
             wgslVertex: generateVertex(sig, layout, fields),
             wgslFragment: generateFragment(sig, layout, fields),
             stateFields: [...fields],
