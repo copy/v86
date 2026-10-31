@@ -5,6 +5,7 @@ require("../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js");
 require("../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js");
 require("../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js");
 require("../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js");
+require("../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js");
 const P = require("../../src/browser/glbridge/gl-webgpu/gl_protocol.js");
 const { GLStream, GL } = require("./gl_stream_builder.js");
 const tests = [], test = (name, fn) => tests.push({ name, fn });
@@ -174,6 +175,16 @@ test("buffer mapping is shared CPU state with atomic errors, pointer queries, re
     assert.equal(s.boundBuffer(GL.ARRAY_BUFFER).mapped, true); assert.equal(s.boundBuffer(GL.ARRAY_BUFFER).pointer, 0xFEDCBA98);
 });
 
+test("internal array reads work within Begin while public buffer reads retain their GL error", () => {
+    const s = new GLShadow();s.process(scene().call("BIND_BUFFER",GL.ARRAY_BUFFER,7)
+        .bufferData(GL.ARRAY_BUFFER,4,GL.STATIC_DRAW,new Uint8Array([1,2,3,4]))
+        .record(P.GLFN.VERTEX_POINTER_VBO,P.encodeRecord("VERTEX_POINTER_VBO",{size:3,type:GL.FLOAT,stride:0,offset:0})).call("BEGIN",GL.POINTS).bytes());
+    const internal = new GLStream(), read = operation(internal,"QUERY_BUFFER_DATA",{target:GL.VERTEX_ARRAY,offset:0,size:4,range_size:4,data_size:4},4);
+    s.process(internal.bytes());assert.equal(read().status,1);assert.deepEqual(read().data,[1,2,3,4]);assert.equal(s.current.error,0);
+    const publicQuery = new GLStream(), failed = operation(publicQuery,"QUERY_BUFFER_DATA",{target:GL.ARRAY_BUFFER,offset:0,size:4,range_size:4,data_size:4},4);
+    s.process(publicQuery.bytes());assert.equal(failed().error,GL.INVALID_OPERATION);assert.deepEqual(failed().data,[0xA5,0xA5,0xA5,0xA5]);
+    assert.equal(s.current.state.begin,true);s.process(new GLStream().call("END").bytes());
+});
 test("encoding selectors retain the captured VBO after another context deletes and reuses its name", () => {
     const s = new GLShadow();s.process(scene().call("BIND_BUFFER",GL.ARRAY_BUFFER,7)
         .bufferData(GL.ARRAY_BUFFER,4,GL.STATIC_DRAW,new Uint8Array([1,2,3,4]))

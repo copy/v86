@@ -44,7 +44,7 @@ const assert = require("node:assert/strict"), { GLWebGPUExecutor } = require("..
     await converted.restoreSnapshot(checkpoint);const restoredBuffer = converted.bufferFor(GL.ARRAY_BUFFER);
     assert.equal(restoredBuffer.convertedAttributes.size, 0);assert.equal(converted.convertedVertexCache.size, 0);assert.equal(converted.convertedVertexBytes, 0);
     const rebuilt = converted.convertVertexAttribute(restoredBuffer, layout, 3, true);assert.notEqual(rebuilt, old);
-    assert.deepEqual([...new Float32Array(rebuilt.storage)], [1, 0, -1, 0, 1, 0, 0, 0, 1]);assert.equal(converted.convertedVertexBytes, 36);
+    assert.deepEqual([...new Float32Array(rebuilt.storage)], [1, 1 / 255, -253 / 255, 1 / 255, 1, 1 / 255, 1 / 255, 1 / 255, 1].map(Math.fround));assert.equal(converted.convertedVertexBytes, 36);
     assert.equal(gpu.hostErrors.length, 0); assert.equal(other.hostErrors.length, 0);
     console.log("gl_renderer_snapshot_test: linked renderer graphs, shared identities, matrix stacks, active query continuation, cold restore and invalid archive ownership passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });

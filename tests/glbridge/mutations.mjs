@@ -59,6 +59,13 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glarraynormalization: { floor: 1, node: [], pages: ["gl_array_normalization_browser_test.html"], list: [
+        ["signed byte uses modern SNORM zero", G + "gl_client_arrays.js", '(2 * v + 1) / 255', 'Math.max(v / 127, -1)'],
+        ["signed short uses modern SNORM zero", G + "gl_client_arrays.js", '(2 * v + 1) / 65535', 'Math.max(v / 32767, -1)'],
+        ["signed int uses modern SNORM zero", G + "gl_client_arrays.js", '(2 * v + 1) / 4294967295', 'Math.max(v / 2147483647, -1)'],
+        ["signed byte VBO bypasses legacy conversion", G + "gl_executor.js", 'const DIRECT_NORMALIZED_FORMATS = {', 'const DIRECT_NORMALIZED_FORMATS = { [GL.BYTE]: { 4: "snorm8x4" },'],
+        ["signed short VBO bypasses legacy conversion", G + "gl_executor.js", 'const DIRECT_NORMALIZED_FORMATS = {', 'const DIRECT_NORMALIZED_FORMATS = { [GL.SHORT]: { 4: "snorm16x4" },'],
+    ] },
     glbufferencoding: { floor: 1, node: ["gl_shadow_buffers_test.js"], pages: [], list: [
         ["named VBO read uses current binding", G + "gl_shadow_buffers.js", 'name === "QUERY_BUFFER_DATA" && r.buffer ?', 'false ?'],
         ["array read uses public names instead of retained identity", G + "gl_shadow_buffers.js", 'buffer = this.current.group.bufferObjects.get(array.bufferId);', 'buffer = this.current.group.buffers.get(array.bufferId);'],
@@ -66,6 +73,8 @@ const MUTATIONS = {
         ["buffer read omits whole-range bounds", G + "gl_shadow_buffers.js", 'r.offset + r.range_size > buffer.size ||', ''],
         ["encoding reads allow mapped buffers", G + "gl_shadow_buffers.js", 'if (buffer.mapped) return fail(GL.INVALID_OPERATION);\n                if (r.size)', 'if (r.size)'],
         ["encoding reads ignore offset", G + "gl_shadow_buffers.js", 'buffer.data.subarray(r.offset, r.offset + r.size)', 'buffer.data.subarray(0, r.size)'],
+        ["render guard rejects internal Begin encoding reads", G + "gl_shadow_render.js", 's.current?.state.begin && !encodingRead', 's.current?.state.begin'],
+        ["buffer guard rejects internal Begin encoding reads", G + "gl_shadow_buffers.js", 'this.current.state.begin && !arrayEncoding', 'this.current.state.begin'],
     ] },
     glprogramlink: { floor: 1, node: ["gl_program_link_test.js", "gl_sync_answers_test.js"], pages: ["gl_program_link_browser_test.html"], list: [
         ["guest device skips GPU validation", "src/browser/glbridge/v86gl_device.js", 'if (shadow) shadow.requireGPUProgramValidation = true;', 'if (shadow) shadow.requireGPUProgramValidation = false;'],

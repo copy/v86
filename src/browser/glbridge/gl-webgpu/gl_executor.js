@@ -1031,11 +1031,11 @@
             const at = byteOffset + i * typeBytes;
             switch (type) {
             case GL.UNSIGNED_BYTE: return view.getUint8(at) / 255;
-            case GL.BYTE: return Math.max(view.getInt8(at) / 127, -1);
+            case GL.BYTE: return (2 * view.getInt8(at) + 1) / 255;
             case GL.UNSIGNED_SHORT: return view.getUint16(at, !swap) / 65535;
-            case GL.SHORT: return Math.max(view.getInt16(at, !swap) / 32767, -1);
+            case GL.SHORT: return (2 * view.getInt16(at, !swap) + 1) / 65535;
             case GL.UNSIGNED_INT: return view.getUint32(at, !swap) / 4294967295;
-            case GL.INT: return Math.max(view.getInt32(at, !swap) / 2147483647, -1);
+            case GL.INT: return (2 * view.getInt32(at, !swap) + 1) / 4294967295;
             case GL.FLOAT: return view.getFloat32(at, !swap);
             case GL.HALF_FLOAT: return halfToFloat(view.getUint16(at, !swap));
             default: return 0;
@@ -5958,9 +5958,7 @@
     };
     const DIRECT_NORMALIZED_FORMATS = {
         [GL.UNSIGNED_BYTE]: { 4: "unorm8x4" },
-        [GL.BYTE]: { 4: "snorm8x4" },
         [GL.UNSIGNED_SHORT]: { 2: "unorm16x2", 4: "unorm16x4" },
-        [GL.SHORT]: { 2: "snorm16x2", 4: "snorm16x4" },
     };
 
 

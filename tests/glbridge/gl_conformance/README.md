@@ -2,7 +2,7 @@
 
 `references.json.gz` contains Apple hardware/software results.
 `mesa_reference.json.gz` contains Mesa llvmpipe results: 60 pixel scenes and
-58 state/query/shader fixtures. The Mesa archive records the driver, package
+59 state/query/shader fixtures. The Mesa archive records the driver, package
 repository digest and source fingerprints. `gl_mesa_reference_test.js` rejects
 stale inputs; ordinary test runs do not need Mesa installed.
 
@@ -98,3 +98,17 @@ COLOR_INDEX uploads -> INVALID_ENUM (both drivers accept the probe). Raw
 results remain unchanged in the fixtures. The linear image uses integral
 channel averages: arbitrary eight-bit averages can differ by one between the
 native implementations, so they are not used as an exact-pixel oracle.
+
+#### F2A array input normalization (2026-11-01)
+
+`reference/array_element.c` captures VBO/client positions including homogeneous
+w, signed normals and normalized generic attributes, plus signed scalar normal
+entry points. Raw Apple and Mesa outputs are retained. GL 2.1 table 2.9 requires
+`(2c + 1)/(2^b - 1)` for signed integer inputs; Mesa follows this rule while
+Apple maps zero to zero using newer SNORM semantics. The CPU, guest encoder,
+packed arrays, converted VBOs and programmable feedback capture follow GL 2.1.
+WebGPU's signed normalized formats cannot represent this conversion directly,
+so these VBO attributes use the existing cached float conversion. Comparisons
+against Mesa allow one float ULP for reciprocal multiplication; product C ABI
+and GPU pixels retain explicit formula-derived expectations. This is an oracle
+adjudication, not a pixel tolerance for unrelated scenes.

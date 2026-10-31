@@ -138,7 +138,10 @@
         routeRecord(s, fn, bytes, view, offset, size) {
             const name = P.NAME_BY_OPCODE[fn];
             if (name?.startsWith("QUERY_") && name !== "QUERY_ERROR") {
-                let error = s.current?.state.begin || !s.current && !["QUERY_INTEGER", "QUERY_GL_STRING"].includes(name) ? GL.INVALID_OPERATION : 0;
+                const encodingRead = name === "QUERY_BUFFER_DATA" && [GL.VERTEX_ARRAY,GL.NORMAL_ARRAY,GL.COLOR_ARRAY,GL.INDEX_ARRAY,
+                    GL.EDGE_FLAG_ARRAY,GL.SECONDARY_COLOR_ARRAY_EXT,GL.FOG_COORDINATE_ARRAY_EXT,GL.TEXTURE_COORD_ARRAY,GL.VERTEX_ATTRIB_ARRAY_POINTER]
+                    .includes(view.getUint32(offset + P.F.QUERY_BUFFER_DATA.target,true));
+                let error = s.current?.state.begin && !encodingRead || !s.current && !["QUERY_INTEGER", "QUERY_GL_STRING"].includes(name) ? GL.INVALID_OPERATION : 0;
                 if (["QUERY_OBJECT_IV", "QUERY_OBJECT_LOG", "QUERY_OBJECT_BATCH"].includes(name)) {
                     const kind = view.getUint32(offset + P.F[name].object_kind, true), kinds = name === "QUERY_OBJECT_BATCH" ? [P.C.V86GL_OBJECT_KIND_QUERY] :
                         name === "QUERY_OBJECT_LOG" ? [P.C.V86GL_OBJECT_KIND_SHADER, P.C.V86GL_OBJECT_KIND_PROGRAM, P.C.V86GL_TEXT_SHADER_SOURCE] : [P.C.V86GL_OBJECT_KIND_SHADER, P.C.V86GL_OBJECT_KIND_PROGRAM, P.C.V86GL_OBJECT_KIND_QUERY];

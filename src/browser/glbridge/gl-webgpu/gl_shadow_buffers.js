@@ -107,7 +107,8 @@
                 view.setUint32(offset + P.F[name].error, error, true);
                 this.answered(name, view, offset, P.C.V86GL_SYNC_QUERY_STATUS_FAILED);
             };
-            if (!this.current || this.current.state.begin) return fail(GL.INVALID_OPERATION);
+            const arrayEncoding = name === "QUERY_BUFFER_DATA" && !targets.has(r.target);
+            if (!this.current || this.current.state.begin && !arrayEncoding) return fail(GL.INVALID_OPERATION);
             let buffer;
             if (targets.has(r.target)) {
                 buffer = name === "QUERY_BUFFER_DATA" && r.buffer ? this.current.group.buffers.get(r.buffer) : this.boundBuffer(r.target);

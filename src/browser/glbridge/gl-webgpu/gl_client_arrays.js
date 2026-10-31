@@ -68,7 +68,7 @@
         case GL.DOUBLE: return view.getFloat64(at, true);
         case GL.BYTE: {
             const v = view.getInt8(at);
-            return normalized ? Math.max(v / 127, -1) : v;
+            return normalized ? (2 * v + 1) / 255 : v;
         }
         case GL.UNSIGNED_BYTE: {
             const v = view.getUint8(at);
@@ -76,7 +76,7 @@
         }
         case GL.SHORT: {
             const v = view.getInt16(at, true);
-            return normalized ? Math.max(v / 32767, -1) : v;
+            return normalized ? (2 * v + 1) / 65535 : v;
         }
         case GL.UNSIGNED_SHORT: {
             const v = view.getUint16(at, true);
@@ -84,7 +84,7 @@
         }
         case GL.INT: {
             const v = view.getInt32(at, true);
-            return normalized ? Math.max(v / 2147483647, -1) : v;
+            return normalized ? (2 * v + 1) / 4294967295 : v;
         }
         case GL.UNSIGNED_INT: {
             const v = view.getUint32(at, true);

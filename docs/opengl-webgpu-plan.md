@@ -1064,7 +1064,6 @@ game.exe
 > - 纹理像素/参数、FBO/renderbuffer 和 occlusion query 的客体表及查询回退删除；资源名字由 CPU 分配，buffer 上传不再更新客体镜像。MapBuffer 只保留实际映射所需的返回内存。混合客户端/VBO 编码用分批 CPU 读取和短期稳定的暂存指针；查询不改变绑定。
 > - QUERY_BUFFER_DATA 原保留字改为 buffer 选择器；普通 target 可按绑定/名字读取，客户端数组 target 按 CPU 捕获的对象身份读取。因此共享上下文删除再重用名字，以及 client attribute 栈保留旧对象时仍读取原来的 VBO。RECT proxy 也在读取客户端指针前处理。
 > - 110 组核心、48 组站点实际 ABI、48 页 GPU、普通/诊断 DLL（831 导出）通过，`glbufferencoding` 变异 6/6。继续清理固定管线状态和 F2 编码；F1/F 尚未整体完成。
-- **F2 编码：**
 > **F1C / F1 完成（2026-10-31）：固定管线状态与上下文影子删除。**
 >
 > - 66 个标量入口只编码输入；向量入口保留按 pname 读取输入所需的大小计算，删除灯光、材质、雾、纹理环境/生成、像素映射等本地状态更新。矩阵栈、server attribute snapshot、光栅状态及资源绑定查询缓存删除。上下文只保存客户端数组、像素存储、编码当前属性和返回内存。
@@ -1078,6 +1077,13 @@ game.exe
   - 超过 arena 的上传分带（S1-6），与 D3D 的 S1-12 共用方案；
   - `glLockArraysEXT` 生效；
   - 显示列表只转发 `glNewList`/`glEndList`/`glCallList(s)` 和编译时取值的数据，由影子管理。
+> **F2A 完成（2026-11-01）：索引范围、ArrayElement 和 MultiDraw。**
+>
+> - 客户端/混合 VBO 数组只读取实际 `[min,max]`，索引按 min 重排；DrawRange 的 end 保留为提示，不拒绝范围外合法索引。纯 VBO 路径不在客体预读数组/索引。MultiDraw 先验证全部 count，再执行；旧的锁存错误不影响有效绘制。
+> - ArrayElement 支持偏移 0 的 VBO、4 分量顶点、secondary/fog/index/多纹理和归一化通用属性；Begin 中只允许内部按捕获对象身份读取，公共读操作仍拒绝，映射中的 buffer 也拒绝。标量有符号 normal 入口同时修正。
+> - 有符号整数按 GL 2.1 表 2.9；Mesa 符合，Apple 使用较新 SNORM 的原始结果单独保留。GPU 客户端、VBO 与可编程反馈捕获均按同一公式验证，不能直接使用 WebGPU 的有符号归一化格式。
+> - 110 组核心、50 组站点实际 ABI、49 页 GPU、普通/诊断 DLL（831 导出）通过；编码读取变异 8/8，归一化变异 5/5。立即顶点块、超大上传、LockArrays 继续 F2 后续子阶段。
+
 - **F3 线程：** 每个线程一个当前上下文（TLS）；arena 游标加锁；窗口过程不发记录，只设置标志（S2-37）。
 - **F4 WGL：**
   - 生命周期照 Windows 的行为（S2-38）；

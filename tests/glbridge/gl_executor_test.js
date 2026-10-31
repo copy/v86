@@ -2889,7 +2889,7 @@ test("only incompatible VBO attributes are converted and unchanged draws reuse t
         { type: GL.UNSIGNED_SHORT, bufferOffset: 2 });
     const converted = [...vb.convertedAttributes.values()][0].gpuBuffer;
     assert.deepStrictEqual(Array.from(new Float32Array(converted.storage, 0, 3)),
-        [1, 0, -1], "conventional signed-byte normals are normalized");
+        [1, Math.fround(1 / 255), Math.fround(-253 / 255)], "GL 2.1 signed-byte normals follow table 2.9");
     const calls = log.draws[0].pass.calls;
     assert.ok(calls.some(c => c[0] === "vertexBuffer" && c[2] === vb.gpuBuffer));
     assert.ok(calls.some(c => c[0] === "vertexBuffer" && c[2] === converted));
@@ -2925,7 +2925,7 @@ test("VBO and direct EBO mutations preserve already encoded draw snapshots", () 
         { type: GL.UNSIGNED_SHORT, bufferOffset: 2 });
     const nextNormal = [...vb.convertedAttributes.values()][0].gpuBuffer;
     assert.notStrictEqual(oldNormal, nextNormal);
-    assert.deepStrictEqual(Array.from(new Float32Array(nextNormal.storage, 0, 3)), [0, 1, 0]);
+    assert.deepStrictEqual(Array.from(new Float32Array(nextNormal.storage, 0, 3)), [Math.fround(1 / 255), 1, Math.fround(1 / 255)]);
     executor.flushFrame();
     assert.strictEqual(oldNormal.destroyed, true);
     assert.strictEqual(oldIndex.destroyed, false);
@@ -2941,7 +2941,7 @@ test("conversion keys include normalization and component defaults and reset rel
     const array = executor.current.arrays.normal;
     const a = executor.convertVertexAttribute(buffer, array, 4, true);
     const b = executor.convertVertexAttribute(buffer, array, 3, false);
-    assert.deepStrictEqual(Array.from(new Float32Array(a.storage, 0, 4)), [1, 0, -1, 1]);
+    assert.deepStrictEqual(Array.from(new Float32Array(a.storage, 0, 4)), [1, Math.fround(1 / 255), Math.fround(-253 / 255), 1]);
     assert.deepStrictEqual(Array.from(new Float32Array(b.storage, 0, 3)), [127, 0, -127]);
     executor.resetForReplay();
     assert.strictEqual(a.destroyed, true);
