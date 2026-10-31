@@ -59,6 +59,9 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    gldelivery: { floor: 1, node: ["virtio_v86gl_test.js"], pages: [], list: [
+        ["accepted work reports a retryable failure", "src/browser/glbridge/v86gl_device.js", "            return OK;\n        }\n\n        return {", "            return hostAvailable ? OK : NO_RENDERER;\n        }\n\n        return {"],
+    ] },
     glwglswap: { floor: 1, node: ["gl_executor_test.js"], pages: ["gl_wgl_swap_browser_test.html"], list: [
         ["swap uses current drawable", G + "gl_executor.js", "const drawable = this.drawables.get(hwnd);\n            if (!drawable || drawable.singleBuffer", "const drawable = this.currentDrawable;\n            if (!drawable || drawable.singleBuffer"],
         ["swap changes current render targets", G + "gl_executor.js", "finally { this.currentDrawable = previous; }", "finally { void previous; }"],
@@ -1680,6 +1683,11 @@ let below_floor = false;
 try {
     for(const part of ["src/browser/glbridge", "tests/glbridge"])
         cp_sync(join(root, part), join(copy, part), { recursive: true });
+    if(!family || family === "gldelivery") {
+        for(const part of ["src", "lib"]) cp_sync(join(root, part), join(copy, part), { recursive: true });
+        mkdir_sync(join(copy, "build"), { recursive: true });
+        cp_sync(join(root, "build/v86.wasm"), join(copy, "build/v86.wasm"));
+    }
     mkdir_sync(join(copy, "tools"));
     cp_sync(join(root, "tools/gen_gl_protocol_header.mjs"), join(copy, "tools/gen_gl_protocol_header.mjs"));
     mkdir_sync(join(copy, "bios"));

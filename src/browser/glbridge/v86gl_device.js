@@ -323,7 +323,10 @@
             lastFrameId = frameId;
             lastBytes = commandBytes;
             ++submitCount;
-            return hostAvailable ? OK : NO_RENDERER;
+            // Availability may change reentrantly while a local host consumes
+            // post(). This batch has already been accepted: reporting failure
+            // now would invite the caller to execute it a second time.
+            return OK;
         }
 
         return {

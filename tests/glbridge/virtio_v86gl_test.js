@@ -23,12 +23,14 @@ function localChannel() {
     let expectedCommandBytes = 4;
     let batches = 0;
     let releases = 0;
+    let disappearDuringSubmit = false;
     channel.host.listen(message => {
         // the arena's owner let it go: its sessions end (review S1-10)
         if (message.type === "released") { ++releases; return; }
         assert.equal(message.type, "batch");
         batches++;
         lastEvent = message;
+        if (disappearDuringSubmit) channel.host.post({ type: "available", value: false });
         assert.equal(message.frameId, 42);
         assert.equal(message.bytes.byteLength, expectedCommandBytes);
         channel.host.post({ type: "done", id: message.id });
@@ -108,6 +110,14 @@ function localChannel() {
         assert.equal(lastEvent.flags, 1);
         assert.equal(lastEvent.batchAddr, arena + 32);
         assert.equal(lastEvent.bytes.buffer, ram.buffer, "on one thread the batch is a view of guest RAM");
+        disappearDuringSubmit = true;
+        const acceptedBefore = batches;
+        assert.equal(request(2, 0, 36), 0, "accepted work stays successful if the host disappears inside post");
+        assert.equal(batches, acceptedBefore + 1);
+        assert.equal(request(2, 0, 36), 3, "subsequent work is refused before execution");
+        assert.equal(batches, acceptedBefore + 1);
+        disappearDuringSubmit = false;channel.host.post({ type: "available", value: true });
+        assert.equal(request(2, 0, 36), 0, "same owner can continue after availability returns");
         write(lastEvent, 0x100, new Uint8Array([7]));
         assert.equal(mem.getUint8(arena + 0x100), 7);
         assert.throws(() => write(lastEvent, 16 * 1024 * 1024, new Uint8Array([1])), /outside/);
