@@ -22,6 +22,7 @@
 <script src="gl_conformance/scenes.js"></script>
 <script src="gl_conformance/to_stream.js"></script>
 <script src="gl_conformance/compare.js"></script>
+<script src="gl_conformance/oracle_policy.js"></script>
 <script src="gl_conformance/known_failures.js"></script>
 <script>
 // gl_conformance/'s scenes through the executor on the real GPU, against
@@ -36,13 +37,19 @@
     const lines = [];
     let failed = 0;
     try {
-        const response = await fetch("gl_conformance/references.json.gz");
+        const mesa = params.get("oracle") === "mesa";
+        const response = await fetch(mesa ? "gl_conformance/mesa_reference.json.gz" : "gl_conformance/references.json.gz");
         const references = JSON.parse(await new Response(
             response.body.pipeThrough(new DecompressionStream("gzip"))).text());
         const bytes = base64 => Uint8Array.from(atob(base64), c => c.charCodeAt(0));
         const byName = set => Object.fromEntries(set.scenes.map(scene => [scene.name, { ...scene,
             rgba: bytes(scene.rgba), extra: scene.extra.map(e => ({ ...e, bytes: bytes(e.bytes) })) }]));
-        const hw = byName(references.hw), sw = byName(references.sw);
+        const hw = byName(mesa ? references.pixels : references.hw), sw = byName(mesa ? references.pixels : references.sw);
+        let other;
+        if (mesa) {
+            const response = await fetch("gl_conformance/references.json.gz"), apple = JSON.parse(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).text());
+            other = byName(apple.hw);
+        }
         const executor = new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),
             { strict: true });
         await executor.initialize();
@@ -64,7 +71,8 @@
             got.validation = [
                 ...executor.gpuErrors.errors.slice(errorsBefore).map(e => e.source + ": " + e.message),
                 ...executor.hostErrors.slice(hostErrorsBefore).map(e => "host: " + e.message)];
-            const result = GLConformanceCompare.compareScene(scene, hw[scene.name], sw[scene.name], got);
+            const alternate = mesa ? GLConformanceOraclePolicy.alternative(scene, sw[scene.name], other[scene.name]) : sw[scene.name];
+            const result = GLConformanceCompare.compareScene(scene, hw[scene.name], alternate, got);
             const entry = GLConformanceKnownFailures[scene.name];
             const reason = entry && (entry.reason || entry);
             // a known scene: the whole of it (a string), or only its listed tiles

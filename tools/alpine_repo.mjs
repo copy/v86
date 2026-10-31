@@ -7,7 +7,7 @@
 //     tar -xf /dev/sda -C /mnt/repo
 //     apk add --no-network --repository /mnt/repo/main --repository /mnt/repo/community <packages>
 //
-//     node tools/alpine_repo.mjs [--arch x86_64|aarch64|armv7] [--set gpu|jit|sys|kbuild|aarch32]
+//     node tools/alpine_repo.mjs [--arch x86_64|aarch64|armv7] [--set gpu|jit|sys|kbuild|aarch32|glref]
 //
 // --set gpu (the default): Mesa and the GPU test programs, for the display
 // adapters' tests (tests/x64/linux_gpu.mjs). Alpine 3.24's Mesa (26.1) has
@@ -58,6 +58,8 @@ export const PACKAGES = [
 ];
 /** The Mesa with virgl (Alpine 3.23's), under v3.23/ */
 export const VIRGL_PACKAGES = ["mesa-dri-gallium", "mesa-gbm", "mesa-egl", "mesa-gl", "mesa-gles"];
+/** The desktop GL oracle: compile the same C scenes and run Mesa llvmpipe. */
+export const GLREF_PACKAGES = ["nodejs", "build-base", "mesa-dev", "mesa-egl", "mesa-gl", "mesa-dri-gallium"];
 /** The guest JIT workloads (P6.7): `node`, `java Hello.java`, `luajit -jon`/`-joff`, `pcre2test -jit` */
 export const JIT_PACKAGES = ["nodejs", "openjdk21-jdk", "luajit", "pcre2-tools"];
 /** setup-disk -m sys from the virt ISO: its kernel and firmware packages */
@@ -234,7 +236,11 @@ async function build_repo(branch, out, names, arch = "x86_64")
     {
         const { repo, version } = packages.get(name);
         const file = path.join(out, repo, arch, `${name}-${version}.apk`);
-        if(!fs.existsSync(file)) fs.writeFileSync(file, await fetch_bytes(`${MIRROR}${branch}/${repo}/${arch}/${name}-${version}.apk`));
+        if(!fs.existsSync(file)) {
+            const cached = path.join(output_directory(arch), "gpu-repo", ...(branch === "v3.23" ? ["v3.23"] : []), repo, arch, `${name}-${version}.apk`);
+            if(fs.existsSync(cached)) fs.copyFileSync(cached, file);
+            else fs.writeFileSync(file, await fetch_bytes(`${MIRROR}${branch}/${repo}/${arch}/${name}-${version}.apk`));
+        }
         bytes += fs.statSync(file).size;
     }
     console.log(`${branch}: ${wanted.size} packages, ${(bytes / 1048576).toFixed(1)} MiB` +
@@ -249,10 +255,10 @@ if(process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import
     const arch = option("--arch", "x86_64");
     const set = option("--set", "gpu");
     if(!["x86_64", "aarch64", "armv7"].includes(arch)) throw new Error("--arch: x86_64, aarch64 or armv7");
-    if(!["gpu", "jit", "sys", "kbuild", "aarch32"].includes(set)) throw new Error("--set: gpu, jit, sys, kbuild or aarch32");
+    if(!["gpu", "jit", "sys", "kbuild", "aarch32", "glref"].includes(set)) throw new Error("--set: gpu, jit, sys, kbuild, aarch32 or glref");
     if((arch === "armv7") !== (set === "aarch32")) throw new Error("--set aarch32 is --arch armv7's, and its only one");
     const out = path.join(output_directory(arch), set + "-repo");
-    await build_repo("v3.24", out, { gpu: PACKAGES, jit: JIT_PACKAGES, sys: SYS_PACKAGES, kbuild: KBUILD_PACKAGES, aarch32: AARCH32_PACKAGES }[set], arch);
+    await build_repo("v3.24", out, { gpu: PACKAGES, jit: JIT_PACKAGES, sys: SYS_PACKAGES, kbuild: KBUILD_PACKAGES, aarch32: AARCH32_PACKAGES, glref: GLREF_PACKAGES }[set], arch);
     if(set === "gpu") await build_repo("v3.23", path.join(out, "v3.23"), VIRGL_PACKAGES, arch);
 
     // A ustar image on the disk (as for tests/x64/linux_boot.mjs's probes):

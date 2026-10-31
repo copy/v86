@@ -459,6 +459,9 @@ scene("depth_offset_range", {
     s.tileQuad(2, "offset units +4 (red)");
     s.op("Disable", "POLYGON_OFFSET_FILL").op("Enable", "POLYGON_OFFSET_LINE").op("PolygonOffset", 0, -4);
     s.tileQuad(3, "only POLYGON_OFFSET_LINE enabled, fill drawn (red)");
+    // GL 2.1 §3.5.5: line offset cannot affect filled polygons. Mesa 26.1's
+    // quad path produces green here; keep the normative red expectation.
+    s.tiles[s.tiles.length - 1].expect = [255, 0, 0, 255];
     s.op("Disable", "POLYGON_OFFSET_LINE");
     // DepthRange
     s.op("DepthFunc", "ALWAYS").op("DepthRange", 0.5, 1).op("Color3f", 0, 0, 1);
@@ -1216,8 +1219,8 @@ scene("arb_fragment_program", {
         ["fragment.position/64", "MUL result.color, fragment.position, {0.015625, 0.015625, 1, 0};\nMOV result.color.w, 1.0;", null],
         ["CMP (-1?a:b) + KIL on other", "PARAM p = program.local[0];\nTEMP t;\nCMP t, p, {0.25,0.25,0.25,1}, {0.75,0.75,0.75,1};\nMOV result.color, t;", [-1, 1, -1, 1]],
         ["FLR(-1.25)=-2 FRC(-1.25)=.75", "PARAM p = program.local[0];\nTEMP t, u;\nFLR t, p;\nFRC u, p;\nMUL t, t, -0.25;\nMOV result.color, {0,0,0,1};\nMOV result.color.x, t.x;\nMOV result.color.y, u.x;", [-1.25, 0, 0, 0]],
-        ["POW(.25,.5) EX2(-1) LG2(4)/4", "TEMP t;\nPOW t.x, 0.25, 0.5;\nEX2 t.y, -1.0;\nLG2 t.z, 4.0;\nMUL t.z, t.z, 0.25;\nMOV t.w, 1.0;\nMOV result.color, t;", null],
-        ["SCS(pi/6): cos .866 sin .5", "TEMP t;\nSCS t.xy, 0.5235988;\nMOV t.zw, {0,0,0,1};\nMOV result.color, t;", null],
+        ["POW(.25,.5) EX2(-1) LG2(4)/4", "PARAM c = {0.25, 0.5, -1, 4};\nTEMP t;\nPOW t.x, c.x, c.y;\nEX2 t.y, c.z;\nLG2 t.z, c.w;\nMUL t.z, t.z, 0.25;\nMOV t.w, 1.0;\nMOV result.color, t;", null],
+        ["SCS(pi/6): cos .866 sin .5", "PARAM c = {0.5235988, 0, 0, 0};\nTEMP t;\nSCS t.xy, c.x;\nMOV t.zw, {0,0,0,1};\nMOV result.color, t;", null],
         ["XPD x*y=z, DPH", "TEMP t;\nXPD t.xyz, {1,0,0,0}, {0,1,0,0};\nDPH t.w, {0.1,0.1,0.1,0}, {1,1,1,0.2};\nMOV result.color, t;", null],
         ["state.fog.color + state.light[0].diffuse*0", "PARAM f = state.fog.color;\nMOV result.color, f;", null],
         ["KIL negative -> clear colour", "KIL {-1,0,0,0};\nMOV result.color, {1,1,1,1};", null],
@@ -1241,8 +1244,8 @@ scene("arb_vertex_program", {
     const progs = [
         ["ARL relative: local[a0.x+1] with a0=2.7 -> local[3]", "PARAM arr[5] = { program.local[0..4] };\nADDRESS a;\nARL a.x, program.env[0].x;\nMOV result.color, arr[a.x+1];"],
         ["ARL negative: arr[a0.x-1] a0=floor(-0.3)... use 2.7 -> arr[1]", "PARAM arr[5] = { program.local[0..4] };\nADDRESS a;\nARL a.x, program.env[0].x;\nMOV result.color, arr[a.x-1];"],
-        ["EXP 1.5 -> (2, .5, 2.828, 1)/4", "TEMP t;\nEXP t, 1.5;\nMUL result.color, t, 0.25;"],
-        ["LOG 8 -> (3, 1, 3, 1)/4", "TEMP t;\nLOG t, 8.0;\nMUL result.color, t, 0.25;"],
+        ["EXP 1.5 -> (2, .5, 2.828, 1)/4", "PARAM c = {1.5, 0, 0, 0};\nTEMP t;\nEXP t, c.x;\nMUL result.color, t, 0.25;"],
+        ["LOG 8 -> (3, 1, 3, 1)/4", "PARAM c = {8, 0, 0, 0};\nTEMP t;\nLOG t, c.x;\nMUL result.color, t, 0.25;"],
         ["LIT in VP", "TEMP t;\nLIT t, {0.5, 0.25, 0, 2};\nMUL result.color, t, 0.5;"],
         ["vertex.color passthrough", "MOV result.color, vertex.color;"],
     ];

@@ -3,6 +3,7 @@ const assert = require("node:assert/strict"), { GLShadow } = require("../../src/
 require("../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"); require("../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js");
 const P = require("../../src/browser/glbridge/gl-webgpu/gl_protocol.js"), { GLStream, GL } = require("./gl_stream_builder.js"),
     { GLWebGPUExecutor } = require("../../src/browser/glbridge/gl-webgpu/gl_executor.js"), { createFakeHost } = require("./gl_fake_gpu.js"), reference = require("./gl_conformance/render_errors_reference.json").cases;
+const mesa = JSON.parse(require("node:zlib").gunzipSync(require("node:fs").readFileSync(require("node:path").join(__dirname, "gl_conformance/mesa_reference.json.gz")))).fixtures.render_errors.cases;
 function phase(s, name) {
     const multi = (primcount, counts) => { const bytes = new Uint8Array(8 + counts.length * 8); bytes.set(P.encodeRecord("MULTI_DRAW_ARRAYS_DIRECT", { mode: GL.POINTS, primcount })); counts.forEach((count, i) => bytes.set(P.encodeRecord("MULTI_DRAW_ARRAYS_ENTRY", { first: 0, count }), 8 + i * 8)); return s.record(P.GLFN.MULTI_DRAW_ARRAYS_DIRECT, bytes); };
     const read = (width, format = GL.RGBA, type = GL.UNSIGNED_BYTE) => s.readPixels(0, 0, width, 1, format, type, 4);
@@ -41,13 +42,15 @@ function phase(s, name) {
     }
 }
 (async () => {
-    for (const copied of [false, true]) for (const entry of reference) {
+    for (const copied of [false, true]) for (const oracle of [reference, mesa]) for (const entry of oracle) {
         const shadow = new GLShadow(), { host } = createFakeHost(), gpu = new GLWebGPUExecutor(null, { host, strict: true }); await gpu.initialize(); shadow.setCapabilities(gpu.capabilities());
         const submit = s => { const bytes = s.bytes(), segments = shadow.process(bytes); for (const segment of segments || [{ offset: 0, length: bytes.length }]) { const part = segment.bytes || bytes.subarray(segment.offset, segment.offset + segment.length); gpu.submit(copied ? part.slice() : part, {}); } };
         submit(new GLStream().makeCurrent(1, 0, 0, 16, 16, 1, 1));
         const stream = new GLStream(); phase(stream, entry.name); const payload = entry.name.startsWith("read_") ? stream.payloadView() : null;
         stream.queryError(); const answer = stream.payloadView(); stream.queryError(); const cleared = stream.payloadView(), memory = stream.bytes(), segments = shadow.process(memory);
-        const expected = entry.name === "accum_op" ? GL.INVALID_ENUM : entry.error; // Both INVALID_ENUM and no-buffer INVALID_OPERATION are applicable.
+        const expected = entry.name === "accum_op" || entry.name === "read_format" ? GL.INVALID_ENUM : entry.name === "multi_count" ? GL.INVALID_VALUE : entry.error;
+        // Mesa enforces negative multi-draw counts; Apple skips them. For an
+        // invalid accum op with no accum buffer, both GL errors are applicable.
         assert.equal(answer.view.getUint32(P.F.QUERY_ERROR.status, true), 1, entry.name + " CPU status");
         assert.equal(answer.view.getUint32(P.F.QUERY_ERROR.value, true), expected, entry.name);
         assert.equal(cleared.view.getUint32(P.F.QUERY_ERROR.status, true), 1); assert.equal(cleared.view.getUint32(P.F.QUERY_ERROR.value, true), 0);
@@ -93,5 +96,5 @@ function phase(s, name) {
     }
     const shadow = new GLShadow(), short = new GLStream().makeCurrent(1, 0, 0, 16, 16, 1, 1).record(P.GLFN.CLEAR, new Uint8Array(1)).record(254, new Uint8Array()).record(P.GLFN.QUERY_STATE, new Uint8Array(16)); const shortQuery = short.payloadView(); short.queryError(); const memory = short.bytes(), segments = shadow.process(memory);
     assert.equal(shadow.stats.malformed, 3); assert.equal(shortQuery.view.getUint32(P.F.QUERY_STATE.status, true), 2); assert.equal(short.payloadView().view.getUint32(P.F.QUERY_ERROR.value, true), GL.INVALID_OPERATION); assert.equal(segments.length, 2);
-    console.log("gl_render_validation_test: 32 native render errors/no-ops, CPU-only GetError, read destination guards and malformed stream filtering passed in both modes");
+    console.log("gl_render_validation_test: 32 Apple/Mesa render errors/no-ops, CPU-only GetError, read guards and malformed stream filtering passed in both modes");
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -36,6 +36,9 @@ int main(void) {
     glGetTexLevelParameteriv(GL_TEXTURE_2D,0,GL_TEXTURE_COMPRESSED_IMAGE_SIZE,&size);
     printf(",\n    \"compressed_size\":[%u,%d]",glGetError(),size);
     glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RGBA8,64,32,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL); query("proxy_ok",GL_PROXY_TEXTURE_2D,0);
-    glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RGBA8,1<<30,32,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL); query("proxy_oversized",GL_PROXY_TEXTURE_2D,0);
+    /* Exceed the actual limit. Mesa 26.1 crashes on the unrelated 1<<30
+       integer-overflow probe; the CPU's extreme-size test remains separate. */
+    GLint max; glGetIntegerv(GL_MAX_TEXTURE_SIZE,&max);
+    glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RGBA8,max+1,32,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL); query("proxy_oversized",GL_PROXY_TEXTURE_2D,0);
     printf("\n  }\n}\n"); CGLSetCurrentContext(NULL); CGLDestroyContext(ctx); CGLDestroyPixelFormat(pf); return 0;
 }

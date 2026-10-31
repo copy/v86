@@ -118,6 +118,14 @@ game.exe
 >   - A6 的 opcode 覆盖计数；
 >   - A7 真实程序轨迹（要在客体里录）。
 
+> **A2 第二参照（2026-10-31）：环境与像素验证完成，状态差异随 C/D 继续审计。**
+>
+> - 离线 Alpine aarch64 VM + EGL surfaceless + Mesa 26.1.6 llvmpipe 运行原有 C 场景；59 个任务生成 60 个像素场景及 58 份状态/查询/着色器结果。压缩数据、驱动信息、包摘要、源码指纹入库。Linux 本机生成路径在同一 VM 中验证。
+> - Apple/Mesa 各 60 个像素场景通过。只在具名测试格允许规范许可的四边形插值、alpha 精度差异；其余像素仍严格比较。Mesa 的 line-only offset 结果按规范条款裁决；累积算术仍单列合成参照，不冒称原生 FBO 支持。
+> - 修正旧 ARB 像素源码缺少标量分量后缀的问题，两套驱动都接受。原生超限纹理改为实际上限加一，规避 Mesa 的极端整数尺寸崩溃；Apple 结果不变，CPU 的 1<<30 探测保留。
+> - Mesa 确认多次绘制的负 count 应失败；CPU 已修正，32 个错误场景同时对照两套驱动（保留明确的驱动差异）。74 组 Node、46 组站点、17 页 GPU、构建及 ESLint 通过；新增两项变异均被发现。
+> - 状态表中实现相关值和驱动行为仍有差异，原始数据完整保留；尚未把这些采集结果当作 C/D 全部验收通过。参照再生与裁决范围见 `tests/glbridge/gl_conformance/README.md`。
+
 - **目标：** 审查里的每个已知问题都先变成一个会失败的测试，后续每一步都用它衡量。
 - **A1 参照场景入库。**
   - 把参照原型（共享笔记目录 `gl-review/oracle/`）移进 `tests/glbridge/gl_conformance/`：`scenes.js`、`to_stream.js`、`compare.js`、页面和 runner。

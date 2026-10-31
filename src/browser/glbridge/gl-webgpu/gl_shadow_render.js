@@ -60,7 +60,7 @@
         if (r.primcount < 0 || header + r.primcount * stride > size) return GL.INVALID_VALUE;
         for (let i = 0; i < r.primcount; ++i) {
             const value = P.decodeRecord(entry, view, offset + header + i * stride);
-            if (value.count <= 0) continue;
+            if (!value.count) continue;
             const error = direct(s.current, indexed ? "DRAW_ELEMENTS_DIRECT" : "DRAW_ARRAYS_DIRECT", { ...r, ...value });
             if (error) return error;
         }

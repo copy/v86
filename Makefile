@@ -87,7 +87,7 @@ test-glbridge:
 # The graphics proxies on the real GPU (headless Chrome with WebGPU): the D3D9
 # and GL pixel conformance suites, Chrome's compiler on the D3D9 translator's
 # control flow, and the older browser pages
-GLBRIDGE_GPU_PAGES = d3d9_conformance_browser_test.html gl_conformance_browser_test.html gl_validation_browser_test.html \
+GLBRIDGE_GPU_PAGES = d3d9_conformance_browser_test.html gl_conformance_browser_test.html gl_conformance_browser_test.html?oracle=mesa gl_validation_browser_test.html \
 	d3d9_shader_tint_browser_test.html d3d9_webgpu_browser_test.html gl_webgpu_browser_test.html \
 	gl_multipass_browser_test.html d3d9_legacy_format_browser_test.html gl_vertex_capture_browser_test.html gl_raster_program_browser_test.html gl_evaluator_browser_test.html \
 	gl_gpu_snapshot_browser_test.html gl_renderer_snapshot_browser_test.html gl_program_interface_browser_test.html gl_stencil_ext_browser_test.html gl_program_matrix_browser_test.html
