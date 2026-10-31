@@ -398,6 +398,12 @@
     });
     // State-family modules extend this registry, rather than adding another
     // copy of typed conversion, command walking or snapshot serialization.
+    PARAMETERS.set(C.V86GL_PARAMETER_ATTACHED_SHADERS, (shadow, program, maximum, first) => {
+        const group = shadow.current.group, object = group.programs?.get(program);
+        if (!object) return group.shaders?.has(program) ? GL.INVALID_OPERATION : GL.INVALID_VALUE;
+        if (maximum > 0x7FFFFFFF) return GL.INVALID_VALUE;
+        return [[...object.attached].slice(first, first + Math.min(maximum, C.V86GL_MAX_TYPED_QUERY_VALUES)), "i"];
+    });
     const api = { define, on, set, rule,
         query(pnames, fn) { for (const pname of pnames) QUERIES.set(pname, fn); },
         parameter(kind, fn) { PARAMETERS.set(kind, fn); },

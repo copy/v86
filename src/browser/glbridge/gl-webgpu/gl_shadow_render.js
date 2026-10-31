@@ -141,7 +141,7 @@
                 let error = s.current?.state.begin || !s.current && !["QUERY_INTEGER", "QUERY_GL_STRING"].includes(name) ? GL.INVALID_OPERATION : 0;
                 if (["QUERY_OBJECT_IV", "QUERY_OBJECT_LOG", "QUERY_OBJECT_BATCH"].includes(name)) {
                     const kind = view.getUint32(offset + P.F[name].object_kind, true), kinds = name === "QUERY_OBJECT_BATCH" ? [P.C.V86GL_OBJECT_KIND_QUERY] :
-                        name === "QUERY_OBJECT_LOG" ? [P.C.V86GL_OBJECT_KIND_SHADER, P.C.V86GL_OBJECT_KIND_PROGRAM] : [P.C.V86GL_OBJECT_KIND_SHADER, P.C.V86GL_OBJECT_KIND_PROGRAM, P.C.V86GL_OBJECT_KIND_QUERY];
+                        name === "QUERY_OBJECT_LOG" ? [P.C.V86GL_OBJECT_KIND_SHADER, P.C.V86GL_OBJECT_KIND_PROGRAM, P.C.V86GL_TEXT_SHADER_SOURCE] : [P.C.V86GL_OBJECT_KIND_SHADER, P.C.V86GL_OBJECT_KIND_PROGRAM, P.C.V86GL_OBJECT_KIND_QUERY];
                     if (!kinds.includes(kind)) error ||= GL.INVALID_ENUM;
                 }
                 const selector = { QUERY_ACTIVE: "active_kind", QUERY_LOCATION: "location_kind", QUERY_UNIFORM: "value_kind" }[name];

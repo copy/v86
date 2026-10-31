@@ -283,7 +283,7 @@ class GLStream {
         return this.record(GLFN[name], payload);
     }
     shaderSource(shader, source) {
-        const text = source + "\0";
+        const text = source;
         const payload = new Uint8Array(8 + text.length);
         const view = new DataView(payload.buffer);
         view.setUint32(0, shader, true);

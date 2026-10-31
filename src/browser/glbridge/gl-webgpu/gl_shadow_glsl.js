@@ -141,9 +141,9 @@
         };
     }
 
-    function readText(bytes, at, length) {
+    function readText(bytes, at, length, terminated = true) {
         let end = at;
-        while (end < at + length && bytes[end]) ++end;
+        while (end < at + length && (!terminated || bytes[end])) ++end;
         let text = "";
         for (let i = at; i < end; ++i) text += String.fromCharCode(bytes[i]);
         return text;
@@ -173,7 +173,7 @@
         const shader = this.current.group.shaders.get(view.getUint32(offset + F.SHADER_SOURCE.shader, true));
         const length = view.getUint32(offset + F.SHADER_SOURCE.length, true);
         if (!shader || RECORDS.SHADER_SOURCE.size + length > size) return;
-        shader.source = readText(bytes, offset + RECORDS.SHADER_SOURCE.size, length);
+        shader.source = readText(bytes, offset + RECORDS.SHADER_SOURCE.size, length, false);
     };
 
     // compiled when an answer needs it: the source as it was now
@@ -571,7 +571,11 @@
         const capacity = view.getUint32(offset + R.buf_size, true);
         const group = this.current.group;
         let result;
-        if (kind === C.V86GL_OBJECT_KIND_SHADER) {
+        if (kind === C.V86GL_TEXT_SHADER_SOURCE) {
+            const shader = group.shaders.get(name);
+            if (!shader) return this.failedGLSLQuery("QUERY_OBJECT_LOG", view, offset, objectError(group, name, true));
+            result = {log: shader.source};
+        } else if (kind === C.V86GL_OBJECT_KIND_SHADER) {
             const shader = group.shaders.get(name);
             if (!shader) return this.failedGLSLQuery("QUERY_OBJECT_LOG", view, offset, objectError(group, name, true));
             result = shader ? this.compiledShader(shader) : undefined;
