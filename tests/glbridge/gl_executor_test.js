@@ -342,9 +342,8 @@ test("scissored and masked clears are rendered instead of widening the clear", (
         .call("COLOR_MASK", 1, 0, 1, 0)
         .call("CLEAR_COLOR", 0.2, 0.4, 0.6, 1)
         .call("CLEAR", GL.COLOR_BUFFER_BIT));
-    const pass = log.passes.find(entry =>
-        entry.descriptor.label === "GL masked/scissored clear");
-    assert.ok(pass, "the restricted clear uses its dedicated draw pass");
+    const pass = log.draws.find(draw => draw.pipeline.descriptor.label === "GL clear pipeline")?.pass;
+    assert.ok(pass, "the restricted clear uses a draw in the current pass");
     assert.deepStrictEqual(pass.scissor, [10, 20, 30, 40]);
     assert.strictEqual(log.draws.length, 1);
     assert.strictEqual(log.draws[0].pipeline.descriptor.fragment.targets[0].writeMask,
@@ -394,8 +393,7 @@ test("a masked depth clear also omits stencil operations on a depth-only FBO", (
         .call("SCISSOR", 2, 2, 32, 32)
         .call("CLEAR", GL.DEPTH_BUFFER_BIT));
 
-    const pass = log.passes.find(entry =>
-        entry.descriptor.label === "GL masked/scissored clear");
+    const pass = log.draws.find(draw => draw.pipeline.descriptor.label === "GL clear pipeline")?.pass;
     const attachment = pass.descriptor.depthStencilAttachment;
     assert.ok(!("stencilLoadOp" in attachment));
     assert.ok(!("stencilStoreOp" in attachment));

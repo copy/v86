@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-31",
+  "baselineCommit": "c264b503",
+  "candidateParentCommit": "c264b503",
+  "method": "Same local Chrome WebGPU harness, sequential candidate and baseline runs; CPU shadow process + executor submit + flush timed; GPU completion awaited outside timer; 3 warm-up and 15 measured frames, 512 clears/frame. Controlled microbenchmarks, not game trace acceptance.",
+  "baseline": [
+    {
+      "workload": "changing_clear_color",
+      "clearsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 4.799999952316284,
+      "p95Ms": 5.800000011920929,
+      "renderPasses": 9216,
+      "clearPipelines": 16
+    },
+    {
+      "workload": "clear_attrib_restore",
+      "clearsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 20.5,
+      "p95Ms": 24.80000001192093,
+      "renderPasses": 9216,
+      "clearPipelines": 16
+    }
+  ],
+  "candidate": [
+    {
+      "workload": "changing_clear_color",
+      "clearsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 4.400000035762787,
+      "p95Ms": 5,
+      "renderPasses": 18,
+      "clearPipelines": 1
+    },
+    {
+      "workload": "clear_attrib_restore",
+      "clearsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 19.5,
+      "p95Ms": 23.600000023841858,
+      "renderPasses": 19,
+      "clearPipelines": 1
+    }
+  ],
+  "medianChangePercent": {
+    "changing_clear_color": -8.33,
+    "clear_attrib_restore": -4.88
+  },
+  "notes": [
+    "Candidate attribute workload opens 19 passes for 18 frames because one 4 MiB uniform ring rollover triggers a bounded submission."
+  ],
+  "candidateSourceHashes": {
+    "src/browser/glbridge/gl-webgpu/gl_executor.js": "7cb62dba8b56a7740670d567178fceb125230f25464cf3cdd65a912624cfb53e"
+  },
+  "harnessHashes": {
+    "tests/glbridge/gl_clear_pass_browser_test.html": "93f00482cd350074f43159671cc35cac4173c5c047dfa199d9ae39547c4e3c42",
+    "tests/glbridge/gl_clear_pass_cases.js": "3aead2d001cba7df69aa3227e50a9390431df9077519570b7c19f4123cd13a80"
+  }
+}

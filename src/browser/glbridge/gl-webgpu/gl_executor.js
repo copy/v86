@@ -1770,7 +1770,7 @@
             this.warned = Object.create(null);
             this.stats = {
                 batches: 0, commands: 0, draws: 0, immediateBatches: 0,
-                pipelines: 0, bindGroups: 0, shaderLinks: 0, shaderCacheHits: 0, uniformStampHits: 0, uniformByteChecks: 0, uniformWrites: 0,
+                pipelines: 0, bindGroups: 0, shaderLinks: 0, shaderCacheHits: 0, uniformStampHits: 0, uniformByteChecks: 0, uniformWrites: 0, clearDraws: 0,
                 textureUploads: 0, textureBytes: 0,
                 refusals: 0, refusalsByOp: Object.create(null),
                 expandedIndices: 0, dxtDecodes: 0,
@@ -2953,8 +2953,6 @@
             if (snapshot.state.drawBuffers) framebufferState.draw(s, this.framebuffers.get(s.id), draw);
             if (Object.prototype.hasOwnProperty.call(snapshot.state, "readBuffer")) framebufferState.read(s, this.framebuffers.get(s.id), read);
             if (snapshot.enableState) restoreEnableState(s, snapshot.enableState);
-            this.endPass();
-            this.invalidateBindGroups();
         });
         define("PUSH_CLIENT_ATTRIB", function(a) {
             const s = this.current;
@@ -6996,14 +6994,13 @@
                 targets.color.map(target => target ? [reference(target.view), reference(target.resolveTarget), target.depthSlice] : null),
                 reference(targets.depth), targets.width, targets.height, targets.sampleCount || 1,
                 reference(this.activeOcclusionQuerySet)]);
+            // A restored FRONT draw buffer can share the same physical view.
+            if (targets.isDefault && this.current.drawBuffers.some(b => FRONT_BUFFERS.has(b))) this.frontDrawn = true;
             if (this.pass && this.passTargetKey === targetKey) {
                 this.beginOcclusionSegment();
                 return this.pass;
             }
             this.endPass();
-            // drawing into the front buffer shows at the next glFlush (D-08)
-            if (targets.isDefault && this.current.drawBuffers.some(b => FRONT_BUFFERS.has(b)))
-                this.frontDrawn = true;
             const encoder = this.ensureEncoder();
             const colorAttachments = targets.color.map(target => target ? {
                 view: target.view,
@@ -7236,40 +7233,29 @@
         },
 
         clearBuffersWithDraw(mask) {
-            const s = this.current;
-            this.endPass();
-            const targets = this.currentTargets();
-            if (!targets) return;
-            const clearColor = !!(mask & GL.COLOR_BUFFER_BIT);
-            const clearDepth = !!(mask & GL.DEPTH_BUFFER_BIT) && s.depthMask &&
-                !!targets.depth;
-            const clearStencil = !!(mask & GL.STENCIL_BUFFER_BIT) &&
-                (s.stencil.front.writeMask >>> 0) !== 0 && !!targets.depth &&
-                targets.depthFormat && targets.depthFormat.indexOf("stencil") >= 0;
+            const s = this.current, targets = this.currentTargets();if (!targets) return;
+            const clearColor = !!(mask & GL.COLOR_BUFFER_BIT) && s.colorMask.some(Boolean) && targets.color.some(Boolean),
+                clearDepth = !!(mask & GL.DEPTH_BUFFER_BIT) && s.depthMask && !!targets.depth,
+                clearStencil = !!(mask & GL.STENCIL_BUFFER_BIT) && (s.stencil.front.writeMask >>> 0) !== 0 && !!targets.depth && formatHasStencil(targets.depthFormat);
             if (!clearColor && !clearDepth && !clearStencil) return;
-            const pipeline = this.clearPipeline(targets, clearColor, clearDepth,
-                clearStencil);
-            if (!pipeline) return;
-            const pass = this.ensureEncoder().beginRenderPass({
-                label: "GL masked/scissored clear",
-                colorAttachments: targets.color.map(target => target ? {
-                    view: target.view, loadOp: "load", storeOp: "store",
-                    ...(target.depthSlice !== undefined ? { depthSlice: target.depthSlice } : {}),
-                    ...(target.resolveTarget ? { resolveTarget: target.resolveTarget } : {}),
-                } : null),
-                ...(targets.depth ? { depthStencilAttachment: {
-                    view: targets.depth,
-                    depthLoadOp: "load", depthStoreOp: "store",
-                    ...(formatHasStencil(targets.depthFormat) ? {
-                        stencilLoadOp: "load", stencilStoreOp: "store",
-                    } : {}),
-                } } : {}),
-            });
-            this.applyAccumScissor(pass, targets);
-            if (clearStencil) pass.setStencilReference(s.clearStencil >>> 0);
-            pass.setPipeline(pipeline);
-            pass.draw(3, 1, 0, 0);
-            pass.end();
+            const pipeline = this.clearPipeline(targets, clearColor, clearDepth, clearStencil);if (!pipeline) return;
+            // GL clears never contribute samples to an application query.
+            // Resuming its next draw allocates a fresh query slot in this pass.
+            const query = this.activeQuery;this.endOcclusionSegment();this.activeQuery = null;
+            try {
+                const pass = this.ensurePass();if (!pass) return;
+                pass.setViewport(0, 0, targets.width, targets.height, 0, 1);this.applyAccumScissor(pass, targets);
+                if (clearStencil) pass.setStencilReference(s.clearStencil >>> 0);pass.setPipeline(pipeline);
+                if (pipeline.glClearUniform) {
+                    const slice = this.allocateUniform(32);if (!slice) return;
+                    new Float32Array(this.uniformStaging.buffer, slice.offset, 8).set([...s.clearColor, s.clearDepth, 0, 0, 0]);
+                    this.device.queue.writeBuffer(slice.buffer, slice.offset, this.uniformStaging, slice.offset, 32);
+                    const group = this.uniformBindGroup(pipeline, [{ binding: 0, resource: { buffer: slice.buffer, offset: slice.offset, size: 32 } }]);
+                    pass.setBindGroup(1, group.group, group.dynamicOffsets || []);
+                }
+                pass.draw(3, 1, 0, 0);++this.stats.clearDraws;++this.recordedOps;
+                if (this.retireUploadPages() || this.recordedOps >= this.flushThreshold) this.flushFrame();
+            } finally {this.activeQuery = query;}
         },
 
         clearPipeline(targets, clearColor, clearDepth, clearStencil) {
@@ -7281,12 +7267,10 @@
             const depthField = clearDepth ?
                 "    @builtin(frag_depth) depth : f32," : "";
             const colorWrites = clearColor ? targets.color.map((target, i) =>
-                target ? "    out.color" + i + " = vec4<f32>(" +
-                    Array.from(s.clearColor).map(v => Number(v).toPrecision(9))
-                        .join(", ") + ");" : "").join("\n") : "";
-            const depthWrite = clearDepth ? "    out.depth = " +
-                Number(s.clearDepth).toPrecision(9) + ";" : "";
+                target ? "    out.color" + i + " = glClearValues[0];" : "").join("\n") : "";
+            const depthWrite = clearDepth ? "    out.depth = glClearValues[1].x;" : "";
             const fragmentCode = colorFields || depthField ? `
+@group(1) @binding(0) var<uniform> glClearValues:array<vec4<f32>,2>;
 struct ClearOut {
 ${colorFields}
 ${depthField}
@@ -7297,19 +7281,19 @@ ${colorWrites}
 ${depthWrite}
     return out;
 }` : "@fragment fn fs_main() {}";
-            const code = `
+            const vertexCode = `
 @vertex fn vs_main(@builtin(vertex_index) i : u32) -> @builtin(position) vec4<f32> {
     let x = f32((i << 1u) & 2u) * 2.0 - 1.0;
     let y = f32(i & 2u) * 2.0 - 1.0;
     return vec4<f32>(x, y, 0.0, 1.0);
-}
-${fragmentCode}`;
-            const module = this.shaderModule(code);
+}`;
+            const vertex = this.shaderModule(vertexCode), fragment = this.shaderModule(fragmentCode),
+                info = this.explicitShaderLayout({ wgslVertex: vertexCode, wgslFragment: fragmentCode }, vertex, fragment);
             const descriptor = {
                 label: "GL clear pipeline",
-                layout: "auto",
-                vertex: { module, entryPoint: "vs_main" },
-                fragment: { module, entryPoint: "fs_main",
+                layout: info.layout,
+                vertex: { module: vertex, entryPoint: "vs_main" },
+                fragment: { module: fragment, entryPoint: "fs_main",
                     targets: targets.color.map(target => target ? {
                         format: target.format,
                         writeMask: clearColor ?
@@ -7337,8 +7321,12 @@ ${fragmentCode}`;
                 };
             }
             const key = this.renderPipelineKey(this.clearPipelineCache, descriptor);
-            const pipeline = this.clearPipelineCache.get(key);
-            return pipeline || this.createPipeline(this.clearPipelineCache, key, descriptor);
+            let pipeline = this.clearPipelineCache.get(key);
+            if (!pipeline) {
+                pipeline = this.createPipeline(this.clearPipelineCache, key, descriptor);pipeline.glClearUniform = !!(colorFields || depthField);
+                pipeline.glBindGroupLayouts = info.groups;pipeline.glDynamicUniforms = info.dynamicUniforms;
+            }
+            return pipeline;
         },
 
         clearAccumBuffer() {
