@@ -134,7 +134,44 @@
         const view = new DataView(block.data.buffer, block.data.byteOffset, block.data.length);
         return Array.from({ length: components }, (_, i) => i < size ? readComponent(view, start + i * bytes, block.type, block.normalized ?? normalized) : i === 3 ? 1 : 0);
     }
-    const api = { parseArrayBlocks, parseGenericBlocks, componentBytes, readComponent, decode, attribute };
+    const immediateAttributes = new Set(("COLOR4F NORMAL3F TEX_COORD2F TEX_COORD4F MULTI_TEX_COORD4F " +
+        "SECONDARY_COLOR3F FOG_COORDF EDGE_FLAG VERTEX_ATTRIB4F INDEX_STATE").split(" "));
+    function parseImmediateBlock(bytes, view, offset, size) {
+        const header = protocol.RECORDS.IMMEDIATE_VERTEX_BLOCK.size, end = offset + size, runs = [];
+        if (size < header || size > protocol.C.V86GL_IMMEDIATE_BLOCK_BYTES) return null;
+        const r = protocol.decodeRecord("IMMEDIATE_VERTEX_BLOCK", view, offset);
+        if (r.data_size !== size - header || r.run_count > r.data_size / 8) return null;
+        let at = offset + header;
+        for (let i = 0; i < r.run_count; ++i) {
+            if (at + 8 > end) return null;
+            const attributes = view.getUint32(at, true), count = view.getUint32(at + 4, true);at += 8;
+            const vertices = at + attributes, next = vertices + count * 16;
+            if (next > end) return null;
+            let p = at;
+            while (p < vertices) {
+                if (p + 4 > vertices) return null;
+                const fn = view.getUint16(p, true), length = view.getUint16(p + 2, true), name = protocol.NAME_BY_OPCODE[fn];p += 4;
+                const expected = protocol.SIGNATURES[name] ? protocol.payloadBytes(protocol.SIGNATURES[name][1]) : protocol.RECORDS[name]?.size;
+                if (!immediateAttributes.has(name) || length !== expected || p + length > vertices ||
+                    name === "VERTEX_ATTRIB4F" && view.getUint32(p, true) === 0 || name === "INDEX_STATE" && view.getUint32(p, true) !== 0) return null;
+                p += length;
+            }
+            runs.push({ attributes: bytes.subarray(at, vertices), positions: bytes.subarray(vertices, next), count });at = next;
+        }
+        return at === end ? runs : null;
+    }
+    function immediateRecord(runs) {
+        const size = 8 + runs.reduce((sum, run) => sum + 8 + run.attributes.length + run.positions.length, 0), extended = size >= 0xFFFF,
+            bytes = new Uint8Array(size + (extended ? 8 : 4)), view = new DataView(bytes.buffer), base = bytes.length - size;
+        view.setUint16(0, protocol.GLFN.IMMEDIATE_VERTEX_BLOCK, true);view.setUint16(2, extended ? 0xFFFF : size, true);if (extended) view.setUint32(4, size, true);
+        view.setUint32(base, runs.length, true);view.setUint32(base + 4, size - 8, true);let at = base + 8;
+        for (const run of runs) {
+            view.setUint32(at, run.attributes.length, true);view.setUint32(at + 4, run.positions.length / 16, true);at += 8;
+            bytes.set(run.attributes, at);at += run.attributes.length;bytes.set(run.positions, at);at += run.positions.length;
+        }
+        return bytes;
+    }
+    const api = { parseArrayBlocks, parseGenericBlocks, componentBytes, readComponent, decode, attribute, parseImmediateBlock, immediateRecord };
     global.GLClientArrays = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

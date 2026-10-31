@@ -280,6 +280,7 @@
         ["ACTIVE_STENCIL_FACE", 253, "ActiveStencilFaceEXT", "u"],
         ["PROGRAM_LINK_VALIDATION", 254, null, "u:operation u:job u:program u:object_id u:link_generation u:data_size"],
         ["UPLOAD_CHUNK", 255, null, "u:token u:opcode u:total_size u:offset u:data_size"],
+        ["IMMEDIATE_VERTEX_BLOCK", 256, null, "u:run_count u:data_size"],
     ];
 
     // Composite records' optional headers and repeated elements. The common
@@ -291,6 +292,7 @@
         ["PACKED_DRAW_ELEMENTS_GL2_MT", "u:mode i:count u:type u:index_data_size u:magic u:tex_unit_count u:client_active_texture u:generic_attrib_count"],
         ["CLIENT_ARRAY_BLOCK", "u:enabled i:size u:type i:stride u:data_size"],
         ["GENERIC_ATTRIB_BLOCK", "u:index u:normalized u:enabled i:size u:type i:stride u:data_size"],
+        ["IMMEDIATE_VERTEX_RUN", "u:attribute_bytes u:vertex_count"],
         ["MULTI_DRAW_ARRAYS_ENTRY", "i:first i:count"],
         ["MULTI_DRAW_ELEMENTS_ENTRY", "i:count u:offset"],
         ["QUERY_OBJECT_BATCH_ENTRY", "u:name u:available u:result"],
@@ -337,6 +339,7 @@
         ["V86GL_CAPS_PROFILE_GL21", 5],
         ["V86GL_EXTENDED_RECORD_SIZE", 0xFFFF, "a record size of this is followed by a u32 size"],
         ["V86GL_MAX_UPLOAD_BYTES", 256 * 1024 * 1024, "bounded CPU assembly of an upload larger than the arena"],
+        ["V86GL_IMMEDIATE_BLOCK_BYTES", 64 * 1024],
         // CPU validation replaces only the opcode of a rejected GL record.
         // Keep its size/payload so every inline response retains its address.
         // 0x8eoo: e = GL error - 0x500 (0..6), oo = original opcode (1..255).
@@ -346,6 +349,13 @@
         ["V86GL_REJECTED_ERROR_MASK", 0x0700],
         ["V86GL_REJECTED_ERROR_BASE", 0x0500],
         ["V86GL_REJECTED_OPCODE_MASK", 0x00FF],
+        // Preserve the original eight-bit tags in old journals; new opcodes
+        // use 0x9eoo with a nine-bit source opcode and error bits 9-11.
+        ["V86GL_MAX_OPCODE", 0x01FF],
+        ["V86GL_REJECTED_EXTENDED_BIT", 0x9000],
+        ["V86GL_REJECTED_EXTENDED_MASK", 0xF000],
+        ["V86GL_REJECTED_EXTENDED_ERROR_SHIFT", 9],
+        ["V86GL_REJECTED_EXTENDED_ERROR_MASK", 0x0E00],
         ["V86GL_RESPONSE_REGION_BYTES", 4 * 1024 * 1024],
         ["V86GL_HEARTBEAT_BYTES", 16, "reserved at the end of the arena, outside the GL command stream"],
         ["V86GL_HEARTBEAT_OFFSET", 4 * 1024 * 1024 - 16],
@@ -574,20 +584,28 @@
     }
 
     function isRejected(opcode) {
-        return (opcode & C.V86GL_REJECTED_RECORD_MASK) === C.V86GL_REJECTED_RECORD_BIT;
+        return (opcode & C.V86GL_REJECTED_RECORD_MASK) === C.V86GL_REJECTED_RECORD_BIT ||
+            (opcode & C.V86GL_REJECTED_EXTENDED_MASK) === C.V86GL_REJECTED_EXTENDED_BIT;
     }
     function rejectionError(opcode) {
+        if ((opcode & C.V86GL_REJECTED_EXTENDED_MASK) === C.V86GL_REJECTED_EXTENDED_BIT)
+            return C.V86GL_REJECTED_ERROR_BASE + ((opcode & C.V86GL_REJECTED_EXTENDED_ERROR_MASK) >>> C.V86GL_REJECTED_EXTENDED_ERROR_SHIFT);
         return C.V86GL_REJECTED_ERROR_BASE + ((opcode & C.V86GL_REJECTED_ERROR_MASK) >>> C.V86GL_REJECTED_ERROR_SHIFT);
     }
+    function rejectedSourceOpcode(opcode) {
+        return opcode & ((opcode & C.V86GL_REJECTED_EXTENDED_MASK) === C.V86GL_REJECTED_EXTENDED_BIT ? C.V86GL_MAX_OPCODE : C.V86GL_REJECTED_OPCODE_MASK);
+    }
     function rejectedOpcode(opcode, error) {
-        if (!Number.isInteger(opcode) || opcode < 1 || opcode > C.V86GL_REJECTED_OPCODE_MASK ||
+        if (!Number.isInteger(opcode) || opcode < 1 || opcode > C.V86GL_MAX_OPCODE ||
                 !Number.isInteger(error) || error < 0x500 || error > 0x506)
             throw new RangeError("GL rejected-record opcode or error is out of range");
+        if (opcode > C.V86GL_REJECTED_OPCODE_MASK) return C.V86GL_REJECTED_EXTENDED_BIT |
+            (error - C.V86GL_REJECTED_ERROR_BASE) << C.V86GL_REJECTED_EXTENDED_ERROR_SHIFT | opcode;
         return C.V86GL_REJECTED_RECORD_BIT | (error - C.V86GL_REJECTED_ERROR_BASE) << C.V86GL_REJECTED_ERROR_SHIFT | opcode;
     }
 
     const api = { OPCODES, CONTROL, CTRL, DEFINES, C, BYTES, C_TYPES, GLFN, NAME_BY_OPCODE, SIGNATURES, RECORDS, F,
-        payloadBytes, decodeArgs, decodeRecord, encodeRecord, encodeArgs, encodeProgramInterface, decodeProgramInterface, isRejected, rejectionError, rejectedOpcode };
+        payloadBytes, decodeArgs, decodeRecord, encodeRecord, encodeArgs, encodeProgramInterface, decodeProgramInterface, isRejected, rejectionError, rejectedOpcode, rejectedSourceOpcode };
     global.GLProtocol = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

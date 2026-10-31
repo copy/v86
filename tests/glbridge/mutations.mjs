@@ -59,6 +59,18 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glimmediateblocks: { floor: 1, node: ["gl_immediate_blocks_test.js", "gl_protocol_test.js"], pages: ["gl_immediate_blocks_browser_test.html"], list: [
+        ["block attributes never reach CPU state", G + "gl_shadow.js", 'const attrs = this.expand(run.attributes), attributes =', 'const attrs = [], attributes ='],
+        ["vertices outside Begin are forwarded", G + "gl_shadow.js", 'positions: c.state.begin ? run.positions : new Uint8Array()', 'positions: run.positions'],
+        ["feedback bypasses CPU geometry", G + "gl_shadow.js", 'render = (c.state.selection?.mode ?? GL.RENDER) === GL.RENDER', 'render = true'],
+        ["trailing attributes are discarded", G + "gl_shadow.js", 'for (const run of runs) {', 'for (const run of runs) if (run.count) {'],
+        ["block compilation executes client state", G + "gl_shadow_lists.js", '"PIXEL_STOREI PIXEL_STOREF READ_PIXELS FINISH FLUSH CLIENT_ACTIVE_TEXTURE "', '"IMMEDIATE_VERTEX_BLOCK PIXEL_STOREI PIXEL_STOREF READ_PIXELS FINISH FLUSH CLIENT_ACTIVE_TEXTURE "'],
+        ["arbitrary commands are allowed inside blocks", G + "gl_client_arrays.js", '!immediateAttributes.has(name)', 'false'],
+        ["generic zero is accepted as a nonvertex attribute", G + "gl_client_arrays.js", 'name === "VERTEX_ATTRIB4F" && view.getUint32(p, true) === 0', 'false'],
+        ["GPU ignores block attributes", G + "gl_executor.js", 'this.executeBatch(run.attributes, metadata);', 'void metadata;'],
+        ["GPU loses homogeneous vertex w", G + "gl_executor.js", 'positions.getFloat32(at + 12, true)', '1'],
+        ["extended rejection tags decode legacy error bits", G + "gl_protocol.js", 'return C.V86GL_REJECTED_ERROR_BASE + ((opcode & C.V86GL_REJECTED_EXTENDED_ERROR_MASK) >>> C.V86GL_REJECTED_EXTENDED_ERROR_SHIFT);', 'return C.V86GL_REJECTED_ERROR_BASE + ((opcode & C.V86GL_REJECTED_ERROR_MASK) >>> C.V86GL_REJECTED_ERROR_SHIFT);'],
+    ] },
     gluploadchunks: { floor: 1, node: ["gl_upload_chunks_test.js"], pages: ["gl_upload_chunks_browser_test.html"], list: [
         ["partial upload executes prematurely", G + "gl_shadow.js", 'if (upload.received < upload.total_size) return { commands: [] };', 'if (false) return { commands: [] };'],
         ["upload holes are accepted", G + "gl_shadow.js", 'if (r.offset !== upload.received) return fail(GL.INVALID_OPERATION);', 'void r.offset;'],
@@ -1642,6 +1654,8 @@ let below_floor = false;
 try {
     for(const part of ["src/browser/glbridge", "tests/glbridge"])
         cp_sync(join(root, part), join(copy, part), { recursive: true });
+    mkdir_sync(join(copy, "tools"));
+    cp_sync(join(root, "tools/gen_gl_protocol_header.mjs"), join(copy, "tools/gen_gl_protocol_header.mjs"));
     mkdir_sync(join(copy, "bios"));
     cp_sync(join(root, "bios/glslang.wasm"), join(copy, "bios/glslang.wasm"));
     if(!family || family === "glrenderer") {

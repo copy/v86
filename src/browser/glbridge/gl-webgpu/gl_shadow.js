@@ -20,6 +20,7 @@
     const protocol = global.GLProtocol || require("./gl_protocol.js");
     const { GL } = global.GLWGConstants || require("./gl_constants.js");
     const glCaps = global.GLCaps || require("./gl_caps.js");
+    const clientArrays = global.GLClientArrays || require("./gl_client_arrays.js");
     const { GLFN, CTRL, C, F, RECORDS } = protocol;
 
     const OK = C.V86GL_SYNC_QUERY_STATUS_OK;
@@ -254,10 +255,11 @@
                     routed = part.routeRecord(this, fn, bytes, view, offset, size);
                     if (routed !== undefined) break;
                 }
+                if (routed === undefined && fn === GLFN.IMMEDIATE_VERTEX_BLOCK) routed = this.immediateBlock(bytes, view, offset, size);
                 const error = routed ? routed.error || 0 : this.dispatch(fn, bytes, view, offset, size);
                 if (error) {
                     if (this.current && !this.current.error) this.current.error = error;
-                    view.setUint16(recordOffset, protocol.rejectedOpcode(fn, error), true);
+                    view.setUint16(recordOffset, protocol.rejectedOpcode(fn >= 1 && fn <= C.V86GL_MAX_OPCODE ? fn : GLFN.QUERY_ERROR, error), true);
                     ++this.stats.rejected;
                 } else if (!routed) {
                     for (const part of PARTS) if (part.forwardOpcode) {
@@ -332,6 +334,28 @@
             if (upload.received < upload.total_size) return { commands: [] };
             c.upload = null;c.completedUpload = { ...r, hash: uploadHash(data) };
             return { commands: this.expand(upload.record) };
+        }
+
+        immediateBlock(bytes, view, offset, size) {
+            if (!this.current?.state) return { error: GL.INVALID_OPERATION };
+            const runs = clientArrays.parseImmediateBlock(bytes, view, offset, size);
+            if (!runs) return { error: GL.INVALID_OPERATION };
+            const c = this.current, render = (c.state.selection?.mode ?? GL.RENDER) === GL.RENDER, output = [], renderRuns = [];
+            for (const run of runs) {
+                if (!render) {
+                    output.push(...this.expand(run.attributes));
+                    for (let at = 0; at < run.positions.length; at += 16) {
+                        const record = new Uint8Array(20), v = new DataView(record.buffer);v.setUint16(0, GLFN.VERTEX4F, true);v.setUint16(2, 16, true);record.set(run.positions.subarray(at, at + 16), 4);
+                        output.push(...this.expand(record));
+                    }
+                } else {
+                    const attrs = this.expand(run.attributes), attributes = new Uint8Array(attrs.reduce((n, b) => n + b.length, 0));let at = 0;
+                    for (const part of attrs) {attributes.set(part, at);at += part.length;}
+                    if (run.count && !c.state.begin && !c.error) c.error = GL.INVALID_OPERATION;
+                    renderRuns.push({ attributes, positions: c.state.begin ? run.positions : new Uint8Array() });
+                }
+            }
+            return { commands: render ? [clientArrays.immediateRecord(renderRuns)] : output };
         }
 
         dispatch(fn, bytes, view, offset, size, validateOnly = false) {

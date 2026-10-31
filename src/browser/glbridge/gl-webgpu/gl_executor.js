@@ -2472,7 +2472,7 @@
      * array scan, which is what feeds COVERAGE.md.
      */
     function buildHandlerTable() {
-        const table = new Array(256).fill(null);
+        const table = new Array(Math.max(...Object.values(GLFN)) + 1).fill(null);
 
         const define = (name, handler, options) => {
             const opcode = GLFN[name];
@@ -3631,6 +3631,15 @@
         });
         define("UPLOAD_CHUNK", function() {
             this.refuse("UPLOAD_CHUNK", "CPU upload assembly was bypassed");
+        });
+        define("IMMEDIATE_VERTEX_BLOCK", function(a, bytes, view, offset, size, metadata) {
+            const runs = (nodeRequire ? nodeRequire("./gl_client_arrays.js") : global.GLClientArrays).parseImmediateBlock(bytes, view, offset, size);
+            if (!runs) return this.refuse("IMMEDIATE_VERTEX_BLOCK", "invalid vertex block");
+            for (const run of runs) {
+                this.executeBatch(run.attributes, metadata);
+                const positions = new DataView(run.positions.buffer, run.positions.byteOffset, run.positions.length);
+                for (let at = 0; at < run.positions.length; at += 16) this.immediateVertex(positions.getFloat32(at, true), positions.getFloat32(at + 4, true), positions.getFloat32(at + 8, true), positions.getFloat32(at + 12, true));
+            }
         });
         define("RESOLVED_PROGRAM_INTERFACE", function(a, bytes, view, offset, size) {
             const r = protocol.decodeProgramInterface(view, offset, size), program = this.current.shareGroup.programs.get(r.program);
