@@ -25,6 +25,8 @@ acceptance are still stages F6/G.
 | D-24 | One polygon larger than the temporary GPU storage budget is explicitly refused. Draws containing many smaller polygons split at polygon boundaries. | The S3 Node audit forces the refusal before allocation; `gl_polygon_clip_*` checks bounded batches, ordering and capture leases. |
 | D-25 | Rendering to an sRGB texture uses its sRGB WebGPU attachment view, so writes are encoded. A disabled framebuffer-sRGB path is not implemented. | `srgb_fbo_encoding` explicitly checks the encoded pixel against both native drivers' unencoded default. No framebuffer-sRGB extension is advertised. |
 | D-26 | WGL interval 0 removes proxy refresh waits; browser compositing can still synchronize display. Positive intervals use real host refresh callbacks, with an implementation maximum of 4. | Actual-C window/default/error tests plus `gl_wgl_swap_*` GPU pixels, callback pacing and cold restore. |
+| D-27 | WGL sharing can merge only a target group whose contexts have never been current. An already shared pair is accepted. Used namespaces are refused with `ERROR_BUSY` rather than silently losing objects. | Actual-C context-operations fixture covers whole-group migration, existing sharing and refusal. |
+| D-28 | Nonzero `wglCopyContext` masks are explicitly unsupported (`ERROR_CALL_NOT_IMPLEMENTED`); no state-copy success is reported. A zero mask still validates handles, pixel format and destination ownership. | Actual-C context operations plus a mutant that falsely acknowledges a copy. |
 
 [The S3 audit](../../../../tests/glbridge/gl_s3_render_browser_test.html) includes
 native results for homogeneous eye/light positions, directional spotlights,
