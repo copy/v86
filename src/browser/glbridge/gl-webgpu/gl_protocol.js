@@ -314,6 +314,9 @@
         // minimised, covered by other windows entirely or in part (the parts
         // that show follow). See windowState() in gl_executor.js.
         ["WINDOW_STATE", 0xFFF3],
+        // Present a window independently of the calling thread's current RC.
+        // status is an asynchronous host response after interval refresh ticks.
+        ["SWAP_WINDOW", 0xFFF4, "u:hwnd u:interval u:status"],
     ];
     const CTRL = Object.fromEntries(CONTROL.map(([name, code]) => [name, code]));
 
@@ -324,6 +327,8 @@
         ["V86GL_CTRL_RELEASE_CURRENT", CTRL.RELEASE_CURRENT],
         ["V86GL_CTRL_DESTROY_CONTEXT", CTRL.DESTROY_CONTEXT],
         ["V86GL_CTRL_WINDOW_STATE", CTRL.WINDOW_STATE, "the drawing window as the guest's window manager sees it"],
+        ["V86GL_CTRL_SWAP_WINDOW", CTRL.SWAP_WINDOW],
+        ["V86GL_MAX_SWAP_INTERVAL", 4],
         ["V86GL_WINDOW_IS_WINDOW", "(1u << 0)", "its flags: D9WGWindowState's (d3d9proxy/d3d9_protocol.h)"],
         ["V86GL_WINDOW_VISIBLE", "(1u << 1)"],
         ["V86GL_WINDOW_ICONIC", "(1u << 2)"],

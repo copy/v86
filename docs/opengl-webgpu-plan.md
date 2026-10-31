@@ -1130,6 +1130,12 @@ game.exe
 > - 62 组站点测试、普通/诊断 DLL（831 导出）通过；像素格式变异 12/12，无失效锚点。实际 XP worker 客体使用本次 DLL 通过 GL 查询/GLSL 探针并加载 Cube 2 complex 场景，1323 次纹理上传、238 次链接，宿主错误及拒绝均为 0。镜像部署仍在 F6。
 > - 依据：[PIXELFORMATDESCRIPTOR](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor)、[SetPixelFormat](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-setpixelformat)、[WGL_ARB_pixel_format](https://registry.khronos.org/OpenGL/extensions/ARB/WGL_ARB_pixel_format.txt)。
 
+> **F4C 完成（2026-11-01）：按 HDC 交换与宿主间隔。**
+>
+> - 新控制记录 `SWAP_WINDOW` 指定 HWND、间隔和异步状态；不再通过当前上下文的描述符标志猜交换目标。宿主暂借目标窗口的 GPU 附件，提交后恢复当前上下文附件；无当前上下文也能交换，单缓冲 Swap 不呈现，仍由 Flush/Finish 呈现前缓冲。
+> - 交换间隔保存在窗口上，默认 1，允许 0，负值报 `ERROR_INVALID_DATA`，无当前 DC 报 `ERROR_DC_NOT_FOUND`，最大值 4。正间隔等待宿主相应次数的刷新回调后呈现并回复，客体同步等待提供背压；旧 arena、设备变更、超时后的回调不再呈现。0 取消本层等待，但浏览器合成器仍可能同步显示，记录为 D-26。
+> - 113 组核心、64 组站点、54 页真实 GPU、普通/诊断 DLL（831 导出）通过；宿主交换变异 8/8，客体交换变异 8/8，无失效锚点。GPU 精确红/蓝窗口、单缓冲、宿主两次刷新和 CPU/GPU 冷恢复均覆盖两种传输。实际 XP worker/Cube 2 complex 使用配套新协议通过，1323 次纹理上传、233 次链接，无宿主错误或拒绝。
+
 - **F5 传输：**
   - 失败可以重试，不再永久设置 `g_v86gl_failed`；
   - 删除强制的 `OutputDebugStringA`（S1-3 的客体部分）；

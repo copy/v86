@@ -110,6 +110,14 @@ class GLStream {
         return this.record(constants.CTRL.MAKE_CURRENT, payload);
     }
 
+    swapWindow(hwnd, interval = 1) {
+        const payload = new Uint8Array(wire.RECORDS.SWAP_WINDOW.size), view = new DataView(payload.buffer);
+        view.setUint32(wire.F.SWAP_WINDOW.hwnd, hwnd, true);
+        view.setUint32(wire.F.SWAP_WINDOW.interval, interval, true);
+        this.record(wire.CTRL.SWAP_WINDOW, payload);
+        return this.payloadView();
+    }
+
     // V86GL_CTRL_WINDOW_STATE: flags as D9WGWindowState's; `rects` (client
     // coordinates, [left, top, right, bottom]) sets the region flag
     windowState(hwnd, flags, x, y, width, height, rects) {

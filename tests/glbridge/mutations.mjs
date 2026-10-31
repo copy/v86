@@ -59,6 +59,16 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glwglswap: { floor: 1, node: ["gl_executor_test.js"], pages: ["gl_wgl_swap_browser_test.html"], list: [
+        ["swap uses current drawable", G + "gl_executor.js", "const drawable = this.drawables.get(hwnd);\n            if (!drawable || drawable.singleBuffer", "const drawable = this.currentDrawable;\n            if (!drawable || drawable.singleBuffer"],
+        ["swap changes current render targets", G + "gl_executor.js", "finally { this.currentDrawable = previous; }", "finally { void previous; }"],
+        ["single-buffer swap presents", G + "gl_executor.js", "!drawable || drawable.singleBuffer || !drawable.backBuffer", "!drawable || !drawable.backBuffer"],
+        ["positive interval ignores host refresh", G + "gl_executor.js", "if (!interval || metadata?.replay) return answer(swap());", "if (true) return answer(swap());"],
+        ["interval two waits only one refresh", G + "gl_executor.js", "remaining = interval;", "remaining = 1;"],
+        ["late callback presents after timeout", G + "gl_executor.js", "if (cancelled || epoch !== this.resources.generation", "if (epoch !== this.resources.generation"],
+        ["expired arena can still present", G + "gl_executor.js", " || metadata?.isMemoryValid && !metadata.isMemoryValid()) return resolve(false);", ") return resolve(false);"],
+        ["another window hides displayed surface", G + "gl_executor.js", "if (this.surface.hwnd && this.surface.hwnd !== hwnd) return;", "if (false) return;"],
+    ] },
     glthreadcontexts: { floor: 1, node: ["gl_executor_test.js"], pages: ["gl_thread_contexts_browser_test.html"], list: [
         ["open primitive remains in shared pool", G + "gl_executor.js", 'this.immediateBuffer = null;\n            s.immediate = {', 'this.immediateBuffer = data;\n            s.immediate = {'],
         ["growing a live primitive gives away its storage", G + "gl_executor.js", 'grown.set(batch.data.subarray(0, batch.count * batch.stride));\n                batch.data = grown;', 'grown.set(batch.data.subarray(0, batch.count * batch.stride));\n                batch.data = grown;this.immediateBuffer = grown;'],

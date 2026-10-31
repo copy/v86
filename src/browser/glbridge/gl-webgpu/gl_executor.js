@@ -2132,6 +2132,8 @@
             }
             // (whether other windows cover it stands until the next report)
             this.surface = { ...this.surface, hwnd, x, y, width, height, visible: true };
+            drawable.surface = { ...this.surface };
+            drawable.singleBuffer = !!(format & protocol.C.V86GL_FORMAT_SINGLE_BUFFER);
             this.notifySurface("current");
         }
 
@@ -2176,15 +2178,19 @@
                 }
             }
             this.windowStateReports = (this.windowStateReports || 0) + 1;
+            const drawable = this.drawables.get(hwnd);
+            const surface = { ...(drawable?.surface || this.surface), hwnd, x, y, width, height,
+                visible: shown, occluded: (flags & WINDOW_OCCLUDED) !== 0, visibleRegion };
+            if (drawable) drawable.surface = surface;
+            // A report for another DC must not move or hide the visible window.
+            if (this.surface.hwnd && this.surface.hwnd !== hwnd) return;
             if (!shown) {
-                this.surface = { ...this.surface, visible: false };
+                this.surface = surface;
                 this.notifySurface("hide");
                 return;
             }
             // (shown again: on screen with the next SwapBuffers)
-            this.surface = { ...this.surface, hwnd,
-                ...(width && height ? { x, y, width, height } : {}), visible: true,
-                occluded: (flags & WINDOW_OCCLUDED) !== 0, visibleRegion };
+            this.surface = surface;
             this.notifySurface("window-state");
         }
 
@@ -2411,6 +2417,8 @@
                 return this.destroyContext(bytes.subarray(offset, offset + size));
             if (fn === CTRL.WINDOW_STATE)
                 return this.windowState(view, offset, size);
+            if (fn === CTRL.SWAP_WINDOW)
+                return this.onSwapWindow(bytes, view, offset, size, metadata);
 
             const handler = this.handlers[fn];
             if (!handler) {
@@ -10216,6 +10224,59 @@ struct BlitParams {
         onSwapBuffers() {
             this.frontDrawn = false;
             this.finishFrame(true);
+        },
+
+        // SwapBuffers names a drawable, not a rendering context. End the
+        // active pass before borrowing its targets, then restore the RC's
+        // targets without changing GL bindings or framebuffer selection.
+        swapWindow(hwnd) {
+            this.finishFrame(false);
+            const drawable = this.drawables.get(hwnd);
+            if (!drawable || drawable.singleBuffer || !drawable.backBuffer) return true;
+            const previous = this.currentDrawable;
+            this.currentDrawable = drawable;
+            try {
+                this.surface = { ...drawable.surface };
+                if (this.host) this.host.resizeCanvas(drawable.backBufferWidth, drawable.backBufferHeight);
+                const presented = this.presentToCanvas();
+                this.flushFrame();
+                if (presented) { drawable.frontDrawn = false;this.notifySurface("swap"); }
+                return presented;
+            } finally { this.currentDrawable = previous; }
+        },
+
+        onSwapWindow(bytes, view, offset, size, metadata) {
+            const R = protocol.F.SWAP_WINDOW;
+            if (size < protocol.RECORDS.SWAP_WINDOW.size || view.getUint32(offset + R.status, true) !== SYNC_STATUS_PENDING) return;
+            const hwnd = view.getUint32(offset + R.hwnd, true);
+            const interval = view.getUint32(offset + R.interval, true);
+            const answer = ok => {
+                const status = new Uint8Array(4);new DataView(status.buffer).setUint32(0, ok ? SYNC_STATUS_OK : SYNC_STATUS_FAILED, true);
+                this.answerGuest(bytes, metadata, [[offset + R.status, status]]);
+            };
+            const swap = () => {
+                try { return this.swapWindow(hwnd); }
+                catch (error) { this.warnOnce("window-swap", "presentation failed", { message: String(error) });return false; }
+            };
+            if (interval > protocol.C.V86GL_MAX_SWAP_INTERVAL) return answer(false);
+            if (!interval || metadata?.replay) return answer(swap());
+            // Browser refresh callbacks are the host's display clock. The
+            // guest waits for this reply, so positive intervals apply real
+            // back-pressure instead of accumulating an unbounded frame queue.
+            this.finishFrame(false);
+            const epoch = this.resources.generation;
+            let cancelled = false, remaining = interval;
+            const refresh = this.options.requestAnimationFrame || global.requestAnimationFrame?.bind(global);
+            const pending = new Promise((resolve, reject) => {
+                if (!refresh) return reject(new Error("host display clock unavailable"));
+                const tick = () => {
+                    if (cancelled || epoch !== this.resources.generation || metadata?.isMemoryValid && !metadata.isMemoryValid()) return resolve(false);
+                    if (--remaining) refresh(tick);
+                    else resolve(swap());
+                };
+                refresh(tick);
+            });
+            this.trackReadback(this.awaitReadback(pending, "SwapBuffers", () => { cancelled = true; }).then(answer, () => answer(false)));
         },
 
         /* ---- framebuffer objects ---- */

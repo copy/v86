@@ -155,6 +155,45 @@ test("WGL context ids separate state while share-group ids share objects", () =>
     assert.ok(shared.shareGroup.textures.has(91));
 });
 
+asyncTest("window swap selects its DC without changing RC and waits for host refresh", async () => {
+    const refreshes = [], seen = [], surfaces = [];
+    const { executor, host } = newExecutor({ requestAnimationFrame: fn => refreshes.push(fn), onSurface: s => surfaces.push(s) });
+    host.resizeCanvas = (width, height) => { host.width = width;host.height = height; };
+    const P = require("../../src/browser/glbridge/gl-webgpu/gl_protocol.js");
+    for (const [hwnd, width] of [[11, 32], [22, 64]]) {
+        run(executor, new GLStream().makeCurrent(hwnd, hwnd, 0, width, 16, hwnd, hwnd).call("CLEAR_COLOR", 1, 0, 0, 1).call("CLEAR", GL.COLOR_BUFFER_BIT));executor.finishFrame(false);
+    }
+    const current = executor.current, drawable = executor.currentDrawable;
+    executor.presentToCanvas = () => { seen.push(executor.currentDrawable);return true; };
+    const stream = new GLStream(), reply = stream.swapWindow(11, 2);
+    run(executor, stream);
+    assert.strictEqual(reply.view.getUint32(8, true), 0);assert.strictEqual(seen.length, 0);
+    refreshes.shift()();await settle();assert.strictEqual(reply.view.getUint32(8, true), 0);assert.strictEqual(seen.length, 0);
+    refreshes.shift()();await executor.idle();
+    assert.strictEqual(reply.view.getUint32(8, true), P.C.V86GL_SYNC_QUERY_STATUS_OK);
+    assert.strictEqual(seen[0], executor.drawables.get(11));assert.strictEqual(executor.current, current);assert.strictEqual(executor.currentDrawable, drawable);
+    assert.deepStrictEqual([host.width, host.height], [32, 16]);assert.strictEqual(surfaces.at(-1).hwnd, 11);
+    run(executor, new GLStream().windowState(22, 1, 22, 0, 64, 16));assert.strictEqual(executor.surface.hwnd, 11);assert.ok(executor.surface.visible, "hiding another HWND preserves the displayed HWND");
+    run(executor, new GLStream().record(P.CTRL.RELEASE_CURRENT));
+    const immediate = new GLStream(), immediateReply = immediate.swapWindow(11, 0);run(executor, immediate);
+    assert.strictEqual(immediateReply.view.getUint32(8, true), 1);assert.strictEqual(executor.current, null);assert.strictEqual(seen.length, 2);
+    executor.drawables.get(11).singleBuffer = true;assert.ok(executor.swapWindow(11));assert.strictEqual(seen.length, 2);
+    assert.ok(executor.swapWindow(999), "an untouched valid guest drawable has nothing to swap");
+    const invalid = new GLStream(), invalidReply = invalid.swapWindow(11, P.C.V86GL_MAX_SWAP_INTERVAL + 1);run(executor, invalid);assert.strictEqual(invalidReply.view.getUint32(8, true), 2);
+});
+
+asyncTest("swap refresh replies cannot outlive resource generation or timeout", async () => {
+    const refreshes = [], { executor } = newExecutor({ requestAnimationFrame: fn => refreshes.push(fn), readbackTimeoutMs: 20 });
+    let presented = 0;executor.swapWindow = () => { presented++;return true; };
+    const stream = new GLStream(), reply = stream.swapWindow(11, 1);run(executor, stream);
+    executor.resources.invalidate();refreshes.shift()();await executor.idle();assert.strictEqual(reply.view.getUint32(8, true), 2);assert.strictEqual(presented, 0);
+    const late = new GLStream(), lateReply = late.swapWindow(11, 1);run(executor, late);await executor.idle();assert.strictEqual(lateReply.view.getUint32(8, true), 2);
+    refreshes.shift()();await settle();assert.strictEqual(presented, 0);assert.strictEqual(lateReply.view.getUint32(8, true), 2);
+    let valid = true;
+    const expired = new GLStream(), expiredReply = expired.swapWindow(11, 1);executor.submit(expired.bytes(), { isMemoryValid: () => valid });valid = false;
+    refreshes.shift()();await executor.idle();assert.strictEqual(presented, 0);assert.strictEqual(expiredReply.view.getUint32(8, true), 0, "expired arena is neither presented nor written");
+});
+
 test("late teardown deletes and ARB unbinds are silent no-ops", () => {
     const { executor } = newExecutor();
     let warnings = 0;

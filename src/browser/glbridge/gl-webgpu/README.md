@@ -24,6 +24,7 @@ acceptance are still stages F6/G.
 | D-23 | Native BC-backed compressed mip generation is refused by the host. CPU mip metadata is still generated; the renderer's missing levels leave the chain incomplete. | `compressed_mipmap` explicitly requires the `glGenerateMipmap:a compressed level cannot be downsampled` host refusal and resulting green untextured pixel. GL's public error remains CPU-owned. Applications can supply the compressed mip chain. CPU-decoded storage can be downsampled. |
 | D-24 | One polygon larger than the temporary GPU storage budget is explicitly refused. Draws containing many smaller polygons split at polygon boundaries. | The S3 Node audit forces the refusal before allocation; `gl_polygon_clip_*` checks bounded batches, ordering and capture leases. |
 | D-25 | Rendering to an sRGB texture uses its sRGB WebGPU attachment view, so writes are encoded. A disabled framebuffer-sRGB path is not implemented. | `srgb_fbo_encoding` explicitly checks the encoded pixel against both native drivers' unencoded default. No framebuffer-sRGB extension is advertised. |
+| D-26 | WGL interval 0 removes proxy refresh waits; browser compositing can still synchronize display. Positive intervals use real host refresh callbacks, with an implementation maximum of 4. | Actual-C window/default/error tests plus `gl_wgl_swap_*` GPU pixels, callback pacing and cold restore. |
 
 [The S3 audit](../../../../tests/glbridge/gl_s3_render_browser_test.html) includes
 native results for homogeneous eye/light positions, directional spotlights,
