@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-31",
+  "baselineCommit": "20d153cb",
+  "method": "Same local Chrome WebGPU harness, sequential candidate and baseline runs; CPU shadow process + executor submit + flush timed; GPU completion outside timer; 3 warm-up and 15 measured frames, 512 glyphs/frame. Controlled microbenchmarks, not game trace acceptance.",
+  "baseline": [
+    {
+      "workload": "repeated_glyph",
+      "glyphsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 16.900000035762787,
+      "p95Ms": 20,
+      "uploads": 9216,
+      "uploadBytes": 2359296
+    },
+    {
+      "workload": "alternating_two_glyphs",
+      "glyphsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 18.100000023841858,
+      "p95Ms": 19.600000023841858,
+      "uploads": 9216,
+      "uploadBytes": 2359296
+    }
+  ],
+  "candidate": [
+    {
+      "workload": "repeated_glyph",
+      "glyphsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 11.299999952316284,
+      "p95Ms": 12.5,
+      "uploads": 1,
+      "uploadBytes": 64
+    },
+    {
+      "workload": "alternating_two_glyphs",
+      "glyphsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 12.399999976158142,
+      "p95Ms": 16.100000023841858,
+      "uploads": 1,
+      "uploadBytes": 64
+    }
+  ],
+  "medianChangePercent": {
+    "repeated_glyph": -33.14,
+    "alternating_two_glyphs": -31.49
+  },
+  "notes": [
+    "Second workload reuses the first mask from the first workload and uploads only the additional mask. Upload counters cover warm-up and measured frames."
+  ],
+  "candidateSourceHashes": {
+    "src/browser/glbridge/gl-webgpu/gl_executor.js": "5ef1f3b8cfd2c5aa20e1da8bd4307e27f190e5b6dc19de6a91b431952e4bb5e8"
+  },
+  "harnessHashes": {
+    "tests/glbridge/gl_bitmap_atlas_browser_test.html": "70190a3289d9934dfb8edb9e408fa73d1d93a0b1bf57b473d3450406b82aa28d",
+    "tests/glbridge/gl_bitmap_atlas_cases.js": "43167f7e0cfd96c53a6e23da0431210cb8f790c7f07b29f96a45aa7374389d30"
+  }
+}

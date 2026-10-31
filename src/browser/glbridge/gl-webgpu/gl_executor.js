@@ -1798,6 +1798,7 @@
                 this.resources.register(name, () => this[name].clear());
             }
             this.resources.fields(this, {
+                bitmapAtlas: null,
                 lastShaderLayout: null, singleSampleTargets: null, singleSampleCapture: null, encoder: null, pass: null, passTargets: null, passTargetKey: 0, pendingClear: null,
                 presentPipeline: null, depthReadPipeline: null, depthUploadPipeline: null,
                 presentSampler: null, pixelSampler: null, polygonStippleTexture: null,
@@ -11224,10 +11225,11 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
             if (s.current.rasterValid && width > 0 && height > 0 && dataSize) {
                 const source = bytes.subarray(offset + 28,
                     offset + 28 + dataSize);
-                const rgba = this.expandBitmap(source, width, height);
-                this.drawPixelRGBA(rgba, width, height,
+                const glyph = this.bitmapGlyph(source, width, height);
+                this.drawPixelTexture(glyph.texture, glyph.view, width, height,
                     s.current.rasterPos[0] - xorig,
-                    s.current.rasterPos[1] - yorig, true);
+                    s.current.rasterPos[1] - yorig, false, glyph);
+                if (glyph.transient) this.retire(glyph.texture);
             }
             if (s.current.rasterValid) {
                 s.current.rasterPos[0] += xmove;
@@ -11309,31 +11311,44 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
             }
         },
 
-        expandBitmap(source, width, height) {
-            const store = this.current.pixelStore;
-            const rowLength = store.unpackRowLength || width;
-            const rowBytes = Math.ceil(rowLength / 8);
-            const stride = alignUp(rowBytes, store.unpackAlignment || 1);
-            const skip = store.unpackSkipPixels || 0;
-            const rgba = new Uint8Array(width * height * 4);
-            // the colour latched with the raster position (review S2-15)
-            const color = this.current.current.rasterColor;
-            for (let row = 0; row < height; ++row) {
-                const rowStart = (store.unpackSkipRows + row) * stride;
-                for (let x = 0; x < width; ++x) {
-                    const bit = skip + x;
-                    const byte = source[rowStart + (bit >> 3)] || 0;
-                    const mask = store.unpackLsbFirst ? 1 << (bit & 7) :
-                        0x80 >> (bit & 7);
-                    if (!(byte & mask)) continue;
-                    const at = (row * width + x) * 4;
-                    rgba[at] = Math.round(clamp(color[0], 0, 1) * 255);
-                    rgba[at + 1] = Math.round(clamp(color[1], 0, 1) * 255);
-                    rgba[at + 2] = Math.round(clamp(color[2], 0, 1) * 255);
-                    rgba[at + 3] = Math.round(clamp(color[3], 0, 1) * 255);
+        bitmapGlyph(source, width, height) {
+            const store = this.current.pixelStore, stride = alignUp(Math.ceil((store.unpackRowLength || width) / 8), store.unpackAlignment || 1),
+                bits = new Uint8Array(Math.ceil(width * height / 8));
+            for (let y = 0; y < height; ++y) for (let x = 0; x < width; ++x) {
+                const bit = (store.unpackSkipPixels || 0) + x, byte = source[(store.unpackSkipRows + y) * stride + (bit >> 3)] || 0;
+                if (byte & (store.unpackLsbFirst ? 1 << (bit & 7) : 0x80 >> (bit & 7))) {
+                    const at = y * width + x;bits[at >> 3] |= 1 << (at & 7);
                 }
             }
-            return rgba;
+            const extent = Math.min(512, this.device.limits?.maxTextureDimension2D || 512),
+                transient = width > extent || height > extent;
+            let atlas = this.bitmapAtlas || (this.bitmapAtlas = { entries: new Map(), pages: [] });
+            // Exact canonical bits avoid both hash collisions and dependencies
+            // on raster color, source padding, bit order or unpack skips.
+            const key = width + ":" + height + ":" + Array.from(bits, b => String.fromCharCode(b)).join("");
+            if (!transient && atlas.entries.has(key)) return atlas.entries.get(key);
+            let page = !transient && atlas.pages.at(-1);
+            if (page && page.x + width > extent) {page.x = 0;page.y += page.row;page.row = 0;}
+            if (!page || page.y + height > extent || atlas.entries.size >= 2048) {
+                if (!transient && (atlas.pages.length >= 4 || atlas.entries.size >= 2048)) {
+                    for (const old of atlas.pages) this.retire(old.texture);
+                    // A stream of large, unique bitmaps must not keep every
+                    // evicted page alive until an application swaps buffers.
+                    this.flushFrame();
+                    atlas = this.bitmapAtlas = { entries: new Map(), pages: [] };
+                }
+                const texture = this.createGPUTexture({ label: "GL bitmap mask atlas", size: { width: transient ? width : extent, height: transient ? height : extent, depthOrArrayLayers: 1 },
+                    format: "r8unorm", usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
+                page = { texture, view: texture.createView(), x: 0, y: 0, row: 0 };
+                if (!transient) atlas.pages.push(page);
+            }
+            const mask = new Uint8Array(width * height);
+            for (let at = 0; at < mask.length; ++at) mask[at] = bits[at >> 3] & (1 << (at & 7)) ? 255 : 0;
+            const x = page.x, y = page.y, w = transient ? width : extent, h = transient ? height : extent,
+                glyph = { texture: page.texture, view: page.view, uv: [x / w, y / h, (x + width) / w, (y + height) / h], transient };
+            this.uploadTexture({ texture: page.texture, origin: { x, y, z: 0 } }, mask, { bytesPerRow: width, rowsPerImage: height }, { width, height, depthOrArrayLayers: 1 });
+            if (!transient) {page.x += width;page.row = Math.max(page.row, height);atlas.entries.set(key, glyph);}
+            return glyph;
         },
 
         drawPixelRGBA(rgba, width, height, x, y, discardZeroAlpha) {
@@ -11358,7 +11373,7 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
          * position's window depth.
          */
         drawPixelTexture(texture, textureView, width, height, x, y,
-                discardZeroAlpha) {
+                discardZeroAlpha, glyph = null) {
             const s = this.current;
             const pass = this.ensurePass();
             if (!pass) return;
@@ -11367,46 +11382,52 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
                 height: targets ? targets.height : this.backBufferHeight };
             if (!window.width || !window.height) return;
             const x0 = x, y0 = y;
-            const x1 = x + width * s.pixelZoom.x;
-            const y1 = y + height * s.pixelZoom.y;
+            const x1 = x + width * (glyph ? 1 : s.pixelZoom.x);
+            const y1 = y + height * (glyph ? 1 : s.pixelZoom.y);
+            const [u0, v0, u1, v1] = glyph ? glyph.uv : [0, 0, 1, 1];
             const ndcX = value => value * 2 / window.width - 1;
             // The normal GL vertex path negates clip-space Y. Expressing the
             // window coordinate directly therefore uses the same negated map.
             const ndcY = value => 1 - value * 2 / window.height;
             const z = clamp(s.current.rasterPos[2], 0, 1);
             const vertices = new Float32Array([
-                ndcX(x0), ndcY(y0), z, 1, 0, 0,
-                ndcX(x1), ndcY(y0), z, 1, 1, 0,
-                ndcX(x0), ndcY(y1), z, 1, 0, 1,
-                ndcX(x0), ndcY(y1), z, 1, 0, 1,
-                ndcX(x1), ndcY(y0), z, 1, 1, 0,
-                ndcX(x1), ndcY(y1), z, 1, 1, 1,
+                ndcX(x0), ndcY(y0), z, 1, u0, v0,
+                ndcX(x1), ndcY(y0), z, 1, u1, v0,
+                ndcX(x0), ndcY(y1), z, 1, u0, v1,
+                ndcX(x0), ndcY(y1), z, 1, u0, v1,
+                ndcX(x1), ndcY(y0), z, 1, u1, v0,
+                ndcX(x1), ndcY(y1), z, 1, u1, v1,
             ]);
             const slice = this.uploadVertices(new Uint8Array(vertices.buffer));
             if (!slice) return;
-            const pipeline = this.pixelPipeline(discardZeroAlpha);
+            const pipeline = this.pixelPipeline(discardZeroAlpha, !!glyph);
             if (!pipeline) return;
             pass.setPipeline(pipeline);
             this.applyPassState(pass);
             // (the next draw sets GL's viewport again)
             pass.setViewport(0, 0, window.width, window.height, 0, 1);
             pass.setVertexBuffer(0, slice.buffer, slice.offset);
-            pass.setBindGroup(0, this.device.createBindGroup({
-                layout: pipeline.getBindGroupLayout(0),
-                entries: [
+            pass.setBindGroup(0, this.cachedBindGroup(pipeline, 0, [
                     { binding: 0, resource: textureView },
                     { binding: 1, resource: this.pixelSampler ||
                         (this.pixelSampler = this.device.createSampler({
                             minFilter: "nearest", magFilter: "nearest",
                         })) },
-                ],
-            }));
+                ]));
+            if (glyph) {
+                const slice = this.allocateUniform(16);if (!slice) return;
+                new Float32Array(this.uniformStaging.buffer, slice.offset, 4).set(s.current.rasterColor);
+                this.device.queue.writeBuffer(slice.buffer, slice.offset, this.uniformStaging, slice.offset, 16);
+                const group = this.uniformBindGroup(pipeline, [{ binding: 0, resource: { buffer: slice.buffer, offset: slice.offset, size: 16 } }]);
+                pass.setBindGroup(1, group.group, group.dynamicOffsets || []);
+            }
             pass.draw(6, 1, 0, 0);
-            ++this.stats.draws;
+            ++this.stats.draws;++this.recordedOps;
+            if (this.retireUploadPages() || this.recordedOps >= this.flushThreshold) this.flushFrame();
             void texture;
         },
 
-        pixelPipeline(discardZeroAlpha) {
+        pixelPipeline(discardZeroAlpha, bitmap = false) {
             const s = this.current;
             const targets = this.passTargets;
             if (!targets) return null;
@@ -11436,11 +11457,13 @@ struct Varying { @builtin(position) position : vec4<f32>, @location(0) uv : vec2
 }
 @group(0) @binding(0) var pixels : texture_2d<f32>;
 @group(0) @binding(1) var pixelSampler : sampler;
+${bitmap ? "@group(1) @binding(0) var<uniform> glBitmapColor:vec4<f32>;" : ""}
 struct PixelOut {
 ${outputFields}
 }
 @fragment fn fs_main(v : Varying) -> PixelOut {
-    let color = textureSample(pixels, pixelSampler, v.uv);
+    let sampled = textureSample(pixels, pixelSampler, v.uv);
+    ${bitmap ? "if(sampled.r < 0.5){discard;} let color=glBitmapColor;" : "let color=sampled;"}
     ${conditions.length ? "if (" + conditions.join(" || ") + ") { discard; }" : ""}
     var out : PixelOut;
 ${outputWrites}
@@ -11454,9 +11477,10 @@ ${outputWrites}
                     (s.colorMask[2] ? 4 : 0) | (s.colorMask[3] ? 8 : 0),
             } : null);
             const module = this.shaderModule(code);
+            const info = bitmap ? this.explicitShaderLayout({ wgslVertex: code, wgslFragment: code }, module, module) : null;
             const descriptor = {
                 label: "GL pixel rectangle pipeline",
-                layout: "auto",
+                layout: info ? info.layout : "auto",
                 vertex: { module, entryPoint: "vs_main", buffers: [{
                     arrayStride: 24, stepMode: "vertex", attributes: [
                         { shaderLocation: 0, format: "float32x4", offset: 0 },
@@ -11477,8 +11501,12 @@ ${outputWrites}
                 };
             }
             const key = this.renderPipelineKey(this.pixelPipelineCache, descriptor);
-            const pipeline = this.pixelPipelineCache.get(key);
-            return pipeline || this.createPipeline(this.pixelPipelineCache, key, descriptor);
+            let pipeline = this.pixelPipelineCache.get(key);
+            if (!pipeline) {
+                pipeline = this.createPipeline(this.pixelPipelineCache, key, descriptor);
+                if (info) {pipeline.glBindGroupLayouts = info.groups;pipeline.glDynamicUniforms = info.dynamicUniforms;}
+            }
+            return pipeline;
         },
 
         accum(op, value) {

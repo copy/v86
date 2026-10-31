@@ -18,6 +18,24 @@ const cases = require("./gl_display_list_pixel_cases.js"), reference = require("
             const pixels = Array.from(rgba); if (bitmap) for (let at = 0; at < pixels.length; at += 4) if (!pixels[at + 3]) pixels[at + 3] = 255;
             drawn.push({ pixels, width, height });
         };
+        const pages = new Map(), upload = gpu.uploadTexture;
+        gpu.uploadTexture = function(destination, data, layout, size) {
+            if (destination.texture.descriptor.format === "r8unorm") {
+                const width = destination.texture.descriptor.size.width, page = pages.get(destination.texture) || new Uint8Array(width * destination.texture.descriptor.size.height), origin = destination.origin || { x: 0, y: 0 };
+                for (let y = 0; y < size.height; ++y) page.set(data.subarray(y * layout.bytesPerRow, y * layout.bytesPerRow + size.width), (origin.y + y) * width + origin.x);
+                pages.set(destination.texture, page);
+            }
+            return upload.call(this, destination, data, layout, size);
+        };
+        gpu.drawPixelTexture = (texture, view, width, height, x, y, discard, glyph) => {
+            assert.ok(glyph, "bitmap uses the mask atlas");
+            const page = pages.get(texture), left = Math.round(glyph.uv[0] * texture.descriptor.size.width), bottom = Math.round(glyph.uv[1] * texture.descriptor.size.height), pixels = [];
+            for (let row = 0; row < height; ++row) for (let col = 0; col < width; ++col) {
+                const on = page[(bottom + row) * texture.descriptor.size.width + left + col];
+                pixels.push(...gpu.current.current.rasterColor.map((v, c) => c === 3 ? 255 : on ? Math.round(v * 255) : 0));
+            }
+            drawn.push({ pixels, width, height });
+        };
         const { stream, queries, states } = cases.build(reference), memory = stream.bytes(), segments = shadow.process(memory);
         gpu.options.writeGuestMemory = (at, bytes, metadata) => memory.set(bytes, at + (metadata.originalOffset || 0));
         for (const segment of segments) {
