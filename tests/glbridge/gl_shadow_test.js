@@ -92,7 +92,7 @@ test("the executor preserves CPU answers and failures", async () => {
     });
     shadow.process(bytes);
     // (the fake adapter's limit differs from the shadow's capabilities)
-    assert.notEqual(executor.queryInteger(GL.MAX_TEXTURE_SIZE), 4096);
+    assert.notEqual(glCaps.integer(executor.capabilities(), GL.MAX_TEXTURE_SIZE), 4096);
     executor.submit(bytes, {});
     assert.equal(u32(bytes, at.size + P.F.QUERY_INTEGER.value), 4096, "the shadow's answer stands");
     assert.equal(u32(bytes, at.viewport + P.F.QUERY_INTEGER.status), P.C.V86GL_SYNC_QUERY_STATUS_FAILED);

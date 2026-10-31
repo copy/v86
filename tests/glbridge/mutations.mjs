@@ -59,6 +59,24 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glrenderer: { floor: 0.9, node: ["gl_renderer_authority_test.js", "gl_renderer_snapshot_test.js"], pages: [], list: [
+        ["renderer answers a pending CPU integer query", G + "gl_executor.js",
+            'if (view.getUint32(offset + protocol.F.QUERY_INTEGER.status, true) === SYNC_STATUS_PENDING)\n                this.refuse("CPU query", "unexpected pending QUERY_INTEGER", {});',
+            'view.setUint32(offset + protocol.F.QUERY_INTEGER.status, SYNC_STATUS_OK, true);'],
+        ["renderer latches a public GL error", G + "gl_executor.js",
+            'this.refuse("validated command", "unexpected invalid state", { code });',
+            'if (this.current) this.current.error = code;'],
+        ["renderer public capability getter returns", G + "gl_executor.js",
+            'capabilities() {\n            return glCaps.capabilities(this.limits, this.deviceFeatures);\n        },',
+            'queryInteger() { return 0; },\n        capabilities() { return glCaps.capabilities(this.limits, this.deviceFeatures); },'],
+        ["renderer ARB error state returns", G + "gl_executor.js",
+            'program.source = source;\n            program.target = target;\n            program.compiled = compiled;',
+            'this.current.arbErrorString = "";\n            program.source = source;\n            program.target = target;\n            program.compiled = compiled;'],
+        ["renderer saves retired error flags", G + "gl_renderer_snapshot.js",
+            '!(object.textureUnits && object.stacks && ["error", "errorQueue", "arbErrorString", "arbErrorPosition"].includes(key))', 'true'],
+        ["renderer restores retired error flags", G + "gl_renderer_snapshot.js",
+            'delete context.error;delete context.errorQueue;delete context.arbErrorString;delete context.arbErrorPosition;', 'void context;'],
+    ] },
     glfbopixels: { floor: 0.9, node: ["gl_framebuffer_pixels_test.js"], pages: [], list: [
         ["pixel read from NONE accepted", G + "gl_shadow_render.js",
             "return s.current.readBuffer === GL.NONE ? GL.INVALID_OPERATION : 0;", "return 0;"],
@@ -388,11 +406,9 @@ const MUTATIONS = {
         ["CPU forwarding: lose the original inline reply offset", "src/browser/glbridge/graphics_proxy.js",
             'event.writeGuestMemory(at + offset, bytes, inline)', 'event.writeGuestMemory(at, bytes, inline)'],
         ["CPU forwarding: discard the CPU error before the query", G + "gl_shadow.js",
-            'view.setUint32(offset + F.QUERY_ERROR.value, this.current.error, true);', 'view.setUint32(offset + F.QUERY_ERROR.value, 0, true);'],
-        ["CPU forwarding: overwrite a CPU error query on the renderer", G + "gl_executor.js",
-            'if (view.getUint32(offset + F.status, true) !== SYNC_STATUS_PENDING) {\n                // Old unfiltered', 'if (false) {\n                // Old unfiltered'],
-        ["CPU forwarding: discard a different renderer error", G + "gl_executor.js",
-            'if (state && error === view.getUint32(offset + F.value, true)) state.error = GL.NO_ERROR;', 'if (state) state.error = GL.NO_ERROR;'],
+            'view.setUint32(offset + F.QUERY_ERROR.value, inside ? 0 : c?.error || 0, true);', 'view.setUint32(offset + F.QUERY_ERROR.value, 0, true);'],
+        // D1 retires renderer error consumption/answers. The glrenderer
+        // family checks their absence in pristine source and built modules.
         ["CPU numeric snapshots: clone live state through JSON", G + "gl_shadow.js",
             'static clone(value) { return cloneState(value); }', 'static clone(value) { return JSON.parse(JSON.stringify(value)); }'],
         ["CPU numeric snapshots: serialize special numbers without tags", G + "gl_shadow.js",
@@ -760,8 +776,8 @@ const MUTATIONS = {
         ["CPU validation: fails to mark a rejected command", G + "gl_shadow.js",
             "view.setUint16(recordOffset, protocol.rejectedOpcode(fn, error), true);", "void recordOffset;"],
         ["CPU validation: applies rejected arguments on the page", G + "gl_executor.js",
-            "this.setError(protocol.rejectionError(fn));\n                return;",
-            "this.setError(protocol.rejectionError(fn));\n                fn &= protocol.C.V86GL_REJECTED_OPCODE_MASK;"],
+            "// markers. Their arguments and CPU error are not GPU state.\n                return;",
+            "// markers. Their arguments and CPU error are not GPU state.\n                fn &= protocol.C.V86GL_REJECTED_OPCODE_MASK;"],
         ["GL async: early failures stay in the page copy", G + "gl_executor.js",
             "                this.answerGuest(bytes, metadata, [[offset + F.status, status(SYNC_STATUS_FAILED)]]);",
             "                view.setUint32(offset + F.status, SYNC_STATUS_FAILED, true);"],
@@ -1021,6 +1037,10 @@ try {
         cp_sync(join(root, part), join(copy, part), { recursive: true });
     mkdir_sync(join(copy, "bios"));
     cp_sync(join(root, "bios/glslang.wasm"), join(copy, "bios/glslang.wasm"));
+    if(!family || family === "glrenderer") {
+        mkdir_sync(join(copy, "build/glbridge"), { recursive: true });
+        cp_sync(join(root, "build/glbridge/libv86-webgpu.js"), join(copy, "build/glbridge/libv86-webgpu.js"));
+    }
     const run = (file, isPage) => {
         const result = isPage
             ? spawn_sync(process.execPath, [join(copy, "tests/glbridge/gl_multipass_browser_runner.js"), file],

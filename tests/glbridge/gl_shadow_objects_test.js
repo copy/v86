@@ -126,9 +126,9 @@ test("colour texture plus depth renderbuffer is complete, and the executor agree
     attachTexture(s, COLOR0, 7);
     attachRenderbuffer(s, DEPTH, 9);
     s.status();
-    // the executor answers the same stream on its own
-    const copy = s.bytes().slice();
+    // Only the CPU answers completeness; the renderer preserves that answer.
     shadow().process(s.bytes());
+    const copy = s.bytes().slice();
     assert.deepEqual(s.answers(), [GL.FRAMEBUFFER_COMPLETE]);
     const { host } = createFakeHost();
     const executor = new GLWebGPUExecutor(null, { host });

@@ -18,6 +18,7 @@
 <script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
 <script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
 <script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="gl_renderer_diagnostics.js"></script>
 <script src="gl_stream_builder.js"></script>
 <script src="gl_conformance/scenes.js"></script>
 <script src="gl_conformance/to_stream.js"></script>
@@ -51,7 +52,7 @@
             other = byName(apple.hw);
         }
         const executor = new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),
-            { strict: true });
+            { strict: true, rendererTestDiagnostics: true });
         await executor.initialize();
         const device = executor.device;
         let passed = 0, known = 0;

@@ -88,12 +88,12 @@ test("matrix and attribute stack bounds report errors and keep usable stacks", a
 test("valid calls after a rejected call continue in the same batch", async () => {
     const s = scene().call("DEPTH_FUNC", 0).call("DEPTH_FUNC", GL.GEQUAL), value = ask(s, GL.DEPTH_FUNC), first = error(s);
     const bytes = s.bytes(); shadow().process(bytes); const renderer = await render(bytes);
-    assert.deepEqual(value(), [GL.GEQUAL]); assert.equal(renderer.queryInteger(GL.DEPTH_FUNC), GL.GEQUAL); assert.equal(first(), GL.INVALID_ENUM);
+    assert.deepEqual(value(), [GL.GEQUAL]); assert.equal(renderer.current.depthFunc, GL.GEQUAL); assert.equal(first(), GL.INVALID_ENUM);
 });
 test("accepted viewport limits are normalized before forwarding", async () => {
     const s = scene().call("VIEWPORT", -10, 7, 10000, 12000), value = ask(s, GL.VIEWPORT);
     const bytes = s.bytes(); shadow().process(bytes); const renderer = await render(bytes);
-    assert.deepEqual(value(), [-10, 7, 4096, 4096]); assert.equal(renderer.queryInteger(GL.VIEWPORT), 4096);
+    assert.deepEqual(value(), [-10, 7, 4096, 4096]); assert.equal(renderer.current.viewport.width, 4096);
 });
 test("GL_COLOR is a matrix mode and SRC_ALPHA_SATURATE is legal for separate source alpha", async () => {
     const s = scene().call("MATRIX_MODE", GL.COLOR).call("TRANSLATEF", 1, 2, 3)

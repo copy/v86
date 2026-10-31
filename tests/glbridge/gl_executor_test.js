@@ -54,7 +54,7 @@ function asyncTest(name, fn) {
 function newExecutor(options) {
     const { host, log } = createFakeHost();
     const executor = new executorModule.GLWebGPUExecutor(null,
-        Object.assign({ host, strict: true }, options || {}));
+        Object.assign({ host, strict: true, rendererTestDiagnostics: true }, options || {}));
     created.push([currentTest, executor]);
     executor.initializeSync = () => {
         // initialize() is async only because a real adapter request is; the

@@ -3,7 +3,15 @@ const assert = require("node:assert/strict"), { GLWebGPUExecutor } = require("..
     codec = require("../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"), snapshot = require("../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"),
     { createFakeHost } = require("./gl_fake_gpu.js"), { GLStream, GL } = require("./gl_stream_builder.js"), cases = require("./gl_selection_program_cases.js");
 (async () => {
-    const { host } = createFakeHost(), gpu = new GLWebGPUExecutor(null, { host, strict: true }); await gpu.initialize();
+    const { host: pureHost } = createFakeHost(), pure = new GLWebGPUExecutor(null, { host: pureHost, strict: true, rendererTestDiagnostics: false });await pure.initialize();
+    pure.submit(new GLStream().makeCurrent(1, 0, 0, 16, 16, 1, 1).bytes(), {});
+    pure.current.error = GL.INVALID_OPERATION;pure.current.errorQueue = [GL.INVALID_ENUM];pure.current.arbErrorString = "legacy";pure.current.arbErrorPosition = 7;
+    const clean = await pure.saveSnapshot(), cleanArchive = snapshot.inspect(clean), cleanState = codec.decode(cleanArchive.state);
+    for (const name of ["error", "errorQueue", "arbErrorString", "arbErrorPosition"]) assert.equal(Object.hasOwn(cleanState.current, name), false, "retired error state omitted from new snapshots");
+    cleanState.current.error = GL.INVALID_OPERATION;cleanState.current.errorQueue = [GL.INVALID_ENUM];cleanState.current.arbErrorString = "legacy";cleanState.current.arbErrorPosition = 7;
+    cleanArchive.state = codec.encode(cleanState);await pure.restoreSnapshot(codec.encode(cleanArchive));
+    for (const name of ["error", "errorQueue", "arbErrorString", "arbErrorPosition"]) assert.equal(Object.hasOwn(pure.current, name), false, "old renderer errors retired during restore");
+    const { host } = createFakeHost(), gpu = new GLWebGPUExecutor(null, { host, strict: true, rendererTestDiagnostics: true }); await gpu.initialize();
     gpu.submit(cases.setup().stream.bytes(), {}); await gpu.idle();
     gpu.submit(new GLStream().call("CREATE_SHADER", 102, GL.VERTEX_SHADER).shaderSource(102, "float helper(float x){return x+0.25;}")
         .call("COMPILE_SHADER", 102).call("ATTACH_SHADER", 100, 102).shaderSource(101, "float helper(float x);void main(){gl_Position=vec4(helper(gl_Vertex.x),gl_Vertex.yzw);}")
@@ -25,7 +33,7 @@ const assert = require("node:assert/strict"), { GLWebGPUExecutor } = require("..
     gpu.submit(new GLStream().call("END_QUERY", GL.SAMPLES_PASSED).bytes(), {}); assert.equal(gpu.activeQuery, null);
     const restored = gpu.current, bad = codec.decode(saved); bad.resources = null;
     await assert.rejects(gpu.restoreSnapshot(codec.encode(bad)), /Invalid GL renderer checkpoint/); assert.equal(gpu.current, restored, "invalid archive leaves live state installed");
-    const again = await gpu.saveSnapshot(), other = new GLWebGPUExecutor(null, { host, strict: true }); await other.initialize(); await other.restoreSnapshot(again);
+    const again = await gpu.saveSnapshot(), other = new GLWebGPUExecutor(null, { host, strict: true, rendererTestDiagnostics: true }); await other.initialize(); await other.restoreSnapshot(again);
     assert.equal(other.current.shareGroup.programs.get(other.current.currentProgram).linked, true); assert.equal(other.current.activeQuery, null);
     assert.equal(gpu.hostErrors.length, 0); assert.equal(other.hostErrors.length, 0);
     console.log("gl_renderer_snapshot_test: linked renderer graphs, shared identities, matrix stacks, active query continuation, cold restore and invalid archive ownership passed");

@@ -1,31 +1,11 @@
-// OpenGL 1.1-2.1 executed on WebGPU.
+// Desktop GL rendering on WebGPU. GLShadow beside the emulated device owns
+// public GL state, validation, errors, objects and synchronous queries. This
+// executor consumes its accepted/resolved records and owns GPU resources,
+// shader generation, pipelines and asynchronous readbacks (plan D1).
 //
-// This is the host half of the OpenGL path. The guest DLL
-// (openglproxy/opengl32_proxy.c) remains the guest-side command encoder: it
-// serialises the same 217 opcodes into the same PCI DMA arena. What changed is
-// everything after the opcode -- the GL state machine, the resources and the
-// shaders now live here, in JavaScript, against a GPUDevice shared with
-// d3d9_executor.js.
-//
-// Three decisions shape the whole file:
-//
-//   * The authoritative GL state machine is here, not in the guest. That is
-//     what lets glGetError, glGetIntegerv, glGetUniformLocation and friends be
-//     answered synchronously without a GPU round trip -- only glReadPixels and
-//     occlusion results actually need one (plan 4.8).
-//
-//   * Clip space is flipped once, in the vertex shader (plan 4.3). Framebuffer
-//     row 0 is then GL's bottom row, so viewport, scissor, readback,
-//     glCopyTexImage and render-to-texture orientation all need no conversion.
-//     The cost is reversed winding, which lives in exactly one function
-//     (gpuFrontFace), and a flip in the present blit.
-//
-//   * A draw resolves state into a signature and looks the pipeline up. Any
-//     state that changes the picture must reach the signature; a field that
-//     does not is a bug whose symptom is "I changed the state and nothing
-//     happened".
-//
-// See docs/opengl-webgpu-implementation-plan.zh-CN.md.
+// The vertex stage flips clip-space Y once. Framebuffer row zero remains GL's
+// bottom row; winding and presentation account for this conversion.
+// Every pipeline-affecting render state must participate in its cache key.
 
 (function(global) {
     "use strict";
@@ -1336,10 +1316,6 @@
     function createContextState(id, shareGroup) {
         const state = {
             id, shareGroup,
-            error: GL.NO_ERROR,
-            errorQueue: [],
-            arbErrorString: "",
-            arbErrorPosition: -1,
 
             matrixMode: GL.MODELVIEW,
             stacks: {
@@ -1712,8 +1688,6 @@
                 (gpuHost ? gpuHost.acquire(canvas, this.options.hostOptions) : null);
             // Mirrored for backwards-compatible diagnostics; query paths use
             // the per-HGLRC fields in createContextState.
-            this.arbErrorString = "";
-            this.arbErrorPosition = -1;
             this.device = null;
             this.deviceFeatures = { bc: false };
             this.presenterToken = 0;
@@ -1959,23 +1933,20 @@
          * situation -- reflected in glGetError. Silently ignoring it is what
          * made the D3D8 and DirectDraw migrations expensive to debug.
          */
-        refuse(op, reason, details, glError) {
+        refuse(op, reason, details) {
             ++this.stats.refusals;
             const key = op + ":" + reason;
             this.stats.refusalsByOp[key] = (this.stats.refusalsByOp[key] || 0) + 1;
-            if (glError && this.current) this.setError(glError);
             if (this.warned[key]) return;
             this.warned[key] = true;
             console.error("[gl-webgpu] refused " + op + ": " + reason,
                 details || {});
         }
 
-        setError(code) {
-            const state = this.current;
-            if (!state) return;
-            // GL keeps the first error until it is read, which is what makes
-            // glGetError usable for bisecting a bad call.
-            if (state.error === GL.NO_ERROR) state.error = code;
+        // A rejected condition here is a renderer/input invariant failure.
+        // GL errors belong exclusively to the CPU shadow.
+        invalidState(code) {
+            this.refuse("validated command", "unexpected invalid state", { code });
         }
 
         getStats() {
@@ -2359,9 +2330,8 @@
         dispatch(fn, bytes, view, offset, size, metadata) {
 
             if (protocol.isRejected(fn)) {
-                // The CPU has already refused this call. Preserve its GL
-                // error during the migration, but never apply its arguments.
-                this.setError(protocol.rejectionError(fn));
+                // Old checkpoints/unfiltered tests may contain CPU rejection
+                // markers. Their arguments and CPU error are not GPU state.
                 return;
             }
 
@@ -2890,7 +2860,7 @@
         define("PUSH_ATTRIB", function(a) {
             const s = this.current;
             if (s.attribStack.length >= 16) {
-                this.setError(GL.STACK_OVERFLOW);
+                this.invalidState(GL.STACK_OVERFLOW);
                 return;
             }
             const mask = a[0] >>> 0;
@@ -2902,7 +2872,7 @@
         define("POP_ATTRIB", function() {
             const s = this.current;
             if (!s.attribStack.length) {
-                this.setError(GL.STACK_UNDERFLOW);
+                this.invalidState(GL.STACK_UNDERFLOW);
                 return;
             }
             const snapshot = s.attribStack.pop();
@@ -2922,7 +2892,7 @@
         define("PUSH_CLIENT_ATTRIB", function(a) {
             const s = this.current;
             if (s.clientAttribStack.length >= 16) {
-                this.setError(GL.STACK_OVERFLOW);
+                this.invalidState(GL.STACK_OVERFLOW);
                 return;
             }
             const mask = a[0] >>> 0;
@@ -2937,7 +2907,7 @@
         define("POP_CLIENT_ATTRIB", function() {
             const s = this.current;
             if (!s.clientAttribStack.length) {
-                this.setError(GL.STACK_UNDERFLOW);
+                this.invalidState(GL.STACK_UNDERFLOW);
                 return;
             }
             const snapshot = s.clientAttribStack.pop();
@@ -3103,15 +3073,6 @@
      * terminator, the same convention openglproxy's own copy_gl_string_result
      * uses when it answers one of these queries without the host.
      */
-    function writeCString(bytes, offset, capacity, text) {
-        if (capacity <= 0) return 0;
-        const written = Math.min(text.length, capacity - 1);
-        for (let i = 0; i < written; ++i)
-            bytes[offset + i] = text.charCodeAt(i) & 0xff;
-        bytes[offset + written] = 0;
-        return written;
-    }
-
     function installResourceHandlers(table) {
         const define = definer(table);
 
@@ -3559,7 +3520,6 @@
      * asks for a uniform location and is handed an attribute's.
      */
     const LOCATION_KIND_ATTRIB = protocol.C.V86GL_LOCATION_KIND_ATTRIB;
-    const ACTIVE_KIND_ATTRIB = protocol.C.V86GL_ACTIVE_KIND_ATTRIB;
 
     /*
      * ARB program environment and local parameters are context state that the
@@ -3708,31 +3668,14 @@
                 view, offset + 20, size - 20);
         });
 
-        /* ---- synchronous queries -------------------------------------- *
-         *
-         * These are answered in place, before the record's handler returns,
-         * because the guest is blocked inside DeviceIoControl waiting for the
-         * status word. Across the CPU worker boundary these bytes are a copy
-         * and the answer never reaches the guest (review S1-1): they move to
-         * the CPU side's shadow (gl_shadow.js) one kind at a time, and a
-         * record the shadow answered is no longer PENDING here.
-         */
+/* CPU-only queries may remain in accepted streams for compatibility.
+         * They never write answers. Only GPU-derived results below use the
+         * asynchronous guest-memory response channel. */
 
-        define("QUERY_ERROR", function(a, bytes, view, offset, size, metadata) {
-            if (size < 16) throw new GLStreamError("query-error record is short");
-            const state = this.current;
-            const error = state ? state.error : GL.NO_ERROR;
-            const F = protocol.F.QUERY_ERROR;
-            if (view.getUint32(offset + F.status, true) !== SYNC_STATUS_PENDING) {
-                // Old unfiltered streams may have latched the same CPU
-                // rejection again. Consume that duplicate, preserving any
-                // different renderer error for the next query.
-                if (state && error === view.getUint32(offset + F.value, true)) state.error = GL.NO_ERROR;
-                return;
-            }
-            if (state) state.error = GL.NO_ERROR;
-            this.answerGuest(bytes, metadata, [[offset + F.value, new Uint8Array(new Uint32Array([error]).buffer)],
-                [offset + F.status, new Uint8Array(new Uint32Array([SYNC_STATUS_OK]).buffer)]]);
+        define("QUERY_ERROR", function(a, bytes, view, offset, size) {
+            if (size < protocol.RECORDS.QUERY_ERROR.size) throw new GLStreamError("QUERY_ERROR record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_ERROR.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_ERROR", {});
         }, { needsContext: false });
 
         // CPU-only query: it must never consult the page's state or write a
@@ -3756,38 +3699,15 @@
         }, { needsContext: false });
 
         define("QUERY_INTEGER", function(a, bytes, view, offset, size) {
-            if (size < 16) throw new GLStreamError("query-integer record is short");
-            // answered on the CPU side already (gl_shadow.js)
-            if (view.getUint32(offset + protocol.F.QUERY_INTEGER.status, true) !== SYNC_STATUS_PENDING) return;
-            const pname = view.getUint32(offset + protocol.F.QUERY_INTEGER.pname, true);
-            const value = this.queryInteger(pname);
-            if (value === null) {
-                view.setUint32(offset + protocol.F.QUERY_INTEGER.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            view.setUint32(offset + protocol.F.QUERY_INTEGER.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_INTEGER.value, value >>> 0, true);
+            if (size < protocol.RECORDS.QUERY_INTEGER.size) throw new GLStreamError("QUERY_INTEGER record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_INTEGER.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_INTEGER", {});
         }, { needsContext: false });
 
         define("QUERY_GL_STRING", function(a, bytes, view, offset, size) {
-            if (size < 16) throw new GLStreamError("query-string record is short");
-            // answered on the CPU side already (gl_shadow.js)
-            if (view.getUint32(offset + protocol.F.QUERY_GL_STRING.status, true) !== SYNC_STATUS_PENDING) return;
-            const pname = view.getUint32(offset + protocol.F.QUERY_GL_STRING.name, true);
-            const capacity = view.getUint32(offset + protocol.F.QUERY_GL_STRING.data_size, true);
-            const text = this.queryString(pname);
-            if (text === null || 16 + capacity > size) {
-                view.setUint32(offset + protocol.F.QUERY_GL_STRING.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            const encoded = [];
-            for (let i = 0; i < text.length; ++i) encoded.push(text.charCodeAt(i) & 0xff);
-            encoded.push(0);
-            view.setUint32(offset + protocol.F.QUERY_GL_STRING.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_GL_STRING.length, encoded.length, true);
-            const limit = Math.min(encoded.length, capacity);
-            for (let i = 0; i < limit; ++i)
-                bytes[offset + 16 + i] = encoded[i];
+            if (size < protocol.RECORDS.QUERY_GL_STRING.size) throw new GLStreamError("QUERY_GL_STRING record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_GL_STRING.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_GL_STRING", {});
         }, { needsContext: false });
 
         define("QUERY_LOCATION", function(a, bytes, view, offset, size) {
@@ -3803,41 +3723,14 @@
                         view.getInt32(offset + protocol.F.QUERY_LOCATION.result, true));
                 return;
             }
-            if (32 + nameLength > size) {
-                view.setUint32(offset + protocol.F.QUERY_LOCATION.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            const name = readCString(bytes, offset + 32, nameLength);
-            const info = this.queryLocation(kind, programName, name);
-            if (!info) {
-                view.setUint32(offset + protocol.F.QUERY_LOCATION.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            view.setUint32(offset + protocol.F.QUERY_LOCATION.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_LOCATION.result, info.location >>> 0, true);
-            view.setUint32(offset + protocol.F.QUERY_LOCATION.value_type, info.type >>> 0, true);
-            view.setUint32(offset + protocol.F.QUERY_LOCATION.value_count, info.size >>> 0, true);
+            this.refuse("CPU query", "unexpected pending location query", { kind, programName });
         });
 
         define("QUERY_UNIFORM", function(a, bytes, view, offset, size) {
-            if (size < 32) throw new GLStreamError("query-uniform record is short");
-            // answered on the CPU side already (gl_shadow_glsl.js)
-            if (view.getUint32(offset + protocol.F.QUERY_UNIFORM.status, true) !== SYNC_STATUS_PENDING) return;
-            const programName = view.getUint32(offset + protocol.F.QUERY_UNIFORM.program, true);
-            const location = view.getInt32(offset + protocol.F.QUERY_UNIFORM.location, true);
-            const valueKind = view.getUint32(offset + protocol.F.QUERY_UNIFORM.value_kind, true);
-            const values = this.readUniform(programName, location, valueKind);
-            if (!values || !values.length || values.length > 16) {
-                view.setUint32(offset + protocol.F.QUERY_UNIFORM.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            view.setUint32(offset + protocol.F.QUERY_UNIFORM.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_UNIFORM.value_count, values.length, true);
-            for (let i = 0; i < values.length; ++i) {
-                if (valueKind === 2) view.setInt32(offset + 32 + i * 4, values[i] | 0, true);
-                else view.setFloat32(offset + 32 + i * 4, values[i], true);
-            }
-        });
+            if (size < protocol.RECORDS.QUERY_UNIFORM.size) throw new GLStreamError("QUERY_UNIFORM record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_UNIFORM.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_UNIFORM", {});
+        }, { needsContext: false });
 
         define("QUERY_OBJECT_IV", function(a, bytes, view, offset, size, metadata) {
             if (size < 24) throw new GLStreamError("query-object record is short");
@@ -3868,13 +3761,7 @@
                     answer(query.generation === generation && query.ready, query.result), () => answer(false, 0)));
                 return;
             }
-            const value = this.queryObjectiv(kind, name, pname);
-            if (value === null) {
-                view.setUint32(offset + protocol.F.QUERY_OBJECT_IV.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            view.setUint32(offset + protocol.F.QUERY_OBJECT_IV.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_OBJECT_IV.value, value >>> 0, true);
+            this.refuse("CPU query", "unexpected pending shader/program query", { kind, name, pname });
         });
 
         /*
@@ -3884,22 +3771,10 @@
          * here hand glGetShaderInfoLog a log that is missing its first word.
          */
         define("QUERY_OBJECT_LOG", function(a, bytes, view, offset, size) {
-            if (size < 24) throw new GLStreamError("query-log record is short");
-            // answered on the CPU side already (gl_shadow_glsl.js)
-            if (view.getUint32(offset + protocol.F.QUERY_OBJECT_LOG.status, true) !== SYNC_STATUS_PENDING) return;
-            const kind = view.getUint32(offset + protocol.F.QUERY_OBJECT_LOG.object_kind, true);
-            const name = view.getUint32(offset + protocol.F.QUERY_OBJECT_LOG.name, true);
-            const capacity = view.getUint32(offset + protocol.F.QUERY_OBJECT_LOG.buf_size, true);
-            const text = this.queryObjectLog(kind, name);
-            if (text === null || 24 + capacity > size) {
-                view.setUint32(offset + protocol.F.QUERY_OBJECT_LOG.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            view.setUint32(offset + protocol.F.QUERY_OBJECT_LOG.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_OBJECT_LOG.length,
-                writeCString(bytes, offset + 24, capacity,
-                    text), true);
-        });
+            if (size < protocol.RECORDS.QUERY_OBJECT_LOG.size) throw new GLStreamError("QUERY_OBJECT_LOG record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_OBJECT_LOG.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_OBJECT_LOG", {});
+        }, { needsContext: false });
 
         /*
          * {kind, program, index, buf_size, status, length, size, type,
@@ -3908,35 +3783,16 @@
          * glGetActiveUniform's own out-parameters are in.
          */
         define("QUERY_ACTIVE", function(a, bytes, view, offset, size) {
-            if (size < 40) throw new GLStreamError("query-active record is short");
-            // answered on the CPU side already (gl_shadow_glsl.js)
-            if (view.getUint32(offset + protocol.F.QUERY_ACTIVE.status, true) !== SYNC_STATUS_PENDING) return;
-            const kind = view.getUint32(offset + protocol.F.QUERY_ACTIVE.active_kind, true);
-            const programName = view.getUint32(offset + protocol.F.QUERY_ACTIVE.program, true);
-            const index = view.getUint32(offset + protocol.F.QUERY_ACTIVE.index, true);
-            const capacity = view.getUint32(offset + protocol.F.QUERY_ACTIVE.buf_size, true);
-            const info = this.queryActive(kind, programName, index);
-            if (!info || 40 + capacity > size) {
-                view.setUint32(offset + protocol.F.QUERY_ACTIVE.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            view.setUint32(offset + protocol.F.QUERY_ACTIVE.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_ACTIVE.length,
-                writeCString(bytes, offset + 40, capacity,
-                    info.name), true);
-            view.setUint32(offset + protocol.F.QUERY_ACTIVE.size, info.size >>> 0, true);
-            view.setUint32(offset + protocol.F.QUERY_ACTIVE.type, info.type >>> 0, true);
-        });
+            if (size < protocol.RECORDS.QUERY_ACTIVE.size) throw new GLStreamError("QUERY_ACTIVE record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_ACTIVE.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_ACTIVE", {});
+        }, { needsContext: false });
 
         define("CHECK_FRAMEBUFFER_STATUS", function(a, bytes, view, offset, size) {
-            if (size < 16) throw new GLStreamError("fbo-status record is short");
-            // answered on the CPU side already (gl_shadow_objects.js)
-            if (view.getUint32(offset + protocol.F.CHECK_FRAMEBUFFER_STATUS.status, true) !== SYNC_STATUS_PENDING) return;
-            const target = view.getUint32(offset + protocol.F.CHECK_FRAMEBUFFER_STATUS.target, true);
-            const status = this.checkFramebufferStatus(target);
-            view.setUint32(offset + protocol.F.CHECK_FRAMEBUFFER_STATUS.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.CHECK_FRAMEBUFFER_STATUS.result, status >>> 0, true);
-        });
+            if (size < protocol.RECORDS.CHECK_FRAMEBUFFER_STATUS.size) throw new GLStreamError("CHECK_FRAMEBUFFER_STATUS record is short");
+            if (view.getUint32(offset + protocol.F.CHECK_FRAMEBUFFER_STATUS.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending CHECK_FRAMEBUFFER_STATUS", {});
+        }, { needsContext: false });
 
         /* ---- ARB assembly programs ---- */
 
@@ -3985,22 +3841,20 @@
             this.programParameterARB(view, offset, size, true);
         });
         define("QUERY_PROGRAM_IV_ARB", function(a, bytes, view, offset, size) {
-            if (size < 16) throw new GLStreamError("ARB query record is short");
-            // answered on the CPU side already (gl_shadow_arb.js)
-            if (view.getUint32(offset + protocol.F.QUERY_PROGRAM_IV_ARB.status, true) !== SYNC_STATUS_PENDING) return;
-            const target = view.getUint32(offset + protocol.F.QUERY_PROGRAM_IV_ARB.target, true);
-            const pname = view.getUint32(offset + protocol.F.QUERY_PROGRAM_IV_ARB.pname, true);
-            const value = this.queryProgramivARB(target, pname);
-            view.setUint32(offset + protocol.F.QUERY_PROGRAM_IV_ARB.status, value === null ?
-                SYNC_STATUS_FAILED : SYNC_STATUS_OK, true);
-            if (value !== null) view.setUint32(offset + protocol.F.QUERY_PROGRAM_IV_ARB.value, value >>> 0, true);
-        });
+            if (size < protocol.RECORDS.QUERY_PROGRAM_IV_ARB.size) throw new GLStreamError("QUERY_PROGRAM_IV_ARB record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_PROGRAM_IV_ARB.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_PROGRAM_IV_ARB", {});
+        }, { needsContext: false });
         define("QUERY_PROGRAM_PARAMETER_FV_ARB", function(a, bytes, view, offset, size) {
-            this.queryProgramParameterARB(view, offset, size, false);
-        });
+            if (size < protocol.RECORDS.QUERY_PROGRAM_PARAMETER_FV_ARB.size) throw new GLStreamError("QUERY_PROGRAM_PARAMETER_FV_ARB record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_PROGRAM_PARAMETER_FV_ARB.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_PROGRAM_PARAMETER_FV_ARB", {});
+        }, { needsContext: false });
         define("QUERY_PROGRAM_PARAMETER_DV_ARB", function(a, bytes, view, offset, size) {
-            this.queryProgramParameterARB(view, offset, size, true);
-        });
+            if (size < protocol.RECORDS.QUERY_PROGRAM_PARAMETER_DV_ARB.size) throw new GLStreamError("QUERY_PROGRAM_PARAMETER_DV_ARB record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_PROGRAM_PARAMETER_DV_ARB.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_PROGRAM_PARAMETER_DV_ARB", {});
+        }, { needsContext: false });
         /*
          * {target, pname, status, length, data_size, reserved} then the
          * program text at 24. glGetProgramStringARB has no buffer size of its
@@ -4009,23 +3863,10 @@
          * written without a terminator, exactly as the extension specifies.
          */
         define("QUERY_PROGRAM_STRING_ARB", function(a, bytes, view, offset, size) {
-            if (size < 24) throw new GLStreamError("ARB string record is short");
-            // answered on the CPU side already (gl_shadow_arb.js)
-            if (view.getUint32(offset + protocol.F.QUERY_PROGRAM_STRING_ARB.status, true) !== SYNC_STATUS_PENDING) return;
-            const target = view.getUint32(offset + protocol.F.QUERY_PROGRAM_STRING_ARB.target, true);
-            const capacity = view.getUint32(offset + protocol.F.QUERY_PROGRAM_STRING_ARB.data_size, true);
-            const program = this.arbProgramFor(target);
-            if (!program || 24 + capacity > size) {
-                view.setUint32(offset + protocol.F.QUERY_PROGRAM_STRING_ARB.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            const text = program.source;
-            const written = Math.min(text.length, capacity);
-            view.setUint32(offset + protocol.F.QUERY_PROGRAM_STRING_ARB.status, SYNC_STATUS_OK, true);
-            view.setUint32(offset + protocol.F.QUERY_PROGRAM_STRING_ARB.length, written, true);
-            for (let i = 0; i < written; ++i)
-                bytes[offset + 24 + i] = text.charCodeAt(i) & 0xff;
-        });
+            if (size < protocol.RECORDS.QUERY_PROGRAM_STRING_ARB.size) throw new GLStreamError("QUERY_PROGRAM_STRING_ARB record is short");
+            if (view.getUint32(offset + protocol.F.QUERY_PROGRAM_STRING_ARB.status, true) === SYNC_STATUS_PENDING)
+                this.refuse("CPU query", "unexpected pending QUERY_PROGRAM_STRING_ARB", {});
+        }, { needsContext: false });
     }
 
     /* ================================================================== */
@@ -4557,9 +4398,9 @@
         },
 
         setTexParameter(target, pname, values, integer, scalar) {
-            if (!textureParameters.targets.includes(target)) return this.setError(GL.INVALID_ENUM);
+            if (!textureParameters.targets.includes(target)) return this.invalidState(GL.INVALID_ENUM);
             const result = textureParameters.normalize(pname, values, integer, scalar);
-            if (result.error) return this.setError(result.error);
+            if (result.error) return this.invalidState(result.error);
             values = result.values;
             const texture = this.boundTexture(target);
             if (!texture)
@@ -5906,178 +5747,10 @@
 
         /* ---- synchronous query answers ---- */
 
-        queryLocation(kind, programName, name) {
-            const program = this.current.shareGroup.programs.get(programName);
-            if (!program || !program.linked || !program.link) return null;
-            const reflection = program.link.reflection;
-            if (kind === LOCATION_KIND_ATTRIB) {
-                // glGetAttribLocation
-                const attribute = reflection.attributes.find(a => a.name === name);
-                if (!attribute) return { location: -1, type: 0, size: 0 };
-                return { location: attribute.location,
-                         type: glslTypeEnum(attribute.glslType),
-                         size: 1 };
-            }
-            // glGetUniformLocation. GL says name and name[0] are the same
-            // location, and name[i] is location + i.
-            let lookupName = name;
-            let element = 0;
-            const match = /^(.*)\[(\d+)\]$/.exec(name);
-            if (match) { lookupName = match[1]; element = parseInt(match[2], 10); }
-            const uniform = program.uniformByName.get(lookupName);
-            if (!uniform) return { location: -1, type: 0, size: 0 };
-            if (uniform.arraySize && element >= uniform.arraySize)
-                return { location: -1, type: 0, size: 0 };
-            return {
-                location: uniform.location + element,
-                type: glslTypeEnum(uniform.glslType ||
-                    samplerTypeName(uniform)),
-                size: uniform.arraySize || 1,
-            };
-        },
-
-        readUniform(programName, location, valueKind) {
-            const program = this.current.shareGroup.programs.get(programName);
-            if (!program || !program.linked) return null;
-            const entry = program.uniformByLocation.get(location);
-            if (!entry) return null;
-            if (entry.sampler) {
-                const key = entry.sampler.name +
-                    (entry.sampler.arraySize ? "[" + entry.element + "]" : "");
-                return [program.samplerUnits.get(key) || 0];
-            }
-            const uniform = entry.uniform;
-            const stride = uniform.arraySize ? uniform.arrayStrideBytes : 0;
-            const base = uniform.offsetBytes + entry.element * stride;
-            const values = [];
-            if (uniform.kind === "matrix") {
-                const columnStride = uniform.matrixColumnStrideBytes;
-                for (let c = 0; c < uniform.columns; ++c)
-                    for (let r = 0; r < uniform.rows; ++r)
-                        values.push(program.uniformFloats[
-                            (base + c * columnStride) / 4 + r]);
-            } else {
-                for (let c = 0; c < uniform.components; ++c) {
-                    values.push(valueKind === 2 || uniform.baseType !== "float" ?
-                        program.uniformInts[(base >> 2) + c] :
-                        program.uniformFloats[(base >> 2) + c]);
-                }
-            }
-            return values;
-        },
-
-        queryObjectiv(kind, name, pname) {
-            const group = this.current.shareGroup;
-            if (kind === 1) {                     // shader
-                const shader = group.shaders.get(name);
-                if (!shader) return null;
-                switch (pname) {
-                case GL.COMPILE_STATUS:
-                    return shader.compiled && shader.compiled.ok ? 1 : 0;
-                case GL.INFO_LOG_LENGTH:
-                    return shader.compiled ? shader.compiled.log.length + 1 : 1;
-                case GL.SHADER_SOURCE_LENGTH: return shader.source.length + 1;
-                case GL.SHADER_TYPE: return shader.type;
-                case GL.DELETE_STATUS: return 0;
-                default: return 0;
-                }
-            }
-            if (kind === 2) {                     // program
-                const program = group.programs.get(name);
-                if (!program) return null;
-                const reflection = program.link ? program.link.reflection : null;
-                switch (pname) {
-                case GL.LINK_STATUS: return program.linked ? 1 : 0;
-                case GL.VALIDATE_STATUS: return program.linked ? 1 : 0;
-                case GL.INFO_LOG_LENGTH: return program.log.length + 1;
-                case GL.ATTACHED_SHADERS: return program.shaders.size;
-                case GL.ACTIVE_UNIFORMS:
-                    return reflection ?
-                        reflection.uniforms.length + reflection.samplers.length : 0;
-                case GL.ACTIVE_ATTRIBUTES:
-                    return reflection ? reflection.attributes.length : 0;
-                case GL.ACTIVE_UNIFORM_MAX_LENGTH:
-                    return reflection ? maxNameLength(reflection.uniforms,
-                        reflection.samplers) : 1;
-                case GL.ACTIVE_ATTRIBUTE_MAX_LENGTH:
-                    return reflection ? maxNameLength(reflection.attributes) : 1;
-                case GL.DELETE_STATUS: return 0;
-                default: return 0;
-                }
-            }
-            // Occlusion query object.
-            const query = this.queries.get(name);
-            if (!query) return null;
-            if (pname === GL.QUERY_RESULT_AVAILABLE) return query.ready ? 1 : 0;
-            if (pname === GL.QUERY_RESULT) return query.result >>> 0;
-            return 0;
-        },
-
-        queryObjectLog(kind, name) {
-            const group = this.current.shareGroup;
-            if (kind === 1) {
-                const shader = group.shaders.get(name);
-                return shader ? (shader.compiled ? shader.compiled.log : "") : null;
-            }
-            const program = group.programs.get(name);
-            return program ? program.log : null;
-        },
 
         /* openglproxy's V86GL_ACTIVE_KIND_UNIFORM is 1 and _ATTRIB is 2. */
-        queryActive(kind, programName, index) {
-            const program = this.current.shareGroup.programs.get(programName);
-            if (!program || !program.link) return null;
-            const reflection = program.link.reflection;
-            if (kind === ACTIVE_KIND_ATTRIB) {
-                const attribute = reflection.attributes[index];
-                if (!attribute) return null;
-                return { name: attribute.name, size: 1,
-                         type: glslTypeEnum(attribute.glslType) };
-            }
-            const all = reflection.uniforms.concat(reflection.samplers);
-            const uniform = all[index];
-            if (!uniform) return null;
-            return {
-                name: uniform.arraySize ? uniform.name + "[0]" : uniform.name,
-                size: uniform.arraySize || 1,
-                type: glslTypeEnum(uniform.glslType || samplerTypeName(uniform)),
-            };
-        },
+
     });
-
-    function maxNameLength(...lists) {
-        let longest = 0;
-        for (const list of lists)
-            for (const entry of list)
-                longest = Math.max(longest, entry.name.length);
-        return longest + 1;
-    }
-
-    function samplerTypeName(sampler) {
-        if (!sampler.dim) return "sampler2D";
-        return "sampler" + sampler.dim + (sampler.shadow ? "Shadow" : "");
-    }
-
-    /* GLSL type names to the GL_* enums glGetActiveUniform reports. */
-    const GLSL_TYPE_ENUMS = {
-        float: GL.FLOAT, vec2: GL.FLOAT_VEC2, vec3: GL.FLOAT_VEC3,
-        vec4: GL.FLOAT_VEC4,
-        int: GL.INT, ivec2: GL.INT_VEC2, ivec3: GL.INT_VEC3, ivec4: GL.INT_VEC4,
-        bool: GL.BOOL, bvec2: GL.BOOL_VEC2, bvec3: GL.BOOL_VEC3,
-        bvec4: GL.BOOL_VEC4,
-        mat2: GL.FLOAT_MAT2, mat3: GL.FLOAT_MAT3, mat4: GL.FLOAT_MAT4,
-        mat2x3: GL.FLOAT_MAT2x3, mat2x4: GL.FLOAT_MAT2x4,
-        mat3x2: GL.FLOAT_MAT3x2, mat3x4: GL.FLOAT_MAT3x4,
-        mat4x2: GL.FLOAT_MAT4x2, mat4x3: GL.FLOAT_MAT4x3,
-        sampler1D: GL.SAMPLER_1D, sampler2D: GL.SAMPLER_2D,
-        sampler3D: GL.SAMPLER_3D, samplerCube: GL.SAMPLER_CUBE,
-        sampler1DShadow: GL.SAMPLER_1D_SHADOW,
-        sampler2DShadow: GL.SAMPLER_2D_SHADOW,
-    };
-
-    function glslTypeEnum(name) {
-        return GLSL_TYPE_ENUMS[name] || 0;
-    }
 
     /* ================================================================== */
     /* Executor: vertex assembly and drawing                              */
@@ -9979,7 +9652,7 @@ struct BlitParams {
                 return this.refuse("glRenderbufferStorage",
                     "no renderbuffer is bound", {}, GL.INVALID_OPERATION);
             const storage = renderbufferFormatFor(internalFormat, this.deviceFeatures);
-            if (!storage) return this.setError(GL.INVALID_ENUM);
+            if (!storage) return this.invalidState(GL.INVALID_ENUM);
             this.endPass();
             rb.width = width && height ? width : 0;
             rb.height = width && height ? height : 0;
@@ -11418,12 +11091,8 @@ struct Params { value : vec4<f32>, }
                 (s.depthRange.far - s.depthRange.near) * (ndcZ * 0.5 + 0.5);
             s.current.rasterPos[3] = cw;
         },
-        /*
-         * glProgramStringARB compiles immediately, the way the extension
-         * specifies: the program's error state and GL_PROGRAM_ERROR_POSITION_ARB
-         * are readable right afterwards, and a game that checks them expects an
-         * answer rather than a promise.
-         */
+        // Rebuild the GPU code from the CPU-accepted ARB source. A failure
+        // here is a renderer/front-end disagreement, not a guest GL error.
         programStringARB(target, source) {
             const program = this.arbProgramFor(target);
             if (!program)
@@ -11433,38 +11102,13 @@ struct Params { value : vec4<f32>, }
             if (compiled.ok && compiled.target !== (target === GL.VERTEX_PROGRAM_ARB ? "vertex" : "fragment")) {
                 compiled.ok = false; compiled.log = "ERROR: program header does not match the target"; compiled.errorPosition = 0;
             }
-            if (!compiled.ok) {
-                /*
-                 * A program the *application* wrote wrongly is not a host
-                 * refusal: the extension defines exactly how to report it, and
-                 * an app that submits a deliberately bad program to check its
-                 * error handling -- which is what a conformance viewer does --
-                 * is behaving correctly. Counting it in stats.refusals would
-                 * make that counter useless as "how much of this frame did the
-                 * host fail to draw". So it takes GL's own channel: the error,
-                 * the error string and the error position, and one warning
-                 * rather than one error.
-                 */
-                this.arbErrorString = compiled.log;
-                this.arbErrorPosition = compiled.errorPosition >= 0 ? compiled.errorPosition : 0;
-                this.current.arbErrorString = this.arbErrorString;
-                this.current.arbErrorPosition = this.arbErrorPosition;
-                this.setError(GL.INVALID_OPERATION);
-                this.warnOnce("arbProgramCompile",
-                    "an ARB program did not compile; the app can read the " +
-                    "reason from GL_PROGRAM_ERROR_STRING_ARB",
-                    { target, log: compiled.log,
-                      position: this.arbErrorPosition });
-                return;
-            }
+            if (!compiled.ok) return this.refuse("ARB code generation", "CPU-accepted program failed", {
+                target, log: compiled.log, position: compiled.errorPosition,
+            });
             program.source = source;
             program.target = target;
             program.compiled = compiled;
             if (program.variants) program.variants.clear();
-            this.arbErrorString = "";
-            this.arbErrorPosition = -1;
-            this.current.arbErrorString = "";
-            this.current.arbErrorPosition = -1;
             arbParameterStorage(program, PROGRAM_PARAMETER_ENV);
             ++this.stats.shaderLinks;
         },
@@ -11519,94 +11163,10 @@ struct Params { value : vec4<f32>, }
             return env;
         },
 
-        queryProgramivARB(target, pname) {
-            const program = this.arbProgramFor(target);
-            if (pname >= GL.PROGRAM_ALU_INSTRUCTIONS_ARB && pname <= GL.MAX_PROGRAM_NATIVE_TEX_INDIRECTIONS_ARB) {
-                if (target !== GL.FRAGMENT_PROGRAM_ARB) return null;
-                if (pname >= GL.MAX_PROGRAM_ALU_INSTRUCTIONS_ARB) return 4096;
-                const field = ["aluInstructionCount", "textureInstructionCount", "textureIndirections"][(pname - GL.PROGRAM_ALU_INSTRUCTIONS_ARB) % 3];
-                return program && program.compiled && program.compiled.ok ? program.compiled.reflection[field] : 0;
-            }
-            switch (pname) {
-            case GL.PROGRAM_LENGTH_ARB:
-                return program ? program.source.length : 0;
-            case GL.PROGRAM_FORMAT_ARB:
-                return GL.PROGRAM_FORMAT_ASCII_ARB;
-            case GL.PROGRAM_BINDING_ARB:
-                return target === GL.VERTEX_PROGRAM_ARB ?
-                    this.current.arbVertexProgram : this.current.arbFragmentProgram;
-            case GL.PROGRAM_INSTRUCTIONS_ARB:
-            case GL.PROGRAM_NATIVE_INSTRUCTIONS_ARB:
-                return program && program.compiled && program.compiled.ok ?
-                    program.compiled.reflection.instructionCount : 0;
-            case GL.PROGRAM_TEMPORARIES_ARB:
-            case GL.PROGRAM_NATIVE_TEMPORARIES_ARB:
-                return program && program.compiled && program.compiled.ok ?
-                    program.compiled.reflection.temporaryCount : 0;
-            case GL.PROGRAM_PARAMETERS_ARB:
-            case GL.PROGRAM_NATIVE_PARAMETERS_ARB:
-                return program && program.compiled && program.compiled.ok ? program.compiled.reflection.parameterCount : 0;
-            case GL.PROGRAM_ATTRIBS_ARB:
-            case GL.PROGRAM_NATIVE_ATTRIBS_ARB:
-                return program && program.compiled && program.compiled.ok ? program.compiled.reflection.attributeCount : 0;
-            case GL.PROGRAM_ADDRESS_REGISTERS_ARB:
-            case GL.PROGRAM_NATIVE_ADDRESS_REGISTERS_ARB:
-                return program && program.compiled && program.compiled.ok ? program.compiled.reflection.addressRegisterCount : 0;
-            case GL.MAX_PROGRAM_ATTRIBS_ARB:
-            case GL.MAX_PROGRAM_NATIVE_ATTRIBS_ARB: return 16;
-            case GL.MAX_PROGRAM_ADDRESS_REGISTERS_ARB:
-            case GL.MAX_PROGRAM_NATIVE_ADDRESS_REGISTERS_ARB: return arbProgram.MAX_ADDRESS_REGISTERS;
-            case GL.MAX_PROGRAM_PARAMETERS_ARB:
-            case GL.MAX_PROGRAM_NATIVE_PARAMETERS_ARB:
-                return arbProgram.MAX_PROGRAM_BINDINGS;
-            case GL.MAX_PROGRAM_ENV_PARAMETERS_ARB:
-            case GL.MAX_PROGRAM_LOCAL_PARAMETERS_ARB:
-                return arbProgram.parameterLimit(target === GL.VERTEX_PROGRAM_ARB ? "vertex" : "fragment");
-            case GL.MAX_PROGRAM_INSTRUCTIONS_ARB:
-            case GL.MAX_PROGRAM_NATIVE_INSTRUCTIONS_ARB:
-                return 4096;
-            case GL.MAX_PROGRAM_TEMPORARIES_ARB:
-            case GL.MAX_PROGRAM_NATIVE_TEMPORARIES_ARB:
-                return arbProgram.MAX_TEMPORARIES;
-            case GL.PROGRAM_UNDER_NATIVE_LIMITS_ARB:
-                return program && program.compiled && program.compiled.ok ? 1 : 0;
-            case GL.PROGRAM_ERROR_POSITION_ARB:
-                // -1 means "the last ProgramString succeeded"; otherwise the
-                // character offset the parser stopped at.
-                return this.current && this.current.arbErrorPosition !== undefined ?
-                    this.current.arbErrorPosition : -1;
-            default:
-                return 0;
-            }
-        },
 
         /* {kind, target, index, status, data_size, reserved} then the four
          * components at 24 -- the read-back twin of programParameterARB. */
-        queryProgramParameterARB(view, offset, size, doublePrecision) {
-            if (size < 24) throw new GLStreamError("ARB query record is short");
-            // FV and DV share the header
-            const F = protocol.F.QUERY_PROGRAM_PARAMETER_FV_ARB;
-            // answered on the CPU side already (gl_shadow_arb.js)
-            if (view.getUint32(offset + F.status, true) !== SYNC_STATUS_PENDING) return;
-            const kind = view.getUint32(offset + F.parameter_kind, true);
-            const target = view.getUint32(offset + F.target, true);
-            const index = view.getUint32(offset + F.index, true);
-            const env = kind === PROGRAM_PARAMETER_ENV;
-            const program = env ? null : this.arbProgramFor(target);
-            const stride = doublePrecision ? 8 : 4;
-            if ((!env && !program) || index >= arbProgram.parameterLimit(target === GL.VERTEX_PROGRAM_ARB ? "vertex" : "fragment") ||
-                    24 + 4 * stride > size) {
-                view.setUint32(offset + F.status, SYNC_STATUS_FAILED, true);
-                return;
-            }
-            const storage = env ? this.arbEnvironment(target) : arbParameterStorage(program, kind);
-            view.setUint32(offset + F.status, SYNC_STATUS_OK, true);
-            for (let c = 0; c < 4; ++c) {
-                const at = offset + 24 + c * stride;
-                if (doublePrecision) view.setFloat64(at, storage[index * 4 + c], true);
-                else view.setFloat32(at, storage[index * 4 + c], true);
-            }
-        },
+
         arbProgramFor(target) {
             const s = this.current;
             if (target !== GL.VERTEX_PROGRAM_ARB && target !== GL.FRAGMENT_PROGRAM_ARB) return null;
@@ -11773,15 +11333,11 @@ struct Params { value : vec4<f32>, }
     }
 
     /* ================================================================== */
-    /* Executor: glGet* answers and capability reporting                  */
+    /* Adapter capability reporting for the CPU shadow                    */
     /* ================================================================== */
 
-    /*
-     * The extension string and every GL_MAX_* are decided by what this
-     * executor actually implements against this adapter -- never guessed.
-     * Advertising a capability nothing backs is the mistake the D3D8 path made
-     * once and paid for; see plan section 4.14.
-     */
+    // Report physical adapter capabilities once. The shadow freezes the
+    // public GL profile, including its limits and extension strings.
     Object.assign(GLWebGPUExecutor.prototype, {
 
         // What the adapter backs, as gl_caps.js answers from it (the shadow
@@ -11791,67 +11347,6 @@ struct Params { value : vec4<f32>, }
         },
 
 
-        queryString(pname) {
-            const capability = glCaps.string(this.capabilities(), pname);
-            if (capability !== undefined) return capability;
-            switch (pname) {
-            case GL.PROGRAM_ERROR_STRING_ARB:
-                // Empty after a successful ProgramString, which is what the
-                // extension specifies -- not null, which would leave the guest
-                // reporting "unsupported query" for a legal one.
-                return this.current ? (this.current.arbErrorString || "") : "";
-            default: return null;
-            }
-        },
-
-        queryInteger(pname) {
-            const capability = glCaps.integer(this.capabilities(), pname);
-            if (capability !== undefined) return capability;
-            const s = this.current;
-            switch (pname) {
-            case GL.PROGRAM_ERROR_POSITION_ARB:
-                // This is the glGetIntegerv spelling, which is the one the
-                // extension actually defines and the one the guest uses. It
-                // must be -1 when the last glProgramStringARB succeeded: the
-                // generic default of 0 reads as "an error at character 0", so
-                // a conformance viewer reports a failure on a good program.
-                return s && s.arbErrorPosition !== undefined ?
-                    s.arbErrorPosition : -1;
-            default: break;
-            }
-            if (!s) return null;
-            switch (pname) {
-            case GL.VIEWPORT: return s.viewport.width;
-            case GL.ACTIVE_TEXTURE: return GL.TEXTURE0 + s.activeTexture;
-            case GL.CLIENT_ACTIVE_TEXTURE:
-                return GL.TEXTURE0 + s.clientActiveTexture;
-            case GL.CURRENT_PROGRAM: return s.currentProgram;
-            case GL.ARRAY_BUFFER_BINDING: return s.arrayBuffer;
-            case GL.ELEMENT_ARRAY_BUFFER_BINDING: return s.elementArrayBuffer;
-            case GL.PIXEL_PACK_BUFFER_BINDING: return s.pixelPackBuffer;
-            case GL.PIXEL_UNPACK_BUFFER_BINDING: return s.pixelUnpackBuffer;
-            case GL.FRAMEBUFFER_BINDING: return s.drawFramebuffer;
-            case GL.RENDERBUFFER_BINDING: return s.renderbuffer;
-            case GL.TEXTURE_BINDING_2D:
-                return s.textureUnits[s.activeTexture].bindings[GL.TEXTURE_2D] || 0;
-            case GL.MATRIX_MODE: return s.matrixMode;
-            case GL.DEPTH_FUNC: return s.depthFunc;
-            case GL.CULL_FACE_MODE: return s.cullFace;
-            case GL.FRONT_FACE: return s.frontFace;
-            case GL.SHADE_MODEL: return s.shadeModel;
-            case GL.BLEND_SRC: return s.blend.srcRGB;
-            case GL.BLEND_DST: return s.blend.dstRGB;
-            case GL.ALPHA_TEST_FUNC: return s.alphaFunc.func;
-            case GL.STENCIL_FUNC: return s.stencil.front.func;
-            case GL.STENCIL_REF: return s.stencil.front.ref;
-            case GL.STENCIL_VALUE_MASK: return s.stencil.front.valueMask;
-            case GL.STENCIL_WRITEMASK: return s.stencil.front.writeMask;
-            case GL.PACK_ALIGNMENT: return s.pixelStore.packAlignment;
-            case GL.UNPACK_ALIGNMENT: return s.pixelStore.unpackAlignment;
-            case GL.RENDER_MODE: return s.renderMode;
-            default: return 0;
-            }
-        },
     });
 
     /* ================================================================== */
@@ -11860,9 +11355,7 @@ struct Params { value : vec4<f32>, }
 
     function installGLWebGPUExecutor(canvas, options) {
         const executor = new GLWebGPUExecutor(canvas, options);
-        // Starting acquisition now rather than on the first batch matters:
-        // the guest's synchronous queries are answered inside the port write
-        // that delivered them, so the device has to already exist by then.
+        // Start GPU allocation before the first accepted rendering batch.
         executor.initialize().catch(() => { /* reported by initialize */ });
         return executor;
     }

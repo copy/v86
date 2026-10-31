@@ -7,6 +7,8 @@
 
 "use strict";
 
+require("./gl_renderer_diagnostics.js");
+
 const { errorScopes } = require("./fake_error_scopes.js");
 const rules = require("./webgpu_rules.js");
 

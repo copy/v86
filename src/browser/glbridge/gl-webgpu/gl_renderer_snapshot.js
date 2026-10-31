@@ -6,10 +6,11 @@
     const translator = global.GLShaderTranslator || require("./gl_shader_translator.js");
     const fields = ["shareGroups", "contexts", "nextContextId", "nextShareGroupId", "nextUniformLocation", "current", "framebuffers", "queries", "activeQuery",
         "surface", "backBuffer", "backBufferWidth", "backBufferHeight", "backBufferFormat", "depthTarget", "depthWidth", "depthHeight", "depthSamples",
-        "multisampleTarget", "multisampleWidth", "multisampleHeight", "multisampleFormat", "accumBuffer", "frontDrawn", "pendingClear", "arbErrorString", "arbErrorPosition"];
+        "multisampleTarget", "multisampleWidth", "multisampleHeight", "multisampleFormat", "accumBuffer", "frontDrawn", "pendingClear"];
     const caches = new Set(["variants", "viewCache"]), views = new Set(["currentView", "nextView"]);
     function project(object) {
-        return Object.fromEntries(Object.entries(object).filter(([key]) => !views.has(key)).map(([key, value]) =>
+        return Object.fromEntries(Object.entries(object).filter(([key]) => !views.has(key) &&
+            !(object.textureUnits && object.stacks && ["error", "errorQueue", "arbErrorString", "arbErrorPosition"].includes(key))).map(([key, value]) =>
             [key, caches.has(key) ? new Map() : key === "depthColor" ? null : value]));
     }
     function shaderSource(compiled) {
@@ -62,6 +63,10 @@
             const state = codec.decode(archive.state, { external: reference => reference?.shader ? shader(reference, executor.options.translator || {}) : resources[reference.resource] });
             // Decode and allocate before changing the installed renderer.
             await executor.idle(); executor.resetForReplay();
+            for (const context of state.contexts.values()) {
+                // Before D1 these were renderer copies of CPU-owned errors.
+                delete context.error;delete context.errorQueue;delete context.arbErrorString;delete context.arbErrorPosition;
+            }
             for (const key of fields) executor[key] = state[key];
             executor.backBufferView = executor.backBuffer?.createView() || null;
             executor.depthTargetView = executor.depthTarget?.createView() || null;

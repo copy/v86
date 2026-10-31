@@ -81,7 +81,7 @@ ci-tests: rust-test test-glbridge app-check platform-contract-tests ios-tests gl
 glbridge:
 	node tools/build_glbridge.mjs
 
-test-glbridge:
+test-glbridge: glbridge
 	node tests/glbridge/run.cjs
 
 # The graphics proxies on the real GPU (headless Chrome with WebGPU): the D3D9
@@ -98,7 +98,7 @@ glbridge-gpu-tests:
 
 # One-line semantic bugs the tests have to catch (slow: every mutation runs
 # the Node suites and the GPU pages)
-glbridge-mutations:
+glbridge-mutations: glbridge
 	node tests/glbridge/mutations.mjs
 
 # Used for nodejs builds and in order to profile code.
