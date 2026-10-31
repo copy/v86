@@ -31,11 +31,13 @@ const { Glslang } = require("../../src/browser/glbridge/gl-webgpu/gl_glslang.js"
             }
             gpu.flushFrame();await gpu.idle();assert.equal(cpu.current.error, 0, entry.name);
             const primitive = log.draws.at(-1), buffers = primitive.pipeline.descriptor.vertex.buffers;
-            assert.ok(buffers.every(b => b.stepMode === "instance"), entry.name + " one input per point");
-            assert.equal(buffers.length, 1, "no extra corner buffer");
-            assert.equal(primitive.indexed, undefined, "indexed points are gathered before instance expansion");
-            assert.equal(primitive.count, 6, entry.name + " one six-corner instance");
-            assert.equal(primitive.instances, entry.polygon ? 3 : entry.indexed ? 2 : 1);
+            if (entry.polygon) {
+                assert.equal(primitive.indirect, true, "the GPU supplies the clipped point count");assert.equal(buffers.length, 0);
+            } else {
+                assert.ok(buffers.every(b => b.stepMode === "instance"), entry.name + " one input per point");
+                assert.equal(buffers.length, 1, "no extra corner buffer");assert.equal(primitive.indexed, undefined);
+                assert.equal(primitive.count, 6);assert.equal(primitive.instances, entry.indexed ? 2 : 1);
+            }
             if (entry.attributes) assert.equal(buffers[0].attributes.length, 16, "all sixteen attributes remain available");
         }
         assert.equal(gpu.stats.refusals, 0);assert.equal(gpu.hostErrors.length, 0);assert.equal(gpu.gpuErrors.errors.length, 0);

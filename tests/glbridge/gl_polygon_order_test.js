@@ -19,8 +19,12 @@ const { GLWebGPUExecutor } = require("../../src/browser/glbridge/gl-webgpu/gl_ex
             const bytes = segment.bytes || memory.subarray(segment.offset, segment.offset + segment.length);gpu.submit(copied ? bytes.slice() : bytes, {});
         }
         assert.equal(cpu.current.error, 0);await gpu.idle();
-        assert.deepEqual(log.draws.map(d => d.pipeline.descriptor.primitive.topology), ["triangle-list", "line-list", "triangle-list"]);
-        assert.deepEqual(log.draws.map(d => d.count), [3, 6, 3]);assert.equal(gpu.stats.refusals, 0);assert.equal(gpu.gpuErrors.errors.length, 0);
+        // Each original polygon schedules its front fill and back boundary
+        // draws together. GPU clipping owns their counts (the wrong side is
+        // an indirect no-op); the browser test checks the blended pixels.
+        assert.deepEqual(log.draws.map(d => d.pipeline.descriptor.primitive.topology),
+            Array.from({ length: 3 }, () => ["triangle-list", ...Array(9).fill("line-list")]).flat());
+        assert.ok(log.draws.every(d => d.indirect));assert.equal(gpu.stats.refusals, 0);assert.equal(gpu.gpuErrors.errors.length, 0);
     }
     console.log("gl_polygon_order_test: Mesa mixed/explicit order, Apple explicit oracle, interleaved fill/line/fill blending order in both modes passed");
 })().catch(error => {console.error(error);process.exitCode = 1;});

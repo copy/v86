@@ -39,9 +39,11 @@ const { Glslang } = require("../../src/browser/glbridge/gl-webgpu/gl_glslang.js"
                 const bytes = segment.bytes || memory.subarray(segment.offset, segment.offset + segment.length);gpu.submit(copied ? bytes.slice() : bytes, {});
             }
             gpu.flushFrame();await gpu.idle();assert.equal(cpu.current.error, 0, entry.name);
-            const lines = log.draws.slice(before);assert.equal(lines.length, entry.polygon ? 6 : entry.strip ? 2 : entry.loop ? 3 : 1, entry.name + " primitive order");
+            const lines = log.draws.slice(before);assert.equal(lines.length, entry.polygon ? 18 : entry.strip ? 2 : entry.loop ? 3 : 1, entry.name + " primitive order");
             for (const line of lines) {
-                assert.equal(line.pipeline.descriptor.primitive.topology, "line-list");assert.equal(line.count, 2);assert.equal(line.instances, entry.width);
+                assert.equal(line.pipeline.descriptor.primitive.topology, "line-list");
+                if (entry.polygon) assert.equal(line.indirect, true, "the GPU owns the clipped boundary count");
+                else { assert.equal(line.count, 2);assert.equal(line.instances, entry.width); }
                 assert.equal(line.pipeline.descriptor.vertex.buffers.length, 0, "application attributes arrive through canonical storage without reserving a slot");
             }
         }

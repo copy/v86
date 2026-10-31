@@ -519,7 +519,7 @@ test("glPolygonMode LINE outlines each polygon, not its triangles (review S2-14)
     const stream = new GLStream().makeCurrent(1, 0, 0, 64, 64)
         .call("POLYGON_MODE", GL.FRONT_AND_BACK, GL.LINE);
     immediatePolygons(stream, GL.QUADS, QUAD_CCW);
-    immediatePolygons(stream, GL.POLYGON, [[0, 0], [1, 0], [1, 1], [0.5, 1.5], [0, 1]]);
+    immediatePolygons(stream, GL.POLYGON, [[0, 0], [0.5, 0], [0.5, 0.5], [0.25, 0.75], [0, 0.5]]);
     run(executor, stream);
     assert.strictEqual(log.draws.length, 2);
     assert.strictEqual(log.draws[0].pipeline.descriptor.primitive.topology, "line-list");
