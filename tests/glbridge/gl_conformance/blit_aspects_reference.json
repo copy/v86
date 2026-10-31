@@ -1,0 +1,10 @@
+{"renderer":"Apple M1 Pro","cases":[
+{"name":"depth","pixels":[{"depth":0.125,"stencil":42,"rgba":[0,0,255,255]},{"depth":0.25,"stencil":42,"rgba":[0,0,255,255]}],"error":0},
+{"name":"stencil","pixels":[{"depth":0.75,"stencil":17,"rgba":[0,0,255,255]},{"depth":0.75,"stencil":173,"rgba":[0,0,255,255]}],"error":0},
+{"name":"combined","pixels":[{"depth":0.125,"stencil":17,"rgba":[0,255,0,255]},{"depth":0.25,"stencil":173,"rgba":[255,0,0,255]}],"error":0},
+{"name":"scissor","pixels":[{"depth":0.125,"stencil":17,"rgba":[0,255,0,255]},{"depth":0.75,"stencil":42,"rgba":[0,0,255,255]}],"error":0},
+{"name":"straight","pixels":[{"depth":0.25,"stencil":173,"rgba":[255,0,0,255]},{"depth":0.125,"stencil":17,"rgba":[0,255,0,255]}],"error":0},
+{"name":"scaled","pixels":[{"depth":0.75,"stencil":42,"rgba":[0,0,255,255]},{"depth":0.125,"stencil":17,"rgba":[0,255,0,255]}],"error":0},
+{"name":"clipped","pixels":[{"depth":0.125,"stencil":17,"rgba":[0,255,0,255]},{"depth":0.75,"stencil":42,"rgba":[0,0,255,255]}],"error":0},
+{"name":"missing","pixels":[{"depth":0.75,"stencil":42,"rgba":[255,0,0,255]},{"depth":0.75,"stencil":42,"rgba":[0,255,0,255]}],"error":0}
+]}

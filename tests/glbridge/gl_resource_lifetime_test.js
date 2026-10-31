@@ -24,9 +24,9 @@ const { createFakeHost } = require("./gl_fake_gpu.js"), { GLStream, GL } = requi
         send(current(2, 3, 32));gpu.ensurePass();assert.notEqual(gpu.backBuffer, color, "the same context can change drawables");
         send(current(1, 1, 16, 4));gpu.ensurePass();const msaa = gpu.multisampleTarget;
         // Attachment identity changes are detected even without a bind handler ending the pass.
-        send(new GLStream().call("BIND_FRAMEBUFFER", GL.FRAMEBUFFER, 5).call("BIND_RENDERBUFFER", GL.RENDERBUFFER, 5)
-            .call("RENDERBUFFER_STORAGE", GL.RENDERBUFFER, GL.RGBA8, 16, 16)
-            .call("FRAMEBUFFER_RENDERBUFFER", GL.FRAMEBUFFER, GL.COLOR_ATTACHMENT0, GL.RENDERBUFFER, 5));
+        send(new GLStream().call("BIND_FRAMEBUFFER", GL.FRAMEBUFFER_EXT, 5).call("BIND_RENDERBUFFER", GL.RENDERBUFFER_EXT, 5)
+            .call("RENDERBUFFER_STORAGE", GL.RENDERBUFFER_EXT, GL.RGBA8, 16, 16)
+            .call("FRAMEBUFFER_RENDERBUFFER", GL.FRAMEBUFFER_EXT, GL.COLOR_ATTACHMENT0, GL.RENDERBUFFER_EXT, 5));
         const fboPass = gpu.ensurePass();assert.equal(gpu.ensurePass(), fboPass, "renderbuffer views have stable identities");
         const rb = gpu.current.shareGroup.renderbuffers.get(5), old = rb.gpuTexture;
         gpu.allocateRenderbuffer(rb);assert.notEqual(old, rb.gpuTexture);assert.notEqual(gpu.ensurePass(), fboPass);assert.ok(fboPass.ended);

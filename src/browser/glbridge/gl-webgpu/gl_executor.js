@@ -1780,7 +1780,7 @@
                 "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
                 "accumPipelineCache", "accumClearPipelineCache", "clearPipelineCache", "colorCopyPipelines",
                 "mipmapPipelines", "colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",
-                "singletonPipelines", "fallbackViews"];
+                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines"];
             for (const name of maps) {
                 this[name] = this[name] || new Map();
                 this.resources.register(name, () => this[name].clear());
@@ -9281,6 +9281,7 @@ struct BlitParams {
     let relative = (p.xy - params.destinationOrigin) / params.destinationExtent;
     let sourcePosition = params.sourceOrigin + relative * params.sourceExtent;
     let dimensions = vec2<f32>(textureDimensions(sourceTexture));
+    if(any(sourcePosition < vec2<f32>(0.0)) || any(sourcePosition >= dimensions)) { discard; }
     return textureSampleLevel(sourceTexture, sourceSampler,
         sourcePosition / dimensions, 0.0);
 }
@@ -9358,8 +9359,11 @@ struct BlitParams {
                 mipLevelCount: 1, baseArrayLayer: source.layer || 0,
                 arrayLayerCount: 1,
             });
-            const left = Math.min(dx0, dx1), top = Math.min(dy0, dy1);
-            const width = Math.abs(dx1 - dx0), height = Math.abs(dy1 - dy0);
+            const texture = destination.view.texture || destination.texture;
+            const width = Math.max(1, (texture.width || texture.descriptor?.size.width) >> (destination.mipLevel || 0));
+            const height = Math.max(1, (texture.height || texture.descriptor?.size.height) >> (destination.mipLevel || 0));
+            const rect = this.blitScissor(width, height, dx0, dy0, dx1, dy1);
+            if (!rect.width || !rect.height) return false;
             this.endPass();
             const pass = this.ensureEncoder().beginRenderPass({
                 label: "GL scaled colour blit",
@@ -9376,8 +9380,8 @@ struct BlitParams {
                         offset: uniform.offset, size: uniform.size } },
                 ],
             }));
-            pass.setViewport(left, top, width, height, 0, 1);
-            pass.setScissorRect(left, top, width, height);
+            pass.setViewport(0, 0, width, height, 0, 1);
+            pass.setScissorRect(rect.x, rect.y, rect.width, rect.height);
             pass.draw(3);
             pass.end();
             return true;
@@ -9650,7 +9654,7 @@ struct BlitParams {
                 label: "GL renderbuffer " + rb.name,
                 size: { width: rb.width, height: rb.height, depthOrArrayLayers: 1 },
                 format: rb.gpuFormat,
-                usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_COPY_SRC |
+                usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_COPY_DST |
                     TEXTURE_USAGE_TEXTURE_BINDING,
             });
         },
@@ -9724,39 +9728,128 @@ struct BlitParams {
         },
 
         blitFramebuffer(sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, mask, filter) {
-            // A same-size, same-format colour blit is a texture copy. Scaling,
-            // axis reversal, or format conversion is implemented by a draw.
-            // Depth/stencil copies require aspect-typed pipelines and are
-            // rejected explicitly instead of producing a WebGPU validation
-            // error that invalidates the whole command buffer.
-            if (!(mask & GL.COLOR_BUFFER_BIT) ||
-                    (mask & ~GL.COLOR_BUFFER_BIT) !== 0)
-                return this.refuse("glBlitFramebuffer",
-                    "only colour blits are implemented", { mask }, 0);
+            if (sx0 === sx1 || sy0 === sy1 || dx0 === dx1 || dy0 === dy1) return;
+            this.endPass();
+            for (const [bit, kind] of [[GL.DEPTH_BUFFER_BIT, "depth"], [GL.STENCIL_BUFFER_BIT, "stencil"]])
+                if (mask & bit) this.blitDepthStencil(kind, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1);
+            if (!(mask & GL.COLOR_BUFFER_BIT)) return;
             const width = Math.abs(sx1 - sx0), height = Math.abs(sy1 - sy0);
             const dstWidth = Math.abs(dx1 - dx0), dstHeight = Math.abs(dy1 - dy0);
-            const source = this.readAttachmentView();
+            let source = this.readAttachmentView();
             const target = this.currentTargets();
-            if (!source || !target || !target.color[0]) return;
-            const destination = target.color[0];
-            const straight = sx1 >= sx0 && sy1 >= sy0 &&
-                dx1 >= dx0 && dy1 >= dy0;
-            if (straight && width === dstWidth && height === dstHeight &&
-                    source.format === destination.format && !destination.resolveTarget &&
-                    source.texture !== destination.texture) {
-                this.endPass();
-                this.ensureEncoder().copyTextureToTexture(
-                    { texture: source.texture, mipLevel: source.mipLevel || 0,
-                      origin: { x: sx0, y: sy0, z: source.layer || 0 } },
-                    { texture: destination.texture || this.backBuffer,
-                      mipLevel: destination.mipLevel || 0,
-                      origin: { x: dx0, y: dy0,
-                        z: destination.origin ? destination.origin.z : 0 } },
-                    { width, height, depthOrArrayLayers: 1 });
-                return;
+            if (!source || !target) return;
+            if (target.color.some(destination => destination && destination.texture === source.texture)) {
+                const copy = this.createGPUTexture({ label: "GL overlapping colour blit snapshot",
+                    size: { width: source.width, height: source.height }, format: source.format,
+                    usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
+                this.ensureEncoder().copyTextureToTexture({ texture: source.texture, mipLevel: source.mipLevel || 0,
+                    origin: { x: 0, y: 0, z: source.layer || 0 } }, { texture: copy }, { width: source.width, height: source.height });
+                source = { texture: copy, format: source.format, width: source.width, height: source.height };
+                this.retire(copy);
             }
-            this.blitColorTexture(source, destination,
-                sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, filter);
+            for (const destination of target.color) {
+                if (!destination) continue;
+                const straight = sx1 >= sx0 && sy1 >= sy0 && dx1 >= dx0 && dy1 >= dy0;
+                const inside = Math.min(sx0, sx1, sy0, sy1, dx0, dx1, dy0, dy1) >= 0 &&
+                    Math.max(sx0, sx1) <= source.width && Math.max(sy0, sy1) <= source.height &&
+                    Math.max(dx0, dx1) <= target.width && Math.max(dy0, dy1) <= target.height;
+                if (straight && inside && !this.current.enabled.has(GL.SCISSOR_TEST) && width === dstWidth && height === dstHeight &&
+                        source.format === destination.format && !destination.resolveTarget) {
+                    this.ensureEncoder().copyTextureToTexture(
+                        { texture: source.texture, mipLevel: source.mipLevel || 0, origin: { x: sx0, y: sy0, z: source.layer || 0 } },
+                        { texture: destination.texture, mipLevel: destination.mipLevel || 0,
+                            origin: { x: dx0, y: dy0, z: destination.origin?.z || 0 } }, { width, height, depthOrArrayLayers: 1 });
+                } else this.blitColorTexture(source, destination, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, filter);
+            }
+        },
+
+        stencilToColor(encoder, source) {
+            const samples = source.sampleCount || 1;
+            const target = this.createGPUTexture({ label: "GL stencil bits", size: { width: source.width, height: source.height },
+                format: "rgba8unorm", sampleCount: samples, usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING });
+            const module = this.shaderModule(DEPTH_READ_WGSL.slice(DEPTH_READ_WGSL.indexOf("@vertex"), DEPTH_READ_WGSL.indexOf("@fragment")) + `
+@group(0) @binding(0) var<uniform> bitValue:vec4f;
+@fragment fn fs_main()->@location(0) vec4f { return vec4f(bitValue.x,0,0,0); }`);
+            const pass = encoder.beginRenderPass({ label: "GL extract stencil bits",
+                colorAttachments: [{ view: target.createView(), loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
+                depthStencilAttachment: { view: source.texture.createView({ dimension: "2d", baseMipLevel: source.mipLevel || 0,
+                    mipLevelCount: 1, baseArrayLayer: source.layer || 0, arrayLayerCount: 1 }),
+                ...(source.format.startsWith("depth") ? { depthReadOnly: true } : {}), stencilReadOnly: true } });
+            for (let bit = 1; bit <= 128; bit <<= 1) {
+                const face = { compare: "not-equal", failOp: "keep", depthFailOp: "keep", passOp: "keep" };
+                const descriptor = { label: "GL stencil bit", layout: "auto", vertex: { module, entryPoint: "vs_main" },
+                    fragment: { module, entryPoint: "fs_main", targets: [{ format: "rgba8unorm", blend: {
+                        color: { srcFactor: "one", dstFactor: "one", operation: "add" }, alpha: { srcFactor: "one", dstFactor: "one", operation: "add" } } }] },
+                    primitive: { topology: "triangle-list" }, multisample: { count: samples },
+                    depthStencil: { format: source.format, depthWriteEnabled: false, depthCompare: "always",
+                        stencilFront: face, stencilBack: face, stencilReadMask: bit, stencilWriteMask: 0 } };
+                const key = this.renderPipelineKey(this.stencilReadPipelines, descriptor);
+                const pipeline = this.stencilReadPipelines.get(key) || this.createPipeline(this.stencilReadPipelines, key, descriptor);
+                const uniform = this.allocateUniform(16);
+                if (!uniform) break;
+                this.device.queue.writeBuffer(uniform.buffer, uniform.offset, new Float32Array([bit / 255, 0, 0, 0]));
+                pass.setPipeline(pipeline); pass.setStencilReference(0);
+                pass.setBindGroup(0, this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0),
+                    entries: [{ binding: 0, resource: { buffer: uniform.buffer, offset: uniform.offset, size: 16 } }] }));
+                pass.draw(3);
+            }
+            pass.end(); return target;
+        },
+
+        blitScissor(width, height, x0, y0, x1, y1) {
+            let left = Math.max(0, Math.min(x0, x1)), bottom = Math.max(0, Math.min(y0, y1));
+            let right = Math.min(width, Math.max(x0, x1)), top = Math.min(height, Math.max(y0, y1));
+            const s = this.current;
+            if (s.enabled.has(GL.SCISSOR_TEST) && s.scissor.set) {
+                left = Math.max(left, s.scissor.x); bottom = Math.max(bottom, s.scissor.y);
+                right = Math.min(right, s.scissor.x + s.scissor.width); top = Math.min(top, s.scissor.y + s.scissor.height);
+            }
+            return { x: left, y: bottom, width: Math.max(0, right - left), height: Math.max(0, top - bottom) };
+        },
+
+        blitDepthStencil(kind, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1) {
+            const source = this.readDepthStencil(kind), destination = this.readDepthStencil(kind, GL.DRAW_FRAMEBUFFER);
+            if (!source || !destination) return;
+            const rect = this.blitScissor(destination.width, destination.height, dx0, dy0, dx1, dy1);
+            if (!rect.width || !rect.height) return;
+            const encoder = this.ensureEncoder(), stencil = kind === "stencil";
+            // Snapshot before writing, including overlapping copies. Every pass
+            // stays on the GPU; there is no guest-visible readback or wait.
+            const snapshot = stencil ? this.stencilToColor(encoder, source) : this.depthToFloat(encoder, source,
+                { x: 0, y: 0, width: source.width, height: source.height });
+            const multisampled = stencil && (source.sampleCount || 1) > 1;
+            const uniform = this.allocateUniform(32);
+            if (!uniform) { this.retire(snapshot); return; }
+            this.device.queue.writeBuffer(uniform.buffer, uniform.offset, new Float32Array([sx0, sy0, sx1 - sx0, sy1 - sy0, dx0, dy0, dx1 - dx0, dy1 - dy0]));
+            const samples = destination.sampleCount || 1;
+            const view = destination.texture.createView({ dimension: "2d", baseMipLevel: destination.mipLevel || 0,
+                mipLevelCount: 1, baseArrayLayer: destination.layer || 0, arrayLayerCount: 1 });
+            const pass = encoder.beginRenderPass({ label: "GL " + kind + " blit", colorAttachments: [], depthStencilAttachment: { view,
+                ...(destination.format.startsWith("depth") ? stencil ? { depthReadOnly: true } : { depthLoadOp: "load", depthStoreOp: "store" } : {}),
+                ...(formatHasStencil(destination.format) ? stencil ? { stencilLoadOp: "load", stencilStoreOp: "store" } : { stencilReadOnly: true } : {}) } });
+            pass.setScissorRect(rect.x, rect.y, rect.width, rect.height);
+            for (const bit of stencil ? [0, 1, 2, 4, 8, 16, 32, 64, 128] : [0]) {
+                const code = COLOR_BLIT_WGSL.slice(COLOR_BLIT_WGSL.indexOf("@vertex"), COLOR_BLIT_WGSL.indexOf("@fragment")) + `
+@group(0) @binding(0) var sourceTexture:${multisampled ? "texture_multisampled_2d<f32>" : "texture_2d<f32>"};
+@group(0) @binding(1) var<uniform> params:array<vec4f,2>;
+@fragment fn fs_main(@builtin(position) p:vec4f) ${stencil ? "" : "->@builtin(frag_depth) f32"} {
+ let q=vec2i(floor(params[0].xy+(p.xy-params[1].xy)/params[1].zw*params[0].zw));
+ let size=vec2i(textureDimensions(sourceTexture));if(any(q<vec2i(0))||any(q>=size)){discard;}
+ ${stencil ? bit ? `if((u32(round(textureLoad(sourceTexture,q,0).r*255.0))&${bit}u)==0u){discard;}` : "" : "return textureLoad(sourceTexture,q,0).r;"}
+}`;
+                const module = this.shaderModule(code), face = { compare: "always", failOp: "keep", depthFailOp: "keep", passOp: "replace" };
+                const descriptor = { label: "GL aspect blit", layout: "auto", vertex: { module, entryPoint: "vs_main" },
+                    fragment: { module, entryPoint: "fs_main", targets: [] }, primitive: { topology: "triangle-list" }, multisample: { count: samples },
+                    depthStencil: { format: destination.format, depthWriteEnabled: !stencil, depthCompare: "always",
+                        ...(stencil ? { stencilFront: face, stencilBack: face, stencilReadMask: 255, stencilWriteMask: bit || 255 } : {}) } };
+                const key = this.renderPipelineKey(this.depthStencilBlitPipelines, descriptor);
+                const pipeline = this.depthStencilBlitPipelines.get(key) || this.createPipeline(this.depthStencilBlitPipelines, key, descriptor);
+                pass.setPipeline(pipeline); if (stencil) pass.setStencilReference(bit ? 255 : 0);
+                pass.setBindGroup(0, this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+                    { binding: 0, resource: snapshot.createView() }, { binding: 1, resource: { buffer: uniform.buffer, offset: uniform.offset, size: 32 } }] }));
+                pass.draw(3);
+            }
+            pass.end(); this.retire(snapshot);
         },
 
         readAttachmentView() {
@@ -10056,27 +10149,22 @@ struct BlitParams {
         },
 
         // The read framebuffer's depth-stencil image
-        readDepthStencil(kind) {
+        readDepthStencil(kind, target = GL.READ_FRAMEBUFFER) {
             const s = this.current;
-            if (!s.readFramebuffer) {
+            if (!(target === GL.DRAW_FRAMEBUFFER ? s.drawFramebuffer : s.readFramebuffer)) {
                 const samples = this.windowSamples();
                 this.ensureDepthTarget(samples);
-                if (samples > 1) {
-                    // WebGPU resolves colour only: reading one sample is to do
-                    this.warnOnce("multisample-depth-read", "the depth and stencil of a " +
-                        "multisampled window cannot be read back", {});
-                    return null;
-                }
                 return { texture: this.depthTarget, format: "depth24plus-stencil8", mipLevel: 0, layer: 0,
-                    width: this.depthWidth, height: this.depthHeight };
+                    width: this.depthWidth, height: this.depthHeight, sampleCount: samples };
             }
-            const fbo = this.boundFramebufferObject(GL.READ_FRAMEBUFFER);
-            const record = fbo && (kind === "stencil" ? fbo.stencil || fbo.depth : fbo.depth || fbo.stencil);
+            const fbo = this.boundFramebufferObject(target);
+            const record = fbo && (kind === "stencil" ? fbo.stencil : fbo.depth);
             const resolved = record && this.resolveAttachment(record);
             if (!resolved) return null;
             return { texture: resolved.texture, format: resolved.format, mipLevel: resolved.mipLevel,
-                layer: resolved.origin.z, width: Math.max(1, resolved.texture.width >> resolved.mipLevel),
-                height: Math.max(1, resolved.texture.height >> resolved.mipLevel) };
+                layer: resolved.origin.z, width: Math.max(1, (resolved.texture.width || resolved.texture.descriptor?.size.width) >> resolved.mipLevel),
+                height: Math.max(1, (resolved.texture.height || resolved.texture.descriptor?.size.height) >> resolved.mipLevel),
+                sampleCount: resolved.texture.sampleCount || resolved.texture.descriptor?.sampleCount || 1 };
         },
 
         /*
@@ -10089,8 +10177,12 @@ struct BlitParams {
         readRectangle(source, kind, rect) {
             const encoder = this.ensureEncoder();
             let texture = source.texture, aspect = "all", texelBytes, origin = { x: rect.x, y: rect.y, z: source.layer || 0 };
-            let mipLevel = source.mipLevel || 0;
-            if (kind === "index") {
+            let mipLevel = source.mipLevel || 0, scalarStencil = false;
+            if (kind === "stencil" && (source.sampleCount || 1) > 1) {
+                const color = this.stencilToColor(encoder, source);
+                texture = this.depthToFloat(encoder, { ...source, texture: color, stencilColor: true, mipLevel: 0, layer: 0 }, rect);
+                this.retire(color); scalarStencil = true; origin = { x: 0, y: 0, z: 0 }; mipLevel = 0; texelBytes = 4;
+            } else if (kind === "index") {
                 texelBytes = 1;
             } else if (kind === "stencil") {
                 aspect = "stencil-only";
@@ -10121,7 +10213,7 @@ struct BlitParams {
                 { buffer: staging, bytesPerRow, rowsPerImage: copy.height },
                 { width: copy.width, height: copy.height, depthOrArrayLayers: 1 });
             if (texture !== source.texture) this.retire(texture);
-            const format = kind === "depth" ? (texelBytes === 2 ? "depth16" : "r32float") : kind === "stencil" ? "stencil8" :
+            const format = kind === "depth" ? (texelBytes === 2 ? "depth16" : "r32float") : kind === "stencil" ? (scalarStencil ? "r32float" : "stencil8") :
                 source.format;
             const read = () => staging.mapAsync(1 /* GPUMapMode.READ */).then(() => {
                 try {
@@ -10139,15 +10231,19 @@ struct BlitParams {
 
         // depth24plus's values, loaded into an r32float image of the rectangle
         depthToFloat(encoder, source, rect) {
-            if (!this.depthReadPipeline) {
-                const module = this.device.createShaderModule({ label: "GL depth readback", code: DEPTH_READ_WGSL });
-                this.depthReadPipeline = this.createPipeline(this.singletonPipelines, "depthReadPipeline", {
-                    label: "GL depth readback", layout: "auto",
-                    vertex: { module, entryPoint: "vs_main" },
-                    fragment: { module, entryPoint: "fs_main", targets: [{ format: "r32float" }] },
-                    primitive: { topology: "triangle-list" },
-                });
-            }
+            const samples = source.sampleCount || source.texture.sampleCount || 1;
+            const stencil = !!source.stencilColor;
+            let code = DEPTH_READ_WGSL;
+            const type = stencil ? (samples > 1 ? "texture_multisampled_2d<f32>" : "texture_2d<f32>") :
+                samples > 1 ? "texture_depth_multisampled_2d" : "texture_depth_2d";
+            code = code.replace("texture_depth_2d;", type + ";");
+            if (stencil) code = code.replace("textureLoad(depthTexture, at, 0)", "round(textureLoad(depthTexture, at, 0).r * 255.0)");
+            const module = this.shaderModule(code), descriptor = { label: "GL scalar readback", layout: "auto",
+                vertex: { module, entryPoint: "vs_main" },
+                fragment: { module, entryPoint: "fs_main", targets: [{ format: "r32float" }] },
+                primitive: { topology: "triangle-list" } };
+            const key = this.renderPipelineKey(this.scalarReadPipelines, descriptor);
+            const pipeline = this.scalarReadPipelines.get(key) || this.createPipeline(this.scalarReadPipelines, key, descriptor);
             const target = this.createGPUTexture({
                 label: "GL depth readback", size: { width: rect.width, height: rect.height, depthOrArrayLayers: 1 },
                 format: "r32float", usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_COPY_SRC |
@@ -10157,9 +10253,9 @@ struct BlitParams {
                 usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST });
             this.device.queue.writeBuffer(origin, 0, new Uint32Array([rect.x, rect.y, 0, 0]));
             const bindGroup = this.device.createBindGroup({
-                layout: this.depthReadPipeline.getBindGroupLayout(0),
+                layout: pipeline.getBindGroupLayout(0),
                 entries: [
-                    { binding: 0, resource: source.texture.createView({ dimension: "2d", aspect: "depth-only",
+                    { binding: 0, resource: source.texture.createView({ dimension: "2d", aspect: stencil ? "all" : "depth-only",
                         baseMipLevel: source.mipLevel || 0, mipLevelCount: 1, baseArrayLayer: source.layer || 0,
                         arrayLayerCount: 1 }) },
                     { binding: 1, resource: { buffer: origin } },
@@ -10168,7 +10264,7 @@ struct BlitParams {
             const pass = encoder.beginRenderPass({ label: "GL depth readback",
                 colorAttachments: [{ view: target.createView(), loadOp: "clear", storeOp: "store",
                     clearValue: { r: 0, g: 0, b: 0, a: 0 } }] });
-            pass.setPipeline(this.depthReadPipeline);
+            pass.setPipeline(pipeline);
             pass.setBindGroup(0, bindGroup);
             pass.draw(3);
             pass.end();
