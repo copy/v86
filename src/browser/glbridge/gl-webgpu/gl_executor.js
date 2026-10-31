@@ -1789,7 +1789,7 @@
                 "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
                 "accumPipelineCache", "accumClearPipelineCache", "clearPipelineCache", "colorCopyPipelines",
                 "mipmapPipelines", "colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",
-                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "geometryShaderCache"];
+                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "geometryShaderCache", "lineShaderCache"];
             for (const name of maps) {
                 this[name] = this[name] || new Map();
                 this.resources.register(name, () => this[name].clear());
@@ -5541,8 +5541,8 @@
             return pipeline;
         },
 
-        capturePolygonGeometry(request, faces) {
-            const cpu = request.cpu, count = cpu.layout.length ? cpu.count : 1,
+        captureProgramPositions(cpu) {
+            const count = cpu.layout.length ? cpu.count : 1,
                 original = this.vertexCaptureShaders(), code = programGeometry.positionCapture(original.wgslVertex),
                 shaders = { ...original, wgslVertex: code }, pipeline = this.geometryComputePipeline(code, "capture_main"),
                 groups = this.buildBindGroups(pipeline, shaders);
@@ -5573,6 +5573,13 @@
                 if ((chunks + 1) % 32 === 0) { pass.end();pass = null;this.flushFrame(); }
             }
             if (pass) pass.end();
+            return positions;
+        },
+
+        capturePolygonGeometry(request, faces) {
+            const cpu = request.cpu, positions = this.captureProgramPositions(cpu);
+            if (!positions) return null;
+            let pass;
             const upload = data => {
                 const buffer = this.createGPUBuffer({ size: Math.max(4, data.byteLength), usage: BUFFER_USAGE_STORAGE, mappedAtCreation: true });
                 new Uint32Array(buffer.getMappedRange()).set(data);buffer.unmap();return buffer;
@@ -6400,7 +6407,8 @@
             // wide indexed points gather, polygon modes read the vertices:
             // both from the CPU copy
             if ((indexInfo && mode === GL.POINTS && this.pointsExpand()) ||
-                    (isPolygonPrimitive(mode) && !this.polygonsFill()))
+                    (isPolygonPrimitive(mode) && !this.polygonsFill()) ||
+                    (isLinePrimitive(mode) && (s.lineWidth >= 1.5 || s.enabled.has(GL.LINE_STIPPLE))))
                 return this.drawFromShadowBuffers(mode, first, count, indexInfo,
                     this.wantedAttributes(this.currentProgramObject()));
             const program = this.currentProgramObject();
@@ -7443,6 +7451,16 @@ ${fragmentCode}`;
                 }
                 shaders = { ...shaders, wgslVertex: source, geometry: request.geometry };
             }
+            if (request.programLine) {
+                const key = shaders.wgslVertex + "\n// fragment\n" + shaders.wgslFragment + "\n" + !!request.programLine.result;
+                let source = this.lineShaderCache.get(key);
+                if (!source) {
+                    source = programGeometry.lineShaders(shaders.wgslVertex, shaders.wgslFragment, !!request.programLine.result);
+                    if (this.lineShaderCache.size >= 128) this.lineShaderCache.clear();
+                    this.lineShaderCache.set(key, source);
+                }
+                shaders = { ...shaders, wgslVertex: source.vertex, wgslFragment: source.fragment, programLine: request.programLine };
+            }
             if (s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY &&
                     !this.prepareLogicOpTargets()) return;
             if (!this.ensurePass()) {
@@ -7456,7 +7474,7 @@ ${fragmentCode}`;
             if (expandedPoints) request = { ...request, expandedPoints: true,
                 buffers: request.buffers.map(buffer => ({ ...buffer, stepMode: "instance" })) };
 
-            if (!index && !request.geometry && this.drawShape(request.mode).expand) {
+            if (!index && !request.geometry && !request.programLine && this.drawShape(request.mode).expand) {
                 const expanded = this.expansionIndices(request.mode,
                     request.vertexCount);
                 if (!expanded.length) return;
@@ -7492,7 +7510,7 @@ ${fragmentCode}`;
             } else if (expandedPoints) {
                 pass.draw(6, request.vertexCount, 0, request.firstVertex || 0);
             } else {
-                pass.draw(request.vertexCount, 1, request.firstVertex || 0, 0);
+                pass.draw(request.vertexCount, request.instances || 1, request.firstVertex || 0, 0);
             }
             ++this.stats.draws;
             ++this.recordedOps;
@@ -7784,7 +7802,7 @@ ${fragmentCode}`;
                           value: i => [group.offsets[i] || 0] } : null);
                 if (gathered) this.issueDraw({ mode, vertexCount: group.vertices.length,
                     firstVertex: 0, buffers: [gathered.buffer], index: null, rasterized: true, face,
-                    cpu: gathered.cpu, geometry: request.geometry });
+                    cpu: gathered.cpu, geometry: request.geometry, polygonLine: mode === GL.LINES });
             }
         },
 
@@ -7794,20 +7812,67 @@ ${fragmentCode}`;
          * positions on the CPU each segment becomes a quad widened along its
          * minor axis, as GL 2.1 section 3.4.2 widens a non-antialiased line,
          * and carries its distance along the major axis for the stipple
-         * pattern (section 3.4.3). Under a vertex program lines stay one
-         * pixel wide and solid (warned).
+         * pattern (section 3.4.3). Programmable endpoints are evaluated by
+         * the vertex shell; instanced thin lines replicate its pixel columns.
          */
+        captureLineDistances(cpu, segments) {
+            const positions = this.captureProgramPositions(cpu);if (!positions) return null;
+            const indices = this.createGPUBuffer({ size: segments.length * 16, usage: BUFFER_USAGE_STORAGE, mappedAtCreation: true }),
+                result = this.createGPUBuffer({ label: "GL line distances", size: segments.length * 16, usage: BUFFER_USAGE_STORAGE }),
+                carry = this.createGPUBuffer({ size: 4, usage: BUFFER_USAGE_STORAGE }), words = new Uint32Array(indices.getMappedRange());
+            for (let i = 0; i < segments.length; ++i) {
+                const segment = segments[i];words.set([cpu.layout.length ? segment.a : 0, cpu.layout.length ? segment.b : 0, 0, +segment.restart], i * 4);
+            }
+            indices.unmap();const pipeline = this.geometryComputePipeline(programGeometry.lineAnalysis, "line_main"), vp = this.current.viewport;
+            this.endPass();
+            for (let first = 0; first < segments.length; first += 256) {
+                const slice = this.allocateUniform(32);
+                if (!slice) { for (const buffer of [positions, indices, result, carry]) this.retire(buffer);return null; }
+                new Uint32Array(this.uniformStaging.buffer, slice.offset, 4).set([first, 0, 0, 0]);
+                new Float32Array(this.uniformStaging.buffer, slice.offset + 16, 4).set([vp.x, vp.y, vp.width, vp.height]);
+                this.device.queue.writeBuffer(slice.buffer, slice.offset, this.uniformStaging, slice.offset, 32);
+                const group = this.cachedBindGroup(pipeline, 0, [positions, indices, result, carry].map((buffer, binding) => ({ binding, resource: { buffer } })).concat([
+                    { binding: 4, resource: { buffer: slice.buffer, offset: slice.offset, size: 32 } }])),
+                    pass = this.ensureEncoder().beginComputePass({ label: "GL line distance prefix" });
+                pass.setPipeline(pipeline);pass.setBindGroup(0, group);pass.dispatchWorkgroups(1);pass.end();++this.recordedOps;
+                if (this.recordedOps >= this.flushThreshold) this.flushFrame();
+            }
+            for (const buffer of [positions, indices, carry]) this.retire(buffer);
+            return result;
+        },
+
+        drawProgramLines(request) {
+            const s = this.current, cpu = request.cpu;
+            if (!cpu) return this.refuse("line expansion", "the prepared draw has no canonical attributes", {});
+            const segments = lineSegments(request.mode, request.vertexCount, request.index && (request.index.source || request.index.cpu));
+            if (!segments.length) return;
+            if (request.polygonLine) for (let i = 0; i < segments.length; ++i) segments[i].restart = i === 0;
+            const stipple = s.enabled.has(GL.LINE_STIPPLE), result = stipple ? this.captureLineDistances(cpu, segments) : null;
+            if (stipple && !result) return;
+            const width = clamp(Math.round(s.lineWidth), 1, MAX_LINE_WIDTH), vp = s.viewport;
+            try {
+                for (const [i, segment] of segments.entries()) {
+                    const slice = this.allocateUniform(800);if (!slice) return;
+                    new Uint32Array(this.uniformStaging.buffer, slice.offset, 4).set([i, width, s.lineStipple.pattern, s.lineStipple.factor]);
+                    new Float32Array(this.uniformStaging.buffer, slice.offset + 16, 4).set([vp.x, vp.y, vp.width, vp.height]);
+                    const attributes = new Float32Array(this.uniformStaging.buffer, slice.offset + 32, 192);
+                    for (const [part, vertex] of [segment.a, segment.b, segment.provoking].entries()) attributes.set(programGeometry.packVertices(cpu, vertex, 1), part * 64);
+                    this.device.queue.writeBuffer(slice.buffer, slice.offset, this.uniformStaging, slice.offset, 800);
+                    this.issueDraw({ mode: GL.LINES, vertexCount: 2, instances: width, firstVertex: 0, buffers: [], index: null,
+                        rasterized: true, linesExpanded: true, face: request.face, geometry: request.geometry, programLine: { result, slice } });
+                }
+            } finally {
+                this.drawFace = null;this.retire(result);if (!this.encoder) this.releaseRetired();
+            }
+        },
+
         drawLines(request) {
             const s = this.current;
             const cpu = request.cpu;
             const fixedVertex = !this.currentProgramObject()?.compiled.vertex &&
                 !s.enabled.has(GL.VERTEX_PROGRAM_ARB);
             const clip = fixedVertex && request.buffers.length === 1 ? this.clipCoordinates(cpu) : null;
-            if (!clip) {
-                this.warnOnce("wide-lines-program", "wide and stippled lines are drawn one " +
-                    "pixel wide and solid under a vertex program", { width: s.lineWidth });
-                return this.issueDraw({ ...request, linesExpanded: true });
-            }
+            if (!clip) return this.drawProgramLines(request);
             const width = clamp(Math.round(s.lineWidth), 1, MAX_LINE_WIDTH);
             const stipple = s.enabled.has(GL.LINE_STIPPLE);
             const vp = s.viewport;
@@ -7817,8 +7882,8 @@ ${fragmentCode}`;
             };
             let distance = 0;
             for (const segment of lineSegments(request.mode, request.vertexCount,
-                    request.index && request.index.source)) {
-                if (segment.restart) distance = 0;
+                    request.index && (request.index.source || request.index.cpu))) {
+                if (segment.restart && !request.polygonLine) distance = 0;
                 const a = segment.a * 4, b = segment.b * 4;
                 const visible = clip[a + 3] > 0 && clip[b + 3] > 0;
                 const dx = visible ? (clip[b] / clip[b + 3] - clip[a] / clip[a + 3]) * vp.width / 2 : 0;
@@ -8502,7 +8567,7 @@ ${fragmentCode}`;
             if (pipeline) return pipeline.glRejected ? null : pipeline;
 
             pipeline = this.createPipeline(this.pipelineCache, signature, descriptor);
-            pipeline.glShaders = shaders.geometry ? { ...shaders, geometry: undefined } : shaders;
+            pipeline.glShaders = shaders.geometry || shaders.programLine ? { ...shaders, geometry: undefined, programLine: undefined } : shaders;
             pipeline.glActiveBindings = activeShaderBindings(
                 shaders.wgslVertex, shaders.wgslFragment);
             return pipeline;
@@ -8582,12 +8647,19 @@ ${fragmentCode}`;
 
             const groups = [];
             try {
+                const geometryEntries = [];
                 if (shaders.geometry) {
                     const { result, slice } = shaders.geometry;
-                    groups.push({ index: 0, group: this.cachedBindGroup(pipeline, 0, [
-                        { binding: 0, resource: { buffer: result } },
-                        { binding: 1, resource: { buffer: slice.buffer, offset: slice.offset, size: 288 } }]) });
+                    geometryEntries.push({ binding: 0, resource: { buffer: result } },
+                        { binding: 1, resource: { buffer: slice.buffer, offset: slice.offset, size: 288 } });
                 }
+                if (shaders.programLine) {
+                    const { result, slice } = shaders.programLine;
+                    geometryEntries.push({ binding: 2, resource: { buffer: slice.buffer, offset: slice.offset, size: 800 } });
+                    if (result) geometryEntries.push({ binding: 3, resource: { buffer: result } });
+                }
+                if (geometryEntries.length) groups.push({ index: 0, group: this.cachedBindGroup(pipeline, 0,
+                    geometryEntries.filter(entry => bindingIsActive(0, entry.binding))) });
                 const uniformEntries = [];
                 if (bindingIsActive(1, 0)) {
                     uniformEntries.push({ binding: 0,
