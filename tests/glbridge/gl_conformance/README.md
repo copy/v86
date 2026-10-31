@@ -66,3 +66,9 @@ them does not establish that all scalar behavior agrees with both drivers.
 Specification: [OpenGL 2.1](https://registry.khronos.org/OpenGL/specs/gl/glspec21.pdf),
 [ARB vertex programs](https://registry.khronos.org/OpenGL/extensions/ARB/ARB_vertex_program.txt),
 [ARB fragment programs](https://registry.khronos.org/OpenGL/extensions/ARB/ARB_fragment_program.txt).
+
+#### FBO pixel-source errors (2026-10-31)
+
+`reference/framebuffer_pixels.c` contributes 17 Apple/Mesa cases. Missing read depth/stencil, read buffer NONE (also at zero width), stencil writes without storage, and mismatching depth blits are CPU errors; failed reads preserve their destination. Absent buffers in a blit are ignored. Matching compares actual component formats, including fixed/float depth, rather than requested enums: DEPTH_COMPONENT24 allocates 32 bits here/Apple, 24 on Mesa; the fixture records each driver's actual bit depths.
+
+Mesa rejects DrawPixels with depth input and no depth attachment; this profile follows Apple and GL 2.1 §§3.6.4/4.1.6 (coloured fragments, depth test passes without storage). Cross-FBO depth CopyPixels probes crashed the Apple driver and are excluded from the reproducible fixture. Sources: [GL 2.1](https://registry.khronos.org/OpenGL/specs/gl/glspec21.pdf), [EXT_framebuffer_object](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_framebuffer_object.txt), [EXT_framebuffer_blit](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_framebuffer_blit.txt).

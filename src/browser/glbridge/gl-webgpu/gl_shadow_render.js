@@ -9,13 +9,42 @@
     if (typeof require === "function") { require("./gl_shadow_objects.js"); require("./gl_shadow_arrays.js"); require("./gl_shadow_lists.js"); }
     const primitive = mode => mode <= GL.POLYGON, indexBytes = type => type === GL.UNSIGNED_BYTE ? 1 : type === GL.UNSIGNED_SHORT ? 2 : type === GL.UNSIGNED_INT ? 4 : 0;
     const bits = GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT | GL.STENCIL_BUFFER_BIT;
+    function attachment(s, target, kind) {
+        const c = s.current, name = target === GL.READ_FRAMEBUFFER ? c.readFramebuffer : c.drawFramebuffer;
+        if (!name) return { internalFormat: GL.DEPTH24_STENCIL8, componentBits: [0, 0, 0, 0, 24, 8] };
+        const fbo = s.boundFramebuffer(target);
+        return fbo?.[kind] ? s.attachedImage(fbo[kind]) : null;
+    }
+    function attachmentFormat(image, kind) {
+        const format = image.internalFormat;
+        if (kind === "stencil") return String(image.componentBits?.[5] || 8);
+        const bits = image.componentBits?.[4] || (format === GL.DEPTH_COMPONENT16 ? 16 : format === GL.DEPTH24_STENCIL8 ? 24 : 32);
+        return bits + ":" + (format === GL.DEPTH_COMPONENT32F || format === 0x8CAD ? "float" : "fixed");
+    }
+    function sourceError(s, format) {
+        if (format === GL.DEPTH_COMPONENT || format === GL.STENCIL_INDEX)
+            return attachment(s, GL.READ_FRAMEBUFFER, format === GL.DEPTH_COMPONENT ? "depth" : "stencil") ? 0 : GL.INVALID_OPERATION;
+        return s.current.readBuffer === GL.NONE ? GL.INVALID_OPERATION : 0;
+    }
     state.rule("CLEAR", (c, [mask]) => mask & ~(bits | GL.ACCUM_BUFFER_BIT) ? GL.INVALID_VALUE : 0);
-    state.rule("COPY_PIXELS", (c, [x, y, width, height, type]) => width < 0 || height < 0 ? GL.INVALID_VALUE :
-        [GL.COLOR, GL.DEPTH, GL.STENCIL].includes(type) ? 0 : GL.INVALID_ENUM);
+    state.rule("COPY_PIXELS", (c, [x, y, width, height, type], s) => width < 0 || height < 0 ? GL.INVALID_VALUE :
+        ![GL.COLOR, GL.DEPTH, GL.STENCIL].includes(type) ? GL.INVALID_ENUM :
+            sourceError(s, type === GL.DEPTH ? GL.DEPTH_COMPONENT : type === GL.STENCIL ? GL.STENCIL_INDEX : GL.RGBA) ||
+            (type === GL.STENCIL && !attachment(s, GL.DRAW_FRAMEBUFFER, "stencil") ? GL.INVALID_OPERATION : 0));
     state.rule("ACCUM", (c, [op], s) => op < 0x100 || op > 0x104 ? GL.INVALID_ENUM :
         c.drawFramebuffer !== c.readFramebuffer || !s.stateValue(GL.ACCUM_RED_BITS)?.[0][0] ? GL.INVALID_OPERATION : 0);
-    state.rule("BLIT_FRAMEBUFFER", (c, a) => a[8] & ~bits ? GL.INVALID_VALUE :
-        ![GL.NEAREST, GL.LINEAR].includes(a[9]) ? GL.INVALID_ENUM : a[8] & (GL.DEPTH_BUFFER_BIT | GL.STENCIL_BUFFER_BIT) && a[9] !== GL.NEAREST ? GL.INVALID_OPERATION : 0);
+    state.rule("BLIT_FRAMEBUFFER", (c, a, s) => {
+        if (a[8] & ~bits) return GL.INVALID_VALUE;
+        if (![GL.NEAREST, GL.LINEAR].includes(a[9])) return GL.INVALID_ENUM;
+        if (a[8] & (GL.DEPTH_BUFFER_BIT | GL.STENCIL_BUFFER_BIT) && a[9] !== GL.NEAREST) return GL.INVALID_OPERATION;
+        for (const [bit, kind] of [[GL.DEPTH_BUFFER_BIT, "depth"], [GL.STENCIL_BUFFER_BIT, "stencil"]]) if (a[8] & bit) {
+            const read = attachment(s, GL.READ_FRAMEBUFFER, kind), draw = attachment(s, GL.DRAW_FRAMEBUFFER, kind);
+            // EXT_framebuffer_blit ignores an absent buffer. Two present
+            // buffers must have exactly matching GL storage formats.
+            if (read && draw && attachmentFormat(read, kind) !== attachmentFormat(draw, kind)) return GL.INVALID_OPERATION;
+        }
+        return 0;
+    });
     const packedNames = ["DRAW_ARRAYS", "DRAW_ELEMENTS", "DRAW_ARRAYS_GL2", "DRAW_ELEMENTS_GL2"],
         directNames = ["DRAW_ARRAYS_DIRECT", "DRAW_ELEMENTS_DIRECT", "DRAW_RANGE_ELEMENTS_DIRECT"],
         multiNames = ["MULTI_DRAW_ARRAYS_DIRECT", "MULTI_DRAW_ELEMENTS_DIRECT"];
@@ -99,6 +128,8 @@
         if (r.width < 0 || r.height < 0) return fail(GL.INVALID_VALUE);
         const error = pixels.pixelError(r.format, r.type, true); if (error) return fail(error);
         if (read && r.format === GL.COLOR_INDEX) return fail(GL.INVALID_OPERATION);
+        if (read) { const error = sourceError(s, r.format); if (error) return fail(error); }
+        if (!read && r.format === GL.STENCIL_INDEX && !attachment(s, GL.DRAW_FRAMEBUFFER, "stencil")) return fail(GL.INVALID_OPERATION);
         const span = pixels.uploadSpan(c, { ...r, format: r.format === GL.STENCIL_INDEX ? GL.COLOR_INDEX : r.format }, 2, read);
         if (!Number.isSafeInteger(span) || span > r.data_size || P.RECORDS[name].size + r.data_size > size) return fail(GL.INVALID_OPERATION);
         return 0;

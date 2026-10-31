@@ -1,0 +1,19 @@
+{"renderer":"Apple M1 Pro","cases":[
+{"name":"read_depth_missing","error":1282},
+{"name":"read_stencil_missing","error":1282},
+{"name":"read_depth_zero_missing","error":1282},
+{"name":"copy_depth_missing","error":1282},
+{"name":"copy_stencil_missing","error":1282},
+{"name":"draw_depth_missing","error":0},
+{"name":"draw_stencil_missing","error":1282},
+{"name":"read_color_none","error":1282},
+{"name":"read_color_zero_none","error":1282},
+{"name":"copy_color_none","error":1282},
+{"name":"read_depth_present","error":0},
+{"name":"read_color_depth_only","error":1282},
+{"name":"copy_depth_present","error":0},
+{"name":"blit_depth_mismatch","error":1282},
+{"name":"blit_depth_match","error":0},
+{"name":"blit_depth_absent","error":0},
+{"name":"blit_depth_packed_plain","error":1282}
+],"depthBits":[16,32,24]}

@@ -38,4 +38,4 @@ assert.equal(isolated.rgba[(approved.y * 64 + approved.x) * 4], 241);
 broken.rgba[0] = native.rgba[0] >= 128 ? 0 : 255;
 assert.equal(compare.compareScene(scene, native, alternative, broken).verdict, "FAIL");
 assert.equal(mesa.fixtures.render_errors.cases.find(c => c.name === "multi_count").error, 0x501);
-console.log("gl_mesa_reference_test: 59 native jobs, 60 pixel scenes, source fingerprints, valid ARB sources and restricted driver alternatives passed");
+console.log("gl_mesa_reference_test: 60 native jobs, 60 pixel scenes, source fingerprints, valid ARB sources and restricted driver alternatives passed");
