@@ -36,6 +36,8 @@ class FakeTexture {
         this.views = [];
     }
     createView(options) {
+        if (this.descriptor.dimension === "3d" && options && options.dimension && options.dimension !== "3d")
+            throw new Error("a 3D texture requires a 3D view");
         // (format and sample count: what a pass checks its attachments by)
         const view = { texture: this, options: options || {},
             format: options && options.format || this.descriptor.format,

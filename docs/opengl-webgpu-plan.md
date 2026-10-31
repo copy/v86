@@ -766,6 +766,13 @@ game.exe
 > - 8 组 Apple/Mesa 分区图案（每组两点，颜色/模板精确一致，深度差不超过 2^-23 的量化）和真实 GPU 两种转发模式通过；另用 4 个不同深度/模板样本证明读回及 blit 选择样本 0。82 组 Node、21 页 GPU、构建与 ESLint 通过，6/6 新错误注入被发现（含仅由 GPU 像素发现的坐标符号错误）。完整 Mesa 档案现为 62 项作业/60 个像素场景。
 > - 继续 D4 的 3D 附件、可编程几何/纹理边框和其余偏差审计，尚未整体退出 D4。
 
+> **D4 3D 附件子阶段（2026-10-31）：完成。**
+>
+> - 3D 颜色附件使用 3D 视图和 `depthSlice`，普通绘制、load clear、带颜色掩码的 clear、颜色拷贝/blit 均选择正确切片；pass 键包含切片。读回继续复制指定 z-slice，采样式复制先在 GPU 上取出 2D 切片，`CopyTexSubImage3D` 写指定 zoffset。只读深度附件不再误丢弃 CPU 数据。
+> - GPU 改写的 3D 基级可继续在 GPU 上生成全部 mip，每个目标 z 切片对源 xyz 的八个邻居取平均；不再拒绝 GPU-authored 3D mip。设备恢复和快照沿用注册表及 C8 的完整 3D 内容。
+> - 9 项原生参照覆盖四切片、掩码清屏、切片到 2D、3D 目标 blit 和两层 mip。Apple/Mesa 与实际 GPU 两种模式通过，只有命名 mip 场景允许原生平均舍入的 1 字节差；快照恢复后继续执行也通过。83 组 Node、47 组站点、22 页 GPU、构建/ESLint、6/6 新错误注入通过；Mesa 全档为 63 项作业/60 个像素场景。
+> - WebGPU 依据：[17.1.1.1 Color Attachments](https://gpuweb.github.io/gpuweb/#dictdef-gpurenderpasscolorattachment)。继续 D4 可编程几何/纹理边框及剩余语义，尚未整体退出 D4。
+
 > **D4 状态（2026-10-29）：基本完成。** GL 参照场景从 22 通过 / 32 失败到 56 通过 / 5 个已知失败（全是 ARB 程序，属阶段 E2）；新增三个严格场景（宽线与线点画、深度/模板像素、深度纹理当颜色读）。每一项都有执行器测试和被杀死的变异。
 >
 > - **S1-2：** a–k 完成。j：深度纹理不带比较采样时，用按 `DEPTH_TEXTURE_MODE` 生成的颜色副本（深度变化后重做）；同时修了深度纹理在 GPU 上根本传不上去的问题（WebGPU 不允许 `writeTexture` 写 depth32float，改为画 `frag_depth`）。l 属阶段 E。

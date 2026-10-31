@@ -6739,7 +6739,7 @@
             };
         },
 
-        resolveAttachment(attachment) {
+        resolveAttachment(attachment, write = true) {
             if (attachment.kind === "texture") {
                 const texture = this.imageFor(attachment);
                 if (!texture) return null;
@@ -6748,12 +6748,15 @@
                 // what is drawn into it is the level's content from now on
                 const slot = this.levelSlot(texture, texture.kind, attachment.level,
                     texture.kind === "Cube" ? attachment.layer : 0);
-                if (slot && !slot.compressed) slot.pixels = null;
-                texture.depthGeneration = (texture.depthGeneration || 0) + 1;
+                if (write) {
+                    if (slot && !slot.compressed) slot.pixels = null;
+                    texture.depthGeneration = (texture.depthGeneration || 0) + 1;
+                }
                 return {
                     view: this.attachmentView(texture, gpuTexture, attachment.level, attachment.layer),
                     format: texture.gpuFormat,
                     texture: gpuTexture,
+                    depthSlice: texture.kind === "3D" ? attachment.layer : undefined,
                     mipLevel: attachment.level,
                     origin: { x: 0, y: 0, z: attachment.layer },
                 };
@@ -6770,8 +6773,10 @@
             const key = "attachment:" + this.resourceId(texture) + ":" + level + ":" + layer;
             let view = cache.get(key);
             if (!view) {
-                view = texture.createView({ dimension: "2d", baseMipLevel: level,
-                    mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
+                // A 3D view retains its volume; the render attachment selects
+                // depthSlice (WebGPU 17.1.1.1), never an invalid 2D view.
+                view = texture.createView({ dimension: image.kind === "3D" ? "3d" : "2d", baseMipLevel: level,
+                    mipLevelCount: 1, ...(image.kind === "3D" ? {} : { baseArrayLayer: layer, arrayLayerCount: 1 }) });
                 cache.set(key, view);
             }
             return view;
@@ -6870,7 +6875,7 @@
                 this.endPass(); this.targetKeys.clearKeys();
             }
             const targetKey = this.targetKeys.key([reference(this.current),
-                targets.color.map(target => target ? [reference(target.view), reference(target.resolveTarget)] : null),
+                targets.color.map(target => target ? [reference(target.view), reference(target.resolveTarget), target.depthSlice] : null),
                 reference(targets.depth), targets.width, targets.height, targets.sampleCount || 1,
                 reference(this.activeOcclusionQuerySet)]);
             if (this.pass && this.passTargetKey === targetKey) {
@@ -6884,6 +6889,7 @@
             const encoder = this.ensureEncoder();
             const colorAttachments = targets.color.map(target => target ? {
                 view: target.view,
+                ...(target.depthSlice !== undefined ? { depthSlice: target.depthSlice } : {}),
                 ...(target.resolveTarget ? { resolveTarget: target.resolveTarget } : {}),
                 loadOp: this.pendingClear && this.pendingClear.color ?
                     "clear" : "load",
@@ -7130,6 +7136,7 @@
                 label: "GL masked/scissored clear",
                 colorAttachments: targets.color.map(target => target ? {
                     view: target.view, loadOp: "load", storeOp: "store",
+                    ...(target.depthSlice !== undefined ? { depthSlice: target.depthSlice } : {}),
                     ...(target.resolveTarget ? { resolveTarget: target.resolveTarget } : {}),
                 } : null),
                 ...(targets.depth ? { depthStencilAttachment: {
@@ -9289,6 +9296,18 @@ struct BlitParams {
 
     Object.assign(GLWebGPUExecutor.prototype, {
 
+        colorSource2D(source) {
+            const dimension = source.texture.dimension || source.texture.descriptor?.dimension;
+            if (dimension !== "3d") return source;
+            this.endPass();
+            const copy = this.createGPUTexture({ label: "GL 3D colour slice", format: source.format,
+                size: { width: source.width, height: source.height }, usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
+            this.ensureEncoder().copyTextureToTexture({ texture: source.texture, mipLevel: source.mipLevel || 0,
+                origin: { x: 0, y: 0, z: source.layer || 0 } }, { texture: copy }, { width: source.width, height: source.height, depthOrArrayLayers: 1 });
+            this.retire(copy);
+            return { ...source, texture: copy, view: copy.createView(), layer: 0, mipLevel: 0 };
+        },
+
         colorCopyPipeline(format, base) {
             this.colorCopyPipelines = this.colorCopyPipelines || new Map();
 
@@ -9339,6 +9358,7 @@ struct BlitParams {
 
         blitColorTexture(source, destination, sx0, sy0, sx1, sy1,
                 dx0, dy0, dx1, dy1, filter) {
+            source = this.colorSource2D(source);
             // (a multisampled window is drawn into and resolved, as a pass)
             const pipeline = this.colorBlitPipeline(destination.format, destination.resolveTarget ? 4 : 1);
             if (!pipeline) return false;
@@ -9368,6 +9388,7 @@ struct BlitParams {
             const pass = this.ensureEncoder().beginRenderPass({
                 label: "GL scaled colour blit",
                 colorAttachments: [{ view: destination.view, loadOp: "load", storeOp: "store",
+                    ...(destination.depthSlice !== undefined ? { depthSlice: destination.depthSlice } : {}),
                     ...(destination.resolveTarget ? { resolveTarget: destination.resolveTarget } : {}) }],
             });
             pass.setPipeline(pipeline);
@@ -9390,7 +9411,9 @@ struct BlitParams {
         generateTextureMipmapsGPU(texture) {
             const base = texture.levels[0] && texture.levels[0][0];
             if (!base) return false;
-            if (texture.kind === "3D" || base.compressed ||
+            if (texture.kind === "3D" && !base.compressed && base.base !== "DEPTH" && base.base !== "COLOR_INDEX")
+                return this.generateTexture3DMipmapsGPU(texture);
+            if (base.compressed ||
                     base.base === "DEPTH" || base.base === "COLOR_INDEX") {
                 for (const list of texture.levels)
                     if (list) list.length = Math.min(1, list.length);
@@ -9437,9 +9460,43 @@ struct BlitParams {
             return true;
         },
 
+        generateTexture3DMipmapsGPU(texture) {
+            const gpuTexture = this.ensureTextureUploaded(texture);
+            if (!gpuTexture) return false;
+            this.endPass();
+            const code = MIPMAP_WGSL.slice(MIPMAP_WGSL.indexOf("@vertex"), MIPMAP_WGSL.indexOf("@fragment")) + `
+@group(0) @binding(0) var sourceTexture:texture_3d<f32>;
+@group(0) @binding(1) var<uniform> slice:vec4u;
+@fragment fn fs_main(@builtin(position) p:vec4f)->@location(0) vec4f {
+ let origin=vec3i(vec2i(p.xy)*2,i32(slice.x)*2);let maximum=vec3i(textureDimensions(sourceTexture))-vec3i(1);
+ var sum=vec4f(0);for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var x=0;x<2;x++){
+ sum+=textureLoad(sourceTexture,min(origin+vec3i(x,y,z),maximum),0);}}}return sum/8.0;
+}`;
+            const module = this.shaderModule(code), descriptor = { label: "GL 3D mipmap", layout: "auto", vertex: { module, entryPoint: "vs_main" },
+                fragment: { module, entryPoint: "fs_main", targets: [{ format: texture.gpuFormat }] }, primitive: { topology: "triangle-list" } };
+            const key = this.renderPipelineKey(this.mipmapPipelines, descriptor);
+            const pipeline = this.mipmapPipelines.get(key) || this.createPipeline(this.mipmapPipelines, key, descriptor);
+            const levels = texture.levels[0] || [];
+            for (let level = 1; level < levels.length; ++level) {
+                const source = gpuTexture.createView({ dimension: "3d", baseMipLevel: level - 1, mipLevelCount: 1 });
+                const destination = gpuTexture.createView({ dimension: "3d", baseMipLevel: level, mipLevelCount: 1 });
+                for (let z = 0; z < levels[level].depth; ++z) {
+                    const uniform = this.allocateUniform(16); if (!uniform) return false;
+                    this.device.queue.writeBuffer(uniform.buffer, uniform.offset, new Uint32Array([z, 0, 0, 0]));
+                    const pass = this.ensureEncoder().beginRenderPass({ label: "GL 3D mipmap slice", colorAttachments: [
+                        { view: destination, depthSlice: z, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }] });
+                    pass.setPipeline(pipeline);pass.setBindGroup(0, this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+                        { binding: 0, resource: source }, { binding: 1, resource: { buffer: uniform.buffer, offset: uniform.offset, size: 16 } }] }));
+                    pass.draw(3);pass.end();
+                }
+            }
+            texture.dirty = false;return true;
+        },
+
         copyColorTexture(source, destination, sourceX, sourceY,
                 destinationX, destinationY, width, height, loadOp) {
             if (!source || !destination || width <= 0 || height <= 0) return false;
+            source = this.colorSource2D(source);
             const pipeline = this.colorCopyPipeline(destination.format, destination.base);
             if (!pipeline) return false;
             const uniform = this.allocateUniform(16);
@@ -9458,6 +9515,7 @@ struct BlitParams {
             const pass = this.ensureEncoder().beginRenderPass({
                 label: "GL colour copy pass",
                 colorAttachments: [{ view: destination.view,
+                    ...(destination.depthSlice !== undefined ? { depthSlice: destination.depthSlice } : {}),
                     loadOp: loadOp || "load", storeOp: "store",
                     clearValue: { r: 0, g: 0, b: 0, a: 0 } }],
             });
@@ -9741,7 +9799,7 @@ struct BlitParams {
             if (target.color.some(destination => destination && destination.texture === source.texture)) {
                 const copy = this.createGPUTexture({ label: "GL overlapping colour blit snapshot",
                     size: { width: source.width, height: source.height }, format: source.format,
-                    usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
+                    usage: TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
                 this.ensureEncoder().copyTextureToTexture({ texture: source.texture, mipLevel: source.mipLevel || 0,
                     origin: { x: 0, y: 0, z: source.layer || 0 } }, { texture: copy }, { width: source.width, height: source.height });
                 source = { texture: copy, format: source.format, width: source.width, height: source.height };
@@ -9943,20 +10001,16 @@ struct BlitParams {
                 return this.refuse("glCopyTexSubImage",
                     "destination level has no storage", { level, layer },
                     GL.INVALID_OPERATION);
-            if (kind === "3D" || slot.compressed || slot.base === "DEPTH" ||
+            if (slot.compressed || slot.base === "DEPTH" ||
                     slot.base === "COLOR_INDEX")
                 return this.refuse("glCopyTexSubImage",
                     "the destination format cannot receive a colour copy",
                     { target, format: slot.gpuFormat }, GL.INVALID_OPERATION);
             const gpuTexture = this.ensureTextureUploaded(texture);
             if (!gpuTexture) return;
-            void zoffset;
-            const view = gpuTexture.createView({
-                dimension: "2d", baseMipLevel: level, mipLevelCount: 1,
-                baseArrayLayer: layer, arrayLayerCount: 1,
-            });
+            const view = this.attachmentView(texture, gpuTexture, level, kind === "3D" ? zoffset : layer);
             if (this.copyColorTexture(source,
-                    { view, format: slot.gpuFormat, base: slot.base }, x, y,
+                    { view, format: slot.gpuFormat, base: slot.base, depthSlice: kind === "3D" ? zoffset : undefined }, x, y,
                     xoffset, yoffset, width, height, "load")) {
                 // The CPU copy is no longer authoritative after a framebuffer
                 // copy.  Mipmap generation below can continue entirely on GPU.
@@ -10159,7 +10213,7 @@ struct BlitParams {
             }
             const fbo = this.boundFramebufferObject(target);
             const record = fbo && (kind === "stencil" ? fbo.stencil : fbo.depth);
-            const resolved = record && this.resolveAttachment(record);
+            const resolved = record && this.resolveAttachment(record, target === GL.DRAW_FRAMEBUFFER);
             if (!resolved) return null;
             return { texture: resolved.texture, format: resolved.format, mipLevel: resolved.mipLevel,
                 layer: resolved.origin.z, width: Math.max(1, (resolved.texture.width || resolved.texture.descriptor?.size.width) >> resolved.mipLevel),

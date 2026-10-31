@@ -1,0 +1,11 @@
+{"renderer":"Apple M1 Pro","cases":[
+{"name":"slice0","error":0,"rgba":[255,0,0,255]},
+{"name":"slice1","error":0,"rgba":[0,255,0,255]},
+{"name":"slice2","error":0,"rgba":[255,255,0,255]},
+{"name":"slice3","error":0,"rgba":[255,0,255,255]},
+{"name":"copy2d","error":0,"rgba":[255,0,255,255]},
+{"name":"blit3d","error":0,"rgba":[0,255,0,255]},
+{"name":"mip1_0","error":0,"rgba":[128,128,0,255]},
+{"name":"mip1_1","error":0,"rgba":[128,255,0,255]},
+{"name":"mip2_0","error":0,"rgba":[128,191,0,255]}
+]}

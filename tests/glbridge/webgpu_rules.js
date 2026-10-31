@@ -135,7 +135,14 @@ function passProblems(descriptor) {
     const sampleCounts = new Set(attachments.map(a => a.view && a.view.sampleCount).filter(Boolean));
     if (sampleCounts.size > 1) problems.push("the attachments' sample counts differ: " + [...sampleCounts]);
     for (const attachment of descriptor.colorAttachments || []) {
-        if (!attachment || !attachment.resolveTarget) continue;
+        if (!attachment) continue;
+        const texture = attachment.view && attachment.view.texture, d = texture && texture.descriptor;
+        if (d && d.dimension === "3d") {
+            const depth = Math.max(1, d.size.depthOrArrayLayers >> (attachment.view.options.baseMipLevel || 0));
+            if (!Number.isInteger(attachment.depthSlice) || attachment.depthSlice < 0 || attachment.depthSlice >= depth)
+                problems.push("a 3D color attachment requires an in-range depthSlice");
+        }
+        if (!attachment.resolveTarget) continue;
         if ((attachment.view.sampleCount || 1) === 1) problems.push("a resolve target on a single-sampled attachment");
         if ((attachment.resolveTarget.sampleCount || 1) !== 1) problems.push("a multisampled resolve target");
     }
