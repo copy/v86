@@ -58,6 +58,7 @@
         "GL_EXT_blend_func_separate", "GL_EXT_blend_equation_separate",
         "GL_EXT_stencil_wrap", "GL_EXT_stencil_two_side",
         "GL_EXT_secondary_color", "GL_EXT_fog_coord",
+        "GL_EXT_compiled_vertex_array",
         "GL_EXT_packed_pixels", "GL_EXT_rescale_normal",
         "GL_EXT_separate_specular_color", "GL_EXT_bgra",
         "GL_EXT_framebuffer_object", "GL_EXT_framebuffer_blit",

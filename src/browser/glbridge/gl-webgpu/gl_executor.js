@@ -3632,6 +3632,7 @@
         define("UPLOAD_CHUNK", function() {
             this.refuse("UPLOAD_CHUNK", "CPU upload assembly was bypassed");
         });
+        define("QUERY_ARRAY_LOCK", function() { /* CPU-owned client state and hint. */ });
         define("IMMEDIATE_VERTEX_BLOCK", function(a, bytes, view, offset, size, metadata) {
             const runs = (nodeRequire ? nodeRequire("./gl_client_arrays.js") : global.GLClientArrays).parseImmediateBlock(bytes, view, offset, size);
             if (!runs) return this.refuse("IMMEDIATE_VERTEX_BLOCK", "invalid vertex block");

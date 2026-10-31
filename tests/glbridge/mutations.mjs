@@ -59,6 +59,17 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glarraylock: { floor: 1, node: ["gl_array_lock_test.js"], pages: ["gl_array_lock_browser_test.html"], list: [
+        ["negative first is accepted", G + "gl_shadow_arrays.js", 'r.first < 0 || r.count <= 0', 'r.count <= 0'],
+        ["zero count is accepted", G + "gl_shadow_arrays.js", 'r.first < 0 || r.count <= 0', 'r.first < 0 || r.count < 0'],
+        ["nested lock is accepted", G + "gl_shadow_arrays.js", 'r.operation < 2 && (!!lock.count === !r.operation)', 'r.operation === 1 && (!!lock.count === !r.operation)'],
+        ["unlock without a lock is accepted", G + "gl_shadow_arrays.js", 'r.operation < 2 && (!!lock.count === !r.operation)', '!r.operation && (!!lock.count === !r.operation)'],
+        ["lock ignores first", G + "gl_shadow_arrays.js", 'c.state.arrays.lock = { first: r.first, count: r.count };', 'c.state.arrays.lock = { first: 0, count: r.count };'],
+        ["unlock keeps the old range", G + "gl_shadow_arrays.js", 'else if (r.operation === 1) c.state.arrays.lock = { first: 0, count: 0 };', 'else if (r.operation === 1) void c;'],
+        ["client stack loses lock state", G + "gl_shadow_arrays.js", 'c.state.arrays = saved.formats;', 'c.state.arrays = saved.formats;delete c.state.arrays.lock;'],
+        ["lock is compiled into lists", G + "gl_shadow_lists.js", 'fn >= 0xFF00 || name.startsWith("QUERY_")', 'fn >= 0xFF00 || name.startsWith("QUERY_") && name !== "QUERY_ARRAY_LOCK"'],
+        ["failed lock reports success", G + "gl_shadow_arrays.js", 'return this.answered(name, view, offset, P.C.V86GL_SYNC_QUERY_STATUS_FAILED);', 'return this.answered(name, view, offset, P.C.V86GL_SYNC_QUERY_STATUS_OK);'],
+    ] },
     glimmediateblocks: { floor: 1, node: ["gl_immediate_blocks_test.js", "gl_protocol_test.js"], pages: ["gl_immediate_blocks_browser_test.html"], list: [
         ["block attributes never reach CPU state", G + "gl_shadow.js", 'const attrs = this.expand(run.attributes), attributes =', 'const attrs = [], attributes ='],
         ["vertices outside Begin are forwarded", G + "gl_shadow.js", 'positions: c.state.begin ? run.positions : new Uint8Array()', 'positions: run.positions'],

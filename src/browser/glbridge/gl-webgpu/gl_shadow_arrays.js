@@ -27,9 +27,29 @@
         const result = Object.fromEntries(definitions.map(([key, , size]) => [key, key === "texCoord" ?
             Array.from({ length: caps.LIMITS.MAX_TEXTURE_COORDS }, () => initial(size)) : initial(size, key === "edgeFlag" ? GL.UNSIGNED_BYTE : GL.FLOAT)]));
         result.generic = Array.from({ length: caps.LIMITS.MAX_VERTEX_ATTRIBS }, () => ({ ...initial(4), enabled: false, current: [0, 0, 0, 1] }));
+        result.lock = { first: 0, count: 0 };
         return result;
     }
     const get = (c, key) => key === "texCoord" ? c.state.arrays.texCoord[c.state.clientTexture] : c.state.arrays[key];
+    for (const [pname, field] of [[GL.ARRAY_ELEMENT_LOCK_FIRST_EXT, "first"], [GL.ARRAY_ELEMENT_LOCK_COUNT_EXT, "count"]])
+        state.query([pname], s => [[s.current.state.arrays.lock?.[field] || 0], "i"]);
+    GLShadow.prototype.queryArrayLock = function(bytes, view, offset, size) {
+        const name = "QUERY_ARRAY_LOCK";if (!this.pending(name, view, offset, size)) return;
+        const c = this.current, r = P.decodeRecord(name, view, offset), lock = c?.state.arrays.lock || { first: 0, count: 0 };
+        const error = !c || c.state.begin ? GL.INVALID_OPERATION : r.operation > 2 ? GL.INVALID_ENUM :
+            !r.operation && (r.first < 0 || r.count <= 0) ? GL.INVALID_VALUE :
+                r.operation < 2 && (!!lock.count === !r.operation) ? GL.INVALID_OPERATION : 0;
+        if (error) {
+            if (c && !c.error) c.error = error;view.setUint32(offset + P.F[name].error, error, true);
+            return this.answered(name, view, offset, P.C.V86GL_SYNC_QUERY_STATUS_FAILED);
+        }
+        if (!r.operation) c.state.arrays.lock = { first: r.first, count: r.count };
+        else if (r.operation === 1) c.state.arrays.lock = { first: 0, count: 0 };
+        const current = c.state.arrays.lock || lock;
+        view.setInt32(offset + P.F[name].first, current.first, true);view.setInt32(offset + P.F[name].count, current.count, true);
+        view.setUint32(offset + P.F[name].error, 0, true);this.answered(name, view, offset, P.C.V86GL_SYNC_QUERY_STATUS_OK);
+    };
+    GLShadow.install({ [P.GLFN.QUERY_ARRAY_LOCK]: "queryArrayLock" });
     const nameOf = (c, array) => c.group.bufferObjects.get(array.bufferId)?.name || 0;
     const pointers = new Map(definitions.map(d => [P.GLFN[d[1]], d]));
     for (const [key, command, , types, , pnames] of definitions) {

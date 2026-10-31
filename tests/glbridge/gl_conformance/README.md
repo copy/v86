@@ -2,7 +2,7 @@
 
 `references.json.gz` contains Apple hardware/software results.
 `mesa_reference.json.gz` contains Mesa llvmpipe results: 60 pixel scenes and
-59 state/query/shader fixtures. The Mesa archive records the driver, package
+60 state/query/shader fixtures. The Mesa archive records the driver, package
 repository digest and source fingerprints. `gl_mesa_reference_test.js` rejects
 stale inputs; ordinary test runs do not need Mesa installed.
 
@@ -112,3 +112,16 @@ so these VBO attributes use the existing cached float conversion. Comparisons
 against Mesa allow one float ULP for reciprocal multiplication; product C ABI
 and GPU pixels retain explicit formula-derived expectations. This is an oracle
 adjudication, not a pixel tolerance for unrelated scenes.
+
+#### F2D compiled vertex arrays (2026-11-01)
+
+`reference/array_lock.c` checks thirteen state/error outcomes against Mesa,
+including nonpositive counts, nesting, Begin, client-vertex-array stack
+restoration and immediate execution during list compilation. Apple does not
+advertise GL_EXT_compiled_vertex_array; its fixture records `supported:false`
+and supplies no invented results. The implementation follows the
+[EXT specification](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_compiled_vertex_array.txt).
+The guest caches immutable client bytes with a 16 MiB budget, invalidating on
+format/enable changes, stack restoration, context switches and unlock. If
+resources are insufficient it declines the cache, as the extension permits;
+this does not change the CPU-owned observable locked range.

@@ -281,6 +281,7 @@
         ["PROGRAM_LINK_VALIDATION", 254, null, "u:operation u:job u:program u:object_id u:link_generation u:data_size"],
         ["UPLOAD_CHUNK", 255, null, "u:token u:opcode u:total_size u:offset u:data_size"],
         ["IMMEDIATE_VERTEX_BLOCK", 256, null, "u:run_count u:data_size"],
+        ["QUERY_ARRAY_LOCK", 257, null, "u:operation i:first i:count u:status u:error"],
     ];
 
     // Composite records' optional headers and repeated elements. The common
