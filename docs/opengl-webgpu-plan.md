@@ -787,6 +787,14 @@ game.exe
 > - 8 个原生/实际 GPU 场景覆盖截断链、非零基级/缺失 0 级、零尺寸非活动级、真正缺级、倒置 BASE/MAX 和 NPOT。非 mip 过滤的倒置范围：Apple 与 GL 2.1 §3.8.9 的基级采样一致，Mesa 采样 0 级；此单个原始差异保留并单独断言。FBO 用例明确设置完整范围 0–1，避免 Mesa 对不完整 mip 链的额外限制。
 > - 85 组 Node、24 页 GPU、构建/ESLint、6/6 新错误注入通过；Mesa 全档为 65 项作业/60 个像素场景。继续手动/自动 mip 生成范围、各级不同形状/格式的 GPU 资源归属、可编程采样与几何等剩余 D4 工作。
 
+> **D4 mip 生成范围/深度子阶段（2026-10-31）：完成。**
+>
+> - 页面手动生成从 BASE_LEVEL+1 到 q=min(MAX_LEVEL,p)，自动生成从 BASE_LEVEL+1 到 p；范围外已有图像不变。图像/子图像/压缩图像/复制统一触发检查，自动只处理变化的立方体面，不再硬编码 0 级。CPU 元数据与页面执行范围一致。
+> - GPU 改写的深度纹理通过 depth-only 采样和 frag_depth 生成各级，保留范围外的深度图像；2D/3D GPU 生成均限制在本次生成范围内。
+> - 26 项原生纹理读回记录和实际 CPU 查询/票据读回两种模式通过。Apple 的非零基级颜色生成异常保留原始数据；Mesa 自动生成截断 MAX_LEVEL 的三个后果由 GL 2.1 §3.8.8、EXT_framebuffer_object issue 68 的完整 p 范围规则校正，深度末级也由 Apple 参照支持。只校正命名结果，不改原始档案。
+> - 修正 S2-26 审查中的 FBO 自动生成说法：FBO 渲染本身不触发 GENERATE_MIPMAP，必须显式生成；测试验证自动标志打开时渲染后仍保留旧 mip（[EXT_framebuffer_object issue 52](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_framebuffer_object.txt)）。
+> - 86 组 Node、25 页 GPU、构建/ESLint、6/6 新错误注入通过；Mesa 全档为 66 项作业/60 个像素场景。继续 D4 上传顺序、异构级别资源与可编程采样/几何等剩余工作。
+
 > **D4 状态（2026-10-29）：基本完成。** GL 参照场景从 22 通过 / 32 失败到 56 通过 / 5 个已知失败（全是 ARB 程序，属阶段 E2）；新增三个严格场景（宽线与线点画、深度/模板像素、深度纹理当颜色读）。每一项都有执行器测试和被杀死的变异。
 >
 > - **S1-2：** a–k 完成。j：深度纹理不带比较采样时，用按 `DEPTH_TEXTURE_MODE` 生成的颜色副本（深度变化后重做）；同时修了深度纹理在 GPU 上根本传不上去的问题（WebGPU 不允许 `writeTexture` 写 depth32float，改为画 `frag_depth`）。l 属阶段 E。

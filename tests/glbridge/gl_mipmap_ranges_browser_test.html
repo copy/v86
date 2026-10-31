@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Mipmap generation ranges</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="../../src/browser/glbridge/graphics_journal.js"></script>
+<script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
+<script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="gl_mipmap_ranges_cases.js"></script>
+<script src="gl_selection_cases.js"></script>
+<script src="gl_evaluator_cases.js"></script>
+<script src="gl_texture_readback_cases.js"></script>
+<script>
+(async()=>{
+    "use strict";const {GLStream,GL}=GLTestStream,P=GLProtocol,Q=P.F.QUERY_TEXTURE_IMAGE,H=P.RECORDS.QUERY_TEXTURE_IMAGE.size,check=(ok,message)=>{if(!ok)throw new Error(message);};
+    try{
+        const response=await fetch("gl_conformance/mesa_reference.json.gz"),mesa=await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).json(),reference=mesa.fixtures.mipmap_ranges.cases;
+        for(const copied of [false,true]){
+            const cpu=new V86GLShadow.GLShadow(),gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();cpu.setCapabilities(gpu.capabilities());
+            gpu.options.writeGuestMemory=(at,bytes,metadata)=>metadata.memory.set(bytes,at+metadata.baseOffset);
+            const submit=async s=>{const memory=s.bytes(),segments=cpu.process(memory);for(const segment of segments||[{offset:0,length:memory.length}]){const bytes=segment.bytes||memory.subarray(segment.offset,segment.offset+segment.length);gpu.submit(copied?bytes.slice():bytes,{memory,baseOffset:segment.bytes?0:segment.offset});}await gpu.idle();check(!cpu.current.error,"CPU error "+cpu.current.error);};
+            await submit(new GLStream().makeCurrent(1,0,0,16,16,1,1));
+            for(const phase of GLMipmapRangesCases.phases){
+                await submit(GLMipmapRangesCases.scene(new GLStream(),phase));
+                for(const entry of reference.filter(e=>e.phase===phase)){
+                    const s=new GLStream(),meta=GLTextureReadbackCases.query(s,{target:GL.TEXTURE_2D,level:entry.level,format:entry.depth?GL.DEPTH_COMPONENT:GL.RGBA,type:entry.depth?GL.FLOAT:GL.UNSIGNED_BYTE,pointer:4096});await submit(s);
+                    check(meta.view.getUint32(Q.status,true)===1,phase+" metadata "+entry.level);
+                    const r=P.decodeRecord("QUERY_TEXTURE_IMAGE",meta.view,0);check(r.width===entry.size,phase+" width "+r.width);
+                    const packet=new GLStream(),data=GLTextureReadbackCases.query(packet,{mode:2,ticket:r.ticket,context_id:r.context_id,data_size:r.span},new Uint8Array(r.span));await submit(packet);
+                    check(data.view.getUint32(Q.status,true)===1,phase+" read "+entry.level);
+                    const expected=GLMipmapRangesCases.expected(entry),actual=entry.depth?Array.from(new Float32Array(data.bytes.slice(H).buffer)):Array.from(data.bytes.subarray(H));
+                    check(actual.every((v,i)=>Math.abs(v-expected[i%expected.length])<=(entry.depth?0.000001:0)),phase+" level "+entry.level+": "+actual.slice(0,4)+" expected "+expected);
+                }
+            }
+            check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.refusals&&!gpu.stats.framesRejected,"host failure "+JSON.stringify(gpu.gpuErrors.errors));gpu.lossHandler();gpu.resetForReplay();
+        }
+        document.getElementById("result").textContent="PASS mip ranges: base/MAX manual bounds, preserved outside levels, automatic full pyramid, FBO no-auto and GPU-authored depth in both modes";
+    }catch(error){document.getElementById("result").textContent="FAIL "+error.stack;}
+})();
+</script>

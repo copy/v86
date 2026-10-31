@@ -84,6 +84,13 @@
         GLFN.DELETE_RENDERBUFFERS, GLFN.DELETE_QUERIES,
     ]);
 
+    const AUTOMIPMAP_OPS = new Set([
+        "TEX_IMAGE_1D", "TEX_IMAGE_2D", "TEX_IMAGE_3D", "TEX_SUB_IMAGE_1D", "TEX_SUB_IMAGE_2D", "TEX_SUB_IMAGE_3D",
+        "COMPRESSED_TEX_IMAGE_1D", "COMPRESSED_TEX_IMAGE_2D", "COMPRESSED_TEX_IMAGE_3D",
+        "COMPRESSED_TEX_SUB_IMAGE_1D", "COMPRESSED_TEX_SUB_IMAGE_2D", "COMPRESSED_TEX_SUB_IMAGE_3D",
+        "COPY_TEX_IMAGE_1D", "COPY_TEX_IMAGE_2D", "COPY_TEX_SUB_IMAGE_1D", "COPY_TEX_SUB_IMAGE_2D", "COPY_TEX_SUB_IMAGE_3D",
+    ].map(name => GLFN[name]));
+
     function isContextFreeTeardownNoop(fn, view, offset, size) {
         if (CONTEXT_FREE_TEARDOWN_OPS.has(fn)) return true;
         /* GLView unbinds both ARB targets after deleting its last HGLRC. The
@@ -2301,6 +2308,7 @@
                 ++this.stats.commands;
                 try {
                     this.dispatch(fn, bytes, view, offset, size, metadata);
+                    if (AUTOMIPMAP_OPS.has(fn)) this.autoTextureMipmap(view, offset, size);
                     // Non-draw upload users (blits, pixel rectangles) also
                     // retire pages only once their complete GL command is encoded.
                     if (this.retireUploadPages()) this.flushFrame();
@@ -4726,8 +4734,6 @@
             });
             ++this.stats.textureUploads;
             if (pixels) this.stats.textureBytes += pixels.byteLength;
-            if (texture.generateMipmapHint && level === 0)
-                this.generateMipmapFor(texture);
         },
 
         texSubImage(target, level, x, y, z, width, height, depth, format, type,
@@ -4779,7 +4785,6 @@
             texture.dirty = true;
             ++this.stats.textureUploads;
             // GENERATE_MIPMAP follows every change of the base level (review S2-26)
-            if (texture.generateMipmapHint && level === 0) this.generateMipmapFor(texture);
         },
 
         compressedTexImage(target, level, internalFormat, width, height, depth,
@@ -5155,22 +5160,34 @@
             this.generateMipmapFor(texture);
         },
 
-        generateMipmapFor(texture) {
-            const layers = texture.kind === "Cube" ? 6 : 1;
-            let needsGPUGeneration = false;
-            for (let layer = 0; layer < layers; ++layer) {
+        autoTextureMipmap(view, offset, size) {
+            if (!this.current || size < 8) return;
+            const target = view.getUint32(offset, true), level = view.getInt32(offset + 4, true);
+            if (![GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D].includes(target) && CUBE_FACE_INDEX[target] === undefined) return;
+            const texture = this.boundTexture(target);
+            if (texture && texture.generateMipmapHint && level === texture.sampler.baseLevel)
+                this.generateMipmapFor(texture, target);
+        },
+
+        generateMipmapFor(texture, automaticTarget) {
+            const layers = texture.kind === "Cube" ? 6 : 1, first = texture.sampler.baseLevel;
+            const maximum = automaticTarget === undefined ? texture.sampler.maxLevel : Infinity;
+            const selectedLayers = Array.from({ length: layers }, (_, i) => i).filter(layer =>
+                automaticTarget === undefined || layer === (CUBE_FACE_INDEX[automaticTarget] || 0));
+            let needsGPUGeneration = false, last = first;
+            for (const layer of selectedLayers) {
                 const list = texture.levels[layer];
-                if (!list || !list[0]) continue;
-                const base = list[0];
+                if (!list || !list[first]) continue;
+                const base = list[first];
                 if (base.compressed) {
                     this.refuse("glGenerateMipmap",
                         "a compressed level cannot be downsampled",
                         { name: texture.name }, GL.INVALID_OPERATION);
                     continue;
                 }
-                const levels = fullMipLevelCount(base.width, base.height, base.depth);
+                last = Math.min(maximum, first + fullMipLevelCount(base.width, base.height, base.depth) - 1);
                 let source = base;
-                for (let level = 1; level < levels; ++level) {
+                for (let level = first + 1; level <= last; ++level) {
                     const width = Math.max(1, source.width >> 1);
                     const height = Math.max(1, source.height >> 1);
                     const depth = texture.kind === "3D" ?
@@ -5189,13 +5206,12 @@
                     if (pixels) this.markLevelUpload(texture, layer, level);
                     else needsGPUGeneration = true;
                 }
-                list.length = levels;
             }
             texture.dirty = true;
             texture.viewCache.clear();
             this.invalidateBindGroups();
             if (needsGPUGeneration)
-                this.generateTextureMipmapsGPU(texture);
+                this.generateTextureMipmapsGPU(texture, { first, last, layers: selectedLayers });
         },
     });
 
@@ -9421,15 +9437,13 @@ struct BlitParams {
             return true;
         },
 
-        generateTextureMipmapsGPU(texture) {
-            const base = texture.levels[0] && texture.levels[0][0];
+        generateTextureMipmapsGPU(texture, range = { first: 0, last: Infinity, layers: null }) {
+            const base = texture.levels[range.layers?.[0] || 0]?.[range.first];
             if (!base) return false;
             if (texture.kind === "3D" && !base.compressed && base.base !== "DEPTH" && base.base !== "COLOR_INDEX")
-                return this.generateTexture3DMipmapsGPU(texture);
-            if (base.compressed ||
-                    base.base === "DEPTH" || base.base === "COLOR_INDEX") {
-                for (const list of texture.levels)
-                    if (list) list.length = Math.min(1, list.length);
+                return this.generateTexture3DMipmapsGPU(texture, range);
+            if (base.base === "DEPTH") return this.generateDepthMipmapsGPU(texture, range);
+            if (base.compressed || base.base === "COLOR_INDEX") {
                 return this.refuse("glGenerateMipmap",
                     "GPU-authored mipmaps are unsupported for this texture type",
                     { kind: texture.kind, format: base.gpuFormat },
@@ -9441,9 +9455,9 @@ struct BlitParams {
             if (!gpuTexture) return false;
             const layers = texture.kind === "Cube" ? 6 : 1;
             this.endPass();
-            for (let layer = 0; layer < layers; ++layer) {
+            for (const layer of range.layers || Array.from({ length: layers }, (_, i) => i)) {
                 const list = texture.levels[layer] || [];
-                for (let level = 1; level < list.length; ++level) {
+                for (let level = range.first + 1; level < list.length && level <= range.last; ++level) {
                     const sourceView = gpuTexture.createView({
                         dimension: "2d", baseMipLevel: level - 1,
                         mipLevelCount: 1, baseArrayLayer: layer,
@@ -9473,7 +9487,36 @@ struct BlitParams {
             return true;
         },
 
-        generateTexture3DMipmapsGPU(texture) {
+        generateDepthMipmapsGPU(texture, range) {
+            const gpuTexture = this.ensureTextureUploaded(texture);if (!gpuTexture) return false;
+            this.endPass();
+            const module = this.shaderModule(MIPMAP_WGSL.slice(MIPMAP_WGSL.indexOf("@vertex"), MIPMAP_WGSL.indexOf("@fragment")) + `
+@group(0) @binding(0) var image:texture_depth_2d;
+@fragment fn fs_main(@builtin(position) p:vec4f)->@builtin(frag_depth) f32 {
+ let at=vec2i(p.xy)*2;let limit=vec2i(textureDimensions(image))-vec2i(1);
+ return (textureLoad(image,min(at,limit),0)+textureLoad(image,min(at+vec2i(1,0),limit),0)+
+ textureLoad(image,min(at+vec2i(0,1),limit),0)+textureLoad(image,min(at+vec2i(1,1),limit),0))*0.25;
+}`);
+            const descriptor = { label: "GL depth mipmap", layout: "auto", vertex: { module, entryPoint: "vs_main" },
+                fragment: { module, entryPoint: "fs_main", targets: [] }, primitive: { topology: "triangle-list" },
+                depthStencil: { format: texture.gpuFormat, depthWriteEnabled: true, depthCompare: "always" } };
+            const key = this.renderPipelineKey(this.mipmapPipelines, descriptor);
+            const pipeline = this.mipmapPipelines.get(key) || this.createPipeline(this.mipmapPipelines, key, descriptor);
+            for (const layer of range.layers || [0]) {
+                const list = texture.levels[layer] || [];
+                for (let level = range.first + 1; level < list.length && level <= range.last; ++level) {
+                    const view = mip => gpuTexture.createView({ dimension: "2d", baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
+                    const pass = this.ensureEncoder().beginRenderPass({ label: "GL depth mip level", colorAttachments: [],
+                        depthStencilAttachment: { view: view(level), depthLoadOp: "clear", depthClearValue: 1, depthStoreOp: "store" } });
+                    pass.setPipeline(pipeline);pass.setBindGroup(0, this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0),
+                        entries: [{ binding: 0, resource: view(level - 1) }] }));pass.draw(3);pass.end();
+                }
+            }
+            texture.depthGeneration = (texture.depthGeneration || 0) + 1;
+            texture.dirty = false;return true;
+        },
+
+        generateTexture3DMipmapsGPU(texture, range) {
             const gpuTexture = this.ensureTextureUploaded(texture);
             if (!gpuTexture) return false;
             this.endPass();
@@ -9490,7 +9533,7 @@ struct BlitParams {
             const key = this.renderPipelineKey(this.mipmapPipelines, descriptor);
             const pipeline = this.mipmapPipelines.get(key) || this.createPipeline(this.mipmapPipelines, key, descriptor);
             const levels = texture.levels[0] || [];
-            for (let level = 1; level < levels.length; ++level) {
+            for (let level = range.first + 1; level < levels.length && level <= range.last; ++level) {
                 const source = gpuTexture.createView({ dimension: "3d", baseMipLevel: level - 1, mipLevelCount: 1 });
                 const destination = gpuTexture.createView({ dimension: "3d", baseMipLevel: level, mipLevelCount: 1 });
                 for (let z = 0; z < levels[level].depth; ++z) {
@@ -9996,7 +10039,6 @@ struct BlitParams {
             });
             this.copyColorTexture(source, { view, format: storage.gpu, base: storage.base },
                 x, y, 0, 0, width, height, "clear");
-            if (texture.generateMipmapHint && level === 0) this.generateMipmapFor(texture);
         },
 
         copyTexSubImage(target, level, xoffset, yoffset, zoffset, x, y, width,
@@ -10028,7 +10070,6 @@ struct BlitParams {
                 // The CPU copy is no longer authoritative after a framebuffer
                 // copy.  Mipmap generation below can continue entirely on GPU.
                 slot.pixels = null;
-                if (texture.generateMipmapHint && level === 0) this.generateMipmapFor(texture);
             }
         },
 

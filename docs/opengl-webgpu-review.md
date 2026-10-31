@@ -866,3 +866,8 @@ D3D 审查用 Wine 的一致性测试作参照（它们在真实 Windows 上运�
 ### D3 修复验证（2026-10-31）
 
 S1-5、S2-24、S2-29 的资源/pass 归属已由统一注册表和附件键实现：所有窗口目标及辅助 GPU 缓存一起失效，失败管线移出缓存，在途读回被取消；重放释放可销毁资源。真实替换设备用新适配器，静态纹理及 MSAA 重建后像素正确。不同窗口的默认颜色/深度存储分开，两个窗口的 GPU 内容均进入快照。`gl_resource_lifetime_test.js` 与同名 GPU 页面覆盖上述行为及 7 项错误注入（全被发现）。真正设备丢失前没有 CPU 副本的渲染内容无法事后取回，重新分配后由应用重画；正常存档保存活跃 GPU 内容。
+
+
+### D4 mip 触发与范围核对（2026-10-31）
+
+S2-26 中“FBO 渲染应触发自动生成”不符合 EXT_framebuffer_object issue 52：自动触发来自 gl{Copy}Tex{Sub}Image，FBO 渲染需要 GenerateMipmap。已加原生与 GPU 读回确认旧 mip 保留。手动生成到 q、自动生成到 p，且以 BASE_LEVEL 为源；页面已与 C3 的 CPU 元数据保持一致，GPU 深度也可生成。26 项原生记录保留 Apple 非零基级颜色生成和 Mesa 自动 MAX_LEVEL 截断的差异；仅三个命名 Mesa 结果按 GL 2.1 §3.8.8 与 issue 68 的 p 规则核对。详见计划 D4 mip 子阶段与 gl_mipmap_ranges_* 测试。
