@@ -136,7 +136,7 @@ fn gl_clip_window(v:GLClipVertex)->vec3<f32>{
  switch gl_clip.style.x{
  case 0u:{if(n>=3u){gl_clip_meta[0]=(n-2u)*3u;gl_clip_meta[1]=1u;}}
  case 1u:{if(n>=2u){for(var i=0u;i<boundaries;i++){gl_clip_meta[i*4u]=2u;gl_clip_meta[i*4u+1u]=u32(gl_clip.depth.w);}}}
- default:{gl_clip_meta[0]=6u;gl_clip_meta[1]=boundaries;}
+ default:{if(gl_clip.raster.z!=0u){for(var i=0u;i<boundaries;i++){gl_clip_meta[i*4u]=6u;gl_clip_meta[i*4u+1u]=1u;gl_clip_meta[i*4u+3u]=0u;}}else{gl_clip_meta[0]=6u;gl_clip_meta[1]=boundaries;}}
  }
 }
 `;
@@ -155,7 +155,7 @@ fn gl_clip_fetch(i:u32)->GLClipVertex{if(gl_clip_meta[gl_clip_draw.info.x*4u+1u]
 @vertex fn vs_main(@builtin(vertex_index) gl_vertex:u32,@builtin(instance_index) gl_instance:u32)->VSOut{
  let gl_base=gl_clip_draw.info.x*4u;let gl_count=gl_clip_meta[gl_base];var gl_at=0u;
  ${mode === 0 ? "let gl_corner=gl_vertex%3u;gl_at=select(0u,gl_vertex/3u+gl_corner,gl_corner!=0u);" :
-        mode === 1 ? "gl_at=gl_clip_meta[gl_base+16u+gl_clip_draw.info.z];if(gl_vertex==1u){gl_at=(gl_at+1u)%gl_count;}" : "gl_at=gl_clip_meta[gl_base+16u+gl_instance];"}
+        mode === 1 ? "gl_at=gl_clip_meta[gl_base+16u+gl_clip_draw.info.z];if(gl_vertex==1u){gl_at=(gl_at+1u)%gl_count;}" : "gl_at=gl_clip_meta[gl_base+16u+gl_clip_draw.info.z+gl_instance];"}
  let gl_value=gl_clip_fetch(gl_at);var gl_out:VSOut;
  ${output.fields.map(field => {
         if (["pointCoord", "glPointCoord"].includes(field.name) && mode === 2) return "";

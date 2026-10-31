@@ -16,6 +16,7 @@
     const glCaps = nodeRequire ? nodeRequire("./gl_caps.js") : global.GLCaps;
     const { CacheKeys } = nodeRequire ? nodeRequire("./gl_cache_keys.js") : global.GLCacheKeys;
     const programGeometry = nodeRequire ? nodeRequire("./gl_program_geometry.js") : global.GLProgramGeometry;
+    const singleSample = nodeRequire ? nodeRequire("./gl_single_sample.js") : global.GLSingleSample;
     const polygonClip = nodeRequire ? nodeRequire("./gl_polygon_clip.js") : global.GLPolygonClip;
     const constants = nodeRequire ? nodeRequire("./gl_constants.js") :
         global.GLWGConstants;
@@ -1790,13 +1791,13 @@
                 "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
                 "accumPipelineCache", "accumClearPipelineCache", "clearPipelineCache", "colorCopyPipelines",
                 "mipmapPipelines", "colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",
-                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "lineShaderCache", "polygonClipCaptureCache", "polygonClipRenderCache"];
+                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "lineShaderCache", "polygonClipCaptureCache", "polygonClipRenderCache", "singleSampleShaderCache", "singleSamplePipelines", "pointCircleShaderCache"];
             for (const name of maps) {
                 this[name] = this[name] || new Map();
                 this.resources.register(name, () => this[name].clear());
             }
             this.resources.fields(this, {
-                encoder: null, pass: null, passTargets: null, passTargetKey: 0, pendingClear: null,
+                singleSampleTargets: null, singleSampleCapture: null, encoder: null, pass: null, passTargets: null, passTargetKey: 0, pendingClear: null,
                 presentPipeline: null, depthReadPipeline: null, depthUploadPipeline: null,
                 presentSampler: null, pixelSampler: null, polygonStippleTexture: null,
                 backBuffer: null, backBufferView: null, depthTarget: null, depthTargetView: null,
@@ -6805,6 +6806,7 @@
         /* The set of render targets a draw writes, resolved from the bound
          * framebuffer. */
         currentTargets() {
+            if (this.singleSampleTargets) return this.singleSampleTargets;
             const s = this.current;
             if (!s.drawFramebuffer) {
                 const view = this.ensureBackBuffer();
@@ -6815,7 +6817,7 @@
                 return {
                     // (readView, texture: the resolved picture, for reads and copies)
                     color: [none ? null : { view: multisampled || view,
-                              resolveTarget: multisampled ? view : undefined, readView: view,
+                              resolveTarget: multisampled ? view : undefined, readView: view, sampleTexture: multisampled ? this.multisampleTarget : null,
                               format: this.backBufferFormat,
                               texture: this.backBuffer, mipLevel: 0,
                               origin: { x: 0, y: 0, z: 0 } }],
@@ -7376,6 +7378,103 @@ ${fragmentCode}`;
          * the buffer was uploaded from ({ data, stride, count, layout,
          * edgeFlags }, in floats), which glPolygonMode needs.
          */
+        *singleSamplePrimitives(request) {
+            if (request.clipped || request.programLine) { yield request;return; }
+            const source = request.index && (request.index.source || request.index.cpu), count = request.vertexCount;
+            if (request.mode === GL.POINTS) {
+                for (let i = 0; i < count; ++i) yield { ...request, index: null, vertexCount: 1, firstVertex: (request.firstVertex || 0) + (source ? source[i] : i) };
+            } else if (isPolygonPrimitive(request.mode)) {
+                const faces = polygonFaces(request.mode, count, source);
+                for (let k = 0; k < faces.provoking.length; ++k) {
+                    const vertices = faces.vertices.slice(faces.starts[k], faces.starts[k + 1]), at = vertices.indexOf(faces.provoking[k]), indices = [];
+                    for (let i = 1; i + 1 < vertices.length; ++i) indices.push(vertices[at], vertices[(at + i) % vertices.length], vertices[(at + i + 1) % vertices.length]);
+                    const index = this.uploadIndexList(Uint32Array.from(indices));if (index) yield { ...request, mode: GL.TRIANGLES, index, vertexCount: indices.length, rasterized: true };
+                }
+            } else if (isLinePrimitive(request.mode)) {
+                const n = request.mode === GL.LINES ? Math.floor(count / 2) : request.mode === GL.LINE_LOOP ? count : Math.max(0, count - 1);
+                for (let i = 0; i < n; ++i) {
+                    const a = request.mode === GL.LINES ? i * 2 : i, b = request.mode === GL.LINES ? a + 1 : (a + 1) % count,
+                        indices = this.current.shadeModel === GL.FLAT ? [b, a] : [a, b], index = this.uploadIndexList(Uint32Array.from(indices.map(v => source ? source[v] : v)));
+                    if (index) yield { ...request, mode: GL.LINES, index, vertexCount: 2, rasterized: true };
+                }
+            }
+        },
+
+        drawSingleSample(request) {
+            // Resolve pending clears first. The destination's individual samples
+            // remain intact until the final blend/depth/stencil pass.
+            this.ensurePass();this.endPass();const targets = this.currentTargets();if (!targets) return;
+            const s = this.current, width = targets.width, height = targets.height,
+                rows = Math.max(1, Math.min(height, Math.floor((this.limits.maxStorageBufferBindingSize || 134217728) / (width * 8)))),
+                owned = [], makeTexture = descriptor => {const texture = this.createGPUTexture(descriptor);owned.push(texture);return texture;},
+                color = targets.color.map(target => target ? (() => {const texture = makeTexture({ label: "GL center-sample color", size: [width, height], format: target.format,
+                    usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING });return { texture, view: texture.createView(), format: target.format };})() : null),
+                depth = makeTexture({ label: "GL center-sample depth", size: [width, height], format: "depth32float", usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING }),
+                meta = this.createGPUBuffer({ label: "GL center-sample coverage", size: width * rows * 8, usage: BUFFER_USAGE_STORAGE | BUFFER_USAGE_COPY_DST }),
+                logic = s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY ? s.logicOp : 0,
+                logicColors = logic ? targets.color.map(target => target ? (() => {const texture = makeTexture({ label: "GL per-sample logic destination", size: [width, height], format: target.format,
+                    sampleCount: targets.sampleCount, usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING });return { texture, view: texture.createView(), format: target.format };})() : null) : null;
+            owned.push(meta);const query = this.activeQuery, leased = new Set();
+            try {
+                for (const primitive of this.singleSamplePrimitives(request)) for (let y = 0; y < height; y += rows) {
+                    const length = Math.min(rows, height - y), info = this.createGPUBuffer({ size: 16, usage: BUFFER_USAGE_UNIFORM, mappedAtCreation: true });
+                    new Uint32Array(info.getMappedRange()).set([width, y, length, 0]);info.unmap();leased.add(info);
+                    this.endPass();this.ensureEncoder().clearBuffer(meta);
+                    this.singleSampleTargets = { color, depth: depth.createView(), depthFormat: "depth32float", width, height, sampleCount: 1 };
+                    const capture = this.singleSampleCapture = { meta, info, y, rows: length, outputs: 0 };
+                    this.pendingClear = { depth: 1 };this.activeQuery = null;
+                    this.issueDraw(primitive);this.endPass();this.singleSampleTargets = null;this.singleSampleCapture = null;this.activeQuery = query;
+                    if (!capture.outputs) {this.retire(info);leased.delete(info);continue;}
+                    const pipeline = this.geometryComputePipeline(singleSample.depth, "single_depth"), compute = this.ensureEncoder().beginComputePass({ label: "GL center-sample depth capture" });
+                    compute.setPipeline(pipeline);compute.setBindGroup(0, this.cachedBindGroup(pipeline, 0, [
+                        { binding: 0, resource: { buffer: meta } }, { binding: 1, resource: depth.createView() }, { binding: 2, resource: { buffer: info } }]));
+                    compute.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(length / 8));compute.end();++this.recordedOps;this.retire(info);leased.delete(info);
+                    if (logic) this.copySingleSampleLogic(targets, logicColors);
+                    for (const [side, number] of [["front", 1], ["back", 2]]) {
+                        const style = this.createGPUBuffer({ size: 16, usage: BUFFER_USAGE_UNIFORM, mappedAtCreation: true });
+                        new Uint32Array(style.getMappedRange()).set([width, y, length, number]);style.unmap();leased.add(style);
+                        const active = color.map((target, i) => i < capture.outputs ? target : null), pipeline = this.singleSamplePipeline(targets, active, side, logic);
+                        if (!pipeline) continue;
+                        const pass = this.ensurePass();if (!pass) continue;
+                        pass.setPipeline(pipeline);pass.setViewport(0, 0, width, height, 0, 1);pass.setScissorRect(0, y, width, length);
+                        if (s.enabled.has(GL.STENCIL_TEST)) pass.setStencilReference(clamp(s.stencil[side].ref, 0, 255));
+                        if (s.enabled.has(GL.BLEND)) pass.setBlendConstant(this.blendConstant(s.blend));
+                        pass.setBindGroup(0, this.cachedBindGroup(pipeline, 0, [
+                            { binding: 0, resource: { buffer: meta } }, { binding: 1, resource: { buffer: style } },
+                            ...active.flatMap((target, i) => target ? [{ binding: 2 + i, resource: target.view }, ...(logic ? [{ binding: 10 + i, resource: logicColors[i].view }] : [])] : [])]));
+                        pass.draw(3);++this.stats.draws;++this.recordedOps;this.retire(style);leased.delete(style);
+                        if (this.recordedOps >= this.flushThreshold) this.flushFrame();
+                    }
+                }
+            } finally {
+                this.endPass();this.singleSampleTargets = null;this.singleSampleCapture = null;this.activeQuery = query;
+                for (const resource of [...owned, ...leased]) this.retire(resource);if (!this.encoder) this.releaseRetired();
+            }
+        },
+
+        copySingleSampleLogic(targets, copies) {
+            this.endPass();const code = singleSample.copy(copies), module = this.shaderModule(code), descriptor = { label: "GL per-sample logic copy", layout: "auto",
+                vertex: { module, entryPoint: "vs_main" }, fragment: { module, entryPoint: "fs_main", targets: copies.map(target => target ? { format: target.format } : null) },
+                primitive: { topology: "triangle-list" }, multisample: { count: targets.sampleCount } }, key = this.renderPipelineKey(this.singleSamplePipelines, descriptor),
+                pipeline = this.singleSamplePipelines.get(key) || this.createPipeline(this.singleSamplePipelines, key, descriptor);
+            const pass = this.ensureEncoder().beginRenderPass({ label: "GL copy individual logic samples", colorAttachments: copies.map(target => target ? { view: target.view, loadOp: "clear", storeOp: "store" } : null) });
+            pass.setPipeline(pipeline);pass.setBindGroup(0, this.cachedBindGroup(pipeline, 0, targets.color.flatMap((target, i) => target ? [{ binding: i, resource: target.view }] : [])));pass.draw(3);pass.end();++this.recordedOps;
+        },
+
+        singleSamplePipeline(targets, colors, side, logic) {
+            const s = this.current, code = singleSample.composite(colors, logic), module = this.shaderModule(code),
+                descriptor = { label: "GL center fragment to all samples", layout: "auto", vertex: { module, entryPoint: "vs_main" },
+                    fragment: { module, entryPoint: "fs_main", targets: targets.color.map((target, i) => target ? { format: target.format,
+                        blend: s.enabled.has(GL.BLEND) && !s.enabled.has(GL.COLOR_LOGIC_OP) && this.blendable(target.format) ? gpuBlendState(s) : undefined,
+                        writeMask: !colors[i] ? 0 : (s.colorMask[0] ? 1 : 0) | (s.colorMask[1] ? 2 : 0) | (s.colorMask[2] ? 4 : 0) | (s.colorMask[3] ? 8 : 0) } : null) },
+                    primitive: { topology: "triangle-list" }, multisample: { count: targets.sampleCount },
+                    ...(targets.depthFormat ? { depthStencil: { format: targets.depthFormat,
+                        depthWriteEnabled: s.enabled.has(GL.DEPTH_TEST) && s.depthMask, depthCompare: s.enabled.has(GL.DEPTH_TEST) ? COMPARE_FUNCTIONS[s.depthFunc] || "less" : "always",
+                        ...(formatHasStencil(targets.depthFormat) ? gpuStencilState(s, side) : {}) } } : {}) };
+            if (this.singleSamplePipelines.size >= 256) this.singleSamplePipelines.clear();
+            const key = this.renderPipelineKey(this.singleSamplePipelines, descriptor);return this.singleSamplePipelines.get(key) || this.createPipeline(this.singleSamplePipelines, key, descriptor);
+        },
+
         issueDraw(request) {
             const s = this.current;
             if (s.renderMode !== GL.RENDER) return;   // GL_SELECT/GL_FEEDBACK
@@ -7391,8 +7490,13 @@ ${fragmentCode}`;
             if (polygons && !request.stencilFace && !request.linesExpanded &&
                     s.enabled.has(GL.STENCIL_TEST) && stencilMasksDiverge(s))
                 return this.drawStencilFaces(request);
+            if (!this.singleSampleTargets && !request.logicSplit && !request.clipped && !request.programLine && s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY) {
+                for (const primitive of this.singleSamplePrimitives(request)) this.issueDraw({ ...primitive, logicSplit: true });return;
+            }
+            if (!this.singleSampleTargets && !s.enabled.has(GL.MULTISAMPLE) && !s.drawFramebuffer && this.windowSamples() > 1)
+                return this.drawSingleSample(request);
             let index = request.index;
-            this.drawFace = request.face || null;
+            this.drawFace = { ...request.face, polygonStipple: request.face?.polygonStipple ?? (polygons && !request.linesExpanded) };
             let expandedPoints = request.mode === GL.POINTS && (!!request.clipped || this.pointsExpand());
             if (expandedPoints && index) {
                 // the draw paths gather wide indexed points; a corner buffer
@@ -7425,7 +7529,20 @@ ${fragmentCode}`;
                 }
                 shaders = { ...shaders, wgslVertex: source.vertex, wgslFragment: source.fragment, clipped: clip };
             }
-            if (s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY &&
+            if (expandedPoints && s.enabled.has(GL.MULTISAMPLE) && !s.enabled.has(GL.POINT_SPRITE) && !s.drawFramebuffer && this.windowSamples() > 1) {
+                const key = shaders.wgslVertex + "\n// fragment\n" + shaders.wgslFragment;let source = this.pointCircleShaderCache.get(key);
+                if (!source) {source = singleSample.pointCircle(shaders.wgslVertex, shaders.wgslFragment);if (this.pointCircleShaderCache.size >= 128) this.pointCircleShaderCache.clear();this.pointCircleShaderCache.set(key, source);}
+                shaders = { ...shaders, wgslVertex: source.vertex, wgslFragment: source.fragment };
+            }
+            if (this.singleSampleCapture) {
+                const capture = this.singleSampleCapture, side = request.face ? request.face.back ? "back" : "front" : request.stencilFace,
+                    key = shaders.wgslFragment + ":" + side;
+                let code = this.singleSampleShaderCache.get(key);
+                if (!code) {code = singleSample.capture(shaders.wgslFragment, side);if (this.singleSampleShaderCache.size >= 128) this.singleSampleShaderCache.clear();this.singleSampleShaderCache.set(key, code);}
+                shaders = { ...shaders, wgslFragment: code, singleSample: capture };
+                capture.outputs = shaders.colorTargets || 1;
+            }
+            if (!this.singleSampleCapture && s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY &&
                     !this.prepareLogicOpTargets()) return;
             if (!this.ensurePass()) {
                 this.refuse("draw", "no render target is bound", {},
@@ -7516,6 +7633,12 @@ ${fragmentCode}`;
                     Math.max(0, Math.min(s.scissor.height, height - sy)));
             } else {
                 pass.setScissorRect(0, 0, width, height);
+            }
+            if (this.singleSampleCapture) {
+                const capture = this.singleSampleCapture, scissor = s.enabled.has(GL.SCISSOR_TEST) && s.scissor.set ? s.scissor : { x: 0, y: 0, width, height },
+                    x0 = clamp(scissor.x, 0, width), x1 = clamp(scissor.x + scissor.width, x0, width),
+                    y0 = clamp(scissor.y, capture.y, capture.y + capture.rows), y1 = clamp(scissor.y + scissor.height, y0, capture.y + capture.rows);
+                pass.setScissorRect(x0, y0, x1 - x0, y1 - y0);
             }
             if (s.enabled.has(GL.STENCIL_TEST))
                 pass.setStencilReference(clamp(s.stencil[stencilFace].ref, 0,
@@ -7624,7 +7747,7 @@ ${fragmentCode}`;
 
         pointsExpand() {
             const s = this.current, p = s.point;
-            return p.size !== 1 || s.enabled.has(GL.POINT_SPRITE) || p.sizeMin > 1 ||
+            return (s.enabled.has(GL.MULTISAMPLE) && !s.drawFramebuffer && this.windowSamples() > 1) || p.size !== 1 || s.enabled.has(GL.POINT_SPRITE) || p.sizeMin > 1 ||
                 p.attenuation[0] !== 1 || p.attenuation[1] !== 0 || p.attenuation[2] !== 0 ||
                 (s.enabled.has(GL.VERTEX_PROGRAM_POINT_SIZE) && (!!this.currentProgramObject() || s.enabled.has(GL.VERTEX_PROGRAM_ARB)));
         },
@@ -7813,18 +7936,19 @@ ${fragmentCode}`;
                     const back = side === "back";
                     if (s.enabled.has(GL.CULL_FACE) && s.cullFace === (back ? GL.BACK : GL.FRONT)) continue;
                     const mode = s.polygonMode[side] === GL.FILL ? 0 : s.polygonMode[side] === GL.LINE ? 1 : 2,
+                        singlePoints = mode === 2 && !s.enabled.has(GL.MULTISAMPLE) && !s.drawFramebuffer && this.windowSamples() > 1,
                         count = faces.starts[polygon + 1] - faces.starts[polygon], localCapacity = count + planes, uniform = this.allocateUniform(80);
                     if (!uniform) return;
                     new Uint32Array(this.uniformStaging.buffer, uniform.offset, 8).set([faces.starts[polygon], count, cpu.layout.length ? faces.provoking[polygon] : 0, capacity,
                         mode, back ? 1 : 0, s.frontFace === GL.CCW ? 1 : 0, mask]);
                     new Float32Array(this.uniformStaging.buffer, uniform.offset + 32, 8).set([vp.x, vp.y, vp.width, vp.height, s.depthRange.near, s.depthRange.far,
                         format === "depth16unorm" ? 1 : format.startsWith("depth32float") ? 2 : 0, width]);
-                    new Uint32Array(this.uniformStaging.buffer, uniform.offset + 64, 4).set([+variant.depthClamp, localCapacity, 0, 0]);
+                    new Uint32Array(this.uniformStaging.buffer, uniform.offset + 64, 4).set([+variant.depthClamp, localCapacity, +singlePoints, 0]);
                     this.device.queue.writeBuffer(uniform.buffer, uniform.offset, this.uniformStaging, uniform.offset, 80);
                     const group = this.cachedBindGroup(pipeline, 0, [captured.buffer, indices, a, b, meta].map((buffer, binding) => ({ binding, resource: { buffer } })).concat([
                         { binding: 5, resource: { buffer: uniform.buffer, offset: uniform.offset, size: 80 } }]));
                     this.endPass();const pass = this.ensureEncoder().beginComputePass({ label: "GL clip polygon" });pass.setPipeline(pipeline);pass.setBindGroup(0, group);pass.dispatchWorkgroups(1);pass.end();++this.recordedOps;
-                    for (let edge = 0; edge < (mode === 1 ? localCapacity : 1); ++edge) {
+                    for (let edge = 0; edge < (mode === 1 || singlePoints ? localCapacity : 1); ++edge) {
                         const slice = this.allocateUniform(64);if (!slice) return;
                         new Uint32Array(this.uniformStaging.buffer, slice.offset, 4).set([capacity, mode, edge, 0]);
                         new Float32Array(this.uniformStaging.buffer, slice.offset + 16, 4).set([vp.x, vp.y, vp.width, vp.height]);
@@ -7834,7 +7958,7 @@ ${fragmentCode}`;
                         this.device.queue.writeBuffer(slice.buffer, slice.offset, this.uniformStaging, slice.offset, 64);
                         this.issueDraw({ mode: mode === 0 ? GL.TRIANGLES : mode === 1 ? GL.LINES : GL.POINTS, vertexCount: 0, buffers: [], index: null,
                             rasterized: true, linesExpanded: mode === 1, stencilFace: mode === 0 ? side : undefined, face: { back, polygonStipple: mode === 0 },
-                            clipped: { a, b, meta, slice, mode, iface: captured.iface, indirectOffset: mode === 1 ? edge * 16 : 0 } });
+                            clipped: { a, b, meta, slice, mode, iface: captured.iface, indirectOffset: mode === 1 || singlePoints ? edge * 16 : 0 } });
                     }
                 }
             } finally {
@@ -8113,13 +8237,13 @@ ${fragmentCode}`;
                 clipPlaneCount, clipPlaneMask,
                 pointSprite: !!this.drawingExpandedPoints,
                 depthClamp: s.enabled.has(GL.DEPTH_CLAMP),
-                pointRasterRounded: !s.enabled.has(GL.POINT_SPRITE),
+                pointRasterRounded: !s.enabled.has(GL.POINT_SPRITE) && !(s.enabled.has(GL.MULTISAMPLE) && !s.drawFramebuffer && this.windowSamples() > 1),
                 // gl_PointSize counts only under VERTEX_PROGRAM_POINT_SIZE
                 programPointSize: s.enabled.has(GL.VERTEX_PROGRAM_POINT_SIZE),
                 pointCoordLowerLeft:
                     s.point.spriteCoordOrigin === GL.LOWER_LEFT,
                 polygonStipple: s.enabled.has(GL.POLYGON_STIPPLE) && this.drawFace?.polygonStipple !== false,
-                logicOp: s.enabled.has(GL.COLOR_LOGIC_OP) ? s.logicOp : 0,
+                logicOp: !this.singleSampleCapture && s.enabled.has(GL.COLOR_LOGIC_OP) ? s.logicOp : 0,
                 twoSided: this.currentProgramObject()?.compiled.vertex || s.enabled.has(GL.VERTEX_PROGRAM_ARB) ?
                     s.enabled.has(GL.VERTEX_PROGRAM_TWO_SIDE) : s.lightModel.twoSide,
                 flatShading: s.shadeModel === GL.FLAT,
@@ -8574,9 +8698,9 @@ ${fragmentCode}`;
             const colorTargets = (targets ? targets.color : [null]).map((target, i) =>
                 target ? {
                     format: target.format,
-                    blend: s.enabled.has(GL.BLEND) && !s.enabled.has(GL.COLOR_LOGIC_OP) &&
+                    blend: !this.singleSampleCapture && s.enabled.has(GL.BLEND) && !s.enabled.has(GL.COLOR_LOGIC_OP) &&
                         this.blendable(target.format) ? gpuBlendState(s) : undefined,
-                    writeMask: i >= outputs ? 0 : (s.colorMask[0] ? 1 : 0) | (s.colorMask[1] ? 2 : 0) |
+                    writeMask: i >= outputs ? 0 : this.singleSampleCapture ? 15 : (s.colorMask[0] ? 1 : 0) | (s.colorMask[1] ? 2 : 0) |
                         (s.colorMask[2] ? 4 : 0) | (s.colorMask[3] ? 8 : 0),
                 } : null);
 
@@ -8615,6 +8739,9 @@ ${fragmentCode}`;
                 };
             }
 
+            if (this.singleSampleCapture) descriptor.depthStencil = { format: targets.depthFormat, depthWriteEnabled: true, depthCompare: "always",
+                depthBias: fillOffset ? Math.round(s.polygonOffset.units) : 0, depthBiasSlopeScale: fillOffset ? s.polygonOffset.factor : 0 };
+
             // The complete descriptor supplies every GPU pipeline field. Module
             // references and CPU object/link identities are opaque integers.
             const identity = shaders.kind === "program" ? [
@@ -8630,7 +8757,7 @@ ${fragmentCode}`;
             if (pipeline) return pipeline.glRejected ? null : pipeline;
 
             pipeline = this.createPipeline(this.pipelineCache, signature, descriptor);
-            pipeline.glShaders = shaders.programLine || shaders.clipped ? { ...shaders, programLine: undefined, clipped: undefined } : shaders;
+            pipeline.glShaders = shaders.programLine || shaders.clipped || shaders.singleSample ? { ...shaders, programLine: undefined, clipped: undefined, singleSample: undefined } : shaders;
             pipeline.glActiveBindings = activeShaderBindings(
                 shaders.wgslVertex, shaders.wgslFragment);
             return pipeline;
@@ -8755,7 +8882,10 @@ ${fragmentCode}`;
                         group: this.cachedBindGroup(pipeline, 2, textureEntries),
                     });
                 }
-                if (!shaders.capture && this.current.enabled.has(GL.COLOR_LOGIC_OP) &&
+                if (shaders.singleSample) groups.push({ index: 3, group: this.cachedBindGroup(pipeline, 3, [
+                    { binding: 0, resource: { buffer: shaders.singleSample.meta } },
+                    { binding: 1, resource: { buffer: shaders.singleSample.info } }] ) });
+                if (!shaders.singleSample && !shaders.capture && this.current.enabled.has(GL.COLOR_LOGIC_OP) &&
                         this.current.logicOp !== GL.COPY) {
                     const views = this.logicTargetViews || [];
                     const logicEntries = Array.from({

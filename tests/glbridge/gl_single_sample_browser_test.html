@@ -1,0 +1,121 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Center-sample rasterization in MSAA windows</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_program_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_polygon_clip.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_single_sample.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="../../src/browser/glbridge/graphics_journal.js"></script>
+<script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
+<script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="gl_polygon_clip_cases.js"></script>
+<script src="gl_single_sample_cases.js"></script>
+<script src="gl_program_polygon_cases.js"></script>
+<script src="gl_selection_cases.js"></script>
+<script src="gl_evaluator_cases.js"></script>
+<script>
+(async()=>{
+ "use strict";const {GLStream,GL}=GLTestStream,P=GLProtocol,check=(ok,message)=>{if(!ok)throw new Error(message);};
+ try{
+  const module=await WebAssembly.compile(await(await fetch("../../bios/glslang.wasm")).arrayBuffer());
+  for(const copied of [false,true]){
+   const cpu=new V86GLShadow.GLShadow(),gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();gpu.flushThreshold=4;cpu.setCapabilities(gpu.capabilities());cpu.setGlslang(new V86GLGlslang.Glslang(module));
+   gpu.options.writeGuestMemory=(at,bytes,metadata)=>metadata.memory.set(bytes,at+metadata.baseOffset);
+   const submit=async s=>{const memory=s.bytes(),segments=cpu.process(memory);for(const segment of segments||[{offset:0,length:memory.length}]){const bytes=segment.bytes||memory.subarray(segment.offset,segment.offset+segment.length);gpu.submit(copied?bytes.slice():bytes,{memory,baseOffset:segment.bytes?0:segment.offset});}gpu.flushFrame();await gpu.idle();check(!cpu.current.error,"CPU error "+cpu.current.error);check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length,"GPU "+JSON.stringify(gpu.gpuErrors.errors.slice(0,2))+" host "+JSON.stringify(gpu.hostErrors));};
+   const reference=await(await fetch("gl_conformance/single_sample_reference.json")).json();
+   for(const [caseIndex,name] of GLSingleSampleCases.cases.entries()){
+    const images=[];
+    for(const samples of [1,4]){
+     const context=100+images.length+200*caseIndex,s=GLSingleSampleCases.scene(new GLStream().makeCurrent(1,0,0,16,16,context,context,samples===4?4<<P.C.V86GL_FORMAT_SAMPLES_SHIFT:0),name);
+     const limits=gpu.limits;if(samples===4&&name==="blend")gpu.limits=new Proxy(limits,{get:(target,key)=>key==="maxStorageBufferBindingSize"?384:Reflect.get(target,key,target)});
+     const p=s.readPixels(0,0,16,16,GL.RGBA,GL.UNSIGNED_BYTE,1024),d=s.readPixels(0,0,16,16,GL.DEPTH_COMPONENT,GL.FLOAT,1024),st=s.readPixels(0,0,16,16,GL.STENCIL_INDEX,GL.UNSIGNED_BYTE,256);await submit(s);gpu.limits=limits;
+     for(const record of [p,d,st])check(record.view.getUint32(P.F.READ_PIXELS.status,true)===1,name+" read status");
+     const actual=p.bytes.slice(P.RECORDS.READ_PIXELS.size),expected=reference.cases[caseIndex*2+(samples===4?1:0)],depth=new DataView(d.bytes.buffer,d.bytes.byteOffset+P.RECORDS.READ_PIXELS.size,1024),stencil=st.bytes.subarray(P.RECORDS.READ_PIXELS.size);
+     const mismatch=[];for(let i=0;i<1024;++i)if(Math.abs(actual[i]-expected.pixels[i])>1)mismatch.push(i+":"+actual[i]+"/"+expected.pixels[i]);
+     check(name==="clipped_points"||!mismatch.length,name+" native "+samples+" "+mismatch.slice(0,10));
+     for(let i=0;i<256;++i){check(Math.abs(depth.getFloat32(i*4,true)-expected.depth[i])<1e-6,name+" depth "+i);check(stencil[i]===expected.stencil[i],name+" stencil "+i+" "+stencil[i]+"/"+expected.stencil[i]);}images.push(actual);
+    }
+    check(images[0].every((v,i)=>Math.abs(v-images[1][i])<=1),name+" single/four sample equivalence");
+   }
+   {
+    await submit(new GLStream().makeCurrent(1,0,0,16,16,3000,3000,4<<P.C.V86GL_FORMAT_SAMPLES_SHIFT).call("VIEWPORT",0,0,16,16).call("CLEAR_COLOR",0,0,1,1).call("CLEAR",GL.COLOR_BUFFER_BIT|GL.DEPTH_BUFFER_BIT|GL.STENCIL_BUFFER_BIT));
+    const count=16*16*4,depth=Float32Array.from({length:count},(_,i)=>[.2,.4,.6,.8][i%4]),stencil=Uint8Array.from({length:count},(_,i)=>[10,20,30,40][i%4]),old=gpu.depthTarget,replacement=await GLGPUArchive.restore(gpu,{kind:"texture",descriptor:{size:{width:16,height:16,depthOrArrayLayers:1},format:"depth24plus-stencil8",dimension:"2d",mipLevelCount:1,sampleCount:4,usage:20},levels:[
+     {level:0,layer:0,width:16,height:16,aspect:"depth",data:new Uint8Array(depth.buffer)},{level:0,layer:0,width:16,height:16,aspect:"stencil-samples",data:stencil}]});
+    gpu.depthTarget=replacement;gpu.depthTargetView=replacement.createView();gpu.resources.track(replacement);old.destroy();
+    const s=new GLStream().call("DISABLE",GL.MULTISAMPLE).call("ENABLE",GL.DEPTH_TEST).call("DEPTH_FUNC",GL.LESS).call("ENABLE",GL.STENCIL_TEST).call("STENCIL_FUNC",GL.ALWAYS,0,255).call("STENCIL_OP",GL.KEEP,GL.KEEP,GL.INCR).call("COLOR4F",0,1,0,1).call("BEGIN",GL.QUADS);
+    for(const p of [[-1,-1],[1,-1],[1,1],[-1,1]])s.call("VERTEX4F",...p,0,1);await submit(s.call("END"));
+    const saved=await GLGPUArchive.capture(gpu,gpu.depthTarget),d=new Float32Array(saved.levels.find(l=>l.aspect==="depth").data.buffer),st=saved.levels.find(l=>l.aspect==="stencil-samples").data,
+     colors=new Float32Array((await GLGPUArchive.capture(gpu,gpu.multisampleTarget)).levels[0].data.buffer),at=(8*16+8)*4;
+    for(let sample=0;sample<4;++sample){check(Math.abs(d[at+sample]-[.2,.4,.5,.5][sample])<1e-6,"individual sample depth "+sample+" "+d.slice(at,at+4));check(st[at+sample]===[10,20,31,41][sample],"individual sample stencil "+sample);check(colors[(at+sample)*4+1]===(sample>=2?1:0)&&colors[(at+sample)*4+2]===(sample<2?1:0),"individual sample blend destination "+sample);}
+    const xor=new GLStream().call("DISABLE",GL.DEPTH_TEST).call("DISABLE",GL.STENCIL_TEST).call("ENABLE",GL.COLOR_LOGIC_OP).call("LOGIC_OP",GL.XOR).call("COLOR4F",.5,.25,.75,1).call("BEGIN",GL.QUADS);for(const p of [[-1,-1],[1,-1],[1,1],[-1,1]])xor.call("VERTEX4F",...p,0,1);await submit(xor.call("END"));
+    const x=new Float32Array((await GLGPUArchive.capture(gpu,gpu.multisampleTarget)).levels[0].data.buffer);for(let sample=0;sample<4;++sample){const expected=[128,64^(sample>=2?255:0),191^(sample<2?255:0),0];for(let c=0;c<4;++c)check(Math.abs(x[(at+sample)*4+c]*255-expected[c])<.01,"per-sample logic destination "+sample+"/"+c+" "+x[(at+sample)*4+c]);}
+   }
+   for(const [kind,entry] of [{},{glsl:true},{arb:true},{arb:true,pair:true}].entries()){
+    const setup=GLPolygonClipCases.setup(new GLStream().makeCurrent(1,0,0,16,16,4000+kind,4000+kind,4<<P.C.V86GL_FORMAT_SAMPLES_SHIFT),entry).call("VIEWPORT",0,0,16,16).call("POINT_SIZE",6.6).call("ENABLE",GL.MULTISAMPLE).call("COLOR4F",0,1,0,1);
+    await submit(setup);
+    for(const sprite of [false,true,false]){
+     await submit(new GLStream().call(sprite?"ENABLE":"DISABLE",GL.POINT_SPRITE).call("CLEAR_COLOR",0,0,0,1).call("CLEAR",GL.COLOR_BUFFER_BIT).call("BEGIN",GL.POINTS).call("VERTEX4F",.0625,.0625,0,1).call("END"));
+     const image=new Float32Array((await GLGPUArchive.capture(gpu,gpu.multisampleTarget)).levels[0].data.buffer),values=(x,y)=>Array.from({length:4},(_,sample)=>image[((y*16+x)*4+sample)*4+1]);
+     check(values(8,8).every(v=>v===1),"multisample point center "+kind);check(sprite?values(5,5).some(v=>v===1):values(5,5).every(v=>v===0),"circle/square point corner "+kind+"/"+sprite+" "+values(5,5));
+     if(!sprite){const rim=values(5,8);check(rim.some(v=>v===1)&&rim.some(v=>v===0),"fractional point sample coverage "+kind+" "+rim);
+      await submit(new GLStream().call("POINT_SIZE",7).call("CLEAR",GL.COLOR_BUFFER_BIT).call("BEGIN",GL.POINTS).call("VERTEX4F",.0625,.0625,0,1).call("END"));
+      const rounded=new Float32Array((await GLGPUArchive.capture(gpu,gpu.multisampleTarget)).levels[0].data.buffer);let smaller=0;for(let i=1;i<image.length;i+=4){check(image[i]<=rounded[i],"fractional circle subset");smaller+=rounded[i]-image[i];}check(smaller>0,"multisample circle keeps fractional point size "+kind);await submit(new GLStream().call("POINT_SIZE",6.6));
+     }
+    }
+   }
+   for(const enabled of [true,false,true]){
+    await submit(new GLStream().call(enabled?"ENABLE":"DISABLE",GL.MULTISAMPLE).call("CLEAR",GL.COLOR_BUFFER_BIT).call("BEGIN",GL.POINTS).call("VERTEX4F",.0625,.0625,0,1).call("END"));
+    const image=new Float32Array((await GLGPUArchive.capture(gpu,gpu.multisampleTarget)).levels[0].data.buffer);check(Array.from({length:4},(_,sample)=>image[((5*16+5)*4+sample)*4+1]).every(v=>v===(enabled?0:1)),"same-context MULTISAMPLE toggle "+enabled);
+   }
+   check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.refusals&&!gpu.stats.framesRejected,"host failure "+JSON.stringify(gpu.gpuErrors.errors));gpu.lossHandler();gpu.resetForReplay();
+  }
+  document.getElementById("result").textContent="PASS MSAA toggles: native pixels/depth/stencil, individual sample tests/logic, fractional circle/sprite points and bounded tiles in both modes";
+ }catch(error){document.getElementById("result").textContent="FAIL "+error.stack;}
+})();
+</script>

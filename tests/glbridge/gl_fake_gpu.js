@@ -146,6 +146,7 @@ class FakeEncoder {
         }
         return new FakeRenderPass(descriptor, this.log, this.device);
     }
+    clearBuffer(buffer, offset = 0, size = buffer.size - offset) { new Uint8Array(buffer.storage, offset, size).fill(0); }
     copyTextureToTexture(...args) {
         for (const problem of rules.textureCopyProblems(...args)) this.device.rejectWith(problem);
         this.copies.push(["t2t", ...args]);
