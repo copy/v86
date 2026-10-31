@@ -1123,6 +1123,13 @@ game.exe
 > - 60 组站点、普通/诊断 DLL（831 导出）通过；生命周期变异 6/6，原线程/窗口变异 14/14 仍通过。实际 C 两种传输模式覆盖错误句柄、TLS 失败、NULL HDC/NULL context、当前删除、外线程占用与状态重新绑定。核心/GPU 沿用 F3 验证；F4 的像素格式、按 HDC 交换和交换间隔继续下一子阶段。
 > - 规范来源：[wglMakeCurrent](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglmakecurrent)、[wglDeleteContext](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wgldeletecontext)。
 
+> **F4B 完成（2026-11-01）：窗口像素格式。**
+>
+> - 三种 RGBA8 格式分别为双缓冲、4× MSAA 双缓冲、单缓冲；RGB 位数 24 与 alpha 8 分开报告。窗口初始格式为 0；同窗口的不同 DC 共享一次设置，同格式重复设置成功，改为另一格式失败。创建/绑定上下文要求有效显示 DC、已设置的格式及兼容格式；内存 DC、无窗口的信息 DC 明确拒绝，不生成假覆盖层。
+> - ARB 选择同时处理整数/浮点条件，布尔/枚举精确匹配、位数/样本数按最小值匹配；空条件列出全部格式。不支持的扩展属性返回错误；查询预先验证整组参数，失败不改写部分输出。
+> - 62 组站点测试、普通/诊断 DLL（831 导出）通过；像素格式变异 12/12，无失效锚点。实际 XP worker 客体使用本次 DLL 通过 GL 查询/GLSL 探针并加载 Cube 2 complex 场景，1323 次纹理上传、238 次链接，宿主错误及拒绝均为 0。镜像部署仍在 F6。
+> - 依据：[PIXELFORMATDESCRIPTOR](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor)、[SetPixelFormat](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-setpixelformat)、[WGL_ARB_pixel_format](https://registry.khronos.org/OpenGL/extensions/ARB/WGL_ARB_pixel_format.txt)。
+
 - **F5 传输：**
   - 失败可以重试，不再永久设置 `g_v86gl_failed`；
   - 删除强制的 `OutputDebugStringA`（S1-3 的客体部分）；
