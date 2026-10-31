@@ -33,7 +33,6 @@
     const MAX_TEXTURE_UNITS = stateLayout.MAX_TEXTURE_UNITS;
     const MAX_LIGHTS = stateLayout.MAX_LIGHTS;
     const ATTR = translator.COMPAT_ATTRIBUTE_LOCATIONS;
-    const POINT_CORNER_LOCATION = translator.POINT_CORNER_LOCATION;
     // slots no conventional attribute aliases (ARB_vertex_program 2.14.3)
     const DEPTH_OFFSET_LOCATION = 6;
     const LINE_ATTRIBUTE_LOCATION = 1;
@@ -117,6 +116,8 @@
             // one must consume that ABI instead of our compact internal one.
             varyingInterface: s.varyingInterface === "arb" ? "arb" : "packed",
             desktopSampling: !!s.desktopSampling,
+            depthClamp: !!s.depthClamp,
+            pointRasterRounded: s.pointRasterRounded !== false,
             glslInterface: s.glslInterface || null,
             twoSidedColors: !!s.twoSidedColors,
             textureBindingBase: s.textureBindingBase || 0,
@@ -337,6 +338,11 @@
                 return entry;
             };
             layout.color = fixed("color", 4, 0, { flat: sig.flatShading });
+            if (sig.twoSidedColors || sig.lighting.twoSide) {
+                layout.backColor = fixed("backColor", 4, 11, { flat: sig.flatShading });
+                layout.backSecondary = fixed("backSecondary", 3, 12, { flat: sig.flatShading });
+            }
+            if (sig.pointSprite) layout.pointCoord = 13;
             if (sig.arbFragment || sig.colorSum || sig.lighting.enabled && sig.lighting.separateSpecular)
                 layout.secondary = fixed("secondary", 3, 1,
                     { flat: sig.flatShading });
@@ -439,6 +445,7 @@
         emit("@group(1) @binding(0) var<uniform> glState : GLState;");
         emit("");
 
+        if (sig.pointSprite) emit(stateLayout.pointRasterWGSL(sig.desktopSampling, sig.depthClamp, sig.pointRasterRounded));
         emit("struct VSIn {");
         emit("    @location(" + ATTR.gl_Vertex + ") position : vec4<f32>,");
         if (sig.attributes.normal)
@@ -456,7 +463,7 @@
                 " : " + vecType(a.components) + ",");
         }
         if (sig.pointSprite)
-            emit("    @location(" + POINT_CORNER_LOCATION + ") corner : vec2<f32>,");
+            emit("    @builtin(vertex_index) cornerIndex : u32,");
         if (sig.depthOffset)
             emit("    @location(" + DEPTH_OFFSET_LOCATION + ") depthOffset : f32,");
         if (sig.wideLine || sig.lineStipple)
@@ -524,14 +531,12 @@
                 "glState.pointAttenuation.z * ptDist * ptDist, 1e-8));");
             emit("    let ptSize = clamp(glState.pointParams.x * ptAtten, " +
                 "glState.pointParams.y, glState.pointParams.z);");
-            emit("    clip.x = clip.x + vin.corner.x * ptSize * clip.w / " +
-                "glState.viewportParams.z;");
-            emit("    clip.y = clip.y + vin.corner.y * ptSize * clip.w / " +
-                "glState.viewportParams.w;");
-            emit("    out.pointCoord = vec2<f32>(vin.corner.x * 0.5 + 0.5, " +
+            emit("    let corner=gl_point_corner(vin.cornerIndex);");
+            emit("    clip=gl_point_position(clip,ptSize,corner,glState.viewportParams);");
+            emit("    out.pointCoord = vec2<f32>(corner.x * 0.5 + 0.5, " +
                 (sig.pointCoordLowerLeft ?
-                    "vin.corner.y * 0.5 + 0.5);" :
-                    "0.5 - vin.corner.y * 0.5);"));
+                    "corner.y * 0.5 + 0.5);" :
+                    "0.5 - corner.y * 0.5);"));
         }
 
         if (sig.wideLine) {
@@ -1390,9 +1395,6 @@
                               location: ATTR.gl_MultiTexCoord0 + i,
                               components: a.components });
         }
-        if (sig.pointSprite)
-            attributes.push({ name: "corner", location: POINT_CORNER_LOCATION,
-                              components: 2 });
         if (sig.depthOffset)
             attributes.push({ name: "depthOffset", location: DEPTH_OFFSET_LOCATION,
                               components: 1 });

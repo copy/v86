@@ -75,6 +75,20 @@
                     check(expected.every((v,c)=>Math.abs(v-actual[c])<=(entry.flat?1:0)),entry.name+" probe "+j+": "+actual+" expected "+expected+" host "+JSON.stringify(gpu.hostErrors)+" GPU "+JSON.stringify(gpu.gpuErrors.errors));
                 }
             }
+            for(const fragmentProgram of [false,true]){
+                const entry={name:"arb_two_side",arb:true,flip:true,front:GL.LINE,back:GL.LINE},initial=GLProgramPolygonCases.setup(new GLStream().makeCurrent(1,0,0,16,16,fragmentProgram?401:400,fragmentProgram?401:400),entry);
+                initial.programStringARB(GL.VERTEX_PROGRAM_ARB,"!!ARBvp1.0\nMUL result.position,vertex.position,{-1,1,1,1};MOV result.color.front,{1,0,0,1};MOV result.color.back,{0,1,0,1};END");
+                if(fragmentProgram)initial.call("BIND_PROGRAM_ARB",GL.FRAGMENT_PROGRAM_ARB,2).programStringARB(GL.FRAGMENT_PROGRAM_ARB,"!!ARBfp1.0\nMOV result.color,fragment.color;END").call("ENABLE",GL.FRAGMENT_PROGRAM_ARB);
+                await submit(initial);
+                for(const enabled of [false,true,false]){
+                    const s=new GLStream().call(enabled?"ENABLE":"DISABLE",GL.VERTEX_PROGRAM_TWO_SIDE);GLProgramPolygonCases.draw(s,entry);const p=s.readPixels(8,4,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);await submit(s);
+                    const actual=Array.from(p.bytes.subarray(P.RECORDS.READ_PIXELS.size)),expected=enabled?[0,255,0,255]:[255,0,0,255];check(actual.every((v,c)=>v===expected[c]),"ARB two-side variant "+fragmentProgram+"/"+enabled+": "+actual);
+                }
+            }
+            {
+                const entry={name:"fixed_arb_two_side",front:GL.LINE,back:GL.LINE},s=new GLStream().makeCurrent(1,0,0,16,16,500,500).call("BIND_PROGRAM_ARB",GL.FRAGMENT_PROGRAM_ARB,2).programStringARB(GL.FRAGMENT_PROGRAM_ARB,"!!ARBfp1.0\nMOV result.color,fragment.color;END").call("ENABLE",GL.FRAGMENT_PROGRAM_ARB).call("LIGHT_MODELI",GL.LIGHT_MODEL_TWO_SIDE,1).call("SCALEF",-1,1,1);
+                GLProgramPolygonCases.draw(s,entry);const p=s.readPixels(8,4,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);await submit(s);check(Array.from(p.bytes.subarray(P.RECORDS.READ_PIXELS.size)).join(",")==="255,0,0,255","fixed vertex / ARB fragment two-side interface");
+            }
             check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.refusals&&!gpu.stats.framesRejected,"host failure "+JSON.stringify(gpu.gpuErrors.errors));gpu.lossHandler();gpu.resetForReplay();
         }
         document.getElementById("result").textContent="PASS programmable polygon modes: GPU-facing, culling, line/point front-facing and flat output in both modes";

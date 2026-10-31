@@ -282,10 +282,11 @@ test("a point-sprite signature expands the point in clip space", () => {
         attributes: { position: { components: 3 }, color: true },
         pointSprite: true,
     });
-    assert.ok(result.wgslVertex.indexOf("vin.corner.x * ptSize") >= 0);
-    assert.ok(result.wgslVertex.indexOf("0.5 - vin.corner.y * 0.5") >= 0,
+    assert.ok(result.wgslVertex.includes("gl_point_position(clip,ptSize,corner,glState.viewportParams)"));
+    assert.ok(result.wgslVertex.indexOf("0.5 - corner.y * 0.5") >= 0,
         "GL_POINT_SPRITE_COORD_ORIGIN defaults to GL_UPPER_LEFT");
-    assert.ok(result.attributes.some(a => a.name === "corner" && a.location === 7));
+    assert.ok(result.wgslVertex.includes("@builtin(vertex_index) cornerIndex"));
+    assert.ok(!result.attributes.some(a => a.name === "corner"));
 });
 
 test("point sprites honour a lower-left coordinate origin", () => {
@@ -296,7 +297,7 @@ test("point sprites honour a lower-left coordinate origin", () => {
         pointCoordLowerLeft: true,
     });
     assert.ok(result.wgslVertex.indexOf(
-        "vin.corner.y * 0.5 + 0.5") >= 0);
+        "corner.y * 0.5 + 0.5") >= 0);
 });
 
 test("polygon stipple tests the 32 by 32 pattern in fragment coordinates", () => {

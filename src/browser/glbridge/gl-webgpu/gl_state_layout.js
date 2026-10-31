@@ -549,10 +549,30 @@ fn ${name}(t:${type},s:${sampler},uv:${coordinate},index:u32,level:f32,bias:f32,
 }`;
     }
 
+    // Expansion uses a builtin vertex index, leaving all sixteen application
+    // attribute locations available. Desktop aliased points round both size
+    // and window centre before the square is expanded (GL 2.1 section 3.3).
+    function pointRasterWGSL(desktop, depthClamp, rounded = true) {
+        return `
+fn gl_point_corner(index:u32)->vec2<f32>{
+ let corners=array<vec2<f32>,6>(vec2<f32>(-1.0,-1.0),vec2<f32>(1.0,-1.0),vec2<f32>(-1.0,1.0),
+ vec2<f32>(-1.0,1.0),vec2<f32>(1.0,-1.0),vec2<f32>(1.0,1.0));return corners[index%6u];
+}
+fn gl_point_position(clip:vec4<f32>,size:f32,corner:vec2<f32>,viewport:vec4<f32>)->vec4<f32>{
+ ${desktop ? `if(clip.w<=0.0||any(abs(clip.xy)>vec2<f32>(clip.w))${depthClamp ? "" : "||abs(clip.z)>clip.w"}){return vec4<f32>(0.0,0.0,0.0,-1.0);}
+ ${rounded ? `let rounded=max(1.0,floor(min(size,64.0)+0.5));let window=viewport.xy+(clip.xy/clip.w*0.5+0.5)*viewport.zw;
+ let centre=select(floor(window)+0.5,floor(window+0.5),u32(rounded)%2u==0u);
+ var result=clip;result.x=((centre.x-viewport.x)/viewport.z*2.0-1.0)*clip.w;
+ result.y=((centre.y-viewport.y)/viewport.w*2.0-1.0)*clip.w;` : "let rounded=min(size,64.0);var result=clip;"}` : "let rounded=size;var result=clip;"}
+ result.x+=corner.x*rounded*clip.w/viewport.z;result.y+=corner.y*rounded*clip.w/viewport.w;return result;
+}
+`;
+    }
+
     const api = {
         FIELDS, FIELD_BY_ID, GLSL_TO_FIELD, STRUCT_DECLS,
         MAX_PROGRAM_MATRICES, MAX_LIGHTS, MAX_TEXTURE_UNITS, MAX_TEXTURE_COORDS, MAX_CLIP_PLANES,
-        buildLayout, writeLayout, textureSamplingWGSL,
+        buildLayout, writeLayout, textureSamplingWGSL, pointRasterWGSL,
     };
     global.GLStateLayout = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;

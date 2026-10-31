@@ -7451,37 +7451,10 @@ ${fragmentCode}`;
                 return;
             }
 
-            /* WebGPU only rasterises one-pixel points. GL point size and point
-             * sprites are implemented as an instanced six-vertex quad: the
-             * application's attributes advance once per point, while this
-             * extra corner attribute advances for the six quad vertices. */
-            if (expandedPoints) {
-                const corners = new Float32Array([
-                    -1, -1,  1, -1, -1,  1,
-                    -1,  1,  1, -1,  1,  1,
-                ]);
-                const cornerSlice = this.uploadVertices(
-                    new Uint8Array(corners.buffer));
-                if (!cornerSlice) return;
-                request = {
-                    ...request,
-                    expandedPoints: true,
-                    buffers: request.buffers.map(buffer => ({
-                        ...buffer,
-                        stepMode: "instance",
-                    })).concat([{
-                        gpuBuffer: cornerSlice.buffer,
-                        baseOffset: cornerSlice.offset,
-                        stride: 8,
-                        stepMode: "vertex",
-                        attributes: [{
-                            location: translator.POINT_CORNER_LOCATION,
-                            format: "float32x2",
-                            offset: 0,
-                        }],
-                    }]),
-                };
-            }
+            // The six corners come from vertex_index; application attributes
+            // advance once per point without reserving a location or buffer.
+            if (expandedPoints) request = { ...request, expandedPoints: true,
+                buffers: request.buffers.map(buffer => ({ ...buffer, stepMode: "instance" })) };
 
             if (!index && !request.geometry && this.drawShape(request.mode).expand) {
                 const expanded = this.expansionIndices(request.mode,
@@ -7667,16 +7640,9 @@ ${fragmentCode}`;
 
         pointsExpand() {
             const s = this.current, p = s.point;
-            if (s.enabled.has(GL.VERTEX_PROGRAM_ARB)) {
-                // the program's vertex stage has no corner input: its points
-                // are one pixel (S2-50: refused)
-                if (p.size !== 1 || s.enabled.has(GL.POINT_SPRITE))
-                    this.warnOnce("arb-wide-points", "points are one pixel under an ARB vertex program", {});
-                return false;
-            }
             return p.size !== 1 || s.enabled.has(GL.POINT_SPRITE) || p.sizeMin > 1 ||
                 p.attenuation[0] !== 1 || p.attenuation[1] !== 0 || p.attenuation[2] !== 0 ||
-                (s.enabled.has(GL.VERTEX_PROGRAM_POINT_SIZE) && !!this.currentProgramObject());
+                (s.enabled.has(GL.VERTEX_PROGRAM_POINT_SIZE) && (!!this.currentProgramObject() || s.enabled.has(GL.VERTEX_PROGRAM_ARB)));
         },
 
         polygonsFill() {
@@ -8020,6 +7986,8 @@ ${fragmentCode}`;
                     (ALPHA_TEST_NAMES[s.alphaFunc.func] || "always") : "always",
                 clipPlaneCount,
                 pointSprite: !!this.drawingExpandedPoints,
+                depthClamp: s.enabled.has(GL.DEPTH_CLAMP),
+                pointRasterRounded: !s.enabled.has(GL.POINT_SPRITE),
                 // gl_PointSize counts only under VERTEX_PROGRAM_POINT_SIZE
                 programPointSize: s.enabled.has(GL.VERTEX_PROGRAM_POINT_SIZE),
                 pointCoordLowerLeft:
@@ -8070,7 +8038,8 @@ ${fragmentCode}`;
             // program's fields)
             const stateFields = [...new Set([
                 ...vertex.compiled.reflection.stateFields,
-                ...fragment.compiled.reflection.stateFields])];
+                ...fragment.compiled.reflection.stateFields,
+                ...(this.drawingExpandedPoints ? ["pointParams", "viewportParams"] : [])])];
             const compiledVertex = this.arbVariant(vertex, stateFields);
             const compiledFragment = this.arbVariant(fragment, stateFields);
             if (!compiledVertex || !compiledFragment) return null;
@@ -8092,11 +8061,12 @@ ${fragmentCode}`;
 
         // A program compiled to declare `stateFields`, its pair's layout
         arbVariant(program, stateFields) {
-            const key = "state=" + stateFields.join(",");
+            const variant = this.currentVariant(), key = this.variantKeys.key(["arb-state", stateFields, variant]);
             program.variants = program.variants || new Map();
             let compiled = program.variants.get(key);
             if (!compiled) {
-                compiled = arbProgram.compileARBProgram(program.source, { forceStateFields: stateFields });
+                compiled = arbProgram.compileARBProgram(program.source, { forceStateFields: stateFields, ...variant,
+                    forceFlatVaryings: variant.flatShading ? [0, 1, 11, 12] : [] });
                 if (!compiled.ok) {
                     this.refuse("draw", "an ARB program variant failed to compile", { log: compiled.log },
                         GL.INVALID_OPERATION);
@@ -8162,6 +8132,7 @@ ${fragmentCode}`;
 
             const signature = this.fixedFunctionSignature(variant);
             signature.varyingInterface = "arb";
+            signature.twoSidedColors = variant.twoSided;
             // The two modules share one compact GLState block. Generate the
             // fixed stage with the ARB stage's fields included so every field
             // retains the same canonical byte offset in both modules.
@@ -8176,14 +8147,15 @@ ${fragmentCode}`;
             }
 
             const forcedTexCoords = fixed.textures.map(entry => entry.unit);
-            const variantKey = this.variantKeys.key([fixed.key, forcedTexCoords]);
+            const variantKey = this.variantKeys.key([fixed.key, forcedTexCoords, variant]);
             vertex.variants = vertex.variants || new Map();
             let compiledVertex = vertex.variants.get(variantKey);
             if (!compiledVertex) {
                 compiledVertex = arbProgram.compileARBProgram(vertex.source, {
                     forceStateFields: fixed.stateFields,
                     forceVertexTexCoords: forcedTexCoords,
-                    forceFlatVaryings: variant.flatShading ? [0, 1] : [],
+                    ...variant,
+                    forceFlatVaryings: variant.flatShading ? [0, 1, 11, 12] : [],
                 });
                 if (!compiledVertex.ok) {
                     this.refuse("draw", "the mixed ARB vertex variant failed " +
@@ -8382,6 +8354,8 @@ ${fragmentCode}`;
                 alphaTest: variant.alphaTest,
                 clipPlaneCount: variant.clipPlaneCount,
                 pointSprite: variant.pointSprite,
+                depthClamp: variant.depthClamp,
+                pointRasterRounded: variant.pointRasterRounded,
                 pointCoordLowerLeft: variant.pointCoordLowerLeft,
                 polygonStipple: variant.polygonStipple,
                 logicOp: variant.logicOp,

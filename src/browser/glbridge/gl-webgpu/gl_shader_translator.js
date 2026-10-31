@@ -3845,10 +3845,7 @@
                             " : " + typeToWGSL(info.type) + ",");
                     }
                 }
-                if (this.options.pointSprite)
-                    this.emit("@location(" + this.options.pointCornerLocation +
-                        ") glCorner : vec2<f32>,");
-                if (!this.iface.attributes.size && !this.options.pointSprite)
+                if (this.options.pointSprite || !this.iface.attributes.size)
                     this.emit("@builtin(vertex_index) glVertexIndex : u32,");
                 --this.indent;
                 this.emit("}");
@@ -4811,6 +4808,7 @@
         }
 
         emitVertexEntry() {
+            if (this.options.pointSprite) this.emit(stateLayout.pointRasterWGSL(this.options.desktopTextureState, this.options.depthClamp, this.options.pointRasterRounded));
             this.emit("@vertex");
             this.emit("fn vs_main(vsin : VSIn) -> VSOut {");
             ++this.indent;
@@ -4842,17 +4840,15 @@
                     this.usage.builtinOutputs.has("gl_PointSize") ?
                     "gl_PointSize" : "glState.pointParams.x";
                 this.emit("let glPtSize = clamp(" + size +
-                    ", glState.pointParams.y, glState.pointParams.z);");
-                this.emit("clip.x = clip.x + vsin.glCorner.x * glPtSize * " +
-                    "clip.w / glState.viewportParams.z;");
-                this.emit("clip.y = clip.y + vsin.glCorner.y * glPtSize * " +
-                    "clip.w / glState.viewportParams.w;");
+                    (this.options.desktopTextureState ? ", 1.0, 64.0);" : ", glState.pointParams.y, glState.pointParams.z);"));
+                this.emit("let glCorner=gl_point_corner(vsin.glVertexIndex);");
+                this.emit("clip=gl_point_position(clip,glPtSize,glCorner,glState.viewportParams);");
                 // GL_POINT_SPRITE_COORD_ORIGIN defaults to GL_UPPER_LEFT.
                 this.emit("out.glPointCoord = vec2<f32>(" +
-                    "vsin.glCorner.x * 0.5 + 0.5, " +
+                    "glCorner.x * 0.5 + 0.5, " +
                     (this.options.pointCoordLowerLeft ?
-                        "vsin.glCorner.y * 0.5 + 0.5);" :
-                        "0.5 - vsin.glCorner.y * 0.5);"));
+                        "glCorner.y * 0.5 + 0.5);" :
+                        "0.5 - glCorner.y * 0.5);"));
             }
 
             // GL clip space is z in [-w, w]; WebGPU wants [0, w]. The Y flip
@@ -5368,18 +5364,6 @@
             /* ---- attributes ---- */
             const bindings = normalizeBindings(opts.bindAttribLocations);
             const attributes = assignAttributeLocations(vs.usage, bindings, !!opts.es);
-            if (variant.pointSprite) {
-                for (const [name, loc] of attributes) {
-                    const info = vs.usage.attributes.get(name);
-                    const slots = info ? attributeSlotCount(info.type) : 1;
-                    if (POINT_CORNER_LOCATION >= loc &&
-                            POINT_CORNER_LOCATION < loc + slots)
-                        throw new GLSLError("attribute '" + name +
-                            "' occupies location " + POINT_CORNER_LOCATION +
-                            ", which the point-sprite corner attribute needs", 0);
-                }
-            }
-
             /* ---- varyings ---- */
             const varyings = assignVaryings(vs.usage, fs.usage, {
                 twoSided: !!variant.twoSided,
@@ -5432,7 +5416,8 @@
                 pointCoordLowerLeft: !!variant.pointCoordLowerLeft,
                 polygonStipple: !!variant.polygonStipple,
                 logicOp: variant.logicOp ? (variant.logicOp >>> 0) : 0,
-                pointCornerLocation: POINT_CORNER_LOCATION,
+                depthClamp: !!variant.depthClamp,
+                pointRasterRounded: variant.pointRasterRounded !== false,
                 alphaTest: variant.alphaTest || null,
                 nonUniformSampleStrategy: opts.nonUniformSampleStrategy || "implicit",
             };
@@ -5499,6 +5484,7 @@
             variant.twoSided ? "2" : "-",
             variant.flatShading ? "f" : "-",
             variant.backFacing ? "back" : "-",
+            !!variant.depthClamp, variant.pointRasterRounded !== false,
             "t" + (variant.colorTargets || 1),
             opts.nonUniformSampleStrategy || "implicit",
         ].join("|");

@@ -713,10 +713,8 @@ test("wide points and point sprites expand to instanced quads", () => {
     assert.strictEqual(log.draws[0].instances, 1);
     const buffers = log.draws[0].pipeline.descriptor.vertex.buffers;
     assert.strictEqual(buffers[0].stepMode, "instance");
-    assert.strictEqual(buffers[buffers.length - 1].stepMode, "vertex");
-    assert.strictEqual(
-        buffers[buffers.length - 1].attributes[0].shaderLocation,
-        require("../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js").POINT_CORNER_LOCATION);
+    assert.ok(buffers.every(b => b.stepMode === "instance"));
+    assert.ok(log.draws[0].pipeline.descriptor.vertex.module.code.includes("@builtin(vertex_index) cornerIndex"));
     assert.strictEqual(log.draws[0].pipeline.descriptor.primitive.topology,
         "triangle-list");
 });
@@ -750,7 +748,7 @@ test("point-sprite lower-left origin reaches the generated shader", () => {
         .call("END");
     run(executor, stream);
     assert.match(log.draws[0].pipeline.descriptor.vertex.module.code,
-        /vin\.corner\.y \* 0\.5 \+ 0\.5/);
+        /corner\.y \* 0\.5 \+ 0\.5/);
 });
 
 test("the clip-space flip is paired with reversed winding", () => {
@@ -2301,7 +2299,8 @@ test("an ARB vertex program draws with clip planes and wide points instead of re
     immediatePolygons(stream, GL.POINTS, [[0, 0]]);
     run(executor, stream);
     assert.strictEqual(log.draws.length, 2);
-    assert.strictEqual(log.draws[1].pipeline.descriptor.primitive.topology, "point-list");
+    assert.strictEqual(log.draws[1].pipeline.descriptor.primitive.topology, "triangle-list");
+    assert.equal(log.draws[1].count, 6);
 });
 
 test("an ARB program pair declares one state layout (review S2-51)", () => {
