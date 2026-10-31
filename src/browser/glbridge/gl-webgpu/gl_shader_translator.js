@@ -3862,6 +3862,7 @@
                 if (this.iface.clipPlaneCount)
                     this.emit("@location(" + this.iface.clipVaryingSlot +
                         ") glClipDist : vec4<f32>,");
+                if (this.iface.clipPlaneCount > 4) this.emit("@location(" + this.iface.clipExtraSlot + ") glClipExtra:vec2<f32>,");
                 if (this.options.pointSprite)
                     this.emit("@location(" + this.iface.pointCoordSlot +
                         ") glPointCoord : vec2<f32>,");
@@ -3881,6 +3882,7 @@
                 if (this.iface.clipPlaneCount)
                     this.emit("@location(" + this.iface.clipVaryingSlot +
                         ") glClipDist : vec4<f32>,");
+                if (this.iface.clipPlaneCount > 4) this.emit("@location(" + this.iface.clipExtraSlot + ") glClipExtra:vec2<f32>,");
                 if (this.usage.usesPointCoord)
                     this.emit("@location(" + this.iface.pointCoordSlot +
                         ") glPointCoord : vec2<f32>,");
@@ -4873,16 +4875,10 @@
             }
 
             if (this.iface.clipPlaneCount) {
-                const cv = this.usage.builtinOutputs.has("gl_ClipVertex") ?
-                    "gl_ClipVertex" : null;
-                const parts = [];
-                for (let i = 0; i < 4; ++i) {
-                    if (i < this.iface.clipPlaneCount && cv)
-                        parts.push("dot(" + cv + ", glState.clipPlanes[" + i + "])");
-                    else
-                        parts.push("1.0");
-                }
-                this.emit("out.glClipDist = vec4<f32>(" + parts.join(", ") + ");");
+                const cv = this.usage.builtinOutputs.has("gl_ClipVertex") ? "gl_ClipVertex" : null,
+                    mask = this.iface.clipPlaneMask, distance = i => cv && (mask & 1 << i) ? "dot(" + cv + ", glState.clipPlanes[" + i + "])" : "1.0";
+                this.emit("out.glClipDist = vec4<f32>(" + Array.from({ length: 4 }, (_, i) => distance(i)).join(", ") + ");");
+                if (this.iface.clipPlaneCount > 4) this.emit("out.glClipExtra=vec2<f32>(" + [4, 5].map(distance).join(",") + ");");
             }
 
             this.emit("return out;");
@@ -4924,6 +4920,7 @@
                 // test covers however many planes are on. Deviation D-05: this
                 // discards fragments rather than clipping geometry.
                 this.emit("if (any(fsin.glClipDist < vec4<f32>(0.0))) { discard; }");
+                if (this.iface.clipPlaneCount > 4) this.emit("if(any(fsin.glClipExtra<vec2<f32>(0.0))){discard;}");
             }
             if (this.options.polygonStipple) {
                 this.emit("let stippleX = u32(floor(fsin.position.x)) & 31u;");
@@ -5372,7 +5369,8 @@
             });
             let nextSlot = varyings.slotCount;
             const clipPlaneCount = variant.clipPlaneCount || 0;
-            const clipVaryingSlot = clipPlaneCount ? nextSlot++ : -1;
+            const clipVaryingSlot = clipPlaneCount ? nextSlot++ : -1, clipExtraSlot = clipPlaneCount > 4 ? nextSlot++ : -1,
+                clipPlaneMask = variant.clipPlaneMask === undefined ? (1 << clipPlaneCount) - 1 : variant.clipPlaneMask;
             const usesPointCoord = fs.usage.usesPointCoord || !!variant.pointSprite;
             const pointCoordSlot = usesPointCoord ? nextSlot++ : -1;
             if (nextSlot > MAX_INTER_STAGE_SLOTS)
@@ -5383,9 +5381,7 @@
             if (clipPlaneCount && !vs.usage.builtinOutputs.has("gl_ClipVertex"))
                 log.push("WARNING: user clip planes are enabled but the vertex " +
                     "shader does not write gl_ClipVertex; no clipping is applied");
-            if (clipPlaneCount > 4)
-                log.push("WARNING: only the first 4 user clip planes are applied " +
-                    "to a programmable pipeline");
+
 
             /* ---- colour targets ---- */
             if (fs.usage.usesFragColor && fs.usage.usesFragData)
@@ -5403,7 +5399,7 @@
             const iface = {
                 attributes, varyings, uniformLayout,
                 stateLayout: stateLayoutInfo, samplers,
-                clipPlaneCount, clipVaryingSlot, pointCoordSlot,
+                clipPlaneCount, clipPlaneMask, clipVaryingSlot, clipExtraSlot, pointCoordSlot,
                 colorTargets, twoSided: !!variant.twoSided,
             };
             const genOptions = {
@@ -5437,7 +5433,7 @@
                 wgslVertex, wgslFragment, reflection,
                 varyingLayout: { entries: varyings.entries.map(({ name, index, components, slot, offset, flat }) =>
                     ({ name, index, components, slot, offset, flat })),
-                clip: clipVaryingSlot, pointCoord: pointCoordSlot },
+                clip: clipVaryingSlot, clipExtra: clipExtraSlot, pointCoord: pointCoordSlot },
                 stats: {
                     vertex: vsGen.stats, fragment: fsGen.stats,
                     nonUniformSamples: vsGen.stats.nonUniformSamples +
@@ -5475,7 +5471,7 @@
             opts.desktopTextureState ? "desktop-sampling" : "-",
             opts.vertexCaptureRaster ? "raster" : "vertices",
             "a" + (variant.alphaTest || "-"),
-            "c" + (variant.clipPlaneCount || 0),
+            "c" + (variant.clipPlaneCount || 0), "cm" + (variant.clipPlaneMask ?? (1 << (variant.clipPlaneCount || 0)) - 1),
             variant.pointSprite ? "p" : "-",
             variant.programPointSize ? "z" : "-",
             variant.pointCoordLowerLeft ? "l" : "u",

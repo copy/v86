@@ -3021,7 +3021,6 @@
      * line, which the variant rewrites.
      */
     const DEPTH_CONVERSION = "clip.z = (clip.z + clip.w) * 0.5;";
-    const PASSING_PLANE = [0, 0, 0, 1];
 
     /*
      * A shader pair's pipelines are keyed by its code: identical code shares
@@ -8043,13 +8042,13 @@ ${fragmentCode}`;
          * colour and flat shading all change the generated WGSL. */
         currentVariant() {
             const s = this.current;
-            let clipPlaneCount = 0;
+            let clipPlaneCount = 0, clipPlaneMask = 0;
             for (let i = 0; i < MAX_CLIP_PLANES; ++i)
-                if (s.enabled.has(GL.CLIP_PLANE0 + i)) clipPlaneCount = i + 1;
+                if (s.enabled.has(GL.CLIP_PLANE0 + i)) { clipPlaneCount = i + 1;clipPlaneMask |= 1 << i; }
             return {
                 alphaTest: s.enabled.has(GL.ALPHA_TEST) ?
                     (ALPHA_TEST_NAMES[s.alphaFunc.func] || "always") : "always",
-                clipPlaneCount,
+                clipPlaneCount, clipPlaneMask,
                 pointSprite: !!this.drawingExpandedPoints,
                 depthClamp: s.enabled.has(GL.DEPTH_CLAMP),
                 pointRasterRounded: !s.enabled.has(GL.POINT_SPRITE),
@@ -8104,7 +8103,8 @@ ${fragmentCode}`;
             const stateFields = [...new Set([
                 ...vertex.compiled.reflection.stateFields,
                 ...fragment.compiled.reflection.stateFields,
-                ...(this.drawingExpandedPoints ? ["pointParams", "viewportParams"] : [])])];
+                ...(this.drawingExpandedPoints ? ["pointParams", "viewportParams"] : []),
+                ...(this.currentVariant().clipPlaneCount && vertex.compiled.reflection.positionInvariant ? ["modelview", "clipPlanes"] : [])])];
             const compiledVertex = this.arbVariant(vertex, stateFields);
             const compiledFragment = this.arbVariant(fragment, stateFields);
             if (!compiledVertex || !compiledFragment) return null;
@@ -8126,7 +8126,11 @@ ${fragmentCode}`;
 
         // A program compiled to declare `stateFields`, its pair's layout
         arbVariant(program, stateFields) {
-            const variant = this.currentVariant(), key = this.variantKeys.key(["arb-state", stateFields, variant]);
+            const variant = this.currentVariant();
+            if (this.current.enabled.has(GL.VERTEX_PROGRAM_ARB) && !this.arbProgramFor(GL.VERTEX_PROGRAM_ARB)?.compiled.reflection.positionInvariant) {
+                variant.clipPlaneCount = 0;variant.clipPlaneMask = 0;
+            }
+            const key = this.variantKeys.key(["arb-state", stateFields, variant]);
             program.variants = program.variants || new Map();
             let compiled = program.variants.get(key);
             if (!compiled) {
@@ -8186,14 +8190,10 @@ ${fragmentCode}`;
 
         arbVertexFixedFragmentShaders(vertex) {
             const variant = this.currentVariant();
-            if (variant.clipPlaneCount) {
-                // ARB_vertex_program leaves user clipping undefined unless the
-                // program is position-invariant; drawn unclipped (review
-                // S2-50: the draw was refused)
-                this.warnOnce("arb-clip-planes", "user clip planes are not applied under an " +
-                    "ARB vertex program", { clipPlaneCount: variant.clipPlaneCount });
-                variant.clipPlaneCount = 0;
-            }
+            // ARB_vertex_program section 2.11 disables user clipping unless
+            // ARB_position_invariant supplies the fixed transformation.
+            if (!vertex.compiled.reflection.positionInvariant) { variant.clipPlaneCount = 0;variant.clipPlaneMask = 0; }
+
 
             const signature = this.fixedFunctionSignature(variant);
             signature.varyingInterface = "arb";
@@ -8418,6 +8418,7 @@ ${fragmentCode}`;
                 texture,
                 alphaTest: variant.alphaTest,
                 clipPlaneCount: variant.clipPlaneCount,
+                clipPlaneMask: variant.clipPlaneMask,
                 pointSprite: variant.pointSprite,
                 depthClamp: variant.depthClamp,
                 pointRasterRounded: variant.pointRasterRounded,
@@ -9426,12 +9427,11 @@ ${fragmentCode}`;
                 const key = sampler.name + (sampler.arraySize ? "[" + i + "]" : ""), unit = clamp(shaders.program.samplerUnits.get(key) || 0, 0, MAX_TEXTURE_UNITS - 1);
                 samplerState(sampler.binding / 2 + i, unit, samplerTargetEnum(sampler.dim), sampler.shadow);
             }
-            // the shaders test every plane below the highest enabled one, so
-            // a disabled one passes everything: 0x + 0y + 0z + 1w >= 0
-            // (review S2-10: plane 0 clipped while only plane 1 was enabled)
+            // Shader builtins expose every stored equation, even when the
+            // corresponding clip enable is off. Generated distance lanes use
+            // the variant mask rather than replacing those equations.
             for (let i = 0; i < MAX_CLIP_PLANES; ++i) {
-                if (s.enabled.has(GL.CLIP_PLANE0 + i)) snapshot.clipPlanes[i].set(s.clipPlanes[i]);
-                else snapshot.clipPlanes[i].set(PASSING_PLANE);
+                snapshot.clipPlanes[i].set(s.clipPlanes[i]);
             }
 
             snapshot.depthRange.near = s.depthRange.near;

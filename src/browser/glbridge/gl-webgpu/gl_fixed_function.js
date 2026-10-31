@@ -157,6 +157,7 @@
             texture,
             alphaTest: s.alphaTest || "always",
             clipPlaneCount: Math.max(0, Math.min(6, s.clipPlaneCount || 0)),
+            clipPlaneMask: s.clipPlaneMask === undefined ? (1 << (s.clipPlaneCount || 0)) - 1 : s.clipPlaneMask & 63,
             pointSprite: !!s.pointSprite,
             pointCoordLowerLeft: !!s.pointCoordLowerLeft,
             polygonStipple: !!s.polygonStipple,
@@ -310,7 +311,7 @@
 
         const layout = { entries, color: null, secondary: null, backColor: null,
                          backSecondary: null, fog: null, texCoord: [],
-                         clip: -1, pointCoord: -1, lineDistance: -1 };
+                         clip: -1, clipExtra: -1, pointCoord: -1, lineDistance: -1 };
 
         if (sig.glslInterface) {
             const names = { gl_Color: "color", gl_Color__back: "backColor",
@@ -322,10 +323,11 @@
                 else if (names[entry.name]) layout[names[entry.name]] = entry;
             }
             layout.clip = sig.glslInterface.clip;
+            layout.clipExtra = sig.glslInterface.clipExtra ?? -1;
             layout.pointCoord = sig.glslInterface.pointCoord;
             layout.slotIndices = [...new Set(entries.map(e => e.slot))].sort((a, b) => a - b);
             layout.packedSlots = layout.slotIndices.length;
-            layout.slotCount = Math.max(-1, ...layout.slotIndices, layout.clip, layout.pointCoord) + 1;
+            layout.slotCount = Math.max(-1, ...layout.slotIndices, layout.clip, layout.clipExtra, layout.pointCoord) + 1;
             return layout;
         }
 
@@ -343,6 +345,8 @@
                 layout.backSecondary = fixed("backSecondary", 3, 12, { flat: sig.flatShading });
             }
             if (sig.pointSprite) layout.pointCoord = 13;
+            if (sig.clipPlaneCount) layout.clip = 14;
+            if (sig.clipPlaneCount > 4) layout.clipExtra = 15;
             if (sig.arbFragment || sig.colorSum || sig.lighting.enabled && sig.lighting.separateSpecular)
                 layout.secondary = fixed("secondary", 3, 1,
                     { flat: sig.flatShading });
@@ -358,7 +362,7 @@
             slots.sort((a, b) => a - b);
             layout.slotIndices = slots;
             layout.packedSlots = slots.length;
-            layout.slotCount = slots.length ? slots[slots.length - 1] + 1 : 0;
+            layout.slotCount = Math.max(-1, ...slots, layout.pointCoord, layout.clip, layout.clipExtra) + 1;
             if (layout.slotCount > translator.MAX_INTER_STAGE_SLOTS)
                 throw new Error("fixed-function ARB interface needs location " +
                     (layout.slotCount - 1) + "; only " +
@@ -386,6 +390,7 @@
 
         let next = slots.length;
         if (sig.clipPlaneCount) layout.clip = next++;
+        if (sig.clipPlaneCount > 4) layout.clipExtra = next++;
         if (sig.pointSprite) layout.pointCoord = next++;
         if (sig.lineStipple) layout.lineDistance = next++;
         layout.slotCount = next;
@@ -480,6 +485,7 @@
         }
         if (layout.clip >= 0)
             emit("    @location(" + layout.clip + ") clipDist : vec4<f32>,");
+        if (layout.clipExtra >= 0) emit("    @location(" + layout.clipExtra + ") clipExtra:vec2<f32>,");
         if (layout.pointCoord >= 0)
             emit("    @location(" + layout.pointCoord + ") pointCoord : vec2<f32>,");
         if (layout.lineDistance >= 0)
@@ -494,7 +500,7 @@
         emit("    var clip = glState.mvp * objectPos;");
 
         const needsEye = fields.has("modelview");
-        if (needsEye) emit("    let eyePos = (glState.modelview * objectPos).xyz;");
+        if (needsEye) emit("    let eyePosition=glState.modelview*objectPos;\n    let eyePos=eyePosition.xyz;");
 
         if (sig.attributes.normal && fields.has("normalMatrix")) {
             emit("    var eyeNormal = glState.normalMatrix * vin.normal;");
@@ -547,14 +553,9 @@
         if (sig.lineStipple) emit("    out.lineDistance = vin.lineAttr.z;");
 
         if (sig.clipPlaneCount) {
-            const parts = [];
-            for (let i = 0; i < 4; ++i) {
-                if (i < sig.clipPlaneCount && needsEye)
-                    parts.push("dot(vec4<f32>(eyePos, 1.0), glState.clipPlanes[" +
-                        i + "])");
-                else parts.push("1.0");
-            }
-            emit("    out.clipDist = vec4<f32>(" + parts.join(", ") + ");");
+            const distance = i => needsEye && (sig.clipPlaneMask & 1 << i) ? "dot(eyePosition, glState.clipPlanes[" + i + "])" : "1.0";
+            emit("    out.clipDist = vec4<f32>(" + Array.from({ length: 4 }, (_, i) => distance(i)).join(", ") + ");");
+            if (sig.clipPlaneCount > 4) emit("    out.clipExtra=vec2<f32>(" + [4, 5].map(distance).join(",") + ");");
         }
 
         // GL clip space is z in [-w, w] and its framebuffer origin is at the
@@ -793,7 +794,7 @@
                         // dots it with the eye position directly -- the same
                         // thing desktop GL does when the plane is specified.
                         emit("    tc" + i + "." + SWIZZLE[c] +
-                            " = dot(vec4<f32>(eyePos, 1.0), glState.texGenPlanes[" +
+                            " = dot(eyePosition, glState.texGenPlanes[" +
                             (i * 8 + 4 + c) + "]);");
                         break;
                     case "SPHERE":
@@ -880,6 +881,7 @@
         }
         if (layout.clip >= 0)
             emit("    @location(" + layout.clip + ") clipDist : vec4<f32>,");
+        if (layout.clipExtra >= 0) emit("    @location(" + layout.clipExtra + ") clipExtra:vec2<f32>,");
         if (layout.pointCoord >= 0)
             emit("    @location(" + layout.pointCoord + ") pointCoord : vec2<f32>,");
         if (layout.lineDistance >= 0)
@@ -905,6 +907,7 @@
         emit("fn fs_main(fin : FSIn) -> FSOut {");
         if (layout.clip >= 0)
             emit("    if (any(fin.clipDist < vec4<f32>(0.0))) { discard; }");
+        if (layout.clipExtra >= 0) emit("    if(any(fin.clipExtra<vec2<f32>(0.0))){discard;}");
         if (sig.polygonStipple) emitPolygonStippleTest(emit, "fin.position");
         if (sig.lineStipple) {
             // GL 2.1 section 3.4.3: bit floor(s / factor) mod 16 of the pattern
@@ -1446,7 +1449,7 @@
             for (let i = 0; i < MAX_TEXTURE_UNITS; ++i) if (sig.texture[i].enabled) inputs.push("gl_TexCoord[" + i + "]");
             source = "void main(){gl_FragColor=" + inputs.join("+") + ";}";
         } else {
-            const outputs = ["gl_Position=ftransform()", "gl_FrontColor=gl_Color", "gl_BackColor=gl_Color",
+            const outputs = ["gl_Position=ftransform()", "gl_ClipVertex=gl_ModelViewMatrix*gl_Vertex", "gl_FrontColor=gl_Color", "gl_BackColor=gl_Color",
                 "gl_FrontSecondaryColor=gl_SecondaryColor", "gl_BackSecondaryColor=gl_SecondaryColor", "gl_FogFragCoord=gl_FogCoord"];
             const count = fragment.usage.texCoordDynamic ? MAX_TEXTURE_UNITS : fragment.usage.texCoordMax + 1;
             for (let i = 0; i < count; ++i) outputs.push("gl_TexCoord[" + i + "]=gl_MultiTexCoord" + i);
