@@ -59,6 +59,11 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glthreadcontexts: { floor: 1, node: ["gl_executor_test.js"], pages: ["gl_thread_contexts_browser_test.html"], list: [
+        ["open primitive remains in shared pool", G + "gl_executor.js", 'this.immediateBuffer = null;\n            s.immediate = {', 'this.immediateBuffer = data;\n            s.immediate = {'],
+        ["growing a live primitive gives away its storage", G + "gl_executor.js", 'grown.set(batch.data.subarray(0, batch.count * batch.stride));\n                batch.data = grown;', 'grown.set(batch.data.subarray(0, batch.count * batch.stride));\n                batch.data = grown;this.immediateBuffer = grown;'],
+        ["relayout gives away a live primitive", G + "gl_executor.js", '            batch.data = grown;\n        },\n\n        endImmediate()', '            batch.data = grown;this.immediateBuffer = grown;\n        },\n\n        endImmediate()'],
+    ] },
     glarraylock: { floor: 1, node: ["gl_array_lock_test.js"], pages: ["gl_array_lock_browser_test.html"], list: [
         ["negative first is accepted", G + "gl_shadow_arrays.js", 'r.first < 0 || r.count <= 0', 'r.count <= 0'],
         ["zero count is accepted", G + "gl_shadow_arrays.js", 'r.first < 0 || r.count <= 0', 'r.first < 0 || r.count < 0'],

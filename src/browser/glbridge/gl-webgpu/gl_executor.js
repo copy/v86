@@ -5980,8 +5980,7 @@
         /* ---- immediate mode ---- */
 
         /*
-         * glBegin/glEnd arrives one record per vertex, so the accumulator here
-         * is where a Half-Life frame's twenty thousand vertices actually land.
+         * Individual calls and compact vertex blocks share this accumulator.
          * Each vertex snapshots GL's *current* colour, normal and texture
          * coordinates, which is the whole semantic of immediate mode.
          */
@@ -5993,10 +5992,13 @@
             if (PRIMITIVE_TOPOLOGY[mode] === undefined)
                 return this.refuse("glBegin", "unknown primitive mode", { mode },
                     GL.INVALID_ENUM);
+            const data = this.immediateBuffer || new Float32Array(65536);
+            // An open primitive owns its storage. Another context may begin
+            // before this one ends; only completed batches return to the pool.
+            this.immediateBuffer = null;
             s.immediate = {
                 mode, count: 0,
-                data: this.immediateBuffer || (this.immediateBuffer =
-                    new Float32Array(65536)),
+                data,
                 stride: 0,
                 used: { color: false, normal: false, secondaryColor: false,
                         fogCoord: false,
@@ -6078,7 +6080,6 @@
                     batch.data.length * 2));
                 grown.set(batch.data.subarray(0, batch.count * batch.stride));
                 batch.data = grown;
-                this.immediateBuffer = grown;
             }
             if (stride !== batch.stride && batch.count) {
                 // A later vertex enabled an attribute the earlier ones did not
@@ -6147,13 +6148,13 @@
                 grown.set(batch.data.subarray(i * batch.stride,
                     i * batch.stride + batch.stride), i * stride);
             batch.data = grown;
-            this.immediateBuffer = grown;
         },
 
         endImmediate() {
             const s = this.current;
             const batch = s.immediate;
             if (!batch || !batch.count) {
+                if (batch) this.immediateBuffer = batch.data;
                 s.immediate = null;
                 return;
             }
@@ -6185,6 +6186,7 @@
                 batch.count * batch.stride * 4);
             const slice = this.uploadVertices(bytes);
             if (!slice) {
+                this.immediateBuffer = batch.data;
                 s.immediate = null;
                 return;
             }
@@ -6208,6 +6210,7 @@
                     index: null,
                 });
             } finally {
+                this.immediateBuffer = batch.data;
                 s.immediate = null;
             }
         },

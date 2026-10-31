@@ -3015,6 +3015,18 @@ test("inactive uniform blocks allocate and upload nothing", () => {
 
 /* ---- report ---- */
 
+test("open context primitives own their buffers through growth and relayout", () => {
+    const { executor } = newExecutor();executor.immediateBuffer = new Float32Array(4);
+    run(executor, new GLStream().makeCurrent(99, 0, 0, 16, 16, 1, 1).call("BEGIN", GL.POINTS));
+    assert.notStrictEqual(executor.immediateBuffer, executor.current.immediate.data, "checkout removes live storage from the shared pool before the first vertex");
+    run(executor, new GLStream().call("COLOR4F", 1, 0, 0, 1).call("VERTEX4F", -1, 0, 0, 2));
+    const first = executor.current.immediate;assert.notStrictEqual(executor.immediateBuffer, first.data, "growing a live batch cannot return it to the pool");
+    run(executor, new GLStream().makeCurrent(99, 0, 0, 16, 16, 2, 2).call("BEGIN", GL.POINTS).call("COLOR4F", 0, 1, 0, 1).call("VERTEX4F", 2, 0, 0, 4));
+    const second = executor.current.immediate, original = second.data.slice(0, second.stride);assert.notStrictEqual(first.data, second.data, "two open contexts cannot share vertex storage");
+    executor.relayoutImmediate(first, first.stride);assert.notStrictEqual(executor.immediateBuffer, first.data, "relayout preserves ownership");assert.deepStrictEqual(second.data.slice(0, second.stride), original);
+    executor.resetForReplay();
+});
+
 (async () => {
     for (const [name, fn] of asyncTests) {
         currentTest = name;
