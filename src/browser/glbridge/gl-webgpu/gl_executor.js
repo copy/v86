@@ -7560,8 +7560,8 @@ ${fragmentCode}`;
                 this.warnOnce("polygon-mode-facing", "the polygons' facing is " +
                     "not known on the CPU under a vertex program: every polygon " +
                     "is drawn in the front polygon mode, and not culled", { front, back });
-            const fill = [], groups = new Map();
             for (let k = 0; k < faces.provoking.length; ++k) {
+                const fill = [], groups = new Map();
                 const isFront = !clip || facesFront(clip, faces, k, s.frontFace);
                 if (clip && culling && (isFront ? s.cullFace === GL.FRONT : s.cullFace === GL.BACK))
                     continue;
@@ -7575,6 +7575,9 @@ ${fragmentCode}`;
                     while (v[j] !== p) ++j;
                     for (let i = 1; i + 1 < n; ++i)
                         fill.push(p, v[from + (j - from + i) % n], v[from + (j - from + i + 1) % n]);
+                    const index = this.uploadIndexList(Uint32Array.from(fill));
+                    if (index) this.issueDraw({ ...request, mode: GL.TRIANGLES,
+                        vertexCount: fill.length, index, rasterized: true });
                     continue;
                 }
                 const key = mode + (isFront ? "f" : "b");
@@ -7597,16 +7600,13 @@ ${fragmentCode}`;
                         group.offsets.push(offset);
                     }
                 }
-            }
-            if (fill.length) {
-                const index = this.uploadIndexList(Uint32Array.from(fill));
-                if (index) this.issueDraw({ ...request, mode: GL.TRIANGLES,
-                    vertexCount: fill.length, index, rasterized: true });
-            }
-            try {
-                this.drawGroups(request, groups, cpu, fixedVertex);
-            } finally {
-                this.drawFace = null;   // the face variants are these draws' only
+                // Preserve primitive order across fill/line/point modes:
+                // blending, depth and stencil observe each polygon in turn.
+                try {
+                    this.drawGroups(request, groups, cpu, fixedVertex);
+                } finally {
+                    this.drawFace = null;
+                }
             }
         },
 

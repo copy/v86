@@ -537,14 +537,14 @@ test("each polygon takes its own face's mode, and culling drops its lines", () =
     immediatePolygons(stream, GL.QUADS, QUAD_CCW, QUAD_CW);
     run(executor, stream);
     assert.strictEqual(log.draws.length, 2);
-    assert.strictEqual(log.draws[0].indexed, true);
-    assert.strictEqual(log.draws[0].count, 6, "the back quad is filled");
-    assert.strictEqual(log.draws[0].pipeline.descriptor.primitive.topology, "triangle-list");
-    const indices = new Uint32Array(log.draws[0].indexBuffer.buffer.storage, log.draws[0].indexBuffer.offset, 6);
+    assert.deepStrictEqual(xy(drawnVertices(log.draws[0], 8)).slice(0, 2), [QUAD_CCW[0], QUAD_CCW[1]],
+        "the first/front quad is outlined before the second/back quad fills");
+    assert.strictEqual(log.draws[0].count, 8);
+    assert.strictEqual(log.draws[1].indexed, true);
+    assert.strictEqual(log.draws[1].count, 6, "the back quad is filled");
+    assert.strictEqual(log.draws[1].pipeline.descriptor.primitive.topology, "triangle-list");
+    const indices = new Uint32Array(log.draws[1].indexBuffer.buffer.storage, log.draws[1].indexBuffer.offset, 6);
     assert.ok(Array.from(indices).every(i => i >= 4), "from the second quad's vertices");
-    assert.deepStrictEqual(xy(drawnVertices(log.draws[1], 8)).slice(0, 2), [QUAD_CCW[0], QUAD_CCW[1]],
-        "the front quad is outlined");
-    assert.strictEqual(log.draws[1].count, 8);
 
     // glFrontFace(CW) turns them around
     ({ executor, log } = newExecutor());

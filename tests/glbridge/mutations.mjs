@@ -59,6 +59,18 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glpolygonorder: { floor: 0.9, node: ["gl_polygon_order_test.js"], pages: ["gl_polygon_order_browser_test.html"], list: [
+        ["polygon modes reverse primitive order", G + "gl_executor.js",
+            'for (let k = 0; k < faces.provoking.length; ++k) {\n                const fill = [], groups = new Map();',
+            'for (let n = 0; n < faces.provoking.length; ++n) {\n                const k = faces.provoking.length - 1 - n;\n                const fill = [], groups = new Map();'],
+        ["polygon fill skips its original primitive", G + "gl_executor.js",
+            'vertexCount: fill.length, index, rasterized: true });', 'vertexCount: 0, index: null, rasterized: true });'],
+        ["polygon line group is omitted", G + "gl_executor.js",
+            'this.drawGroups(request, groups, cpu, fixedVertex);', 'void groups;'],
+        ["polygon fill uses lines instead of triangles", G + "gl_executor.js",
+            'if (index) this.issueDraw({ ...request, mode: GL.TRIANGLES,\n                        vertexCount: fill.length,',
+            'if (index) this.issueDraw({ ...request, mode: GL.LINES,\n                        vertexCount: fill.length,'],
+    ] },
     glvolume: { floor: 0.9, node: ["gl_volume_test.js"], pages: ["gl_volume_browser_test.html"], list: [
         ["3D attachment uses invalid 2D view", G + "gl_executor.js",
             'dimension: image.kind === "3D" ? "3d" : "2d", baseMipLevel: level,', 'dimension: "2d", baseMipLevel: level,'],
