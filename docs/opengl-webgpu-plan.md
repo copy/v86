@@ -1007,6 +1007,12 @@ game.exe
 > - 补齐 ARB 片段结果的 alpha test，程序对共享 alphaRef 布局。12 个场景（含多目标不同底色）在两种传输模式完整像素同时匹配 Apple GL/Mesa；9 个标量语法探针保留两驱动结果。107 组 Node、45 个真实 GPU 页面、8 项共用 GLES 检查通过；新变异 11/11。Mesa 参照为 82 个任务/60 个基础场景。
 > - E2 继续：RECT 和真实 Wine/cgc 程序语料尚未退出。
 
+> **E2B/E2 完成（2026-10-31）：RECT 与真实生成器语料退出。**
+> - 加入独立的矩形纹理目标、绑定、默认过滤/环绕、能力查询、固定管线目标优先级、代理图像、状态/对象/附件校验；禁止 mip、border、压缩与索引上传。固定管线、ARB RECT/SHADOWRECT、GLSL sampler2DRect 的非归一化坐标正确换算，复制/部分更新、默认对象和 FBO 渲染内容均覆盖。
+> - RECT 的 11 个完整像素场景与 20 个真实 Wine 4.0/cgc 3.1 输出均匹配 Apple GL、Mesa、WebGPU；RECT 的 GLSL 颜色/深度和渲染附件另验证热/冷恢复。原始编译器、输入和命令来源见 [真实 ARB 语料](../tests/glbridge/arb_corpus/README.md)。
+> - 矩形参数错误按规范处理：BASE_LEVEL 非零使用 INVALID_VALUE（Mesa 返回 INVALID_OPERATION），COLOR_INDEX 上传使用 INVALID_ENUM（两个原生驱动均宽松接受）；原始结果保留，不冒称两驱动错误完全一致。线性过滤使用整数平均的输入，避开两原生驱动八位量化的取整分歧。
+> - 109 组 Node、47 个真实 GPU 页面、8 项共用 GLES 检查通过；新变异 16/16 被杀死。Mesa 为 84 个原生任务/60 个基础场景。E2 进入运行时校验 E3；客体 DLL 的目标编码清理与部署仍按 F 完成。
+
 - **E0 验证（不超过 1 周）：** 按 §0.1 第二步比较路线 (i) 和 (ii)，按门槛决定是否切换。
 - **E1 切换（通过门槛时）：**
   - XP 的 GLSL 代码生成改为 glslang → SPIR-V → vx_naga，与 GLES 3.x 共用 SPIR-V 补丁和 naga 修复；

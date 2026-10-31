@@ -2,7 +2,7 @@
 (function(global) {
     "use strict";
     const { GL } = global.GLWGConstants || require("./gl_constants.js");
-    const targets = [GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D, GL.TEXTURE_CUBE_MAP];
+    const targets = [GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D, GL.TEXTURE_CUBE_MAP, GL.TEXTURE_RECTANGLE];
     const definitions = new Map();
     const add = (p, value, kind, field, allowed) => definitions.set(p, { initial: Array.isArray(value) ? value : [value], kind, field, allowed });
     const wraps = [GL.CLAMP, GL.CLAMP_TO_EDGE, GL.CLAMP_TO_BORDER, GL.REPEAT, GL.MIRRORED_REPEAT];
@@ -23,14 +23,22 @@
     add(GL.GENERATE_MIPMAP, 0, "b");
     add(GL.TEXTURE_MAX_ANISOTROPY_EXT, 1, "f", "maxAnisotropy");
     const clamp = v => Math.max(0, Math.min(1, v));
-    const initial = () => Object.fromEntries([...definitions].map(([p, d]) => [p, d.initial.slice()]));
-    function samplerDefaults() {
+    const initial = target => {
+        const values = Object.fromEntries([...definitions].map(([p, d]) => [p, d.initial.slice()]));
+        if (target === GL.TEXTURE_RECTANGLE) {
+            values[GL.TEXTURE_MIN_FILTER] = [GL.LINEAR];
+            for (const p of [GL.TEXTURE_WRAP_S, GL.TEXTURE_WRAP_T, GL.TEXTURE_WRAP_R]) values[p] = [GL.CLAMP_TO_EDGE];
+        }
+        return values;
+    };
+    function samplerDefaults(target) {
         const out = {};
-        for (const d of definitions.values()) if (d.field)
-            out[d.field] = d.initial.length > 1 ? new Float32Array(d.initial) : d.initial[0];
+        const values = initial(target);
+        for (const [p, d] of definitions) if (d.field)
+            out[d.field] = d.initial.length > 1 ? new Float32Array(values[p]) : values[p][0];
         return out;
     }
-    function normalize(pname, values, integer, scalar) {
+    function normalize(pname, values, integer, scalar, target) {
         const d = definitions.get(pname);
         if (!d || pname === GL.TEXTURE_RESIDENT || scalar && d.initial.length > 1) return { error: GL.INVALID_ENUM };
         if (values.length < d.initial.length) return { error: GL.INVALID_VALUE };
@@ -46,6 +54,11 @@
         else if (pname === GL.TEXTURE_MAX_ANISOTROPY_EXT) {
             if (v < 1) return { error: GL.INVALID_VALUE }; v = Math.fround(Math.min(16, v));
         } else v = Math.fround(v);
+        if (target === GL.TEXTURE_RECTANGLE) {
+            if ([GL.TEXTURE_WRAP_S, GL.TEXTURE_WRAP_T, GL.TEXTURE_WRAP_R].includes(pname) && ![GL.CLAMP, GL.CLAMP_TO_EDGE, GL.CLAMP_TO_BORDER].includes(v) ||
+                    pname === GL.TEXTURE_MIN_FILTER && ![GL.NEAREST, GL.LINEAR].includes(v)) return { error: GL.INVALID_ENUM };
+            if (pname === GL.TEXTURE_BASE_LEVEL && v !== 0) return { error: GL.INVALID_VALUE };
+        }
         return { values: [v] };
     }
     const api = { targets, definitions, initial, samplerDefaults, normalize };

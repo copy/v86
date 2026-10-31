@@ -88,3 +88,13 @@ whereas validation follows the grammar and Mesa. Each logic-op tile uses an
 explicit scissor so native guardband rasterization cannot touch adjacent
 tiles. All twelve images, including both MRT images, agree byte for byte
 between Apple GL and Mesa before comparison with WebGPU.
+
+E2B adds eleven rectangle images and twenty genuine Wine/cgc images. All
+complete images agree on both native drivers; rectangle GLSL color/depth and
+rendered attachments also survive hot/cold GPU restoration. Two error probes
+have explicit normative corrections from ARB_texture_rectangle's Errors:
+nonzero BASE_LEVEL -> INVALID_VALUE (Mesa returns INVALID_OPERATION), and
+COLOR_INDEX uploads -> INVALID_ENUM (both drivers accept the probe). Raw
+results remain unchanged in the fixtures. The linear image uses integral
+channel averages: arbitrary eight-bit averages can differ by one between the
+native implementations, so they are not used as an exact-pixel oracle.

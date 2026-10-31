@@ -1157,8 +1157,9 @@
                 triple = target === "CUBE" || target === "3D", projected = instruction.info.texture === "proj",
                 bias = instruction.info.texture === "bias" ? "(" + source + ").w" : "0.0",
                 q = projected ? " / (" + source + ").w" : "",
-                coordinate = one ? "vec2<f32>((" + source + ").x" + q + ", 0.5)" :
+                rawCoordinate = one ? "vec2<f32>((" + source + ").x" + q + ", 0.5)" :
                     "(" + source + ")." + (triple ? "xyz" : "xy") + q,
+                coordinate = target.endsWith("RECT") ? "(" + rawCoordinate + " / vec2<f32>(textureDimensions(t" + unit + ")))" : rawCoordinate,
                 call = "gl_arb_sample_" + unit + "(t" + unit + ", s" + unit + ", " + coordinate + ", " + unit +
                     "u, 0.0, " + bias + ", false" + (shadow ? ", (" + source + ").z" + q : "") + ")";
             return shadow ? "vec4<f32>(vec3<f32>(" + call + "), 1.0)" : call;
@@ -1550,14 +1551,9 @@
     }
 
     function normalizeTextureTarget(text) {
-        const upper = String(text).toUpperCase();
-        if (upper.startsWith("SHADOW")) return upper.indexOf("RECT") >= 0 ? "SHADOWRECT" :
-            upper.indexOf("1D") >= 0 ? "SHADOW1D" : "SHADOW2D";
-        if (upper.indexOf("CUBE") >= 0) return "CUBE";
-        if (upper.indexOf("3D") >= 0) return "3D";
-        if (upper.indexOf("1D") >= 0) return "1D";
-        if (upper.indexOf("RECT") >= 0) return "RECT";
-        return "2D";
+        const upper = String(text);
+        if (["1D", "2D", "3D", "CUBE", "RECT", "SHADOW1D", "SHADOW2D", "SHADOWRECT"].includes(upper)) return upper;
+        throw new ARBError("unknown texture target '" + text + "'", 0);
     }
 
     /* ARB swizzles are one to four components, and a single component

@@ -8,7 +8,7 @@
     const formats = global.GLImageFormats || require("./gl_image_formats.js");
     const caps = global.GLCaps || require("./gl_caps.js");
     const IMAGE_TARGETS = [null, new Set([GL.TEXTURE_1D, GL.PROXY_TEXTURE_1D]),
-        new Set([GL.TEXTURE_2D, GL.PROXY_TEXTURE_2D, GL.PROXY_TEXTURE_CUBE_MAP,
+        new Set([GL.TEXTURE_2D, GL.PROXY_TEXTURE_2D, GL.TEXTURE_RECTANGLE, GL.PROXY_TEXTURE_RECTANGLE, GL.PROXY_TEXTURE_CUBE_MAP,
             ...Array.from({ length: 6 }, (_, i) => GL.TEXTURE_CUBE_MAP_POSITIVE_X + i)]),
         new Set([GL.TEXTURE_3D, GL.PROXY_TEXTURE_3D])];
     const PIXEL_FORMATS = new Set([GL.COLOR_INDEX, GL.RED, GL.GREEN, GL.BLUE, GL.ALPHA, GL.RGB, GL.RGBA,
@@ -24,7 +24,7 @@
         GL.UNSIGNED_SHORT_1_5_5_5_REV, GL.UNSIGNED_INT_8_8_8_8, GL.UNSIGNED_INT_8_8_8_8_REV,
         GL.UNSIGNED_INT_10_10_10_2, GL.UNSIGNED_INT_2_10_10_10_REV]);
     const setters = new Set(["TEX_PARAMETERI", "TEX_PARAMETERF", "TEX_PARAMETERIV", "TEX_PARAMETERFV"]);
-    const ensure = image => image.parameters || (image.parameters = parameters.initial());
+    const ensure = image => image.parameters || (image.parameters = parameters.initial(image.target));
     const copy = values => Object.fromEntries(Object.entries(values).map(([p, v]) => [p, v.slice()]));
     function pixelError(format, type, rectangle = false) {
         if (!(PIXEL_FORMATS.has(format) || rectangle && format === GL.STENCIL_INDEX) || !PIXEL_TYPES.has(type) && !RGB_PACKED.has(type) && !RGBA_PACKED.has(type) ||
@@ -74,10 +74,10 @@
         }
         if (r.mode !== 0 || r.data_size) return fail(GL.INVALID_VALUE);
         const cube = r.target >= GL.TEXTURE_CUBE_MAP_POSITIVE_X && r.target <= GL.TEXTURE_CUBE_MAP_NEGATIVE_Z;
-        if (![GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D].includes(r.target) && !cube) return fail(GL.INVALID_ENUM);
+        if (![GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D, GL.TEXTURE_RECTANGLE].includes(r.target) && !cube) return fail(GL.INVALID_ENUM);
         const maximum = this.capabilities ? caps.integer(this.capabilities, r.target === GL.TEXTURE_3D ? GL.MAX_3D_TEXTURE_SIZE :
             cube ? GL.MAX_CUBE_MAP_TEXTURE_SIZE : GL.MAX_TEXTURE_SIZE) : 8192;
-        if (r.level < 0 || r.level > Math.floor(Math.log2(maximum))) return fail(GL.INVALID_VALUE);
+        if (r.level < 0 || r.level > Math.floor(Math.log2(maximum)) || r.target === GL.TEXTURE_RECTANGLE && r.level !== 0) return fail(GL.INVALID_VALUE);
         const image = this.boundImage(r.target), info = image.texture.levels.get(image.layer)?.get(r.level);
         const base = info ? formats.storageFormatFor(info.internalFormat).base : "RGBA";
         if (r.compressed) {
@@ -150,9 +150,12 @@
             if (s.current.state.begin) return GL.INVALID_OPERATION;
             const r = P.decodeRecord(name, v, o), proxy = formats.PROXY_TARGETS.get(r.target);
             if (!IMAGE_TARGETS[dimensions].has(r.target)) return GL.INVALID_ENUM;
-            const target = proxy || (dimensions === 2 && r.target !== GL.TEXTURE_2D ? GL.TEXTURE_CUBE_MAP : r.target);
+            const target = proxy || (dimensions === 2 && r.target >= GL.TEXTURE_CUBE_MAP_POSITIVE_X && r.target <= GL.TEXTURE_CUBE_MAP_NEGATIVE_Z ? GL.TEXTURE_CUBE_MAP : r.target);
             const maximum = s.capabilities ? caps.integer(s.capabilities, target === GL.TEXTURE_3D ? GL.MAX_3D_TEXTURE_SIZE :
                 target === GL.TEXTURE_CUBE_MAP ? GL.MAX_CUBE_MAP_TEXTURE_SIZE : GL.MAX_TEXTURE_SIZE) : 8192;
+            if (target === GL.TEXTURE_RECTANGLE && (r.level !== 0 || r.border !== 0)) return GL.INVALID_VALUE;
+            if (target === GL.TEXTURE_RECTANGLE && compressed) return GL.INVALID_ENUM;
+            if (target === GL.TEXTURE_RECTANGLE && (r.format === GL.COLOR_INDEX || formats.BASE_INTERNAL_FORMATS[r.internalformat] === "COLOR_INDEX" || !compressed && !!formats.COMPRESSED_FORMATS[r.internalformat])) return GL.INVALID_ENUM;
             if (r.level < 0 || r.level > Math.floor(Math.log2(maximum)) || r.border < 0 || r.border > 1) return GL.INVALID_VALUE;
             const sizes = [r.width, ...(dimensions >= 2 ? [r.height] : []), ...(dimensions >= 3 ? [r.depth] : [])];
             const maximumSize = Math.max(1, Math.floor(maximum / 2 ** r.level)) + 2 * r.border;
@@ -169,7 +172,7 @@
                 const error = pixelError(r.format, r.type); if (error) return error;
                 const base = formats.storageFormatFor(r.internalformat).base;
                 if ((base === "DEPTH") !== (r.format === GL.DEPTH_COMPONENT) ||
-                    base === "COLOR_INDEX" && r.format !== GL.COLOR_INDEX || base === "DEPTH" && ![GL.TEXTURE_1D, GL.TEXTURE_2D].includes(target))
+                    base === "COLOR_INDEX" && r.format !== GL.COLOR_INDEX || base === "DEPTH" && ![GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_RECTANGLE].includes(target))
                     return GL.INVALID_OPERATION;
             }
             const bytes = compressed ? r.image_size : r.data_size;
@@ -184,10 +187,11 @@
             if (s.current.state.begin) return GL.INVALID_OPERATION;
             const r = P.decodeRecord(name, v, o);
             if (!IMAGE_TARGETS[dimensions].has(r.target) || formats.PROXY_TARGETS.has(r.target)) return GL.INVALID_ENUM;
-            const cube = dimensions === 2 && r.target !== GL.TEXTURE_2D;
+            if (r.target === GL.TEXTURE_RECTANGLE && compressed) return GL.INVALID_ENUM;
+            const cube = dimensions === 2 && r.target >= GL.TEXTURE_CUBE_MAP_POSITIVE_X && r.target <= GL.TEXTURE_CUBE_MAP_NEGATIVE_Z;
             const maximum = s.capabilities ? caps.integer(s.capabilities, dimensions === 3 ? GL.MAX_3D_TEXTURE_SIZE :
                 cube ? GL.MAX_CUBE_MAP_TEXTURE_SIZE : GL.MAX_TEXTURE_SIZE) : 8192;
-            if (r.level < 0 || r.level > Math.floor(Math.log2(maximum))) return GL.INVALID_VALUE;
+            if (r.level < 0 || r.level > Math.floor(Math.log2(maximum)) || r.target === GL.TEXTURE_RECTANGLE && r.level !== 0) return GL.INVALID_VALUE;
             const image = s.boundImage(r.target), info = image.texture.levels.get(image.layer)?.get(r.level);
             if (!info) return GL.INVALID_OPERATION;
             const lengths = [r.width, ...(dimensions >= 2 ? [r.height] : []), ...(dimensions >= 3 ? [r.depth] : [])];
@@ -214,8 +218,10 @@
     for (const dimensions of [1, 2]) state.rule("COPY_TEX_IMAGE_" + dimensions + "D", (c, a, s) => {
         const [target, level, internalFormat, , , width] = a, height = dimensions === 2 ? a[6] : 1, border = a[dimensions === 2 ? 7 : 6];
         if (!IMAGE_TARGETS[dimensions].has(target) || formats.PROXY_TARGETS.has(target)) return GL.INVALID_ENUM;
-        const cube = dimensions === 2 && target !== GL.TEXTURE_2D;
+        const cube = dimensions === 2 && target >= GL.TEXTURE_CUBE_MAP_POSITIVE_X && target <= GL.TEXTURE_CUBE_MAP_NEGATIVE_Z;
         const maximum = s.capabilities ? caps.integer(s.capabilities, cube ? GL.MAX_CUBE_MAP_TEXTURE_SIZE : GL.MAX_TEXTURE_SIZE) : 8192;
+        if (target === GL.TEXTURE_RECTANGLE && (level !== 0 || border !== 0)) return GL.INVALID_VALUE;
+        if (target === GL.TEXTURE_RECTANGLE && formats.COMPRESSED_FORMATS[internalFormat]) return GL.INVALID_ENUM;
         if (level < 0 || level > Math.floor(Math.log2(maximum)) || border < 0 || border > 1) return GL.INVALID_VALUE;
         const max = Math.max(1, Math.floor(maximum / 2 ** level)) + 2 * border;
         if (width < 2 * border || width > max || dimensions === 2 && (height < 2 * border || height > max) || cube && width !== height)
@@ -229,10 +235,10 @@
     for (const dimensions of [1, 2, 3]) state.rule("COPY_TEX_SUB_IMAGE_" + dimensions + "D", (c, a, s) => {
         const [target, level, xoffset] = a;
         if (!IMAGE_TARGETS[dimensions].has(target) || formats.PROXY_TARGETS.has(target)) return GL.INVALID_ENUM;
-        const cube = dimensions === 2 && target !== GL.TEXTURE_2D;
+        const cube = dimensions === 2 && target >= GL.TEXTURE_CUBE_MAP_POSITIVE_X && target <= GL.TEXTURE_CUBE_MAP_NEGATIVE_Z;
         const maximum = s.capabilities ? caps.integer(s.capabilities, dimensions === 3 ? GL.MAX_3D_TEXTURE_SIZE :
             cube ? GL.MAX_CUBE_MAP_TEXTURE_SIZE : GL.MAX_TEXTURE_SIZE) : 8192;
-        if (level < 0 || level > Math.floor(Math.log2(maximum))) return GL.INVALID_VALUE;
+        if (level < 0 || level > Math.floor(Math.log2(maximum)) || target === GL.TEXTURE_RECTANGLE && level !== 0) return GL.INVALID_VALUE;
         const image = s.boundImage(target), info = image.texture.levels.get(image.layer)?.get(level);
         if (!info) return GL.INVALID_OPERATION;
         const width = a[dimensions + 4], height = dimensions >= 2 ? a[dimensions + 5] : 1;
@@ -245,7 +251,7 @@
     });
     function command(name, a) {
         const scalar = name === "TEX_PARAMETERI" || name === "TEX_PARAMETERF";
-        return parameters.normalize(a[1], scalar ? [a[2]] : a.slice(3, 3 + a[2]), name.endsWith("I") || name.endsWith("IV"), scalar);
+        return parameters.normalize(a[1], scalar ? [a[2]] : a.slice(3, 3 + a[2]), name.endsWith("I") || name.endsWith("IV"), scalar, a[0]);
     }
     for (const name of setters) state.rule(name, (c, a) => {
         if (!parameters.targets.includes(a[0])) return GL.INVALID_ENUM;
@@ -272,10 +278,10 @@
     state.parameter(P.C.V86GL_PARAMETER_TEXTURE_LEVEL, (s, target, pname, level) => {
         const proxy = formats.PROXY_TARGETS.get(target);
         const cube = target >= GL.TEXTURE_CUBE_MAP_POSITIVE_X && target <= GL.TEXTURE_CUBE_MAP_NEGATIVE_Z;
-        if (![GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D].includes(target) && !cube && !proxy) return GL.INVALID_ENUM;
+        if (![GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D, GL.TEXTURE_RECTANGLE].includes(target) && !cube && !proxy) return GL.INVALID_ENUM;
         const maximum = s.capabilities ? caps.integer(s.capabilities, (proxy || target) === GL.TEXTURE_3D ? GL.MAX_3D_TEXTURE_SIZE :
             cube || proxy === GL.TEXTURE_CUBE_MAP ? GL.MAX_CUBE_MAP_TEXTURE_SIZE : GL.MAX_TEXTURE_SIZE) : 16384;
-        if (level > Math.floor(Math.log2(maximum))) return GL.INVALID_VALUE;
+        if (level > Math.floor(Math.log2(maximum)) || (target === GL.TEXTURE_RECTANGLE || proxy === GL.TEXTURE_RECTANGLE) && level !== 0) return GL.INVALID_VALUE;
         const image = !proxy && s.boundImage(target), info = proxy ? s.current.proxyImages.get(target)?.get(level) : image.texture.levels.get(image.layer)?.get(level);
         const compressed = !!(info && (info.compressed ?? !!formats.COMPRESSED_FORMATS[info.internalFormat]));
         switch (pname) {
@@ -313,7 +319,7 @@
             for (const unit of c.unitImages) for (const target of parameters.targets) {
                 const id = unit.get(target) || c.defaultTextures.get(target) || 0, key = id || "default:" + target;
                 const image = c.group.textureImages.get(id);
-                saved.set(key, { id, target, values: image ? ensure(image) : parameters.initial() });
+                saved.set(key, { id, target, values: image ? ensure(image) : parameters.initial(target) });
             }
             return [...saved.values()].map(item => ({ ...item, values: copy(item.values) }));
         },

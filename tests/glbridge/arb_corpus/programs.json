@@ -1,0 +1,561 @@
+{
+  "version": 1,
+  "wine_url": "https://raw.githubusercontent.com/wine-mirror/wine/wine-4.0/dlls/wined3d/arb_program_shader.c",
+  "wine_sha256": "72129e9acdf4b824e9b89a9a299c7df871c74f70b95921085419ac730d774baf",
+  "cg_url": "https://developer.download.nvidia.com/cg/Cg_3.1/Cg-3.1_April2012.dmg",
+  "compiler_sha256": "036110e9e78a74f858878b0f340c1546e21d79b3569d06f1343a5efc3ac11c61",
+  "records": [
+    {
+      "name": "wine_plain_1d",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEX result.color, fragment.texcoord[0], texture[0], 1D;\nEND\n",
+      "texture": "1D",
+      "key": false,
+      "locals": [],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_1d_key",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEMP color;\nTEMP less, greater;\nPARAM color_key_low = program.local[1];\nPARAM color_key_high = program.local[2];\nTEX color, fragment.texcoord[0], texture[0], 1D;\nSLT less, color, color_key_low;\nSGE greater, color, color_key_high;\nADD less, less, greater;\nDP4 less.b, less, less;\nSGE less, -less.b, 0.0;\nKIL -less;\nMOV result.color, color;\nEND\n",
+      "texture": "1D",
+      "key": true,
+      "locals": [
+        [
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          [
+            1,
+            1,
+            1,
+            2
+          ]
+        ]
+      ],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_2d",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEX result.color, fragment.texcoord[0], texture[0], 2D;\nEND\n",
+      "texture": "2D",
+      "key": false,
+      "locals": [],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_2d_key",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEMP color;\nTEMP less, greater;\nPARAM color_key_low = program.local[1];\nPARAM color_key_high = program.local[2];\nTEX color, fragment.texcoord[0], texture[0], 2D;\nSLT less, color, color_key_low;\nSGE greater, color, color_key_high;\nADD less, less, greater;\nDP4 less.b, less, less;\nSGE less, -less.b, 0.0;\nKIL -less;\nMOV result.color, color;\nEND\n",
+      "texture": "2D",
+      "key": true,
+      "locals": [
+        [
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          [
+            1,
+            1,
+            1,
+            2
+          ]
+        ]
+      ],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_3d",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEX result.color, fragment.texcoord[0], texture[0], 3D;\nEND\n",
+      "texture": "3D",
+      "key": false,
+      "locals": [],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_3d_key",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEMP color;\nTEMP less, greater;\nPARAM color_key_low = program.local[1];\nPARAM color_key_high = program.local[2];\nTEX color, fragment.texcoord[0], texture[0], 3D;\nSLT less, color, color_key_low;\nSGE greater, color, color_key_high;\nADD less, less, greater;\nDP4 less.b, less, less;\nSGE less, -less.b, 0.0;\nKIL -less;\nMOV result.color, color;\nEND\n",
+      "texture": "3D",
+      "key": true,
+      "locals": [
+        [
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          [
+            1,
+            1,
+            1,
+            2
+          ]
+        ]
+      ],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_cube",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEX result.color, fragment.texcoord[0], texture[0], CUBE;\nEND\n",
+      "texture": "CUBE",
+      "key": false,
+      "locals": [],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_cube_key",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEMP color;\nTEMP less, greater;\nPARAM color_key_low = program.local[1];\nPARAM color_key_high = program.local[2];\nTEX color, fragment.texcoord[0], texture[0], CUBE;\nSLT less, color, color_key_low;\nSGE greater, color, color_key_high;\nADD less, less, greater;\nDP4 less.b, less, less;\nSGE less, -less.b, 0.0;\nKIL -less;\nMOV result.color, color;\nEND\n",
+      "texture": "CUBE",
+      "key": true,
+      "locals": [
+        [
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          [
+            1,
+            1,
+            1,
+            2
+          ]
+        ]
+      ],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_rect",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEX result.color, fragment.texcoord[0], texture[0], RECT;\nEND\n",
+      "texture": "RECT",
+      "key": false,
+      "locals": [],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "wine_plain_rect_key",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nTEMP color;\nTEMP less, greater;\nPARAM color_key_low = program.local[1];\nPARAM color_key_high = program.local[2];\nTEX color, fragment.texcoord[0], texture[0], RECT;\nSLT less, color, color_key_low;\nSGE greater, color, color_key_high;\nADD less, less, greater;\nDP4 less.b, less, less;\nSGE less, -less.b, 0.0;\nKIL -less;\nMOV result.color, color;\nEND\n",
+      "texture": "RECT",
+      "key": true,
+      "locals": [
+        [
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          [
+            1,
+            1,
+            1,
+            2
+          ]
+        ]
+      ],
+      "producer": "Wine 4.0 arbfp_gen_plain_shader (executed unmodified)"
+    },
+    {
+      "name": "cgc_C2E1v_green",
+      "stage": "vertex",
+      "source": "!!ARBvp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbvp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/01_vertex_program/C2E1v_green.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbvp1\n#program C2E1v_green\n#var float2 position : $vin.POSITION : POSITION : 0 : 1\n#var float4 C2E1v_green.position : $vout.POSITION : HPOS : -1 : 1\n#var float3 C2E1v_green.color : $vout.COLOR : COL0 : -1 : 1\n#const c[0] = 0 1\nPARAM c[1] = { { 0, 1 } };\nMOV result.color.xyz, c[0].xyxw;\nMOV result.position.xy, vertex.position;\nMOV result.position.zw, c[0].xyxy;\nEND\n# 3 instructions, 0 R-regs\n",
+      "locals": [],
+      "texture": null,
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C2E1v_green from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 38.\n\nstruct C2E1v_Output {\n  float4 position : POSITION;\n  float3 color    : COLOR;\n};\n\nC2E1v_Output C2E1v_green(float2 position : POSITION)\n{\t\n  C2E1v_Output OUT;\n\n  OUT.position = float4(position,0,1);\n  OUT.color = float3(0,1,0);\n\n  return OUT;\t\n}\n",
+      "input_sha256": "4603fc178d794529da1f110f54f7429a686cfb407e2a2bf511ad21d94c4aaea8",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbvp1",
+        "-entry",
+        "C2E1v_green",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/01_vertex_program/C2E1v_green.cg",
+        "-o",
+        "build/gl-e2/corpus/C2E1v_green.arb"
+      ]
+    },
+    {
+      "name": "cgc_C3E1v_anycolor",
+      "stage": "vertex",
+      "source": "!!ARBvp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbvp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/03_uniform_parameter/C3E1v_anycolor.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbvp1\n#program C3E1v_anycolor\n#semantic C3E1v_anycolor.constantColor\n#var float2 position : $vin.POSITION : POSITION : 0 : 1\n#var float3 constantColor :  : c[1] : 1 : 1\n#var float4 C3E1v_anycolor.position : $vout.POSITION : HPOS : -1 : 1\n#var float3 C3E1v_anycolor.color : $vout.COLOR : COL0 : -1 : 1\n#const c[0] = 0 1\nPARAM c[2] = { { 0, 1 },\n\t\tprogram.local[1] };\nMOV result.color.xyz, c[1];\nMOV result.position.xy, vertex.position;\nMOV result.position.zw, c[0].xyxy;\nEND\n# 3 instructions, 0 R-regs\n",
+      "locals": [
+        [
+          1,
+          [
+            0.25,
+            0.5,
+            0.75,
+            1
+          ]
+        ]
+      ],
+      "texture": null,
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C2E2f_passthru from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 62.\n\nstruct C3E1v_Output {\n  float4 position : POSITION;\n  float3 color    : COLOR;\n};\n\nC3E1v_Output C3E1v_anycolor(float2 position : POSITION,\n                           uniform float3 constantColor)\n{\n  C3E1v_Output OUT;\n\n  OUT.position = float4(position,0,1);\n  OUT.color = constantColor;  // some RGB color\n\n  return OUT;\t\n}\n\n",
+      "input_sha256": "d7e7f38043fc293a1e49409eb7db500652bc5a8ea53234438031bd6302dbed59",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbvp1",
+        "-entry",
+        "C3E1v_anycolor",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/03_uniform_parameter/C3E1v_anycolor.cg",
+        "-o",
+        "build/gl-e2/corpus/C3E1v_anycolor.arb"
+      ]
+    },
+    {
+      "name": "cgc_C3E2v_varying",
+      "stage": "vertex",
+      "source": "!!ARBvp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbvp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/04_varying_parameter/C3E2v_varying.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbvp1\n#program C3E2v_varying\n#var float2 position : $vin.POSITION : POSITION : 0 : 1\n#var float3 color : $vin.COLOR : COLOR0 : 1 : 1\n#var float2 texCoord : $vin.TEXCOORD0 : TEXCOORD0 : 2 : 1\n#var float4 C3E2v_varying.position : $vout.POSITION : HPOS : -1 : 1\n#var float3 C3E2v_varying.color : $vout.COLOR : COL0 : -1 : 1\n#var float2 C3E2v_varying.texCoord : $vout.TEXCOORD0 : TEX0 : -1 : 1\n#const c[0] = 0 1\nPARAM c[1] = { { 0, 1 } };\nMOV result.color.xyz, vertex.color;\nMOV result.position.xy, vertex.position;\nMOV result.position.zw, c[0].xyxy;\nMOV result.texcoord[0].xy, vertex.texcoord[0];\nEND\n# 4 instructions, 0 R-regs\n",
+      "locals": [],
+      "texture": null,
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C3E2v_varying from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 65.\n\nstruct C3E2v_Output {\n  float4 position : POSITION;\n  float3 color    : COLOR;\n  float2 texCoord : TEXCOORD0;\n};\n\nC3E2v_Output C3E2v_varying(float2 position : POSITION,\n                           float3 color    : COLOR,\n                           float2 texCoord : TEXCOORD0)\n{\n  C3E2v_Output OUT;\n\n  OUT.position = float4(position,0,1);\n  OUT.color    = color;\n  OUT.texCoord = texCoord;\n\n  return OUT;\t\n}\n\n",
+      "input_sha256": "45a2a02cce3e0d0dc1aaf2d3a6b41fdadb2ddd7904ca97a510eff016475a29b0",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbvp1",
+        "-entry",
+        "C3E2v_varying",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/04_varying_parameter/C3E2v_varying.cg",
+        "-o",
+        "build/gl-e2/corpus/C3E2v_varying.arb"
+      ]
+    },
+    {
+      "name": "cgc_C3E3f_texture",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbfp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/05_texture_sampling/C3E3f_texture.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbfp1\n#program C3E3f_texture\n#semantic C3E3f_texture.decal : TEX0\n#var float2 texCoord : $vin.TEXCOORD0 : TEX0 : 0 : 1\n#var sampler2D decal : TEX0 : texunit 0 : 1 : 1\n#var float4 C3E3f_texture.color : $vout.COLOR : COL : -1 : 1\nTEX result.color, fragment.texcoord[0], texture[0], 2D;\nEND\n# 1 instructions, 0 R-regs\n",
+      "locals": [],
+      "texture": "2D",
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C3E3f_texture from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 67.\n\nstruct C3E3f_Output {\n  float4 color : COLOR;\n};\n\nC3E3f_Output C3E3f_texture(float2 texCoord : TEXCOORD0,\n                           uniform sampler2D decal : TEX0)\n{\n  C3E3f_Output OUT;\n  OUT.color = tex2D(decal,texCoord);\n  return OUT;\n}\n\n",
+      "input_sha256": "d6df0f6400a64932e7810dbe6fa04e2a06c83a0f69255537ab8b8b1171e6ede3",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbfp1",
+        "-entry",
+        "C3E3f_texture",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/05_texture_sampling/C3E3f_texture.cg",
+        "-o",
+        "build/gl-e2/corpus/C3E3f_texture.arb"
+      ]
+    },
+    {
+      "name": "cgc_C3E5v_twoTextures",
+      "stage": "vertex",
+      "source": "!!ARBvp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbvp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/07_two_texture_accesses/C3E5v_twoTextures.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbvp1\n#program C3E5v_twoTextures\n#semantic C3E5v_twoTextures.leftSeparation\n#semantic C3E5v_twoTextures.rightSeparation\n#var float2 position : $vin.POSITION : POSITION : 0 : 1\n#var float2 texCoord : $vin.TEXCOORD0 : TEXCOORD0 : 1 : 1\n#var float4 oPosition : $vout.POSITION : HPOS : 2 : 1\n#var float2 leftTexCoord : $vout.TEXCOORD0 : TEX0 : 3 : 1\n#var float2 rightTexCoord : $vout.TEXCOORD1 : TEX1 : 4 : 1\n#var float2 leftSeparation :  : c[1] : 5 : 1\n#var float2 rightSeparation :  : c[2] : 6 : 1\n#const c[0] = 0 1\nPARAM c[3] = { { 0, 1 },\n\t\tprogram.local[1..2] };\nMOV result.position.xy, vertex.position;\nMOV result.position.zw, c[0].xyxy;\nADD result.texcoord[0].xy, vertex.texcoord[0], c[1];\nADD result.texcoord[1].xy, vertex.texcoord[0], c[2];\nEND\n# 4 instructions, 0 R-regs\n",
+      "locals": [
+        [
+          1,
+          [
+            0.25,
+            0.5,
+            0.75,
+            1
+          ]
+        ],
+        [
+          2,
+          [
+            0.25,
+            0.5,
+            0.75,
+            1
+          ]
+        ]
+      ],
+      "texture": null,
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C3E5v_twoTextures from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 83.\n\n// NOTE:  The version below corrects an editing error in the book's version.\n\nvoid C3E5v_twoTextures(float2 position : POSITION,\n                       float2 texCoord : TEXCOORD0,\n\n                   out float4 oPosition     : POSITION,\n                   out float2 leftTexCoord  : TEXCOORD0,\n                   out float2 rightTexCoord : TEXCOORD1,\n\n               uniform float2 leftSeparation,\n               uniform float2 rightSeparation)\n{\n  oPosition     = float4(position, 0, 1);\n  leftTexCoord  = texCoord + leftSeparation;\n  rightTexCoord = texCoord + rightSeparation;\n}\n",
+      "input_sha256": "e9214a3608f852fdc9c072074588c6427d8cb011a39ba108906a97001e3b82ed",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbvp1",
+        "-entry",
+        "C3E5v_twoTextures",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/07_two_texture_accesses/C3E5v_twoTextures.cg",
+        "-o",
+        "build/gl-e2/corpus/C3E5v_twoTextures.arb"
+      ]
+    },
+    {
+      "name": "cgc_C3E6f_twoTextures",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbfp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/07_two_texture_accesses/C3E6f_twoTextures.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbfp1\n#program C3E6f_twoTextures\n#semantic C3E6f_twoTextures.decal\n#var float2 leftTexCoord : $vin.TEXCOORD0 : TEX0 : 0 : 1\n#var float2 rightTexCoord : $vin.TEXCOORD1 : TEX1 : 1 : 1\n#var float4 color : $vout.COLOR : COL : 2 : 1\n#var sampler2D decal :  : texunit 0 : 3 : 1\n#const c[0] = 0.5\nPARAM c[1] = { { 0.5 } };\nTEMP R0;\nTEMP R1;\nTEX R0, fragment.texcoord[0], texture[0], 2D;\nTEX R1, fragment.texcoord[1], texture[0], 2D;\nADD R1, R1, -R0;\nMAD result.color, R1, c[0].x, R0;\nEND\n# 4 instructions, 2 R-regs\n",
+      "locals": [],
+      "texture": "2D",
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C3E6f_twoTextures from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 85.\n\nvoid C3E6f_twoTextures(float2 leftTexCoord  : TEXCOORD0,\n                       float2 rightTexCoord : TEXCOORD1,\n\n                   out float4 color : COLOR,\n\n               uniform sampler2D decal)\n{\n  float4 leftColor  = tex2D(decal, leftTexCoord);\n  float4 rightColor = tex2D(decal, rightTexCoord);\n  color = lerp(leftColor, rightColor, 0.5);\n}",
+      "input_sha256": "f62f02f5d3f4cfd78dccca3b4ba7c4253418713646e5d54e04dcf54974630fcc",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbfp1",
+        "-entry",
+        "C3E6f_twoTextures",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/07_two_texture_accesses/C3E6f_twoTextures.cg",
+        "-o",
+        "build/gl-e2/corpus/C3E6f_twoTextures.arb"
+      ]
+    },
+    {
+      "name": "cgc_C4E1v_transform",
+      "stage": "vertex",
+      "source": "!!ARBvp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbvp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/08_vertex_transform/C4E1v_transform.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbvp1\n#program C4E1v_transform\n#semantic C4E1v_transform.modelViewProj\n#var float4 position : $vin.POSITION : POSITION : 0 : 1\n#var float4 oPosition : $vout.POSITION : HPOS : 1 : 1\n#var float4x4 modelViewProj :  : c[1], 4 : 2 : 1\nPARAM c[5] = { program.local[0..4] };\nDP4 result.position.w, vertex.position, c[4];\nDP4 result.position.z, vertex.position, c[3];\nDP4 result.position.y, vertex.position, c[2];\nDP4 result.position.x, vertex.position, c[1];\nEND\n# 4 instructions, 0 R-regs\n",
+      "locals": [
+        [
+          1,
+          [
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          [
+            0,
+            1,
+            0,
+            0
+          ]
+        ],
+        [
+          3,
+          [
+            0,
+            0,
+            1,
+            0
+          ]
+        ],
+        [
+          4,
+          [
+            0,
+            0,
+            0,
+            1
+          ]
+        ]
+      ],
+      "texture": null,
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C4E1v_transform from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 97.\n\nvoid C4E1v_transform(float4 position : POSITION,\n                 out float4 oPosition : POSITION,\n             uniform float4x4 modelViewProj)\n{\n  // Transform position from object space to clip space\n  oPosition = mul(modelViewProj, position);\n}\n",
+      "input_sha256": "b789f6b2630cd7605f7e16d3dfe3f13d5e05f539e41d985ea2bdd4a864f87340",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbvp1",
+        "-entry",
+        "C4E1v_transform",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/08_vertex_transform/C4E1v_transform.cg",
+        "-o",
+        "build/gl-e2/corpus/C4E1v_transform.arb"
+      ]
+    },
+    {
+      "name": "cgc_C9E1f_fog",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbfp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/25_uniform_fog/C9E1f_fog.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbfp1\n#program C9E1f_fog\n#semantic C9E1f_fog.decal\n#semantic C9E1f_fog.fogColor\n#var float2 texCoord : $vin.TEXCOORD0 : TEX0 : 0 : 1\n#var float fogExponent : $vin.TEXCOORD1 : TEX1 : 1 : 1\n#var float4 color : $vin.COLOR : COL0 : 2 : 1\n#var float4 oColor : $vout.COLOR : COL : 3 : 1\n#var sampler2D decal :  : texunit 0 : 4 : 1\n#var float3 fogColor :  : c[0] : 5 : 1\nPARAM c[1] = { program.local[0] };\nTEMP R0;\nTEX R0.xyz, fragment.texcoord[0], texture[0], 2D;\nABS R0.w, fragment.texcoord[1].x;\nMAD R0.xyz, fragment.color.primary, R0, -c[0];\nEX2 R0.w, -R0.w;\nMAD result.color.xyz, R0.w, R0, c[0];\nMOV result.color.w, fragment.color.primary;\nEND\n# 6 instructions, 1 R-regs\n",
+      "locals": [
+        [
+          0,
+          [
+            0.25,
+            0.5,
+            0.75,
+            1
+          ]
+        ]
+      ],
+      "texture": "2D",
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C9E1f_fog from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 240.\n\nvoid C9E1f_fog(float2 texCoord    : TEXCOORD0,\n               float  fogExponent : TEXCOORD1,\n               float4 color       : COLOR,\n\n           out float4 oColor : COLOR,\n\n       uniform sampler2D decal,\n       uniform float3 fogColor)\n{\n  float fogFactor   = exp2(-abs(fogExponent));\n  float4 decalColor = tex2D(decal, texCoord);\n  float4 texColor   = color*decalColor;\n\n  oColor.xyz = lerp(fogColor, texColor.xyz,\n                    fogFactor);\n  oColor.w   = color.w;\n}\n",
+      "input_sha256": "21d192bc5c29d5b2f6fe28a1c23ca0caca329a93d952f8f95814e843640cee47",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbfp1",
+        "-entry",
+        "C9E1f_fog",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/25_uniform_fog/C9E1f_fog.cg",
+        "-o",
+        "build/gl-e2/corpus/C9E1f_fog.arb"
+      ]
+    },
+    {
+      "name": "cgc_C9E5v_projTex",
+      "stage": "vertex",
+      "source": "!!ARBvp1.0\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbvp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/27_projective_texturing/C9E5v_projTex.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbvp1\n#program C9E5v_projTex\n#semantic C9E5v_projTex.Kd\n#semantic C9E5v_projTex.modelViewProj\n#semantic C9E5v_projTex.lightPosition\n#semantic C9E5v_projTex.textureMatrix\n#var float4 position : $vin.POSITION : POSITION : 0 : 1\n#var float3 normal : $vin.NORMAL : NORMAL : 1 : 1\n#var float4 oPosition : $vout.POSITION : HPOS : 2 : 1\n#var float4 texCoordProj : $vout.TEXCOORD0 : TEX0 : 3 : 1\n#var float4 diffuseLighting : $vout.COLOR : COL0 : 4 : 1\n#var float Kd :  : c[9] : 5 : 1\n#var float4x4 modelViewProj :  : c[1], 4 : 6 : 1\n#var float3 lightPosition :  : c[10] : 7 : 1\n#var float4x4 textureMatrix :  : c[5], 4 : 8 : 1\n#const c[0] = 0\nPARAM c[11] = { { 0 },\n\t\tprogram.local[1..10] };\nTEMP R0;\nTEMP R1;\nADD R0.xyz, -vertex.position, c[10];\nDP3 R0.w, R0, R0;\nDP3 R1.x, vertex.normal, vertex.normal;\nRSQ R1.w, R1.x;\nRSQ R0.w, R0.w;\nMUL R1.xyz, R0.w, R0;\nMUL R0.xyz, R1.w, vertex.normal;\nDP3 R0.x, R0, R1;\nMAX R0.x, R0, c[0];\nMUL result.color, R0.x, c[9].x;\nDP4 result.position.w, vertex.position, c[4];\nDP4 result.position.z, vertex.position, c[3];\nDP4 result.position.y, vertex.position, c[2];\nDP4 result.position.x, vertex.position, c[1];\nDP4 result.texcoord[0].w, vertex.position, c[8];\nDP4 result.texcoord[0].z, vertex.position, c[7];\nDP4 result.texcoord[0].y, vertex.position, c[6];\nDP4 result.texcoord[0].x, vertex.position, c[5];\nEND\n# 18 instructions, 2 R-regs\n",
+      "locals": [
+        [
+          9,
+          [
+            0.25,
+            0.5,
+            0.75,
+            1
+          ]
+        ],
+        [
+          1,
+          [
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          2,
+          [
+            0,
+            1,
+            0,
+            0
+          ]
+        ],
+        [
+          3,
+          [
+            0,
+            0,
+            1,
+            0
+          ]
+        ],
+        [
+          4,
+          [
+            0,
+            0,
+            0,
+            1
+          ]
+        ],
+        [
+          10,
+          [
+            0,
+            0,
+            4,
+            1
+          ]
+        ],
+        [
+          5,
+          [
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          6,
+          [
+            0,
+            1,
+            0,
+            0
+          ]
+        ],
+        [
+          7,
+          [
+            0,
+            0,
+            1,
+            0
+          ]
+        ],
+        [
+          8,
+          [
+            0,
+            0,
+            0,
+            1
+          ]
+        ]
+      ],
+      "texture": null,
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C9E5v_projTex from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 254.\n\nvoid C9E5v_projTex(float4 position : POSITION,\n                   float3 normal   : NORMAL,\n       \n               out float4 oPosition       : POSITION,\n               out float4 texCoordProj    : TEXCOORD0,\n               out float4 diffuseLighting : COLOR,\n       \n           uniform float Kd,\n           uniform float4x4 modelViewProj,\n           uniform float3   lightPosition, \n           uniform float4x4 textureMatrix)\n{\n  oPosition = mul(modelViewProj, position);\n\n  // Compute texture coordinates for \n  // querying the projective texture\n  texCoordProj = mul(textureMatrix, position);\n  \n  // Compute diffuse lighting\n  float3 N = normalize(normal);\n  float3 L = normalize(lightPosition - position.xyz);\n  diffuseLighting = Kd * max(dot(N, L), 0);\n}\n",
+      "input_sha256": "e494966f33cee6cab3978f3fec5528be803808b5baba86ca38a12727d7069fa6",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbvp1",
+        "-entry",
+        "C9E5v_projTex",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/27_projective_texturing/C9E5v_projTex.cg",
+        "-o",
+        "build/gl-e2/corpus/C9E5v_projTex.arb"
+      ]
+    },
+    {
+      "name": "cgc_C9E6f_projTex",
+      "stage": "fragment",
+      "source": "!!ARBfp1.0\nOPTION ARB_fragment_program_shadow;\n# cgc version 3.1.0013, build date Apr 18 2012\n# command line args: -quiet -profile arbfp1\n# source file: build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/27_projective_texturing/C9E6f_projTex.cg\n#vendor NVIDIA Corporation\n#version 3.1.0.13\n#profile arbfp1\n#program C9E6f_projTex\n#semantic C9E6f_projTex.projectiveMap\n#var float4 texCoordProj : $vin.TEXCOORD0 : TEX0 : 0 : 1\n#var float4 diffuseLighting : $vin.COLOR : COL0 : 1 : 1\n#var float4 color : $vout.COLOR : COL : 2 : 1\n#var sampler2D projectiveMap :  : texunit 0 : 3 : 1\nTEMP R0;\nTXP R0, fragment.texcoord[0], texture[0], SHADOW2D;\nMUL result.color, R0, fragment.color.primary;\nEND\n# 2 instructions, 1 R-regs\n",
+      "locals": [],
+      "texture": "SHADOW2D",
+      "producer": "cgc: version 3.1.0013, build date Apr 18 2012 12:43:07.",
+      "input": "// This is C9E6f_projTex from \"The Cg Tutorial\" (Addison-Wesley, ISBN\n// 0321194969) by Randima Fernando and Mark J. Kilgard.  See page 254.\n\nvoid C9E6f_projTex(float4 texCoordProj    : TEXCOORD0,\n                   float4 diffuseLighting : COLOR,\n\n               out float4 color : COLOR,\n\n           uniform sampler2D projectiveMap)\n{\n  // Fetch color from the projective texture\n  float4 textureColor = tex2Dproj(projectiveMap, \n                                  texCoordProj);\n\n  color = textureColor * diffuseLighting;\n}   \n",
+      "input_sha256": "1ceabbfb4e3440cca0682cd35ee547a262bf3ec43354e8049eeb2dfb78393c90",
+      "command": [
+        "-quiet",
+        "-profile",
+        "arbfp1",
+        "-entry",
+        "C9E6f_projTex",
+        "build/gl-e2/cg/Developer/NVIDIA/Cg/examples/OpenGL/basic/27_projective_texturing/C9E6f_projTex.cg",
+        "-o",
+        "build/gl-e2/corpus/C9E6f_projTex.arb"
+      ]
+    }
+  ]
+}

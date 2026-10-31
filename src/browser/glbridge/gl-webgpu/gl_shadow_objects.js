@@ -198,7 +198,7 @@
     proto.autoMipmap = function(target, level) {
         if (formats.PROXY_TARGETS.has(target)) return;
         const image = this.boundImage(target).texture;
-        if (level === (image.parameters?.[GL.TEXTURE_BASE_LEVEL]?.[0] || 0) && image.parameters?.[GL.GENERATE_MIPMAP]?.[0])
+        if (target !== GL.TEXTURE_RECTANGLE && level === (image.parameters?.[GL.TEXTURE_BASE_LEVEL]?.[0] || 0) && image.parameters?.[GL.GENERATE_MIPMAP]?.[0])
             this.generateMipmapForImage(image, target);
     };
 

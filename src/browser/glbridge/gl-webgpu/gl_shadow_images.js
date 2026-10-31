@@ -8,7 +8,7 @@
     const buffers = global.GLFramebufferState || require("./gl_framebuffer_state.js");
     const caps = global.GLCaps || require("./gl_caps.js");
     const formats = global.GLImageFormats || require("./gl_image_formats.js");
-    const targets = new Set([GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D, GL.TEXTURE_CUBE_MAP]);
+    const targets = new Set([GL.TEXTURE_1D, GL.TEXTURE_2D, GL.TEXTURE_3D, GL.TEXTURE_CUBE_MAP, GL.TEXTURE_RECTANGLE]);
     GLShadow.prototype.framebufferStateValue = function(pname) {
         const fbo = this.boundFramebuffer(GL.DRAW_FRAMEBUFFER); if (!fbo) return null;
         // The exposed renderbuffer/texture storage is single-sampled. Window
@@ -31,7 +31,7 @@
     GLShadow.queries({ integers: Object.fromEntries([GL.RED_BITS, GL.GREEN_BITS, GL.BLUE_BITS, GL.ALPHA_BITS,
         GL.DEPTH_BITS, GL.STENCIL_BITS, GL.SAMPLE_BUFFERS, GL.SAMPLES].map(pname => [pname, "framebufferInteger"])) });
     for (const [pname, target] of [[GL.TEXTURE_BINDING_1D, GL.TEXTURE_1D], [GL.TEXTURE_BINDING_2D, GL.TEXTURE_2D],
-            [GL.TEXTURE_BINDING_3D, GL.TEXTURE_3D], [GL.TEXTURE_BINDING_CUBE_MAP, GL.TEXTURE_CUBE_MAP]])
+            [GL.TEXTURE_BINDING_3D, GL.TEXTURE_3D], [GL.TEXTURE_BINDING_CUBE_MAP, GL.TEXTURE_CUBE_MAP], [GL.TEXTURE_BINDING_RECTANGLE, GL.TEXTURE_RECTANGLE]])
         state.query([pname], s => [[s.current.units[s.current.activeTexture].get(target) || 0], "u"]);
     for (const [pname, field] of [[GL.RENDERBUFFER_BINDING, "renderbuffer"], [GL.FRAMEBUFFER_BINDING, "drawFramebuffer"],
             [GL.READ_FRAMEBUFFER_BINDING_EXT, "readFramebuffer"]])
@@ -62,7 +62,7 @@
         state.rule(name, (c, [target, attachment, textarget, texture, level, slice], s) => {
             const error = attachmentError(c, target, attachment, s); if (error || !texture) return error;
             const cube = textarget >= GL.TEXTURE_CUBE_MAP_POSITIVE_X && textarget <= GL.TEXTURE_CUBE_MAP_NEGATIVE_Z;
-            const dimensionality = textarget === GL.TEXTURE_1D ? 1 : textarget === GL.TEXTURE_3D ? 3 : textarget === GL.TEXTURE_2D || cube ? 2 : 0;
+            const dimensionality = textarget === GL.TEXTURE_1D ? 1 : textarget === GL.TEXTURE_3D ? 3 : textarget === GL.TEXTURE_2D || textarget === GL.TEXTURE_RECTANGLE || cube ? 2 : 0;
             if (!dimensionality || dimension && dimensionality !== dimension) return GL.INVALID_ENUM;
             const object = c.group.textures.get(texture);
             if (!object?.target || object.target !== (cube ? GL.TEXTURE_CUBE_MAP : textarget)) return GL.INVALID_OPERATION;

@@ -28,7 +28,7 @@
 
     const { CacheKeys } = global.GLCacheKeys || require("./gl_cache_keys.js");
     const signatureKeys = new CacheKeys();
-    const FIXED_FUNCTION_REVISION = 3;
+    const FIXED_FUNCTION_REVISION = 4;
 
     const MAX_TEXTURE_UNITS = stateLayout.MAX_TEXTURE_UNITS;
     const MAX_LIGHTS = stateLayout.MAX_LIGHTS;
@@ -1122,7 +1122,8 @@
             const dim = unit.target === "Cube" ? "Cube" : unit.target === "3D" ? "3D" : "2D",
                 name = "gl_fixed_sample_" + dim + (unit.shadow ? "_shadow" : ""),
                 uv = dim === "Cube" ? xyz : dim === "3D" ? xyz + " / " + q : unit.target === "1D" ?
-                    "vec2<f32>((" + coord + ").x / " + q + ", 0.5)" : xy + " / " + q,
+                    "vec2<f32>((" + coord + ").x / " + q + ", 0.5)" : unit.target === "RECT" ?
+                    "(" + xy + " / " + q + " / vec2<f32>(textureDimensions(t" + i + ")))" : xy + " / " + q,
                 binding = sig.textureBindingBase / 2 + sig.texture.slice(0, i).filter(unit => unit.enabled).length,
                 call = name + "(t" + i + ", s" + i + ", " + uv + ", " + binding + "u, 0.0, 0.0, false" +
                     (unit.shadow ? ", (" + coord + ").z / " + q : "") + ")";
@@ -1148,6 +1149,8 @@
             return sample(xyz + " / max(" + q + ", 1e-8)");
         case "Cube":
             return sample(xyz);
+        case "RECT":
+            return sample("(" + xy + " / " + q + " / vec2<f32>(textureDimensions(t" + i + ")))");
         default:
             return sample(xy + " / max(" + q + ", 1e-8)");
         }

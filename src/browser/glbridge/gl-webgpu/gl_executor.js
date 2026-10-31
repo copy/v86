@@ -270,7 +270,7 @@
         [GL.ALPHA]: "ALPHA" };
 
     const ARB_TEXTURE_TARGETS = { "1D": GL.TEXTURE_1D, "2D": GL.TEXTURE_2D, "3D": GL.TEXTURE_3D,
-        Cube: GL.TEXTURE_CUBE_MAP };
+        Cube: GL.TEXTURE_CUBE_MAP, RECT: GL.TEXTURE_RECTANGLE };
 
     // the draw buffers that include the window's front buffer
     const FRONT_BUFFERS = new Set([GL.FRONT, GL.FRONT_AND_BACK, GL.FRONT_LEFT, GL.LEFT]);
@@ -1588,6 +1588,7 @@
     const TARGET_PRIORITY = [
         [GL.TEXTURE_CUBE_MAP, "Cube"],
         [GL.TEXTURE_3D, "3D"],
+        [GL.TEXTURE_RECTANGLE, "RECT"],
         [GL.TEXTURE_2D, "2D"],
         [GL.TEXTURE_1D, "1D"],
     ];
@@ -3145,7 +3146,7 @@
             unit.bindings[target] = name;
             const texture = name ? this.namedImage("texture", name) : this.defaultTexture(target);
             unit.imageBindings[target] = texture.imageId;
-            if (!texture.target) texture.target = target;
+            if (!texture.target) {texture.target = target;texture.sampler = textureParameters.samplerDefaults(target);}
             this.invalidateBindGroups();
         });
 
@@ -4211,7 +4212,7 @@
             const unit = s.textureUnits[s.activeTexture];
             switch (cap) {
             case GL.TEXTURE_1D: case GL.TEXTURE_2D:
-            case GL.TEXTURE_3D: case GL.TEXTURE_CUBE_MAP:
+            case GL.TEXTURE_3D: case GL.TEXTURE_CUBE_MAP: case GL.TEXTURE_RECTANGLE:
                 if (value) unit.enabledTargets.add(cap);
                 else unit.enabledTargets.delete(cap);
                 return;
@@ -4443,7 +4444,7 @@
 
         setTexParameter(target, pname, values, integer, scalar) {
             if (!textureParameters.targets.includes(target)) return this.invalidState(GL.INVALID_ENUM);
-            const result = textureParameters.normalize(pname, values, integer, scalar);
+            const result = textureParameters.normalize(pname, values, integer, scalar, target);
             if (result.error) return this.invalidState(result.error);
             values = result.values;
             const texture = this.boundTexture(target);
@@ -4620,6 +4621,7 @@
             let id = c.defaultTextures[target];
             if (!id) {
                 const texture = createTexture(0); texture.target = target;
+                texture.sampler = textureParameters.samplerDefaults(target);
                 texture.imageId = group.nextImageId++; id = texture.imageId;
                 group.textureImages.set(id, texture); c.defaultTextures[target] = id;
             }
@@ -9260,6 +9262,7 @@ ${depthWrite}
         case "1D": return GL.TEXTURE_1D;
         case "3D": return GL.TEXTURE_3D;
         case "Cube": return GL.TEXTURE_CUBE_MAP;
+        case "RECT": case "2DRect": return GL.TEXTURE_RECTANGLE;
         default: return GL.TEXTURE_2D;
         }
     }

@@ -42,7 +42,7 @@
     const BASE_EXTENSIONS = [
         "GL_ARB_multitexture", "GL_ARB_texture_env_add",
         "GL_ARB_texture_env_combine", "GL_ARB_texture_env_dot3",
-        "GL_ARB_texture_env_crossbar", "GL_ARB_texture_cube_map",
+        "GL_ARB_texture_env_crossbar", "GL_ARB_texture_cube_map", "GL_ARB_texture_rectangle",
         "GL_ARB_texture_border_clamp", "GL_ARB_texture_mirrored_repeat",
         "GL_ARB_texture_compression", "GL_SGI_color_matrix",
         "GL_ARB_texture_non_power_of_two", "GL_ARB_depth_texture",
@@ -155,6 +155,7 @@
                 (caps.features.float32Filterable ? C.V86GL_HOST_CAP_TEXTURE_FLOAT_LINEAR : 0) |
                 C.V86GL_HOST_CAP_ANISOTROPY;
         case GL.MAX_TEXTURE_SIZE:
+        case GL.MAX_RECTANGLE_TEXTURE_SIZE:
             return Math.min(16384, limits.maxTextureDimension2D);
         case GL.MAX_3D_TEXTURE_SIZE:
             return Math.min(2048, limits.maxTextureDimension3D);
