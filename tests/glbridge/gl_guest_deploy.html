@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>GL image deployment</title>
+<style>body{background:#182026;color:#eee}#screen_container canvas{image-rendering:pixelated}#log{white-space:pre-wrap}</style>
+<div id="screen_container"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas></canvas></div><pre id="log"></pre><pre id="result"></pre>
+<script src="../../build/libv86.js"></script><script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+const params=new URLSearchParams(location.search),game=params.get("game")==="warcraft3"?"warcraft3":"cube2",base="/build/gl-deploy-"+game;
+const input=await(await fetch(base+"/inputs.json")).json(),log=text=>document.querySelector("#log").textContent+=text+"\n",delay=ms=>new Promise(resolve=>setTimeout(resolve,ms)),output=async(name,data)=>{const response=await fetch("/__test_file?name="+name,{method:"POST",body:data});if(!response.ok)throw new Error("cannot save "+name);};
+let deployed=false;const errors=[];const originalError=console.error;console.error=(...args)=>{errors.push(args.map(String).join(" "));originalError(...args);};
+window.vm=new V86({memory_size:512<<20,vram_size:16<<20,graphics_adapter:"bochs_vga",graphics_adapter_path:"/build/v86-bochs-vga.js",graphics_proxy:true,cpu_worker:false,wasm_path:"/build/v86.wasm",bios:{url:"/bios/seabios.bin"},vga_bios:{url:"/bios/vgabios.bin"},hda:{url:base+"/site/windowsxp/windowsxp_multidisk_C_4G.img",async:true,size:input.images.hda.size},hdb:{url:base+"/site/game/"+game+".img",async:true,size:input.images.hdb.size},cdrom:{url:base+"/tools.iso"},screen_container:document.querySelector("#screen_container"),acpi:false,net_device:{type:"none"},boot_order:0x213,autostart:true,audio:false});
+const codes={};for(const[letters,scans]of[["1234567890",[2,3,4,5,6,7,8,9,10,11]],["qwertyuiop",[16,17,18,19,20,21,22,23,24,25]],["asdfghjkl",[30,31,32,33,34,35,36,37,38]],["zxcvbnm",[44,45,46,47,48,49,50]]])[...letters].forEach((letter,i)=>codes[letter]=scans[i]);Object.assign(codes,{" ":57,".":52,"/":53,"\\":43,"-":12});
+async function type(text){for(const letter of text){const shifted=letter===":",scan=shifted?39:codes[letter.toLowerCase()];if(!scan)throw new Error("unknown key "+letter);await vm.keyboard_send_scancodes(shifted?[42,scan,scan|128,170]:[scan,scan|128],30);await delay(60);}}
+async function screenshot(name){const blob=await new Promise(resolve=>document.querySelector("#screen_container canvas").toBlob(resolve));if(blob)await output(name,blob);}
+try{
+ await new Promise(resolve=>vm.add_listener("emulator-ready",resolve));log("guest ready; deployment "+game);
+ if(typeof vm.disk_buffers!=="function")throw new Error("local disk buffer access unavailable");
+ const gpu=vm.graphics_proxy.bridge.glExecutor,previous=gpu.options.onSurface;
+ gpu.options.onSurface=(surface,reason)=>{if(previous)previous(surface,reason);if(reason==="swap"&&surface.width===17&&surface.height===19){deployed=true;log("all copies and exact GDI/font/window probe passed; marker presented");}};
+ await delay(Number(params.get("boot_ms")||150000));await screenshot("gl-deploy-"+game+"-desktop.png");
+ for(let i=0;i<4;i++){await vm.keyboard_send_scancodes([1,129],30);await delay(1000);}await vm.keyboard_send_scancodes([15,143,28,156],30);await delay(2000);await vm.keyboard_send_scancodes([0xE0,0x5B,19,147,0xE0,0xDB],30);await delay(1500);await type("cmd /k e:\\deploy.cmd");await vm.keyboard_send_scancodes([28,156],30);log("deployment command entered");
+ for(let i=0;i<90&&!deployed;i++){await delay(1000);if(i%15===14){log(JSON.stringify({seconds:i+1,stats:gpu.stats}));await screenshot("gl-deploy-"+game+"-current.png");}}
+ if(!deployed)throw new Error("deployment did not reach its verified marker");
+ await delay(Number(params.get("shutdown_ms")||45000));await screenshot("gl-deploy-"+game+"-shutdown.png");await vm.stop();
+ if(errors.length||gpu.hostErrors.length||gpu.stats.refusals)throw new Error("deployment host error");
+ const disks=[];
+ for(const[name,buffer]of vm.disk_buffers()){
+  if(!input.images[name])continue;
+  const state=buffer.get_state(),indices=state[1],chunks=state[2];if(!(indices instanceof Float64Array)||!Array.isArray(chunks))throw new Error("unsupported disk overlay");
+  const header=new Uint8Array(24+indices.length*8),view=new DataView(header.buffer);header.set(new TextEncoder().encode("V86GLDP1"));view.setUint32(8,256,true);view.setUint32(12,indices.length,true);view.setBigUint64(16,BigInt(input.images[name].size),true);
+  for(let i=0;i<indices.length;i++)view.setBigUint64(24+i*8,BigInt(indices[i]),true);
+  const packed=await new Response(new Blob([header,...chunks]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer(),digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",packed)),x=>x.toString(16).padStart(2,"0")).join("");
+  const file="gl-deploy-"+game+"-"+name+".bin.gz";await output(file,packed);disks.push({name,file,blocks:indices.length,bytes:packed.byteLength,sha256:digest});log("exported "+name+": "+indices.length+" blocks");
+ }
+ if(disks.length!==2)throw new Error("missing disk overlay");
+ await output("gl-deploy-"+game+".json",JSON.stringify({game,deployed,errors,disks,stats:gpu.stats,shutdownWaitMs:Number(params.get("shutdown_ms")||45000)}));
+ document.querySelector("#result").textContent="PASS verified XP installation and shutdown; exported bounded "+game+" disk patches";
+}catch(error){await screenshot("gl-deploy-"+game+"-failure.png");document.querySelector("#result").textContent="FAIL "+error.stack;}
+</script>
