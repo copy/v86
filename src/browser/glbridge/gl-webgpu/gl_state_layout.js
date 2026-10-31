@@ -482,11 +482,19 @@
             vector = "vec" + n, coordinate = vector + "<f32>", integer = vector + "<i32>",
             type = shadow ? "texture_depth_2d" : "texture_" + (cube ? "cube" : volume ? "3d" : "2d") + "<f32>",
             result = shadow ? "f32" : "vec4<f32>", sampler = shadow ? "sampler_comparison" : "sampler";
-        if (cube) return `fn ${name}(t:${type},s:${sampler},uv:${coordinate},index:u32,level:f32,bias:f32,glExplicit:bool)->${result}{
+        const finish = code => {
+            if (shadow) return code;
+            return code.replace("fn " + name + "(", "fn " + name + "_raw(") + `
+fn ${name}(t:${type},s:${sampler},uv:${coordinate},index:u32,level:f32,bias:f32,glExplicit:bool)->${result}{
+ var color=${name}_raw(t,s,uv,index,level,bias,glExplicit);
+ if(glState.samplerState[index*4u+3u].z>0.5){color.a=1.0;}return color;
+}`;
+        };
+        if (cube) return finish(`fn ${name}(t:${type},s:${sampler},uv:${coordinate},index:u32,level:f32,bias:f32,glExplicit:bool)->${result}{
  let state=glState.samplerState[index*4u+2u];
  ${stage === "vertex" ? "return textureSampleLevel(t,s,uv,level+clamp(state.w,-16.0,16.0));" : `if(glExplicit){return textureSampleLevel(t,s,uv,level+clamp(state.w,-16.0,16.0));}
  return textureSampleBias(t,s,uv,clamp(state.w+bias,-16.0,16.0));`}
-}`;
+}`);
         const load = shadow ? `let depth=textureLoad(t,p,level);return ${name}_compare(glReference,depth,u32(glState.samplerState[index*4u+3u].x));` :
             "return textureLoad(t,p,level);";
         const border = shadow ? `${name}_compare(glReference,glState.samplerState[index*4u].x,u32(glState.samplerState[index*4u+3u].x))` :
@@ -497,7 +505,7 @@
             `for(var y=0;y<2;y++){for(var x=0;x<2;x++){
  let bit=vec2<i32>(x,y);let w=select(vec2<f32>(1.0)-f,f,bit==vec2<i32>(1));
  sum+=${name}_load(t,at+bit,level,index,glReference,true)*w.x*w.y;}}`;
-        return `${shadow ? `fn ${name}_compare(glReference:f32,depth:f32,func:u32)->f32 {
+        return finish(`${shadow ? `fn ${name}_compare(glReference:f32,depth:f32,func:u32)->f32 {
  let reference=clamp(glReference,0.0,1.0);
  switch(func){case 512u:{return 0.0;}case 513u:{return select(0.0,1.0,reference<depth);}
  case 514u:{return select(0.0,1.0,reference==depth);}case 515u:{return select(0.0,1.0,reference<=depth);}
@@ -546,7 +554,7 @@ fn ${name}(t:${type},s:${sampler},uv:${coordinate},index:u32,level:f32,bias:f32,
  if(minimum==9984u||minimum==9985u){return ${name}_level(t,uv,i32(ceil(lod-0.5)),index,${shadow ? "glReference" : "0.0"},linear);}
  let first=i32(floor(lod));return mix(${name}_level(t,uv,first,index,${shadow ? "glReference" : "0.0"},linear),
  ${name}_level(t,uv,min(first+1,i32(last)),index,${shadow ? "glReference" : "0.0"},linear),fract(lod));
-}`;
+}`);
     }
 
     // Expansion uses a builtin vertex index, leaving all sixteen application

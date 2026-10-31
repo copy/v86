@@ -378,9 +378,9 @@ game.exe
 
 - **固定管线：**
   - 线性雾 `start == end` 时比例取 0（Mesa 取 1）；
-  - 聚光项也作用于方向光（Mesa 不会）；
-  - 眼空间 w 假定为 1；
-  - RGB DXT1 的穿透纹素 alpha 为 0 ❓；
+  - ~~聚光项也作用于方向光（Mesa 不会）~~（D4 原生审计：Apple/Mesa 都应用定向聚光项，原审查判断不成立）；
+  - ~~光照眼空间 w 假定为 1~~（D4 审计已对光照眼/位置光源做齐次除法；点距离衰减仍按原眼坐标长度，与 Apple 原生覆盖一致）；
+  - ~~RGB DXT1 的穿透纹素 alpha 为 0 ❓~~（D4 原生审计确认并修复：固定/GLSL/ARB 共用采样结果的 RGB alpha=1，RGBA DXT1 保留透明度）；
   - 阴影比较结果复制到 RGBA，从不读 `DEPTH_TEXTURE_MODE`，MODULATE 会吃掉片段 alpha；
   - LOD bias 存了三份（纹理参数和 `TEXTURE_FILTER_CONTROL` 两种设法），没有一处被读取（O：`mipmap`）；
   - `GL_CLAMP` 和 `GL_CLAMP_TO_BORDER` 都不采样边框色，D-03 的注释却说着色器处理了它，`ARB_texture_border_clamp` 也已宣称（O：`tex_wrap_border`）。
@@ -924,3 +924,11 @@ S2-10 的固定/GLSL 生成器补齐六距离，保留眼坐标 w，启用洞由
 S2-21 完整性现在同时比较定义时的内部格式身份；同一 GPU 格式不再掩盖 RGBA4/RGBA8、深度精度或 base/sized 格式的差别。旧数字 1–4 只按 GL 2.1 §3.8.1 对应基础格式，不合并到 sized 格式。复制、生成 mip、重新定义和快照都保留该身份。
 
 13 项 Apple/Mesa 原生记录：Apple 三个 base/sized 宽松差异采用 §3.8.10 与 Mesa 的严格结果；Mesa 的 `4`/RGBA 不等价差异按 §3.8.1 与 Apple 验证。其余原始结果不变。两种 GPU 模式验证像素和恢复后的重新定义，96 组 Node、35 页 GPU、8 项 GLES 共享检查及 7/7 新错误注入通过。测试见 gl_format_complete_*；S3 退出登记继续。
+
+### D4 S3 原生审计与渲染退出（2026-10-31）
+
+眼/位置光源的光照坐标按齐次 w 归一；雾与点衰减保留原眼坐标的相应计算。共享采样函数保证 RGB DXT1 透明选择子的 alpha 仍为 1，RGBA DXT1 为 0；同一程序的格式切换通过。方向聚光原审查判断已纠正，两套原生都应用方向光聚光项。
+
+20 项原生审计增加边框、低位附件、sRGB、压缩 mip 和普通平滑点。GPU 对 D-19/20/21/22/23/25 明确检查当前差异，压缩 mip 生成的宿主拒绝单独断言；并未把这些算作原生一致。D-24 超预算多边形拒绝另有 Node 检查。保留范围见 [清单](../src/browser/glbridge/gl-webgpu/README.md)，已恢复 gpu-deviations.md 的入口。
+
+97 组 Node、36 页 GPU、8 项 GLES 共享检查、构建/相关 ESLint、7/7 新定向变异通过，Mesa 归档 77 项任务。D4 的实现与定向渲染验收结束，继续 D5 性能；全变异旧锚点修复及客体应用验收仍在最终退出工作中。

@@ -147,3 +147,7 @@ At level `dx11-full`, 31 of the 34 cases match llvmpipe (at `dx11`, 30: see
 
 The last two are in what Mesa sends, not in how GX runs it. On virtio-gpu
 (virgl) all 34 cases match.
+
+## Desktop OpenGL bridge
+
+The desktop GL executor has its own [retained rendering differences](../src/browser/glbridge/gl-webgpu/README.md#retained-rendering-differences), with D-prefixed identifiers. These are separate from the G-prefixed virtual GPU/GLES entries above. The D4 exit audit keeps native Apple/Mesa results and explicitly checks image borders, widened attachment precision, ordinary smooth points, singular fog, BC mip generation and sRGB attachment encoding as differences, rather than counting them as native-conformance passes. Exact occlusion counts, color-index rendering, fill-plane discard and the single-polygon temporary-storage limit remain listed there as well.

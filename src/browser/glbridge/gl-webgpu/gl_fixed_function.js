@@ -500,7 +500,7 @@
         emit("    var clip = glState.mvp * objectPos;");
 
         const needsEye = fields.has("modelview");
-        if (needsEye) emit("    let eyePosition=glState.modelview*objectPos;\n    let eyePos=eyePosition.xyz;");
+        if (needsEye) emit("    let eyePosition=glState.modelview*objectPos;\n    let eyePos=eyePosition.xyz/select(1.0,eyePosition.w,eyePosition.w!=0.0);");
 
         if (sig.attributes.normal && fields.has("normalMatrix")) {
             emit("    var eyeNormal = glState.normalMatrix * vin.normal;");
@@ -524,14 +524,14 @@
         if (sig.fog.enabled && layout.fog) {
             const coord = sig.fog.coordSource === "coord" ?
                 (sig.attributes.fogCoord ? "vin.fogCoord" : "0.0") :
-                (needsEye ? "abs(eyePos.z)" : "abs(clip.z)");
+                (needsEye ? "abs(eyePosition.z)" : "abs(clip.z)");
             emit("    let fogCoord = " + coord + ";");
             emit("    out.v" + layout.fog.slot + "." +
                 SWIZZLE[layout.fog.offset] + " = fogCoord;");
         }
 
         if (sig.pointSprite) {
-            emit("    let ptDist = " + (needsEye ? "length(eyePos)" : "1.0") + ";");
+            emit("    let ptDist = " + (needsEye ? "length(eyePosition.xyz)" : "1.0") + ";");
             emit("    let ptAtten = inverseSqrt(max(glState.pointAttenuation.x + " +
                 "glState.pointAttenuation.y * ptDist + " +
                 "glState.pointAttenuation.z * ptDist * ptDist, 1e-8));");
@@ -663,7 +663,7 @@
             const l = "glState.lights[" + i + "]";
             emit("    {");
             if (light.positional) {
-                emit("        let toLight = " + l + ".position.xyz - eyePos;");
+                emit("        let toLight = " + l + ".position.xyz / " + l + ".position.w - eyePos;");
                 emit("        let dist = length(toLight);");
                 emit("        let VP = toLight / max(dist, 1e-8);");
                 emit("        var atten = 1.0 / max(" + l +

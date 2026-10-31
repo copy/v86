@@ -9611,6 +9611,7 @@ ${fragmentCode}`;
                 snapshot.samplerState.set([sampler.magFilter, sampler.minLod, sampler.maxLod, sampler.lodBias + s.textureUnits[unit].lodBias], at + 8);
                 snapshot.samplerState[at + 12] = sampler.compareFunc;
                 snapshot.samplerState[at + 13] = sampler.depthTextureMode;
+                snapshot.samplerState[at + 14] = base === "RGB" ? 1 : 0;
             };
             for (const item of shaders.textures || []) {
                 const target = item.arbTarget ? ARB_TEXTURE_TARGETS[item.target] : this.effectiveTarget(s.textureUnits[item.unit])?.enumValue;
