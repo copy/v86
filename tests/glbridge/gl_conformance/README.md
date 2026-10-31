@@ -125,3 +125,15 @@ The guest caches immutable client bytes with a 16 MiB budget, invalidating on
 format/enable changes, stack restoration, context switches and unlock. If
 resources are insufficient it declines the cache, as the extension permits;
 this does not change the CPU-owned observable locked range.
+
+### Texture residency queries (2026-11-01)
+
+`texture_residency.c` uses a complete FBO, so Begin/End errors are not masked by
+an absent CGL drawable. Apple and Mesa agree that a live texture returns true
+without changing the residences array; zero/deleted names raise INVALID_VALUE,
+and queries inside Begin/End raise INVALID_OPERATION. Their original results
+also retain two differences: Apple returns false for an empty array while Mesa
+returns true; Mesa accepts a generated-but-unbound name while Apple rejects it.
+The CPU follows GL 2.1 sections 3.8.12 and 6.1.4: no working set means true for
+an empty query, and generated names acquire texture objects only when bound.
+The tests choose these rules explicitly instead of altering either oracle.

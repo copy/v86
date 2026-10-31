@@ -270,6 +270,12 @@
         }
     };
     GLShadow.install({ [P.GLFN.PRIORITIZE_TEXTURES]: "prioritizeTextures" });
+    state.parameter(P.C.V86GL_PARAMETER_TEXTURE_RESIDENCY, (s, texture, checkName) => {
+        if (checkName && (!texture || !s.current.group.textures.get(texture)?.target)) return GL.INVALID_VALUE;
+        // There is no residency eviction policy: every live named texture is
+        // resident. The CPU still validates names and Begin/End ordering.
+        return [[1], "b"];
+    });
     state.parameter(P.C.V86GL_PARAMETER_TEXTURE, (s, target, pname) => {
         if (!parameters.targets.includes(target)) return GL.INVALID_ENUM;
         const d = parameters.definitions.get(pname); if (!d) return GL.INVALID_ENUM;

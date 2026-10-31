@@ -7,6 +7,8 @@ require("../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js");
 const parameters = require("../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js");
 const caps = require("../../src/browser/glbridge/gl-webgpu/gl_caps.js");
 const P = require("../../src/browser/glbridge/gl-webgpu/gl_protocol.js");
+const residencyApple = require("./gl_conformance/texture_residency_reference.json").cases;
+const residencyMesa = JSON.parse(require("node:zlib").gunzipSync(require("node:fs").readFileSync(require("node:path").join(__dirname, "gl_conformance/mesa_reference.json.gz")))).fixtures.texture_residency.cases;
 const { GLWebGPUExecutor } = require("../../src/browser/glbridge/gl-webgpu/gl_executor.js");
 const { createFakeHost } = require("./gl_fake_gpu.js");
 const { GLStream, GL } = require("./gl_stream_builder.js");
@@ -29,6 +31,29 @@ function prioritize(s, names, values) {
     names.forEach((n, i) => { v.setUint32(4 + i * 8, n, true); v.setFloat32(8 + i * 8, values[i], true); });
     return s.record(P.GLFN.PRIORITIZE_TEXTURES, b);
 }
+test("residency validates live names, sharing, deletion and Begin/End on the CPU", () => {
+    const s = shadow(), family = P.C.V86GL_PARAMETER_TEXTURE_RESIDENCY;
+    assert.deepEqual(residencyApple.live, residencyMesa.live);
+    // GL 2.1 3.8.12/6.1.4: a generated but unbound name has no texture
+    // object. Apple rejects it; Mesa accepts it. Empty returns also differ;
+    // the no-working-set implementation follows Mesa's TRUE empty result.
+    assert.equal(residencyApple.reserved[3], GL.INVALID_VALUE);assert.equal(residencyMesa.reserved[3], 0);
+    assert.equal(residencyApple.empty[0], 0);assert.equal(residencyMesa.empty[0], 1);
+    const check = (stream, name, validate, expected) => {
+        const read = query(stream, validate, P.C.V86GL_STATE_BOOLEAN, name, family);s.process(stream.bytes());
+        assert.equal(read().status, expected ? 1 : 2);assert.equal(read().error, expected ? 0 : GL.INVALID_VALUE);
+        if (expected) assert.deepEqual(read().values, [residencyMesa.live[0]]);else assert.ok(read().bytes.every(v => v === 0xA5));
+    };
+    check(scene().call("BIND_TEXTURE", GL.TEXTURE_2D, 7).names(P.GLFN.GEN_TEXTURES, [8]), 7, 1, true);
+    check(new GLStream(), 0, 1, false);check(new GLStream(), 8, 1, false);
+    check(new GLStream(), 0, 0, true);
+    check(new GLStream().makeCurrent(2, 0, 0, 64, 64, 2, 1), 7, 1, true);
+    check(new GLStream().makeCurrent(3, 0, 0, 64, 64, 3, 2), 7, 1, false);
+    check(new GLStream().makeCurrent(2, 0, 0, 64, 64, 2, 1).names(P.GLFN.DELETE_TEXTURES, [7]), 7, 1, false);
+    const inside = new GLStream().call("BEGIN", GL.POINTS), read = query(inside, 0, P.C.V86GL_STATE_BOOLEAN, 0, family);s.process(inside.bytes());
+    assert.equal(read().status, 2);assert.equal(read().error, residencyApple.inside_begin[1]);assert.equal(read().error, residencyMesa.inside_begin[1]);
+});
+
 test("typed texture queries and renderer setters match independent desktop GL conversions", async () => {
     const s = shadow(), { host } = createFakeHost(), gpu = new GLWebGPUExecutor(null, { host }); await gpu.initialize();
     const init = scene(); s.process(init.bytes()); gpu.submit(init.bytes(), {});

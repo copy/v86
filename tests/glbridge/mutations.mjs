@@ -59,6 +59,11 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glresidency: { floor: 1, node: ["gl_shadow_textures_test.js"], pages: [], list: [
+        ["unused texture names are resident", G + "gl_shadow_textures.js", "checkName && (!texture || !s.current.group.textures.get(texture)?.target)", "false"],
+        ["generated names are texture objects before binding", G + "gl_shadow_textures.js", "!s.current.group.textures.get(texture)?.target", "!s.current.group.textures.has(texture)"],
+        ["live textures report nonresident", G + "gl_shadow_textures.js", "return [[1], \"b\"];\n    });\n    state.parameter(P.C.V86GL_PARAMETER_TEXTURE,", "return [[0], \"b\"];\n    });\n    state.parameter(P.C.V86GL_PARAMETER_TEXTURE,"],
+    ] },
     gldelivery: { floor: 1, node: ["virtio_v86gl_test.js"], pages: [], list: [
         ["accepted work reports a retryable failure", "src/browser/glbridge/v86gl_device.js", "            return OK;\n        }\n\n        return {", "            return hostAvailable ? OK : NO_RENDERER;\n        }\n\n        return {"],
     ] },

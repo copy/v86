@@ -27,6 +27,7 @@ acceptance are still stages F6/G.
 | D-26 | WGL interval 0 removes proxy refresh waits; browser compositing can still synchronize display. Positive intervals use real host refresh callbacks, with an implementation maximum of 4. | Actual-C window/default/error tests plus `gl_wgl_swap_*` GPU pixels, callback pacing and cold restore. |
 | D-27 | WGL sharing can merge only a target group whose contexts have never been current. An already shared pair is accepted. Used namespaces are refused with `ERROR_BUSY` rather than silently losing objects. | Actual-C context-operations fixture covers whole-group migration, existing sharing and refusal. |
 | D-28 | Nonzero `wglCopyContext` masks are explicitly unsupported (`ERROR_CALL_NOT_IMPLEMENTED`); no state-copy success is reported. A zero mask still validates handles, pixel format and destination ownership. | Actual-C context operations plus a mutant that falsely acknowledges a copy. |
+| D-29 | WGL outline fonts are explicitly unsupported; bitmap glyphs that GDI cannot produce fail instead of substituting box geometry. Undefined glyphs produce empty lists. | Actual-C A/W glyph bytes, missing/blank glyphs, OOM/GDI failures, unpack/PBO restoration; XP probe compares a Unicode glyph pixel-for-pixel against GDI. |
 
 [The S3 audit](../../../../tests/glbridge/gl_s3_render_browser_test.html) includes
 native results for homogeneous eye/light positions, directional spotlights,
