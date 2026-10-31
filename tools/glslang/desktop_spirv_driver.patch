@@ -1,0 +1,78 @@
+--- a/v86_glslang.cpp
++++ b/v86_glslang.cpp
+@@ -35,6 +35,7 @@
+ #include "glslang/Public/ShaderLang.h"
+ #include "glslang/MachineIndependent/localintermediate.h"
+ #include "SPIRV/GlslangToSpv.h"
++#include "desktop_spirv_lowering.hpp"
+ 
+ namespace {
+ 
+@@ -204,12 +205,21 @@
+ }
+ 
+ /** A shader of the code pass: Vulkan's relaxed rules, SPIR-V 1.0 */
+-std::unique_ptr<glslang::TShader> code_shader(const Source& source, bool& ok)
++TBuiltInResource desktop_resources;
++
++std::unique_ptr<glslang::TShader> code_shader(const Source& source, bool& ok, uint32_t flags)
+ {
+     auto shader = std::make_unique<glslang::TShader>(source.stage);
+     const char* text = source.text.c_str();
+     int length = static_cast<int>(source.text.size());
+     shader->setStringsWithLengths(&text, &length, 1);
++    if (flags & 4) {
++        shader->setEnvInput(glslang::EShSourceGlsl, source.stage, glslang::EShClientNone, 0);
++        shader->setAutoMapBindings(true);shader->setAutoMapLocations(true);
++        ok = shader->parse(&desktop_resources, 110, ENoProfile, false, false, EShMsgDefault);
++        if (ok) {glslang::SpvVersion version;version.spv = glslang::EShTargetSpv_1_0;version.vulkan = 100;version.vulkanGlsl = 100;version.vulkanRelaxed = true;shader->getIntermediate()->setSpv(version);}
++        return shader;
++    }
+     shader->setEnvInput(glslang::EShSourceGlsl, source.stage, glslang::EShClientVulkan, 100);
+     shader->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
+     shader->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+@@ -221,8 +231,9 @@
+     shader->setAtomicCounterBlockSet(0);
+     shader->setAutoMapBindings(true);
+     shader->setAutoMapLocations(true);
+-    ok = shader->parse(&resources, 100, ENoProfile, false, false,
++    ok = shader->parse(flags & 2 ? &desktop_resources : &resources, flags & 2 ? 110 : 100, ENoProfile, false, false,
+         static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules));
++
+     return shader;
+ }
+ 
+@@ -230,8 +241,6 @@
+ // 1.10 and 1.20 with the compatibility profile's built-ins, 110 when a
+ // shader says no #version, and desktop GL's rules for linking: a stage may be
+ // several shaders, any number of stages may be missing. Its own limits.
+-TBuiltInResource desktop_resources;
+-
+ std::unique_ptr<glslang::TShader> desktop_shader(const Source& source, bool& ok)
+ {
+     auto shader = std::make_unique<glslang::TShader>(source.stage);
+@@ -328,7 +337,7 @@
+         if(!compiled) { ok = false; log += shaders.back()->getInfoLog(); }
+         program.addShader(shaders.back().get());
+     }
+-    (void)flags;
++    if (ok && (flags & 4)) ok = glslang::desktop_lower_legacy_program(shaders, &log);
+     if(ok && !program.link(EShMsgDefault)) ok = false;
+     log += program.getInfoLog();
+     output = "{\"ok\":";
+@@ -452,12 +461,12 @@
+     for(const Source& source : sources)
+     {
+         bool compiled;
+-        shaders.push_back(code_shader(source, compiled));
++        shaders.push_back(code_shader(source, compiled, flags));
+         if(!compiled) { ok = false; log += shaders.back()->getInfoLog(); }
+         program.addShader(shaders.back().get());
+     }
+-    (void)flags;
+-    const auto messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
++    if (ok && (flags & 4)) ok = glslang::desktop_lower_legacy_program(shaders, &log);
++    const auto messages = flags & 4 ? EShMsgDefault : static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
+     if(ok && !program.link(messages)) ok = false;
+     if(ok && !program.mapIO()) ok = false;
+     log += program.getInfoLog();

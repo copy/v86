@@ -1,0 +1,3555 @@
+{
+  "experiment_sha256": "80b7cbea3d5dc544e8e04e9863f80f41c8298940fbf41c5ff0c949e976f841dd",
+  "production_sha256": "b200ab5996ee5943a947a7c3d75b8b2c98ce1cbed83e5b1c1442d1aceb4fa265",
+  "vx_naga_sha256": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641",
+  "routes": [
+    {
+      "flags": 2,
+      "name": "relaxed-version-patch",
+      "cases": [
+        {
+          "name": "cube2_null",
+          "source_sha256": "2d8c8975c7f714ab20d9aa902b8b872f7a718cd7da63bea27dc57516200e0247",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.3449170000000095,
+            0.940166999999974,
+            1.031458999999984
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_hud",
+          "source_sha256": "27b46cded4bbb5c8f85d59519153f791858aecaff40083611fcd82f8a72d7fb8",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.341957999999977,
+            1.0668329999999742,
+            1.0109999999999673
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_hudnotexture",
+          "source_sha256": "b3402431aea2db1925ef22b863e1a336a10d1fcb57acba00a173f9b0bea4b202",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.1433749999999918,
+            0.9969159999999988,
+            1.1200830000000224
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_hudrgb",
+          "source_sha256": "3262f92f034f987c401e0cda76aafc374d7390bc5926eb394729f39b0ceeb9e0",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.0477089999999976,
+            1.1447500000000446,
+            1.0010839999999916
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_texture",
+          "source_sha256": "eb5166fb345b02e1c340ecdb94c6951bdc8c8958a20a75dda9f9986ce9a3ce80",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.4390419999999722,
+            1.2539160000000038,
+            1.127916999999968
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_notexture",
+          "source_sha256": "db4917f71721660cdeccfe9b440437c25d338e5472a7a1b56b3ad31392518349",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.9892090000000167,
+            0.8422919999999863,
+            0.8343750000000227
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_cubemap",
+          "source_sha256": "b1b93ea05846a1c95a7b426b1a456ef3d67181c6a94514ee9cb5726fc69fa728",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.076791999999955,
+            1.09050000000002,
+            0.8582079999999905
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_fogged",
+          "source_sha256": "f0595a55a6bb622fc559dcad331ca636a9aea2cd79d7a51e3e814ee3ace55504",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.8933329999999842,
+            1.169290999999987,
+            1.1364579999999478
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_foggednotexture",
+          "source_sha256": "8f7f354974363f85f29dc029fee0d729622fe61a55948de04b2635babcc75fb5",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.9850830000000315,
+            0.8015410000000429,
+            0.7347920000000272
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_fogoverlay",
+          "source_sha256": "f47e3565ff702b6fc9e5363c8120cc858e608d05b6af1b39409f3f71d4b8d2f4",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6847500000000082,
+            0.6362080000000105,
+            0.6152500000000032
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_nocolor",
+          "source_sha256": "3a70ecc203134e8aa9568943794cf22e59843123ef2c4c6fb5a3ea04f270336d",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7759169999999926,
+            0.7153339999999844,
+            0.6357919999999808
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_bbquery",
+          "source_sha256": "b7658bed8528bc281f8d2b64af664f27f5096a2762508942c41c09d2f18c3b6b",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7852080000000115,
+            0.7191669999999704,
+            0.6986670000000004
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_fogworld",
+          "source_sha256": "263c9ba21baeece3e5f467a445fa5006169b03128aed1c6093267312f94d1c11",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.8096250000000396,
+            0.7129589999999553,
+            0.6979999999999791
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_noglareworld",
+          "source_sha256": "8d4d16db6a966ee4ae93b789a6e247bd29ff74d44cbc13c2d7cac0515a1bebb1",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6962910000000875,
+            0.6392919999999549,
+            0.6212500000000318
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_noglarealphaworld",
+          "source_sha256": "4ae9182982a5599cf8dbfc7a7fd37bf8175806277ebd85f11e0a9dbc9c1e2b6a",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7658340000000408,
+            0.7438329999999951,
+            0.6979589999999689
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_depthfxworld",
+          "source_sha256": "0218218ad97cc74f35b9a4feed7e103b10608c6a28324e541b053bd34b1f7c9e",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.0055419999999913,
+            0.7480420000000549,
+            0.7259589999999889
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_depthfxsplitworld",
+          "source_sha256": "d543e42b4d112bca23b7a97678f706e707a354d89a62782bc52825b782cc5af1",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.9267090000000735,
+            0.8559999999999945,
+            1.0802919999999858
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_shadowmapreceiver",
+          "source_sha256": "88a7e307b014a1660277cd8ea92d65cf5d16436fa79909c2ff98cc7afd3ed6a9",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7857500000000073,
+            0.7601660000000265,
+            0.7318750000000591
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_particlenotexture",
+          "source_sha256": "bbd9f6b5e9a9c27d68c2bda3b7c0620bc056acaeea27d0a98c0ff86b73be82b6",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7509999999999764,
+            0.7626669999999649,
+            0.8000000000000682
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_blendbrush",
+          "source_sha256": "cae3987ad5a260e6b53c51b4ec728644d38dc47783ffd8ad7012da2723b64b74",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.813083000000006,
+            0.7657080000000178,
+            0.7463749999999436
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_overbrightdecal",
+          "source_sha256": "3e21ccc70da57d4ae135667cf330f05d6995fb06460f5955d4665eb156b4e8ea",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7797499999999218,
+            0.7491250000000491,
+            0.7561249999999973
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_saturatedecal",
+          "source_sha256": "2264c85823ec9a12a6cb963ab13c075576e3e760af5b0b74fc0e606cb92a07ad",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7855830000000878,
+            0.7659170000000586,
+            0.8359580000000051
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_skybox",
+          "source_sha256": "824a57a1b65e1dbdd8feda3f4da4506d5c2c00cf6f6b00dedde34bc73df2ef60",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7776250000000573,
+            0.7341249999999491,
+            0.718332999999916
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_skyboxglare",
+          "source_sha256": "ce856b7edd05a078cdbe1c27943f92229f777fa0e42c0f06290bf0430e7591f6",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.0575830000000224,
+            0.8407499999999573,
+            0.7878329999999778
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_skyfog",
+          "source_sha256": "a91192939c0741221eb3e4d7dc8d57e8a3e3b48b55b1685e79211e5bd4f10485",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6964159999999993,
+            0.6391250000000355,
+            0.6247079999999414
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_prefab",
+          "source_sha256": "cbff3dc92a386b662d267ff263cd8da4eea57af2274cc9d1a571590b2cf164e6",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7895829999999933,
+            0.7393749999999955,
+            0.7229580000000624
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterglarefast",
+          "source_sha256": "e0867d5b038db3eb01d0b7bb2cd0e7674cacd7ad10d81863e5034d848d2d4b71",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6466669999999795,
+            0.6102090000000544,
+            0.5956250000000409
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_underwater",
+          "source_sha256": "af83d332991d69b06287d94c25cb62a440ac06bd3202bd27b3e50b23158f9ac1",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7687499999999545,
+            0.7090829999999642,
+            0.6943750000000364
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_lava",
+          "source_sha256": "9cb9f1edb276b57aad0bde228dc0d791a8098f5ee856bb4cc445e27078964b80",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.8592920000000959,
+            0.8032500000000482,
+            0.7630409999999301
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_lavaglare",
+          "source_sha256": "9f415d6f03083b1dd863c71ebf983593e890edba960f27bc351420bc40cb7d4e",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.9045839999999998,
+            0.8683330000000069,
+            0.8648330000000897
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfall",
+          "source_sha256": "71269febb171e37a87150aee09179c83a60a9614274542749698bfe1f938cf64",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.8403329999999869,
+            0.7789579999999887,
+            0.7810409999999592
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfallrefract",
+          "source_sha256": "08c48f80abf5c04c45ca3209ec5c8e420a6483b050f2cc8e2f257daa841b627c",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.2356250000000273,
+            1.1456249999999955,
+            1.027249999999981
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfallenvrefract",
+          "source_sha256": "2773a0a73147a8b7a580b8f6e47d35b189f40fca3ce72ccb96f869b696000b87",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.2867919999999913,
+            1.2426249999999754,
+            1.4120839999999362
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfallenv",
+          "source_sha256": "ffaf6288dc1c6237807ea4d0f59097aeee7dca76c99423f74ddf030b21f8be2a",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.3241669999999885,
+            1.2589169999999967,
+            1.1667079999999714
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_glass",
+          "source_sha256": "51d45c92a9d1886923820963886c2ffc25bd5acba56c107d087774170b77a5d1",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            1.0703750000000127,
+            0.9239580000000842,
+            0.9917910000000347
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_glassfast",
+          "source_sha256": "012a09f9624e03805af3392f3b1bd57657c929ef36d1ce68f6c2326e4bcb2a67",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.9181670000000395,
+            0.7949580000000651,
+            0.7693330000000742
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_reserved_names",
+          "source_sha256": "ff95f452629e8bf92a7c64f2bcbd712cb6f30e3975239879a0b214f575df1928",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6412500000000136,
+            0.5929169999999431,
+            0.5831670000000031
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_reserved_fields_function",
+          "source_sha256": "85f095f4826a5288350da0324c5a8e0ba4543cf62206ce7071bbc91b21118788",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.670415999999932,
+            0.6200000000000045,
+            0.6043329999999969
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_builtin_shadow_names",
+          "source_sha256": "3d0aef5fd41ed9d1edbf27d4822b539e7fb7112b88bcd4e9f6a818184cf5871d",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7098330000000033,
+            0.6321669999999813,
+            0.6095830000000433
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_stage_parameter_names",
+          "source_sha256": "dfd2f858cdbce923be11ccdfcd4dd10e2af0ae2a88df7d2ac67a2c4fe512f537",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7731670000000577,
+            0.6453329999999369,
+            0.6372499999999945
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_double_underscore",
+          "source_sha256": "2eb559632fcac91a76269ce91eb764a3589fad071e43b178a6a4b27dec62d3d8",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7360419999999976,
+            0.6287499999999682,
+            0.5929169999999431
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_uniform_value_struct",
+          "source_sha256": "e70dce8cc52fa4da58af6e1698b987d15042f2da3859ec3e611f30a4d3d96111",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.7504999999999882,
+            0.7062910000000784,
+            0.6859589999999116
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_uniform_float_array",
+          "source_sha256": "7b69cb392afbab6362025c4e9139ccd3308cf9d7c879f469ecf1a26078c1f9e7",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6844999999999573,
+            0.6328750000000127,
+            0.6163750000000618
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_array_constructor_length",
+          "source_sha256": "3ca6b2f0453ac28f79b8edf92548a9ac84e5faeeb1f58cd63cfdaa3e7f1fee7c",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6801669999999831,
+            0.7166669999999158,
+            0.6671669999999494
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_const_array_bound",
+          "source_sha256": "c723ce9e427931756581aaaece6c14ba849bc5288006a3b97c13afc1481532b7",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6615419999999403,
+            0.6126669999999876,
+            0.5913749999999709
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_uniform_initializer",
+          "source_sha256": "f25b928e50c2605c9e8b126045904029ffc02bcac9b3f856573e431480febdc6",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6952919999999949,
+            0.6178749999999127,
+            0.6859590000000253
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_uniform_local_shadow",
+          "source_sha256": "ca560cfe379290e5a23e87bcace67efed4bfa251cc3c9972cf6dde8051724105",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.808208000000036,
+            0.7904580000000578,
+            0.7650409999999965
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_ftransform_color",
+          "source_sha256": "6977da870a1d063133041c79511d565fd530abd4ef1bbcb44cdd3bd14f9cade4",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            }
+          ],
+          "ms": [
+            0.9507499999999709,
+            0.8090839999999844,
+            0.7279159999999365
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_texcoord_redeclare",
+          "source_sha256": "a3ccabb80ceec56f51cf07c734f3816a5889ce4f56da00dd5fe35d5bda99d6ac",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            }
+          ],
+          "ms": [
+            0.7022079999999278,
+            0.6495830000000069,
+            0.6850420000000668
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_position_invariant",
+          "source_sha256": "a1a76e4fa087a93deffc019945f9fdcb1a86b851b611e8598321c78491e516ab",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.6270829999999705,
+            0.6503750000000537,
+            0.6532080000000633
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_legacy_light_state",
+          "source_sha256": "6b32b55164dfa7c09856817d826a283f49d2dfe0122eedffab72a094c7e55bf4",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "SPIR-V: InvalidAccessType(24)"
+            }
+          ],
+          "ms": [
+            0.7437909999999874,
+            0.7587919999999713,
+            0.7642079999999396
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_shadow_1d",
+          "source_sha256": "6b9efac357305cb136c9a7093f010f0212c47039ad4c4cd6d489f548a79f5ee9",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.667165999999952,
+            0.6463330000000269,
+            0.6149169999999913
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_shadow_2d_proj_bias",
+          "source_sha256": "6a96d8384defeeecc0471042eaad9714fbe6330848c1b1cf6161e56dcc4ac44f",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "Function { handle: [0], name: \"main\", source: Expression { handle: [23], source: InvalidDepthSampleLevel } }"
+            }
+          ],
+          "ms": [
+            0.8320830000000115,
+            0.8045829999999796,
+            0.7344580000000178
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_opaque_uniform_struct",
+          "source_sha256": "c2e586747bbcab001cbce58a194d3e2cbdca6b697256f738fb49d7f97465128d",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.9569999999999936,
+            0.8030420000000049,
+            1.2049590000000308
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_undefined_division",
+          "source_sha256": "030391747e81e3325795e274394529395608ccfae4e9246a639a77df11577a9e",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "ConstExpression { handle: [0], source: Literal(Infinity) }"
+            }
+          ],
+          "ms": [
+            0.6533749999999827,
+            0.5862500000000637,
+            0.5672910000000684
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_undefined_sqrt",
+          "source_sha256": "7cb907d4dba2d5510e01b4b71bdb89f34773905f9f99caab99eb02976f729237",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "ConstExpression { handle: [0], source: Literal(NaN) }"
+            }
+          ],
+          "ms": [
+            0.8882500000000846,
+            0.6887500000000273,
+            0.6248749999999745
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_undefined_integer_division",
+          "source_sha256": "67225689ce5aa0a14196eb862c89ce05d087b7524a12521d7a469107baed59e6",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": false,
+              "error": "SPIR-V: MissingDecoration(Location)"
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "EntryPoint { stage: Fragment, name: \"main\", source: Result(MissingBinding) }"
+            }
+          ],
+          "ms": [
+            0.9638330000000224,
+            1.1475840000000517,
+            0.7707919999999149
+          ],
+          "log": ""
+        }
+      ]
+    },
+    {
+      "flags": 6,
+      "name": "typed-IR-lowering",
+      "cases": [
+        {
+          "name": "cube2_null",
+          "source_sha256": "2d8c8975c7f714ab20d9aa902b8b872f7a718cd7da63bea27dc57516200e0247",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6117500000000291,
+            0.660959000000048,
+            0.5986250000000837
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_hud",
+          "source_sha256": "27b46cded4bbb5c8f85d59519153f791858aecaff40083611fcd82f8a72d7fb8",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7704169999999522,
+            0.6964169999999967,
+            0.9532919999999194
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_hudnotexture",
+          "source_sha256": "b3402431aea2db1925ef22b863e1a336a10d1fcb57acba00a173f9b0bea4b202",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7976659999999356,
+            0.6817079999999578,
+            0.6533749999999827
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_hudrgb",
+          "source_sha256": "3262f92f034f987c401e0cda76aafc374d7390bc5926eb394729f39b0ceeb9e0",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8136250000000018,
+            0.7189169999999194,
+            0.6901249999999663
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_texture",
+          "source_sha256": "eb5166fb345b02e1c340ecdb94c6951bdc8c8958a20a75dda9f9986ce9a3ce80",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7295420000000377,
+            0.7831250000000409,
+            0.8973330000000033
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_notexture",
+          "source_sha256": "db4917f71721660cdeccfe9b440437c25d338e5472a7a1b56b3ad31392518349",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6573329999998805,
+            0.625583000000006,
+            0.6095419999999194
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_cubemap",
+          "source_sha256": "b1b93ea05846a1c95a7b426b1a456ef3d67181c6a94514ee9cb5726fc69fa728",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7812920000001213,
+            0.7776249999999436,
+            0.7292080000001988
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_fogged",
+          "source_sha256": "f0595a55a6bb622fc559dcad331ca636a9aea2cd79d7a51e3e814ee3ace55504",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7240830000000642,
+            0.6912499999998545,
+            0.6620000000000346
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_foggednotexture",
+          "source_sha256": "8f7f354974363f85f29dc029fee0d729622fe61a55948de04b2635babcc75fb5",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7298749999999927,
+            0.6555000000000746,
+            0.8100829999998496
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_fogoverlay",
+          "source_sha256": "f47e3565ff702b6fc9e5363c8120cc858e608d05b6af1b39409f3f71d4b8d2f4",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.627083999999968,
+            0.5977080000000115,
+            0.5652090000000953
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_nocolor",
+          "source_sha256": "3a70ecc203134e8aa9568943794cf22e59843123ef2c4c6fb5a3ea04f270336d",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6320830000001934,
+            0.5987909999998919,
+            0.7099590000000262
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_bbquery",
+          "source_sha256": "b7658bed8528bc281f8d2b64af664f27f5096a2762508942c41c09d2f18c3b6b",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8712090000001353,
+            0.8990410000001248,
+            0.7763330000000224
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_fogworld",
+          "source_sha256": "263c9ba21baeece3e5f467a445fa5006169b03128aed1c6093267312f94d1c11",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8977089999998498,
+            0.7898749999999382,
+            0.8643750000001091
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_noglareworld",
+          "source_sha256": "8d4d16db6a966ee4ae93b789a6e247bd29ff74d44cbc13c2d7cac0515a1bebb1",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.880542000000105,
+            1.0443330000000515,
+            0.7778749999999945
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_noglarealphaworld",
+          "source_sha256": "4ae9182982a5599cf8dbfc7a7fd37bf8175806277ebd85f11e0a9dbc9c1e2b6a",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8032080000000406,
+            0.7690419999998994,
+            0.793292000000065
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_depthfxworld",
+          "source_sha256": "0218218ad97cc74f35b9a4feed7e103b10608c6a28324e541b053bd34b1f7c9e",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7080829999999878,
+            0.6812090000000808,
+            0.650957999999946
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_depthfxsplitworld",
+          "source_sha256": "d543e42b4d112bca23b7a97678f706e707a354d89a62782bc52825b782cc5af1",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.752292000000125,
+            0.7163749999999709,
+            0.6938330000000406
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_shadowmapreceiver",
+          "source_sha256": "88a7e307b014a1660277cd8ea92d65cf5d16436fa79909c2ff98cc7afd3ed6a9",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            1.6644589999998516,
+            0.7419159999999465,
+            0.6867499999998472
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_particlenotexture",
+          "source_sha256": "bbd9f6b5e9a9c27d68c2bda3b7c0620bc056acaeea27d0a98c0ff86b73be82b6",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.9352920000001177,
+            0.9646669999999631,
+            0.9939999999999145
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_blendbrush",
+          "source_sha256": "cae3987ad5a260e6b53c51b4ec728644d38dc47783ffd8ad7012da2723b64b74",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            1.2068750000000819,
+            0.857584000000088,
+            1.1196250000000418
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_overbrightdecal",
+          "source_sha256": "3e21ccc70da57d4ae135667cf330f05d6995fb06460f5955d4665eb156b4e8ea",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.9208340000000135,
+            0.9206249999999727,
+            0.871417000000065
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_saturatedecal",
+          "source_sha256": "2264c85823ec9a12a6cb963ab13c075576e3e760af5b0b74fc0e606cb92a07ad",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            1.2353749999999764,
+            0.9293340000001535,
+            1.1090410000001611
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_skybox",
+          "source_sha256": "824a57a1b65e1dbdd8feda3f4da4506d5c2c00cf6f6b00dedde34bc73df2ef60",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7839160000000902,
+            0.7295410000001539,
+            0.6748339999999189
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_skyboxglare",
+          "source_sha256": "ce856b7edd05a078cdbe1c27943f92229f777fa0e42c0f06290bf0430e7591f6",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8040000000000873,
+            0.772083000000066,
+            0.7259159999998701
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_skyfog",
+          "source_sha256": "a91192939c0741221eb3e4d7dc8d57e8a3e3b48b55b1685e79211e5bd4f10485",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6591659999999138,
+            0.6102919999998448,
+            0.5944170000000213
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_prefab",
+          "source_sha256": "cbff3dc92a386b662d267ff263cd8da4eea57af2274cc9d1a571590b2cf164e6",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8789170000000013,
+            0.7324169999999413,
+            0.6914160000001175
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterglarefast",
+          "source_sha256": "e0867d5b038db3eb01d0b7bb2cd0e7674cacd7ad10d81863e5034d848d2d4b71",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6372499999999945,
+            0.5906250000000455,
+            0.5765000000001237
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_underwater",
+          "source_sha256": "af83d332991d69b06287d94c25cb62a440ac06bd3202bd27b3e50b23158f9ac1",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8781249999999545,
+            0.6970839999999043,
+            0.6982089999999062
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_lava",
+          "source_sha256": "9cb9f1edb276b57aad0bde228dc0d791a8098f5ee856bb4cc445e27078964b80",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7388750000000073,
+            0.7160839999999098,
+            0.6900000000000546
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_lavaglare",
+          "source_sha256": "9f415d6f03083b1dd863c71ebf983593e890edba960f27bc351420bc40cb7d4e",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.9194999999999709,
+            0.8197920000000067,
+            0.7901249999999891
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfall",
+          "source_sha256": "71269febb171e37a87150aee09179c83a60a9614274542749698bfe1f938cf64",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8244160000001557,
+            0.827541999999994,
+            1.012083999999959
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfallrefract",
+          "source_sha256": "08c48f80abf5c04c45ca3209ec5c8e420a6483b050f2cc8e2f257daa841b627c",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.876709000000119,
+            0.8790420000000267,
+            0.8424999999999727
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfallenvrefract",
+          "source_sha256": "2773a0a73147a8b7a580b8f6e47d35b189f40fca3ce72ccb96f869b696000b87",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            1.2261250000001382,
+            1.1677500000000691,
+            1.4004170000000613
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_waterfallenv",
+          "source_sha256": "ffaf6288dc1c6237807ea4d0f59097aeee7dca76c99423f74ddf030b21f8be2a",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            1.3442500000001019,
+            1.0360830000001897,
+            0.9840840000001663
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_glass",
+          "source_sha256": "51d45c92a9d1886923820963886c2ffc25bd5acba56c107d087774170b77a5d1",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            1.0142920000000686,
+            0.9207499999999982,
+            0.8697499999998399
+          ],
+          "log": ""
+        },
+        {
+          "name": "cube2_glassfast",
+          "source_sha256": "012a09f9624e03805af3392f3b1bd57657c929ef36d1ce68f6c2326e4bcb2a67",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.8349169999999049,
+            0.779207999999926,
+            0.7403750000000855
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_reserved_names",
+          "source_sha256": "ff95f452629e8bf92a7c64f2bcbd712cb6f30e3975239879a0b214f575df1928",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.634708000000046,
+            0.6277079999999842,
+            0.7329999999999472
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_reserved_fields_function",
+          "source_sha256": "85f095f4826a5288350da0324c5a8e0ba4543cf62206ce7071bbc91b21118788",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7187910000000102,
+            0.6421250000000782,
+            0.6182909999999993
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_builtin_shadow_names",
+          "source_sha256": "3d0aef5fd41ed9d1edbf27d4822b539e7fb7112b88bcd4e9f6a818184cf5871d",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.69925000000012,
+            0.6279580000000351,
+            0.6565420000001723
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_stage_parameter_names",
+          "source_sha256": "dfd2f858cdbce923be11ccdfcd4dd10e2af0ae2a88df7d2ac67a2c4fe512f537",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6421250000000782,
+            0.5982920000001286,
+            0.5860410000000229
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_double_underscore",
+          "source_sha256": "2eb559632fcac91a76269ce91eb764a3589fad071e43b178a6a4b27dec62d3d8",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6321669999999813,
+            0.6929589999999735,
+            0.6387910000000829
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_uniform_value_struct",
+          "source_sha256": "e70dce8cc52fa4da58af6e1698b987d15042f2da3859ec3e611f30a4d3d96111",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7187920000001213,
+            0.6901249999998527,
+            0.6789590000000771
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_uniform_float_array",
+          "source_sha256": "7b69cb392afbab6362025c4e9139ccd3308cf9d7c879f469ecf1a26078c1f9e7",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6515419999998358,
+            0.6156670000000304,
+            0.5934580000000551
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_array_constructor_length",
+          "source_sha256": "3ca6b2f0453ac28f79b8edf92548a9ac84e5faeeb1f58cd63cfdaa3e7f1fee7c",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6142500000000837,
+            0.5700409999999465,
+            0.554540999999972
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_const_array_bound",
+          "source_sha256": "c723ce9e427931756581aaaece6c14ba849bc5288006a3b97c13afc1481532b7",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6584159999999883,
+            0.6038750000000164,
+            0.5837500000000091
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_uniform_initializer",
+          "source_sha256": "f25b928e50c2605c9e8b126045904029ffc02bcac9b3f856573e431480febdc6",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.5885000000000673,
+            0.5517500000000837,
+            0.537958000000117
+          ],
+          "log": "E0 uniform initializer tint words=4\n"
+        },
+        {
+          "name": "glsl120_uniform_local_shadow",
+          "source_sha256": "ca560cfe379290e5a23e87bcace67efed4bfa251cc3c9972cf6dde8051724105",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6830420000001141,
+            0.6243329999999787,
+            0.6187499999998636
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_ftransform_color",
+          "source_sha256": "6977da870a1d063133041c79511d565fd530abd4ef1bbcb44cdd3bd14f9cade4",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6636670000000322,
+            0.6201249999999163,
+            0.5819169999999758
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_texcoord_redeclare",
+          "source_sha256": "a3ccabb80ceec56f51cf07c734f3816a5889ce4f56da00dd5fe35d5bda99d6ac",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6178750000001401,
+            0.5870830000001206,
+            0.5768339999999625
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_position_invariant",
+          "source_sha256": "a1a76e4fa087a93deffc019945f9fdcb1a86b851b611e8598321c78491e516ab",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.7065000000000055,
+            0.5751250000000709,
+            0.5351659999998901
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_legacy_light_state",
+          "source_sha256": "6b32b55164dfa7c09856817d826a283f49d2dfe0122eedffab72a094c7e55bf4",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            2.4322919999999613,
+            2.364417000000003,
+            2.3571249999999964
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_shadow_1d",
+          "source_sha256": "6b9efac357305cb136c9a7093f010f0212c47039ad4c4cd6d489f548a79f5ee9",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "Could not parse WGSL:\nerror: no definition in scope for identifier: `texture_depth_1d`\n  ┌─ /Users/renruisi/Desktop/Code/v86/build/gl-e0-results/6-glsl120_shadow_1d-4.wgsl:3:15\n  │\n3 │ var depthTex: texture_depth_1d;\n  │               ^^^^^^^^^^^^^^^^ unknown identifier\n\n\n"
+            }
+          ],
+          "ms": [
+            0.646874999999909,
+            0.6012920000000577,
+            0.5891660000002048
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_shadow_2d_proj_bias",
+          "source_sha256": "6a96d8384defeeecc0471042eaad9714fbe6330848c1b1cf6161e56dcc4ac44f",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "Function { handle: [0], name: \"main\", source: Expression { handle: [23], source: InvalidDepthSampleLevel } }"
+            }
+          ],
+          "ms": [
+            0.6461659999999938,
+            0.603249999999889,
+            0.5857920000000831
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_opaque_uniform_struct",
+          "source_sha256": "c2e586747bbcab001cbce58a194d3e2cbdca6b697256f738fb49d7f97465128d",
+          "ok": false,
+          "stages": [],
+          "ms": [
+            0.5764590000001135,
+            0.5274580000000242,
+            0.5147919999999431
+          ],
+          "log": "E0 AST: opaque member in uniform aggregate needs separate lowering: source\n"
+        },
+        {
+          "name": "glsl120_undefined_division",
+          "source_sha256": "030391747e81e3325795e274394529395608ccfae4e9246a639a77df11577a9e",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "ConstExpression { handle: [0], source: Literal(Infinity) }"
+            }
+          ],
+          "ms": [
+            0.6293749999999818,
+            0.5770830000001297,
+            0.5715419999999085
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_undefined_sqrt",
+          "source_sha256": "7cb907d4dba2d5510e01b4b71bdb89f34773905f9f99caab99eb02976f729237",
+          "ok": false,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": false,
+              "error": "ConstExpression { handle: [0], source: Literal(NaN) }"
+            }
+          ],
+          "ms": [
+            0.6441250000000309,
+            0.5846669999998539,
+            0.55337499999996
+          ],
+          "log": ""
+        },
+        {
+          "name": "glsl120_undefined_integer_division",
+          "source_sha256": "67225689ce5aa0a14196eb862c89ce05d087b7524a12521d7a469107baed59e6",
+          "ok": true,
+          "stages": [
+            {
+              "stage": 0,
+              "ok": true
+            },
+            {
+              "stage": 4,
+              "ok": true
+            }
+          ],
+          "ms": [
+            0.6062500000000455,
+            0.5666669999998248,
+            0.5464999999999236
+          ],
+          "log": ""
+        }
+      ]
+    }
+  ],
+  "gles_reference_ms": [
+    0.8472500000000309,
+    0.5483749999998508,
+    0.5081669999999576,
+    0.4831249999999727,
+    0.45329100000003564,
+    0.4505420000000413,
+    0.4337080000000242,
+    0.4269170000000031,
+    0.4243749999998272,
+    0.4603750000001128,
+    0.4314590000001317,
+    0.4596670000000813,
+    0.4101670000000013,
+    0.4190000000000964,
+    0.41600000000016735,
+    0.4114999999999327,
+    0.40895900000009533,
+    0.4278340000000753,
+    0.42754100000001927,
+    0.4162499999999909,
+    0.4151249999999891,
+    0.43879199999992125,
+    0.424916999999823,
+    0.42220899999983885,
+    0.46225000000004,
+    0.40625,
+    0.4389169999999467,
+    0.42195799999990413,
+    0.40645900000004076,
+    0.40412500000002183
+  ],
+  "tint": {
+    "adapter": {},
+    "results": [
+      {
+        "route": 2,
+        "case": "cube2_null",
+        "stage": 0,
+        "ms": 15.699999988079071,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_hud",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_hudnotexture",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_hudrgb",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_texture",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_notexture",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_cubemap",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_fogged",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_foggednotexture",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_fogoverlay",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_nocolor",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_nocolor",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_bbquery",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_bbquery",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_fogworld",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_noglareworld",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_noglarealphaworld",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_depthfxworld",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_depthfxsplitworld",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_shadowmapreceiver",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_particlenotexture",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_blendbrush",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_overbrightdecal",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_saturatedecal",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_skybox",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_skyboxglare",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_skyfog",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_prefab",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_waterglarefast",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_underwater",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_lava",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_lavaglare",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_waterfall",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_waterfallrefract",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_waterfallenvrefract",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_waterfallenv",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_glass",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 2,
+        "case": "cube2_glassfast",
+        "stage": 0,
+        "ms": 0.3999999761581421,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_null",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_null",
+        "stage": 4,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_hud",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_hud",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_hudnotexture",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_hudnotexture",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_hudrgb",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_hudrgb",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_texture",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_texture",
+        "stage": 4,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_notexture",
+        "stage": 0,
+        "ms": 1.899999976158142,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_notexture",
+        "stage": 4,
+        "ms": 5.400000035762787,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_cubemap",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_cubemap",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_fogged",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_fogged",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_foggednotexture",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_foggednotexture",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_fogoverlay",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_fogoverlay",
+        "stage": 4,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_nocolor",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_nocolor",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_bbquery",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_bbquery",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_fogworld",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_fogworld",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_noglareworld",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_noglareworld",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_noglarealphaworld",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_noglarealphaworld",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_depthfxworld",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_depthfxworld",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_depthfxsplitworld",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_depthfxsplitworld",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_shadowmapreceiver",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_shadowmapreceiver",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_particlenotexture",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_particlenotexture",
+        "stage": 4,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_blendbrush",
+        "stage": 0,
+        "ms": 0.2999999523162842,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_blendbrush",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_overbrightdecal",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_overbrightdecal",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_saturatedecal",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_saturatedecal",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_skybox",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_skybox",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_skyboxglare",
+        "stage": 0,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_skyboxglare",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_skyfog",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_skyfog",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_prefab",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_prefab",
+        "stage": 4,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterglarefast",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterglarefast",
+        "stage": 4,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_underwater",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_underwater",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_lava",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_lava",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_lavaglare",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_lavaglare",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfall",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfall",
+        "stage": 4,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfallrefract",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfallrefract",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfallenvrefract",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfallenvrefract",
+        "stage": 4,
+        "ms": 0.3999999761581421,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfallenv",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_waterfallenv",
+        "stage": 4,
+        "ms": 1.800000011920929,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_glass",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_glass",
+        "stage": 4,
+        "ms": 0.20000004768371582,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_glassfast",
+        "stage": 0,
+        "ms": 0.2999999523162842,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "cube2_glassfast",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_reserved_names",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_reserved_names",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_reserved_fields_function",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_reserved_fields_function",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_builtin_shadow_names",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_builtin_shadow_names",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_stage_parameter_names",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_stage_parameter_names",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_double_underscore",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_double_underscore",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_value_struct",
+        "stage": 0,
+        "ms": 0.30000001192092896,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_value_struct",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_float_array",
+        "stage": 0,
+        "ms": 0.2999999523162842,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_float_array",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_array_constructor_length",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_array_constructor_length",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_const_array_bound",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_const_array_bound",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_initializer",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_initializer",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_local_shadow",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_uniform_local_shadow",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_ftransform_color",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_ftransform_color",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_texcoord_redeclare",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_texcoord_redeclare",
+        "stage": 4,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_position_invariant",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_position_invariant",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_legacy_light_state",
+        "stage": 0,
+        "ms": 0.19999998807907104,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_legacy_light_state",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_shadow_1d",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_shadow_1d",
+        "stage": 4,
+        "ms": 0.20000004768371582,
+        "errors": [
+          "unresolved type 'texture_depth_1d'"
+        ]
+      },
+      {
+        "route": 6,
+        "case": "glsl120_shadow_2d_proj_bias",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_undefined_division",
+        "stage": 0,
+        "ms": 0.10000002384185791,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_undefined_sqrt",
+        "stage": 0,
+        "ms": 0,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_undefined_integer_division",
+        "stage": 0,
+        "ms": 0.09999996423721313,
+        "errors": []
+      },
+      {
+        "route": 6,
+        "case": "glsl120_undefined_integer_division",
+        "stage": 4,
+        "ms": 0.10000002384185791,
+        "errors": []
+      }
+    ]
+  },
+  "decision": "Keep the manual generator per plan 0.1; neither experimental route passes the complete compiler gate. Pixel gate not entered.",
+  "timing_note": "route ms: warm SPIR-V generation of each shader pair; GLES reference ms also includes vx_naga translation, so no performance equivalence conclusion.",
+  "build_hashes": "9c09b901149c729df745057dafa815278aaa101b84d2b6e14f16a42de52f97f2  build/wt-refactor/build/glslang/dl/glslang-16.6.0.tar.gz\n8e0f44a4998fb07d97c809dd1ddd59febb6b259a4d5967282362deecfce9dbdb  tools/glslang/desktop_lod.patch\n503c925bb6a23f8ec7944d3d228fce5f6358e93dccac6e2f336a7c694911fe11  tools/glslang/desktop_spirv_driver.patch\n357015a3901e74f6b92a6db454f497cfd7cb9151e6d015bf0c318aae84c7179c  tools/glslang/desktop_spirv_prototype.patch\n8de5bcaf8358cc493a2cb3770e163210c4c61b6de20f6b53906ce5f4170ee3b4  tools/glslang/es_spirv.patch\n64aa4f58e5c123ddce2e4444d8a0baca6632262e7cb2fb94f63328693648056a  tools/glslang/desktop_spirv_lowering.hpp\n51440e943ca8da2052d045e63b8297ff3a8b1ab5fbd6d33701f7e223d0f81269  tools/glslang/v86_glslang.cpp\na53c9445959aed73c934ad3a5504fd83b486f4b54f49732fa07c778dd0eab960  build/wt-refactor/build/glslang/build-wasm/glslang/libGenericCodeGen.a\na53c9445959aed73c934ad3a5504fd83b486f4b54f49732fa07c778dd0eab960  build/wt-refactor/build/glslang/build-wasm/glslang/libMachineIndependent.a\nb54bcd6bdfc4c7ccdd150db32e043512d8ebf52ad7fe88f6c9839ecd91a91b95  build/wt-refactor/build/glslang/build-wasm/glslang/libglslang-default-resource-limits.a\nfb0efc9b79effa5a3cc00e285c22ae011a6abf84bee837f94271c0057fe94d93  build/wt-refactor/build/glslang/build-wasm/glslang/libglslang.a\na53c9445959aed73c934ad3a5504fd83b486f4b54f49732fa07c778dd0eab960  build/wt-refactor/build/glslang/build-wasm/glslang/OSDependent/Unix/libOSDependent.a\na53c9445959aed73c934ad3a5504fd83b486f4b54f49732fa07c778dd0eab960  build/wt-refactor/build/glslang/build-wasm/SPIRV/libSPIRV.a\n80b7cbea3d5dc544e8e04e9863f80f41c8298940fbf41c5ff0c949e976f841dd  build/gl-e0-repro/desktop_spirv.wasm\nb200ab5996ee5943a947a7c3d75b8b2c98ce1cbed83e5b1c1442d1aceb4fa265  bios/glslang.wasm\n"
+}

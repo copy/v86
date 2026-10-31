@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>E0 desktop SPIR-V experiment</title><pre id="result">RUNNING</pre>
+<script>
+(async()=>{
+ "use strict";
+ try{
+  const device=await(await navigator.gpu.requestAdapter()).requestDevice();
+  const report=await(await fetch("../../build/gl-e0-results/report.json")).json(),results=[];
+  for(const item of report.tint_modules){
+   const start=performance.now(),module=device.createShaderModule({code:item.code});
+   const info=await module.getCompilationInfo();
+   results.push({route:item.route,case:item.case,stage:item.stage,ms:performance.now()-start,errors:info.messages.filter(m=>m.type==="error").map(m=>m.message)});
+  }
+  await fetch("/__test_file?name=gl-e0-tint.json",{method:"POST",body:JSON.stringify({adapter:device.adapterInfo,results},null,2)});
+  const counts=[2,6].map(route=>({route,total:results.filter(r=>r.route===route).length,accepted:results.filter(r=>r.route===route&&!r.errors.length).length}));
+  document.getElementById("result").textContent="PASS E0 experiment measured real Tint acceptance: "+JSON.stringify(counts);
+ }catch(error){document.getElementById("result").textContent="FAIL "+String(error.stack||error);}
+})();
+</script>

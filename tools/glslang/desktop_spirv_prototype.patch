@@ -1,0 +1,362 @@
+--- a/glslang/MachineIndependent/ShaderLang.cpp
++++ b/glslang/MachineIndependent/ShaderLang.cpp
+@@ -678,7 +678,7 @@
+             infoSink.info.message(EPrefixError, "#version: compilation for SPIR-V does not support the compatibility profile");
+             break;
+         default:
+-            if (spvVersion.vulkan > 0 && version < 140) {
++            if (spvVersion.vulkan > 0 && version < 140 && !spvVersion.vulkanRelaxed) {
+                 correct = false;
+                 infoSink.info.message(EPrefixError, "#version: Desktop shaders for Vulkan SPIR-V require version 140 or higher");
+                 version = 140;
+--- a/glslang/MachineIndependent/Initialize.cpp
++++ b/glslang/MachineIndependent/Initialize.cpp
+@@ -533,9 +533,14 @@
+     RelateTabledBuiltins(CustomFunctions, symbolTable);
+ }
+ 
++inline bool DesktopLegacySpv(int version, EProfile profile, const SpvVersion& spvVersion)
++{
++    return profile != EEsProfile && version <= 120 && spvVersion.vulkanRelaxed;
++}
++
+ inline bool IncludeLegacy(int version, EProfile profile, const SpvVersion& spvVersion)
+ {
+-    return profile != EEsProfile && (version <= 130 || (spvVersion.spv == 0 && version == 140 && ARBCompatibility) ||
++    return profile != EEsProfile && (version <= 130 || ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && version == 140 && ARBCompatibility) ||
+            profile == ECompatibilityProfile);
+ }
+ 
+@@ -1794,7 +1799,7 @@
+          profile == ECompatibilityProfile ||
+         (profile == ECoreProfile && version < 420) ||
+          profile == ENoProfile) {
+-        if (spvVersion.spv == 0) {
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             commonBuiltins.append(
+                 "vec4 texture2D(sampler2D, vec2);"
+ 
+@@ -1813,7 +1818,7 @@
+     if ( profile == ECompatibilityProfile ||
+         (profile == ECoreProfile && version < 420) ||
+          profile == ENoProfile) {
+-        if (spvVersion.spv == 0) {
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             commonBuiltins.append(
+                 "vec4 texture1D(sampler1D, float);"
+ 
+@@ -1846,7 +1851,7 @@
+     }
+ 
+     if (profile == EEsProfile) {
+-        if (spvVersion.spv == 0) {
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             if (version < 300) {
+                 commonBuiltins.append(
+                     "vec4 texture2D(samplerExternalOES, vec2 coord);" // GL_OES_EGL_image_external
+@@ -1891,7 +1896,7 @@
+     //
+     // Noise functions.
+     //
+-    if (spvVersion.spv == 0 && profile != EEsProfile) {
++    if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && profile != EEsProfile) {
+         commonBuiltins.append(
+             "float noise1(float x);"
+             "float noise1(vec2  x);"
+@@ -1916,7 +1921,7 @@
+             "\n");
+     }
+ 
+-    if (spvVersion.vulkan == 0) {
++    if ((spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+         //
+         // Atomic counter functions.
+         //
+@@ -4792,7 +4797,7 @@
+     //
+     // Geometric Functions.
+     //
+-    if (spvVersion.vulkan == 0 && IncludeLegacy(version, profile, spvVersion))
++    if ((spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion)) && IncludeLegacy(version, profile, spvVersion))
+         stageBuiltins[EShLangVertex].append("vec4 ftransform();");
+ 
+     //
+@@ -4807,7 +4812,7 @@
+          profile == ECompatibilityProfile ||
+         (profile == ECoreProfile && version < 420) ||
+          profile == ENoProfile) {
+-        if (spvVersion.spv == 0) {
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             s->append(
+                 "vec4 texture2DLod(sampler2D, vec2, float);"         // GL_ARB_shader_texture_lod
+                 "vec4 texture2DProjLod(sampler2D, vec3, float);"     // GL_ARB_shader_texture_lod
+@@ -4822,7 +4827,7 @@
+     if ( profile == ECompatibilityProfile ||
+         (profile == ECoreProfile && version < 420) ||
+          profile == ENoProfile) {
+-        if (spvVersion.spv == 0) {
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             s->append(
+                 "vec4 texture1DLod(sampler1D, float, float);"                          // GL_ARB_shader_texture_lod
+                 "vec4 texture1DProjLod(sampler1D, vec2, float);"                       // GL_ARB_shader_texture_lod
+@@ -4915,7 +4920,7 @@
+             );
+     }
+     if ((profile != EEsProfile && version >= 420) || esBarrier) {
+-        if (spvVersion.vulkan == 0 || spvVersion.vulkanRelaxed) {
++        if ((spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion)) || spvVersion.vulkanRelaxed) {
+             commonBuiltins.append("void memoryBarrierAtomicCounter();");
+         }
+         commonBuiltins.append("void memoryBarrierImage();");
+@@ -5513,7 +5518,7 @@
+     //
+     // Original-style texture Functions with bias.
+     //
+-    if (spvVersion.spv == 0 && (profile != EEsProfile || version == 100)) {
++    if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && (profile != EEsProfile || version == 100)) {
+         stageBuiltins[EShLangFragment].append(
+             "vec4 texture2D(sampler2D, vec2, float);"
+             "vec4 texture2DProj(sampler2D, vec3, float);"
+@@ -5524,7 +5529,7 @@
+ 
+             "\n");
+     }
+-    if (spvVersion.spv == 0 && (profile != EEsProfile && version > 100)) {
++    if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && (profile != EEsProfile && version > 100)) {
+         stageBuiltins[EShLangFragment].append(
+             "vec4 texture1D(sampler1D, float, float);"
+             "vec4 texture1DProj(sampler1D, vec2, float);"
+@@ -5536,7 +5541,7 @@
+ 
+             "\n");
+     }
+-    if (spvVersion.spv == 0 && profile == EEsProfile) {
++    if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && profile == EEsProfile) {
+         stageBuiltins[EShLangFragment].append(
+             "vec4 texture2DLodEXT(sampler2D, vec2, float);"      // GL_EXT_shader_texture_lod
+             "vec4 texture2DProjLodEXT(sampler2D, vec3, float);"  // GL_EXT_shader_texture_lod
+@@ -5548,7 +5553,7 @@
+ 
+     // GL_EXT_shader_tile_image (v86: not below 310 es, which has no uint or
+     // attachment types; es_spirv.patch lets those versions reach here)
+-    if (spvVersion.vulkan > 0 && (profile != EEsProfile || version >= 310)) {
++    if (spvVersion.vulkan > 0 && !DesktopLegacySpv(version, profile, spvVersion) && (profile != EEsProfile || version >= 310)) {
+         stageBuiltins[EShLangFragment].append(
+             "lowp uint stencilAttachmentReadEXT();"
+             "lowp uint stencilAttachmentReadEXT(int);"
+@@ -6036,7 +6041,7 @@
+     //
+     // Depth range in window coordinates, p. 33
+     //
+-    if (spvVersion.spv == 0) {
++    if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+         commonBuiltins.append(
+             "struct gl_DepthRangeParameters {"
+             );
+@@ -6060,7 +6065,7 @@
+             "\n");
+     }
+ 
+-    if (spvVersion.spv == 0 && IncludeLegacy(version, profile, spvVersion)) {
++    if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && IncludeLegacy(version, profile, spvVersion)) {
+         //
+         // Matrix state. p. 31, 32, 37, 39, 40.
+         //
+@@ -6431,11 +6436,11 @@
+                 "};"
+                 "\n");
+         }
+-        if (version >= 130 && spvVersion.vulkan == 0)
++        if (version >= 130 && (spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion)))
+             stageBuiltins[EShLangVertex].append(
+                 "int gl_VertexID;"            // needs qualifier fixed later
+                 );
+-        if (spvVersion.vulkan == 0)
++        if ((spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion)))
+             stageBuiltins[EShLangVertex].append(
+                 "int gl_InstanceID;"          // needs qualifier fixed later
+                 );
+@@ -6493,7 +6498,7 @@
+                 "highp int gl_InstanceID;" // needs qualifier fixed later
+                 );
+         } else {
+-            if (spvVersion.vulkan == 0 || spvVersion.vulkanRelaxed)
++            if ((spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion)) || spvVersion.vulkanRelaxed)
+                 stageBuiltins[EShLangVertex].append(
+                     "in highp int gl_VertexID;"      // needs qualifier fixed later
+                     "in highp int gl_InstanceID;"    // needs qualifier fixed later
+@@ -6914,7 +6919,7 @@
+                 "     out int  gl_SampleMask[];"
+                 );
+ 
+-            if (spvVersion.spv == 0) {
++            if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+                 stageBuiltins[EShLangFragment].append(
+                     "uniform int gl_NumSamples;"
+                 );
+@@ -7006,7 +7011,7 @@
+                 "flat  in highp    int gl_SampleMaskIn[];"
+                 "     out highp    int gl_SampleMask[];"
+                 );
+-            if (spvVersion.spv == 0)
++            if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)))
+                 stageBuiltins[EShLangFragment].append(  // GL_OES_sample_variables
+                     "uniform lowp int gl_NumSamples;"
+                     );
+@@ -7504,13 +7509,13 @@
+                     for (int dim = Esd1D; dim < EsdNumDims; ++dim) { // 1D, ..., buffer, subpass
+                         if (dim == EsdAttachmentEXT)
+                             continue;
+-                        if (dim == EsdSubpass && spvVersion.vulkan == 0)
++                        if (dim == EsdSubpass && (spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion)))
+                             continue;
+                         if (dim == EsdSubpass && (image || shadow || arrayed))
+                             continue;
+                         if ((dim == Esd1D || dim == EsdRect) && profile == EEsProfile)
+                             continue;
+-                        if (dim == EsdSubpass && spvVersion.vulkan == 0)
++                        if (dim == EsdSubpass && (spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion)))
+                             continue;
+                         if (dim == EsdSubpass && (image || shadow || arrayed))
+                             continue;
+@@ -8747,7 +8752,7 @@
+         snprintf(builtInConstant, maxSize, "const int  gl_MaxFragmentUniformComponents = %d;", resources.maxFragmentUniformComponents);
+         s.append(builtInConstant);
+ 
+-        if (spvVersion.spv == 0 && IncludeLegacy(version, profile, spvVersion)) {
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && IncludeLegacy(version, profile, spvVersion)) {
+             //
+             // OpenGL'uniform' state.  Page numbers are in reference to version
+             // 1.4 of the OpenGL specification.
+@@ -9171,7 +9176,7 @@
+             BuiltInVariable("gl_InstanceIndex", EbvInstanceIndex, symbolTable);
+         }
+ 
+-        if (spvVersion.vulkan == 0) {
++        if ((spvVersion.vulkan == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             SpecialQualifier("gl_VertexID",   EvqVertexId,   EbvVertexId,   symbolTable);
+             SpecialQualifier("gl_InstanceID", EvqInstanceId, EbvInstanceId, symbolTable);
+             if (version < 140)
+@@ -9284,7 +9289,7 @@
+         symbolTable.setFunctionExtensions("textureFootprintGradNV",      1, &E_GL_NV_shader_texture_footprint);
+         symbolTable.setFunctionExtensions("textureFootprintGradClampNV", 1, &E_GL_NV_shader_texture_footprint);
+         // Compatibility variables, vertex only
+-        if (spvVersion.spv == 0) {
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             BuiltInVariable("gl_Color",          EbvColor,          symbolTable);
+             BuiltInVariable("gl_SecondaryColor", EbvSecondaryColor, symbolTable);
+             BuiltInVariable("gl_Normal",         EbvNormal,         symbolTable);
+@@ -9301,7 +9306,7 @@
+         }
+ 
+         if (profile == EEsProfile) {
+-            if (spvVersion.spv == 0) {
++            if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+                 symbolTable.setFunctionExtensions("texture2DGradEXT",     1, &E_GL_EXT_shader_texture_lod);
+                 symbolTable.setFunctionExtensions("texture2DProjGradEXT", 1, &E_GL_EXT_shader_texture_lod);
+                 symbolTable.setFunctionExtensions("textureCubeGradEXT",   1, &E_GL_EXT_shader_texture_lod);
+@@ -9337,7 +9342,7 @@
+         }
+ 
+         // E_GL_EXT_texture_array
+-        if (profile != EEsProfile && spvVersion.spv == 0) {
++        if (profile != EEsProfile && (spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             symbolTable.setFunctionExtensions("texture1DArray", 1, &E_GL_EXT_texture_array);
+             symbolTable.setFunctionExtensions("texture2DArray", 1, &E_GL_EXT_texture_array);
+             symbolTable.setFunctionExtensions("shadow1DArray", 1, &E_GL_EXT_texture_array);
+@@ -9568,7 +9573,7 @@
+         SpecialQualifier("gl_FrontFacing",      EvqFace,       EbvFace,             symbolTable);
+         SpecialQualifier("gl_FragCoord",        EvqFragCoord,  EbvFragCoord,        symbolTable);
+         SpecialQualifier("gl_PointCoord",       EvqPointCoord, EbvPointCoord,       symbolTable);
+-        if (spvVersion.spv == 0)
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)))
+             SpecialQualifier("gl_FragColor",    EvqFragColor,  EbvFragColor,        symbolTable);
+         else {
+             TSymbol* symbol = symbolTable.find("gl_FragColor");
+@@ -9681,7 +9686,7 @@
+         // built-in functions
+ 
+         if (profile == EEsProfile) {
+-            if (spvVersion.spv == 0) {
++            if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+                 symbolTable.setFunctionExtensions("texture2DLodEXT",      1, &E_GL_EXT_shader_texture_lod);
+                 symbolTable.setFunctionExtensions("texture2DProjLodEXT",  1, &E_GL_EXT_shader_texture_lod);
+                 symbolTable.setFunctionExtensions("textureCubeLodEXT",    1, &E_GL_EXT_shader_texture_lod);
+@@ -9703,7 +9708,7 @@
+                 symbolTable.setFunctionExtensions("interpolateAtOffset",   1, &E_GL_OES_shader_multisample_interpolation);
+             }
+         } else if (version < 130) {
+-            if (spvVersion.spv == 0) {
++            if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+                 symbolTable.setFunctionExtensions("texture1DLod",        1, &E_GL_ARB_shader_texture_lod);
+                 symbolTable.setFunctionExtensions("texture2DLod",        1, &E_GL_ARB_shader_texture_lod);
+                 symbolTable.setFunctionExtensions("texture3DLod",        1, &E_GL_ARB_shader_texture_lod);
+@@ -9719,7 +9724,7 @@
+         }
+ 
+         // E_GL_ARB_shader_texture_lod functions usable only with the extension enabled
+-        if (profile != EEsProfile && spvVersion.spv == 0) {
++        if (profile != EEsProfile && (spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             symbolTable.setFunctionExtensions("texture1DGradARB",         1, &E_GL_ARB_shader_texture_lod);
+             symbolTable.setFunctionExtensions("texture1DProjGradARB",     1, &E_GL_ARB_shader_texture_lod);
+             symbolTable.setFunctionExtensions("texture2DGradARB",         1, &E_GL_ARB_shader_texture_lod);
+@@ -11413,10 +11418,10 @@
+         symbolTable.relateToOperator("textureFootprintGradNV",      EOpImageSampleFootprintGradNV);
+         symbolTable.relateToOperator("textureFootprintGradClampNV", EOpImageSampleFootprintGradClampNV);
+ 
+-        if (spvVersion.spv == 0 && IncludeLegacy(version, profile, spvVersion))
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && IncludeLegacy(version, profile, spvVersion))
+             symbolTable.relateToOperator("ftransform", EOpFtransform);
+ 
+-        if (spvVersion.spv == 0 && (IncludeLegacy(version, profile, spvVersion) ||
++        if ((spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion)) && (IncludeLegacy(version, profile, spvVersion) ||
+             (profile == EEsProfile && version == 100))) {
+ 
+             symbolTable.relateToOperator("texture1D",                EOpTexture);
+@@ -11753,7 +11758,7 @@
+             symbolTable.relateToOperator("textureGatherDOffsetQCOM",   EOpTextureGatherDOffsetQCOM);
+         }
+ 
+-        if (profile != EEsProfile && spvVersion.spv == 0) {
++        if (profile != EEsProfile && (spvVersion.spv == 0 || DesktopLegacySpv(version, profile, spvVersion))) {
+             symbolTable.relateToOperator("texture1DArray", EOpTexture);
+             symbolTable.relateToOperator("texture2DArray", EOpTexture);
+             symbolTable.relateToOperator("shadow1DArray", EOpTexture);
+--- a/glslang/MachineIndependent/Scan.cpp
++++ b/glslang/MachineIndependent/Scan.cpp
+@@ -1664,7 +1664,7 @@
+     case TEXTURECUBEARRAY:
+     case ITEXTURECUBEARRAY:
+     case UTEXTURECUBEARRAY:
+-        if (parseContext.spvVersion.vulkan > 0)
++        if (parseContext.spvVersion.vulkan > 0 && !(parseContext.spvVersion.vulkanRelaxed && !parseContext.isEsProfile() && parseContext.version <= 120))
+             return keyword;
+         else
+             return identifierOrType();
+@@ -1723,7 +1723,7 @@
+     case TEXTURE3D:
+     case SAMPLER:
+     case SAMPLERSHADOW:
+-        if (parseContext.spvVersion.vulkan > 0)
++        if (parseContext.spvVersion.vulkan > 0 && !(parseContext.spvVersion.vulkanRelaxed && !parseContext.isEsProfile() && parseContext.version <= 120))
+             return keyword;
+         else
+             return identifierOrType();
+@@ -1848,7 +1848,7 @@
+     case TEXTURE1D:
+     case TEXTURE2DRECT:
+     case TEXTURE1DARRAY:
+-        if (parseContext.spvVersion.vulkan > 0)
++        if (parseContext.spvVersion.vulkan > 0 && !(parseContext.spvVersion.vulkanRelaxed && !parseContext.isEsProfile() && parseContext.version <= 120))
+             return keyword;
+         else
+             return identifierOrType();
+@@ -1862,7 +1862,7 @@
+     case ATTACHMENTEXT:
+     case IATTACHMENTEXT:
+     case UATTACHMENTEXT:
+-        if (parseContext.spvVersion.vulkan > 0)
++        if (parseContext.spvVersion.vulkan > 0 && !(parseContext.spvVersion.vulkanRelaxed && !parseContext.isEsProfile() && parseContext.version <= 120))
+             return keyword;
+         else
+             return identifierOrType();

@@ -990,6 +990,11 @@ game.exe
 
 ### 阶段 E：着色器（约 3–5 周，与 D 并行）
 
+> **E0 完成（2026-10-31）：按 §0.1 选择手写代码生成器修复路线。**
+> - 隔离构建两种真实 glslang 16.6.0 原型；36 对 Cube 2 和 21 对新 GLSL 1.20 均先由生产桌面 glslang 验证合法。版本补丁路线通过 2/57，typed IR 路线通过 52/57。
+> - 独立 Naga 检查后，真实 Chrome Tint 分别接受生成模块的 38/38、108/109；模块数包含未成功程序对的另一阶段。AST 尚缺一维深度采样、投影阴影 bias、含 opaque 成员的 uniform 结构体和 NaN/Infinity 常量处理。
+> - 完整编译门槛失败，未进入像素门槛，不宣称性能门槛通过；生产 bios/glslang.wasm 未改动。可复现实验、补丁、逐项日志与哈希见 [E0 记录](../tests/glbridge/experiments/README.md)。继续 E1 的 S2-40/41 修复。
+
 - **E0 验证（不超过 1 周）：** 按 §0.1 第二步比较路线 (i) 和 (ii)，按门槛决定是否切换。
 - **E1 切换（通过门槛时）：**
   - XP 的 GLSL 代码生成改为 glslang → SPIR-V → vx_naga，与 GLES 3.x 共用 SPIR-V 补丁和 naga 修复；
