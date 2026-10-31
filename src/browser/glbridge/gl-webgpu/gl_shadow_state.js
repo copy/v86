@@ -171,8 +171,7 @@
         mult(c, [2*n/(r-l), 0, 0, 0, 0, 2*n/(t-b), 0, 0, (r+l)/(r-l), (t+b)/(t-b), -(f+n)/(f-n), -1, 0, 0, -2*f*n/(f-n), 0]);
     });
 
-    // These rules cover the state families above. Other families continue
-    // to migrate explicitly; QUERY_ERROR is still the renderer's for now.
+    // State families share the same validation path before forwarding.
     for (const name of ["VIEWPORT", "SCISSOR"])
         rule(name, (c, a) => a[2] < 0 || a[3] < 0 ? GL.INVALID_VALUE : 0);
     for (const name of ["DEPTH_RANGE", "CLEAR_COLOR", "CLEAR_ACCUM", "COLOR_MASK", "POLYGON_OFFSET", "LINE_STIPPLE",
@@ -291,7 +290,7 @@
             isEnabled ? this.enableStateValue && this.enableStateValue(r.pname) : this.stateValue(r.pname);
         if (typeof result === "number") return fail(result);
         if (isEnabled && !result) return fail(GL.INVALID_ENUM);
-        if (!result) { this.answered(name, view, offset, C.V86GL_STATE_QUERY_UNSUPPORTED); return; }
+        if (!result) return fail(GL.INVALID_ENUM);
         const [values, kind] = result;
         if (values.length * 8 > r.data_size) return fail(GL.INVALID_VALUE);
         for (let i = 0; i < values.length; ++i) {

@@ -26,9 +26,9 @@
     const setters = new Set(["TEX_PARAMETERI", "TEX_PARAMETERF", "TEX_PARAMETERIV", "TEX_PARAMETERFV"]);
     const ensure = image => image.parameters || (image.parameters = parameters.initial());
     const copy = values => Object.fromEntries(Object.entries(values).map(([p, v]) => [p, v.slice()]));
-    function pixelError(format, type) {
-        if (!PIXEL_FORMATS.has(format) || !PIXEL_TYPES.has(type) && !RGB_PACKED.has(type) && !RGBA_PACKED.has(type) ||
-            type === 0x1A00 && format !== GL.COLOR_INDEX) return GL.INVALID_ENUM;
+    function pixelError(format, type, rectangle = false) {
+        if (!(PIXEL_FORMATS.has(format) || rectangle && format === GL.STENCIL_INDEX) || !PIXEL_TYPES.has(type) && !RGB_PACKED.has(type) && !RGBA_PACKED.has(type) ||
+            type === 0x1A00 && format !== GL.COLOR_INDEX && !(rectangle && format === GL.STENCIL_INDEX)) return GL.INVALID_ENUM;
         return RGB_PACKED.has(type) && format !== GL.RGB || RGBA_PACKED.has(type) && ![GL.RGBA, GL.BGRA].includes(format) ? GL.INVALID_OPERATION : 0;
     }
     function uploadSpan(c, r, dimensions, pack = false) {
@@ -331,4 +331,7 @@
             if (!r.error) ensure(s.boundImage(a[0]).texture)[a[1]] = r.values;
         },
     });
+    const api = { pixelError, uploadSpan };
+    global.V86GLShadowTextures = api;
+    if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -102,7 +102,7 @@ test("unsupported, undersized and Begin/End queries preserve the output", () => 
     const s = scene(); const unknown = s.ask(0xDEADBEEF), small = s.ask(GL.VIEWPORT, C.V86GL_STATE_FLOAT, 8);
     s.call("BEGIN", GL.POINTS); const inside = s.ask(GL.VIEWPORT); s.call("END"); const after = s.ask(GL.VIEWPORT);
     shadow().process(s.bytes());
-    assert.equal(unknown().status, C.V86GL_STATE_QUERY_UNSUPPORTED);
+    assert.equal(unknown().status, C.V86GL_SYNC_QUERY_STATUS_FAILED); assert.equal(unknown().error, GL.INVALID_ENUM);
     for (const a of [unknown(), small(), inside()]) { assert.deepEqual(a.values, []); assert.ok(a.tail.every(b => b === 0xA5)); }
     assert.equal(small().error, GL.INVALID_VALUE); assert.equal(inside().error, GL.INVALID_OPERATION); check(after, [0, 0, 80, 60]);
 });

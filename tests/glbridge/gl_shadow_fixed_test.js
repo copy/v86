@@ -113,7 +113,7 @@ test("invalid parameters are tagged before either state machine changes", async 
     assert.equal(executor.current.lights[0].spotExponent, 0); assert.equal(executor.current.lights[0].spotCutoff, 180);
     assert.equal(executor.current.textureUnits[0].env.rgbScale, 1);
 });
-test("failed parameter queries preserve output and latch errors; unmigrated kinds use explicit fallback", () => {
+test("failed parameter queries preserve output and latch errors; unknown kinds fail on the CPU", () => {
     const s = scene(), a = s.ask(C.V86GL_PARAMETER_LIGHT, GL.LIGHT0 + 8, GL.POSITION);
     const b = s.ask(C.V86GL_PARAMETER_MATERIAL, GL.FRONT_AND_BACK, GL.AMBIENT), c = s.ask(C.V86GL_PARAMETER_TEX_ENV, GL.TEXTURE_ENV, 0xDEAD);
     const small = s.ask(C.V86GL_PARAMETER_LIGHT, GL.LIGHT0, GL.POSITION, C.V86GL_STATE_DOUBLE, 8);
@@ -123,7 +123,7 @@ test("failed parameter queries preserve output and latch errors; unmigrated kind
     for (const q of [a, b, c]) { assert.equal(q().status, 2); assert.equal(q().error, GL.INVALID_ENUM); assert.ok(q().untouched); }
     assert.equal(small().error, GL.INVALID_VALUE); assert.ok(small().untouched);
     assert.equal(begin().error, GL.INVALID_OPERATION); assert.ok(begin().untouched);
-    assert.equal(unsupported().status, C.V86GL_STATE_QUERY_UNSUPPORTED); assert.equal(shadow.current.error, GL.INVALID_ENUM);
+    assert.equal(unsupported().status, C.V86GL_SYNC_QUERY_STATUS_FAILED); assert.equal(shadow.current.error, GL.INVALID_ENUM);
 });
 (async () => { for (const { name, fn } of tests) { await fn(); console.log("ok   " + name); } console.log(tests.length + " CPU fixed-function state tests passed"); })()
     .catch(error => { console.error(error); process.exitCode = 1; });

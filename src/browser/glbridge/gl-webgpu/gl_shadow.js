@@ -6,14 +6,9 @@
 // is on this thread or across the CPU worker's boundary, where the renderer
 // only ever sees a copy (review S1-1).
 //
-// It takes over the answers one kind at a time. A query it does not answer
-// yet keeps its PENDING status, and the page's executor answers it (which
-// reaches the guest in local mode only); one it answers is no longer
-// PENDING when the executor sees it, and the executor leaves it alone.
-//
-// Answered here so far: the capability queries (gl_caps.js, from the
-// capabilities the renderer sends once its adapter is up), and with glslang
-// (gl_glslang.js) the shaders' and programs' (gl_shadow_glsl.js).
+// CPU modules answer state, object, program and error queries. Rendering
+// results (pixels, occlusion results and programmable vertex captures) use
+// explicit asynchronous replies; renderer state is never a GL error source.
 //
 // The parts: this file walks the records and keeps the contexts and their
 // share groups; the others add handlers (GLShadow.install) and the state
@@ -23,6 +18,7 @@
     "use strict";
 
     const protocol = global.GLProtocol || require("./gl_protocol.js");
+    const { GL } = global.GLWGConstants || require("./gl_constants.js");
     const glCaps = global.GLCaps || require("./gl_caps.js");
     const { GLFN, CTRL, C, F, RECORDS } = protocol;
 
@@ -228,19 +224,25 @@
                 let size = view.getUint16(offset + 2, true);
                 offset += 4;
                 if (size === EXTENDED_RECORD_SIZE) {
-                    if (offset + 4 > end) break;
+                    if (offset + 4 > end) { offset = recordOffset; break; }
                     size = view.getUint32(offset, true);
                     offset += 4;
                 }
                 if (offset + size > end) {
-                    ++this.stats.malformed;
-                    return;
+                    offset = recordOffset; break;
                 }
                 ++this.stats.records;
                 let routed;
                 const name = protocol.NAME_BY_OPCODE[fn], signature = protocol.SIGNATURES[name], header = RECORDS[name];
                 const minimum = signature ? protocol.payloadBytes(signature[1]) : header ? header.size : 0;
-                if (size >= minimum) for (const part of PARTS) if (part.routeRecord) {
+                if (size < minimum || !name && !Object.values(CTRL).includes(fn) && !protocol.isRejected(fn)) {
+                    ++this.stats.malformed;
+                    const fields = protocol.F[name];
+                    if (fields?.status !== undefined && fields.status + 4 <= size) view.setUint32(offset + fields.status, C.V86GL_SYNC_QUERY_STATUS_FAILED, true);
+                    routed = { error: GL.INVALID_OPERATION };
+                } else if (!this.current && fn < 0xFF00 && !name?.startsWith("QUERY_")) {
+                    routed = { commands: [] };
+                } else for (const part of PARTS) if (part.routeRecord) {
                     routed = part.routeRecord(this, fn, bytes, view, offset, size);
                     if (routed !== undefined) break;
                 }
@@ -256,7 +258,7 @@
                     }
                 }
                 const statusOffset = protocol.F[name]?.status;
-                if (this.batchMetadata?.deferred && !this.batchMetadata.generated && statusOffset !== undefined && size >= minimum &&
+                if (this.batchMetadata?.deferred && !this.batchMetadata.generated && statusOffset !== undefined && statusOffset + 4 <= size &&
                     view.getUint32(offset + statusOffset, true) !== PENDING && this.writeResponse)
                     this.completeResponse({ ...this.batchMetadata, offset: (this.batchMetadata.offset || 0) + offset }, bytes.slice(offset, offset + size), statusOffset);
                 offset += size;
@@ -273,7 +275,11 @@
             }
             if (offset !== end) ++this.stats.malformed;
             for (const part of PARTS) if (part.afterBatch) part.afterBatch(this);
-            if (offset !== end || !filtered) return;
+            if (offset !== end) {
+                if (accepted < offset) segments.push({ offset: accepted, length: offset - accepted });
+                return segments;
+            }
+            if (!filtered) return;
             if (accepted < end) segments.push({ offset: accepted, length: end - accepted });
             return segments;
         }
@@ -306,12 +312,13 @@
                 if (error) return error;
             }
             if (validateOnly) return 0;
-            // CPU errors are available inside the IOCTL, before the renderer
-            // sees accepted records. A zero CPU flag keeps the transitional
-            // renderer path for command families not migrated yet.
-            if (fn === GLFN.QUERY_ERROR && this.current?.error && this.pending("QUERY_ERROR", view, offset, size)) {
-                view.setUint32(offset + F.QUERY_ERROR.value, this.current.error, true);
-                this.current.error = 0;
+            // GL errors are CPU state, including NO_ERROR. The renderer may
+            // still report host failures, but cannot change this GL answer.
+            if (fn === GLFN.QUERY_ERROR && this.pending("QUERY_ERROR", view, offset, size)) {
+                const c = this.current, inside = c?.state?.begin;
+                view.setUint32(offset + F.QUERY_ERROR.value, inside ? 0 : c?.error || 0, true);
+                if (inside) { if (!c.error) c.error = GL.INVALID_OPERATION; }
+                else if (c) c.error = 0;
                 this.answered("QUERY_ERROR", view, offset, OK);
             }
             for (const part of PARTS) if (part.command) part.command(this, fn, bytes, view, offset, size);
@@ -423,8 +430,20 @@
 
         queryInteger(bytes, view, offset, size) {
             if (!this.capabilities || !this.pending("QUERY_INTEGER", view, offset, size)) return;
-            const value = this.integer(view.getUint32(offset + F.QUERY_INTEGER.pname, true));
-            if (value === undefined) return;
+            const pname = view.getUint32(offset + F.QUERY_INTEGER.pname, true);
+            let value = this.integer(pname);
+            if (value === undefined && this.current && this.stateValue) {
+                const result = this.stateValue(pname);
+                if (result) {
+                    const v = result[0][0] || 0, kind = result[1];
+                    value = kind === "u" ? v | 0 : kind === "n" ? (v <= -1 ? -0x80000000 : Math.trunc(Math.max(-1, Math.min(1, v)) * 0x7FFFFFFF)) :
+                        kind === "t" ? Math.trunc(v) : v < 0 ? -Math.round(-v) : Math.round(v);
+                }
+            }
+            if (value === undefined) {
+                if (this.current && !this.current.error) this.current.error = GL.INVALID_ENUM;
+                return this.answered("QUERY_INTEGER", view, offset, C.V86GL_SYNC_QUERY_STATUS_FAILED);
+            }
             view.setUint32(offset + F.QUERY_INTEGER.value, value >>> 0, true);
             view.setUint32(offset + F.QUERY_INTEGER.status, OK, true);
             ++this.stats.answered;
@@ -437,7 +456,10 @@
             const text = this.string(view.getUint32(offset + F.QUERY_GL_STRING.name, true));
             const capacity = view.getUint32(offset + F.QUERY_GL_STRING.data_size, true);
             const header = RECORDS.QUERY_GL_STRING.size;
-            if (text === undefined || header + capacity > size) return;
+            if (text === undefined || header + capacity > size) {
+                if (this.current && !this.current.error) this.current.error = text === undefined ? GL.INVALID_ENUM : GL.INVALID_VALUE;
+                return this.answered("QUERY_GL_STRING", view, offset, C.V86GL_SYNC_QUERY_STATUS_FAILED);
+            }
             const limit = Math.min(text.length + 1, capacity);
             for (let i = 0; i < limit; ++i)
                 bytes[offset + header + i] = i < text.length ? text.charCodeAt(i) & 0xff : 0;

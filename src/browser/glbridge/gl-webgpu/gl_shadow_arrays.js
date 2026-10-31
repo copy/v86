@@ -97,13 +97,17 @@
     const draws = new Set([P.GLFN.DRAW_ARRAYS, P.GLFN.DRAW_ELEMENTS,
         P.GLFN.DRAW_ARRAYS_GL2, P.GLFN.DRAW_ELEMENTS_GL2, P.GLFN.DRAW_ARRAYS_DIRECT, P.GLFN.DRAW_ELEMENTS_DIRECT,
         P.GLFN.DRAW_RANGE_ELEMENTS_DIRECT, P.GLFN.MULTI_DRAW_ARRAYS_DIRECT, P.GLFN.MULTI_DRAW_ELEMENTS_DIRECT]);
-    GLShadow.prototype.arrayInputError = function(fn) {
-        const c = this.current, a = c.state.arrays, mapped = array => c.group.bufferObjects.get(array.bufferId)?.mapped;
-        if (a.generic.some(array => array.enabled && mapped(array))) return GL.INVALID_OPERATION;
+    function enabledArrays(c) {
+        const a = c.state.arrays, result = a.generic.filter(array => array.enabled);
         for (const [key, , , , enable] of definitions) {
-            if (key === "texCoord") { if (a.texCoord.some((array, i) => c.state.raster.texcoord[i] && mapped(array))) return GL.INVALID_OPERATION; }
-            else if (c.state.raster.client[enable] && mapped(a[key])) return GL.INVALID_OPERATION;
+            if (key === "texCoord") a.texCoord.forEach((array, i) => { if (c.state.raster.texcoord[i]) result.push(array); });
+            else if (c.state.raster.client[enable]) result.push(a[key]);
         }
+        return result;
+    }
+    GLShadow.prototype.arrayInputError = function(fn) {
+        const c = this.current, mapped = array => c.group.bufferObjects.get(array.bufferId)?.mapped;
+        if (enabledArrays(c).some(mapped)) return GL.INVALID_OPERATION;
         if (P.NAME_BY_OPCODE[fn].includes("ELEMENTS") && this.boundBuffer(GL.ELEMENT_ARRAY_BUFFER)?.mapped) return GL.INVALID_OPERATION;
         return 0;
     };
@@ -133,4 +137,7 @@
             }
         },
     });
+    const api = { enabledArrays };
+    global.V86GLShadowArrays = api;
+    if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -132,10 +132,11 @@ function opcodes(bytes) {
         assert.deepEqual(Array.from({ length: 4 }, (_, i) => rasterState.view.getFloat64(24 + i * 8, true)), [48, 32, 0.5, 1]);
         assert.deepEqual(Array.from(gpu.current.current.rasterPos), [48, 32, 0.5, 1]);
         gpu.captureVertices = nativeCapture; await submit(new GLStream().call("USE_PROGRAM", 0).makeCurrent(1300, 0, 0, 32, 32, 1300, 1300).call("CLEAR", GL.COLOR_BUFFER_BIT));
-        gpu.current.error = GL.INVALID_ENUM; await error(GL.INVALID_ENUM); await error(GL.NO_ERROR);
+        gpu.current.error = GL.INVALID_ENUM; await error(GL.NO_ERROR); await error(GL.NO_ERROR);
+        assert.equal(gpu.current.error, GL.INVALID_ENUM, "renderer flags cannot change CPU GL answers");
         gpu.current.error = GL.INVALID_ENUM;
         await submit(new GLStream().call("LINE_WIDTH", -2));
-        await error(GL.INVALID_VALUE); await error(GL.INVALID_ENUM); await error(GL.NO_ERROR);
+        await error(GL.INVALID_VALUE); await error(GL.NO_ERROR); await error(GL.NO_ERROR);
         assert.equal(gpu.stats.refusals, 0);
         const generated = new GLStream().call("LINE_WIDTH", 17).call("LINE_WIDTH", 7);
         const generatedPixel = generated.readPixels(0, 0, 1, 1, GL.RGBA, GL.UNSIGNED_BYTE, 4);

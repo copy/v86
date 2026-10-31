@@ -59,7 +59,7 @@ test("capability integers and strings are answered in place", () => {
     assert.equal(shadow.stats.answered, 5);
 });
 
-test("what the shadow does not answer stays PENDING for the executor", () => {
+test("capability readiness and unknown standalone queries have explicit statuses", () => {
     const shadow = new GLShadow();
     const { bytes, at } = queries((s, mark) => {
         mark("size"); s.queryInteger(GL.MAX_TEXTURE_SIZE);
@@ -73,13 +73,14 @@ test("what the shadow does not answer stays PENDING for the executor", () => {
     shadow.setCapabilities(CAPS);
     shadow.process(bytes);
     assert.equal(u32(bytes, at.size + P.F.QUERY_INTEGER.status), OK);
-    // state, errors and ARB strings are not the shadow's yet
-    assert.equal(u32(bytes, at.viewport + P.F.QUERY_INTEGER.status), PENDING);
-    assert.equal(u32(bytes, at.error + P.F.QUERY_ERROR.status), PENDING);
-    assert.equal(u32(bytes, at.arb + P.F.QUERY_GL_STRING.status), PENDING);
+    // This isolated test loads no typed-state or ARB query modules.
+    // Error queries, including NO_ERROR, are always CPU answers.
+    assert.equal(u32(bytes, at.viewport + P.F.QUERY_INTEGER.status), P.C.V86GL_SYNC_QUERY_STATUS_FAILED);
+    assert.equal(u32(bytes, at.error + P.F.QUERY_ERROR.status), OK);
+    assert.equal(u32(bytes, at.arb + P.F.QUERY_GL_STRING.status), P.C.V86GL_SYNC_QUERY_STATUS_FAILED);
 });
 
-test("the executor leaves an answered query alone and answers a pending one", async () => {
+test("the executor preserves CPU answers and failures", async () => {
     const shadow = new GLShadow();
     shadow.setCapabilities(CAPS);
     const { host } = createFakeHost();
@@ -94,8 +95,8 @@ test("the executor leaves an answered query alone and answers a pending one", as
     assert.notEqual(executor.queryInteger(GL.MAX_TEXTURE_SIZE), 4096);
     executor.submit(bytes, {});
     assert.equal(u32(bytes, at.size + P.F.QUERY_INTEGER.value), 4096, "the shadow's answer stands");
-    assert.equal(u32(bytes, at.viewport + P.F.QUERY_INTEGER.status), OK);
-    assert.equal(u32(bytes, at.viewport + P.F.QUERY_INTEGER.value), 64);
+    assert.equal(u32(bytes, at.viewport + P.F.QUERY_INTEGER.status), P.C.V86GL_SYNC_QUERY_STATUS_FAILED);
+    assert.equal(u32(bytes, at.viewport + P.F.QUERY_INTEGER.value), 0);
 });
 
 test("the capability limits agree with the translator's", () => {
