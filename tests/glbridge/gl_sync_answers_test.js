@@ -252,7 +252,7 @@ async function guestAnswers(remote) {
     for (const kind of ["string", "limit", "caps", "linked", "location", "framebuffer", "arb", "finish", "queries"])
         if (results.page[kind] !== results.worker[kind])
             failures.push(kind + ": page " + JSON.stringify(results.page[kind]) + ", worker " + JSON.stringify(results.worker[kind]));
-    if (results.page.string !== "Anthropic v86gl") failures.push("GL_VENDOR is " + JSON.stringify(results.page.string));
+    if (results.page.string !== "VMware, Inc.") failures.push("GL_VENDOR is " + JSON.stringify(results.page.string));
     if (results.page.linked !== 1) failures.push("the program did not link: " + results.page.linked);
     if (!(results.page.location >= 0)) failures.push("gain has no location: " + results.page.location);
     if (results.page.framebuffer !== 0x8CD5) failures.push("the framebuffer is " + results.page.framebuffer);

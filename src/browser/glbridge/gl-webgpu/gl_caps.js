@@ -109,12 +109,38 @@
     function string(caps, pname) {
         if (caps.profile) return caps.profile.strings[pname];
         switch (pname) {
-        case GL.VENDOR: return "Anthropic v86gl";
-        case GL.RENDERER: return "v86 WebGPU bridge";
-        case GL.VERSION: return "2.1 (v86gl/WebGPU)";
-        case GL.SHADING_LANGUAGE_VERSION: return "1.20";
+        case GL.VENDOR: return "VMware, Inc.";
+        case GL.RENDERER: return "SVGA3D; v86 WebGPU bridge";
+        case GL.VERSION: return "2.1 v86gl (WebGPU)";
+        case GL.SHADING_LANGUAGE_VERSION: return "1.20 v86gl";
         case GL.EXTENSIONS: return extensions(caps);
         default: return undefined;
+        }
+    }
+
+    // The DLL chooses a WineD3D compatibility hint; the CPU owns the answer.
+    // WineD3D 1.7.52 treats an unknown vendor as GeForce FX, disables NPOT,
+    // and then selects rectangle textures. Preserve its known SVGA3D path.
+    // A hint only hides capabilities; it never grants an unimplemented one.
+    function profileString(caps, profile, pname) {
+        if (!profile) return string(caps, pname);
+        const C = protocol.C, legacy = profile === C.V86GL_CAPS_PROFILE_WINED3D_GL15 ||
+            profile === C.V86GL_CAPS_PROFILE_WINED3D_ARB;
+        switch (pname) {
+        case GL.VENDOR: return "VMware, Inc.";
+        case GL.RENDERER: return "SVGA3D; v86 WebGPU bridge";
+        case GL.VERSION: return legacy ? "1.5 v86gl (WineD3D backbuffer profile)" : "2.1 v86gl (WebGPU)";
+        case GL.SHADING_LANGUAGE_VERSION: return legacy ? undefined : string(caps, pname);
+        case GL.EXTENSIONS:
+            return extensions(caps).split(" ").filter(name => {
+                if (legacy && ["GL_ARB_shader_objects", "GL_ARB_vertex_shader", "GL_ARB_fragment_shader", "GL_ARB_shading_language_100"].includes(name)) return false;
+                if ((legacy || profile === C.V86GL_CAPS_PROFILE_GL21_NO_FBO) &&
+                    ["GL_EXT_framebuffer_object", "GL_EXT_framebuffer_blit"].includes(name)) return false;
+                if ((profile === C.V86GL_CAPS_PROFILE_WINED3D_GL15 || profile === C.V86GL_CAPS_PROFILE_GL21_FBO_FFP) &&
+                    ["GL_ARB_vertex_program", "GL_ARB_fragment_program"].includes(name)) return false;
+                return true;
+            }).join(" ");
+        default: return string(caps, pname);
         }
     }
 
@@ -229,7 +255,7 @@
         return Object.freeze(result);
     }
 
-    const api = { LIMITS, capabilities, extensions, string, integer, vector, freeze };
+    const api = { LIMITS, capabilities, extensions, string, profileString, integer, vector, freeze };
     global.GLCaps = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

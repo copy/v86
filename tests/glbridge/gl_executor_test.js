@@ -316,7 +316,7 @@ test("glGetString reports GL 2.1 and GLSL 1.20", () => {
         return text;
     };
     assert.ok(read(version).startsWith("2.1"), read(version));
-    assert.strictEqual(read(glsl), "1.20");
+    assert.strictEqual(read(glsl), "1.20 v86gl");
 });
 
 /* ---- clears and the frame ---- */

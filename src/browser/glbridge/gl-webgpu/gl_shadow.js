@@ -357,6 +357,12 @@
                 const shareGroup = this.field("MAKE_CURRENT", "share_group", view, offset, size);
                 context = this.createContext(key, id, shareGroup ? "guest:" + shareGroup : "private:" + this.nextGroup++);
             }
+            // Optional in older MAKE_CURRENT records. Freeze the first hint
+            // for this context; a later switch cannot change its contract.
+            if (context.capsProfile === undefined) {
+                const profile = this.field("MAKE_CURRENT", "caps_profile", view, offset, size);
+                context.capsProfile = profile >= 0 && profile <= C.V86GL_CAPS_PROFILE_GL21 ? profile : 0;
+            }
             this.current = context;
             for (const part of PARTS) if (part.current) part.current(this, context, view, offset, size);
         }
@@ -423,7 +429,15 @@
         }
 
         string(pname) {
-            const value = glCaps.string(this.capabilities, pname);
+            const c = this.current;
+            if (c?.capsProfile && !c.capsStrings) {
+                c.capsStrings = {};
+                for (const name of [GL.VENDOR, GL.RENDERER, GL.VERSION, GL.SHADING_LANGUAGE_VERSION, GL.EXTENSIONS]) {
+                    const text = glCaps.profileString(this.capabilities, c.capsProfile, name);
+                    if (text !== undefined) c.capsStrings[name] = text;
+                }
+            }
+            const value = c?.capsProfile ? c.capsStrings[pname] : glCaps.string(this.capabilities, pname);
             const method = STRINGS.get(pname);
             return value !== undefined || !method || !this.current ? value : this[method](pname);
         }
@@ -476,7 +490,8 @@
                 capabilities: this.capabilities,
                 nextGroup: this.nextGroup,
                 contexts: [...this.contexts.values()].map(c => ({ key: c.key, id: c.id, group: c.group.key,
-                    program: c.program, error: c.error })),
+                    program: c.program, error: c.error, capsProfile: c.capsProfile || 0,
+                    ...(c.capsStrings ? { capsStrings: { ...c.capsStrings } } : {}) })),
                 current: this.current ? this.current.key : null,
             };
             for (const part of PARTS) if (part.getState) part.getState(this, state);
@@ -494,6 +509,8 @@
                 const context = this.createContext(c.key, c.id, c.group || "private:" + c.key);
                 context.program = c.program || 0;
                 context.error = c.error || 0;
+                context.capsProfile = c.capsProfile || 0;
+                if (c.capsStrings) context.capsStrings = { ...c.capsStrings };
             }
             this.current = state.current ? this.contexts.get(state.current) || null : null;
             for (const part of PARTS) if (part.setState) part.setState(this, state);

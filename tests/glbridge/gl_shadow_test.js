@@ -47,15 +47,15 @@ test("capability integers and strings are answered in place", () => {
     assert.equal(u32(bytes, at.size + F.value), 4096);
     assert.equal(u32(bytes, at.caps + F.value), glCaps.integer(CAPS, P.C.V86GL_QUERY_HOST_CAPABILITIES));
     assert.equal(u32(bytes, at.vendor + S.status), OK);
-    assert.equal(u32(bytes, at.vendor + S.length), "Anthropic v86gl".length + 1);
-    assert.equal(text(bytes, at.vendor + header, 16), "Anthropic v86gl\0");
+    assert.equal(u32(bytes, at.vendor + S.length), "VMware, Inc.".length + 1);
+    assert.equal(text(bytes, at.vendor + header, 13), "VMware, Inc.\0");
     const extensions = text(bytes, at.extensions + header, u32(bytes, at.extensions + S.length) - 1);
     assert.equal(extensions, glCaps.extensions(CAPS));
     assert.ok(extensions.includes("GL_EXT_texture_compression_s3tc"));
     assert.ok(!extensions.split(" ").includes("GL_EXT_paletted_texture"), "palette API is not implemented");
     // a buffer too small takes what fits; length says how long it is
     assert.equal(u32(bytes, at.short + S.status), OK);
-    assert.equal(text(bytes, at.short + header, 4), "Anth");
+    assert.equal(text(bytes, at.short + header, 4), "VMwa");
     assert.equal(shadow.stats.answered, 5);
 });
 

@@ -300,7 +300,7 @@
         // the context the commands that follow are for, and its window; an
         // older guest's payload may stop short (the fields after read as 0)
         // (format: its window's pixel format, V86GL_FORMAT_*)
-        ["MAKE_CURRENT", 0xFFF0, "u:hwnd i:x i:y u:width u:height u:context_id u:share_group u:format"],
+        ["MAKE_CURRENT", 0xFFF0, "u:hwnd i:x i:y u:width u:height u:context_id u:share_group u:format u:caps_profile"],
         ["RELEASE_CURRENT", 0xFFF1],
         // one context; with no payload, every context (an older guest's
         // process teardown)
@@ -327,6 +327,12 @@
         ["V86GL_FORMAT_SINGLE_BUFFER", "(1u << 0)", "MAKE_CURRENT's format: no back buffer"],
         ["V86GL_FORMAT_SAMPLES_SHIFT", 8, "and the samples per pixel (0 or 1: one) in bits 8-15"],
         ["V86GL_FORMAT_SAMPLES_MASK", 0xFF00],
+        ["V86GL_CAPS_PROFILE_UNRESOLVED", 0, "old guests retain the saved capability strings"],
+        ["V86GL_CAPS_PROFILE_WINED3D_GL15", 1],
+        ["V86GL_CAPS_PROFILE_WINED3D_ARB", 2],
+        ["V86GL_CAPS_PROFILE_GL21_NO_FBO", 3],
+        ["V86GL_CAPS_PROFILE_GL21_FBO_FFP", 4],
+        ["V86GL_CAPS_PROFILE_GL21", 5],
         ["V86GL_EXTENDED_RECORD_SIZE", 0xFFFF, "a record size of this is followed by a u32 size"],
         // CPU validation replaces only the opcode of a rejected GL record.
         // Keep its size/payload so every inline response retains its address.
