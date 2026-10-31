@@ -2609,6 +2609,8 @@
                 f.func = a[0] >>> 0; f.ref = a[1] | 0; f.valueMask = a[2] >>> 0;
             }
         });
+        // The CPU resolves EXT's three stencil banks before forwarding.
+        define("ACTIVE_STENCIL_FACE", function() {});
         define("STENCIL_FUNC_SEPARATE", function(a) {
             const which = a[0] >>> 0;
             for (const face of facesOf(which)) {

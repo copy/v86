@@ -90,7 +90,7 @@ test-glbridge:
 GLBRIDGE_GPU_PAGES = d3d9_conformance_browser_test.html gl_conformance_browser_test.html gl_validation_browser_test.html \
 	d3d9_shader_tint_browser_test.html d3d9_webgpu_browser_test.html gl_webgpu_browser_test.html \
 	gl_multipass_browser_test.html d3d9_legacy_format_browser_test.html gl_vertex_capture_browser_test.html gl_raster_program_browser_test.html gl_evaluator_browser_test.html \
-	gl_gpu_snapshot_browser_test.html gl_renderer_snapshot_browser_test.html gl_program_interface_browser_test.html
+	gl_gpu_snapshot_browser_test.html gl_renderer_snapshot_browser_test.html gl_program_interface_browser_test.html gl_stencil_ext_browser_test.html
 .PHONY: glbridge-gpu-tests glbridge-mutations
 glbridge-gpu-tests:
 	set -e; for page in $(GLBRIDGE_GPU_PAGES); do \

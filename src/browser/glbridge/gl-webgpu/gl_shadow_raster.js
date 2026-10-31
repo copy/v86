@@ -133,4 +133,7 @@
         context(c) { c.state.raster = newRaster(); },
         setState(shadow) { for (const c of shadow.contexts.values()) if (!c.state.raster) c.state.raster = newRaster(); },
     });
+    const api = { stencilBits };
+    global.V86GLShadowRaster = api;
+    if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

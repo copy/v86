@@ -277,6 +277,7 @@
         ["RESOLVED_EVAL_VERTEX", 250, null, "f:position[4] f:color[4] f:normal[4] f:texcoord[4]"],
         ["RESOLVED_PROGRAM_INTERFACE", 251, null, "u:program u:object_id u:link_generation u:entry_count u:data_size u:reserved"],
         ["INDEX_STATE", 252, null, "u:operation u:mask d:value"],
+        ["ACTIVE_STENCIL_FACE", 253, "ActiveStencilFaceEXT", "u"],
     ];
 
     // Composite records' optional headers and repeated elements. The common
