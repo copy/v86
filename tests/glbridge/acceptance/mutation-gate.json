@@ -1,0 +1,376 @@
+{
+  "date": "2026-11-01",
+  "command": "node tests/glbridge/mutations.mjs",
+  "exitCode": 0,
+  "anchorAudit": "802 unique, syntactically valid mutants; stale/empty/unknown selection, invalid JavaScript and infrastructure timeout fail",
+  "detectorOrder": "Known detector hints only change order; all unmodified suites run, all other detectors follow if the hint passes",
+  "families": [
+    {
+      "name": "glpresented",
+      "killed": 2,
+      "applied": 2,
+      "floor": 1
+    },
+    {
+      "name": "d3d9",
+      "killed": 12,
+      "applied": 12,
+      "floor": 0.8333333333333334
+    },
+    {
+      "name": "glresidency",
+      "killed": 3,
+      "applied": 3,
+      "floor": 1
+    },
+    {
+      "name": "gldelivery",
+      "killed": 1,
+      "applied": 1,
+      "floor": 1
+    },
+    {
+      "name": "glwglswap",
+      "killed": 8,
+      "applied": 8,
+      "floor": 1
+    },
+    {
+      "name": "glthreadcontexts",
+      "killed": 3,
+      "applied": 3,
+      "floor": 1
+    },
+    {
+      "name": "glarraylock",
+      "killed": 9,
+      "applied": 9,
+      "floor": 1
+    },
+    {
+      "name": "glimmediateblocks",
+      "killed": 10,
+      "applied": 10,
+      "floor": 1
+    },
+    {
+      "name": "gluploadchunks",
+      "killed": 8,
+      "applied": 8,
+      "floor": 1
+    },
+    {
+      "name": "glarraynormalization",
+      "killed": 5,
+      "applied": 5,
+      "floor": 1
+    },
+    {
+      "name": "glbufferencoding",
+      "killed": 8,
+      "applied": 8,
+      "floor": 1
+    },
+    {
+      "name": "glprogramlink",
+      "killed": 10,
+      "applied": 10,
+      "floor": 1
+    },
+    {
+      "name": "glrectangle",
+      "killed": 16,
+      "applied": 16,
+      "floor": 1
+    },
+    {
+      "name": "glarbpipeline",
+      "killed": 11,
+      "applied": 11,
+      "floor": 1
+    },
+    {
+      "name": "glglsl120",
+      "killed": 16,
+      "applied": 16,
+      "floor": 1
+    },
+    {
+      "name": "glsnapshotderived",
+      "killed": 1,
+      "applied": 1,
+      "floor": 1
+    },
+    {
+      "name": "glcachebounds",
+      "killed": 16,
+      "applied": 16,
+      "floor": 0.9
+    },
+    {
+      "name": "glpartialupdates",
+      "killed": 12,
+      "applied": 12,
+      "floor": 0.9
+    },
+    {
+      "name": "glbitmapatlas",
+      "killed": 12,
+      "applied": 12,
+      "floor": 0.9
+    },
+    {
+      "name": "glclearpass",
+      "killed": 10,
+      "applied": 10,
+      "floor": 0.9
+    },
+    {
+      "name": "glbindlayouts",
+      "killed": 11,
+      "applied": 11,
+      "floor": 0.9
+    },
+    {
+      "name": "gls3render",
+      "killed": 7,
+      "applied": 7,
+      "floor": 0.9
+    },
+    {
+      "name": "glformatcomplete",
+      "killed": 7,
+      "applied": 7,
+      "floor": 0.9
+    },
+    {
+      "name": "glsinglesample",
+      "killed": 15,
+      "applied": 15,
+      "floor": 0.9
+    },
+    {
+      "name": "glpolygonclip",
+      "killed": 12,
+      "applied": 12,
+      "floor": 0.9
+    },
+    {
+      "name": "glclipplanes",
+      "killed": 11,
+      "applied": 12,
+      "floor": 0.9
+    },
+    {
+      "name": "glprogramlines",
+      "killed": 14,
+      "applied": 14,
+      "floor": 0.9
+    },
+    {
+      "name": "glpointraster",
+      "killed": 10,
+      "applied": 10,
+      "floor": 0.9
+    },
+    {
+      "name": "glprogrampolygons",
+      "killed": 14,
+      "applied": 14,
+      "floor": 0.9
+    },
+    {
+      "name": "glsamplerstate",
+      "killed": 12,
+      "applied": 12,
+      "floor": 0.9
+    },
+    {
+      "name": "glimages",
+      "killed": 10,
+      "applied": 10,
+      "floor": 0.9
+    },
+    {
+      "name": "gluploadorder",
+      "killed": 7,
+      "applied": 7,
+      "floor": 0.9
+    },
+    {
+      "name": "glmipranges",
+      "killed": 6,
+      "applied": 6,
+      "floor": 0.9
+    },
+    {
+      "name": "glsamplinglevels",
+      "killed": 6,
+      "applied": 6,
+      "floor": 0.9
+    },
+    {
+      "name": "glpolygonorder",
+      "killed": 4,
+      "applied": 4,
+      "floor": 0.9
+    },
+    {
+      "name": "glvolume",
+      "killed": 6,
+      "applied": 6,
+      "floor": 0.9
+    },
+    {
+      "name": "glblitaspects",
+      "killed": 6,
+      "applied": 6,
+      "floor": 0.9
+    },
+    {
+      "name": "glstencilfaces",
+      "killed": 4,
+      "applied": 4,
+      "floor": 0.9
+    },
+    {
+      "name": "glresources",
+      "killed": 7,
+      "applied": 7,
+      "floor": 0.9
+    },
+    {
+      "name": "glkeys",
+      "killed": 9,
+      "applied": 9,
+      "floor": 0.9
+    },
+    {
+      "name": "glrenderer",
+      "killed": 6,
+      "applied": 6,
+      "floor": 0.9
+    },
+    {
+      "name": "glfbopixels",
+      "killed": 6,
+      "applied": 6,
+      "floor": 0.9
+    },
+    {
+      "name": "glcaps",
+      "killed": 6,
+      "applied": 6,
+      "floor": 0.9
+    },
+    {
+      "name": "gl",
+      "killed": 423,
+      "applied": 432,
+      "floor": 0.9
+    }
+  ],
+  "applied": 802,
+  "killed": 792,
+  "survivors": [
+    {
+      "family": "glclipplanes",
+      "label": "fixed clip equation forces eye w to one"
+    },
+    {
+      "family": "gl",
+      "label": "Selection/feedback: change resolved raster colour"
+    },
+    {
+      "family": "gl",
+      "label": "Display list pixels: create an invalid 2D view for 3D slice reads"
+    },
+    {
+      "family": "gl",
+      "label": "GLSL struct arrays: read widened member storage as a GLSL value"
+    },
+    {
+      "family": "gl",
+      "label": "CPU GLSL samplers: ignore CPU link failure in the renderer"
+    },
+    {
+      "family": "gl",
+      "label": "ARB LIT diffuse not clamped"
+    },
+    {
+      "family": "gl",
+      "label": "pipelines keyed by program name"
+    },
+    {
+      "family": "gl",
+      "label": "the LOD bias is not applied"
+    },
+    {
+      "family": "gl",
+      "label": "a single-buffered window draws into its back buffer"
+    },
+    {
+      "family": "gl",
+      "label": "the border factor ignores the half texel"
+    }
+  ],
+  "sourceHashes": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "d8c8338132359cac6409174839bf24f945cab219fe6f38059b9f4f4f5403c4fc",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "d4965932ecb19b2b7a3e5fe0d5a2442ca2294d3c2939d1f89833b027e82b95ba",
+    "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "328af36e86551f7ec39b118060cbac9f68fa051212bb0f8b5fd5c499dfe844c9",
+    "src/browser/glbridge/gl-webgpu/gl_arb_program.js": "fb21bd852bb3768089987c816eb13f3789deabd69b014c104cf45eb2f9618c8d",
+    "src/browser/glbridge/gl-webgpu/gl_bind_layouts.js": "9eb4b7362d26b1dd27d0d4548c7e343a34f3222ada4749af45d5626fb7c16701",
+    "src/browser/glbridge/gl-webgpu/gl_cache_keys.js": "f5c4a5b4f07d3f6ed65d4525f9c8ad23bcd79271215b7e23a53ea8c4414fda98",
+    "src/browser/glbridge/gl-webgpu/gl_caps.js": "3e51fe877634e742bc27385c2bf29e696483db56eca2dcc76573d893073a97b2",
+    "src/browser/glbridge/gl-webgpu/gl_client_arrays.js": "92f2860631a4bc9f680bfef12133f346b1d3efb984c9685be12f6d4a4a76ec7c",
+    "src/browser/glbridge/gl-webgpu/gl_executor.js": "16f626ee6d6d4ceaf173859757f0d9ca717a0d9489cb91393f0dd6ff54612e1b",
+    "src/browser/glbridge/gl-webgpu/gl_fixed_function.js": "4b05a7f28245315a3791b3f047ec67a44facb2963615ceb8093c36e886963043",
+    "src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js": "82e2b3e68add089527c0f4eed3cda521d03956817dd24dc10f2c8f868c63b49e",
+    "src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js": "026ec13cc15fc66eb37a173ebaa799c44c3fbe7c21200815143d29a67bf73057",
+    "src/browser/glbridge/gl-webgpu/gl_image_formats.js": "f8e4067e5565a735e85ab826bdb3a604ee4979835d6f782b0eb55a949e03b025",
+    "src/browser/glbridge/gl-webgpu/gl_list_arrays.js": "ba59b24b64470fec5ec08df3a52b1e706814af8a9d09176a67879ad17fd1839d",
+    "src/browser/glbridge/gl-webgpu/gl_math.js": "f48b3d26414ff145947fc29255954dae27ec6e49bb0e85d5f199e8aa1e43f15c",
+    "src/browser/glbridge/gl-webgpu/gl_pixel_maps.js": "29ca7adc9454819b9021ffd9b7d609838a7e6963ffceaabf06c607b060f1a4ab",
+    "src/browser/glbridge/gl-webgpu/gl_polygon_clip.js": "a53d57b3ab762b9183dd2cad8ccc6b3a295c0f054c15eff8307257cdd686b540",
+    "src/browser/glbridge/gl-webgpu/gl_program_geometry.js": "1f039b9ceea7c57eda4fca999ee91d9e5502265928fd1b76de1d7ee54aeb272f",
+    "src/browser/glbridge/gl-webgpu/gl_protocol.js": "697ff3f5c2139ce4506d8101b93d4f2a2c639078b4c5d10264c77e459274f926",
+    "src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js": "233f916c87d3ba1c5c3297024edc5b7b4a1f3e8763b41b902dc3c523ba3b96e0",
+    "src/browser/glbridge/gl-webgpu/gl_select_geometry.js": "c3b41155342628fce87325e11c4d91750a2ab1301ca9da26b0bf1bffd6ceac75",
+    "src/browser/glbridge/gl-webgpu/gl_shader_translator.js": "d6d5c09cbee969a0175b00966d218e4d2e7040b7e3db7853158fcac8e13ca5a0",
+    "src/browser/glbridge/gl-webgpu/gl_shadow.js": "78d42ef816d30956d61e535b10df2055f5cb7a4c6201f8b14266cfc01aee0727",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_arb.js": "4bd66d608f82cc384217502a0d3efbb531bd9f04efd8ddb72a8dbf5bdae6e16e",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js": "2adb9ba945e0db067d7c5735537f1bae3c055ae4043006c8a88ec2358e2ab991",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js": "bb109fc457a59b454a4300889f996ad265583d91a018892563dd3a16b70faafa",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js": "6f60df555d462844ed8ea5ebd522676c1ff611de03bd182011bf3f8c00c99a18",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js": "659235705dffd1cb8c8d82b4cee7f8729b17480d28d7b9357cdda9597b0db76c",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js": "325ae59006417702decfac6d306137b9f71a3addec1a1aff86e61c94bcef6fdb",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_images.js": "5f7846ebe45f2b5e65630c8816d603dc5085c7aa853efd1ce1f1138bb33b71fc",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_lists.js": "0825400b141fa46940fe6caf885981dcaa16ef48d760b1c712a33a6ff3e4a72b",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_misc.js": "9be26de500b85428536b2af56bc0eaec5f945250eb5da8db6a90cbf3382391fc",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_names.js": "b791ffc20abfa6015cff692316954007675199c13a2c88e09f195a1eb7ffd986",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_objects.js": "b93fc5191809d28155ca5bf7ca1a86d7af7c6f7af48c59c69823c5468d600baa",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js": "1b84b5fe8760b22799f82d152fd31fe6d9036d34924ce40183fd90607054b380",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_queries.js": "2fa7d36cbd2ae94f233f15ebd4d162e06a44369adc2cde801fc120d821a77fb6",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_raster.js": "69a22fd20d7327a7cc082614c8736592d36ad53cb2e9520dd42909bf193be2cd",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js": "19b5acf379ba3419c58330dbd43920db459bb19e08eb4305c691618e3a7900a9",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_render.js": "02693cf7333b9c3dd285ce57f73084c98ff1ab1e5724fca393b14621f06de48d",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_select.js": "fec10cdd4cc0ed3111d3f3112ec94dec162945f5ac6f68e8ba64867b9be2547d",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_state.js": "81f9d9802611f808f43faecb2c4bd0fd391de1b49bdc62e86377442710120ae7",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js": "c5b64c4527b6a2811dfde9c7eccd620398d0500526f6176f866f9d9e9ce2212c",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js": "d87c46a16c59d5d02c6f4e466389170656e93ab9a62cf8a697d0ca20a8c5cc16",
+    "src/browser/glbridge/gl-webgpu/gl_shadow_textures.js": "5e052953878bb95f365c4e89b27f79d5b500c3d636228d57ac14e8bd5da659c4",
+    "src/browser/glbridge/gl-webgpu/gl_single_sample.js": "398c7c2d58e859b7b0a1bda7df69f719d42e3492c6ded6e6d665c7dfbe6ebe34",
+    "src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js": "8b63099cf25c13f33a8745ae488134c52ddab9696d810fc88b12434a64a300d5",
+    "src/browser/glbridge/gl-webgpu/gl_state_layout.js": "6d242c89c1240a0be835e5f3ce87a66dabe1c502ce0dfca7895f457b1f01e0e6",
+    "src/browser/glbridge/gl-webgpu/gl_texture_parameters.js": "e8636a98859aa8aac979398f130852697d5f3f4e64f9a07a9dec194a11bb8f1a",
+    "src/browser/glbridge/graphics_proxy.js": "9ebb92dd3f26587adbda8c70553b2b5900bd8d456595d03e7579e91ab5c0ca6e",
+    "src/browser/glbridge/v86_network_bridge.js": "d665dfd23799c022429e33e92ea244d44dd536d2d2adfd17a1581d14b08010e2",
+    "src/browser/glbridge/v86gl_device.js": "c73cbba14efacf80a9fb0bf6e22e48dab5caaa065c784d339f627f6ee3b96e82",
+    "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+    "tests/glbridge/gl_conformance/oracle_policy.js": "f0063dde93bbaa33fc0d267948e39a6750bb1d590278174bc7b2f9e4839aa6ed"
+  },
+  "driverHashes": {
+    "runner": "6f4c6f00e26018fd49b5e9ee8f387aa67c4260a2527e2989783bdac31059725c",
+    "hints": "fb5bf66205d662694028c0cf0bff405e2d2851339bd68007969c646e3e117f59"
+  }
+}

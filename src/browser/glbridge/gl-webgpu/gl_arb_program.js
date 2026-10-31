@@ -13,7 +13,7 @@
 // built-ins use, so an ARB program and a fixed-function draw see one set of
 // matrices rather than two that can drift.
 //
-// See docs/opengl-webgpu-implementation-plan.zh-CN.md chapter 9.
+// See docs/opengl-webgpu-plan.md E2.
 
 (function(global) {
     "use strict";

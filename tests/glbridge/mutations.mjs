@@ -8,6 +8,8 @@
 //
 //   node tests/glbridge/mutations.mjs [--node-only] [--only=d3d9|gl] [filter]
 //
+// --audit checks every selected anchor without executing tests. Stale/empty
+// selections, invalid JavaScript and infrastructure errors always fail.
 // Exits 1 when a family's kill rate is below its floor.
 import { cpSync as cp_sync, mkdtempSync as mkdtemp_sync, readFileSync as read_file_sync,
     writeFileSync as write_file_sync, rmSync as rm_sync, mkdirSync as mkdir_sync } from "node:fs";
@@ -15,16 +17,25 @@ import { spawnSync as spawn_sync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Script } from "node:vm";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const args = process.argv.slice(2);
 const node_only = args.includes("--node-only");
 const family = (args.find(a => a.startsWith("--only=")) || "").slice(7);
 const filter = args.find(a => !a.startsWith("--"));
+const audit_only = args.includes("--audit");
+// Detector order is only a speed hint. Every unmodified suite still runs;
+// if the previously successful detector passes, all other suites follow.
+const detector_hints = JSON.parse(read_file_sync(new URL("mutation_killers.json", import.meta.url), "utf8"));
 
 const D = "src/browser/glbridge/d3d9-webgpu/";
 const G = "src/browser/glbridge/gl-webgpu/";
 const MUTATIONS = {
+    glpresented: { floor: 1, node: [], pages: ["gl_presented_frame_browser_test.html"], list: [
+        ["last visible frame is never retained", G + "gl_executor.js", "if (remember) {", "if (false) {"],
+        ["cold restore exposes the unfinished back frame", G + "gl_executor.js", "this.presentToCanvas(this.presentedBuffer || this.backBuffer, false)", "this.presentToCanvas(this.backBuffer, false)"],
+    ] },
     d3d9: { floor: 10 / 12, node: ["d3d9_webgpu_executor_test.js", "d3d9_shader_pipeline_test.js",
         "d3d9_shader_wgsl_validation_test.js", "ddraw_webgpu_executor_test.js", "ddraw_blit_wgsl_validation_test.js"],
     pages: ["d3d9_conformance_browser_test.html"], list: [
@@ -69,7 +80,7 @@ const MUTATIONS = {
     ] },
     glwglswap: { floor: 1, node: ["gl_executor_test.js"], pages: ["gl_wgl_swap_browser_test.html"], list: [
         ["swap uses current drawable", G + "gl_executor.js", "const drawable = this.drawables.get(hwnd);\n            if (!drawable || drawable.singleBuffer", "const drawable = this.currentDrawable;\n            if (!drawable || drawable.singleBuffer"],
-        ["swap changes current render targets", G + "gl_executor.js", "finally { this.currentDrawable = previous; }", "finally { void previous; }"],
+        ["swap changes current render targets", G + "gl_executor.js", "return presented;\n            } finally { this.currentDrawable = previous; }", "return presented;\n            } finally {}"],
         ["single-buffer swap presents", G + "gl_executor.js", "!drawable || drawable.singleBuffer || !drawable.backBuffer", "!drawable || !drawable.backBuffer"],
         ["positive interval ignores host refresh", G + "gl_executor.js", "if (!interval || metadata?.replay) return answer(swap());", "if (true) return answer(swap());"],
         ["interval two waits only one refresh", G + "gl_executor.js", "remaining = interval;", "remaining = 1;"],
@@ -199,7 +210,7 @@ const MUTATIONS = {
     ] },
     glcachebounds: { floor: 0.9, node: ["gl_cache_bounds_test.js"], pages: ["gl_cache_bounds_browser_test.html"], list: [
         ["shader module cache is unbounded", G + "gl_executor.js",
-            "if (this.moduleCache.size >= 512)", "if (false)"],
+            "if (!module) {\n                if (this.moduleCache.size >= 512)", "if (!module) {\n                if (false)"],
         ["sampler cache is unbounded", G + "gl_executor.js",
             "if (this.samplerCache.size >= 512)", "if (false)"],
         ["special pipeline descriptors are unbounded", G + "gl_executor.js",
@@ -491,7 +502,7 @@ const MUTATIONS = {
         ["ARB result size applies while disabled", G + "gl_arb_program.js",
             "this.options.programPointSize ? \"pointSize.x\"", "true ? \"pointSize.x\""],
         ["ARB point variant cache omits size mode", G + "gl_executor.js",
-            "const variantKey = this.variantKeys.key([fixed.key, forcedTexCoords, variant]);", "const variantKey = this.variantKeys.key([fixed.key, forcedTexCoords]);"],
+            "const variantKey = this.variantKeyFor([fixed.key, forcedTexCoords, variant]);", "const variantKey = this.variantKeyFor([fixed.key, forcedTexCoords]);"],
         ["sprite size gets aliased point rounding", G + "gl_state_layout.js",
             "${rounded ? `let rounded=", "${true ? `let rounded="],
         ["ARB mixed stage omits two-sided colours", G + "gl_executor.js",
@@ -549,7 +560,7 @@ const MUTATIONS = {
         ["shadow reference bypasses clamp", G + "gl_state_layout.js",
             "let reference=clamp(glReference,0.0,1.0);", "let reference=glReference;"],
         ["non-mip sampler sees all authored mips", G + "gl_executor.js",
-            "const mipLevelCount = isMipmapFilter(object.sampler.minFilter) ? clamp(\n                    object.sampler.maxLevel - baseMipLevel + 1, 1,\n                    object.gpuLevels - baseMipLevel) : 1;", "const mipLevelCount = clamp(object.sampler.maxLevel - baseMipLevel + 1, 1, object.gpuLevels - baseMipLevel);"],
+            "mipLevelCount = isMipmapFilter(object.sampler.minFilter) ? clamp(object.sampler.maxLevel - baseMipLevel + 1, 1, object.gpuLevels - baseMipLevel) : 1,", "mipLevelCount = clamp(object.sampler.maxLevel - baseMipLevel + 1, 1, object.gpuLevels - baseMipLevel),"],
         ["fixed sampler state indexes texture unit", G + "gl_fixed_function.js",
             "binding = sig.textureBindingBase / 2 + sig.texture.slice(0, i).filter(unit => unit.enabled).length,", "binding = i,"],
     ] },
@@ -593,7 +604,7 @@ const MUTATIONS = {
         ["ordered upload is not row aligned", G + "gl_executor.js",
             "pitch = alignUp(rowBytes, 256)", "pitch = rowBytes"],
         ["ordered upload staging destroyed before submission", G + "gl_executor.js",
-            "this.retire(upload);++this.recordedOps;", "upload.destroy();++this.recordedOps;"],
+            "this.retire(upload);++this.recordedOps;\n            }\n        }", "upload.destroy();++this.recordedOps;\n            }\n        }"],
     ] },
     glmipranges: { floor: 0.9, node: ["gl_mipmap_ranges_test.js"], pages: ["gl_mipmap_ranges_browser_test.html"], list: [
         ["mipmap generation ignores base level", G + "gl_executor.js",
@@ -626,15 +637,15 @@ const MUTATIONS = {
     ] },
     glpolygonorder: { floor: 0.9, node: ["gl_polygon_order_test.js"], pages: ["gl_polygon_order_browser_test.html"], list: [
         ["polygon modes reverse primitive order", G + "gl_executor.js",
-            'for (let k = 0; k < faces.provoking.length; ++k) {\n                const fill = [], groups = new Map();',
-            'for (let n = 0; n < faces.provoking.length; ++n) {\n                const k = faces.provoking.length - 1 - n;\n                const fill = [], groups = new Map();'],
+            "for (let polygon = 0; polygon < faces.provoking.length; ++polygon) for (const side of [\"front\", \"back\"]) {",
+            "for (let n = 0; n < faces.provoking.length; ++n) for (const side of [\"front\", \"back\"]) { const polygon = faces.provoking.length - 1 - n;"],
         ["polygon fill skips its original primitive", G + "gl_executor.js",
-            'vertexCount: fill.length, index, rasterized: true });', 'vertexCount: 0, index: null, rasterized: true });'],
+            "for (let edge = 0; edge < (mode === 1 || singlePoints ? localCapacity : 1); ++edge) {", "if (mode === 0) continue; for (let edge = 0; edge < (mode === 1 || singlePoints ? localCapacity : 1); ++edge) {"],
         ["polygon line group is omitted", G + "gl_executor.js",
-            'this.drawGroups(request, groups, cpu, fixedVertex);', 'void groups;'],
+            "for (let edge = 0; edge < (mode === 1 || singlePoints ? localCapacity : 1); ++edge) {", "if (mode === 1) continue; for (let edge = 0; edge < (mode === 1 || singlePoints ? localCapacity : 1); ++edge) {"],
         ["polygon fill uses lines instead of triangles", G + "gl_executor.js",
-            'if (index) this.issueDraw({ ...request, mode: GL.TRIANGLES,\n                        vertexCount: fill.length,',
-            'if (index) this.issueDraw({ ...request, mode: GL.LINES,\n                        vertexCount: fill.length,'],
+            "this.issueDraw({ mode: mode === 0 ? GL.TRIANGLES : mode === 1 ? GL.LINES : GL.POINTS,",
+            "this.issueDraw({ mode: mode === 0 ? GL.LINES : mode === 1 ? GL.LINES : GL.POINTS,"],
     ] },
     glvolume: { floor: 0.9, node: ["gl_volume_test.js"], pages: ["gl_volume_browser_test.html"], list: [
         ["3D attachment uses invalid 2D view", G + "gl_executor.js",
@@ -642,7 +653,7 @@ const MUTATIONS = {
         ["3D pass drops selected depth slice", G + "gl_executor.js",
             'view: target.view,\n                ...(target.depthSlice !== undefined ? { depthSlice: target.depthSlice } : {}),', 'view: target.view,'],
         ["3D masked clear drops selected depth slice", G + "gl_executor.js",
-            'view: target.view, loadOp: "load", storeOp: "store",\n                    ...(target.depthSlice !== undefined ? { depthSlice: target.depthSlice } : {}),', 'view: target.view, loadOp: "load", storeOp: "store",'],
+            "...(target.depthSlice !== undefined ? { depthSlice: target.depthSlice } : {}),\n                ...(target.resolveTarget", "...(target.resolveTarget"],
         ["CopyTexSubImage3D ignores z offset", G + "gl_executor.js",
             'depthSlice: kind === "3D" ? zoffset : undefined', 'depthSlice: kind === "3D" ? 0 : undefined'],
         ["3D mip ignores second source depth slice", G + "gl_executor.js",
@@ -671,7 +682,7 @@ const MUTATIONS = {
         ["stencil masks always select front", G + "gl_executor.js",
             'const f = s.stencil[side || "front"], b = side ? f : s.stencil.back;', 'const f = s.stencil.front, b = s.stencil.back;'],
         ["stencil face split drops back draws", G + "gl_executor.js",
-            'for (const side of ["front", "back"]) {', 'for (const side of ["front"]) {'],
+            "for (const side of [\"front\", \"back\"]) {\n                    if (culling && s.cullFace", "for (const side of [\"front\"]) {\n                    if (culling && s.cullFace"],
         ["stencil face split ignores independent references", G + "gl_executor.js",
             '|| f.ref !== b.ref;', ';'],
     ] },
@@ -763,7 +774,7 @@ const MUTATIONS = {
         "gl_async_answers_test.js", "gl_shadow_validation_test.js", "gl_shadow_raster_test.js", "gl_shadow_fixed_test.js", "gl_shadow_glsl_test.js", "gl_shadow_arb_test.js", "gl_shadow_misc_test.js", "gl_shadow_rasterpos_test.js", "gl_shadow_pixelmaps_test.js", "gl_shadow_objects_test.js", "gl_shadow_textures_test.js", "gl_shadow_buffers_test.js", "gl_shadow_arrays_test.js", "gl_shadow_names_test.js", "gl_shadow_queries_test.js"],
     pages: ["gl_stencil_ext_browser_test.html", "gl_conformance_browser_test.html", "gl_multipass_browser_test.html", "gl_validation_browser_test.html", "gl_gpu_snapshot_browser_test.html", "gl_renderer_snapshot_browser_test.html"], list: [
         ["Core queries: return matrices without transposing", G + "gl_shadow_state.js",
-            'm[(i % 4) * 4 + (i >> 2)]', 'm[i]'],
+            "return [Array.from({ length: 16 }, (_, i) => m[(i % 4) * 4 + (i >> 2)]), \"f\"];", "return [Array.from({ length: 16 }, (_, i) => m[i]), \"f\"];"],
         ["Core queries: read the first texture matrix for every unit", G + "gl_shadow_state.js",
             'const s = transposed === GL.TEXTURE ? state.texture[c.activeTexture || 0]', 'const s = transposed === GL.TEXTURE ? state.texture[0]'],
         ["Index state: round negative halves toward positive infinity", G + "gl_shadow_state.js",
@@ -795,7 +806,7 @@ const MUTATIONS = {
         ["CPU render validation: allow reads during Begin", G + "gl_shadow_render.js",
             'if (c.state.begin) return fail(GL.INVALID_OPERATION);', 'if (false) return fail(GL.INVALID_OPERATION);'],
         ["CPU render validation: allow invalid packed pixel combinations", G + "gl_shadow_render.js",
-            'if (error) return fail(error);', 'if (false) return fail(error);'],
+            "const error = pixels.pixelError(r.format, r.type, true); if (error) return fail(error);", "const error = pixels.pixelError(r.format, r.type, true); if (false) return fail(error);"],
         ["CPU render validation: allow invalid query selectors", G + "gl_shadow_render.js",
             'if (selector && ![1, 2].includes', 'if (false && ![1, 2].includes'],
         ["Program matrices: allow an unbacked ninth matrix", G + "gl_shadow_state.js",
@@ -923,7 +934,7 @@ const MUTATIONS = {
         ["Programmable selection: let later vertices overtake a pending draw", G + "gl_shadow_select.js",
             'if (event.kind === "capture" && !event.ready) break;', 'if (false) break;'],
         ["Programmable selection: accept duplicated vertex chunks", G + "gl_shadow_select.js",
-            '|| event.chunks.includes(first))) return;', '))) return;'],
+            '|| event.chunks.includes(first))) return;', ')) return;'],
         ["Programmable selection: finish before all chunks arrive", G + "gl_shadow_select.js",
             'event.ready = event.received === event.total;', 'event.ready = true;'],
         ["Programmable selection: replace a newer result with an old completion", G + "gl_shadow_select.js",
@@ -941,9 +952,9 @@ const MUTATIONS = {
         ["Selection/feedback: omit polygon culling", G + "gl_select_geometry.js",
             'if (kind === "polygon" && enabled(c, GL.CULL_FACE)) {', 'if (false) {'],
         ["Selection/feedback: split a hit at every primitive", G + "gl_shadow_select.js",
-            'function hit(q, depths) {', 'function hit(q, depths) { flushHit(q);'],
+            "function hit(q, depths, direct = false) {", "function hit(q, depths, direct = false) { flushHit(q);"],
         ["Selection/feedback: fail to flush an identical name load", G + "gl_shadow_select.js",
-            'flushHit(q);\n                if (r.operation === 0)', 'if (r.name !== q.names.at(-1)) flushHit(q);\n                if (r.operation === 0)'],
+            "else { flushHit(q); q.hitNames = q.names.slice(); }", "else { if (q.names.join() !== q.hitNames.join()) flushHit(q); q.hitNames = q.names.slice(); }"],
         ["Selection/feedback: discard an overflowing record entirely", G + "gl_shadow_select.js",
             'for (const value of values) if (q.data.length < capacity)',
             'if (q.data.length + values.length > capacity) { q.overflow = true; return; }\n        for (const value of values) if (q.data.length < capacity)'],
@@ -956,7 +967,7 @@ const MUTATIONS = {
         ["Selection/feedback: send selection geometry to the renderer", G + "gl_shadow_select.js",
             'const q = c.state.selection; if (q.mode === GL.RENDER) return;', 'const q = c.state.selection; if (true) return;'],
         ["Selection/feedback: change resolved raster colour", G + "gl_executor.js",
-            'current.rasterColor.set(r.color);', 'current.rasterColor.set([0, 1, 0, 1]);'],
+            "current.rasterColor.set(r.color);\n        });", "current.rasterColor.set([0, 1, 0, 1]);\n        });"],
         ["Selection/feedback: omit bitmap position advancement on the renderer", G + "gl_shadow_select.js",
             'P.encodeRecord("BITMAP", { xmove: r.xmove, ymove: r.ymove })', 'P.encodeRecord("BITMAP", { xmove: 0, ymove: 0 })'],
         ["Selection/feedback: retain names when reentering selection", G + "gl_shadow_select.js",
@@ -972,7 +983,7 @@ const MUTATIONS = {
         ["Display list pixels: PBO capture failure occurs during compilation", G + "gl_shadow_stipple.js",
             'r.mode === 2 && s.captureListFailure?.(P.GLFN.POLYGON_STIPPLE, error)', 'false'],
         ["Display list pixels: create an invalid 2D view for 3D slice reads", G + "gl_executor.js",
-            'view: texture.kind === "3D" ? undefined : gpuTexture.createView({', 'view: gpuTexture.createView({'],
+            "view = texture.createView({ dimension: image.kind === \"3D\" ? \"3d\" : \"2d\", baseMipLevel: level,", "view = texture.createView({ dimension: \"2d\", baseMipLevel: level,"],
         ["Display list pixels: forget captured unpack layout", G + "gl_shadow_lists.js",
             'pixelInputs.has(P.NAME_BY_OPCODE[fn]) ? { data: Array.from(copy), unpack: unpack(c) } : Array.from(copy)',
             'false ? { data: Array.from(copy), unpack: unpack(c) } : Array.from(copy)'],
@@ -1077,7 +1088,7 @@ const MUTATIONS = {
         ["GLSL mixed stages: require both application stages", G + "gl_executor.js",
             'if (!candidate.compiled.vertex && !candidate.compiled.fragment)', 'if (!candidate.compiled.vertex || !candidate.compiled.fragment)'],
         ["GLSL mixed stages: cache across fixed state changes", G + "gl_executor.js",
-            '(mixed ? "|" + fixedFunction.signatureKey(this.mixedGLSLSignature(program, variant)) : "")', '""'],
+            "this.variantKeyFor([variant, mixed ? this.mixedGLSLSignature(program, variant) : null])", "this.variantKeyFor([variant, null])"],
         ["GLSL mixed stages: omit the fixed state layout from GLSL", G + "gl_fixed_function.js",
             'forceStateFields: fixed.stateFields, keepCompatInputs: true', 'forceStateFields: [], keepCompatInputs: true'],
         ["GLSL mixed stages: use the independent fixed varying layout", G + "gl_fixed_function.js",
@@ -1200,7 +1211,7 @@ const MUTATIONS = {
         ["CPU queries: overwrite failed batch replies", G + "gl_executor.js",
             'if (view.getUint32(offset + R.status, true) !== SYNC_STATUS_PENDING) return;', 'void R.status;'],
         ["CPU queries: normalize boolean queries as sample counts", G + "gl_executor.js",
-            'query.target === GL.SAMPLES_PASSED ? OCCLUSION_VISIBLE_SAMPLES : 1', 'OCCLUSION_VISIBLE_SAMPLES'],
+            "if (result) query.result = query.target === GL.SAMPLES_PASSED ? OCCLUSION_VISIBLE_SAMPLES : 1;", "if (result) query.result = OCCLUSION_VISIBLE_SAMPLES;"],
         ["CPU queries: share renderer query names between contexts", G + "gl_executor.js",
             'this.queries = context.queryObjects;', 'void context.queryObjects;'],
         ["CPU queries: lose an active query when switching contexts", G + "gl_executor.js",
@@ -1220,7 +1231,7 @@ const MUTATIONS = {
         ["CPU names: ignore short output buffers", G + "gl_shadow_names.js",
             'r.count * 4 > r.data_size ||', 'false ||'],
         ["CPU names: keep shared cursors per context", G + "gl_shadow_names.js",
-            'let names, allocate, pool, owner = group;', 'let names, allocate, pool, owner = c;'],
+            "let names, allocate, pool, owner = group, cursorKind = r.object_kind;", "let names, allocate, pool, owner = c, cursorKind = r.object_kind;"],
         ["CPU names: keep partial reservations after allocation failure", G + "gl_shadow_names.js",
             'for (const object of created) { names.delete(object.name); if (pool) pool.delete(object.id); }', 'void created;'],
         ["CPU arrays: use server texture selection for client pointers", G + "gl_shadow_arrays.js",
@@ -1232,9 +1243,9 @@ const MUTATIONS = {
         ["CPU arrays: restore current values from a client stack", G + "gl_shadow_arrays.js",
             'c.state.arrays.generic.forEach((a, i) => { a.current = current[i]; });', 'void current;'],
         ["CPU arrays: draw mapped generic arrays", G + "gl_shadow_arrays.js",
-            'if (a.generic.some(array => array.enabled && mapped(array))) return GL.INVALID_OPERATION;', 'void mapped;'],
+            "result = a.generic.filter(array => array.enabled);", "result = [];"],
         ["CPU arrays: draw mapped conventional arrays", G + "gl_shadow_arrays.js",
-            'else if (c.state.raster.client[enable] && mapped(a[key])) return GL.INVALID_OPERATION;', 'else void enable;'],
+            "else if (c.state.raster.client[enable]) result.push(a[key]);", "else void enable;"],
         ["CPU arrays: discard pointer values on buffer deletion", G + "gl_shadow_arrays.js",
             'if (ids.has(array.bufferId)) array.bufferId = 0;', 'if (ids.has(array.bufferId)) { array.bufferId = 0; array.pointer = 0; }'],
         ["CPU arrays: collect buffers still held by array pointers", G + "gl_shadow_buffers.js",
@@ -1290,7 +1301,7 @@ const MUTATIONS = {
         ["CPU texture subimages: skip destination bounds", G + "gl_shadow_textures.js",
             "if (lengths.some((n, i) => n < 0 || offsets[i] < -border || offsets[i] + n > bounds[i] - border)) return GL.INVALID_VALUE;", "void lengths;"],
         ["CPU texture subimages: ignore missing storage", G + "gl_shadow_textures.js",
-            "if (!info) return GL.INVALID_OPERATION;", "void info;"],
+            "if (!info) return GL.INVALID_OPERATION;\n            const lengths", "void info;\n            const lengths"],
         ["CPU texture subimages: accept a truncated declared payload", G + "gl_shadow_textures.js",
             "if (P.RECORDS[name].size + bytes > size) return GL.INVALID_VALUE;", "void size;"],
         ["CPU texture subimages: skip source span bounds", G + "gl_shadow_textures.js",
@@ -1318,7 +1329,7 @@ const MUTATIONS = {
         ["CPU texture levels: forget supplied compressed size", G + "gl_shadow_objects.js",
             "compressedSize: r.image_size", "compressedSize: 0"],
         ["CPU texture levels: skip automatic mipmap metadata", G + "gl_shadow_objects.js",
-            "this.autoMipmap(r.target, r.level);", "void 0;"],
+            "r.internalformat >>> 0, { border: r.border, compressed: false });\n            this.autoMipmap(r.target, r.level);", "r.internalformat >>> 0, { border: r.border, compressed: false });"],
         ["CPU proxy textures: skip validation", G + "gl_shadow_textures.js",
             "if (!IMAGE_TARGETS[dimensions].has(r.target)) return GL.INVALID_ENUM;", "if (false) return GL.INVALID_ENUM;"],
         ["CPU proxy textures: lose saved probes", G + "gl_shadow_objects.js",
@@ -1388,9 +1399,9 @@ const MUTATIONS = {
         ["CPU images: deletion retires an image still bound elsewhere", G + "gl_executor.js",
             "group.textures.delete(name);", "this.retire(texture.gpuTexture); group.textures.delete(name);"],
         ["CPU framebuffer buffers: selection stays global", G + "gl_framebuffer_state.js",
-            "return name ? map.get(name) : c.defaultFramebufferState;", "return c.defaultFramebufferState;"],
+            "return name ? object?.name === name ? object : map.get(name) : c.defaultFramebufferState;", "return c.defaultFramebufferState;"],
         ["CPU framebuffer buffers: draw binding also changes read binding", G + "gl_framebuffer_state.js",
-            "if (target !== GL.DRAW_FRAMEBUFFER) c.readFramebuffer = name;", "c.readFramebuffer = name;"],
+            "if (target !== GL.DRAW_FRAMEBUFFER) { c.readFramebuffer = name; c.readFramebufferObject = object; }", "{ c.readFramebuffer = name; c.readFramebufferObject = object; }"],
         ["CPU framebuffer buffers: attribute pop forgets draw selections", G + "gl_shadow_images.js",
             "if (saved.draw) buffers.draw(c, c.framebuffers, saved.draw);", "void saved.draw;"],
         ["CPU FBO parameters: cube face returns the texture target", G + "gl_shadow_images.js",
@@ -1424,10 +1435,10 @@ const MUTATIONS = {
         ["CPU raster: texture enables share unit zero", G + "gl_shadow_raster.js",
             "r.units[c.activeTexture || 0][cap] : r.enabled[cap]", "r.units[0][cap] : r.enabled[cap]"],
         ["CPU raster: stencil reference is not clamped for drawing", G + "gl_executor.js",
-            "pass.setStencilReference(clamp(s.stencil.front.ref, 0,\n                    this.passTargets && formatHasStencil(this.passTargets.depthFormat) ? 255 : 0));",
-            "pass.setStencilReference(s.stencil.front.ref >>> 0);"],
+            "pass.setStencilReference(clamp(s.stencil[stencilFace].ref, 0,\n                    this.passTargets && formatHasStencil(this.passTargets.depthFormat) ? 255 : 0));",
+            "pass.setStencilReference(s.stencil[stencilFace].ref >>> 0);"],
         ["CPU validation: fails to mark a rejected command", G + "gl_shadow.js",
-            "view.setUint16(recordOffset, protocol.rejectedOpcode(fn, error), true);", "void recordOffset;"],
+            "view.setUint16(recordOffset, protocol.rejectedOpcode(fn >= 1 && fn <= C.V86GL_MAX_OPCODE ? fn : GLFN.QUERY_ERROR, error), true);", "void recordOffset;"],
         ["CPU validation: applies rejected arguments on the page", G + "gl_executor.js",
             "// markers. Their arguments and CPU error are not GPU state.\n                return;",
             "// markers. Their arguments and CPU error are not GPU state.\n                fn &= protocol.C.V86GL_REJECTED_OPCODE_MASK;"],
@@ -1460,12 +1471,12 @@ const MUTATIONS = {
         ["fog mix operands inverted", G + "gl_fixed_function.js", 'emit("    frag = vec4<f32>(mix(glState.fogColor.rgb, frag.rgb, " +',
             'emit("    frag = vec4<f32>(mix(frag.rgb, glState.fogColor.rgb, " +'],
         ["alpha test GREATER -> >=", G + "gl_fixed_function.js", 'greater: ">", notequal', 'greater: ">=", notequal'],
-        ["polygon offset units sign", G + "gl_executor.js", "Math.round(s.polygonOffset.units) : 0,",
-            "-Math.round(s.polygonOffset.units) : 0,"],
+        ["polygon offset units sign", G + "gl_executor.js", "depthBias: fillOffset ? Math.round(s.polygonOffset.units) : 0,\n                    depthBiasSlopeScale",
+            "depthBias: fillOffset ? -Math.round(s.polygonOffset.units) : 0,\n                    depthBiasSlopeScale"],
         ["packed indexed draw ignores min index", G + "gl_executor.js", "firstSourceVertex = min;", "firstSourceVertex = 0;"],
         ["direct EBO ignores index offset", G + "gl_executor.js", "offset: indexInfo.bufferOffset, count,", "offset: 0, count,"],
-        ["viewport y top-left origin", G + "gl_executor.js", "const y = clamp(vp.y, 0, height);",
-            "const y = clamp(height - vp.y - vp.height, 0, height);"],
+        ["viewport y top-left origin", G + "gl_executor.js", "const y = clamp(vp.y, -2 * limit, 2 * limit - 1 - vh);",
+            "const y = clamp(height - vp.y - vp.height, -2 * limit, 2 * limit - 1 - vh);"],
         ["depth clear keyed on STENCIL bit", G + "gl_executor.js", "if (mask & GL.DEPTH_BUFFER_BIT) pending.depth = s.clearDepth;",
             "if (mask & GL.STENCIL_BUFFER_BIT) pending.depth = s.clearDepth;"],
         ["stencil INCR -> increment-wrap", G + "gl_executor.js", '[GL.INCR]: "increment-clamp"', '[GL.INCR]: "increment-wrap"'],
@@ -1486,7 +1497,7 @@ const MUTATIONS = {
         ["QUADS first triangle loses provoking", G + "gl_executor.js",
             "// provoking vertex is the quad's last, so it leads both halves\n                out[w++] = b + 3; out[w++] = b; out[w++] = b + 1;",
             "// provoking vertex is the quad's last, so it leads both halves\n                out[w++] = b; out[w++] = b + 1; out[w++] = b + 3;"],
-        ["normal matrix: one element the inverse's", G + "gl_executor.js",
+        ["normal matrix: one element the inverse's", "src/browser/glbridge/gl-webgpu/gl_math.js",
             "n[1] = (m02 * m21 - m01 * m22) * det;", "n[1] = c01 * det;"],
         ["flat triangles lead with their first vertex", G + "gl_executor.js",
             "out[w] = first + w + 2; out[w + 1] = first + w; out[w + 2] = first + w + 1;",
@@ -1502,7 +1513,7 @@ const MUTATIONS = {
         ["the projective q is dropped", G + "gl_fixed_function.js",
             'default: return "vec3<f32>(" + tc + ".xy, " + tc + ".w)";', 'default: return "vec3<f32>(" + tc + ".xy, 1.0)";'],
         ["a reversed depth range is not flipped", G + "gl_executor.js",
-            'reversedDepthRange(s) ? "zflip" : "-",', '"-",'],
+            "this.shaderModule(reversedDepthRange(s) ?\n                flipDepth(shaders.wgslVertex) : shaders.wgslVertex)", "this.shaderModule(shaders.wgslVertex)"],
         ["a crossbar to a disabled unit still blends", G + "gl_fixed_function.js",
             "            return crossbar && !sig.texture[+crossbar[1]].enabled;", "            return false && crossbar;"],
         ["unlit vertex colours are not clamped", G + "gl_fixed_function.js",
@@ -1514,8 +1525,8 @@ const MUTATIONS = {
             'COLOR_OUTPUTS.has(source) ? "saturate(" + safeName(source) + ")" : safeName(source)', "safeName(source)"],
         ["an invalid raster position still draws", G + "gl_executor.js",
             "            s.current.rasterValid = valid;\n", "            s.current.rasterValid = cw !== 0;\n"],
-        ["a disabled clip plane below an enabled one clips", G + "gl_executor.js",
-            "                else snapshot.clipPlanes[i].set(PASSING_PLANE);", "                else snapshot.clipPlanes[i].set(s.clipPlanes[i]);"],
+        ["a disabled clip plane below an enabled one clips", "src/browser/glbridge/gl-webgpu/gl_fixed_function.js",
+            "needsEye && (sig.clipPlaneMask & 1 << i)", "needsEye && (i < sig.clipPlaneCount)"],
         ["pipelines keyed by program name", G + "gl_executor.js",
             'kind: "program", key: "p" + entry.codeKey,', 'kind: "program", key: "p" + program.name + "|" + key,'],
         ["the viewport is clamped into the target", G + "gl_executor.js",
@@ -1548,12 +1559,12 @@ const MUTATIONS = {
             "            return slope * s.polygonOffset.factor / range;"],
         ["gl_FragColor goes to the first draw buffer only", G + "gl_shader_translator.js",
             "            let colorTargets = Math.max(1, variant.colorTargets || 1);", "            let colorTargets = 1;"],
-        ["ARB result.color goes to the first draw buffer only", G + "gl_executor.js",
-            "                wgslFragment: broadcastColor(fragment.compiled.wgsl, targets),",
-            "                wgslFragment: fragment.compiled.wgsl,"],
+        ["ARB result.color goes to the first draw buffer only", "src/browser/glbridge/gl-webgpu/gl_arb_program.js",
+            "for (let i = 0; i < (this.options.colorTargets || 1); ++i) out.push(\"    out.color\"",
+            "for (let i = 0; i < 1; ++i) out.push(\"    out.color\""],
         ["an unwritten draw buffer keeps its write mask", G + "gl_executor.js",
-            "                    writeMask: i >= outputs ? 0 : (s.colorMask[0] ? 1 : 0) | (s.colorMask[1] ? 2 : 0) |",
-            "                    writeMask: (s.colorMask[0] ? 1 : 0) | (s.colorMask[1] ? 2 : 0) |"],
+            "writeMask: i >= outputs ? 0 : this.singleSampleCapture ? 15 :",
+            "writeMask: this.singleSampleCapture ? 15 :"],
         ["glVertexAttrib(0) inside glBegin issues no vertex", G + "gl_executor.js",
             "            if (index === 0 && this.current.immediate)", "            if (false)"],
         ["immediate mode lays generic attribute 0 out twice", G + "gl_executor.js",
@@ -1562,30 +1573,30 @@ const MUTATIONS = {
         ["32-bit float targets blend without float32-blendable", G + "gl_executor.js",
             "            if (!/^(r|rg|rgba)32float$/.test(format) ||", "            if (true ||"],
         ["a sub-image re-uploads every level's CPU copy", G + "gl_executor.js",
-            '                    if (shapeChanged || full.has(layer + ":" + level))', "                    if (true)"],
+            "if (slot.pixels && (!source || full)) this.writeTextureLevel(texture, slot, level, layer, destination);", "if (slot.pixels) this.writeTextureLevel(texture, slot, level, layer, destination);"],
         ["drawing into a texture keeps its old CPU copy", G + "gl_executor.js",
             "                if (slot && !slot.compressed) slot.pixels = null;", "                void slot;"],
         ["glTexSubImage needs a CPU copy of the level", G + "gl_executor.js",
             '            if (!slot)\n                return this.refuse("glTexSubImage", "level has no storage",',
             '            if (!slot || !slot.pixels)\n                return this.refuse("glTexSubImage", "level has no storage",'],
         ["GENERATE_MIPMAP ignores sub-images", G + "gl_executor.js",
-            "            if (texture.generateMipmapHint && level === 0) this.generateMipmapFor(texture);\n        },\n\n        compressedTexImage(",
-            "            void 0;\n        },\n\n        compressedTexImage("],
+            "if (texture && texture.generateMipmapHint && level === texture.sampler.baseLevel)\n                this.generateMipmapFor(texture, target);",
+            "if (false) this.generateMipmapFor(texture, target);"],
         ["constant attributes step per instance", G + "gl_executor.js",
             "                    baseOffset: slice.offset, stride: 0, attributes });",
             '                    baseOffset: slice.offset, stride: components * 4, stepMode: "instance", attributes });'],
         ["a one-pixel point ignores the attenuation", G + "gl_executor.js",
             "                p.attenuation[0] !== 1 || p.attenuation[1] !== 0 || p.attenuation[2] !== 0 ||", ""],
         ["point quads are culled", G + "gl_executor.js",
-            '            const cullMode = request.expandedPoints ? "none" : this.gpuCullMode(s);',
-            "            const cullMode = this.gpuCullMode(s);"],
+            "quads ? \"none\" : this.gpuCullMode(s);",
+            "this.gpuCullMode(s);"],
         ["glEnable(GL_POINT_SPRITE) sets COORD_REPLACE", G + "gl_executor.js",
             "            case GL.POINT_SPRITE:\n                // the enable is global; COORD_REPLACE is the unit's (glTexEnv)\n",
             "            case GL.POINT_SPRITE:\n                unit.env.pointSprite = value;\n"],
         ["gl_PointSize counts without VERTEX_PROGRAM_POINT_SIZE", G + "gl_shader_translator.js",
             "                const size = this.options.programPointSize &&\n", "                const size = true &&\n"],
         ["pixel rectangles keep GL's viewport", G + "gl_executor.js",
-            "            pass.setViewport(0, 0, window.width, window.height, 0, 1);", "            void window;"],
+            "// (the next draw sets GL's viewport again)\n            pass.setViewport(0, 0, window.width, window.height, 0, 1);", "// (the next draw sets GL's viewport again)\n            void window;"],
         ["reads and copies go outside the read buffer", G + "gl_executor.js",
             "        const x1 = Math.min(source.width, x + width), y1 = Math.min(source.height, y + height);",
             "        const x1 = x + width, y1 = y + height;"],
@@ -1630,8 +1641,8 @@ const MUTATIONS = {
             "                new Float32Array(this.uniformStaging.buffer, color.offset, 4).set(s.current.rasterColor);",
             "                new Float32Array(this.uniformStaging.buffer, color.offset, 4).set([1, 0, 0, 1]);"],
         ["depth32float levels go through writeTexture", G + "gl_executor.js",
-            '            if (texture.gpuFormat === "depth32float")\n                return this.writeDepthTexels(',
-            "            if (false)\n                return this.writeDepthTexels("],
+            "if (slot.gpuFormat === \"depth32float\") return this.writeDepthTexels(destination.texture, destination.mipLevel, destination.layer,\n                0, 0, slot.width, slot.height, slot.pixels);",
+            "if (false) return this.writeDepthTexels(destination.texture, destination.mipLevel, destination.layer,\n                0, 0, slot.width, slot.height, slot.pixels);"],
         ["the depth texture as colour ignores DEPTH_TEXTURE_MODE", G + "gl_executor.js",
             '            const value = mode === GL.INTENSITY ? "vec4<f32>(d)" : mode === GL.ALPHA ?',
             '            const value = false ? "vec4<f32>(d)" : false ?'],
@@ -1649,8 +1660,8 @@ const MUTATIONS = {
         ["an ARB range is read as one parameter", G + "gl_arb_program.js",
             "                    for (let i = +range[2]; i <= +range[3]; ++i)", "                    for (let i = +range[2]; i <= +range[2]; ++i)"],
         ["an ARB scalar constant is (x, 0, 0, 1)", G + "gl_arb_program.js",
-            "                [item.value, item.value, item.value, item.value];\n            while (values.length < 4)",
-            "                [item.value];\n            while (values.length < 4)"],
+            "[item.value, item.value, item.value, item.value];\n            if (values.length > 4)",
+            "[item.value];\n            if (values.length > 4)"],
         ["SWZ's components are read as a dotted swizzle", G + "gl_arb_program.js",
             "            if (info.extendedSwizzle) instruction.extendedSwizzle = this.extendedSwizzle();", ""],
         ["matrix.modelview[0] is row 0", G + "gl_arb_program.js",
@@ -1667,8 +1678,8 @@ const MUTATIONS = {
             "            if (depth && !item.shadow) return this.depthColorView(object, item) || this.fallbackViewFor(item);",
             "            if (depth && !item.shadow) return this.fallbackViewFor(item);"],
         ["the depth texture's colour copy is made once", G + "gl_executor.js",
-            "                texture.depthGeneration = (texture.depthGeneration || 0) + 1;\n            texture.fullUploads = null;",
-            "            texture.fullUploads = null;"],
+            "if (hadChanges) texture.depthGeneration = (texture.depthGeneration || 0) + 1;",
+            "void hadChanges;"],
         ["MIN and MAX keep the application's factors", G + "gl_executor.js",
             '            const minMax = operation === "min" || operation === "max";', "            const minMax = false;"],
         ["GL_CLAMP never blends the border", G + "gl_executor.js",
@@ -1679,9 +1690,25 @@ const MUTATIONS = {
             '"clamp(min(" + u + " + 0.5, " + n + " - " + u + " + 0.5), 0.0, 1.0)" :',
             '"clamp(min(" + u + ", " + n + " - " + u + "), 0.0, 1.0)" :'],
         ["lines get POLYGON_OFFSET_FILL's depth bias", G + "gl_executor.js",
-            "                isPolygonPrimitive(request.mode) && !request.expandedPoints;", "                true;"],
+            "isPolygonPrimitive(request.mode) && !quads;", "true;"],
     ] },
 };
+
+if(family && !MUTATIONS[family]) throw new Error("Unknown mutation family: " + family);
+let selected = 0, stale = 0;
+for(const [name, set] of Object.entries(MUTATIONS)) {
+    if(family && family !== name) continue;
+    for(const [label, file, from, to] of set.list) {
+        if(filter && !label.includes(filter)) continue;
+        ++selected;
+        const matches = read_file_sync(join(root, file), "utf8").split(from).length - 1;
+        if(matches !== 1) { ++stale;console.error("STALE " + name + ": " + label + " (" + matches + " matches)"); }
+        else new Script(read_file_sync(join(root, file), "utf8").replace(from, to), { filename: file + ": " + label });
+    }
+}
+if(!selected || stale) throw new Error("Mutation audit failed: " + selected + " selected, " + stale + " stale");
+console.log("Mutation audit: " + selected + " unique anchors");
+if(audit_only) process.exit(0);
 
 const copy = mkdtemp_sync(join(tmpdir(), "glbridge-mutations-"));
 let below_floor = false;
@@ -1701,18 +1728,21 @@ try {
         mkdir_sync(join(copy, "build/glbridge"), { recursive: true });
         cp_sync(join(root, "build/glbridge/libv86-webgpu.js"), join(copy, "build/glbridge/libv86-webgpu.js"));
     }
+    let failure = "";
     const run = (file, isPage) => {
         const result = isPage
             ? spawn_sync(process.execPath, [join(copy, "tests/glbridge/gl_multipass_browser_runner.js"), file],
                 { encoding: "utf8", timeout: 600000, env: { ...process.env, GL_TIMEOUT_MS: "300000" } })
             : spawn_sync(process.execPath, [join(copy, "tests/glbridge", file)], { encoding: "utf8", timeout: 300000 });
+        if(result.error || result.signal) throw new Error("Test infrastructure failure in " + file + ": " + (result.error || result.signal));
+        failure = ((result.stdout || "") + (result.stderr || "")).slice(-6000);
         return result.status === 0;
     };
     for(const [name, set] of Object.entries(MUTATIONS)) {
         if(family && family !== name) continue;
         const suites = [...set.node.map(f => [f, false]), ...(node_only ? [] : set.pages.map(p => [p, true]))];
         for(const [suite, isPage] of suites)
-            if(!run(suite, isPage)) throw new Error("Unmodified " + suite + " failed; mutation results would be unreliable");
+            if(!run(suite, isPage)) throw new Error("Unmodified " + suite + " failed; mutation results would be unreliable\n" + failure);
         let killed = 0, applied = 0;
         for(const [label, file, from, to] of set.list) {
             if(filter && !label.includes(filter)) continue;
@@ -1721,13 +1751,17 @@ try {
             const matches = original.split(from).length - 1;
             if(matches !== 1) {
                 console.log("STALE    " + name + ": " + label + " (" + matches + " matches: update the mutation)");
-                continue;
+                throw new Error("Mutation anchor changed after audit: " + label);
             }
             write_file_sync(path, original.replace(from, to));
             ++applied;
             const killers = [];
             try {
-                for(const [suite, isPage] of suites) if(!run(suite, isPage)) killers.push(suite);
+                const syntax = spawn_sync(process.execPath, ["--check", path], { encoding: "utf8" });
+                if(syntax.error || syntax.status !== 0) throw new Error("Invalid JavaScript mutant: " + label + "\n" + syntax.stderr);
+                const hint = detector_hints[name + ": " + label];
+                const ordered = [...suites].sort((a, b) => Number(b[0] === hint) - Number(a[0] === hint));
+                for(const [suite, isPage] of ordered) if(!run(suite, isPage)) { killers.push(suite);break; }
             } finally {
                 write_file_sync(path, original);
             }

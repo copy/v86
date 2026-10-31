@@ -608,7 +608,9 @@
                 if (parsed.resourceState) {
                     const saved = parsed.resourceState;
                     await this.glExecutor.restoreSnapshot(saved.renderer);
-                    this.glExecutor.presentToCanvas(); this.glExecutor.flushFrame();
+                    if (this.glExecutor.restorePresentedFrame) this.glExecutor.restorePresentedFrame();
+                    else this.glExecutor.presentToCanvas();
+                    this.glExecutor.flushFrame();
                     this.activeOwner = saved.activeOwner;
                     this.glSurface = saved.glSurface; this.d3d9Surface = saved.d3d9Surface;
                     this.d3d9OwnerSessionKey = saved.d3d9OwnerSessionKey;

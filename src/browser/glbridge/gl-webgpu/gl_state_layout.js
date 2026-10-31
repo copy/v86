@@ -18,7 +18,7 @@
 // 16-float copy. A WGSL mat3x3 in the uniform address space pads each column
 // to 16 bytes, hence 12 floats for gl_NormalMatrix.
 //
-// See docs/opengl-webgpu-implementation-plan.zh-CN.md sections 4.12 and 8.2.
+// See docs/glbridge.md (CPU ownership and snapshot resources).
 
 (function(global) {
     "use strict";

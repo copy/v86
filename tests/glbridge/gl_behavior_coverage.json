@@ -1,0 +1,2163 @@
+{
+  "method": "Runtime decodeRecord or accepted GPU dispatch in passing behavioral Node suites; excludes protocol round-trip",
+  "suites": [
+    "gl_arb_generated_test.js",
+    "gl_arb_pipeline_test.js",
+    "gl_arb_program_test.js",
+    "gl_array_lock_test.js",
+    "gl_async_answers_test.js",
+    "gl_bind_layout_test.js",
+    "gl_bitmap_atlas_test.js",
+    "gl_blit_aspects_test.js",
+    "gl_buffer_lifetime_test.js",
+    "gl_cache_bounds_test.js",
+    "gl_cache_keys_test.js",
+    "gl_capability_profiles_test.js",
+    "gl_clear_pass_test.js",
+    "gl_clip_planes_test.js",
+    "gl_cpu_barrier_test.js",
+    "gl_cpu_barrier_transport_test.js",
+    "gl_cpu_forwarding_test.js",
+    "gl_desktop_lod_test.js",
+    "gl_display_list_arrays_test.js",
+    "gl_display_list_pixels_test.js",
+    "gl_display_lists_test.js",
+    "gl_evaluator_test.js",
+    "gl_executor_test.js",
+    "gl_fixed_function_wgsl_test.js",
+    "gl_format_complete_test.js",
+    "gl_framebuffer_attachments_test.js",
+    "gl_framebuffer_pixels_test.js",
+    "gl_framebuffer_queries_test.js",
+    "gl_game_trace_codec_test.js",
+    "gl_game_trace_pixels_test.js",
+    "gl_glsl120_codegen_test.js",
+    "gl_gpu_snapshot_test.js",
+    "gl_image_deploy_test.js",
+    "gl_immediate_blocks_test.js",
+    "gl_index_state_test.js",
+    "gl_mesa_reference_test.js",
+    "gl_mipmap_ranges_test.js",
+    "gl_opcode_edges_test.js",
+    "gl_partial_update_test.js",
+    "gl_pipeline_keys_test.js",
+    "gl_point_raster_test.js",
+    "gl_polygon_clip_test.js",
+    "gl_polygon_order_test.js",
+    "gl_polygon_stipple_test.js",
+    "gl_program_interface_test.js",
+    "gl_program_line_test.js",
+    "gl_program_link_test.js",
+    "gl_program_matrix_test.js",
+    "gl_program_polygon_test.js",
+    "gl_raster_program_test.js",
+    "gl_rectangle_test.js",
+    "gl_render_validation_test.js",
+    "gl_renderer_authority_test.js",
+    "gl_renderer_snapshot_test.js",
+    "gl_resource_lifetime_test.js",
+    "gl_s3_render_test.js",
+    "gl_sampler_state_test.js",
+    "gl_sampling_levels_test.js",
+    "gl_selection_feedback_test.js",
+    "gl_selection_program_test.js",
+    "gl_shader_mixed_test.js",
+    "gl_shader_translator_test.js",
+    "gl_shader_units_test.js",
+    "gl_shader_wgsl_validation_test.js",
+    "gl_shadow_arb_test.js",
+    "gl_shadow_arrays_test.js",
+    "gl_shadow_buffers_test.js",
+    "gl_shadow_fixed_test.js",
+    "gl_shadow_glsl_test.js",
+    "gl_shadow_misc_test.js",
+    "gl_shadow_names_test.js",
+    "gl_shadow_numeric_state_test.js",
+    "gl_shadow_objects_test.js",
+    "gl_shadow_pixelmaps_test.js",
+    "gl_shadow_queries_test.js",
+    "gl_shadow_raster_test.js",
+    "gl_shadow_rasterpos_test.js",
+    "gl_shadow_state_test.js",
+    "gl_shadow_test.js",
+    "gl_shadow_textures_test.js",
+    "gl_shadow_validation_test.js",
+    "gl_single_sample_test.js",
+    "gl_snapshot_codec_test.js",
+    "gl_state_queries_test.js",
+    "gl_stencil_ext_test.js",
+    "gl_stencil_faces_test.js",
+    "gl_sync_answers_test.js",
+    "gl_texture_images_test.js",
+    "gl_texture_readback_test.js",
+    "gl_texture_upload_order_test.js",
+    "gl_uniform_initializers_test.js",
+    "gl_upload_chunks_test.js",
+    "gl_vertex_capture_test.js",
+    "gl_volume_test.js"
+  ],
+  "records": {
+    "BEGIN": [
+      "gl_array_lock_test.js",
+      "gl_bind_layout_test.js",
+      "gl_capability_profiles_test.js",
+      "gl_clear_pass_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_immediate_blocks_test.js",
+      "gl_index_state_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_partial_update_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_program_line_test.js",
+      "gl_program_matrix_test.js",
+      "gl_program_polygon_test.js",
+      "gl_render_validation_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_pixelmaps_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "END": [
+      "gl_array_lock_test.js",
+      "gl_bind_layout_test.js",
+      "gl_capability_profiles_test.js",
+      "gl_clear_pass_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_immediate_blocks_test.js",
+      "gl_index_state_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_partial_update_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_program_line_test.js",
+      "gl_program_matrix_test.js",
+      "gl_program_polygon_test.js",
+      "gl_render_validation_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_pixelmaps_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "LIST_COMMAND": [
+      "gl_array_lock_test.js",
+      "gl_cpu_barrier_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_display_lists_test.js",
+      "gl_evaluator_test.js",
+      "gl_immediate_blocks_test.js",
+      "gl_index_state_test.js",
+      "gl_program_matrix_test.js",
+      "gl_render_validation_test.js",
+      "gl_stencil_ext_test.js"
+    ],
+    "POP_CLIENT_ATTRIB": [
+      "gl_array_lock_test.js",
+      "gl_buffer_lifetime_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_state_test.js",
+      "gl_state_queries_test.js"
+    ],
+    "PUSH_CLIENT_ATTRIB": [
+      "gl_array_lock_test.js",
+      "gl_buffer_lifetime_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_state_test.js",
+      "gl_state_queries_test.js"
+    ],
+    "QUERY_ARRAY_LOCK": [
+      "gl_array_lock_test.js"
+    ],
+    "BEGIN_QUERY": [
+      "gl_async_answers_test.js",
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_queries_test.js"
+    ],
+    "BIND_FRAMEBUFFER_EXT": [
+      "gl_async_answers_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "BIND_TEXTURE": [
+      "gl_async_answers_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_partial_update_test.js",
+      "gl_rectangle_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "CLEAR": [
+      "gl_async_answers_test.js",
+      "gl_bitmap_atlas_test.js",
+      "gl_blit_aspects_test.js",
+      "gl_clear_pass_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_partial_update_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_render_validation_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "CLEAR_COLOR": [
+      "gl_async_answers_test.js",
+      "gl_bitmap_atlas_test.js",
+      "gl_blit_aspects_test.js",
+      "gl_clear_pass_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_partial_update_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_shadow_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "DRAW_ARRAYS": [
+      "gl_async_answers_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_render_validation_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_queries_test.js"
+    ],
+    "END_QUERY": [
+      "gl_async_answers_test.js",
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_shadow_queries_test.js"
+    ],
+    "FINISH": [
+      "gl_async_answers_test.js",
+      "gl_cpu_barrier_transport_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "FRAMEBUFFER_TEXTURE_2D": [
+      "gl_async_answers_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "GEN_QUERIES": [
+      "gl_async_answers_test.js",
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_shadow_queries_test.js"
+    ],
+    "PIXEL_STOREI": [
+      "gl_async_answers_test.js",
+      "gl_bitmap_atlas_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_display_lists_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "QUERY_TEXTURE_IMAGE": [
+      "gl_async_answers_test.js",
+      "gl_rectangle_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "READ_PIXELS": [
+      "gl_async_answers_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_render_validation_test.js"
+    ],
+    "TEX_IMAGE_2D": [
+      "gl_async_answers_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_partial_update_test.js",
+      "gl_rectangle_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "ATTACH_SHADER": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_link_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "COLOR_MASK": [
+      "gl_bind_layout_test.js",
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_volume_test.js"
+    ],
+    "COMPILE_SHADER": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_link_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "CREATE_PROGRAM": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_link_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "CREATE_SHADER": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_link_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "ENABLE": [
+      "gl_bind_layout_test.js",
+      "gl_bitmap_atlas_test.js",
+      "gl_blit_aspects_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clear_pass_test.js",
+      "gl_clip_planes_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_partial_update_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_rectangle_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "LINK_PROGRAM": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_link_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "QUERY_LOCATION": [
+      "gl_bind_layout_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_executor_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "RESOLVED_PROGRAM_INTERFACE": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_evaluator_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "SCISSOR": [
+      "gl_bind_layout_test.js",
+      "gl_bitmap_atlas_test.js",
+      "gl_blit_aspects_test.js",
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "SHADER_SOURCE": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_link_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "UNIFORM_FV": [
+      "gl_bind_layout_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_executor_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_link_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "USE_PROGRAM": [
+      "gl_bind_layout_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_line_test.js",
+      "gl_program_link_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "VERTEX3F": [
+      "gl_bind_layout_test.js",
+      "gl_clear_pass_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_partial_update_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_polygon_order_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "VIEWPORT": [
+      "gl_bind_layout_test.js",
+      "gl_bitmap_atlas_test.js",
+      "gl_clear_pass_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_partial_update_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_single_sample_test.js",
+      "gl_sync_answers_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "ALPHA_FUNC": [
+      "gl_bitmap_atlas_test.js"
+    ],
+    "BITMAP": [
+      "gl_bitmap_atlas_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "BLEND_FUNC": [
+      "gl_bitmap_atlas_test.js",
+      "gl_polygon_order_test.js",
+      "gl_program_polygon_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "CLEAR_DEPTH": [
+      "gl_bitmap_atlas_test.js",
+      "gl_blit_aspects_test.js",
+      "gl_clear_pass_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_partial_update_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_polygon_test.js",
+      "gl_single_sample_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "CLEAR_STENCIL": [
+      "gl_bitmap_atlas_test.js",
+      "gl_blit_aspects_test.js",
+      "gl_clear_pass_test.js",
+      "gl_partial_update_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_faces_test.js"
+    ],
+    "COLOR4F": [
+      "gl_bitmap_atlas_test.js",
+      "gl_clear_pass_test.js",
+      "gl_clip_planes_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_display_lists_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_immediate_blocks_test.js",
+      "gl_partial_update_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_single_sample_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "PIXEL_TRANSFERF": [
+      "gl_bitmap_atlas_test.js",
+      "gl_executor_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "PIXEL_ZOOM": [
+      "gl_bitmap_atlas_test.js",
+      "gl_shadow_misc_test.js"
+    ],
+    "RASTER_POS4F": [
+      "gl_bitmap_atlas_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "STENCIL_FUNC": [
+      "gl_bitmap_atlas_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js"
+    ],
+    "STENCIL_FUNC_SEPARATE": [
+      "gl_bitmap_atlas_test.js",
+      "gl_clear_pass_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js"
+    ],
+    "STENCIL_OP": [
+      "gl_bitmap_atlas_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js"
+    ],
+    "STENCIL_OP_SEPARATE": [
+      "gl_bitmap_atlas_test.js",
+      "gl_clear_pass_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js"
+    ],
+    "WINDOW_POS3F": [
+      "gl_bitmap_atlas_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "BIND_FRAMEBUFFER": [
+      "gl_blit_aspects_test.js",
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_resource_lifetime_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_queries_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "BIND_RENDERBUFFER": [
+      "gl_blit_aspects_test.js",
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_resource_lifetime_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js",
+      "gl_volume_test.js"
+    ],
+    "BLIT_FRAMEBUFFER": [
+      "gl_blit_aspects_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_render_validation_test.js",
+      "gl_volume_test.js"
+    ],
+    "DISABLE": [
+      "gl_blit_aspects_test.js",
+      "gl_cache_bounds_test.js",
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_raster_program_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "FRAMEBUFFER_RENDERBUFFER": [
+      "gl_blit_aspects_test.js",
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_resource_lifetime_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_volume_test.js"
+    ],
+    "RENDERBUFFER_STORAGE": [
+      "gl_blit_aspects_test.js",
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_resource_lifetime_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js",
+      "gl_volume_test.js"
+    ],
+    "BIND_BUFFER": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_display_lists_test.js",
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_render_validation_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_shadow_names_test.js",
+      "gl_texture_readback_test.js",
+      "gl_upload_chunks_test.js"
+    ],
+    "BUFFER_DATA": [
+      "gl_buffer_lifetime_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_render_validation_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_texture_readback_test.js",
+      "gl_upload_chunks_test.js"
+    ],
+    "CLIENT_ACTIVE_TEXTURE": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_raster_test.js"
+    ],
+    "COLOR_POINTER_VBO": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_partial_update_test.js",
+      "gl_shadow_arrays_test.js"
+    ],
+    "DELETE_BUFFERS": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_shadow_names_test.js"
+    ],
+    "QUERY_BUFFER_MAP": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "TEX_COORD_POINTER_VBO": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_shadow_arrays_test.js"
+    ],
+    "VERTEX_ATTRIB_POINTER_VBO": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_shadow_arrays_test.js"
+    ],
+    "VERTEX_POINTER_VBO": [
+      "gl_buffer_lifetime_test.js",
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_render_validation_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js"
+    ],
+    "BIND_PROGRAM_ARB": [
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_executor_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shadow_arb_test.js",
+      "gl_shadow_names_test.js",
+      "gl_state_queries_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "PROGRAM_STRING_ARB": [
+      "gl_cache_bounds_test.js",
+      "gl_clip_planes_test.js",
+      "gl_executor_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_program_test.js",
+      "gl_shadow_arb_test.js",
+      "gl_state_queries_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "TEX_PARAMETERI": [
+      "gl_cache_bounds_test.js",
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_rectangle_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampler_state_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "QUERY_GL_STRING": [
+      "gl_capability_profiles_test.js",
+      "gl_executor_test.js",
+      "gl_render_validation_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_shadow_arb_test.js",
+      "gl_shadow_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "DEPTH_FUNC": [
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_polygon_test.js",
+      "gl_shadow_validation_test.js"
+    ],
+    "DEPTH_RANGE": [
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_program_polygon_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js"
+    ],
+    "DRAW_BUFFER": [
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_sync_answers_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "FLUSH": [
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js"
+    ],
+    "POP_ATTRIB": [
+      "gl_clear_pass_test.js",
+      "gl_display_lists_test.js",
+      "gl_evaluator_test.js",
+      "gl_index_state_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_program_matrix_test.js",
+      "gl_rectangle_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_pixelmaps_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_state_queries_test.js",
+      "gl_stencil_ext_test.js"
+    ],
+    "PUSH_ATTRIB": [
+      "gl_clear_pass_test.js",
+      "gl_display_lists_test.js",
+      "gl_evaluator_test.js",
+      "gl_index_state_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_program_matrix_test.js",
+      "gl_rectangle_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_pixelmaps_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_state_queries_test.js",
+      "gl_stencil_ext_test.js"
+    ],
+    "STENCIL_MASK": [
+      "gl_clear_pass_test.js",
+      "gl_executor_test.js",
+      "gl_pipeline_keys_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js"
+    ],
+    "STENCIL_MASK_SEPARATE": [
+      "gl_clear_pass_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_single_sample_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_stencil_faces_test.js"
+    ],
+    "CLIP_PLANE": [
+      "gl_clip_planes_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "VERTEX4F": [
+      "gl_clip_planes_test.js",
+      "gl_executor_test.js",
+      "gl_immediate_blocks_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_s3_render_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "LINE_WIDTH": [
+      "gl_cpu_barrier_test.js",
+      "gl_cpu_barrier_transport_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_render_validation_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_s3_render_test.js",
+      "gl_shadow_state_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "POINT_SIZE": [
+      "gl_cpu_barrier_test.js",
+      "gl_cpu_barrier_transport_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_executor_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_s3_render_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "QUERY_STATE": [
+      "gl_cpu_barrier_test.js",
+      "gl_cpu_barrier_transport_test.js",
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_display_lists_test.js",
+      "gl_evaluator_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_index_state_test.js",
+      "gl_program_matrix_test.js",
+      "gl_raster_program_test.js",
+      "gl_render_validation_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_state_queries_test.js",
+      "gl_stencil_ext_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "CAPTURE_RASTER_VERTEX": [
+      "gl_cpu_forwarding_test.js",
+      "gl_raster_program_test.js"
+    ],
+    "CAPTURE_VERTICES": [
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_selection_program_test.js"
+    ],
+    "MULTI_TEX_COORD4F": [
+      "gl_cpu_forwarding_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_program_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "NAME_COMMAND": [
+      "gl_cpu_forwarding_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_selection_program_test.js"
+    ],
+    "PROGRAM_LINK_VALIDATION": [
+      "gl_cpu_forwarding_test.js",
+      "gl_program_link_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "QUERY_ERROR": [
+      "gl_cpu_forwarding_test.js",
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_render_validation_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_shadow_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "QUERY_RENDER_MODE": [
+      "gl_cpu_forwarding_test.js",
+      "gl_evaluator_test.js",
+      "gl_immediate_blocks_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_selection_program_test.js"
+    ],
+    "RESOLVED_RASTER_ALL": [
+      "gl_cpu_forwarding_test.js"
+    ],
+    "DISABLE_CLIENT_STATE": [
+      "gl_display_list_arrays_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_raster_test.js"
+    ],
+    "DRAW_ARRAYS_GL2": [
+      "gl_display_list_arrays_test.js"
+    ],
+    "DRAW_ELEMENTS": [
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js"
+    ],
+    "DRAW_ELEMENTS_DIRECT": [
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_render_validation_test.js"
+    ],
+    "DRAW_ELEMENTS_GL2": [
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js"
+    ],
+    "DRAW_RANGE_ELEMENTS_DIRECT": [
+      "gl_display_list_arrays_test.js",
+      "gl_render_validation_test.js"
+    ],
+    "ENABLE_CLIENT_STATE": [
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_render_validation_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_raster_test.js"
+    ],
+    "ENABLE_VERTEX_ATTRIB_ARRAY": [
+      "gl_display_list_arrays_test.js",
+      "gl_executor_test.js",
+      "gl_shadow_arrays_test.js"
+    ],
+    "MULTI_DRAW_ARRAYS_DIRECT": [
+      "gl_display_list_arrays_test.js",
+      "gl_render_validation_test.js"
+    ],
+    "MULTI_DRAW_ELEMENTS_DIRECT": [
+      "gl_display_list_arrays_test.js"
+    ],
+    "DRAW_PIXELS": [
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_render_validation_test.js",
+      "gl_selection_feedback_test.js"
+    ],
+    "FRAMEBUFFER_TEXTURE_3D": [
+      "gl_display_list_pixels_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_texture_images_test.js",
+      "gl_volume_test.js"
+    ],
+    "POLYGON_STIPPLE": [
+      "gl_display_list_pixels_test.js"
+    ],
+    "POLYGON_STIPPLE_BITMAP": [
+      "gl_display_list_pixels_test.js",
+      "gl_polygon_stipple_test.js",
+      "gl_s3_render_test.js"
+    ],
+    "QUERY_BUFFER_UNMAP": [
+      "gl_display_list_pixels_test.js",
+      "gl_shadow_buffers_test.js"
+    ],
+    "QUERY_POLYGON_STIPPLE": [
+      "gl_display_list_pixels_test.js",
+      "gl_polygon_stipple_test.js"
+    ],
+    "TEX_IMAGE_3D": [
+      "gl_display_list_pixels_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_sampler_state_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js",
+      "gl_volume_test.js"
+    ],
+    "TEX_SUB_IMAGE_2D": [
+      "gl_display_list_pixels_test.js",
+      "gl_executor_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_partial_update_test.js",
+      "gl_rectangle_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_images_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "LIST_CALLS": [
+      "gl_display_lists_test.js"
+    ],
+    "QUERY_LIST": [
+      "gl_display_lists_test.js"
+    ],
+    "TRANSLATEF": [
+      "gl_display_lists_test.js",
+      "gl_executor_test.js",
+      "gl_program_matrix_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "ACTIVE_TEXTURE": [
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_program_matrix_test.js",
+      "gl_raster_program_test.js",
+      "gl_sampler_state_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_raster_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_state_queries_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "EVALUATOR_GRID": [
+      "gl_evaluator_test.js"
+    ],
+    "EVAL_COORD": [
+      "gl_evaluator_test.js"
+    ],
+    "EVAL_MESH": [
+      "gl_evaluator_test.js"
+    ],
+    "MAP_EVALUATOR": [
+      "gl_evaluator_test.js"
+    ],
+    "NORMAL3F": [
+      "gl_evaluator_test.js",
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_polygon_test.js",
+      "gl_s3_render_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "QUERY_EVALUATOR": [
+      "gl_evaluator_test.js"
+    ],
+    "QUERY_PARAMETER": [
+      "gl_evaluator_test.js",
+      "gl_rectangle_test.js",
+      "gl_render_validation_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_buffers_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_names_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_pixelmaps_test.js",
+      "gl_shadow_queries_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "TEX_COORD4F": [
+      "gl_evaluator_test.js",
+      "gl_sampler_state_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "ACCUM": [
+      "gl_executor_test.js"
+    ],
+    "BIND_ATTRIB_LOCATION": [
+      "gl_executor_test.js",
+      "gl_point_raster_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_shadow_glsl_test.js"
+    ],
+    "BLEND_EQUATION": [
+      "gl_executor_test.js"
+    ],
+    "BLEND_EQUATION_SEPARATE": [
+      "gl_executor_test.js"
+    ],
+    "BLEND_FUNC_SEPARATE": [
+      "gl_executor_test.js",
+      "gl_shadow_validation_test.js"
+    ],
+    "CLEAR_ACCUM": [
+      "gl_executor_test.js",
+      "gl_shadow_state_test.js"
+    ],
+    "COMPRESSED_TEX_IMAGE_2D": [
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_rectangle_test.js",
+      "gl_s3_render_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "COMPRESSED_TEX_SUB_IMAGE_2D": [
+      "gl_executor_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_readback_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "COPY_PIXELS": [
+      "gl_executor_test.js",
+      "gl_framebuffer_pixels_test.js",
+      "gl_selection_feedback_test.js"
+    ],
+    "COPY_TEX_IMAGE_2D": [
+      "gl_executor_test.js",
+      "gl_format_complete_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_images_test.js",
+      "gl_volume_test.js"
+    ],
+    "COPY_TEX_SUB_IMAGE_2D": [
+      "gl_executor_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_images_test.js"
+    ],
+    "CULL_FACE": [
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_polygon_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_stencil_faces_test.js"
+    ],
+    "DEPTH_MASK": [
+      "gl_executor_test.js"
+    ],
+    "DISABLE_VERTEX_ATTRIB_ARRAY": [
+      "gl_executor_test.js",
+      "gl_shadow_arrays_test.js"
+    ],
+    "DRAW_ARRAYS_DIRECT": [
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_render_validation_test.js",
+      "gl_shadow_arrays_test.js"
+    ],
+    "DRAW_BUFFERS": [
+      "gl_executor_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_shadow_objects_test.js"
+    ],
+    "EDGE_FLAG": [
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_misc_test.js"
+    ],
+    "FOGI": [
+      "gl_executor_test.js",
+      "gl_s3_render_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "FRAMEBUFFER_TEXTURE": [
+      "gl_executor_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "FRONT_FACE": [
+      "gl_executor_test.js",
+      "gl_program_polygon_test.js"
+    ],
+    "GENERATE_MIPMAP": [
+      "gl_executor_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_s3_render_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_volume_test.js"
+    ],
+    "GEN_BUFFERS": [
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_shadow_buffers_test.js"
+    ],
+    "GEN_FRAMEBUFFERS": [
+      "gl_executor_test.js",
+      "gl_shadow_objects_test.js"
+    ],
+    "GEN_PROGRAMS_ARB": [
+      "gl_executor_test.js"
+    ],
+    "GEN_RENDERBUFFERS": [
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_shadow_objects_test.js"
+    ],
+    "GEN_TEXTURES": [
+      "gl_executor_test.js",
+      "gl_framebuffer_attachments_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js"
+    ],
+    "LIGHTFV": [
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_s3_render_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "LINE_STIPPLE": [
+      "gl_executor_test.js",
+      "gl_program_line_test.js"
+    ],
+    "LOAD_IDENTITY": [
+      "gl_executor_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_program_matrix_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "LOGIC_OP": [
+      "gl_executor_test.js",
+      "gl_partial_update_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "MATRIX_MODE": [
+      "gl_executor_test.js",
+      "gl_program_matrix_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_state_queries_test.js"
+    ],
+    "NORMAL_POINTER_VBO": [
+      "gl_executor_test.js",
+      "gl_shadow_arrays_test.js"
+    ],
+    "POINT_PARAMETERFV": [
+      "gl_executor_test.js",
+      "gl_s3_render_test.js",
+      "gl_shadow_misc_test.js"
+    ],
+    "POINT_PARAMETERI": [
+      "gl_executor_test.js",
+      "gl_shadow_misc_test.js"
+    ],
+    "POLYGON_MODE": [
+      "gl_executor_test.js",
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_polygon_order_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_s3_render_test.js",
+      "gl_selection_feedback_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "POLYGON_OFFSET": [
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_polygon_test.js",
+      "gl_shadow_numeric_state_test.js"
+    ],
+    "PROGRAM_PARAMETER_FV_ARB": [
+      "gl_executor_test.js",
+      "gl_raster_program_test.js",
+      "gl_selection_program_test.js",
+      "gl_shadow_arb_test.js",
+      "gl_shadow_numeric_state_test.js"
+    ],
+    "PUSH_MATRIX": [
+      "gl_executor_test.js",
+      "gl_program_matrix_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_shadow_state_test.js",
+      "gl_shadow_validation_test.js",
+      "gl_state_queries_test.js"
+    ],
+    "QUERY_ACTIVE": [
+      "gl_executor_test.js",
+      "gl_shadow_glsl_test.js"
+    ],
+    "QUERY_INTEGER": [
+      "gl_executor_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_render_validation_test.js",
+      "gl_renderer_authority_test.js",
+      "gl_shadow_arb_test.js",
+      "gl_shadow_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "QUERY_OBJECT_IV": [
+      "gl_executor_test.js",
+      "gl_program_link_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_queries_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "QUERY_OBJECT_LOG": [
+      "gl_executor_test.js",
+      "gl_program_link_test.js",
+      "gl_shadow_glsl_test.js"
+    ],
+    "QUERY_PROGRAM_PARAMETER_FV_ARB": [
+      "gl_executor_test.js",
+      "gl_shadow_arb_test.js",
+      "gl_shadow_numeric_state_test.js"
+    ],
+    "QUERY_PROGRAM_STRING_ARB": [
+      "gl_executor_test.js",
+      "gl_shadow_arb_test.js"
+    ],
+    "SAMPLE_COVERAGE": [
+      "gl_executor_test.js",
+      "gl_single_sample_test.js"
+    ],
+    "SCALEF": [
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_matrix_test.js",
+      "gl_program_polygon_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js",
+      "gl_shadow_state_test.js"
+    ],
+    "SHADE_MODEL": [
+      "gl_executor_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js"
+    ],
+    "TEX_PARAMETERFV": [
+      "gl_executor_test.js",
+      "gl_sampler_state_test.js",
+      "gl_shadow_textures_test.js"
+    ],
+    "UNIFORM_IV": [
+      "gl_executor_test.js",
+      "gl_sampler_state_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js"
+    ],
+    "VERTEX_ATTRIB4F": [
+      "gl_executor_test.js",
+      "gl_point_raster_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js",
+      "gl_shadow_arrays_test.js",
+      "gl_shadow_numeric_state_test.js"
+    ],
+    "TEX_COORD2F": [
+      "gl_format_complete_test.js",
+      "gl_s3_render_test.js",
+      "gl_sampling_levels_test.js",
+      "gl_texture_images_test.js"
+    ],
+    "FRAMEBUFFER_TEXTURE_1D": [
+      "gl_framebuffer_attachments_test.js"
+    ],
+    "TEX_IMAGE_1D": [
+      "gl_framebuffer_attachments_test.js",
+      "gl_opcode_edges_test.js",
+      "gl_sampler_state_test.js",
+      "gl_shadow_textures_test.js"
+    ],
+    "READ_BUFFER": [
+      "gl_framebuffer_pixels_test.js",
+      "gl_framebuffer_queries_test.js",
+      "gl_mipmap_ranges_test.js",
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "IMMEDIATE_VERTEX_BLOCK": [
+      "gl_immediate_blocks_test.js"
+    ],
+    "INDEX_STATE": [
+      "gl_index_state_test.js"
+    ],
+    "BLEND_COLOR": [
+      "gl_opcode_edges_test.js"
+    ],
+    "COMPRESSED_TEX_IMAGE_3D": [
+      "gl_opcode_edges_test.js"
+    ],
+    "COMPRESSED_TEX_SUB_IMAGE_1D": [
+      "gl_opcode_edges_test.js"
+    ],
+    "COMPRESSED_TEX_SUB_IMAGE_3D": [
+      "gl_opcode_edges_test.js"
+    ],
+    "FRUSTUM": [
+      "gl_opcode_edges_test.js"
+    ],
+    "INVALIDATE_PROGRAM_LOCATIONS": [
+      "gl_opcode_edges_test.js"
+    ],
+    "LIGHTI": [
+      "gl_opcode_edges_test.js"
+    ],
+    "LIGHT_MODELF": [
+      "gl_opcode_edges_test.js"
+    ],
+    "LIGHT_MODELIV": [
+      "gl_opcode_edges_test.js"
+    ],
+    "MAP_ATTRIB_LOCATION": [
+      "gl_opcode_edges_test.js"
+    ],
+    "MAP_UNIFORM_LOCATION": [
+      "gl_opcode_edges_test.js"
+    ],
+    "MULT_MATRIXF": [
+      "gl_opcode_edges_test.js"
+    ],
+    "ORTHO": [
+      "gl_opcode_edges_test.js"
+    ],
+    "PROGRAM_PARAMETER_DV_ARB": [
+      "gl_opcode_edges_test.js"
+    ],
+    "QUERY_PROGRAM_PARAMETER_DV_ARB": [
+      "gl_opcode_edges_test.js"
+    ],
+    "RESOLVED_EVAL_VERTEX": [
+      "gl_opcode_edges_test.js"
+    ],
+    "RESOLVED_RASTER_STATE": [
+      "gl_opcode_edges_test.js"
+    ],
+    "ROTATEF": [
+      "gl_opcode_edges_test.js"
+    ],
+    "TEX_GENF": [
+      "gl_opcode_edges_test.js"
+    ],
+    "TEX_SUB_IMAGE_1D": [
+      "gl_opcode_edges_test.js"
+    ],
+    "UNIFORM_MATRIX_RECT_FV": [
+      "gl_opcode_edges_test.js"
+    ],
+    "BUFFER_SUB_DATA": [
+      "gl_partial_update_test.js",
+      "gl_shadow_buffers_test.js"
+    ],
+    "DELETE_PROGRAM": [
+      "gl_pipeline_keys_test.js",
+      "gl_program_interface_test.js",
+      "gl_selection_program_test.js",
+      "gl_shadow_glsl_test.js"
+    ],
+    "PROGRAM_LINK_FAILED": [
+      "gl_pipeline_keys_test.js",
+      "gl_program_interface_test.js",
+      "gl_program_link_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_sync_answers_test.js",
+      "gl_uniform_initializers_test.js"
+    ],
+    "PACKED_DRAW_ELEMENTS_MT": [
+      "gl_point_raster_test.js",
+      "gl_polygon_clip_test.js",
+      "gl_program_line_test.js",
+      "gl_program_polygon_test.js"
+    ],
+    "POINT_PARAMETERF": [
+      "gl_point_raster_test.js",
+      "gl_shadow_misc_test.js"
+    ],
+    "LIGHTF": [
+      "gl_polygon_clip_test.js",
+      "gl_s3_render_test.js",
+      "gl_shadow_fixed_test.js"
+    ],
+    "LIGHT_MODELFV": [
+      "gl_polygon_clip_test.js",
+      "gl_s3_render_test.js"
+    ],
+    "MATERIALFV": [
+      "gl_polygon_clip_test.js",
+      "gl_s3_render_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "LOAD_MATRIXF": [
+      "gl_program_matrix_test.js",
+      "gl_state_queries_test.js"
+    ],
+    "POP_MATRIX": [
+      "gl_program_matrix_test.js",
+      "gl_renderer_snapshot_test.js",
+      "gl_shadow_state_test.js"
+    ],
+    "FOG_COORDF": [
+      "gl_raster_program_test.js",
+      "gl_s3_render_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_numeric_state_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "SECONDARY_COLOR3F": [
+      "gl_raster_program_test.js",
+      "gl_shader_mixed_test.js"
+    ],
+    "MULTI_DRAW_ARRAYS_ENTRY": [
+      "gl_render_validation_test.js"
+    ],
+    "PACKED_DRAW_ARRAYS_MT": [
+      "gl_render_validation_test.js",
+      "gl_selection_feedback_test.js"
+    ],
+    "DELETE_FRAMEBUFFERS": [
+      "gl_resource_lifetime_test.js",
+      "gl_shadow_objects_test.js"
+    ],
+    "FOGF": [
+      "gl_s3_render_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_misc_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "FOGFV": [
+      "gl_s3_render_test.js",
+      "gl_shader_mixed_test.js",
+      "gl_shadow_misc_test.js"
+    ],
+    "TEX_ENVF": [
+      "gl_sampler_state_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_numeric_state_test.js"
+    ],
+    "TEX_ENVI": [
+      "gl_sampler_state_test.js",
+      "gl_shadow_fixed_test.js"
+    ],
+    "TEX_PARAMETERF": [
+      "gl_sampler_state_test.js",
+      "gl_shadow_textures_test.js"
+    ],
+    "TEX_GENFV": [
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "TEX_GENI": [
+      "gl_shader_mixed_test.js",
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "QUERY_UNIFORM": [
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js",
+      "gl_shadow_numeric_state_test.js"
+    ],
+    "UNIFORM_MATRIX_FV": [
+      "gl_shader_units_test.js",
+      "gl_shadow_glsl_test.js"
+    ],
+    "DELETE_PROGRAMS_ARB": [
+      "gl_shadow_arb_test.js",
+      "gl_shadow_names_test.js"
+    ],
+    "QUERY_PROGRAM_IV_ARB": [
+      "gl_shadow_arb_test.js"
+    ],
+    "EDGE_FLAG_POINTER_VBO": [
+      "gl_shadow_arrays_test.js"
+    ],
+    "FOG_COORD_POINTER_VBO": [
+      "gl_shadow_arrays_test.js"
+    ],
+    "INDEX_POINTER_VBO": [
+      "gl_shadow_arrays_test.js"
+    ],
+    "SECONDARY_COLOR_POINTER_VBO": [
+      "gl_shadow_arrays_test.js"
+    ],
+    "QUERY_BUFFER_DATA": [
+      "gl_shadow_buffers_test.js"
+    ],
+    "COLOR_MATERIAL": [
+      "gl_shadow_fixed_test.js"
+    ],
+    "LIGHTIV": [
+      "gl_shadow_fixed_test.js"
+    ],
+    "MATERIALF": [
+      "gl_shadow_fixed_test.js",
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "MATERIALI": [
+      "gl_shadow_fixed_test.js"
+    ],
+    "MATERIALIV": [
+      "gl_shadow_fixed_test.js"
+    ],
+    "TEX_ENVFV": [
+      "gl_shadow_fixed_test.js"
+    ],
+    "TEX_ENVIV": [
+      "gl_shadow_fixed_test.js"
+    ],
+    "TEX_GENIV": [
+      "gl_shadow_fixed_test.js"
+    ],
+    "DELETE_SHADER": [
+      "gl_shadow_glsl_test.js"
+    ],
+    "DETACH_SHADER": [
+      "gl_shadow_glsl_test.js"
+    ],
+    "VALIDATE_PROGRAM": [
+      "gl_shadow_glsl_test.js"
+    ],
+    "PIXEL_TRANSFERI": [
+      "gl_shadow_misc_test.js"
+    ],
+    "POINT_PARAMETERIV": [
+      "gl_shadow_misc_test.js"
+    ],
+    "QUERY_NAMES": [
+      "gl_shadow_names_test.js",
+      "gl_shadow_queries_test.js"
+    ],
+    "CHECK_FRAMEBUFFER_STATUS": [
+      "gl_shadow_objects_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "DELETE_RENDERBUFFERS": [
+      "gl_shadow_objects_test.js"
+    ],
+    "DELETE_TEXTURES": [
+      "gl_shadow_objects_test.js",
+      "gl_shadow_textures_test.js",
+      "gl_texture_readback_test.js"
+    ],
+    "PIXEL_MAPFV": [
+      "gl_shadow_pixelmaps_test.js"
+    ],
+    "PIXEL_MAPUIV": [
+      "gl_shadow_pixelmaps_test.js"
+    ],
+    "PIXEL_MAPUSV": [
+      "gl_shadow_pixelmaps_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "DELETE_QUERIES": [
+      "gl_shadow_queries_test.js"
+    ],
+    "QUERY_OBJECT_BATCH": [
+      "gl_shadow_queries_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "HINT": [
+      "gl_shadow_raster_test.js"
+    ],
+    "LIGHT_MODELI": [
+      "gl_shadow_rasterpos_test.js"
+    ],
+    "COMPRESSED_TEX_IMAGE_1D": [
+      "gl_shadow_textures_test.js"
+    ],
+    "COPY_TEX_IMAGE_1D": [
+      "gl_shadow_textures_test.js"
+    ],
+    "COPY_TEX_SUB_IMAGE_1D": [
+      "gl_shadow_textures_test.js"
+    ],
+    "COPY_TEX_SUB_IMAGE_3D": [
+      "gl_shadow_textures_test.js",
+      "gl_volume_test.js"
+    ],
+    "PRIORITIZE_TEXTURES": [
+      "gl_shadow_textures_test.js"
+    ],
+    "TEX_PARAMETERIV": [
+      "gl_shadow_textures_test.js",
+      "gl_sync_answers_test.js"
+    ],
+    "TEX_SUB_IMAGE_3D": [
+      "gl_shadow_textures_test.js",
+      "gl_texture_upload_order_test.js"
+    ],
+    "ACTIVE_STENCIL_FACE": [
+      "gl_stencil_ext_test.js"
+    ],
+    "UPLOAD_CHUNK": [
+      "gl_upload_chunks_test.js"
+    ]
+  },
+  "missing": []
+}

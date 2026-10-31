@@ -38,12 +38,25 @@ deploy them together, or pass `graphics_proxy: { workerScript }`). Across the
 worker boundary at most 8 batches (32 MiB) are in flight; the guest waits for
 the renderer beyond that.
 
+Desktop GL's state, validation, errors, object identities, display lists,
+selection/feedback and shader compiler/link metadata belong to `GLShadow`
+beside the CPU. They do not require a synchronous page-renderer answer. The
+page owns GPU resources and rendering; pixel reads, visibility and backend
+shader validation complete through bounded asynchronous replies. Both CPU
+modes use the same 257-record protocol. The GLSL 1.10/1.20 checker is
+`glslang.wasm`; deploy it beside both graphics bundles together with the
+manifest's workers and `vx_naga.wasm`.
+
+The guest DLL owns WGL/thread/context rules, client pointers and encoding.
+Large uploads are split into bounded chunks. It does not synthesize a successful
+query after transport failure or replay an ambiguously accepted command.
+
 ## 2. Get the driver and DLLs
 
 Sources and binaries are in
 [retro-gaming-site/glbridge](https://github.com/speedyHKjournalist/retro-gaming-site/tree/main/glbridge):
 
-- `v86gl_driver/v86gl-virtio.sys`
+- `v86gl_driver/v86gl.sys` (`v86gl-virtio.sys` is the identical compatibility name)
 - `openglproxy/opengl32.dll`
 - `ddrawproxy/ddraw.dll`
 - `d3d8proxy/d3d8.dll`
@@ -51,8 +64,7 @@ Sources and binaries are in
 
 ## 3. Install the driver in Windows 2000/XP
 
-Rename `v86gl-virtio.sys` to `v86gl.sys` and copy it to
-`C:\WINDOWS\system32\drivers`. When updating, close the game and run
+Copy `v86gl.sys` to `C:\WINDOWS\system32\drivers`. When updating, close the game and run
 `sc stop v86gl` before replacing the file.
 
 Run these commands as Administrator:
@@ -71,6 +83,12 @@ The current build scripts target XP; Windows 2000 compatibility is unverified.
 Copy the DLLs needed by the game into the same folder as its `.exe`:
 `opengl32.dll` for OpenGL, `ddraw.dll` for DirectDraw, `d3d8.dll` for Direct3D 8,
 or `d3d9.dll` for Direct3D 9.
+
+Keep Windows' system `opengl32.dll` and its dllcache copy intact. F6's local
+deployment verifies their hashes and installs only the driver and application
+copies. File size cannot identify this release: the old gl4es Cube DLL and the
+new proxy both happen to be 145408 bytes. Use the deployment SHA256 and guest
+probe, as recorded in `retro-gaming-site/glbridge/deployments/opengl-webgpu-F6.json`.
 
 ## 5. Build the driver and DLLs
 
@@ -123,6 +141,18 @@ samples are saved as resources. Large transfers use bounded slices. The CPU
 shadow's GL state and frozen capabilities travel with the virtio device state.
 A retained IOCTL waiting for GPU-derived CPU state must complete before saving.
 
+The last presented image is retained separately from an unfinished back frame.
+A cold restore shows that image while preserving the next frame's partial
+rendering. `gl_presented_frame_browser_test.html` checks distinct red/blue
+images; the XP application matrix destroys the original VM, creates a new one,
+restores CPU/RAM/disks/devices/graphics, compares composed pixel hashes while
+the CPU is stopped, and then requires 64 further real frames. A stopped VGA
+scanout is explicitly refreshed before that composed-pixel comparison.
+
+`save_state_stream(write)` and `restore_state_stream(source)` avoid requiring
+one contiguous output buffer. The current chunked stream header version is 9
+(the V7 stream family); the acceptance report reads the actual header version.
+
 New GL draws are no longer journaled. Version 4 includes the version 3 paged
 Direct3D 8/9 and DirectDraw history, with Present and checkpoint flush boundaries.
 Their handles, shaders, render state, palettes, queries and GPU-rendered contents
@@ -145,9 +175,9 @@ commands are never discarded to enforce the cache budget. Pending compression
 and the current page also use memory outside this cache budget.
 
 Saving packs all pages into a portable checkpoint; loading needs no original
-browser database. It decompresses and replays one page at a time. Saving still
-needs memory for the complete output, and the emulator's overall state format
-uses signed 32-bit offsets. The D3D history size and restore time grow with its recorded workload. GL
+browser database. It decompresses and replays one page at a time. The ArrayBuffer
+save API still needs memory for the complete output; use the stream API for
+bounded writer backpressure. The D3D history size and restore time grow with its recorded workload. GL
 checkpoint size instead depends on live resources. GPU results need the same
 supported features.
 
@@ -190,6 +220,10 @@ Regression checks:
 
 ```sh
 make test-glbridge
+node tools/gl_behavior_coverage.cjs
+node tools/gen_gl_coverage.cjs
+node tests/glbridge/mutations.mjs --audit
+make glbridge-gpu-tests
 make display-browser-tests
 node tests/glbridge/gl_multipass_browser_runner.js graphics_checkpoint_browser_test.html
 node tests/glbridge/gl_multipass_browser_runner.js graphics_vga_browser_test.html

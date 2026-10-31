@@ -1824,7 +1824,7 @@
             this.drawableFields = ["backBuffer", "backBufferView", "backBufferWidth", "backBufferHeight", "backBufferFormat",
                 "depthTarget", "depthTargetView", "depthWidth", "depthHeight", "depthSamples",
                 "multisampleTarget", "multisampleView", "multisampleWidth", "multisampleHeight", "multisampleFormat",
-                "accumBuffer", "frontDrawn"];
+                "accumBuffer", "frontDrawn", "presentedBuffer", "presentedWidth", "presentedHeight", "presentedFormat"];
             this.currentDrawable = {};
             this.drawables = new Map();
             for (const name of this.drawableFields) {
@@ -10170,12 +10170,12 @@ struct BlitParams {
             return true;
         },
 
-        presentToCanvas() {
+        presentToCanvas(source = this.backBuffer, remember = true) {
             if (!this.host || !this.host.context) return false;
             if (!this.presenterToken)
                 this.presenterToken = this.host.claimPresenter("opengl");
             if (!this.host.canPresent(this.presenterToken)) return false;
-            if (!this.backBuffer) return false;
+            if (!source) return false;
             let swapTexture;
             try {
                 swapTexture = this.host.context.getCurrentTexture();
@@ -10212,13 +10212,39 @@ struct BlitParams {
             pass.setBindGroup(0, this.device.createBindGroup({
                 layout: this.presentPipeline.getBindGroupLayout(0),
                 entries: [
-                    { binding: 0, resource: this.backBufferView },
+                    { binding: 0, resource: source === this.backBuffer ? this.backBufferView : source.createView() },
                     { binding: 1, resource: this.presentSampler },
                 ],
             }));
             pass.draw(3);
             pass.end();
+            if (remember) {
+                // A stopped guest may already have cleared/drawn the next
+                // back frame. Preserve the last presented image separately;
+                // a cold snapshot restore must not expose that partial frame.
+                if (!this.presentedBuffer || this.presentedWidth !== this.backBufferWidth ||
+                        this.presentedHeight !== this.backBufferHeight || this.presentedFormat !== this.backBufferFormat) {
+                    this.retire(this.presentedBuffer);
+                    this.presentedBuffer = this.createGPUTexture({ label: "GL presented frame",
+                        size: { width: this.backBufferWidth, height: this.backBufferHeight, depthOrArrayLayers: 1 },
+                        format: this.backBufferFormat,
+                        usage: TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
+                    this.presentedWidth = this.backBufferWidth;this.presentedHeight = this.backBufferHeight;
+                    this.presentedFormat = this.backBufferFormat;
+                }
+                encoder.copyTextureToTexture({ texture: source }, { texture: this.presentedBuffer },
+                    { width: this.backBufferWidth, height: this.backBufferHeight, depthOrArrayLayers: 1 });
+            }
             return true;
+        },
+
+        restorePresentedFrame() {
+            const drawable = this.drawables.get(this.surface.hwnd) || this.currentDrawable, previous = this.currentDrawable;
+            this.currentDrawable = drawable;
+            try {
+                if (this.host) this.host.resizeCanvas(this.presentedWidth || this.backBufferWidth, this.presentedHeight || this.backBufferHeight);
+                return this.presentToCanvas(this.presentedBuffer || this.backBuffer, false);
+            } finally { this.currentDrawable = previous; }
         },
 
         onSwapBuffers() {

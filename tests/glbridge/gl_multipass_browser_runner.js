@@ -56,7 +56,12 @@ const server = http.createServer((req, res) => {
 });
 function finish(code) {
     clearTimeout(timeout);
-    if (browser) browser.kill();
+    const clean = () => fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    if (browser) {
+        const child = browser;browser = null;
+        if (child.exitCode === null && child.signalCode === null) { child.once("exit", clean);child.kill(); }
+        else clean();
+    } else clean();
     server.close();
     process.exitCode = code;
 }

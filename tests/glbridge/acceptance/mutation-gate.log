@@ -1,0 +1,847 @@
+Mutation audit: 802 unique anchors
+KILLED   glpresented: last visible frame is never retained        gl_presented_frame_browser_test.html
+KILLED   glpresented: cold restore exposes the unfinished back framegl_presented_frame_browser_test.html
+glpresented: 2/2 killed, floor 100%
+KILLED   d3d9: cull CW/CCW swapped                         d3d9_conformance_browser_test.html
+KILLED   d3d9: ZFUNC LESS <-> GREATER                      d3d9_conformance_browser_test.html
+KILLED   d3d9: BLEND SRCALPHA <-> INVSRCALPHA              d3d9_conformance_browser_test.html
+KILLED   d3d9: BLENDOP SUBTRACT <-> REVSUBTRACT            d3d9_conformance_browser_test.html
+KILLED   d3d9: MODULATE2X without the 2x                   d3d9_conformance_browser_test.html
+KILLED   d3d9: address WRAP <-> MIRROR                     d3d9_webgpu_executor_test.js
+KILLED   d3d9: D3DCOLOR not BGRA-swizzled                  d3d9_conformance_browser_test.html
+KILLED   d3d9: rcp(0) = 0 instead of FLT_MAX               d3d9_conformance_browser_test.html
+KILLED   d3d9: linear fog uses START for END               d3d9_conformance_browser_test.html
+KILLED   d3d9: lit() ignores the N.L > 0 gate              d3d9_conformance_browser_test.html
+KILLED   d3d9: DDraw indexed colour key range exclusive    ddraw_webgpu_executor_test.js
+KILLED   d3d9: DDraw RGB colour key range exclusive        d3d9_conformance_browser_test.html
+d3d9: 12/12 killed, floor 83%
+KILLED   glresidency: unused texture names are resident           gl_shadow_textures_test.js
+KILLED   glresidency: generated names are texture objects before bindinggl_shadow_textures_test.js
+KILLED   glresidency: live textures report nonresident            gl_shadow_textures_test.js
+glresidency: 3/3 killed, floor 100%
+KILLED   gldelivery: accepted work reports a retryable failure   virtio_v86gl_test.js
+gldelivery: 1/1 killed, floor 100%
+KILLED   glwglswap: swap uses current drawable                  gl_executor_test.js
+KILLED   glwglswap: swap changes current render targets         gl_executor_test.js
+KILLED   glwglswap: single-buffer swap presents                 gl_executor_test.js
+KILLED   glwglswap: positive interval ignores host refresh      gl_executor_test.js
+KILLED   glwglswap: interval two waits only one refresh         gl_executor_test.js
+KILLED   glwglswap: late callback presents after timeout        gl_executor_test.js
+KILLED   glwglswap: expired arena can still present             gl_executor_test.js
+KILLED   glwglswap: another window hides displayed surface      gl_executor_test.js
+glwglswap: 8/8 killed, floor 100%
+KILLED   glthreadcontexts: open primitive remains in shared pool       gl_executor_test.js
+KILLED   glthreadcontexts: growing a live primitive gives away its storagegl_executor_test.js
+KILLED   glthreadcontexts: relayout gives away a live primitive        gl_executor_test.js
+glthreadcontexts: 3/3 killed, floor 100%
+KILLED   glarraylock: negative first is accepted                  gl_array_lock_test.js
+KILLED   glarraylock: zero count is accepted                      gl_array_lock_test.js
+KILLED   glarraylock: nested lock is accepted                     gl_array_lock_test.js
+KILLED   glarraylock: unlock without a lock is accepted           gl_array_lock_test.js
+KILLED   glarraylock: lock ignores first                          gl_array_lock_test.js
+KILLED   glarraylock: unlock keeps the old range                  gl_array_lock_test.js
+KILLED   glarraylock: client stack loses lock state               gl_array_lock_test.js
+KILLED   glarraylock: lock is compiled into lists                 gl_array_lock_test.js
+KILLED   glarraylock: failed lock reports success                 gl_array_lock_test.js
+glarraylock: 9/9 killed, floor 100%
+KILLED   glimmediateblocks: block attributes never reach CPU state      gl_immediate_blocks_test.js
+KILLED   glimmediateblocks: vertices outside Begin are forwarded        gl_immediate_blocks_test.js
+KILLED   glimmediateblocks: feedback bypasses CPU geometry              gl_immediate_blocks_test.js
+KILLED   glimmediateblocks: trailing attributes are discarded           gl_immediate_blocks_browser_test.html
+KILLED   glimmediateblocks: block compilation executes client state     gl_immediate_blocks_test.js
+KILLED   glimmediateblocks: arbitrary commands are allowed inside blocksgl_immediate_blocks_test.js
+KILLED   glimmediateblocks: generic zero is accepted as a nonvertex attributegl_immediate_blocks_test.js
+KILLED   glimmediateblocks: GPU ignores block attributes                gl_immediate_blocks_browser_test.html
+KILLED   glimmediateblocks: GPU loses homogeneous vertex w              gl_immediate_blocks_browser_test.html
+KILLED   glimmediateblocks: extended rejection tags decode legacy error bitsgl_protocol_test.js
+glimmediateblocks: 10/10 killed, floor 100%
+KILLED   gluploadchunks: partial upload executes prematurely         gl_upload_chunks_test.js
+KILLED   gluploadchunks: upload holes are accepted                   gl_upload_chunks_test.js
+KILLED   gluploadchunks: changed retries are accepted                gl_upload_chunks_test.js
+KILLED   gluploadchunks: completed upload is executed twice          gl_upload_chunks_test.js
+KILLED   gluploadchunks: in-flight uploads exceed combined budget    gl_upload_chunks_test.js
+KILLED   gluploadchunks: queries can be fragmented                   gl_upload_chunks_test.js
+KILLED   gluploadchunks: partial upload snapshot loses bytes         gl_upload_chunks_test.js
+KILLED   gluploadchunks: completed upload never executes             gl_upload_chunks_test.js
+gluploadchunks: 8/8 killed, floor 100%
+KILLED   glarraynormalization: signed byte uses modern SNORM zero          gl_array_normalization_browser_test.html
+KILLED   glarraynormalization: signed short uses modern SNORM zero         gl_array_normalization_browser_test.html
+KILLED   glarraynormalization: signed int uses modern SNORM zero           gl_array_normalization_browser_test.html
+KILLED   glarraynormalization: signed byte VBO bypasses legacy conversion  gl_array_normalization_browser_test.html
+KILLED   glarraynormalization: signed short VBO bypasses legacy conversion gl_array_normalization_browser_test.html
+glarraynormalization: 5/5 killed, floor 100%
+KILLED   glbufferencoding: named VBO read uses current binding         gl_shadow_buffers_test.js
+KILLED   glbufferencoding: array read uses public names instead of retained identitygl_shadow_buffers_test.js
+KILLED   glbufferencoding: array read uses unrelated current binding   gl_shadow_buffers_test.js
+KILLED   glbufferencoding: buffer read omits whole-range bounds        gl_shadow_buffers_test.js
+KILLED   glbufferencoding: encoding reads allow mapped buffers         gl_shadow_buffers_test.js
+KILLED   glbufferencoding: encoding reads ignore offset                gl_shadow_buffers_test.js
+KILLED   glbufferencoding: render guard rejects internal Begin encoding readsgl_shadow_buffers_test.js
+KILLED   glbufferencoding: buffer guard rejects internal Begin encoding readsgl_shadow_buffers_test.js
+glbufferencoding: 8/8 killed, floor 100%
+KILLED   glprogramlink: guest device skips GPU validation           gl_sync_answers_test.js
+KILLED   glprogramlink: backend errors treated as successful link   gl_program_link_test.js
+KILLED   glprogramlink: fragment compilation info skipped           gl_program_link_test.js
+KILLED   glprogramlink: CPU ignores program object identity         gl_program_link_test.js
+KILLED   glprogramlink: CPU ignores link generation                 gl_program_link_test.js
+KILLED   glprogramlink: pending candidate replaces old executable   gl_program_link_test.js
+KILLED   glprogramlink: backend failure lost on restore             gl_program_link_test.js
+KILLED   glprogramlink: cancel leaves pending shader jobs           gl_program_link_test.js
+KILLED   glprogramlink: successful link drops uniform defaults      gl_program_link_browser_test.html
+KILLED   glprogramlink: continuation GPU replies use wrong arena offsetgl_sync_answers_test.js
+glprogramlink: 10/10 killed, floor 100%
+KILLED   glrectangle: RECT minification uses the 2D default       gl_rectangle_test.js
+KILLED   glrectangle: RECT wrapping uses the 2D default           gl_rectangle_test.js
+KILLED   glrectangle: RECT permits nonzero base levels            gl_rectangle_test.js
+KILLED   glrectangle: RECT accepts mipmap filters                 gl_rectangle_test.js
+KILLED   glrectangle: RECT accepts nonzero image levels and bordersgl_rectangle_test.js
+KILLED   glrectangle: RECT accepts compressed uploads             gl_rectangle_test.js
+KILLED   glrectangle: RECT proxy loses its target                 gl_rectangle_test.js
+KILLED   glrectangle: RECT cannot be enabled                      gl_rectangle_test.js
+KILLED   glrectangle: RECT GLSL samples the 2D binding            gl_rectangle_browser_test.html
+KILLED   glrectangle: RECT ARB samples the 2D binding             gl_rectangle_browser_test.html
+KILLED   glrectangle: fixed pipeline ignores RECT priority        gl_rectangle_browser_test.html
+KILLED   glrectangle: fixed RECT coordinates stay unnormalized    gl_rectangle_browser_test.html
+KILLED   glrectangle: ARB RECT coordinates stay unnormalized      gl_rectangle_browser_test.html
+KILLED   glrectangle: ARB accepts unknown texture targets         gl_arb_generated_test.js
+KILLED   glrectangle: RECT rejects depth images                   gl_rectangle_browser_test.html
+KILLED   glrectangle: RECT cannot attach to framebuffer           gl_rectangle_browser_test.html
+glrectangle: 16/16 killed, floor 100%
+KILLED   glarbpipeline: scalar sources accept implicit components   gl_arb_pipeline_test.js
+KILLED   glarbpipeline: ARB logic draw is refused                   gl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: ARB COPY logic draw is refused              gl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: ARB point coordinates ignore replacement    gl_arb_pipeline_test.js
+KILLED   glarbpipeline: ARB point replacement affects every unit    gl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: disabled point sprites still replace coordinatesgl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: ARB alpha never is ignored                  gl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: ARB alpha compare is ignored                gl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: ARB alpha reference omitted from union      gl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: logic XOR becomes OR                        gl_arb_pipeline_browser_test.html
+KILLED   glarbpipeline: ARB logic reads first target for all outputsgl_arb_pipeline_browser_test.html
+glarbpipeline: 11/11 killed, floor 100%
+KILLED   glglsl120: identifiers retain the WGSL namespace       gl_glsl120_codegen_test.js
+KILLED   glglsl120: uniform storage shares the value struct     gl_glsl120_codegen_test.js
+KILLED   glglsl120: uniform aggregates skip conversion          gl_glsl120_codegen_test.js
+KILLED   glglsl120: uniform scalar arrays retain widened elementsgl_glsl120_codegen_test.js
+KILLED   glglsl120: constant array sizes lose declared constantsgl_glsl120_codegen_test.js
+KILLED   glglsl120: array length returns zero                   gl_glsl120_codegen_browser_test.html
+KILLED   glglsl120: legacy varying redeclarations are refused   gl_glsl120_codegen_test.js
+KILLED   glglsl120: invariant declarations lose their parser    gl_glsl120_codegen_test.js
+KILLED   glglsl120: shadow projected bias overload omitted      gl_glsl120_codegen_test.js
+KILLED   glglsl120: opaque aggregate values are refused         gl_glsl120_codegen_test.js
+KILLED   glglsl120: constant division reaches WGSL constant evaluationgl_glsl120_codegen_test.js
+KILLED   glglsl120: constant builtins reach WGSL constant evaluationgl_glsl120_codegen_test.js
+KILLED   glglsl120: literal overflow is checked in JavaScript precisiongl_glsl120_codegen_test.js
+KILLED   glglsl120: CPU drops uniform declaration values        gl_uniform_initializers_test.js
+KILLED   glglsl120: interface discards uniform defaults         gl_uniform_initializers_test.js
+KILLED   glglsl120: renderer ignores uniform declaration values gl_uniform_initializers_test.js
+glglsl120: 16/16 killed, floor 100%
+KILLED   glsnapshotderived: checkpoint retains derived vertex conversionsgl_renderer_snapshot_test.js
+glsnapshotderived: 1/1 killed, floor 100%
+KILLED   glcachebounds: shader module cache is unbounded            gl_cache_bounds_test.js
+KILLED   glcachebounds: sampler cache is unbounded                  gl_cache_bounds_test.js
+KILLED   glcachebounds: special pipeline descriptors are unbounded  gl_cache_bounds_test.js
+KILLED   glcachebounds: key trimming retains all source atoms       gl_cache_bounds_test.js
+KILLED   glcachebounds: trim recycles IDs of live program variants  gl_cache_bounds_test.js
+KILLED   glcachebounds: compiler variant key table never trims      gl_cache_bounds_test.js
+KILLED   glcachebounds: shader source key table never trims         gl_cache_bounds_test.js
+KILLED   glcachebounds: paired shaders retain deleted partners      gl_cache_bounds_test.js
+KILLED   glcachebounds: GLSL program variants are unbounded         gl_cache_bounds_test.js
+KILLED   glcachebounds: paired ARB program variants are unbounded   gl_cache_bounds_test.js
+KILLED   glcachebounds: mixed ARB program variants are unbounded    gl_cache_bounds_test.js
+KILLED   glcachebounds: fixed function source cache is unbounded    gl_cache_bounds_test.js
+KILLED   glcachebounds: link cache is unbounded                     gl_cache_bounds_test.js
+KILLED   glcachebounds: index cache ignores retained byte budget    gl_cache_bounds_test.js
+KILLED   glcachebounds: equivalent mip ranges create new views      gl_cache_bounds_test.js
+KILLED   glcachebounds: immediate vertices copy the entire block each timegl_cache_bounds_test.js
+glcachebounds: 16/16 killed, floor 90%
+KILLED   glpartialupdates: pending VBO is overwritten by queue writes  gl_partial_update_test.js
+KILLED   glpartialupdates: partial update always changes buffer offset zerogl_partial_update_browser_test.html
+KILLED   glpartialupdates: ragged updates omit enclosing alignment     gl_partial_update_test.js
+KILLED   glpartialupdates: ordered update leaves draw pass open        gl_partial_update_browser_test.html
+KILLED   glpartialupdates: large updates allocate an unbounded staging blockgl_partial_update_test.js
+KILLED   glpartialupdates: dirty mip update uploads every level        gl_partial_update_test.js
+KILLED   glpartialupdates: logic source ignores restricted origin      gl_partial_update_test.js
+KILLED   glpartialupdates: logic copy goes to destination origin zero  gl_partial_update_test.js
+KILLED   glpartialupdates: logic region ignores viewport bounds        gl_partial_update_test.js
+KILLED   glpartialupdates: negative scissor keeps the unclipped width  gl_partial_update_browser_test.html
+KILLED   glpartialupdates: per-sample logic copy ignores restricted regiongl_partial_update_test.js
+KILLED   glpartialupdates: per-sample logic copy clears untouched storagegl_partial_update_test.js
+glpartialupdates: 12/12 killed, floor 90%
+KILLED   glbitmapatlas: glyph color follows current instead of raster colorgl_bitmap_atlas_browser_test.html
+KILLED   glbitmapatlas: bitmap obeys pixel zoom                     gl_bitmap_atlas_browser_test.html
+KILLED   glbitmapatlas: zero-alpha set bits do not write depth      gl_bitmap_atlas_browser_test.html
+KILLED   glbitmapatlas: glyph lookup ignores unpack bit order       gl_bitmap_atlas_test.js
+KILLED   glbitmapatlas: glyph lookup ignores skipped rows           gl_bitmap_atlas_browser_test.html
+KILLED   glbitmapatlas: every glyph samples whole atlas             gl_bitmap_atlas_browser_test.html
+KILLED   glbitmapatlas: cached glyph is always reuploaded           gl_bitmap_atlas_test.js
+KILLED   glbitmapatlas: glyph identity includes raster color        gl_bitmap_atlas_test.js
+KILLED   glbitmapatlas: glyph identity drops actual mask bits       gl_bitmap_atlas_test.js
+KILLED   glbitmapatlas: atlas pages have no cap                     gl_bitmap_atlas_test.js
+KILLED   glbitmapatlas: device invalidation retains atlas views     gl_bitmap_atlas_test.js
+KILLED   glbitmapatlas: oversized glyph never uses standalone storagegl_bitmap_atlas_test.js
+glbitmapatlas: 12/12 killed, floor 90%
+KILLED   glclearpass: attribute restore breaks compatible pass    gl_clear_pass_test.js
+KILLED   glclearpass: each clear begins a fresh pass              gl_clear_pass_test.js
+KILLED   glclearpass: clear color reads depth row                 gl_clear_pass_browser_test.html
+KILLED   glclearpass: clear depth reads zero padding              gl_clear_pass_browser_test.html
+KILLED   glclearpass: clear inherits application viewport         gl_clear_pass_browser_test.html
+KILLED   glclearpass: clear contributes to application query      gl_clear_pass_test.js
+KILLED   glclearpass: query resumes using its old slot            gl_clear_pass_test.js
+KILLED   glclearpass: restored FRONT is lost on a shared pass     gl_clear_pass_test.js
+KILLED   glclearpass: clear pipeline identity includes color      gl_clear_pass_test.js
+KILLED   glclearpass: attribute restore discards compatible bindingsgl_clear_pass_test.js
+glclearpass: 10/10 killed, floor 90%
+KILLED   glbindlayouts: uniform layout loses dynamic offsets        gl_bind_layout_test.js
+KILLED   glbindlayouts: dynamic group also includes slice offset    gl_bind_layout_test.js
+KILLED   glbindlayouts: draw uses zero dynamic offsets              gl_bind_layout_test.js
+KILLED   glbindlayouts: uniform stamp ignores setter revision       gl_bind_layout_test.js
+KILLED   glbindlayouts: no-op uniform setter never advances stamp   gl_bind_layout_test.js
+KILLED   glbindlayouts: layout descriptor cache has no limit        gl_bind_layout_test.js
+KILLED   glbindlayouts: device loss leaves old group layouts        gl_bind_layout_test.js
+KILLED   glbindlayouts: layout keys accept equal-length hash collisionsgl_bind_layout_test.js
+KILLED   glbindlayouts: vertex resources declared fragment-only     gl_bind_layout_test.js
+KILLED   glbindlayouts: depth layout becomes a color texture        gl_sampler_state_browser_test.html
+KILLED   glbindlayouts: compatible pipelines cannot share groups    gl_bind_layout_test.js
+glbindlayouts: 11/11 killed, floor 90%
+KILLED   gls3render: lighting uses homogeneous xyz without dividing eye wgl_s3_render_browser_test.html
+KILLED   gls3render: positional light ignores homogeneous w      gl_s3_render_browser_test.html
+KILLED   gls3render: RGB DXT1 returns transparent alpha          gl_s3_render_browser_test.html
+KILLED   gls3render: RGB alpha policy sticks after format change gl_s3_render_browser_test.html
+KILLED   gls3render: polygon stipple leaks into points and lines gl_s3_render_browser_test.html
+KILLED   gls3render: directional lights ignore spot cutoff       gl_s3_render_browser_test.html
+KILLED   gls3render: point attenuation uses divided lighting coordinategl_s3_render_browser_test.html
+gls3render: 7/7 killed, floor 90%
+KILLED   glformatcomplete: mip completeness ignores internal format    gl_format_complete_test.js
+KILLED   glformatcomplete: unsized format is merged with RGBA8         gl_format_complete_test.js
+KILLED   glformatcomplete: legacy component count loses alias          gl_format_complete_test.js
+KILLED   glformatcomplete: copy image drops format identity            gl_format_complete_browser_test.html
+KILLED   glformatcomplete: generated mip drops format identity         gl_format_complete_browser_test.html
+KILLED   glformatcomplete: cube format identity is ignored             gl_format_complete_test.js
+KILLED   glformatcomplete: snapshot drops format identity              gl_format_complete_browser_test.html
+glformatcomplete: 7/7 killed, floor 90%
+KILLED   glsinglesample: disabled MSAA keeps hardware coverage       gl_single_sample_test.js
+KILLED   glsinglesample: capture blends before final blend           gl_single_sample_browser_test.html
+KILLED   glsinglesample: capture loses facing                        gl_single_sample_browser_test.html
+KILLED   glsinglesample: coverage is not cleared per primitive       gl_single_sample_browser_test.html
+KILLED   glsinglesample: coverage tile ignores row origin            gl_single_sample_browser_test.html
+KILLED   glsinglesample: coverage storage leaks                      gl_single_sample_test.js
+KILLED   glsinglesample: captured depth is never written             gl_single_sample_browser_test.html
+KILLED   glsinglesample: final depth write is suppressed             gl_single_sample_browser_test.html
+KILLED   glsinglesample: disabled sample coverage masks final fragmentsgl_single_sample_browser_test.html
+KILLED   glsinglesample: disabled alpha coverage still applies       gl_single_sample_test.js
+KILLED   glsinglesample: logic reads only sample zero                gl_single_sample_browser_test.html
+KILLED   glsinglesample: multisample points remain square            gl_single_sample_browser_test.html
+KILLED   glsinglesample: multisample point size is rounded           gl_single_sample_browser_test.html
+KILLED   glsinglesample: clipped points lose overlapping blends      gl_single_sample_browser_test.html
+KILLED   glsinglesample: logical primitives share one old destinationgl_single_sample_browser_test.html
+glsinglesample: 15/15 killed, floor 90%
+KILLED   glpolygonclip: omit right frustum plane                    gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: omit user plane five                        gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: new exiting edge is not a boundary          gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: entering edge ignores original edge flag    gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: intersections copy first endpoint outputs   gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: intersection point size is not interpolated gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: program point size is not captured          gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: flat fields lose clipped-away provoking outputgl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: new clipped points draw original vertex countgl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: clipped polygons reverse batch order        gl_polygon_clip_browser_test.html
+KILLED   glpolygonclip: indirect output leaks after draw            gl_polygon_clip_test.js
+KILLED   glpolygonclip: capture split forgets provoking remap       gl_polygon_clip_browser_test.html
+glpolygonclip: 12/12 killed, floor 90%
+KILLED   glclipplanes: GLSL drops planes four and five             gl_clip_planes_browser_test.html
+KILLED   glclipplanes: fixed fragment drops planes four and five   gl_clip_planes_browser_test.html
+SURVIVED glclipplanes: fixed clip equation forces eye w to one     
+KILLED   glclipplanes: GLSL disabled planes still clip             gl_clip_planes_test.js
+KILLED   glclipplanes: fixed disabled planes still clip            gl_clip_planes_browser_test.html
+KILLED   glclipplanes: GLSL variant key ignores plane enables      gl_clip_planes_test.js
+KILLED   glclipplanes: inactive plane builtin is replaced          gl_clip_planes_test.js
+KILLED   glclipplanes: ARB plane five reads plane four             gl_clip_planes_browser_test.html
+KILLED   glclipplanes: ARB invariant program disables user clippinggl_clip_planes_browser_test.html
+KILLED   glclipplanes: noninvariant ARB reflection claims invariantgl_clip_planes_test.js
+KILLED   glclipplanes: mixed GLSL fixed stage loses extra clip slotgl_clip_planes_test.js
+KILLED   glclipplanes: extra clip varying aliases first clip vectorgl_clip_planes_test.js
+glclipplanes: 11/12 killed, floor 90%
+KILLED   glprogramlines: wide line draws one replica                 gl_program_line_test.js
+KILLED   glprogramlines: both endpoints use first attributes         gl_program_line_browser_test.html
+KILLED   glprogramlines: wide line loses minor-axis offset           gl_program_line_browser_test.html
+KILLED   glprogramlines: vertical line widens on wrong axis          gl_program_line_browser_test.html
+KILLED   glprogramlines: line stipple never discards                 gl_program_line_browser_test.html
+KILLED   glprogramlines: every strip edge restarts stipple           gl_program_line_browser_test.html
+KILLED   glprogramlines: independent lines never restart stipple     gl_program_line_browser_test.html
+KILLED   glprogramlines: prefix chunk loses previous carry           gl_program_line_browser_test.html
+KILLED   glprogramlines: vertical distance does not advance          gl_program_line_browser_test.html
+KILLED   glprogramlines: flat line uses first endpoint output        gl_program_line_browser_test.html
+KILLED   glprogramlines: cross-w line uses raw clip direction        gl_program_line_browser_test.html
+KILLED   glprogramlines: line distances retire before rendering      gl_program_line_test.js
+KILLED   glprogramlines: wide VBO line bypasses canonical input      gl_program_line_test.js
+KILLED   glprogramlines: polygon stipple resets at each edge         gl_program_line_browser_test.html
+glprogramlines: 14/14 killed, floor 90%
+KILLED   glpointraster: corners all use the first vertex            gl_point_raster_browser_test.html
+KILLED   glpointraster: point input advances per corner             gl_point_raster_test.js
+KILLED   glpointraster: odd point size remains fractional           gl_point_raster_browser_test.html
+KILLED   glpointraster: odd point centre is not aligned             gl_point_raster_browser_test.html
+KILLED   glpointraster: wide point expands outside clip volume      gl_point_raster_browser_test.html
+KILLED   glpointraster: GLSL point minimum clamps program size      gl_point_raster_browser_test.html
+KILLED   glpointraster: ARB result size applies while disabled      gl_point_raster_browser_test.html
+KILLED   glpointraster: ARB point variant cache omits size mode     gl_point_raster_browser_test.html
+KILLED   glpointraster: sprite size gets aliased point rounding     gl_point_raster_browser_test.html
+KILLED   glpointraster: ARB mixed stage omits two-sided colours     gl_program_polygon_browser_test.html
+glpointraster: 10/10 killed, floor 90%
+KILLED   glprogrampolygons: GLSL facing ignores program position        gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: ARB facing ignores program position         gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: both facing masks draw                      gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: every polygon uses face zero                gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: front faces batch ahead of back faces       gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: front winding ignores CW                    gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: flat outputs use each edge vertex           gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: line boundary points to vertex zero         gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: line offset ignores slope                   gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: line offset ignores units                   gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: reversed range inverts offset               gl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: matrix attributes omit remaining columns    gl_program_polygon_test.js
+KILLED   glprogrampolygons: window normalization uses unstable double divisiongl_program_polygon_browser_test.html
+KILLED   glprogrampolygons: captured output buffer retires before drawinggl_program_polygon_test.js
+glprogrampolygons: 14/14 killed, floor 90%
+KILLED   glsamplerstate: vertex capture omits typed sampler state    gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: border reads clamp-to-edge colour           gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: minified border uses base level footprint   gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: texture biases clamp before shader bias     gl_sampler_state_test.js
+KILLED   glsamplerstate: explicit vertex LOD omits state bias        gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: typed sampler state follows enabled target  gl_sampler_state_test.js
+KILLED   glsamplerstate: sampler parameter loses binding identity    gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: sampler array loses element identity        gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: luminance shadow result overwrites alpha    gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: shadow reference bypasses clamp             gl_sampler_state_browser_test.html
+KILLED   glsamplerstate: non-mip sampler sees all authored mips      gl_sampler_state_test.js
+KILLED   glsamplerstate: fixed sampler state indexes texture unit    gl_sampler_state_browser_test.html
+glsamplerstate: 12/12 killed, floor 90%
+KILLED   glimages: incompatible images share storage format    gl_texture_images_test.js
+KILLED   glimages: independent image migration loses GPU texelsgl_texture_images_browser_test.html
+KILLED   glimages: inactive image updates are dropped          gl_texture_images_browser_test.html
+KILLED   glimages: independent image read uses public mip numbergl_texture_images_browser_test.html
+KILLED   glimages: snapshot omits independent image locations  gl_texture_images_browser_test.html
+KILLED   glimages: NULL redefinition retains old texels        gl_texture_images_browser_test.html
+KILLED   glimages: obsolete image allocations never retire     gl_texture_images_test.js
+KILLED   glimages: migration destroys an image read lease      gl_texture_images_browser_test.html
+KILLED   glimages: sparse cube faces poison mip count          gl_texture_images_browser_test.html
+KILLED   glimages: framebuffer copy uses public mip instead of image locationgl_texture_images_browser_test.html
+glimages: 10/10 killed, floor 90%
+KILLED   gluploadorder: queued texture write overtakes old draws    gl_texture_upload_order_test.js
+KILLED   gluploadorder: ordered upload ignores source layer pitch   gl_texture_upload_order_test.js
+KILLED   gluploadorder: ordered upload ignores source offset        gl_texture_upload_order_test.js
+KILLED   gluploadorder: ordered upload writes every layer to first slicegl_texture_upload_order_test.js
+KILLED   gluploadorder: ordered upload ignores chunk row origin     gl_texture_upload_order_test.js
+KILLED   gluploadorder: ordered upload is not row aligned           gl_texture_upload_order_test.js
+KILLED   gluploadorder: ordered upload staging destroyed before submissiongl_texture_upload_order_test.js
+gluploadorder: 7/7 killed, floor 90%
+KILLED   glmipranges: mipmap generation ignores base level        gl_mipmap_ranges_test.js
+KILLED   glmipranges: manual mipmaps ignore MAX_LEVEL             gl_mipmap_ranges_test.js
+KILLED   glmipranges: automatic mipmaps stop at MAX_LEVEL         gl_mipmap_ranges_test.js
+KILLED   glmipranges: mipmap generation discards outside images   gl_mipmap_ranges_test.js
+KILLED   glmipranges: automatic mipmap upload trigger is omitted  gl_mipmap_ranges_test.js
+KILLED   glmipranges: GPU depth mipmaps are silently omitted      gl_mipmap_ranges_test.js
+glmipranges: 6/6 killed, floor 90%
+KILLED   glsamplinglevels: completeness always starts at level zero    gl_sampling_levels_test.js
+KILLED   glsamplinglevels: completeness ignores MAX_LEVEL              gl_sampling_levels_test.js
+KILLED   glsamplinglevels: allocation requires a level-zero image      gl_sampling_levels_test.js
+KILLED   glsamplinglevels: non-mipmap filter discards attachment levelsgl_sampling_levels_test.js
+KILLED   glsamplinglevels: 3D completeness ignores depth               gl_sampling_levels_test.js
+KILLED   glsamplinglevels: active mip loses odd NPOT root dimensions   gl_sampling_levels_test.js
+glsamplinglevels: 6/6 killed, floor 90%
+KILLED   glpolygonorder: polygon modes reverse primitive order       gl_polygon_order_browser_test.html
+KILLED   glpolygonorder: polygon fill skips its original primitive   gl_polygon_order_test.js
+KILLED   glpolygonorder: polygon line group is omitted               gl_polygon_order_test.js
+KILLED   glpolygonorder: polygon fill uses lines instead of trianglesgl_polygon_order_test.js
+glpolygonorder: 4/4 killed, floor 90%
+KILLED   glvolume: 3D attachment uses invalid 2D view          gl_volume_test.js
+KILLED   glvolume: 3D pass drops selected depth slice          gl_volume_test.js
+KILLED   glvolume: 3D masked clear drops selected depth slice  gl_volume_test.js
+KILLED   glvolume: CopyTexSubImage3D ignores z offset          gl_volume_test.js
+KILLED   glvolume: 3D mip ignores second source depth slice    gl_volume_browser_test.html
+KILLED   glvolume: 3D mip always writes destination slice zero gl_volume_test.js
+glvolume: 6/6 killed, floor 90%
+KILLED   glblitaspects: aspect blit omits depth                     gl_blit_aspects_test.js
+KILLED   glblitaspects: stencil blit overwrites other bits          gl_blit_aspects_test.js
+KILLED   glblitaspects: stencil extraction compares full byte       gl_blit_aspects_test.js
+KILLED   glblitaspects: MSAA depth uses single-sample binding       gl_blit_aspects_test.js
+KILLED   glblitaspects: blit scissor ignores GL scissor             gl_blit_aspects_test.js
+KILLED   glblitaspects: blit mapping reverses source extent         gl_blit_aspects_browser_test.html
+glblitaspects: 6/6 killed, floor 90%
+KILLED   glstencilfaces: stencil reference always selects front      gl_stencil_faces_test.js
+KILLED   glstencilfaces: stencil masks always select front           gl_stencil_faces_test.js
+KILLED   glstencilfaces: stencil face split drops back draws         gl_stencil_faces_test.js
+KILLED   glstencilfaces: stencil face split ignores independent referencesgl_stencil_faces_test.js
+glstencilfaces: 4/4 killed, floor 90%
+KILLED   glresources: device loss keeps value pipelines           gl_resource_lifetime_test.js
+KILLED   glresources: device loss keeps upload pages              gl_resource_lifetime_test.js
+KILLED   glresources: pass ignores changed attachment identity    gl_resource_lifetime_test.js
+KILLED   glresources: two windows share default storage           gl_resource_lifetime_test.js
+KILLED   glresources: invalid pipeline remains cached             gl_resource_lifetime_test.js
+KILLED   glresources: device loss accepts stale readback          gl_resource_lifetime_test.js
+KILLED   glresources: replay abandons live allocations            gl_resource_lifetime_test.js
+glresources: 7/7 killed, floor 90%
+KILLED   glkeys: cache keys trust a colliding bucket hash    gl_cache_keys_test.js
+KILLED   glkeys: cache keys erase primitive types            gl_cache_keys_test.js
+KILLED   glkeys: cache references alias different GPU objectsgl_cache_keys_test.js
+KILLED   glkeys: pipeline keys ignore program object scope   gl_pipeline_keys_test.js
+KILLED   glkeys: pipeline keys ignore installed link generationsgl_pipeline_keys_test.js
+KILLED   glkeys: link cache aliases colliding source hashes  gl_pipeline_keys_test.js
+KILLED   glkeys: disabled stencil keeps old compare and replacegl_pipeline_keys_test.js
+KILLED   glkeys: pipeline descriptor keys omit fragment targetsgl_pipeline_keys_test.js
+KILLED   glkeys: pipeline descriptor keys omit multisample stategl_pipeline_keys_test.js
+glkeys: 9/9 killed, floor 90%
+KILLED   glrenderer: renderer answers a pending CPU integer querygl_renderer_authority_test.js
+KILLED   glrenderer: renderer latches a public GL error          gl_renderer_authority_test.js
+KILLED   glrenderer: renderer public capability getter returns   gl_renderer_authority_test.js
+KILLED   glrenderer: renderer ARB error state returns            gl_renderer_authority_test.js
+KILLED   glrenderer: renderer saves retired error flags          gl_renderer_snapshot_test.js
+KILLED   glrenderer: renderer restores retired error flags       gl_renderer_snapshot_test.js
+glrenderer: 6/6 killed, floor 90%
+KILLED   glfbopixels: pixel read from NONE accepted               gl_framebuffer_pixels_test.js
+KILLED   glfbopixels: pixel read without depth or stencil acceptedgl_framebuffer_pixels_test.js
+KILLED   glfbopixels: stencil pixel write without stencil acceptedgl_framebuffer_pixels_test.js
+KILLED   glfbopixels: mismatching depth blit accepted             gl_framebuffer_pixels_test.js
+KILLED   glfbopixels: absent depth blit rejected                  gl_framebuffer_pixels_test.js
+KILLED   glfbopixels: blit matches requested enums instead of actual formatsgl_framebuffer_pixels_test.js
+glfbopixels: 6/6 killed, floor 90%
+KILLED   glcaps: caps hint ignored                           gl_capability_profiles_test.js
+KILLED   glcaps: caps hint changes on context switch         gl_capability_profiles_test.js
+KILLED   glcaps: caps legacy GLSL string exposed             gl_capability_profiles_test.js
+KILLED   glcaps: caps legacy framebuffer extensions exposed  gl_capability_profiles_test.js
+KILLED   glcaps: caps optional BC advertised unconditionally gl_capability_profiles_test.js
+KILLED   glcaps: caps saved context strings lost             gl_capability_profiles_test.js
+glcaps: 6/6 killed, floor 90%
+KILLED   gl: Core queries: return matrices without transposinggl_state_queries_test.js
+KILLED   gl: Core queries: read the first texture matrix for every unitgl_state_queries_test.js
+KILLED   gl: Index state: round negative halves toward positive infinitygl_index_state_test.js
+KILLED   gl: Index state: keep double precision instead of GL float stategl_index_state_test.js
+KILLED   gl: Index state: lose the unsigned mask         gl_index_state_test.js
+KILLED   gl: Index state: permit clear index inside Begingl_index_state_test.js
+KILLED   gl: Index state: restore current index with the color buffer groupgl_index_state_test.js
+KILLED   gl: Mesa oracle: skip negative multi draw countsgl_render_validation_test.js
+KILLED   gl: Mesa oracle: accept a full-frame alternate  gl_mesa_reference_test.js
+KILLED   gl: CPU render validation: zero errors stay pendinggl_render_validation_test.js
+KILLED   gl: CPU render validation: forward a malformed tailgl_render_validation_test.js
+KILLED   gl: CPU render validation: leave unknown typed queries unsupportedgl_render_validation_test.js
+KILLED   gl: CPU render validation: accept invalid clear bitsgl_render_validation_test.js
+KILLED   gl: CPU render validation: ignore captured array boundsgl_render_validation_test.js
+KILLED   gl: CPU render validation: ignore direct VBO boundsgl_render_validation_test.js
+KILLED   gl: CPU render validation: allow reads during Begingl_render_validation_test.js
+KILLED   gl: CPU render validation: allow invalid packed pixel combinationsgl_render_validation_test.js
+KILLED   gl: CPU render validation: allow invalid query selectorsgl_render_validation_test.js
+KILLED   gl: Program matrices: allow an unbacked ninth matrixgl_program_matrix_test.js
+KILLED   gl: Program matrices: use the ordinary stack limitgl_program_matrix_test.js
+KILLED   gl: Program matrices: query modelview instead of currentgl_program_matrix_test.js
+KILLED   gl: Program matrices: transpose query leaves matrix unchangedgl_program_matrix_test.js
+KILLED   gl: Program matrices: forget renderer inverse   gl_program_matrix_test.js
+KILLED   gl: Program matrices: forget renderer transpose gl_program_matrix_test.js
+KILLED   gl: Program matrices: upload normal instead of inverse transposegl_program_matrix_test.js
+KILLED   gl: Program matrices: select inverse for invtrans bindinggl_arb_program_test.js
+KILLED   gl: EXT stencil: select back only while enabled gl_stencil_ext_test.js
+KILLED   gl: EXT stencil: ordinary front leaves core back stalegl_stencil_ext_test.js
+KILLED   gl: EXT stencil: queries always read shared frontgl_stencil_ext_test.js
+KILLED   gl: EXT stencil: render core back while enabled gl_stencil_ext_test.js
+KILLED   gl: EXT stencil: forget extension attribute bankgl_stencil_ext_test.js
+KILLED   gl: EXT stencil: skip resolving extension togglesgl_stencil_ext_test.js
+KILLED   gl: General queries: discard frozen range vectorsgl_state_queries_test.js
+KILLED   gl: General queries: omit an advertised compressed formatgl_state_queries_test.js
+KILLED   gl: General queries: use the server stack depth for the client stackgl_state_queries_test.js
+KILLED   gl: General queries: return a stale ARB error positiongl_state_queries_test.js
+KILLED   gl: General queries: ignore a restored color matrix limitgl_state_queries_test.js
+KILLED   gl: General queries: treat an empty format vector as unsupportedgl_state_queries_test.js
+KILLED   gl: Program interface: omit resolved uniform locationsgl_program_interface_test.js
+KILLED   gl: Program interface: omit resolved attribute locationsgl_program_interface_test.js
+KILLED   gl: Program interface: lose the link generation gl_program_interface_test.js
+KILLED   gl: Program interface: reuse the old object identitygl_program_interface_test.js
+KILLED   gl: Program interface: omit identity from CPU snapshotsgl_program_interface_test.js
+KILLED   gl: Program interface: accept guest-forged interfacesgl_program_interface_test.js
+KILLED   gl: Program interface: lose entry alignment     gl_program_interface_test.js
+KILLED   gl: Program interface: forward a failed link as a new interfacegl_program_interface_test.js
+KILLED   gl: Resource snapshot: lose typed view offsets  gl_snapshot_codec_test.js
+KILLED   gl: Resource snapshot: lose shared object identitiesgl_snapshot_codec_test.js
+KILLED   gl: Resource snapshot: keep accumulating GL draw historygraphics_checkpoint_test.js
+KILLED   gl: Resource snapshot: discard multi-unit shader sourcesgl_renderer_snapshot_test.js
+KILLED   gl: Resource snapshot: omit GPU image restorationgraphics_checkpoint_test.js
+KILLED   gl: Resource snapshot: accept a short image payloadgl_gpu_snapshot_test.js
+KILLED   gl: Resource snapshot: choose sample zero for every restored samplegl_gpu_snapshot_browser_test.html
+KILLED   gl: Resource snapshot: lose stencil values      gl_gpu_snapshot_browser_test.html
+KILLED   gl: Snapshot drain: omit retained CPU dependenciesgl_cpu_barrier_transport_test.js
+KILLED   gl: Snapshot drain: serialize a suspended CPU streamgl_cpu_barrier_transport_test.js
+KILLED   gl: Snapshot drain: ignore work appended during GPU completiongraphics_proxy_test.js
+KILLED   gl: Snapshot drain: prepare before queued rendering finishesgraphics_proxy_test.js
+KILLED   gl: Evaluators: normalize analytic shader normalsgl_evaluator_test.js
+KILLED   gl: Evaluators: ignore rational coordinate derivativesgl_evaluator_test.js
+KILLED   gl: Evaluators: choose the lowest dimensional vertex mapgl_evaluator_test.js
+KILLED   gl: Evaluators: ignore the advertised order limitgl_evaluator_test.js
+KILLED   gl: Evaluators: permit maps on a nonzero active texturegl_evaluator_test.js
+KILLED   gl: Evaluators: mutate the current color        gl_evaluator_test.js
+KILLED   gl: Evaluators: drop the evaluated normal       gl_evaluator_test.js
+KILLED   gl: Evaluators: accept forged evaluated verticesgl_evaluator_test.js
+KILLED   gl: Raster state: transform programmable RasterPos with fixed matricesgl_raster_program_test.js
+KILLED   gl: Raster state: execute WindowPos through the vertex programgl_raster_program_test.js
+KILLED   gl: Raster state: use zero instead of shader fog distancegl_raster_program_test.js
+KILLED   gl: Raster state: omit the eighth texture coordinategl_raster_program_test.js
+KILLED   gl: Raster state: continue CPU work before the GPU resultgl_raster_program_test.js
+KILLED   gl: Raster state: fail to forward resolved raster stategl_raster_program_test.js
+KILLED   gl: Raster state: accept guest-forged raster outputgl_raster_program_test.js
+KILLED   gl: Raster state: drop commands after the waiting recordgl_raster_program_test.js
+KILLED   gl: Raster state: complete the submitting IOCTL too earlygl_cpu_barrier_transport_test.js
+KILLED   gl: Raster state: fail to publish a resumed command streamgl_cpu_barrier_test.js
+KILLED   gl: Raster state: invalidate earlier replies on continuationgl_cpu_barrier_transport_test.js
+KILLED   gl: Raster state: drop deferred present         gl_cpu_barrier_transport_test.js
+KILLED   gl: Programmable selection: execute fixed transforms for GLSLgl_evaluator_test.js
+KILLED   gl: Programmable selection: let later vertices overtake a pending drawgl_evaluator_test.js
+KILLED   gl: Programmable selection: accept duplicated vertex chunksgl_selection_program_test.js
+KILLED   gl: Programmable selection: finish before all chunks arrivegl_selection_program_test.js
+KILLED   gl: Programmable selection: replace a newer result with an old completiongl_selection_program_test.js
+KILLED   gl: Programmable selection: use front colors on the back facegl_selection_program_test.js
+KILLED   gl: Programmable selection: omit the CPU result channelgl_cpu_forwarding_test.js
+KILLED   gl: Programmable selection: overwrite a later command arenagl_cpu_forwarding_test.js
+KILLED   gl: Selection/feedback: accept points outside the clip volumegl_raster_program_test.js
+KILLED   gl: Selection/feedback: ignore user clipping planesgl_raster_program_test.js
+KILLED   gl: Selection/feedback: omit polygon culling    gl_selection_feedback_test.js
+KILLED   gl: Selection/feedback: split a hit at every primitivegl_selection_program_test.js
+KILLED   gl: Selection/feedback: fail to flush an identical name loadgl_selection_feedback_test.js
+KILLED   gl: Selection/feedback: discard an overflowing record entirelygl_selection_feedback_test.js
+KILLED   gl: Selection/feedback: return sixteen-bit minimum depthgl_raster_program_test.js
+KILLED   gl: Selection/feedback: omit line reset tokens  gl_evaluator_test.js
+KILLED   gl: Selection/feedback: feed back reciprocal clip wgl_evaluator_test.js
+KILLED   gl: Selection/feedback: send selection geometry to the renderergl_evaluator_test.js
+SURVIVED gl: Selection/feedback: change resolved raster colour
+KILLED   gl: Selection/feedback: omit bitmap position advancement on the renderergl_cpu_forwarding_test.js
+KILLED   gl: Selection/feedback: retain names when reentering selectiongl_selection_feedback_test.js
+KILLED   gl: Selection/feedback: ignore chunk ticket and context identitygl_selection_feedback_test.js
+KILLED   gl: Selection/feedback: forget array colour materialgl_evaluator_test.js
+KILLED   gl: Selection/feedback: lose edge flags during feedbackgl_selection_feedback_test.js
+KILLED   gl: Selection/feedback: lose old EdgeFlag attribute snapshotsgl_selection_feedback_test.js
+KILLED   gl: Display list pixels: PBO capture failure occurs during compilationgl_display_list_pixels_test.js
+SURVIVED gl: Display list pixels: create an invalid 2D view for 3D slice reads
+KILLED   gl: Display list pixels: forget captured unpack layoutgl_display_list_pixels_test.js
+KILLED   gl: Display list pixels: use call-time unpack layoutgl_display_list_pixels_test.js
+KILLED   gl: Display list pixels: leak unpack changes into client stategl_display_list_pixels_test.js
+KILLED   gl: Display list pixels: omit 3D image spacing  gl_display_list_pixels_test.js
+KILLED   gl: Display list pixels: PBO capture changes CPU stipple immediatelygl_display_list_pixels_test.js
+KILLED   gl: Display list pixels: PBO capture changes renderer stipple immediatelygl_display_list_pixels_test.js
+KILLED   gl: Display lists: read VBOs at call time       gl_display_list_arrays_test.js
+KILLED   gl: Display lists: capture arrays from vertex zerogl_display_list_arrays_test.js
+KILLED   gl: Display lists: retain sparse index numbers after gatheringgl_display_list_arrays_test.js
+KILLED   gl: Display lists: ignore an array pointer offsetgl_display_list_arrays_test.js
+KILLED   gl: Display lists: ignore interleaved array stridegl_display_list_arrays_test.js
+KILLED   gl: Display lists: drop generic normalization   gl_display_list_arrays_test.js
+KILLED   gl: Display lists: validate captured arrays against call-time mappinggl_display_list_arrays_test.js
+KILLED   gl: Display lists: execute compiled commands immediatelygl_render_validation_test.js
+KILLED   gl: Display lists: lose the saved command       gl_program_matrix_test.js
+KILLED   gl: Display lists: compile client buffer bindinggl_display_lists_test.js
+KILLED   gl: Display lists: ignore dynamic base during CallListsgl_display_lists_test.js
+KILLED   gl: Display lists: generated empty indices do not existgl_display_lists_test.js
+KILLED   gl: Display lists: lose snapshot definitions    gl_display_list_pixels_test.js
+KILLED   gl: Display lists: stop one level before the required nestinggl_cpu_barrier_test.js
+KILLED   gl: Display lists: omit CPU expansions from forwardinggl_program_matrix_test.js
+KILLED   gl: Polygon stipple: ignore skipped source bits gl_display_list_pixels_test.js
+KILLED   gl: Polygon stipple: reverse canonical bit ordergl_display_list_pixels_test.js
+KILLED   gl: Polygon stipple: overwrite boundary guard bitsgl_polygon_stipple_test.js
+KILLED   gl: Polygon stipple: allow mapped and short PBOsgl_display_list_pixels_test.js
+KILLED   gl: Polygon stipple: allow changes within Begin Endgl_polygon_stipple_test.js
+KILLED   gl: Polygon stipple: omit saved attribute data  gl_polygon_stipple_test.js
+KILLED   gl: Polygon stipple: ignore PBO upload in renderergl_display_list_pixels_test.js
+KILLED   gl: Polygon stipple: apply rejected bitmaps in renderergl_polygon_stipple_test.js
+KILLED   gl: Buffer lifetimes: CPU deletion leaves current array bindingsgl_buffer_lifetime_test.js
+KILLED   gl: Buffer lifetimes: deletion unmaps another context's retained storegl_buffer_lifetime_test.js
+KILLED   gl: Buffer lifetimes: GPU deletion leaves current array bindingsgl_executor_test.js
+KILLED   gl: Buffer lifetimes: target bindings look up reused public namesgl_buffer_lifetime_test.js
+KILLED   gl: Buffer lifetimes: arrays look up reused public namesgl_buffer_lifetime_test.js
+KILLED   gl: Buffer lifetimes: collection ignores client attribute stacksgl_buffer_lifetime_test.js
+KILLED   gl: Buffer lifetimes: device loss rebuilds only public buffersgl_buffer_lifetime_test.js
+KILLED   gl: Buffer lifetimes: client stacks save names without binding identitiesgl_buffer_lifetime_test.js
+KILLED   gl: CPU forwarding: do not transmit accepted rangesgl_cpu_barrier_transport_test.js
+KILLED   gl: CPU forwarding: execute the original unfiltered batchgl_cpu_barrier_transport_test.js
+KILLED   gl: CPU forwarding: lose the original inline reply offsetgl_cpu_forwarding_test.js
+KILLED   gl: CPU forwarding: discard the CPU error before the querygl_render_validation_test.js
+KILLED   gl: CPU numeric snapshots: clone live state through JSONgl_evaluator_test.js
+KILLED   gl: CPU numeric snapshots: serialize special numbers without tagsgl_evaluator_test.js
+KILLED   gl: CPU numeric snapshots: turn negative zero into positive zerogl_evaluator_test.js
+KILLED   gl: CPU numeric snapshots: do not decode saved numeric tagsgl_evaluator_test.js
+KILLED   gl: CPU numeric snapshots: share legacy input object contentsgl_shadow_numeric_state_test.js
+KILLED   gl: CPU numeric snapshots: convert NaN and negative zero uniforms to zerogl_shadow_numeric_state_test.js
+KILLED   gl: GLSL mixed stages: require both application stagesgl_shader_mixed_test.js
+KILLED   gl: GLSL mixed stages: cache across fixed state changesgl_shader_mixed_test.js
+KILLED   gl: GLSL mixed stages: omit the fixed state layout from GLSLgl_shader_mixed_test.js
+KILLED   gl: GLSL mixed stages: use the independent fixed varying layoutgl_shader_mixed_test.js
+KILLED   gl: GLSL mixed stages: collide fixed and programmable texture bindingsgl_shader_mixed_test.js
+KILLED   gl: GLSL mixed stages: ignore vertex-program two-sided enablegl_shader_mixed_test.js
+KILLED   gl: Texture image reads: pack with UNPACK state gl_texture_readback_test.js
+KILLED   gl: Texture image reads: allow a mapped pack buffergl_texture_readback_test.js
+KILLED   gl: Texture image reads: accept a stale ticket  gl_texture_readback_test.js
+KILLED   gl: Texture image reads: lose caller padding    gl_texture_readback_test.js
+KILLED   gl: Texture image reads: luminance sums RGB     gl_texture_readback_test.js
+KILLED   gl: Texture image reads: return compressed upload before subimagegl_texture_readback_test.js
+KILLED   gl: Texture image reads: drop deleted CPU image during chunksgl_texture_readback_test.js
+KILLED   gl: Texture image reads: discard pending reads on restoregl_texture_readback_test.js
+KILLED   gl: CPU FBO queries: use the read FBO instead of draw FBOgl_framebuffer_queries_test.js
+KILLED   gl: CPU FBO queries: report colour bits as zero with DrawBuffer NONEgl_framebuffer_queries_test.js
+KILLED   gl: CPU FBO queries: use colour indices for texture depthgl_framebuffer_queries_test.js
+KILLED   gl: CPU FBO queries: report window multisampling for FBO storagegl_framebuffer_queries_test.js
+KILLED   gl: CPU FBO queries: prefer adapter defaults in legacy queriesgl_framebuffer_queries_test.js
+KILLED   gl: CPU capability profiles: recalculate saved integer limitsgl_state_queries_test.js
+KILLED   gl: CPU capability profiles: replace saved identity stringsgl_shadow_test.js
+KILLED   gl: CPU capability profiles: rebuild saved extension listsgl_shadow_test.js
+KILLED   gl: CPU capability profiles: alias mutable restored inputgl_shadow_test.js
+KILLED   gl: CPU FBO sharing: create EXT objects as privategl_shadow_objects_test.js
+KILLED   gl: CPU FBO sharing: forget an existing private objectgl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO sharing: detach an older object with the reused namegl_shadow_objects_test.js
+KILLED   gl: CPU FBO sharing: renderer makes EXT objects privategl_shadow_objects_test.js
+KILLED   gl: CPU FBO sharing: renderer unbinds a different object with the same namegl_shadow_objects_test.js
+KILLED   gl: CPU FBO sharing: restore names instead of retained object identitiesgl_shadow_objects_test.js
+KILLED   gl: CPU FBO formats: make luminance colour-renderablegl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO formats: relax EXT matching formats gl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO formats: forward incomplete draws   gl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO formats: forward incomplete readbacksgl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO formats: leave failed readback pendinggl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO attachments: reject ignored detach argumentsgl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO attachments: ignore API dimensionalitygl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO attachments: attach reserved texture namesgl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO attachments: allow excessive mip levelsgl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO attachments: attach uncreated renderbuffersgl_framebuffer_attachments_test.js
+KILLED   gl: CPU FBO attachments: accept negative 3D slices as completegl_framebuffer_attachments_test.js
+KILLED   gl: CPU GLSL names: ignore unconsumed reservationsgl_shadow_names_test.js
+KILLED   gl: CPU GLSL names: let shader creation consume a program reservationgl_shadow_names_test.js
+KILLED   gl: CPU GLSL names: drop reservations on snapshot restoregl_shadow_names_test.js
+KILLED   gl: CPU ARB lifetimes: look up retained bindings by public namegl_shadow_arb_test.js
+KILLED   gl: CPU ARB lifetimes: release a deleted program still bound elsewheregl_shadow_arb_test.js
+KILLED   gl: CPU ARB lifetimes: render the reused public namegl_shadow_arb_test.js
+KILLED   gl: CPU ARB names: use the buffer namespace     gl_shadow_names_test.js
+KILLED   gl: CPU ARB names: report unbound reservations as objectsgl_shadow_names_test.js
+SURVIVED gl: GLSL struct arrays: read widened member storage as a GLSL value
+KILLED   gl: GLSL startup: release before the compiler arrivesgraphics_proxy_test.js
+KILLED   gl: GLSL startup: process descriptors before initializationv86gl_device_test.js
+KILLED   gl: GLSL startup: ignore compiler loading failuresv86gl_device_test.js
+KILLED   gl: GLSL startup: leave failed compile answers pendingv86gl_device_test.js
+KILLED   gl: GLSL units: require main in helper shaders  gl_renderer_snapshot_test.js
+KILLED   gl: GLSL units: lose preprocessed source snapshotsgl_renderer_snapshot_test.js
+KILLED   gl: GLSL units: retain duplicate global declarationsgl_shader_units_test.js
+KILLED   gl: GLSL units: drop an initializer from another unitgl_shader_units_test.js
+KILLED   gl: CPU queries: consider reserved names query objectsgl_shadow_queries_test.js
+KILLED   gl: CPU queries: permit name deletion during an active querygl_shadow_queries_test.js
+KILLED   gl: CPU queries: accept nested queries          gl_shadow_queries_test.js
+KILLED   gl: CPU queries: expose active results to the renderergl_shadow_queries_test.js
+KILLED   gl: CPU queries: overwrite failed batch replies gl_shadow_queries_test.js
+KILLED   gl: CPU queries: normalize boolean queries as sample countsgl_shadow_queries_test.js
+KILLED   gl: CPU queries: share renderer query names between contextsgl_shadow_queries_test.js
+KILLED   gl: CPU queries: lose an active query when switching contextsgl_shadow_queries_test.js
+KILLED   gl: CPU queries: leave blocking query work unsubmittedgl_shadow_queries_test.js
+KILLED   gl: CPU queries: leave availability poll work unsubmittedgl_shadow_queries_test.js
+KILLED   gl: CPU queries: render while beginning an empty querygl_renderer_snapshot_test.js
+KILLED   gl: CPU names: collide with application-bound namesgl_shadow_names_test.js
+KILLED   gl: CPU names: return zero on cursor wrap       gl_shadow_names_test.js
+KILLED   gl: CPU names: fail to reserve generated names  gl_shadow_names_test.js
+KILLED   gl: CPU names: ignore short output buffers      gl_shadow_names_test.js
+KILLED   gl: CPU names: keep shared cursors per context  gl_shadow_names_test.js
+KILLED   gl: CPU names: keep partial reservations after allocation failuregl_shadow_names_test.js
+KILLED   gl: CPU arrays: use server texture selection for client pointersgl_display_list_arrays_test.js
+KILLED   gl: CPU arrays: accept invalid pointer types    gl_shadow_arrays_test.js
+KILLED   gl: CPU arrays: round current attributes instead of truncatinggl_shadow_arrays_test.js
+KILLED   gl: CPU arrays: restore current values from a client stackgl_shadow_arrays_test.js
+KILLED   gl: CPU arrays: draw mapped generic arrays      gl_shadow_arrays_test.js
+KILLED   gl: CPU arrays: draw mapped conventional arrays gl_render_validation_test.js
+KILLED   gl: CPU arrays: discard pointer values on buffer deletiongl_buffer_lifetime_test.js
+KILLED   gl: CPU arrays: collect buffers still held by array pointersgl_shadow_buffers_test.js
+KILLED   gl: CPU buffer mapping: read a partial valid prefix of an invalid full rangegl_shadow_buffers_test.js
+KILLED   gl: CPU buffer mapping: accept a second map     gl_shadow_buffers_test.js
+KILLED   gl: CPU buffer mapping: read a mapped buffer    gl_shadow_buffers_test.js
+KILLED   gl: CPU buffer mapping: update a mapped buffer  gl_shadow_buffers_test.js
+KILLED   gl: CPU buffer mapping: retain mapping after new storagegl_shadow_buffers_test.js
+KILLED   gl: CPU buffer mapping: leave the pointer after unmapgl_shadow_buffers_test.js
+KILLED   gl: CPU buffer mapping: omit copying the contentgl_shadow_buffers_test.js
+KILLED   gl: CPU buffers: consider reserved names createdgl_shadow_buffers_test.js
+KILLED   gl: CPU buffers: accept invalid usage           gl_shadow_buffers_test.js
+KILLED   gl: CPU buffers: skip subimage range checks     gl_shadow_buffers_test.js
+KILLED   gl: CPU buffers: forget retained bindings after name reusegl_buffer_lifetime_test.js
+KILLED   gl: CPU buffers: skip declared payload bounds   gl_shadow_buffers_test.js
+KILLED   gl: CPU mipmaps: ignore the selected base level gl_shadow_textures_test.js
+KILLED   gl: CPU mipmaps: generate manual levels beyond MAX_LEVELgl_shadow_textures_test.js
+KILLED   gl: CPU mipmaps: overwrite other cube faces     gl_shadow_textures_test.js
+KILLED   gl: CPU mipmaps: lose the generated border      gl_shadow_textures_test.js
+KILLED   gl: CPU mipmaps: accept incomplete cubes        gl_shadow_textures_test.js
+KILLED   gl: CPU mipmaps: omit compressed update generationgl_shadow_textures_test.js
+KILLED   gl: CPU texture copies: use the draw framebuffer for readinggl_shadow_textures_test.js
+KILLED   gl: CPU texture copies: ignore incomplete read framebuffersgl_shadow_textures_test.js
+KILLED   gl: CPU texture copies: accept old numeric formatsgl_shadow_textures_test.js
+KILLED   gl: CPU texture copies: read color while ReadBuffer is NONEgl_shadow_textures_test.js
+KILLED   gl: CPU texture copies: ignore missing source depthgl_shadow_textures_test.js
+KILLED   gl: CPU texture subimages: skip destination boundsgl_shadow_textures_test.js
+KILLED   gl: CPU texture subimages: ignore missing storagegl_shadow_textures_test.js
+KILLED   gl: CPU texture subimages: accept a truncated declared payloadgl_shadow_textures_test.js
+KILLED   gl: CPU texture subimages: skip source span boundsgl_shadow_textures_test.js
+KILLED   gl: CPU texture subimages: ignore block alignmentgl_shadow_textures_test.js
+KILLED   gl: CPU texture subimages: allow a different compressed formatgl_shadow_textures_test.js
+KILLED   gl: CPU texture uploads: ignore format and type errorsgl_shadow_textures_test.js
+KILLED   gl: CPU texture uploads: skip unpack span boundsgl_shadow_textures_test.js
+KILLED   gl: CPU texture uploads: accept a truncated declared payloadgl_shadow_textures_test.js
+KILLED   gl: CPU texture uploads: accept incorrect compressed sizegl_shadow_textures_test.js
+KILLED   gl: CPU texture uploads: retain generic compression tokensgl_shadow_textures_test.js
+KILLED   gl: CPU texture levels: width returns the heightgl_shadow_textures_test.js
+KILLED   gl: CPU texture levels: uncompressed size silently succeedsgl_shadow_textures_test.js
+KILLED   gl: CPU texture levels: forget supplied compressed sizegl_texture_readback_test.js
+KILLED   gl: CPU texture levels: skip automatic mipmap metadatagl_shadow_textures_test.js
+KILLED   gl: CPU proxy textures: skip validation         gl_shadow_textures_test.js
+KILLED   gl: CPU proxy textures: lose saved probes       gl_shadow_textures_test.js
+KILLED   gl: CPU proxy textures: retain the previous unsupported-size probegl_shadow_textures_test.js
+KILLED   gl: CPU proxy textures: allocate renderer storagegl_shadow_textures_test.js
+KILLED   gl: CPU proxy textures: compare an overwritten format when reallocatinggl_executor_test.js
+KILLED   gl: CPU pixel maps: short inputs use a 32 bit stridegl_shadow_pixelmaps_test.js
+KILLED   gl: CPU pixel maps: integer colors are not normalizedgl_shadow_pixelmaps_test.js
+KILLED   gl: CPU pixel maps: attribute stack forgets pixel mapsgl_shadow_pixelmaps_test.js
+KILLED   gl: CPU raster position: skip raster lighting   gl_shadow_rasterpos_test.js
+KILLED   gl: CPU raster position: ignore the texture matrixgl_shadow_rasterpos_test.js
+KILLED   gl: CPU raster position: use reciprocal clip w  gl_shadow_rasterpos_test.js
+KILLED   gl: CPU raster position: WindowPos ignores depth rangegl_shadow_rasterpos_test.js
+KILLED   gl: CPU misc: fog colors are not clamped        gl_shadow_misc_test.js
+KILLED   gl: CPU misc: floating index shifts are truncatedgl_shadow_misc_test.js
+KILLED   gl: CPU misc: edge flags cannot change inside Begingl_selection_feedback_test.js
+KILLED   gl: CPU ARB: vertex parameters are still limited to 28gl_executor_test.js
+KILLED   gl: CPU ARB: report parameter capacity as usage gl_shadow_arb_test.js
+KILLED   gl: CPU ARB: default program has no renderer objectgl_shadow_arb_test.js
+KILLED   gl: CPU GLSL: accept integer writes to float uniformsgl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL samplers: permit the first unavailable unitgl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL samplers: permit incompatible aliasesgl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL samplers: omit render validation   gl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL samplers: count only fragment resourcesgl_shadow_glsl_test.js
+SURVIVED gl: CPU GLSL samplers: ignore CPU link failure in the renderer
+KILLED   gl: CPU GLSL: map only the first sampler array locationgl_program_interface_test.js
+KILLED   gl: CPU GLSL: delete a shader which is still attachedgl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL: a floating boolean is copied as raw bitsgl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL relink: failure clears CPU uniformsgl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL relink: failed link disables installed codegl_shadow_glsl_test.js
+KILLED   gl: CPU GLSL relink: source upload discards compiled shadergl_shadow_glsl_test.js
+KILLED   gl: CPU images: attachments look up a reused public namegl_shadow_objects_test.js
+KILLED   gl: CPU images: shared renderer binding follows name reusegl_shadow_objects_test.js
+KILLED   gl: CPU images: reserved texture names are already objectsgl_shadow_objects_test.js
+KILLED   gl: CPU images: deletion retires an image still bound elsewheregl_shadow_objects_test.js
+KILLED   gl: CPU framebuffer buffers: selection stays globalgl_display_list_pixels_test.js
+KILLED   gl: CPU framebuffer buffers: draw binding also changes read bindinggl_framebuffer_attachments_test.js
+KILLED   gl: CPU framebuffer buffers: attribute pop forgets draw selectionsgl_shadow_objects_test.js
+KILLED   gl: CPU FBO parameters: cube face returns the texture targetgl_shadow_objects_test.js
+KILLED   gl: CPU FBO parameters: renderbuffers accept texture queriesgl_shadow_objects_test.js
+KILLED   gl: CPU FBO parameters: expose the internal identity as the namegl_shadow_objects_test.js
+KILLED   gl: CPU renderbuffer parameters: pretend stencil has sixteen bitsgl_shadow_objects_test.js
+KILLED   gl: CPU renderbuffer parameters: allocate zero sized storagegl_shadow_objects_test.js
+KILLED   gl: CPU renderbuffer parameters: accept nonrenderable alpha storagegl_shadow_objects_test.js
+KILLED   gl: CPU texture parameters: integer border color is not normalizedgl_shadow_textures_test.js
+KILLED   gl: CPU texture parameters: renderer pop forgets object parametersgl_shadow_textures_test.js
+KILLED   gl: CPU texture parameters: integer priority is not normalizedgl_shadow_textures_test.js
+KILLED   gl: CPU fixed: forget the light's set-time modelviewgl_shadow_fixed_test.js
+KILLED   gl: CPU fixed: normalize integer positions as if they were colorsgl_shader_mixed_test.js
+KILLED   gl: CPU fixed: texture environment leaks across unitsgl_shadow_numeric_state_test.js
+KILLED   gl: CPU fixed: clip plane follows the modelview instead of its inversegl_shadow_fixed_test.js
+KILLED   gl: CPU raster: stencil masks saturate instead of preserving signed bitsgl_stencil_ext_test.js
+KILLED   gl: CPU raster: texture enables share unit zero gl_shadow_raster_test.js
+KILLED   gl: CPU raster: stencil reference is not clamped for drawinggl_shadow_raster_test.js
+KILLED   gl: CPU validation: fails to mark a rejected commandgl_render_validation_test.js
+KILLED   gl: CPU validation: applies rejected arguments on the pagegl_shadow_validation_test.js
+KILLED   gl: GL async: early failures stay in the page copygl_async_answers_test.js
+KILLED   gl: GL async: writes through an expired inline aliasgl_async_answers_test.js
+KILLED   gl: CPU query: vector becomes scalar            gl_program_matrix_test.js
+KILLED   gl: CPU query: truncation becomes rounding      gl_shadow_state_test.js
+KILLED   gl: CPU query: texture matrices share unit zero gl_shadow_state_test.js
+KILLED   gl: CPU query: ignores client pixel-store mask  gl_shadow_state_test.js
+KILLED   gl: cull FRONT/BACK swapped                     gl_executor_test.js
+KILLED   gl: depth GL_LESS -> less-equal                 gl_conformance_browser_test.html
+KILLED   gl: blend SRC_ALPHA <-> ONE_MINUS_SRC_ALPHA     gl_executor_test.js
+KILLED   gl: blend DST_COLOR <-> ONE_MINUS_DST_COLOR     gl_conformance_browser_test.html
+KILLED   gl: texenv MODULATE drops texture alpha         gl_conformance_browser_test.html
+KILLED   gl: fog mix operands inverted                   gl_conformance_browser_test.html
+KILLED   gl: alpha test GREATER -> >=                    gl_conformance_browser_test.html
+KILLED   gl: polygon offset units sign                   gl_executor_test.js
+KILLED   gl: packed indexed draw ignores min index       gl_executor_test.js
+KILLED   gl: direct EBO ignores index offset             gl_executor_test.js
+KILLED   gl: viewport y top-left origin                  gl_conformance_browser_test.html
+KILLED   gl: depth clear keyed on STENCIL bit            gl_executor_test.js
+KILLED   gl: stencil INCR -> increment-wrap              gl_conformance_browser_test.html
+KILLED   gl: light quadratic attenuation uses d          gl_conformance_browser_test.html
+KILLED   gl: infinite-viewer half vector sign            gl_conformance_browser_test.html
+KILLED   gl: GLSL mod() -> WGSL %                        gl_shader_translator_test.js
+KILLED   gl: GLSL texture2DProj(vec4) divides by z       gl_conformance_browser_test.html
+SURVIVED gl: ARB LIT diffuse not clamped                 
+KILLED   gl: ARB LRP operands swapped                    gl_conformance_browser_test.html
+KILLED   gl: texture wrap REPEAT -> mirror               gl_conformance_browser_test.html
+KILLED   gl: QUADS first triangle loses provoking        gl_executor_test.js
+KILLED   gl: normal matrix: one element the inverse's    gl_conformance_browser_test.html
+KILLED   gl: flat triangles lead with their first vertex gl_executor_test.js
+KILLED   gl: QUAD_STRIP second half reversed             gl_conformance_browser_test.html
+KILLED   gl: RESCALE_NORMAL by the modelview's column    gl_conformance_browser_test.html
+KILLED   gl: COLOR_MATERIAL does not latch               gl_conformance_browser_test.html
+KILLED   gl: the projective q is dropped                 gl_conformance_browser_test.html
+KILLED   gl: a reversed depth range is not flipped       gl_executor_test.js
+KILLED   gl: a crossbar to a disabled unit still blends  gl_conformance_browser_test.html
+KILLED   gl: unlit vertex colours are not clamped        gl_conformance_browser_test.html
+KILLED   gl: COLOR_SUM unlit adds nothing                gl_conformance_browser_test.html
+KILLED   gl: gl_FrontColor is not clamped                gl_conformance_browser_test.html
+KILLED   gl: an invalid raster position still draws      gl_conformance_browser_test.html
+KILLED   gl: a disabled clip plane below an enabled one clipsgl_conformance_browser_test.html
+SURVIVED gl: pipelines keyed by program name             
+KILLED   gl: the viewport is clamped into the target     gl_conformance_browser_test.html
+KILLED   gl: an incomplete texture is sampled            gl_conformance_browser_test.html
+SURVIVED gl: the LOD bias is not applied                 
+KILLED   gl: BGRA packed types read as RGBA              gl_conformance_browser_test.html
+KILLED   gl: sized formats keep 8 bits                   gl_conformance_browser_test.html
+KILLED   gl: ReadPixels LUMINANCE is red                 gl_conformance_browser_test.html
+KILLED   gl: ReadPixels ignores the pack alignment       gl_conformance_browser_test.html
+KILLED   gl: CONSTANT_ALPHA blends with the constant's RGBgl_conformance_browser_test.html
+KILLED   gl: polygon facing ignores glFrontFace          gl_executor_test.js
+KILLED   gl: edge flags are ignored                      gl_executor_test.js
+KILLED   gl: polygon-mode lines are not culled           gl_executor_test.js
+KILLED   gl: POLYGON_OFFSET_LINE drops the units         gl_executor_test.js
+KILLED   gl: gl_FragColor goes to the first draw buffer onlygl_executor_test.js
+KILLED   gl: ARB result.color goes to the first draw buffer onlygl_executor_test.js
+KILLED   gl: an unwritten draw buffer keeps its write maskgl_executor_test.js
+KILLED   gl: glVertexAttrib(0) inside glBegin issues no vertexgl_executor_test.js
+KILLED   gl: immediate mode lays generic attribute 0 out twicegl_executor_test.js
+KILLED   gl: 32-bit float targets blend without float32-blendablegl_executor_test.js
+KILLED   gl: a sub-image re-uploads every level's CPU copygl_executor_test.js
+KILLED   gl: drawing into a texture keeps its old CPU copygl_executor_test.js
+KILLED   gl: glTexSubImage needs a CPU copy of the level gl_executor_test.js
+KILLED   gl: GENERATE_MIPMAP ignores sub-images          gl_executor_test.js
+KILLED   gl: constant attributes step per instance       gl_executor_test.js
+KILLED   gl: a one-pixel point ignores the attenuation   gl_executor_test.js
+KILLED   gl: point quads are culled                      gl_executor_test.js
+KILLED   gl: glEnable(GL_POINT_SPRITE) sets COORD_REPLACEgl_executor_test.js
+KILLED   gl: gl_PointSize counts without VERTEX_PROGRAM_POINT_SIZEgl_executor_test.js
+KILLED   gl: pixel rectangles keep GL's viewport         gl_executor_test.js
+KILLED   gl: reads and copies go outside the read buffer gl_executor_test.js
+KILLED   gl: wide lines are one pixel                    gl_executor_test.js
+KILLED   gl: a wide line widens across its major axis    gl_executor_test.js
+KILLED   gl: the stipple counter restarts in a strip     gl_executor_test.js
+KILLED   gl: the stipple pattern is read from the high bitgl_conformance_browser_test.html
+KILLED   gl: glFlush never shows the front buffer        gl_executor_test.js
+KILLED   gl: glDrawBuffer(GL_NONE) on the window still draws colourgl_executor_test.js
+KILLED   gl: a multisampled window draws one sample      gl_executor_test.js
+KILLED   gl: the multisampled window is never resolved   gl_executor_test.js
+SURVIVED gl: a single-buffered window draws into its back buffer
+KILLED   gl: accumulation returns into one sample of a multisampled windowgl_executor_test.js
+KILLED   gl: a copy keeps components its texture's format has notgl_executor_test.js
+KILLED   gl: glDrawPixels draws depth and stencil as greygl_executor_test.js
+KILLED   gl: glCopyPixels refuses depth and stencil      gl_executor_test.js
+KILLED   gl: stencil pixels only clear                   gl_executor_test.js
+KILLED   gl: depth pixels take the current colour        gl_conformance_browser_test.html
+KILLED   gl: depth32float levels go through writeTexture gl_conformance_browser_test.html
+KILLED   gl: the depth texture as colour ignores DEPTH_TEXTURE_MODEgl_executor_test.js
+KILLED   gl: a fixed vertex stage with an ARB fragment program draws nothinggl_conformance_browser_test.html
+KILLED   gl: an ARB pair declares each program's own state fieldsgl_executor_test.js
+KILLED   gl: a fragment program samples only enabled texturesgl_conformance_browser_test.html
+KILLED   gl: ARB environment parameters are the program'sgl_conformance_browser_test.html
+KILLED   gl: an ARB range is read as one parameter       gl_arb_program_test.js
+KILLED   gl: an ARB scalar constant is (x, 0, 0, 1)      gl_arb_program_test.js
+KILLED   gl: SWZ's components are read as a dotted swizzlegl_arb_program_test.js
+KILLED   gl: matrix.modelview[0] is row 0                gl_arb_program_test.js
+KILLED   gl: LIT's 0 to the 0 is NaN                     gl_arb_program_test.js
+KILLED   gl: OPTION ARB_fog_* is ignored                 gl_arb_program_test.js
+KILLED   gl: a missing texture binds the 2D colour fallbackgl_executor_test.js
+KILLED   gl: a depth texture without comparison samples as blackgl_executor_test.js
+KILLED   gl: the depth texture's colour copy is made oncegl_executor_test.js
+KILLED   gl: MIN and MAX keep the application's factors  gl_executor_test.js
+KILLED   gl: GL_CLAMP never blends the border            gl_executor_test.js
+KILLED   gl: a LUMINANCE border keeps its green and blue gl_executor_test.js
+SURVIVED gl: the border factor ignores the half texel    
+KILLED   gl: lines get POLYGON_OFFSET_FILL's depth bias  gl_executor_test.js
+gl: 423/432 killed, floor 90%
