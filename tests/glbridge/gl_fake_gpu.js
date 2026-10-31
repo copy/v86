@@ -102,14 +102,14 @@ class FakeRenderPass {
     draw(count, instances, first) {
         this.checkOpen();
         this.log.draws.push({ pass: this, count, instances, first,
-                              pipeline: this.pipeline,
+                              pipeline: this.pipeline, stencilReference: this.stencilReference,
                               vertexBuffers: (this.vertexBuffers || []).slice() });
         this.calls.push(["draw", count]);
     }
     drawIndexed(count, instances, firstIndex, baseVertex) {
         this.checkOpen();
         this.log.draws.push({ pass: this, count, instances, firstIndex,
-                              baseVertex, indexed: true, pipeline: this.pipeline,
+                              baseVertex, indexed: true, pipeline: this.pipeline, stencilReference: this.stencilReference,
                               vertexBuffers: (this.vertexBuffers || []).slice(),
                               indexBuffer: this.indexBuffer });
         this.calls.push(["drawIndexed", count]);

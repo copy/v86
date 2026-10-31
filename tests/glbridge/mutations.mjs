@@ -59,6 +59,16 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    glstencilfaces: { floor: 0.9, node: ["gl_stencil_faces_test.js"], pages: ["gl_stencil_faces_browser_test.html"], list: [
+        ["stencil reference always selects front", G + "gl_executor.js",
+            'clamp(s.stencil[stencilFace].ref, 0,', 'clamp(s.stencil.front.ref, 0,'],
+        ["stencil masks always select front", G + "gl_executor.js",
+            'const f = s.stencil[side || "front"], b = side ? f : s.stencil.back;', 'const f = s.stencil.front, b = s.stencil.back;'],
+        ["stencil face split drops back draws", G + "gl_executor.js",
+            'for (const side of ["front", "back"]) {', 'for (const side of ["front"]) {'],
+        ["stencil face split ignores independent references", G + "gl_executor.js",
+            '|| f.ref !== b.ref;', ';'],
+    ] },
     glresources: { floor: 0.9, node: ["gl_resource_lifetime_test.js", "gl_renderer_snapshot_test.js"], pages: ["gl_resource_lifetime_browser_test.html"], list: [
         ["device loss keeps value pipelines", G + "gl_executor.js",
             '"colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",', '"colorBlitPipelines", "depthColorPipelines",'],

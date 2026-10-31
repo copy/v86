@@ -7268,6 +7268,9 @@ ${fragmentCode}`;
             if (isLinePrimitive(request.mode) && !request.linesExpanded &&
                     (s.lineWidth >= 1.5 || s.enabled.has(GL.LINE_STIPPLE)))
                 return this.drawLines(request);
+            if (polygons && !request.stencilFace && !request.linesExpanded &&
+                    s.enabled.has(GL.STENCIL_TEST) && stencilMasksDiverge(s))
+                return this.drawStencilFaces(request);
             let index = request.index;
             this.drawFace = request.face || null;
             let expandedPoints = request.mode === GL.POINTS && this.pointsExpand();
@@ -7278,12 +7281,6 @@ ${fragmentCode}`;
                 expandedPoints = false;
             }
             this.drawingExpandedPoints = expandedPoints;
-            if (s.enabled.has(GL.STENCIL_TEST) && stencilMasksDiverge(s))
-                this.warnOnce("stencil-masks",
-                    "the front and back stencil masks differ; WebGPU has one " +
-                    "pair for both faces, so the front face's are used " +
-                    "(deviation D-02)", { front: s.stencil.front,
-                                          back: s.stencil.back });
             const shaders = this.resolveShaders();
             if (!shaders) return;
             if (s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY &&
@@ -7348,7 +7345,7 @@ ${fragmentCode}`;
             const pass = this.ensurePass();
             if (!pass) return;
             pass.setPipeline(pipeline);
-            this.applyPassState(pass);
+            this.applyPassState(pass, request.stencilFace || (request.face && request.face.back ? "back" : "front"));
             for (const entry of bindGroups)
                 pass.setBindGroup(entry.index, entry.group);
             request.buffers.forEach((buffer, i) => {
@@ -7375,7 +7372,7 @@ ${fragmentCode}`;
             }
         },
 
-        applyPassState(pass) {
+        applyPassState(pass, stencilFace = "front") {
             const s = this.current;
             const targets = this.passTargets;
             const width = targets ? targets.width : this.backBufferWidth;
@@ -7404,7 +7401,7 @@ ${fragmentCode}`;
                 pass.setScissorRect(0, 0, width, height);
             }
             if (s.enabled.has(GL.STENCIL_TEST))
-                pass.setStencilReference(clamp(s.stencil.front.ref, 0,
+                pass.setStencilReference(clamp(s.stencil[stencilFace].ref, 0,
                     this.passTargets && formatHasStencil(this.passTargets.depthFormat) ? 255 : 0));
             if (s.enabled.has(GL.BLEND))
                 pass.setBlendConstant(this.blendConstant(s.blend));
@@ -7487,6 +7484,27 @@ ${fragmentCode}`;
          * attenuation and POINT_SIZE_MIN as well as sprites and a program's
          * gl_PointSize (review S2-18: a size of 1 ignored the rest).
          */
+        drawStencilFaces(request) {
+            const s = this.current, source = request.index && (request.index.source || request.index.cpu);
+            const faces = polygonFaces(request.mode, request.vertexCount, source);
+            const culling = s.enabled.has(GL.CULL_FACE);
+            for (let k = 0; k < faces.provoking.length; ++k) {
+                const from = faces.starts[k], n = faces.starts[k + 1] - from, p = faces.provoking[k];
+                const polygon = faces.vertices.slice(from, from + n), start = polygon.indexOf(p), triangles = [];
+                for (let i = 1; i + 1 < n; ++i)
+                    triangles.push(p, polygon[(start + i) % n], polygon[(start + i + 1) % n]);
+                const index = this.uploadIndexList(Uint32Array.from(triangles));
+                if (!index) return;
+                // Keep front/back adjacent for each original polygon. Grouping
+                // all fronts before all backs would reorder stencil/blending.
+                for (const side of ["front", "back"]) {
+                    if (culling && s.cullFace === (side === "front" ? GL.FRONT : GL.BACK)) continue;
+                    this.issueDraw({ ...request, mode: GL.TRIANGLES, vertexCount: triangles.length,
+                        index, stencilFace: side });
+                }
+            }
+        },
+
         pointsExpand() {
             const s = this.current, p = s.point;
             if (s.enabled.has(GL.VERTEX_PROGRAM_ARB)) {
@@ -8236,7 +8254,8 @@ ${fragmentCode}`;
             const fillOffset = s.enabled.has(GL.POLYGON_OFFSET_FILL) &&
                 isPolygonPrimitive(request.mode) && !quads;
             // a point's or line's quad is not a face (review S2-18: it was culled)
-            const cullMode = quads ? "none" : this.gpuCullMode(s);
+            const cullMode = request.stencilFace ? (request.stencilFace === "front" ? "back" : "front") :
+                quads ? "none" : this.gpuCullMode(s);
             const vertexModule = this.shaderModule(reversedDepthRange(s) ?
                 flipDepth(shaders.wgslVertex) : shaders.wgslVertex);
             const fragmentModule = this.shaderModule(shaders.wgslFragment);
@@ -8290,7 +8309,7 @@ ${fragmentCode}`;
                     depthCompare: s.enabled.has(GL.DEPTH_TEST) ?
                         (COMPARE_FUNCTIONS[s.depthFunc] || "less") : "always",
                     ...(targets.depthFormat.indexOf("stencil") >= 0 ?
-                        gpuStencilState(s) : {}),
+                        gpuStencilState(s, request.stencilFace || (request.face && request.face.back ? "back" : undefined)) : {}),
                     depthBias: fillOffset ? Math.round(s.polygonOffset.units) : 0,
                     depthBiasSlopeScale: fillOffset ? s.polygonOffset.factor : 0,
                 };
@@ -8776,16 +8795,16 @@ ${fragmentCode}`;
 
     /*
      * WebGPU has one stencil read mask and one write mask for both faces; GL
-     * has a pair each. When they differ the front face's win, and the
-     * divergence is reported once -- deviation D-02.
+     * has a pair each. Divergent polygons use two culled draws per primitive
+     * in original order; only the draw for the actual face rasterizes.
      */
-    function gpuStencilState(s) {
+    function gpuStencilState(s, side) {
         if (!s.enabled.has(GL.STENCIL_TEST)) {
             const disabled = { compare: "always", failOp: "keep", depthFailOp: "keep", passOp: "keep" };
             return { stencilFront: disabled, stencilBack: disabled, stencilReadMask: 0xFFFFFFFF, stencilWriteMask: 0 };
         }
 
-        const f = s.stencil.front, b = s.stencil.back;
+        const f = s.stencil[side || "front"], b = side ? f : s.stencil.back;
         const face = state => ({
             compare: COMPARE_FUNCTIONS[state.func] || "always",
             failOp: STENCIL_OPERATIONS[state.fail] || "keep",
@@ -8802,7 +8821,7 @@ ${fragmentCode}`;
 
     function stencilMasksDiverge(s) {
         const f = s.stencil.front, b = s.stencil.back;
-        return f.valueMask !== b.valueMask || f.writeMask !== b.writeMask;
+        return f.valueMask !== b.valueMask || f.writeMask !== b.writeMask || f.ref !== b.ref;
     }
 
     /* ================================================================== */

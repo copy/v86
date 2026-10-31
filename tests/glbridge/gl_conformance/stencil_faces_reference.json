@@ -1,0 +1,9 @@
+{"renderer":"Apple M1 Pro","cases":[
+{"name":"front_ref","error":0,"value":3},
+{"name":"back_ref","error":0,"value":9},
+{"name":"write_masks","error":0,"value":203},
+{"name":"ordered_overlap","error":0,"value":2},
+{"name":"back_read_mask","error":0,"value":92},
+{"name":"cull_back","error":0,"value":3},
+{"name":"program_flips_face","error":0,"value":9}
+]}
