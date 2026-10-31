@@ -1734,7 +1734,7 @@
 
             this.encoder = null;
             this.pass = null;
-            this.passTarget = null;
+            this.passTargets = null;
             this.recordedOps = 0;
             this.pendingVertexBuffers = new WeakSet();
             this.uploadPages = [];
@@ -1775,6 +1775,48 @@
             installProgramHandlers(this.handlers);
             installDrawHandlers(this.handlers);
             this.args = new Float64Array(32);
+            this.resources = new gpuHost.GPUResourceRegistry();
+            const maps = ["pipelineCache", "bindGroupCache", "samplerCache", "moduleCache",
+                "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
+                "accumPipelineCache", "accumClearPipelineCache", "clearPipelineCache", "colorCopyPipelines",
+                "mipmapPipelines", "colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",
+                "singletonPipelines", "fallbackViews"];
+            for (const name of maps) {
+                this[name] = this[name] || new Map();
+                this.resources.register(name, () => this[name].clear());
+            }
+            this.resources.fields(this, {
+                encoder: null, pass: null, passTargets: null, passTargetKey: 0, pendingClear: null,
+                presentPipeline: null, depthReadPipeline: null, depthUploadPipeline: null,
+                presentSampler: null, pixelSampler: null, polygonStippleTexture: null,
+                backBuffer: null, backBufferView: null, depthTarget: null, depthTargetView: null,
+                multisampleTarget: null, multisampleView: null, accumBuffer: null,
+                uniformRing: null, vertexRing: null, fallbackTexture: null, fallbackView: null,
+                fallbackSampler: null, fallbackComparisonSampler: null, activeOcclusionQuerySet: null,
+                logicTargetTextures: () => [], logicTargetViews: () => [], uploadPages: () => [], retired: () => [],
+                pendingVertexBuffers: () => new WeakSet(), recordedOps: 0, vertexCursor: 0, uniformCursor: 0,
+                convertedVertexBytes: 0, nextQuerySlot: 0, pendingQueries: () => [], passHasOcclusionQuerySet: false,
+            });
+            this.targetKeys = new CacheKeys();
+            this.readbackCancels = new Set();
+            this.resources.register("readbacks", () => {
+                for (const cancel of this.readbackCancels) cancel();
+            });
+            this.resources.register("guest objects", () => this.invalidateGuestResources());
+            // Default framebuffer storage belongs to the drawable, not the
+            // currently selected HGLRC. Contexts on one window share it;
+            // switching to another window retains both colour and depth.
+            this.drawableFields = ["backBuffer", "backBufferView", "backBufferWidth", "backBufferHeight", "backBufferFormat",
+                "depthTarget", "depthTargetView", "depthWidth", "depthHeight", "depthSamples",
+                "multisampleTarget", "multisampleView", "multisampleWidth", "multisampleHeight", "multisampleFormat",
+                "accumBuffer", "frontDrawn"];
+            this.currentDrawable = {};
+            this.drawables = new Map();
+            for (const name of this.drawableFields) {
+                this.currentDrawable[name] = this[name];
+                Object.defineProperty(this, name, { enumerable: true, configurable: true,
+                    get: () => this.currentDrawable[name], set: value => { this.currentDrawable[name] = value; } });
+            }
         }
 
         /* ---- lifecycle ---- */
@@ -1803,22 +1845,26 @@
             return this.readyPromise;
         }
 
+        createGPUBuffer(descriptor) { return this.resources.track(this.device.createBuffer(descriptor)); }
+        createGPUTexture(descriptor) { return this.resources.track(this.device.createTexture(descriptor)); }
+        createGPUQuerySet(descriptor) { return this.resources.track(this.device.createQuerySet(descriptor)); }
+
         // What every draw needs, on a new device (the tests' fake device too)
         createDeviceResources() {
-            this.uniformRing = this.device.createBuffer({
+            this.uniformRing = this.createGPUBuffer({
                 label: "GL uniform ring",
                 size: this.uniformCapacity,
                 usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
             });
             this.uniformStaging = new Uint8Array(this.uniformCapacity);
-            this.vertexRing = this.device.createBuffer({
+            this.vertexRing = this.createGPUBuffer({
                 label: "GL vertex ring",
                 size: this.vertexCapacity,
                 usage: BUFFER_USAGE_VERTEX | BUFFER_USAGE_INDEX |
                     BUFFER_USAGE_COPY_DST,
             });
             this.vertexStaging = new Uint8Array(this.vertexCapacity);
-            this.fallbackTexture = this.device.createTexture({
+            this.fallbackTexture = this.createGPUTexture({
                 label: "GL incomplete-texture fallback",
                 size: { width: 1, height: 1, depthOrArrayLayers: 1 },
                 format: "rgba8unorm",
@@ -1849,14 +1895,20 @@
         // Bound the GPU operation before attaching any guest-memory writes:
         // a completion after timeout must not turn failure into late success.
         awaitReadback(operation, label, cancel) {
-            let timer;
+            let timer, lost;
+            const cancelled = new Promise((resolve, reject) => {
+                lost = () => { if (cancel) cancel(); reject(new Error(label + " device lost")); };
+                this.readbackCancels.add(lost);
+            });
             const timeout = new Promise((resolve, reject) => {
                 timer = setTimeout(() => {
                     if (cancel) cancel();
                     reject(new Error(label + " timed out"));
                 }, this.options.readbackTimeoutMs || protocol.C.V86GL_ASYNC_HOST_TIMEOUT_MS);
             });
-            return Promise.race([operation, timeout]).finally(() => clearTimeout(timer));
+            return Promise.race([operation, timeout, cancelled]).finally(() => {
+                clearTimeout(timer); this.readbackCancels.delete(lost);
+            });
         }
 
         async idle() {
@@ -1876,41 +1928,13 @@
         }
 
         onDeviceLost() {
-            // Every GPU object belonged to the old device and may be neither
-            // used nor destroyed now. The GL state machine is plain
-            // JavaScript, so buffers and textures come back from their shadows.
+            // The registry invalidates all device-local caches, slots and in-flight
+            // transfers before rebuilding retained guest objects from CPU data.
+            this.resources.invalidate();
             this.device = this.host.device;
-            this.encoder = null;
-            this.pass = null;
-            this.passTarget = null;
-            this.recordedOps = 0;
-            this.pendingVertexBuffers = new WeakSet();
-            this.retired = [];
-            for (const cache of [this.pipelineCache, this.bindGroupCache, this.samplerCache,
-                    this.moduleCache, this.uniformValueCache, this.convertedVertexCache,
-                    this.indexExpansionCache, this.pixelPipelineCache, this.accumPipelineCache,
-                    this.accumClearPipelineCache, this.clearPipelineCache, this.colorCopyPipelines,
-                    this.mipmapPipelines, this.colorBlitPipelines]) {
-                if (cache) cache.clear();
-            }
+            this.targetKeys.clearKeys();
             this.rejectedBindGroups.clear();
-            this.convertedVertexBytes = 0;
-            for (const name of ["presentPipeline", "presentSampler", "pixelSampler",
-                    "activeOcclusionQuerySet", "polygonStippleTexture", "backBuffer",
-                    "depthTarget", "accumBuffer", "uniformRing", "vertexRing"])
-                this[name] = null;
-            for (const group of this.shareGroups.values()) {
-                for (const texture of group.textureImages.values()) {
-                    texture.gpuTexture = null;
-                    texture.depthColor = null;
-                    texture.viewCache.clear();
-                    texture.dirty = true;
-                }
-                for (const buffer of group.bufferObjects.values()) buffer.gpuBuffer = null;
-                for (const rb of group.renderbufferImages.values()) rb.gpuTexture = null;
-                for (const program of group.programs.values())
-                    program.variants.clear();
-            }
+            if (this.activeQuery) this.activeQuery.slot = -1;
             this.readyPromise = null;
             return this.initialize().then(() => {
                 for (const group of this.shareGroups.values()) {
@@ -1918,9 +1942,38 @@
                         if (buffer.shadow) this.replaceBufferStorage(buffer);
                     // (their contents were rendered on the lost device)
                     for (const rb of group.renderbufferImages.values())
-                        if (rb.gpuFormat) this.allocateRenderbuffer(rb);
+                        if (rb.gpuFormat && rb.width && rb.height) this.allocateRenderbuffer(rb);
                 }
+                if (this.activeQuery) this.ensureOcclusionQuerySet();
             });
+        }
+
+        invalidateGuestResources() {
+            for (const drawable of this.drawables.values()) {
+                for (const name of ["backBuffer", "backBufferView", "depthTarget", "depthTargetView",
+                        "multisampleTarget", "multisampleView", "accumBuffer"]) drawable[name] = null;
+                drawable.frontDrawn = false;
+            }
+            for (const group of this.shareGroups.values()) {
+                // Include deleted objects retained by another context or FBO.
+                for (const texture of group.textureImages.values()) {
+                    texture.gpuTexture = null; texture.depthColor = null;
+                    texture.viewCache.clear(); texture.dirty = true;
+                }
+                for (const buffer of group.bufferObjects.values()) buffer.gpuBuffer = null;
+                for (const rb of group.renderbufferImages.values()) {
+                    rb.gpuTexture = null;
+                    if (rb.viewCache) rb.viewCache.clear();
+                }
+                for (const program of group.programs.values()) program.variants.clear();
+            }
+            for (const context of this.contexts.values()) {
+                for (const query of context.queryObjects.values()) {
+                    ++query.generation; query.slot = -1; query.pendingSegments = 0;
+                    query.result = query.target === GL.SAMPLES_PASSED ? OCCLUSION_VISIBLE_SAMPLES : 1;
+                    if (!query.active) query.ready = true;
+                }
+            }
         }
 
         /* ---- diagnostics ---- */
@@ -2001,6 +2054,10 @@
                 this.contexts.set(contextKey, context);
                 this.framebuffers.set(context.id, new Map());
             }
+            const drawable = this.drawables.get(hwnd) || { backBufferWidth: 0, backBufferHeight: 0 };
+            this.drawables.set(hwnd, drawable);
+            if (this.currentDrawable !== drawable) this.endPass();
+            this.currentDrawable = drawable;
             context.hwnd = hwnd;
             context.samples = (format & protocol.C.V86GL_FORMAT_SAMPLES_MASK) >>>
                 protocol.C.V86GL_FORMAT_SAMPLES_SHIFT;
@@ -2018,6 +2075,7 @@
                     context.scissor = { x: 0, y: 0, width, height, set: false };
                 }
                 this.resizeSurface(width, height);
+                if (this.host) this.host.resizeCanvas(width, height);
             }
             // (whether other windows cover it stands until the next report)
             this.surface = { ...this.surface, hwnd, x, y, width, height, visible: true };
@@ -2139,68 +2197,17 @@
 
         resetForReplay() {
             this.finishFrame(false);
-            const release = object => {
-                if (!object || typeof object.destroy !== "function") return;
-                try { object.destroy(); } catch (ignored) { /* already gone */ }
-            };
-            for (const group of this.shareGroups.values()) {
-                for (const texture of group.textureImages.values())
-                    release(texture.gpuTexture);
-                for (const buffer of group.bufferObjects.values()) {
-                    this.invalidateVertexConversions(buffer);
-                    release(buffer.gpuBuffer);
-                }
-                for (const rb of group.renderbufferImages.values())
-                    release(rb.gpuTexture);
-            }
-            release(this.backBuffer);
-            release(this.depthTarget);
-            release(this.multisampleTarget);
-            if (this.accumBuffer) {
-                release(this.accumBuffer.currentTexture);
-                release(this.accumBuffer.nextTexture);
-            }
-            for (const texture of this.logicTargetTextures || []) release(texture);
-            this.releaseRetired();
-
-            this.shareGroups.clear();
-            this.contexts.clear();
-            this.framebuffers.clear();
-            this.queries.clear();
-            release(this.activeOcclusionQuerySet);
-            this.activeOcclusionQuerySet = null;
-            this.activeQuery = null;
-            this.pendingQueries = [];
-            this.nextQuerySlot = 0;
-            this.uniformValueCache.clear();
-            this.stateUniformLayouts = new WeakMap();
-            this.nextContextId = 1;
-            this.nextShareGroupId = 1;
-            this.nextUniformLocation = 1;
-            this.current = null;
-            this.pipelineCache.clear();
-            this.bindGroupCache.clear();
-            this.samplerCache.clear();
-            this.moduleCache.clear();
+            this.resources.invalidate(true);
+            this.createDeviceResources();
+            this.shareGroups.clear(); this.contexts.clear(); this.framebuffers.clear();
+            this.queries = new Map(); this.activeQuery = null;
             this.shaderCache.clear();
-            this.indexExpansionCache.clear();
             if (this.ffCache) this.ffCache.clear();
-            if (this.pixelPipelineCache) this.pixelPipelineCache.clear();
-            if (this.accumPipelineCache) this.accumPipelineCache.clear();
-            if (this.accumClearPipelineCache) this.accumClearPipelineCache.clear();
-            if (this.clearPipelineCache) this.clearPipelineCache.clear();
-            this.backBuffer = null;
-            this.backBufferView = null;
-            this.depthTarget = null;
-            this.depthTargetView = null;
-            this.multisampleTarget = null;
-            this.multisampleView = null;
-            this.accumBuffer = null;
-            this.logicTargetTextures = [];
-            this.logicTargetViews = [];
-            this.pendingClear = null;
-            this.vertexCursor = 0;
-            this.uniformCursor = 0;
+            this.stateUniformLayouts = new WeakMap();
+            this.targetKeys.clearKeys(); this.rejectedBindGroups.clear();
+            this.nextContextId = 1; this.nextShareGroupId = 1; this.nextUniformLocation = 1;
+            this.current = null;
+            this.drawables.clear(); this.currentDrawable = { backBufferWidth: 0, backBufferHeight: 0 };
             this.surface = { hwnd: 0, x: 0, y: 0, width: 0, height: 0,
                              visible: false };
             this.notifySurface("hide");
@@ -2215,10 +2222,12 @@
         resizeSurface(width, height) {
             if (width === this.backBufferWidth && height === this.backBufferHeight)
                 return;
+            this.endPass();
+            this.retire(this.backBuffer); this.retire(this.depthTarget);
             this.backBufferWidth = width;
             this.backBufferHeight = height;
-            this.backBuffer = null;
-            this.depthTarget = null;
+            this.backBuffer = null; this.backBufferView = null;
+            this.depthTarget = null; this.depthTargetView = null;
             if (this.host) this.host.resizeCanvas(width, height);
         }
 
@@ -4961,7 +4970,7 @@
                 const usage = TEXTURE_USAGE_TEXTURE_BINDING |
                     TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_COPY_SRC |
                     (base.compressed ? 0 : TEXTURE_USAGE_RENDER_ATTACHMENT);
-                texture.gpuTexture = this.device.createTexture({
+                texture.gpuTexture = this.createGPUTexture({
                     label: "GL texture " + texture.name,
                     size: {
                         width: wanted.width, height: wanted.height,
@@ -5084,7 +5093,7 @@
          * (Every depth texture with data failed to upload before.)
          */
         writeDepthTexels(gpuTexture, level, layer, x, y, width, height, pixels) {
-            const staging = this.device.createTexture({ label: "GL depth upload",
+            const staging = this.createGPUTexture({ label: "GL depth upload",
                 size: { width, height, depthOrArrayLayers: 1 }, format: "r32float",
                 usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
             this.device.queue.writeTexture({ texture: staging }, pixels,
@@ -5092,13 +5101,12 @@
                 { width, height, depthOrArrayLayers: 1 });
             if (!this.depthUploadPipeline) {
                 const module = this.shaderModule(DEPTH_UPLOAD_WGSL);
-                this.depthUploadPipeline = this.gpuErrors.scoped("depth upload", () =>
-                    this.device.createRenderPipeline({ label: "GL depth upload", layout: "auto",
+                this.depthUploadPipeline = this.createPipeline(this.singletonPipelines, "depthUploadPipeline", { label: "GL depth upload", layout: "auto",
                         vertex: { module, entryPoint: "vs_main" },
                         fragment: { module, entryPoint: "fs_main", targets: [] },
                         primitive: { topology: "triangle-list" },
                         depthStencil: { format: "depth32float", depthWriteEnabled: true,
-                            depthCompare: "always" } })).object;
+                            depthCompare: "always" } });
             }
             const origin = this.allocateUniform(16);
             if (!origin) return;
@@ -5340,7 +5348,7 @@
             // later, and GL never says which; asking for both costs nothing.
             const byteCount = buffer.shadow.byteLength;
             const size = alignUp(byteCount, 4);
-            buffer.gpuBuffer = byteCount ? this.device.createBuffer({
+            buffer.gpuBuffer = byteCount ? this.createGPUBuffer({
                 label: "GL buffer " + buffer.name,
                 size,
                 usage: BUFFER_USAGE_VERTEX | BUFFER_USAGE_INDEX |
@@ -5427,7 +5435,7 @@
                 this.flushFrame();
                 const shaders = this.vertexCaptureShaders(raster);
                 const created = this.gpuErrors.scoped("vertex capture", () => {
-                    const buffer = (size, usage) => { const b = this.device.createBuffer({ size, usage }); owned.push(b); return b; };
+                    const buffer = (size, usage) => { const b = this.createGPUBuffer({ size, usage }); owned.push(b); return b; };
                     const input = buffer(r.count * 256, BUFFER_USAGE_STORAGE | BUFFER_USAGE_COPY_DST),
                         output = buffer(r.count * (raster ? translator.VERTEX_CAPTURE.rasterOutputBytes : translator.VERTEX_CAPTURE.outputBytes), BUFFER_USAGE_STORAGE | BUFFER_USAGE_COPY_SRC);
                     read = buffer(output.size, BUFFER_USAGE_MAP_READ | BUFFER_USAGE_COPY_DST);
@@ -6436,7 +6444,7 @@
                         readComponent(view, array.offset + v * stride +
                             c * elementBytes, array.type, normalized) :
                         (c === 3 ? 1 : 0);
-            const gpuBuffer = this.device.createBuffer({
+            const gpuBuffer = this.createGPUBuffer({
                 label: "GL converted attribute " + buffer.name, size: bytes,
                 usage: BUFFER_USAGE_VERTEX | BUFFER_USAGE_COPY_DST,
             });
@@ -6502,7 +6510,7 @@
             // encoded. Neither overwrite nor retire it in an intermediate
             // flush; keep it until the draw/command has been fully recorded.
             this.uploadPages.push(this[key]);
-            this[key] = this.device.createBuffer({
+            this[key] = this.createGPUBuffer({
                 label: vertex ? "GL vertex ring" : "GL uniform ring",
                 size: vertex ? this.vertexCapacity : this.uniformCapacity,
                 usage: BUFFER_USAGE_COPY_DST | (vertex ?
@@ -6743,11 +6751,7 @@
                 if (slot && !slot.compressed) slot.pixels = null;
                 texture.depthGeneration = (texture.depthGeneration || 0) + 1;
                 return {
-                    view: gpuTexture.createView({
-                        baseMipLevel: attachment.level, mipLevelCount: 1,
-                        baseArrayLayer: attachment.layer, arrayLayerCount: 1,
-                        dimension: "2d",
-                    }),
+                    view: this.attachmentView(texture, gpuTexture, attachment.level, attachment.layer),
                     format: texture.gpuFormat,
                     texture: gpuTexture,
                     mipLevel: attachment.level,
@@ -6756,9 +6760,21 @@
             }
             const rb = this.imageFor(attachment);
             if (!rb || !rb.gpuTexture) return null;
-            return { view: rb.gpuTexture.createView(), format: rb.gpuFormat,
+            return { view: this.attachmentView(rb, rb.gpuTexture, 0, 0), format: rb.gpuFormat,
                      texture: rb.gpuTexture, mipLevel: 0,
                      origin: { x: 0, y: 0, z: 0 } };
+        },
+
+        attachmentView(image, texture, level, layer) {
+            const cache = image.viewCache || (image.viewCache = new Map());
+            const key = "attachment:" + this.resourceId(texture) + ":" + level + ":" + layer;
+            let view = cache.get(key);
+            if (!view) {
+                view = texture.createView({ dimension: "2d", baseMipLevel: level,
+                    mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
+                cache.set(key, view);
+            }
+            return view;
         },
 
         ensureBackBuffer() {
@@ -6767,7 +6783,7 @@
             if (this.backBuffer && this.backBufferView) return this.backBufferView;
             this.retire(this.backBuffer);
             this.backBufferFormat = (this.host && this.host.format) || "bgra8unorm";
-            this.backBuffer = this.device.createTexture({
+            this.backBuffer = this.createGPUTexture({
                 label: "GL back buffer",
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: this.backBufferFormat,
@@ -6785,7 +6801,7 @@
                     this.depthHeight === height && this.depthSamples === samples)
                 return this.depthTargetView;
             this.retire(this.depthTarget);
-            this.depthTarget = this.device.createTexture({
+            this.depthTarget = this.createGPUTexture({
                 label: "GL depth-stencil",
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: "depth24plus-stencil8",
@@ -6818,7 +6834,7 @@
                     this.multisampleHeight === height && this.multisampleFormat === this.backBufferFormat)
                 return this.multisampleView;
             this.retire(this.multisampleTarget);
-            this.multisampleTarget = this.device.createTexture({
+            this.multisampleTarget = this.createGPUTexture({
                 label: "GL multisampled colour",
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: this.backBufferFormat, sampleCount: samples,
@@ -6847,12 +6863,21 @@
             if (this.activeQuery && this.activeQuery.slot < 0 &&
                     this.nextQuerySlot >= this.occlusionCapacity)
                 this.flushFrame();
-            if (this.pass) {
+            const targets = this.currentTargets();
+            if (!targets) { this.endPass(); return null; }
+            const reference = object => object ? this.targetKeys.reference(object) : 0;
+            if (this.targetKeys.buckets && this.targetKeys.buckets.size > 4096) {
+                this.endPass(); this.targetKeys.clearKeys();
+            }
+            const targetKey = this.targetKeys.key([reference(this.current),
+                targets.color.map(target => target ? [reference(target.view), reference(target.resolveTarget)] : null),
+                reference(targets.depth), targets.width, targets.height, targets.sampleCount || 1,
+                reference(this.activeOcclusionQuerySet)]);
+            if (this.pass && this.passTargetKey === targetKey) {
                 this.beginOcclusionSegment();
                 return this.pass;
             }
-            const targets = this.currentTargets();
-            if (!targets) return null;
+            this.endPass();
             // drawing into the front buffer shows at the next glFlush (D-08)
             if (targets.isDefault && this.current.drawBuffers.some(b => FRONT_BUFFERS.has(b)))
                 this.frontDrawn = true;
@@ -6901,6 +6926,7 @@
             this.passHasOcclusionQuerySet = !!this.activeOcclusionQuerySet;
             this.pass = encoder.beginRenderPass(descriptor);
             this.passTargets = targets;
+            this.passTargetKey = targetKey;
             this.pendingClear = null;
             this.passStateApplied = false;
             this.beginOcclusionSegment();
@@ -6913,6 +6939,7 @@
                 this.pass.end();
                 this.pass = null;
                 this.passTargets = null;
+                this.passTargetKey = 0;
                 this.passHasOcclusionQuerySet = false;
             }
         },
@@ -6973,12 +7000,12 @@
             // resolveQuerySet writes a u64 per slot; a mapped buffer cannot
             // also be a resolve target, hence the copy into staging.
             const byteLength = alignUp(high * 8, 256);
-            const resolveBuffer = this.device.createBuffer({
+            const resolveBuffer = this.createGPUBuffer({
                 label: "GL occlusion resolve",
                 size: byteLength,
                 usage: BUFFER_USAGE_QUERY_RESOLVE | BUFFER_USAGE_COPY_SRC,
             });
-            const staging = this.device.createBuffer({
+            const staging = this.createGPUBuffer({
                 label: "GL occlusion readback",
                 size: byteLength,
                 usage: BUFFER_USAGE_COPY_DST | BUFFER_USAGE_MAP_READ,
@@ -7185,17 +7212,8 @@ ${fragmentCode}`;
                 };
             }
             const key = this.renderPipelineKey(this.clearPipelineCache, descriptor);
-            let pipeline = this.clearPipelineCache.get(key);
-            if (pipeline) return pipeline;
-            try {
-                pipeline = this.device.createRenderPipeline(descriptor);
-            } catch (error) {
-                this.refuse("glClear", "could not create masked clear pipeline",
-                    { message: String(error) }, GL.INVALID_OPERATION);
-                return null;
-            }
-            this.clearPipelineCache.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.clearPipelineCache.get(key);
+            return pipeline || this.createPipeline(this.clearPipelineCache, key, descriptor);
         },
 
         clearAccumBuffer() {
@@ -7436,7 +7454,7 @@ ${fragmentCode}`;
                 const key = source.format + ":" + width + "x" + height;
                 if (!copy || copy.glLogicKey !== key) {
                     this.retire(copy);
-                    copy = this.device.createTexture({
+                    copy = this.createGPUTexture({
                         label: "GL logic-op destination copy " + i,
                         size: { width, height, depthOrArrayLayers: 1 },
                         format: source.format,
@@ -8292,21 +8310,20 @@ ${fragmentCode}`;
             let pipeline = this.pipelineCache.get(signature);
             if (pipeline) return pipeline.glRejected ? null : pipeline;
 
-            // A rejected pipeline stays cached, marked, so its draws are
-            // skipped instead of creating it again every frame
-            const created = this.gpuErrors.scoped("render pipeline",
-                () => this.device.createRenderPipeline(descriptor), { signature });
-            pipeline = created.object;
-            created.checked.then(error => {
-                if (!error) return;
-                pipeline.glRejected = error;
-                ++this.stats.pipelinesRejected;
-            });
-            ++this.stats.pipelines;
-            this.pipelineCache.set(signature, pipeline);
+            pipeline = this.createPipeline(this.pipelineCache, signature, descriptor);
             pipeline.glShaders = shaders;
             pipeline.glActiveBindings = activeShaderBindings(
                 shaders.wgslVertex, shaders.wgslFragment);
+            return pipeline;
+        },
+
+        createPipeline(cache, key, descriptor) {
+            ++this.stats.pipelines;
+            const pipeline = this.resources.checked(this.gpuErrors, "render pipeline", cache, key,
+                () => this.device.createRenderPipeline(descriptor), () => {
+                    ++this.stats.pipelinesRejected;
+                    if (cache === this.singletonPipelines && this[key] === pipeline) this[key] = null;
+                });
             return pipeline;
         },
 
@@ -8464,7 +8481,7 @@ ${fragmentCode}`;
             if (!copy || copy.source !== gpuTexture || copy.format !== format) {
                 if (copy) this.retire(copy.texture);
                 copy = object.depthColor = { source: gpuTexture, format, stamp: null, views: new Map(),
-                    texture: this.device.createTexture({ label: "GL depth texture as colour " + object.name,
+                    texture: this.createGPUTexture({ label: "GL depth texture as colour " + object.name,
                         size: { width: object.gpuWidth, height: object.gpuHeight, depthOrArrayLayers: layers },
                         mipLevelCount: object.gpuLevels, format,
                         usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING }) };
@@ -8521,12 +8538,8 @@ ${fragmentCode}`;
                     fragment: { module, entryPoint: "fs_main", targets: [{ format }] },
                     primitive: { topology: "triangle-list" } };
             const key = this.renderPipelineKey(this.depthColorPipelines, descriptor);
-            let pipeline = this.depthColorPipelines.get(key);
-            if (pipeline) return pipeline;
-            pipeline = this.gpuErrors.scoped("depth texture as colour",
-                () => this.device.createRenderPipeline(descriptor), { key }).object;
-            this.depthColorPipelines.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.depthColorPipelines.get(key);
+            return pipeline || this.createPipeline(this.depthColorPipelines, key, descriptor);
         },
 
         /*
@@ -8542,7 +8555,7 @@ ${fragmentCode}`;
             let view = this.fallbackViews.get(key);
             if (view) return view;
             const layers = dimension === "cube" ? 6 : 1;
-            const texture = this.device.createTexture({
+            const texture = this.createGPUTexture({
                 label: "GL incomplete-texture fallback " + key,
                 size: { width: 1, height: 1, depthOrArrayLayers: layers },
                 dimension: dimension === "3d" ? "3d" : "2d",
@@ -8570,16 +8583,11 @@ ${fragmentCode}`;
                         [this.resourceId(r.buffer), r.offset || 0, r.size].join("/") :
                         this.resourceId(r));
                 }).join("|");
-            if (this.rejectedBindGroups.has(key)) return null;
             let group = this.bindGroupCache.get(key);
             if (!group) {
-                const created = this.gpuErrors.scoped("bind group", () => this.device.createBindGroup({
-                    layout: pipeline.getBindGroupLayout(index), entries,
-                }));
-                created.checked.then(error => { if (error) this.rejectedBindGroups.add(key); });
-                group = created.object;
                 if (this.bindGroupCache.size >= 2048) this.bindGroupCache.clear();
-                this.bindGroupCache.set(key, group);
+                group = this.resources.checked(this.gpuErrors, "bind group", this.bindGroupCache, key,
+                    () => this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(index), entries }));
                 ++this.stats.bindGroups;
             }
             return group;
@@ -9273,17 +9281,8 @@ struct BlitParams {
                     primitive: { topology: "triangle-list" },
                 };
             const key = this.renderPipelineKey(this.colorCopyPipelines, descriptor);
-            let pipeline = this.colorCopyPipelines.get(key);
-            if (pipeline) return pipeline;
-            try {
-                pipeline = this.device.createRenderPipeline(descriptor);
-            } catch (error) {
-                this.refuse("glCopyTexImage", "copy target is not renderable",
-                    { format, message: String(error) }, GL.INVALID_OPERATION);
-                return null;
-            }
-            this.colorCopyPipelines.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.colorCopyPipelines.get(key);
+            return pipeline || this.createPipeline(this.colorCopyPipelines, key, descriptor);
         },
 
         mipmapPipeline(format) {
@@ -9297,17 +9296,8 @@ struct BlitParams {
                     primitive: { topology: "triangle-list" },
                 };
             const key = this.renderPipelineKey(this.mipmapPipelines, descriptor);
-            let pipeline = this.mipmapPipelines.get(key);
-            if (pipeline) return pipeline;
-            try {
-                pipeline = this.device.createRenderPipeline(descriptor);
-            } catch (error) {
-                this.refuse("glGenerateMipmap", "texture format is not renderable",
-                    { format, message: String(error) }, GL.INVALID_OPERATION);
-                return null;
-            }
-            this.mipmapPipelines.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.mipmapPipelines.get(key);
+            return pipeline || this.createPipeline(this.mipmapPipelines, key, descriptor);
         },
 
         colorBlitPipeline(format, samples = 1) {
@@ -9323,17 +9313,8 @@ struct BlitParams {
                     multisample: { count: samples },
                 };
             const key = this.renderPipelineKey(this.colorBlitPipelines, descriptor);
-            let pipeline = this.colorBlitPipelines.get(key);
-            if (pipeline) return pipeline;
-            try {
-                pipeline = this.device.createRenderPipeline(descriptor);
-            } catch (error) {
-                this.refuse("glBlitFramebuffer", "blit target is not renderable",
-                    { format, message: String(error) }, GL.INVALID_OPERATION);
-                return null;
-            }
-            this.colorBlitPipelines.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.colorBlitPipelines.get(key);
+            return pipeline || this.createPipeline(this.colorBlitPipelines, key, descriptor);
         },
 
         blitColorTexture(source, destination, sx0, sy0, sx1, sy1,
@@ -9489,7 +9470,7 @@ struct BlitParams {
             }
             if (!this.presentPipeline) {
                 const module = this.shaderModule(PRESENT_WGSL);
-                this.presentPipeline = this.device.createRenderPipeline({
+                this.presentPipeline = this.createPipeline(this.singletonPipelines, "presentPipeline", {
                     label: "GL present",
                     layout: "auto",
                     vertex: { module, entryPoint: "vs_main" },
@@ -9646,7 +9627,7 @@ struct BlitParams {
 
         allocateRenderbuffer(rb) {
             if (!rb.width || !rb.height) return;
-            rb.gpuTexture = this.device.createTexture({
+            rb.gpuTexture = this.createGPUTexture({
                 label: "GL renderbuffer " + rb.name,
                 size: { width: rb.width, height: rb.height, depthOrArrayLayers: 1 },
                 format: rb.gpuFormat,
@@ -10113,7 +10094,7 @@ struct BlitParams {
                 { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
             if (whole) origin = { x: 0, y: 0, z: origin.z };
             const bytesPerRow = alignUp(copy.width * texelBytes, 256);
-            const staging = this.device.createBuffer({
+            const staging = this.createGPUBuffer({
                 label: "GL readback", size: bytesPerRow * copy.height,
                 usage: BUFFER_USAGE_COPY_DST | BUFFER_USAGE_MAP_READ,
             });
@@ -10141,19 +10122,19 @@ struct BlitParams {
         depthToFloat(encoder, source, rect) {
             if (!this.depthReadPipeline) {
                 const module = this.device.createShaderModule({ label: "GL depth readback", code: DEPTH_READ_WGSL });
-                this.depthReadPipeline = this.device.createRenderPipeline({
+                this.depthReadPipeline = this.createPipeline(this.singletonPipelines, "depthReadPipeline", {
                     label: "GL depth readback", layout: "auto",
                     vertex: { module, entryPoint: "vs_main" },
                     fragment: { module, entryPoint: "fs_main", targets: [{ format: "r32float" }] },
                     primitive: { topology: "triangle-list" },
                 });
             }
-            const target = this.device.createTexture({
+            const target = this.createGPUTexture({
                 label: "GL depth readback", size: { width: rect.width, height: rect.height, depthOrArrayLayers: 1 },
                 format: "r32float", usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_COPY_SRC |
                     TEXTURE_USAGE_TEXTURE_BINDING,
             });
-            const origin = this.device.createBuffer({ label: "GL depth readback origin", size: 16,
+            const origin = this.createGPUBuffer({ label: "GL depth readback origin", size: 16,
                 usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST });
             this.device.queue.writeBuffer(origin, 0, new Uint32Array([rect.x, rect.y, 0, 0]));
             const bindGroup = this.device.createBindGroup({
@@ -10261,7 +10242,7 @@ struct BlitParams {
         ensureOcclusionQuerySet() {
             if (this.activeOcclusionQuerySet) return;
             this.occlusionCapacity = 4096;
-            this.activeOcclusionQuerySet = this.device.createQuerySet({
+            this.activeOcclusionQuerySet = this.createGPUQuerySet({
                 type: "occlusion", count: this.occlusionCapacity,
             });
             this.nextQuerySlot = 0;
@@ -10400,7 +10381,7 @@ struct BlitParams {
             if (!pixels)
                 return this.refuse("glDrawPixels", "unsupported or truncated pixel data",
                     { width, height, format, type }, GL.INVALID_ENUM);
-            const texture = this.device.createTexture({
+            const texture = this.createGPUTexture({
                 label: "GL " + (depth ? "depth" : "stencil") + " pixels",
                 size: { width, height, depthOrArrayLayers: 1 }, format: depth ? "r32float" : "r8uint",
                 usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING,
@@ -10426,13 +10407,13 @@ struct BlitParams {
             } else {
                 // the stencil aspect is copied whole, through a buffer
                 const bytesPerRow = alignUp(source.width, 256);
-                const staging = this.device.createBuffer({ label: "GL stencil copy",
+                const staging = this.createGPUBuffer({ label: "GL stencil copy",
                     size: bytesPerRow * source.height, usage: BUFFER_USAGE_COPY_DST | BUFFER_USAGE_COPY_SRC });
                 encoder.copyTextureToBuffer({ texture: source.texture, mipLevel: source.mipLevel || 0,
                     origin: { x: 0, y: 0, z: source.layer || 0 }, aspect: "stencil-only" },
                 { buffer: staging, bytesPerRow, rowsPerImage: source.height },
                 { width: source.width, height: source.height, depthOrArrayLayers: 1 });
-                texture = this.device.createTexture({ label: "GL stencil pixels",
+                texture = this.createGPUTexture({ label: "GL stencil pixels",
                     size: { width: rect.width, height: rect.height, depthOrArrayLayers: 1 }, format: "r8uint",
                     usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING });
                 encoder.copyBufferToTexture({ buffer: staging, offset: rect.y * bytesPerRow + rect.x,
@@ -10558,12 +10539,8 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
                 },
             };
             const key = this.renderPipelineKey(this.valuePipelineCache, descriptor);
-            let pipeline = this.valuePipelineCache.get(key);
-            if (pipeline) return pipeline;
-            pipeline = this.gpuErrors.scoped("pixel values pipeline",
-                () => this.device.createRenderPipeline(descriptor), { key }).object;
-            this.valuePipelineCache.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.valuePipelineCache.get(key);
+            return pipeline || this.createPipeline(this.valuePipelineCache, key, descriptor);
         },
 
         drawBitmap(bytes, view, offset, size) {
@@ -10604,7 +10581,7 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
                 "no readable colour attachment", {},
                 GL.INVALID_FRAMEBUFFER_OPERATION);
             this.endPass();
-            const texture = this.device.createTexture({
+            const texture = this.createGPUTexture({
                 label: "GL copy-pixels source",
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: source.format,
@@ -10694,7 +10671,7 @@ ${targets.color.map((target, i) => target ? "    out.color" + i + " = raster.col
         },
 
         drawPixelRGBA(rgba, width, height, x, y, discardZeroAlpha) {
-            const texture = this.device.createTexture({
+            const texture = this.createGPUTexture({
                 label: "GL pixel rectangle",
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: "rgba8unorm",
@@ -10834,17 +10811,8 @@ ${outputWrites}
                 };
             }
             const key = this.renderPipelineKey(this.pixelPipelineCache, descriptor);
-            let pipeline = this.pixelPipelineCache.get(key);
-            if (pipeline) return pipeline;
-            try {
-                pipeline = this.device.createRenderPipeline(descriptor);
-            } catch (error) {
-                this.refuse("glDrawPixels", "could not create pixel pipeline",
-                    { message: String(error) }, GL.INVALID_OPERATION);
-                return null;
-            }
-            this.pixelPipelineCache.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.pixelPipelineCache.get(key);
+            return pipeline || this.createPipeline(this.pixelPipelineCache, key, descriptor);
         },
 
         accum(op, value) {
@@ -10911,7 +10879,7 @@ ${outputWrites}
                 this.retire(this.accumBuffer.currentTexture);
                 this.retire(this.accumBuffer.nextTexture);
             }
-            const create = label => this.device.createTexture({
+            const create = label => this.createGPUTexture({
                 label,
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: "rgba16float",
@@ -10986,17 +10954,8 @@ struct Params { value : vec4<f32>, }
                     multisample: { count: samples },
                 };
             const key = this.renderPipelineKey(this.accumPipelineCache, descriptor);
-            let pipeline = this.accumPipelineCache.get(key);
-            if (pipeline) return pipeline;
-            try {
-                pipeline = this.device.createRenderPipeline(descriptor);
-            } catch (error) {
-                this.refuse("glAccum", "could not create accumulation pipeline",
-                    { message: String(error) }, GL.INVALID_OPERATION);
-                return null;
-            }
-            this.accumPipelineCache.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.accumPipelineCache.get(key);
+            return pipeline || this.createPipeline(this.accumPipelineCache, key, descriptor);
         },
 
         accumClearPipeline() {
@@ -11022,11 +10981,8 @@ struct Params { value : vec4<f32>, }
                 primitive: { topology: "triangle-list" },
             };
             const key = this.renderPipelineKey(this.accumClearPipelineCache, descriptor);
-            let pipeline = this.accumClearPipelineCache.get(key);
-            if (pipeline) return pipeline;
-            pipeline = this.device.createRenderPipeline(descriptor);
-            this.accumClearPipelineCache.set(key, pipeline);
-            return pipeline;
+            const pipeline = this.accumClearPipelineCache.get(key);
+            return pipeline || this.createPipeline(this.accumClearPipelineCache, key, descriptor);
         },
         setRasterPos(x, y, z, w) {
             // The raster position is transformed like a vertex; keeping it is

@@ -5,9 +5,9 @@
     const codec = global.GLSnapshotCodec || require("./gl_snapshot_codec.js"), gpu = global.GLGPUArchive || require("./gl_gpu_snapshot.js");
     const translator = global.GLShaderTranslator || require("./gl_shader_translator.js");
     const fields = ["shareGroups", "contexts", "nextContextId", "nextShareGroupId", "nextUniformLocation", "current", "framebuffers", "queries", "activeQuery",
-        "surface", "backBuffer", "backBufferWidth", "backBufferHeight", "backBufferFormat", "depthTarget", "depthWidth", "depthHeight", "depthSamples",
+        "surface", "drawables", "currentDrawable", "backBuffer", "backBufferWidth", "backBufferHeight", "backBufferFormat", "depthTarget", "depthWidth", "depthHeight", "depthSamples",
         "multisampleTarget", "multisampleWidth", "multisampleHeight", "multisampleFormat", "accumBuffer", "frontDrawn", "pendingClear"];
-    const caches = new Set(["variants", "viewCache"]), views = new Set(["currentView", "nextView"]);
+    const caches = new Set(["variants", "viewCache"]), views = new Set(["currentView", "nextView", "backBufferView", "depthTargetView", "multisampleView"]);
     function project(object) {
         return Object.fromEntries(Object.entries(object).filter(([key]) => !views.has(key) &&
             !(object.textureUnits && object.stacks && ["error", "errorQueue", "arbErrorString", "arbErrorPosition"].includes(key))).map(([key, value]) =>
@@ -67,7 +67,22 @@
                 // Before D1 these were renderer copies of CPU-owned errors.
                 delete context.error;delete context.errorQueue;delete context.arbErrorString;delete context.arbErrorPosition;
             }
-            for (const key of fields) executor[key] = state[key];
+            for (const resource of resources) executor.resources.track(resource);
+            for (const key of fields) {
+                if (["drawables", "currentDrawable"].includes(key) && state[key] === undefined) continue;
+                executor[key] = state[key];
+            }
+            // Older archives contain one drawable at the root.
+            if (!(state.drawables instanceof Map)) executor.drawables.set(executor.current?.hwnd || 0, executor.currentDrawable);
+            for (const drawable of executor.drawables.values()) {
+                drawable.backBufferView = drawable.backBuffer?.createView() || null;
+                drawable.depthTargetView = drawable.depthTarget?.createView() || null;
+                drawable.multisampleView = drawable.multisampleTarget?.createView() || null;
+                if (drawable.accumBuffer) {
+                    drawable.accumBuffer.currentView = drawable.accumBuffer.currentTexture.createView();
+                    drawable.accumBuffer.nextView = drawable.accumBuffer.nextTexture.createView();
+                }
+            }
             executor.backBufferView = executor.backBuffer?.createView() || null;
             executor.depthTargetView = executor.depthTarget?.createView() || null;
             executor.multisampleView = executor.multisampleTarget?.createView() || null;

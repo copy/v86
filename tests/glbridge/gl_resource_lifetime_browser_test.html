@@ -1,0 +1,101 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Device recovery and drawable ownership</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="../../src/browser/glbridge/graphics_journal.js"></script>
+<script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
+<script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="gl_selection_cases.js"></script>
+<script src="gl_evaluator_cases.js"></script>
+<script>
+(async () => {
+    "use strict";
+    const {GLStream,GL}=GLTestStream, P=GLProtocol, check=(ok,message)=>{if(!ok)throw new Error(message);};
+    try {
+        for(const copied of [false,true]) {
+            const gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();
+            const cpu=new V86GLShadow.GLShadow();cpu.setCapabilities(gpu.capabilities());
+            gpu.options.writeGuestMemory=(offset,data,metadata)=>metadata.guestBytes.set(data,offset+(metadata.originalOffset||0));
+            const submit=async s=>{
+                const bytes=s.bytes(),segments=cpu.process(bytes);
+                for(const segment of segments||[{offset:0,length:bytes.length}]) {
+                    const part=segment.bytes||bytes.subarray(segment.offset,segment.offset+segment.length);
+                    gpu.submit(copied?part.slice():part,{guestBytes:bytes,originalOffset:segment.bytes?0:segment.offset});
+                }
+                await gpu.idle();
+            };
+            const pixel=async(expected,label)=>{
+                const s=new GLStream(),p=s.readPixels(8,8,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);await submit(s);
+                check(p.view.getUint32(P.F.READ_PIXELS.status,true)===1,label+" readback");
+                const rgba=Array.from(p.bytes.subarray(P.RECORDS.READ_PIXELS.size));check(expected.every((x,i)=>Math.abs(x-rgba[i])<=1),label+": "+rgba);
+            };
+            const current=(hwnd,id,size=16,samples=0)=>new GLStream().makeCurrent(hwnd,0,0,size,size,id,1,samples<<8);
+            const fill=(s,r,g,b)=>s.call("CLEAR_COLOR",r,g,b,1).call("CLEAR",GL.COLOR_BUFFER_BIT|GL.DEPTH_BUFFER_BIT);
+            await submit(fill(current(1,1),1,0,0));await pixel([255,0,0,255],"window A");
+            await submit(fill(current(2,2,32),0,0,1));await pixel([0,0,255,255],"window B");
+            await submit(current(1,1));await pixel([255,0,0,255],"A survives window switch");
+            const saved=await gpu.saveSnapshot();await submit(fill(current(2,2,32),0,1,0));await gpu.restoreSnapshot(saved);
+            await pixel([255,0,0,255],"A restored");await submit(current(2,2,32));await pixel([0,0,255,255],"B restored");
+            await submit(current(1,1,16,4).call("BIND_TEXTURE",GL.TEXTURE_2D,7)
+                .texImage2D(GL.TEXTURE_2D,0,GL.RGBA,1,1,GL.RGBA,GL.UNSIGNED_BYTE,new Uint8Array([0,255,0,255]))
+                .call("TEX_PARAMETERI",GL.TEXTURE_2D,GL.TEXTURE_MIN_FILTER,GL.NEAREST).call("TEX_PARAMETERI",GL.TEXTURE_2D,GL.TEXTURE_MAG_FILTER,GL.NEAREST).call("ENABLE",GL.TEXTURE_2D));
+            const draw=()=>fill(new GLStream(),0,0,0).call("BEGIN",GL.TRIANGLES).call("VERTEX3F",-1,-1,0).call("VERTEX3F",3,-1,0).call("VERTEX3F",-1,3,0).call("END");
+            await submit(draw());await pixel([0,255,0,255],"MSAA texture before loss");
+            // Explicit recovery obtains a real replacement GPUDevice and reconfigures the shared canvas.
+            const old=gpu.device;await gpu.host.recover();check(gpu.device!==old,"replacement device");
+            await submit(draw());await pixel([0,255,0,255],"retained texture and MSAA after loss");
+            await submit(current(2,2,32));await submit(fill(new GLStream(),1,1,0));await pixel([255,255,0,255],"other drawable rebuilds");
+            await gpu.device.queue.onSubmittedWorkDone();check(gpu.stats.framesRejected===0,"no frame errors");check(gpu.stats.pipelinesRejected===0,"no pipeline errors");
+            check(gpu.gpuErrors.errors.length===0,"no GPU validation errors");check(gpu.stats.refusals===0,"no host refusals");
+            gpu.resetForReplay();gpu.lossHandler();
+        }
+        document.getElementById("result").textContent="PASS resource lifetime: drawable snapshots, real replacement device, retained textures and MSAA in both modes";
+    }catch(error){document.getElementById("result").textContent="FAIL "+error.stack;}
+})();
+</script>

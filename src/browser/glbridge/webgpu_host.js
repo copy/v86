@@ -167,6 +167,65 @@
         }
     }
 
+    // Device-local state has one lifetime, independent of guest object names.
+    // Register slots/caches where their owner is constructed, then invalidate
+    // them together before any frontend starts rebuilding on a replacement.
+    class GPUResourceRegistry {
+        constructor() {
+            this.generation = 0;
+            this.resets = new Map();
+            this.live = new Set();
+            this.collected = new FinalizationRegistry(reference => this.live.delete(reference));
+        }
+
+        register(name, reset) {
+            if (this.resets.has(name)) throw new Error("Duplicate GPU resource owner: " + name);
+            this.resets.set(name, reset);
+        }
+
+        fields(owner, defaults) {
+            for (const [name, initial] of Object.entries(defaults)) {
+                const reset = () => { owner[name] = typeof initial === "function" ? initial() : initial; };
+                reset();
+                this.register(name, reset);
+            }
+        }
+
+        track(object) {
+            const reference = new WeakRef(object);
+            this.live.add(reference);
+            this.collected.register(object, reference);
+            return object;
+        }
+
+        invalidate(destroy = false) {
+            ++this.generation;
+            if (destroy) for (const reference of this.live) {
+                const object = reference.deref();
+                if (object && typeof object.destroy === "function") object.destroy();
+            }
+            this.live.clear();
+            for (const reset of this.resets.values()) reset();
+        }
+
+        // Invalid objects never remain in a cache. Validation is asynchronous:
+        // an old completion may evict only the object it actually checked, and
+        // may not change a rebuilt cache on the next device.
+        checked(log, kind, owner, key, create, rejected) {
+            const generation = this.generation;
+            const created = log.scoped(kind, create, { key });
+            const object = created.object;
+            owner.set(key, object);
+            created.checked.then(error => {
+                if (!error || generation !== this.generation) return;
+                object.glRejected = error;
+                if (owner.get(key) === object) owner.delete(key);
+                if (rejected) rejected(error);
+            });
+            return object;
+        }
+    }
+
     class V86GPUHost {
         constructor(canvas, options) {
             this.canvas = canvas;
@@ -348,6 +407,9 @@
             if (this.recovering) return this.recovering;
             this.recovering = (async () => {
                 this.device = null;
+                // Browsers may consume the adapter after requestDevice(). A
+                // replacement must be obtained from a fresh adapter as well.
+                if (this.gpu && this.gpu.requestAdapter) this.adapter = null;
                 this.context = null;
                 this.format = this.options.format || null;
                 this.readyPromise = null;
@@ -404,7 +466,7 @@
         hosts.delete(canvas);
     }
 
-    const api = { V86GPUHost, GPUErrorLog, acquire, reset, DEFAULT_FEATURES, srgbSiblingOf };
+    const api = { V86GPUHost, GPUErrorLog, GPUResourceRegistry, acquire, reset, DEFAULT_FEATURES, srgbSiblingOf };
     global.V86GPUHost = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
