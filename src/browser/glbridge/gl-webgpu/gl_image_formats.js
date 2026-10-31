@@ -63,6 +63,13 @@
             { gpu: "bc3-rgba-unorm", blockBytes: 16, base: "RGBA", dxt: 5 },
     };
 
+    // GL 2.1 section 3.8.1 makes only the legacy component counts aliases
+    // of the corresponding base formats. A base format and a sized format
+    // remain distinct for mip/cube completeness (section 3.8.10).
+    function textureInternalFormatKey(format) {
+        return [0, GL.LUMINANCE, GL.LUMINANCE_ALPHA, GL.RGB, GL.RGBA][format] || format;
+    }
+
     function storageFormatFor(internalFormat, features) {
         const compressed = COMPRESSED_FORMATS[internalFormat];
         if (compressed) {
@@ -192,7 +199,7 @@
         return block ? block.base === "RGB" ? GL.RGB : GL.RGBA : UNCOMPRESSED_HINTS.get(format) || format;
     }
 
-    const api = { BASE_INTERNAL_FORMATS, COMPRESSED_FORMATS, SIZED_BITS, PROXY_TARGETS, storageFormatFor,
+    const api = { BASE_INTERNAL_FORMATS, COMPRESSED_FORMATS, SIZED_BITS, PROXY_TARGETS, textureInternalFormatKey, storageFormatFor,
         renderbufferFormatFor, textureComponents, uncompressedInternalFormat };
     global.GLImageFormats = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;

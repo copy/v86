@@ -1,0 +1,90 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Texture sampling levels</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_program_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_polygon_clip.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_single_sample.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="../../src/browser/glbridge/graphics_journal.js"></script>
+<script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
+<script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="gl_format_complete_cases.js"></script>
+<script src="gl_selection_cases.js"></script>
+<script src="gl_evaluator_cases.js"></script>
+<script>
+(async()=>{
+    "use strict";const {GLStream,GL}=GLTestStream,P=GLProtocol,check=(ok,message)=>{if(!ok)throw new Error(message);};
+    try{
+        const reference=(await new Response((await(await fetch("gl_conformance/mesa_reference.json.gz")).blob()).stream().pipeThrough(new DecompressionStream("gzip"))).json()).fixtures.format_complete;
+        for(const copied of [false,true]){
+            const cpu=new V86GLShadow.GLShadow(),gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();cpu.setCapabilities(gpu.capabilities());
+            gpu.options.writeGuestMemory=(at,bytes,metadata)=>metadata.memory.set(bytes,at+metadata.baseOffset);
+            const submit=async s=>{const memory=s.bytes(),segments=cpu.process(memory);for(const segment of segments||[{offset:0,length:memory.length}]){const bytes=segment.bytes||memory.subarray(segment.offset,segment.offset+segment.length);gpu.submit(copied?bytes.slice():bytes,{memory,baseOffset:segment.bytes?0:segment.offset});}gpu.flushFrame();await gpu.idle();check(!cpu.current.error,"CPU error "+cpu.current.error);};
+            const read=async(s,expected,label)=>{const p=s.readPixels(8,8,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);await submit(s);check(p.view.getUint32(P.F.READ_PIXELS.status,true)===1,label+" status");check(expected.every((v,i)=>p.bytes[P.RECORDS.READ_PIXELS.size+i]===v),label+": "+Array.from(p.bytes.subarray(P.RECORDS.READ_PIXELS.size)));};
+            for(const [i,entry] of reference.cases.entries()){
+                const s=GLFormatCompleteCases.scene(new GLStream().makeCurrent(1,0,0,16,16,i+1,i+1),GLFormatCompleteCases.cases[i]),p=s.readPixels(0,0,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4),memory=s.bytes(),segments=cpu.process(memory);
+                for(const segment of segments||[{offset:0,length:memory.length}]){const bytes=segment.bytes||memory.subarray(segment.offset,segment.offset+segment.length);gpu.submit(copied?bytes.slice():bytes,{memory,baseOffset:segment.bytes?0:segment.offset});}
+                await gpu.idle();check(!cpu.current.error,entry.name+" CPU error "+cpu.current.error);check(p.view.getUint32(P.F.READ_PIXELS.status,true)===1,entry.name+" status");
+                // GL 2.1 3.8.1 explicitly equates 4 with RGBA. Mesa keeps
+                // those tokens distinct; Apple supplies the normative red image.
+                const actual=Array.from(p.bytes.subarray(P.RECORDS.READ_PIXELS.size)),expected=entry.name==="numeric_rgba"?[255,0,0,255]:entry.rgba;check(expected.every((v,i)=>v===actual[i]),entry.name+": "+actual+" expected "+expected);
+            }
+            await read(GLFormatCompleteCases.scene(new GLStream().makeCurrent(1,0,0,16,16,100,100),["copy_rgba4_rgba8",GL.RGBA4,GL.RGBA4]),[255,0,0,255],"same-format copy chain");
+            await read(new GLStream().call("GENERATE_MIPMAP",GL.TEXTURE_2D).call("BEGIN",GL.TRIANGLES).call("VERTEX3F",-1,-1,0).call("VERTEX3F",3,-1,0).call("VERTEX3F",-1,3,0).call("END"),[255,0,0,255],"generated levels retain format identity");
+            await read(GLFormatCompleteCases.scene(new GLStream().makeCurrent(1,0,0,16,16,101,101),GLFormatCompleteCases.cases[0]),[255,255,255,255],"mixed format before snapshot");
+            const state=cpu.getState(),saved=await gpu.saveSnapshot();await gpu.restoreSnapshot(saved);cpu.setState(state);
+            const rerender=s=>s.call("BEGIN",GL.TRIANGLES).call("VERTEX3F",-1,-1,0).call("VERTEX3F",3,-1,0).call("VERTEX3F",-1,3,0).call("END");
+            await read(rerender(new GLStream()),[255,255,255,255],"mixed format after snapshot");
+            await read(rerender(new GLStream().texImage2D(GL.TEXTURE_2D,1,GL.RGBA4,1,1,GL.RGBA,GL.UNSIGNED_BYTE,new Uint8Array([255,0,0,255]))),[255,0,0,255],"matching format redefinition");
+            check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.refusals&&!gpu.stats.framesRejected,"host failure "+JSON.stringify(gpu.gpuErrors.errors));gpu.lossHandler();gpu.resetForReplay();
+        }
+        document.getElementById("result").textContent="PASS internal texture formats: 13 native sized/unsized/precision/copy completeness cases in both modes";
+    }catch(error){document.getElementById("result").textContent="FAIL "+error.stack;}
+})();
+</script>

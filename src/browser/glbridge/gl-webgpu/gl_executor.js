@@ -702,7 +702,7 @@
      * and getting one wrong is a colour shift nobody can trace back to here.
      */
 
-    const { BASE_INTERNAL_FORMATS, COMPRESSED_FORMATS, PROXY_TARGETS, storageFormatFor, renderbufferFormatFor } =
+    const { BASE_INTERNAL_FORMATS, COMPRESSED_FORMATS, PROXY_TARGETS, textureInternalFormatKey, storageFormatFor, renderbufferFormatFor } =
         nodeRequire ? nodeRequire("./gl_image_formats.js") : global.GLImageFormats;
 
     function quantize(pixels, bits) {
@@ -4768,7 +4768,7 @@
             }
 
             this.storeLevel(texture, kind, level, face, {
-                width, height, depth,
+                width, height, depth, internalFormat,
                 gpuFormat: storage.gpu, base: storage.base,
                 compressed: false, pixels,
                 bytesPerTexel: pixelLayout.bytesPerTexel,
@@ -4846,7 +4846,7 @@
                 ++this.stats.dxtDecodes;
                 const pixels = decodeDXT(storage.decodeDXT, data, width, height);
                 this.storeLevel(texture, kind, level, face, {
-                    width, height, depth: 1, gpuFormat: "rgba8unorm",
+                    width, height, depth: 1, internalFormat, gpuFormat: "rgba8unorm",
                     base: storage.base, compressed: false, pixels,
                     compressedPixels: data.slice(), compressedFormat: internalFormat,
                     bytesPerTexel: 4, componentType: "u8", componentCount: 4,
@@ -4854,7 +4854,7 @@
                 return;
             }
             this.storeLevel(texture, kind, level, face, {
-                width, height, depth,
+                width, height, depth, internalFormat,
                 gpuFormat: storage.gpu, base: storage.base,
                 compressed: true, blockBytes: storage.blockBytes,
                 pixels: data.slice(), compressedPixels: data.slice(), compressedFormat: internalFormat,
@@ -4923,6 +4923,7 @@
         storeLevel(texture, kind, level, face, slot) {
             const layer = kind === "Cube" ? face : 0;
             if (!texture.levels[layer]) texture.levels[layer] = [];
+            slot.formatClass = slot.internalFormat !== undefined ? textureInternalFormatKey(slot.internalFormat) : slot.formatClass;
             slot.storage = null;
             texture.levels[layer][level] = slot;
             texture.kind = kind;
@@ -4963,7 +4964,7 @@
                 if (!list) return false;
                 for (let level = first; level <= last; ++level) {
                     const slot = list[level], relative = level - first;
-                    if (!slot || slot.gpuFormat !== base.gpuFormat || slot.base !== base.base) return false;
+                    if (!slot || slot.gpuFormat !== base.gpuFormat || slot.base !== base.base || slot.formatClass !== base.formatClass) return false;
                     if (slot.width !== Math.max(1, base.width >> relative) ||
                             slot.height !== Math.max(1, base.height >> relative) ||
                             texture.kind === "3D" && slot.depth !== Math.max(1, base.depth >> relative)) return false;
@@ -5226,7 +5227,7 @@
                     const pixels = source.pixels ?
                         downsampleBoxStorage(source, width, height, depth) : null;
                     const slot = {
-                        width, height, depth, gpuFormat: base.gpuFormat,
+                        width, height, depth, internalFormat: base.internalFormat, formatClass: base.formatClass, gpuFormat: base.gpuFormat,
                         base: base.base, compressed: false, pixels, storage: null,
                         bytesPerTexel: base.bytesPerTexel || 4,
                         componentType: base.componentType || "u8",
@@ -10443,7 +10444,7 @@ struct BlitParams {
             const componentType = storage.gpu === "rgba16float" ? "f16" :
                 (storage.gpu === "rgba32float" ? "f32" : "u8");
             this.storeLevel(texture, kind, level, CUBE_FACE_INDEX[target] || 0, {
-                width, height, depth: 1, gpuFormat: storage.gpu,
+                width, height, depth: 1, internalFormat, gpuFormat: storage.gpu,
                 base: storage.base, compressed: false,
                 // The level is authored on the GPU.  Keeping pixels null is
                 // important: a later lazy upload must not overwrite the copy
