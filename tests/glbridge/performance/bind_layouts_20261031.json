@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-31",
+  "baselineCommit": "7ac45133",
+  "candidateParentCommit": "7ac45133",
+  "method": "Same local Chrome WebGPU harness, sequential candidate and baseline runs; CPU shadow process + executor submit + flush timed; GPU completion awaited outside the timer; 3 warm-up and 15 measured frames per workload. Controlled microbenchmarks, not game trace acceptance.",
+  "baseline": [
+    {
+      "workload": "changing_uniform",
+      "drawsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 12.199999988079071,
+      "p95Ms": 14.5,
+      "bindGroups": 9216,
+      "uniformStampHits": null
+    },
+    {
+      "workload": "stable_2k_uniform",
+      "drawsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 9.399999976158142,
+      "p95Ms": 10,
+      "bindGroups": 18,
+      "uniformStampHits": null
+    }
+  ],
+  "candidate": [
+    {
+      "workload": "changing_uniform",
+      "drawsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 10.200000047683716,
+      "p95Ms": 11.700000047683716,
+      "bindGroups": 18,
+      "uniformStampHits": 0
+    },
+    {
+      "workload": "stable_2k_uniform",
+      "drawsPerFrame": 512,
+      "frames": 15,
+      "medianMs": 8.699999988079071,
+      "p95Ms": 9.200000047683716,
+      "bindGroups": 18,
+      "uniformStampHits": 9198
+    }
+  ],
+  "medianChangePercent": {
+    "changing_uniform": -16.39,
+    "stable_2k_uniform": -7.45
+  },
+  "candidateSourceHashes": {
+    "src/browser/glbridge/gl-webgpu/gl_executor.js": "20895dc432da6e4c976b240573c7abc41fd93de006253f0d5709371f0507b682",
+    "src/browser/glbridge/gl-webgpu/gl_bind_layouts.js": "9eb4b7362d26b1dd27d0d4548c7e343a34f3222ada4749af45d5626fb7c16701"
+  },
+  "harnessHashes": {
+    "tests/glbridge/gl_bind_layout_browser_test.html": "2cbbb6fa7381832707e69a42d44857bcf5fcb98a967d699c48ffc162072c1090",
+    "tests/glbridge/gl_bind_layout_cases.js": "11918320307c45817dd17f208478ccbba225cee71fc315628b78db744fcc27ce"
+  }
+}

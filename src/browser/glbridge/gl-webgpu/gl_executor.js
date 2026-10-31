@@ -16,6 +16,7 @@
     const glCaps = nodeRequire ? nodeRequire("./gl_caps.js") : global.GLCaps;
     const { CacheKeys } = nodeRequire ? nodeRequire("./gl_cache_keys.js") : global.GLCacheKeys;
     const programGeometry = nodeRequire ? nodeRequire("./gl_program_geometry.js") : global.GLProgramGeometry;
+    const bindLayouts = nodeRequire ? nodeRequire("./gl_bind_layouts.js") : global.GLBindLayouts;
     const singleSample = nodeRequire ? nodeRequire("./gl_single_sample.js") : global.GLSingleSample;
     const polygonClip = nodeRequire ? nodeRequire("./gl_polygon_clip.js") : global.GLPolygonClip;
     const constants = nodeRequire ? nodeRequire("./gl_constants.js") :
@@ -1769,7 +1770,7 @@
             this.warned = Object.create(null);
             this.stats = {
                 batches: 0, commands: 0, draws: 0, immediateBatches: 0,
-                pipelines: 0, bindGroups: 0, shaderLinks: 0, shaderCacheHits: 0,
+                pipelines: 0, bindGroups: 0, shaderLinks: 0, shaderCacheHits: 0, uniformStampHits: 0, uniformByteChecks: 0, uniformWrites: 0,
                 textureUploads: 0, textureBytes: 0,
                 refusals: 0, refusalsByOp: Object.create(null),
                 expandedIndices: 0, dxtDecodes: 0,
@@ -1791,13 +1792,13 @@
                 "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
                 "accumPipelineCache", "accumClearPipelineCache", "clearPipelineCache", "colorCopyPipelines",
                 "mipmapPipelines", "colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",
-                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "lineShaderCache", "polygonClipCaptureCache", "polygonClipRenderCache", "singleSampleShaderCache", "singleSamplePipelines", "pointCircleShaderCache"];
+                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "lineShaderCache", "polygonClipCaptureCache", "polygonClipRenderCache", "singleSampleShaderCache", "singleSamplePipelines", "pointCircleShaderCache", "explicitGroupLayouts", "explicitPipelineLayouts", "explicitShaderLayouts"];
             for (const name of maps) {
                 this[name] = this[name] || new Map();
                 this.resources.register(name, () => this[name].clear());
             }
             this.resources.fields(this, {
-                singleSampleTargets: null, singleSampleCapture: null, encoder: null, pass: null, passTargets: null, passTargetKey: 0, pendingClear: null,
+                lastShaderLayout: null, singleSampleTargets: null, singleSampleCapture: null, encoder: null, pass: null, passTargets: null, passTargetKey: 0, pendingClear: null,
                 presentPipeline: null, depthReadPipeline: null, depthUploadPipeline: null,
                 presentSampler: null, pixelSampler: null, polygonStippleTexture: null,
                 backBuffer: null, backBufferView: null, depthTarget: null, depthTargetView: null,
@@ -1808,6 +1809,7 @@
                 pendingVertexBuffers: () => new WeakSet(), recordedOps: 0, vertexCursor: 0, uniformCursor: 0,
                 convertedVertexBytes: 0, nextQuerySlot: 0, pendingQueries: () => [], passHasOcclusionQuerySet: false,
             });
+            this.bindLayoutKeys = new CacheKeys();this.resources.register("bind layout keys", () => this.bindLayoutKeys.clearKeys());
             this.targetKeys = new CacheKeys();
             this.readbackCancels = new Set();
             this.resources.register("readbacks", () => {
@@ -7580,7 +7582,7 @@ ${fragmentCode}`;
             pass.setPipeline(pipeline);
             this.applyPassState(pass, request.stencilFace || (request.face && request.face.back ? "back" : "front"));
             for (const entry of bindGroups)
-                pass.setBindGroup(entry.index, entry.group);
+                pass.setBindGroup(entry.index, entry.group, entry.dynamicOffsets || []);
             request.buffers.forEach((buffer, i) => {
                 pass.setVertexBuffer(i, buffer.gpuBuffer, buffer.baseOffset);
                 this.pendingVertexBuffers.add(buffer.gpuBuffer);
@@ -8683,7 +8685,7 @@ ${fragmentCode}`;
                 quads ? "none" : this.gpuCullMode(s);
             const vertexModule = this.shaderModule(reversedDepthRange(s) ?
                 flipDepth(shaders.wgslVertex) : shaders.wgslVertex);
-            const fragmentModule = this.shaderModule(shaders.wgslFragment);
+            const fragmentModule = this.shaderModule(shaders.wgslFragment), layoutInfo = this.explicitShaderLayout(shaders, vertexModule, fragmentModule);
             const buffers = request.buffers.map(buffer => ({
                 arrayStride: buffer.stride,
                 stepMode: buffer.stepMode || "vertex",
@@ -8707,7 +8709,7 @@ ${fragmentCode}`;
 
             const descriptor = {
                 label: "GL pipeline",
-                layout: "auto",
+                layout: layoutInfo.layout,
                 vertex: { module: vertexModule, entryPoint: "vs_main", buffers },
                 fragment: { module: fragmentModule, entryPoint: "fs_main",
                             targets: colorTargets },
@@ -8759,8 +8761,9 @@ ${fragmentCode}`;
 
             pipeline = this.createPipeline(this.pipelineCache, signature, descriptor);
             pipeline.glShaders = shaders.programLine || shaders.clipped || shaders.singleSample ? { ...shaders, programLine: undefined, clipped: undefined, singleSample: undefined } : shaders;
-            pipeline.glActiveBindings = activeShaderBindings(
-                shaders.wgslVertex, shaders.wgslFragment);
+            pipeline.glActiveBindings = layoutInfo.active;
+            pipeline.glDynamicUniforms = layoutInfo.dynamicUniforms;
+            pipeline.glBindGroupLayouts = layoutInfo.groups;
             return pipeline;
         },
 
@@ -8777,6 +8780,7 @@ ${fragmentCode}`;
         renderPipelineKey(cache, descriptor, identity = []) {
             let keys = this.pipelineKeyTables.get(cache);
             if (!keys) {keys = new CacheKeys();this.pipelineKeyTables.set(cache, keys);}
+            if (descriptor.layout && typeof descriptor.layout === "object") keys.reference(descriptor.layout);
             keys.reference(descriptor.vertex.module);
             if (descriptor.fragment) keys.reference(descriptor.fragment.module);
             return keys.key([descriptor, identity]);
@@ -8872,7 +8876,7 @@ ${fragmentCode}`;
                 if (uniformEntries.length) {
                     groups.push({
                         index: 1,
-                        group: this.cachedBindGroup(pipeline, 1, uniformEntries),
+                        ...this.uniformBindGroup(pipeline, uniformEntries),
                     });
                 }
                 const textureEntries = this.textureBindEntries(shaders)
@@ -9036,10 +9040,41 @@ ${fragmentCode}`;
             return view;
         },
 
+        explicitShaderLayout(shaders, vertex, fragment) {
+            const previous = this.lastShaderLayout;
+            if (previous?.vertex === vertex && previous.fragment === fragment) return previous.info;
+            const keys = this.bindLayoutKeys;
+            if (this.explicitShaderLayouts.size >= 512 || this.explicitGroupLayouts.size >= 512 || this.explicitPipelineLayouts.size >= 512) {
+                this.explicitShaderLayouts.clear();this.explicitGroupLayouts.clear();this.explicitPipelineLayouts.clear();keys.clearKeys();
+            }
+            keys.reference(vertex);keys.reference(fragment);const shaderKey = keys.key([0, vertex, fragment]);
+            let info = this.explicitShaderLayouts.get(shaderKey);if (info) {this.lastShaderLayout = { vertex, fragment, info };return info;}
+            const description = bindLayouts.describe(shaders.wgslVertex, shaders.wgslFragment,
+                activeShaderBindings(shaders.wgslVertex, ""), activeShaderBindings("", shaders.wgslFragment)), groups = [];
+            for (const [index, entries] of description.groups.entries()) {
+                const key = keys.key([1, entries]);let layout = this.explicitGroupLayouts.get(key);
+                if (!layout) {layout = this.device.createBindGroupLayout({ label: "GL resources group " + index, entries });this.explicitGroupLayouts.set(key, layout);}
+                keys.reference(layout);groups.push(layout);
+            }
+            const key = keys.key([2, groups]);let layout = this.explicitPipelineLayouts.get(key);
+            if (!layout) {layout = this.device.createPipelineLayout({ label: "GL explicit layout", bindGroupLayouts: groups });this.explicitPipelineLayouts.set(key, layout);}
+            info = { layout, groups, active: description.active, dynamicUniforms: description.dynamicUniforms };
+            this.explicitShaderLayouts.set(shaderKey, info);this.lastShaderLayout = { vertex, fragment, info };return info;
+        },
+
+        uniformBindGroup(pipeline, entries) {
+            const dynamic = pipeline.glDynamicUniforms;
+            if (!dynamic?.length) return { group: this.cachedBindGroup(pipeline, 1, entries) };
+            const offsets = new Map(entries.map(entry => [entry.binding, entry.resource.offset || 0])), bindings = entries.map(entry =>
+                dynamic.includes(entry.binding) ? { ...entry, resource: { ...entry.resource, offset: 0 } } : entry);
+            return { group: this.cachedBindGroup(pipeline, 1, bindings), dynamicOffsets: dynamic.map(binding => offsets.get(binding)) };
+        },
+
         cachedBindGroup(pipeline, index, entries) {
             // Automatic layouts are pipeline-specific. Key by actual view /
             // sampler / GPUBuffer identity, never by a recyclable GL name.
-            const key = this.resourceId(pipeline) + ":" + index + ":" +
+            const layout = pipeline.glBindGroupLayouts?.[index];
+            const key = this.resourceId(layout || pipeline) + ":" + index + ":" +
                 entries.map(entry => {
                     const r = entry.resource;
                     return entry.binding + ":" + (r.buffer ?
@@ -9050,7 +9085,7 @@ ${fragmentCode}`;
             if (!group) {
                 if (this.bindGroupCache.size >= 2048) this.bindGroupCache.clear();
                 group = this.resources.checked(this.gpuErrors, "bind group", this.bindGroupCache, key,
-                    () => this.device.createBindGroup({ layout: pipeline.getBindGroupLayout(index), entries }));
+                    () => this.device.createBindGroup({ layout: layout || pipeline.getBindGroupLayout(index), entries }));
                 ++this.stats.bindGroups;
             }
             return group;
@@ -9308,12 +9343,14 @@ ${fragmentCode}`;
             return this.writeUniformSnapshot("empty", new Uint8Array(16));
         },
 
-        writeUniformSnapshot(key, bytes) {
+        writeUniformSnapshot(key, bytes, stamp) {
             const cached = this.uniformValueCache.get(key);
+            if (stamp !== undefined && cached?.stamp === stamp) {++this.stats.uniformStampHits;return cached.slice;}
+            ++this.stats.uniformByteChecks;
             if (cached && cached.bytes.length === bytes.length) {
                 let i = 0;
                 while (i < bytes.length && cached.bytes[i] === bytes[i]) ++i;
-                if (i === bytes.length) return cached.slice;
+                if (i === bytes.length) {cached.stamp = stamp;return cached.slice;}
             }
             const slice = this.allocateUniform(Math.max(16, bytes.byteLength));
             if (!slice) return null;
@@ -9325,7 +9362,7 @@ ${fragmentCode}`;
             // Never update an earlier draw's slice in place. Compare bytes,
             // including integer uniforms, so context switches and every setter
             // are covered without relying on an incomplete dirty-state list.
-            this.uniformValueCache.set(key, { bytes: bytes.slice(), slice });
+            ++this.stats.uniformWrites;this.uniformValueCache.set(key, { bytes: bytes.slice(), slice, stamp });
             return slice;
         },
 
@@ -9373,11 +9410,11 @@ ${fragmentCode}`;
         writeProgramUniforms(shaders) {
             const program = shaders.program;
             const bytes = Math.max(16, shaders.uniformBytes);
-            const data = program.uniformData.byteLength >= bytes ?
+            const data = program.uniformData.byteLength === bytes ? program.uniformData : program.uniformData.byteLength > bytes ?
                 program.uniformData.subarray(0, bytes) : new Uint8Array(bytes);
             if (data.buffer !== program.uniformData.buffer)
                 data.set(program.uniformData);
-            return this.writeUniformSnapshot("program:" + this.resourceId(program), data);
+            return this.writeUniformSnapshot("program:" + this.resourceId(program) + ":" + (program.executableGeneration || 0) + ":" + bytes, data, program.serial);
         },
 
         /*

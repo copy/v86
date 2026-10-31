@@ -1787,8 +1787,9 @@ test("bind groups use each uniform slice's page across a rollover", () => {
     assert.ok(entries[0].resource.buffer === original);
     assert.ok(entries[1].resource.buffer === executor.uniformRing);
     assert.notStrictEqual(entries[0].resource.buffer, entries[1].resource.buffer);
-    assert.strictEqual(entries[0].resource.offset, 768);
+    assert.strictEqual(entries[0].resource.offset, 0);
     assert.strictEqual(entries[1].resource.offset, 0);
+    assert.deepStrictEqual(groups.find(g => g.index === 1).dynamicOffsets, [768, 0]);
 });
 
 asyncTest("query slot exhaustion submits completed segments and resumes the same GL query", async () => {
@@ -2655,8 +2656,10 @@ test("a vertex and a fragment program keep separate parameter namespaces", () =>
     const count = 96 * 4; // both stages' physical blocks; logical FP limit is 28
     const localOf = binding => {
         const entry = group.descriptor.entries.find(e => e.binding === binding);
-        return Array.from(new Float32Array(executor.uniformStaging.buffer,
-            entry.resource.offset, count * 2).subarray(count, count + 4));
+        const call = log.draws[0].pass.calls.find(call => call[0] === "bindGroup" && call[1] === 1),
+            dynamic = call[3] || [], index = group.descriptor.entries.indexOf(entry), offset = entry.resource.offset + (dynamic[index] || 0);
+        return Array.from(new Float32Array(entry.resource.buffer.storage,
+            offset, count * 2).subarray(count, count + 4));
     };
     assert.deepStrictEqual(localOf(1), [7, 7, 7, 7]);
     assert.deepStrictEqual(localOf(2), [0.25, 0.5, 0.75, 1]);

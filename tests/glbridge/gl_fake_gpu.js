@@ -69,7 +69,7 @@ class FakeRenderPass {
             for (const problem of rules.attachmentProblems(pipeline.descriptor, this.descriptor))
                 this.device.rejectWith(problem);
     }
-    setBindGroup(index, group) { this.calls.push(["bindGroup", index, group]); }
+    setBindGroup(index, group, offsets) { this.calls.push(["bindGroup", index, group, ...(offsets?.length ? [offsets.slice()] : [])]); }
     setVertexBuffer(slot, buffer, offset) {
         this.calls.push(["vertexBuffer", slot, buffer, offset]);
         (this.vertexBuffers = this.vertexBuffers || [])[slot] = { buffer, offset };
@@ -236,6 +236,15 @@ class FakeDevice {
         this.log.modules.push(module);
         return module;
     }
+    createBindGroupLayout(descriptor) {
+        const types = new Map();
+        for (const entry of descriptor.entries) {
+            if (entry.texture) types.set(entry.binding, "texture_" + (entry.texture.sampleType === "depth" ? "depth_" : "") + entry.texture.viewDimension.replace(/-/g, "_"));
+            else if (entry.sampler) types.set(entry.binding, entry.sampler.type === "comparison" ? "sampler_comparison" : "sampler");
+        }
+        return { descriptor, index: +(descriptor.label?.match(/group (\d+)$/)?.[1] || 0), bindings: new Set(descriptor.entries.map(entry => entry.binding)), types };
+    }
+    createPipelineLayout(descriptor) { return { descriptor, bindGroupLayouts: descriptor.bindGroupLayouts }; }
     createComputePipeline(descriptor) {
         return { descriptor, getBindGroupLayout: index => ({ index }) };
     }
@@ -243,6 +252,7 @@ class FakeDevice {
         const pipeline = {
             descriptor,
             getBindGroupLayout: index => {
+                if (descriptor.layout && typeof descriptor.layout === "object") return descriptor.layout.bindGroupLayouts[index];
                 const code = (descriptor.vertex && descriptor.vertex.module.code || "") +
                     "\n" + (descriptor.fragment &&
                         descriptor.fragment.module.code || "");
