@@ -25,7 +25,7 @@
     const translator = nodeRequire ? nodeRequire("./gl_shader_translator.js") :
         global.GLShaderTranslator;
 
-    const ARB_REVISION = 4;
+    const ARB_REVISION = 5;
 
     /*
      * Vertex programs require at least 96 parameters. Fragment programs
@@ -1327,7 +1327,7 @@
          * not a whole matrix. */
         stateMatrix(path) {
             path = normalizeStatePath(path);
-            const binding = STATE_BINDINGS[path] || textureMatrixBinding(path);
+            const binding = STATE_BINDINGS[path] || arrayMatrixBinding(path);
             return binding && binding.matrix ? binding : null;
         }
 
@@ -1347,7 +1347,7 @@
 
         resolveState(path) {
             path = normalizeStatePath(path);
-            const direct = STATE_BINDINGS[path] || textureMatrixBinding(path);
+            const direct = STATE_BINDINGS[path] || arrayMatrixBinding(path);
             if (direct) {
                 this.stateFields.add(direct.field);
                 if (direct.vector) return direct.vector;
@@ -1359,7 +1359,7 @@
             }
             const row = /^(matrix\..*?)\.row\[(\d+)\]$/.exec(path);
             if (row) {
-                const binding = STATE_BINDINGS[row[1]] || textureMatrixBinding(row[1]);
+                const binding = STATE_BINDINGS[row[1]] || arrayMatrixBinding(row[1]);
                 if (binding && binding.matrix) {
                     this.stateFields.add(binding.field);
                     const index = parseInt(row[2], 10);
@@ -1454,12 +1454,14 @@
             .replace(/^texgen\.(eye|object)\./, "texgen[0].$1.");
     }
 
-    // state.matrix.texture[n], plain or transposed (WGSL has no inverse)
-    function textureMatrixBinding(path) {
-        const match = /^matrix\.texture\[(\d+)\](\.transpose)?$/.exec(path);
-        if (!match || +match[1] >= MAX_TEXTURE_UNITS) return null;
-        const matrix = "glState.textureMatrix[" + match[1] + "]";
-        return { field: "textureMatrix", matrix: match[2] ? "transpose(" + matrix + ")" : matrix };
+    // Program and texture state share the same row/modifier grammar. The
+    // inverse variants are computed by the renderer, since WGSL has no inverse.
+    function arrayMatrixBinding(path) {
+        const match = /^matrix\.(texture|program)\[(\d+)\](?:\.(inverse|transpose|invtrans))?$/.exec(path);
+        if (!match || +match[2] >= (match[1] === "program" ? stateLayout.MAX_PROGRAM_MATRICES : MAX_TEXTURE_UNITS)) return null;
+        const suffix = { inverse: "Inverse", transpose: "Transpose", invtrans: "InverseTranspose" }[match[3]] || "";
+        const field = match[1] + "Matrix" + suffix;
+        return { field, matrix: "glState." + field + "[" + match[2] + "]" };
     }
 
     // `A0.x`, `A0.x+3`, `A0.x-1` as a WGSL integer expression

@@ -33,6 +33,8 @@
         MAX_PIXEL_MAP_TABLE: protocol.C.V86GL_MAX_TYPED_QUERY_VALUES,
         MODELVIEW_STACK_DEPTH: 32,
         OTHER_STACK_DEPTH: 4,
+        MAX_PROGRAM_MATRICES: 8,
+        PROGRAM_MATRIX_STACK_DEPTH: 2,
         // gl_shader_translator.js's MAX_INTER_STAGE_SLOTS vec4s
         MAX_VARYING_FLOATS: 16 * 4,
     };
@@ -133,6 +135,8 @@
         case GL.MAX_CUBE_MAP_TEXTURE_SIZE:
             return Math.min(16384, limits.maxTextureDimension2D);
         case GL.MAX_TEXTURE_UNITS: return LIMITS.MAX_TEXTURE_UNITS;
+        case GL.MAX_PROGRAM_MATRICES_ARB: return LIMITS.MAX_PROGRAM_MATRICES;
+        case GL.MAX_PROGRAM_MATRIX_STACK_DEPTH_ARB: return LIMITS.PROGRAM_MATRIX_STACK_DEPTH;
         case GL.MAX_EVAL_ORDER: return LIMITS.MAX_EVAL_ORDER;
         case GL.MAX_ATTRIB_STACK_DEPTH: return LIMITS.MAX_ATTRIB_STACK_DEPTH;
         case GL.MAX_CLIENT_ATTRIB_STACK_DEPTH: return LIMITS.MAX_CLIENT_ATTRIB_STACK_DEPTH;
@@ -207,7 +211,8 @@
             // Values formerly answered by the DLL remain stable in saves
             // predating the CPU vector capability table.
             for (const [pname, value] of [[GL.MAX_ATTRIB_STACK_DEPTH, 16], [GL.MAX_CLIENT_ATTRIB_STACK_DEPTH, 16],
-                [GL.MAX_COLOR_MATRIX_STACK_DEPTH_SGI, 2], [GL.RGBA_MODE, 1], [GL.STEREO, 0]]) if (integers[pname] === undefined) integers[pname] = value;
+                [GL.MAX_COLOR_MATRIX_STACK_DEPTH_SGI, 2], [GL.MAX_PROGRAM_MATRICES_ARB, LIMITS.MAX_PROGRAM_MATRICES],
+                [GL.MAX_PROGRAM_MATRIX_STACK_DEPTH_ARB, LIMITS.PROGRAM_MATRIX_STACK_DEPTH], [GL.RGBA_MODE, 1], [GL.STEREO, 0]]) if (integers[pname] === undefined) integers[pname] = value;
             for (const pname of [GL.AUX_BUFFERS, GL.INDEX_MODE, GL.INDEX_BITS, GL.ACCUM_RED_BITS, GL.ACCUM_GREEN_BITS, GL.ACCUM_BLUE_BITS, GL.ACCUM_ALPHA_BITS])
                 if (integers[pname] === undefined) integers[pname] = 0;
         } else {

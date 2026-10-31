@@ -24,6 +24,7 @@
     "use strict";
 
     const MAX_LIGHTS = 8;
+    const MAX_PROGRAM_MATRICES = 8;
     const MAX_TEXTURE_UNITS = 8;
     const MAX_TEXTURE_COORDS = 8;
     const MAX_CLIP_PLANES = 6;
@@ -171,6 +172,15 @@
           write: (s, o, off) => writeMat4(o, off, s.matrices.mvpTranspose) },
         { id: "mvpInverseTranspose", wgsl: "mvpInverseTranspose", type: "mat4x4<f32>", floats: 16,
           write: (s, o, off) => writeMat4(o, off, s.matrices.mvpInverseTranspose) },
+
+        ...["", "Inverse", "Transpose", "InverseTranspose"].map(suffix => ({
+            id: "programMatrix" + suffix, wgsl: "programMatrix" + suffix,
+            type: "array<mat4x4<f32>, " + MAX_PROGRAM_MATRICES + ">", floats: 16 * MAX_PROGRAM_MATRICES,
+            write: (s, o, off) => {
+                for (let i = 0; i < MAX_PROGRAM_MATRICES; ++i) off = writeMat4(o, off, s.matrices["program" + suffix][i]);
+                return off;
+            },
+        })),
 
         /* Texture matrices are one array, not eight fields: GLSL allows
          * gl_TextureMatrix[i] with a runtime i. */
@@ -458,7 +468,7 @@
 
     const api = {
         FIELDS, FIELD_BY_ID, GLSL_TO_FIELD, STRUCT_DECLS,
-        MAX_LIGHTS, MAX_TEXTURE_UNITS, MAX_TEXTURE_COORDS, MAX_CLIP_PLANES,
+        MAX_PROGRAM_MATRICES, MAX_LIGHTS, MAX_TEXTURE_UNITS, MAX_TEXTURE_COORDS, MAX_CLIP_PLANES,
         buildLayout, writeLayout,
     };
     global.GLStateLayout = api;

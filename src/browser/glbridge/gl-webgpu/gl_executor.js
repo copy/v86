@@ -1346,6 +1346,7 @@
                 [GL.MODELVIEW]: [identity4()],
                 [GL.PROJECTION]: [identity4()],
                 [GL.COLOR]: [identity4()],
+                ...Object.fromEntries(Array.from({ length: glCaps.LIMITS.MAX_PROGRAM_MATRICES }, (_, i) => [GL.MATRIX0_ARB + i, [identity4()]])),
             },
             textureStacks: Array.from({ length: MAX_TEXTURE_COORDS },
                 () => [identity4()]),
@@ -4272,11 +4273,7 @@
     Object.assign(GLWebGPUExecutor.prototype, {
 
         topOf(mode) {
-            const s = this.current;
-            if (mode === GL.TEXTURE)
-                return s.textureStacks[s.activeTexture][
-                    s.textureStacks[s.activeTexture].length - 1];
-            const stack = s.stacks[mode] || s.stacks[GL.MODELVIEW];
+            const stack = this.stackFor(mode);
             return stack[stack.length - 1];
         },
 
@@ -4285,13 +4282,15 @@
         stackFor(mode) {
             const s = this.current;
             if (mode === GL.TEXTURE) return s.textureStacks[s.activeTexture];
+            // Checkpoints predating program matrices have no such stacks.
+            if (mode >= GL.MATRIX0_ARB && mode < GL.MATRIX0_ARB + glCaps.LIMITS.MAX_PROGRAM_MATRICES && !s.stacks[mode]) s.stacks[mode] = [identity4()];
             return s.stacks[mode] || s.stacks[GL.MODELVIEW];
         },
 
         pushMatrix() {
             const stack = this.stackFor(this.current.matrixMode);
             const depth = this.current.matrixMode === GL.MODELVIEW ?
-                MODELVIEW_STACK_DEPTH : OTHER_STACK_DEPTH;
+                MODELVIEW_STACK_DEPTH : this.current.matrixMode >= GL.MATRIX0_ARB ? glCaps.LIMITS.PROGRAM_MATRIX_STACK_DEPTH : OTHER_STACK_DEPTH;
             if (stack.length >= depth)
                 return this.refuse("glPushMatrix", "matrix stack overflow",
                     { mode: this.current.matrixMode }, GL.STACK_OVERFLOW);
@@ -9289,6 +9288,8 @@ ${fragmentCode}`;
                     mvpInverse: new Float32Array(16),
                     mvpTranspose: new Float32Array(16),
                     mvpInverseTranspose: new Float32Array(16),
+                    ...Object.fromEntries(["program", "programInverse", "programTranspose", "programInverseTranspose"].map(name =>
+                        [name, Array.from({ length: glCaps.LIMITS.MAX_PROGRAM_MATRICES }, () => new Float32Array(16))])),
                     texture: Array.from({ length: MAX_TEXTURE_COORDS },
                         () => new Float32Array(16)),
                     textureInverse: Array.from({ length: MAX_TEXTURE_COORDS },
@@ -9394,6 +9395,16 @@ ${fragmentCode}`;
                 }
                 if (wants.has("textureMatrixTranspose"))
                     transpose4(m, snapshot.matrices.textureTranspose[i]);
+            }
+
+            for (let i = 0; i < glCaps.LIMITS.MAX_PROGRAM_MATRICES; ++i) {
+                const m = this.topOf(GL.MATRIX0_ARB + i);
+                if (wants.has("programMatrix")) snapshot.matrices.program[i].set(m);
+                if (wants.has("programMatrixInverse") || wants.has("programMatrixInverseTranspose")) {
+                    invert4(m, snapshot.matrices.programInverse[i]);
+                    if (wants.has("programMatrixInverseTranspose")) transpose4(snapshot.matrices.programInverse[i], snapshot.matrices.programInverseTranspose[i]);
+                }
+                if (wants.has("programMatrixTranspose")) transpose4(m, snapshot.matrices.programTranspose[i]);
             }
 
             for (let i = 0; i < MAX_LIGHTS; ++i) {

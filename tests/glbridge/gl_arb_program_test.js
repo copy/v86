@@ -332,6 +332,15 @@ END`, "matrix_row");
     assert.ok(result.wgsl.indexOf("glState.mvp[3][1]") >= 0);
 });
 
+test("all program and texture matrix modifiers compile, with bounded indices", () => {
+    for (const type of ["program", "texture"]) for (const [modifier, suffix] of [["", ""], [".inverse", "Inverse"], [".transpose", "Transpose"], [".invtrans", "InverseTranspose"]]) {
+        const result = compile("!!ARBvp1.0\nPARAM m[4] = { state.matrix." + type + "[7]" + modifier + " };\nMOV result.position, m[0];\nEND", type + suffix);
+        assert.ok(result.reflection.stateFields.includes(type + "Matrix" + suffix));
+        compile("!!ARBvp1.0\nMOV result.position, state.matrix." + type + "[7]" + modifier + ".row[2];\nEND", type + suffix + "_row");
+        assert.equal(arb.compileARBProgram("!!ARBvp1.0\nMOV result.position, state.matrix." + type + "[8]" + modifier + ".row[0];\nEND", {}).ok, false);
+    }
+});
+
 test("an unknown state binding is refused with its name", () => {
     const result = arb.compileARBProgram(`!!ARBvp1.0
 MOV result.position, state.nonsense.thing;

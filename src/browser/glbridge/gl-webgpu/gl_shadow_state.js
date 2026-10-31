@@ -144,7 +144,9 @@
         set(c, p, [value]);
     });
     function stack(c) { return c.state.mode === GL.TEXTURE ? c.state.texture[c.activeTexture || 0] : c.state.stacks[c.state.mode]; }
+    const programMatrix = mode => mode >= GL.MATRIX0_ARB && mode < GL.MATRIX0_ARB + caps.LIMITS.MAX_PROGRAM_MATRICES;
     const matrixLimit = (c, shadow) => c.state.mode === GL.MODELVIEW ? caps.LIMITS.MODELVIEW_STACK_DEPTH :
+        programMatrix(c.state.mode) ? (shadow.capabilities && caps.integer(shadow.capabilities, GL.MAX_PROGRAM_MATRIX_STACK_DEPTH_ARB)) ?? caps.LIMITS.PROGRAM_MATRIX_STACK_DEPTH :
         c.state.mode === GL.COLOR && shadow.capabilities ? caps.integer(shadow.capabilities, GL.MAX_COLOR_MATRIX_STACK_DEPTH_SGI) ?? caps.LIMITS.OTHER_STACK_DEPTH : caps.LIMITS.OTHER_STACK_DEPTH;
     on("MATRIX_MODE", (c, [mode]) => { c.state.mode = mode; });
     on("LOAD_IDENTITY", c => { const s = stack(c); s[s.length - 1] = identity(); });
@@ -188,7 +190,7 @@
         if (p === GL.PACK_ALIGNMENT || p === GL.UNPACK_ALIGNMENT) return [1, 2, 4, 8].includes(v) ? 0 : GL.INVALID_VALUE;
         return !STORE_BOOLEAN.has(p) && v < 0 ? GL.INVALID_VALUE : 0;
     });
-    rule("MATRIX_MODE", (c, [mode]) => [GL.MODELVIEW, GL.PROJECTION, GL.TEXTURE, GL.COLOR].includes(mode) ? 0 : GL.INVALID_ENUM);
+    rule("MATRIX_MODE", (c, [mode]) => [GL.MODELVIEW, GL.PROJECTION, GL.TEXTURE, GL.COLOR].includes(mode) || programMatrix(mode) ? 0 : GL.INVALID_ENUM);
     rule("PUSH_MATRIX", (c, a, shadow) => stack(c).length >= matrixLimit(c, shadow) ? GL.STACK_OVERFLOW : 0);
     rule("POP_MATRIX", c => stack(c).length <= 1 ? GL.STACK_UNDERFLOW : 0);
     rule("ORTHO", (c, [l, r, b, t, n, f]) => l === r || b === t || n === f ? GL.INVALID_VALUE : 0);
@@ -234,6 +236,11 @@
         const depth = { [GL.MODELVIEW_STACK_DEPTH]: GL.MODELVIEW, [GL.PROJECTION_STACK_DEPTH]: GL.PROJECTION,
             [GL.TEXTURE_STACK_DEPTH]: GL.TEXTURE, [GL.COLOR_MATRIX_STACK_DEPTH_SGI]: GL.COLOR }[pname];
         if (depth) return [[(depth === GL.TEXTURE ? state.texture[c.activeTexture || 0] : state.stacks[depth]).length], "i"];
+        if (pname === GL.CURRENT_MATRIX_ARB || pname === GL.TRANSPOSE_CURRENT_MATRIX_ARB) {
+            const s = stack(c), m = s[s.length - 1];
+            return [pname === GL.CURRENT_MATRIX_ARB ? m : Array.from({ length: 16 }, (_, i) => m[(i % 4) * 4 + (i >> 2)]), "f"];
+        }
+        if (pname === GL.CURRENT_MATRIX_STACK_DEPTH_ARB) return [[stack(c).length], "i"];
         if (pname === GL.MATRIX_MODE) return [[state.mode], "i"];
         if (pname === GL.CURRENT_PROGRAM) return [[c.program], "i"];
         if (pname === GL.ATTRIB_STACK_DEPTH || pname === GL.CLIENT_ATTRIB_STACK_DEPTH) return [[(pname === GL.ATTRIB_STACK_DEPTH ? state.attrib : state.clientAttrib).length], "i"];
@@ -316,6 +323,7 @@
                 mode: GL.MODELVIEW, stacks: { [GL.MODELVIEW]: [identity()], [GL.PROJECTION]: [identity()], [GL.COLOR]: [identity()] },
                 texture: Array.from({ length: caps.LIMITS.MAX_TEXTURE_UNITS }, () => [identity()]),
                 attrib: [], clientAttrib: [], clientTexture: 0, format: 0, initialized: false, begin: false };
+            for (let i = 0; i < caps.LIMITS.MAX_PROGRAM_MATRICES; ++i) c.state.stacks[GL.MATRIX0_ARB + i] = [identity()];
         },
         current(shadow, c, view, offset, size) {
             if (!c.state.initialized) {
@@ -384,6 +392,7 @@
                 // color stack key. Normalize that internal snapshot spelling.
                 if (!c.state.stacks[GL.COLOR]) c.state.stacks[GL.COLOR] = c.state.stacks[GL.COLOR_MATRIX_SGI] || [identity()];
                 delete c.state.stacks[GL.COLOR_MATRIX_SGI];
+                for (let i = 0; i < caps.LIMITS.MAX_PROGRAM_MATRICES; ++i) if (!c.state.stacks[GL.MATRIX0_ARB + i]) c.state.stacks[GL.MATRIX0_ARB + i] = [identity()];
                 if (c.state.mode === GL.COLOR_MATRIX_SGI) c.state.mode = GL.COLOR;
             }
         },
