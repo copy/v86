@@ -3,7 +3,8 @@
 (function(global) {
     "use strict";
     const codec = global.GLSnapshotCodec || require("./gl_snapshot_codec.js"), gpu = global.GLGPUArchive || require("./gl_gpu_snapshot.js");
-    const translator = global.GLShaderTranslator || require("./gl_shader_translator.js");
+    const translator = global.GLShaderTranslator || require("./gl_shader_translator.js"),
+        arb = global.GLARBProgram || require("./gl_arb_program.js");
     const fields = ["shareGroups", "contexts", "nextContextId", "nextShareGroupId", "nextUniformLocation", "current", "framebuffers", "queries", "activeQuery",
         "surface", "drawables", "currentDrawable", "backBuffer", "backBufferWidth", "backBufferHeight", "backBufferFormat", "depthTarget", "depthWidth", "depthHeight", "depthSamples",
         "multisampleTarget", "multisampleWidth", "multisampleHeight", "multisampleFormat", "accumBuffer", "frontDrawn", "pendingClear"];
@@ -61,6 +62,20 @@
         try {
             for (const image of archive.resources) resources.push(await gpu.restore(executor, image));
             const state = codec.decode(archive.state, { external: reference => reference?.shader ? shader(reference, executor.options.translator || {}) : resources[reference.resource] });
+            // ARB reflection is generated state, just like GLSL ASTs. Rebuild it
+            // from source so archives made before layout changes remain valid.
+            const arbPrograms = new Set();
+            for (const group of state.shareGroups.values()) for (const program of group.arbPrograms.values()) arbPrograms.add(program);
+            for (const context of state.contexts.values()) {
+                for (const program of context.arbBindings.values()) arbPrograms.add(program);
+                for (const program of Object.values(context.arbDefaults)) arbPrograms.add(program);
+            }
+            for (const program of arbPrograms) {
+                if (!program?.compiled || !program.source) continue;
+                const compiled = arb.compileARBProgram(program.source);
+                if (!compiled.ok) throw new Error("GL checkpoint ARB program: " + compiled.log);
+                program.compiled = compiled;
+            }
             // Decode and allocate before changing the installed renderer.
             await executor.idle(); executor.resetForReplay();
             for (const context of state.contexts.values()) {

@@ -4946,7 +4946,7 @@
             if (this.usage.builtinInputs.has("gl_FragCoord"))
                 this.emit("gl_FragCoord = fsin.position;");
             if (this.usage.builtinInputs.has("gl_FrontFacing"))
-                this.emit("gl_FrontFacing = fsin.frontFacing;");
+                this.emit("gl_FrontFacing = " + (this.options.backFacing ? "false" : "fsin.frontFacing") + ";");
             if (this.usage.usesPointCoord)
                 this.emit("gl_PointCoord = " + (this.options.pointSprite ?
                     "fsin.glPointCoord" : "vec2<f32>(0.5, 0.5)") + ";");
@@ -4961,7 +4961,7 @@
                         e.isBackHalf && e.name === entry.name + "__back");
                     if (back) {
                         this.emit(target + " = select(" + this.slotRead(back) +
-                            ", " + read + ", fsin.frontFacing);");
+                            ", " + read + ", " + (this.options.backFacing ? "false" : "fsin.frontFacing") + ");");
                         continue;
                     }
                 }
@@ -5428,6 +5428,7 @@
                 vertexCaptureRaster: !!opts.vertexCaptureRaster,
                 pointSprite: !!variant.pointSprite,
                 programPointSize: !!variant.programPointSize,
+                backFacing: !!variant.backFacing,
                 pointCoordLowerLeft: !!variant.pointCoordLowerLeft,
                 polygonStipple: !!variant.polygonStipple,
                 logicOp: variant.logicOp ? (variant.logicOp >>> 0) : 0,
@@ -5497,6 +5498,7 @@
             "o" + (variant.logicOp || 0).toString(16),
             variant.twoSided ? "2" : "-",
             variant.flatShading ? "f" : "-",
+            variant.backFacing ? "back" : "-",
             "t" + (variant.colorTargets || 1),
             opts.nonUniformSampleStrategy || "implicit",
         ].join("|");

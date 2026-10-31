@@ -46,6 +46,7 @@
 <script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
 <script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
 <script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_program_geometry.js"></script>
 <script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
 <script src="../../src/browser/glbridge/graphics_journal.js"></script>
 <script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
@@ -66,6 +67,10 @@
             await submit(new GLStream().makeCurrent(1,0,0,16,16,1,1));
             for(const entry of reference.cases){
                 const setup=new GLStream(),{location,unit}=GLSamplerStateCases.setup(setup,entry.name);await submit(setup);
+                if(entry.name==="arb_linear"){
+                    for(const group of gpu.shareGroups.values())for(const program of group.arbPrograms.values())if(program.compiled){program.compiled.reflection.stateFields=program.compiled.reflection.stateFields.filter(field=>field!=="samplerState");program.variants.clear();}
+                    await gpu.restoreSnapshot(await gpu.saveSnapshot());
+                }
                 const s=new GLStream();if(location){const value=location.view.getInt32(P.F.QUERY_LOCATION.result,true);check(value>=0,entry.name+" uniform location");s.uniformiv(value,1,1,[unit]);}
                 GLSamplerStateCases.draw(s,entry.name);const p=s.readPixels(8,8,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);await submit(s);
                 check(p.view.getUint32(P.F.READ_PIXELS.status,true)===1,entry.name+" status");

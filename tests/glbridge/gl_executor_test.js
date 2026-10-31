@@ -525,8 +525,8 @@ test("glPolygonMode LINE outlines each polygon, not its triangles (review S2-14)
     assert.strictEqual(log.draws[0].pipeline.descriptor.primitive.topology, "line-list");
     assert.deepStrictEqual(xy(drawnVertices(log.draws[0], 8)), [
         QUAD_CCW[0], QUAD_CCW[1], QUAD_CCW[1], QUAD_CCW[2],
-        QUAD_CCW[2], QUAD_CCW[3], QUAD_CCW[0], QUAD_CCW[3]],
-    "four edges, no diagonal; an edge of the provoking vertex ends at it");
+        QUAD_CCW[2], QUAD_CCW[3], QUAD_CCW[3], QUAD_CCW[0]],
+    "four edges form a closed boundary without a diagonal or missing endpoint");
     assert.strictEqual(log.draws[1].count, 10, "a pentagon is five edges");
 });
 

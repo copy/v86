@@ -15,6 +15,7 @@
     const protocol = nodeRequire ? nodeRequire("./gl_protocol.js") : global.GLProtocol;
     const glCaps = nodeRequire ? nodeRequire("./gl_caps.js") : global.GLCaps;
     const { CacheKeys } = nodeRequire ? nodeRequire("./gl_cache_keys.js") : global.GLCacheKeys;
+    const programGeometry = nodeRequire ? nodeRequire("./gl_program_geometry.js") : global.GLProgramGeometry;
     const constants = nodeRequire ? nodeRequire("./gl_constants.js") :
         global.GLWGConstants;
     const stateLayout = nodeRequire ? nodeRequire("./gl_state_layout.js") :
@@ -1788,7 +1789,7 @@
                 "uniformValueCache", "convertedVertexCache", "indexExpansionCache", "pixelPipelineCache",
                 "accumPipelineCache", "accumClearPipelineCache", "clearPipelineCache", "colorCopyPipelines",
                 "mipmapPipelines", "colorBlitPipelines", "valuePipelineCache", "depthColorPipelines",
-                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines"];
+                "singletonPipelines", "fallbackViews", "scalarReadPipelines", "stencilReadPipelines", "depthStencilBlitPipelines", "geometryCapturePipelines", "geometryShaderCache"];
             for (const name of maps) {
                 this[name] = this[name] || new Map();
                 this.resources.register(name, () => this[name].clear());
@@ -5523,6 +5524,90 @@
             }
         },
 
+        geometryComputePipeline(code, entryPoint) {
+            const cache = this.geometryCapturePipelines, module = this.shaderModule(code),
+                descriptor = { label: "GL program geometry " + entryPoint, layout: "auto", compute: { module, entryPoint } };
+            let keys = this.pipelineKeyTables.get(cache);
+            if (!keys) { keys = new CacheKeys();this.pipelineKeyTables.set(cache, keys); }
+            if (cache.size >= 256) { cache.clear();keys.clearKeys(); }
+            keys.reference(module);const key = keys.key(descriptor);
+            let pipeline = cache.get(key);
+            if (!pipeline) {
+                ++this.stats.pipelines;
+                pipeline = this.resources.checked(this.gpuErrors, "geometry compute pipeline", cache, key,
+                    () => this.device.createComputePipeline(descriptor), () => { ++this.stats.pipelinesRejected; });
+                pipeline.glActiveBindings = activeShaderBindings(code, "", entryPoint);
+            }
+            return pipeline;
+        },
+
+        capturePolygonGeometry(request, faces) {
+            const cpu = request.cpu, count = cpu.layout.length ? cpu.count : 1,
+                original = this.vertexCaptureShaders(), code = programGeometry.positionCapture(original.wgslVertex),
+                shaders = { ...original, wgslVertex: code }, pipeline = this.geometryComputePipeline(code, "capture_main"),
+                groups = this.buildBindGroups(pipeline, shaders);
+            if (!groups) return null;
+            const positions = this.createGPUBuffer({ label: "GL program clip coordinates", size: count * 16, usage: BUFFER_USAGE_STORAGE });
+            const shared = Array.from({ length: 3 }, (unused, index) => groups.find(group => group.index === index)?.group ||
+                this.cachedBindGroup(pipeline, index, []));
+            this.endPass();let pass = null;
+            for (let first = 0, chunks = 0; first < count; first += 256, ++chunks) {
+                const length = Math.min(256, count - first), entries = [], activeInput = pipeline.glActiveBindings.has("3:0");
+                let input;
+                if (activeInput) {
+                    const bytes = programGeometry.packVertices(cpu, first, length);
+                    input = this.createGPUBuffer({ label: "GL geometry input", size: bytes.byteLength, usage: BUFFER_USAGE_STORAGE, mappedAtCreation: true });
+                    new Float32Array(input.getMappedRange()).set(bytes);input.unmap();
+                    entries.push({ binding: 0, resource: { buffer: input } });
+                }
+                entries.push({ binding: 1, resource: { buffer: positions, offset: first * 16, size: length * 16 } });
+                const group = this.cachedBindGroup(pipeline, 3, entries);
+                if (!pass) {
+                    pass = this.ensureEncoder().beginComputePass({ label: "GL capture polygon positions" });pass.setPipeline(pipeline);
+                    for (let index = 0; index < 3; ++index) pass.setBindGroup(index, shared[index]);
+                }
+                pass.setBindGroup(3, group);pass.dispatchWorkgroups(Math.ceil(length / 64));
+                this.retire(input);++this.recordedOps;
+                // Only compute staging pages retire here; the positions and
+                // the draw's prepared vertex/uniform pages remain owned.
+                if ((chunks + 1) % 32 === 0) { pass.end();pass = null;this.flushFrame(); }
+            }
+            if (pass) pass.end();
+            const upload = data => {
+                const buffer = this.createGPUBuffer({ size: Math.max(4, data.byteLength), usage: BUFFER_USAGE_STORAGE, mappedAtCreation: true });
+                new Uint32Array(buffer.getMappedRange()).set(data);buffer.unmap();return buffer;
+            };
+            const indices = upload(Uint32Array.from(faces.vertices, value => cpu.layout.length ? value : 0)), starts = upload(Uint32Array.from(faces.starts)),
+                result = this.createGPUBuffer({ label: "GL polygon facing and slope", size: faces.provoking.length * 16, usage: BUFFER_USAGE_STORAGE }),
+                uniform = this.allocateUniform(32), targets = this.currentTargets(), format = targets?.depthFormat || "depth24plus";
+            if (!uniform) {
+                for (const buffer of [positions, indices, starts, result]) this.retire(buffer);
+                return null;
+            }
+            const values = new Float32Array(this.uniformStaging.buffer, uniform.offset, 8), s = this.current;
+            values.set([s.viewport.width, s.viewport.height, s.depthRange.near, s.depthRange.far,
+                format === "depth16unorm" ? 1 : format.startsWith("depth32float") ? 2 : 0, 0, 0, 0]);
+            this.device.queue.writeBuffer(uniform.buffer, uniform.offset, values);
+            const analyze = this.geometryComputePipeline(programGeometry.polygonAnalysis, "analyze_main"),
+                group = this.cachedBindGroup(analyze, 0, [positions, indices, starts, result].map((buffer, binding) => ({ binding, resource: { buffer } })).concat([
+                    { binding: 4, resource: { buffer: uniform.buffer, offset: uniform.offset, size: 32 } }]));
+            this.endPass();pass = this.ensureEncoder().beginComputePass({ label: "GL analyze polygon faces" });pass.setPipeline(analyze);
+            pass.setBindGroup(0, group);pass.dispatchWorkgroups(Math.ceil(faces.provoking.length / 64));pass.end();++this.recordedOps;
+            for (const buffer of [positions, indices, starts]) this.retire(buffer);
+            return result;
+        },
+
+        polygonGeometryUniform(result, polygon, side, mode, cpu, provoking) {
+            const s = this.current, slice = this.allocateUniform(288);if (!slice) return null;
+            const words = new Uint32Array(this.uniformStaging.buffer, slice.offset, 4), values = new Float32Array(this.uniformStaging.buffer, slice.offset + 16, 4),
+                offset = mode === GL.LINE ? s.enabled.has(GL.POLYGON_OFFSET_LINE) : mode === GL.POINT ? s.enabled.has(GL.POLYGON_OFFSET_POINT) : false;
+            words.set([polygon, side === "front" ? 0 : 1, s.frontFace === GL.CW ? 0 : 1, 0]);
+            values.set([offset ? s.polygonOffset.factor : 0, offset ? s.polygonOffset.units : 0, Math.abs(s.depthRange.far - s.depthRange.near), 0]);
+            new Float32Array(this.uniformStaging.buffer, slice.offset + 32, 64).set(programGeometry.packVertices(cpu, provoking, 1));
+            this.device.queue.writeBuffer(slice.buffer, slice.offset, this.uniformStaging, slice.offset, 288);
+            return { result, slice };
+        },
+
         collectGLShader(group, shader) {
             if (!shader.deleted) return;
             for (const program of group.programs.values()) if (program.shaders.has(shader.name)) return;
@@ -6254,11 +6339,11 @@
         wantedAttributes(program) {
             const ATTR = translator.COMPAT_ATTRIBUTE_LOCATIONS;
             if (program && program.link && program.compiled.vertex) {
-                return program.link.reflection.attributes.map(a => ({
-                    location: a.location,
-                    components: a.components,
-                    source: attributeSourceName(a.name, a.location),
-                }));
+                return program.link.reflection.attributes.flatMap(a => Array.from({ length: a.slots || 1 }, (unused, column) => ({
+                    location: a.location + column,
+                    components: a.components / (a.slots || 1),
+                    source: column ? "generic" + (a.location + column) : attributeSourceName(a.name, a.location),
+                })));
             }
             const s = this.current;
             if (s.enabled.has(GL.VERTEX_PROGRAM_ARB)) {
@@ -7347,8 +7432,17 @@ ${fragmentCode}`;
                 expandedPoints = false;
             }
             this.drawingExpandedPoints = expandedPoints;
-            const shaders = this.resolveShaders();
+            let shaders = this.resolveShaders();
             if (!shaders) return;
+            if (request.geometry) {
+                let source = this.geometryShaderCache.get(shaders.wgslVertex);
+                if (!source) {
+                    source = programGeometry.polygonVertex(shaders.wgslVertex);
+                    if (this.geometryShaderCache.size >= 128) this.geometryShaderCache.clear();
+                    this.geometryShaderCache.set(shaders.wgslVertex, source);
+                }
+                shaders = { ...shaders, wgslVertex: source, geometry: request.geometry };
+            }
             if (s.enabled.has(GL.COLOR_LOGIC_OP) && s.logicOp !== GL.COPY &&
                     !this.prepareLogicOpTargets()) return;
             if (!this.ensurePass()) {
@@ -7389,7 +7483,7 @@ ${fragmentCode}`;
                 };
             }
 
-            if (!index && this.drawShape(request.mode).expand) {
+            if (!index && !request.geometry && this.drawShape(request.mode).expand) {
                 const expanded = this.expansionIndices(request.mode,
                     request.vertexCount);
                 if (!expanded.length) return;
@@ -7612,8 +7706,9 @@ ${fragmentCode}`;
                 request.index && request.index.source, cpu && cpu.edgeFlags);
             const front = s.polygonMode.front, back = s.polygonMode.back;
             const culling = s.enabled.has(GL.CULL_FACE);
-            const fixedVertex = !this.currentProgramObject() &&
+            const fixedVertex = !this.currentProgramObject()?.compiled.vertex &&
                 !s.enabled.has(GL.VERTEX_PROGRAM_ARB);
+            if (!fixedVertex) return this.drawProgramPolygonModes(request, faces);
             const clip = fixedVertex ? this.clipCoordinates(cpu) : null;
             if (!clip && (front !== back || culling))
                 this.warnOnce("polygon-mode-facing", "the polygons' facing is " +
@@ -7650,7 +7745,7 @@ ${fragmentCode}`;
                     if (mode === GL.LINE) {
                         // a flat-shaded line takes its second vertex's colour
                         const a = v[i], b = v[i + 1 < to ? i + 1 : from];
-                        group.vertices.push(...(a === p ? [b, a] : [a, b]));
+                        group.vertices.push(a, b);
                         group.provoking.push(p, p);
                         group.offsets.push(offset, offset);
                     } else {
@@ -7666,6 +7761,41 @@ ${fragmentCode}`;
                 } finally {
                     this.drawFace = null;
                 }
+            }
+        },
+
+        drawProgramPolygonModes(request, faces) {
+            if (!faces.provoking.length) return;
+            const s = this.current, result = this.capturePolygonGeometry(request, faces);
+            if (!result) return;
+            try {
+                for (let polygon = 0; polygon < faces.provoking.length; ++polygon) for (const side of ["front", "back"]) {
+                    const back = side === "back";
+                    if (s.enabled.has(GL.CULL_FACE) && (back ? s.cullFace === GL.BACK : s.cullFace === GL.FRONT)) continue;
+                    const mode = s.polygonMode[side], geometry = this.polygonGeometryUniform(result, polygon, side, mode, request.cpu, faces.provoking[polygon]);
+                    if (!geometry) return;
+                    const from = faces.starts[polygon], to = faces.starts[polygon + 1], n = to - from, vertices = faces.vertices, p = faces.provoking[polygon];
+                    if (mode === GL.FILL) {
+                        const indices = [];let first = from;while (vertices[first] !== p) ++first;
+                        for (let i = 1; i + 1 < n; ++i) indices.push(p, vertices[from + (first - from + i) % n], vertices[from + (first - from + i + 1) % n]);
+                        const index = this.uploadIndexList(Uint32Array.from(indices));
+                        if (index) this.issueDraw({ ...request, mode: GL.TRIANGLES, vertexCount: indices.length, index,
+                            rasterized: true, stencilFace: side, face: { back }, geometry });
+                        continue;
+                    }
+                    const group = { mode, back, vertices: [], provoking: [], offsets: [], offset: false };
+                    for (let i = from; i < to; ++i) {
+                        if (!faces.boundary[i]) continue;
+                        if (mode === GL.LINE) {
+                            const a = vertices[i], b = vertices[i + 1 < to ? i + 1 : from];
+                            group.vertices.push(a, b);group.provoking.push(p, p);
+                        } else { group.vertices.push(vertices[i]);group.provoking.push(p); }
+                    }
+                    this.drawGroups({ ...request, geometry }, new Map([[mode, group]]), request.cpu, false);
+                }
+            } finally {
+                this.drawFace = null;this.retire(result);
+                if (!this.encoder) this.releaseRetired();
             }
         },
 
@@ -7688,7 +7818,7 @@ ${fragmentCode}`;
                           value: i => [group.offsets[i] || 0] } : null);
                 if (gathered) this.issueDraw({ mode, vertexCount: group.vertices.length,
                     firstVertex: 0, buffers: [gathered.buffer], index: null, rasterized: true, face,
-                    cpu: gathered.cpu });
+                    cpu: gathered.cpu, geometry: request.geometry });
             }
         },
 
@@ -7704,7 +7834,7 @@ ${fragmentCode}`;
         drawLines(request) {
             const s = this.current;
             const cpu = request.cpu;
-            const fixedVertex = !this.currentProgramObject() &&
+            const fixedVertex = !this.currentProgramObject()?.compiled.vertex &&
                 !s.enabled.has(GL.VERTEX_PROGRAM_ARB);
             const clip = fixedVertex && request.buffers.length === 1 ? this.clipCoordinates(cpu) : null;
             if (!clip) {
@@ -7899,6 +8029,7 @@ ${fragmentCode}`;
                 twoSided: this.currentProgramObject()?.compiled.vertex || s.enabled.has(GL.VERTEX_PROGRAM_ARB) ?
                     s.enabled.has(GL.VERTEX_PROGRAM_TWO_SIDE) : s.lightModel.twoSide,
                 flatShading: s.shadeModel === GL.FLAT,
+                backFacing: !!this.drawFace?.back,
                 colorTargets: this.colorTargetCount(),
             };
         },
@@ -8397,7 +8528,7 @@ ${fragmentCode}`;
             if (pipeline) return pipeline.glRejected ? null : pipeline;
 
             pipeline = this.createPipeline(this.pipelineCache, signature, descriptor);
-            pipeline.glShaders = shaders;
+            pipeline.glShaders = shaders.geometry ? { ...shaders, geometry: undefined } : shaders;
             pipeline.glActiveBindings = activeShaderBindings(
                 shaders.wgslVertex, shaders.wgslFragment);
             return pipeline;
@@ -8477,6 +8608,12 @@ ${fragmentCode}`;
 
             const groups = [];
             try {
+                if (shaders.geometry) {
+                    const { result, slice } = shaders.geometry;
+                    groups.push({ index: 0, group: this.cachedBindGroup(pipeline, 0, [
+                        { binding: 0, resource: { buffer: result } },
+                        { binding: 1, resource: { buffer: slice.buffer, offset: slice.offset, size: 288 } }]) });
+                }
                 const uniformEntries = [];
                 if (bindingIsActive(1, 0)) {
                     uniformEntries.push({ binding: 0,
