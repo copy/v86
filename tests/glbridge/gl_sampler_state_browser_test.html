@@ -1,0 +1,91 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Typed sampler state and border filtering</title>
+<canvas id="gpu" width="16" height="16"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_protocol.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_constants.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_caps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_math.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_client_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_pixel_maps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_glslang.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_glsl.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_image_formats.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_texture_parameters.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_framebuffer_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_objects.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_state.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_raster.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_fixed.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_misc.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_rasterpos.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_pixelmaps.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_images.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_textures.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stipple.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_list_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_lists.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_stencil_ext.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_render.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_buffers.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arrays.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_names.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_queries.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_select_geometry.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_select.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_evaluators.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_state_layout.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shader_translator.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_cache_keys.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_fixed_function.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_arb_program.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_shadow_arb.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_snapshot_codec.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_gpu_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_renderer_snapshot.js"></script>
+<script src="../../src/browser/glbridge/gl-webgpu/gl_executor.js"></script>
+<script src="../../src/browser/glbridge/graphics_journal.js"></script>
+<script src="../../src/browser/glbridge/webgpu_compositor.js"></script>
+<script src="../../src/browser/glbridge/v86_network_bridge.js"></script>
+<script src="gl_stream_builder.js"></script>
+<script src="gl_sampler_state_cases.js"></script>
+<script src="gl_selection_cases.js"></script>
+<script src="gl_evaluator_cases.js"></script>
+<script>
+(async()=>{
+    "use strict";const {GLStream,GL}=GLTestStream,P=GLProtocol,check=(ok,message)=>{if(!ok)throw new Error(message);};
+    try{
+        const reference=await(await fetch("gl_conformance/sampler_state_reference.json")).json(),module=await WebAssembly.compile(await(await fetch("../../bios/glslang.wasm")).arrayBuffer());
+        for(const copied of [false,true]){
+            const cpu=new V86GLShadow.GLShadow(),gpu=new GLWebGPUExecutorModule.GLWebGPUExecutor(document.getElementById("gpu"),{strict:true});await gpu.initialize();cpu.setCapabilities(gpu.capabilities());cpu.setGlslang(new V86GLGlslang.Glslang(module));
+            gpu.options.writeGuestMemory=(at,bytes,metadata)=>metadata.memory.set(bytes,at+metadata.baseOffset);
+            const submit=async s=>{const memory=s.bytes(),segments=cpu.process(memory);for(const segment of segments||[{offset:0,length:memory.length}]){const bytes=segment.bytes||memory.subarray(segment.offset,segment.offset+segment.length);gpu.submit(copied?bytes.slice():bytes,{memory,baseOffset:segment.bytes?0:segment.offset});}await gpu.idle();check(!cpu.current.error,"CPU error "+cpu.current.error);};
+            await submit(new GLStream().makeCurrent(1,0,0,16,16,1,1));
+            for(const entry of reference.cases){
+                const setup=new GLStream(),{location,unit}=GLSamplerStateCases.setup(setup,entry.name);await submit(setup);
+                const s=new GLStream();if(location){const value=location.view.getInt32(P.F.QUERY_LOCATION.result,true);check(value>=0,entry.name+" uniform location");s.uniformiv(value,1,1,[unit]);}
+                GLSamplerStateCases.draw(s,entry.name);const p=s.readPixels(8,8,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);await submit(s);
+                check(p.view.getUint32(P.F.READ_PIXELS.status,true)===1,entry.name+" status");
+                const actual=Array.from(p.bytes.subarray(P.RECORDS.READ_PIXELS.size)),expected=GLSamplerStateCases.expected(entry);check(expected.every((v,i)=>Math.abs(v-actual[i])<=1),entry.name+": "+actual+" expected "+expected);
+                if(entry.name==="glsl_lod"){
+                    const header=P.encodeRecord("CAPTURE_RASTER_VERTEX",{job:99}),packet=new Uint8Array(header.length+256);packet.set(header);
+                    const attributes=new Float32Array(packet.buffer,header.length);attributes.set([-1,-1,0,1]);
+                    let result;const owned=copied?packet.slice():packet;gpu.captureVertices(owned,new DataView(owned.buffer),0,owned.length,{onVertexCapture:r=>{result=r;}},true);await gpu.idle();
+                    check(result&&!result.error,"vertex texture capture "+result?.error);
+                    const rgba=Array.from(result.values.subarray(4,8),v=>Math.round(v*255));check(expected.every((v,i)=>Math.abs(v-rgba[i])<=1),"vertex texture capture "+rgba+" expected "+expected);
+                }
+                if(entry.name==="fixed_linear"){
+                    const moved=new GLStream().call("DISABLE",GL.TEXTURE_2D).call("ACTIVE_TEXTURE",GL.TEXTURE0+3).call("BIND_TEXTURE",GL.TEXTURE_2D,101).call("ENABLE",GL.TEXTURE_2D).call("TEX_ENVI",GL.TEXTURE_ENV,GL.TEXTURE_ENV_MODE,GL.REPLACE).call("ACTIVE_TEXTURE",GL.TEXTURE0);
+                    GLSamplerStateCases.draw(moved,entry.name);const p=moved.readPixels(8,8,1,1,GL.RGBA,GL.UNSIGNED_BYTE,4);await submit(moved);
+                    const rgba=Array.from(p.bytes.subarray(P.RECORDS.READ_PIXELS.size));check(expected.every((v,i)=>Math.abs(v-rgba[i])<=1),"fixed unit-3 remap "+rgba);
+                }
+            }
+            check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.refusals&&!gpu.stats.framesRejected,"host failure "+JSON.stringify(gpu.gpuErrors.errors));gpu.lossHandler();gpu.resetForReplay();
+        }
+        document.getElementById("result").textContent="PASS typed sampler state: fixed/GLSL/ARB border filtering per mip, LOD biases, sampler parameters/arrays/targets, non-mip views and depth in both modes";
+    }catch(error){document.getElementById("result").textContent="FAIL "+error.stack;}
+})();
+</script>

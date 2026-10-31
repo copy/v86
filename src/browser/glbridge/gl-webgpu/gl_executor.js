@@ -5465,7 +5465,7 @@
         vertexCaptureShaders(raster = false) {
             const program = this.currentProgramObject();
             if (program?.compiled.vertex) {
-                const link = translator.linkVertexCapture(program.compiled.vertex, { bindAttribLocations: this.attribBindings(program), vertexCaptureRaster: raster });
+                const link = translator.linkVertexCapture(program.compiled.vertex, { bindAttribLocations: this.attribBindings(program), vertexCaptureRaster: raster, desktopTextureState: true });
                 if (!link.ok) throw new Error(link.log);
                 return { kind: "program", program, capture: true, key: "capture:" + link.cacheKey, wgslVertex: link.wgslCompute, wgslFragment: "",
                     reflection: link.reflection, stateFields: link.reflection.stateFields, uniformBytes: link.reflection.uniformBlockBytes };
@@ -5611,6 +5611,7 @@
             const bindings = this.attribBindings(program);
             const options = {
                 bindAttribLocations: bindings,
+                desktopTextureState: true,
                 variant,
                 maxColorTargets: variant.colorTargets,
                 nonUniformSampleStrategy:
@@ -8199,6 +8200,7 @@ ${fragmentCode}`;
                     mode === "REFLECTION" || mode === "NORMAL"));
 
             return {
+                desktopSampling: true,
                 attributes: {
                     position: { components: 4 },
                     normal: s.enabled.has(GL.LIGHTING) || texGenNeedsNormal,
@@ -8594,7 +8596,7 @@ ${fragmentCode}`;
             }
             const kind = item.target === "Cube" || object.kind === "Cube" ? "cube" : "2d";
             const base = clamp(object.sampler.baseLevel, 0, object.gpuLevels - 1);
-            const count = clamp(object.sampler.maxLevel - base + 1, 1, object.gpuLevels - base);
+            const count = isMipmapFilter(object.sampler.minFilter) ? clamp(object.sampler.maxLevel - base + 1, 1, object.gpuLevels - base) : 1;
             const key = kind + ":" + base + ":" + count;
             if (!copy.views.has(key))
                 copy.views.set(key, copy.texture.createView({ dimension: kind, baseMipLevel: base, mipLevelCount: count }));
@@ -8737,9 +8739,9 @@ ${fragmentCode}`;
             if (!view) {
                 const baseMipLevel = clamp(object.sampler.baseLevel, 0,
                     object.gpuLevels - 1);
-                const mipLevelCount = clamp(
+                const mipLevelCount = isMipmapFilter(object.sampler.minFilter) ? clamp(
                     object.sampler.maxLevel - baseMipLevel + 1, 1,
-                    object.gpuLevels - baseMipLevel);
+                    object.gpuLevels - baseMipLevel) : 1;
                 view = gpuTexture.createView({
                     dimension: kind,
                     baseMipLevel, mipLevelCount,
@@ -9065,6 +9067,7 @@ ${fragmentCode}`;
                 texEnvColor: Array.from({ length: MAX_TEXTURE_UNITS },
                     () => new Float32Array(4)),
                 textureLodBias: new Float32Array(MAX_TEXTURE_UNITS),
+                samplerState: new Float32Array(256),
                 textureBorderColor: Array.from({ length: MAX_TEXTURE_UNITS },
                     () => new Float32Array(4)),
                 texGen: Array.from({ length: MAX_TEXTURE_UNITS }, () =>
@@ -9217,6 +9220,28 @@ ${fragmentCode}`;
                     snapshot.texGen[i][c].eyePlane.set(
                         s.textureUnits[i].texGen[c].eyePlane);
                 }
+            }
+            snapshot.samplerState.fill(0);
+            const samplerState = (binding, unit, target, shadow) => {
+                if (binding >= 16) return;
+                const object = this.textureObjectFor(unit, target);if (!object) return;
+                const sampler = object.sampler, base = object.levels[0]?.[sampler.baseLevel]?.base || object.baseFormat,
+                    at = binding * 16;
+                const color = base === "DEPTH" && !shadow ? [sampler.borderColor[0], sampler.borderColor[0], sampler.borderColor[0], sampler.borderColor[0]] : sampler.borderColor,
+                    borderBase = base === "DEPTH" && !shadow ? DEPTH_MODE_FORMATS[sampler.depthTextureMode] || "LUMINANCE" : base;
+                snapshot.samplerState.set(borderInFormat(color, borderBase), at);
+                snapshot.samplerState.set([sampler.wrapS, target === GL.TEXTURE_1D ? GL.CLAMP_TO_EDGE : sampler.wrapT, sampler.wrapR, sampler.minFilter], at + 4);
+                snapshot.samplerState.set([sampler.magFilter, sampler.minLod, sampler.maxLod, sampler.lodBias + s.textureUnits[unit].lodBias], at + 8);
+                snapshot.samplerState[at + 12] = sampler.compareFunc;
+                snapshot.samplerState[at + 13] = sampler.depthTextureMode;
+            };
+            for (const item of shaders.textures || []) {
+                const target = item.arbTarget ? ARB_TEXTURE_TARGETS[item.target] : this.effectiveTarget(s.textureUnits[item.unit])?.enumValue;
+                if (target) samplerState(item.textureBinding / 2, item.unit, target, item.shadow);
+            }
+            for (const sampler of shaders.reflection?.samplers || []) for (let i = 0; i < Math.max(1, sampler.arraySize); ++i) {
+                const key = sampler.name + (sampler.arraySize ? "[" + i + "]" : ""), unit = clamp(shaders.program.samplerUnits.get(key) || 0, 0, MAX_TEXTURE_UNITS - 1);
+                samplerState(sampler.binding / 2 + i, unit, samplerTargetEnum(sampler.dim), sampler.shadow);
             }
             // the shaders test every plane below the highest enabled one, so
             // a disabled one passes everything: 0x + 0y + 0z + 1w >= 0

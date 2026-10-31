@@ -116,6 +116,7 @@
             // texture coordinates at 3+n. A fixed fragment stage paired with
             // one must consume that ABI instead of our compact internal one.
             varyingInterface: s.varyingInterface === "arb" ? "arb" : "packed",
+            desktopSampling: !!s.desktopSampling,
             glslInterface: s.glslInterface || null,
             twoSidedColors: !!s.twoSidedColors,
             textureBindingBase: s.textureBindingBase || 0,
@@ -245,6 +246,7 @@
         }
         for (const t of sig.texture) {
             if (!t.enabled) continue;
+            if (sig.desktopSampling) fields.add("samplerState");
             if (t.matrix) fields.add("textureMatrix");
             if (t.lodBias && !t.shadow) fields.add("textureLodBias");
             if (t.border) fields.add("textureBorderColor");
@@ -886,6 +888,14 @@
         emit("}");
         emit("");
 
+        if (sig.desktopSampling) {
+            const types = new Map();
+            for (const unit of sig.texture) if (unit.enabled) {
+                const dim = unit.target === "Cube" ? "Cube" : unit.target === "3D" ? "3D" : "2D";
+                types.set("gl_fixed_sample_" + dim + (unit.shadow ? "_shadow" : ""), { dim, shadow: unit.shadow });
+            }
+            for (const [name, type] of types) emit(stateLayout.textureSamplingWGSL(name, type.dim, type.shadow, "fragment"));
+        }
         emit("@fragment");
         emit("fn fs_main(fin : FSIn) -> FSOut {");
         if (layout.clip >= 0)
@@ -914,9 +924,9 @@
         for (let i = 0; i < MAX_TEXTURE_UNITS; ++i) {
             const unit = sig.texture[i];
             if (!unit.enabled) continue;
-            emit("    let tex" + i + " = " +
-                borderedSample(i, unit, sampleExpression(i, unit, layout.texCoord[i], sig),
-                    textureCoordinates(unit, layout.texCoord[i], sig)) + ";");
+            const sample = sampleExpression(i, unit, layout.texCoord[i], sig);
+            emit("    let tex" + i + " = " + (sig.desktopSampling ? sample : borderedSample(i, unit, sample,
+                textureCoordinates(unit, layout.texCoord[i], sig))) + ";");
         }
 
         for (let i = 0; i < MAX_TEXTURE_UNITS; ++i) {
@@ -1100,6 +1110,16 @@
         const q = "(" + coord + ").w";
         const xy = "(" + coord + ").xy";
         const xyz = "(" + coord + ").xyz";
+        if (sig.desktopSampling) {
+            const dim = unit.target === "Cube" ? "Cube" : unit.target === "3D" ? "3D" : "2D",
+                name = "gl_fixed_sample_" + dim + (unit.shadow ? "_shadow" : ""),
+                uv = dim === "Cube" ? xyz : dim === "3D" ? xyz + " / " + q : unit.target === "1D" ?
+                    "vec2<f32>((" + coord + ").x / " + q + ", 0.5)" : xy + " / " + q,
+                binding = sig.textureBindingBase / 2 + sig.texture.slice(0, i).filter(unit => unit.enabled).length,
+                call = name + "(t" + i + ", s" + i + ", " + uv + ", " + binding + "u, 0.0, 0.0, false" +
+                    (unit.shadow ? ", (" + coord + ").z / " + q : "") + ")";
+            return unit.shadow ? "vec4<f32>(" + call + ")" : call;
+        }
         if (unit.shadow) {
             // A shadow lookup's reference is the third coordinate after the
             // projective divide, which is what GL's GL_COMPARE_R_TO_TEXTURE
@@ -1437,6 +1457,7 @@
         });
         if (!link.ok) return link;
         sig.glslInterface = link.varyingLayout;
+        sig.extraStateFields = link.reflection.stateFields;
         fixed = generate(sig);
         if (vertex) link.wgslFragment = fixed.wgslFragment;
         else link.wgslVertex = fixed.wgslVertex;

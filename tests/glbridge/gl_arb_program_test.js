@@ -248,9 +248,10 @@ ADD result.color, r0, r2;
 END`, "textures");
     assert.strictEqual(result.reflection.textures.length, 3);
     assert.strictEqual(result.reflection.textures[2].target, "CUBE");
-    assert.ok(result.wgsl.indexOf("textureSample(t0") >= 0);
+    assert.ok(result.wgsl.includes("gl_arb_sample_0(t0, s0,"));
     assert.ok(result.wgsl.indexOf(".xy / ") >= 0, "TXP divides by w");
-    assert.ok(result.wgsl.indexOf("textureSampleBias(t2") >= 0);
+    assert.ok(/gl_arb_sample_2\(t2, s2, [^\n]+\.w, false\)/.test(result.wgsl), "TXB forwards the shader bias with its typed sampler");
+    assert.ok(result.reflection.stateFields.includes("samplerState"));
     assert.ok(result.wgsl.indexOf("texture_cube<f32>") >= 0);
 });
 

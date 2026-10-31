@@ -1706,12 +1706,14 @@
                 const refExpr = proj ?
                     "(" + args[1] + ".z / " + args[1] + "." + wComponent + ")" :
                     args[1] + ".z";
+                if (ctx.desktopSample) return "vec4<f32>(" + ctx.desktopSample(pair, coord, lod ? args[2] : "0.0", bias ? args[2] : "0.0", refExpr, !!lod) + ")";
                 const call = lod ?
                     "textureSampleCompareLevel(" + pair.texture + ", " +
                         pair.sampler + ", " + coord + ", " + refExpr + ")" :
                     ctx.compareSample(pair, coord, refExpr);
                 return "vec4<f32>(" + call + ")";
             }
+            if (lod && ctx.desktopSample) return ctx.desktopSample(pair, coord, args[2], "0.0", null, true);
             if (lod)
                 return "textureSampleLevel(" + pair.texture + ", " +
                     pair.sampler + ", " + coord + ", " + args[2] + ")";
@@ -3704,6 +3706,15 @@
             this.emit("diagnostic(off, derivative_uniformity);");
             this.emit("");
             this.emitBindings();
+            if (this.options.desktopTextureState) {
+                const types = new Map(), add = type => {
+                    const dim = type.dim === "Cube" ? "Cube" : type.dim === "3D" ? "3D" : "2D", name = "gl_sample_" + dim + (type.shadow ? "_shadow" : "");
+                    types.set(name, { dim, shadow: type.shadow });
+                };
+                for (const sampler of this.iface.samplers) add(sampler.type);
+                for (const decl of this.ast.decls) for (const param of decl.params || []) if (param.type.kind === "sampler") add(param.type);
+                for (const [name, type] of types) this.emit(stateLayout.textureSamplingWGSL(name, type.dim, type.shadow, this.stage));
+            }
             this.emitUserStructs();
             this.emitIOStructs();
             this.emitPrivates();
@@ -3966,6 +3977,7 @@
                         wgslTextureType(p.type));
                     params.push("s_" + safeName(p.name) + " : " +
                         (p.type.shadow ? "sampler_comparison" : "sampler"));
+                    if (this.options.desktopTextureState) params.push("gl_sampler_index_" + safeName(p.name) + " : u32");
                     continue;
                 }
                 if (p.direction === "in") {
@@ -4524,6 +4536,7 @@
                 if (p.type.kind === "sampler") {
                     const pair = this.samplerPair(arg);
                     argTexts.push(pair.texture, pair.sampler);
+                    if (this.options.desktopTextureState) argTexts.push(pair.index);
                     return;
                 }
                 if (p.direction === "in") {
@@ -4649,6 +4662,7 @@
             const self = this;
             return {
                 samplerPair: argNode => self.samplerPair(argNode),
+                desktopSample: self.options.desktopTextureState ? (pair, coord, level, bias, ref, explicit) => self.desktopSample(pair, coord, level, bias, ref, explicit) : null,
                 sample: (pair, coord, bias) => self.emitSample(pair, coord, bias, node),
                 compareSample: (pair, coord, ref) =>
                     self.emitCompareSample(pair, coord, ref, node),
@@ -4668,13 +4682,27 @@
                     throw new GLSLError("a sampler array needs a constant index",
                         argNode.line);
                 const name = safeName(base.symbol.name);
-                return { texture: "t_" + name + "_" + index,
-                         sampler: "s_" + name + "_" + index };
+                const binding = this.iface.samplers.find(s => s.name === base.symbol.name)?.binding || 0;
+                return { texture: "t_" + name + "_" + index, sampler: "s_" + name + "_" + index,
+                    index: (binding / 2 + index) + "u", dim: argNode.type.dim, shadow: argNode.type.shadow };
             }
             if (argNode.kind !== "Ident")
                 throw new GLSLError("unsupported sampler expression", argNode.line);
             const name = safeName(argNode.symbol.name);
-            return { texture: "t_" + name, sampler: "s_" + name };
+            const binding = this.iface.samplers.find(s => s.name === argNode.symbol.name)?.binding || 0;
+            return { texture: "t_" + name, sampler: "s_" + name,
+                index: argNode.symbol.kind === "param" ? "gl_sampler_index_" + name : binding / 2 + "u",
+                dim: argNode.type.dim, shadow: argNode.type.shadow };
+        }
+
+        desktopSample(pair, coord, level, bias, ref, explicit) {
+            if (this.stage === "vertex" || explicit) ++this.stats.levelSamples;
+            else if (this.inUniformControlFlow) ++this.stats.uniformSamples;
+            else ++this.stats.nonUniformSamples;
+            const dim = pair.dim === "Cube" ? "Cube" : pair.dim === "3D" ? "3D" : "2D",
+                name = "gl_sample_" + dim + (pair.shadow ? "_shadow" : "");
+            const sample = name + "(" + pair.texture + ", " + pair.sampler + ", " + coord + ", " + pair.index + ", " + level + ", " + bias + ", " + explicit + (ref ? ", " + ref : "") + ")";
+            return pair.shadow ? name + "_color(" + sample + ", " + pair.index + ")" : sample;
         }
 
         /*
@@ -4692,6 +4720,7 @@
          * an approximation nobody can trust.
          */
         emitSample(pair, coord, bias, node) {
+            if (this.options.desktopTextureState) return this.desktopSample(pair, coord, "0.0", bias || "0.0", null, false);
             if (this.stage === "vertex") {
                 ++this.stats.levelSamples;
                 return "textureSampleLevel(" + pair.texture + ", " + pair.sampler +
@@ -5323,6 +5352,8 @@
             /* ---- GL state fields: the union, plus what the variant needs ---- */
             const stateFields = new Set([...vs.usage.stateFields,
                 ...fs.usage.stateFields, ...(opts.forceStateFields || [])]);
+            if (opts.desktopTextureState && (samplers.length || [vs, fs].some(stage => stage.ast.decls.some(decl =>
+                (decl.params || []).some(param => param.type.kind === "sampler"))))) stateFields.add("samplerState");
             if (variant.alphaTest && variant.alphaTest !== "always" &&
                     variant.alphaTest !== "never")
                 stateFields.add("alphaRef");
@@ -5393,6 +5424,7 @@
             };
             const genOptions = {
                 vertexCapture: !!opts.vertexCapture,
+                desktopTextureState: !!opts.desktopTextureState,
                 vertexCaptureRaster: !!opts.vertexCaptureRaster,
                 pointSprite: !!variant.pointSprite,
                 programPointSize: !!variant.programPointSize,
@@ -5454,6 +5486,7 @@
             "s" + (opts.forceStateFields || []).slice().sort().join(","),
             opts.keepCompatInputs ? "compat-inputs" : "-",
             opts.vertexCapture ? "capture" : "render",
+            opts.desktopTextureState ? "desktop-sampling" : "-",
             opts.vertexCaptureRaster ? "raster" : "vertices",
             "a" + (variant.alphaTest || "-"),
             "c" + (variant.clipPlaneCount || 0),

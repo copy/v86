@@ -299,6 +299,14 @@
                   off = writeVec4(o, off, s.textureBorderColor[i]);
               return off;
           } },
+        // Four vec4 rows per typed sampler binding, rather than per enabled
+        // texture unit: GLSL/ARB instructions select their target explicitly.
+        { id: "samplerState", wgsl: "samplerState", type: "array<vec4<f32>, 64>", floats: 256,
+          write: (s, o, off) => {
+              if (s.samplerState) o.set(s.samplerState, off);
+              else o.fill(0, off, off + 256);
+              return off + 256;
+          } },
         /* Object/eye linear planes: 4 coordinates (S,T,R,Q) x 8 units, each a
          * pair of vec4 (object plane, eye plane). Flat array so the fixed
          * function generator can index it with a constant. */
@@ -466,10 +474,85 @@
         return offset - start;
     }
 
+    // Border filtering is performed at each selected mip, with that mip's
+    // texel footprint. Using one base-level blend factor around an ordinary
+    // trilinear sample gives the wrong border band during minification.
+    function textureSamplingWGSL(name, dimension, shadow, stage) {
+        const volume = dimension === "3D", cube = dimension === "Cube", n = volume || cube ? 3 : 2,
+            vector = "vec" + n, coordinate = vector + "<f32>", integer = vector + "<i32>",
+            type = shadow ? "texture_depth_2d" : "texture_" + (cube ? "cube" : volume ? "3d" : "2d") + "<f32>",
+            result = shadow ? "f32" : "vec4<f32>", sampler = shadow ? "sampler_comparison" : "sampler";
+        if (cube) return `fn ${name}(t:${type},s:${sampler},uv:${coordinate},index:u32,level:f32,bias:f32,glExplicit:bool)->${result}{
+ let state=glState.samplerState[index*4u+2u];
+ ${stage === "vertex" ? "return textureSampleLevel(t,s,uv,level+clamp(state.w,-16.0,16.0));" : `if(glExplicit){return textureSampleLevel(t,s,uv,level+clamp(state.w,-16.0,16.0));}
+ return textureSampleBias(t,s,uv,clamp(state.w+bias,-16.0,16.0));`}
+}`;
+        const load = shadow ? `let depth=textureLoad(t,p,level);return ${name}_compare(glReference,depth,u32(glState.samplerState[index*4u+3u].x));` :
+            "return textureLoad(t,p,level);";
+        const border = shadow ? `${name}_compare(glReference,glState.samplerState[index*4u].x,u32(glState.samplerState[index*4u+3u].x))` :
+            "glState.samplerState[index*4u]";
+        const taps = volume ? `for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var x=0;x<2;x++){
+ let bit=vec3<i32>(x,y,z);let w=select(vec3<f32>(1.0)-f,f,bit==vec3<i32>(1));
+ sum+=${name}_load(t,at+bit,level,index,glReference,true)*w.x*w.y*w.z;}}}` :
+            `for(var y=0;y<2;y++){for(var x=0;x<2;x++){
+ let bit=vec2<i32>(x,y);let w=select(vec2<f32>(1.0)-f,f,bit==vec2<i32>(1));
+ sum+=${name}_load(t,at+bit,level,index,glReference,true)*w.x*w.y;}}`;
+        return `${shadow ? `fn ${name}_compare(glReference:f32,depth:f32,func:u32)->f32 {
+ let reference=clamp(glReference,0.0,1.0);
+ switch(func){case 512u:{return 0.0;}case 513u:{return select(0.0,1.0,reference<depth);}
+ case 514u:{return select(0.0,1.0,reference==depth);}case 515u:{return select(0.0,1.0,reference<=depth);}
+ case 516u:{return select(0.0,1.0,reference>depth);}case 517u:{return select(0.0,1.0,reference!=depth);}
+ case 518u:{return select(0.0,1.0,reference>=depth);}default:{return 1.0;}}
+}
+fn ${name}_color(value:f32,index:u32)->vec4<f32>{
+ let mode=u32(glState.samplerState[index*4u+3u].y);
+ if(mode==6406u){return vec4<f32>(0.0,0.0,0.0,value);}
+ if(mode==32841u){return vec4<f32>(value);}return vec4<f32>(vec3<f32>(value),1.0);
+}` : ""}
+fn ${name}_load(t:${type},at:${integer},level:i32,index:u32,glReference:f32,linear:bool)->${result}{
+ let size=${integer}(textureDimensions(t,level));let wraps=glState.samplerState[index*4u+1u];var p=at;
+ for(var axis=0;axis<${n};axis++){
+ let mode=u32(wraps[axis]);let length=size[axis];
+ if(mode==10497u){p[axis]=((p[axis]%length)+length)%length;}
+ else if(mode==33648u){let period=length*2;let q=((p[axis]%period)+period)%period;p[axis]=min(q,period-1-q);}
+ else if(mode==33069u||(mode==10496u&&linear)){
+ if(p[axis]<0||p[axis]>=length){return ${border};}
+ }else{p[axis]=clamp(p[axis],0,length-1);}}
+ ${load}
+}
+fn ${name}_level(t:${type},uv:${coordinate},level:i32,index:u32,glReference:f32,linear:bool)->${result}{
+ let wraps=glState.samplerState[index*4u+1u];var coord=uv;
+ for(var axis=0;axis<${n};axis++){if(u32(wraps[axis])==10496u){coord[axis]=clamp(coord[axis],0.0,1.0);}}
+ let p=coord*${coordinate}(textureDimensions(t,level));
+ if(!linear){return ${name}_load(t,${integer}(floor(p)),level,index,glReference,false);}
+ let at=${integer}(floor(p-${coordinate}(0.5)));let f=fract(p-${coordinate}(0.5));var sum=${result}(0.0);
+ ${taps}
+ return sum;
+}
+fn ${name}(t:${type},s:${sampler},uv:${coordinate},index:u32,level:f32,bias:f32,glExplicit:bool${shadow ? ",glReference:f32" : ""})->${result}{
+ let wraps=glState.samplerState[index*4u+1u];let state=glState.samplerState[index*4u+2u];
+ let minimum=u32(wraps.w);let maximum=u32(state.x);
+ ${!shadow ? `let border=any(vec${n}<u32>(wraps.${volume ? "xyz" : "xy"})==vec${n}<u32>(33069u))||any(vec${n}<u32>(wraps.${volume ? "xyz" : "xy"})==vec${n}<u32>(10496u));
+ if(!border){${stage === "vertex" ? "return textureSampleLevel(t,s,uv,level+clamp(state.w,-16.0,16.0));" : `if(glExplicit){return textureSampleLevel(t,s,uv,level+clamp(state.w,-16.0,16.0));}return textureSampleBias(t,s,uv,clamp(state.w+bias,-16.0,16.0));`}}` : ""}
+ var lod=level+clamp(state.w,-16.0,16.0);
+ ${stage === "fragment" ? `if(!glExplicit){let size=${coordinate}(textureDimensions(t,0));
+ let dx=dpdx(uv*size);let dy=dpdy(uv*size);lod=log2(max(max(length(dx),length(dy)),1e-8))+clamp(state.w+bias,-16.0,16.0);}` : ""}
+ lod=clamp(lod,state.y,state.z);let last=f32(textureNumLevels(t)-1u);
+ let threshold=select(0.0,0.5,maximum==9729u&&(minimum==9984u||minimum==9986u));
+ if(lod<=threshold){return ${name}_level(t,uv,0,index,${shadow ? "glReference" : "0.0"},maximum==9729u);}
+ let linear=minimum==9729u||minimum==9985u||minimum==9987u;
+ if(minimum==9728u||minimum==9729u){return ${name}_level(t,uv,0,index,${shadow ? "glReference" : "0.0"},linear);}
+ lod=clamp(lod,0.0,last);
+ if(minimum==9984u||minimum==9985u){return ${name}_level(t,uv,i32(ceil(lod-0.5)),index,${shadow ? "glReference" : "0.0"},linear);}
+ let first=i32(floor(lod));return mix(${name}_level(t,uv,first,index,${shadow ? "glReference" : "0.0"},linear),
+ ${name}_level(t,uv,min(first+1,i32(last)),index,${shadow ? "glReference" : "0.0"},linear),fract(lod));
+}`;
+    }
+
     const api = {
         FIELDS, FIELD_BY_ID, GLSL_TO_FIELD, STRUCT_DECLS,
         MAX_PROGRAM_MATRICES, MAX_LIGHTS, MAX_TEXTURE_UNITS, MAX_TEXTURE_COORDS, MAX_CLIP_PLANES,
-        buildLayout, writeLayout,
+        buildLayout, writeLayout, textureSamplingWGSL,
     };
     global.GLStateLayout = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;

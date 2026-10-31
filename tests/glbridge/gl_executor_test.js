@@ -1574,13 +1574,23 @@ test("program bind groups omit resources used only by uncalled helpers", () => {
     const uniformGroup = log.bindGroups.find(group =>
         group.descriptor.layout.index === 1);
     assert.deepStrictEqual(uniformGroup.descriptor.entries.map(entry =>
-        entry.binding), [1],
-        "deadState must not add fixed-state binding 0 to the auto layout");
+        entry.binding), [0, 1],
+        "live sampler state and uniforms occupy the active state group");
     const textureGroup = log.bindGroups.find(group =>
         group.descriptor.layout.index === 2);
     assert.deepStrictEqual(textureGroup.descriptor.entries.map(entry =>
         entry.binding), [2, 3],
         "only the sampler reachable from fs_main belongs to the auto layout");
+    const before = log.bindGroups.length;
+    const untextured = new GLStream().shaderSource(11,
+        "uniform sampler2D deadTexture; vec4 deadSample(){ return texture2D(deadTexture,vec2(0.5)); } void main(){ gl_FragColor=vec4(1.0); }")
+        .call("COMPILE_SHADER", 11).call("LINK_PROGRAM", 1).call("USE_PROGRAM", 1);
+    immediateTriangle(untextured);run(executor, untextured);
+    const group = log.bindGroups.slice(before).find(group => group.descriptor.layout.index === 1);
+    assert.deepStrictEqual(group.descriptor.entries.map(entry => entry.binding), [1],
+        "uncalled matrix and sampling helpers must not add the state binding");
+    assert.ok(!log.bindGroups.slice(before).some(group => group.descriptor.layout.index === 2),
+        "uncalled sampling helpers must not add a texture group");
 });
 
 test("redefining a texture's format replaces its allocation even when dimensions stay equal", () => {
@@ -2406,9 +2416,8 @@ test("an ARB vertex program drives the fixed multitexture fragment stage", () =>
         "the parameter-free ARB program does not declare an unused binding");
     const uniformGroup = log.bindGroups.find(group =>
         group.descriptor.layout.index === 1);
-    assert.strictEqual(uniformGroup, undefined,
-        "the shared state declaration is used by neither selected entry point, " +
-        "so WebGPU omits group 1 from the automatic pipeline layout");
+    assert.deepStrictEqual(uniformGroup.descriptor.entries.map(entry => entry.binding), [0],
+        "the fixed fragment stage reads the typed sampler state block");
 });
 
 /*
