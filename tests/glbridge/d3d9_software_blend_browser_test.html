@@ -1,0 +1,118 @@
+<!doctype html><meta charset="utf-8"><title>D9WG software/GPU vertex blend differential</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async () => {
+    const P = D9WGProtocol, C = P.C, suite = D3D9Conformance, { cmd, rs, tss, cat, element } = suite.builders;
+    const gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, useShaderWorker: false });
+    try {
+        const [input, cpu] = await Promise.all([fetch("fixtures/d3d_software_blend_cases.json").then(r => r.json()),
+            fetch("fixtures/d3d_software_blend_cpu.json").then(r => r.json())]);
+        const fullPipeline = true;
+        const identity = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1], scenes = [];
+        const states = { lighting: 137, color_vertex: 141, specular_enable: 29, local_viewer: 142,
+            diffuse_source: 145, ambient_source: 147, specular_source: 146, emissive_source: 148, normalize_normals: 143 };
+        async function render(test, processed, index) {
+            const body = dev => {
+                const screen = processed && fullPipeline, positionBytes = screen ? 16 : 12;
+                const elements = [element(0, screen ? 3 : 2, screen ? 9 : 0)], stride = processed ? positionBytes + 32 : 76;
+                if (processed) elements.push(element(positionBytes, 3, 10, 0), element(positionBytes + 16, 3, 10, 1));
+                else {
+                    if (test.hasNormal) elements.push(element(12, 2, 3));
+                    if (test.colorMask & 1) elements.push(element(24, 3, 10, 0));
+                    if (test.colorMask & 2) elements.push(element(40, 3, 10, 1));
+                }
+                if (!processed && test.blend.mode !== 256) elements.push(element(56,test.blend.weightType === undefined ? test.blend.mode-1 : test.blend.weightType,1,0));
+                if (!processed && test.blend.indexed) elements.push(element(72,test.blend.indexType,2,0));
+                const vertices = new Float32Array(3 * stride / 4);
+                for (let vertex = 0; vertex < 3; vertex++) {
+                    const values = processed ? [...(fullPipeline ? processed.processed[vertex] : processed.vertices[vertex]).position, ...(fullPipeline ? processed.processed[vertex] : processed.vertices[vertex]).diffuse, ...(fullPipeline ? processed.processed[vertex] : processed.vertices[vertex]).specular]
+                        : [...test.positions[vertex], ...test.normal, ...test.color0, ...test.color1, ...test.blend.weights[vertex], 0];
+                    vertices.set(values, vertex * stride / 4);
+                    if (!processed && test.blend.weightColors) {
+                        const a=test.blend.weightColors[vertex];
+                        const word=test.blend.weightType===4 ? (a[3]<<24|a[0]<<16|a[1]<<8|a[2])>>>0 : (a[3]<<24|a[2]<<16|a[1]<<8|a[0])>>>0;
+                        new DataView(vertices.buffer).setUint32(vertex*stride+56,word,true);
+                    }
+                    if (!processed && test.blend.indexFloats)
+                        new DataView(vertices.buffer).setFloat32(vertex*stride+72,test.blend.indexFloats[vertex],true);
+                    else if (!processed && test.blend.indexed) {
+                        const a=test.blend.indices[vertex];
+                        const word=test.blend.indexType===4 ? (a[3]<<24|a[0]<<16|a[1]<<8|a[2])>>>0 : (a[3]<<24|a[2]<<16|a[1]<<8|a[0])>>>0;
+                        new DataView(vertices.buffer).setUint32(vertex*stride+72,word,true);
+                    }
+                }
+                const commands = [rs(dev, 7, 0), rs(dev, 22, 1), rs(dev, 28, 0), rs(dev, 143, 0), rs(dev, 139, test.ambient),
+                    tss(dev, 0, 1, 2), tss(dev, 0, 2, 0), tss(dev, 0, 4, 2), tss(dev, 0, 5, 0),
+                    cmd(P.OP.SET_TRANSFORM, P.encode("SetTransform", { device_handle: dev, state: 2, matrix: processed ? identity : test.view })),
+                    cmd(P.OP.SET_TRANSFORM, P.encode("SetTransform", { device_handle: dev, state: 256, matrix: processed ? identity : test.world })),
+                    cmd(P.OP.SET_MATERIAL, P.encode("SetMaterial", { device_handle: dev, ...test.material })),
+                    ...Object.entries(states).map(([name, state]) => rs(dev, state, processed && name === "lighting" ? 0 : test.flags[name])),
+                    cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, element_count: elements.length }), ...elements]))];
+                commands.push(rs(dev,151,processed ? 0 : test.blend.mode),rs(dev,167,processed ? 0 : test.blend.indexed));
+                if (!processed) for (const world of test.blend.worlds)
+                    commands.push(cmd(P.OP.SET_TRANSFORM,P.encode("SetTransform",{device_handle:dev,state:256+world.index,matrix:world.matrix})));
+                if (test.fog) {
+                    const bits = value => new Uint32Array(new Float32Array([value]).buffer)[0];
+                    commands.push(rs(dev,28,1),rs(dev,35,0),rs(dev,140,test.fog.mode),rs(dev,48,test.fog.range),
+                        rs(dev,36,bits(test.fog.start)),rs(dev,37,bits(test.fog.end)),rs(dev,38,bits(test.fog.density)),rs(dev,34,test.fog.color));
+                }
+                if (!processed) for (const light of test.lights) commands.push(
+                    cmd(P.OP.SET_LIGHT, P.encode("SetLight", { device_handle: dev, ...light })),
+                    cmd(P.OP.LIGHT_ENABLE, P.encode("LightEnable", { device_handle: dev, index: light.index, enable: 1 })));
+                commands.push(cmd(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: dev, primitive_type: 4,
+                    primitive_count: 1, stride, vertex_count: 3, vertex_bytes: vertices.byteLength }),
+                    [{ offsetField: "vertex_data_offset", data: new Uint8Array(vertices.buffer) }]));
+                return commands;
+            };
+            const batch = suite.caseBatch(index, { clear: 0xff101010, body });
+            await gpu.submit(batch.bytes, { writeGuestMemory() {} });
+            let reply;
+            await gpu.submit(suite.readbackBatch(index + 1, batch.dev, batch.rt), { writeGuestMemory(offset, bytes) {
+                if (offset === (16 << 20) - C.D9WG_RESPONSE_REGION_BYTES + C.D9WG_READBACK_REGION_OFFSET) reply = bytes.slice();
+            } });
+            await gpu.checkpointIdle();
+            if (!reply || reply.length !== 16 + 64 * 64 * 4 || new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status, true) !== C.D9WG_RESPONSE_OK)
+                throw new Error("Missing software/GPU differential readback");
+            return reply.subarray(16);
+        }
+        for (let index = 0; index < input.cases.length; index++) {
+            const test = input.cases[index], expected = cpu.cases[index];
+            if (test.name !== expected.name) throw new Error("Stale CPU fixture case list");
+            const direct = await render(test, null, index * 2), software = await render(test, expected, index * 2 + 1);
+            let differingPixels = 0, maximumByteError = 0, coveredPixels = 0;
+            for (let offset = 0; offset < direct.length; offset += 4) {
+                let error = 0;
+                for (let channel = 0; channel < 4; channel++) error = Math.max(error, Math.abs(direct[offset + channel] - software[offset + channel]));
+                maximumByteError = Math.max(maximumByteError, error);
+                if (error > input.tolerance.gpuByte) differingPixels++;
+                if (direct[offset] !== 16 || direct[offset + 1] !== 16 || direct[offset + 2] !== 16 || direct[offset + 3] !== 255) coveredPixels++;
+            }
+            scenes.push({ name: test.name, differingPixels, maximumByteError, coveredPixels });
+        }
+        await gpu.device.queue.onSubmittedWorkDone();
+        for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
+        const evidence = { tolerance: input.tolerance, sourceSha256: cpu.sourceSha256, scenes, stats: gpu.stats,
+            gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors };
+        await fetch("/__test_file?name=d9wg-software-blend.json", { method: "POST", body: JSON.stringify(evidence, null, 2) });
+        const failures = scenes.filter(scene => scene.differingPixels || scene.coveredPixels < 500);
+        if (failures.length || gpu.gpuErrors.errors.length || gpu.hostErrors.length || gpu.stats.commandsFailed || gpu.stats.droppedDraws)
+            throw new Error("Software/GPU lighting mismatch: " + JSON.stringify({ failures, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors }));
+        document.querySelector("#result").textContent = "PASS shared C/GPU " + (fullPipeline ? "vertex blending: " : "lighting: ") + scenes.length + " scenes, " + scenes.length * 4096 + " pixel pairs within 1 byte/channel";
+    } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
+})();
+</script>

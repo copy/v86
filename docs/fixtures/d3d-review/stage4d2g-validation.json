@@ -1,0 +1,679 @@
+{
+  "stage": "4D2g shared software vertex blending and native D3D9 FVF types",
+  "date": "2026-11-02",
+  "bundle": "6a4aa34fffcf89a78f47",
+  "guestSuites": 90,
+  "coreSuites": 133,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "realXpProbeExecutables": 3,
+  "retailAndDiagnosticDLLs": 6,
+  "xp": {
+    "status": "PASS",
+    "seconds": 130,
+    "batches": 6,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpMath": {
+    "status": "PASS",
+    "seconds": 147,
+    "batches": 0,
+    "releases": [],
+    "owners": [],
+    "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS all real XP math checks\r\n",
+    "logs": {
+      "MATH.TXT": "READY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS all real XP math checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "nativeAnalyticBlendCases": 100000,
+  "xpAnalyticBlendCases": 60000,
+  "x87ControlWords": [
+    "007f",
+    "027f",
+    "037f"
+  ],
+  "gpuScenes": 17,
+  "pixelPairsPerBackend": 69632,
+  "backends": {
+    "swift": {
+      "maximumByteError": 0,
+      "pixelsOutsideOneByteTolerance": 0,
+      "sha256": "5b59c9d265dc0d33ad2123a3bf8a7c4f680ab66d8cc383ae1d6e7bb1cb28a48f",
+      "scenes": [
+        {
+          "name": "blend_two_worlds",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_three_worlds_variable",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 659
+        },
+        {
+          "name": "blend_four_worlds",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_inverse_normal_two",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 658
+        },
+        {
+          "name": "blend_inverse_normal_four",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1011
+        },
+        {
+          "name": "blend_inverse_normal_normalized",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 658
+        },
+        {
+          "name": "blend_ubyte_indices",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_color_indices",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_palette_entry255_single",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_palette_entry255_normal",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 658
+        },
+        {
+          "name": "blend_view_translation",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_vertex_fog",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_palette_entry255_color_single",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_packed_color_weights",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_normalized_byte_weights",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_float1_index_expansion",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_inverse_normal_shear",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 772
+        }
+      ]
+    },
+    "metal": {
+      "maximumByteError": 0,
+      "pixelsOutsideOneByteTolerance": 0,
+      "sha256": "5b59c9d265dc0d33ad2123a3bf8a7c4f680ab66d8cc383ae1d6e7bb1cb28a48f",
+      "scenes": [
+        {
+          "name": "blend_two_worlds",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_three_worlds_variable",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 659
+        },
+        {
+          "name": "blend_four_worlds",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_inverse_normal_two",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 658
+        },
+        {
+          "name": "blend_inverse_normal_four",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1011
+        },
+        {
+          "name": "blend_inverse_normal_normalized",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 658
+        },
+        {
+          "name": "blend_ubyte_indices",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_color_indices",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_palette_entry255_single",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_palette_entry255_normal",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 658
+        },
+        {
+          "name": "blend_view_translation",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_vertex_fog",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_palette_entry255_color_single",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_packed_color_weights",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_normalized_byte_weights",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_float1_index_expansion",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 752
+        },
+        {
+          "name": "blend_inverse_normal_shear",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 772
+        }
+      ]
+    }
+  },
+  "nativeFVF": {
+    "pinnedWineRevision": "66caeb46",
+    "nativeDeclarationCases": 28,
+    "legacyComparisons": 1676256,
+    "correctedD3D9InputPatterns": 11172,
+    "corrections": [
+      "XYZB2 plus LASTBETA_D3DCOLOR has D3DCOLOR weights and UBYTE4 indices",
+      "bare XYZB5 expands its last beta as FLOAT1 indices",
+      "UBYTE4 index flag wins when both LASTBETA flags are set"
+    ]
+  },
+  "semanticMutations": {
+    "CVertex": {
+      "killed": 9,
+      "total": 9
+    },
+    "CBlend": {
+      "killed": 6,
+      "total": 6
+    },
+    "D3D9": {
+      "killed": 12,
+      "total": 12
+    },
+    "Lighting": {
+      "killed": 2,
+      "total": 2
+    },
+    "VertexFog": {
+      "killed": 1,
+      "total": 1
+    },
+    "TextureCoordinates": {
+      "killed": 1,
+      "total": 1
+    },
+    "VertexBlend": {
+      "killed": 3,
+      "total": 3
+    }
+  },
+  "checks": [
+    "one shared C kernel for 1-3 explicit weights plus implicit last weight",
+    "per-bone inverse-transpose world/view normals, weighted before optional normalization",
+    "UBYTE4 and D3DCOLOR component order; FLOAT1 indices default missing components",
+    "packed D3DCOLOR and UBYTE4N weights",
+    "indexed palette entry 255 and zero explicit weights",
+    "D3D7 world palette skips view/projection slots",
+    "lighting, fog and camera texture coordinates consume blended eye-space data",
+    "validate all palette indices before any destination writes",
+    "lazy per-call matrix cache with explicit frontend allocation errors"
+  ],
+  "gpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 316 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 316 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 316 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "nativeRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS 316 cases"
+    }
+  ],
+  "checkpointRuns": [
+    {
+      "status": "PASS",
+      "details": "",
+      "checks": 26
+    }
+  ],
+  "scope": "Fixed-function vertex blending. Tweening, clipping metadata, packed/multistream general vertex layouts, programmable processing and full Wine/game acceptance remain subsequent work.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/geometry-blending",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/indexed-vertex-blending",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3ddecltype",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/d3d9/vertexdeclaration.c",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/d3d9/tests/device.c"
+  ],
+  "sha256": {
+    "glbridge/runtime/d9wg_blend.c": "7e60257bdb6fc50ba2036fbda643663957c3229551aae572c7ad7681bc0e8ea5",
+    "glbridge/runtime/d9wg_blend.h": "17af9cbd2a0639ca06dab67728659d96c4eb4e8a97ff25513f294d98c8c1ae0f",
+    "glbridge/runtime/d9wg_vertex_windows.h": "8616a4697e74066b4f8419082a49285c39375da03d3d020bf2b54319a19cec41",
+    "glbridge/runtime/d9wg_vertex.c": "56c31bd23c846310807f77cb0a16ca973f5a736b1e8428de292600043edcca54",
+    "glbridge/runtime/d9wg_vertex.h": "67d0bf9ed5f00865fa731eb5cdf92bc7a2347efa15ae436fdea77a3a4987d42b",
+    "glbridge/runtime/d9wg_lighting.c": "fac7a1a6f8d26ef29bc30d411594816f8e7914ce9e1cac3d46df611e5ddfe8a1",
+    "glbridge/runtime/d9wg_lighting.h": "595682a2ac8ebe01aa79cf038a1dc9e44a67c5cb869b300656b07adc9b5ed2e6",
+    "glbridge/runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
+    "glbridge/tests/d9wg_fvf_test.js": "08a7900c93099816829f59007c7ceb03979efc39494ff8a5b7dec54d8f1adea2",
+    "glbridge/tests/fixtures/d9wg_fvf_wine_reference.json": "9c695b5f51811b62b65323d907b92e71a2c3497b8ef8a0fd9505e4f9956cb9a2",
+    "glbridge/tests/native/d9wg_blend_cases.h": "c2b4a5db3956aedba6adfcee7a43263e5b8fdf4695e0fff792b66414ebfa6ca2",
+    "glbridge/tests/d9wg_blend_test.js": "684ffc361569a7fc41a0ca1ece27901de42ceeb19d932b53212fa6706dfb7519",
+    "glbridge/tests/d9wg_blend_fixture_test.js": "a65613da1b2b2f17fd8a086ad9a143cc7ab3eb52b41aba8dcfe182f3ba8daeb4",
+    "glbridge/tests/d9wg_blend_mutation_test.js": "e087d9e7578708250580b1f17070e2a3f60045cc116173a7ebccaa7961a9ac2b",
+    "glbridge/sample/d3d_process_lighting_test.c": "a8c7ea68118b8c38c5c211c406457c32d4d25a3e81b72aca6563f44f886796d3",
+    "glbridge/d3d9proxy/d3d9.dll": "066ac7518192eb9f65e32d49f6ab9bb1d0d8871590911e7b72410248f34ef592",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "32453c270c90b8199d5cc3f65a3b3f3373f61fde17a2208fae3f74d38e755ebd",
+    "glbridge/d3d8proxy/d3d8.dll": "a63c3fcaef3911cfcb08329326ed14fca14796c7f201abe4825eaf9e9fa19087",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "235942cd5246a9c7d403d8c95c83efbeda0d44ee601cc6237814610c1c264dca",
+    "glbridge/ddrawproxy/ddraw.dll": "890ec14edf98dfaa15d13471307415fdd868281d4954d98d68e6af1c948a72d0",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "95397c2b072bf79bb9a4ef320746c035102370d2d61978c0aa1309936806eb9f"
+  },
+  "coreSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "4ac902e58e99b1b5e440a793088b5431aac02e58d581a0e40095f9c7b526e3d9",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "4ec2f46a260d3efa3465b8724760837a8ad41f510db9f0b94108e667f79937c9",
+    "tests/glbridge/d3d9_software_blend_browser_test.html": "e1816de203346a65bd7987a5ff6048cd3a80c63324f2ae5b35605537fe1c60e2",
+    "tests/glbridge/fixtures/d3d_software_blend_cases.json": "70ac415edb540d61286946e6c8bea24a9af71b943357a5800059a8032e4d618f",
+    "tests/glbridge/fixtures/d3d_software_blend_cpu.json": "0c2b42c120b23b4c64e689308ba580724ba363bcc71c9707107cb50a586b0863",
+    "tests/glbridge/d3d_math_xp.mjs": "12977b9a3ca0c0b8e8dff689565c9d189b93781a2ca114991a4035301aaab86e",
+    "tests/glbridge/d3d_process_lighting_xp.mjs": "e71f57170f8f09d7ad43215d6ed9b8960761a8ee715a95530083d2f9f1216edb",
+    "tests/glbridge/mutations.mjs": "015e6ffe1b43045432864fd3f6963939bbeaa6a839f81e7d1a14f7b4dd1c6643"
+  },
+  "logs": {
+    "d3d-stage4d2g-blend-audit.log": "59c0f035c98f0ef1211ca1fd049a291eabdafb30574505176efda2c5d4bd7856",
+    "d3d-stage4d2g-blend-baseline.log": "3fa63200ddaaaee737a3e14b213fe1e6f76f64f4592085329ea7cc83b7901820",
+    "d3d-stage4d2g-blend-fixture.log": "522ef62474230fc5e5a74b1c35040eed814ad8fd15f944f1707b07a573013674",
+    "d3d-stage4d2g-blend-metal.log": "f0a369612c4a520acc84b881ea04a5f2dfef1b2e2c9175b6619088035649a548",
+    "d3d-stage4d2g-blend-mutations.log": "6006b1f1bf4fe88a3744577b23cc90c9d8722e0563e28f2a58d793b1a874783f",
+    "d3d-stage4d2g-blend-swift.log": "f0a369612c4a520acc84b881ea04a5f2dfef1b2e2c9175b6619088035649a548",
+    "d3d-stage4d2g-blend.log": "4da5f8991408d606b01ff80e8904440e8d356ea74773b4284ffb46af82e527e9",
+    "d3d-stage4d2g-build-d3d8-initial.log": "0117ee5cc7dc2db7d92a69313402064b1a89f4cb94d2f236781a1b993b6f3d37",
+    "d3d-stage4d2g-build-d3d8.log": "b83d92b721df9bbe26264d3909f7bedc83430cb03237352cdbcd90b9412b2de0",
+    "d3d-stage4d2g-build-d3d9-initial.log": "a4407f2a53187b52944716a098b7d1fdc98ba0170e1a15096d4c7432d7caf41e",
+    "d3d-stage4d2g-build-d3d9.log": "23a3ded7513144a30ec3074a1ccd6a5ff7572e63d49f267d1e366c2891bda3be",
+    "d3d-stage4d2g-build-ddraw-initial.log": "30bc69756229b9e8c8a04c458d700680b0215025a4fd7d6cd029d367b00c1afc",
+    "d3d-stage4d2g-build-ddraw.log": "b0d9f57f18e6142f1ff31be579373931518b5977933bcf59327a7b6a7a37bcaa",
+    "d3d-stage4d2g-bundle.log": "9937b948db16728773389b782a6175a15c418e4efcab9033b2dbf4a4e2ebf898",
+    "d3d-stage4d2g-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage4d2g-core.log": "d9a322e4b7b67d966b95c41f076893d05d375617aa6c1d2e26f84e9d92e02535",
+    "d3d-stage4d2g-d3d9-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage4d2g-d3dblend-mutations.log": "fe3adea52f05bdfb46672075639728ffe6996af3a3ac6d82fa9256bdf8215428",
+    "d3d-stage4d2g-d3dlighting-mutations.log": "db28bdab8bbf1f5e0677ecaed8225678274e087bfb586a1367bc77b38f989001",
+    "d3d-stage4d2g-d3dtexcoords-mutations.log": "791912ad1c0ac9e8526b6d2fd0993821bea1b0289e7a676c3c9714468cfdb1d5",
+    "d3d-stage4d2g-d3dvertexfog-mutations.log": "61673fde52298fa3ccbb71c2a51702050b2a456006fb6be7a336993935ad1619",
+    "d3d-stage4d2g-executor.log": "d99413f3b6020430b32a005941f329d5c30aa1972f9dc5492719aff4b9ca924c",
+    "d3d-stage4d2g-fvf.log": "5f2834db80c5efc98fe2efc4403718d1ea26230bd0450094127f022f02f3a24c",
+    "d3d-stage4d2g-gpu.log": "1a41302c1a11b8a9dd2e619078b135dad5b3932d2ada76e8c6cc635a2ab9cfc1",
+    "d3d-stage4d2g-guest.log": "010a7d5567a78f38b6dbfea71b8d72d3300a564fb80ab7773ee8c7d103a7b1e8",
+    "d3d-stage4d2g-integration.log": "fe1e3455ad12bb99c9a959a04b588f62e6fae0cca4a7b9004cd7073c8771a39b",
+    "d3d-stage4d2g-lighting-unit.log": "9bd75c34fd73ba29de18a0c164012eed3d424af97e7a5753d9608fe2c3ed58ea",
+    "d3d-stage4d2g-math-xp.log": "9379c9643d38067376951eecee11a49d33c063e09701e77ab98fc0134382436c",
+    "d3d-stage4d2g-native.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage4d2g-packed-weight-baseline.log": "a850abfa7c99de056018fda41440bdeabc52bf209f702cf8031aae0a7f9710ec",
+    "d3d-stage4d2g-sync.log": "26dedc754f67febe64e33102a88ad7938e7bfcec8a585a3ee3d7e3dbfe371f20",
+    "d3d-stage4d2g-texcoord.log": "8ed92cebc562eb3f8cc637b4840257d4c9775d06d15a6c0c1d9c977f12c02121",
+    "d3d-stage4d2g-texture-fixture.log": "05070d10cea7996da44cba064fb2ae0567984d04d77bf32b07186b7744ddc609",
+    "d3d-stage4d2g-tnl-xp.log": "dd2171003b73c998acddf57f4c2d3140e6219e533e7cf9e0b9a1cb48114783ef",
+    "d3d-stage4d2g-vertex-mutations.log": "8b0532833edd187edd0cb3432456959cbf374b7f2aea64d2bbdb65edf0cc280e",
+    "d3d-stage4d2g-vertex.log": "46b2359d12e3c019532bb43040982f026858cabed9cc16349b0dbd0b763af1e0",
+    "d3d-stage4d2g-war3-candidate-1.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-candidate-2.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-candidate-3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-candidate-4.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-candidate-5.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-control-1.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-control-2.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-control-3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-control-4.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-control-5.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-control.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3-repeat1.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2g-war3.log": "b0cebd971504de99c63df1ebdbfdc2b91a1a16711f42300275341c17f3103865"
+  },
+  "counterfactuals": {
+    "originalInverseNormalAndIndexOrder": {
+      "log": "d3d-stage4d2g-blend-baseline.log",
+      "differingScenes": [
+        {
+          "name": "two inverse normal matrices",
+          "pixels": 658,
+          "maxByteError": 223
+        },
+        {
+          "name": "four inverse normal matrices",
+          "pixels": 1011,
+          "maxByteError": 247
+        },
+        {
+          "name": "D3DCOLOR indices",
+          "pixels": 516,
+          "maxByteError": 239
+        },
+        {
+          "name": "palette255 inverse normal",
+          "pixels": 658,
+          "maxByteError": 223
+        }
+      ]
+    },
+    "packedD3DCOLORWeights": {
+      "log": "d3d-stage4d2g-packed-weight-baseline.log",
+      "pixels": 356,
+      "maxByteError": 239
+    }
+  },
+  "warcraft3": {
+    "mode": "frozen original UNORM/uploads/FFP counterfactual; original 25-run finite policy unchanged",
+    "initialRun": {
+      "status": "FAIL",
+      "stableMismatches": 3,
+      "outsideObservedValues": 0,
+      "log": "d3d-stage4d2g-war3.log"
+    },
+    "candidateRepeats": [
+      {
+        "status": "PASS",
+        "details": "PASS frozen policy warcraft3 game READBACK: 906944 bytes, 479 packets"
+      }
+    ],
+    "pairedRuns": [
+      {
+        "mode": "control",
+        "run": 1,
+        "differingBytes": 3,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "5f9a136eed4304ccc6b0de51348c7d73f5d4c1a5337cede58debdfa15f7a8f72"
+      },
+      {
+        "mode": "control",
+        "run": 2,
+        "differingBytes": 0,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "fa7cbbe77b691ec0a17d8d86eb7affbbcae904670318338743670500e235e421"
+      },
+      {
+        "mode": "control",
+        "run": 3,
+        "differingBytes": 15,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "b9a6ecb0cbed802ba79e4fa6ed382de73cd6e5c62b7f40fc779b4165e917ae0b"
+      },
+      {
+        "mode": "control",
+        "run": 4,
+        "differingBytes": 0,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "6e7bcad02c3509da49e0cb9134e26e8c8745997c369fd27a6528dc57594bcc43"
+      },
+      {
+        "mode": "control",
+        "run": 5,
+        "differingBytes": 0,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "a4133b96eaa446ed13f2fb9b098f854630c6ba08cc5cb429b630da2ab3a3f6d7"
+      },
+      {
+        "mode": "candidate",
+        "run": 1,
+        "differingBytes": 0,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "b38e0ed3d0060092a4d3d6dc7886058e34c43f0b0d194e22ed92a8e3478e4443"
+      },
+      {
+        "mode": "candidate",
+        "run": 2,
+        "differingBytes": 12,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "1b87fc9d7d9806cafdda6a793d8b56d5e771e3a1274ab50d764ac8657ad89c85"
+      },
+      {
+        "mode": "candidate",
+        "run": 3,
+        "differingBytes": 3,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "69527adfbc3d13935eacce96cbdc0ba61403eec2b542821771e041e9780f7ca3"
+      },
+      {
+        "mode": "candidate",
+        "run": 4,
+        "differingBytes": 0,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "11910ff249937ac025942bf526381a83dd87094ea2289002d1847f159446a3cd"
+      },
+      {
+        "mode": "candidate",
+        "run": 5,
+        "differingBytes": 0,
+        "pixelPolicy": {
+          "stableMismatches": 0,
+          "outsideObservedValues": 0,
+          "passed": true
+        },
+        "evidenceSha256": "6289ef7ac806a939301472f4f24ddb30358c2562ce5153e9c13508888ce1ca05"
+      }
+    ],
+    "limitation": "Initial three out-of-policy pixels did not reproduce. Both revisions subsequently passed five paired runs, plus one extra control and candidate run. The first failure is retained; its cause is unproven and no tolerance or policy was changed."
+  }
+}

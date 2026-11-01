@@ -5291,10 +5291,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 floats.set(multiply4x4(view,
                     state.transforms.get(D3DTS_PROJECTION) || IDENTITY4x4),
                     at("view_projection"));
-                const base = at("blend_worlds");
+                const base = at("blend_worlds"), normalBase = at("blend_normals");
                 for (let slot = 0; slot < blend.matrixSlots; ++slot) {
-                    floats.set(state.transforms.get(D3DTS_WORLD + slot) ||
-                        IDENTITY4x4, base + slot * 16);
+                    const world = state.transforms.get(D3DTS_WORLD + slot) || IDENTITY4x4;
+                    floats.set(world, base + slot * 16);
+                    if (normalBase >= 0) floats.set(inverseTranspose3x3(world), normalBase + slot * 16);
                 }
             } else {
                 floats.set(screenSpace ? IDENTITY4x4 : this.wvp(state),

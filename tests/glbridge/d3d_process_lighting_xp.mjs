@@ -37,6 +37,7 @@ const result = await run_xp_ram_probe({ root, out, files,
             assert(text.includes("PASS shared vertex copy, bounds and layout checks"));
             assert(text.includes("PASS shared vertex fog checks"));
             assert(text.includes("PASS shared texture coordinate checks"));
+            assert(text.includes("PASS shared vertex blend checks"));
         }
         assert.equal(result.releases.length, 3);assert.equal(new Set(result.releases).size, 3);
         assert(result.releases.every(owner => owner > 0));assert.equal(result.owners.length, 3);

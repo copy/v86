@@ -88,6 +88,15 @@ const MUTATIONS = {
             'if (stage.transformCount > 0 && signature.positionType !== "screen") {',
             'if (stage.transformCount > 1 && signature.positionType !== "screen") {'],
     ] },
+    d3dblend: { floor: 1, node: [], pages: ["d3d9_software_blend_browser_test.html"], list: [
+        ["normals use world instead of inverse transpose", D + "d9wg_ffp.js",
+            '"        let d9_normal_bone = uniforms.blend_normals[" + index + "];\\n" +',
+            '"        let d9_normal_bone = uniforms.blend_worlds[" + index + "];\\n" +'],
+        ["D3DCOLOR indices use memory byte order", D + "d9wg_ffp.js",
+            '(signature.blendIndicesType === 4 ? ".bgra" : "")', '""'],
+        ["D3DCOLOR weights use memory byte order", D + "d9wg_ffp.js",
+            '(signature.blendWeightType === 4 ? ".bgra" : "")', '""'],
+    ] },
     glresidency: { floor: 1, node: ["gl_shadow_textures_test.js"], pages: [], list: [
         ["unused texture names are resident", G + "gl_shadow_textures.js", "checkName && (!texture || !s.current.group.textures.get(texture)?.target)", "false"],
         ["generated names are texture objects before binding", G + "gl_shadow_textures.js", "!s.current.group.textures.get(texture)?.target", "!s.current.group.textures.has(texture)"],

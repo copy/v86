@@ -222,6 +222,10 @@
                 fields.push({ name: "blend_worlds",
                     type: "array<mat4x4<f32>, " + blend.matrixSlots + ">",
                     bytes: 64 * blend.matrixSlots });
+            if (blend && signature.hasNormal && signature.needsViewSpace)
+                fields.push({ name: "blend_normals",
+                    type: "array<mat4x4<f32>, " + blend.matrixSlots + ">",
+                    bytes: 64 * blend.matrixSlots });
             // D3D9 fixed-function clip-plane equations are in world space. The
             // ordinary position path only needs a pre-multiplied WVP matrix, so
             // retain the world matrix separately when clipping needs that space.
@@ -494,20 +498,19 @@
             // what keeps the weights a partition of unity even when the exported
             // ones do not quite sum to 1.
             //
-            // Normals ride the same blend through the same matrices, with no
-            // per-matrix inverse transpose. That is D3D9's behaviour rather than an
-            // approximation of it: a blend of two rotations is shorter than either,
-            // which is the whole reason D3DRS_NORMALIZENORMALS exists, and it is
-            // honoured below where an unblended draw honours it.
+            // Each normal uses its world's inverse transpose before the
+            // weighted sum. View-space inverse transpose and optional
+            // normalization are applied after blending.
             const blendedPosition = blend ? "d9_blend_position" : position;
             let blendBody = "";
             if (blend) {
                 const slots = blend.matrixCount;
                 const weights = [];
                 for (let slot = 0; slot < slots - 1; ++slot)
-                    weights.push("in" + FF_LOCATION_BLENDWEIGHT + "." + "xyzw"[slot]);
+                    weights.push("in" + FF_LOCATION_BLENDWEIGHT +
+                        (signature.blendWeightType === 4 ? ".bgra" : "") + "." + "xyzw"[slot]);
                 blendBody = "    var d9_blend_position = vec4<f32>(0.0);\n";
-                if (signature.hasNormal)
+                if (signature.hasNormal && signature.needsViewSpace)
                     blendBody += "    var d9_blend_normal = vec3<f32>(0.0);\n";
                 if (weights.length)
                     blendBody += "    let d9_blend_last = 1.0 - (" +
@@ -516,7 +519,8 @@
                     // A palette index out of range is the app's bug, but WGSL gives
                     // no defined value for an out-of-bounds uniform read, so clamp:
                     // one wrong bone beats an indeterminate matrix.
-                    const raw = "in" + FF_LOCATION_BLENDINDICES;
+                    const raw = "in" + FF_LOCATION_BLENDINDICES +
+                        (signature.blendIndicesType === 4 ? ".bgra" : "");
                     let unsigned;
                     if (blend.indexScalar === "u32")
                         unsigned = raw;
@@ -541,10 +545,11 @@
                         "        let d9_weight = " + weight + ";\n" +
                         "        d9_blend_position = d9_blend_position +\n" +
                         "            (d9_bone * " + position + ") * d9_weight;\n";
-                    if (signature.hasNormal)
+                    if (signature.hasNormal && signature.needsViewSpace)
                         blendBody +=
+                        "        let d9_normal_bone = uniforms.blend_normals[" + index + "];\n" +
                         "        d9_blend_normal = d9_blend_normal +\n" +
-                        "            (d9_bone * vec4<f32>(in" + FF_LOCATION_NORMAL +
+                        "            (d9_normal_bone * vec4<f32>(in" + FF_LOCATION_NORMAL +
                             ".xyz, 0.0)).xyz * d9_weight;\n";
                     blendBody += "    }\n";
                 }
