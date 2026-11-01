@@ -975,6 +975,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **316/316 场景通过 SwiftShader 与 Metal**；三种预算配置、130 组核心（严格 corpus）、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。固定旧语义 Warcraft III 对照保持原冻结策略通过，未更新黄金图。
 > - 运行包 `fa5b6b738c3dea7ec1a8`；见 [stage3f4-validation.json](fixtures/d3d-review/stage3f4-validation.json)。继续 draw-recorder / frame-replayer、呈现和 debug 诊断拆分，并继续实测/优化 CPU；整个阶段 3 及后续客体阶段尚未完成。
 
+> **阶段 3G1（2026-11-02）：draw-recorder / frame-replayer 拆分。**
+>
+> - `d9wg_draw_recorder.js` 接管 4 个帧/绘制录制方法，直接安装原型，不增加每 draw 转发层；`d9wg_frame_replayer.js` 提供每执行器一个 `FrameReplayer`，接管 finish/replay 的 GPU 编码、校验和提交，owner 状态仍由执行器持有。主文件移出约 900 行。
+> - 4 个录制函数语法树原样保持；2 个重放函数仅把原 lexical this 转为显式 executor 引用，移除该引用声明后语法树等同，且无嵌套动态 this。方法描述符保持原语义；见 [record-replay-extraction.json](fixtures/d3d-review/record-replay-extraction.json)。
+> - **316/316 场景通过 SwiftShader/Metal**，三种预算配置、130 组核心、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过；固定旧语义的 Warcraft III 对照满足原冻结策略。模板内容和渲染逻辑保持不变。
+> - 运行包 `8f5752f3a81661c9cf26`；见 [stage3g1-validation.json](fixtures/d3d-review/stage3g1-validation.json)。3G2 继续把提交前的帧统计扫描改为录制期摘要，随后继续 CPU 优化、present 和 diagnostics；未关闭整个审查。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

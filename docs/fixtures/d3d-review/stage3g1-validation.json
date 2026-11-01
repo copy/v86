@@ -1,0 +1,36 @@
+{
+  "stage": "3G1 draw recorder and frame replayer extraction",
+  "date": "2026-11-02",
+  "coreSuites": 130,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "8f5752f3a81661c9cf26",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "recorderAstIdenticalMethods": 4,
+  "replayerAstEquivalentMethods": 2,
+  "ownerLowering": "const executor = this.executor; original lexical this references become executor",
+  "noDynamicNestedThis": true,
+  "scope": "Four recording methods install directly on the executor prototype. One FrameReplayer instance owns finishFrame/replayFrame dispatch per executor; state and resources remain on the active owner. Approximately 900 lines moved out of the executor. No per-draw forwarding layer or change to frame metadata yet.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; previously documented candidate differences remain.",
+  "logs": {
+    "d3d-stage3g1-core.log": "57b1ef776991804850a50d81ebf600c72b06186d918765698d39bed17a8983ed",
+    "d3d-stage3g1-gpu.log": "1e4843d711b10afb180e54109b9067baa603257fecd22a4a767713efccc3c068",
+    "d3d-stage3g1-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3g1-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3g1-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3g1-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3g1-integration.log": "599f5e36faea6496e7839f5efb334681bb7080248cae27ca3f3e326c71a2f520"
+  },
+  "next": "Record frame summary flags instead of scanning pending operations, then optimize hot-path CPU, present and diagnostics before guest/shader acceptance stages."
+}

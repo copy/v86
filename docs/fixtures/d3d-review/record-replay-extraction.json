@@ -1,0 +1,16 @@
+{
+  "baseline": "24778a21",
+  "recorderAstIdentical": [
+    "ensureFrame",
+    "discardFrame",
+    "recordDraw",
+    "recordDrawWithStride"
+  ],
+  "replayerAstIdenticalAfterOwnerLowering": [
+    "finishFrame",
+    "replayFrame"
+  ],
+  "ownerLowering": "const executor = this.executor; original lexical this references become executor",
+  "noDynamicNestedThis": true,
+  "recorderPrototypeDescriptorsPreserved": true
+}
