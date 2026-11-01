@@ -1094,6 +1094,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 设备存档 v4 保存多个 arena 和逻辑 owner，恢复时更新写租约；继续读取 v2/v3，错误/重叠存档不替换现有映射。真实 PCI/virtqueue/物理内存测试覆盖上述路径。
 > - 133 组宿主测试、26 项浏览器检查点检查及两项站点集成通过；运行包 `de4f6973b6863625750c`。见 [stage4c2-validation.json](fixtures/d3d-review/stage4c2-validation.json)。继续 XP 驱动接入与真实多进程验收。
 
+> **阶段 4C3（2026-11-02）：XP 驱动多进程 arena 与 runtime 协商完成。**
+>
+> - 驱动为各进程维护 DirectX arena，多个 file object 共享引用；旧 OpenGL 使用独立 owner 0。共用 runtime 先请求新增 MAP_D3D_BUFFER，仅在不支持时退回旧 IOCTL，busy/OOM 不会静默回退。
+> - CLEANUP 释放映射引用，CLOSE 幂等清理；进程退出通知在地址空间删除前撤销映射，跨进程复制句柄的最后清理只在原进程仍存活时附着并解除映射。内核映射的 SEH 边界使用 ntoskrnl 的 XP handler，不引入 CRT；注入真实分配异常后，下一次映射继续成功。
+> - **真实 XP：** 两个各持有 D3D9/D3D8/DDraw 的进程与旧 GL arena 同时提交；把 A 的设备句柄复制到 B，再终止 A。A 在 B 关闭残留句柄前即被回收，B 与旧 GL 继续提交；B 还关闭来自父进程的最后 GL 句柄。正常 114 秒、异常注入含启动重试 299 秒，各 7 批、3 次独立回收。当前 DLL 对旧驱动两种卸载顺序也通过，131 秒、4 批、2 次回收；磁盘写入只在 RAM overlay。
+> - 77 组客体测试、35 个冒烟 EXE、六个零售/诊断 DLL 与 XP SYS 严格构建、两项站点集成通过。SYS 只导入 HAL/ntoskrnl；实际 C harness 覆盖分配失败回滚、引用、退出及外国进程清理。详见 [stage4c3-validation.json](fixtures/d3d-review/stage4c3-validation.json)。该 XP 验收不涉及绘制，完整 Wine/API/图像及游戏验收继续保留。
+> - 继续共用 FVF、软件 T&L、状态默认表、窗口/格式/caps，以及 D3D8 包装 D3D9 等余项。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

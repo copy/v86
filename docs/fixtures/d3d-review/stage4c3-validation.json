@@ -1,0 +1,213 @@
+{
+  "stage": "4C3 XP driver per-process arenas and common runtime negotiation",
+  "date": "2026-11-02",
+  "bundle": "de4f6973b6863625750c",
+  "guestSuites": 77,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "driverImports": [
+    "HAL.dll",
+    "ntoskrnl.exe"
+  ],
+  "guestDLLImports": [
+    "GDI32.dll",
+    "KERNEL32.dll",
+    "USER32.dll"
+  ],
+  "checks": [
+    "per-process DirectX arena shared by file references",
+    "legacy GL owner zero coexists with two DirectX process owners",
+    "CLEANUP releases file mapping references; CLOSE is idempotent",
+    "foreign last-handle cleanup attaches to original live process",
+    "process exit revokes mappings while a duplicate survives in B",
+    "late cleanup never attaches to a deleted address space",
+    "queue reset causes per-owner registration renewal",
+    "all allocation failures unwind mappings/MDLs/process references",
+    "optional MAP_D3D_BUFFER fallback only on unsupported operation",
+    "real UserMode mapping exception caught through ntoskrnl SEH; retry succeeds"
+  ],
+  "xp": {
+    "current": {
+      "status": "PASS",
+      "seconds": 114,
+      "batches": 7,
+      "releases": [
+        1,
+        0,
+        2
+      ],
+      "ownerBatches": [
+        0,
+        2,
+        1,
+        0,
+        0,
+        2,
+        2
+      ],
+      "timeline": [
+        [
+          "batch",
+          0
+        ],
+        [
+          "batch",
+          2
+        ],
+        [
+          "batch",
+          1
+        ],
+        [
+          "batch",
+          0
+        ],
+        [
+          "release",
+          1
+        ],
+        [
+          "batch",
+          0
+        ],
+        [
+          "release",
+          0
+        ],
+        [
+          "batch",
+          2
+        ],
+        [
+          "batch",
+          2
+        ],
+        [
+          "release",
+          2
+        ]
+      ],
+      "mappingExceptionInjected": false,
+      "text": "READY real XP multiple process owner probe\r\nPASS two simultaneous DirectX process owners plus legacy GL arena\r\nPASS legacy GL continues after peer kill\r\nPASS survivor unloads creator and remaining frontends\r\nPASS all real XP multiple process owner checks\r\n",
+      "diskWrites": "RAM sector overlay only",
+      "rendering": "not exercised"
+    },
+    "mappingException": {
+      "status": "PASS",
+      "seconds": 299,
+      "batches": 7,
+      "releases": [
+        2,
+        0,
+        1
+      ],
+      "ownerBatches": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        1,
+        1
+      ],
+      "timeline": [
+        [
+          "batch",
+          0
+        ],
+        [
+          "batch",
+          1
+        ],
+        [
+          "batch",
+          2
+        ],
+        [
+          "batch",
+          0
+        ],
+        [
+          "release",
+          2
+        ],
+        [
+          "batch",
+          0
+        ],
+        [
+          "release",
+          0
+        ],
+        [
+          "batch",
+          1
+        ],
+        [
+          "batch",
+          1
+        ],
+        [
+          "release",
+          1
+        ]
+      ],
+      "mappingExceptionInjected": true,
+      "text": "READY real XP multiple process owner probe\r\nPASS real kernel mapping exception caught\r\nPASS two simultaneous DirectX process owners plus legacy GL arena\r\nPASS legacy GL continues after peer kill\r\nPASS survivor unloads creator and remaining frontends\r\nPASS all real XP multiple process owner checks\r\n",
+      "diskWrites": "RAM sector overlay only",
+      "rendering": "not exercised"
+    },
+    "oldDriverCompatibility": {
+      "status": "PASS",
+      "seconds": 131,
+      "batches": 4,
+      "releases": 2,
+      "text": "READY real XP process owner probe\r\nPASS D3D9 creator unload order\r\nPASS DirectDraw creator unload order\r\nPASS all real XP frontend owner checks\r\n",
+      "diskWrites": "RAM sector overlay only",
+      "rendering": "not exercised"
+    }
+  },
+  "rendering": "not exercised; actual host pixel isolation separately covered by 4C1",
+  "persistentGuestDiskWrites": false,
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mj-cleanup",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/nc-ntddk-pcreate_process_notify_routine",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-mmunmaplockedpages",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-mmmaplockedpagesspecifycache"
+  ],
+  "sha256": {
+    "glbridge/v86gl_driver/v86gl_driver.c": "973e5ac50d3d99866dfe08fd5598ef18915c0be126d93bb77e33ba02a66e4d44",
+    "glbridge/v86gl_driver/virtio_transport.h": "20d4ca3ce4614a250522d42f424fa6974ae7101ef9333e4add2e17ea238bab15",
+    "glbridge/v86gl_driver/build.sh": "fdd8f28eae79d8c040078d1ed0a3cbfa2c49a8fc4238795229d3ee9549824b34",
+    "glbridge/v86gl_driver/map_user.c": "5435e4269b7329f81e4f32a28cec6b520d9b211ddef7476c32779ea653b8236e",
+    "glbridge/runtime/d9wg_transport.c": "d16d498e5b75a3d045607e6a71050c1e9443d47bcdb6cb4710ca053ee5154027",
+    "glbridge/openglproxy/v86gl_ioctl.h": "b9132b0ec1938414f1ad03805dc94956b2201636c10ba123d24b7ed1f83a879e",
+    "glbridge/tests/v86gl_driver_owners_test.js": "d11ee0819af950042bdc404c4c8eb3d456917448f300afe1e3d1abc3f25d46e6",
+    "glbridge/tests/native/v86gl_kernel.h": "b24bf725608004c3f14eb883cad46d62f09f66646d4efafddf7d26766cc00782",
+    "glbridge/tests/d9wg_transport_test.js": "47c078608a92c1f4704db26a6d748a4ca451f5c622675462b71992db20862821",
+    "glbridge/tests/gl_transport_diagnostics_abi_test.js": "fca980b7fceb6cd982992a6fe4ed9d79f1d278971aaf5c017b16f0aff669a4c0",
+    "glbridge/sample/d3d_process_owner_test.c": "a6a3395b14785914adc4903518afda1c776209ce0c7ffe7953f623dd8a491075",
+    "glbridge/sample/d3d_multi_owner_test.c": "3c6cc7f11572070f15c910c094f9c12f9c4ef2e5b348b4fbfc18258453bc8a3a",
+    "glbridge/v86gl_driver/v86gl.sys": "d241f9517f4811933b89b361a5e0329cc2e80226b474c6d55e9ab9140b8ee7b9",
+    "glbridge/v86gl_driver/v86gl-virtio.sys": "d241f9517f4811933b89b361a5e0329cc2e80226b474c6d55e9ab9140b8ee7b9",
+    "glbridge/d3d9proxy/d3d9.dll": "2e3805707619fa507870a0babe795833484b57c2211cf1e17ce9e6ab33a43123",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "c98287612389c40101bcef50fa9c428015950e8bf6aff1a732d9b4e4d32cec45",
+    "glbridge/d3d8proxy/d3d8.dll": "4e2c1609f2277590cadb3fb252d4ad03739b03ee458239de460418bb3689618a",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "0f29510ec656711beee8ceca499dca2b92e3dfd011aac1223d38821918431c9c",
+    "glbridge/ddrawproxy/ddraw.dll": "01154838ea6a82bdbe1db695140160d92baaf8d449ee5eb250864ece07e18af9",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "5e0a7b2999b4b3d90745ab42f9d7bad9e14359f5c78db1c98b99d6969c0227a1"
+  },
+  "hostHarnessSha256": "ff1cc6a86e9b365a6698f20b6f9840234b1dad8492fd468fe2da804a8736ffb3",
+  "logs": {
+    "guest-final": "d6ccd03c06046039315686d6f2c0e3e657bb55f6e7257c0f3ca3c827b57a41a8",
+    "transport": "e0e533a304551cf76ea85fe4c8b23e035157c1dda7705d3b20f044becb90cf2c",
+    "transport-diag": "290dae1a7d6014481c748769fdb3f499bb0d5162288f9f141d52fd6b20cf347d",
+    "transport-mutations": "05ceed5335baea313ae28d9272c796b34225ad4e086d21e962aea4743e9466c7",
+    "driver-native": "0c4aa90eb0f513aee9ead8a61ff576affc52eab2b7bc17de5a077b335a44fe20",
+    "xp-final": "b057085788d9a13fdd0287a6473e114a0dc1064f0887faf1c13c31bdaf48aa61",
+    "xp-fault-final": "ad50de40a73e0bf66145d0c9b303205f10cb3f1ca810ff47e2ffa0359b3d2fe7",
+    "xp-legacy": "41b615e843cf11d4534776a0416d6dce49ca067ae296e3db92b96926b147c99f",
+    "integration": "758811db84dae03204ea8e29bdcda057a3fc8d5b40dd76da67f6ef24aa73a864"
+  }
+}

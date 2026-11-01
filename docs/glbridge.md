@@ -92,6 +92,24 @@ sc qc v86gl
 sc start v86gl
 ```
 
+The DirectX runtime first requests the optional MAP_D3D_BUFFER IOCTL (0x808),
+falling back to the existing MAP_BUFFER only when the driver reports an
+unsupported operation. Busy/allocation errors stay visible. The updated driver
+shares one DirectX arena per process and gives legacy OpenGL its own owner-zero
+arena. File objects hold mapping references; CLEANUP releases the last one and
+CLOSE finishes idempotent file-context cleanup. A process-exit notification revokes user
+mappings before address-space deletion, including when a duplicated device
+handle remains in another process. Foreign cleanup attaches to the original
+live process before unmapping.
+
+Driver builds require Clang for the small i686 SEH mapping boundary, plus the
+existing MinGW tools. The resulting driver imports only HAL/ntoskrnl, including
+XP's `_except_handler3`. A user-mapping allocation exception returns an ordinary
+allocation failure; the following map can retry. `d3d_multi_owner_xp.mjs` builds
+and loads the current driver/DLLs in RAM sector overlays and tests concurrent
+owners, process kill, surviving duplicated handles and foreign final cleanup;
+`--map-exception` adds an allocation exception to that same SEH boundary.
+
 The current build scripts target XP; Windows 2000 compatibility is unverified.
 
 ## 4. Install the graphics DLLs
