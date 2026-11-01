@@ -362,7 +362,6 @@ PCI.prototype.pci_write16 = function(address, written)
     var space = new Uint16Array(device_space.buffer);
     var device = this.devices[bdf];
 
-    // Keep the remainder of the function unchanged.
     if(!space)
     {
         return;
