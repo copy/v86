@@ -996,6 +996,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **316/316 场景通过 SwiftShader/Metal**；三种预算配置、130 组核心、overlay/隔离、完整恢复、12/12 变异和两项站点集成通过。固定旧语义 Warcraft III 对照满足未改动的原冻结策略。
 > - 运行包 `426ba2aeabb3f85b3c2f`；见 [stage3h1-validation.json](fixtures/d3d-review/stage3h1-validation.json)。3H2 接着处理交换链销毁/替换之前的排队呈现和无设备空呈现，再继续 diagnostics 与 CPU 性能验证。
 
+> **阶段 3H2（2026-11-02）：交换链排队呈现生命周期修复，present 本轮完成。**
+>
+> - 销毁或替换交换链句柄前，先提交已接受的该链呈现，再关闭 context；替换也会关闭旧 context。会话退出仍按原策略丢弃未提交帧。无设备的空 Present 不再把画布改成 0×0，也不获取无 owner 的图像。
+> - 修复前，两项严格 context 生命周期测试失败，真实 GPU 的最后图像丢失；修复后，新增 **192 个 scanout 像素及原生画布 context 退休检查**在 SwiftShader/Metal 均通过，执行器 175 项通过。
+> - 130 组严格核心、316/316 一致性场景（两种 GPU，三种预算）、overlay/隔离、完整恢复、12/12 变异、两项站点集成及原冻结 Warcraft III 旧语义对照通过。
+> - 运行包 `26ad13c413cf4e98789a`；见 [stage3h2-validation.json](fixtures/d3d-review/stage3h2-validation.json)。继续仅 debug 加载的 diagnostics，随后完成阶段 3 的 CPU 优化；客体、着色器差分与游戏验收仍待后续阶段。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

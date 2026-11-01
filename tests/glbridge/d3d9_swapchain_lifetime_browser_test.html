@@ -1,0 +1,84 @@
+<!doctype html><meta charset="utf-8"><title>D9WG swap-chain presentation lifetime</title><canvas width="8" height="8"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async () => {
+    const P = D9WGProtocol, contexts = [];
+    let nativeCloses = 0;
+    const gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, shaderWorkerUrl: null,
+        createSwapChainCanvas(surface) {
+            if (surface.swapChain === 30) {
+                const native = new OffscreenCanvas(8, 8), actual = native.getContext("webgpu");
+                return { width: 8, height: 8, getContext: () => ({
+                    configure: descriptor => actual.configure(descriptor),
+                    unconfigure() { nativeCloses++;actual.unconfigure(); },
+                    getCurrentTexture: () => actual.getCurrentTexture(),
+                }) };
+            }
+            const canvas = { width: surface.width, height: surface.height }, entry = { configured: false, closes: 0 };
+            const context = {
+                configure() {
+                    entry.configured = true;
+                    entry.texture = gpu.device.createTexture({ size: [8, 8], format: gpu.format, usage: 0x1 | 0x2 | 0x4 | 0x10 });
+                },
+                unconfigure() { entry.configured = false;entry.closes++; },
+                getCurrentTexture() { if (!entry.configured) throw new Error("unconfigured swap-chain acquisition");return entry.texture; },
+            };
+            canvas.getContext = () => context;contexts.push(entry);return canvas;
+        } });
+    try {
+        await gpu.initialize();
+        const submit = async commands => { await gpu.submit(P.encodeBatch(commands), { writeGuestMemory() {} });await gpu.idle(); };
+        if (!new URLSearchParams(location.search).has("skip_empty")) {
+            await gpu.submit(P.encodeBatch([], { flags: P.C.D9WG_BATCH_FLAG_PRESENT }), { writeGuestMemory() {} });await gpu.idle();
+            if (gpu.devices.size) throw new Error("empty Present implicitly created a device");
+            if (gpu.canvas.width !== 8 || gpu.canvas.height !== 8) throw new Error("empty Present resized the visible canvas without an owner");
+        }
+        const command = (opcode, payload) => ({ opcode, payload });
+        const create = handle => command(P.OP.CREATE_SWAP_CHAIN, { device_handle: 1, swap_chain_handle: handle, back_buffer_handle: 2, width: 8, height: 8 });
+        const present = handle => command(P.OP.PRESENT_SWAP_CHAIN, { device_handle: 1, swap_chain_handle: handle, width: 8, height: 8 });
+        const destroy = handle => command(P.OP.DESTROY_SWAP_CHAIN, { device_handle: 1, swap_chain_handle: handle });
+        const fill = color => command(P.OP.COLOR_FILL, { device_handle: 1, texture_handle: 2, color, right: 8, bottom: 8 });
+        await submit([command(P.OP.CREATE_DEVICE, { device_handle: 1, width: 8, height: 8 }),
+            command(P.OP.CREATE_TEXTURE_2D, { device_handle: 1, resource_handle: 2, width: 8, height: 8, level_count: 1, format: 21, usage: 1 }),
+            fill(0xffff0000), create(10), present(10), destroy(10)]);
+        gpu.finishFrame(false);await gpu.idle();
+        // Context configuration is enforced by the facade; persistent actual GPU
+        // textures let the test inspect completed scanout after unconfiguration.
+        const read = async (entry, expected) => {
+            if (entry.configured || entry.closes !== 1) throw new Error("swap-chain context was not retired exactly once");
+            const buffer = gpu.device.createBuffer({ size: 256 * 8, usage: 0x1 | 0x8 });
+            const encoder = gpu.device.createCommandEncoder();encoder.copyTextureToBuffer({ texture: entry.texture }, { buffer, bytesPerRow: 256 }, [8, 8]);
+            gpu.device.queue.submit([encoder.finish()]);await buffer.mapAsync(1);
+            const data = new Uint8Array(buffer.getMappedRange()), rgba = gpu.format.startsWith("bgra") ? [expected[2], expected[1], expected[0], 255] : [...expected, 255];
+            for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) for (let c = 0; c < 4; c++)
+                if (data[y * 256 + x * 4 + c] !== rgba[c]) throw new Error("wrong completed swap-chain pixel " + x + "," + y + " channel " + c);
+            buffer.unmap();buffer.destroy();
+        };
+        await read(contexts[0], [255, 0, 0]);
+        await submit([create(20), present(20), create(20), fill(0xff00ff00), present(20), destroy(20)]);
+        gpu.finishFrame(false);await gpu.idle();
+        await read(contexts[1], [255, 0, 0]);await read(contexts[2], [0, 255, 0]);
+        await submit([create(30), present(30), destroy(30)]);await gpu.checkpointIdle();
+        if (nativeCloses !== 1) throw new Error("native WebGPU canvas context was not retired");
+        if (gpu.hostErrors.length || gpu.gpuErrors.errors.length || gpu.stats.commandsFailed || gpu.stats.swapChainPresentsDropped) throw new Error("swap-chain lifecycle rejected accepted work");
+        for (const entry of contexts) entry.texture.destroy();
+        document.querySelector("#result").textContent = "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe";
+    } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
+})();
+</script>

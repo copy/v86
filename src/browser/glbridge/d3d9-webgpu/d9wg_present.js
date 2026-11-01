@@ -239,6 +239,11 @@
                 const state = this.deviceState(view.getUint32(offset + D9WG.F.CreateSwapChain.device_handle, true));
                 if (!state) return;
                 const handle = view.getUint32(offset + D9WG.F.CreateSwapChain.swap_chain_handle, true);
+                const previous = state.swapChains.get(handle);
+                if (previous) {
+                    state.swapChains.delete(handle);
+                    this.retireSwapChain(previous, true);
+                }
                 const backBufferHandle = view.getUint32(offset + D9WG.F.CreateSwapChain.back_buffer_handle, true);
                 const surface = {
                     hwnd: view.getUint32(offset + D9WG.F.CreateSwapChain.hwnd, true),
@@ -298,10 +303,7 @@
                 const chain = state.swapChains.get(handle);
                 if (!chain) return;
                 state.swapChains.delete(handle);
-                if (chain.context && typeof chain.context.unconfigure === "function")
-                    chain.context.unconfigure();
-                this.notifySwapChainSurface(
-                    { ...chain.surface, visible: false }, "destroy");
+                this.retireSwapChain(chain, true);
                 ++this.stats.swapChainsDestroyed;
             },
 
@@ -360,10 +362,23 @@
                     width: texture.width,
                     height: texture.height,
                 });
+                chain.frameReferenced = frame.serial;
                 texture.frameReferenced = frame.serial;
                 ++this.stats.swapChainPresents;
             },
 
+
+            retireSwapChain(chain, drainQueued = false) {
+                if (drainQueued && this.frame && chain.frameReferenced === this.frame.serial)
+                    this.finishFrame(false);
+                if (chain.context && typeof chain.context.unconfigure === "function") chain.context.unconfigure();
+                this.notifySwapChainSurface({ ...chain.surface, visible: false }, "destroy");
+            },
+            retireSwapChains(state) {
+                if (!state.swapChains) return;
+                for (const chain of state.swapChains.values()) this.retireSwapChain(chain);
+                state.swapChains.clear();
+            },
 
             notifySwapChainSurface(surface, reason) {
                 if (typeof this.options.onSwapChainSurface === "function")
@@ -634,6 +649,7 @@
                         "input will not reach it", state);
             },
             encodePrimaryPresent(encoder, frame, backTexture) {
+                if (!backTexture) return;
                 // Canvas width/height are global even though the retained
                 // image is per session. Defer this destructive resize until
                 // the session actually presents, so a capability helper's

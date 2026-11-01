@@ -1,0 +1,46 @@
+{
+  "stage": "3H2 queued swap-chain presentation lifetime",
+  "date": "2026-11-02",
+  "coreSuites": 130,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "26ad13c413cf4e98789a",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Destroying or replacing a swap-chain handle drains accepted queued presentations before unconfiguring its context. Session teardown retains the intentional pending-frame discard policy. Empty unowned primary presents do not resize or acquire the canvas.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; documented candidate differences remain.",
+  "logs": {
+    "d3d-stage3h2-core.log": "9429cb49ae4918b401919e6c3892655f599324f1e9855610b929ab303ad094f6",
+    "d3d-stage3h2-gpu.log": "1c2a286fb4136e8d01d803d0cb85419e99ff0475fd3b3785db376d1fc18fa370",
+    "d3d-stage3h2-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3h2-native-lifetime.log": "95bb29364df09690c4d180da0a33874d93f08e208e2e5d512bc4366b4fe56066",
+    "d3d-stage3h2-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3h2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3h2-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3h2-integration.log": "886e4ecfe0da8d8ed9fabea0f54cb9c1623c0c45d634bb8b2a8d4f1cffb082e5",
+    "d3d-stage3h2-executor.log": "fce5d2e91858e096aa843d678f312f1dc1e5cdfe2b8eef8a8c0aa46dd295864c"
+  },
+  "next": "Debug-only diagnostics loading, then measured CPU optimization before closing stage 3.",
+  "executorTests": 175,
+  "swapChainScanoutPixels": 192,
+  "nativeCanvasRetirement": "PASS",
+  "emptyUnownedPresent": "canvas size and zero device count preserved",
+  "before": {
+    "revision": "abe80599",
+    "queuedDestroyAndReplacement": "Two strict-context lifecycle tests fail; actual GPU last image lost.",
+    "emptyCanvas": [
+      0,
+      0
+    ]
+  }
+}

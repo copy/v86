@@ -1579,12 +1579,14 @@ function makeSwapChainCanvas(calls) {
         width: 1, height: 1, style: {},
         getContext(kind) {
             calls.push(["swapchain-getContext", kind]);
+            let configured = false;
             return {
                 configure(descriptor) {
-                    calls.push(["swapchain-configure", descriptor]);
+                    configured = true;calls.push(["swapchain-configure", descriptor]);
                 },
-                unconfigure() { calls.push(["swapchain-unconfigure"]); },
+                unconfigure() { configured = false;calls.push(["swapchain-unconfigure"]); },
                 getCurrentTexture() {
+                    if (!configured) throw new Error("swap-chain context is unconfigured");
                     const texture = { width: 256, height: 128,
                         createView: () => ({ swapchainOverlay: true }) };
                     calls.push(["swapchain-getCurrentTexture", texture]);
@@ -1691,18 +1693,48 @@ await test("destroying an additional swap chain unconfigures and reports it",
             encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0x901, width: 256, height: 128, level_count: 1, format: 21, usage: D3DUSAGE_RENDERTARGET_BIT, pool: 0, multisample_type: 0, multisample_quality: 0 })),
         command(OP_CREATE_SWAP_CHAIN,
             encodePayload("CreateSwapChain", { device_handle: DEVICE, swap_chain_handle: 0x77, back_buffer_handle: 0x901, hwnd: 0xBEEF, x: 0, y: 0, width: 256, height: 128 })),
+        command(OP_PRESENT_SWAP_CHAIN, encodePayload("PresentSwapChain", { device_handle: DEVICE, swap_chain_handle: 0x77, width: 256, height: 128 })),
         command(OP_DESTROY_SWAP_CHAIN, encodePayload("DestroySwapChain", { device_handle: DEVICE, swap_chain_handle: 0x77 })),
         // A present after destruction must not resurrect it.
         command(OP_PRESENT_SWAP_CHAIN,
             encodePayload("PresentSwapChain", { device_handle: DEVICE, swap_chain_handle: 0x77, hwnd: 0xBEEF, x: 0, y: 0, width: 256, height: 128, reserved: 0 })),
     ], { present: true }));
     await executor.idle();
+    assert.equal(find("swapchain-getCurrentTexture").length, 1, "accepted presentation must acquire before destruction");
+    assert.ok(calls.findIndex(call => call[0] === "swapchain-getCurrentTexture") < calls.findIndex(call => call[0] === "swapchain-unconfigure"));
     assert.equal(executor.stats.swapChainsDestroyed, 1);
     assert.equal(find("swapchain-unconfigure").length, 1);
     assert.equal(executor.stats.swapChainPresentsDropped, 1);
-    assert.deepEqual(surfaces.map(entry => entry[0]), ["create", "destroy"]);
-    assert.equal(surfaces[1][1].visible, false,
+    assert.deepEqual(surfaces.map(entry => entry[0]), ["create", "present", "destroy"]);
+    assert.equal(surfaces[surfaces.length - 1][1].visible, false,
         "the page needs to know the overlay is gone, not just that it existed");
+});
+
+await test("replacing a swap-chain handle drains and closes the old context", async () => {
+    const surfaces = [];
+    const { executor, find, calls } = makeExecutor({ createSwapChainCanvas: () => makeSwapChainCanvas(calls),
+        onSwapChainSurface: (surface, reason) => surfaces.push(reason) });
+    const create = command(OP_CREATE_SWAP_CHAIN, encodePayload("CreateSwapChain", { device_handle: DEVICE, swap_chain_handle: 0x77,
+        back_buffer_handle: 0x901, width: 256, height: 128 }));
+    const present = command(OP_PRESENT_SWAP_CHAIN, encodePayload("PresentSwapChain", { device_handle: DEVICE, swap_chain_handle: 0x77, width: 256, height: 128 }));
+    await executor.submit(buildBatch([command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
+        command(OP.CREATE_TEXTURE_2D, encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0x901,
+            width: 256, height: 128, level_count: 1, format: 21, usage: 1 })), create, present, create, present,
+        command(OP_DESTROY_SWAP_CHAIN, encodePayload("DestroySwapChain", { device_handle: DEVICE, swap_chain_handle: 0x77 }))], { present: true }));
+    await executor.idle();
+    assert.equal(find("swapchain-getCurrentTexture").length, 2);
+    assert.equal(find("swapchain-unconfigure").length, 2);
+    assert.equal(executor.stats.swapChainPresentsDropped, 0);
+    assert.deepEqual(surfaces, ["create", "present", "destroy", "create", "present", "destroy"]);
+});
+
+await test("an empty Present flag cannot copy an unowned back buffer", async () => {
+    const { executor, find } = makeExecutor();
+    await executor.submit(buildBatch([], { present: true }));await executor.idle();
+    assert.equal(executor.devices.size, 0);
+    assert.equal(executor.canvas.width, 1);assert.equal(executor.canvas.height, 1);
+    assert.equal(find("copyTextureToTexture").length, 0);
+    assert.equal(executor.hostErrors.length, 0);assert.equal(executor.gpuErrors.errors.length, 0);
 });
 
 await test("a multisampled target makes the pipeline declare its sample count",

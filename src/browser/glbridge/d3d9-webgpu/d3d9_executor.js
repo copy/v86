@@ -1940,16 +1940,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             state.surface = { ...state.surface, visible: false };
             if (typeof this.options.onDestroy === "function")
                 this.options.onDestroy(state.surface, reason || "device");
-            if (state.swapChains) {
-                for (const chain of state.swapChains.values()) {
-                    if (chain.context &&
-                            typeof chain.context.unconfigure === "function")
-                        chain.context.unconfigure();
-                    this.notifySwapChainSurface(
-                        { ...chain.surface, visible: false }, "destroy");
-                }
-                state.swapChains.clear();
-            }
+            this.retireSwapChains(state);
             this.retireDeviceBackBuffer(state);
             this.retireGPUObject(state.depthTexture);
             this.retireGPUObject(state.backBufferMsaaTexture);
