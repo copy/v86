@@ -1072,6 +1072,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 75 组客体测试、35 个 XP 冒烟程序及专用 owner EXE、六个零售/诊断 DLL 构建通过，无 CRT。见 [stage4b1-validation.json](fixtures/d3d-review/stage4b1-validation.json)；可复跑 `tests/glbridge/d3d_process_owner_xp.mjs`，它先构建当前源码。
 > - 继续共用 framing/transport 实现、驱动多进程 owner 和混合 OpenGL 所有权；**本次 XP 检查不涉及绘制**，Wine API/图像与游戏验收尚未关闭。
 
+> **阶段 4B2（2026-11-02）：Windows transport 与封包实现归入共用库。**
+>
+> - `d9wg_transport.c` 统一映射/开启/关闭、响应尾区、批次重置、VGL2/D9WG 封包、提交、命令预留与 generation。前端 wrapper 只保留各 API 的丢批返回方式及诊断；驱动缺失、映射忙和失败批次上下文继续保留。
+> - 固定 `4f067af` 的三个原 C 实现作为冻结 oracle，**每条路径 28 批、共 84 批逐字节相同**。fixture 入库并固定 SHA，无需 CI 获取旧 Git 对象。另验证溢出/对齐、失败 flush、响应区隔离、错误阶段及不确定接受后不重复执行。
+> - 76 组客体、两项站点集成、35 个 XP 冒烟 EXE 与六个零售/诊断 DLL 构建通过，无 CRT。**当前共用库在真实 XP 再次通过两种卸载顺序**，95 秒、4 批、2 次 owner 释放；仍只验证 loader/driver 所有权，不宣称绘制通过。
+> - 见 [stage4b2-validation.json](fixtures/d3d-review/stage4b2-validation.json)。继续宿主 owner 作用域及存档、多个 D3D arena 和驱动多 owner，再推进余下共用核心与 API 验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

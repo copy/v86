@@ -1,0 +1,70 @@
+{
+  "stage": "4B2 common Windows transport and framing",
+  "date": "2026-11-02",
+  "guestSuites": 76,
+  "siteIntegrationTests": 2,
+  "frozenFramingOracle": {
+    "revision": "4f067af",
+    "fixtureSha256": "9f447fb9c7790c492f07a5b32ead783423c2992af6b0706f31a510d1cef0966f",
+    "batchesPerFrontend": 28,
+    "frontends": 3,
+    "byteIdentical": true,
+    "requiresGitHistoryAtTestTime": false
+  },
+  "checks": [
+    "mapping/open failure preserves Win32 error and phase",
+    "shared retry and reopening rules",
+    "overflow and capacity checks including padding",
+    "failed flush cannot write beyond capacity",
+    "response tail is never overwritten by command records",
+    "mapping retained and accepted prefixes never replayed after refusal/ambiguous acceptance",
+    "frontend diagnostic stages and batch context retained"
+  ],
+  "xp": {
+    "status": "PASS",
+    "seconds": 95,
+    "batches": 4,
+    "releases": 2,
+    "text": "READY real XP process owner probe\r\nPASS D3D9 creator unload order\r\nPASS DirectDraw creator unload order\r\nPASS all real XP frontend owner checks\r\n",
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "runtimeImports": false,
+  "scope": "d9wg_transport.c owns map/open/close, tail layout, reset, envelope/descriptor packing, submission, bounded command reservation and generation advance. Local wrappers retain API-specific drop/HRESULT and diagnostics policy.",
+  "next": "Host owner-scoped sessions/checkpoints, multiple D3D arenas and driver per-owner mapping, then remaining runtime and API stages.",
+  "sha256": {
+    "glbridge/runtime/d9wg_transport.h": "783cc0bf37be2ead4da1fd812ee060610f3fb12f1681646979845fcca8fcc8c3",
+    "glbridge/runtime/d9wg_transport.c": "4a6d463f86e00060b80ff34f6ea4fc8499a3f31b70dad981458d43935707ce8f",
+    "glbridge/runtime/build.sh": "c94f03e66f8177f859df7d103030fbbef27b05c688b9b5f1fd75549c42e0dd3e",
+    "glbridge/tests/d9wg_transport_test.js": "5233a0a1dc7f2fa4242949659ca0b03784c2680b729ff76d5d85216c107ca7b4",
+    "glbridge/tests/fixtures/d9wg_transport_baseline.json": "9f447fb9c7790c492f07a5b32ead783423c2992af6b0706f31a510d1cef0966f",
+    "glbridge/tests/native/windows.h": "63fd149208efc2475701e66e0ba516cf00ab1c87e3998cc4bcdf5b9e959ddec9",
+    "glbridge/tests/native/winioctl.h": "43744e9e873bfeed8a79945d1cf76f47eb1d8c66070ae0a7aa5303b186d7c5ad",
+    "glbridge/tests/d9wg_process_owner_test.js": "8de686ca29f74081f4e288c6e7771e9bbd664ba5bdf0e4c7bccf7dce011cf311",
+    "glbridge/sample/d3d_process_owner_test.c": "41c271af0d03860b3aa4113744a7088b7395ee46fedbed56128a54e776e4a3db",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "bb617f9738af36cc2f67bbb58ece46754eb6bb768cc9dcd0518b8e808b0a732f",
+    "glbridge/d3d9proxy/d3d9.dll": "6794ad642650dc1797cb3ea5998efc78cbb6849ac2b448701e45aee88bbc3e68",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "4a5a1d2fc5e4a82e8a969f343e26ec3fbd09e0e844f583049e3775e5c3416484",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "3e94b2f33d06e21af09d1c96da954654f6f93653664e313c0b6603e4d1528a20",
+    "glbridge/d3d8proxy/d3d8.dll": "452304f9051029cd269c0fd06a2eff2a27e0013cf4136d21adb37cfe07fea7a9",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "d4445fdabff4952e0f0d0dd44840bed2560181b0f6600fb789b4a6410634d09e",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "18b1ad7d799ef73d0397f1cab142c3ec201399ef60940713106dea7f197934e2",
+    "glbridge/ddrawproxy/ddraw.dll": "56017d387a1d1dc162f119205c61fa5334b20e2d69613a935bce24a99495979d",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "2c6ad2382e00b09b00e67735b07ab7fda81a7085bd45500ff961ef2d30b5306f"
+  },
+  "logs": {
+    "d3d-stage4b2-guest.log": "f217f426096a61fe24dad394e268f5f273c5420f962ec3b0451e962fc12de8f1",
+    "d3d-stage4b2-transport.log": "e0e533a304551cf76ea85fe4c8b23e035157c1dda7705d3b20f044becb90cf2c",
+    "d3d-stage4b2-owner.log": "f8fbdd2d4a1e4ded40955147f2281a405d38ee8d6efcf97ecbf7ef6cf1d043ff",
+    "d3d-stage4b2-xp-final.log": "31f0c14d2fe7cf1f4897f67677d3e1d0639d4228f2b07d4531763ecbc7e2e0a2",
+    "d3d-stage4b2-integration.log": "3c767837ba95eab5fd3af291d728732c8f33a2ac8ceb510ee4e220367be0dbb7",
+    "d3d-stage4b2-d3d9-smoke-build.log": "3846c8c273ebbc4753dc3f2b9274cd545eac91866662debdd43cb381a6004c1d",
+    "d3d-stage4b2-d3d9-diagnostic-build.log": "6aa39e2f410a5d9b2721d4d40d02c87b62a7db5e6b0447b12611a7b485def8ff",
+    "d3d-stage4b2-d3d8-smoke-build.log": "f519e5e550377496a9e7e99acd9a475338d4fa459c177fe26d123e624768125d",
+    "d3d-stage4b2-d3d8-diagnostic-build.log": "f79e24033658666094bfe1054265ef0926d76b0ca2872a9a22982bb798edfeae",
+    "d3d-stage4b2-ddraw-smoke-build.log": "fb22f267ff2bb96ec1bbff53d9b29c82609d4fbbbaf0ce6adabfe8aa458ea7b9",
+    "d3d-stage4b2-ddraw-diagnostic-build.log": "b2fe68199c551702a11100649b9ee792519aa805c747667ce2f2925bc7598095"
+  }
+}
