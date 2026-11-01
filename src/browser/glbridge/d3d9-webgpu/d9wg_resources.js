@@ -94,7 +94,7 @@
                 for (let level = 0; level < Math.max(1, resource.levelCount || 1); ++level) {
                     const width = Math.max(1, resource.width >> level), height = Math.max(1, resource.height >> level);
                     for (let layer = 0; layer < layers; ++layer) {
-                        frame.ops.push({ kind: "ddblit", sourceKind: "index", destinationKind: "float",
+                        frame.record({ kind: "ddblit", sourceKind: "index", destinationKind: "float",
                             sourceView: this.blitSourceView(resource, level, layer),
                             destinationView: texture.createView({ dimension: "2d", baseMipLevel: level, mipLevelCount: 1,
                                 baseArrayLayer: layer, arrayLayerCount: 1 }),
@@ -846,7 +846,7 @@
                 }
                 resource.mipsDirty = false;
                 const frame = this.ensureFrame();
-                frame.ops.push({ kind: "generate-mips", resource });
+                frame.record({ kind: "generate-mips", resource });
                 resource.frameReferenced = frame.serial;
                 ++this.stats.mipChainsGenerated;
             },

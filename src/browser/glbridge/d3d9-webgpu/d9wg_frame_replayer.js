@@ -25,8 +25,7 @@
                 // whole frames.
                 if (present) {
                     if (!frame.ops.length) ++executor.stats.framesWithNoOps;
-                    else if (!frame.ops.some(op =>
-                            op.kind === "clear" && op.clearsColor))
+                    else if (!frame.hasColorClear)
                         ++executor.stats.framesWithoutColorClear;
                 } else if (frame.ops.length) {
                     ++executor.stats.frameFlushes;
@@ -92,9 +91,7 @@
                 const encoder = executor.device.createCommandEncoder();
                 const carriedOcclusion = executor.activeOcclusion || null;
                 executor.activeOcclusion = null;
-                const hasOcclusion = !!carriedOcclusion || frame.ops.some(op =>
-                    op.kind === "query-begin" && op.query.type ===
-                        D3DQUERYTYPE_OCCLUSION);
+                const hasOcclusion = !!carriedOcclusion || frame.hasOcclusion;
                 /* Any op can force a render-pass boundary through a target
                  * switch. One slot per recorded op is therefore a safe upper
                  * bound on the number of query segments. */

@@ -3,7 +3,22 @@
 (function(global) {
     "use strict";
     function createMethods(dependencies) {
-        const { D3DRS_ZENABLE, D3DSTREAMSOURCE_INSTANCEDATA, D3DRS_POINTSPRITEENABLE, DEFAULT_ATTRIBUTE_STREAM, D3DRS_SCISSORTESTENABLE } = dependencies;
+        const { D3DRS_ZENABLE, D3DSTREAMSOURCE_INSTANCEDATA, D3DRS_POINTSPRITEENABLE, DEFAULT_ATTRIBUTE_STREAM, D3DRS_SCISSORTESTENABLE, D3DQUERYTYPE_OCCLUSION } = dependencies;
+        class RecordedFrame {
+            constructor(serial, statStart) {
+                this.ops = [];
+                this.transientBuffers = [];
+                this.serial = serial;
+                this.statStart = statStart;
+                this.hasColorClear = false;
+                this.hasOcclusion = false;
+            }
+            record(op) {
+                this.ops.push(op);
+                this.hasColorClear ||= op.kind === "clear" && op.clearsColor;
+                this.hasOcclusion ||= op.kind === "query-begin" && op.query.type === D3DQUERYTYPE_OCCLUSION;
+            }
+        }
         return {
             // A "frame" here is pure JS bookkeeping -- a list of pending clear/
             // draw operations -- with no WebGPU objects created yet. This is
@@ -34,14 +49,12 @@
                 // bytes a queued draw still has to read.
                 this.uniformRingIndex = 0;
                 this.uniformRingCursor = 0;
-                this.frame = { ops: [], transientBuffers: [],
-                    serial: ++this.frameSerial,
-                    statStart: {
-                        pipelineCreations: this.stats.pipelineCreations,
-                        bindGroupCreations: this.stats.bindGroupCreations,
-                        queueSubmits: this.stats.queueSubmits,
-                        renderPasses: this.stats.renderPasses,
-                    } };
+                this.frame = new RecordedFrame(++this.frameSerial, {
+                    pipelineCreations: this.stats.pipelineCreations,
+                    bindGroupCreations: this.stats.bindGroupCreations,
+                    queueSubmits: this.stats.queueSubmits,
+                    renderPasses: this.stats.renderPasses,
+                });
                 return this.frame;
             },
             // If a command throws partway through a batch (see submit()'s catch
@@ -202,7 +215,7 @@
                     which, state, elements, geometry, program, pipelineState,
                     targets, pipeline,
                 };
-                frame.ops.push({
+                frame.record({
                     kind: "draw", pipeline, bindGroup: binding.group,
                     dynamicOffsets: binding.dynamicOffsets, targets,
                     viewport: { ...state.viewport },

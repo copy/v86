@@ -175,7 +175,7 @@
                 }
                 const frame = this.ensureFrame();
                 const viewport = clipped.viewport;
-                frame.ops.push({
+                frame.record({
                     kind: "rect-clear",
                     targets: {
                         key: "dd-depth:" + destinationHandle + ":" +
@@ -212,7 +212,7 @@
             if (flags & DDBLT_COLOR_FILL) {
                 noteWindowedScreenWrite();
                 const frame = this.ensureFrame();
-                frame.ops.push({
+                frame.record({
                     kind: "ddblit",
                     sourceKind: "none",
                     destinationKind: destinationIndexed ? "index" : "float",
@@ -314,7 +314,7 @@
                     !scaled && source && !selfBlt &&
                     destination && sourceFormat === destinationFormat) {
                 const frame = this.ensureFrame();
-                frame.ops.push({ kind: "copy",
+                frame.record({ kind: "copy",
                     source: { texture: source.gpuTexture,
                         mipLevel: sourceLevel,
                         origin: { x: src.left, y: src.top, z: sourceFace } },
@@ -345,7 +345,7 @@
             const dv = height / sourceHeight;
             const frame = this.ensureFrame();
             noteWindowedScreenWrite();
-            frame.ops.push({
+            frame.record({
                 kind: "ddblit",
                 sourceKind: sourceIndexed ? "index" : "float",
                 destinationKind: destinationIndexed ? "index" : "float",

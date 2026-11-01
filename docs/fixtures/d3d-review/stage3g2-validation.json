@@ -1,0 +1,40 @@
+{
+  "stage": "3G2 recording-time frame summaries",
+  "date": "2026-11-02",
+  "coreSuites": 130,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "7274a57750560ad63982",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "operationRecordSites": 17,
+  "removedSubmissionScans": [
+    "colour-clear presence",
+    "occlusion-query presence"
+  ],
+  "scope": "RecordedFrame.record appends operations and maintains the two summary flags. Resource, DirectDraw, upload, query, clear and draw paths use it. Replayer reads flags while actual draw counters remain recorded by recordDraw; GPU execution metrics stay at replay. The required ordered GPU encoding traversal is unchanged.",
+  "steadyStateBudget": "150 draws, zero pipeline/bind-group/buffer creations, one pass and one submit",
+  "profileFinding": "Repeated static pipeline key, shader signature and uniform layout construction still account for substantial CPU work; no under-3us claim.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes unchanged original frozen policy; existing candidate semantic differences remain documented.",
+  "logs": {
+    "d3d-stage3g2-core.log": "994e4df05eb1d5f5f70155c9ab962a0c298be6c6117c16e4b8ac1265da6d6264",
+    "d3d-stage3g2-gpu.log": "04f2fc514fbb3261aa5d82fc94417528c216b9b71340e272f018d04ef522123e",
+    "d3d-stage3g2-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3g2-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3g2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3g2-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3g2-integration.log": "9f75337bef7bc6e19c3b76d82cb762e1fca05961c8cc5f6a1a3447faf15128ae",
+    "d3d-stage3g2-perf.log": "9f68dfa256b2a083ae9523358882eeead3cd408d8d835efa2340a5bf00422a51"
+  },
+  "next": "Presentation and debug diagnostics modules, then complete hot-path CPU optimization and stage 3 validation before guest/shader acceptance stages."
+}

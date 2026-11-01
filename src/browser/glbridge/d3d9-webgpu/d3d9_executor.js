@@ -1724,7 +1724,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
 
         stageBufferUpload(buffer, offset, source) {
             const frame = this.uploadFrame(source.byteLength);
-            frame.ops.push(this.uploads.buffer(buffer, offset, source));
+            frame.record(this.uploads.buffer(buffer, offset, source));
         }
 
         // Present-time utilities may discover a palette after the recorded
@@ -1741,7 +1741,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const frame = this.uploadFrame(source.byteLength);
             const op = this.uploads.texture(destination, source, layout, size);
             op.writes = resource && resource.msaaTexture ? resource : null;
-            frame.ops.push(op);
+            frame.record(op);
         }
 
         // ---- device/resource state ----
@@ -2523,7 +2523,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             query.requestId = requestId;
             query.metadata = metadata || {};
             const frame = this.ensureFrame();
-            frame.ops.push({ kind: "query-begin", query, requestId,
+            frame.record({ kind: "query-begin", query, requestId,
                 metadata: query.metadata });
             ++this.stats.queryBegins;
         }
@@ -2537,7 +2537,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             query.requestId = requestId;
             const resultMetadata = metadata || query.metadata || {};
             const frame = this.ensureFrame();
-            frame.ops.push({ kind: "query-end", query, requestId,
+            frame.record({ kind: "query-end", query, requestId,
                 metadata: resultMetadata });
             query.active = false;
             ++this.stats.queryEnds;
@@ -2835,14 +2835,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 rects[0].right === targets.width && rects[0].bottom === targets.height;
             if (!whole) {
                 if (rects.length) {
-                    frame.ops.push({ kind: "rect-clear", targets, clearsColor,
+                    frame.record({ kind: "rect-clear", targets, clearsColor,
                         clearsDepth, clearsStencil, color: { r, g, b, a },
                         depth, stencil, rects });
                     ++this.stats.partialClears;
                 }
                 return;
             }
-            frame.ops.push({
+            frame.record({
                 kind: "clear", targets,
                 clearsColor: clearsColor || !!this.debug.forceClearColor,
                 clearsDepth, clearsStencil,
@@ -3427,7 +3427,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // inside the task that acquires it, and a guest frame arrives
             // across several PCI submits.
             const frame = this.ensureFrame();
-            frame.ops.push({
+            frame.record({
                 kind: "present-swap-chain",
                 chain,
                 sourceView: this.blitSourceView(texture, 0, 0),
@@ -3834,7 +3834,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const frame = this.ensureFrame();
                 // The face is the copy's z origin: a cube map is a six-layer
                 // 2D texture, so "face 3" is layer 3 of one subresource range.
-                frame.ops.push({ kind: "copy", writes: this.msaaOwnerOf(destination, state),
+                frame.record({ kind: "copy", writes: this.msaaOwnerOf(destination, state),
                     source: { texture: source.gpuTexture, mipLevel: sourceLevel,
                         origin: { x: sourceRect.left, y: sourceRect.top,
                             z: sourceFace } },
@@ -3890,7 +3890,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 filterPoint,
             };
             const frame = this.ensureFrame();
-            frame.ops.push(op);
+            frame.record(op);
             if (source) source.frameReferenced = frame.serial;
             if (destination) destination.frameReferenced = frame.serial;
             this.markTextureSubresourceWritten(destination, destinationLevel,
@@ -4058,7 +4058,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const isFull = clippedLeft === 0 && clippedTop === 0 &&
                 clippedRight === fullWidth && clippedBottom === fullHeight;
             const frame = this.ensureFrame();
-            frame.ops.push({ kind: "color-fill", targetView,
+            frame.record({ kind: "color-fill", targetView,
                 writes: resource.msaaTexture ? resource : null,
                 format: formatToGPU(resource.format), rgba, isFull,
                 left: clippedLeft, top: clippedTop,
@@ -7257,7 +7257,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
     }
 
     const FrameReplayer = replayFactory.createClass({ D3DQUERYTYPE_OCCLUSION, MAX_QUERY_SET_COUNT, EMPTY_OFFSETS, intersectRects, alignUp, BUFFER_USAGE_QUERY_RESOLVE, BUFFER_USAGE_COPY_SRC, BUFFER_USAGE_COPY_DST, BUFFER_USAGE_MAP_READ, MAP_MODE_READ, D9WG_RESPONSE_FAILED, D9WG_RESPONSE_OK, D3DQUERYTYPE_EVENT, D3DQUERYTYPE_TIMESTAMP, D3DQUERYTYPE_TIMESTAMPFREQ, D3DQUERYTYPE_TIMESTAMPDISJOINT });
-    const recorderMethods = recorderFactory.createMethods({ D3DRS_ZENABLE, D3DSTREAMSOURCE_INSTANCEDATA, D3DRS_POINTSPRITEENABLE, DEFAULT_ATTRIBUTE_STREAM, D3DRS_SCISSORTESTENABLE });
+    const recorderMethods = recorderFactory.createMethods({ D3DRS_ZENABLE, D3DSTREAMSOURCE_INSTANCEDATA, D3DRS_POINTSPRITEENABLE, DEFAULT_ATTRIBUTE_STREAM, D3DRS_SCISSORTESTENABLE, D3DQUERYTYPE_OCCLUSION });
     for (const [name, value] of Object.entries(recorderMethods))
         Object.defineProperty(D3D9WebGPUExecutor.prototype, name, { value, writable: true, configurable: true });
 

@@ -982,6 +982,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **316/316 场景通过 SwiftShader/Metal**，三种预算配置、130 组核心、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过；固定旧语义的 Warcraft III 对照满足原冻结策略。模板内容和渲染逻辑保持不变。
 > - 运行包 `8f5752f3a81661c9cf26`；见 [stage3g1-validation.json](fixtures/d3d-review/stage3g1-validation.json)。3G2 继续把提交前的帧统计扫描改为录制期摘要，随后继续 CPU 优化、present 和 diagnostics；未关闭整个审查。
 
+> **阶段 3G2（2026-11-02）：帧摘要改在录制期维护。**
+>
+> - `RecordedFrame.record()` 统一 17 处操作追加，维护 colour-clear 和 occlusion 标记，移除 finish/replay 的两次列表扫描。绘制计数仍在录制入口完成，实际 GPU pass/submit 指标保留重放时统计；有序 GPU 编码本身的遍历保持。
+> - **316/316 场景通过 SwiftShader/Metal**，三种预算配置、130 组核心、overlay/隔离、完整恢复、12/12 变异和两项站点集成通过。M6 稳态预算保持 150 draw、零新增 pipeline/bind-group/buffer、一个 pass 和一次 submit；固定旧语义 Warcraft III 对照满足原冻结策略。
+> - CPU 采样指出重复静态管线 key、程序签名和 uniform layout 构造仍占主要成本，尚未达到单 draw 3 µs。后续模块完成后继续针对这些热路径优化，不用推测代替测量。
+> - 运行包 `7274a57750560ad63982`；见 [stage3g2-validation.json](fixtures/d3d-review/stage3g2-validation.json)。录制/重放本轮结构和计数工作完成；继续 present、debug diagnostics 及阶段 3 的最终性能验证。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。
