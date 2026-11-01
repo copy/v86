@@ -903,6 +903,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 124 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、完整存档恢复、12/12 变异通过；Naga 增测 keyed-alpha 的有/无 palette 两变体。存档检查改为核验重建的实际 GPU index copy，不再依赖已删除的 CPU shadow。固定旧上传函数的 Warcraft III 对照通过未改动的冻结策略，候选图仍保留 3C1/3C3A 已登记差异。
 > - 运行包 `add5b110de1479123c37`；见 [stage3c3b-validation.json](fixtures/d3d-review/stage3c3b-validation.json)。资源上传的功能改造完成；3C4 接着把资源 handlers 移出执行器，随后推进 surface-ops 等模块。
 
+> **阶段 3C4（2026-11-01）：资源 handlers 拆分完成；继续 surface-ops。**
+>
+> - `d9wg_resources.js` 接管 34 个资源创建/更新/回收、palette、shader/声明创建、mip 与 view 方法，移出主执行器约 1,000 行。依赖在安装时显式注入，owner 可变状态仍由当前设备/会话持有；方法直接安装到原型，不增加 draw 包装或每 draw 对象。
+> - 与提交 `dc1bbcf7` 对比，34 个函数的语法树完全相同；安装时保留 class 方法不可枚举、可写、可配置的属性。对比记录见 [resource-extraction.json](fixtures/d3d-review/resource-extraction.json)。发布构建和直接加载页面均加入模块，旧宿主冻结回放仍使用自身文件。
+> - 124 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、153 场景及强制小预算配置、overlay/隔离页面和完整存档恢复通过；保留已登记游戏图变化，固定旧上传路径的诊断回放通过未改动的冻结策略。
+> - 运行包 `785d758106b345d40b29`；见 [stage3c4-validation.json](fixtures/d3d-review/stage3c4-validation.json)。资源拆分的本轮工作完成，接下来统一 surface utility passes 和 uniform 分配；12 项像素偏差及 draw CPU 目标尚待后续模块。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

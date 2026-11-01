@@ -1,0 +1,29 @@
+{
+  "stage": "3C4 resource handler module extraction",
+  "coreSuites": 124,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 153,
+  "normativePixelPasses": 141,
+  "knownPixelFailures": 12,
+  "smallUploadBudgetConformance": "153 cases PASS",
+  "finalIndexedOverlayPixels": 8192,
+  "fullCheckpoint": "PASS",
+  "graphicsRevision": "785d758106b345d40b29",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "resourceMethodsAstIdentical": 34,
+  "classPrototypeDescriptorsPreserved": true,
+  "logs": {
+    "d3d-stage3c4-core.log": "7d5c4075f27d07a285085e18cd979a1b1b2a0aacd60d04a2663e5074d1420773",
+    "d3d-stage3c4-site.log": "40bb676eef5ffaf00f126ef2cca9a3565cac0b80b2dca5776d7e88fc0a3e2a4a",
+    "d3d-stage3c4-gpu.log": "793c13123c82b3c77587833372fe9e9854c0c45912e3eb21f6b6d6131d1a1ec2",
+    "d3d-stage3c4-descriptors-gpu.log": "68fffe63cae589797af35362b38a04f4e4798eeb2a7e66690a88b0552525e26d",
+    "d3d-stage3c4-war3-counterfactual.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3c4-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3c4-integration.log": "ab2db895962a605ffc9cf032220a906ed8e31c065e48b751b4429571b720e7e0"
+  },
+  "scope": "34 resource create/update/retire, palette, shader/declaration creation, mip and view methods moved to d9wg_resources.js with explicit immutable installation dependencies. Function ASTs equal dc1bbcf7; methods retain non-enumerable class descriptors. No draw wrappers or per-draw resource objects added.",
+  "warcraft3": "The documented conversion/upload differences remain; the pinned legacy-upload diagnostic passes the unchanged original frozen policy.",
+  "next": "Surface utility passes, FFP, pipeline state, recording/replay, presentation and diagnostics remain stage 3 work, followed by guest stages."
+}
