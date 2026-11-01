@@ -849,6 +849,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 120 组核心检查（私有 shader corpus 严格执行，无 SKIP）、72 组客体检查、站点两项 graphics integration、133 场景 SwiftShader 目标、工作线程和完整存档恢复、Warcraft III 冻结回放、D3D 12/12 变异均通过。证据见 [stage3a-validation.json](fixtures/d3d-review/stage3a-validation.json)。
 > - 配套站点运行包更新为 `07c8009386d3da396e6e`，核心仍为 `cc49eed222f9fb724ba3`。接下来处理显式设备/会话对象及资源归属；19 项已知像素偏差、每 draw <3 µs、客体共用核心和完整游戏验收仍未完成。
 
+> **阶段 3B1（2026-11-01）：会话状态及 uniform 隔离完成；继续 3B2。**
+>
+> - `d9wg_state.js` 独立建立设备/会话状态。每个会话拥有 uniform ring、CPU staging 和写游标，切换会话保存/恢复；结束 owner 仅回收自己的 GPU 缓冲。
+> - 新增两会话交错录制测试：相同客体句柄、相同 uniform 偏移，两帧都保持未呈现。3A 中 B 的绿色覆盖 A 的红色（4,096 个像素错），修复后通过 READBACK 检查的 8,192 个像素全部正确；没有 GPU/宿主错误、丢弃或失败命令。该用例加入 CI；它是宿主隔离验收，XP 驱动多 owner 仍属阶段 4。
+> - 121 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、133 场景及新增隔离页面、原生 GPU 的 Warcraft III 冻结回放、SwiftShader 工作线程/完整存档恢复、12/12 变异均通过。游戏冻结图使用原始原生适配器；另一次 SwiftShader 对原生图的比较不满足同适配器条件，未计为通过。证据见 [stage3b1-validation.json](fixtures/d3d-review/stage3b1-validation.json)。
+> - 配套运行包 `017490988930d2e252be`。3B2 继续移除隐式设备创建、隔离各设备 back buffer；资源顺序、固定管线的 19 项偏差和 draw 预算保持待办。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

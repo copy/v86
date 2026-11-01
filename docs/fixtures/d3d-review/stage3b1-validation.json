@@ -1,0 +1,88 @@
+{
+  "stage": "3B1 session/device state and pending-session uniform isolation",
+  "coreSuites": 121,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 133,
+  "knownPixelFailures": 19,
+  "workerAndFullCheckpoint": "PASS",
+  "warcraft3FrozenReplay": "PASS",
+  "d3dMutationsKilled": 12,
+  "graphicsRevision": "017490988930d2e252be",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Session/device factories extracted. Pending-frame uniform storage and cursors belong to each session and are retired with its owner. Explicit device creation and per-device back buffers remain 3B2.",
+  "logs": {
+    "d3d-stage3b1-core.log": "1ac5b6988e6279393b9f8df88f85ddeeda27aec75767bde94b9045594a856e13",
+    "d3d-stage3b1-site.log": "a938b6b4b1bb2fcf6482b9c0f579e1a5d1d3655c9cc39d0f12ec6f580918e31e",
+    "d3d-stage3b1-gpu.log": "5ff4ba8e93be403958e90e1ab4a2d669ced9f82866ede2288dc7f1a889db31fa",
+    "d3d-stage3b1-runtime-gpu.log": "ec2bf61fcd2c0786d77e570ae731c9c25390a690b8307f9523ce7a35afd45290",
+    "d3d-stage3b1-war3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3b1-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3b1-integration.log": "d66c24e39a6d38819873dc39d9c9a0625e37d46472e5d017c046e53157822f89"
+  },
+  "sessionUniformEvidence": {
+    "before": {
+      "sha256": "c38466210da4c94c0ead50f6e4c7690401ede4937cf0bc6d1a737e323c635c5a",
+      "samples": [
+        {
+          "session": 3211265,
+          "firstRgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "differingPixels": 4096
+        },
+        {
+          "session": 3211266,
+          "firstRgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "differingPixels": 0
+        }
+      ],
+      "hostErrors": 0,
+      "gpuErrors": 0,
+      "uniformChunks": 1,
+      "commandsFailed": 0,
+      "droppedDraws": 0
+    },
+    "after": {
+      "sha256": "dc754e2708510f4edb49291a67135db35987b0d2d9aa8702436ca56aedfbd977",
+      "samples": [
+        {
+          "session": 3211265,
+          "firstRgba": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "differingPixels": 0
+        },
+        {
+          "session": 3211266,
+          "firstRgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "differingPixels": 0
+        }
+      ],
+      "hostErrors": 0,
+      "gpuErrors": 0,
+      "uniformChunks": 2,
+      "commandsFailed": 0,
+      "droppedDraws": 0
+    },
+    "beforeCommit": "8f3be5bd17e27e36e60082997190490d3710b65d"
+  },
+  "gameReplayAdapter": "Original native GPU matching the frozen baseline; SwiftShader conformance uses its own normative pixels. A trial using SwiftShader against the native GPU game image differed in 242253 bytes and is not accepted as a same-adapter regression result."
+}
