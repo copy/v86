@@ -218,11 +218,16 @@ fn d9dd_vs_main(@builtin(vertex_index) index: u32) -> D9DDBlitOutput {
         floor(stage_in.uv * blit.source_size.xy), vec2<f32>(0.0, 0.0),
         max(blit.source_size.xy - vec2<f32>(1.0, 1.0), vec2<f32>(0.0, 0.0))));
     let index = textureLoad(d9dd_source, texel, 0).r;`);
-            if (variant.colorKey)
+            if (variant.colorKey && !variant.keyToAlpha)
                 body.push(`    if (index >= blit.key_low.x && index <= blit.key_high.x) {
         discard;
     }`);
-            if (indexedDestination)
+            if (variant.keyToAlpha) {
+                body.push(variant.paletteResolve ? "    let color = d9dd_palette.entries[index];"
+                    : "    let color = vec4<f32>(vec3<f32>(f32(index) / 255.0), 1.0);");
+                body.push("    let keyed = index <= blit.key_high.x && blit.key_low.x <= index;\n" +
+                    "    return vec4<f32>(color.rgb, select(color.a, 0.0, keyed));");
+            } else if (indexedDestination)
                 body.push("    return vec4<u32>(index, 0u, 0u, 0u);");
             else if (variant.paletteResolve)
                 body.push("    return d9dd_palette.entries[index];");
@@ -239,7 +244,7 @@ fn d9dd_vs_main(@builtin(vertex_index) index: u32) -> D9DDBlitOutput {
             if (variant.colorKey)
                 // Quantised back to the 8-bit-per-channel domain the key lives
                 // in. Both ends of the key were widened from the surface
-                // format by the same truncating 255/max scale in the guest
+                // format by the same bit replication in the guest
                 // (ddraw_expand_channel), and the upload widened the texels the
                 // same way, so this comparison is exact rather than nearly so.
                 body.push(`    let quantised = vec3<u32>(round(color.rgb * 255.0));
@@ -794,7 +799,7 @@ ${body.join("\n")}
                         !destinationColorKey)
                     continue;
                 let paletteBuffer = null;
-                if (sourceIndexed) paletteBuffer = this.ddPaletteBufferFor(source);
+                if (sourceIndexed) paletteBuffer = this.ddPaletteBufferFor(source, encoder);
                 const src = clipped.source;
                 const sourceU = src.left / sourceWidth;
                 const sourceV = src.top / sourceHeight;
@@ -844,7 +849,7 @@ ${body.join("\n")}
 
         // The GPU copy of the palette a surface samples through, or null when
         // the guest has not sent one yet.
-        ddPaletteBufferFor(resource) {
+        ddPaletteBufferFor(resource, encoder) {
             const index = resource.ddPaletteIndex;
             if (index === undefined) return null;
             const key = (resource.deviceHandle || 0) + ":" + index;
@@ -873,7 +878,9 @@ ${body.join("\n")}
                     floats[i * 4 + 2] = rgba[i * 4 + 2] / 255;
                     floats[i * 4 + 3] = rgba[i * 4 + 3] / 255;
                 }
-                this.device.queue.writeBuffer(entry.buffer, 0, floats);
+                const bytes = new Uint8Array(floats.buffer);
+                if (encoder) this.encodeBufferUpload(encoder, entry.buffer, bytes);
+                else this.stageBufferUpload(entry.buffer, 0, bytes);
                 entry.serial = serial;
                 this.stats.ddPaletteUploads =
                     (this.stats.ddPaletteUploads || 0) + 1;
@@ -884,7 +891,7 @@ ${body.join("\n")}
         // DirectDraw keeps P8 surfaces as r8uint so blits and readback preserve
         // the application's indices.  Fixed-function D3D sampling, however,
         // needs filterable colours. Build a companion RGBA texture from the
-        // CPU index shadows and the palette attached to this *surface* (not the
+        // GPU index image and the palette attached to this *surface* (not the
         // device-global D3D9 palette). A keyed companion sets alpha to zero by
         // comparing the original index, so duplicate palette colours cannot
         // make an unrelated texel transparent.
@@ -893,8 +900,6 @@ ${body.join("\n")}
             const paletteIndex = resource.ddPaletteIndex;
             const paletteKey = paletteIndex === undefined ? null
                 : (resource.deviceHandle || 0) + ":" + paletteIndex;
-            const palette = paletteKey && this.palettes
-                ? this.palettes.get(paletteKey) : null;
             const paletteSerial = paletteKey && this.ddPaletteSerials
                 ? (this.ddPaletteSerials.get(paletteKey) || 0) : 0;
             const keyLow = colorKey ? colorKey.low & 0xff : -1;
@@ -907,46 +912,32 @@ ${body.join("\n")}
             if (old && old.serial === serial) return old.view;
 
             const layers = resource.layerCount || 1;
-            const texture = this.device.createTexture({
+            const texture = old ? old.texture : this.device.createTexture({
                 label: "DirectDraw indexed D3D sample view",
-                size: { width: resource.width, height: resource.height,
-                    depthOrArrayLayers: layers },
-                format: "rgba8unorm",
-                mipLevelCount: Math.max(1, resource.levelCount || 1),
-                usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING,
+                size: { width: resource.width, height: resource.height, depthOrArrayLayers: layers },
+                format: "rgba8unorm", mipLevelCount: Math.max(1, resource.levelCount || 1),
+                usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING,
             });
-            for (const shadow of resource.textureShadows
-                    ? resource.textureShadows.values() : []) {
-                const rgba = new Uint8Array(shadow.width * shadow.height * 4);
-                for (let pixel = 0; pixel < shadow.width * shadow.height;
-                        ++pixel) {
-                    const index = shadow.data[pixel];
-                    const at = pixel * 4;
-                    if (palette) {
-                        rgba[at] = palette[index * 4];
-                        rgba[at + 1] = palette[index * 4 + 1];
-                        rgba[at + 2] = palette[index * 4 + 2];
-                        rgba[at + 3] = palette[index * 4 + 3];
-                    } else {
-                        rgba[at] = rgba[at + 1] = rgba[at + 2] = index;
-                        rgba[at + 3] = 0xff;
-                    }
-                    if (colorKey && index >= keyLow && index <= keyHigh)
-                        rgba[at + 3] = 0;
-                }
-                this.device.queue.writeTexture({ texture,
-                    mipLevel: shadow.level,
-                    origin: { x: 0, y: 0, z: shadow.layer || 0 } }, rgba,
-                    { bytesPerRow: shadow.width * 4,
-                        rowsPerImage: shadow.height },
-                    { width: shadow.width, height: shadow.height,
-                        depthOrArrayLayers: 1 });
-            }
-            const entry = { texture, serial, view: texture.createView({
+            const entry = old || { texture, view: texture.createView({
                 dimension: resource.textureType === "cube" ? "cube" : "2d",
             }) };
+            entry.serial = serial;
             resource.ddSampleViews.set(variant, entry);
-            if (old) this.retireGPUObject(old.texture);
+            const paletteBuffer = this.ddPaletteBufferFor(resource);
+            const frame = this.ensureFrame();
+            for (let level = 0; level < Math.max(1, resource.levelCount || 1); ++level) {
+                const width = Math.max(1, resource.width >> level), height = Math.max(1, resource.height >> level);
+                for (let layer = 0; layer < layers; ++layer) {
+                    frame.ops.push({ kind: "ddblit", sourceKind: "index", destinationKind: "float",
+                        sourceView: this.blitSourceView(resource, level, layer),
+                        destinationView: texture.createView({ dimension: "2d", baseMipLevel: level, mipLevelCount: 1,
+                            baseArrayLayer: layer, arrayLayerCount: 1 }),
+                        destinationFormat: "rgba8unorm", sourceRect: [0, 0, 1, 1], sourceSize: [width, height],
+                        viewport: [0, 0, width, height], paletteBuffer, filterPoint: true,
+                        colorKey: colorKey || null, keyToAlpha: !!colorKey });
+                }
+            }
+            resource.frameReferenced = frame.serial;
             this.stats.ddIndexedSampleResolves =
                 (this.stats.ddIndexedSampleResolves || 0) + 1;
             return entry.view;
@@ -954,7 +945,7 @@ ${body.join("\n")}
 
         ddBlitPipelineFor(variant) {
             const key = [variant.destinationFormat, variant.sourceKind,
-                variant.destinationKind, variant.colorKey ? "key" : "-",
+                variant.destinationKind, variant.colorKey ? "key" : "-", variant.keyToAlpha ? "alpha" : "-",
                 variant.destinationKey ? "dest-key" : "-",
                 variant.paletteResolve ? "pal" : "-",
                 variant.filterPoint ? "point" : "linear"].join("|");
@@ -1025,7 +1016,7 @@ ${body.join("\n")}
                     ? op.destinationKind : "float",
                 destinationFormat: op.destinationView
                     ? op.destinationFormat : this.format,
-                colorKey: !!op.colorKey,
+                colorKey: !!op.colorKey, keyToAlpha: !!op.keyToAlpha,
                 destinationKey: !!op.destinationColorKey,
                 paletteResolve: !!op.paletteBuffer,
                 filterPoint: !!op.filterPoint,

@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8"><title>D9WG indexed presentation palettes</title><canvas width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async () => {
+    const P = D9WGProtocol, C = P.C, { cmd } = D3D9Conformance.builders;
+    const gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, shaderWorkerUrl: null });
+    try {
+        await gpu.initialize();
+        // A persistent real GPU texture observes the final presentation image.
+        // Guest READBACK reads the primary, which intentionally excludes scanout
+        // overlays. All palette conversion/compositing still runs on WebGPU.
+        const display = gpu.device.createTexture({ size: [64, 64], format: gpu.format, usage: 0x1 | 0x2 | 0x4 | 0x10 });
+        gpu.context = { getCurrentTexture: () => display };
+        const palette = (dev, color) => {
+            const data = new Uint8Array(1024);new DataView(data.buffer).setUint32(4, color, true);
+            return cmd(P.OP.SET_PALETTE, P.encode("SetPalette", { device_handle: dev, entry_count: 256 }), [{ offsetField: "data_offset", data }]);
+        };
+        const fixture = D3D9Conformance.caseBatch(0, { backBuffer: true, body: dev => [
+            cmd(P.OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: dev, resource_handle: 123, width: 4, height: 4, level_count: 1, format: 41, usage: C.D9WG_USAGE_DDRAW_INDEXED })),
+            cmd(P.OP.UPDATE_TEXTURE, P.encode("UpdateTexture", { resource_handle: 123, width: 4, height: 4, depth: 1, row_pitch: 4, slice_pitch: 16, data_bytes: 16 }), [{ offsetField: "data_offset", data: new Uint8Array(16).fill(1) }]),
+            palette(dev, 0xff336699),
+            cmd(P.OP.DD_SET_SURFACE_PALETTE, P.encode("DDSetSurfacePalette", { surface_handle: 123, flags: 1 })),
+            cmd(P.OP.DD_UPDATE_OVERLAY, P.encode("DDUpdateOverlay", { surface_handle: 123, overlay_id: 77, source_rect: [0, 0, 4, 4], destination_rect: [0, 0, 64, 64], flags: C.D9WG_DDOVER_SHOW })),
+        ] });
+        const read = async expected => {
+            const buffer = gpu.device.createBuffer({ size: 64 * 64 * 4, usage: 0x8 | 0x1 });
+            const encoder = gpu.device.createCommandEncoder();encoder.copyTextureToBuffer({ texture: display }, { buffer, bytesPerRow: 256, rowsPerImage: 64 }, [64, 64]);
+            gpu.device.queue.submit([encoder.finish()]);await buffer.mapAsync(1);
+            const data = new Uint8Array(buffer.getMappedRange()), bytes = gpu.format.startsWith("bgra") ? [expected[2], expected[1], expected[0], 255] : [...expected, 255];
+            for (let at = 0; at < data.length; at++) if (data[at] !== bytes[at % 4]) throw new Error("Wrong overlay pixel byte " + at + ": " + data[at] + " expected " + bytes[at % 4]);
+            buffer.unmap();buffer.destroy();
+        };
+        await gpu.submit(fixture.bytes, { writeGuestMemory() {} });await read([0x33, 0x66, 0x99]);
+        // This frame contains only a palette change and Present: the palette
+        // upload is discovered inside presentation replay, rather than a draw.
+        await gpu.submit(P.encodeBatch([{ opcode: P.OP.SET_PALETTE, payload: { device_handle: fixture.dev, entry_count: 256 },
+            blobs: [{ field: "data_offset", data: (() => { const data = new Uint8Array(1024);new DataView(data.buffer).setUint32(4, 0xff995533, true);return data; })() }] },
+            { opcode: P.OP.PRESENT, payload: { device_handle: fixture.dev, hwnd: 0x1234, width: 64, height: 64 } }], { session_id_low: 1, flags: C.D9WG_BATCH_FLAG_PRESENT }), { writeGuestMemory() {} });
+        await read([0x99, 0x55, 0x33]);await gpu.checkpointIdle();
+        if (gpu.hostErrors.length || gpu.gpuErrors.errors.length || gpu.stats.commandsFailed || gpu.stats.droppedDraws) throw new Error("Indexed overlay rejected work");
+        display.destroy();document.querySelector("#result").textContent = "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates";
+    } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
+})();
+</script>

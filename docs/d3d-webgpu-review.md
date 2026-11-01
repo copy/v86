@@ -895,6 +895,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **游戏变化仍单独登记：** 恢复旧窄 UNORM 后，Warcraft III 另有 146 字节、49 个稳定像素超出旧策略；仅恢复旧 buffer 更新仍失败，恢复固定 `0f5641e7` 的全部 buffer/texture 上传函数后通过原冻结比较。`tools/d3d_format_counterfactual.mjs ... --legacy-uploads` 可重建对照。由此定位到上传语义变化；这些游戏像素的完整原生正确性仍待客体 visual 验收，没有修改黄金图或策略，也没有将候选记为无差异通过。
 > - 3C3B 继续替换 DirectDraw 索引采样的 CPU shadow 和即时 palette 写入；这是 `textureShadows` 的最后一条路径，尚未关闭资源模块。
 
+> **阶段 3C3B（2026-11-01）：索引采样与 palette 有序更新完成；继续资源 handler 拆分。**
+>
+> - 删除最后的 `textureShadows` 及相关方法。P8 D3D 采样伴随图由 GPU 索引纹理和表面 palette 解析，所有 GPU 写入都会使其失效；按顺序更新同一伴随图，保留 view 身份以复用绑定组。按原始 index 判透明，重复 RGB 不会误透明，keyed texel 保留 RGB、仅 alpha 变零。
+> - palette buffer 也通过有序 staging copy 更新。Present 才发现的 overlay palette 直接编码到该 encoder；上传环只写新追加范围。绑定解析期间不触发中途提交，避免丢失已经分配常量的 draw。
+> - 两项新复现已修复：GPU fill 后采样旧索引、两次 blit 间 palette 更新覆盖第一次。153 场景中 141 正向、12 明示偏差；同套件强制 1 字节上传预算、频繁提交也通过。新增实际 GPU 的 8,192 个最终显示像素检查，覆盖仅 palette+Present 的帧；此处观察最终 scanout，客体 READBACK 仍只读 primary。
+> - 124 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、完整存档恢复、12/12 变异通过；Naga 增测 keyed-alpha 的有/无 palette 两变体。存档检查改为核验重建的实际 GPU index copy，不再依赖已删除的 CPU shadow。固定旧上传函数的 Warcraft III 对照通过未改动的冻结策略，候选图仍保留 3C1/3C3A 已登记差异。
+> - 运行包 `add5b110de1479123c37`；见 [stage3c3b-validation.json](fixtures/d3d-review/stage3c3b-validation.json)。资源上传的功能改造完成；3C4 接着把资源 handlers 移出执行器，随后推进 surface-ops 等模块。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

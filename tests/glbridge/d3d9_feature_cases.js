@@ -254,6 +254,41 @@
 
     const blit = (dev, source, destination, flags, more = {}) => wire("DDBlt", { device_handle: dev, source_handle: source, source_rect: [0, 0, 64, 64],
         destination_handle: destination, destination_rect: [0, 0, 64, 64], flags, ...more });
+    const indexedPalette = (dev, red, green) => {
+        const data = new Uint8Array(1024), view = new DataView(data.buffer);
+        view.setUint32(4, red, true);view.setUint32(8, green, true);
+        return wire("SetPalette", { device_handle: dev, entry_count: 256 }, [blob("SetPalette", "data_offset", data)]);
+    };
+    const indexedSource = (dev, handle, pattern = new Array(16).fill(1), sameRgb = false) => [
+        wire("CreateTexture2D", { device_handle: dev, resource_handle: handle, width: 4, height: 4, level_count: 1, format: 41, usage: P.C.D9WG_USAGE_DDRAW_INDEXED }),
+        wire("UpdateTexture", { resource_handle: handle, width: 4, height: 4, depth: 1, row_pitch: 4, slice_pitch: 16, data_bytes: 16 }, [blob("UpdateTexture", "data_offset", Uint8Array.from(pattern))]),
+        indexedPalette(dev, 0xffff0000, sameRgb ? 0xffff0000 : 0xff00ff00),
+        wire("DDSetSurfacePalette", { surface_handle: handle, flags: 1 }),
+    ];
+    const sampleIndexed = (dev, handle) => [wire("SetTexture", { device_handle: dev, texture_handle: handle }),
+        tss(dev, 0, 1, 2), tss(dev, 0, 2, 2), tss(dev, 0, 4, 2), tss(dev, 0, 5, 2)];
+    add("ddraw", { name: "indexed D3D sampling sees a preceding GPU fill", body: dev => {
+        const handle = dev + 0x500000;
+        return [...indexedSource(dev, handle), ...sampleIndexed(dev, handle), rs(dev, 174, 1),
+            wire("SetScissorRect", { device_handle: dev, right: 32, bottom: 64 }), ...texturedQuad(dev),
+            blit(dev, 0, handle, P.C.D9WG_DDBLT_COLOR_FILL, { destination_rect: [0, 0, 4, 4], fill_color: 2 }),
+            wire("SetScissorRect", { device_handle: dev, left: 32, right: 64, bottom: 64 }), ...texturedQuad(dev)];
+    }, probes: [{ at: [16, 32], expect: [255, 0, 0, 255] }, { at: [48, 32], expect: [0, 255, 0, 255] }] });
+    add("ddraw", { name: "indexed blit palette changes stay between blits", body: (dev, rt) => {
+        const handle = dev + 0x500000;
+        return [...indexedSource(dev, handle),
+            blit(dev, handle, rt, 0, { source_rect: [0, 0, 4, 4], destination_rect: [0, 0, 32, 64] }),
+            indexedPalette(dev, 0xff00ff00, 0xff00ff00),
+            blit(dev, handle, rt, 0, { source_rect: [0, 0, 4, 4], destination_rect: [32, 0, 64, 64] })];
+    }, probes: [{ at: [16, 32], expect: [255, 0, 0, 255] }, { at: [48, 32], expect: [0, 255, 0, 255] }] });
+    add("ddraw", { name: "indexed D3D key resolves alpha by index with duplicate RGB", body: dev => {
+        const handle = dev + 0x500000;
+        return [...indexedSource(dev, handle, new Array(4).fill([1, 1, 2, 2]).flat(), true), ...sampleIndexed(dev, handle),
+            wire("DDSetColorKey", { surface_handle: handle, key_kind: 0, color_low: 1, color_high: 1, present: 1 }),
+            rs(dev, 41, 1), rs(dev, 174, 1), wire("SetScissorRect", { device_handle: dev, right: 32, bottom: 64 }), ...texturedQuad(dev, 0.125),
+            wire("SetScissorRect", { device_handle: dev, left: 32, right: 64, bottom: 64 }), ...texturedQuad(dev, 0.875)];
+    }, probes: [{ at: [16, 32], expect: [0, 0, 0, 255] }, { at: [48, 32], expect: [255, 0, 0, 255] }] });
+
     for (const [name, format, fill, expected] of [["A8R8G8B8", 21, 0xff996633, [153, 102, 51, 255]],
         ["X8R8G8B8", 22, 0x00996633, [153, 102, 51, 255]], ["R5G6B5", 23, 0xf800, [255, 0, 0, 255]]]) add("ddraw", {
         name: "DirectDraw native " + name + " fill", targetFormat: format,

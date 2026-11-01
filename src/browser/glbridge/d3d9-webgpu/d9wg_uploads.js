@@ -15,7 +15,7 @@
             this.index = 0;
             this.cursor = 0;
             this.bytesUsed = 0;
-            for (const chunk of this.chunks) chunk.used = 0;
+            for (const chunk of this.chunks) { chunk.used = 0;chunk.uploaded = 0; }
         }
         reserve(bytes) {
             const size = align(bytes, 4);
@@ -27,7 +27,7 @@
                 if (chunk) this.retire(chunk.buffer);
                 const capacity = Math.max(4 << 20, align(size, 256));
                 chunk = { buffer: this.device.createBuffer({ label: "D3D9 ordered upload staging",
-                    size: capacity, usage: 0x4 | 0x8 }), data: new Uint8Array(capacity), used: 0 };
+                    size: capacity, usage: 0x4 | 0x8 }), data: new Uint8Array(capacity), used: 0, uploaded: 0 };
                 this.chunks[this.index] = chunk;
                 this.stats.uploadChunksAllocated = (this.stats.uploadChunksAllocated || 0) + 1;
             }
@@ -57,8 +57,10 @@
         }
         flush() {
             for (const chunk of this.chunks) {
-                if (!chunk.used) continue;
-                this.device.queue.writeBuffer(chunk.buffer, 0, chunk.data, 0, align(chunk.used, 4));
+                if (chunk.used <= chunk.uploaded) continue;
+                const end = align(chunk.used, 4), start = chunk.uploaded;
+                this.device.queue.writeBuffer(chunk.buffer, start, chunk.data, start, end - start);
+                chunk.uploaded = end;
                 this.stats.uploadStagingUploads = (this.stats.uploadStagingUploads || 0) + 1;
             }
         }

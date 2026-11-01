@@ -24,7 +24,8 @@
     let failed = 0;
     try {
         const executor = new D3D9WebGPUExecutor(document.getElementById("screen"),
-            { strict: true, shaderWorkerUrl: null });
+            { strict: true, shaderWorkerUrl: null,
+                uploadBudgetBytes: new URLSearchParams(location.search).has("upload_budget") ? 1 : undefined });
         await executor.initialize();
         const device = executor.device;
         const group = new URLSearchParams(location.search).get("group");

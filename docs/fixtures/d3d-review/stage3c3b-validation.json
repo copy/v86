@@ -1,0 +1,41 @@
+{
+  "stage": "3C3B GPU indexed sampling and ordered palette uploads",
+  "coreSuites": 124,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 153,
+  "normativePixelPasses": 141,
+  "knownPixelFailures": 12,
+  "smallUploadBudgetConformance": "153 cases PASS",
+  "finalIndexedOverlayPixels": 8192,
+  "pendingUniformAndUploadIsolationPixels": 32768,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "graphicsRevision": "add5b110de1479123c37",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "logs": {
+    "d3d-stage3c3b-core.log": "7d31e88a6bbba858a369e6e54f5cf9d487eb9c840c92d56a8310f8405f1cd9b0",
+    "d3d-stage3c3b-site.log": "40bb676eef5ffaf00f126ef2cca9a3565cac0b80b2dca5776d7e88fc0a3e2a4a",
+    "d3d-stage3c3b-gpu.log": "c587bccf6306c1bf63c1df742550a5c8c32ba2333f1063f407b9158e86cfc670",
+    "d3d-stage3c3b-before.log": "d78c16d1c27bbe169f432f7013454cba817aa96f9468a973d72281024e6a0c07",
+    "d3d-stage3c3b-after.log": "68fffe63cae589797af35362b38a04f4e4798eeb2a7e66690a88b0552525e26d",
+    "d3d-stage3c3b-small-budget.log": "68fffe63cae589797af35362b38a04f4e4798eeb2a7e66690a88b0552525e26d",
+    "d3d-stage3c3b-overlay.log": "bb0aa0f888d789f6a2375f5e38dd520f5d2a3e69efd7536b5a5ee88f77de6f74",
+    "d3d-stage3c3b-war3-counterfactual.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3c3b-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3c3b-checkpoint-node.log": "5fdee8cda298e8a66853f04e7adf21948ffc370a29134c249d78ba1481a0c70d",
+    "d3d-stage3c3b-integration.log": "34581b15f1f04eedd86cb28465751f436e0530181952f7149b602a274045371e",
+    "d3d-stage3c3b-ddraw.log": "a9ffd56e6e4ad0923bc9b935ab26e7f2a018fe7df2258f375fabc5dcb12e4c9a",
+    "d3d-stage3c3b-ddraw-naga.log": "4b35e6589dcf425d4d7925d4527528a67867248b6e9dd93811a5cde1bb56c187",
+    "d3d-stage3c3b-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441"
+  },
+  "reproducedBefore": {
+    "indexedSampleAfterGpuFill": "right RGBA 255,0,0,255; expected 0,255,0,255",
+    "paletteChangedBetweenBlits": "left RGBA 0,255,0,255; expected 255,0,0,255"
+  },
+  "after": "Both fixed. Duplicate RGB entries are keyed by original index; only alpha changes in the sampling companion.",
+  "scope": "All textureShadows and texture/buffer rename methods removed. Indexed sampling companions are rebuilt by ordered GPU utility passes and reused by view identity, invalidated by every recorded GPU write. Palette data is staged in order, including late discovery during Present-only overlay frames. New staging bytes append without reuploading earlier ranges.",
+  "remaining": "Resource handlers still need extraction from the executor (3C4). The subsequent surface/FFP/pipeline/recorder/present/diagnostics modules and guest stages remain pending.",
+  "warcraft3": "The documented narrow-UNORM and ordered-upload differences remain. The diagnostic restoring only pinned legacy conversion/uploads passes the original, unchanged frozen policy; no candidate golden/policy was trained."
+}

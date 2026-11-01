@@ -161,7 +161,10 @@ function makeFakeWebGPU() {
             calls.push(["copyBufferToTexture", source, destination, size, data, { bytesPerRow: pitch, rowsPerImage: rows }]);
         }
         copyTextureToBuffer(...a) { calls.push(["copyTextureToBuffer", ...a]); }
-        copyBufferToBuffer(...a) { calls.push(["copyBufferToBuffer", ...a]); }
+        copyBufferToBuffer(source, at, destination, offset, size) {
+            destination.data.set(source.data.subarray(at, at + size), offset);
+            calls.push(["copyBufferToBuffer", source, at, destination, offset, size]);
+        }
         finish() { return { encoder: this }; }
     }
     const queue = {
@@ -341,10 +344,7 @@ await test("a palettised surface is stored as r8uint indices, not expanded to RG
     assert.equal(resource.ddIndexed, true);
     assert.equal(resource.gpuBytesPerTexel, 1,
         "one byte per texel, not the four an expanded P8 would take");
-    const shadow = [...resource.textureShadows.values()][0];
-    assert.ok(shadow, "the surface kept no CPU shadow of its indices");
-    assert.deepEqual([...shadow.data.subarray(0, 4)], [0, 7, 14, 21],
-        "the stored bytes are the app's indices, unmodified");
+    assert.equal(resource.textureShadows, undefined, "GPU indices must not retain a CPU texture copy");
     const upload = flushTextureUploads(executor, find).find(call =>
         call[1].texture === resource.gpuTexture);
     assert.ok(upload, "the r8uint texture itself was never uploaded");
@@ -374,11 +374,13 @@ await test("D3D sampling resolves a surface palette and keys the original index"
     assert.ok(sampled, "no filterable sampling companion was created");
     const resolvedTexture = find("createTexture").find(call =>
         call[1].label === "DirectDraw indexed D3D sample view")[2];
-    const resolvedUpload = find("writeTexture").find(call =>
-        call[1].texture === resolvedTexture);
-    assert.ok(resolvedUpload, "the RGBA companion received no pixels");
-    assert.deepEqual([...resolvedUpload[2]], [7, 7, 0, 255, 9, 9, 0, 0],
-        "index 9 must become transparent without keying duplicate RGB values");
+    const resolve = executor.frame.ops.find(op => op.kind === "ddblit" && op.destinationView.texture === resolvedTexture);
+    assert.ok(resolve, "the sampling companion needs an ordered GPU resolve");
+    assert.equal(resolve.sourceView.texture, resource.gpuTexture);
+    assert.equal(resolve.sourceKind, "index");assert.equal(resolve.keyToAlpha, true);
+    assert.deepEqual(resolve.colorKey, resource.ddColorKey[0]);
+    executor.finishFrame(false);
+    assert.ok(find("beginRenderPass").some(call => call[1].colorAttachments[0].view.texture === resolvedTexture));
     assert.equal(executor.getStats().ddIndexedSampleResolves, 1);
 });
 
@@ -523,10 +525,10 @@ await test("an indexed surface presented to the canvas resolves through its pale
         .find(call => String(call[1].label || "").startsWith("DirectDraw palette"));
     assert.ok(paletteBuffer, "the palette was never uploaded to the GPU");
     assert.equal(paletteBuffer[1].size, 256 * 16);
-    const write = find("writeBuffer").find(call => call[1] === paletteBuffer[2]);
-    assert.ok(write, "the palette buffer was never written");
-    const floats = new Float32Array(write[3].buffer, write[3].byteOffset,
-        write[3].byteLength / 4);
+    const copy = find("copyBufferToBuffer").find(call => call[3] === paletteBuffer[2]);
+    assert.ok(copy, "the palette needs an ordered destination copy");
+    assert.equal(find("writeBuffer").some(call => call[1] === paletteBuffer[2]), false);
+    const floats = new Float32Array(paletteBuffer[2].data.buffer);
     // Entry 3 was 0xff030000: red = 3/255, and the wire is BGRA-ordered
     // D3DCOLOR, so the red channel has to survive the swap.
     assert.ok(Math.abs(floats[3 * 4] - 3 / 255) < 1e-6,

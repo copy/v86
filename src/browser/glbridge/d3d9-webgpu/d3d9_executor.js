@@ -2889,7 +2889,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         }
 
         uploadFrame(bytes) {
-            if (this.frame && this.uploads && this.uploads.bytesUsed + bytes > (64 << 20)) this.finishFrame(false);
+            if (!this.recordingBindings && this.frame && this.uploads && this.uploads.bytesUsed + bytes > (this.options.uploadBudgetBytes || (64 << 20))) this.finishFrame(false);
             const frame = this.ensureFrame();
             if (!this.uploads) this.uploads = new Uploads(this.device, object => this.retireGPUObject(object), this.stats);
             return frame;
@@ -2898,6 +2898,16 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         stageBufferUpload(buffer, offset, source) {
             const frame = this.uploadFrame(source.byteLength);
             frame.ops.push(this.uploads.buffer(buffer, offset, source));
+        }
+
+        // Present-time utilities may discover a palette after the recorded
+        // ops were replayed. Append only fresh staging bytes, then encode its
+        // copy directly into the same encoder before the utility pass.
+        encodeBufferUpload(encoder, buffer, source) {
+            if (!this.uploads) this.uploads = new Uploads(this.device, object => this.retireGPUObject(object), this.stats);
+            const op = this.uploads.buffer(buffer, 0, source);
+            this.uploads.flush();
+            this.uploads.replay(encoder, op);
         }
 
         stageTextureUpload(destination, source, layout, size, resource) {
@@ -4956,32 +4966,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         textureDiagnostic(handle) {
             const resource = handle ? this.resources.get(handle) : null;
             if (!resource) return { handle: handle || 0, live: false };
-            const byteSummary = data => {
-                const step = Math.max(1, Math.ceil(data.length / 65536));
-                let sampled = 0, nonZero = 0, minimum = 255, maximum = 0;
-                let hash = 2166136261 >>> 0;
-                for (let index = 0; index < data.length; index += step) {
-                    const value = data[index];
-                    ++sampled;
-                    if (value) ++nonZero;
-                    minimum = Math.min(minimum, value);
-                    maximum = Math.max(maximum, value);
-                    hash = Math.imul(hash ^ value, 16777619) >>> 0;
-                }
-                return { bytes: data.length, sampled, nonZero,
-                    minimum: sampled ? minimum : null,
-                    maximum: sampled ? maximum : null,
-                    hash: "0x" + hash.toString(16).padStart(8, "0") };
-            };
-            const shadowLevels = [];
-            if (resource.textureShadows) {
-                for (const [level, shadow] of resource.textureShadows) {
-                    shadowLevels.push({ level, width: shadow.width,
-                        height: shadow.height, depth: shadow.depth,
-                        compressed: !!shadow.compressed,
-                        data: byteSummary(shadow.data) });
-                }
-            }
             return {
                 handle, live: true, kind: resource.kind,
                 type: resource.textureType || "2d",
@@ -4993,7 +4977,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 levels: resource.levelCount,
                 uploadedLevels: resource.uploadedLevels
                     ? [...resource.uploadedLevels].sort((a, b) => a - b) : null,
-                shadowLevels,
+                shadowLevels: [],
             };
         }
 
@@ -5536,68 +5520,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return resource.depthReadsRaw ? "depth-fetch" : "depth-compare";
         }
 
-        textureShadowFor(resource, level, layer, compressed) {
-            if (!resource.textureShadows) resource.textureShadows = new Map();
-            const key = level + ":" + (resource.textureType === "3d" ? 0 : layer);
-            let shadow = resource.textureShadows.get(key);
-            if (shadow) return shadow;
-            const width = Math.max(1, resource.width >> level);
-            const height = Math.max(1, resource.height >> level);
-            const depth = resource.textureType === "3d"
-                ? Math.max(1, resource.depth >> level) : 1;
-            let bytesPerRow;
-            let rowsPerImage;
-            if (compressed) {
-                const blockBytes = compressedBlockBytes(resource.format);
-                bytesPerRow = Math.ceil(width / 4) * blockBytes;
-                rowsPerImage = Math.ceil(height / 4);
-            } else {
-                bytesPerRow = width * resource.gpuBytesPerTexel;
-                rowsPerImage = height;
-            }
-            shadow = { level, layer: resource.textureType === "3d" ? 0 : layer,
-                width, height, depth, bytesPerRow, rowsPerImage,
-                compressed, data: new Uint8Array(bytesPerRow * rowsPerImage * depth) };
-            resource.textureShadows.set(key, shadow);
-            return shadow;
-        }
-
-        updateTextureShadow(resource, level, layer, x, y, width, height,
-                payload, sourceBytesPerRow, compressed, depth = 1,
-                sourceSlicePitch = 0) {
-            const shadow = this.textureShadowFor(resource, level, layer,
-                compressed);
-            const blockBytes = compressed
-                ? compressedBlockBytes(resource.format)
-                : resource.gpuBytesPerTexel;
-            const destinationX = compressed ? Math.floor(x / 4) : x;
-            const destinationY = compressed ? Math.floor(y / 4) : y;
-            const rowBytes = compressed
-                ? Math.ceil(width / 4) * blockBytes
-                : width * resource.gpuBytesPerTexel;
-            const rowCount = compressed ? Math.ceil(height / 4) : height;
-            const sourceSlice = sourceSlicePitch || sourceBytesPerRow * rowCount;
-            for (let slice = 0; slice < depth; ++slice) {
-                for (let row = 0; row < rowCount; ++row) {
-                    const destinationOffset = resource.textureType === "3d"
-                        ? (layer + slice) * shadow.bytesPerRow *
-                            shadow.rowsPerImage +
-                            (destinationY + row) * shadow.bytesPerRow +
-                            destinationX * blockBytes
-                        : (destinationY + row) * shadow.bytesPerRow +
-                            destinationX * blockBytes;
-                    const sourceOffset = slice * sourceSlice +
-                        row * sourceBytesPerRow;
-                    const available = Math.max(0,
-                        Math.min(rowBytes, shadow.data.length - destinationOffset,
-                            payload.length - sourceOffset));
-                    if (available)
-                        shadow.data.set(payload.subarray(sourceOffset,
-                            sourceOffset + available), destinationOffset);
-                }
-            }
-        }
-
         onUpdateTexture(bytes, view, offset) {
             const handle = view.getUint32(offset + D9WG.F.UpdateTexture.resource_handle, true);
             const level = view.getUint32(offset + D9WG.F.UpdateTexture.level, true);
@@ -5634,15 +5556,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             slice * width * height + row * width);
                     }
                 }
-                this.updateTextureShadow(resource, level, z, x, y, width,
-                    height, packed, width, false, depth, width * height);
                 ++this.stats.textureUploads;
                 this.stats.textureBytesUploaded += packed.length;
-                resource.ddContentSerial = (resource.ddContentSerial || 0) + 1;
                 this.markTextureSubresourceWritten(resource, level, z);
                 // Keep the primary r8uint texture current for indexed-to-
                 // indexed DirectDraw blits.  The RGBA sampling companion is
-                // derived lazily from the same shadow by ddIndexedSampleViewFor.
+                // resolved lazily from the GPU indices by ddIndexedSampleViewFor.
                 this.stageTextureUpload(
                     { texture: resource.gpuTexture, mipLevel: level,
                         origin: { x, y, z } }, packed,
@@ -5980,6 +5899,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // but semantically it is the set of initialized levels/faces.
         markTextureSubresourceWritten(resource, level, layer = 0) {
             if (!resource) return;
+            if (resource.ddIndexed) resource.ddContentSerial = (resource.ddContentSerial || 0) + 1;
             if (resource.uploadedLevels) {
                 if (resource.textureType === "3d") {
                     resource.uploadedLevels.add(level);
@@ -10836,7 +10756,10 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
             // to create the frame misses exactly those textures.
             const frame = this.ensureFrame();
             const constants = this.constantBufferFor(state, program);
-            const binding = this.bindGroupFor(state, pipeline, program, constants);
+            let binding;
+            this.recordingBindings = true;
+            try { binding = this.bindGroupFor(state, pipeline, program, constants); }
+            finally { this.recordingBindings = false; }
             if (binding.group._d9wgRejected) {
                 this.noteDroppedDraw(which, state,
                     ["WebGPU rejected the bind group: " + binding.group._d9wgRejected]);

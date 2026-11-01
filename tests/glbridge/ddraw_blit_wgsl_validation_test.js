@@ -64,6 +64,11 @@ for (const sourceKind of ["float", "index", "none"]) {
     }
 }
 
+// Indexed sampling companions preserve RGB and turn only keyed indices transparent.
+for (const paletteResolve of [false, true]) validate("indexed-key-alpha-" + paletteResolve,
+    ddBlitShaderSource({ sourceKind: "index", destinationKind: "float", colorKey: true,
+        keyToAlpha: true, paletteResolve, destinationKey: false, filterPoint: true }));
+
 // The two variants the 2D path lives on, spelled out so a regression names
 // itself rather than appearing as "variant 7 failed".
 validate("sprite-blit-p8-into-p8-with-source-key", ddBlitShaderSource({

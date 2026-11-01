@@ -1,8 +1,8 @@
 "use strict";
 const assert = require("node:assert/strict"), Uploads = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js");
-const retired = [], stats = {}, device = {
+const writes = [], retired = [], stats = {}, device = {
     createBuffer(descriptor) { assert.equal(descriptor.usage, 12);return { descriptor, data: new Uint8Array(descriptor.size) }; },
-    queue: { writeBuffer(buffer, offset, data, at, count) { buffer.data.set(data.subarray(at, at + count), offset); } },
+    queue: { writeBuffer(buffer, offset, data, at, count) { writes.push({ offset, count });buffer.data.set(data.subarray(at, at + count), offset); } },
 };
 const ring = new Uploads(device, b => retired.push(b), stats), destination = {};
 const input = Uint8Array.of(1, 2, 3, 4), first = ring.buffer(destination, 8, input);input.fill(99);
@@ -16,6 +16,10 @@ assert.deepEqual([...texture.source.buffer.data.subarray(texture.source.offset +
 const seen = [];
 ring.replay({ copyBufferToBuffer(...args) { seen.push(args); } }, first);assert.equal(seen[0][2], destination);
 ring.replay({ copyBufferToTexture(...args) { seen.push(args); } }, texture);assert.equal(seen[1][0].bytesPerRow, 256);
+ring.flush();assert.equal(writes.length, 1, "an unchanged staging pool must not upload again");
+const appended = ring.buffer(destination, 0, Uint8Array.of(3, 4, 5, 6));ring.flush();
+assert.deepEqual(writes[1], { offset: appended.sourceOffset, count: 4 }, "present-time uploads write only newly appended bytes");
+assert.deepEqual([...first.source.data.subarray(first.sourceOffset, first.sourceOffset + 4)], [1, 2, 3, 4]);
 ring.reserve(4 << 20);assert.equal(ring.chunks.length, 2, "overflow advances to a distinct live chunk");
 ring.reset();const reused = ring.buffer(destination, 0, Uint8Array.of(9, 8, 7, 6));assert.equal(reused.sourceOffset, 0);assert.equal(reused.source, first.source);
 ring.reset();ring.reserve(9 << 20);assert.equal(retired[0], first.source, "growing a pooled chunk retires its old GPU allocation");
