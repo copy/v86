@@ -290,9 +290,15 @@
     }, probes: [{ at: [16, 32], expect: [0, 0, 0, 255] }, { at: [48, 32], expect: [255, 0, 0, 255] }] });
 
     for (const [name, format, fill, expected] of [["A8R8G8B8", 21, 0xff996633, [153, 102, 51, 255]],
-        ["X8R8G8B8", 22, 0x00996633, [153, 102, 51, 255]], ["R5G6B5", 23, 0xf800, [255, 0, 0, 255]]]) add("ddraw", {
+        ["X8R8G8B8", 22, 0x00996633, [153, 102, 51, 255]], ["R5G6B5", 23, 0xf800, [255, 0, 0, 255]],
+        ["R5G6B5 midrange", 23, 0x2204, [33, 65, 33, 255]], ["X1R5G5B5", 24, 0x7c00, [255, 0, 0, 255]],
+        ["A1R5G5B5 transparent", 25, 0x7c00, [255, 0, 0, 0]], ["A4R4G4B4", 26, 0x89ab, [153, 170, 187, 136]],
+        ["R8G8B8", 20, 0x996633, [153, 102, 51, 255]], ["X8B8G8R8", 33, 0x00336699, [153, 102, 51, 255]]]) add("ddraw", {
         name: "DirectDraw native " + name + " fill", targetFormat: format,
         body: (dev, rt) => [blit(dev, 0, rt, P.C.D9WG_DDBLT_COLOR_FILL, { fill_color: fill })], probes: [{ at: [32, 32], expect: expected }] });
+    add("resources", { name: "D3D9 ColorFill takes D3DCOLOR and forces opaque X8 alpha", targetFormat: 22,
+        body: (dev, rt) => [wire("ColorFill", { device_handle: dev, texture_handle: rt, color: 0x00996633, right: 64, bottom: 64 })],
+        probes: [{ at: [32, 32], expect: [153, 102, 51, 255] }] });
     for (const destination of [false, true]) for (const key of [0x336699, 0x33669a, 0x33669b]) add("ddraw", {
         name: "DirectDraw " + (destination ? "destination" : "source") + " inclusive key " + key.toString(16),
         body: (dev, rt) => {
@@ -327,8 +333,6 @@
     for (const name of ["EXP", "EXP2", "LINEAR"])
         suite.KNOWN_FAILURES["table fog " + name] = "S2-2 extension: affine projection requires Z, not W, table fog";
     suite.KNOWN_FAILURES["DOTPRODUCT3 colour overrides separate alpha operation"] = "S2-20: colour DOT3 must also replace alpha";
-    suite.KNOWN_FAILURES["DirectDraw native X8R8G8B8 fill"] = "S2-16/S2-44: X8 surface alpha must remain 1";
-    suite.KNOWN_FAILURES["DirectDraw native R5G6B5 fill"] = "S2-44: COLORFILL is in destination format";
     suite.KNOWN_FAILURES["missing vertex COLOR1 falls back to diffuse material"] = "S2-5: absent colour input must use material";
     for (const name of ["BUMPENVMAP", "BUMPENVMAPLUMINANCE"])
         suite.KNOWN_FAILURES["texture op " + name + " offsets next-stage coordinates"] = "S3 FFP: uniformBlockLayout drops bumpSource/bumpLuminanceSource metadata";

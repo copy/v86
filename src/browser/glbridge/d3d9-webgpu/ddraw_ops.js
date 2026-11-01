@@ -27,6 +27,8 @@
         (typeof require === "function" ? require("./d9wg_surface_ops.js") : null);
     if (!surfaceFactory) throw new Error("ddraw_ops.js requires d9wg_surface_ops.js");
     const { ddBlitShaderSource, clipRects, clipDestination } = surfaceFactory;
+    const formats = global.D9WGFormats ||
+        (typeof require === "function" ? require("./d9wg_formats.js") : null);
 
     const D9WG = global.D9WGProtocol ||
         (typeof require === "function" ? require("./d9wg_protocol.js") : null);
@@ -62,17 +64,6 @@
     const DDSCL_EXCLUSIVE = 1 << 1;
     const DDSCL_FULLSCREEN = 1 << 2;
 
-    const BUFFER_USAGE_UNIFORM = 0x40;
-    const BUFFER_USAGE_COPY_DST = 0x8;
-    const TEXTURE_USAGE_COPY_SRC = 0x01;
-    const TEXTURE_USAGE_COPY_DST = 0x02;
-    const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
-    const TEXTURE_USAGE_RENDER_ATTACHMENT = 0x10;
-    const SHADER_STAGE_VERTEX = 0x1;
-    const SHADER_STAGE_FRAGMENT = 0x2;
-
-    const PALETTE_ENTRIES = 256;
-    const PALETTE_BYTES = PALETTE_ENTRIES * 16; // array<vec4<f32>, 256>
 
     const ddrawOps = {
         // ---- 0x500 DD_BLT ----------------------------------------------
@@ -228,15 +219,12 @@
                     destinationView, destinationFormat,
                     sourceRect: [0, 0, 1, 1],
                     viewport: clipped.viewport,
-                    // A DirectDraw fill colour is in the destination surface's
-                    // own format. The guest converts an RGB destination's fill
-                    // to D3DCOLOR; an indexed one carries the raw index.
-                    fill: destinationIndexed ? null : [
-                        ((fillColor >>> 16) & 0xff) / 255,
-                        ((fillColor >>> 8) & 0xff) / 255,
-                        (fillColor & 0xff) / 255,
-                        ((fillColor >>> 24) & 0xff) / 255,
-                    ],
+                    // DDBLTFX.dwFillColor is a native destination pixel, not
+                    // D3DCOLOR. An implicit primary inherits the display mode.
+                    fill: destinationIndexed ? null : formats.nativeFillRGBA(
+                        destination ? destination.format :
+                            state.ddDisplayMode && state.ddDisplayMode.bitsPerPixel === 16 ? 23 : 22,
+                        fillColor),
                     fillIndex: destinationIndexed ? (fillColor & 0xff) : 0,
                     destinationColorKey,
                     destinationTexture: destination
@@ -560,109 +548,8 @@
             this.warnOnce("ddraw-" + key, message, details || {});
         },
 
-        // The GPU copy of the palette a surface samples through, or null when
-        // the guest has not sent one yet.
-        ddPaletteBufferFor(resource, encoder) {
-            const index = resource.ddPaletteIndex;
-            if (index === undefined) return null;
-            const key = (resource.deviceHandle || 0) + ":" + index;
-            const rgba = this.palettes && this.palettes.get(key);
-            if (!rgba) return null;
-            if (!this.ddPaletteBuffers) this.ddPaletteBuffers = new Map();
-            let entry = this.ddPaletteBuffers.get(key);
-            if (!entry) {
-                entry = {
-                    buffer: this.device.createBuffer({
-                        label: "DirectDraw palette " + key,
-                        size: PALETTE_BYTES,
-                        usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
-                    }),
-                    serial: -1,
-                };
-                this.ddPaletteBuffers.set(key, entry);
-            }
-            const serial = (this.ddPaletteSerials &&
-                this.ddPaletteSerials.get(key)) || 0;
-            if (entry.serial !== serial) {
-                const floats = new Float32Array(PALETTE_ENTRIES * 4);
-                for (let i = 0; i < PALETTE_ENTRIES; ++i) {
-                    floats[i * 4] = rgba[i * 4] / 255;
-                    floats[i * 4 + 1] = rgba[i * 4 + 1] / 255;
-                    floats[i * 4 + 2] = rgba[i * 4 + 2] / 255;
-                    floats[i * 4 + 3] = rgba[i * 4 + 3] / 255;
-                }
-                const bytes = new Uint8Array(floats.buffer);
-                if (encoder) this.encodeBufferUpload(encoder, entry.buffer, bytes);
-                else this.stageBufferUpload(entry.buffer, 0, bytes);
-                entry.serial = serial;
-                this.stats.ddPaletteUploads =
-                    (this.stats.ddPaletteUploads || 0) + 1;
-            }
-            return entry.buffer;
-        },
-
-        // DirectDraw keeps P8 surfaces as r8uint so blits and readback preserve
-        // the application's indices.  Fixed-function D3D sampling, however,
-        // needs filterable colours. Build a companion RGBA texture from the
-        // GPU index image and the palette attached to this *surface* (not the
-        // device-global D3D9 palette). A keyed companion sets alpha to zero by
-        // comparing the original index, so duplicate palette colours cannot
-        // make an unrelated texel transparent.
-        ddIndexedSampleViewFor(resource, colorKey) {
-            if (!resource || !resource.ddIndexed) return null;
-            const paletteIndex = resource.ddPaletteIndex;
-            const paletteKey = paletteIndex === undefined ? null
-                : (resource.deviceHandle || 0) + ":" + paletteIndex;
-            const paletteSerial = paletteKey && this.ddPaletteSerials
-                ? (this.ddPaletteSerials.get(paletteKey) || 0) : 0;
-            const keyLow = colorKey ? colorKey.low & 0xff : -1;
-            const keyHigh = colorKey ? colorKey.high & 0xff : -1;
-            const variant = colorKey ? "keyed" : "plain";
-            const serial = [resource.ddContentSerial || 0, paletteKey || "-",
-                paletteSerial, keyLow, keyHigh].join(":");
-            if (!resource.ddSampleViews) resource.ddSampleViews = new Map();
-            const old = resource.ddSampleViews.get(variant);
-            if (old && old.serial === serial) return old.view;
-
-            const layers = resource.layerCount || 1;
-            const texture = old ? old.texture : this.device.createTexture({
-                label: "DirectDraw indexed D3D sample view",
-                size: { width: resource.width, height: resource.height, depthOrArrayLayers: layers },
-                format: "rgba8unorm", mipLevelCount: Math.max(1, resource.levelCount || 1),
-                usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING,
-            });
-            const entry = old || { texture, view: texture.createView({
-                dimension: resource.textureType === "cube" ? "cube" : "2d",
-            }) };
-            entry.serial = serial;
-            resource.ddSampleViews.set(variant, entry);
-            const paletteBuffer = this.ddPaletteBufferFor(resource);
-            const frame = this.ensureFrame();
-            for (let level = 0; level < Math.max(1, resource.levelCount || 1); ++level) {
-                const width = Math.max(1, resource.width >> level), height = Math.max(1, resource.height >> level);
-                for (let layer = 0; layer < layers; ++layer) {
-                    frame.ops.push({ kind: "ddblit", sourceKind: "index", destinationKind: "float",
-                        sourceView: this.blitSourceView(resource, level, layer),
-                        destinationView: texture.createView({ dimension: "2d", baseMipLevel: level, mipLevelCount: 1,
-                            baseArrayLayer: layer, arrayLayerCount: 1 }),
-                        destinationFormat: "rgba8unorm", sourceRect: [0, 0, 1, 1], sourceSize: [width, height],
-                        viewport: [0, 0, width, height], paletteBuffer, filterPoint: true,
-                        colorKey: colorKey || null, keyToAlpha: !!colorKey });
-                }
-            }
-            resource.frameReferenced = frame.serial;
-            this.stats.ddIndexedSampleResolves =
-                (this.stats.ddIndexedSampleResolves || 0) + 1;
-            return entry.view;
-        },
 
     };
-
-    // A destination rectangle is clipped to the surface; the source rectangle
-    // follows it proportionally, which is what makes a sprite that runs off the
-    // edge of the screen show its left half rather than its whole self squeezed
-    // into the space that was left.
-
 
     function installDDrawOps(ExecutorClass) {
         if (!ExecutorClass || ExecutorClass._ddrawOpsInstalled) return;

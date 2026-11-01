@@ -917,6 +917,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 125 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、153 场景的普通/小上传预算/强制 uniform 耗尽配置、最终 overlay、四种隔离、完整存档恢复和 12/12 变异通过。Warcraft III 的固定旧上传诊断通过原冻结策略，候选既有差异保持登记。
 > - 运行包 `cea10466db157bfc0ed8`；见 [stage3d1-validation.json](fixtures/d3d-review/stage3d1-validation.json)。3D2 接着迁移 DDraw GPU 缓存并修正原生格式 fill；12 项像素偏差及 draw CPU 目标尚未关闭。
 
+> **阶段 3D2（2026-11-02）：DDraw GPU 缓存归入资源模块，原生填充语义修复。**
+>
+> - palette GPU buffer 和 indexed sample view 两方法移至 `d9wg_resources.js`（共 36 方法）；`ddraw_ops.js` 保留客体语义转换和公共操作录制，不再构造 GPU 资源或管线。surface-ops 本轮拆分完成。
+> - 修正 S2-44：`DDBlt.fill_color` 按目标原生像素解码，共用上传的通道默认值和位复制；新增 565 中间值、1555、4444、24 位和反向通道用例。D3D9 `ColorFill` 继续按 D3DCOLOR 输入，并为无 alpha 的目标写不透明 alpha。
+> - 160 个 GPU 场景中 150 个正向通过、10 个明确偏差；普通、小上传预算、uniform 耗尽配置全部通过。125 组核心、72 组客体、两项站点集成、overlay/隔离、完整存档恢复和 12/12 变异通过。固定旧上传的 Warcraft III 诊断继续通过原冻结策略，既有候选差异未改为新黄金图。
+> - 运行包 `6a92839acfa896bc8bdc`；见 [stage3d2-validation.json](fixtures/d3d-review/stage3d2-validation.json)。接下来推进 FFP 纯生成器和签名缓存；通用绘制中的窄格式写入语义仍需对应验收，单个 draw 的 3 µs 目标尚未实测。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

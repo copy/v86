@@ -774,6 +774,22 @@
         }
     }
 
+    // DirectDraw COLORFILL carries the surface's packed native pixel. Reuse
+    // upload conversion so channel defaults and narrow UNORM replication agree.
+    function nativeFillRGBA(format, value) {
+        const source = new Uint8Array(4);
+        new DataView(source.buffer).setUint32(0, value, true);
+        const converted = new Uint8Array(gpuBytesPerTexel(format));
+        expandRowToGPU(format, source, 0, 1, converted, 0);
+        if (formatToGPU(format) === "bgra8unorm")
+            return [converted[2] / 255, converted[1] / 255, converted[0] / 255, converted[3] / 255];
+        if (isHalfFloatExpansionFormat(format)) {
+            const words = new DataView(converted.buffer);
+            return [0, 2, 4, 6].map(offset => halfBitsToFloat(words.getUint16(offset, true)));
+        }
+        return Array.from(converted.subarray(0, 4), channel => channel / 255);
+    }
+
     const api = {
         D3DFMT_R8G8B8,
         D3DFMT_A8R8G8B8,
@@ -854,7 +870,8 @@
         expandPairedRowToGPU,
         expandRowToGPU,
         expandUNorm8,
-        samplingSwizzle
+        samplingSwizzle,
+        nativeFillRGBA
     };
     global.D9WGFormats = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -10,15 +10,111 @@
             DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
             TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
             gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
-            RESOURCE_VERTEX_DECLARATION, D9WGStreamError, shaderPipeline, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER
+            RESOURCE_VERTEX_DECLARATION, D9WGStreamError, shaderPipeline, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER, BUFFER_USAGE_UNIFORM, PALETTE_ENTRIES, PALETTE_BYTES
         } = dependencies;
         return {
+            // The GPU copy of the palette a surface samples through, or null when
+            // the guest has not sent one yet.
+            ddPaletteBufferFor(resource, encoder) {
+                const index = resource.ddPaletteIndex;
+                if (index === undefined) return null;
+                const key = (resource.deviceHandle || 0) + ":" + index;
+                const rgba = this.palettes && this.palettes.get(key);
+                if (!rgba) return null;
+                if (!this.ddPaletteBuffers) this.ddPaletteBuffers = new Map();
+                let entry = this.ddPaletteBuffers.get(key);
+                if (!entry) {
+                    entry = {
+                        buffer: this.device.createBuffer({
+                            label: "DirectDraw palette " + key,
+                            size: PALETTE_BYTES,
+                            usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
+                        }),
+                        serial: -1,
+                    };
+                    this.ddPaletteBuffers.set(key, entry);
+                }
+                const serial = (this.ddPaletteSerials &&
+                    this.ddPaletteSerials.get(key)) || 0;
+                if (entry.serial !== serial) {
+                    const floats = new Float32Array(PALETTE_ENTRIES * 4);
+                    for (let i = 0; i < PALETTE_ENTRIES; ++i) {
+                        floats[i * 4] = rgba[i * 4] / 255;
+                        floats[i * 4 + 1] = rgba[i * 4 + 1] / 255;
+                        floats[i * 4 + 2] = rgba[i * 4 + 2] / 255;
+                        floats[i * 4 + 3] = rgba[i * 4 + 3] / 255;
+                    }
+                    const bytes = new Uint8Array(floats.buffer);
+                    if (encoder) this.encodeBufferUpload(encoder, entry.buffer, bytes);
+                    else this.stageBufferUpload(entry.buffer, 0, bytes);
+                    entry.serial = serial;
+                    this.stats.ddPaletteUploads =
+                        (this.stats.ddPaletteUploads || 0) + 1;
+                }
+                return entry.buffer;
+            },
+
+            // DirectDraw keeps P8 surfaces as r8uint so blits and readback preserve
+            // the application's indices.  Fixed-function D3D sampling, however,
+            // needs filterable colours. Build a companion RGBA texture from the
+            // GPU index image and the palette attached to this *surface* (not the
+            // device-global D3D9 palette). A keyed companion sets alpha to zero by
+            // comparing the original index, so duplicate palette colours cannot
+            // make an unrelated texel transparent.
+            ddIndexedSampleViewFor(resource, colorKey) {
+                if (!resource || !resource.ddIndexed) return null;
+                const paletteIndex = resource.ddPaletteIndex;
+                const paletteKey = paletteIndex === undefined ? null
+                    : (resource.deviceHandle || 0) + ":" + paletteIndex;
+                const paletteSerial = paletteKey && this.ddPaletteSerials
+                    ? (this.ddPaletteSerials.get(paletteKey) || 0) : 0;
+                const keyLow = colorKey ? colorKey.low & 0xff : -1;
+                const keyHigh = colorKey ? colorKey.high & 0xff : -1;
+                const variant = colorKey ? "keyed" : "plain";
+                const serial = [resource.ddContentSerial || 0, paletteKey || "-",
+                    paletteSerial, keyLow, keyHigh].join(":");
+                if (!resource.ddSampleViews) resource.ddSampleViews = new Map();
+                const old = resource.ddSampleViews.get(variant);
+                if (old && old.serial === serial) return old.view;
+
+                const layers = resource.layerCount || 1;
+                const texture = old ? old.texture : this.device.createTexture({
+                    label: "DirectDraw indexed D3D sample view",
+                    size: { width: resource.width, height: resource.height, depthOrArrayLayers: layers },
+                    format: "rgba8unorm", mipLevelCount: Math.max(1, resource.levelCount || 1),
+                    usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING,
+                });
+                const entry = old || { texture, view: texture.createView({
+                    dimension: resource.textureType === "cube" ? "cube" : "2d",
+                }) };
+                entry.serial = serial;
+                resource.ddSampleViews.set(variant, entry);
+                const paletteBuffer = this.ddPaletteBufferFor(resource);
+                const frame = this.ensureFrame();
+                for (let level = 0; level < Math.max(1, resource.levelCount || 1); ++level) {
+                    const width = Math.max(1, resource.width >> level), height = Math.max(1, resource.height >> level);
+                    for (let layer = 0; layer < layers; ++layer) {
+                        frame.ops.push({ kind: "ddblit", sourceKind: "index", destinationKind: "float",
+                            sourceView: this.blitSourceView(resource, level, layer),
+                            destinationView: texture.createView({ dimension: "2d", baseMipLevel: level, mipLevelCount: 1,
+                                baseArrayLayer: layer, arrayLayerCount: 1 }),
+                            destinationFormat: "rgba8unorm", sourceRect: [0, 0, 1, 1], sourceSize: [width, height],
+                            viewport: [0, 0, width, height], paletteBuffer, filterPoint: true,
+                            colorKey: colorKey || null, keyToAlpha: !!colorKey });
+                    }
+                }
+                resource.frameReferenced = frame.serial;
+                this.stats.ddIndexedSampleResolves =
+                    (this.stats.ddIndexedSampleResolves || 0) + 1;
+                return entry.view;
+            },
+
             retireResourceState(resource) {
                 if (!resource) return;
                 this.retireGPUObject(resource.gpuBuffer);
                 this.retireGPUObject(resource.gpuTexture);
                 this.retireGPUObject(resource.msaaTexture);
-                // Installed by ddraw_ops.js on palettised sample resources. A
+                // Palettised sample resources have companion textures. A
                 // SESSION_END bypasses per-resource opcodes, so its companion
                 // textures have to participate in the process-wide teardown too.
                 if (resource.ddSampleViews) {

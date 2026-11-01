@@ -21,4 +21,7 @@ for (const format of [111, 112, 113]) {
 }
 for (const format of [111, 112, 113, 114, 115, 116]) assert(F.formatToGPU(format));
 assert.equal(F.formatToGPU(0xffffffff), null);
+assert.deepEqual(F.nativeFillRGBA(23, 0x2204).map(v => Math.round(v * 255)), [33, 65, 33, 255]);
+assert.deepEqual(F.nativeFillRGBA(22, 0x996633).map(v => Math.round(v * 255)), [153, 102, 51, 255]);
+assert.deepEqual(F.nativeFillRGBA(21, 0x80996633).map(v => Math.round(v * 255)), [153, 102, 51, 128]);
 console.log("D9WG formats: native BGRA upload/readback, all 65536 RGB565 round trips and missing channels checked");

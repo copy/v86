@@ -1,0 +1,35 @@
+{
+  "stage": "3D2 DirectDraw semantic layer and native fills",
+  "date": "2026-11-02",
+  "coreSuites": 125,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 160,
+  "normativePixelPasses": 150,
+  "knownPixelFailures": 10,
+  "configurations": [
+    "normal",
+    "1-byte upload budget",
+    "256-byte single uniform chunk"
+  ],
+  "finalIndexedOverlayPixels": 8192,
+  "isolationPixels": 32768,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "graphicsRevision": "6a92839acfa896bc8bdc",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "resourcesMethods": 36,
+  "scope": "Palette GPU buffers and indexed sampling views now belong to d9wg_resources.js. ddraw_ops.js interprets guest opcodes and records common utility operations without constructing GPU resources or pipelines. Native DirectDraw fills reuse upload conversion and enforce format channel defaults. D3D9 ColorFill keeps D3DCOLOR interpretation and opaque missing alpha.",
+  "warcraft3": "Pinned legacy-upload diagnostic passes unchanged original frozen policy; candidate conversion/upload differences from prior stages remain.",
+  "logs": {
+    "d3d-stage3d2-core.log": "4a3620774f0c9cb7e61f7e190edd23d12bc4e10ba1fdd1123df592f59caee32b",
+    "d3d-stage3d2-site.log": "7fbe3535f17fb24a0ecbb59bc1bb1e7b0874378119e5e817b67854f7c61750fd",
+    "d3d-stage3d2-integration.log": "5dfc903c8b9c54eec247fdd1e0f815de295c6d33722291ae213e48bcb1cb58e4",
+    "d3d-stage3d2-gpu.log": "15fb5dbd07cc6dd7fd3d9cef71297df150c889f2a369fd6ee8653a3cfdbbd185",
+    "d3d-stage3d2-war3-counterfactual.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3d2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3d2-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441"
+  },
+  "next": "FFP pure generation/signature caching, remaining FFP pixel deviations, then later stage 3 modules and guest work."
+}

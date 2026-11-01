@@ -5965,7 +5965,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 return;
             const rgba = [((color >>> 16) & 0xff) / 255,
                 ((color >>> 8) & 0xff) / 255, (color & 0xff) / 255,
-                ((color >>> 24) & 0xff) / 255];
+                resource.format === formats.D3DFMT_X8R8G8B8 || resource.format === formats.D3DFMT_X1R5G5B5 ||
+                    resource.format === formats.D3DFMT_X4R4G4B4 || resource.format === formats.D3DFMT_X8B8G8R8 ||
+                    resource.format === formats.D3DFMT_R5G6B5 || resource.format === formats.D3DFMT_R8G8B8
+                    ? 1 : ((color >>> 24) & 0xff) / 255];
             const isFull = clippedLeft === 0 && clippedTop === 0 &&
                 clippedRight === fullWidth && clippedBottom === fullHeight;
             const frame = this.ensureFrame();
@@ -9851,7 +9854,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
         TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
         gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
-        RESOURCE_VERTEX_DECLARATION, D9WGStreamError, shaderPipeline, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER
+        RESOURCE_VERTEX_DECLARATION, D9WGStreamError, shaderPipeline, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER,
+        BUFFER_USAGE_UNIFORM, PALETTE_ENTRIES: surfaceFactory.PALETTE_ENTRIES, PALETTE_BYTES: surfaceFactory.PALETTE_BYTES
     });
     for (const [name, value] of Object.entries(resourceMethods))
         Object.defineProperty(D3D9WebGPUExecutor.prototype, name, { value, writable: true, configurable: true });
