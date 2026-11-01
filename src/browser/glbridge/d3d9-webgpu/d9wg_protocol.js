@@ -467,6 +467,10 @@
         ["uint32_t", "stencil"],
         ["uint32_t", "rect_count"],
     ] },
+    { struct: "Rect", note: "16 bytes; inline Clear rectangle", fields: [
+        ["int32_t", "left"], ["int32_t", "top"],
+        ["int32_t", "right"], ["int32_t", "bottom"],
+    ] },
     { raw: [
         "",
     ] },
@@ -1614,6 +1618,8 @@
 
     // A payload from an object (absent fields 0), for tests and the SVGA encoder
     function encode(struct, values) {
+        for (const name of Object.keys(values))
+            if (!(name in STRUCTS[struct].fields)) throw new Error("D9WG: unknown field " + struct + "." + name);
         const bytes = new Uint8Array(STRUCTS[struct].size);
         const view = new DataView(bytes.buffer);
         for (const [name, field] of Object.entries(STRUCTS[struct].fields)) {
@@ -1621,9 +1627,43 @@
             if (value === undefined) continue;
             const unit = field.bytes / field.count;
             const list = field.count === 1 ? [value] : value;
+            if (!list || list.length !== field.count) throw new Error("D9WG: array size " + struct + "." + name);
             if (!WRITE[field.type]) throw new Error("D9WG: " + struct + "." + name + " is not a scalar field");
             list.forEach((v, i) => WRITE[field.type](view, field.offset + i * unit, v));
         }
+        return bytes;
+    }
+
+    // Self-contained packets for tests/recorders. Payloads may be raw bytes
+    // for deliberately malformed/old-version tests; ordinary clients use
+    // named objects. Blob offsets are named fields, never literal positions.
+    function encodeBatch(commands, header = {}) {
+        const batchHeader = STRUCTS.BatchHeader.size, commandHeader = STRUCTS.CommandHeader.size;
+        let total = batchHeader;
+        const items = commands.map(command => {
+            const struct = commandStruct(command.opcode);
+            const payload = command.payload instanceof Uint8Array ? command.payload : encode(struct, command.payload || {});
+            const blobs = command.blobs || [];
+            const size = Math.ceil((commandHeader + payload.length + blobs.reduce((n, blob) => n + blob.data.length, 0)) / 8) * 8;
+            const at = total;total += size;
+            return { command, struct, payload, blobs, size, at };
+        });
+        const bytes = new Uint8Array(total), view = new DataView(bytes.buffer);
+        bytes.set(encode("BatchHeader", { magic: C.D9WG_MAGIC, version_major: C.D9WG_VERSION_MAJOR,
+            version_minor: C.D9WG_VERSION_MINOR, ...header, command_count: items.length, command_bytes: total - batchHeader }));
+        items.forEach(({ command, struct, payload, blobs, size, at }, index) => {
+            bytes.set(encode("CommandHeader", { opcode: command.opcode, flags: command.flags || 0, size,
+                sequence: command.sequence === undefined ? index + 1 : command.sequence }), at);
+            const start = at + commandHeader;bytes.set(payload, start);
+            let dataAt = start + payload.length;
+            for (const blob of blobs) {
+                const field = STRUCTS[struct]?.fields[blob.field];
+                if (!field || field.type !== "uint32_t" || field.count !== 1 || field.offset + 4 > payload.length)
+                    throw new Error("D9WG: invalid blob field " + struct + "." + blob.field);
+                view.setUint32(start + field.offset, dataAt, true);
+                bytes.set(blob.data, dataAt);dataAt += blob.data.length;
+            }
+        });
         return bytes;
     }
 
@@ -1645,7 +1685,7 @@
         return entry ? (Array.isArray(entry) ? entry[0] : entry) : null;
     }
 
-    const api = { ITEMS, COMMANDS, C, OP, OP_NAME, STRUCTS, F, MIN_MINOR, ADDED_FIELDS, decode, encode, commandStruct,
+    const api = { ITEMS, COMMANDS, C, OP, OP_NAME, STRUCTS, F, MIN_MINOR, ADDED_FIELDS, decode, encode, encodeBatch, commandStruct,
         minBytes, has,
         VERSION_MAJOR: C.D9WG_VERSION_MAJOR, VERSION_MINOR: C.D9WG_VERSION_MINOR };
     global.D9WGProtocol = api;

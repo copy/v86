@@ -138,6 +138,29 @@ test("the executor handles exactly the protocol's commands", () => {
     assert.deepEqual(handled.map(name), described.map(name));
 });
 
+test("the shared packet encoder preserves minor headers, named blobs and caller inputs", () => {
+    for (let minor = P.MIN_MINOR; minor <= P.VERSION_MINOR; minor++) {
+        const payload = P.encode("SetRenderTarget", { device_handle: 7, color_texture_handle: 9 });
+        const short = minor === 3 ? payload.subarray(0, P.minBytes("SetRenderTarget")) : payload;
+        const batch = P.encodeBatch([{ opcode: P.OP.SET_RENDER_TARGET, payload: short }], { version_minor: minor, session_id_low: 8 });
+        const header = P.decode("BatchHeader", new DataView(batch.buffer), 0);
+        assert.equal(header.version_minor, minor);assert.equal(header.session_id_low, 8);
+        assert.equal(header.command_bytes + P.STRUCTS.BatchHeader.size, batch.length);
+    }
+    const payload = P.encode("DrawIndexedPrimitiveUP", { index_bytes: 3, vertex_bytes: 4 });
+    const original = payload.slice(), indices = new Uint8Array([1, 2, 3]), vertices = new Uint8Array([4, 5, 6, 7]);
+    const batch = P.encodeBatch([{ opcode: P.OP.DRAW_INDEXED_PRIMITIVE_UP, payload, blobs: [
+        { field: "index_data_offset", data: indices }, { field: "vertex_data_offset", data: vertices },
+    ] }]);
+    const decoded = P.decode("DrawIndexedPrimitiveUP", new DataView(batch.buffer), P.STRUCTS.BatchHeader.size + P.STRUCTS.CommandHeader.size);
+    assert.deepEqual(batch.subarray(decoded.index_data_offset, decoded.index_data_offset + 3), indices);
+    assert.deepEqual(batch.subarray(decoded.vertex_data_offset, decoded.vertex_data_offset + 4), vertices);
+    assert.deepEqual(payload, original, "shared encoder does not mutate reused payloads");
+    assert.throws(() => P.encode("SetTexture", { texture_hanlde: 2 }), /unknown field/);
+    assert.throws(() => P.encode("SetMaterial", { diffuse: [1, 2] }), /array size/);
+    assert.throws(() => P.encodeBatch([{ opcode: P.OP.UPDATE_BUFFER, payload: {}, blobs: [{ field: "wrong", data: indices }] }]), /invalid blob/);
+});
+
 (async () => {
     for (const { name, fn } of tests) {
         try {

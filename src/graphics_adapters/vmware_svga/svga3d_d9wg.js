@@ -6,15 +6,19 @@
 // replayed without the guest.
 
 import { dbg_assert } from "../../log.js";
-import { D9WG_MAGIC, D9WG_VERSION_MAJOR, D9WG_VERSION_MINOR, OP, KIND, PAYLOAD_BYTES } from "./d9wg_constants.js";
+import { D9WG_MAGIC, D9WG_VERSION_MAJOR, D9WG_VERSION_MINOR, OP, KIND, PAYLOAD_BYTES, FIELD_LAYOUT, COMMAND_STRUCT } from "./d9wg_constants.js";
 
 // The opcodes, the resource kinds and every payload's size come from
 // src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js (d9wg_constants.js is
 // generated from it); the fields of each command follow its struct there.
 export { D9WG_MAGIC, D9WG_BATCH_FLAG_PRESENT, OP, KIND } from "./d9wg_constants.js";
 
-const BATCH_HEADER_BYTES = 32;
-const COMMAND_HEADER_BYTES = 16;
+const BATCH_HEADER_BYTES = FIELD_LAYOUT["BatchHeader"].bytes;
+const COMMAND_HEADER_BYTES = FIELD_LAYOUT["CommandHeader"].bytes;
+const COMMAND_SIZE_OFFSET = FIELD_LAYOUT["CommandHeader"].fields.find(field => field[0] === "size")[1];
+/** @param {string} name @return {!Object<string, number>} */
+const offsets = name => Object.fromEntries(FIELD_LAYOUT[name].fields.map(field => [field[0], Number(field[1])]));
+const BATCH_FIELDS = offsets("BatchHeader"), COMMAND_FIELDS = offsets("CommandHeader");
 
 // Every batch carries this session: one guest device, one resource namespace
 const SESSION_LOW = 0x41475653;     // "SVGA"
@@ -64,25 +68,100 @@ D9WGWriter.prototype.reserve = function(bytes)
 };
 
 /**
- * Start a command; its fields follow with u32/i32/f32/data
+ * Start a command header; command() supplies the generated payload.
  * @param {number} opcode
  */
 D9WGWriter.prototype.begin = function(opcode)
 {
     if(this.before) this.before();
     this.end();
-    this.reserve(COMMAND_HEADER_BYTES);
     this.command_at = this.length;
     this.opcode = opcode;
-    const v = this.view, at = this.length;
-    v.setUint16(at, opcode, true);
-    v.setUint16(at + 2, 0, true);
-    v.setUint32(at + 4, 0, true);
-    v.setUint32(at + 8, ++this.sequence, true);
-    v.setUint32(at + 12, 0, true);
-    this.length += COMMAND_HEADER_BYTES;
+    this.struct("CommandHeader", { "opcode": opcode, "sequence": ++this.sequence });
     this.count++;
     return this;
+};
+
+/** A named payload; generated offsets are the only wire layout knowledge.
+ * @param {number} opcode
+ * @param {!Object<string, *>} values
+ * @return {!D9WGWriter}
+ */
+D9WGWriter.prototype.command = function(opcode, values)
+{
+    const name = COMMAND_STRUCT[opcode];
+    if(!name) throw new Error("Unknown D9WG opcode " + opcode);
+    this.begin(opcode);
+    this.struct(name, values);
+    return this;
+};
+
+/** Append an inline struct (rectangles and vertex declarations too).
+ * @param {string} name
+ * @param {!Object<string, *>} values
+ * @return {!D9WGWriter}
+ */
+D9WGWriter.prototype.struct = function(name, values)
+{
+    const layout = FIELD_LAYOUT[name], at = this.length;
+    if(!layout) throw new Error("Unknown D9WG struct " + name);
+    this.reserve(layout.bytes);
+    this.bytes.fill(0, at, at + layout.bytes);
+    write_struct(this.view, at, name, values);
+    this.length += layout.bytes;
+    return this;
+};
+
+/** @param {!DataView} view @param {number} at @param {string} name @param {!Object<string, *>} values */
+function write_struct(view, at, name, values)
+{
+    const layout = FIELD_LAYOUT[name];
+    for(const key of Object.keys(values))
+        if(!layout.fields.some(field => field[0] === key)) throw new Error("Unknown D9WG field " + name + "." + key);
+    for(const [field, offset, type, count] of layout.fields)
+    {
+        const value = values[field];
+        if(value === undefined) continue;
+        const size = type === "uint8_t" ? 1 : type === "uint16_t" ? 2 : 4;
+        if(count > 1 && value.length !== count) throw new Error("D9WG array size: " + name + "." + field);
+        for(let i = 0; i < count; i++)
+        {
+            const position = at + offset + i * size;
+            const scalar = /** @type {number} */ (count === 1 ? value : value[i]);
+            switch(type)
+            {
+                case "uint8_t": view.setUint8(position, scalar); break;
+                case "uint16_t": view.setUint16(position, scalar, true); break;
+                case "uint32_t": view.setUint32(position, scalar >>> 0, true); break;
+                case "int32_t": view.setInt32(position, scalar | 0, true); break;
+                case "float": view.setFloat32(position, scalar, true); break;
+                default: throw new Error("Non-scalar D9WG field " + name + "." + field);
+            }
+        }
+    }
+}
+
+/** Standalone inline data, using the same generated layout as commands.
+ * @param {string} name @param {!Object<string, *>} values @return {!Uint8Array}
+ */
+export function d9wg_encode(name, values)
+{
+    const bytes = new Uint8Array(FIELD_LAYOUT[name].bytes);
+    write_struct(new DataView(bytes.buffer), 0, name, values);
+    return bytes;
+}
+
+/** Patch a named uint32 field after appending its blob.
+ * @param {string} name
+ * @param {number} value
+ */
+D9WGWriter.prototype.patch_field = function(name, value)
+{
+    const layout = FIELD_LAYOUT[COMMAND_STRUCT[this.opcode]];
+    const field = layout.fields.find(field => field[0] === name);
+    if(this.command_at < 0 || !field || field[2] !== "uint32_t" || field[3] !== 1)
+        throw new Error("Invalid D9WG patch field " + name);
+    this.view.setUint32(this.command_at + COMMAND_HEADER_BYTES + field[1], value >>> 0, true);
 };
 
 /** Finish the command being written: its size, padded to 8 bytes */
@@ -95,32 +174,8 @@ D9WGWriter.prototype.end = function()
     this.reserve(padded - this.length);
     this.bytes.fill(0, this.length, padded);
     this.length = padded;
-    this.view.setUint32(this.command_at + 4, this.length - this.command_at, true);
+    this.view.setUint32(this.command_at + COMMAND_SIZE_OFFSET, this.length - this.command_at, true);
     this.command_at = -1;
-};
-
-D9WGWriter.prototype.u32 = function(value)
-{
-    this.reserve(4);
-    this.view.setUint32(this.length, value >>> 0, true);
-    this.length += 4;
-    return this;
-};
-
-D9WGWriter.prototype.i32 = function(value)
-{
-    this.reserve(4);
-    this.view.setInt32(this.length, value | 0, true);
-    this.length += 4;
-    return this;
-};
-
-D9WGWriter.prototype.f32 = function(value)
-{
-    this.reserve(4);
-    this.view.setFloat32(this.length, value, true);
-    this.length += 4;
-    return this;
 };
 
 /**
@@ -139,22 +194,6 @@ D9WGWriter.prototype.data = function(bytes)
 };
 
 /**
- * A field whose value is known only later (a data_offset before its data)
- * @return {number} where to patch
- */
-D9WGWriter.prototype.placeholder = function()
-{
-    const at = this.length;
-    this.u32(0);
-    return at;
-};
-
-D9WGWriter.prototype.patch = function(at, value)
-{
-    this.view.setUint32(at, value >>> 0, true);
-};
-
-/**
  * Close the batch
  * @param {number} frame_id
  * @param {number} flags D9WG_BATCH_FLAG_*
@@ -163,16 +202,11 @@ D9WGWriter.prototype.patch = function(at, value)
 D9WGWriter.prototype.finish = function(frame_id, flags)
 {
     this.end();
-    const v = this.view;
-    v.setUint32(0, D9WG_MAGIC, true);
-    v.setUint16(4, D9WG_VERSION_MAJOR, true);
-    v.setUint16(6, D9WG_VERSION_MINOR, true);
-    v.setUint32(8, frame_id >>> 0, true);
-    v.setUint32(12, flags, true);
-    v.setUint32(16, this.count, true);
-    v.setUint32(20, this.length - BATCH_HEADER_BYTES, true);
-    v.setUint32(24, SESSION_LOW, true);
-    v.setUint32(28, SESSION_HIGH, true);
+    write_struct(this.view, 0, "BatchHeader", {
+        "magic": D9WG_MAGIC, "version_major": D9WG_VERSION_MAJOR, "version_minor": D9WG_VERSION_MINOR,
+        "frame_id": frame_id, "flags": flags, "command_count": this.count,
+        "command_bytes": this.length - BATCH_HEADER_BYTES, "session_id_low": SESSION_LOW, "session_id_high": SESSION_HIGH,
+    });
     const batch = this.bytes.slice(0, this.length);
     this.length = BATCH_HEADER_BYTES;
     this.count = 0;
@@ -187,15 +221,20 @@ D9WGWriter.prototype.finish = function(frame_id, flags)
  */
 export function d9wg_commands(batch)
 {
+    if(batch.byteLength < BATCH_HEADER_BYTES) throw new Error("short D9WG header");
     const view = new DataView(batch.buffer, batch.byteOffset, batch.byteLength);
-    if(view.getUint32(0, true) !== D9WG_MAGIC) throw new Error("not a D9WG batch");
-    const end = BATCH_HEADER_BYTES + view.getUint32(20, true);
+    if(view.getUint32(BATCH_FIELDS["magic"], true) !== D9WG_MAGIC) throw new Error("not a D9WG batch");
+    const end = BATCH_HEADER_BYTES + view.getUint32(BATCH_FIELDS["command_bytes"], true);
+    if(end !== batch.byteLength) throw new Error("D9WG byte count mismatch");
     const commands = [];
     for(let at = BATCH_HEADER_BYTES; at < end;)
     {
-        const size = view.getUint32(at + 4, true);
-        commands.push({ opcode: view.getUint16(at, true), view, at: at + COMMAND_HEADER_BYTES, size: size - COMMAND_HEADER_BYTES });
+        if(at + COMMAND_HEADER_BYTES > end) throw new Error("short D9WG command header");
+        const size = view.getUint32(at + COMMAND_FIELDS["size"], true);
+        if(size < COMMAND_HEADER_BYTES || size & 7 || at + size > end) throw new Error("invalid D9WG command size");
+        commands.push({ opcode: view.getUint16(at + COMMAND_FIELDS["opcode"], true), view, at: at + COMMAND_HEADER_BYTES, size: size - COMMAND_HEADER_BYTES });
         at += size;
     }
+    if(commands.length !== view.getUint32(BATCH_FIELDS["command_count"], true)) throw new Error("D9WG command count mismatch");
     return commands;
 }

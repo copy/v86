@@ -12,7 +12,7 @@
         for (const key of Object.keys(values)) if (!(key in P.F[name])) throw new Error("Unknown fixture field " + name + "." + key);
         return cmd(opcodes[name], P.encode(name, values), blobs);
     };
-    const blob = (name, field, data) => ({ offsetField: P.F[name][field], data });
+    const blob = (name, field, data) => ({ offsetField: field, data });
     const fourcc = text => [...text].reduce((n, c, i) => n + c.charCodeAt(0) * 2 ** (i * 8), 0) >>> 0;
     const le16 = (...values) => { const data = new Uint8Array(values.length * 2);values.forEach((v, i) => new DataView(data.buffer).setUint16(i * 2, v, true));return [...data]; };
     const le32 = (...values) => { const data = new Uint8Array(values.length * 4);values.forEach((v, i) => new DataView(data.buffer).setUint32(i * 4, v, true));return [...data]; };

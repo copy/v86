@@ -14,6 +14,7 @@
 "use strict";
 (function(global) {
 
+    const P = global.D9WGProtocol;
     const W = 64;
     const u32 = (...values) => {
         const bytes = new Uint8Array(values.length * 4), view = new DataView(bytes.buffer);
@@ -31,54 +32,16 @@
         for (const a of arrays) { out.set(a, at); at += a.byteLength; }
         return out;
     };
-    const element = (offset, type, usage, index = 0) => {
-        const bytes = new Uint8Array(8), view = new DataView(bytes.buffer);
-        view.setUint16(2, offset, true);
-        view.setUint8(4, type);
-        view.setUint8(6, usage);
-        view.setUint8(7, index);
-        return bytes;
-    };
+    const element = (offset, type, usage, index = 0) => P.encode("VertexElement", { offset, type, usage, usage_index: index });
     // blobs: [{ offsetField, data }] -- data appended after the payload, its
     // offset in the batch written into the payload at offsetField
     const cmd = (opcode, payload, blobs = []) => ({ opcode, payload, blobs });
 
-    const batch = (session, commands, present) => {
-        let total = 0;
-        for (const c of commands) {
-            c.offset = 32 + total;
-            c.size = (16 + c.payload.byteLength + c.blobs.reduce((n, b) => n + b.data.byteLength, 0) + 7) & ~7;
-            total += c.size;
-        }
-        const bytes = new Uint8Array(32 + total), view = new DataView(bytes.buffer);
-        view.setUint32(0, 0x47573944, true);    // "D9WG"
-        view.setUint16(4, 1, true);
-        view.setUint16(6, 7, true);
-        view.setUint32(12, present ? 1 : 0, true);
-        view.setUint32(16, commands.length, true);
-        view.setUint32(20, total, true);
-        view.setUint32(24, session, true);
-        commands.forEach((c, i) => {
-            view.setUint16(c.offset, c.opcode, true);
-            view.setUint32(c.offset + 4, c.size, true);
-            view.setUint32(c.offset + 8, i + 1, true);
-            bytes.set(c.payload, c.offset + 16);
-            let at = c.offset + 16 + c.payload.byteLength;
-            for (const blob of c.blobs) {
-                view.setUint32(c.offset + 16 + blob.offsetField, at, true);
-                bytes.set(blob.data, at);
-                at += blob.data.byteLength;
-            }
-        });
-        return bytes;
-    };
+    const batch = (session, commands, present) => P.encodeBatch(commands.map(c => ({
+        opcode: c.opcode, payload: c.payload, blobs: c.blobs.map(blob => ({ field: blob.offsetField, data: blob.data })),
+    })), { session_id_low: session, flags: present ? P.C.D9WG_BATCH_FLAG_PRESENT : 0 });
 
-    const OP = { CREATE_DEVICE: 2, PRESENT: 4, CLEAR: 5, BEGIN_SCENE: 6, END_SCENE: 7, COLOR_FILL: 9,
-        CREATE_TEXTURE_2D: 0x110, CREATE_VERTEX_SHADER: 0x121, CREATE_PIXEL_SHADER: 0x122,
-        SET_VERTEX_SHADER: 0x211, DD_BLT: 0x500, DD_SET_COLOR_KEY: 0x501,
-        SET_RENDER_STATE: 0x200, SET_TEXTURE_STAGE_STATE: 0x202, SET_VIEWPORT: 0x204,
-        SET_SCISSOR_RECT: 0x205, SET_FVF: 0x20E, SET_RENDER_TARGET: 0x20F,
-        SET_PIXEL_SHADER: 0x212, DRAW_PRIMITIVE_UP: 0x302 };
+    const OP = P.OP;
     const RS = { ZENABLE: 7, SHADEMODE: 9, ZFUNC: 23, ALPHATESTENABLE: 15, ALPHAREF: 24, ALPHAFUNC: 25,
         ALPHABLENDENABLE: 27, SRCBLEND: 19, DESTBLEND: 20, CULLMODE: 22, FOGENABLE: 28,
         SPECULARENABLE: 29, FOGCOLOR: 34, FOGTABLEMODE: 35, TEXTUREFACTOR: 60, LIGHTING: 137,
@@ -110,8 +73,8 @@
     const draw = (dev, list, type = PT.TRIANGLELIST) => {
         const data = vertices(list);
         const count = type === PT.LINELIST ? list.length / 2 : list.length / 3;
-        return cmd(OP.DRAW_PRIMITIVE_UP, u32(dev, type, count, STRIDE, list.length, data.byteLength, 0, 0),
-            [{ offsetField: 24, data }]);
+        return cmd(OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: dev, primitive_type: type, primitive_count: count, stride: STRIDE, vertex_count: list.length, vertex_bytes: data.byteLength, vertex_data_offset: 0, reserved: 0 }),
+            [{ offsetField: "vertex_data_offset", data }]);
     };
     // FVF XYZ | DIFFUSE, stride 16: with the default identity transforms x
     // and y are clip space, and z the camera-space distance fog reads
@@ -123,22 +86,22 @@
             view.setFloat32(i * 16 + 8, v[2], true);
             view.setUint32(i * 16 + 12, v[3] >>> 0, true);
         });
-        return [cmd(OP.SET_FVF, cat([u32(dev, 0x42, 2, 0), element(0, 2, 0), element(12, 4, 10)])),
-            cmd(OP.DRAW_PRIMITIVE_UP, u32(dev, PT.TRIANGLELIST, list.length / 3, 16, list.length, data.byteLength, 0, 0),
-                [{ offsetField: 24, data }])];
+        return [cmd(OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: 0x42, element_count: 2, reserved: 0 }), element(0, 2, 0), element(12, 4, 10)])),
+            cmd(OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: dev, primitive_type: PT.TRIANGLELIST, primitive_count: list.length / 3, stride: 16, vertex_count: list.length, vertex_bytes: data.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data }])];
     };
     const fullXYZ = (z, color) => [[-1, 1, z, color], [1, 1, z, color], [-1, -1, z, color],
         [1, 1, z, color], [1, -1, z, color], [-1, -1, z, color]];
-    const rs = (dev, state, value) => cmd(OP.SET_RENDER_STATE, u32(dev, state, value, 0));
-    const tss = (dev, stage, state, value) => cmd(OP.SET_TEXTURE_STAGE_STATE, u32(dev, stage, state, value));
+    const rs = (dev, state, value) => cmd(OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: dev, state: state, value: value, reserved: 0 }));
+    const tss = (dev, stage, state, value) => cmd(OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: dev, stage: stage, state: state, value: value }));
     const viewport = (dev, x, y, w, h, minZ = 0, maxZ = 1) =>
-        cmd(OP.SET_VIEWPORT, u32(dev, x, y, w, h, f(minZ), f(maxZ), 0));
+        cmd(OP.SET_VIEWPORT, P.encode("SetViewport", { device_handle: dev, x: x, y: y, width: w, height: h, min_z: minZ, max_z: maxZ, reserved: 0 }));
     const clear = (dev, flags, color, z = 1, rects = []) =>
-        cmd(OP.CLEAR, cat([u32(dev, flags, color, f(z), 0, rects.length), ...rects.map(r => u32(...r))]));
+        cmd(OP.CLEAR, cat([P.encode("Clear", { device_handle: dev, clear_flags: flags, color: color, depth: z, stencil: 0, rect_count: rects.length }), ...rects.map(([left, top, right, bottom]) => P.encode("Rect", { left, top, right, bottom }))]));
     const shader = opcode => (dev, handle, tokens) => {
         const hash = global.D3D9ShaderPipeline.hashTokens(tokens);
-        return cmd(opcode, u32(dev, handle, tokens.length, 0, hash.low, hash.high),
-            [{ offsetField: 12, data: u32(...tokens) }]);
+        return cmd(opcode, P.encode("CreateVertexShader", { device_handle: dev, resource_handle: handle, instruction_token_count: tokens.length, bytecode_hash_low: hash.low, bytecode_hash_high: hash.high }),
+            [{ offsetField: "code_offset", data: u32(...tokens) }]);
     };
     const pixelShader = shader(OP.CREATE_PIXEL_SHADER);
     const vertexShader = shader(OP.CREATE_VERTEX_SHADER);
@@ -248,7 +211,7 @@
               { at: [60, 60], expect: [0, 0, 0] }] },
         { name: "Clear is clipped to the scissor rect while the scissor test is on",
           ref: "S2-1",
-          body: d => [cmd(OP.SET_SCISSOR_RECT, u32(d, 0, 0, 32, 64)), rs(d, RS.SCISSORTESTENABLE, 1),
+          body: d => [cmd(OP.SET_SCISSOR_RECT, P.encode("SetScissorRect", { device_handle: d, left: 0, top: 0, right: 32, bottom: 64 })), rs(d, RS.SCISSORTESTENABLE, 1),
               clear(d, T, 0xFF00FF00)],
           probes: [{ at: [16, 32], expect: [0, 255, 0] }, { at: [48, 32], expect: [0, 0, 0] }] },
         { name: "Clear rectangles are clipped to the viewport too",
@@ -271,7 +234,7 @@
                   ins(O.MOV, 3, { predicated: true }), dst(REG.TEMP, 0, 0x7), src(REG.PREDICATE, 0), src(REG.CONST, 3),
                   ins(O.MOV, 2), dst(REG.COLOROUT, 0), src(REG.TEMP, 0),
                   0x0000FFFF];
-              return [pixelShader(d, 0x40000001, tokens), cmd(OP.SET_PIXEL_SHADER, u32(d, 0x40000001)),
+              return [pixelShader(d, 0x40000001, tokens), cmd(OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: d, shader_handle: 0x40000001 })),
                   draw(d, quad(0, 0, 64, 64, 0.5, 0xFFFFFFFF))];
           },
           probes: [{ at: [32, 32], expect: [255, 0, 255] }] },
@@ -284,7 +247,7 @@
                   ins(O.MIN, 3), dst(REG.TEMP, 0), src(REG.TEMP, 0), src(REG.CONST, 1),
                   ins(O.MOV, 2), dst(REG.COLOROUT, 0), src(REG.TEMP, 0),
                   0x0000FFFF];
-              return [pixelShader(d, 0x40000003, tokens), cmd(OP.SET_PIXEL_SHADER, u32(d, 0x40000003)),
+              return [pixelShader(d, 0x40000003, tokens), cmd(OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: d, shader_handle: 0x40000003 })),
                   draw(d, quad(0, 0, 64, 64, 0.5, 0xFF000000))];
           },
           probes: [{ at: [32, 32], expect: [255, 255, 255] }] },
@@ -303,17 +266,17 @@
                   ins(O.MOV, 2), dst(REG.RASTOUT, 0), src(REG.INPUT, 0),
                   ins(O.MOV, 2), dst(REG.ATTROUT, 0), src(REG.TEMP, 0, 0xAA),
                   0x0000FFFF];
-              return [vertexShader(d, 0x40000005, tokens), cmd(OP.SET_VERTEX_SHADER, u32(d, 0x40000005)),
+              return [vertexShader(d, 0x40000005, tokens), cmd(OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: d, shader_handle: 0x40000005 })),
                   ...drawXYZ(d, fullXYZ(0.5, 0xFFFFFFFF))];
           },
           probes: [{ at: [32, 32], expect: [0, 0, 0] }] },
         { name: "a DirectDraw source colour key keeps the destination where the source is the key colour",
           body: (d, rt) => [
-              cmd(OP.CREATE_TEXTURE_2D, u32(d, rt + 1, W, W, 1, 22, 0, 0, 0, 0)),
-              cmd(OP.COLOR_FILL, u32(d, rt + 1, 0, 0xFF00FF00, 0, 0, 32, 64, 0)),
-              cmd(OP.COLOR_FILL, u32(d, rt + 1, 0, 0xFF0000FF, 32, 0, 64, 64, 0)),
-              cmd(OP.DD_SET_COLOR_KEY, u32(rt + 1, 0, 0x0000FF00, 0x0000FF00, 1, 0)),
-              cmd(OP.DD_BLT, u32(d, rt + 1, 0, 0, 0, 0, W, W, rt, 0, 0, 1, 0, 0, W, W, 0, 0, 0, 0))],
+              cmd(OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: d, resource_handle: rt + 1, width: W, height: W, level_count: 1, format: 22, usage: 0, pool: 0, multisample_type: 0, multisample_quality: 0 })),
+              cmd(OP.COLOR_FILL, P.encode("ColorFill", { device_handle: d, texture_handle: rt + 1, level: 0, color: 0xFF00FF00, left: 0, top: 0, right: 32, bottom: 64, face: 0 }).subarray(0, 36)),
+              cmd(OP.COLOR_FILL, P.encode("ColorFill", { device_handle: d, texture_handle: rt + 1, level: 0, color: 0xFF0000FF, left: 32, top: 0, right: 64, bottom: 64, face: 0 }).subarray(0, 36)),
+              cmd(OP.DD_SET_COLOR_KEY, P.encode("DDSetColorKey", { surface_handle: rt + 1, key_kind: 0, color_low: 0x0000FF00, color_high: 0x0000FF00, present: 1, reserved: 0 })),
+              cmd(OP.DD_BLT, P.encode("DDBlt", { device_handle: d, source_handle: rt + 1, source_level: 0, source_face: 0, source_rect: [0, 0, W, W], destination_handle: rt, destination_level: 0, destination_face: 0, flags: 1, destination_rect: [0, 0, W, W], fill_color: 0, fill_depth: 0, fill_stencil: 0, reserved: 0 }))],
           probes: [{ at: [16, 32], expect: [0, 0, 0] }, { at: [48, 32], expect: [0, 0, 255] }] },
         { name: "4x MSAA back buffer: a draw reaches the screen",
           ref: "S1-6", msaa: 4, backBuffer: true,
@@ -335,7 +298,7 @@
         { name: "4x MSAA: a ColorFill between draws survives the next pass",
           ref: "S1-6", msaa: 4,
           body: (d, rt) => [draw(d, quad(0, 0, 64, 64, 0.5, 0xFFFF0000)),
-              cmd(OP.COLOR_FILL, u32(d, rt, 0, 0xFF00FF00, 0, 0, 64, 64, 0)),
+              cmd(OP.COLOR_FILL, P.encode("ColorFill", { device_handle: d, texture_handle: rt, level: 0, color: 0xFF00FF00, left: 0, top: 0, right: 64, bottom: 64, face: 0 }).subarray(0, 36)),
               draw(d, quad(0, 0, 16, 16, 0.5, 0xFF0000FF))],
           probes: [{ at: [32, 32], expect: [0, 255, 0] }, { at: [8, 8], expect: [0, 0, 255] }] },
     ];
@@ -356,28 +319,28 @@
         const samples = c.msaa || 0;
         // `backBuffer`: draw into the device's implicit back buffer instead
         const commands = [
-            cmd(OP.CREATE_DEVICE, u32(dev, 0x1234, 0, 0, W, W, 22, 1, 0x20, 1, 75, samples, 0)),
+            cmd(OP.CREATE_DEVICE, P.encode("CreateDevice", { device_handle: dev, hwnd: 0x1234, x: 0, y: 0, width: W, height: W, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: 1, auto_depth_stencil_format: 75, multisample_type: samples, multisample_quality: 0 })),
         ];
         if (!c.backBuffer) {
-            commands.push(cmd(OP.CREATE_TEXTURE_2D, u32(dev, rt, W, W, 1, c.targetFormat || 21, 1, 0, samples, 0)),
-                cmd(OP.SET_RENDER_TARGET, u32(dev, 0, rt, 0, 0)));
+            commands.push(cmd(OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: dev, resource_handle: rt, width: W, height: W, level_count: 1, format: c.targetFormat || 21, usage: 1, pool: 0, multisample_type: samples, multisample_quality: 0 })),
+                cmd(OP.SET_RENDER_TARGET, P.encode("SetRenderTarget", { device_handle: dev, target_index: 0, color_texture_handle: rt, color_level: 0, color_face: 0 })));
         }
         if (c.mrt) {
-            commands.push(cmd(OP.CREATE_TEXTURE_2D, u32(dev, rt + 1, W, W, 1, 21, 1, 0, 0, 0)),
-                cmd(OP.SET_RENDER_TARGET, u32(dev, 1, rt + 1, 0, 0)));
+            commands.push(cmd(OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: dev, resource_handle: rt + 1, width: W, height: W, level_count: 1, format: 21, usage: 1, pool: 0, multisample_type: 0, multisample_quality: 0 })),
+                cmd(OP.SET_RENDER_TARGET, P.encode("SetRenderTarget", { device_handle: dev, target_index: 1, color_texture_handle: rt + 1, color_level: 0, color_face: 0 })));
         }
         commands.push(viewport(dev, 0, 0, W, W),
             clear(dev, T | Z, c.clear === undefined ? 0xFF000000 : c.clear),
-            cmd(OP.BEGIN_SCENE, u32(dev)),
+            cmd(OP.BEGIN_SCENE, P.encode("DeviceOnly", { device_handle: dev }).subarray(0, 4)),
             rs(dev, RS.LIGHTING, 0),
-            cmd(OP.SET_FVF, cat([u32(dev, FVF, ELEMENTS.length, 0), ...ELEMENTS])));
+            cmd(OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: FVF, element_count: ELEMENTS.length, reserved: 0 }), ...ELEMENTS])));
         return commands;
     }
 
     function caseBatch(index, c) {
         const dev = 0x100002 + index * 0x10, rt = 0x200000 + index * 2;
         return { dev, rt, bytes: batch(index + 1, [...prologue(dev, rt, c), ...c.body(dev, rt),
-            cmd(OP.END_SCENE, u32(dev)), cmd(OP.PRESENT, u32(dev, 0x1234, 0, 0, W, W))], true) };
+            cmd(OP.END_SCENE, P.encode("DeviceOnly", { device_handle: dev }).subarray(0, 4)), cmd(OP.PRESENT, P.encode("Present", { device_handle: dev, hwnd: 0x1234, x: 0, y: 0, width: W, height: W }))], true) };
     }
 
     function readbackBatch(session, dev, texture) {

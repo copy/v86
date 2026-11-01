@@ -9,14 +9,10 @@
 const assert = require("node:assert/strict");
 const { errorScopes } = require("./fake_error_scopes.js");
 const { D3D9WebGPUExecutor } = require("../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js");
-const D9WG = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
+const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
 
 const DEVICE = 0x100002;
-const OP = {
-    CREATE_DEVICE: 2, PRESENT: 4, CREATE_BUFFER: 0x100,
-    SET_RENDER_STATE: 0x200, SET_STREAM_SOURCE: 0x20a, SET_FVF: 0x20e,
-    DRAW_PRIMITIVE: 0x300,
-};
+const OP = P.OP;
 
 function u32(...values) {
     const out = Buffer.alloc(values.length * 4);
@@ -26,59 +22,16 @@ function u32(...values) {
 
 function command(opcode, payload) { return { opcode, payload }; }
 
-function batch(commands, present) {
-    let commandBytes = 0;
-    for (const item of commands) {
-        item.size = (16 + item.payload.length + 7) & ~7;
-        item.offset = 32 + commandBytes;
-        commandBytes += item.size;
-    }
-    const out = Buffer.alloc(32 + commandBytes);
-    out.writeUInt32LE(0x47573944, 0);
-    out.writeUInt16LE(1, 4);
-    out.writeUInt16LE(3, 6);
-    out.writeUInt32LE(present ? 1 : 0, 12);
-    out.writeUInt32LE(commands.length, 16);
-    out.writeUInt32LE(commandBytes, 20);
-    commands.forEach((item, index) => {
-        out.writeUInt16LE(item.opcode, item.offset);
-        out.writeUInt32LE(item.size, item.offset + 4);
-        out.writeUInt32LE(index + 1, item.offset + 8);
-        item.payload.copy(out, item.offset + 16);
-    });
-    return out;
-}
+function batch(commands, present) { return Buffer.from(P.encodeBatch(commands, { version_minor: 3, flags: present ? P.C.D9WG_BATCH_FLAG_PRESENT : 0 })); }
 
-function createDevice() {
-    const out = Buffer.alloc(52);
-    out.writeUInt32LE(DEVICE, 0);
-    out.writeUInt32LE(0x1234, 4);
-    out.writeUInt32LE(800, 16);
-    out.writeUInt32LE(600, 20);
-    out.writeUInt32LE(22, 24);
-    out.writeUInt32LE(1, 28);
-    return out;
-}
+function createDevice() { return Buffer.from(P.encode("CreateDevice", { device_handle: DEVICE, hwnd: 0x1234, width: 800, height: 600, backbuffer_format: 22, windowed: 1 })); }
 
 function createBuffer(handle, bytes) {
-    return Buffer.from(D9WG.encode("CreateBuffer", {
+    return Buffer.from(P.encode("CreateBuffer", {
         device_handle: DEVICE, resource_handle: handle, resource_kind: 1, byte_count: bytes }));
 }
 
-function fvf() {
-    const out = Buffer.alloc(24);
-    out.writeUInt32LE(DEVICE, 0);
-    out.writeUInt32LE(0x002, 4);
-    out.writeUInt32LE(1, 8);
-    // D9WGVertexElement: stream 0, offset 0, FLOAT3, POSITION0.
-    out.writeUInt16LE(0, 16);
-    out.writeUInt16LE(0, 18);
-    out.writeUInt8(2, 20);
-    out.writeUInt8(0, 21);
-    out.writeUInt8(0, 22);
-    out.writeUInt8(0, 23);
-    return out;
-}
+function fvf() { return Buffer.concat([Buffer.from(P.encode("SetFVF", { device_handle: DEVICE, fvf: 2, element_count: 1 })), Buffer.from(P.encode("VertexElement", { type: 2 }))]); }
 
 function frameCommands(includeSetup) {
     const commands = [];
@@ -87,21 +40,21 @@ function frameCommands(includeSetup) {
         commands.push(command(OP.CREATE_BUFFER, createBuffer(0x201, 4096)));
         commands.push(command(OP.SET_FVF, fvf()));
         commands.push(command(OP.SET_STREAM_SOURCE,
-            u32(DEVICE, 0, 0x201, 12, 0)));
+            P.encode("SetStreamSource", { device_handle: DEVICE, stream: 0, buffer_handle: 0x201, stride: 12, offset_in_bytes: 0 }).subarray(0, 20)));
     }
     // 150 draws with 300 state writes. CULLMODE alternates between two real
     // pipeline states; TEXTUREFACTOR changes twice per draw but is not read by
     // this untextured cascade, so it must not force a GPU resource allocation.
     for (let draw = 0; draw < 150; ++draw) {
         commands.push(command(OP.SET_RENDER_STATE,
-            u32(DEVICE, 22, draw & 1 ? 1 : 3, 0)));
+            P.encode("SetRenderState", { device_handle: DEVICE, state: 22, value: draw & 1 ? 1 : 3, reserved: 0 })));
         commands.push(command(OP.SET_RENDER_STATE,
-            u32(DEVICE, 60, 0xff000000 | draw, 0)));
+            P.encode("SetRenderState", { device_handle: DEVICE, state: 60, value: 0xff000000 | draw, reserved: 0 })));
         commands.push(command(OP.DRAW_PRIMITIVE,
-            u32(DEVICE, 4, 0, 1)));
+            P.encode("DrawPrimitive", { device_handle: DEVICE, primitive_type: 4, start_vertex: 0, primitive_count: 1 })));
     }
     commands.push(command(OP.PRESENT,
-        u32(DEVICE, 0x1234, 0, 0, 800, 600, 0, 0)));
+        P.encode("Present", { device_handle: DEVICE, hwnd: 0x1234, width: 800, height: 600 })));
     return commands;
 }
 

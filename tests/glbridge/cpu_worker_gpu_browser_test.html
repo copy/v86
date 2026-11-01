@@ -1,6 +1,7 @@
 <!doctype html><meta charset="utf-8"><title>CPU Worker integration</title>
 <div id="screen"><div></div><canvas></canvas></div><pre id="result">RUNNING</pre>
 <script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
 <script type="module">
 import { V86 } from "../../build/libv86.mjs";
 const checks = [];
@@ -58,28 +59,15 @@ try {
     await request(1,0x100000,16<<20);
     await vm.write_memory(Uint8Array.from([0x324c4756,1,0,42,1,4,0,0,0xFFF1].flatMap(u32)),0x100000);
         const session = [0xd0090001,0x20260806];
-        const commands = [
-            [1,[32,0,...session]], // HELLO
-            [2,[1,0x1234,0,0,64,64,22,1,0x20,1,75,0,0]], // CREATE_DEVICE
-            [5,[1,1,0xffff0000,0x3f800000,0,0]], // CLEAR red
-            [4,[1,0x1234,0,0,64,64]], // PRESENT
-        ];
-        const sizes = commands.map(([,values]) => (16+values.length*4+7)&~7);
-        const batchBytes = 32 + sizes.reduce((a,b)=>a+b,0);
-        const wrapped = new Uint8Array(8 + batchBytes);
-        const d9 = new DataView(wrapped.buffer);
-        d9.setUint16(0,0xffe1,true); d9.setUint16(2,0xffff,true);
-        d9.setUint32(4,batchBytes,true);
-        d9.setUint32(8,0x47573944,true);
-        d9.setUint16(12,1,true); d9.setUint16(14,3,true);
-        [1,1,commands.length,batchBytes-32,...session].forEach((v,i)=>d9.setUint32(16+i*4,v,true));
-        let cursor = 40;
-        commands.forEach(([op,values],i)=>{
-            d9.setUint16(cursor,op,true); d9.setUint32(cursor+4,sizes[i],true);
-            d9.setUint32(cursor+8,i+1,true);
-            values.forEach((v,j)=>d9.setUint32(cursor+16+j*4,v,true));
-            cursor += sizes[i];
-        });
+        const P = D9WGProtocol;
+        const packet = P.encodeBatch([
+            { opcode: P.OP.HELLO, payload: { guest_pointer_bits: 32, session_id_low: session[0], session_id_high: session[1] } },
+            { opcode: P.OP.CREATE_DEVICE, payload: { device_handle: 1, hwnd: 0x1234, width: 64, height: 64, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: 1, auto_depth_stencil_format: 75 } },
+            { opcode: P.OP.CLEAR, payload: { device_handle: 1, clear_flags: 1, color: 0xffff0000, depth: 1 } },
+            { opcode: P.OP.PRESENT, payload: { device_handle: 1, hwnd: 0x1234, width: 64, height: 64 } },
+        ], { version_minor: 3, frame_id: 1, flags: P.C.D9WG_BATCH_FLAG_PRESENT, session_id_low: session[0], session_id_high: session[1] });
+        const wrapped = new Uint8Array(8 + packet.length), d9 = new DataView(wrapped.buffer);
+        d9.setUint16(0, P.C.V86GL_CTRL_D3D9_BATCH, true);d9.setUint16(2, 0xffff, true);d9.setUint32(4, packet.length, true);wrapped.set(packet, 8);
 
     const header=Uint8Array.from([0x324c4756,1,0,1,1,wrapped.length,0x47573944,0].flatMap(u32));
     await vm.write_memory(header,0x100000);

@@ -805,6 +805,18 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 >   - `svga3d.js` 仍按顺序写字段，只检查长度；
 >   - 轨迹重放逐字节比较要等阶段 1 的轨迹。
 
+> **阶段 2A（2026-11-01）：SVGA 与主要测试编码器完成迁移。阶段 2 整体仍待 2B 清理局部 fixture。**
+>
+> - schema 生成 SVGA 的字段名、偏移、类型、数组长度和 opcode→结构体映射。47 个 SVGA 命令头及变换、材质、灯光、矩形、顶点声明、shader/上传数据块改为命名字段，删除顺序写入器和数字占位偏移。包头/命令头也由 schema 填写；调试解码器拒绝截断、零大小和数量不符，避免损坏轨迹导致死循环。
+> - 新增 `D9WGProtocol.encodeBatch`，统一主要 D3D9/DDraw/性能/像素测试和浏览器传输、工作线程、存档、合成页的构包。数据块按字段名定位；未知字段名、错误数组长度立即失败；旧版本/故意损坏输入仍可传原始载荷。编码器不修改调用者输入，旧测试兼容层只为既有损坏输入检查回填偏移。
+> - 增加没有改变现有布局的 `D9WGRect` 定义并重新生成客体头文件。所有 72 种命令载荷与 canonical encoder 逐字节一致；1.3–1.7 包头与短载荷、多个命名 blob、内联数组都有检查。
+> - 与 `52e1dfdf` 比较：SVGA 两套原样 FIFO 测试的 19 批、7,416 字节完全一致；133 个公开像素输入的 126,912 字节完全一致，见 [schema-wire-baseline.json](fixtures/d3d-review/schema-wire-baseline.json)。Warcraft III 私有轨迹按原先冻结政策回放通过。
+> - 验证：118 组非语料核心入口、72 组客体入口；源码和 Closure 发布构建的 SVGA FIFO 测试；133 场景 SwiftShader 目标；真实 virtqueue/CPU worker、同实例及冷存档恢复、遮挡/区域合成页面；D3D 变异 12/12。详见 [stage2-validation.json](fixtures/d3d-review/stage2-validation.json)。远端 CI 没有触发。
+> - 存档浏览器页原有“至少三次回放”断言在原页面和站点原 `8523858ab36865e264c6` 运行包上同样失败：GL 已使用资源快照，只剩两个 D3D 会话回放。改为明确检查 session 9/10、每次历史回放不可见，以及 GL 活资源和 D3D9/DDraw 的同实例/冷恢复像素；没有放宽像素断言。
+> - 从 GTA SA 诊断 journal 原样提取 12 个 shader，私有字节码留在 `build/d3d-review/corpus`，仅提交 [哈希清单](fixtures/d3d-review/gtasa-shader-corpus.json)。`D3D9_CORPUS_STRICT=1 D9_SHADER_CORPUS=build/d3d-review/corpus node tests/glbridge/d3d9_shader_corpus_test.js` 翻译/Naga 均 12/12；严格模式缺语料、空语料或缺 Naga 会失败。此结果不代表 GTA SA 游戏启动或阶段 5 的差分矩阵已通过。
+> - 配套运行包已重建并同步站点：核心仍为 `cc49eed222f9fb724ba3`（核心执行逻辑未变），WebGPU 为 `05cdab879d36d9beb7b9`。镜像不写回。
+> - **2B 继续项：** 主执行器测试中部分局部上传/查询/UP draw 等 fixture 仍以 `Buffer.alloc` 和字段写入构造；逐个迁移其正向载荷，保留明确的损坏输入实验。完成后才关闭阶段 2，进入阶段 3。
+
 - **目标：** 协议漂移在构建时就失败。
 - **改动：**
   - 用一份 schema（JSON，或带注解的头文件）生成：

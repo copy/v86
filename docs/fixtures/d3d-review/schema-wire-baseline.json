@@ -1,0 +1,31 @@
+{
+  "reference": "52e1dfdf",
+  "svga": {
+    "reference": "52e1dfdf",
+    "method": "Unmodified FIFO tests with a passive D9WGWriter.finish capture; original SVGA3D and writer source versus named-field versions; complete packet archives compared byte for byte",
+    "tests": [
+      {
+        "test": "vmware_svga_3d.js",
+        "batches": 9,
+        "bytes": 3648,
+        "hexArchiveSha256": "3997a589c235e40ba27fff32996164bd9ff0e8049e8fdcf53ef7c4601abe4627",
+        "exact": true
+      },
+      {
+        "test": "vmware_svga_gb.js",
+        "batches": 10,
+        "bytes": 3768,
+        "hexArchiveSha256": "21a8d398e7c294ff2bb1c90883f090474103e706fbde5b04dad4bd25be2594fa",
+        "exact": true
+      }
+    ]
+  },
+  "pixels": {
+    "reference": "52e1dfdf",
+    "cases": 133,
+    "bytes": 126912,
+    "concatenatedSha256": "d09750db29c342d51bdc2e4c6e23a97e96c9aeb5bb3080640861abaf69353cd0",
+    "exact": true,
+    "method": "All public conformance inputs encoded by the committed positional builders versus named schema builders; expected pixels unchanged"
+  }
+}

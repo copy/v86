@@ -6,7 +6,10 @@
 <script src="../../build/libv86.js"></script>
 <script src="../../build/glbridge/libv86-webgpu.js"></script>
 <script src="gl_stream_builder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
 <script>
+const P = D9WGProtocol;
+
 (async () => {
     const errors = [], checks = [];
     let mainCompressions = 0;
@@ -48,23 +51,9 @@
         return bytes;
     };
     const batch = (session, commands) => {
-        const payloads = commands.map(([op, values]) => ({ op, bytes: words(values) }));
-        const count = payloads.reduce((size, cmd) => size + ((16 + cmd.bytes.length + 7) & ~7), 0);
-        const bytes = new Uint8Array(40 + count), view = new DataView(bytes.buffer);
-        view.setUint16(0, 0xffe1, true);
-        view.setUint16(2, 0xffff, true); view.setUint32(4, 32 + count, true);
-        view.setUint32(8, 0x47573944, true);
-        view.setUint16(12, 1, true); view.setUint16(14, 7, true);
-        view.setUint32(24, commands.length, true); view.setUint32(28, count, true);
-        view.setUint32(32, session, true);
-        let offset = 40, sequence = 1;
-        for (const cmd of payloads) {
-            const size = (16 + cmd.bytes.length + 7) & ~7;
-            view.setUint16(offset, cmd.op, true); view.setUint32(offset + 4, size, true);
-            view.setUint32(offset + 8, sequence++, true);
-            bytes.set(cmd.bytes, offset + 16); offset += size;
-        }
-        return bytes;
+        const packet = P.encodeBatch(commands, { session_id_low: session });
+        const bytes = new Uint8Array(8 + packet.length), view = new DataView(bytes.buffer);
+        view.setUint16(0, P.C.V86GL_CTRL_D3D9_BATCH, true);view.setUint16(2, 0xffff, true);view.setUint32(4, packet.length, true);bytes.set(packet, 8);return bytes;
     };
     const send = (emulator, bytes, flags = 0) => emulator.graphics_proxy.bridge.pushPCIBatch({
         bytes, flags, batchAddr: 0x100020, descAddr: 0x100000,
@@ -72,19 +61,18 @@
     // D3D9 heartbeat writes are normal live traffic, but replay has no guest writer.
     const sendD3D = (emulator, bytes) => emulator.graphics_proxy.bridge.pushPCIBatch({ bytes,
         writeGuestMemory() {}, batchAddr: 0x100020, descAddr: 0x100000 });
-    const createDevice = [2, [2, 0x1234, 0, 0, 64, 64, 22, 1, 0x20, 0, 75, 0, 0]];
-    const color = (value) => [5, [2, 1, value, 0x3f800000, 0, 0]];
+    const createDevice = { opcode: P.OP.CREATE_DEVICE, payload: P.encode("CreateDevice", { device_handle: 2, hwnd: 0x1234, x: 0, y: 0, width: 64, height: 64, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: 0, auto_depth_stencil_format: 75, multisample_type: 0, multisample_quality: 0 }) };
+    const color = (value) => ({ opcode: P.OP.CLEAR, payload: P.encode("Clear", { device_handle: 2, clear_flags: 1, color: value, depth: 1, stencil: 0, rect_count: 0 }) });
     let emulator = await create();
     const { GLStream, GL } = GLTestStream;
     send(emulator, new GLStream().makeCurrent(1, 0, 0, 64, 64)
         .call("CLEAR_COLOR", 1, 1, 1, 1).call("CLEAR", GL.COLOR_BUFFER_BIT).bytes(), 1);
     await sendD3D(emulator, batch(9, [createDevice,
-        [0x110, [2, 0x301, 64, 64, 1, 21, 1, 0, 0, 0]],
-        [0x20f, [2, 0, 0x301, 0]], color(0xffff0000)]));
+        { opcode: P.OP.CREATE_TEXTURE_2D, payload: P.encode("CreateTexture2D", { device_handle: 2, resource_handle: 0x301, width: 64, height: 64, level_count: 1, format: 21, usage: 1, pool: 0, multisample_type: 0, multisample_quality: 0 }) },
+        { opcode: P.OP.SET_RENDER_TARGET, payload: P.encode("SetRenderTarget", { device_handle: 2, target_index: 0, color_texture_handle: 0x301, color_level: 0 }).subarray(0, 16) }, color(0xffff0000)]));
     await sendD3D(emulator, batch(10, [createDevice,
-        [0x110, [2, 0x302, 64, 64, 1, 21, 1, 0, 0, 0]],
-        [0x500, [2, 0, 0, 0, 0, 0, 0, 0, 0x302, 0, 0, 16,
-            0, 0, 64, 64, 0xff00ff00, 0, 0, 0]] ]));
+        { opcode: P.OP.CREATE_TEXTURE_2D, payload: P.encode("CreateTexture2D", { device_handle: 2, resource_handle: 0x302, width: 64, height: 64, level_count: 1, format: 21, usage: 1, pool: 0, multisample_type: 0, multisample_quality: 0 }) },
+        { opcode: P.OP.DD_BLT, payload: P.encode("DDBlt", { device_handle: 2, source_handle: 0, source_level: 0, source_face: 0, source_rect: [0, 0, 0, 0], destination_handle: 0x302, destination_level: 0, destination_face: 0, flags: 16, destination_rect: [0, 0, 64, 64], fill_color: 0xff00ff00, fill_depth: 0, fill_stencil: 0, reserved: 0 }) } ]));
     emulator.write_memory(new Uint8Array([42]), 0x80000);
     const saved = await emulator.save_state();
     const journal = emulator.graphics_proxy.bridge.graphicsJournal;
@@ -117,9 +105,15 @@
     const bridge = emulator.graphics_proxy.bridge;
     const execute = bridge.executePCIBatch.bind(bridge);
     let replayFrames = 0;
+    const replaySessions = new Set();
     bridge.executePCIBatch = async (event, bytes) => {
         await execute(event, bytes);
         if (event.replay) {
+            const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            if (bytes.length >= 8 + P.STRUCTS.BatchHeader.size && view.getUint16(0, true) === P.C.V86GL_CTRL_D3D9_BATCH) {
+                const header = P.decode("BatchHeader", view, 8);
+                replaySessions.add(header.session_id_high + ":" + header.session_id_low);
+            }
             await bridge.waitForIdle(false);
             await new Promise(requestAnimationFrame);
             const canvases = new Set([bridge.glCanvas, bridge.d3d9Canvas,
@@ -129,7 +123,9 @@
         }
     };
     await emulator.restore_state(saved);
-    check(replayFrames >= 3, "visibility checked while replaying every API");
+    check(replaySessions.size === 2 && replaySessions.has("0:9") && replaySessions.has("0:10") && replayFrames >= 2,
+        "visibility checked while replaying both recorded D3D9/DirectDraw sessions");
+    check(bridge.glJournalBytes === 0, "GL restores live resources without historical command replay");
     check(bridge.activeOwner && shown(bridge.ownerCanvas(bridge.activeOwner)),
         "only the final restored graphics surface becomes visible");
     check(!journal.compressor.worker, "restore terminates the discarded journal worker");

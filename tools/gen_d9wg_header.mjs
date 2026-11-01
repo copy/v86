@@ -102,6 +102,17 @@ function svga_module() {
         out.push("    [OP." + name + "]: " + P.STRUCTS[P.commandStruct(P.OP[name])].size + ",");
     }
     out.push("};", "");
+    out.push("/** Named payload layouts: [field, offset, scalar type, count]. */", "export const FIELD_LAYOUT = {");
+    for(const [name, struct] of Object.entries(P.STRUCTS)) {
+        out.push("    " + JSON.stringify(name) + ": { bytes: " + struct.size + ", fields: [");
+        for(const [field, layout] of Object.entries(struct.fields))
+            out.push("        " + JSON.stringify([field, layout.offset, layout.type, layout.count]) + ",");
+        out.push("    ] },");
+    }
+    out.push("};", "", "export const COMMAND_STRUCT = {");
+    for(const name of Object.keys(P.COMMANDS))
+        out.push("    [OP." + name + "]: " + JSON.stringify(P.commandStruct(P.OP[name])) + ",");
+    out.push("};", "");
     return out.join("\n");
 }
 

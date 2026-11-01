@@ -1,0 +1,43 @@
+{
+  "reference": "52e1dfdf",
+  "coreNonCorpusSuites": 118,
+  "privateCorpus": {
+    "shaders": 12,
+    "translated": 12,
+    "nagaValidated": 12,
+    "strict": true,
+    "bytecodeCommitted": false
+  },
+  "siteSuites": 72,
+  "pixelCases": {
+    "total": 133,
+    "normativePasses": 114,
+    "knownPixelFailures": 19,
+    "webgpuErrors": 0
+  },
+  "swiftshaderTarget": "PASS",
+  "warcraft3FrozenReplay": "PASS",
+  "svgaSourceAndReleaseFifoTests": "PASS",
+  "checkpointBaseline": {
+    "sourceReference": "52e1dfdf",
+    "originalHostBundle": "8523858ab36865e264c6",
+    "originalMinimumReplayCount": 3,
+    "observedReplayCount": 2,
+    "result": "FAIL in original test and original site bundle",
+    "replacement": "Require both recorded D3D9/DirectDraw session IDs, verify every historical replay stays hidden, verify GL live-resource pixels on same-instance and cold restores"
+  },
+  "logSha256": {
+    "d3d-stage2-private-corpus.log": "8c635b3476877b0216c622091d75b62ecfe2f05124006b7112b90be3197a5ec8",
+    "d3d-stage2-site.log": "e98842188a38524693b00edf0a6797fccde982bbe2e000380f134016c9d3a08f",
+    "d3d-stage2-final-gpu.log": "e589865ba68435b05b92f8bd2e26258a1e164568aff11ed443ca784f11dd57bf",
+    "d3d-stage2-war3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage2-checkpoint-before.log": "3121b1fe942434877db48c81f3d5ad0f0f6ac375a473572bf18cbc526e974c53",
+    "d3d-stage2-transport-gpu-final.log": "f7bc1c230a1e25f37d0462a61d17b02b21dd3249e7de88df999907684364a981",
+    "d3d-stage2-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage2-site-final.log": "876bb1b517160ad8d17657550a150238e2708a57ed1572026384de26d70929e2"
+  },
+  "mutations": {
+    "killed": 12,
+    "total": 12
+  }
+}

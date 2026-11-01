@@ -15,6 +15,8 @@ canvas { width: 640px; height: 480px; }
 <script>
 (async () => {
     "use strict";
+    const P = D9WGProtocol;
+    const floatFromBits = bits => new Float32Array(new Uint32Array([bits]).buffer)[0];
     const result = document.getElementById("result");
     const sessionLow = 0xD0090001;
     const sessionHigh = 0x20260806;
@@ -25,33 +27,12 @@ canvas { width: 640px; height: 480px; }
             value >>> 0, true));
         return payload;
     };
-    const surface = (handle, width, height) =>
-        u32(handle, 0x1234, 0, 0, width, height);
-    const createDevice = (handle, width, height) =>
-        u32(handle, 0x1234, 0, 0, width, height, 22, 1, 0x20, 1,
-            75 /* D3DFMT_D24S8 */, 0 /* no MSAA */, 0 /* quality */);
-    const transform = (handle, state, matrix) => {
-        const payload = new Uint8Array(72);
-        const view = new DataView(payload.buffer);
-        view.setUint32(0, handle, true);
-        view.setUint32(4, state, true);
-        matrix.forEach((value, index) =>
-            view.setFloat32(8 + index * 4, value, true));
-        return payload;
-    };
+    const surface = (handle, width, height) => P.encode("Present", { device_handle: handle, hwnd: 0x1234, width, height });
+    const createDevice = (handle, width, height) => P.encode("CreateDevice", { device_handle: handle, hwnd: 0x1234, width, height, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: 1, auto_depth_stencil_format: 75 });
+    const transform = (handle, state, matrix) => P.encode("SetTransform", { device_handle: handle, state, matrix });
     // D9WGVertexElement is 8 bytes: stream(u16), offset(u16), type(u8),
     // method(u8), usage(u8), usageIndex(u8) -- see d3d9_protocol.h.
-    const element = (offset, type, usage, usageIndex = 0) => {
-        const payload = new Uint8Array(8);
-        const view = new DataView(payload.buffer);
-        view.setUint16(0, 0, true); // stream
-        view.setUint16(2, offset, true);
-        view.setUint8(4, type);
-        view.setUint8(5, 0); // D3DDECLMETHOD_DEFAULT
-        view.setUint8(6, usage);
-        view.setUint8(7, usageIndex);
-        return payload;
-    };
+    const element = (offset, type, usage, usageIndex = 0) => P.encode("VertexElement", { offset, type, usage, usage_index: usageIndex });
     const concatBytes = arrays => {
         const total = arrays.reduce((sum, a) => sum + a.byteLength, 0);
         const out = new Uint8Array(total);
@@ -62,8 +43,7 @@ canvas { width: 640px; height: 480px; }
     // SET_FVF's payload is device_handle/fvf/element_count/reserved followed
     // by the decoded D9WGVertexElement array (see d3d9_protocol.h and plan
     // section 4.3 -- the host never decodes raw FVF bits itself).
-    const setFVF = (handle, fvf, elements) =>
-        concatBytes([u32(handle, fvf, elements.length, 0), ...elements]);
+    const setFVF = (handle, fvf, elements) => concatBytes([P.encode("SetFVF", { device_handle: handle, fvf, element_count: elements.length }), ...elements]);
 
     const DECLTYPE_FLOAT1 = 0;
     const DECLTYPE_FLOAT2 = 1;
@@ -80,56 +60,13 @@ canvas { width: 640px; height: 480px; }
     // ---- M2 helpers ----
     // CREATE_{VERTEX,PIXEL}_SHADER: device/handle/token_count/code_offset/
     // hash_low/hash_high, with the raw token stream as the trailing blob.
-    const createShader = (deviceHandle, handle, tokens) => {
-        const hash = D3D9ShaderPipeline.hashTokens(tokens);
-        const blob = new Uint8Array(tokens.buffer.slice(0));
-        return { payload: u32(deviceHandle, handle, tokens.length, 0,
-                hash.low, hash.high),
-            blobs: [{ offsetField: 12, data: blob }] };
-    };
+    const createShader = (deviceHandle, handle, tokens) => { const hash = D3D9ShaderPipeline.hashTokens(tokens);return { payload: P.encode("CreateVertexShader", { device_handle: deviceHandle, resource_handle: handle, instruction_token_count: tokens.length, bytecode_hash_low: hash.low, bytecode_hash_high: hash.high }), blobs: [{ offsetField: "code_offset", data: new Uint8Array(tokens.buffer.slice(0)) }] }; };
     // SET_*_SHADER_CONSTANT_F: device/start_register/vector_count/data_offset.
-    const shaderConstants = (deviceHandle, startRegister, values) => {
-        const data = new Uint8Array(new Float32Array(values).buffer);
-        return { payload: u32(deviceHandle, startRegister, values.length / 4, 0),
-            blobs: [{ offsetField: 12, data }] };
-    };
+    const shaderConstants = (deviceHandle, startRegister, values) => ({ payload: P.encode("SetShaderConstantF", { device_handle: deviceHandle, start_register: startRegister, vector_count: values.length / 4 }), blobs: [{ offsetField: "data_offset", data: new Uint8Array(new Float32Array(values).buffer) }] });
 
     const command = (opcode, payload, blobs = []) =>
         ({ opcode, payload, blobs });
-    const batch = commands => {
-        let commandBytes = 0;
-        for (const item of commands) {
-            item.offset = 32 + commandBytes;
-            item.size = (16 + item.payload.byteLength + item.blobs.reduce(
-                (total, blob) => total + blob.data.byteLength, 0) + 7) & ~7;
-            commandBytes += item.size;
-        }
-        const bytes = new Uint8Array(32 + commandBytes);
-        const view = new DataView(bytes.buffer);
-        view.setUint32(0, 0x47573944, true); // D9WG_MAGIC ("D9WG")
-        view.setUint16(4, 1, true); // version_major
-        view.setUint16(6, 3, true); // version_minor
-        view.setUint32(8, 1, true); // frame_id
-        view.setUint32(12, 1, true); // flags: D9WG_BATCH_FLAG_PRESENT
-        view.setUint32(16, commands.length, true);
-        view.setUint32(20, commandBytes, true);
-        view.setUint32(24, sessionLow, true);
-        view.setUint32(28, sessionHigh, true);
-        commands.forEach((item, index) => {
-            view.setUint16(item.offset, item.opcode, true);
-            view.setUint32(item.offset + 4, item.size, true);
-            view.setUint32(item.offset + 8, index + 1, true);
-            bytes.set(item.payload, item.offset + 16);
-            let blobOffset = item.offset + 16 + item.payload.byteLength;
-            for (const blob of item.blobs) {
-                view.setUint32(item.offset + 16 + blob.offsetField,
-                    blobOffset, true);
-                bytes.set(blob.data, blobOffset);
-                blobOffset += blob.data.byteLength;
-            }
-        });
-        return bytes;
-    };
+    const batch = commands => P.encodeBatch(commands.map(item => ({ opcode: item.opcode, payload: item.payload, blobs: item.blobs.map(blob => ({ field: blob.offsetField, data: blob.data })) })), { version_minor: 3, frame_id: 1, flags: P.C.D9WG_BATCH_FLAG_PRESENT, session_id_low: sessionLow, session_id_high: sessionHigh });
 
     try {
         if (!navigator.gpu) throw new Error("WebGPU unavailable");
@@ -289,41 +226,8 @@ canvas { width: 640px; height: 480px; }
             cubeFace[index * 4 + 2] = 140;
             cubeFace[index * 4 + 3] = 255;
         }
-        const material = handle => {
-            const payload = new Uint8Array(72);
-            const view = new DataView(payload.buffer);
-            view.setUint32(0, handle, true);
-            [0.9, 0.8, 0.7, 1,   // diffuse
-             1, 1, 1, 1,         // ambient
-             0.5, 0.5, 0.5, 1,   // specular
-             0, 0, 0, 0,         // emissive
-            ].forEach((value, index) =>
-                view.setFloat32(4 + index * 4, value, true));
-            view.setFloat32(68, 24, true); // power
-            return payload;
-        };
-        const light = (handle, index, type) => {
-            const payload = new Uint8Array(112);
-            const view = new DataView(payload.buffer);
-            view.setUint32(0, handle, true);
-            view.setUint32(4, index, true);
-            view.setUint32(8, type, true);
-            [1, 1, 0.95, 1,  // diffuse
-             1, 1, 1, 1,     // specular
-             0.1, 0.1, 0.1, 1, // ambient
-            ].forEach((value, i) => view.setFloat32(12 + i * 4, value, true));
-            [0, 0, 0].forEach((value, i) =>
-                view.setFloat32(60 + i * 4, value, true));   // position
-            [0.3, -0.6, 0.7].forEach((value, i) =>
-                view.setFloat32(72 + i * 4, value, true));   // direction
-            view.setFloat32(84, 1000, true);  // range
-            view.setFloat32(88, 1, true);     // falloff
-            [1, 0, 0].forEach((value, i) =>
-                view.setFloat32(92 + i * 4, value, true));   // attenuation
-            view.setFloat32(104, 0.5, true);  // theta
-            view.setFloat32(108, 1.0, true);  // phi
-            return payload;
-        };
+        const material = handle => P.encode("SetMaterial", { device_handle: handle, diffuse: [0.9, 0.8, 0.7, 1], ambient: [1, 1, 1, 1], specular: [0.5, 0.5, 0.5, 1], emissive: [0, 0, 0, 0], power: 24 });
+        const light = (handle, index, type) => P.encode("SetLight", { device_handle: handle, index, type, diffuse: [1, 1, 0.95, 1], specular: [1, 1, 1, 1], ambient: [0.1, 0.1, 0.1, 1], position: [0, 0, 0], direction: [0.3, -0.6, 0.7], range: 1000, falloff: 1, attenuation: [1, 0, 0], theta: 0.5, phi: 1 });
         // POSITION(float3) NORMAL(float3) TEXCOORD0(float2), stride 32.
         const litElements = [
             element(0, DECLTYPE_FLOAT3, DECLUSAGE_POSITION),
@@ -376,27 +280,7 @@ canvas { width: 640px; height: 480px; }
             0x55, 0x55, 0x55, 0x55, // every texel picks index 1
         ]);
 
-        const stretchRect = (handle, sourceHandle, sourceLevel,
-                sourceLeft, sourceTop, sourceRight, sourceBottom,
-                destinationHandle, destinationLevel,
-                destinationLeft, destinationTop, destinationRight,
-                destinationBottom) => {
-            const payload = new Uint8Array(56);
-            const view = new DataView(payload.buffer);
-            view.setUint32(0, handle, true);
-            view.setUint32(4, sourceHandle, true);
-            view.setUint32(8, sourceLevel, true);
-            [sourceLeft, sourceTop, sourceRight, sourceBottom]
-                .forEach((value, index) =>
-                    view.setInt32(12 + index * 4, value, true));
-            view.setUint32(28, destinationHandle, true);
-            view.setUint32(32, destinationLevel, true);
-            [destinationLeft, destinationTop, destinationRight,
-             destinationBottom].forEach((value, index) =>
-                view.setInt32(36 + index * 4, value, true));
-            view.setUint32(52, 0, true); // linear
-            return payload;
-        };
+        const stretchRect = (handle, sourceHandle, sourceLevel, sourceLeft, sourceTop, sourceRight, sourceBottom, destinationHandle, destinationLevel, destinationLeft, destinationTop, destinationRight, destinationBottom) => P.encode("StretchRect", { device_handle: handle, source_texture_handle: sourceHandle, source_level: sourceLevel, source_left: sourceLeft, source_top: sourceTop, source_right: sourceRight, source_bottom: sourceBottom, destination_texture_handle: destinationHandle, destination_level: destinationLevel, destination_left: destinationLeft, destination_top: destinationTop, destination_right: destinationRight, destination_bottom: destinationBottom }).subarray(0, P.minBytes("StretchRect"));
 
         const executor = new D3D9WebGPUExecutor(
             document.getElementById("screen"));
@@ -412,72 +296,65 @@ canvas { width: 640px; height: 480px; }
         executor.previewBudget = 0;
         executor.device.pushErrorScope("validation");
         await executor.submit(batch([
-            command(1, u32(32, 0, sessionLow, sessionHigh)),
-            command(2, createDevice(deviceHandle, 640, 480)),
-            command(0x110, u32(deviceHandle, textureHandle, 16, 16, 1, 21, 0, 1, 0, 0)),
-            command(0x110, u32(deviceHandle, dxtHandle, 4, 4, 1,
-                0x31545844 /* D3DFMT_DXT1 */, 0, 1, 0, 0)),
-            command(0x113, u32(dxtHandle, 0, 0, 0, 0, 4, 4, 1, 8, 0,
-                dxtBlock.byteLength, 0), [{ offsetField: 44, data: dxtBlock }]),
-            command(0x113, u32(textureHandle, 0, 0, 0, 0, 16, 16, 1,
-                64, 0, texture.byteLength, 0),
-                [{ offsetField: 44, data: texture }]),
-            command(0x204, u32(deviceHandle, 0, 0, 640, 480, 0, 0x3F800000, 0)),
+            command(P.OP.HELLO, P.encode("Hello", { guest_pointer_bits: 32, feature_bits: 0, session_id_low: sessionLow, session_id_high: sessionHigh })),
+            command(P.OP.CREATE_DEVICE, createDevice(deviceHandle, 640, 480)),
+            command(P.OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: deviceHandle, resource_handle: textureHandle, width: 16, height: 16, level_count: 1, format: 21, usage: 0, pool: 1, multisample_type: 0, multisample_quality: 0 })),
+            command(P.OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: deviceHandle, resource_handle: dxtHandle, width: 4, height: 4, level_count: 1, format: 0x31545844, usage: 0, pool: 1, multisample_type: 0, multisample_quality: 0 })),
+            command(P.OP.UPDATE_TEXTURE, P.encode("UpdateTexture", { resource_handle: dxtHandle, level: 0, x: 0, y: 0, z: 0, width: 4, height: 4, depth: 1, row_pitch: 8, slice_pitch: 0, data_bytes: dxtBlock.byteLength, data_offset: 0 }), [{ offsetField: "data_offset", data: dxtBlock }]),
+            command(P.OP.UPDATE_TEXTURE, P.encode("UpdateTexture", { resource_handle: textureHandle, level: 0, x: 0, y: 0, z: 0, width: 16, height: 16, depth: 1, row_pitch: 64, slice_pitch: 0, data_bytes: texture.byteLength, data_offset: 0 }),
+                [{ offsetField: "data_offset", data: texture }]),
+            command(P.OP.SET_VIEWPORT, P.encode("SetViewport", { device_handle: deviceHandle, x: 0, y: 0, width: 640, height: 480, min_z: 0, max_z: floatFromBits(0x3F800000), reserved: 0 })),
             // M4 partial depth+stencil Clear validates frag_depth and stencil
             // replacement in the dynamically generated utility pipeline.
-            command(5, concatBytes([
-                u32(deviceHandle, 6, 0, 0x3F000000, 0x5A, 1),
-                u32(0, 0, 32, 32),
+            command(P.OP.CLEAR, concatBytes([
+                P.encode("Clear", { device_handle: deviceHandle, clear_flags: 6, color: 0, depth: floatFromBits(0x3F000000), stencil: 0x5A, rect_count: 1 }),
+                P.encode("Rect", { right: 32, bottom: 32 }),
             ])),
-            command(5, u32(deviceHandle, 7, 0xFF101820, 0x3F800000, 0, 0)),
-            command(6, u32(deviceHandle, 0)),
-            command(0x20E, setFVF(deviceHandle, 0x144, screenElements)),
-            command(0x203, u32(deviceHandle, 0, textureHandle, 0)),
-            command(0x302, u32(deviceHandle, 4, 1, 28, 3,
-                screenVertices.byteLength, 0, 0),
-                [{ offsetField: 24, data: screenVertices }]),
+            command(P.OP.CLEAR, P.encode("Clear", { device_handle: deviceHandle, clear_flags: 7, color: 0xFF101820, depth: floatFromBits(0x3F800000), stencil: 0, rect_count: 0 })),
+            command(P.OP.BEGIN_SCENE, P.encode("DeviceOnly", { device_handle: deviceHandle, reserved: 0 })),
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x144, screenElements)),
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 0, texture_handle: textureHandle, reserved: 0 })),
+            command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 4, primitive_count: 1, stride: 28, vertex_count: 3, vertex_bytes: screenVertices.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data: screenVertices }]),
             // The first draw's bind group has captured the original texture
             // view. Updating it now must rename the texture so that draw keeps
             // the old pixels and later draws see these new ones.
-            command(0x113, u32(textureHandle, 0, 0, 0, 0, 16, 16, 1,
-                64, 0, texture.byteLength, 0),
-                [{ offsetField: 44, data: texture }]),
-            command(0x206, transform(deviceHandle, 2, identity)),
-            command(0x206, transform(deviceHandle, 3, identity)),
-            command(0x206, transform(deviceHandle, 256, identity)),
-            command(0x20E, setFVF(deviceHandle, 0x42, worldElements)),
-            command(0x203, u32(deviceHandle, 0, dxtHandle, 0)),
-            command(0x302, u32(deviceHandle, 4, 1, 16, 3,
-                worldVertices.byteLength, 0, 0),
-                [{ offsetField: 24, data: worldVertices }]),
+            command(P.OP.UPDATE_TEXTURE, P.encode("UpdateTexture", { resource_handle: textureHandle, level: 0, x: 0, y: 0, z: 0, width: 16, height: 16, depth: 1, row_pitch: 64, slice_pitch: 0, data_bytes: texture.byteLength, data_offset: 0 }),
+                [{ offsetField: "data_offset", data: texture }]),
+            command(P.OP.SET_TRANSFORM, transform(deviceHandle, 2, identity)),
+            command(P.OP.SET_TRANSFORM, transform(deviceHandle, 3, identity)),
+            command(P.OP.SET_TRANSFORM, transform(deviceHandle, 256, identity)),
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x42, worldElements)),
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 0, texture_handle: dxtHandle, reserved: 0 })),
+            command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 4, primitive_count: 1, stride: 16, vertex_count: 3, vertex_bytes: worldVertices.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data: worldVertices }]),
 
             // Draw 3: programmable vs_2_0 + ps_2_0, sampling the same texture
             // through independent sampler state (CLAMP + LINEAR rather than
             // D3D9's WRAP/POINT defaults, so a dropped SetSamplerState is
             // visible in the sampler descriptor the cache builds).
-            command(0x121, vertexShaderCreate.payload, vertexShaderCreate.blobs),
-            command(0x122, pixelShaderCreate.payload, pixelShaderCreate.blobs),
-            command(0x211, u32(deviceHandle, vertexShaderHandle)),
-            command(0x212, u32(deviceHandle, pixelShaderHandle)),
-            command(0x213, vertexTransformConstants.payload,
+            command(P.OP.CREATE_VERTEX_SHADER, vertexShaderCreate.payload, vertexShaderCreate.blobs),
+            command(P.OP.CREATE_PIXEL_SHADER, pixelShaderCreate.payload, pixelShaderCreate.blobs),
+            command(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: vertexShaderHandle })),
+            command(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: pixelShaderHandle })),
+            command(P.OP.SET_VERTEX_SHADER_CONSTANT_F, vertexTransformConstants.payload,
                 vertexTransformConstants.blobs),
-            command(0x213, vertexTintConstants.payload,
+            command(P.OP.SET_VERTEX_SHADER_CONSTANT_F, vertexTintConstants.payload,
                 vertexTintConstants.blobs),
-            command(0x216, pixelScaleConstants.payload,
+            command(P.OP.SET_PIXEL_SHADER_CONSTANT_F, pixelScaleConstants.payload,
                 pixelScaleConstants.blobs),
-            command(0x201, u32(deviceHandle, 0, 5, 2)),  // MAGFILTER=LINEAR
-            command(0x201, u32(deviceHandle, 0, 6, 2)),  // MINFILTER=LINEAR
-            command(0x201, u32(deviceHandle, 0, 1, 3)),  // ADDRESSU=CLAMP
-            command(0x201, u32(deviceHandle, 0, 2, 3)),  // ADDRESSV=CLAMP
-            command(0x203, u32(deviceHandle, 0, textureHandle, 0)),
-            command(0x20E, setFVF(deviceHandle, 0x142, shaderElements)),
-            command(0x302, u32(deviceHandle, 4, 1, 24, 3,
-                shaderVertices.byteLength, 0, 0),
-                [{ offsetField: 24, data: shaderVertices }]),
+            command(P.OP.SET_SAMPLER_STATE, P.encode("SetSamplerState", { device_handle: deviceHandle, sampler: 0, state: 5, value: 2 })),  // MAGFILTER=LINEAR
+            command(P.OP.SET_SAMPLER_STATE, P.encode("SetSamplerState", { device_handle: deviceHandle, sampler: 0, state: 6, value: 2 })),  // MINFILTER=LINEAR
+            command(P.OP.SET_SAMPLER_STATE, P.encode("SetSamplerState", { device_handle: deviceHandle, sampler: 0, state: 1, value: 3 })),  // ADDRESSU=CLAMP
+            command(P.OP.SET_SAMPLER_STATE, P.encode("SetSamplerState", { device_handle: deviceHandle, sampler: 0, state: 2, value: 3 })),  // ADDRESSV=CLAMP
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 0, texture_handle: textureHandle, reserved: 0 })),
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x142, shaderElements)),
+            command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 4, primitive_count: 1, stride: 24, vertex_count: 3, vertex_bytes: shaderVertices.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data: shaderVertices }]),
             // Unbinding both shaders must return to the fixed-function path
             // inside the same frame.
-            command(0x211, u32(deviceHandle, 0)),
-            command(0x212, u32(deviceHandle, 0)),
+            command(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: 0 })),
+            command(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: 0 })),
 
             // Draw 4 (M3): fixed-function lighting plus a two-stage texture
             // cascade, rendered into a texture rather than the back buffer, then
@@ -486,88 +363,82 @@ canvas { width: 640px; height: 480px; }
             // rejects (the f32-max literal in M2 was exactly that), so the
             // generated lighting and cascade WGSL has to be seen by a real
             // browser and not only by naga.
-            command(0x110, u32(deviceHandle, renderTargetHandle, 128, 128, 1, 21,
-                1 /* D3DUSAGE_RENDERTARGET */, 0, 0, 0)),
+            command(P.OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: deviceHandle, resource_handle: renderTargetHandle, width: 128, height: 128, level_count: 1, format: 21, usage: 1, pool: 0, multisample_type: 0, multisample_quality: 0 })),
             // M4: both utility pipelines are generated dynamically, so they
             // need real Tint/WebGPU validation in addition to fake-device
             // unit tests. First fill a sub-rectangle, then clear another one.
-            command(9, u32(deviceHandle, renderTargetHandle, 0, 0xFF305070,
-                8, 8, 120, 120)),
-            command(0x111, u32(deviceHandle, cubeHandle, 8, 1, 21, 0, 1, 0)),
+            command(P.OP.COLOR_FILL, P.encode("ColorFill", { device_handle: deviceHandle, texture_handle: renderTargetHandle, level: 0, color: 0xFF305070, left: 8, top: 8, right: 120, bottom: 120 }).subarray(0, 32)),
+            command(P.OP.CREATE_TEXTURE_CUBE, P.encode("CreateTextureCube", { device_handle: deviceHandle, resource_handle: cubeHandle, edge_length: 8, level_count: 1, format: 21, usage: 0, pool: 1, reserved: 0 })),
             // All six faces: an unwritten face has undefined contents, and the
             // executor counts that (drawsWithIncompleteMipChain) rather than
             // letting a reflection sample garbage unremarked.
             ...[0, 1, 2, 3, 4, 5].map(face =>
-                command(0x113, u32(cubeHandle, 0, 0, 0, face, 8, 8, 1, 32, 0,
-                    cubeFace.byteLength, 0),
-                    [{ offsetField: 44, data: cubeFace }])),
-            command(0x20F, u32(deviceHandle, 0, renderTargetHandle, 0)),
-            command(0x21E, u32(deviceHandle, 0, 0, 0, 0)), // no depth
-            command(0x204, u32(deviceHandle, 0, 0, 128, 128, 0, 0x3F800000, 0)),
-            command(5, concatBytes([
-                u32(deviceHandle, 1, 0xFF203040, 0x3F800000, 0, 1),
-                u32(16, 16, 112, 112),
+                command(P.OP.UPDATE_TEXTURE, P.encode("UpdateTexture", { resource_handle: cubeHandle, level: 0, x: 0, y: 0, z: face, width: 8, height: 8, depth: 1, row_pitch: 32, slice_pitch: 0, data_bytes: cubeFace.byteLength, data_offset: 0 }),
+                    [{ offsetField: "data_offset", data: cubeFace }])),
+            command(P.OP.SET_RENDER_TARGET, P.encode("SetRenderTarget", { device_handle: deviceHandle, target_index: 0, color_texture_handle: renderTargetHandle, color_level: 0 }).subarray(0, 16)),
+            command(P.OP.SET_DEPTH_STENCIL_SURFACE_LEVEL, P.encode("SetDepthStencilSurfaceLevel", { device_handle: deviceHandle, depth_texture_handle: 0, depth_level: 0, width: 0, height: 0 })), // no depth
+            command(P.OP.SET_VIEWPORT, P.encode("SetViewport", { device_handle: deviceHandle, x: 0, y: 0, width: 128, height: 128, min_z: 0, max_z: floatFromBits(0x3F800000), reserved: 0 })),
+            command(P.OP.CLEAR, concatBytes([
+                P.encode("Clear", { device_handle: deviceHandle, clear_flags: 1, color: 0xFF203040, depth: floatFromBits(0x3F800000), stencil: 0, rect_count: 1 }),
+                P.encode("Rect", { left: 16, top: 16, right: 112, bottom: 112 }),
             ])),
-            command(5, u32(deviceHandle, 1, 0xFF203040, 0x3F800000, 0, 0)),
-            command(0x200, u32(deviceHandle, 137, 1, 0)),   // LIGHTING
-            command(0x200, u32(deviceHandle, 139, 0x00303030, 0)), // AMBIENT
-            command(0x200, u32(deviceHandle, 143, 1, 0)),   // NORMALIZENORMALS
-            command(0x200, u32(deviceHandle, 29, 1, 0)),    // SPECULARENABLE
-            command(0x207, material(deviceHandle)),
-            command(0x208, light(deviceHandle, 0, 3 /* DIRECTIONAL */)),
-            command(0x209, u32(deviceHandle, 0, 1, 0)),
-            command(0x203, u32(deviceHandle, 0, textureHandle, 0)),
-            command(0x203, u32(deviceHandle, 1, cubeHandle, 0)),
-            command(0x202, u32(deviceHandle, 0, 1, 4)),     // stage0 COLOROP=MODULATE
-            command(0x202, u32(deviceHandle, 0, 2, 2)),     // COLORARG1=TEXTURE
-            command(0x202, u32(deviceHandle, 0, 3, 0)),     // COLORARG2=DIFFUSE
-            command(0x202, u32(deviceHandle, 1, 1, 7)),     // stage1 COLOROP=ADD
-            command(0x202, u32(deviceHandle, 1, 2, 2)),     // COLORARG1=TEXTURE
-            command(0x202, u32(deviceHandle, 1, 3, 1)),     // COLORARG2=CURRENT
-            command(0x202, u32(deviceHandle, 1, 11, 0x00030000)), // TCI reflection
-            command(0x20E, setFVF(deviceHandle, 0x112, litElements)),
-            command(0x302, u32(deviceHandle, 4, 1, 32, 3,
-                litVertices.byteLength, 0, 0),
-                [{ offsetField: 24, data: litVertices }]),
+            command(P.OP.CLEAR, P.encode("Clear", { device_handle: deviceHandle, clear_flags: 1, color: 0xFF203040, depth: floatFromBits(0x3F800000), stencil: 0, rect_count: 0 })),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 137, value: 1, reserved: 0 })),   // LIGHTING
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 139, value: 0x00303030, reserved: 0 })), // AMBIENT
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 143, value: 1, reserved: 0 })),   // NORMALIZENORMALS
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 29, value: 1, reserved: 0 })),    // SPECULARENABLE
+            command(P.OP.SET_MATERIAL, material(deviceHandle)),
+            command(P.OP.SET_LIGHT, light(deviceHandle, 0, 3 /* DIRECTIONAL */)),
+            command(P.OP.LIGHT_ENABLE, P.encode("LightEnable", { device_handle: deviceHandle, index: 0, enable: 1, reserved: 0 })),
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 0, texture_handle: textureHandle, reserved: 0 })),
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 1, texture_handle: cubeHandle, reserved: 0 })),
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 0, state: 1, value: 4 })),     // stage0 COLOROP=MODULATE
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 0, state: 2, value: 2 })),     // COLORARG1=TEXTURE
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 0, state: 3, value: 0 })),     // COLORARG2=DIFFUSE
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 1, state: 1, value: 7 })),     // stage1 COLOROP=ADD
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 1, state: 2, value: 2 })),     // COLORARG1=TEXTURE
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 1, state: 3, value: 1 })),     // COLORARG2=CURRENT
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 1, state: 11, value: 0x00030000 })), // TCI reflection
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x112, litElements)),
+            command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 4, primitive_count: 1, stride: 32, vertex_count: 3, vertex_bytes: litVertices.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data: litVertices }]),
             // Back to the back buffer, restoring the implicit depth surface, and
             // sample the render target through the fixed-function path.
-            command(0x202, u32(deviceHandle, 1, 1, 1)),     // stage1 COLOROP=DISABLE
-            command(0x202, u32(deviceHandle, 0, 3, 0)),
-            command(0x200, u32(deviceHandle, 137, 0, 0)),   // LIGHTING off
-            command(0x200, u32(deviceHandle, 29, 0, 0)),    // SPECULARENABLE off
-            command(0x20F, u32(deviceHandle, 0, 0, 0)),
-            command(0x21E, u32(deviceHandle, 0xFFFFFFFF, 0, 640, 480)),
-            command(0x204, u32(deviceHandle, 0, 0, 640, 480, 0, 0x3F800000, 0)),
-            command(0x203, u32(deviceHandle, 0, renderTargetHandle, 0)),
-            command(0x203, u32(deviceHandle, 1, 0, 0)),
-            command(0x20E, setFVF(deviceHandle, 0x144, screenElements)),
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 1, state: 1, value: 1 })),     // stage1 COLOROP=DISABLE
+            command(P.OP.SET_TEXTURE_STAGE_STATE, P.encode("SetTextureStageState", { device_handle: deviceHandle, stage: 0, state: 3, value: 0 })),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 137, value: 0, reserved: 0 })),   // LIGHTING off
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 29, value: 0, reserved: 0 })),    // SPECULARENABLE off
+            command(P.OP.SET_RENDER_TARGET, P.encode("SetRenderTarget", { device_handle: deviceHandle, target_index: 0, color_texture_handle: 0, color_level: 0 }).subarray(0, 16)),
+            command(P.OP.SET_DEPTH_STENCIL_SURFACE_LEVEL, P.encode("SetDepthStencilSurfaceLevel", { device_handle: deviceHandle, depth_texture_handle: 0xFFFFFFFF, depth_level: 0, width: 640, height: 480 })),
+            command(P.OP.SET_VIEWPORT, P.encode("SetViewport", { device_handle: deviceHandle, x: 0, y: 0, width: 640, height: 480, min_z: 0, max_z: floatFromBits(0x3F800000), reserved: 0 })),
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 0, texture_handle: renderTargetHandle, reserved: 0 })),
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 1, texture_handle: 0, reserved: 0 })),
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x144, screenElements)),
             // Warcraft III uses projected mask textures for shadows/fog. A
             // WebGPU sampler cannot express D3DTADDRESS_BORDER, so this forces
             // the fixed-function fragment variant which replaces out-of-range
             // coordinates with D3DSAMP_BORDERCOLOR; real Tint validates it.
-            command(0x201, u32(deviceHandle, 0, 1, 4)),  // ADDRESSU=BORDER
-            command(0x201, u32(deviceHandle, 0, 2, 4)),  // ADDRESSV=BORDER
-            command(0x201, u32(deviceHandle, 0, 4, 0x00000000)),
+            command(P.OP.SET_SAMPLER_STATE, P.encode("SetSamplerState", { device_handle: deviceHandle, sampler: 0, state: 1, value: 4 })),  // ADDRESSU=BORDER
+            command(P.OP.SET_SAMPLER_STATE, P.encode("SetSamplerState", { device_handle: deviceHandle, sampler: 0, state: 2, value: 4 })),  // ADDRESSV=BORDER
+            command(P.OP.SET_SAMPLER_STATE, P.encode("SetSamplerState", { device_handle: deviceHandle, sampler: 0, state: 4, value: 0x00000000 })),
             // M5: the final back-buffer draw uses an sRGB attachment view, so
             // Tint validates the -srgb pipeline/view pairing on a real canvas.
-            command(0x200, u32(deviceHandle, 194, 1, 0)),
-            command(0x302, u32(deviceHandle, 4, 1, 28, 3,
-                rtQuadVertices.byteLength, 0, 0),
-                [{ offsetField: 24, data: rtQuadVertices }]),
-            command(0x200, u32(deviceHandle, 194, 0, 0)),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 194, value: 1, reserved: 0 })),
+            command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 4, primitive_count: 1, stride: 28, vertex_count: 3, vertex_bytes: rtQuadVertices.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data: rtQuadVertices }]),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 194, value: 0, reserved: 0 })),
 
             // M6 point-sprite validation on a real WebGPU pipeline. The
             // generated quad samples the complete texture via automatic
             // [0,1] point UVs rather than the source vertex's TEXCOORD0.
-            command(0x200, u32(deviceHandle, 154, 0x42800000, 0)), // POINTSIZE=64
-            command(0x200, u32(deviceHandle, 156, 1, 0)),          // POINTSPRITE
-            command(0x200, u32(deviceHandle, 157, 0, 0)),          // no scaling
-            command(0x203, u32(deviceHandle, 0, textureHandle, 0)),
-            command(0x20E, setFVF(deviceHandle, 0x144, pointElements)),
-            command(0x302, u32(deviceHandle, 1, 1, 32, 1,
-                pointVertex.byteLength, 0, 0),
-                [{ offsetField: 24, data: pointVertex }]),
-            command(0x200, u32(deviceHandle, 156, 0, 0)),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 154, value: 0x42800000, reserved: 0 })), // POINTSIZE=64
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 156, value: 1, reserved: 0 })),          // POINTSPRITE
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 157, value: 0, reserved: 0 })),          // no scaling
+            command(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: deviceHandle, stage: 0, texture_handle: textureHandle, reserved: 0 })),
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x144, pointElements)),
+            command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 1, primitive_count: 1, stride: 32, vertex_count: 1, vertex_bytes: pointVertex.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data: pointVertex }]),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 156, value: 0, reserved: 0 })),
 
             // StretchRect the back buffer into the render target and back out
             // again. Only a real browser exercises the interesting part: the
@@ -575,16 +446,16 @@ canvas { width: 640px; height: 480px; }
             // bgra8unorm) differs from the rgba8unorm every D3D9 texture becomes,
             // so even a same-size back-buffer copy has to go through the blit
             // pipeline rather than copyTextureToTexture.
-            command(0x8, stretchRect(deviceHandle, 0, 0, 0, 0, 640, 480,
+            command(P.OP.STRETCH_RECT, stretchRect(deviceHandle, 0, 0, 0, 0, 640, 480,
                 renderTargetHandle, 0, 0, 0, 128, 128)),
-            command(0x8, stretchRect(deviceHandle, renderTargetHandle, 0,
+            command(P.OP.STRETCH_RECT, stretchRect(deviceHandle, renderTargetHandle, 0,
                 0, 0, 128, 128, 0, 0, 20, 20, 148, 148)),
 
-            command(7, u32(deviceHandle, 0)),
-            command(0x103, u32(textureHandle, 3)),
-            command(0x103, u32(cubeHandle, 4)),
-            command(0x103, u32(dxtHandle, 3)),
-            command(4, surface(deviceHandle, 640, 480)),
+            command(P.OP.END_SCENE, P.encode("DeviceOnly", { device_handle: deviceHandle, reserved: 0 })),
+            command(P.OP.DESTROY_RESOURCE, P.encode("DestroyResource", { resource_handle: textureHandle, resource_kind: 3 })),
+            command(P.OP.DESTROY_RESOURCE, P.encode("DestroyResource", { resource_handle: cubeHandle, resource_kind: 4 })),
+            command(P.OP.DESTROY_RESOURCE, P.encode("DestroyResource", { resource_handle: dxtHandle, resource_kind: 3 })),
+            command(P.OP.PRESENT, surface(deviceHandle, 640, 480)),
         ]));
         // Make persistence deterministic for this page: production batches
         // debounce IndexedDB writes, while the headless screenshot runner may
@@ -645,29 +516,27 @@ canvas { width: 640px; height: 480px; }
         // The two stages have to declare the colour varyings alike, or
         // createRenderPipeline fails and the frame's command buffer with it.
         executor.device.pushErrorScope("validation");
-        const drawShaded = () => command(0x302, u32(deviceHandle, 4, 1, 24, 3,
-            shaderVertices.byteLength, 0, 0),
-            [{ offsetField: 24, data: shaderVertices }]);
+        const drawShaded = () => command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 4, primitive_count: 1, stride: 24, vertex_count: 3, vertex_bytes: shaderVertices.byteLength, vertex_data_offset: 0, reserved: 0 }),
+            [{ offsetField: "vertex_data_offset", data: shaderVertices }]);
         await executor.submit(batch([
-            command(6, u32(deviceHandle, 0)),
-            command(0x200, u32(deviceHandle, 9, 1, 0)),  // SHADEMODE=FLAT
-            command(0x20E, setFVF(deviceHandle, 0x142, shaderElements)),
+            command(P.OP.BEGIN_SCENE, P.encode("DeviceOnly", { device_handle: deviceHandle, reserved: 0 })),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 9, value: 1, reserved: 0 })),  // SHADEMODE=FLAT
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x142, shaderElements)),
             // vs + fixed-function ps
-            command(0x211, u32(deviceHandle, vertexShaderHandle)),
+            command(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: vertexShaderHandle })),
             drawShaded(),
             // vs + ps
-            command(0x212, u32(deviceHandle, pixelShaderHandle)),
+            command(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: pixelShaderHandle })),
             drawShaded(),
             // fixed-function vs + ps
-            command(0x211, u32(deviceHandle, 0)),
-            command(0x20E, setFVF(deviceHandle, 0x42, worldElements)),
-            command(0x302, u32(deviceHandle, 4, 1, 16, 3,
-                worldVertices.byteLength, 0, 0),
-                [{ offsetField: 24, data: worldVertices }]),
-            command(0x212, u32(deviceHandle, 0)),
-            command(0x200, u32(deviceHandle, 9, 2, 0)),  // SHADEMODE=GOURAUD
-            command(7, u32(deviceHandle, 0)),
-            command(4, surface(deviceHandle, 640, 480)),
+            command(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: 0 })),
+            command(P.OP.SET_FVF, setFVF(deviceHandle, 0x42, worldElements)),
+            command(P.OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: deviceHandle, primitive_type: 4, primitive_count: 1, stride: 16, vertex_count: 3, vertex_bytes: worldVertices.byteLength, vertex_data_offset: 0, reserved: 0 }),
+                [{ offsetField: "vertex_data_offset", data: worldVertices }]),
+            command(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: deviceHandle, shader_handle: 0 })),
+            command(P.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: deviceHandle, state: 9, value: 2, reserved: 0 })),  // SHADEMODE=GOURAUD
+            command(P.OP.END_SCENE, P.encode("DeviceOnly", { device_handle: deviceHandle, reserved: 0 })),
+            command(P.OP.PRESENT, surface(deviceHandle, 640, 480)),
         ]));
         const flatValidation = await executor.device.popErrorScope();
         if (executor.failed) throw executor.failed;

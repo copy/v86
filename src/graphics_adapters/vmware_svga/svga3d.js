@@ -29,7 +29,7 @@
 import { LOG_VGA } from "../../const.js";
 import { dbg_log } from "../../log.js";
 import * as C from "./svga_constants.js";
-import { D9WGWriter, OP, KIND } from "./svga3d_d9wg.js";
+import { D9WGWriter, OP, KIND, d9wg_encode } from "./svga3d_d9wg.js";
 import { RESPONSE_REGION_OFFSET, QUERY_REGION_BYTES, QUERY_SLOT_BYTES, READBACK_HEADER_BYTES, READBACK_MAX_BYTES,
     RESPONSE_OK, GXWriter, GX } from "../renderer_protocol.js";
 import { DXDevice } from "./svga3d_dx.js";
@@ -638,11 +638,13 @@ SVGA3D.prototype.set_state = function(state)
                 const bytes = saved[i++];
                 if(!bytes) continue;
                 const level = level_layout(surface, mip);
-                const w = this.writer.begin(OP.UPDATE_TEXTURE).u32(surface.handle).u32(mip).u32(0).u32(0)
-                    .u32(volume ? 0 : surface.kind === KIND.TEXTURE_CUBE ? face : 0)
-                    .u32(level.width).u32(level.height).u32(volume ? level.depth : 1)
-                    .u32(level.pitch).u32(level.pitch * level.rows).u32(bytes.length);
-                w.patch(w.placeholder(), w.data(bytes));
+                const w = this.writer.command(OP.UPDATE_TEXTURE, {
+                    "resource_handle": surface.handle, "level": mip, "x": 0,
+                    "y": 0, "z": volume ? 0 : surface.kind === KIND.TEXTURE_CUBE ? face : 0, "width": level.width,
+                    "height": level.height, "depth": volume ? level.depth : 1, "row_pitch": level.pitch,
+                    "slice_pitch": level.pitch * level.rows, "data_bytes": bytes.length
+                });
+                w.patch_field("data_offset", w.data(bytes));
                 if(this.writer.size() > BATCH_FLUSH_BYTES) this.flush();
             }
         }
@@ -793,21 +795,32 @@ SVGA3D.prototype.make_d9wg = function(surface)
     if(faces === 6 && (flags & C.SVGA3D_SURFACE_CUBEMAP))
     {
         surface.kind = KIND.TEXTURE_CUBE;
-        w.begin(OP.CREATE_TEXTURE_CUBE).u32(UTILITY_DEVICE).u32(handle).u32(width).u32(mips)
-            .u32(info.d3d).u32(usage).u32(0).u32(0);
+        w.command(OP.CREATE_TEXTURE_CUBE, {
+            "device_handle": UTILITY_DEVICE, "resource_handle": handle, "edge_length": width,
+            "level_count": mips, "format": info.d3d, "usage": usage,
+            "pool": 0, "reserved": 0
+        });
     }
     else if(depth > 1 || (flags & C.SVGA3D_SURFACE_VOLUME))
     {
         surface.kind = KIND.TEXTURE_VOLUME;
-        w.begin(OP.CREATE_TEXTURE_VOLUME).u32(UTILITY_DEVICE).u32(handle).u32(width).u32(height).u32(depth)
-            .u32(mips).u32(info.d3d).u32(usage).u32(0).u32(0);
+        w.command(OP.CREATE_TEXTURE_VOLUME, {
+            "device_handle": UTILITY_DEVICE, "resource_handle": handle, "width": width,
+            "height": height, "depth": depth, "level_count": mips,
+            "format": info.d3d, "usage": usage, "pool": 0,
+            "reserved": 0
+        });
     }
     else
     {
         surface.kind = KIND.TEXTURE_2D;
         // D3DMULTISAMPLE_n_SAMPLES is n
-        w.begin(OP.CREATE_TEXTURE_2D).u32(UTILITY_DEVICE).u32(handle).u32(width).u32(height).u32(mips)
-            .u32(info.d3d).u32(usage).u32(0).u32(samples > 1 ? samples : 0).u32(0);
+        w.command(OP.CREATE_TEXTURE_2D, {
+            "device_handle": UTILITY_DEVICE, "resource_handle": handle, "width": width,
+            "height": height, "level_count": mips, "format": info.d3d,
+            "usage": usage, "pool": 0, "multisample_type": samples > 1 ? samples : 0,
+            "multisample_quality": 0
+        });
     }
     // a GB surface brings what its MOB has
     if(fill && surface.gb && surface.mob !== INVALID && !surface.host_newer) this.update_gb_surface(surface);
@@ -916,10 +929,13 @@ SVGA3D.prototype.upload = function(surface, layer, mip, x, y, z, w, h, d, pitch,
         return;
     }
     if(!surface.handle) return;
-    const wr = this.writer.begin(OP.UPDATE_TEXTURE).u32(surface.handle).u32(mip)
-        .u32(x).u32(y).u32(surface.kind === KIND.TEXTURE_VOLUME ? z : layer).u32(w).u32(h).u32(d)
-        .u32(pitch).u32(pitch * rows).u32(data.length);
-    wr.patch(wr.placeholder(), wr.data(data));
+    const wr = this.writer.command(OP.UPDATE_TEXTURE, {
+        "resource_handle": surface.handle, "level": mip, "x": x,
+        "y": y, "z": surface.kind === KIND.TEXTURE_VOLUME ? z : layer, "width": w,
+        "height": h, "depth": d, "row_pitch": pitch,
+        "slice_pitch": pitch * rows, "data_bytes": data.length
+    });
+    wr.patch_field("data_offset", wr.data(data));
 };
 
 SVGA3D.prototype.destroy_surface = function(sid)
@@ -931,10 +947,14 @@ SVGA3D.prototype.destroy_surface = function(sid)
     if(surface.in_gx) this.gxw.command(GX.SURFACE_DESTROY, [sid]);
     if(!surface.in_d9) return;
     const w = this.writer;
-    if(surface.handle) w.begin(OP.DESTROY_RESOURCE).u32(surface.handle).u32(surface.kind);
+    if(surface.handle) w.command(OP.DESTROY_RESOURCE, {
+        "resource_handle": surface.handle, "resource_kind": surface.kind
+    });
     for(let role = 0; role < 3; role++)
     {
-        if(surface.roles[role]) w.begin(OP.DESTROY_RESOURCE).u32(surface.roles[role]).u32(role === ROLE_VERTEX ? KIND.BUFFER_VERTEX : KIND.BUFFER_INDEX);
+        if(surface.roles[role]) w.command(OP.DESTROY_RESOURCE, {
+            "resource_handle": surface.roles[role], "resource_kind": role === ROLE_VERTEX ? KIND.BUFFER_VERTEX : KIND.BUFFER_INDEX
+        });
     }
 };
 
@@ -950,19 +970,21 @@ SVGA3D.prototype.buffer_role = function(surface, role)
     const handle = surface.roles[role] = this.next_handle++;
     const w = this.writer;
     const index = role !== ROLE_VERTEX;
-    w.begin(OP.CREATE_BUFFER).u32(UTILITY_DEVICE).u32(handle).u32(index ? KIND.BUFFER_INDEX : KIND.BUFFER_VERTEX)
-        .u32(surface.data.length).u32(D3DUSAGE_DYNAMIC)
-        .u32(role === ROLE_INDEX16 ? D3DFMT.INDEX16 : role === ROLE_INDEX32 ? D3DFMT.INDEX32 : 0).u32(0).u32(0);
+    w.command(OP.CREATE_BUFFER, {
+        "device_handle": UTILITY_DEVICE, "resource_handle": handle, "resource_kind": index ? KIND.BUFFER_INDEX : KIND.BUFFER_VERTEX,
+        "byte_count": surface.data.length, "usage": D3DUSAGE_DYNAMIC, "fvf": role === ROLE_INDEX16 ? D3DFMT.INDEX16 : role === ROLE_INDEX32 ? D3DFMT.INDEX32 : 0,
+        "pool": 0, "reserved": 0
+    });
     this.update_buffer(handle, 0, surface.data);
     return handle;
 };
 
 SVGA3D.prototype.update_buffer = function(handle, offset, bytes)
 {
-    const w = this.writer.begin(OP.UPDATE_BUFFER).u32(handle).u32(offset).u32(bytes.length);
-    const data_offset = w.placeholder();
-    w.u32(0).u32(0);
-    w.patch(data_offset, w.data(bytes));
+    const w = this.writer.command(OP.UPDATE_BUFFER, {
+        "resource_handle": handle, "destination_offset": offset, "byte_count": bytes.length
+    });
+    w.patch_field("data_offset", w.data(bytes));
 };
 
 /**
@@ -1163,10 +1185,13 @@ SVGA3D.prototype.read_rows = function(surface, layer, mip, first, rows, done, x,
                 width, height, 1, request.id]);
             continue;
         }
-        this.writer.begin(OP.READBACK_SURFACE).u32(UTILITY_DEVICE).u32(surface.handle).u32(mip)
-            .u32(surface.info.d3d).u32(level.width).u32(level.height)
-            .u32(top).u32(height)
-            .u32(level.pitch).u32(count * level.pitch).u32(QUERY_REGION_BYTES).u32(request.id).u32(layer);
+        this.writer.command(OP.READBACK_SURFACE, {
+            "device_handle": UTILITY_DEVICE, "texture_handle": surface.handle, "level": mip,
+            "format": surface.info.d3d, "width": level.width, "height": level.height,
+            "first_row": top, "row_count": height, "destination_pitch": level.pitch,
+            "destination_bytes": count * level.pitch, "response_offset": QUERY_REGION_BYTES, "request_id": request.id,
+            "face": layer
+        });
     }
 };
 
@@ -1257,10 +1282,14 @@ SVGA3D.prototype.surface_stretch = function(p)
 SVGA3D.prototype.stretch = function(src, src_face, src_mip, sl, st, sr, sb, dst, dst_face, dst_mip, dl, dt, dr, db, point)
 {
     dst.host_newer = true;
-    this.writer.begin(OP.STRETCH_RECT).u32(UTILITY_DEVICE)
-        .u32(src.handle).u32(src_mip).i32(sl).i32(st).i32(sr).i32(sb)
-        .u32(dst.handle).u32(dst_mip).i32(dl).i32(dt).i32(dr).i32(db)
-        .u32(point ? 1 : 0).u32(src_face).u32(dst_face);
+    this.writer.command(OP.STRETCH_RECT, {
+        "device_handle": UTILITY_DEVICE, "source_texture_handle": src.handle, "source_level": src_mip,
+        "source_left": sl, "source_top": st, "source_right": sr,
+        "source_bottom": sb, "destination_texture_handle": dst.handle, "destination_level": dst_mip,
+        "destination_left": dl, "destination_top": dt, "destination_right": dr,
+        "destination_bottom": db, "filter_point": point ? 1 : 0, "source_face": src_face,
+        "destination_face": dst_face
+    });
 };
 
 /**
@@ -1272,7 +1301,9 @@ SVGA3D.prototype.generate_mipmaps = function(p)
     if(!surface) return;
     if(!this.d9(surface, true)) return;
     surface.host_newer = true;
-    this.writer.begin(OP.GENERATE_MIPS).u32(UTILITY_DEVICE).u32(surface.handle);
+    this.writer.command(OP.GENERATE_MIPS, {
+        "device_handle": UTILITY_DEVICE, "resource_handle": surface.handle
+    });
 };
 
 // ---------------------------------------------------------------------------
@@ -1292,7 +1323,9 @@ SVGA3D.prototype.destroy_context = function(cid)
     this.contexts.delete(cid);
     for(const [key, handle] of context.shaders)
     {
-        this.writer.begin(OP.DESTROY_RESOURCE).u32(handle).u32(key.startsWith(C.SVGA3D_SHADERTYPE_VS + ":") ? KIND.VERTEX_SHADER : KIND.PIXEL_SHADER);
+        this.writer.command(OP.DESTROY_RESOURCE, {
+            "resource_handle": handle, "resource_kind": key.startsWith(C.SVGA3D_SHADERTYPE_VS + ":") ? KIND.VERTEX_SHADER : KIND.PIXEL_SHADER
+        });
     }
 };
 
@@ -1309,8 +1342,9 @@ SVGA3D.prototype.set_transform = function(p, f)
     const context = this.context(p);
     const state = p.length >= 18 ? d3d_transform(p[1] >>> 0) : -1;
     if(!context || state < 0) return;
-    const w = this.writer.begin(OP.SET_TRANSFORM).u32(context.device).u32(state);
-    for(let i = 0; i < 16; i++) w.f32(f[2 + i]);
+    this.writer.command(OP.SET_TRANSFORM, {
+        "device_handle": context.device, "state": state, "matrix": f.subarray(2, 18)
+    });
 };
 
 SVGA3D.prototype.set_zrange = function(p, f)
@@ -1333,8 +1367,11 @@ SVGA3D.prototype.emit_viewport = function(context)
 {
     if(!context.viewport) return;
     const [x, y, width, height] = context.viewport;
-    this.writer.begin(OP.SET_VIEWPORT).u32(context.device).u32(x).u32(y).u32(width).u32(height)
-        .f32(context.zrange[0]).f32(context.zrange[1]).u32(0);
+    this.writer.command(OP.SET_VIEWPORT, {
+        "device_handle": context.device, "x": x, "y": y,
+        "width": width, "height": height, "min_z": context.zrange[0],
+        "max_z": context.zrange[1], "reserved": 0
+    });
 };
 
 SVGA3D.prototype.set_scissor = function(p)
@@ -1350,12 +1387,18 @@ SVGA3D.prototype.emit_scissor = function(context)
 {
     if(!context.scissor) return;
     const [l, t, r, b] = context.scissor;
-    this.writer.begin(OP.SET_SCISSOR_RECT).u32(context.device).i32(l).i32(t).i32(r).i32(b);
+    this.writer.command(OP.SET_SCISSOR_RECT, {
+        "device_handle": context.device, "left": l, "top": t,
+        "right": r, "bottom": b
+    });
 };
 
 SVGA3D.prototype.render_state = function(context, state, value)
 {
-    this.writer.begin(OP.SET_RENDER_STATE).u32(context.device).u32(state).u32(value).u32(0);
+    this.writer.command(OP.SET_RENDER_STATE, {
+        "device_handle": context.device, "state": state, "value": value,
+        "reserved": 0
+    });
 };
 
 /**
@@ -1459,7 +1502,10 @@ SVGA3D.prototype.set_render_target = function(p)
     if(type === C.SVGA3D_RT_DEPTH)
     {
         const size = surface ? surface.sizes[Math.min(mip, surface.sizes.length - 1)] : [0, 0];
-        this.writer.begin(OP.SET_DEPTH_STENCIL_SURFACE_LEVEL).u32(context.device).u32(handle).u32(mip).u32(size[0]).u32(size[1]);
+        this.writer.command(OP.SET_DEPTH_STENCIL_SURFACE_LEVEL, {
+            "device_handle": context.device, "depth_texture_handle": handle, "depth_level": mip,
+            "width": size[0], "height": size[1]
+        });
     }
     else if(type === C.SVGA3D_RT_STENCIL)
     {
@@ -1468,7 +1514,10 @@ SVGA3D.prototype.set_render_target = function(p)
     else if(type >= C.SVGA3D_RT_COLOR0 && type <= C.SVGA3D_RT_COLOR3)
     {
         const index = type - C.SVGA3D_RT_COLOR0;
-        this.writer.begin(OP.SET_RENDER_TARGET).u32(context.device).u32(index).u32(handle).u32(mip).u32(face);
+        this.writer.command(OP.SET_RENDER_TARGET, {
+            "device_handle": context.device, "target_index": index, "color_texture_handle": handle,
+            "color_level": mip, "color_face": face
+        });
         if(index === 0)
         {
             context.target = surface;
@@ -1488,13 +1537,19 @@ SVGA3D.prototype.set_texture_states = function(p, f)
     if(!context) return;
     const w = this.writer, device = context.device;
     const stage_state = (stage, state, value) => {
-        if(stage < 8) w.begin(OP.SET_TEXTURE_STAGE_STATE).u32(device).u32(stage).u32(state).u32(value);
+        if(stage < 8) w.command(OP.SET_TEXTURE_STAGE_STATE, {
+            "device_handle": device, "stage": stage, "state": state,
+            "value": value
+        });
     };
     for(let at = 1; at + 3 <= p.length; at += 3)
     {
         const stage = p[at] >>> 0, name = p[at + 1] >>> 0, value = p[at + 2] >>> 0;
         const sampler = stage < SAMPLERS_PS ? stage : D3DVERTEXTEXTURESAMPLER0 + stage - SAMPLERS_PS;
-        const sampler_state = (state, v) => w.begin(OP.SET_SAMPLER_STATE).u32(device).u32(sampler).u32(state).u32(v);
+        const sampler_state = (state, v) => w.command(OP.SET_SAMPLER_STATE, {
+            "device_handle": device, "sampler": sampler, "state": state,
+            "value": v
+        });
         switch(name)
         {
             case C.SVGA3D_TS_BIND_TEXTURE:
@@ -1502,7 +1557,10 @@ SVGA3D.prototype.set_texture_states = function(p, f)
                 const surface = value === INVALID ? null : this.surfaces.get(value);
                 // (first: making its D9WG texture writes commands of its own)
                 const handle = surface && this.d9(surface) || 0;
-                w.begin(OP.SET_TEXTURE).u32(device).u32(sampler).u32(handle).u32(0);
+                w.command(OP.SET_TEXTURE, {
+                    "device_handle": device, "stage": sampler, "texture_handle": handle,
+                    "reserved": 0
+                });
                 break;
             }
             case C.SVGA3D_TS_COLOROP: stage_state(stage, D3DTSS.COLOROP, TEXTURE_OPS[value] || 1); break;
@@ -1559,8 +1617,11 @@ SVGA3D.prototype.set_material = function(p, f)
     if(!context || p.length < 19) return;
     // D3D9 has one material, for both faces
     if((p[1] >>> 0) === C.SVGA3D_FACE_BACK) return;
-    const w = this.writer.begin(OP.SET_MATERIAL).u32(context.device);
-    for(let i = 0; i < 17; i++) w.f32(f[2 + i]);
+    this.writer.command(OP.SET_MATERIAL, {
+        "device_handle": context.device,
+        "diffuse": f.subarray(2, 6), "ambient": f.subarray(6, 10),
+        "specular": f.subarray(10, 14), "emissive": f.subarray(14, 18), "power": f[18]
+    });
 };
 
 /**
@@ -1570,27 +1631,31 @@ SVGA3D.prototype.set_light = function(p, f)
 {
     const context = this.context(p);
     if(!context || p.length < 31) return;
-    const w = this.writer.begin(OP.SET_LIGHT).u32(context.device).u32(p[1] >>> 0).u32(d3d_light_type(p[2] >>> 0));
-    // diffuse, specular, ambient (4 each), position, direction (3 of 4 each)
-    for(let i = 4; i < 16; i++) w.f32(f[i]);
-    for(let i = 16; i < 19; i++) w.f32(f[i]);
-    for(let i = 20; i < 23; i++) w.f32(f[i]);
-    // range, falloff, attenuation 0-2, theta, phi
-    for(let i = 24; i < 31; i++) w.f32(f[i]);
+    this.writer.command(OP.SET_LIGHT, {
+        "device_handle": context.device, "index": p[1] >>> 0, "type": d3d_light_type(p[2] >>> 0),
+        "diffuse": f.subarray(4, 8), "specular": f.subarray(8, 12), "ambient": f.subarray(12, 16),
+        "position": f.subarray(16, 19), "direction": f.subarray(20, 23), "range": f[24], "falloff": f[25],
+        "attenuation": f.subarray(26, 29), "theta": f[29], "phi": f[30]
+    });
 };
 
 SVGA3D.prototype.set_light_enabled = function(p)
 {
     const context = this.context(p);
     if(!context || p.length < 3) return;
-    this.writer.begin(OP.LIGHT_ENABLE).u32(context.device).u32(p[1] >>> 0).u32(p[2] ? 1 : 0).u32(0);
+    this.writer.command(OP.LIGHT_ENABLE, {
+        "device_handle": context.device, "index": p[1] >>> 0, "enable": p[2] ? 1 : 0,
+        "reserved": 0
+    });
 };
 
 SVGA3D.prototype.set_clip_plane = function(p, f)
 {
     const context = this.context(p);
     if(!context || p.length < 6) return;
-    this.writer.begin(OP.SET_CLIP_PLANE).u32(context.device).u32(p[1] >>> 0).f32(f[2]).f32(f[3]).f32(f[4]).f32(f[5]);
+    this.writer.command(OP.SET_CLIP_PLANE, {
+        "device_handle": context.device, "index": p[1] >>> 0, "plane": [f[2], f[3], f[4], f[5]]
+    });
 };
 
 /**
@@ -1603,11 +1668,14 @@ SVGA3D.prototype.clear = function(p, f)
     this.drawing(context);
     const rects = Math.floor((p.length - 5) / 4);
     // the flag bits are D3DCLEAR's
-    const w = this.writer.begin(OP.CLEAR).u32(context.device).u32(p[1] & 7).u32(p[2] >>> 0).f32(f[3]).u32(p[4] >>> 0).u32(rects);
+    const w = this.writer.command(OP.CLEAR, {
+        "device_handle": context.device, "clear_flags": p[1] & 7, "color": p[2] >>> 0,
+        "depth": f[3], "stencil": p[4] >>> 0, "rect_count": rects
+    });
     for(let i = 0; i < rects; i++)
     {
         const at = 5 + 4 * i, x = p[at] | 0, y = p[at + 1] | 0;
-        w.i32(x).i32(y).i32(x + (p[at + 2] | 0)).i32(y + (p[at + 3] | 0));
+        w.struct("Rect", { "left": x, "top": y, "right": x + (p[at + 2] | 0), "bottom": y + (p[at + 3] | 0) });
     }
 };
 
@@ -1648,11 +1716,11 @@ SVGA3D.prototype.define_shader = function(p)
     context.shaders.set(key, handle);
     const tokens = p.subarray(3);
     const [low, high] = hash_tokens(tokens);
-    const w = this.writer.begin(type === C.SVGA3D_SHADERTYPE_VS ? OP.CREATE_VERTEX_SHADER : OP.CREATE_PIXEL_SHADER)
-        .u32(context.device).u32(handle).u32(tokens.length);
-    const code = w.placeholder();
-    w.u32(low).u32(high);
-    w.patch(code, w.data(new Uint8Array(tokens.buffer, tokens.byteOffset, tokens.byteLength)));
+    const w = this.writer.command(type === C.SVGA3D_SHADERTYPE_VS ? OP.CREATE_VERTEX_SHADER : OP.CREATE_PIXEL_SHADER, {
+        "device_handle": context.device, "resource_handle": handle, "instruction_token_count": tokens.length,
+        "bytecode_hash_low": low, "bytecode_hash_high": high
+    });
+    w.patch_field("code_offset", w.data(new Uint8Array(tokens.buffer, tokens.byteOffset, tokens.byteLength)));
 };
 
 SVGA3D.prototype.destroy_shader = function(p)
@@ -1663,7 +1731,9 @@ SVGA3D.prototype.destroy_shader = function(p)
     const handle = context.shaders.get(key);
     if(!handle) return;
     context.shaders.delete(key);
-    this.writer.begin(OP.DESTROY_RESOURCE).u32(handle).u32(type === C.SVGA3D_SHADERTYPE_VS ? KIND.VERTEX_SHADER : KIND.PIXEL_SHADER);
+    this.writer.command(OP.DESTROY_RESOURCE, {
+        "resource_handle": handle, "resource_kind": type === C.SVGA3D_SHADERTYPE_VS ? KIND.VERTEX_SHADER : KIND.PIXEL_SHADER
+    });
 };
 
 /**
@@ -1676,8 +1746,12 @@ SVGA3D.prototype.set_shader = function(p)
     const type = p[1] >>> 0, shid = p[2] >>> 0;
     const gb = this.gb_shaders.get(shid);
     const handle = shid === INVALID ? 0 : context.shaders.get(type + ":" + shid) || gb && gb.type === type && gb.handle || 0;
-    if(type === C.SVGA3D_SHADERTYPE_VS) this.writer.begin(OP.SET_VERTEX_SHADER).u32(context.device).u32(handle);
-    else if(type === C.SVGA3D_SHADERTYPE_PS) this.writer.begin(OP.SET_PIXEL_SHADER).u32(context.device).u32(handle);
+    if(type === C.SVGA3D_SHADERTYPE_VS) this.writer.command(OP.SET_VERTEX_SHADER, {
+        "device_handle": context.device, "shader_handle": handle
+    });
+    else if(type === C.SVGA3D_SHADERTYPE_PS) this.writer.command(OP.SET_PIXEL_SHADER, {
+        "device_handle": context.device, "shader_handle": handle
+    });
 };
 
 /**
@@ -1706,8 +1780,10 @@ SVGA3D.prototype.set_shader_const = function(p)
             (vs ? OP.SET_VERTEX_SHADER_CONSTANT_F : OP.SET_PIXEL_SHADER_CONSTANT_F);
         data = new Uint8Array(p.buffer, p.byteOffset + 16, count * 16);
     }
-    const w = this.writer.begin(op).u32(context.device).u32(reg).u32(count);
-    w.patch(w.placeholder(), w.data(data));
+    const w = this.writer.command(op, {
+        "device_handle": context.device, "start_register": reg, "vector_count": count
+    });
+    w.patch_field("data_offset", w.data(data));
 };
 
 // ---------------------------------------------------------------------------
@@ -1760,11 +1836,11 @@ SVGA3D.prototype.draw_primitives = function(p)
 
     // the declaration, in the guest's element order (D3DVERTEXELEMENT9)
     const declaration = new Uint8Array(8 * elements.length);
-    const view = new DataView(declaration.buffer);
     elements.forEach((e, i) => {
-        view.setUint16(8 * i, e.stream, true);
-        view.setUint16(8 * i + 2, e.offset - streams[e.stream].base, true);
-        declaration.set([e.type, e.method, e.usage, e.usage_index], 8 * i + 4);
+        declaration.set(d9wg_encode("VertexElement", {
+            "stream": e.stream, "offset": e.offset - streams[e.stream].base,
+            "type": e.type, "method": e.method, "usage": e.usage, "usage_index": e.usage_index,
+        }), 8 * i);
     });
     const key = declaration.join(",");
     let handle = this.declarations.get(key);
@@ -1772,28 +1848,40 @@ SVGA3D.prototype.draw_primitives = function(p)
     {
         handle = this.next_handle++;
         this.declarations.set(key, handle);
-        w.begin(OP.CREATE_VERTEX_DECLARATION).u32(UTILITY_DEVICE).u32(handle).u32(elements.length).u32(0);
+        w.command(OP.CREATE_VERTEX_DECLARATION, {
+            "device_handle": UTILITY_DEVICE, "resource_handle": handle, "element_count": elements.length,
+            "reserved": 0
+        });
         w.data(declaration);
     }
-    w.begin(OP.SET_VERTEX_DECLARATION).u32(device).u32(handle);
+    w.command(OP.SET_VERTEX_DECLARATION, {
+        "device_handle": device, "declaration_handle": handle
+    });
 
     let instanced = 0;
     for(let i = 0; i < streams.length; i++)
     {
         const s = streams[i], surface = this.surfaces.get(s.sid);
         const buffer = surface ? this.buffer_role(surface, ROLE_VERTEX) : 0;
-        w.begin(OP.SET_STREAM_SOURCE).u32(device).u32(i).u32(buffer).u32(s.stride).u32(s.base).u32(0);
+        w.command(OP.SET_STREAM_SOURCE, {
+            "device_handle": device, "stream": i, "buffer_handle": buffer,
+            "stride": s.stride, "offset_in_bytes": s.base, "reserved": 0
+        });
         // SVGA3dVertexDivisor has D3DSTREAMSOURCE_INDEXEDDATA's and _INSTANCEDATA's bits
         if(s.divisor)
         {
-            w.begin(OP.SET_STREAM_SOURCE_FREQ).u32(device).u32(i).u32(s.divisor);
+            w.command(OP.SET_STREAM_SOURCE_FREQ, {
+                "device_handle": device, "stream": i, "divider": s.divisor
+            });
             instanced |= 1 << i;
         }
     }
     // streams that had a frequency and now do not
     for(let i = 0; i < MAX_STREAMS; i++)
     {
-        if(context.instanced & ~instanced & 1 << i) w.begin(OP.SET_STREAM_SOURCE_FREQ).u32(device).u32(i).u32(1);
+        if(context.instanced & ~instanced & 1 << i) w.command(OP.SET_STREAM_SOURCE_FREQ, {
+            "device_handle": device, "stream": i, "divider": 1
+        });
     }
     context.instanced = instanced;
 
@@ -1807,15 +1895,23 @@ SVGA3D.prototype.draw_primitives = function(p)
         if(index_sid === INVALID)
         {
             // not indexed: indexBias is the first vertex
-            w.begin(OP.DRAW_PRIMITIVE).u32(device).u32(type).u32(bias).u32(count);
+            w.command(OP.DRAW_PRIMITIVE, {
+                "device_handle": device, "primitive_type": type, "start_vertex": bias,
+                "primitive_count": count
+            });
             continue;
         }
         const surface = this.surfaces.get(index_sid);
         if(!surface || (index_width !== 2 && index_width !== 4) || index_offset % index_width) continue;
         const buffer = this.buffer_role(surface, index_width === 2 ? ROLE_INDEX16 : ROLE_INDEX32);
-        w.begin(OP.SET_INDICES).u32(device).u32(buffer);
-        w.begin(OP.DRAW_INDEXED_PRIMITIVE).u32(device).u32(type).i32(bias).u32(0)
-            .u32(primitive_vertices(type, count)).u32(index_offset / index_width).u32(count);
+        w.command(OP.SET_INDICES, {
+            "device_handle": device, "buffer_handle": buffer
+        });
+        w.command(OP.DRAW_INDEXED_PRIMITIVE, {
+            "device_handle": device, "primitive_type": type, "base_vertex_index": bias,
+            "min_vertex_index": 0, "vertex_count": primitive_vertices(type, count), "start_index": index_offset / index_width,
+            "primitive_count": count
+        });
     }
 };
 
@@ -1831,8 +1927,14 @@ SVGA3D.prototype.begin_query = function(p)
     if(!context || p.length < 2 || (p[1] >>> 0) !== C.SVGA3D_QUERYTYPE_OCCLUSION) return;
     // a D9WG query per BEGIN/END pair: results can overlap
     const handle = context.query = this.next_handle++;
-    this.writer.begin(OP.CREATE_QUERY).u32(context.device).u32(handle).u32(D3DQUERYTYPE_OCCLUSION).u32(0);
-    this.writer.begin(OP.BEGIN_QUERY).u32(context.device).u32(handle).u32(0).u32(0);
+    this.writer.command(OP.CREATE_QUERY, {
+        "device_handle": context.device, "resource_handle": handle, "query_type": D3DQUERYTYPE_OCCLUSION,
+        "response_offset": 0
+    });
+    this.writer.command(OP.BEGIN_QUERY, {
+        "device_handle": context.device, "resource_handle": handle, "response_offset": 0,
+        "request_id": 0
+    });
 };
 
 /**
@@ -1863,8 +1965,13 @@ SVGA3D.prototype.end_query = function(p, memory)
         const count = value ? value[0] | value[1] << 8 | value[2] << 16 | value[3] << 24 : 0;
         result(status === RESPONSE_OK ? C.SVGA3D_QUERYSTATE_SUCCEEDED : C.SVGA3D_QUERYSTATE_FAILED, count >>> 0);
     });
-    this.writer.begin(OP.END_QUERY).u32(context.device).u32(handle).u32(slot).u32(id);
-    this.writer.begin(OP.DESTROY_RESOURCE).u32(handle).u32(KIND.QUERY);
+    this.writer.command(OP.END_QUERY, {
+        "device_handle": context.device, "resource_handle": handle, "response_offset": slot,
+        "request_id": id
+    });
+    this.writer.command(OP.DESTROY_RESOURCE, {
+        "resource_handle": handle, "resource_kind": KIND.QUERY
+    });
 };
 
 // ---------------------------------------------------------------------------
@@ -2121,8 +2228,9 @@ SVGA3D.prototype.destroy_gb_shader = function(shid)
     if(!shader) return;
     if(shader.handle)
     {
-        this.writer.begin(OP.DESTROY_RESOURCE).u32(shader.handle)
-            .u32(shader.type === C.SVGA3D_SHADERTYPE_VS ? KIND.VERTEX_SHADER : KIND.PIXEL_SHADER);
+        this.writer.command(OP.DESTROY_RESOURCE, {
+            "resource_handle": shader.handle, "resource_kind": shader.type === C.SVGA3D_SHADERTYPE_VS ? KIND.VERTEX_SHADER : KIND.PIXEL_SHADER
+        });
     }
     this.gb_shaders.delete(shid);
     this.otable(C.SVGA_OTABLE_SHADER, shid, null);
@@ -2155,16 +2263,18 @@ SVGA3D.prototype.bind_gb_shader = function(shid, mob, offset)
 SVGA3D.prototype.create_gb_shader = function(shader, bytes)
 {
     const kind = shader.type === C.SVGA3D_SHADERTYPE_VS ? KIND.VERTEX_SHADER : KIND.PIXEL_SHADER;
-    if(shader.handle) this.writer.begin(OP.DESTROY_RESOURCE).u32(shader.handle).u32(kind);
+    if(shader.handle) this.writer.command(OP.DESTROY_RESOURCE, {
+        "resource_handle": shader.handle, "resource_kind": kind
+    });
     shader.code = bytes;
     const handle = shader.handle = SHADER_HANDLE_BASE + 2 * this.next_shader++;
     const tokens = new Int32Array(bytes.buffer, bytes.byteOffset, bytes.length >> 2);
     const [low, high] = hash_tokens(tokens);
-    const w = this.writer.begin(shader.type === C.SVGA3D_SHADERTYPE_VS ? OP.CREATE_VERTEX_SHADER : OP.CREATE_PIXEL_SHADER)
-        .u32(UTILITY_DEVICE).u32(handle).u32(tokens.length);
-    const code = w.placeholder();
-    w.u32(low).u32(high);
-    w.patch(code, w.data(bytes));
+    const w = this.writer.command(shader.type === C.SVGA3D_SHADERTYPE_VS ? OP.CREATE_VERTEX_SHADER : OP.CREATE_PIXEL_SHADER, {
+        "device_handle": UTILITY_DEVICE, "resource_handle": handle, "instruction_token_count": tokens.length,
+        "bytecode_hash_low": low, "bytecode_hash_high": high
+    });
+    w.patch_field("code_offset", w.data(bytes));
 };
 
 /**

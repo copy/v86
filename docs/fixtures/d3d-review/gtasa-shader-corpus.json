@@ -1,0 +1,67 @@
+{
+  "sourceSha256": "d6a8e9d943945de85480a5d96ccaecab0393e40cc8962d423cac8c02a9c22092",
+  "batches": 29940,
+  "shaders": [
+    {
+      "sha256": "01eecdcd933fca338a68ef67d23b49a50fc6440e3fe42fc42849f7ec80c7611b",
+      "bytes": 92,
+      "version": 4294902017
+    },
+    {
+      "sha256": "7f33dae45d7ca090ddaacc34d1c8fa0c57095c2dd6d2795ed5a4b5fd68c8cab3",
+      "bytes": 76,
+      "version": 4294902017
+    },
+    {
+      "sha256": "4909cc6de97d5d5c2fba07332c206b81f168da85c9aaf32175a1f8db44fd2ca8",
+      "bytes": 64,
+      "version": 4294902017
+    },
+    {
+      "sha256": "6583ae819655f3f44104e8beb5e179db8ac5537e6c5ca26de72e09fba4d7071f",
+      "bytes": 136,
+      "version": 4294902017
+    },
+    {
+      "sha256": "7459774c33b5ee6d22ec1aeee6072a2bffe5961fa7002bb34c7a4787063de780",
+      "bytes": 176,
+      "version": 4294902017
+    },
+    {
+      "sha256": "dc9628bd2100521be1b6c0f2db66dd02253a0ee117cf3ff0f5b88c316b3fd752",
+      "bytes": 160,
+      "version": 4294902017
+    },
+    {
+      "sha256": "83cb522ec21414f0ea5d1625fa0a5862055b9f3e9e3d08060a434e7341c49545",
+      "bytes": 572,
+      "version": 4294836737
+    },
+    {
+      "sha256": "e039c1efc603ed8ba0c877a635861bebe48372340cc9474f1c399c802654d2d9",
+      "bytes": 500,
+      "version": 4294836737
+    },
+    {
+      "sha256": "8ac4de316b1c24f80873b9875cafa2333fe220c66099c44b31b095cfadb3eb24",
+      "bytes": 428,
+      "version": 4294836737
+    },
+    {
+      "sha256": "7f271de0ab800273eda6154d102f3a70ddb75979736a28c5c28e7061c37e4134",
+      "bytes": 732,
+      "version": 4294836737
+    },
+    {
+      "sha256": "142ff08f867941812c44e812277ca4be6de43e17d2faec6c4517e9dbec23fe63",
+      "bytes": 660,
+      "version": 4294836737
+    },
+    {
+      "sha256": "7a9e3a006da0d93ce1411b34d01fa4e9b14c9011c7bba99aa94aa36444935a0e",
+      "bytes": 292,
+      "version": 4294836737
+    }
+  ],
+  "scope": "Exact bytes extracted from private GTA SA diagnostic journal; startup was not accepted as gameplay. Bytecode stays in ignored local build directory; metadata only."
+}

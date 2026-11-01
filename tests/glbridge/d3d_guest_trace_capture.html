@@ -28,10 +28,7 @@ try {
   const rows=Math.floor((C.D9WG_RESPONSE_REGION_BYTES-C.D9WG_READBACK_REGION_OFFSET-16)/(width*4));
   for(let first=0;first<height;first+=rows){
    const count=Math.min(rows,height-first),request=0xD9000000+first,responseOffset=C.D9WG_READBACK_REGION_OFFSET;
-   const payload=P.encode("ReadbackSurface",{device_handle:state.handle,format:21,width,height,first_row:first,row_count:count,destination_pitch:width*4,destination_bytes:count*width*4,response_offset:responseOffset,request_id:request});
-   const size=(16+payload.length+7)&~7,packet=new Uint8Array(32+size);
-   packet.set(P.encode("BatchHeader",{magic:C.D9WG_MAGIC,version_major:P.VERSION_MAJOR,version_minor:P.VERSION_MINOR,command_count:1,command_bytes:size,session_id_low,session_id_high}));
-   packet.set(P.encode("CommandHeader",{opcode:P.OP.READBACK_SURFACE,size,sequence:1}),32);packet.set(payload,48);
+   const packet=P.encodeBatch([{opcode:P.OP.READBACK_SURFACE,payload:{device_handle:state.handle,format:21,width,height,first_row:first,row_count:count,destination_pitch:width*4,destination_bytes:count*width*4,response_offset:responseOffset,request_id:request}}],{session_id_low,session_id_high});
    const envelope=new Uint8Array(8+packet.length),header=new DataView(envelope.buffer);header.setUint16(0,0xFFE1,true);header.setUint16(2,0xFFFF,true);header.setUint32(4,packet.length,true);envelope.set(packet,8);bridge.recordGraphicsBatch({},envelope);
    let reply;await gpu.submit(packet,{writeGuestMemory(at,data){if(at===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+responseOffset)reply=data.slice();}});await gpu.idle();
    if(!reply||new DataView(reply.buffer).getUint32(12,true)!==C.D9WG_RESPONSE_OK||reply.length!==16+count*width*4)throw new Error("Game golden READBACK failed");

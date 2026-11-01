@@ -1,5 +1,6 @@
 "use strict";
 const assert = require("node:assert/strict");
+const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
 const { GLStream, GL, GLFN } = require("./gl_stream_builder.js");
 const { createFakeHost } = require("./gl_fake_gpu.js");
 const { GLWebGPUExecutor } = require("../../src/browser/glbridge/gl-webgpu/gl_executor.js");
@@ -62,10 +63,10 @@ const timeout = setTimeout(() => { throw new Error("checkpoint test timed out");
     await a.send(envelope(0xffe1, d9.buildBatch([
         d9.command(d9.OP.CREATE_DEVICE, d9.createDevicePayload(64, 64)),
         d9.command(d9.OP.CREATE_BUFFER, d9.createBufferPayload(buffer9, 1, 96)),
-        d9.command(d9.OP.UPDATE_BUFFER, d9.u32(buffer9, 0, 16, 0, 0, 0), data8, 12),
+        d9.command(d9.OP.UPDATE_BUFFER, P.encode("UpdateBuffer", { resource_handle: buffer9, byte_count: 16 }), data8, "data_offset"),
         d9.command(d9.OP.CREATE_PIXEL_SHADER, shader.payload, shader.blob, shader.blobOffsetField),
-        d9.command(d9.OP.SET_RENDER_STATE, d9.u32(d9.DEVICE, 7, 0)),
-        d9.command(d9.OP.CLEAR, d9.u32(d9.DEVICE, 1, 0xffaabbcc, 0x3f800000, 0)),
+        d9.command(d9.OP.SET_RENDER_STATE, P.encode("SetRenderState", { device_handle: d9.DEVICE, state: 7 })),
+        d9.command(d9.OP.CLEAR, P.encode("Clear", { device_handle: d9.DEVICE, clear_flags: 1, color: 0xffaabbcc, depth: 1 })),
     ], { sessionLow: 1 })));
     const indices = Buffer.from([7, 9, 11, 13]);
     const texture = dd.updateTexturePayload(0x300, 2, 2, 2, indices);
@@ -76,8 +77,8 @@ const timeout = setTimeout(() => { throw new Error("checkpoint test timed out");
             dd.createSurfacePayload(0x300, 2, 2, dd.FMT_P8, dd.USAGE_DDRAW_INDEXED)),
         dd.command(dd.OP.UPDATE_TEXTURE, texture.payload, texture.blob, texture.blobOffsetField),
         dd.command(dd.OP.SET_PALETTE, palette.payload, palette.blob, palette.blobOffsetField),
-        dd.command(dd.OP.DD_SET_SURFACE_PALETTE, dd.u32(0x300, 3, 1, 0)),
-        dd.command(dd.OP.DD_SET_COLOR_KEY, dd.u32(0x300, 0, 7, 9, 1, 0)),
+        dd.command(dd.OP.DD_SET_SURFACE_PALETTE, P.encode("DDSetSurfacePalette", { surface_handle: 0x300, palette_index: 3, flags: 1 })),
+        dd.command(dd.OP.DD_SET_COLOR_KEY, P.encode("DDSetColorKey", { surface_handle: 0x300, color_low: 7, color_high: 9, present: 1 })),
         dd.command(dd.OP.DD_BLT, dd.bltPayload({ sourceHandle: 0x300,
             sourceRect: [0, 0, 2, 2], destinationRect: [0, 0, 2, 2] })),
     ], { sessionLow: 2 })));
@@ -111,7 +112,7 @@ const timeout = setTimeout(() => { throw new Error("checkpoint test timed out");
     // Roll back every frontend after additional commands destroyed state.
     a.send(new GLStream().names(GLFN.DELETE_QUERIES, [7]).bytes());
     await a.send(envelope(0xffe1, d9.buildBatch([
-        d9.command(d9.OP.DESTROY_RESOURCE, d9.u32(buffer9)),
+        d9.command(d9.OP.DESTROY_RESOURCE, P.encode("DestroyResource", { resource_handle: buffer9 })),
     ], { sessionLow: 1 })));
     const beforeWrites = a.writes();
     await a.restore(snapshot);
@@ -145,8 +146,8 @@ const timeout = setTimeout(() => { throw new Error("checkpoint test timed out");
     q.direct9.fake.device.queue.onSubmittedWorkDone = () => fence;
     await q.send(envelope(0xffe1, d9.buildBatch([
         d9.command(d9.OP.CREATE_DEVICE, d9.createDevicePayload(64, 64)),
-        d9.command(d9.OP.CREATE_QUERY, d9.u32(d9.DEVICE, 0x902, 8, 0)),
-        d9.command(d9.OP.END_QUERY, d9.u32(d9.DEVICE, 0x902, 0, 41)),
+        d9.command(d9.OP.CREATE_QUERY, P.encode("CreateQuery", { device_handle: d9.DEVICE, resource_handle: 0x902, query_type: 8 })),
+        d9.command(d9.OP.END_QUERY, P.encode("QueryIssue", { device_handle: d9.DEVICE, resource_handle: 0x902, request_id: 41 })),
     ], { versionMinor: 3 })));
     const writesBeforeFence = q.writes();
     let savedQuery = false;

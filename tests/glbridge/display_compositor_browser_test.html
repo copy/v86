@@ -5,7 +5,11 @@
 <pre id="result">RUNNING</pre>
 <script src="../../build/libv86.js"></script>
 <script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
 <script>
+const P = D9WGProtocol;
+const concatD9WG = parts => { const out = new Uint8Array(parts.reduce((n, a) => n + a.length, 0)); let at = 0; for(const a of parts) { out.set(a, at); at += a.length; } return out; };
+
 // docs/display-design.md. The guest shows mode 13h
 // filled with red (the scanout); a D3D9 device clears green and presents in a
 // 64x48 window at (100, 60) of the guest desktop (a window layer). Both end up
@@ -115,22 +119,9 @@ const PROGRAM = [0xb8,0x13,0x0,0xcd,0x10,0x68,0x0,0xa0,0x7,0x31,0xff,0xb0,0x4,0x
 
         const session = [0xd0090001, 0x20260930];
         const d3d9 = async (commands, present) => {
-            const sizes = commands.map(([, values]) => (16 + values.length * 4 + 7) & ~7);
-            const batchBytes = 32 + sizes.reduce((a, b) => a + b, 0);
-            const wrapped = new Uint8Array(8 + batchBytes);
-            const view = new DataView(wrapped.buffer);
-            view.setUint16(0, 0xffe1, true); view.setUint16(2, 0xffff, true);
-            view.setUint32(4, batchBytes, true);
-            view.setUint32(8, 0x47573944, true);
-            view.setUint16(12, 1, true); view.setUint16(14, 3, true);
-            [1, present ? 1 : 0, commands.length, batchBytes - 32, ...session].forEach((v, i) => view.setUint32(16 + i * 4, v, true));
-            let cursor = 40;
-            commands.forEach(([op, values], i) => {
-                view.setUint16(cursor, op, true); view.setUint32(cursor + 4, sizes[i], true);
-                view.setUint32(cursor + 8, i + 1, true);
-                values.forEach((v, j) => view.setUint32(cursor + 16 + j * 4, v >>> 0, true));
-                cursor += sizes[i];
-            });
+            const packet = P.encodeBatch(commands, { version_minor: 3, frame_id: 1, flags: present ? P.C.D9WG_BATCH_FLAG_PRESENT : 0, session_id_low: session[0], session_id_high: session[1] });
+            const wrapped = new Uint8Array(8 + packet.length), view = new DataView(wrapped.buffer);
+            view.setUint16(0, P.C.V86GL_CTRL_D3D9_BATCH, true);view.setUint16(2, 0xffff, true);view.setUint32(4, packet.length, true);wrapped.set(packet, 8);
             write(arena, words([0x324c4756, 1, 0, 1, 1, wrapped.length, 0x47573944, 0]));
             write(arena + 32, wrapped);
             submit(2, 0, 32 + wrapped.length, 0);
@@ -139,10 +130,10 @@ const PROGRAM = [0xb8,0x13,0x0,0xcd,0x10,0x68,0x0,0xa0,0x7,0x31,0xff,0xb0,0x4,0x
         };
         // HELLO, CREATE_DEVICE (64x48 back buffer), CLEAR green, PRESENT at (100, 60)
         await d3d9([
-            [1, [32, 0, ...session]],
-            [2, [1, 0x1234, 0, 0, 64, 48, 22, 1, 0x20, 1, 75, 0, 0]],
-            [5, [1, 1, 0xff00ff00, 0x3f800000, 0, 0]],
-            [4, [1, 0x1234, 100, 60, 64, 48]],
+            { opcode: P.OP.HELLO, payload: P.encode("Hello", { guest_pointer_bits: 32, feature_bits: 0, session_id_low: session[0], session_id_high: session[1] }) },
+            { opcode: P.OP.CREATE_DEVICE, payload: P.encode("CreateDevice", { device_handle: 1, hwnd: 0x1234, x: 0, y: 0, width: 64, height: 48, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: 1, auto_depth_stencil_format: 75, multisample_type: 0, multisample_quality: 0 }) },
+            { opcode: P.OP.CLEAR, payload: P.encode("Clear", { device_handle: 1, clear_flags: 1, color: 0xff00ff00, depth: 1, stencil: 0, rect_count: 0 }) },
+            { opcode: P.OP.PRESENT, payload: P.encode("Present", { device_handle: 1, hwnd: 0x1234, x: 100, y: 60, width: 64, height: 48 }) },
         ], true);
         const layer = bridge.d3d9Canvas.layer;
         check(bridge.activeOwner === "d3d9" && layer.visible, "the D3D9 window is a visible layer");
@@ -161,36 +152,35 @@ const PROGRAM = [0xb8,0x13,0x0,0xcd,0x10,0x68,0x0,0xa0,0x7,0x31,0xff,0xb0,0x4,0x
 
         // Visible, but covered by another window (Warcraft III's cinematic popup):
         // IS_WINDOW | VISIBLE | OCCLUDED
-        await d3d9([[0x21D, [1, 0x1234, 0, 1 | 2 | 64, 100, 60, 64, 48, 64, 48]]], false);
+        await d3d9([{ opcode: P.OP.WINDOW_STATE, payload: P.encode("WindowState", { device_handle: 1, hwnd: 0x1234, foreground_hwnd: 0, flags: 1 | 2 | 64, window_x: 100, window_y: 60, window_width: 64, window_height: 48, client_width: 64, client_height: 48 }) }], false);
         pixel = await shot();
         check(!layer.visible && near(pixel(132, 84), RED), "a covered window reveals what covers it: " + pixel(132, 84));
         check(bridge.d3d9Executor.stats.windowOccludedReports === 1, "an occluded window is not reported as a window problem");
-        await d3d9([[4, [1, 0x1234, 100, 60, 64, 48]]], true);
+        await d3d9([{ opcode: P.OP.PRESENT, payload: P.encode("Present", { device_handle: 1, hwnd: 0x1234, x: 100, y: 60, width: 64, height: 48 }) }], true);
         pixel = await shot();
         check(!layer.visible && near(pixel(132, 84), RED), "presenting behind the popup does not uncover it: " + pixel(132, 84));
-        await d3d9([[0x21D, [1, 0x1234, 0, 1 | 2, 100, 60, 64, 48, 64, 48]]], false);
+        await d3d9([{ opcode: P.OP.WINDOW_STATE, payload: P.encode("WindowState", { device_handle: 1, hwnd: 0x1234, foreground_hwnd: 0, flags: 1 | 2, window_x: 100, window_y: 60, window_width: 64, window_height: 48, client_width: 64, client_height: 48 }) }], false);
         pixel = await shot();
         check(layer.visible && near(pixel(132, 84), GREEN), "the popup closes: the window shows again: " + pixel(132, 84));
 
         // A message box over the window's right half and bottom-left corner:
         // IS_WINDOW | VISIBLE | REGION, the parts that show in client pixels
-        await d3d9([[0x21D, [1, 0x1234, 0, 1 | 2 | 128, 100, 60, 64, 48, 64, 48,
-            2, 0, 0, 32, 24, 0, 24, 16, 48]]], false);
+        await d3d9([{ opcode: P.OP.WINDOW_STATE, payload: concatD9WG([P.encode("WindowState", { device_handle: 1, hwnd: 0x1234, foreground_hwnd: 0, flags: 1 | 2 | 128, window_x: 100, window_y: 60, window_width: 64, window_height: 48, client_width: 64, client_height: 48 }), P.encode("WindowRegion", { rect_count: 2 }).subarray(0, P.F.WindowRegion.rects), P.encode("Rect", { left: 0, top: 0, right: 32, bottom: 24 }), P.encode("Rect", { left: 0, top: 24, right: 16, bottom: 48 })]) }], false);
         pixel = await shot();
         check(near(pixel(110, 70), GREEN) && near(pixel(105, 100), GREEN),
             "the parts other windows leave showing are drawn: " + pixel(110, 70) + " " + pixel(105, 100));
         check(near(pixel(150, 70), RED) && near(pixel(125, 100), RED),
             "what covers the rest shows through: " + pixel(150, 70) + " " + pixel(125, 100));
         check(bridge.d3d9Executor.stats.windowRegionReports === 1, "one region report");
-        await d3d9([[4, [1, 0x1234, 100, 60, 64, 48]]], true);
+        await d3d9([{ opcode: P.OP.PRESENT, payload: P.encode("Present", { device_handle: 1, hwnd: 0x1234, x: 100, y: 60, width: 64, height: 48 }) }], true);
         pixel = await shot();
         check(near(pixel(110, 70), GREEN) && near(pixel(150, 70), RED), "the region holds across Presents");
-        await d3d9([[0x21D, [1, 0x1234, 0, 1 | 2, 100, 60, 64, 48, 64, 48]]], false);
+        await d3d9([{ opcode: P.OP.WINDOW_STATE, payload: P.encode("WindowState", { device_handle: 1, hwnd: 0x1234, foreground_hwnd: 0, flags: 1 | 2, window_x: 100, window_y: 60, window_width: 64, window_height: 48, client_width: 64, client_height: 48 }) }], false);
         pixel = await shot();
         check(near(pixel(150, 70), GREEN) && near(pixel(125, 100), GREEN), "the box closes: all of it shows");
 
         // The guest reports the window hidden
-        await d3d9([[0x21D, [1, 0x1234, 0, 1, 100, 60, 64, 48, 64, 48]]], false);
+        await d3d9([{ opcode: P.OP.WINDOW_STATE, payload: P.encode("WindowState", { device_handle: 1, hwnd: 0x1234, foreground_hwnd: 0, flags: 1, window_x: 100, window_y: 60, window_width: 64, window_height: 48, client_width: 64, client_height: 48 }) }], false);
         pixel = await shot();
         check(!layer.visible && near(pixel(132, 84), RED), "a hidden window reveals the desktop: " + pixel(132, 84));
 

@@ -27,15 +27,17 @@
 
 "use strict";
 
-const { findNaga } = require("./naga.js");
+const { findNaga, requireNaga } = require("./naga.js");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const pipeline = require("../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js");
 
+const strict = process.env.D9_CORPUS_STRICT === "1" || process.env.D3D9_CORPUS_STRICT === "1";
 const directory = process.env.D9_SHADER_CORPUS;
 if (!directory) {
+    if (strict) { console.error("Strict D3D corpus validation requires D9_SHADER_CORPUS");process.exit(1); }
     console.log("SKIP: set D9_SHADER_CORPUS to a directory of .d9sh files " +
         "(produced by running a game with D9WG_DUMP_SHADERS=1) -- no corpus, " +
         "nothing to replay");
@@ -47,12 +49,13 @@ if (!fs.existsSync(directory)) {
     process.exit(1);
 }
 
-const naga = findNaga();
+const naga = strict ? requireNaga("strict D3D game corpus") : findNaga();
 
 const files = fs.readdirSync(directory)
     .filter(name => name.endsWith(".d9sh"))
     .sort();
 if (!files.length) {
+    if (strict) { console.error("Strict D3D corpus directory has no .d9sh files");process.exit(1); }
     console.log("SKIP: " + directory + " holds no .d9sh files");
     process.exit(0);
 }
@@ -136,7 +139,7 @@ else if (scratch)
 // *expected* to contain instructions we have not implemented, and failing the
 // build for that would make people stop dumping. Set D9_CORPUS_STRICT=1 once a
 // corpus is checked in as a regression baseline.
-if (process.env.D9_CORPUS_STRICT === "1" &&
+if (strict &&
         (translationFailures.size || validationFailures.size)) {
     console.error("\nD9_CORPUS_STRICT=1 and the corpus has failures");
     process.exit(1);

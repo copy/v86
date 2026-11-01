@@ -13,23 +13,15 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
+const encodePayload = (name, values) => Buffer.from(P.encode(name, values));
 const { errorScopes } = require("./fake_error_scopes.js");
 const { D3D9WebGPUExecutor } = require("../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js");
 const ddraw = require("../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js");
 ddraw.installDDrawOps(D3D9WebGPUExecutor);
 
-const OP = {
-    HELLO: 1, CREATE_DEVICE: 2, PRESENT: 4, SESSION_END: 13,
-    DESTROY_RESOURCE: 0x103,
-    CREATE_TEXTURE_2D: 0x110, CREATE_TEXTURE_CUBE: 0x111,
-    UPDATE_TEXTURE: 0x113,
-    SET_PALETTE: 0x21F,
-    DD_BLT: 0x500, DD_SET_COLOR_KEY: 0x501,
-    DD_SET_SURFACE_PALETTE: 0x502, DD_SET_DISPLAY_MODE: 0x503,
-    DD_UPDATE_OVERLAY: 0x504,
-};
+const OP = P.OP;
 
-const D9WG_MAGIC = 0x47573944;
 const BATCH_FLAG_PRESENT = 1;
 const DEVICE = 0x00100002;
 const FMT_X8R8G8B8 = 22;
@@ -59,34 +51,21 @@ function command(opcode, payload, blob, blobOffsetField) {
 }
 
 function buildBatch(commands, options = {}) {
-    let commandBytes = 0;
+    const batch = Buffer.from(P.encodeBatch(commands.map(item => ({ opcode: item.opcode, payload: item.payload,
+        blobs: item.blob ? [{ field: item.blobOffsetField, data: item.blob }] : [] })), {
+        version_minor: options.versionMinor ?? 7, frame_id: options.frameId || 1,
+        flags: options.present ? BATCH_FLAG_PRESENT : 0, session_id_low: options.sessionLow || 0, session_id_high: options.sessionHigh || 0,
+    }));
+    // Older framing tests locate/mutate the caller's payload after building.
+    // Preserve that test API using schema offsets; packet assembly stays shared.
+    let at = P.STRUCTS.BatchHeader.size;
     for (const item of commands) {
-        const raw = 16 + item.payload.length + (item.blob ? item.blob.length : 0);
-        item.size = (raw + 7) & ~7;
-        item.offset = 32 + commandBytes;
-        commandBytes += item.size;
-    }
-    const batch = Buffer.alloc(32 + commandBytes);
-    batch.writeUInt32LE(D9WG_MAGIC, 0);
-    batch.writeUInt16LE(1, 4);
-    batch.writeUInt16LE(options.versionMinor ?? 7, 6);
-    batch.writeUInt32LE(options.frameId || 1, 8);
-    batch.writeUInt32LE(options.present ? BATCH_FLAG_PRESENT : 0, 12);
-    batch.writeUInt32LE(commands.length, 16);
-    batch.writeUInt32LE(commandBytes, 20);
-    batch.writeUInt32LE(options.sessionLow || 0, 24);
-    batch.writeUInt32LE(options.sessionHigh || 0, 28);
-    let sequence = 1;
-    for (const item of commands) {
-        batch.writeUInt16LE(item.opcode, item.offset);
-        batch.writeUInt32LE(item.size, item.offset + 4);
-        batch.writeUInt32LE(sequence++, item.offset + 8);
         if (item.blob) {
-            const blobOffset = item.offset + 16 + item.payload.length;
-            item.payload.writeUInt32LE(blobOffset, item.blobOffsetField);
-            item.blob.copy(batch, blobOffset);
+            const field = P.F[P.commandStruct(item.opcode)][item.blobOffsetField];
+            new DataView(item.payload.buffer, item.payload.byteOffset, item.payload.byteLength)
+                .setUint32(field, batch.readUInt32LE(at + P.STRUCTS.CommandHeader.size + field), true);
         }
-        item.payload.copy(batch, item.offset + 16);
+        at += batch.readUInt32LE(at + P.F.CommandHeader.size);
     }
     return batch;
 }
@@ -97,108 +76,36 @@ function u32(...values) {
     return buffer;
 }
 
-function createDevicePayload(width, height) {
-    const payload = Buffer.alloc(52);
-    payload.writeUInt32LE(DEVICE, 0);
-    payload.writeUInt32LE(0x1234, 4);
-    payload.writeUInt32LE(width, 16);
-    payload.writeUInt32LE(height, 20);
-    payload.writeUInt32LE(FMT_X8R8G8B8, 24);
-    payload.writeUInt32LE(1, 28);
-    return payload;
+function createDevicePayload(width, height) { return encodePayload("CreateDevice", { device_handle: DEVICE, hwnd: 0x1234, width, height, backbuffer_format: FMT_X8R8G8B8, windowed: 1 }); }
+
+function createSurfacePayload(handle, width, height, format, usage = 0, levelCount = 1) { return encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: handle, width, height, level_count: levelCount, format, usage }); }
+
+function createCubePayload(handle, edge, levelCount, format, usage = 0) { return encodePayload("CreateTextureCube", { device_handle: DEVICE, resource_handle: handle, edge_length: edge, level_count: levelCount, format, usage }); }
+
+function updateTexturePayload(handle, width, height, rowPitch, data, options = {}) {
+    const payload = encodePayload("UpdateTexture", { resource_handle: handle, level: options.level || 0, x: options.x || 0, y: options.y || 0, z: options.face || 0,
+        width, height, depth: 1, row_pitch: rowPitch, slice_pitch: options.slicePitch || rowPitch * height, data_bytes: data.length });
+    return { payload, blob: data, blobOffsetField: "data_offset" };
 }
 
-function createSurfacePayload(handle, width, height, format, usage = 0,
-        levelCount = 1) {
-    const payload = Buffer.alloc(40);
-    payload.writeUInt32LE(DEVICE, 0);
-    payload.writeUInt32LE(handle, 4);
-    payload.writeUInt32LE(width, 8);
-    payload.writeUInt32LE(height, 12);
-    payload.writeUInt32LE(levelCount, 16);
-    payload.writeUInt32LE(format, 20);
-    payload.writeUInt32LE(usage >>> 0, 24);
-    return payload;
-}
+function bltPayload(options) { return encodePayload("DDBlt", { device_handle: DEVICE, source_handle: options.sourceHandle || 0,
+    source_level: options.sourceLevel || 0, source_face: options.sourceFace || 0, source_rect: options.sourceRect || [0, 0, 0, 0],
+    destination_handle: options.destinationHandle || 0, destination_level: options.destinationLevel || 0, destination_face: options.destinationFace || 0,
+    flags: options.flags || 0, destination_rect: options.destinationRect || [0, 0, 0, 0], fill_color: options.fillColor || 0, fill_depth: options.fillDepth || 0, fill_stencil: options.fillStencil || 0 }); }
 
-function createCubePayload(handle, edge, levelCount, format, usage = 0) {
-    return u32(DEVICE, handle, edge, levelCount, format, usage, 0, 0);
-}
+function colorKeyPayload(handle, kind, low, high, present = 1) { return encodePayload("DDSetColorKey", { surface_handle: handle, key_kind: kind, color_low: low, color_high: high, present }); }
 
-function updateTexturePayload(handle, width, height, rowPitch, data,
-        options = {}) {
-    const payload = Buffer.alloc(48);
-    payload.writeUInt32LE(handle, 0);
-    payload.writeUInt32LE(options.level || 0, 4);
-    payload.writeUInt32LE(options.x || 0, 8);
-    payload.writeUInt32LE(options.y || 0, 12);
-    payload.writeUInt32LE(options.face || 0, 16);
-    payload.writeUInt32LE(width, 20);
-    payload.writeUInt32LE(height, 24);
-    payload.writeUInt32LE(1, 28);      // depth
-    payload.writeUInt32LE(rowPitch, 32);
-    payload.writeUInt32LE(options.slicePitch || rowPitch * height, 36);
-    payload.writeUInt32LE(data.length, 40);
-    return { payload, blob: data, blobOffsetField: 44 };
-}
+function overlayPayload(options) { return encodePayload("DDUpdateOverlay", { surface_handle: options.surfaceHandle, overlay_id: options.overlayId,
+    source_rect: options.sourceRect || [0, 0, 0, 0], destination_rect: options.destinationRect || [0, 0, 0, 0], flags: options.flags || 0,
+    z_order: options.zOrder || 0, destination_handle: options.destinationHandle || 0 }); }
 
-function bltPayload(options) {
-    const payload = Buffer.alloc(80);
-    payload.writeUInt32LE(DEVICE, 0);
-    payload.writeUInt32LE(options.sourceHandle || 0, 4);
-    payload.writeUInt32LE(options.sourceLevel || 0, 8);
-    payload.writeUInt32LE(options.sourceFace || 0, 12);
-    const source = options.sourceRect || [0, 0, 0, 0];
-    source.forEach((value, index) => payload.writeInt32LE(value, 16 + index * 4));
-    payload.writeUInt32LE(options.destinationHandle || 0, 32);
-    payload.writeUInt32LE(options.destinationLevel || 0, 36);
-    payload.writeUInt32LE(options.destinationFace || 0, 40);
-    payload.writeUInt32LE(options.flags || 0, 44);
-    const destination = options.destinationRect || [0, 0, 0, 0];
-    destination.forEach((value, index) =>
-        payload.writeInt32LE(value, 48 + index * 4));
-    payload.writeUInt32LE(options.fillColor || 0, 64);
-    payload.writeFloatLE(options.fillDepth || 0, 68);
-    payload.writeUInt32LE(options.fillStencil || 0, 72);
-    return payload;
-}
+function surfacePalettePayload(handle, index) { return encodePayload("DDSetSurfacePalette", { surface_handle: handle, palette_index: index, flags: 1 }); }
 
-function colorKeyPayload(handle, kind, low, high, present = 1) {
-    return u32(handle, kind, low, high, present, 0);
-}
+function displayModePayload(width, height, bpp, flags, changed) { return encodePayload("DDSetDisplayMode", { device_handle: DEVICE, width, height, bits_per_pixel: bpp, refresh_rate: 60, cooperative_flags: flags, guest_mode_changed: changed ? 1 : 0 }); }
 
-function overlayPayload(options) {
-    const payload = Buffer.alloc(52);
-    payload.writeUInt32LE(options.surfaceHandle, 0);
-    payload.writeUInt32LE(options.overlayId, 4);
-    const source = options.sourceRect || [0, 0, 0, 0];
-    source.forEach((value, index) =>
-        payload.writeInt32LE(value, 8 + index * 4));
-    const destination = options.destinationRect || [0, 0, 0, 0];
-    destination.forEach((value, index) =>
-        payload.writeInt32LE(value, 24 + index * 4));
-    payload.writeUInt32LE(options.flags || 0, 40);
-    payload.writeUInt32LE(options.zOrder || 0, 44);
-    payload.writeUInt32LE(options.destinationHandle || 0, 48);
-    return payload;
-}
-
-function surfacePalettePayload(handle, index) {
-    return u32(handle, index, 1, 0);
-}
-
-function displayModePayload(width, height, bpp, flags, changed) {
-    return u32(DEVICE, width, height, bpp, 60, flags, changed ? 1 : 0, 0);
-}
-
-function palettePayload(index, entries) {
-    const payload = Buffer.alloc(16);
-    payload.writeUInt32LE(DEVICE, 0);
-    payload.writeUInt32LE(index, 4);
-    payload.writeUInt32LE(256, 8);
-    const blob = Buffer.alloc(256 * 4);
-    for (let i = 0; i < 256; ++i) blob.writeUInt32LE(entries(i) >>> 0, i * 4);
-    return { payload, blob, blobOffsetField: 12 };
+function palettePayload(index, entries) { const payload = encodePayload("SetPalette", { device_handle: DEVICE, palette_index: index, entry_count: 256 });
+    const blob = Buffer.alloc(256 * 4);for (let i = 0; i < 256; ++i) blob.writeUInt32LE(entries(i) >>> 0, i * 4);
+    return { payload, blob, blobOffsetField: "data_offset" };
 }
 
 // ---- fake WebGPU ----
@@ -577,7 +484,7 @@ await test("an indexed surface presented to the canvas resolves through its pale
             sourceHandle: 0x300, sourceRect: [0, 0, 640, 480],
             destinationHandle: 0, destinationRect: [0, 0, 640, 480],
         })),
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 640, 480)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
     ], { present: true }));
     const module = find("createShaderModule")
         .find(call => String(call[1].label).includes("pal"));
@@ -774,7 +681,7 @@ await test("overlays composite by identity, z order, keys and mirroring",
             flags: DDOVER.SHOW | DDOVER.KEY_SOURCE | DDOVER.MIRROR_X,
             zOrder: 7, destinationHandle: 0x311,
         })),
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 320, 200)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 320, height: 200 })),
     ], { present: true }));
 
     const state = executor.devices.get(DEVICE);
@@ -802,7 +709,7 @@ await test("overlays composite by identity, z order, keys and mirroring",
             sourceRect: [0, 0, 64, 32], destinationRect: [10, 20, 138, 84],
             flags: DDOVER.HIDE, zOrder: 7, destinationHandle: 0x311,
         })),
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 320, 200)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 320, height: 200 })),
     ], { present: true, frameId: 2 }));
     assert.equal(state.ddOverlays.has(0xabc001), false,
         "hiding releases the host-side persistent overlay entry");
@@ -903,7 +810,7 @@ await test("a normal primary presents only the 3DMark splash dirty rectangle",
         })),
         // 3DMark reports the 800x600 desktop at Present even though it changed
         // only the centred 420x170 splash rectangle.
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 800, 600)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 800, height: 600 })),
     ], { present: true }));
     assert.equal(presented.length, 1);
     assert.equal(presented[0].ddDesktopPrimary, true);
@@ -957,7 +864,7 @@ await test("a DirectDraw display mode resizes the implicit back buffer",
     // only 106x2, then switches to a 640x480 DirectDraw display mode.
     await executor.submit(buildBatch([
         command(OP.CREATE_DEVICE, createDevicePayload(106, 2)),
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 106, 2)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 106, height: 2 })),
     ], { present: true }));
     const oldBackBuffer = executor.backBufferTexture;
     assert.ok(oldBackBuffer, "the transient-size back buffer was not created");
@@ -973,7 +880,7 @@ await test("a DirectDraw display mode resizes the implicit back buffer",
             sourceHandle: 0x300, sourceRect: [0, 0, 640, 480],
             destinationHandle: 0, destinationRect: [0, 0, 640, 480],
         })),
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 640, 480)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
     ], { present: true }));
     await Promise.resolve();
 
@@ -1016,7 +923,7 @@ await test("retained back buffers are isolated by process session", async () => 
     const keyA = "aaaaaaaa11111111";
     const keyB = "bbbbbbbb22222222";
     const present = () => command(OP.PRESENT,
-        u32(DEVICE, 0x1234, 0, 0, 320, 200));
+        encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 320, height: 200 }));
 
     await executor.submit(buildBatch([
         command(OP.CREATE_DEVICE, createDevicePayload(320, 200)), present(),
@@ -1033,7 +940,7 @@ await test("retained back buffers are isolated by process session", async () => 
         "a non-presenting helper must not resize the visible canvas");
     assert.equal(executor.canvas.height, 200);
     await executor.submit(buildBatch([
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 640, 480)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
     ], { ...sessionB, present: true }));
     const backBufferB = executor.sessionStates.get(keyB).backBufferTexture;
     assert.ok(backBufferB, "session B retained no back buffer");
@@ -1063,12 +970,12 @@ await test("destroying the DirectDraw device retires its retained frame",
     const key = "cccccccc33333333";
     await executor.submit(buildBatch([
         command(OP.CREATE_DEVICE, createDevicePayload(320, 200)),
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 320, 200)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 320, height: 200 })),
     ], { ...session, present: true }));
     const backBuffer = executor.sessionStates.get(key).backBufferTexture;
 
     await executor.submit(buildBatch([
-        command(OP.DESTROY_RESOURCE, u32(DEVICE, 0)),
+        command(OP.DESTROY_RESOURCE, encodePayload("DestroyResource", { resource_handle: DEVICE, resource_kind: 0 })),
     ], session));
     await Promise.resolve();
     assert.equal(executor.devices.size, 0);
@@ -1090,7 +997,7 @@ await test("SESSION_END releases every live object owned by the process",
     await executor.submit(buildBatch([
         command(OP.CREATE_DEVICE, createDevicePayload(320, 200)),
         SURFACE_SETUP(0x300, 16, 16, FMT_X8R8G8B8),
-        command(OP.PRESENT, u32(DEVICE, 0x1234, 0, 0, 320, 200)),
+        command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 320, height: 200 })),
     ], { ...session, present: true }));
     const state = executor.sessionStates.get(key);
     const backBuffer = state.backBufferTexture;
@@ -1098,7 +1005,7 @@ await test("SESSION_END releases every live object owned by the process",
 
     await executor.submit(buildBatch([
         command(OP.SESSION_END,
-            u32(session.sessionLow, session.sessionHigh)),
+            encodePayload("SessionEnd", { session_id_low: session.sessionLow, session_id_high: session.sessionHigh })),
     ], session));
     await Promise.resolve();
     assert.equal(executor.sessionKey, null);
