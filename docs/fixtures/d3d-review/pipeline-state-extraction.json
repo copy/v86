@@ -1,0 +1,14 @@
+{
+  "baseline": "d31dcfe6",
+  "methods": [
+    "pipelineStateFor",
+    "samplerFor",
+    "pipelineFor"
+  ],
+  "astIdenticalExcept": "pipelineFor uses staticStateKey(pipelineState) rather than JSON.stringify(pipelineState)",
+  "excludedDynamicFields": [
+    "blendConstant",
+    "stencilReference",
+    "alphaTest"
+  ]
+}

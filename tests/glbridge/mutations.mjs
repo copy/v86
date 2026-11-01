@@ -39,9 +39,9 @@ const MUTATIONS = {
     d3d9: { floor: 10 / 12, node: ["d3d9_webgpu_executor_test.js", "d3d9_shader_pipeline_test.js",
         "d3d9_shader_wgsl_validation_test.js", "ddraw_webgpu_executor_test.js", "ddraw_blit_wgsl_validation_test.js"],
     pages: ["d3d9_conformance_browser_test.html"], list: [
-        ["cull CW/CCW swapped", D + "d3d9_executor.js",
-            'if (cullValue === D3DCULL_CW) cullMode = "front";\n                else if (cullValue === D3DCULL_CCW) cullMode = "back";',
-            'if (cullValue === D3DCULL_CW) cullMode = "back";\n                else if (cullValue === D3DCULL_CCW) cullMode = "front";'],
+        ["cull CW/CCW swapped", D + "d9wg_pipeline_state.js",
+            'if (cullValue === D3DCULL_CW) cullMode = "front";\n                    else if (cullValue === D3DCULL_CCW) cullMode = "back";',
+            'if (cullValue === D3DCULL_CW) cullMode = "back";\n                    else if (cullValue === D3DCULL_CCW) cullMode = "front";'],
         ["ZFUNC LESS <-> GREATER", D + "d3d9_executor.js", '"never", "less", "equal", "less-equal",\n        "greater",',
             '"never", "greater", "equal", "less-equal",\n        "less",'],
         ["BLEND SRCALPHA <-> INVSRCALPHA", D + "d3d9_executor.js",

@@ -947,6 +947,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - Warcraft III 的旧 UNORM/上传对照现有 636 字节、275 像素差异，零宿主/GPU 错误；加固定旧 FFP 后继续通过未改动的原冻结策略。这里保留 FFP 语义组变化，未将候选图训练为新黄金图，逐像素原生正确性仍需 L4/L5 验收。
 > - 运行包 `3ff511520f2d880e9f70`；见 [stage3e3-validation.json](fixtures/d3d-review/stage3e3-validation.json)。继续 pipeline-state、记录/重放、呈现及诊断；draw CPU <3 µs 目标和客体阶段均尚未关闭。
 
+> **阶段 3F1（2026-11-02）：pipeline-state 拆分及 blend/stencil 动态值完成。**
+>
+> - `d9wg_pipeline_state.js` 接管管线状态、sampler 和 render pipeline 三方法，显式安装不可变依赖。与 `d31dcfe6` 对比，函数体除管线 key 选择外语法树相同；见 [pipeline-state-extraction.json](fixtures/d3d-review/pipeline-state-extraction.json)。
+> - blend constant、stencil reference 移出不可变管线 key；绘制记录保留自身动态值，通过 `setBlendConstant` / `setStencilReference` 重放。alpha test 继续由 shader key 表示，不在管线状态中重复编码。128 次 blend/stencil 值变化不新建管线；新增实际像素检查分别保留两次 blend 以及 stencil 写入/相等测试的结果。
+> - **182/182 正向场景**及三种预算配置、127 组核心、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过；固定旧 UNORM/上传/FFP 的 Warcraft III 诊断通过原冻结策略。模块格式整理后再次核验语法树、预算测试和变异锚点。
+> - 运行包 `52bcf2c6e309bca7e8ab`；见 [stage3f1-validation.json](fixtures/d3d-review/stage3f1-validation.json)。3F2 继续 ALPHAREF uniform，随后 LOD bias 和 clip 开关；draw CPU 目标保持待办。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

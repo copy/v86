@@ -397,5 +397,14 @@
             bindPS(dev, ps), cmd(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: dev, shader_handle: vs })),
             rs(dev, 28, 1), rs(dev, 34, 0x0000ff00), rs(dev, 140, 3), ...drawXYZ(dev, fullXYZ(0.5, 0xffffffff))];
     }, probes: [{ at: [32, 32], expect: [64, 191, 0, 64], tolerance: 1 }] });
+    add("blending", { name: "blend constant changes preserve recorded draws with one pipeline state", body: dev => [
+        rs(dev, 27, 1), rs(dev, 19, 14), rs(dev, 20, 1), rs(dev, 193, 0xffff0000),
+        draw(dev, quad(0, 0, 32, 64, 0.5, 0xffffffff)), rs(dev, 193, 0xff00ff00),
+        draw(dev, quad(32, 0, 64, 64, 0.5, 0xffffffff))], probes: [{ at: [16, 32], expect: [255, 0, 0, 255] }, { at: [48, 32], expect: [0, 255, 0, 255] }] });
+    add("stencil", { name: "stencil reference changes preserve both writes and later equal tests", body: dev => [
+        rs(dev, 52, 1), rs(dev, 56, 8), rs(dev, 55, 3), rs(dev, 57, 1), draw(dev, quad(0, 0, 32, 64, 0.5, 0xffff0000)),
+        rs(dev, 57, 2), draw(dev, quad(32, 0, 64, 64, 0.5, 0xffff0000)), rs(dev, 55, 1), rs(dev, 56, 3),
+        rs(dev, 57, 1), draw(dev, quad(0, 0, 64, 64, 0.5, 0xff00ff00)), rs(dev, 57, 2), draw(dev, quad(0, 0, 64, 64, 0.5, 0xff0000ff))],
+        probes: [{ at: [16, 32], expect: [0, 255, 0, 255] }, { at: [48, 32], expect: [0, 0, 255, 255] }] });
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

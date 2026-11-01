@@ -1,0 +1,35 @@
+{
+  "stage": "3F1 pipeline state module and dynamic blend/stencil keys",
+  "date": "2026-11-02",
+  "coreSuites": 127,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 182,
+  "normativePixelPasses": 182,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "finalIndexedOverlayPixels": 8192,
+  "isolationPixels": 32768,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "52bcf2c6e309bca7e8ab",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "dynamicValueChangesTested": 128,
+  "additionalRenderPipelinesForDynamicChanges": 0,
+  "scope": "pipelineStateFor, pipelineFor and samplerFor moved to d9wg_pipeline_state.js. Immutable cache keys exclude blendConstant, stencilReference and alphaTest (shader keys still represent alpha test). Draws retain their own dynamic values for replay. AST bodies match d31dcfe6 except cache-key selection.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; documented candidate FFP and resource semantic differences remain.",
+  "logs": {
+    "d3d-stage3f1-core.log": "ad762115af4f71ac560e7f811955c7053ca48c81883b957dd3adb894f72ced0b",
+    "d3d-stage3f1-gpu.log": "c526d37316869065bfd2e554bac7aae8ff16703f36320a53d8b5108fe96f0af1",
+    "d3d-stage3f1-pipeline.log": "9ec136cc56118104fd3814e4ad786209e77cb82f3617b28dee2446f66324a068",
+    "d3d-stage3f1-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3f1-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3f1-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3f1-integration.log": "16ae9d00d4a357cfd6780127ee5f660bf8f5ec15e47ca449def96fdc59e4246c"
+  },
+  "next": "Move ALPHAREF, LOD bias and clip enable selection to uniforms, then recorder/replayer, present and diagnostics."
+}
