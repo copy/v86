@@ -304,6 +304,7 @@ canvas { width: 640px; height: 480px; }
         // the budget exercises the War3 battle regression where menu atlases
         // consumed the budget and later fog/UI/cursor uploads were returned
         // from before queue.writeTexture.
+        await executor.enableDiagnostics();
         executor.previewBudget = 0;
         executor.device.pushErrorScope("validation");
         await executor.submit(batch([

@@ -1,0 +1,29 @@
+{
+  "baseline": "5317bf4d",
+  "methods": [
+    {
+      "method": "blackScreenReport",
+      "identical": true
+    },
+    {
+      "method": "drawDiagnostic",
+      "identical": true
+    },
+    {
+      "method": "textureDiagnostic",
+      "identical": true
+    },
+    {
+      "method": "dumpPipelineStates",
+      "identical": true
+    },
+    {
+      "method": "dumpShaders",
+      "identical": true
+    },
+    {
+      "method": "dumpSmallTextures",
+      "identical": true
+    }
+  ]
+}

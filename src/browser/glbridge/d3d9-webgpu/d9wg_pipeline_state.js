@@ -309,7 +309,11 @@
                         .map(sampler => sampler.index + ":" + sampler.type + ":" +
                             sampler.bindingType).join(",");
                 let pipeline = this.pipelineCache.get(key);
-                if (pipeline) { ++this.stats.pipelineHits; return pipeline; }
+                if (pipeline) {
+                    if (this.diagnosticsEnabled && !pipeline._d9wgDiagnostic)
+                        this.capturePipelineDiagnostic(pipeline, program, topology, stripIndexFormat, pipelineState);
+                    ++this.stats.pipelineHits;return pipeline;
+                }
 
                 // Binding 0 is the vertex stage's constant buffer (or the
                 // fixed-function transform block, which occupies the same slot),
@@ -467,28 +471,8 @@
                 });
                 pipeline._bindGroupLayout = bindGroupLayout;
                 pipeline._d9wgId = this.objectId(pipeline);
-                // Keep structured diagnostic data beside the cached object. The
-                // old dumpPipelineStates() attempted to recover it by splitting
-                // the cache key on "|", but fixed-function fragment keys use the
-                // same character between texture stages, shifting every field and
-                // producing a null/misattributed state exactly when multi-texture
-                // debugging mattered most.
-                pipeline._d9wgDiagnostic = {
-                    vertex: program.vertexKey,
-                    fragment: program.fragmentKey,
-                    topology,
-                    stripIndexFormat: stripIndexFormat || null,
-                    vertexBuffers: program.vertexBuffers.map(layout => ({
-                        stream: layout.stream,
-                        arrayStride: layout.arrayStride,
-                        stepMode: layout.stepMode || "vertex",
-                        attributes: layout.attributes.map(attribute =>
-                            ({ ...attribute })),
-                    })),
-                    samplers: program.samplerIndices.slice(),
-                    state: JSON.parse(JSON.stringify(pipelineState)),
-                };
-                pipeline._d9wgDrawCount = 0;
+                if (this.diagnosticsEnabled)
+                    this.capturePipelineDiagnostic(pipeline, program, topology, stripIndexFormat, pipelineState);
                 ++this.stats.pipelineCreations;
                 this.pipelineCache.set(key, pipeline);
                 return pipeline;

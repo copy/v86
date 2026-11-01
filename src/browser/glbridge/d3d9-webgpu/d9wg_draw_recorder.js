@@ -204,17 +204,9 @@
                 const attachmentCount = Math.max(1, Math.min(4,
                     (targets.colors && targets.colors.length) || 1));
                 ++this.mrtAttachmentDraws[attachmentCount];
-                pipeline._d9wgDrawCount = (pipeline._d9wgDrawCount || 0) + 1;
-                const drawPath = (state.vertexShaderHandle ||
-                    state.pixelShaderHandle) ? "programmable" : "fixed";
-                // References are retained, not expanded, on the hot draw path.
-                // blackScreenReport() serialises the two most recent paths only
-                // when explicitly requested, avoiding per-draw diagnostic copies
-                // during a real benchmark run.
-                this.lastDraws[drawPath] = {
-                    which, state, elements, geometry, program, pipelineState,
-                    targets, pipeline,
-                };
+                if (this.diagnosticsEnabled) this.captureDrawDiagnostic({
+                    which, state, elements, geometry, program, pipelineState, targets, pipeline,
+                });
                 frame.record({
                     kind: "draw", pipeline, bindGroup: binding.group,
                     dynamicOffsets: binding.dynamicOffsets, targets,

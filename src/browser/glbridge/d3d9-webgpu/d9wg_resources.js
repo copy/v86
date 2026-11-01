@@ -540,47 +540,8 @@
                 // Only level 0 is the app's on an autogen texture, so only level 0
                 // can invalidate what the driver generated from it.
                 this.markTextureSubresourceWritten(resource, level, z);
-                // Retain a CPU copy of small top-level images. This is the one
-                // piece of evidence that separates "the texture data we uploaded
-                // is wrong" from "the data is right but we sample it wrong", and
-                // guessing between those two has already cost several rounds.
-                // Bounded to sprite-sized textures so it cannot grow without
-                // limit -- cursors and UI glyphs are exactly this size.
-                // 64x64 was too small a net: a game's cursor and UI glyphs
-                // usually live in a larger atlas, so the one texture worth looking
-                // at was the one never captured. 256x256 covers those at a bounded
-                // total cost (previewBudget below).
-                if (!compressed && (resource.gpuFormat === "rgba8unorm" || resource.gpuFormat === "bgra8unorm") &&
-                        resource.textureType !== "3d" && depth === 1 &&
-                        level === 0 && z === 0 && width <= 256 &&
-                        height <= 256 && x === 0 && y === 0) {
-                    const previewBytes = width * height * 4;
-                    if (!resource.preview) {
-                        if (this.previewBudget === undefined)
-                            this.previewBudget = 16 * 1024 * 1024;
-                        if (this.previewBudget >= previewBytes) {
-                            this.previewBudget -= previewBytes;
-                            resource.preview = {
-                                width, height, rgba: payload.slice()
-                            };
-                        } else {
-                            // The preview is diagnostics only. Returning here used
-                            // to drop the real queue.writeTexture below once War3
-                            // had loaded 16 MiB of menu atlases. Textures first
-                            // touched in battle (fog/minimap/command icons/software
-                            // cursor) consequently stayed black or transparent.
-                            ++this.stats.texturePreviewsSkipped;
-                        }
-                    } else {
-                        resource.preview = { width, height, rgba: payload.slice() };
-                    }
-                    if (resource.preview && resource.gpuFormat === "bgra8unorm") {
-                        const rgba = resource.preview.rgba;
-                        for (let at = 0; at < rgba.length; at += 4) {
-                            const b = rgba[at];rgba[at] = rgba[at + 2];rgba[at + 2] = b;
-                        }
-                    }
-                }
+                if (this.diagnosticsEnabled)
+                    this.captureTexturePreview(resource, payload, { compressed, width, height, depth, level, x, y, z });
                 // rowsPerImage counts *block* rows for a block-compressed format,
                 // not pixel rows -- BCn blocks are 4x4, so a DXT upload that
                 // passes the pixel height describes an image four times taller

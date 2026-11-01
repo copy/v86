@@ -57,6 +57,7 @@ const formats = "globalThis.V86SVGADXFormats = " + JSON.stringify(gx_formats()) 
     files.splice(files.indexOf("svga_renderer.js"), 0, "gles_executor (src/gles/page)");
 }
 const worker = await read_file(new URL("d3d9-webgpu/d3d9_shader_worker.js", source), "utf8");
+const diagnostics = await read_file(new URL("d3d9-webgpu/d9wg_diagnostics.js", source), "utf8");
 const journal_worker = await read_file(new URL("graphics_journal_worker.js", source), "utf8");
 // The device half alone, for the CPU worker (importScripts): the device and
 // the GL shadow it answers the guest's queries with
@@ -66,13 +67,14 @@ const device = ["gl-webgpu/gl_protocol.js", "gl-webgpu/gl_constants.js", "gl-web
     "gl-webgpu/gl_shadow_arb.js", "v86gl_device.js"]
     .map(file => contents[files.indexOf(file)])
     .join("\n;\n");
-const revision = create_hash("sha256").update(contents.join("\n") + worker + journal_worker).digest("hex").slice(0, 20);
+const revision = create_hash("sha256").update(contents.join("\n") + worker + journal_worker + diagnostics).digest("hex").slice(0, 20);
 const prefix = `globalThis.V86GL_BUILD_REVISION = ${JSON.stringify(revision)};\n`;
 await mkdir(output, { recursive: true });
 // Isolate CommonJS detection from a consuming page's module/require globals.
 const bundle = prefix + "(function(module, require) {\n" + [formats, ...contents].join("\n;\n") + "\n})();\n";
 await write_file(new URL("libv86-webgpu.js", output), bundle);
 await write_file(new URL("d3d9_shader_worker.js", output), prefix + worker);
+await write_file(new URL("d9wg_diagnostics.js", output), prefix + diagnostics);
 await write_file(new URL("d3d9_shader_pipeline.js", output),
     prefix + contents[files.indexOf("d3d9-webgpu/d3d9_shader_pipeline.js")]);
 await write_file(new URL("graphics_journal_worker.js", output), prefix + journal_worker);
@@ -89,7 +91,7 @@ let built = spawnSync("cargo", [...cargo_args, "--offline"], { cwd: naga, stdio:
 if(built) await copy_file(new URL("build/wasm32-unknown-unknown/release/vx_naga.wasm", root), new URL("vx_naga.wasm", output));
 else console.warn("cargo failed: build/glbridge/vx_naga.wasm (Venus's shaders) is not built");
 await write_file(new URL("manifest.json", output), JSON.stringify({ revision, files: [
-    "libv86-webgpu.js", "d3d9_shader_worker.js", "d3d9_shader_pipeline.js", "graphics_journal_worker.js",
+    "libv86-webgpu.js", "d3d9_shader_worker.js", "d3d9_shader_pipeline.js", "graphics_journal_worker.js", "d9wg_diagnostics.js",
     "v86gl-device.js", "glslang.wasm", ...(built ? ["vx_naga.wasm"] : []),
 ] }, null, 2) + "\n");
 console.log(`Built WebGPU graphics ${revision} in ${fileURLToPath(output)}`);

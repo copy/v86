@@ -1,0 +1,43 @@
+<!doctype html><meta charset="utf-8"><title>D9WG optional diagnostics</title>
+<canvas width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../build/glbridge/libv86-webgpu.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async () => {
+    const check = (condition, message) => { if (!condition) throw new Error(message); };
+    const executor = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, shaderWorkerUrl: null });
+    try {
+        await executor.initialize();
+        check(!globalThis.D9WGDiagnostics, "default bundle eagerly loaded diagnostics");
+        const fixture = D3D9Conformance.caseBatch(0, D3D9Conformance.CASES[0]);
+        const read = async () => {
+            let reply;
+            const C = D9WGProtocol.C, address = (16 << 20) - C.D9WG_RESPONSE_REGION_BYTES + C.D9WG_READBACK_REGION_OFFSET;
+            await executor.submit(D3D9Conformance.readbackBatch(1, fixture.dev, fixture.rt), {
+                writeGuestMemory(at, data) { if (at === address) reply = data.slice(); },
+            });
+            check(reply && new DataView(reply.buffer).getUint32(12, true) === C.D9WG_RESPONSE_OK, "READBACK failed");
+            return reply.subarray(16);
+        };
+        await executor.submit(fixture.bytes, { writeGuestMemory() {} });
+        const before = await read();
+        check(executor.lastDraws === null, "normal draws captured diagnostic references");
+        check([...executor.pipelineCache.values()].every(p => !p._d9wgDiagnostic), "normal pipelines captured diagnostics");
+        const first = executor.enableDiagnostics();
+        check(first === executor.enableDiagnostics(), "concurrent calls did not share one load");
+        await first;
+        check(executor.diagnosticsEnabled, "explicit diagnostics did not install");
+        await executor.submit(fixture.bytes, { writeGuestMemory() {} });
+        const after = await read();
+        check(after.length === before.length && after.every((byte, i) => byte === before[i]), "diagnostics changed rendered pixels");
+        const report = executor.debug.blackScreenReport();
+        check(report.draws.fixed && report.pipelines.some(p => p.state), "enabled diagnostics did not capture draw/pipeline state");
+        const loads = performance.getEntriesByType("resource").filter(entry => new URL(entry.name).pathname.endsWith("/d9wg_diagnostics.js"));
+        check(loads.length === 1, "diagnostics did not load exactly once");
+        check(new URL(loads[0].name).searchParams.get("v") === V86GL_BUILD_REVISION, "optional module revision differs from bundle");
+        await executor.checkpointIdle();
+        check(!executor.hostErrors.length && !executor.gpuErrors.errors.length && !executor.stats.droppedDraws && !executor.stats.commandsFailed, "renderer rejected work");
+        document.querySelector("#result").textContent = "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision";
+    } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
+})();
+</script>

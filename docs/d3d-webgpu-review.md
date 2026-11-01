@@ -1003,6 +1003,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 130 组严格核心、316/316 一致性场景（两种 GPU，三种预算）、overlay/隔离、完整恢复、12/12 变异、两项站点集成及原冻结 Warcraft III 旧语义对照通过。
 > - 运行包 `26ad13c413cf4e98789a`；见 [stage3h2-validation.json](fixtures/d3d-review/stage3h2-validation.json)。继续仅 debug 加载的 diagnostics，随后完成阶段 3 的 CPU 优化；客体、着色器差分与游戏验收仍待后续阶段。
 
+> **阶段 3I（2026-11-02）：diagnostics 按需加载完成。**
+>
+> - 六个报告方法语法树原样迁入独立 `d9wg_diagnostics.js`，纹理预览和 pipeline/draw 快照也只在显式启用后采集；默认会话不保留最后绘制引用。轻量错误与计数、直接调试开关仍可用。见 [diagnostics-extraction.json](fixtures/d3d-review/diagnostics-extraction.json)。
+> - `enableDiagnostics()` 或首次 debug 报告按需加载，后续调用保持同步报告 API；浏览器并发请求共用一次加载，失败可重试。独立文件由 manifest 同步，URL 使用同一运行包 revision。
+> - 真实浏览器验证默认无模块/快照，开启后正确捕获状态，**4096 个 GPU 像素完全相同**；SwiftShader/Metal 通过。131 组严格核心、316/316 一致性场景（三种预算）、overlay/隔离/交换链、恢复、12/12 变异、两项站点集成和冻结 Warcraft III 旧语义对照通过。
+> - 运行包 `081f4cdbe432d69ff6b7`；见 [stage3i-validation.json](fixtures/d3d-review/stage3i-validation.json)。九个结构模块的本轮拆分已完成，接着优化程序、管线 key 和 uniform 热路径；CPU 目标和后续阶段尚未关闭。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

@@ -128,7 +128,7 @@
             cursor: { texture: null, view: null, width: 0, height: 0,
                 hotspotX: 0, hotspotY: 0, x: 0, y: 0, visible: false,
                 pipeline: null, sampler: null, uniform: null },
-            lastDraws: { fixed: null, programmable: null },
+            lastDraws: null,
             uploads: null,
             uniformRingChunks: [],
             uniformStaging: [],

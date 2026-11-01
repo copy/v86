@@ -498,7 +498,7 @@ function makeExecutor(options = {}) {
     const fake = makeFakeWebGPU(fakeOptions);
     const canvas = { width: 1, height: 1, getContext: () => fake.context };
     const executor = new D3D9WebGPUExecutor(canvas,
-        { gpu: fake.gpu, strict: true, ...executorOptions });
+        { gpu: fake.gpu, strict: true, diagnostics: true, ...executorOptions });
     liveExecutors.push(executor);
     return { fake, executor, calls: fake.calls,
         find: name => fake.calls.filter(call => call[0] === name),

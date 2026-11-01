@@ -124,6 +124,12 @@
         } catch (error) { return null; }
     })();
 
+    const DEFAULT_DIAGNOSTICS_URL = DEFAULT_SHADER_WORKER_URL &&
+        new URL("d9wg_diagnostics.js" + new URL(DEFAULT_SHADER_WORKER_URL).search,
+            DEFAULT_SHADER_WORKER_URL).href;
+    const DIAGNOSTIC_REPORTS = ["dumpSmallTextures","dumpShaders","dumpPipelineStates","blackScreenReport"];
+    let diagnosticsLoad = null;
+
     const D9WG_MIN_PAYLOAD = wire.MIN_PAYLOAD;
     const D9WG_DMA_BYTES = 16 * 1024 * 1024;
     const D9WG_RESPONSE_REGION_BYTES = D9WG.C.D9WG_RESPONSE_REGION_BYTES;
@@ -1160,68 +1166,21 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.hostErrors = [];
             // Why the last failed batch failed (diagnostics; nothing reads it)
             this.lastBatchFailure = null;
-            // Console-togglable diagnostics, e.g.
-            //   v86gl.d3d9Executor.debug.forceClearColor = {r:1,g:0,b:1,a:1}
-            // These exist to split "the canvas is not on screen" from "the
-            // canvas is on screen but the drawn content is black", which the
-            // stats alone cannot distinguish.
+            // Flags remain cheap and directly console-togglable. Heavy capture
+            // and report code is loaded only by enableDiagnostics().
             this.debug = {
-                forceClearColor: null,  // {r,g,b,a} overrides every Clear
-                disableCull: false,     // force cullMode "none"
-                disableDepthTest: false,// force depthCompare "always"
-                shaderMode: null,       // "solid"|"color"|"texture"|"uv"
-                // Replaces *both* fixed-function and translated pixel shaders
-                // with an opaque green output. It also disables blend, alpha,
-                // depth/stencil rejection and forces RGBA writes, leaving only
-                // vertex fetch/transform, viewport and scissor able to hide a
-                // draw. This is the definitive geometry-vs-shading probe.
-                forceSolidAllDraws: false,
-                // Clamps every sampler to the top mip level. If a texture
-                // looks wrong because levels below 0 were never uploaded,
-                // this makes it correct immediately -- which is the cheapest
-                // way to confirm or rule out that cause.
-                forceMipLevel0: false,
-                // Suspicious-but-valid D3D9 state is counted in getStats()
-                // unconditionally. Detailed per-state console warnings are
-                // opt-in: real games deliberately reuse declarations and
-                // fixed-function state in ways that trip these heuristics,
-                // so they are debugging evidence rather than runtime errors.
-                warnOnSuspiciousDraws: false,
-                // Paints magenta over any fixed-function draw whose cascade
-                // samples a stage with no live texture -- the draws that get
-                // the 1x1 white fallback. A counter says how many there are;
-                // this says *which*, which is the question a flat silhouette
-                // actually poses: is the model I am looking at one of them?
-                // Everything else keeps rendering normally, so the answer is
-                // one screenshot rather than a bisection.
-                highlightMissingTexture: false,
-                // The same question for the other cause of a flat model:
-                // paints cyan over any draw whose stage reads a coordinate
-                // set its declaration does not carry. Magenta and cyan
-                // together answer "which of the two is this model" in one
-                // screenshot, which is the whole difficulty -- both render as
-                // one flat colour and neither fails.
-                highlightMissingCoordSet: false,
-                // Drops every draw that has a translated shader bound on
-                // either stage. shaderMode only rewrites the fixed-function
-                // pixel cascade, so a model rendered through the programmable
-                // path looks *identical* under every debug mode -- which reads
-                // as "the debug mode did nothing" rather than as "you are
-                // looking at the wrong pipeline". Making those draws vanish
-                // answers which path a model is on in one screenshot.
-                skipProgrammableDraws: false,
-                // Routes fixed-function texture stage n to varying TEXCOORD n
-                // (D3D9's rule when a vertex shader is bound) instead of to
-                // the varying D3DTSS_TEXCOORDINDEX names. See coordStagePlan
-                // for why the two disagree and which one D3D9 documents.
+                forceClearColor: null, disableCull: false, disableDepthTest: false,
+                shaderMode: null, forceSolidAllDraws: false, forceMipLevel0: false,
+                warnOnSuspiciousDraws: false, highlightMissingTexture: false,
+                highlightMissingCoordSet: false, skipProgrammableDraws: false,
                 texcoordFromStageIndex: true,
             };
-            this.debug.dumpSmallTextures = o => this.dumpSmallTextures(o);
-            this.debug.dumpShaders = o => this.dumpShaders(o);
+            for (const name of DIAGNOSTIC_REPORTS)
+                this.debug[name] = (...args) => this[name](...args);
             this.debug.clearShaderCache = () => this.clearShaderCache();
-            this.debug.dumpPipelineStates = () => this.dumpPipelineStates();
-            this.debug.blackScreenReport = () => this.blackScreenReport();
-            this.lastDraws = { fixed: null, programmable: null };
+            this.diagnosticsEnabled = false;
+            this.diagnosticsPromise = null;
+            this.lastDraws = null;
             this.stats = {
                 batches: 0, commands: 0, presents: 0, queueSubmits: 0,
                 drawCalls: 0, indexedDrawCalls: 0, upDrawCalls: 0,
@@ -1352,6 +1311,46 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 pipelineCreations: 0, bindGroupCreations: 0,
                 queueSubmits: 0, renderPasses: 0,
             };
+            if (this.options.diagnostics && typeof require === "function")
+                this.installDiagnostics(require("./d9wg_diagnostics.js"));
+        }
+
+        installDiagnostics(factory) {
+            if (!this.diagnosticsEnabled) factory.install(this, {
+                TEXTURE_FORMAT_NAMES, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER,
+                D3DRS_SCISSORTESTENABLE, intersectRects,
+            });
+            return this.debug;
+        }
+
+        enableDiagnostics() {
+            if (this.diagnosticsEnabled) return Promise.resolve(this.debug);
+            if (this.diagnosticsPromise) return this.diagnosticsPromise;
+            if (typeof require === "function") {
+                return Promise.resolve(this.installDiagnostics(require("./d9wg_diagnostics.js")));
+            }
+            if (!diagnosticsLoad) {
+                diagnosticsLoad = new Promise((resolve, reject) => {
+                    if (global.D9WGDiagnostics) { resolve(global.D9WGDiagnostics); return; }
+                    if (typeof document === "undefined") {
+                        reject(new Error("D3D diagnostics require a document or CommonJS loader"));return;
+                    }
+                    const script = document.createElement("script");
+                    const url = this.options.diagnosticsUrl || DEFAULT_DIAGNOSTICS_URL;
+                    if (!url) { reject(new Error("D3D diagnostics URL is unavailable"));return; }
+                    script.src = url;
+                    script.onload = () => {
+                        script.remove();
+                        if (global.D9WGDiagnostics) resolve(global.D9WGDiagnostics);
+                        else reject(new Error("D3D diagnostics script did not register its module"));
+                    };
+                    script.onerror = () => { script.remove();reject(new Error("Could not load D3D diagnostics")); };
+                    document.head.appendChild(script);
+                }).catch(error => { diagnosticsLoad = null;throw error; });
+            }
+            this.diagnosticsPromise = diagnosticsLoad.then(factory => this.installDiagnostics(factory))
+                .catch(error => { this.diagnosticsPromise = null;throw error; });
+            return this.diagnosticsPromise;
         }
 
         initialize() {
@@ -1436,6 +1435,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.gpuErrors = resolveGPUHost().GPUErrorLog.forDevice(this.device);
                 if (this.options.strict) this.gpuErrors.strict = true;
                 this.watchForDeviceLoss();
+                if (this.options.diagnostics) await this.enableDiagnostics();
                 return this;
             })().catch(error => {
                 this.failed = error;
@@ -1782,6 +1782,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
             this.sessionKey = key;
             stateFactory.activateSession(this, state);
+            if (this.diagnosticsEnabled && !this.lastDraws)
+                this.lastDraws = { fixed: null, programmable: null };
             if (previousKey !== null) {
                 ++this.stats.sessionChanges;
                 if (this.stats.sessionChanges === 1)
@@ -1979,7 +1981,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.activeOcclusion = null;
             this.presentingDevice = null;
             this.windowState = null;
-            this.lastDraws = { fixed: null, programmable: null };
+            if (this.diagnosticsEnabled) this.lastDraws = { fixed: null, programmable: null };
         }
 
         onSessionEnd(bytes, view, offset, length) {
@@ -2574,7 +2576,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
         }
 
-
         // A guest polling GetData waits for an answer to every query it
         // ended; when the ops that would have produced one are dropped, the
         // answer is FAILED
@@ -2666,72 +2667,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // Records and submits one frame's ops (finishFrame's body)
         replayFrame(frame, present, frameValid) { return this.frameReplayer.replayFrame(frame, present, frameValid); }
 
-        // v86gl.d3d9Executor.debug.dumpSmallTextures() -> data: URLs that can
-        // be opened straight from the console. Only uncompressed top-level
-        // images up to 64x64 are retained (see onUpdateTexture).
-        dumpSmallTextures(options) {
-            const settings = options || {};
-            const out = [];
-            for (const [handle, resource] of this.resources) {
-                if (!resource.preview) continue;
-                if (settings.handle !== undefined && handle !== settings.handle)
-                    continue;
-                const { width, height, rgba } = resource.preview;
-                let url = null;
-                let error = null;
-                try {
-                    // A plain <canvas>, not OffscreenCanvas: only the former
-                    // has toDataURL. OffscreenCanvas offers convertToBlob,
-                    // which is async and cannot be returned from here -- that
-                    // mismatch is why the first version of this helper
-                    // reported url: null for every texture.
-                    if (typeof document === "undefined")
-                        throw new Error("no document to render into");
-                    const canvas = document.createElement("canvas");
-                    canvas.width = width;
-                    canvas.height = height;
-                    const context = canvas.getContext("2d");
-                    const image = context.createImageData(width, height);
-                    image.data.set(rgba.subarray(0, width * height * 4));
-                    context.putImageData(image, 0, 0);
-                    url = canvas.toDataURL();
-                } catch (failure) {
-                    error = failure && failure.message ? failure.message
-                        : String(failure);
-                }
-                const entry = { handle, format: resource.format,
-                    formatName: TEXTURE_FORMAT_NAMES[resource.format] ||
-                        ("0x" + (resource.format >>> 0).toString(16)),
-                    size: width + "x" + height,
-                    declaredLevels: resource.levelCount,
-                    uploadedLevels: resource.uploadedLevels
-                        ? [...resource.uploadedLevels].sort((a, b) => a - b) : null,
-                    url, error };
-                out.push(entry);
-                // Rendering them inline is the point of the helper: a data URL
-                // in a console row is unreadable, an actual picture answers
-                // "is the texture data wrong?" at a glance.
-                if (settings.log !== false && url) {
-                    const scale = Math.max(1, Math.round(64 / Math.max(width, height)));
-                    console.log("%c ", "font-size:0;padding:" +
-                        (height * scale / 2) + "px " + (width * scale / 2) +
-                        "px;background:url(" + url +
-                        ") no-repeat center/contain;image-rendering:pixelated",
-                        handle, entry.formatName, entry.size);
-                }
-            }
-            return out;
-        }
-
-        // Every distinct pipeline state actually in use, with the raw D3D9
-        // render-state values behind it. Reading the real mix beats guessing
-        // which blend/depth/cull combination a scene is built from.
-        // Prints every translated shader the session has created: its
-        // reflection (which declaration semantics it reads, which varyings it
-        // writes) and, optionally, the generated WGSL. Reading the shader is
-        // the only way to settle questions the pipeline cannot answer -- a
-        // varying that is written but written with a constant looks exactly
-        // like one that is routed correctly, from the outside.
         // Drops every translated shader, in memory and in storage, so the next
         // draw retranslates from the guest's bytecode. The revision guard in
         // D3D9ShaderCache makes this unnecessary going forward, but a cache
@@ -2753,230 +2688,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
             }
             return "shader cache cleared -- reload to retranslate";
-        }
-
-        dumpShaders(options) {
-            options = options || {};
-            const rows = [];
-            for (const [handle, resource] of this.resources) {
-                if (resource.kind !== RESOURCE_VERTEX_SHADER &&
-                        resource.kind !== RESOURCE_PIXEL_SHADER) continue;
-                const kind = resource.kind === RESOURCE_VERTEX_SHADER
-                    ? "vertex" : "pixel";
-                const translated = resource.translated;
-                const reflection = translated && translated.reflection;
-                rows.push({
-                    handle, kind,
-                    hash: [resource.hashHigh, resource.hashLow]
-                        .map(value => (value >>> 0).toString(16)
-                            .padStart(8, "0")).join(""),
-                    ok: !!(translated && translated.ok),
-                    error: translated && translated.error,
-                    version: reflection ? reflection.version.major + "." +
-                        reflection.version.minor : null,
-                    // usage*16+usageIndex is how programFor matches a
-                    // declaration element to a shader input, so print the
-                    // semantics rather than the raw register numbers.
-                    inputs: reflection ? reflection.inputs.map(input =>
-                        "v" + input.register + "=usage" + input.usage +
-                        "[" + input.usageIndex + "]") : null,
-                    writtenVaryings: reflection ? reflection.writtenVaryings : null,
-                    samplers: reflection
-                        ? reflection.samplers.map(s => s.index) : null,
-                    warnings: reflection ? reflection.warnings : null,
-                });
-            }
-            if (options.log !== false) {
-                for (const row of rows) console.log("[d3d9-shader]", row);
-            }
-            if (options.wgsl) {
-                for (const [handle, resource] of this.resources) {
-                    if (resource.kind !== RESOURCE_VERTEX_SHADER &&
-                            resource.kind !== RESOURCE_PIXEL_SHADER) continue;
-                    if (options.handle && handle !== options.handle) continue;
-                    if (!resource.translated || !resource.translated.ok) continue;
-                    console.log("[d3d9-shader] handle " + handle + " WGSL:\n" +
-                        resource.translated.wgsl);
-                }
-            }
-            return rows;
-        }
-
-        dumpPipelineStates() {
-            const out = [];
-            for (const [key, pipeline] of this.pipelineCache) {
-                const diagnostic = pipeline._d9wgDiagnostic;
-                if (diagnostic) {
-                    out.push({
-                        ...diagnostic,
-                        vertexBuffers: diagnostic.vertexBuffers.map(layout => ({
-                            ...layout,
-                            attributes: layout.attributes.map(attribute =>
-                                ({ ...attribute })),
-                        })),
-                        samplers: diagnostic.samplers.slice(),
-                        state: JSON.parse(JSON.stringify(diagnostic.state)),
-                        draws: pipeline._d9wgDrawCount || 0,
-                    });
-                    continue;
-                }
-                // Compatibility for a pipeline created before structured
-                // diagnostics existed. Do not try to split the key: a
-                // fixed-function fragment signature legitimately contains
-                // "|", so its fields cannot be recovered unambiguously.
-                out.push({ key, state: null,
-                    draws: pipeline._d9wgDrawCount || 0 });
-            }
-            return out;
-        }
-
-        textureDiagnostic(handle) {
-            const resource = handle ? this.resources.get(handle) : null;
-            if (!resource) return { handle: handle || 0, live: false };
-            return {
-                handle, live: true, kind: resource.kind,
-                type: resource.textureType || "2d",
-                format: resource.format,
-                formatName: TEXTURE_FORMAT_NAMES[resource.format] || null,
-                gpuFormat: resource.gpuFormat || null,
-                width: resource.width, height: resource.height,
-                depth: resource.depth || 1,
-                levels: resource.levelCount,
-                uploadedLevels: resource.uploadedLevels
-                    ? [...resource.uploadedLevels].sort((a, b) => a - b) : null,
-                shadowLevels: [],
-            };
-        }
-
-        drawDiagnostic(reference, path) {
-            if (!reference) return null;
-            const { which, state, elements, geometry, program, pipelineState,
-                targets, pipeline } = reference;
-            const viewport = { ...state.viewport };
-            const scissorEnabled =
-                (state.renderStates.get(D3DRS_SCISSORTESTENABLE) || 0) !== 0 &&
-                !!state.scissorRect;
-            const scissor = scissorEnabled ? { ...state.scissorRect } : null;
-            const clip = intersectRects(viewport, scissor,
-                targets.width, targets.height);
-            const streams = [];
-            for (const [index, binding] of geometry.streams) {
-                const resource = binding.resource || null;
-                const shadow = resource && resource.shadow;
-                const start = Math.max(0, binding.offset || 0);
-                const preview = shadow
-                    ? shadow.subarray(start,
-                        Math.min(shadow.length, start + 64)) : null;
-                streams.push({ index, stride: binding.stride || 0,
-                    offset: binding.offset || 0,
-                    frequency: binding.frequency === undefined
-                        ? 1 : binding.frequency,
-                    resourceBytes: resource ? resource.byteCount : null,
-                    shadowBytes: shadow ? shadow.length : null,
-                    availableVertices: shadow && binding.stride
-                        ? Math.max(0, Math.floor((shadow.length - start) /
-                            binding.stride)) : null,
-                    firstBytes: preview ? [...preview].map(value =>
-                        value.toString(16).padStart(2, "0")).join("") : null,
-                });
-            }
-            let index = null;
-            if (geometry.indexInfo) {
-                const info = geometry.indexInfo;
-                const resource = geometry.indexResource ||
-                    this.resources.get(state.indexBufferHandle);
-                const shadow = resource && resource.shadow;
-                const bytesPerIndex = info.format === "uint32" ? 4 : 2;
-                const scanCount = Math.min(info.count || 0, 4096);
-                const samples = [];
-                let minimum = Infinity, maximum = -Infinity, scanned = 0;
-                if (shadow) {
-                    const view = new DataView(shadow.buffer,
-                        shadow.byteOffset, shadow.byteLength);
-                    for (let item = 0; item < scanCount; ++item) {
-                        const byteOffset = (info.offset || 0) +
-                            ((info.firstIndex || 0) + item) * bytesPerIndex;
-                        if (byteOffset + bytesPerIndex > shadow.length) break;
-                        const value = bytesPerIndex === 4
-                            ? view.getUint32(byteOffset, true)
-                            : view.getUint16(byteOffset, true);
-                        ++scanned;
-                        if (samples.length < 24) samples.push(value);
-                        minimum = Math.min(minimum, value);
-                        maximum = Math.max(maximum, value);
-                    }
-                }
-                index = { format: info.format, count: info.count,
-                    firstIndex: info.firstIndex, baseVertex: info.baseVertex,
-                    bufferOffset: info.offset || 0,
-                    resourceBytes: resource ? resource.byteCount : null,
-                    scanned,
-                    minimum: Number.isFinite(minimum) ? minimum : null,
-                    maximum: Number.isFinite(maximum) ? maximum : null,
-                    samples };
-            }
-            const textureHandles = [...new Set(program.samplerIndices.map(
-                sampler => state.textures.get(sampler) || 0))];
-            return {
-                path, which,
-                shaders: { vertex: state.vertexShaderHandle || 0,
-                    pixel: state.pixelShaderHandle || 0 },
-                program: { vertex: program.vertexKey,
-                    fragment: program.fragmentKey,
-                    fixedPosition: program.fixedFunctionSignature
-                        ? program.fixedFunctionSignature.positionType : null,
-                    fixedTexCoordSets: program.fixedFunctionSignature
-                        ? program.fixedFunctionSignature.texCoordSets.slice() : null,
-                    samplers: program.samplerIndices.slice() },
-                viewport, scissor, effectiveClip: clip,
-                target: { width: targets.width, height: targets.height,
-                    formats: targets.formats.slice(),
-                    hasDepth: targets.hasDepth },
-                pipelineState: JSON.parse(JSON.stringify(pipelineState)),
-                pipelineDraws: pipeline._d9wgDrawCount || 0,
-                elements: elements.map(element => ({ ...element })),
-                streams, index,
-                textures: textureHandles.map(handle =>
-                    this.textureDiagnostic(handle)),
-            };
-        }
-
-        blackScreenReport() {
-            const device = this.presentingDevice ||
-                this.devices.values().next().value || null;
-            const report = {
-                stats: this.getStats(),
-                debug: {
-                    forceSolidAllDraws: !!this.debug.forceSolidAllDraws,
-                    shaderMode: this.debug.shaderMode,
-                    skipProgrammableDraws:
-                        !!this.debug.skipProgrammableDraws,
-                    disableCull: !!this.debug.disableCull,
-                    disableDepthTest: !!this.debug.disableDepthTest,
-                },
-                device: device ? {
-                    handle: device.handle,
-                    viewport: { ...device.viewport },
-                    scissorRect: device.scissorRect
-                        ? { ...device.scissorRect } : null,
-                    shaders: { vertex: device.vertexShaderHandle || 0,
-                        pixel: device.pixelShaderHandle || 0 },
-                    renderStates: Object.fromEntries(device.renderStates),
-                    streams: Array.from(device.streams,
-                        ([index, stream]) => ({ index, ...stream })),
-                    indexBufferHandle: device.indexBufferHandle,
-                } : null,
-                pipelines: this.dumpPipelineStates(),
-                draws: {
-                    fixed: this.drawDiagnostic(this.lastDraws.fixed, "fixed"),
-                    programmable: this.drawDiagnostic(
-                        this.lastDraws.programmable, "programmable"),
-                },
-                shaders: this.dumpShaders({ log: false }),
-                guestReports: (this.guestReports || []).slice(),
-            };
-            console.log("[d3d9-webgpu] black-screen report", report);
-            return report;
         }
 
         getStats() {
@@ -5051,7 +4762,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     };
                 });
                 const missingTexture = textureBindings.some(binding => !binding.live);
-                const diagnostic = {
+                const diagnostic = this.debug.warnOnSuspiciousDraws ? {
                     pixelPath: psResource ? "programmable" : "fixed-function",
                     pixelShader: psResource
                         ? [psResource.hashHigh, psResource.hashLow]
@@ -5071,7 +4782,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     materialAmbient: state.material
                         ? state.material.ambient.slice() : null,
                     globalAmbient: (rs.get(D3DRS_AMBIENT) || 0) >>> 0,
-                };
+                } : null;
                 if (!samplerIndices.length) {
                     ++this.stats.zeroNormalDrawsWithoutTexture;
                     if (state.material && this.debug.warnOnSuspiciousDraws) {
@@ -6038,7 +5749,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return { group, dynamicOffsets };
         }
 
-
         // Every draw path below can bail out for several different reasons,
         // and silently dropping them looks identical to "the app never drew"
         // from the outside -- exactly the blind spot that hid a stalled
@@ -6444,7 +6154,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             ++this.stats.upDrawCalls;
         }
 
-
         // (0,1,2), (0,2,3), (0,3,4)... -- the triangle list a fan of
         // `vertexCount` vertices expands to.
 // D3DRS_FILLMODE for a triangle topology. Returns a replacement geometry, or
@@ -6696,6 +6405,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
     });
     for (const [name, value] of Object.entries(surfaceMethods))
         Object.defineProperty(D3D9WebGPUExecutor.prototype, name, { value, writable: true, configurable: true });
+
+    for (const name of DIAGNOSTIC_REPORTS)
+        Object.defineProperty(D3D9WebGPUExecutor.prototype, name, {
+            configurable: true, writable: true,
+            value(...args) { return this.enableDiagnostics().then(() => this[name](...args)); },
+        });
 
     D3D9WebGPUExecutor.prototype["performanceTimingVersion"] = 1;
     global.D3D9WebGPUExecutor = D3D9WebGPUExecutor;

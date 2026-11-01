@@ -1,0 +1,49 @@
+{
+  "stage": "3I opt-in diagnostics",
+  "date": "2026-11-02",
+  "coreSuites": 131,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "081f4cdbe432d69ff6b7",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Six report helpers and preview/pipeline/draw capture moved to a separately revisioned d9wg_diagnostics.js, absent from the default bundle. Default sessions retain no last-draw references or small-texture previews. enableDiagnostics() or lazy debug reports opt in; browser requests share one load and retry after failure; CommonJS supports synchronous installation.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; documented candidate differences remain.",
+  "logs": {
+    "d3d-stage3i-core.log": "b6b6356fa731b76da0af4cdbd7960e122d76e4fc90f99218e985a7555887d19c",
+    "d3d-stage3i-gpu.log": "7e17695d2dfa89f98dbbe4236addf6e26120614f1fd005dd6c4e35351d52922a",
+    "d3d-stage3i-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3i-native-diagnostics.log": "22f7d8385b38c966ea7906c9609dc16f5d0f8aa7db40376e1e21fb08ad6baef5",
+    "d3d-stage3i-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3i-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3i-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3i-integration.log": "2edf133fcede6e18555f98b55f2f660a9c274a1f20982bb1d092fdf00bc8fa3f",
+    "d3d-stage3i-diagnostics-unit.log": "217772e31bd2e3a7a3f04c697f22119b724f1506d77615e9a37d1ae56d430a38"
+  },
+  "next": "Measure and optimize program/pipeline/uniform hot paths to the stage-3 CPU target, then guest runtime stages.",
+  "executorTests": 175,
+  "diagnosticPixelComparisons": 4096,
+  "diagnosticModuleBytes": 19987,
+  "astIdenticalReportMethods": 6,
+  "drawBenchmark": {
+    "benchmark": "wire decode + two state writes + fixed-function DrawPrimitive recording",
+    "draws": 2000,
+    "rounds": 30,
+    "uncachedFFP": false,
+    "medianMicrosPerDraw": 9.136875000000003,
+    "p90MicrosPerDraw": 10.595770500000015,
+    "device": "no-op counting GPU",
+    "includesReplay": false,
+    "includesGPUTime": false
+  }
+}
