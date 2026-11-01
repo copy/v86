@@ -1,0 +1,21 @@
+{
+  "baseline": "5458632c",
+  "module": "d9wg_ffp.js",
+  "astIdenticalFunctions": [
+    "varyingDeclaration",
+    "alphaTestDiscard",
+    "fixedFunctionLocationFor",
+    "vertexInputDeclaration",
+    "declTypeInputScalar",
+    "uniformBlockLayout",
+    "uniformBlockStruct",
+    "fixedVertexUniformLayout",
+    "fixedPixelUniformLayout",
+    "fixedFogFactorExpression",
+    "textureOpExpression",
+    "buildFixedFunctionVertexShader",
+    "buildFixedFunctionPixelShader",
+    "argumentExpression"
+  ],
+  "immutableInstallationDependencies": 57
+}

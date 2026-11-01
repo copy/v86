@@ -1,0 +1,58 @@
+{
+  "stage": "3E1 pure FFP generator and signature module cache",
+  "date": "2026-11-02",
+  "coreSuites": 126,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 160,
+  "normativePixelPasses": 150,
+  "knownPixelFailures": 10,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "finalIndexedOverlayPixels": 8192,
+  "isolationPixels": 32768,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "6b5e2b385c039a89dae2",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "astIdenticalFunctions": 14,
+  "benchmark": {
+    "cached": {
+      "benchmark": "wire decode + two state writes + fixed-function DrawPrimitive recording",
+      "draws": 2000,
+      "rounds": 30,
+      "uncachedFFP": false,
+      "medianMicrosPerDraw": 8.047937499999989,
+      "p90MicrosPerDraw": 10.015187499999996,
+      "device": "no-op counting GPU",
+      "includesReplay": false,
+      "includesGPUTime": false
+    },
+    "uncached": {
+      "benchmark": "wire decode + two state writes + fixed-function DrawPrimitive recording",
+      "draws": 2000,
+      "rounds": 30,
+      "uncachedFFP": true,
+      "medianMicrosPerDraw": 14.08895849999999,
+      "p90MicrosPerDraw": 16.571791999999956,
+      "device": "no-op counting GPU",
+      "includesReplay": false,
+      "includesGPUTime": false
+    },
+    "targetUnder3MicrosAchieved": false
+  },
+  "scope": "Pure generation lives in d9wg_ffp.js with immutable installation dependencies. The executor indexes GPU shader modules by complete state-derived signatures before generation; shader clearing and device teardown invalidate both indexes. Cache tests count calls to the actual generators across public draws.",
+  "warcraft3": "Pinned legacy-upload diagnostic passes unchanged original frozen policy; previously documented candidate differences remain.",
+  "logs": {
+    "d3d-stage3e1-core.log": "d69b1bec15ac4cd561a2c413c0f9986da8154498c87ee658df89cb6ccc338691",
+    "d3d-stage3e1-gpu.log": "2c88f78853c593a9de23c1b5b68aba65e8d3700482d4a0fbf095b9e2c2f2735d",
+    "d3d-stage3e1-war3-counterfactual.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3e1-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3e1-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3e1-integration.log": "c4d533d25b7e884adc7cf3723d9c24875aa7da57d9d3769029135b50bef5c45e"
+  },
+  "next": "FFP semantic fixes, then dynamic pipeline state, draw recording/replay, presentation and diagnostics; guest and shader differential stages remain."
+}

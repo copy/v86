@@ -924,6 +924,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 160 个 GPU 场景中 150 个正向通过、10 个明确偏差；普通、小上传预算、uniform 耗尽配置全部通过。125 组核心、72 组客体、两项站点集成、overlay/隔离、完整存档恢复和 12/12 变异通过。固定旧上传的 Warcraft III 诊断继续通过原冻结策略，既有候选差异未改为新黄金图。
 > - 运行包 `6a92839acfa896bc8bdc`；见 [stage3d2-validation.json](fixtures/d3d-review/stage3d2-validation.json)。接下来推进 FFP 纯生成器和签名缓存；通用绘制中的窄格式写入语义仍需对应验收，单个 draw 的 3 µs 目标尚未实测。
 
+> **阶段 3E1（2026-11-02）：FFP 纯生成器和签名缓存完成。**
+>
+> - `d9wg_ffp.js` 接管纯 WGSL、uniform layout 和固定输入语义辅助函数；14 个函数与 `5458632c` 语法树相同，保留字符串及模板字面量内容。见 [ffp-extraction.json](fixtures/d3d-review/ffp-extraction.json)。
+> - 先按完整的状态签名查 GPU module，再在未命中时生成 WGSL，避免每 draw 重新拼全文；签名包含裁剪平面及完整声明信息，清缓存/设备退出同时失效。新增测试实际拦截生成器调用，公共命令的后续绘制不再调用生成器。
+> - 新增 `tools/d3d_draw_benchmark.mjs`：2,000 draw × 30 轮，另 10 轮预热，计入 wire 解码、两次状态写入和记录，排除重放/驱动/GPU。本机中位数缓存约 8.0 µs、逐 draw 生成约 14.1 µs；**尚未达到 3 µs**，不是游戏帧率测量。
+> - 126 组核心、160 场景的三种配置、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过，旧上传 Warcraft III 对照仍通过原冻结策略。客体源码未改，72 组客体结果沿用 3D2。
+> - 运行包 `6b5e2b385c039a89dae2`；见 [stage3e1-validation.json](fixtures/d3d-review/stage3e1-validation.json)。3E2 接着修复剩余 FFP 语义；10 项已知像素偏差仍明确待办。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

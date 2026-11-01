@@ -33,7 +33,7 @@ function createBuffer(handle, bytes) {
 
 function fvf() { return Buffer.concat([Buffer.from(P.encode("SetFVF", { device_handle: DEVICE, fvf: 2, element_count: 1 })), Buffer.from(P.encode("VertexElement", { type: 2 }))]); }
 
-function frameCommands(includeSetup) {
+function frameCommands(includeSetup, drawCount = 150) {
     const commands = [];
     if (includeSetup) {
         commands.push(command(OP.CREATE_DEVICE, createDevice()));
@@ -45,7 +45,7 @@ function frameCommands(includeSetup) {
     // 150 draws with 300 state writes. CULLMODE alternates between two real
     // pipeline states; TEXTUREFACTOR changes twice per draw but is not read by
     // this untextured cascade, so it must not force a GPU resource allocation.
-    for (let draw = 0; draw < 150; ++draw) {
+    for (let draw = 0; draw < drawCount; ++draw) {
         commands.push(command(OP.SET_RENDER_STATE,
             P.encode("SetRenderState", { device_handle: DEVICE, state: 22, value: draw & 1 ? 1 : 3, reserved: 0 })));
         commands.push(command(OP.SET_RENDER_STATE,
@@ -193,7 +193,9 @@ async function main() {
         "creations, 1 pass, 1 submit");
 }
 
-main().catch(error => {
+if (require.main === module) main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+
+module.exports = { countingWebGPU, frameCommands, batch };
