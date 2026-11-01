@@ -1,0 +1,1934 @@
+{
+  "tolerance": {
+    "cpuAbsolute": 2e-06,
+    "gpuByte": 1
+  },
+  "cases": [
+    {
+      "name": "texture_source_set_one",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 1,
+        "flags": 0,
+        "matrix": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "dimensions": [
+          2,
+          2
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        0.6,
+        0.2,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "texture_count_two",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 0,
+        "flags": 2,
+        "matrix": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0.25,
+          0.125,
+          2,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "dimensions": [
+          2,
+          2
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        0.65,
+        0.275,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "texture_source_set_one_matrix",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 1,
+        "flags": 2,
+        "matrix": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0.25,
+          0.125,
+          2,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "dimensions": [
+          2,
+          2
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        1.45,
+        0.225,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "texture_count_one",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 0,
+        "flags": 1,
+        "matrix": [
+          2,
+          0,
+          0,
+          0,
+          0.25,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "dimensions": [
+          1,
+          0
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 1
+      },
+      "expectedTexture": [
+        0.65,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "texture_projected_count_three",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 0,
+        "flags": 259,
+        "matrix": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0.25,
+          0.125,
+          2,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "dimensions": [
+          2,
+          2
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        0.65,
+        0.275,
+        2,
+        1
+      ]
+    },
+    {
+      "name": "texture_projected_count_four",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 0,
+        "flags": 260,
+        "matrix": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0.25,
+          0.125,
+          0,
+          2
+        ],
+        "dimensions": [
+          3,
+          0
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        0.65,
+        0.275,
+        0.4,
+        2
+      ]
+    },
+    {
+      "name": "texture_projected_negative_q",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 0,
+        "flags": 259,
+        "matrix": [
+          -1,
+          0,
+          0,
+          0,
+          0,
+          -1,
+          0,
+          0,
+          -0.25,
+          -0.125,
+          -2,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "dimensions": [
+          2,
+          2
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        -0.45,
+        -0.425,
+        -2,
+        1
+      ]
+    },
+    {
+      "name": "texture_camera_position",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 131072,
+        "flags": 2,
+        "matrix": [
+          0.25,
+          0,
+          0,
+          0,
+          0,
+          0.25,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0.5,
+          0.5,
+          0,
+          1
+        ],
+        "dimensions": [
+          0,
+          0
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      }
+    },
+    {
+      "name": "texture_camera_normal_inverse_scale",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0.6,
+        0.8,
+        0
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0.5,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 65536,
+        "flags": 2,
+        "matrix": [
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0.5,
+          0.5,
+          0,
+          1
+        ],
+        "dimensions": [
+          0,
+          0
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        0.65,
+        0.9,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "texture_camera_normal_normalized",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0.6,
+        0.8,
+        0
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 1
+      },
+      "lights": [],
+      "world": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0.5,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 65536,
+        "flags": 2,
+        "matrix": [
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0.5,
+          0.5,
+          0,
+          1
+        ],
+        "dimensions": [
+          0,
+          0
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      },
+      "expectedTexture": [
+        0.6755617207941959,
+        0.9681645887845222,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "texture_camera_reflection",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 196608,
+        "flags": 2,
+        "matrix": [
+          0.25,
+          0,
+          0,
+          0,
+          0,
+          0.25,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0.5,
+          0.5,
+          0,
+          1
+        ],
+        "dimensions": [
+          0,
+          0
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      }
+    },
+    {
+      "name": "texture_sphere_map",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color1": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 0,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "texture": {
+        "index": 262144,
+        "flags": 0,
+        "matrix": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "dimensions": [
+          0,
+          0
+        ],
+        "coordinates": [
+          [
+            0.2,
+            0.3,
+            0.4,
+            1
+          ],
+          [
+            0.6,
+            0.2,
+            0,
+            1
+          ]
+        ],
+        "height": 4
+      }
+    }
+  ]
+}

@@ -239,7 +239,7 @@
             if (signature.fogMode)
                 fields.push({ name: "fog_params", type: "vec4<f32>", bytes: 16 });
             for (const stage of signature.coordStages) {
-                if (stage.transformCount > 1 && signature.positionType !== "screen")
+                if (stage.transformCount > 0 && signature.positionType !== "screen")
                     fields.push({ name: "texture_transform" + stage.index,
                         type: "mat4x4<f32>", bytes: 64, source: stage.index });
             }
@@ -789,7 +789,7 @@
                     break;
                 }
                 let expression = raw;
-                if (stage.transformCount > 1 && signature.positionType !== "screen") {
+                if (stage.transformCount > 0 && signature.positionType !== "screen") {
                     // Pad by input dimension: (u,1,0,0), (u,v,1,0),
                     // (u,v,w,1), or the original four components. COUNT only
                     // selects the output elements; generated coordinates keep Z.

@@ -83,6 +83,11 @@ const MUTATIONS = {
             '"select(uniforms.fog_params.y - uniforms.fog_params.x, 1e-30, " +\n                    "uniforms.fog_params.y == uniforms.fog_params.x), 0.0, 1.0)"',
             '"max(uniforms.fog_params.y - uniforms.fog_params.x, 1e-6), 0.0, 1.0)"'],
     ] },
+    d3dtexcoords: { floor: 1, node: [], pages: ["d3d9_software_texcoord_browser_test.html"], list: [
+        ["COUNT1 ignores texture matrix", D + "d9wg_ffp.js",
+            'if (stage.transformCount > 0 && signature.positionType !== "screen") {',
+            'if (stage.transformCount > 1 && signature.positionType !== "screen") {'],
+    ] },
     glresidency: { floor: 1, node: ["gl_shadow_textures_test.js"], pages: [], list: [
         ["unused texture names are resident", G + "gl_shadow_textures.js", "checkName && (!texture || !s.current.group.textures.get(texture)?.target)", "false"],
         ["generated names are texture objects before binding", G + "gl_shadow_textures.js", "!s.current.group.textures.get(texture)?.target", "!s.current.group.textures.has(texture)"],
