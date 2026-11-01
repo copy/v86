@@ -1,0 +1,32 @@
+{
+  "baseline": "0319312f",
+  "astIdenticalMethods": [
+    "retireDeviceBackBuffer",
+    "retireActiveSessionBackBuffer",
+    "resizeCanvasIfNeeded",
+    "ensureBackBufferTexture",
+    "selectDeviceBackBuffer",
+    "deviceBackBuffer",
+    "backBufferWidthOf",
+    "backBufferHeightOf",
+    "configureBackBufferMSAA",
+    "notifySurface",
+    "onPresent",
+    "onCreateSwapChain",
+    "onDestroySwapChain",
+    "onPresentSwapChain",
+    "notifySwapChainSurface",
+    "onSetGammaRamp",
+    "presentGammaView",
+    "onSetCursorProperties",
+    "onSetCursorPosition",
+    "onShowCursor",
+    "applyWindowStateGeometry",
+    "onWindowState"
+  ],
+  "astEquivalentPresentationBranches": [
+    "encodePrimaryPresent",
+    "encodeSwapChainPresent"
+  ],
+  "branchLowering": "executor to lexical this; swap-chain terminal continue and closePass remain in caller; any early loop continues lower to helper returns"
+}

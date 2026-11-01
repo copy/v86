@@ -1,0 +1,34 @@
+{
+  "stage": "3H1 presentation module extraction",
+  "date": "2026-11-02",
+  "coreSuites": 130,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "426ba2aeabb3f85b3c2f",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "astIdenticalMethods": 22,
+  "astEquivalentPresentationBranches": 2,
+  "scope": "d9wg_present.js owns retained back-buffer and MSAA setup, swap-chain surfaces, window placement, gamma/cursor commands, and final scanout encoding. Surface pipelines remain shared utility methods. Device/session ownership and frame pass boundaries are preserved.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; documented candidate differences remain.",
+  "logs": {
+    "d3d-stage3h1-core.log": "c26936d2e64886298f5e27b6ee8b21c23053af7c90fcb571daf50d47cb076e17",
+    "d3d-stage3h1-gpu.log": "4e25d9da0faadbcef073aa63495a8db7d8a08e2e57e6c0f0f13dfb38aa0d1290",
+    "d3d-stage3h1-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3h1-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3h1-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3h1-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3h1-integration.log": "fc9ff73280b5ed82f165f3df4b64bddb297c16f37cc451756e74d98e9f9758f3"
+  },
+  "next": "Drain queued swap-chain presentation before context retirement, cover empty present without a device, then diagnostics and final CPU optimization."
+}

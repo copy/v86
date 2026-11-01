@@ -989,6 +989,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - CPU 采样指出重复静态管线 key、程序签名和 uniform layout 构造仍占主要成本，尚未达到单 draw 3 µs。后续模块完成后继续针对这些热路径优化，不用推测代替测量。
 > - 运行包 `7274a57750560ad63982`；见 [stage3g2-validation.json](fixtures/d3d-review/stage3g2-validation.json)。录制/重放本轮结构和计数工作完成；继续 present、debug diagnostics 及阶段 3 的最终性能验证。
 
+> **阶段 3H1（2026-11-02）：统一呈现模块完成迁移。**
+>
+> - `d9wg_present.js` 接管 retained back buffer / MSAA 配置、交换链 surface、窗口位置、gamma/cursor 命令和最终 scanout；GPU utility pipelines 仍在 surface-ops。设备/会话所有权保持，重放器在原 pass 边界调用呈现方法。
+> - 22 个方法语法树原样保持；主/附加呈现的两段逻辑仅降低 owner 引用及 helper 控制流，附加呈现的 closePass 和终止 continue 保留在调用者。见 [present-extraction.json](fixtures/d3d-review/present-extraction.json)。
+> - **316/316 场景通过 SwiftShader/Metal**；三种预算配置、130 组核心、overlay/隔离、完整恢复、12/12 变异和两项站点集成通过。固定旧语义 Warcraft III 对照满足未改动的原冻结策略。
+> - 运行包 `426ba2aeabb3f85b3c2f`；见 [stage3h1-validation.json](fixtures/d3d-review/stage3h1-validation.json)。3H2 接着处理交换链销毁/替换之前的排队呈现和无设备空呈现，再继续 diagnostics 与 CPU 性能验证。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

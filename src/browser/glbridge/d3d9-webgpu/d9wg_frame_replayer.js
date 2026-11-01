@@ -294,44 +294,8 @@
                         continue;
                     }
                     if (op.kind === "present-swap-chain") {
-                        // An additional chain's canvas is acquired here, in
-                        // the same synchronous stretch as the submit that
-                        // consumes it -- the rule getCurrentTexture() imposes
-                        // applies per canvas, not just to the implicit one.
                         closePass();
-                        let target = null;
-                        try {
-                            target = op.chain.context.getCurrentTexture();
-                        } catch (error) {
-                            ++executor.stats.swapChainPresentsDropped;
-                            executor.warnOnce("swap-chain-acquire",
-                                "an additional swap chain's canvas could not " +
-                                "be acquired; its frame is dropped",
-                                { message: String(error) });
-                        }
-                        if (target) {
-                            const width = Math.min(target.width, op.width);
-                            const height = Math.min(target.height, op.height);
-                            // A blit rather than copyTextureToTexture: the
-                            // chain's back buffer is an ordinary D3D texture,
-                            // so its format is whatever the guest asked for,
-                            // while the canvas is the preferred canvas format.
-                            // A copy requires those to be identical and they
-                            // routinely are not.
-                            if (width && height) {
-                                const transient = executor.replayBlit(encoder, {
-                                    sourceView: op.sourceView,
-                                    destinationView: null,
-                                    destinationFormat: executor.format,
-                                    sourceFormat: op.sourceFormat,
-                                    sourceRect: [0, 0, 1, 1],
-                                    viewport: [0, 0, width, height],
-                                    filterPoint: false,
-                                }, target.createView());
-                                if (transient)
-                                    frame.transientBuffers.push(transient);
-                            }
-                        }
+                        executor.encodeSwapChainPresent(encoder, op, frame);
                         continue;
                     }
                     if (op.kind === "generate-mips") {
@@ -519,83 +483,7 @@
                 // The one place the swap chain is touched, and it happens in
                 // the same synchronous stretch as the submit that consumes it,
                 // which is the whole rule getCurrentTexture() imposes.
-                if (present) {
-                    // Canvas width/height are global even though the retained
-                    // image is per session. Defer this destructive resize until
-                    // the session actually presents, so a capability helper's
-                    // CREATE_DEVICE cannot blank the visible process.
-                    executor.resizeCanvasIfNeeded(executor.backBufferTextureWidth,
-                        executor.backBufferTextureHeight);
-                    const swapTexture = executor.context.getCurrentTexture();
-                    // A canvas resize between recording and here would leave
-                    // the two sizes disagreeing; copying the overlap keeps the
-                    // submit valid instead of failing the whole command buffer.
-                    const copyWidth = Math.min(swapTexture.width,
-                        executor.backBufferTextureWidth);
-                    const copyHeight = Math.min(swapTexture.height,
-                        executor.backBufferTextureHeight);
-                    if (copyWidth && copyHeight) {
-                        let presentSource = backTexture;
-                        if (typeof executor.replayDDOverlays === "function") {
-                            const composite = executor.replayDDOverlays(encoder,
-                                executor.presentingDevice, backTexture,
-                                copyWidth, copyHeight, frame);
-                            if (composite) {
-                                presentSource = composite;
-                                frame.transientBuffers.push(composite);
-                            }
-                        }
-                        // A gamma ramp is applied here, at the one point every
-                        // finished pixel passes through on its way to the
-                        // canvas -- which is where the hardware applies it too.
-                        // The plain copy stays the path for the overwhelmingly
-                        // common identity case, because a lookup pass costs a
-                        // full-screen draw the copy does not.
-                        const gammaView = executor.presentGammaView();
-                        if (gammaView) {
-                            // The configured canvas format, not
-                            // swapTexture.format: the context was configured
-                            // with the former and a pipeline target has to
-                            // match what the pass writes.
-                            const entry = executor.gammaBlitPipelineFor(executor.format);
-                            const pass = encoder.beginRenderPass({
-                                colorAttachments: [{
-                                    view: swapTexture.createView(),
-                                    loadOp: "clear",
-                                    clearValue: { r: 0, g: 0, b: 0, a: 1 },
-                                    storeOp: "store" }],
-                            });
-                            ++executor.stats.renderPasses;
-                            pass.setPipeline(entry.pipeline);
-                            pass.setBindGroup(0, executor.device.createBindGroup({
-                                    layout: entry.bindGroupLayout,
-                                    entries: [
-                                    { binding: 0,
-                                      resource: presentSource.createView() },
-                                    { binding: 1, resource: entry.sampler },
-                                    { binding: 2, resource: gammaView },
-                                ],
-                            }));
-                            pass.setViewport(0, 0, copyWidth, copyHeight, 0, 1);
-                            pass.draw(6);
-                            pass.end();
-                            ++executor.stats.gammaPresents;
-                        } else {
-                            encoder.copyTextureToTexture(
-                                { texture: presentSource },
-                                { texture: swapTexture },
-                                { width: copyWidth, height: copyHeight,
-                                    depthOrArrayLayers: 1 });
-                        }
-                        ++executor.stats.backBufferPresents;
-                    }
-                    // Drawn onto the canvas copy rather than the back buffer,
-                    // so the cursor never accumulates into the image the next
-                    // frame loads or GetRenderTargetData reads.
-                    const cursorTransient = executor.drawCursor(encoder, swapTexture.createView(),
-                        swapTexture.width, swapTexture.height);
-                    if (cursorTransient) frame.transientBuffers.push(cursorTransient);
-                }
+                if (present) executor.encodePrimaryPresent(encoder, frame, backTexture);
                 executor.uploadUniformStaging();
                 executor.device.queue.submit([encoder.finish()]);
                 ++executor.stats.queueSubmits;
