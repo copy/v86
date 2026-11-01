@@ -1064,6 +1064,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 74 组客体测试、两项站点集成通过；35 个 XP 冒烟 EXE 和六个零售/诊断 DLL 严格构建通过，无 CRT 导入。前一阶段的 buffer/discard/失败边界检查继续通过。源码模式断言中对应上传部分已由实际 C 行为测试取代。
 > - 见 [stage4a2-validation.json](fixtures/d3d-review/stage4a2-validation.json)。继续进程唯一 owner、驱动多 owner 和其余共用核心；这些是原生 C 与构建验收，尚不等同于 XP/Wine/游戏完成。
 
+> **阶段 4B1（2026-11-02）：同进程 DirectX 唯一 owner 状态完成。**
+>
+> - 三前端共享进程内 canonical metadata：DMA/file、传输/读回锁、批处理游标、session、resource/shader handle、query slot 及请求号。创建该视图的 DLL 卸载后，视图保留到最后一个前端退出；不持有前端函数指针。
+> - DLL 通知按 Windows loader 的进程级串行化初始化，无新增等待；进程终止不再进入可能由已结束线程持有的锁，由 OS 关闭驱动 handle。DDraw 提交失败也保留共用映射，丢弃不确定批次且不重放。
+> - 实际三个 C DLL 入口验证 canonical 生命周期、批处理/句柄/session 共享、失败加载和终止路径。**真实 XP 通过两种创建者卸载顺序**：D3D9 或 DirectDraw 先卸载，余下前端继续使用原映射；最后卸载才关闭，4 批、恰好 2 次 owner 释放，91 秒。磁盘只读、写入仅 RAM。
+> - 75 组客体测试、35 个 XP 冒烟程序及专用 owner EXE、六个零售/诊断 DLL 构建通过，无 CRT。见 [stage4b1-validation.json](fixtures/d3d-review/stage4b1-validation.json)；可复跑 `tests/glbridge/d3d_process_owner_xp.mjs`，它先构建当前源码。
+> - 继续共用 framing/transport 实现、驱动多进程 owner 和混合 OpenGL 所有权；**本次 XP 检查不涉及绘制**，Wine API/图像与游戏验收尚未关闭。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

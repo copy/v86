@@ -1,0 +1,52 @@
+{
+  "stage": "4B1 process-unique DirectX owner state",
+  "date": "2026-11-02",
+  "guestSuites": 75,
+  "nativeC": "Actual three DLL entry functions share canonical metadata, cursor, resource namespace and session; creator unload preserves other frontends, only last detach ends owner. Failed attach and process termination paths pass.",
+  "xp": {
+    "status": "PASS",
+    "seconds": 91,
+    "batches": 4,
+    "releases": 2,
+    "text": "READY real XP process owner probe\r\nPASS D3D9 creator unload order\r\nPASS DirectDraw creator unload order\r\nPASS all real XP frontend owner checks\r\n",
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpProbeExecutables": 1,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "runtimeImports": false,
+  "scope": "D3D9/D3D8/DDraw share a process-local canonical pagefile mapping holding DMA/file state, locks, batching, handles, query slots and request ids. The mapping survives unload of its creating DLL; no frontend function pointer is retained. DLL notifications provide initialization serialization, with no added synchronization wait. Termination defers handle cleanup to the OS instead of entering possibly orphaned critical sections. DDraw submit failures retain the shared mapping, dropping ambiguous work without replay.",
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/dlls/dllmain"
+  ],
+  "next": "Consolidate framing/transport functions into the C runtime; driver multiple-process owners and mixed OpenGL ownership remain pending. XP test exercises loader/driver ownership only, not rendering or Wine/game conformance.",
+  "sha256": {
+    "glbridge/runtime/d9wg_process.h": "57186e7c91fc4b8adf4ecdf411dffc5963bf8168fde38122c628728081719608",
+    "glbridge/runtime/d9wg_process.c": "6ce8a28eca62d3bb3e12235f049f1ca186f79017dd414e4fb837223c0d55fe74",
+    "glbridge/runtime/d9wg_process_aliases.h": "bfa186b2f8bd7b9f63cc805dba37e5ed94e794d6c6839764366710c8a8235168",
+    "glbridge/runtime/build.sh": "82317b0934256fce78e641ae452cb6019a9ae56657eb4fdc34acb8934481b9e0",
+    "glbridge/tests/d9wg_process_owner_test.js": "dec57479bc5a406fac5e1a6613818b46942cf8997a898c87d3606c9436aefa6c",
+    "glbridge/sample/d3d_process_owner_test.c": "f84a9ffc70e029ed654b2d19c54649b2887740e94f7153dd8ef187b83481e126",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "272ee612b40683176a2fd94413a8b1636c39f0fe160624e85d5b050514b4b400",
+    "glbridge/d3d9proxy/d3d9.dll": "3da4b1a73ca80c69c9a58465ad773f147af297466f3c71d3496e0b45d7ecee4d",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "6ccc3df6865015f53763c0360a8735526f7f9f205437d958f9da3fb59eb5a3d4",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "7bcb43700828bc3cba1847cfc3f86e49c659d7b5f30af87cc7829ed43f79564f",
+    "glbridge/d3d8proxy/d3d8.dll": "8b16ac09a2e5ad33047f05a3ca221fc131572a2c9ed771dc97f9c6c24286bfc0",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "b24e049910f478f1f2db6b1b6459ac5ed73a68b10e0d1d0e2d5bb81c862950fe",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "c88b5e1e575b7d6f9014216218b1ca883b8ef5ea35c7e0f06062fe5a17de75cb",
+    "glbridge/ddrawproxy/ddraw.dll": "b201bb0be959331cc28e301b4657aa17e6b12b2c5772603634c6610c2124dc9e",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "dc222cb5c17d4216ed44e37fbf87fe59f54e9ca16a7879cb7be1ce5d5051715f"
+  },
+  "logs": {
+    "d3d-stage4b1-guest.log": "6f721a14cbdbb5264ab9d1d861c9e60d5af8b953bb94c395701d004835bbec77",
+    "d3d-stage4b1-owner.log": "f8fbdd2d4a1e4ded40955147f2281a405d38ee8d6efcf97ecbf7ef6cf1d043ff",
+    "d3d-stage4b1-xp.log": "18ca14cb0297ac3ac33fe622ddfe0082a2e134fa5d258799d1a4aa61b77a9698",
+    "d3d-stage4b1-d3d9-smoke-build.log": "2bfcb72e6706babd4b340d28b2b22bfdb0a724d8c96bd19aabc0e18d21d400fb",
+    "d3d-stage4b1-d3d9-diagnostic-build.log": "155f26f8c73e4997d32d5ecbe1ca8d7a488af685ae1b1026e6ca4433affa3fac",
+    "d3d-stage4b1-d3d8-smoke-build.log": "2e1675e7cc91c37b1882e4f6bb7fa6f478da521e7de37871cb416946c8469ab4",
+    "d3d-stage4b1-d3d8-diagnostic-build.log": "dd684857b5300340e67da5f392736d39e7369fb666bbf37f7553450a977f40e1",
+    "d3d-stage4b1-ddraw-smoke-build.log": "166b0ac50dfa0a0a89bafb551092bc14f0a0d698eaa56381452e83163ef48bf4",
+    "d3d-stage4b1-ddraw-diagnostic-build.log": "62ee959195890ba7bf73b81a4ec1de84296d60bf804e08327195a48b36536fae"
+  }
+}
