@@ -1,0 +1,54 @@
+{
+  "stage": "3E2 FFP correctness repairs",
+  "date": "2026-11-02",
+  "coreSuites": 126,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 164,
+  "normativePixelPasses": 164,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "finalIndexedOverlayPixels": 8192,
+  "isolationPixels": 32768,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "b1ff7db2ef58bbd8fe9c",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "repairs": [
+    "unbound fixed-function texture operations select CURRENT",
+    "only used texture arguments affect sampling/keys",
+    "alpha comparison quantizes to UNORM8",
+    "XYZRHW reconstructs clip W for perspective interpolation",
+    "screen vertex fog uses specular alpha",
+    "affine/perspective table fog selects Z/W through a uniform",
+    "missing material source colours fall back to material",
+    "default D3D9 material is zero",
+    "DOT3 writes alpha",
+    "bump layout preserves source metadata"
+  ],
+  "warcraft3": {
+    "legacyUNormAndUploadsOnly": "FAIL against unchanged old frozen golden",
+    "differingBytes": 654,
+    "differingPixels": 282,
+    "legacyUNormUploadsAndFFP": "PASS unchanged old frozen policy",
+    "pinnedLegacyFFP": "46a46b4e",
+    "hostErrors": 0,
+    "gpuErrors": 0,
+    "limitation": "The added counterfactual isolates this stage delta to FFP semantics as a group. It does not establish native Windows correctness of every changed game pixel. No golden image or policy was retrained."
+  },
+  "logs": {
+    "d3d-stage3e2-core.log": "37bcf1d2dce247b10a57d1e728f9a43e3be1f776c640d9a17a52081830fa4114",
+    "d3d-stage3e2-gpu.log": "49c3b3d12fa69ea5afdb4b87f03ab329a9711d9e491a5c8f998e1d6e9b1e8602",
+    "d3d-stage3e2-pixels.log": "3e55f6afa2a8127a394cca08715dba60dcac466c322633d094c50f2391924245",
+    "d3d-stage3e2-war3-counterfactual.log": "cea7db42c6f6b06bef24bc48782d72f74a583db0b67e540b8cb5cfc66c576816",
+    "d3d-stage3e2-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3e2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3e2-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3e2-integration.log": "da6b48823426ffa274900bb4864bd956d9697606c6b9896f3321828ae6d4dba7"
+  },
+  "next": "Input-dimension texture transforms and legacy programmable pixel fog remain FFP work, followed by dynamic pipeline state and remaining stage 3 modules."
+}

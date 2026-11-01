@@ -6,9 +6,12 @@ import { createRequire as create_require } from "node:module";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
-const legacy_textures = process.argv[3] === "--legacy-uploads";
-const legacy_buffers = legacy_textures || process.argv[3] === "--legacy-buffers";
-if(process.argv[3] && !legacy_buffers) throw new Error("Unknown diagnostic mode");
+const flags = process.argv.slice(3);
+const legacy_ffp = flags.includes("--legacy-ffp");
+const legacy_textures = flags.includes("--legacy-uploads");
+const legacy_buffers = legacy_textures || flags.includes("--legacy-buffers");
+if(flags.some(flag => !["--legacy-uploads", "--legacy-buffers", "--legacy-ffp"].includes(flag)))
+    throw new Error("Unknown diagnostic mode");
 const prefix = process.argv[2] || "d9wg-warcraft3-worker";
 if(!/^[a-z0-9_-]+$/.test(prefix)) throw new Error("Invalid local trace prefix");
 const override = `// Private counterfactual: only restore pre-review narrow-UNORM widening.
@@ -63,5 +66,28 @@ if(legacy_buffers) {
         if (file === "d3d9-webgpu/d9wg_formats.js")`);
     await fs.writeFile(path.join(directory, "replay_legacy_unorm.html"), html);
 }
-const query = new URLSearchParams({ prefix, policy: "frozen", label: (legacy_textures ? "legacy-unorm-uploads-" : legacy_buffers ? "legacy-unorm-buffers-" : "legacy-unorm-") + Date.now() });
+if(legacy_ffp) {
+    // Use the last pure-extraction revision. Temporarily evaluate its class
+    // closure so its helpers and uniform layouts remain exactly as committed.
+    const read_pinned = name => execFileSync("git", ["show", "46a46b4e:src/browser/glbridge/d3d9-webgpu/" + name], { cwd: root, encoding: "utf8" });
+    const methods = ["fixedModuleFor", "programFor", "fixedFunctionVertexSignature", "textureCascadeSignature",
+        "lightingSignature", "coordStagePlan", "writeFixedVertexUniforms", "writeFixedPixelUniforms"];
+    const code = `(function() {
+        const Candidate = globalThis.D3D9WebGPUExecutor, factory = globalThis.D9WGFFP;
+        const install = globalThis.installD3D9WebGPUExecutor;
+        ${read_pinned("d9wg_ffp.js")}
+        ${read_pinned("d3d9_executor.js")}
+        const Legacy = globalThis.D3D9WebGPUExecutor;
+        globalThis.D3D9WebGPUExecutor = Candidate;
+        globalThis.D9WGFFP = factory;
+        globalThis.installD3D9WebGPUExecutor = install;
+        for (const name of ${JSON.stringify(methods)}) Candidate.prototype[name] = Legacy.prototype[name];
+    })();`;
+    await fs.writeFile(path.join(directory, "legacy_ffp_override.js"), code);
+    html = html.replace('if (file === "d3d9-webgpu/d9wg_formats.js")',
+        `if (file === "d3d9-webgpu/d3d9_executor.js") document.write('<script src="/build/d3d-review/legacy_ffp_override.js"><\\/script>');
+        if (file === "d3d9-webgpu/d9wg_formats.js")`);
+    await fs.writeFile(path.join(directory, "replay_legacy_unorm.html"), html);
+}
+const query = new URLSearchParams({ prefix, policy: "frozen", label: (legacy_ffp ? "legacy-ffp-" : "") + (legacy_textures ? "legacy-unorm-uploads-" : legacy_buffers ? "legacy-unorm-buffers-" : "legacy-unorm-") + Date.now() });
 process.stdout.write("../../build/d3d-review/replay_legacy_unorm.html?" + query + "\n");

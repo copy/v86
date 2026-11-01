@@ -932,6 +932,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 126 组核心、160 场景的三种配置、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过，旧上传 Warcraft III 对照仍通过原冻结策略。客体源码未改，72 组客体结果沿用 3D2。
 > - 运行包 `6b5e2b385c039a89dae2`；见 [stage3e1-validation.json](fixtures/d3d-review/stage3e1-validation.json)。3E2 接着修复剩余 FFP 语义；10 项已知像素偏差仍明确待办。
 
+> **阶段 3E2（2026-11-02）：已有 10 项 FFP 像素偏差全部修复。**
+>
+> - 无纹理的操作改选 CURRENT，采样/颜色键/签名只读实际使用的参数；DOT3 同时写 alpha。alpha test 量化到 UNORM8 后比较；XYZRHW 重建 clip W，保留透视插值。预变换顶点雾取 specular alpha；table fog 通过 uniform 按投影第四列选择 Z/W。缺失材质颜色源回退材质，默认材质改为全零；uniform layout 保留 bump 来源元数据。
+> - 移除全部 10 条已知失败登记，新增 RHW、透视 W 雾、未使用纹理颜色键、默认材质四项：**164/164 正向通过、0 已知偏差**。三种预算配置、126 组核心（严格 corpus）、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。删除已被像素测试取代的旧 alpha 小数字面量/W 固定来源断言。
+> - Warcraft III 在旧 UNORM/上传对照下新增 654 字节、282 像素差异，零宿主/GPU 错误。工具新增 `--legacy-ffp`，固定 `46a46b4e` 的生成器、签名和 uniform writer 后通过**原有**冻结策略，定位到本阶段 FFP 语义组；尚不能据此声称每个变化像素已通过 Windows 原生对照。黄金图和策略未更新。
+> - 运行包 `b1ff7db2ef58bbd8fe9c`；见 [stage3e2-validation.json](fixtures/d3d-review/stage3e2-validation.json)。3E3 继续 S2-19 的输入维度变换及 S2-4 的 ps<3 雾；0 已知偏差仅描述当前已建立的像素套件，不代表整个审查完成。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

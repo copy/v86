@@ -65,15 +65,16 @@
         // condition, i.e. the negation of "the fragment passes".
         function alphaTestDiscard(alphaTest, alphaExpression) {
             if (!alphaTest || !alphaTest.enabled) return "";
-            const reference = (alphaTest.reference / 255).toFixed(6);
+            const reference = (alphaTest.reference & 255) + "u";
+            const alpha = "u32(clamp(" + alphaExpression + ", 0.0, 1.0) * 255.0 + 0.5)";
             const condition = {
-                1: "true",                                        // NEVER
-                2: "!(" + alphaExpression + " < " + reference + ")",   // LESS
-                3: "!(" + alphaExpression + " == " + reference + ")",  // EQUAL
-                4: "!(" + alphaExpression + " <= " + reference + ")",  // LESSEQUAL
-                5: "!(" + alphaExpression + " > " + reference + ")",   // GREATER
-                6: "!(" + alphaExpression + " != " + reference + ")",  // NOTEQUAL
-                7: "!(" + alphaExpression + " >= " + reference + ")",  // GREATEREQUAL
+                1: "true", // NEVER
+                2: "!(" + alpha + " < " + reference + ")",
+                3: "!(" + alpha + " == " + reference + ")",
+                4: "!(" + alpha + " <= " + reference + ")",
+                5: "!(" + alpha + " > " + reference + ")",
+                6: "!(" + alpha + " != " + reference + ")",
+                7: "!(" + alpha + " >= " + reference + ")",
             }[alphaTest.func];
             if (!condition) return ""; // ALWAYS (8) and anything unknown: no test
             return "    if (" + condition + ") { discard; }\n";
@@ -164,8 +165,7 @@
                     throw new Error("fixed-function uniform field " + field.name +
                         " is not 16-byte aligned; WGSL uniform layout would " +
                         "silently disagree with the writer");
-                entries.push({ name: field.name, type: field.type,
-                    bytes: field.bytes, offset, source: field.source });
+                entries.push({ ...field, offset });
                 offset += field.bytes;
             }
             return { entries, byteLength: Math.max(16, offset),
@@ -320,6 +320,23 @@
         // Only the operations fill_caps() lists in TextureOpCaps appear here.
         // Returning null makes the caller count the draw and fall back to
         // SELECTARG1 rather than inventing an approximation.
+        function textureOpArguments(op) {
+            if (op === D3DTOP_DISABLE) return [];
+            if (op === D3DTOP_SELECTARG1) return [1];
+            if (op === D3DTOP_SELECTARG2 || op === D3DTOP_BUMPENVMAP || op === D3DTOP_BUMPENVMAPLUMINANCE) return [2];
+            return op === D3DTOP_MULTIPLYADD || op === D3DTOP_LERP ? [0, 1, 2] : [1, 2];
+        }
+        function textureOpReadsTexture(op, args) {
+            return op === D3DTOP_BLENDTEXTUREALPHA || op === D3DTOP_BLENDTEXTUREALPHAPM ||
+                op === D3DTOP_BUMPENVMAP || op === D3DTOP_BUMPENVMAPLUMINANCE ||
+                textureOpArguments(op).some(index => (args[index] & D3DTA_SELECTMASK) === D3DTA_TEXTURE);
+        }
+        function normalizeTextureOperation(op, args, hasTexture) {
+            if (!hasTexture && textureOpReadsTexture(op, args)) return { op: D3DTOP_SELECTARG1, args: [D3DTA_CURRENT, D3DTA_CURRENT, D3DTA_CURRENT] };
+            const used = textureOpArguments(op);
+            return { op, args: args.map((value, index) => used.includes(index) ? value : D3DTA_CURRENT) };
+        }
+
         function textureOpExpression(op, type, args, blend) {
             const one = type === "vec3<f32>" ? "vec3<f32>(1.0)" : "1.0";
             const half = type === "vec3<f32>" ? "vec3<f32>(0.5)" : "0.5";
@@ -530,7 +547,8 @@
                 ? `    let viewport = uniforms.viewport;
     let ndc_x = ((${position}.x - viewport.z) / viewport.x) * 2.0 - 1.0;
     let ndc_y = 1.0 - ((${position}.y - viewport.w) / viewport.y) * 2.0;
-    result.position = vec4<f32>(ndc_x, ndc_y, ${position}.z, 1.0);`
+    let clip_w = 1.0 / select(${position}.w, 1.0, ${position}.w == 0.0);
+    result.position = vec4<f32>(ndc_x, ndc_y, ${position}.z, 1.0) * clip_w;`
                 : "    result.position = uniforms." +
                     (blend ? "view_projection" : "world_view_projection") +
                     " * " + blendedPosition + ";")
@@ -586,8 +604,8 @@
                 // colours is tinted by them rather than by the material alone.
                 const sourceExpression = (source, materialField) => {
                     if (!lighting.colorVertex) return "uniforms." + materialField;
-                    if (source === D3DMCS_COLOR1) return "vertex_diffuse";
-                    if (source === D3DMCS_COLOR2) return "vertex_specular";
+                    if (source === D3DMCS_COLOR1 && signature.hasColor) return "vertex_diffuse";
+                    if (source === D3DMCS_COLOR2 && signature.hasColor1) return "vertex_specular";
                     return "uniforms." + materialField;
                 };
                 colorBody +=
@@ -690,7 +708,10 @@
                 : signature.fogRange ? "length(position_view.xyz)" : "abs(position_view.z)";
             const fogFactor = fixedFogFactorExpression(signature.fogMode,
                 "fog_distance");
-            const fogBody = fogFactor
+            const fogBody = signature.fogMode && (signature.positionType === "screen" || signature.fogMode === "factor")
+                ? "    result.varying" + shaderPipeline.VARYING_FOG + " = vec4<f32>(" +
+                    (signature.hasColor1 ? "clamp(vertex_specular.a, 0.0, 1.0)" : "1.0") + ", 0.0, 0.0, 0.0);\n"
+                : fogFactor
                 ? "    let fog_distance = " + fogDistance + ";\n" +
                   "    result.varying" + shaderPipeline.VARYING_FOG +
                   " = vec4<f32>(" + fogFactor + ", 0.0, 0.0, 0.0);\n"
@@ -1094,7 +1115,8 @@ ${coordBody}${fogBody}${clipBody}${pointBody}    return result;
                 alphaArgs.alpha1 = alpha(stage.colorArg1);
                 const colorExpression = textureOpExpression(stage.colorOp,
                     "vec3<f32>", colorArgs, blendAlpha[stage.colorOp] || "0.0");
-                const alphaExpression = stage.alphaOp === D3DTOP_DISABLE ? null
+                const alphaExpression = stage.colorOp === D3DTOP_DOTPRODUCT3 ? "stage_rgb.x"
+                    : stage.alphaOp === D3DTOP_DISABLE ? null
                     : textureOpExpression(stage.alphaOp, "f32", alphaArgs,
                         blendAlpha[stage.alphaOp] || "0.0");
                 const destination = stage.resultArg === D3DTA_TEMP ? "temp" : "current";
@@ -1144,8 +1166,8 @@ ${coordBody}${fogBody}${clipBody}${pointBody}    return result;
                     : "clamp(stage_in.varying" + shaderPipeline.VARYING_FOG +
                       ".x, 0.0, 1.0)";
                 const tableDistance = signature.tableFog && tableFactor
-                    ? "    let fog_distance = 1.0 / " +
-                      "max(abs(stage_in.position.w), 1e-6);\n"
+                    ? "    let fog_distance = select(1.0 / max(abs(stage_in.position.w), 1e-6), " +
+                        "stage_in.position.z, uniforms.fog_params.w != 0.0);\n"
                     : "";
                 fogBody = tableDistance +
                     "    result = vec4<f32>(mix(uniforms.fog_color.rgb, result.rgb,\n" +
@@ -1190,7 +1212,7 @@ ${specularBody}${alphaTestDiscard(signature.alphaTest, "result.a")}${fogBody}   
         function signatureKey(stage, signature, debugMode) {
             return "ff" + stage + ":" + JSON.stringify([signature, debugMode || ""]);
         }
-        return { signatureKey, VARYING_COUNT, VARYING_COLOR0, D3DSHADE_FLAT, D3DSHADE_GOURAUD, varyingDeclaration, VARYING_TEXCOORD0, FF_LOCATION_POSITION, FF_LOCATION_COLOR0, FF_LOCATION_COLOR1, FF_LOCATION_NORMAL, FF_LOCATION_TEXCOORD0, FF_LOCATION_PSIZE, FF_LOCATION_BLENDWEIGHT, FF_LOCATION_BLENDINDICES, alphaTestDiscard, fixedFunctionLocationFor, vertexInputDeclaration, declTypeInputScalar, uniformBlockLayout, uniformBlockStruct, HALF_PIXEL_OFFSET_BODY, fixedVertexUniformLayout, fixedPixelUniformLayout, fixedFogFactorExpression, textureOpExpression, buildFixedFunctionVertexShader, buildFixedFunctionPixelShader };
+        return { normalizeTextureOperation, textureOpArguments, textureOpReadsTexture, signatureKey, VARYING_COUNT, VARYING_COLOR0, D3DSHADE_FLAT, D3DSHADE_GOURAUD, varyingDeclaration, VARYING_TEXCOORD0, FF_LOCATION_POSITION, FF_LOCATION_COLOR0, FF_LOCATION_COLOR1, FF_LOCATION_NORMAL, FF_LOCATION_TEXCOORD0, FF_LOCATION_PSIZE, FF_LOCATION_BLENDWEIGHT, FF_LOCATION_BLENDINDICES, alphaTestDiscard, fixedFunctionLocationFor, vertexInputDeclaration, declTypeInputScalar, uniformBlockLayout, uniformBlockStruct, HALF_PIXEL_OFFSET_BODY, fixedVertexUniformLayout, fixedPixelUniformLayout, fixedFogFactorExpression, textureOpExpression, buildFixedFunctionVertexShader, buildFixedFunctionPixelShader };
     }
     const api = { createGenerator };
     global.D9WGFFP = api;

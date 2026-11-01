@@ -60,7 +60,7 @@
             view.setFloat32(o, v[0], true);
             view.setFloat32(o + 4, v[1], true);
             view.setFloat32(o + 8, v[2], true);
-            view.setFloat32(o + 12, 1, true);
+            view.setFloat32(o + 12, v[5] === undefined ? 1 : v[5], true);
             view.setUint32(o + 16, v[3] >>> 0, true);
             view.setUint32(o + 20, (v[4] === undefined ? 0xFF000000 : v[4]) >>> 0, true);
         });
@@ -303,14 +303,7 @@
           probes: [{ at: [32, 32], expect: [0, 255, 0] }, { at: [8, 8], expect: [0, 0, 255] }] },
     ];
 
-    const KNOWN_FAILURES = {
-        "SRCALPHA/INVSRCALPHA blends half-transparent red over blue (untextured stage 0 alpha)":
-            "S2-3: a stage reading TEXTURE with no texture bound samples white",
-        "alpha test GREATER 0x80 discards alpha 0x80 and keeps 0x81":
-            "S2-6: alpha test compares unquantised alpha with a decimal literal",
-        "vertex fog on pre-transformed vertices takes the factor from specular alpha":
-            "S2-2: XYZRHW vertices get no fog",
-    };
+    const KNOWN_FAILURES = {};
 
     // The setup every case starts from: device `dev`, render target(s), full
     // viewport, a clear, lighting off, the pre-transformed FVF

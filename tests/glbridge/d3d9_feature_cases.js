@@ -327,14 +327,22 @@
             wire("ColorFill", { device_handle: dev, texture_handle: rt + 1, color: 0xff0000ff, left: 32, right: 64, bottom: 64 }),
             blit(dev, rt + 1, rt, mirror ? P.C.D9WG_DDBLT_MIRROR_X : 0)],
         probes: [{ at: [16, 32], expect: mirror ? [0, 0, 255] : [255, 0, 0] }, { at: [48, 32], expect: mirror ? [255, 0, 0] : [0, 0, 255] }] });
-    // Measured failures on 8fd2beae; never suppress infrastructure errors.
-    // Fixing any listed pixel result makes the page fail until its entry is
-    // removed, so this is a repair queue rather than a permanent tolerance.
-    for (const name of ["EXP", "EXP2", "LINEAR"])
-        suite.KNOWN_FAILURES["table fog " + name] = "S2-2 extension: affine projection requires Z, not W, table fog";
-    suite.KNOWN_FAILURES["DOTPRODUCT3 colour overrides separate alpha operation"] = "S2-20: colour DOT3 must also replace alpha";
-    suite.KNOWN_FAILURES["missing vertex COLOR1 falls back to diffuse material"] = "S2-5: absent colour input must use material";
-    for (const name of ["BUMPENVMAP", "BUMPENVMAPLUMINANCE"])
-        suite.KNOWN_FAILURES["texture op " + name + " offsets next-stage coordinates"] = "S3 FFP: uniformBlockLayout drops bumpSource/bumpLuminanceSource metadata";
+    add("fog", { name: "perspective projection selects W table fog", body: dev => [
+        rs(dev, 28, 1), rs(dev, 34, 0x0000ff00), rs(dev, 35, 3), rs(dev, 36, f(0)), rs(dev, 37, f(4)),
+        wire("SetTransform", { device_handle: dev, state: 3, matrix: [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0.5, 1, 0, 0, 0, 0] }),
+        ...drawXYZ(dev, fullXYZ(2, 0xffff0000))], probes: [{ at: [32, 32], expect: [128, 128, 0], tolerance: 1 }] });
+    add("rasterization", { name: "XYZRHW preserves reciprocal W for perspective colour interpolation", body: dev => [
+        draw(dev, [[0, 0, 0.5, 0xffff0000, 0, 1], [64, 0, 0.5, 0xff0000ff, 0, 0.25], [0, 64, 0.5, 0xffff0000, 0, 1]])],
+        probes: [{ at: [16, 16], expect: [235, 0, 20, 255], tolerance: 1 }] });
+    add("texture-ops", { name: "unused texture arguments cannot activate a stale source colour key", body: dev => [
+        ...texture(dev, dev + 0x500000, ["A8R8G8B8", 21, [0, 0, 255, 255]]),
+        wire("DDSetColorKey", { surface_handle: dev + 0x500000, present: 1, color_low: 0xff0000, color_high: 0xff0000 }),
+        rs(dev, 41, 1), tss(dev, 0, 1, 3), tss(dev, 0, 2, 2), tss(dev, 0, 3, 0),
+        tss(dev, 0, 4, 2), tss(dev, 0, 5, 0), tss(dev, 0, 6, 2), draw(dev, quad(0, 0, 64, 64, 0.5, 0xff00ff00))],
+        probes: [{ at: [32, 32], expect: [0, 255, 0, 255] }] });
+    add("lighting", { name: "default D3D9 material is entirely zero", body: dev => [rs(dev, 137, 1), rs(dev, 141, 0), rs(dev, 139, 0x00ffffff),
+        wire("SetLight", { device_handle: dev, type: 3, diffuse: [1, 1, 1, 1], direction: [0, 0, 1] }),
+        wire("LightEnable", { device_handle: dev, enable: 1 }), ...litQuad(dev, 0, false)],
+        probes: [{ at: [32, 32], expect: [0, 0, 0, 0] }] });
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

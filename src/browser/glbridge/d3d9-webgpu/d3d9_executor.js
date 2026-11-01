@@ -919,11 +919,9 @@
             : [0, 0, 1];
     }
 
-    // What D3D9 lights with when the app never called SetMaterial. Not all
-    // zeroes: a zero diffuse would render the mesh black, which looks like a
-    // bug in the lighting rather than like missing state.
+    // Retail D3D9 initializes every material component to zero.
     const DEFAULT_MATERIAL = {
-        diffuse: [1, 1, 1, 1], ambient: [1, 1, 1, 1],
+        diffuse: [0, 0, 0, 0], ambient: [0, 0, 0, 0],
         specular: [0, 0, 0, 0], emissive: [0, 0, 0, 0], power: 0,
     };
 
@@ -5049,13 +5047,24 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // unconditionally would declare textures and upload constants a
                 // stage never touches -- and, worse, would leave the app's stale
                 // arg0 deciding what gets bound.
-                const readsArg0 = op =>
-                    op === D3DTOP_MULTIPLYADD || op === D3DTOP_LERP;
-                const argumentsUsed = [stage.colorArg1, stage.colorArg2];
-                if (stage.alphaOp !== D3DTOP_DISABLE)
-                    argumentsUsed.push(stage.alphaArg1, stage.alphaArg2);
-                if (readsArg0(stage.colorOp)) argumentsUsed.push(stage.colorArg0);
-                if (readsArg0(stage.alphaOp)) argumentsUsed.push(stage.alphaArg0);
+                const texture = this.resources.get(state.textures.get(index));
+                const usable = texture && !texture.isDepth;
+                for (const channel of ["color", "alpha"]) {
+                    const normalized = ffp.normalizeTextureOperation(stage[channel + "Op"],
+                        [0, 1, 2].map(argument => stage[channel + "Arg" + argument]), !!usable);
+                    stage[channel + "Op"] = normalized.op;
+                    normalized.args.forEach((argument, i) => { stage[channel + "Arg" + i] = argument; });
+                }
+                // DOT3 writes all four channels; a stale alpha operation and
+                // its arguments neither sample a texture nor affect the key.
+                if (stage.colorOp === D3DTOP_DOTPRODUCT3) {
+                    stage.alphaOp = D3DTOP_DISABLE;
+                    stage.alphaArg0 = stage.alphaArg1 = stage.alphaArg2 = D3DTA_CURRENT;
+                }
+                const argumentsUsed = [
+                    ...ffp.textureOpArguments(stage.colorOp).map(i => stage["colorArg" + i]),
+                    ...ffp.textureOpArguments(stage.alphaOp).map(i => stage["alphaArg" + i]),
+                ];
                 const opsUsed = [stage.colorOp];
                 if (stage.alphaOp !== D3DTOP_DISABLE) opsUsed.push(stage.alphaOp);
                 // Support is per *channel*, not per operation: the
@@ -5084,14 +5093,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         opsUsed.includes(D3DTOP_BLENDTEXTUREALPHAPM);
                 if (opsUsed.includes(D3DTOP_BLENDFACTORALPHA))
                     usesTextureFactor = true;
+                stage.samplesTexture ||= ffp.textureOpReadsTexture(stage.colorOp, []) ||
+                    ffp.textureOpReadsTexture(stage.alphaOp, []);
                 if (stage.samplesTexture) {
-                    const texture = this.resources.get(state.textures.get(index));
                     // A depth texture counts as nothing bound here. The fixed
                     // function cascade has no comparison reference to offer, so
                     // it takes the white fallback and viewForStage() reports
                     // why -- rather than reaching a float layout entry with a
                     // depth view, which is invalid rather than merely wrong.
-                    const usable = texture && !texture.isDepth;
                     stage.textureType = usable ? (texture.textureType || "2d") : "2d";
                     stage.hasTextureBound = !!usable;
                     stage.sampleSwizzle = usable ? samplingSwizzle(texture.format) : "";
@@ -6185,18 +6194,15 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 return { error: "declaration has no POSITION/POSITIONT element " +
                     "and no vertex shader is bound" };
 
-            // Table fog (D3DRS_FOGTABLEMODE) takes precedence over vertex fog
-            // when both are set, which is what D3D9 does. Screen-space XYZRHW
-            // geometry is excluded: it has no eye-space depth to fog against.
+            // Table fog wins over vertex fog. Transformed vertices supply
+            // their vertex factor in specular alpha, irrespective of the mode.
             let fogMode = 0;
             let tableFog = false;
-            if ((rs.get(D3DRS_FOGENABLE) || 0) !== 0 &&
-                    (!fixedVertexSignature ||
-                     fixedVertexSignature.positionType !== "screen")) {
+            if ((rs.get(D3DRS_FOGENABLE) || 0) !== 0) {
                 const table = rs.get(D3DRS_FOGTABLEMODE) || D3DFOG_NONE;
                 tableFog = table !== D3DFOG_NONE;
-                fogMode = tableFog ? table
-                    : (rs.get(D3DRS_FOGVERTEXMODE) || D3DFOG_NONE);
+                fogMode = tableFog ? table : fixedVertexSignature && fixedVertexSignature.positionType === "screen"
+                    ? "factor" : (rs.get(D3DRS_FOGVERTEXMODE) || "factor");
             }
 
             // ---- pixel stage ----
@@ -7442,6 +7448,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     floats[base] = asFloat(D3DRS_FOGSTART, 0);
                     floats[base + 1] = asFloat(D3DRS_FOGEND, 1);
                     floats[base + 2] = asFloat(D3DRS_FOGDENSITY, 1);
+                    const projection = state.transforms.get(D3DTS_PROJECTION) || IDENTITY4x4;
+                    floats[base + 3] = projection[3] === 0 && projection[7] === 0 && projection[11] === 0 && projection[15] === 1 ? 1 : 0;
                 } else if (entry.name === "texture_factor") {
                     writeColor(entry.offset / 4,
                         state.renderStates.get(D3DRS_TEXTUREFACTOR) === undefined
