@@ -210,7 +210,7 @@ test("the device runs the shadow on GL batches, keeps it in its state and resets
     assert.equal(device.shadow_stats().records, records, "a D3D envelope is not walked");
 
     const state = device.get_state();
-    assert.equal(state[0], 3);
+    assert.equal(state[0], 4);
     // the owner unmaps: its contexts end
     assert.equal(request([3, 0, 0, 0, 0, 0]), 0);
     assert.equal(JSON.parse(device.get_state()[6]).contexts.length, 0);

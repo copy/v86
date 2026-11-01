@@ -1,0 +1,37 @@
+{
+  "stage": "4C2 multi-owner virtio device arenas",
+  "date": "2026-11-02",
+  "bundle": "de4f6973b6863625750c",
+  "coreSuites": 133,
+  "siteIntegrationTests": 2,
+  "realVirtqueue": true,
+  "checks": [
+    "feature bit 1 required for nonzero owner word",
+    "legacy OpenGL and two D3D physical arenas coexist",
+    "exact and partial overlaps rejected",
+    "D3D owners reject raw OpenGL streams",
+    "idempotent positive-owner registration preserves response lease",
+    "per-arena writebacks and independent GL inline lifetime",
+    "scoped and idempotent owner release",
+    "queue reset revokes mappings without ending live owners",
+    "exit after reset and before re-registration retires GPU owner",
+    "stable tokens survive checkpoint while write leases renew",
+    "bad snapshot retains live leases",
+    "v2/v3 legacy and v4 multi-owner snapshots read"
+  ],
+  "deviceStateWriteVersion": 4,
+  "graphicsCheckpointBrowserChecks": 26,
+  "guestDriver": "not connected yet; next stage",
+  "sha256": {
+    "src/browser/glbridge/v86gl_device.js": "f84bfa5af5bddc24aa7919b30b7be750481dde70a1a3b6aca88004e6e10031ce",
+    "tests/glbridge/virtio_v86gl_owners_test.js": "5011d526e40162d41120ac12993b03fd073424e567c890728ecef6fd84a40892",
+    "tests/glbridge/gl_shadow_test.js": "a9db6c0537f9cc0a84cc4213e5cce61fa48da5afad57643e4314a7a7b2f1d518"
+  },
+  "logs": {
+    "core": "63505c6bfad4fbfca111a9c1edd0593777d8dc108264ddf1359fb10a5e03f5f6",
+    "core-tail": "e99e81a8ee6f24f5fcf78e2eeeced02a5bb7990aa498d311acaaeb46478f7256",
+    "owners": "a35b85013dde3d77f49faf6c7c8486f922135223cf4cdc4d844a10d6ee7cc00b",
+    "checkpoint-gpu": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "integration": "be1c41b0f6e0abcf128e26b65c1b0a3e5ac8978441c7006b1be2ba1eb8ada5d0"
+  }
+}

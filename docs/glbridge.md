@@ -51,6 +51,22 @@ The guest DLL owns WGL/thread/context rules, client pointers and encoding.
 Large uploads are split into bounded chunks. It does not synthesize a successful
 query after transport failure or replay an ambiguously accepted command.
 
+The private virtio feature bit 1 (`D3D_OWNER_ARENAS`) gives DirectX processes
+independent 16 MiB arenas. With that feature negotiated, the last word of the
+24-byte REGISTER/SUBMIT/UNREGISTER request is a stable nonzero owner token.
+Each positive owner accepts one D9WG envelope per submission. Physical ranges
+must not overlap. Owner zero keeps the existing OpenGL-compatible arena and
+request layout; drivers negotiating only bit 0 continue to work unchanged.
+Repeated registration of the same positive owner/range is idempotent.
+
+A write-back generation belongs to a physical arena lease, separately from the
+stable owner token. Queue reset revokes all write leases while retaining logical
+owners and GPU sessions. UNREGISTER still retires an owner after such a reset,
+even if it has not registered again. Device snapshot v4 saves both the active
+arenas and logical owners, regenerates write leases on restore, and reads the
+older v2/v3 single-arena states. Malformed/overlapping restored arenas are
+rejected before replacing live leases.
+
 ## 2. Get the driver and DLLs
 
 Sources and binaries are in

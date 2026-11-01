@@ -1087,6 +1087,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 两个新增用例在 SwiftShader 与本机 Metal 各通过 16,384 个像素，覆盖 uniform 和上传暂存；132 组宿主测试、316 场景及预算变体、完整存档页、12/12 变异、两项站点集成通过。Warcraft 冻结旧语义对照通过，仍不代表当前全部游戏语义验收。
 > - 运行包 `cca565279ff8d9998d67`；见 [stage4c1-validation.json](fixtures/d3d-review/stage4c1-validation.json)。此阶段是宿主准备，继续设备多 arena 与 XP 驱动，尚未宣称客体多进程通过。
 
+> **阶段 4C2（2026-11-02）：virtio 设备多个 DirectX arena 完成。**
+>
+> - 新协商位 1 启用非零 owner token，owner 0 保留原 OpenGL 请求；独立 16 MiB 物理 arena 拒绝重叠，正 owner 仅接收 D9WG 封包。相同 owner/range 重注册幂等。
+> - stable owner 和物理 write generation 分开；一个进程退出不能撤销另一个进程的回读，D3D 提交也不撤销 GL 的当前 inline 回答。队列超时重置只撤销物理映射，退出时即使未重新注册也能回收逻辑 owner。
+> - 设备存档 v4 保存多个 arena 和逻辑 owner，恢复时更新写租约；继续读取 v2/v3，错误/重叠存档不替换现有映射。真实 PCI/virtqueue/物理内存测试覆盖上述路径。
+> - 133 组宿主测试、26 项浏览器检查点检查及两项站点集成通过；运行包 `de4f6973b6863625750c`。见 [stage4c2-validation.json](fixtures/d3d-review/stage4c2-validation.json)。继续 XP 驱动接入与真实多进程验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
