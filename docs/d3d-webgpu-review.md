@@ -870,6 +870,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 实际 SVGA 工作线程页暴露 Clear 被 viewport 裁剪为一个像素。依据 [VMware 参考驱动的 Clear 契约](https://raw.githubusercontent.com/prepare/vmware-svga/master/lib/refdriver/svga3d.c)，翻译层临时覆盖 viewport/scissor，清除后恢复原绘图状态；实际页在 4×4 viewport、1×1 scissor 下检查全部 256 个像素，存档恢复后再检查全部 256 个像素，均通过。
 > - 122 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、133 场景及两种隔离页面、原生 GPU Warcraft III 冻结回放、SwiftShader 完整存档恢复全部通过；运行包 `b770378be2570b592c5e`。见 [stage3b3-validation.json](fixtures/d3d-review/stage3b3-validation.json)。设备/会话模块的本轮三项完成；接下来处理资源上传顺序和格式展开，19 项已知像素偏差尚未减少。
 
+> **阶段 3C1（2026-11-01）：独立格式模块、BGRA 上传及窄 UNORM 修复完成。**
+>
+> - `d9wg_formats.js` 持有格式常量、存储格式表及纯上传/读回转换；执行器移出约 800 行格式逻辑。A8R8G8B8 直接按 BGRA 字节上传为 `bgra8unorm`，线性/sRGB 视图、渲染及读回同步支持；仅诊断预览需要转成 RGBA。
+> - 565/1555/332 改为位复制查表，避免浮点缩放截断；565 的全部 65,536 个颜色通过读回打包往返，另增三个中间值的独立像素探针。Wine [格式转换源码](https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/utils.c) 的 `rgb888_from_rgb565` 使用同一位复制规则。G16R16 缺失 B 修为 1，已知像素偏差从 19 项降至 18 项。
+> - DirectDraw 客体的颜色键展开同步改为位复制；测试编译实际 C 函数并与实际宿主模块逐值对比全部 510 个输入，替代原测试内复制旧宿主公式。D3D8 能力检查改用真实存储/读回函数，shipping/diagnostic DDraw DLL 均重新构建。
+> - 123 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、136 场景（118 正向、18 明示偏差）、会话/设备隔离、完整存档恢复、12/12 变异通过。运行包 `0e7abe82a5a0bb1e93a6`；见 [stage3c1-validation.json](fixtures/d3d-review/stage3c1-validation.json)。
+> - **游戏图变化已解释，未记为逐字节通过：** Warcraft III 使用 144 张 565、33 张 1555 纹理；修复后 95,393 个通道字节提高 1–2（72,763 个像素）。保留旧黄金图/冻结策略。仅恢复旧窄 UNORM 算法的诊断回放通过原冻结比较，BGRA 等其余候选代码仍启用；可用 `tools/d3d_format_counterfactual.mjs` 重建此对照。没有用候选输出扩充策略。
+> - 3C2 继续半浮点直接上传及采样通道映射，3C3 继续按顺序上传、删除 textureShadows 和重命名；其余模块及完整客体验收仍待办。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

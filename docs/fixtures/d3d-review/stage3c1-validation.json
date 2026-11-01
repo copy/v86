@@ -1,0 +1,59 @@
+{
+  "stage": "3C1 pure format module, BGRA storage and narrow UNORM repair",
+  "coreSuites": 123,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 136,
+  "normativePixelPasses": 118,
+  "knownPixelFailures": 18,
+  "pendingSessionUniformPixels": 8192,
+  "pendingDeviceUniformPixels": 8192,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "guestChannelValuesCompiledAndCompared": 510,
+  "graphicsRevision": "0e7abe82a5a0bb1e93a6",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "logs": {
+    "d3d-stage3c1-core.log": "8a7a41f9a7ec1543afbe5cd467621fd8c9950651fe8e4670334eb01b957c5517",
+    "d3d-stage3c1-site.log": "1b651f8cd12e11f933dc12dc28eab8dc099c03d2f9108183356d63523c45611e",
+    "d3d-stage3c1-gpu.log": "171345e425693cef0bf62b3f65ea5396dbc70d55f0ff85cb933ca02f4410749a",
+    "d3d-stage3c1-war3.log": "f7491fc7280d192cb417d95cea6432c2f197a76dcb58a18def808830cb12817a",
+    "d3d-stage3c1-war3-counterfactual.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3c1-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3c1-integration.log": "0cc7ef22498927a2be644303fb8203bb4da1cd18925943e184cd2ae2554f659e",
+    "d3d-stage3c1-formats.log": "0514d0ac82e5d1f66ee5e13be5a23ddfdf08ca9180f1f1d0ca0278abaedbd4bd",
+    "d3d-stage3c1-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3c1-ddraw-build.log": "61094ee11a7995020f5112a0d03474bac27e50a0cb26725f4337143dbbc30109"
+  },
+  "warcraft3": {
+    "candidateFrozenComparison": "EXPECTED_DIFFERENCE_FROM_NARROW_UNORM_REPAIR",
+    "differentBytes": 95393,
+    "differentPixels": 72763,
+    "deltaHistogram": {
+      "1": 95332,
+      "2": 61
+    },
+    "counterfactualFrozenComparison": "PASS",
+    "counterfactual": "tools/d3d_format_counterfactual.mjs restores only the previous RGB565/1555 truncating expansion. All other candidate code, including native BGRA storage, remains active. This diagnostic passes the original frozen policy; no policy/golden updates were made.",
+    "createdTextureFormats": {
+      "21": 778,
+      "23": 144,
+      "25": 33,
+      "26": 219
+    },
+    "artifacts": {
+      "d9wg-warcraft3-worker-golden.bgra.gz": "9dfdce5d1a72b5d72fa306abaee046072d23c286869901d022cb9653f9b296c2",
+      "d9wg-warcraft3-worker-pixel-policy.json": "4c0ab1d6ec8cdba9d4599cca7001656d66821e39fb5c73477b6a3822a3fb58c4",
+      "d9wg-warcraft3-worker-replay-stage3c1.json": "9ff104ef5418ec95246a5257e735ce28a858208cd17e0a281f5c67f62995bf21",
+      "d9wg-warcraft3-worker-replay-stage3c1.bgra.gz": "9b38d7d59dfa5863f8f3dcee567e14d7b0427c15f8b470c8cc21bc1a3755d7ae",
+      "d9wg-warcraft3-worker-replay-stage3c1-legacy-unorm.json": "1c9ae2ec1b45d4b4bed73db38e111cb59bf9185643ae5e7a1b5e0676c7711f0a",
+      "d9wg-warcraft3-worker-replay-stage3c1-legacy-unorm.bgra.gz": "0891dd4992dd1ff4437129bd5408435c0932d3da924565bb525dffe71383388c"
+    }
+  },
+  "limitations": [
+    "Half-float direct upload and sample channel remapping remain 3C2.",
+    "Ordered uploads, removal of textureShadows/renaming and the remaining host modules are pending.",
+    "Guest driver multi-owner, Wine and full game acceptance remain later stages."
+  ]
+}

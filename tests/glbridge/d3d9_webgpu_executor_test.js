@@ -5047,7 +5047,7 @@ await test("legacy D3D9 texture formats preserve colour and signed bump values",
         { format: 35, gpu: "rgba16float", source: [0x00, 0x00, 0xf0, 0xff],
           expected: [...halfOne, ...halfZero, ...halfZero, ...halfOne] },
         { format: 34, gpu: "rgba16float", source: [0x00, 0x80, 0xff, 0xff],
-          expected: [...halfHalf, ...halfOne, ...halfZero, ...halfOne] },
+          expected: [...halfHalf, ...halfOne, ...halfOne, ...halfOne] },
         { format: 36, gpu: "rgba16float",
           source: [0x00, 0x00, 0x00, 0x80, 0xff, 0xff, 0xff, 0xff],
           expected: [...halfZero, ...halfHalf, ...halfOne, ...halfOne] },
@@ -5613,9 +5613,9 @@ await test("D3DSAMP_SRGBTEXTURE samples through an -srgb view", async () => {
     // invalid however it is requested later.
     const created = find("createTexture")
         .map(call => call[1]).find(d => d.size.width === 4);
-    assert.deepEqual(created.viewFormats, ["rgba8unorm-srgb"]);
+    assert.deepEqual(created.viewFormats, ["bgra8unorm-srgb"]);
     assert.ok(find("createView").some(call =>
-        call[2] && call[2].format === "rgba8unorm-srgb"),
+        call[2] && call[2].format === "bgra8unorm-srgb"),
         "the second draw must sample through the -srgb view");
 });
 
@@ -6160,11 +6160,11 @@ await test("GPU render-target readback writes a converted D3D surface response",
             encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0x901, width: 2, height: 1, level_count: 1, format: 21, usage: 1, pool: 0, multisample_type: 0, multisample_quality: 0 })),
     ], { versionMinor: 3 }));
     await executor.idle();
-    // The physical texture is rgba8unorm. GetRenderTargetData must return
-    // D3DFMT_A8R8G8B8's in-memory BGRA byte order.
+    // Native BGRA storage preserves guest byte order through readback.
+    assert.equal(executor.resources.get(0x901).gpuFormat, "bgra8unorm");
     executor.resources.get(0x901).gpuTexture.readbackData =
-        Uint8Array.from([0x11, 0x22, 0x33, 0x44,
-            0x55, 0x66, 0x77, 0x88]);
+        Uint8Array.from([0x33, 0x22, 0x11, 0x44,
+            0x77, 0x66, 0x55, 0x88]);
     executor.resources.get(0x901).gpuTexture.readbackPitch = 8;
     const writes = [];
     const responseOffset = 16 * 1024;

@@ -104,6 +104,14 @@
         body: dev => [...texture(dev, dev + 0x500000, spec), ...texturedQuad(dev)],
         probes: [{ at: [32, 32], expect: spec[3], tolerance: 1 }] });
 
+    for (const [name, format, value, rgba] of [
+        ["R5G6B5", 23, (4 << 11) | (16 << 5) | 4, [33, 65, 33, 255]],
+        ["X1R5G5B5", 24, (4 << 10) | (8 << 5) | 16, [33, 66, 132, 255]],
+        ["A1R5G5B5", 25, 0x8000 | (4 << 10) | (8 << 5) | 16, [33, 66, 132, 255]],
+    ]) add("formats", { name: "format " + name + " mid-range bit replication", body: dev => [
+        ...texture(dev, dev + 0x500000, [name, format, le16(value), rgba]), ...texturedQuad(dev)],
+        probes: [{ at: [32, 32], expect: rgba, tolerance: 0 }] });
+
     // Arg1=DIFFUSE, Arg2=TFACTOR, Arg0=SPECULAR; formula inputs are bytes
     // converted to [0,1]. Alpha is explicit, independent of the unbound bug.
     const a = [64, 128, 192].map(v => v / 255), b = [128, 64, 32].map(v => v / 255), alpha = 64 / 255;
@@ -223,7 +231,7 @@
     // Measured failures on 8fd2beae; never suppress infrastructure errors.
     // Fixing any listed pixel result makes the page fail until its entry is
     // removed, so this is a repair queue rather than a permanent tolerance.
-    for (const name of ["G16R16", "R16F", "G16R16F", "R32F", "G32R32F"])
+    for (const name of ["R16F", "G16R16F", "R32F", "G32R32F"])
         suite.KNOWN_FAILURES["format " + name + " sampled RGBA"] = "S3 formats: undefined colour channels must be 1";
     for (const name of ["ATI1N", "ATI2N"])
         suite.KNOWN_FAILURES["format " + name + " sampled RGBA"] = "S3 formats: legacy ATI swizzle differs from native BC4/5";
