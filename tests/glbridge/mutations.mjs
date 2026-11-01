@@ -70,6 +70,14 @@ const MUTATIONS = {
             "if (all(quantised >= blit.key_low.rgb) &&\n            all(quantised <= blit.key_high.rgb)) {",
             "if (all(quantised > blit.key_low.rgb) &&\n            all(quantised < blit.key_high.rgb)) {"],
     ] },
+    d3dlighting: { floor: 1, node: [], pages: ["d3d9_software_lighting_browser_test.html"], list: [
+        ["parallel point becomes distance-attenuated", D + "d9wg_ffp.js",
+            "                    if (light.type === D3DLIGHT_DIRECTIONAL || light.type === D3DLIGHT_PARALLELPOINT) {",
+            "                    if (light.type === D3DLIGHT_DIRECTIONAL) {"],
+        ["point attenuation incorrectly capped at one", D + "d9wg_ffp.js",
+            "                            \"            light.attenuation.z * light_distance * light_distance, 1e-6);\\n\" +",
+            "                            \"            light.attenuation.z * light_distance * light_distance, 1e-6);\\n\" +\n                            \"        range_attenuation = min(range_attenuation, 1.0);\\n\" +"],
+    ] },
     glresidency: { floor: 1, node: ["gl_shadow_textures_test.js"], pages: [], list: [
         ["unused texture names are resident", G + "gl_shadow_textures.js", "checkName && (!texture || !s.current.group.textures.get(texture)?.target)", "false"],
         ["generated names are texture objects before binding", G + "gl_shadow_textures.js", "!s.current.group.textures.get(texture)?.target", "!s.current.group.textures.has(texture)"],

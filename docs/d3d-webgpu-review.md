@@ -1120,6 +1120,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 冻结 `120176e` 原 C 方法：宿主 1,100,000 次操作对照通过；**真实 XP 在 x87 24/53/64 位精度各通过 220,000 次、共 660,000 次对照**，110 秒。有限矩阵/颜色逐位一致，平方根另覆盖边界/NaN 分类；独立检查乘法顺序、平移与方向、未对齐 SDK 缓冲。
 > - 80 组客体、两项站点集成、35 个冒烟 EXE 与六个 DLL 严格构建通过。见 [stage4d2b-validation.json](fixtures/d3d-review/stage4d2b-validation.json)。这只是共用数学，继续光照、法线与完整 ProcessVertices 的统一及 GPU 语义对照，不将当前近似算法等同规范验收。
 
+> **阶段 4D2c（2026-11-02）：共用软件光照核心及 CPU/GPU 对照完成。**
+>
+> - 新增纯 C `d9wg_lighting`，三个 SDK 的材质、灯及渲染状态通过有布局断言的适配层进入同一实现；D3D7/8/9 ProcessVertices、旧版 LightElements 与 execute-buffer 的光照入口均接入。每次顶点操作只准备一次灯状态，统一材质颜色来源、环境/自发光、镜面反射、点光源/聚光及逆转置法线，按 NORMALIZENORMALS 状态归一化。新增无 CRT 的 x87 sqrt/pow/cos；同时补上此前仍独立的 D3D7 矩阵乘法，并保留其可别名输出行为。
+> - **19 个 CPU/GPU 场景，13 组独立公式断言**：SwiftShader 与 Metal 各比较 77,824 对像素，最大字节误差均为 0（预设容差 1）。修复了宿主把 D3D7 平行点光源当作点光源，以及把衰减系数限制为 1 的错误；两个反例原先各错 1,128 像素，新增变异测试 2/2 均检出。CPU 生成的顶点只是差分输入，不是游戏黄金图像。
+> - **真实 XP COM 的 D3D7/8/9 探针均通过**：从 VB shadow 读取结果，检查 COLOR1/COLOR2、关闭 COLORVERTEX、镜面 RGB 与来源 alpha、允许大于 1 的衰减、聚光余弦/平方衰减、非均匀缩放法线、归一化、零法线环境/自发光，并额外检查 D3D7 平行点光源及 D3D8 的稀疏灯索引 37。XP 数学另在 24/53/64 位精度共对照 720,000 次原方法运算及 180,000 次光照数学，控制字保持不变；宿主分别为 1,200,000 与 600,000 次。
+> - 133 组核心、82 组客体、两项站点集成、35 个冒烟 EXE、3 个 XP 探针与六个 DLL 严格构建通过；316 项 GPU 一致性及预算模式、owner 隔离、26 项检查点、12/12 原变异和 Warcraft III 既有策略反例回归通过。证据见 [stage4d2c-validation.json](fixtures/d3d-review/stage4d2c-validation.json)，运行包 `279aac0b1243074d50fd`。
+> - 继续统一完整顶点处理；雾生成、裁剪、混合矩阵、纹理坐标生成/复制规则、可编程顶点处理及旧版完整光照语义尚未完成。D3D7/9 的灯索引仍限于 0–7。本次不是阶段 4、Wine API 或游戏验收完成，也不构成 GTA SA 停滞修复的证明。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -1,0 +1,246 @@
+{
+  "stage": "4D2c shared software lighting and CPU/GPU differential",
+  "date": "2026-11-02",
+  "bundle": "279aac0b1243074d50fd",
+  "guestSuites": 82,
+  "coreSuites": 133,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "realXpProbeExecutables": 3,
+  "retailAndDiagnosticDLLs": 6,
+  "lightingScenes": 19,
+  "independentEquationProbes": 13,
+  "pixelPairsPerBackend": 77824,
+  "backends": {
+    "swift": {
+      "scenes": 19,
+      "maximumByteError": 0,
+      "differingPixels": 0,
+      "sha256": "e34c3faaafbbb28305bc4135c68faefd47833e0b362108076e61eaed6cf74f29"
+    },
+    "metal": {
+      "scenes": 19,
+      "maximumByteError": 0,
+      "differingPixels": 0,
+      "sha256": "e34c3faaafbbb28305bc4135c68faefd47833e0b362108076e61eaed6cf74f29"
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 130,
+    "batches": 6,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpMath": {
+    "status": "PASS",
+    "seconds": 112,
+    "batches": 0,
+    "releases": [],
+    "owners": [],
+    "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS all real XP math checks\r\n",
+    "logs": {
+      "MATH.TXT": "READY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS all real XP math checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpLegacyMathComparisons": 720000,
+  "xpLightingMathChecks": 180000,
+  "nativeLegacyMathComparisons": 1200000,
+  "nativeLightingMathChecks": 600000,
+  "frozenD3D7Multiply": {
+    "revision": "3a9fc40",
+    "sha256": "c409cee9eb93eb3b5316559cb20e184ba72d47f242a50c8067acad10b7db6432"
+  },
+  "gpuRuns": {
+    "gpu": [
+      {
+        "status": "PASS",
+        "details": "PASS required WebGPU adapter: google swiftshader  "
+      },
+      {
+        "status": "PASS",
+        "details": "PASS shared C/GPU lighting: 19 scenes, 77824 pixel pairs within 1 byte/channel"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise one\nok    D3DCMP_LESS "
+      },
+      {
+        "status": "PASS",
+        "details": "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise one\nok    D3DCMP_LESS "
+      },
+      {
+        "status": "PASS",
+        "details": "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise one\nok    D3DCMP_LESS "
+      },
+      {
+        "status": "PASS",
+        "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement a"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revisi"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS\nok    a sample inside `if p0.x`\nok    a sample after a data-dependent breakc in a rep\nok    a subroutine that sampl"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS\n{\n  \"batches\": 1,\n  \"commands\": 98,\n  \"presents\": 1,\n  \"queueSubmits\": 1,\n  \"drawCalls\": 6,\n  \"indexedDrawCalls\": 0"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+      },
+      {
+        "status": "PASS",
+        "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+      }
+    ],
+    "native": [
+      {
+        "status": "PASS",
+        "details": "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise one\nok    D3DCMP_LESS "
+      }
+    ],
+    "checkpoint": [
+      {
+        "status": "PASS",
+        "details": ""
+      }
+    ],
+    "war3": [
+      {
+        "status": "PASS",
+        "details": "PASS frozen policy warcraft3 game READBACK: 906944 bytes, 479 packets"
+      }
+    ]
+  },
+  "mutations": {
+    "d3d9Killed": 12,
+    "d3d9Total": 12,
+    "lightingKilled": 2,
+    "lightingTotal": 2
+  },
+  "counterfactuals": [
+    {
+      "bug": "parallel point incorrectly treated as point",
+      "differingPixels": 1128,
+      "maximumByteError": 177
+    },
+    {
+      "bug": "attenuation incorrectly capped at one",
+      "differingPixels": 1128,
+      "maximumByteError": 172
+    }
+  ],
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/light-properties",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/attenuation-and-spotlight-factor",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/camera-space-transformations",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/wined3d/device.c"
+  ],
+  "scope": "One C lighting implementation is integrated into D3D7/8/9 ProcessVertices and legacy lighting/execute entry points. This does not complete ProcessVertices, legacy lighting compatibility, clipping, blending, texture generation, fog generation, programmable shaders or Wine/game acceptance. D3D7 and D3D9 still restrict light indices to 0..7; D3D8 probe also checks sparse index 37. GPU fixtures are derived C differential inputs with separate handwritten equation checks, not game goldens.",
+  "sha256": {
+    "glbridge/runtime/d9wg_lighting.h": "0d0b3e1b3f2c9c961839188ddb0495356ce6bcb71c80c421144ed9381a33ca80",
+    "glbridge/runtime/d9wg_lighting.c": "9468694091697a76d2b938b3d69321d4861fc3a1aa10c05796d3fd42c9460465",
+    "glbridge/runtime/d9wg_lighting_bridge.h": "77ca02faa6b6dc46a279d1aebcadd324a7f649b4840011129d2673730588982e",
+    "glbridge/runtime/d9wg_tnl_math.h": "0b17703c5507a032daaf63eb06deca818ebebc26e042825873f0900a87419395",
+    "glbridge/runtime/d9wg_tnl_math.c": "5b6254d9971987dad8f70a4f3de62fab38bc6dd19d85707df3c80e60ce1984a8",
+    "glbridge/runtime/d9wg_math.h": "0693a57a8f8de6300c924557df4d59693a239e96e80ce2bdc974b6085e18a215",
+    "glbridge/runtime/d9wg_math.c": "a46343a416e973b5055c8293a84f369f3067dd62c56712c8703962b63cb82af3",
+    "glbridge/runtime/build.sh": "f8c47923beb3f852e120fd55f096f10a87abc98183b256eb48b5183e1378fa13",
+    "glbridge/d3d9proxy/d3d9.dll": "ff5c86072cc3e1686aa33e0d9f147a4e6e7471b8bb85fdff8daac7941d47f990",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "0e28a4fb34650d93ce1fafc6c37b265d3987b85025c178f1a8f8784000df026e",
+    "glbridge/d3d8proxy/d3d8.dll": "1c9e9547f1718e456f5b353b15fb3caaac701c62d34bf5c711314b4d24a9c3d3",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "82c2d2ce1c16e70f45ad983de69d483438636c491753a4f7c7b10a00b37278ae",
+    "glbridge/ddrawproxy/ddraw.dll": "b06bd1319a4ee1433f7b2e15d9ee9a04a39e5ddb14861429405e779ba59fe2e5",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "b4aeaec7120fbc51567ea3b705662b6f251ca06427eed7a709eb3e40efffacff",
+    "glbridge/sample/d3d_process_lighting_test.c": "5781342c9cb09caf51e0e93c93742a9fb7737a164f2fdb528577c139369ad1d0"
+  },
+  "coreSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "4fec9a588b231778665b625ecd9a6d5f6a7d4359f137597d241c3fb6b8d3471c",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "3a2b7d5c99b776f8684c2b3c22defe53fd84f3891055dcf3265e1fb369269f76",
+    "tests/glbridge/d3d9_software_lighting_browser_test.html": "f69fc573c77f7f4adc421c118600de93bec6ddafb082e741a07d31bce4c3115d",
+    "tests/glbridge/fixtures/d3d_software_lighting_cases.json": "e702e6e3907618758d24a8549315ad75edff42adb9539e95c7d9eda40c1f941f",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "a9c70a242ee93080c46cd7626b2207cc5a342cce69c7cd65302b2b5c60bf8a4c",
+    "tests/glbridge/d3d_process_lighting_xp.mjs": "c3110612bfe64368355e0457ffcf9b6de4b8d732a38375eb513332be1ecf15df",
+    "tests/glbridge/d3d_math_xp.mjs": "1efa5e8636ad01888946f5f0afdfe08c8db8e2946b4be4290e15a61cba038d28"
+  },
+  "logs": {
+    "d3d-stage4d2c-build-d3d9.log": "6bd3477e336ae7f64cbd32c4d62553686c8150f2e4b7334b2328e8869b22c6c9",
+    "d3d-stage4d2c-build-ddraw.log": "e20346d84c79dce84ae6174a6119af1d6d6523b8429d9afa0ab018d9cc93f3a1",
+    "d3d-stage4d2c-build-d3d8.log": "8309265bf46e9fa1ad5ddf61ced05f0a60a191c5d6f19132ac534b28661defab",
+    "d3d-stage4d2c-ddraw-initial.log": "fd9b82fb5b14a8724268e8712900ccf8214f97333b0ad0ce19c0f6112cc57629",
+    "d3d-stage4d2c-d3d8-initial.log": "6d7378729be2e5634146b5c1aca3476e556f62c1707fc3ddb442c4aa3db46a23",
+    "d3d-stage4d2c-lighting-gpu.log": "93c2823bded9cc343bb47a0a7c02477f5f08b30fb2d72714698d4e4937ec7b0f",
+    "d3d-stage4d2c-lighting-gpu-baseline.log": "d07b81a505a9bbfd9a1b68d0928086ba4d44e54f05ee312703125b5dee09ea3c",
+    "d3d-stage4d2c-war3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2c-lighting19-swift.log": "5a4b653cbf60698d4be940470b3a58cb951aacc2857c15166ba878fc93a4cfe9",
+    "d3d-stage4d2c-guest.log": "f7f4934aae5ba749b6ad9ece24b95b17198a8902846c627ff839a15bf2bb6234",
+    "d3d-stage4d2c-lighting-unit.log": "56252bc08b190eecfc3cb5a107c13dee27688e6176183ac507591236790588de",
+    "d3d-stage4d2c-bundle.log": "4544d50c23f79a1d1c13e3d30a5f72f4391ed1a7fbcd21781e80592893500879",
+    "d3d-stage4d2c-integration.log": "866e0660a1136457fb002e7b3294fc3fdab219cc4dcdfc81dc347e7c49c07253",
+    "d3d-stage4d2c-native.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage4d2c-atten-baseline.log": "120650f5e380ec64dbd0234f46f516264298ad7d60e5b0928b86a8b4a37b6d69",
+    "d3d-stage4d2c-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage4d2c-gpu.log": "d28261704176927f846db683290fe48c57ef07b38c94426c1c65ddfd320758ab",
+    "d3d-stage4d2c-d3d9-initial.log": "20b71c4f1d629acdf251bb30d3fa8dbb5e8d00190af0c433217f2a7f6c9fc4b7",
+    "d3d-stage4d2c-core.log": "3b86bf04c1def71179e1eea7a43762e1bc0fa06a9319578f408ca5e6f9af3aa4",
+    "d3d-stage4d2c-lighting19-metal.log": "5a4b653cbf60698d4be940470b3a58cb951aacc2857c15166ba878fc93a4cfe9",
+    "d3d-stage4d2c-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage4d2c-lighting-mutations.log": "db28bdab8bbf1f5e0677ecaed8225678274e087bfb586a1367bc77b38f989001",
+    "d3d-stage4d2c-lighting-mutation-audit.log": "bcf6382c907fcc043bcf8d02bad393e8bface540d753a8743947f00ebd557043",
+    "d3d-stage4d2c-math.log": "d26d7abd3a0aa1bb43ff117639234635e38ca3a157fc4982dfeed35a0bfb3097",
+    "d3d-stage4d2c-sync.log": "cc4d7dba27b83c40f7070cad1ea5441289ee92ca970d423e9a34c8c6fc239974",
+    "d3d-stage4d2c-math-xp.log": "02578ef2e8cdd4944b0740e3ad6a8ee5a49303669400e84507ebb22bc35ac88a",
+    "d3d-stage4d2c-tnl-math.log": "a5b0e1f92836f0bec207a0d01edbaf53757d54411173f2f1e9d0f986cf9a6d4d"
+  }
+}

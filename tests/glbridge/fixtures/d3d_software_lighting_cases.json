@@ -1,0 +1,3140 @@
+{
+  "tolerance": {
+    "cpuAbsolute": 2e-06,
+    "gpuByte": 1
+  },
+  "cases": [
+    {
+      "name": "ambient_emissive_no_normal",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": false,
+      "colorMask": 0,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 4281558681,
+      "material": {
+        "diffuse": [
+          0,
+          0,
+          0,
+          0.6
+        ],
+        "ambient": [
+          0.5,
+          0.25,
+          0.75,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0.1,
+          0.1,
+          0.1,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "expected": {
+        "diffuse": [
+          0.2,
+          0.2,
+          0.55,
+          0.6
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "diffuse_color1",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0.2,
+          0.7,
+          0.4,
+          0.8
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "colorvertex_off",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 0,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "specular_color2",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 2,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0,
+          0,
+          0,
+          0.65
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 1,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0,
+          0,
+          0,
+          0.65
+        ],
+        "specular": [
+          0.7,
+          0.2,
+          0.5,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "local_viewer_highlight",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.3,
+          0.4,
+          0.5,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 8
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 1,
+        "local_viewer": 1,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0.3,
+            0.4,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "point_attenuation_above_one",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 1,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            0.25,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "reference": {
+        "position": [
+          0,
+          0,
+          0.5
+        ],
+        "diffuse": [
+          0.8,
+          1,
+          1,
+          0.8
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "point_range",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 1,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 0.5,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0,
+          0,
+          0,
+          0.8
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "spot_falloff_one",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 2,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "spot_falloff_three",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 2,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 3,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "opposed_half_vector",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        1
+      ],
+      "hasNormal": true,
+      "colorMask": 0,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.2,
+          0.2,
+          0.2,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 1,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            -1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0.2,
+          0.2,
+          0.2,
+          0.75
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "light_index_order",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 1,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 37,
+          "type": 3,
+          "diffuse": [
+            0.1,
+            0.2,
+            0.3,
+            0
+          ],
+          "specular": [
+            0.2,
+            0.1,
+            0.05,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        },
+        {
+          "index": 4,
+          "type": 3,
+          "diffuse": [
+            0.3,
+            0.2,
+            0.1,
+            0
+          ],
+          "specular": [
+            0.05,
+            0.1,
+            0.2,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0.2,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ambient_emissive_sources",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 4294967295,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 2,
+        "specular_source": 2,
+        "emissive_source": 1,
+        "normalize_normals": 0
+      },
+      "lights": [],
+      "expected": {
+        "diffuse": [
+          0.9,
+          0.9,
+          0.9,
+          0.8
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "diffuse_color2_alpha",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 2,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0.7,
+          0.2,
+          0.5,
+          0.35
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "legacy_parallel_point",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 3,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0.25,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 4,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -2
+          ],
+          "direction": [
+            1,
+            0,
+            0
+          ],
+          "range": 0,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "zero_normal_light_ambient",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": false,
+      "colorMask": 0,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0,
+          0,
+          0,
+          0.6
+        ],
+        "ambient": [
+          0.5,
+          0.25,
+          0.75,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0.1,
+          0.1,
+          0.1,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0.2,
+            0.4,
+            0.6,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0.2,
+          0.2,
+          0.55,
+          0.6
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "spot_analytic_falloff_two",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 0,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          1,
+          1,
+          1,
+          0.8
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 2,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 2,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0,
+          "phi": 3.141592653589793
+        }
+      ],
+      "reference": {
+        "position": [
+          1.7320508075688772,
+          0,
+          0
+        ],
+        "diffuse": [
+          0.125,
+          0.125,
+          0.125,
+          0.8
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "normal_inverse_scale",
+      "positions": [
+        [
+          -0.35,
+          -0.75,
+          0.5
+        ],
+        [
+          0.35,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0.6,
+        0.8,
+        0
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            -1,
+            0,
+            0
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0.5,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "expected": {
+        "diffuse": [
+          0.06,
+          0.21,
+          0.12,
+          0.8
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "normal_inverse_scale_normalized",
+      "positions": [
+        [
+          -0.35,
+          -0.75,
+          0.5
+        ],
+        [
+          0.35,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0.6,
+        0.8,
+        0
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 1
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            -1,
+            0,
+            0
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0.5,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "normal_inverse_shear",
+      "positions": [
+        [
+          -0.6,
+          -0.6,
+          0.5
+        ],
+        [
+          0.6,
+          -0.6,
+          0.5
+        ],
+        [
+          0,
+          0.6,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        1,
+        0
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            1,
+            0,
+            0
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "expected": {
+        "diffuse": [
+          0.1,
+          0.35,
+          0.2,
+          0.8
+        ],
+        "specular": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "world": [
+        1,
+        0.5,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  ]
+}
