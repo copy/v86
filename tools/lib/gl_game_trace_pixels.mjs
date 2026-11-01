@@ -25,3 +25,28 @@ export function compare_pixels(reference, candidates, width, height)
     return { mode: "observed reference values at reference-variable pixels; all other pixels exact", width, height, referenceRuns: reference.length,
         candidateRuns: candidates.length, unstableReferencePixels: unstable, stableMismatches: stable_mismatches, outsideObservedValues: outside_observed_values, passed: stable_mismatches === 0 && outside_observed_values === 0 };
 }
+
+// Apply a frozen finite set of observed RGBA tuples. A candidate cannot add
+// positions, widen a tolerance or introduce a new colour at a known position.
+export function compare_frozen_pixels(reference, candidate, width, height, variations)
+{
+    const size = width * height * 4, allowed = new Map();
+    if(!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || !Number.isSafeInteger(size) || !(reference instanceof Uint8Array) || !(candidate instanceof Uint8Array) || reference.length !== size || candidate.length !== size || !Array.isArray(variations)) throw new Error("invalid frozen pixel inputs");
+    for(const item of variations)
+    {
+        const { x, y, rgba } = item, at = (y * width + x) * 4;
+        if(!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= width || y >= height || allowed.has(at) || !Array.isArray(rgba) || rgba.length < 2 ||
+            rgba.some(value => !Array.isArray(value) || value.length !== 4 || value.some(v => !Number.isInteger(v) || v < 0 || v > 255))) throw new Error("invalid frozen pixel variation");
+        if(!rgba.some(value => value.every((v, i) => v === reference[at + i]))) throw new Error("frozen variation omits original pixel");
+        allowed.set(at, rgba);
+    }
+    let stable_mismatches = 0, outside_observed_values = 0;
+    for(let at = 0; at < size; at += 4)
+    {
+        if(reference[at] === candidate[at] && reference[at + 1] === candidate[at + 1] && reference[at + 2] === candidate[at + 2] && reference[at + 3] === candidate[at + 3]) continue;
+        const values = allowed.get(at);
+        if(!values) ++stable_mismatches;
+        else if(!values.some(value => value.every((v, i) => v === candidate[at + i]))) ++outside_observed_values;
+    }
+    return { stableMismatches: stable_mismatches, outsideObservedValues: outside_observed_values, passed: !stable_mismatches && !outside_observed_values };
+}

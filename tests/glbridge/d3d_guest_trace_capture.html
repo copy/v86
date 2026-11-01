@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8"><title>D9WG real game capture</title>
+<div id="screen_container"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas></canvas></div><pre id="log"></pre><pre id="result"></pre>
+<script src="../../build/libv86.js"></script><script src="../../build/glbridge/libv86-webgpu.js"></script><script src="d9wg_game_trace.js"></script>
+<script type="module">
+const params=new URLSearchParams(location.search),game=params.get("game")||"warcraft3",worker=params.get("worker")!=="0",prefix="d9wg-"+game+"-"+(worker?"worker":"local");
+const input=await(await fetch("/build/d3d-review/inputs.json")).json(),delay=ms=>new Promise(r=>setTimeout(r,ms)),log=text=>document.querySelector("#log").textContent+=text+"\n";
+const output=async(name,body)=>{const response=await fetch("/__test_file?name="+name,{method:"POST",body});if(!response.ok)throw new Error("Output failed: "+name);};
+const gzip=blob=>new Response(blob.stream().pipeThrough(new CompressionStream("gzip"))).blob(),errors=[];
+const previousError=console.error;console.error=(...args)=>{errors.push(args.map(String).join(" "));previousError(...args);};
+window.vm=new V86({memory_size:1024<<20,vram_size:16<<20,graphics_adapter:"bochs_vga",graphics_adapter_path:"/build/v86-bochs-vga.js",graphics_proxy:true,cpu_worker:worker,cpu_worker_url:"/build/cpu-worker.js",wasm_path:"/build/v86.wasm",bios:{url:"/bios/seabios.bin"},vga_bios:{url:"/bios/vgabios.bin"},hda:{url:"/build/d3d-review/site/windowsxp/windowsxp_multidisk_C_4G.img",async:true,size:input.images["windowsxp/windowsxp_multidisk_C_4G.img"].size},hdb:{url:"/build/d3d-review/site/game/"+game+".img",async:true,size:input.images["game/"+game+".img"].size},cdrom:{url:"/build/d3d-review/tools.iso"},screen_container:document.querySelector("#screen_container"),acpi:false,net_device:{type:"none"},boot_order:0x213,autostart:false,disable_speaker:true});
+const screenshot=async suffix=>{const blob=await new Promise(r=>document.querySelector("#screen_container canvas").toBlob(r));if(blob)await output(prefix+"-"+suffix+".png",blob);};
+window.command=async text=>{await vm.keyboard_send_scancodes([0xE0,0x5B,19,147,0xE0,0xDB],30);await delay(1200);await vm.keyboard_send_text(text,60);await vm.keyboard_send_scancodes([28,156],30);};
+try {
+ await new Promise(r=>vm.add_listener("emulator-ready",r));const bridge=vm.graphics_proxy.bridge,gpu=bridge.d3d9Executor,submit=gpu.submit;let lastHeader,packetCount=0;
+ let bytes=0;gpu.submit=function(data,metadata){bytes+=data.length;++packetCount;lastHeader=data.slice(0,32);return submit.call(this,data,metadata);};
+ await vm.run();log("cold boot "+game+", worker="+worker);await delay(Number(params.get("boot_ms")||60000));
+ for(let i=0;i<4;i++){await vm.keyboard_send_scancodes([1,129],30);await delay(1000);}await vm.keyboard_send_scancodes([15,143,28,156],30);await delay(2000);
+ await command("cmd /k e:\\"+(game==="warcraft3"?"war3":"gtasa")+".cmd");log("current DLL copied in RAM overlay; game launched");
+ window.captureD9WG=async()=>{
+  let sampledPresents=0,finish;const sampled=new Promise(r=>finish=r),previous=gpu.options.onPresent;
+  gpu.options.onPresent=(...args)=>{if(previous)previous(...args);if(++sampledPresents>=32)finish();};
+  const timeout=setTimeout(()=>finish(),90000);try{await sampled;}finally{clearTimeout(timeout);gpu.options.onPresent=previous;}
+  if(sampledPresents<32)throw new Error("32 real game frames not reached");
+  await vm.stop();await gpu.idle();const state=gpu.presentingDevice||gpu.devices.values().next().value;
+  if(!state||!packetCount)throw new Error("Game has no D9WG device");
+  const P=D9WGProtocol,C=P.C,width=gpu.backBufferTexture.width,height=gpu.backBufferTexture.height,golden=new Uint8Array(width*height*4),readbacks=[];
+  const last=new DataView(lastHeader.buffer),session_id_low=last.getUint32(P.F.BatchHeader.session_id_low,true),session_id_high=last.getUint32(P.F.BatchHeader.session_id_high,true);
+  const rows=Math.floor((C.D9WG_RESPONSE_REGION_BYTES-C.D9WG_READBACK_REGION_OFFSET-16)/(width*4));
+  for(let first=0;first<height;first+=rows){
+   const count=Math.min(rows,height-first),request=0xD9000000+first,responseOffset=C.D9WG_READBACK_REGION_OFFSET;
+   const payload=P.encode("ReadbackSurface",{device_handle:state.handle,format:21,width,height,first_row:first,row_count:count,destination_pitch:width*4,destination_bytes:count*width*4,response_offset:responseOffset,request_id:request});
+   const size=(16+payload.length+7)&~7,packet=new Uint8Array(32+size);
+   packet.set(P.encode("BatchHeader",{magic:C.D9WG_MAGIC,version_major:P.VERSION_MAJOR,version_minor:P.VERSION_MINOR,command_count:1,command_bytes:size,session_id_low,session_id_high}));
+   packet.set(P.encode("CommandHeader",{opcode:P.OP.READBACK_SURFACE,size,sequence:1}),32);packet.set(payload,48);
+   const envelope=new Uint8Array(8+packet.length),header=new DataView(envelope.buffer);header.setUint16(0,0xFFE1,true);header.setUint16(2,0xFFFF,true);header.setUint32(4,packet.length,true);envelope.set(packet,8);bridge.recordGraphicsBatch({},envelope);
+   let reply;await gpu.submit(packet,{writeGuestMemory(at,data){if(at===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+responseOffset)reply=data.slice();}});await gpu.idle();
+   if(!reply||new DataView(reply.buffer).getUint32(12,true)!==C.D9WG_RESPONSE_OK||reply.length!==16+count*width*4)throw new Error("Game golden READBACK failed");
+   golden.set(reply.subarray(16),first*width*4);readbacks.push({request,first,count,responseOffset});
+  }
+  let differentPixels=0;for(let at=4;at<golden.length;at+=4)if(golden[at]!==golden[0]||golden[at+1]!==golden[1]||golden[at+2]!==golden[2])++differentPixels;
+  if(differentPixels<width*height/100)throw new Error("Game scene is uniform or nearly uniform; diagnostic only");
+  if(gpu.hostErrors.length||gpu.gpuErrors.errors.length||gpu.stats.commandsFailed||gpu.stats.droppedDraws)throw new Error("Game rejected rendering: "+JSON.stringify({host:gpu.hostErrors,gpu:gpu.gpuErrors.errors,failed:gpu.stats.commandsFailed,dropped:gpu.stats.droppedDraws}));
+  const hash=data=>crypto.subtle.digest("SHA-256",data).then(bytes=>Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,"0")).join(""));
+  const note={game,worker,sampledPresents,format:"paged-d9wg-journal",revision:globalThis.V86GL_BUILD_REVISION,width,height,readbacks,diagnosticTail:"Final READBACK packets are generated only after the real game has been stopped; the preceding packets are unmodified game traffic.",goldenSha256:await hash(golden),stats:gpu.stats,hostErrors:gpu.hostErrors,gpuErrors:gpu.gpuErrors.errors,consoleErrors:errors,inputs:input};
+  const journal=await bridge.graphicsJournal.snapshot();await output(prefix+"-journal.bin",journal);await output(prefix+"-golden.bgra.gz",await gzip(new Blob([golden])));await screenshot("scene");await output(prefix+".json",JSON.stringify({...note,packets:packetCount,bytes}));
+  log("captured "+packetCount+" real packets plus READBACK tail; "+bytes+" bytes");document.querySelector("#result").textContent="PASS real D9WG game trace and guest-visible golden pixels: "+game;
+ };
+ if(params.get("manual")==="1"||game==="gtasa")log("manual scene preparation; captureD9WG() available");
+ else {let ready=false;for(let i=0;i<80;i++){await delay(10000);await screenshot("current");log(JSON.stringify({seconds:(i+1)*10,draws:gpu.stats.drawCalls+gpu.stats.indexedDrawCalls+gpu.stats.upDrawCalls,devices:gpu.devices.size,uploads:gpu.stats.textureUploads,failed:gpu.stats.commandsFailed,dropped:gpu.stats.droppedDraws}));if(game==="warcraft3"&&!gpu.devices.size&&i<10)await vm.keyboard_send_scancodes([1,129],30);if(gpu.stats.drawCalls+gpu.stats.indexedDrawCalls+gpu.stats.upDrawCalls>10000&&gpu.resources.size>50){ready=true;break;}}
+  if(!ready)throw new Error("Real game scene not reached");await captureD9WG();}
+
+}catch(error){await screenshot("failure");document.querySelector("#result").textContent="FAIL "+error.stack;}
+</script>

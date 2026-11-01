@@ -732,6 +732,27 @@ game.exe
 > - 33 个一致性场景改由真正的 `READBACK_SURFACE` 和客体响应包取像素，不再直接拷贝测试纹理。S2-2/S2-3/S2-6 三项原有已知失败仍明确保留，后续在阶段 3 修复。
 > - 增加 V86GTRC1 浏览器录放 codec，与既有 x64 recorder 逐字节交叉验证，并拒绝截断/空包/未知记录。真实游戏录制、黄金回放和特性分表继续阶段 1B；首次 Warcraft III 启动未进入绘制，保留为失败诊断，未计通过。
 
+> **阶段 1B（2026-11-01）：录放底座与 Warcraft III 地图基线完成；GTA SA 尚未通过。**
+>
+> - `tools/d3d_guest_review.mjs` 编译当前三个代理 DLL，生成工具光盘；XP 和游戏盘只读打开，DLL 复制发生在 RAM overlay。`d3d_guest_trace_capture.html` 从实际呈现中等待 32 帧，停止客体后通过 READBACK 收集完整图像，拒绝近乎均匀画面与任何渲染错误。GTA SA 的菜单/场景选择保留为手动操作，不能把菜单绘制计作世界场景验收。
+> - Warcraft III 实际地图：592×383，479 包、169,226,688 字节、83,329 次索引绘制；宿主/WebGPU 错误、失败命令、丢弃绘制均为零。此版本加载的是 D3D9，工具光盘同时提供 D3D8/D3D9，不能据此宣称 D3D8 已验收。私有轨迹与完整图像留在忽略的 `build/browser-test-output/`；可审查的输入哈希、计数和重复测量见 [warcraft3-baseline.json](fixtures/d3d-review/warcraft3-baseline.json)。
+> - 同一未修改宿主的重复回放出现零至十余字节波动，原因未定。`tools/d3d_trace_baseline.mjs` 固定 `81d8d626` 的五份执行器源码，只从该基线收集有限 RGBA 元组；当前保留 25 份可核验观测，加原始图像，共 11 个可变像素。候选不能扩张位置或颜色集合，其他像素逐字节一致。早期采样曾复用文件名，已改为独立归档与原子更新；被覆盖的试验不列入证据。此政策仅用于宿主回归，不证明原生 D3D 一致性。
+> - `tools/d3d_trace_evidence.mjs` 导出前核验轨迹、黄金图、报告和保留图像的 SHA-256。回放报告里的 `dispatchMs` 统计所有命令分派，不能充当阶段 3 的每 draw 开销。
+> - 回放器支持原始 V86GTRC1 和产品分页 journal，处理所有者释放与 checkpoint barrier。两个公开、规范推导的绿色图像 fixture 都纳入 `make d3d-review-gpu-tests`；本机 SwiftShader 扩展目标通过，核心 116 组、站点客体 71 组通过。远端 CI 未触发。
+> - GTA SA 已进入加载并产生 1,588,543 次索引绘制，随后黑屏且不再呈现，宿主没有报告渲染拒绝。保留约 745 MiB journal 与完整 VM 现场，未计为通过。EIP 位于游戏 `CTrain::ProcessControl` 的浮点循环，关闭浮点近似和 x87 cache，并重新应用存档控制字后，恢复运行 120 秒仍无新呈现，EIP 已离开原采样点；原因未确定，不能归因于浮点精度或 D3D，也不能断言修复。
+
+本地重现（包含游戏内容的文件不提交）：
+
+```sh
+node tools/d3d_guest_review.mjs
+GL_TIMEOUT_MS=900000 node tests/glbridge/gl_multipass_browser_runner.js 'd3d_guest_trace_capture.html?game=warcraft3'
+node tools/d3d_trace_baseline.mjs d9wg-warcraft3-worker 8
+GL_TIMEOUT_MS=590000 node tests/glbridge/gl_multipass_browser_runner.js 'd3d_game_trace_replay_browser_test.html?prefix=d9wg-warcraft3-worker&policy=frozen'
+node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review/warcraft3-baseline.json
+```
+
+特性分表与剩余游戏验收继续阶段 1C/6；阶段 1 整体尚未关闭。
+
 - **目标：** 测试能发现语义错误；变异实验从 2/12 提升到 ≥10/12。
 - **改动：**
   - **严格的假 GPU（一套共用）：**

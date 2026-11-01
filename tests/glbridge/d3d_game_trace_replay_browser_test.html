@@ -1,0 +1,74 @@
+<!doctype html><meta charset="utf-8"><title>D9WG game trace replay</title><canvas id="gpu"></canvas><pre id="result">RUNNING</pre>
+<script>
+(function() {
+    const source = new URLSearchParams(location.search).get("source") === "baseline" ? "/build/d3d-review/baseline-host/" : "/src/browser/glbridge/";
+    for (const file of ["webgpu_host.js", "d3d9-webgpu/d3d9_shader_pipeline.js", "d3d9-webgpu/d9wg_protocol.js", "d3d9-webgpu/d3d9_executor.js", "d3d9-webgpu/ddraw_ops.js"])
+        document.write('<script src="' + source + file + '"><\/script>');
+})();
+</script><script src="../../src/browser/glbridge/graphics_journal.js"></script><script src="d9wg_game_trace.js"></script>
+<script>
+(async () => {
+    "use strict";
+    try {
+        const params = new URLSearchParams(location.search), prefix = params.get("prefix") || "d9wg-warcraft3-worker", label = params.get("label") || "";
+        if (label && !/^[a-z0-9_-]+$/.test(label)) throw new Error("Invalid replay label");
+        const output = prefix + "-replay" + (label ? "-" + label : "");
+        const load = async name => {
+            const response = await fetch("../../build/browser-test-output/" + prefix + name);
+            if (!response.ok) throw new Error("Missing local game trace " + prefix + name);
+            return new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+        };
+        const journal = params.get("journal") === "1";
+        const traceBytes = journal ? new Uint8Array(await (await fetch("../../build/browser-test-output/" + prefix + "-journal.bin")).arrayBuffer()) : await load("-trace.bin.gz");
+        const source = journal ? { note: await (await fetch("../../build/browser-test-output/" + prefix + ".json")).json() } : D9WGGameTrace.decode(traceBytes);
+        const note = source.note, expected = await load("-golden.bgra.gz");
+        const canvas = document.querySelector("#gpu");canvas.width = note.width;canvas.height = note.height;
+        const gpu = new D3D9WebGPUExecutor(canvas, { strict: true, shaderWorkerUrl: null });await gpu.initialize();
+        const actual = new Uint8Array(note.width * note.height * 4), seen = new Set(), requests = new Map(note.readbacks.map(r => [r.request, r]));
+        const writeGuestMemory = (at, bytes) => {
+            if (bytes.length < 16) return;
+            const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), request = view.getUint32(0, true), r = requests.get(request);
+            if (!r) return;
+            if (view.getUint32(12, true) !== D9WGProtocol.C.D9WG_RESPONSE_OK || bytes.length !== 16 + r.count * note.width * 4) throw new Error("Replay READBACK failed");
+            actual.set(bytes.subarray(16), r.first * note.width * 4);seen.add(request);
+        };
+        const start = performance.now();let dispatchMs = 0;
+        const dispatch = gpu.dispatchCommand;gpu.dispatchCommand = function(...args) { const start = performance.now();try { return dispatch.apply(this, args); } finally { dispatchMs += performance.now() - start; } };
+        let packetCount = 0;
+        if (journal) {
+            for await (const record of V86GraphicsJournal.records(V86GraphicsJournal.parse(traceBytes))) {
+                if (record.barrier) { gpu.flushForCheckpoint();await gpu.checkpointIdle();continue; }
+                const view = new DataView(record.bytes.buffer, record.bytes.byteOffset, record.bytes.byteLength), opcode = view.getUint16(0, true);
+                if (opcode === 0xFFE2) { gpu.endOwnerSessions();continue; }
+                if (opcode !== 0xFFE1 || view.getUint16(2, true) !== 0xFFFF || view.getUint32(4, true) !== record.bytes.length - 8) throw new Error("Unexpected game journal envelope");
+                await gpu.submit(record.bytes.subarray(8), { writeGuestMemory });++packetCount;
+            }
+        } else for (const packet of source.packets) { await gpu.submit(packet, { writeGuestMemory });++packetCount; }
+        await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
+        for (let i = 0; i < 4; i++) await new Promise(r => setTimeout(r, 0));
+        if (seen.size !== requests.size || actual.length !== expected.length) throw new Error("Incomplete game readback");
+        let differingBytes = 0;const differences = [];
+        for (let i = 0; i < actual.length; i++) if (actual[i] !== expected[i]) {
+            ++differingBytes;if (differences.length < 4096) differences.push({ at: i, expected: expected[i], actual: actual[i] });
+        }
+        const evidence = { game: note.game, worker: note.worker, packets: packetCount, elapsedMs: performance.now() - start, dispatchMs, differingBytes, differences,
+            stats: gpu.stats, hostErrors: gpu.hostErrors, gpuErrors: gpu.gpuErrors.errors };
+        let pixelsPassed = !differingBytes;
+        if (params.get("policy") === "frozen") {
+            const policy = await (await fetch("../../build/browser-test-output/" + prefix + "-pixel-policy.json")).json();
+            const hash = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), x => x.toString(16).padStart(2, "0")).join("");
+            if (policy.traceSha256 !== await hash(traceBytes) || policy.goldenSha256 !== await hash(expected) || policy.width !== note.width || policy.height !== note.height || policy.variations.length > 64)
+                throw new Error("Pixel policy does not match the frozen game inputs");
+            const rgba = bytes => { const out = bytes.slice();for (let at = 0; at < out.length; at += 4) { out[at] = bytes[at + 2];out[at + 2] = bytes[at]; }return out; };
+            const { compare_frozen_pixels } = await import("../../tools/lib/gl_game_trace_pixels.mjs");
+            evidence.pixelPolicy = compare_frozen_pixels(rgba(expected), rgba(actual), note.width, note.height, policy.variations);pixelsPassed = evidence.pixelPolicy.passed;
+        }
+        await fetch("/__test_file?name=" + output + ".json", { method: "POST", body: JSON.stringify(evidence) });
+        const packed = await new Response(new Blob([actual]).stream().pipeThrough(new CompressionStream("gzip"))).blob();
+        await fetch("/__test_file?name=" + output + ".bgra.gz", { method: "POST", body: packed });
+        if (!pixelsPassed || gpu.hostErrors.length || gpu.gpuErrors.errors.length || gpu.stats.commandsFailed || gpu.stats.droppedDraws)
+            throw new Error("D9WG replay differs or rejected work: " + JSON.stringify(evidence));
+        document.querySelector("#result").textContent = "PASS " + (evidence.pixelPolicy ? "frozen policy " : "exact ") + note.game + " game READBACK: " + actual.length + " bytes, " + packetCount + " packets";
+    } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
+})();
+</script>

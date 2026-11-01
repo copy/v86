@@ -1,0 +1,743 @@
+{
+  "game": "warcraft3",
+  "worker": true,
+  "width": 592,
+  "height": 383,
+  "hostBundle": "8523858ab36865e264c6",
+  "traceFormat": "V86GTRC1",
+  "traceBytes": 169226688,
+  "packets": 479,
+  "captureStats": {
+    "batches": 479,
+    "commands": 532809,
+    "presents": 474,
+    "queueSubmits": 475,
+    "drawCalls": 0,
+    "indexedDrawCalls": 83329,
+    "upDrawCalls": 0,
+    "pipelineCreations": 29,
+    "pipelineHits": 83300,
+    "pipelinesRejected": 0,
+    "bindGroupCreations": 140,
+    "bindGroupHits": 83189,
+    "bindGroupCacheEvictions": 0,
+    "framesRejected": 0,
+    "uniformSlotReuses": 0,
+    "uniformRingOverflows": 0,
+    "uniformRingChunksAllocated": 1,
+    "uniformRingChunksUsed": 1,
+    "backBufferAllocations": 2,
+    "backBufferPresents": 474,
+    "redundantStateSkipped": 561642,
+    "uniformStagingUploads": 471,
+    "readbackRequests": 1,
+    "frameFlushes": 0,
+    "unsupportedCommands": 0,
+    "malformedBatches": 0,
+    "batchesFailed": 0,
+    "protocolViolations": 0,
+    "msaaUnresolves": 0,
+    "malformedCommands": 0,
+    "gammaRampUpdates": 0,
+    "fillModeDraws": 0,
+    "swapChainsCreated": 0,
+    "swapChainsDestroyed": 0,
+    "swapChainsRefused": 0,
+    "swapChainPresents": 0,
+    "swapChainPresentsDropped": 0,
+    "gammaPresents": 0,
+    "droppedDraws": 0,
+    "guestReports": 4,
+    "texturesCreated": 1174,
+    "textureUploads": 11460,
+    "textureBytesUploaded": 86892268,
+    "texturePreviewsSkipped": 216,
+    "drawsWithTexture": 83329,
+    "drawsWithFallbackTexture": 0,
+    "shadersTranslated": 0,
+    "shaderTranslationFailures": 0,
+    "shaderVariantsTranslated": 0,
+    "shaderModulesCreated": 12,
+    "shaderCompileErrors": 0,
+    "shaderCachePersistentLoads": 0,
+    "shaderCachePersistentSaves": 0,
+    "shaderCachePersistentFailures": 0,
+    "shaderWorkerCompiles": 0,
+    "shaderWorkerFallbacks": 0,
+    "samplersCreated": 4,
+    "samplerHits": 83325,
+    "framesWithoutColorClear": 0,
+    "framesWithNoOps": 0,
+    "bufferRenames": 247,
+    "textureUpdateHazards": 0,
+    "textureRenames": 0,
+    "textureFullCopyRenameBytes": 0,
+    "bufferFullCopyRenames": 0,
+    "bufferNoOverwriteWrites": 143000,
+    "emptySurfaceReports": 0,
+    "surfaceChanges": 0,
+    "sessionChanges": 0,
+    "sessionsEnded": 3,
+    "deviceLosses": 0,
+    "deviceRecoveries": 0,
+    "guestFeatureBits": 3,
+    "guestShaderModel2": true,
+    "guestShaderModel3": true,
+    "windowStateChanges": 2,
+    "windowNotForegroundReports": 0,
+    "windowOccludedReports": 0,
+    "windowRegionReports": 0,
+    "cursorUploads": 2,
+    "cursorDraws": 474,
+    "texturesRejected": 0,
+    "srgbTextureSamples": 0,
+    "srgbViewsCreated": 0,
+    "srgbTextureUnavailable": 0,
+    "srgbWriteRequests": 0,
+    "srgbWriteUnavailable": 0,
+    "cubeTexturesCreated": 0,
+    "volumeTexturesCreated": 0,
+    "renderTargetsCreated": 0,
+    "renderTargetBinds": 0,
+    "renderPasses": 474,
+    "depthTargetSizeMismatches": 0,
+    "depthTargetSubstitutions": 0,
+    "depthTargetSubstitutionsUncleared": 0,
+    "blits": 0,
+    "blitsSkipped": 0,
+    "blitsThroughBackBuffer": 0,
+    "colorFills": 0,
+    "partialClears": 0,
+    "drawsWithScissor": 0,
+    "drawsWithIncompleteMipChain": 0,
+    "comparisonSamplersCreated": 0,
+    "depthStageWithoutDepthTexture": 0,
+    "depthAttachmentSampledInPlace": 0,
+    "cubeFaceTargetBinds": 0,
+    "mipChainsGenerated": 0,
+    "mipLevelsGenerated": 0,
+    "explicitMipGenerations": 0,
+    "palettesSet": 0,
+    "paletteSelections": 0,
+    "palettizedRepaints": 0,
+    "depthTextureOnNonDepthStage": 0,
+    "stagesWithoutSampleableView": 0,
+    "commandsFailed": 0,
+    "lastDrawTexture": 1049569,
+    "drawsWithUnsupportedTextureOp": 0,
+    "drawsWithTexCoordIndex": 0,
+    "drawsWithTextureTransform": 0,
+    "drawsWithUnmappedBlend": 0,
+    "drawsWithUnappliedFog": 0,
+    "drawsWithUnappliedLighting": 0,
+    "drawsWithZeroNormalLighting": 0,
+    "zeroNormalDrawsWithoutTexture": 0,
+    "zeroNormalDrawsWithMissingTexture": 0,
+    "zeroNormalDrawsWithUnboundTexture": 0,
+    "zeroNormalDrawsWithUnknownTexture": 0,
+    "zeroNormalDrawsWithLiveTexture": 0,
+    "drawsWithUnwrittenCoordVarying": 0,
+    "drawsWithDefaultedInputs": 0,
+    "drawsWithMissingCoordSet": 0,
+    "blendedDraws": 0,
+    "drawsWithUnappliedVertexBlend": 0,
+    "programmableDraws": 0,
+    "drawsSkippedForBadShader": 0,
+    "drawsWithCompactVertexInputs": 0,
+    "constantUploadBytes": 55881472,
+    "pointSpriteDraws": 0,
+    "pointSpriteInstances": 0,
+    "indexedPointExpansions": 0,
+    "instancedDraws": 0,
+    "instancesDrawn": 0,
+    "expandedInstanceStreams": 0,
+    "queriesCreated": 0,
+    "queryBegins": 0,
+    "queryEnds": 0,
+    "occlusionQueriesResolved": 0,
+    "timestampQueriesResolved": 0,
+    "eventQueriesResolved": 0,
+    "queryFailures": 0,
+    "responseWriteFailures": 0,
+    "renderTargetReadbacks": 1,
+    "renderTargetReadbackBytes": 906944,
+    "renderTargetReadbackFailures": 0,
+    "unreadStateIds": {
+      "renderStates": [
+        26
+      ],
+      "samplerStates": [
+        8
+      ]
+    }
+  },
+  "inputs": {
+    "images": {
+      "windowsxp/windowsxp_multidisk_C_4G.img": {
+        "size": 4294967296,
+        "mtimeMs": 1793475426754.0452
+      },
+      "game/warcraft3.img": {
+        "size": 2634022912,
+        "mtimeMs": 1793475795295.9666
+      },
+      "game/gtasa.img": {
+        "size": 5767168000,
+        "mtimeMs": 1793082972655.4082
+      }
+    },
+    "files": [
+      {
+        "name": "D3D9.DLL",
+        "bytes": 91136,
+        "sha256": "ad69ffbe222fcc396c8b4a287a38b2205eb0e4e5cd724637c8abab39a92b732d"
+      },
+      {
+        "name": "D3D8.DLL",
+        "bytes": 59392,
+        "sha256": "fb1a105790877e5b51d1bfff7cc713996c0392397185af2fe017929dc4e7cfeb"
+      },
+      {
+        "name": "DDRAW.DLL",
+        "bytes": 100352,
+        "sha256": "08401cd9ba7204e185c2cc993afc05641c450e03d62b26dc3b0ea9e454b71c0c"
+      },
+      {
+        "name": "WAR3.CMD",
+        "bytes": 156,
+        "sha256": "13c22ea720b41c5ce324520a488867941c9c7d1487cc2c3cd33a669a15a2f562"
+      },
+      {
+        "name": "GTASA.CMD",
+        "bytes": 120,
+        "sha256": "eb5e964af081e8f04a4f91ef11a6e1a96709c72f8db878df2321bcad677eaaf8"
+      }
+    ]
+  },
+  "policy": {
+    "referenceCommit": "81d8d626",
+    "sources": {
+      "webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+      "d3d9-webgpu/d3d9_shader_pipeline.js": "d4965932ecb19b2b7a3e5fe0d5a2442ca2294d3c2939d1f89833b027e82b95ba",
+      "d3d9-webgpu/d9wg_protocol.js": "87b03a5f992508cd5913e4ba47b3358b89af16c03e623d8b1ffbcc5fd1c5463e",
+      "d3d9-webgpu/d3d9_executor.js": "d8c8338132359cac6409174839bf24f945cab219fe6f38059b9f4f4f5403c4fc",
+      "d3d9-webgpu/ddraw_ops.js": "328af36e86551f7ec39b118060cbac9f68fa051212bb0f8b5fd5c499dfe844c9"
+    },
+    "width": 592,
+    "height": 383,
+    "traceSha256": "101cbd2e94a36135cbe9b8127aec6390dbb4aab46449ad197a729699e32042c8",
+    "goldenSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+    "method": "observed reference values at reference-variable pixels; all other pixels exact",
+    "variations": [
+      {
+        "x": 540,
+        "y": 70,
+        "rgba": [
+          [
+            0,
+            21,
+            0,
+            255
+          ],
+          [
+            0,
+            16,
+            1,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 541,
+        "y": 70,
+        "rgba": [
+          [
+            0,
+            14,
+            0,
+            255
+          ],
+          [
+            0,
+            12,
+            0,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 526,
+        "y": 80,
+        "rgba": [
+          [
+            0,
+            19,
+            0,
+            255
+          ],
+          [
+            0,
+            20,
+            0,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 527,
+        "y": 80,
+        "rgba": [
+          [
+            0,
+            17,
+            0,
+            255
+          ],
+          [
+            0,
+            20,
+            4,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 334,
+        "y": 99,
+        "rgba": [
+          [
+            201,
+            191,
+            188,
+            255
+          ],
+          [
+            191,
+            182,
+            172,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 336,
+        "y": 101,
+        "rgba": [
+          [
+            108,
+            89,
+            85,
+            255
+          ],
+          [
+            106,
+            110,
+            102,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 575,
+        "y": 114,
+        "rgba": [
+          [
+            0,
+            10,
+            1,
+            217
+          ],
+          [
+            0,
+            9,
+            4,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 572,
+        "y": 115,
+        "rgba": [
+          [
+            0,
+            12,
+            7,
+            255
+          ],
+          [
+            0,
+            0,
+            0,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 573,
+        "y": 115,
+        "rgba": [
+          [
+            0,
+            24,
+            1,
+            211
+          ],
+          [
+            0,
+            57,
+            30,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 574,
+        "y": 115,
+        "rgba": [
+          [
+            0,
+            45,
+            10,
+            255
+          ],
+          [
+            0,
+            85,
+            46,
+            255
+          ]
+        ]
+      },
+      {
+        "x": 575,
+        "y": 115,
+        "rgba": [
+          [
+            0,
+            46,
+            11,
+            255
+          ],
+          [
+            0,
+            60,
+            25,
+            255
+          ]
+        ]
+      }
+    ],
+    "runs": [
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-0.json",
+        "exitCode": 1,
+        "differingBytes": 3,
+        "bgraSha256": "368e9432d0730ac8d34f8d6242da559afc31df4413c61d7a43a35abe67b26193",
+        "reconstructedFromCompleteDifferenceReport": true,
+        "evidenceSha256": "3e057e0fa874eecd673f6d23084d92805ee5428d42551ec7b637924a915725fe",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 2011.5,
+        "dispatchMs": 1725.5000004768372,
+        "originalLogSha256": "e46dd7d27dc6fbc5f929fe9c3bd8664d5700865033e52c6f680ec49860370925"
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-1.json",
+        "exitCode": 1,
+        "differingBytes": 12,
+        "bgraSha256": "9d06d1964e1751b5c3fc538b23ea19be8385b11156a97a590935d0e08adc7eca",
+        "evidenceSha256": "5e55e7758684723394c6acf36cf382378ac251fcfc4c0aff95e48cdc07727f69",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-1.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 2041,
+        "dispatchMs": 1741.099998831749
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-2.json",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "evidenceSha256": "86b28202a16ab1ad845ae4d326795a81e7239c4f573444c266a4080e85b50b99",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-2.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 2002.4000000357628,
+        "dispatchMs": 1718.3999995589256
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-3.json",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "evidenceSha256": "1e3abd8e4cf52a7282b26dff4185e251e54f049cc2e4a5b881cd0701d0029eee",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-3.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1995.5,
+        "dispatchMs": 1706.0999996066093
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-4.json",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "evidenceSha256": "663b1888912852cabfcf31c23aeeb9626b6f124ba94349d591cbc3cdae57d056",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-4.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1939.699999988079,
+        "dispatchMs": 1668.0999993085861
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-5.json",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "evidenceSha256": "c52466fb9037be62ffffd46d37593951a4b0bbdbd5a6c7c1db868231c6bdea4f",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-5.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1996,
+        "dispatchMs": 1715.1000018119812
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-6.json",
+        "exitCode": 1,
+        "differingBytes": 6,
+        "bgraSha256": "c0ad20d0585896f86fdc82c385ffe1f89e98ce783a837a1fd7f01a0783023ed1",
+        "evidenceSha256": "29f2df223483896201685ada7dd0fa1f9e15b9b5f4364e3ecbe8b2ec1f590ecb",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-6.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1990.0999999642372,
+        "dispatchMs": 1715.5000002384186
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-7.json",
+        "exitCode": 1,
+        "differingBytes": 15,
+        "bgraSha256": "f98b4a234e15f921d9af1fbe6f0b330cf66a2128685ca20caef67f207da24eee",
+        "evidenceSha256": "aeb376710aa8dcfd39f9476fd015ffd4060865457c0c98cca3a5565609f56ab2",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-7.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1991.6000000238419,
+        "dispatchMs": 1706.199999511242
+      },
+      {
+        "evidence": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-8.json",
+        "exitCode": 1,
+        "differingBytes": 3,
+        "bgraSha256": "95780b8ebbc0dbf53ff2a90dfedd604e38e56ada46ab5c7e05dd89c400ab7d48",
+        "evidenceSha256": "82d02e1e3e6cdcec61cffe130d00b382b73f96f3a9a88f0526d57344222bf8e7",
+        "bgraFile": "baseline-history/d9wg-warcraft3-worker/mvxq0twb-b39a95/retained-8.bgra.gz",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1957.699999988079,
+        "dispatchMs": 1681.5000010728836
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-0.json",
+        "evidenceSha256": "2808ea63c0a03de95797ba9fdd746210db9e82f2a84dcfc5ffe16cc3143df2af",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-0.bgra.gz",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1858.199999988079,
+        "dispatchMs": 1604.6000007390976
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-1.json",
+        "evidenceSha256": "ca787dba357bfc00086612a51375f671a66a6ed400267476cdb59d33e8e1f7dd",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-1.bgra.gz",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 2036.5,
+        "dispatchMs": 1751.399999678135
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-2.json",
+        "evidenceSha256": "345a8761315912faf1c40dd5bb8994ea288a16b14c9bd9fd8720e2641bdc01a6",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-2.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 6,
+        "bgraSha256": "c0ad20d0585896f86fdc82c385ffe1f89e98ce783a837a1fd7f01a0783023ed1",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1971.699999988079,
+        "dispatchMs": 1710.1999999284744
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-3.json",
+        "evidenceSha256": "bdcb3914ea1c4abf9e38d235568a1882b81c5254a43447915ee47701bc019a0a",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-3.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 15,
+        "bgraSha256": "f98b4a234e15f921d9af1fbe6f0b330cf66a2128685ca20caef67f207da24eee",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1874.1000000238419,
+        "dispatchMs": 1614.0999994874
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-4.json",
+        "evidenceSha256": "f5c78d4a38f0f49a91ccc8ee2ce7ba32ac19cc854a57ab3578b1c6901f8dbf5f",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-4.bgra.gz",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 2002.199999988079,
+        "dispatchMs": 1724.6999987959862
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-5.json",
+        "evidenceSha256": "0dede999107ae369515d45320cfa0756c995c08623230a084a9fc495c8ad2080",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-5.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 18,
+        "bgraSha256": "391d3aca4d1a25b02748dbf8f917f99433c54c2a4d479e7c5042b9a85fdfe520",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1891.699999988079,
+        "dispatchMs": 1636.7000004053116
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-6.json",
+        "evidenceSha256": "e7ce1ed72bfb8e1e02ca3ab92b2070710e80b2f1f80ca1f8f544021a044d243d",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-6.bgra.gz",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1835.3999999761581,
+        "dispatchMs": 1597.600000679493
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-7.json",
+        "evidenceSha256": "8876a20c04e2de2af5f96ade68f7f02941ec76eb57c6a9592e22d8f97965568d",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-7.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 21,
+        "bgraSha256": "822d21b9e3c92026c262e59a961c811f8f15c28f17538791f999348b881b62b2",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1899.800000011921,
+        "dispatchMs": 1645.1999985575676
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-8.json",
+        "evidenceSha256": "d649305b3504b2979b2ffc5f636534b985a523d0fb0d8c1d3a52c8fcb7865235",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-8.bgra.gz",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1874.800000011921,
+        "dispatchMs": 1624.4999994635582
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-9.json",
+        "evidenceSha256": "1263593be42b0bddf0bd738134a759b3781a62797bef484b94160234d738b27a",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-9.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 3,
+        "bgraSha256": "95780b8ebbc0dbf53ff2a90dfedd604e38e56ada46ab5c7e05dd89c400ab7d48",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1901.6000000238419,
+        "dispatchMs": 1648.099998474121
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-10.json",
+        "evidenceSha256": "217622874f9e3ea96fcdbea3bfd45066889d46891af9d8cb7f3dfd55777f94de",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-10.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 12,
+        "bgraSha256": "9d06d1964e1751b5c3fc538b23ea19be8385b11156a97a590935d0e08adc7eca",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 2133.100000023842,
+        "dispatchMs": 1827.4999989271164
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-11.json",
+        "evidenceSha256": "ced400b99901f2d58d7516c59f190d3861fe3c67068f18ea27bee33bcd5ddf9d",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-11.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 3,
+        "bgraSha256": "95780b8ebbc0dbf53ff2a90dfedd604e38e56ada46ab5c7e05dd89c400ab7d48",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1958,
+        "dispatchMs": 1688.1000010967255
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-12.json",
+        "evidenceSha256": "a8e344efbff85651fbbc791cdefa4cf0eeb2ff9c3ba1240b9b5bd57649b24998",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-12.bgra.gz",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1958.9000000357628,
+        "dispatchMs": 1688.899998486042
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-13.json",
+        "evidenceSha256": "1356abcfe6f6053507f0ae9bbceab91a822c6ec346fa07599fa530205c9f204b",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-13.bgra.gz",
+        "exitCode": 0,
+        "differingBytes": 0,
+        "bgraSha256": "b21806640d622bff2c1a664ea26a1d9e7eb698bc9590d56dc8d64426c5b19dea",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1957.300000011921,
+        "dispatchMs": 1692.8000000715256
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-14.json",
+        "evidenceSha256": "c0ad37e57e1634d9e2b3de78423a306a548b388a1d36599f452dd8c47124d25f",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-14.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 12,
+        "bgraSha256": "9d06d1964e1751b5c3fc538b23ea19be8385b11156a97a590935d0e08adc7eca",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1958.8999999761581,
+        "dispatchMs": 1685.0000012516975
+      },
+      {
+        "evidence": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-15.json",
+        "evidenceSha256": "4c359eb1e511c5b5352ce91e84728ea23f37b9a80ce9c97089c7020b05c737c6",
+        "bgraFile": "d9wg-warcraft3-worker-replay-reference-mvxq0twb-b39a95-15.bgra.gz",
+        "exitCode": 1,
+        "differingBytes": 3,
+        "bgraSha256": "95780b8ebbc0dbf53ff2a90dfedd604e38e56ada46ab5c7e05dd89c400ab7d48",
+        "packets": 479,
+        "indexedDrawCalls": 83329,
+        "elapsedMs": 1938.0999999642372,
+        "dispatchMs": 1673.300000011921
+      }
+    ],
+    "scope": "Observed repeatability limit of the unmodified host, cause undetermined. Exact tuples at these positions only; every other pixel exact. These samples do not establish native D3D conformance."
+  },
+  "limitations": [
+    "Private game packets, full images and guest state remain in the ignored local build directory.",
+    "Only observed finite RGBA tuples at the listed positions are accepted; all other pixels are exact.",
+    "Repeatability cause is undetermined. This is a host regression baseline, not native D3D conformance.",
+    "Early trial filenames were reused. Overwritten trials are excluded; all listed reports and retained images were hash-verified.",
+    "dispatchMs covers all command dispatch, not per-draw CPU cost."
+  ]
+}
