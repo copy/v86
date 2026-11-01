@@ -1,0 +1,66 @@
+{
+  "stage": "3J2 immutable pipeline signatures and stage-3 closure",
+  "date": "2026-11-02",
+  "coreSuites": 132,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "9341833c88a4a8e6a411",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Program module/layout signatures are serialized once per resolved immutable program. Draws use an explicit normalized static-state tuple and short per-program variant lookup. The authoritative global pipeline map is checked on every hit, so deletion, clearing and validation rejection remain visible. Dynamic blend/stencil/alpha values remain outside static keys.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; documented candidate differences remain.",
+  "logs": {
+    "d3d-stage3j2-core.log": "593648f89b397f5212b4a46020b79a98d56fb9cbf1bd6757e3c838b7138476ee",
+    "d3d-stage3j2-gpu.log": "5da63d323e74da8715f5ea65d1c9fddb36064c2133242e342d1c555f76c9b1a0",
+    "d3d-stage3j2-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3j2-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3j2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3j2-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3j2-integration.log": "07fd4d97c5734d3574eb6bcbd7e0e9ce61eaec5f57ed7eb779876414c2c27610",
+    "d3d-stage3j2-cache.log": "9304ae37498470415eb2f4704a112141d6e8b4c2e9d2541c5767ed02556496f2"
+  },
+  "next": "Stage 4 guest shared runtime: begin pure C library, common retry/upload mechanics, then process-unique owner and driver multi-owner support.",
+  "executorTests": 175,
+  "drawBenchmark": {
+    "benchmark": "wire decode + two state writes + fixed-function DrawPrimitive recording",
+    "draws": 2000,
+    "rounds": 30,
+    "uncachedFFP": false,
+    "programBuilds": 2,
+    "programCacheHits": 80148,
+    "medianMicrosPerDraw": 1.9074580000000056,
+    "p90MicrosPerDraw": 2.775375000000011,
+    "device": "no-op counting GPU",
+    "includesReplay": false,
+    "includesGPUTime": false,
+    "environment": {
+      "node": "v25.6.0",
+      "arch": "arm64",
+      "platform": "darwin",
+      "cpu": "Apple M1 Pro"
+    }
+  },
+  "beforeDrawBenchmark": {
+    "benchmark": "wire decode + two state writes + fixed-function DrawPrimitive recording",
+    "draws": 2000,
+    "rounds": 30,
+    "uncachedFFP": false,
+    "medianMicrosPerDraw": 9.136875000000003,
+    "p90MicrosPerDraw": 10.595770500000015,
+    "device": "no-op counting GPU",
+    "includesReplay": false,
+    "includesGPUTime": false
+  },
+  "stage3CpuTargetMet": true,
+  "benchmarkLimit": "Local no-op counting GPU public wire decode + two state writes + FFP draw recording. Excludes replay, driver and GPU; this is not a bound for every game draw."
+}

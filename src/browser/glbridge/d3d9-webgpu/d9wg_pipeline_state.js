@@ -21,9 +21,21 @@
             FILTER_MODES, SHADER_STAGE_VERTEX, SHADER_STAGE_FRAGMENT, isBlendableGPUFormat,
             DEPTH_FORMAT
         } = dependencies;
+        // All entries are normalized enums, booleans, finite numbers or GPU
+        // format names. Explicit slots avoid cloning/stringifying the full
+        // state object on every draw; dynamic values have no slot here.
         function staticStateKey(state) {
-            const { blendConstant, stencilReference, alphaTest, ...immutable } = state;
-            return JSON.stringify(immutable);
+            const front = state.stencilFront, back = state.stencilBack;
+            return [state.depthEnabled, state.depthWrite, state.depthCompare,
+                state.depthBias, state.depthBiasSlopeScale, state.blendEnabled,
+                state.srcFactor, state.dstFactor, state.blendOp, state.alphaSrcFactor,
+                state.alphaDstFactor, state.alphaBlendOp, state.cullMode, state.writeMask,
+                state.hasDepth, state.stencilEnabled,
+                front.compare, front.failOp, front.depthFailOp, front.passOp,
+                back.compare, back.failOp, back.depthFailOp, back.passOp,
+                state.stencilReadMask, state.stencilWriteMask,
+                state.extraWriteMasks.join("."), state.colorFormats.join("."),
+                state.sampleCount, state.sampleMask, state.alphaToCoverage].join("|");
         }
         return {
             // ---- draw pipeline ----
@@ -296,19 +308,26 @@
 
 
             pipelineFor(program, pipelineState, topology, stripIndexFormat) {
-                const key = program.vertexKey + "|" + program.fragmentKey + "|" +
-                    JSON.stringify(program.vertexBuffers) + "|" +
-                    topology + "|" + (stripIndexFormat || "") + "|" +
-                    staticStateKey(pipelineState) + "|" +
-                    program.samplerIndices.map(index => index + ":" +
-                        ((program.samplerDimensions &&
-                          program.samplerDimensions[index]) || "2d") + ":" +
-                        ((program.samplerBindingTypes &&
-                          program.samplerBindingTypes[index]) || "filterable"))
-                        .join(",") + "|vs:" + (program.vertexSamplers || [])
-                        .map(sampler => sampler.index + ":" + sampler.type + ":" +
-                            sampler.bindingType).join(",");
+                // A resolved program is immutable. Serialize its large module
+                // and binding-layout signatures once, then use a short state
+                // tuple per draw. The authoritative global cache is checked on
+                // hits so deletion/clearing never resurrects a retired pipeline.
+                if (!program.pipelineVariants) {
+                    program.pipelineVariants = new Map();
+                    program.pipelineLayoutKey = JSON.stringify([
+                        program.vertexKey, program.fragmentKey, program.vertexBuffers,
+                        program.samplerIndices.map(index => [index,
+                            (program.samplerDimensions && program.samplerDimensions[index]) || "2d",
+                            (program.samplerBindingTypes && program.samplerBindingTypes[index]) || "filterable"]),
+                        (program.vertexSamplers || []).map(sampler => [sampler.index, sampler.type, sampler.bindingType]),
+                    ]);
+                }
+                const variantKey = topology + "|" + (stripIndexFormat || "") + "|" + staticStateKey(pipelineState);
+                const cached = program.pipelineVariants.get(variantKey);
+                const key = cached ? cached.key : program.pipelineLayoutKey + "|" + variantKey;
                 let pipeline = this.pipelineCache.get(key);
+                if (pipeline && (!cached || cached.pipeline !== pipeline))
+                    program.pipelineVariants.set(variantKey, { key, pipeline });
                 if (pipeline) {
                     if (this.diagnosticsEnabled && !pipeline._d9wgDiagnostic)
                         this.capturePipelineDiagnostic(pipeline, program, topology, stripIndexFormat, pipelineState);
@@ -475,6 +494,7 @@
                     this.capturePipelineDiagnostic(pipeline, program, topology, stripIndexFormat, pipelineState);
                 ++this.stats.pipelineCreations;
                 this.pipelineCache.set(key, pipeline);
+                program.pipelineVariants.set(variantKey, { key, pipeline });
                 return pipeline;
             },
         };

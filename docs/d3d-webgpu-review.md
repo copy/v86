@@ -1018,6 +1018,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 同一公开 wire 基准由 **9.14 降到 3.36 µs/draw（中位数）**，不含 replay/GPU；80150 次 draw 仅构建两个程序。**3 µs 目标尚未关闭**，继续管线 key 热路径。
 > - 132 组严格核心、316/316 场景（SwiftShader/Metal、三种预算）、全部呈现/隔离页、恢复、12/12 变异、两项站点集成、原冻结 Warcraft III 旧语义对照通过。运行包 `e3dd8f5fbf98ded721f9`；见 [stage3j1-validation.json](fixtures/d3d-review/stage3j1-validation.json)。
 
+> **阶段 3J2（2026-11-02）：管线签名热路径完成，阶段 3 本轮关闭。**
+>
+> - 程序/绑定布局的大签名仅序列化一次；每次 draw 使用明确的规范化静态状态元组和程序内短 key。每次命中仍检查全局管线表，删除、清空和验证拒绝不会被二级缓存绕过；blend/stencil/alpha 动态值仍不进入静态 key。
+> - 公开 wire 基准在本机 Apple M1 Pro / Node v25.6.0 为 **1.91 µs/draw 中位数、2.78 µs P90**，低于 3 µs 目标（此前 9.14）。范围是 wire 解码、两次状态写入及 FFP draw 录制，不含 replay/驱动/GPU，也不是所有游戏 draw 的时延上限。
+> - 九个结构模块、本轮已知像素修复及所选 CPU 基准目标均完成。132 组严格核心、316/316 场景（SwiftShader/Metal、三种预算）、全部呈现/隔离页、恢复、12/12 变异、两项站点集成、原冻结 Warcraft III 旧语义对照通过。
+> - 运行包 `9341833c88a4a8e6a411`；见 [stage3j2-validation.json](fixtures/d3d-review/stage3j2-validation.json)。接着阶段 4 的客体共用核心；仍不宣称 Wine API、D3D8 包装、着色器差分或真实游戏验收完成。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

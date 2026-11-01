@@ -56,6 +56,24 @@ const draw = { opcode: P.OP.DRAW_PRIMITIVE,
     for (const name of Object.keys(cached.executor.stats).filter(name => /^(drawsWith|zeroNormal|blendedDraws|drawCalls|indexedDrawCalls)/.test(name)))
         assert.equal(cached.executor.stats[name], uncached.executor.stats[name], name + " must count cache hits as draws");
     assert(cached.executor.stats.programBuilds < uncached.executor.stats.programBuilds);
+    // The per-program acceleration must obey the global pipeline lifetime.
+    // Deleting an entry or clearing the global map cannot resurrect its GPU
+    // object through a secondary cache, including after a validation failure.
+    const target = cached.executor;
+    let previous = target.frame.ops.filter(op => op.kind === "draw").at(-1).pipeline;
+    const key = [...target.pipelineCache].find(([, pipeline]) => pipeline === previous)[0];
+    target.pipelineCache.delete(key);
+    await target.submit(batch([draw], false));
+    let current = target.frame.ops.at(-1).pipeline;
+    assert.notEqual(current, previous, "global eviction must invalidate the short-key entry");
+    current._d9wgRejected = "injected validation rejection";
+    const dropped = target.stats.droppedDraws;
+    await target.submit(batch([draw], false));
+    assert.equal(target.stats.droppedDraws, dropped + 1, "fast hits must observe validation rejection");
+    previous = current;target.pipelineCache.clear();
+    await target.submit(batch([draw], false));current = target.frame.ops.at(-1).pipeline;
+    assert.notEqual(current, previous, "global clearing must not reuse the rejected pipeline");
+    assert(!current._d9wgRejected);
     for (const item of [executor, cached.executor, uncached.executor]) {
         item.finishFrame(false);await item.idle();
         assert.equal(item.hostErrors.length, 0);assert.equal(item.gpuErrors.errors.length, 0);
