@@ -1,0 +1,58 @@
+{
+  "stage": "3J1 program and live-uniform reuse",
+  "date": "2026-11-02",
+  "coreSuites": 132,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "e3dd8f5fbf98ded721f9",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Serialized wire draws reuse immutable program/layout results across pipeline-only and uniform-only render states. A conservative serial invalidates on all other commands. UP stride/frequency, point expansion, alpha mode, direct debug toggles, shader clearing and asynchronously broken modules are guarded. Live uniform serial excludes pipeline-only states and unconsumed texture factor, while consumed values invalidate bytes. Cached draws reproduce all draw counters; compile counters remain creation events.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; documented candidate differences remain.",
+  "logs": {
+    "d3d-stage3j1-core.log": "b88a9b623d100013e8b50f32ea9c8ef07eab50e5c0b2cadef3aaa08c09babfef",
+    "d3d-stage3j1-gpu.log": "5193cadb38eb369012aa2707209aed7d252e673c26e5bfc0fa7e898d8653297a",
+    "d3d-stage3j1-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3j1-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3j1-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3j1-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3j1-integration.log": "9ff109c264f2a9cb9d5a67e8c4a0131b1997af8f2da29ad1ed981ead69917089",
+    "d3d-stage3j1-cache.log": "e9552e3a26c0dac4430215937bb649c25e184db0ab5cb7d5fd46eff699e7611a"
+  },
+  "next": "Remove repeated full pipeline key construction; CPU target remains open.",
+  "executorTests": 175,
+  "drawBenchmark": {
+    "benchmark": "wire decode + two state writes + fixed-function DrawPrimitive recording",
+    "draws": 2000,
+    "rounds": 30,
+    "uncachedFFP": false,
+    "programBuilds": 2,
+    "programCacheHits": 80148,
+    "medianMicrosPerDraw": 3.3559794999999895,
+    "p90MicrosPerDraw": 3.969062499999978,
+    "device": "no-op counting GPU",
+    "includesReplay": false,
+    "includesGPUTime": false
+  },
+  "beforeDrawBenchmark": {
+    "benchmark": "wire decode + two state writes + fixed-function DrawPrimitive recording",
+    "draws": 2000,
+    "rounds": 30,
+    "uncachedFFP": false,
+    "medianMicrosPerDraw": 9.136875000000003,
+    "p90MicrosPerDraw": 10.595770500000015,
+    "device": "no-op counting GPU",
+    "includesReplay": false,
+    "includesGPUTime": false
+  }
+}

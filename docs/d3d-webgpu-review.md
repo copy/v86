@@ -1010,6 +1010,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 真实浏览器验证默认无模块/快照，开启后正确捕获状态，**4096 个 GPU 像素完全相同**；SwiftShader/Metal 通过。131 组严格核心、316/316 一致性场景（三种预算）、overlay/隔离/交换链、恢复、12/12 变异、两项站点集成和冻结 Warcraft III 旧语义对照通过。
 > - 运行包 `081f4cdbe432d69ff6b7`；见 [stage3i-validation.json](fixtures/d3d-review/stage3i-validation.json)。九个结构模块的本轮拆分已完成，接着优化程序、管线 key 和 uniform 热路径；CPU 目标和后续阶段尚未关闭。
 
+
+> **阶段 3J1（2026-11-02）：程序及活跃 uniform 复用。**
+>
+> - 序列化 wire draw 复用程序、反射与 uniform layout；pipeline/uniform-only 状态不重建程序，其他命令保守失效。覆盖 UP stride/frequency、点展开、alpha 模式、直接 debug 修改、清缓存及异步编译失败；直接调用构建器保留不缓存契约。
+> - uniform 单独跟踪有效输入，cull/stencil reference/blend factor 及未使用的 texture factor 不再重复打包；被消费的值仍更新。缓存命中按 draw 累加语义计数，编译计数保持创建事件。
+> - 同一公开 wire 基准由 **9.14 降到 3.36 µs/draw（中位数）**，不含 replay/GPU；80150 次 draw 仅构建两个程序。**3 µs 目标尚未关闭**，继续管线 key 热路径。
+> - 132 组严格核心、316/316 场景（SwiftShader/Metal、三种预算）、全部呈现/隔离页、恢复、12/12 变异、两项站点集成、原冻结 Warcraft III 旧语义对照通过。运行包 `e3dd8f5fbf98ded721f9`；见 [stage3j1-validation.json](fixtures/d3d-review/stage3j1-validation.json)。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

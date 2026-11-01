@@ -10,6 +10,7 @@ const executor = new D3D9WebGPUExecutor({ getContext: () => fake.context }, {
     device: fake.device, context: fake.context, uniformRingBytes: 16 * 1024 * 1024,
 });
 const uncached = process.argv.includes("--uncached-ffp"), draws = 2000, rounds = 30;
+if(uncached) executor.options.cachePrograms = false;
 if(uncached) executor.fixedModuleFor = function(key, stage, signature, debug_mode) {
     return this.moduleFor(stage === "vertex" ? build_vertex(signature)
         : build_pixel(signature, debug_mode), key);
@@ -31,5 +32,5 @@ samples.sort((a, b) => a - b);
 if(executor.hostErrors.length || executor.gpuErrors.errors.length || executor.stats.droppedDraws)
     throw new Error("benchmark encountered a renderer failure");
 console.log(JSON.stringify({ benchmark: "wire decode + two state writes + fixed-function DrawPrimitive recording", draws, rounds,
-    uncachedFFP: uncached, medianMicrosPerDraw: samples[Math.floor(rounds / 2)], p90MicrosPerDraw: samples[Math.floor(rounds * 0.9)],
+    uncachedFFP: uncached, programBuilds: executor.stats.programBuilds, programCacheHits: executor.stats.programCacheHits, medianMicrosPerDraw: samples[Math.floor(rounds / 2)], p90MicrosPerDraw: samples[Math.floor(rounds * 0.9)],
     device: "no-op counting GPU", includesReplay: false, includesGPUTime: false }));

@@ -1003,6 +1003,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         };
     }
 
+    const PROGRAM_DRAW_COUNTERS = [
+        "drawsWithTexture", "drawsWithFallbackTexture", "drawsWithUnsupportedTextureOp",
+        "drawsWithCompactVertexInputs", "drawsWithMissingCoordSet", "drawsWithUnappliedVertexBlend",
+        "drawsWithUnwrittenCoordVarying", "zeroNormalDrawsWithoutTexture", "zeroNormalDrawsWithMissingTexture",
+        "zeroNormalDrawsWithUnboundTexture", "zeroNormalDrawsWithUnknownTexture", "zeroNormalDrawsWithLiveTexture",
+        "drawsWithDefaultedInputs", "drawsWithZeroNormalLighting", "blendedDraws",
+    ];
+
     const DEVICE_STATE_CONSTANTS = { D3DMULTISAMPLE_NONE, D3DTS_VIEW, D3DTS_PROJECTION, D3DTS_WORLD, IDENTITY4x4,
         MAX_VS_CONST_F, MAX_PS_CONST_F, MAX_CONST_I, MAX_CONST_B };
 
@@ -1108,6 +1116,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
              * only ever miss a reuse, never claim a stale one.
              */
             this.commandSerial = 1;
+            this.programSerial = 1;
+            this.uniformSerial = 1;
+            this.recordingOpcode = 0;
             this.objectIds = new WeakMap();
             this.nextObjectId = 1;
             // Bytecode hash -> {ok, wgsl, reflection}. Survives device loss:
@@ -1185,6 +1196,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 batches: 0, commands: 0, presents: 0, queueSubmits: 0,
                 drawCalls: 0, indexedDrawCalls: 0, upDrawCalls: 0,
                 pipelineCreations: 0, pipelineHits: 0, pipelinesRejected: 0,
+                programBuilds: 0, programCacheHits: 0,
                 bindGroupCreations: 0, bindGroupHits: 0,
                 bindGroupCacheEvictions: 0, framesRejected: 0,
                 uniformSlotReuses: 0, uniformRingOverflows: 0,
@@ -1600,6 +1612,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.bindGroupCache.clear();
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
+            ++this.programSerial;
+            ++this.uniformSerial;
             this.samplerCache.clear();
         }
 
@@ -1641,6 +1655,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // is not one bad command but a disagreement about the byte
                 // layout, and continuing past it would be executing garbage.
                 try {
+                    this.recordingOpcode = opcode;
                     const pending = this.dispatchCommand(opcode, bytes, view,
                         payloadOffset, payloadBytes, metadata);
                     if (pending && typeof pending.then === "function") {
@@ -1660,14 +1675,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     this.warnOnce("command-failed-" + opcode + "-" + message,
                         "a command threw and was skipped; the rest of the " +
                         "batch still executes", { opcode, message, error });
-                }
+                } finally { this.recordingOpcode = 0; }
                 // Any command other than a draw may have moved something the
                 // constant block is built from. Draws are excluded because they
                 // are the thing being deduplicated; opcodes 0x300..0x303 are the
                 // four draw entry points.
                 if (opcode < OP_DRAW_PRIMITIVE ||
                         opcode > OP_DRAW_INDEXED_PRIMITIVE_UP)
-                    ++this.commandSerial;
+                    this.advanceDrawState(opcode, view, payloadOffset);
                 offset += size;
                 ++this.stats.commands;
                 // Mid-batch, because one PCI batch can carry a whole 16 MiB
@@ -2220,6 +2235,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.bindGroupCache.clear();
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
+            ++this.programSerial;
+            ++this.uniformSerial;
             this.samplerCache.clear();
             this.cursor = { ...this.cursor, texture: null, view: null,
                 pipeline: null, sampler: null, uniform: null,
@@ -2676,6 +2693,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.shaderCache = new shaderPipeline.D3D9ShaderCache();
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
+            ++this.programSerial;
+            ++this.uniformSerial;
             this.shaderCacheDirty = false;
             const storage = this.shaderCacheStorage;
             if (storage && typeof storage.save === "function") {
@@ -4231,7 +4250,81 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // Resolves the two stages into GPUShaderModules plus everything the
         // pipeline and bind group need. Returns {error} instead of throwing
         // for anything the caller should turn into a counted skipped draw.
+        // Program reuse is confined to serialized wire draws. Direct callers
+        // may mutate a state object without sending a command and retain the
+        // uncached builder contract. Unknown commands invalidate conservatively.
+        advanceDrawState(opcode, view, offset) {
+            ++this.commandSerial;
+            let programDirty = true, uniformsDirty = true;
+            if (opcode === OP_SET_RENDER_STATE) {
+                const id = view.getUint32(offset + D9WG.F.SetRenderState.state, true);
+                if (id === D3DRS_CULLMODE || id === D3DRS_STENCILREF ||
+                        id === D3DRS_BLENDFACTOR || id === D3DRS_ALPHAREF ||
+                        id === D3DRS_TEXTUREFACTOR) programDirty = false;
+                if (id === D3DRS_CULLMODE || id === D3DRS_STENCILREF ||
+                        id === D3DRS_BLENDFACTOR) uniformsDirty = false;
+                else if (id === D3DRS_TEXTUREFACTOR) {
+                    const state = this.devices.get(view.getUint32(offset + D9WG.F.SetRenderState.device_handle, true));
+                    const cached = state && state.lastProgram;
+                    if (cached && cached.serial === this.programSerial &&
+                            !(cached.program.pixelSignature && cached.program.pixelSignature.usesTextureFactor))
+                        uniformsDirty = false;
+                }
+            }
+            if (programDirty) ++this.programSerial;
+            if (uniformsDirty) ++this.uniformSerial;
+        }
+
         programFor(state, elements, pipelineState, drawOptions) {
+            const wireDraw = this.recordingOpcode >= OP_DRAW_PRIMITIVE &&
+                this.recordingOpcode <= OP_DRAW_INDEXED_PRIMITIVE_UP;
+            if (!wireDraw || this.options.cachePrograms === false) {
+                ++this.stats.programBuilds;
+                return this.buildProgramFor(state, elements, pipelineState, drawOptions);
+            }
+            const pointExpansion = !!(drawOptions && drawOptions.pointExpansion);
+            const pointSprite = !!(drawOptions && drawOptions.pointSprite);
+            const stream0 = state.streams.get(0);
+            const stride = stream0 ? stream0.stride : 0;
+            const frequency = stream0 ? stream0.frequency : undefined;
+            const alphaMode = pipelineState.alphaTest.enabled ? pipelineState.alphaTest.func : 0;
+            const debug = this.debug, cached = state.lastProgram;
+            if (cached && cached.serial === this.programSerial &&
+                    cached.elements === elements && cached.stride === stride && cached.frequency === frequency &&
+                    cached.pointExpansion === pointExpansion && cached.pointSprite === pointSprite &&
+                    cached.alphaMode === alphaMode && cached.shaderMode === debug.shaderMode &&
+                    cached.forceSolidAllDraws === debug.forceSolidAllDraws &&
+                    cached.skipProgrammableDraws === debug.skipProgrammableDraws &&
+                    cached.highlightMissingTexture === debug.highlightMissingTexture &&
+                    cached.highlightMissingCoordSet === debug.highlightMissingCoordSet &&
+                    cached.warnOnSuspiciousDraws === debug.warnOnSuspiciousDraws &&
+                    cached.texcoordFromStageIndex === debug.texcoordFromStageIndex &&
+                    !cached.program.vertexModule._d9wgBroken && !cached.program.fragmentModule._d9wgBroken) {
+                ++this.stats.programCacheHits;
+                for (const [name, count] of cached.program.drawCounters) this.stats[name] += count;
+                return cached.program;
+            }
+            ++this.stats.programBuilds;
+            const before = PROGRAM_DRAW_COUNTERS.map(name => this.stats[name]);
+            const program = this.buildProgramFor(state, elements, pipelineState, drawOptions);
+            if (program.error) { state.lastProgram = null;return program; }
+            program.drawCounters = PROGRAM_DRAW_COUNTERS.flatMap((name, index) => {
+                const delta = this.stats[name] - before[index];
+                return delta ? [[name, delta]] : [];
+            });
+            state.lastProgram = {
+                serial: this.programSerial, elements, stride, frequency, alphaMode, pointExpansion, pointSprite, program,
+                shaderMode: debug.shaderMode, forceSolidAllDraws: debug.forceSolidAllDraws,
+                skipProgrammableDraws: debug.skipProgrammableDraws,
+                highlightMissingTexture: debug.highlightMissingTexture,
+                highlightMissingCoordSet: debug.highlightMissingCoordSet,
+                warnOnSuspiciousDraws: debug.warnOnSuspiciousDraws,
+                texcoordFromStageIndex: debug.texcoordFromStageIndex,
+            };
+            return program;
+        }
+
+        buildProgramFor(state, elements, pipelineState, drawOptions) {
             drawOptions = drawOptions || {};
             const alphaTest = pipelineState.alphaTest;
             const alphaTestKey = alphaTest.enabled
@@ -5060,7 +5153,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
          * register files separate.
          *
          * A run of draws with no state change between them shares one slot, and
-         * that is decided by commandSerial rather than by hashing the assembled
+         * that is decided by uniformSerial rather than by hashing the assembled
          * bytes. The frame serial is part of the test because a flush rewinds
          * the ring: a slot from an already-submitted segment has had its bytes
          * handed back out to a later draw.
@@ -5075,11 +5168,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
              * The serial covers device state. Every input the block is built
              * from -- constant registers, `def` defaults, viewport, clip planes,
              * transforms, lights, material, texture stage state -- moves only
-             * through a command, and any non-draw command bumps the serial.
+             * through a command. Pipeline-only states and an unused texture
+             * factor do not invalidate these bytes; all other commands do.
              *
-             * The module keys cover the program. programFor() rebuilds its
-             * return object per draw, so the object cannot be compared by
-             * identity, but vertexKey/fragmentKey are the keys its WGSL modules
+             * The module keys cover the program, including uncached/direct
+             * builder calls. vertexKey/fragmentKey are the keys its WGSL modules
              * are cached under: equal keys mean the same generated shader, hence
              * the same uniform layout and, for fixed function, the same
              * signature the values are read through. That is what makes point
@@ -5091,7 +5184,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
              * back out to a later draw.
              */
             const cached = state.lastConstants;
-            if (cached && cached.serial === this.commandSerial &&
+            if (cached && cached.serial === this.uniformSerial &&
                     cached.frameSerial === frame.serial &&
                     cached.vertexKey === program.vertexKey &&
                     cached.fragmentKey === program.fragmentKey) {
@@ -5136,7 +5229,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const constants = { buffer: slot.buffer, dynamicOffset: slot.offset,
                 vertexBytes, pixelOffset, pixelBytes,
                 transient: slot.transient };
-            state.lastConstants = { serial: this.commandSerial,
+            state.lastConstants = { serial: this.uniformSerial,
                 frameSerial: frame.serial, vertexKey: program.vertexKey,
                 fragmentKey: program.fragmentKey, slot: constants };
             return constants;
