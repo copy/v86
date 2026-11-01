@@ -32,7 +32,10 @@ const result = await run_xp_ram_probe({ root, out, files,
     image: process.env.XP_IMAGE || site + "/windowsxp/windowsxp_multidisk_C_4G.img",
     success: "PASS all real XP TNL probes", log_files: ["TNL7.TXT", "TNL8.TXT", "TNL9.TXT"],
     inspect(result) {
-        for(const text of Object.values(result.logs)) assert(text.includes("PASS all real XP ProcessVertices lighting checks"));
+        for(const text of Object.values(result.logs)) {
+            assert(text.includes("PASS all real XP ProcessVertices lighting checks"));
+            assert(text.includes("PASS shared vertex copy, bounds and layout checks"));
+        }
         assert.equal(result.releases.length, 3);assert.equal(new Set(result.releases).size, 3);
         assert(result.releases.every(owner => owner > 0));assert.equal(result.owners.length, 3);
     } });

@@ -22,13 +22,15 @@
     try {
         const [input, cpu] = await Promise.all([fetch("fixtures/d3d_software_lighting_cases.json").then(r => r.json()),
             fetch("fixtures/d3d_software_lighting_cpu.json").then(r => r.json())]);
+        const fullPipeline = new URLSearchParams(location.search).has("pipeline");
         const identity = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1], scenes = [];
         const states = { lighting: 137, color_vertex: 141, specular_enable: 29, local_viewer: 142,
             diffuse_source: 145, ambient_source: 147, specular_source: 146, emissive_source: 148, normalize_normals: 143 };
         async function render(test, processed, index) {
             const body = dev => {
-                const elements = [element(0, 2, 0)], stride = processed ? 44 : 56;
-                if (processed) elements.push(element(12, 3, 10, 0), element(28, 3, 10, 1));
+                const screen = processed && fullPipeline, positionBytes = screen ? 16 : 12;
+                const elements = [element(0, screen ? 3 : 2, screen ? 9 : 0)], stride = processed ? positionBytes + 32 : 56;
+                if (processed) elements.push(element(positionBytes, 3, 10, 0), element(positionBytes + 16, 3, 10, 1));
                 else {
                     if (test.hasNormal) elements.push(element(12, 2, 3));
                     if (test.colorMask & 1) elements.push(element(24, 3, 10, 0));
@@ -36,7 +38,7 @@
                 }
                 const vertices = new Float32Array(3 * stride / 4);
                 for (let vertex = 0; vertex < 3; vertex++) {
-                    const values = processed ? [...processed.vertices[vertex].position, ...processed.vertices[vertex].diffuse, ...processed.vertices[vertex].specular]
+                    const values = processed ? [...(fullPipeline ? processed.processed[vertex] : processed.vertices[vertex]).position, ...(fullPipeline ? processed.processed[vertex] : processed.vertices[vertex]).diffuse, ...(fullPipeline ? processed.processed[vertex] : processed.vertices[vertex]).specular]
                         : [...test.positions[vertex], ...test.normal, ...test.color0, ...test.color1];
                     vertices.set(values, vertex * stride / 4);
                 }
@@ -84,11 +86,11 @@
         for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
         const evidence = { tolerance: input.tolerance, sourceSha256: cpu.sourceSha256, scenes, stats: gpu.stats,
             gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors };
-        await fetch("/__test_file?name=d9wg-software-lighting.json", { method: "POST", body: JSON.stringify(evidence, null, 2) });
+        await fetch("/__test_file?name=" + (fullPipeline ? "d9wg-software-vertices.json" : "d9wg-software-lighting.json") + "", { method: "POST", body: JSON.stringify(evidence, null, 2) });
         const failures = scenes.filter(scene => scene.differingPixels || scene.coveredPixels < 500);
         if (failures.length || gpu.gpuErrors.errors.length || gpu.hostErrors.length || gpu.stats.commandsFailed || gpu.stats.droppedDraws)
             throw new Error("Software/GPU lighting mismatch: " + JSON.stringify({ failures, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors }));
-        document.querySelector("#result").textContent = "PASS shared C/GPU lighting: " + scenes.length + " scenes, " + scenes.length * 4096 + " pixel pairs within 1 byte/channel";
+        document.querySelector("#result").textContent = "PASS shared C/GPU " + (fullPipeline ? "processed vertices: " : "lighting: ") + scenes.length + " scenes, " + scenes.length * 4096 + " pixel pairs within 1 byte/channel";
     } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
 })();
 </script>
