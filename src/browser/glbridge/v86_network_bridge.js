@@ -55,11 +55,15 @@
         return asBytes(value).slice();
     }
 
-    function ownerReleasedRecord() {
-        const bytes = new Uint8Array(8);
-        bytes[0] = CTRL_OWNER_RELEASED & 0xff;
-        bytes[1] = CTRL_OWNER_RELEASED >> 8;
-        bytes[2] = bytes[3] = 0xff;
+    function ownerReleasedRecord(ownerToken) {
+        const scoped = ownerToken !== undefined;
+        if (scoped && (!Number.isInteger(ownerToken) || ownerToken < 0 || ownerToken > 0xffffffff))
+            throw new Error("invalid graphics owner token");
+        const bytes = new Uint8Array(scoped ? 12 : 8);
+        const view = new DataView(bytes.buffer);
+        view.setUint16(0, CTRL_OWNER_RELEASED, true);
+        view.setUint16(2, EXTENDED_RECORD_SIZE, true);
+        if (scoped) { view.setUint32(4, 4, true);view.setUint32(8, ownerToken, true); }
         return bytes;
     }
 
@@ -270,12 +274,12 @@
                 const layer = this.compositor.createLayer("d3d9 swap chain " + surface.swapChain);
                 layer.canvas.width = Math.max(1, surface.width || 1);
                 layer.canvas.height = Math.max(1, surface.height || 1);
-                this.d3d9SwapChainCanvases.set(surface.swapChain, layer.canvas);
+                this.d3d9SwapChainCanvases.set(this.d3d9SwapChainKey(surface), layer.canvas);
                 return layer.canvas;
             };
             const userSwapChainSurface = opts.onSwapChainSurface;
             opts.onSwapChainSurface = (surface, reason) => {
-                if (reason === "destroy") this.removeD3D9SwapChain(surface.swapChain);
+                if (reason === "destroy") this.removeD3D9SwapChain(surface);
                 else this.placeD3D9SwapChain(surface);
                 if (typeof userSwapChainSurface === "function")
                     userSwapChainSurface(surface, reason);
@@ -303,9 +307,18 @@
 
         executePCIBatch(event, bytes) {
             if (this.isEnvelope(bytes, CTRL_OWNER_RELEASED)) {
-                for (const executor of [this.glExecutor, this.d3d9Executor])
-                    if (executor) executor.endOwnerSessions();
-                return;
+                const size = u32(bytes, 4);
+                if ((size !== 0 && size !== 4) || bytes.length !== 8 + size)
+                    throw new Error("invalid graphics owner release");
+                const ownerToken = size ? u32(bytes, 8) : undefined;
+                if (!ownerToken && this.glExecutor) this.glExecutor.endOwnerSessions();
+                const executor = this.d3d9Executor;
+                if (!executor) return;
+                // submit() is asynchronous even with a ready local device.
+                // Queue retirement on the same chain so accepted batches can
+                // never recreate a session after its owner was released.
+                executor.work = Promise.resolve(executor.work).then(() => executor.endOwnerSessions(ownerToken));
+                return executor.work;
             }
             if (this.isEnvelope(bytes, CTRL_D3D9_BATCH))
                 return this.pushD3D9PCIBatch(event, bytes);
@@ -324,6 +337,7 @@
             }
             this.glExecutor.submit(bytes, {
                 ...(event.replay ? { replay: true } : {}),
+                ...(event.ownerToken ? { ownerToken: event.ownerToken } : {}),
                 pciFrameId: event.frameId >>> 0,
                 submitCount: event.submitCount >>> 0,
                 descriptorCommandCount: event.commandCount >>> 0,
@@ -374,6 +388,7 @@
             };
             return this.d3d9Executor.submit(bytes.subarray(8), {
                 ...(event.replay ? { replay: true } : {}),
+                ...(event.ownerToken ? { ownerToken: event.ownerToken } : {}),
                 pciFrameId: event.frameId >>> 0,
                 submitCount: event.submitCount >>> 0,
                 descriptorCommandCount: event.commandCount >>> 0,
@@ -424,7 +439,7 @@
                 throw new Error("graphics checkpoint is truncated");
             const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
             const version = view.getUint16(4, true);
-            if (version === 3) {
+            if (version === 3 || version === 4) {
                 const parsed = GraphicsJournal.parse(bytes);
                 if (parsed.legacy.length && (parsed.legacy.length < CHECKPOINT_HEADER_BYTES ||
                         new DataView(parsed.legacy.buffer).getUint16(4, true) !== 1))
@@ -590,7 +605,7 @@
                         this.glJournalBytes = legacy.gl.byteLength;
                     }
                 }
-                const records = parsed.version === 3 ? GraphicsJournal.records(parsed) : parsed.records;
+                const records = parsed.pages ? GraphicsJournal.records(parsed) : parsed.records;
                 for await (const record of records) {
                     if (record.barrier) await this.waitForIdle(true);
                     else {
@@ -772,9 +787,16 @@
             }
         }
 
+        d3d9SwapChainKey(surface) {
+            return surface.sessionKey || surface.deviceHandle
+                ? JSON.stringify([surface.sessionKey || "", surface.deviceHandle || 0, surface.swapChain])
+                : surface.swapChain;
+        }
+
         placeD3D9SwapChain(surface) {
-            this.d3d9SwapChainSurfaces.set(surface.swapChain, surface);
-            const canvas = this.d3d9SwapChainCanvases.get(surface.swapChain);
+            const key = this.d3d9SwapChainKey(surface);
+            this.d3d9SwapChainSurfaces.set(key, surface);
+            const canvas = this.d3d9SwapChainCanvases.get(key);
             if (!canvas) return;
             // Placed by its own surface alone: the primary window's size,
             // clip and desktop-primary flag are not this window's
@@ -784,7 +806,8 @@
             this.d3d9Surface = saved;
         }
 
-        removeD3D9SwapChain(handle) {
+        removeD3D9SwapChain(surface) {
+            const handle = typeof surface === "object" ? this.d3d9SwapChainKey(surface) : surface;
             const canvas = this.d3d9SwapChainCanvases.get(handle);
             if (!canvas) return;
             this.d3d9SwapChainCanvases.delete(handle);

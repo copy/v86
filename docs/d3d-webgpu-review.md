@@ -1079,6 +1079,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 76 组客体、两项站点集成、35 个 XP 冒烟 EXE 与六个零售/诊断 DLL 构建通过，无 CRT。**当前共用库在真实 XP 再次通过两种卸载顺序**，95 秒、4 批、2 次 owner 释放；仍只验证 loader/driver 所有权，不宣称绘制通过。
 > - 见 [stage4b2-validation.json](fixtures/d3d-review/stage4b2-validation.json)。继续宿主 owner 作用域及存档、多个 D3D arena 和驱动多 owner，再推进余下共用核心与 API 验收。
 
+> **阶段 4C1（2026-11-02）：宿主 owner 命名空间及检查点完成。**
+>
+> - 稳定 transport owner token 纳入 D3D 会话及附加 swap-chain 标识；不同进程即使使用相同 session/device/resource 句柄也互不覆盖。退出只回收指定 owner，保留另一进程尚未 Present 的帧；legacy owner 0 保留原路径。
+> - owner 回收排入 executor 的批次链，修复本地模式中已接受批次在回收后重新创建资源的竞态。旧无作用域回收记录继续表示全部 owner。
+> - VGS2 journal 写入 v4 并保存 owner，继续读取 v1–v3；冷恢复验证同名资源、SESSION_END 作用域、GL 与两个 D3D owner 的独立生命周期。GL resource checkpoint 的外层 v4 格式不变。
+> - 两个新增用例在 SwiftShader 与本机 Metal 各通过 16,384 个像素，覆盖 uniform 和上传暂存；132 组宿主测试、316 场景及预算变体、完整存档页、12/12 变异、两项站点集成通过。Warcraft 冻结旧语义对照通过，仍不代表当前全部游戏语义验收。
+> - 运行包 `cca565279ff8d9998d67`；见 [stage4c1-validation.json](fixtures/d3d-review/stage4c1-validation.json)。此阶段是宿主准备，继续设备多 arena 与 XP 驱动，尚未宣称客体多进程通过。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

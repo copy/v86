@@ -1,0 +1,66 @@
+{
+  "stage": "4C1 host transport-owner namespaces and checkpoints",
+  "date": "2026-11-02",
+  "bundle": "cca565279ff8d9998d67",
+  "coreSuites": 132,
+  "siteIntegrationTests": 2,
+  "gpuCases": 316,
+  "gpuBudgetVariants": [
+    "256B uniform",
+    "1B upload"
+  ],
+  "ownerIsolation": {
+    "sameSessionDeviceAndResourceHandles": true,
+    "uniformAndUploadCases": 2,
+    "readbackPixelsPerBackend": 16384,
+    "backends": [
+      "SwiftShader",
+      "Metal"
+    ],
+    "foreignPendingFrameSurvives": true
+  },
+  "journal": {
+    "writeVersion": 4,
+    "oldVersionsReadable": [
+      1,
+      2,
+      3
+    ],
+    "coldRestoreOwnerIsolation": true,
+    "legacyUnscopedRelease": "all owners",
+    "explicitZeroRelease": "legacy namespace only"
+  },
+  "mutationKilled": 12,
+  "mutationTotal": 12,
+  "warcraftFrozenCounterfactual": "PASS legacy UNORM/uploads/FFP; not full current game acceptance",
+  "scope": "Host-only preparation; physical multi-arena device and XP driver follow.",
+  "sha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "6e777e8950a0a0cde4c78e3fcc07c3294dfc7ee73380fd6aac82269099234c31",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "f056976d6817963bc7fa454c66ea6687eea6a11cab9629deca58703814b40a3a",
+    "src/browser/glbridge/graphics_journal.js": "2127a7c8875e7cc2a95e7d67f9399244ec150a35aec1bf32ed3067995b6952d7",
+    "src/browser/glbridge/graphics_proxy.js": "054ad0fb7c09b8f1d6f5b0427beb03ab0831bf313683f0a951262f6b9cb72fbf",
+    "src/browser/glbridge/v86_network_bridge.js": "0bf1d65a9af6c58856a7c383b3c1cdc0ed981f8f470ee09eb75996a91ca61a1c",
+    "tests/glbridge/graphics_checkpoint_test.js": "4ffb8c0880a991afecd2f7fe77a5781215123e60815874795a389dc7e31b8e2e",
+    "tests/glbridge/graphics_journal_test.js": "6887e66106f5e7676495f8c44bfde2fe283c8e060e401f940128526788c2584d",
+    "tests/glbridge/d3d9_session_isolation_browser_test.html": "cf9dfb44bb8d00759ea882b44748a1e4f71e5d6c745f0f1e94bf79bda205ebf8",
+    "tests/glbridge/v86_network_bridge_d3d9_route_test.js": "96c9283ac6ebf632861d4d4832a9494d4a79d88eaa9c0182cde9dc9c2577776c",
+    "tests/glbridge/v86_network_bridge_webgpu_state_test.js": "1b7efc0c8dd513f2f3c334372e0ffdff0ba619563c88668915a5b83bc842f239"
+  },
+  "logs": {
+    "core": "457f510e6c7efd84a9f1dc007988912ef801d194ead9c525afcd91b106a343b1",
+    "core-tail": "b14dd01fd5accb9bf7ed3d1da09c4085ba6c3096080439e6948f9875c52f825b",
+    "shared-host": "4823eebf1a5ffec1375632dba7542386103c400a90616bcf4e37040c8e60fb66",
+    "journal": "931d7d1fca9c0a2938e46021cf489a7bd815f846f347b5c2aa04f7629fedb491",
+    "route": "c54485934ebb9262d9fde0425fd0c5523398a1b9ae8f9563352dedabeea72e7c",
+    "owner-gpu": "59b3bb0efb700473da52182623fa335d8ae28c6c53bff58730c668a4bd074af3",
+    "owner-upload-gpu": "59b3bb0efb700473da52182623fa335d8ae28c6c53bff58730c668a4bd074af3",
+    "gpu": "e385974ff22b949caf8447943f6c2b7a792df53ba132919e2f6569356306ab7c",
+    "checkpoint-gpu": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "mutations": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "metal": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "owner-metal": "59b3bb0efb700473da52182623fa335d8ae28c6c53bff58730c668a4bd074af3",
+    "owner-upload-metal": "59b3bb0efb700473da52182623fa335d8ae28c6c53bff58730c668a4bd074af3",
+    "warcraft": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "integration": "4cfb20040cef5d0edf81bdfa4deb496ae4ac89eb57ff3495e70559718d1b9c44"
+  }
+}

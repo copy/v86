@@ -252,6 +252,7 @@
                     width: view.getUint32(offset + D9WG.F.CreateSwapChain.width, true),
                     height: view.getUint32(offset + D9WG.F.CreateSwapChain.height, true),
                     swapChain: handle,
+                    deviceHandle: state.handle,
                     sessionKey: state.surface ? state.surface.sessionKey : null,
                     visible: true,
                 };

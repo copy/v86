@@ -180,6 +180,20 @@ assert.equal(swapChainCanvas.layer.visible, false);
 bridge.removeD3D9SwapChain(7);
 assert.ok(!compositor.layers.includes(swapChainCanvas.layer), "a destroyed swap chain's layer goes");
 
+// Identical chain handles from different sessions/devices own separate layers.
+const chainA = { swapChain: 7, sessionKey: "owner-a", deviceHandle: 1, width: 20, height: 20 };
+const chainB = { ...chainA, sessionKey: "owner-b" };
+const chainC = { ...chainA, deviceHandle: 2 };
+const canvasA = d3d9Options.createSwapChainCanvas(chainA);
+const canvasB = d3d9Options.createSwapChainCanvas(chainB);
+const canvasC = d3d9Options.createSwapChainCanvas(chainC);
+for (const surface of [chainA, chainB, chainC]) bridge.placeD3D9SwapChain(surface);
+d3d9Options.onSwapChainSurface(chainA, "destroy");
+assert.ok(!compositor.layers.includes(canvasA.layer));
+assert.ok(compositor.layers.includes(canvasB.layer) && compositor.layers.includes(canvasC.layer), "foreign chains survive destruction");
+d3d9Options.onSwapChainSurface(chainB, "destroy");
+d3d9Options.onSwapChainSurface(chainC, "destroy");
+
 const beforeReset = guestMemory.slice();
 ++bridge.memoryGeneration;
 routed[0].metadata.writeGuestMemory(0, new Uint8Array([123]));

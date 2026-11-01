@@ -157,6 +157,12 @@ one contiguous output buffer. The current chunked stream header version is 9
 
 New GL draws are no longer journaled. Version 4 includes the version 3 paged
 Direct3D 8/9 and DirectDraw history, with Present and checkpoint flush boundaries.
+The embedded VGS2 journal now writes version 4, using its previously reserved
+entry word for a stable transport owner token. Versions 1–3 remain readable.
+D3D session and additional swap-chain identities include their transport owner;
+a scoped owner-release record retires only that owner, in accepted batch order.
+Owner zero retains the legacy GL/D3D namespace. Historical unscoped release
+records retain their original all-owner meaning.
 Their handles, shaders, render state, palettes, queries and GPU-rendered contents
 are reconstructed in order. Historical readbacks never write restored guest RAM.
 Older GL histories remain readable and become live resource snapshots on the

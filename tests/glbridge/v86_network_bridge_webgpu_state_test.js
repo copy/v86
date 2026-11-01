@@ -89,7 +89,7 @@ function recordOpcodes(bytes) {
     assert.equal(bridge.glJournalBytes, glBytes.length);
     await bridge.prepareSaveState();
     const migrated = bridge.parseCheckpoint(bridge.serializeCheckpoint());
-    assert.equal(migrated.version, 3);
+    assert.equal(migrated.version, 4);
     assert.deepEqual((await GraphicsJournal.records(migrated).next()).value.bytes, glBytes);
     await bridge.graphicsJournal.destroy();
     console.log("v86_network_bridge_webgpu_state_test: ok");

@@ -242,9 +242,9 @@
 
         // The arena's owner is gone: a journaled pseudo-batch ends every
         // session it submitted, behind its last batch
-        const onReleased = () => {
+        const onReleased = message => {
             const batchEpoch = epoch;
-            const event = { bytes: global.V86GLNetworkBridge.ownerReleasedRecord(), released: true,
+            const event = { bytes: global.V86GLNetworkBridge.ownerReleasedRecord(message.ownerToken), released: true,
                 writeGuestMemory() {}, isMemoryValid: () => false };
             if (!channel.remote) {
                 bridge.pushPCIBatch(event);
@@ -262,6 +262,7 @@
             const generation = message.generation;
             const event = {
                 frameId: message.frameId,
+                ...(message.ownerToken ? { ownerToken: message.ownerToken } : {}),
                 flags: message.flags,
                 commandCount: message.commandCount,
                 bytes: message.bytes,
@@ -381,7 +382,7 @@
                 });
                 channel.listen(message => {
                     if (message.type === "batch") onBatch(message);
-                    else if (message.type === "released") onReleased();
+                    else if (message.type === "released") onReleased(message);
                 });
                 channel.post({ type: "initializing", value: true });
                 return Promise.all([bridge.ready.then(sendCapabilities), sendGlslang()])

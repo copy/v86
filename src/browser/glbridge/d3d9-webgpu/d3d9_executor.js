@@ -1167,6 +1167,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.sessionKey = null;
             // the sessions submitted since the arena's owner last released it
             this.ownerSessions = new Set();
+            this.ownerSessionScopes = new Map();
+            this.batchOwnerToken = 0;
             this.frame = null;             // { ops, transientBuffers, serial }
             this.frameSerial = 0;
             this.frameReplayer = new FrameReplayer(this);
@@ -1607,6 +1609,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.releaseActiveSession("state-restore");
             }
             this.sessionStates.clear();
+            this.ownerSessions.clear();this.ownerSessionScopes.clear();
             this.sessionKey = null;
             this.pipelineCache.clear();
             this.bindGroupCache.clear();
@@ -1629,9 +1632,19 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 if (error instanceof D9WGStreamError) ++this.stats.malformedBatches;
                 throw error;
             }
-            const { view, end, commandCount, sessionKey } = packet;
+            const { view, end, commandCount } = packet;
+            const ownerToken = metadata.ownerToken === undefined ? 0 : metadata.ownerToken;
+            if (!Number.isInteger(ownerToken) || ownerToken < 0 || ownerToken > 0xffffffff) {
+                ++this.stats.malformedBatches;
+                throw new D9WGStreamError("D9WG transport owner token is invalid");
+            }
+            this.batchOwnerToken = ownerToken;
+            const sessionKey = this.ownerSessionKey(packet.sessionKey, ownerToken);
             this.switchSession(sessionKey);
             this.ownerSessions.add(sessionKey);
+            let scope = this.ownerSessionScopes.get(ownerToken);
+            if (!scope) this.ownerSessionScopes.set(ownerToken, scope = new Set());
+            scope.add(sessionKey);
             ++this.stats.batches;
 
             this.checkStream(view, end, commandCount);
@@ -1931,8 +1944,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // "...576c00" -- the same session, printed exact then rounded) and
             // let two distinct sessions round together into one key, which
             // would keep a dead process's handles alive against a live one.
-            const sessionKey = sessionHigh.toString(16).padStart(8, "0") +
-                sessionLow.toString(16).padStart(8, "0");
+            const sessionKey = this.ownerSessionKey(sessionHigh.toString(16).padStart(8, "0") +
+                sessionLow.toString(16).padStart(8, "0"), this.batchOwnerToken);
             // HELLO duplicates the batch-header id as a corruption check. The
             // header selected the context before command decoding; changing it
             // here would let one malformed command redirect the rest of its
@@ -2002,8 +2015,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         onSessionEnd(bytes, view, offset, length) {
             const sessionLow = view.getUint32(offset + D9WG.F.SessionEnd.session_id_low, true);
             const sessionHigh = view.getUint32(offset + D9WG.F.SessionEnd.session_id_high, true);
-            const sessionKey = sessionHigh.toString(16).padStart(8, "0") +
-                sessionLow.toString(16).padStart(8, "0");
+            const sessionKey = this.ownerSessionKey(sessionHigh.toString(16).padStart(8, "0") +
+                sessionLow.toString(16).padStart(8, "0"), this.batchOwnerToken);
             if (this.sessionKey !== sessionKey) {
                 ++this.stats.malformedBatches;
                 throw new D9WGStreamError(
@@ -2022,8 +2035,17 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // The process that owned the DMA arena is gone (it unmapped it, or the
         // kernel closed the device for it when it was killed): its sessions
         // end as SESSION_END would have ended them (review S1-10)
-        endOwnerSessions() {
-            for (const key of this.ownerSessions) {
+        ownerSessionKey(sessionKey, ownerToken) {
+            return ownerToken ? "owner" + ownerToken.toString(16) + "/" + sessionKey : sessionKey;
+        }
+
+        endOwnerSessions(ownerToken) {
+            const sessions = ownerToken === undefined ? this.ownerSessions : this.ownerSessionScopes.get(ownerToken);
+            if (!sessions) return;
+            const original = this.sessionKey;
+            const restore = original && !sessions.has(original);
+            for (const key of sessions) {
+                this.ownerSessions.delete(key);
                 if (!this.sessionStates.has(key) && this.sessionKey !== key) continue;
                 this.switchSession(key);
                 this.releaseActiveSession("owner-released");
@@ -2031,7 +2053,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.sessionKey = null;
                 ++this.stats.sessionsEnded;
             }
-            this.ownerSessions.clear();
+            if (ownerToken === undefined) this.ownerSessionScopes.clear();
+            else this.ownerSessionScopes.delete(ownerToken);
+            if (restore && this.sessionStates.has(original)) this.switchSession(original);
         }
 
         onCreateDevice(bytes, view, offset, length) {
@@ -2226,6 +2250,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // possible and all that is needed.
             this.discardFrame();
             this.sessionStates.clear();
+            this.ownerSessions.clear();this.ownerSessionScopes.clear();
             this.devices = new Map();
             this.resources = new Map();
             this.palettes = new Map();

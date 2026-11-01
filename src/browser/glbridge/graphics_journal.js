@@ -151,6 +151,9 @@
         }
         append(record, bytes = record.bytes) {
             if (this.destroyed) throw new Error("Graphics journal has been destroyed");
+            const ownerToken = record.ownerToken === undefined ? 0 : record.ownerToken;
+            if (!Number.isInteger(ownerToken) || ownerToken < 0 || ownerToken > 0xffffffff || record.barrier && ownerToken)
+                throw new Error("Invalid graphics owner token");
             const size = ENTRY + bytes.length;
             if (size > MAX_PAGE_BYTES)
                 throw new Error("Graphics batch exceeds the supported page size");
@@ -169,7 +172,7 @@
             view.setUint32(offset + 16, record.commandCount >>> 0, true);
             view.setUint32(offset + 20, record.responseBase >>> 0, true);
             view.setUint32(offset + 24, record.barrier ? 1 : 0, true);
-            view.setUint32(offset + 28, 0, true);
+            view.setUint32(offset + 28, ownerToken, true);
             this.buffer.set(bytes, offset + ENTRY);
             this.partBytes += size;
             this.rawBytes += size;
@@ -222,7 +225,7 @@
             const size = HEADER + legacy.length + this.pages.reduce((n, page) => n + PAGE_HEADER + page.bytes, 0);
             if (size > 0x7fffffff) throw new Error("Compressed graphics state exceeds the emulator's 2 GiB state format");
             const bytes = new Uint8Array(size), view = new DataView(bytes.buffer);
-            view.setUint32(0, MAGIC, true); view.setUint16(4, 3, true);
+            view.setUint32(0, MAGIC, true); view.setUint16(4, 4, true);
             view.setUint16(6, HEADER, true); view.setUint32(8, size, true);
             view.setUint32(12, legacy.length, true); view.setUint32(16, this.pages.length, true);
             bytes.set(legacy, HEADER);
@@ -238,7 +241,8 @@
         }
         static parse(bytes) {
             const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-            if (bytes.length < HEADER || view.getUint32(0, true) !== MAGIC || view.getUint16(4, true) !== 3 ||
+            if (bytes.length < HEADER || view.getUint32(0, true) !== MAGIC ||
+                    (view.getUint16(4, true) !== 3 && view.getUint16(4, true) !== 4) ||
                     view.getUint16(6, true) !== HEADER || view.getUint32(8, true) !== bytes.length)
                 throw new Error("Invalid compressed graphics checkpoint header");
             const legacyBytes = view.getUint32(12, true);
@@ -256,7 +260,7 @@
                 offset += PAGE_HEADER + size;
             }
             if (offset !== bytes.length) throw new Error("Invalid graphics checkpoint trailing data");
-            return { version: 3, legacy, pages };
+            return { version: view.getUint16(4, true), legacy, pages };
         }
         static async *records(parsed) {
             for (const page of parsed.pages) {
@@ -271,9 +275,11 @@
                 for (let i = 0; i < page.count; ++i) {
                     if (offset + ENTRY > bytes.length) throw new Error("Invalid graphics batch header");
                     const size = view.getUint32(offset, true), kind = view.getUint32(offset + 24, true);
-                    if (size > bytes.length - offset - ENTRY || kind > 1 || (kind === 1 && size) || view.getUint32(offset + 28, true))
+                    const ownerToken = view.getUint32(offset + 28, true);
+                    if (size > bytes.length - offset - ENTRY || kind > 1 || (kind === 1 && size) ||
+                            ownerToken && (parsed.version < 4 || kind === 1))
                         throw new Error("Invalid graphics batch");
-                    yield { flags: view.getUint32(offset + 4, true), frameId: view.getUint32(offset + 8, true),
+                    yield { ...(ownerToken ? { ownerToken } : {}), flags: view.getUint32(offset + 4, true), frameId: view.getUint32(offset + 8, true),
                         submitCount: view.getUint32(offset + 12, true), commandCount: view.getUint32(offset + 16, true),
                         responseBase: view.getUint32(offset + 20, true), barrier: kind === 1,
                         bytes: bytes.subarray(offset + ENTRY, offset + ENTRY + size) };

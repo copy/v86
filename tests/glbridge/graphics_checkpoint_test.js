@@ -30,7 +30,7 @@ async function fixture() {
         d3d9Executor: direct9.executor,
     });
     let writes = 0;
-    const send = (bytes, flags = 0) => bridge.pushPCIBatch({ bytes, flags,
+    const send = (bytes, flags = 0, ownerToken) => bridge.pushPCIBatch({ bytes, flags, ...(ownerToken ? { ownerToken } : {}),
         descAddr: 0x100000, batchAddr: 0x100020, responseBase: 0xc00000 - 32,
         writeGuestMemory() { writes++; }, isMemoryValid: () => true });
     const save = async () => {
@@ -186,6 +186,40 @@ const timeout = setTimeout(() => { throw new Error("checkpoint test timed out");
     await s2.restore(releasedSnapshot);
     assert.ok(ended(s2.direct9.executor), "the release replays");
     assert.equal(s2.gl.contexts.size, 0);
+
+    // Two arenas may carry identical guest session/device/resource handles.
+    // Retire A immediately, before its asynchronous submit has executed, and
+    // queue B behind it. No accepted work may resurrect A after retirement.
+    const scoped = await fixture();
+    scoped.send(new GLStream().makeCurrent(1, 0, 0, 64, 64).bytes());
+    const ownerBatch = size => envelope(0xffe1, d9.buildBatch([
+        d9.command(d9.OP.CREATE_DEVICE, d9.createDevicePayload(64, 64)),
+        d9.command(d9.OP.CREATE_BUFFER, d9.createBufferPayload(0x201, 1, size)),
+    ], { sessionLow: 7 }));
+    const acceptedA = scoped.send(ownerBatch(96), 0, 11);
+    const releasedA = scoped.send(global.V86GLNetworkBridge.ownerReleasedRecord(11));
+    const acceptedB = scoped.send(ownerBatch(192), 0, 22);
+    await Promise.all([acceptedA, releasedA, acceptedB]);
+    assert.equal(scoped.direct9.executor.getStats().devicesLive, 1);
+    assert.equal(scoped.direct9.executor.getStats().resourcesLive, 1);
+    assert.equal(scoped.direct9.executor.resources.get(0x201).byteCount, 192);
+    assert.equal(scoped.gl.contexts.size, 1, "a D3D-only owner release cannot retire legacy GL");
+    // SESSION_END's raw id is validated inside its own transport namespace.
+    await scoped.send(ownerBatch(48), 0, 33);
+    await scoped.send(envelope(0xffe1, d9.buildBatch([
+        d9.command(d9.OP.SESSION_END, P.encode("SessionEnd", { session_id_low: 7 })),
+    ], { sessionLow: 7 })), 0, 33);
+    assert.equal(scoped.direct9.executor.getStats().resourcesLive, 1);
+    assert.equal(scoped.direct9.executor.stats.batchesFailed, 0);
+    const scopedSaved = await scoped.save(), cold = await fixture();
+    await cold.restore(scopedSaved);
+    assert.equal(cold.direct9.executor.getStats().resourcesLive, 1, "owner namespaces and scoped retirement replay");
+    assert.equal(cold.gl.contexts.size, 1);
+    await cold.send(global.V86GLNetworkBridge.ownerReleasedRecord(0));
+    assert.equal(cold.gl.contexts.size, 0, "explicit owner zero retires legacy GL");
+    assert.equal(cold.direct9.executor.getStats().resourcesLive, 1, "legacy retirement preserves owner 22");
+    await cold.send(global.V86GLNetworkBridge.ownerReleasedRecord());
+    assert.equal(cold.direct9.executor.getStats().resourcesLive, 0, "old unscoped retirement remains an all-owner barrier");
 
     console.log("graphics_checkpoint_test: owner release, GL, D3D9 and DDraw, hot/cold restore, query continuation, DMA isolation and large batches passed");
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => clearTimeout(timeout));

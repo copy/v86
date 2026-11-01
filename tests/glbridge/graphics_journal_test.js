@@ -77,6 +77,32 @@ const timeout = setTimeout(() => { throw new Error("journal test timed out"); },
         await fallback.destroy();
     } finally { console.warn = warning; }
 
+    const owners = new GraphicsJournal({ pageBytes: 1024, store: null, worker: false });
+    owners.append({ bytes: new Uint8Array([7]), ownerToken: 0xffffffff });
+    owners.append({ bytes: new Uint8Array([8]), ownerToken: 11 });
+    const ownerSaved = await owners.snapshot();
+    assert.equal(new DataView(ownerSaved.buffer).getUint16(4, true), 4);
+    const ownerRecords = [];
+    for await (const record of GraphicsJournal.records(GraphicsJournal.parse(ownerSaved))) ownerRecords.push(record);
+    assert.deepEqual(ownerRecords.map(record => record.ownerToken), [0xffffffff, 11]);
+    assert.throws(() => owners.append({ ownerToken: -1 }, new Uint8Array()), /owner/);
+    assert.throws(() => owners.append({ ownerToken: 1.5 }, new Uint8Array()), /owner/);
+    assert.throws(() => owners.append({ ownerToken: 1, barrier: true }, new Uint8Array()), /owner/);
+    const legacyJournal = new GraphicsJournal({ pageBytes: 1024, store: null, worker: false });
+    legacyJournal.append({ bytes: new Uint8Array([9]), frameId: 17 });
+    const legacySaved = await legacyJournal.snapshot();
+    new DataView(legacySaved.buffer).setUint16(4, 3, true);
+    let legacyCount = 0;
+    for await (const record of GraphicsJournal.records(GraphicsJournal.parse(legacySaved))) {
+        assert.equal(record.ownerToken, undefined);assert.equal(record.frameId, 17);legacyCount++;
+    }
+    assert.equal(legacyCount, 1, "version-3 journals remain readable");
+    const invalidVersion = ownerSaved.slice();new DataView(invalidVersion.buffer).setUint16(4, 3, true);
+    await assert.rejects(async () => {
+        for await (const record of GraphicsJournal.records(GraphicsJournal.parse(invalidVersion))) void record;
+    }, /Invalid graphics batch/);
+    await owners.destroy();await legacyJournal.destroy();
+
     const truncated = saved.subarray(0, saved.length - 1);
     assert.throws(() => GraphicsJournal.parse(truncated), /Invalid/);
     const corrupt = saved.slice();

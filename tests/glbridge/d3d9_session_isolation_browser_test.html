@@ -20,8 +20,10 @@
     const P = D9WGProtocol, C = P.C, suite = D3D9Conformance, { cmd, rs, tss, draw, quad } = suite.builders;
     const gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, shaderWorkerUrl: null });
     const deviceMode = new URLSearchParams(location.search).get("mode") === "device";
+    const ownerMode = new URLSearchParams(location.search).get("mode") === "owner";
+    const metadata = index => ({ writeGuestMemory() {}, ...(ownerMode ? { ownerToken: index + 1 } : {}) });
     const uploadMode = new URLSearchParams(location.search).get("upload") === "1";
-    const evidence = { uploadMode, mode: deviceMode ? "device" : "session", samples: [], expected: [[255, 0, 0, 255], [0, 255, 0, 255]] };
+    const evidence = { uploadMode, mode: ownerMode ? "owner" : deviceMode ? "device" : "session", samples: [], expected: [[255, 0, 0, 255], [0, 255, 0, 255]] };
     try {
         await gpu.initialize();
         // Each process uses the same guest handles, layout and uniform offsets.
@@ -50,14 +52,15 @@
             }
             return { device: original.dev, bytes: P.encodeBatch(commands, { session_id_low: session }) };
         };
-        const sessions = deviceMode ? [0x310003, 0x310003] : [0x310001, 0x310002];
+        const sessions = deviceMode || ownerMode ? [0x310003, 0x310003] : [0x310001, 0x310002];
         const frames = [pending(sessions[0], 0xffff0000, 0), pending(sessions[1], 0xff00ff00, deviceMode ? 1 : 0)];
-        for (const frame of frames) await gpu.submit(frame.bytes, { writeGuestMemory() {} });
+        for (let i = 0; i < frames.length; i++) await gpu.submit(frames[i].bytes, metadata(i));
         for (let i = 0; i < frames.length; i++) {
             await gpu.submit(P.encodeBatch([{ opcode: P.OP.PRESENT, payload: { device_handle: frames[i].device,
-                hwnd: 0x1234, width: 64, height: 64 } }], { session_id_low: sessions[i], flags: C.D9WG_BATCH_FLAG_PRESENT }), { writeGuestMemory() {} });
+                hwnd: 0x1234, width: 64, height: 64 } }], { session_id_low: sessions[i], flags: C.D9WG_BATCH_FLAG_PRESENT }), metadata(i));
             let reply;
             await gpu.submit(suite.readbackBatch(sessions[i], frames[i].device, 0), {
+                ...metadata(i),
                 writeGuestMemory(at, bytes) { if (at === (16 << 20) - C.D9WG_RESPONSE_REGION_BYTES + C.D9WG_READBACK_REGION_OFFSET) reply = bytes.slice(); },
             });
             await gpu.checkpointIdle();
@@ -67,16 +70,17 @@
             for (let at = 0; at < pixels.length; at += 4)
                 if (pixels[at] !== expected[2] || pixels[at + 1] !== expected[1] || pixels[at + 2] !== expected[0] || pixels[at + 3] !== expected[3]) ++different;
             evidence.samples.push({ session: sessions[i], firstRgba: [pixels[2], pixels[1], pixels[0], pixels[3]], differingPixels: different });
+            if (ownerMode && i === 0) gpu.endOwnerSessions(1);
         }
         await gpu.device.queue.onSubmittedWorkDone();
         for (let i = 0; i < 4; i++) await new Promise(r => setTimeout(r, 0));
         evidence.stats = gpu.stats;evidence.hostErrors = gpu.hostErrors;evidence.gpuErrors = gpu.gpuErrors.errors;
         const label = new URLSearchParams(location.search).get("label") || "current";
         if (!/^[a-z0-9_-]+$/.test(label)) throw new Error("Invalid evidence label");
-        await fetch("/__test_file?name=d9wg-" + (deviceMode ? "device" : "session") + (uploadMode ? "-upload-" : "-uniform-") + label + ".json", { method: "POST", body: JSON.stringify(evidence, null, 2) });
+        await fetch("/__test_file?name=d9wg-" + (ownerMode ? "owner" : deviceMode ? "device" : "session") + (uploadMode ? "-upload-" : "-uniform-") + label + ".json", { method: "POST", body: JSON.stringify(evidence, null, 2) });
         if (evidence.samples.some(s => s.differingPixels) || gpu.hostErrors.length || gpu.gpuErrors.errors.length || gpu.stats.commandsFailed || gpu.stats.droppedDraws)
             throw new Error("Pending sessions overwrite uniform data: " + JSON.stringify(evidence));
-        document.querySelector("#result").textContent = "PASS two pending " + (deviceMode ? "devices" : "sessions") + " preserve all 8192 READBACK pixels and distinct uniform colours";
+        document.querySelector("#result").textContent = "PASS two pending " + (ownerMode ? "owners with identical session/handles" : deviceMode ? "devices" : "sessions") + " preserve all 8192 READBACK pixels and distinct uniform colours";
     } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
 })();
 </script>
