@@ -402,7 +402,7 @@ ${body.join("\n")}
                 ? this.targetViewFor(destination, destinationLevel, false,
                     Math.min(destinationFace,
                         (destination.layerCount || 1) - 1))
-                : null;
+                : (this.deviceBackBuffer(state), state.backBufferView);
 
             if (flags & DDBLT_COLOR_FILL) {
                 noteWindowedScreenWrite();
@@ -426,7 +426,7 @@ ${body.join("\n")}
                     fillIndex: destinationIndexed ? (fillColor & 0xff) : 0,
                     destinationColorKey,
                     destinationTexture: destination
-                        ? destination.gpuTexture : null,
+                        ? destination.gpuTexture : this.deviceBackBuffer(state),
                     destinationLevel,
                     destinationFace,
                     destinationSize: [destinationWidth, destinationHeight],
@@ -549,8 +549,8 @@ ${body.join("\n")}
                 destinationKind: destinationIndexed ? "index" : "float",
                 sourceView: source
                     ? this.blitSourceView(source, sourceLevel, sourceFace)
-                    : null,
-                sourceTexture: source ? source.gpuTexture : null,
+                    : (this.deviceBackBuffer(state), state.backBufferView),
+                sourceTexture: source ? source.gpuTexture : this.deviceBackBuffer(state),
                 sourceLevel,
                 sourceFace,
                 sourceSnapshot: selfBlt,
@@ -564,7 +564,7 @@ ${body.join("\n")}
                 colorKey: colorKey || null,
                 destinationColorKey,
                 destinationTexture: destination
-                    ? destination.gpuTexture : null,
+                    ? destination.gpuTexture : this.deviceBackBuffer(state),
                 destinationLevel,
                 destinationFace,
                 destinationSize: [destinationWidth, destinationHeight],
@@ -650,8 +650,8 @@ ${body.join("\n")}
                     // A mode switch invalidates the old primary contents.  Do
                     // not let recorded ops or a retained texture with the old
                     // dimensions survive into the first Present of this mode.
-                    this.discardFrame();
-                    this.retireActiveSessionBackBuffer();
+                    this.finishFrame(false);
+                    this.retireDeviceBackBuffer(state);
                     state.backBufferWidth = width;
                     state.backBufferHeight = height;
                     if ((state.sampleCount || 1) > 1) {

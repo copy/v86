@@ -1,0 +1,80 @@
+{
+  "stage": "3B2 per-device back buffer ownership",
+  "coreSuites": 122,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 133,
+  "knownPixelFailures": 19,
+  "pendingSessionUniformPixels": 8192,
+  "pendingDeviceUniformPixels": 8192,
+  "warcraft3FrozenReplay": "PASS",
+  "fullCheckpoint": "PASS",
+  "graphicsRevision": "fb445497baa3807c1523",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "logs": {
+    "d3d-stage3b2-core.log": "454e5b653eebad29d7c5b3a19827fc7a593505b5096a485faab2e3276845b284",
+    "d3d-stage3b2-site.log": "a938b6b4b1bb2fcf6482b9c0f579e1a5d1d3655c9cc39d0f12ec6f580918e31e",
+    "d3d-stage3b2-gpu.log": "c744f9e9a7df50b1e05f833409aa25eaeb52c60fced0a767de634628e8d62d88",
+    "d3d-stage3b2-war3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3b2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3b2-integration.log": "017d0906e987fe39a5d96a5752a895779742ff98c959ab7271457a1fa6a0f088"
+  },
+  "deviceEvidence": {
+    "before": {
+      "sha256": "676e9eec21fb70651ecc44ee5bdd03eb313e46b9f4fc9e18b09b4dd86a7378f6",
+      "samples": [
+        {
+          "session": 3211267,
+          "firstRgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "differingPixels": 4096
+        },
+        {
+          "session": 3211267,
+          "firstRgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "differingPixels": 0
+        }
+      ],
+      "gpuErrors": 0,
+      "hostErrors": 0
+    },
+    "after": {
+      "sha256": "70024338d315b095afc09744eff95dab36f3de78122caa2d0acea77e86c03b5f",
+      "samples": [
+        {
+          "session": 3211267,
+          "firstRgba": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "differingPixels": 0
+        },
+        {
+          "session": 3211267,
+          "firstRgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "differingPixels": 0
+        }
+      ],
+      "gpuErrors": 0,
+      "hostErrors": 0
+    }
+  },
+  "scope": "Per-device retained textures and recorded views for draw/clear/stretch/DDraw, correct READBACK source and Present selection, mixed-size passes, isolated reset and GPU retirement. Explicit creation enforcement remains 3B3; guest multi-owner remains stage 4."
+}

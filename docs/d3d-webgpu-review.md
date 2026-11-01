@@ -856,6 +856,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 121 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、133 场景及新增隔离页面、原生 GPU 的 Warcraft III 冻结回放、SwiftShader 工作线程/完整存档恢复、12/12 变异均通过。游戏冻结图使用原始原生适配器；另一次 SwiftShader 对原生图的比较不满足同适配器条件，未计为通过。证据见 [stage3b1-validation.json](fixtures/d3d-review/stage3b1-validation.json)。
 > - 配套运行包 `017490988930d2e252be`。3B2 继续移除隐式设备创建、隔离各设备 back buffer；资源顺序、固定管线的 19 项偏差和 draw 预算保持待办。
 
+> **阶段 3B2（2026-11-01）：设备 back buffer 隔离完成；继续 3B3。**
+>
+> - 每个设备持有自己的单采样 back buffer 和线性/sRGB 视图；绘制、clear、StretchRect、DDraw blit 在录制时保存对应视图，pass key 包含真实纹理身份。READBACK 按请求设备读取，Present 只复制所选设备；执行器/会话的旧字段仅保留最近选择设备的诊断别名。
+> - 新建 B 不再丢弃 A 的未呈现帧；重置 A 先提交已录制工作，再仅回收 A 的纹理。DDraw 切换模式同样保留其他设备。不同尺寸设备不会再与最后 Present 设备的尺寸误比较。
+> - 修复前同会话两设备出现 4,096 个红色像素被绿色替换，修复后全 8,192 像素正确。新增不同尺寸交错 clear、独立 pass、Reset 保留 B 及 GPU fence 后回收 A 的检查。
+> - 122 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、133 场景及两种隔离页面、原生 GPU Warcraft III 冻结回放、SwiftShader 完整存档恢复通过。配套运行包 `fb445497baa3807c1523`；见 [stage3b2-validation.json](fixtures/d3d-review/stage3b2-validation.json)。3B3 接着移除隐式设备创建并更新 SVGA 的显式创建路径；资源/FFP 等后续模块仍待办。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

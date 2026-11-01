@@ -3947,14 +3947,23 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
                 state.swapChains.clear();
             }
+            this.retireDeviceBackBuffer(state);
             this.retireGPUObject(state.depthTexture);
             this.retireGPUObject(state.backBufferMsaaTexture);
             this.retireGPUObject(state.gammaRampTexture);
             this.retirePaletteCachesForDevice(state.handle);
         }
 
+        retireDeviceBackBuffer(state) {
+            if (this.backBufferTexture === state.backBufferTexture) this.retireActiveSessionBackBuffer();
+            this.retireGPUObject(state.backBufferTexture);
+            state.backBufferTexture = state.backBufferView = state.backBufferSrgbView = null;
+            state.backBufferTextureWidth = state.backBufferTextureHeight = 0;
+        }
+
+        // Compatibility/diagnostic aliases of the most recently selected
+        // device. The device itself owns the texture and retires it.
         retireActiveSessionBackBuffer() {
-            this.retireGPUObject(this.backBufferTexture);
             this.backBufferTexture = null;
             this.backBufferView = null;
             this.backBufferSrgbView = null;
@@ -4040,13 +4049,16 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const enableAutoDepth = view.getUint32(offset + D9WG.F.CreateDevice.enable_auto_depth_stencil, true);
             const multisampleType = view.getUint32(offset + D9WG.F.CreateDevice.multisample_type, true);
             const multisampleQuality = view.getUint32(offset + D9WG.F.CreateDevice.multisample_quality, true);
-            // A frame left un-presented by a previous device -- typically a
-            // process that exited mid-frame -- must not bleed into this one.
-            // Its recorded ops reference that device's depth target and
-            // back-buffer size, which WebGPU rejects as soon as the sizes
-            // differ ("depth stencil attachment size does not match ...").
-            this.discardFrame();
-            const state = this.deviceState(handle);
+            // A new device cannot discard pending work from another device
+            // in the same session. Reusing a handle first submits the old work
+            // so its captured views remain valid until the queue completes.
+            const previous = this.devices.get(handle);
+            if (previous) {
+                this.finishFrame(false);
+                this.retireDeviceState(previous, "replace");
+            }
+            const state = this.createDeviceState(handle);
+            this.devices.set(handle, state);
             state.viewport = { x: 0, y: 0, width, height, minZ: 0, maxZ: 1 };
             state.surface = { hwnd, x, y, width, height, visible: true,
                 noSurface: false, sessionKey: this.sessionKey };
@@ -4069,20 +4081,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const enableAutoDepth = view.getUint32(offset + D9WG.F.ResetDevice.enable_auto_depth_stencil, true);
             const multisampleType = view.getUint32(offset + D9WG.F.ResetDevice.multisample_type, true);
             const multisampleQuality = view.getUint32(offset + D9WG.F.ResetDevice.multisample_quality, true);
+            this.finishFrame(false);
             const oldState = this.devices.get(oldHandle);
             if (oldState) {
                 this.retireGPUObject(oldState.depthTexture);
                 this.retireGPUObject(oldState.backBufferMsaaTexture);
+                this.retireDeviceBackBuffer(oldState);
             }
-            // A D3D9 Reset leaves the back buffer's contents undefined, so the
-            // owned texture is dropped rather than carried across; the next
-            // frame recreates it, zero-filled, at whatever size Reset asked for.
-            this.retireGPUObject(this.backBufferTexture);
-            this.backBufferTexture = null;
-            this.backBufferView = null;
-            this.backBufferSrgbView = null;
-            this.backBufferTextureWidth = 0;
-            this.backBufferTextureHeight = 0;
             this.devices.delete(oldHandle);
             // The session's resources and palettes survive the Reset under
             // their handles (the guest no longer creates them again); what
@@ -4143,17 +4148,17 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
          * something to read). Owning it makes the retained image and the render
          * target the same object, leaving one copy at Present.
          */
-        ensureBackBufferTexture(width, height) {
+        ensureBackBufferTexture(width, height, state) {
             width = Math.max(1, width >>> 0);
             height = Math.max(1, height >>> 0);
-            if (this.backBufferTexture &&
-                    this.backBufferTextureWidth === width &&
-                    this.backBufferTextureHeight === height)
-                return this.backBufferTexture;
+            if (state.backBufferTexture &&
+                    state.backBufferTextureWidth === width &&
+                    state.backBufferTextureHeight === height)
+                return this.selectDeviceBackBuffer(state);
             // A resize discards the contents, which is what D3D9 does too: the
             // back buffer is undefined across a Reset that changes its size.
-            this.retireGPUObject(this.backBufferTexture);
-            this.backBufferTexture = this.device.createTexture({
+            this.retireGPUObject(state.backBufferTexture);
+            state.backBufferTexture = this.device.createTexture({
                 label: "D3D9 back buffer",
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: this.format,
@@ -4167,15 +4172,28 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_COPY_SRC |
                     TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING,
             });
-            this.backBufferView = this.backBufferTexture.createView();
-            this.backBufferSrgbView = this.swapchainSrgbFormat
-                ? this.backBufferTexture.createView(
+            state.backBufferView = state.backBufferTexture.createView();
+            state.backBufferSrgbView = this.swapchainSrgbFormat
+                ? state.backBufferTexture.createView(
                     { format: this.swapchainSrgbFormat })
-                : this.backBufferView;
-            this.backBufferTextureWidth = width;
-            this.backBufferTextureHeight = height;
+                : state.backBufferView;
+            state.backBufferTextureWidth = width;
+            state.backBufferTextureHeight = height;
             ++this.stats.backBufferAllocations;
-            return this.backBufferTexture;
+            return this.selectDeviceBackBuffer(state);
+        }
+
+        selectDeviceBackBuffer(state) {
+            this.backBufferTexture = state.backBufferTexture;
+            this.backBufferView = state.backBufferView;
+            this.backBufferSrgbView = state.backBufferSrgbView;
+            this.backBufferTextureWidth = state.backBufferTextureWidth;
+            this.backBufferTextureHeight = state.backBufferTextureHeight;
+            return state.backBufferTexture;
+        }
+
+        deviceBackBuffer(state) {
+            return this.ensureBackBufferTexture(this.backBufferWidthOf(state), this.backBufferHeightOf(state), state);
         }
 
         backBufferWidthOf(state) {
@@ -4654,15 +4672,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 let sourceTexture = resource && resource.gpuTexture
                     ? resource.gpuTexture : null;
                 if (!textureHandle)
-                    sourceTexture = this.backBufferTexture ||
-                        this.lastSwapTexture || this.context.getCurrentTexture();
+                    sourceTexture = state && this.deviceBackBuffer(state);
                 const gpuFormat = resource ? resource.gpuFormat : this.format;
                 if (!sourceTexture || !gpuFormat)
                     throw new Error("readback source is unavailable");
                 const sourceWidth = resource
-                    ? Math.max(1, resource.width >> level) : width;
+                    ? Math.max(1, resource.width >> level) : state.backBufferTextureWidth;
                 const sourceHeight = resource
-                    ? Math.max(1, resource.height >> level) : height;
+                    ? Math.max(1, resource.height >> level) : state.backBufferTextureHeight;
                 if (width !== sourceWidth || height !== sourceHeight)
                     throw new Error("readback dimensions do not match source");
 
@@ -5001,7 +5018,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 ? this.backBufferHeightOf(backState)
                 : (this.backBufferTextureHeight || this.canvas.height || 1);
             const backTexture = this.ensureBackBufferTexture(
-                backWidth, backHeight);
+                backWidth, backHeight, backState);
             const swapView = this.backBufferView;
             const swapSrgbView = this.backBufferSrgbView;
             // GetRenderTargetData on the implicit back buffer reads the
@@ -5112,25 +5129,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
                 return created;
             };
-            // The back buffer and the auto depth-stencil must agree on size
-            // or WebGPU rejects the whole command buffer -- and with it
-            // every later frame, not just this one.
-            // A blit op carries its own attachment views rather than a
-            // target set, so it is not part of this check.
-            const backBufferOps = frame.ops.filter(op => op.targets &&
-                op.targets.colors.some(color => color && color.swapchain));
-            const mismatched = backBufferOps.find(op => op.targets.depthView &&
-                (op.targets.width !== backWidth ||
-                 op.targets.height !== backHeight));
-            if (mismatched) {
-                this.warnOnce("depth-size-mismatch",
-                    "dropping a frame whose depth target " +
-                    mismatched.targets.width + "x" + mismatched.targets.height +
-                    " does not match the back buffer " +
-                    backWidth + "x" + backHeight);
-                this.failDroppedQueries(frame.ops);
-                frame.ops.length = 0;
-            }
             for (const op of frame.ops) {
                 if (op.writes) op.writes.msaaStale = true;
                 if (op.kind === "query-begin") {
@@ -7382,7 +7380,9 @@ fn d9_ps_main(stage_in: D9GammaOutput) -> @location(0) vec4<f32> {
                         // with MSAA the pass renders into the device's
                         // multisampled back buffer and resolves into the
                         // owned one (finishFrame's swapView)
-                        colors.push({ view: null, format,
+                        this.deviceBackBuffer(state);
+                        colors.push({ view: wantsSRGB ? state.backBufferSrgbView : state.backBufferView, format,
+                            linearView: state.backBufferView,
                             swapchain: true,
                             sampleCount: state.sampleCount || 1,
                             msaaView: format === this.format ? state.backBufferMsaaView
@@ -7390,7 +7390,7 @@ fn d9_ps_main(stage_in: D9GammaOutput) -> @location(0) vec4<f32> {
                             msaaOwner: state.backBufferMsaaView ? state : null });
                         width = this.backBufferWidthOf(state);
                         height = this.backBufferHeightOf(state);
-                        key += "bb" + (format === this.format ? "" : "s") + ";";
+                        key += "bb" + this.objectId(state.backBufferTexture) + (format === this.format ? "" : "s") + ";";
                     }
                     continue;
                 }
@@ -7710,10 +7710,10 @@ fn d9_ps_main(stage_in: D9GammaOutput) -> @location(0) vec4<f32> {
                 kind: "blit",
                 writes: this.msaaOwnerOf(destination, state),
                 sourceView: source
-                    ? this.blitSourceView(source, sourceLevel, sourceFace) : null,
+                    ? this.blitSourceView(source, sourceLevel, sourceFace) : (this.deviceBackBuffer(state), state.backBufferView),
                 destinationView: destination
                     ? this.targetViewFor(destination, destinationLevel, false,
-                        destinationFace) : null,
+                        destinationFace) : (this.deviceBackBuffer(state), state.backBufferView),
                 destinationFormat,
                 sourceFormat: source ? (source.gpuFormat ||
                     formatToGPU(source.format)) : this.format,
@@ -7952,9 +7952,7 @@ fn d9_ps_main(stage_in: D9BlitOutput) -> @location(0) vec4<f32> {
         // multisampled target renders into its multisampled texture and
         // resolves, at the end of every pass, into the texture D3D reads
         colorAttachmentFor(color, swapView, swapSrgbView) {
-            const resolved = color.swapchain
-                ? (color.format === this.swapchainSrgbFormat ? swapSrgbView : swapView)
-                : color.view;
+            const resolved = color.view || (color.format === this.swapchainSrgbFormat ? swapSrgbView : swapView);
             return color.msaaView ? { view: color.msaaView, resolveTarget: resolved } : { view: resolved };
         }
 
@@ -7985,7 +7983,7 @@ fn d9_ps_main(stage_in: D9BlitOutput) -> @location(0) vec4<f32> {
                 ++this.stats.msaaUnresolves;
                 pass.setPipeline(entry.pipeline);
                 pass.setBindGroup(0, this.device.createBindGroup({ layout: entry.layout, entries: [
-                    { binding: 0, resource: swapchain ? swapView : this.targetViewFor(color.resource, 0, false, 0) }] }));
+                    { binding: 0, resource: swapchain ? (color.linearView || swapView) : this.targetViewFor(color.resource, 0, false, 0) }] }));
                 pass.draw(3);
                 pass.end();
             }

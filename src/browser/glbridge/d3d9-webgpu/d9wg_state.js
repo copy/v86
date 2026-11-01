@@ -18,6 +18,11 @@
             // What the guest asked for at CreateDevice/Reset, and therefore
             // the real size of the swap-chain colour attachment and of the
             // auto depth target created beside it.
+            backBufferTexture: null,
+            backBufferView: null,
+            backBufferSrgbView: null,
+            backBufferTextureWidth: 0,
+            backBufferTextureHeight: 0,
             backBufferWidth: 0,
             backBufferHeight: 0,
             multisampleType: D3DMULTISAMPLE_NONE,
