@@ -248,7 +248,7 @@ function makeFakeWebGPU(options) {
         destroy() { this.destroyed = true; }
     }
     class FakePass {
-        constructor(descriptor) { this.descriptor = descriptor; this.ops = []; }
+        constructor(descriptor) { this.descriptor = descriptor; this.ops = [];this.vertexReads = []; }
         setPipeline(p) {
             this.ops.push(["pipeline", p]);
             if (p.invalid) device.rejectWith("[Invalid RenderPipeline] is invalid due to a previous error");
@@ -276,6 +276,7 @@ function makeFakeWebGPU(options) {
         }
         setVertexBuffer(slot, buffer, offset) {
             this.ops.push(["vertexBuffer", slot, buffer, offset]);
+            this.vertexReads.push({ buffer, bytes: buffer.data.slice(offset || 0, (offset || 0) + 64) });
         }
         setIndexBuffer(buffer, format, offset) {
             this.ops.push(["indexBuffer", buffer, format, offset]);
@@ -306,6 +307,22 @@ function makeFakeWebGPU(options) {
         }
         copyTextureToTexture(...args) {
             calls.push(["copyTextureToTexture", ...args]);
+        }
+        copyBufferToTexture(source, destination, size) {
+            assert.equal(source.offset % 256, 0);assert.equal(source.bytesPerRow % 256, 0);
+            assert(source.buffer.usage & 4 || source.buffer.descriptor?.usage & 4, "upload source needs COPY_SRC");
+            assert(source.offset + source.bytesPerRow * source.rowsPerImage * size.depthOrArrayLayers <= source.buffer.data.length);
+            const format = destination.texture.descriptor.format;
+            const bpp = ({ r16float: 2, rg16float: 4, rgba16float: 8, rg32float: 8, rgba32float: 16, r8uint: 1, r8unorm: 1 })[format] || 4;
+            const compressed = format.startsWith("bc"), blockBytes = /^bc[14]-/.test(format) ? 8 : 16;
+            const pitch = compressed ? Math.ceil(size.width / 4) * blockBytes : size.width * bpp;
+            const rows = compressed ? Math.ceil(size.height / 4) : size.height;
+            const data = new Uint8Array(pitch * rows * size.depthOrArrayLayers);
+            for (let slice = 0; slice < size.depthOrArrayLayers; slice++) for (let row = 0; row < rows; row++) {
+                const from = source.offset + (slice * source.rowsPerImage + row) * source.bytesPerRow;
+                data.set(source.buffer.data.subarray(from, from + pitch), (slice * rows + row) * pitch);
+            }
+            calls.push(["copyBufferToTexture", source, destination, size, data, { bytesPerRow: pitch, rowsPerImage: rows }]);
         }
         copyTextureToBuffer(source, destination, size) {
             const texture = source.texture;
@@ -356,6 +373,7 @@ function makeFakeWebGPU(options) {
                 : new Uint8Array(data);
             const start = ArrayBuffer.isView(data) ? (dataOffset || 0) * 1 : (dataOffset || 0);
             const snapshot = view.slice(start, start + length);
+            buffer.data.set(snapshot, offset);
             calls.push(["writeBuffer", buffer, offset, data, dataOffset, size, snapshot]);
         },
         writeTexture(...a) { calls.push(["writeTexture", ...a]); },
@@ -511,6 +529,14 @@ function constantBlock(find, buffer) {
 // plus D9WG_HEARTBEAT_OFFSET (its last 16 bytes).
 const HEARTBEAT_WRITE_OFFSET = (16 * 1024 * 1024 - 4 * 1024 * 1024) +
     (4 * 1024 * 1024 - 16);
+
+function flushTextureUploads(executor, find) {
+    executor.finishFrame(false);
+    const calls = find("writeTexture").map(call => call);
+    for (const call of find("copyBufferToTexture"))
+        calls.push(["copyBufferToTexture", call[2], call[4], call[5], call[3]]);
+    return calls;
+}
 
 // ---- harness ----
 
@@ -2591,12 +2617,8 @@ await test("a frame without Clear restores the previous D3D9 back buffer",
 });
 
 await test("a dynamic buffer rewritten between draws does not corrupt the earlier draw", async () => {
-    // The exact idiom that made War3's scene geometry explode: one shared
-    // dynamic vertex buffer, refilled and drawn twice inside a single frame.
-    // Draws are recorded and replayed at Present, while writeBuffer takes
-    // effect in queue order -- so without renaming, both draws would read the
-    // second batch of vertices.
-    const { executor, fake, find } = makeExecutor();
+    // A single GPU buffer receives two ordered copies, separated by draws.
+    const { executor, find } = makeExecutor();
     const batchA = Buffer.alloc(36, 0x11);
     const batchB = Buffer.alloc(36, 0x22);
     const updatePayload = (handle, byteCount) => {
@@ -2618,25 +2640,13 @@ await test("a dynamic buffer rewritten between draws does not corrupt the earlie
     await executor.idle();
 
     assert.equal(executor.stats.drawCalls, 2);
-    assert.equal(executor.stats.bufferRenames, 1,
-        "the second write must rename, not overwrite what draw 1 reads");
+    assert.equal(executor.stats.bufferRenames, 0);
+    const reads = find("beginRenderPass").flatMap(call => call[2].vertexReads);
+    assert.equal(reads.length, 2);assert.equal(reads[0].buffer, reads[1].buffer);
+    assert.equal(reads[0].bytes[0], 0x11, "draw 1 lost its vertex data");
+    assert.equal(reads[1].bytes[0], 0x22, "draw 2 got the wrong vertex data");
+    assert.equal(find("copyBufferToTexture").length, 0);
 
-    // The two draws must end up bound to two different GPUBuffers.
-    const pass = fake.calls.filter(c => c[0] === "beginRenderPass").pop()[2];
-    const bound = pass.ops.filter(op => op[0] === "vertexBuffer").map(op => op[2]);
-    assert.equal(bound.length, 2);
-    assert.notEqual(bound[0], bound[1],
-        "both draws are reading the same buffer, so the first one renders " +
-        "the second one's vertices");
-
-    // And each buffer must hold the batch its draw was issued with.
-    const contentsOf = buffer => {
-        const write = find("writeBuffer").filter(call => call[1] === buffer).pop();
-        assert.ok(write, "no upload for a bound vertex buffer");
-        return write[6][0]; // the snapshot taken at writeBuffer time
-    };
-    assert.equal(contentsOf(bound[0]), 0x11, "draw 1 lost its vertex data");
-    assert.equal(contentsOf(bound[1]), 0x22, "draw 2 got the wrong vertex data");
 });
 
 await test("a buffer rewritten with no draw in between is updated in place", async () => {
@@ -2808,7 +2818,7 @@ await test("a hidden cursor is not composited", async () => {
     assert.equal(executor.stats.cursorDraws, 1, "only the visible frame draws it");
 });
 
-await test("the lock flags decide whether a mid-frame write has to rename", async () => {
+await test("plain, DISCARD and NOOVERWRITE uploads preserve command order without renaming", async () => {
     const D3DLOCK_NOOVERWRITE = 0x1000, D3DLOCK_DISCARD = 0x2000;
     const run = async lockFlags => {
         const { executor } = makeExecutor();
@@ -2826,28 +2836,15 @@ await test("the lock flags decide whether a mid-frame write has to rename", asyn
             command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
         ], { present: true }));
         await executor.idle();
-        return executor.stats;
+        assert.equal(executor.stats.bufferRenames, 0);
+        return executor;
     };
+    for (const flags of [0, D3DLOCK_NOOVERWRITE, D3DLOCK_DISCARD]) {
+        const executor = await run(flags);
+        assert.equal(executor.stats.bufferFullCopyRenames, 0);
+        assert.equal(executor.stats.drawCalls, 2);
+    }
 
-    // NOOVERWRITE is the application promising it is not touching bytes an
-    // issued draw reads -- exactly the guarantee the hazard needs. Renaming
-    // there is pure waste, and it is the idiom that made War3 rename ~277
-    // times a frame.
-    const noOverwrite = await run(D3DLOCK_NOOVERWRITE);
-    assert.equal(noOverwrite.bufferRenames, 0);
-    assert.equal(noOverwrite.bufferNoOverwriteWrites, 1);
-
-    // DISCARD renames, but the replacement only carries the bytes being
-    // written now: the rest is contents the application has abandoned.
-    const discard = await run(D3DLOCK_DISCARD);
-    assert.equal(discard.bufferRenames, 1);
-    assert.equal(discard.bufferFullCopyRenames, 0);
-
-    // A plain lock keeps the old contents readable, so the whole shadow has
-    // to be copied forward. Correct, and the only case that costs that.
-    const plain = await run(0);
-    assert.equal(plain.bufferRenames, 1);
-    assert.equal(plain.bufferFullCopyRenames, 1);
 });
 
 // The D3D8 frontend sends WINDOW_STATE on move/size/show because a title that
@@ -4779,7 +4776,7 @@ await test("packed 4:2:2 and RGBG formats expand two pixels per block",
 
     assert.equal(executor.stats.texturesRejected, 0,
         "every packed format must be accepted");
-    const writes = find("writeTexture").slice(-cases.length);
+    const writes = flushTextureUploads(executor, find).slice(-cases.length);
     cases.forEach((item, index) => {
         const data = Array.from(writes[index][2]);
         assert.equal(data.length, 8, item.name + ": two RGBA8 pixels");
@@ -4821,7 +4818,7 @@ await test("INDEX16 and INDEX32 texture uploads preserve little-endian bytes",
 
     assert.equal(executor.stats.texturesRejected, 0,
         "both index formats must be accepted as textures");
-    const writes = find("writeTexture").slice(-cases.length);
+    const writes = flushTextureUploads(executor, find).slice(-cases.length);
     cases.forEach((item, index) => {
         assert.deepEqual(Array.from(writes[index][2]), item.expected,
             item.name + ": exact index bytes survive RGBA8 expansion");
@@ -4855,7 +4852,7 @@ await test("a palette change repaints P8 textures without a re-upload",
 
     assert.equal(executor.stats.palettesSet, 2);
     assert.equal(executor.stats.texturesRejected, 0);
-    const first = Array.from(find("writeTexture").pop()[2]).slice(0, 4);
+    const first = Array.from(flushTextureUploads(executor, find).pop()[2]).slice(0, 4);
     assert.deepEqual(first, [255, 0, 0, 255],
         "palette 0 makes index 1 red");
 
@@ -4870,7 +4867,7 @@ await test("a palette change repaints P8 textures without a re-upload",
     assert.equal(executor.stats.textureUploads, uploadsBefore,
         "a palette swap is not a guest upload");
     assert.equal(executor.stats.palettizedRepaints, 1);
-    const second = Array.from(find("writeTexture").pop()[2]).slice(0, 4);
+    const second = Array.from(flushTextureUploads(executor, find).pop()[2]).slice(0, 4);
     assert.deepEqual(second, [0, 0, 255, 255],
         "palette 1 makes the same indices blue");
 });
@@ -5002,7 +4999,7 @@ await test("a cube texture binds as a cube view and uploads per face",
         call[2] && call[2].dimension === "cube"),
         "the sampled view has to be a cube view");
     // Each face has to land on its own layer, or five of them overwrite one.
-    const layers = find("writeTexture")
+    const layers = flushTextureUploads(executor, find)
         .filter(call => call[1] && call[1].origin)
         .map(call => call[1].origin.z);
     assert.deepEqual(layers, [0, 1, 2, 3, 4, 5]);
@@ -5114,7 +5111,7 @@ await test("legacy D3D9 texture formats preserve colour and signed bump values",
     assert.equal(executor.stats.texturesRejected, 0);
     const descriptors = find("createTexture").slice(-cases.length)
         .map(call => call[1]);
-    const writes = find("writeTexture").slice(-cases.length);
+    const writes = flushTextureUploads(executor, find).slice(-cases.length);
     cases.forEach((item, index) => {
         assert.equal(descriptors[index].format, item.gpu,
             "wrong GPU format for D3DFMT " + item.format);
@@ -5241,7 +5238,7 @@ await test("R8G8B8 upload honours a padded source pitch", async () => {
         command(OP.UPDATE_TEXTURE, update, source, "data_offset"),
     ]));
     await executor.idle();
-    const write = find("writeTexture").pop();
+    const write = flushTextureUploads(executor, find).pop();
     assert.deepEqual(Array.from(write[2]), [
         0x10, 0x20, 0x30, 0xff,
         0x40, 0x50, 0x60, 0xff,
@@ -5267,7 +5264,7 @@ await test("DXT2 and DXT4 reuse BC2 and BC3 block storage", async () => {
     await executor.idle();
     assert.deepEqual(find("createTexture").slice(-2).map(call => call[1].format),
         ["bc2-rgba-unorm", "bc3-rgba-unorm"]);
-    assert.deepEqual(find("writeTexture").slice(-2).map(call => call[3]), [
+    assert.deepEqual(flushTextureUploads(executor, find).slice(-2).map(call => call[3]), [
         { bytesPerRow: 16, rowsPerImage: 1 },
         { bytesPerRow: 16, rowsPerImage: 1 },
     ]);
@@ -5288,12 +5285,12 @@ await test("exhausting the debug preview budget never drops a game texture uploa
         "the bounded diagnostic copy should be skipped");
     assert.equal(executor.stats.textureUploads, 1,
         "the actual upload must still be counted");
-    assert.ok(find("writeTexture").some(call =>
+    assert.ok(flushTextureUploads(executor, find).some(call =>
         call[1].texture && call[1].texture.descriptor.size.width === 4),
         "preview exhaustion must not bypass queue.writeTexture");
 });
 
-await test("a texture updated after a recorded draw is renamed", async () => {
+await test("texture copies stay between draws without renaming or new bind groups", async () => {
     const { executor, find } = makeExecutor();
     const upload = fill => {
         const payload = encodePayload("UpdateTexture", { resource_handle: 0x612, level: 0, x: 0, y: 0, z: 0, width: 4, height: 4, depth: 1, row_pitch: 16, slice_pitch: 0, data_bytes: 64 });
@@ -5318,15 +5315,13 @@ await test("a texture updated after a recorded draw is renamed", async () => {
         command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
     ], { present: true }));
     await executor.idle();
-    assert.equal(executor.stats.textureUpdateHazards, 1);
-    assert.equal(executor.stats.textureRenames, 1);
-    const groups = find("createBindGroup").filter(call =>
-        call[1].entries.some(entry => entry.binding === 2));
-    assert.equal(groups.length, 2);
-    const firstView = groups[0][1].entries.find(entry => entry.binding === 2).resource;
-    const secondView = groups[1][1].entries.find(entry => entry.binding === 2).resource;
-    assert.notEqual(firstView.texture, secondView.texture,
-        "the earlier bind group must retain the old GPU texture");
+    assert.equal(executor.stats.textureRenames, 0);
+    const groups = find("createBindGroup").filter(call => call[1].entries.some(entry => entry.binding === 2));
+    assert.equal(groups.length, 1, "the unchanged texture view can reuse its bind group");
+    const copies = find("copyBufferToTexture");assert.equal(copies.length, 2);
+    assert.equal(copies[0][2].texture, copies[1][2].texture);
+    assert.equal(copies[0][4][0], 0x11);assert.equal(copies[1][4][0], 0x22);
+
 });
 
 await test("D3DRS_SCISSORTESTENABLE gates the scissor rect", async () => {
@@ -5947,7 +5942,7 @@ await test("a DXT mip chain's sub-block levels upload as whole 4x4 blocks",
 
     // The executor also writes its 1x1 fallback texture, which carries no
     // mipLevel; only the mip uploads are of interest here.
-    const writes = find("writeTexture")
+    const writes = flushTextureUploads(executor, find)
         .filter(call => call[1].mipLevel !== undefined);
     assert.equal(writes.length, 4, "every level has to be written");
     for (const write of writes) {
@@ -6144,7 +6139,7 @@ await test("volume textures allocate 3D storage and upload every slice", async (
     assert.equal(descriptor.dimension, "3d");
     assert.deepEqual(descriptor.size,
         { width: 2, height: 2, depthOrArrayLayers: 2 });
-    const upload = find("writeTexture").pop();
+    const upload = flushTextureUploads(executor, find).pop();
     assert.deepEqual(upload[4],
         { width: 2, height: 2, depthOrArrayLayers: 2 });
     assert.equal(upload[3].rowsPerImage, 2);
@@ -6646,4 +6641,4 @@ console.log(passed + " executor tests passed");
 
 if (require.main === module) main().catch(error => { console.error(error); process.exit(1); });
 
-module.exports = { makeExecutor, buildBatch, command, u32, createDevicePayload, createBufferPayload, shaderCreatePayload, fvfPayload, element, setStreamSourcePayload, drawPrimitivePayload, OP, DEVICE, DECLTYPE, DECLUSAGE };
+module.exports = { flushTextureUploads, makeExecutor, buildBatch, command, u32, createDevicePayload, createBufferPayload, shaderCreatePayload, fvfPayload, element, setStreamSourcePayload, drawPrimitivePayload, OP, DEVICE, DECLTYPE, DECLUSAGE };

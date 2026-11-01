@@ -886,6 +886,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 六项原已知格式偏差全部关闭：147 个场景中 135 正向通过、12 明示偏差。新增六种像素着色器采样、四种顶点纹理采样以及 R16F→G16R16F→R16F 交错切换的 READBACK 像素检查。
 > - 123 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、147 场景及隔离页面、完整存档恢复均通过。Warcraft III 保留 3C1 已解释的窄 UNORM 图差；仅恢复旧展开规则的诊断版本通过未改动的冻结比较。运行包 `f285613f1df69e38e4d3`；见 [stage3c2-validation.json](fixtures/d3d-review/stage3c2-validation.json)。3C3 接着处理有序上传、移除 textureShadows/重命名；其余模块继续待办。
 
+> **阶段 3C3A（2026-11-01）：普通资源有序上传完成；继续索引调色板路径。**
+>
+> - `d9wg_uploads.js` 以会话为 owner，分块复用 GPU 暂存缓冲和 CPU 暂存数据，录制时复制输入，重放时在相应 draw 之间编码目标复制。纹理按 256 字节行对齐；上传量达到 64 MiB 时提交一段，避免单帧暂存无界增长。结束 owner 时回收自己的分块。
+> - buffer 普通锁定、DISCARD、NOOVERWRITE 都按命令顺序更新；删除 buffer/texture 重命名及普通纹理的全量 CPU shadows。渲染目标纹理也能正确在两次采样间更新：修复前左侧错误为绿，修复后左红右绿。另有普通/DISCARD 顶点更新的真实像素检查。
+> - mock 观察实际 GPU staging copy 数据、行布局和每个 draw 读取的顶点快照；DirectDraw 检查也开启严格宿主/GPU 错误断言。新增数据寿命、行对齐、分块溢出/复用/增长/回收测试。四种 uniform/上传与会话/设备组合共检查 32,768 个像素。
+> - 124 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、150 场景（138 正向、12 偏差）、完整存档恢复、SVGA 工作线程和 12/12 变异通过。运行包 `e973b79d51ab0c893696`；见 [stage3c3a-validation.json](fixtures/d3d-review/stage3c3a-validation.json)。
+> - **游戏变化仍单独登记：** 恢复旧窄 UNORM 后，Warcraft III 另有 146 字节、49 个稳定像素超出旧策略；仅恢复旧 buffer 更新仍失败，恢复固定 `0f5641e7` 的全部 buffer/texture 上传函数后通过原冻结比较。`tools/d3d_format_counterfactual.mjs ... --legacy-uploads` 可重建对照。由此定位到上传语义变化；这些游戏像素的完整原生正确性仍待客体 visual 验收，没有修改黄金图或策略，也没有将候选记为无差异通过。
+> - 3C3B 继续替换 DirectDraw 索引采样的 CPU shadow 和即时 palette 写入；这是 `textureShadows` 的最后一条路径，尚未关闭资源模块。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

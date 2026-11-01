@@ -67,6 +67,9 @@
         isRenderableGPUFormat, isFloat32GPUFormat, isBlendableGPUFormat, formatToGPU, d3dBytesPerTexel,
         packGPUReadbackRow, expandRowToGPU, samplingSwizzle
     } = formats;
+    const Uploads = global.D9WGUploads ||
+        (typeof require === "function" ? require("./d9wg_uploads.js") : null);
+    if (!Uploads) throw new Error("d3d9_executor.js requires d9wg_uploads.js to be loaded first");
     const stateFactory = global.D9WGState ||
         (typeof require === "function" ? require("./d9wg_state.js") : null);
     if (!stateFactory) throw new Error("d3d9_executor.js requires d9wg_state.js to be loaded first");
@@ -2248,6 +2251,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.options.readbackTimeoutMs || 4000);
             this.heartbeat = 0;
             this.heartbeatBuffer = new Uint8Array(4);
+            this.uploads = null;
             this.uniformRingChunks = [];
             // A CPU-side mirror of each chunk. Constants are written here and
             // the whole used prefix goes up in one writeBuffer per submit --
@@ -2427,10 +2431,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // A frame with no ops remains useful diagnostic evidence that
                 // Present itself did not produce new GPU work.
                 framesWithoutColorClear: 0, framesWithNoOps: 0,
-                // Dynamic buffers renamed because a draw already recorded in
-                // the same frame reads their previous contents (see
-                // applyBufferUpdate). Zero means the deferred-draw path never
-                // had a write-after-record hazard to begin with.
+                // Legacy rename counters stay zero for diagnostics consumers.
+                uploadChunksAllocated: 0, uploadStagingUploads: 0,
                 bufferRenames: 0, textureUpdateHazards: 0,
                 textureRenames: 0, textureFullCopyRenameBytes: 0,
                 bufferFullCopyRenames: 0, bufferNoOverwriteWrites: 0,
@@ -2596,7 +2598,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     new Uint8Array([255, 255, 255, 255]),
                     { bytesPerRow: 4, rowsPerImage: 1 },
                     { width: 1, height: 1, depthOrArrayLayers: 1 });
-                this.uniformRingChunks = [];
+                this.uploads = null;
+            this.uniformRingChunks = [];
                 this.uniformStaging = [];
                 this.uniformRingIndex = 0;
                 this.uniformRingCursor = 0;
@@ -2885,6 +2888,25 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return handler.call(this, bytes, view, offset, length, metadata);
         }
 
+        uploadFrame(bytes) {
+            if (this.frame && this.uploads && this.uploads.bytesUsed + bytes > (64 << 20)) this.finishFrame(false);
+            const frame = this.ensureFrame();
+            if (!this.uploads) this.uploads = new Uploads(this.device, object => this.retireGPUObject(object), this.stats);
+            return frame;
+        }
+
+        stageBufferUpload(buffer, offset, source) {
+            const frame = this.uploadFrame(source.byteLength);
+            frame.ops.push(this.uploads.buffer(buffer, offset, source));
+        }
+
+        stageTextureUpload(destination, source, layout, size, resource) {
+            const frame = this.uploadFrame(source.byteLength);
+            const op = this.uploads.texture(destination, source, layout, size);
+            op.writes = resource && resource.msaaTexture ? resource : null;
+            frame.ops.push(op);
+        }
+
         // ---- device/resource state ----
 
         deviceState(handle) {
@@ -3157,6 +3179,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.ddPaletteSerials.clear();
             this.palettes.clear();
             this.retireActiveSessionBackBuffer();
+            if (this.uploads) this.uploads.release();
+            this.uploads = null;
             for (const buffer of this.uniformRingChunks) this.retireGPUObject(buffer);
             this.uniformRingChunks = [];
             this.uniformStaging = [];
@@ -3557,6 +3581,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.backBufferSrgbView = null;
             this.backBufferTextureWidth = 0;
             this.backBufferTextureHeight = 0;
+            this.uploads = null;
             this.uniformRingChunks = [];
             this.uniformStaging = [];
             this.uniformRingIndex = 0;
@@ -3957,6 +3982,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // how many separate PCI submits contributed to the frame.
         ensureFrame() {
             if (this.frame) return this.frame;
+            if (this.uploads) this.uploads.reset();
             // `serial` identifies this frame for the write-after-record check in
             // applyBufferUpdate(); it must be unique per frame, never reused.
             // Chunks are retained, only the write position rewinds: WebGPU
@@ -4159,6 +4185,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
 
         // Records and submits one frame's ops (finishFrame's body)
         replayFrame(frame, present, frameValid) {
+            if (this.uploads) this.uploads.flush();
             const encoder = this.device.createCommandEncoder();
             const carriedOcclusion = this.activeOcclusion || null;
             this.activeOcclusion = null;
@@ -4191,8 +4218,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const backHeight = backState
                 ? this.backBufferHeightOf(backState)
                 : (this.backBufferTextureHeight || this.canvas.height || 1);
-            const backTexture = this.ensureBackBufferTexture(
-                backWidth, backHeight, backState);
+            const backTexture = backState ? this.ensureBackBufferTexture(
+                backWidth, backHeight, backState) : null;
             const swapView = this.backBufferView;
             const swapSrgbView = this.backBufferSrgbView;
             // GetRenderTargetData on the implicit back buffer reads the
@@ -4304,6 +4331,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 return created;
             };
             for (const op of frame.ops) {
+                if (op.kind === "buffer-upload" || op.kind === "texture-upload") {
+                    closePass();
+                    if (op.writes) op.writes.msaaStale = true;
+                    this.uploads.replay(encoder, op);continue;
+                }
                 if (op.writes) op.writes.msaaStale = true;
                 if (op.kind === "query-begin") {
                     if (op.query.type === D3DQUERYTYPE_OCCLUSION) {
@@ -5211,7 +5243,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
 
         applyBufferUpdate(resource, destinationOffset, bytes, sourceOffset,
                 byteCount, lockFlags) {
-            lockFlags = lockFlags || 0;
+            void lockFlags; // allocation hints do not change the order of destination copies
             const shadow = resource.shadow;
             if (destinationOffset >= shadow.length) return;
             if (destinationOffset + byteCount > shadow.length)
@@ -5220,88 +5252,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const source = new Uint8Array(bytes.buffer, bytes.byteOffset + sourceOffset, byteCount);
             shadow.set(source, destinationOffset);
 
-            // Renaming (below) is what keeps deferred draws honest.
-            //
-            // Draws are not encoded when they arrive: they are recorded and
-            // replayed at Present, because a swapchain texture is only valid
-            // inside the task that acquired it (see ensureFrame). Buffer
-            // writes, by contrast, take effect in queue order -- so every
-            // writeBuffer issued during a frame lands *before* that frame's
-            // single submit, and therefore before every draw in it.
-            //
-            // For the single most common dynamic-geometry idiom that is
-            // catastrophic:
-            //
-            //     Lock(DISCARD); write batch A; DrawPrimitive
-            //     Lock(DISCARD); write batch B; DrawPrimitive
-            //     Present
-            //
-            // Both draws end up reading batch B. The first renders real
-            // indices against the wrong vertices, which on screen is stray
-            // geometry stretching across the frame, different every frame,
-            // while static/managed resources look perfect.
-            //
-            // A real D3D9 driver answers this by *renaming*: DISCARD means
-            // "I no longer care about the old contents", and the driver hands
-            // back fresh storage while in-flight commands keep the old
-            // allocation. Do the same here -- but only when this buffer has
-            // actually been read by a draw already recorded in this frame, so
-            // the ordinary "upload once, draw many" path allocates nothing.
-            //
-            // The lock flags decide *which* answer is needed, and getting this
-            // distinction right is what keeps the cost sane. War3 renamed ~277
-            // times per frame when every mid-frame write was treated the same:
-            //
-            //   NOOVERWRITE  the application has promised it is only writing
-            //                bytes no issued draw reads -- that is precisely
-            //                the guarantee this hazard needs, and it is how a
-            //                game appends batch after batch into one buffer.
-            //                Write in place; renaming here is pure waste.
-            //   DISCARD      the old contents are dead, so the replacement
-            //                only needs the bytes being written now. The rest
-            //                is garbage the application has promised not to
-            //                read, so there is nothing to copy forward.
-            //   neither      a plain lock keeps the old contents readable, so
-            //                the replacement has to carry the whole shadow.
-            //                Rare, and the only case that costs a full upload.
-            const D3DLOCK_NOOVERWRITE = 0x1000;
-            const D3DLOCK_DISCARD = 0x2000;
-            if (this.frame && resource.frameReferenced === this.frame.serial &&
-                    !(lockFlags & D3DLOCK_NOOVERWRITE)) {
-                const replacement = this.device.createBuffer({
-                    label: "D3D9 renamed buffer",
-                    size: resource.gpuBuffer.size,
-                    usage: resource.kind === RESOURCE_BUFFER_INDEX
-                        ? BUFFER_USAGE_INDEX | BUFFER_USAGE_COPY_DST
-                        : BUFFER_USAGE_VERTEX | BUFFER_USAGE_COPY_DST,
-                });
-                if (lockFlags & D3DLOCK_DISCARD) {
-                    const start = destinationOffset & ~3;
-                    const end = Math.min(shadow.length,
-                        alignUp(destinationOffset + byteCount, 4));
-                    if (end > start)
-                        this.device.queue.writeBuffer(replacement, start,
-                            shadow.buffer, shadow.byteOffset + start, end - start);
-                } else {
-                    this.device.queue.writeBuffer(replacement, 0, shadow.buffer,
-                        shadow.byteOffset, shadow.length);
-                    ++this.stats.bufferFullCopyRenames;
-                }
-                this.retireGPUObject(resource.gpuBuffer);
-                resource.gpuBuffer = replacement;
-                resource.frameReferenced = 0;
-                ++this.stats.bufferRenames;
-                return;
-            }
-            if (this.frame && resource.frameReferenced === this.frame.serial)
-                ++this.stats.bufferNoOverwriteWrites;
-
             const alignedStart = destinationOffset & ~3;
-            const alignedEnd = Math.min(shadow.length,
-                alignUp(destinationOffset + byteCount, 4));
-            if (alignedEnd <= alignedStart) return;
-            this.device.queue.writeBuffer(resource.gpuBuffer, alignedStart,
-                shadow.buffer, shadow.byteOffset + alignedStart, alignedEnd - alignedStart);
+            const alignedEnd = Math.min(shadow.length, alignUp(destinationOffset + byteCount, 4));
+            if (alignedEnd > alignedStart)
+                this.stageBufferUpload(resource.gpuBuffer, alignedStart, shadow.subarray(alignedStart, alignedEnd));
         }
 
         // WebGPU requires writeBuffer's size (and destination offset) to be a
@@ -5644,56 +5598,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
         }
 
-        renameTextureForUpdate(resource) {
-            if (!resource.textureDescriptor ||
-                    (resource.usage & (D3DUSAGE_RENDERTARGET |
-                        D3DUSAGE_DEPTHSTENCIL)) !== 0)
-                return false;
-            let replacement;
-            try {
-                replacement = this.device.createTexture({
-                    ...resource.textureDescriptor,
-                    label: "D3D9 renamed texture",
-                });
-            } catch (error) {
-                this.warnOnce("texture-rename-failed",
-                    "a texture updated after an earlier draw could not be " +
-                    "renamed; that earlier draw may see the newer pixels", {
-                        format: resource.format,
-                        size: resource.width + "x" + resource.height,
-                        message: error && error.message,
-                    });
-                return false;
-            }
-            if (resource.textureShadows) {
-                for (const shadow of resource.textureShadows.values()) {
-                    this.device.queue.writeTexture({ texture: replacement,
-                        mipLevel: shadow.level,
-                        origin: { x: 0, y: 0, z: shadow.layer } }, shadow.data,
-                        { bytesPerRow: shadow.bytesPerRow,
-                            rowsPerImage: shadow.rowsPerImage },
-                        { width: blockAlignedCopyExtent(shadow.width,
-                                shadow.compressed),
-                            height: blockAlignedCopyExtent(shadow.height,
-                                shadow.compressed),
-                            depthOrArrayLayers: shadow.depth || 1 });
-                    this.stats.textureFullCopyRenameBytes += shadow.data.length;
-                }
-            }
-            const oldTexture = resource.gpuTexture;
-            resource.gpuTexture = replacement;
-            resource.view = replacement.createView({ dimension:
-                resource.textureType === "cube" ? "cube"
-                    : resource.textureType === "3d" ? "3d" : "2d" });
-            resource.srgbView = null;
-            resource.blitViews = null;
-            resource.targetViews = null;
-            resource.frameReferenced = 0;
-            this.retireGPUObject(oldTexture);
-            ++this.stats.textureRenames;
-            return true;
-        }
-
         onUpdateTexture(bytes, view, offset) {
             const handle = view.getUint32(offset + D9WG.F.UpdateTexture.resource_handle, true);
             const level = view.getUint32(offset + D9WG.F.UpdateTexture.level, true);
@@ -5715,13 +5619,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             if (!resource || !resource.gpuTexture) return;
             const source = new Uint8Array(bytes.buffer, bytes.byteOffset + dataOffset, dataBytes);
             const compressed = isCompressedFormat(resource.format);
-            // Bind groups are built eagerly and retain the old view. Renaming
-            // here therefore preserves pixels for draws already recorded in
-            // this frame while later draws bind the replacement texture.
-            if (this.frame && resource.frameReferenced === this.frame.serial) {
-                ++this.stats.textureUpdateHazards;
-                this.renameTextureForUpdate(resource);
-            }
             let payload = source;
             let bytesPerRow = rowPitch;
             if (resource.ddIndexed) {
@@ -5746,7 +5643,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // Keep the primary r8uint texture current for indexed-to-
                 // indexed DirectDraw blits.  The RGBA sampling companion is
                 // derived lazily from the same shadow by ddIndexedSampleViewFor.
-                this.device.queue.writeTexture(
+                this.stageTextureUpload(
                     { texture: resource.gpuTexture, mipLevel: level,
                         origin: { x, y, z } }, packed,
                     { bytesPerRow: width, rowsPerImage: height },
@@ -5782,9 +5679,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 payload = expanded;
                 bytesPerRow = width * gpuBpp;
             }
-            this.updateTextureShadow(resource, level, z, x, y, width, height,
-                payload, bytesPerRow, compressed, depth,
-                bytesPerRow * (compressed ? Math.ceil(height / 4) : height));
             ++this.stats.textureUploads;
             this.stats.textureBytesUploaded += payload.length;
             // Only level 0 is the app's on an autogen texture, so only level 0
@@ -5835,13 +5729,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // not pixel rows -- BCn blocks are 4x4, so a DXT upload that
             // passes the pixel height describes an image four times taller
             // than the data actually is.
-            this.device.queue.writeTexture(
+            this.stageTextureUpload(
                 { texture: resource.gpuTexture, mipLevel: level, origin: { x, y, z } },
                 payload,
                 { bytesPerRow, rowsPerImage: compressed ? Math.ceil(height / 4) : height },
                 { width: blockAlignedCopyExtent(width, compressed),
                     height: blockAlignedCopyExtent(height, compressed),
-                    depthOrArrayLayers: depth });
+                    depthOrArrayLayers: depth }, resource);
         }
 
         // ---- render targets, cube textures and blits (M3/M4) ----
@@ -6063,16 +5957,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
             }
             const bytesPerRow = width * gpuBpp;
-            // A repaint rewrites pixels a bind group recorded earlier in this
-            // frame may still be reading, so it takes the same rename hazard
-            // path an ordinary mid-frame update does.
-            if (this.frame && resource.frameReferenced === this.frame.serial) {
-                ++this.stats.textureUpdateHazards;
-                this.renameTextureForUpdate(resource);
-            }
-            this.updateTextureShadow(resource, level, z, x, y, width, height,
-                expanded, bytesPerRow, false, depth, bytesPerRow * height);
-            this.device.queue.writeTexture(
+            this.stageTextureUpload(
                 { texture: resource.gpuTexture, mipLevel: level,
                     origin: { x, y, z } },
                 expanded, { bytesPerRow, rowsPerImage: height },

@@ -126,6 +126,7 @@
                 hotspotX: 0, hotspotY: 0, x: 0, y: 0, visible: false,
                 pipeline: null, sampler: null, uniform: null },
             lastDraws: { fixed: null, programmable: null },
+            uploads: null,
             uniformRingChunks: [],
             uniformStaging: [],
             uniformRingIndex: 0,
@@ -139,7 +140,7 @@
         "devices", "resources", "frame", "activeOcclusion", "presentingDevice", "lastSwapTexture",
         "backBufferTexture", "backBufferView", "backBufferSrgbView", "backBufferTextureWidth",
         "backBufferTextureHeight", "palettes", "ddPaletteBuffers", "ddPaletteSerials", "windowState",
-        "cursor", "lastDraws", "uniformRingChunks", "uniformStaging", "uniformRingIndex", "uniformRingCursor",
+        "cursor", "lastDraws", "uploads", "uniformRingChunks", "uniformStaging", "uniformRingIndex", "uniformRingCursor",
     ]);
     function captureSession(state, executor) {
         for (const field of SESSION_FIELDS) state[field] = executor[field];

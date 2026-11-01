@@ -148,6 +148,28 @@
     }, probes: [{ at: [8, 8], expect: [128, 255, 255, 255], tolerance: 1 },
         { at: [8, 48], expect: [128, 255, 255, 255], tolerance: 1 }, { at: [48, 32], expect: [128, 64, 255, 255], tolerance: 1 }] });
 
+    add("resources", { name: "render-target texture upload stays between two sampling draws", body: dev => {
+        const handle = dev + 0x500000;
+        const setup = texture(dev, handle, ["A8R8G8B8", 21, [0, 0, 255, 255]]);
+        setup[0] = wire("CreateTexture2D", { device_handle: dev, resource_handle: handle, width: 4, height: 4, level_count: 1, format: 21, usage: 1 });
+        return [...setup, rs(dev, 174, 1), wire("SetScissorRect", { device_handle: dev, right: 32, bottom: 64 }), ...texturedQuad(dev),
+            texture(dev, handle, ["A8R8G8B8", 21, [0, 255, 0, 255]])[1],
+            wire("SetScissorRect", { device_handle: dev, left: 32, right: 64, bottom: 64 }), ...texturedQuad(dev)];
+    }, probes: [{ at: [16, 32], expect: [255, 0, 0, 255] }, { at: [48, 32], expect: [0, 255, 0, 255] }] });
+
+    for (const [name, flags] of [["plain", 0], ["DISCARD", 0x2000]]) add("resources", {
+        name: "vertex buffer " + name + " uploads stay between draws", body: dev => {
+            const handle = dev + 0x700000, a = draw(dev, quad(0, 0, 64, 64, 0.5, 0xffff0000)).blobs[0].data;
+            const b = draw(dev, quad(0, 0, 64, 64, 0.5, 0xff00ff00)).blobs[0].data;
+            const upload = data => wire("UpdateBuffer", { resource_handle: handle, byte_count: data.length, lock_flags: flags }, [blob("UpdateBuffer", "data_offset", data)]);
+            const render = () => wire("DrawPrimitive", { device_handle: dev, primitive_type: 4, primitive_count: 2 });
+            return [wire("CreateBuffer", { device_handle: dev, resource_handle: handle, resource_kind: 1, byte_count: a.length }),
+                wire("SetStreamSource", { device_handle: dev, buffer_handle: handle, stride: 24 }),
+                tss(dev, 0, 1, 2), tss(dev, 0, 2, 0), tss(dev, 0, 4, 2), tss(dev, 0, 5, 0), rs(dev, 174, 1),
+                upload(a), wire("SetScissorRect", { device_handle: dev, right: 32, bottom: 64 }), render(),
+                upload(b), wire("SetScissorRect", { device_handle: dev, left: 32, right: 64, bottom: 64 }), render()];
+        }, probes: [{ at: [16, 32], expect: [255, 0, 0, 255] }, { at: [48, 32], expect: [0, 255, 0, 255] }] });
+
     // Arg1=DIFFUSE, Arg2=TFACTOR, Arg0=SPECULAR; formula inputs are bytes
     // converted to [0,1]. Alpha is explicit, independent of the unbound bug.
     const a = [64, 128, 192].map(v => v / 255), b = [128, 64, 32].map(v => v / 255), alpha = 64 / 255;

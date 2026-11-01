@@ -3,7 +3,7 @@
 (function() {
     const baseline = new URLSearchParams(location.search).get("source") === "baseline";
     const source = baseline ? "/build/d3d-review/baseline-host/" : "/src/browser/glbridge/";
-    for (const file of ["webgpu_host.js", "d3d9-webgpu/d3d9_shader_pipeline.js", "d3d9-webgpu/d9wg_protocol.js", ...(!baseline ? ["d3d9-webgpu/d9wg_wire.js", "d3d9-webgpu/d9wg_state.js", "d3d9-webgpu/d9wg_formats.js"] : []), "d3d9-webgpu/d3d9_executor.js", "d3d9-webgpu/ddraw_ops.js"])
+    for (const file of ["webgpu_host.js", "d3d9-webgpu/d3d9_shader_pipeline.js", "d3d9-webgpu/d9wg_protocol.js", ...(!baseline ? ["d3d9-webgpu/d9wg_wire.js", "d3d9-webgpu/d9wg_state.js", "d3d9-webgpu/d9wg_formats.js", "d3d9-webgpu/d9wg_uploads.js"] : []), "d3d9-webgpu/d3d9_executor.js", "d3d9-webgpu/ddraw_ops.js"])
         document.write('<script src="' + source + file + '"><\/script>');
 })();
 </script><script src="../../src/browser/glbridge/graphics_journal.js"></script><script src="d9wg_game_trace.js"></script>

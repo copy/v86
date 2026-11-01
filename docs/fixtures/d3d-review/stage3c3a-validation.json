@@ -1,0 +1,57 @@
+{
+  "stage": "3C3A ordered staging copies and removal of ordinary resource renaming",
+  "coreSuites": 124,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 150,
+  "normativePixelPasses": 138,
+  "knownPixelFailures": 12,
+  "fullCheckpoint": "PASS",
+  "svgaWorker": "PASS",
+  "d3dMutationsKilled": 12,
+  "pendingUniformAndUploadIsolationPixels": 32768,
+  "graphicsRevision": "e973b79d51ab0c893696",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "logs": {
+    "d3d-stage3c3a-core.log": "0aa4c48ee455c9940a4a811c1d421da70308d8b8848d6419825ec7a9b12f7625",
+    "d3d-stage3c3a-site.log": "1b7c37d45e6d5350312b46b0012b49344d208518143986244f9786d6f8f458e0",
+    "d3d-stage3c3a-gpu.log": "1190369cd80d162ebcad84e571bf48503b520e9a04be7baf598c0bbabd8927ed",
+    "d3d-stage3c3a-conformance.log": "e744a85b502d94644ce17152a2e957bb6108dd9e87c6d3ae2f484d7a05c815b4",
+    "d3d-stage3c3a-war3-counterfactual.log": "301aa1e5c722a301d66ac08ba2c3d406d2d506ecda06e3ba137dbc7eeb85409a",
+    "d3d-stage3c3a-war3-counterfactual-buffers.log": "dd726df16ae6206c3a3d37007a38a4f69e60b7df422da5dbb123e2d9ece4a023",
+    "d3d-stage3c3a-war3-counterfactual-uploads.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3c3a-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3c3a-svga.log": "13addbcb5a3bfb8e5155a1b11eefedb28f161131a4758aac3ccd164e63bd9309",
+    "d3d-stage3c3a-integration.log": "6a77586448e83bf3ca639ca7d88cab1a97e448df5b541764885b1549d73902a8",
+    "d3d-stage3c3a-ddraw.log": "a9ffd56e6e4ad0923bc9b935ab26e7f2a018fe7df2258f375fabc5dcb12e4c9a",
+    "d3d-stage3c3a-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441"
+  },
+  "reproducedBefore": {
+    "log": "d3d-stage3c3-before.log",
+    "sha256": "9e445251ecba2dbfa945ccef08215294143e63a7df5980d618e23630bac158ce",
+    "case": "render-target texture upload stays between two sampling draws",
+    "beforeLeftRgba": [
+      0,
+      255,
+      0,
+      255
+    ],
+    "expectedLeftRgba": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "after": "PASS"
+  },
+  "warcraft3": {
+    "originalGoldenAndPolicy": "unchanged",
+    "legacyUnormOnly": "146 differing bytes; 49 stable pixel mismatches; no new colours at the 11 original variable positions",
+    "legacyUnormAndLegacyBuffers": "162 differing bytes; still FAIL",
+    "legacyUnormAndAllLegacyUploads": "PASS original frozen policy",
+    "counterfactualCommand": "node tools/d3d_format_counterfactual.mjs d9wg-warcraft3-worker --legacy-uploads",
+    "interpretation": "The additional game difference is caused by the resource upload path change. The new independently specified texture and vertex command-order pixel cases pass. Exact native correctness of all changed game pixels remains for guest visual acceptance; this is not an unchanged candidate-golden pass."
+  },
+  "scope": "Session-owned pooled COPY_SRC staging, aligned row packing and ordered buffer/texture copies between draws. Input bytes copied while recording, upload pools retired with session owners, bounded early flush at 64 MiB. Ordinary texture shadows and all buffer/texture renaming removed. Legacy indexed DirectDraw sampling shadows/palette uploads remain 3C3B."
+}

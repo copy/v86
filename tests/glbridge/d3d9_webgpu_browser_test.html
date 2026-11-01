@@ -14,6 +14,7 @@ canvas { width: 640px; height: 480px; }
 <script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
 <script>
 (async () => {
@@ -486,8 +487,8 @@ canvas { width: 640px; height: 480px; }
             // feature; the DXT1 upload above is the only way to notice.
             texturesRejected: 0,
             textureUploads: 9, texturePreviewsSkipped: 3,
-            textureUpdateHazards: 1, textureRenames: 1,
-            textureFullCopyRenameBytes: 1024,
+            textureUpdateHazards: 0, textureRenames: 0,
+            textureFullCopyRenameBytes: 0,
             // Both StretchRects touch the back buffer, so both must go through
             // the deferred blit rather than being skipped.
             blits: 2, blitsSkipped: 0, blitsThroughBackBuffer: 2,

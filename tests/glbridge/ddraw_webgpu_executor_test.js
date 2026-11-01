@@ -15,6 +15,7 @@
 const assert = require("node:assert/strict");
 const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
 const encodePayload = (name, values) => Buffer.from(P.encode(name, values));
+const { flushTextureUploads } = require("./d3d9_webgpu_executor_test.js");
 const { errorScopes } = require("./fake_error_scopes.js");
 const { D3D9WebGPUExecutor } = require("../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js");
 const ddraw = require("../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js");
@@ -143,6 +144,22 @@ function makeFakeWebGPU() {
     class FakeEncoder {
         beginRenderPass(descriptor) { return new FakePass(descriptor); }
         copyTextureToTexture(...a) { calls.push(["copyTextureToTexture", ...a]); }
+        copyBufferToTexture(source, destination, size) {
+            assert.equal(source.offset % 256, 0);assert.equal(source.bytesPerRow % 256, 0);
+            assert(source.buffer.usage & 4 || source.buffer.descriptor?.usage & 4, "upload source needs COPY_SRC");
+            assert(source.offset + source.bytesPerRow * source.rowsPerImage * size.depthOrArrayLayers <= source.buffer.data.length);
+            const format = destination.texture.descriptor.format;
+            const bpp = ({ r16float: 2, rg16float: 4, rgba16float: 8, rg32float: 8, rgba32float: 16, r8uint: 1, r8unorm: 1 })[format] || 4;
+            const compressed = format.startsWith("bc"), blockBytes = /^bc[14]-/.test(format) ? 8 : 16;
+            const pitch = compressed ? Math.ceil(size.width / 4) * blockBytes : size.width * bpp;
+            const rows = compressed ? Math.ceil(size.height / 4) : size.height;
+            const data = new Uint8Array(pitch * rows * size.depthOrArrayLayers);
+            for (let slice = 0; slice < size.depthOrArrayLayers; slice++) for (let row = 0; row < rows; row++) {
+                const from = source.offset + (slice * source.rowsPerImage + row) * source.bytesPerRow;
+                data.set(source.buffer.data.subarray(from, from + pitch), (slice * rows + row) * pitch);
+            }
+            calls.push(["copyBufferToTexture", source, destination, size, data, { bytesPerRow: pitch, rowsPerImage: rows }]);
+        }
         copyTextureToBuffer(...a) { calls.push(["copyTextureToBuffer", ...a]); }
         copyBufferToBuffer(...a) { calls.push(["copyBufferToBuffer", ...a]); }
         finish() { return { encoder: this }; }
@@ -152,7 +169,9 @@ function makeFakeWebGPU() {
             const view = ArrayBuffer.isView(data)
                 ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
                 : new Uint8Array(data);
-            calls.push(["writeBuffer", buffer, offset, view.slice()]);
+            const start = dataOffset || 0, count = size === undefined ? view.length - start : size;
+            const copied = view.slice(start, start + count);buffer.data.set(copied, offset);
+            calls.push(["writeBuffer", buffer, offset, copied]);
         },
         writeTexture(destination, data, layout, size) {
             const view = ArrayBuffer.isView(data)
@@ -238,10 +257,12 @@ function makeFakeWebGPU() {
     return { calls, device, context, gpu };
 }
 
+const liveExecutors = [];
 function makeExecutor(options = {}) {
     const fake = makeFakeWebGPU();
     const canvas = { width: 1, height: 1, getContext: () => fake.context };
-    const executor = new D3D9WebGPUExecutor(canvas, { gpu: fake.gpu, ...options });
+    const executor = new D3D9WebGPUExecutor(canvas, { gpu: fake.gpu, strict: true, ...options });
+    liveExecutors.push(executor);
     return { fake, executor, calls: fake.calls,
         find: name => fake.calls.filter(call => call[0] === name),
         last: name => {
@@ -282,6 +303,11 @@ let passed = 0;
 async function test(name, body) {
     try {
         await body();
+        for (const executor of liveExecutors.splice(0)) {
+            await executor.idle();
+            assert.equal(executor.hostErrors.length, 0, "unexpected DirectDraw host error");
+            assert.equal(executor.gpuErrors.errors.length, 0, "unexpected DirectDraw GPU error");
+        }
         ++passed;
     } catch (error) {
         failures.push({ name, error });
@@ -319,7 +345,7 @@ await test("a palettised surface is stored as r8uint indices, not expanded to RG
     assert.ok(shadow, "the surface kept no CPU shadow of its indices");
     assert.deepEqual([...shadow.data.subarray(0, 4)], [0, 7, 14, 21],
         "the stored bytes are the app's indices, unmodified");
-    const upload = find("writeTexture").find(call =>
+    const upload = flushTextureUploads(executor, find).find(call =>
         call[1].texture === resource.gpuTexture);
     assert.ok(upload, "the r8uint texture itself was never uploaded");
     assert.deepEqual([...upload[2].subarray(0, 4)], [0, 7, 14, 21]);
@@ -379,7 +405,7 @@ await test("cube mip uploads and DirectDraw blits address the requested subresou
     assert.equal(cube.textureType, "cube");
     assert.equal(cube.levelCount, 4);
     assert.equal(cube.layerCount, 6);
-    const upload = find("writeTexture").find(call =>
+    const upload = flushTextureUploads(executor, find).find(call =>
         call[1].texture === cube.gpuTexture);
     assert.ok(upload, "the cube face/mip upload never reached WebGPU");
     assert.equal(upload[1].mipLevel, 2);
