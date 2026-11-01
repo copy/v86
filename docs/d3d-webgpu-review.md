@@ -817,6 +817,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 配套运行包已重建并同步站点：核心仍为 `cc49eed222f9fb724ba3`（核心执行逻辑未变），WebGPU 为 `05cdab879d36d9beb7b9`。镜像不写回。
 > - **2B 继续项：** 主执行器测试中部分局部上传/查询/UP draw 等 fixture 仍以 `Buffer.alloc` 和字段写入构造；逐个迁移其正向载荷，保留明确的损坏输入实验。完成后才关闭阶段 2，进入阶段 3。
 
+> **阶段 2B（2026-11-01）：完成局部 fixture 清理，阶段 2 关闭。**
+>
+> - 主执行器测试的 36 个局部初始化器改用命名编码，剩余分量修改与故意损坏输入的目标偏移改用 `P.F`。gamma 数组、窗口区域、Clear 矩形、交换链、LOD/Reset、UP draw 和上传 fixture 都引用 schema；原始 DWORD 仅保留 shader token、texel 和明确的未知 opcode 输入。
+> - 173 个执行器用例及原有失败路径断言通过；存档和协议套件通过。构包边界捕获的 221 批、164,408 字节与 `bb97f595` 完全一致，见 [executor-wire-baseline.json](fixtures/d3d-review/executor-wire-baseline.json)。捕获点位于故意破坏 framing 之前，这些破坏实验另由原有断言验证。
+> - 无生产语义或运行资源变更，继续使用 2A 的匹配站点头文件与 `05cdab879d36d9beb7b9` 运行包。接下来按模块推进阶段 3。
+
 - **目标：** 协议漂移在构建时就失败。
 - **改动：**
   - 用一份 schema（JSON，或带注解的头文件）生成：

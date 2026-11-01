@@ -1,0 +1,9 @@
+{
+  "reference": "bb97f595",
+  "executorCases": 173,
+  "batches": 221,
+  "wireBytes": 164408,
+  "hexArchiveSha256": "8c38df453dfc2aaccc13accce1195b977adf57398f60a48162f2129793fce56d",
+  "exact": true,
+  "scope": "Passive capture at the shared batch-assembly boundary, before deliberate framing mutations. All original malformed-input assertions also passed. Shader DWORDs, pixel texels and intentional unknown opcodes remain raw data; positive payload fields, arrays, rectangles and patch positions use schema metadata."
+}
