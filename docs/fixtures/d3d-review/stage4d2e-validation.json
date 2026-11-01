@@ -1,0 +1,191 @@
+{
+  "stage": "4D2e shared software vertex fog",
+  "date": "2026-11-02",
+  "bundle": "e6d86a853e5e147a77c7",
+  "guestSuites": 85,
+  "coreSuites": 133,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "realXpProbeExecutables": 3,
+  "retailAndDiagnosticDLLs": 6,
+  "xp": {
+    "status": "PASS",
+    "seconds": 150,
+    "batches": 6,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpMath": {
+    "status": "PASS",
+    "seconds": 137,
+    "batches": 0,
+    "releases": [],
+    "owners": [],
+    "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS all real XP math checks\r\n",
+    "logs": {
+      "MATH.TXT": "READY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS all real XP math checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "nativeFogCasesAgainstLibm": 200000,
+  "xpFogCasesAgainstLibm": 60000,
+  "x87ControlWords": [
+    "007f",
+    "027f",
+    "037f"
+  ],
+  "gpuScenes": 26,
+  "pixelPairsPerBackend": 106496,
+  "backends": {
+    "swift": {
+      "maximumByteError": 1,
+      "pixelsOutsideOneByteTolerance": 0,
+      "sha256": "9171eef68b5c5241bf00481d1ee470df282f5290adb8e09bec7223f47791b4bf"
+    },
+    "metal": {
+      "maximumByteError": 1,
+      "pixelsOutsideOneByteTolerance": 0,
+      "sha256": "102cf49c5a0db0542e90bf0c44fc852cb4a923b383e8535123188a6ad1424f32"
+    }
+  },
+  "semanticMutations": {
+    "CVertex": {
+      "killed": 5,
+      "total": 5
+    },
+    "D3D9": {
+      "killed": 12,
+      "total": 12
+    },
+    "Lighting": {
+      "killed": 2,
+      "total": 2
+    },
+    "VertexFog": {
+      "killed": 1,
+      "total": 1
+    }
+  },
+  "counterfactual": {
+    "bug": "reversed linear fog bounds lose denominator sign",
+    "differingPixels": 1128,
+    "maximumByteError": 45
+  },
+  "checks": [
+    "shared D3D7/8/9 fog state decoding from real SDK render-state arrays",
+    "linear depth uses absolute camera Z",
+    "range fog uses Euclidean camera distance",
+    "exponential and exponential-squared factors vs independent libm",
+    "signed linear denominator supports reversed bounds",
+    "equal linear bounds use deterministic step",
+    "fog generation replaces specular alpha while preserving RGB",
+    "DONOTCOPYDATA still writes generated fog",
+    "FOGVERTEXMODE NONE retains source alpha"
+  ],
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/fog-formulas",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/wined3d/device.c"
+  ],
+  "scope": "Shared vertex fog and corresponding host linear-fog correction. XP runs app-local COM proxies and reads VB results, not native Microsoft DLLs or GPU pixels. Separate C/GPU differential compares raster output. Texture-coordinate generation/transforms, blend matrices, clipping metadata, programmable vertex processing and complete Wine/game acceptance remain subsequent work.",
+  "gpuRuns": [
+    "PASS required WebGPU adapter: google swiftshader  ",
+    "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel",
+    "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel",
+    "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise on",
+    "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise on",
+    "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise on",
+    "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only update",
+    "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native",
+    "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once ",
+    "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours",
+    "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours",
+    "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinc",
+    "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinc",
+    "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours",
+    "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours",
+    "PASS\nok    a sample inside `if p0.x`\nok    a sample after a data-dependent breakc in a rep\nok    a s",
+    "PASS\n{\n  \"batches\": 1,\n  \"commands\": 98,\n  \"presents\": 1,\n  \"queueSubmits\": 1,\n  \"drawCalls\": 6,\n  \"",
+    "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets",
+    "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+  ],
+  "nativeRuns": [
+    "PASS 316 cases\nok    default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise on"
+  ],
+  "checkpointRuns": [
+    ""
+  ],
+  "war3Runs": [
+    "PASS frozen policy warcraft3 game READBACK: 906944 bytes, 479 packets"
+  ],
+  "sha256": {
+    "glbridge/runtime/d9wg_vertex.h": "64668fa1d2f4f437401179ee16cf109f88c37dcb5f4d61c519235d328b3a2613",
+    "glbridge/runtime/d9wg_vertex.c": "9370eebf0b46f8375ac48715ac5ce88fc2249fa860e375c01b70e141d38fb356",
+    "glbridge/sample/d3d_process_lighting_test.c": "b90f1cc9a249117190d3ecb614a14636ddb883e17792122ab43dfc4db474a254",
+    "glbridge/tests/native/d9wg_fog_cases.h": "65b8d643fc372bfb3f7c26cba37f7a6dd402cd67525134a337929c71a869e39b",
+    "glbridge/tests/native/d9wg_vertex_cases.h": "f1f11a861a06ffd4154ce8a6b58cd3d1592c8cd0ac2e871409597084031c6977",
+    "glbridge/tests/d9wg_fog_test.js": "0739b6db9e4c617bc78756fa94b5128b3ecfb23603354e5a992d744149cd37ab",
+    "glbridge/tests/d9wg_vertex_mutation_test.js": "19581ae403e26a58a6d3ee88740b5579fb8670012f23568c8a8067583f6df827",
+    "glbridge/tests/d9wg_lighting_harness.js": "49d3a3186c642936df8d171e46f3e94d0355bd1e056f7ded5cab7c0d0d06e4eb",
+    "glbridge/d3d9proxy/d3d9.dll": "b196191666e0f9e623f2acbc86e97d5b15c89abb0f05f0b34b4f27803e458729",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "96d1c3e25335410cb8dbdf509f670d04f8ff57aff2ab2a1dce52dc03d61d4677",
+    "glbridge/d3d8proxy/d3d8.dll": "98016223b37c49ffdb1a3f0c1ab0975bd62c0313a303a5c3bdae85bc829f855b",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "b1eb4872eac31e51cc09b7abf191a4f16b0a52f91f01f81c67cccec031e38567",
+    "glbridge/ddrawproxy/ddraw.dll": "69becbc600618146b84c3ac6b496f5604a5868b567bcfe582854e22846a0334d",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "464f01373c7afdbe83dd7c8fb91f9906dc639c1730b9169a05ab75a329e1dc5a"
+  },
+  "coreSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "8070063dedba1df47db583335ef6b68099872c4b715526dfcb00078dc80ec76b",
+    "tests/glbridge/d3d9_software_lighting_browser_test.html": "45889e2fa7acf691f5a66ef9d6c7d2e529205d4299fb6bbdb6e03000eeafbf32",
+    "tests/glbridge/fixtures/d3d_software_lighting_cases.json": "059857a2655482669a0c885687a61e6f35eeea68114047b19169517a08d8227f",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "b64b8e5f4acca5aaaa58cbcce81e383ae9620c38eedd3213464a2339883f5197",
+    "tests/glbridge/d3d_process_lighting_xp.mjs": "562f88f17757672b6f44c69412b83ef7caaa9efeaf87cd09e82abdb010e19114",
+    "tests/glbridge/d3d_math_xp.mjs": "3c04909b1196dbb0b2c155bd8d53cfacc5040b78d421988e9dd6912a72df1806",
+    "tests/glbridge/mutations.mjs": "3a61bcf39d44de40510f69e85af4cd9141bbb415489dfdcc83b6fe3bc8d15299"
+  },
+  "logs": {
+    "d3d-stage4d2e-fog.log": "eea7e2bed7198de073e3b491a6d73a3db43cbc48efcf5fbe194ecd201d09c4ef",
+    "d3d-stage4d2e-tnl-xp.log": "3e8c12fe8342316949a4480287d72bcf66f78d816a88f3253b9acd22bdab159a",
+    "d3d-stage4d2e-gpu.log": "1e7aefdabadd338b145e52694d4a70ab91034a58f1dffa1501c57b8ab0532eed",
+    "d3d-stage4d2e-lighting-unit.log": "9bd75c34fd73ba29de18a0c164012eed3d424af97e7a5753d9608fe2c3ed58ea",
+    "d3d-stage4d2e-war3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage4d2e-build-d3d8.log": "c65ebf10a97ea6e654d5e49d0f972b7004515e6f86cc03121dc22672337943f4",
+    "d3d-stage4d2e-pv-metal.log": "16d3f2511152c28fc220f477ba9e8bac3a3870b1f6041c26f7122451d814bb83",
+    "d3d-stage4d2e-integration.log": "3faacda7fdf217fed18dabe278bba917f6d4cbbf475790137b1184390f666f39",
+    "d3d-stage4d2e-build-d3d9.log": "86c8dbaaf34cda927474181aab66ef650b7d9a867ec7b2cfad82f91d31febf59",
+    "d3d-stage4d2e-build-d3d8-initial.log": "ff5a5eca0d043c7414cfa2fdc7e1bdb5485b9ebed133dfdfd4cc1437d5156c53",
+    "d3d-stage4d2e-build-ddraw.log": "d5c94baa4621b8ad67e93afb8763a9634b066bec7175cf20c3b27ea8faec26b8",
+    "d3d-stage4d2e-fog-mutations.log": "61673fde52298fa3ccbb71c2a51702050b2a456006fb6be7a336993935ad1619",
+    "d3d-stage4d2e-build-ddraw-initial.log": "c371d87ad07653e8b04550adb12dc2bde7989c566cd7d282636c41b7f5d08dd6",
+    "d3d-stage4d2e-guest.log": "f00153d6e200acb4b078fc38255100aa091ac3879c8afef88f8f7ab00bb04b53",
+    "d3d-stage4d2e-build-d3d9-initial.log": "db565bccba2883fbc43400f9beeb2577de912f816c405acf29f40af2278bc38f",
+    "d3d-stage4d2e-bundle.log": "446e808d872b218825a935e6e5489e2a70c356b4805b13a411da55fe65fd2af8",
+    "d3d-stage4d2e-sync.log": "a1b6742d684e046110af3eedf3b5cbfe44e5a51d915e6014d644d1115077bb9a",
+    "d3d-stage4d2e-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage4d2e-fog-baseline.log": "4fd8f766c011ef5d6ae065bd84f132e997cb7640e84f67a1ddb31dbaec924cc8",
+    "d3d-stage4d2e-math-xp.log": "70af790b569c6b20b5e53b05b565b5e7d5de6583bafd8356b2401f538c628046",
+    "d3d-stage4d2e-fog-mutation-audit.log": "722ef2e2eda7db8c0283f96cb17b19364f325b212b5d28cbc6b3febf49be3a5c",
+    "d3d-stage4d2e-pv-swift.log": "16d3f2511152c28fc220f477ba9e8bac3a3870b1f6041c26f7122451d814bb83",
+    "d3d-stage4d2e-native.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage4d2e-lighting-mutations.log": "db28bdab8bbf1f5e0677ecaed8225678274e087bfb586a1367bc77b38f989001",
+    "d3d-stage4d2e-core.log": "483fb5640abe5550b77657842dfa7798088d8a1dc5715e3673b3b91efaa13b98",
+    "d3d-stage4d2e-vertex.log": "46b2359d12e3c019532bb43040982f026858cabed9cc16349b0dbd0b763af1e0",
+    "d3d-stage4d2e-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740"
+  }
+}

@@ -3135,6 +3135,1161 @@
         0,
         1
       ]
+    },
+    {
+      "name": "fog_linear_depth",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fog": {
+        "mode": 3,
+        "range": 0,
+        "start": 0,
+        "end": 1,
+        "density": 0.5,
+        "color": 4282417344
+      }
+    },
+    {
+      "name": "fog_linear_varying",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.1
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.9
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fog": {
+        "mode": 3,
+        "range": 0,
+        "start": 0,
+        "end": 1,
+        "density": 0.5,
+        "color": 4282417344
+      }
+    },
+    {
+      "name": "fog_linear_range",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fog": {
+        "mode": 3,
+        "range": 1,
+        "start": 0,
+        "end": 2,
+        "density": 0.5,
+        "color": 4282417344
+      }
+    },
+    {
+      "name": "fog_exponential",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fog": {
+        "mode": 1,
+        "range": 0,
+        "start": 0,
+        "end": 1,
+        "density": 0.7,
+        "color": 4282417344
+      }
+    },
+    {
+      "name": "fog_exponential_squared",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fog": {
+        "mode": 2,
+        "range": 0,
+        "start": 0,
+        "end": 1,
+        "density": 0.75,
+        "color": 4282417344
+      }
+    },
+    {
+      "name": "fog_reversed_linear_bounds",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fog": {
+        "mode": 3,
+        "range": 0,
+        "start": 1,
+        "end": 0,
+        "density": 0.5,
+        "color": 4282417344
+      }
+    },
+    {
+      "name": "fog_equal_linear_bounds",
+      "positions": [
+        [
+          -0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0.75,
+          -0.75,
+          0.5
+        ],
+        [
+          0,
+          0.75,
+          0.5
+        ]
+      ],
+      "normal": [
+        0,
+        0,
+        -1
+      ],
+      "hasNormal": true,
+      "colorMask": 1,
+      "color0": [
+        0.2,
+        0.7,
+        0.4,
+        0.8
+      ],
+      "color1": [
+        0.7,
+        0.2,
+        0.5,
+        0.35
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "ambient": 0,
+      "material": {
+        "diffuse": [
+          0.3,
+          0.45,
+          0.6,
+          0.75
+        ],
+        "ambient": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "specular": [
+          0.8,
+          0.8,
+          0.8,
+          1
+        ],
+        "emissive": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "power": 16
+      },
+      "flags": {
+        "lighting": 1,
+        "color_vertex": 1,
+        "specular_enable": 0,
+        "local_viewer": 0,
+        "diffuse_source": 1,
+        "ambient_source": 0,
+        "specular_source": 2,
+        "emissive_source": 0,
+        "normalize_normals": 0
+      },
+      "lights": [
+        {
+          "index": 0,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            -1
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 10,
+          "falloff": 1,
+          "attenuation": [
+            1,
+            0,
+            0
+          ],
+          "theta": 0.4,
+          "phi": 1.8
+        }
+      ],
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fog": {
+        "mode": 3,
+        "range": 0,
+        "start": 0.5,
+        "end": 0.5,
+        "density": 0.5,
+        "color": 4282417344
+      }
     }
   ]
 }

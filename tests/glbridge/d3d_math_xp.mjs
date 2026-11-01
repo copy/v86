@@ -13,10 +13,11 @@ const out = path.resolve(process.env.D9WG_MATH_OUT || root + "build/d3d-review/s
 fs.mkdirSync(out, { recursive: true });
 const lighting_math = process.argv.includes("--lighting-math");
 const vertex_math = process.argv.includes("--vertex-math");
+const fog_math = process.argv.includes("--fog-math");
 const { source } = require(site + "/glbridge/tests/d9wg_math_harness.js");
 const code = `#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + `
+` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + (fog_math ? '\n#include "tests/native/d9wg_fog_cases.h"\n' : "") + `
 static HANDLE log_file;
 static void report(const char *text) {
     DWORD written;WriteFile(log_file,text,(DWORD)lstrlenA(text),&written,NULL);
@@ -37,6 +38,7 @@ void WINAPI WinMainCRTStartup(void) {
         int error=math_cases(20000);
         ${lighting_math ? "double errors[2];if(!error)error=tnl_math_cases(20000,errors);" : ""}
         ${vertex_math ? "if(!error)error=vertex_cases(20000);" : ""}
+        ${fog_math ? "if(!error)error=fog_cases(20000);" : ""}
         WORD observed;__asm__ volatile("fnstcw %0":"=m"(observed)::"memory");
         if(observed!=modes[i])error=9999;
         __asm__ volatile("fnclex\\n\\tfldcw %0"::"m"(saved):"memory");
@@ -44,6 +46,7 @@ void WINAPI WinMainCRTStartup(void) {
         wsprintfA(text,"PASS x87 control=%04x operations=%u",modes[i],math_comparisons);report(text);
         ${lighting_math ? 'wsprintfA(text,"PASS lighting math control=%04x checks=60000",modes[i]);report(text);' : ""}
         ${vertex_math ? 'wsprintfA(text,"PASS vertex math control=%04x ranges=20000",modes[i]);report(text);' : ""}
+        ${fog_math ? 'wsprintfA(text,"PASS fog math control=%04x cases=20000",modes[i]);report(text);' : ""}
     }
     report("PASS all real XP math checks");CloseHandle(log_file);ExitProcess(0);
 }
@@ -51,7 +54,7 @@ void WINAPI WinMainCRTStartup(void) {
 fs.writeFileSync(out + "/math.c", code);
 run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-mwindows", "-std=gnu11", "-Os", "-ffp-contract=off", "-ffreestanding", "-fno-builtin", "-s", "-nostdlib", "-Wall", "-Wextra", "-Werror",
     "-I", site + "/glbridge", "-Wl,--subsystem,windows:5.01", "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/MATH.EXE", out + "/math.c",
-    site + "/glbridge/runtime/d9wg_math.c", ...new Set([...(lighting_math ? [site + "/glbridge/runtime/d9wg_tnl_math.c", "-lmsvcrt"] : []), ...(vertex_math ? ["vertex", "fvf", "lighting", "tnl_math"].map(name => site + "/glbridge/runtime/d9wg_" + name + ".c") : [])]), "-luser32", "-lkernel32"], { stdio: "pipe" });
+    site + "/glbridge/runtime/d9wg_math.c", ...new Set([...(lighting_math || fog_math ? [site + "/glbridge/runtime/d9wg_tnl_math.c", "-lmsvcrt"] : []), ...(vertex_math || fog_math ? ["vertex", "fvf", "lighting", "tnl_math"].map(name => site + "/glbridge/runtime/d9wg_" + name + ".c") : [])]), "-luser32", "-lkernel32"], { stdio: "pipe" });
 const files = { "MATH.EXE": fs.readFileSync(out + "/MATH.EXE"),
     "PROBE.CMD": Buffer.from("@echo off\r\necho READY math >%~d0\\OWNER.TXT\r\n%~d0\\MATH.EXE\r\ntype %~d0\\MATH.TXT >>%~d0\\OWNER.TXT\r\n") };
 const result = await run_xp_ram_probe({ root, image: process.env.XP_IMAGE || site + "/windowsxp/windowsxp_multidisk_C_4G.img", out, files,
@@ -61,6 +64,7 @@ const result = await run_xp_ram_probe({ root, image: process.env.XP_IMAGE || sit
             assert(result.text.includes("PASS x87 control=" + mode + " operations=240000"));
             if(lighting_math) assert(result.text.includes("PASS lighting math control=" + mode + " checks=60000"));
             if(vertex_math) assert(result.text.includes("PASS vertex math control=" + mode + " ranges=20000"));
+            if(fog_math) assert(result.text.includes("PASS fog math control=" + mode + " cases=20000"));
         }
     } });
 console.log(JSON.stringify(result));

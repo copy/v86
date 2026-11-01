@@ -308,7 +308,8 @@
         function fixedFogFactorExpression(mode, distance) {
             return {
                 [D3DFOG_LINEAR]: "clamp((uniforms.fog_params.y - " + distance + ") / " +
-                    "max(uniforms.fog_params.y - uniforms.fog_params.x, 1e-6), 0.0, 1.0)",
+                    "select(uniforms.fog_params.y - uniforms.fog_params.x, 1e-30, " +
+                    "uniforms.fog_params.y == uniforms.fog_params.x), 0.0, 1.0)",
                 [D3DFOG_EXP]: "clamp(exp(-(uniforms.fog_params.z * " + distance + ")), " +
                     "0.0, 1.0)",
                 [D3DFOG_EXP2]: "clamp(exp(-((uniforms.fog_params.z * " + distance + ") * " +

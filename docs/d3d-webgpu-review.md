@@ -1136,6 +1136,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 把 C 核输出的 XYZRHW 与量化颜色送入 GPU：SwiftShader、Metal 各 19 场景、77,824 对像素，最大误差 1 字节，均在预先固定的容差内；原浮点光照页面仍通过。84 组客体、两项站点集成、35 个冒烟 EXE、3 个 XP 探针和六个 DLL 严格构建通过。宿主生产代码/运行包未变，沿用 4D2c 的全量核心/GPU 基线；见 [stage4d2d-validation.json](fixtures/d3d-review/stage4d2d-validation.json)。
 > - 继续雾与纹理坐标生成/变换，以及混合、裁剪和可编程顶点处理；本次不宣称完整 ProcessVertices 或阶段 4 验收完成。
 
+> **阶段 4D2e（2026-11-02）：共用顶点雾完成。**
+>
+> - `d9wg_vertex` 读取三个 SDK 相同的雾状态布局，按相机空间绝对 Z 或距离生成线性、指数及平方指数雾，写入 specular alpha，保留 RGB；DONOTCOPYDATA 仍生成雾，NONE 保留来源 alpha。线性分母保留符号，等起止值使用确定的阶跃。与固定 Wine 的 ProcessVertices 一样，因子生成由 FOGVERTEXMODE 决定，FOGENABLE 控制后续颜色混合。
+> - 新用例暴露宿主将负的线性雾分母改成正数：原先错 1,128 个像素、最大 45 字节，已修复。C/GPU 对照扩为 **26 场景、每后端 106,496 对像素**，SwiftShader 与 Metal 最大误差均为 1 字节，在预设容差内；新增雾语义变异 1/1 检出。
+> - **真实 XP 的 D3D7/8/9 COM 雾探针均通过**，150 秒、6 批、3 个 owner 完整释放；检查线性/指数/平方指数/范围/反向边界、复制标志及 NONE。纯数学在三种 x87 精度共对照 60,000 组雾公式，137 秒，控制字保持；宿主另有 200,000 组 libm 对照。
+> - 133 组核心、85 组客体、两项站点集成、35 个冒烟 EXE、3 个 XP 探针、六个 DLL 严格构建通过；316 项一致性及预算模式、检查点、既有 Warcraft III 轨迹策略回归通过。C 变异 5/5、原 D3D9 变异 12/12、光照 2/2 通过。运行包 `e6d86a853e5e147a77c7`；见 [stage4d2e-validation.json](fixtures/d3d-review/stage4d2e-validation.json)。
+> - 继续纹理坐标生成/变换，再完成混合、裁剪和可编程顶点处理；不把这些 XP 代理探针等同原生 Microsoft DLL、完整 Wine 或游戏验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

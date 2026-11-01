@@ -49,6 +49,11 @@
                     cmd(P.OP.SET_MATERIAL, P.encode("SetMaterial", { device_handle: dev, ...test.material })),
                     ...Object.entries(states).map(([name, state]) => rs(dev, state, processed && name === "lighting" ? 0 : test.flags[name])),
                     cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, element_count: elements.length }), ...elements]))];
+                if (test.fog) {
+                    const bits = value => new Uint32Array(new Float32Array([value]).buffer)[0];
+                    commands.push(rs(dev,28,1),rs(dev,35,0),rs(dev,140,test.fog.mode),rs(dev,48,test.fog.range),
+                        rs(dev,36,bits(test.fog.start)),rs(dev,37,bits(test.fog.end)),rs(dev,38,bits(test.fog.density)),rs(dev,34,test.fog.color));
+                }
                 if (!processed) for (const light of test.lights) commands.push(
                     cmd(P.OP.SET_LIGHT, P.encode("SetLight", { device_handle: dev, ...light })),
                     cmd(P.OP.LIGHT_ENABLE, P.encode("LightEnable", { device_handle: dev, index: light.index, enable: 1 })));

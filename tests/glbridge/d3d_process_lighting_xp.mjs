@@ -35,6 +35,7 @@ const result = await run_xp_ram_probe({ root, out, files,
         for(const text of Object.values(result.logs)) {
             assert(text.includes("PASS all real XP ProcessVertices lighting checks"));
             assert(text.includes("PASS shared vertex copy, bounds and layout checks"));
+            assert(text.includes("PASS shared vertex fog checks"));
         }
         assert.equal(result.releases.length, 3);assert.equal(new Set(result.releases).size, 3);
         assert(result.releases.every(owner => owner > 0));assert.equal(result.owners.length, 3);

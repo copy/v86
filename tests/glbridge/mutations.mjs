@@ -78,6 +78,11 @@ const MUTATIONS = {
             "                            \"            light.attenuation.z * light_distance * light_distance, 1e-6);\\n\" +",
             "                            \"            light.attenuation.z * light_distance * light_distance, 1e-6);\\n\" +\n                            \"        range_attenuation = min(range_attenuation, 1.0);\\n\" +"],
     ] },
+    d3dvertexfog: { floor: 1, node: [], pages: ["d3d9_software_lighting_browser_test.html?pipeline=1"], list: [
+        ["reversed linear fog loses denominator sign", D + "d9wg_ffp.js",
+            '"select(uniforms.fog_params.y - uniforms.fog_params.x, 1e-30, " +\n                    "uniforms.fog_params.y == uniforms.fog_params.x), 0.0, 1.0)"',
+            '"max(uniforms.fog_params.y - uniforms.fog_params.x, 1e-6), 0.0, 1.0)"'],
+    ] },
     glresidency: { floor: 1, node: ["gl_shadow_textures_test.js"], pages: [], list: [
         ["unused texture names are resident", G + "gl_shadow_textures.js", "checkName && (!texture || !s.current.group.textures.get(texture)?.target)", "false"],
         ["generated names are texture objects before binding", G + "gl_shadow_textures.js", "!s.current.group.textures.get(texture)?.target", "!s.current.group.textures.has(texture)"],
