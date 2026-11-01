@@ -1898,6 +1898,7 @@
                 out.push("    fog_color: vec4<f32>,");
                 out.push("    fog_params: vec4<f32>,");
             }
+            if (kind === "pixel" && this.options.alphaTestUniform) out.push("    alpha_test: vec4<u32>,");
             out.push("};");
             out.push("@group(0) @binding(" + (kind === "vertex" ? 0 : 1) +
                 ") var<uniform> d9c: D9Constants;");
@@ -2281,6 +2282,7 @@
             const bumpLuminanceOffset = bumpStageCount
                 ? trailingOffset + bumpStageCount * 16 : -1;
             const fogOffset = this.kind === "pixel" && this.options.fogBlend ? trailingOffset + bumpStageCount * 32 : -1;
+            const alphaTestOffset = this.kind === "pixel" && this.options.alphaTestUniform ? trailingOffset + bumpStageCount * 32 + (fogOffset >= 0 ? 32 : 0) : -1;
             return {
                 kind: this.kind,
                 version: { major: this.major, minor: this.minor },
@@ -2309,8 +2311,8 @@
                 levelZeroSamples: this.levelZeroSamples,
                 warnings: this.warnings.slice(),
                 uniformBytes: trailingOffset + (pointExpansion ? 32 : 0) +
-                    bumpStageCount * 32 + (fogOffset >= 0 ? 32 : 0),
-                fogOffset,
+                    bumpStageCount * 32 + (fogOffset >= 0 ? 32 : 0) + (alphaTestOffset >= 0 ? 16 : 0),
+                fogOffset, alphaTestOffset,
                 bumpStageCount,
                 bumpOffset,
                 bumpLuminanceOffset,

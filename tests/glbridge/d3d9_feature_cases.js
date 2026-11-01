@@ -406,5 +406,27 @@
         rs(dev, 57, 2), draw(dev, quad(32, 0, 64, 64, 0.5, 0xffff0000)), rs(dev, 55, 1), rs(dev, 56, 3),
         rs(dev, 57, 1), draw(dev, quad(0, 0, 64, 64, 0.5, 0xff00ff00)), rs(dev, 57, 2), draw(dev, quad(0, 0, 64, 64, 0.5, 0xff0000ff))],
         probes: [{ at: [16, 32], expect: [0, 255, 0, 255] }, { at: [48, 32], expect: [0, 0, 255, 255] }] });
+    for (const major of [0, 1, 2, 3]) for (let func = 1; func <= 8; func++) for (const delta of [-1, 0, 1]) {
+        const pass = (alpha, reference) => [false, alpha < reference, alpha === reference, alpha <= reference,
+            alpha > reference, alpha !== reference, alpha >= reference, true][func - 1];
+        const alpha = reference => Math.max(0, Math.min(255, reference + delta));
+        add("alpha-test", { name: (major ? "ps_" + major : "FFP") + " alpha function " + func + " delta " + delta + " across all 256 references", body: dev => {
+            const commands = [rs(dev, 15, 1), rs(dev, 25, func)];
+            if (major) {
+                const tokens = [0xffff0000 | major << 8 | (major === 1 ? 1 : 0), major === 1 ? S.MOV : ins(S.MOV, 2),
+                    dst(major === 1 ? R.TEMP : R.COLOROUT, 0), src(R.CONST, 0), 0xffff];
+                commands.push(pixelShader(dev, dev + 0x600000, tokens), bindPS(dev, dev + 0x600000));
+            }
+            for (let reference = 0; reference < 256; reference++) {
+                const x = (reference & 15) * 4, y = (reference >> 4) * 4;
+                commands.push(rs(dev, 24, reference));
+                if (major) commands.push(cmd(P.OP.SET_PIXEL_SHADER_CONSTANT_F, P.encode("SetShaderConstantF", { device_handle: dev, vector_count: 1 }),
+                    [blob("SetShaderConstantF", "data_offset", Uint8Array.from(floats(0, 1, 0, alpha(reference) / 255)))]));
+                commands.push(draw(dev, quad(x, y, x + 4, y + 4, 0.5, (alpha(reference) << 24 | 0x00ff00) >>> 0)));
+            }
+            return commands;
+        }, probes: Array.from({ length: 256 }, (_, reference) => ({ at: [(reference & 15) * 4 + 1, (reference >> 4) * 4 + 1],
+            expect: pass(alpha(reference), reference) ? [0, 255, 0] : [0, 0, 0], tolerance: 0 })) });
+    }
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

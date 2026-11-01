@@ -954,6 +954,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **182/182 正向场景**及三种预算配置、127 组核心、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过；固定旧 UNORM/上传/FFP 的 Warcraft III 诊断通过原冻结策略。模块格式整理后再次核验语法树、预算测试和变异锚点。
 > - 运行包 `52bcf2c6e309bca7e8ab`；见 [stage3f1-validation.json](fixtures/d3d-review/stage3f1-validation.json)。3F2 继续 ALPHAREF uniform，随后 LOD bias 和 clip 开关；draw CPU 目标保持待办。
 
+> **阶段 3F2（2026-11-02）：ALPHAREF uniform 完成。**
+>
+> - FFP 与 ps 1/2/3 的参考值均由 uint uniform 提供，签名只保留比较函数，移除 ALPHAREF 数值。翻译着色器在现有寄存器/fog 字段后附加参考值，反射明确偏移；每 draw 从当前设备状态写入，保留 UNORM8 量化比较。
+> - 新增 96 个矩阵场景：四条路径 × 八种比较 × 相邻 alpha 值，每场景遍历全部 256 个参考值，合计 **24,576 个精确像素比较/配置**。四条路径的缓存测试均证明预热后改变参考值不生成 module 或 pipeline。
+> - **278/278 正向场景**及三种预算配置、128 组核心（严格 corpus）、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。固定旧 UNORM/上传/FFP 的 Warcraft III 对照继续通过原冻结策略；既有候选语义变化不改黄金图。
+> - 运行包 `738a0ae664a53d644c86`；见 [stage3f2-validation.json](fixtures/d3d-review/stage3f2-validation.json)。继续 LOD bias、clip 开关 uniform 和后续模块；单 draw CPU 目标尚未关闭。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

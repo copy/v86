@@ -52,9 +52,9 @@
         const FF_LOCATION_BLENDINDICES = 14;
 
         // D3D9's alpha test has no fixed-function equivalent in WebGPU: it has to
-        // become a `discard` in the fragment shader, which means the comparison
-        // and the reference value are baked into the shader and therefore into
-        // the pipeline key. Returns "" when no test is needed.
+        // become a `discard` in the fragment shader. The comparison function
+        // is compiled while ALPHAREF is supplied through a uniform. Samples
+        // are quantized to UNORM8 before comparison. Returns "" for ALWAYS.
         //
         // This matters far beyond a subtle shading difference. UI atlases and
         // billboarded foliage lean on alpha test to cut fully transparent texels;
@@ -63,9 +63,9 @@
         //
         // D3DCMPFUNC values are 1..8; the expression below is the *discard*
         // condition, i.e. the negation of "the fragment passes".
-        function alphaTestDiscard(alphaTest, alphaExpression) {
+        function alphaTestDiscard(alphaTest, alphaExpression, referenceExpression) {
             if (!alphaTest || !alphaTest.enabled) return "";
-            const reference = (alphaTest.reference & 255) + "u";
+            const reference = referenceExpression || (alphaTest.reference & 255) + "u";
             const alpha = "u32(clamp(" + alphaExpression + ", 0.0, 1.0) * 255.0 + 0.5)";
             const condition = {
                 1: "true", // NEVER
@@ -274,6 +274,8 @@
         // The pixel block: only what the texture cascade and the fog blend read.
         function fixedPixelUniformLayout(signature) {
             const fields = [];
+            if (signature.alphaTest && signature.alphaTest.enabled)
+                fields.push({ name: "alpha_test", type: "vec4<u32>", bytes: 16 });
             if (signature.fogMode)
                 fields.push({ name: "fog_color", type: "vec4<f32>", bytes: 16 });
             if (signature.tableFog)
@@ -1196,7 +1198,7 @@ fn d9_ps_main(stage_in: D9PixelInput) -> @location(0) vec4<f32> {
 ${clipDiscard}
 ${samples.join("\n")}
 ${cascadeBody}    var result = ${value};
-${specularBody}${alphaTestDiscard(signature.alphaTest, "result.a")}${fogBody}    return result;
+${specularBody}${alphaTestDiscard(signature.alphaTest, "result.a", "uniforms.alpha_test.x")}${fogBody}    return result;
 }
 `;
         }

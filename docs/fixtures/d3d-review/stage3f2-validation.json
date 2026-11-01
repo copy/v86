@@ -1,0 +1,51 @@
+{
+  "stage": "3F2 ALPHAREF uniforms",
+  "date": "2026-11-02",
+  "coreSuites": 128,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 278,
+  "normativePixelPasses": 278,
+  "knownPixelFailures": 0,
+  "alphaMatrixCases": 96,
+  "alphaMatrixPixelComparisonsPerConfiguration": 24576,
+  "alphaMatrixPaths": [
+    "FFP",
+    "ps_1_1",
+    "ps_2_0",
+    "ps_3_0"
+  ],
+  "alphaMatrixReferenceValues": 256,
+  "alphaMatrixComparisonFunctions": 8,
+  "alphaMatrixNeighbourDeltas": [
+    -1,
+    0,
+    1
+  ],
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "postWarmShaderModulesForReferenceChanges": 0,
+  "postWarmRenderPipelinesForReferenceChanges": 0,
+  "finalIndexedOverlayPixels": 8192,
+  "isolationPixels": 32768,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "738a0ae664a53d644c86",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "FFP and translated pixel shader uniform layouts expose a uint ALPHAREF slot; signatures retain comparison function and omit the reference. Reflection records the appended shader slot. Writers take each draw reference from device state and preserve UNORM8 quantization before comparing.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; prior candidate semantic differences remain documented.",
+  "logs": {
+    "d3d-stage3f2-core.log": "2b214b498ab62883357473c21ba804971ec336ddc7f119fee2bdd44e6c75098c",
+    "d3d-stage3f2-gpu.log": "2c50e89fc6c4459322335f623424e59219cddf40a59917e9e5ffc629094e8717",
+    "d3d-stage3f2-alpha.log": "554f5b78d3724e6a6fb981a6f16565ed348a20f15ffb8d8b17df809497cf7640",
+    "d3d-stage3f2-pixels.log": "0341056d8d53757bc348b28bfdc76e6bec5332b1b723eb3c3160812aee4efd0b",
+    "d3d-stage3f2-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3f2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3f2-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3f2-integration.log": "5b7af7299da6aa666828cba675a0fbf715ff90c52e718fa5a0bd3660c6377750"
+  },
+  "next": "LOD bias and clip enable uniforms, then draw recording/replay, presentation, diagnostics, remaining CPU optimization and guest stages."
+}

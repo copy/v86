@@ -5880,7 +5880,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             drawOptions = drawOptions || {};
             const alphaTest = pipelineState.alphaTest;
             const alphaTestKey = alphaTest.enabled
-                ? "_a" + alphaTest.func + "_" + alphaTest.reference : "";
+                ? "_a" + alphaTest.func : "";
             const rs = state.renderStates;
             const clipMask = (rs.get(D3DRS_CLIPPLANEENABLE) || 0) & 0x3f;
             const clipPlaneCount = clipMask
@@ -6051,7 +6051,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     if (!variant) {
                         variant = shaderPipeline.compileShader(psResource.tokens, {
                             alphaTestDiscard: alphaTestDiscard(alphaTest,
-                                "result.color0.a"),
+                                "result.color0.a", "d9c.alpha_test.x"),
+                            alphaTestUniform: alphaTest.enabled,
                             clipPlaneCount,
                             depthSamplers,
                             depthFetchSamplers,
@@ -6145,7 +6146,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 pixelSignature = {
                     stages: cascade.stages,
                     usesTextureFactor: cascade.usesTextureFactor,
-                    fogMode, tableFog, alphaTest, clipPlaneCount,
+                    fogMode, tableFog, alphaTest: { enabled: alphaTest.enabled, func: alphaTest.func }, clipPlaneCount,
                     // D3D9 adds the specular colour after the cascade whenever
                     // D3DRS_SPECULARENABLE is set, whether it came from lighting
                     // or straight off the vertex.
@@ -6987,7 +6988,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     ? ((argb >>> 24) & 0xff) / 255 : alpha;
             };
             for (const entry of layout.entries) {
-                if (entry.name === "fog_color") {
+                if (entry.name === "alpha_test") {
+                    new Uint32Array(backing, byteOffset + entry.offset, 4)[0] = (state.renderStates.get(D3DRS_ALPHAREF) || 0) & 255;
+                } else if (entry.name === "fog_color") {
                     const params = layout.byName.get("fog_params");
                     this.writeFogUniforms(state, floats, entry.offset / 4, params ? params.offset / 4 : -1);
                 } else if (entry.name === "fog_params") {
@@ -7083,6 +7086,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     values.set((mask & (1 << plane))
                         ? state.clipPlanes[plane] : [0, 0, 0, 1],
                         base + plane * 4);
+            }
+            if (reflection.alphaTestOffset >= 0 && state) {
+                new Uint32Array(backing, byteOffset + reflection.alphaTestOffset, 4)[0] = (state.renderStates.get(D3DRS_ALPHAREF) || 0) & 255;
             }
             if (reflection.fogOffset >= 0 && state) {
                 const floats = new Float32Array(backing, byteOffset);
