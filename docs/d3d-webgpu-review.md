@@ -841,6 +841,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 
 ### 阶段 3：宿主执行器重构（约 4–6 周）
 
+> **阶段 3A（2026-11-01）：独立线路校验模块完成；阶段 3 继续。**
+>
+> - `d9wg_wire.js` 独立处理包头、版本范围、记录边界、命令数量和 uint32 序号连续性，并持有统一的 stream error 类型及 schema 最小载荷表。没有 GPU、会话或资源副作用，也不分配每命令对象。执行器通过它验证后继续原有分派，错误计数及坏命令/坏批的区别保持不变。
+> - 保留现有 1.3–1.7、非零起始序号与回绕、传输 carrier 尾部字节的契约；没有在此子阶段变更渲染语义或载荷解析策略。新纯函数测试覆盖合法/损坏包、非零 byteOffset、carrier、版本、未知 opcode 和序号回绕。
+> - 直接加载页面和发布构建显式加载新模块；固定旧宿主的回放仍使用旧宿主自身的五个文件，不混入候选模块。客体协议检查改为实际验证 parser 的版本范围，替代对旧执行器源码变量声明的正则断言。
+> - 120 组核心检查（私有 shader corpus 严格执行，无 SKIP）、72 组客体检查、站点两项 graphics integration、133 场景 SwiftShader 目标、工作线程和完整存档恢复、Warcraft III 冻结回放、D3D 12/12 变异均通过。证据见 [stage3a-validation.json](fixtures/d3d-review/stage3a-validation.json)。
+> - 配套站点运行包更新为 `07c8009386d3da396e6e`，核心仍为 `cc49eed222f9fb724ba3`。接下来处理显式设备/会话对象及资源归属；19 项已知像素偏差、每 draw <3 µs、客体共用核心和完整游戏验收仍未完成。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

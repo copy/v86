@@ -54,6 +54,10 @@
     // The protocol's opcodes, constants and payload layouts (d9wg_protocol.js)
     const D9WG = global.D9WGProtocol ||
         (typeof require === "function" ? require("./d9wg_protocol.js") : null);
+    const wire = global.D9WGWire ||
+        (typeof require === "function" ? require("./d9wg_wire.js") : null);
+    if (!wire) throw new Error("d3d9_executor.js requires d9wg_wire.js to be loaded first");
+    const { D9WGStreamError } = wire;
     if (!shaderPipeline)
         throw new Error("d3d9_executor.js requires d3d9_shader_pipeline.js to " +
             "be loaded first");
@@ -99,16 +103,7 @@
         } catch (error) { return null; }
     })();
 
-    const D9WG_MAGIC = D9WG.C.D9WG_MAGIC; // "D9WG"
-    const D9WG_VERSION_MAJOR = D9WG.C.D9WG_VERSION_MAJOR;
-    const D9WG_VERSION_MINOR = D9WG.C.D9WG_VERSION_MINOR;
-    // The oldest guest proxy this host still decodes. 1.3 payloads are simply
-    // shorter than 1.4 ones; see the version check in executeBatch().
-    const D9WG_VERSION_MIN_MINOR = D9WG.MIN_MINOR;
-    // Per opcode, the shortest payload a supported guest sends (its struct
-    // without the fields later minors added): shorter is a stream error
-    const D9WG_MIN_PAYLOAD = Object.fromEntries(Object.keys(D9WG.COMMANDS)
-        .map(name => [D9WG.OP[name], D9WG.minBytes(D9WG.commandStruct(D9WG.OP[name]))]));
+    const D9WG_MIN_PAYLOAD = wire.MIN_PAYLOAD;
     const D9WG_DMA_BYTES = 16 * 1024 * 1024;
     const D9WG_RESPONSE_REGION_BYTES = D9WG.C.D9WG_RESPONSE_REGION_BYTES;
     const D9WG_RESPONSE_REGION_OFFSET =
@@ -973,15 +968,6 @@
         if (format === D3DFMT_A32B32G32R32F) return 16;
         return 4;
     }
-
-    // A command whose payload contradicts the batch framing -- a blob that
-    // reaches past the end of the record, a length field larger than the bytes
-    // behind it. Unlike a command that merely fails, this means the producer
-    // and the consumer disagree about the byte layout, so nothing else in the
-    // batch can be trusted either and the whole thing is abandoned. Everything
-    // that is not one of these is contained to its own command; see the
-    // dispatch loop in executeBatch().
-    class D9WGStreamError extends Error {}
 
     // WebGPU wants the level count; D3D9 texture sizes are not always powers of
     // two, and the chain runs until both dimensions reach one.
@@ -3611,54 +3597,17 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const timing = this["performanceTiming"];
             let segmentStart = timing ? timing["now"]() : 0;
             try {
-            const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-            if (bytes.byteLength < D9WG_BATCH_HEADER_BYTES) {
-                ++this.stats.malformedBatches;
-                throw new D9WGStreamError("D9WG batch shorter than its header");
+            let packet;
+            try { packet = wire.readHeader(bytes); }
+            catch (error) {
+                if (error instanceof D9WGStreamError) ++this.stats.malformedBatches;
+                throw error;
             }
-            const magic = view.getUint32(D9WG.F.BatchHeader.magic, true);
-            const versionMajor = view.getUint16(D9WG.F.BatchHeader.version_major, true);
-            const versionMinor = view.getUint16(D9WG.F.BatchHeader.version_minor, true);
-            const commandCount = view.getUint32(D9WG.F.BatchHeader.command_count, true);
-            const commandBytes = view.getUint32(D9WG.F.BatchHeader.command_bytes, true);
-            if (magic !== D9WG_MAGIC) {
-                ++this.stats.malformedBatches;
-                throw new D9WGStreamError("D9WG batch has the wrong magic");
-            }
-            // Minor versions are accepted as a range, not an exact match. The
-            // guest DLL and this file are deployed separately -- the proxy has
-            // to be copied into the VM image, the page reloads on its own -- so
-            // insisting they agree exactly turns any protocol addition into a
-            // window where nothing renders at all and the only symptom is
-            // "unsupported D9WG version".
-            //
-            // What makes the range safe is that every field added since
-            // D9WG_VERSION_MIN_MINOR is listed in d9wg_protocol.js's
-            // ADDED_FIELDS and read through D9WG.has(): an older payload is
-            // short, the field reads as its default, and the default is what
-            // that version meant. Adding a field that changes the meaning of
-            // existing bytes would need the major version, which is still an
-            // exact match.
-            if (versionMajor !== D9WG_VERSION_MAJOR ||
-                    versionMinor < D9WG_VERSION_MIN_MINOR ||
-                    versionMinor > D9WG_VERSION_MINOR) {
-                ++this.stats.malformedBatches;
-                throw new D9WGStreamError(`unsupported D9WG version ${versionMajor}.${versionMinor}`);
-            }
-            if (commandBytes > bytes.byteLength - D9WG_BATCH_HEADER_BYTES) {
-                ++this.stats.malformedBatches;
-                throw new D9WGStreamError(
-                    "D9WG batch command_bytes overruns the record");
-            }
-            const sessionLow = view.getUint32(D9WG.F.BatchHeader.session_id_low, true);
-            const sessionHigh = view.getUint32(D9WG.F.BatchHeader.session_id_high, true);
-            const sessionKey = sessionHigh.toString(16).padStart(8, "0") +
-                sessionLow.toString(16).padStart(8, "0");
+            const { view, end, commandCount, sessionKey } = packet;
             this.switchSession(sessionKey);
             this.ownerSessions.add(sessionKey);
             ++this.stats.batches;
 
-            const end = D9WG_BATCH_HEADER_BYTES + commandBytes;
             this.checkStream(view, end, commandCount);
             let offset = D9WG_BATCH_HEADER_BYTES;
             while (offset < end) {
@@ -3715,8 +3664,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 if (this.frame && this.frame.ops.length >= this.flushThreshold)
                     this.finishFrame(false);
             }
-            const present = (view.getUint32(D9WG.F.BatchHeader.flags, true) & D9WG_BATCH_FLAG_PRESENT) !== 0;
-            if (present) this.finishFrame(true);
+            if (packet.present) this.finishFrame(true);
             else if (this.flushRequested) this.finishFrame(false);
             this.flushRequested = false;
             this.beat(metadata);
@@ -3734,24 +3682,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // and their number is command_count. A batch that fails here runs
         // none of its commands.
         checkStream(view, end, commandCount) {
-            const fail = message => {
-                ++this.stats.malformedBatches;
-                throw new D9WGStreamError("D9WG " + message);
-            };
-            let offset = D9WG_BATCH_HEADER_BYTES, count = 0, first = 0;
-            while (offset < end) {
-                if (offset + D9WG_COMMAND_HEADER_BYTES > end) fail("command header overruns command_bytes");
-                const size = view.getUint32(offset + D9WG.F.CommandHeader.size, true);
-                if (size < D9WG_COMMAND_HEADER_BYTES || offset + size > end) fail("command size is invalid");
-                const sequence = view.getUint32(offset + D9WG.F.CommandHeader.sequence, true);
-                if (count === 0) first = sequence;
-                else if (sequence !== (first + count) >>> 0)
-                    fail("command " + count + " has sequence " + sequence + ", the batch's numbering expects " +
-                        ((first + count) >>> 0));
-                offset += size;
-                ++count;
+            try { wire.checkStream(view, end, commandCount); }
+            catch (error) {
+                if (error instanceof D9WGStreamError) ++this.stats.malformedBatches;
+                throw error;
             }
-            if (count !== commandCount) fail("command_count does not match the decoded stream");
         }
 
         dispatchCommand(opcode, bytes, view, offset, length, metadata) {

@@ -1,0 +1,23 @@
+{
+  "stage": "3A wire module",
+  "coreSuites": 120,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 133,
+  "knownPixelFailures": 19,
+  "workerAndFullCheckpoint": "PASS",
+  "warcraft3FrozenReplay": "PASS",
+  "d3dMutationsKilled": 12,
+  "graphicsRevision": "07c8009386d3da396e6e",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Framing module extraction with existing rendering and malformed-input contracts preserved; device ownership, resource ordering, semantic repairs and draw CPU budget remain subsequent work.",
+  "logs": {
+    "d3d-stage3a-core.log": "fd1e4ce8991568e70e3a8e921d60966a5238bf2fd72d3588e7a0362ddeee5b16",
+    "d3d-stage3a-site.log": "876bb1b517160ad8d17657550a150238e2708a57ed1572026384de26d70929e2",
+    "d3d-stage3a-gpu.log": "190d3cded546dc211b7ccf6806ed013f18fe48ee6a53a8331e4aee8e81426458",
+    "d3d-stage3a-runtime-gpu.log": "4eeb0d658a096554447ed06625f565e96e0ec7d4c7aa13eefb408892d6316a4d",
+    "d3d-stage3a-war3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3a-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441"
+  }
+}
