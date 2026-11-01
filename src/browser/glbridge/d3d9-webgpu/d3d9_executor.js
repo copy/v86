@@ -65,7 +65,7 @@
         D3DFMT_A8R8G8B8, D3DFMT_INDEX32, srgbSiblingOf, isCompressedFormat, compressedBlockBytes,
         blockAlignedCopyExtent, isFourCCDepthFormat, isPalettizedFormat, gpuBytesPerTexel, fullMipLevelCount,
         isRenderableGPUFormat, isFloat32GPUFormat, isBlendableGPUFormat, formatToGPU, d3dBytesPerTexel,
-        packGPUReadbackRow, expandRowToGPU
+        packGPUReadbackRow, expandRowToGPU, samplingSwizzle
     } = formats;
     const stateFactory = global.D9WGState ||
         (typeof require === "function" ? require("./d9wg_state.js") : null);
@@ -1863,12 +1863,13 @@ ${coordBody}${fogBody}${clipBody}${pointBody}    return result;
                         ? "abs((" + coordExpression + ")." + axis + ")"
                         : "(" + coordExpression + ")." + axis)).join(", ") + ")";
             }
-            const sampled = stage.lodBias
+            const rawSample = stage.lodBias
                 ? "textureSampleBias(d9_tex" + stage.index + ", d9_smp" +
                     stage.index + ", " + coordExpression + ", " +
                     stage.lodBias.toFixed(6) + ")"
                 : "textureSample(d9_tex" + stage.index +
                     ", d9_smp" + stage.index + ", " + coordExpression + ")";
+            const sampled = shaderPipeline.sampleSwizzleExpression(rawSample, stage.sampleSwizzle);
             const borderAxes = stage.textureType === "cube" ? [] :
                 (stage.textureType === "3d"
                     ? [[stage.addressU, "x"], [stage.addressV, "y"],
@@ -7780,6 +7781,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     const usable = texture && !texture.isDepth;
                     stage.textureType = usable ? (texture.textureType || "2d") : "2d";
                     stage.hasTextureBound = !!usable;
+                    stage.sampleSwizzle = usable ? samplingSwizzle(texture.format) : "";
                     // DirectDraw stores four independent key kinds. Texture
                     // rendering uses SRCBLT (kind 0), the same source-domain
                     // key used by a keyed blit.  Keep the widened integer
@@ -9150,6 +9152,8 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                 // key. Only the samplers this shader actually declares are
                 // considered, so an unrelated stage's stale bias cannot mint a
                 // variant.
+                const samplerSwizzles = {};
+                let swizzleKey = "";
                 const samplerLodBias = {};
                 let lodBiasKey = "";
                 // D3DTADDRESS_MIRRORONCE is finished in the shader too: the
@@ -9158,6 +9162,9 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                 const samplerMirrorOnce = {};
                 let mirrorOnceKey = "";
                 for (const sampler of psResource.translated.reflection.samplers) {
+                    const texture = this.resources.get(state.textures.get(sampler.index));
+                    const swizzle = texture && samplingSwizzle(texture.format);
+                    if (swizzle) { samplerSwizzles[sampler.index] = swizzle;swizzleKey += "_w" + sampler.index + ":" + swizzle; }
                     const bias = lodBiasFor(state.samplerStates.get(
                         sampler.index * 64 + D3DSAMP_MIPMAPLODBIAS) || 0);
                     if (bias) {
@@ -9176,10 +9183,10 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                     }
                 }
                 const pixelVariantKey = alphaTestKey + clipKey + depthKey +
-                    lodBiasKey + mirrorOnceKey + legacySamplerKey +
+                    lodBiasKey + mirrorOnceKey + legacySamplerKey + swizzleKey +
                     (flatShading ? "_flat" : "");
                 if (alphaTest.enabled || clipPlaneCount || depthSamplers.length
-                        || lodBiasKey || mirrorOnceKey || legacySamplerKey ||
+                        || lodBiasKey || mirrorOnceKey || legacySamplerKey || swizzleKey ||
                         flatShading) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
@@ -9189,7 +9196,7 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                             clipPlaneCount,
                             depthSamplers,
                             depthFetchSamplers,
-                            samplerLodBias,
+                            samplerLodBias, samplerSwizzles,
                             samplerMirrorOnce,
                             legacySamplerTypes,
                             flatShading,
@@ -9297,7 +9304,7 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                     [stage.index, stage.colorOp, stage.colorArg0, stage.colorArg1,
                      stage.colorArg2, stage.alphaOp, stage.alphaArg0,
                      stage.alphaArg1, stage.alphaArg2, stage.resultArg,
-                     stage.samplesTexture ? stage.textureType : "-",
+                     stage.samplesTexture ? stage.textureType : "-", stage.sampleSwizzle || "",
                      stage.coordVarying, stage.projected ? "p" + stage.transformCount : "",
                      stage.samplesTexture
                          ? [stage.addressU, stage.addressV, stage.addressW,
@@ -9365,17 +9372,24 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                     .join(",");
                 const pointKey = drawOptions.pointExpansion
                     ? "|p:" + (drawOptions.pointSprite ? "s" : "q") : "";
+                const vertexSwizzles = {};
+                let vertexSwizzleKey = "";
+                for (const sampler of vsResource.translated.reflection.samplers) {
+                    const texture = this.resources.get(state.textures.get(D3DVERTEXTEXTURESAMPLER0 + sampler.index));
+                    const swizzle = texture && samplingSwizzle(texture.format);
+                    if (swizzle) { vertexSwizzles[sampler.index] = swizzle;vertexSwizzleKey += "|w" + sampler.index + ":" + swizzle; }
+                }
                 const variantKey = "b:" + bgra.join(",") + "|c:" +
-                    conversionKey + pointKey + clipKey +
+                    conversionKey + pointKey + clipKey + vertexSwizzleKey +
                     (flatShading ? "|flat" : "");
                 const needsVariant = bgra.length || conversionKey.length ||
                     !!drawOptions.pointExpansion || !!clipPlaneCount ||
-                    flatShading;
+                    !!vertexSwizzleKey || flatShading;
                 let variant = vsResource.variants.get(variantKey);
                 if (!variant) {
                     variant = needsVariant
                         ? shaderPipeline.compileShader(vsResource.tokens,
-                            { bgraInputLocations: bgra, inputConversions,
+                            { bgraInputLocations: bgra, inputConversions, samplerSwizzles: vertexSwizzles,
                               pointExpansion: !!drawOptions.pointExpansion,
                               pointSprite: !!drawOptions.pointSprite,
                               clipPlaneCount, flatShading })

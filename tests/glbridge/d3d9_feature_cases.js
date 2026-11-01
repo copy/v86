@@ -4,7 +4,7 @@
 "use strict";
 (function(global) {
     const suite = global.D3D9Conformance, P = global.D9WGProtocol;
-    const { cmd, draw, quad, rs, tss, drawXYZ, fullXYZ, f, cat, element } = suite.builders;
+    const { cmd, draw, quad, rs, tss, drawXYZ, fullXYZ, f, cat, element, pixelShader, vertexShader, asm } = suite.builders;
     // Resolve command payload names through the protocol's generated metadata.
     const opcodes = {};
     for (const [op, entry] of Object.entries(P.COMMANDS)) opcodes[Array.isArray(entry) ? entry[0] : entry] = P.OP[op];
@@ -111,6 +111,42 @@
     ]) add("formats", { name: "format " + name + " mid-range bit replication", body: dev => [
         ...texture(dev, dev + 0x500000, [name, format, le16(value), rgba]), ...texturedQuad(dev)],
         probes: [{ at: [32, 32], expect: rgba, tolerance: 0 }] });
+
+    const { OP: S, REG: R, ins, dst, src, def } = asm;
+    const samplePS = [0xffff0300,
+        ins(S.DCL, 2), 0x80000005, dst(R.INPUT, 0),
+        ins(S.DCL, 2), 0x90000000, dst(R.SAMPLER, 0),
+        ins(S.TEX, 3), dst(R.TEMP, 0), src(R.INPUT, 0), src(R.SAMPLER, 0),
+        ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.TEMP, 0), 0xffff];
+    const sampleVS = [0xfffe0300,
+        ins(S.DCL, 2), 0x80000000, dst(R.INPUT, 0),
+        ins(S.DCL, 2), 0x80000000, dst(R.OUTPUT, 0),
+        ins(S.DCL, 2), 0x8000000a, dst(R.OUTPUT, 1),
+        ins(S.DCL, 2), 0x90000000, dst(R.SAMPLER, 0), ...def(0, 0.5, 0.5, 0, 0),
+        ins(S.TEXLDL, 3), dst(R.TEMP, 0), src(R.CONST, 0), src(R.SAMPLER, 0),
+        ins(S.MOV, 2), dst(R.OUTPUT, 0), src(R.INPUT, 0),
+        ins(S.MOV, 2), dst(R.OUTPUT, 1), src(R.TEMP, 0), 0xffff];
+    const bindPS = (dev, handle) => cmd(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: dev, shader_handle: handle }));
+    for (const spec of formats.filter(s => [111, 112, 114, 115, fourcc("ATI1"), fourcc("ATI2")].includes(s[1]))) {
+        add("formats", { name: "programmable pixel sample " + spec[0] + " RGBA", body: dev => [
+            ...texture(dev, dev + 0x500000, spec), pixelShader(dev, dev + 0x600000, samplePS), bindPS(dev, dev + 0x600000),
+            ...texturedQuad(dev)], probes: [{ at: [32, 32], expect: spec[3], tolerance: 1 }] });
+        if (spec[1] < 1000) add("formats", { name: "vertex texture sample " + spec[0] + " RGBA", body: dev => [
+            ...texture(dev, dev + 0x500000, spec),
+            cmd(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: dev, stage: 257, texture_handle: dev + 0x500000 })),
+            vertexShader(dev, dev + 0x600000, sampleVS),
+            cmd(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: dev, shader_handle: dev + 0x600000 })),
+            tss(dev, 0, 2, 0), tss(dev, 0, 5, 0), ...drawXYZ(dev, fullXYZ(0.5, 0xffffffff))],
+            probes: [{ at: [32, 32], expect: spec[3], tolerance: 1 }] });
+    }
+    add("formats", { name: "pixel sampler swizzle follows R16F to G16R16F and back", body: dev => {
+        const r = formats.find(s => s[1] === 111), rg = formats.find(s => s[1] === 112), a = dev + 0x500000, b = a + 1;
+        return [...texture(dev, a, r), pixelShader(dev, dev + 0x600000, samplePS), bindPS(dev, dev + 0x600000), ...texturedQuad(dev),
+            ...texture(dev, b, rg), rs(dev, 174, 1), wire("SetScissorRect", { device_handle: dev, left: 32, right: 64, bottom: 64 }), ...texturedQuad(dev),
+            cmd(P.OP.SET_TEXTURE, P.encode("SetTexture", { device_handle: dev, stage: 0, texture_handle: a })),
+            wire("SetScissorRect", { device_handle: dev, right: 16, bottom: 16 }), ...texturedQuad(dev)];
+    }, probes: [{ at: [8, 8], expect: [128, 255, 255, 255], tolerance: 1 },
+        { at: [8, 48], expect: [128, 255, 255, 255], tolerance: 1 }, { at: [48, 32], expect: [128, 64, 255, 255], tolerance: 1 }] });
 
     // Arg1=DIFFUSE, Arg2=TFACTOR, Arg0=SPECULAR; formula inputs are bytes
     // converted to [0,1]. Alpha is explicit, independent of the unbound bug.
@@ -231,10 +267,6 @@
     // Measured failures on 8fd2beae; never suppress infrastructure errors.
     // Fixing any listed pixel result makes the page fail until its entry is
     // removed, so this is a repair queue rather than a permanent tolerance.
-    for (const name of ["R16F", "G16R16F", "R32F", "G32R32F"])
-        suite.KNOWN_FAILURES["format " + name + " sampled RGBA"] = "S3 formats: undefined colour channels must be 1";
-    for (const name of ["ATI1N", "ATI2N"])
-        suite.KNOWN_FAILURES["format " + name + " sampled RGBA"] = "S3 formats: legacy ATI swizzle differs from native BC4/5";
     for (const name of ["EXP", "EXP2", "LINEAR"])
         suite.KNOWN_FAILURES["table fog " + name] = "S2-2 extension: affine projection requires Z, not W, table fog";
     suite.KNOWN_FAILURES["DOTPRODUCT3 colour overrides separate alpha operation"] = "S2-20: colour DOT3 must also replace alpha";

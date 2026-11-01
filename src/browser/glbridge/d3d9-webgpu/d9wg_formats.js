@@ -104,13 +104,13 @@
             format === D3DFMT_L16 || format === D3DFMT_CxV8U8 ||
             format === D3DFMT_A2B10G10R10 || format === D3DFMT_G16R16 ||
             format === D3DFMT_A2R10G10B10 ||
-            format === D3DFMT_A16B16G16R16 || format === D3DFMT_R16F ||
-            format === D3DFMT_G16R16F ||
-            format === D3DFMT_A16B16G16R16F;
+            format === D3DFMT_A16B16G16R16;
     }
 
     function gpuBytesPerTexel(format) {
-        if (isHalfFloatExpansionFormat(format)) return 8;
+        if (format === D3DFMT_R16F) return 2;
+        if (format === D3DFMT_G16R16F) return 4;
+        if (format === D3DFMT_A16B16G16R16F || isHalfFloatExpansionFormat(format)) return 8;
         if (format === D3DFMT_G32R32F) return 8;
         if (format === D3DFMT_A32B32G32R32F) return 16;
         return 4;
@@ -129,6 +129,7 @@
 
     function isRenderableGPUFormat(format) {
         return format === "rgba8unorm" || format === "bgra8unorm" || format === "rgba16float" ||
+            format === "r16float" || format === "rg16float" ||
             format === "r32float" || format === "rg32float" ||
             format === "rgba32float" ||
             // The NULL FOURCC target's stand-in. It is renderable by
@@ -190,8 +191,8 @@
         [D3DFMT_A2R10G10B10]: "rgba16float",
         [D3DFMT_A16B16G16R16]: "rgba16float",
         [D3DFMT_Q16W16V16U16]: "rgba16float",
-        [D3DFMT_R16F]: "rgba16float",
-        [D3DFMT_G16R16F]: "rgba16float",
+        [D3DFMT_R16F]: "r16float",
+        [D3DFMT_G16R16F]: "rg16float",
         [D3DFMT_A16B16G16R16F]: "rgba16float",
         [D3DFMT_R32F]: "r32float",
         [D3DFMT_G32R32F]: "rg32float",
@@ -206,6 +207,14 @@
         [D3DFMT_NULL]: "r8unorm"
     });
     function formatToGPU(format) { return GPU_STORAGE[format] || null; }
+
+    function samplingSwizzle(format) {
+        if (format === D3DFMT_R16F || format === D3DFMT_R32F) return "r111";
+        if (format === D3DFMT_G16R16F || format === D3DFMT_G32R32F) return "rg11";
+        if (format === D3DFMT_ATI1N) return "rrrr";
+        if (format === D3DFMT_ATI2N) return "gr11";
+        return "";
+    }
 
     const HALF_BITS_BUFFER = new ArrayBuffer(4);
 
@@ -294,11 +303,17 @@
 
     function packGPUReadbackRow(format, gpuFormat, source, sourceOffset,
             width, destination, destinationOffset) {
+        if ((format === D3DFMT_R16F || format === D3DFMT_G16R16F || format === D3DFMT_A16B16G16R16F)
+                && gpuFormat === formatToGPU(format)) {
+            const bytes = width * d3dBytesPerTexel(format);
+            destination.set(source.subarray(sourceOffset, sourceOffset + bytes), destinationOffset);
+            return;
+        }
         const sourceView = new DataView(source.buffer,
             source.byteOffset, source.byteLength);
         const destinationView = new DataView(destination.buffer,
             destination.byteOffset, destination.byteLength);
-        const sourceBpp = gpuFormat === "rgba16float" ? 8
+        const sourceBpp = gpuFormat === "r16float" ? 2 : gpuFormat === "rgba16float" ? 8
             : gpuFormat === "rg32float" ? 8
             : gpuFormat === "rgba32float" ? 16 : 4;
         const destinationBpp = d3dBytesPerTexel(format);
@@ -310,16 +325,20 @@
             const sourceAt = sourceOffset + x * sourceBpp;
             const destinationAt = destinationOffset + x * destinationBpp;
             let r, g, b, a;
-            if (gpuFormat === "rgba16float") {
+            if (gpuFormat === "r16float" || gpuFormat === "rg16float") {
+                r = halfBitsToFloat(sourceView.getUint16(sourceAt, true));
+                g = gpuFormat === "rg16float" ? halfBitsToFloat(sourceView.getUint16(sourceAt + 2, true)) : 1;
+                b = a = 1;
+            } else if (gpuFormat === "rgba16float") {
                 r = halfBitsToFloat(sourceView.getUint16(sourceAt, true));
                 g = halfBitsToFloat(sourceView.getUint16(sourceAt + 2, true));
                 b = halfBitsToFloat(sourceView.getUint16(sourceAt + 4, true));
                 a = halfBitsToFloat(sourceView.getUint16(sourceAt + 6, true));
             } else if (gpuFormat === "r32float") {
-                r = sourceView.getFloat32(sourceAt, true); g = b = 0; a = 1;
+                r = sourceView.getFloat32(sourceAt, true); g = b = a = 1;
             } else if (gpuFormat === "rg32float") {
                 r = sourceView.getFloat32(sourceAt, true);
-                g = sourceView.getFloat32(sourceAt + 4, true); b = 0; a = 1;
+                g = sourceView.getFloat32(sourceAt + 4, true); b = a = 1;
             } else if (gpuFormat === "rgba32float") {
                 r = sourceView.getFloat32(sourceAt, true);
                 g = sourceView.getFloat32(sourceAt + 4, true);
@@ -480,7 +499,8 @@
     const UNORM3 = Uint8Array.from({ length: 8 }, (_, v) => expandUNorm8(v, 3));
     function expandRowToGPU(format, source, sourceOffset, count, dest,
             destOffset, palette) {
-        if (format === D3DFMT_A8R8G8B8 || format === D3DFMT_R32F || format === D3DFMT_G32R32F ||
+        if (format === D3DFMT_A8R8G8B8 || format === D3DFMT_R16F || format === D3DFMT_G16R16F ||
+                format === D3DFMT_A16B16G16R16F || format === D3DFMT_R32F || format === D3DFMT_G32R32F ||
                 format === D3DFMT_A32B32G32R32F) {
             const bytes = count * gpuBytesPerTexel(format);
             dest.set(source.subarray(sourceOffset, sourceOffset + bytes), destOffset);
@@ -531,30 +551,6 @@
                         (source[at + 1] << 8)) / 65535;
                     u = v = w = luminance;
                     q = 1;
-                } else if (format === D3DFMT_R16F) {
-                    const at = sourceOffset + i * 2;
-                    const out = destOffset + i * 8;
-                    dest[out] = source[at];
-                    dest[out + 1] = source[at + 1];
-                    writeHalf(dest, out + 2, 0);
-                    writeHalf(dest, out + 4, 0);
-                    writeHalf(dest, out + 6, 1);
-                    continue;
-                } else if (format === D3DFMT_G16R16F) {
-                    const at = sourceOffset + i * 4;
-                    const out = destOffset + i * 8;
-                    dest[out] = source[at];
-                    dest[out + 1] = source[at + 1];
-                    dest[out + 2] = source[at + 2];
-                    dest[out + 3] = source[at + 3];
-                    writeHalf(dest, out + 4, 0);
-                    writeHalf(dest, out + 6, 1);
-                    continue;
-                } else if (format === D3DFMT_A16B16G16R16F) {
-                    const at = sourceOffset + i * 8;
-                    const out = destOffset + i * 8;
-                    dest.set(source.subarray(at, at + 8), out);
-                    continue;
                 } else if (format === D3DFMT_G16R16 ||
                         format === D3DFMT_A16B16G16R16) {
                     const at = sourceOffset + i *
@@ -857,7 +853,8 @@
         yuvToRGB,
         expandPairedRowToGPU,
         expandRowToGPU,
-        expandUNorm8
+        expandUNorm8,
+        samplingSwizzle
     };
     global.D9WGFormats = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;

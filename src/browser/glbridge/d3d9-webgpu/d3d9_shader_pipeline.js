@@ -414,6 +414,15 @@
         return String(value);
     }
 
+    function sampleSwizzleExpression(expression, swizzle) {
+        if (!swizzle) return expression;
+        if (swizzle === "r111") return "vec4<f32>((" + expression + ").r, 1.0, 1.0, 1.0)";
+        if (swizzle === "rg11") return "vec4<f32>((" + expression + ").rg, 1.0, 1.0)";
+        if (swizzle === "rrrr") return "vec4<f32>((" + expression + ").r)";
+        if (swizzle === "gr11") return "vec4<f32>((" + expression + ").gr, 1.0, 1.0)";
+        throw new Error("Unsupported D3D texture sample swizzle " + swizzle);
+    }
+
     class Translator {
         constructor(parsed, options) {
             this.parsed = parsed;
@@ -1566,6 +1575,11 @@
         }
 
         sampleExpression(index, coordinate, options) {
+            const raw = this.rawSampleExpression(index, coordinate, options);
+            return sampleSwizzleExpression(raw, this.options.samplerSwizzles && this.options.samplerSwizzles[index]);
+        }
+
+        rawSampleExpression(index, coordinate, options) {
             const texture = "d9_tex" + index;
             const sampler = "d9_smp" + index;
             const coord = this.mirrorOnceCoord(index, coordinate.coord);
@@ -2479,7 +2493,7 @@
     }
 
     const api = {
-        compileShader, parseShader, hashTokens, D3D9ShaderCache,
+        compileShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression,
         TRANSLATOR_REVISION,
         VARYING_COLOR0, VARYING_COLOR1, VARYING_TEXCOORD0, VARYING_FOG,
         VARYING_COUNT, varyingForSemantic,

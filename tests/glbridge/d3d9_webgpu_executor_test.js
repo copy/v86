@@ -5052,12 +5052,12 @@ await test("legacy D3D9 texture formats preserve colour and signed bump values",
           source: [0x00, 0x00, 0x00, 0x80, 0xff, 0xff, 0xff, 0xff],
           expected: [...halfZero, ...halfHalf, ...halfOne, ...halfOne] },
         // D3D half-float texels already have the exact representation WebGPU
-        // needs; missing channels receive D3D's documented (0,0,1) defaults.
-        { format: 111, gpu: "rgba16float", source: halfHalf,
-          expected: [...halfHalf, ...halfZero, ...halfZero, ...halfOne] },
-        { format: 112, gpu: "rgba16float",
+        // needs; absent channels are remapped to 1 when sampled.
+        { format: 111, gpu: "r16float", source: halfHalf,
+          expected: halfHalf },
+        { format: 112, gpu: "rg16float",
           source: [...halfHalf, ...halfOne],
-          expected: [...halfHalf, ...halfOne, ...halfZero, ...halfOne] },
+          expected: [...halfHalf, ...halfOne] },
         { format: 113, gpu: "rgba16float",
           source: [...halfHalf, ...halfZero, ...halfOne, ...halfOne],
           expected: [...halfHalf, ...halfZero, ...halfOne, ...halfOne] },

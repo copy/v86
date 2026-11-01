@@ -1,0 +1,26 @@
+{
+  "stage": "3C2 native half-float storage and unified sample channel mapping",
+  "coreSuites": 123,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 147,
+  "normativePixelPasses": 135,
+  "knownPixelFailures": 12,
+  "fullCheckpoint": "PASS",
+  "nativeHalfFloatBytePreservation": "PASS for R16F, G16R16F and RGBA16F, including NaN/Inf/-0 payloads",
+  "samplePixels": "FFP formats plus six SM3 pixel sampler cases, four VS3 vertex texture fetch cases and R16F -> G16R16F -> R16F rebind",
+  "graphicsRevision": "f285613f1df69e38e4d3",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "logs": {
+    "d3d-stage3c2-core.log": "4fde9b4e041c4608fd07cb83e026910ee02204b49e73f8cf84b110143978282d",
+    "d3d-stage3c2-site.log": "13f178d4a29c961a2c7c53fc50f9a0bd626458bfe19ca95294e14f04f15d03ba",
+    "d3d-stage3c2-gpu.log": "4d910e65dd20479a353af66193a55fa4452b4026bfb4e6821ccc70135dd4a361",
+    "d3d-stage3c2-war3-counterfactual.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3c2-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3c2-integration.log": "09e1086946a17aebc44218cb823dfb73d19f7e7a5c2c42e59f3288c00cca760a",
+    "d3d-stage3c2-conformance.log": "892f69cb4a0477c2eeafeb10e8287dc032252972186be9101ebd03d0189b41b2"
+  },
+  "warcraft3": "The review 3C1 RGB565/1555 correction remains an intentional difference from the original frozen golden. Restoring only the previous narrow UNORM expansion with tools/d3d_format_counterfactual.mjs passes the unchanged frozen policy using all other current renderer code. No new candidate policy/golden was trained.",
+  "scope": "Native half-float uploads, sample swizzles in FFP and programmable pixel/vertex paths, and immutable swizzle identities in shader variant keys. Ordered resource uploads and removal of textureShadows/renaming remain 3C3."
+}

@@ -879,6 +879,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **游戏图变化已解释，未记为逐字节通过：** Warcraft III 使用 144 张 565、33 张 1555 纹理；修复后 95,393 个通道字节提高 1–2（72,763 个像素）。保留旧黄金图/冻结策略。仅恢复旧窄 UNORM 算法的诊断回放通过原冻结比较，BGRA 等其余候选代码仍启用；可用 `tools/d3d_format_counterfactual.mjs` 重建此对照。没有用候选输出扩充策略。
 > - 3C2 继续半浮点直接上传及采样通道映射，3C3 继续按顺序上传、删除 textureShadows 和重命名；其余模块及完整客体验收仍待办。
 
+> **阶段 3C2（2026-11-01）：半浮点直接上传和统一采样通道映射完成。**
+>
+> - R16F/G16R16F 分别直接存为 `r16float`/`rg16float`，RGBA16F 也按原始半浮点字节上传；移除旧 RGBA 扩展分支。同格式读回按原始位复制，NaN/Inf/负零 payload 的上传及读回检查通过。
+> - 缺失颜色通道 R111/RG11、ATI1N XXXX、ATI2N YX11 在采样表达式中统一修正，每次只求值一次纹理采样。固定管线、可编程像素和顶点纹理读取都使用相同表达式；绑定格式映射计入对应 shader variant key，支持切换回来复用正确版本。
+> - 六项原已知格式偏差全部关闭：147 个场景中 135 正向通过、12 明示偏差。新增六种像素着色器采样、四种顶点纹理采样以及 R16F→G16R16F→R16F 交错切换的 READBACK 像素检查。
+> - 123 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、147 场景及隔离页面、完整存档恢复均通过。Warcraft III 保留 3C1 已解释的窄 UNORM 图差；仅恢复旧展开规则的诊断版本通过未改动的冻结比较。运行包 `f285613f1df69e38e4d3`；见 [stage3c2-validation.json](fixtures/d3d-review/stage3c2-validation.json)。3C3 接着处理有序上传、移除 textureShadows/重命名；其余模块继续待办。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

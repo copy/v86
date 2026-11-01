@@ -353,5 +353,5 @@
     }
 
     global.D3D9Conformance = { CASES, KNOWN_FAILURES, caseBatch, readbackBatch, W,
-        builders: { cmd, draw, quad, rs, tss, drawXYZ, fullXYZ, f, cat, element } };
+        builders: { cmd, draw, quad, rs, tss, drawXYZ, fullXYZ, f, cat, element, pixelShader, vertexShader, asm } };
 })(typeof globalThis !== "undefined" ? globalThis : this);
