@@ -1049,6 +1049,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 
 ### 阶段 4：客体共用核心（约 4–6 周，可以与阶段 3 并行）
 
+> **阶段 4A1（2026-11-02）：共用纯 C runtime 起步，缓冲分带完成。**
+>
+> - D3D9、D3D8、DDraw 的构建均链接私有 `libd9wg_runtime.a`；统一 1 秒重试（包含 GetTickCount 回绕）及有边界检查的 buffer span 上传。传输锁覆盖整次逻辑上传，DISCARD 只出现在首段，失败停止且不重试已录制前缀。
+> - D3D7 VB Unlock/ProcessVertices 同样走此路径。修复前固定旧实现拒绝 17 MiB；修复后实际 C emitter 在三条路径分别完整重建 **17,825,805 字节、两批、一次 DISCARD**，并覆盖 framing、溢出、空指针、开启失败及第二段失败。
+> - 73 组客体测试、两项站点集成通过；35 个 XP 冒烟 EXE、六个零售/诊断 DLL 严格交叉编译通过，只导入 GDI32/KERNEL32/USER32，无 CRT。已更新 app-local DLL，未改写系统或游戏磁盘。
+> - 见 [stage4a1-validation.json](fixtures/d3d-review/stage4a1-validation.json)；宿主运行包仍为 `9341833c88a4a8e6a411`。**不是阶段 4 完成**：D3D8 大纹理、进程唯一 owner、驱动多 owner、其余共用核心及 XP/Wine/游戏验收仍待继续。
+
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

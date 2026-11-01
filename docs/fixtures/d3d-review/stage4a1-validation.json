@@ -1,0 +1,68 @@
+{
+  "stage": "4A1 shared pure C runtime and buffer bands",
+  "date": "2026-11-02",
+  "guestSuites": 73,
+  "siteIntegrationTests": 2,
+  "nativeCPaths": [
+    "D3D9",
+    "D3D8",
+    "DirectDraw/D3D7"
+  ],
+  "bytesVerifiedPerPath": 17825805,
+  "bandsPerPath": 2,
+  "discardRecordsPerUpload": 1,
+  "retryBackoffMilliseconds": 1000,
+  "checks": [
+    "framing and alignment boundaries",
+    "unsigned tick rollover",
+    "null data and offset overflow",
+    "open failure and lock release",
+    "second chunk failure stops without retrying prefix"
+  ],
+  "before": "Pinned site f7f1199 actual D3D9 emitter rejects the same 17 MiB upload.",
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "dllImports": [
+    "GDI32.dll",
+    "KERNEL32.dll",
+    "USER32.dll"
+  ],
+  "runtimeImports": false,
+  "coreGraphicsRevision": "9341833c88a4a8e6a411",
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/performance-optimizations",
+    "https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-gettickcount"
+  ],
+  "next": "Share texture row planning and fix D3D8 large textures, then process-unique transport ownership and driver multiple owners. Stage 4 and native XP/API/game acceptance remain open.",
+  "sha256": {
+    "glbridge/runtime/d9wg_runtime.h": "37b9a275ec01bb340c909fbd720ca9be73848dc1d6318790d83e63888c505d55",
+    "glbridge/runtime/d9wg_runtime.c": "0056a131cada47de252bc9b076d073159c80de2b7e88b68a4618e2db0efe0f47",
+    "glbridge/runtime/build.sh": "281121c2e81559031a1c7388234f0ac816bdbaa19845e78697893bc2bfaef760",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "c540df5ce9ea741aacf6e2326b23020618967e9ad9a18a2945c29ad15a354191",
+    "glbridge/d3d9proxy/build.sh": "22a8f2eaa2de7cb45ea7fff50cd18d4788e8ca9057d132a54fbc989c8367761a",
+    "glbridge/d3d9proxy/d3d9.dll": "390b27a8c895d39bc05759d1fbdbe90d198e4ef62e7a7afd8d0b201d63bfdd30",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "d29631c4686fa83b723a328645f8275d55070419874862a362eb9cc93c8f5f6e",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "fceabfbcfbb6b5b0ed954c3a53ece488c76429e2154716795de1cf614d67b7c9",
+    "glbridge/d3d8proxy/build.sh": "b0ec95845388a7e78b9cb162af1fe06f54c87092c6a0876284c532ad5c629cf0",
+    "glbridge/d3d8proxy/d3d8.dll": "1d8d057131d2eb14dcc247fb7a9e87a5e4ab5f68077d72c317a145942a6e1e14",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "ed9aff5475c509f070625c52e86516aa30dca0e161b4c9eae1c03961c6f4720e",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "fc6cc4fa779520c50561e4aae3cd5e2ccd110ef32a69b5e64c520194a68bf0b4",
+    "glbridge/ddrawproxy/build.sh": "59fdeff88c8ce3228d06339af3c03552cabaf3a474800425b3c3df4777a8e7eb",
+    "glbridge/ddrawproxy/ddraw.dll": "1ad8b3b171a2a4d576a2e2cad0ddc18955d0b809eb3d43b4bf1c14e3f659af7b",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "9b40c51dc0fbf4a824b92af714549394128ec6860872eaf771c4c6f605e9af42",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "c7ab48271567dbb30d0b69079f88a3c8006ab8ec9346e14b2fc27b10b0352438",
+    "glbridge/tests/d9wg_runtime_upload_test.js": "15ecbeb4b8678d3e078b00cc6be55dc6a51ad412c00ea071b492c8464ac6b5a5"
+  },
+  "logs": {
+    "d3d-stage4a1-guest.log": "60f21edfb6be36ae61ae747c485e91e60a7a833d45137301aec6fd0013642a31",
+    "d3d-stage4a1-runtime.log": "33bdddb92d3a44227b44a3dbf0a88600804066630fc103bda001cd58b261331b",
+    "d3d-stage4a1-before.log": "37135ec31e9f5d6d9aef0e73937369556a1e25002a46befb60cdda59d486cdf4",
+    "d3d-stage4a1-integration.log": "47b975a96820cece0c698768441a35e9020c35db29003e42b49494ec882aa7ad",
+    "d3d-stage4a1-d3d9-smoke-build.log": "29693a62b297281821eac93898a25eab54aa10d2a7f84b9defb413df9759c201",
+    "d3d-stage4a1-d3d9-diagnostic-build.log": "a8dbae5a11e59aa98bc6e86ffec5a87d76f1b50eac9c91b17c87436fa3595787",
+    "d3d-stage4a1-d3d8-smoke-build.log": "939e80ed770ff19cb6b1fc944d0bfdf489cbc914c784178dcc75d591d0a5256d",
+    "d3d-stage4a1-d3d8-diagnostic-build.log": "c7fccb389c7a4d6b43c4eab5d79807ae4f505a5795a4adc891f2c7569674ec75",
+    "d3d-stage4a1-ddraw-smoke-build.log": "a6c3998244d44c0ef0cfa79650c9a2c8b77b20b887cb6eb1713b9d1a68f98774",
+    "d3d-stage4a1-ddraw-diagnostic-build.log": "2d9d2f0539d71a01f8cda2f6988f7e15d0f61dd517325c2750e71d867e525a60"
+  }
+}
