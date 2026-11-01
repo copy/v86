@@ -239,7 +239,7 @@
             if (signature.fogMode)
                 fields.push({ name: "fog_params", type: "vec4<f32>", bytes: 16 });
             for (const stage of signature.coordStages) {
-                if (stage.transformCount)
+                if (stage.transformCount > 1 && signature.positionType !== "screen")
                     fields.push({ name: "texture_transform" + stage.index,
                         type: "mat4x4<f32>", bytes: 64, source: stage.index });
             }
@@ -320,6 +320,20 @@
         // Only the operations fill_caps() lists in TextureOpCaps appear here.
         // Returning null makes the caller count the draw and fall back to
         // SELECTARG1 rather than inventing an approximation.
+        // Shared post-shader fog for the FFP cascade and ps_1_x/ps_2_x.
+        function fogBlendSource(signature, uniforms, target) {
+            if (!signature.fogMode) return "";
+            const tableFactor = fixedFogFactorExpression(signature.fogMode, "fog_distance");
+            const factor = signature.tableFog && tableFactor
+                ? tableFactor.replaceAll("uniforms.", uniforms + ".")
+                : "clamp(stage_in.varying" + shaderPipeline.VARYING_FOG + ".x, 0.0, 1.0)";
+            const distance = signature.tableFog && tableFactor
+                ? "    let fog_distance = select(1.0 / max(abs(stage_in.position.w), 1e-6), " +
+                    "stage_in.position.z, " + uniforms + ".fog_params.w != 0.0);\n" : "";
+            return distance + "    " + target + " = vec4<f32>(mix(" + uniforms + ".fog_color.rgb, " + target + ".rgb,\n" +
+                "        " + factor + "), " + target + ".a);\n";
+        }
+
         function textureOpArguments(op) {
             if (op === D3DTOP_DISABLE) return [];
             if (op === D3DTOP_SELECTARG1) return [1];
@@ -768,20 +782,17 @@
                     break;
                 }
                 let expression = raw;
-                if (stage.transformCount) {
-                    // The coordinate enters the matrix as a *row* vector padded
-                    // with ones, which is why a scrolling animation puts its offset
-                    // in row 3 (_31/_32) for the two-component form. The matrix is
-                    // uploaded untransposed for the same reason the WVP is: D3D's
-                    // row-major bytes read back as the transpose in WGSL, and that
-                    // transpose is exactly the column-vector form of D3D's
-                    // row-vector multiply.
+                if (stage.transformCount > 1 && signature.positionType !== "screen") {
+                    // Pad by input dimension: (u,1,0,0), (u,v,1,0),
+                    // (u,v,w,1), or the original four components. COUNT only
+                    // selects the output elements; generated coordinates keep Z.
+                    // D3D's row-major upload is the column-vector transpose.
                     const padded = {
-                        1: "vec4<f32>(" + raw + ".x, 1.0, 1.0, 1.0)",
-                        2: "vec4<f32>(" + raw + ".xy, 1.0, 1.0)",
+                        1: "vec4<f32>(" + raw + ".x, 1.0, 0.0, 0.0)",
+                        2: "vec4<f32>(" + raw + ".xy, 1.0, 0.0)",
                         3: "vec4<f32>(" + raw + ".xyz, 1.0)",
                         4: raw,
-                    }[stage.transformCount] || raw;
+                    }[stage.inputDimensions || 4] || raw;
                     expression = "(uniforms.texture_transform" + stage.index +
                         " * " + padded + ")";
                 }
@@ -1153,26 +1164,7 @@ ${coordBody}${fogBody}${clipBody}${pointBody}    return result;
                 ? "    result = vec4<f32>(clamp(result.rgb + " + specular +
                   ".rgb, vec3<f32>(0.0), vec3<f32>(1.0)), result.a);\n"
                 : "";
-            let fogBody = "";
-            if (signature.fogMode) {
-                // Table fog is pixel fog. The device advertises WFOG (and not
-                // ZFOG), while fragment position.w is reciprocal clip-space W in
-                // WGSL, so recover W here and evaluate the D3D fog equation per
-                // fragment. Vertex fog alone consumes the interpolated oFog value.
-                const tableFactor = fixedFogFactorExpression(signature.fogMode,
-                    "fog_distance");
-                const factor = signature.tableFog && tableFactor
-                    ? tableFactor
-                    : "clamp(stage_in.varying" + shaderPipeline.VARYING_FOG +
-                      ".x, 0.0, 1.0)";
-                const tableDistance = signature.tableFog && tableFactor
-                    ? "    let fog_distance = select(1.0 / max(abs(stage_in.position.w), 1e-6), " +
-                        "stage_in.position.z, uniforms.fog_params.w != 0.0);\n"
-                    : "";
-                fogBody = tableDistance +
-                    "    result = vec4<f32>(mix(uniforms.fog_color.rgb, result.rgb,\n" +
-                    "        " + factor + "), result.a);\n";
-            }
+            const fogBody = fogBlendSource(signature, "uniforms", "result");
             const varyings = [];
             for (let slot = 0; slot < VARYING_COUNT; ++slot)
                 varyings.push(varyingDeclaration(slot, signature.flatShading));
@@ -1212,7 +1204,7 @@ ${specularBody}${alphaTestDiscard(signature.alphaTest, "result.a")}${fogBody}   
         function signatureKey(stage, signature, debugMode) {
             return "ff" + stage + ":" + JSON.stringify([signature, debugMode || ""]);
         }
-        return { normalizeTextureOperation, textureOpArguments, textureOpReadsTexture, signatureKey, VARYING_COUNT, VARYING_COLOR0, D3DSHADE_FLAT, D3DSHADE_GOURAUD, varyingDeclaration, VARYING_TEXCOORD0, FF_LOCATION_POSITION, FF_LOCATION_COLOR0, FF_LOCATION_COLOR1, FF_LOCATION_NORMAL, FF_LOCATION_TEXCOORD0, FF_LOCATION_PSIZE, FF_LOCATION_BLENDWEIGHT, FF_LOCATION_BLENDINDICES, alphaTestDiscard, fixedFunctionLocationFor, vertexInputDeclaration, declTypeInputScalar, uniformBlockLayout, uniformBlockStruct, HALF_PIXEL_OFFSET_BODY, fixedVertexUniformLayout, fixedPixelUniformLayout, fixedFogFactorExpression, textureOpExpression, buildFixedFunctionVertexShader, buildFixedFunctionPixelShader };
+        return { fogBlendSource, normalizeTextureOperation, textureOpArguments, textureOpReadsTexture, signatureKey, VARYING_COUNT, VARYING_COLOR0, D3DSHADE_FLAT, D3DSHADE_GOURAUD, varyingDeclaration, VARYING_TEXCOORD0, FF_LOCATION_POSITION, FF_LOCATION_COLOR0, FF_LOCATION_COLOR1, FF_LOCATION_NORMAL, FF_LOCATION_TEXCOORD0, FF_LOCATION_PSIZE, FF_LOCATION_BLENDWEIGHT, FF_LOCATION_BLENDINDICES, alphaTestDiscard, fixedFunctionLocationFor, vertexInputDeclaration, declTypeInputScalar, uniformBlockLayout, uniformBlockStruct, HALF_PIXEL_OFFSET_BODY, fixedVertexUniformLayout, fixedPixelUniformLayout, fixedFogFactorExpression, textureOpExpression, buildFixedFunctionVertexShader, buildFixedFunctionPixelShader };
     }
     const api = { createGenerator };
     global.D9WGFFP = api;

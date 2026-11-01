@@ -2987,7 +2987,7 @@ await test("the stage-0 texture matrix transforms fixed-function texcoords", asy
         element(0, 12, DECLTYPE.FLOAT2, DECLUSAGE.TEXCOORD),
     ];
     // A scrolling matrix: D3D9 games put the offset in row 3 (_31/_32) for
-    // COUNT2, because the coordinate enters as the row vector (u, v, 1, 1).
+    // COUNT2, because the coordinate enters as the row vector (u, v, 1, 0).
     const scroll = [1, 0, 0, 0, 0, 1, 0, 0, 0.25, 0.5, 1, 0, 0, 0, 0, 1];
     const transform = encodePayload("SetTransform", { device_handle: DEVICE, state: D3DTS_TEXTURE0 });
     scroll.forEach((value, index) => transform.writeFloatLE(value, P.F.SetTransform.matrix + index * 4));
@@ -3017,9 +3017,9 @@ await test("the stage-0 texture matrix transforms fixed-function texcoords", asy
         "the first draw has D3DTTFF_DISABLE and must pass texcoords through");
     assert.ok(pipelines[1].vertex.module.code.includes("texture_transform0 *"),
         "the second draw must apply the matrix:\n" + pipelines[1].vertex.module.code);
-    // Entering as (u, v, 1, 1) is what puts the game's offset in row 3.
-    assert.ok(pipelines[1].vertex.module.code.includes(".xy, 1.0, 1.0)"),
-        "the coordinate must enter the matrix as (u, v, 1, 1)");
+    // Entering as (u, v, 1, 0) is what puts the game's offset in row 3.
+    assert.ok(pipelines[1].vertex.module.code.includes(".xy, 1.0, 0.0)"),
+        "the coordinate must enter the matrix as (u, v, 1, 0)");
 
     // And the matrix has to actually reach the uniform, after the WVP,
     // viewport and padding.

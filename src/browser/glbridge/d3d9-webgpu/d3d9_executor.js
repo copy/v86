@@ -4836,7 +4836,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             let hasPointSize = false;
             let blendWeightType = -1;
             let blendIndicesType = -1;
-            const texCoordSets = [];
+            const texCoordSets = [], texCoordDimensions = {};
             for (const element of elements) {
                 if (element.usage === DECLUSAGE_BLENDWEIGHT &&
                         element.usageIndex === 0)
@@ -4863,8 +4863,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     hasPointSize = true;
                 else if (element.usage === DECLUSAGE_TEXCOORD &&
                         element.usageIndex < MAX_TEXCOORD_SETS &&
-                        !texCoordSets.includes(element.usageIndex))
+                        !texCoordSets.includes(element.usageIndex)) {
                     texCoordSets.push(element.usageIndex);
+                    texCoordDimensions[element.usageIndex] = [1, 2, 3, 4, 4, 4, 2, 4, 4, 2, 4, 2, 4, 3, 3, 2, 4][element.type] || 4;
+                }
             }
             if (!positionType) return null;
             texCoordSets.sort((a, b) => a - b);
@@ -4874,7 +4876,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // whether they are read at all is a render-state question that
             // vertexBlendPlan() answers once the state is in hand.
             return { positionType, hasColor, colorIsBGRA, hasColor1,
-                color1IsBGRA, hasNormal, hasPointSize, texCoordSets,
+                color1IsBGRA, hasNormal, hasPointSize, texCoordSets, texCoordDimensions,
                 blendWeightType, blendIndicesType,
                 hasTexCoord: texCoordSets.length > 0 };
         }
@@ -6205,6 +6207,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     ? "factor" : (rs.get(D3DRS_FOGVERTEXMODE) || "factor");
             }
 
+            // ps_3_0 owns fog; the legacy post-shader blend is only ps<3.
+            if (psResource && psResource.translated.ok && psResource.translated.reflection.version.major >= 3) { fogMode = 0;tableFog = false; }
+
             // ---- pixel stage ----
             //
             // Resolved before the vertex stage because how many texture
@@ -6297,12 +6302,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         mirrorOnceKey += "_m" + sampler.index + ":" + axes;
                     }
                 }
-                const pixelVariantKey = alphaTestKey + clipKey + depthKey +
+                const fogBlend = ffp.fogBlendSource({ fogMode, tableFog }, "d9c", "result.color0");
+                const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") : "";
+                const pixelVariantKey = fogKey + alphaTestKey + clipKey + depthKey +
                     lodBiasKey + mirrorOnceKey + legacySamplerKey + swizzleKey +
                     (flatShading ? "_flat" : "");
                 if (alphaTest.enabled || clipPlaneCount || depthSamplers.length
                         || lodBiasKey || mirrorOnceKey || legacySamplerKey || swizzleKey ||
-                        flatShading) {
+                        flatShading || fogBlend) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
                         variant = shaderPipeline.compileShader(psResource.tokens, {
@@ -6314,7 +6321,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             samplerLodBias, samplerSwizzles,
                             samplerMirrorOnce,
                             legacySamplerTypes,
-                            flatShading,
+                            flatShading, fogBlend,
                         });
                         psResource.variants.set(pixelVariantKey, variant);
                         if (variant.ok) ++this.stats.shaderVariantsTranslated;
@@ -6340,13 +6347,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 samplerIndices = pixelReflection.samplers.map(s => s.index);
                 for (const sampler of pixelReflection.samplers)
                     samplerDimensions[sampler.index] = sampler.type;
-                if (fogMode) {
-                    ++this.stats.drawsWithUnappliedFog;
-                    this.warnOnce("fog-programmable",
-                        "fog is enabled on a draw with a translated pixel " +
-                        "shader; the fixed-function fog blend is not applied " +
-                        "there, so the fragment keeps its untinted colour");
-                }
                 // D3D9 hands a pixel shader the coordinates of texture stage n
                 // in its texcoord n, so the vertex stage still has to run
                 // generation/transform for every stage the shader reads.
@@ -6518,7 +6518,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 signature.normalizeNormals =
                     (rs.get(D3DRS_NORMALIZENORMALS) || 0) !== 0;
                 signature.lighting = this.lightingSignature(state, signature);
-                signature.coordStages = this.coordStagePlan(state, coordStageCount);
+                signature.coordStages = this.coordStagePlan(state, coordStageCount, signature);
                 /*
                  * buildFixedFunctionVertexShader() feeds a stage
                  * vec4(0,0,0,1) when texCoordSets does not carry the set
@@ -6840,7 +6840,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // matrix transforms it. D3D9 runs this half of fixed-function T&L
         // whether or not a pixel shader is bound, which is why it is not folded
         // into textureCascadeSignature().
-        coordStagePlan(state, stageCount) {
+        coordStagePlan(state, stageCount, signature) {
             const stageState = (stage, id, fallback) => {
                 const value = state.textureStageStates.get(stage * 64 + id);
                 return value === undefined ? fallback : value;
@@ -6855,6 +6855,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 stages.push({ index,
                     texCoordIndex: coordIndex & 0xFFFF,
                     tciMode: coordIndex & D3DTSS_TCI_MASK,
+                    inputDimensions: !signature ? 4 : signature.positionType === "screen" || !(coordIndex & D3DTSS_TCI_MASK)
+                        ? signature.texCoordDimensions[coordIndex & 0xFFFF] || 4
+                        : (coordIndex & D3DTSS_TCI_MASK) === D3DTSS_TCI_SPHEREMAP ? 2 : 3,
                     transformCount: flags & 0xFF,
                     projected: (flags & D3DTTFF_PROJECTED) !== 0 });
             }
@@ -7228,7 +7231,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             if (program.pixelReflection) {
                 this.writeConstantRegisters(backing, pixelOffset,
                     program.pixelReflection, state.psConstF, state.psConstI,
-                    state.psConstB);
+                    state.psConstB, state);
             } else if (pixelBytes) {
                 this.writeFixedPixelUniforms(state, program, backing, pixelOffset);
             }
@@ -7333,7 +7336,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 floats[base + 2] = asFloat(D3DRS_FOGDENSITY, 1);
             }
             for (const stage of signature.coordStages) {
-                if (!stage.transformCount) continue;
+                if (!layout.byName.has("texture_transform" + stage.index)) continue;
                 floats.set(state.transforms.get(D3DTS_TEXTURE0 + stage.index) ||
                     IDENTITY4x4, at("texture_transform" + stage.index));
             }
@@ -7417,6 +7420,21 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
         }
 
+        writeFogUniforms(state, floats, color, params) {
+            const argb = state.renderStates.get(D3DRS_FOGCOLOR) || 0;
+            floats[color] = ((argb >>> 16) & 255) / 255;
+            floats[color + 1] = ((argb >>> 8) & 255) / 255;
+            floats[color + 2] = (argb & 255) / 255;
+            floats[color + 3] = 1;
+            if (params < 0) return;
+            const value = (id, fallback) => state.renderStates.has(id) ? floatFromDWORD(state.renderStates.get(id)) : fallback;
+            floats[params] = value(D3DRS_FOGSTART, 0);
+            floats[params + 1] = value(D3DRS_FOGEND, 1);
+            floats[params + 2] = value(D3DRS_FOGDENSITY, 1);
+            const projection = state.transforms.get(D3DTS_PROJECTION) || IDENTITY4x4;
+            floats[params + 3] = projection[3] === 0 && projection[7] === 0 && projection[11] === 0 && projection[15] === 1 ? 1 : 0;
+        }
+
         // Fills the fixed-function pixel block: only the fog inputs, texture
         // factor and per-stage constants the cascade actually reads.
         writeFixedPixelUniforms(state, program, backing, byteOffset) {
@@ -7432,24 +7450,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             };
             for (const entry of layout.entries) {
                 if (entry.name === "fog_color") {
-                    // D3DRS_FOGCOLOR's alpha byte is defined as unused.
-                    writeColor(entry.offset / 4,
-                        state.renderStates.get(D3DRS_FOGCOLOR) || 0, 1);
+                    const params = layout.byName.get("fog_params");
+                    this.writeFogUniforms(state, floats, entry.offset / 4, params ? params.offset / 4 : -1);
                 } else if (entry.name === "fog_params") {
-                    // Table fog evaluates the equation per fragment, so its
-                    // start/end/density values belong to the pixel block.
-                    const asFloat = (id, fallback) => {
-                        const raw = state.renderStates.get(id);
-                        if (raw === undefined) return fallback;
-                        FLOAT_BITS_U32[0] = raw >>> 0;
-                        return FLOAT_BITS_F32[0];
-                    };
-                    const base = entry.offset / 4;
-                    floats[base] = asFloat(D3DRS_FOGSTART, 0);
-                    floats[base + 1] = asFloat(D3DRS_FOGEND, 1);
-                    floats[base + 2] = asFloat(D3DRS_FOGDENSITY, 1);
-                    const projection = state.transforms.get(D3DTS_PROJECTION) || IDENTITY4x4;
-                    floats[base + 3] = projection[3] === 0 && projection[7] === 0 && projection[11] === 0 && projection[15] === 1 ? 1 : 0;
+                    // Written together with fog_color above.
                 } else if (entry.name === "texture_factor") {
                     writeColor(entry.offset / 4,
                         state.renderStates.get(D3DRS_TEXTUREFACTOR) === undefined
@@ -7541,6 +7545,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     values.set((mask & (1 << plane))
                         ? state.clipPlanes[plane] : [0, 0, 0, 1],
                         base + plane * 4);
+            }
+            if (reflection.fogOffset >= 0 && state) {
+                const floats = new Float32Array(backing, byteOffset);
+                this.writeFogUniforms(state, floats, reflection.fogOffset / 4, reflection.fogOffset / 4 + 4);
             }
             if (reflection.bumpStageCount && state) {
                 // ps_1_x texbem/texbeml read the D3DTSS_BUMPENVMAT* matrix of

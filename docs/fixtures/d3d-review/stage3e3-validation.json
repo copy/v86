@@ -1,0 +1,50 @@
+{
+  "stage": "3E3 texture input dimensions and legacy pixel fog",
+  "date": "2026-11-02",
+  "coreSuites": 126,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 180,
+  "normativePixelPasses": 180,
+  "knownPixelFailures": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "finalIndexedOverlayPixels": 8192,
+  "isolationPixels": 32768,
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "3ff511520f2d880e9f70",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "repairs": [
+    "S2-19 texture padding follows input dimensions rather than output COUNT",
+    "generated camera coordinates retain Z",
+    "transformed/lit texture coordinates bypass matrix transformation",
+    "S2-4 ps_1_x/ps_2_x share FFP fog source and uniform writer",
+    "ps_3_0 owns fog and ignores legacy post-blend",
+    "programmable VS oFog feeds legacy vertex fog"
+  ],
+  "warcraft3": {
+    "legacyUNormUploadsOnly": "FAIL against unchanged old frozen golden",
+    "differingBytes": 636,
+    "differingPixels": 275,
+    "hostErrors": 0,
+    "gpuErrors": 0,
+    "legacyUNormUploadsAndFFP": "PASS unchanged original frozen policy",
+    "pinnedLegacyFFP": "46a46b4e",
+    "limitation": "These counterfactuals isolate FFP semantics as a group; native correctness of every changed game pixel remains an L4/L5 acceptance item. No golden or policy update."
+  },
+  "logs": {
+    "d3d-stage3e3-core.log": "0a1377bb7f883aaf5fc37d52ff672e5417611db46ae6de3efbb933fb36d7b741",
+    "d3d-stage3e3-gpu.log": "751a54bf0f452cc32d4b0b2fd42858a64f3643d4387a7311c2b15b08eb6e8b81",
+    "d3d-stage3e3-pixels.log": "9b234117414db8d525eee462ebe1be849da2947bcfec87e56144b210cb130421",
+    "d3d-stage3e3-war3-counterfactual.log": "e24a8723ce8bd61fdb7ed9b61c06d1abbe7a96783a67efaa1a8bd5e578083536",
+    "d3d-stage3e3-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3e3-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3e3-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3e3-integration.log": "0d8ec40e3d9f97e3a5a4fea9e0b87764a422714005a283c093b62021c16606d6"
+  },
+  "next": "Pipeline state extraction and dynamic values, record/replay, presentation, diagnostics and remaining draw CPU optimization, then guest/shader/acceptance stages."
+}

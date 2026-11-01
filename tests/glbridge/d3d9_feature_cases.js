@@ -344,5 +344,58 @@
         wire("SetLight", { device_handle: dev, type: 3, diffuse: [1, 1, 1, 1], direction: [0, 0, 1] }),
         wire("LightEnable", { device_handle: dev, enable: 1 }), ...litQuad(dev, 0, false)],
         probes: [{ at: [32, 32], expect: [0, 0, 0, 0] }] });
+    function coordinateQuad(dev, dimensions, coords, z = 0.5) {
+        const list = fullXYZ(z, 0xffffffff), stride = 12 + dimensions * 4;
+        const data = new Uint8Array(list.length * stride), view = new DataView(data.buffer);
+        list.forEach((v, i) => [...v.slice(0, 3), ...coords].forEach((x, j) => view.setFloat32(i * stride + j * 4, x, true)));
+        return [cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: 0x102, element_count: 2 }),
+            element(0, 2, 0), element(12, dimensions - 1, 5)])),
+        wire("DrawPrimitiveUP", { device_handle: dev, primitive_type: 4, primitive_count: 2, stride, vertex_count: 6, vertex_bytes: data.length },
+            [blob("DrawPrimitiveUP", "vertex_data_offset", data)])];
+    }
+    function coordinateTexture(dev) {
+        const handle = dev + 0x500000, data = new Uint8Array(64);
+        for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) data.set(x < 2 ? [0, 0, 255, 255] : [255, 0, 0, 255], (y * 4 + x) * 4);
+        return [...texture(dev, handle, ["A8R8G8B8", 21, [0, 0, 0, 255]]),
+            wire("UpdateTexture", { resource_handle: handle, width: 4, height: 4, depth: 1, row_pitch: 16, slice_pitch: 64, data_bytes: 64 },
+                [blob("UpdateTexture", "data_offset", data)])];
+    }
+    for (const [dimensions, count, matrix, expected] of [
+        [1, 4, [1, 0, 0, 0, 0.5, 1, 0, 0, 0.5, 0, 1, 0, 0.25, 0, 0, 1], [0, 0, 255, 255]],
+        [2, 3, [1, 0, 0, 0, 0, 1, 0, 0, 0.5, 0, 1, 0, 0.25, 0, 0, 1], [0, 0, 255, 255]],
+        [2, 4, [1, 0, 0, 0, 0, 1, 0, 0, 0.5, 0, 1, 0, 0.25, 0, 0, 1], [0, 0, 255, 255]],
+        [3, 2, [1, 0, 0, 0, 0, 1, 0, 0, 0.5, 0, 1, 0, 0.25, 0, 0, 1], [255, 0, 0, 255]],
+    ]) add("texture-coordinates", { name: "FLOAT" + dimensions + " texture input padding is independent of COUNT" + count, body: dev => [
+        ...coordinateTexture(dev), tss(dev, 0, 24, count), wire("SetTransform", { device_handle: dev, state: 16, matrix }),
+        ...coordinateQuad(dev, dimensions, [0.125, 0, 0].slice(0, dimensions))], probes: [{ at: [32, 32], expect: expected }] });
+    add("texture-coordinates", { name: "camera position COUNT2 retains generated Z", body: dev => [
+        ...coordinateTexture(dev), tss(dev, 0, 11, 0x20000), tss(dev, 0, 24, 2),
+        wire("SetTransform", { device_handle: dev, state: 16, matrix: [1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 0, 0, 1] }),
+        ...coordinateQuad(dev, 2, [0.125, 0], 0.25)], probes: [{ at: [32, 32], expect: [0, 0, 255, 255] }] });
+    add("texture-coordinates", { name: "XYZRHW bypasses texture matrix transformation", body: dev => [
+        ...coordinateTexture(dev), tss(dev, 0, 24, 2), wire("SetTransform", { device_handle: dev, state: 16,
+            matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0.5, 0, 1, 0, 0, 0, 0, 1] }), ...texturedQuad(dev, 0.125)],
+        probes: [{ at: [32, 32], expect: [255, 0, 0, 255] }] });
+    for (const major of [1, 2, 3]) for (const mode of ["vertex", "table", "perspective"]) add("fog", {
+        name: "ps_" + major + " " + mode + " post-shader fog", body: dev => {
+            const handle = dev + 0x600000;
+            const tokens = [0xffff0000 | major << 8 | (major === 1 ? 1 : 0),
+                major === 1 ? S.DEF : ins(S.DEF, 5), dst(R.CONST, 0), f(1), f(0), f(0), f(0.25),
+                major === 1 ? S.MOV : ins(S.MOV, 2), dst(major === 1 ? R.TEMP : R.COLOROUT, 0), src(R.CONST, 0), 0xffff];
+            return [pixelShader(dev, handle, tokens), bindPS(dev, handle),
+                rs(dev, 28, 1), rs(dev, 34, 0x0000ff00), rs(dev, 35, mode === "vertex" ? 0 : 3), rs(dev, 140, 3),
+                rs(dev, 36, f(0)), rs(dev, 37, f(mode === "perspective" ? 4 : 1)),
+                ...(mode === "perspective" ? [wire("SetTransform", { device_handle: dev, state: 3,
+                    matrix: [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0.5, 1, 0, 0, 0, 0] }), ...drawXYZ(dev, fullXYZ(2, 0xffffffff))]
+                    : [draw(dev, quad(0, 0, 64, 64, 0.5, 0xffffffff, 0x80000000))])];
+        }, probes: [{ at: [32, 32], expect: major === 3 ? [255, 0, 0, 64] : [128, mode === "vertex" ? 127 : 128, 0, 64], tolerance: 1 }] });
+    add("fog", { name: "ps_2 vertex fog consumes programmable VS oFog", body: dev => {
+        const ps = dev + 0x600000, vs = ps + 1;
+        return [pixelShader(dev, ps, [0xffff0200, ...def(0, 1, 0, 0, 0.25), ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.CONST, 0), 0xffff]),
+            vertexShader(dev, vs, [0xfffe0200, ins(S.DCL, 2), 0x80000000, dst(R.INPUT, 0), ...def(0, 0.25, 0, 0, 0),
+                ins(S.MOV, 2), dst(R.RASTOUT, 0), src(R.INPUT, 0), ins(S.MOV, 2), dst(R.RASTOUT, 1, 1), src(R.CONST, 0, 0), 0xffff]),
+            bindPS(dev, ps), cmd(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: dev, shader_handle: vs })),
+            rs(dev, 28, 1), rs(dev, 34, 0x0000ff00), rs(dev, 140, 3), ...drawXYZ(dev, fullXYZ(0.5, 0xffffffff))];
+    }, probes: [{ at: [32, 32], expect: [64, 191, 0, 64], tolerance: 1 }] });
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

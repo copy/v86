@@ -939,6 +939,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - Warcraft III 在旧 UNORM/上传对照下新增 654 字节、282 像素差异，零宿主/GPU 错误。工具新增 `--legacy-ffp`，固定 `46a46b4e` 的生成器、签名和 uniform writer 后通过**原有**冻结策略，定位到本阶段 FFP 语义组；尚不能据此声称每个变化像素已通过 Windows 原生对照。黄金图和策略未更新。
 > - 运行包 `b1ff7db2ef58bbd8fe9c`；见 [stage3e2-validation.json](fixtures/d3d-review/stage3e2-validation.json)。3E3 继续 S2-19 的输入维度变换及 S2-4 的 ps<3 雾；0 已知偏差仅描述当前已建立的像素套件，不代表整个审查完成。
 
+> **阶段 3E3（2026-11-02）：FFP 本轮语义和模块工作完成。**
+>
+> - S2-19：签名携带纹理坐标输入维度，分别补成 `(u,1,0,0)` / `(u,v,1,0)` / `(u,v,w,1)`；COUNT 只控制输出。相机生成坐标保留 Z，预变换顶点绕过纹理矩阵。修正 uniform writer 对省略矩阵字段仍写入的越界路径。
+> - S2-4：ps 1.x/2.x 的后置雾与 FFP 共用纯 WGSL 生成和 uniform writer，支持 vertex/specular/oFog、仿射 Z 与透视 W；ps 3.0 不执行 legacy 后置雾。参数附在 shader 寄存器块之后，反射明确记录偏移；无效着色器仍按原失败契约跳过绘制。
+> - 新增 16 个实际像素场景，**180/180 正向通过，0 已知偏差**；三种预算配置、126 组核心、190 个 Naga 着色器、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。
+> - Warcraft III 的旧 UNORM/上传对照现有 636 字节、275 像素差异，零宿主/GPU 错误；加固定旧 FFP 后继续通过未改动的原冻结策略。这里保留 FFP 语义组变化，未将候选图训练为新黄金图，逐像素原生正确性仍需 L4/L5 验收。
+> - 运行包 `3ff511520f2d880e9f70`；见 [stage3e3-validation.json](fixtures/d3d-review/stage3e3-validation.json)。继续 pipeline-state、记录/重放、呈现及诊断；draw CPU <3 µs 目标和客体阶段均尚未关闭。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。
