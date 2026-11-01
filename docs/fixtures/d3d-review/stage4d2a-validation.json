@@ -1,0 +1,80 @@
+{
+  "stage": "4D2a shared x87 creation policy for D3D8/9",
+  "date": "2026-11-02",
+  "bundle": "de4f6973b6863625750c",
+  "guestSuites": 79,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLsBuilt": 6,
+  "deployedDLLs": 4,
+  "pureControlWords": 65536,
+  "xp": {
+    "status": "PASS",
+    "seconds": 107,
+    "batches": 8,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "READY real XP FPU probes \r\nREADY real XP FPU COM probe\r\nPASS default creation and later caller changes\r\nPASS FPU_PRESERVE creation and release\r\nPASS failed creation and thread isolation\r\nPASS all real XP FPU checks\r\nREADY real XP FPU COM probe\r\nPASS default creation and later caller changes\r\nPASS FPU_PRESERVE creation and release\r\nPASS failed creation and thread isolation\r\nPASS all real XP FPU checks\r\nPASS all real XP FPU probes \r\n",
+    "logs": {
+      "FPU8.TXT": "READY real XP FPU COM probe\r\nPASS default creation and later caller changes\r\nPASS FPU_PRESERVE creation and release\r\nPASS failed creation and thread isolation\r\nPASS all real XP FPU checks\r\n",
+      "FPU9.TXT": "READY real XP FPU COM probe\r\nPASS default creation and later caller changes\r\nPASS FPU_PRESERVE creation and release\r\nPASS failed creation and thread isolation\r\nPASS all real XP FPU checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "checks": [
+    "0x0f60 becomes 0x007f on default device creation",
+    "FPU_PRESERVE retains 0x0f60",
+    "subsequent methods and Release preserve later caller changes",
+    "invalid adapter leaves control unchanged",
+    "new thread default setup does not change the waiting caller control word"
+  ],
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dcreate",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/d3d9/tests/device.c#L4999",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/d3d9/device.c#L4729",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/d3d8/device.c#L3651"
+  ],
+  "scope": "Actual app-local COM x87 policy, without GPU rendering. D3D7 cooperative-level FPU modes and software T&L remain pending. GTA SA stall cause remains unproven; its captured PC was already 24-bit.",
+  "sha256": {
+    "glbridge/runtime/d9wg_fpu.h": "3e527bd5f2fb286d71837235843a1f4fbbd3a6b79f38ff3df0907cb47a33d6ff",
+    "glbridge/runtime/d9wg_fpu.c": "980ac46edbbee1ef7ea98420785334cac59b5a5b39ce5bc5fce139e42fdf37cb",
+    "glbridge/runtime/build.sh": "bccbff93eec1e3c89daa9ef12d6d100450a079037fab6444a0ae96546188ef1d",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "59aad620367ea89d7eb25e23b344dc532babee9df76bdb146486f94a87bca197",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "9c6e7b4ee2a662285cc1455bbefe3b54f5fc0554c13abdbc796ff5e91aeec824",
+    "glbridge/tests/d9wg_fpu_test.js": "fb6a2752f9bcfc708f37fc82959dba5c9ce639a2fee5e782bebcb200d03b1f5f",
+    "glbridge/sample/d3d_fpu_test.c": "c5534fe87987edf44a7a14b3239b7b102abfcfd3d48ce289fcb6ee3fced30ec3",
+    "glbridge/d3d9proxy/d3d9.dll": "550e0d35c0a7c6dc47a3aa500054bc92829627c21c5907117f629e9a6efe7746",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "d6f048496e0c5215326ef317bd4d192ae6b7c5984942734b27b65ac332f0d04e",
+    "glbridge/d3d8proxy/d3d8.dll": "cb7b6729bd9436c0ec9bb33d26210373e2a2a8377a357a26b847a075d16846ab",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "02cfbdfda2eef67b08214fe8ee54d94d19351f56facd59d564a05857777f4e5f"
+  },
+  "harnessSha256": {
+    "tests/glbridge/d3d_fpu_xp.mjs": "d3c96222908bfad2bfe1e31f9086f0492d90f07652722a94a0d7497d566206fd",
+    "tests/lib/xp_ram_probe.mjs": "124367a8aefffa2172f35b02179583f6ed5d7d9dba639f0c94bf0ac23c1f9238"
+  },
+  "referenceSha256": {
+    "d3d9-device.c": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+    "d3d8-device.c": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+    "d3d9-device-tests.c": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+    "wined3d-device.c": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406"
+  },
+  "logs": {
+    "fpu": "ded056adc0e2240e1d78c72026cbdb5c74310dc890a6274d9df968e018cad409",
+    "guest": "fa4cb4773306a580d2352a1873ff237ac67052962f9dfc13ae22cdcbbb04a3f8",
+    "xp-final": "62ab1dd75956dc50cc1a4025ecfa199920b009097314fab66cab01c795c908d4",
+    "integration": "7b0cc818aa4ab5d19627fb8e5535b6ac3fa31b48448cdad873dffe1477daa46b",
+    "d3d9-smoke": "beeb6bd3666699746fe46ad76a92f88fced83bf6aa99c593e4e573f30e455736",
+    "d3d8-smoke": "39216e26ae2cd13abf3adce78489e11c4459715a9ce3afd4f8cb68a6e5e6ae78",
+    "ddraw-smoke": "395f959dfe3bc87ebf75a23b93ccfe5cb526c3196b63e960413eaab4cbc8fffc",
+    "d3d9-diagnostic": "5cf3f9922d3ce62aacdfd0e55ef795c3c78b1402a3762a9724bfaa367261efc1",
+    "d3d8-diagnostic": "3b3e0c7776f78f49f61920540cc72fb80c2333fea8113c1c29e09cbac8533395",
+    "ddraw-diagnostic": "38c5eb1862cc4638c2a606a798fb8a1baf776f3b9bc39130b8075955455e2e97"
+  }
+}

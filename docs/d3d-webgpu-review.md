@@ -1108,6 +1108,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 冻结 `2ea4c38` 三个原 C decoder，固定 fixture SHA，无 Git 历史依赖。对所有低 16 位配四组纹理维数、所有高 16 位配三组布局及每 API 十万个确定性随机 token，**1,676,256 次实际 C 前端对照全部相同**，包括拒绝结果、元素字节及 D3D7 布局；另验证容量边界和空指针。
 > - 78 组客体、两项站点集成、35 个冒烟 EXE 与六个 DLL 严格构建通过，无 CRT。见 [stage4d1-validation.json](fixtures/d3d-review/stage4d1-validation.json)。这次保持原 API 行为，不把冻结结果当作 Windows/Wine 零售语义的证明；继续软件 T&L 及余下核心。
 
+> **阶段 4D2a（2026-11-02）：D3D8/9 共用设备创建 x87 设置完成。**
+>
+> - 与 [D3DCREATE 文档](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dcreate) 和固定 Wine `66caeb46` 的 `test_fpu_setup` 对齐：默认创建屏蔽异常，设置 24 位、就近舍入；FPU_PRESERVE 保留当前线程控制字。实现归入 `d9wg_fpu.c`，只在接受的设备初始化时调用，后续方法不重新设置。
+> - **真实 XP COM 验证 D3D8 与 D3D9 均通过**：`0x0f60→0x007f`、preserve、调用者后续修改、Release、无效 adapter，以及独立窗口线程中的创建不改变等待线程的控制字。107 秒、8 批、2 个 owner；不涉及 GPU 绘制。新工具 `d3d_fpu_xp.mjs` 使用通用 RAM probe helper，镜像写入仅 RAM overlay。
+> - 全部 65,536 个控制字的纯逻辑、79 组客体、两项站点集成、35 个冒烟 EXE 和六个 DLL 严格构建通过。见 [stage4d2a-validation.json](fixtures/d3d-review/stage4d2a-validation.json)。继续软件 T&L 共用化；D3D7 cooperative-level FPU 模式仍待 DDraw 阶段。GTA SA 现场已是 24 位精度，此修复不构成其停滞原因或恢复的证明。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
