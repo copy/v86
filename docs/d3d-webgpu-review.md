@@ -753,6 +753,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 
 特性分表与剩余游戏验收继续阶段 1C/6；阶段 1 整体尚未关闭。
 
+> **阶段 1C（2026-11-01）：按特性分表的像素底座完成。**
+>
+> - 33 个原有场景加 100 个独立规范场景，共 133 个：48 种已宣称可采样纹理格式的 RGBA、25 种已宣称纹理运算（含 DOT3 alpha、凹凸贴图）、六种雾组合、七种材质/灯光、sRGB 读写，以及 DirectDraw 原生格式填充、键范围端点和镜像 blit。`?group=formats|texture-ops|fog|lighting|srgb|ddraw` 可独立执行。PREMODULATE 未宣称，不纳入能力覆盖。
+> - 期望值来自 [D3DFORMAT](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dformat)、[D3DTEXTUREOP](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dtextureop)、[雾公式](https://learn.microsoft.com/en-us/windows/win32/direct3d9/fog-formulas)、[仿射投影下的像素雾规则](https://learn.microsoft.com/en-us/windows/win32/direct3d9/pixel-fog)，以及 Wine `66caeb46` 的 `utils.c` 格式 swizzle / `visual.c` 材质用例；不调用宿主格式转换或固定管线生成器推导预期。
+> - RGBA 探针走完整 READBACK；已知像素失败不能掩盖 GPU/宿主错误、失败命令或丢弃绘制。19 项失败显式登记，修好即要求删除登记：原有三项，缺失通道五项、ATI swizzle 两项、仿射表雾三项、DOT3 alpha、X8/565 填充、缺颜色材质回退、两种 bump uniform。后者定位为 `uniformBlockLayout` 丢掉 `bumpSource` / `bumpLuminanceSource` 元数据，留待阶段 3 修复。
+> - 站点新增 `d3d_pixel_coverage_test.js`：广告的每种采样格式与纹理运算都必须有像素 fixture；新增能力而未补 fixture 会令 CI 失败。该检查不代表渲染目标、深度或全部 `QUERY_*` 能力已经验收，阶段 3/4/6 仍须补齐。
+> - SwiftShader 上 133 场景完成：114 符合规范、19 已知像素失败，零 WebGPU 校验错误。完整浏览器目标通过，D3D 语义变异 12/12 拦截；可审查结果见 [feature-baseline.json](fixtures/d3d-review/feature-baseline.json)。游戏清单仍未全通过，阶段 6 继续，不以测试底座完成代替游戏验收。
+
 - **目标：** 测试能发现语义错误；变异实验从 2/12 提升到 ≥10/12。
 - **改动：**
   - **严格的假 GPU（一套共用）：**

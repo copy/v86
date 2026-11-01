@@ -9,6 +9,7 @@
 <script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
 <script src="d3d9_conformance.js"></script>
+<script src="d3d9_feature_cases.js"></script>
 <script>
 // Runs d3d9_conformance.js's cases on the real GPU:
 //   node tests/glbridge/gl_multipass_browser_runner.js d3d9_conformance_browser_test.html
@@ -22,11 +23,16 @@
             { strict: true, shaderWorkerUrl: null });
         await executor.initialize();
         const device = executor.device;
+        const group = new URLSearchParams(location.search).get("group");
+        let executed = 0;
         for (let i = 0; i < CASES.length; i++) {
             const c = CASES[i];
+            if (group && c.group !== group) continue;
+            ++executed;
             const errorsBefore = executor.gpuErrors.errors.length;
             const hostErrorsBefore = executor.hostErrors.length;
             const droppedBefore = executor.stats.droppedDraws;
+            const failedBefore = executor.stats.commandsFailed;
             const { dev, rt, bytes } = caseBatch(i, c);
             await executor.submit(bytes, { writeGuestMemory() {} });
             await executor.idle();
@@ -51,11 +57,12 @@
                 ...executor.gpuErrors.errors.slice(errorsBefore).map(e => "WebGPU " + e.source + ": " + e.message),
                 ...executor.hostErrors.slice(hostErrorsBefore).map(e => "host: " + e.message),
                 ...(executor.stats.droppedDraws > droppedBefore ? ["dropped draws"] : []),
+                ...(executor.stats.commandsFailed > failedBefore ? ["failed commands"] : []),
             ];
             const pixels = [];
             for (const probe of c.probes) {
                 const picture = pictures.get(probe.target || 0);
-                const read = (x, y) => { const at = (y * 64 + x) * 4;return [picture[at + 2], picture[at + 1], picture[at]]; };
+                const read = (x, y) => { const at = (y * 64 + x) * 4;return [picture[at + 2], picture[at + 1], picture[at], picture[at + 3]]; };
                 if (probe.row !== undefined) {
                     // some pixel of the row has a red value strictly between
                     const [low, high] = probe.someRedBetween;
@@ -68,17 +75,20 @@
                 }
                 const got = read(probe.at[0], probe.at[1]);
                 const tolerance = probe.tolerance || 0;
-                if (!got.every((v, k) => Math.abs(v - probe.expect[k]) <= tolerance))
+                if (!probe.expect.every((v, k) => Math.abs(v - got[k]) <= tolerance))
                     pixels.push((probe.target ? "rt" + probe.target + " " : "") + "@" + probe.at + " got " + got +
                         " want " + probe.expect);
             }
             const ok = !problems.length && !pixels.length;
             const known = KNOWN_FAILURES[c.name];
-            if (known && ok) {
+            if (problems.length) {
+                ++failed;
+                lines.push("FAIL  " + c.name + ": " + problems.join("; "));
+            } else if (known && ok) {
                 ++failed;
                 lines.push("FIXED " + c.name + " -- delete it from KNOWN_FAILURES (" + known + ")");
             } else if (known) {
-                lines.push("known " + c.name + " (" + known + ")");
+                lines.push("known " + c.name + " (" + known + "): " + pixels.join("; "));
             } else if (!ok) {
                 ++failed;
                 lines.push("FAIL  " + c.name + (c.ref ? " [" + c.ref + "]" : "") + ": " + [...problems, ...pixels].join("; "));
@@ -86,8 +96,9 @@
                 lines.push("ok    " + c.name);
             }
         }
+        if (!executed) throw new Error("No conformance cases selected: " + group);
         document.getElementById("result").textContent =
-            (failed ? "FAIL " + failed + " case(s)\n" : "PASS " + CASES.length + " cases\n") + lines.join("\n");
+            (failed ? "FAIL " + failed + " case(s)\n" : "PASS " + executed + " cases\n") + lines.join("\n");
     } catch (error) {
         document.getElementById("result").textContent = "FAIL exception " + (error && error.stack) + "\n" + lines.join("\n");
     }

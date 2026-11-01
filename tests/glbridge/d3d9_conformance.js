@@ -359,7 +359,7 @@
             cmd(OP.CREATE_DEVICE, u32(dev, 0x1234, 0, 0, W, W, 22, 1, 0x20, 1, 75, samples, 0)),
         ];
         if (!c.backBuffer) {
-            commands.push(cmd(OP.CREATE_TEXTURE_2D, u32(dev, rt, W, W, 1, 21, 1, 0, samples, 0)),
+            commands.push(cmd(OP.CREATE_TEXTURE_2D, u32(dev, rt, W, W, 1, c.targetFormat || 21, 1, 0, samples, 0)),
                 cmd(OP.SET_RENDER_TARGET, u32(dev, 0, rt, 0, 0)));
         }
         if (c.mrt) {
@@ -389,5 +389,6 @@
         }))], false);
     }
 
-    global.D3D9Conformance = { CASES, KNOWN_FAILURES, caseBatch, readbackBatch, W };
+    global.D3D9Conformance = { CASES, KNOWN_FAILURES, caseBatch, readbackBatch, W,
+        builders: { cmd, draw, quad, rs, tss, drawXYZ, fullXYZ, f, cat, element } };
 })(typeof globalThis !== "undefined" ? globalThis : this);
