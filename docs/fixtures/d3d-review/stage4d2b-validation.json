@@ -1,0 +1,74 @@
+{
+  "stage": "4D2b shared software-vertex math",
+  "date": "2026-11-02",
+  "bundle": "de4f6973b6863625750c",
+  "guestSuites": 80,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "frozenOracle": {
+    "revision": "120176e",
+    "sha256": "387f4f0c2570f00a5cac1409519d2b85084c2b79cef70450d0c3cfa7e70e5607",
+    "nativeOperationComparisons": 1100000,
+    "requiresGitHistoryAtTestTime": false
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 110,
+    "batches": 0,
+    "releases": [],
+    "owners": [],
+    "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=220000\r\nPASS x87 control=027f operations=220000\r\nPASS x87 control=037f operations=220000\r\nPASS all real XP math checks\r\n",
+    "logs": {
+      "MATH.TXT": "READY real XP frozen C math probe\r\nPASS x87 control=007f operations=220000\r\nPASS x87 control=027f operations=220000\r\nPASS x87 control=037f operations=220000\r\nPASS all real XP math checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpOperationComparisons": 660000,
+  "xpControlWords": [
+    "007f",
+    "027f",
+    "037f"
+  ],
+  "checks": [
+    "actual three frontend wrappers compile against one C math implementation",
+    "row-vector convention, matrix product order, direction unaffected by translation",
+    "finite matrix/color output retains frozen float bits",
+    "random and edge square roots retain results or NaN classification",
+    "opaque SDK matrix loading is alias-safe and supports unaligned buffers",
+    "constant-size builtin copies generate no runtime imports"
+  ],
+  "scope": "Shared mechanics only; software lighting, normal transforms, complete ProcessVertices and host FFP differential semantics remain subsequent work. XP runs compiled math without rendering.",
+  "sha256": {
+    "glbridge/runtime/d9wg_math.h": "19292112a461318bfd0c6a778e016ce6d58d218f856299786319993b60426b64",
+    "glbridge/runtime/d9wg_math.c": "78f1d4aa470b41ae1a4fa60ee3c348f2f5df4780c1ac30b0157fec1887b4ec84",
+    "glbridge/runtime/build.sh": "d03828c61ebc1da5b5cbb65ad44d5f293910550bbeed8bc124552f56c81ad834",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "36c00420541bdfcfe83609838e0627d3e26d07ae7171c59e64bfd2c186332153",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "5ea960fe68e54281665e7793dd919fd454d3de1444933e28a0e4d653f1d13766",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "71eacbe9a2aa960e4a90090fe9b2e5e3c692a97fd3bd4a338991249bd33a792d",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "66e5a95f05c48d6153742f58576075d9af3263218ba530bda9236654c9e7b5eb",
+    "glbridge/tests/d9wg_math_harness.js": "edd87c7c2450a41352acc28d54aced778b9ded2fe671312e91f0faba582112dd",
+    "glbridge/tests/d9wg_math_test.js": "515536261822fd504b562aa029ebef7f194f1603b7a04c4ee7899d91da23716d",
+    "glbridge/tests/fixtures/d9wg_math_baseline.json": "387f4f0c2570f00a5cac1409519d2b85084c2b79cef70450d0c3cfa7e70e5607",
+    "glbridge/d3d9proxy/d3d9.dll": "3a3fb42230343bf00ca3067c8647eefd0a67ecbbd460b383707c2c16776ef990",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "daa16badee2b4775380ab171acf8b7551bd984e506aea48025da77b56cf325ce",
+    "glbridge/d3d8proxy/d3d8.dll": "ad2dc43798e57fc180da3467e0cf4577bc8dfea70d083a825311b6867e432279",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "8cdd20ca7c0589b56554b111188d5ae6e0909975ee3d322a3b522a4c18821a49",
+    "glbridge/ddrawproxy/ddraw.dll": "42af3644d5127f7c0b6f4e437a2d8450cd78016a6622b2684e55ed7ba0c41b16",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "4ecf451378c04a5e5c5d08bbf665f756947c1a844518a17e87c49217dcdf3a4b"
+  },
+  "hostHarnessSha256": "3bdda4f783681d59b61a7732ec4834ba0732c70fb05ccf210084f9fbe63715c5",
+  "logs": {
+    "math": "c6ead6951f1600d14f03a2d42144971f40e705bbbf1879f80a55c1ff907b8985",
+    "guest": "ef7606287cf1eaa9f8441f403da780a4d98ec424faf2447a82c48a5f51a5e55e",
+    "xp": "7d3a547ce5a04d99473676edaabc2e70266b6ba3677a5aaf07a76bfac953525c",
+    "integration": "d7c459fb7272f730dc0621252d44993bf23deb2573e87a2a9a679c9aed791995",
+    "d3d9-smoke": "2f4b32d7107b0b6ef60ce13af6668b4530bc1441d8243c4b3a4a913cf2efd4fb",
+    "d3d8-smoke": "91cff99ef84ea737a092d22257eb6705ea2c3b2c514c207aa6d09662631bdbe7",
+    "ddraw-smoke": "9cbe77d65988d6372c87d5e75c02fa433366f2d84fa2a33b15932625734eb2ba",
+    "d3d9-diagnostic": "9a874f43dcd3911d85e7aeccb1a2c1f9ce0759cca443cb5ed7c7d8ae22a1372d",
+    "d3d8-diagnostic": "c39253c65eb90025d6b05be436971c3dcd8a63fb93298d4d22e6bfa7ef82c996",
+    "ddraw-diagnostic": "c946e6fa580c4e0736365c222e7c9432b97c0836ca0cec4864a1e3484bbf9f83"
+  }
+}

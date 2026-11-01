@@ -1114,6 +1114,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **真实 XP COM 验证 D3D8 与 D3D9 均通过**：`0x0f60→0x007f`、preserve、调用者后续修改、Release、无效 adapter，以及独立窗口线程中的创建不改变等待线程的控制字。107 秒、8 批、2 个 owner；不涉及 GPU 绘制。新工具 `d3d_fpu_xp.mjs` 使用通用 RAM probe helper，镜像写入仅 RAM overlay。
 > - 全部 65,536 个控制字的纯逻辑、79 组客体、两项站点集成、35 个冒烟 EXE 和六个 DLL 严格构建通过。见 [stage4d2a-validation.json](fixtures/d3d-review/stage4d2a-validation.json)。继续软件 T&L 共用化；D3D7 cooperative-level FPU 模式仍待 DDraw 阶段。GTA SA 现场已是 24 位精度，此修复不构成其停滞原因或恢复的证明。
 
+> **阶段 4D2b（2026-11-02）：软件顶点数学共用化完成。**
+>
+> - 三个前端的平方根近似、行向量变换、矩阵相乘、颜色打包归入纯 C `d9wg_math.c`。矩阵读取兼容 D3D7 的独立 SDK 字段及 D3D8/9 数组，并使用常量尺寸 builtin copy 避免别名/对齐假设，无 CRT 调用。
+> - 冻结 `120176e` 原 C 方法：宿主 1,100,000 次操作对照通过；**真实 XP 在 x87 24/53/64 位精度各通过 220,000 次、共 660,000 次对照**，110 秒。有限矩阵/颜色逐位一致，平方根另覆盖边界/NaN 分类；独立检查乘法顺序、平移与方向、未对齐 SDK 缓冲。
+> - 80 组客体、两项站点集成、35 个冒烟 EXE 与六个 DLL 严格构建通过。见 [stage4d2b-validation.json](fixtures/d3d-review/stage4d2b-validation.json)。这只是共用数学，继续光照、法线与完整 ProcessVertices 的统一及 GPU 语义对照，不将当前近似算法等同规范验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
