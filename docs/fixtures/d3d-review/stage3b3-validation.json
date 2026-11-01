@@ -1,0 +1,36 @@
+{
+  "stage": "3B3 explicit device creation",
+  "coreSuites": 122,
+  "privateCorpusStrict": true,
+  "siteSuites": 72,
+  "siteIntegrationTests": 2,
+  "swiftshaderCases": 133,
+  "knownPixelFailures": 19,
+  "pendingSessionUniformPixels": 8192,
+  "pendingDeviceUniformPixels": 8192,
+  "warcraft3FrozenReplay": "PASS",
+  "fullCheckpoint": "PASS",
+  "svgaWorkerPixelsBeforeAndAfterRestore": 512,
+  "svgaSourceAndRelease": [
+    "vgpu9",
+    "gb9"
+  ],
+  "graphicsRevision": "b770378be2570b592c5e",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "logs": {
+    "d3d-stage3b3-core.log": "b9c0d7a2b490a2aeb2b073fd5085aa1faa9d732e7aa057b2ac4f84ae8523bfb6",
+    "d3d-stage3b3-site.log": "a938b6b4b1bb2fcf6482b9c0f579e1a5d1d3655c9cc39d0f12ec6f580918e31e",
+    "d3d-stage3b3-gpu.log": "0a59f710bcc3e8e65b080d2e625e68fe852a7306a25f76353dfb2c6a824b9722",
+    "d3d-stage3b3-war3.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3b3-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3b3-integration.log": "4695a5125b87e2771efa71a5d55bcc13bfdeae4510ffc06be22c21a4ed86d250",
+    "d3d-stage3b3-ownership.log": "796ff4948e063e5feac28fffa6fbd871368b147855390a54cfdf6685d505cb2f",
+    "d3d-stage3b3-svga.log": "ce4b680fa46de5af771018abd8191c8bf75ee6ee2797d5b68cff5c660343e49b",
+    "d3d-stage3b3-gb.log": "8c731c3d1e9b216eb741301c327f70d8b9b595dd938a6e0ab5e0f9150fb8a5be",
+    "d3d-stage3b3-svga-release.log": "ce4b680fa46de5af771018abd8191c8bf75ee6ee2797d5b68cff5c660343e49b",
+    "d3d-stage3b3-gb-release.log": "8c731c3d1e9b216eb741301c327f70d8b9b595dd938a6e0ab5e0f9150fb8a5be",
+    "d3d-stage3b3-svga-browser.log": "13addbcb5a3bfb8e5155a1b11eefedb28f161131a4758aac3ccd164e63bd9309"
+  },
+  "scope": "Only CREATE_DEVICE introduces a logical device. Reset validates and retains the existing logical identity while changing generation/defaults, rejecting collisions. SVGA explicitly creates its utility device and contexts, including after snapshot reconstruction. Resource ownership and ordering remain the next module.",
+  "svgaClearSource": "https://raw.githubusercontent.com/prepare/vmware-svga/master/lib/refdriver/svga3d.c"
+}

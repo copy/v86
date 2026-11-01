@@ -61,6 +61,9 @@ try {
         ...command(0x410 /* SURFACE_DEFINE */, 1, 0x40, 1 /* X8R8G8B8 */, 1, 0, 0, 0, 0, 0, 16, 16, 1),
         ...command(0x415 /* CONTEXT_DEFINE */, 1),
         ...command(0x41A /* SETRENDERTARGET */, 1, 2 /* COLOR0 */, 1, 0, 0),
+        ...command(0x41F /* SETVIEWPORT */, 1, 4, 4, 4, 4),
+        ...command(0x428 /* SETSCISSORRECT */, 1, 5, 5, 1, 1),
+        ...command(0x419 /* SETRENDERSTATE */, 1, 0x37 /* SCISSORTESTENABLE */, 1),
         ...command(0x421 /* CLEAR */, 1, 1 /* COLOR */, 0xFF336699, f32(1), 0, 0, 0, 16, 16),
         ...command(0x414 /* SURFACE_DMA */, 1, 0, 64, 1, 0, 0, 2 /* READ_HOST_VRAM */, 0, 0, 0, 16, 16, 1, 0, 0, 0),
     ];
@@ -74,10 +77,13 @@ try {
     check(await word(0x200000) === 1, "the command buffer completed (status " + await word(0x200000) + ")");
     const pixels = await vm.read_memory(0x301000, 16 * 16 * 4);
     const pixel = i => Array.from(pixels.subarray(i * 4, i * 4 + 3)).join();
-    check(pixel(0) === "153,102,51" && pixel(255) === "153,102,51",
+    check(Array.from({ length: 256 }, (_, i) => pixel(i)).every(p => p === "153,102,51"),
         "the renderer's clear, read back into guest RAM through the worker: " + pixel(0) + " / " + pixel(255));
+    const state = vm.adapter_renderer.executor.devices.get(1);
+    check(state.viewport.width === 4 && state.viewport.height === 4 && state.renderStates.get(174) === 1,
+        "SVGA Clear restores the drawing viewport and scissor enable");
     const stats = vm.adapter_renderer.executor.stats;
-    check(stats.batches >= 1 && !stats.commandsFailed, "the renderer on this page ran the batches (" + stats.batches + ")");
+    check(stats.batches >= 1 && !stats.commandsFailed && !stats.droppedDraws && !vm.adapter_renderer.executor.gpuErrors.errors.length, "the renderer on this page ran the batches (" + stats.batches + ")");
 
     // A snapshot carries the surface's contents (read back from the renderer
     // on this page) and the restored device puts them on the GPU again: the
@@ -92,7 +98,7 @@ try {
     await program([...reg(0x31, 0), ...reg(0x30, 0x200000)]);
     await wait(async () => await word(0x200000) !== 0, "the command buffer's status after the restore");
     const restored = await vm.read_memory(0x301000, 16 * 16 * 4);
-    check(Array.from(restored.subarray(0, 3)).join() === "153,102,51" && Array.from(restored.subarray(1020, 1023)).join() === "153,102,51",
+    check(Array.from({ length: 256 }, (_, i) => Array.from(restored.subarray(i * 4, i * 4 + 3)).join()).every(p => p === "153,102,51"),
         "after a save and restore the surface still has the clear: " + Array.from(restored.subarray(0, 3)).join());
 
     await vm.destroy(); vm = null;

@@ -28,8 +28,9 @@ floppy[511] = 0xAA;
 // The renderer
 const submitted = [];
 let queue = [], to_device = null;
+const announced_devices = new Set();
 const renderer = {
-    "post": message => { if(message["type"] === "submit") { submitted.push(message); queue.push(message); } },
+    "post": message => { if(message["type"] === "reset") announced_devices.clear(); if(message["type"] === "submit") { submitted.push(message); queue.push(message); } },
     "listen": handler => { to_device = handler; },
 };
 function run_renderer()
@@ -41,6 +42,13 @@ function run_renderer()
             // every command is at least its struct, as the protocol describes it
             const struct = D9WG.commandStruct(opcode);
             assert.ok(struct && size >= D9WG.STRUCTS[struct].size, "D9WG opcode 0x" + opcode.toString(16) + " is " + size + " bytes");
+            const device_field = D9WG.F[D9WG.commandStruct(opcode)].device_handle;
+            if(device_field !== undefined)
+            {
+                const device_handle = view.getUint32(at + device_field, true);
+                if(opcode === OP.CREATE_DEVICE) announced_devices.add(device_handle);
+                else assert.ok(announced_devices.has(device_handle), "device announced before D9WG opcode " + opcode);
+            }
             if(opcode === OP.READBACK_SURFACE)
             {
                 const r = D9WG.decode(struct, view, at);

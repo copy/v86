@@ -3716,11 +3716,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // ---- device/resource state ----
 
         deviceState(handle) {
-            let state = this.devices.get(handle);
-            if (!state) {
-                state = this.createDeviceState(handle);
-                this.devices.set(handle, state);
-            }
+            const state = this.devices.get(handle);
+            if (!state) throw new Error("D9WG command names an unknown device " + (handle >>> 0));
             return state;
         }
 
@@ -4081,8 +4078,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const enableAutoDepth = view.getUint32(offset + D9WG.F.ResetDevice.enable_auto_depth_stencil, true);
             const multisampleType = view.getUint32(offset + D9WG.F.ResetDevice.multisample_type, true);
             const multisampleQuality = view.getUint32(offset + D9WG.F.ResetDevice.multisample_quality, true);
+            const oldState = this.deviceState(oldHandle);
+            if (newHandle !== oldHandle && this.devices.has(newHandle))
+                throw new Error("D9WG RESET target device already exists");
             this.finishFrame(false);
-            const oldState = this.devices.get(oldHandle);
             if (oldState) {
                 this.retireGPUObject(oldState.depthTexture);
                 this.retireGPUObject(oldState.backBufferMsaaTexture);
@@ -4100,7 +4099,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.palettes.delete(key);
                 this.palettes.set(newHandle + ":" + index, palette);
             }
-            const state = this.deviceState(newHandle);
+            // Reset changes the generation/defaults of an existing logical
+            // device; it cannot introduce a previously unknown device.
+            const state = Object.assign(oldState, this.createDeviceState(newHandle));
+            this.devices.set(newHandle, state);
             state.viewport = { x: 0, y: 0, width, height, minZ: 0, maxZ: 1 };
             state.surface = { hwnd, x, y, width, height, visible: true,
                 noSurface: false, sessionKey: this.sessionKey };

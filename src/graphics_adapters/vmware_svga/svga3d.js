@@ -219,7 +219,19 @@ export function SVGA3D(device, renderer)
  */
 SVGA3D.prototype.streams = function()
 {
-    this.writer.before = () => { if(this.gxw && !this.gxw.empty()) this.flush(); };
+    // Resource-only work has a device too. Announce it once, before the
+    // first command, including after reset/snapshot reconstruction.
+    let utility_created = false;
+    this.writer.before = () => {
+        if(this.gxw && !this.gxw.empty()) this.flush();
+        if(!utility_created)
+        {
+            utility_created = true;
+            this.writer.command(OP.CREATE_DEVICE, {
+                "device_handle": UTILITY_DEVICE, "width": 1, "height": 1
+            });
+        }
+    };
     if(this.dx)
     {
         this.gxw = new GXWriter();
@@ -1313,7 +1325,11 @@ SVGA3D.prototype.define_context = function(cid)
 {
     if(this.contexts.has(cid)) this.destroy_context(cid);
     // a new D9WG device: a fresh, default D3D9 state
-    this.contexts.set(cid, new Context(cid, this.next_device++));
+    const context = new Context(cid, this.next_device++);
+    this.contexts.set(cid, context);
+    this.writer.command(OP.CREATE_DEVICE, {
+        "device_handle": context.device, "width": 1, "height": 1
+    });
 };
 
 SVGA3D.prototype.destroy_context = function(cid)
@@ -1667,6 +1683,19 @@ SVGA3D.prototype.clear = function(p, f)
     if(!context || p.length < 5) return;
     this.drawing(context);
     const rects = Math.floor((p.length - 5) / 4);
+    // VMware's reference SVGA3D_BeginClear contract ignores clipping and
+    // fragment state. D3D9 Clear clips to viewport/scissor, so translate that
+    // difference here and restore the context's drawing state afterwards.
+    const target_entry = context.state.get("rt" + C.SVGA3D_RT_COLOR0);
+    const mip = target_entry ? target_entry[1][4] >>> 0 : 0;
+    const size = context.target ? context.target.sizes[Math.min(mip, context.target.sizes.length - 1)] : [1, 1];
+    const viewport = context.viewport || [0, 0, 1, 1];
+    const scissor_entry = context.state.get("rs" + C.SVGA3D_RS_SCISSORTESTENABLE);
+    const scissor = scissor_entry ? scissor_entry[1][2] >>> 0 : 0;
+    this.writer.command(OP.SET_VIEWPORT, {
+        "device_handle": context.device, "width": size[0], "height": size[1], "max_z": 1
+    });
+    if(scissor) this.render_state(context, D3DRS.SCISSORTESTENABLE, 0);
     // the flag bits are D3DCLEAR's
     const w = this.writer.command(OP.CLEAR, {
         "device_handle": context.device, "clear_flags": p[1] & 7, "color": p[2] >>> 0,
@@ -1677,6 +1706,11 @@ SVGA3D.prototype.clear = function(p, f)
         const at = 5 + 4 * i, x = p[at] | 0, y = p[at + 1] | 0;
         w.struct("Rect", { "left": x, "top": y, "right": x + (p[at + 2] | 0), "bottom": y + (p[at + 3] | 0) });
     }
+    this.writer.command(OP.SET_VIEWPORT, {
+        "device_handle": context.device, "x": viewport[0], "y": viewport[1],
+        "width": viewport[2], "height": viewport[3], "min_z": context.zrange[0], "max_z": context.zrange[1]
+    });
+    if(scissor) this.render_state(context, D3DRS.SCISSORTESTENABLE, scissor);
 };
 
 // ---------------------------------------------------------------------------

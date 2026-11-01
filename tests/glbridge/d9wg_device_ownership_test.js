@@ -27,5 +27,13 @@ const clear = (device, color) => ({ opcode: P.OP.CLEAR, payload: { device_handle
     await executor.submit(P.encodeBatch([clear(33, 0xffffffff)]));
     assert.deepEqual(executor.devices.get(33).backBufferTexture.descriptor.size, { width: 32, height: 16, depthOrArrayLayers: 1 });
     assert.equal(executor.hostErrors.length, 0);assert.equal(executor.gpuErrors.errors.length, 0);
+    const resetState = executor.devices.get(33);
+    assert.equal(resetState, a, "Reset retains the existing logical device identity");
+    const unknown = makeExecutor().executor;
+    await unknown.submit(P.encodeBatch([clear(77, 0xff000000), { opcode: P.OP.RESET, payload: {
+        old_device_handle: 77, new_device_handle: 88, width: 8, height: 8 } }, create(99, 8, 8)]));
+    assert.deepEqual([...unknown.devices.keys()], [99], "state commands and Reset cannot fabricate devices");
+    assert.equal(unknown.stats.commandsFailed, 2);assert.equal(unknown.hostErrors.length, 2);
+    assert.equal(unknown.gpuErrors.errors.length, 0);
     console.log("D9WG devices: mixed-size pending frames, captured views and reset/retirement isolation checked");
 })().catch(error => { console.error(error);process.exitCode = 1; });

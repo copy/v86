@@ -863,6 +863,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 修复前同会话两设备出现 4,096 个红色像素被绿色替换，修复后全 8,192 像素正确。新增不同尺寸交错 clear、独立 pass、Reset 保留 B 及 GPU fence 后回收 A 的检查。
 > - 122 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、133 场景及两种隔离页面、原生 GPU Warcraft III 冻结回放、SwiftShader 完整存档恢复通过。配套运行包 `fb445497baa3807c1523`；见 [stage3b2-validation.json](fixtures/d3d-review/stage3b2-validation.json)。3B3 接着移除隐式设备创建并更新 SVGA 的显式创建路径；资源/FFP 等后续模块仍待办。
 
+> **阶段 3B3（2026-11-01）：显式创建设备完成；继续资源模块。**
+>
+> - `deviceState` 仅查找已有设备，未知句柄令对应命令失败并继续处理后续命令，不再制造设备。Reset 必须有有效旧设备且新句柄不冲突；保留逻辑对象身份并更新 generation/defaults。新增负向测试证明普通命令及 Reset 都不能隐式创建。
+> - SVGA 的首条资源操作前显式建立 utility device，每个 context define 显式建立设备；reset/存档重建按相同顺序重发。vgpu9/gb9 测试逐条检查带设备字段的命令必须已有 CREATE_DEVICE，源码和发布构建均通过。
+> - 实际 SVGA 工作线程页暴露 Clear 被 viewport 裁剪为一个像素。依据 [VMware 参考驱动的 Clear 契约](https://raw.githubusercontent.com/prepare/vmware-svga/master/lib/refdriver/svga3d.c)，翻译层临时覆盖 viewport/scissor，清除后恢复原绘图状态；实际页在 4×4 viewport、1×1 scissor 下检查全部 256 个像素，存档恢复后再检查全部 256 个像素，均通过。
+> - 122 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、133 场景及两种隔离页面、原生 GPU Warcraft III 冻结回放、SwiftShader 完整存档恢复全部通过；运行包 `b770378be2570b592c5e`。见 [stage3b3-validation.json](fixtures/d3d-review/stage3b3-validation.json)。设备/会话模块的本轮三项完成；接下来处理资源上传顺序和格式展开，19 项已知像素偏差尚未减少。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。
