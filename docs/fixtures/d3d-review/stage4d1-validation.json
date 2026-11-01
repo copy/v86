@@ -1,0 +1,59 @@
+{
+  "stage": "4D1 shared pure C FVF decoder",
+  "date": "2026-11-02",
+  "bundle": "de4f6973b6863625750c",
+  "guestSuites": 78,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "frozenOracle": {
+    "revision": "2ea4c38",
+    "sha256": "4088334849a5c4cdc5614a571aeb1c967d10c2a42fe4f70a0e15457d0ab4b3fa",
+    "comparisons": 1676256,
+    "acceptedD3D7": 207453,
+    "acceptedD3D8": 298365,
+    "acceptedD3D9": 298100,
+    "matches": true,
+    "requiresGitHistoryAtTestTime": false
+  },
+  "checks": [
+    "all 16-bit low flags with four texture-size patterns",
+    "all 16-bit high flags with three representative vertex layouts",
+    "100000 deterministic 32-bit tokens per frontend",
+    "same accepted/rejected results, declaration bytes and D3D7 layout/stride",
+    "D3D7 reserved DWORD versus D3D8/9 point size",
+    "D3D8/9 position masks and XYZW distinction",
+    "D3D9 color blend indices versus D3D8 existing behavior",
+    "position-less programmable layouts",
+    "bounded output and invalid pointers/API"
+  ],
+  "scope": "Shared mechanics preserves the three frozen API behaviors. Software T&L, Wine retail validation and API pixel acceptance remain subsequent stages. No host shader/GPU source changed.",
+  "sha256": {
+    "glbridge/runtime/d9wg_fvf.h": "b4eb6839c94b6dae66d6cfbf114fb00992a0589f1d9a4f991148c850715ecbd3",
+    "glbridge/runtime/d9wg_fvf.c": "4623e6b84e8d25a993b7604b6f33bb6be1717963ef5bf3dbf5561689b0d1ade1",
+    "glbridge/runtime/build.sh": "aebf4d2cc9e0c6a65bce501c9ae3427f9c6439a16ffabdb24daf50dffa2b1548",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "bc92aae2c9be36427c8874271db34b7d60a40db66ccb91e5bb327c737d6ff9cb",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "1c2d0a532aab4cb96e9e0049931214c9aed9eaa5996c029d48bd3c4441aa6a60",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "772c2355c5fd70bd35ee2061679427a4c1c3562032ce6b1543c66c26e6dddb6c",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "4708fc1131a3386be452984403028e29e37a3ab5a1138b6a07f9ea459721ff7d",
+    "glbridge/tests/d9wg_fvf_test.js": "374233cba81f51fe071c4945e5be495396aea474d994357a8be19d1b774abe21",
+    "glbridge/tests/fixtures/d9wg_fvf_baseline.json": "4088334849a5c4cdc5614a571aeb1c967d10c2a42fe4f70a0e15457d0ab4b3fa",
+    "glbridge/d3d9proxy/d3d9.dll": "08622b0f75b8fb0d2c9eff652afc383e51e1bb75fed6bb7502e88756a54e67de",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "51171fe1a34422e13244d11a344f3e619431369d9578b50e1bc3ba7e014dc511",
+    "glbridge/d3d8proxy/d3d8.dll": "64fad51ad2b12d95187eca315045e112839830ddbac024a92e080a53fc7dae35",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "3f2a3214fc73309e2c52f475c426a1a41447c5fdf564c0fc73762529f746e638",
+    "glbridge/ddrawproxy/ddraw.dll": "b5dd3b65c0c938f0f62668687913d129c7ff6e019cffe8f4aadb7ba939b56a48",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "ce7a97477186b06ce7fbb8ba56dd1524296f1351da649c656ee6f8ef26fd337d"
+  },
+  "logs": {
+    "fvf": "cd6c4afeedc7aaed4b4a91f775dbe1a831ee1b78e31ff6397abe4e04ba62a566",
+    "guest": "1d3b466e6d35dfddf9f65dde247f90d57fd399edaa974e436cda2acd6219d59f",
+    "integration": "71a39375b6ea2e610261ff129307cb0e5f80125aac5611f227e46bc5faec5a83",
+    "d3d9-smoke": "9dbf544ab15d46d0a30a6613a80826fb41fbfc5689a3ead06aacf7259045bd97",
+    "d3d8-smoke": "719121191bbca0ecbeeff44b2e36af293416ecc3ec46c06e83c98f5e5c79d997",
+    "ddraw-smoke": "9755999910111f7eee679cdad6477a94f4dfa138370ef27c65cfcb6ecdcdb981",
+    "d3d9-diagnostic": "592cb16a8d81b49e5d9a218b6b3a8c0b1b3898a4c44056ec3f138d712f8943e0",
+    "d3d8-diagnostic": "57660c68f5b02714c0ec613ce6c72c358e2e8de29aeaf4b91c4254374e0b1e3d",
+    "ddraw-diagnostic": "f515161076ff79ad02b7d9c0fc035641dd3f44b6746e5bfcae9a089f926caca3"
+  }
+}

@@ -1102,6 +1102,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 77 组客体测试、35 个冒烟 EXE、六个零售/诊断 DLL 与 XP SYS 严格构建、两项站点集成通过。SYS 只导入 HAL/ntoskrnl；实际 C harness 覆盖分配失败回滚、引用、退出及外国进程清理。详见 [stage4c3-validation.json](fixtures/d3d-review/stage4c3-validation.json)。该 XP 验收不涉及绘制，完整 Wine/API/图像及游戏验收继续保留。
 > - 继续共用 FVF、软件 T&L、状态默认表、窗口/格式/caps，以及 D3D8 包装 D3D9 等余项。
 
+> **阶段 4D1（2026-11-02）：三个 API 共用纯 C FVF 展开完成。**
+>
+> - `d9wg_fvf.c` 统一元素、偏移、步长和 D3D7 软件顶点布局；前端只传 API 模式和容量。D3D7 reserved DWORD、D3D8/9 position mask、XYZW、LASTBETA 的既有区别明确保留；D3D8/9 不请求 layout 时不构建中间布局。
+> - 冻结 `2ea4c38` 三个原 C decoder，固定 fixture SHA，无 Git 历史依赖。对所有低 16 位配四组纹理维数、所有高 16 位配三组布局及每 API 十万个确定性随机 token，**1,676,256 次实际 C 前端对照全部相同**，包括拒绝结果、元素字节及 D3D7 布局；另验证容量边界和空指针。
+> - 78 组客体、两项站点集成、35 个冒烟 EXE 与六个 DLL 严格构建通过，无 CRT。见 [stage4d1-validation.json](fixtures/d3d-review/stage4d1-validation.json)。这次保持原 API 行为，不把冻结结果当作 Windows/Wine 零售语义的证明；继续软件 T&L 及余下核心。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
