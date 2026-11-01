@@ -100,6 +100,9 @@
             depthUnbound: false,
             scissorRect: null,
             clipPlanes: Array.from({ length: 6 }, () => [0, 0, 0, 1]),
+            // Acquire the full clipping layout on first use; later enable-mask
+            // changes only update neutral/active plane uniforms.
+            clipPlaneCapacity: 0,
             inScene: false,
         };
     }

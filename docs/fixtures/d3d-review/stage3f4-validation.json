@@ -1,0 +1,47 @@
+{
+  "stage": "3F4 uniform clip enable masks",
+  "date": "2026-11-02",
+  "coreSuites": 130,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 316,
+  "nativeMetalCases": 316,
+  "normativePixelPasses": 316,
+  "knownPixelFailures": 0,
+  "clipMatrixCases": 30,
+  "clipMatrixPixelComparisonsPerConfiguration": 1920,
+  "clipMatrixPaths": [
+    "FFP",
+    "ps_1_1",
+    "ps_2_0",
+    "ps_3_0",
+    "VS2/PS2"
+  ],
+  "clipEnableMasks": 64,
+  "clipPlanes": 6,
+  "postWarmShaderModulesForMaskChanges": 0,
+  "postWarmRenderPipelinesForMaskChanges": 0,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "fa5b6b738c3dea7ec1a8",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Each device acquires a fixed six-plane shader layout on first clipping use. Later masks, including zero, only update active/neutral coefficient uniforms. Devices that never clip keep the compact original layout. Capability warm state is device-owned and reset with defaults.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; existing candidate differences remain documented.",
+  "logs": {
+    "d3d-stage3f4-core.log": "6fd49ef79ff26465338159db02cf11b8ccf8616665611f547b45b00f4cc51bad",
+    "d3d-stage3f4-gpu.log": "529e33797bff881fc5fb7180dbf93cbbb01bbed26646c26f244a41f877eaf224",
+    "d3d-stage3f4-native-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3f4-clip.log": "53af24be9968827df3506def48c621f39ce02d36e7d7943ccf6974b8d79050b2",
+    "d3d-stage3f4-pixels.log": "9cc2211e8b0b1b22b76be92da2085f3240d8bd76dcd76b00aafdb72198fb9124",
+    "d3d-stage3f4-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3f4-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3f4-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3f4-integration.log": "fb08b773a5cc00df53fd1d1b868dbee91d15c306d0ce865b0df7b2757b9715fe"
+  },
+  "next": "Draw recorder/frame replayer, presentation, debug diagnostics and remaining draw CPU optimization, followed by guest and shader differential/acceptance stages."
+}

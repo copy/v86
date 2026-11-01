@@ -5868,8 +5868,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 ? "_a" + alphaTest.func : "";
             const rs = state.renderStates;
             const clipMask = (rs.get(D3DRS_CLIPPLANEENABLE) || 0) & 0x3f;
-            const clipPlaneCount = clipMask
-                ? 32 - Math.clz32(clipMask) : 0;
+            if (clipMask) state.clipPlaneCapacity = 6;
+            const clipPlaneCount = state.clipPlaneCapacity || 0;
             const clipKey = "_cl" + clipPlaneCount;
             // D3DRS_SHADEMODE, applied to the two colour varyings in both
             // stages, fixed-function or translated (D3D9 flat-shades COLOR0/1

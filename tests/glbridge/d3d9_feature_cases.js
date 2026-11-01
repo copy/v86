@@ -470,5 +470,28 @@
         }, probes: fractional ? [{ at: [16, 32], expect: [0, 255, 0, 255] }, { at: [48, 32], expect: [0, 0, 255, 255] }]
             : [{ at: [8, 32], expect: [255, 0, 0, 255] }, { at: [24, 32], expect: [0, 255, 0, 255] },
                 { at: [40, 32], expect: [0, 0, 255, 255] }, { at: [56, 32], expect: [0, 255, 0, 255] }] });
+    for (const path of [0, 1, 2, 3, "vs2ps2"]) for (let rejected = 0; rejected < 6; rejected++) add("clipping", {
+        name: (path === "vs2ps2" ? "VS2/PS2" : path ? "ps_" + path : "FFP") + " all 64 enable masks select clip plane " + rejected,
+        clear: 0xff0000ff, body: dev => {
+            const commands = [], ps = dev + 0x600000, vs = ps + 1, major = path === "vs2ps2" ? 2 : path;
+            for (let index = 0; index < 6; index++) commands.push(wire("SetClipPlane", { device_handle: dev, index, plane: [0, 0, 0, index === rejected ? -1 : 1] }));
+            if (major) commands.push(pixelShader(dev, ps, [0xffff0000 | major << 8 | (major === 1 ? 1 : 0),
+                major === 1 ? S.DEF : ins(S.DEF, 5), dst(R.CONST, 0), f(1), f(0), f(0), f(1),
+                major === 1 ? S.MOV : ins(S.MOV, 2), dst(major === 1 ? R.TEMP : R.COLOROUT, 0), src(R.CONST, 0), 0xffff]), bindPS(dev, ps));
+            if (path === "vs2ps2") commands.push(vertexShader(dev, vs, [0xfffe0200, ins(S.DCL, 2), 0x80000000, dst(R.INPUT, 0),
+                ins(S.MOV, 2), dst(R.RASTOUT, 0), src(R.INPUT, 0), 0xffff]),
+            cmd(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", { device_handle: dev, shader_handle: vs })));
+            // Warm clipping once, then restore the blue target. All following
+            // enable-mask changes, including zero, use this same shader shape.
+            commands.push(rs(dev, 152, 1), ...drawXYZ(dev, fullXYZ(0.5, 0xffff0000)),
+                wire("Clear", { device_handle: dev, clear_flags: 1, color: 0xff0000ff, depth: 1 }), rs(dev, 174, 1));
+            for (let mask = 0; mask < 64; mask++) {
+                const x = (mask & 7) * 8, y = (mask >> 3) * 8;
+                commands.push(rs(dev, 152, mask), wire("SetScissorRect", { device_handle: dev, left: x, top: y, right: x + 8, bottom: y + 8 }),
+                    ...drawXYZ(dev, fullXYZ(0.5, 0xffff0000)));
+            }
+            return commands;
+        }, probes: Array.from({ length: 64 }, (_, mask) => ({ at: [(mask & 7) * 8 + 3, (mask >> 3) * 8 + 3],
+            expect: mask & 1 << rejected ? [0, 0, 255, 255] : [255, 0, 0, 255], tolerance: 0 })) });
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

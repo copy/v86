@@ -968,6 +968,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **286/286 场景同时通过 SwiftShader 和本机 Metal**；三种预算配置、129 组核心（严格 corpus，夹具调整后重跑相关 173 项）、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。删除被像素/缓存验证取代的旧 bias 字面量和变体数断言。固定旧语义的 Warcraft III 对照继续通过原冻结策略。
 > - 运行包 `dff918e7597ce77ad91b`；见 [stage3f3-validation.json](fixtures/d3d-review/stage3f3-validation.json)。继续 clip 开关 uniform，随后记录/重放等模块；CPU 目标仍待后续优化。
 
+> **阶段 3F4（2026-11-02）：clip 开关 uniform 完成，pipeline-state 本轮工作关闭。**
+>
+> - 设备第一次使用用户裁剪时取得固定六槽 shader layout；之后包括关闭全部裁剪在内的所有 mask 变化，仅更新 active/neutral 平面系数 uniform。设备始终未使用裁剪时维持原紧凑布局；预热容量归设备并随默认状态重置。
+> - 新增 30 个实际像素场景：六平面 × FFP/ps1/ps2/ps3/VS2+PS2 五条路径，逐一遍历 64 个开关组合，合计 **1,920 个精确像素比较/配置**。缓存验证确认首次裁剪预热后，所有 mask 均不新增 module 或 pipeline。
+> - **316/316 场景通过 SwiftShader 与 Metal**；三种预算配置、130 组核心（严格 corpus）、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。固定旧语义 Warcraft III 对照保持原冻结策略通过，未更新黄金图。
+> - 运行包 `fa5b6b738c3dea7ec1a8`；见 [stage3f4-validation.json](fixtures/d3d-review/stage3f4-validation.json)。继续 draw-recorder / frame-replayer、呈现和 debug 诊断拆分，并继续实测/优化 CPU；整个阶段 3 及后续客体阶段尚未完成。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。
