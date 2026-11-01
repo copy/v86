@@ -71,6 +71,7 @@ server.listen(0, "127.0.0.1", () => {
     browser = spawn(process.env.GL_CHROME ||
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", [
         "--headless=new", "--enable-unsafe-webgpu", "--no-first-run",
+        ...(process.env.GL_SWIFTSHADER === "1" ? ["--use-webgpu-adapter=swiftshader", "--use-gpu-in-tests"] : []),
         "--no-default-browser-check", "--disable-background-networking",
         `--user-data-dir=${profile}`, url,
     ], { stdio: ["ignore", "ignore", "pipe"] });

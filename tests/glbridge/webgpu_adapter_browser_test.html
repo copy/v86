@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Required WebGPU adapter</title><pre id="result">RUNNING</pre>
+<script>
+(async () => {
+    "use strict";
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) throw new Error("WebGPU adapter unavailable");
+        const info = adapter.info, description = [info.vendor, info.architecture, info.device, info.description].join(" ");
+        if (new URLSearchParams(location.search).get("required") === "swiftshader" && !/swiftshader/i.test(description))
+            throw new Error("SwiftShader required, got " + description);
+        const device = await adapter.requestDevice();
+        device.destroy();
+        document.querySelector("#result").textContent = "PASS required WebGPU adapter: " + description;
+    } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
+})();
+</script>

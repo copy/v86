@@ -726,6 +726,12 @@ game.exe
 >   - `make glbridge-gpu-tests`。
 > - 未做：CI 里跑 SwiftShader 真 GPU 页；从真实游戏录制轨迹。
 
+> **阶段 1A（2026-11-01）：CI 目标与客体回读边界完成。**
+>
+> - 新增 `make d3d-review-gpu-tests` 与独立 CI job：强制 SwiftShader，先核对实际适配器，再执行 D3D9 一致性、Tint 和浏览器页；同一 job 取配套站点 `refactor`，安装 clang/MinGW/naga 并执行客体 ABI 测试。配置按 Chromium 自身的 [WebGPU SwiftShader 测试参数](https://github.com/chromium/chromium/blob/main/third_party/blink/web_tests/FlagSpecificConfig)设置。远端 CI 尚未触发，本机已执行相同浏览器目标并全部通过。
+> - 33 个一致性场景改由真正的 `READBACK_SURFACE` 和客体响应包取像素，不再直接拷贝测试纹理。S2-2/S2-3/S2-6 三项原有已知失败仍明确保留，后续在阶段 3 修复。
+> - 增加 V86GTRC1 浏览器录放 codec，与既有 x64 recorder 逐字节交叉验证，并拒绝截断/空包/未知记录。真实游戏录制、黄金回放和特性分表继续阶段 1B；首次 Warcraft III 启动未进入绘制，保留为失败诊断，未计通过。
+
 - **目标：** 测试能发现语义错误；变异实验从 2/12 提升到 ≥10/12。
 - **改动：**
   - **严格的假 GPU（一套共用）：**

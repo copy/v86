@@ -380,5 +380,14 @@
             cmd(OP.END_SCENE, u32(dev)), cmd(OP.PRESENT, u32(dev, 0x1234, 0, 0, W, W))], true) };
     }
 
-    global.D3D9Conformance = { CASES, KNOWN_FAILURES, caseBatch, W };
+    function readbackBatch(session, dev, texture) {
+        const P = global.D9WGProtocol, C = P.C;
+        return batch(session, [cmd(P.OP.READBACK_SURFACE, P.encode("ReadbackSurface", {
+            device_handle: dev, texture_handle: texture, format: 21, width: W, height: W,
+            first_row: 0, row_count: W, destination_pitch: W * 4, destination_bytes: W * W * 4,
+            response_offset: C.D9WG_READBACK_REGION_OFFSET, request_id: 1,
+        }))], false);
+    }
+
+    global.D3D9Conformance = { CASES, KNOWN_FAILURES, caseBatch, readbackBatch, W };
 })(typeof globalThis !== "undefined" ? globalThis : this);

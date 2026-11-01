@@ -91,3 +91,52 @@ jobs:
 
       - name: Tests (no disk images)
         run: make ci-tests
+
+  graphics:
+    name: D3D browser pixels and guest ABI
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: v86
+      - uses: actions/checkout@v7
+        with:
+          repository: speedyHKjournalist/retro-gaming-site
+          ref: refactor
+          path: retro-gaming-site
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.17.0'
+      - name: Native guest-test toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang gcc-mingw-w64-i686
+      - name: Cache naga
+        id: naga
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/naga
+          key: naga-cli-30.0.0
+      - name: Install naga
+        if: steps.naga.outputs.cache-hit != 'true'
+        run: cargo install naga-cli --version 30.0.0 --locked
+      - name: Browser WebGPU through SwiftShader
+        working-directory: v86
+        env:
+          GL_CHROME: /usr/bin/google-chrome
+          GL_SWIFTSHADER: '1'
+        run: |
+          mkdir -p build/browser-test-output
+          make d3d-review-gpu-tests | tee build/browser-test-output/d3d-review-ci.log
+      - name: Execute guest-side protocol and API fixtures
+        working-directory: retro-gaming-site
+        env:
+          V86_ROOT: ${{ github.workspace }}/v86
+        run: |
+          for test in glbridge/tests/*_test.js; do node "$test" || exit 1; done
+      - name: Retain browser evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: d3d-browser-results
+          path: v86/build/browser-test-output
+          if-no-files-found: error

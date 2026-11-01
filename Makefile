@@ -92,6 +92,12 @@ GLBRIDGE_GPU_PAGES = gl_presented_frame_browser_test.html gl_wgl_swap_browser_te
 	gl_multipass_browser_test.html d3d9_legacy_format_browser_test.html gl_vertex_capture_browser_test.html gl_raster_program_browser_test.html gl_evaluator_browser_test.html \
 	gl_gpu_snapshot_browser_test.html gl_renderer_snapshot_browser_test.html gl_program_interface_browser_test.html gl_stencil_ext_browser_test.html gl_program_matrix_browser_test.html gl_pipeline_keys_browser_test.html gl_resource_lifetime_browser_test.html gl_stencil_faces_browser_test.html gl_blit_aspects_browser_test.html gl_volume_browser_test.html gl_polygon_order_browser_test.html gl_sampling_levels_browser_test.html gl_mipmap_ranges_browser_test.html gl_texture_upload_order_browser_test.html gl_texture_images_browser_test.html gl_sampler_state_browser_test.html gl_program_polygon_browser_test.html gl_point_raster_browser_test.html gl_program_line_browser_test.html gl_clip_planes_browser_test.html gl_polygon_clip_browser_test.html gl_single_sample_browser_test.html gl_format_complete_browser_test.html gl_s3_render_browser_test.html gl_bind_layout_browser_test.html gl_clear_pass_browser_test.html gl_bitmap_atlas_browser_test.html gl_partial_update_browser_test.html gl_cache_bounds_browser_test.html gl_game_trace_fixture_browser_test.html gl_game_trace_replay_browser_test.html?prefix=trace-fixture
 .PHONY: glbridge-gpu-tests glbridge-mutations
+D3D_REVIEW_GPU_PAGES = d3d9_conformance_browser_test.html d3d9_shader_tint_browser_test.html d3d9_webgpu_browser_test.html
+.PHONY: d3d-review-gpu-tests
+d3d-review-gpu-tests:
+	node tests/glbridge/gl_multipass_browser_runner.js 'webgpu_adapter_browser_test.html?required=$(if $(filter 1,$(GL_SWIFTSHADER)),swiftshader,any)'
+	set -e; for page in $(D3D_REVIEW_GPU_PAGES); do GL_TIMEOUT_MS=300000 node tests/glbridge/gl_multipass_browser_runner.js $$page; done
+
 glbridge-gpu-tests:
 	set -e; for page in $(GLBRIDGE_GPU_PAGES); do \
 		echo "$$page"; GL_TIMEOUT_MS=300000 node tests/glbridge/gl_multipass_browser_runner.js $$page > /dev/null; done
