@@ -1057,6 +1057,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 见 [stage4a1-validation.json](fixtures/d3d-review/stage4a1-validation.json)；宿主运行包仍为 `9341833c88a4a8e6a411`。**不是阶段 4 完成**：D3D8 大纹理、进程唯一 owner、驱动多 owner、其余共用核心及 XP/Wine/游戏验收仍待继续。
 
 
+> **阶段 4A2（2026-11-02）：共用纹理分带及上传编码完成。**
+>
+> - `d9wg_upload_bridge.h` 统一三前端的 UPDATE_BUFFER / UPDATE_TEXTURE 编码，runtime 统一有边界检查的整块行迭代。D3D8 大纹理、D3D9 cube/volume、DDraw surface 全部接入；D3D9 原 2D 路径也复用同一实现。
+> - 实际 C emitter 对照：旧 D3D8 拒绝 2048² / 16 MiB，新三条路径两批完整提交；验证带 padding 行距、非零 mip/face、压缩纹理边缘与部分区域的逻辑尺寸。实际 cube wrapper 和两条 volume wrapper 也被执行，整次 volume 上传持锁。
+> - 74 组客体测试、两项站点集成通过；35 个 XP 冒烟 EXE 和六个零售/诊断 DLL 严格构建通过，无 CRT 导入。前一阶段的 buffer/discard/失败边界检查继续通过。源码模式断言中对应上传部分已由实际 C 行为测试取代。
+> - 见 [stage4a2-validation.json](fixtures/d3d-review/stage4a2-validation.json)。继续进程唯一 owner、驱动多 owner 和其余共用核心；这些是原生 C 与构建验收，尚不等同于 XP/Wine/游戏完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

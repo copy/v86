@@ -1,0 +1,58 @@
+{
+  "stage": "4A2 shared texture rows and upload encoder",
+  "date": "2026-11-02",
+  "guestSuites": 74,
+  "siteIntegrationTests": 2,
+  "nativeCPaths": [
+    "D3D8",
+    "D3D9",
+    "DirectDraw"
+  ],
+  "textureCasesPerPath": 4,
+  "largePlaneBytes": 16777216,
+  "largePlaneBands": 2,
+  "checks": [
+    "actual D3D9 cube wrapper indexes face and mip",
+    "actual D3D8/D3D9 volume wrappers hold the lock across slices",
+    "padded source pitches and partial source rectangles",
+    "BC block rows retain logical texel height, including 4+3 edge bands",
+    "full successful DDraw upload clears pending debt",
+    "prior buffer bounds/discard/failure checks remain passing"
+  ],
+  "before": "Pinned site 833bc0e D3D8 actual emit_level_update fails the same 2048-square upload.",
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "runtimeImports": false,
+  "coreGraphicsRevision": "9341833c88a4a8e6a411",
+  "scope": "All texture/cube/volume/surface UPDATE_TEXTURE and buffer UPDATE_BUFFER encoding is shared through d9wg_upload_bridge.h and pure C row/span iteration. Process ownership is not yet shared.",
+  "next": "Process-unique DMA/batch/query/handle state, then driver multiple-owner support and remaining guest stages. Native XP API and game acceptance still pending.",
+  "sha256": {
+    "glbridge/runtime/d9wg_runtime.h": "9b1da2de7e39b5aae38a4db289225ef94bfcea9ad4eebdcc1cb49c8e0980ff12",
+    "glbridge/runtime/d9wg_runtime.c": "ab96e730c6b6945ff339033005fcbc6bff4aad3fc133b23e8953f2a7e83d99e0",
+    "glbridge/runtime/d9wg_upload_bridge.h": "52f4233d5f374e41392988c2e08c12389d79cc0b0e6088b83d3de3cf5966b29e",
+    "glbridge/tests/d9wg_runtime_texture_test.js": "e2fc444bd8f9628bb20cc5f8fc97f115298d99931537ee35ead16037eec73c91",
+    "glbridge/tests/d9wg_runtime_upload_test.js": "ec4f457e936877cfcc610007470e2f38f9130b90b53e0d8e904f39af181ea917",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "f76ad8b7623b62123eb3295c2d57d38a7e7508f7fca96b3429a3185723337a80",
+    "glbridge/d3d9proxy/d3d9.dll": "c0845ed74b35e0455933e65c01ae209d1ad360c969235588766135523f3bfdd3",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "5f02af8b5b9297a53f4bedf3742bcafad5eb232ad3d6ea25299f2fb3658f516d",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "889216eedfad95a3f84b758df05e772d9f0437accd63ddc357699f304ab51220",
+    "glbridge/d3d8proxy/d3d8.dll": "3643218e65fc6652d65366ae5e49fe80edd9267711a6bb02cd4216a4c911da1e",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "8034e542c498fb59753dddeed41290466fe5e4594e5e621a1ab3c039c67bf9b5",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "792a77c271553c29c11f43247c916fa22dfad5a5188f069d60cefc98dc8621af",
+    "glbridge/ddrawproxy/ddraw.dll": "29f25362e25af730f51e305e3ca7c950df9df6f8fb3220f8bb0c9e26300caeb5",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "3f2d3ad503985e3e9d97d33afa695b73ce69d29b49a76d7909f862fb9910e229"
+  },
+  "logs": {
+    "d3d-stage4a2-guest.log": "00427ed26c8b3d891c03d51f11ad83b4ccf71efd666051a8e0e3d7ac4ae7e377",
+    "d3d-stage4a2-texture.log": "c7c5d2696c7413b21b550175ffd47c315449dd3a548fdc874b095ac964875af4",
+    "d3d-stage4a2-buffer.log": "33bdddb92d3a44227b44a3dbf0a88600804066630fc103bda001cd58b261331b",
+    "d3d-stage4a2-before.log": "a79296ac57ddc5c7f5cadaa56f31ade75c9ee9031496ad576a5b0bb6e201774b",
+    "d3d-stage4a2-integration.log": "f131544cd8e972cbf84ce3ebeb2f4e92f4ddae2148b236fcd5ce2e235796c266",
+    "d3d-stage4a2-d3d9-smoke-build.log": "4d1f3d1adb0d69e41d63eafb6bcd7813c612be7c62cb9d6eb5efac5f3191470f",
+    "d3d-stage4a2-d3d9-diagnostic-build.log": "e8a32b4649ad62467cd8e904a76ba3a547c8aa9a6a6714be99a5efe5b40342ed",
+    "d3d-stage4a2-d3d8-smoke-build.log": "db577559f68ebd933732251d7f5cac009bd87c61895dfd0646ac907e689d6380",
+    "d3d-stage4a2-d3d8-diagnostic-build.log": "b8e455c5152cb67f1dc5a04bb89a318f2c5ee3f174bcc6401f78555ba007c7a4",
+    "d3d-stage4a2-ddraw-smoke-build.log": "2752c3f141392cbf561d168229fcb0e9135942d00b84bf62b6d169cb6ea696a4",
+    "d3d-stage4a2-ddraw-diagnostic-build.log": "5ddef4229a9b8704958a5afae40613141f5021cb93f2d577eb292cecd39a9f44"
+  }
+}
