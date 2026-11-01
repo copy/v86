@@ -275,10 +275,16 @@ function makeExecutor(options = {}) {
 }
 
 // The blit uniform block, read back out of the writeBuffer the replay made.
+function uniformBytes(find, size) {
+    const groups = find("createBindGroup").map(call => call[1]);
+    const binding = groups.map(group => group.entries.find(entry => entry.binding === 0)?.resource).filter(resource => resource?.size === size).pop();
+    assert.ok(binding, "no utility uniform binding of size " + size);
+    const write = find("writeBuffer").filter(call => call[1] === binding.buffer && call[2] <= binding.offset && call[2] + call[3].length >= binding.offset + size).pop();
+    assert.ok(write, "the bound utility uniform range was not uploaded");
+    return write[3].subarray(binding.offset - write[2], binding.offset - write[2] + size);
+}
 function uniformBlock(find) {
-    const write = find("writeBuffer").filter(call => call[3].length === 128).pop();
-    assert.ok(write, "no 128-byte blit uniform upload was made");
-    const bytes = write[3];
+    const bytes = uniformBytes(find, 128);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     return {
         sourceRect: [view.getFloat32(0, true), view.getFloat32(4, true),
@@ -792,11 +798,8 @@ await test("DDBLT_DEPTHFILL clears the requested depth rectangle", async () => {
     const viewport = find("setViewport").find(call =>
         call[1] === 8 && call[2] === 12 && call[3] === 32 && call[4] === 32);
     assert.ok(viewport, "the depth fill did not preserve its destination rect");
-    const uniformWrite = find("writeBuffer").find(call => call[3].length === 32);
-    assert.ok(uniformWrite, "the depth fill value was not uploaded");
-    const depth = new DataView(uniformWrite[3].buffer,
-        uniformWrite[3].byteOffset, uniformWrite[3].byteLength)
-        .getFloat32(16, true);
+    const bytes = uniformBytes(find, 32);
+    const depth = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getFloat32(16, true);
     assert.equal(depth, 0.5);
     assert.equal(executor.getStats().ddDepthFills, 1);
 });

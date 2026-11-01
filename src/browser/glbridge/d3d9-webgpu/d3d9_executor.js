@@ -70,6 +70,9 @@
     const Uploads = global.D9WGUploads ||
         (typeof require === "function" ? require("./d9wg_uploads.js") : null);
     if (!Uploads) throw new Error("d3d9_executor.js requires d9wg_uploads.js to be loaded first");
+    const surfaceFactory = global.D9WGSurfaceOps ||
+        (typeof require === "function" ? require("./d9wg_surface_ops.js") : null);
+    if (!surfaceFactory) throw new Error("d3d9_executor.js requires d9wg_surface_ops.js to be loaded first");
     const resourceFactory = global.D9WGResources ||
         (typeof require === "function" ? require("./d9wg_resources.js") : null);
     if (!resourceFactory) throw new Error("d3d9_executor.js requires d9wg_resources.js to be loaded first");
@@ -4676,8 +4679,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // Drawn onto the canvas copy rather than the back buffer,
                 // so the cursor never accumulates into the image the next
                 // frame loads or GetRenderTargetData reads.
-                this.drawCursor(encoder, swapTexture.createView(),
+                const cursorTransient = this.drawCursor(encoder, swapTexture.createView(),
                     swapTexture.width, swapTexture.height);
+                if (cursorTransient) frame.transientBuffers.push(cursorTransient);
             }
             this.uploadUniformStaging();
             this.device.queue.submit([encoder.finish()]);
@@ -5198,39 +5202,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             ++this.stats.renderTargetBinds;
         }
 
-        // One blit per level, each reading the level above with linear
-        // filtering: the box downsample D3D9's default D3DTEXF_LINEAR describes.
-        replayGenerateMips(encoder, op) {
-            const resource = op.resource;
-            const layers = resource.layerCount || 1;
-            const format = resource.gpuFormat || formatToGPU(resource.format);
-            const buffers = [];
-            for (let layer = 0; layer < layers; ++layer) {
-                for (let level = 1; level < resource.levelCount; ++level) {
-                    const width = Math.max(1, resource.width >> level);
-                    const height = Math.max(1, resource.height >> level);
-                    const blit = {
-                        kind: "blit",
-                        sourceView: this.blitSourceView(resource, level - 1,
-                            layer),
-                        destinationView: this.targetViewFor(resource, level,
-                            false, layer),
-                        destinationFormat: format,
-                        sourceFormat: format,
-                        // The whole of the parent level, into the whole of this
-                        // one.
-                        sourceRect: [0, 0, 1, 1],
-                        viewport: [0, 0, width, height],
-                        filterPoint: false,
-                    };
-                    const transient = this.replayBlit(encoder, blit, null);
-                    if (transient) buffers.push(transient);
-                    ++this.stats.mipLevelsGenerated;
-                }
-            }
-            return buffers;
-        }
-
         // IDirect3DDevice9::SetGammaRamp. D3D9 applies this at scanout, after
         // everything the renderer did, so it is applied here in the step that
         // moves the finished back buffer onto the canvas -- see the present
@@ -5443,85 +5414,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 if (state && state.gammaRampView) return state.gammaRampView;
             }
             return null;
-        }
-
-        // The present-time lookup pass. Separate from blitPipelineFor() because
-        // it binds a third resource the ordinary blit has no slot for, and
-        // because textureLoad -- not textureSample -- is what makes the lookup
-        // exact: a ramp entry is chosen by index, never interpolated between
-        // two neighbours.
-        gammaBlitPipelineFor(format) {
-            if (!this.gammaBlitPipelines) this.gammaBlitPipelines = new Map();
-            let entry = this.gammaBlitPipelines.get(format);
-            if (entry) return entry;
-            const module = this.moduleFor(`@group(0) @binding(0) var d9_gamma_source: texture_2d<f32>;
-@group(0) @binding(1) var d9_gamma_sampler: sampler;
-@group(0) @binding(2) var d9_gamma_ramp: texture_2d<f32>;
-
-struct D9GammaOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-};
-
-@vertex
-fn d9_vs_main(@builtin(vertex_index) index: u32) -> D9GammaOutput {
-    var corners = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(0.0, 1.0),
-        vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0));
-    let corner = corners[index];
-    var result: D9GammaOutput;
-    result.position = vec4<f32>(corner.x * 2.0 - 1.0, 1.0 - corner.y * 2.0,
-        0.0, 1.0);
-    result.uv = corner;
-    return result;
-}
-
-@fragment
-fn d9_ps_main(stage_in: D9GammaOutput) -> @location(0) vec4<f32> {
-    let source = textureSample(d9_gamma_source, d9_gamma_sampler, stage_in.uv);
-    // Each channel indexes the table independently -- D3D9's ramp is three
-    // separate curves, and titles do set them apart (a red damage flash is
-    // exactly that).
-    let index = vec3<i32>(clamp(source.rgb, vec3<f32>(0.0), vec3<f32>(1.0))
-        * 255.0 + vec3<f32>(0.5));
-    return vec4<f32>(
-        textureLoad(d9_gamma_ramp, vec2<i32>(index.r, 0), 0).r,
-        textureLoad(d9_gamma_ramp, vec2<i32>(index.g, 0), 0).g,
-        textureLoad(d9_gamma_ramp, vec2<i32>(index.b, 0), 0).b,
-        source.a);
-}
-`, "d3d9 gamma blit " + format);
-            const bindGroupLayout = this.device.createBindGroupLayout({
-                entries: [
-                    { binding: 0, visibility: SHADER_STAGE_FRAGMENT,
-                      texture: { sampleType: "float" } },
-                    { binding: 1, visibility: SHADER_STAGE_FRAGMENT,
-                      sampler: { type: "filtering" } },
-                    // The ramp is read with textureLoad, which is defined for
-                    // an unfilterable-float binding and needs no sampler.
-                    { binding: 2, visibility: SHADER_STAGE_FRAGMENT,
-                      texture: { sampleType: "unfilterable-float" } },
-                ],
-            });
-            entry = {
-                pipeline: this.device.createRenderPipeline({
-                    label: "D3D9 gamma blit " + format,
-                    layout: this.device.createPipelineLayout(
-                        { bindGroupLayouts: [bindGroupLayout] }),
-                    vertex: { module, entryPoint: "d9_vs_main" },
-                    fragment: { module, entryPoint: "d9_ps_main",
-                        targets: [{ format }] },
-                    primitive: { topology: "triangle-list" },
-                }),
-                bindGroupLayout,
-                sampler: this.device.createSampler({
-                    magFilter: "nearest", minFilter: "nearest",
-                    addressModeU: "clamp-to-edge",
-                    addressModeV: "clamp-to-edge",
-                }),
-            };
-            this.gammaBlitPipelines.set(format, entry);
-            return entry;
         }
 
         onSetDepthStencilSurfaceLevel(bytes, view, offset) {
@@ -5983,382 +5875,11 @@ fn d9_ps_main(stage_in: D9GammaOutput) -> @location(0) vec4<f32> {
             return record;
         }
 
-        // One pipeline per destination format. The quad is generated from the
-        // vertex index, so a blit needs no vertex buffer at all.
-        blitPipelineFor(format, filterPoint, sourceFormat) {
-            // WebGPU exposes filtering and blending for 32-bit float formats
-            // as independent optional features.  A D3D point blit remains
-            // legal without float32-filterable, but its binding layout and
-            // sampler must explicitly be non-filtering.
-            const unfilterable = isFloat32GPUFormat(sourceFormat) &&
-                !this.deviceFeatures.float32Filterable;
-            const point = filterPoint || unfilterable;
-            const key = format + "|" + (point ? "point" : "linear") + "|" +
-                (unfilterable ? "unfilterable" : "filterable");
-            if (!this.blitPipelines) this.blitPipelines = new Map();
-            let entry = this.blitPipelines.get(key);
-            if (entry) return entry;
-            const module = this.moduleFor(`struct D9BlitUniforms {
-    source_rect: vec4<f32>,
-};
-@group(0) @binding(0) var<uniform> blit: D9BlitUniforms;
-@group(0) @binding(1) var d9_blit_source: texture_2d<f32>;
-@group(0) @binding(2) var d9_blit_sampler: sampler;
-
-struct D9BlitOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-};
-
-@vertex
-fn d9_vs_main(@builtin(vertex_index) index: u32) -> D9BlitOutput {
-    // Two triangles covering the whole viewport; setViewport restricts the
-    // output to the destination rect, so no destination maths is needed here.
-    var corners = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(0.0, 1.0),
-        vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0));
-    let corner = corners[index];
-    var result: D9BlitOutput;
-    result.position = vec4<f32>(corner.x * 2.0 - 1.0, 1.0 - corner.y * 2.0,
-        0.0, 1.0);
-    result.uv = blit.source_rect.xy + corner * blit.source_rect.zw;
-    return result;
-}
-
-@fragment
-fn d9_ps_main(stage_in: D9BlitOutput) -> @location(0) vec4<f32> {
-    return textureSample(d9_blit_source, d9_blit_sampler, stage_in.uv);
-}
-`, "d3d9 blit " + key);
-            const bindGroupLayout = this.device.createBindGroupLayout({
-                entries: [
-                    { binding: 0, visibility: SHADER_STAGE_VERTEX,
-                      buffer: { type: "uniform" } },
-                    { binding: 1, visibility: SHADER_STAGE_FRAGMENT,
-                      texture: { sampleType: unfilterable
-                          ? "unfilterable-float" : "float" } },
-                    { binding: 2, visibility: SHADER_STAGE_FRAGMENT,
-                      sampler: { type: unfilterable
-                          ? "non-filtering" : "filtering" } },
-                ],
-            });
-            const pipeline = this.device.createRenderPipeline({
-                label: "D3D9 blit " + key,
-                layout: this.device.createPipelineLayout(
-                    { bindGroupLayouts: [bindGroupLayout] }),
-                vertex: { module, entryPoint: "d9_vs_main" },
-                fragment: { module, entryPoint: "d9_ps_main",
-                    targets: [{ format }] },
-                primitive: { topology: "triangle-list" },
-            });
-            const sampler = this.device.createSampler({
-                magFilter: point ? "nearest" : "linear",
-                minFilter: point ? "nearest" : "linear",
-                addressModeU: "clamp-to-edge", addressModeV: "clamp-to-edge",
-            });
-            entry = { pipeline, bindGroupLayout, sampler };
-            this.blitPipelines.set(key, entry);
-            return entry;
-        }
-
-        // Runs a recorded blit op inside finishFrame, where the swap chain view
-        // exists. `swapView` substitutes for a null source/destination view.
-        replayBlit(encoder, op, swapView) {
-            const sourceView = op.sourceView || swapView;
-            const destinationView = op.destinationView || swapView;
-            if (!sourceView || !destinationView) return null;
-            const entry = this.blitPipelineFor(op.destinationFormat,
-                op.filterPoint, op.sourceFormat);
-            const uniform = this.device.createBuffer({
-                size: 16,
-                usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
-            });
-            this.device.queue.writeBuffer(uniform, 0,
-                new Float32Array(op.sourceRect));
-            const bindGroup = this.device.createBindGroup({
-                layout: entry.bindGroupLayout,
-                entries: [
-                    { binding: 0, resource: { buffer: uniform } },
-                    { binding: 1, resource: sourceView },
-                    { binding: 2, resource: entry.sampler },
-                ],
-            });
-            const pass = encoder.beginRenderPass({
-                colorAttachments: [{ view: destinationView,
-                    loadOp: "load", storeOp: "store" }],
-            });
-            ++this.stats.renderPasses;
-            pass.setPipeline(entry.pipeline);
-            pass.setBindGroup(0, bindGroup);
-            pass.setViewport(op.viewport[0], op.viewport[1], op.viewport[2],
-                op.viewport[3], 0, 1);
-            pass.draw(6);
-            pass.end();
-            return uniform;
-        }
-
-        // A pass's colour attachment for one target of renderTargetsFor: a
-        // multisampled target renders into its multisampled texture and
-        // resolves, at the end of every pass, into the texture D3D reads
-        colorAttachmentFor(color, swapView, swapSrgbView) {
-            const resolved = color.view || (color.format === this.swapchainSrgbFormat ? swapSrgbView : swapView);
-            return color.msaaView ? { view: color.msaaView, resolveTarget: resolved } : { view: resolved };
-        }
-
         // What a write outside a render pass leaves stale: the multisampled
         // texture behind `destination` (null: the back buffer of `state`)
         msaaOwnerOf(destination, state) {
             if (destination) return destination.msaaTexture ? destination : null;
             return state.backBufferMsaaView ? state : null;
-        }
-
-        /*
-         * StretchRect, ColorFill and copies write a multisampled target's
-         * resolved texture. The next pass that loads the target would resolve
-         * its stale samples over that write, so before it the resolved image
-         * is drawn back into every sample.
-         */
-        unresolveStale(encoder, targets, swapView) {
-            for (const color of targets.colors) {
-                if (!color || !color.msaaOwner || !color.msaaOwner.msaaStale) continue;
-                color.msaaOwner.msaaStale = false;
-                const swapchain = color.swapchain;
-                const format = swapchain ? this.format : color.resource.gpuFormat;
-                const entry = this.unresolvePipelineFor(format, color.sampleCount);
-                const pass = encoder.beginRenderPass({ colorAttachments: [{
-                    view: swapchain ? color.msaaOwner.backBufferMsaaView : this.msaaViewFor(color.resource, false),
-                    loadOp: "clear", clearValue: { r: 0, g: 0, b: 0, a: 0 }, storeOp: "store" }] });
-                ++this.stats.renderPasses;
-                ++this.stats.msaaUnresolves;
-                pass.setPipeline(entry.pipeline);
-                pass.setBindGroup(0, this.device.createBindGroup({ layout: entry.layout, entries: [
-                    { binding: 0, resource: swapchain ? (color.linearView || swapView) : this.targetViewFor(color.resource, 0, false, 0) }] }));
-                pass.draw(3);
-                pass.end();
-            }
-        }
-
-        unresolvePipelineFor(format, sampleCount) {
-            const key = format + "x" + sampleCount;
-            this.unresolvePipelines = this.unresolvePipelines || new Map();
-            let entry = this.unresolvePipelines.get(key);
-            if (entry) return entry;
-            const module = this.moduleFor(`@group(0) @binding(0) var resolved: texture_2d<f32>;
-@vertex
-fn vs(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
-    var positions = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
-    return vec4<f32>(positions[index], 0.0, 1.0);
-}
-@fragment
-fn fs(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    return textureLoad(resolved, vec2<i32>(position.xy), 0);
-}
-`, "d3d9 msaa unresolve");
-            const layout = this.device.createBindGroupLayout({ entries: [{ binding: 0,
-                visibility: SHADER_STAGE_FRAGMENT, texture: { sampleType: "unfilterable-float" } }] });
-            entry = { layout, pipeline: this.gpuErrors.scoped("msaa unresolve pipeline", () =>
-                this.device.createRenderPipeline({
-                    label: "D3D9 MSAA unresolve " + key,
-                    layout: this.device.createPipelineLayout({ bindGroupLayouts: [layout] }),
-                    vertex: { module, entryPoint: "vs" },
-                    fragment: { module, entryPoint: "fs", targets: [{ format }] },
-                    primitive: { topology: "triangle-list" },
-                    multisample: { count: sampleCount },
-                })).object };
-            this.unresolvePipelines.set(key, entry);
-            return entry;
-        }
-
-        rectClearPipelineFor(targets, clearsColor, clearsDepth, clearsStencil) {
-            // The key has to describe the *pass* this pipeline will be used
-            // in, not just what the clear writes. WebGPU requires a pipeline's
-            // attachment state -- colour formats, whether there is a
-            // depth-stencil attachment, and the sample count -- to match the
-            // pass exactly. Keying on the clear flags alone let a pipeline
-            // built for a depth-less pass be reused in a pass that has depth,
-            // which fails validation at setPipeline and invalidates the whole
-            // command buffer, so the frame draws nothing. 3DMark 2001 hits
-            // this the moment one pass drops depth (an undersized depth
-            // surface does that) and the next one has it.
-            const key = [targets.formats.join(","), clearsColor ? "c" : "-",
-                clearsDepth ? "d" : "-", clearsStencil ? "s" : "-",
-                targets.hasDepth ? "z" : "-",
-                targets.sampleCount || 1].join("|");
-            if (!this.rectClearPipelines) this.rectClearPipelines = new Map();
-            let entry = this.rectClearPipelines.get(key);
-            if (entry) return entry;
-            const slots = targets.formats.map((format, index) => format ? index : -1)
-                .filter(index => index >= 0);
-            const colorFields = slots.map(index =>
-                "    @location(" + index + ") color" + index + ": vec4<f32>,");
-            const colorWrites = slots.map(index =>
-                "    result.color" + index + " = clear.color;");
-            const depthField = clearsDepth
-                ? "    @builtin(frag_depth) depth: f32," : "";
-            const depthWrite = clearsDepth
-                ? "    result.depth = clear.depth.x;" : "";
-            const module = this.moduleFor(`struct D9RectClearUniforms {
-    color: vec4<f32>,
-    depth: vec4<f32>,
-};
-@group(0) @binding(0) var<uniform> clear: D9RectClearUniforms;
-
-struct D9RectClearOutput {
-${colorFields.join("\n")}
-${depthField}
-};
-
-@vertex
-fn d9_vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
-    var positions = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0),
-        vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
-    return vec4<f32>(positions[index], 0.0, 1.0);
-}
-
-@fragment
-fn d9_ps_main() -> D9RectClearOutput {
-    var result: D9RectClearOutput;
-${colorWrites.join("\n")}
-${depthWrite}
-    return result;
-}
-`, "d3d9 rectangle clear " + key);
-            const bindGroupLayout = this.device.createBindGroupLayout({
-                entries: [{ binding: 0, visibility: SHADER_STAGE_FRAGMENT,
-                    buffer: { type: "uniform" } }],
-            });
-            const descriptor = {
-                label: "D3D9 rectangle clear " + key,
-                layout: this.device.createPipelineLayout(
-                    { bindGroupLayouts: [bindGroupLayout] }),
-                vertex: { module, entryPoint: "d9_vs_main" },
-                fragment: { module, entryPoint: "d9_ps_main",
-                    targets: targets.formats.map(format => format && ({ format,
-                        writeMask: clearsColor ? 0xF : 0 })) },
-                primitive: { topology: "triangle-list" },
-            };
-            if (targets.hasDepth) {
-                const stencil = clearsStencil ? { compare: "always",
-                    failOp: "keep", depthFailOp: "keep", passOp: "replace" } : {};
-                descriptor.depthStencil = { format: DEPTH_FORMAT,
-                    depthWriteEnabled: clearsDepth, depthCompare: "always",
-                    stencilFront: stencil, stencilBack: stencil,
-                    stencilReadMask: clearsStencil ? 0xff : 0,
-                    stencilWriteMask: clearsStencil ? 0xff : 0 };
-            }
-            if ((targets.sampleCount || 1) > 1)
-                descriptor.multisample = { count: targets.sampleCount };
-            entry = { pipeline: this.device.createRenderPipeline(descriptor),
-                bindGroupLayout };
-            this.rectClearPipelines.set(key, entry);
-            return entry;
-        }
-
-        replayRectClear(encoder, op, swapView, swapSrgbView) {
-            this.unresolveStale(encoder, op.targets, swapView);
-            const entry = this.rectClearPipelineFor(op.targets, op.clearsColor,
-                op.clearsDepth, op.clearsStencil);
-            const uniform = this.device.createBuffer({ size: 32,
-                usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST });
-            this.device.queue.writeBuffer(uniform, 0, new Float32Array([
-                op.color.r, op.color.g, op.color.b, op.color.a,
-                op.depth, 0, 0, 0,
-            ]));
-            const bindGroup = this.device.createBindGroup({
-                layout: entry.bindGroupLayout,
-                entries: [{ binding: 0, resource: { buffer: uniform } }],
-            });
-            const descriptor = {
-                colorAttachments: op.targets.colors.map(color => color && {
-                    ...this.colorAttachmentFor(color, swapView, swapSrgbView),
-                    loadOp: "load", storeOp: "store",
-                }),
-            };
-            if (op.targets.depthView) descriptor.depthStencilAttachment = {
-                view: op.targets.depthView,
-                depthLoadOp: "load", depthStoreOp: "store",
-                stencilLoadOp: "load", stencilStoreOp: "store",
-            };
-            const pass = encoder.beginRenderPass(descriptor);
-            ++this.stats.renderPasses;
-            pass.setPipeline(entry.pipeline);
-            pass.setBindGroup(0, bindGroup);
-            pass.setStencilReference(op.stencil & 0xff);
-            for (const rect of op.rects) {
-                pass.setViewport(rect.left, rect.top, rect.right - rect.left,
-                    rect.bottom - rect.top, 0, 1);
-                pass.draw(3);
-            }
-            pass.end();
-            return uniform;
-        }
-
-        colorFillPipelineFor(format) {
-            if (!this.colorFillPipelines) this.colorFillPipelines = new Map();
-            let entry = this.colorFillPipelines.get(format);
-            if (entry) return entry;
-            const module = this.moduleFor(`struct D9ColorFillUniforms {
-    color: vec4<f32>,
-};
-@group(0) @binding(0) var<uniform> fill: D9ColorFillUniforms;
-
-@vertex
-fn d9_vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
-    var positions = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0),
-        vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
-    return vec4<f32>(positions[index], 0.0, 1.0);
-}
-
-@fragment
-fn d9_ps_main() -> @location(0) vec4<f32> {
-    return fill.color;
-}
-`, "d3d9 ColorFill " + format);
-            const bindGroupLayout = this.device.createBindGroupLayout({
-                entries: [{ binding: 0, visibility: SHADER_STAGE_FRAGMENT,
-                    buffer: { type: "uniform" } }],
-            });
-            const pipeline = this.device.createRenderPipeline({
-                label: "D3D9 ColorFill " + format,
-                layout: this.device.createPipelineLayout(
-                    { bindGroupLayouts: [bindGroupLayout] }),
-                vertex: { module, entryPoint: "d9_vs_main" },
-                fragment: { module, entryPoint: "d9_ps_main",
-                    targets: [{ format }] },
-                primitive: { topology: "triangle-list" },
-            });
-            entry = { pipeline, bindGroupLayout };
-            this.colorFillPipelines.set(format, entry);
-            return entry;
-        }
-
-        replayColorFill(encoder, op) {
-            const pass = encoder.beginRenderPass({ colorAttachments: [{
-                view: op.targetView, loadOp: op.isFull ? "clear" : "load",
-                storeOp: "store", ...(op.isFull ? { clearValue: {
-                    r: op.rgba[0], g: op.rgba[1], b: op.rgba[2], a: op.rgba[3],
-                } } : {}),
-            }] });
-            ++this.stats.renderPasses;
-            let transient = null;
-            if (!op.isFull) {
-                const entry = this.colorFillPipelineFor(op.format);
-                transient = this.device.createBuffer({ size: 16,
-                    usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST });
-                this.device.queue.writeBuffer(transient, 0,
-                    new Float32Array(op.rgba));
-                const bindGroup = this.device.createBindGroup({
-                    layout: entry.bindGroupLayout,
-                    entries: [{ binding: 0, resource: { buffer: transient } }],
-                });
-                pass.setPipeline(entry.pipeline);
-                pass.setBindGroup(0, bindGroup);
-                pass.setViewport(op.left, op.top, op.right - op.left,
-                    op.bottom - op.top, 0, 1);
-                pass.draw(3);
-            }
-            pass.end();
-            return transient;
         }
 
         // A full ColorFill is a clear pass; a partial one is a viewport-limited
@@ -7465,112 +6986,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.warnOnce("window-not-visible",
                     "the game's window is minimised or hidden in the guest; " +
                     "input will not reach it", state);
-        }
-
-        // A self-contained screen-space quad, built once. It deliberately does
-        // not go through programFor()/pipelineFor(): the cursor is host-owned
-        // compositing, not a guest draw, and giving it its own trivial
-        // pipeline keeps it out of the caches keyed on guest state.
-        ensureCursorPipeline() {
-            if (this.cursor.pipeline) return this.cursor.pipeline;
-            const module = this.device.createShaderModule({
-                label: "D3D9 cursor",
-                code: `
-struct CursorRect { origin: vec2<f32>, size: vec2<f32> };
-@group(0) @binding(0) var<uniform> rect: CursorRect;
-@group(0) @binding(1) var cursor_texture: texture_2d<f32>;
-@group(0) @binding(2) var cursor_sampler: sampler;
-
-struct VSOut {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-};
-
-@vertex
-fn vs_main(@builtin(vertex_index) index: u32) -> VSOut {
-    // Two triangles covering the cursor's rectangle, in normalised
-    // back-buffer space supplied by the uniform.
-    var corners = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(0.0, 1.0),
-        vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0));
-    let corner = corners[index];
-    let position = rect.origin + corner * rect.size;
-    var out: VSOut;
-    out.position = vec4<f32>(position.x * 2.0 - 1.0,
-        1.0 - position.y * 2.0, 0.0, 1.0);
-    out.uv = corner;
-    return out;
-}
-
-@fragment
-fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
-    return textureSample(cursor_texture, cursor_sampler, in.uv);
-}
-`,
-            });
-            const bindGroupLayout = this.device.createBindGroupLayout({
-                entries: [
-                    { binding: 0, visibility: SHADER_STAGE_VERTEX, buffer: { type: "uniform" } },
-                    { binding: 1, visibility: SHADER_STAGE_FRAGMENT, texture: {} },
-                    { binding: 2, visibility: SHADER_STAGE_FRAGMENT, sampler: {} },
-                ],
-            });
-            this.cursor.bindGroupLayout = bindGroupLayout;
-            this.cursor.sampler = this.device.createSampler({
-                magFilter: "nearest", minFilter: "nearest",
-                addressModeU: "clamp-to-edge", addressModeV: "clamp-to-edge",
-            });
-            this.cursor.uniform = this.device.createBuffer({
-                label: "D3D9 cursor rect", size: 16,
-                usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
-            });
-            this.cursor.pipeline = this.device.createRenderPipeline({
-                layout: this.device.createPipelineLayout(
-                    { bindGroupLayouts: [bindGroupLayout] }),
-                vertex: { module, entryPoint: "vs_main" },
-                fragment: { module, entryPoint: "fs_main", targets: [{
-                    format: this.format,
-                    // Straight alpha: a cursor bitmap's transparent texels
-                    // must not paint over the frame.
-                    blend: {
-                        color: { srcFactor: "src-alpha",
-                                 dstFactor: "one-minus-src-alpha", operation: "add" },
-                        alpha: { srcFactor: "one",
-                                 dstFactor: "one-minus-src-alpha", operation: "add" },
-                    },
-                }] },
-                primitive: { topology: "triangle-list" },
-            });
-            return this.cursor.pipeline;
-        }
-
-        // Drawn last, in its own depth-less pass, so it sits on top of the
-        // frame regardless of what the game left in the depth buffer.
-        drawCursor(encoder, targetView, width, height) {
-            const cursor = this.cursor;
-            if (!cursor.visible || !cursor.view || !width || !height) return;
-            const pipeline = this.ensureCursorPipeline();
-            const originX = (cursor.x - cursor.hotspotX) / width;
-            const originY = (cursor.y - cursor.hotspotY) / height;
-            this.device.queue.writeBuffer(cursor.uniform, 0, new Float32Array([
-                originX, originY, cursor.width / width, cursor.height / height,
-            ]));
-            const bindGroup = this.device.createBindGroup({
-                layout: cursor.bindGroupLayout,
-                entries: [
-                    { binding: 0, resource: { buffer: cursor.uniform } },
-                    { binding: 1, resource: cursor.view },
-                    { binding: 2, resource: cursor.sampler },
-                ],
-            });
-            const pass = encoder.beginRenderPass({
-                colorAttachments: [{ view: targetView, loadOp: "load", storeOp: "store" }],
-            });
-            pass.setPipeline(pipeline);
-            pass.setBindGroup(0, bindGroup);
-            pass.draw(6);
-            pass.end();
-            ++this.stats.cursorDraws;
         }
 
         // GPUShaderModules are content-addressed by their WGSL text, so two
@@ -8889,7 +8304,7 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
             return chunk;
         }
 
-        allocateUniformSlot(byteCount) {
+        allocateUniformSlot(byteCount, retire = true) {
             const size = alignUp(byteCount, UNIFORM_OFFSET_ALIGNMENT);
             // A block wider than a whole chunk cannot be sub-allocated at all.
             if (size <= this.uniformRingCapacity) {
@@ -8926,7 +8341,9 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
                 usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
             });
             ++this.stats.uniformRingOverflows;
-            this.retireAfterSubmit(buffer);
+            // Replay-time utility passes retire through their active frame;
+            // ensureFrame() here would create a new frame and rewind its ring.
+            if (retire) this.retireAfterSubmit(buffer);
             return { buffer, offset: 0, transient: true, chunkIndex: -1 };
         }
 
@@ -10437,6 +9854,15 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
         RESOURCE_VERTEX_DECLARATION, D9WGStreamError, shaderPipeline, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER
     });
     for (const [name, value] of Object.entries(resourceMethods))
+        Object.defineProperty(D3D9WebGPUExecutor.prototype, name, { value, writable: true, configurable: true });
+
+    const surfaceMethods = surfaceFactory.createMethods({
+        formatToGPU, SHADER_STAGE_FRAGMENT, isFloat32GPUFormat, SHADER_STAGE_VERTEX,
+          DEPTH_FORMAT, TEXTURE_USAGE_COPY_SRC, TEXTURE_USAGE_COPY_DST,
+        TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_RENDER_ATTACHMENT, DDOVER_KEY_SOURCE: D9WG.C.D9WG_DDOVER_KEY_SOURCE, DDOVER_KEY_DESTINATION: D9WG.C.D9WG_DDOVER_KEY_DESTINATION,
+        DDOVER_MIRROR_X: D9WG.C.D9WG_DDOVER_MIRROR_X, DDOVER_MIRROR_Y: D9WG.C.D9WG_DDOVER_MIRROR_Y
+    });
+    for (const [name, value] of Object.entries(surfaceMethods))
         Object.defineProperty(D3D9WebGPUExecutor.prototype, name, { value, writable: true, configurable: true });
 
     D3D9WebGPUExecutor.prototype["performanceTimingVersion"] = 1;

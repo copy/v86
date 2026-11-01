@@ -910,6 +910,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 124 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、153 场景及强制小预算配置、overlay/隔离页面和完整存档恢复通过；保留已登记游戏图变化，固定旧上传路径的诊断回放通过未改动的冻结策略。
 > - 运行包 `785d758106b345d40b29`；见 [stage3c4-validation.json](fixtures/d3d-review/stage3c4-validation.json)。资源拆分的本轮工作完成，接下来统一 surface utility passes 和 uniform 分配；12 项像素偏差及 draw CPU 目标尚待后续模块。
 
+> **阶段 3D1（2026-11-02）：统一 surface utility passes 和 uniform 分配。**
+>
+> - `d9wg_surface_ops.js` 接管 13 个主执行器方法、3 个 DirectDraw GPU 方法和 4 个纯辅助函数，覆盖 blit、矩形 clear/ColorFill、gamma、光标、mip、unresolve 和 overlay 重放。blit、fill、光标与 DDraw 常量共用会话 uniform ring；128 个混合 utility pass 使用一个 GPU 缓冲，后续帧不再分配缓冲。
+> - 强制耗尽测试发现并修复重放期间临时 uniform 意外创建下一帧、重置当前游标的问题。临时缓冲由当前重放帧持有并在 GPU fence 后回收；256 字节单块配置中 127 个临时缓冲独立且正确回收。
+> - 125 组核心（严格 corpus，无 SKIP）、72 组客体、两项站点集成、153 场景的普通/小上传预算/强制 uniform 耗尽配置、最终 overlay、四种隔离、完整存档恢复和 12/12 变异通过。Warcraft III 的固定旧上传诊断通过原冻结策略，候选既有差异保持登记。
+> - 运行包 `cea10466db157bfc0ed8`；见 [stage3d1-validation.json](fixtures/d3d-review/stage3d1-validation.json)。3D2 接着迁移 DDraw GPU 缓存并修正原生格式 fill；12 项像素偏差及 draw CPU 目标尚未关闭。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

@@ -2788,9 +2788,10 @@ await test("the D3D9 hardware cursor is uploaded and composited over the frame",
         [["draw", 6]]);
 
     // Position is placed by the hotspot, in normalised back-buffer space.
-    const rectWrite = find("writeBuffer")
-        .filter(call => call[6] && call[6].byteLength === 16).pop();
-    const rect = new Float32Array(rectWrite[6].buffer, rectWrite[6].byteOffset, 4);
+    const cursorGroup = find("createBindGroup").map(call => call[1]).find(group => group.entries.some(entry => entry.resource === executor.cursor.view));
+    const rectBinding = cursorGroup.entries.find(entry => entry.binding === 0).resource;
+    const rectWrite = find("writeBuffer").filter(call => call[1] === rectBinding.buffer).pop();
+    const rect = new Float32Array(rectWrite[6].buffer, rectWrite[6].byteOffset + rectBinding.offset - rectWrite[2], 4);
     assert.ok(Math.abs(rect[0] - (100 - 2) / 640) < 1e-6, "cursor origin x");
     assert.ok(Math.abs(rect[1] - (50 - 3) / 480) < 1e-6, "cursor origin y");
     assert.ok(Math.abs(rect[2] - size / 640) < 1e-6, "cursor width");
