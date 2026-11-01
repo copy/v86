@@ -276,6 +276,11 @@
             const fields = [];
             if (signature.alphaTest && signature.alphaTest.enabled)
                 fields.push({ name: "alpha_test", type: "vec4<u32>", bytes: 16 });
+            if (signature.lodBiasUniforms) {
+                const count = Math.max(...signature.stages.filter(stage => stage.samplesTexture).map(stage => stage.index)) + 1;
+                const vectors = Math.ceil(count / 4);
+                fields.push({ name: "sampler_lod_bias", type: "array<vec4<f32>, " + vectors + ">", bytes: vectors * 16, samplerBiasCount: vectors * 4 });
+            }
             if (signature.fogMode)
                 fields.push({ name: "fog_color", type: "vec4<f32>", bytes: 16 });
             if (signature.tableFog)
@@ -983,12 +988,12 @@ ${coordBody}${fogBody}${clipBody}${pointBody}    return result;
                             ? "abs((" + coordExpression + ")." + axis + ")"
                             : "(" + coordExpression + ")." + axis)).join(", ") + ")";
                 }
-                const rawSample = stage.lodBias
-                    ? "textureSampleBias(d9_tex" + stage.index + ", d9_smp" +
-                        stage.index + ", " + coordExpression + ", " +
-                        stage.lodBias.toFixed(6) + ")"
-                    : "textureSample(d9_tex" + stage.index +
-                        ", d9_smp" + stage.index + ", " + coordExpression + ")";
+                const rawSample = signature.lodBiasUniforms
+                    ? "textureSampleBias(d9_tex" + stage.index + ", d9_smp" + stage.index + ", " + coordExpression +
+                        ", uniforms.sampler_lod_bias[" + Math.floor(stage.index / 4) + "][" + (stage.index & 3) + "])"
+                    : stage.lodBias
+                    ? "textureSampleBias(d9_tex" + stage.index + ", d9_smp" + stage.index + ", " + coordExpression + ", " + stage.lodBias.toFixed(6) + ")"
+                    : "textureSample(d9_tex" + stage.index + ", d9_smp" + stage.index + ", " + coordExpression + ")";
                 const sampled = shaderPipeline.sampleSwizzleExpression(rawSample, stage.sampleSwizzle);
                 const borderAxes = stage.textureType === "cube" ? [] :
                     (stage.textureType === "3d"

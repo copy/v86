@@ -961,6 +961,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **278/278 正向场景**及三种预算配置、128 组核心（严格 corpus）、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。固定旧 UNORM/上传/FFP 的 Warcraft III 对照继续通过原冻结策略；既有候选语义变化不改黄金图。
 > - 运行包 `738a0ae664a53d644c86`；见 [stage3f2-validation.json](fixtures/d3d-review/stage3f2-validation.json)。继续 LOD bias、clip 开关 uniform 和后续模块；单 draw CPU 目标尚未关闭。
 
+> **阶段 3F3（2026-11-02）：LOD bias uniform 完成。**
+>
+> - FFP 和 SM1/2/3 的普通隐式像素采样从紧凑 bias 向量读取浮点值；数值移出 shader key，删除为限制变体而引入的 1/16 软件量化。反射记录 uniform 区域；FFP/可编程路径共用 writer。独立翻译接口仍支持原先的 literal 选项，显式 LOD/gradient/非一致控制流的既有行为留待阶段 5 差分测试。
+> - 四条路径各改变 256 个浮点值，预热后零新增 module/pipeline；新增 8 个 GPU 场景检查负偏移、正偏移、恢复以及相邻 mip。Metal 与 SwiftShader 在 0.49/0.51 的选择边界附近存在精度差异，因此像素用例使用有余量的 0.25/0.75；另直接核验上传的 0.49 float32，确保宿主不量化。
+> - **286/286 场景同时通过 SwiftShader 和本机 Metal**；三种预算配置、129 组核心（严格 corpus，夹具调整后重跑相关 173 项）、overlay/隔离、完整恢复、12/12 变异和站点两项集成通过。删除被像素/缓存验证取代的旧 bias 字面量和变体数断言。固定旧语义的 Warcraft III 对照继续通过原冻结策略。
+> - 运行包 `dff918e7597ce77ad91b`；见 [stage3f3-validation.json](fixtures/d3d-review/stage3f3-validation.json)。继续 clip 开关 uniform，随后记录/重放等模块；CPU 目标仍待后续优化。
+
 - **目标：** 结构清楚，单个 draw 的 JS 开销降到 3 µs 以下，消除 S2-15 这一类错误。
 - **改动（按模块拆分 `d3d9_executor.js`）：**
   1. `wire/`：解码，由阶段 2 生成。

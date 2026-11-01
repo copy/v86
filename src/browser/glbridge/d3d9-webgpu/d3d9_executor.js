@@ -793,26 +793,13 @@
         return FLOAT_BITS_F32[0];
     }
 
-    // D3DSAMP_MIPMAPLODBIAS, also float bits in a DWORD.
-    //
-    // WebGPU samplers have no LOD bias at all, so the only place to apply one
-    // is the sample call -- textureSampleBias -- which means the value lands in
-    // the shader rather than in the sampler. Baking it as a literal (rather
-    // than reading it from a uniform) keeps it out of the per-draw uniform
-    // writers on both the fixed-function and translated paths, at the price of
-    // one pipeline variant per distinct bias.
-    //
-    // Quantising to 1/16 of a mip level is what bounds that price: a title that
-    // animates the bias continuously would otherwise mint a pipeline per frame,
-    // and 1/16 is far finer than the difference is visible at. The range clamp
-    // matches D3D9's own, which no hardware exceeded.
-    const LOD_BIAS_STEPS = 16;
+    // Mipmap bias is a per-draw float uniform, clamped to the supported
+    // sampling range. It no longer needs quantization to bound shader variants.
     const LOD_BIAS_LIMIT = 16;
     function lodBiasFor(dword) {
         const bias = floatFromDWORD(dword);
         if (!Number.isFinite(bias) || bias === 0) return 0;
-        return Math.round(Math.max(-LOD_BIAS_LIMIT,
-            Math.min(LOD_BIAS_LIMIT, bias)) * LOD_BIAS_STEPS) / LOD_BIAS_STEPS;
+        return Math.max(-LOD_BIAS_LIMIT, Math.min(LOD_BIAS_LIMIT, bias));
     }
 
     // The pixel rect a draw may touch: the D3D9 viewport (which clips, unlike
@@ -5041,8 +5028,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     addressV: samplerState(index, D3DSAMP_ADDRESSV, 1),
                     addressW: samplerState(index, D3DSAMP_ADDRESSW, 1),
                     borderColor: samplerState(index, D3DSAMP_BORDERCOLOR, 0),
-                    lodBias: lodBiasFor(samplerState(index,
-                        D3DSAMP_MIPMAPLODBIAS, 0)),
                 };
                 // Which arguments a stage reads decides what has to be declared
                 // and uploaded for it. Getting this wrong in either direction is
@@ -6003,31 +5988,21 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         (depthFetchSamplers.length
                             ? "_r" + depthFetchSamplers.join(".") : "")
                     : "";
-                // D3DSAMP_MIPMAPLODBIAS is sampler state, but WebGPU has no
-                // sampler field for it, so it can only be applied at the sample
-                // call -- which puts it in the WGSL and therefore in the variant
-                // key. Only the samplers this shader actually declares are
-                // considered, so an unrelated stage's stale bias cannot mint a
-                // variant.
+                // The sampler set determines one bias uniform layout; values
+                // are uploaded per draw and never enter the shader key.
                 const samplerSwizzles = {};
                 let swizzleKey = "";
-                const samplerLodBias = {};
-                let lodBiasKey = "";
+                const samplerLodBiasUniform = psResource.translated.reflection.samplers.length > 0;
+                const lodBiasKey = samplerLodBiasUniform ? "_lod_uniform" : "";
                 // D3DTADDRESS_MIRRORONCE is finished in the shader too: the
                 // sampler clamps, and abs() on the coordinate supplies the
-                // mirror. Same variant-key treatment as the bias.
+                // mirror. Address modes remain part of the variant key.
                 const samplerMirrorOnce = {};
                 let mirrorOnceKey = "";
                 for (const sampler of psResource.translated.reflection.samplers) {
                     const texture = this.resources.get(state.textures.get(sampler.index));
                     const swizzle = texture && samplingSwizzle(texture.format);
                     if (swizzle) { samplerSwizzles[sampler.index] = swizzle;swizzleKey += "_w" + sampler.index + ":" + swizzle; }
-                    const bias = lodBiasFor(state.samplerStates.get(
-                        sampler.index * 64 + D3DSAMP_MIPMAPLODBIAS) || 0);
-                    if (bias) {
-                        samplerLodBias[sampler.index] = bias;
-                        lodBiasKey += "_b" + sampler.index + ":" + bias;
-                    }
                     const axes = [
                         [D3DSAMP_ADDRESSU, "x"], [D3DSAMP_ADDRESSV, "y"],
                         [D3DSAMP_ADDRESSW, "z"],
@@ -6056,7 +6031,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             clipPlaneCount,
                             depthSamplers,
                             depthFetchSamplers,
-                            samplerLodBias, samplerSwizzles,
+                            samplerLodBiasUniform, samplerSwizzles,
                             samplerMirrorOnce,
                             legacySamplerTypes,
                             flatShading, fogBlend,
@@ -6146,6 +6121,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 pixelSignature = {
                     stages: cascade.stages,
                     usesTextureFactor: cascade.usesTextureFactor,
+                    lodBiasUniforms: cascade.stages.some(stage => stage.samplesTexture),
                     fogMode, tableFog, alphaTest: { enabled: alphaTest.enabled, func: alphaTest.func }, clipPlaneCount,
                     // D3D9 adds the specular colour after the cascade whenever
                     // D3DRS_SPECULARENABLE is set, whether it came from lighting
@@ -6959,6 +6935,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
         }
 
+        writeSamplerLodBias(state, floats, offset, count) {
+            for (let index = 0; index < count; index++)
+                floats[offset + index] = lodBiasFor(state.samplerStates.get(index * 64 + D3DSAMP_MIPMAPLODBIAS) || 0);
+        }
+
         writeFogUniforms(state, floats, color, params) {
             const argb = state.renderStates.get(D3DRS_FOGCOLOR) || 0;
             floats[color] = ((argb >>> 16) & 255) / 255;
@@ -6988,7 +6969,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     ? ((argb >>> 24) & 0xff) / 255 : alpha;
             };
             for (const entry of layout.entries) {
-                if (entry.name === "alpha_test") {
+                if (entry.name === "sampler_lod_bias") {
+                    this.writeSamplerLodBias(state, floats, entry.offset / 4, entry.samplerBiasCount);
+                } else if (entry.name === "alpha_test") {
                     new Uint32Array(backing, byteOffset + entry.offset, 4)[0] = (state.renderStates.get(D3DRS_ALPHAREF) || 0) & 255;
                 } else if (entry.name === "fog_color") {
                     const params = layout.byName.get("fog_params");
@@ -7086,6 +7069,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     values.set((mask & (1 << plane))
                         ? state.clipPlanes[plane] : [0, 0, 0, 1],
                         base + plane * 4);
+            }
+            if (reflection.samplerLodBiasOffset >= 0 && state) {
+                this.writeSamplerLodBias(state, new Float32Array(backing, byteOffset), reflection.samplerLodBiasOffset / 4, reflection.samplerBiasCount);
             }
             if (reflection.alphaTestOffset >= 0 && state) {
                 new Uint32Array(backing, byteOffset + reflection.alphaTestOffset, 4)[0] = (state.renderStates.get(D3DRS_ALPHAREF) || 0) & 255;

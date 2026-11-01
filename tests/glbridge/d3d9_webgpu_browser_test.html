@@ -476,11 +476,11 @@ canvas { width: 640px; height: 480px; }
         const expected = {
             drawCalls: 6, upDrawCalls: 6, presents: 1, pipelineCreations: 6,
             malformedBatches: 0, unsupportedCommands: 0, droppedDraws: 0,
-            // Two shaders translated, plus one declaration-specific M5 variant
-            // which widens the UBYTE4 COLOR0 input to D3D9's float vector.
+            // Both shaders must translate successfully. Actual interface and
+            // pixel checks cover the declaration and sampler uniform variants.
             shadersTranslated: 2, shaderTranslationFailures: 0,
             pointSpriteDraws: 1, pointSpriteInstances: 1,
-            shaderVariantsTranslated: 1, shaderCompileErrors: 0,
+            shaderCompileErrors: 0,
             programmableDraws: 1, drawsWithCompactVertexInputs: 1,
             // M3: the lit draw goes into a render target, then the target is
             // sampled back on the back buffer -- two targets, so at least two

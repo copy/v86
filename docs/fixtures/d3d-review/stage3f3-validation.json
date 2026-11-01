@@ -1,0 +1,51 @@
+{
+  "stage": "3F3 sampler LOD bias uniforms",
+  "date": "2026-11-02",
+  "coreSuites": 129,
+  "privateCorpusStrict": true,
+  "swiftshaderCases": 286,
+  "nativeMetalCases": 286,
+  "normativePixelPasses": 286,
+  "knownPixelFailures": 0,
+  "alphaMatrixComparisonsPerConfiguration": 24576,
+  "configurations": [
+    "normal",
+    "small upload budget",
+    "forced uniform overflow"
+  ],
+  "lodCachePaths": [
+    "FFP",
+    "ps_1_1",
+    "ps_2_0",
+    "ps_3_0"
+  ],
+  "lodValuesPerCachePath": 256,
+  "postWarmShaderModulesForBiasChanges": 0,
+  "postWarmRenderPipelinesForBiasChanges": 0,
+  "fullFloatUniformValueChecked": 0.49,
+  "fractionalMipPixelBiases": [
+    0.25,
+    0.75
+  ],
+  "fullCheckpoint": "PASS",
+  "d3dMutationsKilled": 12,
+  "siteIntegrationTests": 2,
+  "graphicsRevision": "dff918e7597ce77ad91b",
+  "coreRevision": "cc49eed222f9fb724ba3",
+  "scope": "Implicit pixel sampling on FFP and SM1/2/3 reads compact bias vectors from per-draw uniforms. Reflection records the dynamic region. Bias values leave signatures and no longer undergo software 1/16 quantization. Standalone translator literal options remain supported. Existing explicit-LOD/gradient/nonuniform sampling behavior is retained for later shader differential work.",
+  "validationNote": "Metal and SwiftShader differ close to mip selection rounding boundaries (0.49/0.51). Pixel oracles use 0.25/0.75 with a safe margin; actual packed 0.49 float32 storage separately detects software quantization. This does not claim GPU mip precision beyond the hardware contract.",
+  "warcraft3": "Pinned legacy UNORM/upload/FFP diagnostic passes original unchanged frozen policy; documented candidate resource/FFP semantic differences remain.",
+  "logs": {
+    "d3d-stage3f3-core.log": "fc824b5d29b2c03937af81a8fa7a02b5560acb5d6900bd71cf872a8b71705f4d",
+    "d3d-stage3f3-gpu.log": "60d366fc6e0b04b9770a02df9f492c1dab7bd2a917879bc1a4820b84049dc131",
+    "d3d-stage3f3-native-pixels.log": "493f3213b4e0d70ac6bce82915a54708b409aee477d323b1830ca879c46b4b63",
+    "d3d-stage3f3-lod.log": "f58ea06bec4d76d18d06593ad2787e0224e82738e412e98c48a974567ee0d2bb",
+    "d3d-stage3f3-executor.log": "c7fba4c325dcb6c1ef20bbd15746d881ae6e5326c5db251f39e5a8112e3b76b2",
+    "d3d-stage3f3-pixels.log": "ae430811d0856cad0f04e973b60917559ed8fe14776f6118ef098bff5e1d32c3",
+    "d3d-stage3f3-war3-legacy-ffp.log": "8a420b3519e3f2639c11d0c2d571bf8097fb9b2eb919aba2e2f503ca7a5cef5d",
+    "d3d-stage3f3-checkpoint.log": "03635181eb57e87deb3ba8fd6d9897b6f970362e743519b5f772662da99de740",
+    "d3d-stage3f3-mutations.log": "8637fbe0467299b2a8890fc5d3289234a15470da741409df388651935119a441",
+    "d3d-stage3f3-integration.log": "5e2807d498b181e73851b631b12893c9deda43404ed0992ca7ee91ebe8231308"
+  },
+  "next": "Uniform clip enables, then recorder/replayer, present, diagnostics and remaining CPU optimization/guest/shader acceptance work."
+}

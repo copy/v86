@@ -428,5 +428,47 @@
         }, probes: Array.from({ length: 256 }, (_, reference) => ({ at: [(reference & 15) * 4 + 1, (reference >> 4) * 4 + 1],
             expect: pass(alpha(reference), reference) ? [0, 255, 0] : [0, 0, 0], tolerance: 0 })) });
     }
+    function mipSource(dev) {
+        const handle = dev + 0x500000, commands = [wire("CreateTexture2D", { device_handle: dev, resource_handle: handle, width: 128, height: 128, level_count: 8, format: 21 })];
+        const colours = [[0, 0, 255, 255], [0, 255, 0, 255], [255, 0, 0, 255], [255, 255, 255, 255]];
+        for (let level = 0; level < 8; level++) {
+            const size = 128 >> level, data = new Uint8Array(size * size * 4), colour = colours[Math.min(3, level)];
+            for (let i = 0; i < size * size; i++) data.set(colour, i * 4);
+            commands.push(wire("UpdateTexture", { resource_handle: handle, level, width: size, height: size, depth: 1,
+                row_pitch: size * 4, slice_pitch: data.length, data_bytes: data.length }, [blob("UpdateTexture", "data_offset", data)]));
+        }
+        return [...commands, wire("SetTexture", { device_handle: dev, texture_handle: handle }), tss(dev, 0, 1, 2), tss(dev, 0, 2, 2),
+            wire("SetSamplerState", { device_handle: dev, state: 7, value: 1 })];
+    }
+    function gradientQuad(dev) {
+        const list = quad(0, 0, 64, 64, 0.5, 0xffffffff), data = new Uint8Array(list.length * 32), view = new DataView(data.buffer);
+        list.forEach((v, i) => {
+            [v[0], v[1], v[2], 1].forEach((value, j) => view.setFloat32(i * 32 + j * 4, value, true));
+            view.setUint32(i * 32 + 16, 0xffffffff, true);view.setFloat32(i * 32 + 24, v[0] / 64, true);view.setFloat32(i * 32 + 28, v[1] / 64, true);
+        });
+        return [cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: 0x1c4, element_count: 4 }),
+            element(0, 3, 9), element(16, 4, 10), element(20, 4, 10, 1), element(24, 1, 5)])),
+        wire("DrawPrimitiveUP", { device_handle: dev, primitive_type: 4, primitive_count: 2, stride: 32, vertex_count: 6, vertex_bytes: data.length },
+            [blob("DrawPrimitiveUP", "vertex_data_offset", data)])];
+    }
+    for (const major of [0, 1, 2, 3]) for (const fractional of [false, true]) add("mipmaps", {
+        name: (major ? "ps_" + major : "FFP") + (fractional ? " fractional LOD bias selects adjacent mips" : " LOD bias changes and restores mip selection"),
+        body: dev => {
+            const commands = mipSource(dev), handle = dev + 0x600000;
+            if (major) {
+                const tokens = major === 1 ? [0xffff0101, S.TEX, dst(R.TEXTURE, 0), S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 0), 0xffff]
+                    : [0xffff0000 | major << 8, ins(S.DCL, 2), 0x80000005, dst(major === 3 ? R.INPUT : R.ADDR, 0),
+                        ins(S.DCL, 2), 0x90000000, dst(R.SAMPLER, 0), ins(S.TEX, 3), dst(R.TEMP, 0), src(major === 3 ? R.INPUT : R.ADDR, 0), src(R.SAMPLER, 0),
+                        ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.TEMP, 0), 0xffff];
+                commands.push(pixelShader(dev, handle, tokens), bindPS(dev, handle));
+            }
+            commands.push(rs(dev, 174, 1));
+            for (const [left, right, bias] of fractional ? [[0, 32, 0.25], [32, 64, 0.75]] : [[0, 16, -1], [16, 32, 0], [32, 48, 1], [48, 64, 0]])
+                commands.push(wire("SetSamplerState", { device_handle: dev, state: 8, value: f(bias) }),
+                    wire("SetScissorRect", { device_handle: dev, left, right, bottom: 64 }), ...gradientQuad(dev));
+            return commands;
+        }, probes: fractional ? [{ at: [16, 32], expect: [0, 255, 0, 255] }, { at: [48, 32], expect: [0, 0, 255, 255] }]
+            : [{ at: [8, 32], expect: [255, 0, 0, 255] }, { at: [24, 32], expect: [0, 255, 0, 255] },
+                { at: [40, 32], expect: [0, 0, 255, 255] }, { at: [56, 32], expect: [0, 255, 0, 255] }] });
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);
