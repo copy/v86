@@ -1,0 +1,319 @@
+{
+  "reference": "Windows XP successful HRESULT observations in Wine D3D8/9 test_vb_lock_flags; effective access/streaming policy separately derived from Wine map access conversion and sanitise_map_flags. No native Microsoft buffer-content measurement.",
+  "flags": [
+    0,
+    16,
+    4096,
+    4112,
+    8192,
+    8208,
+    12288,
+    12304
+  ],
+  "ignoredBits": [
+    0,
+    1,
+    2048,
+    16384,
+    32768,
+    2147483648,
+    4294954991
+  ],
+  "contexts": [
+    {
+      "pool": 0,
+      "usage": 0,
+      "effective": [
+        0,
+        16,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "pool": 0,
+      "usage": 8,
+      "effective": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "pool": 0,
+      "usage": 512,
+      "effective": [
+        0,
+        16,
+        4096,
+        4096,
+        8192,
+        8192,
+        4096,
+        4096
+      ]
+    },
+    {
+      "pool": 0,
+      "usage": 520,
+      "effective": [
+        0,
+        0,
+        4096,
+        4096,
+        8192,
+        8192,
+        4096,
+        4096
+      ]
+    },
+    {
+      "pool": 1,
+      "usage": 0,
+      "effective": [
+        0,
+        16,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "pool": 1,
+      "usage": 8,
+      "effective": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "pool": 1,
+      "usage": 512,
+      "effective": [
+        0,
+        16,
+        4096,
+        4096,
+        8192,
+        8192,
+        4096,
+        4096
+      ]
+    },
+    {
+      "pool": 1,
+      "usage": 520,
+      "effective": [
+        0,
+        0,
+        4096,
+        4096,
+        8192,
+        8192,
+        4096,
+        4096
+      ]
+    },
+    {
+      "pool": 2,
+      "usage": 0,
+      "effective": [
+        0,
+        16,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "pool": 2,
+      "usage": 8,
+      "effective": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "pool": 2,
+      "usage": 512,
+      "effective": [
+        0,
+        16,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "pool": 2,
+      "usage": 520,
+      "effective": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "windowsXP": [
+    {
+      "flags": 16,
+      "hresult": 0
+    },
+    {
+      "flags": 8192,
+      "hresult": 0
+    },
+    {
+      "flags": 4096,
+      "hresult": 0
+    },
+    {
+      "flags": 12288,
+      "hresult": 0
+    },
+    {
+      "flags": 4112,
+      "hresult": 0
+    },
+    {
+      "flags": 8208,
+      "hresult": 0
+    },
+    {
+      "flags": 3735928559,
+      "hresult": 0
+    }
+  ],
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/device.c",
+      "blobSha": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2"
+    },
+    {
+      "file": "d3d9-lock-tests.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/device.c",
+      "blobSha": "eb168cb32e6d15513e004f7e1e94f915f8bbd359",
+      "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020"
+    },
+    {
+      "file": "d3d8-buffer.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/buffer.c",
+      "blobSha": "9633f8533004967a8eace30334f1598c2023f406",
+      "sha256": "e2255a6a41977c4412405eb337c5459ed6403c81b184b8ff617a49719e380755"
+    },
+    {
+      "file": "d3d9-buffer.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/buffer.c",
+      "blobSha": "73190cb9dd6630542dedf2a9240cf153f4764a18",
+      "sha256": "0b970123a78568ebf809e77305929e4231344c1d695fae73732da651efc03c33"
+    },
+    {
+      "file": "d3d9-private.h",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/d3d9_private.h",
+      "blobSha": "b1e7690cb93c704b31373a364986c72ce0a9bbea",
+      "sha256": "797526880ecb4322e3d2de878b2f3a4c51d32ee21d4b6076707a125448ff7cdc"
+    },
+    {
+      "file": "d3d8-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+      "blobSha": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593"
+    },
+    {
+      "file": "d3d9-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/device.c",
+      "blobSha": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58"
+    },
+    {
+      "file": "wined3d-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/device.c",
+      "blobSha": "63aec972659adc08e48a11790e2f937c259701ed",
+      "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406"
+    }
+  ],
+  "drawScenes": [
+    {
+      "name": "static conflicting hints",
+      "usage": 0,
+      "flags": 12288,
+      "leftARGB": 4294901760,
+      "rightARGB": 4278255360,
+      "refreshShadow": true
+    },
+    {
+      "name": "dynamic NOOVERWRITE wins",
+      "usage": 520,
+      "flags": 12288,
+      "leftARGB": 4278190335,
+      "rightARGB": 4294967040,
+      "refreshShadow": true
+    },
+    {
+      "name": "conflicting read-only DISCARD writes",
+      "usage": 520,
+      "flags": 8208,
+      "leftARGB": 4294902015,
+      "rightARGB": 4278255615,
+      "refreshShadow": false
+    },
+    {
+      "name": "write-only resource read-only hint",
+      "usage": 8,
+      "flags": 16,
+      "leftARGB": 4294967295,
+      "rightARGB": 4294934528,
+      "refreshShadow": false
+    }
+  ],
+  "drawProbes": {
+    "width": 64,
+    "height": 64,
+    "left": [
+      8,
+      8
+    ],
+    "right": [
+      56,
+      8
+    ],
+    "backgroundARGB": 4279242768
+  }
+}

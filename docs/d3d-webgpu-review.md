@@ -1558,6 +1558,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新流在 SwiftShader/Metal 均通过 136 报告、22 步 surface 几何/隐藏状态检查，零宿主/GPU 错误；前两代回放入口也通过，本轮共四次窗口浏览器运行。169 组核心、151 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成及三 API T&L/状态块/生命周期 XP 回归通过；零售 DLL 为最终窗口 XP 探针原字节。运行包仍为 `8cc48a9a2b75d0296e91`，宿主源码和发布包未变，沿用 4G2 完整 44 次 WebGPU/Metal 533 场景基线；完整 GPU 目标已加入新流，现含 45 次运行。见 [stage4g3-validation.json](fixtures/d3d-review/stage4g3-validation.json)。接着零售输入语义、D3D8 包装及其余客体核心，阶段 4/5/6 继续。
 > - 依据：[SetWinEventHook 的消息线程与重入约定](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwineventhook)、[UnhookWinEvent 必须在安装线程调用](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unhookwinevent)、[PostThreadMessage 的消息队列就绪要求](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagea)、[DLL 引用与线程一起释放](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibraryandexitthread)。
 
+> **阶段 4H1（2026-11-03）：XP 零售版 VB/IB Lock 标志语义（S2-27）完成。**
+>
+> - 新增 SDK/CRT 无关的 `d9wg_buffer_lock.c/.h`，四个 D3D8/9 VB/IB Lock 入口共用清洗策略，移除拒绝非动态 DISCARD/NOOVERWRITE、两者混用及 READONLY 冲突的检查。Wine 的 Windows 测试明确记录 XP 对七种组合（包括 `0xdeadbeef`）返回成功，D3D9 的 Win7 行为不同；这里按 XP 行为处理，保留指针/范围错误的既有保护。
+> - 依据独立冻结的 Wine 访问转换/map 清洗事实：非动态或 CPU 池忽略 streaming 提示；两种 streaming 提示并用时保留 NOOVERWRITE；与资源 WRITEONLY/streaming 相矛盾的 READONLY 回退到可写访问；真正只读的映射不上传。有效标志用于 unlock/上传及 VB 裁剪记录失效，忽略的 DISCARD 不再破坏旧数据或裁剪元数据。有效 DISCARD 去掉整块 CPU 影子清零，旧内容仍按 D3D 合约未定义。
+> - 固定 8 份 Wine 源码 blob 和 SHA-256，整理 12 个 usage/pool 上下文、8 种基本组合、7 种额外/未知位及七种 XP HRESULT 事实；生成独立客体参考头。原生编译实际四个 Lock/Unlock 与共用 C，每 API **1,344 组**验证有效标志、精确上传、只读保留、范围/失败原子性、解锁清理和裁剪失效。16 MiB 保护页检查确保 DISCARD 不访问未请求的影子页；27/27 C 语义变异及 ASan/UBSan 通过。
+> - **真实 XP 两 API 共 2,688 组 COM/命令流检查通过。** 每 API 24 个矩阵缓冲、84 个只读跳过、1,260 个局部写入，逐字验证 86,016 字节基线及 20,160 字节更新；七种 XP HRESULT 组合应用于 VB/IB，共再检查 28 次。四个场景/每 API 涵盖静态冲突标志、动态 NOOVERWRITE 优先及两种 READONLY 冲突；保留旧数据场景回传整块影子以暴露误清零，READONLY 冲突场景直接绘制以暴露漏上传。
+> - 冻结 `d3d_buffer_lock_xp`；公共检查重验全部矩阵/帧顺序及四种标志/数据破坏。SwiftShader/Metal 各通过八帧、24 个独立颜色探针、零宿主/GPU 错误。另将合法命令流中第一组三角形由红改蓝并更新完整性摘要：格式/矩阵检查仍通过，真实像素比较以 255 字节差异失败，验证测试能发现实际颜色错误。
+> - 171 组核心、153 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成及三 API T&L/状态块/生命周期 XP 回归通过。D3D8/9 零售 DLL 发布最终 XP 验收原字节，DDraw 保持 4G3 已验收字节。宿主源码/运行包 `8cc48a9a2b75d0296e91` 未变，沿用既有 44 次完整 WebGPU/Metal 533 场景及 4G3 新窗口回放基线；本轮新增两个正向 GPU 运行和一个预期失败的像素变异，完整目标现含 46 次运行。见 [stage4h1-validation.json](fixtures/d3d-review/stage4h1-validation.json)。这里的访问策略来自 Wine、图像来自已知输入几何，不宣称原始 Microsoft 缓冲内容/像素测量或整个 Buffer API 验收；继续零售绘制/复制语义、客体包装与阶段 4/5/6。
+> - 依据：[Wine D3D8 的 XP 标志测试](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/device.c)、[Wine D3D9 的 XP/Win7 区分](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/device.c)、[Microsoft Lock 提示约定](https://learn.microsoft.com/en-us/windows/win32/direct3d9/locking-resources)、[动态缓冲 DISCARD/NOOVERWRITE 合约](https://learn.microsoft.com/en-us/windows/win32/direct3d9/performance-optimizations)。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

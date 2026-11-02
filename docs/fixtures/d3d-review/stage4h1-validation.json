@@ -1,0 +1,2448 @@
+{
+  "stage": "4H1 XP retail vertex/index-buffer Lock hints and bounded DISCARD shadow access (S2-27)",
+  "date": "2026-11-03",
+  "bundle": "8cc48a9a2b75d0296e91",
+  "coreSuites": 171,
+  "guestSuites": 153,
+  "webgpuRuns": 2,
+  "expectedNegativePixelRuns": 1,
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "5ee2fcd4930fe334b60f63e3af049bd445644fb1b7fdf8af70b3c6913163ee0d"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "bdc44e17bf3e78663c28334f257fe8191fd47dd1fddd9800036df6815d12e797"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "63820963ba765e765f9f5d36b331365cc424c25a90a06c4d5cf8b9c4ec0a314d"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "d9921a7ed6f2804f98484386ab25d6f7af4b353eea24463217f5856ba8442de5"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "931e7db30dca6541622f099514ef556542473cc4bc3bfc66e582b29ac465eac1"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "9b71602c58fe07d6df4c7f2877dce0a582b7535316c6699f170bf089a42027d7"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "a8a921c6f0be2c298813c6ee2d2775991e181a327ca92e047c622666fa86340e"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "0347581e7364c2b02e8aba2eb9023fff19e0836776c49055cb834a4d0978714e"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "1028c493ec060d902a9ffb5b2ba06c89324d80fcb8b242e44b02c569303d9c75"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "3e3c8b7b43a7e7e3fefb5196ba9bea24d9851e2ab31db649f1d15d9a9348f978"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "29e960cb881f248b99db9525fb0ac894c9d551e846480b9f83bcec2e9ee16be0"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "a0219568c4c2b0d9c453824cdf08fee280ccee1ce9f6a134668272363d479e8c"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "dfde752750dda0efb4014c96cdfaa0cf7dcfd200e3a5a9b2b069426d9bd633ea"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "6d850df72910f2d6c7e3a5a63c3628b594996be05db5e59aabf0e7a96ebc578f"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "c0a42717967c0a12913533a3582065176a6b1d870f9f5806f5b0d24abe9eab6d"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "1fca27d9944eb2d855e485bf3a3b714d8121817cc609b6af040258a0d3643032"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "391a1e379f6a5ee92fe95cdad371abef94fc70ca977cd268e363e5e6da3fb4c0"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "32da753c8d2909779e049449f66f50fef06b2a266eb4e1f3e9026e8997931add"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted buffer Lock XP probe binaries",
+      "shippedDllSha256": "938a28080dde15c6c2ab300c70fd95c066c1dc0a45b2a4b3344d6e87d2b85d87",
+      "diagnosticSha256": "da8178c26851a497b7d4fdb00d68040cc809146471d4b1bab48c22d2998e789b"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "9304e85c3e71794b02125b20d3ceef402a9626d03e12cb8a9c6a848cb65633c9"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "e7b6f536056dee8abb090618838b68ea8d44fe3ce7af3f9dc16b19022e7ce78f"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "c21ab4b767651607e7ec7ce669faadf683dd4341a834b15c39a1576e7c5ae431"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "c64a92c7d8c41a65a4dc7524de38903d01ca207bee20609f3df7dd35da34f60a"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "2efe6a99dc91693a003a5ad86832a134ad034c41efc56f4037e8338ee8654ef4"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "2142b19e4e9a300ce1c5b81a3e4e12e80a1a6c0dbc1b417df87348c2f8f5e9df"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "cd46af4ba2cdb52d415e35da992fdece4fba8ec140db8475b1d559ece680451b"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "0ad1873cd1a9eba35b27e56aa43662ed376292c05a20e130fa8bba336f37fb3d"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "45b293286c03e2862c5e1c74868e81b7bdb5eb6fa26cdf3d9837b3e0a201eb48"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "8754380775e4218096458dbf4a73ae99a7655fe815f34fc4201598f9597207b0"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "99a03fa0c6b63c87dc8a52191a9e1902e0f5d66fac3e2ca6364f0ebf50d8ef24"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "60a70012c91b574b05a86ad78c8773600fe9cd4cce21db64102a500516a0e3c4"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "609c26161b44157c308196e71fe9917331929ee0c7c1070e5d40ef7fd02ae5c9"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "2c18850a0679de69d3e286187a47dce4d8c8cb7b7bd59f1bf838e8b476b1d08d"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted buffer Lock XP probe binaries",
+      "shippedDllSha256": "bad2a1f140fcf86ae5042f1f382dc6ea904d0aa44d5b92e160341361821f836c",
+      "diagnosticSha256": "da6b8d6a333fba5cc97659b50cadf16e7852e5c95dc6b9f1bfb9127af4978dc1"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "ce9dc7fc14f6a4277ab4a82f69ad2da4d8f50c2aa8366bae82fc5acc29ecea6d"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "2edcdc557c8624fb15fc2f20e702e7b22bbd0d1eb94798cfa524111eb0d10f62"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "e2bbd746ac3ad64eb5d7024284a762c9ae97022beda528c36532a6fccb8436bc"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "d3649477d1abc10f23414a3eb3d3035e33d33dbe3d68f53896e1db6d578e91c2"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged exact accepted 4G3 binaries",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "unchangedHost": {
+    "reference": "stage4g3-validation.json",
+    "referenceSha256": "ae5f39f61fb2467e734e34bea17fd012e18492b43889e01acbe286309f32c369",
+    "fullBaseline": {
+      "reference": "stage4g2-validation.json",
+      "referenceSha256": "633c98cec2ecfb337f1b710cf8943e5454259f3baa99612b5d1de9c644a9833a",
+      "fullWebgpuRuns": 44,
+      "metalPixelCases": 533,
+      "files": {
+        "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+        "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+        "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+        "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+        "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+        "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+        "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+        "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+      },
+      "coreHostReferenceCommit": "74d38f86cf12e60ef3186ff07c08e0a3c1377c89"
+    },
+    "addedWindowFixture": {
+      "traceSha256": "cf3ffc6a9152ab1ba32212b163df0a6d1a0487165e207b7ed6fc7c33ed9b7c74",
+      "windowReports": 136,
+      "comparisonsPerBackend": 22,
+      "backends": [
+        "swift",
+        "metal"
+      ]
+    },
+    "files": {
+      "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+      "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+      "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+      "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+      "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+      "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+      "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+      "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+    },
+    "coreHostReferenceCommit": "bc7ddba8ff3e4711e9f4cfb51ccf5d231161914f"
+  },
+  "portable": {
+    "apis": [
+      8,
+      9
+    ],
+    "bufferKinds": [
+      "vertex",
+      "index"
+    ],
+    "policyCasesPerAPI": 1344,
+    "independentContexts": 12,
+    "baseFlagCombinations": 8,
+    "advisoryAndUnknownMasks": 7,
+    "windowsXPHRESULTFlagCombinations": 7,
+    "cMutations": {
+      "killed": 27,
+      "total": 27
+    },
+    "fixtureCorruptions": 4,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "guardedShadowBytes": 16777216,
+    "regressionBefore": [
+      {
+        "api": 8,
+        "sourceSha256": "7d81039a2cf6b7762d53aca6785d917bf2624e0d8a3c762bf7c649a797924475"
+      },
+      {
+        "api": 9,
+        "sourceSha256": "06a6a7d2525d4468c17392f5a1bf99e645121ed3039134c11d6634483c207d79"
+      }
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_buffer_lock_reference.json",
+    "sha256": "064e05cf4e85e2229b44e8c3a8bdd3036d4fccb50e7aedaab51e598996a60841",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/device.c",
+        "blobSha": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2"
+      },
+      {
+        "file": "d3d9-lock-tests.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/device.c",
+        "blobSha": "eb168cb32e6d15513e004f7e1e94f915f8bbd359",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020"
+      },
+      {
+        "file": "d3d8-buffer.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/buffer.c",
+        "blobSha": "9633f8533004967a8eace30334f1598c2023f406",
+        "sha256": "e2255a6a41977c4412405eb337c5459ed6403c81b184b8ff617a49719e380755"
+      },
+      {
+        "file": "d3d9-buffer.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/buffer.c",
+        "blobSha": "73190cb9dd6630542dedf2a9240cf153f4764a18",
+        "sha256": "0b970123a78568ebf809e77305929e4231344c1d695fae73732da651efc03c33"
+      },
+      {
+        "file": "d3d9-private.h",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/d3d9_private.h",
+        "blobSha": "b1e7690cb93c704b31373a364986c72ce0a9bbea",
+        "sha256": "797526880ecb4322e3d2de878b2f3a4c51d32ee21d4b6076707a125448ff7cdc"
+      },
+      {
+        "file": "d3d8-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+        "blobSha": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+        "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593"
+      },
+      {
+        "file": "d3d9-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/device.c",
+        "blobSha": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+        "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58"
+      },
+      {
+        "file": "wined3d-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/device.c",
+        "blobSha": "63aec972659adc08e48a11790e2f937c259701ed",
+        "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406"
+      }
+    ],
+    "additionalBufferImplementation": {
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/buffer.c",
+      "blobSha": "5e1f0dedee0f3513c26ff184673bf74664484828",
+      "sha256": "2b5fc42b3fa5078632533889cd2d9f94459687d556594abd19e3728656d6bdb6"
+    },
+    "microsoft": [
+      "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dlock",
+      "https://learn.microsoft.com/en-us/windows/win32/direct3d9/performance-optimizations",
+      "https://learn.microsoft.com/en-us/windows/win32/direct3d9/locking-resources"
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 110,
+    "batches": 13,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS retail buffer Lock probes \r\n",
+    "logs": {
+      "LOCK8.TXT": "MATRIX 8 1344 contexts=12 XP_HRESULTS=14\r\nFRAME 8 0 FFFF0000 FF00FF00\r\nFRAME 8 1 FF0000FF FFFFFF00\r\nFRAME 8 2 FFFF00FF FF00FFFF\r\nFRAME 8 3 FFFFFFFF FFFF8000\r\nPASS buffer Lock API=8\r\n",
+      "LOCK9.TXT": "MATRIX 9 1344 contexts=12 XP_HRESULTS=14\r\nFRAME 9 0 FFFF0000 FF00FF00\r\nFRAME 9 1 FF0000FF FFFFFF00\r\nFRAME 9 2 FFFF00FF FF00FFFF\r\nFRAME 9 3 FFFFFFFF FFFF8000\r\nPASS buffer Lock API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "captured proxy draw commands only; pixel validation is separate GPU replay",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 440916,
+        "crc32": "d84fcf86"
+      }
+    },
+    "wire": {
+      "perAPI": [
+        {
+          "owner": 1,
+          "api": 8,
+          "buffers": 24,
+          "cases": 1344,
+          "readOnlyCases": 84,
+          "writableCases": 1260,
+          "baselineBytes": 86016,
+          "writeBytes": 20160,
+          "xpReferenceUploads": 14,
+          "sceneBuffers": 8,
+          "sceneUploads": [
+            6,
+            6,
+            4,
+            4
+          ],
+          "frames": 4
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "buffers": 24,
+          "cases": 1344,
+          "readOnlyCases": 84,
+          "writableCases": 1260,
+          "baselineBytes": 86016,
+          "writeBytes": 20160,
+          "xpReferenceUploads": 14,
+          "sceneBuffers": 8,
+          "sceneUploads": [
+            6,
+            6,
+            4,
+            4
+          ],
+          "frames": 4
+        }
+      ],
+      "frames": [
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "name": "static conflicting hints",
+          "usage": 0,
+          "flags": 12288,
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360,
+          "refreshShadow": true
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "name": "dynamic NOOVERWRITE wins",
+          "usage": 520,
+          "flags": 12288,
+          "leftARGB": 4278190335,
+          "rightARGB": 4294967040,
+          "refreshShadow": true
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "name": "conflicting read-only DISCARD writes",
+          "usage": 520,
+          "flags": 8208,
+          "leftARGB": 4294902015,
+          "rightARGB": 4278255615,
+          "refreshShadow": false
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "name": "write-only resource read-only hint",
+          "usage": 8,
+          "flags": 16,
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528,
+          "refreshShadow": false
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "name": "static conflicting hints",
+          "usage": 0,
+          "flags": 12288,
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360,
+          "refreshShadow": true
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "name": "dynamic NOOVERWRITE wins",
+          "usage": 520,
+          "flags": 12288,
+          "leftARGB": 4278190335,
+          "rightARGB": 4294967040,
+          "refreshShadow": true
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "name": "conflicting read-only DISCARD writes",
+          "usage": 520,
+          "flags": 8208,
+          "leftARGB": 4294902015,
+          "rightARGB": 4278255615,
+          "refreshShadow": false
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "name": "write-only resource read-only hint",
+          "usage": 8,
+          "flags": 16,
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528,
+          "refreshShadow": false
+        }
+      ]
+    },
+    "graphicsSha256": "3a1513a2cb4793831b197bb772d52a9be490e8a8811386340250a5cc484c116e"
+  },
+  "fixture": {
+    "metadataSha256": "69591bd3803ad99412a25c76a4a7981209514711bb2be95b012e4a78e8517264",
+    "compressedTraceSha256": "a484e1dfb42d06bec3734acf9182bc8539ad8a6a2509c57a5e08f4019e7aa347",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "938a28080dde15c6c2ab300c70fd95c066c1dc0a45b2a4b3344d6e87d2b85d87",
+        "d3d9": "bad2a1f140fcf86ae5042f1f382dc6ea904d0aa44d5b92e160341361821f836c"
+      },
+      "executableSha256": {
+        "LOCK8.EXE": "34468bac943ecc2915f3471f88c2bb0f021bc97fea8621e433bf82a81d7e575b",
+        "LOCK9.EXE": "e932bdc69064f334929d4114c3484b7b11321c3a74dcef9b8c16d75acff91e17"
+      }
+    }
+  },
+  "gpu": {
+    "swift": {
+      "traceSha256": "3a1513a2cb4793831b197bb772d52a9be490e8a8811386340250a5cc484c116e",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "938a28080dde15c6c2ab300c70fd95c066c1dc0a45b2a4b3344d6e87d2b85d87",
+          "d3d9": "bad2a1f140fcf86ae5042f1f382dc6ea904d0aa44d5b92e160341361821f836c"
+        },
+        "executableSha256": {
+          "LOCK8.EXE": "34468bac943ecc2915f3471f88c2bb0f021bc97fea8621e433bf82a81d7e575b",
+          "LOCK9.EXE": "e932bdc69064f334929d4114c3484b7b11321c3a74dcef9b8c16d75acff91e17"
+        }
+      },
+      "frames": 8,
+      "batches": 13,
+      "comparisons": [
+        {
+          "api": 8,
+          "scene": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 13,
+        "commands": 5516,
+        "presents": 8,
+        "queueSubmits": 24,
+        "drawCalls": 0,
+        "indexedDrawCalls": 8,
+        "upDrawCalls": 0,
+        "pipelineCreations": 1,
+        "pipelineHits": 7,
+        "pipelinesRejected": 0,
+        "programBuilds": 8,
+        "programCacheHits": 0,
+        "bindGroupCreations": 2,
+        "bindGroupHits": 6,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 8,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 12,
+        "readbackRequests": 8,
+        "frameFlushes": 8,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 0,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 8,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 8,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 4,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 8,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 8,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 3072,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 8,
+        "renderTargetReadbackBytes": 131072,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "7866af88bb0f4f987ae47f4930368be000275912050e1c75293d702e4524cf00"
+    },
+    "metal": {
+      "traceSha256": "3a1513a2cb4793831b197bb772d52a9be490e8a8811386340250a5cc484c116e",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "938a28080dde15c6c2ab300c70fd95c066c1dc0a45b2a4b3344d6e87d2b85d87",
+          "d3d9": "bad2a1f140fcf86ae5042f1f382dc6ea904d0aa44d5b92e160341361821f836c"
+        },
+        "executableSha256": {
+          "LOCK8.EXE": "34468bac943ecc2915f3471f88c2bb0f021bc97fea8621e433bf82a81d7e575b",
+          "LOCK9.EXE": "e932bdc69064f334929d4114c3484b7b11321c3a74dcef9b8c16d75acff91e17"
+        }
+      },
+      "frames": 8,
+      "batches": 13,
+      "comparisons": [
+        {
+          "api": 8,
+          "scene": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 13,
+        "commands": 5516,
+        "presents": 8,
+        "queueSubmits": 24,
+        "drawCalls": 0,
+        "indexedDrawCalls": 8,
+        "upDrawCalls": 0,
+        "pipelineCreations": 1,
+        "pipelineHits": 7,
+        "pipelinesRejected": 0,
+        "programBuilds": 8,
+        "programCacheHits": 0,
+        "bindGroupCreations": 2,
+        "bindGroupHits": 6,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 8,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 12,
+        "readbackRequests": 8,
+        "frameFlushes": 8,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 0,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 8,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 8,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 4,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 8,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 8,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 3072,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 8,
+        "renderTargetReadbackBytes": 131072,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "7866af88bb0f4f987ae47f4930368be000275912050e1c75293d702e4524cf00"
+    }
+  },
+  "negative": {
+    "expectedStatus": "FAIL pixel comparison",
+    "input": {
+      "kind": "post-capture legal vertex color corruption",
+      "sourceTraceSha256": "3a1513a2cb4793831b197bb772d52a9be490e8a8811386340250a5cc484c116e",
+      "offsets": [
+        214800,
+        214820,
+        214840
+      ],
+      "fromARGB": 4294901760,
+      "toARGB": 4278190335
+    },
+    "artifactSha256": "435844a5edd6b96a13959ca179be652638423cb43b9b13ac9a24fbd21f64b797",
+    "frames": 8,
+    "comparisons": [
+      {
+        "api": 8,
+        "scene": 0,
+        "name": "left",
+        "x": 8,
+        "y": 8,
+        "expected": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "actual": [
+          255,
+          0,
+          0,
+          255
+        ],
+        "maximumByteError": 255
+      }
+    ],
+    "gpuErrors": [],
+    "hostErrors": []
+  },
+  "tnl": {
+    "status": "PASS",
+    "seconds": 144,
+    "batches": 21,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 637660,
+        "crc32": "2efbc320"
+      }
+    },
+    "lifetime": {
+      "shaders": 12,
+      "vertexShaders": 6,
+      "pixelShaders": 6,
+      "vertexDeclarationsDestroyed": 13,
+      "declarationOnlyDeclarations": 7,
+      "resources": [
+        {
+          "handle": 1073741825,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1419,
+          "binds": [
+            1423,
+            1427
+          ],
+          "destroyed": 1526
+        },
+        {
+          "handle": 1073741827,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1421,
+          "binds": [
+            1425
+          ],
+          "destroyed": 1528
+        },
+        {
+          "handle": 1073741829,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1531,
+          "binds": [
+            1533
+          ],
+          "destroyed": 1536
+        },
+        {
+          "handle": 1073741831,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1539,
+          "binds": [
+            1543
+          ],
+          "destroyed": 1546
+        },
+        {
+          "handle": 1073741833,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1541,
+          "binds": [
+            1545
+          ],
+          "destroyed": 1550
+        },
+        {
+          "handle": 1073741835,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1553,
+          "binds": [
+            1555
+          ],
+          "destroyed": 1558
+        },
+        {
+          "handle": 1073741837,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1560,
+          "binds": [
+            1562,
+            1564
+          ],
+          "destroyed": 1574
+        },
+        {
+          "handle": 1073741839,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1561,
+          "binds": [
+            1563
+          ],
+          "destroyed": 1575
+        },
+        {
+          "handle": 1073741841,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1576,
+          "binds": [
+            1577
+          ],
+          "destroyed": 1579
+        },
+        {
+          "handle": 1073741843,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1580,
+          "binds": [
+            1582
+          ],
+          "destroyed": 1584
+        },
+        {
+          "handle": 1073741845,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1581,
+          "binds": [
+            1583
+          ],
+          "destroyed": 1586
+        },
+        {
+          "handle": 1073741847,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1587,
+          "binds": [
+            1588
+          ],
+          "destroyed": 1590
+        },
+        {
+          "handle": 1048583,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1418,
+          "binds": [
+            1422,
+            1426
+          ],
+          "destroyed": 1527,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048584,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1420,
+          "binds": [
+            1424
+          ],
+          "destroyed": 1529,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048585,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1530,
+          "binds": [
+            1532
+          ],
+          "destroyed": 1537,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048586,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1538,
+          "binds": [
+            1542
+          ],
+          "destroyed": 1547,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048587,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1540,
+          "binds": [
+            1544
+          ],
+          "destroyed": 1551,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048588,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1552,
+          "binds": [
+            1554
+          ],
+          "destroyed": 1559,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048589,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1704,
+          "binds": [
+            1706
+          ],
+          "destroyed": 1710,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048590,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1705,
+          "binds": [
+            1708
+          ],
+          "destroyed": 1713,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048591,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1714,
+          "binds": [
+            1715
+          ],
+          "destroyed": 1720,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048601,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4644,
+          "binds": [
+            4656,
+            4687
+          ],
+          "destroyed": 4848,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048602,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4645,
+          "binds": [
+            4716
+          ],
+          "destroyed": 4849,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048603,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4646,
+          "binds": [
+            4683
+          ],
+          "destroyed": 4850,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048604,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4647,
+          "binds": [
+            4679
+          ],
+          "destroyed": 4851,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        }
+      ]
+    },
+    "graphicsSha256": "0720b3b259b3acb21c72904667b89552ce5c9717e09088526a64b018d814c351"
+  },
+  "scope": "A shared SDK/CRT-free buffer-only policy replaces four independent D3D8/9 VB/IB Lock rejection blocks. XP-compatible HRESULT acceptance follows Wine Windows observations; effective access/streaming hints follow separately frozen Wine map conversion/sanitization facts. Static/CPU-only streaming hints are ignored, simultaneous DISCARD/NOOVERWRITE uses NOOVERWRITE, contradictory read-only hints use safe writable fallback, and genuine read-only maps skip uploads. Ignored discard hints preserve prior bytes and processed clip metadata; effective DISCARD invalidates VB clip records without clearing the full CPU shadow. Discarded contents remain undefined under the D3D contract. Actual production C runs 1344 cases per API with exact uploads and failure/range checks; 16 MiB guard mappings detect unwanted full-shadow clearing. Real XP validates 2688 matrix cases, 28 COM checks of the seven XP HRESULT combinations and eight known-color draw frames. Wire verifies all baseline/write bytes, 168 read-only skips, normalized hints and scene update order; no refresh hides the direct read-only-conflict uploads. SwiftShader/Metal pass 24 color probes each. A wire-valid post-capture red-to-blue corruption is rejected only by the pixel comparison, with zero host/GPU errors. D3D8/9 shipping bytes are the accepted final XP probes; DDraw shipping binaries stay at accepted 4G3 bytes. Host source/bundle and previous 44-run/533-case baseline plus 4G3 window replay are unchanged; full declared target now has 46 runs. This does not claim original Microsoft buffer-content/pixel measurements or complete buffer API validation. Remaining retail draw/copy semantics, guest wrappers, programmable CPU processing and stages 5/6 continue.",
+  "coreSha256": {
+    "tests/glbridge/d3d_buffer_lock_fixture_test.js": "76f91e738d716cc00ffa1f3bd1d5831637dce0f094d4e628c84d84b385667930",
+    "tests/glbridge/d3d_buffer_lock_reference_test.js": "1ea48ad8988c13b58744d3d6d558ee580ec2a7cf44241b08a9af35497cbfdbfd",
+    "tests/glbridge/d3d_buffer_lock_replay_browser_test.html": "8c844a53ee8fcd673302c9d4019ff7f2ae05181f31a4ef6c0f26302098ecc43e",
+    "tests/glbridge/d3d_buffer_lock_xp.mjs": "446f7d4cb7d6c8d7b38037ca9ab2187229beb2808cd65e5dd2f1fa02744d7d60",
+    "tests/glbridge/fixtures/d3d_buffer_lock_reference.json": "064e05cf4e85e2229b44e8c3a8bdd3036d4fccb50e7aedaab51e598996a60841",
+    "tests/glbridge/fixtures/d3d_buffer_lock_xp.bin.gz": "a484e1dfb42d06bec3734acf9182bc8539ad8a6a2509c57a5e08f4019e7aa347",
+    "tests/glbridge/fixtures/d3d_buffer_lock_xp.json": "69591bd3803ad99412a25c76a4a7981209514711bb2be95b012e4a78e8517264",
+    "tests/lib/d3d_buffer_lock_wire.mjs": "bae699ca2d2273684c1ee0b6f6506a97b9c82c51dd797dd5db10a3203785913c",
+    "tools/gen_d3d_buffer_lock_reference.mjs": "0bc4201b5c06c0d59765a7bb68c8a9cbd5f3400bd1c4233412a602ea206b1bee",
+    "Makefile": "c1aeef9972355ac4b99b235f9bac0062f8c5b15349f46775342f9b19bb28ff42",
+    "docs/d3d-webgpu-review.md": "8848a99a69caf0730d86bf50f83e701450e5b39de194f43a43f30ed58372df23"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_buffer_lock.c": "e7d6a5bfcbf5863dff7c12e18d201d544afe9e7e9d7dcffa7805e041c2ddf7e9",
+    "glbridge/runtime/d9wg_buffer_lock.h": "5bf7cb8d046f8991872d42070f7dab5df66dd08c3cfa770e2595d4b7b9462650",
+    "glbridge/sample/d3d_buffer_lock_test.c": "3c48dca6fbf0e48c29715b1e2cbb9e3197f933f250ab115a357ce7f2c48f15f7",
+    "glbridge/tests/d9wg_buffer_lock_mutation_test.js": "7599ea2cf5b625b7141b7dce5f553549e5b639c73b52cfcefc113fb2405cc8c5",
+    "glbridge/tests/d9wg_buffer_lock_test.js": "48fc05965fc4c8fdd04c2a13be65a26cdab7dde1e996e98e8d14ab5aa19dcead",
+    "glbridge/tests/native/d3d_buffer_lock_reference.h": "026d9ab5329003bbd594ae95e4c90b681630eed271eaaabf8d49bdde49204e29",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "da8178c26851a497b7d4fdb00d68040cc809146471d4b1bab48c22d2998e789b",
+    "glbridge/d3d8proxy/d3d8.dll": "938a28080dde15c6c2ab300c70fd95c066c1dc0a45b2a4b3344d6e87d2b85d87",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "81336611fd02bac1030ca5e556c40e83c3d9ce8c5b5cf9e4c70e424f94faa34f",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "da6b8d6a333fba5cc97659b50cadf16e7852e5c95dc6b9f1bfb9127af4978dc1",
+    "glbridge/d3d9proxy/d3d9.dll": "bad2a1f140fcf86ae5042f1f382dc6ea904d0aa44d5b92e160341361821f836c",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "7470faa080d9f61eae229880e1e54373f4239811cc6e1b05478dd3adb4ddb96a",
+    "glbridge/runtime/build.sh": "48baac100cbbd1137485930ad90fa9b7f1532e6676df297f91e2237a73715ca0"
+  },
+  "logSha256": {
+    "core": "119d242f7a4b3347f226bec1d20aab903f5a6ade0cb294f0dff42df388653df7",
+    "guest": "8c77de3be301dc8f3affe977c1a7c7763e30cee8ab10d5f8b198b329c156548f",
+    "lock-xp": "2e673c7e14057a29393cd3aa154a20ad3fafa03da95ec327e2caff402b8514b9",
+    "lock-swift": "b62472f66daf71bb697c0854bc7c31c483b51c5b4969dc3d055eac3d5ae5a969",
+    "lock-metal": "b62472f66daf71bb697c0854bc7c31c483b51c5b4969dc3d055eac3d5ae5a969",
+    "pixel-negative": "eb6f69cd1f732738f09f380b042ee308410a065f7d6f26c4741524d97b5ced17",
+    "fixture-unit": "7f352b591b8f2ab0b80d9b77e8200ba9e3383742d284bd4cc50861e7b782e6de",
+    "lock-mutations": "5c8e5eab35f69affad219ff4e4b4f7520ab8952347bde5903895be1652da40ef",
+    "before-8": "53a514f0da5bf8692fc81f85f9158f088aaa2a0b20d04a4784f938264efdd00f",
+    "before-9": "ec6d003ae65c13c4417b05f66e45089e4eef1f3e6d05bc01c3802d55769351e7",
+    "sanitize": "3940c25c45960859257a3a6d037217c3c6d2baa662e4b4d8e4ba83787dcc294d",
+    "tnl": "9bb15a7aec2a787406250823d86cb19c94ebfc4475a3d2effa3f86996fb8298e",
+    "builds": "8c8c84c137cd0f6b2d31a2f5880896fb7155abf11490ee00d2a6204b588cbdf6",
+    "lint": "708b766e2e21b2dd77fb7798ac774b5ffe7ec933aa411b26c594169901c56af7",
+    "site-lint": "82fcbe7cdc25cc007118bcbc43438fb1d9f1444c75372fa7da15e1c57517791f",
+    "integration": "b9887d61786cfb8a9098eb1274aa2b450309ae4387551e72d259b33a11961381"
+  }
+}
