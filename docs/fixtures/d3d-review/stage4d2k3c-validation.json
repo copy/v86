@@ -1,0 +1,1290 @@
+{
+  "stage": "4D2k3c D3D8 declared draw stream ranges and ClipStatus",
+  "date": "2026-11-03",
+  "bundle": "dffb0322a62fa650c089",
+  "coreSuites": 145,
+  "guestSuites": 144,
+  "d3d8CrossCompiledSmokeExecutables": 17,
+  "d3d8RetailAndDiagnosticDLLs": 2,
+  "smoke": [
+    {
+      "file": "d3d8_caps_audit_test.exe",
+      "sha256": "bf86b7c6a4dfe42895ee43d1fe1c4370f51b4e233b2dcd1e7f6c37c6e675514a"
+    },
+    {
+      "file": "d3d8_dynamic_resources_test.exe",
+      "sha256": "59f3a14388a4016d8591ea9205310c5b5fa9e4a82a4b7ed0051080952321dc4b"
+    },
+    {
+      "file": "d3d8_fog_test.exe",
+      "sha256": "9fd5429cc93a67af9206374544b35dc69ba3883a79efa904b9b427b3ded3b900"
+    },
+    {
+      "file": "d3d8_geometry_test.exe",
+      "sha256": "17a1df9573b0e860b3576fd95ccc360fc39c3d893599a2c05011295381155d46"
+    },
+    {
+      "file": "d3d8_lifecycle_compat_test.exe",
+      "sha256": "d5f623b9abb73d4319829741c4ee7e690f5983573ffa7760b16225fa4cb5f7fb"
+    },
+    {
+      "file": "d3d8_lighting_test.exe",
+      "sha256": "270d924d8dbf1df9254cb7b4066399db93db88ec924fa2520c21b715b6112c69"
+    },
+    {
+      "file": "d3d8_maple_gr2d_test.exe",
+      "sha256": "989bfed759b002c61b2acbbadee1b6aaabd15a0afd984773489ec35b16977f0f"
+    },
+    {
+      "file": "d3d8_mipmap_filter_test.exe",
+      "sha256": "86bca7b5b4eb3fcbba017db0abc7158321a933813838c5a99c04d745f9b4e719"
+    },
+    {
+      "file": "d3d8_multitexture_test.exe",
+      "sha256": "8b4053ddc71d630502edfe837df0ac8c3cd38123e4ad616d92ba1365946f4df1"
+    },
+    {
+      "file": "d3d8_raster_stencil_test.exe",
+      "sha256": "da22a87822a7af47139f39de6c7011404c9bacfa30cbb31814fafb683430e06c"
+    },
+    {
+      "file": "d3d8_reset_lifecycle_test.exe",
+      "sha256": "9508734c550659b4aa1aee6713abc065e78d3b62cc9658348bb019d7b1e2a555"
+    },
+    {
+      "file": "d3d8_stateblock_test.exe",
+      "sha256": "e018937aeba3b2b159103cddc240a635b1e4c918b374b216d1e149ffc065dd04"
+    },
+    {
+      "file": "d3d8_texture_formats_test.exe",
+      "sha256": "d29e57c3f7fbaa147ed10e64829d6d1ea099424fd40fb71bec0ea40e6351f894"
+    },
+    {
+      "file": "d3d8_texture_stage_ops_test.exe",
+      "sha256": "83e6f0206761339d52003bb2d8d0f3f56d2fe6a15b56ead3e082370cd4091648"
+    },
+    {
+      "file": "d3d8_texture_test.exe",
+      "sha256": "30fd06a72d713ce4acf385d25c4ea2422b610d9fc5007b5149062e58d435ba95"
+    },
+    {
+      "file": "d3d8_textured_cube_test.exe",
+      "sha256": "00355bfcd77a7e4f58f956fcab6709e8d3e9c82d3ec141276470111d6da01d85"
+    },
+    {
+      "file": "d3d8_transform_depth_test.exe",
+      "sha256": "4506899c08015c9fa19bf57c2a140d4ce6a7a37146e8930a9225e43392783665"
+    }
+  ],
+  "cMutations": {
+    "drawInput": {
+      "killed": 11,
+      "total": 11
+    }
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "referenceSources": [
+    "https://alpyne.me/archive/dx8/directx_cpp/graphics/reference/cpp/d3d/interfaces/idirect3ddevice8/drawprimitiveup.htm"
+  ],
+  "scope": "D3D8 ordinary/indexed declaration draws validate every referenced stream through shared ranges, support primary stream 15, constant streams, retained deleted declarations and programmable layouts without POSITION0. Shared software ClipStatus handles Tween, user planes, unsigned declared ranges and unreferenced indexed vertices. UP permits only stream zero as specified by DX8.1. Allocation/transport failures preserve status. Guest pixel replay remains next; D3D8 TWEENING remains unadvertised. No original Microsoft D3D8/Wine/game/FPS acceptance claim",
+  "xp": {
+    "status": "PASS",
+    "seconds": 127,
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "executableSha256": "f102f21737ba095216372d4347b8efdba9227d1c3a5b93a712c0279cc587ddf2",
+    "testedDllSha256": "b335c11068d84d4efbc50c932337e4272ec8784d15b91286874aa16804f5222d",
+    "graphicsSha256": "e4bba654b9d9ef808ea159bd01f2f9271eb71ff2943159252b0f1f8b867040dd"
+  },
+  "wire": {
+    "frames": 6,
+    "groups": [
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_RENDER_STATE",
+          "SET_TEXTURE_STAGE_STATE",
+          "SET_TEXTURE",
+          "SET_VIEWPORT",
+          "SET_MATERIAL",
+          "SET_TRANSFORM",
+          "SET_STREAM_SOURCE",
+          "SET_INDICES",
+          "SET_VERTEX_SHADER",
+          "SET_FVF",
+          "PRESENT"
+        ],
+        "values": []
+      },
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_CLIP_PLANE",
+          "PRESENT"
+        ],
+        "values": [
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 94,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 95,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 6,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 7,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_CLIP_PLANE",
+            "index": 5,
+            "values": [
+              1,
+              -2,
+              0.5,
+              3
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scalar": {
+    "frames": 4,
+    "totalFrames": 8,
+    "recordingCommands": [
+      "SET_CURSOR_POSITION",
+      "PRESENT"
+    ],
+    "endCommands": [
+      "SET_CURSOR_POSITION",
+      "PRESENT"
+    ],
+    "applyCommands": [
+      {
+        "command": "SET_RENDER_STATE",
+        "value": {
+          "device_handle": 1048577,
+          "state": 22,
+          "value": 2,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_TEXTURE_STAGE_STATE",
+        "value": {
+          "device_handle": 1048577,
+          "stage": 3,
+          "state": 1,
+          "value": 7
+        }
+      },
+      {
+        "command": "SET_SAMPLER_STATE",
+        "value": {
+          "device_handle": 1048577,
+          "sampler": 260,
+          "state": 1,
+          "value": 3
+        }
+      },
+      {
+        "command": "SET_TRANSFORM",
+        "value": {
+          "device_handle": 1048577,
+          "state": 511,
+          "matrix": [
+            6,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      },
+      {
+        "command": "SET_MATERIAL",
+        "value": {
+          "device_handle": 1048577,
+          "diffuse": [
+            0.125,
+            0,
+            0,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "specular": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "emissive": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "power": 0
+        }
+      },
+      {
+        "command": "SET_CLIP_PLANE",
+        "value": {
+          "device_handle": 1048577,
+          "index": 5,
+          "plane": [
+            1,
+            -2,
+            0.5,
+            3
+          ]
+        }
+      },
+      {
+        "command": "SET_VIEWPORT",
+        "value": {
+          "device_handle": 1048577,
+          "x": 1,
+          "y": 2,
+          "width": 32,
+          "height": 30,
+          "min_z": 0.25,
+          "max_z": 0.75,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_SCISSOR_RECT",
+        "value": {
+          "device_handle": 1048577,
+          "left": 1,
+          "top": 2,
+          "right": 31,
+          "bottom": 32
+        }
+      },
+      {
+        "command": "SET_VERTEX_SHADER_CONSTANT_F",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 254,
+          "vector_count": 1,
+          "data_offset": 464
+        },
+        "data": [
+          0.375,
+          0.625,
+          0.875,
+          1
+        ]
+      },
+      {
+        "command": "SET_VERTEX_SHADER_CONSTANT_F",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 255,
+          "vector_count": 1,
+          "data_offset": 512
+        },
+        "data": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      {
+        "command": "SET_PIXEL_SHADER_CONSTANT_F",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 222,
+          "vector_count": 1,
+          "data_offset": 560
+        },
+        "data": [
+          0.375,
+          0.625,
+          0.875,
+          1
+        ]
+      },
+      {
+        "command": "SET_PIXEL_SHADER_CONSTANT_F",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 223,
+          "vector_count": 1,
+          "data_offset": 608
+        },
+        "data": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      {
+        "command": "SET_VERTEX_SHADER_CONSTANT_I",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 14,
+          "vector_count": 1,
+          "data_offset": 656
+        },
+        "data": [
+          -1,
+          -2,
+          -3,
+          -4
+        ]
+      },
+      {
+        "command": "SET_PIXEL_SHADER_CONSTANT_I",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 14,
+          "vector_count": 1,
+          "data_offset": 704
+        },
+        "data": [
+          -1,
+          -2,
+          -3,
+          -4
+        ]
+      },
+      {
+        "command": "SET_VERTEX_SHADER_CONSTANT_I",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 15,
+          "vector_count": 1,
+          "data_offset": 752
+        },
+        "data": [
+          -5,
+          -6,
+          -7,
+          -8
+        ]
+      },
+      {
+        "command": "SET_PIXEL_SHADER_CONSTANT_I",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 15,
+          "vector_count": 1,
+          "data_offset": 800
+        },
+        "data": [
+          -5,
+          -6,
+          -7,
+          -8
+        ]
+      },
+      {
+        "command": "SET_VERTEX_SHADER_CONSTANT_B",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 14,
+          "vector_count": 1,
+          "data_offset": 848
+        },
+        "data": [
+          1
+        ]
+      },
+      {
+        "command": "SET_PIXEL_SHADER_CONSTANT_B",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 14,
+          "vector_count": 1,
+          "data_offset": 888
+        },
+        "data": [
+          1
+        ]
+      },
+      {
+        "command": "SET_VERTEX_SHADER_CONSTANT_B",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 15,
+          "vector_count": 1,
+          "data_offset": 928
+        },
+        "data": [
+          0
+        ]
+      },
+      {
+        "command": "SET_PIXEL_SHADER_CONSTANT_B",
+        "value": {
+          "device_handle": 1048577,
+          "start_register": 15,
+          "vector_count": 1,
+          "data_offset": 968
+        },
+        "data": [
+          0
+        ]
+      },
+      {
+        "command": "SET_STREAM_SOURCE_FREQ",
+        "value": {
+          "device_handle": 1048577,
+          "stream": 3,
+          "divider": 2147483655
+        }
+      },
+      {
+        "command": "SET_CURSOR_POSITION",
+        "value": {
+          "device_handle": 1048577,
+          "x": 396,
+          "y": 277,
+          "flags": 0
+        }
+      },
+      {
+        "command": "PRESENT",
+        "value": {
+          "device_handle": 1048577,
+          "hwnd": 459012,
+          "x": 4,
+          "y": 23,
+          "width": 104,
+          "height": 69
+        }
+      }
+    ]
+  },
+  "objects": {
+    "frames": 8,
+    "recordingCommands": [
+      "SET_CURSOR_POSITION",
+      "PRESENT"
+    ],
+    "endCommands": [
+      "SET_CURSOR_POSITION",
+      "PRESENT"
+    ],
+    "applyCommands": [
+      {
+        "command": "SET_TEXTURE",
+        "value": {
+          "device_handle": 1048577,
+          "stage": 0,
+          "texture_handle": 1048588,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_TEXTURE",
+        "value": {
+          "device_handle": 1048577,
+          "stage": 1,
+          "texture_handle": 1048589,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_TEXTURE",
+        "value": {
+          "device_handle": 1048577,
+          "stage": 260,
+          "texture_handle": 1048590,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_LIGHT",
+        "value": {
+          "device_handle": 1048577,
+          "index": 3001,
+          "type": 3,
+          "diffuse": [
+            1,
+            1,
+            1,
+            0
+          ],
+          "specular": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 0,
+          "falloff": 0,
+          "attenuation": [
+            0,
+            0,
+            0
+          ],
+          "theta": 0,
+          "phi": 0
+        }
+      },
+      {
+        "command": "LIGHT_ENABLE",
+        "value": {
+          "device_handle": 1048577,
+          "index": 3001,
+          "enable": 0,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_LIGHT",
+        "value": {
+          "device_handle": 1048577,
+          "index": 37,
+          "type": 3,
+          "diffuse": [
+            0.125,
+            0,
+            0,
+            0
+          ],
+          "specular": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "ambient": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "direction": [
+            0,
+            0,
+            1
+          ],
+          "range": 0,
+          "falloff": 0,
+          "attenuation": [
+            0,
+            0,
+            0
+          ],
+          "theta": 0,
+          "phi": 0
+        }
+      },
+      {
+        "command": "LIGHT_ENABLE",
+        "value": {
+          "device_handle": 1048577,
+          "index": 37,
+          "enable": 0,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_VERTEX_SHADER",
+        "value": {
+          "device_handle": 1048577,
+          "shader_handle": 1073741825
+        }
+      },
+      {
+        "command": "SET_PIXEL_SHADER",
+        "value": {
+          "device_handle": 1048577,
+          "shader_handle": 1073741827
+        }
+      },
+      {
+        "command": "DESTROY_RESOURCE",
+        "value": {
+          "resource_handle": 1048592,
+          "resource_kind": 6
+        }
+      },
+      {
+        "command": "SET_VERTEX_DECLARATION",
+        "value": {
+          "device_handle": 1048577,
+          "declaration_handle": 1048591
+        }
+      },
+      {
+        "command": "SET_STREAM_SOURCE",
+        "value": {
+          "device_handle": 1048577,
+          "stream": 1,
+          "buffer_handle": 1048586,
+          "stride": 12,
+          "offset_in_bytes": 4,
+          "reserved": 0
+        }
+      },
+      {
+        "command": "SET_INDICES",
+        "value": {
+          "device_handle": 1048577,
+          "buffer_handle": 1048587
+        }
+      },
+      {
+        "command": "SET_CURSOR_POSITION",
+        "value": {
+          "device_handle": 1048577,
+          "x": 396,
+          "y": 277,
+          "flags": 0
+        }
+      },
+      {
+        "command": "PRESENT",
+        "value": {
+          "device_handle": 1048577,
+          "hwnd": 459012,
+          "x": 4,
+          "y": 23,
+          "width": 104,
+          "height": 69
+        }
+      }
+    ]
+  },
+  "lifetime": {
+    "shaders": 12,
+    "vertexShaders": 6,
+    "pixelShaders": 6,
+    "vertexDeclarationsDestroyed": 13,
+    "declarationOnlyDeclarations": 7,
+    "resources": [
+      {
+        "handle": 1073741825,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1415,
+        "binds": [
+          1419,
+          1423
+        ],
+        "destroyed": 1522
+      },
+      {
+        "handle": 1073741827,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1417,
+        "binds": [
+          1421
+        ],
+        "destroyed": 1524
+      },
+      {
+        "handle": 1073741829,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1527,
+        "binds": [
+          1529
+        ],
+        "destroyed": 1532
+      },
+      {
+        "handle": 1073741831,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1535,
+        "binds": [
+          1539
+        ],
+        "destroyed": 1542
+      },
+      {
+        "handle": 1073741833,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1537,
+        "binds": [
+          1541
+        ],
+        "destroyed": 1546
+      },
+      {
+        "handle": 1073741835,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1549,
+        "binds": [
+          1551
+        ],
+        "destroyed": 1554
+      },
+      {
+        "handle": 1073741837,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1556,
+        "binds": [
+          1558,
+          1560
+        ],
+        "destroyed": 1570
+      },
+      {
+        "handle": 1073741839,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1557,
+        "binds": [
+          1559
+        ],
+        "destroyed": 1571
+      },
+      {
+        "handle": 1073741841,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1572,
+        "binds": [
+          1573
+        ],
+        "destroyed": 1575
+      },
+      {
+        "handle": 1073741843,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1576,
+        "binds": [
+          1578
+        ],
+        "destroyed": 1580
+      },
+      {
+        "handle": 1073741845,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1577,
+        "binds": [
+          1579
+        ],
+        "destroyed": 1582
+      },
+      {
+        "handle": 1073741847,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1583,
+        "binds": [
+          1584
+        ],
+        "destroyed": 1586
+      },
+      {
+        "handle": 1048583,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1414,
+        "binds": [
+          1418,
+          1422
+        ],
+        "destroyed": 1523,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          }
+        ]
+      },
+      {
+        "handle": 1048584,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1416,
+        "binds": [
+          1420
+        ],
+        "destroyed": 1525,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          }
+        ]
+      },
+      {
+        "handle": 1048585,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1526,
+        "binds": [
+          1528
+        ],
+        "destroyed": 1533,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          }
+        ]
+      },
+      {
+        "handle": 1048586,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1534,
+        "binds": [
+          1538
+        ],
+        "destroyed": 1543,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          }
+        ]
+      },
+      {
+        "handle": 1048587,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1536,
+        "binds": [
+          1540
+        ],
+        "destroyed": 1547,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          }
+        ]
+      },
+      {
+        "handle": 1048588,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1548,
+        "binds": [
+          1550
+        ],
+        "destroyed": 1555,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          }
+        ]
+      },
+      {
+        "handle": 1048589,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1700,
+        "binds": [
+          1702
+        ],
+        "destroyed": 1706,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          },
+          {
+            "stream": 0,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 0
+          },
+          {
+            "stream": 1,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 1
+          },
+          {
+            "stream": 1,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 1
+          }
+        ],
+        "fixedFunction": true
+      },
+      {
+        "handle": 1048590,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1701,
+        "binds": [
+          1704
+        ],
+        "destroyed": 1709,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          },
+          {
+            "stream": 0,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 0
+          },
+          {
+            "stream": 1,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 1
+          },
+          {
+            "stream": 1,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 1
+          }
+        ],
+        "fixedFunction": true
+      },
+      {
+        "handle": 1048591,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1710,
+        "binds": [
+          1711
+        ],
+        "destroyed": 1716,
+        "elements": [
+          {
+            "stream": 0,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          }
+        ],
+        "fixedFunction": true
+      },
+      {
+        "handle": 1048601,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 4640,
+        "binds": [
+          4652,
+          4683
+        ],
+        "destroyed": 4844,
+        "elements": [
+          {
+            "stream": 15,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          },
+          {
+            "stream": 15,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 0
+          },
+          {
+            "stream": 1,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 1
+          },
+          {
+            "stream": 1,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 1
+          }
+        ],
+        "fixedFunction": true
+      },
+      {
+        "handle": 1048602,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 4641,
+        "binds": [
+          4712
+        ],
+        "destroyed": 4845,
+        "elements": [
+          {
+            "stream": 15,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          },
+          {
+            "stream": 15,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 0
+          }
+        ],
+        "fixedFunction": true
+      },
+      {
+        "handle": 1048603,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 4642,
+        "binds": [
+          4679
+        ],
+        "destroyed": 4846,
+        "elements": [
+          {
+            "stream": 15,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          },
+          {
+            "stream": 15,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 0
+          },
+          {
+            "stream": 1,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 1
+          }
+        ],
+        "fixedFunction": true
+      },
+      {
+        "handle": 1048604,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 4643,
+        "binds": [
+          4675
+        ],
+        "destroyed": 4847,
+        "elements": [
+          {
+            "stream": 15,
+            "offset": 0,
+            "type": 2,
+            "method": 0,
+            "usage": 0,
+            "usage_index": 0
+          },
+          {
+            "stream": 15,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 0
+          },
+          {
+            "stream": 1,
+            "offset": 12,
+            "type": 2,
+            "method": 0,
+            "usage": 3,
+            "usage_index": 1
+          }
+        ],
+        "fixedFunction": true
+      }
+    ]
+  },
+  "inheritedValidation": {
+    "file": "stage4d2k2-validation.json",
+    "sha256": "9d662d4dff5c2a640cd760fac699f6602837c581ea609f1b356a4caf149ceb75",
+    "scope": "Unchanged host JS/bundle: 35 WebGPU runs, 50 Tween scenes on SwiftShader and Metal with zero actual pixel error and two site integration checks. No new GPU/game/FPS claim."
+  },
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "f92ff053a5f81dc8fc8af1f84769c1c5e0fbe4f5d901e04c9723fadcd0b829da",
+    "tests/glbridge/d3d_process_lighting_xp.mjs": "96f387acf52312c6de112f71bd182e2fc5e9c449e0bfe8aca3804609433b9180",
+    "tests/lib/d3d_shader_lifetime_wire.mjs": "2754bb0e156703a435cb097ee470e53bdf07f94dd583b3a968b91872e19d03a6"
+  },
+  "siteSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "6f31a52dab0a9c133d90b479ec63c8faeba07fce5a1d4cab7266bb24920f2885",
+    "glbridge/d3d8proxy/d3d8_protocol.h": "9f7f5340bc3fa8d9986bd9f6ecc8485cc295d1b96c17efb4c3cffd6702048587",
+    "glbridge/d3d8proxy/d3d8.dll": "b335c11068d84d4efbc50c932337e4272ec8784d15b91286874aa16804f5222d",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "553add21ec92a025bb55d137b9cb42c12db58c58078a779e595b2be5e0030c5d",
+    "glbridge/sample/d3d8_tween_cases.h": "ac43de67177646922868534d9e778132cef451106a967ba80bd9eab88598e433",
+    "glbridge/sample/d3d_process_lighting_test.c": "8542909466bbde9e3be52b0ed12c5a3349f752e18aecfb1bac0a12a1cec380c3",
+    "glbridge/tests/d8wg_draw_input_test.js": "661732efc7b806659fe62c518428ecb08465a2b7b30ab95906fbf66207a72fd7",
+    "glbridge/tests/d8wg_draw_input_mutation_test.js": "97646046e2dcf9da6ef684c19790053ecc7449e58a2d30df4cdfbc340860cc32",
+    "glbridge/d3d8proxy/README.md": "fa16c3e8aba485099a2b14e234abb9f76d582d840918eda6ad1298d9a03e4a4b",
+    "vendor/v86/glbridge/manifest.json": "5159728a07ca7925d3af6f37bbac54c15f1aaf16f8afdc5baa0dae947fe6528e"
+  },
+  "logSha256": {
+    "tnl": "8967da37c4943f90ca10e94df803718d8614cf57e952463dba276d42495c869d",
+    "core": "2fc1ce8ae999b230b320674aff02c07f08e72e41e08028a1fb71c24d5cf01fd1",
+    "guest": "6aa9794cb236da6df68e42835430d28f358868fefcb6dd926c01e4274e5f99cb",
+    "builds": "e95e63845046b54bf00976f5220779e19aa827288e4cd20fdfb64af1da07cfaa",
+    "mutations": "34e553e9fb5fcac728cf12b7626c8b046af2c42f84b4489b612efacdf5ba6c77",
+    "sanitize": "a0ac9560adf6010a28d13b05f549106bf207275f9c44bd2cb33ed1e427a9b2c5"
+  }
+}

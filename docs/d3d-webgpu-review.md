@@ -1448,6 +1448,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 145 组核心、142 组客体、D3D8 十七个 SDK 冒烟 EXE与严格零售/诊断 DLL 通过；发布最终 XP 所测 D3D8 DLL。宿主包保持 `dffb0322a62fa650c089`，GPU/Metal/站点集成沿用 4D2k2。见 [stage4d2k3b-validation.json](fixtures/d3d-review/stage4d2k3b-validation.json)。
 > - 下一步完成 D3D8 普通声明绘制的范围/ClipStatus 与客体像素回放，再开启其 Tween caps；本步仍未宣称该能力或原生 Microsoft D3D8/Wine/游戏验收完成。
 
+> **阶段 4D2k3c（2026-11-03）：D3D8 普通声明绘制范围与 ClipStatus 完成。**
+>
+> - 普通/索引绘制按缓存声明或 FVF 计算实际使用的流和属性末端，逐流复用共用范围函数验证设备归属、锁定、常量步长与完整属性字节；最后一个顶点不再要求无用的步长尾部填充。主位置可在流 15，流 0 可未绑定；已删除但绑定保活的声明继续有效，程序声明无需固定 POSITION0 也可绘制。
+> - 软件处理设备的声明绘制复用共用多流 ClipStatus 与 Tween/世界用户平面计算；索引路径按整个声明范围分类，包括未引用顶点，并验证实际索引。成功计算可恢复此前因程序 shader 不可得的状态；范围、分配和传输失败保留原状态。固定管线 FVF 与预变换 VB 的既有裁剪记录路径继续保留。
+> - 按 [DirectX 8.1 DrawPrimitiveUP 文档](https://alpyne.me/archive/dx8/directx_cpp/graphics/reference/cpp/d3d/interfaces/idirect3ddevice8/drawprimitiveup.htm) 拒绝引用非零流的 UP 声明，并检查流 0 属性范围；成功 UP 的流/索引解绑语义不变。普通声明绘制先于流 0 的裁剪记录访问判断 shader 类型，避免未绑定流 0 时解引用空指针。
+> - 实际 C 绘制入口与共用数学联合验证多流/常量/保活声明、逐流范围/归属/锁、索引基址/未引用顶点、Tween/用户平面状态、UP 限制、失败原子性及 FVF 兼容；11/11 语义变异和 ASan/UBSan 通过。XP 三 API 回归新增声明式普通/索引绘制及拒绝路径检查，保持既有 6/8 Present 屏障和着色器生命周期计数。
+> - 145 组核心、144 组客体、D3D8 十七个 SDK 冒烟 EXE 和严格零售/诊断 DLL 通过；发布 XP 所测 D3D8 DLL。宿主包保持 `dffb0322a62fa650c089`，GPU/Metal/站点集成沿用 4D2k2。见 [stage4d2k3c-validation.json](fixtures/d3d-review/stage4d2k3c-validation.json)。
+> - 下一步用实际 D3D8 客体捕获完成 Tween 普通绘制/ProcessVertices 的像素回放验收，再开启其 Tween caps；尚未宣称原生 Microsoft D3D8/Wine/游戏验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
