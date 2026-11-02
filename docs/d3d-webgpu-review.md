@@ -1297,6 +1297,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 143 组核心、116 组客体、33 项 WebGPU 验证、两项站点集成、35 个标准冒烟 EXE、六个严格构建 DLL 及三 API XP T&L 回归通过。四个原数值参考的 cases 不变。宿主 JS 未改变，运行包继续为 `7beb9d03738199295430`；已更新 app-local 客体 DLL。见 [stage4d2i3e-validation.json](fixtures/d3d-review/stage4d2i3e-validation.json)。
 > - 此步扩展裁剪输入与内部发射格式；应用指定的任意打包 ProcessVertices 输出、可编程 CPU 顶点处理、其余共用运行时及完整 Wine/游戏验收继续按阶段推进。GPU 属性格式组合不等同于完整原生 D3D8/9 API 验收，也不构成新的 FPS 结论。
 
+
+> **阶段 4D2j1（2026-11-02）：共用稀疏灯光存储与 D3D9 高索引软件光照接入完成。**
+>
+> - D3D8/9 共用 SDK 灯光存储、默认值和释放逻辑。D3D9 保留 0–7 的内联访问，为更高的 DWORD 索引分配稀疏节点；Set/GetLight、LightEnable/GetLightEnable、软件 T&L 和状态块接入同一份数据。首次 LightEnable(FALSE) 也创建默认白色 +Z 方向光，替换属性保留启用状态。MaxActiveLights 仍限制同时参与的数量，不限制索引编号。
+> - 原生 XP 系统 D3D7 RGB 的 35 组公开查询已冻结：索引 0、7、8、37、1000，涵盖不存在的灯光、首次禁用/启用、属性改写和重复启停。默认 SDK 26 个 DWORD 与官方表一致；原生启用 BOOL 实测为 0x80，尚未创建时 GetLight/GetLightEnable 失败且不改写输出。该原生证据用于默认值及下一步 D3D7 接入，不作为原生 D3D9 的证明。
+> - 纯 C 检查对照五组原生默认表，验证 1,007 个稀疏 DWORD 键、UINT_MAX、重复查找、分配失败时链表不变及完整/幂等释放；5/5 语义变异、ASan/UBSan 通过。D3D9 状态块保留高索引的属性/启用独立掩码，Capture 不扩张掩码，分配失败清理节点；顶点/ALL 块只捕获已创建灯光，像素块不捕获灯光。
+> - 实际 app-local XP D3D8/9 COM 通过六个索引（含 UINT_MAX）的默认值、精确属性、启用持续性和顶点/像素块 Capture/Apply；D3D9 还通过录制后恢复及仅启用掩码。D3D8/9 的完整软件光照用例均改用索引 37，独立颜色期望继续通过；三 API T&L、三个 owner 及释放回归通过。新检查发现 D3D8 EndStateBlock 未恢复录制前状态，列入紧接着的修正，未将该行为计作本步验收。
+> - 143 组核心、118 组客体、35 个标准冒烟 EXE 和六个严格构建 DLL 通过；已更新 app-local DLL。宿主 JS 和运行包 `7beb9d03738199295430` 未改变，WebGPU/数学验证沿用 4D2i3e，未声明新的 GPU 像素、FPS 或完整 Wine/游戏验收。见 [stage4d2j1-validation.json](fixtures/d3d-review/stage4d2j1-validation.json)。
+> - 后续顶点处理范围校正：微软规定 ProcessVertices 输出声明只允许 FLOATn / D3DCOLOR，显式输出声明要求 VS3+；此前“任意打包输出”的泛化待办撤销，保留合法输出布局及可编程 CPU 顶点处理。依据：[输出声明规则](https://learn.microsoft.com/en-us/windows/win32/direct3d9/mapping-fvf-codes-to-a-directx-9-declaration)、[LightEnable 默认值](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-lightenable)、[灯光索引与 MaxActiveLights](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-setlight)。D3D7 的稀疏状态和 D3D8 的录制恢复继续下一步。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

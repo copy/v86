@@ -1,0 +1,111 @@
+{
+  "stage": "4D2j1 shared sparse light state and D3D9 high-index software lighting",
+  "date": "2026-11-02",
+  "bundle": "7beb9d03738199295430",
+  "coreSuites": 143,
+  "guestSuites": 118,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "nativeReference": {
+    "api": 7,
+    "device": "original Microsoft system D3D7 RGB",
+    "seconds": 93,
+    "queries": 35,
+    "indices": [
+      0,
+      7,
+      8,
+      37,
+      1000
+    ],
+    "batches": 0,
+    "sourceSha256": "91cab1f16c35534307d36006c60801621e27eab2a52404f91ea8392673651b70",
+    "executableSha256": "8ac881442171cabd095f3893aeeb9670be8a99e7c9de149904ea8a898fd26736"
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 116,
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "dllSha256": {
+      "d3d8": "095b00f6a6447648ed080d6189b2102ede5dfca2929cf47f5e565203bcf39e3f",
+      "d3d9": "6c8053b2621dd40bbeed8ae65f9dbf117c2451396f730e63d267be49ea924d5b",
+      "ddraw": "31e0652c66e413a1787afeb335cff2a884dc2edb3eed92da631ba7036b0109a6"
+    }
+  },
+  "portableSparseKeys": 1007,
+  "cMutations": {
+    "killed": 5,
+    "total": 5
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "inheritedValidation": {
+    "file": "stage4d2i3e-validation.json",
+    "sha256": "4840b61cd2c4f1a6107f2592328b7b66855198b6d00cdedc7c51a372b3f48786",
+    "scope": "Host JS, WebGPU 33 runs, 76-frame pixels on SwiftShader/Metal, three x87 precision checks and two site integration checks unchanged; no fresh GPU, math or integration claim."
+  },
+  "checks": [
+    "default SDK words match all five frozen native D3D7 default tables and Microsoft LightEnable documentation",
+    "D3D8 and D3D9 share sparse lookup, allocation, default values and destruction",
+    "D3D9 light indices no longer limited to 0..7; high indices feed the same software lighting kernel",
+    "real XP D3D8/9 six-index public queries include UINT_MAX, default-on-disable, replacement properties and enabled status persistence",
+    "D3D9 high-index vertex/pixel/recorded block capture/restore and enable-only masks pass real XP COM",
+    "all old three-API TNL, copy, fog, texture and blend checks pass; D3D8/9 numerical light cases use index 37",
+    "allocation failure leaves sparse list intact; all 1007 nodes released exactly once"
+  ],
+  "scope": "Original native evidence is D3D7 RGB only, not native D3D9. D3D7 still awaits sparse-state integration. D3D8 recording/EndStateBlock restoration was found incorrect and is the next correction; it is excluded from this stage acceptance. Existing first-eight active light budget unchanged. Programmable CPU vertices, remaining runtime and complete Wine/game/FPS acceptance remain future stages.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-lightenable",
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-setlight",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/mapping-fvf-codes-to-a-directx-9-declaration"
+  ],
+  "siteSha256": {
+    "glbridge/runtime/d9wg_light_state.h": "07512bc19b5c24e7ccdb961c8992e0b75cb6621dad1e5a695accaaad343fcd89",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "80e7dc481f65373f7153b416052157818a95798ea3490cfcdaee24f7d45b1bc1",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "1d2c608e3287712265298be3ca956652e877dd255600c4c31b6cf96e70f149a2",
+    "glbridge/sample/d3d7_native_light_reference.c": "91cab1f16c35534307d36006c60801621e27eab2a52404f91ea8392673651b70",
+    "glbridge/sample/d3d_light_state_cases.h": "56fe5872c5338e27f73255660ed9442473db606694ddc2371df3a3b31cb4ca79",
+    "glbridge/sample/d3d_process_lighting_test.c": "e6ff127196c9181d5111cffc049e25664f81a1b725c9e5c6fe19760f9a440e08",
+    "glbridge/tests/d3d8_protocol_consistency_test.js": "3d44b94d600cbaf4995671bc5380bf43ca83c17d2d8b25490326d4b66df2bf32",
+    "glbridge/tests/d9wg_light_state_test.js": "46edb3c329dd912522d7270e4bfed73928e5c44318bae6d5fc0b9bd9143c12a3",
+    "glbridge/tests/d9wg_light_state_mutation_test.js": "f59e18b5adcd56f2e0d21d956e359e52da549deb0e604362eaf1fd159bf1dd08",
+    "glbridge/d3d8proxy/d3d8.dll": "095b00f6a6447648ed080d6189b2102ede5dfca2929cf47f5e565203bcf39e3f",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "3e59b9de7317c0cec532322a0f9c4ee7c4a15e8837fa0d288bf7c9e9a49d3944",
+    "glbridge/d3d9proxy/d3d9.dll": "6c8053b2621dd40bbeed8ae65f9dbf117c2451396f730e63d267be49ea924d5b",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "b2486c579df9916806466191604edc60d4fb4d07fff6a2e91f4fb326b23f9bbf",
+    "glbridge/ddrawproxy/ddraw.dll": "31e0652c66e413a1787afeb335cff2a884dc2edb3eed92da631ba7036b0109a6",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "60f5fcb365276bb094d0fc97f2b6bd1edd00c28ca84f491c5616dd28f41487de",
+    "vendor/v86/glbridge/manifest.json": "4a22777e816302237c875e139976c2da07be4fe2c6265eae0a81e1d8b5bc813a"
+  },
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "370f01bb4dd205e0c85324f99be3ad1e85ea6c95d466ae2743fdf59f8df3337a",
+    "tests/glbridge/d3d7_native_light_xp.mjs": "a9be322416348ba04eee0da0ae75250536b6a13c5f87e2e47f4a27eced520478",
+    "tests/glbridge/d3d_process_lighting_xp.mjs": "6291a5c96cce505210d3c40e4a363dfe03f3fefd6dbccfa921e975248c625b7a",
+    "tests/glbridge/fixtures/d3d7_native_light_state.json": "0254dd3155a3fca5370b5db1fe43e4e9e7b2885eda6172d9fa296a206b9d82e6"
+  },
+  "logSha256": {
+    "native": "f5764103585c14fa0c63524891c631fbded89938b750435becd30ab46fed651b",
+    "tnl": "3fd0a1a3aa4f96a7c5a1c03caa6609338acd4e7ecce8b8e1442cd2635e403467",
+    "mutations": "f0dff849e7db80ecd38e16102326b97f002f572677901f2f3e45d95fc50835cc",
+    "sanitize": "61a3d77d3ac8d9670e7d77269d72a0c6ace3c7222bea8e7868a81bc5f0604c98",
+    "core": "c68d15816991386d99340943f5bea57ba5de783c15f04555a6b81c83c562750f",
+    "guest": "3d4c4312c633c69fcdd71433a809cb580244b9678a3045567290c6b5316fa88a",
+    "builds": "e34957186753ed3d5951768d4ae3605d5ebfe7daa6d4602e1bf3b292cd39b089"
+  }
+}
