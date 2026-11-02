@@ -1326,6 +1326,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 宿主原生编译实际 C 入口，增加常量范围、逐项掩码、平面和零命令检查；10/10 语义变异、ASan/UBSan 通过。`8c86698` 和紧邻上一版 `8e2d2cd` 的实际 C 源码均不能通过扩展检查。120 组客体、17 个 D3D8 冒烟 EXE、零售/诊断 DLL 通过并更新 app-local D3D8 DLL。
 > - 核心 143 组、WebGPU、三精度数学和站点集成沿用既有结果；宿主 JS、D3D7/9 已发布 DLL 和运行包 `7beb9d03738199295430` 未改变。此步仍不是完整原生 D3D8、Wine、游戏或 FPS 验收。见 [stage4d2j2b-validation.json](fixtures/d3d-review/stage4d2j2b-validation.json)。继续预定义块的其余范围、调色板、着色器句柄生命周期、D3D9 录制查询隔离及 D3D7 稀疏灯光。
 
+
+> **阶段 4D2j2c（2026-11-02）：D3D8/9 共用预定义状态块范围及完整矩阵保存。**
+>
+> - 共用一份分版本渲染/纹理/采样器范围表。依据 Wine 的 Windows 测试处理文档分歧：SPECULARENABLE、LOCALVIEWER 和材质来源 RS 保留在顶点类，CCW_STENCILFUNC 只由 ALL/显式录制保存；纹理坐标路由和纹理变换标志同时属于顶点、像素类。D3D9 补齐顶点类的度数/细分状态及 NPatch，频率与 VB 绑定分开捕获，采样器 DMAPOFFSET 状态与其余像素采样状态分开。
+> - D3D8 收紧此前过宽的预定义范围；两 API 的材质、平面系数、视口、变换及 VB/IB/纹理绑定仅由 ALL/显式记录保存。**修正 4D2j2b 的范围假设：用户平面不属于预定义顶点块**，对应实现与期望已一起更正。D3D9 增加此前缺失的平面、NPatch 与独立频率录制/恢复。这里只验证有效采样器上的状态保存，不宣称实现位移贴图的 256 号采样槽。
+> - D3D8 的预定义灯光键只在创建时选择；后续 Capture 不加入新灯光，未创建的内联灯光也不会因 Apply 被隐式创建。稀疏键分配失败返回 OOM 并释放已持有的引用。两 API 共用合法矩阵编号与密集槽映射，D3D9 从原先的有限矩阵集合扩展为 256 个世界矩阵、view/projection 和八个纹理矩阵，并在 O(1) 时间标记录制槽。
+> - 独立参考包含 D3D8 的 38/36、D3D9 的 45/60 项顶点/像素 RS 及 SDK 编号；D3D8 额外的 ZBIAS/阶数项依据 Wine 实现映射，未标作新的原生 Windows 运行结果。宿主直接编译实际范围 C 函数，检查两 API 三种范围、共享纹理状态、采样器类别、资源/材质/平面隔离、已创建灯光和全部 266 个矩阵槽；11/11 语义变异、ASan/UBSan 通过，上一版 `ead272a` 的两份实际 C 源码均失败。
+> - 实际 XP D3D8/9 各三类、798 组矩阵查询（共 1,596 组）以及 RS/TSS、对象绑定、材质、平面、后来创建的高/低索引灯光、FVF 的保存/修改/Capture/Apply 检查通过。D3D9 额外验证采样器状态、频率、NPatch，以及仅录制频率时不覆盖后来改绑的 VB。三 API T&L、六帧 D3D8 零提前状态命令及精确常量/平面载荷继续通过，三个 owner 正常释放。
+> - 143 组核心、122 组客体、35 个标准冒烟 EXE 和六个严格构建 DLL 通过；已更新 app-local D3D8/9 零售/诊断 DLL。宿主 JS、运行包 `7beb9d03738199295430` 与既有数值内核未改变，GPU/三精度数学和站点集成沿用 4D2i3e，未声明新的像素、FPS 或完整原生/Wine/游戏验收。见 [stage4d2j2c-validation.json](fixtures/d3d-review/stage4d2j2c-validation.json)。
+> - 依据：[Wine D3D8 测试](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c)、[Wine D3D9 测试](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/stateblock.c)、[ALL 范围](https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-all-device-states-with-a-stateblock)、[顶点范围](https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-vertex-states-with-a-stateblock)。继续调色板、着色器生命周期、D3D9 录制查询隔离、D3D7 稀疏灯光与其余共用运行时。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -44,7 +44,10 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 deferred recording:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 constant and plane recording:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 sparse recorded block restoration and masks"));
-        for(const api of [8,9]) assert(result.logs["TNL"+api+".TXT"].includes("PASS sparse light state:"));
+        for(const api of [8,9]) {
+            assert(result.logs["TNL"+api+".TXT"].includes("PASS sparse light state:"));
+            assert(result.logs["TNL"+api+".TXT"].includes("PASS shared D3D8/9 state scope checks:"));
+        }
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 sparse recorded block restoration and masks"));
         assert.equal(result.releases.length, 3);assert.equal(new Set(result.releases).size, 3);
         assert(result.releases.every(owner => owner > 0));assert.equal(result.owners.length, 3);

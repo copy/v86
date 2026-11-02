@@ -1,0 +1,989 @@
+{
+  "description": "Independent predefined state-block membership: Wine Windows-tested RS tables plus SDK IDs. Extra D3D8 ZBIAS/order states use Wine implementation mapping; non-RS class boundaries follow Wine implementation and Microsoft ALL/vertex/pixel documentation.",
+  "retrievedDate": "2026-11-02",
+  "sources": [
+    "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c",
+    "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/stateblock.c",
+    "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/stateblock.c",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-all-device-states-with-a-stateblock"
+  ],
+  "conflicts": "Use Windows-tested RS classes where documentation differs: SPECULARENABLE/LOCALVIEWER/material-source RS stay vertex-only; CCW_STENCILFUNC is ALL/explicit only. Texture coordinate routing and transform flags belong to both pixel and vertex classes. Plane coefficients and material are ALL/explicit only.",
+  "apis": {
+    "8": {
+      "sdkSha256": "6443383135f69c8199f4c9c1b81717b94ade16ae625f760f198d7c49d864353d",
+      "sdkEnums": {
+        "D3DRS_ZENABLE": 7,
+        "D3DRS_FILLMODE": 8,
+        "D3DRS_SHADEMODE": 9,
+        "D3DRS_LINEPATTERN": 10,
+        "D3DRS_ZWRITEENABLE": 14,
+        "D3DRS_ALPHATESTENABLE": 15,
+        "D3DRS_LASTPIXEL": 16,
+        "D3DRS_SRCBLEND": 19,
+        "D3DRS_DESTBLEND": 20,
+        "D3DRS_CULLMODE": 22,
+        "D3DRS_ZFUNC": 23,
+        "D3DRS_ALPHAREF": 24,
+        "D3DRS_ALPHAFUNC": 25,
+        "D3DRS_DITHERENABLE": 26,
+        "D3DRS_ALPHABLENDENABLE": 27,
+        "D3DRS_FOGENABLE": 28,
+        "D3DRS_SPECULARENABLE": 29,
+        "D3DRS_ZVISIBLE": 30,
+        "D3DRS_FOGCOLOR": 34,
+        "D3DRS_FOGTABLEMODE": 35,
+        "D3DRS_FOGSTART": 36,
+        "D3DRS_FOGEND": 37,
+        "D3DRS_FOGDENSITY": 38,
+        "D3DRS_EDGEANTIALIAS": 40,
+        "D3DRS_ZBIAS": 47,
+        "D3DRS_RANGEFOGENABLE": 48,
+        "D3DRS_STENCILENABLE": 52,
+        "D3DRS_STENCILFAIL": 53,
+        "D3DRS_STENCILZFAIL": 54,
+        "D3DRS_STENCILPASS": 55,
+        "D3DRS_STENCILFUNC": 56,
+        "D3DRS_STENCILREF": 57,
+        "D3DRS_STENCILMASK": 58,
+        "D3DRS_STENCILWRITEMASK": 59,
+        "D3DRS_TEXTUREFACTOR": 60,
+        "D3DRS_WRAP0": 128,
+        "D3DRS_WRAP1": 129,
+        "D3DRS_WRAP2": 130,
+        "D3DRS_WRAP3": 131,
+        "D3DRS_WRAP4": 132,
+        "D3DRS_WRAP5": 133,
+        "D3DRS_WRAP6": 134,
+        "D3DRS_WRAP7": 135,
+        "D3DRS_CLIPPING": 136,
+        "D3DRS_LIGHTING": 137,
+        "D3DRS_AMBIENT": 139,
+        "D3DRS_FOGVERTEXMODE": 140,
+        "D3DRS_COLORVERTEX": 141,
+        "D3DRS_LOCALVIEWER": 142,
+        "D3DRS_NORMALIZENORMALS": 143,
+        "D3DRS_DIFFUSEMATERIALSOURCE": 145,
+        "D3DRS_SPECULARMATERIALSOURCE": 146,
+        "D3DRS_AMBIENTMATERIALSOURCE": 147,
+        "D3DRS_EMISSIVEMATERIALSOURCE": 148,
+        "D3DRS_VERTEXBLEND": 151,
+        "D3DRS_CLIPPLANEENABLE": 152,
+        "D3DRS_SOFTWAREVERTEXPROCESSING": 153,
+        "D3DRS_POINTSIZE": 154,
+        "D3DRS_POINTSIZE_MIN": 155,
+        "D3DRS_POINTSPRITEENABLE": 156,
+        "D3DRS_POINTSCALEENABLE": 157,
+        "D3DRS_POINTSCALE_A": 158,
+        "D3DRS_POINTSCALE_B": 159,
+        "D3DRS_POINTSCALE_C": 160,
+        "D3DRS_MULTISAMPLEANTIALIAS": 161,
+        "D3DRS_MULTISAMPLEMASK": 162,
+        "D3DRS_PATCHEDGESTYLE": 163,
+        "D3DRS_PATCHSEGMENTS": 164,
+        "D3DRS_DEBUGMONITORTOKEN": 165,
+        "D3DRS_POINTSIZE_MAX": 166,
+        "D3DRS_INDEXEDVERTEXBLENDENABLE": 167,
+        "D3DRS_COLORWRITEENABLE": 168,
+        "D3DRS_TWEENFACTOR": 170,
+        "D3DRS_BLENDOP": 171,
+        "D3DRS_POSITIONORDER": 172,
+        "D3DRS_NORMALORDER": 173,
+        "D3DRS_FORCE_DWORD": 2147483647,
+        "D3DTSS_COLOROP": 1,
+        "D3DTSS_COLORARG1": 2,
+        "D3DTSS_COLORARG2": 3,
+        "D3DTSS_ALPHAOP": 4,
+        "D3DTSS_ALPHAARG1": 5,
+        "D3DTSS_ALPHAARG2": 6,
+        "D3DTSS_BUMPENVMAT00": 7,
+        "D3DTSS_BUMPENVMAT01": 8,
+        "D3DTSS_BUMPENVMAT10": 9,
+        "D3DTSS_BUMPENVMAT11": 10,
+        "D3DTSS_TEXCOORDINDEX": 11,
+        "D3DTSS_ADDRESSU": 13,
+        "D3DTSS_ADDRESSV": 14,
+        "D3DTSS_BORDERCOLOR": 15,
+        "D3DTSS_MAGFILTER": 16,
+        "D3DTSS_MINFILTER": 17,
+        "D3DTSS_MIPFILTER": 18,
+        "D3DTSS_MIPMAPLODBIAS": 19,
+        "D3DTSS_MAXMIPLEVEL": 20,
+        "D3DTSS_MAXANISOTROPY": 21,
+        "D3DTSS_BUMPENVLSCALE": 22,
+        "D3DTSS_BUMPENVLOFFSET": 23,
+        "D3DTSS_TEXTURETRANSFORMFLAGS": 24,
+        "D3DTSS_ADDRESSW": 25,
+        "D3DTSS_COLORARG0": 26,
+        "D3DTSS_ALPHAARG0": 27,
+        "D3DTSS_RESULTARG": 28,
+        "D3DTSS_FORCE_DWORD": 2147483647
+      },
+      "vertex": [
+        {
+          "name": "D3DRS_AMBIENT",
+          "state": 139
+        },
+        {
+          "name": "D3DRS_AMBIENTMATERIALSOURCE",
+          "state": 147
+        },
+        {
+          "name": "D3DRS_CLIPPING",
+          "state": 136
+        },
+        {
+          "name": "D3DRS_CLIPPLANEENABLE",
+          "state": 152
+        },
+        {
+          "name": "D3DRS_COLORVERTEX",
+          "state": 141
+        },
+        {
+          "name": "D3DRS_CULLMODE",
+          "state": 22
+        },
+        {
+          "name": "D3DRS_DIFFUSEMATERIALSOURCE",
+          "state": 145
+        },
+        {
+          "name": "D3DRS_EMISSIVEMATERIALSOURCE",
+          "state": 148
+        },
+        {
+          "name": "D3DRS_FOGCOLOR",
+          "state": 34
+        },
+        {
+          "name": "D3DRS_FOGDENSITY",
+          "state": 38
+        },
+        {
+          "name": "D3DRS_FOGENABLE",
+          "state": 28
+        },
+        {
+          "name": "D3DRS_FOGEND",
+          "state": 37
+        },
+        {
+          "name": "D3DRS_FOGSTART",
+          "state": 36
+        },
+        {
+          "name": "D3DRS_FOGTABLEMODE",
+          "state": 35
+        },
+        {
+          "name": "D3DRS_FOGVERTEXMODE",
+          "state": 140
+        },
+        {
+          "name": "D3DRS_INDEXEDVERTEXBLENDENABLE",
+          "state": 167
+        },
+        {
+          "name": "D3DRS_LIGHTING",
+          "state": 137
+        },
+        {
+          "name": "D3DRS_LOCALVIEWER",
+          "state": 142
+        },
+        {
+          "name": "D3DRS_MULTISAMPLEANTIALIAS",
+          "state": 161
+        },
+        {
+          "name": "D3DRS_MULTISAMPLEMASK",
+          "state": 162
+        },
+        {
+          "name": "D3DRS_NORMALIZENORMALS",
+          "state": 143
+        },
+        {
+          "name": "D3DRS_PATCHEDGESTYLE",
+          "state": 163
+        },
+        {
+          "name": "D3DRS_POINTSCALE_A",
+          "state": 158
+        },
+        {
+          "name": "D3DRS_POINTSCALE_B",
+          "state": 159
+        },
+        {
+          "name": "D3DRS_POINTSCALE_C",
+          "state": 160
+        },
+        {
+          "name": "D3DRS_POINTSCALEENABLE",
+          "state": 157
+        },
+        {
+          "name": "D3DRS_POINTSIZE",
+          "state": 154
+        },
+        {
+          "name": "D3DRS_POINTSIZE_MAX",
+          "state": 166
+        },
+        {
+          "name": "D3DRS_POINTSIZE_MIN",
+          "state": 155
+        },
+        {
+          "name": "D3DRS_POINTSPRITEENABLE",
+          "state": 156
+        },
+        {
+          "name": "D3DRS_RANGEFOGENABLE",
+          "state": 48
+        },
+        {
+          "name": "D3DRS_SHADEMODE",
+          "state": 9
+        },
+        {
+          "name": "D3DRS_SPECULARENABLE",
+          "state": 29
+        },
+        {
+          "name": "D3DRS_SPECULARMATERIALSOURCE",
+          "state": 146
+        },
+        {
+          "name": "D3DRS_TWEENFACTOR",
+          "state": 170
+        },
+        {
+          "name": "D3DRS_VERTEXBLEND",
+          "state": 151
+        },
+        {
+          "name": "D3DRS_POSITIONORDER",
+          "state": 172
+        },
+        {
+          "name": "D3DRS_NORMALORDER",
+          "state": 173
+        }
+      ],
+      "pixel": [
+        {
+          "name": "D3DRS_ALPHABLENDENABLE",
+          "state": 27
+        },
+        {
+          "name": "D3DRS_ALPHAFUNC",
+          "state": 25
+        },
+        {
+          "name": "D3DRS_ALPHAREF",
+          "state": 24
+        },
+        {
+          "name": "D3DRS_ALPHATESTENABLE",
+          "state": 15
+        },
+        {
+          "name": "D3DRS_BLENDOP",
+          "state": 171
+        },
+        {
+          "name": "D3DRS_COLORWRITEENABLE",
+          "state": 168
+        },
+        {
+          "name": "D3DRS_DESTBLEND",
+          "state": 20
+        },
+        {
+          "name": "D3DRS_DITHERENABLE",
+          "state": 26
+        },
+        {
+          "name": "D3DRS_FILLMODE",
+          "state": 8
+        },
+        {
+          "name": "D3DRS_FOGDENSITY",
+          "state": 38
+        },
+        {
+          "name": "D3DRS_FOGEND",
+          "state": 37
+        },
+        {
+          "name": "D3DRS_FOGSTART",
+          "state": 36
+        },
+        {
+          "name": "D3DRS_LASTPIXEL",
+          "state": 16
+        },
+        {
+          "name": "D3DRS_SHADEMODE",
+          "state": 9
+        },
+        {
+          "name": "D3DRS_SRCBLEND",
+          "state": 19
+        },
+        {
+          "name": "D3DRS_STENCILENABLE",
+          "state": 52
+        },
+        {
+          "name": "D3DRS_STENCILFAIL",
+          "state": 53
+        },
+        {
+          "name": "D3DRS_STENCILFUNC",
+          "state": 56
+        },
+        {
+          "name": "D3DRS_STENCILMASK",
+          "state": 58
+        },
+        {
+          "name": "D3DRS_STENCILPASS",
+          "state": 55
+        },
+        {
+          "name": "D3DRS_STENCILREF",
+          "state": 57
+        },
+        {
+          "name": "D3DRS_STENCILWRITEMASK",
+          "state": 59
+        },
+        {
+          "name": "D3DRS_STENCILZFAIL",
+          "state": 54
+        },
+        {
+          "name": "D3DRS_TEXTUREFACTOR",
+          "state": 60
+        },
+        {
+          "name": "D3DRS_WRAP0",
+          "state": 128
+        },
+        {
+          "name": "D3DRS_WRAP1",
+          "state": 129
+        },
+        {
+          "name": "D3DRS_WRAP2",
+          "state": 130
+        },
+        {
+          "name": "D3DRS_WRAP3",
+          "state": 131
+        },
+        {
+          "name": "D3DRS_WRAP4",
+          "state": 132
+        },
+        {
+          "name": "D3DRS_WRAP5",
+          "state": 133
+        },
+        {
+          "name": "D3DRS_WRAP6",
+          "state": 134
+        },
+        {
+          "name": "D3DRS_WRAP7",
+          "state": 135
+        },
+        {
+          "name": "D3DRS_ZENABLE",
+          "state": 7
+        },
+        {
+          "name": "D3DRS_ZFUNC",
+          "state": 23
+        },
+        {
+          "name": "D3DRS_ZWRITEENABLE",
+          "state": 14
+        },
+        {
+          "name": "D3DRS_ZBIAS",
+          "state": 47
+        }
+      ]
+    },
+    "9": {
+      "sdkSha256": "93b347196f38565688dd7fe775cfd04549b4a50e79ccf7884d3dad24f0102146",
+      "sdkEnums": {
+        "D3DRS_ZENABLE": 7,
+        "D3DRS_FILLMODE": 8,
+        "D3DRS_SHADEMODE": 9,
+        "D3DRS_ZWRITEENABLE": 14,
+        "D3DRS_ALPHATESTENABLE": 15,
+        "D3DRS_LASTPIXEL": 16,
+        "D3DRS_SRCBLEND": 19,
+        "D3DRS_DESTBLEND": 20,
+        "D3DRS_CULLMODE": 22,
+        "D3DRS_ZFUNC": 23,
+        "D3DRS_ALPHAREF": 24,
+        "D3DRS_ALPHAFUNC": 25,
+        "D3DRS_DITHERENABLE": 26,
+        "D3DRS_ALPHABLENDENABLE": 27,
+        "D3DRS_FOGENABLE": 28,
+        "D3DRS_SPECULARENABLE": 29,
+        "D3DRS_FOGCOLOR": 34,
+        "D3DRS_FOGTABLEMODE": 35,
+        "D3DRS_FOGSTART": 36,
+        "D3DRS_FOGEND": 37,
+        "D3DRS_FOGDENSITY": 38,
+        "D3DRS_RANGEFOGENABLE": 48,
+        "D3DRS_STENCILENABLE": 52,
+        "D3DRS_STENCILFAIL": 53,
+        "D3DRS_STENCILZFAIL": 54,
+        "D3DRS_STENCILPASS": 55,
+        "D3DRS_STENCILFUNC": 56,
+        "D3DRS_STENCILREF": 57,
+        "D3DRS_STENCILMASK": 58,
+        "D3DRS_STENCILWRITEMASK": 59,
+        "D3DRS_TEXTUREFACTOR": 60,
+        "D3DRS_WRAP0": 128,
+        "D3DRS_WRAP1": 129,
+        "D3DRS_WRAP2": 130,
+        "D3DRS_WRAP3": 131,
+        "D3DRS_WRAP4": 132,
+        "D3DRS_WRAP5": 133,
+        "D3DRS_WRAP6": 134,
+        "D3DRS_WRAP7": 135,
+        "D3DRS_CLIPPING": 136,
+        "D3DRS_LIGHTING": 137,
+        "D3DRS_AMBIENT": 139,
+        "D3DRS_FOGVERTEXMODE": 140,
+        "D3DRS_COLORVERTEX": 141,
+        "D3DRS_LOCALVIEWER": 142,
+        "D3DRS_NORMALIZENORMALS": 143,
+        "D3DRS_DIFFUSEMATERIALSOURCE": 145,
+        "D3DRS_SPECULARMATERIALSOURCE": 146,
+        "D3DRS_AMBIENTMATERIALSOURCE": 147,
+        "D3DRS_EMISSIVEMATERIALSOURCE": 148,
+        "D3DRS_VERTEXBLEND": 151,
+        "D3DRS_CLIPPLANEENABLE": 152,
+        "D3DRS_POINTSIZE": 154,
+        "D3DRS_POINTSIZE_MIN": 155,
+        "D3DRS_POINTSPRITEENABLE": 156,
+        "D3DRS_POINTSCALEENABLE": 157,
+        "D3DRS_POINTSCALE_A": 158,
+        "D3DRS_POINTSCALE_B": 159,
+        "D3DRS_POINTSCALE_C": 160,
+        "D3DRS_MULTISAMPLEANTIALIAS": 161,
+        "D3DRS_MULTISAMPLEMASK": 162,
+        "D3DRS_PATCHEDGESTYLE": 163,
+        "D3DRS_DEBUGMONITORTOKEN": 165,
+        "D3DRS_POINTSIZE_MAX": 166,
+        "D3DRS_INDEXEDVERTEXBLENDENABLE": 167,
+        "D3DRS_COLORWRITEENABLE": 168,
+        "D3DRS_TWEENFACTOR": 170,
+        "D3DRS_BLENDOP": 171,
+        "D3DRS_POSITIONDEGREE": 172,
+        "D3DRS_NORMALDEGREE": 173,
+        "D3DRS_SCISSORTESTENABLE": 174,
+        "D3DRS_SLOPESCALEDEPTHBIAS": 175,
+        "D3DRS_ANTIALIASEDLINEENABLE": 176,
+        "D3DRS_MINTESSELLATIONLEVEL": 178,
+        "D3DRS_MAXTESSELLATIONLEVEL": 179,
+        "D3DRS_ADAPTIVETESS_X": 180,
+        "D3DRS_ADAPTIVETESS_Y": 181,
+        "D3DRS_ADAPTIVETESS_Z": 182,
+        "D3DRS_ADAPTIVETESS_W": 183,
+        "D3DRS_ENABLEADAPTIVETESSELLATION": 184,
+        "D3DRS_TWOSIDEDSTENCILMODE": 185,
+        "D3DRS_CCW_STENCILFAIL": 186,
+        "D3DRS_CCW_STENCILZFAIL": 187,
+        "D3DRS_CCW_STENCILPASS": 188,
+        "D3DRS_CCW_STENCILFUNC": 189,
+        "D3DRS_COLORWRITEENABLE1": 190,
+        "D3DRS_COLORWRITEENABLE2": 191,
+        "D3DRS_COLORWRITEENABLE3": 192,
+        "D3DRS_BLENDFACTOR": 193,
+        "D3DRS_SRGBWRITEENABLE": 194,
+        "D3DRS_DEPTHBIAS": 195,
+        "D3DRS_WRAP8": 198,
+        "D3DRS_WRAP9": 199,
+        "D3DRS_WRAP10": 200,
+        "D3DRS_WRAP11": 201,
+        "D3DRS_WRAP12": 202,
+        "D3DRS_WRAP13": 203,
+        "D3DRS_WRAP14": 204,
+        "D3DRS_WRAP15": 205,
+        "D3DRS_SEPARATEALPHABLENDENABLE": 206,
+        "D3DRS_SRCBLENDALPHA": 207,
+        "D3DRS_DESTBLENDALPHA": 208,
+        "D3DRS_BLENDOPALPHA": 209,
+        "D3DRS_FORCE_DWORD": 2147483647,
+        "D3DTSS_COLOROP": 1,
+        "D3DTSS_COLORARG1": 2,
+        "D3DTSS_COLORARG2": 3,
+        "D3DTSS_ALPHAOP": 4,
+        "D3DTSS_ALPHAARG1": 5,
+        "D3DTSS_ALPHAARG2": 6,
+        "D3DTSS_BUMPENVMAT00": 7,
+        "D3DTSS_BUMPENVMAT01": 8,
+        "D3DTSS_BUMPENVMAT10": 9,
+        "D3DTSS_BUMPENVMAT11": 10,
+        "D3DTSS_TEXCOORDINDEX": 11,
+        "D3DTSS_BUMPENVLSCALE": 22,
+        "D3DTSS_BUMPENVLOFFSET": 23,
+        "D3DTSS_TEXTURETRANSFORMFLAGS": 24,
+        "D3DTSS_COLORARG0": 26,
+        "D3DTSS_ALPHAARG0": 27,
+        "D3DTSS_RESULTARG": 28,
+        "D3DTSS_CONSTANT": 32,
+        "D3DTSS_FORCE_DWORD": 2147483647,
+        "D3DSAMP_ADDRESSU": 1,
+        "D3DSAMP_ADDRESSV": 2,
+        "D3DSAMP_ADDRESSW": 3,
+        "D3DSAMP_BORDERCOLOR": 4,
+        "D3DSAMP_MAGFILTER": 5,
+        "D3DSAMP_MINFILTER": 6,
+        "D3DSAMP_MIPFILTER": 7,
+        "D3DSAMP_MIPMAPLODBIAS": 8,
+        "D3DSAMP_MAXMIPLEVEL": 9,
+        "D3DSAMP_MAXANISOTROPY": 10,
+        "D3DSAMP_SRGBTEXTURE": 11,
+        "D3DSAMP_ELEMENTINDEX": 12,
+        "D3DSAMP_DMAPOFFSET": 13,
+        "D3DSAMP_FORCE_DWORD": 2147483647
+      },
+      "vertex": [
+        {
+          "name": "D3DRS_AMBIENT",
+          "state": 139
+        },
+        {
+          "name": "D3DRS_AMBIENTMATERIALSOURCE",
+          "state": 147
+        },
+        {
+          "name": "D3DRS_CLIPPING",
+          "state": 136
+        },
+        {
+          "name": "D3DRS_CLIPPLANEENABLE",
+          "state": 152
+        },
+        {
+          "name": "D3DRS_COLORVERTEX",
+          "state": 141
+        },
+        {
+          "name": "D3DRS_CULLMODE",
+          "state": 22
+        },
+        {
+          "name": "D3DRS_DIFFUSEMATERIALSOURCE",
+          "state": 145
+        },
+        {
+          "name": "D3DRS_EMISSIVEMATERIALSOURCE",
+          "state": 148
+        },
+        {
+          "name": "D3DRS_FOGCOLOR",
+          "state": 34
+        },
+        {
+          "name": "D3DRS_FOGDENSITY",
+          "state": 38
+        },
+        {
+          "name": "D3DRS_FOGENABLE",
+          "state": 28
+        },
+        {
+          "name": "D3DRS_FOGEND",
+          "state": 37
+        },
+        {
+          "name": "D3DRS_FOGSTART",
+          "state": 36
+        },
+        {
+          "name": "D3DRS_FOGTABLEMODE",
+          "state": 35
+        },
+        {
+          "name": "D3DRS_FOGVERTEXMODE",
+          "state": 140
+        },
+        {
+          "name": "D3DRS_INDEXEDVERTEXBLENDENABLE",
+          "state": 167
+        },
+        {
+          "name": "D3DRS_LIGHTING",
+          "state": 137
+        },
+        {
+          "name": "D3DRS_LOCALVIEWER",
+          "state": 142
+        },
+        {
+          "name": "D3DRS_MULTISAMPLEANTIALIAS",
+          "state": 161
+        },
+        {
+          "name": "D3DRS_MULTISAMPLEMASK",
+          "state": 162
+        },
+        {
+          "name": "D3DRS_NORMALIZENORMALS",
+          "state": 143
+        },
+        {
+          "name": "D3DRS_PATCHEDGESTYLE",
+          "state": 163
+        },
+        {
+          "name": "D3DRS_POINTSCALE_A",
+          "state": 158
+        },
+        {
+          "name": "D3DRS_POINTSCALE_B",
+          "state": 159
+        },
+        {
+          "name": "D3DRS_POINTSCALE_C",
+          "state": 160
+        },
+        {
+          "name": "D3DRS_POINTSCALEENABLE",
+          "state": 157
+        },
+        {
+          "name": "D3DRS_POINTSIZE",
+          "state": 154
+        },
+        {
+          "name": "D3DRS_POINTSIZE_MAX",
+          "state": 166
+        },
+        {
+          "name": "D3DRS_POINTSIZE_MIN",
+          "state": 155
+        },
+        {
+          "name": "D3DRS_POINTSPRITEENABLE",
+          "state": 156
+        },
+        {
+          "name": "D3DRS_RANGEFOGENABLE",
+          "state": 48
+        },
+        {
+          "name": "D3DRS_SHADEMODE",
+          "state": 9
+        },
+        {
+          "name": "D3DRS_SPECULARENABLE",
+          "state": 29
+        },
+        {
+          "name": "D3DRS_SPECULARMATERIALSOURCE",
+          "state": 146
+        },
+        {
+          "name": "D3DRS_TWEENFACTOR",
+          "state": 170
+        },
+        {
+          "name": "D3DRS_VERTEXBLEND",
+          "state": 151
+        },
+        {
+          "name": "D3DRS_POSITIONDEGREE",
+          "state": 172
+        },
+        {
+          "name": "D3DRS_NORMALDEGREE",
+          "state": 173
+        },
+        {
+          "name": "D3DRS_MINTESSELLATIONLEVEL",
+          "state": 178
+        },
+        {
+          "name": "D3DRS_MAXTESSELLATIONLEVEL",
+          "state": 179
+        },
+        {
+          "name": "D3DRS_ADAPTIVETESS_X",
+          "state": 180
+        },
+        {
+          "name": "D3DRS_ADAPTIVETESS_Y",
+          "state": 181
+        },
+        {
+          "name": "D3DRS_ADAPTIVETESS_Z",
+          "state": 182
+        },
+        {
+          "name": "D3DRS_ADAPTIVETESS_W",
+          "state": 183
+        },
+        {
+          "name": "D3DRS_ENABLEADAPTIVETESSELLATION",
+          "state": 184
+        }
+      ],
+      "pixel": [
+        {
+          "name": "D3DRS_ALPHABLENDENABLE",
+          "state": 27
+        },
+        {
+          "name": "D3DRS_ALPHAFUNC",
+          "state": 25
+        },
+        {
+          "name": "D3DRS_ALPHAREF",
+          "state": 24
+        },
+        {
+          "name": "D3DRS_ALPHATESTENABLE",
+          "state": 15
+        },
+        {
+          "name": "D3DRS_BLENDOP",
+          "state": 171
+        },
+        {
+          "name": "D3DRS_COLORWRITEENABLE",
+          "state": 168
+        },
+        {
+          "name": "D3DRS_DESTBLEND",
+          "state": 20
+        },
+        {
+          "name": "D3DRS_DITHERENABLE",
+          "state": 26
+        },
+        {
+          "name": "D3DRS_FILLMODE",
+          "state": 8
+        },
+        {
+          "name": "D3DRS_FOGDENSITY",
+          "state": 38
+        },
+        {
+          "name": "D3DRS_FOGEND",
+          "state": 37
+        },
+        {
+          "name": "D3DRS_FOGSTART",
+          "state": 36
+        },
+        {
+          "name": "D3DRS_LASTPIXEL",
+          "state": 16
+        },
+        {
+          "name": "D3DRS_SHADEMODE",
+          "state": 9
+        },
+        {
+          "name": "D3DRS_SRCBLEND",
+          "state": 19
+        },
+        {
+          "name": "D3DRS_STENCILENABLE",
+          "state": 52
+        },
+        {
+          "name": "D3DRS_STENCILFAIL",
+          "state": 53
+        },
+        {
+          "name": "D3DRS_STENCILFUNC",
+          "state": 56
+        },
+        {
+          "name": "D3DRS_STENCILMASK",
+          "state": 58
+        },
+        {
+          "name": "D3DRS_STENCILPASS",
+          "state": 55
+        },
+        {
+          "name": "D3DRS_STENCILREF",
+          "state": 57
+        },
+        {
+          "name": "D3DRS_STENCILWRITEMASK",
+          "state": 59
+        },
+        {
+          "name": "D3DRS_STENCILZFAIL",
+          "state": 54
+        },
+        {
+          "name": "D3DRS_TEXTUREFACTOR",
+          "state": 60
+        },
+        {
+          "name": "D3DRS_WRAP0",
+          "state": 128
+        },
+        {
+          "name": "D3DRS_WRAP1",
+          "state": 129
+        },
+        {
+          "name": "D3DRS_WRAP2",
+          "state": 130
+        },
+        {
+          "name": "D3DRS_WRAP3",
+          "state": 131
+        },
+        {
+          "name": "D3DRS_WRAP4",
+          "state": 132
+        },
+        {
+          "name": "D3DRS_WRAP5",
+          "state": 133
+        },
+        {
+          "name": "D3DRS_WRAP6",
+          "state": 134
+        },
+        {
+          "name": "D3DRS_WRAP7",
+          "state": 135
+        },
+        {
+          "name": "D3DRS_ZENABLE",
+          "state": 7
+        },
+        {
+          "name": "D3DRS_ZFUNC",
+          "state": 23
+        },
+        {
+          "name": "D3DRS_ZWRITEENABLE",
+          "state": 14
+        },
+        {
+          "name": "D3DRS_ANTIALIASEDLINEENABLE",
+          "state": 176
+        },
+        {
+          "name": "D3DRS_BLENDFACTOR",
+          "state": 193
+        },
+        {
+          "name": "D3DRS_BLENDOPALPHA",
+          "state": 209
+        },
+        {
+          "name": "D3DRS_CCW_STENCILFAIL",
+          "state": 186
+        },
+        {
+          "name": "D3DRS_CCW_STENCILPASS",
+          "state": 188
+        },
+        {
+          "name": "D3DRS_CCW_STENCILZFAIL",
+          "state": 187
+        },
+        {
+          "name": "D3DRS_COLORWRITEENABLE1",
+          "state": 190
+        },
+        {
+          "name": "D3DRS_COLORWRITEENABLE2",
+          "state": 191
+        },
+        {
+          "name": "D3DRS_COLORWRITEENABLE3",
+          "state": 192
+        },
+        {
+          "name": "D3DRS_DEPTHBIAS",
+          "state": 195
+        },
+        {
+          "name": "D3DRS_DESTBLENDALPHA",
+          "state": 208
+        },
+        {
+          "name": "D3DRS_SCISSORTESTENABLE",
+          "state": 174
+        },
+        {
+          "name": "D3DRS_SEPARATEALPHABLENDENABLE",
+          "state": 206
+        },
+        {
+          "name": "D3DRS_SLOPESCALEDEPTHBIAS",
+          "state": 175
+        },
+        {
+          "name": "D3DRS_SRCBLENDALPHA",
+          "state": 207
+        },
+        {
+          "name": "D3DRS_SRGBWRITEENABLE",
+          "state": 194
+        },
+        {
+          "name": "D3DRS_TWOSIDEDSTENCILMODE",
+          "state": 185
+        },
+        {
+          "name": "D3DRS_WRAP8",
+          "state": 198
+        },
+        {
+          "name": "D3DRS_WRAP9",
+          "state": 199
+        },
+        {
+          "name": "D3DRS_WRAP10",
+          "state": 200
+        },
+        {
+          "name": "D3DRS_WRAP11",
+          "state": 201
+        },
+        {
+          "name": "D3DRS_WRAP12",
+          "state": 202
+        },
+        {
+          "name": "D3DRS_WRAP13",
+          "state": 203
+        },
+        {
+          "name": "D3DRS_WRAP14",
+          "state": 204
+        },
+        {
+          "name": "D3DRS_WRAP15",
+          "state": 205
+        }
+      ]
+    }
+  }
+}
