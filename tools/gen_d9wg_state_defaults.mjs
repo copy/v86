@@ -22,5 +22,14 @@ for(const [id, word] of S.TEXTURE_DEFAULT_ROWS) {
 }
 for(const [id, word, legacy] of S.SAMPLER_DEFAULT_ROWS) if(legacy!==null&&word)
     lines.push("    case "+legacy+"u: return api == 8u ? d9wg_sampler_default("+id+"u) : 0u;");
-lines.push("    default: return 0u;","    }","}","#endif","");const text=lines.join("\n"),args=process.argv.slice(2),check=args[0]==="--check",file=args[check?1:0];
+lines.push("    default: return 0u;","    }","}","static __inline uint32_t d9wg_material_default_word(uint32_t api, uint32_t index)","{","    switch (api) {");
+for(const [api, values] of Object.entries(S.MATERIAL_DEFAULTS)) {
+    assert(values.length===17&&values.every(Number.isFinite));
+    const nonzero=values.map((v,i)=>[i,new Uint32Array(new Float32Array([v]).buffer)[0]]).filter(([,v])=>v);
+    if(!nonzero.length)continue;
+    lines.push("    case "+api+"u:","        switch (index) {");
+    for(const [i,v] of nonzero)lines.push("        case "+i+"u: return "+hex(v)+";");
+    lines.push("        default: return 0u;","        }");
+}
+lines.push("    default: return 0u;","    }","}","static __inline void d9wg_object_defaults(uint32_t api, void *material, void *planes, uint32_t plane_count)","{","    for (uint32_t i = 0; i < 17u; ++i) {","        uint32_t word = d9wg_material_default_word(api, i);","        __builtin_memcpy((uint8_t *)material + i*4u, &word, 4u);","    }","    for (uint32_t i = 0; i < plane_count*4u; ++i) {","        const uint32_t zero = 0;","        __builtin_memcpy((uint8_t *)planes + i*4u, &zero, 4u);","    }","}","#endif","");const text=lines.join("\n"),args=process.argv.slice(2),check=args[0]==="--check",file=args[check?1:0];
 if(check){assert(file,"--check requires the generated header path");assert.equal(fs.readFileSync(file,"utf8"),text,"render defaults header drift: regenerate from d9wg_state.js");console.log("PASS generated render defaults header matches canonical table");}else if(file)fs.writeFileSync(file,text);else process.stdout.write(text);

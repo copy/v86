@@ -1,0 +1,15 @@
+{
+  "description": "Independent SDK material words; D3D7 is additionally measured in d3d7_native_object_defaults.json. Float order is diffuse, ambient, specular, emissive, power.",
+  "sources": {
+    "7": "Original Microsoft system D3D7 RGB, two fresh devices after changing all material and plane words",
+    "8": "https://library.thedatadungeon.com/directx81-c/directx_cpp/Graphics/ProgrammersGuide/UsingDirect3D/LightsAndMaterials/Materials/Materials.content.htm",
+    "9": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/materials"
+  },
+  "materialWords": {
+    "7": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "8": [1065353216, 1065353216, 1065353216, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "9": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  },
+  "clipPlaneWords": [0, 0, 0, 0],
+  "notes": "D3D8 white RGB/zero alpha differs from D3D7 and D3D9. D3D8/9 have not been measured using original Microsoft HAL here. Zero planes are measured for D3D7 and follow zero initialization/reset in Wine wined3d for D3D8/9. This reference does not assert shader constant Reset behavior."
+}

@@ -914,10 +914,7 @@
     }
 
     // Retail D3D9 initializes every material component to zero.
-    const DEFAULT_MATERIAL = {
-        diffuse: [0, 0, 0, 0], ambient: [0, 0, 0, 0],
-        specular: [0, 0, 0, 0], emissive: [0, 0, 0, 0], power: 0,
-    };
+    const DEFAULT_MATERIAL = stateFactory.materialDefaults();
 
     const presentFactory = global.D9WGPresent ||
         (typeof require === "function" ? require("./d9wg_present.js") : null);

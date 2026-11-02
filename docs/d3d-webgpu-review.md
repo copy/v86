@@ -1484,6 +1484,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新增三元颜色/透明度运算的独立像素探针，分别验证默认 CURRENT 与首次显式 DIFFUSE 的精确 RGBA。SwiftShader/Metal 全部 333 个用例通过；两个宿主默认值变异均使默认 CURRENT 探针失败，显式 DIFFUSE 保持通过，随后精确恢复源码。
 > - 150 组核心、144 组客体、32 个 SDK 冒烟 EXE、四个严格零售/诊断 DLL、两项站点集成及完整 WebGPU 36 次运行通过。新宿主包 `6f16a361c67d83f7fde8` 已同步站点。见 [stage4e2-validation.json](fixtures/d3d-review/stage4e2-validation.json)。接着处理材料/其他对象默认值及剩余运行时工作；未宣称 Microsoft D3D8/9 原生、Wine 全套或游戏/FPS 验收完成。
 
+> **阶段 4E3（2026-11-03）：共用材料/裁剪平面默认值及 Reset 对象清理完成。**
+> - `d9wg_state.js` 的材料默认表同时生成三个 SDK 前端的 C 默认值；保留 API 差异：D3D8 diffuse RGB=1、alpha=0，其余为零；D3D7/9 全零。宿主创建、Reset 与六个裁剪平面使用独立的默认对象。D3D8 在创建及 Reset 后发送精确材料补丁。
+> - 原版 Microsoft D3D7 RGB 新建、修改后重建设备共采集 82 项材料/平面 DWORD 和 HRESULT；代理全部相同。D3D8/9 材料依据各自 SDK 表，未冒称原生 HAL 实测；D3D8/9 零平面依据共享初始化和 Wine 行为。
+> - 修复 D3D8 Reset 残留裁剪平面，以及 D3D9 Reset 残留材料、平面、低编号灯光定义/启用标志和稀疏高编号灯光。已验证释放稀疏存储、失败查询不改写输出；本步不改变既有 shader 常量恢复策略。
+> - 独立事实表验证 51 个材料字、带边界保护的平面清零、实际 D3D9 初始化函数和补丁失败传播；9/9 C 语义变异及 ASan/UBSan 通过。XP D3D8/9 在 fresh/ALL/两次 Reset 核对 328 个对象字和 64 次灯光查询，并保留此前 688 个渲染与 2,480 个纹理/采样器查询；线协议确认三次 API8 材料补丁。三 API T&L/录制回归通过。
+> - 新增四个材料默认值/Reset 像素场景，SwiftShader、Metal 各 337 场景通过；四个宿主材料、平面、Reset 材料/高编号灯光变异被实际像素拦截。152 组核心、144 组客体、36 个 SDK EXE、六个严格零售/诊断 DLL、两项站点集成及 WebGPU 36 次运行通过。运行包 `c7a0a2cafccd9009a5e3` 已同步；发布 DLL 与 XP 测过的字节完全相同。见 [stage4e3-validation.json](fixtures/d3d-review/stage4e3-validation.json)。继续采样过滤、其余默认值和运行时能力协商；完整包装层、Wine/游戏/FPS 验收仍在后续阶段。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

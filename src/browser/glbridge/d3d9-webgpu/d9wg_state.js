@@ -161,6 +161,19 @@
         return result;
     }
 
+    // D3D7 RGB is measured separately; D3D8 and D3D9 differ in the SDK.
+    // Flattened SDK order: diffuse, ambient, specular, emissive, power.
+    const MATERIAL_DEFAULTS = Object.freeze({
+        7: Object.freeze(Array(17).fill(0)),
+        8: Object.freeze([1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+        9: Object.freeze(Array(17).fill(0)),
+    });
+    function materialDefaults(api = 9) {
+        const values = MATERIAL_DEFAULTS[api];
+        return { diffuse: values.slice(0, 4), ambient: values.slice(4, 8),
+            specular: values.slice(8, 12), emissive: values.slice(12, 16), power: values[16] };
+    }
+
     function createDeviceState(handle, constants, autoDepth = true) {
         const { D3DMULTISAMPLE_NONE, D3DTS_VIEW, D3DTS_PROJECTION, D3DTS_WORLD, IDENTITY4x4,
             MAX_VS_CONST_F, MAX_PS_CONST_F, MAX_CONST_I, MAX_CONST_B } = constants;
@@ -230,7 +243,7 @@
             psConstF: new Float32Array(MAX_PS_CONST_F * 4),
             psConstI: new Int32Array(MAX_CONST_I * 4),
             psConstB: new Uint32Array(MAX_CONST_B),
-            material: null,          // explicit material; defaults are resolved by FFP
+            material: materialDefaults(),
             lights: new Map(),       // light index -> D3DLIGHT9-shaped object
             lightEnabled: new Map(), // light index -> bool
             // frequency is the raw SetStreamSourceFreq value. D3D9 starts
@@ -257,7 +270,7 @@
             depthTargetLevel: 0,
             depthUnbound: false,
             scissorRect: null,
-            clipPlanes: Array.from({ length: 6 }, () => [0, 0, 0, 1]),
+            clipPlanes: Array.from({ length: 6 }, () => [0, 0, 0, 0]),
             // Acquire the full clipping layout on first use; later enable-mask
             // changes only update neutral/active plane uniforms.
             clipPlaneCapacity: 0,
@@ -309,7 +322,7 @@
     function activateSession(executor, state) {
         for (const field of SESSION_FIELDS) executor[field] = state[field];
     }
-    const api = { RENDER_DEFAULT_ROWS, TEXTURE_DEFAULT_ROWS, SAMPLER_DEFAULT_ROWS, SAMPLER_INDICES, renderDefaults, textureDefaults, samplerDefaults, createDeviceState, createSessionState, captureSession, activateSession, SESSION_FIELDS };
+    const api = { MATERIAL_DEFAULTS, materialDefaults, RENDER_DEFAULT_ROWS, TEXTURE_DEFAULT_ROWS, SAMPLER_DEFAULT_ROWS, SAMPLER_INDICES, renderDefaults, textureDefaults, samplerDefaults, createDeviceState, createSessionState, captureSession, activateSession, SESSION_FIELDS };
     global.D9WGState = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

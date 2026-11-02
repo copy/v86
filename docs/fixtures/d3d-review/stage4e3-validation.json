@@ -1,0 +1,434 @@
+{
+  "stage": "4E3 shared object defaults and Reset cleanup",
+  "date": "2026-11-03",
+  "bundle": "c7a0a2cafccd9009a5e3",
+  "coreSuites": 152,
+  "guestSuites": 144,
+  "webgpuRuns": 36,
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "96cd10373c197ddbb62880fcedf2fa1dccdf2f410fb900e72a89ad5c394c02a9"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "51165399695aab80f6af8d0ebc273eef4327622cbd010bbba15b126277a729ae"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "6ae89047b14f99121f1ff76ae9740860a8146b41b9e1e6b18103b4994cf0bc94"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "beb4382d91e7946c97be9e6f4d38d75a5ec84dcf354b02d5d0b6c1a81e845f48"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "b778373ee9f970d279c56be3510343a882a6593036622a26f676e6290c71c0d0"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "5281fcbd92105d81e23234727aa02d5d923ed2c567e742884eaa4c70acefa28e"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "8d82b442e1643344eb3c2649a017bf3c2faf9ef24d8b9fb94de79e7ed7a2568f"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "181b057206291bbca5b9d606a2ef0d3a5e66468dd126359b06e9eea8dd94a2c5"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "3aa01a81103527d88916af5ff60a1c75c083cc0acc433b8537962da20ca64b7b"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "07e8fd4c22a7e820132a85cd8e4363e64b04b90c6d958210ed02017f574fccd2"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "3a30b48ca2a5086e5a0a7155031bbef01eb10543023c919c7de3cae0d953074e"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "0612e9d72d98ef690499e5d4ddf08a7e2abcc0558dfdfed5dfc098591324cead"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "75f86e36a44a95dbf1093d149accfb10750330d894ce685117ba437125a2ba76"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "a3503f377d30f4b26d3e40cb28c299fb4556a1a34446014bd2f002cbb976313e"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "bc81b272b5390932636d75f26407a56c1093ce825d6131729d7489e48207aee8"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "062dddffee9dfe4e1a4cddff9d8d13d416f6ccb605c8503e4e51b90cae3f0550"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "dbd21fc4ce6a3f1c6aff2363c0bd7fecb2926fb668ce88de10d7e44b9292aa60"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "fcdb45583cd032b8f86307db826d9a51ea792840092ba083cd7b75695eb0c2d9"
+        }
+      ],
+      "retailAndDiagnosticDLLs": 2,
+      "shippedCaptureDLL": "defaults-xp/D3D8.DLL",
+      "shippedCaptureDLLSha256": "e68093aa59db4df3d35c92bab5b85c3efb3c71478ba706aa8ab24d9efa604db1",
+      "diagnosticSha256": "47352272decad3d035badf7d88141b0f881d5c1c6dd58eb381857729f9dc398a"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "a9f85cd74a830a2ad432f27f3d3752e47cc5449cea90f10ca0fa993ba5bbbdf1"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "dca2df60108badf408cfd76e39d579dd98b0a60cb43f2898e79e3bb50671a568"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "b285dc3af523db739992ff677c98cbe27bcdffabaa6d2a91b34d417862806953"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "795a0e01620c845c3a2d69eae9888dd37149bf6bd3784e828011cad7a3f9f58e"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "129b3da9dba25daca79314c86b849c1bb808249050c4adf254d32733ec5009ea"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "af88f4f7c285fd24e3ebc1a03cebf4fb74aa92056eacb1a5ce7dc67271bd6980"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "b16a56d92586ca5639e277b5501517173a0c7ec7a3e57308c21d6765b827eb7d"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "7d12b571e638f5bed03f3d3a4e787485c1aae20b116f6f4d850148b42c288705"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "75c7b5001d56fa1a1d21a2df6cd3da58efbd4cf973c4bd839f5afa104eec43d4"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "daf6eb429933027db7011abca61e147057091187425068367d41d71c10709202"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "07192ede12dceeb2a403f01b74d47a24704d80023ac0fcda88efb8ca9e057de3"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "31131013d51e8e779f4abb5068ab8abe2826c73399101dfc9a8ce6a432833445"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "4a753d623d2ad8b97cfea56d5cb39737aa0a830b738d3e9088d200117d9b5381"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "b82a2521bcebced69898c8d0a6a17cccccf969c19a1aa6146cefa8d92bce5b63"
+        }
+      ],
+      "retailAndDiagnosticDLLs": 2,
+      "shippedCaptureDLL": "defaults-xp/D3D9.DLL",
+      "shippedCaptureDLLSha256": "ac61fa559811697444d913f77a5e5819718cff35c0bae64767280254873b4f4a",
+      "diagnosticSha256": "812f1cdbb99acf8dcd1527514b9d3c6a442b0637045a95d10a42513be0a0589e"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "9d89b8948ecfda268dd79ad04b1883d1cb85a491f3ed9a2557cfedfa6233083a"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "ee56410b02116a620c9a1555ba7ee1b4d9603e4d965f884fd757520480f178e0"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "cf9fcee329ff2dd5527a2b2fbca7f9cd4642384181d92bbf1a16a643f4249552"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "49017984dbb1f302a94ca3bdd946b13b90631474215cca3f40239a67ece589a9"
+        }
+      ],
+      "retailAndDiagnosticDLLs": 2,
+      "shippedCaptureDLL": "proxy-object-defaults-xp/ddraw.dll",
+      "shippedCaptureDLLSha256": "8d5c7d72c6311e05cabfc3076e0611ac24b5c725c491065546c9bdedfc5dc099",
+      "diagnosticSha256": "c937d65b0f6fbd38de86708b6fd56923e5e7cb8357041b50e234f5daaf2af8fa"
+    }
+  },
+  "pixel": {
+    "material-swift": {
+      "status": "PASS",
+      "cases": 337,
+      "objectCases": 4,
+      "logSha256": "164d96fee127532b615c8f317b9d092d8915e381f8e0298aa8478d964069a5da"
+    },
+    "material-metal": {
+      "status": "PASS",
+      "cases": 337,
+      "objectCases": 4,
+      "logSha256": "164d96fee127532b615c8f317b9d092d8915e381f8e0298aa8478d964069a5da"
+    }
+  },
+  "cMutations": {
+    "killed": 9,
+    "total": 9
+  },
+  "gpuMutation": {
+    "killed": 4,
+    "total": 4,
+    "originalSha256": {
+      "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+      "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "89795e5582df331a12868b0d3fa782abecc94f8d77124638c6ea92d5f504ccc6"
+    },
+    "cases": [
+      {
+        "name": "SDK9 white material",
+        "killed": true,
+        "failures": [
+          "FAIL  material SDK default after creation: D3D9 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 64,128,191,255 want 0,0,0,0",
+          "FAIL  material SDK default after Reset: D3D9 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 64,128,191,255 want 0,0,0,0",
+          "FAIL  default D3D9 material is entirely zero: @32,32 got 255,255,255,255 want 0,0,0,0"
+        ]
+      },
+      {
+        "name": "rejecting zero plane",
+        "killed": true,
+        "failures": [
+          "FAIL  material SDK default after creation: D3D8 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 0,0,0,255 want 64,128,191,0",
+          "FAIL  material SDK default after Reset: D3D8 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 0,0,255,255 want 64,128,191,0",
+          "FAIL  material SDK default after creation: D3D9 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 0,0,0,255 want 0,0,0,0",
+          "FAIL  material SDK default after Reset: D3D9 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 0,0,255,255 want 0,0,0,0"
+        ]
+      },
+      {
+        "name": "Reset retains material",
+        "killed": true,
+        "failures": [
+          "FAIL  material SDK default after Reset: D3D9 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 255,0,0,255 want 0,0,0,0"
+        ]
+      },
+      {
+        "name": "Reset retains high light",
+        "killed": true,
+        "failures": [
+          "FAIL  material SDK default after Reset: D3D8 [DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured]: @32,32 got 64,255,191,0 want 64,128,191,0"
+        ]
+      }
+    ]
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "reference": {
+    "native7Observations": 82,
+    "native7Sha256": "79a4f816c76fa460fd6b60beffe19e8bdb0910a5c6638e5ef5bce70ec0225c88",
+    "sdkReferenceSha256": "225595e8fc90492d95a49f15dc1424d7ebe1baebeb4328f544bb7e52e15490ff",
+    "materialWords": 51,
+    "publicObjectWords": 328,
+    "publicLightQueries": 64,
+    "publicRenderQueries": 688,
+    "publicTextureQueries": 2480
+  },
+  "wire": [
+    {
+      "api": 8,
+      "generations": [
+        {
+          "kind": "CREATE_DEVICE",
+          "depth": 0
+        },
+        {
+          "kind": "RESET",
+          "depth": 1
+        },
+        {
+          "kind": "RESET",
+          "depth": 0
+        }
+      ],
+      "pointMinimumPatches": 3,
+      "pointMaximumWrites": 4,
+      "zeroColorArgWrites": 3,
+      "zeroAlphaArgWrites": 3,
+      "addressWWrites": 3,
+      "materialDefaultPatches": 3,
+      "changedMaterials": 3,
+      "changedPlanes": 18,
+      "objectPending": false
+    },
+    {
+      "api": 9,
+      "generations": [
+        {
+          "kind": "CREATE_DEVICE",
+          "depth": 0
+        },
+        {
+          "kind": "RESET",
+          "depth": 1
+        },
+        {
+          "kind": "RESET",
+          "depth": 0
+        }
+      ],
+      "pointMinimumPatches": 0,
+      "pointMaximumWrites": 4,
+      "zeroColorArgWrites": 3,
+      "zeroAlphaArgWrites": 3,
+      "addressWWrites": 3,
+      "materialDefaultPatches": 0,
+      "changedMaterials": 3,
+      "changedPlanes": 18,
+      "objectPending": false
+    }
+  ],
+  "captures": {
+    "defaults-xp": {
+      "status": "PASS",
+      "seconds": 117,
+      "owners": [
+        1,
+        2
+      ],
+      "releases": [
+        1,
+        2
+      ],
+      "diskWrites": "RAM sector overlay only",
+      "logs": {
+        "DEFAULT.TXT": "PASS D3D9 render defaults: 408 exact queries, fresh/ALL/reset, conditional depth, reported point maximum and SDK version differences; texture=1616; objectWords=164; lightQueries=32\r\n",
+        "DEFAULT8.TXT": "PASS D3D8 render defaults: 280 exact queries, fresh/ALL/reset, conditional depth, reported point maximum and SDK version differences; texture=864; objectWords=164; lightQueries=32\r\n",
+        "DEFAULT9.TXT": "PASS D3D9 render defaults: 408 exact queries, fresh/ALL/reset, conditional depth, reported point maximum and SDK version differences; texture=1616; objectWords=164; lightQueries=32\r\n"
+      },
+      "probeSha256": "3691cfb135f8bd3334a8613bcfa2c6c38bfaa9154a3ed3e0f421203495136233",
+      "graphicsSha256": "eb45ad9d81e8992c2bf4a89a6842cf30d4b707338f913f5b396830505b7ac4d6"
+    },
+    "tnl-xp": {
+      "status": "PASS",
+      "seconds": 123,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ],
+      "diskWrites": "RAM sector overlay only",
+      "logs": {
+        "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+        "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+        "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\n"
+      },
+      "probeSha256": "620fadca1fd09f02c57eadfa55de3952a03f294d7277d196e46e38ec384de76e",
+      "graphicsSha256": "fc27b5ddc270cb25ea0fa358442f4b1c20b93cf736395d93a1a550c4cc59b8d8"
+    },
+    "native-object-defaults-final-xp": {
+      "status": "PASS",
+      "seconds": 91,
+      "owners": [],
+      "releases": [],
+      "diskWrites": "RAM sector overlay only",
+      "logs": {
+        "CLIP.TXT": "READY native Microsoft DDraw7 object-default reference\r\ncreate(0, (void**)&dd, &IID_IDirectDraw7, 0) hr=00000000\r\nIDirectDraw7_SetCooperativeLevel(dd, window, DDSCL_NORMAL) hr=00000000\r\nIDirectDraw7_QueryInterface(dd, &IID_IDirect3D7, (void**)&d3d) hr=00000000\r\nIDirectDraw7_CreateSurface(dd, &desc, &target, 0) hr=00000000\r\nIDirectDraw7_CreateSurface(dd, &zd, &depth, 0) hr=00000000\r\nIDirectDrawSurface7_AddAttachedSurface(target, depth) hr=00000000\r\nIDirect3D7_CreateDevice(d3d, &IID_IDirect3DRGBDevice, target, &dev) hr=00000000\r\nIDirect3DDevice7_GetCaps(dev, &caps) hr=00000000\r\nCAPS maxActive=4294967295\r\nMATERIAL generation=0 word=0 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=1 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=2 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=3 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=4 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=5 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=6 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=7 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=8 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=9 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=10 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=11 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=12 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=13 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=14 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=15 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=16 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=3 value=00000000 hr=00000000\r\nIDirect3DDevice7_SetMaterial(dev, (D3DMATERIAL7*)changed) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3D7_CreateDevice(d3d, &IID_IDirect3DRGBDevice, target, &dev) hr=00000000\r\nMATERIAL generation=1 word=0 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=1 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=2 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=3 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=4 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=5 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=6 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=7 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=8 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=9 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=10 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=11 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=12 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=13 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=14 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=15 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=16 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=3 value=00000000 hr=00000000\r\nPASS native object default reference finished\r\n"
+      },
+      "probeSha256": "581ad1102f85683d454553d6373594b0f1278af3b9ac8483735902eca9c4859f"
+    },
+    "proxy-object-defaults-xp": {
+      "status": "PASS",
+      "seconds": 122,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "diskWrites": "RAM sector overlay only",
+      "logs": {
+        "CLIP.TXT": "READY native Microsoft DDraw7 object-default reference\r\ncreate(0, (void**)&dd, &IID_IDirectDraw7, 0) hr=00000000\r\nIDirectDraw7_SetCooperativeLevel(dd, window, DDSCL_NORMAL) hr=00000000\r\nIDirectDraw7_QueryInterface(dd, &IID_IDirect3D7, (void**)&d3d) hr=00000000\r\nIDirectDraw7_CreateSurface(dd, &desc, &target, 0) hr=00000000\r\nIDirectDraw7_CreateSurface(dd, &zd, &depth, 0) hr=00000000\r\nIDirectDrawSurface7_AddAttachedSurface(target, depth) hr=00000000\r\nIDirect3D7_CreateDevice(d3d, &IID_IDirect3DRGBDevice, target, &dev) hr=00000000\r\nIDirect3DDevice7_GetCaps(dev, &caps) hr=00000000\r\nCAPS maxActive=8\r\nMATERIAL generation=0 word=0 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=1 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=2 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=3 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=4 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=5 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=6 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=7 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=8 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=9 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=10 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=11 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=12 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=13 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=14 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=15 value=00000000 hr=00000000\r\nMATERIAL generation=0 word=16 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=0 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=1 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=2 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=3 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=4 word=3 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=0 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=1 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=2 value=00000000 hr=00000000\r\nPLANE generation=0 index=5 word=3 value=00000000 hr=00000000\r\nIDirect3DDevice7_SetMaterial(dev, (D3DMATERIAL7*)changed) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3DDevice7_SetClipPlane(dev, index, plane) hr=00000000\r\nIDirect3D7_CreateDevice(d3d, &IID_IDirect3DRGBDevice, target, &dev) hr=00000000\r\nMATERIAL generation=1 word=0 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=1 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=2 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=3 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=4 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=5 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=6 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=7 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=8 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=9 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=10 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=11 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=12 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=13 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=14 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=15 value=00000000 hr=00000000\r\nMATERIAL generation=1 word=16 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=0 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=1 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=2 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=3 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=4 word=3 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=0 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=1 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=2 value=00000000 hr=00000000\r\nPLANE generation=1 index=5 word=3 value=00000000 hr=00000000\r\nPASS native object default reference finished\r\n"
+      },
+      "probeSha256": "14809e604f39e4344871d67c0db589503f70e599edef70a38754a868b534df19"
+    }
+  },
+  "scope": "Version-specific material words and zero planes now come from a canonical host/C table; API8 white RGB/zero alpha is explicitly patched. Actual D3D9 initialization frees sparse lights and clears low light data/flags, material and planes; API8 Reset planes clear. Original Microsoft D3D7 RGB is measured, while API8/9 use independent SDK/Wine facts, not Microsoft HAL measurements. Four GPU cases and four pixel mutants verify material/clip/Reset state. Published retail DLL bytes are the accepted XP capture builds; smoke/diagnostic and TNL builds are separate. Shader constant retention is outside this change. Full wrapper, runtime caps, Wine and game/FPS work remain.",
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "d2d0f660cd4321a9f63dbdb1affabcfcba4a90feda223563703d5c2f68ad4d0b",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "89795e5582df331a12868b0d3fa782abecc94f8d77124638c6ea92d5f504ccc6",
+    "tests/glbridge/d3d9_conformance.js": "76dace65eb1fc35fb7aace7cb0a5431807c400a79bc61bc143ba4985313d66c5",
+    "tests/glbridge/d9wg_object_defaults_test.js": "da27dc1fbb601dca7c959a772fc86c3b304f5ffa749961b1ebd3be9fd83fd424",
+    "tests/glbridge/d9wg_object_defaults_mutation_test.js": "decde080b6b646bea776850518e5b0e9c9bfc43a2a756b448482bee4bd8782d2",
+    "tests/glbridge/d3d7_native_object_defaults_xp.mjs": "305e4ffe53cecb65615c2754feeb511bf6a0a9503bff3ce660a74a3fe6112e05",
+    "tests/glbridge/d3d_render_defaults_xp.mjs": "bde4eedd64b38d2d42b2f702e5929a2e16bcb1f128a3642596032f52f4096469",
+    "tests/lib/d3d_render_defaults_wire.mjs": "f1b63ad5acbdf79b138aa2196bc3d32bcca7c5606dcc1d7b0f1ad623ba484ff6",
+    "tools/gen_d9wg_state_defaults.mjs": "98cf53f1f0aab46e3450027760e0f66c1479c7f03549ba309ba747865815d078",
+    "tools/gen_d3d_render_default_reference.mjs": "f0e3ced0214536831b1e86871be2778af37652358653b9ff7d0170620ec56e51"
+  },
+  "siteSha256": {
+    "game.html": "52edcbe552d4ae8a736196aa38107d26a29d14c3ebb7ff31f1fadd5553af665a",
+    "glbridge/runtime/d9wg_state_defaults.h": "dc479a49aad241deed78208ea656bdadf8b093f4d4f3b9cd4130503252336bba",
+    "glbridge/runtime/d9wg_state_defaults_bridge.h": "dbbe0e18d3f798df4c97a2dac15daa98638082893ed79aea8b8a285c668a475f",
+    "glbridge/sample/d3d_render_default_reference.h": "d6000bc4bfa702a7efbe288f31b14cfe18d6fee0d6513e5d274b64e7f855ad68",
+    "glbridge/sample/d3d_render_defaults_test.c": "40112e602ab3dce0e3fa476e46c7063e5cf4aae51235aec4fb82bd5a6400cba3",
+    "glbridge/sample/d3d7_native_object_defaults_reference.c": "eb93c22119330048cfe324a1438ea384f8794f5b719eeeb124c3189a00573a6a",
+    "vendor/v86/glbridge/d3d9_shader_pipeline.js": "c611f7b9c286bb1edfdb95452eb778e5df10c200731a10cc68a00456c7720a22",
+    "vendor/v86/glbridge/d3d9_shader_worker.js": "52f157dfaf144d5412890afbc930be2ec60d36eb1d3574b23e8f57dfa61f832f",
+    "vendor/v86/glbridge/d9wg_diagnostics.js": "9cd37217afc950f9f31bf2c314129b85d19b27600ef58a5290124c5891e5c837",
+    "vendor/v86/glbridge/graphics_journal_worker.js": "fc3b6dc7180d4e9b0859230db3ef524aec1088231306d19aa526156562e3d9e2",
+    "vendor/v86/glbridge/libv86-webgpu.js": "d4edd757249664880a38ef5fc5ffb38d284f469001ae56f16bf372e8b8078bce",
+    "vendor/v86/glbridge/manifest.json": "fc9b7b8e0262ee4227b4869e0105e858696c3be8a9139aeb07d637f3971a3608",
+    "vendor/v86/glbridge/v86gl-device.js": "1abebb510004b45b004db998b8a37a6463293d7b278c6c5d1fa1d2c90312227e",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "71f871bae333dc510f7a42f65b53ae95b4b7fd4e8e3ffb8c772a38afc2241258",
+    "glbridge/d3d8proxy/d3d8.dll": "e68093aa59db4df3d35c92bab5b85c3efb3c71478ba706aa8ab24d9efa604db1",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "47352272decad3d035badf7d88141b0f881d5c1c6dd58eb381857729f9dc398a",
+    "glbridge/d3d8proxy/README.md": "7338b567bae79d1106153a6c1cf067e48ed0a2cf09e0d06437869fa4ee148089",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "e92126a5d11d0ec2a535ef0fb11aa721e0bd4ffb76c9a4d5f6647868d60af5ca",
+    "glbridge/d3d9proxy/d3d9.dll": "ac61fa559811697444d913f77a5e5819718cff35c0bae64767280254873b4f4a",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "812f1cdbb99acf8dcd1527514b9d3c6a442b0637045a95d10a42513be0a0589e",
+    "glbridge/d3d9proxy/README.md": "1a73b63cb0a02eead42ed1a01b5decaf62caadd0ac90e99bc00394f33923df6d",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "1ed20ac2e4f936f678f430584acb748fe3b914f4918bc573fdea3b51a0c26075",
+    "glbridge/ddrawproxy/ddraw.dll": "8d5c7d72c6311e05cabfc3076e0611ac24b5c725c491065546c9bdedfc5dc099",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "c937d65b0f6fbd38de86708b6fd56923e5e7cb8357041b50e234f5daaf2af8fa",
+    "glbridge/ddrawproxy/README.md": "06371378accca58e998931b7a8860fe5be3555b6c472fe3cf144d385b1b34f73",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "be97a0277bb8eb697d0c383d4a41243818aaebfdccd57450515ed9a6485dfc56"
+  },
+  "logSha256": {
+    "defaults-xp": "7e00009c67d5bbd3d16c6c1ab9c4161f4ea5e8b6f149fb1f51467a811cc28cd2",
+    "tnl": "ede32ddd11be468ce8b832e3bf73988d12b59fea5f548bffbfd783d2faa03d06",
+    "core": "e927bf7aca2392a4a7040c6d8cefb271d9ab4f6151a9603c068af543751a82f7",
+    "guest": "250f4743ca81b807aa2c165bb68233ec90e0bc78845252e5d09054d092931cd4",
+    "gpu": "cc305f2ba7a62fc41f091875e9493ffbd956b2455f9762a47015ae888ac58c63",
+    "mutations": "8cb0e3c372114ce74e1f40f0b7e6d1ef5d7599d127121e077c450b95e3c92a0a",
+    "gpu-mutations": "59a8c017e3c39340f698ff9084be676994de102bf23cef202993655a401ac430",
+    "unit": "e3643f390fc32de67e0d3659976c480eaca47dfb1117974c6384c0d2698999d0",
+    "sanitize": "e3643f390fc32de67e0d3659976c480eaca47dfb1117974c6384c0d2698999d0",
+    "integration": "a57cc925b5bd99d43a73c2ea152cb241d29ed449c92cfc1ffe13c6b130c3e203",
+    "bundle": "6af77f1cdbd2f268d45f60710f397fc41c8bc02729af18cdfd96929dd722a853",
+    "sync": "6970477d88452243ce575b04559d223781f0aa7ac13b94ec9c6cb84e0ac887e4"
+  }
+}

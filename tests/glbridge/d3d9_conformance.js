@@ -338,6 +338,36 @@
         probes: [{ at: [32, 32], expect: diffuse ? [96, 160, 216, 112] : [160, 96, 56, 240] }],
     });
 
+    for (const api of [8, 9]) for (const reset of [false, true]) CASES.push({
+        name: "material SDK default after " + (reset ? "Reset" : "creation") + ": D3D" + api,
+        ref: "DX8.1/D3D9 SDK material tables; original D3D7 zero material is separately captured",
+        body: (d, rt) => {
+            const commands = [];
+            if (reset) commands.push(
+                cmd(OP.END_SCENE, P.encode("DeviceOnly", { device_handle: d }).subarray(0, 4)),
+                cmd(OP.SET_MATERIAL, P.encode("SetMaterial", { device_handle: d, diffuse: [1, 0, 0, 1], emissive: [1, 0, 0, 1] })),
+                cmd(OP.SET_CLIP_PLANE, P.encode("SetClipPlane", { device_handle: d, index: 0, plane: [0, 0, 0, -1] })),
+                cmd(OP.SET_LIGHT, P.encode("SetLight", { device_handle: d, index: 0xffffffff, type: 3, diffuse: [0, 1, 0, 1], direction: [0, 0, 1] })),
+                cmd(OP.LIGHT_ENABLE, P.encode("LightEnable", { device_handle: d, index: 0xffffffff, enable: 1 })),
+                cmd(OP.RESET, P.encode("ResetDevice", { old_device_handle: d, new_device_handle: d, width: W, height: W, backbuffer_format: 22, windowed: 1 })),
+                cmd(OP.SET_RENDER_TARGET, P.encode("SetRenderTarget", { device_handle: d, target_index: 0, color_texture_handle: rt })),
+                viewport(d, 0, 0, W, W), clear(d, T, 0xff0000ff),
+                cmd(OP.BEGIN_SCENE, P.encode("DeviceOnly", { device_handle: d }).subarray(0, 4)));
+            // This is the actual API8 -> API9 wire patch: RGB white, alpha 0.
+            if (api === 8) commands.push(cmd(OP.SET_MATERIAL, P.encode("SetMaterial", { device_handle: d, diffuse: [1, 1, 1, 0] })));
+            const positions = [[-1, 1], [1, 1], [-1, -1], [1, 1], [1, -1], [-1, -1]];
+            const data = new Uint8Array(6 * 24), view = new DataView(data.buffer);
+            positions.forEach(([x, y], i) => [x, y, .5, 0, 0, -1].forEach((n, j) => view.setFloat32(i * 24 + j * 4, n, true)));
+            commands.push(rs(d, RS.ZENABLE, 0), rs(d, RS.CULLMODE, 1), rs(d, RS.LIGHTING, 1), rs(d, 141, 0), rs(d, 152, 1),
+                cmd(OP.SET_LIGHT, P.encode("SetLight", { device_handle: d, index: 0, type: 3, diffuse: [.25, .5, .75, 0], direction: [0, 0, 1] })),
+                cmd(OP.LIGHT_ENABLE, P.encode("LightEnable", { device_handle: d, index: 0, enable: 1 })),
+                cmd(OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: d, fvf: 0x12, element_count: 2 }), element(0, 2, 0), element(12, 2, 3)])),
+                cmd(OP.DRAW_PRIMITIVE_UP, P.encode("DrawPrimitiveUP", { device_handle: d, primitive_type: 4, primitive_count: 2, stride: 24, vertex_count: 6, vertex_bytes: data.length }), [{ offsetField: "vertex_data_offset", data }]));
+            return commands;
+        },
+        probes: [{ at: [32, 32], expect: api === 8 ? [64, 128, 191, 0] : [0, 0, 0, 0] }],
+    });
+
     const KNOWN_FAILURES = {};
 
     // The setup every case starts from: device `dev`, render target(s), full
