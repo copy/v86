@@ -7,7 +7,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
-    success, log_files = [], binary_files = [], capture_graphics = false, rendering = "not exercised", inspect })
+    success, log_files = [], binary_files = [], capture_graphics = false, expected_releases = null,
+    rendering = "not exercised", inspect })
 {
     const before = fs.statSync(image);
     const tools = new MemoryDisk(make_fat16(files)), disk = new ReadOnlyOverlayDisk(image);
@@ -102,6 +103,12 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             }
         }
         const text = result_text();assert(text.includes(success), "Owner probe did not finish: " + text);
+        // A flushed success marker can precede ExitProcess and DLL detach.
+        // Keep running the VM until the requested transport owners retire.
+        if(expected_releases !== null) {
+            for(let poll = 0; poll < 50 && releases.length < expected_releases; poll++) await delay(100);
+            assert.equal(releases.length, expected_releases, "Guest transport owners did not retire");
+        }
         const after = fs.statSync(image);assert.equal(after.mtimeMs, before.mtimeMs);assert.equal(after.size, before.size);
         const artifacts = {};
         if(capture_graphics) {

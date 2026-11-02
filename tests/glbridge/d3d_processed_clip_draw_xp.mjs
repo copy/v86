@@ -11,9 +11,10 @@ const root = file_url_to_path(new URL("../../", import.meta.url)), site = site_d
 const api = Number(process.argv[2] || 9);assert([8, 9].includes(api));
 const out = path.resolve(process.env.D9WG_CLIP_DRAW_OUT || root + "build/d3d-review/clip-draw-xp-" + api);
 fs.mkdirSync(out, { recursive: true });
+const user_planes = process.argv.includes("--user-planes");
 run("sh", [site + "/glbridge/d3d" + api + "proxy/build.sh", out + "/D3D" + api + ".DLL"], { stdio: "pipe" });
 run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-mwindows", "-std=gnu99", "-Os", "-s", "-nostdlib", "-Wall", "-Wextra", "-Werror",
-    "-DD9WG_CLIP_API=" + api, "-Wl,--subsystem,windows:5.01", "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/CLIP.EXE",
+    "-DD9WG_CLIP_API=" + api, ...(user_planes ? ["-DD9WG_USER_CLIP_CAPTURE"] : []), "-Wl,--subsystem,windows:5.01", "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/CLIP.EXE",
     site + "/glbridge/sample/d3d_processed_clip_draw_test.c", "-luser32", "-lkernel32", "-ldxguid"], { stdio: "pipe" });
 const files = { "CLIP.EXE": fs.readFileSync(out + "/CLIP.EXE"), ["D3D" + api + ".DLL"]: fs.readFileSync(out + "/D3D" + api + ".DLL"),
     "V86GL.SYS": fs.readFileSync(site + "/glbridge/v86gl_driver/v86gl.sys"),

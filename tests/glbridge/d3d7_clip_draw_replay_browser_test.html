@@ -20,11 +20,11 @@
     const P = D9WGProtocol, C = P.C, pictures = [], scenes = [];
     const gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, shaderWorkerUrl: null });
     try {
-        const params = new URLSearchParams(location.search), capture = params.get("capture"), api = params.get("api") || "7";
+        const params = new URLSearchParams(location.search), capture = params.get("capture"), api = params.get("api") || "7", userPlanes = params.get("planes") === "1";
         if (!["7", "8", "9"].includes(api)) throw new Error("Invalid API fixture");
         if (capture && !/^[a-z0-9_-]+$/.test(capture)) throw new Error("Invalid capture directory");
         const response = await fetch(capture ? "/build/d3d-review/" + capture + "/graphics.bin" :
-            "fixtures/d3d" + api + "_processed_clip_xp.bin.gz");
+            "fixtures/d3d" + api + (userPlanes ? "_processed_user_clip_xp.bin.gz" : "_processed_clip_xp.bin.gz"));
         if (!response.ok) throw new Error("Missing XP graphics capture");
         const bytes = new Uint8Array(capture ? await response.arrayBuffer() :
             await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
@@ -60,11 +60,13 @@
         await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
         for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
         const modes = pictures.length/6;
-        if (![2, 3, 6].includes(modes)) throw new Error("Expected twelve, eighteen or thirty-six actual COM draw results, got " + pictures.length);
+        if (![2, 3, 4, 6].includes(modes)) throw new Error("Expected twelve, eighteen, twenty-four or thirty-six actual COM draw results, got " + pictures.length);
         gpu.dispatchCommand = dispatch;
         // W=0 interpolation differs between GPU backends before clipping.
         // Use the independently derived, positive-W polygon as this scene's
         // oracle and retain the raw direct-path disagreement as a diagnostic.
+        let zeroReference;
+        if (!userPlanes) {
         const zero = await (await fetch("fixtures/d3d_clip_zero_w_reference.json")).json();
         const referenceVertices = [];
         for (let i = 1; i + 1 < zero.vertices.length; i++)
@@ -94,15 +96,16 @@
         const readback = P.encode("ReadbackSurface", { device_handle: dev, texture_handle: target, format: 21,
             width: 128, height: 128, row_count: 128, destination_pitch: 512, destination_bytes: 65536,
             response_offset: C.D9WG_READBACK_REGION_OFFSET, request_id: 100 });
-        let zeroReference;
+
         await gpu.onReadbackSurface(readback, new DataView(readback.buffer), 0, readback.length,
             { writeGuestMemory(at, data) { zeroReference = data.slice(16); } });
         if (!zeroReference || zeroReference.length !== 65536) throw new Error("Independent zero-W reference readback failed");
+        }
         let zeroWDirectMismatch = 0;
-        for (let at = 0; at < zeroReference.length; at += 4)
+        if (!userPlanes) for (let at = 0; at < zeroReference.length; at += 4)
             if ([0, 1, 2, 3].some(c => Math.abs(zeroReference[at+c] - pictures[4*modes][at+c]) > 1)) ++zeroWDirectMismatch;
         for (let scene = 0; scene < 6; scene++) for (let mode = 1; mode < modes; mode++) {
-            const direct = scene === 4 ? zeroReference : pictures[scene*modes], processed = pictures[scene*modes + mode];
+            const direct = scene === 4 && !userPlanes ? zeroReference : pictures[scene*modes], processed = pictures[scene*modes + mode];
             let differingPixels = 0, maximumByteError = 0, directCoverage = 0, processedCoverage = 0;
             for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
                 const pixel = (y*128 + x)*4;let outside = false;
@@ -114,12 +117,13 @@
                 const covered = picture => picture[pixel] !== 0x30 || picture[pixel+1] !== 0x20 || picture[pixel+2] !== 0x10;
                 directCoverage += covered(direct);processedCoverage += covered(processed);
             }
-            scenes.push({ scene, mode, indexed: mode === 2 || mode === 3, reference: scene === 4 ? "independent positive-W polygon" : "actual direct COM draw",
+            scenes.push({ scene, mode, indexed: mode === 2 || (api === "8" && mode >= 4) || (!userPlanes && mode === 3), reference: scene === 4 && !userPlanes ? "independent positive-W polygon" : "actual direct COM draw",
                 differingPixels, maximumByteError, directCoverage, processedCoverage });
         }
-        const evidence = { batches, tolerance: 1, scenes, zeroWDirectMismatch, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors,
+        const evidence = { api, userPlanes, modes, batches, tolerance: 1, scenes, zeroWDirectMismatch, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors,
             droppedDraws: gpu.stats.droppedDraws, commandsFailed: gpu.stats.commandsFailed };
         await fetch("/__test_file?name=d9wg-clip-guest.json", { method: "POST", body: JSON.stringify(evidence) });
+        if (userPlanes) await fetch("/__test_file?name=d9wg-user-clip-api" + api + ".json", { method: "POST", body: JSON.stringify(evidence) });
         for (let i = 0; i < pictures.length; i++)
             await fetch("/__test_file?name=d9wg-clip-guest-" + i + ".bgra", { method: "POST", body: pictures[i] });
         if (scenes.some(scene => scene.differingPixels || scene.directCoverage < 100 || scene.processedCoverage < 100) ||
