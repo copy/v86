@@ -45,12 +45,13 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
             assert(text.includes("PASS shared texture coordinate checks"));
             assert(text.includes("PASS shared vertex blend checks"));
         }
+        assert(result.logs["TNL7.TXT"].includes("PASS D3D7 sparse recorded block restoration and masks"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 shader lifetime:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 deferred recording:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 constant and plane recording:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 sparse recorded block restoration and masks"));
+        for(const api of [7,8,9]) assert(result.logs["TNL"+api+".TXT"].includes("PASS sparse light state:"));
         for(const api of [8,9]) {
-            assert(result.logs["TNL"+api+".TXT"].includes("PASS sparse light state:"));
             assert(result.logs["TNL"+api+".TXT"].includes("PASS shared D3D8/9 state scope checks:"));
         }
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 object deferred recording:"));

@@ -1384,6 +1384,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 144 组核心、132 组客体、35 个标准冒烟 EXE、六份严格零售/诊断 DLL 通过，发布三版本本次 XP 所测 DLL。宿主 JS、`c3bba1907e73f97e09c3` 运行包、数值内核未变，WebGPU/Metal/站点集成沿用 4D2j2d，本项不代表完整原生/Wine/游戏/FPS 验收。见 [stage4d2j3a-validation.json](fixtures/d3d-review/stage4d2j3a-validation.json)。
 > - 参考：[D3D8 Windows 灯光期望](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c)、[D3D9 Windows 灯光期望](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/stateblock.c)、[原生 D3D7 冻结查询](../tests/glbridge/fixtures/d3d7_native_light_state.json)。D3D7 的存储仍限于旧的低编号表，下一步测量原生录制/捕获行为后接入稀疏存储与默认创建，再继续其余运行时工作。
 
+> **阶段 4D2j3b（2026-11-02）：原生 D3D7 灯光录制参考、共用稀疏存储与高编号 T&L 完成。**
+>
+> - 新增原生系统 Microsoft D3D7 RGB 的 19 条查询参考，分别测量录制期间/End/Apply、已知与未创建灯光、仅启用录制、VERTEX/ALL 后续 Capture 的键集合。原生与 app-local 代理使用同一个程序，代理逐字段、HRESULT、BOOL 和 26 个 SDK 字比较全部一致；原生运行无 D9WG owner/命令；工具与日志位于 RAM 工具盘，基础 XP 镜像不写入。
+> - 原生结果确认 D3D7 灯光 Set/Enable 延迟生效，End 保留实时值；**D3D7 VERTEX 只保存启用状态，ALL 才保存属性**，Capture 不扩展到创建块后出现的灯光。该版本差异单独保留，未套用 D3D8/9 的灯光属性范围。仅录制启用不覆盖之后修改的属性；录制未知灯光的禁用调用也在 Apply 时创建默认灯光。
+> - D3D7 接入 `d9wg_light_state.h` 的稀疏 DWORD 索引、SDK 默认值和启用查询；保留低编号快速表。Set/Get、LightEnable、灯光录制/Capture/Apply、块/设备销毁及软件光照使用该存储；支持高编号和最大 DWORD，无需按最大编号分配数组。新增 OOM 返回及创建失败清理，启用数预算仍为 caps 的八个，未提高同时活动灯光能力。
+> - 宿主编译实际 D3D7 light/emitter/capture/End/T&L 函数，重放既有 35 条原生查询，检查精确 SDK 字、原始 BOOL、默认创建、录制隔离、固定键与原生 VERTEX/ALL 灯光掩码、最大索引、OOM、稀疏软件光照及活动预算；8/8 语义变异与 ASan/UBSan 通过。三版本共用启用查询测试现在也覆盖 D3D7 高编号。
+> - 三 API 实际 XP T&L 通过，D3D7 主计算改为使用 37 号灯光，验证方向/点/聚光、雾、混合和坐标路径；三版本共享灯光 API 检查均通过，并按 D3D7 原生范围区分 VERTEX 属性行为。D3D8 六帧与 shader 生命周期、D3D9 八帧/零提前状态与 End 回放、精确 Apply 载荷和未完成录制释放继续通过。
+> - 144 组核心、134 组客体、DDraw 四个标准冒烟 EXE 与零售/诊断两份严格 DLL 通过；发布本次 T&L 所测 DDraw DLL。宿主、运行包及 D3D8/9 发布 DLL 未变，GPU/Metal/站点集成沿用 4D2j2d，未新宣称原生硬件/完整 Wine/游戏/FPS 验收。见 [stage4d2j3b-validation.json](fixtures/d3d-review/stage4d2j3b-validation.json) 与 [原生灯光录制参考](../tests/glbridge/fixtures/d3d7_native_light_recording.json)。
+> - 此步只将 D3D7 的灯光入口改为延迟录制，其他旧 D3D7 状态仍会临时更改实时值；继续测量并补齐其录制、预定义范围及剩余共用运行时。原生 RGB 的活动灯光上限与代理 caps 不同，未当作一致性结果。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
