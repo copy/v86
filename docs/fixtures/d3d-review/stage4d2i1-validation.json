@@ -1,0 +1,233 @@
+{
+  "stage": "4D2i1 D3D7 original RGB output layouts and bounded spill writes",
+  "date": "2026-11-02",
+  "bundle": "46b300fb4065049393df",
+  "coreSuites": 137,
+  "guestSuites": 104,
+  "gpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 24 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 18 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "nativeReference": {
+    "status": "PASS",
+    "seconds": 93,
+    "batches": 0,
+    "owners": [],
+    "releases": [],
+    "build": {
+      "sourceSha256": "6ecd377845f3fe9d7ad9c88899f739ac870c6c8c504d12388cdb07e7dcc87ed2",
+      "exeSha256": "0d7438dbb8b23e72eb9ee84564e8ccefeb977f75031a68a7bad5bb810924d973"
+    },
+    "buffers": 168,
+    "successfulTransformations": 84,
+    "publicWords": 7056
+  },
+  "xp": {
+    "proxy": {
+      "status": "PASS",
+      "seconds": 111,
+      "batches": 1,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "build": {
+        "sourceSha256": "7782536b5bd5da8bb8fa91791edc9a56c3bd6e53fd8aa203cd670295cc224ff8",
+        "referenceSourceSha256": "6ecd377845f3fe9d7ad9c88899f739ac870c6c8c504d12388cdb07e7dcc87ed2",
+        "exeSha256": "5dd091e9fcd527fa8992412e389078e763274456c0d2e408512fdcaa042c5be3",
+        "dllSha256": "15dfc3d7c97a3731bfb44573d0be1d5ae4befeb20314deed8ffb8cac2f17a418"
+      }
+    },
+    "math": {
+      "status": "PASS",
+      "seconds": 139,
+      "batches": 0,
+      "owners": [],
+      "releases": []
+    },
+    "tnl": {
+      "status": "PASS",
+      "seconds": 130,
+      "batches": 6,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ]
+    }
+  },
+  "mutations": {
+    "killed": 6,
+    "total": 6
+  },
+  "checks": [
+    "native Microsoft public output buffers, offsets and copy flags matched bit exactly for 84 successful conversions",
+    "three x87 control words preserve prior math and independently match all 84 native buffers each",
+    "XYZ output, compact output cursor, ignored destination NORMAL, copied texture components, and nominal stride share the existing C transform kernel",
+    "every position/color/texture DWORD spill is bounded by the nominal allocation; sentinel tests cover final valid vertices",
+    "frontends upload in-range spill bytes, snapshot aliased sources, and discard temporary XYZ clip records after status/extents",
+    "proxy-only XP alias/last-vertex/clip/extents cases passed separately from the native comparisons",
+    "frozen original lighting/texture/blend numerical cases unchanged",
+    "137 core, 104 guest suites, 27 GPU adapter/pages, 2 site integration tests, 35 smoke executables and 6 strict DLL builds passed"
+  ],
+  "scope": "Original Microsoft D3D7 RGB software output compatibility for the measured formats. The native RGB rejected formats are recorded but excluded from HRESULT parity. Native OP_CLIP + XYZ hangs and is skipped in the original-runtime runner; proxy clipping/bounds/alias behavior has separate executed tests, not native-equivalence claims. Native HAL/D3D8/D3D9, packed/multistream/programmed CPU processing, complete Wine and games remain pending.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-processvertices",
+    "Wine 66caeb46 dlls/ddraw/tests/ddraw7.c test_process_vertices (XYZ/RHW spill)"
+  ],
+  "siteSha256": {
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "f04471c1f011db99a016072692aba48e49047eb12bc094a41fb158dded37c2cb",
+    "glbridge/runtime/d9wg_vertex.c": "412ed1bc5c225f5fdc70ac5d66fe3eed33eb96d00e213bc5d55c64e17fa157f9",
+    "glbridge/runtime/d9wg_vertex.h": "ea470cb1dd0edeba7642ac907cb46cdc38d792fc7bc05d6d7e714d911a5460a9",
+    "glbridge/sample/d3d7_native_layout_reference.c": "6ecd377845f3fe9d7ad9c88899f739ac870c6c8c504d12388cdb07e7dcc87ed2",
+    "glbridge/sample/d3d7_legacy_output_proxy_test.c": "7782536b5bd5da8bb8fa91791edc9a56c3bd6e53fd8aa203cd670295cc224ff8",
+    "glbridge/tests/d9wg_legacy_output_test.js": "97cecb39f019959acaf9b0328ee04463141766224727e9c4d316102e841a0cc6",
+    "glbridge/tests/d9wg_legacy_output_mutation_test.js": "1b7486c623488377b46b6f22c52a99181d989cda9acbd311dd4ca99001c5b586",
+    "glbridge/tests/d9wg_vertex_mutation_test.js": "29fdcc74ef42e9d6d25de768419475e1c417a05ebad8878dda24bf4033474f15",
+    "glbridge/tests/fixtures/d9wg_d3d7_native_layout_reference.json": "33d5b8f7acb6117dc492133a4a9bf99797fefeea302e268eef058621c657495b",
+    "glbridge/d3d8proxy/d3d8.dll": "8ddbc558cff648e1763dcc7bc877b9a1f36c4b1e980b0e812f6ef5b2b690dbc9",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "dade40299046c45ffb011d958400ccc5330fc289092aab60cbccf1ff1a1e51b9",
+    "glbridge/d3d9proxy/d3d9.dll": "637a4b8216affb6b16765331718cc7474c363a009f7dc6a7c3a21243cd011102",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "4cd67ee3351c749ab25d46b1a24786faa22a57f900ea40a8e855430e3e5e7e1a",
+    "glbridge/ddrawproxy/ddraw.dll": "15dfc3d7c97a3731bfb44573d0be1d5ae4befeb20314deed8ffb8cac2f17a418",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "c74cb30fc20f2ecfe2d02c121841592b288599d28fd520308d0127aa8bb7b701"
+  },
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "ee0fbeaedb8a6f7830eee17f6b6b45e551fb9db6b7f751a5118522656af401db",
+    "docs/fixtures/d3d-review/d3d7-native-layout-reference.json": "33d5b8f7acb6117dc492133a4a9bf99797fefeea302e268eef058621c657495b",
+    "tests/glbridge/d3d7_native_layout_fixture_test.js": "9af9a5e8628d7448cdb016969724c488635f58f2fb38d4f5213a1b2004c1d6d3",
+    "tests/glbridge/d3d7_native_layout_xp.mjs": "19e2df9b3ad8269de4f3467271ca54ce3ef43a6a38db9f1f65733e577aa28eff",
+    "tests/glbridge/d3d_math_xp.mjs": "e0758775c3c50608d3780b6d8ec8a29e65dc9c061d232da908dfd9b24416e345",
+    "tests/lib/d3d_layout_reference.mjs": "18f03826ba7a8746064a8245e6acb5c05c4df13bde3e9467fc36fc3d51d660e0",
+    "tests/glbridge/fixtures/d3d_software_blend_cpu.json": "af670f27b5a1795448d910fe401b279bc49df48eda9be7c279fb3c0371f4a840",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "9fc5e67d632209765e0c92c1c47c1aef02ab7b03e0a120d8ee0ffc1813770ee2",
+    "tests/glbridge/fixtures/d3d_software_texcoord_cpu.json": "b2f905cbed394aebee4be06fb253fd16454cea02101480a33174d08381d8e35d"
+  },
+  "logs": {
+    "d3d-i1-native-final.log": "c9af760e5d4d4555cd13991b41a3f4e868f10dc07176d1efb38b87d0dacb8e18",
+    "d3d-i1-proxy-alias-final.log": "7bc46204caca9a2bbcf20da9b99b22e5b5cad87939520bdf69d2fe3c25504b87",
+    "d3d-i1-math-final.log": "99e5f399f443add1805c882db85886542e30002acd3754f9f762742b1ee05c82",
+    "d3d-i1-tnl-final.log": "8f31b767a69112233c03835e418f924d6a79c7814533659372c7fc84221a2100",
+    "d3d-i1-core-final.log": "a597929b9c2a9f0fd1c923d3e2475b5ea33fa8a461ae3260f59212f136eb18a1",
+    "d3d-i1-guest-final.log": "ca15533984f77f4f924414ae0bc43b31c4c31cf147869cbb92d9a96c56450c4e",
+    "d3d-i1-gpu-final.log": "8af062b9c9fcfab99747d44f41d108e9f51542482ad4269898a045968dcacdad",
+    "d3d-i1-integration.log": "8fdab403c6c101e1fd7f0432c52f0fde4f673815e22da78d7f4e966c5a817346",
+    "d3d-i1-all-builds.log": "4cd548532ac4d682b78d6de46060cee3698f6753747d2c1375727a7e428d24c0"
+  }
+}

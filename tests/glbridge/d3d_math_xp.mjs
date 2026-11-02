@@ -16,16 +16,19 @@ const vertex_math = process.argv.includes("--vertex-math");
 const fog_math = process.argv.includes("--fog-math");
 const texture_math = process.argv.includes("--texture-math");
 const blend_math = process.argv.includes("--blend-math");
-const clip_status_math = process.argv.includes("--clip-status-math");
+const legacy_output_math = process.argv.includes("--legacy-output-math");
+const clip_status_math = process.argv.includes("--clip-status-math") || legacy_output_math;
 const clip_user_math = process.argv.includes("--clip-user-math") || clip_status_math;
 const clip_pipeline_math = process.argv.includes("--clip-pipeline-math") || clip_user_math;
 const clip_math = process.argv.includes("--clip-math") || clip_pipeline_math;
 const { source } = require(site + "/glbridge/tests/d9wg_math_harness.js");
 if(clip_status_math) run(process.execPath, [site + "/glbridge/tests/d9wg_clip_status_test.js"],
     { stdio: "pipe", env: { ...process.env, D9WG_STATUS_HEADER_OUT: out + "/clip-status-cases.h" } });
+if(legacy_output_math) run(process.execPath, [site + "/glbridge/tests/d9wg_legacy_output_test.js"],
+    { stdio: "pipe", env: { ...process.env, D9WG_LEGACY_OUTPUT_HEADER_OUT: out + "/legacy-output-cases.h" } });
 const code = `#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + (fog_math ? '\n#include "tests/native/d9wg_fog_cases.h"\n' : "") + (texture_math ? '\n#include "tests/native/d9wg_texcoord_cases.h"\n' : "") + (blend_math ? '\n#include "tests/native/d9wg_blend_cases.h"\n' : "") + (clip_math ? '\n#include "tests/native/d9wg_clip_cases.h"\n' : "") + (clip_pipeline_math ? '\n#include "tests/native/d9wg_clip_triangle_cases.h"\n#include "tests/native/d9wg_clip_buffer_cases.h"\n#include "tests/native/d9wg_clip_draw_cases.h"\n' : "") + (clip_user_math ? '\n#include "tests/native/d9wg_clip_user_cases.h"\n' : "") + (clip_status_math ? "\n#include " + JSON.stringify(out + "/clip-status-cases.h") + "\n" : "") + `
+` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + (fog_math ? '\n#include "tests/native/d9wg_fog_cases.h"\n' : "") + (texture_math ? '\n#include "tests/native/d9wg_texcoord_cases.h"\n' : "") + (blend_math ? '\n#include "tests/native/d9wg_blend_cases.h"\n' : "") + (clip_math ? '\n#include "tests/native/d9wg_clip_cases.h"\n' : "") + (clip_pipeline_math ? '\n#include "tests/native/d9wg_clip_triangle_cases.h"\n#include "tests/native/d9wg_clip_buffer_cases.h"\n#include "tests/native/d9wg_clip_draw_cases.h"\n' : "") + (clip_user_math ? '\n#include "tests/native/d9wg_clip_user_cases.h"\n' : "") + (clip_status_math ? "\n#include " + JSON.stringify(out + "/clip-status-cases.h") + "\n" : "") + (legacy_output_math ? "\n#include " + JSON.stringify(out + "/legacy-output-cases.h") + "\n" : "") + `
 static HANDLE log_file;
 static void report(const char *text) {
     DWORD written;WriteFile(log_file,text,(DWORD)lstrlenA(text),&written,NULL);
@@ -53,6 +56,7 @@ void WINAPI WinMainCRTStartup(void) {
         ${clip_pipeline_math ? "if(!error)error=clip_triangle_cases(20000);\n        if(!error)error=clip_buffer_cases();\n        if(!error)error=clip_draw_cases();" : ""}
         ${clip_user_math ? "if(!error)error=clip_user_cases(20000);" : ""}
         ${clip_status_math ? "if(!error)error=clip_status_cases();" : ""}
+        ${legacy_output_math ? "if(!error)error=legacy_output_cases();" : ""}
         WORD observed;__asm__ volatile("fnstcw %0":"=m"(observed)::"memory");
         if(observed!=modes[i])error=9999;
         __asm__ volatile("fnclex\\n\\tfldcw %0"::"m"(saved):"memory");
@@ -68,6 +72,7 @@ void WINAPI WinMainCRTStartup(void) {
         ${clip_user_math ? 'wsprintfA(text,"PASS clip user control=%04x cases=20000 world-blend=1",modes[i]);report(text);' : ""}
         ${clip_status_math ? 'wsprintfA(text,"PASS clip status control=%04x native=100 histories=100000",modes[i]);report(text);' : ""}
     }
+        ${legacy_output_math ? 'report("PASS legacy output control words=3 native=252");' : ""}
     report("PASS all real XP math checks");CloseHandle(log_file);ExitProcess(0);
 }
 `;
@@ -79,6 +84,7 @@ const files = { "MATH.EXE": fs.readFileSync(out + "/MATH.EXE"),
     "PROBE.CMD": Buffer.from("@echo off\r\necho READY math >%~d0\\OWNER.TXT\r\n%~d0\\MATH.EXE\r\ntype %~d0\\MATH.TXT >>%~d0\\OWNER.TXT\r\n") };
 const result = await run_xp_ram_probe({ root, image: process.env.XP_IMAGE || site + "/windowsxp/windowsxp_multidisk_C_4G.img", out, files,
     success: "PASS all real XP math checks", log_files: ["MATH.TXT"], inspect(result) {
+        if(legacy_output_math) assert(result.text.includes("PASS legacy output control words=3 native=252"));
         assert.equal(result.batches, 0);assert.equal(result.releases.length, 0);
         for(const mode of ["007f", "027f", "037f"]) {
             assert(result.text.includes("PASS x87 control=" + mode + " operations=240000"));
