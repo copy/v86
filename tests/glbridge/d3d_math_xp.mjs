@@ -16,13 +16,16 @@ const vertex_math = process.argv.includes("--vertex-math");
 const fog_math = process.argv.includes("--fog-math");
 const texture_math = process.argv.includes("--texture-math");
 const blend_math = process.argv.includes("--blend-math");
-const clip_user_math = process.argv.includes("--clip-user-math");
+const clip_status_math = process.argv.includes("--clip-status-math");
+const clip_user_math = process.argv.includes("--clip-user-math") || clip_status_math;
 const clip_pipeline_math = process.argv.includes("--clip-pipeline-math") || clip_user_math;
 const clip_math = process.argv.includes("--clip-math") || clip_pipeline_math;
 const { source } = require(site + "/glbridge/tests/d9wg_math_harness.js");
+if(clip_status_math) run(process.execPath, [site + "/glbridge/tests/d9wg_clip_status_test.js"],
+    { stdio: "pipe", env: { ...process.env, D9WG_STATUS_HEADER_OUT: out + "/clip-status-cases.h" } });
 const code = `#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + (fog_math ? '\n#include "tests/native/d9wg_fog_cases.h"\n' : "") + (texture_math ? '\n#include "tests/native/d9wg_texcoord_cases.h"\n' : "") + (blend_math ? '\n#include "tests/native/d9wg_blend_cases.h"\n' : "") + (clip_math ? '\n#include "tests/native/d9wg_clip_cases.h"\n' : "") + (clip_pipeline_math ? '\n#include "tests/native/d9wg_clip_triangle_cases.h"\n#include "tests/native/d9wg_clip_buffer_cases.h"\n#include "tests/native/d9wg_clip_draw_cases.h"\n' : "") + (clip_user_math ? '\n#include "tests/native/d9wg_clip_user_cases.h"\n' : "") + `
+` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + (fog_math ? '\n#include "tests/native/d9wg_fog_cases.h"\n' : "") + (texture_math ? '\n#include "tests/native/d9wg_texcoord_cases.h"\n' : "") + (blend_math ? '\n#include "tests/native/d9wg_blend_cases.h"\n' : "") + (clip_math ? '\n#include "tests/native/d9wg_clip_cases.h"\n' : "") + (clip_pipeline_math ? '\n#include "tests/native/d9wg_clip_triangle_cases.h"\n#include "tests/native/d9wg_clip_buffer_cases.h"\n#include "tests/native/d9wg_clip_draw_cases.h"\n' : "") + (clip_user_math ? '\n#include "tests/native/d9wg_clip_user_cases.h"\n' : "") + (clip_status_math ? "\n#include " + JSON.stringify(out + "/clip-status-cases.h") + "\n" : "") + `
 static HANDLE log_file;
 static void report(const char *text) {
     DWORD written;WriteFile(log_file,text,(DWORD)lstrlenA(text),&written,NULL);
@@ -49,6 +52,7 @@ void WINAPI WinMainCRTStartup(void) {
         ${clip_math ? "if(!error)error=clip_cases(20000);" : ""}
         ${clip_pipeline_math ? "if(!error)error=clip_triangle_cases(20000);\n        if(!error)error=clip_buffer_cases();\n        if(!error)error=clip_draw_cases();" : ""}
         ${clip_user_math ? "if(!error)error=clip_user_cases(20000);" : ""}
+        ${clip_status_math ? "if(!error)error=clip_status_cases();" : ""}
         WORD observed;__asm__ volatile("fnstcw %0":"=m"(observed)::"memory");
         if(observed!=modes[i])error=9999;
         __asm__ volatile("fnclex\\n\\tfldcw %0"::"m"(saved):"memory");
@@ -62,6 +66,7 @@ void WINAPI WinMainCRTStartup(void) {
         ${clip_math ? 'wsprintfA(text,"PASS clip math control=%04x cases=20000",modes[i]);report(text);' : ""}
         ${clip_pipeline_math ? 'wsprintfA(text,"PASS clip pipeline control=%04x triangles=20000 buffers=1 draws=1",modes[i]);report(text);' : ""}
         ${clip_user_math ? 'wsprintfA(text,"PASS clip user control=%04x cases=20000 world-blend=1",modes[i]);report(text);' : ""}
+        ${clip_status_math ? 'wsprintfA(text,"PASS clip status control=%04x native=100 histories=100000",modes[i]);report(text);' : ""}
     }
     report("PASS all real XP math checks");CloseHandle(log_file);ExitProcess(0);
 }
@@ -85,6 +90,7 @@ const result = await run_xp_ram_probe({ root, image: process.env.XP_IMAGE || sit
             if(clip_math) assert(result.text.includes("PASS clip math control=" + mode + " cases=20000"));
             if(clip_pipeline_math) assert(result.text.includes("PASS clip pipeline control=" + mode + " triangles=20000 buffers=1 draws=1"));
             if(clip_user_math) assert(result.text.includes("PASS clip user control=" + mode + " cases=20000 world-blend=1"));
+            if(clip_status_math) assert(result.text.includes("PASS clip status control=" + mode + " native=100 histories=100000"));
         }
     } });
 console.log(JSON.stringify(result));

@@ -7,6 +7,14 @@ for (const api of [7, 8, 9]) {
     const bytes = gunzipSync(fs.readFileSync(path.join(directory, stem + ".bin.gz")));
     const metadata = JSON.parse(fs.readFileSync(path.join(directory, stem + ".json")));
     assert.equal(createHash("sha256").update(bytes).digest("hex"), metadata.traceSha256);
+    if (metadata.captureBuild) {
+        assert.equal(metadata.captureBuild.api, api);
+        assert.equal(metadata.captureBuild.bytes, bytes.length);
+        assert.equal(metadata.captureBuild.sha256, metadata.sourceCaptureSha256);
+        assert.match(metadata.captureBuild.dllSha256, /^[0-9a-f]{64}$/);
+        assert.match(metadata.captureBuild.executableSha256, /^[0-9a-f]{64}$/);
+        assert(Object.keys(metadata.captureBuild.sourceSha256).length >= 10);
+    }
     const modes = api === 7 ? 4 : 6;
     let carrier = 0, frames = 0, draws = 0, removed = 0, userMask = 0;
     while (carrier < bytes.length) {

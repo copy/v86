@@ -4,10 +4,10 @@
     "runtime/d9wg_lighting.c": "fac7a1a6f8d26ef29bc30d411594816f8e7914ce9e1cac3d46df611e5ddfe8a1",
     "runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
     "runtime/d9wg_math.c": "a46343a416e973b5055c8293a84f369f3067dd62c56712c8703962b63cb82af3",
-    "runtime/d9wg_vertex.c": "26e235e672009f038aa194cab69cb21534de290ea9436b2aa6f323bef58ad3e9",
+    "runtime/d9wg_vertex.c": "a5f5f5fbf3b77ef27fcbda717a4914696c79b4af50865695d646c15e57d2092c",
     "runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
     "runtime/d9wg_blend.c": "af7c1256dadfe57c6fc369ed8f55d3e516c07b98dd1122f89a193f38318dfb5e",
-    "runtime/d9wg_clip.c": "892ef8fb3287a952e46837c754fb2b6400d138b67fe381841f1be812d63996e3"
+    "runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab"
   },
   "cases": [
     {

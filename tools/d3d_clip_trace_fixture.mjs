@@ -12,7 +12,8 @@ const root = file_url_to_path(new URL("../", import.meta.url)), site = site_dire
 const P = require("../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"), W = require("../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js");
 const api = Number(process.argv[3] || 7);if(![7, 8, 9].includes(api)) throw new Error("Unsupported clip fixture API");
 const user_planes = process.argv[4] === "planes", stem = "d3d" + api + "_processed_" + (user_planes ? "user_" : "") + "clip_xp";
-const input = fs.readFileSync(process.argv[2] || root + "build/d3d-review/stage4d2h3-proxy-indexed/graphics.bin"), bytes = Buffer.from(input);
+const input_path = process.argv[2] || root + "build/d3d-review/stage4d2h3-proxy-indexed/graphics.bin";
+const input = fs.readFileSync(input_path), bytes = Buffer.from(input);
 const allowed = new Set("HELLO GUEST_LOG CREATE_DEVICE DD_SET_DISPLAY_MODE CREATE_TEXTURE_2D DD_SET_COLOR_KEY UPDATE_TEXTURE SET_RENDER_TARGET SET_DEPTH_STENCIL_SURFACE_LEVEL SET_VIEWPORT SET_MATERIAL SET_TRANSFORM SET_RENDER_STATE SET_CLIP_PLANE SET_SAMPLER_STATE SET_TEXTURE_STAGE_STATE CREATE_BUFFER CLEAR UPDATE_BUFFER BEGIN_SCENE SET_FVF DRAW_PRIMITIVE_UP SET_STREAM_SOURCE SET_INDICES SET_VERTEX_SHADER CREATE_VERTEX_DECLARATION SET_VERTEX_DECLARATION END_SCENE DD_BLT WINDOW_STATE SET_CURSOR_PROPERTIES SET_CURSOR_POSITION SHOW_CURSOR PRESENT DESTROY_RESOURCE".split(" "));
 const removed = [];let carrier = 0, scenes = 0;
 while(carrier < bytes.length)
@@ -50,6 +51,12 @@ const metadata = { description: "Procedural actual XP D3D" + api + " COM command
     sourceCaptureSha256: hash(input), traceSha256: hash(bytes), traceBytes: bytes.length, removedPayloads: removed,
     sourceSha256: {}, reference: "d3d_clip_zero_w_reference.json is the independent positive-W oracle; raw direct zero-W disagreement remains diagnostic.",
     scope: "Frozen host replay fixture; guest C changes still require fresh XP captures and native C tests." };
+const build_path = path.join(path.dirname(input_path), "capture.json");
+if(fs.existsSync(build_path)) {
+    const build = JSON.parse(fs.readFileSync(build_path));
+    if(build.api !== api || build.bytes !== input.length || build.sha256 !== hash(input)) throw new Error("Capture build provenance mismatch");
+    metadata.captureBuild = build;
+}
 for(const name of [api === 7 ? "glbridge/sample/d3d7_native_clip_draw_reference.c" : "glbridge/sample/d3d_processed_clip_draw_test.c",
     api === 7 ? "glbridge/ddrawproxy/d3d7_proxy.inc" : "glbridge/d3d" + api + "proxy/d3d" + api + "_proxy.c", ...(user_planes ? ["glbridge/sample/d3d_user_clip_scenes.h"] : []), "glbridge/runtime/d9wg_clip.c", "glbridge/runtime/d9wg_clip.h", "glbridge/runtime/d9wg_clip_draw.c", "glbridge/runtime/d9wg_clip_draw.h", "glbridge/runtime/d9wg_vertex.c", "glbridge/runtime/d9wg_vertex.h"])
     metadata.sourceSha256[name] = hash(fs.readFileSync(site + "/" + name));

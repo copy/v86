@@ -3,8 +3,8 @@
   "api": 9,
   "userPlanes": true,
   "scenes": 36,
-  "sourceCaptureSha256": "2f53ddbbab0b3bef2a346ad23b2852d907a0a63b968db369480d591af36196ba",
-  "traceSha256": "93e08a51a3aef2d4a941e48ff1188ff42145e78eec42208a88654d6e304e9587",
+  "sourceCaptureSha256": "1d6d62210177f2568d42ff9959af2244a042131b2e6789331eeb458034ab599d",
+  "traceSha256": "8cf096de98c25845b1dd1e05ca29cb498412a24682318eeafcad8102b771f855",
   "traceBytes": 31740,
   "removedPayloads": [
     {
@@ -17,16 +17,37 @@
     }
   ],
   "sourceSha256": {
-    "glbridge/sample/d3d_processed_clip_draw_test.c": "1152e37edfc082242d403764f1fe799ff83a74d7340924092b07875a5ab70b84",
-    "glbridge/d3d9proxy/d3d9_proxy.c": "f72afd84065e16b70e0ab0f5fbe8878f07e57b6d8bc568030f641c2a294065df",
+    "glbridge/sample/d3d_processed_clip_draw_test.c": "0ec35c495c1e35faf83abc7642679ec8932203188c3031a604ef6ae20321bbf5",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "ec3dc178228334eee887dd1df754ac61a9f95fcdb894fff778e30ccc86b490cd",
     "glbridge/sample/d3d_user_clip_scenes.h": "6d9c81c12d1d88d0d24de5c0eec6a2e2f378153ee9b50f4a1640b58aa9eb6aed",
-    "glbridge/runtime/d9wg_clip.c": "892ef8fb3287a952e46837c754fb2b6400d138b67fe381841f1be812d63996e3",
-    "glbridge/runtime/d9wg_clip.h": "45cc0eb40d3d1111c3f937d0ac60652169b3f157fde9154810f7db96acfa3c65",
-    "glbridge/runtime/d9wg_clip_draw.c": "1073d728686f0a5658a4095034984db5b332cb6e83dbe072897cb944fb2ab15e",
-    "glbridge/runtime/d9wg_clip_draw.h": "c9eb7b4ba9c3cb01517873f5c649dbacc2349e510093ea676173bbe63930a7ae",
-    "glbridge/runtime/d9wg_vertex.c": "26e235e672009f038aa194cab69cb21534de290ea9436b2aa6f323bef58ad3e9",
-    "glbridge/runtime/d9wg_vertex.h": "df29247a12cdfc3958acd1049ee74527c7acc7390ecea7bd7dfcc31ae159d46c"
+    "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+    "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+    "glbridge/runtime/d9wg_clip_draw.c": "000676af1ee5ce9b871e9218382c5e53df4a306745348a226f051df0b88e266f",
+    "glbridge/runtime/d9wg_clip_draw.h": "8c241984bcb76500e0c347b716319d5d6a76a395113f5305a58ec62bdf8a873b",
+    "glbridge/runtime/d9wg_vertex.c": "a5f5f5fbf3b77ef27fcbda717a4914696c79b4af50865695d646c15e57d2092c",
+    "glbridge/runtime/d9wg_vertex.h": "5b65a7bcea61ca179653426fef18bb54ca060eb5375b949630666a940998705a"
   },
   "reference": "d3d_clip_zero_w_reference.json is the independent positive-W oracle; raw direct zero-W disagreement remains diagnostic.",
-  "scope": "Frozen host replay fixture; guest C changes still require fresh XP captures and native C tests."
+  "scope": "Frozen host replay fixture; guest C changes still require fresh XP captures and native C tests.",
+  "captureBuild": {
+    "api": 9,
+    "owner": 3,
+    "bytes": 31740,
+    "sha256": "1d6d62210177f2568d42ff9959af2244a042131b2e6789331eeb458034ab599d",
+    "dllSha256": "8e1ee144c5d6a50e974af826eb9aa25fb45a49f91cb2dc5876e53e213e296fcc",
+    "executableSha256": "fb669c143b93e810aad1d0b4640f1e5d7d1fc544b6cf133dedb6372d3e1bf40a",
+    "sourceSha256": {
+      "glbridge/d3d9proxy/d3d9_proxy.c": "ec3dc178228334eee887dd1df754ac61a9f95fcdb894fff778e30ccc86b490cd",
+      "glbridge/sample/d3d_user_clip_scenes.h": "6d9c81c12d1d88d0d24de5c0eec6a2e2f378153ee9b50f4a1640b58aa9eb6aed",
+      "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+      "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+      "glbridge/runtime/d9wg_clip_draw.c": "000676af1ee5ce9b871e9218382c5e53df4a306745348a226f051df0b88e266f",
+      "glbridge/runtime/d9wg_clip_draw.h": "8c241984bcb76500e0c347b716319d5d6a76a395113f5305a58ec62bdf8a873b",
+      "glbridge/runtime/d9wg_vertex.c": "a5f5f5fbf3b77ef27fcbda717a4914696c79b4af50865695d646c15e57d2092c",
+      "glbridge/runtime/d9wg_vertex.h": "5b65a7bcea61ca179653426fef18bb54ca060eb5375b949630666a940998705a",
+      "glbridge/runtime/d9wg_vertex_windows.h": "36390e971e4891f669d3e968b6cc62883ae1cf5679cb89803aab2a8f094d7717",
+      "glbridge/runtime/d9wg_blend.c": "af7c1256dadfe57c6fc369ed8f55d3e516c07b98dd1122f89a193f38318dfb5e",
+      "glbridge/runtime/d9wg_blend.h": "7acc88c6fc52fb9526676b51339c282acd24c020bb5b3ae766748a007d932c49"
+    }
+  }
 }
