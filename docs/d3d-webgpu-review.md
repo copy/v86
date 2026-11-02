@@ -1265,6 +1265,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 140 组核心、31 项 WebGPU 验证及两项站点集成通过。客体 C 未改变，沿用 4D2i3a 的 110 组客体、三精度 XP 数学、COM/T&L 和六个 DLL 构建结果。运行包 `be0e784a17c9ea12cf09` 已同步站点；见 [stage4d2i3b-validation.json](fixtures/d3d-review/stage4d2i3b-validation.json)。
 > - 本阶段是宿主线协议绘制验收；客体普通绘制还需接入多流范围和 ClipStatus 校验。继续这些内容及可编程软件处理/打包输出、其余共用核心，不宣称原生 D3D8/9、完整 Wine 或真实游戏验收完成。
 
+
+> **阶段 4D2i3c（2026-11-02）：D3D9 普通多流绘制范围及 ClipStatus 接入完成。**
+>
+> - DrawPrimitive/DrawIndexedPrimitive 按声明验证各实际输入流的缓冲、锁定、偏移、类型宽度及步长，允许缺少 stream 0、未使用但锁定的 stream 0、零步长和没有末尾填充的最后一个顶点。索引声明范围同时计入有符号 BaseVertexIndex，并检查溢出；实例流按分频后的实例数量检查范围。
+> - 多流软件 ClipStatus 共用既有单顶点裁剪内核，检查实际索引边界，再处理完整声明范围，包括未引用顶点。世界用户平面、混合调色板和 POSITIONT 的跳过/即时处理规则保持一致；晚出现的坏范围或调色板索引不提交部分状态。Windows 状态准备在单流/多流间共享。
+> - 新增独立 C 场景和 8/8 语义变异，覆盖有符号基址、上下索引边界、常量位置、完整范围、世界平面、逐步状态提交错误和即时 POSITIONT；ASan/UBSan 通过。三种 x87 精度重新运行完整数学集合及多流裁剪检查。
+> - 实际 XP COM 覆盖普通/索引绘制、未引用范围、有符号基址、各流边界、用户平面、锁定、UINT_MAX 常量位置及失败状态不变。CPU 尚未实现的实例 ClipStatus 继续明确拒绝查询，禁用裁剪后恢复有效零状态。原始多流 POSITIONT 可直接绘制并保留 ClipStatus。
+> - 带处理记录的多流 POSITIONT 还需要重映射裁剪记录；在此之前明确拒绝相关绘制，避免把齐次记录误当屏幕坐标。位置写入后使用既有逐字校验使失效记录永久失效，原始数据可恢复普通绘制；该分支的共用裁剪发射继续下一步实现。
+> - 140 组核心、112 组客体、两项站点集成、35 个标准冒烟 EXE、六个严格构建 DLL、三 API XP T&L 通过。四个已有数值参考的 cases 不变；宿主代码和运行包沿用 `be0e784a17c9ea12cf09`，GPU 验收沿用 4D2i3b 的 31 项结果。本次 XP ACK 检查不计作新的 GPU 绘制验收。见 [stage4d2i3c-validation.json](fixtures/d3d-review/stage4d2i3c-validation.json)。
+> - 继续多流处理记录的裁剪发射、可编程软件处理/打包输出和其余共用核心；新范围检查尚未做客体 FPS 验收，完整原生 D3D8/9、Wine 与真实游戏验收仍保留在后续阶段。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

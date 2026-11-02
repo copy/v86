@@ -8,12 +8,12 @@ import { fileURLToPath as file_url_to_path } from "node:url";
 import { site_directory } from "../lib/site.mjs";
 import { run_xp_ram_probe } from "../lib/xp_ram_probe.mjs";
 const root = file_url_to_path(new URL("../../", import.meta.url)), site = site_directory(root);
-const api = 9, colors = process.argv.includes("--colors"), streams = process.argv.includes("--streams");
+const api = 9, colors = process.argv.includes("--colors"), streams = process.argv.includes("--streams"), stream_draws = process.argv.includes("--stream-draws");
 const out = path.resolve(process.env.D9WG_VERTEX_FORMAT_OUT || root + "build/d3d-review/vertex-formats-xp-" + api);
 fs.mkdirSync(out, { recursive: true });
 run("sh", [site + "/glbridge/d3d" + api + "proxy/build.sh", out + "/D3D" + api + ".DLL"], { stdio: "pipe" });
 run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-mwindows", "-std=gnu99", "-Os", "-s", "-nostdlib", "-Wall", "-Wextra", "-Werror",
-    "-DD9WG_CLIP_API=" + api, "-DD9WG_VERTEX_FORMAT_ONLY", ...(colors ? ["-DD9WG_VERTEX_COLOR_CASES"] : []), ...(streams ? ["-DD9WG_VERTEX_STREAM_CASES"] : []), "-Wl,--subsystem,windows:5.01", "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/CLIP.EXE",
+    "-DD9WG_CLIP_API=" + api, "-DD9WG_VERTEX_FORMAT_ONLY", ...(colors ? ["-DD9WG_VERTEX_COLOR_CASES"] : []), ...(streams ? ["-DD9WG_VERTEX_STREAM_CASES"] : []), ...(stream_draws ? ["-DD9WG_VERTEX_STREAM_DRAW_CASES"] : []), "-Wl,--subsystem,windows:5.01", "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/CLIP.EXE",
     site + "/glbridge/sample/d3d_processed_clip_draw_test.c", "-luser32", "-lkernel32", "-ldxguid"], { stdio: "pipe" });
 const files = { "CLIP.EXE": fs.readFileSync(out + "/CLIP.EXE"), ["D3D" + api + ".DLL"]: fs.readFileSync(out + "/D3D" + api + ".DLL"),
     "V86GL.SYS": fs.readFileSync(site + "/glbridge/v86gl_driver/v86gl.sys"),
@@ -23,6 +23,7 @@ const result = await run_xp_ram_probe({ root, out, files,
     image: process.env.XP_IMAGE || site + "/windowsxp/windowsxp_multidisk_C_4G.img",
     result_file: "CLIP.TXT", success: "PASS real XP typed input:", log_files: ["CLIP.TXT"], expected_releases: 1,
     inspect(result) {
+        if(stream_draws) assert(result.text.includes("PASS real XP multi-stream draws:"));
         if(streams) assert(result.text.includes("PASS real XP multi-stream:"));
         if(colors) assert(result.text.includes("PASS real XP floating color precision, specular source, fog, half/integer colors and copy flags"));
         assert.equal(result.owners.length, 1);assert.equal(result.releases.length, 1);
