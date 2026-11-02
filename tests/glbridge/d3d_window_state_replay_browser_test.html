@@ -20,7 +20,8 @@
  "use strict";
  const P=D9WGProtocol,gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false}),snapshots=[];
  try{
-  const metadata=await(await fetch("fixtures/d3d_window_state_xp.json")).json(),response=await fetch("fixtures/d3d_window_state_xp.bin.gz");if(!response.ok)throw Error("Missing XP window capture");
+  const fixture=new URLSearchParams(location.search).get("capture")==="probe"?"d3d_window_probe_xp":"d3d_window_state_xp";
+  const metadata=await(await fetch("fixtures/"+fixture+".json")).json(),response=await fetch("fixtures/"+fixture+".bin.gz");if(!response.ok)throw Error("Missing XP window capture");
   const bytes=new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()),view=new DataView(bytes.buffer);
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),value=>value.toString(16).padStart(2,"0")).join("");if(digest!==metadata.traceSha256)throw Error("XP window trace hash mismatch");
   await gpu.initialize();const dispatch=gpu.dispatchCommand;let current;

@@ -1538,6 +1538,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 真实 XP 三进程/三个 API 产生 27 条窗口报告，对照独立 Win32 GetClientRect/ClientToScreen/GetWindowRect、前台及可见性测量，22 个移动、缩放、双前台窗口、隐藏/显示与主表面释放步骤通过；动作后停止 Present，仅泵消息，仍收到更新。驱动命令流、阶段标记及 SDK 观测冻结为 fixture，四种几何/前台/no-surface 数据破坏必须失败。
 > - SwiftShader/Metal 完整回放真实命令流，22 步均正确更新宿主 surface 几何或隐藏状态，27 条报告零 GPU/宿主错误。169 组核心、146 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成、加入窗口回放后的 WebGPU 43 次运行及 Metal 533 个像素场景通过；三 API T&L/状态块/生命周期 XP 回归通过。宿主运行包保持已验 `8cc48a9a2b75d0296e91`，零售 DLL 均为窗口探针原字节。见 [stage4g1-validation.json](fixtures/d3d-review/stage4g1-validation.json)。接着共用 Win32 探测/事件与每次 Present 的复用，尚未宣称整个窗口核心、D3D8 包装或阶段 4/5/6 完成。
 
+> **阶段 4G2（2026-11-03）：共用 Win32 探测及每次 Present 的复用完成。**
+>
+> - 新增 `d9wg_window_probe.c/.h` 和 SDK 无关的 `d9wg_window_geometry.c`。三个前端共用窗口身份、前台、可见性、内外尺寸、客户区屏幕位置和可见区域采集；区域计算接收已读取的客户区/原点，消除重复的 Win32 查询。D3D9/DDraw 的 Present 和窗口报告使用同一份观测；D3D8 的 Present 保持轻量几何采集，不额外读取前台或 GDI 区域。
+> - D3D9 主动恢复/提升前台窗口后重新采集，再构建 Present 和窗口报告，避免发送改变前的位置。完整遮挡和 500 ms 限速沿用显式策略；D3D8 的隐藏/最小化、D3D9 的空客户区外框回退、DDraw 各轴模式尺寸回退及实际 fullscreen/no-surface 形状保留为独立、可测试的策略输入。
+> - 原生编译实际 Win32/GDI 采集实现和三个实际 Present 函数，独立模拟全显/全遮/部分遮挡、负屏幕位置、2–32 个区域及超限、GDI/坐标/尺寸查询失败、最小化、隐藏和各 API 几何回退。检查常规 Present 对每项原始事实只查询一次，前台恢复路径重采集，区域与 Present/报告一致；17/17 探测/Present 变异、原有 10/10 报告缓存变异及 ASan/UBSan 通过。OpenGL 的旧入口复用拆出的区域函数，坐标转换失败时保守报告全区域。
+> - 真实 XP 再次通过三 API 的 22 个独立 Win32 测量步骤和 27 条报告。新命令流 `d3d_window_probe_xp` 与 4G1 原 fixture 分开冻结；两个冻结流均包含四种数据破坏检查。SwiftShader/Metal 完整回放新流，22 步 surface 几何/隐藏状态全部匹配，零宿主/GPU 错误。
+> - 169 组核心、149 组客体、36 个 SDK 冒烟 EXE、六个严格 D3D DLL、两项集成、完整 WebGPU 44 次运行及 Metal 533 场景通过；XP 三 API T&L/状态块/生命周期回归通过。三个发布零售 DLL 均为本次窗口 XP 验收原字节，宿主运行包保持 `8cc48a9a2b75d0296e91`。见 [stage4g2-validation.json](fixtures/d3d-review/stage4g2-validation.json)。接着共用 WinEvent 注册/分发与生命周期；D3D8 包装和阶段 4/5/6 仍在继续。
+> - 依据：[GetClientRect 的客户区约定](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect)、[GetRandomRgn 的屏幕坐标与时效限制](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getrandomrgn)、[GetRegionData 的所需容量和失败返回](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getregiondata)。保留既有 SYSRGN 算法，不宣称在窗口移动期间取得原子的可见区域快照。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

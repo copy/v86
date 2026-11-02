@@ -1,0 +1,659 @@
+{
+  "reference": "Stage 4G2 shared Win32 capture and single-Present reuse: actual XP Win32 GetClientRect/ClientToScreen/GetWindowRect and foreground/visibility snapshots. No native Microsoft Direct3D drawing claim.",
+  "traceSha256": "0e6d212c8b9ac4cbd3d3646eed7a9f7ad1b8ac062d3ce460337ee3dd14506588",
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "5051b1c35542557a54aeb830b3c3cce179d85794e90dcfa843474636aeb8dbb3",
+      "d3d9": "204aa518def774a0f8605ad2c55b372dd28fee502700ad005d273b23b896268c",
+      "ddraw": "4af00cf18901cbae647e2d3c10d66037915bce5daebb30ff3b36bb3c34c9be15"
+    }
+  },
+  "windowReports": 27,
+  "batches": 52,
+  "steps": [
+    {
+      "api": 8,
+      "phase": 1,
+      "expected": {
+        "hwnd": 2031892,
+        "foreground_hwnd": 2031892,
+        "window_x": 64,
+        "window_y": 83,
+        "window_width": 192,
+        "window_height": 123,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 2,
+      "expected": {
+        "hwnd": 2031892,
+        "foreground_hwnd": 2031892,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 192,
+        "window_height": 123,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 3,
+      "expected": {
+        "hwnd": 2031892,
+        "foreground_hwnd": 2031892,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 4,
+      "expected": {
+        "hwnd": 2031892,
+        "foreground_hwnd": 262410,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 5,
+      "expected": {
+        "hwnd": 2031892,
+        "foreground_hwnd": 786668,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 6,
+      "expected": {
+        "hwnd": 2031892,
+        "foreground_hwnd": 786668,
+        "window_x": 0,
+        "window_y": 0,
+        "window_width": 0,
+        "window_height": 0,
+        "client_width": 0,
+        "client_height": 0
+      },
+      "flags": 0,
+      "noSurface": false,
+      "matchingReports": 2
+    },
+    {
+      "api": 8,
+      "phase": 7,
+      "expected": {
+        "hwnd": 2031892,
+        "foreground_hwnd": 786668,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 1,
+      "expected": {
+        "hwnd": 590068,
+        "foreground_hwnd": 590068,
+        "window_x": 64,
+        "window_y": 83,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 2,
+      "expected": {
+        "hwnd": 590068,
+        "foreground_hwnd": 590068,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 3,
+      "expected": {
+        "hwnd": 590068,
+        "foreground_hwnd": 590068,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 4,
+      "expected": {
+        "hwnd": 590068,
+        "foreground_hwnd": 131402,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 5,
+      "expected": {
+        "hwnd": 590068,
+        "foreground_hwnd": 1245446,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 6,
+      "expected": {
+        "hwnd": 590068,
+        "foreground_hwnd": 1245446,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 1,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 7,
+      "expected": {
+        "hwnd": 590068,
+        "foreground_hwnd": 1245446,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 1,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 196926,
+        "window_x": 64,
+        "window_y": 83,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 2,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 196926,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 3,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 196926,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 4,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 196930,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 5,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 2097452,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 6,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 2097452,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 1,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 7,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 2097452,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 8,
+      "expected": {
+        "hwnd": 196926,
+        "foreground_hwnd": 2097452,
+        "window_x": 100,
+        "window_y": 90,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 1,
+      "noSurface": true,
+      "matchingReports": 1
+    }
+  ],
+  "batchPhases": [
+    {
+      "owner": 1,
+      "phase": 1
+    },
+    {
+      "owner": 1,
+      "phase": 1
+    },
+    {
+      "owner": 1,
+      "phase": 2
+    },
+    {
+      "owner": 1,
+      "phase": 2
+    },
+    {
+      "owner": 1,
+      "phase": 3
+    },
+    {
+      "owner": 1,
+      "phase": 3
+    },
+    {
+      "owner": 1,
+      "phase": 4
+    },
+    {
+      "owner": 1,
+      "phase": 4
+    },
+    {
+      "owner": 1,
+      "phase": 5
+    },
+    {
+      "owner": 1,
+      "phase": 5
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 1
+    },
+    {
+      "owner": 2,
+      "phase": 1
+    },
+    {
+      "owner": 2,
+      "phase": 2
+    },
+    {
+      "owner": 2,
+      "phase": 2
+    },
+    {
+      "owner": 2,
+      "phase": 3
+    },
+    {
+      "owner": 2,
+      "phase": 3
+    },
+    {
+      "owner": 2,
+      "phase": 4
+    },
+    {
+      "owner": 2,
+      "phase": 4
+    },
+    {
+      "owner": 2,
+      "phase": 5
+    },
+    {
+      "owner": 2,
+      "phase": 5
+    },
+    {
+      "owner": 2,
+      "phase": 6
+    },
+    {
+      "owner": 2,
+      "phase": 6
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 3,
+      "phase": 1
+    },
+    {
+      "owner": 3,
+      "phase": 1
+    },
+    {
+      "owner": 3,
+      "phase": 2
+    },
+    {
+      "owner": 3,
+      "phase": 2
+    },
+    {
+      "owner": 3,
+      "phase": 3
+    },
+    {
+      "owner": 3,
+      "phase": 3
+    },
+    {
+      "owner": 3,
+      "phase": 4
+    },
+    {
+      "owner": 3,
+      "phase": 4
+    },
+    {
+      "owner": 3,
+      "phase": 5
+    },
+    {
+      "owner": 3,
+      "phase": 5
+    },
+    {
+      "owner": 3,
+      "phase": 6
+    },
+    {
+      "owner": 3,
+      "phase": 6
+    },
+    {
+      "owner": 3,
+      "phase": 7
+    },
+    {
+      "owner": 3,
+      "phase": 7
+    },
+    {
+      "owner": 3,
+      "phase": 8
+    },
+    {
+      "owner": 3,
+      "phase": 8
+    },
+    {
+      "owner": 3,
+      "phase": 8
+    }
+  ],
+  "apiByOwner": {
+    "1": 8,
+    "2": 9,
+    "3": 7
+  },
+  "sourceSha256": {
+    "glbridge/sample/d3d_window_state_test.c": "208041bf8a4217c204439dd87ff6fe8a677e3e1467d8d80cb475b1d0085c2601",
+    "glbridge/window_region.h": "cc3e4bbcbb755ae262223d4da4da6a6379a40f0d86cea93c73065b9e50112804",
+    "glbridge/runtime/build.sh": "9342dfcb7606ff14c4b4b2ece3dad677861c173a5be292949a970c26ecc56ff9",
+    "glbridge/runtime/d9wg_blend.c": "93b00e722c9ae92a2fd3b36bbea517f7499bdc59f52f2ee81d5979831ebca856",
+    "glbridge/runtime/d9wg_blend.h": "5a66686cf17d9fdd28e04c7709b10c46fa0037dee0f9ff4bb6b0817d88be208f",
+    "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+    "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+    "glbridge/runtime/d9wg_clip_draw.c": "8165363125e96beff66d5a3e94263e32dfe73ba59cf9f1f674594a99dc070068",
+    "glbridge/runtime/d9wg_clip_draw.h": "5bf38f9ecd683d42c441b025848776045e8a6fa5098cff80d0294b7078054c69",
+    "glbridge/runtime/d9wg_format_layouts.h": "d669d8cc1776e4ded612f3cc9ed3f0ca50d251dd82037d156753a590b0435b57",
+    "glbridge/runtime/d9wg_format_queries.h": "e9c4989b24edfc597df470e8bcce2aa1e038784c23d9f65c040103d6c83babd8",
+    "glbridge/runtime/d9wg_fpu.c": "980ac46edbbee1ef7ea98420785334cac59b5a5b39ce5bc5fce139e42fdf37cb",
+    "glbridge/runtime/d9wg_fpu.h": "3e527bd5f2fb286d71837235843a1f4fbbd3a6b79f38ff3df0907cb47a33d6ff",
+    "glbridge/runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
+    "glbridge/runtime/d9wg_fvf.h": "b4eb6839c94b6dae66d6cfbf114fb00992a0589f1d9a4f991148c850715ecbd3",
+    "glbridge/runtime/d9wg_host_caps.h": "2574cba1d1ddad434f8b56900c64aac597e8063f784ecc067591dbc77fbf5a60",
+    "glbridge/runtime/d9wg_light_state.h": "2d61763e98cba86fbe796caf434cf13a13441372c0b8909c5d7c2385e89143a7",
+    "glbridge/runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+    "glbridge/runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
+    "glbridge/runtime/d9wg_lighting_bridge.h": "77ca02faa6b6dc46a279d1aebcadd324a7f649b4840011129d2673730588982e",
+    "glbridge/runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+    "glbridge/runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+    "glbridge/runtime/d9wg_palette_state.h": "9cdb3fa99ece7364ee3e37c053e90a873f0e22d0aea2d59dfde719e51c5a88b5",
+    "glbridge/runtime/d9wg_process.c": "6ce8a28eca62d3bb3e12235f049f1ca186f79017dd414e4fb837223c0d55fe74",
+    "glbridge/runtime/d9wg_process.h": "cbe050a47c3d18452f70599a3a7c032c8dcc5d31b1979177e43423b141946daf",
+    "glbridge/runtime/d9wg_process_aliases.h": "bfa186b2f8bd7b9f63cc805dba37e5ed94e794d6c6839764366710c8a8235168",
+    "glbridge/runtime/d9wg_runtime.c": "ab96e730c6b6945ff339033005fcbc6bff4aad3fc133b23e8953f2a7e83d99e0",
+    "glbridge/runtime/d9wg_runtime.h": "9b1da2de7e39b5aae38a4db289225ef94bfcea9ad4eebdcc1cb49c8e0980ff12",
+    "glbridge/runtime/d9wg_state_block_scope.h": "feaab35ff6532a1746d94b3409d8ecceef447dc1d884126f002282718fcda4d7",
+    "glbridge/runtime/d9wg_state_defaults.h": "dc479a49aad241deed78208ea656bdadf8b093f4d4f3b9cd4130503252336bba",
+    "glbridge/runtime/d9wg_state_defaults_bridge.h": "dbbe0e18d3f798df4c97a2dac15daa98638082893ed79aea8b8a285c668a475f",
+    "glbridge/runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
+    "glbridge/runtime/d9wg_tnl_math.h": "8cd101ee7ba0765acf6b85dc254a3226219b988ee32f40828fadf0f1352eaf75",
+    "glbridge/runtime/d9wg_transport.c": "ef63cf0f19da41a7302c4d19b8b400bb7e8c40158e126382418c48ea4f4304ab",
+    "glbridge/runtime/d9wg_transport.h": "223597b8da9fa7f92b1cb5cd3192be462233d36fddcca5bb086454cb19fabc38",
+    "glbridge/runtime/d9wg_upload_bridge.h": "52f4233d5f374e41392988c2e08c12389d79cc0b0e6088b83d3de3cf5966b29e",
+    "glbridge/runtime/d9wg_vertex.c": "d4e69cfcce271947f0cfb3248e23704c00f0fe2ddd9a323cf717d91dec77de8c",
+    "glbridge/runtime/d9wg_vertex.h": "cdc036514b19b3f9b6fb078379ecf62ff35386dda327985d630ee6d213bf1fd8",
+    "glbridge/runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+    "glbridge/runtime/d9wg_vertex_windows.h": "eaa23d2c09ba0c8ffd726a6dd1dd9668e8f2c23ef619c54b3793da208e6051d6",
+    "glbridge/runtime/d9wg_window_geometry.c": "e16c129b4b4bc6c14e31639b755773bee03b4a9d65ee4deee3838e9ecc544b7c",
+    "glbridge/runtime/d9wg_window_probe.c": "81ca22962480598602f9a0b4d1154b8c888727bd55de665a919bc51ca069817b",
+    "glbridge/runtime/d9wg_window_probe.h": "da48ec8b32f8b3d7861064ab45bea340f56e4353bbc60a8b41036206237d3408",
+    "glbridge/runtime/d9wg_window_state.c": "49a67a2d57cc88df8c679dbb95c3ceac498c45d981b37e63425ab7835accf45a",
+    "glbridge/runtime/d9wg_window_state.h": "d0d64fa0ae341a6c3ffbb9254b3432534b014329cb8646889a40a91b82cbf60e",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "d50ad61773267394e8f22af55ff8de88a5ba01f9ac9cabd2a1c561e38f7f7e40",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "4b64e20a5c7591679eff8fde1aed587f30c504405a103a233af1e32fe9943ee8",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "35848a0a9158fbe6c0ba644f192f00baf2609d31ab11a30035259cea17bb2a48"
+  },
+  "win32Logs": {
+    "WINDOW8.TXT": "STEP 8 1 2031892 2031892 1 1 0 64 83 192 123 200 150 60 60 0\r\nSTEP 8 2 2031892 2031892 1 1 0 104 113 192 123 200 150 100 90 0\r\nSTEP 8 3 2031892 2031892 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 4 2031892 262410 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 5 2031892 786668 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 6 2031892 786668 1 0 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 7 2031892 786668 1 1 0 104 113 252 163 260 190 100 90 0\r\nPASS window SDK API=8\r\n",
+    "WINDOW9.TXT": "STEP 9 1 590068 590068 1 1 0 64 83 192 123 200 150 60 60 0\r\nSTEP 9 2 590068 590068 1 1 0 104 113 192 123 200 150 100 90 0\r\nSTEP 9 3 590068 590068 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 4 590068 131402 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 5 590068 1245446 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 6 590068 1245446 1 0 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 7 590068 1245446 1 1 0 104 113 252 163 260 190 100 90 0\r\nPASS window SDK API=9\r\n",
+    "WINDOW7.TXT": "STEP 7 1 196926 196926 1 1 0 64 83 192 123 200 150 60 60 0\r\nSTEP 7 2 196926 196926 1 1 0 104 113 192 123 200 150 100 90 0\r\nSTEP 7 3 196926 196926 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 4 196926 196930 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 5 196926 2097452 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 6 196926 2097452 1 0 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 7 196926 2097452 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 8 196926 2097452 1 1 0 104 113 252 163 260 190 100 90 1\r\nPASS window SDK API=7\r\n"
+  }
+}
