@@ -1357,6 +1357,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 核心 144 组、客体 126 组、D3D8 17 个标准冒烟 EXE 与零售/诊断两份严格 DLL 通过，更新已测试的 app-local D3D8 DLL。D3D9/7 发布 DLL、宿主 JS 和 `c3bba1907e73f97e09c3` 运行包未改变；WebGPU 34 项、SwiftShader/Metal 图像与两项站点集成沿用 4D2j2d，本阶段未新宣称 GPU 图像、原生/Wine/游戏/FPS 验收。见 [stage4d2j2e-validation.json](fixtures/d3d-review/stage4d2j2e-validation.json)。
 > - 依据：[Wine D3D8 设备句柄删除/内部状态绑定](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c)、[Wine shader 父对象延迟销毁](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/shader.c)。接着补齐 D3D9 全部录制查询隔离、D3D7 稀疏灯光及其余共用运行时。
 
+> **阶段 4D2j2f1（2026-11-02）：D3D9 普通状态、矩阵和常量改为延迟录制。**
+>
+> - RS/TSS/采样器、视口、材质、用户平面、剪裁矩形、NPatch、独立流频率及 VS/PS 的 float/int/BOOL 六组常量在写入录制块后返回，不改实时影子或提前发送状态命令；同值/重复/覆盖写入保留掩码，BOOL 归一化。End 对这些已延迟字段保留录制值，公共 Capture 仍刷新原有掩码；流绑定的旧捕获路径不会覆盖独立录制的频率。
+> - MultiplyTransform 从本次录制里最近的矩阵继续运算，Get 始终返回实时矩阵。D3D9 Set/Get/Multiply 共用 266 个合法 SDK 变换编号的映射，拒绝保留编号并保持失败查询输出不变。
+> - 宿主直接编译实际 C Setter/Get/helper，检查 266 个矩阵与连续乘法、普通状态与结构体查询、常量尾部/覆盖/越界、BOOL、无效调用原子性和零提前发送。10/10 语义变异、ASan/UBSan 通过；上一版实际 C `f163c0f` 在实时查询断言失败。
+> - 实际 XP 三 API T&L 和新 D3D9 用例通过，覆盖 Begin 期间 Get、End 保持原值、Apply 最终值及 Capture 掩码不扩展。四帧 D3D9 命令检查确认录制间隔只有 Present 及其例行光标位置更新，没有状态命令；Apply 的矩阵、RS/TSS/采样器、视口/材质/平面/剪裁/频率和六组常量载荷符合独立值。第一次后处理将 Present 的光标更新误当状态，已在同一原始捕获上修正检查并全部重验，未修改捕获。D3D8 六帧与 12 个 shader/六个声明的生命周期检查继续通过。
+> - 144 组核心、128 组客体、D3D9 14 个标准冒烟 EXE 及零售/诊断两份严格 DLL 通过，更新本次 XP 所测 D3D9 零售 DLL。宿主 JS、运行包、D3D8/7 发布 DLL 未改变；GPU/Metal/站点集成沿用 4D2j2d，本步没有新的像素或原生/Wine/游戏/FPS 验收。见 [stage4d2j2f1-validation.json](fixtures/d3d-review/stage4d2j2f1-validation.json)。
+> - **尚未宣称完整 D3D9 隔离：** 对象绑定、灯光仍由旧路径临时改变实时状态，End 的基线恢复尚在；下一步完成这些路径后移除基线恢复。D3D7 稀疏灯光及其余共用运行时继续随后推进。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

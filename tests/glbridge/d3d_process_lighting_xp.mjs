@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { inspect_d3d9_scalar_recording_wire } from "../lib/d3d9_scalar_recording_wire.mjs";
 import { inspect_d3d8_shader_lifetime_wire } from "../lib/d3d_shader_lifetime_wire.mjs";
 import { inspect_d3d8_recording_wire } from "../lib/d3d_recording_wire.mjs";
 import { execFileSync as run } from "node:child_process";
@@ -50,6 +51,7 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
             assert(result.logs["TNL"+api+".TXT"].includes("PASS sparse light state:"));
             assert(result.logs["TNL"+api+".TXT"].includes("PASS shared D3D8/9 state scope checks:"));
         }
+        assert(result.logs["TNL9.TXT"].includes("PASS D3D9 scalar deferred recording:"));
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 sparse recorded block restoration and masks"));
         assert.equal(result.releases.length, 3);assert.equal(new Set(result.releases).size, 3);
         assert(result.releases.every(owner => owner > 0));assert.equal(result.owners.length, 3);
@@ -57,6 +59,8 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
 if(recording_wire) {
     const wire=inspect_d3d8_recording_wire(fs.readFileSync(out+"/graphics.bin"));
     fs.writeFileSync(out+"/recording-wire.json",JSON.stringify(wire,null,2)+"\n");
+    const scalar=inspect_d3d9_scalar_recording_wire(fs.readFileSync(out+"/graphics.bin"));
+    fs.writeFileSync(out+"/scalar-recording-wire.json",JSON.stringify(scalar,null,2)+"\n");
     const lifetime=inspect_d3d8_shader_lifetime_wire(fs.readFileSync(out+"/graphics.bin"));
     fs.writeFileSync(out+"/shader-lifetime-wire.json",JSON.stringify(lifetime,null,2)+"\n");
     console.log("PASS D3D8 recording wire: no commands before Apply; recorded bindings, exact registers and plane coefficients emitted by Apply");
