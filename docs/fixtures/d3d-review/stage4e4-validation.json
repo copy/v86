@@ -1,0 +1,114 @@
+{
+  "stage": "4E4 default sampler and transparent constant consumers",
+  "date": "2026-11-03",
+  "bundle": "c3ca1373a9dc431a030d",
+  "coreSuites": 153,
+  "webgpuRuns": 36,
+  "siteIntegrationTests": 2,
+  "newPixelCases": 12,
+  "pixel": {
+    "consumers-swift": {
+      "status": "PASS",
+      "cases": 12,
+      "logSha256": "59819664e02aea0c6faad57dd6b1649cc4785daf9ad188530c2cbbbca507dbee"
+    },
+    "consumers-metal": {
+      "status": "PASS",
+      "cases": 12,
+      "logSha256": "59819664e02aea0c6faad57dd6b1649cc4785daf9ad188530c2cbbbca507dbee"
+    },
+    "full-metal": {
+      "status": "PASS",
+      "cases": 349,
+      "logSha256": "beb25fee04f6a4b1a49d63e59a71e9cc8322670297e54b2a8dba7cb594b57a0b"
+    }
+  },
+  "before": {
+    "status": "FAIL",
+    "failingPixelCases": 8,
+    "details": "FAIL 8 case(s)\nFAIL  stage 0 constant keeps explicit transparent zero between colors: @32,32 got 0,0,0,255 want 0,0,0,0\nFAIL  stage 3 constant keeps explicit transparent zero between colors: @32,32 got 0,0,0,255 want 0,0,0,0\nFAIL  shadow magnification filters default POINT [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255\nFAIL  shadow magnification filters 1/1 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255\nFAIL  shadow magnification filters 1/2 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255\nok    shadow magnification filters 2/1\nok    shadow magnification filters 2/2\nFAIL  shadow minification filters default POINT [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255\nFAIL  shadow minification filters 1/1 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255\nok    shadow minification filters 1/2\nFAIL  shadow minification filters 2/1 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255\nok    shadow minification filters 2/2"
+  },
+  "mutations": {
+    "killed": 4,
+    "total": 4,
+    "originalSha256": "0da26e9dbb0d3af041725ea8b3923a39c9dafb4d0d98ba8985822b6bc62abc5b",
+    "cases": [
+      {
+        "name": "transparent constant becomes opaque",
+        "killed": true,
+        "failures": [
+          "FAIL  stage 0 constant keeps explicit transparent zero between colors: @32,32 got 0,0,0,255 want 0,0,0,0",
+          "FAIL  stage 3 constant keeps explicit transparent zero between colors: @32,32 got 0,0,0,255 want 0,0,0,0"
+        ]
+      },
+      {
+        "name": "POINT comparison becomes linear",
+        "killed": true,
+        "failures": [
+          "FAIL  shadow magnification filters default POINT [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255",
+          "FAIL  shadow magnification filters 1/1 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255",
+          "FAIL  shadow magnification filters 1/2 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255"
+        ]
+      },
+      {
+        "name": "MIN filter follows MAG",
+        "killed": true,
+        "failures": [
+          "FAIL  shadow minification filters 1/2 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 255,255,255,255 want 191,191,191,191",
+          "FAIL  shadow minification filters 2/1 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 191,191,191,191 want 255,255,255,255"
+        ]
+      },
+      {
+        "name": "comparison cache omits MIN",
+        "killed": true,
+        "failures": [
+          "FAIL  shadow minification filters 1/2 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 255,255,255,255 want 191,191,191,191",
+          "FAIL  shadow minification filters 2/2 [D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states]: @32,32 got 255,255,255,255 want 191,191,191,191"
+        ]
+      }
+    ]
+  },
+  "guest": {
+    "reference": "stage4e3-validation.json",
+    "referenceSha256": "73ddaafdd8c344865ecd811e920e7e736cc08152e166c4bfdd0898c8fbc02784",
+    "coreCommit": "9658930c",
+    "siteCommit": "bb68df3",
+    "unchangedDLLs": {
+      "glbridge/d3d8proxy/d3d8.dll": "e68093aa59db4df3d35c92bab5b85c3efb3c71478ba706aa8ab24d9efa604db1",
+      "glbridge/d3d9proxy/d3d9.dll": "ac61fa559811697444d913f77a5e5819718cff35c0bae64767280254873b4f4a",
+      "glbridge/ddrawproxy/ddraw.dll": "8d5c7d72c6311e05cabfc3076e0611ac24b5c725c491065546c9bdedfc5dc099"
+    }
+  },
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dtexturefiltertype",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dta",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dtexturestagestatetype"
+  ],
+  "scope": "Preserves explicitly assigned RGBA zero, maps default POINT correctly and independently applies/caches MAG/MIN comparison filters. Two constant-color sequences plus ten depth comparison cases have independent exact ARGB and 0.75 PCF references. Original initial CONSTANT remains unmeasured and is not inferred from these explicit writes. No guest code or DLL changes; prior XP evidence remains applicable. Shared format/runtime capabilities and remaining review work continue.",
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "e504fbbb593cd572ed63e94b736465ab0867086b38e243d6eb3731259b433050",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "0da26e9dbb0d3af041725ea8b3923a39c9dafb4d0d98ba8985822b6bc62abc5b",
+    "tests/glbridge/d3d9_feature_cases.js": "aed02a718aec84d256763025ca146e519cd1f89ab14a72f6c8f93a4abf21b247",
+    "tests/glbridge/d9wg_default_consumers_test.js": "7a974bd9eff5bbca7c862a496bb9d39398ee21a4f08b0b32fb5fef9666888704"
+  },
+  "siteSha256": {
+    "game.html": "a991a2f312baf82e0af0e5b8a149dd6f1b5ad3992978278a49a8ccd4407c64f2",
+    "vendor/v86/glbridge/d3d9_shader_pipeline.js": "5c027dc3eb2c5cad12dc05c3c945ae080daa180b0e7866a21f0268d19d85ad9e",
+    "vendor/v86/glbridge/d3d9_shader_worker.js": "9702df031fe1ae31c39a06b7859e12772d78d18ca0b176bc85d7ed031a94dbdf",
+    "vendor/v86/glbridge/d9wg_diagnostics.js": "0f517a9813cba8e7f496804134d334df70579a580ed11b9bcc7e7fb852f6049f",
+    "vendor/v86/glbridge/graphics_journal_worker.js": "e7fd300d1a1062e214528cfb9a266b47bd6b6dfe0fa0ebf00548a9f1150f0cdc",
+    "vendor/v86/glbridge/libv86-webgpu.js": "bf276275d515f7df3ac259de2accab49e71447e4ee7abb51981ebdb27a4246f6",
+    "vendor/v86/glbridge/manifest.json": "ee45abfa9eb70a5f16ad78580b1cc113b8c801eb02876034561f280fd13aa5ec",
+    "vendor/v86/glbridge/v86gl-device.js": "520cb75f4b444f9873ba82c2491aaa400631cf2af36733dd9b8770959bf361d7"
+  },
+  "logSha256": {
+    "before-swift": "2670794457981ac4686f41b1f6b461f9fdaa6d39da9becc6b4fdbd61e0e7255a",
+    "core": "1065df8d9c39ca968060ae753e42d47050353fdcd5a2b36ad2acd0fd57e522d1",
+    "gpu": "e6e7c63d0f40baefed6f8c2f4e43473883fe722d7a26f4d8ea6651b5b168bfe0",
+    "unit": "9b5b35821afbd120bcf1b652381ec2cb6e97eace12d21785be4d90e788bea9d4",
+    "mutations": "972d338857de8379dc95bd05fc827fdaf237ec27bc61dc07dca16226e80cc812",
+    "integration": "e9dffd1dc7d0f1fdff286101d550911fb9754307629f2210946a5a0f15055aac",
+    "bundle": "7bb1af90bc3b7cfca34504bdd2cd51e5c714d96d4eaf8f77e7840f262ae1bde3",
+    "sync": "09f1f70c4e3ce4cc7dec81ad7b7cc10f0c4da6512433f20e78c79228d8cde54e"
+  }
+}

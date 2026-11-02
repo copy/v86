@@ -5530,11 +5530,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     floats[base + 2] = 0;
                     floats[base + 3] = 0;
                 } else {
-                    // stage_constant<N>; D3DTSS_CONSTANT defaults to opaque
-                    // black, unlike D3DRS_TEXTUREFACTOR's opaque white.
+                    // stage_constant<N>; zero is a valid RGBA constant and
+                    // must keep its transparent alpha when written as zero.
                     writeColor(entry.offset / 4,
                         state.textureStageStates.get(
-                            entry.source * 64 + D3DTSS_CONSTANT) || 0xff000000);
+                            entry.source * 64 + D3DTSS_CONSTANT) ?? 0);
                 }
             }
         }
@@ -5736,17 +5736,17 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             };
             const addressU = get(D3DSAMP_ADDRESSU, 1);
             const addressV = get(D3DSAMP_ADDRESSV, 1);
-            const linear = (get(D3DSAMP_MAGFILTER, 1) !== 0) &&
-                (get(D3DSAMP_MINFILTER, 1) !== 0);
+            const magFilter = FILTER_MODES[get(D3DSAMP_MAGFILTER, 1)] || "nearest";
+            const minFilter = FILTER_MODES[get(D3DSAMP_MINFILTER, 1)] || "nearest";
             const key = "cmp," + addressU + "," + addressV + "," +
-                (linear ? "linear" : "nearest");
+                magFilter + "," + minFilter;
             const cached = this.samplerCache.get(key);
             if (cached) { ++this.stats.samplerHits; return cached; }
             const sampler = this.device.createSampler({
                 addressModeU: ADDRESS_MODES[addressU] || "repeat",
                 addressModeV: ADDRESS_MODES[addressV] || "repeat",
-                magFilter: linear ? "linear" : "nearest",
-                minFilter: linear ? "linear" : "nearest",
+                magFilter,
+                minFilter,
                 compare: "less-equal",
             });
             ++this.stats.samplersCreated;

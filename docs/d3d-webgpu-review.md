@@ -1491,6 +1491,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 独立事实表验证 51 个材料字、带边界保护的平面清零、实际 D3D9 初始化函数和补丁失败传播；9/9 C 语义变异及 ASan/UBSan 通过。XP D3D8/9 在 fresh/ALL/两次 Reset 核对 328 个对象字和 64 次灯光查询，并保留此前 688 个渲染与 2,480 个纹理/采样器查询；线协议确认三次 API8 材料补丁。三 API T&L/录制回归通过。
 > - 新增四个材料默认值/Reset 像素场景，SwiftShader、Metal 各 337 场景通过；四个宿主材料、平面、Reset 材料/高编号灯光变异被实际像素拦截。152 组核心、144 组客体、36 个 SDK EXE、六个严格零售/诊断 DLL、两项站点集成及 WebGPU 36 次运行通过。运行包 `c7a0a2cafccd9009a5e3` 已同步；发布 DLL 与 XP 测过的字节完全相同。见 [stage4e3-validation.json](fixtures/d3d-review/stage4e3-validation.json)。继续采样过滤、其余默认值和运行时能力协商；完整包装层、Wine/游戏/FPS 验收仍在后续阶段。
 
+
+> **阶段 4E4（2026-11-03）：默认状态的采样/常量读取修复完成。**
+> - `comparisonSamplerFor` 原来把非零枚举都视为线性，导致默认 POINT=1 也使用 PCF；MAG/MIN 还共用一个布尔值和缓存项。现在复用普通采样器的枚举映射，分别生成放大/缩小过滤及缓存键，支持独立的 POINT/LINEAR 组合。
+> - 固定像素 uniform 写入原来用 `value || opaqueBlack`，把显式 `D3DTSS_CONSTANT=0` 的透明 alpha 改为 1；现在保留完整 DWORD。新增 stage 0/3 非零→零→另一颜色的实际绘制检查。本步只钉住显式赋零；不将 SDK/Wine 对初始 CONSTANT 的分歧冒称为原生实测。
+> - 独立 64×64 深度图以半边失败/半边通过定义比较结果；指定 UV=32.25/64，POINT 必须为 1、线性 PCF 为 0.75，分别用 UV 导数选择放大/缩小。默认值及四种 MAG/MIN 组合共十个场景，加上两个零常量场景：修复前八个像素失败，修复后 SwiftShader/Metal 各 12/12；四种常量/POINT/MIN/缓存语义变异全部被像素拦截。
+> - 153 组核心、完整 WebGPU 36 次运行及 Metal 全部 349 场景通过，两项站点集成通过；缓存和带边界保护的 RGBA uniform 单测通过。此为宿主修改，客体源/DLL 沿用 4E3 已验字节。运行包 `c3ca1373a9dc431a030d` 已同步站点，见 [stage4e4-validation.json](fixtures/d3d-review/stage4e4-validation.json)。接着共用格式表与真实后端能力查询，阶段 4/5/6 继续。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

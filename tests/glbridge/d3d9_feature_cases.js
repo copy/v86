@@ -113,6 +113,52 @@
         probes: [{ at: [32, 32], expect: rgba, tolerance: 0 }] });
 
     const { OP: S, REG: R, ins, dst, src, def } = asm;
+    // Explicit zero is a valid D3DCOLOR, including its transparent alpha.
+    // This does not use the disputed undocumented initial CONSTANT value.
+    for (const stage of [0, 3]) add("default-consumers", {
+        name: "stage " + stage + " constant keeps explicit transparent zero between colors",
+        body: dev => {
+            const commands = [];
+            for (let i = 0; i <= stage; ++i) commands.push(tss(dev, i, 1, 2), tss(dev, i, 2, i === stage ? 6 : 1), tss(dev, i, 4, 2), tss(dev, i, 5, i === stage ? 6 : 1));
+            for (const [left, right, color] of [[0, 21, 0xa0102030], [21, 43, 0], [43, 64, 0x40806020]])
+                commands.push(tss(dev, stage, 32, color), draw(dev, quad(left, 0, right, 64, .5, 0xffffffff)));
+            return commands;
+        },
+        probes: [{ at: [8, 32], expect: [16, 32, 48, 160] }, { at: [32, 32], expect: [0, 0, 0, 0] }, { at: [56, 32], expect: [128, 96, 32, 64] }],
+    });
+    // Half of a 64x64 depth map fails ref=.5, the other half passes. At
+    // u=32.25/64 POINT returns 1; linear PCF weights the passing texel .75.
+    // UV derivatives independently select magnification or minification.
+    for (const scale of [.25, 4]) for (const filters of [null, [1, 1], [1, 2], [2, 1], [2, 2]]) {
+        const magnifying = scale < 1, active = filters ? filters[magnifying ? 0 : 1] : 1;
+        const expected = active === 1 ? 255 : 191;
+        add("default-consumers", {
+            name: "shadow " + (magnifying ? "magnification" : "minification") + " filters " + (filters ? filters.join("/") : "default POINT"),
+            ref: "D3DTEXTUREFILTERTYPE POINT=1, LINEAR=2; independent MAG/MIN states",
+            body: dev => {
+                const depth = dev + 0x500000, ps = dev + 0x600000;
+                const commands = [
+                    wire("CreateTexture2D", { device_handle: dev, resource_handle: depth, width: 64, height: 64, level_count: 1, format: 75, usage: 2 }),
+                    wire("SetDepthStencilSurfaceLevel", { device_handle: dev, depth_texture_handle: depth, width: 64, height: 64 }),
+                    wire("Clear", { device_handle: dev, clear_flags: 2, depth: 1 }),
+                    cmd(P.OP.CLEAR, cat([P.encode("Clear", { device_handle: dev, clear_flags: 2, depth: 0, rect_count: 1 }), P.encode("Rect", { left: 0, top: 0, right: 32, bottom: 64 })])),
+                    wire("SetDepthStencilSurfaceLevel", { device_handle: dev }), rs(dev, 7, 0),
+                    wire("SetTexture", { device_handle: dev, stage: 0, texture_handle: depth }),
+                    wire("SetSamplerState", { device_handle: dev, state: 1, value: 3 }), wire("SetSamplerState", { device_handle: dev, state: 2, value: 3 }),
+                    pixelShader(dev, ps, [0xffff0200, ins(S.DCL, 2), 0x80000005, dst(R.ADDR, 0),
+                        ins(S.DCL, 2), 0x90000000, dst(R.SAMPLER, 0), ins(S.TEX, 3), dst(R.TEMP, 0), src(R.ADDR, 0), src(R.SAMPLER, 0),
+                        ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.TEMP, 0), 0xffff]),
+                    cmd(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", { device_handle: dev, shader_handle: ps })),
+                ];
+                if (filters) commands.push(wire("SetSamplerState", { device_handle: dev, state: 5, value: filters[0] }), wire("SetSamplerState", { device_handle: dev, state: 6, value: filters[1] }));
+                const list = quad(0, 0, 64, 64, .5, 0), data = new Uint8Array(list.length * 28), view = new DataView(data.buffer);
+                list.forEach((v, i) => [v[0], v[1], .5, 1, 32.25 / 64 + (v[0] / 64 - .5) * scale, .5, .5].forEach((n, j) => view.setFloat32(i * 28 + j * 4, n, true)));
+                commands.push(cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: 0x10104, element_count: 2 }), element(0, 3, 9), element(16, 2, 5)])),
+                    wire("DrawPrimitiveUP", { device_handle: dev, primitive_type: 4, primitive_count: 2, stride: 28, vertex_count: 6, vertex_bytes: data.length }, [blob("DrawPrimitiveUP", "vertex_data_offset", data)]));
+                return commands;
+            }, probes: [{ at: [32, 32], expect: [expected, expected, expected, expected], tolerance: 1 }],
+        });
+    }
     const samplePS = [0xffff0300,
         ins(S.DCL, 2), 0x80000005, dst(R.INPUT, 0),
         ins(S.DCL, 2), 0x90000000, dst(R.SAMPLER, 0),
