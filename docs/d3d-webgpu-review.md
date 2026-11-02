@@ -1530,6 +1530,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 168 组核心、144 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成、完整 WebGPU 42 次运行与 Metal 全部 533 场景通过；T&L XP 三 API/生命周期回归通过。运行包 `8cc48a9a2b75d0296e91` 已同步，三个零售 DLL 均发布验收时原字节。见 [stage4f2c-validation.json](fixtures/d3d-review/stage4f2c-validation.json)。接着共用窗口状态与其余客体核心，阶段 4/5/6 继续。
 > - 依据：[Microsoft 自动 mip 契约](https://learn.microsoft.com/en-us/windows/win32/direct3d9/automatic-generation-of-mipmaps)、[CreateTexture 返回行为](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-createtexture)，以及冻结 Wine `device.c` 的 `test_mipmap_gen`/`test_cube_texture_mipmap_gen`。
 
+> **阶段 4G1（2026-11-03）：共用完整窗口报告缓存及客体事件验收完成。**
+>
+> - 抽出 SDK 无关的 `d9wg_window_state.c/.h`，三个前端共用区域封包、有效字节比较、成功排队/提交后的缓存及失效操作。比较包含全部设备/HWND/前台/标志、位置、内外尺寸和有效区域；未发送的区域尾部不参与比较，最大 32 个矩形有边界保护验证。移除三套不完整的字段缓存和 D3D8 重复的 surface 比较。
+> - 修复 D3D9 位置/尺寸变化在 flags/region 不变时被去重、D3D8/DDraw 前台 HWND 变化被遗漏，以及 D3D9/DDraw 失败排队/立即提交后错误记为已发送而不重试。比较与缓存更新由进程 transport 锁保护；D3D9 Reset 失效，DDraw 无主表面通知清除 showing 缓存。保留 D3D8 隐藏几何与 DirectDraw fullscreen/no-surface 的既有协议策略。
+> - 原生编译实际三个前端报告函数与共用实现，验证完整几何/前台变化、区域内容、排队/提交失败、有效零区域与 32 矩形、未用尾部、失效和 no-surface。10/10 C 语义变异、ASan/UBSan 通过。协议一致性检查从实际 runtime 头读取私有描述符，新增类型不再需要手工维护头名单。
+> - 真实 XP 三进程/三个 API 产生 27 条窗口报告，对照独立 Win32 GetClientRect/ClientToScreen/GetWindowRect、前台及可见性测量，22 个移动、缩放、双前台窗口、隐藏/显示与主表面释放步骤通过；动作后停止 Present，仅泵消息，仍收到更新。驱动命令流、阶段标记及 SDK 观测冻结为 fixture，四种几何/前台/no-surface 数据破坏必须失败。
+> - SwiftShader/Metal 完整回放真实命令流，22 步均正确更新宿主 surface 几何或隐藏状态，27 条报告零 GPU/宿主错误。169 组核心、146 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成、加入窗口回放后的 WebGPU 43 次运行及 Metal 533 个像素场景通过；三 API T&L/状态块/生命周期 XP 回归通过。宿主运行包保持已验 `8cc48a9a2b75d0296e91`，零售 DLL 均为窗口探针原字节。见 [stage4g1-validation.json](fixtures/d3d-review/stage4g1-validation.json)。接着共用 Win32 探测/事件与每次 Present 的复用，尚未宣称整个窗口核心、D3D8 包装或阶段 4/5/6 完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

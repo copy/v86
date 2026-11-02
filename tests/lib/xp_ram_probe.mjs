@@ -8,7 +8,7 @@ import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
     success, log_files = [], binary_files = [], capture_graphics = false, expected_releases = null,
-    rendering = "not exercised", simulated_host_features = null, inspect })
+    rendering = "not exercised", simulated_host_features = null, observe_batch = null, inspect })
 {
     const before = fs.statSync(image);
     assert(simulated_host_features === null || (Number.isInteger(simulated_host_features) && simulated_host_features >= 0 && simulated_host_features <= 15));
@@ -33,6 +33,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                     captured.push(header, Buffer.from(message.bytes));
                 }
             }
+            if(observe_batch) observe_batch(message, name => read_fat16(tools.bytes, name));
             if(caps_protocol) {
                 const bytes = caps_protocol.encode("HostCapabilities", {feature_bits: simulated_host_features, version: 1, magic: 0x50414348});
                 channel.host.post({type: "write", generation: message.generation, offset: (16 << 20) - 12, bytes});

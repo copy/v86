@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>D9WG real XP window reports</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ "use strict";
+ const P=D9WGProtocol,gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false}),snapshots=[];
+ try{
+  const metadata=await(await fetch("fixtures/d3d_window_state_xp.json")).json(),response=await fetch("fixtures/d3d_window_state_xp.bin.gz");if(!response.ok)throw Error("Missing XP window capture");
+  const bytes=new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()),view=new DataView(bytes.buffer);
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),value=>value.toString(16).padStart(2,"0")).join("");if(digest!==metadata.traceSha256)throw Error("XP window trace hash mismatch");
+  await gpu.initialize();const dispatch=gpu.dispatchCommand;let current;
+  gpu.dispatchCommand=function(opcode,bytes,view,offset,length,commandMetadata){
+   const result=dispatch.call(this,opcode,bytes,view,offset,length,commandMetadata);
+   if(opcode===P.OP.WINDOW_STATE){const handle=view.getUint32(offset+P.F.WindowState.device_handle,true),device=this.devices.get(handle);if(!device)throw Error("Missing window report device");snapshots.push({...current,window:{...this.windowState},surface:JSON.parse(JSON.stringify(device.surface))});}
+   return result;
+  };
+  let at=0,batches=0;while(at<bytes.length){if(at+12>bytes.length)throw Error("Truncated capture");const ownerToken=view.getUint32(at,true),flags=view.getUint32(at+4,true),size=view.getUint32(at+8,true);current=metadata.batchPhases[batches];if(current.owner!==ownerToken)throw Error("Owner/phase metadata mismatch");current={...current,api:metadata.apiByOwner[ownerToken]};at+=12;if(size<8||size>bytes.length-at||view.getUint16(at,true)!==0xffe1||view.getUint32(at+4,true)!==size-8)throw Error("Invalid capture carrier");await gpu.submit(bytes.subarray(at+8,at+size),{ownerToken,flags,writeGuestMemory(){}});at+=size;batches++;}
+  await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;++i)await new Promise(resolve=>setTimeout(resolve,0));
+  const names={hwnd:"hwnd",foreground_hwnd:"foregroundHwnd",window_x:"windowX",window_y:"windowY",window_width:"windowWidth",window_height:"windowHeight",client_width:"clientWidth",client_height:"clientHeight"},comparisons=[];
+  for(const step of metadata.steps){const matching=snapshots.filter(s=>s.api===step.api&&s.phase===step.phase&&Object.entries(step.expected).every(([key,value])=>s.window[names[key]]===value));if(!matching.length)throw Error("Missing decoded Win32 step "+step.api+"/"+step.phase);
+   const matched=matching.find(s=>Number(s.window.isWindow)+Number(s.window.visible)*2+Number(s.window.iconic)*4+Number(s.window.foreground)*8===step.flags&&s.window.noSurface===step.noSurface);if(!matched)throw Error("Window flags mismatch "+step.api+"/"+step.phase);
+   const hidden=!(step.flags&1)||!(step.flags&2)||!!(step.flags&4)||step.noSurface;
+   if(hidden){if(matched.surface.visible!==false)throw Error("Hidden/no-surface report stayed visible");}else for(const [key,value]of Object.entries({x:step.expected.window_x,y:step.expected.window_y,width:step.expected.client_width,height:step.expected.client_height,visible:true}))if(matched.surface[key]!==value)throw Error("Surface geometry "+key+" mismatch at "+step.api+"/"+step.phase);
+   comparisons.push({api:step.api,phase:step.phase,hidden,surface:matched.surface});
+  }
+  const evidence={traceSha256:metadata.traceSha256,captureBuild:metadata.captureBuild,batches,windowReports:snapshots.length,comparisons,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch("/__test_file?name=d9wg-window-guest.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+  if(snapshots.length!==metadata.windowReports||gpu.stats.commandsFailed||gpu.stats.droppedDraws||gpu.hostErrors.length||gpu.gpuErrors.errors.length)throw Error("Window replay GPU/host failure "+JSON.stringify(evidence));
+  document.querySelector("#result").textContent="PASS actual XP window reports: 22 Win32 steps, three API owners, paused move/resize/foreground/hide/show/no-surface updates and real GPU replay; "+snapshots.length+" reports";
+ }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>

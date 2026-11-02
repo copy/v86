@@ -1,0 +1,616 @@
+{
+  "reference": "Actual XP Win32 GetClientRect/ClientToScreen/GetWindowRect and foreground/visibility snapshots. No drawing/native Microsoft Direct3D claim.",
+  "traceSha256": "4b08786ff0110636215c30fb75d79cf69337bf5379ced07a6aba4eb352fc6c42",
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "8abcf9f7eb1dfd0732090573a342b213577e6287716edf1be63cd67cee640a0c",
+      "d3d9": "003f8baef8207745f1cd60435df979539eaa9d6256dfe38d9917483d69aef1ce",
+      "ddraw": "61d856f0240ef7094d2c908eefb246843e5c822933117ef41f325a03f1d49363"
+    }
+  },
+  "steps": [
+    {
+      "api": 8,
+      "phase": 1,
+      "expected": {
+        "hwnd": 327962,
+        "foreground_hwnd": 327962,
+        "window_x": 64,
+        "window_y": 83,
+        "window_width": 192,
+        "window_height": 123,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 2,
+      "expected": {
+        "hwnd": 327962,
+        "foreground_hwnd": 327962,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 192,
+        "window_height": 123,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 3,
+      "expected": {
+        "hwnd": 327962,
+        "foreground_hwnd": 327962,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 4,
+      "expected": {
+        "hwnd": 327962,
+        "foreground_hwnd": 262430,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 5,
+      "expected": {
+        "hwnd": 327962,
+        "foreground_hwnd": 262432,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 8,
+      "phase": 6,
+      "expected": {
+        "hwnd": 327962,
+        "foreground_hwnd": 262432,
+        "window_x": 0,
+        "window_y": 0,
+        "window_width": 0,
+        "window_height": 0,
+        "client_width": 0,
+        "client_height": 0
+      },
+      "flags": 0,
+      "noSurface": false,
+      "matchingReports": 2
+    },
+    {
+      "api": 8,
+      "phase": 7,
+      "expected": {
+        "hwnd": 327962,
+        "foreground_hwnd": 262432,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 252,
+        "window_height": 163,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 1,
+      "expected": {
+        "hwnd": 524560,
+        "foreground_hwnd": 524560,
+        "window_x": 64,
+        "window_y": 83,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 2,
+      "expected": {
+        "hwnd": 524560,
+        "foreground_hwnd": 524560,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 3,
+      "expected": {
+        "hwnd": 524560,
+        "foreground_hwnd": 524560,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 4,
+      "expected": {
+        "hwnd": 524560,
+        "foreground_hwnd": 393498,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 5,
+      "expected": {
+        "hwnd": 524560,
+        "foreground_hwnd": 327964,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 6,
+      "expected": {
+        "hwnd": 524560,
+        "foreground_hwnd": 327964,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 1,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 9,
+      "phase": 7,
+      "expected": {
+        "hwnd": 524560,
+        "foreground_hwnd": 327964,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 1,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 393512,
+        "window_x": 64,
+        "window_y": 83,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 2,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 393512,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 200,
+        "window_height": 150,
+        "client_width": 192,
+        "client_height": 123
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 3,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 393512,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 11,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 4,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 459000,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 5,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 393458,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 6,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 393458,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 1,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 7,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 393458,
+        "window_x": 104,
+        "window_y": 113,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 3,
+      "noSurface": false,
+      "matchingReports": 1
+    },
+    {
+      "api": 7,
+      "phase": 8,
+      "expected": {
+        "hwnd": 393512,
+        "foreground_hwnd": 393458,
+        "window_x": 100,
+        "window_y": 90,
+        "window_width": 260,
+        "window_height": 190,
+        "client_width": 252,
+        "client_height": 163
+      },
+      "flags": 1,
+      "noSurface": true,
+      "matchingReports": 1
+    }
+  ],
+  "windowReports": 27,
+  "batchPhases": [
+    {
+      "owner": 1,
+      "phase": 1
+    },
+    {
+      "owner": 1,
+      "phase": 1
+    },
+    {
+      "owner": 1,
+      "phase": 2
+    },
+    {
+      "owner": 1,
+      "phase": 2
+    },
+    {
+      "owner": 1,
+      "phase": 3
+    },
+    {
+      "owner": 1,
+      "phase": 3
+    },
+    {
+      "owner": 1,
+      "phase": 4
+    },
+    {
+      "owner": 1,
+      "phase": 4
+    },
+    {
+      "owner": 1,
+      "phase": 5
+    },
+    {
+      "owner": 1,
+      "phase": 5
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 6
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 1,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 1
+    },
+    {
+      "owner": 2,
+      "phase": 1
+    },
+    {
+      "owner": 2,
+      "phase": 2
+    },
+    {
+      "owner": 2,
+      "phase": 2
+    },
+    {
+      "owner": 2,
+      "phase": 3
+    },
+    {
+      "owner": 2,
+      "phase": 3
+    },
+    {
+      "owner": 2,
+      "phase": 4
+    },
+    {
+      "owner": 2,
+      "phase": 4
+    },
+    {
+      "owner": 2,
+      "phase": 5
+    },
+    {
+      "owner": 2,
+      "phase": 5
+    },
+    {
+      "owner": 2,
+      "phase": 6
+    },
+    {
+      "owner": 2,
+      "phase": 6
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 2,
+      "phase": 7
+    },
+    {
+      "owner": 3,
+      "phase": 1
+    },
+    {
+      "owner": 3,
+      "phase": 1
+    },
+    {
+      "owner": 3,
+      "phase": 2
+    },
+    {
+      "owner": 3,
+      "phase": 2
+    },
+    {
+      "owner": 3,
+      "phase": 3
+    },
+    {
+      "owner": 3,
+      "phase": 3
+    },
+    {
+      "owner": 3,
+      "phase": 4
+    },
+    {
+      "owner": 3,
+      "phase": 4
+    },
+    {
+      "owner": 3,
+      "phase": 5
+    },
+    {
+      "owner": 3,
+      "phase": 5
+    },
+    {
+      "owner": 3,
+      "phase": 6
+    },
+    {
+      "owner": 3,
+      "phase": 6
+    },
+    {
+      "owner": 3,
+      "phase": 7
+    },
+    {
+      "owner": 3,
+      "phase": 7
+    },
+    {
+      "owner": 3,
+      "phase": 8
+    },
+    {
+      "owner": 3,
+      "phase": 8
+    },
+    {
+      "owner": 3,
+      "phase": 8
+    }
+  ],
+  "apiByOwner": {
+    "1": 8,
+    "2": 9,
+    "3": 7
+  },
+  "sourceSha256": {
+    "glbridge/sample/d3d_window_state_test.c": "208041bf8a4217c204439dd87ff6fe8a677e3e1467d8d80cb475b1d0085c2601",
+    "glbridge/runtime/d9wg_window_state.c": "49a67a2d57cc88df8c679dbb95c3ceac498c45d981b37e63425ab7835accf45a",
+    "glbridge/runtime/d9wg_window_state.h": "d0d64fa0ae341a6c3ffbb9254b3432534b014329cb8646889a40a91b82cbf60e",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "517fe1ad9ddd9981e2f93a4d8e3ea01549129bd3eaf8e3149523d233a17782fb",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "45eb6aa167ffa032b99e186d103b26298744f7f419f8755ed2dc485ae9ec3f15",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "338c24b5c58c9f2f29d7a2819ab1426eec9e8bb66c48139bc78c3aa6afb5b491"
+  },
+  "win32Logs": {
+    "WINDOW8.TXT": "STEP 8 1 327962 327962 1 1 0 64 83 192 123 200 150 60 60 0\r\nSTEP 8 2 327962 327962 1 1 0 104 113 192 123 200 150 100 90 0\r\nSTEP 8 3 327962 327962 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 4 327962 262430 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 5 327962 262432 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 6 327962 262432 1 0 0 104 113 252 163 260 190 100 90 0\r\nSTEP 8 7 327962 262432 1 1 0 104 113 252 163 260 190 100 90 0\r\nPASS window SDK API=8\r\n",
+    "WINDOW9.TXT": "STEP 9 1 524560 524560 1 1 0 64 83 192 123 200 150 60 60 0\r\nSTEP 9 2 524560 524560 1 1 0 104 113 192 123 200 150 100 90 0\r\nSTEP 9 3 524560 524560 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 4 524560 393498 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 5 524560 327964 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 6 524560 327964 1 0 0 104 113 252 163 260 190 100 90 0\r\nSTEP 9 7 524560 327964 1 1 0 104 113 252 163 260 190 100 90 0\r\nPASS window SDK API=9\r\n",
+    "WINDOW7.TXT": "STEP 7 1 393512 393512 1 1 0 64 83 192 123 200 150 60 60 0\r\nSTEP 7 2 393512 393512 1 1 0 104 113 192 123 200 150 100 90 0\r\nSTEP 7 3 393512 393512 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 4 393512 459000 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 5 393512 393458 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 6 393512 393458 1 0 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 7 393512 393458 1 1 0 104 113 252 163 260 190 100 90 0\r\nSTEP 7 8 393512 393458 1 1 0 104 113 252 163 260 190 100 90 1\r\nPASS window SDK API=7\r\n"
+  }
+}
