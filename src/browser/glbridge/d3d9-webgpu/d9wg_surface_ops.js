@@ -273,7 +273,8 @@ ${body.join("\n")}
                             // one.
                             sourceRect: [0, 0, 1, 1],
                             viewport: [0, 0, width, height],
-                            filterPoint: false,
+                            filterPoint: op.filterType === 1,
+                            maxAnisotropy: op.filterType === 3 ? 16 : 1,
                         };
                         const transient = this.replayBlit(encoder, blit, null);
                         if (transient) buffers.push(transient);
@@ -357,7 +358,7 @@ ${body.join("\n")}
                 return entry;
             },
 
-            blitPipelineFor(format, filterPoint, sourceFormat) {
+            blitPipelineFor(format, filterPoint, sourceFormat, maxAnisotropy = 1) {
                 // WebGPU exposes filtering and blending for 32-bit float formats
                 // as independent optional features.  A D3D point blit remains
                 // legal without float32-filterable, but its binding layout and
@@ -365,8 +366,9 @@ ${body.join("\n")}
                 const unfilterable = isFloat32GPUFormat(sourceFormat) &&
                     !this.deviceFeatures.float32Filterable;
                 const point = filterPoint || unfilterable;
+                const anisotropy = !point && maxAnisotropy > 1 ? 16 : 1;
                 const key = format + "|" + (point ? "point" : "linear") + "|" +
-                    (unfilterable ? "unfilterable" : "filterable");
+                    (unfilterable ? "unfilterable" : "filterable") + (anisotropy > 1 ? "|aniso16" : "");
                 if (!this.blitPipelines) this.blitPipelines = new Map();
                 let entry = this.blitPipelines.get(key);
                 if (entry) return entry;
@@ -426,6 +428,7 @@ ${body.join("\n")}
                 const sampler = this.device.createSampler({
                     magFilter: point ? "nearest" : "linear",
                     minFilter: point ? "nearest" : "linear",
+                    ...(anisotropy > 1 ? {mipmapFilter: "linear", maxAnisotropy: anisotropy} : {}),
                     addressModeU: "clamp-to-edge", addressModeV: "clamp-to-edge",
                 });
                 entry = { pipeline, bindGroupLayout, sampler };
@@ -438,7 +441,7 @@ ${body.join("\n")}
                 const destinationView = op.destinationView || swapView;
                 if (!sourceView || !destinationView) return null;
                 const entry = this.blitPipelineFor(op.destinationFormat,
-                    op.filterPoint, op.sourceFormat);
+                    op.filterPoint, op.sourceFormat, op.maxAnisotropy);
                 const uniform = this.utilityUniform(new Float32Array(op.sourceRect));
                 const bindGroup = this.device.createBindGroup({
                     layout: entry.bindGroupLayout,

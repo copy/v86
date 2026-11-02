@@ -26,7 +26,8 @@
         " * does not share opcode numbering, resource handle namespace, or payload",
         " * shapes with the D3D8 path, even though both ride the same VGL2 DMA",
         " * transport (v86gl.sys, 16 MiB ring, PCI BAR) via a different outer record",
-        " * type. A guest process loads either d3d8.dll or d3d9.dll, never both.",
+        " * type. Current D3D frontends share the process runtime and owner.",
+        " * Version 1.8 adds optional mip filter/deferred-generation fields.",
         " *",
         " * Version 1.7 adds the DirectDraw group (0x500) for ../ddrawproxy/ddraw.dll.",
         " * It is additive only -- no existing structure changes -- so d3d8.dll and",
@@ -45,7 +46,7 @@
     ] },
     { define: "D9WG_MAGIC", c: "0x47573944u", text: ["#define D9WG_MAGIC 0x47573944u /* \"D9WG\" */"] },
     { define: "D9WG_VERSION_MAJOR", c: "1u", text: ["#define D9WG_VERSION_MAJOR 1u"] },
-    { define: "D9WG_VERSION_MINOR", c: "7u", text: ["#define D9WG_VERSION_MINOR 7u"] },
+    { define: "D9WG_VERSION_MINOR", c: "8u", text: ["#define D9WG_VERSION_MINOR 8u"] },
     { raw: [
         "",
     ] },
@@ -832,6 +833,8 @@
     { struct: "GenerateMips", fields: [
         ["uint32_t", "device_handle"],
         ["uint32_t", "resource_handle"],
+        ["uint32_t", "filter_type", [], "1.8: 0 keeps the current filter; 1 POINT, 2 LINEAR, 3 ANISOTROPIC"],
+        ["uint32_t", "defer_generation", [], "1.8: 1 dirties the chain without generating yet; 0 generates now"],
     ] },
     { raw: [
         "",
@@ -1547,6 +1550,7 @@
      */
     const MIN_MINOR = 3;
     const ADDED_FIELDS = {
+        GenerateMips: ["filter_type", "defer_generation"],  // 1.8: old 8-byte payload generates with its existing filter
         SetRenderTarget: ["color_face"],                    // 1.4: cube faces
         StretchRect: ["source_face", "destination_face"],   // 1.4
         ColorFill: ["face", "reserved"],                    // 1.4

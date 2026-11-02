@@ -281,10 +281,10 @@
         FILTER: 0x20000, SRGBWRITE: 0x40000, BLENDING: 0x80000,
         VERTEXTEXTURE: 0x100000, WRAPANDMIP: 0x200000, MASK: 0x3f8000 });
     // Information flags: sampleable color/depth, sRGB sibling, float32,
-    // depth, filtered depth comparison, and required native BC storage.
+    // depth, filtered depth comparison, native BC storage, and mip generation.
     const FORMAT_QUERY_ROWS = Object.freeze([
         ...Object.entries(GPU_STORAGE).filter(([id]) => Number(id) !== D3DFMT_NULL)
-            .map(([id, gpu]) => Object.freeze([Number(id), 1 | (srgbSiblingOf(gpu) ? 2 : 0) | (isFloat32GPUFormat(gpu) ? 4 : 0) | (gpu.startsWith("bc") ? 32 : 0)])),
+            .map(([id, gpu]) => Object.freeze([Number(id), 1 | (srgbSiblingOf(gpu) ? 2 : 0) | (isFloat32GPUFormat(gpu) ? 4 : 0) | (gpu.startsWith("bc") ? 32 : 0) | (isRenderableGPUFormat(gpu) ? 64 : 0)])),
         ...[70, 71, 73, 75, 77, 79, 80].map(id => Object.freeze([id, 1 | 8 | 16])),
         ...[D3DFMT_DF16, D3DFMT_DF24, D3DFMT_INTZ].map(id => Object.freeze([id, 1 | 8])),
     ]);
@@ -311,6 +311,20 @@
         if ((query & FORMAT_QUERY.VERTEXTEXTURE) && (type !== 3 || shaderModel < 3 || (info & 8))) return false;
         if ((query & FORMAT_QUERY.WRAPANDMIP) && (!texture || (info & 8))) return false;
         return true;
+    }
+
+    function autoGenMipsSupported(type, format) {
+        return (type === 3 || type === 5) && !!(formatQueryInfo(format) & 64);
+    }
+    function autoGenCreationValid(levels, usage, pool) {
+        return !(usage & 0x400) || (levels <= 1 && pool <= 1 && !(usage & 0x200));
+    }
+    function autoGenFilterSupported(format, filter, hostFeatures) {
+        return filter === 1 || ((filter === 2 || filter === 3) &&
+            (!(formatQueryInfo(format) & 4) || !!(hostFeatures & 1)));
+    }
+    function autoGenDefaultFilter(format, hostFeatures) {
+        return (formatQueryInfo(format) & 4) && !(hostFeatures & 1) ? 1 : 2;
     }
 
     function samplingSwizzle(format) {
@@ -955,6 +969,10 @@
         FORMAT_QUERY_ROWS,
         formatQueryInfo,
         formatQuerySupported,
+        autoGenMipsSupported,
+        autoGenCreationValid,
+        autoGenFilterSupported,
+        autoGenDefaultFilter,
         FORMAT_LAYOUT_ROWS,
         formatLayout,
         srgbSiblingOf,

@@ -63,7 +63,7 @@
     if (!formats) throw new Error("d3d9_executor.js requires d9wg_formats.js to be loaded first");
     const {
         D3DFMT_A8R8G8B8, D3DFMT_INDEX32, srgbSiblingOf, isCompressedFormat, compressedBlockBytes,
-        blockAlignedCopyExtent, isFourCCDepthFormat, isPalettizedFormat, gpuBytesPerTexel, fullMipLevelCount,
+        blockAlignedCopyExtent, isFourCCDepthFormat, isPalettizedFormat, gpuBytesPerTexel, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
         isRenderableGPUFormat, isFloat32GPUFormat, isBlendableGPUFormat, formatToGPU, d3dBytesPerTexel,
         packGPUReadbackRow, expandRowToGPU, samplingSwizzle
     } = formats;
@@ -3453,6 +3453,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 format: formatToGPU(resource.format), rgba, isFull,
                 left: clippedLeft, top: clippedTop,
                 right: clippedRight, bottom: clippedBottom });
+            this.markTextureSubresourceWritten(resource, level, face);
             resource.frameReferenced = frame.serial;
             ++this.stats.colorFills;
         }
@@ -6590,7 +6591,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
     const resourceMethods = resourceFactory.createMethods({
         D9WG, RESOURCE_BUFFER_INDEX, BUFFER_USAGE_INDEX, BUFFER_USAGE_COPY_DST, BUFFER_USAGE_VERTEX,
         alignUp, D3DFMT_INDEX32, D3DUSAGE_DEPTHSTENCIL, isFourCCDepthFormat, D3DUSAGE_RENDERTARGET,
-        D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount,
+        D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
         DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
         TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
         gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,

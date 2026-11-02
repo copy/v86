@@ -1520,6 +1520,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 7200 组独立格式/type/profile/设备上下文各验证 128 种查询组合；查询、transport 和副本的 25/25 新语义变异、两个真 GPU 像素变异及 ASan/UBSan 通过。XP 明确模拟位图 0/15，各跑 FFP/SM2/SM3 共 11520 次公开 SDK 查询；这是客体接口验收，不是 Microsoft 原生 D3D9 或 GPU 功能测量。真实设备另验证正常、关闭 FP32 特性和关闭 BC 三种配置。
 > - 164 组核心、144 组客体、六个严格 DLL 构建、36 个 SDK 冒烟 EXE、两项集成、SwiftShader 完整 41 次运行和 Metal 全部 458 个像素场景通过。格式/T&L XP 回归继续检查 328 个 mip 的 19548 个精确字节、状态块与对象生命周期。运行包 `8aa5a0758eba94e27f0f` 已同步，发布 DLL 使用验收时的原始字节；见 [stage4f2b-validation.json](fixtures/d3d-review/stage4f2b-validation.json)。S2-32 的查询缺陷在此关闭；接着检查自动 mip 能力及共用核心的剩余内容，阶段 4/5/6 继续。
 
+> **阶段 4F2c（2026-11-03）：自动 mip 的能力、单层回退及真实过滤状态完成。**
+>
+> - 共用格式查询表补充自动生成资格：39 种可渲染存储的颜色格式支持生成；BC/SNORM/NULL/深度保持单层。合法 2D/cube 查询在无法生成时返回 `D3DOK_NOAUTOGEN`，创建仍返回 `D3D_OK`、保留 usage 并只暴露一层；体积纹理 autogen、DYNAMIC 组合、显式多层及 SYSTEMMEM/SCRATCH 则按 SDK/Wine 返回不支持/非法调用。
+> - 补上实际过滤状态：NONE 不再被当作 LINEAR 接受，POINT/LINEAR/ANISOTROPIC 各自传到宿主；FP32 未启用过滤时默认 POINT 并拒绝 LINEAR/ANISOTROPIC。过滤改变只标脏，读取或显式生成时再执行；录制操作捕获各自过滤类型，后来的设置不能改写早先的绘制。各向异性下采样使用实际 anisotropic sampler。普通纹理/体积纹理的 getter 返回 NONE，普通纹理生成调用不发包。
+> - 协议 1.8 为 GenerateMips 增加可选过滤/延迟字段，既有 8 字节 payload 仍按当前过滤立即生成，其余命令布局不变。资源创建发送过滤配置，managed 纹理 Reset 保留设置。像素验收进一步发现并修复 ColorFill 写入后没有标记生成链失效，现与上传/复制/附件写入一样触发更新。
+> - 新增 75 个像素场景：8 种实际 GPU 存储、2D/cube、四种过滤选择、两级生成层、六个面、旧命令/过滤交错、GPU 写入及 9 种不能生成的存储。SwiftShader/Metal 通过，关闭 float32-filterable 的 66 场景也通过；两个真 GPU 变异必须造成像素不匹配。2856 组过滤事实、175 组创建组合、真实 C setter/getter/封包及宿主录制通过；12 个 C、7 个宿主及 15 个格式查询变异全部检出，ASan/UBSan 通过。
+> - XP 在明确模拟的位图 15/12 下各验证 48 种格式、291 个对象、2705 项 SDK 检查，确认 getter、失败输出、单层回退、非法创建及两次 Reset。原始命令流另检查 194 个 autogen 对象、484/472 次延迟配置、96 次显式生成和 managed Reset 保留；GPU 颜色结论来自独立浏览器验收，不将 XP 模拟响应当成原生 Microsoft HAL 测量。
+> - 168 组核心、144 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成、完整 WebGPU 42 次运行与 Metal 全部 533 场景通过；T&L XP 三 API/生命周期回归通过。运行包 `8cc48a9a2b75d0296e91` 已同步，三个零售 DLL 均发布验收时原字节。见 [stage4f2c-validation.json](fixtures/d3d-review/stage4f2c-validation.json)。接着共用窗口状态与其余客体核心，阶段 4/5/6 继续。
+> - 依据：[Microsoft 自动 mip 契约](https://learn.microsoft.com/en-us/windows/win32/direct3d9/automatic-generation-of-mipmaps)、[CreateTexture 返回行为](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-createtexture)，以及冻结 Wine `device.c` 的 `test_mipmap_gen`/`test_cube_texture_mipmap_gen`。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

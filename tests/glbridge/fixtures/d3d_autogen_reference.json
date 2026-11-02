@@ -1,0 +1,83 @@
+{
+  "description": "Independent SDK/Wine automatic-mipmap contracts and backend generation formats. Expected facts are independent of generated production predicates.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/automatic-generation-of-mipmaps",
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-createtexture",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/d3d9/tests/device.c",
+    "https://www.w3.org/TR/webgpu/#texture-format-caps"
+  ],
+  "wineSourceSha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+  "queryNoAutoGen": 141953135,
+  "invalidCall": 2289436780,
+  "generationFormats": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    40,
+    41,
+    50,
+    51,
+    52,
+    61,
+    62,
+    64,
+    67,
+    81,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    1498831189,
+    844715353,
+    1195525970,
+    1111970375
+  ],
+  "float32Formats": [
+    114,
+    115,
+    116
+  ],
+  "validTypes": [
+    3,
+    5
+  ],
+  "validAutoGenLevels": [
+    0,
+    1
+  ],
+  "validAutoGenPools": [
+    0,
+    1
+  ],
+  "acceptedFilters": [
+    1,
+    2,
+    3
+  ],
+  "noFilter": 0,
+  "dynamic": 512,
+  "autoGen": 1024,
+  "notes": "Backend expanded color storage can generate mips even when the logical D3D format is not an app render target. BC/SNORM/NULL/depth stay single-level for an autogen hint. Volume autogen, DYNAMIC+AUTOGEN, more than one explicit level, SYSTEMMEM/SCRATCH autogen are invalid. NONE is not a valid generation filter. FP32 defaults to POINT without enabled filtering; LINEAR/ANISOTROPIC require bit 0. Normal textures return NONE. Actual GPU tests separately prove the generated paths.",
+  "nonGeneratingSnormFormats": [
+    60,
+    63
+  ]
+}

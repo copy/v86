@@ -76,10 +76,10 @@
     formats.push(["ATI1N", fourcc("ATI1"), [128, 0, 0, 0, 0, 0, 0, 0], [128, 128, 128, 128], "block"],
         ["ATI2N", fourcc("ATI2"), [255, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0], [64, 255, 255, 255], "block"]);
 
-    function texture(dev, handle, spec) {
+    function texture(dev, handle, spec, usage = 0) {
         const [, format, pattern, , layout] = spec, repeat = layout === "block" ? 1 : layout === "pair" ? 8 : 16;
         const data = Uint8Array.from(new Array(repeat).fill(pattern).flat()), pitch = layout === "block" ? pattern.length : data.length / 4;
-        const commands = [wire("CreateTexture2D", { device_handle: dev, resource_handle: handle, width: 4, height: 4, level_count: 1, format })];
+        const commands = [wire("CreateTexture2D", { device_handle: dev, resource_handle: handle, width: 4, height: 4, level_count: 1, format, usage })];
         if (format === 40 || format === 41) {
             const palette = new Uint8Array(1024);new DataView(palette.buffer).setUint32(4, 0xff996633, true);
             commands.push(wire("SetPalette", { device_handle: dev, entry_count: 256 }, [blob("SetPalette", "data_offset", palette)]),
@@ -223,6 +223,61 @@
             return [rs(dev, 7, 0), rs(dev, 27, 1), rs(dev, 19, 5), rs(dev, 20, 6), draw(dev, quad(0, 0, 64, 64, .5, 0x80ff0000))];
         }, probes: [{at: [32, 32], expect: [128], feature: format >= 114 ? "float32-blendable" : undefined, unsupportedExpect: [0], tolerance: 1}],
     });
+
+    const autoGenFormats = [[21, 4, 1, true], [22, 4, 1, true], [111, 1, 2], [112, 2, 2], [113, 4, 2], [114, 1, 4], [115, 2, 4], [116, 4, 4]];
+    const autoPairs = [[.25, .75], [.125, .625], [0, .5], [.5, 1], [.25, 1], [0, .25]], cubeAxes = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    const autoHalf = new Map([[0, 0], [.125, 0x3000], [.25, 0x3400], [.5, 0x3800], [.625, 0x3900], [.75, 0x3a00], [1, 0x3c00]]);
+    function autoData(format, channels, bytes, bgra, face) {
+        const data = new Uint8Array(16 * channels * bytes), view = new DataView(data.buffer), pair = autoPairs[face];
+        for (let y = 0; y < 4; ++y) for (let x = 0; x < 4; ++x) for (let channel = 0; channel < channels; ++channel) {
+            const red = bytes === 1 && bgra ? 2 : 0, value = channel === red ? pair[x & 1] : channel === 3 ? 1 : 0, offset = ((y * 4 + x) * channels + channel) * bytes;
+            if (bytes === 1) data[offset] = Math.round(value * 255); else if (bytes === 2) view.setUint16(offset, autoHalf.get(value), true); else view.setFloat32(offset, value, true);
+        }
+        void format;
+        return data;
+    }
+    function autoShader(dev, ps, cube) {
+        return [pixelShader(dev, ps, [0xffff0300, ins(S.DCL, 2), cube ? 0x98000000 : 0x90000000, dst(R.SAMPLER, 0), ins(S.TEXLDL, 3), dst(R.TEMP, 0), src(R.CONST, 0), src(R.SAMPLER, 0), ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.TEMP, 0), 0xffff]),
+            cmd(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", {device_handle: dev, shader_handle: ps})), wire("SetSamplerState", {device_handle: dev, state: 7, value: 1}), rs(dev, 174, 1)];
+    }
+    const autoCoordinates = (dev, coordinates) => cmd(P.OP.SET_PIXEL_SHADER_CONSTANT_F, P.encode("SetShaderConstantF", {device_handle: dev, vector_count: 1}), [blob("SetShaderConstantF", "data_offset", Uint8Array.from(floats(...coordinates)))]);
+    for (const [format, channels, bytes, bgra] of autoGenFormats) for (const cube of [false, true]) for (const filter of [0, 1, 2, 3]) add("autogen", {
+        name: "autogen format " + format + (cube ? " cube" : " 2D") + " filter " + filter + " reaches both generated levels", body: (dev, rt, runtime) => {
+            void rt;
+            const handle = dev + 0x500000, ps = dev + 0x600000, selected = format >= 114 && !(runtime.hostFeatures & 1) ? 1 : filter;
+            const commands = [wire(cube ? "CreateTextureCube" : "CreateTexture2D", {device_handle: dev, resource_handle: handle, ...(cube ? {edge_length: 4} : {width: 4, height: 4}), level_count: 1, format, usage: 0x400})];
+            for (let face = 0; face < (cube ? 6 : 1); ++face) {
+                const data = autoData(format, channels, bytes, bgra, face);
+                commands.push(wire("UpdateTexture", {resource_handle: handle, z: face, width: 4, height: 4, depth: 1, row_pitch: 4 * channels * bytes, slice_pitch: data.length, data_bytes: data.length}, [blob("UpdateTexture", "data_offset", data)]));
+            }
+            commands.push(wire("GenerateMips", {device_handle: dev, resource_handle: handle, filter_type: selected, defer_generation: 1}), wire("SetTexture", {device_handle: dev, texture_handle: handle}), ...autoShader(dev, ps, cube));
+            for (let level = 1; level <= 2; ++level) for (let face = 0; face < (cube ? 6 : 1); ++face) commands.push(autoCoordinates(dev, [...(cube ? cubeAxes[face] : [.5, .5, 0]), level]),
+                wire("SetScissorRect", {device_handle: dev, left: cube ? face * 10 : 0, right: cube ? face * 10 + 10 : 64, top: (level - 1) * 32, bottom: level * 32}), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff)));
+            return commands;
+        }, probes: Array.from({length: cube ? 12 : 2}, (_, i) => {const face = cube ? i % 6 : 0, level = cube ? Math.floor(i / 6) : i, pair = autoPairs[face], encode = value => Math.round(value * 255);
+            const expected = filter === 1 ? encode(pair[1]) : bytes === 1 ? Math.round((encode(pair[0]) + encode(pair[1])) / 2) : encode((pair[0] + pair[1]) / 2);
+            return {at: [cube ? face * 10 + 5 : 32, level * 32 + 16], expect: [expected], feature: format >= 114 ? "float32-filterable" : undefined, unsupportedExpect: [encode(pair[1])], tolerance: 1};}),
+    });
+    for (const spec of formats.filter(spec => [60, 63, ...["DXT1", "DXT2", "DXT3", "DXT4", "DXT5", "ATI1", "ATI2"].map(fourcc)].includes(spec[1]))) add("autogen-fallback", {
+        name: "autogen unsupported storage " + spec[0] + " remains a valid single-level texture", body: dev => [...texture(dev, dev + 0x500000, spec, 0x400), wire("GenerateMips", {device_handle: dev, resource_handle: dev + 0x500000}), ...texturedQuad(dev)], probes: [{at: [32, 32], expect: spec[3], tolerance: 1}],
+    });
+    add("autogen", {name: "autogen deferred filters and legacy generation preserve draw order", body: dev => {
+        const handle = dev + 0x500000, ps = dev + 0x600000, data = autoData(21, 4, 1, true, 0);
+        const commands = [wire("CreateTexture2D", {device_handle: dev, resource_handle: handle, width: 4, height: 4, level_count: 1, format: 21, usage: 0x400}),
+            wire("UpdateTexture", {resource_handle: handle, width: 4, height: 4, depth: 1, row_pitch: 16, slice_pitch: data.length, data_bytes: data.length}, [blob("UpdateTexture", "data_offset", data)]), wire("SetTexture", {device_handle: dev, texture_handle: handle}), ...autoShader(dev, ps, false), autoCoordinates(dev, [.5, .5, 0, 2])];
+        for (const [column, filter] of [[0, 2], [1, 1], [2, 2]]) {
+            commands.push(wire("GenerateMips", {device_handle: dev, resource_handle: handle, filter_type: filter, defer_generation: 1}));
+            if (column === 1) commands.push(cmd(P.OP.GENERATE_MIPS, P.encode("GenerateMips", {device_handle: dev, resource_handle: handle}).subarray(0, 8)));
+            commands.push(wire("SetScissorRect", {device_handle: dev, left: column * 21, right: column * 21 + 21, bottom: 64}), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff)));
+        }
+        return commands;
+    }, probes: [{at: [10, 32], expect: [128]}, {at: [32, 32], expect: [191]}, {at: [53, 32], expect: [128]}]});
+    add("autogen", {name: "autogen observes GPU writes to level zero", body: dev => {
+        const handle = dev + 0x500000, ps = dev + 0x600000, commands = [wire("CreateTexture2D", {device_handle: dev, resource_handle: handle, width: 4, height: 4, level_count: 1, format: 21, usage: 0x401})];
+        for (let x = 0; x < 4; ++x) commands.push(wire("ColorFill", {device_handle: dev, texture_handle: handle, color: x & 1 ? 0xffff0000 : 0xff000000, left: x, top: 0, right: x + 1, bottom: 4}));
+        commands.push(wire("SetTexture", {device_handle: dev, texture_handle: handle}), ...autoShader(dev, ps, false), autoCoordinates(dev, [.5, .5, 0, 2]), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff)));
+        return commands;
+    }, probes: [{at: [32, 32], expect: [128]}]});
 
     // Explicit zero is a valid D3DCOLOR, including its transparent alpha.
     // This does not use the disputed undocumented initial CONSTANT value.

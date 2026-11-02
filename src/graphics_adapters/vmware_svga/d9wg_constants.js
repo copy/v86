@@ -4,7 +4,7 @@
 
 export const D9WG_MAGIC = 0x47573944;
 export const D9WG_VERSION_MAJOR = 1;
-export const D9WG_VERSION_MINOR = 7;
+export const D9WG_VERSION_MINOR = 8;
 
 /** The batch flag that makes the executor submit the frame's GPU work */
 export const D9WG_BATCH_FLAG_PRESENT = 1;
@@ -160,7 +160,7 @@ export const PAYLOAD_BYTES = {
     [OP.SET_DEPTH_STENCIL_SURFACE_LEVEL]: 20,
     [OP.SET_PALETTE]: 16,
     [OP.SET_CURRENT_TEXTURE_PALETTE]: 8,
-    [OP.GENERATE_MIPS]: 8,
+    [OP.GENERATE_MIPS]: 16,
     [OP.SET_TEXTURE_LOD]: 16,
     [OP.SET_GAMMA_RAMP]: 1552,
     [OP.CREATE_SWAP_CHAIN]: 32,
@@ -463,9 +463,11 @@ export const FIELD_LAYOUT = {
         ["device_handle",0,"uint32_t",1],
         ["palette_index",4,"uint32_t",1],
     ] },
-    "GenerateMips": { bytes: 8, fields: [
+    "GenerateMips": { bytes: 16, fields: [
         ["device_handle",0,"uint32_t",1],
         ["resource_handle",4,"uint32_t",1],
+        ["filter_type",8,"uint32_t",1],
+        ["defer_generation",12,"uint32_t",1],
     ] },
     "SetTextureLOD": { bytes: 16, fields: [
         ["device_handle",0,"uint32_t",1],

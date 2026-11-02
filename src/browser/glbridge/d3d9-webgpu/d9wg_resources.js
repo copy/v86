@@ -6,7 +6,7 @@
         const {
             D9WG, RESOURCE_BUFFER_INDEX, BUFFER_USAGE_INDEX, BUFFER_USAGE_COPY_DST, BUFFER_USAGE_VERTEX,
             alignUp, D3DFMT_INDEX32, D3DUSAGE_DEPTHSTENCIL, isFourCCDepthFormat, D3DUSAGE_RENDERTARGET,
-            D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount,
+            D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
             DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
             TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
             gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
@@ -323,10 +323,11 @@
                 // owns everything under it. The guest therefore reports one level
                 // -- which is what D3D9's GetLevelCount says for such a texture --
                 // and the full chain is allocated here, where it is filled.
-                const autoGenerateMips = (usage & D3DUSAGE_AUTOGENMIPMAP) !== 0 &&
-                    !isDepth;
-                if (autoGenerateMips)
-                    levelCount = fullMipLevelCount(width, height);
+                const wantsAutoMips = (usage & D3DUSAGE_AUTOGENMIPMAP) !== 0;
+                const autoGenerateMips = wantsAutoMips && !isDepth && !ddIndexed &&
+                    autoGenMipsSupported(3, format);
+                if (wantsAutoMips)
+                    levelCount = autoGenerateMips ? fullMipLevelCount(width, height) : 1;
                 const gpuFormat = isDepth ? DEPTH_FORMAT
                     : (ddIndexed ? "r8uint" : formatToGPU(format));
                 if (!gpuFormat) {
@@ -431,6 +432,7 @@
                     uploadedLevels: (isTarget || isDepth || autoGenerateMips)
                         ? null : new Set(),
                     autoGenerateMips,
+                    autoGenFilter: autoGenDefaultFilter(format, this.hostFeatureBits()),
                     isDepth,
                     // D3D9 has two ways to read a depth texture and they are not
                     // interchangeable. A D16/D24X8/D32 texture bound to a sampler
@@ -574,7 +576,8 @@
                     console.warn("[d3d9-webgpu] unsupported cube texture format", format);
                     return;
                 }
-                const autoGenerateMips = (usage & D3DUSAGE_AUTOGENMIPMAP) !== 0;
+                const wantsAutoMips = (usage & D3DUSAGE_AUTOGENMIPMAP) !== 0;
+                const autoGenerateMips = wantsAutoMips && !ddIndexed && autoGenMipsSupported(5, format);
                 const srgbFormat = srgbSiblingOf(gpuFormat);
                 const textureDescriptor = {
                     label: "D3D9 cube " + edge,
@@ -582,7 +585,7 @@
                     format: gpuFormat,
                     ...(srgbFormat ? { viewFormats: [srgbFormat] } : {}),
                     mipLevelCount: autoGenerateMips
-                        ? fullMipLevelCount(edge, edge) : levelCount,
+                        ? fullMipLevelCount(edge, edge) : wantsAutoMips ? 1 : levelCount,
                     usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_COPY_SRC |
                         TEXTURE_USAGE_TEXTURE_BINDING |
                         // A dynamic environment map is a cube render target: the
@@ -611,6 +614,7 @@
                     // the levels were tracked per-level only.
                     uploadedLevels: autoGenerateMips ? null : new Set(),
                     autoGenerateMips,
+                    autoGenFilter: autoGenDefaultFilter(format, this.hostFeatureBits()),
                     view: gpuTexture.createView({ dimension: "cube" }),
                 });
             },
@@ -809,18 +813,26 @@
                 }
                 resource.mipsDirty = false;
                 const frame = this.ensureFrame();
-                frame.record({ kind: "generate-mips", resource });
+                frame.record({ kind: "generate-mips", resource, filterType: resource.autoGenFilter });
                 resource.frameReferenced = frame.serial;
                 ++this.stats.mipChainsGenerated;
             },
 
-            onGenerateMips(bytes, view, offset) {
+            onGenerateMips(bytes, view, offset, length) {
                 const resource = this.resources.get(
                     view.getUint32(offset + D9WG.F.GenerateMips.resource_handle, true));
                 if (!resource || !resource.autoGenerateMips) return;
-                // An explicit call regenerates whether or not the host noticed a
-                // write: the app may know something the write tracking cannot.
+                const filter = D9WG.has(length, "GenerateMips", "filter_type")
+                    ? view.getUint32(offset + D9WG.F.GenerateMips.filter_type, true) : 0;
+                const defer = D9WG.has(length, "GenerateMips", "defer_generation")
+                    ? view.getUint32(offset + D9WG.F.GenerateMips.defer_generation, true) : 0;
+                if (filter > 3 || defer > 1) throw new D9WGStreamError("invalid automatic mip filter request");
+                if (filter) resource.autoGenFilter = filter;
+                // A filter change dirties the chain; explicit generation also
+                // regenerates when no upload was observed. Capture the filter in
+                // each recorded op so a later setter cannot change earlier work.
                 resource.mipsDirty = true;
+                if (defer) return;
                 this.flushGeneratedMips(resource);
                 ++this.stats.explicitMipGenerations;
             },

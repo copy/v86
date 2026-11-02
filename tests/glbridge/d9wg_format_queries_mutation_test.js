@@ -3,11 +3,14 @@ const assert = require("node:assert/strict"), fs = require("node:fs"), path = re
 (async () => {
     const {site_directory} = await import("../lib/site.mjs"), site = site_directory(path.resolve(__dirname, "../..")), sources = {header: fs.readFileSync(site + "/glbridge/runtime/d9wg_format_queries.h", "utf8"), frontend: fs.readFileSync(site + "/glbridge/d3d9proxy/d3d9_proxy.c", "utf8")};
     const cases = [
+        ["autogen format eligibility", "header", "(d9wg_format_query_info(format) & 64u)", "(d9wg_format_query_info(format) != 0)"],
+        ["NOAUTOGEN success code", "frontend", "result = D3DOK_NOAUTOGEN;", "result = D3D_OK;"],
+        ["dynamic autogen query", "frontend", "|| (usage & D3DUSAGE_DYNAMIC)) ? D3DUSAGE_AUTOGENMIPMAP", "|| (0 && (usage & D3DUSAGE_DYNAMIC))) ? D3DUSAGE_AUTOGENMIPMAP"],
         ["BC storage availability", "header", "if ((info & 32u) && !(host_features & 4u)) return 0;", "if (0 && (info & 32u) && !(host_features & 4u)) return 0;"],
         ["BC host discovery for plain queries", "frontend", "if ((info & 32u) || ((info & 4u)", "if ((0 && (info & 32u)) || ((info & 4u)"],
-        ["float32 filter bit", "header", "!(host_features & 1u)", "!(host_features & 2u)"],
+        ["float32 filter bit", "header", "((info & 4u) && !(host_features & 1u))", "((info & 4u) && !(host_features & 2u))"],
         ["float32 blend bit", "header", "!(host_features & 2u)", "!(host_features & 1u)"],
-        ["false sRGB float view", "header", "case 114u: return 5u;", "case 114u: return 7u;"],
+        ["false sRGB float view", "header", "case 114u: return 69u;", "case 114u: return 71u;"],
         ["raw depth filtering", "header", "((info & 8u) && !(info & 16u))", "(0 && (info & 8u) && !(info & 16u))"],
         ["SM2 vertex textures", "header", "shader_model < 3u", "shader_model < 2u"],
         ["volume color output", "header", "type == 1u || type == 3u || type == 5u", "type == 1u || type == 3u || type == 4u || type == 5u"],
@@ -24,5 +27,5 @@ const assert = require("node:assert/strict"), fs = require("node:fs"), path = re
             assert.notEqual(run.status, 0, "survived " + name); assert.match(run.stderr, /format query line/, "native runtime assertion required: " + name);
         }
     } finally {fs.rmSync(directory, {recursive: true, force: true});}
-    console.log("PASS format query mutations: 12/12 host filter/blend bits, sRGB/depth/profile/resource restrictions, compound queries and actual frontend capability gating");
+    console.log("PASS format query mutations: 15/15 host filter/blend bits, sRGB/depth/profile/resource restrictions, compound queries and actual frontend capability gating");
 })().catch(error => {console.error(error); process.exitCode = 1;});

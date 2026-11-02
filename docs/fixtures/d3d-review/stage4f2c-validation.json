@@ -1,0 +1,948 @@
+{
+  "stage": "4F2c automatic mip capability, single-level fallback and actual filter state",
+  "date": "2026-11-03",
+  "bundle": "8cc48a9a2b75d0296e91",
+  "coreSuites": 168,
+  "guestSuites": 144,
+  "webgpuRuns": 42,
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "f9bae9693c4bb5386e633595c0ad41eb29dbdfd8fcde8d719aa9d5f11b853c4f"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "168c3d3a12a958e90245a1dad4453b7301769ebaadc6cc09519717549365ed34"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "3295a90fd5fa3c63f21e60696f0d199015af6f1084b34ec36205837dbe58ddf8"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "6e9afd7cbf7d13ea80f199c17b39f04273e44afd1cbfcf655b1ab1a0109713f7"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "776488b9faf2e4f2a788c049c281c04dff67878c8ce0b5666967a08780111846"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "ba4f15d70f5e4465c393e27b7b6f84c967b947907c85c040a982d633e522806d"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "1d51383ed60d20e1561aa8f8a9eff303f24045114d535ca6585498e2c6a919d8"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "0715fa9c0b5a1f17af482ff7fd7677d2f265e7f70d1a654eb2f78c4ea18b0272"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "303f2ce6fef8504bc6ba7f7d3e2074223302926d02934ee7f10441565aa2b2a9"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "4338cd8dd0c2aa005a91f5fccd8ab7d7f0b06bcd65628b00c9d2e6a9447e6178"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "7f0d0e93a688b968fc2b24ff39cc3b832f6b147efe51d808c259096a57603e1e"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "bd7154a990983e7ff54512b970c82461aaa59233feffa19da713e9b775d03508"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "1e3ff051a676a4acc39200ab1ea577d3ea41bc1a8d0c7c25b878ff2c6a9cd628"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "43f34fe605ea3904342686b32eed352f38e37592de8222a28c95669c04c8f9d1"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "b6ba7fdcc96cba9939407b7de534f4f39129a835d504e539d021a2ba2cbf6fc7"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "07cec4d802eac26b2a26a039811bef125ea50f7e861725ee0ea3edccb5858aa6"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "c78ef198bf607aabe24c95b9669516e974c89aaa6b4764d73f622d2a2966a1c0"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "cee7cf7e925accf49a330d76800069fb896458de6feb036c613b30605449b25a"
+        }
+      ],
+      "retailAndDiagnosticDLLs": 2,
+      "shippedProbe": "tnl-xp/d3d8.dll",
+      "shippedDllSha256": "5af799c968efa320adef7e1fcb0043996f5d3168b412408d8dd0368e68204e9f",
+      "diagnosticSha256": "391fcfa3c483c055afcd8a059c781574d02206b9aa136f6220c6e55544357570"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "b12e33d59059530e08131d39b1b15030501eed13b6dc19f4501ddf3a43f0f839"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "2501d80e7454559b935429f68dab8fd842751a82be4b43d65fd19af9ce0a0d7e"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "0a77ca6d3ba939968990aac13427be98824f5a8883100626043f749906acf668"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "9b78e2533078bbb2677fda7c9dfd4ecbc9d489f5d8cdee6af716b09029f86ac6"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "a7cb626c4dcdf97855e71c9060b55716ebb78b91206e68d99b1dc6d0ffb0228c"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "8bc9e3a49e9bcbebd4e7a6830823e83e4bce0e9cab725dca73af0c361242607b"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "c87858d9ddf08d7df76f7395238ddd37df379587837302910411dc12720ebda0"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "77be30795e2278970d6f1c025b307d3af0cff27a58469d85e2459aedd458a0b3"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "890a47959def23920ea35772fac6b70b0f10f7a5161836c20a933cbdf25e5cf0"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "7bc2e8d685b7a7a163f28c0d9001a653792be880afe920788c88435e71d2f964"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "c67b47e59ed194025a3a67a13291649d49605d7397c554c9cd49e82a2b40ae89"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "0dc864e2362f1f6586cd4d25cdbfd638bce19e7639eaa924c35cc9401dc9e3b4"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "bfffccdca6e148cc9ef18b13316ce1b82a505bda17c971f9c2326c6a455b0156"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "3f7fc7f9f8f75f745a03973fb5eae72ffe5c89b069a8bb52b8698a2c505b4a95"
+        }
+      ],
+      "retailAndDiagnosticDLLs": 2,
+      "shippedProbe": "autogen-15-xp/D3D9.DLL",
+      "shippedDllSha256": "da1ef4262c48224750794cfef180b924901df8469dc7b471d2caa28cc4c3f816",
+      "diagnosticSha256": "63c2b89c9ce6b7a3df5a3d6aede391044f6f8987c729afb034863bae83b089c1"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "4e8fd26c631432154ff144e2e5015dfcadf9c6953871c667787e8ef9dfe3feba"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "2f061af036bc8f3a6e15e9babfe1673de5925467c3e610c7fa12dd0704619691"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "145af871e33d416891fef037a8948c258acd608f17dac2e6d498ed0041bea194"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "d5c74f4159af0aaed37ceb013629aa405469bae2aa391ca784d5773804a03e31"
+        }
+      ],
+      "retailAndDiagnosticDLLs": 2,
+      "shippedProbe": "tnl-xp/ddraw.dll",
+      "shippedDllSha256": "2285b00899988e94ff842aecf73e99503d9ecb5425e64f4ff3d65e4329e05a0b",
+      "diagnosticSha256": "15ab0d573abe8f47be848a75ea1927aca00a88b3d8ed841711c0616bf84189fa"
+    }
+  },
+  "portable": {
+    "generationFormats": 39,
+    "filterContexts": 2856,
+    "creationCombinations": 175,
+    "queryContexts": 7200,
+    "queryCombinationsPerContext": 128,
+    "mutations": {
+      "cAutogen": 12,
+      "formatQueries": 15,
+      "hostRecording": 7
+    },
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "xp": {
+    "12": {
+      "status": "PASS",
+      "seconds": 151,
+      "batches": 3,
+      "releases": [
+        1
+      ],
+      "owners": [
+        1
+      ],
+      "text": "PASS autogen SDK: simulatedHost=12 formats=48 objects=291 observations=2705; queries, fallback, filters, invalid creation, volume and Reset\r\n",
+      "logs": {
+        "AUTO.TXT": "PASS autogen SDK: simulatedHost=12 formats=48 objects=291 observations=2705; queries, fallback, filters, invalid creation, volume and Reset\r\n"
+      },
+      "diskWrites": "RAM sector overlay only",
+      "rendering": "not exercised; explicitly simulated capability mask; GPU mip acceptance runs separately",
+      "simulatedHostFeatures": 12,
+      "artifacts": {
+        "graphics.bin": {
+          "bytes": 71804,
+          "crc32": "ad229133"
+        }
+      },
+      "formats": 48,
+      "objects": 291,
+      "observations": 2705,
+      "wire": {
+        "creates": 291,
+        "autoCreates": 194,
+        "configurations": 472,
+        "explicitGenerations": 96,
+        "resetFiltersPreserved": 2,
+        "uniqueAutoTextures": 194,
+        "owners": [
+          1
+        ]
+      },
+      "graphicsSha256": "451b25e0d6a7395d6ebd737632970c7c628b6192da3f6fa4bbb57931d621e421",
+      "probeResultSha256": "e278835fb8751aef8c9672d750b25fb08f3160ae0076124711e362e70ebb4d14",
+      "exeSha256": "f00d7701fa7891f3e0fda96faacbee38ec8739b8845925c1dd3ddc1e41e28dc2",
+      "dllSha256": "90574d918a1059a86cd1c70a308dee31f0cc5326ba9f9298deebcd37883ac40d"
+    },
+    "15": {
+      "status": "PASS",
+      "seconds": 119,
+      "batches": 3,
+      "releases": [
+        1
+      ],
+      "owners": [
+        1
+      ],
+      "text": "PASS autogen SDK: simulatedHost=15 formats=48 objects=291 observations=2705; queries, fallback, filters, invalid creation, volume and Reset\r\n",
+      "logs": {
+        "AUTO.TXT": "PASS autogen SDK: simulatedHost=15 formats=48 objects=291 observations=2705; queries, fallback, filters, invalid creation, volume and Reset\r\n"
+      },
+      "diskWrites": "RAM sector overlay only",
+      "rendering": "not exercised; explicitly simulated capability mask; GPU mip acceptance runs separately",
+      "simulatedHostFeatures": 15,
+      "artifacts": {
+        "graphics.bin": {
+          "bytes": 72188,
+          "crc32": "5823b756"
+        }
+      },
+      "formats": 48,
+      "objects": 291,
+      "observations": 2705,
+      "wire": {
+        "creates": 291,
+        "autoCreates": 194,
+        "configurations": 484,
+        "explicitGenerations": 96,
+        "resetFiltersPreserved": 2,
+        "uniqueAutoTextures": 194,
+        "owners": [
+          1
+        ]
+      },
+      "graphicsSha256": "ebc2f24aae1b130b3eb78e6073cc68bd4badfe2762184c114272c9f9f6574f8a",
+      "probeResultSha256": "c9f43cdb0927986e47f98b30333b92e8b0c9be6f3c6eea77150d260710998a7c",
+      "exeSha256": "75da8be34aa3d9b2b10620f96cc34e8412e925608901c97176589ce478563d06",
+      "dllSha256": "da1ef4262c48224750794cfef180b924901df8469dc7b471d2caa28cc4c3f816"
+    }
+  },
+  "tnl": {
+    "status": "PASS",
+    "seconds": 125,
+    "batches": 20,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 637552,
+        "crc32": "72596b8f"
+      }
+    },
+    "lifetime": {
+      "shaders": 12,
+      "vertexShaders": 6,
+      "pixelShaders": 6,
+      "vertexDeclarationsDestroyed": 13,
+      "declarationOnlyDeclarations": 7,
+      "resources": [
+        {
+          "handle": 1073741825,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1418,
+          "binds": [
+            1422,
+            1426
+          ],
+          "destroyed": 1525
+        },
+        {
+          "handle": 1073741827,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1420,
+          "binds": [
+            1424
+          ],
+          "destroyed": 1527
+        },
+        {
+          "handle": 1073741829,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1530,
+          "binds": [
+            1532
+          ],
+          "destroyed": 1535
+        },
+        {
+          "handle": 1073741831,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1538,
+          "binds": [
+            1542
+          ],
+          "destroyed": 1545
+        },
+        {
+          "handle": 1073741833,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1540,
+          "binds": [
+            1544
+          ],
+          "destroyed": 1549
+        },
+        {
+          "handle": 1073741835,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1552,
+          "binds": [
+            1554
+          ],
+          "destroyed": 1557
+        },
+        {
+          "handle": 1073741837,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1559,
+          "binds": [
+            1561,
+            1563
+          ],
+          "destroyed": 1573
+        },
+        {
+          "handle": 1073741839,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1560,
+          "binds": [
+            1562
+          ],
+          "destroyed": 1574
+        },
+        {
+          "handle": 1073741841,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1575,
+          "binds": [
+            1576
+          ],
+          "destroyed": 1578
+        },
+        {
+          "handle": 1073741843,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1579,
+          "binds": [
+            1581
+          ],
+          "destroyed": 1583
+        },
+        {
+          "handle": 1073741845,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1580,
+          "binds": [
+            1582
+          ],
+          "destroyed": 1585
+        },
+        {
+          "handle": 1073741847,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1586,
+          "binds": [
+            1587
+          ],
+          "destroyed": 1589
+        },
+        {
+          "handle": 1048583,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1417,
+          "binds": [
+            1421,
+            1425
+          ],
+          "destroyed": 1526,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048584,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1419,
+          "binds": [
+            1423
+          ],
+          "destroyed": 1528,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048585,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1529,
+          "binds": [
+            1531
+          ],
+          "destroyed": 1536,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048586,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1537,
+          "binds": [
+            1541
+          ],
+          "destroyed": 1546,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048587,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1539,
+          "binds": [
+            1543
+          ],
+          "destroyed": 1550,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048588,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1551,
+          "binds": [
+            1553
+          ],
+          "destroyed": 1558,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048589,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1703,
+          "binds": [
+            1705
+          ],
+          "destroyed": 1709,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048590,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1704,
+          "binds": [
+            1707
+          ],
+          "destroyed": 1712,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048591,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1713,
+          "binds": [
+            1714
+          ],
+          "destroyed": 1719,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048601,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4643,
+          "binds": [
+            4655,
+            4686
+          ],
+          "destroyed": 4847,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048602,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4644,
+          "binds": [
+            4715
+          ],
+          "destroyed": 4848,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048603,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4645,
+          "binds": [
+            4682
+          ],
+          "destroyed": 4849,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048604,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4646,
+          "binds": [
+            4678
+          ],
+          "destroyed": 4850,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        }
+      ]
+    },
+    "graphicsSha256": "d97f039f1404d8d6ec2d7d4f3481394237ddf566bae675a46ae05739309d68d4"
+  },
+  "pixel": {
+    "cases": 533,
+    "newCases": 75,
+    "metalStatus": "PASS",
+    "groups": {
+      "auto-swift": {
+        "status": "PASS",
+        "cases": 66,
+        "logSha256": "a9b0d28bc5c08f3df5aa6b9e53406c6ca9c816f99218c86bc1e16fe8b918b5de"
+      },
+      "auto-disabled-swift": {
+        "status": "PASS",
+        "cases": 66,
+        "logSha256": "a9b0d28bc5c08f3df5aa6b9e53406c6ca9c816f99218c86bc1e16fe8b918b5de"
+      },
+      "auto-metal": {
+        "status": "PASS",
+        "cases": 66,
+        "logSha256": "a9b0d28bc5c08f3df5aa6b9e53406c6ca9c816f99218c86bc1e16fe8b918b5de"
+      },
+      "auto-fallback-swift": {
+        "status": "PASS",
+        "cases": 9,
+        "logSha256": "ca0ba11c729a6dc9143caebbc885d1fd9b1825d3b864d2177a806b620c33ef9d"
+      }
+    },
+    "gpuMutants": {
+      "status": "PASS",
+      "killed": 2,
+      "total": 2,
+      "results": [
+        {
+          "name": "point-filter-ignored",
+          "killed": true,
+          "result": {
+            "status": "FAIL",
+            "details": "FAIL 17 case(s)\nok    autogen format 21 2D filter 0 reaches both generated levels\nFAIL  autogen format 21 2D filter 1 reaches both generated levels: @32,16 got 128,0,0,255 want 191; @32,48 got 128,0,0,255 want 191\nok    autogen format 21 2D filter 2 reaches both generated levels\nok    autogen format 21 2D filter 3 reaches both generated levels\nok    autogen format 21 cube filter 0 reaches both generated levels\nFAIL  autogen format 21 cube filter 1 reaches both generated levels: @5,16 got 128,0,0,255 want 191; @15,16 got 96,0,0,255 want 159; @25,16 got 64,0,0,255 want 128; @35,16 got 192,0,0,255 want 255; @45,16 got 160,0,0,255 want 255; @55,16 got 32,0,0,255 want 64; @5,48 got 128,0,0,255 want 191; @15,48 got 96,0,0,255 want 159; @25,48 got 64,0,0,255 want 128; @35,48 got 192,0,0,255 want 255; @45,48 got 160,0,0,255 want 255; @55,48 got 32,0,0,255 want 64\nok    autogen format 21 cube filter 2 reaches both generated levels\nok    autogen format 21 cube filter 3 reaches both generated levels\nok    autogen format 22 2D filter 0 reaches both generated levels\nFAIL  autogen format 22 2D filter 1 reaches both generated levels: @32,16 got 128,0,0,255 want 191; @32,48 got 128,0,0,255 want 191\nok    autogen format 22 2D filter 2 reaches both generated levels\nok    autogen format 22 2D filter 3 reaches both generated levels\nok    autogen format 22 cube filter 0 reaches both generated levels\nFAIL  autogen format 22 cube filter 1 reaches both generated levels: @5,16 got 128,0,0,255 want 191; @15,16 got 96,0,0,255 want 159; @25,16 got 64,0,0,255 want 128; @35,16 got 192,0,0,255 want 255; @45,16 got 160,0,0,255 want 255; @55,16 got 32,0,0,255 want 64; @5,48 got 128,0,0,255 want 191; @15,48 got 96,0,0,255 want 159; @25,48 got 64,0,0,255 want 128; @35,48 got 192,0,0,255 want 255; @45,48 got 160,0,0,255 want 255; @55,48 got 32,0,0,255 want 64\nok    autogen format 22 cube filter 2 reaches both generated levels\nok    autogen format 22 cube filter 3 reaches both generated levels\nok    autogen format 111 2D filter 0 reaches both generated levels\nFAIL  autogen format 111 2D filter 1 reaches both generated levels: @32,16 got 128,255,255,255 want 191; @32,48 got 128,255,255,255 want 191\nok    autogen format 111 2D filter 2 reaches both generated levels\nok    autogen format 111 2D filter 3 reaches both generated levels\nok    autogen format 111 cube filter 0 reaches both generated levels\nFAIL  autogen format 111 cube filter 1 reaches both generated levels: @5,16 got 128,255,255,255 want 191; @15,16 got 96,255,255,255 want 159; @25,16 got 64,255,255,255 want 128; @35,16 got 191,255,255,255 want 255; @45,16 got 159,255,255,255 want 255; @55,16 got 32,255,255,255 want 64; @5,48 got 128,255,255,255 want 191; @15,48 got 96,255,255,255 want 159; @25,48 got 64,255,255,255 want 128; @35,48 got 191,255,255,255 want 255; @45,48 got 159,255,255,255 want 255; @55,48 got 32,255,255,255 want 64\nok    autogen format 111 cube filter 2 reaches both generated levels\nok    autogen format 111 cube filter 3 reaches both generated levels\nok    autogen format 112 2D filter 0 reaches both generated levels\nFAIL  autogen format 112 2D filter 1 reaches both generated levels: @32,16 got 128,0,255,255 want 191; @32,48 got 128,0,255,255 want 191\nok    autogen format 112 2D filter 2 reaches both generated levels\nok    autogen format 112 2D filter 3 reaches both generated levels\nok    autogen format 112 cube filter 0 reaches both generated levels\nFAIL  autogen format 112 cube filter 1 reaches both generated levels: @5,16 got 128,0,255,255 want 191; @15,16 got 96,0,255,255 want 159; @25,16 got 64,0,255,255 want 128; @35,16 got 191,0,255,255 want 255; @45,16 got 159,0,255,255 want 255; @55,16 got 32,0,255,255 want 64; @5,48 got 128,0,255,255 want 191; @15,48 got 96,0,255,255 want 159; @25,48 got 64,0,255,255 want 128; @35,48 got 191,0,255,255 want 255; @45,48 got 159,0,255,255 want 255; @55,48 got 32,0,255,255 want 64\nok    autogen format 112 cube filter 2 reaches both generated levels\nok    autogen format 112 cube filter 3 reaches both generated levels\nok    autogen format 113 2D filter 0 reaches both generated levels\nFAIL  autogen format 113 2D filter 1 reaches both generated levels: @32,16 got 128,0,0,255 want 191; @32,48 got 128,0,0,255 want 191\nok    autogen format 113 2D filter 2 reaches both generated levels\nok    autogen format 113 2D filter 3 reaches both generated levels\nok    autogen format 113 cube filter 0 reaches both generated levels\nFAIL  autogen format 113 cube filter 1 reaches both generated levels: @5,16 got 128,0,0,255 want 191; @15,16 got 96,0,0,255 want 159; @25,16 got 64,0,0,255 want 128; @35,16 got 191,0,0,255 want 255; @45,16 got 159,0,0,255 want 255; @55,16 got 32,0,0,255 want 64; @5,48 got 128,0,0,255 want 191; @15,48 got 96,0,0,255 want 159; @25,48 got 64,0,0,255 want 128; @35,48 got 191,0,0,255 want 255; @45,48 got 159,0,0,255 want 255; @55,48 got 32,0,0,255 want 64\nok    autogen format 113 cube filter 2 reaches both generated levels\nok    autogen format 113 cube filter 3 reaches both generated levels\nok    autogen format 114 2D filter 0 reaches both generated levels\nFAIL  autogen format 114 2D filter 1 reaches both generated levels: @32,16 got 128,255,255,255 want 191; @32,48 got 128,255,255,255 want 191\nok    autogen format 114 2D filter 2 reaches both generated levels\nok    autogen format 114 2D filter 3 reaches both generated levels\nok    autogen format 114 cube filter 0 reaches both generated levels\nFAIL  autogen format 114 cube filter 1 reaches both generated levels: @5,16 got 128,255,255,255 want 191; @15,16 got 96,255,255,255 want 159; @25,16 got 64,255,255,255 want 128; @35,16 got 191,255,255,255 want 255; @45,16 got 159,255,255,255 want 255; @55,16 got 32,255,255,255 want 64; @5,48 got 128,255,255,255 want 191; @15,48 got 96,255,255,255 want 159; @25,48 got 64,255,255,255 want 128; @35,48 got 191,255,255,255 want 255; @45,48 got 159,255,255,255 want 255; @55,48 got 32,255,255,255 want 64\nok    autogen format 114 cube filter 2 reaches both generated levels\nok    autogen format 114 cube filter 3 reaches both generated levels\nok    autogen format 115 2D filter 0 reaches both generated levels\nFAIL  autogen format 115 2D filter 1 reaches both generated levels: @32,16 got 128,0,255,255 want 191; @32,48 got 128,0,255,255 want 191\nok    autogen format 115 2D filter 2 reaches both generated levels\nok    autogen format 115 2D filter 3 reaches both generated levels\nok    autogen format 115 cube filter 0 reaches both generated levels\nFAIL  autogen format 115 cube filter 1 reaches both generated levels: @5,16 got 128,0,255,255 want 191; @15,16 got 96,0,255,255 want 159; @25,16 got 64,0,255,255 want 128; @35,16 got 191,0,255,255 want 255; @45,16 got 159,0,255,255 want 255; @55,16 got 32,0,255,255 want 64; @5,48 got 128,0,255,255 want 191; @15,48 got 96,0,255,255 want 159; @25,48 got 64,0,255,255 want 128; @35,48 got 191,0,255,255 want 255; @45,48 got 159,0,255,255 want 255; @55,48 got 32,0,255,255 want 64\nok    autogen format 115 cube filter 2 reaches both generated levels\nok    autogen format 115 cube filter 3 reaches both generated levels\nok    autogen format 116 2D filter 0 reaches both generated levels\nFAIL  autogen format 116 2D filter 1 reaches both generated levels: @32,16 got 128,0,0,255 want 191; @32,48 got 128,0,0,255 want 191\nok    autogen format 116 2D filter 2 reaches both generated levels\nok    autogen format 116 2D filter 3 reaches both generated levels\nok    autogen format 116 cube filter 0 reaches both generated levels\nFAIL  autogen format 116 cube filter 1 reaches both generated levels: @5,16 got 128,0,0,255 want 191; @15,16 got 96,0,0,255 want 159; @25,16 got 64,0,0,255 want 128; @35,16 got 191,0,0,255 want 255; @45,16 got 159,0,0,255 want 255; @55,16 got 32,0,0,255 want 64; @5,48 got 128,0,0,255 want 191; @15,48 got 96,0,0,255 want 159; @25,48 got 64,0,0,255 want 128; @35,48 got 191,0,0,255 want 255; @45,48 got 159,0,0,255 want 255; @55,48 got 32,0,0,255 want 64\nok    autogen format 116 cube filter 2 reaches both generated levels\nok    autogen format 116 cube filter 3 reaches both generated levels\nFAIL  autogen deferred filters and legacy generation preserve draw order: @32,32 got 128,0,0,255 want 191\nok    autogen observes GPU writes to level zero"
+          }
+        },
+        {
+          "name": "GPU-write-stale-mips",
+          "killed": true,
+          "result": {
+            "status": "FAIL",
+            "details": "FAIL 1 case(s)\nok    autogen format 21 2D filter 0 reaches both generated levels\nok    autogen format 21 2D filter 1 reaches both generated levels\nok    autogen format 21 2D filter 2 reaches both generated levels\nok    autogen format 21 2D filter 3 reaches both generated levels\nok    autogen format 21 cube filter 0 reaches both generated levels\nok    autogen format 21 cube filter 1 reaches both generated levels\nok    autogen format 21 cube filter 2 reaches both generated levels\nok    autogen format 21 cube filter 3 reaches both generated levels\nok    autogen format 22 2D filter 0 reaches both generated levels\nok    autogen format 22 2D filter 1 reaches both generated levels\nok    autogen format 22 2D filter 2 reaches both generated levels\nok    autogen format 22 2D filter 3 reaches both generated levels\nok    autogen format 22 cube filter 0 reaches both generated levels\nok    autogen format 22 cube filter 1 reaches both generated levels\nok    autogen format 22 cube filter 2 reaches both generated levels\nok    autogen format 22 cube filter 3 reaches both generated levels\nok    autogen format 111 2D filter 0 reaches both generated levels\nok    autogen format 111 2D filter 1 reaches both generated levels\nok    autogen format 111 2D filter 2 reaches both generated levels\nok    autogen format 111 2D filter 3 reaches both generated levels\nok    autogen format 111 cube filter 0 reaches both generated levels\nok    autogen format 111 cube filter 1 reaches both generated levels\nok    autogen format 111 cube filter 2 reaches both generated levels\nok    autogen format 111 cube filter 3 reaches both generated levels\nok    autogen format 112 2D filter 0 reaches both generated levels\nok    autogen format 112 2D filter 1 reaches both generated levels\nok    autogen format 112 2D filter 2 reaches both generated levels\nok    autogen format 112 2D filter 3 reaches both generated levels\nok    autogen format 112 cube filter 0 reaches both generated levels\nok    autogen format 112 cube filter 1 reaches both generated levels\nok    autogen format 112 cube filter 2 reaches both generated levels\nok    autogen format 112 cube filter 3 reaches both generated levels\nok    autogen format 113 2D filter 0 reaches both generated levels\nok    autogen format 113 2D filter 1 reaches both generated levels\nok    autogen format 113 2D filter 2 reaches both generated levels\nok    autogen format 113 2D filter 3 reaches both generated levels\nok    autogen format 113 cube filter 0 reaches both generated levels\nok    autogen format 113 cube filter 1 reaches both generated levels\nok    autogen format 113 cube filter 2 reaches both generated levels\nok    autogen format 113 cube filter 3 reaches both generated levels\nok    autogen format 114 2D filter 0 reaches both generated levels\nok    autogen format 114 2D filter 1 reaches both generated levels\nok    autogen format 114 2D filter 2 reaches both generated levels\nok    autogen format 114 2D filter 3 reaches both generated levels\nok    autogen format 114 cube filter 0 reaches both generated levels\nok    autogen format 114 cube filter 1 reaches both generated levels\nok    autogen format 114 cube filter 2 reaches both generated levels\nok    autogen format 114 cube filter 3 reaches both generated levels\nok    autogen format 115 2D filter 0 reaches both generated levels\nok    autogen format 115 2D filter 1 reaches both generated levels\nok    autogen format 115 2D filter 2 reaches both generated levels\nok    autogen format 115 2D filter 3 reaches both generated levels\nok    autogen format 115 cube filter 0 reaches both generated levels\nok    autogen format 115 cube filter 1 reaches both generated levels\nok    autogen format 115 cube filter 2 reaches both generated levels\nok    autogen format 115 cube filter 3 reaches both generated levels\nok    autogen format 116 2D filter 0 reaches both generated levels\nok    autogen format 116 2D filter 1 reaches both generated levels\nok    autogen format 116 2D filter 2 reaches both generated levels\nok    autogen format 116 2D filter 3 reaches both generated levels\nok    autogen format 116 cube filter 0 reaches both generated levels\nok    autogen format 116 cube filter 1 reaches both generated levels\nok    autogen format 116 cube filter 2 reaches both generated levels\nok    autogen format 116 cube filter 3 reaches both generated levels\nok    autogen deferred filters and legacy generation preserve draw order\nFAIL  autogen observes GPU writes to level zero: @32,32 got 0,0,0,0 want 128"
+          }
+        }
+      ]
+    }
+  },
+  "referenceSha256": "e7cbb034569229c6c838c780f574d84adde3a85c523bf1bdf501fcb6f619cd76",
+  "scope": "Automatic mip eligibility is generated from host storage facts. Valid 2D/cube queries return D3DOK_NOAUTOGEN when only generation is unavailable; creation still returns D3D_OK, preserves usage and exposes one level. Invalid levels, pools, dynamic combinations and volume autogen follow frozen SDK/Wine expectations. POINT/LINEAR/ANISOTROPIC state reaches the host, defaults honor enabled FP32 filtering, NONE is rejected and failed setters preserve state. New protocol 1.8 fields defer dirty generation and capture its filter per op; old eight-byte commands still generate immediately. Real anisotropic samplers and missing ColorFill mip invalidation are fixed. XP feature masks are explicitly simulated, with separate real GPU downsample/fallback/feature-off/order/write tests; no native Microsoft D3D9 HAL claim. Published retail DLLs are the exact accepted probe bytes. Remaining common windows/core, wrapper and stages 5/6 continue.",
+  "coreSha256": {
+    "tests/glbridge/d3d9_autogen_xp.mjs": "7747d6f80699459955f86536fcd1a21f317021587011e476dd69bb83cc6136f6",
+    "tests/glbridge/d9wg_autogen_gpu_mutation.mjs": "fdd9939798ec646801741bd26712fe1f5e7b43987099f4c5bbd75085e7dc6a17",
+    "tests/glbridge/d9wg_autogen_mutation_test.js": "f6ecf268f78385a93ed75c8861859ff6ee7c094e0682702970b6882d3371ad56",
+    "tests/glbridge/d9wg_autogen_recording_mutation_test.js": "5b72095e277d840a3ecd078f2a649e707b2722d696a8285b089604474e22be2d",
+    "tests/glbridge/d9wg_autogen_recording_test.js": "8987be1a93ca0bd25768ae03b2cf7ff27ff143a16908b7e3858dd7bd1a0df180",
+    "tests/glbridge/d9wg_autogen_test.js": "9ec6e441725af58e7d0c9429261d0c6f053c2eb13ad5d878b694191e6aa5e5fc",
+    "tests/glbridge/fixtures/d3d_autogen_reference.json": "e7cbb034569229c6c838c780f574d84adde3a85c523bf1bdf501fcb6f619cd76",
+    "tests/lib/d3d_autogen_wire.mjs": "abb525c9aa4f2de8550fcd1296e8a7f51d39145289d94aeab228d36a68d718ec",
+    "tools/gen_d3d_autogen_reference.mjs": "27db1f71f7754526e97e4f89b4dbc2615056694bd1169cc40496177ca84ce8df",
+    "Makefile": "9931eac0bf4dc32110c814ab17bdd92fa0f3c7ebbcdac30c96d6a9b3a2ca1a6a",
+    "docs/d3d-webgpu-review.md": "a27ce1a7d255aec88dad70c13f968eff05304129491858f3340b2b4c3460c0ea",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "9d699def9e008dc21070e5f978369d8aa5d759f0833a7fded59363ffff77140e",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "c9b37be38ba55715e295e0e71cc09e75426b96eb43ba2e8bb3f01cbb2f1b7091",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+    "src/graphics_adapters/vmware_svga/d9wg_constants.js": "bd0518c468b73bff673f66128e506648c3d444f400f833a91317d88f1b89b32b",
+    "tests/glbridge/d3d9_feature_cases.js": "33ca9b9c2936056a61f1df5b003ccc098bed7a4b4cf81bf2e01d5f012c2f53cd",
+    "tests/glbridge/d9wg_format_queries_mutation_test.js": "22d22b5191094de592ea44f694d41f27463a7aee571fdbdd389512c6395e9e93",
+    "tests/glbridge/d9wg_format_queries_test.js": "4bc5c69c97eda972c2cbec3ad9a79ce16b9c069352d9091d130fa41d8f518d25",
+    "tools/gen_d9wg_format_queries.mjs": "0ad1759b3d2bb39cba26a03f94fa31ff7e462a9f58c68f7e618db1602f0ea658"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d9_autogen_test.c": "b024da342e117ae4abf9055dc172db69abd68545abd0726e5040df8e99c74a5a",
+    "glbridge/sample/d3d_autogen_reference.h": "451fe93bb6d50c35fabb44d3d6d05eadf25b297e4340a75f3ecfee538996aad8",
+    "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "391fcfa3c483c055afcd8a059c781574d02206b9aa136f6220c6e55544357570",
+    "glbridge/d3d8proxy/d3d8.dll": "5af799c968efa320adef7e1fcb0043996f5d3168b412408d8dd0368e68204e9f",
+    "glbridge/d3d9proxy/README.md": "46ec993720584cc915242d190660b7a0d4f40732be78ae395e5c286b524823b1",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "63c2b89c9ce6b7a3df5a3d6aede391044f6f8987c729afb034863bae83b089c1",
+    "glbridge/d3d9proxy/d3d9.dll": "da1ef4262c48224750794cfef180b924901df8469dc7b471d2caa28cc4c3f816",
+    "glbridge/d3d9proxy/d3d9_protocol.h": "ff4fc2f00393328401fe43e8284419d247a204cec4b39f327795a5ecd46521b3",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "ce37ccd66bf765b681a93d4dd9e5c4c02b7f37be2662af6f90dfbc6cb799d84e",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "15ab0d573abe8f47be848a75ea1927aca00a88b3d8ed841711c0616bf84189fa",
+    "glbridge/ddrawproxy/ddraw.dll": "2285b00899988e94ff842aecf73e99503d9ecb5425e64f4ff3d65e4329e05a0b",
+    "glbridge/runtime/d9wg_format_queries.h": "e9c4989b24edfc597df470e8bcce2aa1e038784c23d9f65c040103d6c83babd8",
+    "glbridge/tests/d3d9_negative_pcf_probe_test.js": "d1e85c2a633d7f3987198b3fb52a76bf145d055e7062686c6efb51082c014b5d",
+    "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+    "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+    "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+    "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+    "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+    "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+    "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+  },
+  "logSha256": {
+    "core": "b3127546ba0b0b39ba24d294f4e04e71d3257a186d28d606925e50e189fb648b",
+    "guest": "38ddd9b6886729503808c5cca14f697f123600441cc738e27e9f799da7098980",
+    "gpu": "9a61048b5b504daebea97ef672cbff4c1ef6def626be18a2486257505d7d2a0a",
+    "full-metal": "b7d1ad98331b78e363724e70875739326048296b63ea79d4e5a07e1c08dc1725",
+    "autogen-unit": "d85b268fa2833cf878a063e570734203afb33352e90abe7496b28fb37da73914",
+    "autogen-mutations": "1bd1514f48f958a5d2c3f1e1d58c56a38127374b74cab3491a3066e0200676c2",
+    "recording-unit": "c1fd0dd0b90972f533e157d29abda6da0d93401a4847c689c03f73dac0168747",
+    "recording-mutations": "cdc6f12964f012c67f8150bd52616b8d8f252920f1a0dbd809b68441daee050b",
+    "query-unit": "4a7faf284f028593971c9dd67609bf9988ad5bbef0ec98af77048298471a3963",
+    "query-mutations": "ebed94da1ea6337fc5536055a964924e98cb50b7203c5d815db439edb411982f",
+    "gpu-mutations": "fc939e1e7ca57e2b500b8960e276487a88f3b154c6644458c55a901d4761e3b8",
+    "auto-swift": "a9b0d28bc5c08f3df5aa6b9e53406c6ca9c816f99218c86bc1e16fe8b918b5de",
+    "auto-disabled-swift": "a9b0d28bc5c08f3df5aa6b9e53406c6ca9c816f99218c86bc1e16fe8b918b5de",
+    "auto-fallback-swift": "ca0ba11c729a6dc9143caebbc885d1fd9b1825d3b864d2177a806b620c33ef9d",
+    "auto-metal": "a9b0d28bc5c08f3df5aa6b9e53406c6ca9c816f99218c86bc1e16fe8b918b5de",
+    "autogen15-xp": "32d8beb12b5f4b4d45b458abdc43268ec5fc358912ab080116b20a06a43f4f0b",
+    "autogen12-xp": "a529efc683d3b1f6dc8cdebffb6c65bffc41b864c27b45a373b7ea72335ad6cc",
+    "tnl": "6028a54656d8e2672a6b076377ef805e0e954008282422d3c955d77e44511674",
+    "builds": "4469d38acf371cbcd417af1b91783ace2337d0527554fd6fdac4eff6e8f5929c",
+    "sanitize": "eaa8dbf514f09c36c607477ea0b67b540171ee014ec697d21df8be40ab5882a1",
+    "lint": "39b796cc63e1cbb3016c9cc72ffc5dd9c6ca730296d2c3f85aebbab18d7082c3",
+    "site-lint": "82fcbe7cdc25cc007118bcbc43438fb1d9f1444c75372fa7da15e1c57517791f",
+    "integration": "417b1be0ae6cbd7b093a0c7d314ae31806b66d83bcefccdf05caf23f3951d948",
+    "bundle": "9f3b83be6d5fc3713b6e7c5cf13f01fbbbcac6356c9ebb44400ac735eafef8f0",
+    "sync": "87dcb6ecbd6d2ffc3d88441cbe75fc15480319619082fa1ed210bc469b1d1ebb"
+  }
+}
