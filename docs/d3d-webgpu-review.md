@@ -1394,6 +1394,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 144 组核心、134 组客体、DDraw 四个标准冒烟 EXE 与零售/诊断两份严格 DLL 通过；发布本次 T&L 所测 DDraw DLL。宿主、运行包及 D3D8/9 发布 DLL 未变，GPU/Metal/站点集成沿用 4D2j2d，未新宣称原生硬件/完整 Wine/游戏/FPS 验收。见 [stage4d2j3b-validation.json](fixtures/d3d-review/stage4d2j3b-validation.json) 与 [原生灯光录制参考](../tests/glbridge/fixtures/d3d7_native_light_recording.json)。
 > - 此步只将 D3D7 的灯光入口改为延迟录制，其他旧 D3D7 状态仍会临时更改实时值；继续测量并补齐其录制、预定义范围及剩余共用运行时。原生 RGB 的活动灯光上限与代理 caps 不同，未当作一致性结果。
 
+> **阶段 4D2j3c（2026-11-02）：D3D7 普通状态延迟录制及原生范围对照完成。**
+>
+> - 新增原生 Microsoft RGB 状态块探针，在只读 XP 基盘和 RAM 工具盘上冻结 170 条查询，覆盖 ALL/PIXEL/VERTEX 的 Apply/Capture、Begin/End 实时查询、显式录制的 Apply 与再次 Capture。原生运行 111 秒、零代理 owner/命令；同一探针使用代理运行 94 秒，170 条 SDK 字节结果全部相同。
+> - 矩阵、视口、材质、六个裁剪平面、纹理绑定、渲染状态和 TSS 在 Begin 内只写块的值与掩码；End 只发布录制结果，删除旧的实时状态捕获。Multiply 使用之前录制的矩阵，纹理替换先加新引用再释放旧引用，录制期间不准备或上传表面。
+> - 按此次测量修正范围：矩阵/视口/材质/平面系数/纹理绑定只属于 ALL；TEXCOORDINDEX 与 TEXTURETRANSFORMFLAGS 同属 PIXEL/VERTEX；CULL、SPECULARENABLE、LIGHTING、FOGENABLE 属于 VERTEX，SHADEMODE 属于两者。沿用上一阶段测得的 D3D7 灯光版本差异；尚未把六个渲染状态的结果外推为完整分类表。
+> - 宿主原生编译实际 C 方法，独立使用 MinGW SDK 枚举和冻结查询验证 170 条结果，并检查零提前命令/上传、重复纹理绑定引用、连续 Multiply、无效过滤值以及 Wrap 调用顺序；11/11 普通状态语义变异与既有 8/8 灯光变异、ASan/UBSan 通过。
+> - 144 组核心、136 组客体、DDraw 四个冒烟 EXE 和零售/诊断严格 DLL，以及 XP 三版本 T&L/录制载荷回归通过；发布本次 XP 所测 DDraw DLL。宿主及运行包未变，GPU/Metal/站点集成沿用 4D2j2d。见 [stage4d2j3c-validation.json](fixtures/d3d-review/stage4d2j3c-validation.json) 与 [170 条原生参考](../tests/glbridge/fixtures/d3d7_native_state_blocks.json)。
+> - 继续核对完整 D3D7 预定义状态表、旧式 RS/TSS 别名与交错顺序；本次不宣称完整 Wine、游戏/FPS 或阶段 4 验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -1,0 +1,2379 @@
+{
+  "description": "Original Microsoft system D3D7 RGB state-block scope and recording observations; independent of proxy state helpers; RAM tools and unchanged base XP image.",
+  "source": "glbridge/sample/d3d7_native_state_block_reference.c",
+  "sourceSha256": "43567534afd3dfc19be5a076a3f43244faa9df5136d9d07d2b5486207cf84e81",
+  "executableSha256": "e1a2929f9efb569642224793d9a2219f901ff172d14f9fec7ca9e9889ab83f8c",
+  "api": "Original system Microsoft D3D7 RGB",
+  "cases": [
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4279246896
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        0,
+        0,
+        128,
+        128,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1048576000,
+        1056964608,
+        1061158912,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "restore",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4282404960
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        7
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        1,
+        2,
+        64,
+        60,
+        1048576000,
+        1061158912
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1056964608,
+        1061158912,
+        1048576000,
+        1056964608,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        0,
+        1065353216,
+        0,
+        1073741824
+      ]
+    },
+    {
+      "type": 1,
+      "phase": "recapture",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4279246896
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        1,
+        2,
+        64,
+        60,
+        1048576000,
+        1061158912
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1056964608,
+        1061158912,
+        1048576000,
+        1056964608,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        0,
+        1065353216,
+        0,
+        1073741824
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "restore",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4282404960
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        7
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        0,
+        0,
+        128,
+        128,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1048576000,
+        1056964608,
+        1061158912,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 2,
+      "phase": "recapture",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4282404960
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        7
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        1,
+        2,
+        64,
+        60,
+        1048576000,
+        1061158912
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1056964608,
+        1061158912,
+        1048576000,
+        1056964608,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        0,
+        1065353216,
+        0,
+        1073741824
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "restore",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4279246896
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        0,
+        0,
+        128,
+        128,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1048576000,
+        1056964608,
+        1061158912,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 3,
+      "phase": "recapture",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4279246896
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        0,
+        0,
+        128,
+        128,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1048576000,
+        1056964608,
+        1061158912,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "during",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4279246896
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        0,
+        0,
+        128,
+        128,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1048576000,
+        1056964608,
+        1061158912,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "end",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4282404960
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        7
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1073741824,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        1082130432,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        1,
+        2,
+        64,
+        60,
+        1048576000,
+        1061158912
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1056964608,
+        1061158912,
+        1048576000,
+        1056964608,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        0,
+        1065353216,
+        0,
+        1073741824
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_apply",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "RS_CULL",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "RS_SHADE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "RS_FACTOR",
+      "hr": 0,
+      "words": [
+        4279246896
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "RS_SPECULAR",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "RS_LIGHTING",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "RS_FOG",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "TSS_COLOR",
+      "hr": 0,
+      "words": [
+        2
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "TSS_COORD",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "TSS_TRANSFORM",
+      "hr": 0,
+      "words": [
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "WORLD",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "VIEW",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "PROJECTION",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "TEX_MATRIX",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "VIEWPORT",
+      "hr": 0,
+      "words": [
+        0,
+        0,
+        128,
+        128,
+        0,
+        1065353216
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "MATERIAL",
+      "hr": 0,
+      "words": [
+        1048576000,
+        1056964608,
+        1061158912,
+        1065353216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "CLIP_PLANE",
+      "hr": 0,
+      "words": [
+        1065353216,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": 0,
+      "phase": "record_capture",
+      "field": "TEXTURE",
+      "hr": 0,
+      "words": [
+        1
+      ]
+    }
+  ]
+}
