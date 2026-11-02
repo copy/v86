@@ -55,6 +55,7 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
             assert(result.logs["TNL"+api+".TXT"].includes("PASS shared D3D8/9 state scope checks:"));
         }
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 object deferred recording:"));
+        assert(result.logs["TNL9.TXT"].includes("PASS D3D9 CPU tween:"));
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 abandoned recording cleanup"));
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 scalar deferred recording:"));
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 sparse recorded block restoration and masks"));

@@ -1412,6 +1412,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 144 组核心、136 组客体、DDraw 四个冒烟 EXE、零售/诊断严格 DLL、最终 XP 三 API T&L 与录制载荷验证通过；发布最终 T&L 所测 DDraw DLL。宿主/运行包不变，GPU/Metal/站点集成沿用 4D2j2d。见 [stage4d2j3d-validation.json](fixtures/d3d-review/stage4d2j3d-validation.json) 和 [原生范围参考](../tests/glbridge/fixtures/d3d7_native_state_scope.json)。
 > - 此探针不覆盖非零旧纹理句柄资源生命周期；后续继续共用 T&L 的 Tween/可编程处理、默认值/caps、包装层与 Wine/游戏验收，未宣称阶段 4 完成。
 
+> **阶段 4D2k1（2026-11-02）：共用 CPU Tween 与 D3D9 ProcessVertices 接入完成。**
+>
+> - 共用声明布局保存 POSITION1/NORMAL1 的独立类型与偏移；支持任一第二通道，继续使用已有 17 种声明解码和多流/零步长收集。重复第二通道拒绝，缺少两种第二通道时在写输出之前失败。
+> - 共用混合上下文新增 Tween 模式和浮点因子，按 `p0*(1-t)+p1*t` 插值位置/法线，再进行世界/视图/投影、逆转置法线、可选归一化、光照、雾、纹理坐标生成及世界空间用户平面。Tween 不读取矩阵索引；因子从 RS170 读取且不作软件夹取。语义依据 [Microsoft Vertex Tweening](https://learn.microsoft.com/en-us/windows/win32/direct3d9/vertex-tweening) 与 [使用说明](https://learn.microsoft.com/en-us/windows/win32/direct3d9/using-vertex-tweening)。
+> - 10 万组独立解析公式检查含负值/大于 1 的因子、对象/世界/视图/裁剪坐标和非均匀法线变换；实际 CPU 全管线检查光照/归一化/雾/坐标/平面、单个第二通道、半浮点/归一化整数属性、多流/常量流、UINT_MAX 常量索引、失败原子性和 ClipStatus。实际 Windows 适配函数也由宿主 C 检查 RS170 与临时内存释放；10/10 Tween 与既有 6/6 混合变异、ASan/UBSan 通过。
+> - XP 三版本 T&L/录制回归 115 秒通过，新增 D3D9 公开 COM 检查精确位置/颜色/雾/坐标、单通道、归一化、状态块因子、用户平面 ClipStatus 和错误路径保持目标数据；三 owner 全部释放，原有六/八帧录制载荷和着色器生命周期检查继续通过。
+> - 144 组核心、138 组客体、35 个冒烟 EXE 与六份严格 DLL 通过。四份既有数值参考只刷新源码哈希，所有数值 case 与提交前完全相同。发布本次 XP 所测三份零售 DLL及对应诊断 DLL；宿主/GPU 包未变，既有 GPU/Metal/站点验收沿用 4D2j2d。见 [stage4d2k1-validation.json](fixtures/d3d-review/stage4d2k1-validation.json)。
+> - 当前完成共用 CPU 核和 D3D9 ProcessVertices；D3D8 声明输入、宿主 Tween 绘制/真 GPU 对照与能力声明接着完成，TWEENING caps 本步保持未宣称。可编程 CPU 顶点处理及整个阶段 4 继续执行。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

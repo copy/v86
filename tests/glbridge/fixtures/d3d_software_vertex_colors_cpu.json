@@ -1,7 +1,7 @@
 {
   "sourceSha256": {
-    "runtime/d9wg_vertex.c": "5a6c5c1119453b6801829a130f02fcf4be0fc6da5858d6693707e79318453626",
-    "runtime/d9wg_vertex.h": "a30f510be1a643202c88bdf7e110e84abe9dcfea6af8fbb33359cd218caf5b56",
+    "runtime/d9wg_vertex.c": "d4e69cfcce271947f0cfb3248e23704c00f0fe2ddd9a323cf717d91dec77de8c",
+    "runtime/d9wg_vertex.h": "cdc036514b19b3f9b6fb078379ecf62ff35386dda327985d630ee6d213bf1fd8",
     "runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
     "runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
     "runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
