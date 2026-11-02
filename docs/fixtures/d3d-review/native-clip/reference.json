@@ -1,0 +1,129 @@
+{
+  "renderer": "Original Microsoft system DDraw7 RGB software rasterizer in XP; absolute system DLL, no proxy",
+  "width": 128,
+  "height": 128,
+  "format": "BGRA bytes from X8R8G8B8 surface; unused alpha is not a colour oracle",
+  "seconds": 100,
+  "sourceSha256": "e38ea16d9607b26a298d98c8ba24f670b2c43bf2c13a1a4b4b0207d5f02dc268",
+  "probeSha256": "a84ffc1c5adef884c683f1dc78b55ce25330bd47b53bd4be279045c3c77ee69c",
+  "images": [
+    {
+      "scene": 0,
+      "processed": false,
+      "file": "scene-0-direct.bgra.gz",
+      "sha256": "394cc04d6e8cf1142c6e33ea4b86e151246b2b3d1baebc58fc7752836f54ffea"
+    },
+    {
+      "scene": 0,
+      "processed": true,
+      "file": "scene-0-processed.bgra.gz",
+      "sha256": "9e7112cf54f62612a67e82d60e41d09c75af3ba4ac79488f876aa02c4b1f034c"
+    },
+    {
+      "scene": 1,
+      "processed": false,
+      "file": "scene-1-direct.bgra.gz",
+      "sha256": "394cc04d6e8cf1142c6e33ea4b86e151246b2b3d1baebc58fc7752836f54ffea"
+    },
+    {
+      "scene": 1,
+      "processed": true,
+      "file": "scene-1-processed.bgra.gz",
+      "sha256": "9e7112cf54f62612a67e82d60e41d09c75af3ba4ac79488f876aa02c4b1f034c"
+    },
+    {
+      "scene": 2,
+      "processed": false,
+      "file": "scene-2-direct.bgra.gz",
+      "sha256": "394cc04d6e8cf1142c6e33ea4b86e151246b2b3d1baebc58fc7752836f54ffea"
+    },
+    {
+      "scene": 2,
+      "processed": true,
+      "file": "scene-2-processed.bgra.gz",
+      "sha256": "9e7112cf54f62612a67e82d60e41d09c75af3ba4ac79488f876aa02c4b1f034c"
+    },
+    {
+      "scene": 3,
+      "processed": false,
+      "file": "scene-3-direct.bgra.gz",
+      "sha256": "a2edce95f9ac84f21aa49fd906fae7ab07659827c6a2ccce90762dc23d444a4f"
+    },
+    {
+      "scene": 3,
+      "processed": true,
+      "file": "scene-3-processed.bgra.gz",
+      "sha256": "a2edce95f9ac84f21aa49fd906fae7ab07659827c6a2ccce90762dc23d444a4f"
+    },
+    {
+      "scene": 4,
+      "processed": false,
+      "file": "scene-4-direct.bgra.gz",
+      "sha256": "296b25fd42e670c332d8a840f93024d7f4bd9d4ed157b24c6f60d3280d952cdf"
+    },
+    {
+      "scene": 4,
+      "processed": true,
+      "file": "scene-4-processed.bgra.gz",
+      "sha256": "296b25fd42e670c332d8a840f93024d7f4bd9d4ed157b24c6f60d3280d952cdf"
+    },
+    {
+      "scene": 5,
+      "processed": false,
+      "file": "scene-5-direct.bgra.gz",
+      "sha256": "2ffa4ada942c7982c4749b7c0d663c2a7b0071e27b06b7c7ff2c482147c2dc22"
+    },
+    {
+      "scene": 5,
+      "processed": true,
+      "file": "scene-5-processed.bgra.gz",
+      "sha256": "2ffa4ada942c7982c4749b7c0d663c2a7b0071e27b06b7c7ff2c482147c2dc22"
+    }
+  ],
+  "indexedEqualsNonindexed": true,
+  "directVsProcessed": [
+    {
+      "scene": 0,
+      "differing_pixels": 11,
+      "maximum_byte_error": 194,
+      "direct_coverage": 1890,
+      "processed_coverage": 1901
+    },
+    {
+      "scene": 1,
+      "differing_pixels": 11,
+      "maximum_byte_error": 194,
+      "direct_coverage": 1890,
+      "processed_coverage": 1901
+    },
+    {
+      "scene": 2,
+      "differing_pixels": 11,
+      "maximum_byte_error": 194,
+      "direct_coverage": 1890,
+      "processed_coverage": 1901
+    },
+    {
+      "scene": 3,
+      "differing_pixels": 0,
+      "maximum_byte_error": 0,
+      "direct_coverage": 955,
+      "processed_coverage": 955
+    },
+    {
+      "scene": 4,
+      "differing_pixels": 0,
+      "maximum_byte_error": 0,
+      "direct_coverage": 3277,
+      "processed_coverage": 3277
+    },
+    {
+      "scene": 5,
+      "differing_pixels": 0,
+      "maximum_byte_error": 0,
+      "direct_coverage": 4150,
+      "processed_coverage": 4150
+    }
+  ],
+  "scope": "Independent legacy RGB diagnostic data. Perspective colour and edge differences against modern GPU rendering remain for full legacy acceptance; no pixel tolerance was trained from candidate output."
+}

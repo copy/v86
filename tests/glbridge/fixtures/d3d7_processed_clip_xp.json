@@ -1,0 +1,28 @@
+{
+  "description": "Procedural actual XP DDraw7 COM commands: six scenes, direct/nonindexed/indexed drawing. Desktop pixel upload and diagnostic text zeroed; no OS or game assets.",
+  "sourceCaptureSha256": "6dfe84c44bb8cd3d260137dc142d7d4dc74bd7fd502035541eeaaed6eb0abbd2",
+  "traceSha256": "973eed657fefd1918f1199c0ec4b0a68bb6056430155e18961591acc092bef2b",
+  "traceBytes": 1940668,
+  "removedPayloads": [
+    {
+      "command": "GUEST_LOG",
+      "bytes": 38
+    },
+    {
+      "command": "UPDATE_TEXTURE",
+      "bytes": 1920000
+    }
+  ],
+  "sourceSha256": {
+    "glbridge/sample/d3d7_native_clip_draw_reference.c": "e38ea16d9607b26a298d98c8ba24f670b2c43bf2c13a1a4b4b0207d5f02dc268",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "5fa3102e3eba62ad18610b2a28ffe0699cab6d8f098fcccd169df54d16c556c3",
+    "glbridge/runtime/d9wg_clip.c": "a3f7d80779de52151a2ef2a97d4d8316160a85bfdc6ab8dd834f9d8030a62c99",
+    "glbridge/runtime/d9wg_clip.h": "95ade893668034fdd1381fedf595f40700a8954c36efc7a347f8439144c6d423",
+    "glbridge/runtime/d9wg_clip_draw.c": "2be6eb8a71026da6409d64a22264ad17bc8b3c9927a5030d2cfd5c3384bd9d1f",
+    "glbridge/runtime/d9wg_clip_draw.h": "dedf5c794e72714c38c9407fb042eaec162fae1a685c554c098db98806ea7283",
+    "glbridge/runtime/d9wg_vertex.c": "2269af9251f401f113b8a0df2898a3b1849e105f8d15c992c09f0b77ff5c3693",
+    "glbridge/runtime/d9wg_vertex.h": "f17cbbe3fabacf0a87ba71d2abf18b163e73a81692541f992749a0dcef1bddb6"
+  },
+  "reference": "d3d_clip_zero_w_reference.json is the independent positive-W oracle; raw direct zero-W disagreement remains diagnostic.",
+  "scope": "Frozen host replay fixture; guest C changes still require fresh XP captures and native C tests."
+}

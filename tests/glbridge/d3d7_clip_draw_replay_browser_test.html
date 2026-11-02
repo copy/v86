@@ -1,0 +1,130 @@
+<!doctype html><meta charset="utf-8"><title>D9WG real XP processed VB replay</title><canvas id="screen" width="128" height="128"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async () => {
+    const P = D9WGProtocol, C = P.C, pictures = [], scenes = [];
+    const gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, shaderWorkerUrl: null });
+    try {
+        const params = new URLSearchParams(location.search), capture = params.get("capture");
+        if (capture && !/^[a-z0-9_-]+$/.test(capture)) throw new Error("Invalid capture directory");
+        const response = await fetch(capture ? "/build/d3d-review/" + capture + "/graphics.bin" :
+            "fixtures/d3d7_processed_clip_xp.bin.gz");
+        if (!response.ok) throw new Error("Missing XP graphics capture");
+        const bytes = new Uint8Array(capture ? await response.arrayBuffer() :
+            await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+        const view = new DataView(bytes.buffer);
+        await gpu.initialize();
+        const dispatch = gpu.dispatchCommand;
+        gpu.dispatchCommand = function(opcode, bytes, view, offset, length, metadata) {
+            const result = dispatch.call(this, opcode, bytes, view, offset, length, metadata);
+            if (opcode !== P.OP.END_SCENE) return result;
+            const handle = view.getUint32(offset, true);
+            return Promise.resolve(result).then(async () => {
+                const state = gpu.devices.get(handle);
+                if (!state) throw new Error("Missing processed-draw device");
+                const payload = P.encode("ReadbackSurface", { device_handle: handle, texture_handle: state.renderTargets[0],
+                    format: 21, width: 128, height: 128, row_count: 128, destination_pitch: 512, destination_bytes: 65536,
+                    response_offset: C.D9WG_READBACK_REGION_OFFSET, request_id: pictures.length + 1 });
+                let reply;
+                await gpu.onReadbackSurface(payload, new DataView(payload.buffer), 0, payload.length,
+                    { writeGuestMemory(at, data) { reply = data.slice(); } });
+                if (!reply || reply.length !== 65552 || new DataView(reply.buffer).getUint32(12, true) !== C.D9WG_RESPONSE_OK)
+                    throw new Error("Captured COM draw readback failed");
+                pictures.push(reply.subarray(16));
+            });
+        };
+        let at = 0, batches = 0;
+        while (at < bytes.length) {
+            if (at + 12 > bytes.length) throw new Error("Truncated capture header");
+            const ownerToken = view.getUint32(at, true), flags = view.getUint32(at + 4, true), size = view.getUint32(at + 8, true);at += 12;
+            if (size < 8 || size > bytes.length - at || view.getUint16(at, true) !== 0xffe1 || view.getUint16(at + 2, true) !== 0xffff || view.getUint32(at + 4, true) !== size - 8)
+                throw new Error("Invalid captured D9WG envelope");
+            await gpu.submit(bytes.subarray(at + 8, at + size), { ownerToken, flags });at += size;++batches;
+        }
+        await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
+        for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
+        const modes = pictures.length/6;
+        if (modes !== 2 && modes !== 3) throw new Error("Expected twelve or eighteen actual COM draw results, got " + pictures.length);
+        gpu.dispatchCommand = dispatch;
+        // W=0 interpolation differs between GPU backends before clipping.
+        // Use the independently derived, positive-W polygon as this scene's
+        // oracle and retain the raw direct-path disagreement as a diagnostic.
+        const zero = await (await fetch("fixtures/d3d_clip_zero_w_reference.json")).json();
+        const referenceVertices = [];
+        for (let i = 1; i + 1 < zero.vertices.length; i++)
+            for (const vertex of [zero.vertices[0], zero.vertices[i], zero.vertices[i + 1]])
+                referenceVertices.push(...vertex.position, ...vertex.color);
+        const referenceData = new Uint8Array(new Float32Array(referenceVertices).buffer);
+        const dev = 0x7f000001, target = 0x7f000002;
+        const element = values => P.encode("VertexElement", values);
+        const elements = [element({ offset: 0, type: 3, usage: 9 }), element({ offset: 16, type: 3, usage: 10 })];
+        const declaration = new Uint8Array(P.STRUCTS.SetFVF.size + elements.length*P.STRUCTS.VertexElement.size);
+        declaration.set(P.encode("SetFVF", { device_handle: dev, element_count: elements.length }));
+        elements.forEach((value, i) => declaration.set(value, P.STRUCTS.SetFVF.size + i*value.length));
+        await gpu.submit(P.encodeBatch([
+            { opcode: P.OP.CREATE_DEVICE, payload: { device_handle: dev, width: 128, height: 128, backbuffer_format: 22,
+                windowed: 1, enable_auto_depth_stencil: 1, auto_depth_stencil_format: 75 } },
+            { opcode: P.OP.CREATE_TEXTURE_2D, payload: { device_handle: dev, resource_handle: target, width: 128, height: 128, level_count: 1, format: 21, usage: 1 } },
+            { opcode: P.OP.SET_RENDER_TARGET, payload: { device_handle: dev, color_texture_handle: target } },
+            { opcode: P.OP.SET_VIEWPORT, payload: { device_handle: dev, width: 128, height: 128, max_z: 1 } },
+            { opcode: P.OP.CLEAR, payload: { device_handle: dev, clear_flags: 3, color: 0xff102030, depth: 1 } },
+            { opcode: P.OP.SET_VIEWPORT, payload: { device_handle: dev, x: 7, y: 11, width: 100, height: 80, min_z: .25, max_z: .75 } },
+            { opcode: P.OP.SET_RENDER_STATE, payload: { device_handle: dev, state: 137, value: 0 } },
+            { opcode: P.OP.SET_RENDER_STATE, payload: { device_handle: dev, state: 22, value: 1 } },
+            { opcode: P.OP.SET_FVF, payload: declaration },
+            { opcode: P.OP.DRAW_PRIMITIVE_UP, payload: { device_handle: dev, primitive_type: 4, primitive_count: 3,
+                stride: 32, vertex_count: 9, vertex_bytes: referenceData.length }, blobs: [{ field: "vertex_data_offset", data: referenceData }] },
+        ], { session_id_low: 0x7f000003 }));
+        const readback = P.encode("ReadbackSurface", { device_handle: dev, texture_handle: target, format: 21,
+            width: 128, height: 128, row_count: 128, destination_pitch: 512, destination_bytes: 65536,
+            response_offset: C.D9WG_READBACK_REGION_OFFSET, request_id: 100 });
+        let zeroReference;
+        await gpu.onReadbackSurface(readback, new DataView(readback.buffer), 0, readback.length,
+            { writeGuestMemory(at, data) { zeroReference = data.slice(16); } });
+        if (!zeroReference || zeroReference.length !== 65536) throw new Error("Independent zero-W reference readback failed");
+        let zeroWDirectMismatch = 0;
+        for (let at = 0; at < zeroReference.length; at += 4)
+            if ([0, 1, 2, 3].some(c => Math.abs(zeroReference[at+c] - pictures[4*modes][at+c]) > 1)) ++zeroWDirectMismatch;
+        for (let scene = 0; scene < 6; scene++) for (let mode = 1; mode < modes; mode++) {
+            const direct = scene === 4 ? zeroReference : pictures[scene*modes], processed = pictures[scene*modes + mode];
+            let differingPixels = 0, maximumByteError = 0, directCoverage = 0, processedCoverage = 0;
+            for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+                const pixel = (y*128 + x)*4;let outside = false;
+                for (let c = 0; c < 4; c++) {
+                    const error = Math.abs(direct[pixel+c] - processed[pixel+c]);
+                    maximumByteError = Math.max(maximumByteError, error);outside ||= error > 1;
+                }
+                differingPixels += outside;
+                const covered = picture => picture[pixel] !== 0x30 || picture[pixel+1] !== 0x20 || picture[pixel+2] !== 0x10;
+                directCoverage += covered(direct);processedCoverage += covered(processed);
+            }
+            scenes.push({ scene, indexed: mode === 2, reference: scene === 4 ? "independent positive-W polygon" : "actual direct COM draw",
+                differingPixels, maximumByteError, directCoverage, processedCoverage });
+        }
+        const evidence = { batches, tolerance: 1, scenes, zeroWDirectMismatch, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors,
+            droppedDraws: gpu.stats.droppedDraws, commandsFailed: gpu.stats.commandsFailed };
+        await fetch("/__test_file?name=d9wg-clip-guest.json", { method: "POST", body: JSON.stringify(evidence) });
+        for (let i = 0; i < pictures.length; i++)
+            await fetch("/__test_file?name=d9wg-clip-guest-" + i + ".bgra", { method: "POST", body: pictures[i] });
+        if (scenes.some(scene => scene.differingPixels || scene.directCoverage < 100 || scene.processedCoverage < 100) ||
+                evidence.gpuErrors.length || evidence.hostErrors.length || evidence.droppedDraws || evidence.commandsFailed)
+            throw new Error("XP processed VB replay differs: " + JSON.stringify(evidence));
+        document.querySelector("#result").textContent = "PASS actual XP COM/GPU processed VB replay: six scenes, " + pictures.length + " image readbacks within 1 byte/channel";
+    } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
+})();
+</script>

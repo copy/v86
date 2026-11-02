@@ -1,0 +1,17 @@
+{
+  "description": "Independent positive-W polygon for A=(-.2,-.2,.1,0), B=(.8,-.7,.6,1), C=(0,.8,.6,1).",
+  "derivation": [
+    "Far plane cuts A-B and A-C at t=1/5.",
+    "Bottom plane cuts A-B at t=2/5.",
+    "The far-plane edge meets the bottom plane 1/3 of the way from its A-B endpoint to its A-C endpoint.",
+    "Map the surviving polygon through viewport (7,11,100,80,.25,.75).",
+    "Colours interpolate linearly during homogeneous clipping, then use the D3D9 fixed-function perspective interpolation shared by the renderer."
+  ],
+  "vertices": [
+    { "position": [43.666666666666664, 91, 0.75, 5], "color": [0.8, 0.13333333333333333, 0.06666666666666667, 1] },
+    { "position": [82, 91, 0.625, 2.5], "color": [0.6, 0.4, 0, 1] },
+    { "position": [97, 79, 0.55, 1], "color": [0, 1, 0, 1] },
+    { "position": [57, 19, 0.55, 1], "color": [0, 0, 1, 1] },
+    { "position": [17, 51, 0.75, 5], "color": [0.8, 0, 0.2, 1] }
+  ]
+}

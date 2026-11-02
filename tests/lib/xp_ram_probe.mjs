@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
-    success, log_files = [], inspect })
+    success, log_files = [], binary_files = [], capture_graphics = false, rendering = "not exercised", inspect })
 {
     const before = fs.statSync(image);
     const tools = new MemoryDisk(make_fat16(files)), disk = new ReadOnlyOverlayDisk(image);
@@ -16,9 +16,22 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
     const end = (self, other) => ({ remote: false, post(message) { handlers[other]?.(message); }, listen(handler) { handlers[self] = handler; } });
     const channel = { device: end(0, 1), host: end(1, 0) };
     let batches = 0;const releases = [], owners = new Set();
+    const captured = [];let capture_bytes = 0, capture_error;
     const descriptor = create_device(channel.device);
     channel.host.listen(message => {
-        if(message.type === "batch") { batches++;owners.add(message.ownerToken || 0);channel.host.post({ type: "done", id: message.id }); }
+        if(message.type === "batch") {
+            batches++;owners.add(message.ownerToken || 0);
+            if(capture_graphics && !capture_error) {
+                capture_bytes += 12 + message.bytes.length;
+                if(capture_bytes > (32 << 20)) capture_error = "probe graphics capture exceeds 32 MiB";
+                else {
+                    const header = Buffer.alloc(12);header.writeUInt32LE(message.ownerToken || 0);
+                    header.writeUInt32LE((message.flags || 0) >>> 0, 4);header.writeUInt32LE(message.bytes.length, 8);
+                    captured.push(header, Buffer.from(message.bytes));
+                }
+            }
+            channel.host.post({ type: "done", id: message.id });
+        }
         else if(message.type === "released") releases.push(message.ownerToken);
     });
     channel.host.post({ type: "available", value: true });
@@ -90,8 +103,22 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
         }
         const text = result_text();assert(text.includes(success), "Owner probe did not finish: " + text);
         const after = fs.statSync(image);assert.equal(after.mtimeMs, before.mtimeMs);assert.equal(after.size, before.size);
+        const artifacts = {};
+        if(capture_graphics) {
+            assert(!capture_error, capture_error);
+            const data = Buffer.concat(captured);fs.writeFileSync(out + "/graphics.bin", data);
+            artifacts["graphics.bin"] = { bytes: data.length, crc32: crc32(data).toString(16).padStart(8, "0") };
+        }
+        for(const name of binary_files)
+        {
+            assert(/^[a-z0-9_.-]+$/i.test(name), "invalid probe artifact name");
+            const data = read_fat16(tools.bytes, name);assert(data?.length, "missing probe artifact " + name);
+            fs.writeFileSync(out + "/" + name, data);
+            artifacts[name] = { bytes: data.length, crc32: crc32(data).toString(16).padStart(8, "0") };
+        }
         const result = { status: "PASS", seconds: elapsed(), batches, releases, owners: Array.from(owners),
-            text, logs: read_logs(), diskWrites: "RAM sector overlay only", rendering: "not exercised" };
+            text, logs: read_logs(), diskWrites: "RAM sector overlay only", rendering,
+            ...(binary_files.length || capture_graphics ? { artifacts } : {}) };
         if(inspect) inspect(result);
         fs.writeFileSync(out + "/probe-result.json", JSON.stringify(result, null, 2) + "\n");
         save_frame("probe-complete.png", frame());return result;

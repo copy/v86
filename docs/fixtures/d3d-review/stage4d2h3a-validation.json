@@ -1,0 +1,622 @@
+{
+  "stage": "4D2h3a shared primitive clipping and D3D7 processed-buffer drawing",
+  "date": "2026-11-02",
+  "bundle": "46b300fb4065049393df",
+  "coreSuites": 134,
+  "guestSuites": 96,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "xpDraw": {
+    "status": "PASS",
+    "seconds": 102,
+    "batches": 19,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 1940668,
+        "crc32": "681229f3"
+      }
+    }
+  },
+  "nativeDraw": {
+    "status": "PASS",
+    "seconds": 100,
+    "batches": 0,
+    "releases": [],
+    "owners": [],
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "original Microsoft DDraw7 RGB software rasterizer; full surface images saved",
+    "artifacts": {
+      "S0P0.BIN": {
+        "bytes": 65536,
+        "crc32": "34a17814"
+      },
+      "S0P1.BIN": {
+        "bytes": 65536,
+        "crc32": "80002ea8"
+      },
+      "S0P2.BIN": {
+        "bytes": 65536,
+        "crc32": "80002ea8"
+      },
+      "S1P0.BIN": {
+        "bytes": 65536,
+        "crc32": "34a17814"
+      },
+      "S1P1.BIN": {
+        "bytes": 65536,
+        "crc32": "80002ea8"
+      },
+      "S1P2.BIN": {
+        "bytes": 65536,
+        "crc32": "80002ea8"
+      },
+      "S2P0.BIN": {
+        "bytes": 65536,
+        "crc32": "34a17814"
+      },
+      "S2P1.BIN": {
+        "bytes": 65536,
+        "crc32": "80002ea8"
+      },
+      "S2P2.BIN": {
+        "bytes": 65536,
+        "crc32": "80002ea8"
+      },
+      "S3P0.BIN": {
+        "bytes": 65536,
+        "crc32": "fcb007a3"
+      },
+      "S3P1.BIN": {
+        "bytes": 65536,
+        "crc32": "fcb007a3"
+      },
+      "S3P2.BIN": {
+        "bytes": 65536,
+        "crc32": "fcb007a3"
+      },
+      "S4P0.BIN": {
+        "bytes": 65536,
+        "crc32": "bf0e5c16"
+      },
+      "S4P1.BIN": {
+        "bytes": 65536,
+        "crc32": "bf0e5c16"
+      },
+      "S4P2.BIN": {
+        "bytes": 65536,
+        "crc32": "bf0e5c16"
+      },
+      "S5P0.BIN": {
+        "bytes": 65536,
+        "crc32": "4d819e6f"
+      },
+      "S5P1.BIN": {
+        "bytes": 65536,
+        "crc32": "4d819e6f"
+      },
+      "S5P2.BIN": {
+        "bytes": 65536,
+        "crc32": "4d819e6f"
+      }
+    }
+  },
+  "xpMath": {
+    "status": "PASS",
+    "seconds": 117,
+    "batches": 0,
+    "releases": [],
+    "owners": [],
+    "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS clip math control=007f cases=20000\r\nPASS clip pipeline control=007f triangles=20000 buffers=1 draws=1\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS clip math control=027f cases=20000\r\nPASS clip pipeline control=027f triangles=20000 buffers=1 draws=1\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS clip math control=037f cases=20000\r\nPASS clip pipeline control=037f triangles=20000 buffers=1 draws=1\r\nPASS all real XP math checks\r\n",
+    "logs": {
+      "MATH.TXT": "READY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS clip math control=007f cases=20000\r\nPASS clip pipeline control=007f triangles=20000 buffers=1 draws=1\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS clip math control=027f cases=20000\r\nPASS clip pipeline control=027f triangles=20000 buffers=1 draws=1\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS clip math control=037f cases=20000\r\nPASS clip pipeline control=037f triangles=20000 buffers=1 draws=1\r\nPASS all real XP math checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpRegression": {
+    "status": "PASS",
+    "seconds": 115,
+    "batches": 6,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "primitiveMath": {
+    "nativeRandomTriangles": 100000,
+    "xpRandomTriangles": 60000,
+    "controlWords": [
+      "007f",
+      "027f",
+      "037f"
+    ],
+    "bufferAndDrawCases": "native plus all three XP x87 modes"
+  },
+  "semanticMutations": {
+    "ClipStorage": {
+      "killed": 6,
+      "total": 6
+    },
+    "ClipPipeline": {
+      "killed": 8,
+      "total": 8
+    },
+    "Vertex": {
+      "killed": 9,
+      "total": 9
+    },
+    "Blend": {
+      "killed": 6,
+      "total": 6
+    }
+  },
+  "gpuBackends": {
+    "metal": {
+      "batches": 19,
+      "tolerance": 1,
+      "scenes": [
+        {
+          "scene": 0,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 0,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 1,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 1,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 2,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 2,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 3,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 953,
+          "processedCoverage": 953
+        },
+        {
+          "scene": 3,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 953,
+          "processedCoverage": 953
+        },
+        {
+          "scene": 4,
+          "indexed": false,
+          "reference": "independent positive-W polygon",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 3264,
+          "processedCoverage": 3264
+        },
+        {
+          "scene": 4,
+          "indexed": true,
+          "reference": "independent positive-W polygon",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 3264,
+          "processedCoverage": 3264
+        },
+        {
+          "scene": 5,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 4150,
+          "processedCoverage": 4150
+        },
+        {
+          "scene": 5,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 4150,
+          "processedCoverage": 4150
+        }
+      ],
+      "zeroWDirectMismatch": 0,
+      "gpuErrors": [],
+      "hostErrors": [],
+      "droppedDraws": 0,
+      "commandsFailed": 0
+    },
+    "swift": {
+      "batches": 19,
+      "tolerance": 1,
+      "scenes": [
+        {
+          "scene": 0,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 0,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 1,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 1,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 2,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 2,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 1901,
+          "processedCoverage": 1901
+        },
+        {
+          "scene": 3,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 954,
+          "processedCoverage": 954
+        },
+        {
+          "scene": 3,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 954,
+          "processedCoverage": 954
+        },
+        {
+          "scene": 4,
+          "indexed": false,
+          "reference": "independent positive-W polygon",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 3277,
+          "processedCoverage": 3277
+        },
+        {
+          "scene": 4,
+          "indexed": true,
+          "reference": "independent positive-W polygon",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 3277,
+          "processedCoverage": 3277
+        },
+        {
+          "scene": 5,
+          "indexed": false,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 4150,
+          "processedCoverage": 4150
+        },
+        {
+          "scene": 5,
+          "indexed": true,
+          "reference": "actual direct COM draw",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "directCoverage": 4150,
+          "processedCoverage": 4150
+        }
+      ],
+      "zeroWDirectMismatch": 3277,
+      "gpuErrors": [],
+      "hostErrors": [],
+      "droppedDraws": 0,
+      "commandsFailed": 0
+    }
+  },
+  "pixelComparisonsPerBackend": 196608,
+  "fullGpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 18 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "counterfactual": {
+    "source": "actual XP proxy capture before clipping, replayed on SwiftShader",
+    "scenes": [
+      {
+        "scene": 0,
+        "wrongPixels": 459
+      },
+      {
+        "scene": 1,
+        "wrongPixels": 459
+      },
+      {
+        "scene": 2,
+        "wrongPixels": 459
+      },
+      {
+        "scene": 3,
+        "wrongPixels": 1240
+      },
+      {
+        "scene": 4,
+        "wrongPixels": 3277
+      },
+      {
+        "scene": 5,
+        "wrongPixels": 0
+      }
+    ]
+  },
+  "checks": [
+    "homogeneous six-plane polygon clipping before division; points, segments, lists, strips and fans in common C draw kernel",
+    "preserve original projection-space geometry independently of mapped depth; correct W=0 and negative-W processing",
+    "caller-owned scratch avoids large x86 stack frames",
+    "byte-addressed buffer records with range replacement, changed-position invalidation, partial overlap and cleanup",
+    "D3D7 CLIP operation stores native projection-format VB data; indexed and ordinary VB draws consume records through the same kernel",
+    "RGB guard band matches measured original software-device limits",
+    "validate all draw indices/ranges before emission; transport failure remains visible",
+    "frozen public XP trace preserves actual draw commands but zeroes desktop texture upload and diagnostic strings"
+  ],
+  "scope": "Shared frustum geometry/buffer/draw core and D3D7 integration. D3D8/9 metadata integration, user planes, general packed/output/multistream layouts, programmable processing, viewport/legacy compatibility and full Wine/game acceptance continue next. Direct zero-W GPU interpolation remains diagnostic; original Microsoft RGB colour/edge output is retained separately, not substituted for D3D9 raster semantics.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-processvertices",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/viewports-and-clipping",
+    "https://github.com/wine-mirror/wine/blob/66caeb46/dlls/ddraw/tests/ddraw7.c",
+    "https://github.com/doitsujin/dxvk/blob/v2.3/src/d3d9/d3d9_fixed_function.cpp"
+  ],
+  "sha256": {
+    "glbridge/runtime/d9wg_clip.c": "a3f7d80779de52151a2ef2a97d4d8316160a85bfdc6ab8dd834f9d8030a62c99",
+    "glbridge/runtime/d9wg_clip.h": "95ade893668034fdd1381fedf595f40700a8954c36efc7a347f8439144c6d423",
+    "glbridge/runtime/d9wg_clip_draw.c": "2be6eb8a71026da6409d64a22264ad17bc8b3c9927a5030d2cfd5c3384bd9d1f",
+    "glbridge/runtime/d9wg_clip_draw.h": "dedf5c794e72714c38c9407fb042eaec162fae1a685c554c098db98806ea7283",
+    "glbridge/runtime/d9wg_vertex.c": "2269af9251f401f113b8a0df2898a3b1849e105f8d15c992c09f0b77ff5c3693",
+    "glbridge/runtime/d9wg_vertex.h": "f17cbbe3fabacf0a87ba71d2abf18b163e73a81692541f992749a0dcef1bddb6",
+    "glbridge/runtime/d9wg_vertex_windows.h": "9847e258ee3a72ae2f5313b9bce2bdf42e08804ec2add28421d42ccaabaaaa80",
+    "glbridge/runtime/build.sh": "3f09da55ddb3c009da9e04b0e4f409096336c814573dd00f2e978de822cdc20e",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "5fa3102e3eba62ad18610b2a28ffe0699cab6d8f098fcccd169df54d16c556c3",
+    "glbridge/sample/d3d7_native_clip_draw_reference.c": "e38ea16d9607b26a298d98c8ba24f670b2c43bf2c13a1a4b4b0207d5f02dc268",
+    "glbridge/d3d9proxy/d3d9.dll": "8d92aacf46a4e442e3f99a58e824f75b5b1af515207afb13c5912e9eab0f2953",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "d566e453cf897db32fb2e06de663964799db6363f093f085b8c94d66de6ae9de",
+    "glbridge/d3d8proxy/d3d8.dll": "6d78423cbc9fa950294474d92b6329afdd724a5d2adac6b127fade53dac3a110",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "1fe0b21bc6829fdbfd86788fef9f561179e713ae8d5a66e93e6ce3f8bc4f64d1",
+    "glbridge/ddrawproxy/ddraw.dll": "981d69712e2ff9c0383695fc64e3e0d50b2319337912326628422c87c1ec5494",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "6a8c66297f28009d92dc926297d767b718c4b06d55bc98247790aac10ca73f4d",
+    "glbridge/tests/d9wg_clip_buffer_test.js": "5e2b6925888947bcef57403fd779d7193f1f537ead793fca7f81295c4f7f6f4d",
+    "glbridge/tests/d9wg_clip_draw_test.js": "6d399afb0867071222079d0aa6c4c0f9ff08afdac20f0f5eb469c1225e9bb6ef",
+    "glbridge/tests/d9wg_clip_triangle_test.js": "6f48679857a33851f5e797e8265ac2cbaf09d316d95807174c5b4633f480ca64",
+    "glbridge/tests/d9wg_clip_pipeline_mutation_test.js": "82997d1e64e7d6bde73b3cce2f771e47f8ea045e1d0485faa0279684fafcfd1a"
+  },
+  "coreSha256": {
+    "tests/lib/xp_ram_probe.mjs": "5e142fc1c17b45d69de99511b7d6f8c05273a9fbff459e4c10301b6e40028398",
+    "tests/glbridge/d3d_math_xp.mjs": "9afad9ec2e6ee15db8f61cb294bd54029b8a40c46f0c9baadc876d42f33f27a0",
+    "tests/glbridge/d3d7_clip_draw_xp.mjs": "22820061ac7386dfc420a67f90e979ec1739d6afa7cb39b8e1cba25b7fc05e94",
+    "tests/glbridge/d3d7_native_clip_draw_xp.mjs": "ce02bbea802d0ccf4d15ada777114804320ac5048a4c9799dbf5127b9e9eec4c",
+    "tests/glbridge/d3d7_clip_draw_replay_browser_test.html": "57d60ebc0e9786f1426cd85ea98076828876b89c2d2788c1e33be72720fc319b",
+    "tests/glbridge/d3d7_clip_trace_fixture_test.js": "5af10c09886e255c8c32b6e82ceb20818c346ab00477c624dfc94f42c4c954bd",
+    "tests/glbridge/fixtures/d3d7_processed_clip_xp.bin.gz": "049328f7647e221ebced424159bf36ebded38e04f6ca5628f5be9676ae444f13",
+    "tests/glbridge/fixtures/d3d7_processed_clip_xp.json": "fab955da673c848d06d4d75d1c0d353e4af9d14cdc1e3339105d7a5598c4f546",
+    "tests/glbridge/fixtures/d3d_clip_zero_w_reference.json": "1c9c4547539f824ed2b6fdb2235a751190c49d98cee3cb63f02797dbefdd36aa",
+    "tools/d3d_clip_trace_fixture.mjs": "0e54a8ac747ea4e78458a2cdcdd704512db42e387f2c8dfc0bd0671550db4ae6"
+  },
+  "logs": {
+    "d3d-stage4d2h3-affine-swift.log": "b576182ec2e7947ef23054367336e9b6111fa932eac627fbcba5d8f4bf8c4f3d",
+    "d3d-stage4d2h3-build-d3d8-final.log": "837b80f155d20745a8aad4145936c2416969286cd67a7b03274152d15599f38d",
+    "d3d-stage4d2h3-build-d3d9-final.log": "9fe559262527044566ff0abdf69ce44b1ac9c461cc59765b9f58626b94696dfd",
+    "d3d-stage4d2h3-build-ddraw-final.log": "33a61547096ea08c5a01c3f9d2bd9af97098f3c279dabb3e18cdc57d6be00abd",
+    "d3d-stage4d2h3-build-ddraw.log": "b629eccc3a574ad30660edc1c41af91847a4edb2b147d7b0a82722b20a9d0328",
+    "d3d-stage4d2h3-core.log": "af2221078e4208b00602a79a6eaf5f21e7b4d8e760a7668cd2859b3df60d186f",
+    "d3d-stage4d2h3-final-metal.log": "b15e8683269a31f8d51503e1b9e76adbf613a061b3599fd7f0ec5c43a97b1584",
+    "d3d-stage4d2h3-final-swift.log": "b15e8683269a31f8d51503e1b9e76adbf613a061b3599fd7f0ec5c43a97b1584",
+    "d3d-stage4d2h3-fixtures.log": "1da457fd982e538bd1025e56570b00b5ba9c33a78b8ce29eb8432b233d568a37",
+    "d3d-stage4d2h3-gpu-complete.log": "47c6d9266bda1a0cac1c18145f02f053b1fc627d68bf405bc6a1ef14ceea9ade",
+    "d3d-stage4d2h3-guest-complete.log": "8bc93949739af11edbf3d5324e1a3f61b6d6947720973da22c793491396ec3fe",
+    "d3d-stage4d2h3-guest-final.log": "bc9dd6c93b69aafe548f2f595a5edc209fda5aeb6eba52e2f586105c4e895e6a",
+    "d3d-stage4d2h3-guest.log": "39fb1ac3ca0f4f89400bd3ab2e034913bf9f3aae99e7b5ef22a9243fbc4989a6",
+    "d3d-stage4d2h3-indexed-metal-final.log": "86a1838fa3a1adc8c6d5fc4ebce3621e0930734c06be960800efcfcc03407192",
+    "d3d-stage4d2h3-indexed-metal.log": "86a1838fa3a1adc8c6d5fc4ebce3621e0930734c06be960800efcfcc03407192",
+    "d3d-stage4d2h3-indexed-swift-final.log": "86a1838fa3a1adc8c6d5fc4ebce3621e0930734c06be960800efcfcc03407192",
+    "d3d-stage4d2h3-indexed-swift.log": "86a1838fa3a1adc8c6d5fc4ebce3621e0930734c06be960800efcfcc03407192",
+    "d3d-stage4d2h3-integration.log": "d3831b8588394af695ecb7671d2937f7aeb6a3e4c8cea3f4ee585019548c82f8",
+    "d3d-stage4d2h3-math-xp.log": "8e11db7005e137e8b3a09c5ea08eb7335d819d7a9c711b2f5a3b69aeb3148d6c",
+    "d3d-stage4d2h3-native-draw-final.log": "c0ff8da4776beada6ca7dbcd3356b9c49697ff50587ca976b01a3f1e4dd1c871",
+    "d3d-stage4d2h3-native-draw.log": "817ee6c9d65be2b94a3d72c292ea2b50a32bda3bf26e76c44817154619aa26b5",
+    "d3d-stage4d2h3-native-indexed.log": "ee92e9e80c36ad5ae119e6c8acfe45f7718cb079823bd2d7a9df6eb2cce56609",
+    "d3d-stage4d2h3-pipeline-mutations.log": "63ef27eb5f2745f75c30cdde32341ad0e68e52b0b7658aa9030e425162f1cd3e",
+    "d3d-stage4d2h3-proxy-baseline-gpu.log": "9f697baadd0372862d805c3c1dfa15c3f03a4c280030882e1d8aad4f55b12dec",
+    "d3d-stage4d2h3-proxy-baseline-metal.log": "21f9e304492fd6b5790344e946e485443b3ec728a0e22b497061a2fb772fb923",
+    "d3d-stage4d2h3-proxy-baseline.log": "40a278dab7890f4f6cf76fb981bb790fa34c8529f38f8d2991a570e8b101bf2c",
+    "d3d-stage4d2h3-proxy-clipped-swift.log": "ccbff3654d6b29934712bc1b4ee35eb6b6f7f264bdc0d693bcb058a74e4b4f7e",
+    "d3d-stage4d2h3-proxy-clipped.log": "8a95dee7d7f3a850c97c2c39e7da927c1d2218b64f15140283d20e86d65d52ce",
+    "d3d-stage4d2h3-proxy-indexed.log": "ca9114cbc97551f3504c153ddd455b0d6d22ae9ab46b7d1e7f6e20fd5482e160",
+    "d3d-stage4d2h3-proxy-reference-swift.log": "b15e8683269a31f8d51503e1b9e76adbf613a061b3599fd7f0ec5c43a97b1584",
+    "d3d-stage4d2h3-tnl-xp.log": "8318e7b7798ca28b99ac3f46b21bd7774c69213249e5890e9bde03ba4968df87",
+    "d3d-stage4d2h3-zero-w-metal.log": "dae1cd678f6c420918ae4b24fa175db88efaf00b3fcc547b9c4578a8d2d8254f",
+    "d3d-stage4d2h3-zero-w-swift.log": "7b94bf673de9a44c4105aba923c2524e8841cdc744372bb10b740e0ddff09715"
+  }
+}
