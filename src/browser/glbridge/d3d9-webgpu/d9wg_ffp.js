@@ -85,12 +85,14 @@
         function fixedFunctionLocationFor(element, blend) {
             if (element.usage === DECLUSAGE_POSITION ||
                     element.usage === DECLUSAGE_POSITIONT)
-                return element.usageIndex === 0 ? FF_LOCATION_POSITION : -1;
+                return element.usageIndex === 0 ? FF_LOCATION_POSITION
+                    : (element.usage === DECLUSAGE_POSITION && element.usageIndex === 1 && blend && blend.tween && blend.hasPosition2 ? FF_LOCATION_BLENDWEIGHT : -1);
             if (element.usage === DECLUSAGE_COLOR)
                 return element.usageIndex === 0 ? FF_LOCATION_COLOR0
                     : (element.usageIndex === 1 ? FF_LOCATION_COLOR1 : -1);
             if (element.usage === DECLUSAGE_NORMAL)
-                return element.usageIndex === 0 ? FF_LOCATION_NORMAL : -1;
+                return element.usageIndex === 0 ? FF_LOCATION_NORMAL
+                    : (element.usageIndex === 1 && blend && blend.tween && blend.hasNormal2 ? FF_LOCATION_BLENDINDICES : -1);
             if (element.usage === DECLUSAGE_TEXCOORD &&
                     element.usageIndex < MAX_TEXCOORD_SETS)
                 return FF_LOCATION_TEXCOORD0 + element.usageIndex;
@@ -221,10 +223,12 @@
                 fields.push({ name: "blend_worlds",
                     type: "array<mat4x4<f32>, " + blend.matrixSlots + ">",
                     bytes: 64 * blend.matrixSlots });
-            if (blend && signature.hasNormal && signature.needsViewSpace)
+            if (blend && (signature.hasNormal || (blend.tween && blend.hasNormal2)) && signature.needsViewSpace)
                 fields.push({ name: "blend_normals",
                     type: "array<mat4x4<f32>, " + blend.matrixSlots + ">",
                     bytes: 64 * blend.matrixSlots });
+            if (blend && blend.tween)
+                fields.push({ name: "tween_params", type: "vec4<f32>", bytes: 16 });
             // D3D9 fixed-function clip-plane equations are in world space. The
             // ordinary position path only needs a pre-multiplied WVP matrix, so
             // retain the world matrix separately when clipping needs that space.
@@ -441,6 +445,8 @@
         function buildFixedFunctionVertexShader(signature) {
             const layout = fixedVertexUniformLayout(signature);
             const lighting = signature.lighting;
+            const blend = signature.vertexBlend;
+            const hasNormal = signature.hasNormal || !!(blend && blend.tween && blend.hasNormal2);
             const position = "in" + FF_LOCATION_POSITION;
 
             const conversions = signature.inputConversions || {}, inputLines = [];
@@ -463,7 +469,10 @@
                 parameters.push(parameter(FF_LOCATION_NORMAL));
             if (signature.hasPointSize)
                 parameters.push(parameter(FF_LOCATION_PSIZE));
-            const blend = signature.vertexBlend;
+            if (blend && blend.tween) {
+                if (blend.hasPosition2) parameters.push(parameter(FF_LOCATION_BLENDWEIGHT));
+                if (blend.hasNormal2) parameters.push(parameter(FF_LOCATION_BLENDINDICES));
+            }
             if (blend && blend.weightCount)
                 parameters.push(vertexInputDeclaration(FF_LOCATION_BLENDWEIGHT));
             if (blend && blend.indexed)
@@ -513,7 +522,16 @@
             // normalization are applied after blending.
             const blendedPosition = blend ? "d9_blend_position" : position;
             let blendBody = "";
-            if (blend) {
+            if (blend && blend.tween) {
+                const factor = "uniforms.tween_params.x";
+                const tweenPosition = blend.hasPosition2 ? "(" + position + " * (1.0 - " + factor + ") + in" + FF_LOCATION_BLENDWEIGHT + " * " + factor + ")" : position;
+                blendBody = "    let d9_blend_position = uniforms.blend_worlds[0] * " + tweenPosition + ";\n";
+                if (hasNormal && signature.needsViewSpace) {
+                    const primary = signature.hasNormal ? "in" + FF_LOCATION_NORMAL + ".xyz" : "vec3<f32>(0.0)";
+                    const tweenNormal = blend.hasNormal2 ? "(" + primary + " * (1.0 - " + factor + ") + in" + FF_LOCATION_BLENDINDICES + ".xyz * " + factor + ")" : primary;
+                    blendBody += "    let d9_blend_normal = (uniforms.blend_normals[0] * vec4<f32>(" + tweenNormal + ", 0.0)).xyz;\n";
+                }
+            } else if (blend) {
                 const slots = blend.matrixCount;
                 const weights = [];
                 for (let slot = 0; slot < slots - 1; ++slot)
@@ -603,7 +621,7 @@
                 viewSpaceBody = "    let position_view = uniforms." +
                     (blend ? "view_matrix" : "world_view") + " * " +
                     blendedPosition + ";\n";
-                if (signature.hasNormal) {
+                if (hasNormal) {
                     const normalSource = blend ? "d9_blend_normal"
                         : "in" + FF_LOCATION_NORMAL + ".xyz";
                     viewSpaceBody += "    var normal_view = (uniforms.normal_matrix" +

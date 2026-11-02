@@ -1421,6 +1421,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 144 组核心、138 组客体、35 个冒烟 EXE 与六份严格 DLL 通过。四份既有数值参考只刷新源码哈希，所有数值 case 与提交前完全相同。发布本次 XP 所测三份零售 DLL及对应诊断 DLL；宿主/GPU 包未变，既有 GPU/Metal/站点验收沿用 4D2j2d。见 [stage4d2k1-validation.json](fixtures/d3d-review/stage4d2k1-validation.json)。
 > - 当前完成共用 CPU 核和 D3D9 ProcessVertices；D3D8 声明输入、宿主 Tween 绘制/真 GPU 对照与能力声明接着完成，TWEENING caps 本步保持未宣称。可编程 CPU 顶点处理及整个阶段 4 继续执行。
 
+> **阶段 4D2k2（2026-11-02）：宿主 Tween 绘制、真实 GPU 对照与 D3D9 能力声明完成。**
+>
+> - 宿主 FFP 解析 POSITION1/NORMAL1；Tween 与矩阵权重混合复用两个互斥输入位置，保持原有顶点属性预算。第二通道使用既有 17 种输入转换，可分别存在；只有 NORMAL1 时以零主法线插值。对象空间插值后复用世界矩阵、逆转置法线、视图空间光照/雾/坐标生成及世界空间用户平面。
+> - 因子使用独立 uniform，不加入 shader/pipeline key。公开命令回归确认因子改变复用原 shader/pipeline；缺少第二位置和第二法线时拒绝该 draw，不再静默画出 world0 的形状。屏幕坐标输入继续绕过顶点变换。
+> - 新增 50 个真实 GPU 场景：负/零/中间/大于 1 的因子、独立位置/法线、只有第二法线、17 种第二属性格式、禁用路径、世界空间裁剪、多流及常量第二流。期望来自独立仿射/法线/漫反射/雾/平面方程和预处理顶点，不调用生产 CPU 或 shader 辅助函数。SwiftShader/Metal 各比较 204,800 对像素，50/50 通过且实际最大误差 0，所有场景有可见覆盖；3/3 GPU 位置/法线/因子变异被像素差异检出，源码逐字恢复。
+> - D3D9 的工厂和设备 caps 现在宣称 TWEENING；新增 XP 公开查询并重跑三版本 T&L/录制/生命周期检查。D3D8 的声明式 CPU 输入仍待接入，故其 caps 保持未宣称该特性。
+> - 145 组核心、138 组客体、完整 35 次 WebGPU 回归（适配器及 34 页）、两项站点集成、D3D9 十四个 SDK 冒烟 EXE/严格零售诊断 DLL，以及 XP 三 API 检查通过。发布本次 XP 所测 D3D9 DLL，并同步运行包 `dffb0322a62fa650c089`。见 [stage4d2k2-validation.json](fixtures/d3d-review/stage4d2k2-validation.json)。
+> - 接着完成 D3D8 声明输入及其 Tween 接入，再推进可编程 CPU 顶点处理和其余共用核心。此步未宣称原生 Microsoft D3D8/9、完整 Wine 或游戏/FPS 验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

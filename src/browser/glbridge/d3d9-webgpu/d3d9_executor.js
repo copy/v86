@@ -438,6 +438,7 @@
     // of one matrix per vertex chosen by BLENDINDICES.x with weight 1.
     const D3DVBF_DISABLE = 0;
     const D3DVBF_TWEENING = 255;
+    const D3DRS_TWEENFACTOR = 170;
     const D3DVBF_0WEIGHTS = 256;
     // D3D9's fixed function blends at most four matrices per vertex, which is
     // what fill_caps() reports as MaxVertexBlendMatrices.
@@ -3443,6 +3444,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             let hasPointSize = false;
             let blendWeightType = -1;
             let blendIndicesType = -1;
+            let position2Type = -1, normal2Type = -1;
             const texCoordSets = [], texCoordDimensions = {};
             let inputConversions = null;
             for (const element of elements) {
@@ -3461,6 +3463,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 else if (element.usage === DECLUSAGE_BLENDINDICES &&
                         element.usageIndex === 0)
                     blendIndicesType = element.type;
+                if (element.usage === DECLUSAGE_POSITION && element.usageIndex === 1)
+                    position2Type = element.type;
+                if (element.usage === DECLUSAGE_NORMAL && element.usageIndex === 1)
+                    normal2Type = element.type;
                 if (element.usage === DECLUSAGE_POSITION && element.usageIndex === 0)
                     positionType = "world";
                 else if (element.usage === DECLUSAGE_POSITIONT && element.usageIndex === 0)
@@ -3494,7 +3500,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // vertexBlendPlan() answers once the state is in hand.
             return { positionType, hasColor, colorIsBGRA, hasColor1,
                 color1IsBGRA, hasNormal, hasPointSize, texCoordSets, texCoordDimensions,
-                blendWeightType, blendIndicesType,
+                blendWeightType, blendIndicesType, position2Type, normal2Type,
                 ...(inputConversions ? { inputConversions } : null),
                 hasTexCoord: texCoordSets.length > 0 };
         }
@@ -3513,14 +3519,24 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // there is nothing for a world matrix to pose.
             if (signature.positionType === "screen") return null;
             if (mode === D3DVBF_TWEENING) {
-                // Vertex tweening interpolates two *streams* by
-                // D3DRS_TWEENFACTOR rather than blending matrices; nothing here
-                // implements it, and fill_caps() does not claim
-                // D3DVTXPCAPS_TWEENING.
-                this.warnOnce("ff-vertex-tweening",
-                    "D3DVBF_TWEENING is not implemented; the draw is posed by " +
-                    "world matrix 0 alone");
-                return null;
+                const hasPosition2 = signature.position2Type >= 0;
+                const hasNormal2 = signature.normal2Type >= 0;
+                if (!hasPosition2 && !hasNormal2)
+                    throw new Error("D3DVBF_TWEENING requires POSITION1 or NORMAL1");
+                const conversions = { ...signature.inputConversions };
+                if (hasPosition2) {
+                    const conversion = shaderPipeline.vertexInputConversion(signature.position2Type);
+                    if (conversion) conversions[FF_LOCATION_BLENDWEIGHT] = conversion;
+                }
+                if (hasNormal2) {
+                    const conversion = shaderPipeline.vertexInputConversion(signature.normal2Type);
+                    if (conversion) conversions[FF_LOCATION_BLENDINDICES] = conversion;
+                }
+                signature.inputConversions = conversions;
+                // Tween and weighted matrix blending are mutually exclusive;
+                // reuse their two attribute locations and one world matrix.
+                return { tween: true, hasPosition2, hasNormal2, matrixCount: 1,
+                    matrixSlots: 1, weightCount: 0, indexed: false };
             }
             const indexed = (rs.get(D3DRS_INDEXEDVERTEXBLENDENABLE) || 0) !== 0;
             // 1/2/3WEIGHTS carry that many weights and one more matrix;
@@ -5317,6 +5333,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     floats.set(state.transforms.get(D3DTS_WORLD) || IDENTITY4x4,
                         at("world_matrix"));
             }
+            if (layout.byName.has("tween_params"))
+                floats[at("tween_params")] = floatFromDWORD(rs.get(D3DRS_TWEENFACTOR) || 0);
             const viewport = at("viewport");
             floats[viewport] = state.viewport.width || 1;
             floats[viewport + 1] = state.viewport.height || 1;

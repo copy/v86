@@ -1,0 +1,93 @@
+<!doctype html><meta charset="utf-8"><title>D9WG vertex tween pixel conformance</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async()=>{
+ const P=D9WGProtocol,C=P.C,suite=D3D9Conformance,{cmd,rs,tss,cat}=suite.builders;
+ const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false});
+ const identity=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],bits=n=>new Uint32Array(new Float32Array([n]).buffer)[0];
+ const base=[[-.75,-.75,.5],[.25,-.75,.5],[-.75,.25,.5]],scenes=[];
+ const modes=[];for(const mode of ["both","position","normal","normal-alone"])for(const factor of [-.5,0,.25,.5,.75,1,1.5])modes.push({name:mode+"/"+factor,mode,factor});
+ for(let type=0;type<17;++type)modes.push({name:"packed-secondary/"+type,mode:"both",factor:.75,type});
+ modes.push({name:"disabled",mode:"both",factor:.75,disabled:true},{name:"user-plane/.25",mode:"both",factor:.25,clip:true},{name:"user-plane/.75",mode:"both",factor:.75,clip:true},{name:"multiple-streams",mode:"both",factor:.5,streams:true},{name:"constant-secondary",mode:"both",factor:.5,streams:true,constant:true});
+ function secondaryBytes(type){
+  const sizes=[4,8,12,16,4,4,4,8,4,4,8,4,8,4,4,4,8],out=new Uint8Array(sizes[type]),v=new DataView(out.buffer);
+  if(type<=3){v.setFloat32(0,1,true);if(type===3)v.setFloat32(12,1,true);}
+  else if(type===4)v.setUint32(0,0xffff0000,true);
+  else if(type===5||type===8){out[0]=out[3]=type===5?1:255;}
+  else if(type===13||type===14)v.setUint32(0,type===13?1:511,true);
+  else if(type===15||type===16){v.setUint16(0,0x3c00,true);if(type===16)v.setUint16(6,0x3c00,true);}
+  else{const n=type===9||type===10?32767:type===11||type===12?65535:1;v.setUint16(0,n,true);if(sizes[type]===8)v.setUint16(6,n,true);}
+  return out;
+ }
+ function second(mode,v){return mode.type!==undefined?[1,0,0]:mode.constant?[.5,0,.5]:[base[v][0]+.5,base[v][1]+.5,.5];}
+ function reference(mode){
+  const t=mode.disabled?0:mode.factor,hasPosition=mode.mode==="both"||mode.mode==="position",hasNormal=mode.mode!=="position",normal0=mode.mode==="normal-alone"?0:-1;
+  const nx=((hasNormal?normal0*(1-t)+t:normal0)/2),gain=Math.max(0,Math.min(1,nx));
+  const color=[gain,gain*.5,gain*.25,.75];
+  let points=base.map((p,v)=>{const q=second(mode,v);const object=p.map((n,c)=>hasPosition?n*(1-t)+q[c]*t:n);return [object[0]*2-(mode.type!==undefined?.75:0),object[1],object[2],1];});
+  if(mode.clip){const result=[];for(let i=0;i<points.length;++i){const a=points[i],b=points[(i+1)%points.length],inside=a[0]>=0,next=b[0]>=0;if(inside)result.push(a);if(inside!==next){const f=a[0]/(a[0]-b[0]);result.push(a.map((n,c)=>n+(b[c]-n)*f));}}points=result;}
+  const vertices=[];for(let i=1;i+1<points.length;++i)vertices.push(points[0],points[i],points[i+1]);
+  return {vertices:vertices.map(p=>[(p[0]+1)*32,(1-p[1])*32,p[2],1,...color,0,0,0,1-p[2]]),gain};
+ }
+ async function render(mode,canonical,index){
+  const expected=reference(mode),type=mode.type===undefined?2:mode.type,packed=mode.type!==undefined?secondaryBytes(type):null,secondarySize=packed?packed.length:12;
+  const hasPosition=mode.mode==="both"||mode.mode==="position",hasNormal=mode.mode!=="position",primaryNormal=mode.mode!=="normal-alone";
+  let data,secondary,stride,elements;
+  const element=(stream,offset,type,usage,usage_index=0)=>P.encode("VertexElement",{stream,offset,type,usage,usage_index});
+  if(canonical){stride=48;data=new Uint8Array(new Float32Array(expected.vertices.flat()).buffer);elements=[element(0,0,3,9),element(0,16,3,10),element(0,32,3,10,1)];}
+  else{
+   const pos2=24,normal2=24+(hasPosition?secondarySize:0);stride=mode.streams?24:normal2+(hasNormal?secondarySize:0);data=new Uint8Array(stride*3);const view=new DataView(data.buffer);
+   elements=[element(0,0,2,0)];if(primaryNormal)elements.push(element(0,12,2,3));
+   if(hasPosition)elements.push(element(mode.streams?1:0,mode.streams?0:pos2,type,0,1));
+   if(hasNormal)elements.push(element(mode.streams?1:0,mode.streams?secondarySize:normal2,type,3,1));
+   secondary=mode.streams?new Uint8Array(24*(mode.constant?1:3)):null;
+   for(let v=0;v<3;++v){base[v].forEach((n,c)=>view.setFloat32(v*stride+c*4,n,true));view.setFloat32(v*stride+12,-1,true);
+    const target=mode.streams?secondary:data,at=mode.streams?(mode.constant?0:v*24):v*stride+pos2,dv=new DataView(target.buffer);
+    if(hasPosition){if(packed)target.set(packed,at);else second(mode,v).forEach((n,c)=>dv.setFloat32(at+c*4,n,true));}
+    if(hasNormal){const nAt=mode.streams?at+12:v*stride+normal2;if(packed)target.set(packed,nAt);else dv.setFloat32(nAt,1,true);}
+   }
+  }
+  const body=dev=>{
+   const world=identity.slice();world[0]=2;if(mode.type!==undefined)world[12]=-.75;
+   const commands=[rs(dev,7,0),rs(dev,22,1),rs(dev,137,canonical?0:1),rs(dev,141,0),rs(dev,143,0),rs(dev,29,0),rs(dev,139,0),rs(dev,145,0),rs(dev,151,canonical||mode.disabled?0:255),rs(dev,167,1),rs(dev,170,bits(mode.factor)),rs(dev,28,1),rs(dev,35,0),rs(dev,140,canonical?0:3),rs(dev,36,bits(0)),rs(dev,37,bits(1)),rs(dev,34,0xff204060),
+    tss(dev,0,1,2),tss(dev,0,2,0),tss(dev,0,4,2),tss(dev,0,5,0),
+    cmd(P.OP.SET_TRANSFORM,P.encode("SetTransform",{device_handle:dev,state:256,matrix:canonical?identity:world})),
+    cmd(P.OP.SET_TRANSFORM,P.encode("SetTransform",{device_handle:dev,state:2,matrix:identity})),cmd(P.OP.SET_TRANSFORM,P.encode("SetTransform",{device_handle:dev,state:3,matrix:identity})),
+    cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,element_count:elements.length}),...elements]))];
+   if(!canonical)commands.push(cmd(P.OP.SET_MATERIAL,P.encode("SetMaterial",{device_handle:dev,diffuse:[1,.5,.25,.75],ambient:[0,0,0,0],specular:[0,0,0,0],emissive:[0,0,0,0],power:0})),cmd(P.OP.SET_LIGHT,P.encode("SetLight",{device_handle:dev,index:0,type:3,diffuse:[1,1,1,1],specular:[0,0,0,0],ambient:[0,0,0,0],position:[0,0,0],direction:[-1,0,0],range:100,falloff:1,attenuation:[1,0,0],theta:0,phi:0})),cmd(P.OP.LIGHT_ENABLE,P.encode("LightEnable",{device_handle:dev,index:0,enable:1})));
+   if(mode.clip&&!canonical)commands.push(rs(dev,152,1),cmd(P.OP.SET_CLIP_PLANE,P.encode("SetClipPlane",{device_handle:dev,index:0,plane:[1,0,0,0]})));
+   if(mode.streams&&!canonical){
+    const create=(handle,bytes)=>[cmd(P.OP.CREATE_BUFFER,P.encode("CreateBuffer",{device_handle:dev,resource_handle:handle,resource_kind:1,byte_count:bytes.length})),cmd(P.OP.UPDATE_BUFFER,P.encode("UpdateBuffer",{resource_handle:handle,byte_count:bytes.length}),[{offsetField:"data_offset",data:bytes}])];
+    const vb=0x600000+dev;commands.push(...create(vb,data),...create(vb+1,secondary));for(const [stream,handle,step] of [[0,vb,24],[1,vb+1,mode.constant?0:24]])commands.push(cmd(P.OP.SET_STREAM_SOURCE,P.encode("SetStreamSource",{device_handle:dev,stream,buffer_handle:handle,stride:step})));commands.push(cmd(P.OP.DRAW_PRIMITIVE,P.encode("DrawPrimitive",{device_handle:dev,primitive_type:4,primitive_count:1,start_vertex:0})));
+   }else commands.push(cmd(P.OP.DRAW_PRIMITIVE_UP,P.encode("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:canonical?expected.vertices.length/3:1,stride,vertex_count:data.length/stride,vertex_bytes:data.length}),[{offsetField:"vertex_data_offset",data}]));return commands;
+  };
+  const batch=suite.caseBatch(index,{clear:0xff101010,body});await gpu.submit(batch.bytes,{writeGuestMemory(){}});let reply;
+  await gpu.submit(suite.readbackBatch(index+1,batch.dev,batch.rt),{writeGuestMemory(offset,bytes){if(offset===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET)reply=bytes.slice();}});await gpu.checkpointIdle();if(!reply||reply.length!==16400||new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error("Missing tween pixel readback");return reply.subarray(16);
+ }
+ try{
+  for(const mode of modes){const index=scenes.length*2,actual=await render(mode,false,index),expected=await render(mode,true,index+1);let differingPixels=0,maximumByteError=0,coveredPixels=0;
+   for(let at=0;at<actual.length;at+=4){let delta=0;for(let c=0;c<4;++c)delta=Math.max(delta,Math.abs(actual[at+c]-expected[at+c]));maximumByteError=Math.max(maximumByteError,delta);if(delta>1)differingPixels++;if(expected[at]!==16||expected[at+1]!==16||expected[at+2]!==16||expected[at+3]!==255)coveredPixels++;}
+   scenes.push({name:mode.name,differingPixels,maximumByteError,coveredPixels});
+  }
+  await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;++i)await new Promise(r=>setTimeout(r,0));
+  const evidence={reference:"Independent affine position/normal, diffuse, fog and world-plane equations; no production CPU/shader helper",scenes,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch("/__test_file?name=d9wg-tween.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+  const failures=scenes.filter(s=>s.differingPixels||s.coveredPixels<32);if(failures.length||gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.droppedDraws)throw Error("Tween mismatch "+JSON.stringify({failures,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors}));
+  document.querySelector("#result").textContent="PASS actual vertex tween: "+scenes.length+" analytic geometry/normal/fog/clip/typed/multi/constant-stream cases, "+scenes.length*4096+" pixel pairs within 1 byte/channel";
+ }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>
