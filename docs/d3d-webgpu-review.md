@@ -1317,6 +1317,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 143 组核心、WebGPU/三精度数学及两项站点集成沿用前两步；宿主 JS 和运行包 `7beb9d03738199295430` 未改变。此步未声称完整原生 D3D8、Wine、游戏或 FPS 验收。验证见 [stage4d2j2a-validation.json](fixtures/d3d-review/stage4d2j2a-validation.json)。依据 Wine 的 [D3D8 状态块测试](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c) 与 [矩阵录制实现](https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/stateblock.c)。
 > - 继续补齐 D3D8 常量、用户平面/调色板等未进入旧快照的状态、着色器句柄生命周期和预定义块范围；D3D9 录制期间的查询隔离、D3D7 稀疏灯光及其余共用运行时仍在后续步骤。
 
+
+> **阶段 4D2j2b（2026-11-02）：D3D8 状态块补齐常量与用户裁剪平面。**
+>
+> - 顶点常量 96 个 float4、像素常量 8 个 float4、六个用户平面加入快照及逐项掩码。录制时不改写当前值或发射命令，End 保留记录，Capture 仅更新已有掩码，Apply 恢复对应值。VERTEX/ALL 捕获顶点常量和平面，PIXEL/ALL 捕获像素常量；寄存器按最终写入值恢复。
+> - 实际 XP COM 覆盖末尾寄存器、重叠写入、零长度 NULL 写入、越界拒绝、录制期间及 End 后查询不变、Capture 不扩张掩码、未录制寄存器/平面保持新值，以及 VS/PS/ALL 的范围和基线恢复。三 API T&L 与 owner 释放回归通过。
+> - 六个 Present 划定原有状态与常量/平面两组边界，两个录制区间都只有 PRESENT；常量组 Apply 实测依次恢复 VS94/95、PS6/7、平面5。独立检查明确给定的寄存器编号、五组 float4 值及平面系数，最大误差 0；同时验证实际捕获的载体边界和命令结构。原始捕获仍在忽略的构建目录，公开记录只有程序数据、命令名和摘要。
+> - 宿主原生编译实际 C 入口，增加常量范围、逐项掩码、平面和零命令检查；10/10 语义变异、ASan/UBSan 通过。`8c86698` 和紧邻上一版 `8e2d2cd` 的实际 C 源码均不能通过扩展检查。120 组客体、17 个 D3D8 冒烟 EXE、零售/诊断 DLL 通过并更新 app-local D3D8 DLL。
+> - 核心 143 组、WebGPU、三精度数学和站点集成沿用既有结果；宿主 JS、D3D7/9 已发布 DLL 和运行包 `7beb9d03738199295430` 未改变。此步仍不是完整原生 D3D8、Wine、游戏或 FPS 验收。见 [stage4d2j2b-validation.json](fixtures/d3d-review/stage4d2j2b-validation.json)。继续预定义块的其余范围、调色板、着色器句柄生命周期、D3D9 录制查询隔离及 D3D7 稀疏灯光。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

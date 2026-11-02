@@ -1,0 +1,356 @@
+{
+  "stage": "4D2j2b D3D8 shader constant and user-plane state recording",
+  "date": "2026-11-02",
+  "bundle": "7beb9d03738199295430",
+  "guestSuites": 120,
+  "d3d8SmokeExecutables": 17,
+  "d3d8RetailAndDiagnosticDLLs": 2,
+  "buildArtifacts": {
+    "artifacts": [
+      {
+        "name": "d3d8-diagnostic.dll",
+        "sha256": "a03e8573c3680c74f07b7e746cff221dadbd0af5c8bfda4619bb5ac36c3e1c22",
+        "imports": [
+          "GDI32.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8.dll",
+        "sha256": "2cca6173116aee65bf71e7d77bd1b43844af99229c4c346b5aa45aa52fe0e6db",
+        "imports": [
+          "GDI32.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_caps_audit_test.exe",
+        "sha256": "69e9b054f4013d702e4d1999b5d3ab5909d82464f6663bbac92faf22bd7e494f",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_dynamic_resources_test.exe",
+        "sha256": "40a5428bd01bfa2655dd5b721e6e98a42550d73e4d2a227c5d8403653b60994f",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_fog_test.exe",
+        "sha256": "ddaafd05d5531ff86ce9a155a86d8e91fd615bba21dda26cb41902cf10b2ba6b",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_geometry_test.exe",
+        "sha256": "f6d4aba42b2d33a54418e1dbd0ae2b163fa60d2f26fb66c22c8ed6583c01ff5a",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_lifecycle_compat_test.exe",
+        "sha256": "36567c151e22692e3d37c127171fa731b85da857d9f552f6e8651aa5f106a913",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_lighting_test.exe",
+        "sha256": "ea4042f63ee1940ae7c5fa7a149a2a2ce95e6378ce478f0d6bdfc37ebca7d49d",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_maple_gr2d_test.exe",
+        "sha256": "97cbfffac52d4211ba3623a742949f382fcb14b1cfc8c9458bc47cd24803387a",
+        "imports": [
+          "d3d8.dll",
+          "GDI32.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_mipmap_filter_test.exe",
+        "sha256": "8b99eb387455baed395e964a71594b1156484fe8a51740dabc5a027707733450",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_multitexture_test.exe",
+        "sha256": "8ee0dc45eca92b090c49894182867cc5fe4fbcd0a367700fda6f1e9aa33d0f40",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_raster_stencil_test.exe",
+        "sha256": "c5693453d61af5e1e3242c28fc66bb1fce31342105c1ff9c1cf093b518a09fcf",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_reset_lifecycle_test.exe",
+        "sha256": "faadeca612de6582dc13427321e88e6b18d70b4627a19bd4fc292bc33c2f25e9",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_stateblock_test.exe",
+        "sha256": "bb56eeb9575cc0d1472c090f95f635f7574ff8db8ce1a50e9f05ff3a9c840592",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_texture_formats_test.exe",
+        "sha256": "934b2fe77fe1ff11082875682dab04994b8ff07204dd48cf5c01b57438294e04",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_texture_stage_ops_test.exe",
+        "sha256": "f3dd6c847486628dc62eb20728d98d4c9e9571e087f58e17e5d88335f79bc6c7",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_texture_test.exe",
+        "sha256": "e73ba7c4d6e51ad2ab5494d0895a9bfe66fd990d4488f7541be5eb2186e5e215",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_textured_cube_test.exe",
+        "sha256": "042f5a5fbe93d90baa2c022941de30f9fb165038831f60bd55e45e1cce4ddcb5",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      },
+      {
+        "name": "d3d8_transform_depth_test.exe",
+        "sha256": "7be1c57603bb5d440c67c119255ae3653f74dc89fb6d8226aba1cdd949282601",
+        "imports": [
+          "d3d8.dll",
+          "KERNEL32.dll",
+          "USER32.dll"
+        ]
+      }
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 104,
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "graphicsCaptureSha256": "9e2dc919444582099f31420432a926b6687934471bc0ec661ed19ae268f3fe65",
+    "dllSha256": "4c64d6902928d80b093898bfc1624420ec81468de3329c7e51df0cc43ffd6f5c",
+    "probeExecutableSha256": "261c247c9410e425e6cf48230edce65987d813eea25f3b88e4259db5b8ae1e44"
+  },
+  "wire": {
+    "frames": 6,
+    "groups": [
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_RENDER_STATE",
+          "SET_TEXTURE_STAGE_STATE",
+          "SET_TEXTURE",
+          "SET_VIEWPORT",
+          "SET_MATERIAL",
+          "SET_TRANSFORM",
+          "SET_STREAM_SOURCE",
+          "SET_INDICES",
+          "SET_VERTEX_SHADER",
+          "SET_FVF",
+          "PRESENT"
+        ],
+        "values": []
+      },
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_CLIP_PLANE",
+          "PRESENT"
+        ],
+        "values": [
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 94,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 95,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 6,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 7,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_CLIP_PLANE",
+            "index": 5,
+            "values": [
+              1,
+              -2,
+              0.5,
+              3
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cMutations": {
+    "killed": 10,
+    "total": 10,
+    "previousSourceRegressions": [
+      "8c86698:glbridge/d3d8proxy/d3d8_proxy.c",
+      "8e2d2cd:glbridge/d3d8proxy/d3d8_proxy.c"
+    ]
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "inheritedValidation": [
+    {
+      "file": "stage4d2j1-validation.json",
+      "sha256": "41186d7aef7b7f631c635131a49fb19ed7cac1aa6ac4519467216a8022bbbaa4",
+      "scope": "143 core suites, unchanged D3D7/9 shipped DLLs and common light runtime"
+    },
+    {
+      "file": "stage4d2i3e-validation.json",
+      "sha256": "4840b61cd2c4f1a6107f2592328b7b66855198b6d00cdedc7c51a372b3f48786",
+      "scope": "33 WebGPU runs, SwiftShader/Metal paired pixels, three x87 precision checks and two site integration checks; no fresh GPU/math/integration claim"
+    }
+  ],
+  "checks": [
+    "actual production setter C compiled on host; constants/plane masks, tail/overlap/zero/overflow calls, unmodified live queries and no command emission",
+    "recorded transforms compose locally, while live transforms remain unchanged",
+    "EndStateBlock no longer overwrites recorded values with a live Capture",
+    "actual XP verifies VB/IB/texture each retain exactly one block reference after application Release; Apply and deletion preserve live binding lifetime",
+    "actual XP Get calls inside recording observe original values; explicit Apply writes all recorded classes",
+    "raw trace stays in ignored build directory; only opcode names and digests included here",
+    "six Present barriers prove two zero-state-command recording intervals; decoded VS94/95, PS6/7 and plane5 payloads exactly match independently specified indices and float4 values",
+    "D3D8 sparse property/enable recording masks now pass; all three APIs retain TNL/copy/fog/texture/blend results"
+  ],
+  "sources": [
+    "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c",
+    "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/stateblock.c"
+  ],
+  "scope": "D3D8 constants and user planes now participate in recorded and predefined scopes. Palette state, shader-handle lifetime, other predefined scope fixes and D3D9 recording-time query isolation remain subsequent steps. No complete native D3D8/Wine/game/FPS acceptance claim.",
+  "siteSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "59b8528f3ed2f8948ea7081e000d3f672c13f1e0743e8dff8dea4ad523a8cc46",
+    "glbridge/d3d8proxy/d3d8.dll": "4c64d6902928d80b093898bfc1624420ec81468de3329c7e51df0cc43ffd6f5c",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "a03e8573c3680c74f07b7e746cff221dadbd0af5c8bfda4619bb5ac36c3e1c22",
+    "glbridge/sample/d3d_light_state_cases.h": "07d352ea690f2d36fd2e850a984e45975a97323b9e66bf3950cbc2e961466e81",
+    "glbridge/sample/d3d_process_lighting_test.c": "0598a30ebf10cb042bdddf0da9c74aa3c2bb3aff10485905d053bef2964514c0",
+    "glbridge/sample/d3d8_state_record_cases.h": "672f8235dddfb4192b01302c4b28ea0ffa13d32bf2363643a7bbd64edd2dcffe",
+    "glbridge/tests/d8wg_recording_test.js": "893f3c4a3fd87e95fd6874ac2bd2d49a87c395fbb61e40c69f547fe35d8f0414",
+    "glbridge/tests/d8wg_recording_mutation_test.js": "bdf3bdc02f1398a71c7ff7fab704e2a82fd5365ed9fe3f8aecfb93e702daa6b0"
+  },
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "396278106bd2a1167d2d15dd7230499de8bb75be3e2c8737c5ca34140aa027d0",
+    "tests/glbridge/d3d_process_lighting_xp.mjs": "71b396ac03c6c7d44a5916a08cc4e5dbef8b84e6f32e34940aa9e85db229bd16",
+    "tests/lib/d3d_recording_wire.mjs": "117f00a0f70f59fbaf4e0492bdb9c34f2d4f7d88c94f8c7c4e9a42655fefd00e"
+  },
+  "logSha256": {
+    "tnl": "cf4a5235b45a016bb8cc9f46bfa95b9c5faeed0658bdfb568b7ed31531e94bf1",
+    "guest": "efad1fc1e3cd1d61b0ad1f29caa5700c324b46164c9088b4aec9c1204392bfd5",
+    "mutations": "73158a6b378578703d844296f66f49d73ba6d8fb00ba4b2a3c3778395faff91b",
+    "sanitize": "8104e5babca28ea6861c91e4065f17842cd84386f9be0e6ca1bf730f52911b1b"
+  }
+}

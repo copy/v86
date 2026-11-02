@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire as create_require } from "node:module";
+import { inspect_d3d8_recording_wire } from "../lib/d3d_recording_wire.mjs";
 import { execFileSync as run } from "node:child_process";
 import { fileURLToPath as file_url_to_path } from "node:url";
 import { site_directory } from "../lib/site.mjs";
@@ -42,6 +42,7 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
             assert(text.includes("PASS shared vertex blend checks"));
         }
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 deferred recording:"));
+        assert(result.logs["TNL8.TXT"].includes("PASS D3D8 constant and plane recording:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 sparse recorded block restoration and masks"));
         for(const api of [8,9]) assert(result.logs["TNL"+api+".TXT"].includes("PASS sparse light state:"));
         assert(result.logs["TNL9.TXT"].includes("PASS D3D9 sparse recorded block restoration and masks"));
@@ -49,21 +50,8 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
         assert(result.releases.every(owner => owner > 0));assert.equal(result.owners.length, 3);
     } });
 if(recording_wire) {
-    const require=create_require(import.meta.url),P=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"),W=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js");
-    const bytes=fs.readFileSync(out+"/graphics.bin"),segments=[[],[]];let frames=0;
-    for(let carrier=0;carrier<bytes.length;){
-        const size=bytes.readUInt32LE(carrier+8),packet=bytes.subarray(carrier+20,carrier+12+size),header=W.readHeader(packet);W.checkStream(header.view,header.end,header.commandCount);
-        for(let at=P.STRUCTS.BatchHeader.size;at<header.end;){
-            const opcode=header.view.getUint16(at,true),length=header.view.getUint32(at+P.F.CommandHeader.size,true);
-            if(frames===1||frames===2)segments[frames-1].push(P.OP_NAME[opcode]);
-            if(opcode===P.OP.PRESENT)frames++;
-            at+=length;
-        }
-        carrier+=12+size;
-    }
-    assert.equal(frames,3);assert(segments[0].every(name=>name==="PRESENT"||name==="WINDOW_STATE"),"recording leaked host commands: "+segments[0]);
-    for(const name of ["SET_RENDER_STATE","SET_TEXTURE_STAGE_STATE","SET_VIEWPORT","SET_MATERIAL","SET_TRANSFORM","SET_STREAM_SOURCE","SET_INDICES","SET_TEXTURE","SET_FVF"])assert(segments[1].includes(name),"missing Apply command: "+name);
-    fs.writeFileSync(out+"/recording-wire.json",JSON.stringify({frames,recordingCommands:segments[0],applyCommands:segments[1]},null,2)+"\n");
-    console.log("PASS D3D8 recording wire: no state commands before Apply, all recorded state classes emitted by Apply");
+    const wire=inspect_d3d8_recording_wire(fs.readFileSync(out+"/graphics.bin"));
+    fs.writeFileSync(out+"/recording-wire.json",JSON.stringify(wire,null,2)+"\n");
+    console.log("PASS D3D8 recording wire: no commands before Apply; recorded bindings, exact registers and plane coefficients emitted by Apply");
 }
 console.log(JSON.stringify(result));
